@@ -49,29 +49,29 @@ public static class CardFaceProbe
         "Da Old Ways",           // Goff rare 战术卡
         "Beast Snagga Boy",      // Goff rare 单位
         // ── 2026-09-15 加：**卡面图标**的三种记号各来一张（判据见 `资料/卡面图标_现状与缺口.md` §二之五）
-        "Armorium Cherub",       // 修女会（`SOR67`）—— 行首 `☀`（符号**吃掉**，画成信仰图标）
-        "Farseer",               // 灵族（`ASH_Farseer`）—— `①`（灵魂石档位，数字烘在图里 ⇒ 连数字吃掉）
+        "Armorium Cherub",       // 修女会（`SOR66`）—— 行首 `☀`（符号**吃掉**，画成信仰图标）
+        "Farseer",               // 灵族（`ASH80`）—— `①`（灵魂石档位，数字烘在图里 ⇒ 连数字吃掉）
         // ── 2026-09-15 加：**这一轮补立绘的那批**（原来 21 张配不上图，工具改完只剩 `Moment of Grace`）
         //    判据：`资料/PnP卡图_逐张对账_0915.md` §五 / §六。名字都**唯一**，不会撞同名跨阵营的卡。
-        "Dark Pact of Excess",   // `BL20` —— 原版叫 `Mark of Chaos_Slaanesh`（改名，按 id 点名）
-        "Chosen of the Four",    // `BL2`  —— 原版叫 `Warmaster`
-        "Lord Kaphrael",         // `EC1`  —— 原版叫 `Lord Exultant`
-        "Veldras the Sublime",   // `EC24` —— 原版叫 `Threnodic Choir Flawless`（**前缀陷阱**那张）
-        "Undying Legions",       // `SAU61`—— 原版叫 `Annihilation Command`
-        "Awakened Obelisk",      // `SAU65`—— 与重复行 `SAU_Awakening_Obelisk` **共用一张图**
-        "Alien Idol",            // `GSC66`—— 防御卡，验「`defence_` 变体没被配成 `strat_`」
-        "Moment of Grace",       // `SOR47`—— 原版旧名是 `Righteous Repugnance`（**错开一位**那张，用户点的）
-        "Righteous Repugnance",  // `SOR6` —— 它该拿的是 `Purgator Mirabilis` 那张图（金色赎罪引擎）
+        "Dark Pact of Excess",   // `b8e81b2fe85cda747a68c4d6326b669c` —— 原版叫 `Mark of Chaos_Slaanesh`（改名，按 id 点名）
+        "Chosen of the Four",    // `97e959444b53f424ea4285e2ca02c7e6`  —— 原版叫 `Warmaster`
+        "Lord Kaphrael",         // `EC56`  —— 原版叫 `Lord Exultant`
+        "Veldras the Sublime",   // `EC22` —— 原版叫 `Threnodic Choir Flawless`（**前缀陷阱**那张）
+        "Undying Legions",       // `SAU53`—— 原版叫 `Annihilation Command`
+        "Awakened Obelisk",      // `SAU59`—— 与重复行 `SAU_Awakening_Obelisk` **共用一张图**
+        "Alien Idol",            // `GSC63`—— 防御卡，验「`defence_` 变体没被配成 `strat_`」
+        "Moment of Grace",       // `SOR44`—— 原版旧名是 `Righteous Repugnance`（**错开一位**那张，用户点的）
+        "Righteous Repugnance",  // `f104d4c21abe84546abc9365d9eda8dd` —— 它该拿的是 `Purgator Mirabilis` 那张图（金色赎罪引擎）
         // ── 2026-09-19 加：**用户点名要并排比的那张**（PnP 有 `Aeldari/3部队/Warpforge_06_Howling-Banshee-Exarch.png`）
         //    并排比出来的问题：我们把「文字底板」做成了下半截一块**不透明白/黑板**，而 PnP 是
         //    **立绘铺满整张卡、文字直接压在立绘上**。见 `资料/PnP卡图_逐张对账_0915.md` 与本次的更正。
-        "Howling Banshee Exarch",// `ASH79`
+        "Howling Banshee Exarch",// `ASH69`
         // ── 2026-09-21 加：**卡面「关键词段」带图标**的验收尺子（铁律 10 第 6 条）。
         //    这张卡的 `desc` 是 `Rally: Stun an enemy` —— **`Waystone` / `Flank` 两个字在正文里
         //    一个字都没有**，它们只能从「关键词段」那一条路印出来。PnP 成品卡面印的是
         //    `◈Waystone.  ⬇Flank.`（`Aeldari/3部队/Warpforge_20_Howling-Banshee.png`，已并排核过）
         //    ⇒ 这张是「关键词段有没有画出来」最灵敏的一张。**名字与 Exarch 是两张卡，别混**。
-        "Howling Banshee",       // `ASH20`
+        "Howling Banshee",       // `ASH15`
         // ── 🆕 2026-10-21 加：**铁律 10 第 6 条那条「并排比」欠着的 9 张**（合并规格 #88）──
         //    两批各自留了一处「判据已核、只差并排渲一张」的缺口，原报告都点名「这 `.cs` 不在我白名单 ⇒ 没加」：
         //      · `W5e` 那 4 张（`A1347` 修完 `oath` 徽记的**位置与数字**之后没人渲过）——
@@ -83,15 +83,15 @@ public static class CardFaceProbe
         //    ⚠️ PnP 成品卡图在 `d:/2/Warpforge部队卡片/{Ultramarines,Sorotitas}/…`（900×1200）——
         //      它只能当**内容**的尺子（卡名 / 费用 / 攻血甲 / 效果文字 / 记号），
         //      **版式与显隐规则不许当尺子**（铁律 10 第 3 条：PnP 是印刷品，不是数字版规格）。
-        "Devastator Marine",     // `UM80` —— `W5e`① 卡面：`〔紫尖刺〕Blast 2. 〔蓝圆盘+白袍人形〕Oath 4: Deal 5 damage to an enemy troop`
-        "Phobos Librarian",      // `UM81` —— `W5e`② 卡面：`〔兜帽〕Camouflage. 〔同一枚〕Oath 3: Deal 2-4 damage to an enemy. If target dies, gain 〔盾〕Shield`
+        "Devastator Marine",     // `UM98` —— `W5e`① 卡面：`〔紫尖刺〕Blast 2. 〔蓝圆盘+白袍人形〕Oath 4: Deal 5 damage to an enemy troop`
+        "Phobos Librarian",      // `UM99` —— `W5e`② 卡面：`〔兜帽〕Camouflage. 〔同一枚〕Oath 3: Deal 2-4 damage to an enemy. If target dies, gain 〔盾〕Shield`
         "Scout Sniper",          // `UM94` —— `W5e`③ 卡面：`〔兜帽〕Camouflage. 〔准星〕Sniper. 〔同一枚〕Oath 1: Deal 1 damage`
-        "Firestrike Servo-Turret", // `UM74` —— `W5e`④ 卡面：`〔导弹〕Long Range. 〔哨戒〕Sentry 2. 〔同一枚〕Oath 3: Gain 〔哨戒〕Sentry 2`（2026-10-18 `W28` 改官方名）
-        "Dominion Superior",     // `SOR28` —— `W7`① 卡面：`⚡Rally: Deal 1 damage.` ／ `2 ⟨金太阳⟩: Deal 1 additional damage`
-        "Devout Warriors",       // `SOR43` —— `W7`② 卡面：`Draw a troop.` ／ `2 ⟨金太阳⟩: Draw an additional troop`
-        "Beacon of Faith",       // `SOR44` —— `W7`③ 卡面：`4 ⟨金太阳⟩: …`（**图标与冒号之间没有空格**）／ `7 ⟨金太阳⟩ : …`（**有空格、句尾无句号**）
-        "Trial of Suffering",    // `SOR49` —— `W7`④ 卡面：`2 ⟨金太阳⟩: Give it ⟨银盾⟩Armour 2 instead`
-        "Imperial Creed",        // `SOR59` —— `W7`⑤ 卡面：`⟨螺旋⟩Stun three random enemies.` ／ `4 ⟨金太阳⟩: Refill 3 Energy`
+        "Firestrike Servo-Turret", // `UM92` —— `W5e`④ 卡面：`〔导弹〕Long Range. 〔哨戒〕Sentry 2. 〔同一枚〕Oath 3: Gain 〔哨戒〕Sentry 2`（2026-10-18 `W28` 改官方名）
+        "Dominion Superior",     // `SOR22` —— `W7`① 卡面：`⚡Rally: Deal 1 damage.` ／ `2 ⟨金太阳⟩: Deal 1 additional damage`
+        "Devout Warriors",       // `SOR58` —— `W7`② 卡面：`Draw a troop.` ／ `2 ⟨金太阳⟩: Draw an additional troop`
+        "Beacon of Faith",       // `SOR56` —— `W7`③ 卡面：`4 ⟨金太阳⟩: …`（**图标与冒号之间没有空格**）／ `7 ⟨金太阳⟩ : …`（**有空格、句尾无句号**）
+        "Trial of Suffering",    // `SOR55` —— `W7`④ 卡面：`2 ⟨金太阳⟩: Give it ⟨银盾⟩Armour 2 instead`
+        "Imperial Creed",        // `SOR48` —— `W7`⑤ 卡面：`⟨螺旋⟩Stun three random enemies.` ／ `4 ⟨金太阳⟩: Refill 3 Energy`
         // ── 🆕 2026-10-12（第二十三会话 · `A1687`）加：**「正文为空、只有关键词」那一格** ──
         //    来由：`BattleDriver.FaceTextFull` 原来在【正文为空】时**提前 return**，把关键词段整段吞掉。
         //    原版卡面确实有这种卡 —— 现扫全池 1127 张只有 `GOF8 Hornhelmz' Boy` 是这样

@@ -17,6 +17,6 @@
 - **验证工具**（副本）：check_slot_overlay.gd（F1）/check_board_stats.gd（F2+T7）/battle_target_e2e.gd（F3 T1-T6）——正常位置=D:\warpforge\tools_dev\（零写入）。
 
 ## 已验证结论（勿重查）
-- 回归全绿：battle_e2e 7✓/check_board_stats 9✓/battle_target_e2e T1-T6✓/rule_test 411-414/0（rule_core 零改动）
+- 回归全绿：battle_e2e 7✓/check_board_stats 9✓/battle_target_e2e T1-T6✓/rule_test 411-414/0（rule_core 零改动）—— ⚠️ **历史快照（2026-08-28）**：`411-414` 是 `_pass` 读数、**不是用例数**（`A1324`）。
 - 备份：D:\2\Warpforge备份\0828_battle_opt_base\=F0 基线（battle.gd/sd_card.gd/battle_e2e.gd/shot_battle.gd 改动前）——保留至用户 F5 目视后
 - 探针脚本：D:\2\Warpforge_tools\scripts\probe_face_stats.py（face 数值图标像素位置——色彩探测会被立绘污染，仅无干扰卡可用）

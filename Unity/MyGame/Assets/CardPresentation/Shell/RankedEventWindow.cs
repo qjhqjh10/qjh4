@@ -143,7 +143,19 @@ namespace CardPresentation
             MenuDraw.AlignLeft(rk, new PxRect(TgRankedL, TgRankedT, TgRankedR, TgRankedB));
             MenuDraw.Rect(tg, Tex("40_main_bt_toggle_on"),
                           new PxRect(TgKnobL, TgKnobT, TgKnobR, TgKnobB), "Image", QArt1, null, true);
-            MenuDraw.Hit(tg, "Hit", new PxRect(TgL, TgT, TgR, TgB), QHit, ToggleRankedMode,
+            // 🆕 **2026-10-19（战斗线 `T16` · 命中区全仓普查）**：命中区 = **底图 ∪ 两颗 TMP 文字**。
+            //   原版 `ChangeRankedToggle` 的可射线件 = 底图 `Image`（`40k_menu_bt`，`m_RaycastTarget=1`、
+            //   pad `(0,0,0,0)`）＋ 子件 `UnrankedText` / `RankedText`（两颗 TMP，`m_RaycastTarget=1`、pad 0）
+            //   ⇒ 并集外接盒 = **x `12.30…671.50` × y `868.12…921.97` = 659.20×53.84**
+            //   （判据 = `bundle_menus_assets_all` 的 `ChangeRankedToggle` 子树直读；旧口径只传底图
+            //    `TgL…TgR` = 255.10 宽 ⇒ **左右分别漏 179.15 / 224.95**，点在两行字上不出反应）。
+            //   ⚠️ 两行字**本来就是这颗 toggle 的子件**（下面 `Text(tg, …)`），这里只改命中的矩形，
+            //   ⛔ 不动任何视觉 rect。
+            MenuDraw.Hit(tg, "Hit", MenuDraw.Union(
+                             new PxRect(TgL, TgT, TgR, TgB),
+                             new PxRect(TgRankedL, TgRankedT, TgRankedR, TgRankedB),
+                             new PxRect(TgUnrankedL, TgUnrankedT, TgUnrankedR, TgUnrankedB)),
+                         QHit, ToggleRankedMode,
                          clickCue: WindowSounds.SelectToggleCue);
             ApplyToggleState(un, rk);
         }

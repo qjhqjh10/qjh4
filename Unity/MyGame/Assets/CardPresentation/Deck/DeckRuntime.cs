@@ -1430,6 +1430,24 @@ namespace CardPresentation
         /// `PointerLayer.Instance` 自己也会惰性现建一台。⛔ **本类仍然不建指针层**（理由见 `Build()` 末尾那三条）。</para></summary>
         void BuildTopBar()
         {
+            // 🔴 **2026-10-19（第五十六会话 · `T23`）：窗化档（`HostWindow != null`）不再建第二条顶栏。**
+            //   判据（四条，全部现读）：
+            //   ① 原版 `Deck Editing Menu` prefab 根**只有一个孩子 `Content Area`**，树里**没有顶栏**
+            //      （`资料/普查产出_第二十四会话/D10_prefab树.md` §结论 1，逐节点实读）；
+            //   ② 本窗 `placement = World(10)` = 原版 `1 - Below Upper Bar Holder`
+            //      （`资料/任务线/界面线/任务/T01_卡组编辑窗.md` §2·1）⇒ 原版的顶栏是**外壳那一条**，
+            //      窗本来就摆在它下面；
+            //   ③ 外壳顶栏建在 `Safe area Only Horizontal` 下（`Shell/MainMenuRuntime.cs:496`
+            //      `TopBar.Build(safeH, …)`），它是 `MainMenuWindow` 的**兄弟**、不随 `HideAllWindows`
+            //      被藏（`Shell/WindowsManager.cs:356` 只藏 `GameWindow`）⇒ 开本窗时它**仍在屏上**；
+            //   ④ 本方法建的也是 `TopBar.Build`（同一个 `New()` ⇒ localPosition 恒 0、同尺寸），
+            //      队列同为 2986–2997（`Shell/TopBar.cs:102-110`）⇒ 两条**同位置同队列** = 双画
+            //      （透明叠加 ⇒ 字/图被画两遍）。
+            //   ⇒ **窗化档早退**；`HostWindow` 由 `Shell/DeckEditingWindow.Open()` 在 `Build()` **之前**赋值。
+            //   ⚠️ **独立场景档**（`-wfscene DeckEditor` / `Editor/DeckScene.cs` 裸建 `DeckRuntime`）
+            //      `HostWindow == null` ⇒ **照旧建**（那条路没有壳、没有别的顶栏）⇒ 行为不变。
+            //   ⛔ 不要改成「藏外壳顶栏」：原版窗就在顶栏**下面**（placement=World），藏了就与原版相反。
+            if (HostWindow != null) return;
             _topBar = TopBar.Build(Root, NoteMissingArt);
             // 🔴 **2026-10-17（B25①）出声**：顶栏那 4 颗钮的**派发靠 `PointerLayer`**（全壳唯一那条
             //   「真鼠标 → 界面」的路）。**正常路径上它一定在** —— 玩家是从收藏窗进来的
@@ -4830,6 +4848,31 @@ namespace CardPresentation
 
             if (!downL && !downR) return;
 
+            // 🆕 **2026-10-19（第五十六会话 · `A1701`）诊断探针重新插回 —— 只打印、⛔ 不改任何行为。**
+            //   用途：查「卡组编辑里**要先滚动一下才能点/拖**」到底是**哪一道闸**把它挡住的。
+            //   位置是**故意**选的 —— 在**所有闸之前**（`ModalPopupOpen` / `OtherWindowUp` / 两条抽屉），
+            //   所以**任何一条闸为真它也照样打**：拿它的读数与下面 `HandlePoolClick` 里「到了卡池」那一行
+            //   **成对**看，就能分开「被闸拦下」（只有第一行）与「到了但没命中」（两行都有）。
+            //   ⚠️ 真机复现要走**真来路**（直起 `-wfscene DeckEditor` 没有壳 ⇒ `OtherWindowUp()` 那条闸
+            //     读的是 `WindowsManager.Instance`，直起时恒 null ⇒ 复现不出来）。
+            //   📌 原探针 2026-10-17（`N17`）被删过；本次按 `资料/普查产出_第二十四会话/D2_卡组编辑线施工件.md`
+            //     §三 的判别表**原样重插**，只去掉 `import=` 那一格（导入弹窗 2026-10-17 已随 `T23` 整棵删除，
+            //     `_importOpen` 字段已不存在）。
+            //   🧹 真机读数定案之后，这两处 `Debug.Log` 连注释一起删掉（它只是探针，不是功能）。
+            if (downL || downR)
+            {
+                var ow = OtherWindowUp();
+                Debug.Log("[A1701] px=(" + px.x.ToString("F1") + "," + px.y.ToString("F1") + ")"
+                  + " 窗=" + (ow != null ? ow.name : "-")
+                  + " modal=" + ModalPopupOpen + " otherWin=" + (ow != null)
+                  + " flt=" + FltStripOn + " cosmoFlt=" + CosmoFltStripOn
+                  + " | dragRow=" + _dragging + " dragCosm=" + (_cosmDrag != null && _cosmDrag.Dragging)
+                  + " dragCard=" + (_cardDrag != null && _cardDrag.Dragging)
+                  + " armed=" + (_cosmArmName != null || _cardArmDef != null)
+                  + " | inPoolX=" + (px.x >= PoolX && px.x <= PoolX + PoolW)
+                  + " rawMouse=" + mouse.position.ReadValue().ToString("F1") + " focus=" + Application.isFocused);
+            }
+
             // 🆕 **2026-10-12（A364）：模态消息窗开着 ⇒ 本窗**不吃点击**（点哪儿都不穿透）。
             //   判据 = 原版那扇窗的 `Menu Dark Background` 是 **`m_RaycastTarget = 1` 的整屏图**
             //   （4574.6×2572.36）⇒ UGUI 那一层就把下面的命中全吞了；我们这套没有 UGUI，
@@ -4879,6 +4922,17 @@ namespace CardPresentation
         /// 我们原来只判 `px.x`（左右） ⇒ 滚到视口上沿之外的卡**照样点得到**（点页头空带会弹出那张卡的详情窗）。</para></summary>
         bool HandlePoolClick(Vector3 wp, Vector2 px, bool right)
         {
+            // 🆕 **2026-10-19（第五十六会话 · `A1701`）诊断探针重新插回 —— 只打印、⛔ 不改行为**
+            //   （成对的那一行在 `HandlePointer` 里）。它答的是「**点击链走到卡池这一站了没有**」：
+            //   上面那行有、这行没有 ⇒ 被某道闸拦下了；两行都有 ⇒ 到了卡池这一站，只是**没命中**
+            //   （点在格与格之间的空处 / 卡被视口框挡了）。
+            //   ⚠️ 不加任何条件：本方法**只从 `HandlePointer` 的按下那一支**进（`downL || downR` 已在那头上判过）。
+            //   🧹 真机读数定案之后连注释一起删。
+            Debug.Log("[A1701] 到了卡池 px=(" + px.x.ToString("F1") + "," + px.y.ToString("F1") + ")"
+                      + " right=" + right
+                      + " inViewport=" + (px.x >= PoolX && px.x <= PoolX + PoolW
+                                          && px.y >= PoolY && px.y <= PoolY + PoolH));
+
             // 🔴 **2026-10-13（A1702 ③）**：四边框都要判（原来**只有 `px.x` 那一条**）。
             //   判据 = 与渲染那一刀**同一个矩形**（`PoolViewClip`）⇒ 两处不会错开。
             //   ⚠️ 断在**指针**上、不是断在卡上：一半露在视口里的卡，点它**露出来的那半**仍然算命中
@@ -6749,9 +6803,19 @@ namespace CardPresentation
         //    · **卡池** `Deck Scroll View`（`RecyclableScrollRect`，RT `-1327870198181403947` 那颗 MB）
         //      = **100**（`bundle_menus_assets_all/MonoBehaviour/MonoBehaviour_-1327870198181403947.json` 实读）
         //    · **左侧卡组列表** `Scroll View`（RT `1449735243363708708`）= **50**
-        //    · ⚠️ **筛选栏 / 卡背那两处【查不到判据】**：那两棵树里**没有** `ScrollRect`
-        //      （全包按 `m_ScrollSensitivity` 枚举过，没有挂在 Filter/Cosmetic 名下的东西）
-        //      ⇒ 保留**我们原来的** 48 px/格（= 旧 `0.4 × 120`）**并出声**，⛔ 不是「原版就是这样」。
+        //    · **筛选栏** `Content Area/Card Display/Card Filters/Scroll View` = **50**
+        //    · **外观/卡背页** `Content Area/Cosmetic Display/Scroll View` = **100**
+        //      （后两条判据 → `资料/普查产出_1017/UI/D_N29_滚动灵敏度逐视图.md:38-39`；
+        //       重扫证据 → `资料/普查产出_1017/UI/W_N29_scroll_sensitivity.md` §四·7）
+        //    🔴 **2026-10-19（第五十六会话 · `N46` 收尾）就地订正（铁律 5）**：本段原文写
+        //      「⚠️ **筛选栏 / 卡背那两处【查不到判据】**：那两棵树里没有 `ScrollRect`（全包按
+        //      `m_ScrollSensitivity` 枚举过，没有挂在 Filter/Cosmetic 名下的东西）⇒ 保留**我们原来的**
+        //      48 px/格（= 旧 `0.4 × 120`）并出声，⛔ 不是「原版就是这样」」—— **已过期**：
+        //      `W_N29`（2026-10-17）按父链全路径重扫 `bundle_menus_assets_all` 后**找到了那两台**
+        //      （`Card Filters/Scroll View` = **50**、`Cosmetic Display/Scroll View` = **100**）
+        //      ⇒ 代码已按原版值改成 50 / 100，这两处**不再是「我们挑的」**。
+        //      ⚠️ 错因：当初是按 `m_ScrollSensitivity` 的**名字**筛的（那两棵子树里没有名为
+        //      Filter/Cosmetic 的 ScrollRect 对象），而不是按**父链全路径**筛。
         //
         // ⚠️ 原来三处**共用一个** `step = dy * 0.4f`（= **48 px / 格**）⇒ 卡池比原版**慢 2.08 倍**、
         //    卡组列表比原版**慢 1.04 倍**（那条 48 与原版 50 只差 4%，所以一直没被注意到）。
@@ -6762,9 +6826,13 @@ namespace CardPresentation
         const float PoolScrollPxPerNotch = 100f;
         /// <summary>左侧卡组列表那台 `Scroll View` 的 `m_ScrollSensitivity`（原版 50 ⇒ **50 px / 格**）。</summary>
         const float DeckListScrollPxPerNotch = 50f;
-        /// <summary>筛选栏 / 卡背那两处 —— **原版判据查不到**（那两棵树里没有 `ScrollRect`）⇒ 保留旧值
-        /// （= 旧的 `0.4 × 120`）。⚠️ 这是「我们挑的」，⛔ 别当成原版参数。</summary>
-        const float FilterScrollPxPerNotch = 48f;
+        /// <summary>筛选栏 `Card Filters/Scroll View` 的 `m_ScrollSensitivity`（原版 50 ⇒ **50 px / 格**）。
+        /// 判据 → `资料/普查产出_1017/UI/D_N29_滚动灵敏度逐视图.md:39`（重扫证据 → `W_N29_scroll_sensitivity.md` §四·7）。</summary>
+        const float FilterScrollPxPerNotch = 50f;
+        /// <summary>外观/卡背页 `Cosmetic Display/Scroll View` 的 `m_ScrollSensitivity`（原版 100 ⇒ **100 px / 格**）。
+        /// 判据 → `D_N29_滚动灵敏度逐视图.md:38`。
+        /// ⚠️ **与筛选栏是两台不同的 `ScrollRect`**（50 vs 100）⇒ ⛔ 别共用一个常量。</summary>
+        const float CosmeticScrollPxPerNotch = 100f;
 
         void HandleScroll()
         {
@@ -6789,7 +6857,9 @@ namespace CardPresentation
             }
             else if (_tab == 2)
             {
-                _cosmScroll = Mathf.Max(0f, _cosmScroll - notches * FilterScrollPxPerNotch);
+                // 🔴 2026-10-19：外观/卡背页 = 原版 `Cosmetic Display/Scroll View` 的 **100 px/格**
+                //   （⛔ 不是筛选栏那台 50；两台不同的 `ScrollRect`，见常量 doc）。
+                _cosmScroll = Mathf.Max(0f, _cosmScroll - notches * CosmeticScrollPxPerNotch);
                 RefreshCosmetics();
             }
             // 🔴 **2026-10-11（`A1516`）**：侧栏那一带原来**不含页判据**（只判 x 落在 335px 里）
@@ -8352,7 +8422,7 @@ namespace CardPresentation
         ///     —— **全透明** ⇒ **督军行悬停看不到任何变化**（原版如此）⇒ 我们不给它上色。
         ///   · UGUI 的 `ColorTint` 只作用在 `targetGraphic` 那一件 ⇒ 色条/描边/费用/文字**都不跟着变**。
         /// ⚠️ 这条**没有**走 `WindowButton`：它的 `HighlightK` 是全库默认的 0.9608 常量、逐颗覆盖要改
-        ///   `Shell/PromptPopup.cs`（本轮白名单只允许改那里的一句注释）⇒ 行悬停这一份自己实现，
+        ///   `Shell/WindowButton.cs`（⚠️ 2026-10-19 订正：原写 `Shell/PromptPopup.cs` —— `WindowButton` 2026-10-11 已拆成独立文件，「本轮白名单」指 2026-10-04 那一轮）⇒ 行悬停这一份自己实现，
         ///   只在 `ApplyRowHover` 一处（**别在别处再写第二份**）。
         /// ⚠️ **自检不许读这个常量**（A37 ③ 那笔账：`Editor/DeckScene.cs` 原来拿它当期望值 = 自证）
         ///   —— 那边现在写死同一个数的**字面量**。本常量留着只给 `ApplyRowHover` 用。</summary>

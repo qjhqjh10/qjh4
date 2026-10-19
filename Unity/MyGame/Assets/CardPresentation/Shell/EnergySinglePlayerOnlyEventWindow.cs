@@ -31,7 +31,7 @@
 // | `Reward Help` | **act = F** | 无人（出厂就关） | 建出来、**关着** |
 // | 5 行 `Score` | `'1256'` | `RefreshScore()` 按活动分数 | **照 prefab 出厂原文** + 出声 |
 // | 5 颗 `Chest` / `Highlight Crate` | 闭箱图 / 不透明金高亮（都开着） | 同上 | **照 prefab 出厂原文** + 出声 |
-// | `Timer` / `Timer Icon` | `'Termina en: 23d 5h'` | `TimerDisplay.Initialize(endTime)` | **接 `TimerDisplay`**（截止时刻本地没有 ⇒ `Termina en: --` + 出声；描述串照 prefab 原文） |
+// | `Timer` / `Timer Icon` | `'Termina en: 23d 5h'` | `TimerDisplay.Initialize(endTime)` | **接 `TimerDisplay`**（截止时刻本地没有 ⇒ **官方词条** `EndsInPlusOrangeTime` + `--` + 出声） |
 // | `Energy Instructions` | `'… every {0} minutes.'` | `ShowCurrentEnergyRegenText.OnEnable` 读 **LiveOps Config** | **照 prefab 出厂原文（含 `{0}`）** + 出声（判据见下） |
 // | `Total Victories` | `'751'` | `RewardProgressBarPanel` 按活动数据 | **照 prefab 出厂原文** + 出声 |
 // | `Event Image` / `Scoring Icon` / `ArmyItemReference` | **`m_Sprite` = null** | 运行时由字段灌图 | 建节点、**不画**、出声 |
@@ -292,7 +292,7 @@ namespace CardPresentation
             Debug.Log("[Energy] 本窗的**活动数据全在远端**（`SinglePlayerScoringEvent` 是 LiveOps 事件）："
                     + "5 档分数 / 箱子开关 / 倒计时截止时刻 / `Total Victories` 都是**运行时灌**的 "
                     + "⇒ 我们照 **prefab 出厂原文**画（`1256` / `751` / 闭箱图），⛔ 不编数字；"
-                    + "`Timer` 那颗已接 `TimerDisplay`，截止时刻本地没有 ⇒ 显示 `Termina en: --`（出声一次）。");
+                    + "`Timer` 那颗已接 `TimerDisplay`，截止时刻本地没有 ⇒ 显示官方词条 + `--`（出声一次）。");
             Debug.Log("[Energy] `Energy Instructions` 里那个 **`{0}` 原样保留** —— 替换值来自 **LiveOps Config**"
                     + "（远端）：`ShowCurrentEnergyRegenText__OnEnable.c` 逐句可读（`ConfigManager.GetConfig(...)` "
                     + "+0x20 那个整数 + `String.Format(译文, 它, 时长)`）。本地没有那份 Config ⇒ 照字段抄。");
@@ -396,10 +396,15 @@ namespace CardPresentation
             //   **`m_enableAutoSizing = 1` · `auto[18.0~45.869999…]`** · **折行 = 1** ·
             //   框 **594.81 × 54.68**（与本文件 `RTileR` 逐位同值）。
             //   ⚠️ 原版**折行 = 1** ⇒ 传 `wrapPx` 与它同档，⛔ 不要补 `SetWrapping(false)`。
-            MenuDraw.Text(rp, RTileR, "Progression", Color.white, "Reward Tile", 45.87f, QText,
+            // 🔴 **2026-10-19（界面线 P05）**：文案走官方词条 —— 本窗 `Reward Tile` 的 `Localize.mTerm =
+            //   Ranked/Skirmish/ProgressionTitle`（UnityPy 现读本 prefab 的 Reward Tile → Localize；
+            //   官方值 en `Progression` / zh `进步`；英文档与改前写死的逐字相同）。
+            MenuDraw.Text(rp, RTileR, Loc.T("Ranked/Skirmish/ProgressionTitle"), Color.white, "Reward Tile", 45.87f, QText,
                           RTileR.W, 18f, 45.87f, 36f, face: TmpFont.Face.LatinCardBody);
             // `Reward Help`：**出厂 act = F** ⇒ 建出来、**关着**（同族先例：`Banned card in deck`）
-            var help = MenuDraw.TextBox(rp, RHelpR, "Win battles to progress in the event and unlock rewards.",
+            //   🔴 **2026-10-19（界面线 P05）**：文案走官方词条（`Localize.mTerm = Ranked/Skirmish/Progression`；
+            //   官方值 en = 改前那句原文 / zh `赢得战斗以在活动中取得进步并解锁奖励。`）。
+            var help = MenuDraw.TextBox(rp, RHelpR, Loc.T("Ranked/Skirmish/Progression"),
                                         Color.white, "Reward Help", 38f, 18f, QText, 38f, 36f, face: TmpFont.Face.LatinCardBody);
             if (help != null) help.transform.gameObject.SetActive(false);
             BuildPlayerVictories(rp);
@@ -612,7 +617,9 @@ namespace CardPresentation
             //   开自适应会让字**比原版小一点**」——**方向反了**。现算（`R4_布局刻度族查实.md` §1·3）：
             //   `254.112 vs 176.98` = 我们**宽 44%** ⇒ 开自适应**不会缩字号**；两边的残差只在
             //   「运行期文案变长」那一档（原版**撑框**、我们**缩字**），见 `Open()` 里那句出声。
-            var vt = MenuDraw.Text(pv, vtR, "Victories: ", Color.white, "Vicotries title", 53.5f, QText,
+            // 🔴 **2026-10-19（界面线 P05）**：文案走官方词条（`Localize.mTerm = Ranked/Victories`；
+            //   官方值 en `Victories: `（**带尾空格**，与改前写死的逐字相同）/ zh `胜利：`）。
+            var vt = MenuDraw.Text(pv, vtR, Loc.T("Ranked/Victories"), Color.white, "Vicotries title", 53.5f, QText,
                                    vtR.W, 18f, 53.5f, 36f, face: TmpFont.Face.LatinCardBody);
             // 🔴 **A1178**：量 preferred width ⇒ 把框收成它（= 原版 CSF 那一档）。
             //   ⚠️ `SetAutoFitBox` 会**再跑一次自适应**（原版 CSF 撑完框也要重排一次，语义同）；
@@ -734,13 +741,16 @@ namespace CardPresentation
             //   对齐 `Center/Capline` · **折行 = 0**（`m_TextWrappingMode = 0`）· 原版 `m_SizeDelta = (0, 55.905)`。
             //   ⚠️ 原版**折行 = 0** ⇒ 传 `wrapPx` 会让 `SetWrapWidth` 把它**静默开成 `Normal(1)`**
             //   ⇒ 紧跟一句 `SetWrapping(false)` 还原（成对写法同 A404 / A205 / A34-F4 那一族）。
-            // 🔴 **2026-10-17（N2）**：描述串 = prefab 出厂原文 `Termina en: `。原版那个键是
+            // 🔴 **2026-10-17（N2）**：描述串 = **官方词条** —— 原版那个键是
             //   `Event_Description/General/EndsInPlusOrangeTime`（`bundle_menus_assets_all/MonoBehaviour/
-            //   MonoBehaviour_666837755613493937.json` 实读 `useExtraText = 1` + 该 mTerm），但**正文不在**
-            //   官方本地化快照里（`官方本地化_en+zh-CN.json` 只有 `EndsIn` / `EndsInPlusTime` / `TimeEndsIn`）
-            //   ⇒ 按本窗既有口径**照 prefab 原文**，⛔ 不猜译文。下面 `TimerDisplay.Attach` 用同一格。
-            const string TimerPrefix = "Termina en: ";
-            var tx = MenuDraw.Text(tm, txR, TimerPrefix + "23d 5h", Color.white, "Timer", 38f, QText,
+            //   MonoBehaviour_666837755613493937.json` 实读 `useExtraText = 1` + 该 mTerm）。
+            //   🔴 **2026-10-19（界面线 P05 · 铁律 5 就地订正）**：这里原来写「**正文不在**官方本地化快照里
+            //   （只有 `EndsIn` / `EndsInPlusTime` / `TimeEndsIn`）⇒ 照 prefab 原文」—— **已过期**：
+            //   当前官方表（10,854 条）里 `EndsInPlusOrangeTime` = en `Ends in:  <color=#E98A00FF>{0}</color>` /
+            //   zh `结束于：<color=#E98A00FF>{0}</color>` ⇒ 改走 `Loc.T`。
+            //   ⚠️ 值带 `{0}` ⇒ 出厂占位用 `TimerDisplay.Compose` 填（⛔ 不能用 `+` 拼，会印出花括号）。
+            string TimerPrefix = Loc.T("Event_Description/General/EndsInPlusOrangeTime");
+            var tx = MenuDraw.Text(tm, txR, TimerDisplay.Compose(TimerPrefix, "23d 5h"), Color.white, "Timer", 38f, QText,
                                    txR.W, 10f, 38f, 38f, face: TmpFont.Face.LatinCardBody);
             if (tx != null) tx.SetWrapping(false);
             // 🔴 **A1178**：量 preferred width ⇒ 把框收成它（= 原版 CSF 那一档）。
@@ -775,15 +785,18 @@ namespace CardPresentation
             }
             // 🔴 **2026-10-17（N2）**：接上全工程唯一的倒计时口径 `TimerDisplay`（本文件头 `:34` 自己写着
             //   原版是 `TimerDisplay.Initialize(endTime)`）。那个 `endTime` = LiveOps 事件的截止时刻，
-            //   **由服务端下发、本地没有** ⇒ 目标传 `null`：出声一次 + `Termina en: --`（⛔ 不编日期）。
+            //   **由服务端下发、本地没有** ⇒ 目标传 `null`：出声一次 + 官方词条（`Ends in:` / `结束于：`）+ `--`（⛔ 不编日期）。
             //   ⚠️ **挂的时机必须在 `PreferredWidthPx` 之后** —— 那一格量的是 prefab 出厂串的 preferred 宽
             //   （A1178 已复刻）；先挂会按 `--` 把框重新量窄，`Editor/ShellScene.cs` 那条
             //   「框宽 − 渲出宽 ≥ 1.5px」当场红。
-            //   ⚠️ 原版这颗还开了 `useLastMinutesText = 1`（键 `Event_Description/Generic/EndsSoon`），
-            //   该键正文**也不在**官方快照里 ⇒ 最后 5 分钟档**暂不接**（目标未知时这一档本来也走不到）。
+            //   ⚠️ 原版这颗还开了 `useLastMinutesText = 1`（键 `Event_Description/Generic/EndsSoon`）。
+            //   🔴 **2026-10-19（界面线 P05 · 铁律 5 就地订正）**：这里原来写「该键正文也**不在**官方快照里
+            //   ⇒ 最后 5 分钟档**暂不接**」—— **已过期**：当前官方表里 `EndsSoon` = en `Ends soon` /
+            //   zh `即将结束` ⇒ 这一档现已接上（`TimerDisplay.Attach` 的 `lastMinutesPrefix`）。
             if (tx != null)
                 TimerDisplay.Attach(tx, null, TimerPrefix, "单机能源活动窗 Timer",
-                                    "活动截止时刻由服务端 LiveOps 事件下发，本地没有");
+                                    "活动截止时刻由服务端 LiveOps 事件下发，本地没有",
+                                    lastMinutesPrefix: Loc.T("Event_Description/Generic/EndsSoon"));
             _timerText = tx != null ? tx.transform : null;
         }
 

@@ -103,6 +103,8 @@ def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--cards-only", action="store_true", help="只扫卡相关的束")
     ap.add_argument("--out", default=OUT_TSV)
+    ap.add_argument("--dry", action="store_true",
+                    help="只打印统计，不落盘（`A1648` 同族）")
     args = ap.parse_args()
 
     if not os.path.isdir(BUNDLES):
@@ -164,19 +166,22 @@ def main():
     else:
         print("⚠️ 旧表不存在，跳过回填: %s" % OLD_MAP)
 
-    if not os.path.isdir(OUT_DIR):
-        os.makedirs(OUT_DIR)
-    tmp = args.out + ".tmp"
-    with io.open(tmp, "w", encoding="utf-8", newline="") as fh:
-        w = csv.DictWriter(fh, fieldnames=COLS, delimiter="\t",
-                           lineterminator="\n", quoting=csv.QUOTE_MINIMAL)
-        w.writeheader()
-        w.writerows(rows)
-    os.replace(tmp, args.out)       # 先写临时件再改名：写一半崩掉不会毁掉旧产物
+    if args.dry:
+        print("\n干跑（--dry）：不写 %s" % args.out)
+    else:
+        if not os.path.isdir(OUT_DIR):
+            os.makedirs(OUT_DIR)
+        tmp = args.out + ".tmp"
+        with io.open(tmp, "w", encoding="utf-8", newline="") as fh:
+            w = csv.DictWriter(fh, fieldnames=COLS, delimiter="\t",
+                               lineterminator="\n", quoting=csv.QUOTE_MINIMAL)
+            w.writeheader()
+            w.writerows(rows)
+        os.replace(tmp, args.out)       # 先写临时件再改名：写一半崩掉不会毁掉旧产物
+        print("")
+        print("写出 %s" % args.out)
 
     guids = collections.Counter(r["assetGuid"] for r in rows)
-    print("")
-    print("写出 %s" % args.out)
     print("  行 %d · GUID %d · 其中新枚举 %d 行 / 旧表回填 %d 行"
           % (len(rows), len(guids), len(rows) - backfill, backfill))
     print("  多行 GUID %d 个（同一 GUID 解出同名的多个类型，如 Sprite+Texture2D）"

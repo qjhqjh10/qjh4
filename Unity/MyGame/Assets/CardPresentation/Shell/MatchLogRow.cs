@@ -11,6 +11,7 @@
 //
 // ⚠️ **2026-09-27 从 `BattleLogTab` 原样搬出来**（常量与算式一字未改），只多了一层「画图上下文」
 //    （取图 / 队列档 / 裁切边界），好让两扇窗共用。
+using System.Collections.Generic;
 using UnityEngine;
 
 namespace CardPresentation
@@ -86,6 +87,13 @@ namespace CardPresentation
         static readonly Vector2 FacA = new Vector2(0f, 0.5f), FacP = new Vector2(0f, 0.5f);
         static readonly Vector2[] FacPos = { new Vector2(9.68039f, -40f), new Vector2(651.87f, -40f) };
         static readonly Vector2 FacSz = new Vector2(53.8296f, 53.8295f);
+        /// <summary>🔴 **2026-10-19（界面线尾巴 · `MatchLogRow` 阵营图标）就地订正**：这一格原来**写死**
+        /// `FactionSororitas`（= 原版 prefab 的**出厂图**）。真实值由<b>两边各自的阵营</b>决定 ——
+        /// 判据 = 原版行画的时候按 `ownHeroName`/`enemyHeroName` 反解 hero 卡、再取它的 `army`
+        /// （`BattleLogPlayerDisplay.Initialize`，见 `Shell/BattleLogData.ResolveArmy` 的 doc）。
+        /// ⇒ 现在这张常量**只剩「认不出时的兜底图」**（= 原版 prefab 出厂那一张），
+        /// 命中时走 `Core/ArmyIcons.cs` 的 13 阵营表（那是 `IconsByArmySO` 逐字节解出来的唯一一份）。
+        /// ⛔ 别把某个阵营的值再写死回这里。</summary>
         const string ArtFactionIcon = "40k_DeckSelection_icon_FactionSororitas";
         static readonly Vector2 SkullA = UguiRect.P50c, SkullP = UguiRect.P50c;
         static readonly Vector2[] SkullPos = { new Vector2(250f, -40f), new Vector2(-250f, -40f) };
@@ -134,6 +142,37 @@ namespace CardPresentation
             var tex = c.Art(art);
             return tex == null ? null : MenuDraw.Nine(p, tex, r, b, tex.width, tex.height, c.Q + off, null, true, n,
                                                       clip: c.Clip);
+        }
+
+        /// <summary>🆕 **2026-10-19（`A1385` `#70` · 铁律 11）**：自检两态夹具入口 —— **只重建本行那块行底
+        /// 九宫格**（`Background`），行里别的子件一个都不碰。
+        ///
+        /// <para>🔴 **为什么需要它**：`#70` 那条断言要的是「**父链真带缩放时**，`MenuDraw.UnionQuadRectPx`
+        /// 读出来的仍是**设计矩形**」，而态二**必须重建**那棵树（否则块的局部位置还是态一冻结下来的值
+        /// ⇒ 两式逐位相同 = 假绿）。整窗重建（`BattleLogTab.RebuildRows` / `BattleLogPopup.RebuildForTest`）
+        /// 会把滚动偏移与调用点手里的行句柄一起换掉 ⇒ 这里只换**一块子件**（行句柄仍有效）。</para>
+        ///
+        /// <para>⚠️ 重建用料**全部从旧块读回**（纹理 / 染色 / 渲染队列）—— ⛔ 不要求调用方复刻宿主的
+        /// `RowCtx`（`Art` / `Q` 都是宿主的私有状态）。`r` = 旧块的**设计矩形**（调用点用
+        /// `Editor/MainMenuScene.cs` 的 `DesignRectOf` 反解；⛔ 别写死原版常量 —— 那个 rect 是运行时排出来的）。</para>
+        /// <para>返回新根；旧块不在 / 读不到纹理 ⇒ 返回 `null`（调用点**显式红**，别当成功）。</para></summary>
+        public static Transform RebuildBackgroundForTest(Transform row, PxRect r)
+        {
+            if (row == null) return null;
+            var old = row.Find("Background");
+            if (old == null) return null;
+            var q0 = old.GetComponentInChildren<ImageQuad>(true);
+            if (q0 == null || q0.Texture == null) return null;
+            var tex = q0.Texture as Texture2D;     // ⚠️ 先取出来再 `DestroyImmediate`（`MenuDraw.Nine` 吃 `Texture2D`）
+            if (tex == null) return null;
+            Color tint = q0.Tint;
+            int q = q0.RenderQueue - L_Bg;
+            int sib = old.GetSiblingIndex();      // 兄弟序照旧（同队列的分层靠它，见 `ImageQuad` 的排序口径）
+            Object.DestroyImmediate(old.gameObject);
+            var go = MenuDraw.Nine(row, tex, r, RowBorder, tex.width, tex.height, q, tint, true, "Background");
+            var root = go != null ? go.transform : null;
+            if (root != null) root.SetSiblingIndex(sib);
+            return root;
         }
 
         /// <summary>`ProfilePage.Text` **那条语义一字不改**：限宽换行只在 `wrap` 时给、自适应字号只在 `autoFit` 时给
@@ -262,7 +301,22 @@ namespace CardPresentation
             Rect(c, box, ArtScoreIcon, sciR, "Score Icon", L_Art, null, true);
 
             var facR = UguiRect.Child(sideR, FacA, FacA, FacP, FacPos[side], FacSz);
-            Rect(c, box, ArtFactionIcon, facR, "Score Icon (1)", L_Art, null, true);
+            // 🆕 **2026-10-19（界面线尾巴 · 铁律 11）**：`Score Icon (1)` = **这一边那个督军的阵营徽记**。
+            //   判据 = 原版 `BattleLogPlayerDisplay.Initialize`：拿 `playerData.Hero`（= 我们这一行的
+            //   `OwnHeroName` / `EnemyHeroName`）反解 hero 卡 → 读它的 `army` → `ArmyIconsSO.GetArmyIcon`
+            //   （`d:/2/tools/decomp_full/BattleLogPlayerDisplay__Initialize.c`；`BattleLogMatch` 本身没有 army 字段）。
+            //   ⇒ 数据侧 `Shell/BattleLogData.Add` 已经把两边解进 `Army` / `EnemyArmy`（唯一一份反解口：
+            //   `BattleLogData.ResolveArmy`），这里只按那 13 条映射取图（`Core/ArmyIcons.cs`）。
+            //   ⚠️ 认不出 / 没记录（`army == 0`）⇒ **保留原版 prefab 出厂那张** + 出声（⛔ 不猜、
+            //   不拿别的阵营顶 —— 那会把「不知道」画成一张具体的旗）。
+            int army = mine ? m.Army : m.EnemyArmy;
+            string facArt = ArmyIcons.IconName(army);
+            if (string.IsNullOrEmpty(facArt))
+            {
+                facArt = ArtFactionIcon;
+                NoteArmyFallback(mine, army, mine ? m.OwnHeroName : m.EnemyHeroName);
+            }
+            Rect(c, box, facArt, facR, "Score Icon (1)", L_Art, null, true);
 
             var skR = UguiRect.Child(sideR, SkullA, SkullA, SkullP, SkullPos[side], SkullSz);
             var skq = Rect(c, box, ArtSkull, skR, "Skulls", L_Art, null, true);
@@ -295,6 +349,21 @@ namespace CardPresentation
             if (lb != null && right) MenuDraw.AlignRight(lb, r);
             return lb;
         }
+
+        /// <summary>🆕 **2026-10-19**：阵营徽记认不出时**出声一次**（每个 `(边, army, 督军名)` 组合一条，
+        /// 免得两扇窗 × 每行把日志刷爆）。⛔ 保留原图这件事由调用点做 —— 本条只负责「不静默」。</summary>
+        static void NoteArmyFallback(bool mine, int army, string heroName)
+        {
+            string k = (mine ? "own" : "foe") + "|" + army + "|" + (heroName ?? "");
+            if (!_armyFallbackWarned.Add(k)) return;
+            Debug.LogWarning("[BattleLog] 对局行那格阵营徽记**认不出**（" + (mine ? "我方" : "敌方")
+                           + " · army=" + army + " · 督军名=\"" + (heroName ?? "") + "\"）"
+                           + " ⇒ **保留原版 prefab 出厂图 `" + ArtFactionIcon + "`**（⛔ 不猜、不拿别的阵营顶）。"
+                           + "判据 = 原版 `BattleLogPlayerDisplay.Initialize` 由督军名反解 hero 卡再取 `army`"
+                           + "（`d:/2/tools/decomp_full/BattleLogPlayerDisplay__Initialize.c`）——"
+                           + "反解口见 `Shell/BattleLogData.ResolveArmy`。");
+        }
+        static readonly HashSet<string> _armyFallbackWarned = new HashSet<string>();
 
         // ============================================================ 三个动作（原版各自的落点，两扇窗共用）
 

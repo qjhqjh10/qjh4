@@ -32,8 +32,14 @@
 ## 产物
 
 `Assets/WarpforgeArena1/Editor/FlickerData.gen.cs` —— **自动生成，不要手改**。
+
+用法：`python 工具/gen_flicker_cs.py`；加 `--dry` = 只跑计算、打印读数、**零写盘**
+（默认行为不变；`A1648` 同族口径）。
 """
 import io, json, os, re, sys
+
+# 🔴 `--dry` = 只跑计算、打印读数、**零写盘**。默认（不带它）行为与以前完全一样。
+DRY = "--dry" in sys.argv[1:]
 
 SCENES = "d:/2/解包整理/07_场景"
 OUT = "d:/4/Unity/MyGame/Assets/WarpforgeArena1/Editor/FlickerData.gen.cs"
@@ -141,9 +147,12 @@ def main():
                         repr(s["fin"]), repr(s["fout"]), "true" if s["rnd"] else "false", repr(desync)))
     lines.append("    };")
     lines.append("}")
-    io.open(OUT, "w", encoding="utf-8", newline="\n").write("\n".join(lines) + "\n")
-    ok = sum(1 for s in specs if s["go"] != "?")
-    print("生成 %s：%d 条（对象名解析成功 %d 条）" % (OUT, len(specs), ok))
+    if DRY:
+        print("干跑（未写盘）%s：%d 条" % (OUT, len(specs)))
+    else:
+        io.open(OUT, "w", encoding="utf-8", newline="\n").write("\n".join(lines) + "\n")
+        ok = sum(1 for s in specs if s["go"] != "?")
+        print("生成 %s：%d 条（对象名解析成功 %d 条）" % (OUT, len(specs), ok))
     for s in specs:
         print("   %-24s %-28s amp=%.3f freq=%.2f fIn=%.2f/%.2f rnd=%d desync=%.2f"
               % (s["arena"], s["go"], s["amp"], s["freq"], s["fin"], s["fout"], s["rnd"],

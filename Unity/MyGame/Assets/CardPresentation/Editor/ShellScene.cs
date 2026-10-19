@@ -379,21 +379,9 @@ public static class ShellScene
     /// `|textBounds.size|`，本口走 `localToWorldMatrix` ⇒ 只有带缩放那一档会差）。</para></summary>
     static Vector2 ShellLabelRenderedPx(Label lb)
     {
-        if (lb == null) return Vector2.zero;
-        var tmp = lb.GetComponentInChildren<TMPro.TextMeshPro>(true);
-        if (tmp == null) return new Vector2(lb.WorldW * 108f, lb.WorldH * 108f);
-        var b = tmp.textBounds;                       // 局部空间的行盒（`Bounds`）
-        var M = tmp.transform.localToWorldMatrix;
-        float x1 = float.MaxValue, y1 = float.MaxValue, x2 = float.MinValue, y2 = float.MinValue;
-        for (int c = 0; c < 4; c++)
-        {
-            var corner = M.MultiplyPoint3x4(new Vector3((c % 2 == 0) ? b.min.x : b.max.x,
-                                                        (c < 2) ? b.min.y : b.max.y, 0f));
-            float px = LayoutSpace.PxX(corner.x), py = LayoutSpace.PxY(corner.y);
-            x1 = Mathf.Min(x1, px); x2 = Mathf.Max(x2, px);
-            y1 = Mathf.Min(y1, py); y2 = Mathf.Max(y2, py);
-        }
-        return new Vector2(x2 - x1, y2 - y1);
+        // 🔴 **2026-10-19（`A1265`）**：算法收口到共用件 `Editor/SelfCheckTextMetrics.cs`
+        //   （本文件原来是 5 份逐字副本之一；⛔ 别再把函数体抄回来）。
+        return SelfCheckTextMetrics.RenderedPx(lb);
     }
 
     /// <summary>🆕 **2026-10-10（`A1178` 断言重写）**：一颗 `Label` **写进去的那个框**（TMP 的
@@ -412,21 +400,10 @@ public static class ShellScene
     /// <para>⚠️ 同前提 = TMP 那一格的 `lossyScale` 为 1 且无旋转（同 `ShellLabelRenderedPx`）。</para></summary>
     static Vector2 ShellLabelBoxPx(Label lb)
     {
-        if (lb == null) return Vector2.zero;
-        var tmp = lb.GetComponentInChildren<TMPro.TextMeshPro>(true);
-        if (tmp == null) return Vector2.zero;
-        var r = tmp.rectTransform.rect;               // 局部空间的框（锚点不拉伸时 = `sizeDelta`）
-        var M = tmp.transform.localToWorldMatrix;
-        float x1 = float.MaxValue, y1 = float.MaxValue, x2 = float.MinValue, y2 = float.MinValue;
-        for (int c = 0; c < 4; c++)
-        {
-            var corner = M.MultiplyPoint3x4(new Vector3((c % 2 == 0) ? r.min.x : r.max.x,
-                                                        (c < 2) ? r.min.y : r.max.y, 0f));
-            float px = LayoutSpace.PxX(corner.x), py = LayoutSpace.PxY(corner.y);
-            x1 = Mathf.Min(x1, px); x2 = Mathf.Max(x2, px);
-            y1 = Mathf.Min(y1, py); y2 = Mathf.Max(y2, py);
-        }
-        return new Vector2(x2 - x1, y2 - y1);
+        // 🔴 **2026-10-19（`A1265`）**：算法收口到共用件 `Editor/SelfCheckTextMetrics.cs`
+        //   （别的窗要断「哪一侧是紧的」直接调 `SelfCheckTextMetrics.BoxPx` / `TightSide`，
+        //   ⛔ 别再各写一份 —— 本仓「两处写同一条规则 = 迟早不一致」）。
+        return SelfCheckTextMetrics.BoxPx(lb);
     }
 
     /// <summary>🆕 **2026-10-09（`A1125`）**：一颗**关窗钮**的「命中区 + 换图层」四连断。
@@ -968,6 +945,21 @@ public static class ShellScene
     // ============================================================ 自检
 
     public static void Run()
+    {
+        // 🔴 **2026-10-19（`A1534` 尾巴 · 铁律 11）**：批处理自检**不出声** —— `WFSoundPlayer.Enabled = false`
+        //   时那个开关自己的契约是「**只记账不发声**：不建对象、不出声，但 `Played` 照样涨」
+        //   ⇒「音效调度算对了没有」那一族断言**照旧有效**，而这一趟**不白建一堆 `AudioSource`、不白播**。
+        //   先例 = `WarpforgeArena1/Editor/AnimFXCheck.cs:341-366`（同一个开关、同一个 `finally` 还原）。
+        //   ⚠️ 它是**全局静态开关** ⇒ 必须在 `finally` 里还原；`RunCore` 本体保持原样（只换了名字）。
+        bool prevSoundEnabled = WarpforgeVFX.WFSoundPlayer.Enabled;
+        WarpforgeVFX.WFSoundPlayer.Enabled = false;
+        try { RunCore(); }
+        finally { WarpforgeVFX.WFSoundPlayer.Enabled = prevSoundEnabled; }
+    }
+
+    /// <summary>`Run()` 的**本体**（🆕 `A1534` 尾巴：`Run` 只负责「关音效 → 调它 → 还原」这一圈）。
+    /// ⚠️ 入口仍是 `Run`（`-executeMethod ShellScene.Run` 一个字没变）。</summary>
+    static void RunCore()
     {
         _sink.Pass = 0; _sink.Fail = 0; _sink.Failures.Clear();
         Directory.CreateDirectory(ShotDir);
@@ -1591,12 +1583,98 @@ public static class ShellScene
             if (okQ != null)
                 CheckNear(okQ.WorldW * 108f / (okQ.WorldH * 108f), 489f / 107f, 0.02f,
                           "`OkButton` 渲出来的宽高比 = `40K_button` 源图 489/107（`PreserveAspect`）");
+
+            // 🔴 **2026-10-19（`N117` 顺手）**：压暗层的**吃射线命中区**（`MenuDraw.Absorb`）。
+            //   判据（原版 prefab + 反编译逐句）：`GenericPromptWindow/Menu Dark Background` 上挂着
+            //   `BackgroundCloseButton`（`MonoBehaviour_627461394584887679.json`），但它的 `window = {0,0}`、
+            //   `onClick.m_Calls = []`；而 `PromptPopup` 类**没有**任何 `backgroundCloseButton` 字段
+            //   （`dump.cs:87347-87368`）、**没有 `Start`/`OnEnable`**，`PromptPopup__Open.c` 只给
+            //   `okButton`/`cancelButton` 挂监听 ⇒ **原版点这一下什么都不发生**（不关窗），
+            //   那块 `Image` 的 `m_RaycastTarget = 1` ⇒ 语义 = **吸收**。
+            //   ⚠️ 改坏法：把它换回「无命中区」⇒ ①②红；换成 `ShadeHit`（关窗）⇒ ②③红。
+            {
+                var ppHit = pp.ShadeHitNode;
+                CheckTrue(ppHit != null, "★ 压暗层命中区 `AbsorbHit` 建出来了（删掉 `Build()` 那句 `MenuDraw.Absorb` ⇒ 红）");
+                CheckTrue(MenuDraw.WasAbsorb(ppHit),
+                          "★ 它是**吸收**层（`MenuDraw.Absorb`），**不是** `ShadeHit`"
+                          + "（原版这颗 `BackgroundCloseButton` 没接线 ⇒ 点暗处**不关窗**）");
+                var ppHitQ = ppHit != null ? ppHit.GetComponentInChildren<ImageQuad>(true) : null;
+                var ppShadeQ = shade != null ? shade.GetComponentInChildren<ImageQuad>(true) : null;
+                CheckTrue(ppHitQ != null && ppShadeQ != null && ppShadeQ.RenderQueue < ppHitQ.RenderQueue,
+                          "★ 命中区档 **严格高于**视觉压暗层档（同档会退化成枚举顺序）");
+                CheckTrue(ppHitQ != null && okQ != null && ppHitQ.RenderQueue < okQ.RenderQueue,
+                          "★ 命中区档 **严格低于**本窗内容命中区（按钮那颗）—— 钮仍然先吃到");
+                var ppWb = ppHit != null ? ppHit.GetComponent<WindowButton>() : null;
+                CheckTrue(ppWb != null && ppWb.absorbOnly, "★ `absorbOnly` 置上了（零悬停色偏、零「没绑动作」告警）");
+                string ppWhy;
+                CheckTrue(!MenuDraw.AbsorbTierWarned(ppHit, out ppWhy),
+                          "★ 档合法（`qShade < 档 < 内容档`）" + (string.IsNullOrEmpty(ppWhy) ? "" : "：" + ppWhy));
+                if (ppHit != null && PointerLayer.Instance != null)
+                {
+                    var before = pp.CurrentState;
+                    var at5 = PointerLayer.Instance.ButtonAt(5f, 5f);
+                    CheckTrue(at5 != null && MenuDraw.WasAbsorb(at5.transform)
+                              && at5.transform.IsChildOf(pp.transform),
+                              "★ 这一点命中的**就是本窗压暗层那颗吸收区**（不是别的窗/别的钮）");
+                    CheckTrue(PointerLayer.Instance.ClickAt(5f, 5f),
+                              "★ 这一点真点得下去（命中区确实盖住它 —— 改成「无命中区」⇒ 这条红）");
+                    Check(before, WindowState.Open, "（前提）点之前窗是开着的");
+                    Check(pp.CurrentState, WindowState.Open,
+                          "★ 点压暗层 ⇒ **窗仍然开着**（原版这一颗不关窗；改坏法：换成 `ShadeHit(…, Close)` ⇒ 红）");
+                }
+            }
         }
         Shoot("04_原版提示窗.png");
         shell.Windows.CloseAllWindows();
         Check(shell.Windows.openWindows.Count, 0, "`CloseAllWindows()` 清空");
         CheckTrue(shell.Windows.currentWindow == null, "`currentWindow` 也清空（不留悬挂引用）");
         Object.DestroyImmediate(winGo);
+
+        // ---------------- ⑤·N117 `DailyRewardPopup` 的压暗层命中区（🔴 2026-10-19 `N117` 顺手）
+        // 🔴 **判据（原版 prefab 逐字段实读）**：`Daily Reward Popup/Menu Dark Background` 的组件只有
+        //    `RectTransform` + `CanvasRenderer` + `Image`（`MonoBehaviour_6390879965494403023` = `Image`）
+        //    —— **没有 `BackgroundCloseButton`**（同族对照：`Daily Streak Popup` 那块压暗层上**有**）；
+        //    `DailyRewardPopup` 类也没有 `backgroundCloseButton` 字段（`dump.cs:68853-68868`），
+        //    `Start` 只给 `closeButton`（0x90，圆形 X 钮）挂监听 ⇒ **原版点暗处什么都不发生**。
+        //    ⇒ 我们接的是**吸收层**（`MenuDraw.Absorb`），⛔ 不是「点背景关窗」的 `ShadeHit`。
+        // ⚠️ 改坏法：删掉 `Build()` 那句 `MenuDraw.Absorb` ⇒ ①②红；换成 `ShadeHit(…, Close)` ⇒ ③④红。
+        Section("`DailyRewardPopup` 压暗层：吃射线的命中区（原版**不**关窗）");
+        {
+            var drShade = DailyRewardPopup.Create(shell.Windows);
+            shell.Windows.OpenWindow(drShade);
+            CheckTrue(drShade != null && drShade.CurrentState == WindowState.Open, "（前提）每日奖励窗开出来了");
+            var drHit = drShade != null ? drShade.ShadeHitNode : null;
+            CheckTrue(drHit != null, "① 压暗层命中区 `AbsorbHit` 建出来了");
+            CheckTrue(MenuDraw.WasAbsorb(drHit),
+                      "② 它是**吸收**层（`MenuDraw.Absorb`）—— 原版那块 `Image` 吃射线、但**没有**关窗处理器");
+            var drShadeVisual = drShade != null ? FindChildIn(drShade.transform, "Menu Dark Background") : null;
+            var drShadeQ = drShadeVisual != null ? drShadeVisual.GetComponentInChildren<ImageQuad>(true) : null;
+            var drHitQ = drHit != null ? drHit.GetComponentInChildren<ImageQuad>(true) : null;
+            CheckTrue(drHitQ != null && drShadeQ != null && drShadeQ.RenderQueue < drHitQ.RenderQueue,
+                      "① 命中区档 **严格高于**视觉压暗层档（同档会退化成枚举顺序）");
+            var drWb = drHit != null ? drHit.GetComponent<WindowButton>() : null;
+            CheckTrue(drWb != null && drWb.absorbOnly, "② `absorbOnly` 置上了（零悬停色偏、零「没绑动作」告警）");
+            string drWhy;
+            CheckTrue(!MenuDraw.AbsorbTierWarned(drHit, out drWhy),
+                      "② 档合法（`qShade < 档 < 内容命中区档`）" + (string.IsNullOrEmpty(drWhy) ? "" : "：" + drWhy));
+            if (drHit != null && PointerLayer.Instance != null)
+            {
+                var at5 = PointerLayer.Instance.ButtonAt(5f, 5f);
+                CheckTrue(at5 != null && MenuDraw.WasAbsorb(at5.transform)
+                          && at5.transform.IsChildOf(drShade.transform),
+                          "③ 这一点命中的**就是本窗压暗层那颗吸收区**（不是别的窗/别的钮）");
+                CheckTrue(PointerLayer.Instance.ClickAt(5f, 5f),
+                          "③ 这一点真点得下去（命中区确实盖住它 —— 改成「无命中区」⇒ 这条红）");
+                Check(drShade.CurrentState, WindowState.Open,
+                      "③ 点压暗层 ⇒ **窗仍然开着**（原版这一颗不关窗；改坏法：换成 `ShadeHit(…, Close)` ⇒ 红）");
+            }
+            if (drShade != null)
+            {
+                drShade.Close();
+                Check(drShade.CurrentState, WindowState.Closed, "③（收尾）`Close()` 真把它关了");
+                MainMenuSubmenuWindow.DestroySafe(drShade.gameObject);
+            }
+        }
 
         // ---------------- ⑤·b 共用件：`RectMask2D.m_Padding`（A9/A15 尾巴 · **2026-10-07 A140② 收口**）
         //
@@ -3770,7 +3848,7 @@ public static class ShellScene
         // 🔴 **判据（全部是原版 / UGUI 的；逐条写在【实现那一侧】，⛔ 别在这里抄第二份）**：
         //   · ① **选中态** = UGUI `Selectable.currentSelectionState` 的**优先级**（Pressed ＞ Selected ＞
         //     Highlighted ＞ Normal）+ `DoStateTransition` 取的那一格 `m_Colors.m_SelectedColor`
-        //     （原文 → `Shell/PromptPopup.cs` 的 `WindowButton.SetSelected` / `BtnState` / `SelectedK`
+        //     （原文 → `Shell/WindowButton.cs` 的 `WindowButton.SetSelected` / `BtnState` / `SelectedK`（⚠️ 2026-10-19 订正：原写 `Shell/PromptPopup.cs`）
         //     那三段；那 1276 颗的实测分布也在那里）。
         //   · ② **主菜单 ESC** = `MainMenuWindow__ESCPressed.c` 那两句 → `Shell/MainMenuRuntime.cs` 的 `EscapePressed`
         //     （含「`closeOnESC = 0` ⇒ base 那一跳什么都不做」与三个词条 key 的实读）。
@@ -4021,7 +4099,7 @@ public static class ShellScene
 
         // ---------------- ⑤·m 🆕 2026-10-07（A77⑲）：`disabled / soft-disable` 的【变灰】观感（A65②）
         //
-        // 🔴 **判据（原版，全文 → `Shell/PromptPopup.cs` 的 `WindowButton` 头部那段 + `SoftDisabled` 那一段）**：
+        // 🔴 **判据（原版，全文 → `Shell/WindowButton.cs` 的 `WindowButton` 头部那段 + `SoftDisabled` 那一段；⚠️ 2026-10-19 订正：原写 `Shell/PromptPopup.cs`）**：
         //   · `EverguildButton.SoftDisable` / `Selectable.interactable = false` **两条路落到同一下**：
         //     把子树（+`target`）的图形件**材质换成 `Everguild/UI/Greyscale`**；
         //   · `SoftDisable` **自己一个颜色/alpha 都不写** ⇒ 灰是**逐像素**算的（`dot(col,(0.30,0.59,0.11))`），
@@ -4276,7 +4354,7 @@ public static class ShellScene
                 //   ⚠️ **为什么「只加一个 null 守卫」不够**：守卫判假 ⇒ 这一下**根本不点** ⇒ 下面
                 //   `lw2 != null && lw2 != lw1` 变**假红**（A516 那条踩过的坑就是「一下都没点」）。重抓两种情形都对。
                 //   ⚠️ 今天这一处**恰好**不炸的原因（读出来的，不是猜的）：`WindowButton.onClick` 是**裸字段**
-                //   （`Shell/PromptPopup.cs` 的 `WindowButton.onClick`）⇒ 解引用不抛；而委托体 `BattleLogTab.OpenPopup`
+                //   （`Shell/WindowButton.cs` 的 `WindowButton.onClick`；⚠️ 2026-10-19 订正：原写 `Shell/PromptPopup.cs`）⇒ 解引用不抛；而委托体 `BattleLogTab.OpenPopup`
                 //   （`Shell/BattleLogTab.cs:172-177`）**一句实例状态都没读**（只有静态的 `WindowsManager.OpenByRef`
                 //   + 常量串 `Debug.Log`）⇒ 即便宿主已销毁也照旧开窗、不抛。**这是巧合、不是保证** ——
                 //   哪天 `OpenPopup` 读一个实例字段就会抛 `MissingReferenceException`。
@@ -7475,10 +7553,38 @@ public static class ShellScene
                 // ⚠️ 这一颗的节点出厂被我们**主动关着**（`b.gameObject.SetActive(false)`）⇒ `FindChildIn`
                 //   含 inactive 捞得到；量的是它建的时候（整棵树当时是活的）生成、关掉之后**仍缓存着**的
                 //   `textBounds`（`ShellLabelRenderedPx` 读的就是它）。
-                fitCase("A1190 · `Shell/SkirmishEventWindow.cs` 的 `Banned card in deck/Text`",
-                        FindChildIn(a1126Sk.transform, "Banned card in deck"),
-                        678.30f, 53.93f, 18f, 50f, 36f, 1,
-                        "原版 `…/Banned card in deck/Text` 实读 `auto[18~50]`（`m_fontSize 50` · 基准 36 · 折行 1 · 框 678.30×53.93）");
+                // 🔴 **2026-10-19（`A1198` · 铁律 11）：「可能假绿」两说的裁定 + 修法** ——
+                //   · 说 (a)：TMP 的 `textBounds` 是**缓存字段**，`OnDisable` 不清它 ⇒ 量到的是**建树时的真值**
+                //     （建树那一趟整棵树是活的、`SetText` 走过 `ForceMeshUpdate`）⇒ 今天的绿是**真绿**；
+                //   · 说 (b)：若哪一版 TMP 在 `OnDisable` 里把它清成 0 ⇒ 现在 `fitCase` 的 `szOk`
+                //     （`sz.x > 0.5f` 那道闸，见函数头）会**当场红**（报「字块量不到」）⇒ **也不再是假绿**。
+                //   ⚠️ **两说静态判不出哪一版 TMP 是真**（`Unity.TextMeshPro.dll` 源码不在工程里）。
+                //   ⇒ **不赌**：量之前**临时点亮 + 手动重排一次**、量完**还原**（先例 = `Editor/BattleScene.cs`
+                //     里 `QPText_Me` / `QPText_Foe` 那对夹具（注释「先点亮、量完还原」）—— 同一形状：
+                //     `SetActive(true)` → 量 → `SetActive(was)`；⛔ 别按行号找，那个函数一直在长）。
+                //     ⛔ 不改产品显隐逻辑（它继续是出厂关着的 —— 那是原版的运行时行为）。
+                var a1190Banned = FindChildIn(a1126Sk.transform, "Banned card in deck");
+                bool a1190BannedWas = a1190Banned != null && a1190Banned.gameObject.activeSelf;
+                if (a1190Banned != null)
+                {
+                    a1190Banned.gameObject.SetActive(true);
+                    // 批处理没有帧循环 ⇒ 点亮之后要**显式推一次**版面（`ForceRelayout` = `ForceMeshUpdate`
+                    // + `RefreshBounds`，幂等；口径同 `Label.ForceRelayout` 的 doc）。
+                    var a1190Lb = a1190Banned.GetComponentInChildren<Label>(true);
+                    if (a1190Lb != null) a1190Lb.ForceRelayout();
+                }
+                try
+                {
+                    fitCase("A1190 · `Shell/SkirmishEventWindow.cs` 的 `Banned card in deck/Text`",
+                            a1190Banned,
+                            678.30f, 53.93f, 18f, 50f, 36f, 1,
+                            "原版 `…/Banned card in deck/Text` 实读 `auto[18~50]`（`m_fontSize 50` · 基准 36 · 折行 1 · 框 678.30×53.93）");
+                }
+                finally
+                {
+                    // 还原出厂态（产品逻辑 = 原版运行时按「这副牌有没有禁用卡」开关；本地没有那份表 ⇒ 恒关）
+                    if (a1190Banned != null) a1190Banned.gameObject.SetActive(a1190BannedWas);
+                }
                 // ---- 🆕 2026-10-17（`N31`）：`Score Levels` 五行是 VLG `reverse=1` —— 树序第一颗 `Level 1` 在最【下】----
                 //   判据 = `python -I d:/4/Unity/工具/menu_dump.py bundle_menus_assets_all "SkirmishModeEventWindow"
                 //   --depth 10 --relative --no-sprite` 现读：`Score Levels … reverse=1`；
@@ -7889,6 +7995,17 @@ public static class ShellScene
                               "…而且卡池**真建出来了**（张数 > 1000）—— 只数节点的话，「建了一堆空壳」也能过");
                     CheckTrue(deW.transform.Find("pool_0") != null,
                               "…卡池第 0 屏位 `pool_0` 在窗根下（`DeckRuntime.RefreshPool` 里名字 = `pool_` + 屏位号）");
+                    // 🆕 **2026-10-19（第五十六会话 · `T23`）**：窗化档**不许**再建第二条顶栏 ——
+                    //   ① 原版 `Deck Editing Menu` prefab 根只有一个孩子 `Content Area`、**树里没有顶栏**
+                    //      （`资料/普查产出_第二十四会话/D10_prefab树.md` §结论 1）；
+                    //   ② 本窗 `placement = World(10)` = `1 - Below Upper Bar Holder`
+                    //      （`任务/T01_卡组编辑窗.md` §2·1）⇒ 原版的顶栏是**外壳那一条**
+                    //      （`Shell/MainMenuRuntime.cs:496`，它是主菜单窗的兄弟、`HideAllWindows` 藏不到）。
+                    //   我们再建一条（同 `TopBar.Build`、同 localPosition=0、同队列 2986–2997）= **双画**。
+                    //   🧨 改坏法：删掉 `DeckRuntime.BuildTopBar` 开头那句 `if (HostWindow != null) return;`
+                    //   ⇒ 本格红（`UiTopBar` 非 null）。
+                    CheckTrue(deW.Runtime != null && deW.Runtime.UiTopBar == null,
+                              "★ 窗化档 `DeckRuntime` **不建自己的顶栏**（外壳顶栏已在；原版 prefab 根没有顶栏）");
 
                     // ---- ③ `Close()`：两条并存（`state` 与激活态）----
                     // 🔴 **这两条是配对写的**（本步的第二个「灭自证」）：只断 `!IsOpen()`（读 `CurrentState`）

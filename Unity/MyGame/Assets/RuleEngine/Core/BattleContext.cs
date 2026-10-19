@@ -19,14 +19,16 @@ namespace RuleEngine
     /// <summary>
     /// 一条**常驻效果**（`BattleContext.PersistentEffects` 的一项）。
     ///
-    /// 规则书英文版 `:39-41` 说这类卡要**单独放一摞**在弃牌堆旁 ——
-    /// 所以 <see cref="Source"/> 记着是哪张卡、<see cref="Owner"/> 记着是谁打出的。
+    /// <see cref="Source"/> 记着是哪张卡、<see cref="Owner"/> 记着是谁打出的 ——
+    /// 这一摞是**我们自设计的替代结构**（原版没有对应类型；判据见 <see cref="PersistentEffects"/>
+    /// 的说明）。⚠️ 2026-10-19（`A1955`）订正：原来这里引粉丝规则书 `:39-41` 的
+    /// 「单独放一摞在弃牌堆旁」当理由 —— 那是**实体台面**的备忘办法，数字版没有对应物。
     /// </summary>
     public class PersistentEffect
     {
         /// <summary>谁打出的 —— 只有**他自己的回合**才触发（我们上一版复刻 `rule_core.gd:434`，⚠️ **旁证**）</summary>
         public int Owner;
-        /// <summary>来源卡（日志与排查用；规则书要求这类卡留档备查）</summary>
+        /// <summary>来源卡（日志与排查用 —— 这一摞是自设计结构，不是原版的建模方式）</summary>
         public CardDef Source;
         /// <summary>`turn_start` / `turn_end` / `deploy`（见 <see cref="Trigger"/>）</summary>
         public string Phase;
@@ -730,6 +732,27 @@ namespace RuleEngine
         /// </summary>
         public TutorialScript Tutorial;
 
+        /// <summary>
+        /// 🆕 2026-10-19（T11 · G-4）：**战役关卡数据**（原版 `PlayerDataManager.currentCampaignStage`）。
+        ///
+        /// 🔴 **类型与教程关是同一个**（原版就是这样）：`PlayerDataManager.campaignSets` 里的
+        ///    `CampaignSet.campaignStages` 是 `AssetReferenceTyped<TutorialStage>[]`
+        ///    （`dump.cs:119050`），与 `tutorialStages` 同型 ⇒ 这里也用 <see cref="TutorialStageData"/>。
+        ///
+        /// 唯一读点 = <see cref="RuleCore.ResolveEndTurnEnchantment"/>（原版
+        /// `BattleManager__ResolveEndTurnEnchantment.c`：读关卡 `+0x78 playerTurnEndEnchantment` /
+        /// `+0x80 enemyTurnEndEnchantment`）。
+        ///
+        /// 🔴 **今天恒 `null`**：本工程**没有战役关卡数据源**（与 `Enchantments.SetupInitial` 那条
+        ///    「没有战役关卡数据」是同一件事；`GameMode.Campaign` / `CutScene` 全工程只有枚举与派发表，
+        ///    战役页 `CampaignTab` 是奖励页、不开战）⇒ 唯一的输入口留在这里，将来接战役时**只从这里进**，
+        ///    ⛔ 别在别处另开一条「回合末挂附魔」的路（两处写同一条规则迟早不一致）。
+        /// ⚠️ **教程局不走这一格**：原版那条调用被 `IsCampaignLike`（`matchType ∈ {130,190}`）挡在外面
+        ///    （`BattleManager__ResolveEndTurn.c:434` 的 `if`），教程关的两个 PPtr 实测也全空
+        ///    （`tutorial_stages.json` 6/6 = `m_PathID:0`）。
+        /// </summary>
+        public TutorialStageData CampaignStage;
+
         // ==================================================================
         //  🆕 2026-10-15（A383）：**这一局真正的模式号**（原版 `MatchData.playMode`）+
         //  由它派生的 `MatchType`（原版 `MatchData.matchType`）
@@ -1085,10 +1108,17 @@ namespace RuleEngine
         }
 
         /// <summary>
-        /// **常驻效果**（规则书英文版 `:39-41`「Persistent Effects」，中文版 `:32`）：
-        /// 写「For the rest of this battle」的卡**被弃置后依然生效**，规则书要求把这类卡
-        /// **单独放一摞**在弃牌堆旁边备查 —— 也就是说**卡本身就是效果来源**，
-        /// 所以这里存的是「谁 + 来源卡 + 触发时机 + 正文」，不是把效果烘成一个数。
+        /// **常驻效果**（卡面写 `For the rest of this battle, …` 的那一族）。
+        ///
+        /// 🔴 **2026-10-19（`A1955`）：判据换成原版、原句就地订正。** 原来这里写
+        /// 「规则书英文版 `:39-41`：这类卡**被弃置后依然生效**……**卡本身就是效果来源**」
+        /// —— 那两句**都不成立**：规则书是**粉丝实体版**（`Not official. Fan project.`），
+        /// 而原版（`d:/2/tools/decomp_full/`）**没有**「弃置后由那张牌自己继续生效」这条路：
+        /// 效果搬去**一张还活着的载体牌**（附魔 / `replaceAbility`），载体不在场就没了；
+        /// 弃牌堆**不在任何触发广播的遍历范围**里。完整判据 →
+        /// `EffectResolver.cs` 的 `DoPersist` 上方那段块注释（`A1950` 已逐条换过）。
+        /// ⇒ 我们这摞「谁 + 来源卡 + 触发时机 + 正文」是**自设计的替代结构**，
+        ///   与「没绑定的效果随载体继续有效」那一支结果一致。
         ///
         /// 由 `EffectResolver.DoPersist` 在**打出时**登记，`RuleCore.ResolveAtTurn` 在每个
         /// 回合的起/止按 `Owner == 当前行动方` 消费（我们上一版复刻 `rule_core.gd:431-435` 同一口径，⚠️ **旁证**）。
@@ -1097,7 +1127,7 @@ namespace RuleEngine
 
         /// <summary>
         /// **正在结算的是哪张卡**（由 `ResolveOps` 在入口写）。
-        /// 只有「常驻效果登记」用它 —— 规则书要求这类卡单独留档，得记来源。别处不看。
+        /// 只有「常驻效果登记」用它 —— 得记来源（日志/排查）。别处不看。
         /// </summary>
         public CardDef PlayingCard;
 
@@ -1587,6 +1617,27 @@ namespace RuleEngine
                                                  + " ⇒ `MatchType.Undefined`。要用它先把表补上。");
                     return MatchType.Undefined;
             }
+        }
+
+        /// <summary>🆕 2026-10-19（T11 · G-4）：原版 `BattleManager.IsCampaignLike`
+        /// （`BattleManager__IsCampaignLike.c:11-29`）—— **只有 `130 Campaign` 与 `190 Scene`** 为真。
+        /// 调用点（两处，都只读本方法）：`ResolveEndTurn` 的回合末附魔（`RuleCore.ResolveEndTurnEnchantment`）
+        /// · `CheckWinner` 的 `playerAlwaysWins`。
+        /// ⚠️ 它**不包含 140 TutorialReplay** —— `FirstSeatRules.cs` 里那个 `{130,140,190}` 是**另一个函数**的
+        ///    口径（`GetPlayerGoesFirst` 那一支），⛔ 别把两者合并。
+        /// </summary>
+        public static bool IsCampaignLike(MatchType t)
+        {
+            return t == MatchType.Campaign || t == MatchType.Scene;
+        }
+
+        /// <summary>🆕 2026-10-19（T11 · G-3）：原版 `BattleManager.IsTutorialMatch`
+        /// （`BattleManager__IsTutorialMatch.c:14-22`）—— `matchType ∈ {100 Tutorial, 140 TutorialReplay}`。
+        /// 调用点 = 回合开始抽牌 / 天赋那两条闸的**不对称**守卫（`dontDrawCard` 不查它、`dontDrawTalent` 查）。
+        /// </summary>
+        public static bool IsTutorialMatch(MatchType t)
+        {
+            return t == MatchType.Tutorial || t == MatchType.TutorialReplay;
         }
 
         /// <summary>🔴 🆕 **2026-10-19（`A1070`）：本局**真正生效**的 `matchType`** —— 对手是电脑时，

@@ -542,7 +542,7 @@ namespace CardPresentation
         ///    （`m_mesh` 是 `:584`）；
         /// ③ ⇒ ①排除「建的时候」⇒ 唯一触发点是**激活**（页签出厂 active、被 `ChangeTab` 关掉、再由 `Click(n)` 打开）
         ///    ⇒ **激活会跑 `Awake`，`OnEnable` 紧随其后**。
-        /// ⚠️ 与 `Shell/PointerLayer.cs:47` · `Shell/PromptPopup.cs` 的 `WindowButton` 类注 · `资料/已知的坑.md:704`
+        /// ⚠️ 与 `Shell/PointerLayer.cs:47` · `Shell/WindowButton.cs` 的 `WindowButton` 类注（⚠️ 2026-10-19 订正：原写 `Shell/PromptPopup.cs`）· `资料/已知的坑.md:704`
         /// 那三条**不矛盾**：它们说的是「**建的时候就是活的**那些脚本，编辑模式下 `OnEnable` 不会再触发」——
         /// `OnEnable` 只在**激活那一刻**跑。
         /// ⚠️ 拿不到字体资产（点阵后端）时 `_tmp == null` ⇒ 待办恒空。</para></summary>
@@ -775,7 +775,7 @@ namespace CardPresentation
         /// <para>⚠️ **只在这个函数里自增** —— `EnsureMeasured`（`WorldW/WorldH` 那条兜底兑现）**不算**：
         /// 那是「有人要真数」时的兑现，与「激活时补做」是两件事（要分开数才判得清）。</para>
         /// <para>⚠️ **批处理（编辑模式）下 `OnEnable` 不跑**（`Awake/OnEnable` 只对 `[ExecuteAlways]` 的脚本跑 ——
-        /// `资料/已知的坑.md:704` · `Shell/PromptPopup.cs` 的 `WindowButton` 类注 · `Shell/MainMenuRuntime.cs` 里那条「编辑模式下 `Awake` 不跑」 ·
+        /// `资料/已知的坑.md:704` · `Shell/WindowButton.cs` 的 `WindowButton` 类注（⚠️ 2026-10-19 订正：原写 `Shell/PromptPopup.cs`）· `Shell/MainMenuRuntime.cs` 里那条「编辑模式下 `Awake` 不跑」 ·
         /// `Shell/PointerLayer.cs:47-48` 四条独立记录），而本类**没有那个特性**）⇒ 自检里兑现点落在
         /// `RefreshBounds` 尾句 / `EnsureMeasured`；计数器读到的仍是「这一刀补过了」，只是补的人不是 `OnEnable`。</para></summary>
         public int PendingWrapAppliedCount { get; private set; }
@@ -1498,8 +1498,13 @@ namespace CardPresentation
             // 和点阵那条 `RebuildMesh` 里的 x0/y0 是**同一套规矩**，所以两条后端可以互换
             // 🔴 y 上再叠一项**字墨校正**（A712；口径与算式只写在 `SetVAlign` / `OurInkCenterWorld` 那两处）
             _vOffset = VOffsetWorldNow();
+            // 🔴 **2026-10-19（`A1538`）**：再叠一项 **margin 的可用区中心位移** ——
+            //    本函数按 `-b.min` 把「TMP 排在哪」重新摆正 ⇒ TMP 自己的 `m_margin` 对齐跳会被抹掉，
+            //    所以 `(left − right)/2` / `(bottom − top)/2` 必须在这里**显式**加回去（y 向上）。
+            //    margin 全 0（出厂）⇒ 这两项逐位为 0，全工程既有入口一个都不动。
             _tmp.rectTransform.localPosition =
-                new Vector3(-anchor.x * _tmpW - b.min.x, -anchor.y * _tmpH - b.min.y + _vOffset, 0f);
+                new Vector3(-anchor.x * _tmpW - b.min.x + (_margin.x - _margin.z) * 0.5f,
+                            -anchor.y * _tmpH - b.min.y + _vOffset + (_margin.w - _margin.y) * 0.5f, 0f);
 
             // 🆕 **2026-10-08（A225-②）**：**挪完再裁那一刀**。
             // 🔴 为什么必须有这一句：文字裁切（`MenuDraw.ClipText`，原版 `RectMask2D` 的等效物）是
@@ -1819,6 +1824,61 @@ namespace CardPresentation
         /// ⛔ **别改成现读 `_tmp.rectTransform.sizeDelta.y`**：那是「最后一次谁写过它」，不是「原版框高」。</summary>
         float _boxHFromAutoFit;
 
+        // ============================================================================================
+        // 🆕 **2026-10-19（账 `A1538`）—— TMP 的 `m_margin`（左/上/右/下，**本标签所在空间的单位**）。**
+        //
+        // **为什么要有它**：原版 `LeftArea/EnemyInfo/EnemyName/EnemyNameText` 那颗 TMP 的
+        //   `m_margin = (43.25634765625, 0, 70.57666015625, 0)`（`bundle_scenes_scenes_battlearena2 ▸
+        //   MonoBehaviour_4031.json` 现读；同件在 arena1 = `MonoBehaviour_3834.json`；两颗 TMP 文本
+        //   分别是 `Enemy name` / `Player name`，`m_VerticalAlignment` 都是 8192 = Capline、字体都是 Asar）。
+        //   那颗的父级还带 `m_LocalScale = 0.8` ⇒ 落到设计 px 是 `34.605 × 56.461`，中心左移
+        //   `(34.605 − 56.461)/2 = −10.928`）。我们以前**不实现 margin** ⇒ 只能把**中心**挪到
+        //   「margin 之后文字中心」那一处（`BattleDriver` 那笔近似，见它的 `EnemyPlateText` 注释）。
+        //
+        // **语义（逐条对齐 TMP）**：
+        //   · `x` = 左、`y` = 上、`z` = 右、`w` = 下（与 `TMP_Text.m_margin` 同序）；
+        //   · **可用区 = 框 − 四周 margin**（所以 `SetMargin` 会同步写 `_tmp.margin`：
+        //     TMP 的 `m_marginWidth/Height` 由它算，**自适应二分**用的就是那两个数）；
+        //   · **文字落点 = 可用区的中心**（本类自己按 `(left−right)/2` / `(bottom−top)/2` 平移 ——
+        //     `RefreshBounds` 会把 TMP 内部的任何对齐重新摆正，所以那一跳必须显式加）。
+        //
+        // ⚠️ `SetMargin` 要排在 `SetAutoFitBox` 之后（或之后会再被 `ForceMeshUpdate` 重算一遍）——
+        //   两者都只是写字段 + 置脏，真正收敛在 `ForceMeshUpdate`/`ForceRelayout` 那一拍。
+        // ⚠️ 点阵后端没有 margin 这回事 ⇒ **出声后返回**（红线：不许静默失败）。
+        // ============================================================================================
+        [SerializeField] Vector4 _margin;                    // (left, top, right, bottom) · 本标签所在空间的单位
+
+        /// <summary>当前 margin（**画布 px**：世界档 × 108、uGUI 档原值）—— **自检 / 诊断用**。
+        /// 与 <see cref="SetMarginPx"/> 同一套量纲。</summary>
+        public Vector4 MarginPx
+        {
+            get { return _margin * PxPerUnit; }
+        }
+
+        /// <summary>按**画布 px** 设 TMP 的 `m_margin`（顺序 = 左 · 上 · 右 · 下）。量纲/出处见 `_margin` 字段那一段。
+        /// <para>⚠️ 点阵后端：出声后返回（一个字段都不写 —— 读回仍是 0）。</para></summary>
+        public void SetMarginPx(float left, float top, float right, float bottom)
+        {
+            float k = PxPerUnit;
+            SetMargin(new Vector4(left / k, top / k, right / k, bottom / k));
+        }
+
+        /// <summary>按**本标签所在空间**的单位设 TMP 的 `m_margin`（顺序 = 左 · 上 · 右 · 下）。
+        /// 世界档 = 世界单位 · uGUI 档 = 设计 px。</summary>
+        public void SetMargin(Vector4 margin)
+        {
+            if (_tmp == null)
+            {   // 点阵后端没有行盒/边距这回事 —— 出声，不写字段（读回如实报 0）
+                NoteDotBackendLacks("边距", "没有「框内边距」这回事",
+                                    "margin (" + margin.x + "," + margin.y + "," + margin.z + "," + margin.w + ")",
+                                    "没生效（这一档的文字仍按点阵那块矩形居中）");
+                return;
+            }
+            _margin = margin;
+            _tmp.margin = margin;       // TMP 的 `m_marginWidth/Height` 由它算 ⇒ 自适应二分跟着缩
+            ForceRelayout();            // 边距改了 ⇒ 版面/字号都要重收敛一次（批处理没有帧循环）
+        }
+
         /// <summary>最近一次 <see cref="RefreshBounds"/> 真正施加的垂直位移（世界单位，向上为正）。</summary>
         float _vOffset;
 
@@ -2055,8 +2115,10 @@ namespace CardPresentation
         {
             var m = _vFace == OrigFace.Asar ? Asar : Pragati;
             float boxHpx = 0f;
-            if (_vBoxH > 0f) boxHpx = _vBoxH * PxPerUnit;
-            else if (_boxHFromAutoFit > 0f) boxHpx = _boxHFromAutoFit * PxPerUnit;
+            // 🔴 2026-10-19（A1538）：可用区 = 框 − 上下 margin（TMP 的 `marginHeight` 同一个口径）
+            float boxHLocal = _vBoxH > 0f ? _vBoxH : (_boxHFromAutoFit > 0f ? _boxHFromAutoFit : 0f);
+            if (boxHLocal > 0f)
+                boxHpx = Mathf.Max(0f, boxHLocal - _margin.y - _margin.w) * PxPerUnit;
             VAlign tier = _vTier;
             if ((tier == VAlign.Bottom || tier == VAlign.Top) && !(boxHpx > 0f))
             {
@@ -2067,7 +2129,8 @@ namespace CardPresentation
                 tier = VAlign.Middle;
             }
             return OrigInkCenterPx(tier, m, FontPxNow, boxHpx) / PxPerUnit - OurInkCenterWorld()
-                   - VOffsetBlockWorld();
+                   - VOffsetBlockWorld()
+                   + (_margin.w - _margin.y) * 0.5f;   // 🔴 A1538：可用区中心相对框心的纵向位移（y 向上）
         }
 
         /// <summary>设**垂直档**（= 原版那一颗的 `m_VerticalAlignment`），并把**字墨**摆到原版那一档的位置上。

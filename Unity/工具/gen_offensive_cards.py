@@ -5,6 +5,7 @@ gen_offensive_cards.py — 「进攻卡（= 环境效果卡）数据表」生成
 
 用法（本项目惯例）：
     PYTHONIOENCODING=utf-8 "D:/2/Warpforge_tools/py312/python.exe" d:/4/Unity/工具/gen_offensive_cards.py
+    加 `--dry` = 只跑计算、打印读数、**零写盘**（默认行为不变；`A1648` 同族口径）。
 
 只读（绝不写 d:/2/）：
   ① d:/4/Unity/素材/Warpforge原版/游戏数据/去重定义/MonoBehaviour/EnvironmentalEffectCardsSO.json
@@ -56,6 +57,9 @@ import os
 import re
 import struct
 import sys
+
+# 🔴 `--dry` = 只跑计算、打印读数、**零写盘**。默认（不带它）行为与以前完全一样。
+DRY = "--dry" in sys.argv[1:]
 
 # ------------------------------------------------------------------ 路径常量
 
@@ -687,10 +691,13 @@ def main():
         tally[q] = tally.get(q, 0) + 1
     out["stats"]["nulls_per_field"] = dict(sorted(tally.items()))
 
-    os.makedirs(os.path.dirname(OUT_JSON), exist_ok=True)
-    with io.open(OUT_JSON, "w", encoding="utf-8", newline="\n") as fh:
-        json.dump(out, fh, ensure_ascii=False, indent=1)
-        fh.write("\n")
+    if DRY:
+        print("干跑（未写盘）：%s" % OUT_JSON)
+    else:
+        os.makedirs(os.path.dirname(OUT_JSON), exist_ok=True)
+        with io.open(OUT_JSON, "w", encoding="utf-8", newline="\n") as fh:
+            json.dump(out, fh, ensure_ascii=False, indent=1)
+            fh.write("\n")
 
     # ---- ⑨ 打印
     print("=== gen_offensive_cards ===")

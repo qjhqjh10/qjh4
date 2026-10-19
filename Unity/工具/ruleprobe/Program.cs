@@ -149,7 +149,26 @@ class Program
     //   ③ 基线按 `scan` 重生成后，`check` 现读 **解析差异 0 行 · 改名 0 · 新增 0 · 消失 0**。
     //   ⛔ **不是把红抹平**：抹平的定义是「真差异被基线吞掉」；这里三条指纹+上面那份按名对齐的证明互相独立。
     //   ⚠️ 本趟**没跑** `RuleEngineTest.Run`（现行「只做不验」口径）—— 确认依据是 ②，不是旧惯例里的那一句。
-public const string PinnedPoolMd5 = "d134413baefd749b87244e23d0e0d09b";
+    // 🔴 **2026-10-19（第五十六会话 · `A1973` 收口重钉）三个指纹一起钉 —— 依据见下，⛔ 不是为了把红抹平。**
+    //   ① 解析侧 **18 行差异 + 3 张「改名且解析同时变」**，逐条归因（**全部**来自第五十五会话已核销的活）：
+    //      · `Talent:` 桥 5 张（`AM15` `DA1` `GOF87` `GOF77` `SW1`）= `A2142`（E12）；
+    //      · `choicesDefinition → choosecard/specific` 6 张（`BL4` `BL13` `BL37` `BL38` `141c5ed6` `BL57`）
+    //        = `A1959`/`A1960`（E9/E12）；
+    //      · `DeadScope` 标记 5 行（`EC39` `GSC44` `SAU39` `SOR42` `UM61`）= `A1568②`（E8，
+    //        账上原话就是「实测 5 行不是 3 行」）；
+    //      · `equal to the number of cards in the enemy hand` 抬成 `AmountRef` 2 张
+    //        （`GSC35` `GSC59`）= `A2001`（E9）；
+    //      · `TL16` = 本会话 `A2000`（`this card` 认成施放者自己）；`GOF12` = E10 按 SO 的 5 项落地；
+    //        `SW38` = 卡面补了 `Your Warlord has Armour 2`（数据侧）。
+    //      另有 **63 行「改名」**（卡名规范化产物，`DefOf` 逐字节相同）—— 其中 3 张同时带解析变动
+    //      （`BL37`/`GOF12`/`SW38`，归因同上）。
+    //   ② 结算侧 **主档 15 张** = `AM58`（`A1571` draw+autoPlay）· `BL38`（choose 注入）·
+    //      `BL55`/`SW57`（`A1571` autoPlay）· `GOF77`/`GOF87`/`SW1`（`A2142`）· `GOF93`（`A2143`，E12）·
+    //      `GSC35`/`GSC59`/`SOR14`（`A2001`/E9）· `SW38`（卡面）· `TL37`/`TL49`/`TL8`（E8/E9 同批引擎改动，
+    //      E8b `§5·2` 已把后 13 张逐张列过）。
+    //   ③ **电池 586 行全变** = `A1965` 事件电池新增 6 步（E8）—— 输出格式的有意扩展，不是行为漂移。
+    //   ④ 本趟**没有**新增未归因差异：重生成后 `check` 现读 **解析差异 0 行 · 改名 0 · 新增 0 · 消失 0**。
+    public const string PinnedPoolMd5 = "41fc875129bc4d57df976adfe63adc22";
 
     /// <summary>钉住的基线内容指纹（`工具/ruleprobe/基线/out_baseline.txt` 的 md5，**按字节**）。
     /// 与上面那个配对使用 —— 判据见上面那段长注释。</summary>
@@ -171,7 +190,9 @@ public const string PinnedPoolMd5 = "d134413baefd749b87244e23d0e0d09b";
     // 🔴 **2026-10-18（`K06`）有意重钉** —— 与 `PinnedPoolMd5` 同一批、同一份判据；
     //    `scan` 重生成后基线读数为 **1,122 行**（旧 1,120 —— 那个 +1 是**迁移前就存在**的漂移：
     //    用 HEAD 卡池跑 `check` 同样是「新增 213 / 消失 212」，不是本次引入的）。
-    public const string PinnedBaselineMd5 = "9e98a4962b7cf3282e8070595f7ae912";
+    // 🔴 **2026-10-19（`A1973` 收口重钉）** —— 与 `PinnedPoolMd5` 同一批、同一份归因（见那上面那段）；
+    //    基线由 `scan` 重生成后现读 md5，逐行照抄。
+    public const string PinnedBaselineMd5 = "16714e8f24ad81c76823d2e05bcb5f42";
 
     /// <summary>🆕 **解析输出指纹**（`A1382` **一般情形**的堵法，2026-10-12 第二十一会话 · 写手 `E5`）
     /// —— 「`check` 的判据是『与**基线文件**比』，而**基线文件同一个工具就能重写**」这条洞的机器级补丁。
@@ -222,7 +243,10 @@ public const string PinnedPoolMd5 = "d134413baefd749b87244e23d0e0d09b";
     //    且 `RuleEngineTest.Run` **5386 / 5386 全过**（②）。值由 `check` 的 ⑦ 现打、整行照抄。
     // 🔴 **2026-10-18（`K06`）有意重钉** —— 与上面两个同一批；判据 = `PinnedPoolMd5` 上面那段 ②
     //    （按卡名对齐后 1,118 个名字 0 处差异 ⇒ 只有 id 列变了）。值由 `check` 的 ⑦ 现打、整行照抄。
-    public const string PinnedParseMd5 = "a28da8e3eac8c3296495828dcb57de52";
+    // 🔴 **2026-10-19（`A1973` 收口重钉）** —— 与 `PinnedPoolMd5` 同一批、同一份逐条归因
+    //    （18 行解析差异：Talent 桥 5 · choicesDefinition 6 · DeadScope 5 · AmountRef 2 · TL16 1，
+    //    另 3 张「改名且解析变」已并进上面那几族）。值由 `check` 的 ⑦ 现打、整行照抄。
+    public const string PinnedParseMd5 = "f06831f4306fcb48e59e05e86ecc81ab";
 
     /// <summary>一个文件的 md5（按字节；读不到返回 `null` —— ⛔ 不静默当成空串）。</summary>
     public static string Md5File(string path)

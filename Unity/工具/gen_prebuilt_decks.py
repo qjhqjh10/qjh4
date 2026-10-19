@@ -3,6 +3,7 @@
 
 跑法：
     python d:/4/Unity/工具/gen_prebuilt_decks.py
+    加 `--dry` = 只跑计算、打印读数、**零写盘**（默认行为不变；`A1648` 同族口径）。
 
 产出（覆盖写，可重跑）：
     d:/4/Unity/MyGame/Assets/RuleEngine/Resources/prebuilt_decks.json   预组页那一池（103 副）
@@ -52,6 +53,9 @@ import os
 import re
 import sys
 from collections import Counter, defaultdict
+
+# 🔴 `--dry` = 只跑计算、打印读数、**零写盘**。默认（不带它）行为与以前完全一样。
+DRY = "--dry" in sys.argv[1:]
 
 D = "d:/4/Unity/数据/游戏数据"
 POOL = "d:/4/Unity/MyGame/Assets/RuleEngine/Resources/cards_engine.json"
@@ -104,6 +108,59 @@ CARDBACK_SUBSTITUTE = {
     "Cardback_ASH_Warlord_Anvirr": "Cardback_ASH_Warlord_Ghaelyn",
 }
 
+# 🔴 **练习窗 `Lore Text` 的卡组简介键**（`DemoDeckInfoSO.loreLocalizationKey`）—— deckId → 官方词条键。
+#   判据（2026-10-19 界面线 P05 现解，可复跑）：
+#     · 源 = 84 份 `Demo DeckInfo` SO（`d:/2/新解包资源/assets_full/bundle_menus_assets_all/MonoBehaviour/`
+#       82 份 + `bundle_duplicateassetisolationso_assets_all/MonoBehaviour/` 2 份），每份两个 PPtr：
+#       `classicDeck` / `skirmishDeck` + 一个 `loreLocalizationKey`；
+#     · 把 PPtr 落到 `prebuiltdecks_assets_all.bundle`（UnityPy 读真包
+#       `d:/2/unity_run_ref/Warpforge_Data/StreamingAssets/aa/StandaloneWindows64/`）拿到目标 SO 的
+#       `deckId`，再与 `decklists.json` 的 103 副练习池按 `deckId` 对上；
+#     · 78/103 副命中（其余 25 副是 Demo DeckInfo 之后新增的卡组，**本地没有 lore** ⇒ 留空，运行时出声）；
+#       55 个不同键在当前官方表（10,854 条）里**全部命中**（en/zh 非空）。
+#   ⚠️ 同一个 Demo DeckInfo 的经典/遭遇两副**共用一条 lore**（原版一个 SO 一个 `loreLocalizationKey`）。
+DEMO_LORE_KEY = {
+    "AM_SK_1": "Demo/AstraMilitarumDeck1", "AM_SK_2": "Demo/AstraMilitarumDeck3",
+    "AM_SK_3": "Demo/AstraMilitarumDeck6", "ASH_SK_1": "Demo/AeldariDeck2",
+    "ASH_SK_2": "Demo/AeldariDeck4", "ASH_SK_3": "Demo/AeldariDeck1",
+    "AeldariDeck1": "Demo/AeldariDeck1", "AeldariDeck2": "Demo/AeldariDeck2",
+    "AeldariDeck4": "Demo/AeldariDeck4", "AstraMilitarumDeck1": "Demo/AstraMilitarumDeck1",
+    "AstraMilitarumDeck3": "Demo/AstraMilitarumDeck3", "AstraMilitarumDeck5": "Demo/AstraMilitarumDeck5",
+    "BL_SK_1": "Demo/BLDeck2", "BL_SK_2": "Demo/BLDeck3",
+    "BL_SK_3": "Demo/BLDeck1", "BlackLegionDeck1": "Demo/BLDeck1",
+    "BlackLegionDeck2": "Demo/BLDeck2", "BlackLegionDeck3": "Demo/BLDeck3",
+    "BlackLegionDeck5": "Demo/BLDeck5", "DA_SK_1": "Demo/DarkAngelsDeck5",
+    "DA_SK_2": "Demo/DarkAngelsDeck3", "DA_SK_3": "Demo/DarkAngelsDeck4",
+    "DarkAngelsDeck1": "Demo/DarkAngelsDeck1", "DarkAngelsDeck3": "Demo/DarkAngelsDeck3",
+    "DarkAngelsDeck5": "Demo/DarkAngelsDeck5", "EC_SK_1": "Demo/EmperorsChildrenDeck3",
+    "EC_SK_2": "Demo/EmperorsChildrenDeck4", "EC_SK_3": "Demo/EmperorsChildrenDeck5",
+    "EmperorsChildrenDeck1": "Demo/EmperorsChildrenDeck1", "EmperorsChildrenDeck3": "Demo/EmperorsChildrenDeck3",
+    "EmperorsChildrenDeck5": "Demo/EmperorsChildrenDeck5", "GSC_SK_1": "Demo/GenestealerCultsDeckDescription1",
+    "GSC_SK_2": "Demo/GenestealerCultsDeckDescription3", "GSC_SK_3": "Demo/GenestealerCultsDeckDescription6",
+    "GenestealersDeck2": "Demo/GenestealerCultsDeckDescription2", "GenestealersDeck4": "Demo/GenestealerCultsDeckDescription4",
+    "GenestealersDeck5": "Demo/GenestealerCultsDeckDescription5", "LeviathanDeck1": "Demo/LeviathanDeck1",
+    "LeviathanDeck3": "Demo/LeviathanDeck3", "LeviathanDeck4": "Demo/LeviathanDeck5",
+    "ORK_SK_1": "Demo/GoffDeck1", "ORK_SK_2": "Demo/GoffDeck2",
+    "ORK_SK_3": "Demo/GoffDeck5", "OrksDeck2": "Demo/GoffDeck2",
+    "OrksDeck4": "Demo/GoffDeck4", "OrksDeck5": "Demo/GoffDeck5",
+    "SAU_SK_1": "Demo/SautekhDeckDescriptionRelentless", "SAU_SK_2": "Demo/SautekhDeckDescriptionEldritch",
+    "SAU_SK_3": "Demo/SautekhDeckDescriptionDestroyer", "SOR_SK_1": "Demo/SororitasDeckDescription1",
+    "SOR_SK_2": "Demo/SororitasDeckDescription2", "SOR_SK_3": "Demo/SororitasDeckDescription6",
+    "SW_SK_1": "Demo/SpaceWolvesDeck1", "SW_SK_2": "Demo/SpaceWolvesDeck3",
+    "SW_SK_3": "Demo/SpaceWolvesDeck5", "SautekhDeck1": "Demo/SautekhDeckDescriptionRelentless",
+    "SautekhDeck2": "Demo/SautekhDeckDescriptionEldritch", "SororitasDeck1": "Demo/SororitasDeckDescription1",
+    "SororitasDeck4": "Demo/SororitasDeckDescription4", "SororitasDeck5": "Demo/SororitasDeckDescription5",
+    "SpaceWolvesDeck1": "Demo/SpaceWolvesDeck1", "SpaceWolvesDeck3": "Demo/SpaceWolvesDeck3",
+    "SpaceWolvesDeck5": "Demo/SpaceWolvesDeck5", "TAU_SK_1": "Demo/TauEmpireDeckDescription2",
+    "TAU_SK_2": "Demo/TauEmpireDeckDescription4", "TAU_SK_3": "Demo/TauEmpireDeckDescription5",
+    "TL_SK_1": "Demo/LeviathanDeck1", "TL_SK_2": "Demo/LeviathanDeck2",
+    "TL_SK_3": "Demo/LeviathanDeck3", "TauEmpireDeck2": "Demo/TauEmpireDeckDescription2",
+    "TauEmpireDeck3": "Demo/TauEmpireDeckDescription3", "TauEmpireDeck6": "Demo/TauEmpireDeckDescription6",
+    "UMDeck1": "Demo/UMDeck1", "UMDeck4": "Demo/UMDeck4",
+    "UMDeck5": "Demo/UMDeck5", "UM_SK_1": "Demo/UMDeck3",
+    "UM_SK_2": "Demo/UMDeck2", "UM_SK_3": "Demo/UMDeck8",
+}
+
 # 🔴 **已知「名字对得上、图本地没有」的卡背**（多出来任何一条 ⇒ 生成器断言会炸，回来看看）。
 #    ✅ **2026-09-26：清空了** —— 原来那 6 条里 5 条按命名规律接上了别名、1 条找了同阵营替身
 #       （见上面两张表）。当时留着的理由写的是「**只影响当前不显示的那些副**」，
@@ -113,7 +170,8 @@ KNOWN_NO_ART = set()
 OUT = "d:/4/Unity/MyGame/Assets/RuleEngine/Resources/prebuilt_decks.json"
 
 # 产物格式版本：字段有增减就 +1（C# 侧会读它，见 PrebuiltDecks.cs）
-FORMAT = 1
+# 🔴 2026-10-19（界面线 P05）：+1 → **2** —— `prebuilt_decks.json` 每副新增 `loreKey`（练习窗 `Lore Text`）。
+FORMAT = 2
 
 # ============================================================ 教程 6 关那 12 副（B6 · 2026-10-17）
 # 教程牌 SO（**只读** `d:/2`，铁律 2）。这 12 个文件的 `m_Name` 就是 `…_Deck0_Tutorial{N}_{督军}`。
@@ -675,6 +733,10 @@ def main():
             continue
         # 🔴 逐张按 `cardIds` 的原始顺序解析，**不重排、不分组**（`resolve_cards` 的 docstring）。
         x = make_entry(d, ctx, "practice")
+        # 🆕 **2026-10-19（界面线 P05）**：练习窗 `Lore Text` 的官方词条键（见 `DEMO_LORE_KEY` 头注释）。
+        #    ⚠️ 只给**练习池**加（教程那 12 副走另一份产物、演练窗也不显示它们）；
+        #    没有 Demo DeckInfo 的 25 副留空串（本地确实没有 lore，⛔ 不编）。
+        x["loreKey"] = DEMO_LORE_KEY.get(d["deckId"], "")
         out_decks.append(x)
         stats["total"] += 1
         stats["complete"] += 1 if x["complete"] else 0
@@ -696,6 +758,9 @@ def main():
     assert not unknown, "这些阵营不在 CardArmy 枚举里（排序会错）：%s" % unknown
     no_def = sorted({d["faction"] for d in decks if d.get("isPractice") == 1} - set(defpick))
     assert not no_def, "这些阵营没有防御卡可挑（补卡池或改规则）：%s" % no_def
+    # 🆕 2026-10-19（界面线 P05）：lore 映射表必须**逐条**落在练习池里（拼错/池子改名 ⇒ 炸，不静默丢键）
+    stale_lore = sorted(set(DEMO_LORE_KEY) - {x["deckId"] for x in out_decks})
+    assert not stale_lore, "DEMO_LORE_KEY 里有不在练习池的 deckId（映射过期或拼错）：%s" % stale_lore
     missing_art = {x["cardback"] for x in out_decks if x["cardback"] and x["cardback"] not in have_cb}
     assert missing_art <= KNOWN_NO_ART, "多出没图的卡背：%s" % sorted(missing_art - KNOWN_NO_ART)
 
@@ -707,20 +772,30 @@ def main():
         deckCount=len(out_decks),
         decks=out_decks,
     )
-    with open(OUT, "w", encoding="utf-8", newline="\n") as f:
-        json.dump(doc, f, ensure_ascii=False, indent=1)
+    if DRY:
+        print("干跑（未写盘）：", OUT)
+    else:
+        with open(OUT, "w", encoding="utf-8", newline="\n") as f:
+            json.dump(doc, f, ensure_ascii=False, indent=1)
 
     # ---- 教程那 12 副（**另一份产物**，见 `build_tutorial`）--------------------
     tut_doc, tut_used, tut_bad, tut_hero = build_tutorial(ctx, decks)
-    with open(TUT_OUT, "w", encoding="utf-8", newline="\n") as f:
-        json.dump(tut_doc, f, ensure_ascii=False, indent=1)
+    if DRY:
+        print("干跑（未写盘）：", TUT_OUT)
+    else:
+        with open(TUT_OUT, "w", encoding="utf-8", newline="\n") as f:
+            json.dump(tut_doc, f, ensure_ascii=False, indent=1)
 
     # 控制台用 ASCII，别打 emoji（Windows 控制台 GBK）
-    print("wrote", OUT)
+    if not DRY:
+        print("wrote", OUT)
     print("practice=%d complete=%d classic=%d classic_complete=%d no_cardback=%d hero_missing=%d"
           % (stats["total"], stats["complete"], stats["classic"],
              stats["classic_complete"], stats["no_cardback"], stats["hero_missing"]))
-    print("wrote", TUT_OUT)
+    print("loreKey=%d/%d（其余 %d 副本地无 Demo DeckInfo ⇒ 空串）"
+          % (sum(1 for x in out_decks if x["loreKey"]), len(out_decks),
+             sum(1 for x in out_decks if not x["loreKey"])))
+    print("wrote" if not DRY else "dry-run（未写盘）", TUT_OUT)
     print("tutorial stages=%d decks=%d complete=%d"
           % (tut_doc["stageCount"], len(tut_used),
              sum(1 for s in tut_doc["stages"] for r in ("player", "ai") if s[r]["complete"])))

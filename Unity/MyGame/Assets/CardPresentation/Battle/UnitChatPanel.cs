@@ -41,6 +41,14 @@
 //    ✅ **仍然成立的那一半（是真话，别一起删）** = **下面紧接着那两行「文本层」**：
 //      原版**文件名只给后缀集合、给不了台词文本** ⇒ 「显示文件名里的台词 / 只剩事件后缀时显示卡名」
 //      **是【我们挑的】**（如实标着，不是判据）。原文保留在下面。
+//    🔴🔴 **2026-10-19（战斗线 `T17`）就地订正（铁律 5 · 账 `A1754`/`A1805`）：下面那两行「文本层」【已过期】。**
+//      · 原文：「普通单位那条台词原文**就在文件名里**……督军那种只有事件后缀的**没有文本可用**」
+//        —— **不成立**：原版**显示的文字**来自官方 I2 词条 `Chat_Messages/*`（2026-10-14 已解出、在本地表里，
+//        中英两列都有），出处 = `RawCardScript__GetLocalizedSummonChat.c`（`Chat_Messages/<卡id>`）与
+//        `RawCardScript__GetLocalizedChatMsg.c`（`Chat_Messages/<战将id>-Chat<枚举号>`）。
+//      · 现在的口径：**官方词条优先**（`Speak` 里 `ChatTermKey` → `Loc.T`），`voice_lines.json` 里
+//        「从音频文件名抠的英文」**降为兜底**（官方表缺键时用，⛔ 不自译）；两者都没有才显示卡名。
+//      · 下面那段原文**留着当留痕**（它描述的兜底形状今天仍然存在，只是不再是第一来源）。
 //    文本层：普通单位那条台词原文**就在文件名里**（`VO_…_<卡名> - <台词> (配音演员).ogg`），
 //    我们把它显示出来；督军那种只有事件后缀的（`…_attack.ogg`）**没有文本可用** ⇒ 退而显示**卡名**（我们的选择）。
 // ═════════════════════════════════════════════════════════════════════════════
@@ -233,6 +241,12 @@ namespace CardPresentation
         public string LastClipName { get; private set; }
         /// <summary>自检用：音频**取到了没有**（批处理里放不出声，但能断言「挂上去了」）</summary>
         public bool LastClipLoaded { get; private set; }
+        /// <summary>🆕 2026-10-19（`T17`）自检用：这一条台词用的**官方词条键**
+        /// （`null` = 原版没有这一档 / 没有卡 id ⇒ 走的 voice_lines 兜底）。</summary>
+        public string LastChatTerm { get; private set; }
+        /// <summary>🆕 2026-10-19（`T17`）自检用：这一条台词的文本**是不是官方词条给的**
+        /// （`false` = 官方表缺这条键 ⇒ 回 `voice_lines.json` 的英文兜底）。</summary>
+        public bool LastChatFromOfficial { get; private set; }
 
         /// <summary>**现在有没有语音正在播** —— 原版 `VoiceLinesController.IsAnyVoiceLinePlaying()`。
         /// 🔴 **这是原版插播的闸门**：`BattleTipController.NotifyCantDoAction` 只在**没有语音在播**时才插播
@@ -572,14 +586,86 @@ namespace CardPresentation
             Move(b.text, left + TextLeft, topPx + TextCy, ZText, at.ax, at.ay);
         }
 
+        // ==================================================================
+        //  🆕 **2026-10-19（战斗线 `T17` · 账 `A1754`/`A1805`）：台词文本的【官方来源】= `Chat_Messages/*`**
+        //
+        //  原版判据（`d:/2/tools/decomp_full/`，逐句实读）：
+        //   · **出场/召唤**：`RawCardScript__GetLocalizedSummonChat.c` = `GetTranslation("Chat_Messages/" + <卡 id>)`
+        //     （`param_1 + 0x38`；`+0x168` 非空时用它 —— 两个都是原版的 id 字段）。
+        //   · **聊天（督军）**：`RawCardScript__GetLocalizedChatMsg.c` = `GetTranslation("Chat_Messages/" + <战将 id>
+        //     + "-Chat" + 枚举号)`；枚举 `ChatMessage { Intro=0, MirrorMatch=1, Bored=2, ICantDoThat=3, Concede=4,
+        //     Greet=5, Threat=6, WellPlayed=7, Taunt=8, Sorry=9, Oops=10 }`
+        //     （`Warpforge_code/Scripts/Assembly-CSharp/ChatMessage.cs` 逐条照抄）。
+        //     `VoiceLinesPopupSelector__SetupChatOptions.c:54,112` **写死起点 5、按按钮下标 +1**
+        //     ⇒ 6 颗钮 = `-Chat5` … `-Chat10`（两处独立证实）。
+        //   · 官方表 `Chat_Messages/*` **中英两列都在本地**（`数据/游戏数据/官方本地化_en+zh-CN.json`；
+        //     2026-10-18 并入后现读 1,736 条）⇒ **不需要自译**（`A1754` 那句「要自译 1844 条」**已过期**）。
+        //   · 取值走 `Loc.T`（三档：手写 `Table` → 数据面 bulk → 官方全表；缺键返回**键名本身** + 出声）。
+        //  ⚠️ `voice_lines.json` 的英文（从音频文件名抠的）**保留当兜底** —— 那也是原版英文原文，不是我们译的；
+        //     `attack` / `death` / 教程脚本那几档**原版没有聊天词条**（普通单位只有一条出场台词），
+        //     ⇒ 那些事件仍走兜底（`ChatTermSuffix` 返回 `null`）。
+        // ==================================================================
+
+        /// <summary>官方聊天词条的键前缀（拼法逐字照 `RawCardScript.GetLocalizedSummonChat/GetLocalizedChatMsg`）。</summary>
+        public const string ChatTermPrefix = "Chat_Messages/";
+
+        /// <summary>事件名 → 原版 `ChatMessage` 枚举号的**键后缀**；`null` = 原版**没有**这一档聊天词条
+        /// （`Attack` / `Death` / 教程脚本那几档 —— 原版只有「出场台词」与「督军聊天」两类）。
+        /// <para>⚠️ 键名里的 `evt` 是本工程的字符串（调用点在 `BattleDriver`）：
+        /// `Deploy`（出场）· `Intro`/`Concede`/`CantDo`/`Hurry`（督军那四档）· `Chat0…Chat5`（6 颗聊天钮）。</para></summary>
+        public static string ChatTermSuffix(string evt)
+        {
+            if (string.IsNullOrEmpty(evt)) return null;
+            switch (evt)
+            {
+                case "Deploy":  return "";        // 裸卡 id（原版 `GetLocalizedSummonChat`）
+                case "Intro":   return "-Chat0";  // ChatMessage.Intro = 0
+                case "Mirror":  return "-Chat1";  // ChatMessage.MirrorMatch = 1
+                case "Hurry":   return "-Chat2";  // ChatMessage.Bored = 2
+                case "CantDo":  return "-Chat3";  // ChatMessage.ICantDoThat = 3
+                case "Concede": return "-Chat4";  // ChatMessage.Concede = 4
+            }
+            if (evt.StartsWith("Chat", System.StringComparison.Ordinal))
+            {
+                int idx;
+                if (int.TryParse(evt.Substring(4), out idx) && idx >= 0 && idx < 6)
+                    return "-Chat" + (5 + idx);   // Greet=5 … Oops=10（起点 5 写死，判据见上面那段）
+            }
+            return null;
+        }
+
+        /// <summary>这一句的**官方词条键**（`null` = 原版没有这一档 / 没有卡 id）。
+        /// <paramref name="overrideSuffix"/> 非 null 时**压过**按事件推出来的后缀 —— 只给
+        /// 「同一事件有两条原版键」那一档用（今天只有开场白：普通 `Intro` = `-Chat0`、同督军对局 `Mirror` = `-Chat1`）。</summary>
+        public static string ChatTermKey(string cardId, string evt, string overrideSuffix = null)
+        {
+            if (string.IsNullOrEmpty(cardId)) return null;
+            string suffix = overrideSuffix ?? ChatTermSuffix(evt);
+            return suffix == null ? null : ChatTermPrefix + cardId + suffix;
+        }
+
+        /// <summary>取这一句的**官方文本**；取不到 ⇒ `null`（`term` 仍给出查询用的键）。
+        /// <para>⚠️ **缺键不再喊第二遍**：`Loc.T` 自己会 `Debug.LogWarning`（按键去重）并返回键名本身 ⇒
+        /// 本口只把「返回的是键名」翻译成 `null`，调用方回 `voice_lines` 兜底（⛔ 不自译）。</para></summary>
+        public static string OfficialChatText(string cardId, string evt, string overrideSuffix, out string term)
+        {
+            term = ChatTermKey(cardId, evt, overrideSuffix);
+            if (term == null) return null;
+            string v = Loc.T(term);
+            return string.IsNullOrEmpty(v) || v == term ? null : v;
+        }
+
         /// <summary>
         /// 说一句。<paramref name="side"/> = **0 我方 / 1 敌方 / 2 `RadioChat`**（编号判据 → `_radio` 的注释）。
         /// <paramref name="artKey"/> = 立绘键（`BattleDriver.ArtKey`，**判据只此一处**）；
         /// <paramref name="text"/> 为空时退回显示 <paramref name="fallbackName"/>（卡名）。
         /// <paramref name="clip"/> 为 null = 这张卡没语音（那就不该调用本方法）。
+        /// <paramref name="chatSuffix"/> 非 null 时压过「按事件推的后缀」（只有开场白那档会传，见 <see cref="ChatTermKey"/>）。
+        /// <para>🆕 2026-10-19（`T17`）：显示文本**官方词条优先**（`Chat_Messages/*`），
+        /// `text`（voice_lines 的英文）降为兜底 —— 判据见上面那一大段。</para>
         /// </summary>
         public void Speak(int side, string cardId, string evt, string artKey, string fallbackName,
-                          string text, AudioClip clip, string clipFile = null)
+                          string text, AudioClip clip, string clipFile = null, string chatSuffix = null)
         {
             var b = BubbleFor(side);
             if (b == null) return;
@@ -589,6 +675,10 @@ namespace CardPresentation
             _left = Duration(clip);
             LastCardId = cardId; LastEvent = evt; LastClipName = clipFile;
             LastClipLoaded = clip != null;
+            string chatTerm;
+            string official = OfficialChatText(cardId, evt, chatSuffix, out chatTerm);
+            LastChatTerm = chatTerm;
+            LastChatFromOfficial = official != null;
 
             if (b.portrait != null)
             {
@@ -607,7 +697,9 @@ namespace CardPresentation
 
             if (b.text != null)
             {
-                string shown = string.IsNullOrEmpty(text) ? (fallbackName ?? "") : text;
+                // 🆕 2026-10-19（`T17`）：**官方词条优先**（`Chat_Messages/*`）→ voice_lines 的英文 → 卡名。
+                //   三个来源都不是我们译的：官方两列是原版 I2 表；voice_lines 的 text 是从原版音频文件名抠的英文。
+                string shown = official ?? (string.IsNullOrEmpty(text) ? (fallbackName ?? "") : text);
                 b.text.SetText(shown);
                 // 字号：**照原版那个 `m_fontSize = 33`**。
                 // 🔴 2026-09-25 更正：原来英文走的是 `SetCapHeight(33 × 0.72 / 108)`（按「拉丁大写 ≈ 0.72 em」折），

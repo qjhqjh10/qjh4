@@ -223,14 +223,17 @@ namespace WarpforgeVFX
         public static readonly Dictionary<string, string> Replacements = new Dictionary<string, string>
         {
             // 自定义 ShaderGraph shader —— 源码被剥离，自建替代
-            // 🔴 **2026-10-19：运行时正常态已改走原件**（本文件上面 `UseOriginal` 里加了
-            //    `Everguild/FX/Extra Color`）—— 这一条**故意保留**，两个用途都还在：
-            //    ① **导出期占位材质**：`EffectExporter.ShaderMap` 与本表必须同步，而占位材质不能是
-            //       bundle 里的 shader（`Shader.Find` 拿不到非工程资产）⇒ 导出时仍需一个工程内 shader；
-            //    ② **兜底路**：原件包不在场时 `TryResolve` 会落到这里（= 我们那份）。
-            //    ⚠️ 但**别指望它复刻 EC 那一族**：这一份同时顶了 8 个原版 shader，按内置族算式写的
-            //    （`tex × vcol`，没有 `LinearToSRGB(_Color)` 那一跳）⇒ 兜底路上 EC 族仍偏暗。
-            { "Everguild/FX/Extra Color", "WarpforgeVFX/Particles/Extra Color" },
+            // 🔴 **2026-10-19 晚（T02 的持久修法）：EC 单开一份自建变体。**
+            //    上面 `UseOriginal` 让正常态走原件；原件包不在场时（兜底路）落到**本表**。
+            //    而 EC 那一族比内置族**多一跳** `LinearToSRGB(_Color)`（判据 → `WFParticlesExtraColorEC.shader`
+            //    文件头 + `资料/普查产出_第二十三会话/V23_特效ExtraColor的PS读数.md`）——
+            //    原来这一条和 7 个内置管线名**共用** `WarpforgeVFX/Particles/Extra Color`（`tex × vcol`），
+            //    兜底路上 EC 族因此系统性偏暗（`_Color=4` → 只有原版 0.548；`766.996` → 0.060）。
+            //    ⇒ 拆成两份：EC 走 `… Extra Color EC`（含 `LinearToSRGB(_Color)`），
+            //    内置族继续走 `… Extra Color`（`_Color` 对它们是**死值**，乘了会弄坏 —— 2026-10-02 那次 A/B 就是这一手）。
+            //    ⚠️ 本表与 `EffectExporter.ShaderMap` 必须同步（那边管导出期占位材质）。
+            //    ⚠️ 新 shader 要重跑一次 `WarpforgeSetup.RegisterShaders` 才进 Always Included（它遍历本表的值）。
+            { "Everguild/FX/Extra Color", "WarpforgeVFX/Particles/Extra Color EC" },
             // 本质是 Unity 内置 Sprites/Default 的加法版（7 个属性、Blend One One 写死）。
             // 不映射的话会掉到默认的 URP 粒子 shader —— 属性名对不上，_MainTex/_Color 全丢，
             // 粒子直接渲染成空（ArdAsNailsEffect 的 Back Glow 就是这么没的）

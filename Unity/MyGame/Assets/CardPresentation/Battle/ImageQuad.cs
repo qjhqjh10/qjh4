@@ -182,7 +182,7 @@ namespace CardPresentation
         /// → 下面那一段注释（2026-10-11 · A286）。
         /// <para>🔴 **2026-10-11（A292）：本重载【会】按新贴图改 `_aspect`**（= 从写下那天起的行为，
         /// 逐字保留）—— 于是 `WorldW = WorldH × _aspect` 跟着变，**每个调用点都得自己补一句
-        /// `SetAspect(...)`** 把显示比例拉回来（现读有 6 处这么补：`Shell/PromptPopup.cs` 的
+        /// `SetAspect(...)`** 把显示比例拉回来（现读有 6 处这么补：`Shell/WindowButton.cs`（⚠️ 2026-10-19 订正：原写 `Shell/PromptPopup.cs`）的
         /// `WindowButton.SetOn` · `Battle/BattleLogPanel` · `Shell/AlliancesTab` · `Deck/DeckRuntime`
         /// 两处 · `Battle/BattleDriver` —— **那 6 处本件一个字都没动**）。
         /// ⛔ **新代码别再用这个单参口**：想说清意图就走
@@ -284,7 +284,7 @@ namespace CardPresentation
         /// `Everguild/UI/Greyscale` · `CardPresentation/Video Split Alpha`）**全是 `QUEUE: Transparent` = 3000**
         /// ⇒ 一个 `SetRenderQueue(3120)` 过的 quad 一换材质就**掉到自己的底图之下**（画面上「按钮没了」）。
         /// 🔴 **最毒的是它不报错**：`WindowButton.AuditGrayLook` 只核 **shader 名**、不核队列 ⇒ **断言全绿、按钮没了**。
-        /// 实测受害链 = `WindowButton.RefreshGray`（`Shell/PromptPopup.cs`）→ 这里
+        /// 实测受害链 = `WindowButton.RefreshGray`（`Shell/WindowButton.cs`；⚠️ 2026-10-19 订正：原写 `Shell/PromptPopup.cs`）→ 这里
         /// （`Shell/DeckInfoPopup.cs` 那 8 颗 · `Shell/MissionsTab.cs` 那 6 颗 `Collect`）。
         ///
         /// ⚠️ **`q &lt; 0` 才不写**（`_mr` 上本来就没材质时读不出「旧队列」，那就保持新材质自己的）。
@@ -461,8 +461,12 @@ namespace CardPresentation
         /// 2026-10-04 之前这里两轴共用一个比例、且会为「端帽铺满整张图」的**合法**形状误报（见下面的注释）。</summary>
         /// <param name="borderOutPx">**绘制时的角块像素长**（不传 = 与 `borderPx` 相同）。
         /// 🔴 为什么要分成两个量：原版的 `Image` 有 **`m_PixelsPerUnitMultiplier`**（`40k_square_border` 是 **5**）
-        /// —— UV 切分按**图里的真实边宽**（`m_Border` = 13px / 64² 图），而**画出来的角块 = 13 × 5 = 65px**。
-        /// 只传一个量的话，13 会让角块只有 13px（太细）、65 又会让 UV 越界（`65/64 > 1` ⇒ 报警退化成单块）。</param>
+        /// —— UV 切分按**图里的真实边宽**（`m_Border` = 13px / 64² 图），而**画出来的角块 = `m_Border ÷ ppuMul`**
+        /// （uGUI `Image.cs:1157`：`multipliedPixelsPerUnit = pixelsPerUnit / pixelsPerUnitMultiplier`
+        /// ⇒ **乘数在【分母】**，不是「×5」）。⚠️ 本条原来写成「13 × 5 = 65px」**方向反了**
+        /// —— 2026-10-19 就地订正（`A1939`，判据 → `资料/普查产出_第二十九会话/A1933_文字底板九宫格.md` §七·①；
+        /// 旁证 = `Shell/MenuDraw.cs:1599-1601` 那处**渲图核过**的「角块 = `m_Border ÷ ppuMul`」）。
+        /// 只传一个量的话：13 当绘制尺寸 = **角块比原版大**、而 65 又会让 UV 越界（`65/64 > 1` ⇒ 报警退化成单块）。</param>
         /// <param name="fillCenter">**画不画中间那块**。原版的 `Image.m_FillCenter = 0`（`40k_square_border` 就是这样）
         /// ⇒ 中间**留空**，只画那 8 块边角。</param>
         public static GameObject CreateNineSlice(Transform parent, Texture tex, Vector4 borderPx,

@@ -150,7 +150,13 @@ namespace CardPresentation
             //   实参顺序照 `MenuDraw.Text(parent, r, text, color, name, fontPx, q, wrapPx, autoMinPx,
             //   autoMaxPx, autoBasePx, …)`；三道闸（`wrapPx > 0` ∧ `autoMinPx > 0` ∧ `fontPx > autoMinPx`）
             //   在 `MenuDraw.TextCore` 里（45.87 > 18 ⇒ 过闸）。
-            MenuDraw.Text(col, new PxRect(RTileL, RTileT, RTileR, RTileB), "Progression",
+            // 🔴 **2026-10-19（界面线 P05）**：文案改走官方词条 —— 这颗 TMP 挂 `Localize`，
+            //   `mTerm = Ranked/Skirmish/ProgressionTitle`（`bundle_menus_assets_all/MonoBehaviour/
+            //   MonoBehaviour_-8647844292480714063.json` 现读）；官方值 en `Progression` / zh `进步`。
+            //   ⚠️ 英文档返回值与改前写死的 `"Progression"` 逐字相同（`Editor/MainMenuScene.cs` 那条
+            //   字面量断言在英文档下仍然绿；中文档显示官方中文）。
+            MenuDraw.Text(col, new PxRect(RTileL, RTileT, RTileR, RTileB),
+                          Loc.T("Ranked/Skirmish/ProgressionTitle"),
                           Color.white, "Reward Tile", 45.87f, QText,
                           RTileR - RTileL, 18f, 45.87f, 36f, face: TmpFont.Face.LatinCardBody);
             // 🔴 **2026-10-18（A1126 · A1 档）**：这一处原来**一个 autosize 实参都没传** ⇒ 固定字号 38px。
@@ -161,8 +167,12 @@ namespace CardPresentation
             //   ⚠️ 本处是 `TextBox`（**无条件折行**，`SetWrapWidth(r.W)`）⇒ 「38px × 1.437 行高 ≈ 54.6px、
             //   两行 ≈ 109 > 框高 101」这一定量**只有开了 autosize 才收得住**。
             //   实参顺序照 `MenuDraw.TextBox(parent, r, text, color, name, fontPx, autoMinPx, q, autoMaxPx, autoBasePx, …)`。
+            // 🔴 **2026-10-19（界面线 P05）**：文案改走官方词条 —— 这颗 TMP 挂 `Localize`，
+            //   `mTerm = Ranked/Skirmish/Progression`（`MonoBehaviour_3263968066473119090.json` 现读）；
+            //   官方值 en `Win battles to progress in the event and unlock rewards.` /
+            //   zh `赢得战斗以在活动中取得进步并解锁奖励。`（英文档逐字同改前）。
             var help = MenuDraw.TextBox(col, new PxRect(RHelpL, RHelpT, RHelpR, RHelpB),
-                                        "Win battles to progress in the event and unlock rewards.", Color.white,
+                                        Loc.T("Ranked/Skirmish/Progression"), Color.white,
                                         "Reward Help", 38f, 18f, QText, 38f, 36f, face: TmpFont.Face.LatinCardBody);
             MenuDraw.AlignLeft(help, new PxRect(RHelpL, RHelpT, RHelpR, RHelpB));
 
@@ -175,7 +185,10 @@ namespace CardPresentation
             //   **折行 = 1** · 框 **236.63 × 50.00**（与本文件 `VTitle*` 四个常量逐位同值）。
             //   ⚠️ 原版**折行 = 1** ⇒ 传 `wrapPx`（= 本框宽）与它同档，⛔ **不要**再补 `SetWrapping(false)`
             //   （那是给原版 `折行=0` 的件的成对写法，见 A34-F4 那一族）。
-            var vt = MenuDraw.Text(vic, new PxRect(VTitleL, VTitleT, VTitleR, VTitleB), "Victories: ",
+            // 🔴 **2026-10-19（界面线 P05）**：文案改走官方词条 —— 这颗 TMP 挂 `Localize`，
+            //   `mTerm = Ranked/Victories`（`MonoBehaviour_8193199729745612146.json` 现读）；
+            //   官方值 en `Victories: `（**带尾空格**，与改前写死的逐字相同）/ zh `胜利：`。
+            var vt = MenuDraw.Text(vic, new PxRect(VTitleL, VTitleT, VTitleR, VTitleB), Loc.T("Ranked/Victories"),
                                    Color.white, "Vicotries title", 48f, QText,
                                    VTitleR - VTitleL, 18f, 48f, 36f, face: TmpFont.Face.LatinCardBody);
             MenuDraw.AlignRight(vt, new PxRect(VTitleL, VTitleT, VTitleR, VTitleB));
@@ -331,10 +344,14 @@ namespace CardPresentation
             BuildTimer(root);
             BuildBanned(root);
             // ⚠️ 原版两扇窗都还有一层 `DEBUG`（`DebugAutoDisabler` + 红字 `EventId` / `DebugBattle` 那几件，出厂 act=1）。
-            //    **不建**：`DebugAutoDisabler` 的方法体在本地反编译里**读不到**（同名 `.c` 里是别的函数）
-            //    ⇒ 判不出它运行时会不会自关，**照「不建 + 出声」办**，别把调试件当正式界面画上去。
-            Debug.Log("[Event] `DEBUG` 那一层**没建** —— 原版挂 `DebugAutoDisabler`（方法体本地读不到，"
-                      + "大概率 release 自关），我们按「不建调试件」办");
+            //    **不建**：🔴 **2026-10-19（界面线 P05 · 铁律 5 就地订正）** —— 这里原来写「`DebugAutoDisabler`
+            //    的方法体在本地反编译里**读不到**（同名 `.c` 里是别的函数）」，**已过期**：
+            //    `d:/2/tools/decomp_full/DebugAutoDisabler__OnEnable.c` 的**函数符号被错配**成
+            //    `BattleAlliancePanel__CloseButtonClick`，但**函数体可读** = `Component.get_gameObject(this)`
+            //    → `GameObject.SetActive(false)` ⇒ **原版这个组件在 `OnEnable` 就把自己关掉**。
+            //    ⇒ 我们「不建 DEBUG」与原版运行时一致（不是「判不出」）。
+            Debug.Log("[Event] `DEBUG` 那一层**没建** —— 原版挂 `DebugAutoDisabler`，其 `OnEnable` 实读 = "
+                      + "`gameObject.SetActive(false)`（自关；反编译函数符号错配，函数体可读）⇒ 运行时本来就不显示");
         }
 
         /// <summary>`Timer`：图标 + 倒计时文字（**照 `Energy` 窗那一套**，A1248）。
@@ -342,7 +359,8 @@ namespace CardPresentation
         /// （理由 = 「图标的位置由倒计时文字的宽度决定，本地没有活动结束时间 ⇒ 不编位置」）。
         /// 那个理由是**半对**：位置确实由 HLG 决定，但**本 prefab（`SkirmishModeEventWindow`）跑过布局**，
         /// 已经把那份结果序列化回去了 ⇒ 图标 / 文字的落点**有真值可抄**（见 `TmIconW` 那条 doc）；
-        /// 而且文字本身照 prefab 出厂原文 `'Termina en: 23d 5h'`（同 `Energy` 那一颗），
+        /// 而且文字本身照**官方词条** `Event_Description/General/EndsInPlusOrangeTime`（原版 prefab 出厂
+        /// 占位是 `'Termina en: 23d 5h'`，运行时同样被 `TimerDisplay` 覆盖），
         /// 截止时刻未知时由 `TimerDisplay` 显示 `--` —— **不需要编位置、也不需要编日期**。</para>
         /// <para>⚠️ 判据补充：`Vicotries title` 那一颗**已经是对的**（`:132` 起那四格自适应），⛔ 别顺手改它
         /// —— 本窗的 `Vicotries title` 是**定宽 236.63×50、没有 CSF**（`menu_dump … --depth 6` 现读），
@@ -355,11 +373,17 @@ namespace CardPresentation
             var icR0 = new PxRect(fbStart, TmIconT, fbStart + TmIconW, TmIconB);
             var iconQ = MenuDraw.Rect(tm, Tex("WF_icon_clock"), icR0, "Timer Icon", QArt);
 
-            // 文字：prefab 出厂原文；字号四格 = 原版 `38 / 10 / 38 / 38`（**本窗根缩放 = 1** ⇒ 不乘刻度）。
-            // ⚠️ 原版 **折行 = 0** ⇒ 传 `wrapPx` 会让 `SetWrapWidth` 静默开成 `Normal` ⇒ 紧跟一句还原。
-            const string TimerPrefix = "Termina en: ";
+            // 文字：**官方词条**（原版 `TimerDisplay.extraText` 的 `mTerm = Event_Description/General/EndsInPlusOrangeTime`，
+            //   `bundle_menus_assets_all/MonoBehaviour/MonoBehaviour_-800057299095106190.json` 现读；
+            //   官方值 en `Ends in:  <color=#E98A00FF>{0}</color>` / zh `结束于：<color=#E98A00FF>{0}</color>`）。
+            //   ⚠️ 值里带 `{0}` ⇒ **不能**用 `+` 拼（会印出花括号）—— 走 `TimerDisplay.Compose`（原版
+            //   `TimerDisplay.SetTimerDescriptionText` 的 `String.Contains("{0}") ? Format : Concat` 同一条路）。
+            //   ⚠️ 出厂占位时长仍照 prefab 原文 `23d 5h`（原版 prefab 里那一串就是它；运行时被真实剩余换掉）。
+            //   字号四格 = 原版 `38 / 10 / 38 / 38`（**本窗根缩放 = 1** ⇒ 不乘刻度）。
+            //   ⚠️ 原版 **折行 = 0** ⇒ 传 `wrapPx` 会让 `SetWrapWidth` 静默开成 `Normal` ⇒ 紧跟一句还原。
+            string TimerPrefix = Loc.T("Event_Description/General/EndsInPlusOrangeTime");
             var txR0 = new PxRect(icR0.x2, TmTextT, icR0.x2 + TmPrefabTextW, TmTextB);
-            var tx = MenuDraw.Text(tm, txR0, TimerPrefix + "23d 5h", Color.white, "Timer", 38f, QText,
+            var tx = MenuDraw.Text(tm, txR0, TimerDisplay.Compose(TimerPrefix, "23d 5h"), Color.white, "Timer", 38f, QText,
                                    txR0.W, 10f, 38f, 38f, face: TmpFont.Face.LatinCardBody);
             if (tx != null) tx.SetWrapping(false);
             float txW = PreferredWidthPx(tx, "Timer");
@@ -382,10 +406,16 @@ namespace CardPresentation
                 }
             }
 
-            // 挂全工程唯一的倒计时口径（截止时刻本地没有 ⇒ 出声 + `Termina en: --`，⛔ 不编日期）。
+            // 挂全工程唯一的倒计时口径（截止时刻本地没有 ⇒ 出声 + `<EndsInPlusOrangeTime>--`，⛔ 不编日期）。
+            // 🔴 **2026-10-19（界面线 P05）**：补上原版那两档描述串 ——
+            //   常档 `extraText` = `Event_Description/General/EndsInPlusOrangeTime`；
+            //   最后 5 分钟档 `lastMinutesText` = `Event_Description/Generic/EndsSoon`
+            //   （`MonoBehaviour_-800057299095106190.json` 现读；该件 `useLastMinutesText` 见同文件）。
+            //   ⚠️ 目标未知时这一档走不到（`TimerDisplay.Refresh` 直接印 `--`），但两档都要接全。
             if (tx != null)
                 TimerDisplay.Attach(tx, null, TimerPrefix, "遭遇战活动窗 Timer",
-                                    "活动截止时刻由服务端 LiveOps 事件下发，本地没有");
+                                    "活动截止时刻由服务端 LiveOps 事件下发，本地没有",
+                                    lastMinutesPrefix: Loc.T("Event_Description/Generic/EndsSoon"));
         }
 
         /// <summary>🆕 **2026-10-17（A1248）**：量 TMP 自己的 `GetPreferredValues().x`（= 原版 CSF
@@ -425,7 +455,11 @@ namespace CardPresentation
             //   基准 **36.0** · **`auto[18.0~50.0]`**（`m_enableAutoSizing = 1`）·
             //   对齐 `Center/Midline` · **折行 = 1** · 框 **678.30 × 53.93**（= `Banned*` 四个常量逐位同值）
             //   ⇒ 传 `wrapPx` 与原版同档（折行 1 ⇒ ⛔ 不补 `SetWrapping(false)`，那是折行 0 那族的成对写法）。
-            MenuDraw.Text(b, new PxRect(BannedL, BannedT, BannedR, BannedB), "The deck has banned cards",
+            // 🔴 **2026-10-19（界面线 P05）**：文案改走官方词条 —— 这颗 TMP 挂 `Localize`，
+            //   `mTerm = MenuDeck/Error/InvalidDeckBannedCards`（`MonoBehaviour_1490397487827668338.json` 现读）；
+            //   官方值 en `The deck has banned cards` / zh `卡组有禁用的张牌`（英文档逐字同改前）。
+            MenuDraw.Text(b, new PxRect(BannedL, BannedT, BannedR, BannedB),
+                          Loc.T("MenuDeck/Error/InvalidDeckBannedCards"),
                           Color.white, "Text", 50f, QText, BannedR - BannedL, 18f, 50f, 36f, face: TmpFont.Face.LatinCardBody);
             b.gameObject.SetActive(false);
             // 🔴 **原版出厂 act=1**，是**运行时**按「这副牌里有没有禁用卡」关掉的；我们**没有禁用卡表**
@@ -476,11 +510,17 @@ namespace CardPresentation
         /// </list>
         /// 我们取**基版那一对**（`ExpansionPass/*`）；`BattlePass/*` 是同一形状的后一代（EC/SW 那两场）。
         /// 🔴 这两条都在 `Resources/official_names.json` 的 bulk 表里（`Loc.BulkOr` 取得到，2026-10-17 现读）。
-        /// ⚠️ **原版「用哪份 popup prefab」= 事件 `EventComponents[30]` 的 assetGUID**
-        /// （4 个 Scoring Event 全是 `2d7ec1a46a19245798bf28a5d1a030bb`）—— 本地**解不出它对应哪个 prefab 名**
-        /// ⇒ 变体仍用基类缺省（`Liveop Event Help Variant`，那个缺省本来就在 `BuildHelp` 的注释里写明是 fallback）。
+        /// <para>🔴 **2026-10-19（界面线 P05 · 铁律 5 就地订正）**：这里原来写「原版『用哪份 popup prefab』=
+        /// 事件 `EventComponents[30]` 的 assetGUID（4 个 Scoring Event 全是 `2d7ec1a46a19245798bf28a5d1a030bb`）
+        /// —— 本地**解不出它对应哪个 prefab 名** ⇒ 变体仍用基类缺省（`Liveop Event Help Variant`）」。
+        /// **「解不出」已过期**：该 GUID 在 `bundle_menus_assets_all/AssetBundle/AssetBundle_1.json` 的
+        /// `m_Container` 里就是它，落到 asset `m_PathID 5459663361566770346` → GameObject
+        /// **`Event Help Popup Variant`**（其根 MB `titleTextTag=0 · descriptionTextTag=12`，与 Scoring Event
+        /// 的 `EventLabels` key 0/12 正好对上）⇒ 本窗覆写 <see cref="HelpVariant"/> 钉成 `EventHelp`。
+        /// ⚠️ 仍成立的是「FastMode 事件本体在远端」那半句（它决定的是**哪一场活动**，不是变体名）。
         /// 标签 tag 与变体不是同一组（本变体是 `WelcomeTitle(5)` / `Help(12)`，而 Scoring Event **没配 key 5**）——
-        /// 我们这两个值是**直接喂文本**的、不按 tag 解析，所以这里只决定「取哪条词」。</summary>
+        /// 我们这两个值是**直接喂文本**的、不按 tag 解析，所以这里只决定「取哪条词」。</para></summary>
+        protected override EventPopupVariant HelpVariant { get { return EventPopupVariant.EventHelp; } }
         protected override string EventHelpTitleTerm { get { return "Event_Description/ExpansionPass/Title"; } }
         /// <inheritdoc cref="EventHelpTitleTerm"/>
         protected override string EventHelpDescriptionTerm { get { return "Event_Description/ExpansionPass/GeneralHelp"; } }

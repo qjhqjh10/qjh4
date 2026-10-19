@@ -904,7 +904,7 @@ namespace CardPresentation
         /// `if (!IsActive() || !IsInteractable()) return;`）⇒ 语义 = **点了什么都不发生**（而且是灰的）。
         /// ✅ **2026-10-05（A65②）两条都落地了**：**变灰**走 `WindowButton.Interactable` / `SetSoftDisabled`
         /// （原版同一个机制：`EverguildButton.DoStateTransition(Disabled)` → 材质换 `Everguild/UI/Greyscale`，
-        /// 判据见 `Shell/PromptPopup.cs` 的 `WindowButton` 头部）；**挡派发**由 `WindowButton.Click()` 做
+        /// 判据见 `Shell/WindowButton.cs` 的 `WindowButton` 头部（⚠️ 2026-10-19 订正：原写 `Shell/PromptPopup.cs`））；**挡派发**由 `WindowButton.Click()` 做
         /// （仍然出声）。`Blocked()` 那一层**保留**（同一份布尔、同一处算出来的 —— 不是第二份判据）。</summary>
         public void ApplyControlStates()
         {
@@ -961,7 +961,7 @@ namespace CardPresentation
             // ⑥ 🆕 **2026-10-05（A85）：变灰是「换材质」⇒ 换完把这 8 颗钮的显式队列补回去。**
             //    判据链（三段都可查）：
             //      ① `WindowButton.Interactable` 的 setter 与 `SetSoftDisabled` **都走 `RefreshGray()`**
-            //         （`Shell/PromptPopup.cs`），而它换材质用的是 `ImageQuad.SetMaterial`；
+            //         （`Shell/WindowButton.cs`；⚠️ 2026-10-19 订正：原写 `Shell/PromptPopup.cs`），而它换材质用的是 `ImageQuad.SetMaterial`；
             //      ② 它建的是 `new Material(sh)` ⇒ 队列退回 **shader 自带的那一个**，而
             //         `Everguild/UI/Greyscale` 的 SubShader 标签是 `QUEUE: Transparent` = **3000**
             //         （`工具/dump_shader.py "Everguild/UI/Greyscale"` 实读，2026-10-05）；
@@ -1113,7 +1113,7 @@ namespace CardPresentation
         /// ⇒ 本来在 `QDIRow`/`QDIHit` 的那几张会掉到红底（`QDI`）之下。调用点与判据链 → `ApplyControlStates` 第 ⑥ 段。
         /// <para>两层件各按它建窗时的档：**可见那一张**（`WindowButton.target` = `Bg …` / `Face …`）在 `QDIRow`、
         /// **命中区那一张**（按钮自己的子 quad `Hit`）在 `QDIHit` —— 与 `Build()` 里建它们时给的是**同一对常量**。
-        /// ⚠️ 这个「`target` + 子树」的分组 = `PromptPopup.GrayTargets()` 的**前两组那一套**
+        /// ⚠️ 这个「`target` + 子树」的分组 = `WindowButton.GrayTargets()`（`Shell/WindowButton.cs`）的**前两组那一套**（⚠️ 2026-10-19 订正：原写 `PromptPopup.GrayTargets()` —— 该方法是 `WindowButton` 的、不在 `PromptPopup` 类里）
         /// （变灰会同时换这两张）
         /// ⇒ 两张都得钉，否则「可见的补回来了、命中区还掉着」（命中区全透明，肉眼与截图都看不出来）。
         /// ⚠️ **2026-10-13 更正（铁律 5）**：本行原来写「**与** `PromptPopup.GrayTargets()` **是同一套**」——

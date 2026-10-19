@@ -38,7 +38,8 @@
     消费点 = `工具/gen_cards_engine.py` 的 `load_inventory_options()` → `cards_engine.json` 两列
     → `RuleEngine/Data/CardDatabase.cs` → `RuleEngine/Core/CardDef.cs` → `DeckRules.CannotAddToDeck()`。
 
-**跑法**（⚠️ 顺序：**先本脚本、再 `gen_cards_engine.py`** —— 本脚本要读现卡池的 id/阵营）：
+**跑法**（⚠️ 顺序：**先本脚本、再 `gen_cards_engine.py --write`** —— 本脚本要读现卡池的 id/阵营；
+   ⚠️ `gen_cards_engine.py` 不带 `--write` 是干跑（只打印、不落盘，`A1648`））：
     "D:/2/Warpforge_tools/py312/python.exe" d:/4/Unity/工具/gen_card_inventory_options.py
     ... --check     只对账，不写文件
 """
@@ -222,7 +223,7 @@ def main():
         "source": TRUTH + "（原版 allcards，**当前 build 1,351 张**卡 SO 全字段；2026-10-18 `K06` 换源）",
         "provenance": "抢救来源 = 旧 Windows 用户目录的 Unity 缓存（按哈希命名）里的原版远端包 "
                       "allcards_assets_all；原件与全部导出 → d:/2/远端缓存_旧profile_1013/（含 README）。"
-                      "⚠️ 年代限制：该包是 Unity 2022.3.38f1 / 2025-07-30 的快照（1195 张 vs 现池 1126 张）"
+                      f"⚠️ 年代限制：该包是 Unity 2022.3.38f1 / 2025-07-30 的快照（1195 张 vs 现池 {len(pool)} 张）"
                       "—— 整个 SpaceWolves 阵营与暗黑天使 DA75..DA74 等新卡快照里没有 ⇒ 那些 `inv`/`show` = -1（未知）。",
         "usage": "`DeckUtility__ValidateDeckCards.c:68-72`（`inventoryOptions != 0` ⇒ 非法）· "
                  ":73-77（`showInCollectionOptions != 5` ⇒ 非法）· `DeckUtility__TryRemoveInvalidCards.c:39-43` · "

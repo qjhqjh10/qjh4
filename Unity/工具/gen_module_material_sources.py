@@ -19,6 +19,7 @@
 产出：`数据/游戏数据/module_material_sources.tsv`
 用法：
   PYTHONIOENCODING=utf-8 "D:/2/Warpforge_tools/py312/python.exe" d:/4/Unity/工具/gen_module_material_sources.py
+  加 `--dry` = 只跑计算、打印读数、**零写盘**（默认行为不变；`A1648` 同族口径）。
 """
 import io
 import os
@@ -27,6 +28,9 @@ import sys
 import UnityPy
 
 sys.stdout.reconfigure(encoding="utf-8")
+
+# 🔴 `--dry` = 只跑计算、打印读数、**零写盘**。默认（不带它）行为与以前完全一样。
+DRY = "--dry" in sys.argv[1:]
 
 ROOT = r"d:/4/Unity"
 IN_TSV = os.path.join(ROOT, "数据/游戏数据/module_materials.tsv")
@@ -133,6 +137,9 @@ def main():
     for nm in sorted(left):
         print("  ✗ 没找到：%s" % nm)
 
+    if DRY:
+        print("干跑（未写盘）%s（%d 条）；要落盘请去掉 --dry" % (OUT_TSV, len(rows)))
+        return 0
     with io.open(OUT_TSV, "w", encoding="utf-8", newline="\n") as fh:
         fh.write("# 材质名\t源包文件\t容器GUID  —— 由 工具/gen_module_material_sources.py 生成，别手改\n")
         fh.write("# 用途：`EffectExporter.FindMaterialInPacks` 按这张表**直接去对的包**取。\n")

@@ -340,7 +340,11 @@ namespace RuleEngine
         /// 🔴 **实测：6 关的 `scriptedTurn` 全是 `false`** ⇒ `IsPremulliganScriptAvailable`
         ///    （`BattleManager__IsPremulliganScriptAvailable.c`：要求 `+0x18 != 0`）**恒假**
         ///    ⇒ **那 19 条动作一次都不跑**（数据仍在产物里，别以为漏了）。
-        ///    ⚠️ 与之相对：`onVictory` 6 关 `scriptedTurn` **全是 true**（13 条动作）—— 那一支**我们还没接**。</summary>
+        ///    ⚠️ 与之相对：`onVictory` 6 关 `scriptedTurn` **全是 true**（13 条动作）。
+        ///    🔴 **2026-10-19（`A939`）就地订正**：这里原来写「那一支**我们还没接**」—— **已过期**：
+        ///    2026-10-18 起已接在 `BattleDriver.StartPostBattleScript` / `TickPostBattleScript`
+        ///    （原版 `BattleFinished:80-112` → `ExecuteScriptedTurn`），13 条逐条走本类的
+        ///    `ExecuteAction`（引擎侧 + `Executed` 表现回调），断言在 `Editor/BattleScene.cs` 的 ⑯-④/⑯-④′。</summary>
         public TutorialTurn preMulligan;
         public TutorialTurn onVictory;
         public TutorialTurn onDefeat;
@@ -432,12 +436,60 @@ namespace RuleEngine
         public static void Load()
         {
             LoadFromUnity();
-            if (_stages != null) return;
+            if (_stages != null) { ValidateLoadedShape(); return; }
             UnityEngine.Debug.LogError("[Tutorial] 这个环境里没有 `Resources`/`JsonUtility`（离屏探针）"
                 + " ⇒ 教程关数据装不上；请用 `TutorialData.Install(stages)` 手工装。"
                 + "（Unity 侧由 `Data/TutorialDatabase.cs` 那半个 partial 方法装载 ——"
                 + " 它没跑起来就说明那个文件不在编译集里）");
             _stages = new TutorialStageData[0];
+        }
+
+        /// <summary>
+        /// 🆕 **2026-10-19（`A939`）**：**装载后当场验证产物形状**。
+        ///
+        /// <para>🔴 **为什么必须有**：`JsonUtility` 对**类型不符的字段【不报错、只留 null】** ——
+        /// B29 已经为这件事栽过一次（`preMulligan` 按生成器注释猜成 `TutorialAction[]`，
+        /// 而产物是 `TurnScriptedData` ⇒ 静默 null，一整支脚本「看着像没有」）。
+        /// `onVictory` / `onDefeat` 是**同一族**（`TurnScriptedData`，不是动作数组）——
+        /// 生成器改名 / DTO 字段名对不上时，这里**必须出声**，
+        /// ⛔ 不许让它表现成「这一关本来就没有战后脚本」。</para>
+        /// <para>⚠️ **判据与实测**（`Resources/tutorial_stages.json` 现读，2026-10-19）：
+        /// 6 关的 `onVictory` **全在**（`scriptedTurn = true`、共 **13** 条）·
+        /// `onDefeat` **全在**但 `scriptedTurn = false`、0 条。</para>
+        /// </summary>
+        static void ValidateLoadedShape()
+        {
+            if (_stages == null) return;
+            int victory = 0;
+            for (int i = 0; i < _stages.Length; i++)
+            {
+                var st = _stages[i];
+                if (st == null) continue;
+                if (st.onVictory == null)
+                {
+                    UnityEngine.Debug.LogWarning("[Tutorial] 第 " + st.stage + " 关的 `onVictory` 是 **null** —— "
+                        + "产物里那一格应该是 `TurnScriptedData`（不是 `TutorialAction[]`）。"
+                        + "`JsonUtility` 遇到**类型不符不报错、只留 null** ⇒ 要么生成器改了形状，"
+                        + "要么 DTO 字段名对不上。判据 = `Resources/tutorial_stages.json` 的 `onVictory`。"
+                        + "（⛔ 别把这里的 null 当成「这一关没有战后脚本」—— 6 关实测全都有。）");
+                }
+                else
+                {
+                    victory += st.onVictory.actions != null ? st.onVictory.actions.Length : 0;
+                    if (st.onVictory.scriptedTurn && (st.onVictory.actions == null || st.onVictory.actions.Length == 0))
+                        UnityEngine.Debug.LogWarning("[Tutorial] 第 " + st.stage + " 关的 `onVictory.scriptedTurn = true` "
+                            + "但 `actions` 是空/null —— 原版门（`IsPostBattleScriptAvailable.c`）会判假。"
+                            + "判据 = `tutorial_stages.json`（6 关实测 13 条）。");
+                }
+                if (st.onDefeat == null)
+                {
+                    UnityEngine.Debug.LogWarning("[Tutorial] 第 " + st.stage + " 关的 `onDefeat` 是 **null** —— "
+                        + "同 `onVictory` 那一族（`TurnScriptedData`）。`JsonUtility` 类型不符只会静默留 null。"
+                        + "判据 = `Resources/tutorial_stages.json` 的 `onDefeat`。");
+                }
+            }
+            UnityEngine.Debug.Log("[Tutorial] 关卡数据装载完成：" + _stages.Length + " 关 · `onVictory` 共 "
+                + victory + " 条（2026-10-19 实测应为 13）");
         }
     }
 
@@ -889,7 +941,12 @@ namespace RuleEngine
                     return false;
 
                 default:
-                    Note(ctx, a.Kind);
+                    // 🔴 **2026-10-19（`A939`）**：`default` 原来**一律**进 `Note`（「原版本来就没分支」）——
+                    //   那对**已知的演出档**成立；对**认不出的类型**（枚举值不在表里 / `data` 缺失 ⇒ `None`）
+                    //   就成了「静默吞掉一条真不知道是什么的动作」。B29 的口径是
+                    //   **未识别 ⇒ `Unhandled` + `LogWarning`、指针照 ++ 不卡死** ⇒ 这里按 `IsNoOpScriptKind` 分叉。
+                    if (IsNoOpScriptKind(a.Kind)) Note(ctx, a.Kind);
+                    else Unknown(ctx, a.Kind);
                     return false;
             }
         }
@@ -1051,6 +1108,50 @@ namespace RuleEngine
                 + "（演出 / 高亮 / 音效那一类，`AiScripted__ExecuteAction.c:1253` 的通用收尾）"
                 + " ⇒ 引擎侧什么都不做**是对的**，**这不属于「还没接」**。"
                 + " 若你以为它是「还没接」，那是记错了 —— 未接的那几档只有 `ActiveAbility`（见 `Unhandled`）。");
+        }
+
+        /// <summary>🆕 **2026-10-19（`A939`）**：`default` 里哪些档属于「**原版本来就没有改局面的分支**」。
+        /// <para>逐档照 `AiScripted__ExecuteAction.c` 的分支表（`switchD_…_caseD_20` = 通用收尾）
+        /// + `tutorial_stages.json` 的 `actionTypeNote`（6 关实测只出现 14 个取值）。</para>
+        /// <para>⚠️ 这里**只收演出/高亮/音效档**。`Attack` / `PlayCard` 那几档**不在**里面 ——
+        /// 漏掉 `case` 时它们要落进 `Unhandled`（现有断言 `AttackFreeMode` 两格都不在，就是靠这一点）。</para></summary>
+        static bool IsNoOpScriptKind(ScriptedActionType k)
+        {
+            switch (k)
+            {
+                case ScriptedActionType.PlayerChat:
+                case ScriptedActionType.PlayerChatBig:
+                case ScriptedActionType.AiChat:
+                case ScriptedActionType.AiChatBig:
+                case ScriptedActionType.SmallTip:
+                case ScriptedActionType.RadioMessage:
+                case ScriptedActionType.EndTurn:
+                case ScriptedActionType.ClickCard:
+                case ScriptedActionType.TapCard:
+                case ScriptedActionType.ShowManaAura:
+                case ScriptedActionType.ResolveCard:
+                case ScriptedActionType.ContinueSmallTip:
+                case ScriptedActionType.LandWarlords:
+                case ScriptedActionType.ActivateHandCards:
+                    return true;
+                default:
+                    return false;
+            }
+        }
+
+        /// <summary>🆕 **2026-10-19（`A939`）**：**认不出的动作类型** —— 沿用 B29 口径：
+        /// 进 `Unhandled` + `LogWarning`，指针照 ++、不卡死（⛔ 不许静默吞掉一条）。
+        /// <para>与 <see cref="Note"/> 的区别：那一档是「原版本来就没有」；这一档是「**我们认不出**」
+        /// （枚举值不在 `ScriptedActionType` 表里，或 `data` 缺失 ⇒ `Kind = None`）。</para></summary>
+        void Unknown(BattleContext ctx, ScriptedActionType kind)
+        {
+            int n; Unhandled.TryGetValue(kind, out n); Unhandled[kind] = n + 1;
+            if (!_warned.Add(kind)) return;      // 同一档只吼一次
+            UnityEngine.Debug.LogWarning("[Tutorial] 第 " + Turn + " 回合的脚本里有**认不出的动作类型**"
+                + "（`data[0].type = " + (int)kind + "`）—— 它不在 `ScriptedActionType` 的已知表里，"
+                + "也不属于「原版本来就没有分支」的演出档 ⇒ **这一条什么都没做**，"
+                + "指针照 ++（不让整条链卡死）。判据 = `Assembly-CSharp/ScriptedActionType.cs` + "
+                + "`Resources/tutorial_stages.json`（6 关实测只出现 14 个取值）。");
         }
 
         // ------------------------------------------------------------------
@@ -1256,8 +1357,20 @@ namespace RuleEngine
         /// · `playerStartingTroops` → 玩家侧（`CreateStartingTroops(…, flag 1)`，落点是
         ///   `MinionManager.MoveMinionIntoSlot(mm, card, 0, /*insert*/1, …)`）；
         /// · `enemyStartingTroops` → 敌方侧（`CreateStartingTroop(…, flag 0)`，逐个）。
-        /// 🔴 **摆完要 `ReassembleMinions`**（原版两个分支各调一次）—— 我们这边对应
-        /// `Auras.Recompose`（棋盘变了 ⇒ 光环重算，见 `Core/Aura.cs` 那份 9 个写入点清单）。
+        /// 🔴 **2026-10-19（`A1975`/`A1990`）：落地钩子逐条按原版核过** ——
+        ///   原版这条创建路（`BattleManager__CreateStartingTroop.c` 全文）的调用序是
+        ///   `CreateCard → SetAsUnitInPlay → SetUnitInPlayLayer → CardSetup → :47
+        ///   ActivateTraitsOnSummonOrEnchantment → SetUnitOrderInPlay → 尺寸 → MoveMinionIntoSlot → Add`，
+        ///   **没有 `ActivateMinion`、没有 `BroadcastUnitSummoned`**；摆完由
+        ///   `SetupStartingTroops` 调一次 `MinionManager__ReassembleMinions`（纯摆位）。
+        ///   ⇒ 我们的对应物**只有三条**，全部在 `PlaceTroops` 里（逐只）：
+        ///   ① `Auras.Recompose`（棋盘变了 ⇒ 光环重算 —— **我们自己的不变量**）；
+        ///   ② `RuleCore.ActivateTraitsOnSummonOrEnchantment`（原版 `:47` 真调了，且**不写召唤病**）；
+        ///   ③ `RuleCore.RecomputeCurrentAttackType`（`CardSetup.c:263-267` 按当时数值挑攻击型）。
+        ///   ⛔ **不调** `ResolveDeploy` / `ResolveFaithAbility` / `ForceAttackTypeOnDeploy` ——
+        ///   前两个的原始入口是 `BroadcastUnitSummoned`（只由 `_ResolveCardAutoSummoned` /
+        ///   `_ResolveSummonUnit` 两条协程发；起始兵两条都不走），第三个的原始入口是
+        ///   `ActivateMinion.c:70-72`（起始兵不走）⇒ 在这里调 = **原版没有的触发**。
         /// </summary>
         /// <returns>真的摆上去几个。</returns>
         public static int SetupStartingTroops(BattleContext ctx, TutorialStageData stage, Func<string, CardDef> lookup)
@@ -1266,7 +1379,6 @@ namespace RuleEngine
             int n = 0;
             n += PlaceTroops(ctx, stage.playerStartingTroops, 0, lookup);
             n += PlaceTroops(ctx, stage.enemyStartingTroops, 1, lookup);
-            if (n > 0) Auras.Recompose(ctx);
             return n;
         }
 
@@ -1290,6 +1402,16 @@ namespace RuleEngine
                 u.DeployedTurn = ctx.Turn;
                 int slot = BoardSlots.Insert(ps, u, 0);      // 原版落点 = 「贴督军那格起往左」，插入语义
                 if (slot < 0) { UnityEngine.Debug.LogWarning("[Tutorial] 场上放不下起始单位「" + d.Name + "」"); continue; }
+                // 🔴 **2026-10-19（`A1975`/`A1990`）：三条落地钩子，判据见 `SetupStartingTroops` 的 doc。**
+                //   ① 光环重算（棋盘变了；光环可能给关键词/攻值）—— 必须在挑攻击型**之前**；
+                //   ② 原版 `CreateStartingTroop.c:47` 的关键词激活（**专用钩子**：起始兵不吃召唤病，
+                //      ⛔ 别拿 `ApplyDeployTurnState` 顶 —— 它会写 `summonSickness`）；
+                //   ③ 原版 `CardSetup.c:263-267` 的「按当前数值挑攻击型」（`(近战<远程)+1`）。
+                //   ⛔ 不调 `ResolveDeploy` / `ResolveFaithAbility` / `ForceAttackTypeOnDeploy`：
+                //      原版这条创建路不走 `BroadcastUnitSummoned` / `ActivateMinion`（判据同 doc）。
+                Auras.Recompose(ctx);
+                RuleCore.ActivateTraitsOnSummonOrEnchantment(u);
+                RuleCore.RecomputeCurrentAttackType(ctx, side, slot);
                 n++;
                 ctx.Log($"教程起始单位：{ps.Name} 的「{u.Name}」直接落场（槽 {slot}）");
                 ctx.Emit(EvtKind.Deploy, side, slot, u.Name, instanceId: u.InstanceId);

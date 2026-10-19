@@ -750,6 +750,21 @@ public static class DeckScene
 
         public static void Run()
         {
+            // 🔴 **2026-10-19（`A1534` 尾巴 · 铁律 11）**：批处理自检**不出声** —— `WFSoundPlayer.Enabled = false`
+            //   时那个开关自己的契约是「**只记账不发声**：不建对象、不出声，但 `Played` 照样涨」
+            //   ⇒「音效调度算对了没有」那一族断言**照旧有效**，而这一趟**不白建一堆 `AudioSource`、不白播**。
+            //   先例 = `WarpforgeArena1/Editor/AnimFXCheck.cs:341-366`（同一个开关、同一个 `finally` 还原）。
+            //   ⚠️ 它是**全局静态开关** ⇒ 必须在 `finally` 里还原；`RunCore` 本体保持原样（只换了名字）。
+            bool prevSoundEnabled = WarpforgeVFX.WFSoundPlayer.Enabled;
+            WarpforgeVFX.WFSoundPlayer.Enabled = false;
+            try { RunCore(); }
+            finally { WarpforgeVFX.WFSoundPlayer.Enabled = prevSoundEnabled; }
+        }
+
+        /// <summary>`Run()` 的**本体**（🆕 `A1534` 尾巴：`Run` 只负责「关音效 → 调它 → 还原」这一圈）。
+        /// ⚠️ 入口仍是 `Run`（`-executeMethod DeckScene.Run` 一个字没变）。</summary>
+        static void RunCore()
+        {
             _sink.Pass = 0; _sink.Fail = 0; _sink.Failures.Clear();
             Directory.CreateDirectory(ShotDir);
             // 🆕 2026-10-18（`A1007`）：空图护栏的**基线**（结尾那条断言用它算增量，见收尾那一段）。
@@ -772,6 +787,11 @@ public static class DeckScene
 
             Section("状态：遭遇模式（模式**从正在编辑的那副卡组派生**）");
             TestSkirmishMode();
+
+            // 🔴 **`A1896`（2026-10-19）**：打开编辑器时逐张摘除不合法卡（原版唯一调用点
+            // `DeckEditingWindow__TryOpen.c:47`）；与 `BattleScene` 那条「开局不摘」成对。
+            Section("状态：打开编辑器时逐张摘除不合法卡（`A1896`）");
+            TestLoadDeckPrunesInvalidCards();
 
             Section("版面");
             var tmpPath = TempStorePath();
@@ -2367,7 +2387,11 @@ public static class DeckScene
             var ids = new List<string>();
             foreach (var c in pool)
             {
+                // ⚠️ `A1896` 起 `LoadDeck`（打开编辑器）会逐张摘掉「按原版不能进卡组」的牌 ——
+                //    夹具里混进那种单位卡，「12 张正好装满」就会红。今天池里只有 1 张（SpaceWolves），
+                //    碰巧不在这个阵营；加这道闸是防卡池顺序/阵营变了之后**静默变红**。
                 if (ids.Count >= 12 || c == null || c.Type != "unit" || c.Faction != hero.Faction) continue;
+                if (DeckRules.CannotAddToDeck(c)) continue;
                 for (int i = 0; i < DeckRules.CopyLimit(c.Rarity) && ids.Count < 12; i++) ids.Add(c.Id);
             }
             Check(ids.Count, 12, $"凑得出一套 12 张的遭遇牌（阵营 {hero.Faction}）");
@@ -2398,6 +2422,68 @@ public static class DeckScene
             if (extra != null) over.CardIds.Add(extra.Id);
             Check(DeckRules.Validate(over, s.Find, true), DeckError.TooManyCards,
                   "★ ……而**多一张就超**（`TooManyCards`）⇒ 上限确实是**遭遇那套 12**，不是经典的 30");
+        }
+
+        /// <summary>
+        /// 🔴 **`A1896`（2026-10-19 · 用户拍板「方案 B」）：打开编辑器时**逐张摘除**不合法卡。**
+        ///
+        /// <para>判据 = 原版 `DeckEditingWindow__TryOpen`（`d:/2/tools/decomp_full/`，逐句实读）：
+        /// `:41-45` 先 `new CardDeck(deckToCopy)` 拷副本 ⇒ `:47` `DeckUtility__RemoveInvalidCards`
+        /// **对副本**逐张摘 ⇒ `:141` 把「摘过没有」写进 `CardDeck+0x60`（脏标记）。
+        /// 全库**唯一**调用点就是这一处 —— 开局**不跑**（判据 `BattleManager__CreatePlayerDeck.c`）。</para>
+        ///
+        /// <para>⚠️ 与 `BattleScene` 那条「开局**不**摘除」是一对：两边都退回旧行为才可能同时绿
+        /// （旧行为 = 开局摘、编辑器不摘 ⇒ 本函数 ① 红、那边 ② 红）。</para>
+        /// </summary>
+        static void TestLoadDeckPrunesInvalidCards()
+        {
+            var s = NewState();
+
+            // 夹具：同一阵营里挑
+            //   ① `bad` = **按原版不能进卡组**（`inventoryOptions`/`showInCollectionOptions` 那两道闸）
+            //      且**引擎解析得了**（`TacticPlayable`）的战术卡 —— 后半个条件让「摘没摘」不会和
+            //      「解析不了被 `FromDeck` 丢掉」混在一起（那是另一条判据）。
+            //   ② `good` = 一张正常单位卡（证明摘除**只摘该摘的**）。
+            CardDef hero = null, bad = null, good = null;
+            foreach (var c in s.Pool)
+                if (hero == null && c != null && c.Type == "hero") hero = c;
+            if (hero == null) { CheckTrue(false, "（前提）池子里找得到一张督军"); return; }
+            foreach (var c in s.Pool)
+            {
+                if (c == null || c.Faction != hero.Faction) continue;
+                if (good == null && c.Type == "unit" && !DeckRules.CannotAddToDeck(c)) good = c;
+                if (bad == null && c.Type == "tactic" && DeckRules.CannotAddToDeck(c)
+                    && DeckBuilder.TacticPlayable(c)) bad = c;
+            }
+            CheckTrue(bad != null, "（前提）池里有一张「**按原版不能进卡组、但引擎解析得了**」的战术卡");
+            CheckTrue(good != null, "（前提）同阵营有一张正常单位卡");
+            // 🔴 **灭自证**：上面那两条前提**本身就是判别式** —— 谁把 `CannotAddToDeck` / `TacticPlayable`
+            //   改成恒 false/true，这里先红；否则「摘掉了 1 张」会退化成同义反复（没东西可摘也照样绿）。
+            if (bad != null)
+                CheckTrue(DeckRules.CannotAddToDeck(bad) && DeckBuilder.TacticPlayable(bad),
+                          $"🧨 灭自证：「{bad.Name}」确实**既不合法、又解析得了**（缺一条，这条用例就没有鉴别力）");
+            if (bad == null || good == null) return;
+
+            var src = new PlayerDeck("自检·带来路不明的牌", hero.Id, null,
+                                     new List<string> { good.Id, bad.Id });
+            int srcCount = src.CardIds.Count;
+
+            s.LoadDeck(src);        // = 「打开编辑器」那一拍（`DeckRuntime.Build` 走的就是它）
+
+            Check(s.LastLoadRemoved.Count, 1,
+                  $"★ 打开编辑器按原版摘掉 **1** 张（实摘 {s.LastLoadRemoved.Count}）"
+                + "｜🧨 改坏法：把 `LoadDeck` 里那句 `RemoveInvalidCards` 删掉 ⇒ 0 张 ⇒ 红");
+            CheckTrue(s.Deck.CountOf(bad.Id) == 0,
+                      $"★ 那张「{bad.Name}」（`{DeckRules.Describe(DeckError.EffectOnlyCard)}` 那一类）"
+                    + "**不在编辑器副本里**（原版 `DeckEditingWindow__TryOpen.c:47`）");
+            CheckTrue(s.Deck.CountOf(good.Id) == 1, "……其余合法的牌**一张不少**");
+
+            // 🔴 **灭自证（第二条，结构上不同源）**：摘除只对**副本** —— 原版也是先 `new CardDeck(deckToCopy)`。
+            //    改坏法：把 `RemoveInvalidCards(Deck, …)` 写成 `RemoveInvalidCards(deck, …)` ⇒ 源卡组被改 ⇒ 这两条红。
+            Check(src.CardIds.Count, srcCount,
+                  $"★ 灭自证：传进来那副**一个字节没动**（{src.CardIds.Count} 张，还是 {srcCount}）");
+            CheckTrue(src.CountOf(bad.Id) == 1,
+                      "……而且那张不合法牌**还在源卡组里**（摘的确实是副本，不是库/存档那份）");
         }
 
         /// <summary>卡组库接进场景之后，这几件事必须成立。</summary>
@@ -2929,6 +3015,9 @@ public static class DeckScene
                         + $" Info button` 的 `Background` 锚 `(0,0)-(1,1)`；实测 {b0w:F2}）");
                 CheckNear(b0x, 162.9f, 0.6f, $"……中心 x = **162.9**（8.400 + 309/2；实测 {b0x:F2}）");
                 _rt.UiScrollDeck(57.8f);              // 滚过一整行 ⇒ `firstRow == 1` ⇒ 槽 0 装的是**卡行**
+                CheckTrue(_rt.UiHasQuad("row_0"),
+                          "（前提）`row_0` **建出来了** —— 不然下面那条「关掉了」是拿「件不存在」蒙的"
+                        + "（`UiQuadActive` 对不存在的 key 恒答 false，账 `A1532`）");
                 CheckTrue(!_rt.UiQuadActive("row_0"),
                           "★ `A1720`：滚过一行后**督军档那一套关掉了**"
                         + "（按槽号取几何的旧写法里它恒开着 ⇒ 底板左缘多露 17.255px）");
@@ -3216,6 +3305,9 @@ public static class DeckScene
             Check(_rt.FiltersOpen, false, "刚建好时筛选栏是关着的");
             // 🔴 这条是踩出来的：底板建了却**没跟着开关隐藏** ⇒ 它（队列 3020，比侧栏大）
             //    会一直盖住整个侧栏 —— 画面上只剩一块底板色，卡组行/页签/Done 全看不见。
+            CheckTrue(_rt.UiHasQuad("flt_bg"),
+                      "（前提）筛选栏底板 `flt_bg` **建出来了** —— 不然下面那条「不显示」是拿「件不存在」蒙的"
+                    + "（`UiQuadActive` 对不存在的 key 恒答 false，账 `A1532`）");
             CheckTrue(!_rt.UiQuadActive("flt_bg"), "关着的时候筛选栏底板**不显示**（不然会盖住整个侧栏）");
             // 🔴 **2026-10-05（A57 ①）：上面那条 `flt_bg` 与下面 `side_bg` 都是 `Img()` 建的【单块】**
             //    —— `UiQuadActive` 以前**只查 `_named`**，对**九宫格 / 子树**件**恒答 false**（静默）。
@@ -3225,6 +3317,9 @@ public static class DeckScene
             //    · 打开 ⇒ **露** —— 这一条**去掉兜底必红**（旧写法两种状态都答 false）。
             //    ⚠️ 「打开」那条**不能**拿常显件（如 `hdr_sep`）顶替两态：常显件在两种状态下同值，
             //    它只能验「不是恒 false」、验不出「不是恒 true」（同段 `hdr_sep` 那条就是只验前一半）。
+            CheckTrue(_rt.UiHasQuad("flt_input"),
+                      "（前提）九宫格件 `flt_input` **建出来了** —— 不然下面那条「不露」是拿「件不存在」蒙的"
+                    + "（账 `A1532`）");
             CheckTrue(!_rt.UiQuadActive("flt_input"),
                       "九宫格件（搜索框底 `flt_input`）**关着时不露** —— 同时钉「这条读数不是恒 true」");
             _rt.UiToggleFilters();
@@ -3782,6 +3877,8 @@ public static class DeckScene
                 Check(_rt.FiltersOpen, false, "接着上一段：抽屉现在是关着的");
                 CheckNear(_rt.FilterDrawerSlide, 0f, 0.001f, "关 ⇒ 进度 **0**（整栏停在 `hiddenPosition` 那一头）");
                 CheckTrue(!_rt.FilterDrawerInteractive, "…不参与命中（滑出去那一头同样不吃）");
+                CheckTrue(_rt.UiHasQuad("flt_bg"),
+                          "（前提）`flt_bg` **建出来了** —— 不然下面那条「不露」是拿「件不存在」蒙的（账 `A1532`）");
                 CheckTrue(!_rt.UiQuadActive("flt_bg"), "…底板**不露**（关的是整栏那个容器，不是逐件 SetActive）");
 
                 _rt.UiToggleFilters();
@@ -3852,6 +3949,8 @@ public static class DeckScene
                 CheckTrue(_rt.UiQuadActive("flt_bg"), "收起途中（进度 0.5）底板**还活着**（要画）");
                 CheckTrue(!_rt.FilterDrawerInteractive, "…但**已经不吃**点击/滚轮");
                 _rt.SetDrawerProgressForTest(false, 0f);
+                CheckTrue(_rt.UiHasQuad("flt_bg"),
+                          "（前提）`flt_bg` **建出来了** —— 不然下面那条「滑到底关掉」是拿「件不存在」蒙的（账 `A1532`）");
                 CheckTrue(!_rt.UiQuadActive("flt_bg"), "滑到底 ⇒ 整栏关掉（`activeInHierarchy` 假 ⇒ 不再盖住侧栏）");
             }
 
@@ -4018,6 +4117,9 @@ public static class DeckScene
             //    （九宫格、**不进 `_named`**）⇒ 下面这一对同时钉住「关得住」与「读得出关」。
             //    期望值出处：行属 Cards 页（原版 `Content Area/Sidebar` 的卡组列表只在 Cards 页签下），
             //    另由紧邻的 `UiDeckRowAt` 那两条独立佐证 —— ⛔ 不是从 `UiQuadActive` 自己读回来的。
+            CheckTrue(_rt.UiHasQuad("row_0"),
+                      "（前提）`row_0` 那棵九宫格行树**建出来了** —— 不然下面那条「真关了」是拿「件不存在」蒙的"
+                    + "（账 `A1532`）");
             CheckTrue(!_rt.UiQuadActive("row_0"),
                       "Deck info 页签下**那棵九宫格行树真的关了**（`row_0` 不在 `_named` 里 ⇒ "
                       + "少了兜底这条会**碰巧**答 false，所以必须与下面那条成对看）");
@@ -4133,8 +4235,13 @@ public static class DeckScene
                     Check(_rt.UiCardsInfoOnlyActive, 0,
                           "★ Cosmetics 页：登记表那一半（`_cardsInfoOnly`）也**一件都没露**（A1518③，两条腿一起断）");
                     foreach (var k in WcBarQuadNodes)
+                    {
+                        CheckTrue(_rt.UiHasQuad(k),
+                                  "（前提）`" + k + "` **建出来了** —— 不然下面那条「不显示」是拿"
+                                + "「件不存在」蒙的（`UiQuadActive` 对不存在的 key 恒答 false，账 `A1532`）");
                         CheckTrue(!_rt.UiQuadActive(k),
                                   "★ Cosmetics 页：`" + k + "` **不显示**（`ImageQuad`，走 `UiQuadActive`）");
+                    }
                     for (int i = 0; i < 4; i++)
                         CheckTrue(!NodeShown("hdr_wct" + i),
                                   "★ Cosmetics 页：数字 `hdr_wct" + i + "` 也不显示（它是 `Label` —— "
@@ -4289,6 +4396,8 @@ public static class DeckScene
                 CheckTrue(_rt.FilterDrawerInteractive, "★ Cards 页：那条竖带**吃指针**（`FltStripOn` 为真）");
                 _rt.UiSetTab(2);
                 CheckTrue(_rt.FiltersOpen, "（前提）切页**不翻逻辑态**（`_filtersOpen` 跨页保留，翻它的是 Filters 键）");
+                CheckTrue(_rt.UiHasQuad("flt_bg"),
+                          "（前提）`flt_bg` **建出来了** —— 不然下面那条「整栏不画」是拿「件不存在」蒙的（账 `A1532`）");
                 CheckTrue(!_rt.UiQuadActive("flt_bg"),
                           "★ Cosmetics 页：卡牌筛选栏**整栏不画**（原版它挂在 `Card Display` 底下）"
                         + "｜🧨 不给 `PageOn` 赋页判据（旧写法恒 `true`）⇒ 本条红");
@@ -4902,6 +5011,9 @@ public static class DeckScene
                 //   「**筛选为空时隐藏**」这六个字是**推断**、不是逐句读出来的原文 —— 记在这里，别当已证。
                 {
                     CheckTrue(state.Filter.IsEmpty, "（前提）此刻**一个筛选都没设**（上面 `UiClearFilters()` 清过）");
+                    CheckTrue(_rt.UiHasQuad("hdr_clear"),
+                              "（前提）`hdr_clear` **建出来了** —— 不然下面那条「不显示」是拿「件不存在」蒙的"
+                            + "（`UiQuadActive` 对不存在的 key 恒答 false，账 `A1532`）");
                     CheckTrue(!_rt.UiQuadActive("hdr_clear"),
                               "★ 筛选为空 ⇒ **`Clear filters` 那颗钮不显示**"
                             + "（原版是平移到 `hiddenPosition`；「筛选为空时隐藏」是**推断**，见本段说明）");
@@ -5924,6 +6036,9 @@ public static class DeckScene
                 CheckTrue(_rt.CosmoFilterDrawerInteractive, "…到位 ⇒ 参与命中");
                 _rt.UiSetTab(0);
                 Check(_rt.CosmoFiltersOpen, true, "切到 Cards 页 ⇒ 卡背抽屉的**逻辑态保留**");
+                CheckTrue(_rt.UiHasQuad("cosmoflt_bg"),
+                          "（前提）`cosmoflt_bg` **建出来了** —— 不然下面那条「整栏不露」是拿「件不存在」蒙的"
+                        + "（账 `A1532`）");
                 CheckTrue(!_rt.UiQuadActive("cosmoflt_bg"), "…但整栏**不露**（原版它挂在那张页底下）");
                 CheckTrue(!_rt.CosmoFilterDrawerInteractive, "…也不参与命中");
                 _rt.UiSetTab(2);
@@ -6179,6 +6294,8 @@ public static class DeckScene
                 //   换成「它不在」，而「不合法这件事说得出话」由下面 ③ 的 `UiLastSay` + `foot_hl` 两处接住。
                 CheckTrue(FindDeep(_rt.Root, "foot_verdict") == null,
                           "★ D35：页脚那行「合法/不合法」判词**已经不存在**（原版侧栏没有它）");
+                CheckTrue(_rt.UiHasQuad("foot_hl"),
+                          "（前提）`foot_hl` **建出来了** —— 不然下面那条「灭掉」是拿「件不存在」蒙的（账 `A1532`）");
                 CheckTrue(!_rt.UiQuadActive("foot_hl"),
                           "……`Done Highlight` **灭掉**（原版 `UpdateDoneButton` 用的是同一个 `ValidateDeck`）");
                 Check(DeckLibrary.Load().Current.CardIds.Count, keepIds.Count,

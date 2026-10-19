@@ -1,5 +1,12 @@
 // DeckRulesTest.cs — 卡组构筑规则 / 校验 / 存档的自检（并进 RuleEngineTest.Run）
 //
+// 🔴 **2026-10-19（`A1944`）本文件标签里的「规则书 :N」= 可复查坐标，不是判据来源**：
+//   这些常量的第一权威与「为什么只能照规则书」→ `RuleEngine/Core/DeckRules.cs` 文件头
+//   （要点：客户端 `GameplayVariablesData` 那一层是 LiveOps 下发、运行时取不到；
+//   `GameStaticData` 有字面量 2/1 但疑似死值；督军 = 1 是原版硬编码）。
+//   粉丝实体规则书**非官方**（它自己写着 `Not official. Fan project.`），下面标签里的 `:N`
+//   一律只读作**坐标**；其中「起手 / 上限 / 张数」那几个数确实**只有它一条支撑**，属旁证。
+//
 // 单独一个文件是因为 RuleEngineTest.cs 已经 1300 行了；两半都是
 // `public static partial class RuleEngineTest`，共用同一套 `Check` 和计数。
 using System.Collections.Generic;

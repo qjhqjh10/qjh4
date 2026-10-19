@@ -19,6 +19,7 @@ $PY d:/2/Warpforge_tools/scripts/<脚本名>.py
 | **`read_literal.py`** | ★ **读反编译 `.c` 里的 `_DAT_xxxxxxxxx` 常量**（Ghidra 没跟到的只读字面量）：PE 节表把 RVA 映射成文件偏移读 4 字节。**读出来要「整齐」才算对**（240.0 / 0.4 这种），乱数=映射错了。2026-09-13 加，用它读出了 `DoPushBack` 的 0.4/0.3 |
 | **`verify_feel_params.py`** | ★ **把手感参数回到四个原始来源里读一遍**（99 条 AnimationClip / 74 个 UnitTweenSO / 卡预制体字段 / DLL 常量），和 `Core/CardFeel.cs` 的常量表对照。⚠️ 它是「哪些参数不是原版的」那次追问的产物，见 `资料/规则引擎_进度与交接.md` 第二十五轮 |
 | `scripts快照/` | 13 个关键脚本的快照，供阅读与检索。🔴 **2026-09-30 更正（原来写「只读快照，改造请改 `d:/2` 下的原件」—— 与现状不符）**：<br>**实测 `d:/2/Warpforge_tools/scripts/gen_unity_arena_manifest.py` 是 2026-09-24 22:58 的旧版**，比仓库这份**少 120 行**（**连 09-25 的静态合批修复 `firstSubMesh` 都没有**，也没有 09-30 的雾三字段）⇒ **跑 `d:/2` 那份会写出坏 manifest**（arena2 会退回 1.086 那一档）。<br>⚠️ **现在的实际口径：战场清单就住在 `工具/scripts快照/` 这一份，用它跑**（`D:/2/Warpforge_tools/py312/python.exe gen_unity_arena_manifest.py --arena <场>`，cwd = 本目录）。<br>✅ **2026-10-01：已同步回 `d:/2`**（用户当天授权由我决定 ⇒ 决定做）。**两边现在逐字节相同**（md5 `b99e4cf476cc3cb2034eab600a6c6348`）；旧版留在 `d:/2/Warpforge_tools/scripts/_bak_1001/`。做法：先备份 → 复制 → 核对 md5 → `py_compile` + `--list-arenas` 实跑（13 场正常列出）。**改这个生成器时两边都要改**（或改完回来同步一次） |
+| `icon/` | 🆕 **`A1429`（2026-10-19 补索引）**：卡面图标「记号 → sprite」那一族的三个**只读**脚本 —— `sim_rewrite.py`（把 `CardIcons.Rewrite` 静态复刻、对全池铺一遍）/ `cmp_plan.py`（两份计划表对账）/ `conflicts.py`（子串冲突枚举）。**怎么跑、已知边界、哪批用过 → 见子目录自带的 `icon/README.md`**（⛔ 别照旧 docstring 的 `<out.txt>` 猜：`sim_rewrite.py` 实际写 **JSON**） |
 | `_同步日志_*.json` | 每批的 `label / src / dst / files / bytes` —— 查"这东西从哪来的" |
 | `_已清理临时目录清单.json` | 2026-09-10 清理掉的 3 个临时目录的内容清单（留档） |
 | `Warpforge_tools原始README.md` | `d:/2/Warpforge_tools/README.md` 的副本。⚠️ 内有已知陈旧引用（`D:\2\Warpforge_assets_full` 已不存在），以 `资料/资源使用手册.md` 为准 |
@@ -37,7 +38,7 @@ $PY d:/2/Warpforge_tools/scripts/<脚本名>.py
 | 粒子 / 动画曲线 → 归一化 JSON | `convert_unity_particles.py` / `convert_unity_anim.py` |
 | 规则书提取 | `extract_rulebook_md.py` |
 
-完整 124 个脚本 + 用法见 `d:/2/Warpforge_tools/scripts/` 与 `资料/资源使用手册.md` §3。
+完整脚本 + 用法见 `d:/2/Warpforge_tools/scripts/` 与 `资料/资源使用手册.md` §3（⛔ **别在这里写死个数** —— 会永远对不上）。
 
 ---
 

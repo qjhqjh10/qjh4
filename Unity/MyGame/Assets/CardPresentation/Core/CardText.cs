@@ -252,6 +252,15 @@ namespace CardPresentation
                                       : KeywordEn(key));   // ②
                 if (string.IsNullOrEmpty(word)) continue;
                 if (DeclaredInBody(hay, word)) continue;   // ①
+                // 🆕 2026-10-19（`A1945` 方案 A）：**官方 `[[枚举名]]` 也算「声明过」** ——
+                //   官方正文写 `[[frenzied]]` / `[[rage]]` / `[[markOfChaos]]`，渲染出来的词是
+                //   `Destroyer` / `Penitence` / `Dark Pact`（`Card_Trait/*`），而**规范键**是
+                //   `destroyer` / `penitence` / `darkpact`（`Badges.KeyOf` 的四条别名）。
+                //   纯文本比对只看得到 `frenzied`、看不到 `Destroyer` ⇒ 会把同一枚关键词**再补一遍**
+                //   （卡面印两遍：`Destroyer. … Destroyer. …`）。这里按 `Badges.KeyOf(枚举名)` 归一后比规范键。
+                //   ⚠️ 只在 hay 里**真有 `[[`** 时才可能命中（老 `desc` 0 处；官方那一代为 14 张
+                //   `[[frenzied]]`/`[[rage]]` 卡）⇒ 对非官方文本零影响。
+                if (DeclaredByOfficialMark(hay, key)) continue;
                 // 中文卡面里 `Flying` 也可能写成英文（数据里两种都有）—— 两个写法都判一次
                 // 🆕 非中英语档的 `other` 仍取**英文名**：正文可能是「官方那一列缺 ⇒ 回退英文 `Desc`」
                 //    那一档，那时只比当前语言的词会把英文正文里已经写过的同一个词再补一遍（重复印）。
@@ -413,6 +422,32 @@ namespace CardPresentation
                 if (p < 0) return false;
                 if (IsDeclarationAt(hay, p, word.Length)) return true;
                 i = p + 1;
+            }
+            return false;
+        }
+
+        /// <summary>🆕 2026-10-19（`A1945` 方案 A）：hay 里有没有一条官方 `[[枚举名]]`，
+        /// 归一后**等于** <paramref name="canonicalKey"/>。
+        /// <para>归一走 `Badges.KeyOf` —— **与徽标同一张别名表**（`frenzied→destroyer` ·
+        /// `rage→penitence` · `markOfChaos/markOfSlaanesh→darkpact` · `concussive→concussion`）。
+        /// 两处写同一条规则迟早不一致 ⇒ ⛔ 别在本文件另抄一张。</para>
+        /// <para>`((…))` / `$$…$$` 不参与：本判据只管 `[[关键词枚举名]]` 这一种声明。</para></summary>
+        static bool DeclaredByOfficialMark(string hay, string canonicalKey)
+        {
+            if (string.IsNullOrEmpty(hay) || string.IsNullOrEmpty(canonicalKey)) return false;
+            int i = 0;
+            while (i < hay.Length - 3)
+            {
+                int a = hay.IndexOf("[[", i, System.StringComparison.Ordinal);
+                if (a < 0) return false;
+                int b = hay.IndexOf("]]", a + 2, System.StringComparison.Ordinal);
+                if (b < 0) return false;
+                string token = hay.Substring(a + 2, b - a - 2).Trim();
+                if (token.Length > 0
+                    && string.Equals(CardPresentation.Badges.KeyOf(token), canonicalKey.Trim(),
+                                     System.StringComparison.OrdinalIgnoreCase))
+                    return true;
+                i = b + 2;
             }
             return false;
         }

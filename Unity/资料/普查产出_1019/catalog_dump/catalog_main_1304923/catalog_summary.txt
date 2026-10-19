@@ -1,0 +1,18 @@
+catalog: d:/4/_tmp_view/localboot_1002/前/com.unity.addressables/catalog_main.bin
+file size: 1304923
+magic: 0x0de38942   version: 2
+keysOffset: 0x24   idOffset: 0x171d0
+instanceProvider: 0x17317   sceneProvider: 0x17386
+initObjectsArray: 0x17509   buildResultHash: 0x1751d
+locatorId: AddressablesMainContentCatalog
+buildResultHash: 54383599d54becbd466db968bfa655c7
+keys (KeyData[]): 11829
+unique locations: 14301
+  provider: UnityEngine.ResourceManagement.ResourceProviders.AssetBundleProvider             87
+  provider: UnityEngine.ResourceManagement.ResourceProviders.BundledAssetProvider            14214
+bundle locations (AssetBundleProvider): 87
+asset locations  (BundledAssetProvider): 14214
+  key type: System.String                            11829
+keys ending .bundle: 87
+keys 32-hex (GUID): 11718
+other keys: 24

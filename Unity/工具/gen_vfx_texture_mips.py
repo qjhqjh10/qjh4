@@ -116,7 +116,7 @@ def main():
     if setting_conflicts:
         print(f"🔴 **{len(setting_conflicts)} 张同名贴图的 wrap/filter/aniso 在不同包里不一致**：")
         for n, a, b in setting_conflicts[:20]:
-            print(f"    {n}: {a[3]} wrap(a[4],a[5]) filter{a[6]} aniso{a[7]}  vs  "
+            print(f"    {n}: {a[3]} wrap({a[4]},{a[5]}) filter{a[6]} aniso{a[7]}  vs  "
                   f"{b[3]} wrap({b[4]},{b[5]}) filter{b[6]} aniso{b[7]}")
 
     if check:

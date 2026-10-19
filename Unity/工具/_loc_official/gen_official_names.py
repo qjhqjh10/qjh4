@@ -26,6 +26,11 @@
 用法：
   python -I -X utf8 d:/4/Unity/工具/_loc_official/gen_official_names.py            # 干跑
   python -I -X utf8 d:/4/Unity/工具/_loc_official/gen_official_names.py --write
+
+🔴 `A1854`：`PrebuiltDecks/*` 是**按英文名的生成期 join**（我们的 `deckId` 与官方键不同源）——
+  `MyGame/Assets/RuleEngine/Resources/prebuilt_decks.json` **一变（增删副 / 改名 / 重排版）就必须重跑本脚本**，
+  否则那 95 条会**静默停在旧 deckId 上**（运行时按 deckId 取，取不到 = 回兜底英文名）。
+  本脚本在「上游比产物新」时会**出声**（见 `resolve_prebuilt_decks` 末尾那段），但它只报不拦。
 """
 import io
 import json
@@ -134,8 +139,8 @@ def resolve_prebuilt_decks(off, terms):
     而我们的 `deckId` 是另一种写法（`AM_SK_1`）⇒ **两者不同源**。
 
     判据：**按英文名匹配**（我们 `prebuilt_decks.json` 的 `name` 列**就是原版 `deckName`**）。
-    现读：103 副里 **74 副**能配上（官方那 97 条只覆盖一部分卡池）。
-    ⚠️ **同名歧义 10 例**（一副牌与它的 `_Starter` / `_PRACTICE` 变体同名）⇒ 取**不带那两种后缀**的那条。
+    现读（2026-10-19）：103 副里 **95 副**能配上（官方 `PrebuiltDecks/*` 现读 215 条，含变体）。
+    ⚠️ **同名歧义 73 例**（一副牌与它的 `_Starter` / `_PRACTICE` 变体同名）⇒ 取**不带那两种后缀**的那条。
     ⇒ 产物里落成 `PrebuiltDecks/<我们的 deckId>`，运行时就能直接按 deckId 取。
 
     返回 (落了几副, 配上英文名但没能挑出唯一键的例数)。
@@ -147,6 +152,11 @@ def resolve_prebuilt_decks(off, terms):
     src = r"d:/4/Unity/MyGame/Assets/RuleEngine/Resources/prebuilt_decks.json"
     if not os.path.exists(src):
         return 0, 0
+    # 🔴 `A1854`：这一族是**生成期 join** ⇒ 上游变了、产物就静默过期（旧 deckId / 旧英文名）。
+    #    这里只**出声**（不拦写入）：mtime 比产物新就告诉你要重跑。
+    if os.path.exists(OUT) and os.path.getmtime(src) > os.path.getmtime(OUT):
+        print("🔴 上游 %s 比产物新 ⇒ `PrebuiltDecks/*` 的 join 已过期（`A1854`）"
+              "—— **必须重跑本脚本**（--write）" % src)
     decks = json.load(io.open(src, encoding="utf-8")).get("decks") or []
     n, amb = 0, 0
     for d in decks:

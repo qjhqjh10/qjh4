@@ -48,6 +48,38 @@ namespace CardPresentation
         public static readonly WindowsPlacement UnsetPlacement = (WindowsPlacement)(-1);
 
         public WindowsPlacement placement = UnsetPlacement;
+
+        /// <summary>🔴 **2026-10-19（`N117` · 用户拍板「方案 C：按窗类型分」）**：这扇窗开着时
+        /// **吃不吃左竖导航的点击**（= 它是「模态」的那一半）。
+        ///
+        /// <para>**为什么是这两条（都是原版 prefab 字段，不是我们挑的）**：
+        /// <list type="number">
+        /// <item><b>`windowsPlacement == 15 (Popup)`</b> —— 实例挂在 `3 - PopUp Holder` 下。那个 Holder
+        ///   上的 `Canvas`（`Canvas_1075`）是 **`overrideSorting: true` + `m_ReceivesEvents: true` +
+        ///   `m_SortingLayerID 1054366423`**，而 `TagManager` 里 **`1054366423 = PopUps`（第 8 条）**、
+        ///   主画布 `Canvas_1077` 是 **`Default`（第 1 条）** ⇒ **排序层索引压过 `order`**（兄弟序之外的另一套机制）
+        ///   ⇒ PopUp Holder 整棵**永远画在左栏之上**。判据全文 → `MainMenuRuntime.cs` 的顶栏那段
+        ///   （2026-10-11）与 `资料/普查产出_1010/V4b_三件口径.md` §Q3。</item>
+        /// <item><b>`type == Popup (1)`</b> —— `WindowsManager__OpenWindowCO.c` 的 `type==1` 支只把上一扇
+        ///   `ToBackground()`（不开「全藏」支），而这一族窗**自己都带一颗整屏命中的 `Menu Dark Background`**
+        ///   （全库 88/88 个 `BackgroundCloseButton` 的宿主都带 `Image.m_RaycastTarget = 1`，其中 85 个节点
+        ///   就叫这个名字 —— 判据 → `资料/待办判据_1006.md` 的 A84②）⇒ 左栏那一片的点击落在**它**身上。
+        ///   ⚠️ 这两个字段**同时**命中的窗很多；取「或」是因为两条各自都能单独成立
+        ///   （例：`DailyRewardPopup` 是 `type=0` 但 `placement=15`；`SettingsWindow` 是 `placement=5` 但 `type=1`）。</item>
+        /// </list></para>
+        ///
+        /// <para>⚠️ **它只影响「左竖导航的命中区档」**（`MainMenuRuntime.QNavHit` ↔ `QNavHitBlocked`），
+        /// 不动任何可见层、不动窗口自己的压暗层档 —— 画面逐像素不变（`N117` 方案 C）。</para>
+        /// <para>🔴 **非模态窗（商店 `type=0/placement=10` · 收藏 `0/5` · 日常 `0/5` · 社交 `0/5`）保持 `false`**
+        /// ⇒ 2026-10-18「商店开着点不动左栏」那条修复**不回退**。</para>
+        /// <para>📌 **例外窗**：`SearchingOpponentWindow`（`type=0/placement=None`，但整屏背板盖住左栏）在它自己
+        /// 的文件里覆写成 `true`；`BoosterPackOpenWindow`（`0/5`）虽然按本规则算非模态，
+        /// 它自己的压暗层档（`QShade = 3170`）**已经高于 `QNavHit`(3156)** ⇒ 行为上本来就吃掉了左栏。</para></summary>
+        public virtual bool BlocksLeftNav
+        {
+            get { return type == WindowType.Popup || placement == WindowsPlacement.Popup; }
+        }
+
         /// <summary>ESC 能不能关。**逐窗不同，照各自实证值填**（正本 §三 第 10 条列了 7 个实例）。</summary>
         public bool closeOnEsc = true;
 

@@ -35,7 +35,10 @@
 //      **实读 = 5.0 分钟**）。只有 `useLastMinutesText = 1` 的实例才有这一档 —— 我们接的消费点里
 //      **商店**（`MonoBehaviour_-5363483528564307958`）与**单机能源活动窗**
 //      （`MonoBehaviour_666837755613493937`，键 `Event_Description/Generic/EndsSoon`）是 1；
-//      ⚠️ 能源窗那一档**暂未接**（该键正文不在官方本地化快照里，我们也不猜译文），其余为 0 或不使用。
+//      🔴 **2026-10-19（界面线 P05 · 铁律 5 就地订正）**：这里原来写「能源窗那一档**暂未接**
+//      （该键正文不在官方本地化快照里）」—— **已过期**：当前官方表（10,854 条）里
+//      `Event_Description/Generic/EndsSoon` = en `Ends soon` / zh `即将结束`，且
+//      **能源窗与遭遇战窗两处都已接上** `lastMinutesPrefix`；其余为 0 或不使用。
 // · 到点（剩余 <= 0）：原版把 timer 那颗 TMP 的 GameObject `SetActive(false)` 并**只触发一次**
 //   `OnRunOutOfTime`。我们把**同一个 `Label` 的文本清空**（视觉等价；组件继续每秒 tick，
 //   目标滚到下一档时会自己把字写回来 —— 原版那条路把 GameObject 关了，Update 也就停了）。
@@ -226,7 +229,9 @@ namespace CardPresentation
         /// 我们接的消费点里，`useLastMinutesText = 1` 的是**商店**
         /// （`bundle_menus_assets_all/MonoBehaviour/MonoBehaviour_-5363483528564307958.json` 实读，
         /// 键就是 `MainMenu/LastMinutes`）与**单机能源活动窗**（`MonoBehaviour_666837755613493937`，
-        /// ⚠️ 它的键是 `Event_Description/Generic/EndsSoon` —— **正文不在官方表快照里** ⇒ 那一档暂未接）。</summary>
+        /// 键 `Event_Description/Generic/EndsSoon` —— 🔴 **2026-10-19（界面线 P05）就地订正**：这里原来写
+        /// 「**正文不在官方表快照里** ⇒ 那一档暂未接」，**已过期**：当前官方表里该键 =
+        /// en `Ends soon` / zh `即将结束`，能源窗与遭遇战窗两处**都已接上**）。</summary>
         public static string LastMinutesText()
         { return Zh ? "最后时刻" : "Last Minutes"; }
 

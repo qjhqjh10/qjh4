@@ -119,9 +119,100 @@ namespace CardPresentation
 
         public void SetHost(RewardsWindow win, Transform root) { _win = win; _root = root; }
         public override void Setup() { Build(); }
-        public override void OnOpen() { FocusSelectedArmy(); }
+        public override void OnOpen()
+        {
+            FocusSelectedArmy();
+            // 🆕 **2026-10-19（MainTutorialManager 消费点 · 原版 `CampaignWindowTab.OnOpen.c:92-98`）**：
+            //   `if ((int)MainTutorialManager.GetState() < 2) armySelector.ToggleAllowClickWhenAlreadySelected(true);`
+            //   ⇒ 教程早期允许重复点**已选中**的阵营；其余状态保持原版的 `allowClickWhenAlreadySelected = 0`。
+            //   ⚠️ 我们这套引导默认关闭（用户口径）⇒ 管理器没在跑时**不施加**这条教程行为，保持原版默认 false。
+            SetAllowClickWhenAlreadySelected(MenuTutorialManager.IsRunning
+                                             && (int)MenuTutorialManager.GetState() < 2);
+        }
 
         Transform _armyContent, _trackContent;
+
+        // ---- 🆕 2026-10-19：MainTutorialManager / E01 第三步指针要读的两条状态
+        /// <summary>`ArmySelector.ToggleAllowClickWhenAlreadySelected` 的等价物（原版默认 false）。
+        /// 由 `OnOpen` 按 `MainTutorialManager.GetState() < 2` 设。</summary>
+        bool _allowClickSelected;
+        /// <summary>`ArmySelector.ToggleArmyInteractable(army, true)` / `LockArmySelectorByArmy` 的等价物：
+        /// 只让这一个阵营可点（`null` = 不锁）。</summary>
+        string _lockedArmy;
+
+        /// <summary>🆕 **E01 第三步指针的另一支** = 原版 `CampaignWindowTab.GetTutorialTrackArmyNode(tab, 2)`：
+        /// 教程轨道的第 2 号节点（节点 id 前缀 + `2`；我们 = `CampaignNode_2`）。
+        /// 节点在视口外时 `BuildNode` 不建 ⇒ 返回 `null`（指针会退回页签/导航键）。</summary>
+        public Transform TutorialTrackNode
+        {
+            get { return _nodeTf != null && _nodeTf.Length > 2 ? _nodeTf[2] : null; }
+        }
+
+        /// <summary>🆕 **MainTutorialManager 的 `ClaimDeckNode`**（原版 `GetCampaignRedeemNodeId()`）：
+        /// 当前战役里**第一个可领**的节点（`Unlocked && Claimable`）。没有可领的 ⇒ `null`。</summary>
+        public Transform TutorialRedeemNode
+        {
+            get
+            {
+                if (_nodeTf == null) return null;
+                for (int i = 0; i < CampaignData.NodeCount && i < _nodeTf.Length; i++)
+                    if (CampaignData.StateOf(i) == CampaignData.Unlocked && CampaignData.Claimable(i))
+                        return _nodeTf[i];
+                return null;
+            }
+        }
+
+        /// <summary>🆕 **MainTutorialManager 的 `OrkArmyInCampaign`**（原版 id `CampaignArmySelectorGoff`）：
+        /// 教程阵营（Goff）在阵营条里的那一格。条目在视口外时不建 ⇒ `null`。</summary>
+        public Transform TutorialArmyItem
+        {
+            get
+            {
+                if (_armyContent == null) return null;
+                for (int i = 0; i < CampaignData.Armies.Length; i++)
+                    if (CampaignData.Armies[i] == MenuTutorialManager.TutorialArmy)
+                    {
+                        var t = _armyContent.Find("CampaignArmyItem_" + i);   // 直接子件（`BuildArmyItems` 建在 content 下）
+                        return t;
+                    }
+                return null;
+            }
+        }
+
+        /// <summary>= 原版 `ArmySelector.ToggleAllowClickWhenAlreadySelected(bool)`（默认 `false`）。</summary>
+        public void SetAllowClickWhenAlreadySelected(bool on)
+        {
+            _allowClickSelected = on;
+            if (_armyContent == null) return;
+            for (int c = 0; c < _armyContent.childCount; c++)
+            {
+                var wb = _armyContent.GetChild(c).GetComponentInChildren<WindowButton>(true);
+                if (wb != null) wb.allowClickWhenAlreadySelected = on;
+            }
+        }
+
+        /// <summary>= 原版 `CampaignWindowTab.LockArmySelectorByArmy(army)`
+        /// （`ArmySelector.ToggleArmyInteractable(army, true)`：**只**这一个阵营可点、其余全关）。
+        /// <para>`army == null` ⇒ 解除锁定（我们自己的复位口；原版没有，但自检/复位需要）。</para>
+        /// <para>⚠️ 条目是**按视口裁剪**建的（`BuildArmyItems` 会跳过视口外的），所以 child 下标 ≠ 阵营下标 ——
+        /// 必须按节点名 `CampaignArmyItem_<i>` 解回阵营。</para></summary>
+        public void LockArmySelector(string army)
+        {
+            _lockedArmy = army;
+            if (_armyContent == null) return;
+            const string prefix = "CampaignArmyItem_";
+            for (int c = 0; c < _armyContent.childCount; c++)
+            {
+                var child = _armyContent.GetChild(c);
+                if (child == null || !child.name.StartsWith(prefix, System.StringComparison.Ordinal)) continue;
+                int idx;
+                if (!int.TryParse(child.name.Substring(prefix.Length), out idx)) continue;
+                if (idx < 0 || idx >= CampaignData.Armies.Length) continue;
+                var wb = child.GetComponentInChildren<WindowButton>(true);
+                if (wb == null) continue;
+                wb.Interactable = army == null || CampaignData.Armies[idx] == army;
+            }
+        }
         /// <summary>`Army Content` 的矩形 = **选择条中心的一个对称展开区**
         /// （见 `UguiLayout.HorizontalContentCentered`）。条目由它算出，**不是**从 `_selR` 左边缘起。</summary>
         PxRect _armyContentR;
@@ -749,7 +840,10 @@ namespace CardPresentation
                 var armyWb = armyHit != null ? armyHit.GetComponent<WindowButton>() : null;
                 if (armyWb != null)
                 {
-                    armyWb.allowClickWhenAlreadySelected = false;
+                    // 🆕 2026-10-19：`allowClickWhenAlreadySelected` / 锁定态由 `OnOpen` 与
+                    //   `MenuTutorialManager.LockArmySelectorByArmy` 的等价物决定（默认 false / 不锁）。
+                    armyWb.allowClickWhenAlreadySelected = _allowClickSelected;
+                    if (_lockedArmy != null) armyWb.Interactable = (army == _lockedArmy);
                     armyWb.isOn = () => CampaignData.Selected == army;
                 }
             }
@@ -805,6 +899,9 @@ namespace CardPresentation
         public void SelectArmy(string army)
         {
             CampaignData.Select(army);
+            // 🆕 2026-10-19：原版这条回调是 `CampaignHandler.OnArmySelected`（+0x80）→
+            //   `MainTutorialManager.SetSelectedArmy(army)`（`MainTutorialManager__OnDisable.c` 里成对移除的那个事件）。
+            MenuTutorialManager.SetSelectedArmy(army);
             if (!CampaignData.HasContent(army))
                 Debug.Log("[Campaign] 选中了 `" + army + "`，但**这一套战役本地没有**"
                           + "（只导出了 Ultramarines 那 47 个节点 SO）—— 轨道按空态显示，不假装有内容");

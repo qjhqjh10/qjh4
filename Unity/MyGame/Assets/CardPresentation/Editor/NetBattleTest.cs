@@ -612,9 +612,11 @@ public static class NetBattleTest
                 hb9.LastSay = null;
                 // ⚠️ **只推一台**会话用这个（本文件的 `PumpUntil` 第二个参数**没有空判** —— 给它 null 会 NPE）：
                 //    两边一起推的话**客机自己也会报一次**，通知队里就有两条、数量断言说不清是谁弹的。
-                //    🔴 **2026-10-19 补注（与已修的 `A1269` 无关）**：上面那句「客机自己也会报一次」说的是
-                //    **本段夹具自己选的推法**（只推一台 ⇒ 通知数可数）；`A1269` 修的是 `NetSession.Pump`
-                //    掉线闸不挡 `Off`（收工后再报一次）—— 那是**闸**的缺陷、已修，⛔ 别拿这条注释当它的判据。
+                //    🔴 **2026-10-19 补注（`A1277` 第二半；与已修的 `A1269` 无关）**：上面那句**仍然成立** ——
+                //    客机此刻 `State == InBattle`，而它自己那一侧的 `_t.PeerLost` 已被 `ClosePeer` 置真 ⇒
+                //    若把客机也推起来，`NetSession.Pump` 的掉线检测会**再报一次** `OnPeerLost`（通知数变 2）。
+                //    ⛔ **这不是 `A1269`**：那条修的是「`Close()` 之后（`Off`）又被推一次会从终态倒回」，
+                //    与这里这一档是**两道不同的闸**；别拿本注释当 `A1269` 的判据（它已有 R㉕/R㉖）。
                 Func<NetSession, Func<bool>, int, bool> pumpOne = (s, cond, ms) =>
                 {
                     var sw = System.Diagnostics.Stopwatch.StartNew();
@@ -1368,6 +1370,217 @@ public static class NetBattleTest
                 f13.hs.Close(false); f13.cs.Close(false);
                 NetConfig.Current.port = savedPort13;
             }
+            // ---- 14) 🆕 2026-10-19（W · 联机线「结算段掉线口径」）：**结算已出 ⇒ 掉线静默** ----
+            //   原版判据（全量反编译，逐跳）：
+            //     · `BattleManager__DisconnectedDuringBattle.c:35-51`：`battleStage == PostBattle(0x3C=60)`
+            //       且 **对手**那一端掉线（`param_2 == 0`）⇒ **直接 return**（不弹窗 / 不停表 / 不改结果）；
+            //     · `Everguild.BattleErrorUIManager__ConnectionStatusChanged.c:31-54`：stage == 60 时
+            //       **只 `CustomDebug.LogWarning` 然后 return** ⇒ 结算段**任何**连接状态变化都不进弹窗分支。
+            //   改前：`HandlePeerLost` 无条件说「30 秒后判他弃权」，而 `StartReconnectCountdown` 遇
+            //   `Ctx.IsOver` 根本不起倒计时 ⇒ **那句话是假的**（说错话 = 另一种静默）。
+            //   🧨 判别式（删掉实现就必红）：
+            //     ① 删掉 `HandlePeerLost` 里 `Ctx.IsOver` 那道早退 ⇒ 14①/14② 的「不出声 / 不起倒计时」全红；
+            //     ② 把 `StartReconnectCountdown` 的两道闸挪回「自增之后」⇒ 14① 的 `EnemyDisconnects` 那条红；
+            //     ③ 删掉客机那一支 `NetSelfResign`（A914 的「本机掉线判负」）⇒ 14③ 红
+            //        （⚠️ 14③ 与 14①/② **互为反例**：结算段静默**不许**把对局中的本机掉线分支一起盖掉）。
+            {
+                int savedPort14 = NetConfig.Current.port;
+
+                // ============ 14① **对手**在结算段掉线 ⇒ 静默（主机这一端看到的那一档）============
+                {
+                    var f = SetupA912(pool, 20261050, "结算掉线·对手");
+                    // 让这一局先结束（本机投降）—— 与「对手掉线」无关，只借它把 `IsOver` 置真。
+                    RuleCore.Forfeit(f.hb.Ctx, 0, BattleResult.Forfeit);
+                    Ok(f.hb.Ctx.IsOver, "（结算掉线①）夹具：这一局**已经结算**（`Ctx.IsOver`）");
+                    int winnerBefore = f.hb.Ctx.Winner;
+                    int enemBefore = f.hNB.EnemyDisconnects;
+                    NetRuntime.DrainNoticesForTest();
+                    f.hb.LastSay = null;
+
+                    f.cs.Transport.ClosePeer();                  // 🔴 结算**之后**对面掉线（同 §6/§9/§10 的手法）
+                    Ok(PumpOne(f.hs, () => f.hs.State == NetState.WaitingReconnect, 8000),
+                       $"（结算掉线①）夹具：主机**确实看到**对面掉了（实际 {f.hs.State}）");
+                    f.hNB.Tick();                               // 走一帧（会话/提示都不该动）
+
+                    Eq(NetRuntime.DrainNoticesForTest().Length, 0,
+                       "★（结算掉线①）**结算段对手掉线 ⇒ 不弹窗**"
+                     + "（原版 `ConnectionStatusChanged.c:31-54` 在 stage 60 只 `LogWarning`）"
+                     + " —— 🧨 改坏法：删掉 `HandlePeerLost` 里 `Ctx.IsOver` 那道早退 ⇒ 红"
+                     + "（会弹出「30 秒后判他弃权」）");
+                    Ok(f.hb.LastSay == null,
+                       "★（结算掉线①）…**提示行也不说**（原来那句「30 秒后判他弃权」是假话 ——"
+                     + " `StartReconnectCountdown` 在 `IsOver` 时**不起倒计时**，根本没有「30 秒」这回事）");
+                    Ok(!f.hNB.ReconnectCountdownRunning && !f.hNB.ClockPaused,
+                       "★（结算掉线①）…**不起倒计时、也不停表**"
+                     + "（原版 `DisconnectedDuringBattle.c:35-51` 在 `ShowDisconnectionPopup`"
+                     + "（那句 `ClockManager.PauseClock()` 在它里面）**之前**就 return 了）");
+                    Eq(f.hNB.EnemyDisconnects, enemBefore,
+                       "★（结算掉线①）…**不记「对手掉线次数」**"
+                     + "（原版那条自增在 `_ForfeitDisconnectedEnemy_d__322__MoveNext.c:63`，"
+                     + "而协程根本没起） —— 🧨 改坏法：把 `StartReconnectCountdown` 的自增挪回两道闸之前 ⇒ 红");
+                    Eq(f.hb.ResignCalls + f.hb.SelfResignCalls, 0,
+                       "★（结算掉线①）…**谁也没判负**（结算结果一个字不改）");
+                    Eq(f.hb.Ctx.Winner, winnerBefore,
+                       "★（结算掉线①）…`Winner` 保持结算那一刻的值（原版 `DisconnectedDuringBattle.c:49-51` 直接 return）");
+                    f.hNB.Detach(); f.cNB.Detach();
+                    f.hs.Close(false); f.cs.Close(false);
+                }
+
+                // ============ 14② **本机（客机）**在结算段掉线 ⇒ 同样静默（这一档**判不了谁的锅**）============
+                //   原版本机那一半（`DisconnectedDuringBattle.c:52-64`）会起 `AttemptReconnect` +
+                //   `shouldLoseIfDisconnectEnd(+0x2D8)`，重连失败后由 `DeadHero.c:109-121` 放行**重判本机负**。
+                //   我们**分不清「谁掉」**（P2P 里本机断网 / 对面断网在本地 socket 上同形；
+                //   A1267 的原因连 `St/PeerClosed` 都不能当可靠判据 —— 本机 `ClosePeer()` 拆连接时
+                //   本机读线程也会以同族原因失败，`_closing` 只压日志、不压 `_lastError`）⇒ 不判、不猜。
+                //   ⚠️ 这一条钉的是「**不猜**」这个当前口径，**不是**「原版就这样」——原版那一档我们是**缺**的
+                //   （铁律 11 已立账：欠「分谁掉」的判据 + `RuleCore.Forfeit` 的战后重判入口），详见交件报告 §三。
+                {
+                    var f = SetupA912(pool, 20261051, "结算掉线·本机");
+                    RuleCore.Forfeit(f.cb.Ctx, 1, BattleResult.Forfeit);
+                    Ok(f.cb.Ctx.IsOver, "（结算掉线②）夹具：客机这一局**已经结算**");
+                    int winnerBefore = f.cb.Ctx.Winner;
+                    NetRuntime.DrainNoticesForTest();
+                    f.cb.LastSay = null;
+
+                    // 对面那条连接没了 —— 客机这一侧看到的与「自己断网」**同形**（这正是判不了的那一件）
+                    f.hs.Transport.ClosePeer();
+                    Ok(PumpOne(f.cs, () => f.cs.State == NetState.WaitingReconnect, 8000),
+                       $"（结算掉线②）夹具：客机**确实看到**连接断了（实际 {f.cs.State}）");
+                    f.cs.StopReconnecting();                    // 夹具止血：别让它在断言期间真去重连（那是 NetSession 自己的事）
+                    f.cNB.Tick();
+
+                    Eq(NetRuntime.DrainNoticesForTest().Length, 0,
+                       "★（结算掉线②）**结算段本机侧断线 ⇒ 不弹窗**（原版 stage 60 那一支只 `LogWarning`）");
+                    Ok(f.cb.LastSay == null, "★（结算掉线②）…提示行也不说");
+                    Ok(!f.cNB.ReconnectCountdownRunning && !f.cNB.ClockPaused,
+                       "★（结算掉线②）…不起倒计时、不停表");
+                    Eq(f.cb.SelfResignCalls + f.cb.ResignCalls, 0,
+                       "★（结算掉线②）…**不判任何人负**（判不了「谁掉线」⇒ 不猜）"
+                     + "｜⚠️ 原版这一档（本机掉线重连失败 ⇒ 重判本机负）我们**没有** ——"
+                     + " 缺「分谁掉」判据 + 战后重判入口，如实记在交件报告（铁律 11：在账，⛔ 不是「不做」）");
+                    Eq(f.cb.Ctx.Winner, winnerBefore, "★（结算掉线②）…`Winner` 不变");
+                    f.hNB.Detach(); f.cNB.Detach();
+                    f.hs.Close(false); f.cs.Close(false);
+                }
+
+                // ============ 14③ **对照（灭自证）**：局没打完 ⇒ 本机掉线那条分支**照旧存在** ============
+                //   「结算段静默」是按 `Ctx.IsOver` **分档**的，不是把整条本机掉线路径删掉。
+                //   与 §10③-7/③-8 同源（那里两端一起验，这里单看客机这一支 + 与上面两条互为反例）。
+                {
+                    var f = SetupA912(pool, 20261052, "结算掉线·对照");
+                    Ok(!f.cb.Ctx.IsOver, "（结算掉线③）夹具：这一局**还没打完**");
+                    NetRuntime.DrainNoticesForTest();
+                    f.cb.LastSay = null;
+
+                    f.hs.Transport.ClosePeer();
+                    Ok(PumpOne(f.cs, () => f.cs.State == NetState.WaitingReconnect, 8000),
+                       $"（结算掉线③）夹具：客机看到对面掉了（实际 {f.cs.State}）");
+                    Ok(f.cNB.ReconnectCountdownRunning && f.cb.LastSay != null,
+                       "（结算掉线③）夹具：**对局中**掉线 ⇒ 倒计时照常起、提示照常说"
+                     + "（与 14①/② 的分档点 = `Ctx.IsOver`）");
+                    f.cs.StopReconnecting();
+                    _clk += 120f;                              // 推过任何档的倒计时（这一端最多 30 秒）
+                    f.cNB.Tick();
+                    Eq(f.cb.SelfResignCalls, 1,
+                       "★★（结算掉线③·**本机掉线路径有分支**）**对局中**本机这一端重连失败 ⇒"
+                     + " `NetSelfResign`（判**本机**负）恰一次"
+                     + " —— 判据 = 原版 `FailedToReconnectAfterDisconnect.c:26-27` 的 `DeadHero(我, 3)`"
+                     + "；🧨 删掉客机那一支 / 把 `iAmDisconnectedEnd` 写成恒假 ⇒ 红");
+                    Eq(f.cb.ResignCalls, 0,
+                       "★★（结算掉线③）…**不是**判对面（两端判的不是同一个人；与 §10③-8 同源）"
+                     + "；🧨 把客机那一支改成 `NetRemoteResign()` ⇒ 红");
+                    Ok(f.cb.Ctx.Winner == 1 && f.cb.Ctx.ForfeitedBy == 1,
+                       $"★★（结算掉线③）…落地 = 判座位 1（本机）负"
+                     + $"（`Winner` = {f.cb.Ctx.Winner}、`ForfeitedBy` = {f.cb.Ctx.ForfeitedBy}）");
+                    f.hNB.Detach(); f.cNB.Detach();
+                    f.hs.Close(false); f.cs.Close(false);
+                }
+
+                NetConfig.Current.port = savedPort14;
+            }
+
+            // ---- 15) 🆕 2026-10-19（W · 结算掉线口径）：**源码结构静态断言**（纯静态，不碰 socket）----
+            //   ⚠️ 为什么还要这一节：14①~③ 是**运行时行为**断言（socket 夹具），而本批**不跑**；
+            //      这一节只读 `NetBattle.cs` 的源码文本，把「那两处结构」钉死 ——
+            //      判据 = **代码形状本身**，不受夹具时序/网络影响。
+            //   ⚠️ 静态断言**证明不了运行时真的执行了**（运行时那半边 = 14①~③）。
+            {
+                string nbPath = Path.Combine(Application.dataPath, "CardPresentation/Net/NetBattle.cs");
+                string src15 = null;
+                try { src15 = File.ReadAllText(nbPath); }
+                catch (Exception e) { Debug.LogWarning("[NetBattleTest] 读不到 " + nbPath + "：" + e.Message); }
+                Ok(src15 != null && src15.Length > 0,
+                   "（静态·前提）读得到 `NetBattle.cs` —— 读不到 ⇒ 下面几条**没跑**，不是绿");
+                if (src15 != null && src15.Length > 0)
+                {
+                    // ============ ① 结算段对手掉线 = 静默（`HandlePeerLost`）============
+                    int iLost = src15.IndexOf("void HandlePeerLost()", StringComparison.Ordinal);
+                    Ok(iLost >= 0, "（静态·前提）`HandlePeerLost()` 存在");
+                    int iLostEnd = iLost >= 0 ? MethodBodyEnd(src15, iLost) : -1;
+                    Ok(iLostEnd > iLost, "（静态·前提）`HandlePeerLost()` 的方法体能配对解析出来");
+                    if (iLostEnd > iLost)
+                    {
+                        string body = src15.Substring(iLost, iLostEnd - iLost + 1);
+                        int iOver = body.IndexOf("_d.Ctx.IsOver", StringComparison.Ordinal);
+                        int iSay = body.IndexOf("SayPeerGone(", StringComparison.Ordinal);
+                        int iStart = body.IndexOf("StartReconnectCountdown(", StringComparison.Ordinal);
+                        Ok(iOver >= 0 && iSay > iOver && iStart > iOver,
+                           "★★（静态·结算段对手掉线静默）`HandlePeerLost` 的 `Ctx.IsOver` 早退**排在**"
+                         + " `StartReconnectCountdown(...)` / `SayPeerGone(...)` **之前**"
+                         + "｜判据 = 原版 `DisconnectedDuringBattle.c:35-51`（PostBattle 对手直接 return）"
+                         + "＋`ConnectionStatusChanged.c:31-54`（stage 60 只 LogWarning）"
+                         + "｜🧨 删掉早退 / 把它挪到 `SayPeerGone` 之后 ⇒ 红"
+                         + "（结算后又会弹「30 秒后判他弃权」这句假话）");
+                        // 早退**那一支里**（`Ctx.IsOver` 到第一颗 `return;` 之间）不许起倒计时 / 不许报信
+                        int iRet = iOver >= 0 ? body.IndexOf("return;", iOver) : -1;
+                        string gate = iRet > iOver ? body.Substring(iOver, iRet - iOver) : "";
+                        Ok(gate.Length > 0
+                           && gate.IndexOf("StartReconnectCountdown(", StringComparison.Ordinal) < 0
+                           && gate.IndexOf("SayPeerGone(", StringComparison.Ordinal) < 0,
+                           "★★（静态·同上）…而且**早退那一支里**既不起倒计时、也不报信"
+                         + "（原版那一格就是 `return`，见 `DisconnectedDuringBattle.c:49-51`）");
+                    }
+
+                    // ============ ② `StartReconnectCountdown`：`IsOver` 闸排在自增之前 ============
+                    int iStartM = src15.IndexOf("void StartReconnectCountdown()", StringComparison.Ordinal);
+                    int iStartEnd = iStartM >= 0 ? MethodBodyEnd(src15, iStartM) : -1;
+                    Ok(iStartEnd > iStartM, "（静态·前提）`StartReconnectCountdown()` 的方法体能配对解析出来");
+                    if (iStartEnd > iStartM)
+                    {
+                        string body = src15.Substring(iStartM, iStartEnd - iStartM + 1);
+                        int iOver = body.IndexOf("_d.Ctx.IsOver", StringComparison.Ordinal);
+                        int iInc = body.IndexOf("_enemyDisconnects++;", StringComparison.Ordinal);
+                        Ok(iOver >= 0 && iInc > iOver,
+                           "★★（静态·结算段不记掉线次数）`StartReconnectCountdown` 的 `Ctx.IsOver` 闸"
+                         + "**排在** `_enemyDisconnects++` 之前"
+                         + "（原版那个自增在 `_ForfeitDisconnectedEnemy_d__322__MoveNext.c:63`，"
+                         + "协程没起就不该自增）｜🧨 挪回去 ⇒ 红");
+                    }
+
+                    // ============ ③ **本机掉线路径有分支**（`ReconnectCountdownExpired`）============
+                    int iExp = src15.IndexOf("void ReconnectCountdownExpired()", StringComparison.Ordinal);
+                    int iExpEnd = iExp >= 0 ? MethodBodyEnd(src15, iExp) : -1;
+                    Ok(iExpEnd > iExp, "（静态·前提）`ReconnectCountdownExpired()` 的方法体能配对解析出来");
+                    if (iExpEnd > iExp)
+                    {
+                        string body = src15.Substring(iExp, iExpEnd - iExp + 1);
+                        // 🔴 用**带实参**的调用串认代码（方法里那段大注释提到过 `_d.NetRemoteResign()`，
+                        //    不带实参 ⇒ 会把注释算进去，顺序断言直接假红）。
+                        int iSelf = body.IndexOf("_d.NetSelfResign(BattleResult.Disconnect)", StringComparison.Ordinal);
+                        int iRemote = body.IndexOf("_d.NetRemoteResign(BattleResult.Disconnect)", StringComparison.Ordinal);
+                        Ok(iSelf >= 0 && iRemote > iSelf,
+                           "★★（静态·**本机掉线路径有分支**）`ReconnectCountdownExpired` 里**两个判负口都在**："
+                         + "`_d.NetSelfResign(BattleResult.Disconnect)`（本机是断线那一端 ⇒ 判自己）"
+                         + " 排在 `_d.NetRemoteResign(BattleResult.Disconnect)`（判对面）之前"
+                         + "｜判据 = 原版 `FailedToReconnectAfterDisconnect.c:26-27`（`DeadHero(我,3)`）vs "
+                         + "`…_d__322__MoveNext.c:143-144`（`DeadHero(对面,3)`）"
+                         + "｜🧨 删掉客机那一支 ⇒ 红（⚠️ 静态只管「分支还在」，运行时行为 = 14③）");
+                        Ok(body.IndexOf("Role == NetRole.Client", StringComparison.Ordinal) >= 0,
+                           "★★（静态·同上）…而且分端判据**在方法里**（`Role == NetRole.Client`）——"
+                         + " ⛔ 不许退回「两端都判对面」（A914 修掉的那个缺陷）");
+                    }
+                }
+            }
         }
         catch (Exception e)
         {
@@ -1422,6 +1635,22 @@ public static class NetBattleTest
     {
         var l = new System.Net.Sockets.TcpListener(System.Net.IPAddress.Loopback, 0);
         l.Start(); int p = ((System.Net.IPEndPoint)l.LocalEndpoint).Port; l.Stop(); return p;
+    }
+
+    /// <summary>🆕 2026-10-19（W · 结算掉线）：从方法签名位置起做括号配对，返回**方法体右花括号**的下标
+    /// （找不到 = -1）。用于 §15 的**源码结构静态断言**（只读 `NetBattle.cs` 文本 ——
+    /// ⚠️ 证明不了运行时执行）。与 `Editor/SettingsScene.cs` 的 `ToggleSmallScreenUI` 那条同形。</summary>
+    static int MethodBodyEnd(string src, int sigIndex)
+    {
+        int open = src.IndexOf('{', sigIndex);
+        if (open < 0) return -1;
+        int depth = 0;
+        for (int i = open; i < src.Length; i++)
+        {
+            if (src[i] == '{') depth++;
+            else if (src[i] == '}') { depth--; if (depth == 0) return i; }
+        }
+        return -1;
     }
 
     /// <summary>🆕 2026-10-17（B17）：**假钟**（秒）。`NetBattle` 的掉线倒计时读的就是它

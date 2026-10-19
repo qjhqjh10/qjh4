@@ -1692,6 +1692,12 @@ def apply_layout_to_children(b, mono, rtpid, rect, scale, kids, sidx=None, bidx=
     主轴 = Vertical→y / Horizontal→x（**靠 MonoScript 的类名判，不靠字段猜**；
     `EverguildLayoutGroup` 是例外：它的主轴在 `alignment` 字段上，判据见 `_lg_is_vertical`）。
 
+    🔴 **`rect` / `scale` 的契约（`A1308②`，2026-10-19 从调用点注释提进 docstring）**：
+       · `rect` = **组的【父】屏幕框** —— ⛔ 不是组自己的框、更不是组的布局框（函数体只用它做
+         `MR.local_size(b.rt[组的 rt], rect, scale)`，那要的正是「组的父屏幕框 + `lossyScale(父)`」）；
+       · `scale` = **组的父**的 `lossyScale`（子件的 `lossyScale(父)` 要另乘组自己的 `ls`，见 `_kids_frame`）。
+       传成组自己的框 = **`A1260` 那个错形状**（本文件 5 处调用点已修；判据 = uGUI 语义、不靠本包读数）。
+
     🔴 **2026-09-27 修一处真缺陷**：`kids` 必须**先滤掉不参与布局的子件**。
        Unity 的 `LayoutGroup.CalculateLayoutInputHorizontal` 建 `rectChildren` 时是
        `if (rect == null || !rect.gameObject.activeInHierarchy) continue;` —— **只收
@@ -2021,6 +2027,12 @@ def new_stats():
             'cut_tops': [],        # 被截掉的第一层，最多列 8 个 (缩进, 名字, 层)
             't_kids': 0,           # 纯 `Transform`（3D，没有 RectTransform）子件数 —— 也不在表里
             'miss': 0,             # 子 pid 在 `RectTransform/` 里**查不到**的个数（= t_kids + 真缺）
+            # 🔴 **A1548（2026-10-19）**：纯 `Transform` 转发节点底下挂着的 RectTransform 后代
+            #    被旧 `walk` **整支静默丢掉**（实测 `Front > Card Info` 底下 9 个）。
+            't_dropped': 0,        # 这些节点底下**有 RectTransform** 的后代总数
+            't_drop_nodes': 0,     # **真的丢了后代**的纯 Transform 节点数
+            't_skip': [],          # 逐条 (缩进, 名字, 丢掉的个数)，最多列 8 个
+            'miss_pids': [],       # 真缺件的 pid（最多 8 个，表尾点名用）
             'fit': 0,              # 挂了自适配组件（`ILayoutSelfController` 那几件）且**回写成功**的件数
             'fit_unk': 0,          # 挂了自适配组件、但**目标值算不出**（表里仍是模板值）的件数
             'rot': 0,              # `m_LocalRotation` 的 z ≠ 0 的件数（表里的矩形是**未旋转帧**）
@@ -2055,10 +2067,26 @@ def walk(b, mono, rtpid, rect, scale, depth, maxdepth, out, indent,
     if rt is None:
         # 子件是**纯 `Transform`**（3D，例：卡片的 3D 体）⇒ 它没有 RectTransform、
         # **本来就不该进这张 UI 表**。但「表里少了东西一个字不说」也是静默失败 ⇒ 记个数、结尾出声。
+        # 🔴 **A1548（2026-10-19）**：纯 Transform **不一定是 3D 件** —— 它还可能是
+        #    **UI 转发节点**（实测 `Front > Card Info`：`Transform_1261.json` 底下挂着
+        #    **9 个 RectTransform 子件**）。旧行为在这里直接 return ⇒ **整支子树静默丢掉**，
+        #    表尾只说「3 个纯 Transform 子件、本来就不该进表」—— 读表的人以为没事。
+        #    现在：数清楚（`MR.count_under_transform`）、表尾点名（A1548）。
+        #    ⚠️ **仍然不下钻**（不下钻 = 本工具的口径；⛔ 别顺手改坐标算法）；要读那支用 `--rt`。
         if stats is not None:
             stats['miss'] += 1
-            if os.path.exists(os.path.join(b.path, 'Transform', f'Transform_{rtpid}.json')):
+            if b.has_transform(rtpid):
                 stats['t_kids'] += 1
+                n = MR.count_under_transform(b, rtpid)
+                if n:
+                    stats['t_dropped'] += n
+                    stats['t_drop_nodes'] += 1
+                    if len(stats['t_skip']) < 8:
+                        stats['t_skip'].append(
+                            (indent, b.go_name_of_transform(rtpid) or f'<Transform {rtpid}>', n))
+            else:
+                if len(stats['miss_pids']) < 8:
+                    stats['miss_pids'].append(str(rtpid))
         return
     if depth > maxdepth:
         # 🔴 **深度截断不许静默**（2026-10-05）：把「还有多少没印、要到第几层」记下来，见 `new_stats`。
@@ -3345,6 +3373,79 @@ def verify_layout():
           f'{multi_comp_flag({"details": _det20c})!r}（要 `\'\'` —— 没有歧义就不许出声）· 两组件都没禁用 ⇒ '
           f'{multi_comp_flag({"details": _det20b})!r}（要 `\'\'`）')
 
+    # ---- ㉑ 纯 `Transform` 转发节点底下被整支丢掉的 UI 子树必须【出声 + 计数】（A1548）----
+    # 🔴 **A1548（2026-10-19）**：`Front > Card Info` 是**纯 `Transform`**（`Transform_1261.json`），
+    #    底下挂着 **9 个 RectTransform 子件**。旧 `walk` 在 `rt is None` 处直接 return ⇒
+    #    **整支子树不见**，表尾只说「N 个纯 Transform 子件（3D，本来就不该进这张 UI 表）」
+    #    —— 读表的人完全看不出少了东西。修法 = **丢就必须出声 + 计数**（⛔ 不改坐标算法、不下钻）。
+    # 打桩（临时目录，**不碰任何真实解包目录**）：
+    #   100（RT 根）├ 200（纯 Transform 转发）├ 201（RT）└ 202（RT，201 的子件）
+    #                └ 300（**真缺**：RectTransform/ 与 Transform/ 都没有）
+    # 期望：t_kids=1 · t_dropped=2 · t_drop_nodes=1 · 出声行点到 `Forwarder` 与「丢 2 个」·
+    #       miss_pids 点到 `300`。**两条 walk（`menu_dump` / `menu_rect`）都必须过**。
+    import tempfile as _tf21
+    import shutil as _sh21
+    _td21 = _tf21.mkdtemp(prefix='wf_a1548_')
+    try:
+        for _k21 in ('RectTransform', 'Transform', 'GameObject'):
+            os.makedirs(os.path.join(_td21, _k21))
+
+        def _w21(_kind, _fn, _obj):
+            with io.open(os.path.join(_td21, _kind, f'{_fn}.json'), 'w', encoding='utf-8') as _f:
+                json.dump(_obj, _f)
+
+        def _rt21(_pid, _father, _kids):
+            return {'m_PathID': _pid, 'm_GameObject': {'m_PathID': _pid},
+                    'm_Father': {'m_PathID': _father},
+                    'm_Children': [{'m_PathID': _k} for _k in _kids],
+                    'm_AnchorMin': {'x': 0, 'y': 0}, 'm_AnchorMax': {'x': 1, 'y': 1},
+                    'm_AnchoredPosition': {'x': 0, 'y': 0}, 'm_SizeDelta': {'x': 0, 'y': 0},
+                    'm_Pivot': {'x': 0.5, 'y': 0.5}, 'm_LocalScale': {'x': 1, 'y': 1, 'z': 1},
+                    'm_LocalRotation': {'x': 0, 'y': 0, 'z': 0, 'w': 1}}
+
+        _w21('RectTransform', 'RectTransform_100', _rt21('100', 0, [200, 300]))
+        _w21('RectTransform', 'RectTransform_201', _rt21('201', 200, [202]))
+        _w21('RectTransform', 'RectTransform_202', _rt21('202', 201, []))
+        _w21('Transform', 'Transform_200',
+             {'m_PathID': '200', 'm_GameObject': {'m_PathID': '200'},
+              'm_Father': {'m_PathID': '100'}, 'm_Children': [{'m_PathID': '201'}]})
+        for _pid21, _nm21 in (('100', 'Root'), ('200', 'Forwarder'),
+                              ('201', 'ChildA'), ('202', 'ChildB')):
+            _w21('GameObject', _nm21,
+                 {'m_Name': _nm21, 'm_Component': [{'component': {'m_PathID': _pid21}}]})
+        _b21 = MR.Bundle(_td21)
+        _st21a = new_stats()
+        walk(_b21, {}, '100', (0.0, 0.0, 1920.0, 1080.0), (1.0, 1.0), 0, 10, [], 0, False,
+             {'by_pid': {}, 'ambiguous': {}}, {}, stats=_st21a)
+        _st21b = MR.new_stats()
+        MR.walk(_b21, '100', (0.0, 0.0, 1920.0, 1080.0), (1.0, 1.0), 0, 10, [], stats=_st21b)
+        _ln21 = MR.dropped_subtree_lines(_st21b)
+        _st21c = MR.new_stats()
+        _st21c.update({'t_dropped': 2, 't_drop_nodes': 1,
+                       't_skip': [(0, 'Forwarder', 2)], 't_kids': 1})
+        _buf21 = io.StringIO()
+        MR.stats_warning(_st21c, stream=_buf21)
+        _said21 = _buf21.getvalue()
+        _g21a = (_st21a['t_kids'] == 1 and _st21a['t_dropped'] == 2
+                 and _st21a['t_drop_nodes'] == 1 and _st21a['miss_pids'] == ['300']
+                 and _st21b['t_kids'] == 1 and _st21b['t_dropped'] == 2
+                 and any('Forwarder' in _l and '丢 2 个' in _l for _l in _ln21)
+                 and 'A1548' in _said21 and 'Forwarder' in _said21)
+    finally:
+        _sh21.rmtree(_td21, ignore_errors=True)
+    # 真数据复核（`assets_full` 里那条实证）：`bundle_scenes_scenes_battlearena1` 的
+    # `Card Info`（`Transform_1261.json`）底下必须数得出 RectTransform 后代（实测 9 个）。
+    _b21r = MR.Bundle(os.path.join(BUNDLES, 'bundle_scenes_scenes_battlearena1'))
+    _n21r = MR.count_under_transform(_b21r, '1261')
+    _g21r = (_b21r.has_transform('1261') and _n21r > 0)
+    g21 = _g21a and _g21r
+    ok = ok and g21
+    print(f'  {"✅" if g21 else "❌"} ㉑ 纯 `Transform` 转发节点底下被丢的 UI 子树**必须出声 + 计数**'
+          f'（A1548）· 打桩 ⇒ 两条 walk 的 `t_dropped` = {_st21a["t_dropped"]}/{_st21b["t_dropped"]}'
+          f'（要 2/2）· 真缺件 pid = {_st21a["miss_pids"]}（要 [\'300\']）· 出声点到 `Forwarder` = '
+          f'{"是 ✔" if any("Forwarder" in _l for _l in _ln21) else "否（❌ 改坏）"} · '
+          f'真数据 `Card Info`(`Transform_1261`) 底下的 RT 后代 = {_n21r}（要 > 0）')
+
     return 0 if ok else 1
 
 
@@ -3558,11 +3659,18 @@ def main():
         if stats['cut_roots'] > len(stats['cut_tops']):
             print(f'    …… 被截掉的第一层共 {stats["cut_roots"]} 处')
     if stats['t_kids']:
-        print(f'\n⚠️ 另有 **{stats["t_kids"]}** 个纯 `Transform` 子件（3D，例：卡片的 3D 体）'
-              f'**不在本表里** —— 它们没有 RectTransform，本来就不属于这张 UI 表（不是没查到）。')
+        print(f'\n⚠️ 另有 **{stats["t_kids"]}** 个纯 `Transform` 子件**不在本表里** —— '
+              f'它们没有 RectTransform，本表不印它们自己；⚠️ **但底下若挂着 RectTransform 后代，'
+              f'那些也是 UI 件**，见下一段（A1548）。')
+    # 🔴 **A1548**：纯 Transform 转发节点底下被整支丢掉的那几棵（判据只此一份 = `menu_rect`）。
+    for _line in MR.dropped_subtree_lines(stats):
+        print(_line)
     if stats['miss'] > stats['t_kids']:
         print(f'\n🔴 **{stats["miss"] - stats["t_kids"]}** 个子 pid 在 `RectTransform/` 与 '
               f'`Transform/` 里**都查不到** —— 那是**真缺件**（导出可能不全），别当成「3D 件」略过。')
+        if stats.get('miss_pids'):
+            print('    查不到的 pid：' + '、'.join(stats['miss_pids'])
+                  + ('…' if stats['miss'] - stats['t_kids'] > len(stats['miss_pids']) else ''))
 
     # ---- ② **布局框 ≠ 视觉框**（自带 `localScale` 的件）----
     # 🔴 2026-10-05 补：表里「宽×高」「绝对矩形」印的是**布局框**，画出来要乘这一件自己的

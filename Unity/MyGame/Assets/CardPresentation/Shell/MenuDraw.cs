@@ -424,6 +424,30 @@ namespace CardPresentation
             return new PxRect(r.x1 + pad.x, r.y1 + pad.w, r.x2 - pad.z, r.y2 - pad.y);
         }
 
+        /// <summary>🆕 **2026-10-19（`T16` 命中区普查）**：几块矩形的**并集外接盒**（全工程唯一一份）。
+        /// <para>判据 = 原版一颗钮的「可点区域」是它**子树里每一颗** `m_RaycastTarget == 1` 的 Graphic
+        /// 各按自己的 `m_RaycastPadding` 修正后**取并集**（不是 `m_TargetGraphic` 那一处；
+        /// 三个反例与四关判据 → `资料/普查产出_第四会话/普查_全仓命中区与关闭键族.md` §〇-1）。
+        /// ⇒ 「钮底图 + 钮上的 TMP 文字」这种两件都吃射线的族，命中区 = <see cref="Union(PxRect[])"/>，
+        /// ⛔ 别只传底图那一块（文字那一段会变成点得到区域以外）。</para>
+        /// <para>⚠️ 调用顺序：**先**对每一块各自 <see cref="PaddedRect"/>（各自 `m_RaycastPadding` 不同），
+        /// **再**取并集 —— 反过来「先并集再 pad」只在各块 pad 相同时才等价。</para>
+        /// <para>零块 ⇒ 返回零矩形；一块 ⇒ 原样返回（不复制、不改）。</para></summary>
+        public static PxRect Union(params PxRect[] rs)
+        {
+            if (rs == null || rs.Length == 0) return default(PxRect);
+            var o = rs[0];
+            for (int i = 1; i < rs.Length; i++)
+            {
+                var r = rs[i];
+                if (r.x1 < o.x1) o.x1 = r.x1;
+                if (r.y1 < o.y1) o.y1 = r.y1;
+                if (r.x2 > o.x2) o.x2 = r.x2;
+                if (r.y2 > o.y2) o.y2 = r.y2;
+            }
+            return o;
+        }
+
         /// <summary>🔴 **渲染那一份裁切**：`clip` 按原版 `RectMask2D.m_Padding` 内缩（**正 = 缩小**）。
         /// 判据 = UGUI `RectMask2D.PerformClipping()`（`RectMask2D.cs:205`）→ `:226`
         /// `Clipping.FindCullAndClipWorldRect`（`Culling/Clipping.cs:17,26-30`）—— **渲染也读 padding**
@@ -2547,7 +2571,7 @@ namespace CardPresentation
         /// <para>两条**互为对照**（缺一条就分不出「压根没接通」与「本来就关不掉」）：
         /// ① 点**之前** `state() == Open`（**负向态** —— 一扇开不起来的窗不能靠「反正关着」把 ② 蒙过去）；
         /// ② 对 `darkHit` 上那颗 `WindowButton` 调 `Click()`（= `PointerLayer` **唯一的派发口**，
-        ///    `Shell/PromptPopup.cs`；`ClickForTest` 也是同一条）⇒ `state() == Closed`。
+        ///    `Shell/WindowButton.cs`（⚠️ 2026-10-19 订正：原写 `Shell/PromptPopup.cs`）；`ClickForTest` 也是同一条）⇒ `state() == Closed`。
         /// 🔴 **改坏法**（判别力就靠它）：把 `MenuDraw.ShadeHit(…, () => Close())` 换成 `MenuDraw.Absorb(…)`
         /// （或给那颗 `WindowButton` 置 `absorbOnly`）⇒ `Click()` 第一句就早退 ⇒ **②必红**。</para>
         ///

@@ -265,6 +265,16 @@ namespace CardPresentation
 
         // ==================================================================
         // 🔴 **2026-10-18（W15）—— 2D 卡面上那三个数 / 费用六边形【跟着卡框凹槽走】，⛔ 不再用固定常量。**
+        //
+        // 🔴 **2026-10-19（`A2138`）就地订正 —— 下面这段「根因」只对【改画框之前】成立，现在已不成立：**
+        //    原版 CardFrame 是 `m_UseSpriteMesh=1` ⇒ 铺进固定矩形的是 **sprite rect（常量 171,11,682,998）**，
+        //    不是 alpha bbox（判据与参考实拍反证见 `FrameSpriteRectX`）。映射按 sprite rect 之后
+        //    **凹槽落点逐帧恒定** —— 这正是原版敢用「固定容器常量」的原因；实拍里数字正落在凹槽中心
+        //    （4 张泰伦卡逐像素核：dx −1.5 / −1.0 / +0.5 px，按 m_Rect 预测 0.0 / −1.7 / +0.9）。
+        //    ⇒ `FaceStatAt01` / `FaceGemAt01` 现在算出来就落在 prefab 常量附近（melee x −0.8362 vs −0.836）；
+        //      **保留「跟着凹槽走」无害**（同一份判据、换 uv 也不再漂），但⛔别再拿下面「x01 跨 11%」当理由 ——
+        //      那是 alpha-bbox 映射时代的现象。
+        //
         //    用户点名两条：① 近战/远程/血量三个圈里的数字**不在图标中央**；
         //                  ② 费用图标**太靠下**、没贴住右上角的阵营徽记。
         //
@@ -297,16 +307,16 @@ namespace CardPresentation
         /// <summary>阵营徽记圆（**13 个阵营各拟合一次的均值**：各阵营半径 69～83、底边 225～248）。
         /// <para>⚠️ **2026-10-18：费用八边形不拿它当锚点** —— 它是**均值**，逐阵营本来就有偏差
         /// （半径就跨 69～83），拿均值去定位 = **逐阵营系统性偏**（正是
-        /// `资料/普查产出_1018/R_卡面元素对账A_6阵营.md` / `…B_7阵营.md` 里「费用 x 逐阵营 −14…−37」那条）。
-        /// 🔴 **2026-10-18（W27）更正**：本行原来写「费用改用固定贴图坐标 `FrameCostPx`」——
-        /// **已过期**。现行 = **逐帧实测徽记下缘**（`frame_uv.json` 的 `bb`，见 <see cref="FaceCostAt01"/>）；
-        /// `FrameCostPx` 已降级为「量不出徽记」时的兜底。这组均值**只作对照/存档**。</para></summary>
+        /// `资料/普查产出_1018/R_卡面元素对账A_6阵营.md` / `…B_7阵营.md` 里「费用 x 逐阵营 −14…−37」那条）。</para>
+        /// <para>🔴 **2026-10-19（主对话裁定）就地订正**：本行 2026-10-18 那条「现行 = 逐帧实测徽记下缘
+        /// （W27）」**已作废** —— 费用回到 **prefab 固定容器 `(0.788, 0.666)`**（判据与换算见
+        /// <see cref="FaceCostAt01"/>）。这组均值**只作对照/存档**，本文件**没有任何代码**再用它。</para></summary>
         const float FrameBadgePx  = 723.5f, FrameBadgePy  = 158.0f, FrameBadgeRad = 77.5f;
 
-        /// <summary>费用八边形（底板 + 里面那个数字）在【卡框贴图】上的**旧落点**（贴图像素，y 从顶部数）。
-        /// <para>🔴 **2026-10-18（W27）：降级为兜底** —— 正常路径改成「**可见右缘贴卡框 alpha 右缘 +
-        /// 可见上缘贴阵营徽记下缘**」（判据与公式见 <see cref="FaceCostAt01"/>）。只有这张卡框
-        /// **在 `frame_uv.json` 里没有徽记测量值**时才退回这里（并 `Debug.LogWarning`）。</para>
+        /// <summary>🔴 **W27（2026-10-18）遗留 —— 2026-10-19 主对话裁定后【已作废】，仅作历史/复核。**
+        /// <para>费用八边形（底板 + 里面那个数字）在【卡框贴图】上的**旧落点**（贴图像素，y 从顶部数）。
+        /// W27 曾把它降级为「量不出徽记」的兜底；现在 <see cref="FaceCostAt01"/> **不再调用它**
+        /// （原版是固定容器）。</para>
         /// <para>**旧推导（存档）**：PnP 成品卡 12 张（12 个阵营各 1 张）逐张反算 ——
         ///   ① 每张 PnP 取「近战红圆 / 远程紫圈 / 生命绿框」三个凹槽的 **bbox 中心**，
         ///      与卡框贴图上同名的三处（257.5,862.5 / 335,929.5 / 734,916）配准，
@@ -321,9 +331,12 @@ namespace CardPresentation
         ///   的不透明 bbox 是 x3..238 / y3..238 ⇒ 可见内容比贴图中心**左 3 px、上 1 px**
         ///   （= 左 1.7 / 上 0.6 贴图像素）⇒ 网格中心要比目标可见中心**右 1.7、下 0.6**。</para>
         /// <para>⚠️ 为什么不能继续用徽记均值 `FrameBadgePx/Py/Rad`：PnP 12 张反算出来的费用 x
-        ///   离散度只有 **1.0 px** ⇒ 费用相对**卡框本身**是**固定**的；而徽记圆心逐阵营不同
-        ///   ⇒ 拿均值当锚只会把「逐阵营偏差」灌进费用里。**逐帧实测**（W27）同理：150 张卡框的
-        ///   徽记下缘跨 **177..280** 贴图像素，固定值必然逐帧偏。</para></summary>
+        ///   离散度只有 **1.0 px** ⇒ 费用相对**卡框本身**是**固定**的。
+        ///   🔴 **2026-10-19 就地订正**：本行后面原写「**逐帧实测**（W27）同理：150 张卡框的徽记下缘跨
+        ///   177..280 贴图像素，固定值必然逐帧偏」——**这句已作废**。原版费用是 **prefab 固定容器**
+        ///   `(0.788, 0.746)`（本文件卡根空间 `(0.788, 0.666)`），**不随卡框贴图变**；
+        ///   而且凹槽/徽记在贴图上的像素位置本身是恒定的（见 `FrameSpriteRectX` 那段）。
+        ///   W27 的逐帧规则只由一张实拍反推，逐帧差 0.16 卡单位（7% 卡宽）⇒ 主对话裁定**作废**。</para></summary>
         const float FrameCostPx = 751.7f, FrameCostPy = 305.2f;
 
         /// <summary>卡框贴图上任意一点（**贴图像素**，y 从顶部数）→ **卡面归一化坐标**（x 左、y 顶）。
@@ -379,66 +392,38 @@ namespace CardPresentation
             return at;
         }
 
-        /// <summary>费用八边形（底板 + 里面那个数）的**中心**（卡面归一化）。
+        /// <summary>费用八边形（底板 + 里面那个数）的**中心**（卡面归一化，x 左 / y 顶）。
         ///
-        /// <para>🔴 **2026-10-18（W27）定案 —— 用户给的规则**（判据 = 原版实拍
-        /// `C:\Users\qjh36\Desktop\warpforge参考图\战斗—替换手卡参考图（后手）.png`，
-        /// 4 张泰伦卡的右上角逐像素核过：费用八边形在徽记**正下方**、**右缘压在卡框右边缘上**、
-        /// 中心比徽记中心**偏右**）：
-        ///   ① **横向：可见右缘 = 当前卡框的 alpha 右缘**；
-        ///   ② **纵向：可见上缘 = 阵营徽记的下缘**（徽记**按当前这张卡框实测**，
-        ///      不再用 13 阵营均值 `FrameBadgePx/Py/Rad`）；
-        ///   ③ 徽记量不出来 ⇒ 退回 <see cref="FrameCostPx"/>（旧固定点）+ `Debug.LogWarning`；
-        ///      连卡框都没有 ⇒ 退回原版 `CostAt`。</para>
+        /// <para>🔴 **2026-10-19（主对话裁定 · 铁律 3/5·c）—— 回到原版 prefab 的【固定容器】`(0.788, 0.666)`。**
+        /// 判据（一手，`资料/普查产出_第十八会话/D2_卡框几何量法.md` §三全表）：
+        ///   · `Card Info/Cost Container` 的 `m_AnchoredPosition = (0.788, 0.746)`（anchor/pivot 都 (0.5,0.5)），
+        ///     它挂在**纯 `Transform`** `Card Info` 下 ⇒ 锚点基准 = `Front` 原点的**局部**坐标；
+        ///   · **坐标换算（必写清）**：本文件一贯用「**卡根空间 = `Front` 局部**」——
+        ///     证据 = `FrameUnitY = −0.03` 正好等于 D2 的 `CardFrame (0, 0.05)` **再减 0.08**
+        ///     （0.08 = `Front` 在 2DCard 空间的 apos；`MeleeAt` 等也逐一对得上：D2 (−1.110) → 本文件 −1.190）。
+        ///     ⇒ 费用中心 = **(0.788, 0.746 − 0.08) = (0.788, 0.666)** 卡单位
+        ///     ⇔ 归一化 **(0.8766, 0.3001)**，**正是本文件的 `CostAt`**（下方直接返回它）。
+        ///   · 独立旁证：`A2138` 之前的 PnP 反算固定点 `FrameCostPx/Py = (751.7, 305.2)` 在
+        ///     **sprite-rect 画框映射**下落点 = **(0.791, 0.650)** —— 与 prefab 只差 **0.016** 卡单位，
+        ///     两条互不相干的来源（序列化字段 / PnP 成品图）互证。
+        ///   · `Cost Container Big` = `(0.788, 0.723)` ⇒ 卡根空间 `(0.788, 0.643)` = **同一 x、下移 0.023**
+        ///     （= `CostBigDropUnit`，未动，在 <see cref="CostAt01"/> 统一加）。</para>
         ///
-        /// <para>**横向为什么能写成常量**：画框那一层（`FrameMesh`）恒把贴图**不透明块**
-        /// `uv.xMin..xMax` 铺满 `FrameUnitW` 宽、且**以 0 为心**（顶点 ±w）⇒
-        /// **alpha 右缘在卡单位里恒是 +FrameUnitW/2**，与哪张卡框无关。</para>
-        ///
-        /// <para>**纵向为什么必须逐帧量**：徽记是**画在卡框贴图里**的，每个 tier 的框缩放/位置都不同
-        /// （W27 实测 150 张：徽记中心 x **733..761**、下缘 **177..280** 贴图像素）
-        /// ⇒ 任何固定值都会逐帧偏，这正是旧实现（固定贴图点）的根。</para>
-        ///
-        /// <para>**数据来源**：`Resources/frame_uv.json` 的 `bx/by/br/bb`（贴图像素，y 从顶部数），
-        /// 由 `工具/gen_frame_uv.py` 离线量：alpha&gt;200 的距离变换求「最厚处」= 徽记圆心 + 内切半径，
-        /// 再沿圆心列向下打到第一个透明缺口 = 徽记下缘；徽记与下方装饰**连成一片**时（下缘 &gt; 2.4×r）
-        /// 改用「徽记核心区里最连贯的那条竖向色差边」= 徽记自身的下轮廓。逐块判据 → `W27` 报告。</para>
+        /// <para>⛔ **W27（2026-10-18）的「可见右缘贴卡框 alpha 右缘 / 可见上缘贴徽记下缘」作废** ——
+        /// 它只由**一张泰伦实拍**反推，逐帧 `cx` 会差 **0.16 卡单位（7% 卡宽）**、且把费用**向内拉 0.15**，
+        /// 与用户原话「费用图标太下面了」方向相反。单张截图不能压过 prefab 序列化常量。
+        /// 作废那套实现（`FrameCostPx/Py` · `FramePxYToCard` · `TryBadgeBottomPx` · `_badgeTable` ·
+        /// `CostBadgeGapPx` · `CostVisRightFrac/TopFromCenter`）**保留在本文件里当历史/复核材料**，
+        /// 但**本函数不再调用**（改动前它算出的是 0.7477…0.9057 的逐帧值）。</para>
         ///
         /// <para>⚠️ 底板层（`Build` 的 `_costBg`）、数字（`InfoTexture`）、命中区（`HitFace`）**都走这一个函数**
-        /// ⇒ 三者天然同源（画面/点击/烘焙不会各偏一套）。</para></summary>
+        /// ⇒ 三者天然同源（画面/点击/烘焙不会各偏一套）。`frameTex` 参数保留只为**调用点不变**
+        /// （原版这份几何与卡框贴图无关 —— 逐帧跟着卡框走正是 W27 错的地方）。</para></summary>
         static Vector2 FaceCostAt01(Texture2D frameTex)
         {
-            if (frameTex == null) return CostAt;
-
-            float byPx;
-            float badgeBottom = TryBadgeBottomPx(frameTex, out byPx)
-                ? FramePxYToCard(frameTex, byPx) : float.NaN;
-            if (float.IsNaN(badgeBottom))
-            {
-                // 量不出徽记（表里没有 / UV 退化）：退回旧固定点，**出声**（每张贴图只喊一次）
-                if (_badgeWarned.Add(frameTex.name))
-                    Debug.LogWarning("[CardView] 卡框 \"" + frameTex.name + "\" 没有徽记测量值"
-                                   + "（Resources/frame_uv.json 的 bx/by/br/bb）⇒ 费用八边形退回旧固定点 "
-                                   + FrameCostPx + "/" + FrameCostPy + "，横向不会贴卡框右缘。");
-                var old = FramePxAt01(frameTex, FrameCostPx, FrameCostPy);
-                return float.IsNaN(old.x) ? CostAt : old;
-            }
-
-            // ① 横向：可见右缘 = 卡框 alpha 右缘（+FrameUnitW/2）⇒ 折回【网格中心】
-            //    （CostBgW 是**整张 sprite**的网格宽，可见右边在网格右侧内 9/248 处）
-            float cx = 0.5f * FrameUnitW - (CostVisRightFrac - 0.5f) * CostBgW;
-            // ② 纵向：可见上缘 = 徽记下缘 **再往下留一条常量缝**
-            //    🔴 **2026-10-18（用户定）：要精确复现实拍** —— 用户给的 `战斗—替换手卡参考图（后手）.png` 里，
-            //    徽记亮部下缘与八边形外沿上缘之间还有 **≈8 屏幕 px ≈ 19 贴图像素 ≈0.069 卡单位**的缝；
-            //    `W27` 第一版做成了「贴死」，这里补回这条缝。⛔ 别把它当成可调的自由参数去改版式。
-            float gapUnit = 0f;
-            {
-                Rect uvG = FrameUv(frameTex);
-                if (uvG.height > 1e-5f && frameTex.height > 0)
-                    gapUnit = CostBadgeGapPx / (uvG.height * frameTex.height) * FrameUnitH;
-            }
-            float cy = badgeBottom - gapUnit - CostVisTopFromCenter * CostBgH;
-            return new Vector2(0.5f + cx / CardUnitW, 0.5f - cy / CardUnitH);
+            // `CostAt` = 归一化 (0.8766, 0.3001) ⇔ 卡单位 (0.788, 0.666)（`CostAt` 的注释里有换算），
+            // 就是原版 `Cost Container` 的固定容器位置 —— **判据只此一处**，别在这里再写一份字面量。
+            return CostAt;
         }
 
         // ==================================================================================
@@ -467,8 +452,9 @@ namespace CardPresentation
         //    · 容器 apos：**(0.788, 0.666) → (0.788, 0.643)** ⇒ **x 不动、y 下移 0.023 卡单位**
         //    · 两档背景是**同一张 sprite**（Image MB 逐字段相同：`m_Type=0` · `m_PreserveAspect=0` ·
         //      `m_Color` 白）⇒ **只放大、不换图**。
-        //  ⚠️ 与 W27（费用贴卡框右缘）的关系：W27 定的是**中心**；原版两档**容器 x 相同** ⇒ 大号档
-        //     就是在同一个中心上放大（右缘会跟着往外），⛔ 别把「可见右缘」再重新贴一次边。
+        //  ⚠️ 两档的关系（2026-10-19 复核仍成立）：原版两档**容器 x 相同（0.788）**、y 差 0.023
+        //     ⇒ 大号档就是在同一个中心上放大（右缘会跟着往外）。⛔ 别把「可见右缘」再重新贴一次边
+        //     —— W27 那条「右缘贴卡框 alpha 右缘」已作废（见 `FaceCostAt01`）。
         // ==================================================================================
         /// <summary>大号费用格相对普通档的**尺寸倍率**（原版两档逐项实测 = 1.2）。</summary>
         public const float CostBigScale = 1.2f;
@@ -480,8 +466,9 @@ namespace CardPresentation
         static float CostScale { get { return CostBig ? CostBigScale : 1f; } }
 
         /// <summary>费用格在卡面上的**实际**落点（两档统一走这一个口）：
-        /// `FaceCostAt01`（W27 的贴徽记规则）+ 大号档的**下移**（原版容器 apos 差）。
-        /// ⚠️ 底板层 / 烘进 `_info` 的数字 / 命中区**三处都走它**（与 W27 时同样的「只此一处」口径）。</summary>
+        /// `FaceCostAt01`（原版 prefab **固定容器** `(0.788, 0.666)`；W27 的贴徽记规则已于 2026-10-19 作废）
+        /// + 大号档的**下移**（原版容器 apos 差 0.023）。
+        /// ⚠️ 底板层 / 烘进 `_info` 的数字 / 命中区**三处都走它**（「只此一处」口径）。</summary>
         static Vector2 CostAt01(Texture2D frameTex)
         {
             var at = FaceCostAt01(frameTex);
@@ -490,7 +477,9 @@ namespace CardPresentation
         }
 
         /// <summary>贴图像素 y（**从顶部数**）→ 卡单位（y 向上）。与 <see cref="FramePxAt01"/> 同一条
-        /// 换算链（`FrameUv` + `FrameQuad`），只取纵坐标。UV 退化 ⇒ `NaN`（调用方退回旧常量）。</summary>
+        /// 换算链（`FrameUv` + `FrameQuad`），只取纵坐标。UV 退化 ⇒ `NaN`（调用方退回旧常量）。
+        /// <para>⚠️ **W27（2026-10-18）遗留**：2026-10-19 主对话裁定「费用回到 prefab 固定容器」之后
+        /// **本函数没有调用者**了（原调用点 = `FaceCostAt01`）。保留作历史/复核材料，⛔ 不要拿它再搭逐帧规则。</para></summary>
         static float FramePxYToCard(Texture2D frameTex, float py)
         {
             if (frameTex == null || frameTex.width <= 0 || frameTex.height <= 0) return float.NaN;
@@ -502,7 +491,9 @@ namespace CardPresentation
         }
 
         /// <summary>这张卡框的**阵营徽记下缘**（贴图像素，y 从顶部数），数据 = `frame_uv.json`。
-        /// 表里没有 / 数值不合理（≤0 或 ≥贴图高）⇒ `false`（调用方走兜底）。</summary>
+        /// 表里没有 / 数值不合理（≤0 或 ≥贴图高）⇒ `false`（调用方走兜底）。
+        /// <para>⚠️ **W27 遗留**：2026-10-19 起**没有调用者**（原调用点 = `FaceCostAt01`）。
+        /// `frame_uv.json` 里的 `bx/by/br/bb` 四项**仍然照常解析/保留**（数据无损，将来复核用）。</para></summary>
         static bool TryBadgeBottomPx(Texture2D frameTex, out float py)
         {
             py = 0f;
@@ -514,9 +505,6 @@ namespace CardPresentation
             py = b.w;
             return true;
         }
-
-        /// <summary>已经为哪几张卡框打过「没有徽记测量值」的警告（避免每帧刷屏）。</summary>
-        static readonly HashSet<string> _badgeWarned = new HashSet<string>();
 
         // ---- 卡名 / 效果文字的位置：**单位卡和战术卡不是同一套**（A3 表）----
         // 原版的文字都挂在 `Name and description` 这个块（1.3×0.68 @(0,−0.7745) 卡单位）底下，
@@ -598,6 +586,44 @@ namespace CardPresentation
         public const float CardUnitW = 2.0927f, CardUnitH = 3.3313f;
         const float FrameUnitW = 2.2452f, FrameUnitH = 3.2572f, FrameUnitY = -0.03f;
 
+        // ==================================================================
+        //  🔴 **2026-10-19（`A2138`）—— 卡框画的到底是【贴图上哪一块】**
+        //
+        //  **原版事实（一手，逐字段实读）**：`2DCard/CardFrame` 那个 uGUI `Image`
+        //    `m_Type = 0`(Simple) · `m_PreserveAspect = 0` · **`m_UseSpriteMesh = 1`**
+        //    ⇒ 走 `Image.GenerateSprite`（不是 `GenerateSimpleSprite` 的四角 quad）：
+        //      `Library/PackageCache/com.unity.ugui@27635d171b1a/Runtime/UGUI/UI/Core/Image.cs:1087-1122`
+        //        spriteSize      = activeSprite.rect.size          // ← 682 × 998
+        //        drawingSize     = RectTransform 的像素矩形        // ← 2.2452 × 3.2572
+        //        spriteBoundSize = activeSprite.bounds.size        // ← = sprite rect / ppu
+        //        vh.AddVert(vertices[i] / spriteBoundSize × drawingSize − drawOffset)
+        //    ⇒ **整块 sprite rect（含透明留白）被拉进 Image 的 RectTransform**；`textureRect`
+        //      （tight 网格 = 不透明内容）只是其中的一块，按 `textureRectOffset` 偏在里面。
+        //
+        //  **为什么不是 alpha bbox**：`Sprite.bounds` 对这批 sprite 就是 **m_Rect**（682×998），
+        //    不是 tight 网格的包围盒（`textureRect` 逐帧不同：614.9×929.85 … 680.9×931.9）。
+        //    ⚠️ **这条由参考实拍反证、不是只读源码**：原版三个数值框是 **prefab 固定容器**
+        //    （Melee/Range/Health 的 anchoredPosition，与阵营/档位无关），而凹槽（红圆/紫圈/绿框）
+        //    是**画在卡框贴图里**、像素位置逐帧恒定 ⇒ 只有「按 m_Rect 映射」才能让两者在**所有**卡框上
+        //    同时对齐。逐像素量 `桌面/warpforge参考图/战斗—替换手卡参考图（后手）.png` 的 4 张泰伦卡：
+        //    数字（画在固定容器上）与凹槽圆心 **dx −1.5 / −1.0 / +0.5 px**、dy ≈ 0
+        //    —— 按 m_Rect 预测 **dx 0.0 / −1.7 / +0.9**，按 alpha bbox 预测 **dx +11.3 / +8.0 / +2.7**
+        //    ⇒ **m_Rect 胜出**（y 上四个值统一偏 ~4 px，是 prefab 容器 y 参照系的常量差，两模型同偏，不参与判别）。
+        //
+        //  **影响**：卡框可见内容按 `textureRect/rect` 缩在固定矩形里（我们原来把 alpha bbox 拉满，
+        //    ⇒ 平均大 7.7% 宽 / 6.1% 高 —— 逐帧表 `资料/普查产出_1019/K1_A2138_逐帧映射差.tsv`）。
+        //    判据全文 → `资料/普查产出_1019/K1_报告.md` §四 · 本仓 `资料/任务线/卡牌线/任务/T04_卡面几何与图标.md`。
+        //
+        //  **常量（全盘 88 份 `Orc Frame*.json` + `frames_resolved.json` 52 条 × 96 槽位，0 变体）**：
+        //    `m_Rect = (x 171, y 11, w 682, h 998)`，`m_Pivot = (0.5, 0.5)`，`ppu = 100`。
+        //    ⚠️ **y 的原点是【贴图底边】**（Unity `Sprite.rect` 约定）⇒ UV 的 `vMin = 11/1024`、
+        //    `vMax = 1009/1024`。**反证**：`textureRectOffset.y = 18.08 = textureRect.y(29.08) − 11`
+        //    （同一坐标系）；若把 11 当顶边，alpha 内容会溢出 textureRect 36 px —— 不成立。
+        //    ⛔ **别把 11 当「从顶部数」**（K1 报告里的 `1-(11+998-0.5)/H` 就是按顶边写的，会整体偏 4.5 px）。
+        // ==================================================================
+        const float FrameSpriteRectX = 171f, FrameSpriteRectY = 11f;
+        const float FrameSpriteRectW = 682f, FrameSpriteRectH = 998f;
+
         // 占位卡面（没有原版卡框时）的**插图位**——和 `FaceTexture` 里那个 ③ 号框是**同一处**，
         // 归一化是 x[0.06,0.94] y[0.20,0.58]（y 从顶算）。⚠️ 改一处要两处一起改。
         // 换算到卡单位（卡本体 2.0927×3.3313 居中）：宽 0.88×卡宽、高 0.38×卡高、中心 y=+0.11×卡高。
@@ -611,13 +637,20 @@ namespace CardPresentation
         //    **0.258 × 0.2335 @(0,−0.0055)**（相对容器），sprite 是 84×76 px（宽高比 1.105）。
         //    出处：`子代理读报_2dcard_0827.md` A2 表 `Rarity / Card Rarity Sprite`。
         //    按容器画 = 宽 1.55×、高 1.71×，还把 1.105 的比例压成了 1.0（对照图 `gems.png` 能看出来）。
-        // 🔴 2026-10-11 修（用户点名「宝石明显错位，**超出了宝石框**」· 见账 `A1492`）：
-        //    **旧值取自 prefab 的【模板 rect】，画出来对不上卡框贴图上那个凹槽。**
-        //    凹槽实测（`Resources/Art/cards/frame_saimhann_tier3.png`，与解包件逐字节同）：
-        //    黑菱形连通域 x 478..544 / y 919..981 ⇒ 中心 (511.0, 950.0)、67×63 px；
-        //    经 `FrameUv` + `FrameQuad` 换算回卡单位 ⇒ **中心 (+0.0147, −1.5126)、尺寸 0.24620 × 0.22159**。
-        //    旧值 0.258×0.2335 @ y −1.4635 ⇒ **偏高 0.0491、宽高各超 4.8% / 5.4%** = 实拍里「超出凹槽」。
-        const float RarityGemW = 0.24620f, RarityGemH = 0.22159f;
+        // 🔴 **2026-10-19（`A1492` 收口 —— 改成原版 prefab 的绝对尺寸）**：
+        //    判据 = `Card Rarity Sprite`（uGUI `Image`：`m_Type=0`(Simple) · `m_PreserveAspect=0` ·
+        //    **`m_UseSpriteMesh=0`** ⇒ 整张 84×76 被拉进它自己的 RectTransform）的
+        //    **`m_SizeDelta = 0.25796 × 0.23345`**（子节点 RectTransform 逐字段实读）。
+        //    ⇒ 目标值就是它，**与画框映射无关**（宝石是独立 Image、固定 RT，不吃卡框的 uv）。
+        //    改回它之后：可见菱形（84×76 里 alpha>128 的 75×73 px）= **0.2303 × 0.2242** 卡单位，
+        //    对卡框凹槽（sprite-rect 映射下 67/682×2.2452 = 0.2206 宽、63/998×3.2572 = 0.2056 高）
+        //    = **1.044× / 1.090×** —— 与 6 张 PnP 实测的「宝石外沿 ≈ 凹槽 1.0–1.12×」一致。
+        //    ⚠️ **旧值 0.24620 × 0.22159 是 2026-10-11 按【错的画框映射】量出来的**
+        //    （当时把 alpha bbox 拉满固定矩形）：它让可见菱形只有凹槽的 **0.893×** = 用户看到的「宝石小了」。
+        //    ⛔ 别再按「相对凹槽」反算尺寸 —— 凹槽经各卡框 uv 换算后逐帧 **0.2149..0.2532** 宽，
+        //    拿它当基准会逐帧漂；原版是固定 RT。
+        //    判据全文 → `资料/普查产出_1019/K1_报告.md` §五·1 · `W_卡牌线_卡面侧2.md` §二·3。
+        const float RarityGemW = 0.25796f, RarityGemH = 0.23345f;
 
         /// <summary>宝石凹槽中心在【卡框贴图】上的位置（贴图像素，y 从顶部数）。
         /// <para>🔴 **2026-10-18 改**：宝石**不再用固定卡单位常量**（那组是按
@@ -629,18 +662,14 @@ namespace CardPresentation
         /// 2026-10-18 又拿 **12 张 PnP** 复核：把 (511,950) 经「三凹槽配准」的相似变换投到 PnP，
         /// 与 PnP 上量到的宝石中心残差 —— 10 张 **≤3 px**，另 2 张的 PnP 自身偏低 ≈14 px
         /// （那两张的宝石离卡底更近，属印刷品自身差异，不是我们这侧的错）。</para>
-        /// <para>⚠️ 尺寸 `RarityGemW/H` 仍是固定卡单位（没有按 uv 缩放）：凹槽在**贴图上**是 67×63 px，
-        /// 换算到卡单位会随 uv 变 ±6%。**2026-10-18（卡面侧第二波）复核**：旧记的「PnP 宝石比凹槽小 ~20%」
-        /// **不成立** —— 那个数只对得上宝石的**彩色内核**（common 的彩色区 53 px vs 凹槽 67 px）；
-        /// 把**金属边**算进去后，6 张 PnP 实测「宝石外沿 / 卡框可见宽」= **0.098–0.132**，
-        /// 而**原版 prefab 的绝对尺寸** `Card Rarity Sprite = 0.25796 × 0.23345`（UI `Image`，`PA=0`；
-        /// 子节点 `RectTransform` 逐字段实读）对卡框 `2.2452` 宽 = **0.1149**；其不透明菱形
-        /// （宝石贴图 84×76 里 alpha&gt;128 的 75×73 px）对凹槽 67 px = **1.12×**
-        /// ⇒ **宝石外沿比凹槽略大（≈1.0–1.12×），不是小 20%**。判据全文 → `W_卡牌线_卡面侧2.md` §二·3。
-        /// 🔴 **但这条还不能直接落成绝对尺寸**：我们画框用的是 `FrameUv` 的**不透明块**（611×926 px）
-        /// 拉满 `FrameUnit`，而原版把 **sprite rect（682×998，含透明留白）** 拉满 ⇒ 我们的可见框比原版
-        /// **宽 11.6% / 高 7.8%**；按「相对凹槽」还是「相对卡」缩放，两者差 11.6%
-        /// ⇒ **尺寸判据等主对话裁「画框该按 alpha 块还是 sprite rect」**，本笔**不动数值**。</para>
+        /// <para>🔴 **2026-10-19（`A1492` + `A2138` 同批收口）**：尺寸改成 **prefab 绝对值
+        /// `0.25796 × 0.23345`**（判据见上面 `RarityGemW/H` 那段），画框映射也同时改成 **sprite rect**
+        /// ⇒ 宝石落点 `FaceGemAt01` 自动回到凹槽上（≈ −1.4547），与 prefab 的 (0, −1.4635) 差 0.0088。
+        /// ⚠️ 本节原文写「尺寸判据等主对话裁『alpha 块还是 sprite rect』、本笔不动数值」——**已执行完毕**，
+        ///    留此痕迹。旧记的「PnP 宝石比凹槽小 ~20%」**不成立** —— 那个数只对得上宝石的**彩色内核**
+        ///    （common 的彩色区 53 px vs 凹槽 67 px）；把**金属边**算进去后 6 张 PnP 实测
+        ///    「宝石外沿 / 卡框可见宽」= **0.098–0.132**，而 prefab 绝对值对卡框 2.2452 宽 = **0.1149** ✓。
+        ///    判据全文 → `W_卡牌线_卡面侧2.md` §二·3 · `资料/普查产出_1019/K1_报告.md` §五·1。</para>
         /// <para>🔴 **`A1492` 尾巴「0.042」复核（2026-10-18）**：prefab 里 `Rarity` 与
         /// `Card Rarity Sprite` 两个 `RectTransform` 的 **`m_AnchoredPosition.x` 都是 0**、`pivot (0.5,0.5)`
         /// （Rarity apos y = **−1.458**、子件 y = **−0.0055** ⇒ 宝石中心 = **−1.4635** 卡单位，正是旧常量）；
@@ -658,16 +687,16 @@ namespace CardPresentation
         /// ⛔ 别只把宝石改回去（那会让它离开我们的凹槽）。</para></summary>
         const float FrameGemPx = 511.0f, FrameGemPy = 950.0f;
 
-        /// <summary>宝石中心的**旧固定值**（卡单位）—— ⚠️ 现在**只在没有卡框（占位卡面）时兜底**。
-        /// y = **卡框凹槽实测中心**（旧值 −1.4635 是「容器 −1.458 + 图自己 −0.0055」的推导值，与画出来不符）。
-        /// x = 凹槽中心（旧代码隐含 x=0，但贴图里那个凹槽并不在 x=0 上 ⇒ 代码层原来偏左 0.0147）。
-        /// 🔴 **2026-10-18 复核（铁律 5）**：−1.4635 **不是推导错** —— 它就是 prefab 两个
-        /// `m_AnchoredPosition` 之和（Rarity −1.458 + 子件 −0.0055）；**在原版映射（sprite rect）下
-        /// 它与凹槽只差 0.0088**。它「与画出来不符」的真因是**我们的画框映射**（alpha 块 vs sprite rect）
-        /// 把凹槽挪到了 −1.5126（x 同理：prefab 的 x 就是 0，+0.0147 是补偿我们的映射）。
-        /// 详见上面 `FrameGemPx` 那一段最后两节 —— ⛔ 别据此把「prefab 值」当成错的。</summary>
-        const float RarityGemY = -1.5126f;
-        const float RarityGemX = 0.0147f;
+        /// <summary>宝石中心的**固定值**（卡单位）—— ⚠️ 只在**没有卡框（占位卡面）**时兜底：
+        /// 有卡框时走 <see cref="FaceGemAt01"/>（跟着贴图上的凹槽，逐帧不一样）。
+        /// <para>🔴 **2026-10-19（与 `A2138` 同批）：改回 prefab 的 (0, −1.4635)** —— 它就是
+        /// `Rarity` apos **−1.458** + 子件 **−0.0055**（两个 `m_AnchoredPosition` 之和）；
+        /// 在**原版映射（sprite rect 拉满矩形）**下与凹槽中心只差 **0.0088**（判据见上面 `FrameGemPx`
+        /// 的「0.042 复核」那一节）。旧值 **(+0.0147, −1.5126) 是补偿当时错的 alpha-bbox 画框映射**
+        /// 反算出来的；映射已按 `A2138` 修正 ⇒ 那组补偿值退场。
+        /// ⛔ 别再按 alpha 映射把它改回去（那会让没有卡框的占位卡偏离原版常量）。</para></summary>
+        const float RarityGemY = -1.4635f;
+        const float RarityGemX = 0f;
 
         // ---- 原版立绘区（`CardImage`，A1 表）----
         // 2.7484 × 2.7484 @ (0, −0.044) 卡单位 —— **正方形、比卡本体大**，故意外溢，
@@ -700,11 +729,12 @@ namespace CardPresentation
         const float CostBgW = 0.4891f, CostBgH = 0.4809f;
         const float ArmourIconW = 0.3067f, ArmourIconH = 0.3784f;
 
-        /// <summary>费用底板贴图 `Card_Frame_Cost_Icon.png` 的**不透明 bbox**（实测 alpha&gt;8：
-        /// x 3..238 / y 3..238，贴图 248×244）。⇒ 四边留白 = 左 3 / 右 9 / 上 3 / 下 5 贴图像素。
-        /// <para>🔴 **2026-10-18（W27）**：<see cref="FaceCostAt01"/> 用它把「可见边」折回
-        /// **网格中心**（`CostBgW/H` 是**整张 sprite 的网格尺寸**，不是可见宽 —— 直接拿可见边
-        /// 去对网格边会内缩 9 像素 ≈ 0.018 卡单位）。</para></summary>
+        /// <summary>🔴 **W27（2026-10-18）遗留 —— 2026-10-19 主对话裁定后【无消费者】，仅历史/复核。**
+        /// <para>费用底板贴图 `Card_Frame_Cost_Icon.png` 的**不透明 bbox**（实测 alpha&gt;8：
+        /// x 3..238 / y 3..238，贴图 248×244）。⇒ 四边留白 = 左 3 / 右 9 / 上 3 / 下 5 贴图像素。</para>
+        /// <para>W27 曾用它把「可见边」折回**网格中心**（`CostBgW/H` 是**整张 sprite 的网格尺寸**，
+        /// 不是可见宽 —— 直接拿可见边去对网格边会内缩 9 像素 ≈ 0.018 卡单位）。现在费用走
+        /// <see cref="FaceCostAt01"/> 的**固定容器**，这一套不再参与。</para></summary>
         const float CostIconW = 248f, CostIconH = 244f;
         const float CostIconPadL = 3f, CostIconPadT = 3f;
         const float CostIconPadR = 9f;                 // 248 − 1 − 238
@@ -713,11 +743,11 @@ namespace CardPresentation
         // 可见上边离网格上边 = 3/244 ⇒ 中心到可见上边 = (0.5 − 3/244) × CostBgH
         const float CostVisTopFromCenter = 0.5f - CostIconPadT / CostIconH;
 
-        /// <summary>费用八边形**可见上缘**与**阵营徽记下缘**之间的常量缝（**贴图像素**）。
-        /// <para>🔴 **2026-10-18 用户定：要精确复现实拍** —— 判据 = `桌面/warpforge参考图/战斗—替换手卡参考图（后手）.png`
-        /// （泰伦 4 张逐张量：徽记亮部下缘 y=269、八边形外沿上缘 ≈277，卡高 391px ⇒ **≈8 屏幕 px**）。
-        /// 折算到我们 1024² 卡框贴图 ≈ **19 px ≈ 0.069 卡单位**（`W27` 第一版做成贴死，这里补回这条缝）。
-        /// ⛔ 这是「实拍 → 贴图」的换算常量，**不是可自由调版式的参数**。</para></summary>
+        /// <summary>🔴 **W27（2026-10-18）遗留 —— 2026-10-19 主对话裁定后【无消费者】，仅历史/复核。**
+        /// <para>费用八边形**可见上缘**与**阵营徽记下缘**之间的常量缝（**贴图像素**）。
+        /// 判据 = `桌面/warpforge参考图/战斗—替换手卡参考图（后手）.png`（泰伦 4 张逐张量：
+        /// 徽记亮部下缘 y=269、八边形外沿上缘 ≈277，卡高 391px ⇒ **≈8 屏幕 px**），当时折算成 19 贴图像素。</para>
+        /// <para>⛔ **别再拿它改版式**：原版费用是 prefab 固定容器 `(0.788, 0.666)`，不贴徽记。</para></summary>
         const float CostBadgeGapPx = 19f;
 
         // ==================================================================
@@ -890,7 +920,9 @@ namespace CardPresentation
                 return new Vector2(b.x, b.y);
             }
         }
-        /// <summary>卡框那层用的 UV 矩形（= 贴图上不透明金属的范围）</summary>
+        /// <summary>卡框那层用的 UV 矩形 —— 🔴 **2026-10-19（`A2138`）起 = 原版 sprite rect
+        /// `m_Rect`（171,11,682,998，含透明留白）**，不再是 alpha bbox（判据见 `FrameSpriteRectX`）。
+        /// ⚠️ 自检拿它把**贴图像素**换算到卡框层局部坐标时仍然成立（网格 bounds × 这个 uv 是同一套映射）。</summary>
         public Rect FrameUvRect
         {
             get
@@ -1068,11 +1100,14 @@ namespace CardPresentation
         /// <summary>**把这张卡的每一层都设成同一个队列号**（= 给这张卡一段队列）。
         /// <para>🔴 **本工程「每张卡一段队列」的唯一实现** —— `CardFan.SetCardQueue` 只是转发到这儿
         /// （⛔ 别在任何地方再写第二份；两处写同一条规则 = 迟早不一致）。</para>
-        /// <para>⚠️ **一律走 `.material`（不是 `.sharedMaterial`）**：文字那层的 `sharedMaterial`
-        /// 就是**字体资产里那一份**（TMP 的 MeshRenderer），直接写 `sharedMaterial` 会把
+        /// <para>🔴 **2026-10-19（`A1967`）起不再调用 `.material`**：编辑模式下 `Renderer.material`
+        /// **每实例化一次**就打一条 `Instantiating material due to calling renderer.material during edit mode …`
+        /// （带 14–16 行托管栈；`BattleScene.Run` 2026-10-14 实测 **10,642 条 = 全文 52.6%**）。
+        /// 现在走 <see cref="QueueMaterial"/> 的 **(源材质, 渲染队列) 共享缓存**：同一份源材质在同一队列号上
+        /// 只克隆一次、赋给 `sharedMaterial`。文字那层的 `sharedMaterial` 是**字体资产里那一份**
+        /// （TMP 的 MeshRenderer）—— 我们克隆的是它，**原件一个字节都不写**（直接写会把
         /// `Resources/Fonts/Warpforge Trait TextSprites.asset` 的 `m_CustomRenderQueue` 写脏并**落盘**、
-        /// 还会连累所有用同一字体的文字（2026-09-27 实测踩过）。`.material` 会先为这个渲染器
-        /// **实例化一份**，写回 `sharedMaterial` ⇒ 只改这一张卡。</para>
+        /// 还连累所有用同一字体的文字，2026-09-27 实测踩过）。</para>
         /// <para>⚠️ 点阵后端（`Label` 自己挂 MeshRenderer）走 `Label.SetRenderQueue`（它也会先实例化）。</para>
         /// <para>⚠️ 它**扫整棵子树**，所以「后建的层」（数值层 `BuildStatLayers` / 徽标 / 重建的 TMP）
         /// 只要下一次 `SetQueue` 时已经存在就会被带上；建层那几处另有 `StampQueue` 兜当场那一次。</para></summary>
@@ -1107,17 +1142,93 @@ namespace CardPresentation
 
         /// <summary>把**这一层**的队列设成这张卡当前那一段（建层当场调一次 —— 免得「建出来之后
         /// 还没被布局摆过」的那段时间里它是默认 3000）。
-        /// <para>🔴 **值已经对了就一个字节都不写**：`.material` 会**实例化**共享材质，而 TMP 那几层的
-        /// `sharedMaterial` 是**字体资产里那一份**（全卡共用 ⇒ 能合批）⇒ 无脑写会把每张卡的每层文字
+        /// <para>🔴 **值已经对了就一个字节都不写**：`new Material(...)` 会**多一份材质**，而 TMP 那几层的
+        /// `sharedMaterial` 是**字体资产里那一份**（全卡共用 ⇒ 能合批）⇒ 无脑克隆会把每张卡的每层文字
         /// 都拆成独立材质（多出几十个 draw call），而且是**白拆**（默认 3000 == 卡片队列段的默认号）。
-        /// 只有布局真给了别的号（`≠ QCard`）时才需要实例化 —— 那时不合批是应该的。</para>
+        /// 只有布局真给了别的号（`≠ QCard`）时才需要一份实例 —— 那时不合批是应该的。</para>
+        /// <para>🔴 **2026-10-19（`A1967`）：不再走 `mr.material`** —— 编辑模式下它每实例化一次就打一条
+        /// `Instantiating material due to calling renderer.material during edit mode …`
+        /// （2026-10-14 实测 **10,642 条 = 全文 52.6%**）。改成 <see cref="QueueMaterial"/> 的
+        /// **(源材质, 队列)** 共享缓存：同源同队列只克隆一次，赋给 `sharedMaterial`。
+        /// ⛔ **键必须含队列**，否则不同队列段的卡会共用一份材质、被压到同一层。
+        /// ⚠️ 用「这一层**第一次**被盖章时的那份材质」当源（<see cref="_stampState"/>）：布局会把同一张卡
+        /// 从一档队列改到另一档（悬停 / 重排），若拿「当前那份（已经是上一档的克隆）」当键会克隆出一条链。
+        /// 外部换了材质（`SetFace` / `SetData` 换卡面/卡背）⇒ 当前那份不再是本口给的克隆 ⇒ 重新以它为源。</para>
+        /// <para>⚠️ **「每张卡一份材质」这个既有假设仍然成立**：卡面各层（`AddLayer` / 徽标 / 数值层 …）
+        /// 的源材质都是 `new Material(...)` 的**私有副本** ⇒ 缓存出来的克隆也是**逐层唯一**的
+        /// ⇒ `ApplyTint` / `ApplyShadowColor` 写 `sharedMaterial.color/_ShadowColor` **不会串卡**。
+        /// 真正会被共享的只有 TMP 文字那几层（字体资产材质）—— 它们本来就不吃 `sharedMaterial` 的着色
+        /// （TMP 走顶点色）。⚠️ 将来若新增「多张卡共用同一份源材质、又要被整卡着色」的层，
+        /// 那一路必须改走 `MaterialPropertyBlock`，⛔ 不能写共享材质。</para>
         /// <para>⚠️ 形参是 <see cref="Renderer"/>（2026-10-18 `A1674` 起）：`ParticleSystemRenderer`
         /// 不是 `MeshRenderer`，但要盖的是同一件事（`sharedMaterial.renderQueue`）。</para></summary>
         void StampQueue(Renderer mr)
         {
             if (mr == null || mr.sharedMaterial == null) return;
-            if (mr.sharedMaterial.renderQueue == _queue) return;   // 无操作就别拆材质（见 doc）
-            mr.material.renderQueue = _queue;      // `.material`：共享材质会就地克隆 ⇒ 绝不写到别人的材质上
+            var cur = mr.sharedMaterial;
+            if (cur.renderQueue == _queue) return;   // 无操作就别拆材质（见 doc）
+
+            StampState st;
+            if (!_stampState.TryGetValue(mr, out st) || st.Assigned == null || cur != st.Assigned)
+                st = new StampState { Origin = cur, Assigned = null };   // 第一次，或外部换了材质
+            // 源材质本身就是这一档 ⇒ 直接用回**原件**（常见：悬停抬号后又落回 3000）
+            //   —— 少一份克隆，也把 TMP 文字层还回字体资产那一份（恢复合批）。
+            var cached = (st.Origin != null && st.Origin.renderQueue == _queue)
+                       ? st.Origin : QueueMaterial(st.Origin, _queue);
+            if (cached == null) return;
+            mr.sharedMaterial = cached;              // ⛔ 不写 `mr.material`（见 doc）
+            st.Assigned = cached;
+            _stampState[mr] = st;
+        }
+
+        // ---- 🆕 2026-10-19（`A1967`）按 **(源材质, 队列)** 共享的实例缓存 ----
+        //  为什么：`Renderer.material` 在编辑模式下**每次实例化**都打一条
+        //  `Instantiating material due to calling renderer.material during edit mode …`（14–16 行栈）。
+        //  2026-10-14 的 `BattleScene.Run` 日志里 **10,642 条 = 全文 52.6%**（`A1967` 原始读数；
+        //  全仓历史日志里这一族 100% 的栈都落在本方法与 `CardFan.SetCardQueue` 转发上）。
+        //  做法：自己 `new Material(src)`（**不走 `Renderer.material`，不触发那条警告**），
+        //  按 `(src, 队列号)` 缓存后赋给 `sharedMaterial`。
+        //  ⚠️ **条目数有上限**：源材质绝大多数是逐卡私有的（= 与修复前「一层一份」同量级，没有放大），
+        //    真机长局里卡建了又销会攒；超过 `QueueMatCap` 就整表丢掉 —— 之后按需重建，
+        //    行为与修复前逐次克隆等价（只是那一小段恢复不了合批）。
+        struct QueueMatKey : System.IEquatable<QueueMatKey>
+        {
+            public int SrcId, Queue;
+            public bool Equals(QueueMatKey o) { return SrcId == o.SrcId && Queue == o.Queue; }
+            public override bool Equals(object o) { return o is QueueMatKey && Equals((QueueMatKey)o); }
+            public override int GetHashCode() { return unchecked(SrcId * 397) ^ Queue; }
+        }
+
+        sealed class QueueMatEntry { public Material Origin, Clone; }
+
+        const int QueueMatCap = 4096;
+        static readonly Dictionary<QueueMatKey, QueueMatEntry> _queueMats =
+            new Dictionary<QueueMatKey, QueueMatEntry>();
+
+        /// <summary>（本视图内）每个渲染器「第一次盖章时的源材质 / 上一次由本口赋上去的克隆」——
+        /// 用途见 `StampQueue` 的 doc（反复换队列号时始终以最初那份为键，避免克隆链）。
+        /// ⚠️ 句柄随本视图一起丢；渲染器被单独销毁时残留的键只占一个槽，不影响正确性。</summary>
+        struct StampState { public Material Origin, Assigned; }
+        readonly Dictionary<Renderer, StampState> _stampState = new Dictionary<Renderer, StampState>();
+
+        /// <summary>取「源材质 src + 队列 q」那一份共享实例（没有就建一份）。
+        /// <para>⚠️ 返回值**可能被同队列的多个渲染器共用** ⇒ 调用方**不许**在上面写任何逐卡属性
+        /// （颜色 / 贴图 / 关键字）。逐卡属性走 `MaterialPropertyBlock`，或先自己
+        /// `new Material(...)` 复制一份私有副本（`BattleDriver.StartRevealFlight` 的淡出就是后者）。</para>
+        /// <para>⚠️ 命中时校验 `Origin` 仍是同一份（Unity 的 `==` 会把已销毁对象判成 false）
+        /// ——实例 ID 在旧对象销毁后可能被复用，只按 ID 命中会静默拿到别人的贴图。</para></summary>
+        static Material QueueMaterial(Material src, int q)
+        {
+            if (src == null) return null;
+            var key = new QueueMatKey { SrcId = src.GetInstanceID(), Queue = q };
+            QueueMatEntry hit;
+            if (_queueMats.TryGetValue(key, out hit) && hit != null && hit.Clone != null && hit.Origin == src)
+                return hit.Clone;
+            if (_queueMats.Count >= QueueMatCap) _queueMats.Clear();   // 见上面「条目数有上限」
+            var m = new Material(src) { name = src.name + " (q" + q + ")" };
+            m.renderQueue = q;
+            _queueMats[key] = new QueueMatEntry { Origin = src, Clone = m };
+            return m;
         }
 
         /// <summary>一颗 TMP 的**全部**渲染器（主网格 + 它的 `TMP_SubMesh`，行内 `&lt;sprite&gt;` 图标
@@ -5458,6 +5569,27 @@ namespace CardPresentation
                 && Mathf.Abs(l.y - UiColliderCenterDy) <= UiColliderHalfH;
         }
 
+        // ---- 🆕 2026-10-19（`T03`）：**可点矩形边界探针**（⛔ 只给自检，生产不用）----
+        //  为什么加这两颗：`Contains` 的三个调用点（`CardInteraction.HitTest` · `BattleDriver.HitSlot` ·
+        //  `MulliganPanel.CardAt`）**一条边界断言都没有**（`T03` §六-4 / `资料/普查产出_1016战斗判据/
+        //  T03_命中与可点区域判据.md` §五）。要断「边界上 / 外 1 px」就得把**卡局部标架**里的点
+        //  换成世界点，而那个标架（内层 `2DCard`）是私有的 ⇒ 给自检开一个**与 `Contains` 同一个**
+        //  `HitFrame()` 的读口（⛔ 别让断言自己再拼一份 `transform.InverseTransformPoint` —— 那会把
+        //  「标架选错」这类缺陷一起放过）。
+        //  ⚠️ 断言里的**期望值仍然从原版 collider 的字面量来**（1.97×3.02 / ×1.01 / −0.0151），
+        //     ⛔ 不从本文件的常量反推 —— 否则就是自证。
+
+        /// <summary>自检用：把**可点矩形那一级标架**（<see cref="HitFrame"/> = 内层 `2DCard`）里的
+        /// 一个点换算成世界坐标。`x/y` 是本类的局部单位（与 `Width/Height` 同一把尺）。</summary>
+        public Vector3 HitLocalToWorldForTest(float x, float y)
+        {
+            return HitFrame().TransformPoint(new Vector3(x, y, 0f));
+        }
+
+        /// <summary>自检用：这张卡当前是 **in-hand 档**吗（`CardFace.Hand`）——
+        /// 断言据此选**原版**那一档的期望矩形（手上 `3.02×1.01` / 其余 `3.02`）。</summary>
+        public bool IsHandFaceForTest { get { return _faceMode == CardFace.Hand; } }
+
         /// <summary>和 <see cref="Contains"/> 同一套算法（**同一标架、同一矩形**），但**四周外扩 `margin`**
         /// （同一局部单位）。用途 = 悬停那条链的**廉价前置门**：先问一句「指针在不在这一带」，
         /// 不在就**别去跑那次 `TMP_TextUtilities.FindIntersectingLink`**。
@@ -5620,6 +5752,45 @@ namespace CardPresentation
             //    🆕 2026-10-13（A435 辛 · A774）：显式矩形那一档原样（形参非空 ⇒ 形参赢、顺手关掉「跟随节点」）；
             //       **传 `null` 仍是「不改当前状态」**（跟随节点那一档就靠它保住 —— ⛔ 别把这一句改成无条件赋值）。
             if (Clipping) ApplyClip();
+        }
+
+        /// <summary>把这张卡**补间到**「局部位置 + 绕 Z 倾角 + 缩放」—— **每帧都经 <see cref="SetPose"/> 写**。
+        ///
+        /// <para>🔴 **2026-10-19（`T04`）：为什么不能用 `CardTween.ToPose`** ——
+        /// 那个入口走 `DOMove/DORotate/DOScale`，直接写 `transform.localScale`，而本类的缩放是
+        /// 「**基础缩放 × 高亮系数**」（<see cref="BaseScale"/> / `ApplyScale`）⇒ tween 期间 `_baseScale`
+        /// **一直停在起点值**：补间一结束，任何一次 `SetPose`（手牌重排 / 战场落位 / 切分辨率）或
+        /// `SetHighlightScale` 都会把卡**弹回旧缩放**（静默、图上只表现为「换位后位置对、大小不对」）。
+        /// 判据 = 原版 `CardDisplayWindow.ChangeCardPosition` 的两条 tween 写的是**同一个 transform**，
+        /// 而原版的缩放**没有**我们这层「基础 × 高亮」⇒ 等价物必须把 `_baseScale` 一起带过去。
+        /// ⚠️ **菜单版详情窗 `Shell/CardDetailPopup` 仍是 `CardTween.ToPose`**（同一潜伏缺陷；
+        /// 那个文件不在本笔所有权内，见 `W_战斗线_T04放大窗_1019b.md` §四）。</para>
+        ///
+        /// <para>⚠️ **走 `SetPose` 的连带开销**：`SyncCostTier()`（一次 bool 比较）· `_blobShadow.Sync()`
+        /// （只有场上 3D 卡有影子；展示窗的卡是 `CardFace.Full` ⇒ 没有）· `ApplyClip()`（只有裁着的卡）。
+        /// ⚠️ **`pos` 是【局部坐标】**（同 `SetPose`）—— ⛔ 别传世界坐标（`CardTween.ToPose` 收的是世界坐标，
+        /// 两者只在父链 `lossyScale == 1` 且父件在原点时同值）。</para>
+        /// <returns>补间本体（`duration &lt;= 0` 时直接落终态、返回 null）。调用方自己 `OnComplete`。</returns>
+        public Tween TweenPose(Vector3 pos, float rotZ, float scale, float duration, Ease ease)
+        {
+            if (duration <= 0f)
+            {
+                SetPose(pos, rotZ, scale);
+                return null;
+            }
+            Vector3 fromPos = transform.localPosition;
+            float fromRot = transform.localEulerAngles.z;
+            float fromScale = _baseScale;
+            float dRot = Mathf.DeltaAngle(fromRot, rotZ);      // 走短弧；与 DOTween 的 `DORotate` 同向
+            float t = 0f;
+            var tw = DG.Tweening.DOTween.To(() => t, x =>
+            {
+                t = x;
+                SetPose(Vector3.LerpUnclamped(fromPos, pos, x),
+                        fromRot + dRot * x,
+                        Mathf.LerpUnclamped(fromScale, scale, x));
+            }, 1f, duration);
+            return CardTween.Use(tw, ease, this);
         }
 
         // ==================================================================
@@ -6059,6 +6230,14 @@ namespace CardPresentation
         /// <summary>自检用：高亮系数（原版 `ScaleFactor` = 1.05；`selectedTargetInBoard` 也是这一档）。</summary>
         public float HighlightMul { get { return _hlMul; } }
 
+        /// <summary>**基础缩放**（不含高亮系数）—— `ApplyScale` 的那一半底数。
+        /// <para>🔴 **2026-10-19（`T04`）：换位补间必须经 <see cref="TweenPose"/> 写它** ——
+        /// `CardTween.ToPose` 直接写 `transform.localScale`，`_baseScale` 会**停在换位前的槽位值**上；
+        /// 之后任何一次 `SetPose` / `SetHighlightScale`（→ `ApplyScale`）都会把卡**弹回旧缩放**（静默）。
+        /// 原先 `CardDisplayWindow.SwapToFront` 就是这条潜伏缺陷（2026-10-16 顺手发现、账在战斗线 `T04`）。</para>
+        /// 自检口：换位收尾后断「它 = 该槽的 `CardFan.Hpx(i) / (Height×108)`」。</summary>
+        public float BaseScale { get { return _baseScale; } }
+
         /// <summary>高亮的放大/还原（带 `AnimTime` 补间）。由 `SetHighlight` 调，外部一般不用直接调。</summary>
         public void SetHighlightScale(bool on)
         {
@@ -6114,10 +6293,13 @@ namespace CardPresentation
         //  卡框的 UV 裁剪
         // ==================================================================
 
-        // 原版卡框 PNG 是 1024×1024，**卡本体只占中间一块**，四周是透明留白。
-        // 直接铺满 quad 的话卡会缩成一小块还偏 —— 所以要量出不透明包围盒，
-        // 把 UV 裁到那一块。量一次按贴图缓存。
+        // 原版卡框 PNG 是 1024×1024。🔴 **2026-10-19（`A2138`）**：原版 `Image` 是 `m_UseSpriteMesh=1`
+        // ⇒ 画的是 **sprite rect（`m_Rect` = 171,11,682,998，含透明留白）**，不是 alpha bbox
+        // （判据与反证见 `FrameSpriteRectX` 那一段）。所以这里**两份缓存**：
+        //   · `_uvCache`      = 画框真正用的 UV（卡框 = sprite rect；其它贴图 = alpha bbox）
+        //   · `_alphaUvCache` = 不透明内容的位置（只给**非卡框贴图**的兜底；W27 那条逐帧费用规则已作废）
         static readonly Dictionary<Texture2D, Rect> _uvCache = new Dictionary<Texture2D, Rect>();
+        static readonly Dictionary<Texture2D, Rect> _alphaUvCache = new Dictionary<Texture2D, Rect>();
         static readonly Dictionary<Texture2D, Mesh> _meshCache = new Dictionary<Texture2D, Mesh>();
 
         // 🆕 **2026-10-17（T09 第 2 步 · A1655②）**：卡框 UV 的**离线表**（`Resources/frame_uv.json`）。
@@ -6157,17 +6339,57 @@ namespace CardPresentation
             }
         }
 
-        /// <summary>卡外框在贴图里的 UV 矩形 (uMin, vMin, uMax, vMax)。量不出来的话退回整张贴图。</summary>
+        /// <summary>卡框那一层**在贴图上画哪一块**的 UV 矩形 (uMin, vMin, uMax, vMax)。
+        /// <para>🔴 **2026-10-19（`A2138`）：卡框 = 原版 sprite rect（`m_Rect`），不是 alpha bbox。**
+        /// 判据见 <see cref="FrameSpriteRectX"/> 那一段（`m_UseSpriteMesh=1` → `Image.GenerateSprite`
+        /// → 整块 sprite rect 被拉进 RectTransform）。**visible 内容**（`textureRect` 那一块）
+        /// 由渲染时的贴图内容自然落在 rect 里面 —— 不用（也⛔不许）在这里再按 alpha 裁一次。</para>
+        /// <para>`frame_*` 且 1024² 的卡框 ⇒ `(171,11,682,998)/1024`（**y 以贴图底边为原点**；
+        /// 反证见常量段）。其余贴图 ⇒ 退回 <see cref="FrameAlphaUv"/>（旧的 alpha bbox 语义）。
+        /// `tex == null` / 量不出来 ⇒ 整张贴图 (0,0,1,1)。</para></summary>
         public static Rect FrameUv(Texture2D tex)
         {
+            if (tex == null) return new Rect(0f, 0f, 1f, 1f);
             Rect r;
             if (_uvCache.TryGetValue(tex, out r)) return r;
 
+            r = IsCardFrame(tex)
+                ? new Rect(FrameSpriteRectX / tex.width, FrameSpriteRectY / tex.height,
+                           FrameSpriteRectW / tex.width, FrameSpriteRectH / tex.height)
+                : FrameAlphaUv(tex);
+
+            _uvCache[tex] = r;
+            return r;
+        }
+
+        /// <summary>这张贴图是不是「原版卡框」—— 判据 = **名字以 `frame_` 开头 + 1024²**。
+        /// <para>与 `ArtBaker.ApplyImportSettings`（给 `cards/frame_*` 开 Read/Write）用的是同一条命名约定；
+        /// 现读 **150 张卡框全部 1024²**、`frame_uv.json` 150 条一一对应。</para>
+        /// <para>⚠️ 未来若出现**非 1024²** 的卡框，这里会退回 alpha 语义 —— 那是**故意的**：
+        /// `m_Rect` 是 1024 画布上的绝对像素，直接套到别的尺寸上会静默画错（宁可退回旧行为并出声）。</para></summary>
+        static bool IsCardFrame(Texture2D tex)
+        {
+            return tex != null && tex.width == 1024 && tex.height == 1024
+                && tex.name != null && tex.name.StartsWith("frame_", System.StringComparison.Ordinal);
+        }
+
+        /// <summary>卡框贴图上**不透明内容**的 UV 矩形（`alpha &lt;= 8` 视为透明；口径与
+        /// `工具/gen_frame_uv.py` 逐字相同）。
+        /// <para>🆕 **2026-10-19（`A2138`）从 `FrameUv` 拆出来**：画框**不再**用它（原版画的是 sprite rect），
+        /// 现在唯一的消费者 = <see cref="FrameUv"/> 对**非卡框**贴图的兜底（旧的 alpha 语义）。
+        /// ⚠️ W27 曾经用它算「卡框可见右缘」（`FaceCostAt01` 横向）——**那条规则 2026-10-19 已作废**
+        /// （费用回到 prefab 固定容器），所以这里不再有逐帧消费者。</para>
+        /// <para>数据：先查离线表 `Resources/frame_uv.json`，表里没有才 `GetPixels32()` 全图扫描。</para></summary>
+        static Rect FrameAlphaUv(Texture2D tex)
+        {
+            Rect r;
+            if (_alphaUvCache.TryGetValue(tex, out r)) return r;
+
             // 🆕 **2026-10-17（T09 第 2 步）**：先查离线表（按贴图名）；没有才走原来的像素扫描。
             EnsureUvTable();
-            if (_uvTable != null && tex != null && _uvTable.TryGetValue(tex.name, out r))
+            if (_uvTable != null && _uvTable.TryGetValue(tex.name, out r))
             {
-                _uvCache[tex] = r;
+                _alphaUvCache[tex] = r;
                 return r;
             }
 
@@ -6203,7 +6425,7 @@ namespace CardPresentation
                              (x1 - x0 + 1) / (float)W, (y1 - y0 + 1) / (float)H);
             }
 
-            _uvCache[tex] = r;
+            _alphaUvCache[tex] = r;
             return r;
         }
 
@@ -6804,13 +7026,13 @@ namespace CardPresentation
             float w = q.x * 0.5f, h = q.y * 0.5f, oy = q.z;
 
             // ⚠️ 用**卡框自己的**尺寸（2.2452×3.2572 @y−0.03 卡单位），不是卡本体的。
-            // ⚠️ **按 sprite 自身的比例 fit 进去，不拉伸**（2026-09-12 改）：
-            //    卡框 PNG 的金属 bbox 是 608×936（宽高比 0.6496），而 rect 是 0.689 ——
-            //    直接拉满会把框横向撑宽 6%。fit 出来是 **2.1159 × 3.2572**，宽度正好落在
-            //    卡本体（2.0927）那条线上，和原版卡面量出来的「金属基本顶到卡边」一致
-            //    （原版卡面实测金属横跨卡宽的 0～98%）。
-            //    出处：预制体 JSON `RectTransform_-3192049446263720900` 给了 rect 2.2452×3.2572，
-            //    但 sprite 带左右透明留白，所以**画的时候要按 sprite 的实宽**。
+            // 🔴 **2026-10-19（`A2138`）**：UV 取 **sprite rect `m_Rect`(171,11,682,998)**（见 `FrameUv`）——
+            //    原版 `Image` 是 `m_UseSpriteMesh=1` ⇒ 整块 sprite rect（**含透明留白**）被拉进这个矩形，
+            //    不透明内容（`textureRect`）自然缩在 rect 里面、并按 `textureRectOffset` 偏置。
+            //    ⛔ **别再把 UV 裁到 alpha bbox**：那会把可见内容放大 7.7% 宽 / 6.1% 高（逐帧表
+            //    `资料/普查产出_1019/K1_A2138_逐帧映射差.tsv`）。
+            //    📌 本节原写「按 sprite 自身的比例 fit 进去，不拉伸（2.2452 → 2.1159）」——那是 2026-09-12 的
+            //    旧口径，2026-09-27 已按原版 `m_PreserveAspect=0` 改成**固定矩形**，本行是它的延续说明。
             m = new Mesh { name = "CardFrameQuad" };
             m.vertices = new[]
             {
@@ -6846,11 +7068,12 @@ namespace CardPresentation
 
         /// <summary>
         /// 卡框那一层的 quad：**宽、高、中心 y**（world 单位）。**判据只有这一份** ——
-        /// `FrameMesh`（画框）和 `ArtMeshInFrame`（把立绘裁进这块板）都读它，
-        /// 两处各算一遍的话立绘和框就会错位。
-        /// ⚠️ 返回值依赖 `FrameUv`（量贴图的不透明 bbox）—— 贴图**必须开 Read/Write**，
-        ///    否则 UV 退回整张图，框会被画成一块带透明边的方片（2026-09-12 踩过：
-        ///    战术卡框 `frame_*_strat_tier*.png` 当时没开，整个战术卡面都是错的）。
+        /// `FrameMesh`（画框）读它（`ArtMeshInFrame` 虽然还收这个参数，但它的板走 `ArtBoard`，
+        /// 不从这里取尺寸；两处各算一遍的话立绘和框就会错位）。
+        /// <para>🆕 **2026-10-19（`A2138`）**：矩形**不受 uv 影响**（恒 = `FrameUnitW/H`，原版 `m_PreserveAspect=0`
+        /// 的固定矩形）；「画什么」由 `FrameUv` 决定（= sprite rect）。本节旧注「返回值依赖 `FrameUv`
+        /// （量不透明 bbox）、贴图必须开 Read/Write」**已过期**：卡框的 uv 现在是**常量**，
+        /// 不需要读像素；Read/Write 仍留着只为**非 1024² 的兜底**与 alpha 右缘（`FrameAlphaUv`）。</para>
         /// </summary>
         static Vector3 FrameQuad(Texture2D tex)
         {
@@ -6869,8 +7092,11 @@ namespace CardPresentation
             //   （sororitas 同趋势：0.70 → 0.74）；而框的矩形比值 `FrameUnitW/FrameUnitH` = **0.6893**。
             //   按 bbox 等比内接 ⇒ tier1/2 恰好填满矩形（814.25px），**tier3/4 被按「宽」定、高只有 768.2px（矮 5.7%）**。
             //   ⇒ 「一律用 tier4」之后**每张卡的框都矮了 5.7%**，正是这么来的。
-            // 📌 `uv`（= 贴图不透明的那一块）**仍然只取那一块** —— 透明边不参与拉伸，
-            //   所以「画多大」= 矩形，而「画什么」= 那一档真正的画。
+            // 📌 🔴 **2026-10-19（`A2138`）就地订正**：本行原文是「`uv`（= 贴图不透明的那一块）仍然
+            //   只取那一块 —— 透明边不参与拉伸」——**不成立**。原版 `m_UseSpriteMesh=1`
+            //   ⇒ 拉进矩形的是 **sprite rect（`m_Rect` 682×998，含透明留白）**，不透明内容只是
+            //   rect 里面按 `textureRectOffset` 偏置的一块（见 `FrameUv` / `FrameSpriteRectX`）。
+            //   ⇒ 「画多大」= 固定矩形 ✓，而「画什么」= **整块 sprite rect**。
             v = new Vector3(FrameUnitW * s, FrameUnitH * s, FrameUnitY * s);
             _frameQuadCache[tex] = v;
             return v;

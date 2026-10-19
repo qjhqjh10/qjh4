@@ -1,4 +1,4 @@
-// NetBattle.cs — 联机**对局**那一层：开局交接 · 动作中转 · 座位翻译 · 状态指纹 · 换牌定序 · 重连重放
+// NetBattle.cs — 联机**对局**那一层：开局交接 · 动作中转 · 座位口径（绝对编号·不翻译） · 状态指纹 · 换牌定序 · 重连重放
 //
 // 设计判据全文 → `资料/联机P2P_设计与交接.md` §五 / §六（N3~N5）。这里只写**实现要点**：
 //
@@ -115,7 +115,7 @@ namespace CardPresentation.Net
                 Seat1Faction = s.clientFaction,
                 FirstSeat = s.hostFirst,                  // 字段名照协议（host = 座位 0）；
                 // 🔴 **A961（2026-10-18，主对话裁定「接着做完」）**：`MsgStart.myName / foeName`
-                //   （`NetProtocol.cs:74`）**两个都是对端可控的** ⇒ 与另外三个入口**同一处口径**：先钳
+                //   （`NetProtocol.cs:77` 的 `MsgStart.myName/foeName`，2026-10-19 现核）**两个都是对端可控的** ⇒ 与另外三个入口**同一处口径**：先钳
                 //   （复用 `NetSession.ClampPeerText`）。
                 //   ⚠️ 这两个字段**目前全仓没有消费方**（`Net/NetMatchmaking.cs:549` 那句注释已记这一点）
                 //      ⇒ 钳在这里是**给将来接上界面的那道口先装上限**。
@@ -132,7 +132,7 @@ namespace CardPresentation.Net
         public static NetPendingBattle FromReplay(MsgStart s, bool isHost) { return FromStart(s, isHost); }
     }
 
-    /// <summary>一条原生动作 + 它带的面板答案（**发送方视角**）。</summary>
+    /// <summary>一条原生动作 + 它带的面板答案（🔴 **座位是绝对编号** ⇒ 这份线上包**不翻**任何座位）。</summary>
     public class NetLocalAction
     {
         public MsgAction Wire;
@@ -246,6 +246,26 @@ namespace CardPresentation.Net
         }
 
         // ==================================================================
+        //  🆕 2026-10-19（W · 结算掉线口径）：**`CancelMatch` 一族 —— 原版有对应物，但我们不建**
+        // ==================================================================
+        //  原版 `BattleManager.CancelMatch(bm, bool)`（`d:/2/tools/decomp_full/BattleManager__CancelMatch.c`）：
+        //    · `bool == 0` ⇒ `BattleNetworkManager.LeaveBattle()`（`:22`，离开、**不判结果**）；
+        //    · `bool != 0` ⇒ `AddResignAction` + `DeadHero(bm, 0, Cancelled=5)`（`:28-29`）
+        //      ⇒ `playerIsLoser = false` ⇒ **判玩家胜**（⚠️ 不是「取消者输」，`param_2` 那个 `0` = 玩家不是负方）。
+        //  🔑 **唯一触发源 = 服务端检测到对手 desync**：
+        //    `BattleErrorUIManager.OpponentDesyncCancelMatch` 弹窗的确认回调
+        //    （`…DisplayClass18_0___OpponentDesyncCancelMatch_b__0.c:25`）。
+        //    同族的 `CancelMatchWithVictory` / `CancelMatchWithoutResult` 触发点也全在服务端 / 兜底协程
+        //    （`_InBattleFallbackCountdown`、`_ResolveAttack_d__438__MoveNext.c:234`、`PUNReceiveWrongRoom.c:78`、
+        //     `EventPlayerDisconnected.c:67`）—— **本地没有这条数据 / 触发源**。
+        //  ⇒ **不建**（铁律 11 例外①：原版那条数据/触发源本地不存在），⛔ 也别为它造一套仲裁机制。
+        //    我们唯一的 desync 收尾 = 上面 `Abort`（只出声、**不判胜负** —— 没有仲裁者就不该判）。
+        //  ⚠️ 将来若接：`Cancelled=5` 在原版是「**玩家胜**」⇒ 落点应是
+        //    `RuleCore.Forfeit(Ctx, 对面, BattleResult.Cancelled)`（把**对面**当负方），
+        //    ⛔ 别写成 `Forfeit(Ctx, 我方, …)`（那是「取消者输」，与原版相反）。
+        //  判据全文 → `资料/普查产出_1019/W_战斗线_T07结算_1019b.md` §一·3。
+
+        // ==================================================================
         //  🆕 2026-10-17（B13·A880 / B17·A900+A901）：对面**掉线 / 主动离开** —— 出厂接线 + 到点判负
         // ==================================================================
         //  账 `A880`：`NetSession.OnClosed` / `OnPeerLost` 原来**全仓零接线**（只有定义 + 三处 `Invoke`）
@@ -326,13 +346,80 @@ namespace CardPresentation.Net
         /// <summary>对面掉线那一刻起为真；观察到会话回到 `InBattle` 那一刻清掉（只用来说「他回来了」那一句）。</summary>
         bool _peerGone;
 
-        /// <summary>对面**掉线**了（心跳超时 / 连接断了）。判据全文见本节头部那一段。</summary>
+        /// <summary>对面**掉线**了（心跳超时 / 连接断了）。判据全文见本节头部那一段。
+        ///
+        /// <para>🆕 🔴 **2026-10-19（W · 联机线「结算段掉线口径」）：这一局已经结算 ⇒ 静默。**
+        /// 原版（全量反编译，逐跳）：</para>
+        /// <list type="bullet">
+        /// <item>`BattleManager__DisconnectedDuringBattle.c:35-51`：`battleStage == PostBattle(0x3C=60)`
+        ///   且 **对手**那一端掉线（`param_2 == 0`）⇒ **直接 return**（不弹窗、不停表、不改结果）。</item>
+        /// <item>`Everguild.BattleErrorUIManager__ConnectionStatusChanged.c:31-54`：stage == 60 时
+        ///   **只 `CustomDebug.LogWarning` 然后 return** ⇒ 结算段**任何**连接状态变化都不进弹窗分支。</item>
+        /// </list>
+        /// <para>我们原来在这里**无条件** `SayPeerGone(ReconnectHint(30)…)` ⇒ 结算后爆一句
+        /// 「30 秒后判他弃权」，而 `StartReconnectCountdown` 遇 `Ctx.IsOver` 根本不起倒计时
+        /// ⇒ **那句话是假的**（说错话 = 另一种静默）。现在按原版改成静默。</para>
+        ///
+        /// <para>⚠️ **本机掉线那一半（原版 `:52-64`）如实留缺、不猜**：原版对本机掉线会
+        /// `ShowDisconnectionPopup(true)` + `shouldLoseIfDisconnectEnd(+0x2D8) = true`，重连失败后
+        /// `FailedToReconnectAfterDisconnect.c:26-27` 的 `DeadHero(我, 3)` 由 `DeadHero.c:109-121`
+        /// 那道战后闸**放行重判**（`RuleCore.Forfeit` 现在没有同款的放行门 —— 它见 `Winner != 0` 一律挡，
+        /// `RuleCore.cs:9478-9481` 已如实记着这一条）。而且我们**分不清「谁掉线」**（见
+        /// `PeerLossCauseNote` 与 `ReconnectCountdownExpired` 里 `iAmDisconnectedEnd` 那一段）。
+        /// ⇒ 结算段一律按原版【对手】那一档处理：**静默、不改结果**。
+        /// 欠的两件（分谁掉 / 战后重判入口）记在交件报告，⛔ 不为对称造一个走不到的后门。</para></summary>
         void HandlePeerLost()
         {
+            // 🔴 结算已出 ⇒ 原版这一档 = 静默（判据见上面 summary）。
+            if (_d != null && _d.Ctx != null && _d.Ctx.IsOver)
+            {
+                Debug.Log("[Net] 对手掉线，但这一局**已经结算完了**（`Ctx.IsOver`）⇒ 按原版**静默**："
+                        + "不报信、不弹窗、不停表、不起倒计时、不判负"
+                        + "（判据 = `BattleManager__DisconnectedDuringBattle.c:35-51` 在 PostBattle(60) 对对手直接 return；"
+                        + "`Everguild.BattleErrorUIManager__ConnectionStatusChanged.c:31-54` 在 stage 60 只 LogWarning）"
+                        + PeerLossCauseNote());
+                return;
+            }
             _peerGone = true;
+            _peerLossWhy = _s != null ? _s.LastError : null;   // 掉线**这一刻**的原因（30 秒里重连退避会把它覆盖，先抓住）
+            bool hasCtx = _d != null && _d.Ctx != null;
             StartReconnectCountdown();          // 🔴 A900：先起倒计时（第一拍的数字要进下面那两句文案）
             ClockPaused = true;                 // 🔴 A901：对局时钟停走（原版 `ClockManager.PauseClock()`）
-            SayPeerGone(ReconnectHint(_countdownLeft), ReconnectPopup(_countdownLeft));
+            // 🔴 2026-10-19（W · 结算掉线）：**没有对局状态**时不许再说「N 秒后判他弃权」——
+            //   那一支**没有倒计时**（`StartReconnectCountdown` 只报信），说秒数也是一句假话。
+            SayPeerGone(hasCtx ? ReconnectHint(_countdownLeft) : "对手掉线了 —— 正在等他回来",
+                        hasCtx ? ReconnectPopup(_countdownLeft)
+                               : "对手掉线了 —— 正在等他回来。\n（这一档只报信：本机没有对局状态，没有弃权可判。）");
+        }
+
+        /// <summary>🆕 2026-10-19（W · 结算掉线）：**掉线那一刻**的传输层原因（`_s.LastError`）。
+        /// 为什么要单独存一份：客机那条重连退避会 `_t.Connect(...)`，而 `Connect` 会**清空** `_lastError`
+        /// ⇒ 30 秒后到点那一刻再读 `_s.LastError`，读到的可能是**最近一次重连失败**、不是「为什么掉线」。
+        /// ⚠️ 只用于日志（见 `PeerLossCauseNote`）；⛔ 不参与判负。</summary>
+        string _peerLossWhy;
+
+        /// <summary>🆕 **2026-10-19（W · 结算掉线）**：把 `A1267` 那条「传输层掉线：原因 = …」拼进**日志**。
+        /// 🔴 **它判不出「谁掉线」** —— 原因描述的是**本机这条 socket 怎么坏的**：
+        ///   · `Settings/Online/St/PeerClosed`（「对面关掉了连接」）= 本机读到 EOF ⇒ **看起来**是对面先关的；
+        ///   · `St/SilentTimeout`（「N 秒没收到对面的任何消息」）/ `St/ReadAbort` / `St/SendFailed`：
+        ///     **本机断网与对面断网在 TCP 上表现一模一样**（都没包、或都读到中断）⇒ **判不了**。
+        /// ⚠️ **连 `PeerClosed` 都不能当可靠判据**：本机自己 `ClosePeer()` 拆连接时，本机那个读线程也会以
+        /// 同族原因失败并写进 `_lastError`（`NetTransport.Fail` 里 `_closing` 只**压日志**，**不压** `_lastError` /
+        /// `_peerLost`）⇒ 「本机主动拆」与「对面关掉」在这一格上**同值**。
+        /// ⛔ 因此它**只进日志、不参与判负**（拿它判 = 猜）。原版也不把原因拼进界面
+        /// （`NetTransport.Fail` 那条注：玩家侧只有固定词条）。</summary>
+        string PeerLossCauseNote(string why = null)
+        {
+            if (why == null) why = _s != null ? _s.LastError : null;
+            if (string.IsNullOrEmpty(why)) return "";
+            // ⚠️ `Loc.T` 跟着语档走；`PeerClosed` 那条**不带参数**，所以能直接比相等
+            //    （`SilentTimeout` 那条带 `{0}`，格式化后当然不等）。
+            bool peerClosed = why == Loc.T("Settings/Online/St/PeerClosed");
+            return $"（传输层原因 = 「{why}」—— "
+                 + (peerClosed
+                    ? "**看起来**是对面先关的连接；⚠️ 本机 `ClosePeer` 拆连接时也可能是同一族原因 ⇒ **不据此判负**"
+                    : "**判不出是谁掉线**（本机断网 / 对面断网在 TCP 上同形）")
+                 + "；A1267）";
         }
 
         /// <summary>对面**主动离开了这一局**（收到 `bye`）。判据全文见本节头部那一段。
@@ -534,11 +621,13 @@ namespace CardPresentation.Net
         float _countdownNextAt;         // 下一拍该报数的时刻（秒表刻度）
 
         /// <summary>对手掉线 ⇒ 起倒计时（原版 `ShowDisconnectionPopup(false)` 里那一对
-        /// `StopCoroutine` + `StartCoroutine(ForfeitDisconnectedEnemy)` —— **重开**，不是叠加）。</summary>
+        /// `StopCoroutine` + `StartCoroutine(ForfeitDisconnectedEnemy)` —— **重开**，不是叠加）。
+        /// 🔴 **2026-10-19（W · 结算掉线）**：两道闸挪到「算秒数 + 自增 `enemyDisconnects`」**之前**。
+        ///   原版那个自增在 `_ForfeitDisconnectedEnemy_d__322__MoveNext.c:63`，而那条协程**只有真去等重连才起**
+        ///   ⇒ 已经结算的局**不该**记「对手又掉了一次」（原来那个自增发生在闸之前，是静默的状态污染）。
+        ///   ⚠️ 今天 `HandlePeerLost` 已经在 `Ctx.IsOver` 时早退了，这里是**第二道**（防御同族调用点）。</summary>
         void StartReconnectCountdown()
         {
-            _countdownLeft = ReconnectSecondsFor(_enemyDisconnects);
-            _enemyDisconnects++;                       // 原版 `:63`：**算完就自增**（先取值再 ++）
             if (_d == null || _d.Ctx == null)
             {
                 // 没有对局 ⇒ 没有「到点判弃权」可言。**出声**（⛔ 不静默）。
@@ -552,6 +641,8 @@ namespace CardPresentation.Net
                 _countdownOn = false;
                 return;
             }
+            _countdownLeft = ReconnectSecondsFor(_enemyDisconnects);
+            _enemyDisconnects++;                       // 原版 `:63`：**算完就自增**（先取值再 ++）
             _countdownOn = true;
             _countdownNextAt = NowSec() + 1f;           // 原版 `:120`：报完数**等 1 秒**再减
             Debug.Log($"[Net] 对手掉线：**{_countdownLeft} 秒**倒计时开始"
@@ -708,7 +799,26 @@ namespace CardPresentation.Net
 
             // 🔴 **判负对象按【两端】分**（2026-10-18 **第四续**：`INetBattleHost.NetSelfResign()` 补上之后，
             //    两端连「判谁负」都不一样了）—— 「本机是哪一端」的判据与理由见下面那一段长注释。
+            // 🔴 **2026-10-19（W · 联机线「结算段掉线口径」）：这一格是【角色】判据，不是「谁真掉线」—— 如实标出。**
+            //   原版本机掉线那一半：`BattleManager._AttemptReconnect_d__320__MoveNext.c`（本机那条重连退避）
+            //   → 失败 ⇒ `FailedToReconnectAfterDisconnect.c:26-27` 的 `AddResignAction(1)` + `DeadHero(我, 3)`。
+            //   P2P 里「本机断网」与「对面断网」在本地 socket 上**同形**，`A1267` 的「传输层掉线：原因 = …」
+            //   只说明**本机这条 socket 怎么坏的**：`St/PeerClosed` 看起来是对面先关，但本机 `ClosePeer()`
+            //   拆连接时也可能是同一族原因（`_closing` 只压日志、不压 `_lastError`）⇒ **没有可靠的「谁掉」判据**；
+            //   `St/SilentTimeout` / `St/ReadAbort` / `St/SendFailed` 更是两边通用（见 `PeerLossCauseNote`）。
+            //   能用的判据只剩「我们这套里**只有客机**有主动重连那条路」
+            //   （`NetSession.Pump` 的「客机：重连退避」支）⇒ 本机是客机 = 断线那一端。
+            //   **这是我们自拟的**（原版两端各有 `AttemptReconnect`）。**还缺两件**（⛔ 不猜、也不为它造后门）：
+            //     ① 一条应用层「谁在连续存活」的握手（重连成功后互换 last-heard 时间戳，由活着那侧判）；
+            //     ② 服务端 / 第三方仲裁。在这两样到手之前，⛔ 别按传输层原因去猜「谁掉线」。
+            //   ⚠️ 另外：本格**只在对局中走到**（`HandlePeerLost` 在 `Ctx.IsOver` 时已经静默早退）——
+            //     原版【结算段本机掉线 ⇒ 重判本机负】那一档（`DisconnectedDuringBattle.c:52-64` +
+            //     `shouldLoseIfDisconnectEnd` 放行 `DeadHero` 战后重入）我们**没有**，理由见 `HandlePeerLost` 的 summary。
             bool iAmDisconnectedEnd = _s != null && _s.Role == NetRole.Client;
+            Debug.Log("[Net] 掉线倒计时到点的判负对象：" + (iAmDisconnectedEnd
+                        ? "本机是**客机** ⇒ 按「断线那一端」处理（判本机负）"
+                        : "本机是**主机** ⇒ 按「对面掉线那一端」处理（判对面弃权）")
+                    + " —— 判据 = 角色（我们自拟，原版两端各有 AttemptReconnect）" + PeerLossCauseNote(_peerLossWhy));
 
             // ==================================================================
             //  🔴 **A914（2026-10-18，按独立审查 `REV_W3_联机.md` R3 改成【分端】）：判完这一局怎么收尾**
@@ -762,7 +872,7 @@ namespace CardPresentation.Net
             //      `Editor/BattleScene.cs` 里「`bye` 恰好 1 条」那条线路上判别式红（主对话已裁：不归本笔）。
             //
             //  📌 **还差一处（交回主对话裁）**：结算段要不要调 `BattleDriver.LeaveNetRoom()`
-            //      （`BattleDriver.cs:5423-5439`，除关会话外还做表现层收尾）—— 那份文件在另一个写手手里，
+            //      （`BattleDriver.LeaveNetRoom()`，除关会话外还做表现层收尾；⚠️ 行号会漂，2026-10-19 现核 `:7952-7974`）—— 那份文件在另一个写手手里，
             //      **本笔一个字节都没碰**。建议与理由 → 交件报告 §7。
             if (iAmDisconnectedEnd)
             {
@@ -823,6 +933,7 @@ namespace CardPresentation.Net
             bool wasRunning = _countdownOn;
             _countdownOn = false;
             _countdownLeft = 0;
+            _peerLossWhy = null;
             ClockPaused = false;
             if (hideWindow) NetRuntime.HideNoticePopup();
             if (wasRunning)

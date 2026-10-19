@@ -18,7 +18,11 @@
     （`fe87c0e1cc204ed48ad3b37840f39efc` ×71 · `f4688fdb7df04437aeb418b961361dc5` ×122）。
   · **哪份原版 pathID 是哪份字体**：三路独立互证，本脚本把其中两路做成断言 ——
     ① 原版 `MonoBehaviour/<字体名>.json` 的 `m_CreationSettings.referencedFontAssetGUID`
-       就是该包容器的**资源键**；② 那个键在 `bundle_fonts_assets_all/AssetBundle/AssetBundle_1.json`
+       在 **`Pragati` / `Asar` 这两份上**恰好就是该包容器的**资源键**；
+       🔴 **`A1313`（2026-10-19 订正）：这不是通则** —— 同一手法对 `RobotoCondensed` **0 行命中**
+       （见 `资料/普查产出_第十二会话/V8_RobotoCondensed.md` §⑧·1）⇒ ⛔ 别把它当唯一判据、更别拿它去枚举
+       别的字体。**本脚本只处理 `FONTS` 里那两份，且对每份逐条断言**（下面 `if int(pid) not in inbundle:
+       raise SystemExit(...)` ⇒ 键解不出时**停手出声**，不会静默走空）；② 那个键在 `bundle_fonts_assets_all/AssetBundle/AssetBundle_1.json`
        的 `m_Container` 里 preload 的那三条 pathID = **字体资产 + 它的材质 + 它的图集**。
        实测：`Pragati` = `1df326…6c02` → `3485036404935369831` / `-5050103597772954521` / `8692869601067476071`；
              `Asar`    = `61505a…4f18` → `-8244042478085975641` / `1185407168034066855` / `-2190411507003141721`。

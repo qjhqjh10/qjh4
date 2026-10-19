@@ -34,6 +34,14 @@ namespace CardPresentation
     /// <summary>`SearchingOpponentWindow` —— 全屏「正在找对手」。</summary>
     public class SearchingOpponentWindow : GameWindow
     {
+        /// <summary>🔴 **2026-10-19（`N117`）**：本窗**盖住左竖导航**。
+        /// <para>**为什么必须覆写**：基类那条判据（`type==Popup || placement==Popup`）在本窗上是
+        /// **两条都不成立**（原版 prefab 实读 `type = 0 Fullscreen` · `windowsPlacement = 0 None` ——
+        /// 四窗里只有它这样），但它的 `Background` 是**整屏 1920×1080 的压暗背板**
+        /// （`QSr = 3120`，见 `Build` 里那句 `Menu Dark Background`）⇒ 匹配原版语义：左栏被它吃住。
+        /// ⚠️ 不加这一条 ⇒ 「正在找对手」时点左栏会**走导航**（`QNavHit = 3156 &gt; QSr = 3120`）。</para></summary>
+        public override bool BlocksLeftNav { get { return true; } }
+
         // ⚠️ `Cancel Match` 的队列**要比立绘高一档**（两者矩形有重叠：785–885 与 1035–1135 × 942–1018）
         public const int QSr = 3120, QSrArt = 3121, QSrArt1 = 3122, QSrText = 3123, QSrHit = 3124;
 

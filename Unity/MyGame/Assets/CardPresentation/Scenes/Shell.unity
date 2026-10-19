@@ -435,7 +435,7 @@ MonoBehaviour:
   m_GameObject: {fileID: 266548808}
   m_Enabled: 1
   m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: fc6569c336c629143b6b17b598aad644, type: 3}
+  m_Script: {fileID: 11500000, guid: a13545f52f1c8d24eb36e85e38d25a88, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::CardPresentation.UISafeArea
   zones:
@@ -1376,7 +1376,7 @@ MonoBehaviour:
   m_GameObject: {fileID: 1006492557}
   m_Enabled: 1
   m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: fc6569c336c629143b6b17b598aad644, type: 3}
+  m_Script: {fileID: 11500000, guid: 3407de06baf71f544b2ef20b4c9a6d9c, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::CardPresentation.BlockingOverlay
 --- !u!43 &1011733295
@@ -2512,7 +2512,7 @@ MonoBehaviour:
   m_GameObject: {fileID: 1864785179}
   m_Enabled: 1
   m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: fc6569c336c629143b6b17b598aad644, type: 3}
+  m_Script: {fileID: 11500000, guid: d07118c051f113f4b9080943d5d53167, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::CardPresentation.Shade
   onAlphaLevel: 0.8

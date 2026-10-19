@@ -29,18 +29,25 @@
 //    （84 个本地 bundle 里没有 `localization_assets_all.bundle`、246,807 个文件扫中文串零命中
 //    —— 见 §23 与 `资料/待办判据_卡面卡池与双语.md`）。这一列照项目口径**如实标注为「我们译的」**，
 //    与 `数据/卡牌翻译/zh_cards.json`（卡名/卡面那批）是同一种东西。」
-//    —— **后半那句实测是对的，前半那句结论是错的**：原版**有**官方中文表（9,440/9,447 条非空），
+//    —— **后半那句实测是对的，前半那句结论是错的**：原版**有**官方中文表
+//    （2025-07-30 旧快照 9,440/9,447 条非空；🔴 **现用表 = 2026 build，10,854 条**，见 `_count`），
 //    只是**不在客户端安装目录里**（在远端 Addressables 包 `localization_assets_all` 里）。
 //    该包 2026-10-13 从旧 Windows 用户缓存里抢救出来、2026-10-14 **已解开**
 //    （**逐字节重复密钥 XOR**，不是压缩 —— 前任试的 gzip/zlib/deflate/lzma/bz2 方向是错的）。
 //    数据件 → `数据/游戏数据/官方本地化_en+zh-CN.json`（`工具/gen_official_loc.py` 生成）；
 //    逐条清单与脚本 → `资料/普查产出_第二十七会话/新发现_待立账.md` 的 `A1788`。
 //
-//    🔴 **换了多少（现读口径，两组数别混）**：官方表有键的 **266 条**里
-//      · ✅ **换掉 100 条**（原来 133 条，其中 **33 条已【暂缓换回】**，理由见下）；
-//      · = 本来就逐字相同的 127 条（未动）· 官方表**没有这个键**的 245 条（保留我们的译法）。
+//    🔴 **现状（**现读口径 · 2026-10-19**）—— ⚠️ 原来这里那组「官方表有键 266 / 换掉 100 / 逐字相同 127 /
+//       官方没键 245」是 2026-10-14 那一轮的**历史快照**（当时表里条目更少），⛔ 别当现值引用**：
+//      · 本表共 **775 条**（复算：`grep -c 'new Entry(' MyGame/Assets/CardPresentation/Core/Loc.cs`）；
+//      · 其中**官方表 `terms` 里有同名键的 440 条**、官方表没有这个键的 334 条；
+//        其中 **ZH 值仍与官方不同的 45 条**（EN 值不同 6 条）—— 下面「暂缓换回」那一族就在这 45 条里。
+//      · 复算口径：逐条取 `new Entry(` 前的键去
+//        `数据/游戏数据/官方本地化_en+zh-CN.json` 的 `terms[键]`（`[0]`=en · `[1]`=zh-CN）比对；
+//        该表当前 = **10,854 条**（2026 build；见文件自己的 `_count`，⛔ 别再引用 2025-07-30 旧快照的 9,447）。
 //
-//    🔴🔴 **那 33 条为什么暂缓换回**（判据 = **旧值在卡面 `descZh`/`nameZh` 里出现过**；
+//    🔴🔴 **那批「暂缓换回」为什么没换**（2026-10-14 记 33 条；现读族内键数见上面那行，后来有增）。
+//      判据 = **旧值在卡面 `descZh`/`nameZh` 里出现过**；
 //      脚本 `_tmp_a1070/loc_revert_clash.py` 就是按这条判据现算的，⛔ 别照下面的例子推断别的键也在内）：
 //      绝大多数是 `Card_Trait/*`（关键词显示名），另有 `Armies/*` 里**那 4 个**（`DarkAngels` 暗黑天使 ×3 ·
 //      `EmperorsChildren` 帝皇之子 ×3 · `Genestealers` 基因窃取者教派 ×3 · `Sororitas` 战斗修女 ×5）
@@ -72,7 +79,8 @@
 //         `Tips/Hud/*` 8 · `MainMenu/Settings/LanguageName/*` 9 —— 语言名下拉在英文档会印**本族语言名**
 //         （`Español`/`Français`…，那就是原版的做法），⛔ 不再是枚举名）；
 //       · **两列都换的 1 条**（`MenuShop/ExtraLegendaryWarning`）。
-//       ⇒ 换完之后 `Loc` 里「官方有这个键」的 382 条中，**只剩 33 条 ZH + 1 条 EN 与官方不同**，
+//       ⇒ 换完之后 `Loc` 里「官方有这个键」的 **382 条**（⚠️ **2026-10-14 当时的历史快照**；现值见文件头 →
+//         现读 **440** 条）中，**只剩 33 条 ZH + 1 条 EN 与官方不同**，
 //         而那 33 条**就是文件头说的那批「暂缓换回」**（`Card_Trait` 25 · `Armies` 4 · `Card_Race` 2
 //         · `MenuDeck/HUD/DeckDescription/Minions`）+ 那条要改调用点的 `MenuDeck/CantImportDeck`。
 //         判据脚本（可复算）：`工具/_loc_official/w4_verify.py`。
@@ -810,6 +818,14 @@ namespace CardPresentation
             // ------------- 聊天窗（`ChatPanel`）-------------
             //   1 颗 · `Placeholder < Text Area < InputField (TMP) < Enter Text < Chat < Holder < ChatPanel`
             { "MainMenu/Chat/TypeMessage",        new Entry("输入消息",   "Type message") },        // TMP 原文；中文 = `zh_CN.csv:183`（精确命中）
+            // 🆕 **2026-10-19（T17）补登**：`Player Options Panel` 那五颗钮的**官方词条**
+            //   （`bundle_menus_assets_all` 的 `Localize.mTerm` 逐颗实读：Add / Challenge / Report / Block 四颗有，
+            //    `Profile` 那颗 prefab 上**没有 `Localize`** ⇒ 保留原 TMP 文本 `Profile`，见 `Shell/ChatPanel.cs`）。
+            //   值 = 官方 zh-CN / EN 逐字。消费点 = `Shell/ChatPanel.Build` 的 `actTerms`。
+            { "MainMenu/Chat/Add",                new Entry("添加为朋友", "Add as a friend") },
+            { "MainMenu/Chat/Challenge",          new Entry("挑战",       "Challenge") },
+            { "MainMenu/Chat/Report",             new Entry("举报信息",   "Report message") },
+            { "MainMenu/Chat/Block",              new Entry("屏蔽玩家",   "Block player") },
             // ------------- 社交窗左栏那两颗页签（`TabBtnSpec.Label`）-------------
             //   各 1 颗 · `TabButtonLabel < Label < {Alliances,Friends} Tab Button < Tab Buttons < Content Area < Social Submenu Variant`
             //   ⚠️🔴 **渲染时会被基类 `ToUpperInvariant()` 转成大写**（`Shell/MenuWindowBase.cs` 的 `Text(b, (spec.Label ?? "").ToUpperInvariant(), …)`）
@@ -1251,6 +1267,12 @@ namespace CardPresentation
             { "Battle/Tips/CantAttackWithZeroRangedAttack",            new Entry("这个单位不能进行远程攻击", "This unit cannot attack in Ranged mode") },
             { "Battle/Tips/CantLoseRank",                              new Entry("在当前级别无法失去评级", "Can't lose rating in current division") },
             { "Battle/Tips/DamageFatigue",                             new Entry("你的卡组已空。你因疲劳受到{0}点伤害。", "Your deck is empty. You take {0} damage from fatigue.") },
+            // 🆕 **2026-10-19（T17）补登**：`Battle/Tips/DamageFatigueEnemy` —— 官方表两列都在，
+            //   而本表**一直没有这一条** ⇒ `BattleDriver.DamageFatigueText(false, n)` 那条**走不到词条**
+            //   （`Loc.HasEntry` 假 ⇒ 回我们那两句兜底）。消费点与判据 → `BattleDriver.DamageFatigueTextWithKey`
+            //   （原版 `BattleManager._ResolveFatigue_d__587__MoveNext.c` 按敌我二选一）。
+            //   值 = 官方 zh-CN / EN 逐字（`官方本地化_en+zh-CN.json` 的 `terms`）。
+            { "Battle/Tips/DamageFatigueEnemy",                        new Entry("敌人的卡组已空。你的敌人因疲劳受到{0}点伤害。", "Enemy deck is empty. Your enemy takes {0} damage from fatigue.") },
             { "Battle/Tips/FatigueDamage",                             new Entry("伤害", "damage") },
             { "Battle/Tips/GoSecond",                                  new Entry("敌人先行", "Enemy goes first") },
             { "Battle/Tips/HighELOOpponent",                           new Entry("对手的名字在3000评级以上不会显示。", "The opponent's name isn't shown above 3000 rating.") },
@@ -2149,12 +2171,24 @@ namespace CardPresentation
             { "Battle/Log/Ability",                    new Entry("{0}「{1}」发动技能", "{0} {1} uses an ability") },
             { "Battle/Log/Trigger",                    new Entry("{0}「{1}」触发「{2}」", "{0} {1} triggers {2}") },
             { "Battle/Log/Bare",                       new Entry("{0}「{1}」", "{0} {1}") },
-            { "Battle/BattleEnd/ForfeitMe",            new Entry("我方投降", "we forfeited") },
-            { "Battle/BattleEnd/ForfeitFoe",           new Entry("对方投降", "the opponent forfeited") },
-            { "Battle/BattleEnd/Rounds",               new Entry("{0} 回合   ", "{0} rounds   ") },
+            // 🔴 **2026-10-19（战斗线 `T17`）就地补注**：上面这一族里 **`Play` / `Attack` / `Ability` /
+            //   `Melee` / `Ranged` 五条今天已无消费点** —— `BattleDriver.RefreshBattleLog` 的那三档改走了
+            //   **原版键** `Battle/Cemetery/Action*`（`Play` 6 档 · `Ability` 2 档 · `Attack` 2 档）。
+            //   五条**留在表里**（自建族整族保留、便于回查原文）；⛔ 别把它们当「原版缺键时的兜底」加回去 ——
+            //   原版键缺了 `LogTerm` 会出声，兜底那两句是**我们自拟的措辞**（第二份权威）。
+            // 🔴 **2026-10-19（T17）核过：下面这 5 条 `Battle/BattleEnd/*` 是【我们加的，非原版】** ——
+            //   官方表 `Battle/BattleEnd/` 只有 11 条（`CantLoseRating` · `DamageDone` · `Defeat` · `Draw` ·
+            //   `Location` · `TapToContinue` · `TapToContinueMobile` · `Time` · `Title` · `TroopsDead` · `Victory`），
+            //   **没有** `ForfeitMe` / `ForfeitFoe` / `Rounds` / `RoundsMinFoeHealth` / `RoundsOnly`；
+            //   原版 `EndBattlePanel` 子树里也**没有**标题/副标题节点（W22 已查实）⇒ 这 5 条只服务于
+            //   `Battle/EndPanel` 自己拼的那行副标题。**保留**（铁律 3：原版没有的，如实标「我们加的」），
+            //   ⛔ 别把它们当成「官方有、我们抄漏」。
+            { "Battle/BattleEnd/ForfeitMe",            new Entry("我方投降", "we forfeited") },          // ⚠️ 我们加的，非原版
+            { "Battle/BattleEnd/ForfeitFoe",           new Entry("对方投降", "the opponent forfeited") }, // ⚠️ 我们加的，非原版
+            { "Battle/BattleEnd/Rounds",               new Entry("{0} 回合   ", "{0} rounds   ") },      // ⚠️ 我们加的，非原版
             { "Battle/BattleEnd/RoundsMinFoeHealth",   new Entry("{0} 回合   敌方战将最低生命 {1}",
-                                                                  "{0} rounds   enemy Warlord's lowest health {1}") },
-            { "Battle/BattleEnd/RoundsOnly",           new Entry("{0} 回合", "{0} rounds") },
+                                                                  "{0} rounds   enemy Warlord's lowest health {1}") }, // ⚠️ 我们加的，非原版
+            { "Battle/BattleEnd/RoundsOnly",           new Entry("{0} 回合", "{0} rounds") },            // ⚠️ 我们加的，非原版
                         { "Battle/Chat/Threat",                    new Entry("威胁", "Threat") },
             { "Battle/Chat/WellPlayed",                new Entry("打得好", "Well played") },   // 🔴 EN 2026-10-14（`A1803`）改官方（小写 p）
             { "Battle/Chat/Taunt",                     new Entry("嘲讽", "Taunt") },
@@ -2949,8 +2983,10 @@ namespace CardPresentation
         /// 英文档取 `en` 列；缺键 / 两列都空 ⇒ `null`（⛔ 不返回键名、**不出声、不记账** ——
         /// 出声与 `MissingCount` / `FallbackCount` 那些账由 `T()` / `CardText.TermOr` 各自的调用点负责）。</para>
         /// <para>非中英档**恒 `null`**：那 10 种走 <see cref="Lang13Current"/>（它的回退与出声口径不一样，⛔ 两条别合并）。</para>
-        /// <para>⚠️ 本口是「官方全表按当前语档取值」的**唯一一份**（`T()` 用它做中/英兜底），
-        /// ⛔ 别拿它当第二条显示取值路 —— 界面上正常取文案一律走 `T()` / `CardText.Term`。</para></summary>
+        /// <para>🔴 **现行两处显示消费点（2026-10-19 · `A1945` 方案 A 起）**：
+        /// ① `T()` 的中/英兜底；② **卡面正文** —— `BattleDriver.FaceTextFull` 用
+        /// `OfficialCurrent("Card_Description/&lt;卡 id&gt;")` 取官方 en/zh（`desc`/`descZh` 数据不动）。
+        /// ⛔ 除此之外别再开第三条显示取值路 —— 界面文案正常一律走 `T()` / `CardText.Term`。</para></summary>
         public static string OfficialCurrent(string key)
         {
             if (string.IsNullOrEmpty(key)) return null;
@@ -2965,8 +3001,11 @@ namespace CardPresentation
         }
 
         /// <summary>🆕 **2026-10-18（RV 复核·中）**：官方全表的**英文列**（无视当前语档）。
-        /// 用途**只有一处**：`CardText.TermOr` 在「`Loc.Current == 中文`、但中文字体资产缺失（`CardText.Zh == false`）」
-        /// 时避免印中文方块 —— 那一路卡面必须回英文（`CardText.cs:553-561` 的字体闸红线）。
+        /// 用途（2026-10-19 · `A1945` 起共两处）：
+        /// ① `CardText.TermOr` 在「`Loc.Current == 中文`、但中文字体资产缺失（`CardText.Zh == false`）」
+        /// 时避免印中文方块 —— 那一路卡面必须回英文（`CardText.cs:553-561` 的字体闸红线）；
+        /// ② **卡面正文** `BattleDriver.FaceTextFull` 的同一档（中文档但字体缺失 ⇒ 取官方英文列，
+        /// 与 ① 同一条口径）。
         /// ⛔ 别拿它当正常的显示取值路。</summary>
         public static string OfficialEnglish(string key)
         {

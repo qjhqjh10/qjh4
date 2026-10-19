@@ -55,6 +55,20 @@ namespace CardPresentation
             public string cardbackFrom;
             /// <summary>**原版本来该用哪张**（只在与 `cardback` 不同时有值 —— 即 `alias` / `substitute` 那几种）。</summary>
             public string cardbackOrig;
+            /// <summary>🆕 **2026-10-19（界面线 P05）**：这副牌**在练习窗 `Lore Text` 里显示哪条官方词条**
+            /// （原版 `DemoDeckInfoSO.loreLocalizationKey`，例 `Demo/AeldariDeck1`）。
+            /// <para>判据/映射 → `工具/gen_prebuilt_decks.py` 的 `DEMO_LORE_KEY` 头注释（84 份 Demo DeckInfo 的
+            /// `classicDeck` / `skirmishDeck` PPtr 落到 `prebuiltdecks_assets_all` 的 `deckId`）。
+            /// 103 副里 **78 副有**；其余 25 副是 Demo DeckInfo 之后新增的卡组，**本地没有 lore** ⇒ 空串
+            /// （练习窗**不编文案**、出声；同 `DemoDeckInfoSO.get_Lore` 为空时的原版观感）。</para></summary>
+            public string loreKey;
+            /// <summary>取当前语档的 lore 正文（官方词条经 `Loc.T`：手写表 → bulk → 官方全表）。
+            /// 空键 ⇒ 返回 <c>null</c>（调用方要**关掉/清空** `Lore Text`，⛔ 不拿别的文案顶）。
+            /// ⚠️ 只做「键 → 文本」这一步；「哪一副用哪条键」只由生成器决定（`DEMO_LORE_KEY`），⛔ 别在运行时猜。</summary>
+            public string LoreText
+            {
+                get { return string.IsNullOrEmpty(loreKey) ? null : Loc.T(loreKey); }
+            }
             public string[] cardIds;   // 整副牌（**我们的卡 id**，按原版卡表原序；督军与防御卡都不在内）
             /// <summary>
             /// **我们补的防御卡**（我们的卡 id）。🔴 **原版预组牌没有防御卡** —— 已用反汇编证实

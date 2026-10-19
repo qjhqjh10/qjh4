@@ -32,7 +32,8 @@
   → `RuleEngine/Data/CardDatabase.cs` → `RuleEngine/Core/CardDef.cs`（`CardDef.Initiative`）
   → `RuleEngine/Core/FirstSeatRules.cs`（先后手判据）。
 
-**跑法**（⚠️ 顺序：**先 `gen_card_inventory_options.py`、再本脚本、最后 `gen_cards_engine.py`**）：
+**跑法**（⚠️ 顺序：**先 `gen_card_inventory_options.py`、再本脚本、最后 `gen_cards_engine.py --write`** ——
+   ⚠️ `gen_cards_engine.py` 不带 `--write` 是干跑（只打印、不落盘，`A1648`））：
     "D:/2/Warpforge_tools/py312/python.exe" d:/4/Unity/工具/gen_card_initiative.py
     ... --check     只对账，不写文件
 """

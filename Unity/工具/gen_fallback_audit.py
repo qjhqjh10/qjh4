@@ -8,7 +8,8 @@
 只列「改前或改后有 >0.10 |ln| 偏差」的条目。
 
 用法（必须 UTF-8）：
-  PYTHONIOENCODING=utf-8 python gen_fallback_audit.py <白名单tsv> <自建改前tsv> <自建改后tsv> <输出tsv>
+  PYTHONIOENCODING=utf-8 python gen_fallback_audit.py <白名单tsv> <自建改前tsv> <自建改后tsv> <输出tsv> [--dry]
+  `--dry` = 只跑计算、打印读数、**零写盘**（默认行为不变；`A1648` 同族口径）。
 """
 import io
 import math
@@ -16,6 +17,10 @@ import os
 import re
 import statistics
 import sys
+
+# 🔴 `--dry` = 只跑计算、打印读数、**零写盘**。默认（不带它）行为与以前完全一样。
+_DRY = "--dry" in sys.argv[1:]
+_ARGS = [a for a in sys.argv[1:] if a != "--dry"]
 
 UNITY = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 ORIG = os.path.join(UNITY, r"资料\比对基线\sweep_orig.tsv")
@@ -48,7 +53,7 @@ def shaders_of(name):
 
 
 def main():
-    wpath, apath, bpath, out = sys.argv[1:5]
+    wpath, apath, bpath, out = _ARGS[:4]
     O, W, A, B = load(ORIG), load(wpath), load(apath), load(bpath)
     rows = []
     for n in sorted(set(B) & set(W) & set(O)):
@@ -75,8 +80,12 @@ def main():
     ]
     for n, w, a, b, d0, d1, sh in rows:
         L.append("%s\t%.3f\t%.3f\t%.3f\t%.3f\t%.3f\t%s" % (n, w, a, b, d0, d1, ", ".join(sh)))
-    io.open(out, "w", encoding="utf-8", newline="\n").write("\n".join(L) + "\n")
-    print("已落盘 %s（%d 条，偏差中位 %.4f）" % (out, len(rows), statistics.median(tot0)))
+    if _DRY:
+        print("干跑（未写盘）%s：%d 条，偏差中位 %.4f；要落盘请去掉 --dry"
+              % (out, len(rows), statistics.median(tot0)))
+    else:
+        io.open(out, "w", encoding="utf-8", newline="\n").write("\n".join(L) + "\n")
+        print("已落盘 %s（%d 条，偏差中位 %.4f）" % (out, len(rows), statistics.median(tot0)))
 
 
 if __name__ == "__main__":

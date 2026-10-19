@@ -1159,7 +1159,7 @@ public static partial class RuleEngineTest
     /// `Parse("Draw a troop and give it +1 [Attack]")` ⇒ `ops[1].Target.Side == "prev"`
     /// **且 `PrevSide` 是「判不出来」**。
     ///
-    /// 全池同形还有 `SW8` / `UM23` / `TAU54` / `GOF50`（真卡 `GOF_Da_Red_Waaagh` 即这一句）。
+    /// 全池同形还有 `SW8` / `20d0f4451f16fc441836a02f99bf77da` / `TAU47` / `GOF39`（真卡 Da Red Waaagh = `20d0f4451f16fc441836a02f99bf77da` 即这一句）。
     /// ⚠️ **实测**：`PrevSide` 与 `ResolvedSide` 都是 **`null`**（不是空串、更不是某个侧）——
     ///   断言用 `string.IsNullOrEmpty` 兜住两种「没值」的写法，消息里写明实测是 `null`。
     /// 🔴 与 `#33` **并排**：「一切代词都填 `own`」的实现在这一行红。
@@ -1186,7 +1186,7 @@ public static partial class RuleEngineTest
     /// 判据 = `EffectText.LinkPrevAntecedent` 的两条规则：① 抄**紧邻上一条**明写的侧；
     ///   ② 上一条自己也是代词时，**顺延它已经抄到的那个**（`Destroy an enemy troop. Stun it and
     ///   give it Fast` 那种连环 —— 同一个先行词，不是新猜一个；全池实测 3 张）。
-    /// 真卡 = `SOR49 Trial of Suffering`（这条字符串就是它的 `desc` 原文）。
+    /// 真卡 = `SOR55 Trial of Suffering`（这条字符串就是它的 `desc` 原文）。
     ///
     /// 🔴 **灭自证**：去掉「顺延」那一句 ⇒ `ops[2]` 变「判不出来」⇒ 本行红，
     ///   而 `ops[1]` 那一行**仍绿**（能分清是哪半坏了）。
@@ -1218,7 +1218,7 @@ public static partial class RuleEngineTest
     /// **第二次解析的结果就和第一次不同**，而这件事**不报错、不自检红**（静默）。
     /// 规格表标着「灭自证：报告未给（一红就是**静默错**）」，本次实测这 5 条全池形状都幂等。
     ///
-    /// 取样的 5 条：`#33`/`#34`/`#35` 那三条 ＋ `UM81` 的跨句承接 ＋ `UM110` 的付费前缀。
+    /// 取样的 5 条：`#33`/`#34`/`#35` 那三条 ＋ `UM99` 的跨句承接 ＋ `UM110` 的付费前缀。
     /// </summary>
     static void TestS14ParseIsIdempotent()
     {
@@ -1358,7 +1358,7 @@ public static partial class RuleEngineTest
     // ==================================================================
 
     /// <summary>
-    /// **`#44` 真卡 `UM81 Phobos Librarian`** —— `Parse(desc)` 恰好 **2 条 op**；
+    /// **`#44` 真卡 `UM99 Phobos Librarian`** —— `Parse(desc)` 恰好 **2 条 op**；
     /// 两条 `Cost == 3`、`CostKindOf` 归一后都是 **`"oath"`**；
     /// **第一条 `CostShared == false`、第二条 `true`**；`CardDef.OathCost == 3`。
     /// **`#45`/`#46` 两条反向沙包**（`UM90` 与 `SOR7` 的原文）⇒ **第二条 `Cost == 0`**。
@@ -1368,18 +1368,18 @@ public static partial class RuleEngineTest
     ///   主动付费那一档 `ActiveAbility.cs` = `{ int manaCost; … }`；
     ///   而 `BattleManager__PayActiveAbilityCostOath.c:22` 里**一次激活只调一次**
     ///   `PlayerManager.UseMana` ⇒ **一次付、多条效果**。
-    ///   我们原来「按 `.` 分句 + 付费前缀只贴同段」⇒ `UM81` 的第二句 `Cost = 0`
+    ///   我们原来「按 `.` 分句 + 付费前缀只贴同段」⇒ `UM99` 的第二句 `Cost = 0`
     ///   ⇒ `CollectOathOps` 不收它 ⇒ **激活后只打伤害、不给 Shield**（静默）。
     ///   现口径 = `Parse` 里那条 `carry`（三条规则：本段自带前缀 ⇒ 换；本段自带**触发头** ⇒ 清零；
     ///   都不是 ⇒ 承接上一段、且 `CostShared = true`）。
     ///
     /// 🔴 **为什么 `#45`/`#46` 不可省**：把 `carry` 改成**无条件继承上一段**也能让 `#44` 绿
-    ///   （全池只 `UM81` 一张吃到「③ 承接」）⇒ 必须配两条「带触发头 ⇒ 必须清零」的反向沙包：
+    ///   （全池只 `UM99` 一张吃到「③ 承接」）⇒ 必须配两条「带触发头 ⇒ 必须清零」的反向沙包：
     ///   `Slay:` / `Pray:` 是**另一条 ability 的开头**，⛔ 不许继承誓约的代价。
     /// </summary>
     static void TestS14PaidPrefixCarry()
     {
-        // ---- #44 真卡 UM81 ----
+        // ---- #44 真卡 UM99 ----
         var um81 = new CardDef("UM99", "Phobos Librarian", "unit",
                                "Oath 3: Deal 2-4 damage to an enemy. If target dies, gain Shield",
                                "common", "Ultramarines", 3, 3, 3, 0,
@@ -1388,11 +1388,11 @@ public static partial class RuleEngineTest
               "★ `CardDef.OathCost == 3`（从正文前缀算出来的，⛔ 不是卡表里写死的那个数）");
         List<string> un, pa;
         var ops = EffectText.Parse(um81.Desc, out un, out pa);
-        Check(ops.Count, 2, "★ `UM81` 的 `desc` 恰好 2 条 op（两句 = 一条 ability）");
+        Check(ops.Count, 2, "★ `UM99` 的 `desc` 恰好 2 条 op（两句 = 一条 ability）");
         Check(ops[0].Cost, 3, "★ 第 1 条（`Deal 2-4 damage`）带 `Oath 3` 的价");
         Check(ops[1].Cost, 3,
               "★ 第 2 条（`If target dies, gain Shield`）**也带 3** —— 它是**同一份付费前缀**盖住的第二句"
-            + "｜🧨 退回「按 `.` 分句、前缀只贴同段」⇒ 本行实得 0 ⇒ 红（而 `UM81` 激活后会静默少一半效果）");
+            + "｜🧨 退回「按 `.` 分句、前缀只贴同段」⇒ 本行实得 0 ⇒ 红（而 `UM99` 激活后会静默少一半效果）");
         Check(EffectText.CostKindOf(ops[0].CostKind), "oath", "★ 第 1 条货币归一后 = `oath`");
         Check(EffectText.CostKindOf(ops[1].CostKind), "oath", "★ 第 2 条货币同 = `oath`");
         CheckTrue(!ops[0].CostShared && ops[1].CostShared,
@@ -1422,7 +1422,7 @@ public static partial class RuleEngineTest
     // ==================================================================
 
     /// <summary>
-    /// **`#47` 场上放真卡 `UM81`、调 `RuleCore.UseOathAbility` ⇒ `Energy` 恰好 **−3**（不是 −6）。**
+    /// **`#47` 场上放真卡 `UM99`、调 `RuleCore.UseOathAbility` ⇒ `Energy` 恰好 **−3**（不是 −6）。**
     /// **`#48` 同一次激活：该敌人真的挨了 2-4 点；它死了我们**真的拿到 `Shield`**（两条效果都发生）。**
     ///
     /// 判据 = 原版三段（见 `RuleCore.UseOathAbility` 的 doc）：
@@ -1476,7 +1476,7 @@ public static partial class RuleEngineTest
     // ==================================================================
 
     /// <summary>
-    /// **`#49`**：`UM110 Fall Back` / `SOR6 Righteous Repugnance` 的**付费组**各解析出 **2 条 op**、
+    /// **`#49`**：`UM110 Fall Back` / `f104d4c21abe84546abc9365d9eda8dd Righteous Repugnance` 的**付费组**各解析出 **2 条 op**、
     /// **同价同货币**、其中**第一条 `CostShared == false`、后面 `true`**。
     /// **`#50`**：结算时 `Energy` **只掉一次**，而且**两条效果都发生**。
     ///
@@ -1619,7 +1619,7 @@ public static partial class RuleEngineTest
     /// 信仰 6 / 能量 0 ⇒ 不执行。
     /// **`#53` `RuleCore.CanJudgeCondition("faithcheck") == true`。**
     ///
-    /// 判据 = `A1357`（2026-10-11）：`SOR72 Adelaide the Serene` 的 `Rally: If you have less than 6 ☀, …`
+    /// 判据 = `A1357`（2026-10-11）：`SOR71 Adelaide the Serene` 的 `Rally: If you have less than 6 ☀, …`
     ///   —— `☀` 是**信仰**（卡图亲读、`descZh` 同），而 `desc` 原来把它错抄成 `Energy`（数据侧已改字）。
     ///   两个资源**各有一个种类名**（`faithcheck` / `energycheck`），结算层一个 `case` 读一个字段
     ///   （`EffectResolver.ConditionHolds`）—— ⛔ 别把两种资源塞进同一个 `case` 里现认字符串

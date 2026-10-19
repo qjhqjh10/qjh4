@@ -214,20 +214,11 @@ namespace CardPresentation
         static readonly Vector4 ItemPiecePad = new Vector4(-15f, -10f, -15f, -10f);
 
         /// <summary>`A1053` 用：几颗**已经各自按 `m_RaycastPadding` 修正过**的矩形取并集
-        /// （原版「可点区域」就是这个并集 —— 见 `ItemPiecePad` 的注释）。</summary>
-        static PxRect Union(params PxRect[] rs)
-        {
-            if (rs == null || rs.Length == 0) return default(PxRect);
-            float x1 = rs[0].x1, y1 = rs[0].y1, x2 = rs[0].x2, y2 = rs[0].y2;
-            for (int i = 1; i < rs.Length; i++)
-            {
-                if (rs[i].x1 < x1) x1 = rs[i].x1;
-                if (rs[i].y1 < y1) y1 = rs[i].y1;
-                if (rs[i].x2 > x2) x2 = rs[i].x2;
-                if (rs[i].y2 > y2) y2 = rs[i].y2;
-            }
-            return new PxRect(x1, y1, x2, y2);
-        }
+        /// （原版「可点区域」就是这个并集 —— 见 `ItemPiecePad` 的注释）。
+        /// <para>🆕 **2026-10-19（战斗线 `T16`）**：算法收口到 `MenuDraw.Union`（全工程唯一一份）
+        /// —— 本类原来自己抄了一份并集算式，`ChatPanel` / `RankedEventWindow` 也要用同一条规则
+        /// ⇒ 按「两处写同一条规则 = 迟早不一致」改成转发。⛔ 别把算式搬回来。</para></summary>
+        static PxRect Union(params PxRect[] rs) { return MenuDraw.Union(rs); }
         public const string ArtItemHL = "UI_Army_Selection_Back_Pressed"; // 172×172（出厂 act **F**，选中才开）
         public const string ArtItemBar = "UI_Army_Selection_Back_Progression"; // 48×18 九宫 (20,0,20,0)
         public static readonly Vector4 ItemBarBorder = new Vector4(20f, 0f, 20f, 0f);

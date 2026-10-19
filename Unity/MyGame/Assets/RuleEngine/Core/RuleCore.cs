@@ -1023,6 +1023,59 @@ namespace RuleEngine
         // ==================================================================
 
         /// <summary>
+        /// 🔴 🆕 2026-10-19（T11 · G-3）：原版 `BattleManager.GetCurrentTurnScriptedData`
+        /// （`BattleManager__GetCurrentTurnScriptedData.c`）—— **本回合的脚本数据**（没有 ⇒ `null`）。
+        ///
+        /// 原版两条支（逐句）：
+        ///   · **教程支**（`IsTutorialStageAvailable`）：`currentTutorialStage.turnScriptedData[turnCounter - 1]`，
+        ///     且那一项必须 `scriptedTurn(+0x18) != 0`，否则继续往战役支走；
+        ///   · **战役支**（`IsCampaignStageAvailable`）：同一套字段，读 `currentCampaignStage`。
+        /// ⇒ 取不到时返回 0（null）。
+        ///
+        /// 🔴 **两个回合号千万别混**（本工程最容易搞错的一处）：
+        ///   · 本方法读 **`ctx.Turn`**（= 原版 `BattleManager.turnCounter +0x3F8`）—— 原版就是拿它查表；
+        ///   · `TutorialScript.CurrentTurn` 读的是 **`TutorialScript.Turn`**（= 原版 `AiScripted` 的指针，
+        ///     由 `UpdateTurn` 同步，而 `BattleDriver.SyncTutorialTurn` 排在 `RuleCore.BeginTurn`
+        ///     **之后**）⇒ 在 `BeginTurn` 里面那一刻它还是**上一回合**的数。
+        ///   ⇒ `dontDrawCard` / `dontDrawTalent` **必须走本方法**（⛔ 别改用 `ctx.Tutorial.CurrentTurn`，
+        ///     那会整体晚一个回合，而且第 1 回合会读不到）。
+        ///
+        /// ⚠️ 本工程只有**教程关卡数据**（`ctx.Tutorial.Stage`），**没有战役关卡数据**
+        ///   （`ctx.CampaignStage` 恒 null，见那个字段的注释）⇒ 战役那一支今天恒空。
+        /// </summary>
+        public static TutorialTurn CurrentTurnScriptedData(BattleContext ctx)
+        {
+            if (ctx == null) return null;
+            int i = ctx.Turn - 1;                                // 原版 `turnCounter - 1`（回合号 **1 起**）
+
+            // ① **教程支**（原版 `IsTutorialStageAvailable`：`IsTutorialMatch` ∧ 关卡非空 ∧ 回合在范围内）。
+            if (MatchTypes.IsTutorialMatch(ctx.MatchType))
+            {
+                var tut = ctx.Tutorial;
+                if (tut != null && tut.Stage != null && tut.Stage.turns != null
+                    && i >= 0 && i < tut.Stage.turns.Length)
+                {
+                    var t = tut.Stage.turns[i];
+                    if (t != null && t.scriptedTurn) return t;   // 原版要求 `scriptedTurn(+0x18) != 0`
+                    // ⚠️ `scriptedTurn == false` 时**继续往下走**（原版就是这样落到战役支），不在这里 return。
+                }
+            }
+
+            // ② **战役支**（原版 `IsCampaignStageAvailable`：`IsCampaignLike` ∧ 关卡非空 ∧ 回合在范围内）。
+            //    ⚠️ 今天恒空 —— `ctx.CampaignStage` **没有任何写点**（见那个字段的注释）。
+            if (MatchTypes.IsCampaignLike(ctx.MatchType))
+            {
+                var cs = ctx.CampaignStage;
+                if (cs != null && cs.turns != null && i >= 0 && i < cs.turns.Length)
+                {
+                    var t = cs.turns[i];
+                    if (t != null && t.scriptedTurn) return t;
+                }
+            }
+            return null;
+        }
+
+        /// <summary>
         /// 回合开始：能量 → 解疲劳 → 抽牌。（rule_core.begin_turn）
         ///
         /// ⚠️ **能量按「每方自己的回合数」算，不是全局回合数。**
@@ -1167,8 +1220,25 @@ namespace RuleEngine
             // 🆕 2026-09-26：常规张数从 `ctx.Vars.drawCardsPerTurn` 读（两模式都是 1 —— 留着是
             //    为了「按模式会变的量都从一处读」这条纪律，**不是**暗示遭遇模式要改它）。
             int nDraw = ctx.Vars.drawCardsPerTurn + (ctx.IsOvertime ? DeckRules.OvertimeExtraDraw : 0);
-            ctx.Log($"回合 {ctx.Turn} 开始：{p.Name} 能量 {p.Energy}，抽 {nDraw} 张");
-            for (int i = 0; i < nDraw; i++) Draw(ctx, ctx.Active);
+            // ---- 🔴 2026-10-19（T11 · G-3）：**教程脚本可以禁止「回合开始抽牌」** ----
+            //  判据 = `BattleManager__TurnStartCardDraw.c:14-18`（**整支函数的第一道闸**，原文逐句）：
+            //    `lVar2 = GetCurrentTurnScriptedData(bm);`
+            //    `if (lVar2 != 0 && *(char *)(lVar2 + 0x19) != '\0') { CustomDebug.LogWarning(…); return; }`
+            //  其中 `+0x19` = `TurnScriptedData.dontDrawCard`（`dump.cs:42096`）；
+            //  `GetCurrentTurnScriptedData` 自己要求那一项 `scriptedTurn(+0x18) == true` ⇒ 本闸继承那条。
+            //  ⚠️ **读的是 `bm.turnCounter`（= 我们的 `ctx.Turn`）**，⛔ 不是 `AiScripted` 的回合指针
+            //     （那一个由 `BattleDriver.SyncTutorialTurn` 在 `BeginTurn` **之后**才同步）——
+            //     判据与差别见 <see cref="CurrentTurnScriptedData"/> 的注释。
+            //  ⚠️ **数据非零**（2026-10-19 现读 `tutorial_stages.json`）：**S1 有 9 个回合**为真
+            //     （含第 1 回合 `Player 1`）、**S2 第 1 回合**为真 ⇒ 接上之后那些回合**一张都不抽**。
+            var turnScript = CurrentTurnScriptedData(ctx);
+            bool dontDraw = turnScript != null && turnScript.dontDrawCard;
+            ctx.Log(dontDraw
+                ? $"回合 {ctx.Turn} 开始：{p.Name} 能量 {p.Energy}，**本回合不抽牌**"
+                  + "（教程脚本 `dontDrawCard` —— 原版 `BattleManager__TurnStartCardDraw.c:14-18` 的第一道闸）"
+                : $"回合 {ctx.Turn} 开始：{p.Name} 能量 {p.Energy}，抽 {nDraw} 张");
+            if (!dontDraw)
+                for (int i = 0; i < nDraw; i++) Draw(ctx, ctx.Active);
             // ============================================================
             // 🔴 **`turn_start` 相位（原版 `OnTurnStart`）现在是【下面那一圈逐卡之后】才跑的**
             //    —— 见 loop 之后那段注释（账 `A1606`，2026-10-12 搬迁）。
@@ -1392,7 +1462,26 @@ namespace RuleEngine
             //       而 `OnTurnStart` **在抽牌之后**（`_NextTurn:362` 抽牌 / `:371` `BroadcastTurnStart`）⇒ **照原版**；
             //    ② 那句「能量 → 解疲劳 → 到期 → 触发段 → 抽牌 → 天赋」**已作废** —— 现行次序见本函数里
             //       `turn_setup` / `turn_start` 两段注释。
-            SpawnTalents(ctx, ctx.Active);
+            // 🔴 2026-10-19（T11 · G-3）：**教程脚本可以禁止本回合生成天赋** ——
+            //   判据 = `CardScript__OnTurnStart.c:157-171`（逐句）：
+            //     `lVar8 = BattleManager.GetCurrentTurnScriptedData(bm);`
+            //     `if (IsTutorialMatch(bm) && lVar8 != 0 && *(char *)(lVar8 + 0x1a) != '\0')`
+            //       ⇒ `CustomDebug.LogWarning(…)`（**跳过**下面那一支）
+            //     `else if (HasCurrentTrait(param_1, 0x34d /* DefinedTrait.talent = 845 */))`
+            //       ⇒ `OnTrigger(0x2e /* AbilityTrigger.Talent = 46 */)` ← **= 我们的 `SpawnTalents`**
+            //   🔴 **比 `dontDrawCard` 多一道 `IsTutorialMatch`**（原版两条读点不对称，逐字照抄）——
+            //     战役脚本的回合数据同样带这一格（`TurnScriptedData` 是同型），但只有教程局才生效。
+            //   ⚠️ **数据非零**（2026-10-19 现读）：**S2 有 8 个回合 · S4 有 3 个回合**为真（合计 11）。
+            //   ⚠️ 原版那一条是**逐卡**判的（在 `OnTurnStart` 的逐卡循环里）；我们这里是**一趟扫本方棋盘**，
+            //     等价性见下面 `SpawnTalents` 的既有注释（它本来就只扫 `ctx.Active` 那一侧）。
+            var talentScript = CurrentTurnScriptedData(ctx);
+            bool dontTalent = MatchTypes.IsTutorialMatch(ctx.MatchType)
+                              && talentScript != null && talentScript.dontDrawTalent;
+            if (dontTalent)
+                ctx.Log("（本回合**不生成天赋**：教程脚本 `dontDrawTalent` ——"
+                      + " 原版 `CardScript__OnTurnStart.c:157-171`）");
+            else
+                SpawnTalents(ctx, ctx.Active);
         }
 
         /// <summary>回合结束：能量作废 → 移交。返回 <see cref="CheckWinner"/> 的结果。</summary>
@@ -1725,6 +1814,15 @@ namespace RuleEngine
                         b[s].CurrentAttackType = ChooseAttackTypeAutomatically(b[s]);
             }
 
+            // 🔴 2026-10-19（T11 · G-4）：**回合末附魔** —— 原版 `BattleManager.ResolveEndTurn.c:434-484`
+            //   那一跳（`if (IsCampaignLike(bm)) { … ResolveEndTurnEnchantment(bm, isPlayer); }`）。
+            //   **位置**：原版排在 `BroadcastTurnEnd`（逐卡 `CardScript.OnTurnEnd` = 我们上面
+            //   「再生 → 中毒 → 残骸摧毁 → 摘闸门 → oath 重挑」那一整段）**之后** ⇒ 落在这里。
+            //   ⚠️ 上面那句 `if (ctx.IsOver) return`（我们自己加的早退，原版没有）会挡掉「回合末触发
+            //     把督军打死」那一格里的附魔触发 —— 如实标着，详见那句早退上的注释。
+            //   ⚠️ 教程局/普通局在方法第一道闸就返回 ⇒ **与加它之前逐字节等价**。
+            ResolveEndTurnEnchantment(ctx);
+
             // 未用完的能量：**遭遇模式保存 1 点**（`manaAccumulation`），经典不保存（它是 0）。
             // 🔴 **2026-09-26 修（原来从来没生效过）**：这一段原来只有 `p.Energy = 0;`，
             //   而 `BeginTurn` 判结转用的是 `p.Energy > 0` —— 进到这里时 `Energy` 已经被清成 0，
@@ -1739,6 +1837,90 @@ namespace RuleEngine
             ctx.Active = 1 - ctx.Active;
             ctx.Log($"回合 {ctx.Turn} 结束，轮到 {ctx.ActivePlayer.Name}");
             return CheckWinner(ctx);
+        }
+
+        /// <summary>
+        /// 🔴 🆕 2026-10-19（T11 · G-4）：原版 `BattleManager.ResolveEndTurnEnchantment`
+        /// （`BattleManager__ResolveEndTurnEnchantment.c`，全文 76 行）——
+        /// **回合结束时触发关卡声明的那张附魔卡**。
+        ///
+        /// 判据逐条（现读 `d:/2/tools/decomp_full/`）：
+        ///   · **调用点与守卫** = `BattleManager__ResolveEndTurn.c:434-484`：
+        ///     `if (IsCampaignLike(bm)) { … ResolveEndTurnEnchantment(bm, isPlayer); }`
+        ///     —— `IsCampaignLike` = `matchType ∈ {0x82(130) Campaign, 0xBE(190) Scene}`
+        ///     （`BattleManager__IsCampaignLike.c`）⇒ **教程局（100/140）根本不会走到这里**。
+        ///     🔴 这一条是本轮新查到的、也是最关键的一条：T11 规格把它挂在「教程缺口」下，
+        ///     而原版那两格 `TutorialStage.playerTurnEndEnchantment / enemyTurnEndEnchantment`
+        ///     其实**只在战役档被读**。
+        ///   · 读的是 **`PlayerDataManager.currentCampaignStage`**（**不是** tutorial stage）：
+        ///     `param_2 == 0`（敌方回合结束）⇒ `stage + 0x80 enemyTurnEndEnchantment` +
+        ///       `bm + 0xC8`（敌方 `PlayerManager`）；
+        ///     `param_2 != 0`（玩家回合结束）⇒ `stage + 0x78 playerTurnEndEnchantment` +
+        ///       `bm + 0xC0`（我方 `PlayerManager`）。
+        ///     偏移判据 = `dump.cs:42076-42077`（`TutorialStage` 字段表）。
+        ///   · 那个 PPtr 为空 ⇒ 什么都不做（`op_Inequality(…, 0)` 为假）。
+        ///   · 非空 ⇒ `RawCardScript.TriggerEnchantment(那张, bm, <该侧>Manager.heroCard(+0x28), null, false)`
+        ///     = `TriggerAbilities(trigger 0)` + `TriggerAbilities(trigger 500 = AbilityTrigger.TriggerEnchantment)`，
+        ///     两次都带 `isEnchantment = true`（`RawCardScript__TriggerEnchantment.c` 全文两跳；
+        ///     `heroCard` 偏移见 `dump.cs:40509`）。
+        ///
+        /// 🔴 **本引擎的边界（如实标着，⛔ 不许当成「做完了」）**：
+        ///   ① 我们**有关卡数据槽**（<see cref="BattleContext.CampaignStage"/>），但**没有任何东西写它**
+        ///      —— 本工程没有战役关卡数据源；
+        ///   ② 我们**没有按 `AbilityTrigger` 数值派发的口**：引擎的触发全走关键词
+        ///      （`CardDef.RoutableTriggers`），而 0 / 500 这两档**没有关键词**。
+        ///   ⇒ 真有数据时**必须出声、不许静默**（见下面那两支出声）。
+        ///
+        /// ⚠️ **只在 `MatchTypes.IsCampaignLike` 为真时做任何事** —— 教程局/普通局一律直接返回，
+        ///   与加它之前**逐字节等价**（6 关的两个 PPtr 也全是空引用，见 `tutorial_stages.json`）。
+        /// </summary>
+        /// <param name="why">取不到 / 没触发的理由（断言与日志用；成功交给派发时为 null）。</param>
+        /// <returns>真的把那条触发交出去没有 —— **今天恒 false**（没有数据源；有数据时也还会卡在 ②）。</returns>
+        public static bool ResolveEndTurnEnchantment(BattleContext ctx)
+        {
+            string _; return ResolveEndTurnEnchantment(ctx, out _);
+        }
+
+        /// <inheritdoc cref="ResolveEndTurnEnchantment(BattleContext)"/>
+        public static bool ResolveEndTurnEnchantment(BattleContext ctx, out string why)
+        {
+            why = null;
+            if (ctx == null) { why = "没有对局"; return false; }
+            if (ctx.IsOver) { why = "对局已结束"; return false; }
+            // 原版守卫（`ResolveEndTurn.c:434` 那层 `if (IsCampaignLike(bm))`）。
+            // 🔴 教程局/普通局到这里就返回 —— 教程关卡那两个字段**原版根本不读**。
+            if (!MatchTypes.IsCampaignLike(ctx.MatchType))
+            { why = "非战役档（原版 `IsCampaignLike` = matchType 130/190；本局是 " + ctx.MatchType + "）"; return false; }
+            var st = ctx.CampaignStage;
+            if (st == null) { why = "没有战役关卡数据（原版 `currentCampaignStage == null` ⇒ 直接返回）"; return false; }
+            // `param_2 == 0` = 敌方那一侧结束回合 ⇒ `+0x80`；否则（玩家）⇒ `+0x78`。
+            // 我们的 `ctx.Active` 就是**正在结束回合的那一方**（座位 0 = 玩家）。
+            var r = ctx.Active == 0 ? st.playerTurnEndEnchantment : st.enemyTurnEndEnchantment;
+            string field = ctx.Active == 0 ? "playerTurnEndEnchantment(+0x78)" : "enemyTurnEndEnchantment(+0x80)";
+            if (r == null) { why = "关卡没有声明 `" + field + "`"; return false; }
+            if (string.IsNullOrEmpty(r.ourId))
+            {
+                why = "关卡声明的 `" + field + "` 认不出是卡池里哪一张（`ourId` 空 / `m_PathID:0`）";
+                ctx.Log("（回合末附魔：关卡写了 `" + field + "`，但那一格是**空引用** ⇒ 这一条不触发"
+                      + "（原版 `op_Inequality(…, 0)` 为假的那一支））");
+                return false;
+            }
+            var def = TutorialRules.PoolLookup(ctx)(r.ourId);
+            if (def == null)
+            {
+                why = "卡池里没有 `" + r.ourId + "`";
+                UnityEngine.Debug.LogWarning("[Tutorial] 战役关卡声明了回合末附魔「"
+                    + (string.IsNullOrEmpty(r.name) ? r.ourId : r.name) + "」，但卡池里**没有** `"
+                    + r.ourId + "` ⇒ **这一条没触发**（⛔ 不猜一张顶上去）。");
+                return false;
+            }
+            // 数据在了、但我们还没有 `AbilityTrigger 0 / 500` 的派发口 —— **出声，不静默**。
+            why = "本引擎没有 `AbilityTrigger` 0/500 的派发口（触发是按关键词走的）";
+            UnityEngine.Debug.LogWarning("[Tutorial] 战役关卡声明了回合末附魔「" + def.Name
+                + "」（`" + field + "`）—— 但本引擎**还没有 `AbilityTrigger` 0/500 的派发口**"
+                + "（触发全按关键词走，这两档没有关键词）⇒ **这一条没有结算**。判据 = "
+                + "`BattleManager__ResolveEndTurnEnchantment.c` + `RawCardScript__TriggerEnchantment.c`。");
+            return false;
         }
 
         /// <summary>
@@ -2097,8 +2279,12 @@ namespace RuleEngine
             //      的 2026-09-18 更正，`D26` 那一族）；
             //    · **真判据已按 `D26` 改指** `d:/2/tools/decomp_full/BattleManager__PayCardCost.c`
             //      一族（费用那一半就在它里面：`:23 EntityScript__get_CurrentCost` +
-            //      `:27 PlayerManager__UseMana`；配 `BattleManager__CanPlayCard.c:104-120` 的格位那一半），
-            //      但**「费用一定排在格位之前」这半条还没逐句核过**（`A1155`③）。
+            //      `:27 PlayerManager__UseMana`；格位那一半见 `BattleManager__CanPlayCard.c:109`）。
+            //      ✅ **2026-10-19（`A1155`③ 已核）：「费用一定排在格位之前」成立** ——
+            //      `BattleManager__CanPlayCard.c` 是**单调往下**的一条路：费用 `:82`
+            //      `EntityScript__get_CurrentCost` + `:87 PlayerManager__HasEnoughMana` →
+            //      格位 `:109 MinionManager__IsAvailableSlot` → 法术目标 `:127`/`:141`
+            //      （中间没有回跳到费用那一段）。⇒ **原版也是「先费用后格位」，我们与之相同、不用改。**
             //    · ⚠️ **与 `Core/DeckRules.cs` 的 `ValidateDeck` 那段 legend 是同一口径**
             //      （两处都写「先费用后格位、真判据在 `PayCardCost.c` 一族」）—— 改一处就改两处，
             //      ⛔ 别留两套说法（`A1164` 就是这两处打架过）。
@@ -2147,8 +2333,18 @@ namespace RuleEngine
         ///   **三个「新单位落地」入口**在「手牌加成 + 光环重算」**之后**各调本方法重算一次
         ///   （F6 修了 `PlayCard`、F8 补了 `DeployFree`、F9 补了 `DoReanimate` —— 效果免费部署 / 召唤 / 再造
         ///   走 `DeployFree`，残骸翻回来走 `DoReanimate`）。
-        ///   ✅ **三处齐了**，而且 F9 已**全树再 grep 一遍确认没有第四个入口**（「有新单位落地」的引擎写点
-        ///   只有这 3 处 + 督军那处**恒不疲劳**；清单 → `资料/普查产出_1017/F9_第三入口.md` §③）。
+        ///   🔴 **2026-10-19（`A1990`）就地订正（铁律 5）：入口其实是【四个】。**
+        ///   上面这三分支只覆盖「**正常部署**」；还有 **`TutorialScript.PlaceTroops`**
+        ///   （教程起始单位，`Core/TutorialScript.cs`）—— 它**不走本方法**：
+        ///   原版那条创建路（`BattleManager__CreateStartingTroop.c` 全文）**不调 `ActivateMinion`**、
+        ///   也**不写 `summonSickness`** ⇒ 起始兵要的是
+        ///   <see cref="ActivateTraitsOnSummonOrEnchantment"/>（原版 `:47` 那一跳），
+        ///   ⛔ 别把本方法搬过去（会给起始兵硬塞召唤病 = 另一档行为）。
+        ///   ✅ **清单（四个 + 两个特例）**：① `PlayCard` · ② `DeployFree` · ③ `DoReanimate` ·
+        ///   ④ `TutorialScript.PlaceTroops`（起始兵，专用钩子）；另两个**不适用**：督军创建
+        ///   （`RuleCore` 督军那一处，恒不疲劳）、残骸翻面（`TransformIntoRemnant` 那条，
+        ///   写死 `Exhausted = true`、不是新入场）。判据 = 2026-10-19 全树 `new UnitState(` + 棋盘写点现扫
+        ///   （`A1990` 那次「grep 漏了第四个」的教训：⛔ 别再只按方法名 grep）。
         ///   🔴 **2026-10-17 订正（铁律 5）**：本段原来写「第三个同形入口 `EffectResolver.cs:6362`（`DoReanimate`）
         ///   **还没补** … 已立账」—— **已过期**（F9 当天补上了，落点 = `DoReanimate` 里那句
         ///   `RuleCore.ApplyDeployTurnState(back)`）。
@@ -2233,6 +2429,46 @@ namespace RuleEngine
         {
             if (u == null) return false;
             return u.Has("fast") || u.Has("flank");
+        }
+
+        /// <summary>
+        /// 🔴 🆕 **2026-10-19（`A1975`）：起始单位专用的「关键词激活」那一跳。**
+        ///
+        /// **为什么单开一个方法、⛔ 不许直接搬 <see cref="ApplyDeployTurnState"/>**：
+        /// 原版教程起始单位的创建路（`BattleManager__CreateStartingTroop.c`，104 行逐句读过）是
+        ///   `CreateCard` → `SetAsUnitInPlay(1)` → `SetUnitInPlayLayer` → `CardSetup`
+        ///   → **`:47 ActivateTraitsOnSummonOrEnchantment`** → `SetUnitOrderInPlay` → 尺寸
+        ///   → `MoveMinionIntoSlot` → 列表 `Add`。
+        /// 这条路上**一次都没有** `ActivateMinion`（`grep -c` = 0）⇒ **不会写 `summonSickness`
+        /// （`+0x58`）**，也不会重写 `canAct`/`canAttack` 成 `!displaySummonSickness`
+        /// —— 所以 `ApplyDeployTurnState`（= 写 `+0x58` + `ActivateMinion` + trait 三句的和）
+        /// **整条搬过来 = 另一档行为**（会给起始兵硬塞召唤病）。
+        ///
+        /// **本方法只做 `ActivateTraitsOnSummonOrEnchantment.c:83-99` 那两句**（现读）：
+        ///   · `fast(0x28)` / `flank(0x1cc)` ⇒ **`canAct(+0x230) = true`**（`canAttack` 不动）；
+        ///   · `ferocity(0x4f1)` / `oath(0x4fb)` ⇒ **`canAct = true` 且 `canAttack(+0x23c) = false`**。
+        /// 我们的两个反向位：`Exhausted` = `!canAct` · `CannotAttackThisTurn` = `!canAttack`。
+        /// ⚠️ `ferocity`/`oath` 的 `canAct` 在原版写的是**常量 true**（不是 `!stun`）——
+        ///    `:86-99` 那两个 `op_Implicit(…, 1, 0)` 就是真值；`!stun` 那一版出现在
+        ///    `ActivateMinion.c:43-69`（起始兵不走那条） ⇒ 这里照 `ActivateTraits` 写 `false`。
+        /// ⚠️ 起始单位**不吃召唤病**这一点已查实：`CardScript__CardSetup.c`（350 行）一次都没写
+        ///    `0x58`；写 `0x58 = 1` 的全库两处都在「正常出牌/重置」那条路上（`A1975` 的判据）。
+        ///
+        /// **调用点**：`TutorialScript.PlaceTroops`（唯一）。⛔ 别把它接到普通部署入口上 ——
+        /// 那两条路的 trait 激活已经在 `ApplyDeployTurnState` 里了（同一份判据的两次求值）。
+        /// </summary>
+        public static void ActivateTraitsOnSummonOrEnchantment(UnitState u)
+        {
+            if (u == null) return;
+            // `fast` / `flank`：只抬 `canAct`（`ActivateTraitsOnSummonOrEnchantment.c:75-88`）。
+            if (u.Has("fast") || u.Has("flank"))
+                u.Exhausted = false;
+            // `ferocity` / `oath`：`canAct = true` 且 **`canAttack = false`**（同文件 `:89-99`）。
+            if (u.Has(KeywordTable.Ferocity) || u.Has(KeywordTable.Oath))
+            {
+                u.Exhausted = false;
+                u.CannotAttackThisTurn = true;
+            }
         }
 
         /// <summary>
@@ -9232,7 +9468,25 @@ namespace RuleEngine
         /// </param>
         public static int Forfeit(BattleContext ctx, int player, BattleResult reason = BattleResult.Forfeit)
         {
-            if (ctx.Winner != 0) return ctx.Winner;          // 已经结束了，投降不作数
+            // 🆕 2026-10-19（T07 · 战后重入闸）：**已经判过胜负 ⇒ 不再改**，但**必须出声**。
+            //   原版那一格（`BattleManager__DeadHero.c:71-79`，逐句）：
+            //     `if (_battleStage(+0x294) == PostBattle(60)) { if (!shouldLoseIfDisconnectEnd(+0x2D8))
+            //        { CustomDebug.LogWarning(...); return; } }`
+            //   —— 即「战后重入 `DeadHero`」**默认被挡下并打一条 warning**，唯一放行的是
+            //   `DisconnectedDuringBattle` 在 stage==60 那一支把 `shouldLoseIfDisconnectEnd` 置真之后
+            //   （`…__DisconnectedDuringBattle.c:58-66`）。
+            //   🔴 **我们的口径**：`Winner != 0` = 已结算 ⇒ 直接挡（比原版**严**：原版那一条
+            //   「结算段本机掉线 → 重判为负」的放行门**我们没有对应触发源** —— 我们的联机层在
+            //   `Ctx.IsOver` 时不起重连倒计时，见 `NetBattle.StartReconnectCountdown`；⛔ 不为了对称
+            //   造一个永远走不到的后门，如实留在报告里）。
+            if (ctx.Winner != 0)
+            {
+                ctx.Log($"⚠️ 这一局的胜负**已经判过了**（Winner={ctx.Winner}）⇒ 这次"
+                      + $" `{BattleResultWord(reason)}` 不生效（原版战后重入闸："
+                      + $"`battleStage == PostBattle(60) && !shouldLoseIfDisconnectEnd` ⇒ `LogWarning` + return，"
+                      + $"`BattleManager__DeadHero.c:71-79`）");
+                return ctx.Winner;
+            }
             if (player != 0 && player != 1) return 0;        // 越界就什么都不做（调用方的问题）
             // 🆕 2026-10-17（B29）：**教程关可以禁止投降**（`TutorialStage.preventPlayerResign`）。
             //   原版出处：`TutorialStage` 字段 `preventPlayerResign`（`dump.cs:42080`，偏移 `+0xB9`）
@@ -9266,13 +9520,41 @@ namespace RuleEngine
                 return ctx.Winner;                           // = 0（什么都没发生）
             }
             ctx.ForfeitedBy = player;
-            ctx.Winner = player == 0 ? 2 : 1;
+            // 🔴🆕 2026-10-19（**T07 · 平局口径**）：**照原版 `DeadHero` 的平局门**判，不再「投降 = 对面必胜」。
+            //
+            // 原版逐句（`BattleManager__DeadHero.c:244-269`，亲读）：
+            //   ① `param_2 = playerIsLoser`：假 ⇒ `BattleWinner.Player(10)`、读 `playerManager(+0xC0)`；
+            //      真 ⇒ `BattleWinner.Enemy(20)`、读 `enemyManager(+0xC8)`。
+            //      ⚠️ **读的是【取胜方】那一位的督军**（玩家输时读敌军、敌军输时读我军）——
+            //      与任务书那张表一致，也是本行下面 `ctx.Players[1 - player]` 的出处。
+            //   ② 那一位督军：`cardState == 5(waitingToDie)` ⇒ `iVar14 = 30(Draw)`；
+            //      否则再看 `生命 < 1` **或** `cardState == 6(inCemetery)` **或** `param_3 == 6(DrawButton)`
+            //      ⇒ 同样 `30(Draw)`。
+            //   ③ 之后才轮到战役关 `playerAlwaysWins` 覆盖（`DeadHero.c:270-285`，我们这一支恒不触发）。
+            //   ⇒ **平局门对【所有】理由码生效**（投降 / 掉线 / 取消 …），不只是「督军倒下」那一路。
+            //
+            // 🔴 **我们的映射**：引擎没有 `cardState` 这两档（督军倒下后**留在槽 4**、不进墓地）——
+            //   5/6 与「生命 < 1」在本引擎里是同一件事 = `PlayerState.IsDefeated`
+            //   （`PlayerState.cs:164`：`Warlord == null || Warlord.Health <= 0`）。
+            //   ⚠️ **它与「双方都倒」不是同一条判据**：这里问的是**取胜方**那一位，
+            //   而 `CheckWinner` 原来问的是「两边是不是都倒」——两条在「死亡」这条路上同值，
+            //   但在**投降/掉线**这条路上会分叉（取胜方督军先被打死、随后对方投降 ⇒ 原版判平局）。
+            int winnerSeat = player == 0 ? 2 : 1;
+            bool drawByReason = reason == BattleResult.DrawButton;                 // 原版 `param_3 == 6`
+            bool drawByWinner = ctx.Players[1 - player].IsDefeated;                // 原版读的那一位 = 取胜方
+            ctx.Winner = (drawByReason || drawByWinner) ? 3 : winnerSeat;
             // 🔴 **码与文案分开写**（同 `CLAUDE.md`/本批反复强调的那条：不许拿给人看的句子当逻辑）：
             //   ① **机器可读**那一行 —— 稳定 token，自检认它；换措辞、换语言它都不变。
             ctx.Log($"[BattleResult] {reason}({(int)reason}) seat={player}");
             //   ② **给人看**那一行 —— 措辞按码分档（`BattleResultWord`）。
             //   ⚠️ 理由码 == `Forfeit`(2) 时这句与改动前**逐字相同**（既有断言照旧绿）。
-            ctx.Log($"{ctx.Players[player].Name} {BattleResultWord(reason)} —— {ctx.Players[1 - player].Name} 获胜");
+            if (ctx.Winner == 3)
+                ctx.Log($"{ctx.Players[player].Name} {BattleResultWord(reason)} —— **改判平局**"
+                      + $"（原版 `DeadHero` 的平局门："
+                      + (drawByReason ? "理由码 `DrawButton`(6)" : "**取胜方**督军也已倒下")
+                      + "）");
+            else
+                ctx.Log($"{ctx.Players[player].Name} {BattleResultWord(reason)} —— {ctx.Players[1 - player].Name} 获胜");
             return ctx.Winner;
         }
 
@@ -9313,8 +9595,13 @@ namespace RuleEngine
             //      录像对账走的是 `NetProtocol.StateHash`（**不含 `ctx.Events.Count`**）
             //      与 `BattleDriver.DeepHash`（不含事件）⇒ **旧录像零风险**。
             //   ⚠️ **只在「恰好一方督军倒下」时发** —— 原版那一跳**每场只发一次码**、座位 = 倒下的那一位
-            //      （和 `Forfeit` 的 `seat=` 同一个含义）。双方同时倒下（我们引擎的平局 = `Winner 3`）
-            //      在原版**没有**对应的 `DeadHero` 调用点 ⇒ ⛔ **不拿 `BattleVictory`(1) 顶替**（下面那支出声）。
+            //      （和 `Forfeit` 的 `seat=` 同一个含义）。
+            //   🔴 **2026-10-19（T07）就地订正**：原来这里写「双方同时倒下的情形在原版**没有**对应的
+            //      `DeadHero` 调用点」—— **不成立**：原版 `DeadHero` 的平局门（`DeadHero.c:253-269`）
+            //      查的正是**取胜方**督军，双方同时倒下 ⇒ 取胜方也倒 ⇒ 明确改判 `Draw(30)`。
+            //      仍然成立的是**我们发不出座位**：原版那一次调用带着确定的 `playerIsLoser`
+            //      （先倒下/被判负的那一位），而我们的引擎在同一拍里只看到「两边都倒」、**不知道谁先**
+            //      ⇒ ⛔ 不拿某一方顶替 `seat=`（下面那支出声）。
             //   ⚠️ **位置在教程 `playerAlwaysWins` 那一段【之前】**：原版的顺序就是 `DeadHero(_,_,1)`
             //      （在 `FinishResolvingAction` 里）先发生、`GetWinnerAfterBattleEnd` 的教程覆盖在后面；
             //      `CheckWinner` 把这两步合在了一处，所以这里是「先记码、再让教程覆盖结果」。
@@ -9344,7 +9631,9 @@ namespace RuleEngine
             //     机制保留、将来接战役线时直接用（那时把这里的 stage 源换成**战役关**的 stage）。
             //   🔴 **⛔ 不许静默**：教程关的 SO 上万一置了这个 flag，我们照原版**不生效** ——
             //     那必须**说出来**（否则下一个人会以为「我们忘了做」），见下面那一支。
-            bool campaignLike = ctx.MatchType == MatchType.Campaign || ctx.MatchType == MatchType.Scene;
+            // 🆕 2026-10-19（T11 · G-4）：判据收口到 `MatchTypes.IsCampaignLike`（唯一出处）——
+            //   本处原来自己写了一遍 `ctx.MatchType == Campaign || == Scene`；两处写同一条规则迟早不一致。
+            bool campaignLike = MatchTypes.IsCampaignLike(ctx.MatchType);
             if ((d0 || d1) && campaignLike && ctx.Tutorial != null && ctx.Tutorial.PlayerAlwaysWins)
             {
                 ctx.Winner = 1;
@@ -9369,30 +9658,56 @@ namespace RuleEngine
                 }
             }
 
-            if (d0 && d1)
+            // 🔴🆕 2026-10-19（**T07 · 平局口径：照原版 `DeadHero` 改**）：
+            //   改动前我们写的是 `d0 && d1 ⇒ 平局`（「双方督军都倒」）。原版不是这么问的：
+            //   `BattleManager__DeadHero.c:244-269`（亲读）先按 `playerIsLoser` 定取胜方，
+            //   **再取【取胜方】那一位督军**：
+            //     · `cardState == 5(waitingToDie)` ⇒ `Draw(30)`；
+            //     · 否则 `生命 < 1` **或** `cardState == 6(inCemetery)` **或** 理由码 `param_3 == 6(DrawButton)`
+            //       ⇒ 同样 `Draw(30)`。
+            //   ⇒ **判据的主语是「胜方督军」**，不是「双方都倒」。
+            //     ⚠️ 两条只在「督军死亡」这条路上同值（胜方也倒 ⇔ 双方都倒）；
+            //     在**投降 / 掉线 / 取消**那几条路上会分叉 —— 那几条已由 `Forfeit` 走同一个门
+            //     （本方法只负责「有督军倒下」这一路）。
+            //   ⚠️ 我们的引擎没有 `cardState` 那两档（督军倒下后**留在槽 4**、不进墓地）
+            //     ⇒ 5/6 与「生命 < 1」映射成同一件事 = `PlayerState.IsDefeated`（`PlayerState.cs:164`）。
+            if (!d0 && !d1) return 0;                   // 没人倒下 ⇒ 对局继续（与改动前逐字等价）
+
+            // 「被判负的」= 倒下的那一位。双方同时倒下时取座位 0（结果同为平局，
+            // ⚠️ 真正的判据在下面那一步：**取胜方**督军是不是也倒着）。
+            int loser = d0 ? 0 : 1;
+            int winner = loser == 0 ? 2 : 1;     // 取胜方 = 没倒下的那一位（原版 `DeadHero` 的默认结论）
+            if (ctx.Players[1 - loser].IsDefeated)
             {
                 ctx.Winner = 3;
-                ctx.Log("双方督军同时倒下 —— 平局");
-                // 🔴 **这一支【不记理由码】**（`A985⑩` 的边界，如实出声、⛔ 不静默）：
-                //   原版那一跳（`DeadHero(_,_,BattleVictory)`）**只有「某一位督军倒下」这一种**
-                //   —— 两位同时倒下的情形在原版**没有**对应的调用点（平局本身原版也只有调试入口
-                //   `DebugDrawBattle.c:14` 的 `DrawButton`(6)，那条我们**没有落点**）。
-                //   ⇒ 既然没有判据，就**不猜**：⛔ 不拿 `BattleVictory`(1) 顶替 ——
-                //      那会把「平局」在日志里说成「一方督军倒下」。
-                //   ⚠️ 这一行**故意不以 `[BattleResult] ` 开头** —— 那个前缀在本工程里的含义是
-                //      「**这一局给出了一条理由码**」（自检按它计数），说明行不能混进那个计数里。
-                ctx.Log("⚠️ 这一局**不记理由码**：双方督军同时倒下，而原版的 `DeadHero(_, _, BattleVictory)`"
-                      + "只对应「**某一位**督军倒下」⇒ ⛔ 不拿 `BattleVictory`(1) 顶替（不猜）");
+                if (d0 && d1)
+                {
+                    ctx.Log("双方督军同时倒下 —— 平局");
+                    // 🔴 **这一支【不记理由码】**（`A985⑩` 的边界，如实出声、⛔ 不静默）：
+                    //   原版那次 `DeadHero(_, _, BattleVictory)` 带着**确定的** `playerIsLoser`
+                    //   （先倒下/被判负的那一位）；我们同一拍只看到「两边都倒」、**不知道谁先**
+                    //   ⇒ ⛔ 不拿某一方顶替 `seat=`（不猜；上面 `d0 != d1` 那支才发码）。
+                    //   ⚠️ 这一行**故意不以 `[BattleResult] ` 开头** —— 那个前缀在本工程里的含义是
+                    //      「**这一局给出了一条理由码**」（自检按它计数），说明行不能混进那个计数里。
+                    ctx.Log("⚠️ 这一局**不记理由码**：双方督军同时倒下，原版那次 `DeadHero` 的 `seat=` 是"
+                          + "「被判负的那一位」，而我们的引擎在同一拍里**不知道谁先倒下**"
+                          + " ⇒ ⛔ 不拿某一方顶替 `seat=`（不猜）");
+                }
+                else
+                {
+                    // 今天走不到（引擎只有「督军生命 ≤ 0」这一个倒下口径），
+                    // 但保留原版那条判据的完整形状：**取胜方**督军自己也倒着 ⇒ 平局。
+                    ctx.Log($"⚠️ 胜负门：取胜方（{ctx.Players[1 - loser].Name}）的督军也已倒下"
+                          + " ⇒ **改判平局**（原版 `DeadHero.c:253-269` 的平局门）");
+                }
             }
-            else if (d0)
+            else
             {
-                ctx.Winner = 2;
-                ctx.Log($"{ctx.Players[1].Name} 获胜（{ctx.Players[0].Name} 的督军倒下）");
-            }
-            else if (d1)
-            {
-                ctx.Winner = 1;
-                ctx.Log($"{ctx.Players[0].Name} 获胜（{ctx.Players[1].Name} 的督军倒下）");
+                ctx.Winner = winner;
+                if (loser == 0)
+                    ctx.Log($"{ctx.Players[1].Name} 获胜（{ctx.Players[0].Name} 的督军倒下）");
+                else
+                    ctx.Log($"{ctx.Players[0].Name} 获胜（{ctx.Players[1].Name} 的督军倒下）");
             }
             return ctx.Winner;
         }

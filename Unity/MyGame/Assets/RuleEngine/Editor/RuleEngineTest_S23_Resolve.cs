@@ -1,6 +1,6 @@
 // RuleEngineTest_S23_Resolve.cs — 第二十三会话（2026-10-12）· 写手 `W2` · **结算层**三笔账
 //
-//   · `A1682`：`SAU72 Immortals Phalanx` 的 `When reanimated, deploy a copy of this troop`
+//   · `A1682`：`SAU71 Immortals Phalanx` 的 `When reanimated, deploy a copy of this troop`
 //     —— 事件层早就收下了（`WhenTriggers` 一条），**结算层拒收这个载荷** ⇒ 棋盘一个单位都不多。
 //     本笔在 `DoDeployOnce` 补上「复制指代的那一个」那一支。
 //   · `A1685`：能力层那个 `ResolveOps`（`IReadOnlyList` 重载）**从不消费 `EffectOp.Instead`**
@@ -247,7 +247,7 @@ public static partial class RuleEngineTest
     /// 直接判会「判施放者自己」（`ASH31` 那个陷阱）。`InsteadSkips` 现在先用 `ResolveTargets`
     /// 解出**被替换那条**的目标、把它临时当 referent 判条件，判完还原。
     ///
-    /// 本格夹具照抄真卡 `ASH31 Crimson Hunter`（施放者**有** `Flying`、目标**没有**）：
+    /// 本格夹具照抄真卡 `ASH21 Crimson Hunter`（施放者**有** `Flying`、目标**没有**）：
     /// 正解 = 目标没飞行 ⇒ 只结算基数那一下 = **3**；
     /// 若拿**施放者**去判 ⇒ 恒成立 ⇒ 只结算 6 —— 那是【把对的改错】。
     /// 同函数的第二个分支（②）把「目标**有** Flying」那一支也钉住（应为 **6**，改回不配对则 9）。

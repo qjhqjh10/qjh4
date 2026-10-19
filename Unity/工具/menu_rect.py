@@ -147,6 +147,12 @@ class Bundle(object):
         self.go_by_rt = {}   # rtpid -> GO dict（**这颗 RT 归哪个 GO 文件**，撞车时唯一认得准的那条路）
         self.go_coll = {}    # 真 pid -> [GO 文件名, …]（>1 份 = 撞车；`go` 里留的是**第一份**）
         self._go_pid = {}    # 真 pid -> GO dict（**只记真 pid 的登记**，撞车判定专用，见 `_scan_go`）
+        # 🔴 **A1548（2026-10-19）**：纯 `Transform` 节点（没有 RectTransform）下面可以挂
+        #    **有 RectTransform 的 UI 子件** —— `walk` 在纯 Transform 处不下钻，那些 UI 件就
+        #    **整支静默丢掉**。这里补两样只读索引，让「丢了多少」能算出来、能报出来：
+        self.tr_name = {}    # Transform 组件 pid -> 所属 GO 的名字（`_scan_go` 顺手记）
+        self.tr_cache = {}   # Transform 组件 pid -> 原始 JSON（按需读，`tr_obj`）
+        self._tr_pids = None # `Transform/` 目录里的 pid 集合（懒扫一次，`_transform_pids`）
         self._scan_rt()
         self._scan_go()
 
@@ -175,6 +181,7 @@ class Bundle(object):
         d = os.path.join(self.path, 'GameObject')
         if not os.path.isdir(d):
             return
+        trp = self._transform_pids()   # 🔴 A1548：纯 Transform 组件的 pid 集合（只列一次目录）
         for fn in os.listdir(d):
             if not fn.endswith('.json'):
                 continue
@@ -183,6 +190,14 @@ class Bundle(object):
             except Exception:
                 continue
             j['_name'] = fn[:-len('.json')]
+            # 🔴 **A1548（2026-10-19）**：GO 可能只挂**纯 `Transform`**（没有 RectTransform）——
+            #    这种 GO 原来既不进 `go`/`go_by_rt`，也就**没有名字可报**。它底下若还挂着
+            #    RectTransform 子件，`walk` 会把整支子树丢掉 ⇒ 出声时必须认得这是谁
+            #    （实测：`Card Info` 的 `Transform_1261.json` 有 9 个 RT 子件，全被丢掉）。
+            for c in j.get('m_Component', []):
+                cp = str(c['component']['m_PathID'])
+                if cp in trp:
+                    self.tr_name.setdefault(cp, j.get('m_Name') or j.get('_name'))
             # 🔴 **GO 的真 pid 只能从它的组件反推**：文件名有三种形状 —— `唯一名` / `名_pid` / `名 (N)`
             #    （`(N)` 是 AssetStudio 的计数器，**不含 pid**）。判据：拿它的 RectTransform 组件，
             #    读那个 RT 的 `m_GameObject.m_PathID` —— 那就是这个 GO 自己的 pid（双向校验）。
@@ -307,6 +322,45 @@ class Bundle(object):
             return None
         p = r.get('m_Father', {}).get('m_PathID', 0)
         return p or None
+
+    # ---- 🔴 A1548（2026-10-19）：纯 `Transform` 节点（没有 RectTransform）的只读入口 ----
+    # 背景：`Front` 底下有 `Card Info`（`Transform_1261.json`）这种**转发节点**，它自己不是
+    # RectTransform，**底下却挂着 9 个有 RectTransform 的 UI 子件**。旧 `walk` 走到它
+    # 就 `return`，那 9 个（以及它们的整棵子树）**一个字都不印、也不报** —— 表尾只说
+    # 「3 个纯 Transform 子件（3D，本来就不该进这张 UI 表）」，读表的人完全看不出少了东西。
+    def _transform_pids(self):
+        """`Transform/` 目录里所有 pid（懒扫一次）。"""
+        if self._tr_pids is None:
+            d = os.path.join(self.path, 'Transform')
+            self._tr_pids = set()
+            if os.path.isdir(d):
+                for fn in os.listdir(d):
+                    if fn.startswith('Transform_') and fn.endswith('.json'):
+                        self._tr_pids.add(fn[len('Transform_'):-len('.json')])
+        return self._tr_pids
+
+    def has_transform(self, tpid):
+        """这个 pid 有没有**纯 `Transform`**（= 不是 3D 缺件，是 UI 转发节点/3D 件）。"""
+        return str(tpid) in self._transform_pids()
+
+    def tr_obj(self, tpid):
+        """按需读 `Transform_<pid>.json`（带缓存）；没有就 None（`m_Children` 只有它才有）。"""
+        key = str(tpid)
+        if key in self.tr_cache:
+            return self.tr_cache[key]
+        j = None
+        if self.has_transform(key):
+            try:
+                j = json.load(io.open(os.path.join(
+                    self.path, 'Transform', f'Transform_{key}.json'), encoding='utf-8'))
+            except Exception:
+                j = None
+        self.tr_cache[key] = j
+        return j
+
+    def go_name_of_transform(self, tpid):
+        """纯 `Transform` 组件所属 GO 的名字（认不出 ⇒ None；⛔ 别拿 pid 冒充名字）。"""
+        return self.tr_name.get(str(tpid))
 
     def rt_of_go(self, gopid):
         g = self.go.get(str(gopid))
@@ -678,7 +732,9 @@ def parent_rect_of(b, rtpid, screen_rect, keep_scales=True):
                 f'1476 个是 `(0.01,0.01)`」；`Canvas` 自己的 RT 更是由 Canvas 系统在运行期驱动的）。\n'
                 f'    ⇒ ⛔ **别把这批数当版面数据抄进 `.cs`**；要看这一族**设计上**的版面请改用 '
                 f'`--no-ancestor-scale`（口径 = 当所有 ls = 1）。口径全文见 '
-                f'`menu_rect.parent_rect_of` 的 docstring（A1259）。\n')
+                f'`menu_rect.parent_rect_of` 的 docstring（A1259）。\n'
+                f'    ⚠️ **「位置」项也一样不可判**（框塌成一点）—— 不只是宽高，位置也不许照抄'
+                f'（A1308③）。\n')
     f = b.rt.get(str(chain[-2]))
     # 🔴 **2026-10-14（同一族 · 顺手多改的这一处，只有这一行）**：父名字原来走
     #    `b.go_name(b.go_of_rt(chain[-2]))` —— 那两步都是**按 GO pid 认**（`go_of_rt` = 拿这颗 RT 的
@@ -714,7 +770,12 @@ def new_stats(maxdepth=None):
             'cut_roots': 0,         # 被截掉的第一层有几个（>= len(cut_tops)）
             'cut_tops': [],         # 被截掉的第一层，最多列 `MAXDEPTH_TOPS` 个 (缩进, 名字, 层)
             'miss': 0,              # 子 pid 在 `RectTransform/` 里**查不到**的个数
-            't_kids': 0}            # 其中是**纯 `Transform`**（3D，没有 RectTransform）的个数
+            't_kids': 0,            # 其中是**纯 `Transform`**（3D，没有 RectTransform）的个数
+            # 🔴 **A1548（2026-10-19）**：纯 Transform 节点**底下还挂着 RectTransform 后代**时，
+            #    那些 UI 件被旧 walk **整支静默丢掉**。这三个键就是「丢了多少、丢的是谁」：
+            't_dropped': 0,         # 这些纯 Transform 节点底下、**有 RectTransform** 的后代总数
+            't_drop_nodes': 0,      # **真的丢了后代**的纯 Transform 节点数
+            't_skip': []}           # 逐条 (缩进, 名字, 丢掉的个数)，最多列 `MAXDEPTH_TOPS` 个
 
 
 def count_subtree(b, rtpid, depth, _guard=0):
@@ -737,6 +798,50 @@ def count_subtree(b, rtpid, depth, _guard=0):
         n += k
         deep = max(deep, d)
     return n, deep
+
+
+def count_under_transform(b, tpid, _guard=0):
+    """🔴 **A1548（2026-10-19）**：纯 `Transform` 节点底下**有 RectTransform 的后代**有几个。
+
+    为什么要它：`Card Info` 这种**转发节点**自己没有 RectTransform（工具看到的是
+    `Transform_1261.json`），但它的 `m_Children` 里挂着 9 个有 RectTransform 的 UI 件。
+    旧 `walk` 在「`rt is None`」处直接 `return` ⇒ **整支树不见、也不出声**。
+    本函数只数、不改任何 dict；口径与 `count_subtree` 一致（只数会进 UI 表的 RT 节点）。
+
+    ⚠️ 递归要同时穿过两种节点：RT（交给 `count_subtree`）与**又一层纯 Transform**
+    （继续读它的 `m_Children`）。`_guard` 防 `m_Children` 成环。
+    """
+    t = b.tr_obj(tpid)
+    if t is None or _guard > 64:
+        return 0
+    n = 0
+    for c in t.get('m_Children', []):
+        cp = str(c['m_PathID'])
+        if b.rt.get(cp) is not None:
+            n += count_subtree(b, cp, 0)[0]
+        else:
+            n += count_under_transform(b, cp, _guard + 1)
+    return n
+
+
+def dropped_subtree_lines(st, max_show=MAXDEPTH_TOPS):
+    """🔴 **A1548（2026-10-19）**：「纯 `Transform` 转发节点底下被整支丢掉」的那几行。
+
+    判据只此一份（`menu_dump` 表尾也调它）—— 两个工具的文字⛔ 别各写一份（迟早不一致）。
+    返回**行列表**（不含结尾换行）；调用方决定写 stdout 还是 stderr。
+    """
+    lines = []
+    if st.get('t_dropped'):
+        lines.append(
+            f'\n🔴 **纯 `Transform` 转发节点底下被整支丢掉**：有 {st.get("t_drop_nodes", 0)} 个'
+            f'纯 `Transform` 子件底下还挂着 **{st["t_dropped"]}** 个 RectTransform 后代 —— '
+            f'`walk` 在纯 `Transform` 处**不下钻** ⇒ 它们**整支不在本表里**'
+            f'（⛔ 不是「3D 件」：这些是**会被画出来的 UI 件**，A1548）：')
+        for ind, nm_, n in (st.get('t_skip') or [])[:max_show]:
+            lines.append(f'    {"  " * ind}{nm_}   （丢 {n} 个）')
+        if st.get('t_drop_nodes', 0) > len(st.get('t_skip') or []):
+            lines.append(f'    …… 这样的转发节点共 {st["t_drop_nodes"]} 个')
+    return lines
 
 
 def stats_warning(st, stream=None, max_show=MAXDEPTH_TOPS):
@@ -763,14 +868,23 @@ def stats_warning(st, stream=None, max_show=MAXDEPTH_TOPS):
             w.write(f'    …… 被截掉的第一层共 {st["cut_roots"]} 处\n')
     if st.get('t_kids'):
         said = True
-        w.write(f'\n⚠️ 另有 **{st["t_kids"]}** 个纯 `Transform` 子件（3D，例：卡片的 3D 体）'
-                f'—— 它们**没有 RectTransform**，本表本来就不该有它们'
-                f'（与 `menu_dump` 同口径）。\n')
+        w.write(f'\n⚠️ 另有 **{st["t_kids"]}** 个纯 `Transform` 子件'
+                f'—— 它们**没有 RectTransform**，本表不会印它们自己'
+                f'（与 `menu_dump` 同口径）。⚠️ **但它们底下若挂着 RectTransform 后代，'
+                f'那些后代也是 UI 件**，见下一段（A1548）。\n')
+    # 🔴 **A1548**：纯 Transform 转发节点底下被整支丢掉的那几棵（判据只此一份）。
+    for line in dropped_subtree_lines(st, max_show=max_show):
+        said = True
+        w.write(line + '\n')
     miss = st.get('miss', 0) - st.get('t_kids', 0)
     if miss > 0:
         said = True
         w.write(f'\n🔴 **{miss}** 个子 pid 在 `RectTransform/` 里**查不到**、而且不是纯 `Transform` '
                 f'—— 要么导出缺了那一件、要么 `m_Children` 指向了别的文件 ⇒ **本表少了这些件**。\n')
+        pids = st.get('miss_pids') or []
+        if pids:
+            w.write('    查不到的 pid：' + '、'.join(pids)
+                    + ('…' if miss > len(pids) else '') + '\n')
     return said
 
 
@@ -803,8 +917,22 @@ def walk(b, rtpid, rect, scale, depth, maxdepth, out, indent=0, force_root_rect=
         #    与「真缺」—— 前者不冤枉它，后者是**表少列了东西**，要单独出声。
         if stats is not None:
             stats['miss'] += 1
-            if os.path.exists(os.path.join(b.path, 'Transform', f'Transform_{rtpid}.json')):
+            if b.has_transform(rtpid):
                 stats['t_kids'] += 1
+                # 🔴 **A1548（2026-10-19）**：纯 Transform **不是终点** —— 它底下可能挂着
+                #    RectTransform 的 UI 子件（实测 `Card Info` 9 个）。旧行为：直接 return，
+                #    整支子树不见且不报。现在：**数清楚、表尾点名**（仍然不下钻 —— 不下钻是
+                #    「这张表的口径」，⛔ 别悄悄改坐标算法；要读那支用 `--rt <那个子件的 pid>`）。
+                n = count_under_transform(b, rtpid)
+                if n:
+                    stats['t_dropped'] += n
+                    stats['t_drop_nodes'] += 1
+                    if len(stats['t_skip']) < MAXDEPTH_TOPS:
+                        stats['t_skip'].append(
+                            (indent, b.go_name_of_transform(rtpid) or f'<Transform {rtpid}>', n))
+            else:
+                if len(stats.setdefault('miss_pids', [])) < MAXDEPTH_TOPS:
+                    stats['miss_pids'].append(str(rtpid))
         return
     if depth > maxdepth:
         # 🔴 **A620：深度截断不许静默** —— 记下「还有几个没印、要到第几层」，`main()` 的表尾引它。
@@ -1022,8 +1150,16 @@ def main():
             print(f'# （已沿 `m_Father` 爬父链：被查节点的父 = 「{pname}」'
                   f' {base_rect[0]:.2f},{base_rect[1]:.2f} → {base_rect[2]:.2f},{base_rect[3]:.2f}）')
             if abs(base_scale[0] - 1) > 1e-6 or abs(base_scale[1] - 1) > 1e-6:
-                print(f'# ⚠️ 父链上有 `m_LocalScale`：`lossyScale(父)` = '
-                      f'{base_scale[0]:.4g},{base_scale[1]:.4g} ⇒ 下面所有矩形都按它换算')
+                # 🔴 **A1308①（2026-10-19）**：`lossyScale(父)` 被压成 0/极小时，⛔ 不能再印
+                #    「下面所有矩形都按它换算」—— 那一档的含义是**不可判**（见 `parent_rect_of`
+                #    docstring 的 ② 类与 stderr 那条），照旧印会把读 stdout 的人引到错误结论。
+                if abs(base_scale[0]) < SCL_COLLAPSE_EPS or abs(base_scale[1]) < SCL_COLLAPSE_EPS:
+                    print(f'# 🔴 父链上有 `m_LocalScale`：`lossyScale(父)` = '
+                          f'{base_scale[0]:.4g},{base_scale[1]:.4g} ⇒ **被压成 0 / 极小 = 下面的矩形不可判**'
+                          f'（含位置项；⛔ 别当版面数据抄；口径见 stderr 与 `parent_rect_of` 的 docstring）')
+                else:
+                    print(f'# ⚠️ 父链上有 `m_LocalScale`：`lossyScale(父)` = '
+                          f'{base_scale[0]:.4g},{base_scale[1]:.4g} ⇒ 下面所有矩形都按它换算')
     if not keep:
         base_scale = (1.0, 1.0)
         print('# 🔴 `--no-ancestor-scale`：父链上的 `m_LocalScale` **一律不乘**'

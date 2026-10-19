@@ -90,6 +90,10 @@ namespace CardPresentation
         public float PanelH { get; private set; }
         public bool TwoButtons { get; private set; }
 
+        /// <summary>压暗层那颗**吸收**命中区（`MenuDraw.Absorb` 建的；自检拿 `MenuDraw.WasAbsorb` 核它）。
+        /// ⚠️ 它是**吸收**层、不是「点背景关窗」的 `ShadeHit` —— 判据见 `Build()` 第 1 步那段注释。</summary>
+        public Transform ShadeHitNode { get { return transform.Find("AbsorbHit"); } }
+
         public static PromptPopup Create(WindowsManager mgr, string text, string okText, System.Action onOk,
                                          string cancelText, System.Action onCancel)
         {
@@ -120,6 +124,25 @@ namespace CardPresentation
             // 1) 压暗整屏：`Menu Dark Background` —— **无 sprite**，UGUI 会回落到 `Graphic.OnPopulateMesh`
             //    画一块纯色矩形（同一个套路见 `RewardsWindow` 的背景与卡片 header）。
             Solid(root, cx, cy, ShadeW, ShadeH, ShadeColor, QShade, "Menu Dark Background");
+
+            // 🔴 **2026-10-19（`N117` 顺手）**：压暗层的**吃射线命中区** —— 原来**零命中区**
+            //   ⇒ 指针穿过压暗层落到**下面那扇窗**的钮上（我们的命中候选只收 `WindowButton`，
+            //   见 `MenuDraw.Absorb` 的注释），而原版那块 `Image` 是 `m_RaycastTarget = 1` ⇒ 这一下被吃掉。
+            //   🔴 **判据不是「按 `window={0,0}` 推」**（那条已知不可靠，见 `资料/已知的坑.md` 第 15 条）——
+            //   这里把**另一半**也核了：
+            //     · prefab `GenericPromptWindow/Menu Dark Background` 上确实挂着 `BackgroundCloseButton`
+            //       （`MonoBehaviour_627461394584887679.json`）—— 但它的 `window = {0,0}`、`onClick.m_Calls = []`；
+            //     · **`PromptPopup` 类里没有任何 `backgroundCloseButton` 字段**（`dump.cs:87347-87368`），
+            //       类的方法只有 `Open / InstantiateInput / InstantiateDropdown / SetError / SetMessage /
+            //       OnSubmit / OnCancel`（**没有 `Start` / `OnEnable`**）⇒ **没有任何一处在运行时给它接线**；
+            //       `PromptPopup__Open.c` 逐句实读：只给 `okButton`(+0x78) / `cancelButton`(+0x80) 挂监听。
+            //   ⇒ **原版点这一下什么都不发生**（不会关窗）。同族先例 = `Shell/PopUpGameWindow.cs:26-32`
+            //     （`MessagePopupWindow` 的两颗 `BackgroundCloseButton` 同为空 ⇒ 用 `Absorb`，⛔ **不是** `ShadeHit`）。
+            //   ⚠️ 档由公共件算（`qContentMin − 1` = 3142，严格夹在压暗档 3140 与内容命中区 3143 之间）。
+            MenuDraw.Absorb(root, "AbsorbHit",
+                            new PxRect(cx - ShadeW * 0.5f, cy - ShadeH * 0.5f,
+                                       cx + ShadeW * 0.5f, cy + ShadeH * 0.5f),
+                            QShade, QContent);
 
             // 2) `MessageText`：先按 **900** 宽限制换行画出来（**量出它的真实高度**），再定面板高。
             TwoButtons = !string.IsNullOrEmpty(_cancelText);

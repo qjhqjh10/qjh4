@@ -1,5 +1,11 @@
 // ChatTab.cs —— 从 `Shell/ChatPanel.cs` 里拆出来的（A1506：MonoBehaviour 的类名【必须】与文件名相同，
 // 否则 Unity 建不出 MonoScript ⇒ 存场景时被烘成内联 `!u!115` 存根 ⇒ player 加载即崩）。零行为改动。
+//
+// ⚠️ **2026-10-19（战斗线 `T17`）**：`Chat_Messages/*`（单位/督军台词）**与本页无关** —— 那是战斗内
+//    `Battle/UnitChatPanel` 的文本来源；本页的行 = `SocialData.ChatMessages`（玩家聊天，本地无服务器 ⇒ 恒空）。
+//    本页**没有需要 `Loc` 的静态文案**：页签名取自 `ChatPanel.Channels`（原版也是 `ChatRoom` 枚举名，
+//    官方表里**没有**频道名的词条 —— `SocialMenu/Alliances/Language/Global` 是语言筛选、不是频道）。
+//    ⇒ 本文件**只读取数据、不取词条**；⛔ 别把 `Chat_Messages/*` 接到这里（那是另一套东西）。
 using System.Collections.Generic;
 using UnityEngine;
 

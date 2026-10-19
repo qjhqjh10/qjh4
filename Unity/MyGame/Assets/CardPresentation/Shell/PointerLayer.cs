@@ -2,7 +2,7 @@
 //
 // ============================ 为什么必须有 ============================
 // 🔴 2026-09-23 查出（详据见 `项目任务.md` §三 第 15 条 **第 23 条**）：**整层菜单在真鼠标下点不动** ——
-//    `WindowButton` 只实现老式的 `OnMouseUpAsButton()`（`Shell/PromptPopup.cs`），而
+//    `WindowButton` 只实现老式的 `OnMouseUpAsButton()`（`Shell/WindowButton.cs`；⚠️ 2026-10-19 订正：原写 `Shell/PromptPopup.cs`），而
 //      ① **Unity 要求同一物体上有 `Collider` 才会派发它**，本工程却**零处 `AddComponent<...Collider>`**
 //         （`ImageQuad` 里 0 处引用；只有 `BoardLayout.cs` 里那句 `DestroyImmediate(…GetComponent<Collider>())` / `Editor/CardBaseDemo.cs` 里那句 `DestroyImmediate(floor.GetComponent<Collider>())` 两处**删** collider）；
 //      ② `ProjectSettings.asset:932 activeInputHandler: **1**` = **只用新 Input System**

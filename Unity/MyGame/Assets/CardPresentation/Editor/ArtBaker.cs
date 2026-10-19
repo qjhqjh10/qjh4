@@ -83,42 +83,302 @@ public static class ArtBaker
         Debug.Log(P + $"背景已烘：{BackdropPng}（{W}×{H}，推进了 {n} 个粒子系统，场景 {scene.name}）");
     }
 
-    const string AudioDir = ArtDir + "/audio/vo";
+    // ─────────────────────────────────────────────────────────────────────────
+    // 音频导入设置（2026-09-17 加；2026-10-19 `T06` 从「只盖 vo」扩到全部四类）
+    //
+    // 判据（**原版直证**）：`资料/普查产出_1019/W_工具线_T06音频导入_1019b.md` §二 ——
+    //   读的是原版**打包后 `AudioClip` 的序列化字段**（`m_LoadType` / `m_CompressionFormat` /
+    //   `m_PreloadAudioData` / `m_LoadInBackground`），也就是导入设置落地后在运行时真正生效的值
+    //   （原版工程侧的 `AudioImporter` 不进包：`assets_full` 里 `AudioImporter` 目录 = 0 个）。
+    //   我们这边 2434 条**逐条按名字对上了原版 clip**（vo 1892/1892 · sfx 515/515 · bgm 25/25；
+    //   music 两条按秒长核对）⇒ 规则表 = **目录 + 扩展名 + 例外名单**，⛔ 不是逐文件硬编码。
+    // ⚠️ 判不出的项（不在 `AudioClip` 序列化里）：`quality`（现状 1.0，**不动**）·
+    //   `normalize` · `conversionMode` —— 见报告 §2·3 / §2·4，⛔ 别拿猜测填。
+    // ─────────────────────────────────────────────────────────────────────────
+    const string AudioRoot = ArtDir + "/audio";
+
+    // `sfx/` 里原版是 **Streaming + Vorbis** 的条目（其余 sfx 一律 CompressedInMemory + ADPCM）。
+    // 判据 = 原版 `soundcollection_assets_all` 包：`m_LoadType == 2` 的**全部 11 条**（报告 §2·2）。
+    // 我们 `sfx/` 现在有 6 条（`MatchVictory` / `MatchDefeat` / `MatchDraw` / `Draft Mode GainSkull` /
+    // `StartMatch` / `OvertimeStart`）；另 5 条原版有、我们还没导 —— **一并列进来**，
+    // 免得以后补导时又漏（`Progress Jingle` / `Draft Mode Loss Jingle` 是 2026-10-19 现读补进报告的
+    // 两条：原报告 §2·2 的「11 条」只列了 9 个名字，现核原版是 7 条 preload=true + 4 条 false）。
+    static readonly string[] SfxStreaming = {
+        "MatchVictory", "MatchDefeat", "MatchDraw", "Draft Mode GainSkull", "OvertimeStart",
+        "Progress Jingle", "Draft Mode Loss Jingle",
+        "StartMatch", "Vault Crate Open Full",
+        "Ork expansion pop up jingle", "Aeldari Reinforcement drop 2 jingle",
+    };
+
+    // 上面那 11 条里 `m_PreloadAudioData == false` 的 4 条（其余 7 条都是 true）。
+    static readonly string[] SfxStreamingNoPreload = {
+        "StartMatch", "Vault Crate Open Full",
+        "Ork expansion pop up jingle", "Aeldari Reinforcement drop 2 jingle",
+    };
+
+    // `music/` 两条（原版 `menumusic_assets_all`）：都是 Streaming + Vorbis，预载一真一假。
+    static readonly string[] MusicPreload = { "main_theme" };            // 原版 `Main Theme`
+    static readonly string[] MusicNoPreload = { "menu_idle_theme" };     // 原版 `Menu Idle Theme`
+
+    // `bgm/` 里原版 `m_PreloadAudioData == true` 的 **15 条** = 这 5 个阵营 × High/Medium/Low
+    // （原版包 `battlearena2`(Orks) / `battlearena3`(Necrons) / `battlearenaaeldari` /
+    //   `battlearenablacklegion` / `battlearenaleviathan`(Tyranid)）；其余 10 条是 false。
+    static readonly string[] BgmPreload = {
+        "Warpforge Orks Combat High", "Warpforge Orks Combat Medium", "Warpforge Orks Combat Low",
+        "Warpforge Necrons Combat High", "Warpforge Necrons Combat Medium", "Warpforge Necrons Combat Low",
+        "Warpforge Aeldari Combat High", "Warpforge Aeldari Combat Medium", "Warpforge Aeldari Combat Low",
+        "Warpforge Black Legion Combat High", "Warpforge Black Legion Combat Medium", "Warpforge Black Legion Combat Low",
+        "Warpforge Tyranid Combat High", "Warpforge Tyranid Combat Medium", "Warpforge Tyranid Combat Low",
+    };
 
     /// <summary>
-    /// 给 `Resources/Art/audio/vo/` 下的**单位语音**定导入设置（2026-09-17 加）。
+    /// 给 `Resources/Art/audio/{vo,sfx,music,bgm}/` 定导入设置（2026-09-17 加，2026-10-19 扩面）。
     ///
-    /// 为什么必须跑：那 1787 条默认是 `DecompressOnLoad` —— 一条条全解成 PCM 放在内存里
-    /// （42 MB 的 ogg 解出来是几百 MB）。语音是「一次只播一条」的东西，改成
-    /// **`CompressedInMemory` + 不预载**（播到哪条才解哪条）就够。
+    /// 为什么必须跑：这些音频默认是 `DecompressOnLoad` —— 一条条全解成 PCM 放在内存里
+    /// （`bgm` 每条 ~120 s 的立体声解出来约 20 MB，25 条 ≈ 500 MB 峰值）。原版落地的是
+    /// 下表那套，照抄即可：
     ///
-    /// 生成音频本身：`工具/import_original_audio.py`（跑完再跑这个）。
+    /// | 目录 | loadType | compressionFormat | preloadAudioData |
+    /// |---|---|---|---|
+    /// | `vo/*.ogg` | CompressedInMemory | Vorbis | false |
+    /// | `vo/*.wav` | CompressedInMemory | **ADPCM** | false |
+    /// | `sfx/*.wav`（默认） | CompressedInMemory | ADPCM | false |
+    /// | `sfx/<SfxStreaming 名单>` | **Streaming** | **Vorbis** | 见 `SfxStreamingNoPreload` |
+    /// | `music/main_theme` | Streaming | Vorbis | true |
+    /// | `music/menu_idle_theme` | Streaming | Vorbis | false |
+    /// | `bgm/*` | CompressedInMemory | Vorbis | `BgmPreload` 那 15 条 true，其余 false |
+    ///
+    /// 公共项（原版这 2434 条**全部一致**）：`loadInBackground = true`（我们原来**一条都没设**，
+    /// 全是 0）· `forceToMono = false`（我们源文件的声道数逐类与原版 `m_Channels` 一致，
+    /// 不靠它改声道）· `sampleRateSetting = PreserveSampleRate`（原版频率不统一，我们源文件头
+    /// 与原版 `m_Frequency` 逐条吻合）。
+    ///
+    /// 🔴 **枚举走磁盘、不走 `FindAssets`**（`A1931`）：`AssetDatabase.FindAssets("t:AudioClip")`
+    ///   会**静默漏**导入失败的条目（2026-10-19 实测 `vo/` 有 7 条磁盘上在、`FindAssets` 不返回）。
+    ///   这里按目录枚举，拿不到 `AudioImporter` 的**当场报出来**（⛔ 不许静默）。
+    ///   定因（是导入失败、还是只是没刷新）用下面的 `DiagnoseAudioImportCoverageCLI`，**默认 dry**。
+    ///
+    /// 生成音频本身：`工具/import_original_audio.py`（vo）· `工具/import_original_sfx.py` /
+    /// `import_battle_sfx.py`（sfx）· `工具/import_battle_bgm.py`（bgm）。跑完再跑这个。
     /// </summary>
-    [MenuItem("Tools/CardPresentation/重设语音导入设置")]
+    [MenuItem("Tools/CardPresentation/重设音频导入设置")]
     public static void ApplyAudioImportSettings()
     {
-        if (!Directory.Exists(AudioDir))
+        if (!Directory.Exists(AudioRoot))
         {
-            Debug.LogWarning(P + $"没有 {AudioDir} —— 先跑 工具/import_original_audio.py");
+            Debug.LogWarning(P + $"没有 {AudioRoot} —— 先跑 工具/import_original_audio.py 等导入脚本");
             return;
         }
-        int n = 0;
-        foreach (var guid in AssetDatabase.FindAssets("t:AudioClip", new[] { AudioDir }))
-        {
-            var path = AssetDatabase.GUIDToAssetPath(guid);
-            var ai = AssetImporter.GetAtPath(path) as AudioImporter;
-            if (ai == null) continue;
 
-            var s = ai.defaultSampleSettings;
-            s.loadType = AudioClipLoadType.CompressedInMemory;
-            s.preloadAudioData = false;
-            s.compressionFormat = AudioCompressionFormat.Vorbis;   // wav 那 115 条也压成 Vorbis（26 MB → 小一截）
-            ai.defaultSampleSettings = s;
-            ai.forceToMono = false;
-            ai.SaveAndReimport();
-            n++;
+        int n = 0, alreadyOk = 0, noRule = 0, noImporter = 0;
+        var counts = new System.Collections.Generic.Dictionary<string, int>();
+        var problems = new System.Text.StringBuilder();
+
+        foreach (var raw in Directory.GetFiles(AudioRoot, "*.*", SearchOption.AllDirectories))
+        {
+            string ext = Path.GetExtension(raw).ToLowerInvariant();
+            if (ext != ".ogg" && ext != ".wav") continue;      // `sfx/` 里还有一个 `remnant_cue_props.json`
+            string path = raw.Replace('\\', '/');
+
+            // 类别 = `audio/` 下一级目录名（vo / sfx / music / bgm）
+            string rel = path.Substring(AudioRoot.Length).TrimStart('/');
+            int slash = rel.IndexOf('/');
+            string sub = (slash < 0 ? "" : rel.Substring(0, slash)).ToLowerInvariant();
+            string name = Path.GetFileNameWithoutExtension(raw);
+
+            AudioClipLoadType load;
+            AudioCompressionFormat fmt;
+            bool preload;
+            if (!TryGetAudioRule(sub, name, ext, out load, out fmt, out preload))
+            {
+                // 规则表里没有 ⇒ 报出来，⛔ 不猜（原版判据只覆盖了这四类里的已知形状）
+                problems.Append($"\n    没有规则：{path}");
+                noRule++;
+                continue;
+            }
+
+            var ai = AssetImporter.GetAtPath(path) as AudioImporter;
+            if (ai == null)
+            {
+                // `A1931`：磁盘上有、AssetDatabase 里没有 ⇒ 导入失败/未导入。⛔ 不静默。
+                problems.Append($"\n    拿不到 AudioImporter：{path}");
+                noImporter++;
+                continue;
+            }
+
+            if (ApplyAudioRule(ai, load, fmt, preload)) n++;
+            else alreadyOk++;
+            int c;
+            counts.TryGetValue(sub, out c);
+            counts[sub] = c + 1;
         }
-        Debug.Log(P + $"语音导入设置已重设：{n} 条 → CompressedInMemory / 不预载 / Vorbis");
+
+        var byCat = new System.Text.StringBuilder();
+        foreach (var kv in counts) byCat.Append($" {kv.Key}={kv.Value}");
+        Debug.Log(P + $"音频导入设置已重设：{n} 条（已符合跳过 {alreadyOk} 条 · {byCat.ToString().Trim()}）→ 按报告 §二 的规则表");
+        if (noRule > 0 || noImporter > 0)
+            Debug.LogWarning(P + $"🔴 未覆盖 {noRule + noImporter} 条（规则表没写 {noRule} · 拿不到 importer {noImporter}）：{problems}");
+        else
+            Debug.Log(P + "覆盖完整：磁盘上的 .ogg/.wav 全部拿到了 AudioImporter ✅");
+    }
+
+    /// <summary>规则表：目录 + 扩展名 + 例外名单 → (loadType, compressionFormat, preload)。</summary>
+    static bool TryGetAudioRule(string sub, string name, string ext,
+                                out AudioClipLoadType load, out AudioCompressionFormat fmt, out bool preload)
+    {
+        load = AudioClipLoadType.CompressedInMemory;
+        fmt = AudioCompressionFormat.Vorbis;
+        preload = false;
+
+        switch (sub)
+        {
+            case "vo":
+                // 原版 1892 条直证：ogg → Vorbis（1778 条）· wav → ADPCM（114 条）；都不预载。
+                fmt = ext == ".wav" ? AudioCompressionFormat.ADPCM : AudioCompressionFormat.Vorbis;
+                return true;
+
+            case "sfx":
+                if (NameIn(name, SfxStreaming))
+                {
+                    load = AudioClipLoadType.Streaming;
+                    fmt = AudioCompressionFormat.Vorbis;
+                    preload = !NameIn(name, SfxStreamingNoPreload);
+                    return true;
+                }
+                // 默认：原版 509 条 wav 是 ADPCM（`OvertimeStart` 是上面例外表里的 Streaming）。
+                // 非名单内的 .ogg 原版没有先例 ⇒ 报出来，⛔ 不猜成 ADPCM。
+                if (ext != ".wav") return false;
+                fmt = AudioCompressionFormat.ADPCM;
+                return true;
+
+            case "music":
+                if (NameIn(name, MusicPreload)) { load = AudioClipLoadType.Streaming; preload = true; return true; }
+                if (NameIn(name, MusicNoPreload)) { load = AudioClipLoadType.Streaming; preload = false; return true; }
+                return false;   // 新曲目没判据 ⇒ 报出来
+
+            case "bgm":
+                // 原版 25/25：CompressedInMemory + Vorbis；preload 见 `BgmPreload`（15 true / 10 false）。
+                preload = NameIn(name, BgmPreload);
+                return true;
+
+            default:
+                return false;   // `audio/` 根下或未知子目录 ⇒ 报出来
+        }
+    }
+
+    /// <summary>
+    /// 把一条规则落到 `AudioImporter` 上（公共项见 `ApplyAudioImportSettings` 的注释）。
+    /// 返回 **true = 真的改了并重导**；false = 已经符合（⛔ 不重复 `SaveAndReimport` ——
+    /// 2434 条音频全量重编码很贵，而本方法要求幂等、可反复跑）。
+    /// </summary>
+    static bool ApplyAudioRule(AudioImporter ai, AudioClipLoadType load,
+                               AudioCompressionFormat fmt, bool preload)
+    {
+        var s = ai.defaultSampleSettings;
+        bool changed = s.loadType != load
+                    || s.compressionFormat != fmt
+                    || s.preloadAudioData != preload
+                    || s.sampleRateSetting != AudioSampleRateSetting.PreserveSampleRate
+                    || !ai.loadInBackground
+                    || ai.forceToMono;
+        if (!changed) return false;
+
+        s.loadType = load;
+        s.compressionFormat = fmt;
+        s.preloadAudioData = preload;
+        s.sampleRateSetting = AudioSampleRateSetting.PreserveSampleRate;
+        // ⚠️ `s.quality` **不动**：判不出原版值（不在 AudioClip 里），现状 1.0 —— 报告 §2·4。
+        ai.defaultSampleSettings = s;
+        ai.loadInBackground = true;    // 原版 2434 条全是 true（我们原来一条都没设，全是 0）
+        ai.forceToMono = false;        // 原版声道与我们源文件一致 ⇒ 不靠它改声道
+        ai.SaveAndReimport();
+        return true;
+    }
+
+    /// <summary>大小写不敏感的名字匹配（Windows 文件名；例外表照原版 clip 名写）。</summary>
+    static bool NameIn(string name, string[] set)
+    {
+        foreach (var s in set)
+            if (string.Equals(name, s, System.StringComparison.OrdinalIgnoreCase)) return true;
+        return false;
+    }
+
+    // ─────────────────────────────────────────────────────────────────────────
+    // `A1931` 探针：`AssetDatabase.FindAssets("t:AudioClip")` 返回集 vs 磁盘实际文件。
+    //
+    // 为什么要有它：2026-10-19 静态普查发现 `vo/` 有 7 条磁盘上在、`FindAssets` 不返回
+    // （其中 6 条是整棵音频树里**唯一 6 个**「Ogg 末页 granule = 0」的文件）。
+    // 本探针把三种可能分开：α = 只是 AssetDatabase 没刷新 · β = Unity 导入失败（Ogg 容器坏了）·
+    // γ = 导入成功、只是没跑过 `ApplyAudioImportSettings`。
+    // 判读矩阵 → `资料/普查产出_1019/W_工具线_T06音频导入_1019b.md` §3·2。
+    //
+    // ⚠️ **默认 dry**：只读、不 `ImportAsset`。要复测「强制导入后能不能找得到」再用 Force 那支。
+    // ⚠️ 2026-10-19 加进来时**没有跑过**（写手代理不跑 Unity）。
+    // ─────────────────────────────────────────────────────────────────────────
+    [MenuItem("Tools/CardPresentation/诊断音频导入覆盖(A1931·dry)")]
+    public static void DiagnoseAudioImportCoverageCLI() { DiagnoseAudioImportCoverage(false); }
+
+    [MenuItem("Tools/CardPresentation/诊断音频导入覆盖(A1931·强制重导)")]
+    public static void DiagnoseAudioImportCoverageForceCLI() { DiagnoseAudioImportCoverage(true); }
+
+    static void DiagnoseAudioImportCoverage(bool forceReimport)
+    {
+        foreach (var sub in new[] { "vo", "sfx", "music", "bgm" })
+        {
+            string dir = AudioRoot + "/" + sub;
+            if (!Directory.Exists(dir)) { Debug.Log($"[AUDIT] {sub}: 目录不存在 {dir}"); continue; }
+
+            var onDisk = new System.Collections.Generic.List<string>();
+            var diskSet = new System.Collections.Generic.HashSet<string>(System.StringComparer.OrdinalIgnoreCase);
+            foreach (var f in Directory.GetFiles(dir, "*.*", SearchOption.AllDirectories))
+            {
+                string e = Path.GetExtension(f).ToLowerInvariant();
+                if (e != ".ogg" && e != ".wav") continue;
+                string p = f.Replace('\\', '/');
+                onDisk.Add(p);
+                diskSet.Add(p);
+            }
+
+            var found = new System.Collections.Generic.HashSet<string>(System.StringComparer.OrdinalIgnoreCase);
+            var guids = AssetDatabase.FindAssets("t:AudioClip", new[] { dir });
+            foreach (var g in guids) found.Add(AssetDatabase.GUIDToAssetPath(g));
+
+            var missing = new System.Collections.Generic.List<string>();
+            foreach (var p in onDisk) if (!found.Contains(p)) missing.Add(p);
+            int extra = 0;
+            foreach (var p in found) if (!diskSet.Contains(p)) extra++;
+
+            Debug.Log($"[AUDIT] {sub}: onDisk={onDisk.Count} findAssets={guids.Length} " +
+                      $"missing={missing.Count} extra={extra}");
+
+            // ① 漏项：importer / clip 各是什么（区分 α: FindAssets 漏 vs β: 导入失败 vs γ: 只是没跑设置）
+            foreach (var p in missing)
+            {
+                var ai = AssetImporter.GetAtPath(p);
+                var clip = AssetDatabase.LoadAssetAtPath<AudioClip>(p);
+                Debug.Log($"[AUDIT]   MISSING {p}  guid={AssetDatabase.AssetPathToGUID(p)}  " +
+                          $"importer={(ai == null ? "null" : ai.GetType().Name)}  clip={(clip == null ? "null" : "ok")}");
+            }
+            // ② 找到的：看有没有「importer 类型不对 / clip 取不到」的静默异常
+            foreach (var p in found)
+            {
+                var ai = AssetImporter.GetAtPath(p);
+                var clip = AssetDatabase.LoadAssetAtPath<AudioClip>(p);
+                if (ai == null || ai.GetType() != typeof(AudioImporter) || clip == null)
+                    Debug.Log($"[AUDIT]   ABNORMAL {p}  importer={(ai == null ? "null" : ai.GetType().Name)}  clip={(clip == null ? "null" : "ok")}");
+            }
+            // ③ 强制重导后能否被 FindAssets 找到（α/β 的分水岭）—— 只在 Force 那支跑
+            if (!forceReimport) continue;
+            foreach (var p in missing)
+            {
+                AssetDatabase.ImportAsset(p, ImportAssetOptions.ForceUpdate | ImportAssetOptions.ForceSynchronousImport);
+                bool now = false;
+                foreach (var g in AssetDatabase.FindAssets("t:AudioClip", new[] { dir }))
+                    if (string.Equals(AssetDatabase.GUIDToAssetPath(g), p, System.StringComparison.OrdinalIgnoreCase)) { now = true; break; }
+                var ai = AssetImporter.GetAtPath(p);
+                Debug.Log($"[AUDIT]   AFTER-IMPORT {p}  found={now}  importer={(ai == null ? "null" : ai.GetType().Name)}");
+            }
+        }
     }
 
     /// <summary>给 Art 下所有 PNG 定导入设置</summary>

@@ -5,7 +5,7 @@
 
 | 脚本 | 干什么 |
 |---|---|
-| `sim_rewrite.py` | 把 `CardPresentation/Core/CardIcons.cs` 的 `Rewrite` **逐分支静态复刻**，拿一份计划表对**全池 1126 张 × `desc`/`descZh`** 各铺一遍 → 落一份 JSON（`rendered` + `not_idempotent`）。**改计划表前后各跑一次、两份对拍**，就是「误伤面」那一层（渲染层）的读数 |
+| `sim_rewrite.py` | 把 `CardPresentation/Core/CardIcons.cs` 的 `Rewrite` **逐分支静态复刻**，拿一份计划表对**全池卡（当时 1126 张；2026-10-19 现读 1127 —— 脚本按 `cards_engine.json` 现读，不写死）× `desc`/`descZh`** 各铺一遍 → 落一份 JSON（`rendered` + `not_idempotent`）。**改计划表前后各跑一次、两份对拍**，就是「误伤面」那一层（渲染层）的读数 |
 | `cmp_plan.py` | 两份计划表**严格对账**：条目增删 / 新增逐条（按 sprite 分档）/ 消失或被改的条目 / 两份 `cards` 数组的 md5 |
 | `conflicts.py` | **子串冲突枚举**（一次性探针，见下面的 ⚠️） |
 

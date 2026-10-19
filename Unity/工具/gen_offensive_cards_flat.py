@@ -9,8 +9,12 @@
 
 产物：`d:/4/Unity/MyGame/Assets/CardPresentation/Resources/OffensiveCards.json`
 用法：PYTHONIOENCODING=utf-8 "D:/2/Warpforge_tools/py312/python.exe" d:/4/Unity/工具/gen_offensive_cards_flat.py
+      加 `--dry` = 只跑计算、打印读数、**零写盘**（默认行为不变；`A1648` 同族口径）。
 """
-import io, json, os
+import io, json, os, sys
+
+# 🔴 `--dry` = 只跑计算、打印读数、**零写盘**。默认（不带它）行为与以前完全一样。
+DRY = "--dry" in sys.argv[1:]
 
 SRC = "d:/4/Unity/数据/游戏数据/offensive_cards.json"
 DST = "d:/4/Unity/MyGame/Assets/CardPresentation/Resources/OffensiveCards.json"
@@ -40,6 +44,10 @@ def main():
             "emptyFace": e.get("face_texture") or "",
             "cards": cards,
         })
+    if DRY:
+        print("干跑（未写盘）%s：FLAT 阵营 %d · 卡槽 %d" %
+              (DST, len(out["armies"]), sum(len(a["cards"]) for a in out["armies"])))
+        return
     io.open(DST, "w", encoding="utf-8", newline="\n").write(
         json.dumps(out, ensure_ascii=False, indent=1))
     print("FLAT 阵营 %d · 卡槽 %d → %s" %

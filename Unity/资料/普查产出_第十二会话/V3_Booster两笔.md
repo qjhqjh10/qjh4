@@ -81,7 +81,7 @@
 | 生成器**幂等**（重跑两次产物 sha256 逐字节相同） | ✅ | —— |
 | 改写**幂等**（`--check` 第二次跑报 0 条改写） | ✅ | —— |
 | 交叉核对：`Image`/`TextMeshProUGUI` 的 guid 必须在**另一扇窗**的 `m_Script` 里出现过 | ✅（71 / 122 次） | 期望值来自**同一批导出的另一份 prefab**，不是这次改的对象 |
-| 字体 pathID → 名字：原版 `m_CreationSettings.referencedFontAssetGUID` 当容器键，在 `AssetBundle_1.json` 的 `m_Container` 里 preload 的 pathID 必须含它 | ✅（Pragati `1df326…6c02` → 3 条 · Asar `61505a…4f18` → 3 条） | 用**原版包自己的容器表**定的名，不是我按计数猜的 |
+| 字体 pathID → 名字：原版 `m_CreationSettings.referencedFontAssetGUID` 当容器键，在 `AssetBundle_1.json` 的 `m_Container` 里 preload 的 pathID 必须含它 | ✅（Pragati `1df326…6c02` → 3 条 · Asar `61505a…4f18` → 3 条） | 用**原版包自己的容器表**定的名，不是我按计数猜的。🔴 **`A1313`（2026-10-19 订正）：本行判据【不是通则】** —— 同一手法对 `RobotoCondensed` **0 行命中**（见 `V8_RobotoCondensed.md` §⑧·1）⇒ ⛔ 别拿它当唯一判据；本条只对 Pragati/Asar 成立 |
 | 行尾：改前是纯 LF 才动手、改后 CRLF 仍 = 0 | ✅ | —— |
 | 秒级类型检查 | ✅ 0/0 | —— |
 

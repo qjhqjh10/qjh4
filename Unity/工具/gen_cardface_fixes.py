@@ -73,15 +73,15 @@ SUBTYPE_CANON = {
 
 
 # 卡名对不上：**我们的卡名 → 卡面上印的卡名**。
-# 只有三张，全是**我们这边写错/写少/写多**，卡面才是准的（各配一处证据）：
+# 只有两张（🔴 2026-10-19 订正：`Sisters Repentia → Sister Repentia` 那条已删 —— 源表
+#   `card_stats.json` **早已改成单数 `Sister Repentia`**，别名成了自我映射 ⇒ 反查回旧名后
+#   查不到、整张卡被跳过，`--check` 一直红；删掉后差 0 处、rc=0）：
 #   · `Lord Kakophonist` 卡面是 `Varius, Lord Kakophonist`（全名带前缀）
 #   · `Threnodic Choir Noise Marine` 卡面是 `Threnodic Noise Marine`（我们多了一个 Choir）
-#   · `Sisters Repentia` 卡面是 `Sister Repentia`（我们写成了复数）
-# 不建这张表的话，这三张的字段修不到 —— 自检里那条「不许有单位卡的 subtype 是类型词」会当场炸。
+# 不建这张表的话，这些卡的字段修不到 —— 自检里那条「不许有单位卡的 subtype 是类型词」会当场炸。
 NAME_ALIAS = {
     "Lord Kakophonist": "Varius, Lord Kakophonist",
     "Threnodic Choir Noise Marine": "Threnodic Noise Marine",
-    "Sisters Repentia": "Sister Repentia",
 }
 ALIAS_REV = {}
 
@@ -320,7 +320,8 @@ def main():
         return 1
 
     out = {'_note': '卡面逐张核对（2026-09-13）算出的修正表。来源：'
-                    'Unity/资料/卡表核对_卡图提取/_合并总表.md（1118 张逐张看图抄的）。'
+                    'Unity/资料/卡表核对_卡图提取/_合并总表.md（逐张看图抄的；'
+                    '⚠️ 张数现读 —— 该表会随卡池增长，⛔ 别在这里写死）。'
                     '生成脚本：Unity/工具/gen_cardface_fixes.py。由 gen_cards_engine.py 读取。'
                     '⚠️ 本文件里带 `_manual_` 前缀的说明段与 `desc` 列是**手工维护**的 —— '
                     '脚本会原样保留（见脚本里那段注释），别手删。'}
@@ -330,8 +331,8 @@ def main():
 
     # 🔴 **手工覆盖**（2026-09-14 A4 批 4 加）—— 为什么必须有这一层：
     #    上面 `subtype` / `keywords` 两列是**算出来的**（源是 `_合并总表.md`），
-    #    而那张表**只覆盖了 5 类卡**（部队 586 / 计策 327 / 天赋 104 / 督军 56 / 防御 39
-    #    + 药剂 6 = 1118 行）—— **`6破坏卡` 这一类当年根本没被逐张核对过**。
+    #    而那张表**只覆盖了 5 类卡**（部队 / 计策 / 天赋 / 督军 / 防御 + 药剂；
+    #    当时 = 1118 行，⚠️ **张数现读、别当现状**）—— **`6破坏卡` 这一类当年根本没被逐张核对过**。
     #    实测：`Jammed Communications` / `Cult Propaganda` 的 `subtype` 至今是 `Stratagem` / `Spell`，
     #    而**四张破坏卡的卡面橙字都是 `Sabotage`**（`d:/2/Warpforge部队卡片/Genestealer Cult/6破坏卡/`，
     #    2026-09-14 逐张开图读过）。没有源表行可改 ⇒ 只能在这里手工覆盖。

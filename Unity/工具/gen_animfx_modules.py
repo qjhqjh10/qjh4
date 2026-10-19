@@ -25,6 +25,7 @@ C# 侧 `WFModuleDef` 按**点号键**取值（`GetFloat("cameraShakes[0].delay")
 
 用法：
   "D:/2/Warpforge_tools/py312/python.exe" "d:/4/Unity/工具/gen_animfx_modules.py"
+  加 `--dry` = 只跑计算、打印读数、**零写盘**（默认行为不变；`A1648` 同族口径）。
 """
 import collections
 import datetime
@@ -32,6 +33,9 @@ import io
 import json
 import os
 import sys
+
+# 🔴 `--dry` = 只跑计算、打印读数、**零写盘**。默认（不带它）行为与以前完全一样。
+DRY = "--dry" in sys.argv[1:]
 
 ROOT = r"d:/4/Unity"
 SRC = os.path.join(ROOT, "数据/游戏数据/animfx_components.json")
@@ -247,8 +251,11 @@ def main():
         "cardAnimUnresolved": ca_miss,
         "effects": outp,
     }
-    io.open(OUT, "w", encoding="utf-8", newline="\n").write(
-        json.dumps(out_doc, ensure_ascii=False, indent=1))
+    if DRY:
+        print("干跑（未写盘）：要落盘请去掉 --dry")
+    else:
+        io.open(OUT, "w", encoding="utf-8", newline="\n").write(
+            json.dumps(out_doc, ensure_ascii=False, indent=1))
 
     # 🆕 2026-10-01：**效果 → 模块字段引用的材质名**，写成 TSV 给导出器读。
     #
@@ -264,14 +271,17 @@ def main():
                 if isinstance(v, str) and v.startswith("@asset:Material:"):
                     mat_rows.append((e["name"], v[len("@asset:Material:"):]))
     mat_rows = sorted(set(mat_rows))
-    with io.open(OUT_MATS, "w", encoding="utf-8", newline="\n") as fh:
-        fh.write("# 效果名\t材质名  —— 由 工具/gen_animfx_modules.py 生成，别手改\n")
-        fh.write("# 用途：`EffectExporter.Export()` 按这张表把**只被模块字段引用**的材质也导一遍\n")
-        fh.write("# （原来只导挂在渲染器上的 ⇒ 这 3 张卡材质全部漏掉，见 资料/普查产出_1001/）\n")
-        for a, b in mat_rows:
-            fh.write("%s\t%s\n" % (a, b))
-    print("模块引用的材质：%d 条（%d 个效果）→ %s"
-          % (len(mat_rows), len(set(a for a, _ in mat_rows)), OUT_MATS))
+    if DRY:
+        print("干跑（未写盘）：效果名→材质名 %d 条；要落盘请去掉 --dry" % len(mat_rows))
+    else:
+        with io.open(OUT_MATS, "w", encoding="utf-8", newline="\n") as fh:
+            fh.write("# 效果名\t材质名  —— 由 工具/gen_animfx_modules.py 生成，别手改\n")
+            fh.write("# 用途：`EffectExporter.Export()` 按这张表把**只被模块字段引用**的材质也导一遍\n")
+            fh.write("# （原来只导挂在渲染器上的 ⇒ 这 3 张卡材质全部漏掉，见 资料/普查产出_1001/）\n")
+            for a, b in mat_rows:
+                fh.write("%s\t%s\n" % (a, b))
+        print("模块引用的材质：%d 条（%d 个效果）→ %s"
+              % (len(mat_rows), len(set(a for a, _ in mat_rows)), OUT_MATS))
 
     print("效果 %d 个 / 模块 %d 个 / 引用 node %d · asset %d"
           % (out_doc["effect_count"], out_doc["module_count"], stats["node"], stats["asset"]))
@@ -305,7 +315,12 @@ def main():
     print("模块分布：")
     for k, v in kinds.most_common():
         print("   %-34s %d" % (k, v))
-    print("写出 %s (%.0f KB)" % (OUT, os.path.getsize(OUT) / 1024))
+    if DRY:
+        print("干跑：产物 %s 未写（若存在，%s）"
+              % (OUT, ("%.0f KB" % (os.path.getsize(OUT) / 1024.0))
+                 if os.path.exists(OUT) else "盘上也没有"))
+    else:
+        print("写出 %s (%.0f KB)" % (OUT, os.path.getsize(OUT) / 1024))
     return 0
 
 

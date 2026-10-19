@@ -237,7 +237,10 @@ Shader "WarpforgeVFX/Particles/Extra Color"
                 //    其余 100+ 个是 **2–767 倍**（盘上有 `{r: 766.9961,…}` 的）——
                 //    `Glow Additive Extra Color Soft` 就是 `(4,4,4,1)`。
                 //    ⚠️ **这两个数说的是【材质盘上的值】，不是「原版就用它乘」** ——
-                //      原版乘的是 `LinearToSRGB(_Color)`（2 → 1.276 · 4 → 1.851 · 767 → 16.74）。
+                //      原版乘的是 `LinearToSRGB(_Color)`（按本仓 `LinearToSrgb()` 的常量实算：
+                //      2 → **1.353** · 4 → **1.825** · 8 → **2.454** · 766.996 → **16.74**）。
+                //      🔴 2026-10-19 晚就地订正：这里原来写「2 → 1.276 · 4 → 1.851」，是手算误差。
+                //      EC 那一族现已拆到 `WFParticlesExtraColorEC.shader`（本文件只管内置管线那一族）。
                 //    **实测**：逐渲染器隔离（`WFCMP_ISO=all`）显示 `Buff_Tau_Kroot_FriendlyBoard`
                 //    多出来的亮度 100% 来自用这个材质的两个渲染器、且 **9 倍**
                 //    （原版增量 14926 / 我们 132969）。

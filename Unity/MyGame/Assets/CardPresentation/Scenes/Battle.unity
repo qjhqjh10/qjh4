@@ -1053,7 +1053,7 @@ MonoBehaviour:
   lookToDistance: 45.33
   invertRotation: 0
   cardScale: 0.73005104
-  baselineY: 0.1204
+  baselineY: 0.11
   hoverLift: 0.2777778
   hoverScale: 1.3
   selectedCardExtra: 0.27472222
@@ -1246,7 +1246,8 @@ MonoBehaviour:
   lookToDistance: 10.233403
   invertRotation: 1
   cardScale: 0.54
-  baselineY: 0.9102
+  baselineY: 0.9997037
+  fanCenterX: 0.5
   hoverLift: 0.2777778
   hoverScale: 1.3
   selectedCardExtra: 0.27472222

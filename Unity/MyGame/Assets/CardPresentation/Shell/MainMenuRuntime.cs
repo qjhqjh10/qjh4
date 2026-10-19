@@ -285,8 +285,25 @@ namespace CardPresentation
         /// 原版 `Shop Menu Variant` **没有** `Shared/Close Button` —— 全库只有收藏窗有，所以只能靠左栏）。
         /// ⇒ 导航命中区单独抬到 **3156**（现读空闲槽；**3160 是 `PlayerProfileWindow.QPageBase`**，⛔ 别用）：
         /// 高于窗口那族压暗命中（3002–3140），低于档案窗页内容（3160+）、弹窗/提示层与加载黑场（4071）。
-        /// ⚠️ 只抬**透明命中区**（`Hit`），可见图标/文字/高亮的队列一律不动 ⇒ 画面逐像素不变。</summary>
+        /// ⚠️ 只抬**透明命中区**（`Hit`），可见图标/文字/高亮的队列一律不动 ⇒ 画面逐像素不变。
+        /// <para>🔴 **2026-10-19（界面线 `N117` · 用户拍板「方案 C：按窗类型分」）：它现在是一个【动态档】**——
+        /// 非模态窗（商店/收藏/日常/社交…）开着时仍是 `QNavHit`；**模态窗**（详情窗/确认弹窗/奖励弹窗…）
+        /// 成为最上面那一扇时，这五颗命中区整体降到 <see cref="QNavHitBlocked"/>（低于全工程**最低**的窗压暗层
+        /// `DailyRewardPopup.QShade = 3002`）⇒ 左栏那一片的点击落到**模态窗的压暗层**上（原版：弹窗的
+        /// `Menu Dark Background` 带 `m_RaycastTarget = 1`，而它在 PopUp Holder / 排序层 `PopUps` 里永远压过左栏）。
+        /// 「哪些窗算模态」的唯一判据 = <see cref="GameWindow.BlocksLeftNav"/>（基类按原版 prefab 的两个字段算）。
+        /// 刷新点 = `WindowsManager.OpenWindow` / `NotifyClosed` / `CloseAllWindows` / `SetBaseMenu` 四处
+        /// （见 <see cref="RefreshNavHitQueue"/>）。</para></summary>
         const int QNavHit = 3156;
+
+        /// <summary>🔴 **2026-10-19（`N117`）**：模态窗在场时，左栏命中区降到这一档。
+        /// 取 **3001** 的理由：它必须**严格低于全工程最低的窗压暗层** = `DailyRewardPopup.QShade` /
+        /// `DailyStreakPopup.QShade` / `InboxWindow.QShade` 的 **3002**（这三扇是 `placement=15` 的模态窗）；
+        /// 同时**不撞**任何窗口内容档（窗那一族从 3002 起）。
+        /// ⚠️ **数值撞档（如实记）**：`Deck/DeckRuntime.cs` 的 `QDoneHl` / `QCurveBg` 也是 3001 ——
+        /// 那是**卡组编辑那一屏**（独立场景），与主菜单左栏**不会同屏**（且卡组编辑开窗时左栏已被 `Toggle` 收起）。
+        /// ⛔ 别再往上抬：抬到 3002 就与最低的压暗层**同档**（同队列谁吃命中退化成枚举顺序 —— 本项目踩过三次）。</summary>
+        const int QNavHitBlocked = 3001;
         // ============================================================ 顶栏那一档（2026-10-11：降回**窗口之下**）
         // 🔴 **用户 2026-10-11 裁定：照原版 ⇒ 顶栏整条降到【所有窗 / 弹窗之下】**。
         //    这条**推翻了 2026-09-28 那次拍板**（那次照的是一张**二手实拍**：顶栏盖在窗上）。
@@ -578,7 +595,7 @@ namespace CardPresentation
             }
 
             // ============================================================ 🆕 2026-10-18（E01 · 新手引导线）
-            // **菜单侧 FTUE（原版 `TutorialManager` 的 7 个 `FlowTutorialStage`）** 的挂载点。
+            // **菜单侧 FTUE（原版 `TutorialManager` 的 `FlowTutorialStage` 链）** 的挂载点。
             // 判据（第一权威 = 反编译）：`TutorialManager.Initialize` 在主菜单那一层初始化之后
             //   `PlayTutorial()` → `DelayedPLayTutorial` 找**第一个未完成且未满足**的 stage → `Execute()`。
             // ⇒ 我们这一跳放在**主菜单整棵树建完之后**（= 原版「主菜单初始化完成」那一刻）。
@@ -587,6 +604,10 @@ namespace CardPresentation
             // ⚠️ 指针对准的是**控件节点**（`Navigation Panel/…` / 奖励窗左栏页签 / 模式卡），⛔ 不是坐标 ——
             //   目标窗会动（阶段表 `MenuTutorialStageDef` 的 `Target/TargetInWindow` 就是这两个口）。
             MenuTutorialFlow.Attach(this);
+            // 🆕 **2026-10-19（E01 收尾 · 第二套系统）**：原版 `MainTutorialManager`（`MainTutorialState` + 13 键指针）
+            //   的等价实现 —— 与上面那条链**并存**、各跑各的；同样只由 `-wfftue` / `AutoStart` 启动。
+            //   判据 → `Shell/MenuTutorialManager.cs` 文件头（逐方法对照 + 本地等价物清单）。
+            MenuTutorialManager.Attach(this);
         }
 
         /// <summary>🆕 **2026-10-12（`A1629`）**：**常驻主菜单那一扇**（= 原版 `MainMenuWindow`）。
@@ -806,6 +827,69 @@ namespace CardPresentation
         readonly List<Transform> _navBtns = new List<Transform>();
         readonly List<Vector2> _navBands = new List<Vector2>();
 
+        // ============================================================ 🆕 2026-10-19（N117）左栏命中区的模态闸
+        //
+        // 五颗导航钮的**透明命中区 quad**（`NavButton` 里那一颗 `Hit`）。模态窗在场时整组降到
+        // `QNavHitBlocked`、不在场时回到 `QNavHit` —— 见 `QNavHit` 那段与 `RefreshNavHitQueue`。
+        readonly List<ImageQuad> _navHitQuads = new List<ImageQuad>();
+
+        /// <summary>🔴 **2026-10-19（`N117`）**：按「最上面那一扇窗」刷新左栏命中区的档。
+        /// <para>模态 ⇒ <see cref="QNavHitBlocked"/>（低于所有窗压暗层 ⇒ 点击被压暗层吃掉、**左栏不可点**）；
+        /// 非模态 / 无窗 ⇒ <see cref="QNavHit"/>（保持 2026-10-18 的「商店开着也能点左栏」，**不回退**）。</para>
+        /// <para>判据只有一处：<see cref="GameWindow.BlocksLeftNav"/>（基类照原版 prefab 的
+        /// `windowsPlacement` / `type` 两个字段算）。**幂等**，可在任何时刻重复调。</para>
+        /// <para>调用点（`Shell/WindowsManager.cs` 四处）：`OpenWindow` 末尾 · `NotifyClosed` 末尾 ·
+        /// `CloseAllWindows` 末尾 · `SetBaseMenu` 末尾。⚠️ 本类自己的 `BuildNavigationPanel` 末尾也调一次
+        /// （重建左栏后旧 quad 没了，档要重新落）。</para></summary>
+        void RefreshNavHitQueue()
+        {
+            if (_navHitQuads.Count == 0) return;      // 左栏还没建（或这一场不是主菜单场景）⇒ 无事可做
+            var wm = WindowsManager.Instance;          // ⛔ 不用 `Get()`：刷新不该顺手现建一台窗口管理器
+            var top = wm != null ? wm.TopWindow : null;
+            int q = (top != null && top.BlocksLeftNav) ? QNavHitBlocked : QNavHit;
+            for (int i = _navHitQuads.Count - 1; i >= 0; i--)
+            {
+                var hq = _navHitQuads[i];
+                if (hq == null) { _navHitQuads.RemoveAt(i); continue; }   // Unity 假 null（面板重建/场景换过）
+                hq.SetRenderQueue(q);
+            }
+        }
+
+        /// <summary>窗口层调的那一跳（`WindowsManager` 四处）。**找不到主菜单 ⇒ 什么都不做**（正常：
+        /// 卡组编辑/战场那种没有左栏的场景）。
+        /// <para>⚠️ **刷新「场上所有」主菜单实例**，不是只刷 `InstanceOrFind()` 那台 ——
+        /// 自检里会另起一棵树再 `Build()` 一次（`Editor/MainMenuScene.cs` 的 A855 那三条），
+        /// 只刷「第一台」会让**另一棵**的左栏停在旧档上（静默、且只在多树宿主里现形）。
+        /// 运行期只有一台 ⇒ 这条等价于只刷一台。</para></summary>
+        internal static void RefreshNavHitForTopWindow()
+        {
+            var all = Object.FindObjectsByType<MainMenuRuntime>(FindObjectsSortMode.None);
+            if (all != null && all.Length > 0)
+            {
+                for (int i = 0; i < all.Length; i++)
+                    if (all[i] != null) all[i].RefreshNavHitQueue();
+                return;
+            }
+            // `FindObjectsByType` 默认不收 inactive ⇒ 整棵树此刻不活时兜底用注册的那台（真 Play 有 `Awake`）。
+            var rt = Instance;
+            if (rt != null) rt.RefreshNavHitQueue();
+        }
+
+        /// <summary>自检读口：左栏命中区**这一刻**的档（-1 = 左栏还没建）。</summary>
+        public int NavHitQueueForTest
+        {
+            get
+            {
+                for (int i = 0; i < _navHitQuads.Count; i++)
+                    if (_navHitQuads[i] != null) return _navHitQuads[i].RenderQueue;
+                return -1;
+            }
+        }
+
+        /// <summary>自检读口：`QNavHit` / `QNavHitBlocked` 的真实取值（期望值别在自检里抄字面量）。</summary>
+        public static int QNavHitForTest { get { return QNavHit; } }
+        public static int QNavHitBlockedForTest { get { return QNavHitBlocked; } }
+
         /// <summary>换选中页（左竖导航）。**只有选中的那个画高亮**（语义同原版，见上）。
         /// 🔴 **2026-10-11（`A1522④`）就地改法（⛔ 别退回「销毁整块面板重建」）**：本方法只撤掉旧的高亮那一颗、
         /// 在**新选中的按钮**底下重建一颗 —— 面板本体 / 五颗按钮 / 图标文字**一个都不动**
@@ -862,6 +946,7 @@ namespace CardPresentation
             // 🆕 2026-10-11（`A1522④`）：面板要重建时（重新进主菜单）把「换高亮」那张表也清掉 ——
             //    它就是 `SelectNav` / `RepaintNavHighlight` 的取件口（见 `_navBtns` 那段）。
             _navBtns.Clear(); _navBands.Clear();
+            _navHitQuads.Clear();                 // 🆕 N117：旧面板的命中区随重建一起作废（见 RefreshNavHitQueue）
             // A332：原版 `Navigation Panel` = 191 × 1080（`anchor (0,0)-(0,1)` + `sizeDelta.x 191` ⇒ 整高）
             // 🔴 **2026-10-11（FX6）修**：第二实参原来写 `LayoutSpace.DesignHeight`（**世界单位** 10，不是 px 1080）
             //   ⇒ 高被除两次 108、`rect.height` 只剩 0.093。本行是干净的正对照：宽 `191f` 是 px ⇒ 那条断言本来就过。
@@ -924,6 +1009,11 @@ namespace CardPresentation
             NavButton(holder, 3, "Rewards",    "40k_main_bt_rewards",    603.4f, 773.1f, "MainMenu/NavigationPanel/Rewards",    140.0f, 12.8f, 152.8f, 605.1f, 33f);
             // ⚠️ 第五颗：**键名是 `…/Friends`**（原版 `mTerm` 原文，⛔ 不是 `…/Social`）—— 屏上英文才是 `SOCIAL`。
             NavButton(holder, 4, "Social",     "40k_main_bt_friends",    756.7f, 926.4f, "MainMenu/NavigationPanel/Friends",    140.0f, 12.8f, 152.8f, 758.4f, 33f);
+
+            // 🆕 **2026-10-19（N117）**：五颗命中区建完，按「当前最上面那扇窗」落一次档
+            //   （重建左栏之后旧 quad 已经销毁 ⇒ 上面那几句 `_navHitQuads.Clear()` 把它们丢了，
+            //    不在这里补一次的话会停在**新建时的默认档** = `QNavHit` —— 模态窗开着时就是错的）。
+            RefreshNavHitQueue();
         }
 
         /// <param name="idx">第几个按钮（用来判「选中态」）。</param>
@@ -1017,6 +1107,7 @@ namespace CardPresentation
                 hq.SetAspect((164f) / (y2 - y1));
                 hq.SetTint(new Color(0f, 0f, 0f, 0f));
                 hq.SetRenderQueue(QNavHit);     // 🆕 2026-10-18：见 `QNavHit` —— 子窗开着时左栏也要能点
+                _navHitQuads.Add(hq);           // 🆕 2026-10-19（N117）：交给 `RefreshNavHitQueue` 按模态窗升降
             }
             int captured = idx;
             var wb = hitGo.gameObject.AddComponent<WindowButton>();
@@ -2009,9 +2100,26 @@ namespace CardPresentation
         /// ⛔ `CardH`（1×1）**别删** —— 原版那一档真实存在（`Reward Event Container 1x1` / `1x1 Claim`），
         /// `BuildModeCard` 两条路都留着，将来接 liveop 数据时要按数据选档。</summary>
         const float CardHTall = 848.8f;
-        /// <summary>🔴 **行 y 是我们挑的**：原版由 `FlexibleGridLayout` + `AdaptFlexibleGridLayoutByAspectRatio` 运行时算，
-        /// JSON 里取不到绝对值（§五 E 的 `?（运行时）`，两个候选 = 内容高 945.6 时 row0 top **182.8** / 压成自然高 848.8 时 **134.4**）。
-        /// 我们取 **182.8**（居中那一种）。**这一格没有原版出处，别当成复刻**。</summary>
+        /// <summary>**行 y（1920×1080 设计坐标）= 182.8**。
+        /// 🔴 **2026-10-19（`A1635` · 铁律 5 就地订正）**：原文写「行 y 是我们挑的 / 这一格没有原版出处」——
+        /// **已过期**：182.8 现在**能从原版 prefab 字段 + uGUI 布局语义推出来**，并被用户实拍复核：
+        ///   · `Content`（RT 1107）：anchor y `0..0.936`、sizeDelta.y `1.449`、pivot `(0,.5)`、apos.y `0.724`
+        ///     ⇒ 1920×1080 下矩形 **134.42..1080（高 945.58）**（§五 E）；
+        ///   · `FlexibleGridLayout`（MB 1961，挂在 `Content` 上）：`rows=2 · columns=20 · itemSize 535×414.4 ·
+        ///     spacing (20,20) · padding T0/B0 · m_ChildAlignment=3（MiddleLeft）`
+        ///     ⇒ 网格自然高 `2×414.4+20 = 848.8`，**在 Content 里垂直居中**；
+        ///   · ⇒ `row0 top = 134.42 + (945.58 − 848.8) / 2 = 182.81`。
+        ///   · 另一个候选 **134.4** 要求「网格顶对齐 / Content 压成自然高」，与 MB1961 的 `MiddleLeft` 矛盾。
+        /// 🔴 **实拍复核**（`C:/Users/qjh36/Desktop/warpforge参考图/主界面参考图.png`，1503×883，用户 2026-10-17 确认
+        /// 为关服前最后的主界面）：横向锚点 = 四列卡左沿 218.5/629.5/1040.5/1452.5 ↔ 设计 205/760/1315/1870
+        /// ⇒ 缩放 **0.7405**、设计 x=0 ↔ 屏 x≈66.6（左侧黑边外）；导航标签 5 行间距 113.5 ↔ 设计 153.33
+        /// ⇒ 纵向缩放 **0.740**、设计 y=0 ↔ 屏 y≈0（上下无黑边；底部那条是游戏自己的暗红背景 RGB≈(34,1.5,4.4)，不是黑边）。
+        /// 实拍里卡顶 y≈149、卡底（亮边）y≈845、col3 两张 1×1 的分界 y≈490/505。
+        /// ⚠️ **实拍的游戏窗口不是 16:9**（≈1430×883，aspect≈1.62）：原版 `AdaptFlexibleGridLayoutByAspectRatio.ModifyFlexibleLayout`
+        /// 会把 `itemSize.y` 乘 `max(1, (16/9)/aspect)`（反编译；常量 `1.7777778`/`1.0` 读自 GameAssembly.dll）
+        /// ⇒ 实拍下 itemH≈454.9、网格高≈929.8、中心对齐预测 row0 top≈148.5px（实测 149）、卡底≈844.6（实测≈845）
+        /// ⇒ **模型与实拍逐项吻合**；回到 16:9 即上式的 **182.8**。
+        /// ⚠️ 我们固定用 1920×1080 这一档（16:9）：非 16:9 时原版绝对行 y 会随 aspect 变，本常量不跟着变。</summary>
         const float CardRow0Top = 182.8f;
 
         // ============================================================ 🔴 2026-10-17（界面线 T12）：模式卡横向滚动

@@ -240,6 +240,33 @@ namespace CardPresentation
                                             string eventNote = null,
                                             string[] titleArgs = null, string[] descriptionArgs = null)
         {
+            // 🆕 **2026-10-19（`A1853②`）**：调用方**没给词条键**时，问**离线活动实例提供者**
+            //   `Shell/LiveOpsLocalCatalog.cs` —— 变体决定用哪两条 label（判据 = 本文件头部那张
+            //   「变体 × tag」表：Base/FullScreen = 0/1 · EventHelp 两种 = 0/12 · LiveopEventHelp = 5/12 ·
+            //   BaseExpiration = 10/11），事件实例 = 本地 13 个活动 SO 里**在期**的那一个。
+            //   🔴 **没有在期事件 ⇒ 仍是 null + 出声**（用户边界「过期活动不做」：
+            //   过期事件**一律不选**、⛔ 不拿它顶空态；取不到就照原版 `GetLabel` 写空串）。
+            //   ⚠️ 调用方**给了**的键一个字不动（`SkirmishEventWindow` 那两条已接的就是这样进来的）。
+            if (string.IsNullOrEmpty(titleTerm) || string.IsNullOrEmpty(descriptionTerm))
+            {
+                LiveOpsLocalEvent ev; string why;
+                string tTerm, dTerm; string[] tArgs, dArgs;
+                if (LiveOpsLocalCatalog.TryResolvePopupLabels(variant, LiveOpsLocalCatalog.NowUtc,
+                        out tTerm, out tArgs, out dTerm, out dArgs, out ev, out why))
+                {
+                    if (string.IsNullOrEmpty(titleTerm))
+                    {
+                        titleTerm = tTerm;
+                        if (titleArgs == null) titleArgs = tArgs;
+                    }
+                    if (string.IsNullOrEmpty(descriptionTerm))
+                    {
+                        descriptionTerm = dTerm;
+                        if (descriptionArgs == null) descriptionArgs = dArgs;
+                    }
+                    if (string.IsNullOrEmpty(eventNote) && ev != null) eventNote = ev.EventId;
+                }
+            }
             var go = new GameObject(RootNameOf(variant));
             var win = go.AddComponent<BaseEventPopup>();
             win.Variant = variant;
@@ -415,9 +442,11 @@ namespace CardPresentation
                 if (_warnedNoEventData.Add(key))
                     Debug.LogWarning("[EventPopup] 「" + (EventNote ?? RootNameOf(Variant)) + "」的" + tag
                         + "**没有官方词条键** —— 原版从 liveops 事件的 `EventLabel` 里取"
-                        + "（`LiveOpsAssetUtility.GetLabel`）。🔴 **2026-10-17（`A1853②`）订正**：本地 13 个活动 SO 里"
-                        + "**有 16 个 `Event_Description/*` 键**（见 `ResolveTerm` 的 doc 那张表）"
-                        + " ⇒ 这条多半是**我们这扇窗的调用方还没把事件 id 接进来**，不是「本地没有」"
+                        + "（`LiveOpsAssetUtility.GetLabel`）。🔴 **2026-10-19（`A1853②`）订正**：本地 13 个活动 SO 里"
+                        + "**有 16 个 `Event_Description/*` 键**，而且**已经接上了离线提供者**"
+                        + "（`Shell/LiveOpsLocalCatalog.cs`，`Create` 里按变体问它）"
+                        + " ⇒ 这条现在只会因为「**没有在期事件** / 该事件没有这个 label」而发生"
+                        + "（已过期的活动按用户边界**不做**、⛔ 不拿它顶空态）"
                         + " ⇒ " + tag + "**留空**（= 原版「取不到标签 ⇒ `set_text(空)`」的画面结果）"
                         + "。⛔ 不编文案、⛔ 不拿别的键顶。");
                 return "";

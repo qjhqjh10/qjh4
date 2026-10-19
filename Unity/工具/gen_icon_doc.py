@@ -5,12 +5,16 @@
 （哪个 token 配哪张图、凭什么、还缺什么）。两者同源，就不存在「文档和实现对不上」。
 
 用法：`PYTHONIOENCODING=utf-8 python 工具/gen_icon_doc.py`
+      加 `--dry` = 只跑计算、打印读数、**零写盘**（默认行为不变；`A1648` 同族口径）。
 """
 import json
 import os
 import re
 import sys
 import collections
+
+# 🔴 `--dry` = 只跑计算、打印读数、**零写盘**。默认（不带它）行为与以前完全一样。
+DRY = "--dry" in sys.argv[1:]
 
 sys.stdout.reconfigure(encoding="utf-8")
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -279,9 +283,12 @@ def main():
     A("（字形自身的 `m_Scale ∈ {1.65, 1.7}` 与 `metrics 80×80 / bearingY 60` 已经是**原版的值**，别动。）")
     A("")
 
-    with open(OUT, "w", encoding="utf-8", newline="\n") as f:
-        f.write("\n".join(lines))
-    print(f"落盘 {OUT}（{len(lines)} 行；逐卡明细 {len(rows)} 行；缺口 {len(gaps)} 处）")
+    if DRY:
+        print(f"干跑（未写盘）{OUT}（{len(lines)} 行；逐卡明细 {len(rows)} 行；缺口 {len(gaps)} 处）")
+    else:
+        with open(OUT, "w", encoding="utf-8", newline="\n") as f:
+            f.write("\n".join(lines))
+        print(f"落盘 {OUT}（{len(lines)} 行；逐卡明细 {len(rows)} 行；缺口 {len(gaps)} 处）")
     print("sprite 使用频次 top:", sprite_use.most_common(8))
 
 

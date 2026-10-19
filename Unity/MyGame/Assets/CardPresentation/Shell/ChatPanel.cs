@@ -343,6 +343,13 @@ namespace CardPresentation
             var optBtns = Node(_options, "Buttons", new PxRect(176.58f, 399f, 563.88f, 727f));
             string[] acts = { "Add as a friend", "Challenge", "Report message", "Block player", "Profile" };
             string[] nodes = { "Add as a friend", "Challenge", "Report", "Block", "Profile" };
+            // 🆕 **2026-10-19（战斗线 `T17`）**：四颗钮的**官方词条**（逐颗实读 `bundle_menus_assets_all`
+            //   的 `Localize.mTerm`：`MainMenu/Chat/{Add,Challenge,Report,Block}`）。
+            //   `Profile` 那颗 prefab 上**没有 `Localize`** ⇒ 保留原 TMP 文本 `Profile`（⛔ 别拿
+            //   `PlayerProfile/Profile` 硬套 —— 它是另一扇窗的标题，没有证据表明原版这颗钮用它）。
+            //   ⚠️ `acts[i]` 仍是**动作 id**（`OnOption` 按它分支 + 日志），`actTerms[i]` 只决定**印什么字**。
+            string[] actTerms = { "MainMenu/Chat/Add", "MainMenu/Chat/Challenge", "MainMenu/Chat/Report",
+                                  "MainMenu/Chat/Block", null };
             for (int i = 0; i < nodes.Length; i++)
             {
                 float y = OptPanelR.y1 + 50f + i * OptRowStep;
@@ -352,12 +359,23 @@ namespace CardPresentation
                 // 🔴 **A406**：`Holder/Chat/Player Options Panel/Buttons/{Add as a friend,Challenge,Report,
                 //   Block,Profile}/Button Text` 五颗**逐颗读过** —— 全是 `auto[10.0~**30.0**] 基准=**12.0**`
                 //   ⇒ 上限 30（= 标称）· base **12.0**。判据 = 同一条 `menu_dump … "ChatPanel" --depth 10 --md`。
-                Text(row, new PxRect(rowR.x1 + 12.69f, rowR.y1 - 19.65f, rowR.x2 - 13.84f, rowR.y1 + 57.14f),
-                     acts[i], Color.white, "Button Text", 30f, QText, 10f, false, 30f, 12f,
+                string shown = actTerms[i] != null ? Loc.T(actTerms[i]) : acts[i];
+                var textR = new PxRect(rowR.x1 + 12.69f, rowR.y1 - 19.65f, rowR.x2 - 13.84f, rowR.y1 + 57.14f);
+                Text(row, textR, shown, Color.white, "Button Text", 30f, QText, 10f, false, 30f, 12f,
                      face: TmpFont.Face.LatinCardBody);
                 string act = acts[i];
                 // 🆕 A17：原版 `Chat>Player Options Panel>Buttons>*` 五颗都是 SpriteSwap（普查 §块 5 第 19 行）
-                var oh = MenuDraw.Hit(row, "Hit", rowR, QHit, () => OnOption(act),
+                // 🆕 **2026-10-19（战斗线 `T16` · 命中区全仓普查）**：命中区 = **底图 ∪ `Button Text`**
+                //   （原版那两颗**都吃射线**：钮底图 `Image.m_RaycastTarget=1`、`Button Text` 那颗 TMP
+                //    也 `m_RaycastTarget=1`，两处 pad 都是 `(0,0,0,0)`；判据 = 本包 prefab 直读
+                //    `ChatPanel::Holder/Chat/Player Options Panel/Buttons/<5 颗>`）。
+                //   原版并集 = **357.30×86.17**（文字那颗 330.77×86.17 把整行上下各撑出 ≈20.9）。
+                //   ⚠️ **我们画的 `Button Text` 只有 76.79 高**（`rowR.y1−19.65 … +57.14`）⇒ 并集按
+                //   **我们画出来的文字框**算（77.25 高），⛔ 不照抄原版 86.17 —— 那会在画的东西外面
+                //   留一圈点得到但看不见的区。文字高度差 9.4px 是**另一笔**（A406 的文字几何），
+                //   不属本件（本件不改视觉 rect）。
+                var hitR = MenuDraw.Union(rowR, textR);
+                var oh = MenuDraw.Hit(row, "Hit", hitR, QHit, () => OnOption(act),
                                       clickCue: WindowSounds.PositiveCue);
                 var owb = oh != null ? oh.GetComponent<WindowButton>() : null;
                 if (owb != null) owb.BindNine(rowNine, "UI_Button_Mulligan");

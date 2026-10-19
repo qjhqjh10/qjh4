@@ -23,11 +23,15 @@
 
 用法：
   PYTHONIOENCODING=utf-8 D:/2/Warpforge_tools/py312/python.exe d:/4/Unity/工具/gen_skybox_cubemap.py
+  加 `--dry` = 只跑计算（仍逐面解码、验长度）、打印读数、**零写盘**（`A1648` 同族口径）。
 产物：`Assets/WarpforgeArena1/skybox/{pZ,mZ,pX,mX,pY,mY}.png`（6 张 256²，**按 Unity 的 `Skybox/Cubemap` 面序**）
 """
 import io
 import os
 import sys
+
+# 🔴 `--dry` = 只跑计算、打印读数、**零写盘**。默认（不带它）行为与以前完全一样。
+DRY = "--dry" in sys.argv[1:]
 
 sys.stdout.reconfigure(encoding='utf-8')
 
@@ -79,28 +83,36 @@ def main():
     print('  从 %s 切出 %d 字节' % (RES_S_NAME, len(blob)))
 
     # ---- 3. 逐面解 BC6H ----
-    os.makedirs(OUT_DIR, exist_ok=True)
+    if not DRY:
+        os.makedirs(OUT_DIR, exist_ok=True)
     for i, name in enumerate(FACE_ORDER):
         mip0 = blob[i * FACE_STRIDE:i * FACE_STRIDE + MIP0_BYTES]
         px = t2d.decode_bc6(mip0, FACE_W, FACE_H)      # 出 RGBA 8bit
         if len(px) != FACE_W * FACE_H * 4:
             raise SystemExit('面 %s 解码长度不对：%d' % (name, len(px)))
         dst = os.path.join(OUT_DIR, name + '.png')
-        Image.frombytes('RGBA', (FACE_W, FACE_H), px, 'raw', 'RGBA').save(dst)
-        print('  → %s' % dst)
+        if DRY:
+            print('  ○ %s（干跑：解出 %d 字节，未落盘）' % (name, len(px)))
+        else:
+            Image.frombytes('RGBA', (FACE_W, FACE_H), px, 'raw', 'RGBA').save(dst)
+            print('  → %s' % dst)
 
     # ---- 4. 把材质参数落一份，Unity 侧照抄 ----
     params = os.path.join(OUT_DIR, 'material_params.json')
-    with io.open(params, 'w', encoding='utf-8') as fp:
-        fp.write('{\n'
-                 '  "material": "Skybox Clouds Dusk",\n'
-                 '  "shader": "Skybox/Cubemap",\n'
-                 '  "_Tint": [0.5490196, 0.5061521, 0.4039216, 0.5],\n'
-                 '  "_Exposure": 0.67,\n'
-                 '  "_Rotation": 0.0\n'
-                 '}\n')
-    print('  → %s' % params)
-    print('✅ 6 面导出完毕（Unity 侧由 ArenaBuilder.SetupSkybox 建 Cubemap 资产 + 材质）')
+    if DRY:
+        print('  ○ %s（干跑：未落盘）' % params)
+    else:
+        with io.open(params, 'w', encoding='utf-8') as fp:
+            fp.write('{\n'
+                     '  "material": "Skybox Clouds Dusk",\n'
+                     '  "shader": "Skybox/Cubemap",\n'
+                     '  "_Tint": [0.5490196, 0.5061521, 0.4039216, 0.5],\n'
+                     '  "_Exposure": 0.67,\n'
+                     '  "_Rotation": 0.0\n'
+                     '}\n')
+        print('  → %s' % params)
+    print('✅ 6 面导出完毕（Unity 侧由 ArenaBuilder.SetupSkybox 建 Cubemap 资产 + 材质）'
+          if not DRY else '干跑（未写盘）：6 面都能解出；要落盘请去掉 --dry')
     return 0
 
 

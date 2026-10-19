@@ -95,7 +95,7 @@ public static partial class RuleEngineTest
             }
         }
 
-        // ---- ② 正例 · 真卡（`BL38 Child of Torment`，卡面亲读的那一句）----
+        // ---- ② 正例 · 真卡（`BL20 Child of Torment`，卡面亲读的那一句）----
         //   改前实测：`verb=gain payload=[+1 ranged] target={T:Raw=«when a unit receives damage,» …}`
         //   —— 载荷其实是对的，**错的只有目标段**（Kind=unit / Side=any / Count=1）
         //   ⇒ 这一格的判别式**只有 `Target.Raw`**，所以单独钉一条。
@@ -109,7 +109,7 @@ public static partial class RuleEngineTest
                       "★ 目标段空的 —— 改前它是 `when a unit receives damage,`（**从句整个被吃成目标**）");
         }
 
-        // ---- ③ 反例 · 多段互不吃掉（`DA17 Ravenwing Champion` 的真实形状）----
+        // ---- ③ 反例 · 多段互不吃掉（`DA15 Ravenwing Champion` 的真实形状）----
         //   `Rally: Gain 1 Quest Point. When you create a Secret, deal 3 damage to a random enemy`
         //   实测：2 条 op = `gainquest` ＋ `whenclause` ⇒ 前缀形**只领走它自己那一段**。
         {
@@ -126,7 +126,7 @@ public static partial class RuleEngineTest
         //   原版「打出一张牌」这条广播对**打出那张牌自己**的意义就是「**结算我自己的正文**」
         //   （`CardScript__ResolveCardPlayed.c` / `__NonTargetSpellPlayed.c` 传的就是自己），
         //   ⇒ `CardDef.CanListenForEvents` 那句注释也点明「给 `played` 单开一条 = 造一条永远不响的监听器」。
-        //   实据：战术卡 `DA47 Reconnaissance Mission` 的 desc 第 2 段。
+        //   实据：战术卡 `DA42 Reconnaissance Mission` 的 desc 第 2 段。
         //   ⚠️ 本条的**闸**是第 ② 道：`played` 省主语 ⇒ `WhenEvents.ParseAll` 认不出 ⇒ `TryParseWhenSentence` 为假
         //      ⇒ 我的新分支**天然收不到它**，它照旧落到 `TryGain` 那条老路（`gainquest 3`）。
         {
@@ -142,7 +142,7 @@ public static partial class RuleEngineTest
             // 端到端口径：真卡整条 desc 也不许出现 `whenclause`
             var pool = CardDatabase.Load();
             var rm = CardDatabase.Find(pool, "Reconnaissance Mission");
-            CheckTrue(rm != null, "卡池里找得到 `Reconnaissance Mission`（`DA47`）");
+            CheckTrue(rm != null, "卡池里找得到 `Reconnaissance Mission`（`DA42`）");
             var all = rm == null ? null : EffectText.Parse(rm.Desc, out _, out _);
             CheckTrue(!S23HasWhenClause(all),
                       "★ **灭自证**：`DA47` 的整条 desc 里**一条 `whenclause` 都不许有** —— "
@@ -199,7 +199,7 @@ public static partial class RuleEngineTest
         // ---- ⑧ 全池扫描 · **爆炸半径**：非单位卡里只许有 1 张被这段领走，且那张是手牌陷阱 ----
         //   为什么单钉这一条：前缀形在**单位卡**上「解出的 op 没人执行」（`WillRunOps` 只读注册层），
         //   但在**战术卡**上 `PlayTactic` → `Parse(Desc)` **会真执行** ⇒ 若被误领，效果会静默消失。
-        //   实测：全池战术/防御卡里**只有 `GSC_Jammed_Communications`** 一张（它是**手牌陷阱**，
+        //   实测：全池战术/防御卡里**只有 `68909cf02f472734ea391665e0d28e15`** 一张（它是**手牌陷阱**，
         //   效果走 `HandTrapWhens` + `BroadcastHandTrapWhen`，与主解析器无关）。
         {
             var pool = CardDatabase.Load();
@@ -325,7 +325,7 @@ public static partial class RuleEngineTest
         // ---- ③ 真卡对照：真池里那几张降费卡**逐张不受影响** ----
         //   全池 `desc` 含 `Lower cost by` 的 5 张（现读，`cards_engine.json`）：
         //     `AM60` / `AM61` / `TAU66` / `TL70` / `UM40`。
-        //   ✅ **2026-10-13（第二十五会话 · `A1689`）`UM_Avenging_Zeal` 已经注册上了** —— 它原来
+        //   ✅ **2026-10-13（第二十五会话 · `A1689`）`UM40` 已经注册上了** —— 它原来
         //      **不在**下面这张名单里，它那句
         //      `Lower cost by 1 when a friendly Troop or Stratagem trigger [Codex icon] Codex`
         //      认不出，三个卡点：**动词不带 `s`**（`… stratagem trigger codex …`）· **图标记号
@@ -336,7 +336,7 @@ public static partial class RuleEngineTest
         //      **只对 `unit`/`hero` 做**，而它是 `tactic` ⇒ 它**从来没进过**那一栏（铁律 5 就地订正）。
         //   ⚠️ 下面 4 张**量过**（同一把尺子）：把它们的**原句**塞进卡池副本当夹具跑 `willrun`
         //      ⇒ 「降费触发器」那一栏 **1 条 → 4 条**（1 = `TL70`，＋ 这 3 句）。
-        //      `UM_Avenging_Zeal` 现在**一并列进来**（改前它会让 `CostWhens.Count >= 1` 直接红）。
+        //      `UM40` 现在**一并列进来**（改前它会让 `CostWhens.Count >= 1` 直接红）。
         {
             var pool = CardDatabase.Load();
             var expect = new[]
@@ -345,7 +345,7 @@ public static partial class RuleEngineTest
                 "Vengeance for Cadia",      // AM61
                 "Burgeoning Empire",        // TAU66
                 "Norn Emissary",            // TL70（全池唯一落「降费触发器」栏的那张）
-                "Avenging Zeal",            // UM_Avenging_Zeal（`A1689` 修好之后才进得来 —— 见上面那段）
+                "Avenging Zeal",            // UM40（`A1689` 修好之后才进得来 —— 见上面那段）
             };
             foreach (var name in expect)
             {
@@ -381,7 +381,7 @@ public static partial class RuleEngineTest
     /// <summary>
     /// **降费句里的【图标记号】与【并列主语】**（2026-10-13 · 账 `A1689`）。
     ///
-    /// 验收本体 = 真卡 `UM_Avenging_Zeal` 那句
+    /// 验收本体 = 真卡 `UM40` 那句
     /// `Lower cost by 1 when a friendly Troop or Stratagem trigger [Codex icon] Codex`
     /// **注册进 `CardDef.CostWhens`**（改前 = 0 —— 卡面印着降费、机制静默不发生）。
     /// 三个卡点：① 动词**不带 `s`**（`… stratagem trigger codex …`）② 图标记号 `[Codex icon]`

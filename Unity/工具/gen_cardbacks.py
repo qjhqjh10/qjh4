@@ -29,12 +29,16 @@
 
 输出：`MyGame/Assets/CardPresentation/Resources/Cardbacks.json`
 用法：`python d:/4/Unity/工具/gen_cardbacks.py`
+      加 `--dry` = 只跑计算、打印读数、**零写盘**（默认行为不变；`A1648` 同族口径）。
 """
 import io
 import json
 import os
 import sys
 import glob
+
+# 🔴 `--dry` = 只跑计算、打印读数、**零写盘**。默认（不带它）行为与以前完全一样。
+DRY = "--dry" in sys.argv[1:]
 
 SO_DIR = "d:/2/新解包资源/assets_full/bundle_cosmeticsso_assets_all/MonoBehaviour"
 TEX_DIR = "d:/4/Unity/MyGame/Assets/CardPresentation/Resources/Art/cardbacks"
@@ -186,6 +190,10 @@ def main():
     print("阵营分布:", dict(collections.Counter(r["army"] or "(空)" for r in items)))
     if missing or unmatched_so or unknown_army or bad_default or no_metrics or len(defaults) != 13:
         print("🔴 有对不上的 —— **先把上面几行查清再决定要不要写**")
+        return
+    if DRY:
+        print("干跑（未写盘）：表里 %d 项 + %d 个默认卡背；要落盘请去掉 --dry"
+              % (len(items), len(defaults)))
         return
     io.open(DST, "w", encoding="utf-8", newline="\n").write(text)
     print("已写:", DST)

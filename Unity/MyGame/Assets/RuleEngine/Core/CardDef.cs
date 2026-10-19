@@ -354,7 +354,7 @@ namespace RuleEngine
 
         public CardDef(string id, string name, string type, string desc, string rarity, string faction,
                        int cost, int attack, int health, int rangedAttack,
-                       IEnumerable<string> keywords,
+                       IEnumerable<string> keywords = null,
                        string nameZh = null, string descZh = null, bool fromOriginalPool = false,
                        string subtype = null, string goesSecondId = null,
                        int inventoryOptions = -1, int showInCollectionOptions = -1,
@@ -2566,12 +2566,6 @@ namespace RuleEngine
                     foreach (string seg in EffectText.Split(item)) AddWhenTrigger(seg);
         }
 
-        /// <summary>
-        /// 一段卡面文字 → 事件监听器（`When …`）**和/或** 事件触发式降费（`… when …`）。
-        ///
-        /// ⚠️ 一段里**两种都可能有**（`Draw 3 cards. Lower cost by 1 when an enemy dies` 是两段，
-        ///    但 `When X, Y` 只有一种）。所以这里不是 if/else，是**两次独立的尝试**。
-        /// </summary>
         /// <summary>🆕 2026-09-16 `triggers:mob` → `mob`（别的种类返回 null）。
         /// 判据转调 `WhenEvent.TriggersPrefix` —— **只有那一处知道前缀长什么样**。
         /// 用途：把「再触发一次」的额度绑到事件里的那个机制上（见 `AddWhenTrigger` ①）。</summary>
@@ -2583,6 +2577,12 @@ namespace RuleEngine
             return kw.Length == 0 ? null : kw;
         }
 
+        /// <summary>
+        /// 一段卡面文字 → 事件监听器（`When …`）**和/或** 事件触发式降费（`… when …`）。
+        ///
+        /// ⚠️ 一段里**两种都可能有**（`Draw 3 cards. Lower cost by 1 when an enemy dies` 是两段，
+        ///    但 `When X, Y` 只有一种）。所以这里不是 if/else，是**两次独立的尝试**。
+        /// </summary>
         void AddWhenTrigger(string seg)
         {
             if (string.IsNullOrEmpty(seg)) return;
@@ -3871,6 +3871,20 @@ namespace RuleEngine
         public const string Stimulation = "stimulation";
         /// <summary>**伏击**（基因窃取者）：`面朝下打出；下次回合前若被伤害：翻开无效果；若未被伤害：翻开并触发效果`（规则书 `:166`）。</summary>
         public const string Ambush = "ambush";
+
+        /// <summary>🆕 2026-10-19（战斗线 `T21` 缺口 B）：**附魔卡被触发**
+        /// （原版 `AbilityTrigger.TriggerEnchantment = 500`，`dump.cs:20298`）。
+        ///
+        /// **它不是卡面 trait** —— 是原版 `RawCardScript.TriggerAbilities` 的 **trigger id 名**
+        /// （`CardScript__AddEffect.c:776-792` 的 case 8 → `Enchantments.GetMarkOfChaos(...)`
+        /// → `RawCardScript__TriggerEnchantment.c:7-13` → `TriggerAbilities(附魔卡, 500)`）。
+        /// 放进这张表是因为 `BattleEvent.Keyword` 那一格装的就是「触发这一下的是哪条 trigger」
+        /// （`FireTriggerAt` 的 `ctx.Emit(..., keyword: keyword, …)`），而表现层 `VfxMap` 要按它
+        /// 做 keyword-aware 归口 —— 比对的另一侧是 `CardDef.CardAnimTime.TriggerName`（**同一套枚举名**）。
+        ///
+        /// ⚠️ `PlayTraitPulse` / `PlayTraitParticles` 会把它当 trait 键查一次 —— 查不到是**预期**的
+        /// （单位身上没有这条 trait），只会在日志里说一次，不是静默失败。</summary>
+        public const string TriggerEnchantment = "TriggerEnchantment";
 
         /// <summary>
         /// **伴生 X**（`Companion X`，2026-09-13 A2）：**从手牌打出时，可打出至多 X 张其伴生部队**

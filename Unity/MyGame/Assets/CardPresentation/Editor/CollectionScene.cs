@@ -811,7 +811,7 @@ public static class CollectionScene
             //    · `WindowsManager` **没有 `[ExecuteAlways]`**（`Shell/WindowsManager.cs` 里**只有** `WindowHolder` 那颗**有**）
             //      ⇒ `Awake` 不跑 ⇒ **`Instance` 恒 null**（`Instance` 只在 `Awake` 里赋，
             //      **批处理下那句从不执行**）。判据（**四条独立记录**，全是踩过的坑）：
-            //      `Shell/PromptPopup.cs` 的 `WindowButton` 类注 · `Shell/MainMenuRuntime.cs` 里那条「编辑模式下 `Awake` 不跑」 · `Shell/PointerLayer.cs:47-48`
+            //      `Shell/WindowButton.cs` 的 `WindowButton` 类注（⚠️ 2026-10-19 订正：原写 `Shell/PromptPopup.cs`）· `Shell/MainMenuRuntime.cs` 里那条「编辑模式下 `Awake` 不跑」 · `Shell/PointerLayer.cs:47-48`
             //      · `资料/已知的坑.md:704`（「编辑模式下 `Awake/OnEnable`/`Update` **只对带 `[ExecuteAlways]`
             //      的脚本**才跑」）。
             //    · ⇒ **任何走 `WindowsManager.EnsureHost()` 的开窗路径都会【再建一台】**（它在 `Instance == null`
@@ -917,6 +917,21 @@ public static class CollectionScene
         }
 
         public static void Run()
+        {
+            // 🔴 **2026-10-19（`A1534` 尾巴 · 铁律 11）**：批处理自检**不出声** —— `WFSoundPlayer.Enabled = false`
+            //   时那个开关自己的契约是「**只记账不发声**：不建对象、不出声，但 `Played` 照样涨」
+            //   ⇒「音效调度算对了没有」那一族断言**照旧有效**，而这一趟**不白建一堆 `AudioSource`、不白播**。
+            //   先例 = `WarpforgeArena1/Editor/AnimFXCheck.cs:341-366`（同一个开关、同一个 `finally` 还原）。
+            //   ⚠️ 它是**全局静态开关** ⇒ 必须在 `finally` 里还原；`RunCore` 本体保持原样（只换了名字）。
+            bool prevSoundEnabled = WarpforgeVFX.WFSoundPlayer.Enabled;
+            WarpforgeVFX.WFSoundPlayer.Enabled = false;
+            try { RunCore(); }
+            finally { WarpforgeVFX.WFSoundPlayer.Enabled = prevSoundEnabled; }
+        }
+
+        /// <summary>`Run()` 的**本体**（🆕 `A1534` 尾巴：`Run` 只负责「关音效 → 调它 → 还原」这一圈）。
+        /// ⚠️ 入口仍是 `Run`（`-executeMethod CollectionScene.Run` 一个字没变）。</summary>
+        static void RunCore()
         {
             _sink.Pass = 0; _sink.Fail = 0; _sink.Failures.Clear();
             Directory.CreateDirectory(ShotDir);
@@ -1948,7 +1963,7 @@ public static class CollectionScene
                     //   `EverguildButton__SoftDisable(editButton, !CanImportDeck(popup, context.Deck))`，
                     //   而那颗钮的 `colorTintGreyOnDisable = 1`（真包实读 MB `-8697463422759302744`）
                     //   ⇒ `SwitchMaterial` → **图形件材质换成 `Everguild/UI/Greyscale`**（不是改颜色、不是调 alpha）。
-                    // 我们这一侧 = `WindowButton.SetSoftDisabled`（`Shell/PromptPopup.cs`），实现只有一份。
+                    // 我们这一侧 = `WindowButton.SetSoftDisabled`（`Shell/WindowButton.cs`；⚠️ 2026-10-19 订正：原写 `Shell/PromptPopup.cs`），实现只有一份。
                     // 🔴 **要核的是「可见的那张底图」**：这颗钮的 `WindowButton` 挂在**透明命中区** `Btn_Edit Deck`
                     //    上，可见的底是**兄弟节点** `Bg Edit Deck`（原版 `Selectable.m_TargetGraphic` 就指向它）
                     //    ⇒ 只灰命中区 = 一个像素都不变（静默）。
@@ -3506,6 +3521,15 @@ public static class CollectionScene
                     {
                         esel.TryOpen(null);
                         esel.SwitchTab(true);                  // 「我的卡组」页才吃模式筛（预组页不筛）
+                        // 🆕 **2026-10-19（第五十六会话 · `N46` 收尾）**：选卡组弹窗的**滚动灵敏度**。
+                        //   期望值 = 原版 `Deck Selection Popup/…/Deck Display/Collection Display/Deck Scroll View`
+                        //   （带页签那份同值）那台 `ScrollRect.m_ScrollSensitivity` = **100**；
+                        //   判据 → `资料/普查产出_1017/UI/D_N29_滚动灵敏度逐视图.md` §「选卡组弹窗」两行。
+                        //   ⛔ 不读 `MenuScroll.DefaultNotchPx`（自证）。
+                        //   ⚠️ 这条以前一直没补，是因为 `DeckSelectionPopup` 的生产宿主不是本自检文件 ——
+                        //      但本文件**现场开了一扇**（上面那句 `Create`）⇒ 就在这里咬住它。
+                        CheckNear(esel.Scroll != null ? esel.Scroll.NotchPx : -1f, 100f, 0.001f,
+                                  "选卡组弹窗滚动灵敏度 = **100**（原版 `Deck Selection Popup/…/Deck Scroll View`）");
                         Check(esel.ShownCount, 0, "（前提）这一页被筛空了 ⇒ 空态那句话才真上屏（非空时它是空串）");
                         var ewnA = FindChild(esel.transform, "Empty Collection Warning");
                         var ewtA = ewnA != null ? FindChild(ewnA, "Warning") : null;   // ⛔ 不写 "…/Warning"：`FindChild` 不认斜杠路径
@@ -10011,7 +10035,7 @@ public static class CollectionScene
             //    （`Shell/DeckInfoPopup.cs` 的 `OnOption`）**直接打它的原话**，`DeckCount()` 那个间接判据**已删**。
             //  **A610 改了**：`OnOption` 里那三支失败（删失败 1 + 复制失败 2，A611 后并成 2 句）从 `Debug.Log`
             //    **统一成 `Debug.LogWarning`**（失败本来就是警告级：`CollectionData` 自己的失败 / `Blocked()` /
-            //    `PromptPopup.Click` 全是 `LogWarning`）。⛔ **成功那两句不动**（仍是 `Debug.Log`）。
+            //    `WindowButton.Click`（`Shell/WindowButton.cs`；⚠️ 2026-10-19 订正：原写 `PromptPopup.Click` —— `PromptPopup` 类没有 `Click`）全是 `LogWarning`）。⛔ **成功那两句不动**（仍是 `Debug.Log`）。
             //  ⚠️ **两件都**没有原版判据：原版卡组存在**服务器**上（`CardDeck.syncedToServer`，见
             //    `RuleEngine/Data/DeckLibrary.cs` 文件头）⇒ 本地这条链没有原版对应物；判据 = 本项目红线
             //    「⛔ 不许静默失败」+ A503 已经定下的那套口径。⛔ 本件没另立一套。

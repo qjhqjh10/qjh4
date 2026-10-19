@@ -21,6 +21,7 @@
    等于白背三份死资产（踩过一次，已挪到 `_tmp_view/`）。
 
 用法：PYTHONIOENCODING=utf-8 python Unity/工具/gen_pragati_digits.py
+      加 `--dry` = 只跑计算、打印读数、**零写盘**（默认行为不变；`A1648` 同族口径）。
 """
 import io, json, os, sys
 
@@ -28,6 +29,9 @@ import numpy as np
 from PIL import Image
 
 sys.stdout.reconfigure(encoding="utf-8")
+
+# 🔴 `--dry` = 只跑计算、打印读数、**零写盘**。默认（不带它）行为与以前完全一样。
+DRY = "--dry" in sys.argv[1:]
 
 ASSETS = "d:/2/新解包资源/assets_full/bundle_fonts_assets_all"
 FONT_JSON = os.path.join(ASSETS, "MonoBehaviour/Pragati-Regular SDF.json")   # ⚠️ 名字里有空格，路径照抄
@@ -179,20 +183,23 @@ def main():
             meta[tag][ch] = dict(x=x, y=y, w=c["w"], h=c["h"],
                                  adv=c["adv"], bearing_x=c["bearing_x"])
 
-    os.makedirs(os.path.dirname(OUT_PNG), exist_ok=True)
-    img.save(OUT_PNG)
-    json.dump(dict(rows=meta, cell=[cell_w, cell_h], digit_h=DIGIT_H,
-                   note="由 工具/gen_pragati_digits.py 从原版 Pragati-Regular SDF 图集生成，别手改"),
-              io.open(OUT_JSON, "w", encoding="utf-8"), ensure_ascii=False, indent=1)
-    # 再出一份**纯文本表**给 C# —— `JsonUtility` 解不了「字典键是数字」的结构，
-    # 而这份表就是 10×2 行数字，用 `Split(',')` 读最省事（也不用引 JSON 库）。
-    with io.open(OUT_TXT, "w", encoding="utf-8", newline="\n") as fh:
-        fh.write("# variant,digit,x,y,w,h,adv,bearing_x   由 gen_pragati_digits.py 生成，别手改\n")
-        for tag in tags:
-            for ch in DIGITS:
-                m = meta[tag][ch]
-                fh.write("%s,%s,%d,%d,%d,%d,%.4f,%.4f\n"
-                         % (tag, ch, m["x"], m["y"], m["w"], m["h"], m["adv"], m["bearing_x"]))
+    if DRY:
+        print("干跑（未写盘）：%s / %s / %s" % (OUT_PNG, OUT_JSON, OUT_TXT))
+    else:
+        os.makedirs(os.path.dirname(OUT_PNG), exist_ok=True)
+        img.save(OUT_PNG)
+        json.dump(dict(rows=meta, cell=[cell_w, cell_h], digit_h=DIGIT_H,
+                       note="由 工具/gen_pragati_digits.py 从原版 Pragati-Regular SDF 图集生成，别手改"),
+                  io.open(OUT_JSON, "w", encoding="utf-8"), ensure_ascii=False, indent=1)
+        # 再出一份**纯文本表**给 C# —— `JsonUtility` 解不了「字典键是数字」的结构，
+        # 而这份表就是 10×2 行数字，用 `Split(',')` 读最省事（也不用引 JSON 库）。
+        with io.open(OUT_TXT, "w", encoding="utf-8", newline="\n") as fh:
+            fh.write("# variant,digit,x,y,w,h,adv,bearing_x   由 gen_pragati_digits.py 生成，别手改\n")
+            for tag in tags:
+                for ch in DIGITS:
+                    m = meta[tag][ch]
+                    fh.write("%s,%s,%d,%d,%d,%d,%.4f,%.4f\n"
+                             % (tag, ch, m["x"], m["y"], m["w"], m["h"], m["adv"], m["bearing_x"]))
 
     # ── 给 C# 的**数据源文件** ────────────────────────────────────────────────
     # 为什么不走 `Resources` 的 PNG：读像素要 `m_IsReadable=1`，而那个位在 `.meta` 里
@@ -219,12 +226,16 @@ def main():
            .replace("__H_DIGIT__", str(DIGIT_H))
            .replace("__ROWS__", "\n".join(lines))
            .replace("__B64__", b64))
-    io.open(OUT_CS, "w", encoding="utf-8", newline="\n").write(src)
+    if DRY:
+        print(f"干跑（未写盘）{OUT_CS}（base64 {len(b64)} 字符 / {len(packed)} 字节）；要落盘请去掉 --dry")
+    else:
+        io.open(OUT_CS, "w", encoding="utf-8", newline="\n").write(src)
 
-    print(f"写出 {OUT_PNG}  {img.size}  · 每格 {cell_w}×{cell_h} · 字高 {DIGIT_H}px")
-    print(f"      {OUT_JSON}")
-    print(f"      {OUT_TXT}")
-    print(f"      {OUT_CS}  （base64 {len(b64)} 字符 / {len(packed)} 字节，**生成物，别手改**）")
+    print(f"{'干跑（未写盘）' if DRY else '写出'} {OUT_PNG}  {img.size}  · 每格 {cell_w}×{cell_h} · 字高 {DIGIT_H}px")
+    print(f"      {OUT_JSON}" + ("（干跑：未写）" if DRY else ""))
+    print(f"      {OUT_TXT}" + ("（干跑：未写）" if DRY else ""))
+    print(f"      {OUT_CS}  （base64 {len(b64)} 字符 / {len(packed)} 字节，**生成物，别手改**）"
+          + ("（干跑：未写）" if DRY else ""))
 
 
 if __name__ == "__main__":

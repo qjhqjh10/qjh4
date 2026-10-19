@@ -7,6 +7,16 @@
 //   **不是原版、不是权威，只能当对照/旁证**（`rule_test.gd` 同理 —— 那是**那一版自己的**测试）。
 //   下面凡引 `rule_core.gd:<行>` 的，一律读作「我们上一版当时怎么写的」（旁证），别当原版结论。
 //   出处 = `CLAUDE.md` 铁律 2 的 2026-09-18 更正（全仓已按该口径订正过）。
+//
+// 🔴 **2026-10-19（`A1944`）断言文案里的「规则书 :N」是什么 —— 边界判定**：
+//   本文件**字符串里**有 32 处「规则书 :N」，**绝大多数是【断言标签 / 可复查坐标】**，
+//   不是引擎的判据依赖。判据 = 下列两条一起读：
+//   ① **只有期望值的来源才算判据** —— 本文件的期望值一律是硬编码常量（⛔ 不从我们自己的实现读回）；
+//      标签里那句「规则书 :N」只是**给人看的出处坐标**，删了它断言照样红/绿。
+//   ② 凡是**期望值只有粉丝规则书一条支撑**的（如遭遇模式起手 4 / 上限 8），标签已经显式写
+//      「⚠️ 非官方来源」—— 那是**如实标的旁证**，不是「拿它当权威」。
+//   ⚠️ 同族另两处在**白名单外**：`CardPresentation/Editor/BattleScene.cs`（10 行）与
+//      `CardPresentation/Core/Badges.cs`（1 行）—— 引擎线写手不动，留给界面线。
 // 测试里挑的是**同一批语义**的用例、同样的输入与期望值 ——
 // **不一致就是移植错了**，而不是「我的实现更合理」。
 // ⚠️ 2026-10-18 更正：本节原写「语义基准是 `d:/warpforge/scripts/rule_core.gd` 的那份测试
@@ -371,6 +381,9 @@ public static partial class RuleEngineTest
         Section("阵营资源事件（信仰 / 灵魂石 / 任务点）真的发得出来");
         Step(TestFactionResourceEvents);
 
+        Section("🆕 DA1 隐藏能力（任务点 → 隐秘）：余数语义 / CreatesSecret / 随机 Insert / 阈值读取（2026-10-19）");
+        Step(TestQuestTriggeredSecretFidelity);
+
         Section("只有单位卡才当事件监听者（`played` 是误报，不是漏做）");
         Step(TestListenerCardType);
 
@@ -468,6 +481,14 @@ public static partial class RuleEngineTest
         //     （那边才有真的 `BattleDriver` 与真的关卡数据）。
         Section("教程执行器 · 引擎侧：卡上攻击型 + 脚本动作解析（A938）");
         Step(TestTutorialEngineHalf);
+
+        // 🆕 2026-10-19（T11 · G-3 / G-4）：教程脚本的两条「不要抽」闸 + 回合末附魔
+        Section("教程 · `dontDrawCard` / `dontDrawTalent` / 回合末附魔（T11 G-3/G-4）");
+        Step(TestTutorialDontDrawAndTurnEndEnchantment);
+
+        // 🔴 2026-10-19（`A1990`③）：「新单位落地入口」清单的**结构**断言（⛔ 不再靠「我 grep 过」）
+        Section("🔴 入口清单（A1990）：新单位落地入口 = 4 + 2 特例（按 `new UnitState(` 扫描）");
+        Step(TestNewUnitEntryList);
 
         // ============================================================
         //  🆕 2026-10-18（W5）：引擎侧那一批残账（5 件）
@@ -636,9 +657,9 @@ public static partial class RuleEngineTest
         //     含「改前会是什么样」那一档，判别式就是这么写出来的。
         //  ⚠️ 每条都带 `🧨`：**什么改动能让它红**。⛔ 没写 `🧨` 的断言一律当没写。
         //  ⛔ `A1399`（`WhenEvent.cs` 的自排除守卫）**不在本节** —— 它的改法落点在别人的文件上。
-        Section("🆕 第十九会话 断言批：引擎欠账（`A1469` / `EC28` / `A1471` / `A1258` / `A1397②` / `A1335③` / `A1428`）");
+        Section("🆕 第十九会话 断言批：引擎欠账（`A1469` / `EC12`（旧 `EC28`） / `A1471` / `A1258` / `A1397②` / `A1335③` / `A1428`）");
         Step(TestA1564EcstasyHeadGates);        // A1469 门① / 门①-bis（合成夹具）
-        Step(TestA1564Ec28SlayStopsAtEcstasy);  // A1469 同根因（真卡 EC28 的断句）
+        Step(TestA1564Ec28SlayStopsAtEcstasy);  // A1469 同根因（真卡 EC12（旧 id `EC28`）的断句）
         Step(TestA1564DA25WhenBodyCarry);       // A1471
         Step(TestA1564AboutToAttackCancel);     // A1258
         Step(TestA1564StealthExpiryAfterDropPod); // A1397②
@@ -2488,7 +2509,7 @@ public static partial class RuleEngineTest
         //      · 本进程**第一次** `Load()` ⇒ 索引**空** ⇒ 卡面写卡名的目标**一个都认不出**；
         //      · 之后每一次 `Load()` ⇒ 是上一趟那份（内容一样 ⇒ **看不出来**）。
         //    ⇒ 同一份卡表、同一张卡，**第一次装载**与**第二次装载**解析出**不同的 op**。
-        //    判据与实测（差 1 张，`UM_Angels_of_Death`）→ `CreatePool.BuildNameIndexFromNames` 的 doc。
+        //    判据与实测（差 1 张，`UM64`）→ `CreatePool.BuildNameIndexFromNames` 的 doc。
         //
         //  **本格怎么才能红**（三条，任一被推翻就红）：
         //    ① 把 `CardDatabase.Parse` 里那句 `BuildNameIndexFromNames(...)` 挪回
@@ -2497,7 +2518,7 @@ public static partial class RuleEngineTest
         //    ③ 改成「先造 `CardDef`、再补索引」的两段式而**不重解析** ⇒ 同上。
         //  ⚠️ **前提那两条**也要盯：`MatchCardName` 必须先真的返回 null（否则「清空」这步没生效，
         //     本格会**假绿**）；`CardDatabase.Load()` 必须真把池子装回来。
-        //  ⚠️ 期望值来源 = **卡面字面**：`UM_Angels_of_Death` 的 `desc` 印着
+        //  ⚠️ 期望值来源 = **卡面字面**：`UM64` 的 `desc` 印着
         //     `… to your Primaris Intercessor`，而池里**真有一张卡叫这个名字**
         //     （`CardCriteria.Name` 那条纪律：认不认它**只看池里有没有**）——
         //     ⛔ 不是从实现里现算的。
@@ -2512,7 +2533,7 @@ public static partial class RuleEngineTest
             CheckTrue(fresh.Count >= 1000, $"（前提）重新装载拿到 {fresh.Count} 张");
             CardDef aod = null;
             foreach (var c in fresh) if (c != null && c.Id == "UM64") { aod = c; break; }
-            CheckTrue(aod != null, "（前提）新装的那一份里有 `UM_Angels_of_Death`");
+            CheckTrue(aod != null, "（前提）新装的那一份里有 `UM64`");
             if (aod != null)
             {
                 var cop = aod.TriggerOps("codex");
@@ -4184,7 +4205,7 @@ public static partial class RuleEngineTest
     /// <summary>
     /// 🎯 **一号验收靶**（待办第 7 行 · 用户 2026-09-18 点名的）+ 那一句「**另一份不许被误伤**」。
     ///
-    /// 卡面：`DA41 Master of Manoeuvre` = `Ephemeral. Return a friendly Vehicle to your hand.
+    /// 卡面：`7c45a641ec845994097d185af58715f6 Master of Manoeuvre` = `Ephemeral. Return a friendly Vehicle to your hand.
     /// **It** costs 4 less`（中文：「将 1 个我方载具移回你的手牌。该单位费用减少 4」）。
     ///
     /// 为什么它是「实例身份」的教科书例子（**两层**都要对）：
@@ -4821,7 +4842,7 @@ public static partial class RuleEngineTest
     ///   ⇒ **「按 `CardDef.Id` 记一条全局修正」不等价**：同一个 `Id` 的**所有份**会一起被影响，
     ///     而原版只影响**被指的那一张**。下面那条标着「★ 判别式」的断言盯的就是这一件事。
     ///
-    /// **一号靶 = 真卡** `Dynamic Offensive`（`TAU54`，`faction = TauEmpire`）：
+    /// **一号靶 = 真卡** `Dynamic Offensive`（`TAU47`，`faction = TauEmpire`）：
     ///   `Draw 2 troops from your deck. If they are Battlesuits, give them Flank.`
     /// 抽上手的那两份**战斗服**该拿到 `Flank`（**打出时兑现**），
     /// 而**同一张卡模板的第三份**（还在牌库里、没被 `them` 指到）**一点都不该拿到**。
@@ -4831,8 +4852,8 @@ public static partial class RuleEngineTest
         var pool = CardDatabase.Load();
         var tac = CardDatabase.Find(pool, "Dynamic Offensive");
         var bs = CardDatabase.Find(pool, "Crisis Battlesuit");
-        CheckTrue(tac != null, "夹具：卡池里有 `Dynamic Offensive`（`TAU54`）");
-        CheckTrue(bs != null, "夹具：卡池里有 `Crisis Battlesuit`（`TAU15`）");
+        CheckTrue(tac != null, "夹具：卡池里有 `Dynamic Offensive`（`TAU47`）");
+        CheckTrue(bs != null, "夹具：卡池里有 `Crisis Battlesuit`（`TAU11`）");
         if (tac == null || bs == null) return;
         Check(bs.Subtype, "Battlesuit", "夹具：`Crisis Battlesuit` 的兵种是 `Battlesuit`（条件要判它）");
         CheckTrue(!bs.Has("flank"), "夹具：它**本来没有** Flank（否则判别式不成立）");
@@ -6268,7 +6289,7 @@ public static partial class RuleEngineTest
                 // ①-b **差一个尾 `s` 的**（`Extermination Protocol` ↔ `Extermination Protocols`）——
                 //     🔴 **2026-09-16 改判**：这一条原来钉的是「只报近似的、**不拿它顶替**」，
                 //     现在**改成认了**。理由（铁律 7：**逐张开成品卡图核过**）：
-                //       · `Awakened Obelisk`（`SAU65` · Defence）卡面印的是
+                //       · `Awakened Obelisk`（`SAU59` · Defence）卡面印的是
                 //         `… add **Extermination Protocol** to your hand` —— **单数**
                 //         （`d:/2/Warpforge部队卡片/Necron/5防御卡/Warpforge_65_Awakened-Obelisk.png`）；
                 //       · 而池里那张（`SAU45`）**自己那张 PnP 卡图印的也是单数**
@@ -7499,14 +7520,14 @@ public static partial class RuleEngineTest
         }
 
         // ---- 🆕 2026-09-13 第三十三轮：**同名卡不再一起降价**（发稳定 id 修掉的那条）----
-        // 原版有 3 组跨阵营同名卡（`Terminator` = EmperorsChildren `EC22` / Ultramarines `UM82` …，
+        // 原版有 3 组跨阵营同名卡（`Terminator` = EmperorsChildren `EC25` / Ultramarines `UM103` …，
         // 另两组 `Terminator Champion` / `Maulerfiend` 见 `TestCardIds` 的 `pairs` 表）。
         // 改之前 `CostMod.Key` 存的是**归一化卡名**，所以给一张降费会**连另一阵营那张一起降** ——
         // 而且**不报错**。现在 `Key` 是 `CardDef.Id`，两张各自独立。这条钉住它，别再退回卡名。
         // ⚠️ **2026-10-17 换过这一组的样本**：原来用的那对是 `Bladeguard Veteran`
         //    （DarkAngels / Ultramarines）—— 那个「同名」是 2026-09-13 一次**错改名**的产物
-        //    （`UM34` 照 PnP 卡图文件名被改成了 `Bladeguard Veteran`），2026-10-17 已撤回，
-        //    `UM34` 现在叫 `Bladeguard Lieutenant` ⇒ 旧的 `Find(pool, "Bladeguard Veteran",
+        //    （`UM23`〔2026-10-18 `K06` 重编号前是 `UM34`〕照 PnP 卡图文件名被改成了 `Bladeguard Veteran`），2026-10-17 已撤回，
+        //    `UM23` 现在叫 `Bladeguard Lieutenant` ⇒ 旧的 `Find(pool, "Bladeguard Veteran",
         //    "Ultramarines")` 返回 **null**，这条断言必红（改前实测）。
         //    判据见 `资料/普查产出_1017/W_B16_教程数据缺口.md` §①（卡图 / 语音 / 头像 / 教程 SO /
         //    本地化键五条一致）。换的这组是**真同名**：`EC22` 与 `UM82` 的 `Name` 逐字相同。
@@ -8349,7 +8370,7 @@ public static partial class RuleEngineTest
         //    ⚠️ **改前那条路才是坏的那条**：HEAD 对这句产出 **0 条 op**
         //      （`ruleprobe seg` 实测 `unparsed = 整句`）⇒ `RuleCore.PlayTactic` 拿到空 op 表
         //      = **扣了费什么都不发生**（本仓红线点名的最难查的一类）。改后至少有 `whenclause` 出声。
-        //    ⚠️ **这一句是真卡**：`GSC_Jammed_Communications`（`Jammed Communications` · tactic ·
+        //    ⚠️ **这一句是真卡**：`68909cf02f472734ea391665e0d28e15`（`Jammed Communications` · tactic ·
         //      Genestealers 的**破坏卡**，卡面橙字 `Sabotage`）。「判据必须在知道卡类的地方」
         //      这条原则**没被破坏** —— 它由另外三处继续承载，而且三处都绿：
         //        · `CardDef.IsHandTrap(CardDef)`（`CardDef.cs:4209`，该卡 = `true`）
@@ -9043,15 +9064,15 @@ public static partial class RuleEngineTest
         // （挑法见 `gen_cards_engine.py` 的 `pick_id`：**按阵营前缀挑，挑不出就自造**）。
         // ⚠️ **2026-10-17 从 4 组变成 3 组**：第 4 组原来是 `Bladeguard Veteran`
         //    （`DarkAngels` 的 `DA26` vs `Ultramarines` 的 `UM34`）—— 那组的「同名」是
-        //    2026-09-13 一次错改名的产物（`UM34` 照 PnP 卡图文件名被改成 `Bladeguard Veteran`），
-        //    2026-10-17 已撤回，`UM34` 现在叫 `Bladeguard Lieutenant`（判据见
+        //    2026-09-13 一次错改名的产物（`UM23`〔重编号前 `UM34`〕照 PnP 卡图文件名被改成 `Bladeguard Veteran`），
+        //    2026-10-17 已撤回，`UM23` 现在叫 `Bladeguard Lieutenant`（判据见
         //    `资料/普查产出_1017/W_B16_教程数据缺口.md` §①）⇒ **这一组不许再写回来**。
-        //    实测剩下的三组（`cards_engine.json` 逐条扫）：`Terminator`（EC22 / UM82）·
-        //    `Terminator Champion`（BL44 / EC33）· `Maulerfiend`（BL46 / EC39）。
+        //    实测剩下的三组（`cards_engine.json` 逐条扫）：`Terminator`（EC25 / UM103）·
+        //    `Terminator Champion`（BL29 / EC26）· `Maulerfiend`（BL31 / EC30）。
         // ⚠️ **2026-09-16 这里从 5 组变成 4 组**：原来第 5 组是 `Aggressor`
-        //    （`DarkAngels` 的 `DA12` vs `SpaceWolves` 的自造 id `SW_Aggressor`）——
+        //    （`DarkAngels` 的 `DA9` vs `SpaceWolves` 的自造 id `SW_Aggressor`）——
         //    那个 SW 行查明是**重复行**，已从 `card_stats.json` 删掉。判据（三条独立证据）：
-        //      · 它与 `DA12` 那条**除 `faction`/`factionId` 外逐字段相同**
+        //      · 它与 `DA9` 那条**除 `faction`/`factionId` 外逐字段相同**
         //      · 它自己的 `subtitle` 写 `Dark Angels`、`ocrSrc` 指向
         //        `Dark Angels\Core\Warpforge_12_Aggressor.png`、语音是 `VO_DA_Aggressor`
         //      · 原版 bundle 里 SW 阵营**没有**独立的 Aggressor ——
@@ -9065,7 +9086,7 @@ public static partial class RuleEngineTest
             new[] { "Maulerfiend",         "BlackLegion",     "EC30" },
             // ⚠️ **2026-10-17 删掉了一行**：原来是第 4 组
             //    `new[] { "Bladeguard Veteran", "DarkAngels", "UM23" }` —— 它量的**不是**同名跨阵营了：
-            //    `DA26` 仍叫 `Bladeguard Veteran`，而 `UM34` 已撤回成 `Bladeguard Lieutenant`
+            //    `DA23` 仍叫 `Bladeguard Veteran`，而 `UM23` 已撤回成 `Bladeguard Lieutenant`
             //    （判据见 `资料/普查产出_1017/W_B16_教程数据缺口.md` §①）。三条断言虽然还绿
             //    （找得到 / id 不同 / 按 id 反查），但**前提没了** ⇒ 整组删掉，别留着凑数
             //    （留着的话，下一个人会以为「UM34 和它同名」）。撤回后同名组 4 → 3，就是下面三行。
@@ -9082,7 +9103,7 @@ public static partial class RuleEngineTest
                       $"……按 id `{p[2]}` 反查**回到同一张**（{b?.Faction}）");
         }
         // ⚠️ **2026-09-16 改写了这一段**：原来拿 `Aggressor`/`SpaceWolves` 当**自造 id** 的样本
-        //    （`SW_Aggressor`）。那个 SW 行查明是 `DA12` 的重复行、已从数据里删掉
+        //    （`SW_Aggressor`）。那个 SW 行查明是 `DA9` 的重复行、已从数据里删掉
         //    ⇒ 自造 id 现在**只出现在「原版 id 表里查不到」的卡上**，不再与同名跨阵营绑定。
         //    ⇒ 改成**覆盖全部自造 id**（判据：id 里带 `_`，见 `gen_cards_engine.py` 的 `pick_id`）——
         //      比钉死一张卡稳，也不怕以后再增删。
@@ -9564,7 +9585,7 @@ public static partial class RuleEngineTest
         }
 
         // ---- ⑤ 尺子自己抓出来的另外两张：`target is a <兵种>` ----
-        //    `Vex Machinator`（`BL48`）：`Deal 5 damage to an enemy. If target is a Vehicle, destroy it`
+        //    `Vex Machinator`（`BL33`）：`Deal 5 damage to an enemy. If target is a Vehicle, destroy it`
         //    `Armoury of Excess`（`EC60`）：`… If target is a friendly troop, … If target is an enemy, …`
         //    这三句原来**一个字都归一不出来**（`ConditionKind` 是空的）⇒ 判不了、同样静默 ——
         //    它们**不是**这次普查一开始就点名的，是**这把尺子自己抓出来的**（说明尺子有用）。
@@ -9593,7 +9614,7 @@ public static partial class RuleEngineTest
     ///   丢掉的图标」，不该改句子，而它的**覆盖优先级高于** `card_stats.json`（后者是对的）。
     ///   ⇒ 这张 6 费卡**打出去消灭一个敌方单位**，探针还报「认了 · 0 · 0」。
     ///
-    /// **② `Prayer`（`SOR48`）—— 解析侧**：
+    /// **② `Prayer`（`SOR39`）—— 解析侧**：
     ///   卡面（逐字核过 `Sorotitas/4计策/Warpforge_48_Prayer.png`）印
     ///   `Give ⊙Shield to a friendly unit. If the unit has ▲Pray gain 1 ☀` —— **`Pray` 和 `gain`
     ///   之间真的没有逗号**。而 `TryIf` 原来那句 `comma &lt; 4 → return false` 直接判「不是 if 句」
@@ -9625,7 +9646,7 @@ public static partial class RuleEngineTest
         // ---- ② `Prayer`：那句没逗号的 `If` 必须带上条件 ----
         {
             var pr = FindCard(pool, "Prayer");
-            CheckTrue(pr != null, "卡池里找得到 `Prayer`（`SOR48`）");
+            CheckTrue(pr != null, "卡池里找得到 `Prayer`（`SOR39`）");
             if (pr != null)
             {
                 var ops = EffectText.Parse(pr.Desc, out _, out _);
@@ -10309,7 +10330,7 @@ public static partial class RuleEngineTest
     ///   同族还有 `Companion N: <卡名>` / 光环 / 开局上手 —— 引擎自己有「谁接手」的判据，
     ///   ⛔ 别在这里另写一套。
     ///
-    /// ⚠️ **同一段正文在 `desc` 和 `keywords` 里各印一遍是常态**（实测 `ASH32 Dire Avenger Exarch`
+    /// ⚠️ **同一段正文在 `desc` 和 `keywords` 里各印一遍是常态**（实测 `ASH63 Dire Avenger Exarch`
     ///   两处都是 `Rally: All enemies lose Stealth and Camouflage`）⇒ 按「头 + 正文」去重，
     ///   否则**同一个洞会被数两次**、把「收漏了几条」这个数灌水。
     ///   ⛔ 去重键**不含 `where`**：段落在哪儿印的不改变它是一条正文这件事。</summary>
@@ -10346,7 +10367,7 @@ public static partial class RuleEngineTest
     /// 🔴 **它补的是哪道缝**：<see cref="AddWillRunFace"/> 在 `col &lt;= 0`（= 这一句没有 `Head:`）时
     ///   **直接 return** ⇒ 「卡面没有头、又没被消费」的句子**永远不可能是腿 B 的段**、也就**永远不会进任何一档**。
     ///   实测后果（探针 `A1459`）：`SW18 Hrolf the Ironhowl`（`Friendly Beasts cost 1 less.`）/
-    ///   `GSC71 Atalan Leader`（`Friendly Vehicles cost 1 less.`）/ `GSC36 Metamorph Leader`
+    ///   `GSC71 Atalan Leader`（`Friendly Vehicles cost 1 less.`）/ `GSC30 Metamorph Leader`
     ///   （`Your troops cost 1 less.`）**三张真缺陷**正是**因为这道缝**躲开了清单。
     ///
     /// ⚠️ **「无头」的判据 = `AddWillRunFace` 拒收那一条的【同一个表达式】**（`s.IndexOf(':') &gt; 0` 才算有头）——
@@ -10372,7 +10393,7 @@ public static partial class RuleEngineTest
     ///    1. `CardDef.HandledByOtherLayer` —— 事件层 / 天赋 / 伴生 / 开局上手 / 光环 / 静态改战斗规则；
     ///    2. `EffectText.AtTurnClauses` —— **回合起止从句**：它**不在** `WillRunOps` 里，
     ///       由 `EffectResolver.ResolveAtTurn:4792` 直接扫 `u.Card.Desc` 消费 ⇒ 无头、解得开、腿 A = 0，
-    ///       **但它确实在跑**（`AM15 Master of Ordnance` 那一批）。
+    ///       **但它确实在跑**（`AM18 Master of Ordnance` 那一批）。
     ///       ⚠️ **不加这道闸会把这一族整整 19 条误报成「无消费点」**（探针实测：本档最容易误报的一处）；
     ///    3. `CardDef.CostWhens` 的 `Body` —— **降费触发器**（`Lower cost by N every time …`，
     ///       `TL70 Norn Emissary`）：`_costWhens` **不经过 `WillRunOps`**（那个方法只收
@@ -10417,9 +10438,9 @@ public static partial class RuleEngineTest
     static void ClassifyWillRunFace(CardDef c, WillRunFace b)
     {
         // ① 同一个头**本卡注册过**（`TriggerTexts` 是公开面）⇒ 两份正文不一样，后者被「先到先得」丢了。
-        //    实测（探针，同一族两例）：`ASH79 Howling Banshee Exarch` 的 `Strike` 在 `desc` 里写
+        //    实测（探针，同一族两例）：`ASH69 Howling Banshee Exarch` 的 `Strike` 在 `desc` 里写
         //    `Give +1 [Attack] to your units`、在 `keywords` 里写 `Give +1 to your units`；
-        //    `DA9 Ravenwing Bikes` 的 `Agenda` 在两处写 `Gain 1 Quest Point` / `Gain 1`。
+        //    `DA7 Ravenwing Bikes` 的 `Agenda` 在两处写 `Gain 1 Quest Point` / `Gain 1`。
         //    ⚠️ 这不是「空转」（效果照样由另一份跑）⇒ **单独一档、不算缺陷**。
         var tt = c.TriggerTexts;
         if (tt != null && tt.ContainsKey(b.Head))
@@ -10607,8 +10628,8 @@ public static partial class RuleEngineTest
                     // 🔴 **判据换成引擎自己的那一个**：`GivePayload.Parse` 会给「本版不认识」的段打
                     //    `PayloadOp.Unresolved`（2026-09-16 加的「**丢段看得见**」）——
                     //    那正是「吞了半句还自称认了」的定义，比文本启发式准得多，而且**与结算层同源**。
-                    //    ⚠️ 这一条**不看文本启发式有没有命中**：`UM58` / `GOF_Worst_Temper` /
-                    //       `TAU74` 那三张（`加`/`放弃` 的段）就是「文本看着正常、载荷真的丢了半句」。
+                    //    ⚠️ 这一条**不看文本启发式有没有命中**：`UM43` / `8425b809e9e64e24f9035f709f5aaee4` /
+                    //       `TAU74`（⚠️ 现该 id 是 `Thundering Rampage`；原意所指卡未查清）那三张（`加`/`放弃` 的段）就是「文本看着正常、载荷真的丢了半句」。
                     string un = null;
                     var pops = GivePayload.Parse(o.Payload);
                     if (pops == null || pops.Count == 0) un = "载荷**整条**解释不出来";
@@ -10970,7 +10991,7 @@ public static partial class RuleEngineTest
     /// 🔴 **2026-09-16 收尾两条**：`Beastboss on Squigosaur`（引号里的动词）·
     /// 多段载荷丢段（**改成「看得见」而不是「整条失败」**）· 外加一个**会崩进程的潜伏雷**。
     ///
-    /// **① `Beastboss on Squigosaur`（`GOF90`）** —— 卡面逐字：
+    /// **① `Beastboss on Squigosaur`（`GOF91`）** —— 卡面逐字：
     ///   `Stomp. Friendly Beasts cost 1 less and have "💀 Slay: Gain Blood Thirst this turn"`
     ///   真意 = **给全体友方 Beast 挂上那个 `Slay:` 能力**（+ 给它们降 1 费）。
     ///   病根：`ReGain` 的 `(.+?)` 非贪婪 ⇒ 吃掉**引号里**那个 `Gain`
@@ -10982,10 +11003,10 @@ public static partial class RuleEngineTest
     ///     光环那条路由 ③ 那条断言盯。
     ///
     /// **② 多段载荷丢段** —— `ParseInto` 的 `any` 只看「有没有一段解出来」，解不出的段
-    ///   **不留任何痕迹**。实测受影响的只有 **4 张**（`UM58` 丢 `1 health` · `GOF_Worst_Temper`
-    ///   丢 `wings flying` · `TAU74` 丢 `+1 power` · `DA21` 丢 2 点任务）。
+    ///   **不留任何痕迹**。实测受影响的只有 **4 张**（`UM43` 丢 `1 health` · `8425b809e9e64e24f9035f709f5aaee4`
+    ///   丢 `wings flying` · `TAU74`（原意所指卡未查清）丢 `+1 power` · `DA18` 丢 2 点任务）。
     ///   🔴 **不改「一段不认识就整条 null」**：那会把**现在还能用的那半一起打掉**
-    ///   （`UM58` 从「+1近战/+1远程」变成一点不给）——**用缩水换可见不划算**。
+    ///   （`UM43` 从「+1近战/+1远程」变成一点不给）——**用缩水换可见不划算**。
     ///   ⇒ 走第三条路：**保留 `any`，但给认不出的段留一个 `PayloadOp.Unresolved` 标记**，
     ///     让结算日志 + `Mechanized`（⇒ 卡面 `*` + 覆盖率）三处同时亮。
     ///
@@ -11000,7 +11021,7 @@ public static partial class RuleEngineTest
         var pool = CardDatabase.Load();
         {
             var bb = FindCard(pool, "Beastboss on Squigosaur");
-            CheckTrue(bb != null, "卡池里找得到 `Beastboss on Squigosaur`（`GOF90`）");
+            CheckTrue(bb != null, "卡池里找得到 `Beastboss on Squigosaur`（`GOF91`）");
             if (bb != null)
             {
                 var ops = EffectText.Parse(bb.Desc, out _, out _);
@@ -11042,7 +11063,7 @@ public static partial class RuleEngineTest
         }
 
         // ---- ③ 丢段要**看得见** ----
-        //    ⚠️ 判据得用一段**真认不出的载荷**。`UM58` 那句（`+1 melee attack, +1 ranged attack
+        //    ⚠️ 判据得用一段**真认不出的载荷**。`UM43` 那句（`+1 melee attack, +1 ranged attack
         //      and 1 health`）2026-09-16 已经被顺手接上了（裸 `N <属性>`），所以不能再用它。
         //    这里用的是一段**构造出来的**载荷（`a kustom job of your choice` 那半段在
         //    `GivePayload` 层仍然不认识 —— 它现在是在**句子层**被 `TryChooseEffect` 接住的，
@@ -11060,12 +11081,12 @@ public static partial class RuleEngineTest
             CheckTrue(!mech, "★ 而且 `Mechanized` 判**没有机制**（否则报表与卡面照旧放行）。"
                            + "实得 why=「" + why + "」");
 
-            // **反向**：`UM58` 那句现在**整条解得出来**（裸 `N <属性>` 本轮接上了）
+            // **反向**：`UM43` 那句现在**整条解得出来**（裸 `N <属性>` 本轮接上了）
             var u = GivePayload.Parse("+1 melee attack, +1 ranged attack and 1 health");
             int uUnresolved = 0;
             if (u != null) foreach (var p in u) if (p.Unresolved) uUnresolved++;
             CheckTrue(u != null && u.Count == 3 && uUnresolved == 0,
-                      "★ 反向：`UM58` 那句（`… and 1 Health to your troops`）**现在整条解得出来**"
+                      "★ 反向：`UM43` 那句（`… and 1 Health to your troops`）**现在整条解得出来**"
                       + " —— 实得 " + (u == null ? "null" : u.Count + " 项 / " + uUnresolved + " 个标记"));
         }
 
@@ -11082,7 +11103,7 @@ public static partial class RuleEngineTest
         //      ⇒ `ApplyHandBuffs` 打出一张时只跑**一遍** `Ops` ⇒ 永远只 +1；② 数据侧少了 `Stomp`。
         {
             var nb = FindCard(pool, "Beast Snagga Nob");
-            CheckTrue(nb != null, "卡池里找得到 `Beast Snagga Nob`（`GOF81`）");
+            CheckTrue(nb != null, "卡池里找得到 `Beast Snagga Nob`（`GOF82`）");
             if (nb != null)
             {
                 CheckTrue(nb.Keywords.ContainsKey("stomp"),
@@ -11106,7 +11127,7 @@ public static partial class RuleEngineTest
                 // 结算：跑三次 `EndTurn`（换边 P0·P1·P0）⇒ **P0 自己的回合结束只有两次**
                 //   ⇒ 那张手牌上该挂**两份**载荷（第三次是 P1 的回合末，P0 的单位**不该**响）。
                 //   🔴 **2026-10-19（第五十五会话 E10 · `A2001`）：原来是「三个回合结束 ⇒ 三份」** ——
-                //      第三份其实来自**手牌扫描那条 bug**（`GOF81` 本身还在手牌里，未出场却在
+                //      第三份其实来自**手牌扫描那条 bug**（`GOF82` 本身还在手牌里，未出场却在
                 //      P0 回合末结算了自己的 at-turn 句）。引擎已按原版改成「单位卡不进手牌那一趟」，
                 //      期望值随之改成 2（并且**精确等于 2** —— 多出 1 就是 bug 路又回来了）。
                 var beast = new CardDef("FixBeast", "FixBeast", "unit", "", null, "Test",
@@ -11136,22 +11157,22 @@ public static partial class RuleEngineTest
                           + $" ⇒ 棋盘上那趟 **每次 +1**，实得最多 {opsOnBeast} 份 / 共 {entriesOnBeast} 条 entry：{dump}"
                           + "｜🧨 改之前只 `Count++`、`Ops` 不变 ⇒ **永远只 +1**（静默少算）⇒ 实得 1、本行红"
                           + "｜🧨 把单位卡重新放回 `ResolveAtTurn` 的**手牌扫描**（`A2001` 修掉的那条 bug）"
-                          + " ⇒ 手牌里那份 `GOF81` 也会在 P0 的两次回合末各响一次 ⇒ 实得 3、本行红");
+                          + " ⇒ 手牌里那份 `GOF82` 也会在 P0 的两次回合末各响一次 ⇒ 实得 3、本行红");
             }
         }
 
         // ---- ⑤ 两条新的载荷写法（2026-09-16，都是**先把账修好**才浮出来的）----
         {
-            // `UM58 Knights of Macragge`：`Give +1 Melee Attack, +1 Ranged Attack and 1 Health to your troops`
+            // `UM43 Knights of Macragge`：`Give +1 Melee Attack, +1 Ranged Attack and 1 Health to your troops`
             var a1 = GivePayload.Parse("1 Health");
             CheckTrue(a1 != null && a1.Count == 1 && a1[0].Attr == "health" && a1[0].Value == 1,
                       "★ 裸 `1 Health` 认得出（改之前那个 `1` 被 `ReLeadingNoise` 当「数量」剥掉、"
-                      + "只剩 `health`，而它**不在 `GiveKw` 表里** ⇒ `UM58` 那半句从来不给）。实得 "
+                      + "只剩 `health`，而它**不在 `GiveKw` 表里** ⇒ `UM43` 那半句从来不给）。实得 "
                       + (a1 == null ? "null" : a1.Count + " 项 / " + a1[0].Attr + "=" + a1[0].Value));
 
-            // `GOF_Worst_Temper`：`Your Warlord gains +1 [Attack], [Shield] Armour 1 and [Wings] Flying this turn`
+            // `8425b809e9e64e24f9035f709f5aaee4`：`Your Warlord gains +1 [Attack], [Shield] Armour 1 and [Wings] Flying this turn`
             var wt = FindCard(pool, "Worst Temper");
-            CheckTrue(wt != null, "卡池里找得到 `Worst Temper`（`GOF_Worst_Temper`）");
+            CheckTrue(wt != null, "卡池里找得到 `Worst Temper`（`8425b809e9e64e24f9035f709f5aaee4`）");
             if (wt != null)
             {
                 var ops = EffectText.Parse(wt.Desc, out _, out _);
@@ -11246,7 +11267,7 @@ public static partial class RuleEngineTest
                   "★ **记号被压掉、原文里不叠词**。🧨 改坏法：把 `ParseInto` 里 "
                   + "`w = ReDupMarker.Replace(w, \"$1\");` 那一句去掉 ⇒ 这里实得 `Shield Shield`（红）");
 
-            // `GOF100 Da Old Ways` 的卡面原文片段（`If it already has [Stomp] Stomp, give it …`）
+            // `GOF101 Da Old Ways` 的卡面原文片段（`If it already has [Stomp] Stomp, give it …`）
             var gof = GivePayload.Parse("[Stomp] Stomp");
             CheckTrue(gof != null && gof.Count == 1 && gof[0].Keyword == "stomp" && gof[0].Value == 1,
                       "★ `GOF100` 的 `[Stomp] Stomp` ⇒ **一项 `stomp`、值 1**。实得 "
@@ -11318,7 +11339,7 @@ public static partial class RuleEngineTest
         var pool = CardDatabase.Load();
 
         // ---- J1 同名跨阵营：英文各不相同、中文却一模一样（= 中文串了）----
-        //    实测抓到 `Terminator Champion`（`BL44` 的 `Desc` 是 `Armour 1`，
+        //    实测抓到 `Terminator Champion`（`BL29` 的 `Desc` 是 `Armour 1`，
         //    中文却是 `EC33` 的「残忍…」⇒ **卡面承诺了一个它没有的能力**）。
         {
             var byName = new Dictionary<string, List<CardDef>>();
@@ -11470,7 +11491,7 @@ public static partial class RuleEngineTest
     /// 这一节钉住其中 **4 张证据确凿的**；另 2 张（`Mekaniak` 的 Kustom Job 池 · `Spanner` 的
     /// `a random bonus`）的池子是**结构推断**、不是文本直证 ⇒ **不猜**，留给用户裁决（见文档 §四）。
     ///
-    /// · **`Awakened Obelisk`（`SAU65`）** —— 卡面 `add **Extermination Protocol** to your hand`（**单数**），
+    /// · **`Awakened Obelisk`（`SAU59`）** —— 卡面 `add **Extermination Protocol** to your hand`（**单数**），
     ///   而池里那张（`SAU45`）叫 `Extermination Protocols`（**复数**）⇒ `FindByName` 全等失配
     ///   ⇒ 那半句造不出牌。修法：`CreatePool.FindByNameLoose`（**双向**单复数容错）。
     /// · **`Phobos Lieutenant`** —— `Create a random Ultramarines **card** in hand`：`card` 是**通称**、
@@ -11479,7 +11500,7 @@ public static partial class RuleEngineTest
     /// · **`Neurotyrant`（`TL69`）** —— `create an **Ephemeral** copy of **it**`：`ephemeral` 前缀与
     ///   那个 `it` 两样都挡着。修法：`CreatePoolResult.MarkEphemeral` + `BattleContext.EventCard`
     ///   （我们上一版复刻 `rule_core.gd:722/:825-827`，旁证）。
-    /// · **`Inner Circle Companion`（`DA21`）** —— `Gain Vanguard and **2 Quest Points**`：
+    /// · **`Inner Circle Companion`（`DA18`）** —— `Gain Vanguard and **2 Quest Points**`：
     ///   一条 `gain` 里**混了两种接受者**（给单位 Vanguard + 给**玩家** 2 任务点）。
     ///   修法：`PayloadOp.Resource` + `DoGive` 在**目标循环之前**单独结算一次。
     /// </summary>
@@ -11533,7 +11554,7 @@ public static partial class RuleEngineTest
         //   与 `Titus` 00 + `Exemplary Warrior` 00a + `00b/c/d` 同形）。**不是文本直证**。
         {
             var mk = FindCard(pool, "Mekaniak");
-            CheckTrue(mk != null, "卡池里找得到 `Mekaniak`（`GOF_Mekaniak`）");
+            CheckTrue(mk != null, "卡池里找得到 `Mekaniak`（`9dcbe3d0c04b02f4fbb19974ae0e37b2`）");
             var opts = RuleCore.ChooseEffectOptions("Mekaniak");
             CheckTrue(opts != null && opts.Length == 3,
                       "★ `Mekaniak` 的选效果池 = **3 张**（`More Dakka` / `Ramshackle` / `Wreckin' Ball`）"
@@ -11736,7 +11757,7 @@ public static partial class RuleEngineTest
             //   按**卡模板**算的一次快照（= `UnitState` 构造里那句 `Exhausted = !RuleCore.HasDeployExemption(this)`），而光环（`Auras.Recompose`
             //   → `Core/Aura.cs` 的 `AddAuraKeyword`）是**在那之后**才把 `flank` 挂上来的
             //   ⇒ 不重算就是「**给了侧翼却动不了**」（`Has("flank")` 为真、单位仍疲劳 —— 静默错）。
-            //   夹具用**真卡**：`TAU31 Devilfish`（`Friendly Infantry and Drones have Flank.`）
+            //   夹具用**真卡**：`TAU24 Devilfish`（`Friendly Infantry and Drones have Flank.`）
             //   —— 它自己是 Vehicle ⇒ 吃不到自己这条光环，正好当**反例**；Infantry 用 `Battle Sister`。
             //   依据与离屏三态实测 → `资料/普查产出_1017/F8_第二入口.md`。
             {
@@ -13410,7 +13431,7 @@ public static partial class RuleEngineTest
                           "★ 没写目标 → 走 `Subjectless`（**有施放者就是它自己**）");
             }
             var r2 = EffectText.ParseSegment("Heals 3");
-            // ⚠️ 2026-10-17 订正：原来这里写 `Bladeguard Veteran` —— 那是 `UM34` 2026-09-13
+            // ⚠️ 2026-10-17 订正：原来这里写 `Bladeguard Veteran` —— 那是 `UM23`（重编号前 `UM34`）2026-09-13
             //    被改错的名字（带 `Heals 3` 的就是它），2026-10-17 已撤回成 `Bladeguard Lieutenant`
             //    （判据 `资料/普查产出_1017/W_B16_教程数据缺口.md` §①）。文案改了、断言语义没动。
             Check(r2.Kind, EffectText.SegKind.Ok, "★ 裸 `Heals 3` 同样认了（`Bladeguard Lieutenant` 那一族 —— 它的 desc 是 `Codex: Heals 3`）");
@@ -14492,6 +14513,17 @@ public static partial class RuleEngineTest
             CheckTrue(!u.FaceDown, "★ **撑过一轮 ⇒ 翻开**");
             Check(u.Attack, 4, "★ 而且**伏击效果触发了**（1 + 3 = 4）—— "
                              + "和①对照：挨过打的那张只有 1");
+
+            // 🆕 2026-10-19（战斗线 `T21` 缺口 G）：翻开这一拍发的是**带关键词的** `EvtKind.Trigger`
+            //   —— 表现层 `VfxMap.TryResolveTriggerPicks` 按 `Keyword` + `CardAnimTime.TriggerName`
+            //   归口逐卡动画（`Ambush` 的行在 `ability` 桶里，见 `资料/普查产出_1019/W_战斗线_T21现核_1019b.md` §三 G）。
+            int ambN = 0; string ambKw = null, ambCard = null;
+            foreach (var ev in ctx.Signals)
+                if (ev.Kind == EvtKind.Trigger && ev.CardId == "FixtureAmbush2")
+                { ambN++; ambKw = ev.Keyword; ambCard = ev.CardId; }
+            Check(ambN, 1, "★ 伏击翻开 ⇒ **恰好一条**按那张卡的 `EvtKind.Trigger`（多一条 = 从别的触发点混进来）");
+            Check(ambKw, KeywordTable.Ambush, "★ 事件的关键词 = `ambush`（`VfxMap` 归口要用它）");
+            Check(ambCard, "FixtureAmbush2", "★ 事件带的是**那张卡自己**（不是别的事件串了名）");
         }
     }
 
@@ -14841,7 +14873,7 @@ public static partial class RuleEngineTest
         //   是**构造时**按**卡模板**算的一次快照（= `UnitState` 构造里那句 `Exhausted = !RuleCore.HasDeployExemption(this)`），而光环（`Auras.Recompose`
         //   → `Core/Aura.cs` 的 `AddAuraKeyword`）是**在那之后**才把 `flank` 挂上来的
         //   ⇒ 不重算就是「**给了侧翼却动不了**」（`Has("flank")` 为真、单位仍疲劳 —— 静默错）。
-        //   夹具用**真卡**：`TAU31 Devilfish`（`Friendly Infantry and Drones have Flank.`）——
+        //   夹具用**真卡**：`TAU24 Devilfish`（`Friendly Infantry and Drones have Flank.`）——
         //   上面那个残骸夹具 `rem` 正好是 Infantry（吃得到）；Devilfish 自己是 Vehicle ⇒ 当**反例**。
         //   依据与离屏三态实测（改前 / 改后 / 错版）→ `资料/普查产出_1017/F9_第三入口.md`。
         {
@@ -15482,7 +15514,7 @@ public static partial class RuleEngineTest
         CheckTrue(al != null && al.AuraSpecs.Count == 1
                   && al.AuraSpecs[0].Filter != null && al.AuraSpecs[0].Filter.Name != null,
                   "★ `Friendly Daemonette have Flank` ⇒ **卡名筛**"
-                  + "（`Daemonette` 是卡名 `EC7`，**不是**兵种词 —— 判据转调 `EffectText.SubjectOf`）");
+                  + "（`Daemonette` 是卡名 `EC32`，**不是**兵种词 —— 判据转调 `EffectText.SubjectOf`）");
         CheckTrue(Auras.TryParse("Enemies have Vulnerable 1", out a) && a.Enemy
                   && a.Filter != null && a.Filter.IsEmpty,
                   "★ `Enemies have Vulnerable 1` —— **主语是空的**也能认（第一版正则要求至少有主语，"
@@ -15577,7 +15609,7 @@ public static partial class RuleEngineTest
     {
         var pool = CardDatabase.Load();
 
-        // ---------- ① `SAU61 Undying Legions`：友方部队**变成残骸**时获得护盾 ----------
+        // ---------- ① `SAU53 Undying Legions`：友方部队**变成残骸**时获得护盾 ----------
         {
             var ul = CreatePool.FindByName(pool, "Undying Legions");
             var nec = CreatePool.FindByName(pool, "Necron Warrior");     // 卡面 `Remnant. Vanguard`
@@ -15607,7 +15639,7 @@ public static partial class RuleEngineTest
             }
         }
 
-        // ---------- ② `ASH52 Cosmic Serpent`：触发所有部队的灵魂石能力，**不付石** ----------
+        // ---------- ② `ASH48 Cosmic Serpent`：触发所有部队的灵魂石能力，**不付石** ----------
         {
             var cs = CreatePool.FindByName(pool, "Cosmic Serpent");
             var wb = CreatePool.FindByName(pool, "Wraithblade");         // `1 [Spirit Stone]: Gain Armour 2`
@@ -15691,7 +15723,7 @@ public static partial class RuleEngineTest
                   + "｜🧨 给它们凭空写个费用 ⇒ 本行红");
         }
 
-        // ---------- ⑤ 「再触发一次」：Mob（真卡 `GOF_Big_Choppa_Nob`）----------
+        // ---------- ⑤ 「再触发一次」：Mob（真卡 `GOF68`）----------
         {
             var nob = CreatePool.FindByName(pool, "Big Choppa Nob");
             var mobber = new CardDef("T_Mobber", "T_Mobber", "unit", "Mob: Gain +1 Attack",
@@ -15712,13 +15744,13 @@ public static partial class RuleEngineTest
                           "近战打一下（会触发 Mob）");
                 Check(atk.Attack, 4,
                       "★ Mob **触发了两次**（2 → 4）—— 基础 1 次 + `it triggers an additional time` 1 次"
-                      + "（额度由 `GOF_Big_Choppa_Nob` 在广播里挂上，`RuleCore.TakeExtraTrigger` 就地消费）");
+                      + "（额度由 `GOF68` 在广播里挂上，`RuleCore.TakeExtraTrigger` 就地消费）");
                 CheckTrue(atk.ExtraTriggers.Count == 0,
                           "★ ……而且额度**用掉就摘**（留着会让下一次攻击白捡一次）");
             }
         }
 
-        // ---------- ⑥ 「效果生效两次」：Synapse（真卡 `TL30 Broodlord`）----------
+        // ---------- ⑥ 「效果生效两次」：Synapse（真卡 `TL19 Broodlord`）----------
         {
             var lord = CreatePool.FindByName(pool, "Broodlord");
             var heal = Tactic("T_SynHeal2", 0, "Heal 3 to a friendly unit");
@@ -15774,7 +15806,7 @@ public static partial class RuleEngineTest
             }
         }
 
-        // ---------- ⑧ 「给手牌里的所有部队」：真卡 `TL53 Infinite Biomorphologies` ----------
+        // ---------- ⑧ 「给手牌里的所有部队」：真卡 `TL50 Infinite Biomorphologies` ----------
         {
             var ib = CreatePool.FindByName(pool, "Infinite Biomorphologies");
             var troop = new CardDef("T_HandTroop", "T_HandTroop", "unit", "", "common", "Test",
@@ -16095,7 +16127,7 @@ public static partial class RuleEngineTest
     /// `RoutableTriggers`、也不在 `BodyKeywords` ⇒ `TriggerOps("oath")` 恒为 null），
     /// 那 12 张 Ultramarines 单位的能力**既不报错、卡面也不打 `*`** —— 标准的静默失败
     /// （`CardDef.OathOps` 的注释里有完整来龙去脉）。三条「改规则」的句子
-    /// （`UM84` / `UM106` / `UM93`）则一直挂在「完全不认识」那一栏。
+    /// （`UM100` / `UM106` / `UM93`）则一直挂在「完全不认识」那一栏。
     ///
     /// 分四层钉（照 `TestSpiritStone` 的规矩：光「解析得出」不算数）：
     ///   ① 三条修饰句**认得出**，而且**只认那三种写法**
@@ -16783,6 +16815,20 @@ public static partial class RuleEngineTest
                 Check(RuleCore.PactOf(ctx.Players[0].Board[3]), "excess",
                       "★ **选中的那张**决定了契约种类（`Dark Pact of Excess` ⇒ excess；"
                       + "若又走随机，这条会红）");
+
+                // 🆕 2026-10-19（战斗线 `T21` 缺口 B）：原版 `TriggerEnchantment` 那一拍
+                //   —— `CardScript__AddEffect.c:776-792`（case 8）→ `Enchantments.GetMarkOfChaos`
+                //   → `RawCardScript__TriggerEnchantment.c:7-13` → `TriggerAbilities(附魔卡, 500)`。
+                //   ⇒ 引擎要发**恰好一条**按**附魔卡自己**的 `EvtKind.Trigger`（不是载体单位名）。
+                int enchN = 0; string enchCard = null, enchKw = null;
+                foreach (var ev in ctx.Signals)
+                    if (ev.Kind == EvtKind.Trigger && ev.Keyword == KeywordTable.TriggerEnchantment)
+                    { enchN++; enchCard = ev.CardId; enchKw = ev.Keyword; }
+                Check(enchN, 1, "★ 授予黑暗契约 ⇒ **恰好一条** `TriggerEnchantment` 事件（多一条 = 多发）");
+                Check(enchKw, KeywordTable.TriggerEnchantment, "★ 关键词 = `TriggerEnchantment`（= 原版 500）");
+                Check(enchCard, "Dark Pact of Excess",
+                      "★ 事件的 `CardId` 是**附魔卡自己**（选中的那张 `Dark Pact of Excess`）—— "
+                      + "⛔ 不是载体单位名（写成载体名就会去查单位自己的行，四张契约的动画永远播不出来）");
             }
         }
     }
@@ -17921,7 +17967,7 @@ public static partial class RuleEngineTest
         //      `工具/ruleprobe.sh seg` 量过）：`Draw a card` → `draw`（`DoDraw`，**写槽**）；
         //      `Draw a troop` → **`drawtype`**（另一条 op、**不写槽**）。写成 `drawtype` 那两句，
         //      槽**从头到尾是空的** ⇒ 走兜底 ⇒ 两份都挂（这一格会以「实得 2」假红 —— 踩过一次）。
-        //      顺带记一条：真卡池那四张（`GOF50` / `TAU54` / `GOF_Da_Red_Waaagh` / `UM23`）
+        //      顺带记一条：真卡池那四张（`GOF39` / `TAU47` / `20d0f4451f16fc441836a02f99bf77da` / `SW8`；⚠️ 2026-10-19 按现读 id 更正 —— 原来那四个 id 已不是这四张）
         //      **全是 `drawtype`**（`Draw two troops` / `Draw a troop`）⇒ 它们靠的是**兜底**，
         //      本轮给槽加的写点（`DoDraw` / `AttachEffectToHandInstances`）**不动它们**。
         //   🔴 **判别力**：把 `HandReferents` 退回「只读 `DrawnThisResolve`」的旧写法
@@ -18291,7 +18337,7 @@ public static partial class RuleEngineTest
             if (pLs != null) Check(pLs.Kind, WhenEventKind.LosesStealth, "事件种类 = losestealth");
 
             // ---- ⑧-bis 🆕 `<效果> when <事件>` 的**从句切分**（`A1461` / `A1575`，2026-10-12）----
-            //   出处：`TAU20 Sniper Drone` 卡面 `Flying. Long Range. Gains Long Range
+            //   出处：`TAU15 Sniper Drone` 卡面 `Flying. Long Range. Gains Long Range
             //   when an enemy gains Markerlight`（**亲读成品卡图**
             //   `d:/2/Warpforge部队卡片/Tau/3部队/Warpforge_20_Sniper-Drone.png`；
             //   抄录 `资料/卡表核对_卡图提取/Tau__1.md:36`）。
@@ -19339,6 +19385,156 @@ public static partial class RuleEngineTest
         }
     }
 
+    /// <summary>
+    /// 「任务点 → 隐秘」夹具：**指定阵营的督军** + 20 张垫牌 + 指定的起手牌。
+    /// 督军 `id` 可换 —— 它进 <see cref="RuleCore.QuestInsertSeed"/> 的派生种（用来验「同一局面可复现」）。
+    /// </summary>
+    static BattleContext QuestFixture(IList<CardDef> pool, string warlordId, string faction, int seed,
+                                      params CardDef[] hand)
+    {
+        var d0 = new List<CardDef>
+        {
+            new CardDef(warlordId, warlordId, "hero", "", null, faction, 0, 2, 30, 0, null, subtype: "Warlord")
+        };
+        for (int i = 0; i < 20; i++) d0.Add(Unit("filler" + i, 1, 0, 1));
+        for (int i = hand.Length - 1; i >= 0; i--) d0.Add(hand[i]);   // 抽牌是 pop_back ⇒ 倒序放
+        return RuleCore.NewBattle(d0, Deck(Unit("Foe", 1, 1, 5)), seed: seed, shuffle: false, cardPool: pool);
+    }
+
+    /// <summary>
+    /// 🆕 2026-10-19（`W` 笔 · 引擎线）：**「任务点 → 隐秘」这条隐藏能力的四处保真**。
+    ///
+    /// 机制本身原版**真的有**（不是数据残留）：`BattleManager.ProcessManaBuff` → `PlayerManager.AddQuestPoints`
+    /// → 满阈值 ⇒ 减一个阈值 + `RawCardScript.OnQuestResolved` → 督军卡上 `QuestTriggered(490)` 命中
+    /// `createCardInDeck(270)` → 随机一张黑暗天使隐秘**随机下标 Insert** 进牌库 → `BroadcastSecretCreated`。
+    /// 判定与逐跳出处 → `资料/普查产出_1019/W_引擎线_DA1深挖_1019b.md` §2.3。
+    ///
+    /// 我们原来只有「结果层」、且四处与原版不一致（全是**静默**的）：
+    ///   ① 任务点只增不减 ⇒ HUD 会显示 `3/3` / `4/3`（原版减掉阈值、HUD 读**余数**）；
+    ///   ② 造出隐秘**不广播** `CreatesSecret` ⇒ `DA15` / `DA66` 的监听器永远不响；
+    ///   ③ `Add` + **整副洗牌**（原版是随机下标 `Insert`、**不重排已有牌序**）；
+    ///   ④ 阈值硬编码 3（原版读 `ScenarioVariables` 的 3 / Alt 4）。
+    /// 另外补一道闸：只有**带 `QuestTriggered` 能力**的督军（当前 = 4 张黑暗天使督军）才造隐秘。
+    /// </summary>
+    static void TestQuestTriggeredSecretFidelity()
+    {
+        // 隐秘夹具：各阵营一张（`Resolve(..., "a secret", 阵营)` 按施放者阵营筛）
+        var secretDa = new CardDef("FxSecretDA", "Fixture Secret DA", "tactic", "x", "common", "DarkAngels",
+                                   2, 0, 0, 0, null, subtype: "Secret");
+        var secretSw = new CardDef("FxSecretSW", "Fixture Secret SW", "tactic", "x", "common", "SpaceWolves",
+                                   2, 0, 0, 0, null, subtype: "Secret");
+        var pool = new List<CardDef> { secretDa, secretSw };
+
+        // ---- ① 余数语义 + ② CreatesSecret 广播 + ③ 随机 Insert（不重排已有牌序）+ 可复现 ----
+        {
+            var gain3 = Tactic("T_FxQuest3", 0, "Gain 3 任务点");
+            var ctx = QuestFixture(pool, "FixtureWarlord", "DarkAngels", 20261019, gain3);
+            ToP1Turn(ctx, 1);
+            var ps = ctx.Players[0];
+            ctx.Players[0].Energy = 12;
+
+            var before = new List<int>();
+            foreach (var c in ps.Deck) before.Add(c.Id);
+            int deckBefore = ps.Deck.Count;
+
+            var listener = new CardDef("FxCreateSecretListen", "Fixture Secret Listen", "unit",
+                                       "When you create a Secret, deal 3 damage to the enemy warlord",
+                                       "common", "Test", 1, 2, 9, 0, null, subtype: "Infantry");
+            Place(ctx, 0, 3, listener, exhausted: true);
+            int foeWl = ctx.Players[1].Warlord.Health;
+
+            Check(ps.QuestPoints, 0, "（前提）开局任务点 = 0");
+            CheckCode(RuleCore.PlayTactic(ctx, 0, HandIdx(ctx, 0, "T_FxQuest3"), -1), RuleCodes.OK,
+                      "打出 `Gain 3 任务点`（黑暗天使督军）");
+
+            Check(ps.QuestPoints, 0,
+                  "★ **① 满阈值后减掉一个阈值** ⇒ 计数归 0（HUD 读的是**余数**；原版 `PlayerManager__AddQuestPoints.c:101-104`）"
+                  + " —— 只增不减的话这里会是 3");
+            Check(ps.QuestMilestone, 1, "★ 结算过 1 次阈值");
+            Check(ps.Deck.Count, deckBefore + 1, "★ 牌库 +1（隐秘进去了）");
+
+            int at = -1;
+            var after = new List<int>();
+            for (int i = 0; i < ps.Deck.Count; i++)
+            {
+                if (ps.Deck[i].Card == secretDa) at = i;
+                else after.Add(ps.Deck[i].Id);
+            }
+            CheckTrue(at >= 0, "★ 造出来的是**黑暗天使**那张隐秘（按施放者阵营筛）");
+            CheckTrue(at >= 0 && at <= deckBefore, $"插入位在 [0, {deckBefore}] 内（实得 {at}）");
+
+            bool sameOrder = before.Count == after.Count;
+            if (sameOrder)
+                for (int i = 0; i < before.Count; i++)
+                    if (before[i] != after[i]) { sameOrder = false; break; }
+            CheckTrue(sameOrder,
+                      "★ **③ 原有牌序原样保留** —— 原版是**随机下标 Insert**"
+                      + "（`BattleManager__AddCardInPlayToDeck.c:37,64`），不是 `Add` + 整副洗牌；"
+                      + "洗过的话这里会红");
+
+            Check(ctx.Players[1].Warlord.Health, foeWl - 3,
+                  "★ **② `CreatesSecret` 真的广播了**（敌方督军 -3）—— 漏了这一跳的话 `DA15`/`DA66` 的监听器"
+                  + "**永远不会响**，而且不报任何错");
+
+            // 同一局面（同督军 id / 同 seed / 同动作）再跑一遍 —— 插入位必须逐位相同（红线：可复现）
+            var ctx2 = QuestFixture(pool, "FixtureWarlord", "DarkAngels", 20261019,
+                                    Tactic("T_FxQuest3", 0, "Gain 3 任务点"));
+            ToP1Turn(ctx2, 1);
+            ctx2.Players[0].Energy = 12;
+            RuleCore.PlayTactic(ctx2, 0, HandIdx(ctx2, 0, "T_FxQuest3"), -1);
+            int at2 = -1;
+            for (int i = 0; i < ctx2.Players[0].Deck.Count; i++)
+                if (ctx2.Players[0].Deck[i].Card == secretDa) at2 = i;
+            Check(at2, at, "★ **③ 同一局面重放 ⇒ 插入位相同**（派生随机流可复现；没有拿 `ctx.Rng` / 时钟）");
+        }
+
+        // ---- ④ 阈值读 `ScenarioVariables`：默认 3 / `alternativeTraitLogic ≠ 0` ⇒ Alt 档 4 ----
+        {
+            var ctx = QuestFixture(pool, "FixtureWarlord", "DarkAngels", 99,
+                                   Tactic("T_FxQuest3", 0, "Gain 3 任务点"),
+                                   Tactic("T_FxQuest1", 0, "Gain 1 任务点"));
+            ToP1Turn(ctx, 1);
+            var ps = ctx.Players[0];
+            ctx.Players[0].Energy = 12;
+
+            Check(RuleCore.QuestPointStepFor(ctx), 3,
+                  "★ **④ 默认阈值 = 3**（原版 `ScenarioVariables.questPointsForTrigger`，`DefaultScenario` 实读）");
+            ctx.Vars.alternativeTraitLogic = 1;
+            Check(RuleCore.QuestPointStepFor(ctx), 4,
+                  "★ **④ `alternativeTraitLogic ≠ 0` ⇒ Alt 档 4**（`questPointsForTriggerAlt`）");
+
+            int deckBefore = ps.Deck.Count;
+            CheckCode(RuleCore.PlayTactic(ctx, 0, HandIdx(ctx, 0, "T_FxQuest3"), -1), RuleCodes.OK,
+                      "Alt 档下先加 3 点");
+            Check(ps.QuestPoints, 3, "★ Alt 档下 3 点**还没到阈值**（阈值写死 3 的话这里会被减成 0）");
+            Check(ps.Deck.Count, deckBefore, "★ Alt 档下 3 点**不造隐秘**");
+
+            CheckCode(RuleCore.PlayTactic(ctx, 0, HandIdx(ctx, 0, "T_FxQuest1"), -1), RuleCodes.OK,
+                      "再加 1 点到 4");
+            Check(ps.QuestPoints, 0, "★ 到第 4 点 ⇒ 减 4、归 0");
+            Check(ps.Deck.Count, deckBefore + 1, "★ 这时才造出隐秘");
+        }
+
+        // ---- ⑤ 能力闸：非黑暗天使督军**不造隐秘**（任务点照原版仍累计/减阈值） ----
+        {
+            var ctx = QuestFixture(pool, "FixtureWarlord", "SpaceWolves", 5,
+                                   Tactic("T_FxQuest3", 0, "Gain 3 任务点"));
+            ToP1Turn(ctx, 1);
+            var ps = ctx.Players[0];
+            ctx.Players[0].Energy = 12;
+            int deckBefore = ps.Deck.Count;
+
+            CheckCode(RuleCore.PlayTactic(ctx, 0, HandIdx(ctx, 0, "T_FxQuest3"), -1), RuleCodes.OK,
+                      "打出 `Gain 3 任务点`（太空野狼督军）");
+            Check(ps.QuestPoints, 0,
+                  "★ **⑤ 非黑暗天使也照原版减阈值** —— `AddQuestPoints` 在查督军能力**之前**就减了"
+                  + "（`PlayerManager__AddQuestPoints.c:101-119`）");
+            Check(ps.Deck.Count, deckBefore,
+                  "★ **⑤ 不造隐秘** —— 池里**明明有一张 SpaceWolves 隐秘**，能造而不造，靠的正是"
+                  + "「督军带不带 `QuestTriggered` 能力」那道闸（当前 = 4 张黑暗天使督军）");
+        }
+    }
+
     ///
     /// <summary>
     /// **天赋（Talent）** —— 2026-09-13 第三十四轮。规则书 `:218`「**回合开始时在手牌中生成临时战术**」。
@@ -19606,7 +19802,7 @@ public static partial class RuleEngineTest
             //    含这个子串（不分大小写、不计次数）的卡一共 **15 张**，扣掉 ——
             //      · **4 张**写的是 `Reanimated`（**另一个关键词**，规则③ 词边界挡住）
             //      · **2 张**只在 `Talent: Reanimate` 那一段里（规则② 剥段）
-            //      · **1 张是它自己**（`SAU26` 就叫 `Reanimate`，规则④ 跳过自己）
+            //      · **1 张是它自己**（`27a4b748a7bf358499f038aa09895ead` 就叫 `Reanimate`，规则④ 跳过自己）
             //    ⇒ 15 − 7 = **8**。⚠️ 正本那个 5 是**子串口径**（它连 `Reanimated`/`Talent:` 一起数了，
             //    又漏了 3 张只写小写 `reanimate` 的）。
             {
@@ -19620,7 +19816,7 @@ public static partial class RuleEngineTest
                 }
             }
             // 🔴🔴 **2026-10-18（`W_red_A`）就地订正（铁律 5）—— 上面那段「成因 = `S13`」是错的，改指 GOF12 改名**：
-            //    ⚠️ 它原来写：「两个期望值各 −1（68→67 · 129→128），成因 = `S13` 把 `UM84 Chaplain Cassius` 的
+            //    ⚠️ 它原来写：「两个期望值各 −1（68→67 · 129→128），成因 = `S13` 把 `UM100 Chaplain Cassius` 的
             //    `[Talent]:` 改成裸写 `Talent:`」。**两处都不成立**：
             //    ① `S13` 那次改动在 **`41fed28`**、**早于**上一版数据（`4995622`）⇒ 它**已经算进 `66 / 127` 那个基线**
             //       （下面 2026-10-15 那段 `68 − 1(S13) − 1(②·b) = 66` 正是这么算的）—— 再减一次 = **双重扣减**；
@@ -19903,7 +20099,7 @@ public static partial class RuleEngineTest
     /// **「黑暗契约」那四张要能在详情窗里看到**（用户 2026-09-29 拍板「要做」· `项目任务.md` §三 第 19 条 **Q4**）。
     ///
     /// 判据全文 → `资料/待办判据_战场与战斗视图.md` **Q4**：**凡是卡面/卡名提到 `Dark Pact` 的卡，
-    /// 详情窗列出那四张契约**（`BL16/18/20/22`，卡面兵种行印 `Dark Pact`）；**主卡本身就是契约时排除自己**。
+    /// 详情窗列出那四张契约**（`4a48457c24877f345be2e96f867c1e94` / `9a2cadc64c80a6b42912441105bb1cee` / `b8e81b2fe85cda747a68c4d6326b669c` / `1dfc9bc738bfc4f4d93d48f165aee510` 四张 · 卡面兵种行印 `Dark Pact`）；**主卡本身就是契约时排除自己**。
     ///
     /// 🔴 **这条是我们的口径，不是从原版证出来的** —— 原版详情窗那份相关卡读的是卡自带的
     /// `relatedCard1..4` 四个字段（`RawCardScript__GetRelatedCards.c` 原样塞进 List），
@@ -19916,7 +20112,7 @@ public static partial class RuleEngineTest
 
         // ① 前提：那一族**正好 4 张**，id 就是判据里写的那四个
         var contracts = CreatePool.DarkPactContracts(pool, null);
-        Check(contracts.Count, 4, "★ `subtype = Dark Pact` 的卡正好 **4 张**（判据点名的 BL16/18/20/22）");
+        Check(contracts.Count, 4, "★ `subtype = Dark Pact` 的卡正好 **4 张**（判据点名的四张契约，现 id 见下面 `wantIds`）");
         var wantIds = new[] { "4a48457c24877f345be2e96f867c1e94", "9a2cadc64c80a6b42912441105bb1cee", "b8e81b2fe85cda747a68c4d6326b669c", "1dfc9bc738bfc4f4d93d48f165aee510" };
         foreach (var id in wantIds)
         {
@@ -19930,7 +20126,7 @@ public static partial class RuleEngineTest
         //    （`Dark Pact` 不是卡名 ⇒ 「点名」那一支看不见它）。
         CardDef cs = null;
         foreach (var c in pool) if (c.Id == "BL4") cs = c;
-        CheckTrue(cs != null, "（前提）卡池里有 `BL13 Chaos Sergeant`");
+        CheckTrue(cs != null, "（前提）卡池里有 `BL4 Chaos Sergeant`");
         if (cs != null)
         {
             var rel = CardPresentation.RelatedCards.Find(cs, 8);
@@ -19942,7 +20138,7 @@ public static partial class RuleEngineTest
         // ③ **主卡本身就是契约** —— `Dark Pact of Fate`：列出另外三张、**不含自己**
         CardDef fate = null;
         foreach (var c in pool) if (c.Id == "4a48457c24877f345be2e96f867c1e94") fate = c;
-        CheckTrue(fate != null, "（前提）卡池里有 `BL16 Dark Pact of Fate`");
+        CheckTrue(fate != null, "（前提）卡池里有 `4a48457c24877f345be2e96f867c1e94 Dark Pact of Fate`");
         if (fate != null)
         {
             var rel = CardPresentation.RelatedCards.Find(fate, 8);
@@ -20172,11 +20368,11 @@ public static partial class RuleEngineTest
                              + "（落不下的每一条与原因在 `数据/游戏数据/talent_cards.json`）");
             var a1 = TalentCardData.Get("ASH1");
             CheckTrue(a1 != null && a1.Length == 1 && a1[0] == "09bcb1b3b8794c4429d82d4b2e68fa1f",
-                      "★ `ASH1`（卡面 `Talent: Path of the Seer`）⇒ 真值指向 `ASH_Path_of_the_Seer`"
+                      "★ `ASH1`（卡面 `Talent: Path of the Seer`）⇒ 真值指向 `09bcb1b3b8794c4429d82d4b2e68fa1f`"
                       + "（按 **id**，⛔ 不按卡名）");
             var ec = TalentCardData.Get("EC55");
             CheckTrue(ec != null && ec.Length == 1 && ec[0] == "6ed51d59b9f8ea24ab0dc7ceaef7956c",
-                      "★ `EC55`（`Talent: Duelist's Hubris`）⇒ 真值指向 `EC_Duelist_s_Hubris_Lucius_Talent`");
+                      "★ `EC55`（`Talent: Duelist's Hubris`）⇒ 真值指向 `6ed51d59b9f8ea24ab0dc7ceaef7956c`");
             var bl = TalentCardData.Get("BL23");
             CheckTrue(bl != null && bl.Length == 3,
                       "★ `BL23`（`Talent: A random Black Legion Psychic Power`）⇒ 真值是 **3 个候选**"
@@ -21547,7 +21743,10 @@ public static partial class RuleEngineTest
     }
 
     /// <summary>附录 C 的骰子表 vs 卡池实算的池子。**差集两个方向都要报** ——
-    /// 「书上有、卡池没有」是原版数据缺口，「卡池有、书上没列」是名字对不上或我们的筛子开宽了。</summary>
+    /// 「表上有、卡池没有」是原版数据缺口，「卡池有、表里没列」是名字对不上或我们的筛子开宽了。
+    /// ⚠️ 2026-10-17 起这里的「表」= `CreatePool.DiceTables`（**书里的名单 + 按卡面补的差集**）：
+    ///     `锈蚀通风口(1d11)` 那一张补了 `Aberrant` ⇒ 表里 **12** 个名字、书里只有 **11** 个
+    ///     （判据 → `普查产出_1017/BSC62/W19_伏击断言11到12.md`）。⛔ 别再把「表里 N 个」读成「书里 N 个」。</summary>
     static void CheckDiceTables(IReadOnlyList<CardDef> pool)
     {
         var cases = new[]
@@ -21596,15 +21795,31 @@ public static partial class RuleEngineTest
             }
 
             Debug.Log(P + $"   附录C「{tableName}」：卡池算得 {gotNames.Count} 张、"
-                      + $"书里列 {bookNames.Count} 个名字、附录B 写「{cs[3]} 种」"
-                      + (nearMiss.Count > 0 ? $"；**书里有、卡池对不上**：{string.Join("、", nearMiss)}" : "")
-                      + (onlyData.Count > 0 ? $"；**卡池有、书里没列**：{string.Join("、", onlyData)}" : ""));
+                      + $"表里列 {bookNames.Count} 个名字、附录B 写「{cs[3]} 种」"
+                      + (nearMiss.Count > 0 ? $"；**表里有、卡池对不上**：{string.Join("、", nearMiss)}" : "")
+                      + (onlyData.Count > 0 ? $"；**卡池有、表里没列**：{string.Join("、", onlyData)}" : ""));
 
             CheckTrue(gotNames.Count > 0, $"「{tableName}」的池子在卡池里算得出来");
+
+            // 🔴 **2026-10-19（战斗线 `T14` / `A1983` 批顺手补）**：`锈蚀通风口` 这张表已按**卡面**补到
+            //    12 个名字（`CreatePool.DiceTables` ↔ `W19`），两侧差集都该是 **0**。
+            //    **只锁这一张** —— 别的表还有已知差（纵欲狂欢的 subtype、次元裂隙的历史名…），
+            //    一并锁死会把「如实报差」变成假红。
+            //    🧨 把 `DiceTables` 里补的 `Aberrant` 撤掉 ⇒ 第二条实得 `aberrant`（日志也会重新打「卡池有、表里没列」）；
+            //      把卡面/数据侧改回去 ⇒ 第一条红。两条一起才挡住「两边一起改回去」。
+            if (tableName == "锈蚀通风口(1d11)")
+            {
+                Check(onlyBook.Count, 0,
+                      "「锈蚀通风口」**表里有、卡池算不出来**的名字 = 0（`Aberrant` 按卡面补进表之后）");
+                Check(onlyData.Count, 0,
+                      "「锈蚀通风口」**卡池有、表里没列**的名字 = 0"
+                    + "｜🧨 撤掉 `CreatePool.DiceTables` 里补的 `Aberrant` ⇒ 本行实得 `aberrant`");
+            }
         }
 
         // 上面那几处已经查出实打实的差：**如实钉在这儿**，别让它悄悄漂走。
-        // 「书上有、卡池没有」= 原版数据缺口；「卡池有、书上没列」= 我们的筛子可能开宽了。
+        // 「表上有、卡池没有」= 原版数据缺口；「卡池有、表里没列」= 我们的筛子可能开宽了
+        // （⚠️ 这张「表」= `CreatePool.DiceTables`，可能含**按卡面补的差集** —— 见方法头）。
         //
         // ⚠️ 2026-09-13 更正：这一处**原来的差已经修掉了** —— 卡面逐张核对发现
         //    `Shivversplint` 的 subtype 在 OCR 源表里是 `Upgrade`，**卡面印的是 `Combat Elixir`**
@@ -22071,12 +22286,12 @@ public static partial class RuleEngineTest
         //  ⚠️ 期望值**不来自被测实现**：`−2` 出自卡面印刷文字，次序出自原版 `_NextTurn` 的行号。
         {
             var pool = CardDatabase.Load();
-            // 真卡：`TAU18 DS8 Support Turret`，卡面整句就是
+            // 真卡：`TAU13 DS8 Support Turret`，卡面整句就是
             // `At the start of your turn, deal 2 damage to all enemies`
             // （出处 `MyGame/Assets/RuleEngine/Resources/cards_engine.json` —— 🔴 **2026-10-14 就地订正（铁律 5 · 账 `A1828`）**：
             //   原来写的是 `d:/4/Unity/数据/游戏数据/cards_engine.json`，**那个路径下没有这个文件**；卡池落盘只有这一处。）
             var turret = PoolCard(pool, "DS8 Support Turret");
-            CheckTrue(turret != null, "卡池里找得到 `DS8 Support Turret`（`TAU18`）");
+            CheckTrue(turret != null, "卡池里找得到 `DS8 Support Turret`（`TAU13`）");
             // **前提**：它这句得被认成「手牌扫描认的那个形状」—— 认不出的话下面量到的就不是相位了。
             var atTurn = turret == null ? null : EffectText.SplitAtTurn(turret.Desc);
             CheckTrue(atTurn != null && atTurn[0] == "turn_start",
@@ -22752,13 +22967,13 @@ public static partial class RuleEngineTest
     //  🔴 **可达面原写「0 张」（`Slay:` 之外还自带能打死单位的文字）—— 那是【低估】，要拆两条**
     //     （铁律 5；`R1` 2026-10-11 现核）：
     //       · **口径①「造成伤害 / 摧毁」**：**确实 0 张** —— 原来那一行的「0」只对这一条成立；
-    //       · **口径②「攻击」**：**另有 1 张 = `EC28 Flawless Blade Champion`** ——
+    //       · **口径②「攻击」**：**另有 1 张 = `EC12 Flawless Blade Champion`** ——
     //         正文 = `Slay: Give +1 [Might] to all friendly troops.` ＋
     //         **`Ecstasy 3: Attack a random enemy.`**，后半句**在 `Slay:` 之外**，
     //         它 100% 能打死单位（`EffectText` 的 `^attacks? …$` ⇒ `Verb = forceattack`
     //         ⇒ `EffectResolver.TryAttackOnce` ⇒ `RuleCore.DeclareAttack` 尾段
     //         `TryCreditKill` 就算击杀）⇒ **它自己的 `Slay` 也会再响**（自链同 `Company Champion`）。
-    //     ⇒ 本方法把**两条口径分开断**（合成一条「21 张里 0 张」= 这半条断言永远测不到 `EC28` 那一档）。
+    //     ⇒ 本方法把**两条口径分开断**（合成一条「21 张里 0 张」= 这半条断言永远测不到 `EC12` 那一档）。
     //
     //  🔴 **夹具一律用【真卡】**（`CardDatabase.Load()` 里那张本体）——
     //     `RN §②·④` 记过：这 21 张在 `RuleEngineTest.cs` 里**零引用**，所以旧夹具照不到这一路。
@@ -22793,13 +23008,13 @@ public static partial class RuleEngineTest
               + "（原来那一行写的就是这个「0 张」—— 它**只对这一条口径**成立）");
         Check(string.Join(" / ", atkRoute.ToArray()), "Flawless Blade Champion",
               "★★【`A1279` 口径②·**订正**（铁律 5）】21 张里「`Slay:` 之外**另有**能打死单位的文字」的 = "
-              + "**恰好 1 张 = `Flawless Blade Champion`（`EC28`）** —— 它的 "
+              + "**恰好 1 张 = `Flawless Blade Champion`（`EC12`）** —— 它的 "
               + "`Ecstasy 3: Attack a random enemy.` 在 `Slay:` **之外** ⇒ 它自己的 `Slay` 也会再响。"
               + "⛔ 原来那一行只写「0 张 / 能走的只有 `Company Champion` 那一张」是**低估**");
 
         // ---- ② 自链：**真卡夹具**（`Company Champion` 本体，⛔ 不合成一张「像它的」卡）----
         var cc = CreatePool.FindByName(pool, "Company Champion");
-        CheckTrue(cc != null, "卡池里有 `Company Champion`（`DA27`）");
+        CheckTrue(cc != null, "卡池里有 `Company Champion`（`DA24`）");
         if (cc == null) return;
         Check(cc.Attack, 5, "`Company Champion` 近战 5（PnP 卡面）");
         Check(cc.Health, 6, "`Company Champion` 生命 6");
@@ -22864,12 +23079,12 @@ public static partial class RuleEngineTest
         //      给谁挂）`R1` 只做了**卡面正则粗扫**、没逐条读正文，本笔**不把未核的当判据**（铁律 2）。
         var pledge = CreatePool.FindByName(pool, "Pledge to the Dark Prince");     // EC52
         CheckTrue(pledge != null && PayloadCarriesSlay(pledge),
-                  "★【`A1279` 口径③】`Pledge to the Dark Prince`（`EC52`，给**一个友方部队**）的载荷里"
+                  "★【`A1279` 口径③】`Pledge to the Dark Prince`（`EC38`，给**一个友方部队**）的载荷里"
                   + "**嵌着一条 `Slay:`** ⇒ 「`Slay` 可以被授予」这一路有**真来源**"
                   + (pledge == null ? "（找不到卡）" : ""));
-        var boss = CreatePool.FindByName(pool, "Beastboss on Squigosaur");          // GOF90
+        var boss = CreatePool.FindByName(pool, "Beastboss on Squigosaur");          // GOF91
         CheckTrue(boss != null && PayloadCarriesSlay(boss),
-                  "★【`A1279` 口径③】`Beastboss on Squigosaur`（`GOF90`，给**友方野兽**）的 `Slay:` "
+                  "★【`A1279` 口径③】`Beastboss on Squigosaur`（`GOF91`，给**友方野兽**）的 `Slay:` "
                   + "挂在**光环载荷**上（`WillRunOps` 把光环合成一条 `give` —— 同一处判据）");
         var squiggoth = CreatePool.FindByName(pool, "Gargantuan Squiggoth");        // GOF96
         CheckTrue(squiggoth != null && squiggoth.Subtype == "Beast" && squiggoth.Faction == "Goff",
@@ -22885,7 +23100,7 @@ public static partial class RuleEngineTest
     /// 剩下那批里有哪些动词属于「**能打死单位**」。
     /// ⚠️ 用**多重集相减**（键 = `动词|原文分句`），不是「按动词过滤」。
     /// 🔴 **2026-10-19 就地订正（铁律 5 · 引擎线波 1）：** 这里原来写
-    ///    「`EC28` 的 `Slay:` 头下也带一条 `forceattack`（`TriggerTexts["slay"]` 把它后面那句
+    ///    「`EC12` 的 `Slay:` 头下也带一条 `forceattack`（`TriggerTexts["slay"]` 把它后面那句
     ///    `Ecstasy 3:` 一起收进去了）」—— **那句已不成立**：`A1469` 修好断句之后
     ///    `TriggerTexts["slay"]` = `Give +1 [Might] to all friendly troops`，`TriggerOps("slay")`
     ///    只有 `give` 一条（`TestA1564Ec28SlayStopsAtEcstasy` 与 `ruleprobe` 现读两边都证实）。
@@ -24779,6 +24994,91 @@ public static partial class RuleEngineTest
     }
 
     // ==================================================================
+    //  🔴 2026-10-19（`A1990`③）：**「新单位落地入口」清单本身**的断言
+    // ==================================================================
+    //
+    //  背景（账 `A1990`）：`RuleCore` / `UnitState` 的注释一直写着「新单位落地入口 = 三个，
+    //  F9 已全树 grep 确认没有第四个」—— 而 `TutorialScript.PlaceTroops` 就是第四个，
+    //  **那次 grep 漏了**（只按方法名找）。⇒ 这条断言改成**按结构扫**：任何「新单位上棋盘」
+    //  都必然在某处 `new UnitState(`；把每处的**宿主方法名**与钉死的清单**逐项相等**地比。
+    //
+    //  判据（现读 `d:/2/tools/decomp_full/`）：
+    //   · `BattleManager__CreateStartingTroop.c` 全文（教程起始单位 = 第 4 个入口；
+    //     不调 `ActivateMinion`、不写 `summonSickness`）
+    //   · `_ResolveCardAutoSummoned_d__511` / `_ResolveSummonUnit_d__510`（普通部署两条路）
+    //   · `CardScript__ResolveUnitSummoned.c` 只由 `BroadcastUnitSummoned` 发 ⇒ 起始兵不触发信仰/部署效果
+    //  ⚠️ 多一个 / 少一个**都红**：新增入口必须先来改这张表（并补它自己的钩子断言）。
+    //  ⚠️ 剥注释后扫描 —— 注释里提 `new UnitState(...)` **不算**（`CardInstance.cs` / `UnitState.cs`
+    //     各有一处讲解性提及）。
+    static void TestNewUnitEntryList()
+    {
+        string dir = System.IO.Path.Combine(Application.dataPath, "RuleEngine", "Core");
+        if (!System.IO.Directory.Exists(dir))
+        {
+            CheckTrue(false, $"找得到 `{dir}`（入口清单扫描的前提；⛔ 不静默跳过）");
+            return;
+        }
+        string[] files = System.IO.Directory.GetFiles(dir, "*.cs");
+        Array.Sort(files);
+        CheckTrue(files.Length >= 20, $"扫到 {files.Length} 个 `Core/*.cs`（锚点，太少 = 路径不对）");
+
+        // 钉死的清单 = 【当前】全部「构造一个新 UnitState」的宿主方法。
+        var pinned = new Dictionary<string, string>
+        {
+            { "BuildPlayer",   "督军创建（恒不疲劳，不走部署钩子）" },
+            { "PlayCard",      "① 手牌打出" },
+            { "DeployFree",    "② 效果免费部署 / 召唤" },
+            { "DoReanimate",   "③ 再造（残骸翻回）" },
+            { "PlaceTroops",   "④ 教程起始单位（不吃召唤病；专用钩子 ActivateTraitsOnSummonOrEnchantment）" },
+            { "CleanupDeaths", "特例：残骸翻面（写死 Exhausted=true，不是新入场）" },
+        };
+
+        var found = new SortedDictionary<string, string>();   // 方法名 → 文件:行（取第一处）
+        foreach (var f in files)
+        {
+            string code = StripCsComments(System.IO.File.ReadAllText(f));
+            string[] lines = code.Replace("\r\n", "\n").Split('\n');
+            for (int i = 0; i < lines.Length; i++)
+            {
+                if (lines[i].IndexOf("new UnitState(", StringComparison.Ordinal) < 0) continue;
+                string host = EnclosingMethodName(lines, i);
+                if (!found.ContainsKey(host))
+                    found[host] = System.IO.Path.GetFileName(f) + ":" + (i + 1);
+            }
+        }
+
+        var missing = new List<string>();
+        foreach (var kv in pinned)
+            if (!found.ContainsKey(kv.Key)) missing.Add(kv.Key + "（" + kv.Value + "）");
+        var extra = new List<string>();
+        foreach (var kv in found)
+            if (!pinned.ContainsKey(kv.Key)) extra.Add(kv.Key + "（" + kv.Value + "）");
+
+        Check(extra.Count, 0, "★★【`A1990`】**没有清单外的新单位落地入口**"
+              + "（源码 `new UnitState(` 的宿主方法现读 " + found.Count + " 个）"
+              + (extra.Count == 0 ? "" : "—— **多出来的**：" + string.Join(" / ", extra.ToArray())
+                 + " ⇒ 先按原版查清该调哪些钩子，再把方法名加进 `TestNewUnitEntryList` 的 `pinned`"));
+        Check(missing.Count, 0, "★★【`A1990`】**清单里的入口在源码里都还找得到**"
+              + (missing.Count == 0 ? "" : "—— **消失的**：" + string.Join(" / ", missing.ToArray())
+                 + "（改名 / 删掉 ⇒ 同步改 `pinned`，⛔ 别让它悄悄失效）"));
+    }
+
+    /// <summary>从 `idx` 往上找最近的方法声明，返回方法名（找不到 = `?`）。</summary>
+    static string EnclosingMethodName(string[] lines, int idx)
+    {
+        for (int i = idx; i >= 0; i--)
+        {
+            string t = lines[i].Trim();
+            if (t.Length == 0 || t.StartsWith("//")) continue;
+            var m = System.Text.RegularExpressions.Regex.Match(t,
+                @"^(?:public|private|internal|protected|static|sealed|override|async|virtual)\s[^;=]*?\b([A-Za-z_]\w*)\s*(?:<[^>]*>)?\s*\(");
+            if (m.Success && !t.StartsWith("using ") && !t.StartsWith("return "))
+                return m.Groups[1].Value;
+        }
+        return "?";
+    }
+
+    // ==================================================================
     //  🆕 2026-10-18（A938）：教程执行器 · **引擎侧那一半**
     // ==================================================================
     //
@@ -25061,6 +25361,212 @@ public static partial class RuleEngineTest
             }
             Check(onBoard, 1, $"★ 而且**真的落场了**（AI 场上多了一只，实得 {onBoard}）");
         }
+    }
+
+    // ==================================================================
+    //  🆕 2026-10-19（T11 · G-3 / G-4）
+    // ==================================================================
+
+    /// <summary>
+    /// **G-3**（`dontDrawCard` / `dontDrawTalent`）+ **G-4**（`ResolveEndTurnEnchantment`）的引擎侧断言。
+    ///
+    /// 判据（全部现读 `d:/2/tools/decomp_full/`，逐句见 `RuleCore.BeginTurn` / `RuleCore.EndTurn`
+    /// 里那两段注释）：
+    ///  · `dontDrawCard` = `BattleManager__TurnStartCardDraw.c:14-18` —— 读
+    ///    `GetCurrentTurnScriptedData(bm)` 的 `+0x19` ⇒ **整个回合开始抽牌跳过**；
+    ///  · `dontDrawTalent` = `CardScript__OnTurnStart.c:157-171` —— 读 `+0x1a`，**多一道 `IsTutorialMatch`**，
+    ///    跳过的是 `HasCurrentTrait(0x34d /*DefinedTrait.talent*/)` → `OnTrigger(0x2e /*AbilityTrigger.Talent*/)`
+    ///    （= `RuleCore.SpawnTalents`）；
+    ///  · `GetCurrentTurnScriptedData` 自己要求那一项 `scriptedTurn(+0x18) == true`（两条闸**都**继承）；
+    ///  · **`ResolveEndTurnEnchantment` 的调用点在 `ResolveEndTurn.c:434-484` 的 `if (IsCampaignLike(bm))` 里**
+    ///    ⇒ `matchType ∈ {130,190}` 才会被调，**教程局（100/140）永不触发**；
+    ///    它读的是 `PlayerDataManager.currentCampaignStage`（不是教程关）。
+    /// </summary>
+    static void TestTutorialDontDrawAndTurnEndEnchantment()
+    {
+        // 天赋夹具：`TalentName` 从 `Desc` 的 `Talent: <名字>` 抽（`CardDef.ExtractTalent`）。
+        var talentCard = new CardDef("g3_talent", "G3Talent", "tactic", "", "common", "Test", 1, 0, 0, 0, null);
+        var talentUnit = new CardDef("g3_talent_unit", "G3TalentUnit", "unit", "Talent: G3Talent",
+                                     null, "Test", 1, 1, 5, 0, null);
+
+        // ------------------------------------------------------------
+        //  ① `dontDrawCard` —— 教程第 1 回合不抽 / 第 2 回合抽 / 第 3 回合 `scriptedTurn=false` 仍抽
+        // ------------------------------------------------------------
+        {
+            var stage = new TutorialStageData
+            {
+                stage = 91, so = "<自检合成·G3 dontDrawCard>", playerStarts = true,
+                turns = new[]
+                {
+                    new TutorialTurn { turnName = "T1", scriptedTurn = true,  dontDrawCard = true  },
+                    new TutorialTurn { turnName = "T2", scriptedTurn = true,  dontDrawCard = false },
+                    new TutorialTurn { turnName = "T3", scriptedTurn = false, dontDrawCard = true  },
+                },
+            };
+            var ctx = RuleCore.NewBattle(Deck(new CardDef[0]), Deck(new CardDef[0]), seed: 0, shuffle: false,
+                                         tutorial: new TutorialScript(stage));
+            ctx.PlayMode = GameMode.Tutorial;                  // 原版入口窗会声明它（`MatchType = 100`）
+            Check(ctx.MatchType, MatchType.Tutorial, "（前提）`PlayMode = Tutorial` ⇒ `MatchType = 100`");
+
+            int h1 = ctx.ActivePlayer.Hand.Count;
+            RuleCore.BeginTurn(ctx);                           // Turn = 1（`dontDrawCard = true`）
+            Check(ctx.Turn, 1, "（前提）这是第 1 回合");
+            Check(ctx.ActivePlayer.Hand.Count, h1,
+                  "★ `dontDrawCard = true` ⇒ 第 1 回合**一张都不抽**"
+                + "（原版 `BattleManager__TurnStartCardDraw.c:14-18` 的第一道闸）"
+                + "｜🧨 删掉 `BeginTurn` 里那道闸 ⇒ 本条红（会多 1 张）");
+
+            RuleCore.EndTurn(ctx);
+            int h2 = ctx.ActivePlayer.Hand.Count;
+            RuleCore.BeginTurn(ctx);                           // Turn = 2（`dontDrawCard = false`）
+            Check(ctx.Turn, 2, "（前提）这是第 2 回合");
+            Check(ctx.ActivePlayer.Hand.Count, h2 + ctx.Vars.drawCardsPerTurn,
+                  "★ 第 2 回合 `dontDrawCard = false` ⇒ **照常抽**"
+                + "｜🧨 把闸写成「教程局就一直不抽」⇒ 本条红");
+
+            RuleCore.EndTurn(ctx);
+            int h3 = ctx.ActivePlayer.Hand.Count;
+            RuleCore.BeginTurn(ctx);                           // Turn = 3（`scriptedTurn = false`）
+            Check(ctx.Turn, 3, "（前提）这是第 3 回合");
+            Check(ctx.ActivePlayer.Hand.Count, h3 + ctx.Vars.drawCardsPerTurn,
+                  "★ ★ **判别式**：第 3 回合 `dontDrawCard = true` 但 `scriptedTurn = false` ⇒ **照常抽**"
+                + "（原版 `GetCurrentTurnScriptedData` 要求 `scriptedTurn(+0x18) != 0` 才返回那一项）"
+                + "｜🧨 不查 `scriptedTurn` ⇒ 本条红");
+        }
+
+        // ------------------------------------------------------------
+        //  ② `dontDrawTalent` —— 含 `IsTutorialMatch` 那道**额外**守卫（`dontDrawCard` 没有）
+        // ------------------------------------------------------------
+        {
+            var stage = new TutorialStageData
+            {
+                stage = 92, so = "<自检合成·G3 dontDrawTalent>", playerStarts = true,
+                turns = new[]
+                {
+                    new TutorialTurn { turnName = "T1", scriptedTurn = true, dontDrawTalent = true  },
+                    new TutorialTurn { turnName = "T2", scriptedTurn = true, dontDrawTalent = false },
+                    new TutorialTurn { turnName = "T3", scriptedTurn = true, dontDrawTalent = true  },
+                },
+            };
+            var ctx = RuleCore.NewBattle(Deck(new CardDef[0]), Deck(new CardDef[0]), seed: 0, shuffle: false,
+                                         tutorial: new TutorialScript(stage),
+                                         cardPool: new List<CardDef> { talentCard });
+            ctx.PlayMode = GameMode.Tutorial;
+            Place(ctx, 0, 3, talentUnit);
+            Place(ctx, 1, 3, talentUnit);
+
+            int t1 = CountNamedInHand(ctx.Players[0].Hand, "G3Talent");
+            RuleCore.BeginTurn(ctx);                           // Turn = 1，座位 0，`dontDrawTalent = true`
+            Check(CountNamedInHand(ctx.Players[0].Hand, "G3Talent"), t1,
+                  "★ 第 1 回合 `dontDrawTalent = true` ⇒ **不生成天赋**"
+                + "（原版 `CardScript__OnTurnStart.c:157-171`）"
+                + "｜🧨 删掉 `BeginTurn` 里那道闸 ⇒ 本条红（会多 1 张天赋）");
+
+            RuleCore.EndTurn(ctx);
+            int t2 = CountNamedInHand(ctx.Players[1].Hand, "G3Talent");
+            RuleCore.BeginTurn(ctx);                           // Turn = 2，座位 1，`dontDrawTalent = false`
+            Check(CountNamedInHand(ctx.Players[1].Hand, "G3Talent"), t2 + 1,
+                  "★ 第 2 回合 `dontDrawTalent = false` ⇒ **生成**（那一侧手牌 +1）"
+                + "｜🧨 把闸写成「一直是假」⇒ 第 1 回合那条绿、但本条**红**");
+
+            RuleCore.EndTurn(ctx);
+            int t3 = CountNamedInHand(ctx.Players[0].Hand, "G3Talent");
+            ctx.PlayMode = GameMode.Classic;                   // 故意掰成非教程档：考 `IsTutorialMatch`
+            RuleCore.BeginTurn(ctx);                           // Turn = 3，`dontDrawTalent = true` 但不生效
+            Check(CountNamedInHand(ctx.Players[0].Hand, "G3Talent"), t3 + 1,
+                  "★ ★ **判别式**：`dontDrawTalent = true` 但 `PlayMode = Classic`（`IsTutorialMatch` 假）"
+                + " ⇒ **照常生成** —— 原版那条闸**多一道 `IsTutorialMatch`**，而 `dontDrawCard` 没有"
+                + "｜🧨 把 `IsTutorialMatch` 去掉 ⇒ 本条红");
+        }
+
+        // ------------------------------------------------------------
+        //  ③ G-4：`IsCampaignLike` / `IsTutorialMatch` 的派发集合（原版两张表逐值抄）
+        // ------------------------------------------------------------
+        {
+            CheckTrue(MatchTypes.IsCampaignLike(MatchType.Campaign), "130 Campaign ⇒ `IsCampaignLike` 真");
+            CheckTrue(MatchTypes.IsCampaignLike(MatchType.Scene), "190 Scene ⇒ `IsCampaignLike` 真");
+            CheckTrue(!MatchTypes.IsCampaignLike(MatchType.Tutorial),
+                      "★ **教程 100 不在 {130,190} 里** ⇒ 原版那个回合末附魔的调用点**根本不会走到**"
+                    + "（`BattleManager__ResolveEndTurn.c:434` 的 `if (IsCampaignLike(bm))`）");
+            CheckTrue(!MatchTypes.IsCampaignLike(MatchType.TutorialReplay),
+                      "★ 教程回放 140 同样不在（⚠️ 与 `FirstSeatRules` 那个 `{130,140,190}` 是**另一条口径**）");
+            CheckTrue(!MatchTypes.IsCampaignLike(MatchType.Ranked), "10 Ranked ⇒ 假");
+            CheckTrue(MatchTypes.IsTutorialMatch(MatchType.Tutorial), "100 ⇒ `IsTutorialMatch` 真");
+            CheckTrue(MatchTypes.IsTutorialMatch(MatchType.TutorialReplay), "140 ⇒ `IsTutorialMatch` 真");
+            CheckTrue(!MatchTypes.IsTutorialMatch(MatchType.Campaign), "130 ⇒ `IsTutorialMatch` 假");
+        }
+
+        // ------------------------------------------------------------
+        //  ④ G-4：`ResolveEndTurnEnchantment` 的守卫 + 数据缺口（**不许静默**）
+        // ------------------------------------------------------------
+        {
+            var st = new TutorialStageData
+            {
+                stage = 93, so = "<自检合成·G4 回合末附魔>", playerStarts = true,
+                playerTurnEndEnchantment = new TutorialUnitRef { ourId = "g3_talent", name = "G3Talent" },
+                enemyTurnEndEnchantment = new TutorialUnitRef { ourId = "g3_talent", name = "G3Talent" },
+            };
+
+            var ctxT = RuleCore.NewBattle(Deck(new CardDef[0]), Deck(new CardDef[0]), seed: 0, shuffle: false,
+                                          tutorial: new TutorialScript(st));
+            ctxT.PlayMode = GameMode.Tutorial;
+            ctxT.CampaignStage = st;              // 故意摆上非空数据：考的就是那道 `IsCampaignLike` 闸
+            string whyT;
+            Check(RuleCore.ResolveEndTurnEnchantment(ctxT, out whyT), false,
+                  "★ **教程局即便 `CampaignStage` 非空也不许触发** —— 原版 `ResolveEndTurn.c:434` 的"
+                + " `IsCampaignLike` 闸把它挡在外面（实得理由：" + whyT + "）");
+            CheckTrue(whyT != null && whyT.IndexOf("IsCampaignLike", StringComparison.Ordinal) >= 0,
+                      "★ 而且理由说得清是**那道闸**（不是「碰巧没数据」）｜实得：" + whyT);
+
+            var ctxC = RuleCore.NewBattle(Deck(new CardDef[0]), Deck(new CardDef[0]), seed: 0, shuffle: false,
+                                          cardPool: new List<CardDef> { talentCard });
+            ctxC.PlayMode = GameMode.Campaign;
+            string whyC1;
+            Check(RuleCore.ResolveEndTurnEnchantment(ctxC, out whyC1), false,
+                  "战役档 + **没有** `CampaignStage` ⇒ 什么都不做"
+                + "（原版 `PlayerDataManager.currentCampaignStage == null` 那一支）");
+            CheckTrue(whyC1 != null && whyC1.IndexOf("没有战役关卡数据", StringComparison.Ordinal) >= 0,
+                      "（理由）实得：" + whyC1);
+
+            ctxC.CampaignStage = st;
+            string whyC2;
+            Check(RuleCore.ResolveEndTurnEnchantment(ctxC, out whyC2), false,
+                  "★ 战役档 + **有数据** ⇒ 走到底、但**不静默**：本引擎没有 `AbilityTrigger` 0/500 的派发口"
+                + " ⇒ 这一条**没有结算**（实得理由：" + whyC2 + "）");
+            CheckTrue(whyC2 != null && whyC2.IndexOf("AbilityTrigger", StringComparison.Ordinal) >= 0,
+                      "★ 理由必须点名**缺的那一口**（不是「没数据」）｜实得：" + whyC2);
+        }
+
+        // ------------------------------------------------------------
+        //  ⑤ `GetCurrentTurnScriptedData` 的**战役支**（原版那第二个 `IsCampaignStageAvailable` 分支）
+        //     —— 今天 `ctx.CampaignStage` 没有写点，但分支本身要能跑（将来接战役线直接用）。
+        // ------------------------------------------------------------
+        {
+            var st = new TutorialStageData
+            {
+                stage = 94, so = "<自检合成·战役支>",
+                turns = new[] { new TutorialTurn { turnName = "C1", scriptedTurn = true, dontDrawCard = true } },
+            };
+            var ctx = RuleCore.NewBattle(Deck(new CardDef[0]), Deck(new CardDef[0]), seed: 0, shuffle: false);
+            ctx.PlayMode = GameMode.Campaign;          // ⇒ `MatchType.Campaign(130)`（`IsCampaignLike` 真）
+            ctx.CampaignStage = st;
+            Check(ctx.MatchType, MatchType.Campaign, "（前提）`PlayMode = Campaign` ⇒ `MatchType = 130`");
+            int h0 = ctx.ActivePlayer.Hand.Count;
+            RuleCore.BeginTurn(ctx);
+            CheckTrue(RuleCore.CurrentTurnScriptedData(ctx) != null, "（前提）战役支读得到第 1 回合的脚本数据");
+            Check(ctx.ActivePlayer.Hand.Count, h0,
+                  "★ 战役支同样吃 `dontDrawCard`（原版 `GetCurrentTurnScriptedData` 的第二条支）"
+                + "｜🧨 只写教程支、不写战役支 ⇒ 本条红");
+        }
+    }
+
+    /// <summary>手牌里叫 <paramref name="name"/> 的有几张（天赋/临时卡断言用）。</summary>
+    static int CountNamedInHand(List<CardInstance> hand, string name)
+    {
+        int n = 0;
+        for (int i = 0; i < hand.Count; i++)
+            if (hand[i] != null && hand[i].Card != null && hand[i].Card.Name == name) n++;
+        return n;
     }
 
     /// <summary>命中清单（空 ⇒ 空串；只列头 10 条，别把日志刷爆）。</summary>
@@ -25898,7 +26404,7 @@ public static partial class RuleEngineTest
     static void TestS10CompanyMasterLowerCost()
     {
         // ============================================================
-        //  ① 真卡 `Company Master`（`DA31`）在场上 → 抽一张 5 费牌 ⇒ `CostOf` = 4
+        //  ① 真卡 `Company Master`（`DA28`）在场上 → 抽一张 5 费牌 ⇒ `CostOf` = 4
         // ============================================================
         //  牌库次序（抽牌是 `pop_back` ⇒ **列表末尾 = 牌库顶**）：
         //     起手 3 张 = `S10Ctrl`(5 费) · `tB` · `tC` ；回合开始那一抽 = `tA` ；**第 5 抽 = `S10Big`(5 费)**
@@ -25906,7 +26412,7 @@ public static partial class RuleEngineTest
         {
             var pool = CardDatabase.Load();
             var cm = CardDatabase.Find(pool, "Company Master", "DarkAngels");
-            CheckTrue(cm != null, "① 卡池里找得到 `Company Master`（`DA31`，"
+            CheckTrue(cm != null, "① 卡池里找得到 `Company Master`（`DA28`，"
                                 + "`When you draw a card, it costs 1 less this turn`）");
             if (cm == null) return;
 
@@ -26025,15 +26531,15 @@ public static partial class RuleEngineTest
         //     ⚠️ 两条都要断：只断「记录在」的话，「记录在但没人读」照样会绿；
         //        只断「后来者吃得上」的话，说不出是哪一步错了。
 
-        // ---- ①-a 卡面**直接写死**载荷那条（`GrantHandBuffForTargets`，真卡 `GOF81`）----
+        // ---- ①-a 卡面**直接写死**载荷那条（`GrantHandBuffForTargets`，真卡 `GOF82`）----
         //   卡面（逐张开图核过 `d:/2/Warpforge部队卡片/Orks/3部队/Warpforge_07_Beast-Snagga-Nob.png`）：
         //   `At the end of your turn, give +1 to all Beasts in your hand`
         //   ⇒ `atturn` 的内层 op → `DoGive` → `GrantHandBuffForTargets`（本笔要修的那一支）。
         {
-            var nb = FindCard(pool, "Beast Snagga Nob");       // `GOF81`
+            var nb = FindCard(pool, "Beast Snagga Nob");       // `GOF82`
             var beast = new CardDef("G3Beast", "G3Beast", "unit", "", null, "Test",
                                     2, 2, 3, 0, null, subtype: "Beast");
-            CheckTrue(nb != null, "①-a 夹具：卡池里找得到 `Beast Snagga Nob`（`GOF81`）");
+            CheckTrue(nb != null, "①-a 夹具：卡池里找得到 `Beast Snagga Nob`（`GOF82`）");
             if (nb != null)
             {
                 var ctx = Battle(new[] { nb }, new[] { Unit("G3Foe", 1, 1, 9) });
@@ -26105,7 +26611,7 @@ public static partial class RuleEngineTest
 
         // ---- ①-c 「选一个效果，给手牌里的所有部队」那条（`GrantHandBuff`，`n == 0` 那支）----
         //   判据同 ①：原版先记后贴；而**我们那条路原来在 `n == 0` 时 `return false` + `unresolved`**
-        //   ⇒ 记录不存在 ⇒ 后来的来客吃不上（真卡 `TL53 Infinite Biomorphologies`）。
+        //   ⇒ 记录不存在 ⇒ 后来的来客吃不上（真卡 `TL50 Infinite Biomorphologies`）。
         {
             var card = CreatePool.FindByName(pool, "Infinite Biomorphologies");
             var troopA = new CardDef("G3TroopA", "G3TroopA", "unit", "", "common", "Test",
@@ -26395,7 +26901,7 @@ public static partial class RuleEngineTest
                       + "｜🧨 把「共用」改回「两处各写一遍」并漏一处 ⇒ 本条或上一条 ⇒ 红");
         }
 
-        // ---- Ⓑ 回归：`cantattack`（全池 1 张真卡 `GSC9 Concealed Explosives` 的词）照旧拒 ----
+        // ---- Ⓑ 回归：`cantattack`（全池 1 张真卡 `GSC5 Concealed Explosives` 的词）照旧拒 ----
         {
             var ctx = Battle(new[] { Unit("A947Filler2", 1, 1, 1) }, new[] { Unit("A947Foe2", 1, 0, 9) });
             ToP1Turn(ctx, 1);
@@ -26589,7 +27095,7 @@ public static partial class RuleEngineTest
         {
             var pool = CardDatabase.Load();
             var cm = CardDatabase.Find(pool, "Company Master", "DarkAngels");
-            CheckTrue(cm != null, "② 卡池里找得到 `Company Master`（`DA31`，"
+            CheckTrue(cm != null, "② 卡池里找得到 `Company Master`（`DA28`，"
                                 + "`When you draw a card, it costs 1 less this turn`）");
             if (cm != null)
             {
@@ -27181,12 +27687,12 @@ public static partial class RuleEngineTest
     /// **背景**：上一批（`fe239e9`）把「手牌里那张监听器**没写主语**的正文」从「洒给己方全体」
     /// 改成「落到**它自己**身上」（判据 = 原版那张手牌牌自己就是 acting card）。但那条路登记的
     /// **记录**当时还带着 `HandTroopCriteria`（「手牌里的**所有部队**」）⇒ 效果顺着记录**扩散**给
-    /// **之后进手牌的任何部队**，而卡面只说它自己（真卡 = `BL15 Rubric Marine` 的
+    /// **之后进手牌的任何部队**，而卡面只说它自己（真卡 = `BL6 Rubric Marine` 的
     /// `When you draw a card, gain a Dark Pact of Fate`）。
     ///
     /// **为什么不能直接改 `HandTroopCriteria`**：它是**共用件**（`grep` 实测 3 个调用点 +
     /// `RuleCore.SetupCardInHand` 那条消费路），其中两条服务的是卡面写着 `all Beasts in your hand`
-    /// 那一族（`GOF81 Beast Snagga Nob`）⇒ 必须保持「按兵种筛」的宽度。
+    /// 那一族（`GOF82 Beast Snagga Nob`）⇒ 必须保持「按兵种筛」的宽度。
     /// ⇒ 按工程规矩：**在调用点传一个收窄后的新 criteria**（`EffectResolver.HandSelfCriteria`，
     /// `NameFilter = 那一份牌自己的卡名`）。
     ///
@@ -27275,8 +27781,8 @@ public static partial class RuleEngineTest
     /// `HandReferents` 是「**先读槽、槽空才退回 `DrawnThisResolve`**」，而这三条路**都写
     /// `DrawnThisResolve`** ⇒ 兜底把同一个答案递了回来。**会咬人的形状** = 同一 resolve 里
     /// 「`draw` 之后走这三条之一、再 `give it/them`」—— 那时**两者不是同一批**（判别式 ④）。
-    /// 真卡池今天**没有**这种卡（写 `draw` + `them` 的只有 `TAU54` / `GOF50`，
-    /// 单数 `it` 的 `GOF_Da_Red_Waaagh` / `UM23`，四张全是「先抽、紧接着给」）。
+    /// 真卡池今天**没有**这种卡（写 `draw` + `them` 的只有 `TAU47` / `GOF39`，
+    /// 单数 `it` 的 `20d0f4451f16fc441836a02f99bf77da` / `SW8`，四张全是「先抽、紧接着给」）。
     ///
     /// 🔑 **夹具的真伪**：四条正文都**离线对拍过**（`d:/4/_tmp_view/wf_eng4_probe/`，
     /// 预修版 vs 现版两趟）—— 解析出的 op 与注释一致、且「值到得了」那一跳**真的读到了那个槽**。
@@ -27977,7 +28483,7 @@ public static partial class RuleEngineTest
 
     /// <summary>
     /// **`A1469` 的同根因、但这条是【真卡可证】的**：`StartsAnotherThing` 的 ① 也走
-    /// `IsBodyKeyword` ⇒ **断句失效**，`EC28 Flawless Blade Champion` 的 `Ecstasy 3:` 那半
+    /// `IsBodyKeyword` ⇒ **断句失效**，`EC12 Flawless Blade Champion` 的 `Ecstasy 3:` 那半
     /// 被并进 `Slay` 的正文 ⇒ **`Slay` 一杀人就白打一次随机攻击**。
     ///
     /// **改前**（`E4` §三·② 实测）：`TRIG slay` 拖着整句、op **2 条**（多出来那条是 `forceattack`）。
@@ -27991,33 +28497,33 @@ public static partial class RuleEngineTest
     {
         var pool = CardDatabase.Load();
         var ec28 = PoolCard(pool, "Flawless Blade Champion");
-        CheckTrue(ec28 != null, "（前提）卡池里有 `EC28 Flawless Blade Champion`");
+        CheckTrue(ec28 != null, "（前提）卡池里有 `EC12 Flawless Blade Champion`");
         if (ec28 == null) return;
 
         var slay = ec28.TriggerOps(KeywordTable.Slay);
         CheckTrue(slay != null && slay.Count == 1,
-                  "★ EC28【A1469 同根因】`TriggerOps(\"slay\").Count == 1`"
+                  "★ EC12【A1469 同根因】`TriggerOps(\"slay\").Count == 1`"
                 + "（卡面是**两条独立能力**：`Slay: …` 与 `Ecstasy 3: …`）"
                 + "｜🧨 把 `StartsAnotherThing` 的 ① 换回 `IsBodyKeyword` ⇒ 本行实得 2"
                 + "（多出来那条 `forceattack` 就是「一杀人白打一次随机攻击」）");
         Check(ec28.TriggerText(KeywordTable.Slay), "Give +1 [Might] to all friendly troops",
-              "★ EC28 `TriggerText(\"slay\")` = **那半句本身**，不许再拖着 `… Ecstasy 3: …`"
+              "★ EC12 `TriggerText(\"slay\")` = **那半句本身**，不许再拖着 `… Ecstasy 3: …`"
             + "｜🧨 同上（断句失效 ⇒ 实得带尾句那一长串）");
         CheckTrue(ec28.TriggerText(KeywordTable.Slay) == null
                   || ec28.TriggerText(KeywordTable.Slay).IndexOf("Ecstasy",
                          StringComparison.OrdinalIgnoreCase) < 0,
-                  "★ EC28【显式】**`Slay` 的正文一个字都不含 `Ecstasy`**"
+                  "★ EC12【显式】**`Slay` 的正文一个字都不含 `Ecstasy`**"
                 + "（上面那条钉的是「正好等于什么」，这条钉的是「没有多出来的东西」）");
 
         var ec = ec28.TriggerOps(KeywordTable.Ecstasy);
         CheckTrue(ec != null && ec.Count == 1 && ec[0].Verb == "forceattack",
-                  "★ EC28【交叉·那半句**归位**了】`TriggerOps(\"ecstasy\")` 仍然是那一条 `forceattack`"
+                  "★ EC12【交叉·那半句**归位**了】`TriggerOps(\"ecstasy\")` 仍然是那一条 `forceattack`"
                 + "｜🧨 把断句修成「整句丢掉」⇒ 本行实得 null —— ① ② 却照样绿，"
                 + "所以这一格才是这一笔的**灭自证**");
     }
 
     /// <summary>
-    /// **`A1471` —— `DA25 Techmarine` 的 `If it survives, heal 3 to it` 永不发生。**
+    /// **`A1471` —— `DA22 Techmarine` 的 `If it survives, heal 3 to it` 永不发生。**
     /// 它是 `When …` 那条的**尾句**，而 `AddWhenTrigger` 拿的是**单段** ⇒ 新增的
     /// `WhenBodyAt` 走**与 `TriggerBodyAt` 同一份停句判据**（`StartsAnotherThing`）。
     ///
@@ -28030,7 +28536,7 @@ public static partial class RuleEngineTest
     {
         var pool = CardDatabase.Load();
         var da25 = PoolCard(pool, "Techmarine");
-        CheckTrue(da25 != null, "（前提）卡池里有 `DA25 Techmarine`");
+        CheckTrue(da25 != null, "（前提）卡池里有 `DA22 Techmarine`");
         if (da25 == null) return;
 
         Check(da25.WhenTriggers.Count, 1, "（前提）DA25 只登记了**一条** `When` 监听器");
@@ -28076,6 +28582,11 @@ public static partial class RuleEngineTest
     /// 🧨 删掉 `DeclareAttack` 里 `if (!forced && TryCancelAttackByOwnAboutToAttack(…))`
     /// 那一段 ⇒ ① 那一组同时红；**把 `!forced &&` 删掉** ⇒ 只有 ③ 红（② 是反向沙包，
     /// ① ③ 结构上不可能被同一个坏实现同时满足）。
+    ///
+    /// 🆕 **2026-10-19（`A1983`）④：状态闸两态** —— `RuleCore.IsAttackingOnBoard`（在场且活着）才取消得掉；
+    /// 攻方**已离场 / 已死**两档都**不许**取消，也不许把那条正文再跑一遍。
+    /// 公开入口 `DeclareAttack` **走不到假态**（`CanAttackNow` 先按 `ErrNotUnit` 早退）⇒ ④ 用反射直接问
+    /// 私有取消函数（先例：本文件既有的反射读私有成员）。
     /// </summary>
     static void TestA1564AboutToAttackCancel()
     {
@@ -28151,6 +28662,102 @@ public static partial class RuleEngineTest
             CheckTrue(A1564SigIndex(ctx, EvtKind.Trigger, "abouttoattack") < 0,
                       "★ ③ ……而且那条能力**一次都没发作**（`EvtKind.Trigger{abouttoattack}` 一条都没有）");
             Check(atk.Attack, atk0, "★ ③ ……攻方 `Attack` 不变（与 ① 的 +1 形成对照）");
+        }
+
+        // ---- ④ `A1983` 状态闸：**只有「还在棋盘上、还活着」的攻方**才取消得掉 ----
+        //  判据 = 原版 `CardScript__CancelAttack.c:35`：
+        //    `cardState(+0x228) ∈ {inPlayAttacking(3), inPlayAminingAttack(0x11)}`，否则
+        //    `LogWarning` + `return`（连 `PrepareAttack` 都不跑）。
+        //  我们的等价物 = `RuleCore.IsAttackingOnBoard`（只认 `Instance` + 活着的占位者），
+        //  由 `TryCancelAttackByOwnAboutToAttack` **第一道**读它（`RuleCore.cs` 里的 `A1983` 段）。
+        //  🔴 **为什么这一组绕开 `DeclareAttack` 直接问取消函数**：公开入口**走不到假态** ——
+        //    `CanAttackNow` 在攻方格为空时先 `ErrNotUnit` 早退、`IsValidTarget` 再拦一次
+        //    ⇒ 「攻方已离场 / 已死」只能对**取消函数本身**验。它是私有的，走反射
+        //    （先例：本文件 `:12142` 用反射读 `RuleCore` 的私有字段；改名 ⇒ 本组第一条红，⛔ 别静默跳过）。
+        //  🧨 **灭自证**：闸恒 `true` ⇒ ②（离场）③（已死）红；闸恒 `false` / 删掉闸 ⇒ ① 红；
+        //    闸粗写成 `Board[slot] != null` ⇒ ③ 红（那一格**非空**，只是占位者血 ≤ 0）。
+        {
+            var miCancel = typeof(RuleCore).GetMethod("TryCancelAttackByOwnAboutToAttack",
+                    BindingFlags.NonPublic | BindingFlags.Static);
+            CheckTrue(miCancel != null,
+                      "（前提）`RuleCore.TryCancelAttackByOwnAboutToAttack` 还在（改名 ⇒ 本组红，⛔ 别静默跳过）");
+            if (miCancel != null)
+            {
+                Func<BattleContext, int, int, UnitState, UnitState, bool> tryCancel =
+                    (c, pp, ss, a, t) => (bool)miCancel.Invoke(null, new object[] { c, pp, ss, a, t });
+
+                // ---- ① 在场且活着 ⇒ 闸放行、取消生效 ----
+                {
+                    var ctx = ProbeBattle(new CardDef[0], new CardDef[0]);
+                    ToP1Turn(ctx, 2);
+                    int p = ctx.Active, q = 1 - p;
+                    var atk = Place(ctx, p, 3, Unit("A1983_OnBoardAtk", 1, 3, 9), exhausted: false);
+                    var def = Place(ctx, q, 3, Unit("A1983_OnBoardDef", 1, 0, 9), exhausted: true);
+                    atk.GrantOps("abouttoattack", body, "Gain +1 Attack");
+                    int atk0 = atk.Attack;
+                    CheckTrue(RuleCore.IsAttackingOnBoard(ctx, atk),
+                              "★ ④-a【闸·真】在场上且活着的攻方 ⇒ `IsAttackingOnBoard == true`");
+                    CheckTrue(RuleCore.IsAttackingOnBoard(ctx, new UnitState(atk.Instance, false)),
+                              "★ ④-a【只认 Instance】拿同一个 `Instance` 的**旧对象**问也算在场"
+                            + "｜🧨 改成 `Board[slot] == u` 的引用比较 ⇒ 本行红");
+                    CheckTrue(!RuleCore.IsAttackingOnBoard(ctx, null),
+                              "★ ④-a【防御】`u == null` ⇒ false（⛔ 不许 NRE）");
+                    CheckTrue(tryCancel(ctx, p, 3, atk, def),
+                              "★ ④-a【行为】闸放行 ⇒ 取消函数返回 true（这一记不打）"
+                            + "｜🧨 把闸写成恒 false / 删掉闸 ⇒ 本行红");
+                    Check(atk.Attack, atk0 + 1,
+                          "★ ④-a【交叉】那条 `abouttoattack` 正文真的发作了（`Attack` +1）——"
+                        + "这一格把「取消」与「悄悄早退、什么都没做」分开");
+                }
+
+                // ---- ② 同一份局面，只把攻方**从棋盘上拿掉** ⇒ 闸关、取消不成立、能力不再发作 ----
+                //  🔴 同一夹具前后只差「攻方在不在盘上」这一位 ⇒ 恒真 / 恒假两种坏实现
+                //     不可能同时满足 ① 与 ②。
+                {
+                    var ctx = ProbeBattle(new CardDef[0], new CardDef[0]);
+                    ToP1Turn(ctx, 2);
+                    int p = ctx.Active, q = 1 - p;
+                    var atk = Place(ctx, p, 3, Unit("A1983_LeavesAtk", 1, 3, 9), exhausted: false);
+                    var def = Place(ctx, q, 3, Unit("A1983_LeavesDef", 1, 0, 9), exhausted: true);
+                    atk.GrantOps("abouttoattack", body, "Gain +1 Attack");
+                    int atk0 = atk.Attack;
+                    CheckTrue(tryCancel(ctx, p, 3, atk, def), "（前提）在场上时取消得掉");
+                    Check(atk.Attack, atk0 + 1, "（前提）那条正文发作过一次");
+                    ctx.Players[p].Board[3] = null;
+                    CheckTrue(!RuleCore.IsAttackingOnBoard(ctx, atk),
+                              "★ ④-b【闸·假·离场】攻方不在棋盘上 ⇒ `IsAttackingOnBoard == false`");
+                    CheckTrue(!tryCancel(ctx, p, 3, atk, def),
+                              "★ ④-b【行为】闸关 ⇒ 取消函数返回 false"
+                            + "｜🧨 把闸写成恒 true ⇒ 本行红（而 ① 照样绿 —— 这一格才是恒真闸的判别式）");
+                    Check(atk.Attack, atk0 + 1,
+                          "★ ④-b【能力也不许再发作】`Attack` 仍是 +1（第二次问没有把正文又跑一遍）"
+                        + "｜🧨 闸恒 true ⇒ 本行实得 atk0 + 2");
+                }
+
+                // ---- ③ 攻方**还在格子里、但已经死了** ⇒ 同样闸关（「已死」那一档）----
+                //  🧨 把闸粗写成「`Board[slot] != null`」⇒ 本行红 —— 那一格**非空**，只是占位者血 ≤ 0。
+                {
+                    var ctx = ProbeBattle(new CardDef[0], new CardDef[0]);
+                    ToP1Turn(ctx, 2);
+                    int p = ctx.Active, q = 1 - p;
+                    var atk = Place(ctx, p, 3, Unit("A1983_DeadAtk", 1, 3, 9), exhausted: false);
+                    var def = Place(ctx, q, 3, Unit("A1983_DeadDef", 1, 0, 9), exhausted: true);
+                    atk.GrantOps("abouttoattack", body, "Gain +1 Attack");
+                    int atk0 = atk.Attack;
+                    atk.Health = 0;
+                    CheckTrue(!atk.IsAlive, "（前提）攻方血 0（`IsAlive == false`）");
+                    CheckTrue(ctx.Players[p].Board[3] != null,
+                              "（前提）它**还在棋盘那一格里**（⛔ 不是离场那一档）");
+                    CheckTrue(!RuleCore.IsAttackingOnBoard(ctx, atk),
+                              "★ ④-c【闸·假·已死】格子非空但攻方已死 ⇒ `IsAttackingOnBoard == false`"
+                            + "｜🧨 把闸写成 `Board[slot] != null` ⇒ 本行红");
+                    CheckTrue(!tryCancel(ctx, p, 3, atk, def),
+                              "★ ④-c【行为】已死 ⇒ 取消函数返回 false"
+                            + "（原版 `CardScript__CancelAttack.c:35` 的 `LogWarning` + return）");
+                    Check(atk.Attack, atk0,
+                          "★ ④-c【交叉】那条正文**一次都没发作**（`Attack` 不变）");
+                }
+            }
         }
     }
 
@@ -29678,7 +30285,7 @@ public static partial class RuleEngineTest
 
         // ---- ④ 两个判据在半懂那一档必须分得开 ----
         var ec8 = pool.Find(c => c.Id == "EC33");
-        if (ec8 == null) CheckTrue(false, "（前提）池里有 `EC8 Alluress`");
+        if (ec8 == null) CheckTrue(false, "（前提）池里有 `EC33 Alluress`");
         else
         {
             CheckTrue(ec8.BodyResolves(KeywordTable.Rally),
@@ -29805,7 +30412,7 @@ public static partial class RuleEngineTest
     ///
     /// 🔴 **账本来的结论是「池里没有这张卡 ⇒ 永远不生效」，那是【假账】**：
     ///   它取自**空卡池的夹具**（`ProbeBattle` 传的是 `cardPool: new List&lt;CardDef&gt;()`）。
-    ///   真池里两张卡**都在**（`AM10 Shock Trooper` / `SOR7 Sister Novitiate`），
+    ///   真池里两张卡**都在**（`AM5 Shock Trooper` / `SOR4 Sister Novitiate`），
     ///   而且 `AM56` 打出去之后**真的部署**了一个（见下面 ③）。
     /// ⇒ 本测试把三格钉住；**空池那一档**留作灭自证（`Ok = false`）。
     /// </summary>
@@ -29823,9 +30430,9 @@ public static partial class RuleEngineTest
                   "★ （灭自证）**空卡池**上照旧筛不出来（`Resolve` 返回 `Ok = false`）"
                 + "—— 上一批「部署不了」那条读数就是**空池夹具**的产物，不是缺陷");
 
-        // ---- ③ 端到端：`AM56 Cadia Stands` 打出去，自己回合开始真的多一个 Shock Trooper ----
+        // ---- ③ 端到端：`AM51 Cadia Stands` 打出去，自己回合开始真的多一个 Shock Trooper ----
         var am56 = pool.Find(c => c.Id == "AM51");
-        if (am56 == null) { CheckTrue(false, "（前提）池里有 `AM56 Cadia Stands`"); return; }
+        if (am56 == null) { CheckTrue(false, "（前提）池里有 `AM51 Cadia Stands`"); return; }
         var d0 = new List<CardDef> { HeroOf("A1455W0", "AstraMilitarum", 2, 30) };
         for (int i = 0; i < 20; i++) d0.Add(Unit("A1455FillA" + i, 1, 0, 1));
         var d1 = new List<CardDef> { HeroOf("A1455W1", "Goff", 2, 30) };
@@ -29835,7 +30442,7 @@ public static partial class RuleEngineTest
         ctx.Players[0].Hand.Add(ctx.NewInstance(am56));
         ctx.Players[0].Energy = 40;
         CheckCode(RuleCore.PlayCard(ctx, 0, ctx.Players[0].Hand.Count - 1, 3), RuleCodes.OK,
-                  "打出 `AM56 Cadia Stands`"
+                  "打出 `AM51 Cadia Stands`"
                 + "（`For the rest of this battle, at the start of your turn, deploy a Shock Trooper`）");
         RuleCore.EndTurn(ctx);
         RuleCore.BeginTurn(ctx);                                   // P1 的回合（常驻效果归 P0 ⇒ 不触发）
@@ -29958,8 +30565,8 @@ public static partial class RuleEngineTest
     //       阵营/英雄/部队/残骸/条件/关键词/数值…）—— **没有隐身那一条**；
     //       池子本身（`BattleManager__GetUnitsInPlayPooledList.c:39-85`）的闸也只有
     //       `includeHero` / `includeMinions` / `includeRemnants` / `isPlayer` / `waitingToDie`。
-    //     · **卡面旁证**：`SAU55 Solar Pulse`（`Blind all enemies, and they lose Stealth and Camouflage`）·
-    //       `AM48 Recon Operation`（`All enemies lose Stealth and Camouflage. If no enemy is affected, draw 2 cards`）·
+    //     · **卡面旁证**：`SAU43 Solar Pulse`（`Blind all enemies, and they lose Stealth and Camouflage`）·
+    //       `AM43 Recon Operation`（`All enemies lose Stealth and Camouflage. If no enemy is affected, draw 2 cards`）·
     //       `GOF98` / `DA30` / `TL20` —— 这几张**印出来的字**只有「批量能打到隐身单位」才成立。
     //   ⇒ 改法 = 把 `AddSide` 那一道闸收成「**只给 `IsLegalPick`（单选）用**」的开关。
     //   🔄 **本用例钉的是另一半**：那道闸**不许**被顺手删掉。

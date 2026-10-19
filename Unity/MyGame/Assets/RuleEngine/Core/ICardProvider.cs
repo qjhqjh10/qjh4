@@ -12,7 +12,10 @@ namespace RuleEngine
 {
     public interface ICardProvider
     {
-        /// <summary>稳定 id（现在用卡名 —— OCR 产物里同名卡罕见，真出问题再加 faction 前缀）</summary>
+        /// <summary>稳定 id —— **原版卡 id**（形如 `ASH83` / `SOR11`；`cards_engine.json` 现读 1127 张，
+        /// **0 张 `id == name`**，而卡名本身有 3 个重复：`Terminator Champion` / `Maulerfiend` / `Terminator`）。
+        /// ⚠️ 2026-10-19（`A1577`②）就地订正：原来这里写「现在用卡名 —— OCR 产物里同名卡罕见」，
+        /// **与事实不符** —— `id` 从 `K06` 起已是原版真值，不是卡名、也不是 OCR 产物。</summary>
         string Id { get; }
 
         /// <summary>显示名</summary>

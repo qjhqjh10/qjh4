@@ -190,10 +190,24 @@ namespace CardPresentation
         public const int PageCount = 2;
         /// <summary>页节点名（= 原版 prefab 里那两颗 tab 的 GameObject 名；同时是页签文字的本地兜底）。</summary>
         public static readonly string[] PageNames = { "Select Team Tab", "Event On Going Tab" };
-        /// <summary>页签文字的来源说明（自检读口 / 出声用）。</summary>
+        /// <summary>页签文字的来源说明（自检读口 / 出声用）。
+        /// 🆕 **2026-10-19（`A1853②`）订正**：原来这里写「原版来自 `LiveOpsAssetUtility.GetLabel(事件)`（远端）⇒
+        /// 本地拿不到」—— **那一半已过期**：`NavigationBarTitle`（label 4 = `Event_Description/ExpansionPass/TabTitle`）
+        /// 就在本地 13 个活动 SO 里。现行取值次序 = **显式 `TabLabelTerms` > 本地活动目录（在期事件）> 节点名兜底**；
+        /// 本窗是 Two Sides 事件（**不在**那 13 份 SO 里）⇒ 今天仍落到节点名，⛔ 不编活动文案。</summary>
         public const string TabLabelNote =
-            "页签文字原版来自 `LiveOpsAssetUtility.GetLabel(事件)`（远端）⇒ 本地拿不到；"
-            + "这里用两个 tab 的**节点名**兜底（`Select Team Tab` / `Event On Going Tab`），⛔ 不编活动文案。";
+            "页签文字：显式 `TabLabelTerms` > 本地活动目录（`LiveOpsLocalCatalog`，label 4，只认在期事件）> 节点名兜底"
+            + "（`Select Team Tab` / `Event On Going Tab`）。⛔ 不编活动文案、⛔ 不拿过期活动顶。";
+
+        /// <summary>🆕 **2026-10-19（`A1853②`）**：本窗对应的**本地活动实例 id**（13 份活动 SO 之一）。
+        /// 缺省 null = 不查本地目录（本窗建的是 Two Sides 事件，不在那 13 份里）。
+        /// 声明后：页签文字取该事件的 `NavigationBarTitle`（label 4），**且只在该事件在期时可生效**。</summary>
+        public string LocalLiveOpsEventId;
+
+        /// <summary>🆕 **2026-10-19（`A1853②`）**：显式页签文字（null/空 ⇒ 走本地目录 ⇒ 再兜底节点名）。
+        /// 调用方拿到活动实例的 `NavigationBarTitle` 时传进来 —— 与 `LocalLiveOpsEventId` 两条路等价，
+        /// 优先级更高（调用方说了算）。</summary>
+        public string[] TabLabelTerms;
 
         // ---- 第 1 页（`TwoSidesEvent_ChooseSideTab`）矩形（D_ dump 的 derived 树逐行实读）----
         public static readonly PxRect P1ScanLinesR = new PxRect(615.9f, 148.0f, 1304.1f, 888.1f);
@@ -500,10 +514,10 @@ namespace CardPresentation
             _tabMaster = BuildTabButton("Menu Navigation Panel Button", TabTop, MasterLabel, true);
             _tabMaster.gameObject.SetActive(false);
 
-            // 两颗运行期页签（= `AddTabButton` 的等价物）—— 文字用页节点名兜底、图标留空（数据缺口）
+            // 两颗运行期页签（= `AddTabButton` 的等价物）—— 文字次序见 `TabLabelTerm`、图标留空（数据缺口）
             for (int i = 0; i < PageCount; i++)
             {
-                var t = BuildTabButton(PageNames[i], TabTop + TabH * i, PageNames[i], false);
+                var t = BuildTabButton(PageNames[i], TabTop + TabH * i, TabLabelTerm(i), false);
                 int idx = i;
                 _tabButtonsList.Add(t);
                 // 🆕 **2026-10-18（音效线缺口 `AUD` §三 C9）**：原版页签是 `EverguildToggle` +
@@ -552,6 +566,33 @@ namespace CardPresentation
             if (MissingArt.Count > 0)
                 Debug.LogWarning("[ParentEvent] ⚠️ 有 " + MissingArt.Count + " 张图取不到（**这些件没画**）："
                                  + string.Join("、", MissingArt.ToArray()));
+        }
+
+        // ============================================================ 页签文字（= 12 承载面 #7）
+        /// <summary>第 <paramref name="page"/> 个页签的文字。次序（**唯一判据**，别再各写一份）：
+        /// <list type="number">
+        ///  <item><see cref="TabLabelTerms"/> 显式给了 ⇒ 用它（调用方说了算）；</item>
+        ///  <item><see cref="LocalLiveOpsEventId"/> 指向本地活动目录里的一个事件，**且该事件可选中、在期**
+        ///        ⇒ 用它 `NavigationBarTitle`（label 4 = `Event_Description/ExpansionPass/TabTitle`）；</item>
+        ///  <item>否则 ⇒ 页节点名兜底（`PageNames`，prefab 实读；= 今天的实际行为）。</item>
+        /// </list>
+        /// 🔴 **过期事件不参与**（用户边界「过期活动不做」）—— 第 2 步的 `IsInPeriod(NowUtc)` 就是那道闸。</summary>
+        public string TabLabelTerm(int page)
+        {
+            if (TabLabelTerms != null && page >= 0 && page < TabLabelTerms.Length
+                && !string.IsNullOrEmpty(TabLabelTerms[page]))
+                return TabLabelTerms[page];
+            var ev = LiveOpsLocalCatalog.Find(LocalLiveOpsEventId);
+            if (ev != null && ev.Selectable && ev.IsInPeriod(LiveOpsLocalCatalog.NowUtc))
+            {
+                LiveOpsLocalLabel l;
+                if (ev.TryGetLabel((int)LiveOpsLabelRef.NavigationBarTitle, out l))
+                {
+                    string txt = LiveOpsLocalCatalog.TermText(l.Term);
+                    if (!string.IsNullOrEmpty(txt)) return txt;
+                }
+            }
+            return (page >= 0 && page < PageNames.Length) ? PageNames[page] : "";
         }
 
         // ============================================================ 页签按钮（= `Menu Navigation Panel Button` 模板）

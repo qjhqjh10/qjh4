@@ -245,7 +245,11 @@ stat = {'✅一致': 1160, '⚠️表示不同·语义同': 614, '🔴真差异'
   `A1571` autoPlay），与 `preset` 无关 —— **`preset` 默认 `null` 时 `Sweep`/`Check` 一个字节都不经过它**。
   按既定口径，**基线重生成 + 重钉留到引擎线收口统一做**（本轮⛔ 未重生成、⛔ 未重钉）。
 - **基线/指纹未动**：`out_baseline.txt` md5 = `9e98a4962b7cf3282e8070595f7ae912`（与开工时相同）；
-  `out_play_baseline.txt` 不在 `git status`；`PinnedParseMd5 = 2519b591…` / `PinnedPlayMd5 = 07aba221…` 未改。
+  `out_play_baseline.txt` 不在 `git status`；`PinnedParseMd5 = a28da8e3…` / `PinnedPlayMd5 = 07aba221…` 未改。
+  - ⚠️ **2026-10-19 就地订正（铁律 5）**：本行原来写 `PinnedParseMd5 = 2519b591…`，**那是错的**。
+    现读 `Unity/工具/ruleprobe/Program.cs:225` = **`a28da8e3eac8c3296495828dcb57de52`**，由 **2026-10-18 `K06`（提交 `3251df0`）有意重钉**；
+    K06 之前的值是 `79c93e35…`。`2519b591…` 既不是现值、也不是前一版，**首次出现在本次提交 `962933d` 的这份报告里** ⇒ 抄错了。
+    错因：摘值时没有回 `Program.cs` 现核。**钉住值以源码常量为准**，本报告原来的那串作废。
 
 ### 5·3 没查清 / 接口需求（⛔ 不猜）
 

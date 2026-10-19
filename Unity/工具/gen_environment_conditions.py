@@ -31,8 +31,12 @@ gen_environment_conditions.py —— 抽「环境条件 SO」的值 → 数据�
 可重跑、幂等。
 
 用法：PYTHONIOENCODING=utf-8 python 工具/gen_environment_conditions.py
+      加 `--dry` = 只跑计算、打印读数、**零写盘**（默认行为不变；`A1648` 同族口径）。
 """
 import io, os, re, json, glob, sys
+
+# 🔴 `--dry` = 只跑计算、打印读数、**零写盘**。默认（不带它）行为与以前完全一样。
+DRY = '--dry' in sys.argv[1:]
 
 ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
 FULL = 'd:/2/新解包资源/assets_full'
@@ -204,8 +208,11 @@ def main():
         },
         'conditions': rows,
     }
-    io.open(CANON, 'w', encoding='utf-8', newline='\n').write(
-        json.dumps(doc, ensure_ascii=False, indent=1))
+    if DRY:
+        print('干跑（未写盘）：%s' % CANON)
+    else:
+        io.open(CANON, 'w', encoding='utf-8', newline='\n').write(
+            json.dumps(doc, ensure_ascii=False, indent=1))
 
     # ---- 摊平版（JsonUtility）----
     flat = {
@@ -231,15 +238,18 @@ def main():
                                    for a in (r['animationsToChange'] or [])],
         } for r in rows],
     }
-    os.makedirs(os.path.dirname(FLAT), exist_ok=True)
-    io.open(FLAT, 'w', encoding='utf-8', newline='\n').write(json.dumps(flat, ensure_ascii=False, indent=1))
+    if DRY:
+        print('干跑（未写盘）：%s（摊平 %d 项）' % (FLAT, len(flat['items'])))
+    else:
+        os.makedirs(os.path.dirname(FLAT), exist_ok=True)
+        io.open(FLAT, 'w', encoding='utf-8', newline='\n').write(json.dumps(flat, ensure_ascii=False, indent=1))
 
     print('SO 总数 %d（default %d / effect %d）· 有 prefab 名 %d'
           % (doc['stats']['total'], doc['stats']['default'], doc['stats']['effect'], doc['stats']['with_prefab']))
     for k, v in unresolved.items():
         print('  ⚠️ %s: %s' % (k, v))
-    print('→ %s' % CANON)
-    print('→ %s' % FLAT)
+    print('→ %s' % CANON + ('（干跑：未写）' if DRY else ''))
+    print('→ %s' % FLAT + ('（干跑：未写）' if DRY else ''))
 
 
 if __name__ == '__main__':

@@ -40,8 +40,12 @@
    只收**两端都落进我们卡池**的，`{count, entries:[{id, talent}]}`（数组 —— `JsonUtility` 不支持字典）。
 
 跑法：`"D:/2/Warpforge_tools/py312/python.exe" d:/4/Unity/工具/gen_talent_cards.py`
+      加 `--dry` = 只跑计算、打印读数、**零写盘**（默认行为不变；`A1648` 同族口径）。
 """
 import io, json, os, re, sys
+
+# 🔴 `--dry` = 只跑计算、打印读数、**零写盘**。默认（不带它）行为与以前完全一样。
+DRY = "--dry" in sys.argv[1:]
 
 # 🔴 **真值源 = 当前 build 的 allcards 卡 SO 语料**（2026-10-18 换）。
 #   ⛔ 旧路径 `d:/2/远端缓存_旧profile_1013/导出/cards_1195_2022时代.json` 是 **2025-07-30 的旧快照**
@@ -73,6 +77,9 @@ def rc_path(c, i):
 
 def write(p, obj):
     s = json.dumps(obj, ensure_ascii=False, indent=1)
+    if DRY:
+        print('dry-run（未写盘）%s (%d bytes)' % (p, len(s.encode('utf-8'))))
+        return
     io.open(p, 'w', encoding='utf-8', newline='\n').write(s)
     print('wrote %s (%d bytes)' % (p, len(s.encode('utf-8'))))
 
@@ -181,7 +188,8 @@ def main():
         'truthCards': len(cards), 'mapped': mapped, 'unmapped': len(cards) - mapped,
         'cards': cards,
     }
-    os.makedirs(os.path.dirname(OUT_FULL), exist_ok=True)
+    if not DRY:
+        os.makedirs(os.path.dirname(OUT_FULL), exist_ok=True)
     write(OUT_FULL, full)
 
     seen, dup, uniq = set(), 0, []

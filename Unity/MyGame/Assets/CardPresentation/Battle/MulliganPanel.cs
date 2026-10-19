@@ -188,7 +188,12 @@ namespace CardPresentation
         /// 那个 `0xe` 是 `CardScript` 上「这张已被选作换掉」的状态（同一次点击刚调过
         /// `CardScript.ClickMulliganSelected(true)`）⇒ **选中 = `Undo`、没选中 = `Replace`**。
         /// ⚠️ 文案两列**都自拟**（该键只在代码字面量里，值在远端 I2 表；`zh_CN.csv` 里
-        /// **没有 `Undo` 这个英文串** —— 2026-10-18 按第一列精确查过）—— 如实标在 `Core/Loc.cs`。</para></summary>
+        /// **没有 `Undo` 这个英文串** —— 2026-10-18 按第一列精确查过）—— 如实标在 `Core/Loc.cs`。</para>
+        /// <para>🔴 **2026-10-19（战斗线 `T17`）就地订正（铁律 5）—— 上面那句「两列都自拟 / 值在远端」【已过期】**：
+        /// **原话** = 「两列都自拟（值在远端 I2 表；`zh_CN.csv` 没有 `Undo`）」·
+        /// **现值** = 官方 I2 表 2026-10-14 已在本地，`Battle/Mulligan/Undo` = **`Undo` / `撤销`**，
+        /// `Core/Loc.cs` 那条两列**就是官方值**（2026-10-14 核）·
+        /// **错因** = 那句写于官方表解出之前；`zh_CN.csv` 0 命中只证明「不在那份旧表里」，不等于原版没有。</para></summary>
         public const string UndoTerm = "Battle/Mulligan/Undo";
 
         /// <summary>那颗钮现在该写什么 —— **判据只此一处**（建钮和 `ApplyMarks` 都取它，
@@ -220,6 +225,11 @@ namespace CardPresentation
         /// prefab 上零 `Localize`；后者是 prefab `mTerm`，TMP 原文 `You go second`）。
         /// ⚠️ **文案那一半没变**：`Battle/Tips/GoFirst` 的英文原文**本地取不到**（远端 I2 表）
         /// ⇒ `Loc` 表里那一条 EN/ZH **都自拟**（如实标着，⛔ 别写成「照抄原版」）。</summary>
+        /// <para>🔴 **2026-10-19（战斗线 `T17`）就地订正（铁律 5）—— 上一句【已过期】**：
+        /// **原话** = 「英文原文本地取不到（远端 I2 表）⇒ EN/ZH 都自拟」·
+        /// **现值** = 官方表 `Battle/Tips/GoFirst` = **`You go first` / `你先行`**，`Core/Loc.cs` 那条
+        /// **两列都是官方值**（EN 于 2026-10-14 `A1803` 订正、ZH 另有用户实拍旁证）·
+        /// **错因** = 那句写于官方表解出之前，之后没有回来改（同一句在 `Core/Loc.cs:1138` 已有订正）。</para></summary>
         public static string TurnFirst { get { return Loc.T(TurnFirstTerm); } }
         public static string TurnSecond { get { return Loc.T(TurnSecondTerm); } }
         /// <summary>先手 / 后手那两条词条键 —— **只此一份**。</summary>
@@ -479,16 +489,28 @@ namespace CardPresentation
         /// `C:/Users/qjh36/Desktop/warpforge参考图/战斗—替换手卡参考图（先手）.png` 逐像素量：
         /// 三张卡**同为 240 帧px**（x 372–612 / 700–940 / 1028–1268），而那一帧就是整块 1920×1080
         /// 画布（纵向量得的行中心 514 ↔ 预制体锚点 511，**两轴自洽**）⇒ `240 × 1080/887 = 292`。
-        /// 🔴 **与预制体字段对不上，如实记着（`A1749`）**：换牌区那个布局实例
-        /// （`MonoBehaviour_4881.json`）`m_scale = 183.41`、`m_betweenElementsSpacing = 502.2`，
-        /// 与选牌面板 `MB_4052` **逐字段相同**；若按「183.41 px / 卡本地单位」读 ⇒ 卡宽 **383.9**、
-        /// 间距 **502.2** ⇒ 三张一行要 **2156 px，根本装不进 1920**（实拍那一行只占 1091 px，差 31%）。
-        /// ⇒ **本处以实拍为准**；「选牌面板是不是也偏大」**没有核过**，另立账 `A1749`，⛔ 别照抄过去。</summary>
+        /// 🔴 **2026-10-19（战斗线 T10 · `A1749` 结案）：选牌面板【不偏大】、两扇面板【运行期输出本来就不同】**。
+        ///   判据 = `资料/普查产出_1016战斗判据/T10_换牌阶段判据.md` §`A1749`：
+        ///   · `MB_4052`（选牌）与 `MB_4881`（换牌）序列化字段**逐字相同**（`m_scale=183.41`、
+        ///     `m_betweenElementsSpacing=502.2`），但 `CardsHorizontalLayout.GetPosition` 还吃运行态的
+        ///     `m_elemetsParent.lossyScale` / `m_calculatedMaxLayoutSize` / 压缩分支 / `MaxCardsInHand`
+        ///     ⇒ **同一组件不保证同一个输出**（铁律 5·c 那一类）；
+        ///   · 选牌那一行：原版**运行期探针**量到中心距 **502.2 px**（`panel_0914b/报告.md:61-75`）
+        ///     ⇒ 我们 `CardChoicePanel` 的 `383.8 / 502.2` **是对的，不动**；
+        ///   · 换牌这一行：实拍量到卡宽 **292** ⇒ 本值与 `RowSpacingPx` **保持**。
+        /// ⛔ 别再按「183.41 px / 卡本地单位」往换牌这一侧推（那会得到 383.9 的卡宽 —— 实拍否掉了）。</summary>
         const float CardWidthPx = 292f;
 
-        /// <summary>换牌区相邻两张的**中心距**（设计 px）= **414**。判据 = 同上那张实拍量得
-        /// 卡中心 485 / 840 / 1205 帧px ⇒ 间距 340 帧px ⇒ `340 × 1080/887 = 414`。
-        /// （实拍比值 间距/卡宽 = 1.42；预制体那边是 `502.2/383.9 = 1.31` —— 同一套设计，量出来差 8%。）</summary>
+        /// <summary>换牌区相邻两张的**中心距**（设计 px）= **414**。判据 = 同上那张实拍
+        /// （用户 2026-10-13 给的视频帧，**按 0.821 归一** —— 见 `T10_换牌阶段判据` §三-4）。
+        /// ⚠️ **2026-10-19（T10）复核：本行原来的推导数自相矛盾、且与逐像素边界对不上，如实记**：
+        ///   · 逐像素边界（372–612 / 700–940 / 1028–1268）⇒ 中心 492 / 820 / 1148 帧px
+        ///     ⇒ **间距 328 帧px ⇒ 399 设计 px**（不是 414）；
+        ///   · 原文另写「卡中心 485 / 840 / 1205 ⇒ 间距 340」——**算式本身不成立**（840−485=355、1205−840=365），
+        ///     且与逐像素边界对不上。
+        ///   ⇒ **414 暂时保留**（`T10_换牌阶段判据` §`A1749` 的裁定是「换牌保持不动」；且三个中心相对
+        ///   屏心 960 还整体偏右 ≈38 px，说明这张视频帧的横向对齐本身没校准死）。
+        ///   🔴 **真机复测后以实拍为准** —— 那时把这一行连同推导一起改掉，⛔ 别照 414 反推。</summary>
         const float RowSpacingPx = 414f;
 
         /// <summary>每张牌那颗钮（原版 `CardMulliganButtonFrame/Change Card Button`：
@@ -1017,14 +1039,18 @@ namespace CardPresentation
         /// 🔴 **「点到了哪张卡」的判据只此一处** —— 原版是每张卡自己的 `Collider2D`（换牌期开着），
         ///   我们这里是 `CardView.Contains` 逐张扫（**删掉的那条标记分支原来就是这段扫描**，本轮只换了
         ///   命中之后**做什么**：原来 `ToggleMark`，现在回调 `OnCardSeen`）。
-        /// ⚠️ **「重叠处取【下标最小】的那张」是原有的扫描顺序**，本轮**没动它** —— 它与手牌那套
-        ///   `CardInteraction.HitTest`（取 **z 最小** = 最前面那张）**不是同一条规则**：扇形手牌在重叠区
-        ///   可能点到「被压住的那张」。**已记进 `W2_开局链两处.md`，⛔ 未擅自改**（判据是原版、不是我的设计）。</summary>
+        /// 🔴🔴 **2026-10-19（战斗线 T10 · `A1668`）就地收口**：原来这里按下标递增取第一张
+        ///   （doc 写着「重叠处取下标最小」），而手牌那条 `CardInteraction.HitTest` 取 **z 最小（最前）**
+        ///   ⇒ **两条规则在扇形重叠区会选到不同的卡**。现在两处都调
+        ///   <see cref="CardInteraction.Frontmost"/> —— **判据只此一份**。
+        /// <para>判据 = 原版 `BattleManager__GetTargetInPos.c:104-130`：`Physics2D.GetRayIntersectionNonAlloc`
+        /// 之后**只取数组第 [0] 项、不排序**（「谁在最上面」由物理层定）；我们这套手算命中没有
+        /// collider/射线层（`C3` 结构差异 #5）⇒ 「z 最小」是对应物。
+        /// ⚠️ **换牌那一行本来就不重叠**（`m_useRotation = 0`、平直横排、间距 &gt; 卡宽）⇒
+        /// 收成一条判据之后，换牌期的行为**零变化**（z 相同 ⇒ 仍取扫到的第一张 = 原来的下标序结果）。</para></summary>
         public CardView CardAt(Vector3 world)
         {
-            for (int i = 0; i < _cards.Count; i++)
-                if (_cards[i] != null && _cards[i].Contains(world)) return _cards[i];
-            return null;
+            return CardInteraction.Frontmost(_cards, world);
         }
 
         /// <summary>指针在「完成换牌」上吗。

@@ -878,21 +878,39 @@ def so_refs(card, trig_names, eff_names):
     for i, ab in enumerate(card.get("cardAbilities") or []):
         _trig_name = trig_names.get(ab.get("trigger"))
         _ev, _ev_why = trigger_event(_trig_name)
-        for j, lg in enumerate(ab.get("abilityLogic") or []):
+        _logic = ab.get("abilityLogic") or []
+        for j, lg in enumerate(_logic):
             for k, a in enumerate(lg.get("cardAnimations") or []):
                 g = (a or {}).get("m_AssetGUID")
                 if not g:
                     continue
+                _extra = {"abilitySlot": "cardAbilities[%d].abilityLogic[%d]" % (i, j),
+                          "abilityTrigger": ab.get("trigger"),
+                          "abilityTriggerName": _trig_name,
+                          "abilityEvent": _ev,
+                          "abilityEventWhy": _ev_why,
+                          "chosenAbility": lg.get("chosenAbility"),
+                          "chosenAbilityName": eff_names.get(lg.get("chosenAbility"))}
+                # 🆕 2026-10-19（W · 多候选 ③）：`randomAbilityChoice` 的**按组随机**要用的四个数。
+                #   判据 = 原版 `RawCardScript__TriggerAbility.c:75-97` 逐句读：
+                #     `cVar3 = *(char *)(cardAbility + 0x48)`（= `CardAbility.randomAbilityChoice`）·
+                #     `lVar5 = *(longlong *)(cardAbility + 0x50)`（= `abilityLogic` 列表）·
+                #     真 且 `Count > 1` ⇒ `BattleManager.GetRandomInt(0, Count)` 抽**一个** logic 播；
+                #     假（或 Count ≤ 1）⇒ **按序全播**。
+                #   `abilityIndex` = `cardAbilities[i]` 的下标（同一个事件里可能混着多条 CardAbility，
+                #   随机要**每条各抽各的**）· `abilityLogicIndex` = 组号 j · `abilityLogicCount` = 组数。
+                #   ⚠️ **组数取 `abilityLogic` 的完整长度**（不是「有 cardAnimations 的组数」）——
+                #   原版抽中的组即使没有动画也占一个名额（抽中它 = 这一下没特效）。
+                #   ⚠️ **只给 `randomAbilityChoice` 为真的那条 CardAbility 写**（全池现读 1 条 =
+                #   `GOF12 Spanner`）—— 其余条目**不加**这四个键，免得全量件凭空胖 150 KB。
+                if ab.get("randomAbilityChoice"):
+                    _extra["abilityIndex"] = i
+                    _extra["abilityLogicIndex"] = j
+                    _extra["abilityLogicCount"] = len(_logic)
+                    _extra["randomAbilityChoice"] = 1
                 out.append((
                     "cardAbilities[%d].abilityLogic[%d].cardAnimations[%d]" % (i, j, k),
-                    _ev, g,
-                    {"abilitySlot": "cardAbilities[%d].abilityLogic[%d]" % (i, j),
-                     "abilityTrigger": ab.get("trigger"),
-                     "abilityTriggerName": _trig_name,
-                     "abilityEvent": _ev,
-                     "abilityEventWhy": _ev_why,
-                     "chosenAbility": lg.get("chosenAbility"),
-                     "chosenAbilityName": eff_names.get(lg.get("chosenAbility"))}))
+                    _ev, g, _extra))
     aab = card.get("activeAbility") or {}
     for j, lg in enumerate(aab.get("activeAbilityLogic") or []):
         for k, a in enumerate(lg.get("cardAnimations") or []):
@@ -1396,7 +1414,20 @@ def main():
                 if not nm:
                     rt_noprefab += 1       # 没解析出本地 prefab 名的：**不进来**，但计进出声的那条数
                     continue
-                es.append({"n": nm, "c": _e.get("conf") or "", "a": _e.get("cardanim") or ""})
+                # 🆕 2026-10-19（W · 多候选 ③）：`randomAbilityChoice == true` 的那条 CardAbility
+                #   带上「按组随机」需要的四个数（`rc` 标志 · `ai` = `cardAbilities[i]` 下标 ·
+                #   `gj` = `abilityLogic[j]` 组号 · `gn` = `abilityLogic` 组数）。
+                #   消费 = `Core/VfxMap.cs` 的 `ResolveAllTimed(..., rng)`（只有传 rng 才抽组；
+                #   不传 = 旧行为全播 ⇒ 今天无可观测变化）。判据见 `so_refs` 那一段的注释。
+                #   ⚠️ **只有 `rc == 1` 才写这四个键**（全池现读 1 条 CardAbility = `GOF12 Spanner`）；
+                #   其余条目缺省 0（JsonUtility 缺字段给默认值）。
+                _re = {"n": nm, "c": _e.get("conf") or "", "a": _e.get("cardanim") or ""}
+                if _e.get("randomAbilityChoice"):
+                    _re["rc"] = 1
+                    _re["ai"] = int(_e.get("abilityIndex") or 0)
+                    _re["gj"] = int(_e.get("abilityLogicIndex") or 0)
+                    _re["gn"] = int(_e.get("abilityLogicCount") or 0)
+                es.append(_re)
             if es:
                 evs_out.append({"ev": _ev, "es": es})
 
@@ -1472,6 +1503,11 @@ def main():
         "_note": "🔴 **运行时那一份**（`gen_card_vfx_by_card.py` 与 `数据/游戏数据/card_vfx_by_card.json` "
                  "**同一次运行产出**，⛔ 别手改、⛔ 别另写脚本再投影一次）。"
                  "只留 `n`(prefab) / `c`(conf) / `a`(cardanim)；全量那份（含立绘/语音引用、字段出处、GUID）在 `数据/` 下。"
+                 "🆕 **2026-10-19（W）**：`randomAbilityChoice == true` 的候选多带四个键 —— "
+                 "`rc`(1=该 CardAbility 是「随机抽一组」) / `ai`(`cardAbilities[i]` 下标) / "
+                 "`gj`(`abilityLogic[j]` 组号) / `gn`(`abilityLogic` 组数)；判据 = "
+                 "`RawCardScript__TriggerAbility.c:75-97`，消费 = `VfxMap.ResolveAllTimed(..., rng)`。"
+                 "只有 `rc==1` 才写（现读全池 1 条 = `GOF12 Spanner`），其余条目缺省 0。"
                  "消费口 = `CardPresentation/Core/VfxMap.cs` 的 `ByCard`（按 `confPriority` 折叠，取第一个命中的）。"
                  "⚠️ 形状是**数组**不是字典 —— `JsonUtility` 不支持字典（`VfxMap.EnsureLoaded` 里注明了）。"
                  "🆕 **`cards[].audio`（2026-10-14 · A1817）** = **逐卡精确语音绑定**："

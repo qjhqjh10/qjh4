@@ -22,12 +22,15 @@
 //     → `GameWindow.Close()`。
 //   · `Close`：若**还有必答题没答** ⇒ `ShowPopUp(onCloseKey, …)` 询问（我们这一档没有两颗钮的确认回调，
 //     如实标注）；否则 `GameWindow.Close()`。
-// · 本地数据缺口（2026-10-17 现读，**别重复查**）：
-//   🔴 `Demo/FeedbackSurvey/*` 那 24+ 条词条**不在** `Resources/official_loc_13lang.json`（9447 键，`grep
-//   FeedbackSurvey` = **0**），`grep -rl "FeedbackSurvey/S1Q1" d:/2` 只命中**这个 prefab 自己**。
-//   ⇒ 问卷正文只有**题干的英文 `m_text`**（prefab 出厂字）+ **答案的 mTerm 键名**；中文/英文答案文案本地都没有。
-//   本窗的处置：题干用 prefab 的英文；答案按 **option id** 显示（`CCG` / `18-24` …）+ 出声一次，
-//   ⛔ **不自译、不编文案**（铁律 3 / 红线「查不到就说查不到」）。
+// · 本地数据缺口（🔴 **2026-10-19（本批 · 铁律 5）就地订正 —— 原文说「整族缺失」，已过期**）：
+//   原文（保留痕迹）：「`Demo/FeedbackSurvey/*` 那 24+ 条词条**不在**
+//   `Resources/official_loc_13lang.json`（9447 键，`grep FeedbackSurvey` = **0**）……
+//   ⇒ 问卷正文只有题干的英文 `m_text` + 答案的 mTerm 键名；中文/英文答案文案本地都没有。」
+//   **现核（2026-10-19）**：当前官方 13 语言表（10,862 键）里 `Demo/FeedbackSurvey/*` **67 条**
+//   （题干 + 选项，zh/en 两列都非空；例 `S1Q1` = `Your age group:` / `你的年龄段：`）。
+//   本窗引用的 **74 条** `Demo/*` / `MenuDeck/*` 词条 **74/74 全部命中**（脚本逐条核对过）。
+//   ⇒ 问卷正文**一律走 `Loc.T`**（`Loc.T` 在 zh/en 两档的最后一级就是这张官方全表，见 `Core/Loc.cs:3365-3385`）；
+//   取不到时才显示**键名** + `LogWarning`（⛔ 不自译、不编文案 —— 本窗 `Term()` 是唯一入口）。
 //
 // ============================ 我们侧的对位（逐件写清，不冒充原版）============================
 // · **入口**：原版有代码调用点（`FeedbackButton__OpenFeedbackMenu.c`），但主菜单 `Feedback Button`
@@ -52,8 +55,9 @@ using UnityEngine;
 namespace CardPresentation
 {
     /// <summary>原版 `GiveFeedbackMenuDemo`（`GameWindow` 子类）—— **反馈问卷整窗**。
-    /// <para>🔴 **本地没有问卷正文的中文/英文文案表**（`Demo/FeedbackSurvey/*` 全缺）⇒ 题干用 prefab 的英文
-    /// 出厂字、答案显示 option id，并出声一次；⛔ 不自译、不编文案（判据 → 文件头）。</para>
+    /// <para>🆕 **2026-10-19（本批 · `N48②`）**：问卷词条（题干 + 选项）**一律走 `Loc.T`** ——
+    /// 官方 13 语言表里 `Demo/FeedbackSurvey/*` **67 条全在**（本窗引用的 74 条 74/74 命中）；
+    /// 取不到 ⇒ 显示**键名** + 出声一次（⛔ 不自译、不编文案）。</para>
     /// <para>🔴 **入口缺口**：原版这个 build 里 `Feedback Button` 出厂关着、`feedbackMenu` 字段 0 命中
     /// ⇒ 本窗只提供「怎么开」，不伪造调用点。</para></summary>
     public class GiveFeedbackPopup : GameWindow
@@ -136,10 +140,10 @@ namespace CardPresentation
         public const string ThanksButtonTerm = "Demo/Feedback/CloseThanksPopup";
         public const string OnCloseTerm = "Demo/FeedbackSurvey/BeforeClose";
 
-        // 兜底原文（官方 13 语言表取不到的档；⛔ 不自译，中文档也回英文并在日志里出声）
-        const string SubtitleEn = "It takes less than two minutes to help us make the game better!";
-        const string ThanksEn = "Your opinion is really important to us. Thanks for your feedback!";
-        const string OnCloseEn = "Are you sure you want to close the survey? Your answers will be lost.";
+        // 🔴 **2026-10-19（本批 · `N48②` · 铁律 5）**：这里原来还有三条「官方表取不到时的兜底原文」
+        //   （`SubtitleEn` / `ThanksEn` / `OnCloseEn`）—— **已删**：官方 13 语言表现读把对应三条键
+        //   （`Subtitle` / `OnSubmitMessage` / `BeforeClose`）全给了，且中英两列都非空 ⇒ 一律走 `Loc.T`，
+        //   留着兜底常量就是「两处写同一条文案」（迟早不一致）。⛔ 别再把它们加回来。
 
         // ============================================================ 问卷数据（prefab 实读）
         public enum ItemKind { Header, Choice, Numeric, Open }
@@ -458,13 +462,11 @@ namespace CardPresentation
 
             // ---- 5) `Title` / `Subtitle`（Left/Middle）----
             _title = MenuDraw.Node(_window, "Title", TitleR);
-            _titleLabel = Text(_title, TitleR, TutorialMessagePopup.OfficialTerm(TitleTerm, "Give us your feedback!",
-                                                                                  "给我们你的反馈！"),
+            _titleLabel = Text(_title, TitleR, Term(TitleTerm),
                                Color.white, "TextMeshProUGUI", TitleFont, QText, TitleFontMin, TitleFontMax, TitleFontBase, 1,
                                face: TmpFont.Face.LatinCardBody);
             _subtitle = MenuDraw.Node(_window, "Subtitle", SubtitleR);
-            _subtitleLabel = Text(_subtitle, SubtitleR,
-                                  TutorialMessagePopup.OfficialTerm(SubtitleTerm, SubtitleEn, SubtitleEn),
+            _subtitleLabel = Text(_subtitle, SubtitleR, Term(SubtitleTerm),
                                   Color.white, "TextMeshProUGUI", SubtitleFont, QText,
                                   SubtitleFontMin, SubtitleFontMax, SubtitleFontBase, 1,
                                   face: TmpFont.Face.LatinCardBody);
@@ -473,8 +475,7 @@ namespace CardPresentation
             _submit = MenuDraw.Node(_window, "Submit button", SubmitR);
             var subNine = MenuDraw.Nine(_submit, Tex(ArtButton, "`Submit button` 的按钮底"), SubmitR, BtnBorder,
                           BtnTexW, BtnTexH, QButton, SubmitTint, true, "Image");
-            _submitLabel = Text(_submit, SubmitTextR,
-                                TutorialMessagePopup.OfficialTerm(SubmitTerm, "Submit", "提交"),
+            _submitLabel = Text(_submit, SubmitTextR, Term(SubmitTerm),
                                 Color.white, "Button Text", SubmitFont, QText,
                                 SubmitFontMin, SubmitFontMax, SubmitFontBase, 0,
                                 face: TmpFont.Face.LatinCardBody);
@@ -510,14 +511,13 @@ namespace CardPresentation
                           new Vector4(10f, 10f, 10f, 10f), 32f, 32f, QText, InputTint, true, "Image");
             var inputArea = MenuDraw.Node(inputNode, "Text Area", InputTextR);
             Text(inputArea, InputTextR,
-                 TutorialMessagePopup.OfficialTerm(PlaceholderTerm, "Enter text...", "输入文字..."),
+                 Term(PlaceholderTerm),
                  new Color(0.196f, 0.196f, 0.196f, 0.5f), "Placeholder", PlaceholderFont, QText, 0f, 0f, 0f, 1,
                  face: TmpFont.Face.LatinCardBody);
             _freeTextLabel = Text(inputArea, InputTextR, "\u200b", new Color(0.196f, 0.196f, 0.196f, 1f),
                  "Text", PlaceholderFont, QText, 0f, 0f, 0f, 1, face: TmpFont.Face.LatinCardBody);
             Text(inputNode, InputTitleR,
-                 TutorialMessagePopup.OfficialTerm(InputTitleTerm, "Let us know your comments and feedback",
-                                                    "告诉我们你的意见与反馈"),
+                 Term(InputTitleTerm),
                  Color.white, "Input Field title", 38f, QText, 4f, 38f, 36f, 1, face: TmpFont.Face.LatinCardBody);
             _freeCounterLabel = Text(inputNode, CounterR, "280/500", new Color(0.642f, 0.642f, 0.642f, 1f),
                  "Character Counter", 24.7f, QText, 0f, 0f, 0f, 2, face: TmpFont.Face.LatinCardBody);
@@ -587,11 +587,11 @@ namespace CardPresentation
             var titleR = new PxRect(it.X1, hdrR.y1, it.TitleX2, hdrR.y2);
             var subR = new PxRect(it.SubX1, hdrR.y1, it.SubX2, hdrR.y2);
             if (!string.IsNullOrEmpty(it.TitleTerm) || !string.IsNullOrEmpty(it.TitleEn))
-                Text(node, titleR, TutorialMessagePopup.OfficialTerm(it.TitleTerm, it.TitleEn, it.TitleEn),
+                Text(node, titleR, Term(it.TitleTerm, it.TitleEn),
                      Color.white, it.TitleNode, QTitleFont, QText, QTitleFontMin, QTitleFontMax, QTitleFontBase, 1,
                      face: TmpFont.Face.LatinCardBody);
             if (!string.IsNullOrEmpty(it.SubTerm) || !string.IsNullOrEmpty(it.SubEn))
-                Text(node, subR, TutorialMessagePopup.OfficialTerm(it.SubTerm, it.SubEn, it.SubEn),
+                Text(node, subR, Term(it.SubTerm, it.SubEn),
                      new Color(1f, 1f, 1f, 0.765f), "Subtitle", QSubFont, QText,
                      QSubFontMin, QSubFontMax, QSubFontBase, 1, face: TmpFont.Face.LatinCardBody);
         }
@@ -648,7 +648,7 @@ namespace CardPresentation
             if (it.NumTitleActive)
             {
                 var tR = new PxRect(blk.x1, blk.y1, it.NumTitleX2, blk.y2);
-                Text(row, tR, TutorialMessagePopup.OfficialTerm(it.TitleTerm, it.TitleEn, it.TitleEn),
+                Text(row, tR, Term(it.TitleTerm, it.TitleEn),
                      Color.white, "Question title", NumTitleFont, QText, NumTitleMin, NumTitleMax, NumTitleBase, 1,
                      face: TmpFont.Face.LatinCardBody);
             }
@@ -705,7 +705,7 @@ namespace CardPresentation
             var inner = new PxRect(areaR.x1 + 10f, areaR.y1 + 7f, areaR.x2 - 10f, areaR.y2 - 7f);
             var area = MenuDraw.Node(box, "Text Area", inner);
             var ph = Text(area, inner,
-                          TutorialMessagePopup.OfficialTerm(PlaceholderTerm, "Enter text...", "输入文字..."),
+                          Term(PlaceholderTerm),
                           new Color(1f, 1f, 1f, 0.5f), "Placeholder", 29f, QText, 0f, 0f, 0f, 1,
                           face: TmpFont.Face.LatinCardBody);
             if (ph != null) ph.gameObject.SetActive(false);
@@ -864,11 +864,12 @@ namespace CardPresentation
             Debug.LogWarning("[GiveFeedback] **问卷上报未实现**：原版 `Submit()` → `UploadOnlineDemoData` → PlayFab，"
                            + "本地没有后端 ⇒ 只收齐了 " + answers + " 条答案（内存里），**不发送**。"
                            + "（`GameAnalytics.SendFeedbackEvent` 同样没有对应实现。）");
-            var thanks = TutorialMessagePopup.OfficialTerm(ThanksTerm, ThanksEn, ThanksEn);
-            // ⚠️ `OnSubmitMessage` 本地没有官方译文 ⇒ 回 `Demo/Feedback/Thanks` 那条同义文案（见 `ThanksTerm` 的上游注释）
-            if (!Loc.HasEntry(ThanksTerm) && Loc.HasEntry("Demo/Feedback/Thanks"))
-                thanks = Loc.T("Demo/Feedback/Thanks");
-            var ok = TutorialMessagePopup.OfficialTerm(ThanksButtonTerm, "Close", "关闭");
+            // 🔴 **2026-10-19（本批 · `N48②` · 铁律 5 就地订正）**：这里原来有一条兜底
+            //   「`Demo/FeedbackSurvey/OnSubmitMessage` 本地没有官方译文 ⇒ 回 `Demo/Feedback/Thanks`」——
+            //   **已过期**：官方 13 语言表现读有该键（en `Thank you for your time!` / zh `感谢您的时间！`）
+            //   ⇒ 直接走 `Loc.T`（`Term()`），⛔ 不再拿另一条键顶替原版那一条。
+            var thanks = Term(ThanksTerm);
+            var ok = Term(ThanksButtonTerm);
             var mgr = Manager;
             if (mgr != null) mgr.ShowPopUp(thanks, ok);
             Close();
@@ -889,19 +890,31 @@ namespace CardPresentation
             return lb;
         }
 
+        /// <summary>🆕 **2026-10-19（本批 · `N48②`）**：本窗**唯一**的词条取值口 —— 走 `Loc.T`。
+        /// <para>判据：官方 13 语言表（`Resources/official_loc_13lang.json`，10,862 键）里
+        /// `Demo/FeedbackSurvey/*` **67 条全在**；本窗引用的 74 条 `Demo/*` / `MenuDeck/*` 键 **74/74 命中**。
+        /// `Loc.T` 在 zh/en 两档的最后一级就是这张表（`Core/Loc.cs:3365-3385` ⇒ `OfficialCurrent`）。</para>
+        /// <para>⚠️ 取不到（`Loc.T` 原样返回键名）⇒ **显示键名** + 出声一次/键（⛔ 不自译、不编文案；
+        /// `fallback` 只在「键为空串」那种非法输入时用，正常路径**永远轮不到**）。</para></summary>
+        static string Term(string key, string fallback = null)
+        {
+            if (string.IsNullOrEmpty(key)) return fallback ?? "";
+            var v = Loc.T(key);
+            if (!string.IsNullOrEmpty(v) && !string.Equals(v, key, System.StringComparison.Ordinal)) return v;
+            if (_termWarned.Add(key))
+                Debug.LogWarning("[GiveFeedback] 词条 `" + key + "` 在 `Loc.T` 里取不到（官方 13 语言表也没有）"
+                               + " ⇒ **界面上显示键名**（⛔ 不自译、不编文案）。");
+            return key;
+        }
+        static readonly HashSet<string> _termWarned = new HashSet<string>();
+
         string OptionText(Opt o)
         {
-            // 🔴 答案文案（`Demo/FeedbackSurvey/S*Ax`）本地没有（判据 → 文件头）⇒ 显示 **option id** + 出声一次。
-            //    ⛔ 不自译、不编文案。
-            var v = Loc.Lang13Of(o.Term, Loc.Current == AvailableLanguages.Chinese ? "zh" : "en");
-            if (!string.IsNullOrEmpty(v)) return v;
-            if (_optionWarned.Add(o.Term))
-                Debug.LogWarning("[GiveFeedback] 答案词条 `" + o.Term + "` 在官方 13 语言表里**取不到** "
-                               + "（`Demo/FeedbackSurvey/*` 整族本地都没有）⇒ 这一条显示 **option id `" + o.Id + "`**，"
-                               + "⛔ 不自译、不编文案。");
-            return o.Id;
+            // 🔴 **2026-10-19（本批 · `N48②` · 铁律 5）就地订正**：原文写「答案文案 `Demo/FeedbackSurvey/S*Ax`
+            //   本地没有 ⇒ 显示 **option id**」—— **已过期**：官方表里那 41 条答案键全在（中英齐全）。
+            //   ⇒ 一律 `Loc.T`；取不到才显示**键名** + 出声（⛔ 不再印 option id）。
+            return Term(o.Term, o.Id);
         }
-        static readonly HashSet<string> _optionWarned = new HashSet<string>();
 
         Transform FindChildDeep(Transform root, string name)
         {

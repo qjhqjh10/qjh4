@@ -85,6 +85,75 @@ namespace CardPresentation
         /// 阈值只改「轻点」那一支，**没有**变成出牌的前置条件。要完全对齐得另加闸，那是行为改动。</summary>
         public const float TapThreshold = 0.3f;
 
+        // ==================================================================
+        //  🔴 2026-10-19（战斗线 T10 · `C3` 结构差异 #11）：**原版两道起拖阈值**
+        //     （只在一个平台档里拦 —— 见 `TouchInputOn`）
+        // ==================================================================
+        //  判据 = `d:/2/tools/decomp_full/CardScript__TryDraggingFromHand.c` 逐句 +
+        //         调用链 `CardCollider__…OnDrag.c` → `CardScript__OnTouchDrag.c`：
+        //    · 两个实参的来路（这一步决定 delta 的**符号**，别读反）：
+        //      `OnTouchDrag(card, eventData, cardCollider.pointerDownPosition)` 里
+        //      `local_38 = *(eventData + 0x144)` = **`PointerEventData.position`（当前点）**、
+        //      `local_48 = (CardCollider + 0x38)` = **`pointerDownPosition`（按下点）**
+        //      ⇒ `TryDraggingFromHand(param_2 = 当前, param_3 = 按下)`；
+        //      `:36-39` 写的是 `fVar6/fVar7 = (view(param_2) − view(param_3))`
+        //      ⇒ **delta = 当前 − 按下**（朝**上**拖 ⇒ delta.y > 0 ⇒ 角度小 ⇒ 放行）。
+        //      ⚠️ `资料/普查产出_1016战斗判据/T10_换牌阶段判据.md` §C3#11 表第 1 行写成
+        //      「原按点 − 当前点」—— **那个符号是反的**（照它实现会把「往上拖」判成 180° 拦掉）。
+        //    · `:60` 位移闸：`delta.x² + delta.y² <= 0.00015`（常量 `DAT_1834b3150`）⇒ 拦；
+        //    · `:49-57` 方向闸：`Vector3.Angle(delta, Vector3.up)` 超过 `65.0`（`DAT_1834b316c`）
+        //      ⇒ 拦；`card + 0x249 != 0` 时用 `70.0`（`DAT_1834b3170`）；
+        //    · `:64-69` 🔴 **上面四条只有 `GameStaticData.touchInput`（static `+0x11d`）为真时才 `return`**
+        //      ⇒ PC 档一条都不拦（**按下即抓 = 我们原来的行为，不变**）。
+        //      ⚠️ 原版那四条里，本类只**显式**实现位移与方向两条；另两条的等价物在结构上：
+        //      · `!BattleManager.CanMoveHandCard(bm, 0)` ⇒ 我们由「`_cards` 只装当前可操作的手牌 +
+        //        `Frozen`/换牌期 `enabled=false`」承担（原版那道闸也是整帧级，见 `Frozen` 的 doc）；
+        //      · `card + 0x40 == 0`（非我方）/ `card + 0x228 ∉ {8,1}`（卡 UI 状态）⇒ 我们手里只有我方卡，
+        //        换牌期整条输入链关掉 ⇒ 两档都到不了这里。
+        //      ⛔ 别在本类再补一套重复的判断（两处写同一条规则 = 迟早不一致）。
+
+        /// <summary>原版起拖**位移闸**（**视口²**）：`delta.x² + delta.y² <= 它` ⇒ 不起拖。
+        /// 常量实读 `DAT_1834b3150 = 0.00015f`（判据 → `B3_战斗输入交互矩阵.md` §四 · `C3` #11）。</summary>
+        public const float HandDragMinDeltaSq = 0.00015f;
+
+        /// <summary>原版起拖**方向闸**：`Vector3.Angle(delta, Vector3.up) > 它` ⇒ 不起拖。
+        /// 常量实读 `DAT_1834b316c = 65.0f`。</summary>
+        public const float HandDragMaxAngleDeg = 65f;
+
+        /// <summary>`card + 0x249 != 0` 那一档的方向闸 —— 常量实读 `DAT_1834b3170 = 70.0f`。
+        /// ⚠️ **`+0x249` 是什么字段：没查到**（`dump.cs` 里没锚定，`C3` 没查清-6）⇒ 本类**不猜**：
+        /// 生产路径恒走 65°；这一档只作为判据留在 <see cref="HandDragPastThreshold"/> 的 `altAngle` 形参上。</summary>
+        public const float HandDragMaxAngleDegAlt = 70f;
+
+        /// <summary>原版两道起拖阈值的**唯一判据**（纯函数，自检直接喂点）。
+        /// <para>两个点可以给**世界坐标**：本仓的 `LayoutSpace.ToNormalized` 与原版
+        /// `Camera.ScreenToViewportPoint` 同口径（x ÷ 可见宽、y ÷ 可见高，0–1），
+        /// 而 `world` 本来就是从屏幕点经 `ScreenToWorldPoint` 来的。</para>
+        /// <para>⚠️ 原版这段**只看平台/设置闸**（<see cref="TouchInputOn"/>）—— 调用方必须先过闸再问它；
+        /// 这里**不**自带平台判断（否则自检没法单验判据）。</para></summary>
+        public static bool HandDragPastThreshold(Vector3 pressWorld, Vector3 nowWorld, bool altAngle = false)
+        {
+            var a = LayoutSpace.ToNormalized(pressWorld);
+            var b = LayoutSpace.ToNormalized(nowWorld);
+            float dx = b.x - a.x, dy = b.y - a.y;          // = 当前 − 按下（见上面那段调用链判据）
+            if (dx * dx + dy * dy <= HandDragMinDeltaSq) return false;
+            float angle = Vector3.Angle(new Vector3(dx, dy, 0f), Vector3.up);
+            return angle <= (altAngle ? HandDragMaxAngleDegAlt : HandDragMaxAngleDeg);
+        }
+
+        /// <summary>🔴 **原版 `GameStaticData.touchInput`（static `+0x11d`）的等价物** ——
+        /// 就是**设置窗 General 页那颗 `Touch input`**（`Shell/SettingsWindow.cs` 的
+        /// `SettingsWindow.GeneralFlags.TouchInput`；判据 = `GeneralTab__TouchInputToggle.c` 逐句
+        /// `static_fields + 0x11d = param` **且** `+0x12d = 1`（手动改过））。
+        /// <para>⚠️ 出厂默认值：原版 `LoadStarterData` / `LoadSharedDefaultValues` 都写
+        /// `Application.isMobilePlatform`（Steam Deck 另判）——**桌面 = 0**；我们 `PlayerPrefs` 缺省也是 0
+        /// ⇒ 桌面一致。**移动端的平台默认值那一格我们没接**（`GeneralFlags` 恒缺省 0）——
+        /// 如实记在 T10 报告里；真要上移动端时主件在 `Shell/SettingsWindow.cs`，⛔ 不是这里。</para></summary>
+        static bool TouchInputOn { get { return SettingsWindow.GeneralFlags.TouchInput; } }
+
+        /// <summary>自检用：平台闸现在认的是哪一档（= 上面那颗开关）。</summary>
+        public static bool TouchInputGateForTest { get { return TouchInputOn; } }
+
         /// <summary>
         /// 落点合法性 —— **由外部注入**（战斗驱动层接规则引擎的 `RuleCore.CanPlayCard`）。
         /// 返回 false 就回弹。默认全放行（不接引擎时，表现层自检照样能跑）。
@@ -141,11 +210,26 @@ namespace CardPresentation
         readonly Dictionary<int, CardView> _placed = new Dictionary<int, CardView>();
         Vector3 _pressWorld;      // 按下时指针在哪（判「轻点」用）
         float _travel;            // 这一拖走了多远
+        // 🆕 **2026-10-19（战斗线 `T16` · 命中区普查）**：这一按**是否还按在卡的命中区里**
+        //   —— 原版 `CardCollider.allowClick`（`+0x44`）的等价物。
+        //   判据 = `d:/2/tools/decomp_full/CardCollider__OnPointerDown.c`（置 1）与
+        //          `CardCollider__OnPointerExit.c`（**清 0**，且**回到卡上不会自己恢复** —— 只有下一次
+        //          `OnPointerDown` 才重新置 1）⇒ 这是**锁存**，不是「松手时在不在卡上」的实时判断。
+        //   后果（改前 vs 原版）：按在卡缘、指针挪出卡外 0.1 再松手 —— 原版**不产生点击**，
+        //   我们靠 `_travel < TapThreshold(0.3)` 会判成轻点 ⇒ **两版结果相反**（`C3` 结构差异 #8）。
+        //   ⚠️ 只在**候选态**（`TouchInputOn` 档）能真正分辨出来：那一档卡还没跟手。
+        //   拖拽态也锁存（卡跟手后指针几乎不会出框，属防御性对齐）。
+        bool _pressInside;
 
         int _hovered = -1;
         CardView _dragging;
         int _insertIndex = -1;        // 拖拽中：这张牌会插到第几个位置（手牌边拖边让位）
         Vector3 _grabOffset;          // 抓起时指针和卡中心的差，拖拽时保持它，手感才不跳
+        // 🔴 2026-10-19（`C3` #11）：**按下已记、还没过起拖阈值**那一档（只在 `TouchInputOn` 档用）。
+        //   原版 `CardCollider.OnDrag` 每次拖拽事件都试一次 `TryDraggingFromHand`，过了两道阈值才
+        //   `StartMovingFromHand`；PC 档四条条件一条都不拦 ⇒ 这个候选态**永远不出现**（行为不变）。
+        bool _pressPending;
+        CardView _pressPendingCard;   // 按下时压在指针下的那张（原版 `pointerDownPosition` 属于它）
         // 🆕 2026-10-01：**当前点亮着落点指示的那块棋盘与格号**（-1 = 没点）——
         //   换盘/灭掉时要知道该去清谁（两块棋盘各有一份九宫底片）。
         BoardLayout _dropLitBoard;
@@ -192,6 +276,12 @@ namespace CardPresentation
             //    ⛔ 不静默：出声一次（同一条只吼一次）。
             if (FrozenNow)
             {
+                // 🔴 2026-10-19（`C3` #11）：候选态**直接丢弃** —— 它没有任何可见状态（卡还在原位），
+                //   留着只会在解冻后拿一个过期的按下点去判阈值（甚至跨一次松手）。
+                //   ⚠️ 与 `_dragging` 那档**不同**：拖拽中的牌照旧留着（原版那道整帧闸也是直接 return）。
+                _pressPending = false;
+                _pressPendingCard = null;
+                _pressInside = false;   // 🆕 T16：候选态被丢弃 ⇒ 这一按的锁存也一起清
                 if (!_frozenWarned)
                 {
                     _frozenWarned = true;
@@ -215,13 +305,33 @@ namespace CardPresentation
             else UpdateDrag(world, Time.deltaTime);
 
             // 松手/按下在 Update 里轮询（批处理下没有输入事件，轮询才验得了）
-            if (PressedThisFrame())
+            bool pressedNow = PressedThisFrame();
+            bool releasedNow = ReleasedThisFrame();
+
+            if (pressedNow)
             {
-                if (_hovered >= 0 && _dragging == null) PickUp(_cards[_hovered], world);
+                if (_hovered >= 0 && _dragging == null)
+                {
+                    // 🔴 2026-10-19（`C3` #11）：**两档行为**
+                    //  · `TouchInputOn`（原版 `GameStaticData.touchInput`）**关** ⇒ PC 档：按下即抓。
+                    //    原版 `TryDraggingFromHand` 那四道条件在 PC 上一条都不拦（`:64-69` 的
+                    //    `if (touchInput) return;` 整段不成立）⇒ **玩家看到的行为与原来逐位相同**。
+                    //  · **开** ⇒ 只记候选（原版 `CardCollider.OnDrag` 也是**拖拽事件**里才
+                    //    `StartMovingFromHand`，不是按下那一刻）—— 过两道阈值见 `TickPressCandidate`。
+                    if (TouchInputOn) BeginPressCandidate(_cards[_hovered], world);
+                    else PickUp(_cards[_hovered], world);
+                }
             }
-            else if (ReleasedThisFrame() && _dragging != null)
+            else if (releasedNow)
             {
-                Release(world);
+                if (_dragging != null) Release(world);
+                // 候选态松手 = 原版 `OnPointerClick` 那一档（卡从没离开手牌）—— 见 `EndPressCandidate`
+                else if (_pressPending) EndPressCandidate(world);
+            }
+            else if (_pressPending)
+            {
+                // 原版每次拖拽事件都试一次；我们每帧试一次（阈值是位移的纯函数，多试不会多抓）
+                TickPressCandidate(world);
             }
         }
 
@@ -235,12 +345,89 @@ namespace CardPresentation
         }
 
         // ---- 拖拽 ----
-        void PickUp(CardView card, Vector3 world)
+
+        // 🔴 2026-10-19（`C3` #11）：`TouchInputOn` 档的三段式 —— 按下只记、过阈值才抓、没抓就松手算轻点。
+        //  判据 = `CardScript__TryDraggingFromHand.c`（阈值）＋ `CardCollider__…OnDrag.c`（**拖拽事件**里才试，
+        //  不是按下事件里）＋ `CardScript__StartMovingFromHand`（起拖用的**当前点**，不是按下点：
+        //  `ScreenToWorldPoint(*param_3)` = 当前指针）。三段都只被 `Update` 与自检口调用。
+
+        /// <summary>按下：**只记候选**，不抓（原版 `TryDraggingFromHand` 还没过阈值时什么也不做）。
+        /// `_pressWorld` 就是原版 `CardCollider.pointerDownPosition` 那一格（按下点）。</summary>
+        void BeginPressCandidate(CardView card, Vector3 world)
+        {
+            if (card == null) return;
+            _pressPending = true;
+            _pressPendingCard = card;
+            _pressWorld = world;
+            _travel = 0f;
+            // 🆕 2026-10-19（T16）：按下那一刻 = 原版 `CardCollider.OnPointerDown` ⇒ `allowClick = 1`
+            //   （`HitTest` 刚判过这张卡，所以这里恒 true；写成 `Contains` 是为了**同一判据**、不另立口径）。
+            _pressInside = card.Contains(world);
+        }
+
+        /// <summary>候选态每帧推进：过两道阈值 ⇒ 真 `PickUp`（用**当前**指针位，见上面那条判据）。</summary>
+        void TickPressCandidate(Vector3 world)
+        {
+            var card = _pressPendingCard;
+            // 候选期间手牌列表可能被 `SyncHand` 换过（换掉的牌 / 打出的牌）—— 不在了就静默收工
+            if (card == null || _cards.IndexOf(card) < 0)
+            {
+                _pressPending = false;
+                _pressPendingCard = null;
+                _pressInside = false;   // 🆕 T16：候选态被丢弃 ⇒ 这一按的锁存也一起清
+                return;
+            }
+            float d = Vector3.Distance(world, _pressWorld);
+            if (d > _travel) _travel = d;
+            // 🆕 2026-10-19（T16）：原版 `CardCollider.OnPointerExit` ⇒ `allowClick = 0`（**锁存**）。
+            //   候选态卡片原地不动 ⇒ 指针一旦出框就是真出框；回到卡上也不恢复（与反编译一致）。
+            if (_pressInside && !card.Contains(world)) _pressInside = false;
+            if (!HandDragPastThreshold(_pressWorld, world)) return;
+
+            _pressPending = false;
+            _pressPendingCard = null;
+            Debug.Log($"[CardPresentation] 起拖过阈值（视口位移² > {HandDragMinDeltaSq} 且与竖直向上夹角 ≤ {HandDragMaxAngleDeg}°）"
+                      + $" ⇒ 抓起 {card.name}（原版 `CardScript__TryDraggingFromHand` 那两道）");
+            // 🔴 2026-10-19：`PickUp` 会把 `_travel` 清零（PC 档在按下那一帧清零是对的）——
+            //   而候选档**按下到起拖之间那一段位移也是「这一拖走了多远」**，丢了它会让
+            //   `Release` 把「刚过阈值就松手」误判成轻点（`_travel < TapThreshold` ⇒ 弹展示窗）。
+            //   ⇒ 把累计值原样还回去（之后 `UpdateDrag` 只会把它顶得更大）。
+            float travelledBeforePickUp = _travel;
+            PickUp(card, world, false);
+            if (travelledBeforePickUp > _travel) _travel = travelledBeforePickUp;
+        }
+
+        /// <summary>候选态松手（**卡从没离开手牌**）：几乎没动 ⇒ 轻点（原版 `OnPointerClick` →
+        /// `ToggleOpenCardDisplayOnTouch`）；动过但没过阈值 / 被方向角拦下 ⇒ 什么也不做。
+        /// <para>⚠️ 「轻点」沿用本类既有的 <see cref="TapThreshold"/>（世界单位）—— 原版这里其实由
+        /// EventSystem 的 drag 阈值决定（`allowClick` 在 `OnPointerExit` 清 0 那条另记在 `C3` #8），
+        /// 两套口径今天只在这一处收敛；⛔ 别在别处再写第三个距离阈值。</para></summary>
+        void EndPressCandidate(Vector3 world)
+        {
+            var card = _pressPendingCard;
+            _pressPending = false;
+            _pressPendingCard = null;
+            float d = Vector3.Distance(world, _pressWorld);
+            if (d > _travel) _travel = d;
+            // 🆕 2026-10-19（T16）：原版 `OnPointerClick` 只在 `allowClick` 仍为 1 时转发
+            //   `OnTouchUpAsButton` ⇒ 「按在卡缘、指针挪出卡外（哪怕只挪 0.1）再松手」**不产生点击**。
+            //   ⚠️ 与 `_travel < TapThreshold` 是**两条独立判据、都要满足**：位移近 ≠ 还在卡上。
+            if (card != null && _pressInside && _travel < TapThreshold && OnTapped != null) OnTapped(card);
+            _pressInside = false;
+            _hovered = -1;
+            Relayout();
+        }
+
+        void PickUp(CardView card, Vector3 world, bool freshPress = true)
         {
             _dragging = card;
             _grabOffset = card.transform.position - world;
             _pressWorld = world;
             _travel = 0f;
+            // 🆕 2026-10-19（T16）：PC 档「按下即抓」= 原版 `OnPointerDown` ⇒ `allowClick = 1`。
+            //   从候选态转过来时（`freshPress = false`）**不许重设** —— 候选期已经锁存过
+            //   `OnPointerExit` 的清零（原版只有新的 `OnPointerDown` 才会把它置回 1）。
+            if (freshPress) _pressInside = card.Contains(world);
 
             // 空位先落在它自己原来的位置 —— 之后跟手往哪拖，空位就跟到哪
             _insertIndex = Mathf.Clamp(_cards.IndexOf(card), 0, Mathf.Max(0, _cards.Count - 1));
@@ -515,7 +702,8 @@ namespace CardPresentation
             var card = _dragging;
             _dragging = null;
             ClearDropIndicator();
-            bool tapped = _travel < TapThreshold;      // 几乎没动 = 轻点
+            bool tapped = _travel < TapThreshold && _pressInside;   // 几乎没动 **且** 这一按没出过卡（T16）
+            _pressInside = false;
 
             int slot;
             BoardLayout which;
@@ -654,19 +842,38 @@ namespace CardPresentation
             return i;
         }
 
-        /// <summary>命中哪张手牌。**从最前面往后测**，不然会选中被压住的那张。</summary>
-        int HitTest(Vector3 world)
+        /// <summary>🔴 2026-10-19（`A1668`）：手牌 / 换牌区「点到哪一张」的**唯一判据** ——
+        /// 命中集合里取 **z 最小（最前）** 的那张。
+        /// <para>判据 = 原版 `BattleManager__GetTargetInPos.c:104-130`：
+        /// `Physics2D.GetRayIntersectionNonAlloc(...)` 之后**只取返回数组的第 [0] 项**，
+        /// **没有任何排序/比较** ⇒ 原版把「谁在最上面」交给物理层（`CardCollider2D` 那条）。
+        /// 我们这套手算命中没有 collider / 射线层（`C3` 结构差异 #5 的已知偏离）⇒
+        /// 「z 最小」是它的对应物（离相机最近 = 最先被射线打到）。</para>
+        /// <para>🔴 **只此一处**：`CardInteraction.HitTest`（手牌）与 `MulliganPanel.CardAt`（换牌区）
+        /// 都调它 —— 以前一处按下标序、一处按 z 序，扇形重叠区会选到不同的卡（`A1668`）。</para>
+        /// <para>⚠️ 换牌那一行**本来就不重叠**（`m_useRotation=0`、平直横排、间距 &gt; 卡宽）⇒
+        /// 收成同一条判据后，换牌期的行为**零变化**；只有扇形手牌的重叠区才分得出两套规则。</para></summary>
+        public static CardView Frontmost(IReadOnlyList<CardView> cards, Vector3 world)
         {
-            int best = -1;
+            if (cards == null) return null;
+            CardView best = null;
             float bestZ = float.MaxValue;
-            for (int i = 0; i < _cards.Count; i++)
+            for (int i = 0; i < cards.Count; i++)
             {
-                var c = _cards[i];
+                var c = cards[i];
                 if (c == null || !c.Contains(world)) continue;
                 float z = c.transform.position.z;
-                if (z < bestZ) { bestZ = z; best = i; }     // z 越小越靠前
+                if (z < bestZ) { bestZ = z; best = c; }     // z 越小越靠前
             }
             return best;
+        }
+
+        /// <summary>命中哪张手牌。**从最前面往后测**，不然会选中被压住的那张。
+        /// 🔴 判据本体 = <see cref="Frontmost"/>（与换牌区共用，`A1668`）。</summary>
+        int HitTest(Vector3 world)
+        {
+            var c = Frontmost(_cards, world);
+            return c == null ? -1 : _cards.IndexOf(c);
         }
 
         // ---- 输入（新输入系统）----
@@ -745,6 +952,34 @@ namespace CardPresentation
         public void SimulateDrag(Vector3 world, float dt) { if (_dragging != null) UpdateDrag(world, dt); }
         public void SimulateRelease(Vector3 world) { if (_dragging != null) Release(world); }
 
+        // ---- 🆕 2026-10-19（`C3` #11）：`TouchInputOn` 那条**候选态**的自检口（走生产同一批方法）----
+        //  ⛔ 不是另写一份状态机：下面三个都直接调 `Update` 里那三句（`Begin/Tick/EndPressCandidate`）。
+
+        /// <summary>自检：现在是不是「按下已记、还没过起拖阈值」那一档。</summary>
+        public bool PressPendingForTest { get { return _pressPending; } }
+
+        /// <summary>自检：这一按**是否还按在卡的命中区里**（原版 `CardCollider.allowClick` 的等价物，
+        /// 🆕 2026-10-19 战斗线 `T16`）。判别式：按下后在卡外推一帧 ⇒ 必须 `false`；
+        /// 原地不动 ⇒ 必须 `true`。</summary>
+        public bool PressInsideForTest { get { return _pressInside; } }
+
+        /// <summary>自检：按 `TouchInputOn` 档按下（**不抓**）。前提与真实那条一样：已经 hover 到某张。</summary>
+        public void SimulatePressPendingForTest(Vector3 world)
+        {
+            if (_hovered >= 0 && _dragging == null) BeginPressCandidate(_cards[_hovered], world);
+        }
+
+        /// <summary>自检：推一帧候选态；返回这一帧有没有**真的抓起来**。</summary>
+        public bool SimulatePendingTickForTest(Vector3 world)
+        {
+            bool was = _dragging != null;
+            if (_pressPending) TickPressCandidate(world);
+            return !was && _dragging != null;
+        }
+
+        /// <summary>自检：候选态松手（生产 `Update` 同一句）。</summary>
+        public void SimulatePendingReleaseForTest(Vector3 world) { if (_pressPending) EndPressCandidate(world); }
+
         // ---- 🆕 2026-10-18（A964①）：**手牌命中区 / 实绘矩形**的只读口（⛔ 只给自检，不给生产用）----
         //  判据（`E2`）：「凡参与点击命中的节点，它的**命中区矩形**必须覆盖它**画出来的矩形**」。
         //  ⛔ 命中**一律调生产函数**（下面 `HitCardForTest` 就是私有的 `HitTest` 本体）——
@@ -752,6 +987,15 @@ namespace CardPresentation
 
         /// <summary>自检用：手牌里有几张（= `_cards` 的长度）。</summary>
         public int HandCardCountForTest { get { return _cards.Count; } }
+
+        /// <summary>🆕 2026-10-19（`T03`）：第 `i` 张手牌（`_cards[i]`，越界 ⇒ null）。
+        /// 为什么需要它：`HitCardForTest` 返回的是**本列表的下标**，而断言要拿那张卡的
+        /// **可点矩形标架**去取边界点 ⇒ 必须拿到同一个对象，⛔ 别拿 `BattleDriver.HandViewAt(i)`
+        /// 顶替（两条列表的顺序没有契约，`_cards` 是 `HandLayout.Refresh` 喂进来的）。</summary>
+        public CardView HandCardForTest(int i)
+        {
+            return i >= 0 && i < _cards.Count ? _cards[i] : null;
+        }
 
         /// <summary>自检用：点在手牌第几张上（-1 = 没点到任何一张）—— **就是真实输入那条** <see cref="HitTest"/>。</summary>
         public int HitCardForTest(Vector3 world) { return HitTest(world); }

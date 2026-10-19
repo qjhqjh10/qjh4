@@ -146,6 +146,7 @@ namespace CardPresentation
         {
             var go = new GameObject("Collection Menu Variant");
             var win = go.AddComponent<CollectionWindow>();
+            win.ApplyVisualTypes();                           // 🔴 2026-10-19（N117）：见 ApplyVisualTypes
             win.type = WindowType.Fullscreen;                 // 实证 type=0
             win.placement = WindowsPlacement.Canvas;          // 实证 windowsPlacement=5（**商店是 10**）
             win.closeOnEsc = true;                            // 实证 closeOnESC=1（**奖励窗是 0**）
@@ -923,6 +924,8 @@ namespace CardPresentation
         ///    完整筛选格是下一切片（规格在 `资料/普查产出_0923/A3_Cards页.md` §「筛选栏」）。**出声**。</summary>
         public void BuildCardsPage(Transform page)
         {
+            // 🆕 2026-10-19：上一趟建的 `Army Icon` 已随页树销毁 ⇒ 清掉悬空引用（状态 `_wcArmy` 留着，见下）。
+            _wcArmyQuad = null;
             // 页头：Filters 圆钮 + 文案 + Clear filters（**四页共用的那一行** —— 见 `BuildFilterHeader`）
             // ⚠️ 2026-09-23 顺手修两处（A3 §5·2 原文）：原版这套按钮是
             //    **[圆钮 50×50]** → 里面 `icon detail` 只有 **30×30**（`sd=(-20,-20)` = 四边各内缩 10、preserveAspect）
@@ -940,7 +943,10 @@ namespace CardPresentation
             string[] wcIc = { "40k_general_wildcard_common_small", "40k_general_wildcard_rare_small",
                               "40k_general_wildcard_epic_small", "40k_general_wildcard_legendary_small" };
             // 🔴 **2026-09-28 用户拍板：万能卡数字一律恒定 `99`**（原版这 4 个数是 `WildcardDisplay`
-            //    的库存直出、跟着**指针悬停那张卡**的阵营走；我们既没有 hover 也没有发放源 ⇒ 不再自己算）。
+            //    的库存直出；我们缺的是**发放源** ⇒ 数字不自己算）。
+            //    🆕 **2026-10-19（界面线尾巴 · 铁律 5）**：原文那句「我们既没有 hover 也没有发放源」里
+            //    **hover 那一半已过期** —— 同一颗 `WildcardDisplay` 的**阵营徽记**已接悬停/详情换图
+            //    （`SetWildcardArmy`）；**只有数字**仍恒定（发放源没有）。
             //    判据 → `项目任务.md` §三 第 15 条 第 29 项。
             for (int i = 0; i < 4; i++)
             {
@@ -965,20 +971,22 @@ namespace CardPresentation
                              autoMaxPx: DeckRuntime.WcCountAutoMaxPx, autoBasePx: DeckRuntime.WcCountAutoBasePx);
                 if (t != null) { t.SetRenderQueue(QPageText); _wcCount[i] = t; }
             }
-            // 🆕 2026-10-17（B10 · 账上「三件 UI ③」的**「按阵营」那一半**）：这一条计数条**缺的是 `Army Icon`** ——
-            //   原版 `WIldcard Display` 三个孩子 = `Background` + `Counters` + **`../Army Icon`**
-            //   （`资料/普查产出_0923/A3_Cards页.md` §5·3：**1470,70.94 → 1550,155.94**（80×85）·
-            //    sprite = `40k_DeckSelection_icon_FactionBlackLegion` · **preserveAspect**）。
-            //   运行期它由 `WildcardDisplay.Initialize(card.army)` 换图 —— 触发者是
-            //   `CardCollectionDisplay__CheckFocusedArmy.c`（拿 `Reference Card Pointer` 的 rect 去
-            //   `OverlapsAny` 卡位，命中那张卡的 `cardArmy`）。
-            //   ⚠️ **我们这一页没有悬停**（`PointerLayer` 只注册了滚动，没有指针层）⇒ 保持**预置出厂那一张**
-            //      = `BlackLegion`（判据 = 预置里的 `m_Sprite`，**不是**我们挑的）。**如实出声**：
-            //      「4 个数 + 这张徽记跟着悬停那张卡的阵营换」这件事，本作**没有实现**（用户 2026-09-28
-            //      已就那 4 个数拍过板：恒定 `99`；徽记同一条口径 ⇒ 恒定出厂那张）。
-            //   ⚠️ 图走 `DeckRuntime.FactionIcon`（**全工程唯一一份**阵营名→徽记映射），⛔ 别在这儿写第二份。
-            Rect(page, DeckRuntime.FactionIcon("BlackLegion"), new PxRect(1470f, 70.94f, 1550f, 155.94f),
-                 "Army Icon", QPageRow, null, true);
+            // 🆕 2026-10-17（B10）：`WIldcard Display` 三个孩子里那颗 `Army Icon`（1470,70.94 → 1550,155.94 · 80×85 ·
+            //   prefab `m_Sprite` = `40k_DeckSelection_icon_FactionBlackLegion` · **preserveAspect**）。
+            //   🔴 **2026-10-19（界面线尾巴 · 铁律 11 就地落地）**：原文写「我们这一页没有悬停 ⇒ 保持预置出厂那张」
+            //   —— **已过期**：本页每格都有 `WindowButton.onEnter/onExit`（`AttachCardHover`），
+            //   而原版那条路径 `CardCollectionDisplay.CheckFocusedArmy`（`d:/2/tools/decomp_full/
+            //   CardCollectionDisplay__CheckFocusedArmy.c`：指针/拖动压在卡池某格 ⇒ 拿那格的 `card.army` 喂
+            //   `WildcardDisplay.Initialize`）**就是「指针压在卡上就换徽记」** ⇒ 本页接法 = 把卡格悬停接到
+            //   `SetWildcardArmy(card.faction)`（Cards 页 `AttachCardHover(..., wildcardArmy: true)`）。
+            //   开卡片详情（`OpenCardDetail`）另有一条同族路径（原版 `DeckEditingWindow.OpenCardInformation`：
+            //   开详情前把徽记换成**那张卡**的阵营）—— 也在 `SetWildcardArmy` 这一口接。
+            //   ⚠️ 原版**没有「移开指针就还原」**：`CheckFocusedArmy` 只在命中卡格时换、未命中直接 return
+            //   ⇒ 我们的 `onExit` **不还原**（保留最后压过的那张，逐字同原版）。
+            //   ⚠️ 图走 `Core/ArmyIcons.cs`（13 阵营，唯一一份；`IconsByArmySO` 逐字节解出）—— ⛔ 别在这写第二份映射。
+            var wcArmyR = new PxRect(1470f, 70.94f, 1550f, 155.94f);
+            _wcArmyArt = ArmyIcons.IconName(_wcArmy) ?? WcArmyDefaultArt;
+            _wcArmyQuad = Rect(page, _wcArmyArt, wcArmyR, "Army Icon", QPageRow, null, true);
 
             var holder = Node(page, "Scroll View", CardsViewport);
             // 🔴 **2026-10-13（A435 阶段 2 · 乙 · A15）**：裁切状态**长在视口节点上**（= 原版 `Viewport` 上
@@ -1032,6 +1040,22 @@ namespace CardPresentation
         Transform _deckEmpty;      // Deck 页的「一套卡组都没有」
         Transform _cardsEmpty;     // Cards 页
         Transform _cosmoEmpty;     // Cosmetics 页（卡背）
+        // ============================================================ 🆕 WildcardDisplay 徽记（Cards 页）
+        /// <summary>`WIldcard Display ▸ Army Icon` 那一颗 quad（原版 `WildcardDisplay` 的 `armyIcon`）。
+        /// 判据 = 原版 `CardCollectionDisplay.CheckFocusedArmy`：指针压在卡池某格上 ⇒
+        /// `WildcardDisplay.Initialize(card.army)` ⇒ 徽记换成**那张卡的阵营**（`Core/ArmyIcons.cs` = 唯一映射）。
+        /// 本窗由 `SetWildcardArmy` 换图（`ImageQuad.SetTexture`、PA=1 —— prefab 实读 `m_PreserveAspect = 1`）。</summary>
+        ImageQuad _wcArmyQuad;
+        /// <summary>当前徽记的阵营（`CardArmy` 数值）。出厂 = prefab 那张 **BlackLegion**（`50`）；
+        /// 原版 `WildcardDisplay.currentArmy` 是非序列化字段、出厂 0，而 sprite 停在 prefab 的 BlackLegion
+        /// ⇒ 我们这一格也照出厂图起步（⛔ 别改成 Ultramarines —— 那是**卡组编辑窗** `FilterToDeck` 的默认档）。</summary>
+        static readonly int WcArmyDefault = ArmyIcons.Id("BlackLegion");
+        int _wcArmy = WcArmyDefault;
+        /// <summary>出厂那张图（prefab `m_Sprite` 实读；`ArmyIcons` 表里 `BlackLegion` 同值）。</summary>
+        const string WcArmyDefaultArt = "40k_DeckSelection_icon_FactionBlackLegion";
+        /// <summary>`_wcArmyQuad` 现在贴的是哪一张（自检/去重用）。</summary>
+        string _wcArmyArt = WcArmyDefaultArt;
+        static readonly HashSet<string> _wcArmyWarned = new HashSet<string>();
         // 🔴 **2026-10-17（T09 第 1 步）：卡池视图池** —— 滚动不再整屏重建。
         //   键 = `CardDef.Id + 语档`（语档变了卡面文字要重排 ⇒ 不跨语档复用）；上限 ≈2.5 屏。
         //   判据与实测数字 → `资料/普查产出_1017/UI/PERF_T09_收藏窗性能诊断.md`
@@ -1187,7 +1211,7 @@ namespace CardPresentation
                 // ⚠️ 闭包**别捕循环变量 `i`** —— 点击发生在重建之后，那时 `i` 已经是 `list.Count`（越界）
                 var def = list[i];
                 var cHit = AddHit(parent, "CardHit_" + i, r, QPageRow, () => OpenCardDetail(def));
-                AttachCardHover(cHit, v);      // 🆕 N70 P0-5：悬停描边 0.2s（原版 Card2DController.ToggleHighlight）
+                AttachCardHover(cHit, v, wildcardArmy: true);      // 🆕 N70 P0-5 悬停描边 + 🆕 2026-10-19 徽记跟着卡阵营换（`CheckFocusedArmy`）
                 BuildWatch.CellPhase("⑤ 张数条（`Rect`+`Text`）+ 命中区（`AddHit`）");
                 BuildWatch.CellEnd();
             }
@@ -2311,9 +2335,12 @@ namespace CardPresentation
             }
             if (_fltCards != null) RebuildFilterRows(_fltCards);
             RefreshCardsEmpty();       // 「过滤后为空」那条提示跟着筛选走（与 Styles 页同一条判据）
-            // 🔴 万能卡计数条：**2026-09-28 起恒定 `99`**（原版跟着「指针悬停的那张卡」走
-            //    —— `CardCollectionDisplay.CheckFocusedArmy`，而我们没有 hover）⇒ 建页时已写死，这里不再重算。
-            //    判据 → `项目任务.md` §三 第 15 条 第 29 项。
+            // 🔴 万能卡计数条：**4 个数字 2026-09-28 起恒定 `99`**（用户拍板：缺 `WildcardDisplay` 的发放源）
+            //    ⇒ 建页时已写死，这里不再重算。
+            //    🆕 **2026-10-19（界面线尾巴 · 铁律 5 就地订正）**：原文写「而我们没有 hover」—— **已过期**：
+            //    那颗**阵营徽记**（`Army Icon`）自 2026-10-19 起跟着「指针压在卡池格 / 开卡片详情」换图
+            //    （`SetWildcardArmy`，判据 = `CardCollectionDisplay.CheckFocusedArmy`）；**只有那 4 个数字**
+            //    仍恒定（发放源没有）。判据 → `项目任务.md` §三 第 15 条 第 29 项。
         }
 
         /// <summary>费用那一档的**上界**（原版 8 档：`1-` / 2…7 / `8+`）。</summary>
@@ -2792,9 +2819,46 @@ namespace CardPresentation
             BuildWatch.Begin();
             Build();
             BuildWatch.Mark("① `Build()`（建壳 + 四页 + 收尾刷）");
-            if (tabButtons != null) tabButtons.Click(0);       // 默认落在第一页（`GetStartingTab` 的回落）
-            BuildWatch.Mark("② `tabButtons.Click(0)`（落第一页）");
+            // 🔴 **2026-10-19（`N117` · 用户拍板「重开收藏窗保留当前页」）：原来这里恒 `Click(0)`
+            //   ⇒ **每次 `Open()` 都回第 0 页**（`Hide` 之后被 `ShowPreviousWindow` 带回来也一样）。
+            //   判据（原版 `GameWindowWithTabs__Open.c:9-21`）：**当前页签**（字段 **0x12**）非空就只重开那一页；
+            //   只有它是**空**（= 新建实例）才走 `GetStartingTab()`（虚表 `0x218`，回落 = `tabs` 的
+            //   `FirstOrDefault` = 第一页）。而 `WindowTabBase__CloseTab.c` 只 `SetActive(false)`、
+            //   `GameWindowWithTabs__Close` 也不写 0x12 ⇒ **隐藏 → 带回来这一路原版保留当前页**。
+            //   ⇒ 我们照它：`CurrentTab != None` 就点回**同一个页签**；新实例仍是第 0 页（不造第二个回落值）。
+            //   ⚠️ 为什么必须是 `Click(visualIndex)` 而不是 `ChangeTab(CurrentTab)`：左栏高亮读的是
+            //   `TabButtons.CurrentVisualIndex`（`RefreshHighlights`），只调 `ChangeTab` 会让高亮停在第 0 键上。
+            int startVisual = StartVisualIndex();
+            if (tabButtons != null) tabButtons.Click(startVisual);   // 原版 `GetStartingTab` 的回落 = 第一页（新实例才走）
+            BuildWatch.Mark("② `tabButtons.Click(" + startVisual + ")`（保留当前页 / 新实例落第一页）");
             if (Application.isPlaying) StartCoroutine(BuildWatch.ReportAtFrameEnd("开收藏窗"));
+        }
+
+        /// <summary>🔴 **2026-10-19（`N117`）**：`Open()` 该落在左栏第几颗 —— **唯一判据**。
+        /// 原版 `GameWindowWithTabs.Open`（`decomp_full/GameWindowWithTabs__Open.c:9-21`）：
+        /// 当前页签（字段 `0x12`）**非空 ⇒ 重开它**；**空 ⇒ `GetStartingTab()`**（虚表 `0x218`，
+        /// 回落 = `tabs` 的 `FirstOrDefault` = 第一页）。`Hide()` / `WindowTabBase.CloseTab()` 都**不清** `0x12`
+        /// ⇒ 「藏起来 → 被 `ShowPreviousWindow` 带回来」这一路**保留当前页**。
+        /// ⚠️ 例外面（如实记）：若 `CurrentTab` 不在本窗的 `visualTypes` 里（绝不该发生），回落第 0 页。</summary>
+        int StartVisualIndex()
+        {
+            if (CurrentTab == WindowTabType.None) return 0;
+            int keep = visualTypes != null ? visualTypes.IndexOf(CurrentTab) : -1;
+            return keep >= 0 ? keep : 0;
+        }
+
+        /// <summary>自检读口（静态断言用：⛔ 不为此真建一遍整窗）—— 见 <see cref="StartVisualIndex"/>。</summary>
+        public int StartVisualIndexForTest { get { return StartVisualIndex(); } }
+
+        /// <summary>本窗左栏四颗的**唯一出处**（= `visualTypes` 的内容）。`Build()` 与 `Create()` 都调它。</summary>
+        void ApplyVisualTypes()
+        {
+            if (visualTypes == null) return;
+            visualTypes.Clear();
+            visualTypes.Add(WindowTabType.CollectionDecks);
+            visualTypes.Add(WindowTabType.CollectionCards);
+            visualTypes.Add(WindowTabType.CollectionCosmetics);
+            visualTypes.Add(WindowTabType.CollectionStyles);
         }
 
         // ============================================================ 四页共用的那一条页头
@@ -3128,14 +3192,10 @@ namespace CardPresentation
             //   （`Shell/MainMenuSubmenuWindow.cs:465`）⇒ **建的时候拿到的还是基类那张奖励窗默认表**，
             //   事后再替换**已经不生效**（`options` 全仓 0 个读取点 ⇒ 今天只是「数据错了但没人用」，
             //   仍按原版口径修）。⇒ **必须排在 `BuildShell` 之前**。
-            if (visualTypes != null)
-            {
-                visualTypes.Clear();
-                visualTypes.Add(WindowTabType.CollectionDecks);
-                visualTypes.Add(WindowTabType.CollectionCards);
-                visualTypes.Add(WindowTabType.CollectionCosmetics);
-                visualTypes.Add(WindowTabType.CollectionStyles);
-            }
+            // 🔴 **2026-10-19（`N117`）**：这段抽成 `ApplyVisualTypes()`，并在 `Create()` 也调一次 ——
+            //   因为「重开保留哪一页」的判据（`StartVisualIndex`）要在**没 Build 过**的实例上也能判
+            //   （自检的静态断言就靠它，⛔ 别为此真建一遍整窗）。
+            ApplyVisualTypes();
 
             var res = BuildShell(transform, Buttons, "CollectionTabButton_", "Tabs", lastIsMaster: false);
             tabButtons = res.buttons;
@@ -3869,14 +3929,58 @@ namespace CardPresentation
         //     ⚠️ **判据半条（如实标）**：原版那个属性 id 是 `CollectionCosmetic` ctor 里
         //     `Shader.PropertyToID(<字面量>)` 算出来的（偏移 `+0x70`），字面量在 metadata 里、静态读不到
         //     ⇒ 「就是 `_Outline`」是**按材质属性集合推的**，不是读出来的字段（与 `Card2DController` 那颗同族）。
-        /// <summary>把卡格的悬停接到 `CardView` 的描边层上（判据 → 本段注释）。</summary>
-        static void AttachCardHover(Transform hit, CardView v)
+        /// <summary>把卡格的悬停接到 `CardView` 的描边层上（判据 → 本段注释）。
+        /// 🆕 **2026-10-19（界面线尾巴）**：`wildcardArmy = true` 时**同时**把 `WIldcard Display ▸ Army Icon`
+        /// 换成**这张卡所属阵营**的徽记 —— 这就是原版 `CardCollectionDisplay.CheckFocusedArmy` 那条路径
+        /// （见 `BuildCardsPage` 里 `Army Icon` 那一段的判据）。⚠️ 只有 **Cards 页**传 `true`：
+        /// Styles 页的格子是**卡背/装饰**（没有 `faction`），拿它换徽记会换成一张无关的旗。
+        /// ⚠️ `onExit` **不还原**（原版 `CheckFocusedArmy` 未命中卡格时直接 return ⇒ 保留最后压过的那张）。</summary>
+        void AttachCardHover(Transform hit, CardView v, bool wildcardArmy = false)
         {
             if (hit == null || v == null) return;
             var wb = hit.GetComponent<WindowButton>();
             if (wb == null) return;
-            wb.onEnter = () => { if (v != null) v.SetHoverHighlight(true); };
-            wb.onExit  = () => { if (v != null) v.SetHoverHighlight(false); };
+            wb.onEnter = () =>
+            {
+                if (v != null) v.SetHoverHighlight(true);
+                if (wildcardArmy) SetWildcardArmy(ArmyIcons.Id(v.Data.faction), "指针压在卡池格上");
+            };
+            wb.onExit = () => { if (v != null) v.SetHoverHighlight(false); };
+        }
+
+        /// <summary>🆕 **2026-10-19（界面线尾巴 · `WildcardDisplay` 徽记）**：把 `WIldcard Display ▸ Army Icon`
+        /// 换成 <paramref name="army"/> 那一面旗。**两口共用**（原版同一句 `WildcardDisplay.Initialize(army)`）：
+        /// ① `CheckFocusedArmy` = 指针压在卡池格（本文件 `AttachCardHover(..., wildcardArmy: true)`）；
+        /// ② `OpenCardInformation` = 开卡片详情（本文件 `OpenCardDetail`）。
+        /// <para>认不出（`ArmyIcons.Texture` 返回 null —— `0`/`-1`/表外值）⇒ **保留当前图 + 出声一次**，
+        /// ⛔ 不拿别的阵营顶（那会把「不知道」画成一张具体的旗）。</para>
+        /// <para>⚠️ 原版 `WildcardDisplay.Initialize` 还会刷那 4 个库存数字；用户 2026-09-28 已拍板
+        /// **数字恒定 `99`**（缺发放源），⇒ 本函数**只换旗、不碰数字**。</para></summary>
+        void SetWildcardArmy(int army, string why)
+        {
+            string art = ArmyIcons.IconName(army);
+            if (string.IsNullOrEmpty(art))        // `0` / -1 / 表外 ⇒ 认不出
+            {
+                if (_wcArmyWarned.Add(army + "|" + why))
+                    Debug.LogWarning("[Collection] `WIldcard Display ▸ Army Icon` 换旗失败：阵营认不出（army="
+                                   + army + " · " + why + "）⇒ **保留当前那张**（⛔ 不猜、不拿别的阵营顶）。"
+                                   + "映射表 = `Core/ArmyIcons.cs`（13 条，原版 `IconsByArmySO` 逐字节解出）。");
+                return;
+            }
+            _wcArmy = army;
+            var tex = ArmyIcons.Texture(army);
+            if (tex == null)
+            {
+                if (_wcArmyWarned.Add(art + "|tex"))
+                    Debug.LogWarning("[Collection] `WIldcard Display ▸ Army Icon` 的图 `" + art + "` **取不到**"
+                                   + "（`Resources/Art/ui_deck/` 下缺这张）⇒ **保留当前那张**（⛔ 不拿别的图顶）。");
+                return;
+            }
+            bool changed = _wcArmyArt != art;
+            _wcArmyArt = art;
+            // 还没建那棵树（或页已重建）⇒ 只记状态，建页时 `BuildCardsPage` 会按 `_wcArmy` 取图。
+            // 同名图**不再重设**（悬停每帧级触发；`SetTexture` 会重建网格）。
+            if (_wcArmyQuad != null && changed) _wcArmyQuad.SetTexture(tex, true);   // PA=1（原版 `m_PreserveAspect = 1`）
         }
 
         /// <summary>把装饰格（卡背）的悬停接到它那颗 SDF 材质的 `_Outline` alpha 上（0.2 s 补间）。</summary>
@@ -3990,6 +4094,13 @@ namespace CardPresentation
         public CardDetailPopup OpenCardDetail(CardDef card)
         {
             if (card == null) { Debug.LogWarning("[Collection] 没有卡可展示"); return null; }
+            // 🆕 **2026-10-19（界面线尾巴 · 铁律 11）**：原版「开卡片详情 ⇒ 徽记换成**那张卡**的阵营」
+            //   （`DeckEditingWindow__OpenCardInformation.c:35`：`WildcardDisplay.Initialize(window.wildcardDisplay,
+            //   card.army, 0)` 就在 `CardDisplayWindow.ShowCard` 之前一句）⇒ 本窗同一条语义接在**同一个口**
+            //   （`SetWildcardArmy`；判据与 `CheckFocusedArmy` 同源，见 `BuildCardsPage` 那一段）。
+            //   ⚠️ 卡池页与异画页共用本函数 —— 两页的 `WIldcard Display` 是**同一颗**，行为一致；
+            //   认不出阵营（如异画那张的 `faction` 为空）⇒ `SetWildcardArmy` 自己出声并保留当前图。
+            SetWildcardArmy(ArmyIcons.Id(card.Faction), "开卡片详情：" + card.Name);
             if (Manager == null)
             {
                 Debug.LogWarning("[Collection] 没有 `WindowsManager`，开不了卡片详情窗");
@@ -4021,6 +4132,15 @@ namespace CardPresentation
 
         /// <summary>最近一次开出来的卡片详情窗（自检用）。</summary>
         public static CardDetailPopup LastCardDetail;
+
+        // ============================================================ 🆕 2026-10-19 · `WildcardDisplay` 徽记（自检读口）
+        /// <summary>`WIldcard Display ▸ Army Icon` 当前阵营（`CardArmy` 值；自检用）。</summary>
+        public int WildcardArmyForTest { get { return _wcArmy; } }
+        /// <summary>那一格当前贴的 sprite 名（自检用；建页前 = 出厂 BlackLegion）。</summary>
+        public string WildcardArmyArtForTest { get { return _wcArmyArt; } }
+        /// <summary>换旗入口（自检直调 —— 生产路径只有两处：卡格悬停 / `OpenCardDetail`）。
+        /// 行为与生产完全同一口（`SetWildcardArmy`，含「认不出保留原图 + 出声」）。</summary>
+        public void SetWildcardArmyForTest(int army, string why) { SetWildcardArmy(army, why); }
 
         /// <summary>最近一次开出来的 `Deck info Popup`（自检用）。</summary>
         public static DeckInfoPopup LastOpened;

@@ -42,6 +42,34 @@ namespace CardPresentation
         RewardsWindow _win;
         Transform _root;
 
+        /// <summary>🆕 **2026-10-19（E01 收尾）**：本页建出来的每日任务行（按 index 0..n-1 顺序）。
+        /// 只给 `TutorialClaimButton`（FTUE 第三步指针）定位用。</summary>
+        readonly List<Transform> _dailyRows = new List<Transform>();
+
+        /// <summary>🆕 **FTUE 第三步指针的目标** = 原版 `TutorialStageGetMission.DoMenuActions` 第三步那颗
+        /// `CollectMissionTutorial_Challenge_0`（代码常量，见类桩）的本地等价物。
+        /// <para>原版按 `GameObjectUniqueIdentifier.Find(id)` 找**教程任务那一行**的 Collect；
+        /// 本地没有服务端任务表 ⇒ **等价实现**：第一条可领的任务行；没有可领的就取第一条未领的。
+        /// 返回 `null` = 当前没有可指的（三行都领完了）。⚠️ 已领取的行原版/我们都不建 Collect ⇒ 找不到。</para>
+        /// <para>只由 `MenuTutorialFlow` 读（`MenuTutorialTargetKind.MissionClaimButton`）。</para></summary>
+        public Transform TutorialClaimButton
+        {
+            get
+            {
+                Transform fallback = null;
+                for (int i = 0; i < _dailyRows.Count; i++)
+                {
+                    var row = _dailyRows[i];
+                    if (row == null) continue;
+                    var btn = row.Find("Generic UI Button");   // 直接子件（`BuildButton` 建在行节点下）
+                    if (btn == null) continue;                 // 已领取 ⇒ 原版 `displayRule` 把它藏了
+                    if (DailyData.CanCollectDaily(i)) return btn;
+                    if (fallback == null) fallback = btn;
+                }
+                return fallback;
+            }
+        }
+
         // ---- 出处：正本 §三（机械走链 `工具/menu_rect.py`；父链 Rewards 根 → Content Area → Tabs）----
         static readonly PxRect RootRect = new PxRect(RewardsWindow.ContentL, RewardsWindow.ContentT,
                                                      RewardsWindow.ContentR, RewardsWindow.ContentB);
@@ -304,6 +332,7 @@ namespace CardPresentation
         public void Build()
         {
             if (_win == null || _root == null) return;
+            _dailyRows.Clear();
             for (int i = _root.childCount - 1; i >= 0; i--)
                 RewardsWindow.DestroySafe(_root.GetChild(i).gameObject);
 
@@ -581,6 +610,7 @@ namespace CardPresentation
             // 🔴 **A124**：这一层也过 `R()`（`NodeD`）—— 它是 `Daily Missions` 的**后代**，在缩放里
             //    （原版 `localScale` 缩的是整棵子树）。自检量这一颗的量的是**缩放后**的矩形。
             parent = NodeD(parent, "Daily Mission Container (" + index + ")", row);
+            _dailyRows.Add(parent);      // FTUE 第三步指针按 index 找行（见 `TutorialClaimButton`）
             // 整卡底：`40K_missions_display_Daily horizontal` ·
             // `MissionBackgroundHighlighter.normalColor` = (0.4941,0.5686,0.9176,1)（**可领取**时换 (1,0.6667,0.3451,1)）
             // ⚠️ 走 `Draw`（**过 `R()`**）—— 别再写成 `_win.Rect(parent, …, row.x1, …)`：
@@ -1071,8 +1101,13 @@ namespace CardPresentation
             //    `Button 35/[12~35]`·`Timer 28/[15~28]`；`body/counter 30/[30~35]` 两处一致。
             //    ⇒ 本卡：`name` 36→**30**、`count` 40→**30**（窗口 10/40→20/30）、`Button` 44→**35**
             //    （窗口 44→35）、`Timer` 38→**28**（窗口 38→28）；`counter` 不动。
-            //    ⚠️ 里程碑数字（`Step Text`）**没动** —— 它运行期由独立的 `stepPrefab` 实例化，
-            //    `MissionMilestonesDisplay.stepPrefab` 的 PPtr 本地解不出名字 ⇒ 属未闭合项、⛔ 不猜（只登记）。
+            //    🔴 **2026-10-19（`A1232` 尾巴 · 铁律 5 就地订正）**：这里原来写「里程碑数字（`Step Text`）
+            //    **没动** —— 它运行期由独立的 `stepPrefab` 实例化，那个 PPtr **本地解不出名字** ⇒ 未闭合项」——
+            //    **已过期**：`stepPrefab` 现读已解出（`MissionMilestonesDisplay.stepPrefab` →
+            //    MB `1789641865948126044` = `MissionMilestoneStep`，挂 GO「Mission Milestones Step」；
+            //    审计 → `资料/普查产出_1019/W_远端挂起_可解性审计_1019b.md` §二 · `A1232`）。
+            //    本卡（全尺寸 `Daily Skulls Mission Container`）那一份的 `holder/text` 实读
+            //    = **fs 32.0 · base 36.0 · auto[15.0~32.0]** ⇒ 已按它改（见 `BuildMilestone` 里那一句）。
             //    全文 → `资料/普查产出_1018/W2_A1232_任务卡字号.md`。
             BuildCardHeader(parent, card, "Daily Skulls", DailyData.SkullsTitle(), 30f, false);
 
@@ -1687,8 +1722,14 @@ namespace CardPresentation
         /// ⇒ **数字的数据源 = `DailyData.SkullsStepTarget(i)` / `WeeklyStepTarget(i)`**（⛔ 不在这里另算）。</para>
         /// <para>🔴 **`text` 框与字号【两卡不同】—— 各自照自己那份 prefab 的实读值**（`工具/menu_dump.py`）：
         /// <list type="bullet">
-        /// <item>骷髅卡（`Daily Skulls Mission Container Small`）· `…/holder/text`：
-        ///   **40×40（与方框同框）**· 占位串 `'1'` · **fs 42.2** · auto[10~50] · `Center/Midline` · 白。</item>
+        /// <item>骷髅卡（基础命名的**全尺寸** `Daily Skulls Mission Container`）· `…/holder/text`：
+        ///   **40×40（与方框同框）**· 占位串 `'1'` · **fs 32.0** · auto[15~32] · `Center/Midline` · 白。
+        ///   🔴 **2026-10-19（`A1232` 尾巴 · 铁律 5）就地订正**：这里原来记的是
+        ///   「`Daily Skulls Mission Container Small` · fs 42.2 · auto[10~50]」—— **那是小屏变体**的
+        ///   页内作者预览那一颗；本卡建的是**全尺寸**那一份（`BuildSkullsCard` 顶部 W2 的裁定），
+        ///   它的 `stepPrefab`（现读已解出 = 基础 `Mission Milestones Step`）里 `holder/text`
+        ///   实读 = **fs 32.0 · base 36.0 · auto[15.0~32.0]**（`menu_dump.py bundle_menus_assets_all
+        ///   "Mission Milestones Step" --depth 10 --relative --md`）。两档**不是同一个 prefab**，别互推。</item>
         /// <item>周常（`Weekly Mission Milestones Step (3)`）· `…/holder/text`：
         ///   **142.95×56**（比 70² 的格子**宽**，且**向下伸出格子 29.53**：框底 = 格底 + 29.53）·
         ///   占位串 `'5'` · **fs 50** · auto[10~50] · `Midline` · 白。
@@ -1775,24 +1816,41 @@ namespace CardPresentation
             //         实读：`字号=50.0 基准=36.0 auto[15.0~50.0]`）。
             //        而页内那份 `Weekly Mission Milestones Step (3)`（**作者预览、会被上面那句删掉**）
             //        才是 **auto[10.0~50.0]** —— **我们原来照的是后者**（A579）。
-            //      · 每日：那份 `Mission Milestones Step (1)` = **auto[10.0~50.0]**
-            //        （`menu_dump.py … "Daily Skulls Mission Container Small" --depth 7` 实读：5 格全是 `auto[10.0~50.0]`）
-            //        ⇒ 每日那支**不动**（A371 断的 `11.5 = 10 × 1.15` 仍然成立）。
-            //    ⚠️ **今天零可观测差异**（两卡这一格印的都是 1–3 字符、fs50 装得下）—— 属**判据正确性**
+            //      · 每日：🔴 **2026-10-19（`A1232` 尾巴 · 铁律 5）就地订正** —— 原来这里写
+            //        「那份 `Mission Milestones Step (1)` = auto[10.0~50.0]（`Daily Skulls Mission Container Small`
+            //        实读）⇒ 每日那支**不动**」—— **不成立**：`Small` 是**小屏变体**，
+            //        而本卡建的是**基础命名的全尺寸** `Daily Skulls Mission Container`（W2 的裁定，见 `BuildSkullsCard`）；
+            //        它的 `stepPrefab` **现读已解出** = 基础 `Mission Milestones Step`（审计 §二 `A1232`）
+            //        ⇒ 运行期那一颗的 `holder/text` = **fs 32.0 · base 36.0 · auto[15.0~32.0]**
+            //        （`menu_dump.py bundle_menus_assets_all "Mission Milestones Step" --depth 10 --relative --md`；
+            //         全尺寸容器页内那 5 颗作者预览**同值**）。⇒ 每日这一支已按 32 / [15~32] 改。
+            //    ⚠️ **今天零可观测差异**（两卡这一格印的都是 1–3 字符，两档都装得下）—— 属**判据正确性**
             //      那一类，按铁律 11 照样要做（铁律 5·c：别拿一个值顶两种情况）。
-            //    🆕 **A336③**：`m_fontSizeBase` = **36.0**（判据 = `Mission Milestones Step/holder/text` 那 5 颗
-            //      `fs=42.2 · auto[10.0~50.0]` 逐颗实读都是 `base 36.0`；`menu_dump.py` 不印这一列）。
+            //    🆕 **A336③**：`m_fontSizeBase` = **36.0**（判据 = `Mission Milestones Step/holder/text`
+            //      逐颗实读都是 `base 36.0`；`menu_dump.py` 不印这一列）。
             //    ⚠️ `r` 一律是**画布设计空间的绝对矩形**（`Txt` / `Draw` 内部会过 `R()` 再减父件位置）
             //      —— 挂到 `cell` 下面**不用**、也不许再减一次格子的位置。
             var tr = small
                 ? r                                                                    // 与格子同框（40×40）
                 : new PxRect(r.CX - 142.95f * 0.5f, r.y2 - (56f - 29.53f),             // 框底 = 格底 + 29.53
                              r.CX + 142.95f * 0.5f, r.y2 + 29.53f);
-            var stepLb = Txt(cell, tr, stepText, Color.white, "Step Text", small ? 42.2f : 50f,
-                small ? 10f : 15f, 50f, 36f);     // 下界两卡不同（每日 10 / 周常 15）—— 判据见上面那段（A579）
+            // 🔴 **2026-10-19（`A1232` 尾巴 · 铁律 5 就地订正）**：`small` 那一档原来传 **42.2 / [10~50]** ——
+            //   那是 **`Daily Skulls Mission Container Small`（小屏变体）页内作者预览**那一颗的数（`A579`
+            //   当年照的是它）；而本卡建的是 **基础命名的全尺寸 `Daily Skulls Mission Container`**（W2 的裁定，
+            //   见 `BuildSkullsCard` 顶部），它 `milestones` 的 `MissionMilestonesDisplay.stepPrefab`
+            //   **现读已解出** = 基础 `Mission Milestones Step`（MB `1789641865948126044`，
+            //   `bundle_menus_assets_all`）⇒ 那一颗 `holder/text` 实读 = **fs 32.0 · base 36.0 ·
+            //   auto[15.0~32.0]**（`menu_dump.py bundle_menus_assets_all "Mission Milestones Step" --depth 10 --relative`）。
+            //   ⇒ 42.2/10/50 三个数都是**另一份 prefab** 的（`Small` 变体 / 页内预览），改回运行期真的那一份。
+            //   周常那一档不变（`Weekly Mission Milestone T1` = 50 / [15~50] / base 36，见 `A579`）。
+            var stepLb = Txt(cell, tr, stepText, Color.white, "Step Text", small ? 32f : 50f,
+                15f, small ? 32f : 50f, 36f);
             // 🆕 **2026-10-16（A712 阶段 2）**：纵向那一半 —— `holder/text` 那 5 颗 = `Center/**Midline**`
-            //   （判据 = 本文件 `:1210`（每日 `'1'` fs42.2）与 `:1213`（周常 `'5'` fs50）两条 `Center/Midline`，
-            //   两颗**同档**；`A579` 只核了自适应范围那一栏）。
+            //   （每日那一份 = 基础 `Mission Milestones Step` 的实读、周常 = `Weekly Mission Milestone T1`；
+            //   两颗**同档** `Center/Midline`）。
+            //   🔴 **2026-10-19（`A1232` 尾巴 · 铁律 5）**：上面括注原来写「每日 `'1'` fs42.2」—— 那是
+            //   **Small 变体**的数；运行期那份是 **fs 32**（判据见本函数上面那一段），已订正。
+            //   `A579` 只核了自适应范围那一栏。
             MenuDraw.SetVAlign(stepLb, Label.VAlign.Midline, tr);
         }
 
@@ -2084,7 +2142,7 @@ namespace CardPresentation
         /// <para>🆕 **B4 起多一个 `interactable`** —— 原版这颗 `Collect` 是 `EverguildButton`，
         /// 可点性 = `CanCollect()`（判据链 → `Shell/DailyData.cs` 的 `CanCollectDaily` 那一段）。
         /// 置假 ⇒ `WindowButton.Interactable` 那两半**一起**生效：**变灰**（材质换 `Everguild/UI/Greyscale`）
-        /// + **点了不派发**（原版 `Selectable.OnPointerClick` 头一句）—— 两半的判据都在 `Shell/PromptPopup.cs`。
+        /// + **点了不派发**（原版 `Selectable.OnPointerClick` 头一句）—— 两半的判据都在 `Shell/WindowButton.cs`（⚠️ 2026-10-19 订正：原写 `Shell/PromptPopup.cs`）。
         /// ✅ **A82（2026-10-05）把「变灰」那半核成了实据**（原版那一下要先满足
         /// `colorTintGreyOnDisable = 1` —— 不为真时 `SwitchMaterial` 的第一句就返回、**根本不灰**）：
         /// 真包 `bundle_menus_assets_all` 里 **`text == "Collect"` 的 `EverguildButton` 共 26 个，
@@ -2128,7 +2186,7 @@ namespace CardPresentation
                 //         变灰那颗钮会掉到**底图之下、被自己的行底图盖住** = 画面上「按钮没了」，
                 //         而 `AuditGrayLook` 那条断言**照样全绿**（它只看 shader 名，不看队列）。
                 //    ⇒ 显式补回它本来就该在的那一层（`Draw` 那一次传的就是 `QContent`）。
-                //    ⚠️ 这一句当初写在这里，是因为 `Shell/PromptPopup.cs` 与 `Battle/ImageQuad.cs`
+                //    ⚠️ 这一句当初写在这里，是因为 `Shell/PromptPopup.cs`（⚠️ 2026-10-19 订正：`WindowButton` 当时住这里，2026-10-11 已拆到 `Shell/WindowButton.cs`）与 `Battle/ImageQuad.cs`
                 //      **不在那一批的白名单里**（切块口径，不是判据）。
                 //    ✅ **2026-10-03（A85）：通用修已落地** —— `ImageQuad.SetMaterial` 现在**保留**换之前的
                 //      `renderQueue`（`Battle/ImageQuad.cs` 的 `SetMaterial`），`DeckInfoPopup` 那 8 颗同病也补了

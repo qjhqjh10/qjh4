@@ -614,6 +614,45 @@ namespace CardPresentation
             get { var im = ImageOf(_shade != null ? _shade.gameObject : null);
                   return im != null ? HudCanvas.SizePx((RectTransform)im.transform) : Vector2.zero; }
         }
+
+        /// <summary>🆕 **2026-10-19（`A1304`）：原版压暗层的 `m_RaycastPadding` 下沿内缩量**。
+        /// 判据 = `bundle_scenes_scenes_battlearena1 ▸ …/WaitText/Dark Shade` 的
+        /// `m_RaycastPadding = (0, 1000, 0, 0)`（`MonoBehaviour_4415.json` 现读；
+        /// uGUI 的顺序是 **X=左 · Y=下 · Z=右 · W=上**，见 `Graphic.raycastPadding` 的 doc）。
+        /// <para>🔴 **方向别写反**（`A1304` 的订正）：本仓约定「**负 = 外扩、正 = 内缩**」⇒ 下沿**内缩** 1000px
+        /// ⇒ 屏幕 1080 下压暗的**下边界从 1858.1 抬到 858.1** ⇒ **最下面 221.9px（手牌那一带）照旧可用**。
+        /// 原版语义 = 「挡上中部（连 tooltip hover 也挡）、底下手牌那一带不挡」。</para></summary>
+        public const float ShadeRaycastPadBottomPx = 1000f;
+
+        /// <summary>🆕 **2026-10-19（`A1304`）：这个**世界点**落不落在压暗层的【可吃输入区】里
+        /// （= 压暗层矩形按原版 `m_RaycastPadding` 内缩之后的那块；见 <see cref="ShadeRaycastPadBottomPx"/>）。
+        /// <para>⚠️ **本件只给几何** —— 消费方（`BattleDriver` 的指针 / tooltip 判定）不在本文件；
+        /// 接线 = 在 `TickTooltipAt` 与点击入口之前先问一句本函数（接口需求 → 本批报告）。</para>
+        /// <para>⚠️ 两档各读各的尺：画布档 = `sizeDelta`（设计 px = 局部单位）；世界档 = `WorldW/H × lossyScale`。</para></summary>
+        public bool ShadeContains(Vector3 world)
+        {
+            if (_shade == null || !_shade.gameObject.activeSelf) return false;
+            var tr = _shade.transform;
+            float w, h, padB, lx = 1f, ly = 1f;
+            if (_ugui)
+            {
+                var s = ShadeSizePx;
+                w = s.x; h = s.y; padB = ShadeRaycastPadBottomPx;
+            }
+            else
+            {
+                lx = Mathf.Abs(tr.lossyScale.x); ly = Mathf.Abs(tr.lossyScale.y);
+                w = _shade.WorldW * lx; h = _shade.WorldH * ly;
+                padB = ShadeRaycastPadBottomPx / 108f * ly;      // 世界档 108 px = 1 世界单位
+            }
+            if (!(w > 0f) || !(h > 0f)) return false;
+            Vector3 lp = tr.InverseTransformPoint(world);        // 中心原点、y 向上（与 `RectTransform` 同向）
+            lp.x *= lx; lp.y *= ly;                              // 局部单位 → 与 w/h 同一把尺
+            return Mathf.Abs(lp.x) <= w * 0.5f
+                && lp.y <= h * 0.5f
+                && lp.y >= -h * 0.5f + padB;
+        }
+
         /// <summary>压暗层**有没有贴图** —— 原版 `Dark Shade` 是**无图、纯色**（`m_Sprite = null`）
         /// ⇒ 期望 **`false`**（`true` = 我们给它塞了一张图，与原版不符）。
         /// ⚠️ 世界档恒 `false`（那一档的是 `ImageQuad`、不是 `Image`）⇒ 只对画布档有判别力。</summary>

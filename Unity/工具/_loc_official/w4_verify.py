@@ -28,12 +28,20 @@ def main():
     s = io.open(L.LOC, encoding="utf-8").read()
 
     print("=== ① Loc.cs 表 ===")
-    n_entry = s.count("new Entry(")
+    # 🔴 2026-10-19（`A2066`）：**别数整段文本里的 `new Entry(`** —— 文件头那段说明自己就写了
+    #    两次 `new Entry(`（`//` 注释里，其中一句还是「复算：`grep -c 'new Entry(' …」）
+    #    ⇒ 775 条会被数成 777（实测）。判据改成只数**代码行**（行首不是 `//`）。
+    n_entry = sum(1 for ln in s.splitlines()
+                  if "new Entry(" in ln and not ln.lstrip().startswith("//"))
     # ⚠️ `loc_table()` 的正则**看不见**那条**拼接写法**的词条（`MainMenu/PurchasePremium/Description`
-    #    是 `"…" + "…"` 三段），所以它少 1 条 —— **不是表少了**，判据用 `new Entry(` 的出现次数。
-    chk(n_entry == 720, "`new Entry(` 出现 %d 次（期望 720）" % n_entry)
-    chk(len(tab) == n_entry - 1, "正则可见 %d 条 = 表 %d 条 − 1（那条拼接写法）" % (len(tab), n_entry))
-    print("  Entry 现读 = %d（其中 1 条是拼接写法、正则看不见；表实为 %d 条）" % (len(tab), n_entry))
+    #    是 `"…" + "…"` 三段），所以它少 1 条 —— **不是表少了**，判据用代码行里的 `new Entry(` 数。
+    n_re = len(tab)
+    # 条目数**下限**（2026-10-19 现读 775 条 · 正则可见 774 + 拼接写法 1）：
+    #   720 是 2026-10-14 那一轮的读数、早就过期；这个数只防「表被整段删掉」，不是现值（表还会长）。
+    ENTRY_FLOOR = 775
+    chk(n_entry >= ENTRY_FLOOR, "`new Entry(` 表条目 %d 条（下限 %d）" % (n_entry, ENTRY_FLOOR))
+    chk(n_re == n_entry - 1, "正则可见 %d 条 = 表 %d 条 − 1（那条拼接写法）" % (n_re, n_entry))
+    print("  Entry 现读 = %d（其中 1 条是拼接写法、正则看不见；表实为 %d 条）" % (n_re, n_entry))
 
     print("=== ② 待接清单（原 12 条）===")
     twelve = ['Battle/Tips/DamageFatigue', 'Demo/Tutorial', 'MainMenu/Forge/Help', 'MainMenu/General/Claim',
@@ -55,13 +63,17 @@ def main():
         same = (tab[k][0] == off[k][1])
         print("   %-46s ZH 一致=%s%s" % (k, same, "" if same else "  ← 本轮**未换**（要同时改调用点，见报告）"))
 
-    print("=== ④ `Battle/*` 105 条 ===")
+    print("=== ④ `Battle/*`（官方现读 156 条）===")
     miss = [k for k in off if k.startswith("Battle/") and k not in tab]
     chk(not miss, "官方 Battle 键还缺 %d 个：%s" % (len(miss), miss[:5]))
     diff = [(k, tab[k][1], off[k][0]) for k in tab if k.startswith("Battle/") and k in off
             and L.unesc(tab[k][1]) != L.unesc(off[k][0])]
     chk(not diff, "Battle EN 与官方不同还剩 %d：%s" % (len(diff), diff[:3]))
-    print("  官方 Battle 键 %d 条：全部在表、EN 全部与官方一致" % len([k for k in off if k.startswith("Battle/")]))
+    n_battle = len([k for k in off if k.startswith("Battle/")])
+    # ⚠️ 2026-10-19（`A2066`）：这行原来**无条件**打「全部在表、EN 全部与官方一致」——
+    #    上面两条已经红了它还说全绿（假读数）。改成按现读算。
+    print("  官方 Battle 键 %d 条：在表 %d 条、EN 与官方一致 %d 条"
+          % (n_battle, n_battle - len(miss), n_battle - len(miss) - len(diff)))
 
     print("=== ⑤ trait_tips.json（关键词 tooltip）===")
     tt = json.load(io.open(os.path.join(RES, "trait_tips.json"), encoding="utf-8"))
@@ -93,7 +105,13 @@ def main():
     h_p = sum(1 for d in pb if ("PrebuiltDecks/" + d["deckId"]) in t)
     print("  Titles %d/462 · Avatars %d/469 · 成就名 %d/102 · 成就描述 %d/102 · 预组 %d/103"
           % (h_t, h_a, h_an, h_ad, h_p))
-    chk(h_t == 368 and h_a == 234 and h_an == 95 and h_ad == 95 and h_p == 74, "命中数与现读不符")
+    # 🔴 2026-10-19（`A2066`）：原来写死的是 2026-10-14 那一轮的一整组命中数
+    #    （368 / 234 / 95 / 95 / 74），而之后数据**只增不减** ⇒ 每次数据变好反而报红。
+    #    改成**下限**（各族命中不许回退到旧基线以下），现读只打印；数据将来再涨也不用改这里。
+    floors = {'Titles': (h_t, 459), 'Avatars': (h_a, 234),
+              '成就名': (h_an, 102), '成就描述': (h_ad, 102), '预组': (h_p, 95)}
+    low = {k: "%d/%d" % (cur, flo) for k, (cur, flo) in floors.items() if cur < flo}
+    chk(not low, "命中数低于下限（家族: 现读/下限）：%s" % low)
 
     print("=== ⑦ 接线点（grep 现读）===")
     for f, frag in [(r"d:/4/Unity/MyGame/Assets/CardPresentation/Shell/ProfileData.cs", "Loc.BulkOr"),

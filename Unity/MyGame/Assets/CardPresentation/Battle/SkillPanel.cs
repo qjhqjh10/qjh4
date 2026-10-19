@@ -25,7 +25,7 @@
 //     `DescText`(37.35)、`TargetsAvailableText`(`"0 available"`/56.45)。
 //     `DescText` **左对齐**（`m_margin.x = 7.4727 px`），其余居中。
 //     四个都开着自动缩放 `[4,60]` —— **序列化字号是编辑器烘的「上次结果」**，
-//     运行时会按各自矩形重算。这里用「同款矩形 + 装不下就回缩」来逼近那个行为（见 `Fit`）
+//     运行时会按各自矩形重算。这里走 `FitBox`（`Label.SetAutoFitBox`）开同一套自适应。
 //   · `Lights` = **三层全铺的色片**（三个子节点 anchor 0,0–1,1 完全重叠），不是一排小灯
 //   · `HideAbilityButton` = 一块**远大于面板的透明点击捕获区**（`m_Color.a = 0`、
 //     `m_Type = Sliced`、`RaycastTarget = 1`），点它 → 面板收起。
@@ -169,7 +169,7 @@ namespace CardPresentation
         //    （实据：`CostText` 的 x/w = `(1119.28−711.39)/486.44` = **0.83857**、`56.19/486.44` = **0.11549**，
         //     与改前那两个数**逐位相同**；`CostIcon` 的 x = `(1071.80−711.39)/486.44` = **0.74099** 同）。
         //    后果有两处，不是一处：① **位置**（`CenterOf` 摆的是错帧的心 ⇒ 屏上 x 1155.1 vs 原版 1119.3，差 35.8px）；
-        //    ② **框**（`FitBox`/`Fit` 吃的宽高同源 ⇒ 66.58×99.85 vs 原版 56.20×68.40）。
+        //    ② **框**（`FitBox` 吃的宽高同源 ⇒ 66.58×99.85 vs 原版 56.20×68.40）。
         //    判据 = **现读**（`menu_dump.py bundle_scenes_scenes_battlearena1 "ActiveSkillDesc" --depth 4`，
         //    用 **`P-L` 修好之后**的尺子）：
         //      `CostText  1119.28,792.55→1175.47,860.95  56.20×68.40`（`'10'` 52.4 em，Center/Middle）
@@ -212,6 +212,24 @@ namespace CardPresentation
 
         /// <summary>原版 `DescText` 的 `m_margin.x = 7.4727 px` —— 左对齐的起笔位置</summary>
         const float DescMarginPx = 7.4727f;
+
+        // ═══════════════════════════════════════════════════════════════════════════════════════════
+        // ✅ **2026-10-19（`A1284` 收口）：7 颗件「逐级折算到面板坐标」已【逐颗回代】。**
+        //   判据 = 原版绝对矩形（`python -I -X utf8 工具/menu_dump.py bundle_scenes_scenes_battlearena2
+        //   "ActiveSkillDesc" --depth 6 --no-sprite` 现读，2026-10-19）+ 两条独立折算：
+        //   `Name`/`Desc` 走 **`AbilityContainer`(RT3322) 的锚点盒**再折到面板，其余直接对面板。
+        //   件       | 原版绝对矩形（1920×1080 · 左上原点） | 我们的常量 → 绝对（差）
+        //   Bg       | 711.4, 775.0  486.44×221.29 | 711.40, 774.93  486.43×221.29（≤0.07px）
+        //   Name     | 729.6, 789.6  189.95×66.88  | 729.67, 789.54  189.92×66.88（≤0.07px）
+        //   CostIcon | 1071.8, 792.9 40.73×68.03   | 1071.74, 792.89 40.75×68.05（≤0.06px）
+        //   CostText | 1119.3, 792.6 56.20×68.40   | 1119.27, 792.53 56.20×68.41（≤0.06px）
+        //   Desc     | 730.0, 861.0  411.51×108.33 | 729.96, 860.94  411.56×108.33（≤0.06px）
+        //   Targets  | 762.9, 721.5  395.73×53.48  | 762.87, 721.46  395.71×53.47（≤0.05px）
+        //   Lights   | 689.6, 748.2  537.33×275.06 | 689.56, 748.17  537.33×275.06（≤0.04px）
+        //   ⇒ **一个值都不用改**（残差全部来自 4 位小数舍入）。`NameRect` / `DescRect` 是**首次**回代；
+        //   `Desc` 的 `m_margin.x = 7.4727` 另由 `MarginX01()` / `MarginW()` 在摆位与框宽里扣。
+        //   ⛔ 断言在 `Editor/BattleScene.cs`，期望值取**上面那列原版绝对矩形**（不取我们的常量）。
+        // ═══════════════════════════════════════════════════════════════════════════════════════════
 
         // 四个字号是 **em**（UGUI 的 fontSize 就是 em 大小），而我们的文案是**中文** ——
         // 一个汉字约占 1 em。所以按「汉字多高」定档（`Label.SetGlyphHeight`），
@@ -403,6 +421,29 @@ namespace CardPresentation
             return null;
         }
 
+        /// <summary>🆕 **2026-10-19（`A1284` 的断言口）**：7 个件的**面板内归一化矩形**
+        /// （x 从左、y 从**顶**、w/h 为比例 —— 与 `BgRect` 那一组同口径）。
+        /// 序号 = 0 `Bg` · 1 `Name` · 2 `CostIcon` · 3 `CostText` · 4 `Desc` · 5 `Targets` · 6 `Lights`。
+        /// <para>⚠️ 本口给的是**我们的常量**；断言的期望值必须取**原版绝对矩形**（⛔ 别拿它当判据侧 = 同义反复）。</para></summary>
+        public static Rect RectForTest(int i)
+        {
+            switch (i)
+            {
+                case 0: return BgRect;
+                case 1: return NameRect;
+                case 2: return CostIconRect;
+                case 3: return CostTextRect;
+                case 4: return DescRect;
+                case 5: return TargetsRect;
+                case 6: return LightRect;
+            }
+            return new Rect();
+        }
+
+        /// <summary>🆕 **2026-10-19（`A1284`）**：原版面板在 1920×1080 下的像素尺寸
+        /// （`PanelPxW/H` 的只读口）—— 只给自检把归一化矩形换算回绝对 px。</summary>
+        public static Vector2 PanelPxForTest { get { return new Vector2(PanelPxW, PanelPxH); } }
+
         bool _pressed, _acting;
         Tween _fade;
 
@@ -589,14 +630,9 @@ namespace CardPresentation
                         DescRect.y + DescRect.height * 0.5f, ZText);
 
             // ⚠️ 原版四个字都开着 `m_enableAutoSizing`（min 4 / max 60），序列化字号是
-            //    **编辑器烘进去的「上次结果」**。这里用「装不进矩形就整体回缩」逼近它 ——
-            //    像 `TargetsAvailableText`（56.45 em）塞进 53.5 px 高的矩形，原版一定是缩过的。
-            // 🆕 **2026-10-10（A1212 块 7）**：上面那句「逼近」现在**真的接上了** —— 四颗各自按
-            //    `SetAutoFitBox` 开原版那套自适应（`4/60/36`，见 `AutoMinPx` 那一组常量）；
-            //    框就是下面 `Fit` 用的**同一个矩形**（同一条算式，⛔ 别让它俩对不上）。
-            //    ⚠️ 顺序：**先 `SetAutoFitBox`、再 `Fit`** —— 前者会重排 mesh（`ForceMeshUpdate`）并按
-            //    「装得下的最大号」收敛，后者读的是**收敛之后**的 `WorldW/WorldH`
-            //    ⇒ 收敛成功时它那句 `k >= 1f` 早退、**一个字节都不改**（保留它 = 兜底，不是第二套规则）。
+            //    **编辑器烘进去的「上次结果」**。
+            // 🆕 **2026-10-10（A1212 块 7）**：四颗各自按 `SetAutoFitBox` 开原版那套自适应（`4/60/36`，见 `AutoMinPx` 那一组常量）。
+            // 🔴 **2026-10-19（`A1237①`）**：原来那句「再调一次 `Fit` 兜底」**已删**（它是反馈环，理由见本段末尾那四行）。
             // 🔴 **2026-10-16（`T09` 批 3）**：框的两个量纲**按档取**（`BoxW/BoxH`）——
             //    `SetAutoFitBox` 的第一个形参是「**本标签所在空间的单位**」（`Label.SetWrapWidth` 那句
             //    `sizeDelta` 直接吃它）⇒ 世界档喂世界单位、画布档喂**设计 px**。
@@ -612,10 +648,14 @@ namespace CardPresentation
             FitBox(_targets, BoxW(TargetsRect.width), BoxH(TargetsRect.height));
             FitBox(_desc, BoxW(DescRect.width) - MarginW(), BoxH(DescRect.height));
 
-            Fit(_name, BoxW(NameRect.width), BoxH(NameRect.height));
-            Fit(_cost, BoxW(CostTextRect.width), BoxH(CostTextRect.height));
-            Fit(_targets, BoxW(TargetsRect.width), BoxH(TargetsRect.height));
-            Fit(_desc, BoxW(DescRect.width) - MarginW(), BoxH(DescRect.height));
+            // 🔴🔴 **2026-10-19（`A1237①`）：原来跟在这四句后面的 `Fit(...)` 已【删掉】—— 它不是兜底，是**反馈环**。**
+            //    判据：`Fit` 读 `WorldW/H` 与 `BoxW/H`，装不下就 `SetGlyphHeight(GlyphHeightWorld × k)`；
+            //    而 `SetGlyphHeight` 改的是**基号**（`_glyphHeight`），`TmpFontSize()` 下一趟就按它折
+            //    `min/max/base` ⇒ **连调两次 `RefreshLayout` 会把字号越缩越小**（静默、无报错）。
+            //    而它想兜的那件事（装不下 ⇒ 缩）**已经由 TMP 的自适应做了**（`SetAutoFitBox` 的
+            //    `m_fontSizeMin/Max` 二分）⇒ 收敛成功时 `k >= 1`、它本来就该早退。
+            //    ⛔ 别再把它加回来；「版面幂等」由 `Editor/BattleScene.cs` 那条新断言咬住
+            //    （连调两次 `RefreshLayout` ⇒ 四颗的 `FontPxNow` 逐位不变）。
 
             PlaceManaIcon();
             ApplyColors();
@@ -792,8 +832,7 @@ namespace CardPresentation
         /// 单位随档变）—— 调用点一律走 `BoxW/BoxH`（世界档 = 世界单位 · 画布档 = 设计 px），
         /// ⛔ **别在这里自己乘系数**；`min/max/base` 恒走**原版画布 px**、三个数原样传
         /// （出处见 `AutoMinPx` 那一组常量的注释）。
-        /// <para>⚠️ 它会**重排 mesh** ⇒ 与本文件末尾那次裁切（如果将来加）以及 `Fit` 的次序：
-        /// `SetAutoFitBox` 在前、`Fit` 在后（`Fit` 读收敛后的尺寸，见 `RefreshLayout` 里那段注）。</para>
+        /// <para>⚠️ 它会**重排 mesh**（`ForceMeshUpdate`）⇒ 建件之后要再摆位/裁切的，排在本函数之后。</para>
         /// </summary>
         static void FitBox(Label l, float boxW, float boxH)
         {
@@ -802,28 +841,10 @@ namespace CardPresentation
             l.SetAutoFitBox(boxW, boxH, AutoMinPx, AutoMaxPx, AutoBasePx);
         }
 
-        /// <summary>
-        /// 装不进矩形就整体回缩 —— 逼原版那个 `enableAutoSizing`。
-        /// 字号正比于汉字高度，宽度也正比，所以「缩多少比例」能直接作用回去。
-        /// </summary>
-        /// <summary>
-        /// 装不进矩形就整体回缩 —— 逼原版那个 `enableAutoSizing`。
-        /// 字号正比于汉字高度，宽度也正比，所以「缩多少比例」能直接作用回去。
-        ///
-        /// ⚠️ **空文本必须跳过**：TMP 在字符串为空时 `textBounds` 会返回 **`4.2949673E+09`**
-        ///    （`uint.MaxValue`，它内部当「无穷大」用的哨兵）。拿它当真实宽度算比例，
-        ///    字号会被缩掉 1e-10 倍 —— 表现就是「面板上一个字都看不见」。
-        /// ⚠️ 再加一道保险：缩得比 5% 还狠说明量出来的数不对，**宁可不缩**也别缩成零。
-        /// </summary>
-        static void Fit(Label l, float maxW, float maxH)
-        {
-            if (l == null || string.IsNullOrEmpty(l.Text)) return;
-            float w = l.WorldW, h = l.WorldH;
-            if (!(w > 1e-4f) || !(h > 1e-4f) || !(maxW > 1e-4f) || !(maxH > 1e-4f)) return;
-            float k = Mathf.Min(1f, Mathf.Min(maxW / w, maxH / h));
-            if (k >= 1f || k < 0.05f) return;
-            l.SetGlyphHeight(l.GlyphHeightWorld * k);
-        }
+        // 🔴 **2026-10-19（`A1237①`）：`Fit(Label, maxW, maxH)` 已整块删除。**
+        //    它不是「装不下就缩」的兜底，而是**反馈环**：`SetGlyphHeight` 改的是基号（`_glyphHeight`），
+        //    `TmpFontSize()` 下一趟按它折 `min/max/base` ⇒ 连调两次 `RefreshLayout` 字号越缩越小，
+        //    而且静默。原版那件事由 `SetAutoFitBox` 的 TMP 自适应完成（判据与断言 → `RefreshLayout` 里那段注释）。
 
         /// <summary>面板在**屏幕上**占的那块矩形（指针在不在面板上用它判）。
         /// 🔴 **2026-10-16（`T09` 批 3）：按档取坐标系** ——

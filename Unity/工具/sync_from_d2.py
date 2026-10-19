@@ -5,12 +5,24 @@ sync_from_d2.py —— 从档案库 d:/2 复制「自研卡牌游戏需要」的
 
 原则：
   * 只复制，不移动。d:/2 是档案库，保持原样。
-  * 目标已存在同名文件 → 跳过并记冲突（绝不覆盖）。
+  * 目标已存在同名文件 → 跳过并打印（默认【绝不覆盖】；只有显式 `--force` 才覆盖）。
   * 每批复完打印来源/数量/体积，产出 _同步日志.json 供写手册引用。
+
+🔴 2026-10-19（账 `A2112` · 工具线 T01）：
+  * **`d:/warpforge` 是 Godot 时代（我们自己的上一版 Godot 复刻）的旧仓，⛔ 别拿它当判据**。
+    这里的 `data` 批次只是**历史播种**；权威源 = 解包资源 `d:/2/新解包资源/assets_full/`
+    （＋ `d:/2/解包整理/`）与反编译 `d:/2/tools/decomp_full/`。
+  * **源侧只读**：本脚本从 `d:/warpforge/data` **只读**，⛔ 从不写回那个仓库
+    （`_assert_not_writing_into_source()` 在每次落盘前兜底断言）。
+  * **默认不覆盖**：目标已存在同名文件 ⇒ 跳过并打印；`--force` 才覆盖（会逐条记进日志）。
+  * `ui_layout` 与粒子三族（`particles` / `particles3d` / `arena_particles`）**2026-10-19 已归档**
+    到 `Unity/数据/历史_Godot快照/`（保留原相对路径、⛔ 未删）⇒ 下面条目的**落点已改指归档目录**，
+    ⛔ 别再往 `Unity/数据/粒子/` / `Unity/数据/界面布局/ui_layout/` 播种（**已归档**到 `历史_Godot快照/`）。
 
 用法：
   D:/2/Warpforge_tools/py312/python.exe "d:/4/Unity/工具/sync_from_d2.py" --list
   D:/2/Warpforge_tools/py312/python.exe "d:/4/Unity/工具/sync_from_d2.py" --batch docs
+  D:/2/Warpforge_tools/py312/python.exe "d:/4/Unity/工具/sync_from_d2.py" --batch data --force   # 覆盖已存在
 """
 import argparse
 import json
@@ -83,19 +95,22 @@ add('docs', '原版真渲参照管线（228 张 + mod 源码）', f'{D2}/Unity�
 
 
 # ============================== data 数据 ==================================
+# 🔴 Godot 时代旧仓（只读源、历史播种、⛔ 别当判据）—— 见文件头 2026-10-19 说明。
 GDATA = f'{D2}/../warpforge/data'  # d:/warpforge/data
 GDATA = 'd:/warpforge/data'
+ARCHIVE = f'{D4}/数据/历史_Godot快照'   # 🆕 2026-10-19：已归档两族的落点（保留原相对路径）
 
 # 顶层 JSON 进 数据/游戏数据/；5 个子目录由下面的独立条目落到各自的 数据/<分类>/
 # （所以这里必须排除，否则重跑会把它们又造回 游戏数据/ 下）
 add('data', '游戏数据 JSON（卡池/卡组/教程/稀有度/动画映射）', GDATA, f'{D4}/数据/游戏数据',
     exclude=('particles', 'particles3d', 'arena_particles', 'i18n', 'ui_layout'),
     skip_file=lambda n: '.bak' in n.lower())
-add('data', '粒子数据（2D 194 键 / 3D 863 / 逐战场）', f'{GDATA}/particles', f'{D4}/数据/粒子/particles')
-add('data', '粒子数据 3D', f'{GDATA}/particles3d', f'{D4}/数据/粒子/particles3d')
-add('data', '战场环境粒子', f'{GDATA}/arena_particles', f'{D4}/数据/粒子/arena_particles')
-add('data', '中文本地化 zh_CN.csv', f'{GDATA}/i18n', f'{D4}/数据/本地化/i18n')
-add('data', 'UI 布局 JSON', f'{GDATA}/ui_layout', f'{D4}/数据/界面布局/ui_layout')
+# 🆕 2026-10-19（A2112）：下面三族已归档到 历史_Godot快照/（⛔ 未删）—— 落点跟着改，别再播种回 Unity/数据/粒子/
+add('data', '粒子数据（2D 194 键 / 3D 863 / 逐战场）【已归档 → 历史_Godot快照】', f'{GDATA}/particles', f'{ARCHIVE}/粒子/particles')
+add('data', '粒子数据 3D【已归档 → 历史_Godot快照】', f'{GDATA}/particles3d', f'{ARCHIVE}/粒子/particles3d')
+add('data', '战场环境粒子【已归档 → 历史_Godot快照】', f'{GDATA}/arena_particles', f'{ARCHIVE}/粒子/arena_particles')
+add('data', '中文本地化 zh_CN.csv（人工参考表；官方 zh-CN 表 = 数据/游戏数据/官方本地化_en+zh-CN.json）', f'{GDATA}/i18n', f'{D4}/数据/本地化/i18n')
+add('data', 'UI 布局 JSON【已归档 → 历史_Godot快照】', f'{GDATA}/ui_layout', f'{ARCHIVE}/界面布局/ui_layout')
 add('data', '卡牌媒体索引', f'{D2}/解包整理/card_index.json', f'{D4}/数据/索引', 'files')
 add('data', '贴图全局索引（3160 名字 → 路径）',
     f'{D2}/Warpforge_tools/data/texture_index.json', f'{D4}/数据/索引', 'files')
@@ -222,21 +237,36 @@ def iter_src(entry):
             yield (os.path.join(r, f), f) if not relp else (os.path.join(r, f), relp + '/' + f)
 
 
-def run(batch):
-    log = {'copied': [], 'skipped_exist': [], 'missing': []}
+def _assert_not_writing_into_source(df):
+    """源侧只读兜底（2026-10-19 · A2112）：任何落点都不许落进 Godot 旧仓 d:/warpforge。"""
+    try:
+        common = os.path.commonpath([os.path.abspath(df), os.path.abspath(GDATA)])
+    except ValueError:      # 不同盘符等
+        return
+    if common == os.path.abspath(GDATA):
+        raise RuntimeError('拒绝写入 Godot 旧仓（源侧只读）: %s' % df)
+
+
+def run(batch, force=False):
+    log = {'copied': [], 'skipped_exist': [], 'overwritten': [], 'missing': []}
     for e in B:
         if e['batch'] != batch:
             continue
         dst_root = e['dst']
         n = 0
         npre = 0
+        novw = 0
         byts = 0
         for sf, rel in iter_src(e):
             df = dst_root if e.get('as_file') else os.path.join(dst_root, rel)
+            _assert_not_writing_into_source(df)
             if os.path.exists(df):
-                log['skipped_exist'].append(df)
-                npre += 1
-                continue
+                if not force:
+                    log['skipped_exist'].append(df)
+                    npre += 1
+                    continue
+                log['overwritten'].append(df)
+                novw += 1
             os.makedirs(os.path.dirname(df), exist_ok=True)
             try:
                 shutil.copy2(sf, df)
@@ -247,11 +277,18 @@ def run(batch):
         # 单文件源若不存在也要报
         if e['kind'] == 'files' and not os.path.exists(e['src']):
             log['missing'].append({'src': e['src'], 'err': 'not found'})
-        print('  [%-8s] %-52s 新复制 %5d / 已存在 %6d 个文件  %8.1f MB'
-              % (batch, e['label'], n, npre, byts / 1048576.0))
+        extra = ''
+        if npre:
+            sample = ', '.join(os.path.basename(p) for p in log['skipped_exist'][-npre:][:5])
+            extra += '  ↷ 跳过已存在 %d（例：%s%s；--force 才覆盖）' % (
+                npre, sample, '…' if npre > 5 else '')
+        if novw:
+            extra += '  ✎ 覆盖 %d' % novw
+        print('  [%-8s] %-52s 新复制 %5d / 已存在 %6d 个文件  %8.1f MB%s'
+              % (batch, e['label'], n, npre, byts / 1048576.0, extra))
         log.setdefault('entries', []).append(
             {'label': e['label'], 'src': e['src'], 'dst': e['dst'],
-             'files': n, 'present': npre, 'bytes': byts})
+             'files': n, 'present': npre, 'overwritten': novw, 'bytes': byts})
     return log
 
 
@@ -259,6 +296,8 @@ def main():
     ap = argparse.ArgumentParser()
     ap.add_argument('--batch', default='all')
     ap.add_argument('--list', action='store_true')
+    ap.add_argument('--force', action='store_true',
+                    help='覆盖已存在的目标文件（默认：已存在就跳过并打印）')
     args = ap.parse_args()
 
     if args.list:
@@ -271,13 +310,16 @@ def main():
         print('\n批次: %s' % sorted({e['batch'] for e in B}))
         return 0
 
+    print('⚠️ 源 = %s（Godot 时代旧仓：只读、⛔ 别当判据）；默认【不覆盖】，已存在就跳过并打印；--force 才覆盖。'
+          % GDATA)
     batches = sorted({e['batch'] for e in B}) if args.batch == 'all' else [args.batch]
     alllog = []
     for b in batches:
         print('--- 批次 %s ---' % b)
-        alllog.append(run(b))
+        alllog.append(run(b, force=args.force))
     os.makedirs(f'{D4}/工具', exist_ok=True)
-    outp = f'{D4}/工具/_同步日志_{"_".join(batches)}.json'
+    suffix = '_force' if args.force else ''
+    outp = f'{D4}/工具/_同步日志_{"_".join(batches)}{suffix}.json'
     with open(outp, 'w', encoding='utf-8') as f:
         json.dump(alllog, f, ensure_ascii=False, indent=1)
     tot_f = sum(en['files'] for lg in alllog for en in lg.get('entries', []))

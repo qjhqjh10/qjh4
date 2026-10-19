@@ -109,8 +109,19 @@ namespace CardPresentation
         /// <summary>圆钮尺寸（`40k_UI_bt_play`）—— 原版 `ContinueButton` `sd=80.47×79.64`。
         /// ⚠️ 我们**只给高**（宽由贴图比例来，见 `ImgByHeight`）⇒ 实绘是 **79.64 正方**，
         /// 比原版那个 **80.47** 窄 **0.83 px（1%）** —— 这是**旧的既有偏离**（不是本批引入的），
-        /// 如实记着（判据同 `MultiCardDisplay.cs` 里那条 1% 的说明；改它要动实绘尺寸、另开一件）。</summary>
+        /// 如实记着（判据同 `MultiCardDisplay.cs` 里那条 1% 的说明；改它要动实绘尺寸、另开一件）。
+        /// 🔴 **2026-10-19（`T03`·`A1327`）**：**命中**这一侧按原版 `RectTransform` 的 **80.469** 算
+        /// （`PlayW`）—— uGUI 吃的是 rect 不是贴图；⛔ 别拿实绘的 79.64 去算命中（那是「画」那一侧）。</summary>
         const float PlayH = 79.64f;
+        /// <summary>原版圆钮 **rect 宽** = `80.468689`（`RectTransform_3519`）。⛔ 与实绘 79.64 不是同一个数。</summary>
+        const float PlayW = 80.469f;
+        /// <summary>原版父 `Continue Button` 的 rect（`RectTransform_3391`）= **548.015 × 75.905**
+        /// （那颗 `Image` 是 `alpha=0、sprite=null`，但 `m_RaycastTarget=1` ⇒ **吃射线**）。</summary>
+        const float DoneParentW = 548.015f, DoneParentH = 75.905f;
+        /// <summary>父 `Continue Button` 中心相对 **`BG` 中心**的偏移（设计 px）：
+        /// 父 pos `(−396.4, 105.0)` / `BG` 相对父 `(65.19593, −5.74929)` ⇒ 父心 − BG 心 = `(−65.196, +5.749)`
+        /// （Unity y 向上）；本工程口径是**左上原点 y 向下** ⇒ `dy = −5.749`。</summary>
+        const float DoneParentDx = -65.196f, DoneParentDy = -5.749f;
         /// <summary>眼睛尺寸 —— 实测两边**略有不同**（78.44² vs 79.6），取 `Layout` 不给就按这个</summary>
         const float EyePx = 78.44f;
 
@@ -578,13 +589,56 @@ namespace CardPresentation
             return -1;
         }
 
-        /// <summary>指针在「确认」上吗（底条或圆钮都算，外加确认文字周围一圈）</summary>
+        /// <summary>指针在「确认」上吗（**原版三条可射线 Image 的并集**，见下）。
+        ///
+        /// <para>🔴🔴 **2026-10-19（`T03` · `A1327`）就地重写 —— 旧口径三处都不对**（铁律 5）：
+        ///  · 旧 ①：`_bar.Contains` = **画出来那颗 quad** —— 数值上恰好 = 原版 `BG`（577.5×63.84），这半条对；
+        ///  · 旧 ②：`_play.Contains` = 圆钮 —— **也对**（原版那颗 `rt=1`，且 `m_OnClick` 直绑
+        ///    `ChooseCardMenu.ClickChooseDone` ⇒ 它就是「确认」本体之一；⛔ 旧判据文件说它 `rt=0` 是**错的**）；
+        ///  · 旧 ③：`圆心 = 确认文字、r = 190 px` —— **我们自己加的**，纵向多认 ~147/152 px，且漏了父矩形；
+        ///    **还漏了原版那颗「父 `Continue Button`」**（`Image`、`alpha=0`、`m_RaycastTarget=1`、pad 全 0
+        ///    ⇒ uGUI 照样吃射线）。</para>
+        ///
+        /// <para>**判据 = arena2（arena1 逐值同）`ChooseCardMenu/ButtonsGroup/Continue Button` 子树，
+        /// 逐节点现读 + 父链 `m_FileID=0` 全解**：
+        ///  · ① 父 `Continue Button`：`548.015 × 75.905`，中心 = `(BarCx − 65.196, BarCy − 5.749)`
+        ///    （父在 `ButtonsGroup` 里的 pos 减去 `BG` 相对父的 pos `(65.196, −5.749)`；pad 0）；
+        ///  · ② `BG`：`577.5 × 63.84`，中心 = `(BarCx, BarCy)`（pad 0）；
+        ///  · ③ 圆钮 `ContinueButton`：`80.469 × 79.636`，中心 = `(PlayCx, PlayCy)`（pad 0）；
+        ///  · `ContinueText`（TMP，`rt=1`）完全落在 `BG` 内 ⇒ 并集不必再单独判它。
+        ///  ⚠️ **三颗的 `m_RaycastPadding` 全 `(0,0,0,0)`** —— ⛔ **别把 `MulliganPanel` 的
+        ///  `DonePad*(0,−40,0,−40)` 搬过来**（那棵是 `Mulligan/ButtonsGroup/MulliganContinueButton/Button`，
+        ///  与本树**不是同一个**；搬过来会凭空多认 80 px 高）。判据全文 →
+        ///  `资料/普查产出_1019/W_战斗线_T03命中区_1019b.md` §一-3。</para>
+        ///
+        /// <para>坐标系：世界 → `_panel` 局部（= **设计 px**、相对屏心、y 向上；`CanvasScaler(Expand)` 下
+        /// 任意宽高比都是这一套）→ 折成**左上原点、y 向下**（与 `Layout.*Cy` 同帧）。
+        /// ⛔ 别用 `LayoutSpace.ToPixel`（世界帧的逆，非 16:9 下与画布帧分家）。</para></summary>
         public bool HitDone(Vector3 world)
         {
-            if (_bar != null && _bar.Contains(world)) return true;
-            if (_play != null && _play.Contains(world)) return true;
-            float r = U(380f) * 0.5f;                  // 确认块那块 372.86×43.62 的包围半径（我们取的）
-            return (world - DoneWorldPos).sqrMagnitude < r * r;
+            if (_panel == null) return false;                    // 面板没建出来 ⇒ 不认（⛔ 不拿 (0,0) 当命中）
+            var l = _panel.InverseTransformPoint(world);
+            float px = l.x + 960f, py = 540f - l.y;              // 设计 px（左上原点、y 向下）
+            // ① 父 `Continue Button`（548.015×75.905 @ (BarCx−65.196, BarCy−5.749)）
+            float pcx = Lo.BarCx + DoneParentDx, pcy = Lo.BarCy + DoneParentDy;
+            if (Mathf.Abs(px - pcx) <= DoneParentW * 0.5f && Mathf.Abs(py - pcy) <= DoneParentH * 0.5f) return true;
+            // ② `BG` 底条（577.5×63.84 @ (BarCx, BarCy)）
+            if (Mathf.Abs(px - Lo.BarCx) <= BarW * 0.5f && Mathf.Abs(py - Lo.BarCy) <= BarH * 0.5f) return true;
+            // ③ 圆钮（80.469×79.636 @ (PlayCx, PlayCy)）
+            return Mathf.Abs(px - Lo.PlayCx) <= PlayW * 0.5f
+                && Mathf.Abs(py - Lo.PlayCy) <= PlayH * 0.5f;
+        }
+
+        /// <summary>🆕 2026-10-19（`T03`·`A1327`）自检用：原版 `BG` 底条的**框中心**世界坐标
+        /// （`Layout.BarCx/BarCy` 那个设计 px 点，经**画布本体**换算 ⇒ 与 `HitDone` 同一帧）。
+        /// ⚠️ 与 `DoneWorldPos`（**确认文字**中心）不是同一个点（沿 x 差 69.8 px）—— 别互相顶替。</summary>
+        public Vector3 BarWorldPos
+        {
+            get
+            {
+                if (_panel == null) return Vector3.zero;
+                return _panel.TransformPoint(new Vector3(Lo.BarCx - 960f, 540f - Lo.BarCy, 0f));
+            }
         }
 
         public bool HitEye(Vector3 world) { return _eye != null && _eye.Contains(world); }

@@ -44,10 +44,12 @@
 //   我们这一套没有 uGUI 父矩形 ⇒ **不挂到目标下**（会继承目标父链的缩放），改成「按目标的设计 px 位置摆」，
 //     数学等价（Root 中心 = 目标 pivot = 手指尖）。⚠️ 这是**等价实现**，⛔ 不写成「照原版挂父」。
 //
-// · 🔴 **图取不到（如实出声，⛔ 不画假的）**：`Cursor_Space Marine_01` / `…01Glow` / `Border Circles FX`
-//   三张都**不在** `Resources/Art/` 里（`CardArt.MenuUi` 三个目录都没有；原图在
-//   `d:/2/新解包资源/assets_full/bundle_armycursors_assets_all/Texture2D/`），导入器 `MENU_IMAGES` 也没收它们。
-//   ⇒ 取不到时**只出声、不画**（手指那一格留空），并把缺的图名记进 `MissingArt`（自检读口）。
+// · 🔴 **图（2026-10-19 订正：已经导进来了）**：`Cursor_Space Marine_01` / `…01Glow` / `Border Circles FX`
+//   三张源图在 `d:/2/新解包资源/assets_full/bundle_armycursors_assets_all/Texture2D/` 与
+//   `bundle_generalgamewindows_assets_all/Texture2D/`；`工具/import_original_art.py` 的 `MENU_TEXTURE_IMAGES`
+//   已收录（空格→下划线落成 `Cursor_Space_Marine_01[Glow].png` / `Border_Circles_FX.png`，128²），
+//   **`.meta` 已在盘上**（GUID `bdeec8e2…` / `d8f1eb7d…` / `af52d0da…`）。
+//   兜底仍然保留：取不到时**只出声、不画**（手指那一格留空），并把缺的图名记进 `MissingArt`（自检读口）。
 using System.Collections.Generic;
 using UnityEngine;
 
@@ -252,8 +254,8 @@ namespace CardPresentation
                 Debug.LogWarning("[MenuTutorial] 指针图取不到：`" + name + "`（" + what + "）⇒ **这一件不画**。"
                                + "原图在 `d:/2/新解包资源/assets_full/bundle_armycursors_assets_all/Texture2D/`"
                                + "（`Cursor_Space Marine_01[Glow]`）与 `bundle_generalgamewindows_assets_all`"
-                               + "（`Border Circles FX`）；`工具/import_original_art.py` 的 `MENU_IMAGES` 里还没有它们。"
-                               + "⛔ 不拿别的图顶。");
+                               + "（`Border Circles FX`）；`工具/import_original_art.py` 的 `MENU_TEXTURE_IMAGES` 里已有它们"
+                               + "⇒ 这里报错 = 落盘/导入丢了，去跑 `--only-menu` 重导。⛔ 不拿别的图顶。");
             }
             return t;
         }

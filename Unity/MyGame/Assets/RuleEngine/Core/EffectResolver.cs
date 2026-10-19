@@ -232,9 +232,20 @@ namespace RuleEngine
             if (ops == null) return 0;
             string by = source != null ? source.Name : "战术卡";
 
-            // **这次结算的是哪张卡** —— 只有「常驻效果登记」需要它：
-            // 规则书英文版 `:39-41` 要求把写「For the rest of this battle」的卡**单独放一摞备查**，
-            // 所以 `PersistentEffect` 得记着来源是哪张。别处一律不看这个字段。
+            // **这次结算的是哪张卡** —— 只有「常驻效果登记」需要它。
+            // 🔴 **2026-10-19（`A1955`）：判据换成原版**（原文留痕 —— 原来这里写的是「规则书英文版
+            // `:39-41` 要求把写『For the rest of this battle』的卡**单独放一摞备查**」；
+            // 那份是**粉丝实体版**、自己第 5 行写着 `Not official. Fan project.` ⇒ ⛔ 不当判据）。
+            // **原版怎么表达「本场战斗有效」**（判据 = `d:/2/tools/decomp_full/`）：
+            //   · 没有 `PersistentEffect` 这个类型（全量 `dump.cs` 0 命中）；
+            //   · 「本场」靠**不带任何时长旗标**表达（`CardEffect` 只有回合级 5 个旗标 + `permanentBuff`）；
+            //   · 真正的载体 = **一张活着的牌**（附魔 `CardScript__AddEffect.c:826-828` →
+            //     `CardScript__AddEnchantment.c:25,37,43` `activeEnchantments(+0x110)`；
+            //     或 `replaceAbility(40)` → `CardScript__AddEffect.c:242-251`），派发触发时
+            //     `RawCardScript__TriggerAbilities.c:50-88` 把附魔里的能力一起算进来。
+            //   ⇒ 所以**来源卡**仍要记（我们这摞是**自设计**的替代结构，日志/排查靠它），
+            //     但「单独放一摞」是**实体台面**的备忘办法，数字版没有对应物。
+            //   完整判据块 → 本文件 `DoPersist` 上方那段注释（`A1950` 已逐条换过）。
             ctx.PlayingCard = sourceCard;
 
             // 一张卡的结算 = **一个计数窗口**：`For each troop drawn …` 数的是这张卡自己抽到的牌
@@ -5203,7 +5214,7 @@ namespace RuleEngine
             ctx.PersistentEffects.Add(new PersistentEffect
             {
                 Owner = owner,
-                Source = ctx.PlayingCard,       // 规则书要求这类卡留档备查，来源要记下来
+                Source = ctx.PlayingCard,       // 来源卡：日志/排查用（我们这摞是自设计结构，见 `A1955`）
                 Phase = op.AtTurnPhase,
                 // `at the start|end of your turn` 走回合段；`deploy` 走**部署事件**
                 // （原版 `OtherUnitSummoned=190`，见 `BattleContext.PersistentEffect.Trigger`）；
@@ -7492,6 +7503,16 @@ namespace RuleEngine
             _keywordsPact[u] = k;                        // 种类记在旁表（UnitState 只有 <string,int>）
             ctx.Log($"{by}：{u.Name} 获得「{PactNameZh(k)}」黑暗契约");
 
+            // 🆕 2026-10-19（战斗线 `T21` 缺口 B）：**附魔卡自己那一拍** —— 原版
+            //   `CardScript__AddEffect.c:776-792`（case 8）→ `Enchantments.GetMarkOfChaos(...)`
+            //   → `RawCardScript__TriggerEnchantment.c:7-13`：`TriggerAbilities(附魔卡, 0)` +
+            //   `TriggerAbilities(附魔卡, 500)`。
+            //   ⚠️ 触发的是**附魔卡自己的 `cardAnimations[]`**（四张 `Dark Pact of *` 的
+            //   `Buff_MarkOf*`），**不是载体单位那条** ⇒ 事件的 `CardId` 要写**附魔卡名**，
+            //   落点仍是载体那一格。⛔ 别改成载体卡名 —— 那会去查单位自己的 `trigger` 行，
+            //   四张契约的动画永远播不出来（判据与数据现状 → `资料/普查产出_1019/W_战斗线_T21现核_1019b.md` §三 B）。
+            EmitEnchantmentTrigger(ctx, u, k);
+
             // 🆕 `When a friendly troop receives a Dark Pact, …`（2026-09-13 第三十三轮）。
             // ⚠️ `who` = **拿到契约那个单位**的阵营（不是给它的那个人的）—— 和 `Die` 的极性判据同一条：
             //    监听方要判的是「**我这边**有没有人收到契约」。
@@ -7546,6 +7567,59 @@ namespace RuleEngine
         /// 不塞进 `UnitState` 是为了不把「一个阵营的机制名词」渗进通用单位状态。
         /// </summary>
         static readonly Dictionary<UnitState, string> _keywordsPact = new Dictionary<UnitState, string>();
+
+        /// <summary>🆕 2026-10-19（战斗线 `T21` 缺口 B）：**附魔卡被触发**那一拍的引擎事件
+        /// （原版 `TriggerEnchantment`）。
+        ///
+        /// <para>**判据（逐句）**：`CardScript__AddEffect.c:776-792`（case 8）——
+        /// `Enchantments.GetMarkOfChaos(bm, effectId)` 取到那张附魔卡之后调
+        /// `RawCardScript__TriggerEnchantment(enchantmentCard, bm, actingCard, actingCard, …)`；
+        /// 后者（`RawCardScript__TriggerEnchantment.c:7-13`）连发两条
+        /// `TriggerAbilities(enchantmentCard, 0)` + `TriggerAbilities(enchantmentCard, **500**)`。
+        /// ⇒ **触发的是附魔卡自己的 `cardAnimations[]`**（四张 `Dark Pact of *` 的 `Buff_MarkOf*`，
+        /// `AnimTimes` 里 `tg = 500 / tn = TriggerEnchantment`），不是载体单位那条。</para>
+        ///
+        /// <para>**事件怎么发**：`CardId` = **附魔卡名**（`VfxMap` 的逐卡表按 id 或卡名查，
+        /// 见 `VfxMap.ResolveCardIdOf`）；`Player/Slot` = **载体单位**那一格（原版动画就演在
+        /// `actingCard` 上）；`Keyword` = <see cref="KeywordTable.TriggerEnchantment"/>（表现层
+        /// 按它 + `CardAnimTime.TriggerName` 归口 —— 见 `VfxMap.TryResolveTriggerPicks`）。</para>
+        ///
+        /// <para>⚠️ **找不到那张附魔卡就出声、不发射**（⛔ 不拿载体名顶替 —— 那会去查单位自己的
+        /// `trigger` 行，播出来是原版没有的第二下；⛔ 也不静默）。</para>
+        /// </summary>
+        static void EmitEnchantmentTrigger(BattleContext ctx, UnitState u, string kind)
+        {
+            if (ctx == null || u == null) return;
+            CardDef pactCard = null;
+            // ① 原版那条路：附魔卡 = **刚挑中的那一张**（`A1960`：选择面板写进 `ctx.LastChosenCard`）
+            var chosen = ctx.LastChosenCard != null ? ctx.LastChosenCard.Card : null;
+            if (chosen != null && PactKindOfChosenCard(chosen) == kind) pactCard = chosen;
+            // ② 随机 / 「同样获得一份」那两档：种类 → 卡池里同名后缀的那张
+            //    （现读 4 张，`subtype = "Dark Pact"`；判据 = `PactKindOfChosenCard` 那一套，不另写一份）
+            if (pactCard == null && ctx.CardPool != null && !string.IsNullOrEmpty(kind))
+            {
+                for (int i = 0; i < ctx.CardPool.Count; i++)
+                {
+                    var c = ctx.CardPool[i];
+                    if (c != null && PactKindOfChosenCard(c) == kind) { pactCard = c; break; }
+                }
+            }
+            if (pactCard == null)
+            {
+                ctx.Log($"黑暗契约（{kind}）：**卡池里找不到对应的附魔卡** ⇒ `TriggerEnchantment` 那一拍不播"
+                      + "（⛔ 不拿载体单位那条动画顶替）");
+                return;
+            }
+            int p, slot;
+            if (!FindSlot(ctx, u, out p, out slot)) return;   // 已经不在场上 ⇒ 那一拍没有落点
+            ctx.Emit(EvtKind.Trigger, p, slot, pactCard.Name,
+                     keyword: KeywordTable.TriggerEnchantment,
+                     effect: "TriggerEnchantment(500)",
+                     instanceId: u.InstanceId);
+            ctx.Log($"{u.Name} 身上的附魔「{pactCard.Name}」触发"
+                  + "（原版 `TriggerEnchantment` = 500；动画演在它自己那一格）");
+        }
+
 
         /// <summary>
         /// 每种契约**会授予哪些关键词**（用来在契约被替换时收回去）。
@@ -7664,7 +7738,9 @@ namespace RuleEngine
             if (quest)
             {
                 ps.QuestPoints += n;
-                ctx.Log($"{by}：「{op.Source}」任务点 +{n}（现 {ps.QuestPoints}）");
+                // ⚠️ 这里打的是**加完、还没减阈值**的值（原版 `AddQuestPoints` 内部随后就会减掉一个阈值，
+                //    HUD 读的是减完的**余数** —— 见下面 `QuestPointThreshold` 的注释）。
+                ctx.Log($"{by}：「{op.Source}」任务点 +{n}（累计 {ps.QuestPoints}）");
                 QuestPointThreshold(ctx, owner, by, op);
             }
             else if (faith) { ps.Faith += n; ctx.Log($"{by}：「{op.Source}」信仰 +{n}（现 {ps.Faith}）"); }
@@ -7706,43 +7782,196 @@ namespace RuleEngine
             return true;
         }
 
-        /// <summary>任务点的阈值（**只此一处**）：每满 3 点 → 向牌库加入 1 张隐秘并洗牌。</summary>
-        private const int QuestPointStep = 3;
+        // ==================================================================
+        //  任务点 → 隐秘（原版 DA1 / DA2 / DA3 / DA75 的**隐藏能力**）
+        //
+        //  原版调用链（全量反编译逐跳，判定见 `资料/普查产出_1019/W_引擎线_DA1深挖_1019b.md` §2.3）：
+        //    `BattleManager.ProcessManaBuff`（`ManaBuff.questPoints` 为真）
+        //      → `PlayerManager.AddQuestPoints`（`PlayerManager__AddQuestPoints.c`）
+        //      → 达到阈值 ⇒ **先减掉一个阈值**（`:101-104`）、再 `RawCardScript.OnQuestResolved`（`:118-119`）
+        //      → `AbilityTrigger.QuestTriggered = 490` 命中督军卡上的 `createCardInDeck = 270`
+        //      → 从 5 张黑暗天使隐秘里随机 1 张 → `BattleManager.AddCardInPlayToDeck`（**随机下标 Insert**）
+        //      → `spellType == 0x96(150)` ⇒ `BroadcastSecretCreated`（`_ResolveCreateDeckCard…:113-119`）。
+        //
+        //  ⚠️ 我们**没有按卡能力建模**（`QuestTriggered` / `createCardInDeck` 两个符号全 `Assets/` 0 命中），
+        //     所以这里按**结果层**实现：拿任务点 → 满阈值 → 造 1 张隐秘。当前卡池里**只有 4 张黑暗天使
+        //     督军**（DA1/DA2/DA3/DA75，`cards_engine.json` 现读 = 该阵营全部 hero）带这条能力，
+        //     其他阵营 **0 张** ⇒ 用「督军阵营 == DarkAngels」当「有没有这条能力」的判据。
+        // ==================================================================
+
+        /// <summary>任务点阈值 —— 原版 `ScenarioVariables.questPointsForTrigger`
+        /// （`bundle_duplicateassetisolationso_assets_all/MonoBehaviour/DefaultScenario.json` 实读 = **3**；
+        /// `EditorScenario` / `TutorialScenario` 同为 3/4，见 `资料/加时与冲突模式_原版规格.md` §2.6）。</summary>
+        public const int QuestPointStepDefault = 3;
+
+        /// <summary>任务点阈值 Alt 档 —— 原版 `ScenarioVariables.questPointsForTriggerAlt`（实读 = **4**）。
+        ///
+        /// 二选一写在 `PlayerManager__AddQuestPoints.c:28-41`：`GameplayVariablesData.alternativeTraitLogic`
+        /// （`+0x4B`）为 0 ⇒ 取 `+0x2C`（= `questPointsForTrigger`），否则取 `+0x30`（= `...Alt`）。
+        /// 🔴 **Alt 那一档的实例值本地 0 命中**（`alternativeTraitLogic` 的真值在服务器 ——
+        /// `资料/加时与冲突模式_原版规格.md` §2.5b 记为「未解」）⇒ 照字段走、**不猜**：
+        /// `ctx.Vars.alternativeTraitLogic == 0` ⇒ 3（经典档）；非 0 ⇒ 4。
+        /// </summary>
+        public const int QuestPointStepAlt = 4;
+
+        /// <summary>本局的任务点阈值（**唯一判据**；HUD 的 `任务点/分母` 也应当读它，
+        /// ⛔ 别再在表现层写死 `/3`）。</summary>
+        public static int QuestPointStepFor(BattleContext ctx)
+        {
+            var v = ctx != null ? ctx.Vars : null;
+            return v != null && v.alternativeTraitLogic != 0 ? QuestPointStepAlt : QuestPointStepDefault;
+        }
 
         /// <summary>
-        /// **规则书 `:199`**：「任务（Quest）| **每获得 3 点任务**：向牌库加入 1 张**隐秘**并洗牌」。
+        /// 任务点这条链的**每局附属状态**：随机插入位用的独立随机源 + 一次性提示的记账。
         ///
-        /// ⚠️ **「隐秘」（Secret）是造牌**（`CreatePool` 的 `secret` 那一类），找不到就如实报出来、
-        ///    **不假装成功** —— 但**任务点照样扣/留**（阈值是按累计值算的，和造不造得出无关）。
-        /// ⚠️ 阈值判据放在**这一处**：`DoFactionResource` 每次加完调它。
+        /// 🔴 **为什么不直接用 `ctx.Rng`**：原版这条链走 `BattleManager.GetRandomInt`
+        /// （`BattleManager__AddCardInPlayToDeck.c:37`）—— 那是 `MatchData` 自己的随机表，
+        /// **不从洗牌/抽牌那条流里拿数**。我们若往 `ctx.Rng` 里再塞一次 `Next`，
+        /// 所有按种子写死期望值的自检会整体漂移（`ShowRng` / `AiRng` 的注释里记着同一个教训）。
+        /// ⇒ 每局另开一条派生流，**互不干扰**。
+        ///
+        /// ⚠️ `BattleContext` **没有把开局种子存成字段**（只拿去构造 `Rng` / `ShowRng` / `AiRng`），
+        /// 且本批文件所有权不含 `BattleContext.cs` ⇒ 用**首次触发那一刻的确定性快照**当种子
+        /// （先手座 + 双方督军卡 id + 双方牌库/手牌每一份实例的 `Id`）。
+        /// 这些全是「种子 + 动作序列」的函数 ⇒ **同一局面重放，插入位逐位相同**（红线：可复现）。
+        /// </summary>
+        sealed class QuestAux
+        {
+            public System.Random InsertRng;
+            public bool AltNoticeDone;
+            public bool NonFactionNoticeDone;
+        }
+
+        static readonly System.Runtime.CompilerServices.ConditionalWeakTable<BattleContext, QuestAux>
+            QuestAuxByCtx = new System.Runtime.CompilerServices.ConditionalWeakTable<BattleContext, QuestAux>();
+
+        static QuestAux QuestAuxOf(BattleContext ctx)
+        {
+            QuestAux aux;
+            if (QuestAuxByCtx.TryGetValue(ctx, out aux)) return aux;
+            aux = new QuestAux { InsertRng = new System.Random(QuestInsertSeed(ctx)) };
+            QuestAuxByCtx.Remove(ctx);          // `Add` 对同键会抛 ⇒ 先删（正常路径上本来就没有）
+            QuestAuxByCtx.Add(ctx, aux);
+            return aux;
+        }
+
+        /// <summary>FNV-1a —— **不能用 `string.GetHashCode`**（.NET 里按进程随机化，同一局面两次跑会不同）。</summary>
+        static void QuestHashMix(ref uint h, int v)
+        {
+            unchecked { h ^= (uint)v; h *= 16777619u; }
+        }
+
+        static int QuestInsertSeed(BattleContext ctx)
+        {
+            unchecked
+            {
+                uint h = 2166136261u;
+                QuestHashMix(ref h, ctx.FirstSeat);
+                for (int p = 0; p < ctx.Players.Length; p++)
+                {
+                    var ps = ctx.Players[p];
+                    QuestHashMix(ref h, p);
+                    if (ps == null) continue;
+                    var wl = ps.Warlord != null ? ps.Warlord.Card : null;
+                    string id = wl != null ? wl.Id : null;
+                    if (id != null)
+                        for (int i = 0; i < id.Length; i++) { h ^= id[i]; h *= 16777619u; }
+                    for (int i = 0; i < ps.Deck.Count; i++) QuestHashMix(ref h, ps.Deck[i].Id);
+                    for (int i = 0; i < ps.Hand.Count; i++) QuestHashMix(ref h, ps.Hand[i].Id);
+                }
+                return (int)h;
+            }
+        }
+
+        /// <summary>
+        /// **任务点阈值**（判据只此一处）—— 照原版 `PlayerManager.AddQuestPoints` 的语义：
+        ///
+        ///   · 加完点后**只看一次**：`QuestPoints >= 阈值` ⇒ **减掉一个阈值**、`QuestMilestone++`、
+        ///     造 1 张隐秘。**一次调用最多触发一次**（原版 `:101-104` 只减一次，不循环）。
+        ///   · **减阈值是语义的一部分**（不是记账技巧）：原版 HUD 在延迟更新后读的就是**减完的值**
+        ///     （`PlayerManager._SetQuestPointsWithDelay…:65,76`）⇒ 玩家看到的是**余数** `0..2 / 3`，
+        ///     不是累计值 `3/3`、`4/3`（这正是我们原来与原版不一致的可见差异）。
+        ///   · **阈值**读 `ScenarioVariables`（3 / Alt 4，见 <see cref="QuestPointStepFor"/>）；
+        ///     Alt 档的实例值本地拿不到 ⇒ 按 `alternativeTraitLogic` 走、并在首次触发时**出声**。
+        ///   · **减阈值对任何阵营都发生**（原版在查督军能力**之前**就减了）；
+        ///     但「造隐秘」只对**带 `QuestTriggered` 能力**的督军发生 —— 我们按阵营代理（见上面那段）。
+        ///   · 造不出来（卡池没有「隐秘」）⇒ **不假装成功**：如实报、不静默。
         /// </summary>
         static void QuestPointThreshold(BattleContext ctx, int owner, string by, EffectOp op)
         {
             var ps = ctx.Players[owner];
-            int gained = ps.QuestPoints / QuestPointStep;      // 累计满了几次
-            if (gained <= ps.QuestMilestone) return;           // 这次没跨过新的阈值
-            int times = gained - ps.QuestMilestone;
-            ps.QuestMilestone = gained;
+            int step = QuestPointStepFor(ctx);
+            if (ps.QuestPoints < step) return;                 // 没到阈值：原版只刷新 HUD（我们不播动画）
+
+            var aux = QuestAuxOf(ctx);
+            if (!aux.AltNoticeDone)
+            {
+                aux.AltNoticeDone = true;
+                int alt = ctx.Vars != null ? ctx.Vars.alternativeTraitLogic : 0;
+                string altName = alt != 0 ? "Alt" : "";
+                string altWhy = alt != 0
+                    ? "`alternativeTraitLogic` ≠ 0 ⇒ Alt 档"
+                    : "`alternativeTraitLogic` 的实例值本地 0 命中 ⇒ 按经典档 3";
+                ctx.Log($"任务点阈值 = {step}（原版 `ScenarioVariables.questPointsForTrigger{altName}` = {step}；{altWhy}）");
+            }
+
+            // 原版先 `ManaManager.SetQuestPoints(满值, 阈值)`（`:97`）再减（`:101-104`）——
+            // 那一步是给 HUD 播「涨满」的延迟动画。我们没有那段动画 ⇒ 直接落到余数这一档（结果相同）。
+            int full = ps.QuestPoints;
+            ps.QuestPoints -= step;
+            ps.QuestMilestone++;
 
             // 施放者阵营 = 自己督军那张卡的 `faction`（和 `DoCreate` 同一条判据）
             string faction = null;
             if (ps.Warlord != null && ps.Warlord.Card != null) faction = ps.Warlord.Card.Faction;
 
-            for (int i = 0; i < times; i++)
+            // 原版 `QuestTriggered` 发在**督军卡的 RawCardScript** 上（`:118-119`），由卡上的
+            // `CardAbility(trigger=490)` 命中 `createCardInDeck`。当前卡池里带这条能力的**只有** 4 张
+            // 黑暗天使督军（= 该阵营全部 hero），其他阵营 0 张 ⇒ 用阵营当代理判据。
+            // ⚠️ **不静默**：非黑暗天使拿到任务点（当前池里只有 `SW3` 那份不可达数据会碰到）时说一句。
+            if (!string.Equals(faction, "DarkAngels", System.StringComparison.Ordinal))
             {
-                var pick = CreatePool.Resolve(ctx.CardPool, "a secret", faction);
-                if (pick == null || pick.Cards == null || pick.Cards.Count == 0)
+                if (!aux.NonFactionNoticeDone)
                 {
-                    // **不假装成功**：造不出来就明说（但任务点照样留着 —— 阈值按累计值算）
-                    ctx.Log($"{by}：任务点到 {ps.QuestPoints}（第 {gained} 次）**本该**往牌库加 1 张隐秘，"
-                          + "但卡池里找不出「隐秘」这类牌 —— **这条没生效**");
-                    continue;
+                    aux.NonFactionNoticeDone = true;
+                    ctx.Log($"{by}：任务点到 {full}、已按原版减阈值（余 {ps.QuestPoints}），"
+                          + $"但督军阵营「{faction ?? "(无)"}」没有原版的 `QuestTriggered` 能力"
+                          + "（全库只有 4 张黑暗天使督军有）⇒ **不造隐秘**");
                 }
-                var card = pick.Cards[ctx.Rng.Next(pick.Cards.Count)];
-                ps.Deck.Add(ctx.NewInstance(card));       // 第 7 行第 2 步：加进去的是**新造的一份**
-                ctx.Log($"{by}：任务点满 {QuestPointStep}（第 {gained} 次）→ 往牌库加入「{card.Name}」");
+                return;
             }
-            Shuffle(ps.Deck, ctx.Rng);                         // 「并洗牌」（规则书 :199）
+
+            var pick = CreatePool.Resolve(ctx.CardPool, "a secret", faction);
+            if (pick == null || pick.Cards == null || pick.Cards.Count == 0)
+            {
+                // **不假装成功**：造不出来就明说（原版这时同样已经把阈值减掉了）
+                ctx.Log($"{by}：任务点满 {step}（第 {ps.QuestMilestone} 次）**本该**往牌库加 1 张隐秘，"
+                      + "但卡池里找不出「隐秘」这类牌 —— **这条没生效**"
+                      + (pick != null && !string.IsNullOrEmpty(pick.Why) ? $"（{pick.Why}）" : ""));
+                return;
+            }
+
+            var card = pick.Cards[ctx.Rng.Next(pick.Cards.Count)];
+            var inst = ctx.NewInstance(card);                 // 第 7 行第 2 步：加进去的是**新造的一份**
+
+            // 入牌库 = **随机下标 Insert**，**不洗整副**：
+            //   原版 `BattleManager__AddCardInPlayToDeck.c:36-37`（`GetRandomInt(0, deck.Count + 1)`，
+            //   上界开区间 ⇒ 下标 ∈ `[0, Count]`）→ `:63-64` `List.Insert`。
+            //   ⚠️ 规则书那句「并洗牌」是**粉丝实体版**的改写，与反编译不一致 ⇒ 按反编译（铁律 2/11）。
+            //   ⚠️ 原版下标 0 = **牌库顶**；我们的约定相反（列表末尾 = 顶，见 `DoCreate` 的 `decktop`
+            //     那一段注释）⇒ 镜像过来：`ourIndex = Count - originalIndex`。
+            int origIndex = ps.Deck.Count > 0 ? aux.InsertRng.Next(ps.Deck.Count + 1) : 0;
+            ps.Deck.Insert(ps.Deck.Count - origIndex, inst);
+
+            // 原版 `_ResolveCreateDeckCard…:113-119`：读 `spellType == 0x96(150)` ⇒ `BroadcastSecretCreated`。
+            // ⛔ 漏了这一跳 = `DA15`（`When you create a Secret, …`）/ `DA66` 注册的是**永远不响的监听器**（静默）。
+            // 归属传 `owner`（造牌的施放者），与 `DoCreate` 的 `hand` 分支同一条口径。
+            if (CreatePool.MatchesKind(card, "secret"))
+                BroadcastWhen(ctx, WhenEventKind.CreatesSecret, owner, card, null);
+
+            ctx.Log($"{by}：任务点满 {step}（第 {ps.QuestMilestone} 次）→ 往牌库加入「{card.Name}」"
+                  + $"（{full} − {step} = 余 {ps.QuestPoints}/{step}）");
         }
 
         /// <summary>

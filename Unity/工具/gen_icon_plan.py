@@ -1777,7 +1777,8 @@ FAITH_PREFIX_UNIFIED = [
 #    （旁证：`ASH75` 的 `faction` = `SaimHann`，修女会那枚金太阳与它无关。）
 #
 # **修法**：改 `数据/游戏数据/cardface_fixes.json` 的 `descZh` 列（删掉 `[能量]`，
-#    其余一字未动）→ 重跑 `工具/gen_cards_engine.py` → 重跑本脚本 `--write`。
+#    其余一字未动）→ 重跑 `工具/gen_cards_engine.py --write` → 重跑本脚本 `--write`。
+#    ⚠️ **`gen_cards_engine.py` 不带 `--write` 是干跑**（`A1648`，2026-10-19 起）：只打印、不落盘。
 #    ⚠️ **别改 `数据/卡牌翻译/zh_cards.json`**（那份自称「不要手改」，且应用顺序在 `descZh` **之前**）。
 #
 # 🔴 **`LEGACY_FAITH_PREFIX` 抓不到这一处**（`W9` 已声明）：它的判据是「**数字** + 信仰词」这个前缀形状，

@@ -3,9 +3,17 @@
 
 跑法（🔴 **必须用带 UnityPy 的解释器** —— 牌组名与音效名要开原版 bundle 查；用别的 python 会直接报错）：
     "D:/2/Warpforge_tools/py312/python.exe" d:/4/Unity/工具/gen_tutorial_stages.py
+    加 `--dry` = 只跑计算、打印读数、**零写盘**（默认行为不变；`A1648` 同族口径）。
+    加 `--check` = 只做 **`A1856` 教程语音三面对账**（盘上 / 源包 / 产物引用），
+                  **不写盘、不开 UnityPy、不跑生成**（普通 python 也能跑）。
 
 产出（覆盖写、可重跑、幂等）：
     d:/4/Unity/MyGame/Assets/RuleEngine/Resources/tutorial_stages.json
+    d:/4/Unity/MyGame/Assets/CardPresentation/Resources/Art/audio/vo/Tutorial*.ogg
+        —— 43 条原版教程语音的**幂等拷贝**（2026-10-19 · `A1856`）。`Resources/Art/` 整个在
+           `.gitignore` 里 ⇒ **不拷的话 clone 出来盘上没有、教程必哑**（运行时
+           `BattleDriver.PlayTutorialSound` 走 `Resources.Load<AudioClip>("Art/audio/vo/" + 名)`）；
+           已存在且大小相同 = 跳过，大小不同 = 覆盖并出声。
 
 输入（**全部只读**，铁律 2）：
     d:/2/新解包资源/assets_full/bundle_tutorialso_assets_all/MonoBehaviour/Warpforge_TutorialStage{1..6}.json
@@ -14,6 +22,9 @@
         —— 按 pid 解 `playerDeck`/`aiDeck` 两个 PPtr 的**资产名**（= 教程牌组的 SO 名）
     …/tutorialwarlordchats_assets_all.bundle + 6 个 `*cardassets_assets_all.bundle`
         —— 按 pid 解 `sound.clip` 的**音效名**
+    d:/2/新解包资源/assets_full/bundle_tutorialwarlordchats_assets_all/AudioClip/
+        —— 43 条 `Tutorial*.ogg`（🔴 **唯一**带这批文件的包，见 `A1856`）；本脚本把它们
+           **幂等拷贝**到运行时 `MyGame/Assets/CardPresentation/Resources/Art/audio/vo/`。
     数据/游戏数据/tutorial_stages.json —— Godot 原型的**派生快照**，⚠️ **只当交叉校验**（不当数据源）
     MyGame/Assets/RuleEngine/Resources/tutorial_decks.json —— B6 那批的产物，用来交叉校验牌组名
     MyGame/Assets/RuleEngine/Resources/cards_engine.json —— 卡名 → 我们的卡 id
@@ -46,8 +57,15 @@ import hashlib
 import json
 import os
 import re
+import shutil
 import sys
 from collections import Counter, defaultdict
+
+# 🔴 `--dry` = 只跑计算、打印读数、**零写盘**。默认（不带它）行为与以前完全一样。
+DRY = "--dry" in sys.argv[1:]
+# 🔴 `--check` = 只做 `A1856` 教程语音的**三面对账**（盘上 / 源包 / 产物引用）。
+#    不写盘、不跑生成、不需要 UnityPy（main 一进来就 return）。
+CHECK = "--check" in sys.argv[1:]
 
 # ============================================================ 路径
 D_SO = "d:/2/新解包资源/assets_full/bundle_tutorialso_assets_all/MonoBehaviour"
@@ -68,6 +86,17 @@ STATS = "d:/4/Unity/数据/游戏数据/card_stats.json"                   # 解
 TUT_DECKS = "d:/4/Unity/MyGame/Assets/RuleEngine/Resources/tutorial_decks.json"
 POOL = "d:/4/Unity/MyGame/Assets/RuleEngine/Resources/cards_engine.json"
 OUT = "d:/4/Unity/MyGame/Assets/RuleEngine/Resources/tutorial_stages.json"
+
+# ---------------------------------------------------------------- 教程语音（`A1856` · 2026-10-19）
+# 运行时 `BattleDriver.PlayTutorialSound` / 教程聊天那一路都走
+#   `Resources.Load<AudioClip>("Art/audio/vo/" + 名)`；而 `Resources/Art/` **整个在 `.gitignore` 里**
+# ⇒ clone 出来盘上没有这 43 条，教程**必哑**（判据：`资料/普查产出_1019/W_战斗线_T19现核_1019b.md` §A1856）。
+# 源 = 原版解包资源里**唯一**带这批文件的包（现读 43 条）。
+#   ⛔ **不要**把它并进 `工具/import_original_audio.py` 的 `bundle_*cardassets*` glob ——
+#      那会按名字把 `Tutorial1_ending1_Calgar.ogg` 误配到 Marneus Calgar 的卡语音上（T19 点名）。
+D_TUT_AUDIO = "d:/2/新解包资源/assets_full/bundle_tutorialwarlordchats_assets_all/AudioClip"
+DST_VO = "d:/4/Unity/MyGame/Assets/CardPresentation/Resources/Art/audio/vo"
+TUT_AUDIO_COUNT = 43   # 源包现读 43（`W_战斗线_T19现核_1019b.md` §A1856）；变了先对齐报告再改这个数
 
 # 产物格式版本：字段有增减就 +1（C# 侧读它）
 FORMAT = 1
@@ -341,6 +370,114 @@ def resolve_sound_names(pids):
     return out
 
 
+# ============================================================ ③·B 教程语音（`A1856` · 2026-10-19）
+def list_tutorial_audio():
+    """源包里那批 `Tutorial*.ogg`（文件名**逐字保留**）。
+
+    现读 43 条；数量对不上就**炸**（源包变了 / 有人往目录里塞了别的东西 ⇒ 先看报告再动这个数）。
+    ⚠️ 只收 `.ogg`：目前源包 43 条全是 ogg；以后出现别的扩展名要**出声**（⛔ 别静默漏拷）。
+    """
+    assert os.path.isdir(D_TUT_AUDIO), "教程语音源目录不在：%s" % D_TUT_AUDIO
+    names = sorted(f for f in os.listdir(D_TUT_AUDIO) if f.startswith("Tutorial"))
+    ogg = [f for f in names if f.lower().endswith(".ogg")]
+    other = [f for f in names if f not in ogg]
+    assert not other, "教程语音源里出现了非 `.ogg` 的 `Tutorial*` 文件（没见过，先看源包）：%s" % other
+    assert len(ogg) == TUT_AUDIO_COUNT, \
+        "教程语音源应有 %d 条，实得 %d 条（源包变了？先对齐 T19 报告再改 TUT_AUDIO_COUNT）" % (
+            TUT_AUDIO_COUNT, len(ogg))
+    return ogg
+
+
+def referenced_tutorial_sounds():
+    """本脚本产物 `OUT` 里 `sound.name` 引用到的 `Tutorial*`（去重）。
+
+    ⚠️ 产物不存在 ⇒ 返回 `None`（调用方必须**明说「引用集合未知」**，⛔ 别当成「没有引用」）。
+    """
+    if not os.path.exists(OUT):
+        return None
+    names = set()
+
+    def walk(o):
+        if isinstance(o, dict):
+            s = o.get("sound")
+            if isinstance(s, dict) and s.get("name"):
+                names.add(s["name"])
+            for v in o.values():
+                walk(v)
+        elif isinstance(o, list):
+            for v in o:
+                walk(v)
+
+    walk(load(OUT))
+    return {n for n in names if n.startswith("Tutorial")}
+
+
+def tutorial_audio_check():
+    """`--check`：**盘上 / 源包 / 产物引用** 三面差集。只报告、不写盘、不删任何东西。
+
+    🔴 未引用的那 1 条（`Tutorial6_turn601_Ventris`）**只报告、不删** —— 它可能是原版遗留、
+    也可能走的是 `tutorial_stages.json` 之外的路径（T19 报告 §三·2「没查清」）。
+    """
+    src = list_tutorial_audio()
+    dst = (sorted(f for f in os.listdir(DST_VO)
+                  if f.startswith("Tutorial") and f.lower().endswith(".ogg"))
+           if os.path.isdir(DST_VO) else [])
+    ref = referenced_tutorial_sounds()
+    src_set, dst_set = set(src), set(dst)
+    print("=== A1856 教程语音三面对账（--check · 不写盘）===")
+    print("源包：%d 条  %s" % (len(src), D_TUT_AUDIO))
+    print("盘上：%d 条  %s" % (len(dst), DST_VO))
+    if ref is None:
+        print("引用：**产物不存在**（%s）⇒ 引用集合未知（先跑一次本脚本生成）" % OUT)
+    else:
+        print("引用：%d 条  来自 %s" % (len(ref), OUT))
+    miss, extra = sorted(src_set - dst_set), sorted(dst_set - src_set)
+    print("[%s] 源包有、盘上没有：%d %s" % ("✓" if not miss else "!", len(miss), miss[:10]))
+    print("[%s] 盘上有、源包没有：%d %s" % ("✓" if not extra else "!", len(extra), extra[:10]))
+    diffs = [f for f in src if f in dst_set
+             and os.path.getsize(os.path.join(D_TUT_AUDIO, f))
+             != os.path.getsize(os.path.join(DST_VO, f))]
+    print("[%s] 同名但大小不同：%d %s" % ("✓" if not diffs else "!", len(diffs), diffs[:10]))
+    if ref is not None:
+        # ⚠️ 产物里 `sound.name` 是 **AudioClip 名（不带扩展名）**，盘上/源包是 `.ogg` 文件名
+        #    ⇒ 这一组比较一律按 **stem**（去扩展名）来，否则会得出「42 条全缺」的假差集。
+        src_stem = {os.path.splitext(f)[0]: f for f in src}
+        ref_miss = sorted(ref - set(src_stem))
+        unreferenced = sorted(set(src_stem) - ref)
+        print("[%s] 被引用、源包里没有：%d %s" % ("✓" if not ref_miss else "!", len(ref_miss), ref_miss[:10]))
+        print("[i] 源包有、**没被任何 stage 引用**：%d %s（只报告，不删）"
+              % (len(unreferenced), [src_stem[s] for s in unreferenced]))
+    # 不设退出码：这是对账报告（与 `import_original_audio.py --check` 同口径）。
+
+
+def copy_tutorial_audio():
+    """幂等拷贝 43 条 `Tutorial*.ogg` → 运行时 `Resources/Art/audio/vo/`。
+
+    · 盘上已有且**大小相同** ⇒ 跳过（连跑两次第二遍 = 0 拷贝）；
+    · 不存在 ⇒ 拷；
+    · 大小不同 ⇒ **覆盖 + 出声**（不静默）。
+    """
+    src = list_tutorial_audio()
+    os.makedirs(DST_VO, exist_ok=True)
+    copied, overwritten = [], []
+    skipped = 0
+    for f in src:
+        s, d = os.path.join(D_TUT_AUDIO, f), os.path.join(DST_VO, f)
+        if os.path.exists(d):
+            ss, ds = os.path.getsize(s), os.path.getsize(d)
+            if ss == ds:
+                skipped += 1
+                continue
+            overwritten.append("%s（盘上 %d B / 源包 %d B）" % (f, ds, ss))
+        shutil.copy2(s, d)
+        copied.append(f)
+    print("教程语音：源包 %d 条 → %s；新拷 %d · 覆盖 %d · 已存在跳过 %d"
+          % (len(src), DST_VO, len(copied) - len(overwritten), len(overwritten), skipped))
+    for x in overwritten:
+        print("  ! 覆盖（大小不同）：" + x)
+    return copied, overwritten, skipped
+
+
 # ============================================================ ④ 组装
 def all_groups(stage):
     """SO 里所有"动作组"：preMulligan + 每回合 + onVictory + onDefeat（顺序固定，便于遍历）。"""
@@ -476,6 +613,9 @@ def assert_jsonable(o, path="doc"):
 
 # ============================================================ 主流程
 def main():
+    if CHECK:
+        tutorial_audio_check()
+        return
     stages_raw, so_sha = [], []
     for n in STAGE_NAMES:
         p = os.path.join(D_SO, n + ".json")
@@ -529,6 +669,13 @@ def main():
     sounds = resolve_sound_names(sound_pids)
     print("牌组名 %d/12 · 音效名 %d/%d（都开原版 bundle 解的）"
           % (len(deck_names), len(sounds), len(sound_pids)))
+
+    # ---- ③·B 教程语音（`A1856`）：43 条 `Tutorial*.ogg` 幂等拷贝 -----------------
+    # `Resources/Art/` 在 `.gitignore` 里 ⇒ 不拷的话 clone 出来教程必哑；`--dry` 一律零写盘。
+    if DRY:
+        print("干跑（未拷教程语音）：%s → %s" % (D_TUT_AUDIO, DST_VO))
+    else:
+        copy_tutorial_audio()
 
     # ---- 逐关组装 ----------------------------------------------------------
     # 没解出来的引用：**按 pid 归并**（同一个 pid 会用很多次，逐条刷 33 行没人看），
@@ -748,10 +895,12 @@ def main():
         stages=stages_out,
     )
     assert_jsonable(doc)
-    with open(OUT, "w", encoding="utf-8", newline="\n") as f:
-        json.dump(doc, f, ensure_ascii=False, indent=1)
-
-    print("wrote", OUT)
+    if DRY:
+        print("干跑（未写盘）：", OUT)
+    else:
+        with open(OUT, "w", encoding="utf-8", newline="\n") as f:
+            json.dump(doc, f, ensure_ascii=False, indent=1)
+        print("wrote", OUT)
     print("stages=%d turns=%d actions=%d(回合内%d) playerActions=%d(回合内%d) tips=%d(回合内%d) 未解出pid=%d/%d"
           % (len(stages_out), n_turn, n_act, turn_act, n_pa, turn_pa, n_tip, turn_tip,
              len(no_name), len(not_pool)))

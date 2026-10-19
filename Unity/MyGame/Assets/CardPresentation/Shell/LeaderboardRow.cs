@@ -259,6 +259,37 @@ namespace CardPresentation
             if (pts != null) MenuDraw.AlignLeft(pts, pointsAbs);
         }
 
+        /// <summary>🆕 **2026-10-19（`A1385` `#70` · 铁律 11）**：自检两态夹具入口 —— **只重建本行那块行底
+        /// 九宫格**（`Background` / `BackgroundHighlight`），行里别的子件一个都不碰。
+        ///
+        /// <para>🔴 **为什么需要它 / 为什么态二必须重建** → `MatchLogRow.RebuildBackgroundForTest` 的 doc
+        /// （同一笔账、同一条判据）：`#70` 要「父链真带缩放时读出来的仍是设计矩形」，而态二**必须重建**
+        /// 那棵树，否则局部位置还是态一冻结下来的值 ⇒ 两式逐位相同 = 假绿。</para>
+        ///
+        /// <para>⚠️ 重建用料**全部从旧块读回**（纹理 / 染色 / 队列 / 节点名）—— ⛔ 不要求调用方复刻宿主的
+        /// `RowCtx`。`r` = 旧块的**设计矩形**（调用点用 `Editor/MainMenuScene.cs` 的 `DesignRectOf` 反解）。
+        /// ⚠️ 名字要**原样保留**：`IsSelf` 那一档叫 `BackgroundHighlight`（自检按名字找它）。
+        /// 返回新根；旧块不在 / 读不到纹理 ⇒ 返回 `null`（调用点**显式红**）。</para></summary>
+        public static Transform RebuildBackgroundForTest(Transform row, PxRect r)
+        {
+            if (row == null) return null;
+            var old = row.Find("Background") ?? row.Find("BackgroundHighlight");
+            if (old == null) return null;
+            var q0 = old.GetComponentInChildren<ImageQuad>(true);
+            if (q0 == null || q0.Texture == null) return null;
+            var tex = q0.Texture as Texture2D;     // ⚠️ 先取出来再 `DestroyImmediate`（`MenuDraw.Nine` 吃 `Texture2D`）
+            if (tex == null) return null;
+            Color tint = q0.Tint;
+            int q = q0.RenderQueue - L_Bg;
+            int sib = old.GetSiblingIndex();
+            string nm = old.name;
+            Object.DestroyImmediate(old.gameObject);
+            var go = MenuDraw.Nine(row, tex, r, BgBorder, 32f, 32f, q, tint, true, nm);
+            var root = go != null ? go.transform : null;
+            if (root != null) root.SetSiblingIndex(sib);
+            return root;
+        }
+
         /// <summary>行被点（玩家族）。**原版是开那个玩家的档案窗**（`profileButton`）——
         /// 🆕 2026-10-03（§三第 29 条 A3②）：我们**照做**（开**同一扇** `PlayerProfileWindow`），
         /// 但走 `CreateFor(mgr, 名字)` 那一支 ⇒ 六页画的是「服务器数据、本地没有」的**如实说明**，

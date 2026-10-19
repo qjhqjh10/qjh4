@@ -966,10 +966,14 @@ namespace CardPresentation
         /// ① `LiveOpsAssetUtility.HasComponent(liveOps, 0x1e)`（`0x1e` = **30** = `EventComponentReferenceType.HelpPopup`）；
         /// ② `GetComponentReference(liveOps, 30)` → 一颗 `GameWindow`（就是某个 `BaseEventPopup` 变体 prefab）；
         /// ③ 虚表 `0x248` 那一跳（合法性判定）通过 ⇒ `WindowsManager.OpenWindow(组件, liveOps)`。
-        /// ⇒ **「用哪一份变体」是事件数据里配的**（`EventComponents.HelpPopup`），本地没有（事件 JSON 在远端 CCD）。
+        /// ⇒ **「用哪一份变体」是事件数据里配的**（`EventComponents.HelpPopup`）。
+        /// 🔴 **2026-10-19（`A1853②`）订正**：原文写「事件 JSON 在远端 CCD」—— **那一半已过期**：
+        /// 13 份活动 SO 就在 `bundle_cosmeticsso_assets_all`，连 `EventComponents.HelpPopup` 的 GUID 都有
+        /// （`2d7ec1a46a19245798bf28a5d1a030bb` ∈ `menus_assets_all.bundle`）。**仍在远端的只有「当前开着哪个事件」**。
         /// 我们这一侧：变体由 <see cref="HelpVariant"/> 给（缺省 = `Liveop Event Help Variant` —— 它三颗 tag 是
         /// `WelcomeTitle / Help / ForegroundImage`，正是「活动帮助」那一套）；文案键由
-        /// <see cref="EventHelpTitleTerm"/> / <see cref="EventHelpDescriptionTerm"/> 给（**缺省 null**）
+        /// <see cref="EventHelpTitleTerm"/> / <see cref="EventHelpDescriptionTerm"/> 给
+        /// （**缺省问 `LiveOpsLocalCatalog`**；子类没声明 <see cref="LocalLiveOpsEventId"/> / 事件不在期 ⇒ null）
         /// ⇒ 弹窗照开、标题与正文**留空并出声**（= 原版 `GetLabel` 取不到标签时 `set_text(空)` 的画面结果）。
         /// ⛔ 别为了「别空着」拿 `Event_Description/Event/EventModeDesc` 之类的键顶进来（那会静默画错文案）。</para></summary>
         void BuildHelp(Transform root)
@@ -993,14 +997,24 @@ namespace CardPresentation
         protected virtual EventPopupVariant HelpVariant { get { return EventPopupVariant.LiveopEventHelp; } }
 
         /// <summary>帮助弹窗**标题**的官方词条键（= 事件 `EventLabel` 里 `WelcomeTitle`/`Title` 那一条的
-        /// `RawValue`）。**缺省 null = 本地查不到**（事件数据在远端）⇒ 标题留空 + 出声。</summary>
-        protected virtual string EventHelpTitleTerm { get { return null; } }
+        /// `RawValue`）。**缺省 = 问离线提供者**（`Shell/LiveOpsLocalCatalog.cs`）：
+        /// 子类声明 <see cref="LocalLiveOpsEventId"/> 时按事件取 label 5/0；没声明 ⇒ null（本地查不到）⇒ 标题留空 + 出声。
+        /// <para>🆕 **2026-10-19（`A1853②`）**：这是 12 个承载面里的 #1
+        /// （`Event_Description/BattlePass/Title`，EC/SW 记分活动）—— 事件实例从本地目录来，⛔ 不猜。</para></summary>
+        protected virtual string EventHelpTitleTerm { get { return LiveOpsLocalCatalog.HelpTitleTerm(LocalLiveOpsEventId); } }
 
         /// <summary>帮助弹窗**正文**的官方词条键（= 事件 `EventLabel` 里 `Help` 那一条的 `RawValue`）。
-        /// 缺省 null = 本地查不到（同上）。
+        /// 缺省同样问 `LiveOpsLocalCatalog`，但取的是 **label 12 `Help`**；没声明事件 id / 不在期 ⇒ null。
         /// 🆕 **2026-10-17（`A1853②`）**：`SkirmishEventWindow` 已覆写成记分活动那一对
         /// （`Event_Description/ExpansionPass/{Title,GeneralHelp}`）—— 见那边的注释与判据。</summary>
-        protected virtual string EventHelpDescriptionTerm { get { return null; } }
+        protected virtual string EventHelpDescriptionTerm { get { return LiveOpsLocalCatalog.HelpDescriptionTerm(LocalLiveOpsEventId); } }
+
+        /// <summary>🆕 **2026-10-19（`A1853②`）**：本窗对应的**本地活动实例 id**（13 份活动 SO 之一，
+        /// 例 `ExpansionOrks1Scoring`）。缺省 null = 本窗**不挂**本地目录里的活动
+        /// （遭遇战 / 排位这两种 eventId 都**不在**那 13 份 SO 里）。
+        /// <para>子类声明它 ⇒ 上面两条词条自动从 `LiveOpsLocalCatalog` 取（label 5/0 与 12）；
+        /// 只有**在期**事件才算（过期活动按用户边界不做）。</para></summary>
+        protected virtual string LocalLiveOpsEventId { get { return null; } }
 
         /// <summary>🆕 2026-10-17（`A1853②`）：上面两条词条里的 `{0}` / `{1}` 实参（原版 `EventLabel.Args`）。
         /// 缺省 null = 不替换（词条里若真有 `{0}`，`BaseEventPopup` 会**出声**、

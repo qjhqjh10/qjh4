@@ -30,6 +30,7 @@
 //   · 原版 `BattleLogMatch` 还有 `season` / `ownExp` / `enemyExp` / `ownTotalExp` / `botAltid` /
 //     `replaysVersion` 等字段 —— **行里没有对应的格子**（普查 §B·2 那棵树只看得到这些）⇒ 不建。
 using System.Collections.Generic;
+using RuleEngine;          // `CardDatabase` / `CardDef`（`ResolveArmy` 用；同 `Shell/CollectionWindow.cs` 的口径）
 
 namespace CardPresentation
 {
@@ -62,6 +63,18 @@ namespace CardPresentation
             /// 我们**没有那个编号** ⇒ 恒 `-1`（**别拿它假装有**）。「这一局有没有录像」看 `ReplayFile`。</summary>
             public int RecordingIndex;
 
+            /// <summary>🆕 **2026-10-19（界面线尾巴 · `MatchLogRow` 那一格阵营徽记）**：
+            /// **我方阵营**（原版 `CardArmy` 枚举值，10…130；`0` = 没记录/认不出）。
+            /// <para>判据 = 原版**不存 army，存的是督军名**、画行时现解：`BattleLogPlayerDisplay.Initialize`
+            /// 拿 `playerData.Hero` 去 `PlayerDataManager.GetHeroCard` 取 hero 卡，再读它 `+0x2c` 的
+            /// `army` 字段喂 `ArmyIconsSO.GetArmyIcon`（`d:/2/tools/decomp_full/BattleLogPlayerDisplay__Initialize.c`）。
+            /// ⇒ 本表加这一格只是把**那一跳的结果**缓存下来；填法见 <see cref="Add"/>（按督军名反解）。</para></summary>
+            public int Army;
+            /// <summary>🆕 **2026-10-19**：**敌方阵营**（同上；行右半边那一格）。
+            /// ⚠️ 审计原文只写了「加 `Army` 字段」—— 但原版那一格是**每边各一张**（`Player Info` / `Enemy Info`
+            /// 各一份 `Score Icon (1)`）⇒ 多这一格是把同一条判据落到另一半，⛔ 不是第二套口径。</summary>
+            public int EnemyArmy;
+
             /// <summary>🆕 2026-09-27：**这一局的本地录像文件名**（在 `ReplayStore.Dir` 下；空 = 没录上）。
             /// 🔴 **这是加功能、不是复刻** —— 原版回放整套在服务器（判据 → `资料/普查产出_0927/回放_入口与数据链.md`）。
             /// 点行上那颗 `ReplayButton` 就是播它（见 `Shell/MatchLogRow.cs` 的 `OnReplay`）。</summary>
@@ -74,11 +87,40 @@ namespace CardPresentation
         public static List<Match> All { get { return _all; } }
         public static int Count { get { return _all.Count; } }
 
-        /// <summary>记一局。**唯一写点**（将来接在结算那一段）。</summary>
+        /// <summary>记一局。**唯一写点**（将来接在结算那一段）。
+        /// 🆕 **2026-10-19**：写进来的这一条会先**补齐两边阵营**（`Army` / `EnemyArmy` 还空着时）——
+        /// 判据/为什么按「督军名」反解 → <see cref="ResolveArmy"/>。⛔ 不动调用方（`BattleDriver` 不在本批白名单）。</summary>
         public static void Add(Match m)
         {
             if (m == null) return;
+            if (m.Army == 0 && !string.IsNullOrEmpty(m.OwnHeroName)) m.Army = ResolveArmy(m.OwnHeroName);
+            if (m.EnemyArmy == 0 && !string.IsNullOrEmpty(m.EnemyHeroName)) m.EnemyArmy = ResolveArmy(m.EnemyHeroName);
             _all.Insert(0, m);
+        }
+
+        /// <summary>🆕 **2026-10-19**：**督军显示名 → 阵营**（`CardArmy` 值；认不出 ⇒ `0`）。
+        ///
+        /// <para>🔴 **这不是我们发明的口径 —— 它就是原版 `BattleLogPlayerDisplay.Initialize` 里那一跳**：
+        /// `PlayerDataManager.GetHeroCard(playerData.Hero)` → hero 卡 `+0x2c` 的 `army`
+        /// → `ArmyIconsSO.GetArmyIcon`（`d:/2/tools/decomp_full/BattleLogPlayerDisplay__Initialize.c`；
+        /// `BattleLogMatch` 里**没有** army 字段，见 `d:/2/Warpforge_code/Scripts/Assembly-CSharp/BattleLogMatch.cs`）。
+        /// 我们这一侧的差别只有「卡池 = `CardDatabase.Load()`」和「记录里存的是**显示名**」⇒
+        /// 三个名字都认：`CardDef.Name`（英文资产名）/ `CardDef.NameZh` / `CardText.Name(c)`（当前语档）。</para>
+        /// <para>⚠️ 只认 `Type == "hero"`（原版 `GetHeroCard` 的语义）；池内 56 位督军**英文名与中文名都没有重名**
+        /// （2026-10-19 现核 `cards_engine.json`）⇒ 按名反解无歧义。认不出 ⇒ 返回 `0`（调用方**保留原图 + 出声**）。</para></summary>
+        public static int ResolveArmy(string heroName)
+        {
+            if (string.IsNullOrEmpty(heroName)) return 0;
+            var pool = CardDatabase.Load();
+            if (pool == null) return 0;
+            for (int i = 0; i < pool.Count; i++)
+            {
+                var c = pool[i];
+                if (c == null || c.Type != "hero") continue;
+                if (c.Name == heroName || c.NameZh == heroName || CardText.Name(c) == heroName)
+                    return ArmyIcons.Id(c.Faction);
+            }
+            return 0;
         }
 
         /// <summary>🆕 2026-09-27：把刚存下的**录像文件名**挂到**最新那条**记录上。

@@ -449,8 +449,15 @@ namespace RuleEngine
 
         // ==================================================================
         //  常驻效果 / 手牌陷阱（**回合起止触发**）
-        //  规则书英文版 `:39-41`「Persistent Effects」= 写「For the rest of this battle」的卡
-        //  **被弃置后依然生效**，要单独放一摞备查 —— 也就是说**卡本身是常驻效果的来源**。
+        //  🔴 **2026-10-19（`A1955`）：判据换成原版。** 本段原来写「规则书英文版 `:39-41`：
+        //  写 `For the rest of this battle` 的卡**被弃置后依然生效**，要单独放一摞备查
+        //  —— 也就是说**卡本身是常驻效果的来源**」—— 那两句**都不成立**：
+        //  规则书是**粉丝实体版**（`Not official. Fan project.`），原版也没有那条路：
+        //  **弃牌堆不在任何触发广播的遍历范围**内（`BroadcastTurnStart/TurnEnd/UnitSummoned`
+        //  只走「场上 + 双方手牌」），「本场」效果是**搬到一张活着的载体牌身上**
+        //  （附魔 `activeEnchantments(+0x110)` / `replaceAbility(40)`）。
+        //  ⇒ 我们这摞 `PersistentEffect` 是**自设计的替代结构**（判据全文 →
+        //  `EffectResolver.cs` 的 `DoPersist` 上方那段块注释，`A1950`/`A1955` 已逐条换过）。
         // ==================================================================
 
         /// <summary>
@@ -4094,12 +4101,16 @@ namespace RuleEngine
         /// `For the rest of this battle|the match, at the start|end of your turn, &lt;正文&gt;`
         /// —— **注册一条常驻效果**。
         ///
-        /// **语义出处（旁证 —— 粉丝实体版规则书，非官方；权威顺序见文件头）**：规则书英文版 `:39-41`「Persistent Effects」（中文版 `:32`）——
+        /// **语义出处（⚠️ 下面这段引文是粉丝实体版规则书，非官方；只作旁证、⛔ 不当判据）**：
+        /// 规则书英文版 `:39-41`「Persistent Effects」（中文版 `:32`）——
         ///   &gt; Some cards have persistent effects indicated by "For the rest of this battle"
         ///   &gt; that remain in effect after the card is discarded. Place these cards in a
         ///   &gt; separate pile next to the discard pile for reference.
-        /// ⇒ **卡本身是常驻效果的来源**，所以 `BattleContext.PersistentEffects` 存的是
-        ///   「谁 + 来源卡 + 正文」，而不是把效果烘进某个全局数值。
+        /// 🔴 **2026-10-19（`A1955`）就地订正**：原来下一句写「⇒ **卡本身是常驻效果的来源**」——
+        ///   **不成立**（原版没有「弃置后由那张牌自己继续生效」这条路：效果搬去**一张活着的载体牌**，
+        ///   弃牌堆不在任何触发广播的遍历范围。判据 → `EffectResolver.cs` `DoPersist` 上方那段）。
+        ///   ⇒ 正确说法：我们这摞 `PersistentEffect` 是**自设计的替代结构**，
+        ///   存「谁 + 来源卡 + 正文」是为了**日志与排查**，不是「原版也这么建模」。
         ///
         /// 实测「回合起止」型只有 **1 条**：AstraMilitarum `Cadia Stands`
         /// （`For the rest of this battle, at the start of your turn, deploy a Shock Trooper`）。
@@ -6547,12 +6558,6 @@ namespace RuleEngine
         }
 
         /// <summary>
-        /// `Draw N [cards]`（`rule_core.gd:2863`）与 **5a 定向翻找** `Draw a &lt;类型> [from your deck]`（`:2867`）。
-        ///
-        /// ⚠️ 先试**常规**那条：`Draw a card` 走常规；只有常规整句匹配不上、且剩下一个**类型词**时，
-        ///    才当定向翻找。反过来会把 `Draw a card` 认成「翻找 card 类型」。
-        /// </summary>
-        /// <summary>
         /// `Draw an additional &lt;类型&gt;` → `Draw a &lt;类型&gt;`。
         ///
         /// 🔴 **2026-09-13 第三十二轮查那 47 条「完全不认识」时定位出来的**：
@@ -6587,6 +6592,13 @@ namespace RuleEngine
             return low;
         }
 
+        /// <summary>
+        /// `Draw N [cards]`（`rule_core.gd:2863`，⚠️ 我们上一版复刻、旁证非权威）与
+        /// **5a 定向翻找** `Draw a &lt;类型> [from your deck]`（`:2867`）。
+        ///
+        /// ⚠️ 先试**常规**那条：`Draw a card` 走常规；只有常规整句匹配不上、且剩下一个**类型词**时，
+        ///    才当定向翻找。反过来会把 `Draw a card` 认成「翻找 card 类型」。
+        /// </summary>
         static EffectOp TryDraw(string low, string src)
         {
             // ⚠️ **先把 `and <另一句>` 的尾巴切下来**再匹配 —— 两条正则都锚了 `$`，
@@ -6677,10 +6689,6 @@ namespace RuleEngine
             RegexOptions.Compiled);
 
         /// <summary>
-        /// 降费 —— `rule_core.gd:2920`（`Lower the cost of (all )?&lt;X&gt; in your hand( and deck)? by N`）
-        /// 与 `:2927`（`(it|they) cost(s)? N less`，指代前面刚回手/刚生成的那张）。
-        /// </summary>
-        /// <summary>
         /// `costs N more [this turn]` —— **这张卡自己**加价（2026-09-14 A5 批 3 第 1 条）。
         ///
         /// 全池实测**只 1 处**：`Makari the Grot`（Goff）的
@@ -6718,6 +6726,12 @@ namespace RuleEngine
         /// </summary>
         public const string SelfCostMoreMarker = "(这张卡自己)";
 
+        /// <summary>
+        /// 降费 —— `rule_core.gd:2920`（`Lower the cost of (all )?&lt;X&gt; in your hand( and deck)? by N`）
+        /// 与 `:2927`（`(it|they) cost(s)? N less`，指代前面刚回手/刚生成的那张）。
+        /// ⚠️ `rule_core.gd` 是**我们自己的上一版 Godot 复刻**（旁证、非权威，见文件头）—— 这两句写的是
+        /// 「我们当时照什么形状抄的」，**不是原版语义判据**。
+        /// </summary>
         static EffectOp TryLowerCost(string low, string src)
         {
             // `Lower its cost by 2 **and give it Flank**` —— 四条正则都锚了 `$`，
@@ -7495,7 +7509,28 @@ namespace RuleEngine
         }
 
         /// <summary>
-        /// `Deploy …` —— **免费把单位放进场上**（不花能量、不占手牌）。`rule_core.gd:2970` 那一支。
+        /// `Each player deploys N &lt;什么&gt; from their deck` —— **双方各部署一次**
+        /// （`Birth of a Saga`，SpaceWolves；2026-09-13 A4 批 1）。
+        ///
+        /// 做法：把 `their` 换回 `your` **复用 `TryDeploy` 那一份解析**（张数 / 兵种 / 费用区间
+        /// 全都自动支持），再打上 <see cref="EffectOp.EachPlayer"/> 标记。
+        /// **一卡一行**，别为它另写一套词表 —— 两处写同一条规则迟早不一致。
+        /// </summary>
+        static EffectOp TryDeployEachPlayer(string low, string src)
+        {
+            var m = Regex.Match(low,
+                @"^each\s+player\s+deploys?\s+(.+?)\s+from\s+(?:their|his|her)\s+deck$",
+                RegexOptions.IgnoreCase);
+            if (!m.Success) return null;
+            var op = TryDeploy("deploy " + m.Groups[1].Value.Trim() + " from your deck", src);
+            if (op == null) return null;
+            op.EachPlayer = true;
+            return op;
+        }
+
+        /// <summary>
+        /// `Deploy …` —— **免费把单位放进场上**（不花能量、不占手牌）。`rule_core.gd:2970` 那一支
+        /// （⚠️ 该 `.gd` 是**我们上一版复刻**、旁证非权威）。
         ///
         /// 实测全卡池 **50 个分句 / 49 种写法**，形如：
         ///   · `Deploy a Battle Sister` / `Deploy two Storm Guardian`        具名卡
@@ -7517,26 +7552,6 @@ namespace RuleEngine
         ///      「空中播种/泰伦入侵（1d5）」那 5 个名字 + 多一个 `Neurogaunt`（同「虫群大军」那类的差）。
         /// ⇒ `that cost N or less` / `that costs N or more` 才是显式的区间写法，两种分开处理。
         /// </summary>
-        /// <summary>
-        /// `Each player deploys N &lt;什么&gt; from their deck` —— **双方各部署一次**
-        /// （`Birth of a Saga`，SpaceWolves；2026-09-13 A4 批 1）。
-        ///
-        /// 做法：把 `their` 换回 `your` **复用 `TryDeploy` 那一份解析**（张数 / 兵种 / 费用区间
-        /// 全都自动支持），再打上 <see cref="EffectOp.EachPlayer"/> 标记。
-        /// **一卡一行**，别为它另写一套词表 —— 两处写同一条规则迟早不一致。
-        /// </summary>
-        static EffectOp TryDeployEachPlayer(string low, string src)
-        {
-            var m = Regex.Match(low,
-                @"^each\s+player\s+deploys?\s+(.+?)\s+from\s+(?:their|his|her)\s+deck$",
-                RegexOptions.IgnoreCase);
-            if (!m.Success) return null;
-            var op = TryDeploy("deploy " + m.Groups[1].Value.Trim() + " from your deck", src);
-            if (op == null) return null;
-            op.EachPlayer = true;
-            return op;
-        }
-
         static EffectOp TryDeploy(string low, string src)
         {
             var m = ReDeploy.Match(low);
@@ -7882,13 +7897,6 @@ namespace RuleEngine
 
 
         /// <summary>
-        /// `Give X to Y` —— `rule_core.gd:3010`，**三种语序**：
-        ///   ① `Give &lt;内容> to &lt;目标>`（常规）
-        ///   ② `Give to &lt;目标> &lt;内容>`（Enhanced Aggression 卡面原文）
-        ///   ③ `Give it &lt;内容>` / `Give this unit &lt;内容>`（无 `to`）
-        /// 时长修饰 `this turn` / `until your next turn` 在内容或目标里都可能出现（`:3018`）。
-        /// </summary>
-        /// <summary>
         /// 🔴 **2026-09-15：先把句中的 ` instead` 摘掉，再交给 <see cref="TryGiveInner"/>。**
         ///
         /// 为什么单开一层：`instead` 是**替换**语义（结算层靠 `op.Instead` 配对、跳掉基础效果，
@@ -7913,6 +7921,13 @@ namespace RuleEngine
             return op;
         }
 
+        /// <summary>
+        /// `Give X to Y` —— `rule_core.gd:3010`（⚠️ 我们上一版复刻、旁证非权威），**三种语序**：
+        ///   ① `Give &lt;内容> to &lt;目标>`（常规）
+        ///   ② `Give to &lt;目标> &lt;内容>`（Enhanced Aggression 卡面原文）
+        ///   ③ `Give it &lt;内容>` / `Give this unit &lt;内容>`（无 `to`）
+        /// 时长修饰 `this turn` / `until your next turn` 在内容或目标里都可能出现（`:3018`）。
+        /// </summary>
         static EffectOp TryGiveInner(string low, string src)
         {
             // 🔴 **尾句必须在挑 `to` 之前切**（2026-09-13 A4 批 1 修正）。
@@ -8371,7 +8386,18 @@ namespace RuleEngine
             //    它们走 `FireTriggerAt`（`seed = null` ⇒ 施放者就是自己）**行为不变**。
             {
                 string tl = t.Trim().ToLowerInvariant();
-                if (tl == "this troop" || tl == "this unit")
+                // 🔴 **2026-10-19（`A2000`）：`this card` 也并进来。**
+                //   实测唯一用例 = `TL16 Mawloc` 的 `Strike: Return this card to your deck and
+                //   reduce its cost by 3`（中文「将这张牌返回到你的卡组并将其费用减少3点」）。
+                //   原来这里只认 `this troop` / `this unit` ⇒ `ParseTarget("this card")`
+                //   落到最后那支「既不认识兵种词、也不是卡名 ⇒ **return null**」⇒ `DoReturn`
+                //   一句「看不出谁回去」、`unresolved` 记一条 ⇒ **回牌库没发生**
+                //   （`ruleprobe play` 两发攻击都能打出来 = 单位还在格位上；账 `A2000`）。
+                //   语义与 `this troop` / `this unit` 完全同源（印着这张卡的那个单位 = 施放者自己），
+                //   `DoReturn` 走 `Subjectless` ⇒ `ResolveTargets` 从 `ctx.ActingUnit` 取。
+                //   ⚠️ 全池只有 TL16 这一句把 `this card` 当**目标**（另两张 `BL52`/`SW58` 的
+                //      `This card costs N less …` 走的是降费那一支、不经 `ParseTarget`）。
+                if (tl == "this troop" || tl == "this unit" || tl == "this card")
                 {
                     spec.Side = "own"; spec.Kind = "unit"; spec.Count = 1;
                     spec.Auto = true; spec.Subjectless = true;
@@ -9077,12 +9103,6 @@ namespace RuleEngine
         }
 
         /// <summary>
-        /// `<u>代词</u> has/have/is/are **&lt;词&gt;**` 里的那个词（剥掉方括号、冠词，只取第一个词）。
-        /// 不是这个形状返回 null。
-        /// 🔴 **判据只此一处** —— `Normalize`（决定算什么条件）与结算层 `ConditionHolds`
-        ///    （真去判那个词）**读同一份**，两处各切一次迟早不一致。
-        /// </summary>
-        /// <summary>
         /// `&lt;代词> has/have/is/are &lt;词&gt;` 里的那个词 —— **整词命中关键词表或兵种表**才返回，否则 null。
         ///
         /// 🔴 **判据只此一处**：`Normalize`（算什么条件）与结算层 `ConditionHolds`（真去判那个词）
@@ -9171,8 +9191,12 @@ namespace RuleEngine
             return w.Length > 0 ? w : null;
         }
 
-        /// <summary>`<u>代词</u> has/have/is/are **&lt;词&gt;**` 里的那个词（剥掉方括号、冠词，只取第一个词）。
-        /// 不是这个形状返回 null。</summary>
+        /// <summary>
+        /// `<u>代词</u> has/have/is/are **&lt;词&gt;**` 里的那个词（剥掉方括号、冠词，只取第一个词）。
+        /// 不是这个形状返回 null。
+        /// 🔴 **判据只此一处** —— `Normalize`（决定算什么条件）与结算层 `ConditionHolds`
+        ///    （真去判那个词）**读同一份**，两处各切一次迟早不一致。
+        /// </summary>
         public static string IsClauseWord(string cond)
         {
             if (string.IsNullOrEmpty(cond)) return null;

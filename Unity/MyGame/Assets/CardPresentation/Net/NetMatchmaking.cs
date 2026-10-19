@@ -649,10 +649,10 @@ namespace CardPresentation.Net
                             _foeDeck = JsonUtility.FromJson<PlayerDeck>(st.hostDeckJson);
                         _foeFaction = st.hostFaction;
                         // 🔴 **A961（2026-10-18，主对话裁定「封口」）：这一行是同一笔账里【玩家看得见】的那个入口。**
-                        //   `st.myName` **是对端可控的**（= 主机那台机器的显示名，`NetProtocol.cs:74`），
+                        //   `st.myName` **是对端可控的**（= 主机那台机器的显示名，`NetProtocol.cs:77` 的 `MsgStart.myName`，2026-10-19 现核），
                         //   而 `FoeName` 往下走两条**真在界面上**的路：
                         //     · `Shell/SearchingOpponentWindow.cs:83`（「找到对手」那扇窗）；
-                        //     · `Battle/BattleDriver.cs:10303` / `:10530`（对局里的敌方名）。
+                        //     · `BattleDriver.AlliancePanelName`（2026-10-19 现核 `:4237-4238`）/ `_enemyText` 那一句（现核 `:19628-19629`）。
                         //   ⇒ 与另外五个入口**同一处口径**：进界面前先钳
                         //     （复用现成的 `NetSession.ClampPeerText`，⛔ 不写第二份）。
                         //   ⚠️ 这是我们自拟的（原版那一刻的名字来自**服务器**账号 id、长度由服务端管）
@@ -713,8 +713,10 @@ namespace CardPresentation.Net
                             //      不是掉线 —— 掉线那一档见 `RevokeMatchLocal` 里的 `A1297②`）。
                             //   ⚠️ `seat` 传 `-1` = **没有座位可报**（那一刻还没有对局、没有绝对座位），同 `Cancel()` 那条。
                             //   ⛔ 那行字**只有一处拼** = `ReplayStore.ResultLine`（别在这儿抄字面量，铁律「两处写同一条规则」）。
-                            //   🔴 **只在这一支记**：上面 `Started` 那一支是「**这一局照旧开**」（对面这包来晚了）
-                            //      ⇒ 那里**没有「没了」**，记码就是静默说错一句话。
+                            //   🔴 **这一支（`Started == false`）记码** —— 这一局**还没开局就没了**。
+                            //      ⚠️ **上面 `Started` 那一支现在不是「照旧开」了**（`A1322` 选项 A）：窗口内
+                            //      它会 `RevokeForLateCancel`、并由那一支**自己**记一条码；**窗口外**才保持
+                            //      「这一局照旧开」且**不记码**（那时没有「没了」，记码就是静默说错一句话）。
                             Debug.Log(ReplayStore.ResultLine(BattleResult.Cancelled, -1)
                                     + " —— 匹配层：对面撤了这局匹配（⚠️ 原版无此路：带码的调用点只有 `CancelMatch.c:29` 一处、"
                                     + "那是玩家自己撤；「对面撤」在服务端匹配的原版里不存在 ⇒ **码是我们挑的**，取语义最近的一档）");

@@ -1,0 +1,88 @@
+# 尾部解码（最后 400 字节）。
+# 说明：这里不是"独立的字符串表"——它是对象图最后写入的一段；
+# 字符串是行内的 [u32 len][bytes]，动态串是 [stringId,nextId] 链。
+# 每个地址的含义见 W_工具线_A1787_1019b.md §二。
+
+0013d173  BYTE      00
+0013d174  BYTE      00
+0013d175  BYTE      00
+0013d176  BYTE      00
+0013d177  BYTE      00
+0013d178  OBJ-TYPE  typeId=0xe6bf9 (System.String) objectId=0x13d170  <- key#11822 KeyData.keyNameOffset
+0013d180  BYTE      04
+0013d181  BYTE      00
+0013d182  BYTE      00
+0013d183  BYTE      00
+0013d184  UINT-ARRAY byteSize=4 [944629]  <- key#11822 locationSet-array
+0013d188  BYTE      15  <- key#11823 ObjectToStringRemap
+0013d189  BYTE      6a
+0013d18a  BYTE      0e
+0013d18b  BYTE      00
+0013d18c  BYTE      00
+0013d18d  BYTE      00
+0013d18e  BYTE      00
+0013d18f  BYTE      00
+0013d190  OBJ-TYPE  typeId=0xe6bf9 (System.String) objectId=0x13d188  <- key#11823 KeyData.keyNameOffset
+0013d198  BYTE      04
+0013d199  BYTE      00
+0013d19a  BYTE      00
+0013d19b  BYTE      00
+0013d19c  UINT-ARRAY byteSize=4 [944693]  <- key#11823 locationSet-array
+0013d1a0  BYTE      55  <- key#11824 ObjectToStringRemap
+0013d1a1  BYTE      6a
+0013d1a2  BYTE      0e
+0013d1a3  BYTE      00
+0013d1a4  BYTE      00
+0013d1a5  BYTE      00
+0013d1a6  BYTE      00
+0013d1a7  BYTE      00
+0013d1a8  OBJ-TYPE  typeId=0xe6bf9 (System.String) objectId=0x13d1a0  <- key#11824 KeyData.keyNameOffset
+0013d1b0  BYTE      08
+0013d1b1  BYTE      00
+0013d1b2  BYTE      00
+0013d1b3  BYTE      00
+0013d1b4  UINT-ARRAY byteSize=8 [944757, 944785]  <- key#11824 locationSet-array
+0013d1bc  BYTE      b1  <- key#11825 ObjectToStringRemap
+0013d1bd  BYTE      6a
+0013d1be  BYTE      0e
+0013d1bf  BYTE      00
+0013d1c0  BYTE      00
+0013d1c1  BYTE      00
+0013d1c2  BYTE      00
+0013d1c3  BYTE      00
+0013d1c4  OBJ-TYPE  typeId=0xe6bf9 (System.String) objectId=0x13d1bc  <- key#11825 KeyData.keyNameOffset
+0013d1cc  BYTE      08
+0013d1cd  BYTE      00
+0013d1ce  BYTE      00
+0013d1cf  BYTE      00
+0013d1d0  UINT-ARRAY byteSize=8 [944849, 944877]  <- key#11825 locationSet-array
+0013d1d8  STRING    len=39  'ea8bca4f5c6909d3124fd4975dc96173.bundle'
+0013d203  STRING    len=8   'allcards'
+0013d20f  DYNSTR    stringId=0x13d207 'allcards' next=0xffffffff  <- key#11826 dynstr-node
+0013d217  DYNSTR    stringId=0xe6b38 'assets_all' next=0x13d20f (链)  <- key#11826 dynstr-node
+0013d21f  DYNSTR    stringId=0x13d1dc 'ea8bca4f5c6909d3124fd4975dc96173.bundle' next=0x13d217 (链)  <- key#11826 dynstr-node
+0013d227  STR-REMAP stringId=0x4013d21f sep='_' 'allcards_assets_all_ea8bca4f5c6909d3124fd4975dc96173.bundle'  <- key#11826 ObjectToStringRemap
+0013d22f  OBJ-TYPE  typeId=0xe6bf9 (System.String) objectId=0x13d227  <- key#11826 KeyData.keyNameOffset
+0013d237  BYTE      04
+0013d238  BYTE      00
+0013d239  BYTE      00
+0013d23a  BYTE      00
+0013d23b  UINT-ARRAY byteSize=4 [117017]  <- key#11826 locationSet-array
+0013d23f  STRING    len=39  'ccbdb26b950bd8ea0d262fbb93c6b2d0.bundle'
+0013d26a  STRING    len=18  'alternateartstyles'
+0013d280  DYNSTR    stringId=0x13d26e 'alternateartstyles' next=0xffffffff  <- key#11827 dynstr-node
+0013d288  DYNSTR    stringId=0xe6b38 'assets_all' next=0x13d280 (链)  <- key#11827 dynstr-node
+0013d290  DYNSTR    stringId=0x13d243 'ccbdb26b950bd8ea0d262fbb93c6b2d0.bundle' next=0x13d288 (链)  <- key#11827 dynstr-node
+0013d298  STR-REMAP stringId=0x4013d290 sep='_' 'alternateartstyles_assets_all_ccbdb26b950bd8ea0d262fbb93c6b2d0.bundle'  <- key#11827 ObjectToStringRemap
+0013d2a0  OBJ-TYPE  typeId=0xe6bf9 (System.String) objectId=0x13d298  <- key#11827 KeyData.keyNameOffset
+0013d2a8  STRING    len=39  '4fc53ae57558372dcde3035fb64a4761.bundle'
+0013d2d3  DYNSTR    stringId=0x123208 'localization' next=0xffffffff  <- key#11828 dynstr-node
+0013d2db  DYNSTR    stringId=0xe6b38 'assets_all' next=0x13d2d3 (链)  <- key#11828 dynstr-node
+0013d2e3  DYNSTR    stringId=0x13d2ac '4fc53ae57558372dcde3035fb64a4761.bundle' next=0x13d2db (链)  <- key#11828 dynstr-node
+0013d2eb  STR-REMAP stringId=0x4013d2e3 sep='_' 'localization_assets_all_4fc53ae57558372dcde3035fb64a4761.bundle'  <- key#11828 ObjectToStringRemap
+0013d2f3  OBJ-TYPE  typeId=0xe6bf9 (System.String) objectId=0x13d2eb  <- key#11828 KeyData.keyNameOffset
+0013d2fb  BYTE      04
+0013d2fc  BYTE      00
+0013d2fd  BYTE      00
+0013d2fe  BYTE      00
+0013d2ff  UINT-ARRAY byteSize=4 [643708]  <- key#11828 locationSet-array

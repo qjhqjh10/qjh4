@@ -797,6 +797,31 @@ namespace CardPresentation
             for (int i = 0; i < ForgeData.MaxLevel; i++) BuildCell(i);
         }
 
+        /// <summary>🆕 **FTUE 第三步指针的目标** = 原版 `TutorialStageClaimForgeFirstLevel.DoMenuActions` 第三步：
+        /// `ForgeWindowTab.GetForgeItem(...)` 那颗**可领格**的 `Generic UI Button`（Claim）。
+        /// <para>原版定位 = `ForgeHandler.GetForgeItems()` 里第一条可领的 → `SelectArmy(army)` →
+        /// `GetForgeItem(0)`（字段 `+0x30` 的组件）→ `AddPointer(它的 gameObject, 鼠标位置, filterRaycast=1)`。
+        /// ⚠️ 原版那个 offset 传的是 `UnityEngine.Rendering.MousePositionDebug.GetMouseClickPosition()`
+        /// （**运行时鼠标位置**，不是设计常量）⇒ 我们取 **(0,0)**，如实标「等价实现」。
+        /// <para>本地等价物 = **当前选中阵营第一条 `ToCollect` 格的 Claim 钮**；格没被建出来
+        /// （`BuildCell` 只建视口内的）或没有可领格 ⇒ `null`（指针退回页签）。
+        /// 只由 `MenuTutorialFlow` 读（`MenuTutorialTargetKind.ForgeClaimButton`）。</para></summary>
+        public Transform TutorialClaimButton
+        {
+            get
+            {
+                if (_trackContent == null) return null;
+                string a = ForgeData.Selected;
+                for (int i = 0; i < ForgeData.MaxLevel; i++)
+                {
+                    if (ForgeData.StateAt(a, i) != ForgeData.ToCollect) continue;
+                    var cell = _trackContent.Find("ForgeCell_" + i);   // 直接子件（`BuildCell` 建在 content 下）
+                    return cell != null ? cell.Find("Generic UI Button") : null;
+                }
+                return null;
+            }
+        }
+
         /// <summary>把**该领的那一格**对到视口中心（照原版 `ForgeRewardSelector` 的吸附语义 ——
         /// 它有一路 `FinishedSnapping` 回调，说明原版确实会「吸到某一格」上）。
         /// ⚠️ **只在开页 / 换阵营时调**，别放进 `Refresh`：那样用户滚到别处、一领奖就会被拽回来。</summary>

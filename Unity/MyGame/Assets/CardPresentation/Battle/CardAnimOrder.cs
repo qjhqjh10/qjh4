@@ -20,7 +20,9 @@
 //   （那些是 `ThisCardPlayed`/`Slay`/`TurnEnd`/… = **别的时机**，归 `EvtKind.Trigger`/`Play`）。
 //   逐卡复核 **897/897 精确相等**（与真值源 `cards_1195_2022时代.json` 的
 //   `activeAbility.activeAbilityLogic[].cardAnimations[].m_AssetGUID` 逐 GUID 比）。
-//   ⇒ 全量件 1112 条 ability 行里只有 **109 条是 `activeAbility`** ⇒ 本表 **63 张卡 / 100 拍**。
+//   ⇒ 全量件 1112 条 ability 行里只有 **109 条是 `activeAbility`** ⇒ 本表 **62 张卡 / 99 拍**
+//     （🆕 2026-10-19 W：生成器改为**按卡池过滤** + 卡名取 `cards_engine.json` 那一份 —— 原先 63/100，
+//      少的那 1 张是不在卡池的源卡 `66486b3f…`；它还会挡住池内同名的 `AM68`）。
 //   ⚠️ 拿全表展开会把**出场/触发时机的动画播在「发动技能」那一拍上** —— **错误演示且完全静默**，比少播更坏。
 //
 // 【与既有件的分工 · ⛔ 别搞混】
@@ -34,8 +36,8 @@
 // 【如实标注（铁律 3 / 11）】
 //   ① **键 = 卡 id 或卡名**：原版按卡名取不到 id 时生成器留了 GUID 形式的 `id`；
 //      而 `BattleEvent.CardId` 装的是**英文卡名**（`CardDef.Name`）⇒ 两个键都收（同 `AbilityAnimDurations` 的做法）。
-//      逐卡命中面（现读）：本表 **63 张卡 / 100 拍**（= 有 `activeAbility` 且那一拍的 `ca` 解得出参数的那些）。
-//      另有 **84 条 `activeAbility` 的 `ca` 是空串**（原版没绑 CardAnim）在生成期已剔除。
+//      逐卡命中面（现读）：本表 **62 张卡 / 99 拍**（= 有 `activeAbility` 且那一拍的 `ca` 解得出参数的那些）。
+//      另有 **64 条 `activeAbility` 的 `ca` 是空串**（原版没绑 CardAnim）在生成期已剔除（池内口径）。
 //   ② 🔴 **「一张卡有多条 `activeAbility` 行」时【全部保留】**（如 `Leman Russ Vanquisher` 有 2 行）
 //      —— 这是**忠实于原版**的：原版 `AbilityLogic.PlayAnim` 的外层遍历是**一个 `AbilityLogic` 实例**，
 //      而同一张卡的两条 `activeAbilityLogic` 行各有自己的 `cardAnimations[]`；我们的事件分不出是哪一条
@@ -100,6 +102,44 @@ namespace CardPresentation
         /// 全是 (0,0)→(1,1) 的直线 ⇒ 今天逐值等价；如实记，见 <see cref="Ease"/>）。</summary>
         public float[] ease;
 
+        // ── 🆕 2026-10-19（W · 偏差 6 的第 1 条）：`applyMovementOffsets` / `offsetMovementAxis` ──
+        //   判据（`d:/2/tools/il2cpp_out/dump.cs` 的 `OffsetMovementCurvesByAxis` 字段表 +
+        //   `CardAnimController__Update.c` / `OffsetMovementCurvesByAxis__GetRandomOffsetValues.c` 逐句读）：
+        //     · 三轴各一条 `AnimationCurve`（`xAxis(0x18) / yAxis(0x28) / zAxis(0x38)`，Evaluate 的参数
+        //       见下 `ont`；曲线值乘一个**每次播放随机一次**的幅度）；
+        //     · 随机幅度 = 每轴 `Random.Range(minMaxXOffset.x, minMaxXOffset.y)`（0x20 / 0x30 / 0x40）
+        //       —— 原版用 `UnityEngine.Random`；我们按铁律「确定性只用 `System.Random(seed)`」改用
+        //       开局种子派生的独立 `System.Random`（见 `BattleDriver` 的 `_vfxOffsetRng`）。
+        //     · `useNonModifiedAnimTime(0x10)`：真 = 用**原始** `t01=(t−ts)/tm` 求值；假 = 用**缓动后**的 `e`。
+        //   ⚠️ **数据侧还没烘**（`Resources/card_anim_order.json` 的生成器 = `工具/gen_card_anim_order.py`，
+        //   本轮白名单外）：下面这些字段今天**全部是默认 0** ⇒ `OffsetAt` 恒返回 `Vector3.zero`，
+        //   行为与改前逐位相同。生成器补上同名字段后**立刻生效**（消费端已就绪）。
+        /// <summary>`xAxis/yAxis/zAxis` 的扁平关键帧（同 <see cref="ease"/> 的 `[t0,v0,…]` 约定）。
+        /// 空 = 原版默认曲线 `(0,0)→(1,0)`（= 不偏移）。</summary>
+        public float[] ofx, ofy, ofz;
+        /// <summary>三轴的随机幅度区间（`minMaxXOffset.x/y` 等）。<c>mn</c>=min、<c>mx</c>=max。</summary>
+        public float mnx, mxx, mny, mxy, mnz, mxz;
+        /// <summary>`useNonModifiedAnimTime`（0/1）—— 见上。</summary>
+        public int ont;
+
+        /// <summary>`applyMovementOffsets`（0x49）—— 这一拍要不要叠逐轴偏移。</summary>
+        public int ao;
+
+        /// <summary>这一拍在进度 <paramref name="pEased"/> / <paramref name="t01"/> 处的偏移量
+        /// （= 曲线值 × 随机幅度；见上面 `offsetMovementAxis` 那段注释）。没有数据 ⇒ 零。
+        /// 判据 → `CardAnimController__Update.c:60-97`（`fVar7 = ont ? t01 : e`）。</summary>
+        public Vector3 OffsetAt(float t01, float pEased, Vector3 randomAmp)
+        {
+            if (ao == 0) return Vector3.zero;
+            float x = ont != 0 ? t01 : pEased;
+            float cx = CardAnimOrder.EaseAtRaw(ofx, x);
+            float cy = CardAnimOrder.EaseAtRaw(ofy, x);
+            float cz = CardAnimOrder.EaseAtRaw(ofz, x);
+            // ⚠️ 曲线的**默认值**是 0（原版 `AnimationCurve.Linear(0,0,1,0)` 一类的默认），
+            //   所以「没有曲线」⇒ 0 ⇒ 不偏移；这里 `EaseAtRaw` 对空数组返回 0（不是 `ease` 那样的线性恒等）。
+            return new Vector3(cx * randomAmp.x, cy * randomAmp.y, cz * randomAmp.z);
+        }
+
         /// <summary>这拍的位移进度曲线（`p` = 归一化时间 0~1，返回 0~1）。
         /// 判据见 <see cref="ease"/> 的注释；没有曲线 ⇒ **恒等（线性）**。转发到
         /// <see cref="CardAnimOrder.EaseAt"/>（判据只此一处 —— `BattleDriver` 的位移泵也用那一份）。</summary>
@@ -158,6 +198,27 @@ namespace CardPresentation
                 }
             }
             return Mathf.Clamp01(ease[ease.Length - 1]);
+        }
+
+        /// <summary>🆕 W：**偏移曲线**的求值 —— 与 <see cref="EaseAt"/> 同一套分段线性，但：
+        /// ① 空曲线返回 **0**（偏移曲线的默认是「无偏移」；位移进度曲线的默认才是线性恒等）；
+        /// ② 输出**不** clamp 到 [0,1]（`CurveRange(0,-1,1,1)` 允许负值 —— 原版的偏移曲线就会往两边摆）。
+        /// 判据 → `CardAnimController__Update.c` 那三句 `AnimationCurve.Evaluate`（没有 clamp）。</summary>
+        public static float EaseAtRaw(float[] curve, float p)
+        {
+            float x = Mathf.Clamp01(p);
+            if (curve == null || curve.Length < 4) return 0f;
+            for (int i = 0; i + 3 < curve.Length; i += 2)
+            {
+                float t0 = curve[i], v0 = curve[i + 1];
+                float t1 = curve[i + 2], v1 = curve[i + 3];
+                if (x <= t1)
+                {
+                    if (t1 - t0 <= 1e-6f) return v1;
+                    return Mathf.Lerp(v0, v1, (x - t0) / (t1 - t0));
+                }
+            }
+            return curve[curve.Length - 1];
         }
 
         public const string ResourcePath = "card_anim_order";

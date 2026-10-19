@@ -344,6 +344,18 @@ namespace CardPresentation
         public const float QualL = 551.52f, QualT = 267.71f, QualR = 1386.37f, QualB = 327.10f;
         public const float QualBoxR = 952.18f;          // 下拉框右边缘
         public const float QualTextL = 978.86f;         // 框右边那行字
+        /// <summary>🆕 **2026-10-19（战斗线 `T16` · 命中区全仓普查）**：原版 `Quality DropDown` 那颗
+        /// `Image` 的 **`m_RaycastPadding = (-25, -16.7, -25, -25)`**（分量序 **L,B,R,T**；**负 = 外扩**）。
+        /// <para>判据 = `bundle_menus_assets_all` 直读：`GameObject/Quality DropDown.json` 的 Image 组件
+        /// = `MonoBehaviour_3513533195063033766.json`（`m_RaycastTarget = 1` · `m_Enabled = 1` ·
+        /// `m_Type = 0` Simple · `m_PreserveAspect = 0`），同节点 `RectTransform_728286333235199910.json`
+        /// 的 `m_SizeDelta = 400.66641 × 59.39850`（= 我们的 `QualL…QualBoxR × QualT…QualB`，逐位相同）。
+        /// ⇒ 原版命中矩形 = **450.67 × 101.10**（`400.67+25+25` × `59.40+16.7+25`）；
+        /// 旧口径只传未加 pad 的 400.66×59.39 ⇒ **上下各漏 16.7 / 25、左右各漏 25**。</para>
+        /// <para>⚠️ 本窗根有烘进矩形的 `RootScale 0.9` ⇒ pad 也在**未缩放设计 px** 里加，
+        /// 再过本窗的 `Screen()`（与 `QualL` 等常量同一帧）；⛔ 别加在 `Screen()` 之后。</para>
+        /// <para>⚠️ 外扩算式一律走 `MenuDraw.PaddedRect`（「正值缩小、负值扩大」的全工程唯一一份）。</para></summary>
+        public static readonly Vector4 QualityPad = new Vector4(-25f, -16.7f, -25f, -25f);
         /// <summary>🔴 **2026-10-10（`A1210①`）：下拉框里那颗**值文本**（原版
         /// `Quality Selector > Quality DropDown > Label` = `TMP_Dropdown.m_CaptionText`）的框顶 / 框底。**
         /// <para>判据（现读）= `python -I 工具/menu_dump.py bundle_menus_assets_all "Main Menu Settings Window"
@@ -4197,7 +4209,10 @@ namespace CardPresentation
             _ddQuality = BuildDropdown(qualQ.transform, QualL, QualT, QualBoxR, QualB,
                                        QualityOptionLabels, QualityOptionIndex, ChooseQualityOption,
                                        "Graphics > Quality Selector");
-            Hit(row, "QualityHit", QualL, QualT, QualBoxR, QualB, QOverlay, () => ToggleDropdown(_ddQuality),
+            // 🆕 **2026-10-19（战斗线 `T16`）**：命中区按原版 `m_RaycastPadding` 外扩（见 `QualityPad`）。
+            var qualHitR = MenuDraw.PaddedRect(new PxRect(QualL, QualT, QualBoxR, QualB), QualityPad);
+            Hit(row, "QualityHit", qualHitR.x1, qualHitR.y1, qualHitR.x2, qualHitR.y2,
+                QOverlay, () => ToggleDropdown(_ddQuality),
                 qualQ, "40K_dropdown_field_closed");
 
             // ② 🆕 **2026-10-17（T17）**：`Text In Hand  Selector`（原版 `Graphics Tab` 第二行、

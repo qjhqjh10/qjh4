@@ -175,12 +175,39 @@ namespace CardPresentation
             // 原版 `MainMenuRewardsWindow.Open` 会回点导航钮：`GetToggle(3).SetIsOnWithoutNotify(true)`
             //（`DF:MainMenuRewardsWindow__Open.c:14-16`）。我们让主菜单侧自己处理，这里只报一句。
             BuildTabContents();
-            // 默认落在 **Missions**（= 左栏第 1 键）。走 `Click` 这条路而不是直接改字段 ——
+            // 新实例默认落在 **Missions**（= 左栏第 1 键）。走 `Click` 这条路而不是直接改字段 ——
             // 那三个属性是只读的，而且「点一下」才是唯一的状态入口（两处写同一件事 = 迟早不一致）。
-            if (tabButtons != null) tabButtons.Click(0);
+            // 🔴 **2026-10-19（`N117` 顺手 · 与 `CollectionWindow` 同一条判据）**：这里原来**恒 `Click(0)`**
+            //   ⇒ 每次 `Open()` 都回第 0 页（`Hide` 之后被 `ShowPreviousWindow` 带回来也一样）。
+            //   判据（原版 `GameWindowWithTabs__Open.c:9-21`）：**当前页签**（字段 `0x12`）非空就只重开那一页；
+            //   只有它是**空**（= 新建实例）才走 `GetStartingTab()`（虚表 `0x218`，回落 = `tabs` 的
+            //   `FirstOrDefault` = 第一页）。而 `WindowTabBase__CloseTab.c` 只 `SetActive(false)`、
+            //   `GameWindowWithTabs__Close` 也不写 `0x12` ⇒ **隐藏 → 带回来这一路原版保留当前页**。
+            //   ⚠️ 为什么必须是 `Click(visualIndex)` 而不是 `ChangeTab(CurrentTab)`：左栏高亮读的是
+            //   `TabButtons.CurrentVisualIndex`（`RefreshHighlights`），只调 `ChangeTab` 会让高亮停在第 0 键上。
+            int startVisual = StartVisualIndex();
+            if (tabButtons != null) tabButtons.Click(startVisual);
             RefreshHighlights();
             RefreshBadges();
         }
+
+        /// <summary>🔴 **2026-10-19（`N117` 顺手）**：`Open()` 该落在左栏第几颗 —— **与
+        /// `CollectionWindow.StartVisualIndex` 同一条规则**（文件所有权所限没能收口到 `GameWindowWithTabs`，
+        /// 两处逐值相同；⚠️ 改一处必须同步另一处）。
+        /// <para>原版 `GameWindowWithTabs.Open`（`decomp_full/GameWindowWithTabs__Open.c:9-21`）：
+        /// 当前页签（字段 `0x12`）**非空 ⇒ 重开它**；**空 ⇒ `GetStartingTab()`**（虚表 `0x218`，
+        /// 回落 = `tabs` 的 `FirstOrDefault` = 第一页）。`Hide()` / `WindowTabBase.CloseTab()` 都**不清** `0x12`
+        /// ⇒ 「藏起来 → 被 `ShowPreviousWindow` 带回来」这一路**保留当前页**。</para>
+        /// <para>⚠️ 例外面（如实记）：若 `CurrentTab` 不在本窗的 `visualTypes` 里（绝不该发生），回落第 0 页。</para></summary>
+        int StartVisualIndex()
+        {
+            if (CurrentTab == WindowTabType.None) return 0;
+            int keep = visualTypes != null ? visualTypes.IndexOf(CurrentTab) : -1;
+            return keep >= 0 ? keep : 0;
+        }
+
+        /// <summary>自检读口（静态断言用：⛔ 不为此真建一遍整窗）—— 见 <see cref="StartVisualIndex"/>。</summary>
+        public int StartVisualIndexForTest { get { return StartVisualIndex(); } }
 
         /// <summary>建整个窗口（**自检与运行时同一条路**）。
         /// 🔴 **2026-09-23：外壳（Content Area + 渐变 Background + 左栏 + Tabs）改成调基类的 `BuildShell`**

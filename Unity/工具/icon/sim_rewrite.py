@@ -2,7 +2,10 @@
 """按 `CardPresentation/Core/CardIcons.cs` 的 `Rewrite` **逐分支静态复刻**，
 把一份计划表对全池卡铺一遍。用法：
 
-    python -I sim_rewrite.py <plan.json> <out.txt>
+    python -I sim_rewrite.py <plan.json> <out.json>
+
+⚠️ 第二个参数**写的是 JSON**（`json.dump({"rendered": …, "not_idempotent": …})`，见本文件尾部）
+   —— 这里原来写 `<out.txt>`，已按实际行为改为 `<out.json>`（`A1429`，2026-10-19）。
 
 ⚠️ 静态复刻，**不是 Unity 实跑**（不模拟 `<link>` 那一层的运行时行为）。
 

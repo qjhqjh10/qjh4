@@ -252,6 +252,24 @@ namespace CardPresentation
         GameObject _initGo; Label _initText1, _initText2;
         /// <summary>左右箭头（原版 `TutorialArrows/arrow1·arrow2`，**原版这一层本来就没有图**，见文件头 ②）。</summary>
         HudPiece _arrowL, _arrowR;
+        /// <summary>🆕 **2026-10-19（T11 `G-5`）**：左右箭头在 `Tutorial` 根下的**固定局部坐标/旋转**
+        /// —— **判据 = 反编译不了、但解包资源里读得到**（`bundle_scenes_scenes_battlearena1/Transform/`）：
+        ///   · `Transform_1447`（`TutorialArrows`）= `localPosition (-3.40, -1.16)` · `localScale 0.8`；
+        ///   · `Transform_1448`（`arrow1`）      = 子局部 `(2.77, 1.89)` · `quaternion (z -0.58399, w 0.81176)`
+        ///     ⇒ 相对根 `(-3.40 + 0.8×2.77, -1.16 + 0.8×1.89) = (-1.184, 0.352)` · 旋转 **−71.47°**；
+        ///   · `Transform_1450`（`arrow2`）      = 子局部 `(5.76, 1.73)` · `quaternion (z -0.83480, w -0.55056)`
+        ///     ⇒ 相对根 `(1.208, 0.224)` · 旋转 **+113.20°**。
+        /// ⚠️ 两个旋转值是我按 `2·atan2(z,w)` 现算的（四元数逐位照抄上面那两份 JSON）——
+        ///   **原版那两颗 `SpriteRenderer` 的 `m_Sprite` 是真·空引用**（文件头 ②），所以「箭头长什么样、
+        ///   朝哪边」在原版**本来就是看不见的**；这里照抄的只是**摆放**，贴图仍是我们挑的
+        ///   `40k_general_bt_arrow`（⛔ 别当成「原版的箭就是这张」）。</summary>
+        static readonly Vector2 ArrowLPos = new Vector2(-1.184f, 0.352f);
+        static readonly Vector2 ArrowRPos = new Vector2(1.208f, 0.224f);
+        const float ArrowLRotZ = -71.47f, ArrowRRotZ = 113.20f;
+        /// <summary>自检用：左/右箭头现在**亮着没有**（`G-5` 的读口；原版 `SetupArrows` 只做
+        /// `SetActive(showLeft/showRight)` + 淡入）。</summary>
+        public bool ArrowLeftVisible { get { return _arrowL != null && _arrowL.gameObject.activeSelf; } }
+        public bool ArrowRightVisible { get { return _arrowR != null && _arrowR.gameObject.activeSelf; } }
         /// <summary>高亮那一层（原版 `Tutorial highlight`，独占一块子画布）。</summary>
         HudPiece _highlight;
         /// <summary>指点光标（原版 `TutorialPointerCombat/Pointer`，独占一块子画布）。</summary>
@@ -770,11 +788,17 @@ namespace CardPresentation
                 _initGo.transform.localPosition = LayoutSpace.ToWorld(0.5f, 0.72f);   // 🔴 我们挑的（原版那两条在场景里是 inactive）
 
             // ---- 左右箭头（`TutorialArrows/arrow1·arrow2`）----
+            // 🆕 2026-10-19（T11 `G-5`）：位置/旋转 = **判据**（prefab 的 Transform 链，见 `ArrowLPos` 那段）；
+            //   ⚠️ 原来这里给 `arrow2` 加的是 `localScale.x = -1` **镜像**（我们挑的），
+            //   现在换成**原版那两个四元数** ⇒ 删掉镜像（原版没有负缩放；见 `ArrowRRotZ` 的注释）。
             if (arrowTex != null)
             {
                 _arrowL = MakeImg(tipParent, arrowTex, "arrow1", 0.45f, ZFlat);
                 _arrowR = MakeImg(tipParent, arrowTex, "arrow2", 0.45f, ZFlat);
-                if (_arrowR != null) _arrowR.transform.localScale = new Vector3(-1f, 1f, 1f);  // 镜像成另一头
+                if (_arrowL != null) _arrowL.transform.localEulerAngles = new Vector3(0f, 0f, ArrowLRotZ);
+                if (_arrowR != null) _arrowR.transform.localEulerAngles = new Vector3(0f, 0f, ArrowRRotZ);
+                if (_arrowL != null) _arrowL.gameObject.SetActive(false);
+                if (_arrowR != null) _arrowR.gameObject.SetActive(false);
             }
 
             // ---- 高亮（`Tutorial highlight`，`sortingOrder 601`）----
@@ -898,7 +922,8 @@ namespace CardPresentation
         ///     `== 30 (Above) ⇒ y += fVar9 * **0.5**`（那个 `0.5` = `GameAssembly.dll` 常量池
         ///     `DAT_1834b2bb4` 的实读值）。
         ///   ⇒ 现在**逐字照抄这三条**（⛔ 不再叠 `Gap` / 半面板宽那些我们挑的量）。</summary>
-        public void SetTip(bool on, string text, bool withContinue, Vector3 center, float dx, TutRelation rel)
+        public void SetTip(bool on, string text, bool withContinue, Vector3 center, float dx, TutRelation rel,
+                           bool showLeftArrow = false, bool showRightArrow = false)
         {
             if (_tipGo == null) return;
             if (on)
@@ -932,8 +957,32 @@ namespace CardPresentation
                 else _tipGo.transform.position = p;
             }
             else if (_tipGo.activeSelf) _tipGo.SetActive(false);
+            // 🆕 2026-10-19（T11 `G-5`）：**左右箭头**（原版 `TutorialTipScript.SetupArrows(showLeft, showRight)`）。
+            //   原版判据（`decomp_full/TutorialTipScript__SetupArrows.c`）：`SetSpriteAlpha(0)` →
+            //   `SetActive(param)` → `DOFade(fadeDuration)` —— 即**只有「亮/不亮」两态**、位置**不动**
+            //   （原版那两颗就固定挂在 `TutorialArrows` 下）。⇒ 我们照抄两态，位置用 `ArrowLPos/ArrowRPos`。
+            //   ⚠️ 关提示（`on == false`）时两格都传 false ⇒ 一起收掉（原版 `StopTip` 也收）。
+            SetArrow(_arrowL, ArrowLPos, on && showLeftArrow);
+            SetArrow(_arrowR, ArrowRPos, on && showRightArrow);
             _wantVisible = on; _shownFor = 0f;
             if (_tipBg != null) _tipBg.SetTint(new Color(1f, 1f, 1f, 0.92f));
+        }
+
+        /// <summary>`G-5` 的一颗箭头：**先摆位（幂等）、再切开关**。
+        /// ⚠️ 原版 `SetupArrows` 的淡入（`DOFade` over `fadeDuration`）我们**没有**做 ——
+        ///   那个时长是 `this + 0x30`（`TutorialTipScript` 的字段），**本报告没读到它的值**
+        ///   ⇒ 不猜；今天数据 6 关 `showLeftArrow/showRightArrow` **全 false**（462 条动作 0/0），
+        ///   这一档**一次都不会亮**（机制照做，零可见影响）。</summary>
+        void SetArrow(HudPiece a, Vector2 local, bool on)
+        {
+            if (a == null) return;
+            if (on)
+            {
+                var p = new Vector3(local.x, local.y, ZFlat);
+                if (UguiMode) CvPlace(a.gameObject, _cvTip, _root.TransformPoint(p));
+                else a.transform.localPosition = p;
+            }
+            if (a.gameObject.activeSelf != on) a.gameObject.SetActive(on);
         }
 
         /// <summary>原版 `GetTipPosition` 里 `Above` 那一条的系数 —— ✅ **判据是硬值**：

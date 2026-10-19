@@ -443,10 +443,21 @@ class PlayProbe
         var hand = target != null && target.Type != "hero"
             ? new[] { a, b, c, target }
             : new[] { a, b, c };
-        var d0 = Deck("P0", hand);
+        // 🔴 **2026-10-19（`A2001` 残余 · `EC17` 夹具阵营盲区）：督军阵营 = 被测卡的真实阵营。**
+        //   原版「造牌没写阵营 ⇒ 按**施放者阵营**」读的是 `ps.Warlord.Card.Faction`
+        //   （`EffectResolver.cs` 的 `CreatePool` / `DoCreate` 三处：`:2456` `:2753` `:7740`）；
+        //   夹具原来用 `"P0"` / `"P1"` 这种**池里不存在**的阵营 ⇒
+        //   `EC17 Konstrictus Tormentor` 的 `At the end of your turn, create a random Combat Elixir`
+        //   在 `EmperorsChildren` 的 6 张 Elixir 里**一张都筛不到**（E9 `§A2001` 第 230 行）。
+        //   真实对局里督军与卡组**同阵营**（构筑规则）⇒ 用被测卡的阵营才是**保真的量具**。
+        //   ⚠️ 这是**量具改变**、不是改引擎：`target == null`（对照局）/ 阵营为空时退回 `"P0"`/`"P1"`。
+        //   ⚠️ 它会让「按阵营造牌」那一族**开始真的造出牌** ⇒ 全池电池读数会变（与 `A1965` 同批重钉）。
+        string p0Fac = target != null && !string.IsNullOrEmpty(target.Faction) ? target.Faction : "P0";
+        string p1Fac = target != null && !string.IsNullOrEmpty(target.Faction) ? target.Faction : "P1";
+        var d0 = Deck(p0Fac, hand);
         // 督军档的**对照局**：只把 P0 督军换成指定的那一张，别的逐字不变。
         if (warlordOverride != null) { d0.RemoveAt(0); d0.Insert(0, warlordOverride); }
-        var d1 = Deck("P1", e1, e2, e3);
+        var d1 = Deck(p1Fac, e1, e2, e3);
 
         var ctx = RuleCore.NewBattle(d0, d1, seed: 0, shuffle: false, cardPool: pool, vars: vars);
 
@@ -802,6 +813,20 @@ class PlayProbe
     ///     ⛔ **它【不再】蕴含「夹具付不起」** —— 真要判付不起，得拿 `EffectOp.Cost`（灵魂石）
     ///     或阈值（信仰）与夹具给的那两个常数**逐个比**，本函数**不替你做那一步**（那是另一轮的口径）。
     ///   ⇒ 留着这两格是为了**卡池或夹具再变时**仍能指名，⛔ 不是「它们还有货」。
+    ///
+    /// 🔴 **`A1999`（2026-10-19 落地）：第三格已改成【按触发头名分格】** —— 原来它把**所有**
+    ///   「电池抬不到那个事件」的卡压成一格（`A1943` 之后那两格基本清空 ⇒ 这一格就变成唯一一格、
+    ///   ①-c 那张表**彻底失去鉴别力**，见 `资料/普查产出_第三十会话/A1965_电池步设计.md` §七·1）。
+    ///   现在按**引擎公开面**分：
+    ///     · `TriggerTexts` 的键（`rally` / `strike` / `artifice` …，来自 `CardDef` 的触发登记）；
+    ///     · `WhenTriggers[].Ev.Kind`（`deploy` / `die` / `damaged` …，事件层，前缀写成 `When:` 以区分）。
+    ///   ⇒ 一格 = 一组头名（`触发头：rally+strike`）。**读法**：这一组头 = 那张卡**声明了**哪些时机，
+    ///   而电池那一趟**这些时机一个都没抬起净差** —— ⛔ 它仍**不是**「卡有问题」的判据，
+    ///   是「该往哪个时机补电池步」的**定位**。头名一个都没有的卡（正文不是 `Head: body` 形态）
+    ///   单独一格，`.Count` 就是那张卡。
+    ///   ⚠️ **本改动只动控制台分组的文案/粒度**，⛔ 不动任何指纹行（`E|` 那些行不经过这里）⇒
+    ///   **不需要重钉 `PinnedPlayMd5`**（现核 `EcCause` 的三个调用点：`:1932` / `:2185` / `:2959`，
+    ///   全在 `Console.WriteLine` 的参数里）。
     /// </summary>
     static string EcCause(CardDef c)
     {
@@ -809,7 +834,21 @@ class PlayProbe
         // ⚠️ 下面两个串**只报告「有没有这类能力」**，⛔ 不声称根因 —— 见函数头 `A1943` 那一段。
         if (c.SpiritOps != null && c.SpiritOps.Count > 0) return "有灵魂石能力（判据 = `SpiritOps` 非空）";
         if (c.FaithOps != null && c.FaithOps.Count > 0) return "有信仰能力（判据 = `FaithOps` 非空）";
-        return "电池抬不到那个事件";
+        // 🔴 `A1999`：按**触发头名**分格（判据全部取自引擎公开面，⛔ 不在探针里另写一张表）。
+        var heads = new List<string>();
+        if (c.TriggerTexts != null)
+            foreach (var kv in c.TriggerTexts)
+                if (!string.IsNullOrEmpty(kv.Key)) heads.Add(kv.Key);
+        if (c.WhenTriggers != null)
+            foreach (var w in c.WhenTriggers)
+                if (w != null && w.Ev != null && !string.IsNullOrEmpty(w.Ev.Kind))
+                    heads.Add("When:" + w.Ev.Kind);
+        if (heads.Count == 0) return "无触发头（正文没有 `Head: body` 段 / 只有部署拍）";
+        heads.Sort(StringComparer.Ordinal);
+        var uniq = new List<string>(heads.Count);
+        foreach (var h in heads)
+            if (uniq.Count == 0 || uniq[uniq.Count - 1] != h) uniq.Add(h);
+        return "触发头：" + string.Join("+", uniq);
     }
 
     /// <summary>`A1431` 第三笔：事件电池走完一趟的产物。</summary>
@@ -1026,6 +1065,49 @@ class PlayProbe
         else ep.Steps.Add("selfChip=-");
         var sc1 = Capture(ctx);
 
+        // ---- 🆕 2026-10-19（`A2001` 残余 · `SW22`）：**一发非致命攻击** ----
+        //   `Strike: If the target is a troop and **survives**, …`（`SW22 Blackmane Inceptor`）要的是
+        //   「目标挨了这一下**还活着**」；而下面 `chip2` 会把两个敌人削到 1 血、⑤ 的那两发按设计
+        //   都是**致命一击** ⇒ 「survives」**结构上不可能为真**（判据 → `E8b_报告.md` §四）。
+        //   ⇒ 在这里（`chip2` **之前**、敌人还满血）补一发：只打**打得动、但打不死**的那一格。
+        //   判据 = 引擎自己的 `FieldAttack` vs 目标 `Health`（⛔ 不手改任何单位）。
+        //   打不死才打；一发就会打死 / 攻击力为 0 ⇒ 如实打 `softAtk=skip(…原因)`，让「没验到」看得见。
+        //   ⚠️ `forced: true` = 引擎自己的「不是玩家点出来的」那一档（原版 `scriptedAttack(0x34)`，
+        //      跳过回合/配额），与 ⑤ 那两发**同一档**。
+        //   ⚠️ 战后状态一并打出来（`same` = 目标还活着 ⇒ 这一发达成了设计目的）。
+        var ss1 = sc1;
+        if (slot >= 0 && ctx.Players[0].Board[slot] != null)
+        {
+            var me = ctx.Players[0].Board[slot];
+            bool softRanged = RuleCore.CurrentAttackIsRanged(ctx, 0, slot);
+            int dmg = RuleCore.FieldAttack(ctx, 0, me, softRanged);
+            int softTgt = -1;
+            for (int s = 0; s < BoardSpec.Size; s++)
+            {
+                var t = ctx.Players[1].Board[s];
+                if (t == null || t.IsWarlord || t.Health <= dmg) continue;
+                // ⚠️ **别让被测单位被反击打死**：`DeclareAttack` 的 `counterAtk = target.Attack`
+                //    （`RuleCore.cs` 的「反击值现在就取」那段；远程照样吃反击，只有 `Long Range` 免）。
+                //    本步的目的是「给 `survives` 一族一发非致命攻击」，⛔ 不是「顺手打死被测单位」——
+                //    实测（`EC17`）：`selfChip` 之后它只剩 1 血，这一发会**当场被反击打死** ⇒
+                //    回合末的 `At the end of your turn, …` 再也验不到（这是本步引入的回归，已挡住）。
+                if (me.Health <= t.Attack && !me.Has("longrange")) continue;
+                softTgt = s; break;
+            }
+            if (softTgt < 0)
+                ep.Steps.Add("softAtk=skip" + (dmg <= 0 ? "(atk0)" : "(would-kill)"));
+            else
+            {
+                var softVictim = ctx.Players[1].Board[softTgt];
+                int rc = RuleCore.DeclareAttack(ctx, 0, slot, 1, softTgt, softRanged, forced: true);
+                ep.Steps.Add("softAtk=" + rc + "@" + softTgt
+                           + "/" + (softVictim != null && softVictim.Health > 0 && !softVictim.IsRemnant
+                                    ? "survived" : Aftermath(ctx, 1, softVictim)));
+            }
+            ss1 = Capture(ctx);
+        }
+        else ep.Steps.Add("softAtk=-");
+
         // ---- ②b `chip2`：P1 最低两格部队各削到 1 血 ----
         //   让后面两发攻击**变得致命** ⇒ `Slay 120` 才会响（`TryCreditKill` 只在攻击路/效果路记凶手，
         //   而第 ⑥ 步那记 999 伤害**不给凶手** ⇒ 结构上换不来 Slay，见设计 §三·Slay）。
@@ -1202,7 +1284,7 @@ class PlayProbe
         // 🔴 **逐段 diff，顺序 = 上面捕获的顺序**（⛔ 别只留首尾：中途被改回去的那一段会自己抵消）。
         var snaps = new List<Snap>();
         if (sPre != null) snaps.Add(sPre);      // 变体：把「打出那一拍」也纳入（见上面 `sPre` 的说明）
-        snaps.AddRange(new[] { s0, s1, sc1, sc2, sc3, sc4, se0, sd1, s2, sd2, s3, s4, s5, s6, s7 });
+        snaps.AddRange(new[] { s0, s1, sc1, ss1, sc2, sc3, sc4, se0, sd1, s2, sd2, s3, s4, s5, s6, s7 });
         for (int i = 1; i < snaps.Count; i++) Diff(snaps[i - 1], snaps[i], ep.Changes);
         ep.End = s7;
         return ep;
@@ -2531,7 +2613,18 @@ class PlayProbe
     //       那是**另一笔已定的修正**，重生成时按盘上代码一并烘入 —— 复核本基线前先确认它仍在工作树里。
     //   本版读数：**1713 行**（主档 1127 ＋ 电池 586）· 规范 md5 **`07aba22133b70af4fe609d37b00a88bf`**；
     //   同一条 `play all pf` 连跑两次**逐字节一致**（`_tmp_view/a2137/` 留证）· `play check` rc=0。
-    public const string PinnedPlayMd5 = "07aba22133b70af4fe609d37b00a88bf";
+    // 🔴 **2026-10-19（第五十六会话 · `A1973` 收口重钉）** —— 与 `Program.PinnedPoolMd5` 同一批、同一份归因：
+    //    主档 15 张 = `A1571` autoPlay（`AM58` `BL55` `SW57`）· `A2142` Talent 桥（`GOF77` `GOF87` `SW1`）·
+    //    `A2143` 敌方手牌（`GOF93`，E12）· `A2001`/E9 数值来源（`GSC35` `GSC59` `SOR14`）·
+    //    choose 注入（`BL38`）· 卡面数据（`SW38`）· E8/E9 同批引擎改动（`TL37` `TL49` `TL8`，
+    //    E8b `§5·2` 逐张列过）；**电池 586 行全变** = `A1965` 新增 6 步（E8，格式扩展）。
+    //    🔴 **本会话另补两个探针盲区**（同批重钉，⛔ 不是行为漂移）：
+    //      · `SW22`：电池新增 `softAtk`（`chip2` 之前、敌人满血时的一发**非致命**攻击，
+    //        且挡住「被反击打死」）⇒ `Strike … survives` 那一族第一次验得到（`SW22` 净差 0 → 3）；
+    //      · `EC17`：夹具督军阵营 `P0/P1` → **被测卡的真实阵营**（原版「按施放者阵营造牌」读
+    //        `Warlord.Card.Faction`）⇒ 按阵营造牌那一族第一次造得出牌（`EC17` 净差 0 → 1）。
+    //    重生成后 `play check` 现读「当次现算 == 基线文件」、①-a/①-b 差异 0。
+    public const string PinnedPlayMd5 = "3d1f47ef5dd8873fd1c5eb8aed1578ef";
 
 
     /// <summary>`play check` 的缺省基线 —— **按名字往上找**（形状照 `Program.CheckMain.DefaultBaseline`，

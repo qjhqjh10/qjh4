@@ -121,8 +121,12 @@
 //     矩形 = 原版 `2DCard/UI Collider` 的 `1.8927×2.8913 @ y −0.02`；⛔ 别再退回轴对齐框，
 //     ⛔ 也别改用 `BoxCollider2D` 主面 —— 那是手牌/棋盘的送达件，见 `HitSlot` 的 doc）。
 //     `HitVoice` / `HitBtn`（语音那颗钮）**仍按 px 判** —— 它比的是**不转的**那颗钮，本来就该按 px。
-//     ⚠️ 那一族（含 `HitSlot` 的降级支）另有 `A990②` 的账：拿 `ToPixel` 读回来的 px 去比**字面设计 px**
-//     只在 16:9 对；非 16:9 下画布会缩放、而世界那份不缩 ⇒ 两者分家（`T09` 第 4/5 步的账）。
+//     🔴🔴 **2026-10-19（`T03` 现核 · 铁律 5）就地订正**：本行原来写「那一族另有 `A990②` 的账：
+//     拿 `ToPixel` 读回来的 px 去比**字面设计 px** 只在 16:9 对…（`T09` 第 4/5 步的账）」——
+//     **已不再成立**：`HitSlotNoView`（`CardFan.Cx/HitCy` 那一条）与 `HitBtn`（`VoiceCx/BtnCy`）
+//     **在 2026-10-17（`T09` 批 4 · `W11`）就换成了 `LayoutSpace.ToDesignPixel`**（= `FromPixel`
+//     那条建件路的真逆，非 16:9 下也咬合；`A2092` 的战斗侧残余随之清零）。
+//     ⇒ 本窗今天**一条 `ToPixel` 读回都没有**（全文件只剩注释里提到它）。
 // ═══════════════════════════════════════════════════════════════════════════════════════
 using System.Collections.Generic;
 using DG.Tweening;          // `OnComplete` 是它的扩展方法（换位收尾那一步）
@@ -1248,13 +1252,21 @@ namespace CardPresentation
             if (a == null || b == null) return;
             _swapping = true;
 
-            var pa = a.transform.position; var pb = b.transform.position;
-            float ra = a.transform.eulerAngles.z, rb = b.transform.eulerAngles.z;
-            float sa = a.transform.localScale.x, sb = b.transform.localScale.x;
+            // 🔴 **2026-10-19（`T04`）：补间一律走 `CardView.TweenPose`，⛔ 别退回 `CardTween.ToPose`。**
+            //    `CardTween.ToPose` 直接写 `transform.localScale`，而我们的缩放是「基础 × 高亮系数」
+            //    ⇒ tween 结束时 `CardView._baseScale` 还停在**换位前那个槽位**的值上：之后任何一次
+            //    `SetPose` / `SetHighlightScale`（→ `ApplyScale`）都会把卡**弹回旧缩放**（静默）。
+            //    判据 = 原版 `ChangeCardPosition.c:203-221` 的两条 tween 作用在同一个 transform 上；
+            //    我们的等价物必须把 `_baseScale` 一起带过去（`TweenPose` **每帧经 `SetPose` 写**）。
+            //    ⚠️ 位置/转角一律取 **`localPosition` / `localEulerAngles`**（`SetPose` 的坐标系）；
+            //    两张卡同挂 `_cards` ⇒ 与世界坐标逐位同值（父链无缩放/无旋转），但局部坐标才是 `SetPose` 的口径。
+            var pa = a.transform.localPosition; var pb = b.transform.localPosition;
+            float ra = a.transform.localEulerAngles.z, rb = b.transform.localEulerAngles.z;
+            float sa = a.BaseScale, sb = b.BaseScale;      // ⛔ 不取 `localScale.x`（那已乘过高亮系数）
 
             // 六条 tween 全用同一个时长（原版 `relatedCardSwapTime` = 0.25s）：
             // 被点那张 → 前台位；前台那张 → 被点卡的槽位。
-            CardTween.ToPose(b.transform, pa, ra, sa, CardFan.SwapTime, DG.Tweening.Ease.OutQuad).OnComplete(() =>
+            b.TweenPose(pa, ra, sa, CardFan.SwapTime, DG.Tweening.Ease.OutQuad).OnComplete(() =>
             {
                 // 记账：两个**位姿槽**上的卡对调（前台永远是位姿槽 0）
                 var td = _slotDefs[0]; _slotDefs[0] = _slotDefs[idx]; _slotDefs[idx] = td;
@@ -1275,7 +1287,7 @@ namespace CardPresentation
                 Debug.Log("[展示窗] 换位完成：前台现在是「" + (SlotViews[0] != null ? ShownTitle : "?")
                         + "」（收尾重设了 lore / 语音 —— 原版 `CardSwapFinished`）");
             });
-            CardTween.ToPose(a.transform, pb, rb, sb, CardFan.SwapTime, DG.Tweening.Ease.OutQuad);
+            a.TweenPose(pb, rb, sb, CardFan.SwapTime, DG.Tweening.Ease.OutQuad);
             // 着色跟着换：去前台那张 → 白，让出前台那张 → `cardInBackGroundColorTint`
             // （原版 `ChangeCardPosition.c:203-221` 那两条 tween，同一时长）。
             CardFan.TweenTint(b, CardFan.BackTint, CardFan.FrontTint, CardFan.SwapTime);

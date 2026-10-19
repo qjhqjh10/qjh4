@@ -1,7 +1,7 @@
 {
  "schema": "card_vfx_by_card/v1",
  "generatedBy": "d:/4/Unity/工具/gen_card_vfx_by_card.py",
- "generatedAt": "2026-10-19 01:34:12",
+ "generatedAt": "2026-10-19 18:57:18",
  "_sources": {
   "cardsEngine": "d:/4/Unity/MyGame/Assets/RuleEngine/Resources/cards_engine.json",
   "animAddressMap": "d:/4/Unity/数据/索引/anim_address_map.json",
@@ -26152,6 +26152,10 @@
      "abilityEventWhy": "未归口（保持 `ability`；原版触发 `Mob` 我们引擎没有对应事件）",
      "chosenAbility": 30,
      "chosenAbilityName": "buffOthers",
+     "abilityIndex": 0,
+     "abilityLogicIndex": 0,
+     "abilityLogicCount": 5,
+     "randomAbilityChoice": 1,
      "inLibrary": true
     },
     {
@@ -26174,6 +26178,10 @@
      "abilityEventWhy": "未归口（保持 `ability`；原版触发 `Mob` 我们引擎没有对应事件）",
      "chosenAbility": 30,
      "chosenAbilityName": "buffOthers",
+     "abilityIndex": 0,
+     "abilityLogicIndex": 1,
+     "abilityLogicCount": 5,
+     "randomAbilityChoice": 1,
      "inLibrary": true
     },
     {
@@ -26196,6 +26204,10 @@
      "abilityEventWhy": "未归口（保持 `ability`；原版触发 `Mob` 我们引擎没有对应事件）",
      "chosenAbility": 30,
      "chosenAbilityName": "buffOthers",
+     "abilityIndex": 0,
+     "abilityLogicIndex": 2,
+     "abilityLogicCount": 5,
+     "randomAbilityChoice": 1,
      "inLibrary": true
     },
     {
@@ -26218,6 +26230,10 @@
      "abilityEventWhy": "未归口（保持 `ability`；原版触发 `Mob` 我们引擎没有对应事件）",
      "chosenAbility": 30,
      "chosenAbilityName": "buffOthers",
+     "abilityIndex": 0,
+     "abilityLogicIndex": 3,
+     "abilityLogicCount": 5,
+     "randomAbilityChoice": 1,
      "inLibrary": true
     },
     {
@@ -26240,6 +26256,10 @@
      "abilityEventWhy": "未归口（保持 `ability`；原版触发 `Mob` 我们引擎没有对应事件）",
      "chosenAbility": 30,
      "chosenAbilityName": "buffOthers",
+     "abilityIndex": 0,
+     "abilityLogicIndex": 4,
+     "abilityLogicCount": 5,
+     "randomAbilityChoice": 1,
      "inLibrary": true
     }
    ]

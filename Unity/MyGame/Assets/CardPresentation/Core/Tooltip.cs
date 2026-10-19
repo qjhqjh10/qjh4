@@ -36,6 +36,19 @@
 //           `NotEnoughMana` / `NotEnoughRoom` / `NotYourTurn` / `PendingBerzerk` / `PleaseWait` /
 //           `UnitNotReady`），**一条 value 都没有**（同①）。
 //      ⇒ **`TipText` 仍是我们写的**（判据：那些 key 本地只有名字）。
+//      🔴🔴 **2026-10-19（战斗线 `T17`）就地订正（铁律 5）—— ① 那三段整块【已过期】，别再照它下结论：**
+//        · **原话** = 「I2 表在远端 CCD，本地只有 key、**一个 value 都没有** ⇒ `TipText` 是我们照规则书写的」·
+//        · **现值** = 官方 I2 表 **2026-10-14 已在本地**（`数据/游戏数据/官方本地化_en+zh-CN.json`，现读 **10,854** 条；
+//          运行时经 `Resources/official_loc_13lang.json`，现读 **10,862** 键）。本文件 `TipText` 的取值
+//          **全部是 `Loc.T("Tips/…")`**，而 `Tips/*` 那批官方键的**值就是官方两列**
+//          （2026-10-17 已换；见 `Core/Loc.cs` 那一节逐条的「值 = 官方两列」标注）。
+//          **仍然自拟的只有三条**：`Tips/ArmourTip`（原版没有这条键/触发器）+ `Tips/Trait/{NoRulebookEntry,TitleWithEn}`
+//          （我们自己加的括注）—— ⛔ 别把整族都当成「我们写的」。
+//        · **错因** = 那句写于官方表解出之前：把「**不在客户端安装目录里**」（84 个本地 bundle 无本地化包）
+//          读成了「**根本没有**」。实际它由远端 Addressables 包 `localization_assets_all` 下发，
+//          2026-10-14 已从旧缓存里解开（逐字节重复密钥 XOR）。
+//        · 「那个值本地取不到」**只对** `zh_CN.csv` 那份旧表成立（按英文源串精确查 0 命中是事实），
+//          ⛔ 不能外推成「原版没有」。该说法与 `Core/Loc.cs` 文件头的订正口径一致。
 //   ② 面板的**圆角/内边距/九宫格拉伸目标尺寸**：prefab 的 RectTransform 是 UI 布局算的，
 //      我们这套是世界空间 quad ⇒ **内边距与最小宽高是我们挑的**。
 using System.Collections.Generic;

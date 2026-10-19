@@ -167,7 +167,8 @@ namespace CardPresentation
         /// `CardDeck___ctor(lVar5, plVar8, 0)`（**拷贝构造**，`plVar8` = 开窗时传进来那副，
         /// 它在窗的 `+0x40`、类型检查对着 `CardDeck`）→ `*(longlong *)(param_1 + 0x118) = lVar5`
         /// （窗上那个 `EditingDeck`（`get_EditingDeck` 读的就是 `+0x118`）存的是**副本**）；
-        /// 连「清掉无效卡」也只动副本（`:46 DeckUtility__RemoveInvalidCards(*plVar1, 0)`）。
+        /// 连「清掉无效卡」也只动副本（`:47 DeckUtility__RemoveInvalidCards(*plVar1, 0)` ——
+        /// ⚠️ 2026-10-19（`A1896`）实读订正：原文写 `:46`，实际那一句在第 **47** 行）。
         /// 真写回**库里那份**只在一处 = `DeckEditingWindow__UploadDeck.c` 的
         /// `CardDeck__CopyDeck(库那份 ← 编辑中那份)`（= 我们 `Done`/`ESC` 那一拍的
         /// `DeckRuntime.CommitDeck()` → `DeckLibrary.CommitCurrent`）。</para>
@@ -197,7 +198,31 @@ namespace CardPresentation
             if (deck != null) Deck.Name = deck.Name;
             // `Clone()` 与 `PlayerDeck()` 都给非 null 的 `CardIds`；这一行是**兜底不变式**（保持原样无害）。
             if (Deck.CardIds == null) Deck.CardIds = new List<string>();
+            // 🔴🔴 **2026-10-19（`A1896` · 用户拍板「方案 B」）：打开编辑器时**逐张摘除**不合法卡。**
+            //   判据 = 原版 `DeckEditingWindow__TryOpen`（`d:/2/tools/decomp_full/`，逐句实读）：
+            //     `:41-45` 先 `new CardDeck(deckToCopy)` 拷一份（= 上面那行 `Clone()`）→
+            //     `:47` `DeckUtility__RemoveInvalidCards(*plVar1, 0)` **对副本**逐张摘掉不合法卡 →
+            //     `:141` `*(bool*)(*plVar1 + 0x60) = (removed == 0)`（**摘了就标脏**；原版 `+0x60` 是
+            //     「干净」标志：`DeckEditingWindow__TryClose.c:9` 里 `== 0` 才走 `ConfirmDiscard`）。
+            //   ⚠️ 逐条判据**只有一处实现** = `RuleEngine/Core/DeckRules.RemoveInvalidCards`（别在这儿重写）。
+            //   ⚠️ 全库调用点**只有这一处** —— 原版开局**不跑**它（判据 `BattleManager__CreatePlayerDeck.c`：
+            //     拿 `cardLibrary` 直接逐张建卡）；我们 `BattleDriver.ResolveDeck` 里原来那一处已按 `A1896` 移走。
+            //   ⚠️ 摘除**只动这份副本**：传进来那副（库/存档/调用方的对象）一个字节都不动 ——
+            //     原版也是先 `new CardDeck(deckToCopy)` 再摘。
+            //   ⚠️ `+0x60`（脏标记）那半**本文件不拥有**（出口是 `DeckRuntime.DeckDirty`）——
+            //     `LastLoadRemoved` 留给调用方接，缺口记在 `W_引擎线_A1896_1019b.md`。
+            LastLoadRemoved = DeckRules.RemoveInvalidCards(Deck, Find);
+            foreach (var rc in LastLoadRemoved)
+                UnityEngine.Debug.LogWarning($"[Deck] 打开编辑器时按原版摘掉一张 `{rc.Id}`"
+                                           + $"（原版判据 `{DeckRules.Describe(rc.Why)}`）");
         }
+
+        /// <summary>最近一次 <see cref="LoadDeck"/> 按原版 `DeckUtility.RemoveInvalidCards` 摘掉的卡
+        /// （= **打开编辑器**那一趟的结果；空表 = 一张都没摘）。
+        /// ⚠️ 原版同一步还会把「摘过」写进 `CardDeck+0x60`（脏标记）—— 我们那半还没接
+        /// （`DeckRuntime.DeckDirty` 的出口不在本文件）⇒ 这里先把结果摊开给调用方/断言用。</summary>
+        public List<DeckRules.RemovedCard> LastLoadRemoved { get; private set; }
+            = new List<DeckRules.RemovedCard>();
 
         /// <summary>
         /// 校验这副卡组。**它有一个【副作用】，是照原版搬过来的**：

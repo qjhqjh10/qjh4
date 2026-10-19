@@ -192,7 +192,7 @@ PYTHONIOENCODING=utf-8 "D:/2/Warpforge_tools/py312/python.exe" -c "import json;d
    `BlueSummonCircle` · `GreenSummonCircle` · `Tau_SummonCircle`。
    🔴 **唯一缺口 = `Card 3D Death Explosion`**：`Assets/WarpforgeVFX/Prefabs/` 里没有，
    但**解包资源里有**（`bundle_battleprefabs_vfxandmisc_assets_all/GameObject/Card 3D Death Explosion.json`），
-   而且**粒子数据也已经转过了**（`数据/粒子/particles/` 与 `particles3d/` 各一份）。
+   而且**粒子数据也已经转过了**（`数据/粒子/particles/` 与 `particles3d/` 各一份；🆕 **2026-10-19 已归档** → `数据/历史_Godot快照/粒子/particles/` 与 `.../particles3d/`，原相对路径保留、⛔ 未删）。
    ⇒ 缺的不是数据，是**一次「按名字导入单个原版 prefab」** —— 与
    `资料/待办判据_战场与战斗视图.md` 里「12 个 trait 框」那条的**前置缺口是同一个**，一次做完两处都通。
    ⚠️ `VfxMap.cs:58` 那句「❌ 不在导出索引」**是对的、不要改**（`effect_index.json` 958 条里确实 0 命中）；

@@ -21,6 +21,7 @@
 
 用法：
   "D:/2/Warpforge_tools/py312/python.exe" "d:/4/Unity/工具/gen_shake_presets.py"
+  加 `--dry` = 只跑计算、打印读数、**零写盘**（默认行为不变；`A1648` 同族口径）。
 """
 import datetime
 import glob
@@ -28,6 +29,9 @@ import io
 import json
 import os
 import sys
+
+# 🔴 `--dry` = 只跑计算、打印读数、**零写盘**。默认（不带它）行为与以前完全一样。
+DRY = "--dry" in sys.argv[1:]
 
 SRC_DIR = r"d:/2/新解包资源/assets_full/bundle_tweenandshakes_assets_all/MonoBehaviour"
 OUT = r"d:/4/Unity/MyGame/Assets/Resources/WarpforgeVFX/shake_presets.json"
@@ -70,10 +74,12 @@ def main():
         "count": len(out),
         "presets": [out[n] for n in sorted(out)],
     }
-    os.makedirs(os.path.dirname(OUT), exist_ok=True)
-    io.open(OUT, "w", encoding="utf-8", newline="\n").write(json.dumps(doc, ensure_ascii=False, indent=1))
-
-    print("抽出 %d 个 preset → %s" % (len(out), OUT))
+    if DRY:
+        print("干跑（未写盘）：%s（%d 个 preset）；要落盘请去掉 --dry" % (OUT, len(out)))
+    else:
+        os.makedirs(os.path.dirname(OUT), exist_ok=True)
+        io.open(OUT, "w", encoding="utf-8", newline="\n").write(json.dumps(doc, ensure_ascii=False, indent=1))
+        print("抽出 %d 个 preset → %s" % (len(out), OUT))
     for n in sorted(out):
         r = out[n]
         print("   %-28s amp=%-6.3f freq=%-6.3f sus=%-5.3f atk=%-5.3f dec=%-5.3f dir=(%.2f,%.2f,%.2f)%s"

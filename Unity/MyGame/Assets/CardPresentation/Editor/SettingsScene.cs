@@ -289,6 +289,27 @@ public static class SettingsScene
     /// <summary>🆕 2026-10-18（第四会话）：收口到 `MenuCheck.FindChild`（5 份逐字相同的那一份）。</summary>
     static Transform FindChild(Transform parent, string name) => MenuCheck.FindChild(parent, name);
 
+    /// <summary>🆕 **2026-10-19（`A1384` · 铁律 11）**：一行九宫格**端帽**那块子 quad 的**实画宽**（画布 px）。
+    /// <para>🔴 **为什么要有它**：原来两处（FPS 那根轨道的 `Background` / 音频三根的 `slider_bg`）用
+    /// 「`WorldW * 108f < 200f`」这种**启发式**筛端帽 —— 那是**隐藏耦合**：只有「中段建件宽 ≫ 200」时才成立；
+    /// 哪天轨道宽缩到 `200 + 2×端帽` 以下，中段会漏进 `max` ⇒ **量错对象、而断言照样绿**。
+    /// ⇒ 按**结构**取：`ImageQuad.CreateNineSlice` 的子件命名是 `{name}_{i}{j}`（`Battle/ImageQuad.cs`）；
+    /// 上下 `border` 为 0 的行只有 `j = 1` 那一排 ⇒ 左右端帽 = **`{name}_01` / `{name}_21`**。</para>
+    /// <para>⚠️ 量不到（层不在 / 命名变了 / 没挂 `ImageQuad`）⇒ 返回 **−1**：调用方的 `CheckNear` 会**显式红**
+    /// （⛔ 不许静默当 0 —— 那会让「量不到」变成「端帽宽度 0」这种假红/假绿两可的读数）。</para></summary>
+    static float NineCapPx(Transform layer, string name)
+    {
+        if (layer == null) return -1f;
+        float w = -1f;
+        foreach (var cn in new[] { name + "_01", name + "_21" })
+        {
+            var t = FindChild(layer, cn);
+            var q = t != null ? t.GetComponent<ImageQuad>() : null;
+            if (q != null) w = Mathf.Max(w, q.WorldW * 108f);
+        }
+        return w;
+    }
+
     /// <summary>🆕 **2026-10-19（`A1181`）**：一颗 `Label` **渲出来**那块字有多大（画布 px · `Vector2(w, h)`）。
     /// 🔴 **走哪条口**：`TMP.textBounds`（= TMP 自己渲出来那块），同 `Editor/CollectionScene.cs` 的
     /// `LabelRenderedPx` / `TmpRenderedRect` 那一族口。
@@ -377,6 +398,31 @@ public static class SettingsScene
             + (wrapMode == 0 ? "（`NoWrap`）" : "（`Normal` = 折行开）")
             + " —— 🧨 改坏法：把 `SettingsWindow.Text` 里那句 `if (autoMinPx > 0f && wrapPx <= 0f) lb.SetWrapping(false);`"
             + " 删掉 ⇒ 折行=0 的那些站全变 1 ⇒ 本行红");
+
+        // 🔴 **2026-10-19（`A1215` · 铁律 11 · 本仓「灭自证」那条）**：`boxW` / `boxH` 不能**只有上界语义** ——
+        //   上面那两条 `sz ≤ box × 0.9` 只挡「**字溢出框**」，挡不住「**框本身被放宽**」：
+        //   `P11` 实测把音频页第 1 行的框宽从半行改回整行，那条**照样绿**（那行字在 42px 档只有 ~100–130px，
+        //   放到 615 也 ≤ 309.4）。⇒ 凡「期望值 = 框」的站都另配一条**结构断言**：
+        //   读那颗 TMP **真写进去的** `sizeDelta`（`Label.SetWrapWidth` → `TmpFont.SetWrapWidthRect` 的
+        //   `sizeDelta = (width, 0)`；`SetAutoFitBox` 再把 `sizeDelta.y` 写成框高，见 `Battle/Label.cs` 那两处），
+        //   ×108 换成画布 px，与原版那一颗的 `m_SizeDelta`（= 本函数的 `boxW` / `boxH`，设计 px）× 0.9 比。
+        //   ✅ 范式 = 本文件音频页三站（`A1201` 那一节，逐颗比 307.89 / 615.78 / 615.78）。
+        //   ⛔ **不是**读我们传给 `SettingsWindow.Text` 的实参（那是被测实现 = 自证）；
+        //      ⛔ 也**不是**拿 `boxW` 再算一遍（那是同义反复）—— 比的是 **TMP 手里那个真框** vs **原版那个矩形**。
+        //   🧨 改坏法：把某一站的 `fitW` 传宽一倍（例：`Music` 那行改回整行）⇒ 本行红，
+        //      而上面「渲出来 ≤ 框」那一条**可能照样绿**（那正是 `A1215` 报的病）。
+        //   ⚠️ 未激活的站（`skipRendered`）也量得到：`sizeDelta` 是**建的时候就写死的**（`SetWrapWidth`
+        //      里「模式 + 宽度：**立刻写**」那一句），不依赖重排 ⇒ 本断言照样有牙。
+        {
+            var bxTmp = lb.GetComponentInChildren<TMPro.TextMeshPro>(true);
+            CheckNearPx(bxTmp != null ? bxTmp.rectTransform.sizeDelta.x * 108f : -1f, boxW * RS,
+                        $"{what}：★ **框宽**（TMP `sizeDelta.x`）= 原版 `m_SizeDelta.x` {boxW:F2}px × 0.9 = {boxW * RS:F2}px"
+                      + " —— ★ 挡的是「**框本身被放宽**」（上面那条只挡「字溢出框」）；"
+                      + "⛔ 量不到（没有 TMP）⇒ 显式红（实得 −1），不许当 0");
+            CheckNearPx(bxTmp != null ? bxTmp.rectTransform.sizeDelta.y * 108f : -1f, boxH * RS,
+                        $"{what}：★ **框高**（TMP `sizeDelta.y`）= 原版 `m_SizeDelta.y` {boxH:F2}px × 0.9 = {boxH * RS:F2}px"
+                      + " —— 同一条的另一半（`SetAutoFitBox` 就是拿它当 `marginHeight`；只钉宽 = 只补一半）");
+        }
 
         if (skipRendered)
         {
@@ -532,6 +578,21 @@ public static class SettingsScene
     }
 
     public static void Run()
+    {
+        // 🔴 **2026-10-19（`A1534` 尾巴 · 铁律 11）**：批处理自检**不出声** —— `WFSoundPlayer.Enabled = false`
+        //   时那个开关自己的契约是「**只记账不发声**：不建对象、不出声，但 `Played` 照样涨」
+        //   ⇒「音效调度算对了没有」那一族断言**照旧有效**，而这一趟**不白建一堆 `AudioSource`、不白播**。
+        //   先例 = `WarpforgeArena1/Editor/AnimFXCheck.cs:341-366`（同一个开关、同一个 `finally` 还原）。
+        //   ⚠️ 它是**全局静态开关** ⇒ 必须在 `finally` 里还原；`RunCore` 本体保持原样（只换了名字）。
+        bool prevSoundEnabled = WarpforgeVFX.WFSoundPlayer.Enabled;
+        WarpforgeVFX.WFSoundPlayer.Enabled = false;
+        try { RunCore(); }
+        finally { WarpforgeVFX.WFSoundPlayer.Enabled = prevSoundEnabled; }
+    }
+
+    /// <summary>`Run()` 的**本体**（🆕 `A1534` 尾巴：`Run` 只负责「关音效 → 调它 → 还原」这一圈）。
+    /// ⚠️ 入口仍是 `Run`（`-executeMethod SettingsScene.Run` 一个字没变）。</summary>
+    static void RunCore()
     {
         _sink.Pass = 0; _sink.Fail = 0; _sink.Failures.Clear();
         Directory.CreateDirectory(ShotDir);
@@ -2089,13 +2150,10 @@ public static class SettingsScene
                     CheckTrue(fpsBgQ != null && fpsBgQ.Texture != null && fpsBgQ.Texture.name == "Volume_bar_inactive",
                               "轨道的图 = `Volume_bar_inactive`（原版 `Background.m_Sprite`）");
                     // ② 端帽 = `m_Border ÷ ppuMul`（184 ÷ 2 = 92 ⇒ 屏上 82.8）—— 量九宫格**左边那一块**的宽
-                    float capW = 0f;
-                    if (bgN != null)
-                    {
-                        var kq = bgN.GetComponentsInChildren<ImageQuad>(true);
-                        for (int k = 0; k < kq.Length; k++)
-                            if (kq[k] != null && kq[k].WorldW * 108f < 200f) capW = Mathf.Max(capW, kq[k].WorldW * 108f);
-                    }
+                    // 🔴 **2026-10-19（`A1384`）**：原来用「该层里 `WorldW * 108f < 200f`」的**启发式**筛端帽
+                    //    （隐藏耦合：中段一旦 ≤ 200 就会漏进 `max`、量错对象）⇒ 改按**结构**取
+                    //    （`Background_01` / `Background_21`，见 `NineCapPx` 的 doc）。
+                    float capW = bgN != null ? NineCapPx(bgN, "Background") : -1f;
                     CheckNear(capW, 82.8f, 2f,
                               "轨道九宫格的**左端帽**宽 = 原版 `m_Border 184 ÷ m_PixelsPerUnitMultiplier 2` = 92 设计 px × 0.9 ⇒ **82.8**"
                             + $"（实得 {capW:F2}；改坏法：端帽传 184（贴图 px 原样，音频页那三根现在就是这么画的）⇒ 184；"
@@ -2769,6 +2827,52 @@ public static class SettingsScene
                 CheckTrue(!SmallScreenUI.Enabled, "★ 再点一下 ⇒ 又关回来（两态都翻得动）");
                 CheckTrue(ssChk != null && !ssChk.gameObject.activeSelf,
                           "★ …勾也撤掉了（原版看的就是 `CheckMark` 显隐）");
+            }
+
+            // ---------------- 🆕 2026-10-19（`A1549` 尾巴）：切档 ⇒ 已建好的卡当场重做费用格（**静态**）----------------
+            //
+            // 判据链（逐条，⛔ 不是我们的实现常量）：
+            //  · 原版 `CardTextCountersController__Toggle.c`：**每次** Toggle 都按**当时的** `GameStaticData.smallScreenUI`
+            //    重新选容器（`Cost Container` / `Cost Container Big`）⇒ 状态一变就要重算，不是只在建卡时算一次。
+            //  · 我们的档位是**建卡时烘进网格/贴图**的（尺寸 ×`CostScale`、落点含 `CostBigDropUnit`、数字烘在
+            //    `InfoTexture`）⇒ 设置窗那颗开关写完之后**必须**调一次 `CardView.RefreshAllCostTiers()`，
+            //    否则「已经上屏、这一帧不重排的卡」不会变（`SetPose`/`SetData` 那条自动链只覆盖之后重新布局的那些）。
+            // ⚠️ **静态断言**（读源码文本）：证明不了运行时真的执行了 —— 运行时那半边由
+            //    `CardBaseDemo.AssertCostTierRefresh` 那 7 条覆盖（单卡返回 true / `CostTierBuilt` 跟档 /
+            //    网格 ×1.2 / 档位没变时空操作 / `SetPose` 自动同步刷回）。本条只补「接线那一行在不在、
+            //    以及它排在 `SmallScreenUI.Set(...)` **之后**吗」这段静态空白。
+            {
+                const string swPath = "Assets/CardPresentation/Shell/SettingsWindow.cs";
+                string swSrc = File.Exists(swPath) ? File.ReadAllText(swPath) : "";
+                CheckTrue(swSrc.Length > 0,
+                          $"（前提·不静默）A1549：读得到 `{swPath}` —— 读不到 ⇒ 下面两条**没跑**，不是绿");
+                int sig = swSrc.IndexOf("void ToggleSmallScreenUI()", System.StringComparison.Ordinal);
+                CheckTrue(sig >= 0,
+                          "（前提）`SettingsWindow` 里有 `ToggleSmallScreenUI()`（A165 那颗开关的处理函数）");
+                if (sig >= 0)
+                {
+                    // 从方法签名后第一颗 `{` 起做括号配对 —— 只看这一个方法体，避免命中别处的同名调用。
+                    int open = swSrc.IndexOf('{', sig);
+                    int depth = 0, end = -1;
+                    for (int i = open; i >= 0 && i < swSrc.Length; i++)
+                    {
+                        if (swSrc[i] == '{') depth++;
+                        else if (swSrc[i] == '}') { depth--; if (depth == 0) { end = i; break; } }
+                    }
+                    CheckTrue(end > open, "（前提）`ToggleSmallScreenUI()` 的方法体能配对解析出来");
+                    string body = end > open ? swSrc.Substring(open, end - open + 1) : "";
+                    int iSet = body.IndexOf("SmallScreenUI.Set(", System.StringComparison.Ordinal);
+                    int iRefresh = body.IndexOf("CardView.RefreshAllCostTiers(", System.StringComparison.Ordinal);
+                    CheckTrue(iRefresh >= 0,
+                              "★ A1549 · `ToggleSmallScreenUI()` 里调了 `CardView.RefreshAllCostTiers()`"
+                            + "｜判据 = 原版 `CardTextCountersController__Toggle.c`（每次 Toggle 按当时的 `smallScreenUI` 重选容器）"
+                            + "＋我们的档位是建卡时烘死的（`CardView.CostAt01` / `InfoTexture` 缓存键带档位）"
+                            + "｜🧨 删掉那一行 ⇒ 本条红（真机上表现为「切了小屏 UI，已经上屏的卡费用格不变」）"
+                            + "｜⚠️ **静态断言**：证明不了运行时真的执行了");
+                    CheckTrue(iSet >= 0 && iRefresh > iSet,
+                              "★ A1549 · 而且它排在 `SmallScreenUI.Set(...)` **之后**（先翻转开关、再按新档刷全场）"
+                            + "｜🧨 把两行调换 ⇒ 刷的还是旧档 ⇒ 本条红");
+                }
             }
 
             // ---------------- 🆕 A172：图像页**第 1 行** = Auto Zoom（原版 `GameStaticData.useCombatAutoZoom` +0x125）----------------
@@ -3822,39 +3926,36 @@ public static class SettingsScene
                         CheckTrue(qHd > qFl, $"{who} 的**手柄队列 {qHd} > 填条 {qFl}**（手柄要在最上层）");
 
                         // ② 端帽 = `m_Border ÷ m_PixelsPerUnitMultiplier(2) × 0.9`（A169 修：原来是 184 / 30
-                        //    **贴图 px 原样**画 ⇒ 比原版宽 2.2 倍、中段短了一半）。量法同 A168 那根：
-                        //    取该层里**窄于 200px** 的那几块子 quad 的宽（九宫格的左右端帽）。
-                        float capBg = 0f;
-                        foreach (var q in bgL.GetComponentsInChildren<ImageQuad>(true))
-                            if (q != null && q.WorldW * 108f < 200f) capBg = Mathf.Max(capBg, q.WorldW * 108f);
+                        //    **贴图 px 原样**画 ⇒ 比原版宽 2.2 倍、中段短了一半）。
+                        //    🔴 **2026-10-19（`A1384`）**：量法从「该层里 `WorldW * 108f < 200f` 的启发式」
+                        //    改成**按结构取端帽那块子 quad**（`slider_bg_01` / `slider_bg_21`，见 `NineCapPx`）
+                        //    —— 去掉「中段建件宽 ≫ 200」这个隐藏耦合。
+                        float capBg = NineCapPx(bgL, "slider_bg");
                         CheckNear(capBg, 82.8f, 2f,
                                   $"{who} 轨道九宫格的**端帽**宽 = 原版 `m_Border 184 ÷ ppuMul 2` = 92 设计 px × 0.9 ⇒ **82.8**"
                                 + $"（实得 {capBg:F2}；改坏法：端帽传 184（= A169 前的做法）⇒ 184；只除以 2 没过 0.9 ⇒ 92 ⇒ 都红）");
                         float handleV0 = s.Value;
                         // 🔴 **2026-10-21 更正（`A1365` · 铁律 5）**：这一句 `SetValue(1f, false)` 原来
                         //   标注的理由是「值拉到 1 ⇒ 填条不缩放的那一帧」（下面那条消息里也这么写）
-                        //   —— **那个理由与 `capFl` 无关，已就地删掉**：`capFl` 读的是子件自己的 `WorldW`，
-                        //   而 `WorldW` **从来不含**任何缩放（`A1359` 前后都一样，`A1359` 把横向缩放打在
-                        //   三块子 quad 的 `localScale.x` 上）⇒ 摆哪个值都读出同一个数。
+                        //   —— **那个理由与 `capFl` 无关，已就地删掉**。
                         //   ⚠️ **这一句本身【不能删】** —— 它是**载荷**：下面 `hx0`（值 1 那一帧的手柄中心）
                         //   靠它摆出来，行程那条断言（`CheckNear(hx0 - hxAt0, 606.78f, 0.4f)`）要的正是它。
+                        //   🔴 **2026-10-19（`A1384`）就地订正**：本段下面原来还有一句「`capFl` 读的是子件
+                        //   自己的 `WorldW`、**不含任何缩放**」—— 现在 `capFl` 走 `FillCapWorldW`
+                        //   （**含**根与子件两级 `localScale`）⇒ 那句**已不成立**。结论不变：
+                        //   值 1 这一帧本来就**没有缩放**（端帽不被压），所以本条在这一格读到的是恒宽那个值；
+                        //   真正的判别式是下面「跨值相等」那一组（`A1359` 那节）。
                         s.SetValue(1f, false);          // ⚠️ `fire: false` —— 自检**不许**改总线/存档（只摆值）
-                        float capFl = 0f;
-                        foreach (var q in flL.GetComponentsInChildren<ImageQuad>(true))
-                            if (q != null && q.WorldW * 108f < 200f) capFl = Mathf.Max(capFl, q.WorldW * 108f);
-                        // ⚠️ 上面那个 `WorldW * 108f < 200f` 是**按宽筛出九宫格两端端帽**的启发式
-                        //   （本窗中段的**建件宽** ≈ 615.77 − 2×13.5 = 588.77，远超 200 ⇒ 被筛掉在外）。
-                        //   🔴 **它本身与缩放无关**（`WorldW` 不含缩放）⇒ 它上面那句「值拉到 1」**不是**
-                        //   它成立的条件（理由句已删，见上）。
-                        //   ⚠️ 那个 200 是个**隐藏耦合**：只有「中段建件宽 ≫ 200」时才成立 —— 若哪天轨道
-                        //   宽缩到 200 + 27 以下，中段会漏进这个 `max`、这条就量错对象。✅ 换成
-                        //   `s.FillCapWorldW`（直接报端帽那块**画出来**的宽）能去掉这个耦合 ——
-                        //   那是**行为改动**（自检宿主），本批**只订正注释、表达式一个字节没动**，
-                        //   换法已写进 `A1365` 的报告交调度台裁（铁律 11：要做，只是先后问题）。
+                        // 🔴 **2026-10-19（`A1384` · 铁律 11）**：这一格原来用「该层里 `WorldW * 108f < 200f`
+                        //   的启发式」筛端帽 —— 那个 200 是**隐藏耦合**（只有「中段建件宽 ≫ 200」才成立；
+                        //   轨道宽缩到 `200 + 2×端帽` 以下时中段会漏进 `max`、量错对象）。
+                        //   ✅ 改用 `s.FillCapWorldW`（`Battle/WfSlider.cs` 的**正读口**：直接报端帽那块
+                        //   **画出来**的宽，含根与子件两级的 `localScale`，单位仍是世界单位 ⇒ `× 108`）。
+                        float capFl = s.FillCapWorldW * 108f;
                         CheckNear(capFl, 13.5f, 1.5f,
                                   $"{who} 填条的**端帽**宽 = 原版 `30 ÷ ppuMul 2` = 15 设计 px × 0.9 ⇒ **13.5**"
-                                + $"（实得 {capFl:F2}；这一格读的是子件自己的 `WorldW`、**不含任何缩放** ⇒ "
-                                + "与上面那句 `SetValue(1f,false)` 无关；改坏法：传 30 ⇒ 30；只除 2 ⇒ 15 ⇒ 都红）");
+                                + $"（实得 {capFl:F2}；改坏法：传 30 ⇒ 30；只除 2 ⇒ 15 ⇒ 都红）"
+                                + " —— 量法 = `WfSlider.FillCapWorldW`（⛔ 不再是「窄于 200px」的启发式）");
 
                         // ③ 手柄：**实画边长** = **运行时框短边 × 0.9**。
                         //    🔴 **2026-10-07（波 8 · A197）**：原版那个 22.406 是手柄的**序列化**
@@ -5059,8 +5160,13 @@ public static class SettingsScene
                 //  框宽 = 本颗钮那一格 **154.81** 设计 px（= `GenOnlineR − GenOnlineL` = `1431.33 − 1276.52`，
                 //  ⛔ 别照抄 300）。
                 //  ⚠️ 这一条同时是「字形装得下」的量法（`sz.x ≤ boxW × 0.9`）—— 它才是这一批要的那一档。
+                //  🔴 **2026-10-19（`A1215`）就地订正**：框那两格原来传 **154.81 × 90**（= **整颗钮**），
+                //     而实现那颗 `Button Text` 的自适应框是 **128.81 × 25.0575**
+                //     （`GenOnlineEntry` 的 `otw = onlineW − 26`、`oth = otw ÷ ArfAspectRatio`，同族 ARF 规则）。
+                //     ⇒ 旧值让「渲出来 ≤ 框」与新增的「结构框宽/框高」两条**都量错对象**（框宽了一整圈）。
+                //     ⛔ 别再写整颗钮的两个数（那是 `A1216` 在 `Redeem Code` 上修过的同一个病）。
                 CheckAutoFit(genTab, new[] { "Online Button", "Button Text" },
-                             "`General Tab > Online Button > Button Text`（**我们自加**）", 12f, 38f, 12f, 0, 154.81f, 90f);
+                             "`General Tab > Online Button > Button Text`（**我们自加**）", 12f, 38f, 12f, 0, 128.81f, 25.06f);
 
                 //  🔴 **原版【关着】autosize 的站 —— 不许接**（本笔的反面：接了就是主动制造偏离）
                 //   ① 语言框里那行 `Label`：原版 `m_fontSizeMin == m_fontSize`（18/18）
@@ -5391,7 +5497,7 @@ public static class SettingsScene
         //    · **硬伤**：`WindowsManager` **没有 `[ExecuteAlways]`**（`Shell/WindowsManager.cs` 里**只有** `WindowHolder` 那颗**有**）
         //      ⇒ 批处理（编辑模式）**`Awake` 不跑** ⇒ 手抄那一下 **`Instance` 恒 null**
         //      （`Instance` 只在 `Awake` 里赋，**批处理下那句从不执行**）。判据（**四条独立记录**，
-        //      全是踩过的坑）：`Shell/PromptPopup.cs` 的 `WindowButton` 类注 · `Shell/MainMenuRuntime.cs` 里那条「编辑模式下 `Awake` 不跑」 ·
+        //      全是踩过的坑）：`Shell/WindowButton.cs` 的 `WindowButton` 类注（⚠️ 2026-10-19 订正：原写 `Shell/PromptPopup.cs`）· `Shell/MainMenuRuntime.cs` 里那条「编辑模式下 `Awake` 不跑」 ·
         //      `Shell/PointerLayer.cs:47-48` · `资料/已知的坑.md:704`。
         //    · ⇒ **任何走 `WindowsManager.EnsureHost()` 的开窗路径都会【再建一台】**（`Instance == null` 时
         //      不查「场景里是不是已经有一台」，直接再建一套管理器 + 锚点）

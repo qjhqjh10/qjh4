@@ -1,0 +1,1621 @@
+{
+ "schema": "card_chat_intro/1",
+ "note": "原版定制开场白两档（精确档 / 按阵营档）+ talksFirst。键拼法见全量件 `数据/游戏数据/card_chat_intro.json` 的 algorithm 节。只收 cards_engine.json 里有的卡（inRuntime=true）；副本/教程 SO 见全量件。talksFirst=null ⇒ 逐对手不同（看 introByOpponent[*].talksFirst）或无精确档（默认 1）。hasText=false 的键在官方表里没有原文（⛔ 不补假键；Loc.T 会回显键名）。",
+ "chatIdOverrides": {},
+ "counts": {
+  "cards": 49,
+  "preciseEntries": 168,
+  "byArmyEntries": 29,
+  "uniqueKeys": 197,
+  "keysWithText": 192,
+  "keysMissing": 5
+ },
+ "cards": [
+  {
+   "id": "AM1",
+   "name": "Lord Solar Leontus",
+   "army": 100,
+   "armyName": "AstraMilitarum",
+   "chatRef": "",
+   "introRef": "",
+   "chatId": "AM1",
+   "talksFirst": null,
+   "introByOpponent": {
+    "BL34": {
+     "key": "Chat_Messages/AM1-Chat0-BL34",
+     "talksFirst": 1,
+     "hasText": true
+    },
+    "SAU35": {
+     "key": "Chat_Messages/AM1-Chat0-SAU35",
+     "talksFirst": 0,
+     "hasText": true
+    },
+    "GOF28": {
+     "key": "Chat_Messages/AM1-Chat0-GOF28",
+     "talksFirst": 0,
+     "hasText": true
+    },
+    "TL34": {
+     "key": "Chat_Messages/AM1-Chat0-TL34",
+     "talksFirst": 0,
+     "hasText": true
+    },
+    "TL35": {
+     "key": "Chat_Messages/AM1-Chat0-TL35",
+     "talksFirst": 0,
+     "hasText": true
+    },
+    "GSC1": {
+     "key": "Chat_Messages/AM1-Chat0-GSC1",
+     "talksFirst": 1,
+     "hasText": true
+    },
+    "BL36": {
+     "key": "Chat_Messages/AM1-Chat0-BL36",
+     "talksFirst": 1,
+     "hasText": true
+    }
+   },
+   "introByArmy": {}
+  },
+  {
+   "id": "AM2",
+   "name": "Ursula Creed",
+   "army": 100,
+   "armyName": "AstraMilitarum",
+   "chatRef": "",
+   "introRef": "",
+   "chatId": "AM2",
+   "talksFirst": 1,
+   "introByOpponent": {
+    "AM3": {
+     "key": "Chat_Messages/AM2-Chat0-AM3",
+     "talksFirst": 1,
+     "hasText": true
+    },
+    "AM1": {
+     "key": "Chat_Messages/AM2-Chat0-AM1",
+     "talksFirst": 1,
+     "hasText": true
+    }
+   },
+   "introByArmy": {
+    "Leviathan": {
+     "key": "Chat_Messages/AM2-Chat0-Leviathan",
+     "hasText": true
+    },
+    "Ultramarines": {
+     "key": "Chat_Messages/AM2-Chat0-Ultramarines",
+     "hasText": true
+    }
+   }
+  },
+  {
+   "id": "AM3",
+   "name": "Commissar Denkler",
+   "army": 100,
+   "armyName": "AstraMilitarum",
+   "chatRef": "",
+   "introRef": "",
+   "chatId": "AM3",
+   "talksFirst": null,
+   "introByOpponent": {
+    "GOF28": {
+     "key": "Chat_Messages/AM3-Chat0-GOF28",
+     "talksFirst": 0,
+     "hasText": true
+    },
+    "BL35": {
+     "key": "Chat_Messages/AM3-Chat0-BL35",
+     "talksFirst": 1,
+     "hasText": true
+    },
+    "AM2": {
+     "key": "Chat_Messages/AM3-Chat0-AM2",
+     "talksFirst": 0,
+     "hasText": true
+    },
+    "AM1": {
+     "key": "Chat_Messages/AM3-Chat0-AM1",
+     "talksFirst": 1,
+     "hasText": true
+    },
+    "AM66": {
+     "key": "Chat_Messages/AM3-Chat0-AM66",
+     "talksFirst": 1,
+     "hasText": true
+    }
+   },
+   "introByArmy": {}
+  },
+  {
+   "id": "AM66",
+   "name": "Tempestor Prime",
+   "army": 100,
+   "armyName": "AstraMilitarum",
+   "chatRef": "",
+   "introRef": "",
+   "chatId": "AM66",
+   "talksFirst": 0,
+   "introByOpponent": {
+    "AM1": {
+     "key": "Chat_Messages/AM66-Chat0-AM1",
+     "talksFirst": 0,
+     "hasText": true
+    },
+    "AM2": {
+     "key": "Chat_Messages/AM66-Chat0-AM2",
+     "talksFirst": 0,
+     "hasText": true
+    },
+    "AM3": {
+     "key": "Chat_Messages/AM66-Chat0-AM3",
+     "talksFirst": 0,
+     "hasText": true
+    }
+   },
+   "introByArmy": {
+    "Ultramarines": {
+     "key": "Chat_Messages/AM66-Chat0-Ultramarines",
+     "hasText": true
+    },
+    "Goff": {
+     "key": "Chat_Messages/AM66-Chat0-Goff",
+     "hasText": true
+    },
+    "TauEmpire": {
+     "key": "Chat_Messages/AM66-Chat0-TauEmpire",
+     "hasText": true
+    }
+   }
+  },
+  {
+   "id": "ASH1",
+   "name": "Anvirr Keltoc",
+   "army": 30,
+   "armyName": "SaimHann",
+   "chatRef": "",
+   "introRef": "",
+   "chatId": "ASH1",
+   "talksFirst": null,
+   "introByOpponent": {
+    "BL36": {
+     "key": "Chat_Messages/ASH1-Chat0-BL36",
+     "talksFirst": 1,
+     "hasText": true
+    },
+    "SAU37": {
+     "key": "Chat_Messages/ASH1-Chat0-SAU37",
+     "talksFirst": 0,
+     "hasText": true
+    },
+    "ASH2": {
+     "key": "Chat_Messages/ASH1-Chat0-ASH2",
+     "talksFirst": 0,
+     "hasText": true
+    },
+    "UM48": {
+     "key": "Chat_Messages/ASH1-Chat0-UM48",
+     "talksFirst": 0,
+     "hasText": true
+    }
+   },
+   "introByArmy": {}
+  },
+  {
+   "id": "ASH2",
+   "name": "Eliac Zephyrblade",
+   "army": 30,
+   "armyName": "SaimHann",
+   "chatRef": "",
+   "introRef": "",
+   "chatId": "ASH2",
+   "talksFirst": 1,
+   "introByOpponent": {
+    "GOF27": {
+     "key": "Chat_Messages/ASH2-Chat0-GOF27",
+     "talksFirst": 1,
+     "hasText": true
+    },
+    "ASH3": {
+     "key": "Chat_Messages/ASH2-Chat0-ASH3",
+     "talksFirst": 1,
+     "hasText": true
+    },
+    "ASH1": {
+     "key": "Chat_Messages/ASH2-Chat0-ASH1",
+     "talksFirst": 1,
+     "hasText": true
+    },
+    "GOF75": {
+     "key": "Chat_Messages/ASH2-Chat0-GOF75",
+     "talksFirst": 1,
+     "hasText": true
+    }
+   },
+   "introByArmy": {}
+  },
+  {
+   "id": "ASH3",
+   "name": "Medreyal Ghaelyn",
+   "army": 30,
+   "armyName": "SaimHann",
+   "chatRef": "",
+   "introRef": "",
+   "chatId": "ASH3",
+   "talksFirst": null,
+   "introByOpponent": {
+    "SAU35": {
+     "key": "Chat_Messages/ASH3-Chat0-SAU35",
+     "talksFirst": 0,
+     "hasText": true
+    },
+    "BL35": {
+     "key": "Chat_Messages/ASH3-Chat0-BL35",
+     "talksFirst": 1,
+     "hasText": true
+    },
+    "ASH2": {
+     "key": "Chat_Messages/ASH3-Chat0-ASH2",
+     "talksFirst": 0,
+     "hasText": true
+    },
+    "TL34": {
+     "key": "Chat_Messages/ASH3-Chat0-TL34",
+     "talksFirst": 0,
+     "hasText": true
+    }
+   },
+   "introByArmy": {}
+  },
+  {
+   "id": "ASH74",
+   "name": "Jain Zar",
+   "army": 30,
+   "armyName": "SaimHann",
+   "chatRef": "",
+   "introRef": "",
+   "chatId": "ASH74",
+   "talksFirst": 0,
+   "introByOpponent": {
+    "BL35": {
+     "key": "Chat_Messages/ASH74-Chat0-BL35",
+     "talksFirst": 0,
+     "hasText": true
+    },
+    "SAU35": {
+     "key": "Chat_Messages/ASH74-Chat0-SAU35",
+     "talksFirst": 0,
+     "hasText": true
+    },
+    "AM2": {
+     "key": "Chat_Messages/ASH74-Chat0-AM2",
+     "talksFirst": 0,
+     "hasText": true
+    }
+   },
+   "introByArmy": {
+    "Leviathan": {
+     "key": "Chat_Messages/ASH74-Chat0-Leviathan",
+     "hasText": true
+    }
+   }
+  },
+  {
+   "id": "ASH76",
+   "name": "Lhykhis",
+   "army": 30,
+   "armyName": "SaimHann",
+   "chatRef": "",
+   "introRef": "",
+   "chatId": "ASH76",
+   "talksFirst": 0,
+   "introByOpponent": {
+    "ASH74": {
+     "key": "Chat_Messages/ASH76-Chat0-ASH74",
+     "talksFirst": 0,
+     "hasText": false
+    }
+   },
+   "introByArmy": {
+    "Leviathan": {
+     "key": "Chat_Messages/ASH76-Chat0-Leviathan",
+     "hasText": true
+    },
+    "Sautekh": {
+     "key": "Chat_Messages/ASH76-Chat0-Sautekh",
+     "hasText": true
+    },
+    "EmperorsChildren": {
+     "key": "Chat_Messages/ASH76-Chat0-EmperorsChildren",
+     "hasText": true
+    }
+   }
+  },
+  {
+   "id": "BL34",
+   "name": "Abaddon the Despoiler",
+   "army": 50,
+   "armyName": "BlackLegion",
+   "chatRef": "",
+   "introRef": "",
+   "chatId": "BL34",
+   "talksFirst": 0,
+   "introByOpponent": {
+    "BL36": {
+     "key": "Chat_Messages/BL34-Chat0-BL36",
+     "talksFirst": 0,
+     "hasText": true
+    },
+    "GOF29": {
+     "key": "Chat_Messages/BL34-Chat0-GOF29",
+     "talksFirst": 0,
+     "hasText": true
+    },
+    "SAU37": {
+     "key": "Chat_Messages/BL34-Chat0-SAU37",
+     "talksFirst": 0,
+     "hasText": true
+    },
+    "GOF75": {
+     "key": "Chat_Messages/BL34-Chat0-GOF75",
+     "talksFirst": 0,
+     "hasText": true
+    },
+    "AM1": {
+     "key": "Chat_Messages/BL34-Chat0-AM1",
+     "talksFirst": 0,
+     "hasText": true
+    }
+   },
+   "introByArmy": {}
+  },
+  {
+   "id": "BL35",
+   "name": "Haarken Worldclaimer",
+   "army": 50,
+   "armyName": "BlackLegion",
+   "chatRef": "",
+   "introRef": "",
+   "chatId": "BL35",
+   "talksFirst": null,
+   "introByOpponent": {
+    "UM47": {
+     "key": "Chat_Messages/BL35-Chat0-UM47",
+     "talksFirst": 1,
+     "hasText": true
+    },
+    "GOF27": {
+     "key": "Chat_Messages/BL35-Chat0-GOF27",
+     "talksFirst": 1,
+     "hasText": true
+    },
+    "ASH3": {
+     "key": "Chat_Messages/BL35-Chat0-ASH3",
+     "talksFirst": 0,
+     "hasText": true
+    },
+    "SAU37": {
+     "key": "Chat_Messages/BL35-Chat0-SAU37",
+     "talksFirst": 0,
+     "hasText": true
+    },
+    "AM3": {
+     "key": "Chat_Messages/BL35-Chat0-AM3",
+     "talksFirst": 0,
+     "hasText": true
+    }
+   },
+   "introByArmy": {}
+  },
+  {
+   "id": "BL36",
+   "name": "Sylar Hexscorn",
+   "army": 50,
+   "armyName": "BlackLegion",
+   "chatRef": "",
+   "introRef": "",
+   "chatId": "BL36",
+   "talksFirst": null,
+   "introByOpponent": {
+    "UM48": {
+     "key": "Chat_Messages/BL36-Chat0-UM48",
+     "talksFirst": 0,
+     "hasText": true
+    },
+    "BL34": {
+     "key": "Chat_Messages/BL36-Chat0-BL34",
+     "talksFirst": 1,
+     "hasText": true
+    },
+    "ASH1": {
+     "key": "Chat_Messages/BL36-Chat0-ASH1",
+     "talksFirst": 0,
+     "hasText": true
+    },
+    "AM1": {
+     "key": "Chat_Messages/BL36-Chat0-AM1",
+     "talksFirst": 0,
+     "hasText": true
+    }
+   },
+   "introByArmy": {}
+  },
+  {
+   "id": "BL65",
+   "name": "Ghallaron the Pious",
+   "army": 50,
+   "armyName": "BlackLegion",
+   "chatRef": "",
+   "introRef": "",
+   "chatId": "BL65",
+   "talksFirst": 1,
+   "introByOpponent": {
+    "UM65": {
+     "key": "Chat_Messages/BL65-Chat0-UM65",
+     "talksFirst": 1,
+     "hasText": true
+    },
+    "GSC1": {
+     "key": "Chat_Messages/BL65-Chat0-GSC1",
+     "talksFirst": 1,
+     "hasText": true
+    }
+   },
+   "introByArmy": {}
+  },
+  {
+   "id": "DA1",
+   "name": "Azrael, Grand Master",
+   "army": 110,
+   "armyName": "DarkAngels",
+   "chatRef": "",
+   "introRef": "",
+   "chatId": "DA1",
+   "talksFirst": 1,
+   "introByOpponent": {
+    "BL2": {
+     "key": "Chat_Messages/DA1-Chat0-BL2",
+     "talksFirst": 1,
+     "hasText": false
+    }
+   },
+   "introByArmy": {}
+  },
+  {
+   "id": "DA2",
+   "name": "Belial, Master of the Deathwing",
+   "army": 110,
+   "armyName": "DarkAngels",
+   "chatRef": "",
+   "introRef": "",
+   "chatId": "DA2",
+   "talksFirst": null,
+   "introByOpponent": {
+    "BL1": {
+     "key": "Chat_Messages/DA2-Chat0-BL1",
+     "talksFirst": 0,
+     "hasText": false
+    },
+    "BL3": {
+     "key": "Chat_Messages/DA2-Chat0-BL3",
+     "talksFirst": 1,
+     "hasText": false
+    }
+   },
+   "introByArmy": {}
+  },
+  {
+   "id": "DA3",
+   "name": "Asmodai, Master Interrogator",
+   "army": 110,
+   "armyName": "DarkAngels",
+   "chatRef": "",
+   "introRef": "",
+   "chatId": "DA3",
+   "talksFirst": 0,
+   "introByOpponent": {
+    "BL2": {
+     "key": "Chat_Messages/DA3-Chat0-BL2",
+     "talksFirst": 0,
+     "hasText": false
+    }
+   },
+   "introByArmy": {}
+  },
+  {
+   "id": "DA75",
+   "name": "Master Zacharial",
+   "army": 110,
+   "armyName": "DarkAngels",
+   "chatRef": "",
+   "introRef": "",
+   "chatId": "DA75",
+   "talksFirst": null,
+   "introByOpponent": {
+    "DA3": {
+     "key": "Chat_Messages/DA75-Chat0-DA3",
+     "talksFirst": 0,
+     "hasText": true
+    },
+    "DA2": {
+     "key": "Chat_Messages/DA75-Chat0-DA2",
+     "talksFirst": 1,
+     "hasText": true
+    },
+    "DA1": {
+     "key": "Chat_Messages/DA75-Chat0-DA1",
+     "talksFirst": 0,
+     "hasText": true
+    },
+    "TAU1": {
+     "key": "Chat_Messages/DA75-Chat0-TAU1",
+     "talksFirst": 0,
+     "hasText": true
+    }
+   },
+   "introByArmy": {
+    "BlackLegion": {
+     "key": "Chat_Messages/DA75-Chat0-BlackLegion",
+     "hasText": true
+    },
+    "EmperorsChildren": {
+     "key": "Chat_Messages/DA75-Chat0-EmperorsChildren",
+     "hasText": true
+    }
+   }
+  },
+  {
+   "id": "GOF27",
+   "name": "Boss Zagstruk",
+   "army": 20,
+   "armyName": "Goff",
+   "chatRef": "",
+   "introRef": "",
+   "chatId": "GOF27",
+   "talksFirst": 0,
+   "introByOpponent": {
+    "BL35": {
+     "key": "Chat_Messages/GOF27-Chat0-BL35",
+     "talksFirst": 0,
+     "hasText": true
+    },
+    "ASH2": {
+     "key": "Chat_Messages/GOF27-Chat0-ASH2",
+     "talksFirst": 0,
+     "hasText": true
+    },
+    "GSC3": {
+     "key": "Chat_Messages/GOF27-Chat0-GSC3",
+     "talksFirst": 0,
+     "hasText": true
+    }
+   },
+   "introByArmy": {}
+  },
+  {
+   "id": "GOF28",
+   "name": "GhazghkullThraka",
+   "army": 20,
+   "armyName": "Goff",
+   "chatRef": "",
+   "introRef": "",
+   "chatId": "GOF28",
+   "talksFirst": null,
+   "introByOpponent": {
+    "UM46": {
+     "key": "Chat_Messages/GOF28-Chat0-UM46",
+     "talksFirst": 0,
+     "hasText": true
+    },
+    "SAU35": {
+     "key": "Chat_Messages/GOF28-Chat0-SAU35",
+     "talksFirst": 1,
+     "hasText": true
+    },
+    "GOF75": {
+     "key": "Chat_Messages/GOF28-Chat0-GOF75",
+     "talksFirst": 0,
+     "hasText": true
+    },
+    "TAU2": {
+     "key": "Chat_Messages/GOF28-Chat0-TAU2",
+     "talksFirst": 1,
+     "hasText": true
+    },
+    "AM3": {
+     "key": "Chat_Messages/GOF28-Chat0-AM3",
+     "talksFirst": 1,
+     "hasText": true
+    },
+    "AM1": {
+     "key": "Chat_Messages/GOF28-Chat0-AM1",
+     "talksFirst": 1,
+     "hasText": true
+    }
+   },
+   "introByArmy": {}
+  },
+  {
+   "id": "GOF29",
+   "name": "Grukk Face-Rippa",
+   "army": 20,
+   "armyName": "Goff",
+   "chatRef": "",
+   "introRef": "",
+   "chatId": "GOF29",
+   "talksFirst": null,
+   "introByOpponent": {
+    "SAU36": {
+     "key": "Chat_Messages/GOF29-Chat0-SAU36",
+     "talksFirst": 1,
+     "hasText": true
+    },
+    "BL34": {
+     "key": "Chat_Messages/GOF29-Chat0-BL34",
+     "talksFirst": 1,
+     "hasText": true
+    },
+    "UM47": {
+     "key": "Chat_Messages/GOF29-Chat0-UM47",
+     "talksFirst": 1,
+     "hasText": true
+    },
+    "TL34": {
+     "key": "Chat_Messages/GOF29-Chat0-TL34",
+     "talksFirst": 1,
+     "hasText": true
+    },
+    "TAU2": {
+     "key": "Chat_Messages/GOF29-Chat0-TAU2",
+     "talksFirst": 0,
+     "hasText": true
+    }
+   },
+   "introByArmy": {}
+  },
+  {
+   "id": "GOF75",
+   "name": "Warboss Gordrang",
+   "army": 20,
+   "armyName": "Goff",
+   "chatRef": "",
+   "introRef": "",
+   "chatId": "GOF75",
+   "talksFirst": null,
+   "introByOpponent": {
+    "GOF28": {
+     "key": "Chat_Messages/GOF75-Chat0-GOF28",
+     "talksFirst": 1,
+     "hasText": true
+    },
+    "ASH2": {
+     "key": "Chat_Messages/GOF75-Chat0-ASH2",
+     "talksFirst": 0,
+     "hasText": true
+    },
+    "BL34": {
+     "key": "Chat_Messages/GOF75-Chat0-BL34",
+     "talksFirst": 1,
+     "hasText": true
+    },
+    "SOR1": {
+     "key": "Chat_Messages/GOF75-Chat0-SOR1",
+     "talksFirst": 0,
+     "hasText": true
+    }
+   },
+   "introByArmy": {}
+  },
+  {
+   "id": "GSC1",
+   "name": "Primus Saffa Rhiannor",
+   "army": 90,
+   "armyName": "Genestealers",
+   "chatRef": "",
+   "introRef": "",
+   "chatId": "GSC1",
+   "talksFirst": 0,
+   "introByOpponent": {
+    "BL65": {
+     "key": "Chat_Messages/GSC1-Chat0-BL65",
+     "talksFirst": 0,
+     "hasText": true
+    },
+    "AM1": {
+     "key": "Chat_Messages/GSC1-Chat0-AM1",
+     "talksFirst": 0,
+     "hasText": true
+    }
+   },
+   "introByArmy": {
+    "Leviathan": {
+     "key": "Chat_Messages/GSC1-Chat0-Leviathan",
+     "hasText": true
+    }
+   }
+  },
+  {
+   "id": "GSC2",
+   "name": "Magus Uthrel Naas",
+   "army": 90,
+   "armyName": "Genestealers",
+   "chatRef": "",
+   "introRef": "",
+   "chatId": "GSC2",
+   "talksFirst": 1,
+   "introByOpponent": {
+    "GSC3": {
+     "key": "Chat_Messages/GSC2-Chat0-GSC3",
+     "talksFirst": 1,
+     "hasText": true
+    },
+    "SOR2": {
+     "key": "Chat_Messages/GSC2-Chat0-SOR2",
+     "talksFirst": 1,
+     "hasText": true
+    }
+   },
+   "introByArmy": {
+    "Leviathan": {
+     "key": "Chat_Messages/GSC2-Chat0-Leviathan",
+     "hasText": true
+    }
+   }
+  },
+  {
+   "id": "GSC3",
+   "name": "Iconward Malak Vorenth",
+   "army": 90,
+   "armyName": "Genestealers",
+   "chatRef": "",
+   "introRef": "",
+   "chatId": "GSC3",
+   "talksFirst": null,
+   "introByOpponent": {
+    "GSC2": {
+     "key": "Chat_Messages/GSC3-Chat0-GSC2",
+     "talksFirst": 0,
+     "hasText": true
+    },
+    "SAU36": {
+     "key": "Chat_Messages/GSC3-Chat0-SAU36",
+     "talksFirst": 0,
+     "hasText": true
+    },
+    "GOF27": {
+     "key": "Chat_Messages/GSC3-Chat0-GOF27",
+     "talksFirst": 1,
+     "hasText": true
+    }
+   },
+   "introByArmy": {
+    "Leviathan": {
+     "key": "Chat_Messages/GSC3-Chat0-Leviathan",
+     "hasText": true
+    }
+   }
+  },
+  {
+   "id": "GSC66",
+   "name": "Shanus Daskovian",
+   "army": 90,
+   "armyName": "Genestealers",
+   "chatRef": "",
+   "introRef": "",
+   "chatId": "GSC66",
+   "talksFirst": 0,
+   "introByOpponent": {
+    "UM46": {
+     "key": "Chat_Messages/GSC66-Chat0-UM46",
+     "talksFirst": 0,
+     "hasText": true
+    },
+    "AM3": {
+     "key": "Chat_Messages/GSC66-Chat0-AM3",
+     "talksFirst": 0,
+     "hasText": true
+    },
+    "UM65": {
+     "key": "Chat_Messages/GSC66-Chat0-UM65",
+     "talksFirst": 0,
+     "hasText": true
+    },
+    "AM2": {
+     "key": "Chat_Messages/GSC66-Chat0-AM2",
+     "talksFirst": 0,
+     "hasText": true
+    }
+   },
+   "introByArmy": {
+    "Leviathan": {
+     "key": "Chat_Messages/GSC66-Chat0-Leviathan",
+     "hasText": true
+    }
+   }
+  },
+  {
+   "id": "SAU35",
+   "name": "Imotekh the Stormlord",
+   "army": 40,
+   "armyName": "Sautekh",
+   "chatRef": "",
+   "introRef": "",
+   "chatId": "SAU35",
+   "talksFirst": null,
+   "introByOpponent": {
+    "ASH3": {
+     "key": "Chat_Messages/SAU35-Chat0-ASH3",
+     "talksFirst": 1,
+     "hasText": true
+    },
+    "SAU37": {
+     "key": "Chat_Messages/SAU35-Chat0-SAU37",
+     "talksFirst": 1,
+     "hasText": true
+    },
+    "GOF28": {
+     "key": "Chat_Messages/SAU35-Chat0-GOF28",
+     "talksFirst": 0,
+     "hasText": true
+    },
+    "TL35": {
+     "key": "Chat_Messages/SAU35-Chat0-TL35",
+     "talksFirst": 0,
+     "hasText": true
+    },
+    "UM46": {
+     "key": "Chat_Messages/SAU35-Chat0-UM46",
+     "talksFirst": 0,
+     "hasText": true
+    },
+    "AM1": {
+     "key": "Chat_Messages/SAU35-Chat0-AM1",
+     "talksFirst": 1,
+     "hasText": true
+    }
+   },
+   "introByArmy": {}
+  },
+  {
+   "id": "SAU36",
+   "name": "Nemesor Zahndrekh",
+   "army": 40,
+   "armyName": "Sautekh",
+   "chatRef": "",
+   "introRef": "",
+   "chatId": "SAU36",
+   "talksFirst": null,
+   "introByOpponent": {
+    "GOF29": {
+     "key": "Chat_Messages/SAU36-Chat0-GOF29",
+     "talksFirst": 0,
+     "hasText": true
+    },
+    "UM47": {
+     "key": "Chat_Messages/SAU36-Chat0-UM47",
+     "talksFirst": 0,
+     "hasText": true
+    },
+    "TL36": {
+     "key": "Chat_Messages/SAU36-Chat0-TL36",
+     "talksFirst": 0,
+     "hasText": true
+    },
+    "GSC3": {
+     "key": "Chat_Messages/SAU36-Chat0-GSC3",
+     "talksFirst": 1,
+     "hasText": true
+    }
+   },
+   "introByArmy": {}
+  },
+  {
+   "id": "SAU37",
+   "name": "Orikan the Diviner",
+   "army": 40,
+   "armyName": "Sautekh",
+   "chatRef": "",
+   "introRef": "",
+   "chatId": "SAU37",
+   "talksFirst": null,
+   "introByOpponent": {
+    "SAU35": {
+     "key": "Chat_Messages/SAU37-Chat0-SAU35",
+     "talksFirst": 0,
+     "hasText": true
+    },
+    "BL34": {
+     "key": "Chat_Messages/SAU37-Chat0-BL34",
+     "talksFirst": 1,
+     "hasText": true
+    },
+    "ASH1": {
+     "key": "Chat_Messages/SAU37-Chat0-ASH1",
+     "talksFirst": 1,
+     "hasText": true
+    },
+    "BL35": {
+     "key": "Chat_Messages/SAU37-Chat0-BL35",
+     "talksFirst": 1,
+     "hasText": true
+    }
+   },
+   "introByArmy": {}
+  },
+  {
+   "id": "SAU66",
+   "name": "Ramatekh the Cruel",
+   "army": 40,
+   "armyName": "Sautekh",
+   "chatRef": "",
+   "introRef": "",
+   "chatId": "SAU66",
+   "talksFirst": 1,
+   "introByOpponent": {
+    "SAU37": {
+     "key": "Chat_Messages/SAU66-Chat0-SAU37",
+     "talksFirst": 1,
+     "hasText": true
+    },
+    "TAU2": {
+     "key": "Chat_Messages/SAU66-Chat0-TAU2",
+     "talksFirst": 1,
+     "hasText": true
+    },
+    "GOF29": {
+     "key": "Chat_Messages/SAU66-Chat0-GOF29",
+     "talksFirst": 1,
+     "hasText": true
+    },
+    "SAU35": {
+     "key": "Chat_Messages/SAU66-Chat0-SAU35",
+     "talksFirst": 1,
+     "hasText": true
+    },
+    "ASH1": {
+     "key": "Chat_Messages/SAU66-Chat0-ASH1",
+     "talksFirst": 1,
+     "hasText": true
+    }
+   },
+   "introByArmy": {}
+  },
+  {
+   "id": "SOR1",
+   "name": "Erika Luminas",
+   "army": 80,
+   "armyName": "Sororitas",
+   "chatRef": "",
+   "introRef": "",
+   "chatId": "SOR1",
+   "talksFirst": null,
+   "introByOpponent": {
+    "ASH3": {
+     "key": "Chat_Messages/SOR1-Chat0-ASH3",
+     "talksFirst": 0,
+     "hasText": true
+    },
+    "BL36": {
+     "key": "Chat_Messages/SOR1-Chat0-BL36",
+     "talksFirst": 0,
+     "hasText": true
+    },
+    "SOR3": {
+     "key": "Chat_Messages/SOR1-Chat0-SOR3",
+     "talksFirst": 0,
+     "hasText": true
+    },
+    "SAU37": {
+     "key": "Chat_Messages/SOR1-Chat0-SAU37",
+     "talksFirst": 0,
+     "hasText": true
+    },
+    "GOF75": {
+     "key": "Chat_Messages/SOR1-Chat0-GOF75",
+     "talksFirst": 1,
+     "hasText": true
+    }
+   },
+   "introByArmy": {}
+  },
+  {
+   "id": "SOR2",
+   "name": "Junith Eruita",
+   "army": 80,
+   "armyName": "Sororitas",
+   "chatRef": "",
+   "introRef": "",
+   "chatId": "SOR2",
+   "talksFirst": 0,
+   "introByOpponent": {
+    "BL34": {
+     "key": "Chat_Messages/SOR2-Chat0-BL34",
+     "talksFirst": 0,
+     "hasText": true
+    },
+    "SOR3": {
+     "key": "Chat_Messages/SOR2-Chat0-SOR3",
+     "talksFirst": 0,
+     "hasText": true
+    },
+    "ASH2": {
+     "key": "Chat_Messages/SOR2-Chat0-ASH2",
+     "talksFirst": 0,
+     "hasText": true
+    },
+    "GSC2": {
+     "key": "Chat_Messages/SOR2-Chat0-GSC2",
+     "talksFirst": 0,
+     "hasText": true
+    }
+   },
+   "introByArmy": {}
+  },
+  {
+   "id": "SOR3",
+   "name": "Morvenn Vahl",
+   "army": 80,
+   "armyName": "Sororitas",
+   "chatRef": "",
+   "introRef": "",
+   "chatId": "SOR3",
+   "talksFirst": 0,
+   "introByOpponent": {
+    "GOF29": {
+     "key": "Chat_Messages/SOR3-Chat0-GOF29",
+     "talksFirst": 0,
+     "hasText": true
+    },
+    "BL35": {
+     "key": "Chat_Messages/SOR3-Chat0-BL35",
+     "talksFirst": 0,
+     "hasText": true
+    },
+    "SOR2": {
+     "key": "Chat_Messages/SOR3-Chat0-SOR2",
+     "talksFirst": 0,
+     "hasText": true
+    },
+    "SOR1": {
+     "key": "Chat_Messages/SOR3-Chat0-SOR1",
+     "talksFirst": 0,
+     "hasText": true
+    },
+    "SAU37": {
+     "key": "Chat_Messages/SOR3-Chat0-SAU37",
+     "talksFirst": 0,
+     "hasText": true
+    },
+    "TAU1": {
+     "key": "Chat_Messages/SOR3-Chat0-TAU1",
+     "talksFirst": 0,
+     "hasText": true
+    }
+   },
+   "introByArmy": {}
+  },
+  {
+   "id": "SOR65",
+   "name": "Celestian Sacresant Aveline",
+   "army": 80,
+   "armyName": "Sororitas",
+   "chatRef": "",
+   "introRef": "",
+   "chatId": "SOR65",
+   "talksFirst": 0,
+   "introByOpponent": {
+    "SOR3": {
+     "key": "Chat_Messages/SOR65-Chat0-SOR3",
+     "talksFirst": 0,
+     "hasText": true
+    }
+   },
+   "introByArmy": {}
+  },
+  {
+   "id": "SW1",
+   "name": "Logan Grimnar",
+   "army": 130,
+   "armyName": "SpaceWolves",
+   "chatRef": "",
+   "introRef": "",
+   "chatId": "SW1",
+   "talksFirst": 0,
+   "introByOpponent": {
+    "GOF76": {
+     "key": "Chat_Messages/SW1-Chat0-GOF76",
+     "talksFirst": 0,
+     "hasText": true
+    }
+   },
+   "introByArmy": {
+    "BlackLegion": {
+     "key": "Chat_Messages/SW1-Chat0-BlackLegion",
+     "hasText": true
+    },
+    "EmperorsChildren": {
+     "key": "Chat_Messages/SW1-Chat0-EmperorsChildren",
+     "hasText": true
+    },
+    "Leviathan": {
+     "key": "Chat_Messages/SW1-Chat0-Leviathan",
+     "hasText": true
+    }
+   }
+  },
+  {
+   "id": "SW3",
+   "name": "Ragnar Blackmane",
+   "army": 130,
+   "armyName": "SpaceWolves",
+   "chatRef": "",
+   "introRef": "",
+   "chatId": "SW3",
+   "talksFirst": 0,
+   "introByOpponent": {
+    "DA3": {
+     "key": "Chat_Messages/SW3-Chat0-DA3",
+     "talksFirst": 0,
+     "hasText": true
+    },
+    "GOF28": {
+     "key": "Chat_Messages/SW3-Chat0-GOF28",
+     "talksFirst": 0,
+     "hasText": true
+    }
+   },
+   "introByArmy": {
+    "BlackLegion": {
+     "key": "Chat_Messages/SW3-Chat0-BlackLegion",
+     "hasText": true
+    },
+    "EmperorsChildren": {
+     "key": "Chat_Messages/SW3-Chat0-EmperorsChildren",
+     "hasText": true
+    },
+    "Sororitas": {
+     "key": "Chat_Messages/SW3-Chat0-Sororitas",
+     "hasText": true
+    }
+   }
+  },
+  {
+   "id": "TAU1",
+   "name": "Shadowsun",
+   "army": 70,
+   "armyName": "TauEmpire",
+   "chatRef": "",
+   "introRef": "",
+   "chatId": "TAU1",
+   "talksFirst": 0,
+   "introByOpponent": {
+    "GOF29": {
+     "key": "Chat_Messages/TAU1-Chat0-GOF29",
+     "talksFirst": 0,
+     "hasText": true
+    },
+    "UM46": {
+     "key": "Chat_Messages/TAU1-Chat0-UM46",
+     "talksFirst": 0,
+     "hasText": true
+    },
+    "TAU2": {
+     "key": "Chat_Messages/TAU1-Chat0-TAU2",
+     "talksFirst": 0,
+     "hasText": true
+    },
+    "TAU3": {
+     "key": "Chat_Messages/TAU1-Chat0-TAU3",
+     "talksFirst": 0,
+     "hasText": true
+    }
+   },
+   "introByArmy": {}
+  },
+  {
+   "id": "TAU2",
+   "name": "Aun'Va",
+   "army": 70,
+   "armyName": "TauEmpire",
+   "chatRef": "",
+   "introRef": "",
+   "chatId": "TAU2",
+   "talksFirst": null,
+   "introByOpponent": {
+    "GOF28": {
+     "key": "Chat_Messages/TAU2-Chat0-GOF28",
+     "talksFirst": 0,
+     "hasText": true
+    },
+    "TAU1": {
+     "key": "Chat_Messages/TAU2-Chat0-TAU1",
+     "talksFirst": 1,
+     "hasText": true
+    },
+    "TAU3": {
+     "key": "Chat_Messages/TAU2-Chat0-TAU3",
+     "talksFirst": 1,
+     "hasText": true
+    },
+    "TL34": {
+     "key": "Chat_Messages/TAU2-Chat0-TL34",
+     "talksFirst": 0,
+     "hasText": true
+    },
+    "GOF29": {
+     "key": "Chat_Messages/TAU2-Chat0-GOF29",
+     "talksFirst": 1,
+     "hasText": true
+    }
+   },
+   "introByArmy": {}
+  },
+  {
+   "id": "TAU3",
+   "name": "Commander O'Maisos",
+   "army": 70,
+   "armyName": "TauEmpire",
+   "chatRef": "",
+   "introRef": "",
+   "chatId": "TAU3",
+   "talksFirst": 0,
+   "introByOpponent": {
+    "TAU2": {
+     "key": "Chat_Messages/TAU3-Chat0-TAU2",
+     "talksFirst": 0,
+     "hasText": true
+    },
+    "ASH1": {
+     "key": "Chat_Messages/TAU3-Chat0-ASH1",
+     "talksFirst": 0,
+     "hasText": true
+    },
+    "TAU1": {
+     "key": "Chat_Messages/TAU3-Chat0-TAU1",
+     "talksFirst": 0,
+     "hasText": true
+    },
+    "TL35": {
+     "key": "Chat_Messages/TAU3-Chat0-TL35",
+     "talksFirst": 0,
+     "hasText": true
+    },
+    "GOF27": {
+     "key": "Chat_Messages/TAU3-Chat0-GOF27",
+     "talksFirst": 0,
+     "hasText": true
+    },
+    "GOF75": {
+     "key": "Chat_Messages/TAU3-Chat0-GOF75",
+     "talksFirst": 0,
+     "hasText": true
+    }
+   },
+   "introByArmy": {}
+  },
+  {
+   "id": "TAU65",
+   "name": "War Shaper",
+   "army": 70,
+   "armyName": "TauEmpire",
+   "chatRef": "",
+   "introRef": "",
+   "chatId": "TAU65",
+   "talksFirst": 0,
+   "introByOpponent": {
+    "TAU2": {
+     "key": "Chat_Messages/TAU65-Chat0-TAU2",
+     "talksFirst": 0,
+     "hasText": true
+    }
+   },
+   "introByArmy": {
+    "Sautekh": {
+     "key": "Chat_Messages/TAU65-Chat0-Sautekh",
+     "hasText": true
+    }
+   }
+  },
+  {
+   "id": "TL34",
+   "name": "Tervigon",
+   "army": 60,
+   "armyName": "Leviathan",
+   "chatRef": "",
+   "introRef": "",
+   "chatId": "TL34",
+   "talksFirst": null,
+   "introByOpponent": {
+    "GOF29": {
+     "key": "Chat_Messages/TL34-Chat0-GOF29",
+     "talksFirst": 0,
+     "hasText": true
+    },
+    "ASH3": {
+     "key": "Chat_Messages/TL34-Chat0-ASH3",
+     "talksFirst": 1,
+     "hasText": true
+    },
+    "TAU2": {
+     "key": "Chat_Messages/TL34-Chat0-TAU2",
+     "talksFirst": 1,
+     "hasText": true
+    }
+   },
+   "introByArmy": {}
+  },
+  {
+   "id": "TL35",
+   "name": "Swarmlord",
+   "army": 60,
+   "armyName": "Leviathan",
+   "chatRef": "",
+   "introRef": "",
+   "chatId": "TL35",
+   "talksFirst": 1,
+   "introByOpponent": {
+    "UM46": {
+     "key": "Chat_Messages/TL35-Chat0-UM46",
+     "talksFirst": 1,
+     "hasText": true
+    },
+    "SAU35": {
+     "key": "Chat_Messages/TL35-Chat0-SAU35",
+     "talksFirst": 1,
+     "hasText": true
+    }
+   },
+   "introByArmy": {}
+  },
+  {
+   "id": "TL36",
+   "name": "Neurothrope",
+   "army": 60,
+   "armyName": "Leviathan",
+   "chatRef": "",
+   "introRef": "",
+   "chatId": "TL36",
+   "talksFirst": 1,
+   "introByOpponent": {
+    "SAU36": {
+     "key": "Chat_Messages/TL36-Chat0-SAU36",
+     "talksFirst": 1,
+     "hasText": true
+    }
+   },
+   "introByArmy": {}
+  },
+  {
+   "id": "UM46",
+   "name": "Marneus Calgar",
+   "army": 10,
+   "armyName": "Ultramarines",
+   "chatRef": "",
+   "introRef": "",
+   "chatId": "UM46",
+   "talksFirst": null,
+   "introByOpponent": {
+    "UM47": {
+     "key": "Chat_Messages/UM46-Chat0-UM47",
+     "talksFirst": 0,
+     "hasText": true
+    },
+    "UM48": {
+     "key": "Chat_Messages/UM46-Chat0-UM48",
+     "talksFirst": 1,
+     "hasText": true
+    },
+    "TL35": {
+     "key": "Chat_Messages/UM46-Chat0-TL35",
+     "talksFirst": 0,
+     "hasText": true
+    },
+    "GOF28": {
+     "key": "Chat_Messages/UM46-Chat0-GOF28",
+     "talksFirst": 1,
+     "hasText": true
+    },
+    "SAU35": {
+     "key": "Chat_Messages/UM46-Chat0-SAU35",
+     "talksFirst": 1,
+     "hasText": true
+    },
+    "ASH1": {
+     "key": "Chat_Messages/UM46-Chat0-ASH1",
+     "talksFirst": 1,
+     "hasText": true
+    }
+   },
+   "introByArmy": {}
+  },
+  {
+   "id": "UM47",
+   "name": "Uriel Ventris",
+   "army": 10,
+   "armyName": "Ultramarines",
+   "chatRef": "",
+   "introRef": "",
+   "chatId": "UM47",
+   "talksFirst": null,
+   "introByOpponent": {
+    "UM46": {
+     "key": "Chat_Messages/UM47-Chat0-UM46",
+     "talksFirst": 1,
+     "hasText": true
+    },
+    "UM48": {
+     "key": "Chat_Messages/UM47-Chat0-UM48",
+     "talksFirst": 0,
+     "hasText": true
+    },
+    "GOF29": {
+     "key": "Chat_Messages/UM47-Chat0-GOF29",
+     "talksFirst": 0,
+     "hasText": true
+    },
+    "BL35": {
+     "key": "Chat_Messages/UM47-Chat0-BL35",
+     "talksFirst": 0,
+     "hasText": true
+    },
+    "SAU36": {
+     "key": "Chat_Messages/UM47-Chat0-SAU36",
+     "talksFirst": 1,
+     "hasText": true
+    },
+    "UM65": {
+     "key": "Chat_Messages/UM47-Chat0-UM65",
+     "talksFirst": 0,
+     "hasText": true
+    }
+   },
+   "introByArmy": {}
+  },
+  {
+   "id": "UM48",
+   "name": "Varro Tigurius",
+   "army": 10,
+   "armyName": "Ultramarines",
+   "chatRef": "",
+   "introRef": "",
+   "chatId": "UM48",
+   "talksFirst": null,
+   "introByOpponent": {
+    "BL36": {
+     "key": "Chat_Messages/UM48-Chat0-BL36",
+     "talksFirst": 1,
+     "hasText": true
+    },
+    "UM46": {
+     "key": "Chat_Messages/UM48-Chat0-UM46",
+     "talksFirst": 0,
+     "hasText": true
+    },
+    "UM47": {
+     "key": "Chat_Messages/UM48-Chat0-UM47",
+     "talksFirst": 1,
+     "hasText": true
+    }
+   },
+   "introByArmy": {}
+  },
+  {
+   "id": "UM65",
+   "name": "Chaplain Letharius",
+   "army": 10,
+   "armyName": "Ultramarines",
+   "chatRef": "",
+   "introRef": "",
+   "chatId": "UM65",
+   "talksFirst": null,
+   "introByOpponent": {
+    "UM47": {
+     "key": "Chat_Messages/UM65-Chat0-UM47",
+     "talksFirst": 1,
+     "hasText": true
+    },
+    "TL74": {
+     "key": "Chat_Messages/UM65-Chat0-TL74",
+     "talksFirst": 0,
+     "hasText": true
+    },
+    "BL65": {
+     "key": "Chat_Messages/UM65-Chat0-BL65",
+     "talksFirst": 0,
+     "hasText": true
+    }
+   },
+   "introByArmy": {}
+  },
+  {
+   "id": "UM76",
+   "name": "Lieutenant Titus",
+   "army": 10,
+   "armyName": "Ultramarines",
+   "chatRef": "",
+   "introRef": "",
+   "chatId": "UM76",
+   "talksFirst": null,
+   "introByOpponent": {},
+   "introByArmy": {
+    "SaimHann": {
+     "key": "Chat_Messages/UM76-Chat0-SaimHann",
+     "hasText": true
+    },
+    "BlackLegion": {
+     "key": "Chat_Messages/UM76-Chat0-BlackLegion",
+     "hasText": true
+    },
+    "Goff": {
+     "key": "Chat_Messages/UM76-Chat0-Goff",
+     "hasText": true
+    },
+    "Leviathan": {
+     "key": "Chat_Messages/UM76-Chat0-Leviathan",
+     "hasText": true
+    }
+   }
+  },
+  {
+   "id": "UM87",
+   "name": "Roboute Guilliman",
+   "army": 10,
+   "armyName": "Ultramarines",
+   "chatRef": "",
+   "introRef": "",
+   "chatId": "UM87",
+   "talksFirst": null,
+   "introByOpponent": {
+    "BL34": {
+     "key": "Chat_Messages/UM87-Chat0-BL34",
+     "talksFirst": 0,
+     "hasText": true
+    },
+    "EC55": {
+     "key": "Chat_Messages/UM87-Chat0-EC55",
+     "talksFirst": 0,
+     "hasText": true
+    },
+    "SOR3": {
+     "key": "Chat_Messages/UM87-Chat0-SOR3",
+     "talksFirst": 0,
+     "hasText": true
+    },
+    "UM47": {
+     "key": "Chat_Messages/UM87-Chat0-UM47",
+     "talksFirst": 1,
+     "hasText": true
+    }
+   },
+   "introByArmy": {
+    "Leviathan": {
+     "key": "Chat_Messages/UM87-Chat0-Leviathan",
+     "hasText": true
+    }
+   }
+  },
+  {
+   "id": "UM88",
+   "name": "Valius Paxor",
+   "army": 10,
+   "armyName": "Ultramarines",
+   "chatRef": "",
+   "introRef": "",
+   "chatId": "UM88",
+   "talksFirst": null,
+   "introByOpponent": {},
+   "introByArmy": {
+    "EmperorsChildren": {
+     "key": "Chat_Messages/UM88-Chat0-EmperorsChildren",
+     "hasText": true
+    },
+    "Leviathan": {
+     "key": "Chat_Messages/UM88-Chat0-Leviathan",
+     "hasText": true
+    }
+   }
+  }
+ ]
+}

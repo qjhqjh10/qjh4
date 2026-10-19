@@ -31,7 +31,7 @@
 | `Unity/工具/sync_from_d2.py` | **Godot→d:/4 的进口通道本身**（`:87 GDATA = 'd:/warpforge/data'`） | 工具本体 | **改数据源**（换成解包/档案库路径）＋ 旧副本归档 |
 | `Unity/数据/游戏数据/`（**19 个**） | `sync_from_d2.py:91-93` 从 `d:/warpforge/data` 复制；原件由 `d:/warpforge/tools/export_game_data.py` 生成 | `gen_cards_engine.py:30`（`card_stats.json`）· `:724`（`card_ids.json`）· `gen_related_cards.py:77` · `check_prebuilt_decks.py` · `gen_prebuilt_decks.py` · `PrebuiltDecks.cs:5` | 🔴 **⛔ 不许直接删**：`card_stats.json` 通到**运行时** `RuleEngine/Resources/cards_engine.json`，而 **d:/4 内零替代生成器** ⇒ **补一个、换一个、`--check` 过再动下一个** |
 | `Unity/数据/本地化/i18n/zh_CN.csv` | Godot 时代的**自译**中文表（`gen_cards_engine.py:44` 自述「这张 csv 是我们自己译的」） | 仅**注释级**引用（`Loc.cs:857` …） | ✅ **有替代** = 官方 zh-CN 表（`数据/游戏数据/官方本地化_en+zh-CN.json`）⇒ **降级为「人工参考表」**，迁移并入 `A1762/A1763`。⚠️ 两边**已分叉**（d:/4 384,408 B / 2026-10-15 vs Godot 384,393 B / 2026-08-27）⇒ `Loc.cs:857` 那句「会被下次同步覆盖」**已陈旧**（该脚本语义是「已存在则跳过」）—— ✅ **已就地订正** |
-| `Unity/数据/界面布局/ui_layout/`（3 个）+ `Unity/数据/粒子/{particles,particles3d,arena_particles}` | `sync_from_d2.py:94-98` 从 Godot 复制 | ✅ **独立复核完毕：两批都是代码侧零引用**（`.cs`/`.unity` 命中 **0**；逐个开了那 7 个可疑脚本的 `open(...)`，**没有一个读它们**）；⚠️ 且 `Unity/数据/` 在 Unity 工程根 `Unity/MyGame/` **之外**（`os.path.commonpath` 实测 False ⇒ 进不了构建、`Resources.Load` 够不着） | ✅ **可归档**（依据 = 零引用 + 有同源权威替代）。🔴 **但归档前必须先改文档**（`资源使用手册.md` 的 3.2 / 第122行 / 第492行 —— **主对话 2026-10-15 已改**），否则手册会指空。⚠️ **⚠️ 且这两族【已被 git 跟踪】**（1,118 + 3 个文件 / 19 MB）＋ `sync_from_d2.py` 下次跑会**同步回来** ⇒ **要连同脚本条目一起改，⛔ 别只删文件**（账 `A2112`） |
+| `Unity/数据/界面布局/ui_layout/`（3 个）+ `Unity/数据/粒子/{particles,particles3d,arena_particles}` | `sync_from_d2.py:94-98` 从 Godot 复制 | ✅ **独立复核完毕：两批都是代码侧零引用**（`.cs`/`.unity` 命中 **0**；逐个开了那 7 个可疑脚本的 `open(...)`，**没有一个读它们**）；⚠️ 且 `Unity/数据/` 在 Unity 工程根 `Unity/MyGame/` **之外**（`os.path.commonpath` 实测 False ⇒ 进不了构建、`Resources.Load` 够不着） | ✅ **可归档**（依据 = 零引用 + 有同源权威替代）。🔴 **但归档前必须先改文档**（`资源使用手册.md` 的 3.2 / 第122行 / 第492行 —— **主对话 2026-10-15 已改**），否则手册会指空。⚠️ **⚠️ 且这两族【已被 git 跟踪】**（1,118 + 3 个文件 / 19 MB）＋ `sync_from_d2.py` 下次跑会**同步回来** ⇒ **要连同脚本条目一起改，⛔ 别只删文件**（账 `A2112`）。✅ **2026-10-19 已做**：整目录移到 `Unity/数据/历史_Godot快照/`（`界面布局/ui_layout` · `粒子/{particles,particles3d,arena_particles}`，保留原相对路径、⛔ 未删）；`sync_from_d2.py` 落点已改指归档目录；`资源使用手册.md` / `逐卡VFX表.md` / 本轮的 `W_工具线_T01施工图_1019b.md` 引用已同步 |
 | `Unity/工具/scripts快照/`（13 个 py） | 目录来源 = Godot 时代工具链；**但脚本本体只读解包资源** | ✅ **现役**（`gen_arena_groups.py` / `gen_arena_vertexcolors.py` / `patch_manifest_fog.py` / `ArenaBuilder.cs:5174`） | **保留**；只加一句注释澄清（⛔ 名字里的「快照」有歧义，容易被后续清理误当死件） |
 
 🔴 **一条方向相反的发现（⛔ 未动、未验）**：`Unity/工具/scripts快照/convert_unity_particles.py:5-6,30-32` 把产物写回 **`D:/warpforge/data/particles{,3d}`** —— 即 **d:/4 的工具在往 Godot 仓写盘**。**判不准它现在还会不会被跑** ⇒ 请人工裁。
@@ -95,7 +95,7 @@
 4. **`d:/warpforge/data/i18n/zh_CN.csv` 是纯手工译表还是 Godot 时代从官方 I2 表派生的** —— 没找到生产它的脚本。
 5. **`索引与盘点/原版游戏结构.md:74-81`「Godot 3D 实施路径」整段** —— 是纯历史记录还是仍被当结构说明读，判不准。
 6. **`uiwarlords`（65 张督军立绘）战斗侧到底用不用** —— 出处只把它接到排位选卡组，战斗名牌用的是 `cosmeticsso` 的 `Avatar_<阵营>_<督军名>`；**没穷尽核对**。
-7. **`Unity/数据/界面布局/ui_layout/` 与 `粒子/` 是否真零引用** —— ⏳ 另一个写手正在独立复核。
+7. **`Unity/数据/界面布局/ui_layout/` 与 `粒子/` 是否真零引用** —— ✅ **2026-10-19 已结**：独立复核确认代码侧零引用（`.cs`/`.unity` 0 命中），两族已**归档**到 `Unity/数据/历史_Godot快照/`（见本文件 §A 表；自检 `历史_Godot快照/verify_archive.py`）。
 
 ---
 

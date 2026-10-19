@@ -50,6 +50,10 @@
 //  原版这一族是**服务端 LiveOps 报价**的载体：`BaseOfferPopup.Open` 第一句就是
 //  `SetEventData(Data-as-IShopOffer)`，`Data` 由商店/容器那一族在报价到达时塞进来。
 //  本地**一个报价数据都没有**（同 `OfferContainer.cs` 文件头那条）⇒ 本窗：
+//    ⚠️ **2026-10-19（`A1853②`）半条订正**：**文案三栏**（`Title` / `Category` / `Descripton`）
+//       现在有本地来源 —— 在期 `Premium Item Offer` 的 `PurchasePremiumOffer{Title,SubTitle,Description}`
+//       （见下面 ③）。**仍没有的**是**报价实例本身**：价格 / 可购性 / 倒计时结束时刻 / 抽屉里的物品
+//       ⇒ 那几栏照旧走原版「没有数据」那一支。
 //    · **骨架照原版逐节点建**（37 个母版节点 + 每份变体自己的抽屉槽）；
 //    · **数据驱动的栏位**走**原版自己的「没有数据」那一支**（下一条），⛔ **不编假内容**；
 //    · **不编假入口**（不挂到任何菜单上）；`Create` 由调用方开，点了**如实出声**。
@@ -93,8 +97,12 @@
 //      （`40k_OfferBadge.png` 只躺在 `Art/原版/0_mainmenu/` 下、**没进 `Resources/`**）。
 //      ⇒ 那两处**只建节点、不画**（节点照建，保证树的形状对），并记进 `MissingArt` + **出声**。
 //      ⛔ **别拿别的图顶上**（红线：不许静默用别的东西冒充）。
-//   ③ **`Descripton` 那一栏恒用 prefab 自带的出厂文本** —— 原版由 `GetLabel(offer, 1)` 运行期覆盖；
-//      本地没有报价 ⇒ 用出厂原文（同 `BoosterInfoPopup.DescFor` 那条先例：**不自己编词**）。
+//   ③ **`Descripton` 那一栏** —— 原版由 `GetLabel(offer, 1)` 运行期覆盖。
+//      🔴 **2026-10-19（`A1853②`）就地订正**：原来这里写「本地没有报价 ⇒ 恒用出厂原文」——
+//      **报价事件的定义本地有**：13 个活动 SO 里 4 份 `Premium Item Offer` 带
+//      `PurchasePremiumOffer{Title(0),SubTitle(2),Description(1)}` 三条词条 + 实参。
+//      ⇒ 现行次序 = **调用方给的 `Content` > 在期报价事件的官方词条 > prefab 出厂原文**；
+//      ⛔ 过期/停用报价不用（用户边界）、⛔ 不自己编词。判据 → `Shell/LiveOpsLocalCatalog.cs`。
 using System.Collections.Generic;
 using UnityEngine;
 
@@ -689,12 +697,21 @@ namespace CardPresentation
         /// 那边已经把「出厂值 / 空 = 不画」的口径定好了；再立一个同形结构 = 两处写同一条规则。</summary>
         public static OfferContainer.Content DefContent() { return FillDef(null); }
 
-        /// <summary>逐格补出厂值：传进来的哪一格是 `null` 就拿出厂值顶上（**已赋的值一个字不动**）。</summary>
+        /// <summary>逐格补出厂值：传进来的哪一格是 `null` 就拿出厂值顶上（**已赋的值一个字不动**）。
+        /// <para>🆕 **2026-10-19（`A1853②`）**：顶之前先问**离线活动实例提供者**
+        /// （`Shell/LiveOpsLocalCatalog.cs`）—— 本地 13 个活动 SO 里有 4 份 `Premium Item Offer`，
+        /// 带 `PurchasePremiumOffer{Title,SubTitle,Description}` 三条词条 + 实参
+        /// （判据 = SO 的 `EventLabels`，逐字；反编译 `BaseOfferPopup__SetEventData.c:32-37` 取 label 2/1、
+        /// `IShopOffer__GetTitle.c:35` 取 label 0）。**只有该报价事件在期**才用；
+        /// ⛔ 过期/停用的一律不用（用户边界），此时仍回 prefab 出厂英文（= 今天的行为）。</para></summary>
         public static OfferContainer.Content FillDef(OfferContainer.Content? src)
         {
             var c = src ?? new OfferContainer.Content();
-            if (c.Name == null) c.Name = DefTitleText;
-            if (c.Type == null) c.Type = DefCategoryText;
+            string oTitle, oSubtitle, oDesc; LiveOpsLocalEvent oEv;
+            bool hasOffer = LiveOpsLocalCatalog.TryResolvePremiumOffer(
+                                LiveOpsLocalCatalog.NowUtc, out oTitle, out oSubtitle, out oDesc, out oEv);
+            if (c.Name == null) c.Name = hasOffer && !string.IsNullOrEmpty(oTitle) ? oTitle : DefTitleText;
+            if (c.Type == null) c.Type = hasOffer && !string.IsNullOrEmpty(oSubtitle) ? oSubtitle : DefCategoryText;
             if (c.Price == null) c.Price = DefPriceText;
             if (c.BadgeText == null) c.BadgeText = DefBadgeText;
             if (c.TimerText == null) c.TimerText = DefTimerText;
@@ -866,8 +883,18 @@ namespace CardPresentation
                 //   ⚠️ 排在 `SetAutoFitBox` / `AlignLeft` **之后**（同上面两段那条「先自适应、后摆位」纪律）。
                 MenuDraw.SetVAlign(cat, Label.VAlign.Midline, G.Category);
             }
-            // `Descripton`：fs35 · base 39 · auto[3~35] · `Left/Middle` · 折行=1（文本恒用出厂原文，见文件头 ③）
-            var desc = MenuDraw.TextBox(TextNode, G.Desc, DefDescText, Color.white, "Descripton", 35f, 3f,
+            // `Descripton`：fs35 · base 39 · auto[3~35] · `Left/Middle` · 折行=1
+            // 🆕 **2026-10-19（`A1853②`）**：正文 = 在期 `Premium Item Offer` 的
+            // `PurchasePremiumOfferDescription`（label 1，`{0}` 已按 `LabelArg` 填好）；
+            // 没有在期报价 ⇒ **prefab 出厂原文**（文件头 ③ 那句仍然成立）。
+            string descText = DefDescText;
+            {
+                string oT, oS, oD; LiveOpsLocalEvent oEv;
+                if (LiveOpsLocalCatalog.TryResolvePremiumOffer(LiveOpsLocalCatalog.NowUtc, out oT, out oS, out oD, out oEv)
+                    && !string.IsNullOrEmpty(oD))
+                    descText = oD;
+            }
+            var desc = MenuDraw.TextBox(TextNode, G.Desc, descText, Color.white, "Descripton", 35f, 3f,
                                         QText, 35f, 39f, face: TmpFont.Face.LatinCardBody);
             if (desc != null) MenuDraw.AlignLeft(desc, G.Desc);
 

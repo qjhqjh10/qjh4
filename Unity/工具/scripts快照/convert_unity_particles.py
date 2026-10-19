@@ -2,11 +2,21 @@
 """
 convert_unity_particles.py — Unity ParticleSystem JSON → Godot 粒子中间格式
 输入: 特效名 (GO 名, 如 AttackHitSmall) 或 ParticleSystem JSON 路径 (可多个)
-输出: D:/warpforge/data/particles/<名>.json (2D 简化参数, 拍平由 unity_particles.gd 做)
-      --3d 模式: D:/warpforge/data/particles3d/<名>.json (3D 世界空间, 保留形状/速度/挂点偏移, unity_particles3d.gd 读取)
-      + 纹理 (从 bundle 或解包目录)
-用法: py312/python.exe scripts/convert_unity_particles.py AttackHitSmall Actual_Explosion ...
-      py312/python.exe scripts/convert_unity_particles.py --3d AttackHitSmall ...
+输出: <out>/particles/<名>.json (2D 简化参数, 拍平由 unity_particles.gd 做)
+      --3d 模式: <out>/particles3d/<名>.json (3D 世界空间, 保留形状/速度/挂点偏移, unity_particles3d.gd 读取)
+      + 纹理 → <out>/particles_tex/
+用法: py312/python.exe scripts/convert_unity_particles.py --out <目录> AttackHitSmall Actual_Explosion ...
+      py312/python.exe scripts/convert_unity_particles.py --out <目录> --3d AttackHitSmall ...
+
+🔴 2026-10-19（账 `A2112` · 工具线 T01）—— **改默认落点、加硬门槛**：
+    · 本工具是**休眠的 Godot 格式转换器**（产物带 `res://assets/particles/…`，Unity 一个字节都用不了）；
+      d:/4 内**没有任何现役脚本/代码调用它**（全仓 grep 只命中文档叙述与 `sync_from_d2.py` 的拷贝清单）。
+    · 过去它把产物**写回 `D:/warpforge/data/{particles,particles3d}` + `D:/warpforge/assets/particles`**
+      —— 即 d:/4 的工具往 **Godot 时代旧仓**写盘。⚠️ **`d:/warpforge` 是我们自己上一版的 Godot 复刻，
+      ⛔ 别拿它当判据**（权威 = `d:/2/新解包资源/assets_full/` + 反编译）。
+    · 现在：**`--out` 必填**（不传 ⇒ 打印原因并以退出码 2 拒绝执行）；`--out` 落在 `D:/warpforge` 里
+      **同样拒绝**（源侧只读）。⛔ 本工具不写 d:/2 / d:/warpforge。
+    · 判据与清理背景 → `资料/普查产出_1015战斗/D5_Godot时代的账_清点与清理.md` §A · `资料/普查产出_1019/W_工具线_T01施工图_1019b.md` §3.2。
 
 ⚠️ 2026-10-09 更正（A1165 / A1144 / 铁律 5）：
   本文件过去找 GO 一律走「文件名前缀 glob」（go_file()）—— 遇【同名 GO 撞车】
@@ -27,9 +37,11 @@ sys.stdout.reconfigure(encoding='utf-8')
 PREFAB = r'D:\2\解包整理\08_预制体特效\战斗预制体'
 SHARED = r'D:\2\解包整理\08_预制体特效\共享资源'
 SCENE_ROOT = r'D:\2\解包整理\07_场景'   # --src 模式: PREFAB 指向 <SCENE_ROOT>/<场景>
-OUT_JSON = r'D:\warpforge\data\particles'
-OUT_JSON3D = r'D:\warpforge\data\particles3d'
-OUT_TEX = r'D:\warpforge\assets\particles'
+# 🔴 2026-10-19（A2112 · 工具线 T01）：默认**不再有落点** —— 必须显式 `--out <目录>`；
+#    指向 `D:/warpforge`（Godot 时代旧仓）的落点一律拒绝（见 `main()`）。
+OUT_JSON = None      # <out>/particles
+OUT_JSON3D = None    # <out>/particles3d
+OUT_TEX = None       # <out>/particles_tex
 BUNDLE_DIR = 'd:/2/Warhammer 40k Warpforge/Warpforge_Data/StreamingAssets/aa/StandaloneWindows64/'
 
 _go_cache = {}   # GameObject JSON 解析缓存 (PathID 同名多文件, 按文件名缓存)
@@ -500,6 +512,7 @@ def main():
     as3d = False
     as_name = None
     src = None
+    out = None
     rest = []
     i = 0
     while i < len(args):
@@ -515,9 +528,31 @@ def main():
             if i + 1 < len(args):
                 src = args[i + 1]
             i += 2
+        elif a == '--out':
+            if i + 1 < len(args):
+                out = args[i + 1]
+            i += 2
         else:
             rest.append(a)
             i += 1
+    # 🔴 2026-10-19（A2112）：`--out` 必填 + 拒绝写 d:/warpforge（Godot 时代旧仓、源侧只读）
+    if not out:
+        print('✗ 拒绝执行：本工具默认不写 d:/warpforge（Godot 时代旧仓，⛔ 别当判据）。')
+        print('  请显式给 --out <目录>：产物写到 <目录>/particles、<目录>/particles3d、<目录>/particles_tex。')
+        return 2
+    out_abs = os.path.abspath(out)
+    legacy = os.path.abspath(r'D:\warpforge')
+    try:
+        if os.path.commonpath([out_abs, legacy]) == legacy:
+            print('✗ 拒绝执行：--out 落在 d:/warpforge 里（Godot 时代旧仓：只读、⛔ 别当判据）。')
+            return 2
+    except ValueError:      # 不同盘符
+        pass
+    global OUT_JSON, OUT_JSON3D, OUT_TEX
+    OUT_JSON = os.path.join(out_abs, 'particles')
+    OUT_JSON3D = os.path.join(out_abs, 'particles3d')
+    OUT_TEX = os.path.join(out_abs, 'particles_tex')
+    print(f'  [--out] {out_abs}')
     if src:
         global PREFAB
         PREFAB = os.path.join(SCENE_ROOT, src)

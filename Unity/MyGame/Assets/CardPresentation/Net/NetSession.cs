@@ -629,6 +629,7 @@ namespace CardPresentation.Net
         public void Close(bool say = true, string reason = null)
         {
             string key = reason ?? "Settings/Online/Wire/PeerDone";
+            bool sentBye = false;
             if (say)
             {
                 if (_t == null || !_t.IsConnected || State == NetState.Off)
@@ -636,12 +637,26 @@ namespace CardPresentation.Net
                                    + $"—— 但**这一刻没有活的连接**（会话 {State}）⇒ 这句话**没发出去**，"
                                    + "对面**不会收到任何通知**（它那边只能靠心跳超时发现）。如实说出来（红线）");
                 else
-                    Send(NetKind.Bye, new MsgBye { reason = key });
+                    sentBye = Send(NetKind.Bye, new MsgBye { reason = key });
             }
             // 🆕 关台时**把要来的那条映射撤掉**（别在玩家路由器上留一条没人用的转发规则）。
             //    端口要在 `Close()` 之前抓 —— 关完就取不到了。
             if (Role == NetRole.Host && _t != null) UpnpPortMapper.UnmapAsync(_t.Port);
-            if (_t != null) _t.Close();
+            if (_t != null)
+            {
+                // 🆕 2026-10-19（`A1264` X2「`bye` 丢在哪一跳」）：**说完 `bye` 再走有界优雅关闭** ——
+                //   先 `Shutdown(Send)`、有界排空（≤ `TcpTransport.GracefulCloseDrainMs`），最后才真正 `Close()`。
+                //   为什么：原来 `Send`（同步 `Write + Flush`）之后**立刻** `_t.Close()`，没有
+                //   `Shutdown(Send)` / 排空 / linger ⇒ 刚写出的 `bye` 有可能在拆连接时被丢掉。
+                //   ⚠️ 只有「这一趟**真的把 `bye` 写出去了**」才需要排空（`sentBye`）；没发出去 /
+                //      `Close(false)` 都照旧直接关（自检里大量 `Close(false)`，别让每条都白等 200ms）。
+                //   ⚠️ 只有真 TCP 有这一档：`INetTransport` 接口**没加**这个方法（那要改
+                //      `Editor/BattleScene.cs` 的 `RecordingTransport`，不在本笔白名单）⇒ 按类型分派，
+                //      自检里的假 transport 照旧 `Close()`。⛔ 别把接口改成「必须实现」。
+                var tcp = _t as TcpTransport;
+                if (tcp != null && sentBye) tcp.CloseGracefully();
+                else _t.Close();
+            }
             // ⚠️ **本机那一句与线上那句【兜底不同】**：`reason == null` 时线上捎 `Wire/PeerDone`，
             //    而**本机状态字仍是** `St/Off`（「未连接」）—— 与接线前逐字一致。
             //    ⛔ 别把这两半并成一个 `key`（那会让 `Close(false)` 这条常用路上状态字变成「对面结束了这一局」）。

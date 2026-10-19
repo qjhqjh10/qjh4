@@ -13,6 +13,7 @@
 （−1 = 没 override ⇒ 导出器看到"表里没有"就回退到 shader 默认，行为本来就对）。
 
 用法：`python 工具/gen_mat_renderqueue.py`
+      加 `--dry` = 只跑计算、打印读数、**零写盘**（默认行为不变；`A1648` 同族口径）。
 """
 import glob
 import io
@@ -20,6 +21,9 @@ import json
 import os
 import sys
 from collections import defaultdict
+
+# 🔴 `--dry` = 只跑计算、打印读数、**零写盘**。默认（不带它）行为与以前完全一样。
+DRY = "--dry" in sys.argv[1:]
 
 SRC = "D:/2/新解包资源/assets_full/*/Material/*.json"
 OUT = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
@@ -49,7 +53,6 @@ def main():
     conflicts = {k: sorted(v) for k, v in by_name.items() if len(v) > 1}
     table = {k: sorted(v)[0] for k, v in by_name.items() if len(v) == 1}
 
-    os.makedirs(os.path.dirname(OUT), exist_ok=True)
     payload = {
         "_note": ("材质名 → 原版 m_CustomRenderQueue（只收 != -1 的）。"
                   "由 工具/gen_mat_renderqueue.py 从 assets_full/*/Material/*.json 生成，别手改。"
@@ -57,14 +60,19 @@ def main():
         "_conflicts": conflicts,
         "queue": table,
     }
-    io.open(OUT, "w", encoding="utf-8", newline="\n").write(
-        json.dumps(payload, ensure_ascii=False, indent=1))
+    if DRY:
+        print("干跑（未写盘）：%s" % OUT)
+    else:
+        os.makedirs(os.path.dirname(OUT), exist_ok=True)
+        io.open(OUT, "w", encoding="utf-8", newline="\n").write(
+            json.dumps(payload, ensure_ascii=False, indent=1))
 
     print("材质 JSON %d 个（读失败 %d）" % (len(files), bad))
     print("有 override 的唯一名 %d 个；同名多值 %d 个" % (len(table), len(conflicts)))
     for k, v in list(conflicts.items())[:8]:
         print("   ⚠️ %s -> %s" % (k, v))
-    print("已落表：%s" % OUT)
+    if not DRY:
+        print("已落表：%s" % OUT)
     return 0
 
 

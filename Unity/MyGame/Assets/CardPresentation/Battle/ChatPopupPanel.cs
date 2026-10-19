@@ -120,6 +120,18 @@ namespace CardPresentation
             { "Battle/Chat/Greetings", "Battle/Chat/Threat", "Battle/Chat/WellPlayed",
               "Battle/Chat/Taunt", "Battle/Chat/Sorry", "Battle/Chat/Oops" };
 
+        /// <summary>🆕 **2026-10-19（战斗线 `T17` · 账 `A1754`/`A1805`）：第 `i` 颗钮**说出来那句话**的官方词条键**
+        /// = `Chat_Messages/<督军 id>-Chat<5+i>`（判据 = `RawCardScript__GetLocalizedChatMsg.c`
+        /// 与 `VoiceLinesPopupSelector__SetupChatOptions.c:54,112` 的「起点写死 5、按下标 +1」）。
+        /// <para>⚠️ 两道文案**别混**：钮上印的**标签** = `Battle/Chat/*`（<see cref="LabelFor"/>，这颗钮叫什么）；
+        /// 本函数给的 = **原版台词文本**（显示在 `Battle/UnitChatPanel` 那条语音条上、与音频同一条）。
+        /// 消费点 = `UnitChatPanel.Speak`（`evt = "Chat" + i` ⇒ <see cref="UnitChatPanel.ChatTermSuffix"/> 映到 `-Chat5…10`）。</para></summary>
+        public static string LineTermFor(string warlordCardId, int i)
+        {
+            if (i < 0 || i >= ButtonCount) return null;
+            return UnitChatPanel.ChatTermKey(warlordCardId, "Chat" + i);
+        }
+
         /// <summary>第 i 颗钮印什么字。
         /// 🔴 **2026-10-14（`A1845`/`A1804`）**：改成**官方词条优先**（`Loc` 表里的官方 zh-CN/EN）；
         /// 取不到才退回 <see cref="ButtonLabels"/> 那一份英文枚举名，并**出声**（红线：不许静默）。

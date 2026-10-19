@@ -827,7 +827,7 @@ public static class RewardsScene
         //    「三颗 Holder + `AddComponent<WindowsManager>()`」（原 `:704-710`）—— 那 8 条红（#1 及其级联）的**唯一源头**：
         //    · `WindowsManager` **没有 `[ExecuteAlways]`**（`Shell/WindowsManager.cs` 里**只有** `WindowHolder` 那颗**有**）⇒ 批处理（编辑模式）
         //      **`Awake` 不跑** ⇒ 手抄那一下 **`Instance` 恒 null**（`Instance` 只在 `Awake` 里赋，**批处理下那句从不执行**）。
-        //      判据（**四条独立记录**，全是踩过的坑）：`Shell/PromptPopup.cs` 的 `WindowButton` 类注 · `Shell/MainMenuRuntime.cs` 里那条「编辑模式下 `Awake` 不跑」 ·
+        //      判据（**四条独立记录**，全是踩过的坑）：`Shell/WindowButton.cs` 的 `WindowButton` 类注（⚠️ 2026-10-19 订正：原写 `Shell/PromptPopup.cs`）· `Shell/MainMenuRuntime.cs` 里那条「编辑模式下 `Awake` 不跑」 ·
         //      `Shell/PointerLayer.cs:47-48` · `资料/已知的坑.md:704`（「编辑模式下 `Awake/OnEnable`/`Update`
         //      **只对带 `[ExecuteAlways]` 的脚本**才跑」）。
         //    · 而 A309 新接的开窗出口走 `Shell/RewardWindow.cs` 的 **`WindowsManager.EnsureHost()`**
@@ -981,6 +981,21 @@ public static class RewardsScene
     // ============================================================ 自检
 
     public static void Run()
+    {
+        // 🔴 **2026-10-19（`A1534` 尾巴 · 铁律 11）**：批处理自检**不出声** —— `WFSoundPlayer.Enabled = false`
+        //   时那个开关自己的契约是「**只记账不发声**：不建对象、不出声，但 `Played` 照样涨」
+        //   ⇒「音效调度算对了没有」那一族断言**照旧有效**，而这一趟**不白建一堆 `AudioSource`、不白播**。
+        //   先例 = `WarpforgeArena1/Editor/AnimFXCheck.cs:341-366`（同一个开关、同一个 `finally` 还原）。
+        //   ⚠️ 它是**全局静态开关** ⇒ 必须在 `finally` 里还原；`RunCore` 本体保持原样（只换了名字）。
+        bool prevSoundEnabled = WarpforgeVFX.WFSoundPlayer.Enabled;
+        WarpforgeVFX.WFSoundPlayer.Enabled = false;
+        try { RunCore(); }
+        finally { WarpforgeVFX.WFSoundPlayer.Enabled = prevSoundEnabled; }
+    }
+
+    /// <summary>`Run()` 的**本体**（🆕 `A1534` 尾巴：`Run` 只负责「关音效 → 调它 → 还原」这一圈）。
+    /// ⚠️ 入口仍是 `Run`（`-executeMethod RewardsScene.Run` 一个字没变）。</summary>
+    static void RunCore()
     {
         _sink.Pass = 0; _sink.Fail = 0; _sink.Failures.Clear();
         Directory.CreateDirectory(ShotDir);
@@ -1343,7 +1358,7 @@ public static class RewardsScene
         //     那道闸**）→ `EverguildButtonHelper__get_DisabledMaterial.c` 的 `Shader.Find(<那个串>)`，
         //     串本身逐字节实读 = `"Everguild/UI/Greyscale"`（`il2cpp_out/stringliteral.json` `0x42AB248`）。
         //   · 我们这一侧的唯一实现 = `WindowButton.Interactable` 的 setter → `RefreshGray()`
-        //     （`Shell/PromptPopup.cs`）⇒ 这里核的是「**真的**灰了」，不是「我们打算灰」。
+        //     （`Shell/WindowButton.cs`；⚠️ 2026-10-19 订正：原写 `Shell/PromptPopup.cs`）⇒ 这里核的是「**真的**灰了」，不是「我们打算灰」。
         // 🔴 期望值盯的是**原版那张 shader 的名字**（`AuditGrayLook` 内部逐颗比的就是它），不是我们自己的常量。
         Section("🆕 A82：未达成的 `Collect` 变灰（原版 `colorTintGreyOnDisable = 1` ⇒ 材质换 `Everguild/UI/Greyscale`）");
         {
@@ -2775,14 +2790,19 @@ public static class RewardsScene
                     Check(i < skNums.Count ? TextOf(skNums[i]) : "<格数不足 5>", wantD37[i],
                           "★ ...第 " + (i + 1) + " 格印的是 **" + wantD37[i] + "**（照原版实拍逐格；"
                           + "数就是从阈值来的 —— 与 A370 那节断的 `SkullsStepTarget` 同源）");
-                // 框与字号：原版 `Mission Milestone Step/text` 实读 = **40×40（与方框同框）**· fs **42.2** ·
-                // auto[**10~50**]（`工具/menu_dump.py … "Daily Skulls Mission Container Small"`）。
-                // ⇒ 在 `Special Missions` 子树里还要各 ×1.15（`MissionsTab.FS`）= **[11.5, 57.5]**。
+                // 框与字号：原版 `Mission Milestones Step/holder/text` 实读 = **40×40（与方框同框）**· fs **32.0** ·
+                // base **36.0** · auto[**15~32**]（`工具/menu_dump.py bundle_menus_assets_all
+                //   "Mission Milestones Step" --depth 10 --relative`）—— 这是**运行期那份**：
+                // 本卡 `milestones` 的 `MissionMilestonesDisplay.stepPrefab` 现读 = 基础 `Mission Milestones Step`。
+                // 🔴 **2026-10-19（`A1232` 尾巴 · 铁律 5）就地订正**：本段原来写 fs 42.2 / auto[10~50] /
+                //   `[11.5, 57.5]` —— 那是 **`Daily Skulls Mission Container Small`（小屏变体）页内作者预览**
+                //   那一颗的数（`A579` 当年照错了对象）；本卡建的是**基础命名的全尺寸** prefab ⇒ 判据换成上面那份。
+                // ⇒ 在 `Special Missions` 子树里还要各 ×1.15（`MissionsTab.FS`）= **[17.25, 36.8]**。
                 // ⚠️ 断的是**窗口**不是 `FontPxNow`（开了自适应时那是 TMP 二分出来的收敛值，会时红时绿 ——
-                //    同 A143 那条口径）。改坏法：把 `Txt(..., 10f, 50f)` 那两个实参去掉 ⇒ 上界退回设计字号
-                //    （42.2 × 1.15 = 48.53）⇒ 红。
-                CheckFontWindow(sk37, "Step Text", 11.5f, 57.5f,
-                                "★ 骷髅卡格里的数字：自适应窗口 = 原版 `[10,50]` × 1.15");
+                //    同 A143 那条口径）。改坏法：把 `MissionsTab` 那一句 `Txt(..., 15f, 32f)` 的两个实参改回
+                //    `10f, 50f` ⇒ 本条红（窗口对不上 17.25 / 36.8）。
+                CheckFontWindow(sk37, "Step Text", 17.25f, 36.8f,
+                                "★ 骷髅卡格里的数字：自适应窗口 = 原版 `[15,32]` × 1.15");
                 // 位置：原版那个 `text` 的 anchors 在 40×40 的 `holder` 上是 (0,0)-(1,1)、sizeDelta (0,0)
                 // ⇒ **与格子同心**（⛔ 不是「印在方框下面」那一支，那是周常）。
                 var skCells = allCells(sk37);
@@ -4381,8 +4401,19 @@ public static class RewardsScene
                 var helpNode = FindChild(forge, "Help Icon");
                 CheckTrue(helpNode != null, "`Help Icon` 建了");
                 // ① 正文：**一个字都没编**（原版是 I2 词条 `MainMenu/Forge/Help`，词条表在远端 CCD、本地没有）
-                CheckTrue(ForgeTab.HelpTipBody.Trim() == "",
-                          "`ForgeTab.HelpTipBody` **一个字都没编**（面板照弹、正文空 —— 裁定过，别改成「不出面板」）");
+                // 🔴 **2026-10-19（`A1855` · 铁律 11）**：本条原来只断 `.Trim() == ""` —— **两件事它分不出**：
+                //   ① `HelpTipBody = ""`（真空串）⇒ `Tooltip.Show` 首句 `if (string.IsNullOrEmpty(body)) { Hide(); return; }`
+                //      ⇒ **面板根本不会弹**（下面「悬停计数 +1 / `ShowCount` +1」会一起红，但那时红在**别处**、
+                //      读起来像「接线断了」）；
+                //   ② `HelpTipBody = " "`（一个空格）⇒ 面板**照原版时机弹出来、正文是空的**（这才是裁定过的形态）。
+                //   ⇒ 拆成两半断：**非空**（保证 `Show` 不被首句挡掉）+ **trim 后为空**（一个字都没编）。
+                //   ⚠️ 它变红的**另一半**（词条真接线之后「正文不再是空的」）仍要等 `Battle/Tips/*` 的取值口径
+                //      —— 那不在本批（`Shell/ForgeTab.cs` 不在白名单），本条只把「今天这一档」钉准。
+                CheckTrue(!string.IsNullOrEmpty(ForgeTab.HelpTipBody) && ForgeTab.HelpTipBody.Trim() == "",
+                          "`ForgeTab.HelpTipBody` **非空、且一个字都没编**（= 一个空白占位 —— 面板照原版时机弹、正文空）"
+                        + $"（实得「{ForgeTab.HelpTipBody}」，长度 {ForgeTab.HelpTipBody.Length}）"
+                        + " —— 🧨 改成真空串 ⇒ `Tooltip.Show` 首句直接 `Hide()`、面板不弹 ⇒ 本行红；"
+                        + "🧨 编上真文案 ⇒ 「trim 后为空」那一半红（那时该走的是「接词条 + 改这条期望值」）");
                 var helpQ = helpNode != null ? helpNode.GetComponentInChildren<ImageQuad>() : null;
                 CheckTrue(helpQ != null, "`Help Icon` 有渲染 quad（下面拿它的**渲染中心**当悬停点）");
                 var hpx = helpQ != null ? LayoutSpace.ToPixel(helpQ.transform.position) : Vector2.zero;
@@ -11119,7 +11150,7 @@ public static class RewardsScene
                 //   ⚠️ **兑现点有两种、本条两种都收**：①【激活那一刻】由 `Label.OnEnable` 兑现（`Battle/Label.cs` 的 `OnEnable`）；
                 //      ②【激活之后第一次真重排 / 有人要真数】由 `RefreshBounds` 的尾句或 `WorldW` 的 `EnsureMeasured` 兑现。
                 //      批处理（编辑模式）下 `Awake/OnEnable` **只对 `[ExecuteAlways]` 的脚本**才跑
-                //      （**四条独立记录**：`资料/已知的坑.md:704` · `Shell/PromptPopup.cs` 的 `WindowButton` 类注 ·
+                //      （**四条独立记录**：`资料/已知的坑.md:704` · `Shell/WindowButton.cs` 的 `WindowButton` 类注（⚠️ 2026-10-19 订正：原写 `Shell/PromptPopup.cs`）·
                 //      `Shell/MainMenuRuntime.cs` 里那条「编辑模式下 `Awake` 不跑」 · `Shell/PointerLayer.cs:47-48`），而 **`Label` 没有那个特性**
                 //      ⇒ 自检里走的是 ②。⚠️ **那一格（①）本夹具判不到** —— 所以这条**断不死**「就是 `OnEnable` 那一跳」；
                 //      实测读数印在下一条消息的 `appliedAtActivate` 里（**= 激活那一刻的计数**，供下次跑时坐实）。

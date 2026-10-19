@@ -94,7 +94,10 @@ public static class EffectExporter
         { "Everguild/Unlit Wind",                           "WarpforgeVFX/UnlitAmbient" },
 
         // ---- 自建替代 shader ----
-        { "Everguild/FX/Extra Color",                       "WarpforgeVFX/Particles/Extra Color" },
+        // 🔴 **2026-10-19 晚（T02）：EC 单开 `… Extra Color EC`** —— 与运行时表
+        //    `WarpforgeShaderMap.Replacements` 同步（两张表必须一致）。理由见那个 shader 的文件头：
+        //    原版 EC 多一跳 `LinearToSRGB(_Color)`，而内置族那一份用了 `_Color` 会坏。
+        { "Everguild/FX/Extra Color",                       "WarpforgeVFX/Particles/Extra Color EC" },
         { "Everguild/Sprites/Sprite Additive",              "WarpforgeVFX/Sprites/Additive" },
         { "Everguild/FX/Particle Distortion Affect Transparents", "WarpforgeVFX/FX/Distortion" },
         { "Everguild/Matcap/Matcap Full Options",           "WarpforgeVFX/Matcap/Matcap" },
@@ -444,20 +447,33 @@ public static class EffectExporter
             int wantMax = Mathf.Max(2048, Mathf.NextPowerOfTwo(Mathf.Max(w, h)));
             // 🆕 2026-10-19（T07）：wrap/filter/aniso 三格也照原版（列 5..8）。
             //   -1 = 老表 / 读不到 ⇒ **不动**（不许拿「未知」覆盖）。
+            // 🔴 **2026-10-19 晚（本批）：U/V 分开写。**
+            //   原来写的是单一 `ti.wrapMode`（Unity 的 TextureImporter 的合并口径），
+            //   而**原版确实有 U≠V 的贴图**（2984 张里 4 张：`Shine trail` / `Gauss Rays` /
+            //   `Gauss Rays Noise` / `40k_voicelines_radio_wave equalizer`）。按 U 写会把 V 的 Clamp 丢掉：
+            //   实测 `Shine trail` = 拖尾贴图，shader 把 V 放大 2.11 ⇒ V 出界 ⇒
+            //   Clamp 应只露中段 ~26%，Repeat 把亮带卷到两端 ~57% ⇒ `Buff_DA_Forest_Self` 差 2.8×。
+            //   Unity 6000.3 的 `TextureImporter` 有独立的 `wrapModeU/V/W`（本机 DLL 实读确认）。
             int wu = ParseOr(c, 5), wv = ParseOr(c, 6), fm = ParseOr(c, 7), an = ParseOr(c, 8);
-            var wantWrap = (wu >= 0) ? (TextureWrapMode)wu : ti.wrapMode;
+            var wantWrapU = (wu >= 0) ? (TextureWrapMode)wu : ti.wrapModeU;
+            var wantWrapV = (wv >= 0) ? (TextureWrapMode)wv : ti.wrapModeV;
             var wantFilter = (fm >= 0) ? (FilterMode)fm : ti.filterMode;
             int wantAniso = (an > 0) ? an : ti.anisoLevel;
             bool same = ti.mipmapEnabled == wantMip && ti.maxTextureSize == wantMax
-                        && ti.wrapMode == wantWrap && ti.filterMode == wantFilter
+                        && ti.wrapModeU == wantWrapU && ti.wrapModeV == wantWrapV
+                        && ti.filterMode == wantFilter
                         && ti.anisoLevel == wantAniso;
             if (same) { ok++; continue; }
             if (!wantMip) noMip++;
-            if (wu >= 0 && wv >= 0 && wv != wu)
-                Debug.LogWarning($"[TEXFIX] `{c[0]}` 原版 wrapU({wu}) ≠ wrapV({wv}) —— 按 U 写，这一格要人工看一眼");
+            // 只有一格读得到时**出声**（另一格保持现值，不猜）
+            if (wu >= 0 && wv < 0)
+                Debug.LogWarning($"[TEXFIX] `{c[0]}` 原版只有 wrapU({wu})、wrapV 读不到 ⇒ V 保持现值 {ti.wrapModeV}");
+            if (wv >= 0 && wu < 0)
+                Debug.LogWarning($"[TEXFIX] `{c[0]}` 原版只有 wrapV({wv})、wrapU 读不到 ⇒ U 保持现值 {ti.wrapModeU}");
             ti.mipmapEnabled = wantMip;
             ti.maxTextureSize = wantMax;
-            ti.wrapMode = wantWrap;
+            ti.wrapModeU = wantWrapU;
+            ti.wrapModeV = wantWrapV;
             ti.filterMode = wantFilter;
             ti.anisoLevel = wantAniso;
             ti.SaveAndReimport();
@@ -1909,6 +1925,63 @@ public static class EffectExporter
             Debug.Log(EX1 + $"A1095 `{src.name}` legacy `Animation` 片段：接回 **{clipOk}** 条"
                           + (clipMiss > 0 ? $"、**没接上 {clipMiss} 条**（见上面的告警）" : ""));
 
+        // ---- 🆕 2026-10-19（A1325）：**uGUI `Image.m_Sprite` 与 TMP `m_fontAsset` 两跳** ----
+        // 写法照抄 `BoosterPackExporter.Export()` 里同名那两支（`Image.m_Sprite` ≈ `:512`、TMP 字体 ≈ `:563`）。
+        // **为什么必须补**：两者都是 **bundle 资产**，不导的话落盘会写成 `guid 全 0` 的伪引用
+        // （现读 `Prefabs/CardPrefab.prefab`：`m_Sprite` guid0 **6** · `m_fontAsset` guid0 **38**；
+        //  `m_Script` 已是 **0**，那条由 `SavePrefabAndRepairScripts` 负责，不在这里）。
+        // ⚠️ 纪律与既有的精灵跳一致：**接不上就留空 + 点名出声**，⛔ 绝不拿别的图/别的字体顶上。
+        // ⚠️ TMP 字体一律按**序列化字段**读（`SerializedFieldRef`），⛔ 不用 `t.font` getter ——
+        //    那个 getter 在 `m_fontAsset == null` 时会回落到 `TMP_Settings.defaultFontAsset`
+        //    （同 `Image.material` 那个坑），会把「本来没有字体」的也数成有。
+        //    字体按**资产名**到工程里找同名 `TMP_FontAsset`（`CardPresentation/Resources/Fonts/` 下已有
+        //    `Pragati-Regular SDF` / `Asar-Regular SDF`）⇒ 将来谁把别的原版字体导进来，这里不用改代码；
+        //    ⛔ 找不到返回 null（留空），**绝不新建**、更不 `CreateFontAsset` 现造一份。
+        //    附注：`t.font = f` 会走 TMP 的 `LoadFontAsset()`，它会在 `m_sharedMaterial` 为空/图集不匹配时
+        //    把 `m_sharedMaterial` 指到字体资产自己的材质 ⇒ 顺带把 `m_sharedMaterial` 的 guid0 也修掉。
+        int uiSpriteOk = 0, uiSpriteMiss = 0;
+        foreach (var img in inst.GetComponentsInChildren<UnityEngine.UI.Image>(true))
+        {
+            if (img.sprite == null) continue;      // 原版本来就空的那种（不算「丢」）
+            var imported = ImportSprite(img.sprite);
+            if (imported == null)
+            {
+                uiSpriteMiss++;
+                Debug.LogWarning($"[EffectExporter] A1325 `{src.name}` / `{img.gameObject.name}` 上的 `Image.m_Sprite`"
+                    + $"（`{img.sprite.name}`）落不成工程 sprite ⇒ **这一格留空**"
+                    + "（⛔ 不拿别的图顶上 —— 那等于静默画错一张）");
+                continue;
+            }
+            img.sprite = imported; uiSpriteOk++;
+        }
+
+        int tmpFontOk = 0, tmpFontMiss = 0;
+        var missingFonts = new Dictionary<string, int>();
+        foreach (var t in inst.GetComponentsInChildren<TMPro.TMP_Text>(true))
+        {
+            var srcFont = SerializedFieldRef(t, "m_fontAsset") as TMPro.TMP_FontAsset;
+            if (srcFont == null) continue;
+            var f = FindProjectAsset<TMPro.TMP_FontAsset>(srcFont.name);
+            if (f != null) { t.font = f; tmpFontOk++; }
+            else
+            {
+                tmpFontMiss++;
+                missingFonts[srcFont.name] =
+                    (missingFonts.TryGetValue(srcFont.name, out int c0) ? c0 : 0) + 1;
+            }
+        }
+        if (uiSpriteOk > 0 || uiSpriteMiss > 0)
+            Debug.Log($"[EffectExporter] A1325 `{src.name}` uGUI `Image.m_Sprite`：接回 **{uiSpriteOk}** 条"
+                    + (uiSpriteMiss > 0 ? $"、**没接上 {uiSpriteMiss} 条**（见上面的告警）" : ""));
+        if (tmpFontOk > 0 || tmpFontMiss > 0)
+        {
+            var mv = new List<string>();
+            foreach (var kv in missingFonts.OrderByDescending(k => k.Value))
+                mv.Add($"`{kv.Key}`×{kv.Value}");
+            Debug.Log($"[EffectExporter] A1325 `{src.name}` TMP `m_fontAsset`：接回 **{tmpFontOk}** / 留空 **{tmpFontMiss}**"
+                    + (mv.Count > 0 ? $"（工程里没有这些 TMP_FontAsset：{string.Join(" · ", mv)}）" : ""));
+        }
+
         // ---- 挂 binder：进游戏时用原版 shader 重建材质 ----
         var binder = inst.GetComponent<WarpforgeEffectBinder>();
         if (binder == null) binder = inst.AddComponent<WarpforgeEffectBinder>();
@@ -1931,6 +2004,60 @@ public static class EffectExporter
                      (approx > 0 ? $"；近似替代 {approx} 处" : "") +
                      (sfx.fixedInMemory > 0 ? $"；m_Script 接回 {sfx.fixedInMemory} 条" : "") +
                      (sfx.zeroOnDisk > 0 ? $"；**m_Script 落盘guid0 {sfx.zeroOnDisk}→改回{sfx.repaired}→剩{sfx.left}**" : "");
+    }
+
+    /// <summary>🆕 A1325：按**序列化字段名**读一个对象引用（⛔ 不用带回落的 getter —— 例如
+    /// `TMP_Text.font` 在 `m_fontAsset == null` 时会回落到 `TMP_Settings.defaultFontAsset`、
+    /// `Image.material` 会回落到内建默认材质 ⇒ 照 getter 取值会把「本来没有」的也数成有）。
+    /// 与 `BoosterPackExporter.SerializedFieldRef` 同形；读失败**出声**并按「没有」处理。</summary>
+    static UnityEngine.Object SerializedFieldRef(UnityEngine.Object comp, string field)
+    {
+        try
+        {
+            using (var so = new SerializedObject(comp))
+            {
+                var p = so.FindProperty(field);
+                if (p == null || p.propertyType != SerializedPropertyType.ObjectReference) return null;
+                return p.objectReferenceValue;
+            }
+        }
+        catch (Exception e)
+        {
+            Debug.LogWarning($"[EffectExporter] A1325 读 `{comp.GetType().Name}.{field}` 失败"
+                           + $"（这一格按「没有」处理）：{e.GetType().Name}: {e.Message}");
+            return null;
+        }
+    }
+
+    /// <summary>🆕 A1325：按**资产名**到工程里找一份同名资产；⛔ 找不到返回 `null`
+    /// （调用方**留空 + 出声**），**绝不新建**。与 `BoosterPackExporter.FindProjectAsset` 同形。
+    /// 结果按 `(类型, 名字)` 缓存 —— 一份 prefab 里同一份字体要被问上百次。</summary>
+    static readonly Dictionary<string, UnityEngine.Object> ProjAssetCacheA1325 =
+        new Dictionary<string, UnityEngine.Object>();
+
+    static T FindProjectAsset<T>(string name) where T : UnityEngine.Object
+    {
+        if (string.IsNullOrEmpty(name)) return null;
+        string key = typeof(T).Name + "|" + name;
+        if (ProjAssetCacheA1325.TryGetValue(key, out var hit)) return hit as T;
+        T found = null;
+        try
+        {
+            foreach (var g in AssetDatabase.FindAssets("t:" + typeof(T).Name))
+            {
+                var p = AssetDatabase.GUIDToAssetPath(g);
+                if (Path.GetFileNameWithoutExtension(p) != name) continue;
+                found = AssetDatabase.LoadAssetAtPath<T>(p);
+                if (found != null) break;
+            }
+        }
+        catch (Exception e)
+        {
+            Debug.LogWarning($"[EffectExporter] A1325 找工程资产 `{name}`（{typeof(T).Name}）失败"
+                           + $"（按「没有」处理）：{e.GetType().Name}: {e.Message}");
+        }
+        ProjAssetCacheA1325[key] = found;
+        return found;
     }
 
     /// <summary>补齐「渲染器层面」的 shader 关键字。
@@ -2804,19 +2931,25 @@ public static class EffectExporter
             //   （`EnvironmentalCondition Leviathan *` 渲染器 0 那张 4096×2048）：原版 **Mirror**、
             //   我们 Repeat ⇒ 四边形 UV 触到边缘时**把对侧像素卷回来** ⇒ 左右各 2px 细边（能量比 1.011）。
             //   ⇒ 现在**照抄原版四格**：wrapU/wrapV/filterMode/aniso。
-            //   ⚠️ Unity 的 TextureImporter 只有**一个** `wrapMode`；原版 U≠V 时取 U 并**出声**（不静默）。
+            //   🔴 **2026-10-19 晚更正（T02）：这里原来写「Unity 的 TextureImporter 只有一个 `wrapMode`，
+            //   原版 U≠V 时取 U」—— 那个前提是错的（本机 6000.3 有独立的 `wrapModeU/V/W`）。
+            //   按 U 写的实际代价：`Shine trail`（原版 U=Repeat/V=**Clamp**）的 V 被写成 Repeat，
+            //   而拖尾 shader 把 V 放大 2.11 ⇒ V 出界 ⇒ 亮带被卷到两端 ⇒ `Buff_DA_Forest_Self` 差 2.8×。
+            //   现在 **U/V 各写各的**；只有一格读不到时，那一格保持现值并出声。
             int wu = -1, wv = -1, fm = -1, aniso = -1;
             try { wu = (int)src.wrapModeU; wv = (int)src.wrapModeV; } catch { }
             try { fm = (int)src.filterMode; } catch { }
             try { aniso = src.anisoLevel; } catch { }
-            if (wu >= 0)
+            if (wu >= 0) ti.wrapModeU = (TextureWrapMode)wu;
+            else ti.wrapModeU = TextureWrapMode.Repeat;           // 读不到 = 保持旧行为，不静默改成别的
+            if (wv >= 0) ti.wrapModeV = (TextureWrapMode)wv;
+            else
             {
-                if (wv >= 0 && wv != wu)
-                    Debug.LogWarning($"[EffectExporter] 贴图 {src.name} 原版 wrapU({wu}) ≠ wrapV({wv}) —— " +
-                                     "Unity 的 TextureImporter 只有一个 wrapMode，按 U 写；这一格**要人工看一眼**。");
-                ti.wrapMode = (TextureWrapMode)wu;
+                ti.wrapModeV = TextureWrapMode.Repeat;            // 读不到 = 保持旧行为
+                Debug.LogWarning($"[EffectExporter] 贴图 {src.name} 原版 wrapV 读不到 ⇒ 按 Repeat 写（U={wu}）");
             }
-            else ti.wrapMode = TextureWrapMode.Repeat;            // 读不到 = 保持旧行为，不静默改成别的
+            if (wu >= 0 && wv >= 0 && wv != wu)
+                Debug.Log($"[EffectExporter] 贴图 {src.name} 原版 wrapU({wu}) ≠ wrapV({wv}) —— 按 U/V 分别写");
             if (fm >= 0) ti.filterMode = (FilterMode)fm;
             if (aniso > 0) ti.anisoLevel = aniso;
             // 🔴 顺手堵一个**同类**的静默截断：导入默认 `maxTextureSize = 2048`，超过就**悄悄缩一半**。

@@ -570,7 +570,9 @@ namespace RuleEngine
         /// 用途：原版誓约能力的默认限制是「**本回合部署的才能激活**」
         /// （`CardScript__IsTheSameTurnPlayed.c:24-38`），
         /// 由 `oathInAllTurns` 豁免（`CardScript__CanUseOathAbility.c:8`）。
-        /// 全仓原来**没有任何「部署回合」字段**，这是唯一一处写点（`RuleCore.PlayCard` / `DeployFree`）。
+        /// 全仓原来**没有任何「部署回合」字段**，这是唯一一处写点（`RuleCore.PlayCard` / `DeployFree`
+        /// / `TutorialScript.PlaceTroops` —— 🔴 2026-10-19（`A1990`）补上第三个写点：
+        /// 教程起始单位也会写它，原来这句只列了两个入口）。
         /// </summary>
         public int DeployedTurn = -1;
 

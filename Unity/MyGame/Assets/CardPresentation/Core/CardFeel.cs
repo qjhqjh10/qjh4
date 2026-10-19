@@ -1084,8 +1084,12 @@ namespace CardPresentation
         /// 🔴 实测（2026-09-19）：屏震钩子从 `Start()` 挪进 `Begin()` 之后，自检里第一次真的震起来，
         ///    回放条与换牌气泡两条断言都差 **0.4210** 世界单位（同一个常量、方向一致）。
         /// ⚠️ 真实播放里不需要（DOTween 在 `Update` 里跑，自己会收尾）——
-        ///    这是**自检专用**的收尾口，而且按工程惯例**不让调用方直接碰 DOTween**
-        ///    （`BattleDriver` / 自检都没有 `using DG.Tweening`）。
+        ///    这是**自检专用**的收尾口，而且按工程惯例**不让调用方直接碰 DOTween**。
+        ///    🔴 **2026-10-19（W）就地订正（铁律 5）**：本行原来写「`BattleDriver` / 自检都没有
+        ///    `using DG.Tweening`」—— **前半句已过期**：`BattleDriver.cs:14` 自 2026-09-30 起
+        ///    就有 `using DG.Tweening`（reveal 那段「飞到 HUD 钮」用 `DOMove/DOFade`）。
+        ///    ✅ 仍成立的是「`BattleScene`（本自检的宿主）没有那个 using」；「回调从这里接」
+        ///    现在只是本文件的划法，**不是因为调用方编不过** —— ⛔ 别拿旧理由限制后续写法。
         /// </summary>
         public static void SettleShake()
         {
@@ -1498,8 +1502,10 @@ namespace CardPresentation
             seq.Join(tr.DOScale(tr.localScale * 0.85f, dur).SetEase(Ease.InQuad));
             seq.Join(DOTween.To(() => card.Alpha, a => card.SetAlpha(a), 0f, dur));
             var t = CardTween.Use(seq, Ease.Linear, tr).SetDelay(delay);
-            // ⚠️ 回调**从这里接**，别让调用方去碰 DOTween —— `BattleDriver` 没有 `using DG.Tweening`
-            //    （补间只在这几个文件里出现，是这个工程一直的划法）
+            // ⚠️ 回调**从这里接**，别让调用方去碰 DOTween —— 这是本文件的划法。
+            //    🔴 **2026-10-19（W）就地订正（铁律 5）**：本行原来写「`BattleDriver` 没有
+            //    `using DG.Tweening`」—— **已过期**（`BattleDriver.cs:14` 自 2026-09-30 起就有）。
+            //    ✅ 仍然成立的是「补间只在这几个 `CardFeel`/`CardTween` 文件里出现」这个现状。
             if (onDone != null) t.OnComplete(() => onDone());
             return t;
         }

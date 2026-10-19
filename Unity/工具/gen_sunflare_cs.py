@@ -30,11 +30,16 @@
 3. `Assets/WarpforgeArena1/Editor/SunFlareData.gen.cs` —— **自动生成，不要手改**
 
 用法：`PYTHONIOENCODING=utf-8 python 工具/gen_sunflare_cs.py`（幂等，可重跑）
+      加 `--dry` = 只跑计算、打印读数、**零写盘**（默认行为不变；`A1648` 同族口径）。
 """
 import io
 import json
 import os
 import shutil
+import sys
+
+# 🔴 `--dry` = 只跑计算、打印读数、**零写盘**。默认（不带它）行为与以前完全一样。
+DRY = "--dry" in sys.argv[1:]
 
 SCENE_BASE = r"D:/2/解包整理/07_场景"
 FLARE_JSON = r"D:/2/解包整理/08_预制体特效/共享资源/MonoBehaviour/Sun_Flare_1_1192636038419116098.json"
@@ -208,13 +213,16 @@ def find_go(base, name):
 
 def main():
     # ---- 1) 贴图 ----
-    os.makedirs(OUT_TEX, exist_ok=True)
+    if not DRY:
+        os.makedirs(OUT_TEX, exist_ok=True)
     for fn in sorted(set(TEX_MAP.values())):
         src = os.path.join(TEX_SRC, fn)
         if not os.path.exists(src):
             raise SystemExit(f"缺贴图：{src}")
         dst = os.path.join(OUT_TEX, fn)
-        if not os.path.exists(dst) or os.path.getsize(dst) != os.path.getsize(src):
+        if DRY:
+            print(f"  ○ 贴图 {fn}（干跑：未拷）")
+        elif not os.path.exists(dst) or os.path.getsize(dst) != os.path.getsize(src):
             shutil.copyfile(src, dst)
             print(f"拷贴图 {fn}")
 
@@ -319,9 +327,12 @@ def main():
     L.append("        return t;")
     L.append("    }")
     L.append("}")
-    os.makedirs(os.path.dirname(OUT_CS), exist_ok=True)
-    io.open(OUT_CS, "w", encoding="utf-8", newline="\n").write("\n".join(L) + "\n")
-    print(f"写 {OUT_CS}（{len(L)} 行）· 6 场里命中 {len(specs)} 场")
+    if DRY:
+        print(f"干跑（未写盘）{OUT_CS}（{len(L)} 行）· 6 场里命中 {len(specs)} 场；要落盘请去掉 --dry")
+    else:
+        os.makedirs(os.path.dirname(OUT_CS), exist_ok=True)
+        io.open(OUT_CS, "w", encoding="utf-8", newline="\n").write("\n".join(L) + "\n")
+        print(f"写 {OUT_CS}（{len(L)} 行）· 6 场里命中 {len(specs)} 场")
 
 
 if __name__ == "__main__":

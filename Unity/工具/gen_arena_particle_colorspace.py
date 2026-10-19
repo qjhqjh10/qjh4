@@ -157,9 +157,9 @@ def main():
         tot_f += f
         tot_n += n
     print(f'=== 13 场合计：{tot_n} 颗 · `m_ApplyActiveColorSpace=False` {tot_f} 颗 / True {tot_n - tot_f} 颗')
-    print('    ⚠️ 上面是【清单里】的数（578 颗口径）。**产物里该看到的是 469 个 PSR** 里的那一份'
-          '（清单 578 颗有一部分没建：无贴图 / 原版关着 / renderMode=None）——'
-          ' 预期看 `ArenaBuilder` 的「色彩空间自检」那一行。')
+    print('    ⚠️ 上面是【清单里】的数。**产物里该看到的是实际建出的 PSR 数**'
+          '（清单里有一部分没建：无贴图 / 原版关着 / renderMode=None）——'
+          ' 预期看 `ArenaBuilder` 的「色彩空间自检」那一行（⛔ 别在这里写死颗数）。')
 
 
 if __name__ == '__main__':

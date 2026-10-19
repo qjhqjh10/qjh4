@@ -135,6 +135,11 @@ namespace CardPresentation
 
         /// <summary>四个 Entry 的根（自检用）。</summary>
         public readonly System.Collections.Generic.List<Transform> entries = new System.Collections.Generic.List<Transform>();
+
+        /// <summary>压暗层那颗**吸收**命中区（`MenuDraw.Absorb` 建的；自检拿 `MenuDraw.WasAbsorb` 核它）。
+        /// ⚠️ 它是**吸收**层、不是「点背景关窗」的 `ShadeHit` —— 判据见 `Build()` 第 1 步那段注释。</summary>
+        public Transform ShadeHitNode { get { return transform.Find("AbsorbHit"); } }
+
         /// <summary>🆕 **2026-10-17（`N46②`）**：`Tracks ▸ Rewards Scroll View` 的滚动区。
         /// 原版那台是 `ScrollRect`（`m_ScrollSensitivity = **1.0**` · `m_MovementType = 1 Elastic` ·
         /// `m_Inertia = 1`）—— 我们原来**根本没建滚动区**（四格按绝对 x 摆死）。
@@ -181,9 +186,12 @@ namespace CardPresentation
         //    📌 若日后要把裁定落成字面形状，改动面 = `Shell/WindowsManager.cs` 的
         //    `CloseAllWindows()` 一圈（`as DailyRewardPopup` 走只关不收那条）—— 那一条**不在本件**。
         //
-        // ⚠️ **点窗外**：本窗**今天没有那颗命中区**（`Build()` 只画了压暗层、没有 `MenuDraw.ShadeHit`；
-        //    连登窗有，见 `Shell/DailyStreakPopup.cs` 里那颗 `ShadeHit`）⇒ 那一格**无站立点**（本条只保证：将来接上时
-        //    走 `CloseCollecting()`）。这条缺口另记进报告，⛔ 本件不顺手加（不是 A495 的账）。
+        // ⚠️ **点窗外**：🔴 **2026-10-19（`N117` 顺手）就地订正** —— 本行原来写「本窗**今天没有那颗命中区**…
+        //    ⇒ 那一格**无站立点**（将来接上时走 `CloseCollecting()`）」：**前半句已过期**（`Build()` 现在建了
+        //    压暗层命中区 `AbsorbHit`），但**后半句的前提也被证伪了** —— 原版 `Daily Reward Popup` 的压暗层
+        //    **没有 `BackgroundCloseButton`**、类里也没有接线字段/方法（判据见 `Build()` 第 1 步那段）
+        //    ⇒ **原版点这一下什么都不发生**，所以那一颗是**吸收层**（`MenuDraw.Absorb`）、**不关窗、也不收**。
+        //    连登窗（`DailyStreakPopup`）的压暗层**有**该组件 ⇒ 它是 `ShadeHit` + `StreakAutoCollect()`，两扇不同，⛔ 别抄成一样。
 
         /// <summary>**生产路径的关窗** = 原版 `Close()` 里那一跳 `LiveOp.TryCollect(() => base.Close())`
         /// —— **先收再关**。返回钮调它；ESC / 点窗外若将来各接一条，也调它（⛔ 别各写一份
@@ -231,6 +239,22 @@ namespace CardPresentation
                                         new PxRect(-1327.30f, -746.18f, 3247.30f, 1826.18f));
             MenuDraw.Rect(shadeGo, CardArt.Solid(), new PxRect(-1327.30f, -746.18f, 3247.30f, 1826.18f),
                           "Shade", QShade, ShadeColor);
+            // 🔴 **2026-10-19（`N117` 顺手）**：压暗层的**吃射线命中区** —— 原来**零命中区**
+            //   ⇒ 指针穿过压暗层落到**下面那扇窗**的钮上（本工程的命中候选只收 `WindowButton`，
+            //   见 `MenuDraw.Absorb` 的注释），而原版那块 `Image` 是 `m_RaycastTarget = 1` ⇒ 这一下被吃掉。
+            //   🔴 **判据（原版 prefab 逐字段实读，2026-10-19）**：
+            //     · `Daily Reward Popup/Menu Dark Background` 的组件只有 **`RectTransform` + `CanvasRenderer`
+            //       + `Image`**（`MonoBehaviour_6390879965494403023` = `Image`）—— **没有 `BackgroundCloseButton`**
+            //       （同族对照：`Daily Streak Popup` 那块压暗层上**有**，所以连登窗「点暗处关窗」是对的）；
+            //     · `DailyRewardPopup` 类里也没有 `backgroundCloseButton` 字段（`dump.cs:68853-68868`），
+            //       它的 `Start` 只给 `closeButton`（偏移 `0x90`，那颗圆形 X 钮）挂监听。
+            //   ⇒ **原版点这一下什么都不发生**（**不关窗**）⇒ 我们按「吃射线」接（`MenuDraw.Absorb`），
+            //     ⛔ **不是** `ShadeHit`（那是「点背景关窗」那一族的工具，同族先例 = `Shell/PopUpGameWindow.cs:26-32`）。
+            //   ⚠️ 与 A495 那条裁定的关系：裁定里的「点窗外 ⇒ 要收」以「原版有这条生产路径」为前提；
+            //     本窗原版**没有**这一条 ⇒ 这里**不收**（`CloseCollecting()` 只服务 ESC 与返回钮）。
+            //   ⚠️ 档由公共件算（`qContentMin − 1` = 3009，严格夹在压暗档 3002 与内容命中区 3010 之间）。
+            MenuDraw.Absorb(root, "AbsorbHit", new PxRect(-1327.30f, -746.18f, 3247.30f, 1826.18f),
+                            QShade, QContent);
 
             // 2) `Tracks`：轨底 + 两条分隔线 + 滚动区
             var tracks = MenuDraw.Node(root, "Tracks", Tracks);
@@ -493,8 +517,9 @@ namespace CardPresentation
                 //    §九「（前提）找得到一个可领的抽屉」那条当场红 —— 2026-10-13 落 A495 时逐步核过这条链）。
                 //   ✅ **今天三条生产路径的状态**：返回钮 = 本行（调 `CloseCollecting()`）；
                 //   ESC = 本类的 `ESCPressed()` 覆写（同一份收口，已接）；
-                //   **点窗外 = 本窗还没有那颗命中区**（`Build()` 只画压暗层，连登窗才有 `ShadeHit`）⇒ 无站立点，
-                //   缺口已记进本件报告（⛔ 不在 A495 的账里顺手加）。
+                //   **点窗外 = 🔴 2026-10-19（`N117` 顺手）就地订正**：原来写「本窗还没有那颗命中区 ⇒ 无站立点」——
+                //   现在有了，但它是**吸收层**（原版那块压暗层没有 `BackgroundCloseButton`、类里也不接线
+                //   ⇒ 点了**什么都不发生**，判据见 `Build()` 第 1 步）⇒ **`CloseCollecting()` 只服务 ESC 与返回钮**。
                 // 🆕 A17：这一颗的高亮图**不是** `<常态图>_hover` —— 原版实测是
                 // `40k_UI_bt_back_hover_back`（普查 §块 4 第 8 行）⇒ 逐颗显式覆盖。
                 hit.BindSelf(ArtBackBtn, "40k_UI_bt_back_hover_back");

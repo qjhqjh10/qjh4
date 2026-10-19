@@ -545,6 +545,62 @@ namespace CardPresentation.Net
             _acceptThread = null; _readThread = null;   // 线程都是后台线程，socket 关掉后自己会退
         }
 
+        /// <summary>有界优雅关闭的排空上限（毫秒）。**必须有界** —— 对面不关时不能把主线程卡住。</summary>
+        public const int GracefulCloseDrainMs = 200;
+
+        /// <summary>🆕 2026-10-19（`A1264` X2「`bye` 丢在哪一跳」）：**有界优雅关闭**。
+        /// <para>为什么要有它：`NetSession.Close` 原来是「同步 `Write + Flush` 之后**立刻** `Close()`」——
+        /// 没有 `Shutdown(Send)`、没有排空、没有 linger ⇒ 刚写出的 `bye` 可能在拆连接时被丢掉
+        /// （带了未读数据的拆除在 Windows 上还可能走 abortive 路径，把发送队列一起丢）。</para>
+        /// <para>次序（**顺序硬**）：① `Shutdown(SocketShutdown.Send)`（FIN 排在已写出的字节之后）
+        /// → ② 有界排空（≤ <see cref="GracefulCloseDrainMs"/>；只 `Poll` / 看 `Available`，
+        /// **不自己 `Receive`** —— 读线程正在消费入站帧，两个线程抢同一个 socket 会把帧拆坏）
+        /// → ③ `Close()`（原有的收尾：停监听 + `ClosePeer`）。</para>
+        /// <para>⛔ **不无限等**：超时只 `LogWarning` 然后照旧关；异常也只出声（⛔ 不吞掉原异常文本）。
+        /// ⚠️ **假设**：`_client` 只由 `TcpListener.AcceptTcpClient()` / `new TcpClient(...)` 建出来
+        /// （本文件全部创建点就是这两种），`TcpClient.Client` 拿到的就是那条 socket；本类从不替换 `Client`。</para>
+        /// </summary>
+        public void CloseGracefully(int drainMs = GracefulCloseDrainMs)
+        {
+            // 本机自己拆 ⇒ 读线程随后那次「失败」不算掉线（同 `ClosePeer` 的理由；这里要**提前**置，
+            // 否则排空期间对面先关，`Fail` 会先打一条假的「传输层掉线」）。
+            _closing = true;
+            var c = _client;
+            var s = c != null ? c.Client : null;
+            if (s != null)
+            {
+                try { s.Shutdown(SocketShutdown.Send); }
+                catch (Exception e)
+                {
+                    UnityEngine.Debug.LogWarning("[Net] 优雅关闭：`Shutdown(Send)` 没成功（" + e.Message
+                        + "）—— 照旧往下关（⛔ 不吞掉，也不无限等）");
+                }
+                var sw = System.Diagnostics.Stopwatch.StartNew();
+                bool sawEof = false;
+                while (sw.ElapsedMilliseconds < drainMs)
+                {
+                    try
+                    {
+                        int slice = (int)Math.Min(20L, drainMs - sw.ElapsedMilliseconds);
+                        if (slice <= 0) break;
+                        // `Poll` 只「看」不「取」：可读 + `Available == 0` = 对面也关了（EOF）。
+                        // ⚠️ 有数据时让**读线程**去消费，我们只等它变空 —— 两个线程同时 Receive 会拆坏帧。
+                        if (s.Poll(slice * 1000, SelectMode.SelectRead) && s.Available == 0) { sawEof = true; break; }
+                    }
+                    catch (Exception e)
+                    {
+                        UnityEngine.Debug.LogWarning("[Net] 优雅关闭：排空时 socket 报错（" + e.Message
+                            + "）—— 直接拆（⛔ 不无限等）");
+                        break;
+                    }
+                }
+                if (!sawEof && sw.ElapsedMilliseconds >= drainMs)
+                    UnityEngine.Debug.LogWarning("[Net] 优雅关闭：排空**超时**（" + drainMs
+                        + " ms 内对面没关）⇒ 直接拆（有界，⛔ 不无限等）");
+            }
+            Close();
+        }
+
         static string Describe(Exception e, int port)
         {
             var se = e as SocketException;

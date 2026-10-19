@@ -284,6 +284,16 @@ namespace CardPresentation
 
         CampaignRewardsContext _ctx;
         Transform _root, _baseHolder, _premHolder, _baseBtn, _premBtn, _warn, _badge;
+
+        /// <summary>🆕 **FTUE 第三步指针的目标** = 原版 `TutorialStageGetCampaignNode.claimRewardNodeButton`
+        /// （`GameObjectUniqueIdentifier.id = CampaignRewardUnlockBaseReward`，挂的 GO 名 = **`Unlock Button`**，
+        /// `TutorialPointerData.offset = (0,20)`）。
+        /// <para>本窗按原版建了 **Base / Premium 两列各一颗 `Unlock Button`**；id 里写的是 **BaseReward**
+        /// ⇒ 本属性只返回**基础列**那一颗（`_baseBtn`，245×45 · pivot 原版 `(0.5,0)` ⇒ 我们是中心枢轴）。
+        /// 原版 offset (0,20) 是「从底边往上 20」⇒ 相对**中心** = `20 − 45/2 = −2.5`（y 向上），
+        /// 指针偏移由 `MenuTutorialStageDef.DeepOffset` 传。</para>
+        /// <para>只由 `MenuTutorialFlow` 读（`MenuTutorialTargetKind.CampaignClaimButton`）。</para></summary>
+        public Transform TutorialClaimButton { get { return _baseBtn; } }
         /// <summary>🆕 **2026-10-12（A481）**：`Content/Reward Claim` 那棵子树（= 原版 prefab 里那一份；
         /// **与 `Reward Window` 共用同一个实现** `Shell/RewardWindow.cs` 的 `RewardClaimFx`）。
         /// 🔴 **本窗里它【原版就没有人驱动】⇒ 我们建出来但恒不激活**（判据见 `Build()` 里那一段）。
@@ -852,7 +862,7 @@ namespace CardPresentation
             // 🔴 **2026-10-12（A466）：「`interactable`」那一半（变灰 + 挡派发）也落地** —— 原版那一句是
             //   `Selectable.set_interactable`，**两半**一起生效（`DoStateTransition(Disabled)` 换灰材质 +
             //   `Selectable.OnPointerClick` 头一句直接返回）；我们这套的最小等价物 = `WindowButton.Interactable`
-            //   （`Shell/PromptPopup.cs` 的 `WindowButton.Interactable`：setter 走 `RefreshGray()`、`Click()` 头一句
+            //   （`Shell/WindowButton.cs` 的 `WindowButton.Interactable`（⚠️ 2026-10-19 订正：原写 `Shell/PromptPopup.cs`）：setter 走 `RefreshGray()`、`Click()` 头一句
             //   `if (!_interactable) { 出声; return; }`）。⇒ 「该灰的时候不灰」那条症状（A 表原话）修在这一句上。
             //   ⛔ **必须排在 `Bind` 【之后】**：`GrayTargets()` = **四组去重**（`_nine` + `target` + 本钮子树
             //     + `TintOn` 那几颗；现读出处 `Shell/WindowButton.cs` 的 `GrayTargets()`），其中 `target` 是

@@ -61,12 +61,15 @@
 //     —— **不建**（那套 `DeckEnergyCostDrawer` 费用曲线柱还没接）~~ ⇒ **两件都建了**：标题那条按原版
 //     `Card / Energy cost`（fs34），曲线 9 行走 **`Core/CostCurveDrawer`**（与 `Deck info Popup` 那扇**共用一份画法**；
 //     这一扇的 `localScale` 是 **1.2**，那扇是 1.8）。
-//   · `Lore Text` —— **仍不建**（原版喂的是 `DemoDeckInfoSO.Lore` = **卡组**简介）。🔴 **2026-10-03 查清了卡在哪**：
-//     `DemoDeckInfoSO`（`bundle_menus_assets_all/MonoBehaviour/Demo DeckInfo *.json`，**82 份**）里存的是
-//     **`loreLocalizationKey`**（例 `Demo/AeldariDeck1`）—— **正文在远端 CCD 的词条表里**（原版客户端根本没有那份表）
-//     ⇒ **判据（文本）本地就是空的**，按铁律 11 的第 ① 种挂着，**不编文案**。
-//     上一版拿督军的效果文字顶上去 ⇒ 内容不对，而且它的框套着 `Change Deck`、实拍里两行字叠在一起。
-//     见 `BuildGeneralContainer` 里那段注释）
+//   · `Lore Text` —— ✅ **2026-10-19（界面线 P05）已接上**（原来这一行写「仍不建 … 正文在远端 CCD 的词条表里」，
+//     🔴 **已过期**：84 份 `Demo DeckInfo` 的 `loreLocalizationKey` **84/84 命中**当前官方表，
+//     en/zh 都非空；映射由 `工具/gen_prebuilt_decks.py` 的 `DEMO_LORE_KEY` 落到 `prebuilt_decks.json`
+//     的 `loreKey`（103 副里 **78 副有**；其余 25 副本地确实没有 lore ⇒ 空 + 出声）。
+//     原版 `DeckGeneralInfoDemo__ShowDemoDeckInfo.c` 实读：**演示卡组**下 `changePlayerDeck`（= `Generic Simplified UI Button`）
+//     被 `SetActive(false)` ⇒ 所以我们选**预组卡组**时同样把 `Change Deck` 关掉、再显示 lore；
+//     选「我的卡组」时反过来（原版 `SetContent` 那条路把两颗都打开）—— 见 `PickPrebuilt` / `PickDeck`。
+//     ⚠️ 那个框 1280.27,647.41→1770.27,791.41 **套着** `Change Deck`（1398.00,680.75→1652.54,764.08）——
+//     原版两件**不是同时可见的**（上面那条显隐判据），⛔ 别再拿「会叠字」当不建的理由。
 //   · `Searching Oponent Popup` —— ✅ **2026-09-24 建了**（`Shell/SearchingMatchPopup.cs`，四窗共用）。
 //     🔴 原来这行写「原版出厂 act=0 ⇒ 不建（由开战流程运行时打开；我们点 `Battle!` 直接切场景）」——
 //        **下半句是错的**：原版点 `Battle!` 也要先过 `MatchMakerManager.StartMatch`，这扇窗就是那 12 秒里显示的。
@@ -528,6 +531,16 @@ namespace CardPresentation
             => MenuDraw.Node(parent, name, r);
 
         Label _txtArmy, _txtDeckName, _txtWarlord;
+        /// <summary>🆕 **2026-10-19（界面线 P05）**：`Deck info ▸ General container ▸ Lore Text`
+        /// （原版 `DeckGeneralInfoDemo.lore`）。内容只来自 `PrebuiltDecks.Deck.LoreText`
+        /// （= `DemoDeckInfoSO.loreLocalizationKey` 的官方词条）；「我的卡组」没有 lore ⇒ 空串。</summary>
+        Label _txtLore;
+        /// <summary>`Change Deck` 那三件（底图 / 字 / 命中区）。原版 `changePlayerDeck` =
+        /// `Generic Simplified UI Button` 整颗 —— 演示卡组下 `ShowDemoDeckInfo` 会 `SetActive(false)`，
+        /// 「我的卡组」下 `SetContent` 会重新打开 ⇒ 两个入口都要跟着切。</summary>
+        Transform _chgBg, _chgText, _chgHit;
+        /// <summary>「这副牌本地没有 lore」只出声一次（切来切去不刷屏；但仍要说，⛔ 不静默）。</summary>
+        bool _loreWarnedNoData;
         Transform _info, _bgInfo, _general, _deckList;
         ImageQuad _armyIcon, _cardback;
 
@@ -554,7 +567,9 @@ namespace CardPresentation
             //    `Selected Army Title` / `Lore Text` / `Deck Name`（判据 = `menu_dump … "Practice Mode Menu"
             //    --depth 25` 逐颗现读）；其余（`Warlord Name` / `GameModeText` / `Main Search message` /
             //    `Few players online message` / `tooltip` / `Cards in deck` / `Card Cost` / `Button Text` …）**全 Pragati**。
-            //    ⚠️ `Lore Text` 本扇**不建**（原版喂 `DemoDeckInfoSO.Lore`，见文件头）⇒ 两颗 Asar 有落点。
+            //    ⚠️ **2026-10-19（界面线 P05）就地订正**：这里原来写「`Lore Text` 本扇**不建** ⇒ 两颗 Asar 有落点」
+            //    —— **已过期**：`Lore Text` 已建（见 `BuildGeneralContainer`）且**就是** Asar（`LatinUi`）
+            //    ⇒ 本窗三颗 Asar **全部有落点**（`Selected Army Title` / `Lore Text` / `Deck Name`）。
             //    ⚠️ **同名不同字**：`Deck Selector Menu Item ▸ Deck Name`（`:1416`）是 **Pragati**，
             //    只有 `Deck info ▸ Deck Name`（`:606`）是 Asar —— 逐站判过，⛔ 别按名统一。
             _txtArmy = Txt(root, SelectedArmyName(), ArmyTxL, ArmyTxR, ArmyTxT, ArmyTxB, 36f, Align.Center, "Selected Army Title", QPrText,
@@ -637,14 +652,20 @@ namespace CardPresentation
         {
             var d = CollectionData.DeckAt(DeckIndex);
 
-            // 🔴 **`Lore Text` 不画**（2026-09-24）：原版它喂的是 `DemoDeckInfoSO.Lore`（**卡组**的简介，
-            //   `ShowPayerDeckInfo` 里那句 `DemoDeckInfoSO__get_Lore` + `set_text`）。
-            //   我们的卡组**没有这个字段**，上一版拿**督军的效果文字**顶上去 ⇒ 两宗错：
-            //   ① 内容不对（效果文字 ≠ 卡组简介）· ② 它的框 1280.27,647.41→1770.27,791.41
-            //      **套着** `Change Deck`（1398.00,680.75→1652.54,764.08）⇒ 实拍里两行字叠在一起。
-            //   按「宁可没有，不可错着显示」**不画**，并把这条记在这里与文件头。
-            Debug.Log("[Practice] `Lore Text` **没画** —— 原版喂的是 `DemoDeckInfoSO.Lore`（卡组简介），"
-                      + "我们的卡组没有这个字段（拿督军的效果文字顶上去会和 `Change Deck` 叠）。**出声，不静默**");
+            // ✅ **2026-10-19（界面线 P05）：`Lore Text` 建出来了** —— 这一段原来写「不画」，
+            //   理由（「正文在远端」）**已过期**：84 份 `Demo DeckInfo` 的 `loreLocalizationKey` 84/84
+            //   命中当前官方表（en/zh 非空），映射落在 `PrebuiltDecks.Deck.loreKey`
+            //   （生成器 `工具/gen_prebuilt_decks.py` 的 `DEMO_LORE_KEY`，判据见它的头注释）。
+            //   判据（逐颗现读 `menu_dump … "Practice Mode Menu" --depth 5 --md`）：
+            //   `Deck info ▸ General container ▸ Lore Text` = 裸 `TextMeshProUGUI + EverguildTextController`，
+            //   出厂 `'Start here! … Orks.'`（**旧占位，别当词条值**）· fs **30** · base **29.5** ·
+            //   **auto[1.0~30.0]** · 对齐 `Center/**Middle**` · **折行 = 1** · 色 (1,1,1,1) ·
+            //   框 **490×144**（= `LoreL/T/R/B`）· 字体 **Asar**（`A1024③`：本窗三颗 Asar 之一）⇒ `LatinUi`。
+            //   ⚠️ 出厂文本没抄（运行时由 `DemoDeckInfoSO.get_Lore` 覆盖）；「我的卡组」没有 lore ⇒ **空串**，
+            //   ⛔ 不拿督军效果文字顶（那是明令禁止的口径，见 `资料/任务线/界面线/任务/T05…`）。
+            _txtLore = Txt(_general, "", LoreL, LoreR, LoreT, LoreB, 30f, Align.Center, "Lore Text", QPrText,
+                           wrapPx: LoreR - LoreL, autoMinPx: 1f, autoMaxPx: 30f, autoBasePx: 29.5f,
+                           face: TmpFont.Face.LatinUi);
 
             // 🆕 2026-10-03（§三第29条 A14）：`Cost/balance text` + `Deck Information cost drawer` **补上了**。
             //   判据：`资料/阶段二_战斗入口_原版规格.md` §二 A 那张表（`python 工具/menu_dump.py … "Practice Mode Menu"`）
@@ -682,13 +703,19 @@ namespace CardPresentation
             HitOn(_general, _general, "ShowDeckHit", new PxRect(ShowBtnL, ShowBtnT, ShowBtnR, ShowBtnB),
                   () => ShowDeckContent());
 
-            Img(_general, "UI_Button_Mulligan", ChgL, ChgT, ChgR, ChgB, "Change Deck Bg", QPrRow, true);
+            // 🔴 **2026-10-19（界面线 P05）**：`Change Deck` 三件存下来 —— 原版 `DeckGeneralInfoDemo.changePlayerDeck`
+            //   （= 这颗 `Generic Simplified UI Button`）在**演示卡组**下被 `ShowDemoDeckInfo` 关掉、
+            //   在「我的卡组」下被 `SetContent` 打开（反编译字段 PPtr 现核：`changePlayerDeck` → 本颗）。
+            //   ⚠️ 它与 `Lore Text` 的框**互相重叠**（lore 1280.27,647.41→1770.27,791.41 套着本钮
+            //   1398.00,680.75→1652.54,764.08）—— 原版靠**两者不同时可见**避开；我们照抄这条显隐。
+            var chgBgQ = Img(_general, "UI_Button_Mulligan", ChgL, ChgT, ChgR, ChgB, "Change Deck Bg", QPrRow, true);
+            _chgBg = chgBgQ != null ? chgBgQ.transform : null;
             // 🆕 **A1205 接上**（`R5` §2·H #50：原版 `General container ▸ Generic Simplified UI Button ▸
             //    Button Text` = `auto[10~45] · base 12 · **折行 0**`）—— 本方法 8 处里**唯一**折行 0 的一处
             //    ⇒ `wrapPx` 缺省 0（漏斗内部会 `SetWrapping(false)` 把 `SetWrapWidth` 开的 `Normal` 还原）。
             // 🔴 **2026-10-19（`A1501`）：文案改走 `Loc.T`** —— 那颗 `Button Text` 的
             //    `mTerm = MainMenu/RankedWindow/ChangeDeck`、`m_text = 'Change Deck'`（本轮现读）。
-            Txt(_general, Loc.T("MainMenu/RankedWindow/ChangeDeck"), ChgL, ChgR, ChgT, ChgB, 45f, Align.Center, "Change Deck Text", QPrText,
+            var chgTx = Txt(_general, Loc.T("MainMenu/RankedWindow/ChangeDeck"), ChgL, ChgR, ChgT, ChgB, 45f, Align.Center, "Change Deck Text", QPrText,
                 autoMinPx: 10f, autoMaxPx: 45f, autoBasePx: 12f,
                 vAlign: Label.VAlign.Capline,   // 🆕 N11：原版 `Button Text` = `Center/**Capline**`（现读 dump）
                 // 🆕 **2026-10-17（A1226）框**：原版 `General container ▸ Generic Simplified UI Button ▸ Button Text`
@@ -696,9 +723,22 @@ namespace CardPresentation
                 //   左 +8.85 / 上 +10.74）。原来传的是**整颗钮 254.54×83.33** ⇒ 宽多 17.77、高多 21.65。
                 //   ⚠️ 与 `DeckInfoPopup.Txt` 的 `boxW/boxH` 同一个口径（父宽×锚跨度＋sd，⛔ 不是裸 `m_SizeDelta`）。
                 boxW: 236.77f, boxH: 61.68f, face: TmpFont.Face.LatinCardBody);
+            _chgText = chgTx != null ? chgTx.transform : null;
             // ✅ 原版这条就是 `DeckGeneralInfoDemo.ChangePlayerDeckButton`
             //    → `WindowsManager.OpenWindow(new DeckSelectionContext(...))`（`…__ChangePlayerDeckButton.c`）。
-            HitOn(_general, _general, "ChangeDeckHit", new PxRect(ChgL, ChgT, ChgR, ChgB), () => OpenDeckSelection());
+            _chgHit = HitOn(_general, _general, "ChangeDeckHit", new PxRect(ChgL, ChgT, ChgR, ChgB), () => OpenDeckSelection());
+        }
+
+        /// <summary>🆕 **2026-10-19（界面线 P05）**：原版 `DeckGeneralInfoDemo` 的 `changePlayerDeck` 显隐 ——
+        /// **演示（预组）卡组** ⇒ `ShowDemoDeckInfo` 里 `SetActive(false)`；**玩家自己的卡组** ⇒ `SetContent`
+        /// 里 `SetActive(true)`（两处都反编译实读）。三件一起切（底图 / 字 / 命中区）——
+        /// ⚠️ 命中区不关的话，看不见的钮照样吃点击（静默错）。
+        /// <para>为什么要跟 `Lore Text` 一起管：两件的框**重叠**（见上），原版只靠这条显隐避开。</para></summary>
+        void ShowChangeDeck(bool show)
+        {
+            if (_chgBg != null) _chgBg.gameObject.SetActive(show);
+            if (_chgText != null) _chgText.gameObject.SetActive(show);
+            if (_chgHit != null) _chgHit.gameObject.SetActive(show);
         }
 
         /// <summary>`Show Deck Content` —— **开「卡组详情」窗**（原版 `DeckInfoContext(deck, 2, …)`）。
@@ -1808,6 +1848,16 @@ namespace CardPresentation
             if (_txtArmy != null) _txtArmy.SetText(SelectedArmyName());
             if (_armyIcon != null) _armyIcon.SetTexture(CardArt.MenuUi(DeckRuntime.FactionIcon(info.Faction)));
             if (_cardback != null) _cardback.SetTexture(CardArt.DeckCardback(info.CardbackId, info.Faction));
+            // 🆕 **2026-10-19（界面线 P05）**：玩家自己的卡组**没有 lore**（原版这份数据挂在
+            //   `Demo DeckInfo` 上，只覆盖演示/预组卡组）⇒ 清空；`Change Deck` 照原版 `SetContent` 打开。
+            if (_txtLore != null) _txtLore.SetText("");
+            ShowChangeDeck(true);
+            if (!_loreWarnedNoData)
+            {
+                _loreWarnedNoData = true;
+                Debug.Log("[Practice] `Lore Text` 对「我的卡组」**留空** —— 原版这份数据来自 `DemoDeckInfoSO`，"
+                          + "只覆盖演示/预组卡组（我们的自建卡组没有 lore，⛔ 不拿别的文案顶）");
+            }
             Debug.Log("[Practice] 选中卡组：「" + info.Name + "」");
         }
 
@@ -1831,6 +1881,19 @@ namespace CardPresentation
             }
             if (_armyIcon != null) _armyIcon.SetTexture(CardArt.MenuUi(d.FactionIcon));
             if (_cardback != null) _cardback.SetTexture(d.Cardback);
+            // 🆕 **2026-10-19（界面线 P05）**：预组 = 原版的「演示卡组」⇒ 两件照 `ShowDemoDeckInfo` 办：
+            //   ① `Lore Text` ← `DemoDeckInfoSO.loreLocalizationKey` 的官方词条（`Deck.LoreText`）；
+            //   ② `Change Deck`（原版 `changePlayerDeck`）**关掉** —— 演示卡组不能换。
+            //   没有 lore 的 25 副（Demo DeckInfo 之后新增）⇒ 空 + 出声，⛔ 不编。
+            if (_txtLore != null)
+            {
+                string lore = d.LoreText;
+                _txtLore.SetText(lore ?? "");
+                if (lore == null)
+                    Debug.LogWarning("[Practice] 预组「" + d.DisplayName + "」(" + d.deckId + ") **本地没有 lore**"
+                                     + "（不在 84 份 `Demo DeckInfo` 里）⇒ `Lore Text` 留空，⛔ 不编");
+            }
+            ShowChangeDeck(false);
             Debug.Log("[Practice] 选中**预组卡组**「" + d.DisplayName + "」(" + d.deckId + ") ⇒ 本局就用它"
                       + "（防御卡 = 我们补的那张「" + d.defensiveNameZh + "」" + d.defensiveId + "）");
         }

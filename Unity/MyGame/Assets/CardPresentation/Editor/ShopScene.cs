@@ -1213,7 +1213,7 @@ public static class ShopScene
         //    · `WindowsManager` **没有 `[ExecuteAlways]`**（`Shell/WindowsManager.cs` 里**只有** `WindowHolder` 那颗**有**）
         //      ⇒ `Awake` 不跑 ⇒ **`Instance` 恒 null**（`Instance` 只在 `Awake` 里赋，
         //      **批处理下那句从不执行**）。判据（**四条独立记录**，全是踩过的坑）：
-        //      `Shell/PromptPopup.cs` 的 `WindowButton` 类注 · `Shell/MainMenuRuntime.cs` 里那条「编辑模式下 `Awake` 不跑」 · `Shell/PointerLayer.cs:47-48`
+        //      `Shell/WindowButton.cs` 的 `WindowButton` 类注（⚠️ 2026-10-19 订正：原写 `Shell/PromptPopup.cs`）· `Shell/MainMenuRuntime.cs` 里那条「编辑模式下 `Awake` 不跑」 · `Shell/PointerLayer.cs:47-48`
         //      · `资料/已知的坑.md:704`（「编辑模式下 `Awake/OnEnable`/`Update` **只对带 `[ExecuteAlways]`
         //      的脚本**才跑」）。
         //    · ⇒ **任何走 `WindowsManager.EnsureHost()` 的开窗路径都会【再建一台】**（`Instance == null` 时
@@ -1280,6 +1280,21 @@ public static class ShopScene
     // ============================================================ 自检
 
     public static void Run()
+    {
+        // 🔴 **2026-10-19（`A1534` 尾巴 · 铁律 11）**：批处理自检**不出声** —— `WFSoundPlayer.Enabled = false`
+        //   时那个开关自己的契约是「**只记账不发声**：不建对象、不出声，但 `Played` 照样涨」
+        //   ⇒「音效调度算对了没有」那一族断言**照旧有效**，而这一趟**不白建一堆 `AudioSource`、不白播**。
+        //   先例 = `WarpforgeArena1/Editor/AnimFXCheck.cs:341-366`（同一个开关、同一个 `finally` 还原）。
+        //   ⚠️ 它是**全局静态开关** ⇒ 必须在 `finally` 里还原；`RunCore` 本体保持原样（只换了名字）。
+        bool prevSoundEnabled = WarpforgeVFX.WFSoundPlayer.Enabled;
+        WarpforgeVFX.WFSoundPlayer.Enabled = false;
+        try { RunCore(); }
+        finally { WarpforgeVFX.WFSoundPlayer.Enabled = prevSoundEnabled; }
+    }
+
+    /// <summary>`Run()` 的**本体**（🆕 `A1534` 尾巴：`Run` 只负责「关音效 → 调它 → 还原」这一圈）。
+    /// ⚠️ 入口仍是 `Run`（`-executeMethod ShopScene.Run` 一个字没变）。</summary>
+    static void RunCore()
     {
         _sink.Pass = 0; _sink.Fail = 0; _sink.Failures.Clear();
         Directory.CreateDirectory(ShotDir);
@@ -2232,7 +2247,7 @@ public static class ShopScene
                     // 🔴 **2026-10-03 就地更正（铁律 5）**：这里原来少了「**先把指针挪开**」这一步 ——
                     //    上面 `HoverAt(图标中心)`（`:645`）那次**真悬停**已经派发过一次 `Enter()` 了
                     //    （`TipHovers` 0→1，面板也正是那一次弹出来的，所以 `:664/:666/:667` 都是绿的），
-                    //    而 `WindowButton.Enter()` 是**幂等**的（`Shell/PromptPopup.cs` 的 `WindowButton.Enter` 的 `if (Hovered) return;`，
+                    //    而 `WindowButton.Enter()` 是**幂等**的（`Shell/WindowButton.cs` 的 `WindowButton.Enter`（⚠️ 2026-10-19 订正：原写 `Shell/PromptPopup.cs`）的 `if (Hovered) return;`，
                     //    等价原版 `IPointerEnterHandler`「每次进入只发一次」）⇒ 这里再叫一次计数不涨，
                     //    断言报「期望 2 实得 1」。**实现是对的、是断言少了前提**（不是漏触发）。
                     //    ⇒ 挪到空白清掉悬停态、再量增量；顺带把「幂等」也钉一条（免得下次又把 `repeat` 当漏触发）。
@@ -4517,8 +4532,13 @@ public static class ShopScene
                     Title = "Fixture",
                     Buttons = new[]
                     {
-                        new GenericOptionsPanel.OptButton { Text = "Alpha" },
-                        new GenericOptionsPanel.OptButton { Text = "Beta" },
+                        // 🔴 **2026-10-19（`A1734` · 铁律 5/11）**：这两颗夹具原来**没给 `Interactable`**
+                        //   ⇒ `bool` 缺省 = **`false`** ⇒ `A1726` 真接第一道闸之后，它们代表的是
+                        //   **「禁用态」**的钮（那一段只断几何、不点 ⇒ 今天不受影响，但将来谁往这里加
+                        //   点击断言就会踩到）。⇒ 显式给 `true`：夹具要代表的是「**正常能点的钮**」
+                        //   （同一份用例下面 L2-①c 那组已经把四档都显式写出来了）。
+                        new GenericOptionsPanel.OptButton { Text = "Alpha", Interactable = true },
+                        new GenericOptionsPanel.OptButton { Text = "Beta", Interactable = true },
                     },
                 });
                 CheckTrue(gopB != null && gopB.BuiltButtons == 2, "（夹具）喂 2 颗按钮 ⇒ `BuiltButtons = 2`");
@@ -5142,7 +5162,7 @@ public static class ShopScene
             CheckNoMissingSwapArt("推荐人窗");
             //  ⛔ **2026-10-14 删掉一条断言**（原来这里两行：`CheckTrue(WindowButton.MissingPressedArt.Count == 0, …)`）：
             //    `WindowButton.MissingPressedArt` 那张表的注释自己写着「**这份表只出声、不当缺点断**」
-            //    （`Shell/PromptPopup.cs:589-591`）—— 原版 1276 颗带 `m_SpriteState` 的 `Selectable` 逐颗核过：
+            //    （`Shell/WindowButton.cs` 的 `MissingPressedArt` 表注 —— `:589-591` 是拆文件前 `PromptPopup.cs` 里的旧行号，⚠️ 2026-10-19 订正：原写 `Shell/PromptPopup.cs:589-591`）—— 原版 1276 颗带 `m_SpriteState` 的 `Selectable` 逐颗核过：
             //    **悬停图空 ⇔ 按下图空，0 处不一致**，且我们取不到按下图时**退回高亮图**
             //    （`Press()` 里那个 `??`）⇒ 这一档**多数是合法的**。本 run 表里那 1 条是 `" → "`
             //    （`Shell/InboxWindow.cs` 当时把常态图名传成 `null`）—— 属于注释里说的「多数是合法的」那一档。

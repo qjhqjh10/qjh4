@@ -469,7 +469,7 @@ namespace CardPresentation
             MenuDraw.Rect(close, Art(ArtCloseX), CloseBg, "Icon", QOverlay, null, true);
             {
                 // 🆕 A17：原版 `Content>Generic Close Button Orange` 是 SpriteSwap，HL = `40k_general_bt_yellow_hover`
-                // 🔴 **2026-10-14（A810③）：第一格原来传的是 `null`** —— `PromptPopup.Bind` 里
+                // 🔴 **2026-10-14（A810③）：第一格原来传的是 `null`** —— `WindowButton.Bind`（`Shell/WindowButton.cs`；⚠️ 2026-10-19 订正：原写 `PromptPopup.Bind`）里
                 //   `PressedNameFor(null) = null` ⇒ 往 `MissingPressedArt` 记下一条**认不出是谁**的
                 //   `" → "`（审计日志上就表现为「缺 1 条、但指不出是哪一颗」）。**现在传它自己的常态图名。**
                 //   判据 = 本件亲跑 `python 工具/menu_dump.py bundle_menus_assets_all "Inbox Menu" --depth 6`：

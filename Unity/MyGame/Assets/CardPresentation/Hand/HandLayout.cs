@@ -50,6 +50,18 @@
 //       （= `名单长度 − 序号 − 1`），`z` 只加 0.001；我们没 canvas ⇒ **这一格是「原版没有等价物」**，
 //       保留真 z 步长，出处见 `zOrderStep` 那段。
 //   ➖ **`m_inverted`（项 12）不实现**：全库 13 战场 × 4 份 = 52 份实例**全是 0**，见 `invertRotation` 下面那段注释。
+//
+// 🆕 **2026-10-19（`T01` · 施工图 `资料/普查产出_1019/W_工具线_T01施工图_1019b.md` §一·⑤）** ——
+//   **把最后一处还在驱动运行时的 Godot 值（`DefaultBaselineY = 0.1204` = `1 − 950/1080`）换成原版口径**：
+//     · `DefaultBaselineY` 0.1204 → **0.11**（原版 `HandAnchor` 1.1 × 108 = **118.8 px 距底** = 961.2 px 距顶）；
+//     · `EnemyBaselineY` 0.9102 → **0.999704**（敌方 `HandAnchor` 距顶 **0.32 px**，链条见那个常量的 doc）；
+//     · `SlotPosition` 的弧高**换回原版公式** `ArcOffsetFromBase`（基准 + 整条曲线 × maxHeight × hMod）——
+//       旧的 `ArcHeightFull × Arc01` 是「先减掉曲线最小值再乘」，**只在满 12 张（hMod≈1）时等价**，
+//       牌少时会把整把手牌越压越低（1 张低 31.5 px）；
+//     · 新增 `fanCenterX`：原版 `GetPosition` 的 x 基准 = `this.transform.position.x`，玩家 `HandAnchor.x = 0.125×108`
+//       = **13.5 px 偏右** ⇒ 扇心 973.5 px（我们原来整把**偏左 13.5 px**）；敌方 `HandAnchor.x = 0` ⇒ 0.5。
+//   ⚠️ 观感变化是真实的（手牌整体下移 ~42.6 px、卡底出屏 44 px）—— **原版就是这样**（铁律 11/12：
+//     照原版做，真机验收攒到复刻完成）。
 using System.Collections.Generic;
 using DG.Tweening;
 using UnityEngine;
@@ -74,31 +86,46 @@ namespace CardPresentation
         /// 它手牌卡会画成 238 px 而不是 165 px。</summary>
         public const float DefaultCardScale = OriginalCardWidthPx / (CardView.Width * 108f);
 
-        /// <summary>我方手牌中心行的 y（归一化，从**下**算）—— **0.1204**，
-        /// 让卡底（= 中心 − 卡半高 131.35 px）正好压在屏幕下沿上（原版 `HandAnchor` 链 961/1080）。
-        /// 🔴 **判据只此一处**：`BattleScene` 引用它。
-        /// ⚠️ **2026-09-17 更正**：默认值原来是 **0.140** —— 这是**同一个形状的第三处**
-        /// （前两处是 `BoardLayout.placedScale 0.876` 与本文的 `cardScale 1.054`）：
-        /// 产品侧被 `BattleScene` 显式赋了正确值 ⇒ 一直没露馅，**只有取默认值的那条路会画错**
-        /// （`CardBaseDemo` 的手牌会整体高 21.6 px）。三处一起收成「默认值必须由常量算出来」。</summary>
-        public const float DefaultBaselineY = 0.1204f;
+        /// <summary>🔴 **我方手牌【布局基准】的 y（归一化，从**下**算）= 0.11** ——
+        /// 即原版 `HandAnchor`：`Transform_1455.localPosition.y = 1.1` × `HandArea`
+        /// （`Transform_1401`）`localScale = 108` = **118.8 px 距底 = 961.2 px 距顶**
+        /// （16:9 下 1 canvas 单位 = 1 px；`CanvasScaler` 参考分辨率 1920×1080、`match=0`）。
+        ///
+        /// <para>🔴 **它是「基准」不是「卡心」**：原版 `GetPosition` 的输出 =
+        /// `基准 + yAxisCurve(t) × m_maxHeight × hMod`（曲线 ≤0 ⇒ 只往下垂），见 <see cref="SlotPosition"/> /
+        /// <see cref="ArcOffsetFromBase"/>。所以**中间那张卡心 ≈961.2 px、两端 ≈992.6 px**；
+        /// 卡底在两端 = 992.6 + 131.3 = **1124.0 px**（出屏 44 px —— **原版就是这样**）。</para>
+        ///
+        /// <para>⚠️ **2026-10-19 就地订正（铁律 5 · `T01` §一·⑤）**：原值 **0.1204** = `1 − 950/1080`，
+        /// 950 来自**我们自己的上一版 Godot 复刻** `d:/warpforge/scripts/battle.gd:407`（`HAND_Y = 950`）——
+        /// **不是原版字段**（`CLAUDE.md` 铁律 2：只能当旁证）。「取 0.1204 让卡底正好压屏幕下沿」是**事后解释**
+        /// （真要贴边该是 `131.35/1080 = 0.12162`，不是 0.1204）。旧值让**每张手牌比原版高约 42.6 px**
+        /// （卡心 42.6；`B6` 记的「≈11 px」只比了「我们的两端 vs 原版的中间」，漏了弧高代数差 31.4 px）。</para>
+        ///
+        /// 🔴 **判据只此一处**：`BattleScene` 引用它（`HandBaselineY`），⛔ 别在别处再写一个数。</summary>
+        public const float DefaultBaselineY = 1.1f * 108f / LayoutSpace.DesignPxH;   // 118.8/1080 = 0.11
 
         /// <summary>敌方手牌卡缩放 = 原版 `m_scale 0.54` ⇒ 卡宽 2.0927 × 0.54 × 108 ≈ **122 px**
         /// （我方是 165 px，同一套 2DCard 预制体，只是 `m_scale` 不同）。</summary>
         public const float EnemyCardScale = 0.54f;
 
-        /// <summary>🔴 敌方手牌中心行的 y（归一化，从**下**算）= **0.9102**。
+        /// <summary>🔴 **敌方手牌【布局基准】的 y（归一化，从**下**算）= 0.999704** ——
+        /// 原版敌方 `HandAnchor` 就挂在**屏幕顶边**（距顶 **0.32 px**）。
         ///
-        /// **怎么推的**：原版敌方 `HandAnchor` 落在**屏幕顶边**（距顶 0.32 px，ny ≈ 0.9997 ——
-        /// 出处 `Transform_1257.json` 的 y=0.46 × `Transform_1295.json` 的 scale=108 = 49.68 px，
-        /// 锚点链见 `资料/敌方手牌_原版规格.md` §三），而敌方卡区只有**顶部 ~97 px 厚**
-        /// （`EnemyCardAreaSizeHelperData` 的 `sizeDelta (100, 96.7)` 挂顶边；我方对应件是 249.9，
-        /// ≈ 整张卡高）。⇒ **卡顶贴屏幕上沿**：卡高 194.3 px（宽 122.05 × 高宽比 1.5918），
-        /// 半高 97.15 px = 0.08995 ⇒ 中心 = 1 − 0.08995 = **0.9102**。
+        /// <para>**链条（全部现读解包资源）**：
+        /// `UpperAnchor`（`RectTransform_2762`：anchor/pivot 顶部、`sizeDelta (100,100)`
+        /// ⇒ 框心距顶 **50 px**）→ `EnemyArea`（`RectTransform_2798`：anchor 中、pivot 顶部、
+        /// `anchoredPosition (0,0)` ⇒ 顶边落在 50 px）→ `HandArea`（`Transform_1295`：localPosition 0、
+        /// `localScale 108`）→ `HandAnchor`（`Transform_1257`：`y = 0.46 × 108 = 49.68 px`，朝上）
+        /// ⇒ 距顶 = `50 − 49.68` = **0.32 px** ⇒ 归一化（从下算）`1 − 0.32/1080` = **0.999704**。</para>
         ///
-        /// ⚠️ **这一段是推导，不是原版字段**（原版那两个节点是纯 `Transform`、祖先 canvas 的
-        /// `localScale` 序列化成 0 ⇒ **绝对像素位从序列化里读不出来**）。链条见上面；**已看截图核对**。</summary>
-        public const float EnemyBaselineY = 0.9102f;
+        /// <para>⚠️ **2026-10-19 就地订正（铁律 5 · `T01` §一·⑤ 风险 9）**：原值 **0.9102** 是
+        /// 「归一化弧高 + 卡顶贴屏幕上沿」的**旧推导** —— 和 `DefaultBaselineY 0.1204` 是**同一套
+        /// Godot 时代的代数**，把弧高的常量部分吸收进了 baseline。新版 `SlotPosition` 换成
+        /// 原版口径（基准 + 整条曲线 × maxHeight × hMod）之后，**它必须回到原版节点值**，否则同一把牌
+        /// 会被算两次偏移。改完敌方手牌比原来**上移 ~97–136 px**（原版就是**只露下半张**，
+        /// 两端还翘出屏幕上沿 ≈39 px —— `m_maxHeight = −0.78` 是负的）。</para></summary>
+        public const float EnemyBaselineY = 1f - (50f - 0.46f * 108f) / LayoutSpace.DesignPxH;   // 1 − 0.32/1080
 
         [Tooltip("m_maxLayoutSize = 0.59（16:9 档）：首卡中心↔末卡中心的**上限**，"
                + "单位是「占可见宽度的比例」。超过它就把间距压下来")]
@@ -177,10 +204,25 @@ namespace CardPresentation
         //  版面（原版没这几个字段，是这套 2D 布局自己的）
         // ==================================================================
 
-        [Tooltip("手牌中心行的 y（归一化，从**下**算）—— 原版 HandAnchor 链 961/1080 ⇒ 距底 119 px"
-               + "（0.110）；取 **0.1204** 让**卡底正好压在屏幕下沿上**（卡半高 131.35 px）。"
-               + "两端那张卡在 baselineY（弧高在两端为 0）")]
+        [Tooltip("手牌【布局基准】的 y（归一化，从**下**算）—— 原版 HandAnchor = 118.8 px 距底"
+               + " = 961.2 px 距顶（0.11）。⚠️ 它是**基准**不是卡心：卡心 = 基准 + 弧高（≤0，原版口径），"
+               + "满 12 张时两端比基准还低 ~31.4 px")]
         public float baselineY = DefaultBaselineY;
+
+        /// <summary>手牌扇形的**水平中心**（归一化 x）。
+        ///
+        /// <para>判据（`T01` §四·2，2026-10-19 现核）：原版 `CardsHorizontalLayout.GetPosition` 的 **x 基准**
+        /// 取的是 `this.transform.position.x`（VA `0x1808438A0` 的指令流：
+        /// `mov rcx, rbx; call Component.get_transform` → `call Transform.get_position`，
+        /// 返回值的低 32 位直接进 x 那一格），而**玩家** `HandAnchor.localPosition.x = 0.125`
+        /// × `HandArea` 108 = **13.5 px 偏右** ⇒ 扇心在 **973.5 px**，**不是**屏幕正中 960
+        /// （我们原来整把手牌比原版**偏左 13.5 px**）。</para>
+        ///
+        /// <para>⚠️ **敌方**那份的 `HandAnchor.localPosition.x = 0`（`Transform_1257`）⇒
+        /// `ConfigureForEnemy()` 里置回 **0.5**（敌方扇心就在正中）。
+        /// `RotationAt` 的 `dx` 是「卡相对扇心」的量，所以它减的是**本字段**、⛔ 不是常数 0.5。</para></summary>
+        [Tooltip("手牌扇形水平中心（归一化 x）—— 我方 0.50703125（原版 HandAnchor x = 13.5 px），敌方 0.5")]
+        public float fanCenterX = DefaultFanCenterX;
 
         [Tooltip("悬停时抬起多少（**世界单位**，×108 = px）—— 原版 `VarsDevice.cardInHandShownYOffset`"
                + " = **30 px**（桌面；小屏 ≤7 吋取 `…YOffsetMin` = 20）。原来我们自造 0.06（=6.5 px），2026-09-25 换成实读值")]
@@ -332,7 +374,8 @@ namespace CardPresentation
             // m_verticalOffsetLookTo = +74.5（正值，我方是 −330）—— 用和 `lookToDistance` 同一个桥换算
             lookToDistance = 74.5f * OriginalPxPerUnit / 108f;      // = 10.23
             cardScale = EnemyCardScale;
-            baselineY = EnemyBaselineY;
+            baselineY = EnemyBaselineY;                  // 1 − 0.32/1080 = 0.999704（敌方 HandAnchor 距顶 0.32 px）
+            fanCenterX = 0.5f;                           // 敌方 HandAnchor.x = 0（我方 0.125 × 108 = 偏右 13.5 px）
 
             // ---- 三条曲线：关键帧与切线都是原版序列化值，一个没改 ----
             // m_maxLayoutSizeAspectRatioModifier：4053 上是**一条 0 的平线**（我方有 (1.70,0)→(2.33,0.1013)）
@@ -376,6 +419,15 @@ namespace CardPresentation
     /// y 不乘 —— 逐值推导见 `资料/手牌布局_原版算法与参数.md` §四。</summary>
     public const float OurUnitsPerWorldUnit = OriginalPxPerUnit / 108f;
 
+    /// <summary>手牌扇形相对屏幕中心的**水平偏移**（设计 px）= 原版 `HandAnchor.localPosition.x 0.125`
+    /// × `HandArea.localScale 108` = **13.5 px**（判据与 `fanCenterX` 同一处：`Transform_1455` / `Transform_1401`
+    /// + `GetPosition` 的 VA 指令流）。⚠️ 归一化之后 `13.5/1920 = 0.00703125` —— 这个**归一化值在所有宽高比下通用**：
+    /// 我们的世界单位恒 108 px、窄屏靠 `LayoutSpace.Scale` 整体缩，两者正好抵消。</summary>
+    public const float FanCenterOffsetXPx = 0.125f * 108f;
+
+    /// <summary>我方手牌扇形水平中心（归一化）= `0.5 + 13.5/1920` = **0.50703125**（判据见 `fanCenterX`）。</summary>
+    public const float DefaultFanCenterX = 0.5f + FanCenterOffsetXPx / LayoutSpace.DesignPxW;
+
     /// <summary>原版 `VarsDevice.cardInHandShownYOffset`（`VarsDesktop`）= **30 px**。
     /// 出处：`bundle_duplicateassetisolationso_assets_all/MonoBehaviour/VarsDesktop.json`；
     /// 消费者 `CardScript.ShowCardInHand`（`AlternateArtCard__get_CardImage` 那个符号是 Ghidra 认错，
@@ -416,7 +468,12 @@ namespace CardPresentation
             get { CurveRange(); return -_curveMin * maxHeight * OriginalPxPerUnit * PxPerNormY; }
         }
 
-        /// <summary>弧线在 t（0=最左，1=最右）处抬起多少 —— 归一化高度，两端 0、中间最高</summary>
+        /// <summary>弧线在 t（0=最左，1=最右）处抬起多少 —— 归一化到 0..1（两端 0、中间最高）。
+        ///
+        /// <para>⚠️ **2026-10-19（`T01`）：这个口径【不再用于定位】** —— 它「先把曲线最小值减掉再乘满弧」，
+        /// 只在满 12 张（hMod≈1）时与原版等价，牌少时会把整把手牌压下去（见 <see cref="SlotPosition"/>）。
+        /// 定位一律走 <see cref="ArcOffsetFromBase"/>。本方法只留作诊断/显示；
+        /// ⛔ **别再拿它乘 <see cref="ArcHeightFull"/> 去算位置**。</para></summary>
         public float Arc01(float t)
         {
             CurveRange();
@@ -477,21 +534,34 @@ namespace CardPresentation
             return (baseSize + aspectRatioModifier.Evaluate(aspect)) * LayoutSpace.VisibleWidth;
         }
 
-        /// <summary>第 slot 张（共 count 张）的归一化 x</summary>
+        /// <summary>第 slot 张（共 count 张）的归一化 x —— **已含扇形水平中心** <see cref="fanCenterX"/>
+        /// （我方偏右 13.5 px、敌方居中；判据见那个字段）</summary>
         public float NxOfSlot(int slot, int count)
         {
             int n = Mathf.Max(1, count);
-            return 0.5f + (slot - (n - 1) * 0.5f) * SpacingFor(n);
+            return fanCenterX + (slot - (n - 1) * 0.5f) * SpacingFor(n);
         }
 
-        /// <summary>第 index 张（共 count 张）在哪 —— 位置(世界) 由这里算，旋转由 RotationAt 算</summary>
+        /// <summary>第 index 张（共 count 张）在哪 —— 位置(世界) 由这里算，旋转由 RotationAt 算。
+        ///
+        /// <para>🔴 **2026-10-19（`T01`）：弧高换回原版口径** ——
+        /// `ArcOffsetFromBase`（= `yAxisCurve(t) × m_maxHeight × hMod`，**不归一化**），
+        /// 而不是旧的 `ArcHeightFull × Arc01(t) × hMod`。</para>
+        ///
+        /// <para>**为什么不能只换 baseline 常量**：`Arc01` 是「先减掉曲线最小值（−31.6 px）、再乘 hMod」，
+        /// 而原版是**整条曲线一起乘 hMod** ⇒ 两者只在 **hMod ≈ 1（满 12 张）** 时等价。
+        /// 用「常数 baseline」替代的话：1 张会低 **31.5 px**、5 张低 ≈21 px、8 张低 ≈11 px ——
+        /// 也就是**牌越少，整把手牌被压得越低**（静默、只在观感上）。</para>
+        ///
+        /// <para>判据 = 原版 `CardsHorizontalLayout__GetPosition`（VA `0x1808438A0`）：
+        /// 输出 y = `transform.position.y + curve(t) × maxHeight × hMod`
+        /// （`CardsHorizontalLayout__GetPosition.c:235-236`），基准就是 <see cref="fanCenterX"/> 那一段
+        /// 解出的 `this.transform.position`。</para></summary>
         public Vector3 SlotPosition(int index, int count)
         {
             int n = Mathf.Max(1, count);
             float t = n == 1 ? 0.5f : index / (float)(n - 1);
-            float arc = ArcHeightFull * Arc01(t) * heightModifierByCount.Evaluate(CountFraction(n));
-            // 弧高跟卡一样随窄屏缩放（都是「屏幕上的大小」，不是布局间距）
-            arc *= LayoutSpace.Scale;
+            float arc = ArcOffsetFromBase(t, n) / Mathf.Max(1e-6f, LayoutSpace.VisibleHeight);  // 世界 → 归一化
             return LayoutSpace.ToWorld(NxOfSlot(index, n), baselineY + arc);
         }
 
@@ -519,7 +589,9 @@ namespace CardPresentation
             if (n <= 1) return 0f;
 
             float t = index / (float)(n - 1);
-            float dx = (NxOfSlot(index, n) - 0.5f) * LayoutSpace.VisibleWidth;   // 我们的单位
+            // dx = 卡相对**扇形中心**的横向距离 —— 原版 `dir = cardPos − (transform.position + lookTo)`
+            // ⇒ 减的是扇心（`fanCenterX`），⛔ 不是常数 0.5（我方扇心在 973.5 px）。
+            float dx = (NxOfSlot(index, n) - fanCenterX) * LayoutSpace.VisibleWidth;   // 我们的单位
             float look = Mathf.Max(1f, lookToDistance * LayoutSpace.Scale);
             float arc = ArcOffsetFromBase(t, n);                                  // 原版口径（≤0 我 / ≥0 敌）
             float denom = Mathf.Max(1f, look + (invertRotation ? -arc : arc));
@@ -529,10 +601,13 @@ namespace CardPresentation
         }
 
         /// <summary>原版口径的弧高偏移（**相对基准行**，我们的单位）——
-        /// = `yAxisCurve(t) × m_maxHeight × 按张数修正`，**不归一化**（原版就是拿原始值直接当 y 偏移）。
+        /// = `yAxisCurve(t) × m_maxHeight × 按张数修正 × (14.835/108) × Scale`，**不归一化**
+        /// （原版就是拿原始曲线值直接当 y 偏移：`GetPosition.c:235-236`）。
         /// 我方 ≤ 0（中间=基准、两端下垂）；敌方 = 负 maxHeight × 负曲线 ⇒ ≥ 0（两端翘、中间凹）。
-        /// ⚠️ 与 `Arc01()`（归一化到 0..1 再乘满弧）**不是一个口径** —— 那个是画位置用的，
-        /// 两者差一个常量（全靠 `baselineY` 吸收）。</summary>
+        ///
+        /// <para>🔴 **2026-10-19（`T01`）：定位用的就是这一条**（<see cref="SlotPosition"/> / `RotationAt` 共用）。
+        /// ⚠️ 与 <see cref="Arc01"/>（归一化到 0..1 再乘满弧）**不是一个口径** —— 那个只在满 12 张时等价，
+        /// 留作诊断，⛔ 别再拿它算位置。</para></summary>
         float ArcOffsetFromBase(float t, int count)
         {
             float hMod = heightModifierByCount.Evaluate(CountFraction(count));

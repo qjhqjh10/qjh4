@@ -9,6 +9,8 @@
 # ⇒ 真正说了算的是**原版 shader 自己的 pass 状态**，而它就在序列化数据里（这个工具读出来）。
 #
 # 用法：`PYTHONIOENCODING=utf-8 python 工具/gen_shader_blend.py`
+#      加 `--dry` = 只跑计算、打印读数、**零写盘**（默认行为不变；`A1648` 同族口径）。
+#      自检失败时若在 `--dry` 下，**不删盘上已有的表**（没写过，就别动别人的）。
 # 产物：`数据/游戏数据/original_shader_blend.tsv` —— `shader名 \t src \t dst \t zWrite \t 材质驱动? \t pass名`
 #   · src/dst 用**数字**（One=1 · Zero=0 · SrcAlpha=5 · OneMinusSrcAlpha=10 …，与 Unity `BlendMode` 同值）
 #   · `材质驱动?` = 1 表示这一 pass 的混合写的是 `[_SrcBlend]/[_DstBlend]`（**由材质决定**）
@@ -24,6 +26,9 @@
 #     `name` 是 `_Cull` / `_ZTest` 这种 = **属性驱动** ⇒ ⛔ 一律不许覆盖（材质上那份才是真值）。
 import io, os, sys
 import UnityPy
+
+# 🔴 `--dry` = 只跑计算、打印读数、**零写盘**。默认（不带它）行为与以前完全一样。
+DRY = "--dry" in sys.argv[1:]
 
 SHADER_BUNDLES = [
     r"D:\2\Warhammer 40k Warpforge\Warpforge_Data\StreamingAssets\aa\StandaloneWindows64\shaders_assets_all.bundle",
@@ -202,16 +207,19 @@ def main():
                 nopass.append(pf.m_Name)
             n += 1
         print(f"{os.path.basename(path)}：{n} 个 shader")
-    os.makedirs(os.path.dirname(OUT), exist_ok=True)
-    with io.open(OUT, "w", encoding="utf-8", newline="\n") as f:
-        f.write("shader\tsrcBlend\tdstBlend\tzWrite\tseparateBlend\tpassName"
-                "\tcull\tcullBaked\tzTest\tzTestBaked\tcolMask\tcolMaskBaked\n")
-        for k in sorted(rows):
-            r = rows[k]
-            f.write(f"{k}\t{r[0]}\t{r[1]}\t{r[2]}\t{r[3]}\t{r[4]}"
-                    f"\t{r[5]}\t{1 if r[6] else 0}\t{r[7]}\t{1 if r[8] else 0}"
-                    f"\t{r[9]}\t{1 if r[10] else 0}\n")
-    print(f"写出 {len(rows)} 条 → {OUT}")
+    if DRY:
+        print(f"干跑（未写盘）：{len(rows)} 条 → {OUT}")
+    else:
+        os.makedirs(os.path.dirname(OUT), exist_ok=True)
+        with io.open(OUT, "w", encoding="utf-8", newline="\n") as f:
+            f.write("shader\tsrcBlend\tdstBlend\tzWrite\tseparateBlend\tpassName"
+                    "\tcull\tcullBaked\tzTest\tzTestBaked\tcolMask\tcolMaskBaked\n")
+            for k in sorted(rows):
+                r = rows[k]
+                f.write(f"{k}\t{r[0]}\t{r[1]}\t{r[2]}\t{r[3]}\t{r[4]}"
+                        f"\t{r[5]}\t{1 if r[6] else 0}\t{r[7]}\t{1 if r[8] else 0}"
+                        f"\t{r[9]}\t{1 if r[10] else 0}\n")
+        print(f"写出 {len(rows)} 条 → {OUT}")
     if nopass:
         print(f"⚠️ {len(nopass)} 个 shader 的**任何 pass 都没有程序**（`gpuProgramID < 0`）⇒ 状态列是占位：")
         print("   " + ", ".join(sorted(nopass)[:8]) + (" …" if len(nopass) > 8 else ""))
@@ -351,10 +359,14 @@ def main():
     lines.append("        }")
     lines.append("    }")
     lines.append("}")
-    with io.open(OUT_CS, "w", encoding="utf-8", newline="\n") as f:
-        f.write("\n".join(lines) + "\n")
-    print(f"写出 C# 表 {len(hard)} 条（材质驱动的 {len(rows) - len(hard)} 条已剔除）"
-          f" + cull 表 {len(culls)} 条 → {OUT_CS}")
+    if DRY:
+        print(f"干跑（未写盘）：C# 表 {len(hard)} 条（材质驱动的 {len(rows) - len(hard)} 条已剔除）"
+              f" + cull 表 {len(culls)} 条 → {OUT_CS}")
+    else:
+        with io.open(OUT_CS, "w", encoding="utf-8", newline="\n") as f:
+            f.write("\n".join(lines) + "\n")
+        print(f"写出 C# 表 {len(hard)} 条（材质驱动的 {len(rows) - len(hard)} 条已剔除）"
+              f" + cull 表 {len(culls)} 条 → {OUT_CS}")
 
     # 🔴 **自检（不许静默）**：`InferCull` 原来按名字白名单覆盖的这几条，**必须在 cull 表里** ——
     #   否则「表驱动替掉白名单」会让那三条效果（`Screen_Gold` / `StunEffect_proc` / `StunEffect`）
@@ -372,7 +384,7 @@ def main():
         #   （否则下一次有人跑起来会拿到缺条目的 `CullMap`，而「少一条」是**静默**的）。
         for _f in (OUT, OUT_CS):
             try:
-                if os.path.exists(_f): os.remove(_f)
+                if not DRY and os.path.exists(_f): os.remove(_f)
             except Exception as _e:
                 print(f"   （删 {_f} 失败：{_e}）")
         print(f"!! 自检失败：这些名字没有 cull 实读值 → {missing}")
@@ -391,7 +403,7 @@ def main():
     if missingz:
         for _f in (OUT, OUT_CS):
             try:
-                if os.path.exists(_f): os.remove(_f)
+                if not DRY and os.path.exists(_f): os.remove(_f)
             except Exception as _e:
                 print(f"   （删 {_f} 失败：{_e}）")
         print(f"!! zTest 自检失败：这些名字没有烘死的 zTest 实读值 → {missingz}")

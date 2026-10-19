@@ -714,6 +714,8 @@ def main():
     ap.add_argument("--quiet", action="store_true", help="只打统计，不打未解出明细")
     ap.add_argument("--limit-bundles", type=int, default=0,
                     help="调试用：只处理前 N 个 bundle")
+    ap.add_argument("--dry", action="store_true",
+                    help="只打印统计，不落盘（`A1648` 同族：只想看时不许写产物）")
     args = ap.parse_args()
 
     t0 = time.time()
@@ -789,7 +791,7 @@ def main():
     elif fails:
         print("       ! ⚠️ 有 bundle 的 dump 失败过（会让「按名字反查」落错人）: %s" % fails)
     else:
-        print("       ✓ _stats.json: 84 个 bundle 的 dump fail 全为 0"
+        print("       ✓ _stats.json: 所有 bundle 的 dump fail 全为 0"
               "（按名字反查 dump 文件这条路对 bundle 对象是安全的）")
 
     # ---- ①·b catalog 补一跳（第二步：校验后把「短 internalId」换回真 GUID）
@@ -1170,13 +1172,16 @@ def main():
                 if c.get("type") and not c.get("dump")],
         },
     }
-    if not os.path.isdir(INDEX_DIR):
-        os.makedirs(INDEX_DIR)
-    with io.open(OUT_JSON, "w", encoding="utf-8", newline="\n") as fh:
-        json.dump(out, fh, ensure_ascii=False, indent=1)
-    sz = os.path.getsize(OUT_JSON)
-    print("   写盘 %s（%.2f MB，总耗时 %.0fs）"
-          % (rel(OUT_JSON), sz / 1048576.0, time.time() - t0))
+    if args.dry:
+        print("   干跑（--dry）：不写 %s（总耗时 %.0fs）" % (rel(OUT_JSON), time.time() - t0))
+    else:
+        if not os.path.isdir(INDEX_DIR):
+            os.makedirs(INDEX_DIR)
+        with io.open(OUT_JSON, "w", encoding="utf-8", newline="\n") as fh:
+            json.dump(out, fh, ensure_ascii=False, indent=1)
+        sz = os.path.getsize(OUT_JSON)
+        print("   写盘 %s（%.2f MB，总耗时 %.0fs）"
+              % (rel(OUT_JSON), sz / 1048576.0, time.time() - t0))
 
     if not args.quiet and anim_unresolved:
         print("   -- 未解出明细（前 30 条）--")

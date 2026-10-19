@@ -19,6 +19,7 @@
 `{ "mat": {材质名: m_CustomRenderQueue}, "shader": {shader名: QUEUE数值}, "_conflicts": {...} }`
 
 用法：`python 工具/gen_renderqueue_truth.py`
+      加 `--dry` = 只跑计算、打印读数、**零写盘**（默认行为不变；`A1648` 同族口径）。
 """
 import glob
 import io
@@ -26,6 +27,9 @@ import json
 import os
 import sys
 from collections import defaultdict
+
+# 🔴 `--dry` = 只跑计算、打印读数、**零写盘**。默认（不带它）行为与以前完全一样。
+DRY = "--dry" in sys.argv[1:]
 
 SRC = "D:/2/新解包资源/assets_full"
 OUT = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
@@ -93,7 +97,6 @@ def main():
     for k, v in conflicts.items():          # 冲突的取最小的（并记进 _conflicts）
         mat_table[k] = v[0]
 
-    os.makedirs(os.path.dirname(OUT), exist_ok=True)
     payload = {
         "_note": ("原版队列真值。生效队列 = mat[材质名] 若 >=0，否则 shader[shader名]。"
                   "由 工具/gen_renderqueue_truth.py 从 assets_full 的原始 JSON 生成，别手改。"),
@@ -101,22 +104,27 @@ def main():
         "mat": mat_table,
         "shader": shaders,
     }
-    io.open(OUT, "w", encoding="utf-8", newline="\n").write(
-        json.dumps(payload, ensure_ascii=False, indent=1))
-
-    # 另外落两张 **TSV** —— `EffectExporter` 在 Unity 里读它们（JSON 两层字典不好用 JsonUtility 解）
     mtsv = os.path.join(os.path.dirname(OUT), "mat_renderqueue.tsv")
     stsv = os.path.join(os.path.dirname(OUT), "shader_renderqueue.tsv")
-    io.open(mtsv, "w", encoding="utf-8", newline="\n").write(
-        "材质名\tm_CustomRenderQueue\n" + "\n".join("%s\t%d" % (k, v) for k, v in mat_table.items()))
-    io.open(stsv, "w", encoding="utf-8", newline="\n").write(
-        "shader名\tQUEUE\n" + "\n".join("%s\t%d" % (k, v) for k, v in shaders.items() if v is not None))
+    if DRY:
+        print("干跑（未写盘）：%s · %s · %s" % (OUT, mtsv, stsv))
+    else:
+        os.makedirs(os.path.dirname(OUT), exist_ok=True)
+        io.open(OUT, "w", encoding="utf-8", newline="\n").write(
+            json.dumps(payload, ensure_ascii=False, indent=1))
+
+        # 另外落两张 **TSV** —— `EffectExporter` 在 Unity 里读它们（JSON 两层字典不好用 JsonUtility 解）
+        io.open(mtsv, "w", encoding="utf-8", newline="\n").write(
+            "材质名\tm_CustomRenderQueue\n" + "\n".join("%s\t%d" % (k, v) for k, v in mat_table.items()))
+        io.open(stsv, "w", encoding="utf-8", newline="\n").write(
+            "shader名\tQUEUE\n" + "\n".join("%s\t%d" % (k, v) for k, v in shaders.items() if v is not None))
     print("材质 %d 个（同名多值 %d）· shader %d 个（有 QUEUE 的 %d）"
           % (len(mat_table), len(conflicts), len(shaders),
              sum(1 for v in shaders.values() if v is not None)))
     for k, v in list(conflicts.items())[:8]:
         print("   ⚠️ 同名多值 %s -> %s" % (k, v))
-    print("已落表：%s" % OUT)
+    if not DRY:
+        print("已落表：%s" % OUT)
     return 0
 
 

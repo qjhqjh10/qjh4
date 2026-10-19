@@ -68,6 +68,7 @@ def main():
     ap = argparse.ArgumentParser()
     ap.add_argument('--arena', default=None, help='只做这一场（缺省 = 13 场全做）')
     ap.add_argument('--out-root', default=OUT_ROOT)
+    ap.add_argument('--dry', action='store_true', help='只打印，不落盘（`A1648` 同族）')
     a = ap.parse_args()
 
     arenas = ([a.arena] if a.arena else
@@ -93,14 +94,16 @@ def main():
             '_source':      os.path.relpath(f, ASSETS).replace('\\', '/'),
         }
         out = os.path.join(a.out_root, arena, '%s_camera.json' % arena)
-        os.makedirs(os.path.dirname(out), exist_ok=True)
-        with io.open(out, 'w', encoding='utf-8', newline='\n') as fh:
-            fh.write(json.dumps(d, ensure_ascii=False, indent=2) + '\n')
+        if not a.dry:
+            os.makedirs(os.path.dirname(out), exist_ok=True)
+            with io.open(out, 'w', encoding='utf-8', newline='\n') as fh:
+                fh.write(json.dumps(d, ensure_ascii=False, indent=2) + '\n')
         xs.setdefault(d['sensorSizeX'], []).append(arena)
         n_ok += 1
-        print('  ✓ %-32s sensorSize.x=%-7s gateFit=%s focal=%s' % (arena, d['sensorSizeX'], d['gateFit'], d['focalLength']))
+        print('  %s %-32s sensorSize.x=%-7s gateFit=%s focal=%s'
+              % ('○' if a.dry else '✓', arena, d['sensorSizeX'], d['gateFit'], d['focalLength']))
 
-    print('\n写出 %d 份' % n_ok)
+    print(('\n干跑（--dry）：候选 %d 份、一份都没写' if a.dry else '\n写出 %d 份') % n_ok)
     print('sensorSizeX 分布：')
     for v in sorted(xs):
         print('   %-8s × %d 场：%s' % (v, len(xs[v]), ', '.join(xs[v])))

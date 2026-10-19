@@ -66,6 +66,7 @@ public static class NetSelfTest
             TestPeerTextClampA961(FreePort()); // 🆕 2026-10-18（A961 + 「Send() 静默丢」）：对端可控文本要钳 · 丢包要出声
             TestFailVoiceA1267A1268(FreePort()); // 🆕 2026-10-19（A1267/A1268）：掉线原因要进日志 · 旧读线程迟到不许改状态
             TestPeerLostGateOffA1269(FreePort()); // 🆕 2026-10-19（A1269）：掉线闸必须挡 `Off`（收工后不许再报一次）
+            TestGracefulCloseA1264();          // 🆕 2026-10-19（A1264 X2）：关闭路径必须先 `Shutdown(Send)` 再有界 `Close()`
             TestOpponentHintA932();            // 🆕 2026-10-18（A932）：排位那扇全屏窗的**提示行**（自建节点）
             TestNetTermBilingual();            // 🆕 2026-10-19（P6 · 双语）：`Net/` 那批词条的两语档 + 灭自证
             TestHostResolve();
@@ -1951,13 +1952,13 @@ public static class NetSelfTest
         }
 
         // ---- ⑤ 🆕 2026-10-18（主对话裁定「接着做完」）：`A961` **另两个同族入口** ----
-        //   · `MsgReject.reason`（`NetProtocol.cs:148`）→ `NetBattle.Abort(...)` → **提示行 + 弹窗**；
-        //   · `MsgStart.myName / foeName`（`NetProtocol.cs:74`）→ `NetPendingBattle.FromStart`。
+        //   · `MsgReject.reason`（2026-10-19 现核 `NetProtocol.cs:157` 的 `MsgReject`）→ `NetBattle.Abort(...)` → **提示行 + 弹窗**；
+        //   · `MsgStart.myName / foeName`（2026-10-19 现核 `NetProtocol.cs:77`）→ `NetPendingBattle.FromStart`。
         //   🧨 判别式：删掉 `NetBattle.cs` 里那两处的 `ClampPeerText(...)`（`case NetKind.Reject` 与
         //      `FromStart`）⇒ Q⑪~Q⑭ 立刻红。
         //   ⚠️ Q⑪/Q⑫ 走的是**整条真路**（`Dispatch` → `Abort`），而 `Abort` **一定会 `Debug.LogError`**
-        //      （「联机对局中止…」，`NetBattle.cs:199`）—— 那是**被测的负例本身**，不是自检失败
-        //      （同族先例：`Editor/NetBattleTest.cs:443` 那条指纹负例）。判绿红看本文件末的「断言合计」。
+        //      （「联机对局中止…」，`NetBattle.Abort`，2026-10-19 现核 `NetBattle.cs:237`）—— 那是**被测的负例本身**，不是自检失败
+        //      （同族先例：`Editor/NetBattleTest.cs:473` 那条指纹负例）。判绿红看本文件末的「断言合计」。
         {
             // ⑤-a `MsgReject.reason`
             var t = new ScriptedTransport { Connected = true };
@@ -2370,6 +2371,51 @@ public static class NetSelfTest
              + " —— 与 R㉕ **不同源**：R㉕ 数的是「说不说」，这条看的是「状态动没动」");
         }
         finally { host.Close(false); cli.Close(false); }
+    }
+
+    /// <summary>🆕 2026-10-19（`A1264` X2「`bye` 丢在哪一跳」）：**关闭路径的源码结构断言**（纯静态，不碰 socket）。
+    /// 判据：`NetSession.Close` 在**发过 `bye`** 时走 `TcpTransport.CloseGracefully`，而它必须
+    /// ① 出现 `Shutdown(SocketShutdown.Send)`；② 这一句排在收尾 `Close();` **之前**；
+    /// ③ 排空是**有界**的（`drainMs` + `Poll` + 常量 `GracefulCloseDrainMs`）。
+    /// ⚠️ 为什么用源码断言而不是 fake transport：`Shutdown` 在 `TcpTransport` 里、拿的是真 socket；
+    ///    `INetTransport` 接口又**不能加方法**（`Editor/BattleScene.cs` 的 `RecordingTransport` 不在本笔白名单）。
+    /// ⚠️ 这条只在 Editor 汇编里跑（本文件就在 `Editor/`）⇒ 读 `.cs` 源码是稳的；真机 player 里没有 `.cs`。</summary>
+    static void TestGracefulCloseA1264()
+    {
+        string dir = Path.Combine(Application.dataPath, "CardPresentation/Net");
+        string tranPath = Path.Combine(dir, "NetTransport.cs");
+        string sesPath = Path.Combine(dir, "NetSession.cs");
+        string tran = null, ses = null;
+        try { tran = File.ReadAllText(tranPath); } catch (Exception e) { Debug.LogWarning("[NetSelfTest] 读不到 " + tranPath + "：" + e.Message); }
+        try { ses = File.ReadAllText(sesPath); } catch (Exception e) { Debug.LogWarning("[NetSelfTest] 读不到 " + sesPath + "：" + e.Message); }
+        Ok(tran != null && ses != null, "R㉗ ★ 源码可读（关闭路径静态断言的前提；读不到就红，⛔ 不静默跳过）");
+        if (tran == null || ses == null) return;
+
+        int iMethod = tran.IndexOf("public void CloseGracefully");
+        Ok(iMethod >= 0, "R㉘ ★ `TcpTransport.CloseGracefully` 存在");
+        int iShutdown = iMethod >= 0 ? tran.IndexOf("Shutdown(SocketShutdown.Send)", iMethod) : -1;
+        Ok(iShutdown >= 0, "R㉙ ★★ 关闭路径里有 `Shutdown(SocketShutdown.Send)`"
+                         + "（A1264：FIN 必须排在已写出的 `bye` 之后）");
+        int iClose = iShutdown >= 0 ? tran.IndexOf("\n            Close();", iShutdown) : -1;
+        Ok(iShutdown >= 0 && iClose > iShutdown,
+           "R㉚ ★★ 而且 `Shutdown(Send)` **排在**收尾 `Close();` 之前"
+         + "｜🧨 把两句对调 ⇒ 本条红（那时 `bye` 又在拆连接之后才等，等于没修）");
+
+        // 有界：`drainMs` 必须真的参与循环，常量必须在（且不超过 1 秒）
+        int iDrain = iMethod >= 0 ? tran.IndexOf("while (sw.ElapsedMilliseconds < drainMs)", iMethod) : -1;
+        Ok(iDrain > iShutdown && tran.IndexOf("s.Poll(", iDrain) > iDrain,
+           "R㉛ ★ 排空是**有界**的（`while (… < drainMs)` + `Poll`）—— ⛔ 不是 `while (true)` / 阻塞 `Receive`");
+        Ok(tran.Contains("GracefulCloseDrainMs = 200")
+           && tran.IndexOf("drainMs = GracefulCloseDrainMs", iMethod) > iMethod,
+           "R㉜ ★ 上限值存在且默认接上（`GracefulCloseDrainMs = 200` ⇒ 主线程最多等 200ms）");
+
+        // 调用点：`NetSession.Close` 在 **`say`** 那一档真的走它
+        int iSesClose = ses.IndexOf("public void Close(bool say");
+        int iSesOff = iSesClose >= 0 ? ses.IndexOf("SetState(NetState.Off", iSesClose) : -1;
+        string closeBody = iSesClose >= 0 && iSesOff > iSesClose ? ses.Substring(iSesClose, iSesOff - iSesClose) : "";
+        Ok(closeBody.Contains("CloseGracefully()"),
+           "R㉝ ★★ `NetSession.Close` 在发过 `bye` 时**真的调** `CloseGracefully()`"
+         + "｜🧨 把它改回 `_t.Close()` ⇒ 本条红（只在 `TcpTransport` 里加方法、没人调 = 修了个寂寞）");
     }
 
     /// <summary>🆕 2026-10-18（A961 续）：`§Q⑤-a` 用的**最小联机宿主** —— 只把「说给玩家听的那句话」记下来。

@@ -307,6 +307,11 @@ namespace CardPresentation
             //    （原版那台 `EventSystem` 的实例在 `assets_full` 里根本不存在 ⇒ `firstSelectedGameObject`
             //    取不到判据，见 `PointerLayer` 的「键盘导航」一节 ①）。⛔ **别把它写成「原版就是这么做的」。**
             PointerLayer.SelectFirstIn(win.gameObject);
+
+            // 🆕 **2026-10-19（界面线 `N117` · 用户拍板「方案 C」）**：最上面那一扇变了 ⇒
+            //   左栏命中区按「模态 / 非模态」升降（判据 = `GameWindow.BlocksLeftNav`）。
+            //   ⚠️ 必须在 `TryOpen` **之后**：`TryOpen` 才会写 `CurrentState`，而 `TopWindow` 读的是它。
+            MainMenuRuntime.RefreshNavHitForTopWindow();
         }
 
         /// <summary>🆕 A49：**最上面那一扇窗**。
@@ -397,6 +402,8 @@ namespace CardPresentation
             openWindows.Clear();
             currentWindow = null;
             popUpWindow = null;
+            // 🆕 **2026-10-19（`N117`）**：换了一局常驻主菜单 ⇒ 顶窗记账清空 ⇒ 左栏回到可点那一档。
+            MainMenuRuntime.RefreshNavHitForTopWindow();
         }
 
         /// <summary>原版 `WindowsManager.ShowMainMenu()` **逐句**（`WindowsManager__ShowMainMenu.c`）：
@@ -470,6 +477,9 @@ namespace CardPresentation
             if (currentWindow == win) currentWindow = null;
             if (popUpWindow == win) popUpWindow = null;
             if (wasTop) ShowPreviousWindow();      // = 原版 `WindowsManager__CloseWindowCO.c` 的 `ShowPreviousWindow()`
+            // 🆕 **2026-10-19（`N117`）**：顶窗变了（可能换成了一扇非模态的底窗）⇒ 左栏命中区重算。
+            //   放在 `ShowPreviousWindow()` **之后**：那一跳会把底窗带回来并写 `currentWindow`。
+            MainMenuRuntime.RefreshNavHitForTopWindow();
         }
 
         /// <summary>🆕 A77㉑①：**把「上一扇」带回来** —— 逐句对位原版
@@ -608,6 +618,8 @@ namespace CardPresentation
             }
             currentWindow = null;
             popUpWindow = null;
+            // 🆕 **2026-10-19（`N117`）**：场上收空了 ⇒ 左栏回到「可点」那一档（模态闸不要留残留）。
+            MainMenuRuntime.RefreshNavHitForTopWindow();
         }
 
         // ---------------------------------------------------------- 开窗入口：**按引用复用**（A123 落地 · A177 收编）
@@ -713,6 +725,37 @@ namespace CardPresentation
         /// 外壳树取自 `Parent Event Window` —— 两份 prefab 的事实与「为什么这样组合」→
         /// `Shell/ParentEventWindow.cs` 文件头「两个 prefab 的事实」。</para></summary>
         public const string PrefabRefParentEvent = "Parent Event Window";
+
+        /// <summary>🆕 **2026-10-19（活动线 L01）**：`GachaEventWindow`（Gacha 抽卡活动页 · 原版 `GachaEventTab`
+        /// 那一页）的注册键。
+        /// <para>⚠️ **原版没有独立窗口 prefab**：`GachaEventTab : WindowTabBase&lt;BaseParentEventWindow&gt;`
+        /// 是 `Parent Event Window` 里由 liveops 事件列表**动态建出来**的一个 tab
+        /// （`BaseParentEventWindow__SetupTabs.c` / `CreateEventTab.c`）。本地没有 liveops 事件列表
+        /// ⇒ 我们建的是「**承载窗外壳 + 恰好一个 Gacha 页**」的等价形态，根名沿用原版**页** prefab 的
+        /// `Gacha Tab`（如实记录，⛔ 不谎称原版有这扇窗）。判据 → `Shell/GachaEventWindow.cs` 文件头。</para></summary>
+        public const string PrefabRefGachaEvent = "Gacha Tab";
+
+        /// <summary>🆕 **2026-10-19（活动线 L02）**：`RaidEventWindow`（Raid 团队活动页 · 原版 `RaidEventTab`
+        /// 那一页）的注册键。
+        /// <para>⚠️ **原版没有独立窗口 prefab**（与 <see cref="PrefabRefGachaEvent"/> 同一条口径）：
+        /// `RaidEventTab : WindowTabBase&lt;BaseParentEventWindow&gt;, ILiveOpsTab`
+        /// 是 `Parent Event Window` 里由 liveops 事件列表**动态建出来**的一个 tab
+        /// （`BaseParentEventWindow__SetupTabs.c` / `CreateEventTab.c`）。本地没有 liveops 事件列表
+        /// ⇒ 我们建的是「**承载窗外壳 + 恰好一个 Raid 页**」的等价形态，根名沿用原版**页** prefab 的
+        /// `Raid Progress Tab`（如实记录，⛔ 不谎称原版有这扇窗）。判据 → `Shell/RaidEventWindow.cs` 文件头。</para></summary>
+        public const string PrefabRefRaidEvent = "Raid Progress Tab";
+
+        /// <summary>🆕 **2026-10-19（活动线 L03）**：`ExpansionPassEventWindow`（Expansion Pass 战令页 · 原版
+        /// `ExpansionPassEventTab` 那一页）的注册键。
+        /// <para>⚠️ **原版没有独立窗口 prefab**（与 <see cref="PrefabRefGachaEvent"/> / <see cref="PrefabRefRaidEvent"/>
+        /// 同一条口径）：`ExpansionPassEventTab : WindowTabBase&lt;BaseParentEventWindow&gt;, ILiveOpsTab`
+        /// 是 `Parent Event Window` 里由 liveops 事件列表**动态建出来**的一个 tab
+        /// （`BaseParentEventWindow__SetupTabs.c` / `CreateEventTab.c`）。本地没有 liveops 事件列表
+        /// ⇒ 我们建的是「**承载窗外壳 + 恰好一个 Pass 页**」的等价形态，根名沿用原版**页** prefab 的
+        /// ``` `Expansion Pass Tab`（如实记录，⛔ 不谎称原版有这扇窗）。判据 → `Shell/ExpansionPassEventWindow.cs` 文件头。</para>
+        /// <para>⚠️ 原版还有**第二个 tab** `Expansion Pass Missions Tab`（任务页）；本窗**两页都建**
+        /// （页签栏两颗：Pass / Missions），判据与数据缺口 → 同文件头。</para></summary>
+        public const string PrefabRefExpansionPassEvent = "Expansion Pass Tab";
 
         /// <summary>🆕 **2026-10-17（界面线 T18）**：`TutorialMessagePopup`（原版 `TutorialMessageWindowPopUp`）的
         /// prefab 根名（= `Shell/TutorialMessagePopup.cs` 的 `Create()` 里 `new GameObject(...)` 用的名字，**两处同源**）。
@@ -947,6 +990,51 @@ namespace CardPresentation
         {
             return OpenByRef(PrefabRefParentEvent,
                              wm => ParentEventWindow.Create(wm, page));
+        }
+
+        /// <summary>🆕 **2026-10-19（活动线 L01）**：开一扇 <see cref="GachaEventWindow"/>
+        /// （Gacha 抽卡活动页 · 原版 `GachaEventTab`）。
+        /// <para>⚠️ **原版没有独立窗口**：Gacha 是 `BaseParentEventWindow` 里由 liveops 事件列表动态建的
+        /// 一个 tab（判据 → <see cref="PrefabRefGachaEvent"/> 的注释与 `Shell/GachaEventWindow.cs` 文件头）。
+        /// 本地没有 liveops 事件列表 ⇒ 本方法开的是「**承载窗外壳 + 恰好一个 Gacha 页**」。</para>
+        /// <para>⚠️ **本地没有生产入口**：原版由 `BaseParentEventWindow.CreateEventTab` 在 `SetupTabs` 里
+        /// 按事件列表建出来 ⇒ 只提供「怎么开」，⛔ 不伪造调用点。活动数据全在远端 LiveOps
+        /// ⇒ 页面建满、数值 `--` + 出声（⛔ 不编；数据缺口清单 → `Shell/GachaEventWindow.cs` 文件头）。</para></summary>
+        public static GachaEventWindow OpenGachaEvent()
+        {
+            return OpenByRef(PrefabRefGachaEvent,
+                             wm => GachaEventWindow.Create(wm));
+        }
+
+        /// <summary>🆕 **2026-10-19（活动线 L02）**：开一扇 <see cref="RaidEventWindow"/>
+        /// （Raid 团队活动页 · 原版 `RaidEventTab`）。
+        /// <para>⚠️ **原版没有独立窗口**：Raid 是 `BaseParentEventWindow` 里由 liveops 事件列表动态建的
+        /// 一个 tab（判据 → <see cref="PrefabRefRaidEvent"/> 的注释与 `Shell/RaidEventWindow.cs` 文件头）。
+        /// 本地没有 liveops 事件列表 ⇒ 本方法开的是「**承载窗外壳 + 恰好一个 Raid 页**」。</para>
+        /// <para>⚠️ **本地没有生产入口**：原版由 `BaseParentEventWindow.CreateEventTab` 在 `SetupTabs` 里
+        /// 按事件列表建出来 ⇒ 只提供「怎么开」，⛔ 不伪造调用点。活动数据全在远端 LiveOps
+        /// （里程碑 / 社区分 / 个人分 / 奖励 / 起止时刻 / 背景图 / 阵营图）
+        /// ⇒ 页面建满、数值 `--` + 出声（⛔ 不编；数据缺口清单 → `Shell/RaidEventWindow.cs` 文件头）。</para></summary>
+        public static RaidEventWindow OpenRaidEvent()
+        {
+            return OpenByRef(PrefabRefRaidEvent,
+                             wm => RaidEventWindow.Create(wm));
+        }
+
+        /// <summary>🆕 **2026-10-19（活动线 L03）**：开一扇 <see cref="ExpansionPassEventWindow"/>
+        /// （Expansion Pass 战令页 · 原版 `ExpansionPassEventTab`）。
+        /// <para>⚠️ **原版没有独立窗口**：它是 `BaseParentEventWindow` 里由 liveops 事件列表动态建的
+        /// 一个 tab（判据 → <see cref="PrefabRefExpansionPassEvent"/> 的注释与
+        /// `Shell/ExpansionPassEventWindow.cs` 文件头）。本地没有 liveops 事件列表
+        /// ⇒ 本方法开的是「**承载窗外壳 + Pass / Missions 两页**」。</para>
+        /// <para>⚠️ **本地没有生产入口**：原版由 `BaseParentEventWindow.CreateEventTab` 在 `SetupTabs` 里
+        /// 按事件列表建出来 ⇒ 只提供「怎么开」，⛔ 不伪造调用点。活动数据全在远端 LiveOps
+        /// （里程碑奖励轨道 / 等级与分数 / `HasPremium` / 付费档报价 / 起止时刻 / 背景图 / 阵营图）
+        /// ⇒ 页面建满、数值 `--` + 出声（⛔ 不编；数据缺口清单 → `Shell/ExpansionPassEventWindow.cs` 文件头）。</para></summary>
+        public static ExpansionPassEventWindow OpenExpansionPassEvent()
+        {
+            return OpenByRef(PrefabRefExpansionPassEvent,
+                             wm => ExpansionPassEventWindow.Create(wm));
         }
 
         /// <summary>🆕 **2026-10-17（界面线 T18）**：开一扇 <see cref="TutorialMessagePopup"/>

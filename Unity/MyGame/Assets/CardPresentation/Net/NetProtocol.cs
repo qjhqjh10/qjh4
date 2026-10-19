@@ -1,4 +1,4 @@
-// NetProtocol.cs — 联机协议 v1：**帧格式 + 消息 DTO + 座位翻译 + 状态指纹**
+// NetProtocol.cs — 联机协议 v1：**帧格式 + 消息 DTO + 座位口径（绝对编号；`Seat()` 仅供自检） + 状态指纹**
 //
 // 为什么长这样（三条约束决定的，别绕开）：
 //   ① **零依赖**（用户 2026-09-26 拍板）：所以用 `JsonUtility`（Unity 自带）+ 长度前缀自己组帧，
@@ -70,8 +70,8 @@ namespace CardPresentation.Net
     {
         public int seed;            // 🔴 **主机抽、两端同一枚**（原版也是这么做的，见正本 §四·4）
         public string mode;         // "Classic" / "Skirmish"（取值照 `GameMode` 枚举名）
-        public int myDeckSeat;      // 这局的「我方」在**发送方视角**是 0 ⇒ 恒 0，留着是为了将来能扩
-        public string hostDeckJson;    // 主机那副（接收方按座位翻译决定它是自己那副还是对面那副）
+        public int myDeckSeat;      // 🔴 **零消费方**（全仓只有 `BattleDriver` 赋 0、没有任何读）—— 座位从 2026-09-26 起是**绝对的**，⛔ 别照「发送方视角」理解它
+        public string hostDeckJson;    // 主机那副（**绝对座位 0**）；客机也由 `NetBattle.FromStart` 按座位取，⛔ 不做任何「座位翻译」（那套已作废，见文件头）
         public string clientDeckJson;
         public string arena;        // 战场场景名（**由主机定** —— 正本 §二·5）
         public string myName, foeName;
@@ -119,8 +119,8 @@ namespace CardPresentation.Net
         /// 进攻卡 = 卡槽 `idx`（`&lt; 0` = 「不使用进攻卡」那张）；防御卡 = **闸过那份**
         /// `BattleDriver.DefensiveChoicesOwned(faction)` 里的下标。
         /// 🔴 **2026-10-13（`A1744`）就地订正**：原来这里写「防御卡 = `DefensiveChoices` 里的下标」—— **不再准确**。
-        ///   那两份列表**长度可以不同**（未筛那份恒 3 张、筛过的按等级少几张 —— 见 `BattleDriver.cs:4754` 那条成对注释），
-        ///   而发送侧已经改成用**闸过那份**（弹面板 `BattleDriver.cs:4719-4722` · 发送 `:4985-4988`）。
+        ///   那两份列表**长度可以不同**（未筛那份恒 3 张、筛过的按等级少几张 —— 见 `BattleDriver.DefensiveChoices` / `DefensiveChoicesOwned` 的成对 doc；⚠️ `BattleDriver.cs` 行号会漂，2026-10-19 现核 = `:5392-5398` / `:5520`），
+        ///   而发送侧已经改成用**闸过那份**（弹面板 `OpenDefensiveChoicePanel`，现核 `:5320` · 发送 `OnDefensiveDone`，现核 `:5591`）。
         ///   ⚠️ **接收方并不拿这个下标反查卡**（`NetApply.cs:56` 只记槽号，卡走 `defId` —— 见 `:59-60`）
         ///   ⇒ 这一格填错**不会 desync**，只会让日志 / 录像里的槽号对不上。</summary>
         public int envSlot = -1;
@@ -372,7 +372,7 @@ namespace CardPresentation.Net
         /// 留着是因为协议层它本身没错，将来若有别的用途别重写一份。</summary>
         public static int Seat(int pFromSender) { return pFromSender < 0 ? -1 : 1 - pFromSender; }
 
-        /// <summary>`AiAction` → 线上格式（发送方视角）。</summary>
+        /// <summary>`AiAction` → 线上格式（🔴 **座位是绝对编号**：`actor/slot/targetP` 一律照原值，⛔ 不翻 —— 镜像那套已作废）。</summary>
         public static MsgAction ToWire(AiAction a, BattleContext ctx, int seq)
         {
             var m = new MsgAction
