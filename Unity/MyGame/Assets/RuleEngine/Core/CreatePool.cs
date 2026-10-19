@@ -264,9 +264,11 @@ namespace RuleEngine
 
             r.Why = "「" + kindPhrase + "」既不是原版卡名、也不是我们认识的兵种词"
                   + "（原版数据里没有这张卡，不造效果）";
-            // 顺便报**最接近的那个名字** —— 原版数据是 OCR + 手抄来的，名字常年对不上：
-            //   `Sergeant Taaman`（实体卡）↔ 数据里写 `Sergeant Naaman`
-            //   `Extermination Protocol`（实体卡）↔ 数据里写 `Extermination Protocols`
+            // 顺便报**最接近的那个名字** —— 原版数据是 OCR + 手抄来的，名字常年对不上。
+            // ⚠️ **2026-10-19（`A2055`）就地订正（铁律 5）**：本段原来举的两条例子**都已不成立** ——
+            //   ① `Sergeant Taaman`（实体卡）↔ `Sergeant Naaman`：池里现读就是 **`DA6 Sergeant Taaman`**
+            //      （`cards_engine.json` 现核，`Naaman` 0 张）；② `Extermination Protocol(s)`：池里现读
+            //      是 **`SAU38 Extermination Protocol`（单数）**，复数版 0 张。⇒ 机制不变，例子已过期。
             // ⚠️ **只报，不替**。名字对不上就当成另一张卡去造，是「猜」——红线。
             string near = FindNearMiss(pool, kindPhrase);
             if (near != null) r.Why += $"；最接近的是「{near}」，但名字对不上，**没有**拿它顶替";
@@ -506,11 +508,15 @@ namespace RuleEngine
         /// <summary>
         /// 具名查找的**双向单复数容错**：精确失配时，再比一次「**两边都剥掉一个尾 `s`**」之后的名字。
         ///
-        /// 🔴 出处：`Awakened Obelisk`（`SAU65` · Defence）卡面
+        /// 🔴 出处：`Awakened Obelisk` 卡面
         ///   `Deal 1 damage to an enemy. **If target dies, add Extermination Protocol to your hand**`
-        ///   —— **单数**；而我们池里那张（`SAU45`）叫 `Extermination Protocols`（**复数**，
+        ///   —— **单数**；而我们池里那张当时叫 `Extermination Protocols`（**复数**，
         ///   而它自己那张 PnP 卡图印的也是单数）。原来的 `FindByName` 只做**全等**归一
         ///   ⇒ 查不到 ⇒ 那半句**从来不生效**（只报「最接近的是…但名字对不上，没有拿它顶替」）。
+        /// ⚠️ **2026-10-19（`A2055`）就地订正（铁律 5）**：两个 id 都已漂 —— `Awakened Obelisk`
+        ///   现读 **`SAU59`**（原文写的 `SAU65` 现在是 `Royal Warden`）；池里那张现读
+        ///   **`SAU38 Extermination Protocol`（单数）**，复数版 0 张 ⇒ **本容错今天不会被触发**。
+        ///   机制留着（别的卡还可能有单复数漂移），但⛔ 别拿原 id 去认卡。
         /// ⚠️ **必须双向**：这一条是**卡面少一个 `s`、池里多一个 `s`** ——
         ///   只剥**查询词**的 `s`（`MatchCardName` 那种写法）**救不了它**。
         /// ⚠️ 安全性已实测：全池**没有**两张卡只差一个尾 `s`（0 组）⇒ 不会撞车。
@@ -853,6 +859,9 @@ namespace RuleEngine
         ///         外加 `BL1 Abaddon the Despoiler`（中文 `四神宠儿` **没有** `天赋：` 前缀 ⇒
         ///         它仍命中 `Chosen of the Four`）· `GOF17 Burna Boy`（中文多识出 `Ork Spanner`）·
         ///         `SAU65 Awakened Obelisk`（`Extermination Protocols`）各 **+1**。
+        ///         ⚠️ **2026-10-19（`A2055`）就地订正（铁律 5）**：上面那两个 id 是**当时**的读数，
+        ///         现读已漂 —— `GOF17` = `Killa Kan`（Burna Boy 现读 `GOF15`）·
+        ///         `Awakened Obelisk` = **`SAU59`**（`SAU65` = `Royal Warden`）。数字保留原样（历史读数）。
         ///         ⚠️ **`A1078` 之前那三族是「互相抵消」的**（`Azrael` / `Aun'Va` 各 −1，
         ///         正好抵掉 `Burna Boy` / `Awakened Obelisk` 的 +1）⇒ 当时看着像「只有 `复生` 一处」，
         ///         这就是那句话的来源。
@@ -1110,17 +1119,62 @@ namespace RuleEngine
         public const string DarkPactSubtype = "Dark Pact";
 
         /// <summary>**卡面 / 卡名有没有提到「黑暗契约」。**
-        /// 判据原文是**卡面英文**（`Dark Pact` —— 卡面上印的就是它）；中文那半边 `黑暗契约` 是
-        /// **同一族群的译名**（`descZh` 里一律这么写，是我们自己的译文），一并认是为了卡面切成中文时
-        /// 判据不跟着失效。⚠️ 实测两边**正好同一批 41 张**（自检里有交叉核对）⇒ 这不是「放宽口径」，
-        /// 是同一件事的两种写法。</summary>
+        /// 判据原文是**卡面英文**（`Dark Pact` —— 卡面上印的就是它）；中文那半边是同一族群的译名，
+        /// 一并认是为了卡面切成中文时判据不跟着失效。⚠️ 实测两边**正好同一批 41 张**
+        /// （自检里有交叉核对）⇒ 这不是「放宽口径」，是同一件事的两种写法。
+        ///
+        /// 🔴 **2026-10-19（`A2054`）就地订正（铁律 5）**：这里原来只认字面 `黑暗契约`。
+        /// `descZh` 于 2026-10-15 起换成了**官方本地化表**，而官方表把这四种契约渲染成
+        /// **标记图标 token**，不再写「黑暗契约」三个字 ——
+        /// `Dark Pact of Blood/Excess/Fate/Resilience` ⇒ `[[markOfKhorne]]` / `[[markOfSlaanesh]]` /
+        /// `[[markOfTzeentch]]` / `[[markOfNurgle]]`，泛指的 `a Dark Pact` ⇒ `[[markOfChaos]]`
+        /// （`BL24` 还有裸写法 `Gain_a_random_mark_of_chaos`）。
+        /// **现读**：英文侧 41 张 · 只认字面时中文侧只剩 **12** 张（漏 29）· 补上五个 mark token 后
+        /// 又是 **41 张，且与英文侧集合【恰好相等】**（差集两侧都是 0）⇒ 这才是「同一件事的两种写法」。
+        /// ⚠️ **判据只此一处**（铁律 6）：`RuleEngineTest` 与 `IconSetup.ZhGaps` 各有一份本地副本，
+        /// 它们应当改为转调本函数（已写进 `E9` 的接口需求）。</summary>
         public static bool MentionsDarkPact(CardDef c)
         {
             if (c == null) return false;
             if (c.Subtype == DarkPactSubtype) return true;                  // 契约自己（卡名里就带）
-            if (ContainsCI(c.Name, "Dark Pact") || ContainsCI(c.Desc, "Dark Pact")) return true;
-            if (ContainsCI(c.TalentName, "Dark Pact")) return true;         // `Talent: … Dark Pact …`
-            return ContainsCI(c.NameZh, "黑暗契约") || ContainsCI(c.DescZh, "黑暗契约");
+            if (MentionsDarkPactEn(c)) return true;
+            return ContainsAnyDarkPactZh(c.NameZh) || ContainsAnyDarkPactZh(c.DescZh);
+        }
+
+        /// <summary>`MentionsDarkPact` 的**英文那一半**（卡名 / 卡面正文 / `Talent:` 段）。
+        /// 单独公开是给**自检的交叉核对**用的（`RuleEngineTest` 要分别量 en 与 zh 两侧、
+        /// 再要求两个差集都是 0）—— ⛔ 别在别处再写一份 `IndexOf("Dark Pact")`。
+        /// 2026-10-19（第五十五会话 E10 · `A2054`）收口：原来那份内联副本在
+        /// `RuleEngine/Editor/RuleEngineTest.cs`。</summary>
+        public static bool MentionsDarkPactEn(CardDef c)
+        {
+            if (c == null) return false;
+            if (c.Subtype == DarkPactSubtype) return true;
+            return ContainsCI(c.Name, "Dark Pact")
+                || ContainsCI(c.Desc, "Dark Pact")
+                || ContainsCI(c.TalentName, "Dark Pact");         // `Talent: … Dark Pact …`
+        }
+
+        /// <summary>`MentionsDarkPact` 的中文那一半：字面译名 ＋ 官方本地化表的五个标记 token。
+        /// 判据与计数见 <see cref="MentionsDarkPact"/> 的 doc（⛔ 别在别处再写一份）。
+        /// 2026-10-19（`A2054` 收口）：从 `private` 改成 `public` —— 自检的交叉核对要直接量这一半。</summary>
+        public static bool ContainsAnyDarkPactZh(string s)
+        {
+            if (string.IsNullOrEmpty(s)) return false;
+            if (ContainsCI(s, "黑暗契约")) return true;
+            // 官方表：`[[markOfChaos]]` / `[[markOfKhorne]]` / `[[markOfTzeentch]]` /
+            //         `[[markOfNurgle]]` / `[[markOfSlaanesh]]`（含 `Gain_a_random_mark_of_chaos` 裸写法）
+            // 🔴 **2026-10-19（第五十五会话 E10 现核）**：**决定性的那一句必须抹掉下划线再比** ——
+            //    官方表对**未译占位符**写的是 `((Gain_a_mark_of_chaos))` / `Gain_a_random_mark_of_chaos`
+            //    （下划线写法），不抹掉时 `markofchaos` **一条都匹配不上**。
+            //    实测（`cards_engine.json` 现读）：抹 = 中文 41 张（与英文 41 恰好相等、差集 0）；
+            //    不抹 = 37 张，漏 `BL4` / `BL24` / `BL13` / `141c5ed6…` 四张。
+            //    ⚠️ `E9` 报告里「补上五个 token 后 41 = 41」用的是自检里**抹下划线**的那一版；
+            //    本函数当时漏了这一步 —— 现在补上（判据仍只此一处）。
+            string flat = s.Replace("_", "");
+            return ContainsCI(flat, "markofchaos") || ContainsCI(flat, "markofkhorne")
+                || ContainsCI(flat, "markoftzeentch") || ContainsCI(flat, "markofnurgle")
+                || ContainsCI(flat, "markofslaanesh");
         }
 
         /// <summary>那一族契约卡（**排除 <paramref name="self"/>** —— 主卡本身就是契约时只列另外三张）。
@@ -1233,7 +1287,7 @@ namespace RuleEngine
 
         static bool IsPronoun(string t)
         {
-            t = t.Trim();
+            t = (t ?? "").Trim();
             return t == "it" || t == "them" || t == "the target" || t == "this unit" || t == "this troop";
         }
 

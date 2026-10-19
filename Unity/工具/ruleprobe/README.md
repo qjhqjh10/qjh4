@@ -441,7 +441,26 @@ bash d:/4/Unity/工具/ruleprobe.sh play all dump <out.tsv>   # 附带逐卡 TSV
 bash d:/4/Unity/工具/ruleprobe.sh play all pf <out.txt>     # 写【结算指纹】基线（= 被确认的状态）
 bash d:/4/Unity/工具/ruleprobe.sh play check                # 逐卡比 + 哨兵 ⇒ 差异/哨兵红 ⇒ rc=1
 bash d:/4/Unity/工具/ruleprobe.sh play check <out.txt>      # 指定另一份指纹基线
+# 🆕 `A2009`（2026-10-19 第五十五会话 `E8b`）：**夹具预置局面**（只用于单卡；不传 = 夹具一字不变）
+bash d:/4/Unity/工具/ruleprobe.sh play SOR42 preset dead=1              # 墓地：P0 预置 1 张友方部队
+bash d:/4/Unity/工具/ruleprobe.sh play UM61  preset dead=1:Infantry     # 指定兵种（UM61 要 Infantry）
+bash d:/4/Unity/工具/ruleprobe.sh play ASH82 preset enemyhand=1         # P1 手牌预置 1 张垫牌
+bash d:/4/Unity/工具/ruleprobe.sh play UM2   preset chipenemy=1         # 敌方非督军各扣 2 血（要「受伤的敌人」）
 ```
+
+🆕 **`preset` 的语义**（`PlayProbe.PresetSpec` / `ApplyPreset`）：预置项**只改这一次单卡局**，
+在 `BuildFixture` 取快照**之前**写完 ⇒ **预置本身不出现在「变化逐条」里**。
+
+- `dead[=N][:Subtype]` —— 往 **P0 墓地**放 N 张 `FIX_DEAD*`：**照引擎自己的两笔账**
+  （`Discard` 实例 ＋ `DeadUnits{Owner,DeathTurn=ctx.Turn}`，`BattleContext.TakeFromGraveyard` 的判据）
+  ⇒ 验 `ChooseAct = deploy/return` 的 **墓地**候选（`SOR42` / `UM61`）。
+- `enemyhand=N` —— 往 **P1 手牌**放 N 张 `FIX_EH*` ⇒ 验 `ChooseAct = shuffle`（`ASH82`）的确定性候选。
+- `chipenemy=1` —— 把 P1 的**非督军**单位各扣 `FixtureChip` 血（走引擎 `ApplyDamage`）⇒
+  验「给一个**受伤的**敌人」那一族（`UM2`）。
+⚠️ 三条都 **⛔ 只用于单卡**：`play all` / `play check` 传 `preset` 会**出声并停**（rc=2）——
+全池读数必须保持同一套夹具，否则「全池对拍」失去意义。
+⚠️ 预置出来的 `FIX_DEAD*` / `FIX_EH*` **不在卡池里**，是**量具干预**（与 `FixtureFaith` 同档），
+⛔ 别拿它的读数当「原版开局墓地/手牌长这样」。
 
 🆕 **故障注入口**（只为**验尺子**用）：`WFPROBE_POOL=<另一份池.json>` 可以把探针指向**卡池的副本**
 （工程里那一份归 `工具/gen_cards_engine.py`，探针**只读**、⛔ 不许改）。

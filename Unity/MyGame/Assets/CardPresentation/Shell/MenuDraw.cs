@@ -2029,6 +2029,32 @@ namespace CardPresentation
             if (lb != null) lb.SetVAlign(tier, LayoutSpace.Px(r.H), face);
         }
 
+        /// <summary>🆕 **2026-10-19（`P2-7`）：补 Shell 文本层缺的那一档 `TMP.lineSpacing`。**
+        /// <para>判据：原版这几颗 TMP 的 `m_lineSpacing` 是**序列化死的**（`menu_dump` 的 prefab 实读）——
+        /// `TutorialMessagePopup` / `WelcomePopup` 的 `DescriptionText` = **5** ·
+        /// `MissionRerollPopup` 的 `MessageText` = **15** · `ItemDisplayWindow` 的 `LoreText` = **5**。
+        /// 它们是**多行正文**，不传这一格就会排得比原版紧（每行差 `m_lineSpacing` 个字体单位 = em 百分比）。</para>
+        /// <para>⚠️ **为什么写在这里而不是 `Battle/Label.cs`**：`Label`（共享件）没有这个 API，而它不在本批
+        /// 写手白名单里 ⇒ 从 Shell 侧直接拿 `Label` 下那颗 TMP（`TmpFont.NewText*` 把它建在**子节点**上，
+        /// 所以是 `GetComponentInChildren`）改一个公开字段，再 `ForceRelayout()` 把版面推下去。
+        /// ⛔ 不要在调用点各自抓 TMP（同一套换算会散成 N 份）。</para>
+        /// <para>⚠️ 单位：TMP 的 `lineSpacing` 与 `fontSize` **同一档**（字体单位）⇒ **原版值直接传**，
+        /// ⛔ 别乘 108 / 别除 0.9（与 `m_fontSize` 同一条口径）。点阵后端（没有 TMP）⇒ 出声一次后返回。</para></summary>
+        public static void SetLineSpacing(Label lb, float lineSpacing)
+        {
+            if (lb == null) return;
+            var t = lb.GetComponentInChildren<TMPro.TMP_Text>(true);
+            if (t == null)
+            {
+                Debug.LogWarning("[MenuDraw] `SetLineSpacing` 拿不到 TMP（点阵后端）⇒ 行距 **没生效**"
+                               + "（原版这一格 = `m_lineSpacing " + lineSpacing.ToString("0.##") + "`）");
+                return;
+            }
+            if (Mathf.Approximately(t.lineSpacing, lineSpacing)) return;
+            t.lineSpacing = lineSpacing;
+            lb.ForceRelayout();           // 行盒变了 ⇒ 重新推版面（`Label` 的公开口；点阵后端它会自己出声）
+        }
+
         /// <summary>一个**透明点击区**（整块矩形）+ `WindowButton`，返回那个节点。
         /// 原版这一层就是按钮自己的 `RectTransform`；我们这套没有 uGUI 事件 ⇒ 单独一个透明 quad 当命中区
         /// —— **`PointerLayer` 扫的就是它**（`GetComponentInChildren&lt;ImageQuad&gt;()` 拿矩形）。
@@ -2615,12 +2641,15 @@ namespace CardPresentation
         /// ③ 渲染矩形 = 原版面板底图（量那颗 `ImageQuad` 自己的真值，四沿各 ±1.5px）；
         /// ④ 档 = **内容命中区档 − 1**、且**严格夹在**压暗层档与内容档之间；
         /// ⑤ `Absorb` 对**这一颗**没报过档位告警（按节点记账）；⑥ 两条**互为对照**的行为断言
-        /// （点面板 ⇒ **不关** · 点面板外 ⇒ **关**）。</para>
+        /// （点面板 ⇒ **不关** · 点面板外 ⇒ **关**）。
+        /// 🆕 **⑦（2026-10-19 · `A2141`）灭自证**：同一矩形上盖一扇**别家窗**的吸收层时，
+        /// ⑤ 那条「找得到一个自己的吸收层点」必须**找不着**（判据 = <see cref="IsOwnAbsorbHit"/> 的
+        /// `IsChildOf(winRoot)` 那一条；旧扫描只判 `absorbOnly` ⇒ 别家的残留命中能让它假绿）。</para>
         ///
         /// <para>⚠️ **点哪儿（两个点，判据不同）**：
         /// · **面板内**：先试**原版矩形中心**，被窗内真件（按钮）盖住时沿一圈**固定的**候选点找一个
-        ///   「命中是吸收层」的点。那一处「命中是谁」**不是期望值**，它只是**选点的条件** ——
-        ///   断的是**窗的状态**（`state()`）。
+        ///   「命中是**本窗自己的**吸收层」的点。那一处「命中是谁」**不是期望值**，它只是**选点的条件** ——
+        ///   断的是**窗的状态**（`state()`）。⚠️ `A2141` 前这里只要求「命中是吸收层」⇒ 别家窗的也认。
         /// · **面板外**：⛔ **不扫、钉死屏幕左上角 (5,5)**，而且「命中是谁」**就是期望值**
         ///   （必须是**本窗压暗层那一颗**：`IsChildOf(winRoot)` ∧ `MenuDraw.WasShadeHit`）。
         ///   扫一圈会让「某颗命中区过大、把压暗层吃掉一半」这类缺陷从别的候选点上绕过去。
@@ -2728,47 +2757,41 @@ namespace CardPresentation
             var pl = PointerLayer.Instance;
             chk(pl != null, $"{what}：场景里有指针层（没有的话下面两条等于没查）");
             if (pl == null) return;
-            float ccx = (x1 + x2) * 0.5f, ccy = (y1 + y2) * 0.5f;
-            // 候选点：**原版矩形中心**优先 → 中心外一圈(±80) → 最后**贴着四条边内缩的那一圈**
-            // （面板的边框那一圈通常没有内容件；例：练习窗选卡组那一列中间**全被卡组格盖住**，
-            //  只有左边距那 25px 是空的）。⛔ 候选是**固定**的（不扫描全图）⇒ 点了哪儿可复现。
-            // ⚠️ 用定长数组而不是 `List<Vector2>`：本文件只 `using UnityEngine`（⛔ 别为这一行去动 using 块），
-            //    而**候选的序与取值与 5 份副本逐位相同**（中心 1 + 8 向 + 每档 8 条）。
-            var cand = new Vector2[9 + AbsorbEdgeInset.Length * 8];
-            int cn = 0;
-            cand[cn++] = new Vector2(0f, 0f);
-            cand[cn++] = new Vector2(0f, -80f); cand[cn++] = new Vector2(0f, 80f);
-            cand[cn++] = new Vector2(-80f, 0f); cand[cn++] = new Vector2(80f, 0f);
-            cand[cn++] = new Vector2(-80f, -80f); cand[cn++] = new Vector2(80f, -80f);
-            cand[cn++] = new Vector2(-80f, 80f); cand[cn++] = new Vector2(80f, 80f);
-            for (int k = 0; k < AbsorbEdgeInset.Length; k++)
+            // 🔴 **2026-10-19（`A2141`）：候选点必须命中【本窗自己的】吸收层** —— 旧扫描只判
+            //    `hb.absorbOnly` ⇒ 别家窗遗留的同名 `AbsorbHit` 只要叠在同一块矩形上，就能让
+            //    `found` 变真、**断言假绿**（`MainMenuScene` 14 条级联时 `:3991` 那条在 #10–#13 全红时仍 ✓）。
+            //    判据收进 `IsOwnAbsorbHit`（与同函数末段那条「(5,5) 命中的必须是**这扇窗自己的**压暗层」
+            //    同口径：`IsChildOf(winRoot)` ∧ 公共件标记）。
+            bool found = FindOwnAbsorbPoint(winRoot, x1, y1, x2, y2,
+                                            (tx, ty) => pl.ButtonAt(tx, ty), out float px, out float py);
+            chk(found, $"{what}：**原版面板矩形以内找得到一个点、它的命中是【本窗自己的】吸收层**"
+                       + "（找不到 ⇒ 窗内空白处没吃下这一下，射线会穿到压暗层上 ⇒ A94 那个缺陷还在；"
+                       + "⚠️ 别家窗的吸收层顶着**不算** —— `A2141`）");
+            // ⑦ 灭自证（`A2141` · **结构上不可能同时满足**）：在**同一矩形**上盖一扇「别家窗」的吸收层，
+            //    再问一次同一个扫描 —— 必须**找不着**。
+            //    那颗诱饵与 `MenuDraw.Absorb` 建出来的节点逐字同形（`absorbOnly = true` + `AbsorbMark`），
+            //    唯一不满足的是「不是 `winRoot` 的孩子」⇒ ① `IsOwnAbsorbHit` 里那条 `IsChildOf` 一旦被删，
+            //    这里立刻变真 / 红；② 若把 `FindOwnAbsorbPoint` 退回「只判 `absorbOnly`」，这里同样红。
+            //    ⚠️ 诱饵**不进场景命中表**（`SetActive(false)`、没有 `ImageQuad`）⇒ 不影响上面那两条真点击。
             {
-                float e = AbsorbEdgeInset[k];
-                cand[cn++] = new Vector2(x1 + e - ccx, y1 + e - ccy); cand[cn++] = new Vector2(x2 - e - ccx, y1 + e - ccy);
-                cand[cn++] = new Vector2(x1 + e - ccx, y2 - e - ccy); cand[cn++] = new Vector2(x2 - e - ccx, y2 - e - ccy);
-                cand[cn++] = new Vector2(x1 + e - ccx, 0f);           cand[cn++] = new Vector2(x2 - e - ccx, 0f);
-                cand[cn++] = new Vector2(0f, y1 + e - ccy);           cand[cn++] = new Vector2(0f, y2 - e - ccy);
-            }
-            float px = 0f, py = 0f; bool found = false;
-            for (int i = 0; i < cn && !found; i++)
-            {
-                float tx = ccx + cand[i].x, ty = ccy + cand[i].y;
-                if (tx <= x1 + 3f || tx >= x2 - 3f || ty <= y1 + 3f || ty >= y2 - 3f) continue;   // 必须落在**原版**矩形里
-                if (tx < 2f || tx > 1918f || ty < 2f || ty > 1078f) continue;                    // 而且**在屏幕里**（玩家点不到屏外的点）
-                var hb = pl.ButtonAt(tx, ty);
-                if (hb != null && hb.absorbOnly) { px = tx; py = ty; found = true; }
-            }
-            // 兜底：上面那圈**全都撞上内容件**时，按 **40px 固定步长**在矩形里走一遍（确定性 —— 不是随机），
-            // 取第一个「命中是吸收层」的点。⚠️ 它只决定**点哪儿**，不参与任何期望值。
-            for (float gy = y1 + 4f; gy <= y2 - 4f && !found; gy += 40f)
-                for (float gx = x1 + 4f; gx <= x2 - 4f && !found; gx += 40f)
+                var decoyRoot = new GameObject("__A2141 别家窗根");
+                decoyRoot.SetActive(false);
+                try
                 {
-                    if (gx < 2f || gx > 1918f || gy < 2f || gy > 1078f) continue;
-                    var hbg = pl.ButtonAt(gx, gy);
-                    if (hbg != null && hbg.absorbOnly) { px = gx; py = gy; found = true; }
+                    var dh = new GameObject("AbsorbHit");
+                    dh.transform.SetParent(decoyRoot.transform, false);
+                    var dwb = dh.AddComponent<WindowButton>();
+                    dwb.absorbOnly = true;
+                    dh.AddComponent<AbsorbMark>();
+                    bool decoyFound = FindOwnAbsorbPoint(winRoot, x1, y1, x2, y2,
+                                                         (tx, ty) => dwb, out _, out _);
+                    chk(!decoyFound, $"{what}：**A2141 灭自证** —— 同一矩形上盖一扇【别家窗】的吸收层时，"
+                                   + "「找得到自己的吸收层」必须**找不着**（`MenuDraw.Absorb` 建出来的节点逐字满足"
+                                   + " `absorbOnly + WasAbsorb`，只差「不是本窗的孩子」；候选扫描若退回"
+                                   + "「只判 `absorbOnly`」/ `IsOwnAbsorbHit` 若删掉 `IsChildOf`，这一条立刻红）");
                 }
-            chk(found, $"{what}：**原版面板矩形以内找得到一个点、它的命中是吸收层**"
-                       + "（找不到 ⇒ 窗内空白处没吃下这一下，射线会穿到压暗层上 ⇒ A94 那个缺陷还在）");
+                finally { Object.DestroyImmediate(decoyRoot); }
+            }
             if (!found) return;
             chk(state != null && state() == WindowState.Open, $"{what}：（前提）这一刻窗是开着的");
             if (state == null) return;
@@ -2808,18 +2831,91 @@ namespace CardPresentation
             chk(state() == WindowState.Closed, $"{what}：**点面板外 ⇒ 关窗**（两条互为对照才分得出）");
         }
 
+        /// <summary>「这个命中是不是**本窗自己的**吸收层」—— `A2141` 的唯一判据
+        /// （`CheckAbsorbRule` 的候选扫描与那条灭自证断言**共用这一份**，⛔ 别各写一套）。
+        /// <para>三条一起判：① <see cref="WindowButton.absorbOnly"/>（`MenuDraw.Absorb` 在挂上之后
+        /// 同一帧置的）· ② <see cref="WasAbsorb"/>（同一颗节点上的 `AbsorbMark` —— 防「裸挂一颗
+        /// `WindowButton`」冒充）· ③ `IsChildOf(winRoot)` —— **是哪一扇窗的**。</para>
+        /// <para>🔴 **`A2141` 漏的就是 ③**：旧扫描只判 ①（连 ② 都没判），而本工程**多扇窗会同时留残骸**
+        /// （详情窗每开一次多一具等）⇒ 别家窗遗留的同名 `AbsorbHit` 只要叠在候选点上，`found` 就变真、
+        /// 断言**假绿**（2026-10-19 `MainMenuScene` 14 条级联时暴露：`:3991` 那条在 #10–#13 全红时仍 ✓）。
+        /// 口径与 `CheckAbsorbRule` 末段那条「(5,5) 命中的必须是**这扇窗自己的**压暗层」逐字同族
+        /// （`IsChildOf` ∧ 公共件标记）。</para>
+        /// <para>⚠️ 调用点传的 `winRoot` 必须是**吸收层节点的祖先**：本工程 20+ 处 `MenuDraw.Absorb`
+        /// 里除了 `PracticeModePopup` 的两颗建在子件上（`Army Selector/…` / 右半红底），其余都建在窗根；
+        /// 那两颗的 `winRoot` 分别是 `pw.transform` / `pw.transform` ⇒ 仍是祖先（2026-10-19 逐调用点核过）。</para></summary>
+        public static bool IsOwnAbsorbHit(WindowButton hb, Transform winRoot)
+        {
+            return hb != null && hb.absorbOnly && winRoot != null
+                && hb.transform.IsChildOf(winRoot) && WasAbsorb(hb.transform);
+        }
+
+        /// <summary>在 `[x1..x2]×[y1..y2]`（画布 px）里按**固定候选序**找一个
+        /// 「命中是**本窗自己的**吸收层」的点（判据 = <see cref="IsOwnAbsorbHit"/>）。
+        /// <para>候选点：**原版矩形中心**优先 → 中心外一圈(±80) → 最后**贴着四条边内缩的那一圈**
+        /// （面板的边框那一圈通常没有内容件；例：练习窗选卡组那一列中间**全被卡组格盖住**，
+        /// 只有左边距那 25px 是空的）。⛔ 候选是**固定**的（不扫描全图）⇒ 点了哪儿可复现。</para>
+        /// <para>找不到时退回**40px 固定步长**扫一遍矩形（确定性 —— 不是随机），取第一个满足判据的点。
+        /// ⚠️ 它只决定**点哪儿**，不参与任何期望值。</para>
+        /// <para>⚠️ 用定长数组而不是 `List&lt;Vector2&gt;`：本文件只 `using UnityEngine`（⛔ 别为这一行去动
+        /// using 块），而**候选的序与取值与 5 份副本逐位相同**（中心 1 + 8 向 + 每档 8 条）。</para>
+        /// <para>🔴 **2026-10-19（`A2141`）**：`at` 这一口是为了让**灭自证**能用同一份扫描去问一颗
+        /// 「别家窗的吸收层」—— 生产路径传 `(tx,ty) =&gt; PointerLayer.Instance.ButtonAt(tx,ty)`。</para></summary>
+        static bool FindOwnAbsorbPoint(Transform winRoot, float x1, float y1, float x2, float y2,
+                                       System.Func<float, float, WindowButton> at, out float px, out float py)
+        {
+            px = 0f; py = 0f;
+            if (at == null || winRoot == null) return false;
+            float ccx = (x1 + x2) * 0.5f, ccy = (y1 + y2) * 0.5f;
+            var cand = new Vector2[9 + AbsorbEdgeInset.Length * 8];
+            int cn = 0;
+            cand[cn++] = new Vector2(0f, 0f);
+            cand[cn++] = new Vector2(0f, -80f); cand[cn++] = new Vector2(0f, 80f);
+            cand[cn++] = new Vector2(-80f, 0f); cand[cn++] = new Vector2(80f, 0f);
+            cand[cn++] = new Vector2(-80f, -80f); cand[cn++] = new Vector2(80f, -80f);
+            cand[cn++] = new Vector2(-80f, 80f); cand[cn++] = new Vector2(80f, 80f);
+            for (int k = 0; k < AbsorbEdgeInset.Length; k++)
+            {
+                float e = AbsorbEdgeInset[k];
+                cand[cn++] = new Vector2(x1 + e - ccx, y1 + e - ccy); cand[cn++] = new Vector2(x2 - e - ccx, y1 + e - ccy);
+                cand[cn++] = new Vector2(x1 + e - ccx, y2 - e - ccy); cand[cn++] = new Vector2(x2 - e - ccx, y2 - e - ccy);
+                cand[cn++] = new Vector2(x1 + e - ccx, 0f);           cand[cn++] = new Vector2(x2 - e - ccx, 0f);
+                cand[cn++] = new Vector2(0f, y1 + e - ccy);           cand[cn++] = new Vector2(0f, y2 - e - ccy);
+            }
+            for (int i = 0; i < cn; i++)
+            {
+                float tx = ccx + cand[i].x, ty = ccy + cand[i].y;
+                if (tx <= x1 + 3f || tx >= x2 - 3f || ty <= y1 + 3f || ty >= y2 - 3f) continue;   // 必须落在**原版**矩形里
+                if (tx < 2f || tx > 1918f || ty < 2f || ty > 1078f) continue;                    // 而且**在屏幕里**（玩家点不到屏外的点）
+                if (IsOwnAbsorbHit(at(tx, ty), winRoot)) { px = tx; py = ty; return true; }
+            }
+            for (float gy = y1 + 4f; gy <= y2 - 4f; gy += 40f)
+                for (float gx = x1 + 4f; gx <= x2 - 4f; gx += 40f)
+                {
+                    if (gx < 2f || gx > 1918f || gy < 2f || gy > 1078f) continue;
+                    if (IsOwnAbsorbHit(at(gx, gy), winRoot)) { px = gx; py = gy; return true; }
+                }
+            return false;
+        }
+
         /// <summary>`CheckAbsorbRule` 贴边候选的**内缩**距离（px，固定三档；见那段注释）。
         /// 🔴 **2026-10-15（A825）起只有这一份**：上一版 5 个宿主各有一份同值的 `EdgeInset`，
         /// 而它们**只被各自那份 `CheckAbsorbRule` 读**。
-        /// ⚠️ **`Editor/{CollectionScene,RewardsScene,SettingsScene,ShopScene}.cs` 那 4 份已随副本一起删**；
-        /// ⛔ **`Editor/MainMenuScene.cs` 那一份【还在】**（那一轮该文件被另一个写手占着 ⇒ 它的 `CheckAbsorbRule`
-        /// 也**还没收口**，仍读自己那份 `EdgeInset`）—— 下次收那一份时把它一并删掉。</summary>
+        /// ⚠️ **`Editor/{CollectionScene,RewardsScene,SettingsScene,ShopScene}.cs` 那 4 份已随副本一起删**。
+        /// 🔴 **2026-10-19 就地订正（铁律 5）**：本行原文写「`Editor/MainMenuScene.cs` 那一份【还在】、
+        /// 它的 `CheckAbsorbRule` 也还没收口」—— **已过期**：`A825` 第 5 份已于 **2026-10-16** 收口
+        /// （`MenuCheck.cs` 文件头与 `MainMenuScene.cs:64` 都记着；`grep EdgeInset Editor/` 现读只剩注释）。
+        /// ⛔ 别再照着旧话去删一份已经不存在的常量表。</summary>
         static readonly float[] AbsorbEdgeInset = { 6f, 20f, 40f };
 
         /// <summary>按名字在 `parent` 子树里找第一个节点（含未激活）—— `CheckAbsorbRule` 第 ① 步
         /// 「窗根的直接子件取不到 ⇒ 再递归找」那一条退路用的。
-        /// ⚠️ **这是 5 个宿主各自那个私有 `FindChild` 的一份副本**（`Editor/*Scene.cs` 里各一份，
-        /// 逐字相同；`Shell/MenuWindowBase.cs` 与 `Core/` 下**都没有**公共的同名件可借 —— 2026-10-15 实读）。
+        /// ⚠️ **这是同一段查找在本文件里的一份实现**。🔴 **2026-10-19 就地订正（铁律 5）**：本行原文写
+        /// 「5 个宿主各自那个私有 `FindChild` 的一份副本」—— **已过期**：宿主那 5 份**现在都转调**
+        /// `Editor/MenuCheck.FindChild`（`CollectionScene.cs:143` · `MainMenuScene.cs:13504` ·
+        /// `RewardsScene.cs:115` · `SettingsScene.cs:290` · `ShopScene.cs:1111`）。⛔ **本文件不能借那一份**：
+        /// `MenuCheck` 在 **Editor 程序集**、`MenuDraw` 在运行期程序集 ⇒ 引用方向反了。
+        /// 所以这里保留**同语义的一份**（行为与 `MenuCheck.FindChild` 逐字相同），如实记。
         /// ⛔ 别在这上面加「只找直接子件」之类的变体：直接子件那一步是上面 `winRoot.Find(nodeName)`。</summary>
         static Transform FindChildIn(Transform parent, string name)
         {
@@ -2850,6 +2946,12 @@ namespace CardPresentation
 
         /// <summary>格内各件相对格左上的比例（作者 250×405 下的值 ×0.9 已在调用处用 `K`）。</summary>
         public const float DeckCellK = 0.9f;
+
+        /// <summary>🆕 **2026-10-19（`N70` P0-5）：卡组格悬停放大倍数** —— 原版 `CollectionDeck.HoverHighlight(bool)`
+        /// 直接把根节点 `localScale` 在 **1.0 ↔ 1.05** 之间切换（`d:/2/tools/decomp_full/CollectionDeck__HoverHighlight.c`，
+        /// 常数 `DAT_1834b3254 = 1.05`，**直接 set、无补间**；`+0xb8` 为真时整段跳过）。
+        /// ⚠️ 与本函数里的 `K = 0.9` 不是一回事：`K` 已经烘进每一层的几何，这里换的是**整格节点**的 `localScale`。</summary>
+        public const float DeckCellHoverK = 1.05f;
         /// <summary>原版 `Frame 40K_bt_deck` 在作者系里的矩形（246×368 @ (2,17)）。</summary>
         public const float DcFrameX = 2f, DcFrameY = 17f, DcFrameW = 246f, DcFrameH = 368f;
         /// <summary>🔴 **2026-10-11（`A1530①`）就地订正**：这一格**不是** `Deck Image` 自己，而是
@@ -3280,6 +3382,11 @@ namespace CardPresentation
                     MakeHitQuad(hit, hr, qHit, Vector3.zero);      // 节点已在矩形中心 ⇒ quad 摆 0
                     var wb = hit.gameObject.AddComponent<WindowButton>();
                     wb.onClick = onClick;
+                    // 🆕 **2026-10-19（`N70` P0-5）**：原版 `CollectionDeck.HoverHighlight` = 整格
+                    // `localScale` 1.0 ↔ **1.05**（瞬切、无补间）⇒ 悬停时缩放进、离开还原。
+                    // 判据与量纲 → `DeckCellHoverK` 的 doc。⛔ 不是色偏/换图（原版这一族没有 Selectable）。
+                    wb.onEnter = () => { if (cell != null) cell.localScale = Vector3.one * DeckCellHoverK; };
+                    wb.onExit  = () => { if (cell != null) cell.localScale = Vector3.one; };
                 }
             }
             return cell;

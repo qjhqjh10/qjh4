@@ -8401,23 +8401,12 @@ namespace CardPresentation
         /// <summary>阵营 → 原版徽记图（13 张 `40k_DeckSelection_icon_*`）。</summary>
         public static string FactionIcon(string faction)
         {
-            switch (faction)
-            {
-                case "Ultramarines": return "40k_DeckSelection_icon_FactionUM";
-                case "Goff": return "40k_DeckSelection_icon_FactionOrks";
-                case "SaimHann": return "40k_DeckSelection_icon_FactionSaimHann";
-                case "Sautekh": return "40k_DeckSelection_icon_FactionSautekh";
-                case "BlackLegion": return "40k_DeckSelection_icon_FactionBlackLegion";
-                case "Leviathan": return "40k_DeckSelection_icon_FactionLeviathan";
-                case "TauEmpire": return "40k_DeckSelection_icon_FactionTauEmpire";
-                case "Sororitas": return "40k_DeckSelection_icon_FactionSororitas";
-                case "Genestealers": return "40k_DeckSelection_icon_Genestealers";
-                case "AstraMilitarum": return "40k_DeckSelection_icon_FactionAstraMilitarum";
-                case "DarkAngels": return "40k_DeckSelection_icon_FactionDarkAngels";
-                case "EmperorsChildren": return "40k_DeckSelection_icon_FactionEmperorsChildren";
-                case "SpaceWolves": return "40k_DeckSelection_icon_SpaceWolves";
-                default: return "40k_collection_bt_decks";
-            }
+            // 🔴 **2026-10-19（U5 · 第五十五会话批次 7）：映射本体收口到 `Core/ArmyIcons`** ——
+            //   那 13 条就是原版 `IconsByArmySO`（`sharedassets0.assets` 对象 422）逐字节解出来的，
+            //   判据链（含「资产名 ≠ 类名」那个坑）写在 `Core/ArmyIcons.cs` 文件头。
+            //   本函数**只留一层兜底**：认不出阵营（含 `null` / `Neutral`）⇒ 卡组图标。
+            //   ⛔ 别把那 13 条 case 抄回这里（「两处写同一条规则 = 迟早不一致」）。
+            return ArmyIcons.IconName(faction) ?? "40k_collection_bt_decks";
         }
 
         /// <summary>页头那颗 `hdr_army` 该贴哪张图 —— **这副卡组所属阵营的徽记**。

@@ -1,0 +1,77 @@
+{
+ "_note": "由 工具/gen_simple_animation_clips.py 生成。判据 = MonoBehaviour 上同时有 m_States/m_Clip/m_PlayAutomatically（原版 AssetStore SimpleAnimation 的序列化形状）。消费方：extract_missing_shaders.py --prefabs（收 clip + 登记 <owner>|<state> 别名）与 WarpforgeAnimatorBridge.TryGetClip。",
+ "bundles": {
+  "bundle_battleprefabs_vfxandmisc_assets_all": [
+   {
+    "owner": "ShieldTraitEffect_Idle Sororitas Variant",
+    "states": [
+     {
+      "state": "Default",
+      "clip": "Shield Enter"
+     },
+     {
+      "state": "Exit",
+      "clip": "Shield Exit"
+     }
+    ],
+    "playAutomatically": 1
+   },
+   {
+    "owner": "ShieldTraitEffect_Idle Necron Variant",
+    "states": [
+     {
+      "state": "Default",
+      "clip": "Shield Enter"
+     },
+     {
+      "state": "Exit",
+      "clip": "Shield Exit"
+     }
+    ],
+    "playAutomatically": 1
+   },
+   {
+    "owner": "ShieldTraitEffect_Idle TAU Variant",
+    "states": [
+     {
+      "state": "Default",
+      "clip": "Shield Enter"
+     },
+     {
+      "state": "Exit",
+      "clip": "Shield Exit"
+     }
+    ],
+    "playAutomatically": 1
+   },
+   {
+    "owner": "ShieldTraitEffect_Idle",
+    "states": [
+     {
+      "state": "Default",
+      "clip": "Shield Enter"
+     },
+     {
+      "state": "Exit",
+      "clip": "Shield Exit"
+     }
+    ],
+    "playAutomatically": 1
+   },
+   {
+    "owner": "ShieldTraitEffect_Idle Emperor's Children Variant",
+    "states": [
+     {
+      "state": "Default",
+      "clip": "Shield Enter"
+     },
+     {
+      "state": "Exit",
+      "clip": "Shield Exit"
+     }
+    ],
+    "playAutomatically": 1
+   }
+  ]
+ }
+}

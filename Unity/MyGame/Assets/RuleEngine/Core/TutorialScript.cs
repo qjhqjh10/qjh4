@@ -1292,7 +1292,7 @@ namespace RuleEngine
                 if (slot < 0) { UnityEngine.Debug.LogWarning("[Tutorial] 场上放不下起始单位「" + d.Name + "」"); continue; }
                 n++;
                 ctx.Log($"教程起始单位：{ps.Name} 的「{u.Name}」直接落场（槽 {slot}）");
-                ctx.Emit(EvtKind.Deploy, side, slot, u.Name);
+                ctx.Emit(EvtKind.Deploy, side, slot, u.Name, instanceId: u.InstanceId);
             }
             return n;
         }

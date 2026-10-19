@@ -206,6 +206,8 @@ namespace CardPresentation
             _desc = MenuDraw.TextBox(_texts, TutorialMessagePopup.DescR, desc, Color.white, "DescriptionText",
                                      TutorialMessagePopup.DescFont, TutorialMessagePopup.DescFontMin, QText,
                                      TutorialMessagePopup.DescFontMax, TutorialMessagePopup.DescFontBase, face: TmpFont.Face.LatinCardBody);
+            // 🆕 **2026-10-19（`P2-7`）**：本窗与 Tutorial 窗四件逐值相同 ⇒ `DescriptionText` 同样 `m_lineSpacing = 5`。
+            MenuDraw.SetLineSpacing(_desc, TutorialMessagePopup.DescLineSpacing);
 
             // `Tap To continue`：fs 30 · 基准 60 · auto[18~30] · 折行 1 · 色 (0.627,0.616,0.631) · Center/**Capline**(8192)
             var tapText = Loc.HasEntry(TutorialMessagePopup.TapTerm)

@@ -209,6 +209,14 @@ namespace CardPresentation
         public static readonly Color MdTitleTint = new Color(0.95f, 0.66f, 0.40f, 1f);
 
         public const int QShade = 3002, QPanel = 3006, QContent = 3010, QText = 3011, QOverlay = 3014;
+        /// <summary>🆕 **2026-10-19（`T29` 剩余五屏 · 收件箱）**：`Message Display/Background` 单独一档。
+        /// <para>🔴 **改前**：它（`UI_Deck_Information_submenu_Back`，**α 0.52 半透明**）与整窗红底
+        /// `Generic Window Red Background Big`（`UI_Deck_Information_Back`，**α 254 不透明**）**同为 `QPanel`(3006)、
+        /// z 都是 0** ⇒ 同队列同 z，谁盖谁不确定（本仓命中/排序口径见 `CLAUDE.md` §三）。
+        /// 原版靠**兄弟序**：`Content` 的子件序是 `Generic Window Red Background Big` → … → `Message Display`
+        /// ⇒ 半透明显示板**必须压在红底之上**。</para>
+        /// <para>取 `QPanel + 1`：仍严格低于本窗内容档 `QContent`(3010)。</para></summary>
+        public const int QDisplayBg = QPanel + 1;
 
         public readonly System.Collections.Generic.List<string> MissingArt =
             new System.Collections.Generic.List<string>();
@@ -265,8 +273,10 @@ namespace CardPresentation
             for (int i = root.childCount - 1; i >= 0; i--) RewardsWindow.DestroySafe(root.GetChild(i).gameObject);
             MissingArt.Clear();
 
+            // 🆕 **2026-10-19（`T29` 剩余五屏 · 收件箱）**：alpha 原来是 `0.77f`，原版 `Menu Dark Background`
+            //   的 `m_Color = (0,0,0,0.773)`（prefab 实读）⇒ 对齐成 0.773f（同 `DailyRewardPopup` D6 那一族）。
             MenuDraw.Rect(root, CardArt.Solid(), Shade, "Menu Dark Background", QShade,
-                          new Color(0f, 0f, 0f, 0.77f));
+                          new Color(0f, 0f, 0f, 0.773f));
             // 🔴 **2026-10-05（A81）**：压暗层的**点击区**（「点窗外关窗」）—— **原来零 `ShadeHit(`**
             //   （只有 `:87` 那一层压暗的 `Image`，点了什么也不发生）。
             //   判据：原版是压在 `Menu Dark Background` **自身节点**上的 `BackgroundCloseButton`，
@@ -320,7 +330,7 @@ namespace CardPresentation
 
             // `Message Display`：**空态下整块关**（`InboxWindow__Open.c:49`）
             _display = MenuDraw.Node(c, "Message Display", MsgDisplay);
-            MenuDraw.Rect(_display, Art(ArtDisplayBg), MsgDisplay, "Background", QPanel);
+            MenuDraw.Rect(_display, Art(ArtDisplayBg), MsgDisplay, "Background", QDisplayBg);
             // 🆕 **2026-10-12（A468）**：原版 `auto[10.0~58.0]` · `基准=36.0` · `折行=0`（判据 → `TitleAutoMin`）
             var mdTitleLb = MenuDraw.Text(_display, MdTitle, DailyData.InboxMessageDisplayTitle(),
                                           Color.white, "Title", 58f, QText,

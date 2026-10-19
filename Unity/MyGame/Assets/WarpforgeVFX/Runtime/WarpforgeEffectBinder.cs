@@ -85,6 +85,27 @@ namespace WarpforgeVFX
         public static readonly bool SkipRenderQueue =
             System.Environment.GetEnvironmentVariable("WFBIND_NOQUEUE") == "1";
 
+        /// <summary>🔬 实验覆盖（2026-10-19 · T05）：`WFBIND_NO_PROP_FILTER=1` → **不过滤孤儿值**
+        /// （退回改前的「`HasProperty` 就灌」行为）。
+        /// 用途 = A/B「丢掉内置 Standard 残留值到底改变了哪些效果」，不用改代码、只换环境变量。</summary>
+        public static readonly bool SkipPropFilter =
+            System.Environment.GetEnvironmentVariable("WFBIND_NO_PROP_FILTER") == "1";
+
+        /// <summary>这个属性名是不是**原版 shader 自己声明过**的。
+        /// `declared == null` ⇒ 属性表读不到 ⇒ **放行**（不知道就别动，见 `Build` 里那段判据）。
+        /// `X_ST` / `X_TexelSize` 是 Unity 按纹理隐式生成的，不在 `m_PropInfo` 里 ⇒ 按**基名** `X` 判。</summary>
+        static bool DeclaredByOriginal(System.Collections.Generic.HashSet<string> declared, string name)
+        {
+            if (declared == null) return true;
+            if (string.IsNullOrEmpty(name)) return false;
+            if (declared.Contains(name)) return true;
+            if (name.EndsWith("_ST", StringComparison.Ordinal)
+                && declared.Contains(name.Substring(0, name.Length - 3))) return true;
+            if (name.EndsWith("_TexelSize", StringComparison.Ordinal)
+                && declared.Contains(name.Substring(0, name.Length - 10))) return true;
+            return false;
+        }
+
         /// <summary>🔬 实验覆盖（2026-10-19 · T04）：`WFBIND_NO_VERTEXCOLOR=1` → **不开**顶点色分流闸
         /// （`_VertexColorLerpOn` 恒 0 = 改前的旧行为）。
         /// 用途 = A/B「那 6 个带颜色通道的渲染器换了分支到底差多少」，**不用改代码**：
@@ -185,6 +206,21 @@ namespace WarpforgeVFX
                 }
                 ri++;
             }
+
+            // 🆕 2026-10-19（V2 / T10）：**重建材质之后必须让 VAT 驱动换一份缓存**。
+            //   为什么：`WarpforgeVatDriver.Awake` 缓存的是 `renderer.materials`（实例材质），
+            //   而上面 `r.sharedMaterials = arr` 换上去的是**另一批新建的材质**；组件顺序上驱动在
+            //   本组件之前（prefab `m_Component` 第 4 项 = 驱动、第 5 项 = 本组件）⇒ 驱动每帧
+            //   `SetFloat("_State")` / `SetTexture(...)` 全写进**已经不在渲染器上的孤儿材质**，
+            //   而且**一声不响**（网格停在贴图第 0 行）。
+            //   原版这件事本来就是**事件**做的：`Vanguard Frame Animation VAT` 上的
+            //   `AnimFXModuleChangeMaterial.eventsToFire` 有一条 `VATGPUPlayer.UpdateMaterials(...)`。
+            //   🔴 这里传 **`false`（= `renderer.materials`，逐实例）而不是 `true`（shared）**：
+            //     本组件建出来的材质走的是**静态共享缓存**（`Cache`，键 = 材质名|shader）⇒ 传 `true`
+            //     会让驱动把 `_State` / 两张顶点贴图写进**全效果共用的那一份**，串到别的 VAT 效果上；
+            //     传 `false` 与驱动自己 `Awake` 里取的是同一档（`r.materials`），逐实例、不串。
+            var _vatDriver = GetComponent<WarpforgeVatDriver>();
+            if (_vatDriver != null) _vatDriver.UpdateMaterials(false);
         }
 
         /// <summary>这个材质定义的原版 shader 是不是**基础那份** `Everguild/UnlitAmbient`。
@@ -292,12 +328,28 @@ namespace WarpforgeVFX
             }
 
             var m = new Material(sh) { name = d.name };
+            // 🆕 2026-10-19（T05）：「孤儿值」收口 —— **只灌原版 shader 自己声明过的属性**。
+            //
+            // 为什么需要：原版材质上常带着**内置 Standard 的残留值**（`_SrcBlend/_DstBlend/_ZWrite/_Surface/
+            // `_Glossiness/_Metallic/_Mode` …）—— 原 shader 的属性表里**根本没有这些名字**，它们是**死值**。
+            // 我们从前一律「`m.HasProperty(name)` 就灌」，判据只问**替代 shader 认不认这个名字** ——
+            // 于是**同名不同义**时会静默灌错（`_EmissionColor` 那次把 13 个效果乘黑就是这个形状）。
+            // 现在多一道闸：**原版 shader 的声明属性表**（`OriginalShaderBlendTable.OriginalProperties`，
+            // 由 `工具/gen_shader_blend.py` 从 bundle 的 `m_PropInfo` 实读）里没有的名字 ⇒ 丢掉。
+            //
+            // ⚠️ 表读不到（没这个 shader / 属性表空）⇒ `declared == null` ⇒ **不过滤**（不许静默清空一切）。
+            // ⚠️ `X_ST` / `X_TexelSize` 是 Unity 按纹理**隐式生成**的，不写进 `m_PropInfo` ⇒ 按基名 `X` 判。
+            // 🔬 `WFBIND_NO_PROP_FILTER=1` 关掉这道闸（A/B 用）。
+            var declared = SkipPropFilter ? null : OriginalShaderBlendTable.OriginalProperties(d.shader);
             for (int i = 0; i < d.floatNames.Length && i < d.floatVals.Length; i++)
-                if (m.HasProperty(d.floatNames[i])) m.SetFloat(d.floatNames[i], d.floatVals[i]);
+                if (DeclaredByOriginal(declared, d.floatNames[i]) && m.HasProperty(d.floatNames[i]))
+                    m.SetFloat(d.floatNames[i], d.floatVals[i]);
             for (int i = 0; i < d.colorNames.Length && i < d.colorVals.Length; i++)
-                if (m.HasProperty(d.colorNames[i])) m.SetColor(d.colorNames[i], d.colorVals[i]);
+                if (DeclaredByOriginal(declared, d.colorNames[i]) && m.HasProperty(d.colorNames[i]))
+                    m.SetColor(d.colorNames[i], d.colorVals[i]);
             for (int i = 0; i < d.texNames.Length && i < d.texVals.Length; i++)
-                if (m.HasProperty(d.texNames[i]) && d.texVals[i] != null) m.SetTexture(d.texNames[i], d.texVals[i]);
+                if (DeclaredByOriginal(declared, d.texNames[i]) && m.HasProperty(d.texNames[i]) && d.texVals[i] != null)
+                    m.SetTexture(d.texNames[i], d.texVals[i]);
 
             // 混合：**一律以 `WarpforgeShaderMap.InferBlend(原版 shader 名)` 为准**。
             //
@@ -341,6 +393,18 @@ namespace WarpforgeVFX
             {
                 var cu = WarpforgeShaderMap.InferCull(d.shader);
                 if (cu.HasValue && m.HasProperty("_Cull")) m.SetFloat("_Cull", cu.Value);
+            }
+
+            // 🆕 2026-10-19（T05）：**`zTest` 那一格终于有消费者了** —— 与上面 `_Cull` 同族的第三格。
+            //   表从 2026-10-12 起就读到了 `zTest`（`OriginalShaderBlendTable.ZTestMap`），但一直没人查；
+            //   我们自建替代 shader 的 `_ZTest` 默认是 4（LEqual），而原版有 11 条烘死值**不是 4**
+            //   （`UI/Additive` 等 = 0 Disabled · `Hidden/VideoDecode` = 8 Always）。
+            //   ⚠️ **只在表里查得到时才写**（= 原版 pass 里那一格是烘死的）。属性驱动的那种
+            //     （`Particles/Standard Unlit` 的 pass2 读 `_ZTest`）**不在表里** ⇒ 保持材质活值，别覆盖。
+            //   ⚠️ 目标 shader 没声明 `_ZTest` 时 `SetFloat` 是 no-op（状态写在 pass 里）—— 与上面同一条纪律。
+            {
+                var zt = WarpforgeShaderMap.InferZTest(d.shader);
+                if (zt.HasValue && m.HasProperty("_ZTest")) m.SetFloat("_ZTest", zt.Value);
             }
             // 🔴 2026-10-12 新加：`Everguild/UnlitAmbient Emissive Flickker` 的「自发光闪烁」那一支。
             //

@@ -1285,6 +1285,21 @@ namespace CardPresentation
             // 🆕 **2026-10-18**：rect 从原版的 `1314,430.62 → 1724,644.92` 挪到**原来 `Explanation` 那一行**
             //   （`1309 .. 1729 × 594.57 .. 659.37`）—— 理由见下面那一大段（两颗钮常显，原 rect 会压住它们）。
             //   TMP 那四档（`40 · auto[25~40] · base 36 · 折行 1`）**逐值不动**，只换框。
+            // 🆕 **2026-10-19（`A1708` 复核欠账 · 静态复核）**：那四档 + 框都已是**原版值**，剩下的是
+            //   「渲出来多大 / 块多高」。这里用**字体资产自己的度量**算了一遍（不是估）：
+            //     · 面 = `Face.LatinCardBody` → `Pragati-Regular SDF.json`
+            //       （`bundle_fonts_assets_all/MonoBehaviour/`；`m_FaceInfo` = pointSize **95** · lineHeight **90** ·
+            //        ascent **70** · descent **−20** · scale 1.0）；
+            //     · 文案 `Maximum card tier reached` 的 `m_HorizontalAdvance` 求和 = **867.3125** 字体单位；
+            //       TMP 的换算（`TMP_Text.cs:7183`：`fontScale = fontSize / pointSize × scale × 0.1`(3D)）
+            //       ⇒ **40 px 档：文本宽 ≈ 365.18 px**（< 换行宽 **410**）· **单行行高 ≈ 37.89 px**
+            //       （≈ ascent − descent = 90 × 40/95）。
+            //     · 自适应的框 = `SetAutoFitBox(wrap 410, 高 r.H = 64.8, min 25, max 40, base 36)`
+            //       ⇒ 40 px 时**宽 365 < 410、块高 37.9 < 64.8** ⇒ **不会触发缩字号**：渲出来就是
+            //       **fontSize 40 px、一行、块高 ≈37.9 px**（余量 ≈26.9 px）。
+            //   ⚠️ **这不是「跑过渲染」**：真机/自检里仍可用 `Label.FontPxNow` + `DumpSizes()` 抽一次
+            //      （判据口径同 `Editor/BattleScene.cs` §4.6c：`FontPxNow` 落在 [25,40] 且 ≈40）。
+            //      静态这一遍的意义 = 把「估的字号」换成**可复算的推导**；字距是 0、字符串里无连字对。
             MenuDraw.Text(w, new PxRect(1309f, 594.57f, 1729f, 659.37f), "Maximum card tier reached",
                           Color.white, "No Upgrade Title", 40f, QCdText, 410f, 25f, 40f, 36f, face: TmpFont.Face.LatinCardBody);
             // 🔴 **2026-10-18 再改（铁律 5 · 用户当天拍板「一个按钮改为两个……可以点击这两个按钮实现卡框的

@@ -74,6 +74,60 @@ namespace CardPresentation
         /// ⚠️ **别在别处再算一遍** —— `Editor/BattleScene.cs` 的两条断言都引用它。</summary>
         public const float TotalTime = MoveTime + HoldTime + LandTime;
 
+        /// <summary>🆕 2026-10-19（偏差 5）：**非单位卡**那条「立即完成」序列的长度（秒）。
+        /// 不能真的写成 0：DOTween 的零长度 `Sequence` 会**当场自动 kill**，`OnComplete` 不一定派得到
+        /// ⇒ 用一个 1 ms 的 interval 把它推到「下一次 update」完成（真机 = 下一帧；批处理 = 下一次
+        /// `CardTween.Advance`）。</summary>
+        public const float InlineCompleteEpsilon = 0.001f;
+
+        /// <summary>这张卡走不走「立即完成」那一条（= **非单位卡**：战术 / 防御卡）。
+        /// 🔴 **判据只此一处** —— `Play` 用它分支、`DurationFor` 用它定时长、`CardInteraction.Release`
+        /// 用它报给驱动层的「这段飞行有多长」（残余①的闸）。⛔ 别在别处再写一遍 `!card.Data.isUnit`。
+        /// </summary>
+        public static bool IsInline(CardView card)
+        {
+            return card != null && !card.Data.isUnit;
+        }
+
+        /// <summary>这张卡这一次落位**整条序列的真实长度**（秒）—— 单位卡 = <see cref="TotalTime"/>，
+        /// 非单位卡 = <see cref="InlineCompleteEpsilon"/>。与 <see cref="Play"/> 的分支**同源**
+        /// （都问 `IsInline`），⛔ 别写第二份「战术卡 0.001 / 单位卡 0.55」的字面量。</summary>
+        public static float DurationFor(CardView card)
+        {
+            return IsInline(card) ? InlineCompleteEpsilon : TotalTime;
+        }
+
+        /// <summary>🆕 2026-10-19（战斗线 B3 · 偏差 8 的载体那一半）：**敌方手牌那张卡背**（`ImageQuad`）
+        /// 走**同一条三段**（0.3 飞向格位上方 → 0.05 悬停 → 0.2 落下）。
+        ///
+        /// <para>判据（同一份）：原版 `MinionManager.PlayMinionFromHand` / `MoveMinionToConversionPoint` /
+        /// `CardScript.UpdateMinionInPlayPosition` 搬的**就是手牌那张卡对象本体**
+        /// （`CardScript._MinionPlayedIntoField_d__314__MoveNext.c` 全程在同一个 `CardScript` 上动
+        /// `transform`）；敌方手牌露出来的是**卡背节点**（`Core/CardbackFace.cs` 的两段式）
+        /// ⇒ 飞的就该是那张**卡背**，而不是 `SyncBoard` 刚建出来的「场上样式」视图。
+        /// ⚠️ 时长与缓动**与 <see cref="Play"/> 共用同一组常量/同一条曲线**（⛔ 别在这里另写一套数）。</para>
+        ///
+        /// <para>与 <see cref="Play"/> 的差别只有两处（都是「载体不同」带来的）：
+        /// · **起点就是它现在的手牌位姿**（不另设 `SetPose`）；
+        /// · 缩放从**当前**（手牌卡背恒 1）补到 <paramref name="endScale"/> —— 那个数由调用方按
+        ///   「场上那张卡的宽度 ÷ 卡背画出来的宽度」换算，判据在 `BattleDriver.StartAiDeployFlight`。</para>
+        /// <para>`onDone` 同样挂在**序列末尾**（= 落地那一拍，0.55 s）。</para></summary>
+        public static Tween PlayQuad(Transform tr, Vector3 abovePos, Vector3 landPos,
+                                     float endScale, Action onDone = null)
+        {
+            if (tr == null) return null;
+            var seq = DOTween.Sequence();
+            seq.Append(tr.DOMove(abovePos, MoveTime).SetEase(Ease.OutQuad));
+            seq.AppendInterval(HoldTime);
+            seq.Append(tr.DOMove(landPos, LandTime).SetEase(Ease.OutQuad));
+            // 同 <see cref="Play"/>：旋转/缩放用 `Insert(0f, …)`（⛔ 不是 `Join`，那会从 0.3 s 才起算）
+            seq.Insert(0f, tr.DORotate(Vector3.zero, MoveTime).SetEase(Ease.OutCubic));
+            seq.Insert(0f, tr.DOScale(Vector3.one * Mathf.Max(1e-4f, endScale), MoveTime).SetEase(Ease.OutQuad));
+            CardTween.Use(seq, Ease.Linear, tr);
+            if (onDone != null) seq.OnComplete(() => onDone());
+            return seq;
+        }
+
         /// <summary>落位：从手牌姿态**飞到槽位正上方**，再**垂直落下**。
         /// <para>`abovePos` = 「那一格的卡**抬高 `minionConversionHeight`** 之后」在**本补间所在空间**里的点
         /// （3D 战场下 = `BoardLayout.DropTargetWorldAtHeight(slot, which.MinionConversionHeight)`；
@@ -84,6 +138,29 @@ namespace CardPresentation
         public static Tween Play(CardView card, Vector3 abovePos, Vector3 landPos, float slotScale,
                                 Action onDone = null)
         {
+            // 🆕 2026-10-19（战斗线 B1 · 偏差 5「战术卡多一段 0.55 s 飞向格位」）：
+            //   **非单位卡（战术 / 防御）不走这一段飞行。**
+            //   判据（`d:/2/tools/decomp_full/BattleManager._ResolvePlayCardFromHand_d__447__MoveNext.c`
+            //   逐句读）：那一支是 `CardScript.NonTargetSpellPlayed`（`:633` / 另两处 `:1263,:1533`）
+            //   + `CardScript.DissolveWholeCard`（`:638`，时长 `VarsGlobal.timeToDissolveCard = 0.2`）
+            //   —— **没有** `MinionPlayedIntoField`、没有「飞向格位」那三段。
+            //   ⇒ 非单位卡：**不飞、不缩放**，这一帧就把 `onDone` 交出去（引擎尽快结算；
+            //      「溶解」那一半由 `BattleDriver.DoPlay` 的战术卡分支补）。
+            //   ⚠️ **`onDone` 仍走补间回调**（不是同步直调）：`CardInteraction.Release` 那一帧还在
+            //      拖拽处理里，同步进 `DoPlay` 会边走边销毁自己那张卡。零长度序列由 `CardTween` 推进
+            //      （真机 = DOTween 自带 Update；批处理 = `CardTween.Advance`）。
+            //   ⚠️ `BattleScene` 里那条「落位序列真实长度 == 三段之和」的断言用的是**手牌第一张**做探针，
+            //      若那张恰好是战术卡就会变成 0 —— 本批已把那条断言改成显式挑一张**单位卡**做探针（见
+            //      `Editor/BattleScene.cs` 同一段注释）。
+            if (IsInline(card))
+            {
+                var instant = DOTween.Sequence();
+                instant.AppendInterval(InlineCompleteEpsilon);
+                CardTween.Use(instant, Ease.Linear, card.transform);
+                if (onDone != null) instant.OnComplete(() => onDone());
+                return instant;
+            }
+
             var tr = card.transform;
 
             var seq = DOTween.Sequence();

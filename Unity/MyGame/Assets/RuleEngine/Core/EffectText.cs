@@ -2331,6 +2331,14 @@ namespace RuleEngine
             // 实测两处：`Emperor's Judgement`「Refill Energy **equal to your Faith**」·
             //           `Amalia Novena`「Rally: Deal damage to an enemy troop **equal to your Faith**」。
             // 从句在句尾 ⇒ 先剥掉、记在 `op.AmountRef` 上，**数值由结算层算**（`EffectOp.AmountRef` 的注释）。
+            // 🔴 **2026-10-19（`A2001` / E9）新增第二种来源**：`equal to the number of cards in the
+            //    enemy hand`（全池 2 张：`GSC35 Benefictus` 单体 / `GSC59 Day of Ascension` 全体；
+            //    中文「等同于敌方手牌数量」）。
+            //    **改前**这句没被剥 ⇒ 整段被 `ParseTarget` 当成目标文本
+            //    （实测 `T.Raw=an enemy troop equal to the number of cards in the enemy hand`、
+            //      `amount=0`）⇒ 结算时「对 1 个目标造成 **0** 点伤害」——
+            //    `ruleprobe play GSC35` 的读数就是这一行。目标那一半本身是对的
+            //    （`an enemy troop`），只是数值从句没剥掉。
             string amountRef = null;
             var mres = ReEqualResource.Match(low);
             if (mres.Success)
@@ -2339,6 +2347,17 @@ namespace RuleEngine
                 low = low.Substring(0, mres.Index).Trim();
                 s = low;
                 if (low.Length == 0) { r.Kind = SegKind.Unknown; r.Ops = null; return r; }
+            }
+            else
+            {
+                var mhand = ReEqualEnemyHandCount.Match(low);
+                if (mhand.Success)
+                {
+                    amountRef = "enemyhand";
+                    low = low.Substring(0, mhand.Index).Trim();
+                    s = low;
+                    if (low.Length == 0) { r.Kind = SegKind.Unknown; r.Ops = null; return r; }
+                }
             }
 
             // ---- 🆕 `Oath N: …`（极限战士）= **付费激活**，只是写法用了阵营词 ----
@@ -2772,10 +2791,22 @@ namespace RuleEngine
             // ---- 0·0e 🆕 `Give a random bonus to <目标>`（`Ork Spanner`，全池只 1 处）----
             //   卡面（逐张开图核过 `d:/2/Warpforge部队卡片/Orks/3部队/Warpforge_14_Spanner.png`）：
             //     `[骷髅] Mob: Give a random bonus to a friendly Vehicle`。
-            //   「bonus」是个**术语**，而它**只在 `Carnifex`（`TL25`）的卡面上印过定义**：
+            //   「bonus」是个**术语**，而它**只在 `Carnifex`（`TL20`）的卡面上印过定义**：
             //     `Rally: Choose and gain a bonus (+2 Melee, +2 Ranged or Armour 1)`
             //   —— `Spanner` 把「choose」换成了「random」。
-            //   🔴 **用户 2026-09-16 拍板：按那三项定**（术语只有那一处印过定义）。
+            //   🔴 **2026-10-19（第五十五会话 E10 · `E9` 对账 γ）就地订正（铁律 5 / 铁律 11）**：
+            //      **原来这里写「用户 2026-09-16 拍板：按那三项定」—— 那三项（+2 melee /
+            //      +2 ranged / +1 armour）只是 `Carnifex` 卡面印的**术语解释**，不是 `Spanner`
+            //      自己的数据。真值（当前 build 的 SO）= 同一 `CardAbility` 上的
+            //      `randomAbilityChoice = 1`（序列化头注：`If true, only one ability triggered,
+            //      chosen randomly. Otherwise, all are triggered in order`）+ **5 条 abilityLogic**：
+            //        L0 `meleeAttackChange=2` · L1 `rangeAttackChange=2` · L2 `healthChange=2` ·
+            //        L3 `meleeAttackChange=2 + healthChange=1` · L4 `rangeAttackChange=2 + healthChange=1`
+            //      （`资料/普查产出_1018/allcards_1350/cards_raw.json` 的 `GOF12`；
+            //       `d:/2/tools/il2cpp_out/dump.cs:20353` 的 `CardAbility.randomAbilityChoice // 0x48`）
+            //      ⇒ **判据顺序 = 解包资源字段（②）> 卡面（③）**，按 SO 的 5 项落地。
+            //      ⚠️ 与卡面冲突的原因：`Carnifex` 印的那三项目前**只覆盖到 2 项**（少 health 两种
+            //        组合、多 armour 1 —— `Spanner` 的 SO 里根本没有 armour 这一项）。
             //   做法：复用 `EmitEitherOr`（`chooseone` + `RandomPick=true` ——
             //    正是本工程既定的「卡面没写 `choose` ⇒ 随机挑一」那条口径）。
             var mRandBonus = ReRandomBonus.Match(low);          // ⚠️ 别叫 `mBonus` —— 上面 0c 那个已经占了
@@ -2786,7 +2817,9 @@ namespace RuleEngine
                 {
                     "give +2 melee to " + bt,
                     "give +2 ranged attack to " + bt,
-                    "give +1 armour to " + bt,
+                    "give +2 health to " + bt,
+                    "give +2 melee and +1 health to " + bt,
+                    "give +2 ranged attack and +1 health to " + bt,
                 };
                 bool okB = true;
                 foreach (string o in bopts) if (ParseSegment(o).Kind != SegKind.Ok) { okB = false; break; }
@@ -5082,11 +5115,10 @@ namespace RuleEngine
             //   「**Kustom Job**」**不是卡名** —— 它指的是**同一督军天赋组里的三张 0 费 `Ephemeral` 卡**：
             //     `More Dakka`（`+2 [枪] and Flank`）· `Ramshackle`（`+4 Health`）·
             //     `Wreckin' Ball`（`+2 [拳] and Concussive`），**三张的目标都写 `a friendly Vehicle`**。
-            //   🔴 **池子身份是「结构推断」、不是文本直证** —— 用户 2026-09-16 拍板按这个定，依据：
-            //       **卡面编号结构**：`Mekboy Gazmek`（`Orks 25`）+ `Mekaniak`（`25B`）+ `25C/D/E`，
-            //       与 `Lieutenant Titus`（`Ultramarines 00`）+ `Exemplary Warrior`（`00a`）+ `00b/c/d`
-            //       **完全同形**；而 `00b/c/d` 那三张**早已**被定为 `Exemplary Warrior` 的池子
-            //       （2026-09-14 用户裁定，见 `TryChooseEffect` ① 与 `ChooseEffectPools`）。
+            //   ✅ **2026-10-19（第五十五会话 E11）就地升级（铁律 5）：池子身份有 SO 直证了** ——
+            //      `Mekaniak` 的 `relatedCard1/2/3` 三个 PPtr 解出来 = `More Dakka` / `Ramshackle` /
+            //      `Wreckin Ball`（按 `path_id` 在全卡 SO 里命中；判据与保留的「结构推断」旧证据链
+            //      见 `EffectResolver.ChooseEffectPools` 那一项）。卡面文本本身仍不直说这三张。
             //   ⚠️ `Kustom Job` 在解包侧只是**卡组/卡包名**（`GOFF_KustomJobs` / `Cardback_GOF_Kustom_Job`），
             //      **不是一张卡**；`rule_core.gd` 与反编译里也 0 命中 ⇒ 没有文本直证可用。
             var mKj = ReGiveKustomJob.Match(low);
@@ -7151,6 +7183,16 @@ namespace RuleEngine
         /// <summary>`… equal to your Faith` / `… equal to your Spirit Stones`（句尾）。组 1 = 资源名。</summary>
         static readonly Regex ReEqualResource = new Regex(
             @"\s+equal\s+to\s+your\s+(faith|spirit\s+stones?)\s*[.!]?\s*$",
+            RegexOptions.Compiled | RegexOptions.IgnoreCase);
+
+        /// <summary>🆕 `… equal to the number of cards in the enemy hand`（句尾）。
+        /// **全池 2 张**：`GSC35 Benefictus`（单体）· `GSC59 Day of Ascension`（全体）——
+        /// 两处都是 2026-10-19 修好的（改前 `amount=0`、数值从句还被并进目标文本）。
+        /// 显式写成「**enemy** hand」—— 别放宽成 `the number of cards in a hand` / `in your hand`：
+        /// 后两种语义不同（己方手牌），全池今天也没有那种写法。
+        /// 判据 → `ReEqualResource` 上面那段注释。</summary>
+        static readonly Regex ReEqualEnemyHandCount = new Regex(
+            @"\s+equal\s+to\s+the\s+number\s+of\s+cards\s+in\s+the\s+enemy\s+hand\s*[.!]?\s*$",
             RegexOptions.Compiled | RegexOptions.IgnoreCase);
 
         /// <summary>`Refill N Energy` / `Refill Energy` —— `rule_core.gd:2952`、`:2956`。</summary>

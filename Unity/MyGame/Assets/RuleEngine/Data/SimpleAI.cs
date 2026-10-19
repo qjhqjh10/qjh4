@@ -21,10 +21,14 @@
 //   · `endTurn` 恒为 **0** ⇒ **「分数 ≤ 0 的动作就不做」** —— 原版的「留牌」其实就写在这条上
 //     （`ScoreFromKeepingTheCard` 那版构建里 0 调用点，见正本 §六）
 //
-// 🔴 **权重那层的口径**：原版的分数挂在卡的 `ScoringCriteria` **资产**上，**那些数据在服务端、本地没有**。
-//    所以我们的做法是：**结构照原版、criteria 从我们自己解析出来的 `EffectOp` 推**（`deal N` → 伤害分…
-//    见 `ScoreOp`），**这一层的系数是我们配的**（代码里逐处标明）。这不是「查不到就不做」，
-//    是「原版的值真拿不到，我们把结构照搬、把系数写在明处」。
+// 🔴 **权重那层的口径（2026-10-19 起，T06 / A1797）**：**出牌这条主链已经改成原版逐卡评分表** ——
+//    `ScoreFromPlayingCard = (单位 ? GetValueInPlay : 0) + ScoreFromPlayingNow`，
+//    `ScoreFromPlayingNow` 读 `nonTargetScoringCriteria`（所有卡都跑）＋
+//    `cardTargetScoringCriteria`（`targeted=1` 且带目标时），数据源 = `Resources/ai_scoring.json`
+//    ← SO 真值（`cards_truth.json`）。**缺两列时原版没有兜底**（单位仍走 `ValueInPlay`，战术卡 = 0）。
+//    ⚠️ 技能 / 誓约 / 替代行动：**2026-10-19 续工已切到原版 `ActiveAbility` 两列 criteria**
+//    （数据源 `cards_raw.json`）；只有**不在真值表里的卡**（我们自己那套 StarterCards / 自检夹具）
+//    还走旧的 `ScoreOps` 兜底。判据全文 → `资料/普查产出_1018/AUD_T06_AI评分口径.md`。
 //
 // ⚠️ **两条不能改的**：
 //   ① 随机**只用 `ctx.AiRng`**（种子派生，一局必须可复现）——绝不用 `UnityEngine.Random`；
@@ -307,11 +311,17 @@ namespace RuleEngine
                 {
                     // 战术卡：`slot` 的含义是「**效果打谁**」（见 `RuleCore.CanPlayCard` 里那句注释）
                     // ⇒ **每个合法目标各发一条**，打分再挑最高 —— 这正是原版 `GetAvailableActions` 的形状。
+                    //
+                    // 🆕 2026-10-19（T06）：**目标在哪一方**填进 `TargetP` —— 原版评分
+                    //   `ScoreFromPlayingNow` 是按 `targetCard`（一个真实对象）算的，
+                    //   而我们的 `Slot` 只是格号 ⇒ 侧必须另外带上，否则打分不知道目标属于谁。
+                    //   判据 = `EffectText.PickTarget`（和 `CanPlayTactic` / 结算同一条路）。
+                    int tp = TargetSideOf(ctx, me, card);
                     for (int s = 0; s < BoardSpec.Size; s++)
                     {
                         if (RuleCore.CanPlayCard(ctx, me, i, s) != RuleCodes.OK) continue;
                         list.Add(new AiAction { Kind = AiActionKind.PlayCard, HandIdx = i, HandInst = mine.Hand[i],
-                                                Slot = s, ManaCost = cost });
+                                                Slot = s, TargetP = tp, ManaCost = cost });
                     }
                 }
             }
@@ -407,6 +417,29 @@ namespace RuleEngine
             return list;
         }
 
+        /// <summary>
+        /// 战术卡/防御卡**这一下打的是哪一方**（返回**绝对玩家下标**；`-1` = 不用点目标）。
+        /// 判据 = `EffectText.PickTarget`（与 `CanPlayTactic` / 结算**同一条路**，⛔ 不另写一份）。
+        /// 按卡 id 缓存（同一张卡在一局里反复枚举，解析一次就够）。
+        /// </summary>
+        static readonly Dictionary<string, int> _targetSideCache = new Dictionary<string, int>();
+
+        static int TargetSideOf(BattleContext ctx, int me, CardDef card)
+        {
+            if (card == null || card.IsUnit) return -1;
+            int rel;
+            if (!_targetSideCache.TryGetValue(card.Id, out rel))
+            {
+                List<string> unparsed, partial;
+                var ops = EffectText.Parse(card.Desc, out unparsed, out partial, card: card);
+                var spec = EffectText.PickTarget(ops);
+                rel = spec == null ? -1 : (spec.Side == "enemy" ? 1 : spec.Side == "own" ? 0 : -1);
+                _targetSideCache[card.Id] = rel;
+            }
+            if (rel < 0) return -1;
+            return rel == 0 ? me : 1 - me;
+        }
+
         // ==================================================================
         //  ② 打分（原版 `GetActionScore` 的分派）
         // ==================================================================
@@ -455,8 +488,14 @@ namespace RuleEngine
         /// <summary>
         /// 出一张牌值多少分 = **卡本身的价值** + **它写在卡面上的事值多少**。
         /// 原版：`(非法术 ? GetValueInPlay : 0) + ScoreFromPlayingNow`（`AI__ScoreFromPlayingCard.c:21-30`）。
-        /// 我们这边：单位/督军卡给「参照价值 + 关键词分值」，效果那半走 <see cref="ScoreOps"/>
-        /// （原版那半是从卡的 `ScoringCriteria` 资产读的，**那些值在服务端** —— 见文件头）。
+        ///
+        /// 🔴 **2026-10-19（T06 / A1797）：这一层已从「我们推导的 ScoreOps」切到原版逐卡评分表** ——
+        ///    `ScoreFromPlayingNow` = `nonTargetScoringCriteria`（所有卡）＋ `cardTargetScoringCriteria`
+        ///    （`targeted=1` 且带目标时），数据源 `Resources/ai_scoring.json`
+        ///    ← SO 真值（判据 → `资料/普查产出_1018/AUD_T06_AI评分口径.md`）。
+        ///    **缺两列时原版没有兜底**：单位仍拿 `GetValueInPlay`，战术卡就是 0（⛔ 别再造 fallback）。
+        ///    `ScoreOps` 只剩「技能 / 誓约 / 替代行动」那条路在用（原版那层读 `ActiveAbility` 的
+        ///    两列，而真值里没有落这两列 —— 见 `AiScoring.cs` 文件头）。
         /// </summary>
         public static float ScoreFromPlayingCard(BattleContext ctx, AiAction a)
         {
@@ -466,12 +505,14 @@ namespace RuleEngine
                      : ctx.Players[ctx.Active].Hand[a.HandIdx].Card;
             if (card == null) return 0f;
 
-            float s = 0f;
-            if (card.IsUnit) s += RefValue(card) + KeywordValue(card);
+            // `IsSpellType` = `cardType 20 (Tactic) || 40 (Whispers)` ⇒ 法术不拿 GetValueInPlay
+            float s = card.IsUnit ? (2f * card.Cost + 1f + AiScoring.ValueOfEnchantments(card)) : 0f;
             // 🔴 `a.Slot` 的含义**分两种**（`RuleCore.CanPlayCard` 里写着）：
             //    · **小兵** = **落点**，由 `NextDeploySlot` 定、AI 不选 ⇒ 打分**不该**受它影响；
             //    · **战术卡** = **效果打谁** ⇒ 目标参与打分（原版 `ScoreFromPlayingNow` 就是按目标算的）。
-            s += ScoreOps(ctx, EffectText.WillRunOps(card), a.Slot, slotIsTarget: !card.IsUnit);
+            //      目标在哪一方由 `EnumerateActions` 填进 `a.TargetP`（判据 = `EffectText.PickTarget`）。
+            s += AiScoring.ScoreFromPlayingNow(ctx, card, a.HandInst, a.Slot,
+                                               card.IsUnit ? -1 : a.TargetP);
             return s;
         }
 
@@ -516,9 +557,28 @@ namespace RuleEngine
             var u = ctx.Players[me].Board[a.Slot];
             if (u == null || u.Card == null) return 0f;
 
-            // 🆕 2026-09-29（Q6）：技能 / 替代行动**也是逐目标枚举**的（见 `EnumerateActions`）
-            //   ⇒ `a.TargetSlot >= 0` 时那一格就是「打谁」，交给打分（原版同一条路）。
-            //   没有目标的那种仍传 `a.Slot` + `false`（此时 `Slot` 是**施放者**那一格，不是目标）。
+            // 🆕 2026-10-19（续工）：**主动技这一支也切到原版数据** ——
+            //   原版 `AI.GetActionScore` case 5 读 `ActiveAbility` 自己的两列 criteria
+            //   （`+0x50 cardTarget` / `+0x58 nonTarget`，`dump.cs:23766-23767`）。
+            //   数据源 = `cards_raw.json` 的 `activeAbility`（1,351 张都有；生成器已切进
+            //   `ai_scoring.json` 的 `activeAbility`）。
+            //   原版对 `GetActiveAbility()==null` 是 **LogWarning + 0 分** ⇒ 我们同样回 0
+            //   （⛔ 不再拿我们配的 `ScoreOps` 冒充）。
+            var dto = AiScoringData.Get(u.Card);
+            if (dto != null)
+            {
+                if (dto.activeAbility == null) return 0f;
+                UnitState target = null;
+                if (a.TargetSlot >= 0 && a.TargetP >= 0 && a.TargetP <= 1
+                    && BoardSpec.IsValid(a.TargetSlot))
+                    target = ctx.Players[a.TargetP].Board[a.TargetSlot];
+                return AiScoring.ScoreActiveAbility(ctx, u.Card, u.Instance, me, target, dto.activeAbility);
+            }
+
+            // ---- 以下只服务**不在真值表里的卡**（我们自己那套 StarterCards / 自检夹具）----
+            //   ⚠️ 这些卡没有 `ai_scoring` 条目，`GetActiveAbility()` 在原版里也没有对象可读
+            //   —— 保留旧 `ScoreOps` 是为了不让自检夹具的 AI 行为突变；产品路径（池内 1,127 张）
+            //   永远走上面的数据分支。
             int tgt = a.TargetSlot >= 0 ? a.TargetSlot : a.Slot;
             bool tgtPicked = a.TargetSlot >= 0;
             if (a.AltKeyword == "oath") return ScoreOps(ctx, u.Card.OathOps, tgt, tgtPicked);
@@ -558,16 +618,21 @@ namespace RuleEngine
         // ------------------------------------------------------------------
 
         /// <summary>
-        /// **卡在场上的价值**（原版 `GetCardValueInPlay`）：
-        /// `费用 × 2 + 1 + 附魔价值`，**受伤**再 `× (0.5 × 当前血/上限 + 0.5)`，**晕/压制**再 `× 0.8`。
-        /// ⚠️ 「附魔价值」我们换成**关键词分值**（<see cref="KeywordValue"/>）——
-        ///    原版那层是 `ValueOfEnchantments`（按 `CardEffect` 的 `buffType` 算），
-        ///    我们引擎里没有「附魔」这个对象，只有关键词 ⇒ **这一层是我们配的**。
+        /// **卡在场上的价值**（原版 `GetCardValueInPlay`，RVA 0x939030 逐指令读出来的）：
+        /// `2 × rawCard.manaCost + 1 + ValueOfEnchantments`；**受伤**再
+        /// `× (0.5 × 当前血/上限 + 0.5)`；**眩晕 / 压制**再 `× 0.8`。
+        ///
+        /// 🔴 **2026-10-19（`A2144`）订正**：原来这里加的是 `KeywordValue`（= `Σ CardTrait._aIScore`），
+        ///    **那不是原版 `ValueOfEnchantments`** —— 原版数的是卡上的 `activeEffects`
+        ///    （buff 属性增减 ×0.5 ＋ 附魔每条 ±1/2），`ValueOfTraits` 只服务 `ScoreFromJam`。
+        ///    现在的近似见 <see cref="AiScoring.ValueOfEnchantments(UnitState)"/>（字段语义差异已标）。
+        /// ⚠️ 基础费取 **`rawCard.manaCost`（卡面基础费）**，⛔ 不是 `CostOf`（当前费）——
+        ///    反汇编里读的是 `[rawCard + 0x78]`。
         /// </summary>
         public static float ValueInPlay(UnitState u)
         {
-            if (u == null) return 0f;
-            float v = RefValue(u.Card) + KeywordValue(u.Card);
+            if (u == null || u.Card == null) return 0f;
+            float v = 2f * u.Card.Cost + 1f + AiScoring.ValueOfEnchantments(u);
             if (u.MaxHealth > 0 && u.Health < u.MaxHealth)
                 v *= 0.5f * u.Health / u.MaxHealth + 0.5f;
             if (u.IsStunned || u.Has("pindown")) v *= 0.8f;
@@ -575,25 +640,41 @@ namespace RuleEngine
         }
 
         /// <summary>
-        /// 小兵挨这一下的分数（原版 `ScoreFromDamagingBuffedUnit` 的无 buff 版）。
-        /// 门禁照原版：`ambush`→0 · `longrange`→0 · `shield`/`dodge`→只给一点点。
-        /// ⚠️ **护甲那层照我们引擎改写**：原版是「伤害 ≥ 血 + `bastion`」，我们引擎里护甲已经在
+        /// 小兵挨这一下的分数（原版 `ScoreFromDamagingBuffedUnit`，RVA 0x93B1E0 逐指令读出来的）。
+        ///
+        /// **分支顺序就是原版的顺序**（⛔ 别调换 —— 前四支各自 `return` 一个常数/小值）：
+        ///   ① `ambush`(1200) → **10.0**（我们原来是 **0**，`A2144` 直证偏差）
+        ///   ② `invulnerable`(310) → **−10.0**（我们原来**没有这一支**，`A2144`）
+        ///   ③ `dodge`(240) / `shield`(80) → `CurrentMeleeAttack / 3 + 1`
+        ///      🔴 `A2144` 只记了「有这一支」，**没记它用的是【目标的近战攻击】而不是这一下的伤害** ——
+        ///         本次按反汇编（`0x18093B4DB`：`EntityScript.get_CurrentMeleeAttack(target)`）订正。
+        ///   ④ `longrange`(1160) → **3.0**（我们原来是 **0**，`A2144`）
+        ///   ⑤ `dropPod`(230) 且 `!ignoreDroppod` → **0.5**
+        ///   ⑥ 督军：致死 **1e6** / 非致死 `伤害 × (剩余血 > 15 ? 1.2 : 1.8)`
+        ///   ⑦ 小兵：致死 `卡价值 × (survivor ? 0.8 : 1.0)` / 非致死 `卡价值 × 0.6 × 实际伤害 / 血上限`
+        ///   ⑧ 最后 `+= extraScoreFromDamaging`（致死再 `+= extraScoreFromKilling`）——
+        ///      **真值里 0 张非零**（`AUD_T06` §三表 #6）⇒ 本批不读（报告已记）。
+        ///
+        /// ⚠️ **护甲那层照我们引擎改写**：原版是「伤害 ≥ 血 + bastion」，我们引擎里护甲已经在
         ///    `RuleCore.DamageAfterReduction` 里减过（且最低 1 点）⇒ 直接用**实际伤害 ≥ 当前血**判死。
         /// </summary>
-        public static float ScoreDamaging(UnitState target, int dmg)
+        public static float ScoreDamaging(UnitState target, int dmg, bool ignoreDroppod = false)
         {
             if (target == null || !target.IsAlive) return 0f;
-            if (target.Has(KeywordTable.Ambush)) return 0f;         // 原版：伏击单位不吃这一套
-            if (target.Has(KeywordTable.LongRange)) return 0f;      // 原版：远程单位那条出口是 0
-            if (target.Has(KeywordTable.Shield) || target.Has("dodge"))
-                return dmg / 3f + 1f;                               // 原版那个「只给一点」的出口
+
+            if (target.Has(KeywordTable.Ambush)) return 10f;
+            if (target.Has("invulnerable")) return -10f;
+            if (target.Has(KeywordTable.Dodge) || target.Has(KeywordTable.Shield))
+                return target.Attack / 3f + 1f;
+            if (target.Has(KeywordTable.LongRange)) return 3f;
+            if (target.Has(KeywordTable.DropPod) && !ignoreDroppod) return 0.5f;
 
             int dealt = RuleCore.DamageAfterReduction(target, dmg);
             if (target.IsWarlord) return ScoreWarlordDamage(target, dmg);
 
             float v = ValueInPlay(target);
             if (dealt >= target.Health)                             // 打死
-                return v * (target.Has("survivor") ? SurvivorDiscount : 1f);
+                return v * (target.Survivor > 0 ? SurvivorDiscount : 1f);
             return v * MinionPartial * dealt / System.Math.Max(1, target.MaxHealth);
         }
 
@@ -611,17 +692,28 @@ namespace RuleEngine
         }
 
         /// <summary>
-        /// 治疗一个单位值多少分。⚠️ **原版的公式没解出来**（`ScoreFromHealingUnit` 里一个浮点字面量都没有，
-        /// 说明它用的是运行时量/血量的比例，反编译把浮点算术吞了）⇒ **这里的系数是我们配的**：
-        /// 只算**真治得进去的那部分**（`min(治疗量, 已掉的血)`），督军按 1.5 加权（督军倒了就输了）。
+        /// 治疗一个单位值多少分（原版 `ScoreFromHealingUnit`，RVA 0x93BC30 逐指令读出来的）：
+        ///   · `healed = min(治疗量, 已掉的血)`；`healed ≤ 0` → **0**。
+        ///   · **督军**：`当前血 > 10 ? healed : 2 × healed`（阈值 **10**；`0x18093BD33-0x18093BD45`）。
+        ///   · **小兵**：`GetValueInPlay(t) × healed / 血上限 + extraScoreFromHealing`
+        ///     （`0x18093BCC7` 起；`extraScoreFromHealing` 真值 0 张非零 ⇒ 不加）。
+        ///
+        /// 🔴 **`A2144` 订正**：原来写的是「督军恒 ×1.5」—— 那是**我们配的推断值**，
+        ///    原版是 **×1 / ×2 两档**；小兵那一支原来写成「healed × 1.0」，原版是
+        ///    **按卡价值 × 治疗量 / 血上限**（量级完全不同）。
         /// </summary>
         public static float ScoreHealing(UnitState u, int amount)
         {
             if (u == null || !u.IsAlive) return 0f;
             int missing = System.Math.Max(0, u.MaxHealth - u.Health);
             int healed = System.Math.Min(amount, missing);
-            if (healed <= 0) return 0f;                             // 满血：一点分都不加（原来那条「别浪费行动」照旧成立）
-            return healed * (u.IsWarlord ? 1.5f : 1.0f);
+            if (healed <= 0) return 0f;                             // 满血：一点分都不加
+
+            if (u.IsWarlord)
+                return u.Health > 10 ? healed : 2f * healed;
+
+            if (u.MaxHealth <= 0) return 0f;
+            return ValueInPlay(u) * healed / u.MaxHealth;
         }
 
         /// <summary>晕一个目标值多少分（原版 `ScoreFromStun`：英雄按近战攻、小兵减半）。</summary>
@@ -661,14 +753,19 @@ namespace RuleEngine
             return cost - v - bonus;
         }
 
-        /// <summary>抽一张牌值多少分（原版 `ScoreFromDrawingCard`：`手牌上限 − 手牌数 − 1`；牌库空则负分）。</summary>
+        /// <summary>抽一张牌值多少分（原版 `ScoreFromDrawingCard` / `ScoreFromCriteria` case 35）：
+        /// `手牌上限 − 手牌数 − 1`；**牌库空 ⇒ `−2 − 疲劳`**。
+        ///
+        /// 🔴 **`A2144` 订正**：原来写的是 `−2 − HandMax`（手牌上限），
+        ///    而 `A2144` 那条账写成「原版是 `−2 − 手牌张数`」—— **那句也是误读**。
+        ///    反汇编 RVA 0x93B71B / 0x18093B08B：`mov eax,-2; sub eax,ebp`，而 `ebp` 是
+        ///    `ObscuredInt.op_Implicit(BattleManager.playerFatigue/enemyFatigue)` 的结果
+        ///    （`0x18093B6DB` / `0x18093B03B` 那两处）⇒ **减的是疲劳值**。
+        ///    判据只此一处 = <see cref="AiScoring.DrawValue"/>。
+        /// </summary>
         public static float ScoreDraw(BattleContext ctx)
         {
-            int p = ctx.Active;
-            int hand = ctx.Players[p].Hand.Count;
-            int deck = ctx.Players[p].Deck.Count;
-            if (deck == 0) return -2f - RuleCore.HandMax;           // 原版：牌库空 → 抽牌是**坏事**
-            return RuleCore.HandMax - hand - 1;
+            return AiScoring.DrawValue(ctx, ctx.Active);
         }
 
         /// <summary>
@@ -714,9 +811,12 @@ namespace RuleEngine
         // ------------------------------------------------------------------
 
         /// <summary>
-        /// 一串效果的分数合计。**原版是遍历卡资产上的 `ScoringCriteria` 表**（`RawCardScript 0x2E8/0x2F0`），
-        /// 那些值在服务端 ⇒ 我们从**自己解析出来的 `EffectOp`** 推（见 <see cref="ScoreOp"/>）。
-        /// ⚠️ 这一层的系数**是我们配的**，不是从原版读的 —— 结构与量级照原版（分都是「几个点」）。
+        /// 一串效果的分数合计。**2026-10-19 起产品路径只剩「技能 / 誓约 / 替代行动」在用**
+        /// （`ScoreAbility`）—— **出牌**已经切到原版逐卡评分表（<see cref="AiScoring"/>），
+        /// ⛔ 别把它再接回 `ScoreFromPlayingCard`（原版没有「正文→分」这一层）。
+        /// 老口径：原版是遍历卡资产上的 `ScoringCriteria` 表（`RawCardScript 0x2E8/0x2F0`），
+        /// 我们从**自己解析出来的 `EffectOp`** 推（见 <see cref="ScoreOp"/>）——
+        /// ⚠️ 这一层的系数**是我们配的**，只用于技能那一支（`ActiveAbility` 两列真值未落表的替代品）。
         /// </summary>
         public static float ScoreOps(BattleContext ctx, IReadOnlyList<EffectOp> ops, int slot,
                                      bool slotIsTarget = false)

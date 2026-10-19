@@ -556,6 +556,11 @@ public static class IconSetup
             // ⚠️ 这一份**只算一次、三处共用**（④a 的 `fresh` ／ ④d 的陈旧条目 ／ ④c 的读数）——
             //    `ZhGaps` 是纯函数，同一份 doc 算两遍没有意义，还会给「两处不一」留机会。
             var gapsAll = ZhGaps(doc);
+            // 🆕 2026-10-19（B4 · E10 §三·5）：「黑暗契约」那一族走 `RewriteMarks`、**不参与计划表对账** ——
+            //   必须真的认出那张卡（认不出 = `MentionsDarkPact` 与卡池 id 对不上，本条红）。
+            Check(ZhGapsDarkPactSkipped > 0,
+                  "④a′ **黑暗契约**那一族走 `CreatePool.MentionsDarkPact` 跳过计划表对账（实测跳过 "
+                + ZhGapsDarkPactSkipped + " 张）—— 🧨 删掉 `ZhGaps` 里那句 `continue` ⇒ 0 张 ⇒ 红", ref bad);
             if (nCards > 0)
             {
                 var gaps = gapsAll;
@@ -1204,9 +1209,19 @@ public static class IconSetup
     {
         var gaps = new List<string>();
         if (doc == null || doc.cards == null) return gaps;
+        ZhGapsDarkPactSkipped = 0;
         foreach (var c in doc.cards)
         {
             if (c == null || c.fields == null) continue;
+            // 🆕 2026-10-19（B4 · `N70`/`N71` 收口）：**「黑暗契约」那一族不参与这张计划表的对账** ——
+            //   判据只此一处 = `RuleEngine.CreatePool.MentionsDarkPact`（英文 = `MentionsDarkPactEn`、
+            //   中文 = `ContainsAnyDarkPactZh`，E10 本轮已把两份副本收口）。
+            //   为什么跳过：那 37 张的徽记**不走图标计划表** —— 中文值里是官方的 `[[…]]`（或 `❄` / `[黑暗契约]`
+            //   这类已映射的 token），运行时由 `CardIcons.RewriteMarks` 画；而 `gen_icon_plan.py` 对
+            //   带官方记号的字段**整字段跳过** ⇒ 拿「计划表 en ⊆ 计划表 zh」去比它们 = **比两个空集/残缺集**
+            //   （旧口径会报假缺口；`A2054` 的接口需求 → `资料/普查产出_1019/E10_报告.md` §三·5）。
+            //   ⛔ 别在这儿再写一份 `markOf*` / 「黑暗契约」字面量（E10 刚收口的两份副本就是教训）。
+            if (MentionsDarkPactCard(c.id)) { ZhGapsDarkPactSkipped++; continue; }
             var en = new HashSet<string>();
             var zh = new HashSet<string>();
             bool sawZhField = false;   // 🆕 2026-10-15：`descZh` 那半边在计划表里**有没有字段**
@@ -1237,6 +1252,25 @@ public static class IconSetup
         }
         gaps.Sort(System.StringComparer.Ordinal);
         return gaps;
+    }
+
+    /// <summary>上一次 `ZhGaps` 跳过了几张「黑暗契约」卡（自检/日志用；0 = 一张都没认出来）。</summary>
+    static int ZhGapsDarkPactSkipped;
+
+    static Dictionary<string, RuleEngine.CardDef> _poolById;
+    /// <summary>`c.id` 那张卡是不是「提到 Dark Pact / 黑暗契约」（判据只此一处 = `CreatePool.MentionsDarkPact`）。</summary>
+    static bool MentionsDarkPactCard(string id)
+    {
+        if (string.IsNullOrEmpty(id)) return false;
+        if (_poolById == null)
+        {
+            _poolById = new Dictionary<string, RuleEngine.CardDef>();
+            foreach (var c in RuleEngine.CardDatabase.Load())
+                if (c != null && !string.IsNullOrEmpty(c.Id)) _poolById[c.Id] = c;
+        }
+        RuleEngine.CardDef def;
+        return _poolById.TryGetValue(id, out def) && def != null
+            && RuleEngine.CreatePool.MentionsDarkPact(def);
     }
 
     /// <summary>

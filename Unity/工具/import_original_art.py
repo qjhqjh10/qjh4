@@ -402,6 +402,30 @@ UI_IMAGES = [
     #   · 灵魂石 `SpiritStoneHolder` 112.1×116.6（sprite `UI_Energy_Eldar`；**这张早就在用**）
     #     + 子 `SpiritStone` 51.0×63.0（sprite `UI_Gem_Eldar`）+ 子 `SpiritStoneText`
     '40k_Battle_Display_Faith', 'UI_Gem_Eldar',
+    # ---- 🆕 2026-10-19（T2）：聊天面板四颗 `ChatButton*` 的悬停 / 按下 / 禁用态（6 张）----------
+    # 判据 → `资料/普查产出_1019/T1_报告.md` §一/§二：源在切片库 `battleatlasui/sliced` 里现成可取，
+    #   目标目录正好是本表这一层 `Art/ui/`；落盘名 = 切片名（**不改名**）。
+    # ⚠️ 目前 **没有任何 `.cs` 查 `_hover/_pressed/_blocked`**（`ChatPopupPanel.cs:369-370` 只用 Normal
+    #   那两张）—— 图先备料，接线是另一条账；⛔ 别以为「图进了 `Resources/` 就自动有反馈」。
+    # ⚠️ `40k_voicelines_bt_R_blocked` 原版切片就是 **264×24**（hover/pressed 是 263×24），照抄别"修"。
+    '40k_voicelines_bt_L_hover', '40k_voicelines_bt_L_pressed', '40k_voicelines_bt_L_blocked',
+    '40k_voicelines_bt_R_hover', '40k_voicelines_bt_R_pressed', '40k_voicelines_bt_R_blocked',
+]
+
+# ---- 战斗 UI 图：**只在 `ui_extract` 缓存里有的那几张**（🆕 2026-10-19 · T2）--------------------
+# 判据 → `资料/普查产出_1019/T1_报告.md` §六·1：这 4 张在工程切片库 `battleatlasui/sliced` 里
+#   **`find` 0 命中**，只有 `ui_extract/<bundle>/Sprite/` 里有（实测 5 个 bundle 各一份、
+#   **md5 全同** ⇒ 取哪一份都对；这里按 T1 落盘时用的那份取 `duplicateassetisolation_assets_all`）。
+# 🔴 **为什么单开一张表、不进 `MENU_IMAGES`**：`MENU_IMAGES` 的落盘目录是 `ui_menu/`，而这 4 张是
+#   **战斗侧**的按钮态（`BattleDriver.SwapOrTint` / `MultiCardDisplay.BuildFeedback` 查
+#   `CardArt.MenuUi` ⇒ 三级兜底命中第三级 `Art/ui/`）⇒ 落盘必须回 `Art/ui/`，别和菜单那批混。
+# ⚠️ **只登记显式点名的条目**（切片名 + bundle），⛔ **不扫 `MENU_SRC` 整个目录** —— 那会把 5557 张
+#   切片全拷进 `Resources/`。要补一张就在这里加一行。
+UI_EXTRACT_IMAGES = [
+    ('40k_UI_bt_battlelog_hover',   'duplicateassetisolation_assets_all'),
+    ('40k_UI_bt_battlelog_pressed', 'duplicateassetisolation_assets_all'),
+    ('40k_UI_bt_play_hover',        'duplicateassetisolation_assets_all'),
+    ('40k_UI_bt_play_pressed',      'duplicateassetisolation_assets_all'),
 ]
 
 # ---- 关键词（trait）图标 —— **另一个图集**：`40ktraiticonatlas` ---------------------
@@ -872,6 +896,29 @@ MENU_IMAGES = [
     #   这里按同族条目（`40k_OfferBadge` / `40k_main_bt_*`）挑 `atlasindividual_assets_0_mainmenu`。
     # ⚠️ 名字**带空格** ⇒ 落盘名按本表惯例 = `Tutorial_Background.png`（`name.replace(' ', '_')`）。
     ('Tutorial Background',                       'atlasindividual_assets_0_mainmenu'),  # 教程窗格子横幅（512×144）
+    # ---- 🆕 2026-10-19（T2）：`PurchasePremiumWindow ▸ Army Container` 的**阵营中号底图**（13 张）----
+    # 判据 → `资料/普查产出_1019/U4_报告.md` §二·2（`ArmyBackgroundsSO.mediumBackgroundAddressables`
+    #   14 条逐字节实读；`0`(Neutral) 与 `10`(Ultramarines) **共用 `…_UM`** ⇒ 13 张 sprite 覆盖 14 个枚举值）。
+    #   `Shell/PurchasePremiumWindow.cs:204-224` 的 `ArmyBackgroundArt(int army)` 按 `CardArt.MenuUi`
+    #   口径查名（**空格已换下划线**）⇒ 落盘名由本表惯例 `name.replace(' ', '_')` 决定。
+    # ⚠️ **6 个尾缀不服从本仓阵营名**（3 个只是空格换下划线：`Black Legion` / `Tau Empire` /
+    #   `Emperors Children`；3 个是彻底换名：`Goff→Orks` · `SpaceWolves→SW` · `Genestealers→GenestealerCults`）——
+    #   照抄切片名，⛔ 别拼「前缀 + 本仓阵营名」。
+    # ⚠️ 尺寸 **631×194**（唯 `Sororitas` 原版就是 **631×195**，别"修"成统一高度）。
+    # ⛔ **别拿 `Campaign_Faction_Bck_*` 顶替** —— 那是 1024² 的整屏战役底图，另一族（见 `CAMPAIGN_BGS`）。
+    ('40K_profile_campaign_bg_UM',                'atlasgroup_assets_all'),  # 0 Neutral / 10 Ultramarines
+    ('40K_profile_campaign_bg_Orks',              'atlasgroup_assets_all'),  # 20 Goff
+    ('40K_profile_campaign_bg_SaimHann',          'atlasgroup_assets_all'),  # 30 SaimHann
+    ('40K_profile_campaign_bg_Sautekh',           'atlasgroup_assets_all'),  # 40 Sautekh
+    ('40K_profile_campaign_bg_Black Legion',      'atlasgroup_assets_all'),  # 50 BlackLegion → 落盘 …_Black_Legion
+    ('40K_profile_campaign_bg_Leviathan',         'atlasgroup_assets_all'),  # 60 Leviathan
+    ('40K_profile_campaign_bg_Tau Empire',        'atlasgroup_assets_all'),  # 70 TauEmpire → 落盘 …_Tau_Empire
+    ('40K_profile_campaign_bg_Sororitas',         'atlasgroup_assets_all'),  # 80 Sororitas
+    ('40K_profile_campaign_bg_GenestealerCults',  'atlasgroup_assets_all'),  # 90 Genestealers
+    ('40K_profile_campaign_bg_AstraMilitarum',    'atlasgroup_assets_all'),  # 100 AstraMilitarum
+    ('40K_profile_campaign_bg_DarkAngels',        'atlasgroup_assets_all'),  # 110 DarkAngels
+    ('40K_profile_campaign_bg_Emperors Children', 'atlasgroup_assets_all'),  # 120 EmperorsChildren → 落盘 …_Emperors_Children
+    ('40K_profile_campaign_bg_SW',                'atlasgroup_assets_all'),  # 130 SpaceWolves
 ]
 
 # ---- 🆕 2026-10-18（E01 菜单侧新手引导）：三张指针件**只有 `Texture2D/`，`ui_extract` 里没有 Sprite PNG** ----
@@ -1622,6 +1669,9 @@ def main() -> int:
         # （原来这 17 张是**手工拷的**，重建路径其实是断的 —— 2026-09-12 补上）
         jobs = [(src, os.path.join(OUT, name), crop) for src, name, crop in jobs]
         jobs += [(os.path.join(UI_SRC, n + '.png'), os.path.join(UI_OUT, n + '.png'), False) for n in UI_IMAGES]
+        # 🆕 2026-10-19（T2）：只在 `ui_extract` 里有的战斗按钮态 4 张（表与理由见 `UI_EXTRACT_IMAGES`）
+        jobs += [(os.path.join(MENU_SRC, b, 'Sprite', n + '.png'),
+                  os.path.join(UI_OUT, n + '.png'), False) for n, b in UI_EXTRACT_IMAGES]
         # 替代行动那五张走**另一个来源**（不在 battleatlasui 图集里，见上面那段注释）
         jobs += [(os.path.join(ALT_ACTION_SRC, n + '.png'),
                   os.path.join(UI_OUT, n.replace(' ', '_') + '.png'), False) for n in ALT_ACTION_IMAGES]

@@ -282,10 +282,18 @@ namespace CardPresentation
                 "[Chat] 输入框**打不了字** —— 我们这套外壳没有文字输入系统；而且**聊天收发本身还没做**"
               + "（用户 2026-09-26 口径：网络聊天功能暂时不做，界面照建、数据留空态）。"));
             var send = Node(_enterText, "Button", SendBtnR);
-            Rect(send, "40k_UI_Chat_send", SendBtnR, "Image", QBg, null, true);
-            MenuDraw.Hit(send, "Hit", SendBtnR, QHit, () => Debug.Log(
+            var sendIcon = Rect(send, "40k_UI_Chat_send", SendBtnR, "Image", QBg, null, true);
+            // 🆕 **2026-10-19（N70 · U3）：悬停 / 按下反馈** —— 判据 = 原版 `ChatPanel > Enter Text > Button`
+            //   （`everguild` 那颗 `EverguildButton`）：**`m_Transition = 1 (ColorTint)`** · `m_TargetGraphic` =
+            //   **它自己那颗 `Image`**（本处那颗 `40k_UI_Chat_send` 图标）· `m_Colors` 是 UGUI 默认那组
+            //   （HL `0.9607843` / PR `0.7843137` / fade `0.1`）—— 逐字段现读
+            //   `python -I 工具/menu_dump.py bundle_menus_assets_all "ChatPanel" --depth 4`（那一行印 `trans=1`）。
+            //   ⚠️ `TintOn` 而不是 `Bind`：原版 `m_SpriteState` 四格全空 ⇒ **不换图**、只做色偏。
+            var sendHit = MenuDraw.Hit(send, "Hit", SendBtnR, QHit, () => Debug.Log(
                 "[Chat] `TrySendMessage`：**没有服务器**，也没有 `ChatGlobalManager` 的对等物 ⇒ 发不出去。"),
                 clickCue: WindowSounds.SendMessageCue);
+            var sendWb = sendHit != null ? sendHit.GetComponent<WindowButton>() : null;
+            if (sendWb != null && sendIcon != null) sendWb.TintOn(sendIcon);
 
             // 右上关闭钮（`ChatPanel.closeButton` 指的就是它）
             // 🔴🔴 **2026-10-18（A1149 第一半）圆底盘【挂点】归真**（本件 = 第九会话 P6）：

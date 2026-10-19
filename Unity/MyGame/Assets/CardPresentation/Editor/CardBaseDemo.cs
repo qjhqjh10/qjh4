@@ -309,6 +309,7 @@ public static class CardBaseDemo
         AssertTextBg(cam);               // 🔵 2026-10-19（A1500② 的断言侧）：文字底板 —— 含**渲图像素**判据
         AssertRarityGem(cam);             // 🔴 2026-10-18（A1492）：稀有度宝石 —— 结构 + 渲图灭自证
         AssertCostTierRefresh();          // 🆕 2026-10-18（A1549 尾巴）：运行时切档 → 已建好的卡跟上
+        AssertFaithCostIcon();            // 🆕 2026-10-19（A2140）：信仰费裸词 `4 Energy:` → `4〔金太阳〕:`（desc 不动）
 
         // ---- 4c. 🆕 2026-10-12（`A1658` / `A1659` / `A1665`）：**卡面层级三项**的断言 ----
         //   为什么挂这儿：那三条全是「**层与层之间的关系**」（用户 2026-10-12 真机上报的三件），
@@ -1500,6 +1501,72 @@ public static class CardBaseDemo
             if (wasChosen) SmallScreenUI.Set(wasOn); else SmallScreenUI.ResetForTest();
             SmallScreenUI.PersistOverride = wasPersist;
         }
+    }
+
+    /// <summary>🆕 2026-10-19（`A2140`）：**信仰费写成裸词的卡** —— 卡面要印 `N〔金太阳〕:`、
+    /// **不许印 `Energy` 这个词**。
+    /// <para>判据（逐条）：① PnP 成品卡 `D:/2/Warpforge部队卡片/Sorotitas/2天赋/`
+    /// `Warpforge_06_Righteous-Repugnance.png` 亲读 = `4 〔金太阳〕: …`（词不在）；② 官方
+    /// `Card_Description/f104…` = `… ((Faith_cost_x,4)): …`、`Modular_Description/Faith_cost_x`
+    /// 展开 = `{0}` + 信仰图标 ⇒ 数字 + 图、无词。见 `Core/CardIcons.RewriteFaithCost` 的 doc。</para>
+    /// <para>🧨 改坏法：删掉 `Rewrite` 里那句 `RewriteFaithCost(...)` ⇒ ①②红；
+    /// 把规则放宽成「任何 `N Energy`」（去掉冒号守卫）⇒ ④红（`Refill/Gain N Energy` 会被吃掉）。</para>
+    /// </summary>
+    static void AssertFaithCostIcon()
+    {
+        Debug.Log(P + "--- 信仰费裸词 → 信仰图标（A2140）---");
+        if (!CardIcons.Available)
+        {
+            Check(false, "① 前提：图标 sprite asset 取不到（`Resources/Fonts/Warpforge Trait TextSprites`；"
+                       + "重建：-executeMethod IconSetup.Run）—— 下面三条都验不了");
+            return;
+        }
+        const string Id = "f104d4c21abe84546abc9365d9eda8dd";     // Righteous Repugnance
+        RuleEngine.CardDef card = null, ctrl = null;
+        foreach (var c in RuleEngine.CardDatabase.Load())
+        {
+            if (c.Id == Id) card = c;
+            else if (c.Id == "DA61") ctrl = c;                    // `Gain 1 Energy`（**资源动作**、不是费用）
+        }
+        Check(card != null, "① 前提：卡池里有 `f104…`（Righteous Repugnance）");
+        if (card == null) return;
+
+        const string FaithTag = "<sprite name=\"faith\">";
+        string en = CardIcons.Rewrite(card.Id, "desc", card.Desc);
+        Check(CountOf(en, FaithTag) == 1,
+              $"② 英文 `desc` 渲染后**正好一枚**信仰图标（实得 {CountOf(en, FaithTag)} 枚）"
+            + "｜判据 = PnP `Warpforge_06_Righteous-Repugnance.png` 的 `4 〔金太阳〕:`");
+        Check(!en.Contains("Energy"),
+              "② ★ `Energy` 这个词**不再印出来**（卡面印的就是图标）"
+            + "｜🧨 删掉 `Rewrite` 里的 `RewriteFaithCost(...)` ⇒ 本条红");
+        Check(CountOf(en, "4 ") >= 1 && en.IndexOf(FaithTag, System.StringComparison.Ordinal) > 0,
+              "② 数字 `4` 留在图标前面（原版 `Faith_cost_x` = `{0}` + 图标，数字不烘在图里）");
+        Check(en == CardIcons.Rewrite(card.Id, "desc", en),
+              "② 幂等：同一段文字渲染两遍 == 一遍（不叠第二枚图标）");
+
+        string zh = CardIcons.Rewrite(card.Id, "descZh", card.DescZh);
+        Check(CountOf(zh, FaithTag) == 1 && !zh.Contains("能量"),
+              $"③ 中文那半同样换成图标（实得 {CountOf(zh, FaithTag)} 枚、"
+            + $"`能量` {(zh.Contains("能量") ? "仍在" : "已不在")}）");
+
+        // ④ **负向对照（灭自证）**：同一个口、同一张卡，喂「资源动作」的句子 ⇒ 必须**一个字不改**。
+        //    没有这一条，「规则删掉了」和「规则根本不该命中」分不开。
+        const string Refill = "Refill 2 Energy";
+        Check(CardIcons.Rewrite(card.Id, "desc", Refill) == Refill,
+              "④ 判别式：**没有冒号**的 `Refill 2 Energy` **不许**被吃掉（全池 6 处资源动作卡靠这条保住）");
+        if (ctrl != null)
+            Check(CardIcons.Rewrite(ctrl.Id, "desc", ctrl.Desc).Contains("Energy"),
+                  "④ 真实对照卡 `DA61 Plasma Generator`（`Gain 1 Energy`）渲染后**仍印着词**");
+        else
+            Debug.LogWarning(P + "  [A2140] 对照卡 DA61 不在池里 ⇒ ④ 第二条跳过（不影响上面那条判别式）");
+    }
+
+    static int CountOf(string s, string sub)
+    {
+        if (string.IsNullOrEmpty(s) || string.IsNullOrEmpty(sub)) return 0;
+        int n = 0, i = 0;
+        while ((i = s.IndexOf(sub, i, System.StringComparison.Ordinal)) >= 0) { n++; i += sub.Length; }
+        return n;
     }
 
     // ==================================================================

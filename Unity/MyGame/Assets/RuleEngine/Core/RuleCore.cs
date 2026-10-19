@@ -332,6 +332,11 @@ namespace RuleEngine
             //    ⛔ 别在这儿再写一遍 `openMulligan && ctx.Vars.showMulligan`（两处写同一条规则迟早不一致）。
             ctx.MulliganOpen = mulliganOpenNow;
 
+            // 🆕 2026-10-19（第五十五会话 · `A1567` 第⑤格）：**开局附魔**。
+            //   原版这一跳只在战役关卡（50 / 80）为真、且改的是督军最大生命 ⇒ 自由对战恒假。
+            //   我们**没有战役关卡数据** ⇒ 今天**不挂东西、也不出声**（对局指纹逐字节不变）。
+            SetupInitialEnchantments(ctx);
+
             CheckWinner(ctx);
             return ctx;
         }
@@ -2566,7 +2571,11 @@ namespace RuleEngine
 
             ctx.Log($"{ps.Name} 部署 {unit.Name}（{costPaid} 费，{unit.Attack}/{unit.Health}）"
                   + $"到槽 {slot}，能量剩 {ps.Energy}");
-            ctx.Emit(EvtKind.Deploy, p, slot, unit.Name);
+            // 🆕 2026-10-19（战斗线 B3 的接口）：这一档 = **从手牌打出**。
+            //   判据见 `DeploySource` 的 doc（手牌打出那条飞行由输入层给票，原版没有 `_ResolveCardAutoSummoned`
+            //   那两拍手牌飞行）。⛔ 别的入口别照抄这一档：`DeployFree` / `DoReanimate` 各写各的。
+            ctx.Emit(EvtKind.Deploy, p, slot, unit.Name, deployFrom: DeploySource.HandPlayed,
+                     instanceId: unit.InstanceId);
 
             // 🆕 `When you play a troop, …`（2026-09-13 第三十三轮）。
             // ⚠️ **排在 `Deploy` 广播之前**：「打出」在「落到格位」之前是合乎直觉的顺序，
@@ -3135,8 +3144,14 @@ namespace RuleEngine
         /// </param>
         /// <param name="fromHand">原版 `autoPlayFromHand` 那一档（见上面那段 🔴）：兑现手牌加成 +
         /// 触发 Rally。默认 `false` = 效果召唤 / 部署的老行为。</param>
+        /// <param name="deploySource">🆕 2026-10-19（战斗线 B3 的接口）：写进 `Deploy` 事件的
+        /// <see cref="DeploySource"/>。**默认 `Unknown` = 按 `fromHand` 推**
+        /// （`true` ⇒ `AutoPlayFromHand`、`false` ⇒ `Summon`）—— 那是这条入口本来就只有的两档。
+        /// 只有**再造**（`EffectResolver.DoReanimate` 的墓地退路）需要显式传 `Reanimate`，
+        /// 因为它在语义上不是「召唤」。⛔ 别在别的入口乱传（那会让消费端按错的 cue 演）。</param>
         public static bool DeployFree(BattleContext ctx, int owner, CardInstance inst, out int slot,
-                                      bool fromHand = false)
+                                      bool fromHand = false,
+                                      DeploySource deploySource = DeploySource.Unknown)
         {
             slot = -1;
             if (ctx == null || inst == null || inst.Card == null) return false;
@@ -3230,7 +3245,16 @@ namespace RuleEngine
                 ForceAttackTypeOnDeploy(ctx, owner, dst);
                 slot = dst;
                 ctx.Log($"{ps.Name} 免费部署 {unit.Name}（{unit.Attack}/{unit.Health}）到槽 {dst}");
-                ctx.Emit(EvtKind.Deploy, owner, dst, unit.Name);
+                // 🆕 2026-10-19（战斗线 B3 的接口）：这一档写「怎么进来的」——
+                //   · 显式传了 `Reanimate` ⇒ 用它（`DoReanimate` 的墓地退路）；
+                //   · 否则按 `fromHand` 推：`true` = 原版 `_ResolveCardAutoSummoned`（autoPlayFromHand，
+                //     卡面 `from your deck`，有手牌飞行 + 起飞两条 cue）；`false` = 原版 `_ResolveSummonUnit`
+                //     （效果召唤 / 复制 / 凭空造，直接插格位、没有飞行）。判据见 `DeploySource` 的 doc。
+                ctx.Emit(EvtKind.Deploy, owner, dst, unit.Name,
+                         deployFrom: deploySource != DeploySource.Unknown
+                                     ? deploySource
+                                     : (fromHand ? DeploySource.AutoPlayFromHand : DeploySource.Summon),
+                         instanceId: unit.InstanceId);
                 // **事件层广播**也管这条路 —— 理由同 `ResolveDeploy`：
                 // 卡面写的是 `you deploy a Vehicle`，效果免费部署同样是「部署」（`资料/事件层_数据与设计.md` §三）。
                 BroadcastWhen(ctx, WhenEventKind.Deploy, owner, unit.Card, unit);
@@ -3273,11 +3297,14 @@ namespace RuleEngine
         /// ⚠️ 手里/牌库里**已有的那一份**要走上一个重载（传实例）—— 用这一个会把实例身份丢掉
         /// （新发一份，回不了原来那一份）。两者**共用同一段实现**，只差「谁发实例」。
         /// </summary>
-        public static bool DeployFree(BattleContext ctx, int owner, CardDef card, out int slot)
+        /// <param name="deploySource">🆕 同另一个重载：写进 `Deploy` 事件的来源；默认 `Unknown` ⇒ 按
+        /// 「凭空造一张」这一档推成 <see cref="DeploySource.Summon"/>。只有再造要传 `Reanimate`。</param>
+        public static bool DeployFree(BattleContext ctx, int owner, CardDef card, out int slot,
+                                      DeploySource deploySource = DeploySource.Unknown)
         {
             slot = -1;
             if (ctx == null || card == null) return false;
-            return DeployFree(ctx, owner, ctx.NewInstance(card), out slot);
+            return DeployFree(ctx, owner, ctx.NewInstance(card), out slot, false, deploySource);
         }
 
         // ==================================================================
@@ -3629,6 +3656,26 @@ namespace RuleEngine
                 }
             }
             return null;
+        }
+
+        /// <summary>
+        /// **这个单位此刻是不是「正在攻击的那一档」** —— 原版 `CardScript__CancelAttack.c:35` 那道状态闸
+        /// （`cardState ∈ {inPlayAttacking(3), inPlayAminingAttack(0x11)}`）在**我们模型里的落点**。
+        ///
+        /// 🔴 **2026-10-19（第五十五会话 · 账 `A1983`）新加。** 判据与取舍：
+        ///   · `CardStateOptions` 全表 = `dump.cs:45465-45487`；`3` / `0x11(17)` 是其中**「在场上 · 攻击中」**
+        ///     的两档（同一组四个值在 `CardScript__IsInPlay.c:7-14` 里被写成「在棋盘上」的判据）。
+        ///   · 我们**没有 `cardState` 状态机** ⇒ 能落地的等价物只有「**还在棋盘上、还活着**」这一条
+        ///     （「这一记攻击正在进行」由调用点 `DeclareAttack` 本身保证）。
+        ///   · ⛔ **别把它写成恒 `true` 的装饰**：防守方在攻方出手前把攻方挪走 / 打死的那一档，
+        ///     这里**必须**返回假（原版那一下会 `LogWarning` + return、连 `PrepareAttack` 都不跑）。
+        ///
+        /// ⚠️ 判别式**复用** <see cref="BoardOccupantByInstance"/>（只认 `Instance`、只认活着的占位者）——
+        ///    本仓「同一格上可能换了对象（残骸）」那套坑已经收在那一处，⛔ 别在这儿另写一份。
+        /// </summary>
+        public static bool IsAttackingOnBoard(BattleContext ctx, UnitState u)
+        {
+            return BoardOccupantByInstance(ctx, u) != null;
         }
 
         /// <summary>
@@ -4391,6 +4438,10 @@ namespace RuleEngine
             //    `KeywordTable.AboutToAttack` 的 doc）；那个词 `CardDef.cs` **已经登记**
             //    （`A1566`，2026-10-21）⇒ 卡面一出现它**自动开始生效**（夹具见
             //    `RuleEngineTest.TestA1564AboutToAttackCancel`）。
+            //  🆕 **2026-10-19（第五十五会话 · `A1567`/`A1258`）**：这一跳现在**先扫攻方身上的附魔卡**
+            //    （原版 ① 的真载体，`Core/Enchantment.cs`），再退回「攻方自有 ability」那一半；
+            //    另外 `A1983` 的**状态闸**（`CardScript__CancelAttack.c:35`）已补在函数最前面。
+            //    今天的可达性仍然是 **0 张卡**（卡池没有附魔列、`abouttoattack` 0 命中）。
             if (!forced && TryCancelAttackByOwnAboutToAttack(
                     ctx, p, atkSlot, attacker, ctx.Players[tgtP].Board[tgtSlot]))
                 return RuleCodes.OK;
@@ -4523,7 +4574,9 @@ namespace RuleEngine
             // `targetCardId` 现在就记下来：留存日志以后回看时，那个格位早就换人了
             ctx.Emit(EvtKind.Attack, p, atkSlot, attacker.Name, ranged: ranged,
                      targetPlayer: tgtP, targetSlot: tgtSlot,
-                     targetCardId: target != null ? target.Name : null);
+                     targetCardId: target != null ? target.Name : null,
+                     instanceId: attacker.InstanceId,
+                     targetInstanceId: target != null ? target.InstanceId : 0);
 
             // **事件层广播**（`When a friendly unit attacks, …`）—— 第三十二轮。
             // ⚠️ 和 `Emit` 同位置：都在**伤害之前**（监听方该看到的是「**谁要打谁**」，
@@ -4665,7 +4718,8 @@ namespace RuleEngine
                         else
                         {
                             ctx.Emit(EvtKind.Trigger, p, atkSlot, attacker.Name,
-                                     keyword: "attacked", effect: attacker.Card.AttackedText, amount: 0);
+                                     keyword: "attacked", effect: attacker.Card.AttackedText, amount: 0,
+                                     instanceId: attacker.InstanceId);
                             ctx.Log($"{attacker.Name} 触发「被这套打过的单位」："
                                   + $"「{attacker.Card.AttackedText}」");
                             ctx.EffectChain++;
@@ -5553,15 +5607,23 @@ namespace RuleEngine
         ///    `rawCardData.cardAbilities(+0x290)` 里 trigger == 0x118 的那条 ——
         ///    **②（扫全场）用的正是这个更宽的口子**。两者别混。
         ///
-        /// ## 我们这边为什么落成「关键词路由」这一形状（如实标着，不是原版形状）
-        /// 🔴 **我们引擎里【没有「附魔」这一层】**（`Core/BattleEvent.cs:180-183` 自己写着
-        ///    「`RuleEngine` 里根本没有『战将身上的附魔』这一层」）⇒ ① 在原版里的那个**载体不存在**。
-        ///    我们在本文件里能落的、**语义等价**的那一半是「**攻方自己身上有一条
+        /// ## 我们这边怎么落的（🔴 2026-10-19 就地订正 —— 附魔层已建，本段原来写「没有这一层」）
+        /// 🔴 **2026-10-19（第五十五会话 · `A1567`/`A1258`）**：附魔层**已经建起来了**
+        ///    （`Core/Enchantment.cs` + `CardInstance.ActiveEnchantments // +0x110`）⇒
+        ///    ① 的**原版载体存在了**：本函数**第一支**就是
+        ///    `Enchantments.FindCancelAttack(攻方)` —— 扫攻方身上挂的附魔卡、取第一条带
+        ///    `abouttoattack` 触发正文的，命中就**跑那张附魔卡自己的 ability**
+        ///    （`FireTriggerAt(..., only: ench)`，= 原版 `:1368 ResolveCancelAttack → OnTrigger(0x118)`）。
+        ///    第二支（**语义等价的另一半**，2026-10-11 落的、保留）才是「**攻方自己身上有一条
         ///    `AboutToAttack(280)` 的能力 ⇒ 这一记不打**」—— 判据转调
-        ///    `u.FxOps(kw)` / `u.Effect(kw)`（= 卡面原生正文 **或** 运行时挂上去的那份，
-        ///    后者正是我们最接近「附魔」的容器）。
-        ///    ⚠️ 今天**0 张**卡能命中（见 `KeywordTable.AboutToAttack`）⇒ **本支恒假、逐字节不动**
-        ///      —— 这是「原版有、我们缺」的补课（铁律 11：**要做**，不因为今天不可达就不做）。
+        ///    `u.FxOps(kw)` / `u.Effect(kw)`（= 卡面原生正文 **或** 运行时挂上去的那份）。
+        ///    ⚠️ 这一支对应的是原版**更宽**的 `CardScript__HasCancelAttackAbility`（① + 自己的 `+0x290`），
+        ///     不是 ① 本身 ⇒ **顺序照原版：附魔先、自己后**。
+        ///    ⚠️ 今天**0 张**卡能命中（卡池里没有附魔、`abouttoattack` 也 0 命中）
+        ///      ⇒ 两支都**恒假、逐字节不动** —— 这是「原版有、我们缺」的补课（铁律 11：
+        ///      **要做**，不因为今天不可达就不做）。
+        ///    ⚠️ **`A1983` 的状态闸**（`CardScript__CancelAttack.c:35`）已补在本函数**最前面**，
+        ///      见 <see cref="IsAttackingOnBoard"/>。
         ///
         /// ## 我们做不到的三步（如实标着，⛔ 别当成已做）
         ///   · `CardScript__CancelAttack`（`:1314`）+ 两次 `ClearPendingDamage`（`:1316` / `:1318`）：
@@ -5575,6 +5637,19 @@ namespace RuleEngine
         ///     （账上 `A1258` 的「⚠️ 没查清」就是这一条）⇒ 本函数**故意不碰**
         ///     `AttacksThisTurn` / `Exhausted`：调用点排在消耗那两行**之前**，天然就是「没消耗」，
         ///     这正是「取消 = 这件事没发生」那一侧。将来查清了再定。
+        ///     ✅ **2026-10-19（第五十五会话）就地订正（铁律 5）：这一条【已查清】，而且结论不变。**
+        ///        判据（`资料/普查产出_第三十会话/乙档六笔_判据查证.md` §`A1258`，逐条读过）：
+        ///        · `bm + 0x3bc` = **`thisTurnActionCounter`**（**网络同步计数器，不是攻击次数**）；
+        ///          全目录 `grep 0x3bc` = 8 个文件，唯一读者 `EndTurnClick` 只打日志 + `==0` 时置
+        ///          `shouldCountReduced(+0x4DD)`；写者 `RegisterPlayerAction`(+1) 与
+        ///          `RegisterPlayerActionCancelled`(−1) **严格对称撤销**；
+        ///        · 真正的攻击配额 = `EntityScript.attacksThisTurn(+0x48)`，其**全部写点**
+        ///          （`CardSetup` / `OnTurnStart` / `OnTurnEnd` / `ResetToValuesInHand` 置 0 ·
+        ///           `FinishAttackActionWithoutMoving` / `MissActions` / `UsedActiveAbility` +1 ·
+        ///           `RemoveAttackThisTurn` / `ResetActions` −1）里，**`CancelAttack.c` /
+        ///           `_PrepareAttack` 一个字都不碰**；两个回退入口也**都不在取消路径上**。
+        ///        ⇒ **原版【不回退】，也不该回退**（取消发生在**消耗之前**）——
+        ///          我们的形状（取消早退 ⇒ 那两行没执行）**与原版一致**，⛔ 不要补「回退」。
         ///   · `CardScript__ResolveCancelAttack`（`:1368`）→ `RawCardScript__OnTrigger(0x118, …)`
         ///     （`CardScript__ResolveCancelAttack.c:12-14`）= **把那条能力放出来**。
         ///     我们落在 <see cref="FireTriggerAt"/> 上（与 `landing` 同一条口径）：
@@ -5592,8 +5667,57 @@ namespace RuleEngine
                                                       UnitState attacker, UnitState target)
         {
             if (ctx == null || attacker == null) return false;
-            // 判据 = 原版 `CardScript__HasCancelAttackEffect.c` 的「这条能力在不在」那一半。
-            // ⚠️ 走 `FxOps` / `Effect` 这一对口（全仓唯一一份「卡上原生正文 **或** 运行时挂上去的那份」），
+
+            // ---- 🔴 2026-10-19（第五十五会话 · 账 `A1983`）：**状态闸** ----
+            //  「只有处于『正在攻击』状态才取消得掉」。
+            //  判据 = `CardScript__CancelAttack.c:35`：
+            //    `if (cardState(+0x228) != 3 && != 0x11) { LogWarning; return; }`
+            //  `3` = `inPlayAttacking` · `0x11(17)` = `inPlayAminingAttack`
+            //  （`CardStateOptions` 全表 = `dump.cs:45465-45487`；同一组四个值在
+            //   `CardScript__IsInPlay.c:7-14` 里是「在棋盘上」的判据 —— 本条只要其中**攻击中**那两档）。
+            //  ⚠️ **我们这边的对应物**：`UnitState` 上没有 `cardState` 这一位（没有状态机）。
+            //     但「正在攻击」这一档在本引擎里就等于**这一记 `DeclareAttack` 正在进行**；
+            //     能证伪它的情形 = 攻方**已经不在棋盘上 / 已经死了**（出手前被效果挪走、打死）。
+            //     判别式 = <see cref="IsAttackingOnBoard"/>（**只此一处**）。
+            //  ⚠️ 本闸**排在两个取消通道之前** —— 原版 `CancelAttack.c` 里它就是最先判的一条
+            //     （它上面只有「清 pendingDamage」那一句，而我们没有 pendingDamage 队列）。
+            if (!IsAttackingOnBoard(ctx, attacker))
+            {
+                ctx.Log($"{attacker.Name} 不在「正在攻击」的状态（已不在场上 / 已死）—— "
+                      + "取消攻击**不成立**（原版 `CardScript__CancelAttack.c:35` 的状态闸："
+                      + "`cardState ∉ {inPlayAttacking(3), inPlayAminingAttack(0x11)}` ⇒ 警告并 return）");
+                return false;
+            }
+
+            // ---- ① 原版主通道：**攻方身上的【附魔卡】**（🆕 2026-10-19，`A1567` 建层之后才成立）----
+            //  判据 = `BattleManager__CheckIfAbilityCancelsAttack.c:7` → `CardScript__HasCancelAttackEffect`
+            //  （调用点 `_ResolveAttack_d__438__MoveNext.c:1310`）。逐条见
+            //  `Enchantments.FindCancelAttack` 的 doc。
+            //  ⚠️ 这一支**排在前面**：原版那条更宽的口子 `CardScript__HasCancelAttackAbility.c:17`
+            //     开头就是 `HasCancelAttackEffect`（附魔）→ 再扫自己 `+0x290` 那张能力表。
+            var ench = Enchantments.FindCancelAttack(attacker);
+            if (ench != null)
+            {
+                string tgtName0 = target != null ? target.Name : "原目标";
+                ctx.Log($"{attacker.Name} 身上的附魔「{ench.Card.Name}」先发作 —— "
+                      + $"对{tgtName0}的这一记攻击被**取消**"
+                      + "（原版 `_ResolveAttack…:1310` → `HasCancelAttackEffect` 的第 ① 条通道）");
+                // 原版 `:1368 CardScript__ResolveCancelAttack(攻方, 攻方, 原目标)`
+                //   → `RawCardScript.OnTrigger(0x118, bm, 攻方, 攻方, 原目标, …)`
+                //   ⇒ 跑的是**附魔卡自己那条 ability**（`only = ench`），不是载体自己的。
+                FireTriggerAt(ctx, attacker, KeywordTable.AboutToAttack, p, slot,
+                              chosen: target, subject: null, only: ench);
+                return true;
+            }
+
+            // ---- 语义等价的另一半（2026-10-11 `A1258` 落的，**保留、位置不变**）----
+            //  原版更宽的 `CardScript__HasCancelAttackAbility.c` 在 `HasCancelAttackEffect` 之后
+            //  还要扫攻方自己 `rawCardData.cardAbilities(+0x290)` 里 trigger == 0x118 的那条。
+            //  我们把它落成「攻方自己的关键词路由」（`FxOps` / `Effect` 这一对）。
+            //  ⚠️ **它属于「has ability」那一半、不是原版 ① 的载体** —— 保留的两个理由：
+            //     ① `KeywordTable.AboutToAttack`（`CardDef.cs` 已登记）必须有结算落点；
+            //     ② 顺序与原版一致：**附魔先、自己后**（`HasCancelAttackAbility` 的第一句就是 ①）。
+            //  ⚠️ 走 `FxOps` / `Effect` 这一对口（全仓唯一一份「卡上原生正文 **或** 运行时挂上去的那份」），
             //    ⛔ 别另写 `Card.TriggerOps(...)`（那只看卡面那一份）。
             if (attacker.FxOps(KeywordTable.AboutToAttack) == null
                 && attacker.Effect(KeywordTable.AboutToAttack) == null)
@@ -5602,12 +5726,114 @@ namespace RuleEngine
             string tgtName = target != null ? target.Name : "原目标";
             ctx.Log($"{attacker.Name} 身上的 `AboutToAttack` 能力先发作 —— "
                   + $"对{tgtName}的这一记攻击被**取消**"
-                  + "（原版 `_ResolveAttack…:1310-1368` 的第 ① 条通道）");
+                  + "（`HasCancelAttackAbility` 的「自有 ability」那一半；原版 `_ResolveAttack…:1310-1368`）");
             // 原版 `:1368 CardScript__ResolveCancelAttack(攻方, 攻方, 原目标)`
             //   → `RawCardScript.OnTrigger(0x118, bm, 攻方, 攻方, 原目标, 0, ...)`
             // 我们这一跳只**结算它自己那条正文**；伤害一个字都不发（取消 = 这一记不存在）。
             FireTriggerAt(ctx, attacker, KeywordTable.AboutToAttack, p, slot, chosen: target);
             return true;
+        }
+
+        // ==================================================================
+        //  🆕 2026-10-19（第五十五会话 · 账 `A1819` / `A1985`）：**密令（SecretOrder）的发出点**
+        // ==================================================================
+
+        /// <summary>
+        /// **揭示并执行【一个单位身上】的密令** —— 原版
+        /// `BattleManager._ResolveRevealOrders_d__549.MoveNext`（协程三个状态）的等价物。
+        ///
+        /// **判据（逐跳读过的原版链）**
+        /// ```
+        /// AbilityLogic__PlayAbility.c:2492-2506        // chosenAbility == revealOrder(280) 支
+        ///   → BattleManager__AddRevealOrders.c:32      // 压一条 BattleAction 类型 0x31（每个目标一条）
+        ///   → BattleManager__SpendEnchantment.c        // 同一次 loop 里把该附魔花掉（buffType 15/16 才置位）
+        ///   → [动作队列] ResolveRevealOrders 协程：
+        ///       ① EntityScript__HasSecretOrder(warlord, 那张附魔卡)   // 在 +0x108 里找 IsEnchantment 且
+        ///                                                            // enchantmentCard == 它的那条 CardEffect
+        ///       ② EntityScript__RevealedSecret(...)                  // 把该 CardEffect 的「已揭示」位清掉
+        ///       ③ DisplayRevealedCard → DestroyCard(亮出来那张)      // 演出：亮牌、展示描述、销毁那张展示品
+        ///       ④ if (CardEffect.buffType(+0x38) == 0xf /* 15 singleUse */)
+        ///              BattleManager__RemoveEnchantment(…, 2)
+        ///       ⑤ CemeteryManager__AddExecuteSecretOrderAction(cemetery, warlord, CardEffect.enchantingCard(+0x18))
+        /// ```
+        /// ⇒ **`EvtKind.SecretOrder` 就是 ⑤ 这一行**（`CemeteryManager__AddExecuteSecretOrderAction.c:90`
+        ///   记录里第一个 int = `0x19`；`BattleDriver` 的日志那一支已经写好了，实参取法 = 见下）。
+        ///
+        /// **实参取法**（与 `BattleDriver` 那一支对齐）：`CardId` = **执行密令的主体**（挂着密令的督军）、
+        /// `TargetCardId` = **那张密令**。日志行 = 「{0} 执行 {1}」。
+        /// ⚠️ **原版 `:76` 传进去的是 `CardEffect.enchantingCard(+0x18)`**（= 挂上这份效果那张牌）。
+        ///    在我们的模型里 `ActiveCardEffect` 只存了 `Source`（**字符串**）而没有一张「施放者卡对象」，
+        ///    而 `HasSecretOrder` 认的是 **附魔卡本身** ⇒ 这里发**附魔卡**的名字。
+        ///    两者在「密令 = 挂在督军身上的那张附魔卡」这一档下**同一张**；真有「另一张卡挂的密令」时
+        ///    要按 `Source` 分叉 —— 今天**0 张卡可达**，如实标在这里（⛔ 别当成已核）。
+        ///
+        /// ⚠️ **前置**：这一跳本身**不负责**「谁触发了揭示」—— 原版那一条是
+        /// `AbilityLogic.chosenAbility == revealOrder(280)`。我们引擎的**能力逻辑数据层还没有**
+        /// （`cards_raw.json` 现读 **0 张**卡带 `revealOrder`）⇒ **没有调用点**。本方法是那一跳的**落点**，
+        /// 数据层一通就能接（接口需求写在 `资料/普查产出_1019/E3_报告.md`）。
+        /// </summary>
+        /// <returns>真 = 至少揭示并执行了一件密令。</returns>
+        public static bool RevealSecretOrders(BattleContext ctx, int p, int slot)
+        {
+            if (ctx == null || p < 0 || p > 1) return false;
+            if (!BoardSpec.IsValid(slot)) return false;
+            var host = ctx.Players[p].Board[slot];
+            if (host == null || host.Instance == null) return false;
+
+            var list = Enchantments.SecretOrders(host.Instance);
+            if (list.Count == 0)
+            {
+                // 原版协程 ① 取不到就 `LogWarning` 再收尾（`MoveNext:21-27`）—— 我们同样**出声**
+                //（红线：不许静默失败）。另外把「spellType 未知」的件数如实报出来 ——
+                // 那些**可能**是密令，但我们的卡表还没有 `spellType` 列，判不了（⛔ 不猜）。
+                int unknown = Enchantments.CountUnknownSpellType(host.Instance);
+                ctx.Log($"{host.Name} 身上没有密令（`spellType == 0x3c(60)`）—— 揭示这一跳**没有东西可执行**"
+                      + (unknown > 0 ? $"（另有 {unknown} 件附魔的 spellType 未知，判不出是不是密令）" : ""));
+                return false;
+            }
+
+            bool any = false;
+            foreach (var e in list)
+            {
+                string orderName = e.Card != null ? e.Card.Name : "?";
+                // ② `RevealedSecret`：原版清的是 `CardEffect +0x90`（「已揭示」位）。我们没有这一位
+                //   （揭示是一次性的：下面按 singleUse 摘掉），如实标着。
+                var eff = e.Effect;
+                ctx.Log($"{host.Name} **揭示密令**「{orderName}」并执行"
+                      + "（原版 `ResolveRevealOrders`：DisplayRevealedCard → DestroyCard → 执行）");
+                // ④ 只有 `buffType == 15 (singleUse)` 才摘（`MoveNext:71-73` 那个 `== 0xf` 闸）
+                if (eff != null && eff.BuffType == Enchantments.BuffTypeSingleUse)
+                    Enchantments.Remove(ctx, host.Instance, eff);
+                // ⑤ 记一行 `AddExecuteSecretOrderAction` —— 这就是 `EvtKind.SecretOrder` 的发出点
+                ctx.Emit(EvtKind.SecretOrder, p, slot, host.Name, targetCardId: orderName,
+                         instanceId: host.InstanceId);
+                any = true;
+            }
+            return any;
+        }
+
+        // ==================================================================
+        //  🆕 2026-10-19（第五十五会话 · `A1567` 第⑤格）：**开局附魔**
+        // ==================================================================
+
+        /// <summary>
+        /// **开局那一步**（原版 `BattleManager.ShouldActivatInitialEnchantments` +
+        /// `BattleManager.SetupWarlordsLifeAndEnchantment` 的对应物）。
+        ///
+        /// 🔴 **原版这两跳做的【不是】「给谁挂附魔」**（逐行读过）：
+        ///   · `ShouldActivatInitialEnchantments.c` 只在**战役关卡 id ∈ {0x32(50), 0x50(80)}** 时为真；
+        ///   · 为真时 `SetupWarlordsLifeAndEnchantment.c` 读关卡数据的五个整数、调
+        ///     `CardScript.ForceChangeMaxHealth` —— 改的是**督军最大生命**，**不碰 `+0x110`**。
+        /// ⇒ 自由对战 / 遭遇战恒假；我们的引擎**没有战役关卡数据**（`GameplayVariables` 里没有这几个字段）
+        ///   ⇒ 这一步**没有输入**（`Enchantments.SetupInitial` 因此返回 `false` 且**不出声**）。
+        /// ⚠️ **为什么仍然留一个调用点**：它是「五个入口」里的第 ⑤ 格，**存在**才谈得上完整；
+        ///   将来接战役数据时从这里进（⛔ 别在别处另开一条「开局挂附魔」的路 —— 两处写同一条规则迟早不一致）。
+        /// ⚠️ 今天它**不改变任何现有行为**（不挂东西、不打日志），对局指纹逐字节不变。
+        /// </summary>
+        public static void SetupInitialEnchantments(BattleContext ctx)
+        {
+            if (Enchantments.SetupInitial(ctx))
+                ctx.Log("开局：战役关卡声明了初始附魔 —— 已按关卡数据挂上");
         }
 
         /// <summary>
@@ -6428,12 +6654,15 @@ namespace RuleEngine
         }
 
         /// <summary>按「单位 → 它在谁的第几格」发一条事件（不在场上就带 -1 的格位，表现层会跳过）。
-        /// **返回它归谁**（`-1` = 不在场上）—— 调用方常要拿它再发一条，别再自己找一遍（判据只有一处）。</summary>
+        /// **返回它归谁**（`-1` = 不在场上）—— 调用方常要拿它再发一条，别再自己找一遍（判据只有一处）。
+        /// 🆕 2026-10-19：**实例号在这一处统一填**（`BattleEvent.InstanceId` = `u.Instance.Id`）——
+        /// 这是「单位相关事件带稳定身份」的唯一默认口（其它直接 `ctx.Emit` 的落点各自显式传）。</summary>
         static int EmitUnit(BattleContext ctx, EvtKind kind, UnitState u, int amount, string effect = null)
         {
             int owner, slot;
             FindUnit(ctx, u, out owner, out slot);
-            ctx.Emit(kind, owner, slot, u != null ? u.Name : null, amount: amount, effect: effect);
+            ctx.Emit(kind, owner, slot, u != null ? u.Name : null, amount: amount, effect: effect,
+                     instanceId: u != null ? u.InstanceId : 0);
             return owner;
         }
 
@@ -6760,7 +6989,7 @@ namespace RuleEngine
             if (u.IsWarlord)
             {
                 ctx.Log($"{ps.Name} 的督军 {u.Name} 倒下");
-                ctx.Emit(EvtKind.Death, p, slot, u.Name);
+                ctx.Emit(EvtKind.Death, p, slot, u.Name, instanceId: u.InstanceId);
                 return;
             }
 
@@ -6776,7 +7005,7 @@ namespace RuleEngine
                 BoardSlots.RemoveAt(ps, slot);
                 ps.Discard.Add(u.Instance);      // 第 7 行第 2 步：进弃牌堆的是**那一份**（残骸本来就是它）
                 ctx.DeadUnits.Add(new DeadUnit { Card = u.Card, Owner = p, DeathTurn = ctx.Turn });
-                ctx.Emit(EvtKind.Death, p, slot, u.Name);
+                ctx.Emit(EvtKind.Death, p, slot, u.Name, instanceId: u.InstanceId);
                 ctx.Log($"残骸 {u.Name} 被摧毁，那张卡进弃牌堆");
                 // 🔴 **A7 光环重算 —— 这里必须自己调一次**（2026-09-19 补，由
                 //    `资料/普查产出_0919/光环写入点_钩子对账.md` 逐处对账查出来的唯一一个洞）。
@@ -6882,7 +7111,7 @@ namespace RuleEngine
                 leftPlay = true;
             }
             // 先发 Death 再结算反噬：表现层要**趁格位还有意义的时候**播阵亡特效
-            ctx.Emit(EvtKind.Death, p, slot, u.Name);
+            ctx.Emit(EvtKind.Death, p, slot, u.Name, instanceId: u.InstanceId);
             // 🔴 **2026-10-18（`A962` ③ · 调度台裁定）：这一跳是【我们表现层的】，原位不动。**
             //    ⚠️ **原版没有对应物** —— 原版的「死亡广播」是
             //    `BattleManagerSupport__BroadcastDeadUnit`（它遍历**场上每一张牌**各调一次
@@ -7700,7 +7929,8 @@ namespace RuleEngine
                      keyword: KeywordTable.Ability, effect: spec.Source, amount: spec.Amount,
                      targetPlayer: chosen != null ? 1 - p : -1,
                      targetSlot:   chosen != null ? targetSlot : -1,
-                     targetCardId: chosen != null ? chosen.Name : null);
+                     targetCardId: chosen != null ? chosen.Name : null,
+                     instanceId: u.InstanceId);
             ctx.Log($"{ctx.Players[p].Name} 的 {u.Name} 发动技能「{spec.Source}」");
 
             // ⚠️ **2026-09-13 A2 更正**：这里原来还发一条 `When a friendly unit prays`（`Prays`）——
@@ -7855,7 +8085,8 @@ namespace RuleEngine
 
             // ---- 到这里 = **付费成功、正文也跑过了** ⇒ 现在才宣布「能力发动了」----
             ctx.Emit(EvtKind.Ability, p, slot, u.Name,
-                     keyword: "oath", effect: "Oath " + u.Card.OathCost, amount: u.Card.OathCost);
+                     keyword: "oath", effect: "Oath " + u.Card.OathCost, amount: u.Card.OathCost,
+                     instanceId: u.InstanceId);
             ctx.Log($"{ctx.Players[p].Name} 的 {u.Name} 激活誓约能力（Oath {u.Card.OathCost}）");
 
             u.OathUsesThisTurn++;
@@ -8096,7 +8327,8 @@ namespace RuleEngine
                      amount: 0,
                      targetPlayer: chosen != null ? (pickedEnemySide ? 1 - p : p) : -1,
                      targetSlot:   chosen != null ? targetSlot : -1,
-                     targetCardId: chosen != null ? chosen.Name : null);
+                     targetCardId: chosen != null ? chosen.Name : null,
+                     instanceId: u.InstanceId);
             // 「正在祈祷」= **状态**，真值区间 = 「**祈祷那一刻**」→「**下一个回合开始（不分敌我）**」
             //   或 「**自己挨一次伤害**」，**以先到者为准**
             //   ✅ **2026-10-14（账 `A1155②`）时长【已核】—— 原来这一行写的是「一直挂到
@@ -8168,7 +8400,8 @@ namespace RuleEngine
                     ctx.Log($"{u.Name} 的狂暴结算完 —— **洗回牌库**");
                     // ⚠️ 发 `Return`（「离开格位但不是阵亡」）而不是 `Death` —— 表现层据此播
                     //    「回手/回牌库」那套，不会误播阵亡消散
-                    ctx.Emit(new BattleEvent { Kind = EvtKind.Return, Player = p, Slot = slot, CardId = u.Name });
+                    ctx.Emit(new BattleEvent { Kind = EvtKind.Return, Player = p, Slot = slot, CardId = u.Name,
+                                               InstanceId = u.InstanceId });
                 }
             }
 
@@ -8279,9 +8512,22 @@ namespace RuleEngine
             ps.SpiritStones += WaystoneGiveMana;
             ctx.Log($"{ps.Name} 收集了 {u.Name} 留下的灵魂石 → 灵魂石 +{WaystoneGiveMana}"
                   + $"（现 {ps.SpiritStones}）");
+
+            // 🔴 **2026-10-19（第五十五会话 · 续工；判据 → `资料/普查产出_1019/E8_报告.md` §五·1）：
+            //    **事件层广播**（= 原版 `BroadcastCollectedSpiritStone` / `CollectSpiritStoneSignal` 那一跳）。
+            //    ⚠️ **下面那两个 `ctx.Signals.Add` 不能顶替它** —— 那只喂**表现层**（放特效/飘字），
+            //      和事件层是两条完全不同的通道（与 `EffectResolver.DoGain` 里那段注释同一条教训）。
+            //    漏了它的实测后果：卡面写 `When you collect a Spirit Stone, …` 的那 4 张灵族单位
+            //    **注册的是永远不响的监听器**（自检 `收路标石（collect）` 那一对红）。
+            //    ⚠️ 参数照 `DoGain` 同形：`who` = **获得资源的那一方**、`card`/`subject` 传 `null`
+            //      （玩家级事件，没有具体单位）；`OwnerIs=RelFriendly` 的监听者靠 `who` 对上。
+            //    ⚠️ 位置：**加完石头之后、销毁残骸之前**（原版也是先广播再 `DestroyUnit`）。
+            BroadcastWhen(ctx, WhenEventKind.GainSpirit, p, null, null);
+
             // ① 玩家资源那一条 —— **`Slot` 按 `GainFaith` 那族的约定写 -1**（那条链上三个事件
             //    都是「给玩家的、不属于任何格位」，见 `BattleEvent.GainFaith` 的注释）。
-            //    卡面 `When you collect a Spirit Stone, …`（4 张灵族单位）认的是它。
+            //    ⚠️ **它是表现层事件**（`Signals`）；卡面 `When you collect a Spirit Stone, …`
+            //      认的是**上面那一行 `BroadcastWhen`**，不是这一条（2026-10-19 就地订正，见上）。
             ctx.Signals.Add(new BattleEvent
             {
                 Kind = EvtKind.GainSpirit, Player = p, Slot = -1, Amount = WaystoneGiveMana,
@@ -8293,6 +8539,7 @@ namespace RuleEngine
             {
                 Kind = EvtKind.CollectWaystone, Player = p, Slot = slot, CardId = u.Name,
                 Amount = WaystoneGiveMana, Effect = "收集路标石", Turn = ctx.Turn,
+                InstanceId = u.InstanceId,
             });
 
             // 石头被收走 ⇒ 那具残骸没了。走**正常那条「残骸被摧毁」**的路（`CleanupDeaths` 里
@@ -8336,7 +8583,8 @@ namespace RuleEngine
             // 格位**显式传**（`UnitState` 上没有格位字段 —— 与 `FireTriggerAt` 同一个理由：
             // 表现层要按「这一刻这一格」去反查视图）
             ctx.Emit(EvtKind.Trigger, p, slot, u.Name,
-                     keyword: KeywordTable.BloodThirst, effect: null, amount: 0);
+                     keyword: KeywordTable.BloodThirst, effect: null, amount: 0,
+                     instanceId: u.InstanceId);
             // 🔴 **2026-10-21（`A1356`）：补上缺的那半边 —— 「关键词被触发」广播。**
             //   本处原来是**只有事件、没有广播**（`EmitBloodThirst` 自己 `ctx.Emit` 了
             //   `EvtKind.Trigger`，而 `When … triggers BloodThirst` 那一族监听器**一次都不会被叫醒**）
@@ -8386,13 +8634,24 @@ namespace RuleEngine
         /// </param>
         static bool FireTriggerAt(BattleContext ctx, UnitState u, string keyword,
                                   int owner, int slot, UnitState chosen = null,
-                                  UnitState subject = null)
+                                  UnitState subject = null, ActiveEnchantment only = null)
         {
+            // 🆕 2026-10-19（第五十五会话 · `A1567`）：`only != null` = **只结算这一件附魔卡上的这条能力**。
+            //   「取消攻击」第 ① 条通道的 `ResolveCancelAttack` 那一跳用它 —— 原版
+            //   `CardScript__ResolveCancelAttack.c:12-14` → `RawCardScript.OnTrigger(0x118, …)` 发的是
+            //   **附魔卡自己的 ability**，不是载体自己的。
             // `FxOps` = 卡上原生的正文 **或** 运行时挂上去的那份（二选一，全仓只此一处判据）
-            var ops = u != null ? u.FxOps(keyword) : null;
-            var spec = u != null ? u.Effect(keyword) : null;
+            var ops = only != null ? only.Card.TriggerOps(keyword)
+                                   : (u != null ? u.FxOps(keyword) : null);
+            var spec = only != null ? only.Card.Effect(keyword)
+                                    : (u != null ? u.Effect(keyword) : null);
+            // 🆕 2026-10-19（`A1567`）**附魔卡的能力参与派发** —— 原版
+            //   `RawCardScript__TriggerAbilities.c:50-88` 把 `activeEnchantments(+0x110)` 里每个附魔的
+            //   `cardAbilities(+0x290)` 一起算进来（`GetAbilitiesForTrigger(thisCard, trigger, true)`）。
+            //   只在「这一趟是载体自己那条触发」时扫（`only == null`），否则会无限递归。
+            var ench = (only == null && Enchantments.HasAny(u)) ? Enchantments.Matching(u, keyword) : null;
             // 没写效果 = 不触发（不是「触发了但没效果」）—— 卡上没这条就不该有反馈
-            if (ops == null && spec == null) return false;
+            if (ops == null && spec == null && (ench == null || ench.Count == 0)) return false;
 
             // 递归保护：Rally 打死人 → 反噬 → 又打到带忏悔的单位 → …… 这类环**天生存在**
             // （规则书 :237「同时触发」那一节讲的就是它），靠深度上限截断
@@ -8404,13 +8663,20 @@ namespace RuleEngine
 
             // 日志/事件要的那句话：① 有 op 就用**原文**（卡上原生的，没有就用**挂上去的那份原文**），
             // ② 否则用封闭文法那条的原文
-            string what = ops != null ? (u.Card.TriggerText(keyword) ?? u.GrantedText(keyword)) : spec.Source;
+            // 🆕 2026-10-19（`A1567`）：`only != null` 时原文取自**附魔卡**。
+            string what = ops != null
+                        ? (only != null ? only.Card.TriggerText(keyword)
+                                        : (u.Card.TriggerText(keyword) ?? u.GrantedText(keyword)))
+                        : spec.Source;
 
             // 事件先发：表现层要的是「这一刻、这一格，有个触发发生了」，
             // 效果成不成立（比如对面场上没人可打）是另一回事
             ctx.Emit(EvtKind.Trigger, owner, slot, u.Name,
-                     keyword: keyword, effect: what, amount: ops != null ? 0 : spec.Amount);
-            ctx.Log($"{u.Name} 触发 {keyword.ToUpperInvariant()}：「{what}」");
+                     keyword: keyword, effect: what, amount: ops != null ? 0 : spec.Amount,
+                     instanceId: u.InstanceId);
+            ctx.Log(only != null
+                    ? $"{u.Name} 身上的附魔「{only.Card.Name}」触发 {keyword.ToUpperInvariant()}：「{what}」"
+                    : $"{u.Name} 触发 {keyword.ToUpperInvariant()}：「{what}」");
 
             ctx.EffectChain++;
             if (ops != null) ResolveOps(ctx, owner, u, ops, keyword.ToUpperInvariant());
@@ -8448,8 +8714,22 @@ namespace RuleEngine
             //    （= 原版 `OnTrigger` 的 `actingCard`），**默认就是 `u` 自己**；
             //    只有虫群合并那一处两者不是同一个单位（判据见 `FireTriggerAt` 的
             //    `<param name="subject">` 与 `TrySwarmMerge` 尾部）。
-            if (u != null && u.Card != null)
+            //    🔴 **2026-10-19（`A1567`）：这一跳只在「载体自己那条触发」这一趟发** ——
+            //    它广播的是**机制触发了一次**（原版 `BroadcastUnitMob` 那个位置），
+            //    不是「一条 ability 跑了一次」⇒ 附魔卡那几条能力**不再各发一次**
+            //    （`only != null` 那一趟跳过；否则听众会被 N+1 倍唤醒）。
+            if (only == null && u != null && u.Card != null)
                 BroadcastWhen(ctx, WhenEventKind.Triggers(keyword), owner, u.Card, subject ?? u);
+
+            // ---- 🆕 2026-10-19（`A1567`）：**附魔卡的能力与载体自己的触发走同一条派发** ----
+            //  判据 = `RawCardScript__TriggerAbilities.c:50-88`（`includeEnchantments: true`）。
+            //  ⚠️ 顺序：**载体自己的先跑、附魔的按挂载顺序随后**（原版那条 list 的遍历次序；
+            //     今天 0 张卡可达 ⇒ 这条次序没有实况可对，如实标着）。
+            //  ⚠️ `chosen` / `subject` 原样传下去 —— 附魔能力与载体那条讲的是同一件事
+            //     （同一个 `OnTrigger` 的 `actingCard` / `targetCard`）。
+            if (ench != null)
+                for (int i = 0; i < ench.Count; i++)
+                    FireTriggerAt(ctx, u, keyword, owner, slot, chosen, subject, ench[i]);
 
             return true;
         }
@@ -8486,10 +8766,15 @@ namespace RuleEngine
         static void FireTriggerAlways(BattleContext ctx, UnitState u, string keyword,
                                       int owner, int slot, UnitState subject = null)
         {
-            if (u != null && u.FxOps(keyword) == null && u.Effect(keyword) == null)
+            // 🆕 2026-10-19（`A1567`）：**附魔卡上有这条触发正文时也算「有正文」** ——
+            //   原版那条 `TriggerAbilities(includeEnchantments: true)` 的语义（否则「载体自己没写、
+            //   但身上那张附魔写了」这一档会被误判成「没正文」⇒ 只发事件、不结算 = 静默）。
+            if (u != null && u.FxOps(keyword) == null && u.Effect(keyword) == null
+                && !(Enchantments.HasAny(u) && Enchantments.Matching(u, keyword).Count > 0))
             {
                 ctx.Emit(EvtKind.Trigger, owner, slot, u.Name,
-                         keyword: keyword, effect: null, amount: 0);
+                         keyword: keyword, effect: null, amount: 0,
+                         instanceId: u.InstanceId);
                 // ⚠️ **`When … triggers <kw>` 那一族监听器也要照发**：`FireTriggerAt` 有正文时
                 //    在尾部广播它们，没正文那一条路原本**连广播都没有**（`TrySwarmMerge` 的注释里
                 //    记着同一个缺口）⇒ 不补的话「没有正文但有系统触发的词」会静默漏掉听众。
@@ -8691,12 +8976,28 @@ namespace RuleEngine
         /// </summary>
         static void UnstableBlast(BattleContext ctx)
         {
+            // 🔴 **2026-10-19（第五十五会话 E10 · `E9` §五·2 的新账）：目标池的排除条件**。
+            //    原版每一张 Unstable 能力的 `targetCriteria` 都带
+            //    `conditionsFilter = 220` + `excludeCondition = 1`
+            //    （`cards_raw.json` 的 `GOF56` ability0 / `GOF10` 等同族；109 条实例）。
+            //    `UnitConditions.dealtKillDmg = 220`（`d:/2/tools/il2cpp_out/dump.cs:20748`）这个名字
+            //    **会读成「本回合造成过击杀伤害」—— 那是错的**（`E9` 报告当时就是这么记的，就地订正）：
+            //    真身 = `FilterMethods__MeetsConditionCriteria.c:253-257` 的 `param_2 == 0xdc` 支
+            //    → `CardScript__EnoughPendingDamageToDie(card)`（`CardScript__EnoughPendingDamageToDie.c`：
+            //       `cardState == 5`（将死）⇒ 1；否则「血 ≤ 0 且没有幸存者」⇒ 1；有待处理伤害时按
+            //       `EnoughPendingDamageToDieWithDamageValues` 判）⇒ 语义 = **「这条命已经救不回来了」**。
+            //    `excludeCondition = 1` ⇒ 随机目标池**排除那些已经注定要死的单位**（别把这一炸浪费在
+            //    一具还没离场的尸体上）。⇒ 我们的等价判据就是 **`!EnoughPendingDamageToDie(u)`**
+            //    （全仓唯一判死闸，⛔ 别在这儿写 `Health <= 0`）。
+            //    ⚠️ 与原来的 `t.IsAlive` 只差一档：**血 ≤ 0 但带 `Survivor`（幸存者）**的单位 ——
+            //       原版认为它**还活着**（可被选中），`IsAlive` 会把它排掉。我们的伤害是同步结算的，
+            //       所以「血 > 0 却已注定要死」这一档在本地模型里不存在，不用另建账。
             var cands = new List<int>();      // 编码成 owner * Size + slot，省一个元组类型
             for (int q = 0; q < 2; q++)
                 for (int s = 0; s < BoardSpec.Size; s++)
                 {
                     var t = ctx.Players[q].Board[s];
-                    if (t != null && t.IsAlive) cands.Add(q * BoardSpec.Size + s);
+                    if (t != null && !EnoughPendingDamageToDie(t)) cands.Add(q * BoardSpec.Size + s);
                 }
             if (cands.Count == 0) return;
 
@@ -8793,7 +9094,14 @@ namespace RuleEngine
                 if (u.Card.TalentName == null) continue;
 
                 // ① 天赋名就是**一张卡的名字**（`Talent: Author of the Codex`）
-                var c = CreatePool.FindByName(ctx.CardPool, u.Card.TalentName);
+                // 🔴 **2026-10-19（第五十五会话 · `E12` · `A2142`）：先查「天赋名 → id」真值表** ——
+                //    `CreatePool.FindByName` 是**按显示名全等**查，卡一改名（官方显示名那条线）
+                //    就静默失配。真值表把原版的**对象引用**翻成 id（判据 = `CardScript__GetTalentCard.c`，
+                //    生成器 = `gen_cards_engine.py` 的 `build_talent_name_ids`）⇒ 命中就是**按 id 取**。
+                //    ⚠️ 表里没有这个名字才退回老路（新卡 / 真值快照里没这张）。
+                var c = TalentCardData.ResolveByTalentName(ctx.CardPool, u.Card.TalentName);
+                bool fromTruthName = c != null;
+                if (c == null) c = CreatePool.FindByName(ctx.CardPool, u.Card.TalentName);
                 bool fromPool = false;
                 if (c == null)
                 {
@@ -8812,7 +9120,9 @@ namespace RuleEngine
                 ps.Hand.Add(talent);
                 SetupCardInHand(ctx, side, talent);   // 🆕 `A885` ②（天赋卡是战术 ⇒ 今天恒空过，机制留着）
                 made++;
-                ctx.Log($"{ps.Name} 的「{u.Name}」天赋{(fromPool ? "是池子 ⇒ **抽到**" : "生成了")}「{c.Name}」（临时卡）");
+                ctx.Log($"{ps.Name} 的「{u.Name}」天赋"
+                      + (fromPool ? "是池子 ⇒ **抽到**" : (fromTruthName ? "（真值名表 → id）生成了" : "生成了"))
+                      + $"「{c.Name}」（临时卡）");
             }
             if (made > 0) EnforceHandLimit(ctx, side);
         }

@@ -226,6 +226,12 @@ namespace CardPresentation
             //   0 处输入**（现数），不为它单独开门；`RewriteMarks` 内部那一支照旧按原版实现并带「图不在就留着」的闸。
             if (HasOfficialMarks(text)) return RewriteMarks(text, field == DescZhField);
 
+            // 🆕 2026-10-19（`A2140`）：**信仰费写成裸词的** —— `N Energy:` / `N 能量：`
+            //   卡面真印的是 `N〔金太阳〕:`（**数字留着、词换成图标**）。
+            //   这一条必须在按卡表**之前**跑：它不吃 `card_icon_plan` 的条目，只按句法定位。
+            //   判据与「为什么只认冒号」写在 <see cref="RewriteFaithCost"/> 的 doc 里。
+            text = RewriteFaithCost(text, field == DescZhField);
+
             if (string.IsNullOrEmpty(cardId)) return text;
             LoadPlan();
 
@@ -394,6 +400,68 @@ namespace CardPresentation
                 s = s.Replace(it.token, tag);
             }
             return s;
+        }
+
+        // ── 🆕 2026-10-19（`A2140`）：**信仰费的裸词 → 信仰图标** ─────────────────────────────
+        //
+        // **问题**：两张卡的 `desc`/`descZh` 把信仰费写成了裸词 ——
+        //   · `f104d4c21abe84546abc9365d9eda8dd Righteous Repugnance`：`… 4 Energy: Give +2 …` /
+        //     `… 4 能量：改为给予 …`
+        //   · `SOR44 Moment of Grace`：`…\n5 Energy: Draw a card`（中文那半已经是 `5 ☀：`，走计划表）
+        //   而卡面印的是 **`4〔金太阳〕:`**、**没有 `Energy` 这个词**。
+        //
+        // **判据（逐条带出处）**：
+        //   ① PnP 成品卡 `D:/2/Warpforge部队卡片/Sorotitas/2天赋/Warpforge_06_Righteous-Repugnance.png`
+        //      亲读：`4 〔金太阳〕: Give +2〔拳〕 and +2〔枪〕 instead and Heal them 1`（**词不在**）。
+        //      同族 `…/4计策/Warpforge_47_Moment-of-Grace.png`：`5 〔金太阳〕: Draw a card`。
+        //   ② 官方表 `数据/游戏数据/官方本地化_en+zh-CN.json`：
+        //      `Card_Description/f104…` = `… ((Faith_cost_x,4)): Give ((Melee_attack_icon_x,+2)) …`、
+        //      `Card_Description/SOR44` = `… ((Faith_cost_x,5)): ((Draw_a_card))`；
+        //      `Modular_Description/Faith_cost_x` = `<nobr><b>{0}<link=faith><sprite name=Atlas_trait_icon_faith></b></nobr></link>`
+        //      ⇒ **数字 + 信仰图标**、没有词。（图标名在运行时 sprite asset 里就是 `faith`。）
+        //
+        // **为什么写成句法规则、而不是再往 `card_icon_plan` 加两条按卡条目**：
+        //   · 计划表**表达不了**「把词换成图标」—— 它的裸词分支是「图标 + **留着词**」（见 `Rewrite`
+        //     里那条 `bare` 分支的注释），写进去会印成 `4 〔太阳〕Energy:`，比现在更错；
+        //   · 这条句法本身有判别力：**只有「数字 + Energy/能量 + 冒号」才是【费用】**。
+        //     全池另 6 处 `Refill 1 Energy` / `Gain 1 Energy` / `refill 2 Energy`（DA61/GSC63/SOR31/
+        //     UM45/UM32）都是**资源动作**、卡面印的就是词，**不许**被这条吃。
+        //     ⇒ 冒号是判据的一部分，⛔ 别把 `(?=\s*:)` 放宽掉。
+        //   · 影响面（现读 `cards_engine.json` `count=1127`）：EN 命中 **2 张**（就是这两张）、
+        //     ZH 命中 **1 张**（`f104…`；`SOR44` 中文写 `☀` 已由计划表处理）。
+        //
+        // **幂等**：替换后那个词没了 ⇒ 第二遍 `IsMatch` 为 false。**`desc` 一个字节都不动** ——
+        //   本函数只改【渲染出来的串】，`CardDef.Desc` 原样（引擎唯一解析输入）。
+        // **与 `A1945` 的关系**：官方文本一旦当上显示源，带的是 `((...))` 记号 ⇒ 在 `Rewrite` 开头
+        //   就被 `HasOfficialMarks` 分流走、**根本到不了这里**（不会画两遍）。
+        static readonly System.Text.RegularExpressions.Regex _rxFaithCostEn =
+            new System.Text.RegularExpressions.Regex(@"[0-9]\s*Energy(?=\s*:)",
+                System.Text.RegularExpressions.RegexOptions.Compiled);
+        static readonly System.Text.RegularExpressions.Regex _rxFaithCostZh =
+            new System.Text.RegularExpressions.Regex(@"[0-9]\s*能量(?=\s*[：:])",
+                System.Text.RegularExpressions.RegexOptions.Compiled);
+
+        /// <summary>把 `<c>N Energy:</c>` / `<c>N 能量：</c>` 里的**词**换成信仰图标（数字保留）。
+        /// 见上面那一段的判据；没有匹配时**原样返回**（零拷贝路径）。</summary>
+        static string RewriteFaithCost(string text, bool zh)
+        {
+            var rx = zh ? _rxFaithCostZh : _rxFaithCostEn;
+            if (text.IndexOf(zh ? "能量" : "Energy", System.StringComparison.Ordinal) < 0) return text;
+            if (!rx.IsMatch(text)) return text;
+
+            string spriteTag = "<sprite name=\"faith\">";
+            string linkId = Badges.KeyOf("faith");
+            string tag = string.IsNullOrEmpty(linkId)
+                       ? spriteTag
+                       : "<link=" + linkId + ">" + spriteTag + "</link>";
+            // 用 MatchEvaluator 而不是替换串：`tag` 里有 `<`/`"`，也不让 `$` 有机会被当分组引用。
+            // 匹配到的是「数字 + 空白 + 词」⇒ 去掉词、**数字与空白逐字保留**。
+            return rx.Replace(text, m =>
+            {
+                string v = m.Value;
+                int cut = v.Length - (zh ? 2 : 6);   // 「能量」2 个字符 / "Energy" 6 个
+                return v.Substring(0, cut) + tag;
+            });
         }
 
         // ==========================================================================================

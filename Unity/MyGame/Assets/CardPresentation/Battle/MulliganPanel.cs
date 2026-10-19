@@ -252,6 +252,15 @@ namespace CardPresentation
         /// 由 `SetTurnText` 记下、`SetVisible(true)` 再写一遍 —— 见 `ApplyTurnText` 的注释。</summary>
         bool _turnSecond;
         readonly List<HudPiece> _cardBtns = new List<HudPiece>();
+
+        // ================= 🆕 2026-10-19（B4 · `N70` P0-2）：换牌面板的按钮反馈 =================
+        // 判据（原版 `battlearena1` 实读）：
+        //   · `Continue Button`（完成换牌那条底）= **t=1 ColorTint**（默认灰）
+        //   · `HideMulliganButton`（眼睛）= **t=2 SpriteSwap**：`40k_UI_bt_eye_hover/_pressed`
+        //   · 每张牌那颗「替换」钮 = **t=2 SpriteSwap**：`UI_Button_Mulligan_hover/_Pressed`
+        //     ⚠️ 它的 **Normal 随「已标记」变**（`UI_Button_Mulligan` ↔ `_Pressed`）⇒ 用 `SetNormal` 同步。
+        BattleButtonFx _fxBar, _fxEye;
+        readonly List<BattleButtonFx> _fxCardBtns = new List<BattleButtonFx>();
         readonly List<Label> _cardTexts = new List<Label>();
         readonly List<CardView> _cards = new List<CardView>();
         /// <summary>🔴 **2026-10-13**：那几张牌**搬进换牌区之前**的位姿（`Open` 时存、`ClearCardButtons` 还）。
@@ -890,8 +899,79 @@ namespace CardPresentation
                     SetScriptFont(t, btnText, 28f);           // 语种定字号（英文档不再大 39%）
                 _cardTexts.Add(t);
             }
+            BuildFeedback();
         }
 
+        /// <summary>🆕 2026-10-19（B4 · `N70` P0-2）：建/重建按钮反馈（跟着 `_cardBtns` 一起重建）。</summary>
+        void BuildFeedback()
+        {
+            _fxBar = BattleButtonFx.Tint(_bar, "Continue Button");
+            var eh = CardArt.MenuUi("40k_UI_bt_eye_hover");
+            var ep = CardArt.MenuUi("40k_UI_bt_eye_pressed");
+            _fxEye = (eh != null && ep != null)
+                   ? BattleButtonFx.Swap(_eye, "HideMulliganButton", _eye != null ? _eye.Texture as Texture2D : null, eh, ep)
+                   : BattleButtonFx.Tint(_eye, "HideMulliganButton(tint-fallback)");
+            _fxCardBtns.Clear();
+            var mh = CardArt.Ui("UI_Button_Mulligan_hover");
+            var mp = CardArt.Ui("UI_Button_Mulligan_Pressed");
+            for (int i = 0; i < _cardBtns.Count; i++)
+            {
+                var q = _cardBtns[i];
+                var fx = (mh != null && mp != null)
+                       ? BattleButtonFx.Swap(q, "MulliganCardBtn_" + i,
+                                             _marked.Contains(i) ? mp : CardArt.Ui("UI_Button_Mulligan"), mh, mp)
+                       : BattleButtonFx.Tint(q, "MulliganCardBtn_" + i + "(tint-fallback)");
+                _fxCardBtns.Add(fx);
+            }
+        }
+
+        /// <summary>每帧喂状态（驱动层 `HandleMulligan` 里调）。</summary>
+        public void TickFeedback(Vector3 world, bool held)
+        {
+            if (!Visible) { ResetFeedback(); return; }
+            if (_fxBar == null) BuildFeedback();
+            bool overDone = HitDone(world);
+            FeedFx(_fxBar, overDone, held);
+            FeedFx(_fxEye, HitEye(world), held);
+            for (int i = 0; i < _fxCardBtns.Count && i < _cardBtns.Count; i++)
+                FeedFx(_fxCardBtns[i], _cardBtns[i] != null && _cardBtns[i].Contains(world), held);
+        }
+        void ResetFeedback()
+        {
+            FeedFx(_fxBar, false, false); FeedFx(_fxEye, false, false);
+            for (int i = 0; i < _fxCardBtns.Count; i++) FeedFx(_fxCardBtns[i], false, false);
+        }
+        static void FeedFx(BattleButtonFx fx, bool over, bool held)
+        {
+            if (fx == null) return;
+            fx.SetHover(over); fx.SetPressed(over && held); fx.Tick();
+        }
+        /// <summary>自检口：直接喂一颗钮（`"done"` / `"eye"` / `"card0"` …）。</summary>
+        public void SimulateFeedback(string node, bool hover, bool pressed)
+        {
+            if (_fxBar == null) BuildFeedback();
+            BattleButtonFx fx = node == "done" ? _fxBar : node == "eye" ? _fxEye
+                             : node.StartsWith("card") && _fxCardBtns.Count > 0
+                               ? _fxCardBtns[Mathf.Clamp(int.Parse(node.Substring(4)), 0, _fxCardBtns.Count - 1)]
+                               : null;
+            if (fx == null) return;
+            fx.SetHover(hover); fx.SetPressed(pressed);
+        }
+        public Color FeedbackKeyForTest(string node)
+        {
+            if (_fxBar == null) BuildFeedback();
+            BattleButtonFx fx = node == "done" ? _fxBar : node == "eye" ? _fxEye : null;
+            return fx != null ? fx.KeyForTest : Color.clear;
+        }
+        public string FeedbackTextureForTest(string node)
+        {
+            if (_fxBar == null) BuildFeedback();
+            BattleButtonFx fx = node == "eye" ? _fxEye
+                             : node != null && node.StartsWith("card") && _fxCardBtns.Count > 0
+                               ? _fxCardBtns[Mathf.Clamp(int.Parse(node.Substring(4)), 0, _fxCardBtns.Count - 1)]
+                               : null;
+            return fx != null ? fx.TextureNameForTest : null;
+        }
 
         void ClearCardButtons()
         {
@@ -899,6 +979,7 @@ namespace CardPresentation
             for (int i = 0; i < _cardTexts.Count; i++) if (_cardTexts[i] != null) Kill(_cardTexts[i].gameObject);
             _cardBtns.Clear();
             _cardTexts.Clear();
+            _fxCardBtns.Clear();
 
             // 🔴 **2026-10-13**：把起手牌**放回搬进来之前**的位姿（`Open` 存、这里还）。
             //   ⛔ **别依赖换牌结束后的 `RefreshAll()` 替我们复位** —— 它重摆的是 `_dealt`
@@ -1049,6 +1130,9 @@ namespace CardPresentation
                 c.SetHighlight(m ? CardHighlightState.Unplayable : CardHighlightState.Normal);
                 if (i < _cardBtns.Count && _cardBtns[i] != null)
                     _cardBtns[i].SetTexture(CardArt.Ui(m ? "UI_Button_Mulligan_Pressed" : "UI_Button_Mulligan"));
+                // 反馈的 Normal 跟着换（否则指针一离开就把「按下图」换回未标记那张）
+                if (i < _fxCardBtns.Count && _fxCardBtns[i] != null)
+                    _fxCardBtns[i].SetNormal(CardArt.Ui(m ? "UI_Button_Mulligan_Pressed" : "UI_Button_Mulligan"));
                 // 🆕 2026-10-18（第十三轮 · G2b）：**字跟着档走**（原版三处都是点一下就把 term 重设一遍）
                 if (i < _cardTexts.Count && _cardTexts[i] != null)
                     _cardTexts[i].SetText(CardBtnWord(m));

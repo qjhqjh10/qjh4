@@ -750,7 +750,13 @@ namespace CardPresentation
         public void Refresh()
         {
             string a = ForgeData.Selected;
-            if (_armyText != null) _armyText.SetText(a);
+            // 🔴 **2026-10-19（U5 · 批次 7）就地订正（铁律 5）**：原来是 `SetText(a)` —— `a` 是
+            //   **`CardArmy` 枚举名**（`"Goff"` / `"SaimHann"`），而原版这里写的是
+            //   `ForgeSelectedArmyInfo__Initialize.c:28-40`：`armyText.text = I2(string.Format(<键>, army))`
+            //   —— 键族 = `Armies/<枚举名>`（与我们 `Core/Loc.cs` 那 14 条同族）⇒ **屏幕上是本地化显示名**
+            //   （英文 `Goff → Orks` · `SaimHann → Saim-Hann`；中文列另有一套）。
+            //   读口 = `CardText.Faction`（表里没有时回退成键本身，不会印空串）。
+            if (_armyText != null) _armyText.SetText(CardText.Faction(a));
             if (_levelText != null) _levelText.SetText(ForgeData.LevelText(a));   // 原版 `"{0} {1}/{2}"` 套 "MainMenu/Level"
             if (_armyIcon != null)
             {

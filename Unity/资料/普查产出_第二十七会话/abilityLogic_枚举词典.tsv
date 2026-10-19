@@ -837,3 +837,4 @@ TargetCriteria@cardRoot.targetsAvailableCounter	targetsAffected	10	allFiltered	5
 TargetCriteria@cardRoot.targetsAvailableCounter	targetsAffected	60	inCemeteryFiltered	5	TargetsAffected.cs:12
 TargetCriteria@cardRoot.targetsAvailableCounter	targetsAffected	65	inDeckFiltered	6	TargetsAffected.cs:13
 TargetCriteria@cardRoot.targetsAvailableCounter	traitsFilter	0	none	1192	DefinedTrait.cs:3
+#注	2026-10-19	A1881	BuffType 现读 15 个取值	-	本行是说明、不是枚举行（解析器四个分支都不命中 ⇒ 会忽略）。bt=12 enchantment（70 条）与 bt=15 singleUseEnchantment（40 条）是全表第 3/4 大取值；当前 build 重算（数据/游戏数据/cards_truth.json，1351 张）= 14 个显式取值 {1:461, 2:71, 3:346, 4:13, 8:29, 12:75, 15:44, 16:13, 17:1, 25:1, 70:1, 90:2, 95:3, 100:1}（0 不序列化 ⇒ 表里的 0 行是定义值、不是出现值）。本表的出现次数来自 2022 快照，⛔ 别当现状引用。

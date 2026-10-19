@@ -321,6 +321,11 @@ def orig_value(lg):
                                      ('/opt%d' % d['valueOptions']) if d.get('valueOptions') else ''))
         if d.get('valueOptions'): dyn = True
         elif d.get('minDamage', 0) == d.get('maxDamage', 0): meta['dmg'] = d.get('minDamage', 0)
+        # 🔴 `E8b`：`valueOptions`（动态/区间档，例如 `Unstable` 的 `1-3`）原来**只进 `dyn`**，
+        #   而 `dyn` 不进 `meta` ⇒ 「原版这一支是数值类」这件事在 `meta` 里看不出来。
+        #   本键**只增加可判据**（`fmt_orig_amount` 的渲染一字不动），供对齐规则判
+        #   「`Unstable` = `doDamage + valueOptions`」。
+        if d.get('valueOptions'): meta['dmg_opt'] = d.get('valueOptions')
         # 🔴 `E1`（2026-10-14）：**原版是区间**（`min != max`）时，原来这里**什么都不记** ⇒ `compare()`
         #   拿不到期望值、只能返回「一致」⇒ 区间那批**从未被比过**（`资料/普查产出_第二十八会话/
         #   A1759_逐条对账.md` §查不清最后一行就是点这一条）。现在把区间记进 `dmg_span`，
@@ -747,6 +752,413 @@ def match_card(c):
             if v['name'] == nm: return k, 'name'
     return None, 'none'
 
+# ================================================ 2026-10-19 第五十五会话 `E8b`：三条【有判据】的对齐规则
+# 🔴 **它们治的是什么**：`E9_报告.md` 把 141 条 🔴 逐条裁定成 α（仪器/表示差异）124 行 —— 效果**在引擎
+#   的另一层**（事件层 / 光环层 / 静态规则 / choose 分支 / persist 等信封 / 关键词通用实现），
+#   而本仪器的「我们面」只吃 `EffectText.Parse(desc)` 那一条口（`scan` 的 ops 列）⇒ 按 op 逐条对不齐。
+#   ⛔ **不重写既有判定**：新增规则**只在 `best is None` 的兜底段**里生效（既有 ✅/⚠️ 匹配一个字不动），
+#   且每条都**带值核对**（`compare()` / `_e8b_branch_value_ok()`）⇒ 真差异（β/γ）**不会被吞**。
+#
+# **三条规则**（`E9_报告.md` §五 的建议，逐条给判据；每条都配反例，见报告 §三）：
+#   ① **choose 分支逐支配**：`chooseone/chooseeffect` 的**每一个分支**、`choosecard` 的**动作**
+#      ↔ 原版同一条 ability 的 N 条 abilityLogic **逐条**比（族 + 值）。
+#      判据 = 我们的 `EffectText` 把 N 个分支解析成**一条** op（`EffectOp.Payload` 用 `|` 分，
+#      `EffectResolver.DoChooseCard` 的 `switch (op.ChooseAct)` 是动作分支）—— 结构事实，不必引反编译。
+#      反例：`GOF12 Ork Spanner` 我们只有 3 个分支（+2 melee/+2 ranged/+1 armour），原版 5 条
+#      （多 +2 health / +2 melee+1 health / +2 ranged+1 health）⇒ **剩下 3 条仍然红**。
+#   ② **`give`/`gain` ↔ `buffSelf`/`buffOthers`**：原版把「自己/全体获得」编成 `buffSelf` 或
+#      `buffOthers`（`chosenAbility=40/30`），我们解析成 `give`（buff_other）或 `gain`（buff_self）。
+#      `eq_set()` 原来只在 `targetsAffected ∈ {20,120}` 时放行 `buff_other→buff_self` 一个方向；
+#      本规则补**另一个方向**（`give` ↔ `buffSelf`）与 `gain` 的「全体」档（⛔ 自指档不放行 ——
+#      那会把「给一个友方单位」的 buffOthers 蒙混过去）。
+#      反例：`GOF38 Proper Killy` 原版 `melee+2 + bloodThirst`，我们载荷只有 `blood thirst`
+#      （卡面也**只印了** Blood Thirst）⇒ 值核对不通过，**仍留红**（⛔ 不拿「SO 多余数值」当已覆盖）。
+#   ③ **别层承载 / 编码不同**：原版这一支在我们的**另一层**里（事件层 `WhenTriggers`、光环层
+#      `AuraSpecs`、静态规则 `CardDef.MatchStaticBattleRule`、关键词通用实现 `RuleCore.UnstableBlast`、
+#      `persist`/`whenclause` 信封…）。判据 = `EffectText.WillRunOps`（`EffectText.cs:2018`）把
+#      七个来源汇成「执行层」而 `scan` 只看主解析器；子规则逐条见 `e8b_alignment()` 里每一支的注释。
+#      ⛔ **`triggerEffectInCard(260)` / `followAfterResolution(320)` 的 β 卡不在白名单里**
+#      （`GOF56`/`TL49`/`TL50`/`ASH46`/`GOF41`/`SAU11`）⇒ 它们是这条规则的**反例集**。
+#
+# 🔴 **改判必须出声**：每一条被本规则改判的行都进 `e8b_flips`，文件尾按子规则打「改判行数 + 卡名单」。
+# 🔴 **A/B 开关**：`A1759_NO_E8B=1` ⇒ 三条对齐规则**整段不生效**（用于复算「加规则前」的读数、
+#   以及证明「规则没动既有 ✅/⚠️」—— 报告 §三 的逐行 diff 就是拿它跑出来的）。
+E8B_ON = os.environ.get('A1759_NO_E8B') != '1'
+E8B_CHOOSE_ACT_FAM = {    'hand': 'create', 'copies': 'create', 'enemyhand': 'create',
+    'draw': 'draw', 'decktop': 'recall', 'todeck': 'recall', 'return': 'recall',
+    'shuffle': 'recall', 'deploy': 'summon', 'inccost': 'cost',
+}
+# 🔴 规则③·事件层：**玩家操作驱动的「事件触发」**（不是卡自己打出/常驻）。只列本轮实测到的四个
+#   + 同族常见四个；没列到的宁可不判（⛔ 不按「看起来像事件」放宽）。
+E8B_EVENT_TRIGS = {'UnitReceivesMarkOfChaos', 'OtherUnitDeath', 'TriggeredSynapse',
+                   'OtherCardMob', 'OtherCardPlayed', 'UnitSummoned', 'UnitDeath'}
+# 🔴 规则③·静态规则：**判据 = `CardDef.MatchStaticBattleRule`**（`Core/CardDef.cs:1415-1470`）。
+#   这些卡在 SO 里被编成一条逐卡 ability，而引擎在**静态规则层**按卡 id 判 —— 不产生 op。
+#   ⚠️ 只收 E9 逐条点过名的 5 张（表外一张都不放行）。
+E8B_STATIC_RULES = {
+    # `卡 → (规则名, 出处, 原版 chosenAbility)` —— `chosenAbility` 一并钉住：这张卡将来若多出一条**别的**
+    #   ability 的红色，本规则不会把它也吞掉（表外/别支一律留红）。
+    'SAU27': ('MeleeEqualsHealth', 'CardDef.cs:1421', 40),
+    'SAU33': ('Bodyguard', 'CardDef.cs:1422', 236),
+    'GSC37': ('CostPerEnemyHandCard', 'CardDef.cs:1423-1426', 40),
+    'UM106': ('OathTripleActivation', 'CardDef.cs:1461', 30),
+    'UM93':  ('OathInAllTurns', 'CardDef.cs:1462', 30),
+}
+# 🔴 规则③·包装码白名单（**E9 逐条裁定 α 的那批**）：原版把一条真实效果包进 `triggerEffectInCard(260)` /
+#   `followAfterResolution(320)`，我们这边是**展开的** op。⛔ β 那 5 张（GOF56/TL49/TL50/ASH46/GOF41）
+#   与 `SAU11` **故意不在表里** —— 那样这条规则才有反例（见报告 §三）。
+E8B_WRAPPER_ALPHA = {
+    'GOF31': 'blind + repeat(per friendly Vehicle) 覆盖「Repeat this effect」；follow/260 是包装码',
+    'UM82':  'eachunitdeal 覆盖 Codex「Each of your units deals …」；260 是包装码',
+    'ASH43': 'eachunitdeal(Shuriken) 覆盖；260 是包装码',
+    'SAU52': 'destroy + deal(perCount=died) 覆盖；260 是包装码',
+    'SW56':  'gain +1 fist + forceattack 覆盖；260 是包装码',
+    # `DA39`：原版 260 的载荷是 `buff{choiceEnchantment}`（三种 +3 可选），我们是一条
+    #   `chooseone/3`（+3 attack / +3 ranged / +3 health）⇒ 分支逐条对上（`E9` 判 α）。
+    'DA39':  'chooseone 三个分支（+3 attack / +3 ranged / +3 health）覆盖 choiceEnchantment',
+}
+# 规则③·编码等价：`chosenAbility` 原值 → (需要的我方动词集合, 说明)。
+E8B_ENCODING = {
+    270: (('return',), 'createCardInDeck(270) ↔ 我们 `return`（回牌库）'),
+    420: (('create',), 'setCardDeckToTop(420) ↔ 我们 `create`（造一份放牌库顶）'),
+    90:  (('become',), 'v90(unitsToSummon) ↔ 我们 `become`'),
+    360: (('gain', 'give', 'deal', 'heal', 'create', 'deploy', 'destroy', 'stun',
+           'reanimate', 'forceattack'), 'playChosenCardAbility(360) = Oath 的包装码'),
+}
+
+
+def _e8b_branch_fams(text, forced):
+    s = set(env_fams(text))
+    if forced: s.add(forced)
+    return s
+
+
+def _e8b_trait_in(trait, text):
+    """trait 名 ↔ 卡面文本（**词边界**，⛔ 别退化成 `_letters(text)` 里的裸 `in`）。
+    为什么不直接 `_letters(trait) in _letters(text)`：`vulnerable` 会命中 `invulnerable`
+    （与 `aura_hit()` 那条 `R1` 护栏同一个坑）。这里的写法在**原文**上加边界，
+    字母之间允许任意非字母分隔 ⇒ `bloodThirst` ↔ `Blood Thirst`、`flank` ↔ `give Flank to …`
+    都认得出，而 `vulnerable` 在 `invulnerable` 里匹配不到（前一个字符 `n` 是字母）。"""
+    tw = _letters(trait)
+    if not tw: return False
+    pat = r'(?<![a-z])' + r'[^a-z]*'.join(re.escape(c) for c in tw) + r'(?![a-z])'
+    return bool(re.search(pat, (text or '').lower()))
+
+
+def _e8b_branch_value_ok(fam, meta, text):
+    """分支文本 ↔ 原版这一步的**值核对**（族已经对上之后才调用）。
+    ⛔ 值核不过 = 不匹配（这是「不吞真缺口」的那一半）。"""
+    tl = (text or '').lower()
+    t = text or ''
+    if fam in ('damage', 'heal'):
+        want = meta.get('dmg') if fam == 'damage' else meta.get('heal')
+        sp = meta.get('dmg_span') if fam == 'damage' else meta.get('heal_span')
+        if want is None and sp is None: return True
+        if fam == 'damage':
+            nums = [(int(a), int(b) if b else None)
+                    for a, b in re.findall(r'(\d+)(?:\s*-\s*(\d+))?\s*damage', tl)]
+        else:
+            nums = [(int(a), int(b) if b else None)
+                    for a, b in re.findall(r'(\d+)(?:\s*-\s*(\d+))?\s*heal', tl)]
+            nums += [(int(a), None) for a in re.findall(r'heal(?:s)?\s+(\d+)', tl)]
+        if not nums: return False
+        if sp is not None:
+            return any((a, b if b else a) == tuple(sp) for a, b in nums)
+        return any(a == want or (b is not None and a <= want <= b) for a, b in nums)
+    if fam in ('buff_other', 'buff_self', 'buff_hand'):
+        bt = meta.get('bt', 0)
+        if bt in (3, 4, 90):
+            if bt == 4: return True
+            return _e8b_trait_in(meta.get('trait'), t)
+        if bt == 2:
+            return 'cost' in tl
+        if bt in (8, 12, 15, 16, 17, 25, 70, 95, 100): return True
+        nums = meta.get('nums') or []
+        if not nums: return True
+        ours = our_nums(t)
+        return all(n in ours for n in nums)
+    return True
+
+
+def _e8b_choose_branches(o):
+    """choose 类 op → `[(分支序号, 分支文本, 强制的族 or None)]`。
+    · `chooseone`：`EffectOp.Payload` 用 `|` 分（解析层事实）；
+    · `chooseeffect`：载荷就是那一句效果文本；
+    · `choosecard`：**动作在 `ChooseAct`**（第 4 列）—— 用动作映射族，文本取 `what` 供值核对。"""
+    if o['verb'] == 'chooseone':
+        return [(i, b, None) for i, b in enumerate((o['payload'] or '').split('|')) if b.strip()]
+    if o['verb'] == 'chooseeffect':
+        return [(0, o['payload'] or '', None)]
+    if o['verb'] == 'choosecard':
+        return [(0, ((o.get('what') or '') + ' ' + (o.get('act') or '') + ' '
+                     + (o.get('payload') or '')).strip(),
+                 E8B_CHOOSE_ACT_FAM.get(o.get('act') or ''))]
+    return []
+
+
+def _e8b_willrun_fams(ocid):
+    d = layers.get(ocid) or {}
+    fs = set()
+    for w in d.get('willrun') or []:
+        fs.add(VFAM.get(w.get('v'), '?'))
+    return fs
+
+
+def _e8b_card_text(ocard):
+    return ' '.join((o.get('src') or '') for o in (ocard or {}).get('ops') or [])
+
+
+def _e8b_trait_of_tc(meta):
+    """当前这一步的 targetCriteria 里带的**筛选 trait 名**（用于「条件变体」规则）。"""
+    tc = meta.get('tc_raw') or {}
+    for k in ('traitsFilter', 'keywordFilter', 'excludeTrait'):
+        v = tc.get(k)
+        if v:
+            return TRNAME.get(v) or ''
+    return ''
+
+
+def _e8b_value_rules(fam, meta, ops, used, text_all):
+    """规则③ 的**取值编码**两支（`拆分求和` / `取值以卡面为准`）＋ `条件变体`。
+    这几支同时服务**两条路**：`best is None` 的兜底（`e8b_alignment`）与
+    **已经配到 op、但值不等** 的那条（`取值不同`/`条数不同` 两格）—— 判据只写这一处。"""
+    if fam in ('damage', 'heal'):
+        want = meta.get('dmg') if fam == 'damage' else meta.get('heal')
+        if want is not None:
+            if fam == 'damage':
+                famops = [(i, o) for i, o in enumerate(ops) if o['verb'] in ('deal', 'eachunitdeal')]
+            else:
+                famops = [(i, o) for i, o in enumerate(ops) if o['verb'] == 'heal']
+            ssum = sum(int(o['amount'] or 0) for _, o in famops)
+            if len(famops) > 1 and ssum == want:
+                for i, _o in famops: used.setdefault(i, (fam, '拆分求和'))
+                return ('⚠️表示不同·语义同', '编码不同·拆分求和',
+                        '原版存**绝对 %d**；我们把它拆成 %d 条同族 op（合计 %d）' % (want, len(famops), ssum),
+                        famops[0][1])
+            for i, o in famops:
+                n = int(o['amount'] or 0)
+                if n and n != want and re.search(r'\b%d\b\s*(?:-\s*\d+\s*)?(?:damage|heal)' % n,
+                                                 (o['src'] or '').lower()):
+                    return ('⚠️表示不同·语义同', '取值以卡面为准',
+                            '原版 SO 写 %d，我们的取值 %d **与卡面原文一致**（`%s`）⇒ 以卡面为准'
+                            '（铁律 2/7）' % (want, n, o['src'][:60]), o)
+    # 条件变体：原版把同一效果写成「基础值 + 带筛选 trait 的加强值」两条；我们的卡面用条件句表达。
+    tw = _e8b_trait_of_tc(meta)
+    if tw and any(f == fam for f, _ in used.values()) and _e8b_trait_in(tw, text_all):
+        return ('⚠️表示不同·语义同', '条件变体',
+                '原版把同一效果写成**两条**（第二条带筛选 `%s`），我们的卡面/op 用条件句表达' % tw, None)
+    return None
+
+
+def e8b_alignment(cid, ocid, tname, trig, fam, meta, oval, ocard, used, branch_used, orig_fams=None):
+    """三条对齐规则的**唯一入口**（`best is None` 的兜底段调用）。
+    返回 `(判定, 子类, 备注, 对照 op or None)`；`None` = 本规则不管这一行（调用方照旧判红）。"""
+    if ocard is None: return None
+    if not E8B_ON: return None
+    ops = ocard['ops']
+    _dbg = os.environ.get('A1759_DEBUG') == cid
+    if _dbg:
+        print('   [DBG]', cid, 'fam=', fam, 'trig=', tname, 'oa=', meta.get('orig_act'),
+              'bt=', meta.get('bt'), 'kw=', (layers.get(ocid) or {}).get('kwKeys'),
+              'ops=', [(o['verb'], o['act'], o['payload'][:20], o.get('tgt')) for o in ops])
+    kw = (layers.get(ocid) or {}).get('kwKeys') or {}
+    oa = meta.get('orig_act')
+    text_all = _e8b_card_text(ocard)
+
+    # ---------------- ① choose 分支逐支配 ----------------
+    # ⚠️ **同一个分支可以被原版的第二条 step 再用一次**（`拆条`）：例如 `SAU40` 我们只有一个
+    #   组合分支「+3 health and vanguard」，原版写成「+3 health」「+3 health + vanguard」两条 ——
+    #   第二条要能复用第一条用掉的那个分支（值核依旧是 `_e8b_branch_value_ok`，⛔ 不是无条件重用）。
+    for allow_reuse in (False, True):
+        for i, o in enumerate(ops):
+            if o['verb'] not in CHOOSE_VERBS: continue
+            for bi, btext, forced in _e8b_choose_branches(o):
+                if (i, bi) in branch_used and not allow_reuse: continue
+                bfams = _e8b_branch_fams(btext, forced)
+                if not (bfams & eq_set(fam, meta)): continue
+                if not _e8b_branch_value_ok(fam, meta, btext): continue
+                _reuse = (i, bi) in branch_used
+                branch_used.add((i, bi))
+                return ('⚠️表示不同·语义同', '选牌分支对齐',
+                        '原版这一支 = 同一条 ability 的 N 个分支之一；我们把它解析成**一条** `%s` '
+                        '（第 %d 个分支「%s」），族与值逐条对上%s · trig=%s'
+                        % (o['verb'], bi + 1, btext[:70],
+                           '（原版把同一分支拆成多条 step ⇒ 复用）' if _reuse else '', tname), o)
+
+    # ---------------- ② give/gain ↔ buffSelf/buffOthers ----------------
+    if fam in ('buff_self', 'buff_other'):
+        for i, o in enumerate(ops):
+            if o['verb'] not in ('give', 'gain'): continue
+            if fam == 'buff_other' and o['verb'] == 'gain':
+                # ⛔ 自指档（`未写主语：有施放者就是施放者自己`）**不放行** —— 见块头反例说明。
+                if (o.get('tgt') or {}).get('Subjectless') == '1': continue
+            # 🔴 **值核对不能被 `bt=3` 那句短路口放过**：`compare()` 对 `addTrait` 只看 trait 名、
+            #   **不看同一块里的 nums**（原版常把「+2 melee + Blood Thirst」写在一起）⇒
+            #   这里补一句：原版带 nums 时，我们的载荷必须**逐项含有**它们。
+            #   反例 = `GOF38 Proper Killy`：原版 `melee+2 + bloodThirst`，我们载荷只有
+            #   `blood thirst`（卡面也只印了它）⇒ 本规则**不替它翻绿**（留红待人工裁）。
+            if meta.get('nums') and not all(n in our_nums(o['payload'] or '') for n in meta['nums']):
+                continue
+            same, _w = compare(fam, meta, o)
+            if not same: continue
+            reused = i in used
+            used[i] = (fam, 'buff 族对齐')
+            return ('⚠️表示不同·语义同', '拆条差异' if reused else 'buff 族对齐',
+                    '原版 `%s`（`chosenAbility=%s`）↔ 我们 `%s`：族与值对上（%s）· trig=%s'
+                    % (fam, oa, o['verb'], o['payload'][:60] or '（无载荷）', tname), o)
+
+    # ---------------- ③·a `Unstable` 关键词通用实现 ----------------
+    # 判据：原版把 Unstable 编成 `doDamage + buff{addTrait fast} + 1-3`（AUD §三「11 条」）；
+    #   我们的实现 = 关键词表 `unstable` → `RuleCore.UnstableBlast`（`Core/RuleCore.cs:8936`）。
+    if (kw.get('unstable') and meta.get('bt') == 3 and _letters(meta.get('trait')) == 'fast'
+            and ('dmg' in meta or 'dmg_span' in meta or meta.get('dmg_opt'))):
+        return ('⚠️表示不同·语义同', '别层承载·关键词',
+                '原版这一支是 `Unstable` 的逐卡编码（`doDamage buff{addTrait fast}`）；'
+                '我们走关键词通用实现（`RuleCore.UnstableBlast`，判据 `RuleCore.cs:8936`）· trig=' + tname, None)
+
+    # ---------------- ③·b `Pray` 容器 ----------------
+    # 判据：原版把 Pray 能力编成「自身 singleUseEnchantment + 召唤附魔卡」（或 `triggerPray`(462)）；
+    #   我们的实现 = 关键词 `pray` → `TriggerTexts["Pray"]` → `ResolveAtTurn/TriggerOps`。
+    if kw.get('pray') and (tname in ('Pray', 'TriggeredPray') or oa == 462):
+        return ('⚠️表示不同·语义同', '别层承载·关键词',
+                '原版这一支是 `Pray` 的容器（`singleUseEnchantment` / `triggerPray`）；'
+                '我们的实现 = 关键词 `pray` 的触发正文（`CardDef.TriggerTexts`）· trig=' + tname, None)
+
+    # ---------------- ③·c 事件层（`WhenTriggers`） ----------------
+    # 判据：`EffectText.WillRunOps`（`EffectText.cs:2030-2031`）把 `WhenTriggers` 收进执行层；
+    #   我们的主解析口（`scan`）看不到它 ⇒ 只要「事件触发 + willrun 里有同族 op」就是别层承载。
+    if tname in E8B_EVENT_TRIGS and ((layers.get(ocid) or {}).get('ch') or {}).get('when', 0) > 0:
+        if fam in _e8b_willrun_fams(ocid):
+            return ('⚠️表示不同·语义同', '别层承载·事件层',
+                    '原版这一支挂在事件触发（`%s`）上；我们的实现 = `WhenTriggers`'
+                    '（`EffectText.WillRunOps` 收进执行层，`EffectText.cs:2030`）· trig=%s' % (tname, tname), None)
+
+    # ---------------- ③·d 附魔载体（enchantment / singleUseEnchantment） ----------------
+    # 判据：原版 `buffType ∈ {12,15,16}` 的那一支 = **载体**（附魔卡本身才是效果），
+    #   `E9` 逐条裁定「编码，不是独立效果」；我们的表现 = `persist`/`whenclause`/`atturn` 信封、
+    #   光环层，或 `choosecard` 的选区入口。⛔ 要求信封载荷**真的有族**（`env_fams` 非空）。
+    if meta.get('bt') in (12, 15, 16) and oa not in (260, 320):
+        envops = [o for i, o in enumerate(ops) if o['verb'] in ('persist', 'whenclause', 'atturn')]
+        chooses = [o for i, o in enumerate(ops) if o['verb'] in CHOOSE_VERBS]
+        if envops or (layers.get(ocid) or {}).get('auras') or chooses:
+            for i, o in enumerate(ops):
+                if o['verb'] in ('persist', 'whenclause', 'atturn') and env_fams(o['payload']):
+                    used.setdefault(i, (fam, '附魔载体')); break
+            if not envops:
+                for i, o in enumerate(ops):
+                    used.setdefault(i, (fam, '附魔载体'))
+            return ('⚠️表示不同·语义同', '别层承载·附魔载体',
+                    '原版这一支是 `%s` 附魔**载体**（`buffType=%s`）；我们把这句直接落成 '
+                    '`persist`/`whenclause`/光环/选区（编码不同，不是独立 op）· trig=%s'
+                    % (BTNAME.get(meta.get('bt'), meta.get('bt')), meta.get('bt'), tname), None)
+
+    # ---------------- ③·e 静态战斗规则（`CardDef.MatchStaticBattleRule`） ----------------
+    # ⚠️ 表内 5 张**逐条**由 `E9` 裁过（每张的 SO 里只有那一条「静态规则」被编成逐卡 ability）；
+    #   表外一张都不放行 ⇒ 判据是表本身，不是家族猜测。
+    if cid in E8B_STATIC_RULES and oa == E8B_STATIC_RULES[cid][2]:
+        _nm, _src, _oa = E8B_STATIC_RULES[cid]
+        return ('⚠️表示不同·语义同', '别层承载·静态规则',
+                '原版这一支是逐卡 ability，我们的实现 = 静态规则 `%s`（`%s`）· trig=%s'
+                % (_nm, _src, tname), None)
+
+    # ---------------- ③·f 包装码白名单（`260` / `320`） ----------------
+    if oa in (260, 320) and cid in E8B_WRAPPER_ALPHA:
+        # ⚠️ 只把**原版整卡任何一步都用不到的族**记成「已承载」（清掉假「我们多」）；
+        #   别把**别的 step 还要用的 op** 也吃掉 —— 实测 `UM118 a2` 的 doDamage 会因此从 ✅ 掉成 ⚠️。
+        _of = orig_fams or set()
+        for i, o in enumerate(ops):
+            if o['verb'] in CHOOSE_VERBS: continue
+            if not (set(o.get('fams') or {o['fam']}) & _of):
+                used.setdefault(i, (fam, '包装码'))
+        return ('⚠️表示不同·语义同', '别层承载·包装码',
+                '原版这一支 = `%s` 包装码；%s · trig=%s'
+                % (ANAME.get(oa, oa), E8B_WRAPPER_ALPHA[cid], tname), None)
+
+    # ---------------- ③·g `drawCard + autoPlay`（从牌库打出） ----------------
+    # 判据：原版 drawCard 那一步**带 `summonCriteria`**（`orig_value` 记成 `summ:n=`）= 抽到就打出；
+    #   我们的实现 = 一条 `deploy … from deck`（`EffectOp.AutoPlay`，`A1571`）。
+    if fam == 'draw' and 'summon_n' in meta:
+        for i, o in enumerate(ops):
+            if o['verb'] != 'deploy': continue
+            used[i] = (fam, 'draw+autoPlay')
+            return ('⚠️表示不同·语义同', '编码不同·draw+autoPlay',
+                    '原版 `drawCard` 那一步带 `summonCriteria`（抽到即打出），我们落成一条 '
+                    '`deploy %s`（`A1571` 的 autoPlay 语义）· trig=%s' % (o['payload'][:40], tname), o)
+
+    # ---------------- ③·h 资源族（mana）由 `gain` 的载荷承载 ----------------
+    if fam == 'mana':
+        for i, o in enumerate(ops):
+            if o['verb'] in ('gain', 'give', 'refill', 'gainenergy', 'gainquest', 'gainfaith', 'gainspirit') \
+                    and re.search(r'energy|quest point|faith|spirit stone|\bmana\b|☀', o['payload'] or '', re.I):
+                used.setdefault(i, (fam, '资源载荷'))
+                return ('⚠️表示不同·语义同', '编码不同·资源',
+                        '原版这一支 = `buffMana`；我们的 `%s` 载荷「%s」同时承载了它 · trig=%s'
+                        % (o['verb'], o['payload'][:50], tname), o)
+
+    # ---------------- ③·i `ferocitystay`（原版编成 addTrait） ----------------
+    if meta.get('bt') == 3 and _letters(meta.get('trait')).startswith('dontreturnferocity'):
+        for i, o in enumerate(ops):
+            # 我们的解析口有两种写法：`ferocitystay` 动词（SW40）或 `whenclause` 承载整句
+            # （SW36「it stays in play」）⇒ 两种都算同一个机制的产物。
+            if o['verb'] == 'ferocitystay' or (
+                    o['verb'] in ('whenclause', 'persist')
+                    and 'stays in play' in (o['payload'] or '').lower()):
+                used.setdefault(i, (fam, 'ferocitystay'))
+                return ('⚠️表示不同·语义同', '编码不同·ferocitystay',
+                        '原版把「用狂暴后留在场上」编成 `addTrait %s`；我们的动词/信封 = `%s`'
+                        '（`EffectResolver.cs:8226 DoFerocityStay`）· trig=%s'
+                        % (meta.get('trait'), o['verb'], tname), o)
+
+    # ---------------- ③·j 副本修饰块（ephemeralCopy / setCost） ----------------
+    if meta.get('bt') in (25, 95):
+        for i, o in enumerate(ops):
+            if o['verb'] not in ('whenclause', 'create'): continue
+            used.setdefault(i, (fam, '副本修饰'))
+            return ('⚠️表示不同·语义同', '编码不同·副本修饰',
+                    '原版把「造一份副本」的修饰块（`bt=%s`）写成同一条 abilityLogic；'
+                    '我们的 `%s` 承载 · trig=%s' % (BTNAME.get(meta.get('bt'), meta.get('bt')), o['verb'], tname), o)
+
+    # ---------------- ③·k 编码等价（createCardInDeck / setCardDeckToTop / v90 / playChosenCardAbility） ----------------
+    # 判据（`E9_报告.md` §二·1 逐条）：原版 `chosenAbility` 与我们动词的**同义编码**；
+    #   例 `createCardInDeck(270)` ↔ 我们 `return`（把墓地里的牌放回牌库）；
+    #   `setCardDeckToTop(420)` ↔ 我们 `create … top of your deck`；`playChosenCardAbility(360)` = Oath 包装码。
+    if oa in E8B_ENCODING:
+        wants, why = E8B_ENCODING[oa]
+        for i, o in enumerate(ops):
+            if o['verb'] not in wants: continue
+            if oa == 420 and o['verb'] == 'create' and 'deck' not in (
+                    (o['payload'] or '') + ' ' + (o.get('src') or '')).lower():
+                continue        # ⛔ 420 只认「造一份放牌库顶」的那条 create（判据可来自 SRC 原文）
+            if oa == 360:
+                # `playChosenCardAbility(360)` = Oath 的**包装码**：整张卡的正文都是它的展开
+                #   ⇒ 把**别的原版 step 用不到的** op 记为已承载（清掉假「我们多」）。
+                #   ⚠️ 别无条件全标记 —— 实测 `UM118 a2` 的 doDamage 会因此从 ✅ 掉成 ⚠️（A/B 抓到）。
+                for j, oj in enumerate(ops):
+                    if not (set(oj.get('fams') or {oj['fam']}) & (orig_fams or set())):
+                        used.setdefault(j, (fam, '编码等价'))
+            else:
+                used.setdefault(i, (fam, '编码等价'))
+            return ('⚠️表示不同·语义同', '编码不同',
+                    '原版 `%s`；%s（我们 `%s`）· trig=%s' % (ANAME.get(oa, oa), why, o['verb'], tname), o)
+
+    # ---------------- ③·l `v480 highlightBloodThirst` = 纯表现 ----------------
+    if oa == 480:
+        return ('⚠️表示不同·语义同', '别层·纯表现',
+                '原版这一支的 `highlightBloodThirst(480)` 是**纯表现**（高亮），棋局影响那半边'
+                '（heal/buff）已由我们的同族 op 承载 ⇒ 属特效线 · trig=' + tname, None)
+
+    # ---------------- ③·m `double` 动词 ↔ buff 族 ----------------
+    if fam in ('buff_other', 'buff_self'):
+        for i, o in enumerate(ops):
+            if o['verb'] != 'double': continue
+            used.setdefault(i, (fam, 'double'))
+            return ('⚠️表示不同·语义同', '编码不同·double',
+                    '原版这一支是属性 buff；我们的动词 = `double`（`EffectResolver.cs:874`）· trig=' + tname, o)
+
+    # ---------------- ③·n 取值编码（卡面值 / 拆分求和）＋ ③·t 条件变体 ----------------
+    return _e8b_value_rules(fam, meta, ops, used, text_all)
+
+
 # ================================================ `A1986` 选区桥（2026-10-19 波 5）
 # 🔴 **病灶**（判据 → `资料/待办判据_第三十三会话.md` §A1986 · `普查产出_第三十会话/D2_造卡族判定.md` §一）：
 #   原版有些步骤的 `chosenAbility` 叫 `createCardInHand(100)` / `recallToDeck(300)` / `setCardDeckToTop(420)`
@@ -925,6 +1337,8 @@ aura_flip = []
 # 🔴 2026-10-19 波 5（`A1986`）：被**选区桥**改判的行，逐条出声（⛔ 改判不许无声）
 bridge_flip = []
 bridge_rows = []
+# 🔴 2026-10-19 第五十五会话 `E8b`：被**三条对齐规则**改判的行（逐条出声 + 文件尾按子规则汇总）
+e8b_flips = []
 # 🔴 `E2`：与 `out` **等长**的「我们面·光环」列（按**卡**成批补，见下面 `row_aura.extend`）
 row_aura = []
 # 🔴 2026-10-19 波 5：与 `out` **等长**的「打谁 / 打多少 / 什么触发」六列（追加在末尾）。
@@ -947,7 +1361,11 @@ def emit(vals, trig, meta, o, ocid):
     ])
 CARRY_VERB = ('choosecard', 'chooseone', 'chooseeffect', 'lowercost', 'costmore', 'costwhen',
               'costifcontrol', 'paidmod', 'repeat', 'noeffect', 'extratrigger', 'double',
-              'sethealth', 'become', 'ferocitystay')
+              'sethealth', 'become', 'ferocitystay') + (
+              # 🆕 `E8b`：`spendspirit` = **付费机制**的解析产物（原版把它编进
+              # `targetCriteria`/`furtherMultiplier`），不是一条独立效果 ——
+              # 实测 `ASH52 Hosts of the Dead`（deploy + spendspirit + deploy(perSpent) 覆盖原版 2 步）。
+              ('spendspirit',) if E8B_ON else ())
 
 # 🔴 2026-10-19 波 5：`A1978` 的另一半 —— `hasActiveAbility` 为 `None`（旧快照 3 张）时，
 #   下面那句 `c.get(...)` 的真假值判会让它**静默按 0 走**。这里**出声计数**（⛔ 不改判定：
@@ -1034,6 +1452,15 @@ for c in truth:
     matchroute[route] += 1
     ocard = our.get(ocid) if ocid else None
     used = {}; seen_step = {}
+    # 🆕 `E8b`：`used` 之外的**分支级**去重（同一个 choose op 的不同分支各配一条原版 step）
+    branch_used = set()
+    # 🆕 `E8b`：**原版整卡**用到的族集合（供「别把别的 step 还要用的 op 吃掉」这条判据；
+    #   判据只算这一次，见 `e8b_alignment` 的 ③·f / ③·k）。
+    _orig_fams = set()
+    for _ab0 in abilities:
+        for _lg0 in _ab0[2]:
+            _ov0, _m0, _d0 = orig_value(_lg0)
+            _orig_fams |= eq_set(OFAM.get(_lg0.get('chosenAbility'), 'other'), _m0)
     _r0 = len(out)          # `E2` 列：本卡产出的行从这儿开始（收尾时整段补同一个光环格）
 
     for abkey, trig, logics in abilities:
@@ -1122,6 +1549,25 @@ for c in truth:
                 same, why = compare(fam, meta, o)
                 seen_step[key] = oside
                 if not same and not br:
+                    # 🆕 `E8b`：**已经配到了 op、但值不等** 的那两格（`取值不同`/`条数不同`）也走
+                    #   规则③的取值编码两支（拆分求和 / 卡面为准 / 条件变体）。判据与兜底路共用
+                    #   `_e8b_value_rules()`（⛔ 不另写一份）。`used` 要**去掉当前这条**，
+                    #   否则「条件变体」会拿自己证明自己是「第二条」。
+                    # ⚠️ `hasAlternativeAbility` 的卡**不走这里**：原版按运行期棋盘二选一，
+                    #   静态仪器判不了（既有 `❓查不清/替代分支` 那一格必须保留，⛔ 别抢它的判定）。
+                    _used_prev = {k: v for k, v in used.items() if k != i}
+                    _vr = (None if (c.get('hasAlternativeAbility') or not E8B_ON) else
+                           _e8b_value_rules(fam, meta, ocard['ops'], _used_prev,
+                                            _e8b_card_text(ocard)))
+                    if _vr is not None:
+                        _vj, _vs, _vn, _vo = _vr
+                        _vo = _vo or o
+                        emit(row + [op_side(_vo), _vo['src'][:100], _vj, _vs,
+                                    _vn + ' · trig=' + tname], tname, meta, _vo, ocid)
+                        stat[_vj] += 1; sub[_vs] += 1
+                        matrix[(oname, _vj)] += 1
+                        e8b_flips.append((cid, c.get('cardName') or '', oname, tname, _vs))
+                        continue
                     # 🔴 2026-10-19 波 5：**先别急着判红** —— 原版可能把同一条效果写成**两步**
                     #   （实测 `UM64`：`followAfterResolution` 与 `FollowUpResolution` 两步都给
                     #   `+1 ranged`，我们只有一条 `give +1 ranged`，第一步用掉后第二步只能抓到
@@ -1247,6 +1693,17 @@ for c in truth:
                     stat['⚠️表示不同·语义同'] += 1; sub['原版重复N次'] += 1
                     matrix[(oname, '⚠️表示不同·语义同')] += 1
                     continue
+            # 🆕 `E8b`：**三条对齐规则**（choose 分支 / give-gain 族 / 别层承载）。
+            #   ⚠️ 只在**既有匹配全部落空之后**才问它 ⇒ 已经 ✅/⚠️ 配上的行**一个字节都不动**。
+            _al = e8b_alignment(cid, ocid, tname, trig, fam, meta, oval, ocard, used, branch_used, _orig_fams)
+            if _al is not None:
+                _aj, _as, _an, _ao = _al
+                emit(row + [op_side(_ao) if _ao else '', (_ao['src'][:100] if _ao else ''),
+                            _aj, _as, _an], tname, meta, _ao, ocid)
+                stat[_aj] += 1; sub[_as] += 1
+                matrix[(oname, _aj)] += 1
+                e8b_flips.append((cid, c.get('cardName') or '', oname, tname, _as))
+                continue
             if fam == 'vfxonly':
                 emit(row + ['', '', '⚠️表示不同·语义同', '纯表现',
                             '原版这一支只播特效（无棋局效果），我们的 op 表不为它出 op · trig=' + tname],
@@ -1415,6 +1872,22 @@ for _r in out:
     if 'addTrait' in _r[4]: _tot3['addTrait(bt=3/90)'] += 1; _red3['addTrait(bt=3/90)'] += (_r[7] == '🔴真差异')
 print('   三族现读（改判**后**）：' + ' · '.join(
     '%s 共 %d / 🔴 %d' % (k, v, _red3[k]) for k, v in sorted(_tot3.items())))
+
+# 🔴 2026-10-19 第五十五会话 `E8b`：三条对齐规则的改判读数 —— **按子规则给行数与卡名单**（⛔ 改判不许无声）。
+print('--- `E8b` 三条对齐规则（choose 分支 / give-gain 族 / 别层承载）---')
+print('   改判合计 %d 条 · 涉及 %d 张卡 · 按子规则：' % (
+    len(e8b_flips), len(set(x[0] for x in e8b_flips))))
+_bysub = collections.OrderedDict()
+for _cid, _nm, _on, _tg, _sb in e8b_flips:
+    _bysub.setdefault(_sb, []).append((_cid, _nm, _on, _tg))
+for _sb, _lst in _bysub.items():
+    _cards = []
+    for _cid, _nm, _on, _tg in _lst:
+        _tag = '%s（%s · %s）' % (_cid, _nm or '?', _tg)
+        if _tag not in _cards: _cards.append(_tag)
+    print('     · %-16s %3d 条 · 卡：%s' % (_sb, len(_lst), '、'.join(_cards)))
+print('   ⛔ 反例集（本规则**不吞**的真缺口，仍留红）：`GOF56`/`TL49`/`TL50`/`ASH46`/`GOF41`（260 包装码 β）'
+      ' · `SAU11`（320 β）· `GOF12` 的 health 三条（γ）· `SW38`（判据冲突 β）')
 
 # 🔴 账 `A1947`：**替代主动能力**（`alternativeAbility`）—— 这一段**只出声、不产出行**，
 #   理由（`GetActiveAbility` 的二选一 + 为什么⛔不替原版挑）见 `for c in truth:` 里那段长注释。

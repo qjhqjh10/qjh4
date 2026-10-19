@@ -8,8 +8,10 @@
 //
 // 🔴 **主机干三件事**（别处别再算一遍）：
 //   ① 抽**种子**（`DateTime.Now.Ticks`，与原版「建房那一下抽一枚硬币」同性质）；
-//   ② 洗**两副牌的顺序**（`RuleCore.NewBattle` 按座位顺序抽随机数洗牌 ⇒ 两端镜像跑会洗出不同的牌堆，
-//      所以顺序必须由一边定好发过去，见 `NetBattle` 文件头）；
+//   ② **两副牌原样下发**（**不洗**）：两端跑同一套**绝对座位** + 同一个种子 ⇒ 各洗各的必然一致
+//      （原版也是主机抽种子下发）。⚠️ 2026-10-19（`A1114`(a) 同族）就地订正：本行原来写「洗两副牌的顺序……
+//      两端镜像跑会洗出不同的牌堆，所以顺序必须由一边定好发过去」—— 那是**镜像时代**的做法，**已作废**；
+//      现在 `HostStartMatch` 的下发注释逐字写着「不洗牌」。
 //   ③ 定**先手**与**战场**（先手 = `BattleDriver.FirstSeatForSeed`，战场 = 主机督军阵营那一场）。
 using System;
 using System.Collections.Generic;
@@ -25,10 +27,20 @@ namespace CardPresentation.Net
         static PlayerDeck _myDeck; static string _myMode, _myFaction, _myName;
         // 对面交上来的（主机收）
         static PlayerDeck _foeDeck; static string _foeMode, _foeFaction;
-        static bool _started;
+
+        // 🔴 **A1323（2026-10-19）**：原来只有**一个** `_started`，它同时当【我发过开局包】与
+        //    【我收到过开局包】两种意思（`GoToBattle` 那处**两端都置**）⇒ 「谁先发的」这类问题问不出来，
+        //    迟早出错。现在拆成两格，**对外只有一句判据** `Started`（两格取或）——
+        //    ⛔ 其余各处别再自己拼一次（两处写同一条规则 = 迟早不一致）。
+        //    · `_sentStart`     = 本机是**主机**、已经把 `MsgStart` 下发出去了（`HostStartMatch`）；
+        //    · `_receivedStart` = 本机是**客机**、已经收到主机的 `MsgStart`（`PumpLobby` 的 `case NetKind.Start`）。
+        //    ⚠️ 一台会话里只可能有一端 ⇒ 两格**不会同时为真**。
+        static bool _sentStart, _receivedStart;
+        /// <summary>这一局在【本机】这一端已经成立（**我发过 / 我收到过**开局包）—— **唯一**的对外判据。</summary>
+        static bool Started { get { return _sentStart || _receivedStart; } }
 
         /// <summary>本机是不是正在等对面交卡组（界面可以据此显示「等待对手…」）。</summary>
-        public static bool Waiting { get { return _myDeck != null && !_started && _foeDeck == null; } }
+        public static bool Waiting { get { return _myDeck != null && !Started && _foeDeck == null; } }
 
         // ==================================================================
         //  🆕 2026-10-03：**取消这一局的匹配**（`项目任务.md` §三 第 29 条 **A1**）
@@ -60,8 +72,8 @@ namespace CardPresentation.Net
             var rt = NetRuntime.Instance;
             var s = rt != null ? rt.Session : null;
             if (s == null || !s.Transport.IsConnected) { why = Loc.T("Settings/Online/Cancel/WhyNoLink"); return false; }
-            if (_myDeck == null && !_started) { why = Loc.T("Settings/Online/Cancel/WhyNotMatching"); return false; }
-            if (_started)
+            if (_myDeck == null && !Started) { why = Loc.T("Settings/Online/Cancel/WhyNotMatching"); return false; }
+            if (Started)
             {
                 // 开局包已经发出/收到 ⇒ 这一局成立了。**不假装取消成功**。
                 why = Loc.T("Settings/Online/Cancel/WhyStarted");
@@ -94,7 +106,8 @@ namespace CardPresentation.Net
             _myDeck = null; _foeDeck = null;
             _myMode = _foeMode = null; _myFaction = _foeFaction = null; _myName = null;
             FoeName = null;
-            _started = false;
+            _sentStart = false; _receivedStart = false;      // 🔴 A1323：两格都得清（只清一格 = 另一格带着上一局的意思）
+            _revokedForLateCancel = false;                   // 🔴 A1322：那一档也是「这一局」的状态
         }
 
         // ==================================================================
@@ -165,6 +178,10 @@ namespace CardPresentation.Net
         /// <summary>那一次「对面不在了」**真的弹过窗**（撤销时据此决定要不要去撤窗 ——
         /// 没弹过就不许撤，否则会把玩家这一刻自己开着的那扇窗关掉）。</summary>
         static bool _peerGonePopup;
+        /// <summary>🆕 **A1322（2026-10-19）**：这一局是被**迟到的 `match.cancel`** 撤掉的 ⇒
+        /// <see cref="GoNow"/> 据此**不报缺陷**、不切场景。由 `ClearMatch()` 清
+        /// （`Reset` / `TryStart` 都会经过它 ⇒ 不会带到下一局）。</summary>
+        static bool _revokedForLateCancel;
 
         /// <summary>联机层最后一次要对玩家说的那句话（提示行）。自检读它；
         /// 🆕 **2026-10-17（B27·A925）：界面的消费方已接上** = `Shell/SearchingMatchPopup.ShowHint`
@@ -198,7 +215,7 @@ namespace CardPresentation.Net
             // 🔴 **2026-10-19（P6d · A1079②）**：这一句原来是**裸中文字面量**（它进
             //   `DeferToBattleLayer` → `Lobby/DeferToBattle` 的 `{0}` → 提示行）⇒ 落键。
             //   形状选择见 `DeferToBattleLayer` 的 doc（**碎片建成独立键**，⛔ 没动父键形状）。
-            if (_started) { DeferToBattleLayer(Loc.T("Settings/Online/Lobby/PeerLostFrag")); return; }
+            if (Started) { DeferToBattleLayer(Loc.T("Settings/Online/Lobby/PeerLostFrag")); return; }
             string tail = RevokeMatchLocal();
             // 🔴 **2026-10-18（A933）压缩这一句**。原 =「联机断开了：对面掉线了 —— <tail>（对面回来之后，
             //   两边重新各点一次 `Battle!`）」= **52 / 56 字**（两条 `tail` 分支），超过提示行的**尺子**
@@ -222,6 +239,22 @@ namespace CardPresentation.Net
         static void HandleLobbyPeerClosed(string why)
         {
             if (!LobbyOwnsSession) return;          // 对局那半边接管了 ⇒ 由它说（互斥闸）
+            // 🔴 **A1321（2026-10-19）**：与 `HandleLobbyPeerLost` 那道闸**同形** —— `_peerGone` 是**边沿**。
+            //    形状：对面**先掉线**（`OnPeerLost`，第一跳已经弹过窗、提示行也说过 `tail`）⇒ 同一条会话
+            //    随后又发来 `bye`（`NetSession` 收到 `bye` 就 `Close()` ⇒ 这条 `OnClosed` 照样会到）。
+            //    原来这里**没有**这道闸 ⇒ 同一段「对面不在了」会被**说第二遍**：多弹一次窗，
+            //    而且提示行会**改口** —— 第二跳 `RevokeMatchLocal()` 里 `had` 已经是假（第一跳撤过了）
+            //    ⇒ 说成「本机本来就没在匹配这一局」，与第一跳刚说的那句相反。
+            //    ⚠️ **不是**「把 `bye` 吞掉」：`_peerGone` 只在「这一次对面不在了」期间为真；
+            //      对面回来（`PumpLobby` 里 `State == Lobby` 那一支）会把它清掉 ⇒ 下一段掉线照旧会报。
+            if (_peerGone)
+            {
+                // ⛔ 被闸挡掉的那一条**要留痕**（红线：不许静默失败）。
+                string already = string.IsNullOrEmpty(why) ? Loc.T("Settings/Online/St/PeerLeft") : why;
+                Debug.Log("[Net] 大厅：对面**离开了**（" + already + "），但这一段「对面不在了」"
+                        + "**已经报过**（`_peerGone` 是边沿，第一跳 = 掉线）⇒ **不重复弹窗、也不改口提示行**（A1321）");
+                return;
+            }
             _peerGone = true;                       // `NetSession` 收到 `bye` 就 `Close()` ⇒ 不会再「回来」（同 `NetBattle` 那条注）
             string body = string.IsNullOrEmpty(why) ? Loc.T("Settings/Online/St/PeerLeft") : why;
             // 🔴 **2026-10-19（P6d · A1079②）**：「对面离开了：」这个**前缀碎片**原来是裸中文字面量 ⇒ 落键。
@@ -229,7 +262,7 @@ namespace CardPresentation.Net
             //      反过来的话 `what` 会变成「带着键名的 35 字」⇒ 拼进 `DeferToBattle` 后 59 字
             //      > 提示行的尺子（`Shell/SearchingMatchPopup.HintLineWidth(句) > HintLineMaxWidth`；
             //        中文档那一档 = `HintLineMaxChars` = 40 个汉字），每次都 `LogWarning`。
-            if (_started) { DeferToBattleLayer(Loc.T("Settings/Online/Lobby/PeerLeftFrag") + body); return; }
+            if (Started) { DeferToBattleLayer(Loc.T("Settings/Online/Lobby/PeerLeftFrag") + body); return; }
             string tail = RevokeMatchLocal();
             SayLobby(string.Format(Loc.T("Settings/Online/Lobby/PeerLeftHint"), body, tail),
                      string.Format(Loc.T("Settings/Online/Lobby/PeerLeft"), body, tail));
@@ -278,7 +311,7 @@ namespace CardPresentation.Net
         /// 那一下，但**不发 `match.cancel`**：对面已经不在那条连接上了，`Cancel()` 那个口会如实报
         /// 「联机没连上（这一局本来就没走联机）」—— 那句话在**这个**场景里是错的（我们确实在匹配，
         /// 只是对面没了）。🔴 **不新增协议消息**：这一下纯本地；对面回来之后两边重新点 `Battle!` 就是新的一局。
-        /// ⚠️ `_started` 之后不走这里（调用方已经先把它分派出去了）。返回给玩家看的那半句。</summary>
+        /// ⚠️ `Started` 之后不走这里（调用方已经先把它分派出去了）。返回给玩家看的那半句。</summary>
         static string RevokeMatchLocal()
         {
             bool had = _myDeck != null || _foeDeck != null;
@@ -310,6 +343,74 @@ namespace CardPresentation.Net
                         + "取语义最近的一档）");
             }
             return had ? Loc.T("Settings/Online/Lobby/MatchRevoked") : Loc.T("Settings/Online/Lobby/NotMatchingThisGame");
+        }
+
+        // ==================================================================
+        //  🆕 **A1322（2026-10-19 · 调度台裁定 = 选项 A）**：**迟到的** `match.cancel`
+        // ==================================================================
+        //  「迟到」= 本机这一端**已经把开局包发出 / 收到**（`Started`），而对面这时才发取消。
+        //
+        //  🔴 **口径（裁定原文）**：**收侧认了取消** —— 不再继续进战场，撤本地这一局 + 用现有
+        //     `Notice` / 提示行告知玩家；**只在 `PumpLobby` 可达窗口内做**（本机尚未切场景），
+        //     窗口外保持现状并 Log；⛔ **不新增协议消息**（所以这一档也**不回包**）。
+        //
+        //  ⚠️ **为什么「不回包」不等于「只认一半」**：现有消息表里没有任何一条能表达
+        //     「你这个取消来晚了」—— 回 `match.cancel` 会让对面当成「对面也撤了」并弹一句**假话**；
+        //     重发 `start` 只会让对面再弹一次「已取消 ⇒ 丢掉迟到的开局包」（重复、无新信息）。
+        //     ⇒ 判据落在**行为一致**：两边都**不进战场**（对面本来就没打算进），而不是「补一条消息」。
+
+        /// <summary>这一局是不是**还来得及**认下这条迟到的取消 —— 判据 =「本机还没切场景」。
+        ///
+        /// <para>三个分支（由 `GoToBattle` 的实际次序决定）：</para>
+        /// <list type="bullet">
+        /// <item>**批处理**：`GoToBattle` 在 `Application.isBatchMode` 那一句就返回（**不切场景**）
+        ///   ⇒ 窗口恒开（自检靠这一档验它）。</item>
+        /// <item>**界面挂着 <see cref="HoldForPresentation"/>**（「找到对手」那一态还没放行）：
+        ///   `GoToBattle` 停在那口气里、**没调 `SceneManager.LoadScene`** ⇒ 窗口开。</item>
+        /// <item>**其余**：`GoToBattle` **已经同步调过** `SceneManager.LoadScene` ⇒ 切场景在飞 ⇒ **窗口关**。</item>
+        /// </list>
+        /// <para>⚠️ 还要求 `NetPendingBattle.Current != null`：那份跨场景槽**被战斗层 `Take()` 走** =
+        /// 战斗层已经接管 ⇒ 没有任何可撤的东西了。</para></summary>
+        static bool CanStillHonorLateCancel()
+        {
+            if (NetPendingBattle.Current == null) return false;
+            return Application.isBatchMode || HoldForPresentation != null;
+        }
+
+        /// <summary>认下这条迟到的取消：撤本地这一局 + 出声（判据与口径 → 上面那一节）。
+        /// ⚠️ **不发任何协议消息** —— 对面就是取消方，它没有在等我们回话。</summary>
+        static void RevokeForLateCancel(MsgMatchCancel mc)
+        {
+            bool had = _myDeck != null || _foeDeck != null;
+            // 🔴 **跨场景那份必须作废**：不清的话，「找到对手」展示完那一跳（`GoNow`）会照旧把本机
+            //    **切进战场** —— 那正是本账要挡的那一下。
+            NetPendingBattle.Current = null;
+            ClearMatch();                        // 两格 `Started` / 两副牌 / 「谁是对面」全清
+            _revokedForLateCancel = true;        // 给 `GoNow` 一个判据（它据此**不报错**、不切场景）
+            // ⚠️ `HoldForPresentation` **不在这里清**：它由注册方（`SearchingOpponentWindow.Close/OnDestroy`）
+            //    自己摘；真正挡住切场景的是上面那句 `Current = null`。
+            //    📌 残留（Shell 那一侧，不在本批白名单）：那扇「找到对手」窗不会自己关 —— 玩家看到的是
+            //       一句「对面取消了」的弹窗 + 那扇还开着的窗（可由 Esc/Cancel 关掉）。
+            Debug.Log("[Net] 对面取消了这一局（**迟到**：本机已经把开局包发出/收到）⇒ **收侧认了**："
+                    + "撤掉本地这一局、**不进战场**（A1322 · 选项 A）。理由：对面明确取消了、它不会进战场；"
+                    + "本机单方面进去 = 两端分叉"
+                    + (mc != null && !string.IsNullOrEmpty(mc.reason) ? $"（对面给的理由：{mc.reason}）" : ""));
+            if (had)
+            {
+                // 理由码与「大厅阶段收到对面取消」那一支**同一档**（`A1297①` 的现成口径）：
+                // 这一局确实是**被取消掉的**（不是掉线 —— 掉线那一档见 `RevokeMatchLocal` 的 `A1297②`）。
+                // ⛔ 那行字只有一处拼 = `ReplayStore.ResultLine`（铁律 6，别在这儿抄字面量）。
+                // ⚠️ 与那一支的唯一区别 = 「**迟到**」：这一局在本机**曾经成立过**（开局包已发/收）；
+                //    而 `seat` 照样传 `-1` —— 那一刻**还没有对局、没有绝对座位**（同 `Cancel()` 那条）。
+                Debug.Log(ReplayStore.ResultLine(BattleResult.Cancelled, -1)
+                        + " —— 匹配层：**迟到的**对面取消 ⇒ 收侧认了、这一局没开"
+                        + "（⚠️ 原版无此路：P2P 自拟；码取语义最近的一档 `Cancelled`）");
+            }
+            // 玩家那一侧：**沿用现成词条**（⛔ 没新增键）——
+            //   弹窗 = `PeerCancelled`（「双方都没有开局，退回大厅」，与这一档逐字相符）；
+            //   提示行 = `MatchRevoked`（最短那句，落在 `A933` 那把 80 个半宽字位的尺子里）。
+            SayLobby(Loc.T("Settings/Online/Lobby/MatchRevoked"),
+                     Loc.T("Settings/Online/Lobby/PeerCancelled"));
         }
 
         /// <summary>**出声**那一处（提示行 + 日志）。⛔ 不弹窗 —— 弹窗只在真的「对面不在了」那两跳里发。
@@ -376,12 +477,23 @@ namespace CardPresentation.Net
         /// </summary>
         public static Func<MsgStart, bool> HoldForPresentation;
 
-        /// <summary>界面展示完了 ⇒ 真的切场景（配 <see cref="HoldForPresentation"/> 用）。</summary>
+        /// <summary>界面展示完了 ⇒ 真的切场景（配 <see cref="HoldForPresentation"/> 用）。
+        /// 🆕 **A1322（2026-10-19）**：展示期间这一局若被**对面迟到的取消**撤掉（`RevokeForLateCancel`），
+        /// 这里**不切场景**、也不把它报成缺陷（跨场景槽空着在这一档是**正常**的）。</summary>
         public static void GoNow()
         {
             var pb = NetPendingBattle.Current;
             if (pb == null)
             {
+                // 🆕 **A1322（2026-10-19）**：这一份空着**有可能是正常的** —— 这一局在「找到对手」
+                //    展示期间被**对面迟到的取消**撤掉了（`RevokeForLateCancel` 把跨场景槽清空）。
+                //    ⇒ 这一档**不报缺陷**、也**不切场景**（判据与口径 → `RevokeForLateCancel` 上头那一节）。
+                if (_revokedForLateCancel)
+                {
+                    Debug.Log("[Net] 「找到对手」展示完毕，但这一局**已经被对面取消** ⇒ 不切场景"
+                            + "（窗口内认下的取消，A1322）—— 那扇窗由玩家自己关（Esc/Cancel），回大厅");
+                    return;
+                }
                 Debug.LogError("[Net] 没有待进的开局包 —— 不切场景（这是缺陷，不是正常路径）");
                 return;
             }
@@ -549,6 +661,8 @@ namespace CardPresentation.Net
                         Debug.Log($"[Net] 主机开局：种子 {st.seed} · 模式 {st.mode} · 战场 {st.arena} · "
                                 + $"先手 = {(st.hostFirst == 0 ? "主机" : "客机")}"
                                 + (string.IsNullOrEmpty(FoeName) ? "" : $" · 对面是「{FoeName}」"));
+                        // 🔴 **A1323（2026-10-19）**：【我收到过开局包】= 这一跳（客机那一端）。
+                        _receivedStart = true;
                         GoToBattle(st);
                         break;
                     }
@@ -556,11 +670,34 @@ namespace CardPresentation.Net
                     {
                         var mc = NetProtocol.Unpack<MsgMatchCancel>(f.payload);
                         FoeCancelled = true;
-                        if (_started)
+                        if (Started)
                         {
-                            // 开局包已经发出去了 ⇒ 对面这条取消**晚了**。如实说，不假装两边一致。
-                            Debug.LogWarning("[Net] 对面在开局之后才取消 —— 这一局照旧开（对面会收到开局包）");
-                            NetRuntime.Notice(Loc.T("Settings/Online/Lobby/MissedCancel"));
+                            // ==================================================================
+                            //  🔴 **A1322（2026-10-19 · 调度台裁定 = 选项 A）：收侧认了取消。**
+                            // ==================================================================
+                            //  **原来**：只 `LogWarning` + `Notice(MissedCancel)`，**照旧进战场** ⇒
+                            //  对面已经退回大厅、本机单方面进去 = **两端分叉**。
+                            //  注释当时自己写着「如实说、不假装两边一致」—— 那不是「双向语义」，
+                            //  取消只认了一半。
+                            //
+                            //  **现在**：取消是一条**双向**语义 —— 对面明确取消了 ⇒ **这一局不往下走**：
+                            //    ① 撤掉本地这一局（`ClearMatch` + 作废跨场景那份 `NetPendingBattle`）；
+                            //    ② 告诉玩家（**沿用现成词条** `Lobby/PeerCancelled`，⛔ 没新增协议消息、也没新增词条键）。
+                            //  ⚠️ **只在窗口内做**：「本机**还没切场景**」那一小段（判据见 `CanStillHonorLateCancel`）。
+                            //     窗口外（战斗层已经接管）⇒ **保持现状** + 出声（那是真的来不及了）。
+                            if (!CanStillHonorLateCancel())
+                            {
+                                // 窗口外：这一局已经被战斗层 `Take()` 走（`NetPendingBattle.Current == null`），
+                                // 或者 `GoToBattle` 已经调过 `SceneManager.LoadScene`（没有 `HoldForPresentation`
+                                // 拦着）⇒ **取消来不及了**。⛔ 不假装撤掉。
+                                Debug.LogWarning("[Net] 对面在开局之后才取消 —— 但这一局**已经切进战场了**"
+                                               + "（窗口外：本机已无可撤回的待进开局包）⇒ 取消**来不及了**，"
+                                               + "这一局照旧（原版那一刻也是「已经开局、取消不了」）。如实说出来");
+                                NetRuntime.Notice(Loc.T("Settings/Online/Lobby/MissedCancel"));
+                                break;
+                            }
+                            RevokeForLateCancel(mc);
+                            break;
                         }
                         else
                         {
@@ -576,7 +713,7 @@ namespace CardPresentation.Net
                             //      不是掉线 —— 掉线那一档见 `RevokeMatchLocal` 里的 `A1297②`）。
                             //   ⚠️ `seat` 传 `-1` = **没有座位可报**（那一刻还没有对局、没有绝对座位），同 `Cancel()` 那条。
                             //   ⛔ 那行字**只有一处拼** = `ReplayStore.ResultLine`（别在这儿抄字面量，铁律「两处写同一条规则」）。
-                            //   🔴 **只在这一支记**：上面 `_started` 那一支是「**这一局照旧开**」（对面这包来晚了）
+                            //   🔴 **只在这一支记**：上面 `Started` 那一支是「**这一局照旧开**」（对面这包来晚了）
                             //      ⇒ 那里**没有「没了」**，记码就是静默说错一句话。
                             Debug.Log(ReplayStore.ResultLine(BattleResult.Cancelled, -1)
                                     + " —— 匹配层：对面撤了这局匹配（⚠️ 原版无此路：带码的调用点只有 `CancelMatch.c:29` 一处、"
@@ -640,7 +777,15 @@ namespace CardPresentation.Net
                 hostDeckJson = JsonUtility.ToJson(_myDeck),
                 clientDeckJson = JsonUtility.ToJson(_foeDeck),
             };
-            s.Send(NetKind.Start, start);
+            bool sent = s.Send(NetKind.Start, start);
+            // 🔴 **A1323（2026-10-19）**：【我发过开局包】就落在这里（原来这句在 `GoToBattle` 里，两端共用）。
+            //    ⚠️ 发送失败也记「已发」—— 这一局在**本机这一端**确实已经成立（种子 / 先手 / 战场都定了、
+            //    `NetPendingBattle` 也放进静态槽了），只是对面收不到；`Send` 那一刻自己已经喊过一句，
+            //    这里再**明确说一次后果**（⛔ 不静默）。
+            _sentStart = true;
+            if (!sent)
+                Debug.LogWarning("[Net] ⚠️ 开局包 **没发出去**（这一刻连接已断）⇒ 本机仍按「这一局已开局」处理"
+                               + "（这一端已经定了种子/先手/战场），但**对面收不到** —— 如实说出来，不假装两边一致");
             Debug.Log($"[Net] 主机开局：种子 {seed} · 先手座位 {firstSeat}（{(firstSeat == 0 ? "主机" : "客机")}）· "
                     + $"战场 {arena} · 两副牌 {_myDeck.CardIds.Count}/{_foeDeck.CardIds.Count} 张已下发"
                     + "（**不洗牌**：两端同种子同输入 ⇒ 洗出来的顺序必然一样）");
@@ -650,7 +795,11 @@ namespace CardPresentation.Net
         /// <summary>两端都走这一条：把开局参数放进跨场景的静态槽，然后切到那一场。</summary>
         static void GoToBattle(MsgStart st)
         {
-            _started = true;
+            // 🔴 **A1323（2026-10-19）**：这里原来是一句 `_started = true;` —— **两端共用**这一条
+            //    ⇒ 「我发过」与「我收到过」混成一个格。现在两格由**各自的调用点**置：
+            //    · 主机 = `HostStartMatch` 里那句 `Send(NetKind.Start, …)` 之后（`_sentStart`）；
+            //    · 客机 = `PumpLobby` 的 `case NetKind.Start` 里（`_receivedStart`）。
+            //    ⛔ 别挪回这里：这里分不出是谁（`host` 那一句要等 `NetRuntime` 活着才答得出来）。
             bool host = NetRuntime.Instance != null && NetRuntime.Instance.Session != null
                      && NetRuntime.Instance.Session.Role == NetRole.Host;
             var pb = NetPendingBattle.FromStart(st, host);

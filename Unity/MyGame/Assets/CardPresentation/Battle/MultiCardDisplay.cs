@@ -233,6 +233,9 @@ namespace CardPresentation
         Transform _panel;         // 画布本体：标题 / 继续条 / 圆钮 / 两个字 / 提示
         ImageQuad _mask;          // 🔴 有意**留在世界空间**（必须压在卡片后面，见文件头那三条）
         HudPiece _bar, _circle;
+        // 🆕 2026-10-19（B4 · `N70` P0-2）：继续钮的反馈（原版那一族 `Continue Button` t=1 ColorTint +
+        //   `CircleButton` t=2 SpriteSwap `40k_UI_bt_play_hover/_pressed`；本地缺那两张 ⇒ 圆钮退回 tint 并出声）。
+        BattleButtonFx _fxBar, _fxCircle;
         Label _header, _barText, _hint;
         readonly List<CardView> _cards = new List<CardView>();
 
@@ -444,7 +447,31 @@ namespace CardPresentation
             if (_hint == null) Debug.LogWarning("[多卡展示窗] 底部提示行没建起来（`MakeText` 返回 null —— 拿不到 TMP 字体？）");
 
             SetChrome(false);
+            // 🆕 2026-10-19（B4 · `N70` P0-2）
+            _fxBar = BattleButtonFx.Tint(_bar, "Continue Button");
+            var ph = CardArt.MenuUi("40k_UI_bt_play_hover");
+            var pp = CardArt.MenuUi("40k_UI_bt_play_pressed");
+            _fxCircle = (ph != null && pp != null)
+                       ? BattleButtonFx.Swap(_circle, "CircleButton", _circle != null ? _circle.Texture as Texture2D : null, ph, pp)
+                       : BattleButtonFx.Tint(_circle, "CircleButton(tint-fallback)");
         }
+
+        /// <summary>每帧喂状态（驱动层 `TickMultiCards` 里调）。</summary>
+        public void TickFeedback(Vector3 world, bool held)
+        {
+            if (_fxBar == null) return;
+            bool over = HitContinue(world), down = over && held;
+            _fxBar.SetHover(over); _fxBar.SetPressed(down); _fxBar.Tick();
+            if (_fxCircle != null) { _fxCircle.SetHover(over); _fxCircle.SetPressed(down); _fxCircle.Tick(); }
+        }
+        /// <summary>自检口。</summary>
+        public void SimulateFeedback(bool hover, bool pressed)
+        {
+            if (_fxBar == null) return;
+            _fxBar.SetHover(hover); _fxBar.SetPressed(pressed);
+            if (_fxCircle != null) { _fxCircle.SetHover(hover); _fxCircle.SetPressed(pressed); }
+        }
+        public Color FeedbackKeyForTest { get { return _fxBar != null ? _fxBar.KeyForTest : Color.clear; } }
 
         void SetChrome(bool on)
         {

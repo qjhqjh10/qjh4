@@ -292,6 +292,93 @@ namespace CardPresentation
         /// ⛔ 别退回 `SlideRightInsetPx / U`（那就又变成「拿战斗那个数当全部情况」）。</summary>
         float _slideInsetU;
 
+        // ============================ 悬停 / 按下 / 禁用 反馈（`N70` P0-4） ============================
+        // 判据 = 原版 uGUI `Slider`（`m_Transition = 1 ColorTint`）：
+        //   `m_TargetGraphic` = **手柄**那颗 `Image`（文件头「Slider 字段」那一节逐字实读），
+        //   `m_Colors`：NOR 白 · **HL 0.9607843** · **PR 0.7843137** · **DIS (0.7843, α 0.502)** ·
+        //   `m_FadeDuration = 0.1`。⇒ 只有**手柄**变色，轨道/填条不变（UGUI 的 ColorTint 只打 target）。
+        // 🔴 **2026-10-19（B4）**：内核放在本件（⛔ 不在两个宿主各写一套）。
+        //   宿主只需每帧喂 `SetHover/SetPressed`（并在每帧末 `TickFeedback()`）；
+        //   在 Play 里按 0.1s 逐通道 lerp（与 `WindowButton` 同形），批处理里**立刻写**（自检读目标色）。
+        static readonly Color FbHighlight = new Color(0.9607843f, 0.9607843f, 0.9607843f, 1f);
+        static readonly Color FbPressed = new Color(0.7843137f, 0.7843137f, 0.7843137f, 1f);
+        static readonly Color FbDisabled = new Color(0.7843137f, 0.7843137f, 0.7843137f, 0.502f);
+        /// <summary>原版 `m_Colors.m_FadeDuration`（秒）。</summary>
+        public const float FbFadeSeconds = 0.1f;
+
+        bool _fbHover, _fbPressed, _fbInteractable = true;
+        Color _fbK = Color.white, _fbTarget = Color.white;
+        Color _fbBase = Color.white;      // 手柄图形自己的颜色（通常是白；别把状态色乘进基准色）
+
+        /// <summary>悬停态（宿主每帧喂）。</summary>
+        public void SetHover(bool on)
+        {
+            if (_fbHover == on) return;
+            _fbHover = on;
+            FbSetTarget();
+        }
+        /// <summary>按下态（拖手柄期间 = true，原版 `Selectable.Pressed`）。</summary>
+        public void SetPressed(bool on)
+        {
+            if (_fbPressed == on) return;
+            _fbPressed = on;
+            FbSetTarget();
+        }
+        /// <summary>可交互（`false` ⇒ 原版 `DisabledColor`：0.7843 / α0.502）。默认 true、现有调用点零变化。</summary>
+        public void SetInteractable(bool on)
+        {
+            if (_fbInteractable == on) return;
+            _fbInteractable = on;
+            FbSetTarget();
+        }
+        /// <summary>当前状态键（`Color.white` = Normal）。自检读**目标值**（批处理没有帧循环）。</summary>
+        public Color FeedbackKeyForTest { get { return _fbTarget; } }
+        /// <summary>当前**实际**色偏（Play 里会落后目标最多 0.1s）。</summary>
+        public Color FeedbackCurrentForTest { get { return _fbK; } }
+
+        void FbSetTarget()
+        {
+            _fbTarget = !_fbInteractable ? FbDisabled
+                      : _fbPressed ? FbPressed
+                      : _fbHover ? FbHighlight
+                      : Color.white;   // m_NormalColor = 纯白（Slider 那一族，实读）
+            if (!Application.isPlaying)
+            {
+                _fbK = _fbTarget;
+                FbApply();
+            }
+        }
+
+        /// <summary>每帧推一次（宿主在 `PointerFrame` 末尾调）。Play 里按 0.1s 逐通道 lerp；
+        /// 批处理里 `FbSetTarget` 已经即时写过了，这里再调也是幂等。</summary>
+        public void TickFeedback()
+        {
+            if (!Application.isPlaying || _fbK == _fbTarget) return;
+            float k = Mathf.Clamp01(Time.unscaledDeltaTime / Mathf.Max(0.0001f, FbFadeSeconds));
+            _fbK = Color.Lerp(_fbK, _fbTarget, k);
+            if (Mathf.Abs(_fbK.r - _fbTarget.r) < 0.001f && Mathf.Abs(_fbK.g - _fbTarget.g) < 0.001f
+                && Mathf.Abs(_fbK.b - _fbTarget.b) < 0.001f && Mathf.Abs(_fbK.a - _fbTarget.a) < 0.001f)
+                _fbK = _fbTarget;
+            FbApply();
+        }
+
+        void FbApply()
+        {
+            if (_handle == null) return;
+            if (_fbBase == default(Color)) _fbBase = Color.white;
+            // 原版 `CrossFadeColor` 是**乘**在图形自己的颜色上
+            _handle.SetTint(new Color(_fbBase.r * _fbK.r, _fbBase.g * _fbK.g,
+                                      _fbBase.b * _fbK.b, _fbBase.a * _fbK.a));
+        }
+
+        /// <summary>建件收尾（`Create` 末尾）：记下基准色并立刻写一次 Normal（同 `WindowButton.ApplyTintInstant`）。</summary>
+        void FbInit()
+        {
+            _fbBase = _handle != null ? _handle.Tint : Color.white;
+            _fbK = _fbTarget = Color.white;
+            FbApply();
+        }
+
         public bool Visible { get { return _root != null && _root.activeSelf; } }
 
         /// <param name="trackW">轨道宽（px）。⚠️ **2026-09-26 加**：设置窗的音频页那三根取的是
@@ -565,6 +652,7 @@ namespace CardPresentation
                 if (s._handle != null && s._handle.Quad != null) s._handle.Quad.SetRenderQueue(queue + 2);
             }
             s.Layout();
+            s.FbInit();          // 🆕 2026-10-19（B4）：记基准色 + 立刻写一次 Normal（同 `WindowButton.ApplyTintInstant`）
             return s;
         }
 
@@ -854,7 +942,12 @@ namespace CardPresentation
             if (fire && changed && OnChanged != null) OnChanged(Value);
         }
 
-        public void SetVisible(bool on) { if (_root != null) _root.SetActive(on); }
+        public void SetVisible(bool on)
+        {
+            if (_root != null) _root.SetActive(on);
+            // 关着的时候不该留着悬停/按下（否则再打开会先亮一帧旧状态）
+            if (!on) { SetHover(false); SetPressed(false); }
+        }
 
         // ---- 自检用 ----
         /// <summary>三张图都取到了没有（缺图 = 玩家什么都看不见）。

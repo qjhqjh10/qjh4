@@ -7,11 +7,18 @@
 //   ② **动作定序**（每条动作一个 `seq`，写进权威动作流 —— 重连时靠它重放）；
 //   ③ **换牌阶段的定序**（`Mulligan` 会掷 `ctx.Rng`，**两边的调用顺序必须一模一样**）。
 //
-// 🔴 **对局中两端都是「自己 = 0 号位」**（`BattleDriver._me` 焊死）⇒
-//   · 座位翻译只在 `NetProtocol.Seat()` 一处做（收到对面动作时翻 `targetP`；发送方视角的原样发）；
-//   · **牌堆顺序必须由主机定**：`RuleCore.NewBattle` 的洗牌按座位顺序抽随机数
-//     （`BuildPlayer(P0)` 先洗、`BuildPlayer(P1)` 后洗）⇒ 两端镜像跑会**洗出不同的牌堆**。
-//     所以联机局一律 `shuffle:false` + 用主机下发的顺序（见 `NetPendingBattle.DeckOrder`）。
+// 🔴 **座位是【绝对的】：主机 = 0 · 客机 = 1，两端跑同一套编号**（判据 → `NetProtocol.Fingerprint` 的注释、
+//   正本 §5·3）。⇒ 对局中**没有任何座位翻译**：`targetP` / `slot` / `handIdx` / `winner` / `active` 全都不用翻，
+//   视图方向只由 `BattleDriver._me` 决定（客机被 `SetMySeat(1)` 摆到下面）。
+//   ⚠️ **2026-10-19（`A1114`(a)）就地订正（铁律 5）**：本节原来写的是**镜像时代**的话 ——
+//     「对局中两端都是『自己 = 0 号位』（`BattleDriver._me` 焊死）」＋「座位翻译只在 `NetProtocol.Seat()`
+//      一处做（收到对面动作时翻 `targetP`）」＋「联机局一律 `shuffle:false` + 用主机下发的顺序
+//      （见 `NetPendingBattle.DeckOrder`）」。**三句全都不成立**：
+//     ① 镜像那套**2026-09-26 已废弃**（引擎层面走不通，第 40 步 `Unstable` 当场分叉）；
+//     ② `NetProtocol.Seat()` **不在任何运行路径上**（只剩 `NetSelfTest` I①~I③ 在测它自己）；
+//     ③ `NetPendingBattle.DeckOrder` **这个字段根本不存在**，`shuffle` 门也早没了 ——
+//        现在是「两端同种子 + 同输入 ⇒ 各洗各的必然一致」（`NetPendingBattle.NoShuffle` 只是保留开关）。
+//   ⛔ 别再把这四行改回镜像口径；同一族的第三处 = `BattleDriver.NetReplay` 的 `<summary>`（那份文件不在本批白名单）。
 //
 // 🔴 **不做回滚**（引擎没有快照）：本地动作**乐观落地**（自己那一回合只有自己在动 ⇒
 //   「一个行动方 + TCP 有序」天然保证两端顺序一致），主机收到后照样过一遍引擎 ——

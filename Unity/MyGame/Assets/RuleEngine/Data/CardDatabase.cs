@@ -24,6 +24,9 @@ namespace RuleEngine
             public int count;
             public string source;
             public CardDto[] cards;
+            /// <summary>🆕 v12（`E12` · `A2142`）：天赋名 → 天赋卡 id（键已按 `CreatePool.Norm` 归一）。
+            /// `null` / 空 = 旧表（&lt; v12）—— 下面的 version 守卫会出声。</summary>
+            public TalentNameIdDto[] talentNameIds;
         }
 
         [Serializable]
@@ -210,7 +213,37 @@ namespace RuleEngine
             /// （PPtr → truth `path_id` → `uniqueId`）。⚠️ 里面的 id **未必在本池**
             /// （变体卡 SO）—— 消费侧如实跳过，别当数据错。</summary>
             public string[] choicesSpecificCardIds;
+
+            /// <summary>🆕 v11（2026-10-19 · `E12`）：**逐候选动画时间**。
+            /// 见 <see cref="CardDef.CardAnimTime"/> 的 doc（字段一一对应）。
+            /// ⚠️ 缺值 = `null` / 空数组；旧表（&lt; v11）读进来是 `null` ⇒ 下面那条 version 守卫会出声。</summary>
+            public AnimTimeDto[] animTimes;
         }
+
+        /// <summary>🆕 v11：`animTimes` 的传输形状（字段名**故意与 JSON 列名一致**，JsonUtility 直读）。
+        /// 语义 → <see cref="CardDef.CardAnimTime"/>。</summary>
+        [System.Serializable]
+        public class AnimTimeDto
+        {
+            public string a;      // CardAnim 资产名
+            public string n;      // prefab 名
+            public int tg;        // 原版 CardAbility.trigger 数值（-1 = activeAbility）
+            public string tn;     // 枚举名
+            public int rc;        // randomAbilityChoice
+            public string o;      // 原版字段路径的索引三元组（i.j.k / -.j.k）
+            public float d;       // vfxDelayTime
+            public float sd;      // startDelay
+            public float s;       // timeAtStartPos
+            public float m;       // timeMoving
+            public float e;       // timeAtEndPos
+            public float u;       // Duration = m + s + e + d
+            public float t;       // 组内起点偏移（前面各候选 u 之和）
+        }
+
+        /// <summary>🆕 v12（2026-10-19 · `E12` · `A2142`）：**天赋名 → 天赋卡 id** 真值表的一行。
+        /// `n` = `CreatePool.Norm` 归一后的名字（两侧同一份归一）。</summary>
+        [System.Serializable]
+        public class TalentNameIdDto { public string n; public string id; }
 
         /// <summary>🆕 **2026-10-18（T09）**：解析结果的缓存。
         /// 🔴 `JsonUtility.FromJson` + 1127 张卡的构造实测 **≈2.4 s**，而全仓有 **216 个调用点**，
@@ -249,6 +282,18 @@ namespace RuleEngine
             var dto = JsonUtility.FromJson<FileDto>(json);
             if (dto == null || dto.cards == null) return list;
 
+            // 🆕 2026-10-19（第五十五会话 · 引擎线 `E12` · `A2142`）：把「天赋名 → 天赋卡 id」真值表
+            //   交给 `TalentCardData`（`SpawnTalents` 的按名字兜底**先查它、按 id 取**）。
+            //   ⚠️ `JsonUtility` 不支持字典 ⇒ 文件里是 `[{n,id}]`，这里翻成 `KeyValuePair`。
+            if (dto.talentNameIds != null && dto.talentNameIds.Length > 0)
+            {
+                var pairs = new List<KeyValuePair<string, string>>(dto.talentNameIds.Length);
+                foreach (var t in dto.talentNameIds)
+                    if (t != null && !string.IsNullOrEmpty(t.n) && !string.IsNullOrEmpty(t.id))
+                        pairs.Add(new KeyValuePair<string, string>(t.n, t.id));
+                TalentCardData.SetNameMap(pairs);
+            }
+
             // ⚠️ 卡表 < v6 就没有 `id` 字段（v6 = 2026-09-13 第三十三轮开始，每张卡带稳定 id）。
             //    🔴 **2026-10-18（`W25`）起缺 id 的卡会被【跳过】**（卡名不再当身份，见下面那段的注释）
             //    ⇒ 读旧表得到的是**空池**（每张卡各报一条错），不是「能跑但身份不稳」。
@@ -285,6 +330,22 @@ namespace RuleEngine
                                + "（`choicesTargetsAffected` / `choicesMaxTargets` / `choicesSpecificCardIds`），"
                                + "它们会被读成 **0/空** 而不是「缺值(-1)」⇒ 选牌面板的逐卡 `maxTargets` 拿不到真值"
                                + "（`A1959`）。跑一下 gen_cards_engine.py 重生成。");
+            // 🆕 2026-10-19（第五十五会话 · 引擎线 `E12`）：v11 起才有 `animTimes`（逐候选动画时间）。
+            //   **旧表读进来 = `null`**（`JsonUtility` 不会给默认元素）⇒
+            //   「没有这一列」会被静默读成「这张卡没有原版动画」—— 而真实区分是
+            //   「这张卡**确实**没有 `cardAnimations`」与「表是旧的」。⇒ 出声。
+            if (dto.version < 11)
+                Debug.LogWarning($"[RuleEngine] 卡表 version={dto.version} < 11 —— 没有 `animTimes` 一列"
+                               + "（原版 `cardAbilities[].abilityLogic[].cardAnimations[]` 的逐候选时间），"
+                               + "多候选会退回「同一拍全播」且**看不出来是缺数据** ⇒ "
+                               + "跑一下 gen_cards_engine.py 重生成（`E12`）。");
+            // 🆕 2026-10-19（`E12` · `A2142`）：v12 起才有顶层 `talentNameIds`（天赋名 → 天赋卡 id）。
+            //   **旧表读进来 = `null`** ⇒ `TalentCardData.NameMapKeys == 0` ⇒ 兜底退回「按显示名查」，
+            //   也就是「卡一改名就静默失配」那条老路 —— 必须出声，别让「缺数据」与「没天赋」混在一起。
+            if (dto.version < 12)
+                Debug.LogWarning($"[RuleEngine] 卡表 version={dto.version} < 12 —— 没有 `talentNameIds` 真值表"
+                               + "（天赋名 → 天赋卡 id）；`RuleCore.SpawnTalents` 的最后兜底会退回"
+                               + "「按卡面显示名查」那条路（改名即静默失配）。跑一下 gen_cards_engine.py 重生成（`E12`）。");
 
             int noId = 0;
 
@@ -353,7 +414,10 @@ namespace RuleEngine
                     //    ⚠️ 缺值口径是 `-1`（旧表读进来是 `0` ⇒ 上面那条 version 守卫会出声）。
                     choicesTargetsAffected: c.choicesTargetsAffected,
                     choicesMaxTargets: c.choicesMaxTargets,
-                    choicesSpecificCardIds: c.choicesSpecificCardIds));
+                    choicesSpecificCardIds: c.choicesSpecificCardIds,
+                    // 🆕 v11（2026-10-19 · `E12`）：逐候选动画时间 —— 只落数据，
+                    //    ⚠️ 缺值口径 = 空表（旧表整列没有 ⇒ 上面的 version 守卫已经出过声）。
+                    animTimes: MapAnimTimes(c.animTimes)));
             }
             // 🔴 🆕 2026-10-15（接线批）：**护甲两套口径一旦分叉就出声** ——
             //   引擎读的那一份（`CardDef` 构造里定下来的 `_keywords[armour]`）由
@@ -396,6 +460,28 @@ namespace RuleEngine
         /// 正常数据上三类都应当是 0 条（2026-10-15 现读：**只有 `DA66` 一条**，属第三类）。
         /// ⛔ 只出声，**不抛异常、不改任何值**（本项目红线：静默失败比报错更贵）。
         /// </summary>
+        /// <summary>🆕 v11（2026-10-19 · `E12`）：`animTimes` DTO → `CardDef.CardAnimTime`。
+        /// `null` / 空 ⇒ 空数组（`Parse` 那边一律传非 null 的 `IEnumerable`）。
+        /// ⚠️ 字段是**逐字搬运**，这里不做任何取舍/排序 —— 顺序 = JSON 数组顺序 = 原版 `abilityLogic` 顺序。</summary>
+        static List<CardDef.CardAnimTime> MapAnimTimes(AnimTimeDto[] src)
+        {
+            var list = new List<CardDef.CardAnimTime>();
+            if (src == null) return list;
+            foreach (var a in src)
+            {
+                if (a == null) continue;
+                list.Add(new CardDef.CardAnimTime
+                {
+                    Anim = a.a, Prefab = a.n, Trigger = a.tg, TriggerName = a.tn,
+                    RandomChoice = a.rc != 0, Order = a.o,
+                    Delay = a.d, StartDelay = a.sd, TimeAtStartPos = a.s,
+                    TimeMoving = a.m, TimeAtEndPos = a.e,
+                    Duration = a.u, Offset = a.t,
+                });
+            }
+            return list;
+        }
+
         static void ReportArmourDisagreements(List<CardDef> pool)
         {
             var lines = new List<string>();

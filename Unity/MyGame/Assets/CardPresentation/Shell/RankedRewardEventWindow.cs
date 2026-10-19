@@ -542,8 +542,12 @@ namespace CardPresentation
                 var on = _scroll != null ? _scroll.Shift(r) : r;
                 if (_scroll != null && !_scroll.Intersects(on)) continue;   // 整块在视口外 ⇒ 不建（同全壳口径）
                 string nm = (_view.ArmyNames != null && i < _view.ArmyNames.Length && !string.IsNullOrEmpty(_view.ArmyNames[i]))
-                          ? _view.ArmyNames[i] : TxtCardName;
-                var go = BuildCard(_content, on, nm);
+                          ? _view.ArmyNames[i]
+                          // 🔴 **2026-10-19（U5 · 批次 7）**：原版 `SimpleArmyImage.Initialize` 里
+                          //   `armyText.text = GameStaticData.ArmyToLocalizedString(army)`（键族 `Armies/<枚举名>`）
+                          //   ⇒ 调用方没给显示名时按 `Army` 自己本地化（⛔ 别停在占位串 `TxtCardName`）。
+                          : (ArmyIcons.LocalizedName(_view.Armies[i]) ?? TxtCardName);
+                var go = BuildCard(_content, on, nm, _view.Armies[i]);
                 _cards.Add(go);
             }
         }
@@ -551,11 +555,11 @@ namespace CardPresentation
         /// <summary>一张 `SimpleArmyImage` 卡（6 个节点）。`card` = 卡的框（会被撑成 300×视口高）。
         /// <para>🔴 子件的框全部走 <see cref="CardChild"/>（**不是死矩形**）—— 卡高随视口变，
         /// 死矩形会错（见 `Cards` 那条注释）。</para>
-        /// <para>⚠️ `Army Icon`（原版运行期 `ArmyIconsSO.GetArmyIcon` 灌）**只建节点、不画** + 出声。
-        /// `Background` 那张底图（<see cref="ArtCardBg"/>）**本仓有**（见那条的 doc）⇒ 正常铺满、不再只建节点；
-        /// ⛔ 本文原文写的「与 `Background`（**本仓没有那张图**）**都**只建节点、不画」是**过期的**
-        /// （2026-10-18 订正，同 <see cref="ArtCardBg"/> 那条）。</para></summary>
-        Transform BuildCard(Transform parent, PxRect card, string armyName)
+        /// <para>🔴 **2026-10-19（U5 · 批次 7）**：`Army Icon`（原版运行期 `ArmyIconsSO.GetArmyIcon` 灌）
+        /// **已接运行期灌图** —— 映射 = `Core/ArmyIcons`（判据链在那个文件头）· `m_PreserveAspect = 1`。
+        /// ⚠️ 原文的「只建节点、不画 + 出声」**已过期**；现在只有 `Neutral` / 认不出的值才只建节点。
+        /// `Background` 那张底图（<see cref="ArtCardBg"/>）**本仓有** ⇒ 正常铺满、不再只建节点。</para></summary>
+        Transform BuildCard(Transform parent, PxRect card, string armyName, int army)
         {
             var nRoot = Cards[0]; var nBg = Cards[1]; var nIcon = Cards[2];
             var nTb = Cards[3];   var nTx = Cards[4]; var nBadge = Cards[5];
@@ -565,7 +569,15 @@ namespace CardPresentation
             // ⚠️ 原版那颗 `Image` 是 `m_Type = 0 (Simple)`（**不是九宫**）⇒ 走 `Rect` 拉伸铺满。
             if (bgTex != null) MenuDraw.Rect(go, bgTex, bgR, "Background", QCardBg);
             else MenuDraw.Node(go, "Background", bgR);
-            MenuDraw.Node(go, "Army Icon", CardChild(card, nIcon));      // 无图（运行期灌）
+            // 🔴 **2026-10-19（U5 · 批次 7）：`Army Icon` 的运行期灌图已接** ——
+            //   原版 `SimpleArmyImage.Initialize`：`armyIcon.sprite = ArmyIconsSO.GetArmyIcon(army)` +
+            //   `armyIcon.enabled = (sprite != null)`；映射 = `Core/ArmyIcons`（原版 `IconsByArmySO` 逐字节解出）。
+            //   prefab 那一格：**`m_PreserveAspect = 1`**、框 222×223、图 256² ⇒ 原版只画 222²（等比居中）。
+            //   ⚠️ 原文写的「本地那张表没有（SingletonBehaviour 在远端）⇒ 只建节点、不画」**已过期**。
+            var icR = CardChild(card, nIcon);
+            var icTex = ArmyIcons.Texture(army);
+            if (icTex != null) MenuDraw.Rect(go, icTex, icR, "Army Icon", QCardIcon, null, true);
+            else MenuDraw.Node(go, "Army Icon", icR);
             var tbR = CardChild(card, nTb);
             var tb = MenuDraw.Node(go, "TextBackground", tbR);
             // `TextBackground` 那颗 `Image` 原版 **`m_Sprite = <无图>` + `m_Color = (0,0,0,0.353)`**
@@ -587,20 +599,16 @@ namespace CardPresentation
             var badgeTex = Tex(ArtCardBadge, "`Feature Badge`");
             if (badgeTex != null) MenuDraw.Rect(go, badgeTex, bdR, "Feature Badge", QCardBadge);
             else MenuDraw.Node(go, "Feature Badge", bdR);
-            // `Army Icon` 的图原版由 `ArmyIconsSO.GetArmyIcon(army)` 在运行期灌（`SimpleArmyImage.Initialize.c`）
-            // —— 本地那张表**没有**（`SingletonBehaviour` 那份在远端）⇒ 只建节点、不画。
-            // 🔴 **2026-10-10 订正（铁律 5）**：本文原来印的是「`Army Icon` 与 `Background` 的图**都**本仓没有
-            //   ⇒ **两张都只建节点、不画**」—— **那句话今天在骗人**：`Background` 那张底图（`ArtCardBg`）
-            //   **本仓有**（见 `ArtCardBg` 那条 doc）⇒ 上面 `:565` 那颗 `if (bgTex != null)` **真会把它铺满**，
-            //   只有取不到时才退化成空节点。⇒ 出声文案改成**按实际走的那一支**说（见下），⛔ 别再印那句旧话。
-            //   ⚠️ 连带：这道 `if` 原来只看 `_warnedCardIcon`、**不看 `bgTex`** ⇒ 它会在「Background 明明画出来了」
-            //   的情况下也报「没画」。现在把 `bgTex` 那一半并进文案里，两者一致。
-            if (!_warnedCardIcon)
+            // 🔴 **2026-10-19（U5 · 批次 7）就地订正（铁律 5）**：原文写「`Army Icon` 的图原版由
+            //   `ArmyIconsSO.GetArmyIcon(army)` 灌 —— 本地那张表**没有** ⇒ 只建节点、不画」——**已过期**：
+            //   那张表就是 `Core/ArmyIcons`（原版 `IconsByArmySO` 逐字节解出，判据链在那个文件头），
+            //   上面那颗 `if (icTex != null)` **正常会画**。这一段只在**真的没画**时出声
+            //   （= `Army = Neutral(0)` / 认不出的值；原版 `TryGetItem` 同样是失败）。
+            if (!_warnedCardIcon && icTex == null)
             {
                 _warnedCardIcon = true;
-                Debug.Log("[RankedBoost] 阵营卡的 `Army Icon`：原版由 "
-                        + "`ArmyIconsSO.GetArmyIcon(army)` 运行期灌（本地没有那张表）"
-                        + "⇒ **只建节点、不画**。"
+                Debug.Log("[RankedBoost] 这张阵营卡的 `Army Icon` 没画：`CardArmy = " + army
+                        + "` 不在原版 `IconsByArmySO` 的 13 条里（`Neutral` / 认不出）⇒ 只建节点。"
                         + (bgTex != null
                             ? " `Background` 那张底图本仓有 ⇒ **已铺满**。"
                             : " ⚠️ 本次 `Background` 底图**取不到**（`ArtCardBg` 没命中）⇒ 它也只建了节点。"));

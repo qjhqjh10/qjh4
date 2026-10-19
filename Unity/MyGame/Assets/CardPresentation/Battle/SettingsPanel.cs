@@ -117,6 +117,100 @@ namespace CardPresentation
         Label _muteLabel;
         /// <summary>`OFF` / `ON` 两颗字（原版 `OffText` / `OnText`，各自挂在**自己那半的勾**下面）。</summary>
         Label _muteOffText, _muteOnText;
+
+        // ================= 🆕 2026-10-19（B4 · `N70` P0-2）：本面板五颗钮的反馈 =================
+        // 逐颗判据（原版 `battlearena1` MB 字段，实读）：
+        //   · `Resign Button` / `SkipTutorial Button` = **t=2 SpriteSwap**：`40K_button_hover/_pressed`
+        //   · `Generic Close Button` = **t=2**：`40k_bt_close_hover/_pressed`（`m_TargetGraphic` = `Close Button` 那张图）
+        //   · `Auto Zoom Toggle` = **t=1 ColorTint**，`m_TargetGraphic` = 子件 **`Toggle`**（方框），
+        //     **NOR 绿 (0.2863,0.9647,0.6863)**（逐值见 `BattleButtonFx.ToggleNormal`）
+        //   · `ChatToggle` = **t=1 ColorTint**，`m_TargetGraphic` = 子件 **`Background`**（行底板），默认灰
+        BattleButtonFx _fxClose, _fxResign, _fxSkip, _fxAz, _fxMute;
+
+        /// <summary>模态面板兜底（`HitLangRow` 那种「按在别处」的判定在下面各颗自己的 `Hit*` 里）。</summary>
+        void BuildButtonFeedback()
+        {
+            var hover = CardArt.MenuUi("40K_button_hover");
+            var pressed = CardArt.MenuUi("40K_button_pressed");
+            var resignTex2 = _resignTex as Texture2D;
+            _fxResign = (hover != null && pressed != null)
+                       ? BattleButtonFx.Swap(_resignBtn, "Resign Button", resignTex2, hover, pressed)
+                       : BattleButtonFx.Tint(_resignBtn, "Resign Button(tint-fallback)");
+            _fxSkip = (hover != null && pressed != null)
+                     ? BattleButtonFx.Swap(_skipBtn, "SkipTutorial Button", resignTex2, hover, pressed)
+                     : BattleButtonFx.Tint(_skipBtn, "SkipTutorial Button(tint-fallback)");
+            var ch = CardArt.MenuUi("40k_bt_close_hover");
+            var cp = CardArt.MenuUi("40k_bt_close_pressed");
+            _fxClose = (ch != null && cp != null)
+                      ? BattleButtonFx.Swap(_closeIcon, "Generic Close Button",
+                                            _closeIcon != null ? _closeIcon.Texture as Texture2D : null, ch, cp)
+                      : BattleButtonFx.Tint(_closeIcon, "Generic Close Button(tint-fallback)");
+            // 绿开关：四格逐值 = 原版（Normal 不是白 ⇒ ⛔ 不把绿写进基准色，见 `BattleButtonFx` 的 doc）
+            // 🔴 建件时 `_azBox.SetTint(AzBoxTint)` 把绿写进了**图形自己的基准色**（原版那是
+            //   `m_NormalColor`、不是 Image 的 `m_Color`）⇒ 先还原成**白底**再交给状态机，
+            //   否则悬停会变成「绿 × 绿」（R 0.286 → 0.083，静默错色）。
+            if (_azBox != null) _azBox.SetTint(Color.white);
+            _fxAz = BattleButtonFx.Tint(_azBox, "Auto Zoom Toggle",
+                                        BattleButtonFx.ToggleNormal, BattleButtonFx.ToggleHighlighted,
+                                        BattleButtonFx.TogglePressed, BattleButtonFx.ToggleDisabled);
+            if (_fxAz != null) _fxAz.ApplyInstant();
+            // 行底板：两半（off/on）互斥 ⇒ 两颗都接，同一套默认灰
+            _fxMute = BattleButtonFx.Tint(_muteOffBg != null ? _muteOffBg : _muteOnBg, "ChatToggle");
+            if (_muteOnBg != null && _fxMute != null && _muteOffBg != null)
+                _muteOnFx = BattleButtonFx.Tint(_muteOnBg, "ChatToggle(on)");
+            if (_muteOnFx != null) _muteOnFx.ApplyInstant();
+        }
+        BattleButtonFx _muteOnFx;
+
+        /// <summary>每帧喂五颗钮（`PointerFrame` 里调；列表开着时全灭 —— 那颗全屏 Blocker 盖住整扇窗）。</summary>
+        void UpdateButtonFeedback(Vector3 world, bool allow, bool held)
+        {
+            if (_fxResign == null && _closeIcon != null) BuildButtonFeedback();
+            Feed(_fxResign, allow && HitResign(world), held);
+            Feed(_fxSkip, allow && HitSkipTutorial(world), held);
+            Feed(_fxClose, allow && HitClose(world), held);
+            Feed(_fxAz, allow && HitAutoZoom(world), held);
+            Feed(_fxMute, allow && HitMuteChat(world), held);
+            Feed(_muteOnFx, allow && HitMuteChat(world), held);
+        }
+        static void Feed(BattleButtonFx fx, bool over, bool held)
+        {
+            if (fx == null) return;
+            fx.SetHover(over);
+            fx.SetPressed(over && held);
+            fx.Tick();
+        }
+        /// <summary>自检口：直接喂一颗钮（批处理里 `Update` 不跑）。</summary>
+        public void SimulateButtonFeedback(string node, bool hover, bool pressed)
+        {
+            if (_fxResign == null) BuildButtonFeedback();
+            var fx = node == "Resign Button" ? _fxResign
+                   : node == "SkipTutorial Button" ? _fxSkip
+                   : node == "Generic Close Button" ? _fxClose
+                   : node == "Auto Zoom Toggle" ? _fxAz
+                   : node == "ChatToggle" ? _fxMute : null;
+            if (fx == null) return;
+            fx.SetHover(hover); fx.SetPressed(pressed);
+            if (_muteOnFx != null && node == "ChatToggle") { _muteOnFx.SetHover(hover); _muteOnFx.SetPressed(pressed); }
+        }
+        public Color ButtonFeedbackKeyForTest(string node)
+        {
+            if (_fxResign == null) BuildButtonFeedback();
+            var fx = node == "Resign Button" ? _fxResign
+                   : node == "SkipTutorial Button" ? _fxSkip
+                   : node == "Generic Close Button" ? _fxClose
+                   : node == "Auto Zoom Toggle" ? _fxAz
+                   : node == "ChatToggle" ? _fxMute : null;
+            return fx != null ? fx.KeyForTest : Color.clear;
+        }
+        public string ButtonFeedbackTextureForTest(string node)
+        {
+            if (_fxResign == null) BuildButtonFeedback();
+            var fx = node == "Resign Button" ? _fxResign
+                   : node == "SkipTutorial Button" ? _fxSkip
+                   : node == "Generic Close Button" ? _fxClose : null;
+            return fx != null ? fx.TextureNameForTest : null;
+        }
         /// <summary>开关当前是不是 ON（原版 `BattleSettingsWindow` 上那颗 `EverguildToggle.isOn`）。
         /// 🔴 **本局内存**（原版 `VoiceLinesController.chatMuted` 是 `[SerializeField]` 的一个 bool、
         /// `Initialize` 无条件写 0）—— **不是 `PlayerPrefs`、不是服务器**。</summary>
@@ -1848,6 +1942,7 @@ namespace CardPresentation
             {
                 _dragSlider = null; _wasDown = false; _langArmed = false;
                 _langRowArmed = -1; _langBlankArmed = false; _langHoverRow = -1;
+                ResetSliderFeedback();
                 return false;
             }
             // 🆕 2026-10-18（A921）：**ESC —— 先收列表、窗不关**（原版 `TMP_Dropdown.OnCancel → Hide()`，
@@ -1857,16 +1952,23 @@ namespace CardPresentation
             //   ⛔ 别把这句挪进下面那两支（它是**帧级**边沿、与指针无关）。
             if (EscDown()) EscPressed();
             RefreshLangHover(world);
+            // 🆕 2026-10-19（B4 · `N70` P0-4）：三根滑条的悬停/按下/禁用反馈（原版 `Slider` = ColorTint，
+            //   `m_TargetGraphic` = 手柄 · HL 0.9608 / PR 0.7843 / DIS α0.502 / fade 0.1）。
+            //   判据与算式只在 `WfSlider` 一份（⛔ 别在宿主里再写一套）。列表开着时那颗全屏 Blocker 盖住整根滑块
+            //   ⇒ 悬停也要关（否则穿透亮起来）。
+            UpdateSliderHover(world, allow: !LangListOpen);
+            // 🆕 2026-10-19（B4 · `N70` P0-2）：本面板五颗钮的悬停/按下/禁用反馈。
+            UpdateButtonFeedback(world, allow: !LangListOpen, held: down);
             // 🆕 2026-10-17：语言那一行的**按下 → 抬起**这一对边沿（原版那颗 `TMP_Dropdown` 是 `Selectable`
             //   ⇒ `IPointerClickHandler`，**抬起**那一帧才算点它）。⚠️ 这一段必须在下面那句
             //   `if (!down) … return false;` **之前** —— 抬起那一帧 `down == false`，走不到底下。
             bool langClick = LangPointerFrame(world, down);
-            if (!down) { _dragSlider = null; return langClick; }
+            if (!down) { _dragSlider = null; UpdateSliderPress(); return langClick; }
 
             // 🆕 2026-10-18（A921）：**列表开着** ⇒ 这一帧的按下归那颗全屏 `Blocker`
             //   （`LangPointerFrame` 已经返回 true）—— ⛔ 别再往下走：原版那颗 `Blocker` 盖住整根滑块，
             //   按在列表上不该把底下的滑轨拖走。
-            if (LangListOpen) return true;
+            if (LangListOpen) { _dragSlider = null; UpdateSliderPress(); return true; }
 
             // 🔴 **2026-10-12（A445）：「Auto Zoom」那一行不在本方法里判。**
             //    原版那颗开关（`BattleSettingsPanel/Auto Zoom Toggle`，组件 `EverguildToggle`）继承
@@ -1876,7 +1978,7 @@ namespace CardPresentation
             //    ⚠️ A424 当初把它落在「按下那一帧」是**文件所有权逼出来的权宜**（那时 `BattleDriver.cs`
             //    不在那件活的白名单里）—— 现在挪回去了，保留这段痕迹免得下一个会话再挪回来。
             //    本方法仍然只负责**滑块**：拖动是持续状态，必须在**按下**那一帧接住。
-            if (_dragSlider != null) { _dragSlider.SetFromPointer(world); return true; }
+            if (_dragSlider != null) { _dragSlider.SetFromPointer(world); UpdateSliderPress(); return true; }
 
             foreach (var s in Sliders)
                 if (s != null && s.Contains(world))
@@ -1885,9 +1987,27 @@ namespace CardPresentation
                     s.SetFromPointer(world);       // **按下即定位**（🔴 **照原版** —— `Slider.OnPointerDown` 的
                                                    // else 支就是 `UpdateDrag`；原来这里写「`m_TargetGraphic` 只认手柄、
                                                    // 这条是我们挑的」= 读错了对象，订正见 `Battle/WfSlider.cs` 文件头）
+                    UpdateSliderPress();
                     return true;
                 }
+            UpdateSliderPress();
             return false;
+        }
+
+        // ---- 🆕 2026-10-19（B4 · `N70` P0-4）：滑条反馈的三个私有口（判据只在 `WfSlider` 一份）----
+        void ResetSliderFeedback()
+        {
+            foreach (var s in Sliders) if (s != null) { s.SetHover(false); s.SetPressed(false); s.TickFeedback(); }
+        }
+        void UpdateSliderHover(Vector3 world, bool allow)
+        {
+            foreach (var s in Sliders)
+                if (s != null) { s.SetHover(allow && s.Contains(world)); s.TickFeedback(); }
+        }
+        void UpdateSliderPress()
+        {
+            foreach (var s in Sliders)
+                if (s != null) { s.SetPressed(s == _dragSlider); s.TickFeedback(); }
         }
 
         WfSlider[] Sliders { get { return new[] { _musicSlider, _fxSlider, _voiceSlider }; } }
@@ -2058,7 +2178,15 @@ namespace CardPresentation
         }
 
         public void Show() { Visible = true; SetActive(true); }
-        public void Hide() { Visible = false; SetActive(false); }
+        public void Hide()
+        {
+            Visible = false; SetActive(false);
+            // 🆕 2026-10-19（B4）：关窗时把悬停/按下清掉（`PointerFrame` 不再被调），否则下次打开先亮一帧旧状态
+            ResetSliderFeedback();
+            if (_fxResign == null && _closeIcon != null) BuildButtonFeedback();
+            Feed(_fxResign, false, false); Feed(_fxSkip, false, false); Feed(_fxClose, false, false);
+            Feed(_fxAz, false, false); Feed(_fxMute, false, false); Feed(_muteOnFx, false, false);
+        }
         void SetActive(bool on)
         {
             foreach (var go in new[] { _shade, _bg, _close, _closeIcon, _diffBtn })

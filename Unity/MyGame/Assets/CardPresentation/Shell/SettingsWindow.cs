@@ -1302,6 +1302,23 @@ namespace CardPresentation
         public const string ArtButton = "40K_button";
         public const string ArtToggleOn = "40K_toggle_on";
         public const string ArtToggleOff = "40K_toggle_off";
+
+        // ============================================================ 🆕 **2026-10-19（`N70` P0-3）**
+        // 设置窗 Graphics 页那 4 行开关（`Small Screen Size Toggle` / `Auto Zoom` / `Use super sampling` /
+        // `VSync`）的 `EverguildToggle` 逐字段实读（`bundle_menus_assets_all/MonoBehaviour/MonoBehaviour_-1083006033978469938.json`；
+        // 四行**逐值相同**）：
+        //   · `m_Transition = 1`(ColorTint) · `m_FadeDuration = 0.1` · `m_ColorMultiplier = 1`
+        //   · `m_TargetGraphic` = 子件 `Toggle` 上那颗 `Image` —— **sprite = `40K_dropdown_bg`**（119×102，
+        //     Simple + `m_PreserveAspect = 1`），`m_Color` 白 ⇒ 屏幕上的颜色**全部来自下面这组 ColorTint**；
+        //   · `graphic` = 子件 **`CheckMark`**（sprite `40K_settings_icon_checkmark` 66×51）⇒ **开/关只切勾**，
+        //     ⛔ 不换方框的图（`changeSpriteOnValueChange = 0` / `colorTintOnValueChange = 0`）。
+        // 🔴 **改前**：`Box` 画的是 `40K_toggle_on/off`（**301×120 的开关图**）、点击后**换方框贴图** ——
+        //   那是另一族的控件；原版这一列是「绿框 + 勾」。⇒ 现在按上面三项逐条改回。
+        //   ⚠️ `ArtToggleBox`（`40k_dropdown_bg`）就是预置体那颗 sprite —— 与下拉列表行那族（`:3160`）同图。
+        public static readonly Color ToggleGreenNor = new Color(0.2862745f, 0.9647059f, 0.6862745f, 1f);
+        public static readonly Color ToggleGreenHl  = new Color(0.2921413f, 0.9528302f, 0.6816804f, 1f);
+        public static readonly Color ToggleGreenPr  = new Color(0.3058473f, 0.8207547f, 0.6105263f, 1f);
+        public static readonly Color ToggleGreenSel = new Color(0.2901961f, 0.9529412f, 0.6823530f, 1f);
         public const string ArtInputBg = "InputFieldBackground";
         public const float PopupTexW = 359f, PopupTexH = 336f;
         public static readonly Vector4 PopupBorder = new Vector4(169f, 160f, 169f, 160f);
@@ -4413,8 +4430,13 @@ namespace CardPresentation
         {
             float t = ChkT + row * ChkRowStep - GfxScrolledPx, b = t + ChkRowH;
             var n = Node(content, nodeName, ChkL, t, ChkR, b);
-            var box = Rect(n, "Toggle", ChkL, t, ChkL + 119f, b, state() ? ArtToggleOn : ArtToggleOff,
-                           QContent, null, false);
+            // 🔴 **2026-10-19（`N70` P0-3）**：方框 = `40K_dropdown_bg` + **绿色 ColorTint**（原版那颗
+            //   `m_TargetGraphic`），勾 = `CheckMark`（原版 `graphic`）⇒ 开/关**只切勾**。
+            //   判据与改前/改后的对照 → `ToggleGreenNor` 那段 doc（⛔ 别退回 `40K_toggle_on/off` 换图）。
+            var box = Rect(n, "Toggle", ChkL, t, ChkL + 119f, b, ArtToggleBox,
+                           QContent, null, true);
+            var chk = Rect(n, "CheckMark", ChkL, t, ChkL + 119f, b, ArtToggleCheck, QOverlay, null, true);
+            if (chk != null) chk.gameObject.SetActive(state());
             var lb = Text(n, "Label", labelText != null ? labelText() : nodeName, ChkL + 130f, ChkR, t, b,
                           FontRowLabel, Color.white, QText,
                           null, ChkR - (ChkL + 130f), 29f, 42f, 36f);
@@ -4427,14 +4449,30 @@ namespace CardPresentation
             // 🆕 2026-10-18（设置窗未接的标签）：把刚建出来的那颗字**交回调用点**（⛔ 本方法自己不登记语言链
             //   —— 理由见签名上方那段：这一列的行每次滚动都被整批重建）。
             if (takeLabel != null) takeLabel(lb);
-            Hit(n, "Hit", ChkL, t, ChkR, b, QOverlay, () =>
+            var hitNode = Hit(n, "Hit", ChkL, t, ChkR, b, QOverlay, () =>
             {
                 onClick();
-                // 切完只换这一格的图与字（**别重建 quad** —— 重建会一层层叠上去，旧的那张还在）
-                var tex = Tex(state() ? ArtToggleOn : ArtToggleOff);
-                if (box != null && tex != null) box.SetTexture(tex);
+                // 切完只换**勾**与字（**别重建 quad** —— 重建会一层层叠上去，旧的那张还在）。
+                // 🔴 **2026-10-19（`N70` P0-3）**：原来这里换的是方框贴图（`ArtToggleOn/Off`）——
+                //   原版 `changeSpriteOnValueChange = 0`，方框永远是 `40K_dropdown_bg`，变的只有 `CheckMark`。
+                if (chk != null) chk.gameObject.SetActive(state());
                 if (lb != null && labelText != null) lb.SetText(labelText());
             }, null, null, null, clickCue: WindowSounds.SelectToggleCue);
+            // 🔴 **2026-10-19（`N70` P0-3）**：悬停/按下反馈 —— 原版 `m_Transition = 1`，色偏打在**方框**上
+            //   （命中区那颗 quad 是透明的，打上去看不见）。三格逐值 = `ToggleGreen*` 那四个常量。
+            var wb = hitNode != null ? hitNode.GetComponent<WindowButton>() : null;
+            if (wb != null)
+            {
+                // 🔴 **正确映射**：原版最终色 = 图形 `m_Color`(白) × `m_Colors` 状态色 ⇒ 图形基准色保持白，
+                //   四格换成原值（`NormalKey` 那格见 `WindowButton.NormalKey` 的 doc —— 写成基准绿会变成绿×绿）。
+                wb.NormalKey     = ToggleGreenNor;
+                wb.HighlightKey  = ToggleGreenHl;
+                wb.PressedKey    = ToggleGreenPr;
+                wb.SelectedKey   = ToggleGreenSel;
+                if (box != null) wb.TintOn(box);
+                // ⚠️ 构建期没人 Enter/Exit ⇒ 立刻把 Normal 色写上去（原版 `OnEnable` 是 instant 切 Normal）。
+                wb.ApplyTintInstant();
+            }
             return n;
         }
 
@@ -4614,6 +4652,28 @@ namespace CardPresentation
         /// <summary>手柄那一块命中区（见 <see cref="_fpsHit"/> 的 doc）。</summary>
         Transform _fpsHitHandle;
         ImageQuad _fpsHitHandleQuad;
+
+        // ==================================================================
+        //  🆕 **2026-10-19（`N70` P0-4 · U3）：FPS 滑块的悬停 / 按下反馈**
+        //
+        //  判据 = 原版 uGUI `Slider`（`m_Transition = 1 ColorTint`，`m_TargetGraphic` = **手柄**那颗
+        //    `Image`，`m_Colors`：NOR 白 · HL `0.9607843` · PR `0.7843137` · `m_FadeDuration = 0.1`）——
+        //    与 `Battle/WfSlider.cs` 的 `FbHighlight/FbPressed/FbFadeSeconds` **同一份判据**
+        //    （本窗这根 FPS 滑块是**专用实现**，不是 `WfSlider`，见 `BuildFpsRow` 头部三条理由 ⇒
+        //    判据的**值**相同、承载件不同）。⛔ 只有手柄变色，轨道/填条不变（UGUI 的 ColorTint 只打 target）。
+        //  🔴 色偏是**乘**在图形自己的颜色上（UGUI `CrossFadeColor`）；手柄出厂就是白 ⇒ 乘 = 取状态键。
+        //  ⚠️ 批处理没有帧循环 ⇒ `Application.isPlaying == false` 时**直接落到目标色**（自检读目标值），
+        //    与 `WindowButton` / `WfSlider.FbSetTarget` 同一条纪律。
+        bool _fpsHover;
+        Color _fpsFbK = Color.white, _fpsFbTarget = Color.white;
+        /// <summary>自检读**目标值**（`Color.white` = Normal；批处理下 = 实际值）。</summary>
+        public Color FpsFeedbackKeyForTest { get { return _fpsFbTarget; } }
+        /// <summary>自检读**当前实际色偏**（Play 里会落后目标最多 0.1s）。</summary>
+        public Color FpsFeedbackCurrentForTest { get { return _fpsFbK; } }
+        /// <summary>自检读**手柄图形上真正被写进去的色偏**（= `ImageQuad.Tint`）——
+        /// 用它才挡得住「只改了一个字段、没落到画面上」那种假绿。</summary>
+        public Color FpsHandleTintForTest { get { return _fpsHandle != null ? _fpsHandle.Tint : new Color(0f, 0f, 0f, 0f); } }
+
         /// <summary>当前档位 = 原版 `GameStaticData.FPSLimit`（**0/1/2**，不是帧率本身 —— 帧率见 `FpsOfIndex`）。</summary>
         int _fpsIndex = 2;
         bool _fpsDragging;
@@ -4902,6 +4962,44 @@ namespace CardPresentation
             //    ⚠️ 正解在**共用件**（让「按钮吃掉拖拽」或给 `MenuScroll` 一个 `NoDrag`）—— 那两件不在本件白名单，
             //    报告 §顺手发现 里记着。
             if (_fpsDragging && _gfxScroll != null) _gfxScroll.Stop();
+
+            // 🆕 **2026-10-19（`N70` P0-4 · U3）：每帧喂一次悬停/按下反馈**（判据见 `_fpsHover` 那一节）。
+            //    ⚠️ 放在**最后**：上面两支改的正是 `_fpsDragging`，反馈要读**本帧最终的**那个态
+            //    （`Pressed` 在 UGUI 的优先级里高于 `Highlighted`）。
+            var cf = MenuDraw.PixelOfDesign(wp);
+            FpsFeedbackAtCanvas(cf.x, cf.y);
+        }
+
+        /// <summary>按**画布 px**那一点更新 FPS 滑块的悬停/按下色偏（= 原版 `Slider` 的 ColorTint）。
+        /// <para>🔴 **判据只此一份**：命中带 = `FpsHitRectsCanvasPx`（轨道 ∪ 手柄外扩框）→ `WfSlider.InUnion`
+        /// —— 与 `FpsPressAtCanvas` 用的是**同一次调用**，⛔ 别在这里另写一份几何。</para>
+        /// <para>⚠️ `public` 是给自检留的（`Editor/SettingsScene.cs` 那节直调它；批处理里 `Mouse.current == null`、
+        /// `Update` 不跑 ⇒ 没有别的口能驱动这一层）。</para></summary>
+        public void FpsFeedbackAtCanvas(float px, float py)
+        {
+            if (_fpsSliderRoot == null) { _fpsHover = false; _fpsFbTarget = Color.white; return; }
+            PxRect track, handle;
+            FpsHitRectsCanvasPx(_fpsIndex, out track, out handle);
+            // 原版 `RectMask2D` 连射线一起裁 ⇒ 滚出视口那一截不算悬停（同 `FpsPressAtCanvas`）。
+            _fpsHover = WfSlider.InUnion(track, handle, px, py)
+                     && MenuDraw.VisibleAbove(_fpsSliderRoot,
+                            new PxRect(px - 0.5f, py - 0.5f, px + 0.5f, py + 0.5f), null);
+            _fpsFbTarget = _fpsDragging ? new Color(WindowButton.PressedK, WindowButton.PressedK, WindowButton.PressedK, 1f)
+                         : _fpsHover     ? new Color(WindowButton.HighlightK, WindowButton.HighlightK, WindowButton.HighlightK, 1f)
+                         : Color.white;
+            if (!Application.isPlaying)
+            {
+                _fpsFbK = _fpsFbTarget;                          // 批处理：立刻落到目标（自检读它）
+            }
+            else if (_fpsFbK != _fpsFbTarget)
+            {
+                float k = Mathf.Clamp01(Time.unscaledDeltaTime / Mathf.Max(0.0001f, WindowButton.FadeSeconds));
+                _fpsFbK = Color.Lerp(_fpsFbK, _fpsFbTarget, k);
+                if (Mathf.Abs(_fpsFbK.r - _fpsFbTarget.r) < 0.001f && Mathf.Abs(_fpsFbK.g - _fpsFbTarget.g) < 0.001f
+                    && Mathf.Abs(_fpsFbK.b - _fpsFbTarget.b) < 0.001f && Mathf.Abs(_fpsFbK.a - _fpsFbTarget.a) < 0.001f)
+                    _fpsFbK = _fpsFbTarget;
+            }
+            if (_fpsHandle != null) _fpsHandle.SetTint(_fpsFbK);
         }
 
         /// <summary>按下这一点（**画布 px**）算不算落在这根滑块上 —— 算 ⇒ 开始拖（`_fpsDragging = true`）并按这一点取值。
@@ -5109,6 +5207,11 @@ namespace CardPresentation
         Transform BuildAudioPage(Transform area)
         {
             var page = Node(area, "Media Tab", TabsL, TabsT, TabsR, TabsB);
+            // 🆕 **2026-10-19（U3）**：重建这一页 ⇒ 上一批命中节点 / 拖动态全部作废
+            //   （`Build()` 会把整棵树清掉重建；旧引用是死节点）。
+            _auHit = new Transform[3]; _auHitQuad = new ImageQuad[3];
+            _auHitHandle = new Transform[3]; _auHitHandleQuad = new ImageQuad[3];
+            _auDragIdx = -1;
             // 🆕 2026-10-18（波 1b · A1062）：页标题改走语言表 —— 键与页签**同一条**（= `Settings/Media/Title`；
             //   ⚠️ 英文档由 `Audio` 变 `Media`、**有意**，同 `BuildTabs` 那条注释）· 同上挂刷新链。
             OnLangText(PageTitle(page, Loc.T(lkMediaTitle), 4f), () => Loc.T(lkMediaTitle));
@@ -5206,7 +5309,22 @@ namespace CardPresentation
                                                    handleOffset: WfSlider.HandleOffsetPx * RootScale,
                                                    capScale: RootScale,
                                                    trackW: AuTrackW * RootScale, trackH: AuTrackH * RootScale);
+
+                // 🆕 **2026-10-19（N70 P0-4 · U3）：两块命中节点**（= 原版那根 `Slider` 的 `Background` /
+                //   `Handle` 两颗可射线 `Image`；判据见字段那一节）。
+                //   ⚠️ 手柄那块是**动件** —— 值一变就跟着挪，由 `UpdateAudioSliderHits()` 摆（初值也由它给）。
+                //   ⚠️ 队列用 `QOverlay`（3135）：必须**高于压暗层 `QShade`(3130)**，否则点滑块会落到
+                //      「点窗外关窗」那颗 `BackgroundHit` 上（那正是本笔要修的症状）。
+                var auTrk = AudioSliderTrackDesign(i);
+                var auHnd = AudioSliderHandleDesign(i);
+                _auHit[i] = Hit(rowN, "Hit", auTrk.x1, auTrk.y1, auTrk.x2, auTrk.y2, QOverlay,
+                                () => AudioSliderClick(idx), null, null, null);
+                _auHitQuad[i] = _auHit[i] != null ? _auHit[i].GetComponentInChildren<ImageQuad>() : null;
+                _auHitHandle[i] = Hit(rowN, "Handle Hit", auHnd.x1, auHnd.y1, auHnd.x2, auHnd.y2, QOverlay,
+                                      () => AudioSliderClick(idx), null, null, null);
+                _auHitHandleQuad[i] = _auHitHandle[i] != null ? _auHitHandle[i].GetComponentInChildren<ImageQuad>() : null;
             }
+            UpdateAudioSliderHits();
 
             // ② 🆕 **2026-10-17（T17）**：原版这一页的下半 = `Visual Settings > WindowMode Selector`
             //   （`Media Tab` 的第二个孩子；组顶 = `Audio Settings` 的底 **630.947**，VLG spacing 0）。
@@ -5265,6 +5383,144 @@ namespace CardPresentation
         }
 
         WfSlider[] _audioSliders;
+
+        // ==================================================================
+        //  🆕 **2026-10-19（`N70` P0-4 · U3）：壳侧三根音量滑条的指针路径 + 悬停/按下反馈**
+        //
+        //  🔴 **为什么要补指针路径（不只是「喂状态」）**：这三根 `WfSlider` 原来**没有任何命中节点** ——
+        //    窗里唯一能吃到点击的是 `BackgroundHit`（压暗层，`onClick = Close`）⇒ 真鼠标点轨道
+        //    = **把设置窗关掉**，值一点都不会变（自检一直绿：它走 `SetValue` 直调）。
+        //    判据/先例 = 同窗那根 FPS 滑块（`_fpsHit` / `_fpsHitHandle` 两个节点、轨道 + 手柄外扩框
+        //    的**真并集**）；原版那三根 `… Slider` 的射线目标同样是 `Background`（pad 0）与 `Handle`
+        //    （`m_RaycastPadding = −25`）两颗 `Image`。
+        //  🔴 **反馈内核在 `Battle/WfSlider.cs`**（`SetHover/SetPressed/SetInteractable/TickFeedback`，
+        //    判据 = 原版 `Slider` 的 ColorTint：HL 0.9608 / PR 0.7843 / DIS α0.502 / fade 0.1）——
+        //    本文件**只负责每帧喂状态**（⛔ 不改 `Battle/**`，也不在壳侧再写一份色偏算式）。
+        Transform[] _auHit, _auHitHandle;          // 轨道 / 手柄命中节点（= 原版 Background / Handle）
+        ImageQuad[] _auHitQuad, _auHitHandleQuad;  // 上面两节点里那颗透明 quad（换值时跟着挪）
+        int _auDragIdx = -1;                       // 正在拖的那一根（-1 = 没在拖）
+
+        /// <summary>自检读：正在拖第几根（-1 = 没在拖）。</summary>
+        public int AudioSliderDraggingForTest { get { return _auDragIdx; } }
+
+        /// <summary>第 i 根滑块的**轨道**矩形（**设计 px**，左上原点）。
+        /// 判据 = 原版那三根 `… Slider` 锚 `(0,0.5)→(1,0.5)` ⇒ 撑满行、高 `m_SizeDelta.y = 13`；
+        /// 中心 y = 行顶 + 行高/2 + `m_AnchoredPosition.y(−11.1)` 的镜像（本窗 y 向下）—— 见 `AuSliderCyOff`。</summary>
+        PxRect AudioSliderTrackDesign(int i)
+        {
+            float cy = AuRowTops[i] + AuRowHs[i] * 0.5f + AuSliderCyOff;
+            return new PxRect(AuL, cy - AuTrackH * 0.5f, AuR, cy + AuTrackH * 0.5f);
+        }
+
+        /// <summary>第 i 根滑块的**手柄命中框**（**设计 px**，已含原版 `m_RaycastPadding = −25` 的外扩）。
+        /// 中心 x = 轨道左 + `m_AnchoredPosition.x`(11.99988) + 值 × 滑区宽（轨道宽 − 10）；
+        /// 布局框 = `m_SizeDelta`(46.811 × 35.406)—— 与 FPS 那根同一组原版字面量（`HandleFrameW/H`）。
+        /// ⚠️ ⛔ 别改成读画出来的 quad：那是 `preserveAspect` 缩过的视图，不是原版判射线用的布局框。</summary>
+        PxRect AudioSliderHandleDesign(int i)
+        {
+            var s = _audioSliders != null && i < _audioSliders.Length ? _audioSliders[i] : null;
+            float cy = AuRowTops[i] + AuRowHs[i] * 0.5f + AuSliderCyOff;
+            float t = s != null ? Mathf.InverseLerp(s.Min, s.Max, Mathf.Clamp(s.Value, s.Min, s.Max)) : 0f;
+            float hx = AuL + WfSlider.HandleOffsetPx + t * ((AuR - AuL) - WfSlider.SlideRightInsetPx);
+            float hh = AuTrackH + WfSlider.HandleFrameH;        // 13 + 22.406 = 35.406 设计 px（uGUI 运行时框高）
+            var frame = new PxRect(hx - WfSlider.HandleFrameW * 0.5f, cy - hh * 0.5f,
+                                   hx + WfSlider.HandleFrameW * 0.5f, cy + hh * 0.5f);
+            return WfSlider.HandleHitRect(frame);              // 四边外扩 −25（唯一一份算式）
+        }
+
+        void AudioHitRectsCanvasPx(int i, out PxRect track, out PxRect handle)
+        {
+            var t = AudioSliderTrackDesign(i);
+            var h = AudioSliderHandleDesign(i);
+            track = Screen(t.x1, t.y1, t.x2, t.y2);
+            handle = Screen(h.x1, h.y1, h.x2, h.y2);
+        }
+
+        /// <summary>把两块命中 quad 挪到当前值对应的位置（手柄是动件；轨道不动但同一处摆，省一条分支）。
+        /// 🔴 复用 FPS 那一份 `UpdateFpsHitQuad`（裁切 + 摆位 + 关掉视口外那块的算式**只此一份**）。</summary>
+        void UpdateAudioSliderHits()
+        {
+            if (_audioSliders == null || _auHit == null) return;
+            for (int i = 0; i < _audioSliders.Length; i++)
+            {
+                if (_audioSliders[i] == null) continue;
+                PxRect track, handle;
+                AudioHitRectsCanvasPx(i, out track, out handle);
+                UpdateFpsHitQuad(_auHit[i], _auHitQuad[i], track);
+                UpdateFpsHitQuad(_auHitHandle[i], _auHitHandleQuad[i], handle);
+            }
+        }
+
+        /// <summary>指针是不是落在第 i 根滑块上（= 原版 `Background ∪ Handle` 的可射线范围）。
+        /// 🔴 几何判据转发 `WfSlider.Contains`（**唯一一份**：轨道 pad 0 + 手柄 pad −25 的真并集）；
+        /// 再套一次视口可见性（原版 `RectMask2D` 连射线一起裁）。</summary>
+        bool AudioSliderHoverAt(int i, Vector3 world)
+        {
+            var s = _audioSliders != null && i >= 0 && i < _audioSliders.Length ? _audioSliders[i] : null;
+            if (s == null || !s.Visible) return false;
+            if (!s.Contains(world)) return false;
+            var px = MenuDraw.PixelOfDesign(world);           // 画布 px —— 与 `Screen()` 同一帧
+            return MenuDraw.VisibleAbove(s.Node, new PxRect(px.x - 0.5f, px.y - 0.5f, px.x + 0.5f, px.y + 0.5f), null);
+        }
+
+        /// <summary>点一下（= 原版 `Slider.OnPointerDown` 的 else 分支：**值跳到点的位置**）。
+        /// ⚠️ 批处理里 `Mouse.current` 是 `null` ⇒ 自检走 <see cref="AudioSliderPointerAt"/>，不走这里。</summary>
+        void AudioSliderClick(int i)
+        {
+            var s = _audioSliders != null && i >= 0 && i < _audioSliders.Length ? _audioSliders[i] : null;
+            if (s == null) return;
+            var m = Mouse.current;
+            if (m == null) return;
+            Vector3 world = LayoutSpace.ScreenToWorld(m.position.ReadValue(), LayoutSpace.Cam);
+            if (AudioSliderHoverAt(i, world)) s.SetFromPointer(world);
+        }
+
+        /// <summary>喂一次指针（**世界坐标** + 左键两态）—— 三根滑块共用的唯一指针路径。
+        /// 返回落在第几根上（-1 = 没落在任何一根上）。
+        /// <para>🔴 **为什么 `public`**：批处理里 `Mouse.current == null`、`Update` 也不跑 ⇒ 自检
+        /// （`Editor/SettingsScene.cs`）只能直调它；它与生产路径 <see cref="UpdateAudioSliders"/> 是**同一个函数**，
+        /// 所以断言打的不是「专供自检的假口」。</para>
+        /// <para>语义照 uGUI：悬停 = 指针在滑块上（与按不按无关）；按下 = **正在拖这一根**，
+        /// 优先级在悬停之上（`WfSlider` 内部已经是这一档，本函数只喂两个布尔值）。</para></summary>
+        public int AudioSliderPointerAt(Vector3 world, bool pressedThisFrame, bool held)
+        {
+            if (_audioSliders == null) return -1;
+            int over = -1;
+            for (int i = 0; i < _audioSliders.Length; i++)
+                if (AudioSliderHoverAt(i, world)) over = i;
+
+            if (pressedThisFrame) _auDragIdx = over;          // -1 = 点在空白 ⇒ 不开始拖
+            // 拖到一半页面被藏起来 / 节点没了 ⇒ 立刻收手（⛔ 别在看不见的地方继续改音量）
+            if (_auDragIdx >= 0 && (_audioSliders[_auDragIdx] == null || !_audioSliders[_auDragIdx].Visible))
+                _auDragIdx = -1;
+            else if (_auDragIdx >= 0 && !held && !pressedThisFrame)
+                _auDragIdx = -1;                              // 松手
+
+            for (int i = 0; i < _audioSliders.Length; i++)
+            {
+                var s = _audioSliders[i];
+                if (s == null) continue;
+                s.SetHover(i == over);
+                s.SetPressed(i == _auDragIdx);
+            }
+            if (_auDragIdx >= 0 && _audioSliders[_auDragIdx] != null)
+                _audioSliders[_auDragIdx].SetFromPointer(world);   // 按下即定位 + 按住拖动
+            for (int i = 0; i < _audioSliders.Length; i++)
+                if (_audioSliders[i] != null) _audioSliders[i].TickFeedback();   // 0.1s 补间（批处理里即时）
+            UpdateAudioSliderHits();                               // 手柄跟着值走 ⇒ 命中块也跟
+            return over;
+        }
+
+        /// <summary>每帧（**真 Play**）：把指针喂给三根滑块。批处理里 `Update` 不跑 ⇒ 零开销。</summary>
+        void UpdateAudioSliders()
+        {
+            if (_audioSliders == null || !gameObject.activeInHierarchy) return;
+            var m = Mouse.current;
+            if (m == null) return;
+            AudioSliderPointerAt(LayoutSpace.ScreenToWorld(m.position.ReadValue(), LayoutSpace.Cam),
+                                 m.leftButton.wasPressedThisFrame, m.leftButton.isPressed);
+        }
+
 
         // ============================================================ 页 3：联机（**我们新增的设计**）
 
@@ -5650,6 +5906,9 @@ namespace CardPresentation
             //    ⚠️ 没走 `WindowButton.onClick`：那条路**不带落点**（`Action` 无参），而滑块要的是「点在哪」；
             //      `Hit` 那一条只负责**吃下这一下**（别让射线穿到吸收层）。批处理里自检直调 `SetFpsFromCanvasX`。
             UpdateFpsDrag();
+            // 🆕 2026-10-19（N70 P0-4 · U3）：音频页三根滑块的指针路径 + 悬停/按下反馈
+            //   （必须排在下面那道「只有联机页才继续」的早退**之前** —— 那三根在 Media 页）。
+            UpdateAudioSliders();
             if (Current != SettingsTab.Online || _statusLabel == null) return;
             // 【测外网】的结果到了 ⇒ 印一次（**主线程**：回调那边只写字段、不碰 Unity 对象）
             // 🆕 2026-10-18（`_flash` 现算工厂）：那一大块是**夹运行期值**的（见 `EchoFlash`）。

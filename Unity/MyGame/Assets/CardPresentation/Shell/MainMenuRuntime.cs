@@ -2237,28 +2237,30 @@ namespace CardPresentation
                 //   ⚠️ 窗里那颗 `Play` 钮**打不进教程战斗**（战斗侧三件缺口）—— 逐条 → `TutorialModePopup` 文件头。
                 case "tutorial":
                     {
-                        var win = TutorialModePopup.Create(wm);
-                        wm.OpenWindow(win);
+                        // 🔴 **2026-10-19（`N83`）**：改走 `WindowsManager.OpenByRef`（**已开着就复用**）——
+                        //   原来每次都 `Create` 一扇新的，而模式窗是 `type=Popup` ⇒ `OpenWindow` 对旧窗只
+                        //   `ToBackground()`（只写状态、**不 `SetActive(false)`**，与原版 `GameWindow.ToBackground`
+                        //   逐字相同）⇒ **连开 N 次台上有 N 扇**（内容相同所以看不出来）。判据/先例 →
+                        //   `WindowsManager.OpenByRef` 那段 doc（原版 `automaticallyLoadedWindows` 命中复用）。
+                        var win = WindowsManager.OpenByRef("Tutorial Mode Menu", w => TutorialModePopup.Create(w));
                         Debug.Log("[Menu] 模式卡 `TUTORIAL` ⇒ 开 `Tutorial Mode Menu`（原版 `TutorialModePopup`；"
                                 + "这条映射是**原版的**，不是我们挑的 —— 唯一消费 `TutorialEvent` 的窗就是它）");
                     }
                     return;
                 case "practice":
-                    var w = PracticeModePopup.Create(wm);
-                    wm.OpenWindow(w);
+                    // 🔴 `N83`：同上（已开着就复用，⛔ 不再每次新建）。
+                    WindowsManager.OpenByRef("Practice Mode Menu", w => PracticeModePopup.Create(w));
                     Debug.Log("[Menu] 模式卡 `PRACTICE` ⇒ 开 `Practice Mode Menu`");
                     return;
                 case "skirmish":
                     {
-                        var win = SkirmishEventWindow.Create(wm);
-                        wm.OpenWindow(win);
+                        WindowsManager.OpenByRef("SkirmishModeEventWindow", w => SkirmishEventWindow.Create(w));
                         Debug.Log("[Menu] 模式卡 `SKIRMISH` ⇒ 开 `SkirmishModeEventWindow`");
                     }
                     return;
                 case "ranked":
                     {
-                        var win = RankedEventWindow.Create(wm);
-                        wm.OpenWindow(win);
+                        WindowsManager.OpenByRef("RankedEventWindowV2", w => RankedEventWindow.Create(w));
                         Debug.Log("[Menu] 模式卡 `排位` ⇒ 开 `RankedEventWindowV2`");
                     }
                     return;

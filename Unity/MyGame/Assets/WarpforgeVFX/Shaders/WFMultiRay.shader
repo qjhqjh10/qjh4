@@ -18,21 +18,39 @@
 //    `o1 = TEXCOORD0`（→ ps 的 v1，只有 border-fade 那支用）；四层 UV 全在 VS 算（`t = cb0[19].x = _TimeParameters.x`）：
 //        centered = uv0.xy − 0.5
 //        layer_i  = frac( _Scale_i.zw · _General_Speed_Modifier · t ) + ( _Scale_i.xy · centered + 0.5 )
-//     装进两个插值器：**o3 = (layer4, layer1)** · **o4 = (layer2, layer3)**   ← 顺序照实读，别按 1/2/3/4 排
+//     🔴 **2026-10-19 订正（原来这行写「o3 = (layer4, layer1) · o4 = (layer2, layer3)」—— 那是错的）**：
+//        VS 的 `UnityPerMaterial` 走**序列化反射**实读（`SerializedPass.progVertex.m_CommonParameters`）：
+//          cb2[0]=`_Scale_2` · cb2[1]=`_Scale_3` · cb2[2]=`_Scale_4` · cb2[3]=`_Scale_1` · cb2[10].x=`_General_Speed_Modifier`
+//        对上 VS 指令：`o3.zw ← cb2[0]`（layer2）· `o3.xy ← cb2[3]`（layer1）· `o4.zw ← cb2[2]`（layer4）· `o4.xy ← cb2[1]`（layer3）
+//        ⇒ **o3 = (layer1, layer2) · o4 = (layer3, layer4)**。
+//        PS 侧同一把钥匙实读：cb1[8]=`_Color1` · cb1[5]=`_Color2` · cb1[6]=`_Color3` · cb1[7]=`_Color4`；
+//        对 PS 指令：`cb1[8]·tex(v3.xy).r` · `cb1[5]·tex(v3.zw).g` · `cb1[6]·tex(v4.xy).z` · `cb1[7]·tex(v4.zw).w`
+//        ⇒ **layer1 取 .r / layer2 取 .g / layer3 取 .b / layer4 取 .a**，且**颜色与层一一对应**。
+//        ⚠️ 本文件旧版把通道按 (layer4→.r, layer1→.g, layer2→.b, layer3→.a) 轮转了一遍 —— 层与色**配对是对的**，
+//        但**通道取错了**（同一张图上会取到另一层的通道）⇒ 已按上面实读改正。
 // ④ **片元**（ps 段 1，60 条，逐条翻译）—— **同一张 `_MainTex` 采 4 次、各取一个通道、配 4 个 HDR 色相加**：
-//        acc.rgb = sRGB(_Color4.rgb)·tex(o3.xy).r + sRGB(_Color1.rgb)·tex(o3.zw).g
-//                + sRGB(_Color2.rgb)·tex(o4.xy).z + sRGB(_Color3.rgb)·tex(o4.zw).w
-//        acc.a   = tex(o3.xy).r·_Color4.a + tex(o3.zw).g·_Color1.a
-//                + tex(o4.xy).z·_Color2.a + tex(o4.zw).w·_Color3.a
+//        acc.rgb = sRGB(_Color1.rgb)·tex(v3.xy).r + sRGB(_Color2.rgb)·tex(v3.zw).g
+//                + sRGB(_Color3.rgb)·tex(v4.xy).b + sRGB(_Color4.rgb)·tex(v4.zw).a
+//        acc.a   = tex(v3.xy).r·_Color1.a + tex(v3.zw).g·_Color2.a
+//                + tex(v4.xy).b·_Color3.a + tex(v4.zw).a·_Color4.a
+//        （⚠️ 2026-10-19 订正：上面「层/通道/色」的配对按序列化反射实读改过，判据见 ③；
+//          旧版把通道轮转成 layer4→.r / layer1→.g / layer2→.b / layer3→.a —— **错**。）
 //        M       = `_Remap_Color_Min_XY_Max_ZW`  ; .x=inMin · .y=inMax · .z=outMin · .w=outMax
 //        o0.rgb  = ( acc.rgb·v2.rgb − M.x ) · (M.w − M.z) / (M.y − M.x) + M.z
 //        o0.a    = saturate(acc.a) · v2.a                     ; ← `_SURFACE_TYPE_TRANSPARENT` 那支
 //      ⚠️ 4 个色的 **`.rgb` 都过一遍 `LinearToSRGB` 编码**，**`.a` 不过**（常量逐字来自 DXBC）。
 //      ⚠️ 段 0（53 条）与段 1 只差 `o0.w`（段 0 = 1.0）；**37/38 个材质都带 `_SURFACE_TYPE_TRANSPARENT`**
 //        ⇒ 实机走的是段 1（就是本文件这条），段 0 那支照 `#ifndef` 实现。
-// ⑤ **未复刻（判据不足）**：`_USEBORDERFADE` 那一支（段 2，74 条：在 `o0.w` 上再乘一层沿 v1.xy 的边框淡出）。
-//    只有 `Teleport Trait Summon` 一个材质带它；本文件**没有**实现它的算式（没读到逐条判据）。
-//    本条按铁律 3 如实标注 —— **是要做的**，不是不做。
+// ⑤ ✅ **`_USEBORDERFADE` 那一支 —— 2026-10-19 已实现**（判据 = PS 段 2，74 条，逐条读；见 `frag` 里那段注释）。
+//    ⚠️ 它**是关键字**（关键字全集里有 `_USEBORDERFADE`，**没有 `_ON` 后缀** —— 与 Everguild 的 `_SOFTPARTICLES` 同族）。
+//    ⚠️ **槽位是推的（但推法可复核）**：段 2 用 `cb1[11]` 当 (xmin,xmax,ymin,ymax)、`cb1[12].x` 当 multiplier，
+//       而 PS 反射只列出被这一变体用到的 5 个槽（cb1[5..9]）。推法 = **属性声明序 + Unity 的标量打包规则**
+//       （标量塞进当前 vec4 的剩余分量，塞不下才换槽）—— 这条规则用 `TrailShader_1` 的反射独立验过：
+//       `_MainTextureSpeed`(Vector)=slot3 .x,.y、紧随其后的 `_DissolveScale`(Float)=slot3 **.z**。
+//       ⇒ `_General_Speed_Modifier` 占 cb1[10].x（实读）⇒ `_USEBORDERFADE`(Float) 进 cb1[10].y
+//       ⇒ `_Border_Fade_…`(Vector4) 必须换槽 = **cb1[11]** ⇒ `_BorderFadeMultiplier`(Float) = **cb1[12].x**，
+//       与段 2 的用法**形状完全吻合**（11 是四分量、12 只用 .x）。
+//    ⚠️ 补这条之前实测只有 `Teleport Trait Summon` 一个材质带该关键字；⛔ 别把它当成「所有材质的默认路径」。
 //
 // ⚠️ **它在白名单里** ⇒ 运行时走原件；本文件只在**兜底路**生效。
 Shader "WarpforgeVFX/FX/MultiRay"
@@ -99,6 +117,8 @@ Shader "WarpforgeVFX/FX/MultiRay"
             #pragma multi_compile_instancing
             // 段 0（o0.w=1）vs 段 1（o0.w=累积 alpha）由它分叉 —— 不声明 pragma 的 `#if` 恒为假（2026-10-02 踩过）
             #pragma shader_feature_local_fragment _SURFACE_TYPE_TRANSPARENT
+            // 🆕 2026-10-19：段 2（border fade，74 条）—— 名字逐字来自原版关键字全集，**没有 `_ON` 后缀**。
+            #pragma shader_feature_local_fragment _USEBORDERFADE
 
             #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Core.hlsl"
 
@@ -136,9 +156,10 @@ Shader "WarpforgeVFX/FX/MultiRay"
             struct Varyings
             {
                 float4 positionCS : SV_POSITION;
-                float4 uvA        : TEXCOORD0;   // ps 的 v3 = (layer4, layer1)
-                float4 uvB        : TEXCOORD1;   // ps 的 v4 = (layer2, layer3)
+                float4 uvA        : TEXCOORD0;   // ps 的 v3 = (layer1, layer2)
+                float4 uvB        : TEXCOORD1;   // ps 的 v4 = (layer3, layer4)
                 float4 color      : TEXCOORD2;   // ps 的 v2
+                float2 uvBase     : TEXCOORD3;   // ps 的 v1.xy（只有 border-fade 那支读）
                 UNITY_VERTEX_OUTPUT_STEREO
             };
 
@@ -157,10 +178,11 @@ Shader "WarpforgeVFX/FX/MultiRay"
                 OUT.positionCS = TransformObjectToHClip(IN.positionOS.xyz);
                 float  t        = _TimeParameters.x;              // cb0[19].x
                 float2 centered = IN.uv0.xy - 0.5;
-                OUT.uvA = float4(LayerUV(_Scale_4_XY_Speed_ZW, centered, t),
-                                 LayerUV(_Scale_1_XY_Speed_ZW, centered, t));
-                OUT.uvB = float4(LayerUV(_Scale_2_XY_Speed_ZW, centered, t),
-                                 LayerUV(_Scale_3_XY_Speed_ZW, centered, t));
+                OUT.uvA = float4(LayerUV(_Scale_1_XY_Speed_ZW, centered, t),
+                                 LayerUV(_Scale_2_XY_Speed_ZW, centered, t));
+                OUT.uvB = float4(LayerUV(_Scale_3_XY_Speed_ZW, centered, t),
+                                 LayerUV(_Scale_4_XY_Speed_ZW, centered, t));
+                OUT.uvBase = IN.uv0.xy;
                 OUT.color = IN.color;
                 return OUT;
             }
@@ -177,28 +199,46 @@ Shader "WarpforgeVFX/FX/MultiRay"
 
             half4 frag(Varyings IN) : SV_Target
             {
-                half4 tex4 = SAMPLE_TEXTURE2D_BIAS(_MainTex, sampler_MainTex, IN.uvA.xy, _GlobalMipBias.x);
-                half4 tex1 = SAMPLE_TEXTURE2D_BIAS(_MainTex, sampler_MainTex, IN.uvA.zw, _GlobalMipBias.x);
-                half4 tex2 = SAMPLE_TEXTURE2D_BIAS(_MainTex, sampler_MainTex, IN.uvB.xy, _GlobalMipBias.x);
-                half4 tex3 = SAMPLE_TEXTURE2D_BIAS(_MainTex, sampler_MainTex, IN.uvB.zw, _GlobalMipBias.x);
+                // 层 ↔ 通道 ↔ 颜色（2026-10-19 按序列化反射实读，判据见文件头 ③）：
+                //   layer1 → uvA.xy · .r · _Color1 · layer2 → uvA.zw · .g · _Color2
+                //   layer3 → uvB.xy · .b · _Color3 · layer4 → uvB.zw · .a · _Color4
+                half4 tex1 = SAMPLE_TEXTURE2D_BIAS(_MainTex, sampler_MainTex, IN.uvA.xy, _GlobalMipBias.x);
+                half4 tex2 = SAMPLE_TEXTURE2D_BIAS(_MainTex, sampler_MainTex, IN.uvA.zw, _GlobalMipBias.x);
+                half4 tex3 = SAMPLE_TEXTURE2D_BIAS(_MainTex, sampler_MainTex, IN.uvB.xy, _GlobalMipBias.x);
+                half4 tex4 = SAMPLE_TEXTURE2D_BIAS(_MainTex, sampler_MainTex, IN.uvB.zw, _GlobalMipBias.x);
 
-                half3 acc = LinearToSrgb(_Color4.rgb) * tex4.r
-                          + LinearToSrgb(_Color1.rgb) * tex1.g
-                          + LinearToSrgb(_Color2.rgb) * tex2.z
-                          + LinearToSrgb(_Color3.rgb) * tex3.w;
-                half  accA = tex4.r * _Color4.a
-                           + tex1.g * _Color1.a
-                           + tex2.z * _Color2.a
-                           + tex3.w * _Color3.a;
+                half3 acc = LinearToSrgb(_Color1.rgb) * tex1.r
+                          + LinearToSrgb(_Color2.rgb) * tex2.g
+                          + LinearToSrgb(_Color3.rgb) * tex3.b
+                          + LinearToSrgb(_Color4.rgb) * tex4.a;
+                half  accA = tex1.r * _Color1.a
+                           + tex2.g * _Color2.a
+                           + tex3.b * _Color3.a
+                           + tex4.a * _Color4.a;
 
                 float4 M = _Remap_Color_Min_XY_Max_ZW;   // x=inMin y=inMax z=outMin w=outMax
                 half3 rgb = (acc * IN.color.rgb - M.x) * (M.w - M.z) / (M.y - M.x) + M.z;
 
-            #if defined(_SURFACE_TYPE_TRANSPARENT)
-                return half4(rgb, saturate(accA) * IN.color.a);
+                half a;
+            #if defined(_USEBORDERFADE)
+                // ══ PS 段 2（74 条，逐条翻译）—— 只有 `Teleport Trait Summon` 一个材质用 ══
+                //   r1.xy = 1 / (max − min)（cb1[11].y−x , .w−z）
+                //   t     = saturate((v1.xy − min) / (max − min))
+                //   s     = t²·(3−2t)                     （smoothstep）
+                //   fade  = saturate( (4·sx·(1−sx)) · (4·sy·(1−sy)) · _BorderFadeMultiplier )
+                float2 mn   = _Border_Fade_XminXmax_YminYmax.xz;
+                float2 mx   = _Border_Fade_XminXmax_YminYmax.yw;
+                float2 t    = saturate((IN.uvBase - mn) / (mx - mn));
+                float2 s    = t * t * (3.0 - 2.0 * t);
+                half   fade = saturate((4.0 * s.x * (1.0 - s.x)) * (4.0 * s.y * (1.0 - s.y))
+                                       * _BorderFadeMultiplier);
+                a = saturate(accA) * IN.color.a * fade;
+            #elif defined(_SURFACE_TYPE_TRANSPARENT)
+                a = saturate(accA) * IN.color.a;      // 段 1
             #else
-                return half4(rgb, 1.0h);
+                a = 1.0h;                             // 段 0
             #endif
+                return half4(rgb, a);
             }
             ENDHLSL
         }

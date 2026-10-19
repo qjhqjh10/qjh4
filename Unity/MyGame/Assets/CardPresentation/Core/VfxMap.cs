@@ -14,6 +14,7 @@
 // `只有原版有内容（导出整个丢了）` / `两边全程空（纯脚本驱动）`，播出来是**空的**。
 // 下面这些全是「对得上 + 高置信」的。
 using System.Collections.Generic;
+using RuleEngine;      // 🆕 2026-10-19（B6）：`CardDef.CardAnimTime` —— 逐候选动画时间（数据侧 E12 已落）。
 using UnityEngine;
 
 namespace CardPresentation
@@ -149,7 +150,18 @@ namespace CardPresentation
             //      · `Tap Fire Eldar`    试片时是个**硬边绿方块**
             //    换成下面这两个，都是「对得上 + 高置信」且试片里干净可读的：
             { Ability,      "Buff_Blue_SW" },               // 发动技能：单位身上升起蓝色光柱
-            { Trigger,      "Faith_trigger_unit" },         // 触发效果：金色环形符记 + 火苗
+            // 🔴 **2026-10-19（B2 · 偏差 7 落地后 · 本行现在是【死条目】）**：
+            //   `BattleDriver.GenericVfxFor(Trigger)` 自 2026-10-19 起回 **`null`** —— 原版
+            //   `CardScript.ActivateTriggerTraitAnim` 只做徽标脉冲 + 状态框，**没有**通用特效
+            //   （判据 → `资料/普查产出_1018/R_战斗表现链路对拍.md` §4 偏差 7）；触发那一拍的
+            //   反馈现在走 `PlayFeel → PlayTraitPulse` / `PlayTraitParticles`，**不读这一行**。
+            //   ⚠️ **为什么不删**（两个理由，都现读）：
+            //     ① `VfxMap.Trigger` 这个**常量**还有消费者 —— `Editor/BattleScene.cs` 的
+            //        「Trigger 不再播通用特效」那条断言要用它取名字；
+            //     ② 删掉这一行会让 `Resolve(Trigger)` 落进「只有按阵营配」的兜底出口
+            //        （`WarnNoFactionVariant`）⇒ 探针/自检会**凭空多出一条「留白」警告**（假信号）。
+            //   ⇒ **留着、并明确标注无生产消费者**。⛔ 别把 `GenericVfxFor` 的 `Trigger` 改回非 null。
+            { Trigger,      "Faith_trigger_unit" },         // ⚠️ 死条目（无生产消费者，见上）
             // 🆕 2026-09-15：**这一组是按原版台账挑的，不是自己拍的**。
             //    台账 `d:/2/Warpforge_tools/data/vfx_wiring_j1..5.tsv`（453 行，0824 的独立
             //    「特效名 → 它的原版触发事件 + 接进 battle.gd 哪个分支」）里，这三件**明明白白写着是 `UI` 类**：
@@ -285,15 +297,48 @@ namespace CardPresentation
         /// <summary>逐卡覆盖（键 = **卡 id**；事件名同 <see cref="Resolve"/>）。
         /// **2026-10-14 起它由 `Resources/card_vfx_by_card.json` 载入**（见 <see cref="EnsureLoaded"/>），
         /// ⛔ 不再是写死的空字典。
-        /// <para>值 = 该 (卡, 事件) 下**按 `confPriority` 取第一个命中**的那个 prefab 名。</para>
+        /// <para>值 = 该 (卡, 事件) 下**要播的那些候选**（按原版 `abilityLogic` 数组顺序）。
+        /// 🆕 2026-10-19（B6）：元素从裸 `string` 变成 <see cref="CardPick"/>（`N` = prefab 名 ·
+        /// `A` = `CardAnim` 名）—— 播放名仍是 `N`，加 `A` 只为了把候选钉到它自己那条 `AnimInfo`
+        /// （逐候选时间，见 <see cref="ResolveAllTimed"/>）。</para>
+        /// <para>🔴 **2026-10-19（B3 · `T13`）就地改型：`string` → `List&lt;string&gt;`** ——
+        /// 判据（第一权威）＝原版 `CardAbility.cs:27-29` 的字段注释：
+        /// 「`randomAbilityChoice` 为假 ⇒ **all are triggered in order**」；现读 **1,495/1,496** 个
+        /// `CardAbility` 是假 ⇒ 同一 (卡, 事件) 下的**多条** `abilityLogic` 本来就应该**全播**。
+        /// 原来这张表把每个 (卡,事件) 压成一个 string（按 `confPriority` 取第一个）⇒ **丢了 508 个
+        /// 权威 prefab / 375 张卡**（判据与统计 → `资料/普查产出_1019/V2_报告.md` §3·2/§3·3）。
+        /// <para>**表里存什么**（三条都重要，⛔ 别自己再收一遍）：
+        /// · 只留**最优置信度那一档**（`confPriority` 里 rank 最小的）；
+        /// · **只有该档是 `authoritative` 时才保留同档的全部候选**；我们自己的推断档
+        ///   （`inferred-*`）**保持原行为只留第一条** —— V2 §3·3 最后那条：
+        ///   「别把推断档也全播」；
+        /// · 同档里**同名重复也保留**（现读 59 行）—— 那是两条 `abilityLogic` 指向同一件 prefab，
+        ///   原版 `AbilityLogic.PlayAnim` 会各播一次；⛔ 别自作主张去重（去重 = 少播）。
+        /// 顺序 = JSON 里 `es` 的数组顺序 = **原版 `abilityLogic` 的索引顺序**
+        /// （V2 现读：436 行多候选里 **435 行逐位相同**，唯一 1 行是 `remnantBodyPrefab` 分键问题）。
+        /// </para>
         /// <para>🔴 **2026-10-15 就地订正（铁律 5 · 账 `A2082`）**：这一行原来写着
         /// 「键 = 卡 id，**与 `CardDef.Id` / `BattleEvent.CardId` 同一套**」—— **后半句是错的**，
         /// 而且正是它掩盖了那个缺陷：`BattleEvent.CardId` 里装的是 **`CardDef.Name`（卡名）**，
         /// 于是调用点传卡名来查这张 id 键的表 ⇒ **恒不命中**。
         /// ⇒ 现在**这半句已作废**：查得到 id 走 id，查不到就按卡名换算（<see cref="ResolveCardIdOf"/>）。
         /// ⛔ **别再把这句写回来** —— 铁律 5 记的就是这类「听着对、实际错」的注释。</para></summary>
-        static readonly Dictionary<string, Dictionary<string, string>> ByCard =
-            new Dictionary<string, Dictionary<string, string>>();
+        /// <summary>🆕 2026-10-19（B6）：表里一条候选的**两个 join 键**。
+        /// <para>`N` = prefab 名（= JSON 的 `es[].n`，也是今天真正拿去 `CardEffects.Fire` 的名字）；
+        /// `A` = 原版 `CardAnim` 资产名（= `es[].a`）。**`A` 是和 `CardDef.CardAnimTime.Anim`
+        /// 精确对上的那一把键**（`资料/普查产出_1019/E12_报告.md` §2·2/§5·1）——
+        /// 多候选按 `t` 错开时必须靠它把候选钉到**它自己那条** `AnimInfo` 上，⛔ 不能只按 prefab 名
+        /// （一张卡里同一个 `CardAnim` 可以出现多次，现读 59 行；只按名会把时间配错一条）。</para>
+        /// <para>`A` 为空 = 这条候选不属于 `cardAnimations[]`（来自卡 SO 的顶层字段 / 我们的推断档）
+        /// ⇒ 它**没有逐候选时间**，那时退回按 `N` 对（E12 §5·1 的第 2 顺位）。</para></summary>
+        public struct CardPick
+        {
+            public string N;
+            public string A;
+        }
+
+        static readonly Dictionary<string, Dictionary<string, List<CardPick>>> ByCard =
+            new Dictionary<string, Dictionary<string, List<CardPick>>>();
 
         /// <summary>🆕 2026-10-15（账 `A2082`）：**卡名 → 卡 id**（一个名字可能落在多张卡上，
         /// 全池 3 组重名 ⇒ 值是**列表**）。与 <see cref="ByCard"/> **同一次载入**建立。
@@ -346,11 +391,29 @@ namespace CardPresentation
         /// 由 `工具/gen_card_vfx_by_card.py` 与 `数据/游戏数据/card_vfx_by_card.json` **同一次运行**产出。</summary>
         public const string CardTableResourcePath = "card_vfx_by_card";
 
+        /// <summary>🆕 2026-10-19（B3 · `T13`）：**唯一允许「同档全播」的置信度名**。
+        /// 与生成器写进 `confPriority[0]` 的那个字符串逐字相同（`工具/gen_card_vfx_by_card.py`），
+        /// ⛔ 别在别处再写一遍字面量（判据只此一处）。</summary>
+        public const string ConfAuthoritative = "authoritative";
+
         static bool _triedCardTable;
         /// <summary>`Resources` 里那份表载进来几张卡（0 = 没载到/空表 —— 那时逐卡那一档**恒不命中**，
         /// 退回 <see cref="ByFaction"/> / <see cref="ByEvent"/> 的老行为，**并已经出过声**）。</summary>
         public static int CardTableCards { get { EnsureLoaded(); return ByCard.Count; } }
         public static int CardTableEntries { get; private set; }
+        /// <summary>🆕 2026-10-19（B3 · `T13`）：**会一次播多件**的 (卡, 事件) 行数
+        /// （= `ByCard` 里值列表长度 &gt; 1 的行）。现读**全表 382 行**（V2 §3·2 的
+        /// 「平票且最优是 `authoritative` 的行」；⚠️ 数据会随生成器重跑变，断言里别写死）。
+        /// 自检用它断「全播这一档真的存在」—— 只看单卡样例不够（样例可能被数据更新掉）。</summary>
+        public static int CardTableMultiEntries { get; private set; }
+        /// <summary>🆕 同上：表里**要播的候选总数**（= Σ 每个 (卡,事件) 行列表长度）。
+        /// 它 − <see cref="CardTableEntries"/> = 「全播比原来多播出去的件数」。</summary>
+        public static int CardTableCandidates { get; private set; }
+        /// <summary>🆕 同上：**过滤前**有多少行是「同档多候选」（含我们自己的 `inferred-*` 平票）。
+        /// 现读全表 **505 行**（V2 §3·2，其中 `authoritative` 382 行）。
+        /// 自检拿它和 <see cref="CardTableMultiEntries"/> 比 —— 两者相等就说明「推断档也被全播了」
+        /// （🧨 V2 §3·3 末条明确不许）。</summary>
+        public static int CardTableMultiEntriesAll { get; private set; }
         /// <summary>🆕 `A2082`：卡名索引里有几个名字（自检用 —— 它 = 0 就说明生产路径那一档查不动）。</summary>
         public static int CardTableNames { get { EnsureLoaded(); return _byName.Count; } }
 
@@ -405,7 +468,9 @@ namespace CardPresentation
         /// 🔑 **判幂等**：生成器连跑两次，除 `generatedAt` 外**逐字节一致**（本会话实测）。
         ///
         /// **取哪一条**：同一条 (卡, 事件) 可能有多个候选（原版真值 + 我们早先按名/按关键词推的），
-        /// 按 JSON 自带的 `confPriority`（`authoritative` 最前）**取第一个命中的**。
+        /// 按 JSON 自带的 `confPriority`（`authoritative` 最前）**只留最优那一档**。
+        /// 🆕 **2026-10-19（B3 · `T13`）**：最优档是 `authoritative` 且同档有多个 ⇒ **全都留**（按序全播，
+        /// 判据 = 原版 `CardAbility.cs:27-29` 的 `randomAbilityChoice` 注释）；推断档之间平票仍只留第一条。
         /// ⚠️ 这与 `gen_card_vfx_by_card.py` 打印的优先级**是同一份**（数据自带，⛔ 别在这儿再写一张表）。
         ///
         /// **载不到怎么办**：**出声 + 退回老行为**（`ByFaction` → `ByEvent`），⛔ **不静默**。
@@ -457,26 +522,50 @@ namespace CardPresentation
                 }
                 if (!string.IsNullOrEmpty(c.fa)) _factionOfId[c.id] = c.fa;
                 if (c.events == null) continue;
-                Dictionary<string, string> m;
-                if (!ByCard.TryGetValue(c.id, out m)) { m = new Dictionary<string, string>(); ByCard[c.id] = m; }
+                Dictionary<string, List<CardPick>> m;
+                if (!ByCard.TryGetValue(c.id, out m)) { m = new Dictionary<string, List<CardPick>>(); ByCard[c.id] = m; }
                 foreach (var ev in c.events)
                 {
                     if (ev == null || string.IsNullOrEmpty(ev.ev) || ev.es == null) continue;
+                    // 🆕 2026-10-19（B3 · `T13`）：**同档平票全收**（判据见 `ByCard` 的 doc）。
+                    //   `picks` 的语义 = 「最优档、按数组顺序」；遇到更高档就整个换掉（低档的丢掉）。
+                    // 🆕 2026-10-19（B6）：值改成 `CardPick`（`n` + `a`）—— `a` 是逐候选时间的 join 键
+                    //   （见 `CardPick` 的 doc）；播放用的名字仍是 `N`，对外 API 不变。
                     string best = null; int bestRank = int.MaxValue;
+                    var picks = new List<CardPick>();
                     foreach (var e in ev.es)
                     {
                         if (e == null || string.IsNullOrEmpty(e.n)) continue;
                         int rank;
                         if (!prio.TryGetValue(e.c ?? "", out rank)) rank = worst;
-                        if (rank < bestRank) { bestRank = rank; best = e.n; }
+                        if (rank < bestRank)
+                        {
+                            bestRank = rank; best = e.n; picks.Clear();
+                            picks.Add(new CardPick { N = e.n, A = e.a });
+                        }
+                        else if (rank == bestRank) picks.Add(new CardPick { N = e.n, A = e.a });
                     }
-                    if (best != null) { m[ev.ev] = best; CardTableEntries++; }
+                    if (best == null) continue;
+                    // 🔴 **只播最优档那一档，且只播 `authoritative` 时全播**（V2 §3·3 末条）：
+                    //   我们自己的推断档（`inferred-*`）之间平票**不扩**—— 那不是原版真值，
+                    //   全播只会多放我们猜出来的东西。
+                    bool authoritative = dto.confPriority != null
+                                      && bestRank >= 0 && bestRank < dto.confPriority.Length
+                                      && dto.confPriority[bestRank] == ConfAuthoritative;
+                    if (picks.Count > 1) CardTableMultiEntriesAll++;      // 过滤前（含推断档平票）
+                    if (!authoritative && picks.Count > 1) picks.RemoveRange(1, picks.Count - 1);
+                    m[ev.ev] = picks;
+                    CardTableEntries++;
+                    CardTableCandidates += picks.Count;
+                    if (picks.Count > 1) CardTableMultiEntries++;
                 }
             }
             Debug.Log($"[Vfx] 逐卡特效表已载入：{ByCard.Count} 张卡 / {CardTableEntries} 条"
                     + $"（`Resources/{CardTableResourcePath}.json`，按 `confPriority` 取权威优先）"
                     + $"；卡名索引 {_byName.Count} 个名字（🆕 `A2082`：生产路径传的是**卡名**，"
-                    + "没有这个索引逐卡那一档就恒不命中）");
+                    + "没有这个索引逐卡那一档就恒不命中）"
+                    + $"；🆕 `T13` 全播：{CardTableMultiEntries} 条会播多件 / 候选共 {CardTableCandidates} 件"
+                    + "（= 最优档 `authoritative` 的同档平票，按原版 `abilityLogic` 顺序）");
         }
 
         /// <summary>查一个事件该播什么。查不到返回 null（调用处会跳过）。
@@ -484,6 +573,7 @@ namespace CardPresentation
         /// <para>🔴 <b>2026-10-15（账 `A2082`）：`cardId` 这个参数<b>两把键都收</b> —— 卡 id <b>或</b> 卡名。</b>
         /// 修的是这么一个缺陷：本表的主键一直是**卡 id**，而<b>生产路径上唯一那个调用点传的是卡名</b>
         /// （`BattleDriver.PlaySignal` → `CardEffects.FireEvent(evt, pos, faction, e.CardId)`，
+        /// 🆕 2026-10-19（B3）起生产路径改走 `BattleDriver.FireEventAll` → 本类的 `ResolveAll`；
         /// 而 `BattleEvent.CardId` 装的是 `CardDef.Name`）⇒ 在修之前**逐卡这一档恒不命中**，
         /// 1,009 张卡 / 3,498 条真值**一条都没进过画面**，一律掉到按阵营/按事件的兜底。
         /// （实测：运行时表 1017 个键 **1017/1017 命中卡池 `id`、0/1017 命中卡名**。）
@@ -499,13 +589,165 @@ namespace CardPresentation
         {
             if (string.IsNullOrEmpty(evt)) return null;
 
-            Dictionary<string, string> m;
             // ⚠️ 逐卡那一档**要先载表**（2026-10-14 起它不再是空字典 —— 见 `EnsureLoaded` 的说明）。
             //    它排在最前面：**原版真值优先于我们按阵营/按事件的兜底**。
             //    （查询本身收口在 `TryResolvePerCard` —— 与 `ResolvePerCard` **共用一份实现**，
             //      ⛔ 别在这儿再抄一遍那个「id 或卡名」的换算。）
             string perCard;
             if (TryResolvePerCard(evt, faction, cardId, out perCard)) return perCard;
+            // 🆕 2026-10-19（B3）：兜底那一段拆成 `ResolveFallback` —— `ResolveAll` 也要用它，
+            //   ⛔ 别在两处各写一遍「ByFaction → ByEvent → 留白出声」。
+            return ResolveFallback(evt, faction);
+        }
+
+        /// <summary>🆕 2026-10-19（B3 · `T13`）：**这条 (卡, 事件) 要播的【全部】prefab**（按原版
+        /// `abilityLogic` 顺序）。逐卡那一档没有命中 ⇒ 退回「按阵营 / 按事件」那**一件**（数组长度 1）。
+        ///
+        /// <para>**判据**（第一权威）＝原版 `CardAbility.cs:27-29`：
+        /// 「If true, only one ability triggered, chosen randomly. Otherwise, **all are triggered in order**」
+        /// —— 现读 1,495/1,496 个 `CardAbility` 的 `randomAbilityChoice` 为假 ⇒ **全播**。
+        /// 我们这张表里「哪些行该全播」的筛选口径写在 <see cref="ByCard"/> 的 doc（只播最优档、
+        /// 只播 `authoritative` 时全播、同名重复保留）。</para>
+        ///
+        /// <para>⚠️ **调用方必须按顺序逐个播**（顺序 = 原版 `abilityLogic` 的索引顺序）；本方法只负责
+        /// 「播哪些、什么顺序」，不碰 `CardEffects`（那个钩子归调用点）。</para>
+        /// <para>⚠️ **返回的是拷贝**（调用方改它不会污染表）；没有可播的 ⇒ **空数组**（⛔ 不是 null ——
+        /// 调用方直接 for 循环即可）。</para>
+        /// <para>⚠️ **还不做的一档（已记账，⛔ 不是「不做」）**：
+        /// ① `randomAbilityChoice = true` 的「按组随机抽一组」—— 数据侧还没有 `g`（组号）/`rc` 位
+        ///    （V2 §3·3 的接口需求）；现读唯一为真的卡是 `Spanner`，它 5 条 logic 的 prefab **全是
+        ///    `Buff_Ork_Mek`** ⇒ 全播与「抽一组再播」今天**同效**。</para>
+        /// <para>✅ **2026-10-19（B6）就地订正（铁律 5）**：本段原来还有「② 同一组内多拍的时间错开 —— 数据侧
+        /// 还没有逐候选的时间」—— **两半都不再成立**：数据 = `CardDef.AnimTimes`（E12 已落，卡池 v12），
+        /// 消费 = <see cref="ResolveAllTimed"/>（本类）。本方法（只回名字）保留为**不带时间**的老口。</para></summary>
+        public static string[] ResolveAll(string evt, string faction = null, string cardIdOrName = null)
+        {
+            if (string.IsNullOrEmpty(evt)) return NoEffectNames;
+            List<CardPick> picks;
+            if (TryResolvePerCardPicks(evt, faction, cardIdOrName, out picks) && picks != null && picks.Count > 0)
+            {
+                var names = new string[picks.Count];          // 拷贝：⛔ 别把表里的 List 交给调用方
+                for (int i = 0; i < picks.Count; i++) names[i] = picks[i].N;
+                return names;
+            }
+            string one = ResolveFallback(evt, faction);
+            return string.IsNullOrEmpty(one) ? NoEffectNames : new[] { one };
+        }
+
+        /// <summary>「没有可播的」那一个共享空数组（省掉每帧的分配；只读，别往里面写）。</summary>
+        static readonly string[] NoEffectNames = new string[0];
+
+        /// <summary>🆕 2026-10-19（B6）：**一条要播的候选 + 它自己的起点偏移**。</summary>
+        public struct ResolvedVfx
+        {
+            /// <summary>prefab 名（= 原来 `ResolveAll` 给的那个字符串）。</summary>
+            public string Name;
+            /// <summary>**起点偏移（秒，相对这一事件的起播时刻）** = 原版 `CardDef.CardAnimTime.Offset`
+            /// （= 同 `(卡, 原版 trigger)` 组内前面各候选的 `Duration` 之和）。`0` = 与事件同一拍。</summary>
+            public float T;
+            /// <summary>🆕 这条候选**自己的时长**（= `AnimInfo.GetAnimDuration()`，`CardAnimTime.Duration`）。
+            /// 消费端用它把「演出闸 / 队尾」推到这一拍的收尾（原版队列要等它演完才放行下一条动作）。
+            /// `0` = 没有逐候选时间（同一档兜底 / 单候选）—— 那时收尾由事件自己的时长负责。</summary>
+            public float Duration;
+        }
+
+        /// <summary>🆕 2026-10-19（B6）：<see cref="ResolveAll"/> 的**带时间**版本 —— 多候选按原版
+        /// `cardAnimations[]` 的串行时长**错开**。
+        ///
+        /// <para>**判据（第一权威）**：原版 `AbilityLogic.PlayAnim` 把每条候选压成一条
+        /// `playAnim` 动作，队列**一次只弹一条**、每条等完 `AnimInfo.GetAnimDuration()` 才结束
+        /// （`BattleManager__ResolveActionFromQueue.c:44-76` +
+        /// `BattleManager._ResolveAnim_d__466__MoveNext.c:200-210`）
+        /// ⇒ **第 n 条的起点 = 前面各条时长之和**。E12 把这个和算好落成 `CardAnimTime.Offset`（`t`）；
+        /// 本方法只负责「把候选钉到它自己那条 `AnimInfo` 上、把 `t` 交出去」。
+        /// ⛔ **不要在这里发明任何固定间隔**（那正是 B4 报告里被推翻的口径）。</para>
+        ///
+        /// <para>**怎么钉**（判据 → `资料/普查产出_1019/E12_报告.md` §5·1）：
+        /// ① 首选 `CardAnimTime.Anim == 表里的 es[].a`（<see cref="CardPick.A"/>）—— 这是**精确 join 键**；
+        /// ② `A` 为空（那条候选来自卡 SO 的顶层字段 / 推断档，不在 `cardAnimations[]` 里）
+        ///    ⇒ 用 `CardAnimTime.Prefab == es[].n`；
+        /// ③ 同一张卡里同名 `CardAnim` 可以出现多次（现读 59 行）⇒ **按数组顺序逐次消费**
+        ///    （游标只前进不后退），⛔ 不去重、也⛔ 不回头拿前面那条；
+        /// ④ 钉不上（这张卡没有 `animTimes` / 真值快照里就没有这一条）⇒ `T = 0`
+        ///    —— **等于今天的行为**（同一拍全播），⛔ 不拿别的候选的时长凑一个。</para>
+        ///
+        /// <para>⚠️ **单候选 ⇒ `T` 恒为 0**（回归口径）：错开是给「同组多候选」用的；单候选多出来的
+        /// 等待会把「这一拍什么也没发生」放大，而那不是本件要解决的问题（现读有 `animTimes` 且有命中的
+        /// 1,008 行里，993 行首候选 `t = 0`；会落到「首候选 `t &gt; 0`」的 15 行，原因都是
+        /// **它前面还有一条被本表过滤掉的纯计时拍 / 别的触发拍**）。</para>
+        ///
+        /// <para>⚠️ **跨 trigger 组**：`t` 的分组键是 `(卡, 原版 trigger)`，而本表的事件键更粗
+        /// （`Strike`/`Slay` 都归 `trigger`，多条 trigger 都归 `ability` —— 见 `工具/gen_card_vfx_by_card.py`
+        /// 的 `TRIGGER_EVENT`）。现读 **23 行**的多候选里混着不同 trigger 组 ⇒ 那些候选的 `t`
+        /// **各自从 0 起**（数据本来如此），可能同时播。**如实保留**：⛔ 不把后一组的 `t` 累加到前一组上
+        /// （那等于编一个间隔）。</para>
+        ///
+        /// <para>⚠️ **返回的是拷贝**；没有可播的 ⇒ **空数组**（调用方直接 for）。</para></summary>
+        /// <param name="times">这张卡的 `CardDef.AnimTimes`（null / 空 = 没有逐候选时间 ⇒ 全 `T=0`）。</param>
+        public static ResolvedVfx[] ResolveAllTimed(string evt, string faction, string cardIdOrName,
+                                                   IReadOnlyList<CardDef.CardAnimTime> times)
+        {
+            if (string.IsNullOrEmpty(evt)) return NoEffectTimes;
+
+            List<CardPick> picks;
+            if (!TryResolvePerCardPicks(evt, faction, cardIdOrName, out picks) || picks == null || picks.Count == 0)
+            {
+                // 兜底那一档（按阵营 / 按事件）永远只有**一件** ⇒ `T = 0`（与 `ResolveAll` 同源）。
+                string one = ResolveFallback(evt, faction);
+                return string.IsNullOrEmpty(one)
+                     ? NoEffectTimes
+                     : new[] { new ResolvedVfx { Name = one, T = 0f } };
+            }
+
+            var res = new ResolvedVfx[picks.Count];
+            for (int i = 0; i < picks.Count; i++)
+                res[i] = new ResolvedVfx { Name = picks[i].N, T = 0f, Duration = 0f };
+            // 单候选：回归口径（见 doc 的「单候选 ⇒ T 恒 0」）。没有时间表也一样（全部 T=0）。
+            if (picks.Count <= 1 || times == null || times.Count == 0) return res;
+
+            int cursor = 0;
+            for (int i = 0; i < picks.Count; i++)
+            {
+                int idx = FindAnimTimeIndex(times, cursor, picks[i]);
+                if (idx < 0) continue;          // 钉不上 ⇒ T 保持 0（= 改前的行为）
+                cursor = idx + 1;               // ③ 游标只前进：同名重复按顺序逐次消费
+                float t = times[idx].Offset;
+                res[i].T = t > 0f ? t : 0f;     // 防御：`t` 不该是负的（数据侧按累计时长给）
+                res[i].Duration = times[idx].Duration > 0f ? times[idx].Duration : 0f;
+            }
+            return res;
+        }
+
+        /// <summary>「没有可播的」那一个共享空数组（只读，别往里面写）。</summary>
+        static readonly ResolvedVfx[] NoEffectTimes = new ResolvedVfx[0];
+
+        /// <summary>🆕 2026-10-19（B6）：在 `times` 里从 `from` 起找这条候选自己那条 `AnimInfo`
+        /// （规则见 <see cref="ResolveAllTimed"/> 的 doc ②③）。找不到 ⇒ `-1`。</summary>
+        static int FindAnimTimeIndex(IReadOnlyList<CardDef.CardAnimTime> times, int from, CardPick p)
+        {
+            if (times == null) return -1;
+            bool byAnim = !string.IsNullOrEmpty(p.A);
+            for (int i = Mathf.Max(0, from); i < times.Count; i++)
+            {
+                var at = times[i];
+                if (at == null) continue;
+                if (byAnim)
+                {
+                    if (at.Anim == p.A) return i;      // ① 精确 join 键
+                }
+                else if (!string.IsNullOrEmpty(p.N) && at.Prefab == p.N)
+                {
+                    return i;                          // ② `a` 为空 ⇒ 退回 prefab 名
+                }
+            }
+            return -1;
+        }
+
+        /// <summary>`Resolve` / `ResolveAll` 共用的**兜底链**（逐卡那一档没有命中之后）：
+        /// `ByFaction` → `ByEvent` → 留白出声。⛔ 判据只此一处。</summary>
+        static string ResolveFallback(string evt, string faction)
+        {
+            Dictionary<string, string> m;
             if (!string.IsNullOrEmpty(faction) && ByFaction.TryGetValue(faction, out m))
             {
                 string s;
@@ -540,22 +782,36 @@ namespace CardPresentation
         }
 
         /// <summary><see cref="Resolve"/> 与 <see cref="ResolvePerCard"/> 共用的那一份逐卡查询。
-        /// 返回 true ⇔ 命中了**逐卡那一档**（`hit` 是该 (卡,事件) 下的 prefab 名）。</summary>
+        /// 返回 true ⇔ 命中了**逐卡那一档**（`hit` 是该 (卡,事件) 下的**第一条** prefab 名）。</summary>
         static bool TryResolvePerCard(string evt, string faction, string cardIdOrName, out string hit)
         {
-            hit = null;
+            List<CardPick> picks;
+            bool ok = TryResolvePerCardPicks(evt, faction, cardIdOrName, out picks);
+            hit = (ok && picks != null && picks.Count > 0) ? picks[0].N : null;
+            return ok && hit != null;
+        }
+
+        /// <summary>🆕 2026-10-19（B3 · `T13`）：<see cref="TryResolvePerCard"/> 的**全剂量**版本 ——
+        /// 交出该 (卡,事件) 下**最优档的全部候选**（按原版 `abilityLogic` 顺序，见 `ByCard`）。
+        /// 🆕 B6：元素是 <see cref="CardPick"/>（`N` = prefab 名 · `A` = CardAnim 名，逐候选时间的 join 键）。
+        /// ⚠️ 返回的 `List` **就是表里那一份**，调用方**只读**（`ResolveAll` 会自己拷贝）。</summary>
+        static bool TryResolvePerCardPicks(string evt, string faction, string cardIdOrName,
+                                           out List<CardPick> picks)
+        {
+            picks = null;
             if (string.IsNullOrEmpty(evt) || string.IsNullOrEmpty(cardIdOrName)) return false;
             EnsureLoaded();
-            Dictionary<string, string> m;
+            Dictionary<string, List<CardPick>> m;
             if (ByCard.TryGetValue(cardIdOrName, out m))
             {
                 // 原样就查得到 ⇒ 它**就是 id** ⇒ ⛔ 别再按卡名换算一次
                 // （真出重名时反而会把正确的那张顶掉）。
-                return m.TryGetValue(evt, out hit);
+                return m.TryGetValue(evt, out picks) && picks != null && picks.Count > 0;
             }
             // 传进来的多半是**卡名**（生产路径就是这样，见 `Resolve` 的 doc）⇒ 换算成 id 再查一次。
             string id = ResolveCardIdOf(cardIdOrName, faction);
-            if (id != null && ByCard.TryGetValue(id, out m)) return m.TryGetValue(evt, out hit);
+            if (id != null && ByCard.TryGetValue(id, out m))
+                return m.TryGetValue(evt, out picks) && picks != null && picks.Count > 0;
             return false;
         }
 
@@ -606,7 +862,9 @@ namespace CardPresentation
             foreach (var kv in ByEvent) yield return kv.Value;
             foreach (var f in ByFaction) foreach (var kv in f.Value) yield return kv.Value;
             foreach (var kv in SummonCircleByFaction) yield return kv.Value;   // ② 召唤法阵
-            foreach (var c in ByCard) foreach (var kv in c.Value) yield return kv.Value;
+            foreach (var c in ByCard)
+                foreach (var kv in c.Value)
+                    foreach (var nm in kv.Value) yield return nm.N;   // 🆕 B3：一行可能有多件（全播）；B6：`N` = prefab 名
         }
 
         /// <summary>所有事件名 —— **唯一一份**。`Describe` / `Unmapped` / 自检都用它，

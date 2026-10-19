@@ -748,12 +748,14 @@ public static class NetSelfTest
             NetMatchmaking.PumpLobby();                       // 主机收到卡组 ⇒ 开局（`_started = true`）
             Ok(NetMatchmaking.HasOpponent, "L⑫ 主机收到对面卡组 ⇒ 这一局成立了");
 
-            // ---- 🔴 反面（`A1297①` 的判别式）：**开局之后才到的** `match.cancel` ⇒ 这一局照旧开 ⇒
-            //      ⛔ **一条码都不许记**（记了就是「静默说错一句话」）。
+            // ---- 🔴 **迟到取消的收侧语义**（`A1322` · 2026-10-19 调度裁定 = **选项 A**）：**开局之后才到的**
+            //      `match.cancel` ⇒ 收侧**认了**：撤本地这一局 + 记**一条** `Cancelled(-1)` + 作废跨场景槽。
+            //      （旧行为 = 「这一局照旧开、一条码都不记」—— 那会让本机**单方面进战场 ⇒ 两端分叉**，已按裁定改掉。）
             //      ⚠️ 这一包**手工发**：`NetMatchmaking.Cancel()` 在 `_started` 时自己就返回 false（L⑬ 验的是它）
             //         ⇒ 只有自己发才能把「迟到的取消」喂进对面那一支。
-            //      🔑 **为什么它是不自证**：正例（L⑨-b）与这条**结构上互斥** —— 两支都在同一个 `switch` 里，
-            //         把记码从 `else` 支提到 `case` 支外面（= 两支都记）⇒ **这条立刻红、L⑨-b 照样绿**。
+            //      🔑 **为什么不自证**：① 条数是「**正好 1**」—— 0（旧行为）与 2（把窗口外那支也记）**都红**；
+            //         ② L⑫-b′ 用**录像侧的解析器**读同一行（另一个实现，不是照抄字面量）；
+            //         ③ L⑫-c 同时读 `HasOpponent` 与 `NetPendingBattle.Current` 两个**独立状态格**。
             var lateCancelLogs = new List<string>();
             Application.LogCallback hLate = (string m, string st, LogType ty) => lateCancelLogs.Add(m);
             cli.Send(NetKind.MatchCancel, new MsgMatchCancel { reason = "自检：迟到的取消" });
@@ -762,12 +764,40 @@ public static class NetSelfTest
             Application.logMessageReceived += hLate;
             try { NetMatchmaking.PumpLobby(); }
             finally { Application.logMessageReceived -= hLate; }
-            Ok(!lateCancelLogs.Exists(m => m != null && m.Contains("[BattleResult]")),
-               "L⑫-b ★★ **开局之后才到的 `match.cancel` ⇒ 一条码都不许记**（那一支是「这一局照旧开」、没有「没了」）"
-             + $"（实得 {lateCancelLogs.Count} 条日志、带 token 的 "
-             + $"{lateCancelLogs.FindAll(m => m != null && m.Contains("[BattleResult]")).Count} 条）");
-            Ok(NetMatchmaking.HasOpponent, "L⑫-c …而且那一局**没有**被撤掉（`HasOpponent` 还在）");
+            var lateTokens = lateCancelLogs.FindAll(m => m != null && m.Contains("[BattleResult]"));
+            Ok(lateTokens.Count == 1,
+               "L⑫-b ★★ **开局之后才到的 `match.cancel` ⇒ 正好记【一条】**码（`A1322` 选项 A：收侧认了这条取消）"
+             + $"（实得 {lateCancelLogs.Count} 条日志、带 token 的 {lateTokens.Count} 条）"
+             + "｜🧨 旧行为（「这一局照旧开」⇒ 0 条）⇒ 红；窗口外那一支也记 ⇒ 2 条 ⇒ 红"
+             + "（**两个方向都分得开**，不是只断新值）");
+            Ok(lateTokens.Exists(m =>
+               {
+                   if (m == null) return false;
+                   BattleResult rr; int ss;
+                   return ReplayStore.TryParseResultLine(m, out rr, out ss)
+                       && rr == BattleResult.Cancelled && ss == -1;
+               }),
+               "L⑫-b′ ★ 那一条**能被录像侧同一个解析器读回来**（码 = `Cancelled`、座位 = `-1` = **没写**）"
+             + " —— 与 L⑫-b **不同源**：那条数条数，这条比「匹配层写的那一行」与「录像层读的那一行」是不是一套"
+             + "｜🧨 拿别的码（`Defeat` / `Disconnect`）顶 ⇒ 红");
+            Ok(!NetMatchmaking.HasOpponent && NetPendingBattle.Current == null,
+               "L⑫-c ★ …而且那一局**被撤掉了**（`A1322` 选项 A：收侧认了取消）"
+             + $"（`HasOpponent` = {NetMatchmaking.HasOpponent} · 跨场景槽 = "
+             + $"{(NetPendingBattle.Current == null ? "null" : "**还在**")}）"
+             + "｜🧨 旧行为（照旧进战场）⇒ 两个都还在 ⇒ 红"
+             + "（只清其中一个的写法也过不了这一条）");
             NetRuntime.DrainNoticesForTest();
+            // 🔴 2026-10-19（S2 · `A1322` 选项 A）：上一格已经把这一局**撤掉了** ⇒ L⑬ 的
+            //    「开局之后取消不了」前提（`Started == true`）**不再成立**。按 L⑩~L⑫ 同一形状**重新开一局**。
+            NetMatchmaking.Reset();
+            rt.AttachForTest(host);
+            NetMatchmaking.TryStart(d1, "Classic", "Ultramarines", out string _);
+            rt.AttachForTest(cli);
+            NetMatchmaking.TryStart(d2, "Classic", "Ultramarines", out string _);
+            PumpBoth(host, cli, 400);
+            rt.AttachForTest(host);
+            NetMatchmaking.PumpLobby();
+            Ok(NetMatchmaking.HasOpponent, "L⑫-d （前提）迟到取消把上一局撤掉之后**重新开一局** ⇒ `HasOpponent` 又成立（L⑬ 靠它）");
 
             Ok(!NetMatchmaking.Cancel("自检：开局之后", out string w2),
                "L⑬ ★ **开局之后取消不了**（**不假装取消成功** —— 原来那句「取消的只是这扇窗」就是这么来的）");

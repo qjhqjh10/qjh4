@@ -38,6 +38,14 @@ public static class EffectExporter
     static readonly string[] VatTexNames = {
         "Vanguard Frame Animation VAT_PositionTex",
         "Vanguard Frame Animation VAT_RotationTex",
+        // 🆕 2026-10-19（V3）：死灵残骸体那 5 份 VAT 的贴图（每份 1 位置 + 1 旋转 = 10 张）。
+        //   尺寸 150×15（位置，零件 75 × 2 列）/ 75×15（旋转）—— 与 Vanguard 一样是 **NPOT 线性数据贴图**，
+        //   所以 `RestoreVatTextures` 那套导入项（npotScale=None / sRGB=false / 无 mip / 不压缩）**对它们同样适用**。
+        "Card Remnant_Remnant Anim 1_PositionTex", "Card Remnant_Remnant Anim 1_RotationTex",
+        "Card Remnant_Remnant Anim 3_PositionTex", "Card Remnant_Remnant Anim 3_RotationTex",
+        "Card Remnant_Remnant Anim 5_PositionTex", "Card Remnant_Remnant Anim 5_RotationTex",
+        "Card Remnant_Remnant Anim 8_PositionTex", "Card Remnant_Remnant Anim 8_RotationTex",
+        "Card Remnant_Remnant Anim 9_PositionTex", "Card Remnant_Remnant Anim 9_RotationTex",
     };
     // 原版 shader 无法落成工程资产，只能随包带着运行时加载
     const string ShaderBundleSrc = "shaders_assets_all.bundle";
@@ -384,7 +392,8 @@ public static class EffectExporter
     /// 会连 prefab / 材质一起重写）风险大得多（见「生成资产别用 `GenerateUniqueAssetPath` + 先删光」
     /// 那个坑）。本方法**只改 `.meta`**：PNG 一个字节不动、prefab 不碰。
     ///
-    /// 判据 = 原版 bundle 里那张 `Texture2D` 的 `mipmapCount`：
+    /// 判据 = 原版 bundle 里那张 `Texture2D` 的 `mipmapCount`、`m_TextureSettings.{m_WrapU,m_WrapV,m_FilterMode,m_Aniso}`
+    ///   与 `m_Width/m_Height`（🆕 2026-10-19 T07：wrap/filter/aniso 四格也照抄）。
     ///   · 原版 **1 层（无 mip）** ⇒ 我们也**不许开 mip**。实读 346 张里 **64 张**属于这一类，
     ///     而旧代码把它们**全部**硬编码成开 mip ⇒ `Buff_DA_Forest_Self` 那条 2.80×：
     ///     拖尾是**极度拉伸的几何**，GPU 按 UV 导数采到很低的 mip ⇒ 整条拖尾被平均成一团糊
@@ -399,9 +408,18 @@ public static class EffectExporter
     /// 「**bundle 里非 addressable 的资产两条枚举路都拿不到**」（→ `资料/已知的坑.md`）。
     /// 所以走既定的**「旁挂数据 + 生成脚本」**路：
     /// `工具/gen_vfx_texture_mips.py` → `数据/游戏数据/vfx_texture_mips.tsv` → 本方法读它改 `.meta`。</summary>
-    public static void FixTextureImportSettings()
+    /// <summary>旁挂表某列 → int；越界/解析不了返回 **-1（未知）**。
+    /// 🆕 2026-10-19（T07）：`vfx_texture_mips.tsv` 加了 `wrapU/wrapV/filterMode/aniso` 四列；
+    /// 老表没有这四列时返回 -1 ⇒ 调用方**不动**那一格。</summary>
+    static int ParseOr(string[] c, int idx)
     {
-        const string tsv = @"d:/4/Unity/数据/游戏数据/vfx_texture_mips.tsv";
+        if (c == null || idx < 0 || idx >= c.Length) return -1;
+        int v;
+        return int.TryParse(c[idx], out v) ? v : -1;
+    }
+
+    public static void FixTextureImportSettings()
+    {        const string tsv = @"d:/4/Unity/数据/游戏数据/vfx_texture_mips.tsv";
         if (!System.IO.File.Exists(tsv))
         {
             Debug.LogError($"[TEXFIX] 缺旁挂表 {tsv} —— 先跑 " +
@@ -424,13 +442,27 @@ public static class EffectExporter
             if (ti == null) { noPng++; continue; }
             bool wantMip = mips > 1;
             int wantMax = Mathf.Max(2048, Mathf.NextPowerOfTwo(Mathf.Max(w, h)));
-            if (ti.mipmapEnabled == wantMip && ti.maxTextureSize == wantMax) { ok++; continue; }
+            // 🆕 2026-10-19（T07）：wrap/filter/aniso 三格也照原版（列 5..8）。
+            //   -1 = 老表 / 读不到 ⇒ **不动**（不许拿「未知」覆盖）。
+            int wu = ParseOr(c, 5), wv = ParseOr(c, 6), fm = ParseOr(c, 7), an = ParseOr(c, 8);
+            var wantWrap = (wu >= 0) ? (TextureWrapMode)wu : ti.wrapMode;
+            var wantFilter = (fm >= 0) ? (FilterMode)fm : ti.filterMode;
+            int wantAniso = (an > 0) ? an : ti.anisoLevel;
+            bool same = ti.mipmapEnabled == wantMip && ti.maxTextureSize == wantMax
+                        && ti.wrapMode == wantWrap && ti.filterMode == wantFilter
+                        && ti.anisoLevel == wantAniso;
+            if (same) { ok++; continue; }
             if (!wantMip) noMip++;
+            if (wu >= 0 && wv >= 0 && wv != wu)
+                Debug.LogWarning($"[TEXFIX] `{c[0]}` 原版 wrapU({wu}) ≠ wrapV({wv}) —— 按 U 写，这一格要人工看一眼");
             ti.mipmapEnabled = wantMip;
             ti.maxTextureSize = wantMax;
+            ti.wrapMode = wantWrap;
+            ti.filterMode = wantFilter;
+            ti.anisoLevel = wantAniso;
             ti.SaveAndReimport();
             changed++;
-            changedNames.Add($"{c[0]}({w}x{h},原版m{mips})");
+            changedNames.Add($"{c[0]}({w}x{h},原版m{mips},wrap{wu}/{wv},f{fm},a{an})");
         }
         AssetDatabase.Refresh();
         Debug.Log($"[TEXFIX] 表里 {rows} 行 · **改了 {changed}** · 本来就对 {ok} · " +
@@ -992,17 +1024,22 @@ public static class EffectExporter
     //       Vanguard Frame Animation VAT.json`（另有实例值 `.../MonoBehaviour_-6996853648599967635.json`）
     //      —— 与 `PoolableSpots` 同一形态（那张表同样是「从原版包里摘出来、写在本文件里」）。
     //    ⚠️ 全库这类 `VATAnimation` 共 **6 件**（Vanguard 1 + `Card Remnant_Remnant Anim {1,3,5,8,9}`）。
-    //       另外那 5 件**挂在一个我们还没有驱动的物件上**：原版包里的宿主 GameObject `Card Remnant`
-    //       （2026-10-08 实读 `GameObject/Card Remnant.json`）—— 它**其实已经在工程里**，是
-    //       `WarpforgeVFX/Prefabs/RemnantBody3D Necrons.prefab` 里那个**同名子物件**
-    //       （只是那 5 条动画 + 10 张贴图还没进来）⇒ 表里现在**只该有 Vanguard 那两条**；
-    //       Remnant 那条要先把「驱动指向 5 条里的哪一条 / 谁来换」查清才能加（否则就是猜），
-    //       见交件报告 A1090。
+    //       🆕 **2026-10-19（V3）就地订正（铁律 5）**：原文写「另外那 5 件挂在一个我们还没有驱动的物件上 …
+    //       表里现在只该有 Vanguard 那两条；Remnant 那条要先把『驱动指向 5 条里的哪一条 / 谁来换』查清才能加」——
+    //       **那个问题已经查清，Remnant 那一行已补（本表 ③）**。判据（三条，都是实读）：
+    //         ① 宿主 = `RemnantBody3D Necrons/Card Remnant`（`VATGPUPlayer` 实例的 `m_GameObject` 父链）；
+    //         ② 5 件是**同一个宿主上的随机池**，不是 5 个宿主 —— `RemnantNecrons`（根上）的
+    //            `deathAnimationList` = [1,3,5,8,9]，而 `VATGPUPlayer._vatAnimation` 序列化写死 = **8**；
+    //         ③ 换法 = `RemnantNecrons__Toggle.c`：`Random.Range(0, list.Count)` → `vatPlayer._vatAnimation = list[i]`
+    //            ⇒ 我们补了 `WarpforgeVatPoolPicker`（`Runtime/WarpforgeVatPoolPicker.cs`，`OnEnable` 挑一次）。
+    //       10 张贴图已随本批进工程（`Runtime/Vat/` 真身 + `Textures/` 副本），`VatTexNames` 已登记。
     //
     //  ⚠️ **顺序**：与 `AttachPoolables` 一样 —— 必须**在 `StripMissingScripts` 之后**
     //    （否则刚挂上的又会被那一趟当 missing 删掉）、`PrefabUtility.SaveAsPrefabAsset`（`:1283`）之前。
-    //  ⚠️ **两个宿主 prefab 都已在 `ListedPrefabs` 里**（`Vanguard Frame Animated VAT` / `VanguardIdleEffect`）
-    //    ⇒ 不需要为这一支再改名单。
+    //  ⚠️ **两个 Vanguard 宿主已在 `ListedPrefabs` 里** ⇒ 不需要为它们再改名单。
+    //    🆕 `RemnantBody3D Necrons` **不在** `ListedPrefabs`（它是**效果根**：16 个 ParticleSystem、
+    //    已在 `WarpforgeEffectLibrary.asset` 里）⇒ 它由 `Run()` 全量导出覆盖；
+    //    要**只**重导它时，临时把名字加进 `ListedPrefabs` 走 `RunListed()`（`Export()` 幂等，重复无害）。
     //  ⚠️ **两张 VAT 贴图不是被任何材质引用的** ⇒ 导出器**永远不会**自己导它们
     //    （它们是**手放进** `Textures/` 的，导入设置照原资产手设过：28×41 / 14×41 是 **NPOT** ⇒
     //     `nPOTScale: 0`、`sRGBTexture: 0`（线性数据贴图）、无 mip、RGBA32 不压缩）。
@@ -1017,7 +1054,7 @@ public static class EffectExporter
     //    在这里给单个 prefab 打补丁 = CLAUDE.md §三「两处写同一条规则」。已记进交件报告。
     // ==================================================================
 
-    /// <summary>一条 VAT 补挂记录。字段名 / 顺序 = `WarpforgeVFX.WarpforgeVatData`（照原资产序列化序）。</summary>
+    /// <summary>一条 VAT 补挂记录 = 一个宿主物件 + 它上面的 VAT 数据（**可能不止一份**）。</summary>
     sealed class VatSpot
     {
         /// <summary>宿主 prefab 名（= `Export()` 的 `src.name`；与 `PoolableSpots[0]` 同一个键）。</summary>
@@ -1025,20 +1062,32 @@ public static class EffectExporter
         /// <summary>驱动要挂到的那个物件路径（从根起分段）—— **原版 `VATGPUPlayer` 就在那个 `MeshRenderer`
         /// 同一个 GameObject 上**（判据：`GameObject/Vanguard Frame Animated VAT.json` 的 4 个组件）。</summary>
         public string Path;
+        /// <summary>原版这个宿主上的 VAT 数据。**`SerializedDefault` 那条 = 原版 prefab 里
+        /// `VATGPUPlayer._vatAnimation` 写死的那一份**；多于一条时，运行时由
+        /// `WarpforgeVatPoolPicker` 随机挑（判据 → `RemnantNecrons__Toggle.c`）。</summary>
+        public VatDataSet[] Sets;
+    }
+
+    /// <summary>一份 VAT 数据。字段名 / 顺序 = `WarpforgeVFX.WarpforgeVatData`（照原资产序列化序）。</summary>
+    sealed class VatDataSet
+    {
         /// <summary>原版那个 `VATAnimation` 资产名 = 两张贴图的**文件名前缀**
         /// （`&lt;DataName&gt;_PositionTex.png` / `&lt;DataName&gt;_RotationTex.png`）。</summary>
         public string DataName;
         public Vector3 BoundsCenter, BoundsExtents, StartBoundsCenter, StartBoundsExtents;
-        /// <summary>帧数（= 贴图**高**）。Vanguard 41。</summary>
+        /// <summary>帧数（= 贴图**高**）。Vanguard 41 / Remnant 15。</summary>
         public float Frames;
-        /// <summary>时长（秒）。Vanguard 1.35。</summary>
+        /// <summary>时长（秒）。Vanguard 1.35 / Remnant 3.0。</summary>
         public float Duration;
-        /// <summary>部件数（= 旋转贴图宽 = 位置贴图宽的一半）。Vanguard 14。</summary>
+        /// <summary>部件数（= 旋转贴图宽 = 位置贴图宽的一半）。Vanguard 14 / Remnant 75。</summary>
         public int PartsCount;
         /// <summary>原版 `HighPrecisionPositionMode` —— 本地 6 件**全是 0**。</summary>
         public bool HighPrecisionPositionMode;
         /// <summary>原版 `PartsIdsInUV3` —— 本地 6 件**全是 0**（部件号在网格 `COLOR.w`）。</summary>
         public bool PartsIdsInUV3;
+        /// <summary>原版该宿主 prefab 上**序列化写死**的那一份（`VATGPUPlayer._vatAnimation`）。
+        /// 每行**必须恰有一条**（多于一条 / 一条都没有 ⇒ 出声）。</summary>
+        public bool SerializedDefault;
     }
 
     /// <summary>VAT 驱动补挂表。**值逐字照抄原资产**，出处见上面那段头注。
@@ -1050,13 +1099,20 @@ public static class EffectExporter
         {
             Root = "Vanguard Frame Animated VAT",
             Path = "Vanguard Frame Animated VAT",
-            DataName = "Vanguard Frame Animation VAT",
-            BoundsCenter      = new Vector3(-0.00015115737915039062f, 1.5765403509140015f, -0.10219991207122803f),
-            BoundsExtents     = new Vector3(1.3951337337493896f, 1.9750405550003052f, 0.9605523347854614f),
-            StartBoundsCenter = new Vector3(0f, 1.6361364126205444f, -0.3536794185638428f),
-            StartBoundsExtents= new Vector3(1.2230337858200073f, 1.6361366510391235f, 0.5935254693031311f),
-            Frames = 41f, PartsCount = 14, Duration = 1.35f,
-            HighPrecisionPositionMode = false, PartsIdsInUV3 = false,
+            Sets = new[]
+            {
+                new VatDataSet
+                {
+                    DataName = "Vanguard Frame Animation VAT",
+                    BoundsCenter      = new Vector3(-0.00015115737915039062f, 1.5765403509140015f, -0.10219991207122803f),
+                    BoundsExtents     = new Vector3(1.3951337337493896f, 1.9750405550003052f, 0.9605523347854614f),
+                    StartBoundsCenter = new Vector3(0f, 1.6361364126205444f, -0.3536794185638428f),
+                    StartBoundsExtents= new Vector3(1.2230337858200073f, 1.6361366510391235f, 0.5935254693031311f),
+                    Frames = 41f, PartsCount = 14, Duration = 1.35f,
+                    HighPrecisionPositionMode = false, PartsIdsInUV3 = false,
+                    SerializedDefault = true,
+                },
+            },
         },
         // ② 待机效果：同名**子物件**（**直接**子件 —— 实测父链 `Vanguard Frame Animated VAT` → `VanguardIdleEffect`）。
         //    🔴 出牌与待机是**两个入口** —— 只补一处 = 另一个入口静默失效（CLAUDE.md §十 第 5 条那种坑）。
@@ -1064,13 +1120,93 @@ public static class EffectExporter
         {
             Root = "VanguardIdleEffect",
             Path = "VanguardIdleEffect/Vanguard Frame Animated VAT",
-            DataName = "Vanguard Frame Animation VAT",
-            BoundsCenter      = new Vector3(-0.00015115737915039062f, 1.5765403509140015f, -0.10219991207122803f),
-            BoundsExtents     = new Vector3(1.3951337337493896f, 1.9750405550003052f, 0.9605523347854614f),
-            StartBoundsCenter = new Vector3(0f, 1.6361364126205444f, -0.3536794185638428f),
-            StartBoundsExtents= new Vector3(1.2230337858200073f, 1.6361366510391235f, 0.5935254693031311f),
-            Frames = 41f, PartsCount = 14, Duration = 1.35f,
-            HighPrecisionPositionMode = false, PartsIdsInUV3 = false,
+            Sets = new[]
+            {
+                new VatDataSet
+                {
+                    DataName = "Vanguard Frame Animation VAT",
+                    BoundsCenter      = new Vector3(-0.00015115737915039062f, 1.5765403509140015f, -0.10219991207122803f),
+                    BoundsExtents     = new Vector3(1.3951337337493896f, 1.9750405550003052f, 0.9605523347854614f),
+                    StartBoundsCenter = new Vector3(0f, 1.6361364126205444f, -0.3536794185638428f),
+                    StartBoundsExtents= new Vector3(1.2230337858200073f, 1.6361366510391235f, 0.5935254693031311f),
+                    Frames = 41f, PartsCount = 14, Duration = 1.35f,
+                    HighPrecisionPositionMode = false, PartsIdsInUV3 = false,
+                    SerializedDefault = true,
+                },
+            },
+        },
+        // ③ 🆕 2026-10-19（V3）：死灵残骸体 —— **5 份数据挂在同一个物件上**，不是 5 个宿主。
+        //    判据（逐条实读，不是推断）：
+        //      · 宿主：`MonoBehaviour_7929411139690315314.json`（`VATGPUPlayer`）的 `m_GameObject`
+        //        = `RemnantBody3D Necrons/Card Remnant`（UnityPy 解父链现读），其 `_vatAnimation` = `… Anim 8`。
+        //      · 池：`MonoBehaviour_9217091644567076402.json`（`RemnantNecrons`，在**根**上）的
+        //        `deathAnimationList` = [`Anim 1`, `Anim 3`, `Anim 5`, `Anim 8`, `Anim 9`]（顺序照原资产）。
+        //      · 换法：`d:/2/tools/decomp_full/RemnantNecrons__Toggle.c` —— 转成残骸那一支里
+        //        `i = Random.Range(0, deathAnimationList.Count); vatPlayer._vatAnimation = list[i];`
+        //        ⇒ 运行时由 `WarpforgeVatPoolPicker` 复现（本表只提供数据）。
+        //      · 数值：五份各读自 `assets_full/bundle_battleprefabs_vfxandmisc_assets_all/MonoBehaviour/
+        //        Card Remnant_Remnant Anim {1,3,5,8,9}.json`（2026-10-19 亲读；`Frames` 15 / `PartsCount` 75 / `Duration` 3.0）。
+        //    ⚠️ 两张贴图（每份 1 位置 + 1 旋转，共 10 张）**不是任何材质的依赖** ⇒ 导出器不会自己导；
+        //       真身已放 `Runtime/Vat/`，`VatTexNames` 已登记，`RestoreVatTextures()` 会按原设置补进 `Textures/`。
+        new VatSpot
+        {
+            Root = "RemnantBody3D Necrons",
+            Path = "RemnantBody3D Necrons/Card Remnant",
+            Sets = new[]
+            {
+                new VatDataSet
+                {
+                    DataName = "Card Remnant_Remnant Anim 1",
+                    BoundsCenter      = new Vector3(-0.21308410167694092f, 1.4203670024871826f, -0.15055632591247559f),
+                    BoundsExtents     = new Vector3(1.6701942682266235f, 1.5525238513946533f, 1.4408702850341797f),
+                    StartBoundsCenter = new Vector3(-0.003141164779663086f, 1.4864453077316284f, 0f),
+                    StartBoundsExtents= new Vector3(1.0450413227081299f, 1.4864453077316284f, 0.9423092603683472f),
+                    Frames = 15f, PartsCount = 75, Duration = 3f,
+                    HighPrecisionPositionMode = false, PartsIdsInUV3 = false,
+                },
+                new VatDataSet
+                {
+                    DataName = "Card Remnant_Remnant Anim 3",
+                    BoundsCenter      = new Vector3(-0.1979382038116455f, 1.3912087678909302f, -0.4062849283218384f),
+                    BoundsExtents     = new Vector3(1.6773707866668701f, 1.581681489944458f, 1.4272024631500244f),
+                    StartBoundsCenter = new Vector3(-0.003141164779663086f, 1.4864453077316284f, 0f),
+                    StartBoundsExtents= new Vector3(1.0450413227081299f, 1.4864453077316284f, 0.9423092603683472f),
+                    Frames = 15f, PartsCount = 75, Duration = 3f,
+                    HighPrecisionPositionMode = false, PartsIdsInUV3 = false,
+                },
+                new VatDataSet
+                {
+                    DataName = "Card Remnant_Remnant Anim 5",
+                    BoundsCenter      = new Vector3(-0.10512745380401611f, 1.4044116735458374f, -0.18900752067565918f),
+                    BoundsExtents     = new Vector3(1.74807608127594f, 1.568479061126709f, 1.2947776317596436f),
+                    StartBoundsCenter = new Vector3(-0.003141164779663086f, 1.4864453077316284f, 0f),
+                    StartBoundsExtents= new Vector3(1.0450413227081299f, 1.4864453077316284f, 0.9423092603683472f),
+                    Frames = 15f, PartsCount = 75, Duration = 3f,
+                    HighPrecisionPositionMode = false, PartsIdsInUV3 = false,
+                },
+                new VatDataSet
+                {
+                    // 原版 prefab 里序列化写死的那一份（`VATGPUPlayer._vatAnimation`）。
+                    DataName = "Card Remnant_Remnant Anim 8",
+                    BoundsCenter      = new Vector3(-0.13422656059265137f, 1.393722414970398f, -0.051880598068237305f),
+                    BoundsExtents     = new Vector3(1.5435593128204346f, 1.5791678428649902f, 1.2677791118621826f),
+                    StartBoundsCenter = new Vector3(-0.003141164779663086f, 1.4864453077316284f, 0f),
+                    StartBoundsExtents= new Vector3(1.0450413227081299f, 1.4864453077316284f, 0.9423092603683472f),
+                    Frames = 15f, PartsCount = 75, Duration = 3f,
+                    HighPrecisionPositionMode = false, PartsIdsInUV3 = false,
+                    SerializedDefault = true,
+                },
+                new VatDataSet
+                {
+                    DataName = "Card Remnant_Remnant Anim 9",
+                    BoundsCenter      = new Vector3(-0.02241051197052002f, 1.3983813524246216f, -0.3329894542694092f),
+                    BoundsExtents     = new Vector3(1.511764645576477f, 1.574509620666504f, 1.505840539932251f),
+                    StartBoundsCenter = new Vector3(-0.003141164779663086f, 1.4864453077316284f, 0f),
+                    StartBoundsExtents= new Vector3(1.0450413227081299f, 1.4864453077316284f, 0.9423092603683472f),
+                    Frames = 15f, PartsCount = 75, Duration = 3f,
+                    HighPrecisionPositionMode = false, PartsIdsInUV3 = false,
+                },
+            },
         },
     };
 
@@ -1105,32 +1241,139 @@ public static class EffectExporter
     /// 表是静态的、两个宿主共用同一行数值，⛔ 不能把同一个实例挂到两处（会互相串）。</summary>
     static WarpforgeVatDriver AttachOneVat(GameObject go, VatSpot e)
     {
+        if (e == null || e.Sets == null || e.Sets.Length == 0)
+        {
+            Debug.LogWarning(EX1 + $"A1089 VAT 表里 `{(e == null ? "?" : e.Root)}` 那一行没有数据（`Sets` 空）");
+            return null;
+        }
         var drv = go.GetComponent<WarpforgeVatDriver>();
         if (drv == null) drv = go.AddComponent<WarpforgeVatDriver>();
         if (drv == null) return null;
 
-        drv._vatAnimation = new WarpforgeVatData
+        var datas = new WarpforgeVatData[e.Sets.Length];
+        int defIdx = -1, defCount = 0;
+        for (int i = 0; i < e.Sets.Length; i++)
         {
-            BoundsCenter            = e.BoundsCenter,
-            BoundsExtents           = e.BoundsExtents,
-            StartBoundsCenter       = e.StartBoundsCenter,
-            StartBoundsExtents      = e.StartBoundsExtents,
-            Frames                  = e.Frames,
-            PartsCount              = e.PartsCount,
-            Duration                = e.Duration,
-            HighPrecisionPositionMode = e.HighPrecisionPositionMode,
-            PartsIdsInUV3           = e.PartsIdsInUV3,
-            PositionsTex            = LoadVatTex(e.DataName, "_PositionTex"),
-            RotationsTex            = LoadVatTex(e.DataName, "_RotationTex"),
-            // 原资产这两项本来就是空：`PositionsTexB` = `m_PathID: 0`、`HighPrecisionPositionMode` = 0。
-            PositionsTexB           = null,
-        };
+            var s = e.Sets[i];
+            datas[i] = new WarpforgeVatData
+            {
+                BoundsCenter            = s.BoundsCenter,
+                BoundsExtents           = s.BoundsExtents,
+                StartBoundsCenter       = s.StartBoundsCenter,
+                StartBoundsExtents      = s.StartBoundsExtents,
+                Frames                  = s.Frames,
+                PartsCount              = s.PartsCount,
+                Duration                = s.Duration,
+                HighPrecisionPositionMode = s.HighPrecisionPositionMode,
+                PartsIdsInUV3           = s.PartsIdsInUV3,
+                PositionsTex            = LoadVatTex(s.DataName, "_PositionTex"),
+                RotationsTex            = LoadVatTex(s.DataName, "_RotationTex"),
+                // 原资产这两项本来就是空：`PositionsTexB` = `m_PathID: 0`、`HighPrecisionPositionMode` = 0。
+                PositionsTexB           = null,
+            };
+            if (s.SerializedDefault) { defIdx = i; defCount++; }
+        }
+        // 每行**必须恰有一条** —— 多了/少了都是表写错，出声（⛔ 别默认取第一条蒙混过去）
+        if (defCount != 1)
+            Debug.LogWarning(EX1 + $"A1089 VAT 表 `{e.Root}` 的 `SerializedDefault` 有 **{defCount}** 条"
+                                  + "（每行必须恰有 1 条）⇒ 暂按 "
+                                  + (defIdx >= 0 ? "第一条命中的" : "`Sets[0]`") + " 填 `_vatAnimation`");
         // 原版实例的序列化值（`MonoBehaviour_-6996853648599967635.json`：`_state: 0.0`、`_animationSpeed: 1.0`）
+        drv._vatAnimation = datas[defIdx >= 0 ? defIdx : 0];
         drv._state = 0f;
         drv._animationSpeed = 1f;
         // `_stateCurveKeys`（0.07 → 1.0 / 1.7916666 s）与 `_useBuiltInCurveWhenNoClip` 走字段初始化器，
         // `AddComponent` 时会跑 ⇒ 不用在这里再写一遍（⛔ 写第二份 = 两处规则迟早不一致）。
+
+        // 多份数据 = 原版那个「随机池」（`RemnantNecrons.Toggle`：`Random.Range(0, list.Count)` 后写 `_vatAnimation`）
+        if (datas.Length > 1)
+        {
+            var picker = go.GetComponent<WarpforgeVatPoolPicker>();
+            if (picker == null) picker = go.AddComponent<WarpforgeVatPoolPicker>();
+            if (picker == null)
+            {
+                Debug.LogWarning(EX1 + $"A1089 `{e.Root}`：`WarpforgeVatPoolPicker` 没挂上 ⇒ "
+                                      + $"{datas.Length} 份 VAT 只用序列化默认那一份（不会随机）");
+            }
+            else
+            {
+                picker.driver = drv;
+                picker.animations = datas;
+                picker.pickOnEnable = true;   // 原版在「变成残骸那一拍」挑；我们的实例化即那一拍
+            }
+        }
         return drv;
+    }
+
+    //  ═══ 2026-10-19（V3）：`ParticleForceForceFieldController` 补挂 ═══
+    //
+    //  原版类（`ParticleForceForceFieldController.cs` 签名桩 + `__Update.c` 方法体）：
+    //      [SerializeField] ParticleSystemForceField forceField;
+    //      [SerializeField] float force;
+    //      Update(): gravity = MinMaxCurve(force);
+    //  ⇒ 等价物 = `WarpforgeVFX.WarpforgeParticleForceFieldController`。
+    //
+    //  宿主判据（逐条实读）：
+    //    · `Will Of Gork.prefab` 根上的 legacy `Animation`（`m_PlayAutomatically: 1`）播 `Will of Grok`；
+    //      该 clip 里 `attribute: force`、`path: ""`（classID 114）⇒ 绑到**根**上的组件。
+    //    · 原版那个组件的 GameObject 父链 = `Will Of Gork`（根）；`forceField` 指向 `Force Field`
+    //      子物件上的 `ParticleSystemForceField`（原版 `m_PathID: 577730043536102203`）。
+    //    · `force` 的序列化值 = **0.0**（`MonoBehaviour_1249487700440863547.json`）。
+    //  ⚠️ 与 `AttachVatDrivers` 一样必须**在 `StripMissingScripts` 之后**（否则刚挂上的又会被删）。
+
+    sealed class ForceFieldSpot
+    {
+        /// <summary>宿主 prefab 名（= `Export()` 的 `src.name`）。</summary>
+        public string Root;
+        /// <summary>控制器挂哪个物件（原版在**根**上 —— 曲线 `path` 为空）。</summary>
+        public string Path;
+        /// <summary>`forceField` 指向的物件（原版 `Force Field`）。</summary>
+        public string FieldPath;
+    }
+
+    static readonly ForceFieldSpot[] ForceFieldSpots =
+    {
+        new ForceFieldSpot { Root = "Will Of Gork", Path = "Will Of Gork", FieldPath = "Force Field" },
+    };
+
+    /// <summary>把 `ParticleForceForceFieldController` 补挂回去（形状照 `AttachVatDrivers`）。</summary>
+    static void AttachForceFieldControllers(GameObject inst, string rootName)
+    {
+        if (inst == null) return;
+        int n = 0, miss = 0;
+        foreach (var e in ForceFieldSpots)
+        {
+            if (e.Root != rootName) continue;
+            var tr = FindChildByPath(inst.transform, e.Path);
+            if (tr == null)
+            {
+                miss++;
+                Debug.LogWarning(EX1 + $"A1089 力场控制器：`{e.Root}` 上找不到 `{e.Path}` ⇒ `force` 曲线没有接收者");
+                continue;
+            }
+            var ctl = tr.GetComponent<WarpforgeParticleForceFieldController>();
+            if (ctl == null) ctl = tr.gameObject.AddComponent<WarpforgeParticleForceFieldController>();
+            if (ctl == null)
+            {
+                miss++;
+                Debug.LogWarning(EX1 + $"A1089 力场控制器：`{e.Path}` 上挂不上 `WarpforgeParticleForceFieldController`");
+                continue;
+            }
+            var ft = FindChildByPath(inst.transform, e.FieldPath);
+            ctl.forceField = ft == null ? null : ft.GetComponent<ParticleSystemForceField>();
+            if (ctl.forceField == null)
+            {
+                miss++;
+                Debug.LogWarning(EX1 + $"A1089 力场控制器：`{e.Root}` 上找不到 `{e.FieldPath}` 的 "
+                                      + "`ParticleSystemForceField` ⇒ 控制器挂上了、但每一帧只会出声");
+                continue;
+            }
+            ctl.force = 0f;   // 原版序列化值（`MonoBehaviour_1249487700440863547.json`）
+            n++;
+        }
+        if (n > 0 || miss > 0)
+            Debug.Log(EX1 + $"A1089 `WarpforgeParticleForceFieldController`：`{rootName}` 挂上 **{n}** 个"
+                          + (miss > 0 ? $"、**没对上 {miss} 个**（见上面的告警）" : ""));
     }
 
     /// <summary>取一张 VAT 贴图（工程资产）。**取不到就出声**，⛔ 静默返回 null 不许。</summary>
@@ -1450,6 +1693,11 @@ public static class EffectExporter
         // 🆕 2026-10-08（A1089）：**同一个根因的第二种组件** —— 原版 `StoryProgramming.VATGPUPlayer`
         //   也解析不了、也被 `StripMissingScripts` 连数据一起删掉（且不报错）。同样必须在它之后。
         AttachVatDrivers(inst, src.name);
+        // 🆕 2026-10-19（V3）：**第三种被 `StripMissingScripts` 删掉的组件** ——
+        //   原版 `ParticleForceForceFieldController`（`m_Script` pathID 2858552349204820270）。
+        //   它被删 ⇒ `Will of Grok` 的 `force` 曲线（classID:114）没有接收者。
+        //   判据 → `资料/普查产出_1019/V3_报告.md` §一·3。同样必须在 `StripMissingScripts` 之后。
+        AttachForceFieldControllers(inst, src.name);
 
         int approx = 0;
         var usedShaders = new HashSet<string>();
@@ -2550,8 +2798,27 @@ public static class EffectExporter
             int srcMips = 1;
             try { srcMips = Mathf.Max(1, src.mipmapCount); } catch { }
             ti.mipmapEnabled = srcMips > 1;
-            // 原版是 `Repeat`（见 `ArenaBuilder` 同族的对照）；不改。
-            ti.wrapMode = TextureWrapMode.Repeat;
+            // 🔴 **2026-10-19（T07）更正：原来这里写死 `wrapMode = Repeat` —— 那句是错的。**
+            //   实测（84 个包 · 2984 张 Texture2D 的 `m_TextureSettings`）：**Repeat 2410 / Clamp 67 / Mirror 7**
+            //   ⇒ 有 **74 张**原版不是 Repeat。典型代价 = `Data-mat-_MainTex-atlas-0`
+            //   （`EnvironmentalCondition Leviathan *` 渲染器 0 那张 4096×2048）：原版 **Mirror**、
+            //   我们 Repeat ⇒ 四边形 UV 触到边缘时**把对侧像素卷回来** ⇒ 左右各 2px 细边（能量比 1.011）。
+            //   ⇒ 现在**照抄原版四格**：wrapU/wrapV/filterMode/aniso。
+            //   ⚠️ Unity 的 TextureImporter 只有**一个** `wrapMode`；原版 U≠V 时取 U 并**出声**（不静默）。
+            int wu = -1, wv = -1, fm = -1, aniso = -1;
+            try { wu = (int)src.wrapModeU; wv = (int)src.wrapModeV; } catch { }
+            try { fm = (int)src.filterMode; } catch { }
+            try { aniso = src.anisoLevel; } catch { }
+            if (wu >= 0)
+            {
+                if (wv >= 0 && wv != wu)
+                    Debug.LogWarning($"[EffectExporter] 贴图 {src.name} 原版 wrapU({wu}) ≠ wrapV({wv}) —— " +
+                                     "Unity 的 TextureImporter 只有一个 wrapMode，按 U 写；这一格**要人工看一眼**。");
+                ti.wrapMode = (TextureWrapMode)wu;
+            }
+            else ti.wrapMode = TextureWrapMode.Repeat;            // 读不到 = 保持旧行为，不静默改成别的
+            if (fm >= 0) ti.filterMode = (FilterMode)fm;
+            if (aniso > 0) ti.anisoLevel = aniso;
             // 🔴 顺手堵一个**同类**的静默截断：导入默认 `maxTextureSize = 2048`，超过就**悄悄缩一半**。
             //    实读这批 346 张最大正好 2048 ⇒ **今天改它没有效果**，所以不算「多改一个变量」；
             //    写在这里是为了将来真有更大的贴图时不再静默。
@@ -2940,10 +3207,127 @@ public static class EffectExporter
                 EditorUtility.SetDirty(asst);
             }
         }
+        // 🆕 2026-10-19（V2 / T10）：**把 `_state` 曲线的脚本引用接回工程脚本**。
+        //   为什么必须接：bundle 里那条 legacy clip 的 `_state` 曲线指向原版
+        //   `StoryProgramming.VATGPUPlayer`（`script.fileID = 3946243950355606049`）⇒
+        //   `Instantiate` 之后那条 PPtr 的 guid 变成 `000…0`（**断链**）。legacy `Animation` 是按
+        //   `script` 的**类型**解析绑定的 ⇒ 曲线**永远绑不上**，`_state` 停在序列化值 0；
+        //   而 `WarpforgeVatDriver.ClipIsUsable()` 又因为「Animation 上有 clip」而不走内置兜底曲线
+        //   ⇒ **两条路都不动**（网格静止在第 0 行）。
+        //   ⚠️ 这里只接 `_state` 一条：映射有唯一判据（原版 `VATGPUPlayer` 的 11 个属性名
+        //      ⇄ `WarpforgeVatDriver` 逐条对过）。其余 `classID:114` 曲线
+        //      （`lutBlend` / `bloomIntensity` / `betweenLUTsBlend` / `customLUT2` …）的宿主脚本
+        //      还没逐条坐实，**本轮不接**（账 → `资料/普查产出_1019/V2_报告.md`）。
+        //
+        // 🆕 2026-10-19（V3 / 批次 3）：**其余 38 条 classID:114 已逐条坐实宿主**（普查 →
+        //   `资料/普查产出_1019/V3_报告.md` §一）。能接的两族在这里一并接上：
+        //     · `AnimFXModulePostProcess`（26 条 float）→ `WFModulePostProcess`（字段逐条同名）；
+        //     · `TMPro.TextMeshPro`（4 条 `m_fontColor.*`）→ 工程里那件 TMP 脚本（按类型找）。
+        //   接不了的三族（`AnimateUIMaterialProperty` / `NestedFadeGroup` /
+        //   `ParticleForceForceFieldController`）**故意留断**：工程里没有对应组件类，
+        //   接上去也绑不到任何东西（账在同报告 §一·3）。
+        //   `customLUT2` 那条是 `m_PPtrCurves`（不在 `m_FloatCurves`），且值是 `LUT Red Hell`、
+        //   与序列化字段同值（解析：UnityPy 读 pathID -6000566073584760436 = `LUT Red Hell` 256×16）
+        //   ⇒ **接不接都没有行为差别**，helper 也只处理 float 曲线。
+        RemapDeadScriptCurves(asst, new[] { "_state" }, "Assets/CardPresentation/Battle/WarpforgeVatDriver.cs");
+        RemapDeadScriptCurves(asst, PostProcessCurveAttributes, "Assets/WarpforgeVFX/Runtime/WFModulePostProcess.cs");
+        RemapDeadScriptCurves(asst, FontColorCurveAttributes, typeof(TMPro.TextMeshPro));
+        RemapDeadScriptCurves(asst, ForceFieldCurveAttributes,
+                              "Assets/WarpforgeVFX/Runtime/WarpforgeParticleForceFieldController.cs");
         ClipCache[src] = asst;
         AssetDatabase.SaveAssets();
         return asst;
     }
+
+    /// <summary>把 `m_FloatCurves` 里**脚本引用已经断链**（bundle 里原版 MonoScript 落不到工程 ⇒ guid 0）
+    /// 的那条曲线的 `script` 接回给定工程脚本。
+    ///
+    /// 只在该 `attribute` 的曲线**存在**、且当前 `script` **解析为空**时动手（已经能解析的一律不碰）；
+    /// 找不到脚本 / 序列化属性取不到都**出声**，⛔ 不静默。
+    /// 判据与影响面 → `资料/普查产出_1019/V2_报告.md`（T10）＋ `V3_报告.md` §一。</summary>
+    static void RemapDeadScriptCurves(AnimationClip clip, string[] attributes, string scriptPath)
+    {
+        if (clip == null) return;
+        var mono = AssetDatabase.LoadAssetAtPath<MonoScript>(scriptPath);
+        if (mono == null)
+        {
+            Debug.LogWarning(EX1 + $"曲线脚本接回：找不到 `{scriptPath}` ⇒ `{clip.name}` 的 "
+                                  + $"[{string.Join(", ", attributes)}] 曲线保持断链");
+            return;
+        }
+        RemapDeadScriptCurves(clip, attributes, mono);
+    }
+
+    /// <summary>同上的**按类型**版本：用 `AssetDatabase` 按类型找那件 MonoScript
+    /// （TMP 这类脚本在 package 里，路径会被包版本号改掉，⛔ 别写死路径）。</summary>
+    static void RemapDeadScriptCurves(AnimationClip clip, string[] attributes, Type scriptType)
+    {
+        if (clip == null) return;
+        MonoScript mono = null;
+        foreach (var guid in AssetDatabase.FindAssets(scriptType.Name + " t:MonoScript"))
+        {
+            var p = AssetDatabase.GUIDToAssetPath(guid);
+            var ms = AssetDatabase.LoadAssetAtPath<MonoScript>(p);
+            if (ms != null && ms.GetClass() == scriptType) { mono = ms; break; }
+        }
+        if (mono == null)
+        {
+            Debug.LogWarning(EX1 + $"曲线脚本接回：按类型 `{scriptType.FullName}` 找不到 MonoScript ⇒ "
+                                  + $"`{clip.name}` 的 [{string.Join(", ", attributes)}] 曲线保持断链");
+            return;
+        }
+        RemapDeadScriptCurves(clip, attributes, mono);
+    }
+
+    /// <summary>🆕 2026-10-19（V3）：见上两条。本方法是落地那一份（`SerializedObject` 改 `script`）。</summary>
+    static void RemapDeadScriptCurves(AnimationClip clip, string[] attributes, MonoScript mono)
+    {
+        if (clip == null || mono == null || attributes == null || attributes.Length == 0) return;
+        try
+        {
+            var so = new SerializedObject(clip);
+            var arr = so.FindProperty("m_FloatCurves");
+            if (arr == null)
+            {
+                Debug.LogWarning(EX1 + $"曲线脚本接回：`{clip.name}` 取不到 `m_FloatCurves` ⇒ "
+                                      + $"[{string.Join(", ", attributes)}] 曲线保持断链");
+                return;
+            }
+            int fixedN = 0;
+            for (int i = 0; i < arr.arraySize; i++)
+            {
+                var e = arr.GetArrayElementAtIndex(i);
+                var at = e.FindPropertyRelative("attribute");
+                if (at == null || Array.IndexOf(attributes, at.stringValue) < 0) continue;
+                var sc = e.FindPropertyRelative("script");
+                if (sc == null || sc.objectReferenceValue != null) continue;   // 已经能解析 ⇒ 不碰
+                sc.objectReferenceValue = mono;
+                fixedN++;
+            }
+            if (fixedN > 0)
+            {
+                so.ApplyModifiedPropertiesWithoutUndo();
+                EditorUtility.SetDirty(clip);
+                Debug.Log(EX1 + $"曲线脚本接回：`{clip.name}` 接回 {fixedN} 条曲线 → `{mono.GetClass()}`");
+            }
+        }
+        catch (Exception ex)
+        {
+            Debug.LogWarning(EX1 + $"曲线脚本接回失败（`{clip.name}` / [{string.Join(", ", attributes)}]）：{ex.Message}");
+        }
+    }
+
+    /// <summary>V3：`AnimFXModulePostProcess` 的曲线属性（原版 28 条 classID:114 里落在这 5 个名字上的全部）。</summary>
+    static readonly string[] PostProcessCurveAttributes =
+        { "lutBlend", "bloomIntensity", "bloomThreshold", "betweenLUTsBlend", "animateBloomIntensity" };
+
+    /// <summary>V3：`TMPro.TextMeshPro` 的 `m_fontColor` 四个通道（`InBattleDamageCounter Variation 1`）。</summary>
+    static readonly string[] FontColorCurveAttributes =
+        { "m_fontColor.r", "m_fontColor.g", "m_fontColor.b", "m_fontColor.a" };
+
+    /// <summary>V3：`ParticleForceForceFieldController` 的曲线属性 —— 全库只有 `Will Of Grok` 这一条。</summary>
+    static readonly string[] ForceFieldCurveAttributes = { "force" };
+
 
     /// <summary>把 bundle 里的 `AnimatorController` 落成工程 `.controller`。
     ///

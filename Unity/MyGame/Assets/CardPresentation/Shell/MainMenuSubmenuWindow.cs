@@ -66,6 +66,16 @@ namespace CardPresentation
         public const string ArtSelHighlight = "40k_main_bt_selected_BW";
         public const string ArtNametag = "40k_main_bt_nametag";
 
+        /// <summary>🆕 **2026-10-19（`N70` P0-1）：四扇窗左栏页签的悬停色** —— 原版 `EverguildToggle`
+        /// `m_Transition = 1(ColorTint)` 的 `m_HighlightedColor` = **(0.6084906, 0.9426194, 1.0)**（青蓝）。
+        /// <para>判据（prefab 逐颗实读，`bundle_menus_assets_all/MonoBehaviour/`）：
+        /// `MonoBehaviour_-4134137194770196737.json` 等 **5 份逐值相同**（MissionsRewardsButton 那族）；
+        /// `m_TargetGraphic` = 子件 **`Icon`**（白、`m_RaycastTarget = 0`）；`m_PressedColor` = 0.7843137 灰
+        /// （= 全库默认，见 `WindowButton.PressedK`）· `m_SelectedColor` = 0.9607843 · `m_FadeDuration = 0.1`。
+        /// ⚠️ `colorTintOnValueChange = 0` 说的是「**值变化**不改色」，**不是**「没有 ColorTint」——
+        /// 旧注释就是把这句读反了（`Shell/MainMenuSubmenuWindow.cs:663` 那条已就地订正）。</para></summary>
+        public static readonly Color TabHoverKey = new Color(0.6084906f, 0.9426194f, 1f, 1f);
+
         /// <summary>`Content Area/Background` 的 `UIGradient`：c1 **#390305** · c2 **#0C0004** · angle **82**（原版坐标系）。
         /// <para>🔴 **2026-10-18（T29 · 铁律 5 就地订正）：`GradC1` 原来写的是 `(0x39, 0x05, 0x03)` —— G/B 反了。**
         /// 判据 = prefab 原值 `m_color1 = (0.22352943, 0.01176471, 0.01960784)`（= RGB **57,3,5** ⇒ `#390305`；
@@ -580,12 +590,13 @@ namespace CardPresentation
             // `Icon`：`a=(0,0)-(1,1) p=(.5,.7) sz=(0,0)` + **preserveAspect** ⇒ 等比放进 165×180 并居中
             //（UGUI 的 preserveAspect 是按 rect 居中收 padding，**不看 pivot**）
             var iconTex = Art(spec.Art);
+            ImageQuad iconQ = null;
             if (iconTex != null)
             {
                 float side = Mathf.Min(BarW, TabBtnH);
                 var q = ImageQuad.Create(b, iconTex, Local(b, cx, cy), LayoutSpace.Px(side),
                                          new Vector2(0.5f, 0.5f), "Icon");
-                if (q != null) { q.SetAspect(1f); q.SetRenderQueue(QContent); }
+                if (q != null) { q.SetAspect(1f); q.SetRenderQueue(QContent); iconQ = q; }
             }
             else MissingArt.Add(spec.Art);
 
@@ -697,8 +708,18 @@ namespace CardPresentation
             //       而 `Local(parent, x1,y1,x2,y2)` 就是矩形中心 ⇒ 那颗 quad 的 localPosition 恒为 0；
             //    ③ **队列 = `QPanel`** · **tint = (0,0,0,0)**（`MakeHitQuad` 会替我们设这两样）。
             //   ⚠️ `clip` / `maskPad` / `target` 一律取默认值：左栏**不在任何滚动视口里**（原版那上面也没有
-            //      `RectMask2D`），而悬停/按下那两档原版这几颗键**没有**（`m_Transition` → 见 `HoverTint`）。
-            //   ⛔ 别把它改回「手写三件套」；断言 → `Editor/MainMenuScene.cs` 的社交窗左栏那一段（A219②）。
+            //      `RectMask2D`）。
+            //   🔴 **2026-10-19（`N70` P0-1）就地订正（铁律 5）**：这一行原来写「悬停/按下那两档原版这几颗键
+            //      **没有**（`m_Transition` → 见 `HoverTint`）」—— **与 prefab 字段相反**，而且它引的
+            //      `HoverTint` 全仓不存在（过期注释）。实读：这五颗 `EverguildToggle` 是 **`m_Transition = 1`
+            //      (ColorTint)**、`HL = (0.6085, 0.9426, 1)` 青蓝、`PR = 0.7843`、`fade = 0.1`，
+            //      `m_TargetGraphic` = 子件 **`Icon`**。错因 = 把 `colorTintOnValueChange = 0`
+            //      （**值变化**不改色）误读成「没有 ColorTint」。
+            //      ⇒ 现在把可见的 `Icon` 交给 `WindowButton.TintOn`（命中区那颗 quad 是透明的，色偏打在它上面
+            //      **看不见**），并逐颗覆盖 `HighlightKey`。判据 → `TabHoverKey` 的 doc。
+            //   ⛔ 别改成 `MenuDraw.Hit(..., target: iconQ, art: …)` —— 那条路会走 `Bind`，而 `Bind` 会
+            //      把 `tintOnHover` 关掉（见 `WindowButton.Bind`），原版这几颗是 **ColorTint、不换图**。
+            //   ⛔ 也别把它改回「手写三件套」；断言 → `Editor/MainMenuScene.cs` 的社交窗左栏那一段（A219②）。
             int captured = idx;
             // 🆕 **2026-10-18（音效线缺口 `AUD` §三 C9）**：原版这四扇窗（奖励/商店/收藏/社交）的左栏键
             // 都是 `EverguildToggle` 且 **`allowClickWhenAlreadySelected = 0`** ⇒ 再点**当前**那一页
@@ -711,6 +732,13 @@ namespace CardPresentation
             {
                 tabWb.allowClickWhenAlreadySelected = false;
                 tabWb.isOn = () => tabButtons != null && tabButtons.CurrentVisualIndex == captured;
+                // 🔴 **2026-10-19（`N70` P0-1）**：原版 `m_TargetGraphic` = 子件 `Icon` ⇒ 色偏要打在**图标**上
+                //   （命中区那颗 quad 是透明的，打上去等于没有）。
+                if (iconQ != null)
+                {
+                    tabWb.HighlightKey = TabHoverKey;
+                    tabWb.TintOn(iconQ);
+                }
             }
             return b;
         }

@@ -77,6 +77,19 @@ namespace RuleEngine
         /// </summary>
         public string Name;
 
+        /// <summary>
+        /// **只筛督军**（`Your Warlord has Armour 2`）。
+        ///
+        /// 🆕 2026-10-19（第五十五会话 E10 · `SW38 Land Raider`）：光环层的**第 4 个维度**。
+        /// 为什么不复用 <see cref="KindWord"/>：`CreatePool.IsKindWord("warlord")` **为假**
+        /// （`KindWords` 是**卡池**筛选用表，卡池里没有督军）⇒ 塞进去会变成「什么都筛不中」的静默空过。
+        /// 判据：`ctx.Players[x].Warlord` 在 `BoardSpec.WarlordSlot`、`UnitState.IsWarlord` 为真
+        /// （`RuleCore.NewBattle` 那一行 `p.Board[BoardSpec.WarlordSlot] = p.Warlord`）。
+        /// ⚠️ 只看 `IsWarlord`，**不**额外判阵营 —— 阵营那半由 `AuraSpec` 的 `Enemy`/`Head` 决定
+        /// （`ForEachTarget` 已经选好了 owner）。
+        /// </summary>
+        public bool WarlordOnly;
+
         /// <summary>三个维度都没写 = 不筛（任何卡都算符合）</summary>
         public bool IsEmpty
         {
@@ -85,7 +98,8 @@ namespace RuleEngine
                 return string.IsNullOrEmpty(KindWord)
                     && (KindAnyOf == null || KindAnyOf.Count == 0)
                     && string.IsNullOrEmpty(Keyword)
-                    && string.IsNullOrEmpty(Name);
+                    && string.IsNullOrEmpty(Name)
+                    && !WarlordOnly;
             }
         }
 
@@ -120,6 +134,10 @@ namespace RuleEngine
             var c = new CardCriteria
             {
                 KindWord = kind,
+                // 🆕 2026-10-19（第五十五会话 E10）：`warlord` 不是兵种词（`IsKindWord` 为假），
+                //   原来会**当没写**⇒ 一条「只给督军」的常驻/光环条件退化成「谁都给」。
+                //   现在落到独立维度（判据见 <see cref="WarlordOnly"/>）。
+                WarlordOnly = spec.Kind == "warlord",
                 Keyword = spec.KeywordFilter,
                 Name = spec.NameFilter,
             };
@@ -151,6 +169,7 @@ namespace RuleEngine
         public bool Matches(CardDef c)
         {
             if (c == null) return false;
+            if (WarlordOnly && !DeckRules.IsWarlordCardType(c.Type)) return false;
             if (!KindMatches(c)) return false;
             if (!string.IsNullOrEmpty(Keyword) && !c.Has(NormKeyword(Keyword))) return false;
             if (!string.IsNullOrEmpty(Name) && CreatePool.Norm(c.Name) != CreatePool.Norm(Name)) return false;
@@ -175,6 +194,7 @@ namespace RuleEngine
         public bool Matches(UnitState u)
         {
             if (u == null || u.Card == null) return false;
+            if (WarlordOnly && !u.IsWarlord) return false;
             if (!KindMatches(u.Card)) return false;
             if (!string.IsNullOrEmpty(Keyword) && !u.Has(NormKeyword(Keyword))) return false;
             if (!string.IsNullOrEmpty(Name) && CreatePool.Norm(u.Card.Name) != CreatePool.Norm(Name)) return false;
@@ -185,6 +205,7 @@ namespace RuleEngine
         public override string ToString()
         {
             var parts = new List<string>();
+            if (WarlordOnly) parts.Add("督军");
             if (!string.IsNullOrEmpty(KindWord)) parts.Add(KindWord);
             if (KindAnyOf != null)
                 foreach (string k in KindAnyOf) parts.Add(k);

@@ -106,6 +106,14 @@ using RuleEngine;
 ///       ② 手改 `Program.PinnedBaselineMd5`、`Program.PinnedParseMd5` 到 `check` 打出来的现值；
 ///       ③ 跑 `check` ⇒ 应当「解析差异 0 行 · 哨兵 0 条失败 · rc=0」。
 ///
+/// 🔴 🆕 **2026-10-19（`A1959`/`A1960` 收口硬前置 · 第五十五会话 `E8`）：`Parse` 现在带 `card:`**
+///   —— 按 `id` 从 `Program.PoolList` 找回同那一份 `CardDef` 传进去（见 `ScanMain` 里 `byId` 那一段）。
+///   病灶：`A1960` 的 `choosecard` 注入（`A1960` 的 `InjectChoicesDefinitionOp`）只在
+///   `Parse(…, card:)` 这条路上发生，它读 `CardDef.HasSpecificCardChoice`（= `choicesDefinition` 三列）。
+///   `scan` 原来不带 ⇒ 那 **6 张**（`BL4`/`BL13`/`BL37`/`BL38`/`BL57`/`Unhallowed Gifts`）在基线里
+///   **永远显示「没有那条 op」**，而引擎在结算时**会**开面板 ⇒ 收口重钉会把「引擎有、探针看不见」钉死。
+///   ⚠️ **本笔会改基线（那 6 行 ops 列变长）** —— 按既定口径**不单独重生成/重钉**，留到引擎线收口。
+///
 /// ⚠️ **2026-10-18 收编时修了两处**（原来那份在 D:/tmp/wf_b14_probe）：
 ///   ① 参数名 `kind` 其实是 `unparsed`（EffectText.Parse 的第二个 out）—— 名字叫反了，正名。
 ///   ② 原来写 `.Append(kind)` ⇒ 命中 `StringBuilder.Append(object)` ⇒ **每张卡都打成字面量
@@ -129,6 +137,19 @@ class Scan
         //   `desc` 为空那几张**不冲突**（那几张照样该能被别的卡指到，引擎就是这么建的）。
         Program.LoadPool();
         var doc = JsonDocument.Parse(File.ReadAllText(poolPath));
+        // 🔴 🆕 **2026-10-19（`A1960` 收口硬前置）**：按 `id` 找回**装池时那一份 `CardDef`**，
+        //   下面的 `EffectText.Parse` 要把它传进去。为什么必须传（同 `A1339` 那族「探针与引擎口径不同」）：
+        //     `A1960` 的 `choosecard` 注入（`EffectText.InjectChoicesDefinitionOp`）只在
+        //     `Parse(…, card:)` 这条路上发生，而它读的是 `CardDef.HasSpecificCardChoice`
+        //     （= `choicesDefinition` 三列）。不传 ⇒ `scan` 对那 **6 张**（`BL4`/`BL13`/`BL37`/`BL38`/`BL57`/
+        //     `Unhallowed Gifts`）的读数**恒为「没有那条 op」**，而引擎在结算时**会**开面板
+        //     ⇒ 收口重钉基线会把「引擎有、探针看不见」钉死。
+        //   ⚠️ 找不到同 id 的卡（池里没有）⇒ 传 null（`Parse` 对 `card == null` 恒不注入）并**出声**，
+        //     ⛔ 不静默当成「这张卡没有 choices」。
+        var byId = new Dictionary<string, CardDef>(StringComparer.Ordinal);
+        foreach (var pc in Program.PoolList)
+            if (pc != null && !string.IsNullOrEmpty(pc.Id)) byId[pc.Id] = pc;
+        int nNoCard = 0;
         var sb = new StringBuilder();
         foreach (var c in doc.RootElement.GetProperty("cards").EnumerateArray())
         {
@@ -148,7 +169,14 @@ class Scan
             //   ⚠️ **仍未闭合的那一半**：若将来原版/数据侧给它们补了 desc，这张盲区自动消失；
             //      在那之前「`check` 看不见这 6 张」是**已知且被解释的**，不是静默缺陷。
             if (string.IsNullOrEmpty(desc)) continue;
-            var ops = EffectText.Parse(desc, out var unparsed, out var partial, false);
+            // 🆕 2026-10-19：**同一个 id 的那一份 `CardDef` 传进 `Parse`**（理由见上面 `byId` 那一段）。
+            CardDef cardDef = null;
+            if (string.IsNullOrEmpty(S("id")) || !byId.TryGetValue(S("id"), out cardDef))
+            {
+                nNoCard++;
+                cardDef = null;
+            }
+            var ops = EffectText.Parse(desc, out var unparsed, out var partial, false, card: cardDef);
             sb.Append(S("id") ?? "").Append("|").Append(name ?? "").Append("|")
               .Append(unparsed == null ? "" : string.Join(",", unparsed)).Append("|")
               .Append(partial == null ? "" : string.Join(",", partial)).Append("|");
@@ -176,21 +204,26 @@ class Scan
                       .Append(Program.TargetBlock(op))
                       // 🔴 **2026-10-19（波 4 · `A1568②` / `A1561②` 现核）**：`Tail` 那半条已经**闭合** ——
                       //   `A1877②` 起 `TargetBlock` 会追加 `/{TAIL:…}`（`Program.cs` 的 `if (op.AmountMax > 0)` 那两行），
-                      //   所以 `scan` 的 ops 列**看得见 `Tail`**；同族里**仍缺的只有 `ChooseDeadScope`**
-                      //   （`Dump` 打成 `deadScope=`，`scan` 一个字都不打；现池用到它的 = `GSC44` / `SAU39` / `UM61`，
-                      //   值都是 `all` —— `EffectText.cs:5032-5036`）。
-                      //   ⛔ **本波【没有】补它**：加块会改 scan 输出 ⇒ `check` 立刻红，而收口必须
-                      //   **重生成 `基线/out_baseline.txt` ＋ 重钉 `PinnedBaselineMd5`/`PinnedParseMd5`**
-                      //   （本波红线：只跑 typecheck、不跑 ruleprobe）。施工图 = 在 `Program.TargetBlock`
-                      //   的 `/{SRC:…}` **之前**加
-                      //     `if (!string.IsNullOrEmpty(op.ChooseDeadScope)) s += "/{CDS:" + op.ChooseDeadScope + "}";`
-                      //   然后按本文件头 `A1877②` 那三步重生成/重钉，并复核「只有那 3 行变长、删掉新块后逐字节相同」。
+                      //   所以 `scan` 的 ops 列**看得见 `Tail`**。
+                      //   ✅ **2026-10-19（第五十五会话 · `E8`）`ChooseDeadScope` 那半条也已落地** ——
+                      //   施工图就落在 `Program.TargetBlock`：`/{TAIL:…}` 之后、`/{SRC:…}` 之前追加
+                      //   `/{CDS:…}`（只在非空时打，原样不转义）。
+                      //   🔴 **2026-10-19 实测订正**（原施工图写「现池 3 张」）：现池用到的实为 **5 张** ——
+                      //   `GSC44` / `SAU39` / `UM61`（`/{CDS:all}`）＋ `EC39` / `SOR42`（`/{CDS:since_last_turn}`）
+                      //   ⇒ 基线里**这 5 行变长**，把 `/{CDS:…}` 删掉之后与旧行逐字节相同。
+                      //   ⚠️ **基线/指纹未重钉**（按既定口径留到引擎线收口统一做）⇒ `check` 现红是预期的。
                       .Append(";");
             sb.Append("\n");
         }
         var dir = Path.GetDirectoryName(Path.GetFullPath(outp));
         if (!string.IsNullOrEmpty(dir)) Directory.CreateDirectory(dir);
         File.WriteAllText(outp, sb.ToString());
+        // 🔴 **不许静默**：`desc` 非空却在池里找不到同 id 的卡 ⇒ 那一行的 `card:` 注入面是**看不见的**
+        //   （不是「没有 choices」）⇒ 出声（判据见上面 `byId` 那一段）。
+        if (nNoCard > 0)
+            Console.WriteLine("⚠️ scan：有 " + nNoCard + " 行 `desc` 非空、但**池里没有同 id 的卡** ⇒ "
+                              + "这些行按 `card=null` 解析（`A1960` 的选牌注入对它们**看不见**，⛔ 不是「没有 choices」）。"
+                              + "先确认 `scan` 用的 JSON 与 `Program.LoadPool` 是同一份（`WFPROBE_POOL` 会覆盖后者）。");
         if (!quiet) Console.WriteLine("wrote " + outp + " lines=" + sb.ToString().Split('\n').Length);
     }
 }

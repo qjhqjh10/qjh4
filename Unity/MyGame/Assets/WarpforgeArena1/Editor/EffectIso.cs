@@ -826,6 +826,14 @@ public static class EffectIso
                 if (om == null || om.shader == null) continue;
                 string sfx = multi ? "_s" + j : "";
 
+                // ⓪ 🆕 2026-10-19（V4）：**纯对照档** —— 原版 prefab + 原版材质，什么都不改。
+                //   为什么必须补：另外三档里 `exp_with_ORIG_shader` / `exp_with_ORIG_material` 都动了导出 prefab，
+                //   `orig_with_EXP_material` 也把导出材质的属性拷到了原版材质上 —— **没有任何一档是「原版原样」**。
+                //   没有它，就分不清「交叉图本来就画不出这个槽」和「换材质之后才画不出」
+                //   （`Dark Angels Asteroid Zone #39` 就是卡在这一格：只有 `exp_with_ORIG_shader` 空）。
+                RenderCross(orig, oR[i], (m, s) => { }, cam,
+                            $"{OutDir}/{name}_cross{i:00}_{face}{sfx}__orig_plain.png");
+
                 // ① 导出 prefab + 原版材质（**只换这一槽**）
                 RenderCross(exp, eR[i], (m, s) => { if (s.Label == slot.Label) CopyFrom(m, om); }, cam,
                             $"{OutDir}/{name}_cross{i:00}_{face}{sfx}__exp_with_ORIG_material.png");
@@ -874,6 +882,19 @@ public static class EffectIso
                     case ShaderPropertyType.Texture:
                         var t = src.GetTexture(pn);
                         if (t != null) dst.SetTexture(pn, t);
+                        // 🔴 2026-10-19（V4）：**`_ST` 不是 shader 的 declared property**（`GetPropertyCount()`
+                        //   枚举不到它）⇒ 上面那个循环**永远拷不到平铺/偏移**。
+                        //   后果：原版材质一旦用了非 (1,1,0,0) 的平铺，`exp_with_ORIG_material` 这一档
+                        //   就会拿**错 UV** 去渲，可能凭空造出「假空」。判据 = Unity 文档对
+                        //   `Material.GetTextureScale/SetTextureScale` 的定义（它们读写的正是 `<tex>_ST`）。
+                        //   ⚠️ 这里只拷「源材质自己的 shader 声明过的那张贴图」的 ST —— 与上面的
+                        //   `dst.HasProperty(pn)` 闸同一个范围，不会越界写。
+                        try
+                        {
+                            dst.SetTextureScale(pn, src.GetTextureScale(pn));
+                            dst.SetTextureOffset(pn, src.GetTextureOffset(pn));
+                        }
+                        catch { }
                         break;
                 }
             }
@@ -958,6 +979,18 @@ public static class EffectIso
     {
         var scene = EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
         var inst = UnityEngine.Object.Instantiate(prefab);
+        // 🔴 2026-10-19（V4）：**必须和另外三条渲染路径一样把根变换清零**。
+        //   判据：`FrameCamera` 在算取景前就把 `tmp.transform.rotation` 归零（本文件 `FrameCamera` 头两行），
+        //   `RenderIsolated` / `RenderMulti` 也都归零；**只有这里漏了** ⇒ 交叉图里的效果**带着 prefab 自带的
+        //   根旋转**渲，而相机是按「无旋转」那套拍的。
+        //   实测代价（`Goff_ProperKilly` 根 = `LocalRotation (-0.7071,0,0,0.7071)`，即绕 X −90°）：
+        //   `m_RenderMode: 4`（**Mesh，不是 Trail**）且网格是**平面 Quad** 的三槽
+        //   （`Border Glow/MidRing` · `…/MidRing_Grow` · `…/RedGlow`）在交叉图里被**转成侧对相机 ⇒ 只剩一条细带**，
+        //   与隔离图比只剩 1/16～1/26 个像素（16/264 · 89/2354 · 642/13912）。
+        //   Billboard（旋转无关）与三维网格（任意角度都看得见）不受影响 ⇒ 同一 prefab 其余 13 槽全部正常。
+        //   ⇒ 这是**工具口径**，不是导出缺陷：同一批产物里 `__exp.png` 与 `__orig.png` 逐像素一致。
+        inst.transform.position = Vector3.zero;
+        inst.transform.rotation = Quaternion.identity;
         PinSeed(inst);
         var keepT = FindMatching(inst, keep);
         if (keepT == null) return;
@@ -1019,9 +1052,37 @@ public static class EffectIso
         RenderTexture.active = null;
         cam.targetTexture = null;
         File.WriteAllBytes(outPath, tex.EncodeToPNG());
+        MeasureCross(outPath, tex);
         UnityEngine.Object.DestroyImmediate(rt);
         UnityEngine.Object.DestroyImmediate(tex);
         UnityEngine.Object.DestroyImmediate(inst);
+    }
+
+    /// <summary>交叉图**自己**量一遍「画出来多少」，并按 2026-10-19 定的门槛判「候选 / ≈空」。
+    ///
+    /// 为什么要它：`analyze_render_cross.py` 原来用「`iso_lit > 0`」当候选门槛，而 `iso_lit` 是**同一渲染器
+    /// 的隔离读数**、不是这张交叉图的读数 ⇒ 只要隔离图有内容，交叉图再空也会被列成「候选」。
+    /// 实测反例（`Goff_ProperKilly` #10/#11/#12）：交叉图只有 **0 / 16 / 89 / 642** 个非背景像素
+    /// （隔离图 264 / 2354 / 13912），却被 `rng=15/237/222` 这种**通道极差**当成了「有内容」。
+    ///
+    /// 门槛（V3 建议、本批落地）：**非背景像素 ≥ 16 且 contrib ≥ 10** 才算「候选」，
+    /// 其余单列一档 `≈空`（⛔ 不要当成缺陷，也不要当成「已经验过」）。
+    /// ⚠️ 这里的基线是**相机 clear color**（交叉图没有底图），与 `RenderIsolated` 的
+    ///    「相对 plate」那套**不是同一个分母** ⇒ 两边的 `contrib` 只可粗比。</summary>
+    static void MeasureCross(string outPath, Texture2D tex)
+    {
+        var bg = new Color32(18, 20, 26, 255);   // 0.07/0.08/0.10 ×255（与 `RenderCross` 的 clear color 同源）
+        int nonbg = 0; double contrib = 0;
+        var px = tex.GetPixels32();
+        for (int k = 0; k < px.Length; k++)
+        {
+            int dr = px[k].r - bg.r, dg = px[k].g - bg.g, db = px[k].b - bg.b;
+            contrib += (Mathf.Abs(dr) + Mathf.Abs(dg) + Mathf.Abs(db)) / 255.0;
+            if (Mathf.Abs(dr) > 2 || Mathf.Abs(dg) > 2 || Mathf.Abs(db) > 2) nonbg++;
+        }
+        bool cand = nonbg >= 16 && contrib >= 10.0;
+        Debug.Log($"    [cross] {Path.GetFileName(outPath)}  nonbg={nonbg}  contrib={contrib:F1}  " +
+                  $"判定={(cand ? "候选" : "≈空")}（门槛 nonbg≥16 且 contrib≥10）");
     }
 
     /// <summary>把某个实例里 Back Glow 的材质全量属性打出来，用于逐项对照</summary>

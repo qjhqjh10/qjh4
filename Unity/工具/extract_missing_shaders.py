@@ -257,6 +257,40 @@ BOOSTER_GROUPS = [
 #   `(guid, 名字, 源包)`。走同一张表、**同样不手写名字**；要收哪两条由表的 `source` 字段决定。
 CTRL_TABLE = r"d:/4/Unity/数据/游戏数据/animator_controllers.json"
 
+# 🆕 2026-10-19（T12 / `A1729`）：原版 `SimpleAnimation` 组件的「状态名 → AnimationClip」表。
+# 为什么它与 `animator_controllers.json` 分开：那一张的 `clipsByGuid` 是**按 assetGUID** 取的
+#   （环境 SO 用 `AssetReferenceTyped<AnimationClip>`）；这一批的取法完全不同 ——
+#   消费方是 `AnimFXModuleAnimation`，它手里只有**状态名**（`"Exit"` 硬编码）与**效果名**
+#   ⇒ 我们要登记的是 `<效果名>|<状态名>` 这种**别名**，不是 GUID。
+SIMPLE_ANIM_TABLE = r"d:/4/Unity/数据/游戏数据/simple_animation_clips.json"
+
+
+def simple_animation_clips(bundle_dir_name):
+    """从 `simple_animation_clips.json` 取「源包 = bundle_dir_name」的 `(owner, state, clip)` 三元组。
+
+    ⚠️ 读不到 ⇒ 返回 `[]` 并**出声**（这条链断了的表现是「Shield 那 5 个效果 Exit 动画不播」，
+      不许静默 —— 与 `_load_ctrl_table` 同一规矩）。
+    """
+    try:
+        with open(SIMPLE_ANIM_TABLE, encoding="utf-8") as f:
+            doc = json.load(f)
+    except Exception as e:
+        print(f"[P0] ⚠️ 读不了 SimpleAnimation 表 `{SIMPLE_ANIM_TABLE}`（{e}）⇒ "
+              f"`AnimFXModuleAnimation` 的 Exit 片段收不进包（跑 `工具/gen_simple_animation_clips.py`）")
+        return []
+    out = []
+    table = doc.get("bundles", {})
+    rows = table.get(bundle_dir_name)
+    if rows is None:
+        # 容忍两种键写法（`bundle_xxx` 与 `xxx.bundle`）—— 早期版本的表用了后者
+        alt = {k.replace("bundle_", "", 1) + ".bundle": v for k, v in table.items()}
+        rows = alt.get(bundle_dir_name) or alt.get(bundle_dir_name.replace("bundle_", "", 1) + ".bundle")
+    for owner in (rows or []):
+        for st in owner.get("states", []):
+            if st.get("clip") and st.get("state"):
+                out.append((owner.get("owner", ""), st["state"], st["clip"]))
+    return out
+
 _CTRL_TABLE_CACHE = None
 
 
@@ -1437,14 +1471,18 @@ def repack_tree(src_path, out_path, names, dry_run=False, extra_materials=(), ex
         # 🆕 2026-10-07（A192）：**assetGUID 也是别名** —— 原版源包的容器键就是 GUID
         #   （实测 988 条键全是十六进制 GUID），而消费方 `ScenarioAnimationBlend` 手里只有 GUID
         #   ⇒ 照原样登记，运行时按 GUID 取值 = 原版那条路。
+        # 🆕 2026-10-19（T12 / `A1729`）：值可以是 **list**（一个 clip 挂多条别名）——
+        #   `SimpleAnimation` 那一族登记的是 `<效果名>|<状态名>`（例 `ShieldTraitEffect_Idle|Exit`）。
         g = (extra_clip_guids or {}).get(n)
-        if g and g not in aliases:
-            aliases.append(g)
+        if g:
+            for one in (g if isinstance(g, (list, tuple)) else [g]):
+                if one and one not in aliases:
+                    aliases.append(one)
         fid = cross_roots[n][1] if n in cross_roots else 0
         entries[(fid, o.path_id)] = aliases
     if extra_clip_guids:
-        print(f"[P4] 按 assetGUID 登记的容器别名 {len(extra_clip_guids)} 条："
-              + " · ".join(f"{g} → `{n}`" for n, g in sorted(extra_clip_guids.items())))
+        print(f"[P4] 额外容器别名 {len(extra_clip_guids)} 条："
+              + " · ".join(f"{n} → {g}" for n, g in sorted(extra_clip_guids.items())))
     _write_bundle(bf, sf, ab_reader, entries, out_path, keep_extra_files=keep_files)
     return kept
 
@@ -1478,6 +1516,23 @@ def run_prefabs(args):
             clips.append(n)
         if g:
             clip_guids[n] = g
+    # 🆕 2026-10-19（T12 / `A1729`）：`SimpleAnimation` 那一族 —— 收它的 clip，并登记
+    #   `<效果名>|<状态名>` 别名（运行时 `WFModuleAnimation` 手里只有这两个东西）。
+    sa = simple_animation_clips(src_dir)
+    if sa:
+        for owner, state, clip in sa:
+            if clip not in clips:
+                clips.append(clip)
+            alias = f"{owner}|{state}"
+            cur = clip_guids.get(clip)
+            if cur is None:
+                clip_guids[clip] = [alias]
+            elif isinstance(cur, str):
+                clip_guids[clip] = [cur, alias]
+            elif alias not in cur:
+                cur.append(alias)
+        print(f"[P0] SimpleAnimation 表：{len(sa)} 个 (效果, 状态, clip) 三元组 ⇒ "
+              + " · ".join(f"{o}|{s} → `{c}`" for o, s, c in sa))
     print(f"[P0] 控制器数据表里「源包 = {src_dir}」："
           f"AnimationClip {clips} · AnimatorController {controller_names(src_dir)}")
     if guid_clips:
@@ -1491,7 +1546,9 @@ def run_prefabs(args):
         return 1
 
     # ---- 🆕 2026-10-03：卡包那两扇窗（`BOOSTER_GROUPS`）----
-    for g in BOOSTER_GROUPS:
+    if args.skip_boosters:
+        print("\n[P6] `--skip-boosters` ⇒ 跳过卡包/菜单那两包（它们不属特效线）")
+    for g in ([] if args.skip_boosters else BOOSTER_GROUPS):
         if not os.path.isfile(g["src"]):
             print(f"[P0] 🔴 源包不在，跳过这一组：{g['src']}")
             continue
@@ -1524,6 +1581,9 @@ def main():
                          "→ 目标 wf_prefabs_extra.bundle（含整棵依赖树）")
     ap.add_argument("--out", default=None,
                     help="默认 extra 模式写 wf_shaders_extra.bundle；--builtin 模式写 wf_builtin.bundle")
+    ap.add_argument("--skip-boosters", action="store_true",
+                    help="🆕 2026-10-19：`--prefabs` 时**只重打 wf_prefabs_extra**、不碰卡包/菜单那两包"
+                         "（那两包属界面线；只改特效线的活时用这个，避免无谓重写别人的产物）")
     args = ap.parse_args()
     if args.out is None:
         args.out = (DEST_ARENA if args.arenas

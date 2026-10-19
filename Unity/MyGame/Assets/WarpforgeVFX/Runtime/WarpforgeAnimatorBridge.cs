@@ -43,6 +43,9 @@ namespace WarpforgeVFX
         static bool _tried;
         static readonly Dictionary<string, RuntimeAnimatorController> _byName =
             new Dictionary<string, RuntimeAnimatorController>();
+        /// <summary>🆕 2026-10-19：容器别名（`效果名|状态名`）→ 原版片段。</summary>
+        static readonly Dictionary<string, AnimationClip> _clipByName =
+            new Dictionary<string, AnimationClip>();
 
         /// <summary>按名字取一份原版控制器。取不到返回 null **并出声**（不许静默失败）。</summary>
         public static RuntimeAnimatorController TryGet(string controllerName)
@@ -105,9 +108,70 @@ namespace WarpforgeVFX
             return null;
         }
 
-        static void EnsureLoaded()
+        /// <summary>🆕 2026-10-19（T12 / `A1729`）：按**容器别名**取一份原版 `AnimationClip`。
+        ///
+        /// 谁在用：`WFModuleAnimation` —— 原版 `AnimFXModuleAnimation.Exit()` 调的是 AssetStore 插件
+        ///   `SimpleAnimation.Play("Exit")`，那套组件把「状态名 → clip」存在 prefab 上（我们不导它）。
+        ///   ⇒ 打包时把每条 clip 额外登记成 **`&lt;效果名&gt;|&lt;状态名&gt;`** 的容器别名
+        ///   （`工具/gen_simple_animation_clips.py` → `extract_missing_shaders.py --prefabs`），
+        ///   运行时按别名取 = 一条确定的路，不需要在 C# 里再抄一张映射。
+        /// 取不到返回 null **并出声**（与 `TryGet` 同一规矩：不许静默失败）。</summary>
+        public static AnimationClip TryGetClip(string alias)
         {
-            if (_tried) return;
+            if (string.IsNullOrEmpty(alias)) return null;
+            AnimationClip cached;
+            if (_clipByName.TryGetValue(alias, out cached)) return cached;
+
+            var clip = FromClip(_bundle, alias);
+            if (clip == null)
+            {
+                EnsureLoaded();
+                clip = FromClip(_bundle, alias);
+            }
+            if (clip == null)
+            {
+                // 同 `TryGet`：同一份内容已在进程里加载过时 `LoadFromFile` 返回 null
+                foreach (var b in AssetBundle.GetAllLoadedAssetBundles())
+                {
+                    if (b == null || ReferenceEquals(b, _bundle)) continue;
+                    clip = FromClip(b, alias);
+                    if (clip != null)
+                    {
+                        Debug.Log($"[WarpforgeAnimatorBridge] 自己的包没加载成，改从**已加载的**包 "
+                                + $"`{b.name}` 里捡到片段 `{alias}`");
+                        break;
+                    }
+                }
+            }
+            if (clip == null)
+            {
+                Debug.LogWarning($"[WarpforgeAnimatorBridge] 取不到动画片段 `{alias}`（`{BundleRelPath}`）" +
+                                 "—— 该效果的 Exit 动画播不了。排查：`工具/gen_simple_animation_clips.py` → " +
+                                 "`工具/extract_missing_shaders.py --prefabs` 有没有重跑过、包在不在 StreamingAssets 里");
+                return null;
+            }
+            _clipByName[alias] = clip;
+            return clip;
+        }
+
+        static AnimationClip FromClip(AssetBundle b, string alias)
+        {
+            if (b == null) return null;
+            try
+            {
+                var c = b.LoadAsset<AnimationClip>(alias);
+                if (c != null) return c;
+            }
+            catch (Exception e)
+            {
+                Debug.LogWarning($"[WarpforgeAnimatorBridge] 在 `{b.name}` 里取片段 `{alias}` 抛了："
+                               + $"{e.GetType().Name}: {e.Message}");
+            }
+            return null;
+        }
+
+        static void EnsureLoaded()
+        {            if (_tried) return;
             _tried = true;
             var path = Path.Combine(Application.streamingAssetsPath, BundleRelPath);
             if (!File.Exists(path))
@@ -127,6 +191,6 @@ namespace WarpforgeVFX
         }
 
         /// <summary>给自检用：清掉缓存，下一问重新加载。</summary>
-        public static void Reset() { _bundle = null; _tried = false; _byName.Clear(); }
+        public static void Reset() { _bundle = null; _tried = false; _byName.Clear(); _clipByName.Clear(); }
     }
 }

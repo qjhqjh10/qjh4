@@ -137,6 +137,11 @@ namespace CardPresentation
         HudPiece _bar, _play, _eye;
         Label _title, _confirm;
         readonly List<HudPiece> _cardBtns = new List<HudPiece>();
+
+        // 🆕 2026-10-19（B4 · `N70` P0-2）：选牌/选择面板的按钮反馈（判据与换牌面板同族：
+        // `Continue Button` t=1 ColorTint · `HideChooseButton` t=2 eye hover/pressed · 卡钮 t=2 Mulligan 图）。
+        BattleButtonFx _fxBar, _fxEye;
+        readonly List<BattleButtonFx> _fxCardBtns = new List<BattleButtonFx>();
         readonly List<Label> _cardTexts = new List<Label>();
         readonly List<CardView> _cards = new List<CardView>();
         readonly List<int> _picked = new List<int>();
@@ -431,6 +436,75 @@ namespace CardPresentation
                 }
                 _cardTexts.Add(t);
             }
+            BuildFeedback();
+        }
+
+        /// <summary>🆕 2026-10-19（B4 · `N70` P0-2）：建/重建按钮反馈（与换牌面板同族判据）。</summary>
+        void BuildFeedback()
+        {
+            _fxBar = BattleButtonFx.Tint(_bar, "Continue Button");
+            var eh = CardArt.MenuUi("40k_UI_bt_eye_hover");
+            var ep = CardArt.MenuUi("40k_UI_bt_eye_pressed");
+            _fxEye = (eh != null && ep != null)
+                   ? BattleButtonFx.Swap(_eye, "HideChooseButton", _eye != null ? _eye.Texture as Texture2D : null, eh, ep)
+                   : BattleButtonFx.Tint(_eye, "HideChooseButton(tint-fallback)");
+            _fxCardBtns.Clear();
+            var mh = CardArt.Ui("UI_Button_Mulligan_hover");
+            var mp = CardArt.Ui("UI_Button_Mulligan_Pressed");
+            for (int i = 0; i < _cardBtns.Count; i++)
+            {
+                var fx = (mh != null && mp != null)
+                       ? BattleButtonFx.Swap(_cardBtns[i], "ChoiceCardBtn_" + i,
+                                             _picked.Contains(i) ? mp : CardArt.Ui("UI_Button_Mulligan"), mh, mp)
+                       : BattleButtonFx.Tint(_cardBtns[i], "ChoiceCardBtn_" + i + "(tint-fallback)");
+                _fxCardBtns.Add(fx);
+            }
+        }
+
+        /// <summary>每帧喂状态（驱动层 `HandleChoose` 里调）。</summary>
+        public void TickFeedback(Vector3 world, bool held)
+        {
+            if (!Visible) { ResetFeedback(); return; }
+            if (_fxBar == null) BuildFeedback();
+            FeedFx(_fxBar, HitDone(world), held);
+            FeedFx(_fxEye, HitEye(world), held);
+            for (int i = 0; i < _fxCardBtns.Count && i < _cardBtns.Count; i++)
+                FeedFx(_fxCardBtns[i], _cardBtns[i] != null && _cardBtns[i].Contains(world), held);
+        }
+        void ResetFeedback()
+        {
+            FeedFx(_fxBar, false, false); FeedFx(_fxEye, false, false);
+            for (int i = 0; i < _fxCardBtns.Count; i++) FeedFx(_fxCardBtns[i], false, false);
+        }
+        static void FeedFx(BattleButtonFx fx, bool over, bool held)
+        {
+            if (fx == null) return;
+            fx.SetHover(over); fx.SetPressed(over && held); fx.Tick();
+        }
+        public void SimulateFeedback(string node, bool hover, bool pressed)
+        {
+            if (_fxBar == null) BuildFeedback();
+            BattleButtonFx fx = node == "done" ? _fxBar : node == "eye" ? _fxEye
+                             : node.StartsWith("card") && _fxCardBtns.Count > 0
+                               ? _fxCardBtns[Mathf.Clamp(int.Parse(node.Substring(4)), 0, _fxCardBtns.Count - 1)]
+                               : null;
+            if (fx == null) return;
+            fx.SetHover(hover); fx.SetPressed(pressed);
+        }
+        public Color FeedbackKeyForTest(string node)
+        {
+            if (_fxBar == null) BuildFeedback();
+            BattleButtonFx fx = node == "done" ? _fxBar : node == "eye" ? _fxEye : null;
+            return fx != null ? fx.KeyForTest : Color.clear;
+        }
+        public string FeedbackTextureForTest(string node)
+        {
+            if (_fxBar == null) BuildFeedback();
+            BattleButtonFx fx = node == "eye" ? _fxEye
+                             : node != null && node.StartsWith("card") && _fxCardBtns.Count > 0
+                               ? _fxCardBtns[Mathf.Clamp(int.Parse(node.Substring(4)), 0, _fxCardBtns.Count - 1)]
+                               : null;
+            return fx != null ? fx.TextureNameForTest : null;
         }
 
         void ClearCardDecor()
@@ -439,6 +513,7 @@ namespace CardPresentation
             for (int i = 0; i < _cardTexts.Count; i++) if (_cardTexts[i] != null) Kill(_cardTexts[i].gameObject);
             _cardBtns.Clear();
             _cardTexts.Clear();
+            _fxCardBtns.Clear();
             _cards.Clear();
         }
 
@@ -482,6 +557,8 @@ namespace CardPresentation
                 c.SetHighlight(m ? CardHighlightState.Unplayable : CardHighlightState.Normal);
                 if (i < _cardBtns.Count && _cardBtns[i] != null)
                     _cardBtns[i].SetTexture(CardArt.Ui(m ? "UI_Button_Mulligan_Pressed" : "UI_Button_Mulligan"));
+                    if (i < _fxCardBtns.Count && _fxCardBtns[i] != null)
+                        _fxCardBtns[i].SetNormal(CardArt.Ui(m ? "UI_Button_Mulligan_Pressed" : "UI_Button_Mulligan"));
             }
         }
 

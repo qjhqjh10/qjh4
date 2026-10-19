@@ -3434,6 +3434,33 @@ public static class ShellScene
                   "…而**一条竖切线都没有** —— `(0,22)` 的 `x = 0` ⇒ 左右是硬边（原版只渐变上下）");
             Check(MenuDraw.SoftEdgeUvDrifts, 0,
                   "…整页 `_soft` 子块的 uv 面积和恒等于「整张图」（`SoftEdgeUvDrifts` 没涨）");
+            // 🆕 U3（N70）：发送钮的悬停 / 按下 —— 判据 = 原版 `ChatPanel > Enter Text > Button`
+            //   （`EverguildButton`：`m_Transition = 1 (ColorTint)` · `m_TargetGraphic` = **它自己那颗图标** ·
+            //     `m_Colors` 是 UGUI 默认灰四格；逐字段现读 → `python -I 工具/menu_dump.py bundle_menus_assets_all
+            //     "ChatPanel" --depth 4` 那一行印 `trans=1`）。
+            //   我们这颗命中区是**另建的透明件** ⇒ 必须 `TintOn(图标)`，否则色偏全打在透明 quad 上
+            //   （画面上零变化 = 原版 `trans=0` 的观感）。
+            var sendNode = chatW.EnterTextNode != null ? chatW.EnterTextNode.Find("Button") : null;
+            var sendImgT = sendNode != null ? sendNode.Find("Image") : null;
+            var sendHitT = sendNode != null ? sendNode.Find("Hit") : null;
+            var sendIcon = sendImgT != null ? sendImgT.GetComponent<ImageQuad>() : null;
+            var sendWb = sendHitT != null ? sendHitT.GetComponent<WindowButton>() : null;
+            CheckTrue(sendIcon != null && sendWb != null,
+                      "（前提）聊天发送钮的**图标**与**命中区 WindowButton** 都在 —— 缺一个 ⇒ 下面三条等于没验");
+            if (sendIcon != null && sendWb != null)
+            {
+                sendWb.Enter();
+                CheckNear(sendIcon.Tint.r, WindowButton.HighlightK, 1e-4f,
+                          "★ 聊天发送钮悬停 ⇒ 图标色偏 = 原版 `m_HighlightedColor` **0.9607843**"
+                        + "；改坏法：不 `TintOn`（色偏打在透明命中件上）⇒ 1.0 ⇒ 红");
+                sendWb.Press();
+                CheckNear(sendIcon.Tint.r, WindowButton.PressedK, 1e-4f,
+                          "★ 按下 ⇒ **0.7843137**（原版 `m_PressedColor`）；改坏法：只接悬停不接按下 ⇒ 0.9608 ⇒ 红");
+                sendWb.Release(); sendWb.Exit();
+                CheckNear(sendIcon.Tint.r, 1f, 1e-4f,
+                          "★ 抬起 + 移开 ⇒ 回 Normal 纯白（灭自证：恒变色 / 只变不还原 ⇒ 红）");
+            }
+
             // 收尾：清数据 + 关窗（它的压暗层是整屏的，留着会顶掉后面那些真命中路）
             SocialData.ChatMessages.Clear();
             chatW.RefreshMessages();
@@ -6381,7 +6408,173 @@ public static class ShellScene
                           + (okBack2 ? $"{rx1:F2},{ry1:F2}→{rx2:F2},{ry2:F2}" : "（取不到）")
                           + "）—— 两态都断 ⇒ 态二那条「只有 y2 动了」不可能来自别的原因");
             }
-            ppwG.Close();
+            // ---- 🔴 2026-10-19（U4 · `N70` 续）：`Army Container` 的悬停目标 = `Army Image Background` ----
+            // 判据（逐条实读）：
+            //   · `Army Container` 那颗 `EverguildToggle`（MB `-3878836225173759943`）：
+            //     `m_Transition = 1 (ColorTint)` · `m_Interactable = 1` · **`m_TargetGraphic` →
+            //     pid `-8626703085771958215` = `Army Image Background` 那颗 `Image`**（⛔ 不是 `Hightlight`
+            //     —— 那一颗是 `Toggle.graphic`）。四格 = 白 / 0.9608 / 0.7843 / (0.7843, α0.502) · fade 0.1。
+            //   · 底图来源 = `PuchasePremiumArmyContainer__Initialize.c`：
+            //     `ArmyUtilities.GetArmyMediumBackGround(army)` → `Image.set_sprite(...)` →
+            //     `ArmyBackgroundsSO.mediumBackgroundAddressables`（`sharedassets0.assets` 对象 417 逐字节现读：
+            //     13 阵营 + `0`，值 = `40K_profile_campaign_bg_*`）。
+            //   · 原版 sprite **631×194** vs 容器 **531.23×163.33** ⇒ 比例 3.253 / 3.253（同一族）。
+            // 🔴 **改坏法**：① 把映射写成「前缀 + 本仓阵营名」（Goff ⇒ `..._Goff`）⇒ 第一条红；
+            //   ② 删掉 `cWb.TintOn(bgQ)` ⇒ 悬停后底图一个字节不变 ⇒ 红；
+            //   ③ `TintOn` 接到 `Hightlight`（`Toggle.graphic`，不是 `m_TargetGraphic`）⇒ 底图不变 ⇒ 红。
+            CheckTrue(PurchasePremiumWindow.ArmyBackgroundArt(10) == "40K_profile_campaign_bg_UM"
+                   && PurchasePremiumWindow.ArmyBackgroundArt(0) == "40K_profile_campaign_bg_UM"
+                   && PurchasePremiumWindow.ArmyBackgroundArt(20) == "40K_profile_campaign_bg_Orks"
+                   && PurchasePremiumWindow.ArmyBackgroundArt(50) == "40K_profile_campaign_bg_Black_Legion"
+                   && PurchasePremiumWindow.ArmyBackgroundArt(70) == "40K_profile_campaign_bg_Tau_Empire"
+                   && PurchasePremiumWindow.ArmyBackgroundArt(90) == "40K_profile_campaign_bg_GenestealerCults"
+                   && PurchasePremiumWindow.ArmyBackgroundArt(130) == "40K_profile_campaign_bg_SW"
+                   && PurchasePremiumWindow.ArmyBackgroundArt(999) == null,
+                      "★ 阵营 → 中号底图名 = `ArmyBackgroundsSO` 实读（**5 个不规则尾缀**："
+                    + "Goff→Orks · BlackLegion→Black_Legion · TauEmpire→Tau_Empire · Genestealers→GenestealerCults · "
+                    + "SpaceWolves→SW；Neutral(0) 与 10 同图；认不出 ⇒ null = 不顶图）");
+            {
+                var seenBg = new System.Collections.Generic.HashSet<string>();
+                bool distinctBg = true;
+                foreach (var a in new[] { 10, 20, 30, 40, 50, 60, 70, 80, 90, 100, 110, 120, 130 })
+                {
+                    var n = PurchasePremiumWindow.ArmyBackgroundArt(a);
+                    if (n == null || !seenBg.Add(n)) distinctBg = false;
+                }
+                CheckTrue(distinctBg && seenBg.Count == 13,
+                          "★ 13 个阵营的底图名**互不相同**（挡「漏一个 case ⇒ 落到 default 顶别人的图」）"
+                        + $"（现读 {seenBg.Count} 个不同名）");
+            }
+            // 模板（`o == null`）里那颗节点必须在（原版 prefab 有、`m_Sprite = <无图>`）——
+            // 本地那 13 张还没导入 ⇒ **不画**；下面用自检探针把「画出来之后悬停色偏打在哪」验掉。
+            CheckTrue(ppwG.ContainerTemplate != null
+                   && FindChildIn(ppwG.ContainerTemplate, "Army Image Background") != null,
+                      "★ `Army Container` 模板里 `Army Image Background` 节点在（原版 prefab 有这一颗）");
+            {
+                var bgProbe = new Texture2D(4, 4);
+                PurchasePremiumWindow.ArmyBackgroundTexForTest = bgProbe;
+                if (ppwG.Scroll.OnChanged != null) ppwG.Scroll.OnChanged();     // = `RebuildContainers`
+                var pc0 = ppwG.Containers.Count > 0 ? ppwG.Containers[0] : null;
+                var pc1 = ppwG.Containers.Count > 1 ? ppwG.Containers[1] : null;
+                var bg0 = pc0 != null ? FindChildIn(pc0, "Army Image Background") : null;
+                var bg1 = pc1 != null ? FindChildIn(pc1, "Army Image Background") : null;
+                var q0 = bg0 != null ? bg0.GetComponent<ImageQuad>() : null;
+                var q1 = bg1 != null ? bg1.GetComponent<ImageQuad>() : null;
+                var hit0 = pc0 != null ? FindChildIn(pc0, "Hit") : null;
+                var wb0 = hit0 != null ? hit0.GetComponent<WindowButton>() : null;
+                CheckTrue(q0 != null && q0.Texture == bgProbe,
+                          "★ 底图画出来了：`Army Container/Army Image Background` 是 `ImageQuad`、贴的正是该阵营那张"
+                        + "（自检探针；`Tooltip` 那一族的 `_missArt` 在真缺图时会出声）");
+                CheckTrue(q1 != null && wb0 != null,
+                          "（前提 · 不静默）第 2 个容器也有底图、第 1 个容器的命中区上有 `WindowButton`（取不到 ⇒ 下面三条不跑）");
+                if (q0 != null && q1 != null && wb0 != null)
+                {
+                    wb0.Enter();
+                    CheckNear(q0.Tint.g, 0.9607843f, 1e-4f,
+                              "★ 悬停 ⇒ **底图**色键 = 0.9608（原版 `m_Colors.m_HighlightedColor`；`m_Transition=1` 的落点 = `m_TargetGraphic` = 这颗底图）");
+                    CheckNear(q1.Tint.g, 1f, 1e-4f,
+                              "★ 灭自证：**另一格**的底图仍是 1.0（`TintOn` 只接自己那一颗 ⇒ 挡「把整列一起染了」）");
+                    wb0.Press();
+                    CheckNear(q0.Tint.g, 0.7843137f, 1e-4f, "★ 按下 ⇒ 0.7843（原版 `m_PressedColor`）");
+                    wb0.Release(); wb0.Exit();
+                    CheckNear(q0.Tint.g, 1f, 1e-4f, "★ 抬起 + 移开 ⇒ 回 **1.0**（灭自证：恒高亮 ⇒ 红）");
+                }
+                PurchasePremiumWindow.ArmyBackgroundTexForTest = null;
+                if (ppwG.Scroll.OnChanged != null) ppwG.Scroll.OnChanged();     // 还原成「无图 ⇒ 只建节点」
+                UnityEngine.Object.DestroyImmediate(bgProbe);
+            }
+
+            // ---- 🔴 2026-10-19（U5 · 批次 7）：`Army Info/Army Icon` 的**运行期灌图** ----
+            // 判据（原版运行期那条链，逐字节现读）：
+            //   · `PuchasePremiumArmyInfo__Initialize.c:24-33`：`armyIcon.sprite = ArmyUtilities.GetArmyIcon(army)`
+            //     （`army` = 报价数据 `+0x10 → +0x2c`）。
+            //   · `ArmyIconsSO.GetArmyIcon`（`ArmyIconsSO__GetArmyIcon.c`）= 遍历 `armyIcons` 列表、
+            //     逐条 `TryGetItem(army)`；**表里没有 `Neutral(0)`** ⇒ 0/认不出返回 null。
+            //   · 那份 SO 的落点 = `sharedassets0.assets` 对象 **422**（`m_Script = {1,660}` = `ArmyIconsSO`，
+            //     **`m_Name = "IconsByArmySO"`** —— ⚠️ 资产名 ≠ 类名，这就是 U4 §五·2 没搜到它的原因）；
+            //     `[count = 13]` + 13 条 `[int army][PPtr]`，PPtr 逐个解出来 = `Core/ArmyIcons.Table`。
+            //     判据链全文 → `Core/ArmyIcons.cs` 文件头。
+            // 🔴 **改坏法**：① 把 `Genestealers` / `SpaceWolves` 也拼上 `Faction` 前缀 ⇒ 下面第一条红；
+            //   ② 只在 `Build()` 那一刻画一次、`SelectArmy` 不换图 ⇒ 第二条红（那是「静态能过、运行期错」那一档）；
+            //   ③ 把 `Neutral` 兜底成某个阵营的图 ⇒ 第三条红。
+            CheckTrue(ArmyIcons.IconName(10) == "40k_DeckSelection_icon_FactionUM"
+                   && ArmyIcons.IconName(20) == "40k_DeckSelection_icon_FactionOrks"
+                   && ArmyIcons.IconName(90) == "40k_DeckSelection_icon_Genestealers"
+                   && ArmyIcons.IconName(130) == "40k_DeckSelection_icon_SpaceWolves"
+                   && ArmyIcons.IconName(0) == null && ArmyIcons.IconName(999) == null
+                   && ArmyIcons.IconName("Goff") == "40k_DeckSelection_icon_FactionOrks"
+                   && ArmyIcons.IconName("Nope") == null,
+                      "★ `CardArmy` → 徽记图名 = 原版 `IconsByArmySO` 逐条实读（13 条）——"
+                    + "含两条**不带 `Faction`** 的（`Genestealers` / `SpaceWolves`）、`Goff→Orks` 那条改名，"
+                    + "以及 `Neutral(0)` / 认不出 ⇒ `null`（原版 `TryGetItem` 失败那条路）");
+            {
+                var allIc = ArmyIcons.All;
+                var seenIc = new System.Collections.Generic.HashSet<string>();
+                bool distinctIc = true;
+                foreach (var e in allIc)
+                    if (string.IsNullOrEmpty(e.Sprite) || !seenIc.Add(e.Sprite)) distinctIc = false;
+                CheckTrue(allIc.Length == 13 && distinctIc,
+                          "★ 13 条阵营徽记**互不相同**、条数 = 13（原版 SO 的 `count` 实读 13；"
+                        + "挡「漏一条 ⇒ 两条落同一张图」）" + $"（现读 {allIc.Length} 条 / {seenIc.Count} 个不同名）");
+            }
+            CheckTrue(ArmyIcons.Faction(20) == "Goff" && ArmyIcons.Id("Goff") == 20 && ArmyIcons.Id("Nope") == -1
+                   && ArmyIcons.LocalizedName(20) == CardText.Faction("Goff"),
+                      "★ 同一张表的另外三列：`20 ↔ Goff` 双向、认不出 ⇒ **-1**（⛔ 不是 0，0 是合法的 Neutral）、"
+                    + "本地化名走 `CardText.Faction`（= 原版 `ArmyUtilities.GetLocalizedArmyName` 的 `Armies/<枚举名>`）");
+            CheckTrue(DeckRuntime.FactionIcon("Goff") == "40k_DeckSelection_icon_FactionOrks"
+                   && DeckRuntime.FactionIcon("Nope") == "40k_collection_bt_decks"
+                   && DeckRuntime.FactionIcon(null) == "40k_collection_bt_decks",
+                      "★ `DeckRuntime.FactionIcon` 仍保留**那一层兜底**（认不出 ⇒ 卡组图标 `40k_collection_bt_decks`），"
+                    + "映射本体已收口到 `Core/ArmyIcons`（⛔ 别把 13 条 case 抄回去）");
+            // 真实窗口：第 0 条报价 = `Ultramarines(10)` ⇒ 图块贴 UM 那张（清单里 13 张全部已导入
+            // `Resources/Art/ui_deck/`，2026-10-19 现数 13/13 ⇒ 这一条在本地**取得到真图**）。
+            var icNodeU = ppwG.ArmyIconNode;
+            var icq0 = ppwG.ArmyIconQuad;
+            CheckTrue(icNodeU != null && FindChildIn(icNodeU, "Image") != null
+                      && icq0 != null && icq0.Texture != null,
+                      "★（前提·不静默）`Army Info/Army Icon` 节点在、图块 `Image` 是它的子件（原版那一颗就是 `Image` 自己）"
+                    + $"（现读 node={(icNodeU != null)} / quad={(icq0 != null)}"
+                    + $"/ tex={(icq0 != null && icq0.Texture != null ? icq0.Texture.name : "<null>")}）");
+            Check(icq0 != null && icq0.Texture != null ? icq0.Texture.name : "<null>",
+                  "40k_DeckSelection_icon_FactionUM",
+                  "★ `Army Info/Army Icon` = 第 0 条报价（`Ultramarines = 10`）的徽记 —— 原版 "
+                + "`PuchasePremiumArmyInfo.Initialize` 的 `armyIcon.sprite = GetArmyIcon(army)`；⛔ 改坏法：只建节点不画 / 画成别的阵营 ⇒ 红");
+            ppwG.SelectArmy(1);
+            Check(ppwG.ArmyIconQuad != null && ppwG.ArmyIconQuad.Texture != null ? ppwG.ArmyIconQuad.Texture.name : "<null>",
+                  "40k_DeckSelection_icon_FactionOrks",
+                  "★ 选中第 1 条（`Goff = 20`）⇒ `Army Icon` **运行期换图**（Goff 的图名是 `FactionOrks`，"
+                + "⛔ 不是 `FactionGoff`）—— 改坏法：只在 `Build()` 画一次 ⇒ 这里仍是 UM ⇒ 红");
+            ppwG.SelectArmy(0);
+            Check(ppwG.ArmyIconQuad != null && ppwG.ArmyIconQuad.Texture != null ? ppwG.ArmyIconQuad.Texture.name : "<null>",
+                  "40k_DeckSelection_icon_FactionUM",
+                  "★ 换回第 0 条 ⇒ 图又回 UM（灭自证：挡「换图是单向的 / 缓存了第一条」）");
+            ppwG.Close();          // 先关掉本窗，再开下面那扇（避免两扇同时挂着干扰窗口管理器）
+            {
+                // `Neutral(0)`（原版表里没有）+ `ArmyName = null`（原版由 army 值本地化）两件事一起验。
+                var ppwN = PurchasePremiumWindow.Create(shell.Windows, new[]
+                {
+                    new PurchasePremiumWindow.ArmyOffer { Army = 0, ArmyName = null,
+                                                          PriceText = "0", PremiumUnlocked = false },
+                    new PurchasePremiumWindow.ArmyOffer { Army = 130, ArmyName = null,
+                                                          PriceText = "0", PremiumUnlocked = false },
+                });
+                ppwN.FinishPopForTest();
+                CheckTrue(ppwN.ArmyIconNode != null && ppwN.ArmyIconQuad == null,
+                          "★ `Army = Neutral(0)` ⇒ `Army Icon` **只留节点、不画图**（原版 `IconsByArmySO` 没有 0 那条；"
+                        + "⛔ 改坏法：兜底成某个阵营的图 ⇒ 红）");
+                ppwN.SelectArmy(1);
+                Check(ppwN.ArmyIconQuad != null && ppwN.ArmyIconQuad.Texture != null ? ppwN.ArmyIconQuad.Texture.name : "<null>",
+                      "40k_DeckSelection_icon_SpaceWolves",
+                      "★ `Army = SpaceWolves(130)` ⇒ 贴 `40k_DeckSelection_icon_SpaceWolves`（那条**不带 `Faction`**）");
+                var nmNd = ppwN.Containers.Count > 1 ? ppwN.Containers[1] : null;
+                var nmLb = nmNd != null ? FindChildIn(nmNd, "Army Name") : null;
+                var nmLbC = nmLb != null ? nmLb.GetComponent<Label>() : null;
+                Check(nmLbC != null ? nmLbC.Text : "<null>",
+                      CardText.Faction("SpaceWolves"),
+                      "★ `ArmyName` 传空 ⇒ 容器 `Army Name` **按 army 值本地化**（原版 `PuchasePremiumArmyContainer.Initialize` "
+                    + "就是 `I2(string.Format(<键>, army))`；⛔ 改坏法：退回 prefab 占位串 `Ultramarines` ⇒ 红）");
+                ppwN.Close();
+            }
 
             // ============================================================ ③ 排位奖励活动窗（A768③）
             // 判据 = `bundle_menus_assets_all/MonoBehaviour/MonoBehaviour_4030138604520103632.json`：
@@ -6420,6 +6613,31 @@ public static class ShellScene
             if (rreVcG != null && rreG.ContentNode != null)
                 GFour("排位奖励活动窗（`Ranked Boost Reward Event Window/window/Scroll View/Viewport`）",
                       rreG.Scroll, rreVcG, rreG.ContentNode, "Viewport");
+
+            // ---- 🔴 2026-10-19（U5 · 批次 7）：`SimpleArmyImage` 的 `Army Icon` 运行期灌图 ----
+            // 判据 = `SimpleArmyImage.Initialize`：`armyIcon.sprite = ArmyIconsSO.GetArmyIcon(army)` +
+            //   `armyIcon.enabled = (sprite != null)`；prefab 那一格 `m_PreserveAspect = 1` · 框 222×223。
+            //   映射 = `Core/ArmyIcons`（原版 `IconsByArmySO` 逐字节解出）。🔴 改坏法：退回「只建节点」⇒ 两条红。
+            {
+                Transform RCard(int idx)
+                {
+                    return rreG.ContentNode != null && rreG.ContentNode.childCount > idx
+                         ? rreG.ContentNode.GetChild(idx) : null;
+                }
+                var ri0 = FindChildIn(RCard(0), "Army Icon");
+                var ri1 = FindChildIn(RCard(1), "Army Icon");
+                var rq0 = ri0 != null ? ri0.GetComponent<ImageQuad>() : null;
+                var rq1 = ri1 != null ? ri1.GetComponent<ImageQuad>() : null;
+                Check(rq0 != null && rq0.Texture != null ? rq0.Texture.name : "<null>",
+                      "40k_DeckSelection_icon_FactionUM",
+                      "★ 第 1 张阵营卡（`Army = 10 Ultramarines`）的 `Army Icon` = 运行期灌图的徽记"
+                    + "（原版 `SimpleArmyImage.Initialize` 的 `armyIcon.sprite = GetArmyIcon(army)`）"
+                    + " —— ⛔ 改坏法：退回「只建节点、不画」⇒ 本条红");
+                Check(rq1 != null && rq1.Texture != null ? rq1.Texture.name : "<null>",
+                      "40k_DeckSelection_icon_FactionOrks",
+                      "★ 第 2 张（`Army = 20 Goff`）贴 `FactionOrks`（⛔ 不是 `FactionGoff`）——"
+                    + " **两张不同**这条同时挡「所有卡都顶第一张图」");
+            }
 
             // ---- 条目级：第 1 张阵营卡**画出来**的并集（卡上那几层都是 `clip == null` 的）----
             // 🔴 这一条也**故意不写死绝对坐标**：只断「切一半 ⇒ 右沿跟着走、左沿不动」这个相对关系。
@@ -7928,6 +8146,39 @@ public static class ShellScene
                 Object.DestroyImmediate(fsGo);
             }
         }
+
+            // ---------------- 🆕 U3（`A1322` 残留）：这一局被撤 ⇒ `SearchingOpponentWindow` 自己关 ----------------
+            // 判据/口径 → `资料/普查产出_1019/L1_报告.md` §6·5 第 1 条；信号 **不改 `Net/**`** ——
+            //   用现有公开状态 `NetMatchmaking.Waiting` / `HasOpponent`（`ClearMatch()` 两格一起清 ⇒ 两个都假 = 撤了）。
+            // 自检没有联机会话夹具 ⇒ 用 `NoteMatchLiveForTest()` 把「开窗时真有一局」那一格推到真（生产路径由 `Open()` 置），
+            //   再走**公开的** `NetMatchmaking.Reset()`（它做的正是 `ClearMatch()`：两格清空）模拟「这一局被撤」。
+            Section("A1322 残留：这一局被撤 ⇒ `SearchingOpponentWindow` 自己关（U3）");
+            {
+                CardPresentation.Net.NetMatchmaking.Reset();          // 基线（清干净）
+                var sWin = SearchingOpponentWindow.Create(shell.Windows, 0);
+                sWin.NetWatch = true;
+                sWin.Open();
+                sWin.NoteMatchLiveForTest();
+                CheckTrue(sWin.gameObject.activeSelf, "（前提）「找到对手」那扇窗是开着的");
+                CardPresentation.Net.NetMatchmaking.Reset();          // = 这一局被撤（两格清空）
+                sWin.Tick(0f);
+                CheckTrue(!sWin.gameObject.activeSelf,
+                          "★ 这一局被撤（`Waiting` / `HasOpponent` 都变假）⇒ 窗**自己关**"
+                        + " —— 改坏法：删掉 `Tick` 里那一支 ⇒ 窗还开着（玩家得自己按 Esc/Cancel）⇒ 红");
+                Object.DestroyImmediate(sWin.gameObject);
+
+                // 灭自证的另一半：**从没有过对局**的窗不许被同一个信号关掉
+                //   —— 挡的是「Tick 里无条件 Close()」那种写法（它会让上面那条假绿）。
+                var sWin2 = SearchingOpponentWindow.Create(shell.Windows, 0);
+                sWin2.NetWatch = true;
+                sWin2.Open();
+                CardPresentation.Net.NetMatchmaking.Reset();
+                sWin2.Tick(0f);
+                CheckTrue(sWin2.gameObject.activeSelf,
+                          "★（灭自证）从没有过对局的窗 **不会** 被这个信号关掉 —— 无条件 `Close()` 的实现在这条上红");
+                Object.DestroyImmediate(sWin2.gameObject);
+                CardPresentation.Net.NetMatchmaking.Reset();          // 收尾：别把静态状态带到后面
+            }
 
         Debug.Log(P + $"=== 合计：{_sink.Pass} 通过 / {_sink.Fail} 失败 ===");
         // 🔴 **2026-10-11（A350 · 调度台裁定）**：这一串是**失败表的【重列】**（每条失败在

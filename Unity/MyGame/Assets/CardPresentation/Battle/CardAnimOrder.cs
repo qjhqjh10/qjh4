@@ -63,9 +63,11 @@ namespace CardPresentation
         public string vfx;
         /// <summary>`startPosOption`（0x18）—— 起锚点，喂 `BattleDriver.ResolveAnimAnchor`。</summary>
         public int sp;
-        /// <summary>`endPosOption`（0x1C）—— 终锚点（本步只解析、**未消费**，起→终位移属 T05 第 4 步）。</summary>
+        /// <summary>`endPosOption`（0x1C）—— 终锚点。🆕 **2026-10-19 起已消费**（起→终位移，见
+        /// `BattleDriver.PlayAbilityBeat` / `TickAbilityVfxMoves`；判据 `CardAnimController__Update.c`）。</summary>
         public int ep;
-        /// <summary>`pointTowardsOption`（0x20）—— 朝向锚点（本步只解析、**未消费**）。</summary>
+        /// <summary>`pointTowardsOption`（0x20）—— 朝向锚点。🆕 **2026-10-19 起已消费**
+        /// （原版 `CardAnimController__Initialize` → `RotateAnim`：`transform.forward = 锚点 − 自己`）。</summary>
         public int pt;
         /// <summary>`vfxDelayTime`（0x24）</summary>
         public float vd;
@@ -77,6 +79,31 @@ namespace CardPresentation
         public float te;
         /// <summary>`waitAnimToApplyEffect`（0x58）—— **是否等这拍播完**（判据 → 下面 <see cref="Waits"/>）。</summary>
         public int w;
+
+        // ── 🆕 2026-10-19（偏差 6「主动技只演一半」）：`AnimInfo` 的「VFX movement」那一组 ──
+        //   判据（`d:/2/tools/il2cpp_out/dump.cs:25219-25234` 字段表 + `CardAnimController__Update.c` /
+        //   `CardAnimController__Initialize.c` 逐句读）：
+        //     · `shouldMoveVFX`(0x38) —— **起→终位移的总开关**；关着时 `Update` 把控制器整个 `enabled = false`。
+        //     · `orientToVelocity`(0x48) —— 朝向：`Initialize` 在「`pointTowards` 非空 且 (otv==false 或 mv==true)」
+        //       时调 `RotateAnim` 把 `transform.forward` 指向锚点；`Update` 里移动期间还会按**位移方向**转。
+        //     · `easeCurve`(0x40) —— 位移的进度曲线（`Update` 里 `Evaluate((t−ts)/tm)` 再 clamp 到 [0,1]）。
+
+        /// <summary>`shouldMoveVFX`（0x38）—— 起→终位移的总开关（0/1，JsonUtility 不吃 bool 以外的空值）。
+        /// ⚠️ **别用「`ep != sp` 且 `tm > 0`」当替身**（2026-10-19 实测：全表 536 条里
+        /// `shouldMoveVFX=1` 而有 63 条 `start==end`、另有 8 条形状像移动但开关是关的）⇒ 必须读这一位。</summary>
+        public int mv;
+        /// <summary>`orientToVelocity`（0x48）—— 见上面那一段（我们卡池当前 0 条为 1，机制照写）。</summary>
+        public int otv;
+        /// <summary>`easeCurve`(0x40) 的关键帧，**扁平存放**：`[t0,v0,t1,v1,…]`（升序）。
+        /// 空 / null = 原版默认曲线 = 线性（`AnimInfo..ctor` 就是 `AnimationCurve.Linear(0,0,1,1)`）。
+        /// ⚠️ 我们按**分段线性**求值（原版 Evaluator 带切线；实测本表 `mv=1` 的 7 条拍曲线
+        /// 全是 (0,0)→(1,1) 的直线 ⇒ 今天逐值等价；如实记，见 <see cref="Ease"/>）。</summary>
+        public float[] ease;
+
+        /// <summary>这拍的位移进度曲线（`p` = 归一化时间 0~1，返回 0~1）。
+        /// 判据见 <see cref="ease"/> 的注释；没有曲线 ⇒ **恒等（线性）**。转发到
+        /// <see cref="CardAnimOrder.EaseAt"/>（判据只此一处 —— `BattleDriver` 的位移泵也用那一份）。</summary>
+        public float Ease(float p) { return CardAnimOrder.EaseAt(ease, p); }
 
         /// <summary>这拍占多久 = `AnimInfo.GetAnimDuration()`（`-= vfxDelayTime + timeAtStartPos + timeMoving + timeAtEndPos`）。
         /// 判据 = `AnimInfo__GetAnimDuration.c`（四个偏移 0x24/0x2C/0x30/0x34）＋ `Core/AbilityAnimDurations.cs` 文件头。
@@ -112,6 +139,27 @@ namespace CardPresentation
     /// <summary>「逐卡逐技能有序演出步骤」表的运行期入口。**判据链见文件头**。</summary>
     public static class CardAnimOrder
     {
+        /// <summary>位移进度曲线求值（`AnimationCurve` 扁平关键帧 → 0~1）。**判据只此一处**：
+        /// `CardAnimController__Update.c` 的 `Evaluate((t−timeAtStartPos)/timeMoving)` + `clamp`。
+        /// ⚠️ 我们按**分段线性**（原版 Evaluator 带切线）—— 实测本表 7 条 movers 的曲线全是
+        /// `(0,0)→(1,1)` 的直线 ⇒ 今天逐值等价；如实记（铁律 3）。曲线为空 ⇒ 线性（原版默认曲线）。</summary>
+        public static float EaseAt(float[] ease, float p)
+        {
+            float x = Mathf.Clamp01(p);
+            if (ease == null || ease.Length < 4) return x;
+            for (int i = 0; i + 3 < ease.Length; i += 2)
+            {
+                float t0 = ease[i], v0 = ease[i + 1];
+                float t1 = ease[i + 2], v1 = ease[i + 3];
+                if (x <= t1)
+                {
+                    if (t1 - t0 <= 1e-6f) return Mathf.Clamp01(v1);
+                    return Mathf.Clamp01(Mathf.Lerp(v0, v1, (x - t0) / (t1 - t0)));
+                }
+            }
+            return Mathf.Clamp01(ease[ease.Length - 1]);
+        }
+
         public const string ResourcePath = "card_anim_order";
 
         static Dictionary<string, CardAnimOrderCard> _byName;

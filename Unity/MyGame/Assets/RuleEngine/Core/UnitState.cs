@@ -39,6 +39,14 @@ namespace RuleEngine
         /// </summary>
         public CardDef Card { get { return Instance.Card; } }
 
+        /// <summary>
+        /// 🆕 **稳定实例号**（= <see cref="CardInstance.Id"/>；**只转发、不另存一份**）。
+        /// 给 `BattleEvent.InstanceId` / 表现层「同名单位血账」用 —— 判据与「为什么不能用座位 + 格号」
+        /// 见 `BattleEvent.InstanceId` 的 doc（原版 `CardScript + 0x22c` 的本局唯一号）。
+        /// `0` = 没有实例（只有手搓 `null` 才会出现；真对局给正数、`CardInstance.Detached` 给负数）。
+        /// </summary>
+        public int InstanceId { get { return Instance != null ? Instance.Id : 0; } }
+
         public readonly string Name;
         public readonly bool IsWarlord;
 

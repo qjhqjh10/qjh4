@@ -318,6 +318,9 @@ namespace CardPresentation
             var loreR = LoreRect(s);
             _lore = MenuDraw.TextBox(_flavourBg, loreR, _ctx.Lore ?? "", Color.white, "LoreText",
                                      LoreFont, LoreFontMin, QLoreText, LoreFontMax, LoreFontBase, face: TmpFont.Face.LatinUi);
+            // 🆕 **2026-10-19（`P2-7`）**：原版 `Card Display/FlavourTextBG/LoreText` 的 `m_lineSpacing = 5`
+            //   （prefab 实读）⇒ 风味正文的行距补上（单位与 `fontSize` 同档，直接传原版值）。
+            MenuDraw.SetLineSpacing(_lore, 5f);
             MenuDraw.Absorb(_flavourBg, "AbsorbHit", fbR, QShade, QHit);
             // 照 `ItemDisplayWindow__Open.c` ③：**没有 lore ⇒ 整块不亮**（⛔ 不拿 Description 顶）。
             bool loreOn = !string.IsNullOrWhiteSpace(_ctx.Lore);

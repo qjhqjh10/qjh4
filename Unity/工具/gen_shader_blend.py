@@ -125,6 +125,15 @@ def pass_state(st):
 def main():
     rows = {}
     nopass = []
+    # 🆕 2026-10-19（`T05`）：**原版 shader 的【声明属性表】**（`m_PropInfo.m_Props`）。
+    #   用途 = 运行时判定「材质上保存的某个属性是不是**孤儿值**」——
+    #   原版材质常带着**内置 Standard 的残留值**（`_SrcBlend/_DstBlend/_ZWrite/_Surface/_Glossiness` 等），
+    #   而原 shader 的属性表里根本没有这些名字 ⇒ 那些值是**死的**。
+    #   我们把它们留在 `WFMatDef.floatNames` 里，运行时只要**我们那份替代 shader 声明了同名属性**
+    #   （含义可能完全不同！）就会被当成活值灌进去 —— `_EmissionColor` 那次退步就是这个形状。
+    #   ⇒ 生成「shader → 声明属性名」表，`WarpforgeEffectBinder.Build` 按它过滤。
+    #   （判据 = 原版序列化数据本身；比「猜哪些名字是残留」可靠。）
+    props = {}
     for path in SHADER_BUNDLES:
         if not os.path.exists(path):
             print(f"（跳过不存在的包：{path}）")
@@ -179,6 +188,16 @@ def main():
                 pname = (pname + f" [pass{pi}]").strip()
             rows[pf.m_Name] = (src, dst, zw, 1 if md else 0, pname,
                                cull, cull_b, zt, zt_b, cm, cm_b)
+            # 🆕 2026-10-19：声明属性表（同一 shader 出现在多个包时取并集）
+            try:
+                pl = pf.m_PropInfo.m_Props if hasattr(pf.m_PropInfo, "m_Props") else pf.m_PropInfo
+                nm_set = props.setdefault(pf.m_Name, set())
+                for _pr in (pl or []):
+                    _n = getattr(_pr, "m_Name", None)
+                    if _n:
+                        nm_set.add(_n)
+            except Exception:
+                props.setdefault(pf.m_Name, set())
             if picked is None:
                 nopass.append(pf.m_Name)
             n += 1
@@ -202,10 +221,18 @@ def main():
     # 🆕 2026-10-12：cull 单独一张表 —— **条件与 blend 那三条不一样**：
     #   `Everguild/FX/Extra Color` 的 blend 是材质驱动（被上面剔掉）、但 cull 也要按自己的标志判。
     culls = {k: v[5] for k, v in rows.items() if v[6] and v[5] >= 0}
+    # 🆕 2026-10-19（`T05`）：**zTest 也有消费者了** —— 与 cull 同一套判据（只收「烘死」那一档）。
+    #   为什么必须表驱动：本工程记过档的坑「原版材质上带着内置 Standard 的残留值」——
+    #   材质上的 `_ZTest` 可能根本不是这个 shader 的（属性表里没有它）；而**原版 pass 状态里烘死的那个值**
+    #   才是真值。典型：`UI/Additive` 烘死 `zTest=0`（Disabled）· `Hidden/VideoDecode` = 8（Always）·
+    #   其余 73 条 = 4（LEqual）。属性驱动（`name='_ZTest'`）的**故意不收** ⇒ 运行时不许覆盖。
+    ztests = {k: v[7] for k, v in rows.items() if v[8] and v[7] >= 0}
     lines = []
     lines.append("// OriginalShaderBlendTable.cs — **由 `工具/gen_shader_blend.py` 生成，别手改**")
     lines.append("//")
-    lines.append("// 它是什么：**原版每个 shader 的 Pass0 渲染状态**（从 bundle 的序列化数据里读出来的真值）。")
+    lines.append("// 它是什么：**原版每个 shader 的【第一个有程序的渲染 pass】状态**（从 bundle 的序列化数据里读出来的真值）。")
+    lines.append("//   ⚠️ 不是字面 pass0 —— `Particles/Standard Unlit` 的 pass0 是 `gpuProgramID = -1` 的空 pass，")
+    lines.append("//      照它读会把一堆 0 当真值（2026-10-12 修）；现在取第一个有程序、且不是 ShadowCaster/DepthOnly/MotionVectors 的 pass。")
     lines.append("// 为什么要它：`ArenaOriginalMaterial.InferBlendFromShaderName` 原来**按 shader 名字猜**混合模式，")
     lines.append("//   名字里没有 additive/premultiply/multiply/alpha blended/transparent 就一律当**不透明**。")
     lines.append("//   实测踩到的：`Cruelty Particle Custom` 的源 shader = `Everguild/FX/Particle Shine Custom Vertex Streams`")
@@ -216,7 +243,7 @@ def main():
     lines.append("// ⚠️ **2026-10-01：本表那条「先查表再覆盖混合」的实验在【战场那条路】上被 sweep 判定为净变差并回退** ——")
     lines.append("//   事实经过见 `WarpforgeVFX/Runtime/ArenaOriginalMaterial.cs` 的 `InferBlendFromShaderName` 注释。")
     lines.append("//   表本身没错（是实读），错在「目标 shader 已经是兜底的那一个、混合照抄原件不等于画面对」。")
-    lines.append("//   ⇒ **本表今天的消费者只有一个：`WarpforgeShaderMap.InferCull`**（cull 那一格，与混合无关）。")
+    lines.append("//   ⇒ **本表的消费者：`WarpforgeShaderMap.InferCull`（cull 那一格）＋ `InferZTest`（2026-10-19 加）。**")
     lines.append("namespace WarpforgeVFX")
     lines.append("{")
     lines.append("    public static class OriginalShaderBlendTable")
@@ -265,6 +292,63 @@ def main():
     lines.append("")
     lines.append("        /// <summary>`CullMap` 里有多少条（自检用）。</summary>")
     lines.append("        public static int CullCount { get { return CullMap.Count; } }")
+    lines.append("")
+    lines.append("        /// <summary>🆕 2026-10-19（`T05`）：原版 shader 名 → **烘死在 pass 里的 `zTest`**")
+    lines.append("        /// （`0=Disabled · 2=Less · 4=LessEqual · 8=Always`，Unity `CompareFunction` 的数值）。")
+    lines.append("        /// 🔴 判据与 cull 同一条：**只收 `name` 不以 `_` 开头的那一格**（= 值烘死）；")
+    lines.append("        ///   属性驱动（`_ZTest`）的**故意不在表里** ⇒ `TryGetZTest` 返回 false、调用方不许覆盖。")
+    lines.append("        /// ⚠️ 这格原来「表里读到了、代码里没人查」；消费者 = `WarpforgeEffectBinder.Build`</summary>")
+    lines.append("        static readonly System.Collections.Generic.Dictionary<string, int> ZTestMap =")
+    lines.append("            new System.Collections.Generic.Dictionary<string, int>")
+    lines.append("        {")
+    for k in sorted(ztests):
+        lines.append('            { "%s", %d },' % (k.replace('"', '\\"'), ztests[k]))
+    lines.append("        };")
+    lines.append("")
+    lines.append("        /// <summary>查得到 = 这个 shader 的 zTest 是**烘死的**、可以覆盖；返回 false = 属性驱动，别动。</summary>")
+    lines.append("        public static bool TryGetZTest(string shaderName, out int zTest)")
+    lines.append("        {")
+    lines.append("            zTest = -1;")
+    lines.append("            if (string.IsNullOrEmpty(shaderName)) return false;")
+    lines.append("            return ZTestMap.TryGetValue(shaderName, out zTest);")
+    lines.append("        }")
+    lines.append("")
+    lines.append("        /// <summary>`ZTestMap` 里有多少条（自检用）。</summary>")
+    lines.append("        public static int ZTestCount { get { return ZTestMap.Count; } }")
+    lines.append("")
+    lines.append("        /// <summary>🆕 2026-10-19（`T05`）：原版 shader → **它自己声明的属性名**（空格分隔）。")
+    lines.append("        /// 用途 = 丢弃材质上的**孤儿值**（内置 Standard 残留、原 shader 属性表里根本没有的名字）。")
+    lines.append("        /// 🔴 空表 = 这个 shader 的属性表读不到 ⇒ 调用方**必须当成「不知道」**、别过滤（不许静默清空）。</summary>")
+    lines.append("        static readonly System.Collections.Generic.Dictionary<string, string> DeclaredProps =")
+    lines.append("            new System.Collections.Generic.Dictionary<string, string>")
+    lines.append("        {")
+    for k in sorted(props):
+        v = " ".join(sorted(props[k]))
+        lines.append('            { "%s", "%s" },' % (k.replace('"', '\\"'), v))
+    lines.append("        };")
+    lines.append("")
+    lines.append("        static System.Collections.Generic.Dictionary<string, System.Collections.Generic.HashSet<string>> _propCache;")
+    lines.append("")
+    lines.append("        /// <summary>这个原版 shader **自己声明过**的属性名集合；返回 null = 属性表读不到 / 这个 shader 不在表里。")
+    lines.append("        /// ⚠️ `X_ST`（纹理的缩放/偏移，Unity 隐式生成）与 `X_TexelSize` 按**基名** `X` 判——")
+    lines.append("        ///   它们本来就不会写进 Shader 的 `m_PropInfo`，照字面判会把活的 `_MainTex_ST` 一起丢掉。</summary>")
+    lines.append("        public static System.Collections.Generic.HashSet<string> OriginalProperties(string shaderName)")
+    lines.append("        {")
+    lines.append("            if (string.IsNullOrEmpty(shaderName)) return null;")
+    lines.append("            if (_propCache == null) _propCache =")
+    lines.append("                new System.Collections.Generic.Dictionary<string, System.Collections.Generic.HashSet<string>>();")
+    lines.append("            System.Collections.Generic.HashSet<string> s;")
+    lines.append("            if (_propCache.TryGetValue(shaderName, out s)) return s;")
+    lines.append("            string raw;")
+    lines.append("            if (!DeclaredProps.TryGetValue(shaderName, out raw) || string.IsNullOrEmpty(raw))")
+    lines.append("            {")
+    lines.append("                _propCache[shaderName] = null;   // 读不到 ⇒ 「不知道」⇒ 不过滤")
+    lines.append("                return null;")
+    lines.append("            }")
+    lines.append("            s = new System.Collections.Generic.HashSet<string>(raw.Split(' '));")
+    lines.append("            _propCache[shaderName] = s;")
+    lines.append("            return s;")
+    lines.append("        }")
     lines.append("    }")
     lines.append("}")
     with io.open(OUT_CS, "w", encoding="utf-8", newline="\n") as f:
@@ -299,6 +383,24 @@ def main():
     extra = sorted(k for k in culls if k not in must)
     print(f"✅ cull 自检通过（{len(must)}/{len(must)} 条命中）")
     print(f"   cull 表里另有 {len(extra)} 条（名字白名单原来覆盖不到的）：{extra[:12]}{' …' if len(extra) > 12 else ''}")
+
+    # 🆕 2026-10-19（`T05`）：`zTest` 表也加一条**同类自检** —— 这四个名字是「兜底路真的会走到、
+    #   而我们自建 shader 声明了 `_ZTest`」的关键条目（那三条「少一半粒子」的缺陷同族）。
+    #   缺了就**非 0 退出**并删掉半成品（与 cull 那条同规矩：不许留下「静默缺一格」的表）。
+    missingz = [m for m in must if m not in ztests]
+    if missingz:
+        for _f in (OUT, OUT_CS):
+            try:
+                if os.path.exists(_f): os.remove(_f)
+            except Exception as _e:
+                print(f"   （删 {_f} 失败：{_e}）")
+        print(f"!! zTest 自检失败：这些名字没有烘死的 zTest 实读值 → {missingz}")
+        print("   ⇒ 同上：多半是包清单缺了内置管线那一个。已把写出的一半删掉。")
+        sys.exit(1)
+    zother = sorted(k for k in ztests if ztests[k] != 4)
+    print(f"✅ zTest 自检通过（{len(must)}/{len(must)} 条命中）· 表 {len(ztests)} 条")
+    print(f"   其中 ≠LEqual 的 {len(zother)} 条（必须逐条看，别当噪声）："
+          + ", ".join(f"{k}={ztests[k]}" for k in zother))
 
 
 if __name__ == "__main__":

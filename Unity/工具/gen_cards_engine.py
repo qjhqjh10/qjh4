@@ -838,6 +838,30 @@ TRUTH_IDX_SRC = r"d:/4/Unity/数据/游戏数据/card_id_truth_index.json"
 #   判据 → `资料/普查产出_1018/allcards_1350/报告.md`。
 TRUTH_CARDS_SRC = r"d:/4/Unity/资料/普查产出_1018/allcards_1350/cards_raw.json"
 
+# ==========================================================================================
+#  🆕 2026-10-19（第五十五会话 · 引擎线 `E12` · 战斗线 B3/B4 的接口）：**逐候选动画时间**
+# ==========================================================================================
+# 原版多候选「同一拍全播」的原因：`cardAbilities[].abilityLogic[].cardAnimations[]` 每一条
+# 都是一件 **`CardAnim` SO**（`CardAnim.animInfo`，`dump.cs:20403-20411` 的 `AnimInfo` 类），
+# 它的时间字段全在资产里，我们以前**一条都没读**：
+#   · `vfxDelayTime`(0x24) · `startDelay`(0x28) · `timeAtStartPos`(0x2C) ·
+#     `timeMoving`(0x30) · `timeAtEndPos`(0x34)；
+#   · **时长** = `AnimInfo.GetAnimDuration()`（`AnimInfo__GetAnimDuration.c:3-6`）=
+#     `timeMoving + timeAtStartPos + timeAtEndPos + vfxDelayTime`（**`startDelay` 不在里面**）。
+# 原版执行链：`AbilityLogic.PlayAnim` 给每条 `cardAnimations` 压一条 `BattleActionType.playAnim(=11)`
+#   （`AbilityLogic__PlayAnim.c:232/273` → `BattleManager__AddCardAnim.c`），
+# 队列**一次只弹一条**（`BattleManager__ResolveActionFromQueue.c:44-76`），
+# 每条动画的协程**等完 `GetAnimDuration` 才结束**（`BattleManager._ResolveAnim_d__466__MoveNext.c:200-210`
+# 的 `WaitForSeconds(GetAnimDuration)`）⇒ **候选之间是串行**：第 n 条的起点 = 前 n-1 条的时长之和。
+#   ⚠️ 这不是「拍一个固定间隔」—— 每条的时长都从它自己的 SO 读（本脚本不发明任何常数）。
+#   ⚠️ 本轮**只落数据**：消费端 `Core/VfxMap.cs`（`CardPresentation/**`）不属本批白名单，
+#      它该怎么用写成接口需求（`资料/普查产出_1019/E12_报告.md`）。
+# GUID → 资产：`guid_map_bundles.tsv`（新表，**直接枚举本地束**；`className == CardAnim` / `type == GameObject`）；
+# 资产内容：`d:/2/新解包资源/assets_full/bundle_<bundle>/MonoBehaviour/<name>.json`。
+ANIM_GUID_MAP_TSV = r"d:/4/Unity/资料/普查产出_1018/cardanim_guid_map/guid_map_bundles.tsv"
+ANIM_ASSETS_DIR = r"d:/2/新解包资源/assets_full"
+ABILITY_TRIGGER_STUB = r"d:/2/Warpforge_code/Scripts/Assembly-CSharp/AbilityTrigger.cs"
+
 # id 前缀 → 我们卡表里的阵营名。**来源是 decklists.json 的实测统计**（见上面那张表）。
 # 别的阵营名一律不许出现在这里 —— 加阵营要连证据一起补。
 ID_PREFIX = {
@@ -1097,6 +1121,187 @@ def load_truth_cards():
     print(f"真值卡快照   {len(by_id)} 行（源文件 {len(rows)} 个元素 · "
           f"名字索引 {len(by_name)} 键）")
     return by_id, by_name
+
+
+# ==========================================================================================
+#  🆕 2026-10-19（`E12`）：逐候选动画时间 —— 常量与判据见 `ANIM_GUID_MAP_TSV` 上面那一段
+# ==========================================================================================
+def load_ability_trigger_names():
+    """`AbilityTrigger.cs` 签名桩 → `{枚举数: 名字}`。读不到返回 `{}`（**不猜**）。"""
+    if not os.path.isfile(ABILITY_TRIGGER_STUB):
+        return {}
+    body = re.search(r"\benum\s+AbilityTrigger\s*\{(.*?)\n\}",
+                     open(ABILITY_TRIGGER_STUB, encoding="utf-8", errors="replace").read(), re.S)
+    if not body:
+        return {}
+    return {int(m.group(2)): m.group(1)
+            for m in re.finditer(r"^\s*([A-Za-z_][A-Za-z0-9_]*)\s*=\s*(-?\d+)\s*,?",
+                                 body.group(1), re.M)}
+
+
+def load_anim_guid_index(report):
+    """`guid_map_bundles.tsv` → `{guid: (name, bundle, type, className)}`。
+
+    ⚠️ 同一 GUID 可能有多行（Sprite + Texture2D 那一族）⇒ `setdefault` **保留第一行**；
+        CardAnim 与 GameObject 两类各取第一条即可（实测每个 GUID 只有一个同名资产）。
+    """
+    if not os.path.isfile(ANIM_GUID_MAP_TSV):
+        report["missing_map"] = 1
+        print(f"⚠️ 找不到动画 GUID 表 {ANIM_GUID_MAP_TSV} —— `animTimes` 将**全空**"
+              f"（重建：`python -I -X utf8 工具/gen_guid_map_from_bundles.py --cards-only`）")
+        return {}
+    idx = {}
+    with open(ANIM_GUID_MAP_TSV, encoding="utf-8") as f:
+        for line in f:
+            p = line.rstrip("\n").split("\t")
+            if len(p) < 9 or not p[3] or not p[8]:
+                continue
+            idx.setdefault(p[3], (p[8], p[4], p[6], p[7]))
+    return idx
+
+
+def _anim_info_of(guid, idx, cache, report):
+    """CardAnim GUID → (`animInfo` dict, CardAnim 资产名, prefab 名)。查不到返回 `(None, None, None)`。"""
+    if guid in cache:
+        return cache[guid]
+    out = (None, None, None)
+    rec = idx.get(guid)
+    if rec is None:
+        report["unresolved_guid"] += 1
+    else:
+        name, bundle, _typ, cls = rec
+        if cls != "CardAnim":
+            report["not_cardanim"] += 1
+        else:
+            b = bundle[:-7] if bundle.endswith(".bundle") else bundle
+            path = os.path.join(ANIM_ASSETS_DIR, "bundle_" + b, "MonoBehaviour", name + ".json")
+            if not os.path.isfile(path):
+                report["missing_asset"] += 1
+            else:
+                with open(path, encoding="utf-8") as f:
+                    info = (json.load(f) or {}).get("animInfo") or {}
+                pre_guid = ((info.get("animAdressable") or {}).get("m_AssetGUID") or "")
+                pref = idx.get(pre_guid)
+                pref_name = pref[0] if (pref and (pref[2] == "GameObject" or pref[3] == "GameObject")) else ""
+                if not pref_name:
+                    report["no_prefab"] += 1
+                out = (info, name, pref_name)
+    cache[guid] = out
+    return out
+
+
+def anim_times_of(trow, idx, cache, trig_names, report):
+    """一张原版卡 SO → `animTimes` 列表（**逐候选**，顺序 = 原版 `abilityLogic` 索引顺序）。
+
+    每一行：
+      · `a`  = `CardAnim` 资产名（= `card_vfx_by_card.json` 的 `es[].a`，**精确 join 键**）
+      · `n`  = prefab 名（`es[].n`；`a` 为空的那几条靠它 join）
+      · `tg` = 原版 `CardAbility.trigger` 数值 · `tn` = 枚举名 · `rc` = `randomAbilityChoice`
+      · `o`  = 原版字段路径的**索引三元组**（`i.j.k` = `cardAbilities[i].abilityLogic[j].cardAnimations[k]`；
+               `-.j.k` = `activeAbility.activeAbilityLogic[j].cardAnimations[k]`）—— 审计用，短
+      · `d/sd/s/m/e` = `vfxDelayTime / startDelay / timeAtStartPos / timeMoving / timeAtEndPos`
+      · `u`  = 时长 = `m + s + e + d`（**原版 `AnimInfo.GetAnimDuration` 逐字**，`startDelay` 不在内）
+      · `t`  = **同 `(卡, trigger)` 组内**的起点偏移 = 前面各候选的 `u` 之和（队列串行，判据见文件头）
+
+    ⚠️ `activeAbility.activeAbilityLogic[]` 也收（VFX 表把它归到 `ability`）：`tg = -1`、`tn = ""`。
+    ⚠️ 浮点**四舍五入到 4 位**（0.1 ms；原版值实测都是 0.05/0.1 这一档，见报告）。
+    """
+    if not trow:
+        return []
+    rows = []
+    cursor = {}          # trigger id -> 已累计时长
+
+    def add(guid, src, tg, tn, rc):
+        info, name, pref = _anim_info_of(guid, idx, cache, report)
+        if info is None:
+            return
+        d = float(info.get("vfxDelayTime") or 0.0)
+        sd = float(info.get("startDelay") or 0.0)
+        s = float(info.get("timeAtStartPos") or 0.0)
+        m = float(info.get("timeMoving") or 0.0)
+        e = float(info.get("timeAtEndPos") or 0.0)
+        u = round(m + s + e + d, 4)
+        t = round(cursor.get(tg, 0.0), 4)
+        cursor[tg] = cursor.get(tg, 0.0) + u
+        rows.append({
+            "a": name, "n": pref, "tg": tg, "tn": tn, "rc": 1 if rc else 0, "o": src,
+            "d": round(d, 4), "sd": round(sd, 4), "s": round(s, 4), "m": round(m, 4),
+            "e": round(e, 4), "u": u, "t": t,
+        })
+
+    for i, ab in enumerate(trow.get("cardAbilities") or []):
+        tg = ab.get("trigger")
+        tn = trig_names.get(tg, "")
+        rc = bool(ab.get("randomAbilityChoice"))
+        for j, lg in enumerate(ab.get("abilityLogic") or []):
+            for k, an in enumerate(lg.get("cardAnimations") or []):
+                guid = (an or {}).get("m_AssetGUID")
+                if guid:
+                    add(guid, "%d.%d.%d" % (i, j, k), tg, tn, rc)
+    aab = trow.get("activeAbility") or {}
+    for j, lg in enumerate(aab.get("activeAbilityLogic") or []):
+        for k, an in enumerate(lg.get("cardAnimations") or []):
+            guid = (an or {}).get("m_AssetGUID")
+            if guid:
+                add(guid, "-.%d.%d" % (j, k), -1, "", False)
+    return rows
+
+
+def _norm_talent_key(s):
+    """与 `CreatePool.Norm` **逐字同一条**归一（保留 a-z0-9、其余全丢、小写）。
+    ⚠️ 两处口径必须一致：运行时会用它把卡面天赋名归一之后再查本表。"""
+    if not s:
+        return ""
+    return "".join(ch for ch in s.lower() if ("a" <= ch <= "z") or ("0" <= ch <= "9"))
+
+
+def build_talent_name_ids(truth_cards, truth_by_path, cards, report):
+    """🆕 2026-10-19（`E12` · 账 `A2142`）：**天赋名 → 天赋卡 id** 的真值表。
+
+    为什么要它：`RuleCore.SpawnTalents` 的最后一条兜底是 `CreatePool.FindByName(卡面天赋名)` ——
+    **按显示名**查，卡一改名就静默失配（与 `SortByName` 同一族）。本表把原版那条**对象引用**
+    （`cardAbilities[trigger==46].abilityLogic[0].summonCriteria.unitsToSummon[*]`，判据 =
+    `CardScript__GetTalentCard.c`）翻成「**归一后的天赋卡名 → 我们池子的 id**」，
+    兜底时先查这张表（**按 id** 取，⛔ 不再按名字模糊匹配）。
+
+    键的三种写法都收（都归一到 `_norm_talent_key`）：我们池里的 `name` / `nameZh` ·
+    真值 SO 的 `cardName` · `m_Name` 的尾段。只收**落在我们卡池里**的 id。
+    ⚠️ **一个名字指向多张卡 ⇒ 整条丢掉并记账**（⛔ 不猜；调用方会退回原来的按名字路）。
+    """
+    pool = {c["id"]: c for c in cards}
+    buckets = {}
+
+    def add(nm, uid):
+        k = _norm_talent_key(nm)
+        if k:
+            buckets.setdefault(k, set()).add(uid)
+
+    for uid, row in truth_cards.items():
+        for ab in row.get("cardAbilities") or []:
+            if ab.get("trigger") != 46:      # AbilityTrigger.Talent
+                continue
+            for lg in (ab.get("abilityLogic") or [])[:1]:
+                for ref in ((lg.get("summonCriteria") or {}).get("unitsToSummon") or []):
+                    cuid = truth_by_path.get(ref.get("m_PathID"))
+                    if not cuid or cuid not in pool:
+                        continue
+                    p = pool[cuid]
+                    add(p.get("name"), cuid)
+                    add(p.get("nameZh"), cuid)
+                    t = truth_cards.get(cuid) or {}
+                    add(t.get("cardName"), cuid)
+                    add((t.get("m_Name") or "").split("_")[-1], cuid)
+    out, conflicts = [], []
+    for k in sorted(buckets):
+        ids = buckets[k]
+        if len(ids) == 1:
+            out.append({"n": k, "id": next(iter(ids))})
+        else:
+            conflicts.append((k, sorted(ids)))
+    report["keys"] = len(out)
+    report["conflicts"] = len(conflicts)
+    report["conflict_rows"] = conflicts
+    return out
 
 
 # 🔴 **真值 `CardTraits[].name` → 我们卡池里的**显示写法**。
@@ -1865,6 +2070,17 @@ def build():
     # 键只认 `uniqueId` —— 与我们卡池 id 是**同一套**（P1 相换过一次），所以 `truth_cards.get(cid)`
     # 就是那份**已裁过的 join**，本相不另开第二条。
     truth_cards, truth_by_name = load_truth_cards()
+    # 🆕 2026-10-19（`E12`）：逐候选动画时间的索引 / 缓存 / 枚举名（判据见 `ANIM_GUID_MAP_TSV` 上面那段）
+    anim_report = {"unresolved_guid": 0, "not_cardanim": 0, "missing_asset": 0,
+                   "no_prefab": 0, "missing_map": 0, "rows": 0, "cards": 0}
+    anim_idx = load_anim_guid_index(anim_report)
+    anim_cache = {}
+    anim_trig_names = load_ability_trigger_names()
+    # 🆕 2026-10-19（`E12` · `A2142`）：天赋名 → id 表的跑完读数
+    talent_name_report = {"keys": 0, "conflicts": 0, "conflict_rows": []}
+    if not anim_trig_names:
+        print(f"⚠️ 读不到 `AbilityTrigger` 枚举桩 {ABILITY_TRIGGER_STUB} ⇒ `animTimes[].tn` 将全空"
+              f"（数值 `tg` 照落；⛔ 不猜名字）")
     # 🔴 2026-10-19（`A1960`）：`choicesDefinition.filterSpecificCards` 的 **PPtr 解引用表**。
     #   `m_PathID` → 真值卡的 `uniqueId`（= 我们池的 id）。现核 178 条引用**全部**能解（0 未解）。
     #   ⚠️ 解出来的 id **未必在我们卡池里**（实测：`Adaptive Strategy` 的选项指向 `_normal`/`_oath`
@@ -2322,6 +2538,15 @@ def build():
         entry["choicesSpecificCardIds"] = _cd_ids
         if _cd_ids or entry["choicesMaxTargets"] > 0:
             choices_report["with_choice"] += 1
+        # ---- 🆕 2026-10-19（`E12`）：逐候选动画时间（多候选「时间错开」的数据侧）--------------
+        # 判据与字段语义 → `ANIM_GUID_MAP_TSV` 上面那一段 + `anim_times_of()` 的 doc。
+        # ⚠️ **顺序 = 原版 `abilityLogic` 索引顺序**（= `card_vfx_by_card.json` 的 `es` 数组顺序，
+        #    V2 报告 §3·2 实测 436 行里 435 行逐位相同）⇒ 消费端可以直接按 `a`/`n` join。
+        _anim = anim_times_of(trow, anim_idx, anim_cache, anim_trig_names, anim_report)
+        entry["animTimes"] = _anim
+        if _anim:
+            anim_report["cards"] += 1
+            anim_report["rows"] += len(_anim)
         # ---- 卡面逐张核对修正（2026-09-13）----
         # 上面那两列 `subtype` / `keywords` 都是**从 OCR 那份源表来的**，实测会串列、会掉数值。
         # 这一层用「1118 张逐张看卡图独立抄」的结果盖掉 —— 见 `CARD_FACE_FIXES_SRC` 的长注释。
@@ -2764,8 +2989,12 @@ def build():
     choices_report["not_in_pool_refs"] = sum(
         1 for c in cards for _i in (c.get("choicesSpecificCardIds") or []) if _i not in _pool_ids)
 
+    # 🆕 2026-10-19（`E12` · `A2142`）：**天赋名 → 天赋卡 id** 的真值表（见 `build_talent_name_ids`）。
+    #   仍在卡表里（不另立文件）：`CardDatabase` 把它交给 `TalentCardData` 当**兜底查表**用。
+    talent_name_ids = build_talent_name_ids(truth_cards, truth_by_path, cards, talent_name_report)
+
     return {
-        "version": 10,         # v6: 每张卡带稳定 id（🔴 2026-10-18 `W25` 起按原版 `uniqueId` 直取，
+        "version": 12,         # v6: 每张卡带稳定 id（🔴 2026-10-18 `W25` 起按原版 `uniqueId` 直取，
                                #    名级联降为交叉校验；自造 = 生成期自检硬失败）
                                # v7（2026-10-14 `A1798`）：加 `inventoryOptions` / `showInCollectionOptions` 两列
                                # v8（2026-10-14 `A1775`）：加 `initiative` 一列（先后手；原版真值）
@@ -2777,8 +3006,20 @@ def build():
                                #    `choicesMaxTargets` / `choicesSpecificCardIds` 三列 ——
                                #    原版 `RawCardScript.choicesDefinition`（`TargetCriteria` @0x2A0）；
                                #    `filterSpecificCards` 的 PPtr 按 `path_id → uniqueId` 解引用。
+                               # v11（2026-10-19 第五十五会话 `E12` · 战斗线 B3/B4 的接口）：加
+                               #    **`animTimes`（逐候选动画时间）** 一列 —— 原版
+                               #    `cardAbilities[].abilityLogic[].cardAnimations[]` 每条 `CardAnim` SO 的
+                               #    `vfxDelayTime / startDelay / timeAtStartPos / timeMoving / timeAtEndPos`
+                               #    ＋ 时长（`AnimInfo.GetAnimDuration`）＋ 组内累计起点 `t`
+                               #    ＋ `CardAnim`/prefab 名（与 `card_vfx_by_card.json` 的 `es[]` join）。
                                #    ⚠️ 加列【必须】bump（`CardDatabase.cs` 的 version 守卫靠它出声），
                                #       否则新列会被静默读成 `0`/`null`（`施工设计 §五·3`）
+                               # v12（2026-10-19 第五十五会话 `E12` · 账 `A2142`）：顶层加
+                               #    **`talentNameIds`（天赋名 → 天赋卡 id 的真值表）** ——
+                               #    原版 `cardAbilities[trigger==46].abilityLogic[0].summonCriteria.unitsToSummon`
+                               #    的对象引用 → 我们池子的 id，键 = `CreatePool.Norm` 归一后的名字。
+                               #    `SpawnTalents` 的「按显示名查卡」兜底先查它（按 id 取），
+                               #    ⛔ 不再是「改名即静默失配」。
         "source": "Unity/数据/游戏数据/card_stats.json（稀有度另取 资料/卡牌数据表/卡牌宝石稀有度_0824.md；"
                   "英文名 / 中文名都以**原版官方表** 数据/游戏数据/官方本地化_en+zh-CN.json 的 `Card_Name/*` 为准"
                   "（🔴 2026-10-18 用户改判：**`name` 也换官方显示名** —— 此前「卡名一个字不动」的 PnP 时代口径作废；"
@@ -2861,6 +3102,9 @@ def build():
                 "都是合法取值）。`cardShortId` **⛔ 不许当卡 id 换**（与 `A970` 那套 0/763 重合、全库 0 处读取点）。",
         "count": len(cards),
         "cards": cards,
+        # 🆕 v12（`E12` · `A2142`）：天赋名 → 天赋卡 id（键已按 `CreatePool.Norm` 归一）。
+        #   数组形状（`JsonUtility` 不支持字典）：`[{n, id}, …]`。
+        "talentNameIds": talent_name_ids,
     }, skipped, len(raw), filled, still_missing, stat_fixed, face_fixed, id_orig, id_made, id_truth, \
        (id_direct, id_cascade, id_cross_mismatch, direct_ambiguous), \
        orphan_face_fix, orphan_stat_fix, armor_family_bad, art_guard_bad, art_known_bad, \
@@ -2878,7 +3122,7 @@ def build():
         rarity_truth_filled, rarity_src_truth, rarity_src_table, rarity_src_source,
         orphan_rarity_key), \
        (offname_hit, offname_same, offname_miss, off_names_stats), \
-       choices_report
+       choices_report, anim_report, talent_name_report
 
 
 def fix_own_armour(entry):
@@ -2935,7 +3179,8 @@ def main():
      id_orig, id_made, id_truth, id_new, orphan_face_fix, orphan_stat_fix, armor_family_bad,
      art_guard_bad, art_known_bad, key_conflicts,
      goes_second, off, off_desc,
-     inv, init, truth, rarity_guard, offname, choices_report) = build()
+     inv, init, truth, rarity_guard, offname, choices_report, anim_report,
+     talent_name_report) = build()
     offname_hit, offname_same, offname_miss, off_names_stats = offname
     id_direct, id_cascade, id_cross_mismatch, direct_ambiguous = id_new
     def_report, _gs_n, _gs_hero, _gs_missing_fac = goes_second
@@ -3568,11 +3813,32 @@ def main():
               + "、".join(f"{cid}:{pid}" for cid, pid in choices_report["unresolved_refs"][:6]))
     print(f"             filter 引用里指向**池外卡**的 {choices_report['not_in_pool_refs']} 条"
           f"（变体卡 SO 等 —— 照实落值，消费侧自己判）")
+    # 🆕 2026-10-19（`E12`）逐候选动画时间：覆盖率 + **每一个解不出的口都出声**
+    _an = anim_report
+    print(f"动画时间     `animTimes` 落值 **{_an['cards']}/{doc['count']}** 张 · {_an['rows']} 条候选"
+          f"（`CardAnim` SO 的 `vfxDelayTime/startDelay/timeAtStartPos/timeMoving/timeAtEndPos`）")
+    if _an["missing_map"] or _an["unresolved_guid"] or _an["not_cardanim"] \
+            or _an["missing_asset"] or _an["no_prefab"]:
+        print(f"  ⚠️ GUID 表缺失 {_an['missing_map']} · GUID 解不出 {_an['unresolved_guid']} · "
+              f"不是 CardAnim {_an['not_cardanim']} · 资产文件缺 {_an['missing_asset']} · "
+              f"无 prefab（纯计时占位）{_an['no_prefab']}")
+    # 🆕 2026-10-19（`E12` · `A2142`）天赋名 → id 表
+    print(f"天赋名表     `talentNameIds` **{talent_name_report['keys']}** 个键"
+          f"（键 = `CreatePool.Norm` 归一后的天赋卡名 → 我们池子的 id）")
+    if talent_name_report["conflicts"]:
+        print(f"  ⚠️ 一个名字指向多张卡、**整条丢掉**（⛔ 不猜）：{talent_name_report['conflicts']} 条 —— "
+              + "；".join(f"`{k}` → {ids}" for k, ids in talent_name_report["conflict_rows"][:5]))
 
     if args.check:
         if os.path.exists(DST):
             old = json.load(open(DST, encoding="utf-8"))
-            same = old.get("count") == doc["count"] and old.get("cards") == doc["cards"]
+            # 🔴 2026-10-19（`E12`）：原来只比 `count` / `cards` —— 顶层的**新键**（`version`、
+            #   `talentNameIds` …）加了之后 `--check` 照样报「一致 ✅」⇒ 新表可以静默不落盘。
+            #   ⇒ 顶层这几格一起比（`source`/`note` 是长文案，故意不比：改注释不该让数据表失效）。
+            same = (old.get("count") == doc["count"]
+                    and old.get("version") == doc.get("version")
+                    and old.get("cards") == doc["cards"]
+                    and old.get("talentNameIds") == doc.get("talentNameIds"))
             print(f"\n--check：现有 {DST} "
                   f"{'一致 ✅' if (same and not _bad) else '**已过期** ❌（重跑不带 --check）'}")
             return 0 if (same and not _bad) else 1

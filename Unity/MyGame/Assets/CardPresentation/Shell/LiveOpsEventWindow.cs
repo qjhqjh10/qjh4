@@ -977,8 +977,13 @@ namespace CardPresentation
             float cx = (HelpL + HelpR) * 0.5f, cy = (HelpT + HelpB) * 0.5f;
             float half = (HelpR - HelpL) * HelpScale * 0.5f;
             var r = new PxRect(cx - half, cy - half, cx + half, cy + half);
-            MenuDraw.Rect(root, Tex(ArtHelp), r, "Help Button", QArt, null, true);
-            MenuDraw.Hit(root, "HelpHit", r, QHit, () => OpenHelp());
+            var helpQ = MenuDraw.Rect(root, Tex(ArtHelp), r, "Help Button", QArt, null, true);
+            var helpHit = MenuDraw.Hit(root, "HelpHit", r, QHit, () => OpenHelp());
+            // 🆕 **2026-10-19（`N70` P1-7）**：原版这颗 `Help Button` 是 **`m_Transition = 1`(ColorTint)** ——
+            //   可见件与命中区是两个节点（命中区那颗 quad 透明）⇒ 必须 `TintOn` 到可见件上，否则零反馈。
+            //   色 = 全库默认（HL 0.9607843 / PR 0.7843137 / fade 0.1）⇒ `WindowButton` 的缺省值就是它，不覆盖。
+            var helpWb = helpHit != null ? helpHit.GetComponent<WindowButton>() : null;
+            if (helpWb != null && helpQ != null) helpWb.TintOn(helpQ);
         }
 
         /// <summary>本窗 `Help Button` 开哪一份事件弹窗变体。

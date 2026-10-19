@@ -612,6 +612,9 @@ public static class NetBattleTest
                 hb9.LastSay = null;
                 // ⚠️ **只推一台**会话用这个（本文件的 `PumpUntil` 第二个参数**没有空判** —— 给它 null 会 NPE）：
                 //    两边一起推的话**客机自己也会报一次**，通知队里就有两条、数量断言说不清是谁弹的。
+                //    🔴 **2026-10-19 补注（与已修的 `A1269` 无关）**：上面那句「客机自己也会报一次」说的是
+                //    **本段夹具自己选的推法**（只推一台 ⇒ 通知数可数）；`A1269` 修的是 `NetSession.Pump`
+                //    掉线闸不挡 `Off`（收工后再报一次）—— 那是**闸**的缺陷、已修，⛔ 别拿这条注释当它的判据。
                 Func<NetSession, Func<bool>, int, bool> pumpOne = (s, cond, ms) =>
                 {
                     var sw = System.Diagnostics.Stopwatch.StartNew();

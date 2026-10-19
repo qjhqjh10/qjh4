@@ -236,6 +236,67 @@ namespace RuleEngine
         readonly List<string> _choicesSpecificCardIds = new List<string>();
 
         /// <summary>
+        /// 🆕 **一条候选动画的时间规格**（2026-10-19 第五十五会话 · `E12` · 战斗线 B3/B4 的接口）。
+        ///
+        /// <para>**判据 = 原版 `CardAnim` SO**（`CardAnim.animInfo`，类定义 `dump.cs:20403-20411`）：
+        /// `cardAbilities[].abilityLogic[].cardAnimations[]` 的每一项都是一件 `CardAnim` 资产，
+        /// 时间全在它的 `AnimInfo` 里。字段逐条对：
+        /// `Delay` ← `vfxDelayTime` · `StartDelay` ← `startDelay` · `TimeAtStartPos` ← `timeAtStartPos` ·
+        /// `TimeMoving` ← `timeMoving` · `TimeAtEndPos` ← `timeAtEndPos`。</para>
+        ///
+        /// <para>`Duration` = `AnimInfo.GetAnimDuration()` **逐字**（`AnimInfo__GetAnimDuration.c:3-6`）
+        /// = `TimeMoving + TimeAtStartPos + TimeAtEndPos + Delay`（⚠️ **`StartDelay` 不在内**）。
+        /// `Offset` = **同一 `(卡, 原版 trigger)` 组内**、这条候选的起点 ——
+        /// = 前面各候选的 `Duration` 之和。依据：原版把每条候选压成一条 `playAnim` 动作、
+        /// 队列一次只弹一条、每条等完 `GetAnimDuration` 才结束（判据见
+        /// `工具/gen_cards_engine.py` 的 `ANIM_GUID_MAP_TSV` 上面那段）。</para>
+        ///
+        /// <para>⚠️ **`TimeAtStartPos` 不是「候选之间的间隔」** —— 它是「VFX 在起点停留多久」。
+        /// 战斗线 B4 报告里说的「逐候选 `t`（`timeAtStartPos`）」应按本类的
+        /// <see cref="Offset"/> 用（数据侧已按原版时长算好）；两者都在这里，⛔ 别自己发明固定间隔。</para>
+        /// </summary>
+        public sealed class CardAnimTime
+        {
+            /// <summary>`CardAnim` 资产名（= 运行时 `card_vfx_by_card.json` 的 `es[].a`，**精确 join 键**）。
+            /// 空串 = 生成器那边没解出（本轮 0 条）。</summary>
+            public string Anim;
+            /// <summary>候选的 prefab 名（= `es[].n`；`a` 为空的那几条靠它 join）。
+            /// 空串 = 这件 `CardAnim` 没有 VFX（**纯计时占位**，原版合法，不是解错）。</summary>
+            public string Prefab;
+            /// <summary>原版 `CardAbility.trigger` 数值（`AbilityTrigger` 枚举）。
+            /// `-1` = `activeAbility` 那一路（不走 `CardAbility`）。</summary>
+            public int Trigger;
+            /// <summary>同上枚举名（`AbilityTrigger.cs`；读不到桩时为空串）。</summary>
+            public string TriggerName;
+            /// <summary>该 `CardAbility` 的 `randomAbilityChoice`（1 = 原版只随机抽**一组**播）。
+            /// 现读全池只有 `GOF12 Spanner` 为真（V2 报告 §3·1）。</summary>
+            public bool RandomChoice;
+            /// <summary>原版字段路径的**索引三元组**（审计用；`i.j.k` =
+            /// `cardAbilities[i].abilityLogic[j].cardAnimations[k]`，`-.j.k` = `activeAbility.…`）。
+            /// ⚠️ 同一条 `CardAnim` 可以在一张卡里出现多次（现读 59 行同名重复）⇒ `Anim` 名**不唯一**，
+            /// 要逐条对账时用这一格 + 顺序，⛔ 别去重（原版各播一次）。</summary>
+            public string Order;
+
+            public float Delay;
+            public float StartDelay;
+            public float TimeAtStartPos;
+            public float TimeMoving;
+            public float TimeAtEndPos;
+            /// <summary>= `AnimInfo.GetAnimDuration()`（见类 doc）。</summary>
+            public float Duration;
+            /// <summary>组内起点偏移（= 前面各候选的 `Duration` 之和；见类 doc）。</summary>
+            public float Offset;
+        }
+
+        /// <summary>
+        /// 🆕 **逐候选动画时间**（顺序 = 原版 `abilityLogic` 索引顺序 = `card_vfx_by_card.json`
+        /// 的 `es` 数组顺序）。空表 = 这张卡没有原版 `cardAnimations`（或真值快照里没有它）。
+        /// ⚠️ **本列只落数据**：消费端（表现层 `Core/VfxMap.cs`）怎么用见 `资料/普查产出_1019/E12_报告.md`。
+        /// </summary>
+        public IReadOnlyList<CardAnimTime> AnimTimes { get { return _animTimes; } }
+        readonly List<CardAnimTime> _animTimes = new List<CardAnimTime>();
+
+        /// <summary>
         /// 这张卡**是否带一个「按 `filterSpecificCards` 选牌」的定义**（`A1960` 的注入闸之一）。
         /// 🔴 **三个条件全中才算**：`targetsAffected == 180`（`choiceResolution`）· `maxTargets &gt; 0` ·
         /// `filterSpecificCards` 至少有一项。⚠️ **它不是「该不该开面板」的最终判据** ——
@@ -300,7 +361,8 @@ namespace RuleEngine
                        int initiative = -1,
                        int armour = 0,
                        int choicesTargetsAffected = -1, int choicesMaxTargets = -1,
-                       IEnumerable<string> choicesSpecificCardIds = null)
+                       IEnumerable<string> choicesSpecificCardIds = null,
+                       IEnumerable<CardAnimTime> animTimes = null)
         {
             Id = id; Name = name; Type = type ?? ""; Desc = desc ?? ""; Rarity = rarity; Faction = faction;
             NameZh = nameZh ?? ""; DescZh = descZh ?? "";
@@ -318,6 +380,10 @@ namespace RuleEngine
             if (choicesSpecificCardIds != null)
                 foreach (string _chId in choicesSpecificCardIds)
                     if (!string.IsNullOrEmpty(_chId)) _choicesSpecificCardIds.Add(_chId);
+            // 🆕 2026-10-19（`E12`）：逐候选动画时间 —— 原样收下（**只落数据、不在这里做任何判断**）。
+            if (animTimes != null)
+                foreach (var _at in animTimes)
+                    if (_at != null) _animTimes.Add(_at);
             // 督军后手那张防御卡：这里只收**数据里的 id**；对象引用由 `CardDatabase.Parse`
             // 建完卡表之后按 id 反查置上（见 `GoesSecondCard` 的说明）。
             GoesSecondId = goesSecondId ?? "";
@@ -1507,7 +1573,44 @@ namespace RuleEngine
             if (keywords != null)
                 foreach (string item in keywords)
                     foreach (string seg in EffectText.Split(item)) AddAura(seg);
+            // 🔴 **2026-10-19（第五十五会话 E10 · `SW38 Land Raider` · `E9` 的 β「判据冲突」）**：
+            //    `desc` 源的缺口补丁（**只喂光环层**，不改解析输入 `Desc`，因而不动 `PinnedParseMd5`）。
+            //    判据（两处独立、互相印证）：
+            //      ① **官方本地化**（`资料/普查产出_1018/allcards_1350/localization_2026_decoded.json`
+            //         `Card_Description/SW38` 的**英文列**）= `[[vanguard]]. Your Warlord has [[armour]] 2`
+            //         （13 种语言逐列都在，中文 = `[[vanguard]]。你的战将有 [[armour]] 2`）；
+            //         我们的 `descZh` 也早就是这一句 —— 只有**英文 `desc`** 是 `Vanguard` 一句
+            //         （它走 PnP/OCR 那一层，`gen_cards_engine.py` 的口径是「只换 descZh、desc 不动」）。
+            //      ② **SO** `cardAbilities[0]`：`trigger = 20 (WhileInPlay)` + `chosenAbility = 30 (buffOthers)` +
+            //         `targetCriteria{ friendlyUnits, includeHero }` + `buffEffect{ buffType 1, armourChange 2 }`
+            //         ⇒ 「友方英雄（= 督军）+2 护甲、来源在场期间持续」。
+            //    ⇒ **E9 当时判「隐藏效果还是数据残留，未定」的那一格结案：是活数据**，
+            //      PnP 卡面漏印了这一句。
+            //    ⚠️ **数据侧的干净修法**（属卡牌/数据线）：把这句话加进
+            //      `cardface_fixes.json` 的 `desc["Land Raider"]` 并重生成 —— 那会改解析输入、
+            //      需要重钉 `PinnedParseMd5`/`play` 基线；本会话白名单只允许那两笔 ε 补丁 ⇒
+            //      先在这里搭桥。等数据侧补上后，这张表**应当删空**（`AddAura` 按 `Source` 去重，
+            //      重复也不会双算，但留着就是两份判据）。
+            if (!string.IsNullOrEmpty(Id))
+            {
+                string[] extra;
+                if (OfficialAuraSupplements.TryGetValue(Id, out extra))
+                    foreach (string seg in extra) AddAura(seg);
+            }
         }
+
+        /// <summary>
+        /// **官方本地化表里有、我们的 `desc`（PnP/OCR 那一层）里没有**的光环句。
+        /// 键 = **卡 id**（不是一个卡名 —— 同名的跨阵营卡不少；现读 `Land Raider` 与
+        /// `EC28 Chaos Land Raider` 是两张不同的卡）。
+        /// ⚠️ 只喂 <see cref="CollectAuras"/>（光环层），**不**参与 `EffectText.Parse`。
+        /// 每条都必须带出处，见上面那段注释（`SW38` = 官方 `Card_Description/SW38` + SO 的 WhileInPlay 能力）。
+        /// </summary>
+        static readonly Dictionary<string, string[]> OfficialAuraSupplements =
+            new Dictionary<string, string[]>(System.StringComparer.Ordinal)
+        {
+            { "SW38", new[] { "Your Warlord has Armour 2" } },
+        };
 
         void AddAura(string seg)
         {
@@ -4355,6 +4458,26 @@ namespace RuleEngine
             //    ⚠️ 全池今天 0 张卡带它们（1126 张现扫）。
             new[] { "sacrifice", Sacrifice },
             new[] { "droppod", DropPod },
+            // 🔴 **2026-10-19（第五十五会话 · 续工；E6 报告 §三·4 的存疑项）**：
+            //    **`drop pod`（带空格）那一格原来【漏了】** —— 连写 `droppod` 上面那条**早就在**
+            //    （E6 报告写「`drop pod` / `droppod` 都没登记」，**前半句对、后半句对不上现读**）。
+            //
+            //    **卡面英文原文 = `Drop Pod`（带空格）—— 判据明确，所以登记**：
+            //      · 官方本地化表 `d:/4/Unity/数据/游戏数据/官方本地化_en+zh-CN.json` 的
+            //        **`Card_Trait/dropPod` = `["Drop Pod", "空降舱"]`** —— 这正是卡面印 trait 名时用的键
+            //        （同一张表里 `Card_Trait/rage` / `Card_Trait/frenzied` 的用法一致，见下面 `rage` 那段）；
+            //      · `Normalize` 是**前缀匹配**（`CardDef.cs` 那个实现），
+            //        `"drop pod".StartsWith("droppod") == false`（第 5 个字符 **空格 vs `p`**）——
+            //        ⇒ 卡数据 / 卡面写 `Drop Pod` 会**静默丢掉**（踩「不许静默失败」红线）。
+            //    ⚠️ **前缀撞车已现核**（`Normalize` = `StartsWith` + **先到先得**）：
+            //      · 既有以 `d` 开头的条目：`dark pact` / `destroyer` / `dodge` / `droppod` / `doublerage`，
+            //        与 `drop pod` **第二个字母前后就分开**（`d-o-d` / `d-a` / `d-e` / `d-o-u` vs `d-r`）；
+            //      · 反向（新词抢先吃掉老词）不成立：既有输入里没有任何以 `drop pod` 开头的；
+            //      · 全池 1127 张现扫 `drop pod`（含空格）**只有 1 处** = `SW23 Fenrisian Drop Pod`
+            //        的**卡名**（不是关键词/正文行）⇒ **加这条不改动任何现有解析结果**。
+            //    ⚠️ 今天全池仍 **0 张**卡带这个 trait（`cards_raw.json` 1,351 张逐张看过 `CardTraits`）
+            //      ⇒ 补的是「将来写得出」这一层（与 `noncombatant` / `unstunnable` 同形）。
+            new[] { "drop pod", DropPod },
             // 🆕 2026-10-21（账 `A1566` ≡ `A1395①`）：**`landing` / `abouttoattack`** ——
             //    不登记 ⇒ `Normalize` 返回 null ⇒ `Parse` / 构造函数**双双丢弃**
             //    （与 `noncombatant` / `unstunnable` / `dodge` 当年同形，

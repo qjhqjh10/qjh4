@@ -346,6 +346,20 @@ namespace WarpforgeVFX
         public static float[] InferBlend(string originalName)
         {
             if (string.IsNullOrEmpty(originalName)) return null;
+
+            // 🆕 2026-10-19（T05 的配套，**必须先查表**）：`OriginalShaderBlendTable.Map` 是
+            //   **原版 pass 状态实读**（只收「混合烘死在 pass 里」的那些，`gen_shader_blend.py` 生成）。
+            //   为什么现在必须查：T05 的「孤儿值收口」会把**原版 shader 没声明的** `_SrcBlend/_DstBlend/_ZWrite`
+            //   从材质里丢掉（那正是内置 Standard 的残留死值）；丢掉之后这两格就落到**我们 shader 的默认值**
+            //   （`WFParticlesExtraColor` 默认是 **1/0 = 不透明**）—— 对「原版烘死 5/10」的那一族就是错的。
+            //   ⇒ 查得到表值就用表值（这是原版真值），查不到才退回下面按名字猜。
+            //   ⚠️ 实测会因此改变的一族（原来按名字猜不出来）：`Everguild/FX/Particle Distortion Affect Transparents`
+            //     （252 个材质块）· `Everguild/FX/Particle Shine Custom Vertex Streams`（29）—— 名字里没有任何
+            //     混合关键词，旧逻辑返回 null ⇒ 残留死值/我们默认值 1-0 直接顶上。
+            int ts, td; float tz;
+            if (OriginalShaderBlendTable.TryGet(originalName, out ts, out td, out tz))
+                return new[] { (float)ts, (float)td, tz };
+
             string n = originalName.ToLowerInvariant();
             // Sprite Additive 是 Blend One One（纯加法），不是 SrcAlpha/One
             if (n.Contains("sprites/sprite additive") || n.Contains("sprites/additive"))
@@ -392,7 +406,8 @@ namespace WarpforgeVFX
         ///   ⚠️ 同批读进表的另外两格（`zTest` / `colMask`）见下面那条。
         /// ✅ **`colMask=14`（= RGB，不写 A）那两条 2026-10-12 已建模** —— 实读表确认
         ///   `Legacy Shaders/Particles/{Additive,Alpha Blended}` 的 colMask=14（其余全是 15），已在 `WFLegacyParticlesAdditive.shader` / `WFLegacyParticlesAlphaBlended.shader` 里各加一行 `ColorMask RGB`。
-        /// ⚠️ `zTest` 那一格**仍没有消费者**（表里读到了、代码里没人查）—— 按铁律 11 仍开着。</summary>
+        /// ⚠️ ✅ **2026-10-19：`zTest` 那一格有消费者了** —— `InferZTest`（下面那条），
+        ///   判据与 cull 同族、同样「只收烘死值、表里没有就不覆盖」。原来这句写「代码里没人查」，已不成立。</summary>
         public static float? InferCull(string originalName)
         {
             if (string.IsNullOrEmpty(originalName)) return null;
@@ -419,6 +434,31 @@ namespace WarpforgeVFX
             if (n.Contains("mobile/particles") || n.Contains("legacy shaders/particles")
                 || n == "particles/additive" || n == "particles/standard unlit")
                 return 0f;                                          // 0 = Off
+            return null;
+        }
+
+        /// <summary>🆕 2026-10-19（`T05`）：**`zTest` 那一格终于有消费者了** —— 判据与 `InferCull` 完全同族。
+        ///
+        /// **为什么要补**：`OriginalShaderBlendTable` 从 2026-10-12 起就读了 `zTest` / `zTestBaked` 两列，
+        ///   但**代码里没人查** ⇒ 表里那 84 条烘死值一直没生效。我们自建的替代 shader 大多声明了
+        ///   `_ZTest`（默认 **4 = LEqual**），而原版这一格有 **11 条不是 4**：
+        ///     · `UI/Additive` · `UI/Default` · 7 个 `Everguild/*UI*` ⇒ **0 = Disabled**
+        ///     · `Hidden/VideoDecode` ⇒ **8 = Always**
+        ///   这些名字里有 3 个（`UI/Additive` 等）本来就在 `UseOriginal` 白名单**之外**（走 `Replacements`）
+        ///   ⇒ **兜底路上以前一律按 LEqual 渲**，与原版「不做深度测试」不符。
+        ///
+        /// **判据 = 原版 pass 状态里 `name` 不以 `_` 开头的那一格**（= 烘死）；
+        ///   属性驱动（`name='_ZTest'`，例如 `Particles/Standard Unlit` 的 pass2）**故意不在表里**
+        ///   ⇒ 这里返回 null、调用方**不许覆盖**（材质上那份才是活值）。**表里没有就不猜**（⛔ 没有名字兜底）。
+        ///
+        /// ⚠️ 与 cull 一样：这一族几乎全在正常态走原件 ⇒ 本函数**只在兜底路真正改变画面**。
+        /// ⚠️ 生效点只在 `WarpforgeEffectBinder.Build`，且要求目标 shader **自己声明了 `_ZTest`**
+        ///   （没声明的 `SetFloat` 是 no-op —— 状态写在 pass 里）。</summary>
+        public static float? InferZTest(string originalName)
+        {
+            if (string.IsNullOrEmpty(originalName)) return null;
+            int zt;
+            if (OriginalShaderBlendTable.TryGetZTest(originalName, out zt)) return zt;
             return null;
         }
         

@@ -44,6 +44,21 @@ namespace CardPresentation
 
         public event Action<CardView, int> OnDeployed;     // 落位成功
         public event Action<CardView> OnReturned;          // 回弹到手牌
+        /// <summary>🔴🆕 2026-10-19（战斗线 B2 · 偏差 1/2 的残余①）：**出牌飞行开始的那一拍**。
+        ///
+        /// <para>实参 = (这张卡, 落向哪块棋盘, 真正落点格号, 这段飞行有多长)。</para>
+        ///
+        /// <para>判据（`资料/任务线/战斗线/任务总表.md` 残余① + `资料/普查产出_1018/R_战斗表现链路对拍.md`）：原版
+        /// `_ResolvePlayCardFromHand` 是**入动作队列**之后才一步步演，`WaitingForBlockingAction`
+        /// 从「这张牌离开手牌」那一刻就已经为真 —— 也就是说**0.55 s 飞行本身也在闸里**。
+        /// 我们这边引擎要等飞行跑完（`DeploySequence.Play` 的 `onDone` → `OnDeployed` → `DoPlay`）才被调用，
+        /// 所以在飞行的这 0.55 s 里 `WaitingForBlockingAction` 还是假的 ⇒ 手牌还能再抓一张、回合钮还能点。</para>
+        ///
+        /// <para>⇒ 这个事件就是给驱动层的**起手回调接口**：接上之后由 `BattleDriver` 把这段飞行
+        /// 也纳入 `WaitingForBlockingAction`（并播原版「起飞」那两条 cue）。
+        /// ⚠️ 不接也能跑（表现层自己的自检照样过）；接不接**不改**本组件的任何行为。</para>
+        /// </summary>
+        public event Action<CardView, BoardLayout, int, float> OnDeployFlightStart;
         /// <summary>🔴 **落点落在格位上、但被拒了**（= 玩家做了一次非法操作）。
         /// 和 <see cref="OnReturned"/> 的区别：**拖回手牌/拖到空白处不算**（那是正常取消）。
         /// 原版在这个时机播 `cantdo`（"我不能这么做"）—— 见 `资料/语音线_原版规格与ASR管道.md` §1.3。
@@ -180,9 +195,13 @@ namespace CardPresentation
                 if (!_frozenWarned)
                 {
                     _frozenWarned = true;
-                    Debug.LogWarning("[Hand] 对手掉线/等重连期间**手牌这一层禁操作**"
-                        + "（原版 `BattleManager__Update.c:104-115` 那道整帧闸；"
-                        + "本组件不走 `BattleDriver`，所以这里另有一道）—— 这一档结束会自动恢复。");
+                    // 🔴 2026-10-19（B2）：**文案订正** —— 这一档现在有**两个**来源（`Frozen` 那两个或项），
+                    //   原来那句只写「对手掉线/等重连」，而 `WaitingForBlockingAction`（演出没演完 / 出牌飞行中）
+                    //   也会亮它 ⇒ 日志会误导后面查问题的人。
+                    Debug.LogWarning("[Hand] 手牌这一层**暂时禁操作** —— 两种来源（见 `Frozen`）："
+                        + "① 对手掉线 / 等重连（原版 `BattleManager__Update.c:104-115` 那道整帧闸）；"
+                        + "② 上一条动作的演出还没演完 / 自己打出的牌还在 0.55 s 飞行里"
+                        + "（等价原版 `WaitingForBlockingAction`）。—— 这一档结束会自动恢复。");
                 }
                 return;
             }
@@ -549,6 +568,12 @@ namespace CardPresentation
                 //   `BattleDriver` 那一侧（跟着 `Deploy` 引擎事件走）。
                 //   逐值出处、时长与「为什么 `onDone` 现在挂在整条序列的末尾（0.55s 处）」
                 //   → `Board/DeploySequence.cs` 文件头。
+                // 🔴🆕 2026-10-19（战斗线 B2 · 偏差 1/2 的残余①）：**先报「起飞」，再起飞** ——
+                //   驱动层用这一个回调把这段 0.55 s 飞行纳入 `WaitingForBlockingAction`
+                //   （原版从「牌离开手牌」那一刻闸就是真的；我们这边引擎要等 `onDone` 才被调）。
+                //   ⚠️ 必须排在 `DeploySequence.Play` **之前**：那条序列**创建即开跑**，晚一步就漏掉第一帧。
+                if (OnDeployFlightStart != null)
+                    OnDeployFlightStart(card, which, land, DeploySequence.DurationFor(card));
                 var tw = DeploySequence.Play(card,
                                              which.DropTargetWorldAtHeight(land, which.MinionConversionHeight),
                                              which.DropTargetWorld(land),

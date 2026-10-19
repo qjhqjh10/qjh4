@@ -360,10 +360,10 @@ public const string PinnedPoolMd5 = "d134413baefd749b87244e23d0e0d09b";
                     {
                         if (args.Length <= i + 1)
                         {
-                            Console.Error.WriteLine("!! 用法：play <id|卡名> | play all [dump <out.tsv>] [pf <out.txt>] | play check [<pf.txt>]");
+                            Console.Error.WriteLine("!! 用法：play <id|卡名> [preset <spec>] | play all [dump <out.tsv>] [pf <out.txt>] | play check [<pf.txt>]");
                             Environment.Exit(2);
                         }
-                        string pKey = args[i + 1], pDump = null, pPf = null, pBase = null;
+                        string pKey = args[i + 1], pDump = null, pPf = null, pBase = null, pPreset = null;
                         // 🆕 `A1431` 第二笔：`pf <out>`（写结算指纹）· `check [<pf.txt>]`（结算层对拍）。
                         // ⚠️ 原来这一格只认紧跟在 `all` 后面的 `dump`（`args[i+2]`），
                         //    再加一个 option 就会**静默**把它当普通 token 丢掉 ⇒ 改成显式循环、
@@ -373,18 +373,31 @@ public const string PinnedPoolMd5 = "d134413baefd749b87244e23d0e0d09b";
                         {
                             if (args[j] == "dump" && j + 1 < args.Length) { pDump = args[j + 1]; j += 2; continue; }
                             if (args[j] == "pf" && j + 1 < args.Length) { pPf = args[j + 1]; j += 2; continue; }
+                            // 🆕 `A2009`：夹具预置局面（`play <id> preset dead=1:Infantry`）——
+                            //   只有单卡档用得上（`all`/`check` 传了也不会改变全池读数，但**别静默**：
+                            //   在下面统一出声）。
+                            if (args[j] == "preset" && j + 1 < args.Length) { pPreset = args[j + 1]; j += 2; continue; }
                             if ((args[j] == "baseline" || args[j] == "base") && j + 1 < args.Length)
                             { pBase = args[j + 1]; j += 2; continue; }
                             if (pBase == null && j == i + 2 && string.Equals(pKey, "check", StringComparison.OrdinalIgnoreCase))
                             { pBase = args[j]; j += 1; continue; }   // `play check <pf.txt>` 那种写法
-                            if (args[j] == "dump" || args[j] == "pf")
+                            if (args[j] == "dump" || args[j] == "pf" || args[j] == "preset")
                             {
-                                Console.Error.WriteLine("!! `" + args[j] + "` 后面缺路径（用法：play all [dump <out.tsv>] [pf <out.txt>]）");
+                                Console.Error.WriteLine("!! `" + args[j] + "` 后面缺路径/写法（用法：play <id> preset dead[=N][:Subtype][,enemyhand=N][,chipenemy=1] · play all [dump <out.tsv>] [pf <out.txt>]）");
                                 Environment.Exit(2);
                             }
                             break;   // 不认识的 token：不吞，留给后面的模式
                         }
-                        Environment.Exit(PlayProbe.Run(PoolList, pKey, pDump, pPf, pBase));
+                        if (!string.IsNullOrEmpty(pPreset)
+                            && (string.Equals(pKey, "all", StringComparison.OrdinalIgnoreCase)
+                                || string.Equals(pKey, "check", StringComparison.OrdinalIgnoreCase)))
+                        {
+                            // ⛔ 静默丢掉最坏（你会以为全池读数是在预置局面上跑的）⇒ 出声并停。
+                            Console.Error.WriteLine("!! `preset` 只用于**单卡** `play <id>`；"
+                                                    + "`play all`/`play check` 的读数必须保持全池同一套夹具。");
+                            Environment.Exit(2);
+                        }
+                        Environment.Exit(PlayProbe.Run(PoolList, pKey, pDump, pPf, pBase, pPreset));
                     }
                     break;
                 default: Dump(args[i]); i += 1; break;
@@ -436,6 +449,15 @@ public const string PinnedPoolMd5 = "d134413baefd749b87244e23d0e0d09b";
         int poolVersion = doc.RootElement.TryGetProperty("version", out var vEl) && vEl.ValueKind == JsonValueKind.Number
                           ? vEl.GetInt32() : -1;
         int nMissInv = 0, nMissShow = 0, nMissInit = 0;
+        // 🔴 🆕 **2026-10-19（收口硬前置 · `A1959`/`A1960`）**：`choicesDefinition` 那三列也要传
+        //   （接口来源 = `资料/普查产出_1018/W_引擎线_波2b.md` §六·1）。
+        //   不传的后果与 `A1911` **一模一样**（同一条链：**探针与引擎口径不同**）：
+        //     `CardDef.HasSpecificCardChoice` 恒假 ⇒ `EffectText.Parse(…, card:)` **永远不注入**
+        //     `choosecard` ⇒ `scan`/`play` 对 `A1960` 的注入面**恒为「没发生」**
+        //     ⇒ 收口重钉基线会把「**引擎有、探针看不见**」钉死。
+        //   ⚠️ **缺列一律 `-1`（= 缺值）并出声**，⛔ 不许借 `I()`（它对缺列返回 `0`，
+        //     而 `0` 在 `choicesTargetsAffected` 上是**合法真值** = `TargetsAffected.any`）。
+        int nMissChoicesTa = 0, nMissChoicesMt = 0, nMissChoicesIds = 0;
         foreach (var c in doc.RootElement.GetProperty("cards").EnumerateArray())
         {
             string S(string k) => c.TryGetProperty(k, out var v) && v.ValueKind == JsonValueKind.String ? v.GetString() : null;
@@ -450,12 +472,28 @@ public const string PinnedPoolMd5 = "d134413baefd749b87244e23d0e0d09b";
             if (!hasInv) nMissInv++;
             if (!hasShow) nMissShow++;
             if (!hasInit) nMissInit++;
+            // 🆕 **2026-10-19**：`choicesDefinition` 三列 —— 同样**逐格判「有没有这一格」**。
+            bool hasCTa = c.TryGetProperty("choicesTargetsAffected", out var cTaEl) && cTaEl.ValueKind == JsonValueKind.Number;
+            bool hasCMt = c.TryGetProperty("choicesMaxTargets", out var cMtEl) && cMtEl.ValueKind == JsonValueKind.Number;
+            bool hasCIds = c.TryGetProperty("choicesSpecificCardIds", out var cIdsEl) && cIdsEl.ValueKind == JsonValueKind.Array;
+            var chIds = new List<string>();
+            if (hasCIds)
+                foreach (var e in cIdsEl.EnumerateArray())
+                    if (e.ValueKind == JsonValueKind.String) chIds.Add(e.GetString());
+            if (!hasCTa) nMissChoicesTa++;
+            if (!hasCMt) nMissChoicesMt++;
+            if (!hasCIds) nMissChoicesIds++;
             list.Add(new CardDef(S("id"), S("name"), S("type"), S("desc"), S("rarity"), S("faction"),
                                  I("cost"), I("attack"), I("health"), I("ranged"), kws,
                                  S("nameZh"), S("descZh"), true, S("subtype"), S("goesSecond"),
                                  inventoryOptions: hasInv ? invEl.GetInt32() : -1,
                                  showInCollectionOptions: hasShow ? showEl.GetInt32() : -1,
-                                 initiative: hasInit ? initEl.GetInt32() : -1));
+                                 initiative: hasInit ? initEl.GetInt32() : -1,
+                                 // 🆕 2026-10-19（`A1959`，v10）：缺列 `-1` / 空表 ⇒ 如实收下，
+                                 //   ⛔ 不在这里替消费侧决定「该不该开面板」（那在 `EffectText` 那四道闸）。
+                                 choicesTargetsAffected: hasCTa ? cTaEl.GetInt32() : -1,
+                                 choicesMaxTargets: hasCMt ? cMtEl.GetInt32() : -1,
+                                 choicesSpecificCardIds: hasCIds ? chIds : null));
         rawKw.Add(kws);
         }
         // 🔴 **缺列一律出声**（铁律「不许静默失败」）：缺了就是缺了，⛔ 不让它静默变成「某张卡的值是 X」。
@@ -468,6 +506,13 @@ public const string PinnedPoolMd5 = "d134413baefd749b87244e23d0e0d09b";
             Console.WriteLine("⚠️ 卡池有缺列（探针按 **-1 = 缺值** 收下，⛔ 没当成 `0`）：`inventoryOptions` 缺 "
                               + nMissInv + " 行 · `showInCollectionOptions` 缺 " + nMissShow + " 行 · `initiative` 缺 "
                               + nMissInit + " 行 —— 先看生成器是不是漏了这一列（`gen_cards_engine.py`）。");
+        // 🆕 2026-10-19（`A1959`）：`choicesDefinition` 三列同样出声（判据/后果见上面那一段）。
+        if (nMissChoicesTa > 0 || nMissChoicesMt > 0 || nMissChoicesIds > 0)
+            Console.WriteLine("⚠️ 卡池有缺列（探针按 **-1 / 空表 = 缺值** 收下）：`choicesTargetsAffected` 缺 "
+                              + nMissChoicesTa + " 行 · `choicesMaxTargets` 缺 " + nMissChoicesMt
+                              + " 行 · `choicesSpecificCardIds` 缺 " + nMissChoicesIds + " 行 —— "
+                              + "⇒ `HasSpecificCardChoice` 对这些行恒假、`A1960` 的选牌注入**看不见**；"
+                              + "先确认卡池是 v10（`gen_cards_engine.py`）。");
         Pool = list;
         // 🆕 **同序留一份 `keywords` 原文**（见 `PoolRawKeywords` 的说明）——
         //    `CardDef.Keywords` 只有规范化之后的键，`willrun` 要判「卡面上写着哪几段正文」得看原文。
@@ -492,13 +537,18 @@ public const string PinnedPoolMd5 = "d134413baefd749b87244e23d0e0d09b";
         CreatePool.ResolveGoesSecond(list);
     }
 
-    static void Dump(string line, string tag = "SEG")
+    static void Dump(string line, string tag = "SEG", CardDef card = null)
     {
         // 🔴 **2026-10-10 `A1339`**：`seg` 这条入口原来**也不建卡名索引**（它只调 `EffectText.Parse`，
         //   不经过任何装池动作）⇒ 手搓一句含**卡名**的卡面原文时会静默报 `target=[]`，
         //   和 `card`/`scan`/`check` 一样是**与引擎不同口径**。⇒ 统一走这一道闸（`LoadPool` 幂等）。
         LoadPool();
-        var ops = EffectText.Parse(line, out var unparsed, out var partial, false);
+        // 🔴 🆕 **2026-10-19（`A1960` 收口硬前置）**：`card` 非空时**必须传进 `Parse`** ——
+        //   `A1960` 的 `choosecard` 注入（`EffectText.InjectChoicesDefinitionOp`）只在
+        //   `Parse(…, card:)` 这条路上发生；不传 ⇒ `card <名>` 的 `parse` 行会把
+        //   「引擎会开面板」的卡显示成「没有那条 op」（同 `A1339` 那族：探针与引擎口径不同）。
+        //   `seg`（手搓一句、没有对应卡）传 null —— 它本来就不知道是哪张卡。
+        var ops = EffectText.Parse(line, out var unparsed, out var partial, false, card: card);
         Console.WriteLine(tag + " = [" + line + "]");
         Console.WriteLine("  unparsed=" + (unparsed == null ? "-" : string.Join(" | ", unparsed))
                           + " partial=" + (partial == null ? "-" : string.Join(" | ", partial)));
@@ -567,7 +617,8 @@ public const string PinnedPoolMd5 = "d134413baefd749b87244e23d0e0d09b";
     ///   ③ **只追加**：本块排在既有 `op:` 行的**末尾**，既有列一字不动（同 `A1368`/`A1374`/`A1477`）。
     ///   ⚠️ `scan` **不**打本块（它只打 `TargetBlock`）⇒ **改这里不会动 `check` 的基线**；
     ///      反过来说，`scan` 仍看不见 `Instead` / `AltAmount` 这类「顶层 op 自己的布尔/替换值」——
-    ///      其中 `Tail` 已由 `A1877②` 补进 `scan`，`ChooseDeadScope` 仍缺（施工图见 `Scan.cs` 那一行注释）。
+    ///      其中 `Tail` 已由 `A1877②` 补进 `scan`，`ChooseDeadScope` 也已于 **2026-10-19（`A1568②`）**
+    ///      补进 `TargetBlock`（`/{CDS:…}`）⇒ 这一族**两个入口都看得见了**（只剩本段列出的那几项）。
     /// ⚠️ `null` → 空串、布尔 → `0/1`（与 `shared=` 同一条口径）；**原样打、不转义**（同全仓既有取舍）。
     /// </summary>
     public static string ExtraFields(EffectOp op)
@@ -704,7 +755,8 @@ public const string PinnedPoolMd5 = "d134413baefd749b87244e23d0e0d09b";
 
     /// <summary>要追加到 op 尾部的**整块**：`/` ＋ `{T:…}`（＋ `DeathWatchTarget` 非空时的 `/{DW:…}`
     /// ＋ `Target2` 非空时的 `/{T2:…}` ＋ `AmountMax > 0` 时的 `/{AM:…}`
-    /// ＋ `Tail` 非空时的 `/{TAIL:…}` ＋ **恒有的 `/{SRC:…}`**，见 <see cref="SourceText"/>）。
+    /// ＋ `Tail` 非空时的 `/{TAIL:…}` ＋ `ChooseDeadScope` 非空时的 `/{CDS:…}`
+    /// ＋ **恒有的 `/{SRC:…}`**，见 <see cref="SourceText"/>）。
     /// `Sentinel.Legacy` 按其中的 `/{T:` 把 legacy 那一段切出来（⇒ 后面那几个块一起被摘掉）。</summary>
     public static string TargetBlock(EffectOp op)
     {
@@ -742,6 +794,19 @@ public const string PinnedPoolMd5 = "d134413baefd749b87244e23d0e0d09b";
         //       `Ops()` 多切一刀（与 `Source` 同一条已知形状，哨兵 ⑧ 那一栏会如实报出来）。
         if (op.AmountMax > 0) s += "/{AM:" + op.AmountMax + "}";
         if (!string.IsNullOrEmpty(op.Tail)) s += "/{TAIL:" + op.Tail + "}";
+        // 🔴 🆕 **2026-10-19（`A1568②` 剩下那半条 · 收口批）**：`ChooseDeadScope` 补进 dump。
+        //   病灶：`A1877②` 把 `Tail` 补进 `scan` 之后，**同族只剩它一个看不见** ——
+        //     `Dump`（`seg`/`card`）一直打 `deadScope=`，而 `scan` 一个字都不打 ⇒
+        //     改「死域范围」的活 `check` 一行都不多。
+        //   🔴 **2026-10-19 第五十五会话现测订正**：现池用到它的**不是 3 张而是 5 张** ——
+        //     `GSC44` / `SAU39` / `UM61`（值 `all`）＋ `EC39` / `SOR42`（值 `since_last_turn`，
+        //     `EffectText.cs:5032-5036` 那一族之外的第二个取值）。补本块实测**正好这 5 行变长**。
+        //   ⚠️ **排位**：在 `/{TAIL:…}` 之后、`/{SRC:…}` **之前** —— `Sentinel.Legacy` 按 `/{T:` 切，
+        //     尾部七列位置一个都不动；`/{SRC:…}` 必须仍然**排在最末尾**（哨兵 ⑧ 靠它收尾）。
+        //   ⚠️ **只在非空时打**（同 `/{DW:}` / `/{T2:}` / `/{AM:}` / `/{TAIL:}` 那条取舍）：
+        //     把本块删掉之后，新行必须与旧行**逐字节**相同。
+        //   ⚠️ **原样打、不转义**（同 `countRef` / `condition` / `Source` / `Tail`）。
+        if (!string.IsNullOrEmpty(op.ChooseDeadScope)) s += "/{CDS:" + op.ChooseDeadScope + "}";
         s += SourceText(op);
         return s;
     }
@@ -881,7 +946,10 @@ public const string PinnedPoolMd5 = "d134413baefd749b87244e23d0e0d09b";
                                   //   「两条路 `Source` 不是同一个东西」**没有仪器可看**。现在补上（原样打）。
                                   //   ⚠️ 标签是 `Source=`，⛔ 别与本行前面那个 `src=`（= `ChooseSrc`）混。
                                   + " Source=[" + (op.Source ?? "") + "]");
-            Dump(c.Desc, "  parse");
+            // 🆕 2026-10-19：**把卡本身传进去** —— 否则 `A1960` 那条注入的 `choosecard`
+            //   在这一行（`parse`）里看不见，而上面 `ASK` 行（走 `RuleCore.PlayerChooseOps(c)`）看得见
+            //   ⇒ 同一次 `card` 输出的上下两段**自己打架**（下段「没有 choose」、上段「有 ASK」）。
+            Dump(c.Desc, "  parse", c);
         }
     }
 

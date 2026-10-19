@@ -802,10 +802,16 @@ namespace CardPresentation
         public static string PremiumTrackTitle() { return "Ruta Premium"; }
         public static string PremiumTrackPrice() { return "9999"; }             // ⚠️ 我们挑的（边界②：不卖）
 
-        // 顶栏（阵营）—— ⚠️ 原版这里是 `ArmyUtilities.Instance.GetArmyIcon(army)`，**单机没有那套清单** ⇒ 写死一个
-        public static string HeaderArmyIcon() { return "40k_DeckSelection_icon_FactionOrks"; }
-        public static string HeaderArmyName() { return "Orks"; }                // 原版 prefab 占位串就是 'Orks'
+        // 顶栏（阵营）—— 原版这里是 `ArmyUtilities.Instance.GetArmyIcon(army)` + `GetLocalizedArmyName(army)`，
+        // 单机没有「当前是哪个阵营的日常事件」那份数据（原版 = LiveOps 配的 `MainMenuMission.army`）⇒
+        // **阵营固定取 `Goff`(20)**（prefab 出厂占位串就是 `'Orks'`，与 Goff 的英文显示名一致）。
+        // 🔴 **2026-10-19（U5）**：图名/显示名**不再写死**，走 `Core/ArmyIcons`
+        //   （= 原版 `IconsByArmySO` 逐字节解出的唯一一份映射；判据链在那个文件头）。
+        public static string HeaderArmyIcon() { return ArmyIcons.IconName(HeaderArmy); }
+        public static string HeaderArmyName() { return ArmyIcons.LocalizedName(HeaderArmy) ?? "Orks"; }   // 原版 prefab 占位串就是 'Orks'
         public static string HeaderArmySubTitle() { return "Daily Rewards"; }   // ⚠️ 我们挑的（原版是本地化词条）
+        /// <summary>本窗顶栏固定展示的阵营（见上一条注释；`CardArmy.Goff = 20`）。</summary>
+        public const int HeaderArmy = 20;
 
         /// <summary>每日奖励窗右下那颗 `Timer Text`。🆕 **2026-10-17（W_A_TimerDisplay）**：真倒计时 ——
         /// 与日常那族同一份目标（自建日界 `NextResetAt`，本机时间）。原版由 `TimerDisplay` 运行时填。

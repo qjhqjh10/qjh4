@@ -471,7 +471,7 @@ namespace CardPresentation
 
             // ---- 6) `Submit button`（`40K_button` 九宫 + 绿染 + 居中 `Submit`）----
             _submit = MenuDraw.Node(_window, "Submit button", SubmitR);
-            MenuDraw.Nine(_submit, Tex(ArtButton, "`Submit button` 的按钮底"), SubmitR, BtnBorder,
+            var subNine = MenuDraw.Nine(_submit, Tex(ArtButton, "`Submit button` 的按钮底"), SubmitR, BtnBorder,
                           BtnTexW, BtnTexH, QButton, SubmitTint, true, "Image");
             _submitLabel = Text(_submit, SubmitTextR,
                                 TutorialMessagePopup.OfficialTerm(SubmitTerm, "Submit", "提交"),
@@ -479,18 +479,29 @@ namespace CardPresentation
                                 SubmitFontMin, SubmitFontMax, SubmitFontBase, 0,
                                 face: TmpFont.Face.LatinCardBody);
             MenuDraw.SetVAlign(_submitLabel, Label.VAlign.Midline, SubmitTextR);
-            MenuDraw.Hit(_submit, "Hit", SubmitR, QHit, Submit);
+            var subHit = MenuDraw.Hit(_submit, "Hit", SubmitR, QHit, Submit);
+            // 🆕 **2026-10-19（`N70` P1-6）**：原版这颗是 **`m_Transition = 2`(SpriteSwap)** ——
+            //   `40K_button` ↔ `40K_button_hover` / `40K_button_pressed`（该 prefab 根 46 颗 t=2 的同族值）。
+            //   它是**九宫**（`MenuDraw.Nine` 一棵树 9 块）⇒ 走 `BindNine`（⛔ 不是 `Bind` 单块）。
+            var subWb = subHit != null ? subHit.GetComponent<WindowButton>() : null;
+            if (subWb != null && subNine != null)
+                subWb.BindNine(subNine.gameObject, ArtButton, "40K_button_hover", "40K_button_pressed");
 
             // ---- 7) `Generic Close Button`（圆底 + `40k_bt_close`）----
             _close = MenuDraw.Node(_window, "Generic Close Button", CloseR);
-            MenuDraw.Rect(_close, Tex(ArtCloseRound, "`Generic Close Button` 的圆底"), CloseR, "Image",
+            var closeQ = MenuDraw.Rect(_close, Tex(ArtCloseRound, "`Generic Close Button` 的圆底"), CloseR, "Image",
                           QButton, null, true);
             var closeIcon = MenuDraw.Node(_close, "Icon", CloseIconR);
             MenuDraw.Rect(closeIcon, Tex(ArtCloseIcon, "关闭钮的叉"), CloseIconR, "Image", QButton + 1, null, false);
             // 🆕 **2026-10-18（音效线缺口 `AUD` §三 B3）**：原版
             //   `Give Feedback Popup menu/Window/Generic Close Button` → `ButtonClick Back`
             //   （pid 8084683923307806969）⇒ 显式传关窗 cue（同 `WindowSounds.DefaultCloseCue`）。
-            MenuDraw.Hit(_close, "Hit", CloseR, QHit, Close, clickCue: WindowSounds.DefaultCloseCue);
+            // 🆕 **2026-10-19（`N70` P1-6）**：原版该 prefab 根 **46 颗 `m_Transition = 2`(SpriteSwap)** ——
+            //   关窗钮的圆底 `UI_Button_Round_background` ↔ **`40k_general_bt_yellow_hover`**
+            //   （橙色关闭钮一族的值；判据 → `资料/普查产出_1018/R_按钮交互反馈对账.md` §1·2 #6）。
+            //   ⚠️ `m_PressedSprite` 那一格报告里没记 ⇒ 走 `WindowButton.TexOf` 的既有兜底（按下 = 悬停图）。
+            MenuDraw.Hit(_close, "Hit", CloseR, QHit, Close, closeQ, ArtCloseRound,
+                         hoverArt: "40k_general_bt_yellow_hover", clickCue: WindowSounds.DefaultCloseCue);
 
             // ---- 8) `Free feedback`（prefab 出厂 `m_IsActive = false`；旧版单行反馈面板）----
             _free = MenuDraw.Node(_window, "Free feedback", FreeR);

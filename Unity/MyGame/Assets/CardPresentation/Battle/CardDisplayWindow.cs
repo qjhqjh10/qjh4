@@ -198,6 +198,8 @@ namespace CardPresentation
         ImageQuad _mask;
         /// <summary>🔴 **2026-10-16（`T09` 批 3）**：类型 `ImageQuad` → `HudPiece`（现在建在子画布上）。</summary>
         HudPiece _voiceBtn;
+        // 🆕 2026-10-19（B4 · `N70` P0-2）：语音钮反馈（原版 `Voice Over Button` = t=2 SpriteSwap）
+        BattleButtonFx _fxVoice;
         Label _lore, _hint;
         AudioSource _voiceAudio;
 
@@ -538,6 +540,13 @@ namespace CardPresentation
             }
             else
                 Debug.Log("[展示窗] `40k_UI_bt_voicelines` 不在 `Resources/Art/ui/` ⇒ **语音钮不建**（不摆白方块）");
+
+            // 🆕 2026-10-19（B4 · `N70` P0-2）：`Voice Over Button` = t=2 SpriteSwap（两张都在 `Art/ui_menu/`）
+            var vh = CardArt.MenuUi("40k_UI_bt_voicelines_hover");
+            var vp = CardArt.MenuUi("40k_UI_bt_voicelines_pressed");
+            _fxVoice = (vh != null && vp != null)
+                     ? BattleButtonFx.Swap(_voiceBtn, "Voice Over Button", voiceTex, vh, vp)
+                     : BattleButtonFx.Tint(_voiceBtn, "Voice Over Button(tint-fallback)");
 
             _voiceAudio = gameObject.AddComponent<AudioSource>();
             _voiceAudio.playOnAwake = false;
@@ -947,6 +956,21 @@ namespace CardPresentation
             if (_voiceBtn == null || !_voiceBtn.gameObject.activeSelf) return false;
             return HitBtn(world, CardWinBox.VoiceCx);
         }
+
+        /// <summary>🆕 2026-10-19（B4 · `N70` P0-2）：语音钮的悬停/按下反馈（驱动层 `TickCardDisplayClick` 里调）。</summary>
+        public void TickFeedback(Vector3 world, bool held)
+        {
+            if (_fxVoice == null) return;
+            bool over = Visible && HitVoice(world);
+            _fxVoice.SetHover(over); _fxVoice.SetPressed(over && held); _fxVoice.Tick();
+        }
+        public void SimulateFeedback(bool hover, bool pressed)
+        {
+            if (_fxVoice == null) return;
+            _fxVoice.SetHover(hover); _fxVoice.SetPressed(pressed);
+        }
+        public Color FeedbackKeyForTest { get { return _fxVoice != null ? _fxVoice.KeyForTest : Color.clear; } }
+        public string FeedbackTextureForTest { get { return _fxVoice != null ? _fxVoice.TextureNameForTest : null; } }
 
         static bool HitBtn(Vector3 world, float cx)
         {

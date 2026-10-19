@@ -1093,7 +1093,10 @@ public static class ShopScene
         }
         else if (q != null) { node = q.transform; w = q.WorldW * 108f; h = q.WorldH * 108f; }
         else return false;
-        float cx = PxOf(node.position.x), cy = PxYOf(node.position.y);
+        // 🔴 **`A1350` 第 ② 步（2026-10-19 · 第五十五会话 S3）：中心也走【乙式】**
+        //   （原来甲式 `PxOf/PxYOf`；同族 `QuadRectOf` 已是乙式 ⇒ 中心与尺寸不同源，父链缩放 / 非 16:9 会分家）。
+        var pcCtr = MenuDraw.PixelOfDesign(MenuDraw.PosInDesignSpace(node));
+        float cx = pcCtr.x, cy = pcCtr.y;
         x1 = cx - w * 0.5f; x2 = cx + w * 0.5f;
         y1 = cy - h * 0.5f; y2 = cy + h * 0.5f;
         return true;

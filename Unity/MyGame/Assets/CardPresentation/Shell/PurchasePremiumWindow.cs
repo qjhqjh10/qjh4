@@ -178,6 +178,55 @@ namespace CardPresentation
         /// `Assets/CardPresentation/Art/原版/0_mainmenu/UI_HIghlight_Internal.png`、**没进 `Resources/`**）
         /// ⇒ 节点照建、**这一格不画** + 出声。</summary>
         public const string ArtHightlight = "UI_HIghlight_Internal";
+
+        // ============================================================ 阵营「中号底图」（`Army Image Background`）
+        // 🔴 **2026-10-19（U4 · `N70` 续）**：`Army Container/Army Image Background` 的**运行期底图**
+        // —— prefab 里 `m_Sprite = <无图>`，`PuchasePremiumArmyContainer__Initialize.c` 逐句：
+        //   `ArmyUtilities.GetArmyMediumBackGround(army)` → `Image.set_sprite(...)`。
+        //
+        // **图名映射的判据（逐字节现读，不是猜的）**：
+        //   · `ArmyUtilities` 的序列化字段 `armyBackgrounds` → `ArmyBackgroundsSO` 实例；
+        //   · 那个 SO **不在 `assets_full` 的 JSON 导出里**（导出器跳过了它）⇒ 直接读原始文件：
+        //     `D:/2/unity_run_ref/Warpforge_Data/sharedassets0.assets` 的对象 **417**
+        //     （`m_Script = {fileID 1, pathID 1100}` = `ArmyBackgroundsSO`，`m_Name = "ArmyBackgroundsSO"`）
+        //     —— `mediumBackgroundAddressables` = **14 条**（13 阵营 + `0`），逐条格式 =
+        //     `[int army][string guid][string sprite 名][string 类型]`，GUID 全是
+        //     `7387d095d1aa043c5a3c25f972f4a8ce`（= `bundle_atlasgroup_assets_all`）。
+        //   · 图 **631×194**（`m_Rect` 实读）vs 容器 **531.23×163.33** ⇒ 比例都是 **3.253**（同一族，逐值吻合）。
+        //   ⚠️ **⛔ 别拿 `Campaign_Faction_Bck_*`（1024² 整屏战役底）顶替** —— 那是另一族。
+        //   ⚠️ 尾缀**不服从本仓阵营名**：`Goff→Orks` · `BlackLegion→Black Legion` · `TauEmpire→Tau Empire` ·
+        //      `Genestealers→GenestealerCults` · `SpaceWolves→SW` ⇒ **必须查这张表，⛔ 别拼前缀**。
+        // 🔴 **本地还没导入这 13 张**（`Resources/Art/ui_menu/` 现读 0 命中；源 PNG 在
+        //   `d:/2/Warpforge_tools/data/ui_extract/atlasgroup_assets_all/Sprite/`）⇒ 取不到就**只建节点、不画**，
+        //   ⛔ 不硬凑。导入器 / `Resources/` 在本批白名单外 ⇒ 见报告（U4 §五）。
+        /// <summary>`CardArmy` 枚举值 → 原版中号底图的**切片名**（`CardArt.MenuUi` 口径：空格已换下划线）。
+        /// `0`（Neutral）与 `10` 同图（SO 第 0 条就是这么配的）；认不出的值 ⇒ `null`（不顶图）。</summary>
+        public static string ArmyBackgroundArt(int army)
+        {
+            switch (army)
+            {
+                case 0:
+                case 10: return "40K_profile_campaign_bg_UM";
+                case 20: return "40K_profile_campaign_bg_Orks";
+                case 30: return "40K_profile_campaign_bg_SaimHann";
+                case 40: return "40K_profile_campaign_bg_Sautekh";
+                case 50: return "40K_profile_campaign_bg_Black_Legion";
+                case 60: return "40K_profile_campaign_bg_Leviathan";
+                case 70: return "40K_profile_campaign_bg_Tau_Empire";
+                case 80: return "40K_profile_campaign_bg_Sororitas";
+                case 90: return "40K_profile_campaign_bg_GenestealerCults";
+                case 100: return "40K_profile_campaign_bg_AstraMilitarum";
+                case 110: return "40K_profile_campaign_bg_DarkAngels";
+                case 120: return "40K_profile_campaign_bg_Emperors_Children";
+                case 130: return "40K_profile_campaign_bg_SW";
+                default: return null;
+            }
+        }
+
+        /// <summary>自检专用：给 `Army Image Background` 塞一张**临时贴图**。
+        /// 原版那 13 张本地未导入 ⇒ 不塞就验不到「悬停色偏真的打在底图上」（否则那条断言只能是空的）。
+        /// **生产路径不写它**（默认 `null`）；自检用完必须清回 `null`。</summary>
+        public static Texture2D ArmyBackgroundTexForTest;
         public const string ArtBarBg = "40k_menu_scroll_bar_bg";         // 20×50 · border 0,12,0,12 · Sliced
         public const string ArtBarFill = "40k_menu_scroll_bar_fill";     // 同上
         public const string ArtClose = "UI_Button_Round_background";     // 237² · Simple · PA
@@ -261,6 +310,10 @@ namespace CardPresentation
 
         Label _title, _subTitle, _infoTitle, _infoBody, _priceText, _purchased;
         Transform _content, _armyInfo, _containerTemplate;
+        /// <summary>`Army Info/Army Icon` —— 节点**恒在**（原版 prefab 有这一颗）；图块是它的子件 `Image`，
+        /// 只在「这一条报价的阵营查得到图」时才建（映射 = `Core/ArmyIcons`）。</summary>
+        Transform _armyIconNode;
+        ImageQuad _armyIcon;
         GameObject _priceBtn;
         readonly System.Collections.Generic.List<Transform> _containers = new System.Collections.Generic.List<Transform>();
         /// <summary>当前右栏展示的是第几条报价（= 原版 `SelectArmy` 之后被点亮的那个 `Army Container`）。
@@ -400,10 +453,12 @@ namespace CardPresentation
         /// <summary>把一条报价铺到 `Army Info` 上（= 原版 `PuchasePremiumArmyInfo.Initialize` 的可见那一半）：
         /// `armyIcon.sprite = GetArmyIcon(army)` → `description = Format(词条, points)` →
         /// `Purchased` 决定「价签」与「`Purchased!`」谁开。
-        /// <para>⚠️ `armyIcon` 的图与那句 `points` 本地都取不到（前者要 `ArmyUtilities.GetArmyIcon`，
-        /// 后者要 LiveOps 的 `Missions.GetPointsPerArmyOnDailyLogin`）⇒ 图标**只建节点、不画**并出声。</para></summary>
+        /// <para>🔴 **2026-10-19（U5）**：`armyIcon` 那一路**已接**（图名映射 = `Core/ArmyIcons`）；
+        /// 只剩 `description` 里那个 `{0}` 仍然打 `?` —— 它要
+        /// `Missions.GetPointsPerArmyOnDailyLogin(army)`（LiveOps 服务端数据），本地没有 ⇒ 如实出声。</para></summary>
         void ApplyArmyInfo(ArmyOffer? o)
         {
+            SetArmyIcon(o.HasValue ? o.Value.Army : (int?)null);
             if (o.HasValue)
             {
                 if (_infoTitle != null) _infoTitle.SetText(TxtInfoTitle);
@@ -411,9 +466,8 @@ namespace CardPresentation
                 if (_priceText != null) _priceText.SetText(o.Value.PriceText ?? TxtPrice);
                 if (_priceBtn != null) _priceBtn.SetActive(!o.Value.Purchased);
                 if (_purchased != null) _purchased.gameObject.SetActive(o.Value.Purchased);
-                Debug.Log("[Premium] `Army Icon` 的图取不到（原版 `ArmyUtilities.GetArmyIcon(army)`）⇒ 只建节点；"
-                        + "`Description Content` 里那个 `{0}`（原版 `string.Format(词条, "
-                        + "Missions.GetPointsPerArmyOnDailyLogin(army))`）本地也没有 ⇒ 打 `?`。");
+                Debug.Log("[Premium] `Description Content` 里那个 `{0}`（原版 = "
+                        + "`Missions.GetPointsPerArmyOnDailyLogin(army)`，服务端数据）本地没有 ⇒ 打 `?`。");
             }
             else
             {
@@ -424,6 +478,37 @@ namespace CardPresentation
                 if (_priceBtn != null) _priceBtn.SetActive(true);
                 if (_purchased != null) _purchased.gameObject.SetActive(true);
             }
+        }
+
+        /// <summary>原版 `PuchasePremiumArmyInfo.Initialize` 的第一跳：
+        /// `armyIcon.sprite = ArmyUtilities.GetArmyIcon(data.Army)`（`PuchasePremiumArmyInfo__Initialize.c:24-33`）。
+        /// <para>`army == null`（本窗没有报价）⇒ **不画**（prefab 出厂就是 `<无图>`）；
+        /// `Neutral(0)` / 认不出的值 ⇒ 原版 `TryGetItem` 也是失败（表里没有 0 那一条）⇒ 同样不画 + 出声。</para></summary>
+        void SetArmyIcon(int? army)
+        {
+            Texture2D tex = null;
+            if (army.HasValue)
+            {
+                var name = ArmyIcons.IconName(army.Value);
+                if (!string.IsNullOrEmpty(name))
+                    tex = Tex(name, "`Army Info/Army Icon`（阵营徽记；`CardArmy` = " + army.Value + "）");
+                else
+                    Debug.LogWarning("[Premium] `Army Icon`：`CardArmy = " + army.Value
+                                   + "` 不在原版 `IconsByArmySO` 的 13 条里（`Neutral` / 认不出）⇒ 这一格不画。");
+            }
+            if (tex == null)
+            {
+                if (_armyIcon != null) { MainMenuSubmenuWindow.DestroySafe(_armyIcon.gameObject); _armyIcon = null; }
+                return;
+            }
+            if (_armyIcon == null)
+            {
+                if (_armyIconNode == null) return;      // 树还没建（`Build()` 之前走到 `Initialize` 那一档）⇒ 不建、不报错
+                // 与 `Army Icon` 节点**同框**（同 `Premium image` 那族的写法：节点 + `Image` 子件同矩形；
+                // `MenuDraw.Local` 会把同一份绝对框换算成零偏移的子件）。
+                _armyIcon = MenuDraw.Rect(_armyIconNode, tex, Abs(ArmyIconR), "Image", QIcon);
+            }
+            else _armyIcon.SetTexture(tex);
         }
 
         // ============================================================ 几何
@@ -669,7 +754,7 @@ namespace CardPresentation
                 var on = _scroll != null ? _scroll.Shift(r) : r;
                 if (_scroll != null && !_scroll.Intersects(on)) continue;   // 整块在视口外 ⇒ 不建（同全壳口径）
                 var cn = MenuDraw.Node(_content, i == 0 ? "Army Container" : "Army Container (" + i + ")", on);
-                BuildContainer(cn, on, _offers[i]);
+                var bgQ = BuildContainer(cn, on, _offers[i]);
                 int idx = i;
                 // 🆕 **2026-10-18（音效线缺口 `AUD` §三 C9）**：原版 `Purchase Premium Window/Army Container`
                 //   是 `EverguildToggle` + **`allowClickWhenAlreadySelected = 0`** ⇒ 再点当前那一格时
@@ -680,6 +765,14 @@ namespace CardPresentation
                 {
                     cWb.allowClickWhenAlreadySelected = false;
                     cWb.isOn = () => _selectedArmy == idx;
+                    // 🔴 **2026-10-19（U4 · `N70` 续）：悬停色偏的落点 = `Army Image Background`。**
+                    //   判据 = `Army Container` 那颗 `EverguildToggle`（MB `-3878836225173759943`）：
+                    //   `m_Transition = 1 (ColorTint)` · `m_Interactable = 1` · **`m_TargetGraphic` = 那颗
+                    //   `Army Image Background` 的 `Image`（pid `-8626703085771958215`）**；
+                    //   四格 = 白 / 0.9608 / 0.7843 / (0.7843, α0.502) · fade 0.1（默认灰键）。
+                    //   ⛔ **别接 `Hightlight`** —— 那是 `Toggle.graphic`（选中标记），不是 `m_TargetGraphic`。
+                    //   `MenuDraw.Hit` 建的命中区子树上只有那颗**透明** hit quad ⇒ 不 `TintOn` 就**看不见**。
+                    if (bgQ != null) cWb.TintOn(bgQ);
                 }
                 _containers.Add(cn);
             }
@@ -694,8 +787,14 @@ namespace CardPresentation
                 MenuDraw.Nine(_armyInfo, bgTex, Abs(InfoBgR), new Vector4(18f, 18f, 18f, 18f), 69f, 63f,
                               QInfoBg, null, true, "Background");
             else MenuDraw.Node(_armyInfo, "Background", Abs(InfoBgR));
-            // `Army Icon`：原版 `m_Sprite = <无图>`（运行期 `ArmyUtilities.GetArmyIcon`）⇒ 只建节点。
-            MenuDraw.Node(_armyInfo, "Army Icon", Abs(ArmyIconR));
+            // `Army Icon`：原版 `m_Sprite = <无图>` —— **运行期**由
+            // `PuchasePremiumArmyInfo.Initialize` 里那句 `armyIcon.sprite = ArmyUtilities.GetArmyIcon(army)`
+            // 灌图（反编译 `PuchasePremiumArmyInfo__Initialize.c:24-33`；`army` = 报价数据 `+0x10 → +0x2c`）。
+            // 🔴 **2026-10-19（U5 · 批次 7）**：那条映射已经查明 = **`Core/ArmyIcons`**
+            // （原版 `IconsByArmySO`，`sharedassets0.assets` 对象 422 逐字节解出 13 条；判据链在那个文件头）
+            // ⇒ 节点**恒建**（原版 prefab 有这一颗），图块是它的子件 `Image`：
+            // 由 `ApplyArmyInfo → SetArmyIcon(army)` 在「当前选中哪条报价」那一拍建/换。
+            _armyIconNode = MenuDraw.Node(_armyInfo, "Army Icon", Abs(ArmyIconR));
             _infoTitle = MenuDraw.TextBox(_armyInfo, Abs(DescTitleR), TxtInfoTitle, Color.white, "Description title",
                                           InfoTitleFont, InfoTitleMin, QInfoTitle, InfoTitleMax, InfoTitleBase, face: TmpFont.Face.LatinCardBody);
             if (_infoTitle != null) MenuDraw.AlignLeft(_infoTitle, Abs(DescTitleR));
@@ -747,8 +846,9 @@ namespace CardPresentation
         }
 
         /// <summary>一个 `Army Container`（`PuchasePremiumArmyContainer` 的 6 个节点）。
-        /// `o == null` ⇒ 模板那一份（用实例化的出厂态）。</summary>
-        void BuildContainer(Transform cn, PxRect r, ArmyOffer? o)
+        /// `o == null` ⇒ 模板那一份（用实例化的出厂态）。
+        /// 返回值 = 画出来的 `Army Image Background`（取不到图时 `null`；调用方拿它接 `TintOn`）。</summary>
+        ImageQuad BuildContainer(Transform cn, PxRect r, ArmyOffer? o)
         {
             // 子件的框是**相对容器**的（容器的框一变，子件跟着走）—— 用同一份「容器内偏移」。
             // 🔴 **2026-10-13（A806）就地订正（铁律 5）**：基准 `ContainerR` 原来是**相对根**的，而
@@ -757,9 +857,32 @@ namespace CardPresentation
             // —— ⚠️ **与 `RebuildContainers` 那一半同生共死**：那边搬绝对档、这边换基准，缺一半就再加一次根原点。
             PxRect Sub(PxRect abs) { return new PxRect(r.x1 + (abs.x1 - Abs(ContainerR).x1), r.y1 + (abs.y1 - Abs(ContainerR).y1),
                                                         r.x1 + (abs.x2 - Abs(ContainerR).x1), r.y1 + (abs.y2 - Abs(ContainerR).y1)); }
-            // `Army Image Background`：原版 `m_Sprite = <无图>`（运行期灌阵营底图）⇒ 只建节点。
-            MenuDraw.Node(cn, "Army Image Background", Sub(Abs(ContainerR)));
-            var nm = o.HasValue && !string.IsNullOrEmpty(o.Value.ArmyName) ? o.Value.ArmyName : TxtArmyName;
+            // `Army Image Background`：原版 `m_Sprite = <无图>`（运行期灌阵营底图）。
+            // 🔴 **2026-10-19（U4）**：底图来源已查明（映射与判据见 `ArmyBackgroundArt` 的注释）⇒
+            //   **有图就画、没图就只建节点**（⛔ 不拿别的阵营图 / 战役整屏图顶）。
+            //   画出来的那颗同时是 `Army Container` 的 `m_TargetGraphic`（悬停色偏的落点）——
+            //   由 `RebuildContainers` 接 `WindowButton.TintOn`，本方法只负责交给调用方。
+            var bgRect = Sub(Abs(ContainerR));
+            ImageQuad bgq = null;
+            if (o.HasValue)
+            {
+                string art = ArmyBackgroundArt(o.Value.Army);
+                var bgTex = ArmyBackgroundTexForTest != null
+                          ? ArmyBackgroundTexForTest
+                          : (art != null ? Tex(art, "`Army Image Background`（阵营中号底图）") : null);
+                if (bgTex != null)
+                    bgq = MenuDraw.Rect(cn, bgTex, bgRect, "Army Image Background", QContainer);
+            }
+            if (bgq == null) MenuDraw.Node(cn, "Army Image Background", bgRect);
+            // 原版 `PuchasePremiumArmyContainer__Initialize.c:44-61`：`armyName.text =` I2 词条
+            //   （`string.Format(<键>, army)` 之后再 `GetTermTranslation`；键族 = `Armies/<CardArmy 枚举名>`，
+            //    与我们 `Core/Loc.cs` 那 14 条同族、读口 = `CardText.Faction`）
+            // ⇒ 报价没带显示名时**按 army 值本地化**（⛔ 别退回 prefab 占位串 `Ultramarines`）。
+            var nm = o.HasValue
+                   ? (string.IsNullOrEmpty(o.Value.ArmyName)
+                      ? (ArmyIcons.LocalizedName(o.Value.Army) ?? TxtArmyName)
+                      : o.Value.ArmyName)
+                   : TxtArmyName;
             // 🔴 **2026-10-16（A799 · 生产 1/9）：这一格【会新裁】= 目的，⛔ 别「修」。**
             //   父链：`cn` ← `_content`（`:517` `Node(vp, "Content", …)`）← `vp`（`:513`）← `vpVc`
             //   （`:512` `ViewportClip.Hang(sv, "Viewport", …)`）；容器就是 `:633` 那句 `BuildContainer` 建的。
@@ -793,6 +916,7 @@ namespace CardPresentation
                              PremiumFont, PremiumMin, QPremiumText, PremiumMax, PremiumBase, face: TmpFont.Face.LatinUi);
             // 原版 `premiumObjects` 的开关（`PuchasePremiumArmyContainer.Initialize`）
             if (o.HasValue) pu.gameObject.SetActive(o.Value.PremiumUnlocked);
+            return bgq;
         }
 
         /// <summary>原版 `PurchaseButtonClick` → `TryPurchase(data)` → IAP 那条链。**本地没有 IAP**
@@ -867,6 +991,11 @@ namespace CardPresentation
         public System.Collections.Generic.List<Transform> Containers { get { return _containers; } }
         /// <summary>`Army Info` 那一棵（自检读口）。</summary>
         public Transform ArmyInfoNode { get { return _armyInfo; } }
+        /// <summary>`Army Info/Army Icon` 节点（**恒在**；原版 prefab 有这一颗、`m_Sprite = <无图>`）。</summary>
+        public Transform ArmyIconNode { get { return _armyIconNode; } }
+        /// <summary>`Army Info/Army Icon/Image` 那颗图块；`null` = 这一条报价没有图（原版 `TryGetItem` 失败）。
+        /// 判据 = `ArmyUtilities.GetArmyIcon(army)` → `IconsByArmySO`（映射在 `Core/ArmyIcons`）。</summary>
+        public ImageQuad ArmyIconQuad { get { return _armyIcon; } }
         public Label TitleLabel { get { return _title; } }
         public Label SubTitleLabel { get { return _subTitle; } }
         public Label InfoTitleLabel { get { return _infoTitle; } }

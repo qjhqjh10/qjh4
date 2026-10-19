@@ -4934,6 +4934,11 @@ namespace CardPresentation
         /// <summary>当前状态色（状态机在 CardInteraction 那边，这里只负责显示）</summary>
         public CardHighlightState State { get; private set; }
 
+        /// <summary>自检用：那圈状态环**当前的目标色**（含 `RimAlphaScale`）。🆕 **2026-10-19（`N70`）**：
+        /// 菜单卡格的悬停走同一层（`SetHoverHighlight`）⇒ 悬停时这里 alpha &gt; 0、离开时 = 0，
+        /// 不依赖帧循环（批处理里补间不会自己跑）。</summary>
+        public Color RimTargetForTest { get { return _rimTarget; } }
+
         /// <summary>状态描边（卡后面那圈）。
         ///
         /// 为什么不用「整卡着色」表达状态：`material.color` 是**乘法** ——
@@ -4984,6 +4989,22 @@ namespace CardPresentation
                 _rim.enabled = true;
                 ApplyRimColor(fc, CardHighlight.TweenTimeOf(s));
             }
+        }
+
+        /// <summary>🆕 **2026-10-19（`N70` P0-5）：菜单侧卡格的悬停高亮**（收藏窗卡牌格 / 异画格 / 卡背格共用）。
+        /// <para>判据（反编译逐句，`d:/2/tools/decomp_full/Card2DController__ToggleHighlight.c`）：
+        /// 取那颗图形材质里某个颜色的 **`a`**，按 `hover` 写成 **1 / 0**，再交给
+        /// `UIImageMaterialColorChanger.DoColorChange(..., 0.2f, …)` **补间 0.2 秒**（常数 `DAT_1834b2bb0` = 0.2，
+        /// 与 `CardHighlight.OutlineAnimTime` 同源）。原版**不改缩放**（缩放那一条是 `CollectionDeck` 卡组格专用的 1.05）。
+        /// ⇒ 我们的等价物 = **状态环那一层**（它写的就是 `_Outline` 的 alpha）补到 1/0，时长 0.2。</para>
+        /// <para>⚠️ 只在**常规态**用（收藏窗每格建完都 `SetHighlight(Normal)`）；置灰/其它态不点亮
+        /// —— 原版那颗 `ToggleHighlight` 也是挂在菜单卡格上、与战斗状态机无关。</para></summary>
+        public void SetHoverHighlight(bool on)
+        {
+            if (_rim == null || _rim.sharedMaterial == null) return;
+            if (on && State == CardHighlightState.Unplayable) return;
+            _rim.enabled = true;
+            ApplyRimColor(new Color(1f, 1f, 1f, on ? 1f : 0f), CardHighlight.OutlineAnimTime);
         }
 
         Color _rimTarget = new Color(0f, 0f, 0f, 0f);

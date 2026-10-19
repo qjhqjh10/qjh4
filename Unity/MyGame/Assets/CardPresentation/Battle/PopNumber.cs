@@ -38,6 +38,10 @@
 //   ③ × 【卡局部 → 我们世界单位】的桥 = **0.6071** = 场卡 `desiredScale` 0.36 × `UnitsToOurs`（182.14/108）
 //        （判据 §三·5：我方场卡行 0.36 × 182.14 = 65.57 px/卡单位 = 0.6071 × 108 px/世界单位）
 //   ⇒ **DamageCapWorld = 0.3374**（原版我方场卡 36.4 px）· **HealCapWorld = 0.2788**（30.1 px）
+//   🔴 **2026-10-19（B4 · `N54②` 三条尾巴）**：
+//      ① 自适应框改走**卡局部→我们世界**那一档（原来漏了 `desiredScale` ⇒ 框 2.78 倍）；
+//      ② 字体面显式 `TmpFont.Face.LatinCardBody`（Pragati —— 原版那两颗 TMP 的 `m_fontAsset`）；
+//      ③ 敌方行按 `e.Player` 取第二档锚（`EnemyBoardPxPerUnit 86.2` ⇒ 59.48/65.57 = 0.9071）。
 //
 // 🔴 **口径选择：用【墨高口径】(0.337)，⛔ 不用 `faceInfo.capLine` 那一档 (0.325)。**
 //    理由：我们这一侧 `Label.SetCapHeight(h)` 的实现是 `fontSize = h / TmpFont.CapPerFontSize(face)`，
@@ -101,12 +105,12 @@ namespace CardPresentation
         public const int HealWrappingMode = 0;
 
         /// <summary>两颗 RT 的 `m_SizeDelta`（同一份：`0.800961… × 0.683734…`）。
-        /// Damage 用之前还要乘它自己的 1.54；再过 `CardFeel.UnitsToOurs` 折成我们的世界单位。
-        /// 🔴 **2026-10-18（`N54②`）已知偏离（⛔ 本批未改，已记账）**：`BoxW/BoxH` 是**卡局部**单位，
-        /// 而 `UnitsToOurs` 是**棋盘层**单位 → 我们的世界（182.14/108）⇒ 还少乘了 `desiredScale` 0.36。
-        /// 现在 `Pop()` 里那两行算出来的框是原版的 **2.78 倍**（224.7 × 191.8 px vs 80.9 × 69.0 px），
-        /// 后果 = 伤害那档的自适应**永不收缩**（判据 §六·4：原版 ≥3 位数会往 0.35 压）。
-        /// 修法：那两行改用本文件的 `CardLocalToOurs`（= 0.36 × `UnitsToOurs`）并配「3 位数会缩」的断言。</summary>
+        /// Damage 用之前还要乘它自己的 1.54；再过 `CardLocalToOurs`（= `desiredScale × UnitsToOurs`）折成我们的世界单位。
+        /// 🔴 **2026-10-18（`N54②`）曾记的偏离（✅ 2026-10-19 B4 已修，判据复核无误）**：`BoxW/BoxH` 是**卡局部**单位，
+        /// 而原来那两行用的是 `CardFeel.UnitsToOurs`（**棋盘层**单位 → 我们的世界，182.14/108）
+        /// ⇒ 少乘了 `desiredScale` 0.36（本文件 `CardLocalToOurs`）。修前框是原版的 **2.78 倍**
+        /// （224.7 × 191.8 px vs 80.9 × 69.0 px），后果 = 伤害那档的自适应**永不收缩**。
+        /// 现在 `Pop()` 走 `CardLocalToOursFor(enemy)`（玩家 0.6071 / 敌方 0.5507）。</summary>
         public const float BoxW = 0.8009615f, BoxH = 0.6837339f;
 
         // ================= 我们这一侧 =================
@@ -129,9 +133,29 @@ namespace CardPresentation
 
         /// <summary>卡局部单位 → 我们世界单位的桥 = 场卡 `desiredScale` **0.36** × `CardFeel.UnitsToOurs`（182.14/108）
         /// = **0.6071**（判据 §三·5：我方场卡行 65.57 px/卡单位 ÷ 108 px/世界单位）。
-        /// ⚠️ 取的是**我方场卡**那一档；原版敌方行是 `0.69 × 86.2 = 59.48 px/卡单位`。我们这颗飘字是
-        ///    HUD 上的**单档**、不按敌我行分（原版是挂在卡上的子件 ⇒ 天然跟着各行走）—— 已记进「没查清」。</summary>
+        /// ⚠️ 取的是**我方场卡**那一档；敌方那一档见 <see cref="EnemyCardLocalToOurs"/>（0.69 × 86.2/108）。
+        /// 🔴 **2026-10-19（B4）**：本行原来写着「我们这颗飘字是 HUD 上的单档、不按敌我行分 —— 已记进没查清」；
+        /// 那条尾巴**已修**（`PopDamage/PopHeal` 现在按 `enemy` 取两档锚，见 `CardLocalToOursFor`）。</summary>
         public const float CardLocalToOurs = ArenaSlots.PlayerCardScale * CardFeel.UnitsToOurs;
+
+        /// <summary>**敌方那一行**的 px/世界单位 = **86.2**。
+        /// 判据 = `V2`/`TargetReticle` 那份独立验算：`BoardCamera` FOV 46.3972° · z=−13.572，
+        /// 敌行 z=+1.043 ⇒ 86.2 px/单位（玩家行 z=−6.655 ⇒ 182.14）。
+        /// 🔴 **2026-10-19（B4 · `N54②` 尾巴③）**：原来本文件只有玩家那一档（`CardLocalToOurs`），
+        /// 而原版这枚飘字是**挂在受击那张卡上的子件** ⇒ 天然跟着各行走
+        /// （玩家行 `0.36 × 182.14 = 65.57 px/卡单位`；敌方行 `0.69 × 86.2 = 59.48` ⇒ **敌方小 9.3%**）。
+        /// 我们这颗是 HUD 上的单档 ⇒ 必须按 `e.Player` 显式取两档锚，否则敌我一样大。</summary>
+        public const float EnemyBoardPxPerUnit = 86.2f;
+
+        /// <summary>敌方行：卡局部单位 → 我们世界单位 = `EnemyCardScale 0.69 × (86.2 / 108)` = **0.5507**。
+        /// 与 <see cref="CardLocalToOurs"/>（玩家 0.6071）的比 = **0.9071**（= 原版 59.48/65.57）。</summary>
+        public const float EnemyCardLocalToOurs = ArenaSlots.EnemyCardScale * (EnemyBoardPxPerUnit / CardFeel.OurPxPerUnit);
+
+        /// <summary>按敌我取「卡局部单位 → 我们世界单位」那一档（判据只此一处）。</summary>
+        public static float CardLocalToOursFor(bool enemy)
+        {
+            return enemy ? EnemyCardLocalToOurs : CardLocalToOurs;
+        }
 
         /// <summary>伤害飘字的**大写墨高**（我们这侧的世界单位）= `0.847 × 0.656 × 0.6071` = **0.3374**。
         /// 原版我方场卡 = **36.4 px**（= 55.5 px/em × 0.656）；旧值 0.30 = 32.4 px（小 11.0%）。
@@ -142,6 +166,29 @@ namespace CardPresentation
         /// 原版 = **30.1 px**（= 45.9 px/em × 0.656）；旧值 `0.024756` = 2.67 px —— 小 11.3 倍，
         /// 根因是旧式 `Damage × 0.7 ÷ (5.5 × 1.54)` **漏了 `isOrthographic` 的 ×0.1**（见文件头）。</summary>
         public const float HealCapWorld = HealEmLocal * InkOverEm * CardLocalToOurs;
+
+        /// <summary>按敌我取伤害档的**大写墨高**（世界单位）。
+        /// 玩家 = <see cref="DamageCapWorld"/>；敌方 = 同一算式 × `EnemyCardLocalToOurs`
+        /// （= 原版敌方行 59.48 px/卡单位 ⇒ 比玩家小 9.3%，见 `EnemyBoardPxPerUnit`）。</summary>
+        public static float DamageCapWorldFor(bool enemy)
+        {
+            return DamageEmLocal * InkOverEm * CardLocalToOursFor(enemy);
+        }
+
+        /// <summary>同上，治疗档。</summary>
+        public static float HealCapWorldFor(bool enemy)
+        {
+            return HealEmLocal * InkOverEm * CardLocalToOursFor(enemy);
+        }
+
+        /// <summary>原版那两颗 TMP 用的**字体面** = `Pragati-Regular SDF`（`TmpFont.Face.LatinCardBody`）。
+        /// 判据 = `bundle_battleprefabs_vfxandmisc_assets_all/MonoBehaviour/MonoBehaviour_5890981294211439552`
+        /// （Damage）与 `…_-7677963611639080000`（Heal）的 `m_fontAsset` PPtr 都落到 Pragati；
+        /// 而且原版 `InkOverEm = 0.656` **就是 Pragati 的实测大写墨高/em**（We 和 `TmpFont.CapPerFontSize` 同口径）。
+        /// 🔴 **2026-10-19（B4 · `N54②` 尾巴②）**：原来 `Label.Create` 不传面 ⇒ 落到默认 CJK，
+        /// 数字（纯拉丁）被画成 Noto 字形（行盒/字形都不同）。现在建完标签立刻 `SetFace`，
+        /// **必须在 `SetCapHeight` 之前**（`CapPerFontSize` 按 `ActualFace` 取）。</summary>
+        public const TmpFont.Face Face = TmpFont.Face.LatinCardBody;
 
         /// <summary>两档的**有效**高度比 = `0.847 ÷ 0.700` = **1.21**。
         /// 断言拿它当靶（`A1213②`）；🧨 把两档改回同一套参数 ⇒ 这里仍是 1.21，而**两件建出来的
@@ -154,19 +201,20 @@ namespace CardPresentation
         /// <summary>最近一次飘字的补间（自检核对总时长用；原在 `CardFeel.LastPopTween`）。</summary>
         public static Tween LastPopTween;
 
-        /// <summary>伤害档（原版 `DamageText` 那一路）。`amount` 可正可负，显示恒带负号。</summary>
-        public static Label PopDamage(Transform parent, Vector3 worldPos, int amount)
+        /// <summary>伤害档（原版 `DamageText` 那一路）。`amount` 可正可负，显示恒带负号。
+        /// <paramref name="enemy"/> = 挨打的是**敌方**那一行（原版飘字挂在卡上 ⇒ 玩家 65.57 / 敌方 59.48 px/卡单位）。</summary>
+        public static Label PopDamage(Transform parent, Vector3 worldPos, int amount, bool enemy = false)
         {
-            return Pop(parent, worldPos, amount, false);
+            return Pop(parent, worldPos, amount, false, enemy);
         }
 
         /// <summary>治疗档（原版 `HealText` 那一路）。显示恒带正号。</summary>
-        public static Label PopHeal(Transform parent, Vector3 worldPos, int amount)
+        public static Label PopHeal(Transform parent, Vector3 worldPos, int amount, bool enemy = false)
         {
-            return Pop(parent, worldPos, amount, true);
+            return Pop(parent, worldPos, amount, true, enemy);
         }
 
-        static Label Pop(Transform parent, Vector3 worldPos, int amount, bool heal)
+        static Label Pop(Transform parent, Vector3 worldPos, int amount, bool heal, bool enemy)
         {
             string txt = (heal ? "+" : "-") + Mathf.Abs(amount);
             // 🔴 颜色照原版：两颗 TMP 的 `m_fontColor` **都是纯白 (1,1,1,1)**
@@ -176,15 +224,20 @@ namespace CardPresentation
                                    new Vector2(0.5f, 0.5f), "Pop_" + txt);
             if (lbl == null) return null;
 
+            // 🔴 字体面 = 原版 Pragati（见 `Face` 的 doc）。**必须在 SetCapHeight 之前** ——
+            //    `Label.SetCapHeight` 内部按 `ActualFace` 取 `CapPerFontSize`。
+            lbl.SetFace(Face);
+            float bridge = CardLocalToOursFor(enemy);
+
             if (heal)
             {
                 // 原版 Heal：`autoSizing=0` ⇒ **只定字号**（min/max/base 是死值，见文件头）
-                lbl.SetCapHeight(HealCapWorld);
+                lbl.SetCapHeight(HealEmLocal * InkOverEm * bridge);
                 lbl.SetWrappingMode(HealWrappingMode);
             }
             else
             {
-                lbl.SetCapHeight(DamageCapWorld);
+                lbl.SetCapHeight(DamageEmLocal * InkOverEm * bridge);
                 // 原版 Damage：`autoSizing=1` + 四格。三格 min/max/base 是**原版 fontSize 单位**，
                 // `SetAutoFitBox` 收的是**画布 px** ⇒ 用「本标签的标称 px ÷ 原版 fontSize」折算：
                 // 这样 `fontSizeMin/Max/Base` 落到我们的 `cur` 上时，三者的**比值**与原版完全一致
@@ -193,9 +246,11 @@ namespace CardPresentation
                 float k = nomPx > 0f ? nomPx / DamageFontSize : 0f;
                 if (k > 0f)
                 {
-                    // 框照原版：sizeDelta × 自己那颗 RT 的 1.54 × 3D→我们世界单位的桥
-                    float boxW = BoxW * DamageLocalScale * CardFeel.UnitsToOurs;
-                    float boxH = BoxH * DamageLocalScale * CardFeel.UnitsToOurs;
+                    // 框照原版：sizeDelta × 自己那颗 RT 的 1.54 × **卡局部→我们世界**的桥
+                    // 🔴 2026-10-19（B4）：这里原来是 `CardFeel.UnitsToOurs`（少了 desiredScale 0.36 ⇒ 框大 2.78×、
+                    //    自适应永不收缩）。判据与后果见 `BoxW/BoxH` 的 doc。
+                    float boxW = BoxW * DamageLocalScale * bridge;
+                    float boxH = BoxH * DamageLocalScale * bridge;
                     lbl.SetAutoFitBox(boxW, boxH,
                                       DamageFontSizeMin * k, DamageFontSizeMax * k, DamageFontSizeBase * k);
                     lbl.SetWrappingMode(DamageWrappingMode);    // SetAutoFitBox 顺带把折行开成 1 ⇒ 还原成原版的 0

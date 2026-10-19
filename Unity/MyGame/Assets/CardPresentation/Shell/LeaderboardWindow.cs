@@ -552,7 +552,7 @@ namespace CardPresentation
                 }
                 // `Icon`：原版无图，运行期 `ArmyIconsSO.GetArmyIcon(army)` —— 我们走同一份阵营图标表
                 var iconR = Rel(r, ArmyIconR);
-                Rect(node, DeckRuntime.FactionIcon(army), iconR, "Icon", QContent, null, true,
+                var iconQ = Rect(node, DeckRuntime.FactionIcon(army), iconR, "Icon", QContent, null, true,
                      null, ArmyClipSoft);
                 // 🔴 **2026-10-18（波 2a · W1 · 归真值）**：命中区 = **`Icon` 那颗按它自己的
                 //   `m_RaycastPadding = (-11)⁴` 外扩**（`ArmyIconPad`，**负 = 外扩**）⇒ **原版真值 137.36 × 124.59**。
@@ -572,7 +572,11 @@ namespace CardPresentation
                 //   —— **原版本来就叠** ⇒ 缺陷只在「可点区算错」，不在「重叠」本身。
                 //   ⛔ `ArmyBtnSpacing = -14f`（本文件 :177）**一个字不改**：相邻两颗**版面**叠 14px 是原版
                 //   （`Army Content` 的 `HorizontalLayoutGroup.spacing = -14.0`）⇒ 画出来的叠法照旧。
-                MenuDraw.Hit(node, "Hit", MenuDraw.PaddedRect(iconR, ArmyIconPad), QHit, () => SelectArmy(army));
+                var armyHit = MenuDraw.Hit(node, "Hit", MenuDraw.PaddedRect(iconR, ArmyIconPad), QHit, () => SelectArmy(army));
+                // 🆕 **2026-10-19（`N70` P1-8）**：原版这颗 `Army Item Button` 是 **`m_Transition = 1`(ColorTint)**；
+                //   可见件 = 子件 `Icon`、命中区是另一颗透明 quad ⇒ `TintOn` 到 `Icon` 上（缺省色 = 全库默认）。
+                var armyWb = armyHit != null ? armyHit.GetComponent<WindowButton>() : null;
+                if (armyWb != null && iconQ != null) armyWb.TintOn(iconQ);
                 ArmyButtonCount++;
             }
         }

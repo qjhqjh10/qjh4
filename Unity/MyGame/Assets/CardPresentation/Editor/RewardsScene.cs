@@ -630,7 +630,10 @@ public static class RewardsScene
         if (lb != null) { node = lb.transform; LabelRenderedWH(lb, out w, out h); }
         else if (q != null) { node = q.transform; w = q.WorldW * 108f; h = q.WorldH * 108f; }
         else return false;
-        float cx = PxOf(node.position.x), cy = PxYOf(node.position.y);
+        // 🔴 **`A1350` 第 ② 步（2026-10-19 · 第五十五会话 S3）：中心也走【乙式】**
+        //   （原来甲式 `PxOf/PxYOf`；同族 `QuadRectOf` 已是乙式 ⇒ 中心与尺寸不同源，父链缩放 / 非 16:9 会分家）。
+        var pcCtr = MenuDraw.PixelOfDesign(MenuDraw.PosInDesignSpace(node));
+        float cx = pcCtr.x, cy = pcCtr.y;
         x1 = cx - w * 0.5f; x2 = cx + w * 0.5f;
         y1 = cy - h * 0.5f; y2 = cy + h * 0.5f;
         return true;
@@ -3426,8 +3429,14 @@ public static class RewardsScene
                 var flt = FindChild(finfo, "LevelText");
                 var fatL = fat != null ? fat.GetComponentInChildren<Label>() : null;
                 var fltL = flt != null ? flt.GetComponentInChildren<Label>() : null;
-                Check(fatL != null ? fatL.Text : null, "SaimHann",
-                      "换阵营后 `ArmyText` 写成了新阵营名（原版 `ForgeSelectedArmyInfo.Initialize`）");
+                // 🔴 **2026-10-19（U5 · 批次 7）**：原版那一行是 `ForgeSelectedArmyInfo__Initialize.c:28-40` 的
+                //   `armyText.text = I2(string.Format(<键>, army))`（键族 = `Armies/<CardArmy 枚举名>`）
+                //   ⇒ 屏幕上是**本地化显示名**，⛔ 不是枚举名。改前我们写的是 `SetText("SaimHann")`（枚举名）。
+                //   下面第二条是**灭自证**：只比 `CardText.Faction` 会与实现同源 ⇒ 再独立断「它 ≠ 枚举名」。
+                Check(fatL != null ? fatL.Text : null, CardText.Faction("SaimHann"),
+                      "换阵营后 `ArmyText` 写成本地化阵营名（原版 `ForgeSelectedArmyInfo.Initialize` 的 `I2(Format(...))`）");
+                CheckTrue(fatL != null && fatL.Text != "SaimHann",
+                      "★★★★ 灭自证：`ArmyText` **不是** `CardArmy` 枚举名 `SaimHann`（改回 `SetText(a)` ⇒ 本条红）");
                 Check(fltL != null ? fltL.Text : null, "Level " + ForgeData.LevelOf("SaimHann") + "/" + ForgeData.MaxLevel,
                       "`LevelText` = `\"Level {已领}/{格数}\"`（原版 `\"{0} {1}/{2}\"` 套本地化键 `\"MainMenu/Level\"`）");
                 var rdy = ft.transform.Find("Ready for level up");
@@ -9750,8 +9759,35 @@ public static class RewardsScene
         //   🔴 A77⑬③：期望值改成**量**本窗那块 `Menu Dark Background` 的 quad 档。
         MenuDraw.CheckShadeRule(CheckTrue, "收件箱窗", inbox.ShadeHit,
                                 inbox.transform.Find("Menu Dark Background"), InboxWindow.QOverlay);
+        // 🆕 **2026-10-19（`T29` 剩余五屏）**：压暗 alpha = 原版 `m_Color (0,0,0,0.773)`（原来写 0.77）。
+        {
+            var shN = inbox.transform.Find("Menu Dark Background");
+            var shQ = shN != null ? shN.GetComponentInChildren<ImageQuad>() : null;
+            CheckTrue(shQ != null, "（前提）收件箱压暗层有 quad");
+            if (shQ != null) CheckNear(shQ.Tint.a, 0.773f, 1e-4f, "★ 收件箱压暗 alpha = 原版 **0.773**");
+        }
         Check(inbox.HasMessages, false, "单机没有消息 ⇒ 走**空态**（原版 `InboxWindow__Open.c:49` 也是这条分支）");
         var mdNode = FindChild(inbox.transform, "Message Display");
+        // 🆕 **2026-10-19（`T29` 剩余五屏 · 收件箱底纹层序）**：原版 `Content` 的子件序是
+        //   红底 `Generic Window Red Background Big` → … → `Message Display` ⇒ **半透明显示板必须压在红底之上**。
+        //   改前两者同为 3006 且 z 都是 0（同队列同 z ⇒ 谁盖谁不确定，`CLAUDE.md` §三 那条）。
+        //   期望值 = 档位**字面量** 3006 / 3007（⛔ 不读 `InboxWindow.QDisplayBg` —— 那是被测实现）。
+        //   🧨 改坏法：把 `Shell/InboxWindow.cs` 那一句的 `QDisplayBg` 改回 `QPanel` ⇒ 后两条红。
+        {
+            var redN = FindChild(inbox.transform, "Generic Window Red Background Big");
+            var redIq = redN != null ? redN.GetComponentInChildren<ImageQuad>() : null;
+            var mdBgN = mdNode != null ? FindChild(mdNode, "Background") : null;
+            var mdIq = mdBgN != null ? mdBgN.GetComponentInChildren<ImageQuad>() : null;
+            CheckTrue(redIq != null && mdIq != null, "（前提）红底与 `Message Display/Background` 两层都在");
+            if (redIq != null && mdIq != null)
+            {
+                Check(redIq.RenderQueue, 3006, "红底 `Generic Window Red Background Big` = 3006");
+                Check(mdIq.RenderQueue, 3007,
+                      "`Message Display/Background` = **3007**（红底之上、本窗内容档 3010 之下）");
+                CheckTrue(mdIq.RenderQueue > redIq.RenderQueue,
+                          "★ 半透明显示板**压在红底之上**（原版靠兄弟序；同队列同 z 会随机翻盖）");
+            }
+        }
         var warnNode = FindChild(inbox.transform, "No News Warning");
         CheckTrue(mdNode != null && !mdNode.gameObject.activeSelf, "空态下 `Message Display` **是关的**");
         CheckTrue(warnNode != null && warnNode.gameObject.activeSelf, "空态下 `No News Warning` **是开的**");
@@ -10532,6 +10568,17 @@ public static class RewardsScene
                     // 🔴 MB 原文 `closeOnESC = 0` ⇒ **ESC 不关这扇窗**。⚠️ 派单里写的是「ESC ⇒ 关窗」，
                     //    与 MB 实读**相反** ⇒ 这里**按原版**（详见 `MissionRerollPopup.cs` 文件头 ④ 与报告）。
                     Check(pop.closeOnEsc, false, "`closeOnESC` = **0**（MB 原文 —— ESC 不关这扇窗）");
+                    // 🆕 **2026-10-19（`P2-7`）**：正文行距 —— 原版 `ReRollPopup Variant/Window/MessageText`
+                    //   的 `m_lineSpacing = 15`（prefab 实读）。🧨 改坏法：删掉 `MissionRerollPopup` 里
+                    //   `MenuDraw.SetLineSpacing(msg, 15f)` 那一句 ⇒ 这条红（TMP 出厂默认 0）。
+                    {
+                        var mt = pop.MsgNode != null
+                               ? pop.MsgNode.GetComponentInChildren<TMPro.TMP_Text>(true) : null;
+                        CheckTrue(mt != null, "（前提）`MessageText` 建出来了");
+                        if (mt != null)
+                            CheckNear(mt.lineSpacing, 15f, 1e-4f,
+                                      "★ `MessageText` 行距 = 原版 `m_lineSpacing` **15**（Shell 文本层补的那一档）");
+                    }
 
                     // ---- 逐节点几何（全部是 §A23 那张表的实测数，**字面量**）----
                     var darkN = FindChild(pv, "Menu Dark Background");

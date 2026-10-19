@@ -855,6 +855,13 @@ namespace CardPresentation
             }
             if (string.IsNullOrEmpty(body))
                 return "<b>" + icon + title + "</b>\n" + Loc.T("Tips/Trait/NoRulebookEntry");
+            // 🆕 **2026-10-19（`N71`）**：正文里的官方记号要渲染 —— `trait_tips.json` 的 `bodyZh/bodyEn`
+            //   是从官方 `CardTraitDescription/*` **原样抄**下来的，值里可能带 `[[枚举名]]`（现读 **1 条**：
+            //   `concussion` 的 `[[stun]]`；官方 `CardTraitDescription/*` 一共 4 条带记号）。
+            //   ⛔ 直接印会出 `[[stun]]` 原文。判据/渲染层 → `Core/CardIcons.RewriteMarks` 的 doc
+            //   （卡面/任务正文走的就是同一条；先例 `Shell/DailyData.cs:183`）。
+            //   ⚠️ 只在**真带记号**时过一遍（`HasOfficialMarks` 早退）⇒ 其余 60 多条正文逐字节不变。
+            if (CardIcons.HasOfficialMarks(body)) body = CardIcons.RewriteMarks(body, useZh);
             return "<b>" + icon + title + "</b>\n" + body;
         }
     }

@@ -75,8 +75,10 @@ namespace CardPresentation.Net
             switch (kind)
             {
                 case AiActionKind.PlayCard:
-                    // ⚠️ **用手牌下标、不用实例 id**：实例号按座位顺序发（`NextInstanceId++`）
-                    //    ⇒ 两端「自己 = 0 号位」时**同一条牌的实例号不一样**（`handId` 在这里没用）。
+                    // ⚠️ **用手牌下标、不用实例 id**：实例号是**进程内自增**的（`NextInstanceId++` ——
+                    //    前面打过几局就走到哪儿了），**两台之间根本不可比** ⇒ `handId` 在这里没用。
+                    //    ⚠️ 2026-10-19（`A1114`(a) 同族）就地订正：原来这里写「两端『自己 = 0 号位』时实例号不一样」
+                    //    —— 那是**镜像时代**的理由，**已作废**（座位从 2026-09-26 起是绝对的）；结论不变。
                     code = RuleCore.PlayCard(ctx, actorSeat, m.handIdx, m.slot);
                     break;
                 case AiActionKind.AttackMelee:

@@ -108,5 +108,47 @@ namespace RuleEngine
             }
             return null;
         }
+
+        // ==========================================================================================
+        //  🆕 2026-10-19（第五十五会话 · 引擎线 `E12` · 账 `A2142`）：**天赋名 → id** 的真值兜底表
+        // ==========================================================================================
+        // 为什么要有它：上面 `Get(cardId)` 那张表只覆盖「本卡自己在真值快照里」的那批；
+        // 快照之外的新卡走 `RuleCore.SpawnTalents` 的最后兜底 —— `CreatePool.FindByName(卡面天赋名)`，
+        // **按显示名**查，卡一改名就静默失配（与 `SortByName` 同一族）。
+        // 新表来自 `cards_engine.json` 顶层的 `talentNameIds`（生成器 `gen_cards_engine.py` 从
+        // `cardAbilities[trigger==46].abilityLogic[0].summonCriteria.unitsToSummon` 的**对象引用**翻出来的，
+        // 判据 = `CardScript__GetTalentCard.c`）⇒ 兜底也变成**按 id 取**。
+        //
+        // 键 = `CreatePool.Norm` 归一后的名字（**两侧同一份归一**：生成器里的 `_norm_talent_key` 逐字照它）。
+        // ⚠️ 装载在 `Data/CardDatabase.Parse`（`JsonUtility` **不支持字典** ⇒ 文件里是 `[{n,id}]`）。
+        static Dictionary<string, string> _nameMap = null;
+
+        /// <summary>装载「归一名字 → id」表（`CardDatabase.Parse` 调；重复调以最后一次为准）。</summary>
+        public static void SetNameMap(IEnumerable<KeyValuePair<string, string>> pairs)
+        {
+            if (pairs == null) return;
+            var m = new Dictionary<string, string>(System.StringComparer.Ordinal);
+            foreach (var kv in pairs)
+                if (!string.IsNullOrEmpty(kv.Key) && !string.IsNullOrEmpty(kv.Value))
+                    m[kv.Key] = kv.Value;
+            _nameMap = m.Count > 0 ? m : null;
+        }
+
+        /// <summary>表里有几个键（0 = 没载到 / 表是空的 —— 别当成「原版没天赋」）。</summary>
+        public static int NameMapKeys { get { return _nameMap == null ? 0 : _nameMap.Count; } }
+
+        /// <summary>
+        /// **按卡面天赋名查真值表**：名字归一到 `CreatePool.Norm` 的同一形态 → id → 池子里的卡。
+        /// 返回 `null` = 表里没有这个名字（调用方退回 `CreatePool.FindByName` 那条老路）。
+        /// ⚠️ 歧义键在生成期已经**整条丢掉**（⛔ 不猜一张顶上去）。
+        /// </summary>
+        public static CardDef ResolveByTalentName(IReadOnlyList<CardDef> pool, string talentName)
+        {
+            if (_nameMap == null || pool == null || string.IsNullOrEmpty(talentName)) return null;
+            string key = CreatePool.Norm(talentName);
+            string id;
+            if (string.IsNullOrEmpty(key) || !_nameMap.TryGetValue(key, out id)) return null;
+            return Find(pool, id);
+        }
     }
 }

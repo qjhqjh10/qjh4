@@ -483,6 +483,11 @@ namespace RuleEngine
                 {
                     string t = w.Trim().Trim(',', '.').ToLowerInvariant();
                     if (t.Length == 0 || Ignorable(t)) continue;
+                    // 🆕 2026-10-19（第五十五会话 E10 · `SW38`）：**督军**这一维。
+                    //   卡面写法 `Your Warlord has Armour 2`（官方英文表 `Card_Description/SW38`）。
+                    //   ⛔ 别塞进 `KindWord` —— `IsKindWord("warlord")` 为假，会变成静默空过
+                    //   （理由见 `CardCriteria.WarlordOnly` 的 doc）。
+                    if (t == "warlord" || t == "warlords") { c.WarlordOnly = true; continue; }
                     if (CreatePool.IsKindWord(t)) { inSeg.Add(t); continue; }
                     string kw = KeywordTable.Normalize(t);
                     if (!string.IsNullOrEmpty(kw)) { c.Keyword = kw; continue; }

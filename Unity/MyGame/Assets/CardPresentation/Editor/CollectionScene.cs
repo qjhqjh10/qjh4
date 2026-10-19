@@ -569,7 +569,14 @@ public static class CollectionScene
             }
             else if (q != null) { node = q.transform; w = q.WorldW * 108f; h = q.WorldH * 108f; }
             else return false;
-            float cx = PxOf(node.position.x), cy = PxYOf(node.position.y);
+            // 🔴 **`A1350` 第 ② 步（2026-10-19 · 第五十五会话 S3）：中心也走【乙式】。**
+            //   原来是甲式 `PxOf/PxYOf`（裸 `position`×108），而同族 `QuadRectOf` 早已收口到
+            //   `MenuDraw.QuadRectPx`（乙式：先除父级缩放、x 走实测 `VisibleWidth`）⇒ **中心与尺寸不同源**
+            //   （父链带缩放 / 非 16:9 时会分家；今天两者都被钉死 ⇒ 潜伏）。判据 → 账 `A1350` 第 ② 步。
+            //   ⚠️ **尺寸项 (`w/h`) 不动**：两式在**长度**换算上都用 ×108 / 实测斜率那一对，
+            //      W6c 已逐条核过等价性；本步只收**中心**那一个点（同 `A1350` 的措辞）。
+            var pcCtr = MenuDraw.PixelOfDesign(MenuDraw.PosInDesignSpace(node));
+            float cx = pcCtr.x, cy = pcCtr.y;
             x1 = cx - w * 0.5f; x2 = cx + w * 0.5f;
             y1 = cy - h * 0.5f; y2 = cy + h * 0.5f;
             return true;
@@ -728,6 +735,13 @@ public static class CollectionScene
         {
             CheckTrue(scaleRoot != null && basis != null && measure != null, "（前提）" + what + "：夹具的件齐了");
             if (scaleRoot == null || basis == null || measure == null) return;
+            // 🔴 **`A1390`（2026-10-19 · 第五十五会话 S3）：写盘闸由**本读口自己压**。**
+            //   本函数两态都要 `SmallScreenUI.Set(...)`，而它**会落 `PlayerPrefs`**（= 改玩家的真设置）。
+            //   原来靠「调用点记得先压」—— 那是**隐式契约**（新调用点一忘就写盘，而且没有任何报错）。
+            //   ⇒ 在这里存一份、压成 `true`、收尾放回（`PersistOverride` 只改「写不写盘」、不改生效值）。
+            //   形状与 `Editor/BattleScene.cs` 开头压 `AutoZoom` / `SmallScreenUI` 那两段同源。
+            bool smWasPersist = SmallScreenUI.PersistOverride;
+            SmallScreenUI.PersistOverride = true;
             SmallScreenUI.Set(false);                              // 态一：开关**关**（出厂态）
             Vector3 p1 = measure();
             Vector3 b1 = basis.position;                           // 态一的基准位置 = 它的**设计**位置（k == 1）
@@ -762,6 +776,7 @@ public static class CollectionScene
             scaleRoot.transform.localScale = Vector3.one;
             SmallScreenUI.Set(false);
             CheckNear(measure().x, p1.x, 0.02f, "（收尾）" + what + "：那一级放回 1 之后位置也回到态一那一份");
+            SmallScreenUI.PersistOverride = smWasPersist;           // `A1390`：写盘闸放回进场那一档
         }
 
         static void Shoot(string file, bool allowBlank = false)
@@ -2298,6 +2313,31 @@ public static class CollectionScene
                     Check(DeckInfoPopup.ListCols, 3,
                           "卡列表列数 = **3** = floor((1140 − 15 − 15 + 11) ÷ 371)（照 GridLayoutGroup 那套算）");
                     CheckTrue(pop.Rows.Count > 0, $"卡组内容画了 {pop.Rows.Count} 行");
+                    // 🔴 **2026-10-19（自检断言线 S2 · `A1545`）**：上面 `ListCols` 是**常量公式**（= 自证）
+                    //    ⇒ 这里从**实际摆出来的行**量列数（每列一个不同的 x 中心），并断最后一列右缘不越 `Content`。
+                    //    加一张防御卡（31 行 ⇒ ⌈31/10⌉ = 4 列）时**先在这里红**，而不是只留下「第 4 列被裁」的观感。
+                    {
+                        var colXs = new List<float>();
+                        foreach (var rr in pop.Rows)
+                        {
+                            float cx = PxOf(rr.position.x);
+                            bool seen = false;
+                            foreach (var x in colXs) if (Mathf.Abs(x - cx) < 0.5f) { seen = true; break; }
+                            if (!seen) colXs.Add(cx);
+                        }
+                        int wantCols = Mathf.CeilToInt(pop.Rows.Count / (float)DeckInfoPopup.ListRowCap);
+                        Check(colXs.Count, wantCols,
+                              $"★ A1545：**实际列数** = ⌈{pop.Rows.Count} 行 ÷ 每列 {DeckInfoPopup.ListRowCap}⌉ = **{wantCols}**"
+                            + $"（从行心的不同 x 量出来 {colXs.Count} 列）"
+                            + "｜🧨 夹具再加一张卡（31 行 ⇒ 4 列）⇒ 这条先红（不是只留下「第 4 列被裁」的观感）");
+                        float maxRight = float.MinValue;
+                        foreach (var rr in pop.Rows)
+                            maxRight = Mathf.Max(maxRight, PxOf(rr.position.x) + DeckInfoPopup.RowW * 0.5f);
+                        CheckTrue(maxRight <= DeckInfoPopup.PanelR + 0.5f,
+                                  $"★ A1545：最后一列右缘 **{maxRight:F1}** ≤ `Content` 右缘 {DeckInfoPopup.PanelR:F0}"
+                                + "（超了就是「第 4 列溢出 / 被裁」那一档）"
+                                + "｜🧨 把列宽 / 间距改宽 ⇒ 红");
+                    }
                     var r0 = pop.Rows.Count > 0 ? pop.Rows[0] : null;
                     CheckNear(r0 != null ? PxOf(r0.position.x) : -1f, 854f, 1f,
                               "第 1 行中心 x = **854**（Info Panel 左 659 + pad 15 + 180）");
@@ -4275,7 +4315,13 @@ public static class CollectionScene
                                 + "（= 该处的**乙式**读口（`MenuDraw.UnionQuadRectPx`，先除回父级缩放）与"
                                 + "**甲式**（裸 `position`×108）逐位相同那一档；⚠️ 条红了该改的是**期望值口径**，"
                                 + "⛔ 不是把实现改回甲式）");
-                        var pc = LayoutSpace.ToPixel(bg.position);
+                        // 🔴 **`A1392`（2026-10-19 · 第五十五会话 S3）：中心也走【乙式】** ——
+                        //   这一行原来是甲式（裸 `bg.position` → `LayoutSpace.ToPixel`，即 `×108`），
+                        //   而同段四沿已经走乙式（`MenuDraw.UnionQuadRectPx` → `PosInDesignSpace`，**先除父级缩放**）
+                        //   ⇒ 父链一旦真带缩放，**中心与四沿分家**（今天 aspect + 父链都被钉死 ⇒ 潜伏）。
+                        //   判据 = `A1350` 那条「矩形读口只留一份」：中心/四沿**必须同一个口**。
+                        //   ⚠️ 父链单位缩放下两式逐位相同（差 ≤2.5e-4 px）⇒ 这条不改变今天的读数。
+                        var pc = MenuDraw.PixelOfDesign(MenuDraw.PosInDesignSpace(bg));
                         CheckNear(pc.x, 157.98f, 1.5f,
                                   "★ 底图中心 x = **69.42..246.54 的中点**（= `Army Selector` 自己那一格）");
                         CheckNear(pc.y, 531.175f, 1.5f, "…中心 y = **182.18..880.17 的中点**");
@@ -6339,6 +6385,17 @@ public static class CollectionScene
                                 Check(idw.placement, WindowsPlacement.Popup, "窗参 `windowsPlacement` = **15**（Popup）");
                                 CheckTrue(idw.closeOnEsc, "窗参 `closeOnESC` = **1**");
                                 CheckNear(idw.extraScaleSmallScreen, 1f, 1e-6f, "窗参 `extraScaleSmallScreen` = **1.0**");
+                                // 🆕 **2026-10-19（`P2-7`）**：原版 `Card Display/FlavourTextBG/LoreText` 的
+                                //   `m_lineSpacing = 5`（prefab 实读）。🧨 改坏法：删掉 `ItemDisplayWindow`
+                                //   里 `MenuDraw.SetLineSpacing(_lore, 5f)` 那一句 ⇒ 这条红（TMP 默认 0）。
+                                {
+                                    var lt = idw.LoreLabel != null
+                                           ? idw.LoreLabel.GetComponentInChildren<TMPro.TMP_Text>(true) : null;
+                                    CheckTrue(lt != null, "（前提）`LoreText` 建出来了");
+                                    if (lt != null)
+                                        CheckNear(lt.lineSpacing, 5f, 1e-4f,
+                                                  "★ `LoreText` 行距 = 原版 `m_lineSpacing` **5**");
+                                }
 
                                 // ---- 标题 = 官方名 `Cardbacks/<SO 名>`（独立读 official_names.json）----
                                 string expTitle = null;
@@ -6528,6 +6585,23 @@ public static class CollectionScene
                 if (c0 == null) { CheckTrue(false, "（前提）第 0 格卡组建出来了 —— 下面四条的前提"); }
                 else
                 {
+                    // 🆕 **2026-10-19（`N70` P0-5）**：卡组格悬停 = **整格 `localScale` 1.0 ↔ 1.05**
+                    //   （原版 `CollectionDeck.HoverHighlight`，常数 `DAT_1834b3254 = 1.05`、**瞬切无补间**）。
+                    //   🧨 改坏法：删掉 `MenuDraw.DeckCell` 里那两句 `onEnter/onExit` ⇒ 下面两条红。
+                    {
+                        var dHitN = FindChild(c0, "Hit");
+                        var dWb = dHitN != null ? dHitN.GetComponent<WindowButton>() : null;
+                        CheckTrue(dWb != null && dWb.onEnter != null && dWb.onExit != null,
+                                  "★ 卡组格接了悬停/离开（原版 `CollectionDeck.HoverHighlight`）");
+                        if (dWb != null && dWb.onEnter != null && dWb.onExit != null)
+                        {
+                            dWb.onEnter();
+                            CheckNear(c0.localScale.x, 1.05f, 1e-4f,
+                                      "★ 悬停 ⇒ 整格 **×1.05**（原版 `localScale × DAT_1834b3254`）");
+                            dWb.onExit();
+                            CheckNear(c0.localScale.x, 1f, 1e-4f, "★ 离开 ⇒ 回到 **1.0**");
+                        }
+                    }
                     // 🔴 **2026-10-11（A1507）改了节点名**：卡格主图现在是 **`Deck Image`**（督军立绘），
                     //   只有「取不到督军立绘」才退回 `CardBack` ⇒ 两个名字都要认（缺一就漏检）。
                     var cb = FindChild(c0, "Deck Image") ?? FindChild(c0, "CardBack");
@@ -7039,6 +7113,27 @@ public static class CollectionScene
                 var hit0 = cp != null ? FindChild(cp, "CardHit_0") : null;
                 var hb0 = hit0 != null ? hit0.GetComponent<WindowButton>() : null;
                 CheckTrue(hb0 != null, "卡池第 1 格有点击区");
+                // 🆕 **2026-10-19（`N70` P0-5）**：卡牌格悬停 = 原版 `Card2DController.ToggleHighlight`（alpha 0.2s）。
+                //   我们落在 `CardView.SetHoverHighlight`（状态环 `_Outline.a` 补到 1/0）。
+                //   🧨 改坏法：删掉 `AttachCardHover` 那两句 ⇒ `onEnter` 为空 ⇒ 第一条红；
+                //      删掉 `SetHoverHighlight` 里的 `ApplyRimColor` ⇒ 目标 alpha 不动 ⇒ 第二条红。
+                if (hb0 != null)
+                {
+                    CheckTrue(hb0.onEnter != null && hb0.onExit != null,
+                              "★ 卡格接了悬停/离开（原版 `Card2DController.ToggleHighlight(bool)`）");
+                    var cv0 = cp != null ? FindChild(cp, "CollectionCard_0") : null;
+                    var view0 = cv0 != null ? cv0.GetComponent<CardView>() : null;
+                    CheckTrue(view0 != null, "（前提）第 1 格是 `CardView`（悬停那条判据的载体）");
+                    if (view0 != null && hb0.onEnter != null && hb0.onExit != null)
+                    {
+                        hb0.onEnter();
+                        CheckTrue(view0.RimTargetForTest.a > 0f,
+                                  "★ 悬停 ⇒ 描边目标 **alpha > 0**（原版 `ToggleHighlight(true)` 把 alpha 补到 1）");
+                        hb0.onExit();
+                        CheckTrue(view0.RimTargetForTest.a <= 1e-4f,
+                                  "★ 离开 ⇒ 目标 **alpha = 0**（原版 `ToggleHighlight(false)`）");
+                    }
+                }
                 if (hb0 != null)
                 {
                     hb0.Click();
@@ -9334,6 +9429,10 @@ public static class CollectionScene
             //   ⛔ **别再说成「修好了一个带电的潜伏缺陷」**；真带电的是**非根基准**那一族
             //   （`Shell/PracticeModePopup.cs:494/502/792/796/853/924/1238`）。
             //   ⚠️ 本夹具（M 加在**窗根的父级** + 态二**重建**）照的正是**那一族**的形状（判据 → 文件头 ①②③）。
+            // 🔴 **`A1391`（2026-10-19 · 第五十五会话 S3）**：进场先记下写盘闸的原值，收尾按它放回 ——
+            //   ⛔ 不许收尾硬写 `false`（那是把「进场档」当成常量；`Run` 里若另有谁把它设成 `true`，
+            //   这里就替别人把闸抬了）。判据 = 账 `A1391`。
+            bool ssPersistWas = SmallScreenUI.PersistOverride;
             SmallScreenUI.PersistOverride = true;      // ⛔ 自检不许动玩家的真设置
             Section("A327 · A306②：`DeckInfoPopup.Local3` 的落位（关 = 逐值不变 / 开 = 设计点 × M）");
             {
@@ -9532,7 +9631,7 @@ public static class CollectionScene
                     Object.DestroyImmediate(probeD);
                 }
                 SmallScreenUI.Set(false);
-                SmallScreenUI.PersistOverride = false;
+                SmallScreenUI.PersistOverride = ssPersistWas;   // `A1391`：放回**进场档**（⛔ 不再硬写 false）
                 CheckTrue(!SmallScreenUI.Enabled, "（收尾）A327：自检跑完把开关放回**出厂值 关**");
             }
 

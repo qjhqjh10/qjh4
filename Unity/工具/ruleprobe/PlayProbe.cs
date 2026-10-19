@@ -175,22 +175,38 @@ class PlayProbe
 
     /// <summary>`play &lt;id|卡名&gt;` 单卡 · `play all [dump &lt;out.tsv&gt;] [pf &lt;out.txt&gt;]` 全池 ·
     /// 🆕 `play check [&lt;pf.txt&gt;]`（`A1431` 第二笔：**结算层对拍** —— 见 <see cref="Check"/>）。
+    /// 🆕 `play &lt;id&gt; preset &lt;spec&gt;`（`A2009`：**夹具预置局面**，见 <see cref="PresetSpec"/>）——
+    ///   ⛔ 不传 `preset` 时夹具**一个字节都不变**（全池指纹不受影响）。
     /// 返回**退出码**（判据见 <see cref="RunOne"/> 尾部 · <see cref="Sweep"/> 尾部 · <see cref="Check"/> 尾部）。</summary>
-    public static int Run(List<CardDef> pool, string key, string dumpPath, string pfPath = null, string basePath = null)
+    public static int Run(List<CardDef> pool, string key, string dumpPath, string pfPath = null,
+                          string basePath = null, string presetSpec = null)
     {
         if (pool == null || pool.Count == 0) { Console.Error.WriteLine("!! 卡池是空的"); return 2; }
         if (string.IsNullOrEmpty(key))
         {
-            Console.Error.WriteLine("!! 用法：play <id|卡名> | play all [dump <out.tsv>] [pf <out.txt>] | play check [<pf.txt>]"
+            Console.Error.WriteLine("!! 用法：play <id|卡名> [preset <spec>] | play all [dump <out.tsv>] [pf <out.txt>]"
+                                    + " | play check [<pf.txt>]"
                                     + "（`unit` 档的单卡输出**带事件电池**那一节，见 `A1431` 第三笔）");
             return 2;
+        }
+        PresetSpec preset = null;
+        if (!string.IsNullOrEmpty(presetSpec))
+        {
+            try { preset = PresetSpec.Parse(presetSpec); }
+            catch (Exception ex)
+            {
+                Console.Error.WriteLine("!! `preset` 写法不对：" + ex.Message);
+                Console.Error.WriteLine("   用法：preset dead[=N][:Subtype][,enemyhand=N][,chipenemy=1]"
+                                        + " —— 例 `preset dead=1:Infantry` / `preset enemyhand=2` / `preset chipenemy=1`");
+                return 2;
+            }
         }
         if (string.Equals(key, "all", StringComparison.OrdinalIgnoreCase)) return Sweep(pool, dumpPath, pfPath);
         if (string.Equals(key, "check", StringComparison.OrdinalIgnoreCase)) return Check(pool, basePath);
 
         var hit = Find(pool, key);
         if (hit == null) return 2;
-        var r = Measure(pool, hit);
+        var r = Measure(pool, hit, preset);
         Print(r);
         // 🆕 `A1431` 第三笔：**单卡也要能看事件电池**（否则「这一张到底有没有被验到」得整池跑一遍才知道）。
         EventReading er = null;
@@ -297,11 +313,117 @@ class PlayProbe
     /// 这样「相邻」族与「督军旁边的」族都有活目标。</summary>
     static readonly int[] DeploySlots = { 3, 6, 7 };
 
+    // ==================================================================
+    //  🆕 `A2009`：夹具「预置局面」（默认关闭 —— 只有 `play <id> preset …` 才生效）
+    // ==================================================================
+    //
+    // 🔴 **它治的是哪一条**：`A2009` 的 9 个 `DoChooseCard` 分支里，`deploy`（`SOR42`）与
+    //   `return`（`UM61`）的候选域是**墓地**（`EffectResolver.DeadCandidates` → `BattleContext.DeadUnits`），
+    //   而默认夹具跑完摆场后**弃牌堆/墓地都是空的** ⇒ 候选恒空、那两支**结构上验不到**。
+    //   `shuffle`（`ASH82`）要的是**对手手牌里有牌**：默认夹具里 P1 手牌恰好还剩垫牌，但那是
+    //   **巧合**（P1 只打出 3 张、发 4 张）—— 显式预置才让这条读数**可复现**。
+    //
+    // ⚠️ **这是【量具干预】**（与 `FixtureFaith` 同一档）：预置出来的 `FIX_DEAD*` / `FIX_EH*`
+    //   **不在卡池里**，也不代表原版开局有牌。它只让「候选非空之后，选牌→动作这一跳跑不跑得通」
+    //   照得到；⛔ 别把读数当「原版开局墓地有 1 张」。
+    //
+    // **预置的形状照引擎自己的账**（`BattleContext.TakeFromGraveyard` 的注释：`Discard` 与
+    //   `DeadUnits` **必须一起**）⇒ 一份实例进 `Discard`、一条 `DeadUnit{Owner,DeathTurn}` 进表。
+    //   `DeathTurn = ctx.Turn` ⇒ `since_last_turn` 窗口（`DeathTurn >= LastTurnStartMark`）也满足。
+    sealed class PresetSpec
+    {
+        public int Dead;                 // 往 P0 墓地预置几张「友方部队」
+        public string DeadSubtype;       // null = Infantry（`SOR42` 只要求 troop；`UM61` 要求 Infantry）
+        public int EnemyHand;            // 往 P1 手牌预置几张垫牌
+        public int ChipEnemy;            // 把 P1 的**非督军**单位各扣 `FixtureChip` 血（1 = 开；`A2001` 的 UM2 要「受伤的敌人」）
+
+        public bool Any { get { return Dead > 0 || EnemyHand > 0 || ChipEnemy > 0; } }
+
+        /// <summary>`dead[=N][:Subtype][,enemyhand=N][,chipenemy=1]`。⛔ 认不出的 token 一律**抛错**（不静默忽略 ——
+        /// 静默忽略会让你以为预置了、其实没有，正是本仓红线里「静默失败」那一类）。</summary>
+        public static PresetSpec Parse(string s)
+        {
+            var ps = new PresetSpec();
+            foreach (var raw in (s ?? "").Split(','))
+            {
+                string t = raw.Trim();
+                if (t.Length == 0) continue;
+                string head = t, rest = "";
+                int eq = t.IndexOf('=');
+                if (eq >= 0) { head = t.Substring(0, eq).Trim(); rest = t.Substring(eq + 1).Trim(); }
+                else
+                {
+                    int c0 = t.IndexOf(':');
+                    if (c0 >= 0) { head = t.Substring(0, c0).Trim(); rest = t.Substring(c0 + 1).Trim(); }
+                }
+                string sub = null, val = rest;
+                int colon = rest.IndexOf(':');
+                if (colon >= 0)
+                {
+                    val = rest.Substring(0, colon).Trim();
+                    sub = rest.Substring(colon + 1).Trim();
+                }
+                switch (head.ToLowerInvariant())
+                {
+                    case "dead":
+                        int dn;
+                        if (string.IsNullOrEmpty(val)) { ps.Dead = 1; }
+                        else if (int.TryParse(val, out dn)) { ps.Dead = dn; }
+                        else { ps.Dead = 1; sub = sub ?? val; }   // `dead:Infantry` 那种写法
+                        if (!string.IsNullOrEmpty(sub)) ps.DeadSubtype = sub;
+                        break;
+                    case "enemyhand":
+                        ps.EnemyHand = string.IsNullOrEmpty(val) ? 1 : int.Parse(val);
+                        break;
+                    case "chipenemy":
+                        ps.ChipEnemy = string.IsNullOrEmpty(val) ? 1 : int.Parse(val);
+                        break;
+                    default:
+                        throw new ArgumentException("不认识的预置项 `" + raw + "`（只认 dead / enemyhand / chipenemy）");
+                }
+            }
+            if (ps.Dead < 0 || ps.EnemyHand < 0) throw new ArgumentException("张数不能为负");
+            return ps;
+        }
+    }
+
+    /// <summary>把预置局面写进夹具（**调用点在 `BuildFixture` 取快照之前** ⇒ 预置本身不出现在「变化逐条」里）。</summary>
+    static void ApplyPreset(BattleContext ctx, PresetSpec ps)
+    {
+        if (ctx == null || ps == null || !ps.Any) return;
+        for (int i = 0; i < ps.Dead; i++)
+        {
+            var def = Fix("FIX_DEAD" + i, 2, 3, 0, ps.DeadSubtype ?? "Infantry");
+            var inst = ctx.NewInstance(def);
+            ctx.Players[0].Discard.Add(inst);
+            ctx.DeadUnits.Add(new DeadUnit { Card = def, Owner = 0, DeathTurn = ctx.Turn });
+        }
+        for (int i = 0; i < ps.EnemyHand; i++)
+        {
+            var def = Fix("FIX_EH" + i, 1, 2, 0, "Infantry");
+            var inst = ctx.NewInstance(def);
+            ctx.Players[1].Hand.Add(inst);
+            RuleCore.SetupCardInHand(ctx, 1, inst);
+        }
+        // `A2001` 的 `UM2 Octavio Infiltrator`（`Rally: Give Blind to a **damaged** enemy`）：
+        //   默认夹具里敌人**全是满血** ⇒ 没有合法目标。这里走引擎自己的 `ApplyDamage`（与 P0 那三张
+        //   同一个口，⛔ 不手改 `Health`），只打**非督军**单位（督军 30 血，扣 2 不改变任何判据）。
+        if (ps.ChipEnemy > 0)
+            for (int s = 0; s < BoardSpec.Size; s++)
+            {
+                var u = ctx.Players[1].Board[s];
+                if (u != null && !u.IsWarlord) RuleCore.ApplyDamage(ctx, u, FixtureChip, "夹具预置扣血（敌方）");
+            }
+        ctx.Log($"[夹具预置] 墓地 P0 +{ps.Dead} 张（{(ps.DeadSubtype ?? "Infantry")}）"
+              + $" · 手牌 P1 +{ps.EnemyHand} 张 · 敌方扣血 {(ps.ChipEnemy > 0 ? "开" : "关")}");
+    }
+
     /// <summary>建一局夹具对战。`warlordOverride` 非 null 时用它当 P0 督军（督军档的对照局用）。
     /// 🔴 `injected`（`A1572`）：被测卡**是**靠补手牌才进得了手牌的那种（= 量具干预过）——
-    ///    两族：临时卡 / 防御卡，见下面那一段注释。</summary>
+    ///    两族：临时卡 / 防御卡，见下面那一段注释。
+    /// 🆕 `A2009`：`preset` 非 null 时在建场末尾**预置墓地 / 敌方手牌**（见 <see cref="PresetSpec"/>）。</summary>
     static BattleContext BuildFixture(List<CardDef> pool, CardDef target, CardDef warlordOverride,
-                                      out int handIdx, out bool injected)
+                                      out int handIdx, out bool injected, PresetSpec preset = null)
     {
         var vars = GameplayVariables.Classic.Clone();
         vars.startingHand = FixtureHand;      // ⚠️ 只改「发几张」—— 别的一律照 `Classic`
@@ -357,6 +479,9 @@ class PlayProbe
         // 🔴 **我方督军也扣 2 点** —— 不扣的话 `Heal 4 to your Warlord`（`SW60`）/`Heal N to your Warlord`
         //    那一族**满血治疗 = 什么都不发生**，会被整族误列成候选（与上面三张同一个道理）。
         RuleCore.ApplyDamage(ctx, ctx.Players[0].Warlord, FixtureChip, "夹具扣血");
+        // 🆕 `A2009`：**预置局面**（默认 `preset == null` ⇒ 一个字节都不做）。
+        //   ⚠️ 位置 = 取快照之前、`handIdx` 计算之前 —— 预置不改 P0 手牌 ⇒ 被测卡的下标不受影响。
+        ApplyPreset(ctx, preset);
         handIdx = target == null ? -1 : HandIdx(ctx, 0, target);
         // 🔴 **被测卡没活到这一手时，按引擎自己的形状补进手牌**（`A1431` 实测：不补会漏掉 **137 张**）：
         //   · **临时卡（`ephemeral`，98 张 `tactic`）** —— `RuleCore.EndTurn:1340` 的 `SweepEphemeral`
@@ -382,15 +507,15 @@ class PlayProbe
     //  单卡读数
     // ==================================================================
 
-    static Reading Measure(List<CardDef> pool, CardDef card)
+    static Reading Measure(List<CardDef> pool, CardDef card, PresetSpec preset = null)
     {
         var r = new Reading { C = card };
         try
         {
             r.FaceHasOps = FaceHasOps(card);
             r.Bucket = Bucket(card);
-            if (card.Type == "hero") MeasureHero(pool, card, r);
-            else MeasurePlay(pool, card, r);
+            if (card.Type == "hero") MeasureHero(pool, card, r, preset);
+            else MeasurePlay(pool, card, r, preset);
         }
         catch (Exception ex)
         {
@@ -401,11 +526,11 @@ class PlayProbe
         return r;
     }
 
-    static void MeasurePlay(List<CardDef> pool, CardDef card, Reading r)
+    static void MeasurePlay(List<CardDef> pool, CardDef card, Reading r, PresetSpec preset = null)
     {
         int handIdx;
         bool injected;
-        var ctx = BuildFixture(pool, card, null, out handIdx, out injected);
+        var ctx = BuildFixture(pool, card, null, out handIdx, out injected, preset);
         r.Injected = injected;
         if (handIdx < 0)
         {
@@ -526,14 +651,14 @@ class PlayProbe
     /// ⇒ 改测「**这位督军在场上、过完一个来回**局面的实得变化」，并跑一局**空督军对照**
     /// （同种子、同摆场，只把 P0 督军换成一个 `FIXWarlord`）把「与督军无关的变化」减掉。
     /// ⛔ 这不是「我们挑的做法」—— 是因为督军**确实**只能这样测；如实打在读数里。</summary>
-    static void MeasureHero(List<CardDef> pool, CardDef card, Reading r)
+    static void MeasureHero(List<CardDef> pool, CardDef card, Reading r, PresetSpec preset = null)
     {
         r.HeroMode = true;
         r.How = "督军**没有「打出去」这个动作**（`PlayCard`/`PlayTactic` 只处理非 hero）"
               + " ⇒ 本档测的是「**在场 + 一个来回**」的实得变化，并减掉一局【空督军对照】";
 
-        var a = HeroPass(pool, card);
-        var b = HeroPass(pool, null);
+        var a = HeroPass(pool, card, preset);
+        var b = HeroPass(pool, null, preset);
         r.ControlChanges = b.Changes;
         // 🔴 **净变化 = A − B**（两份逐条字符串相减）—— 两局只差 P0 督军那一张，
         //    所以这一栏才是**这位督军带来的**。⛔ 不拿 A 直接当读数（那里面大半是与督军无关的回合噪声）。
@@ -553,11 +678,11 @@ class PlayProbe
 
     /// <summary>跑一局：督军 = `card`（null ⇒ 空督军对照），过完 <c>P0 结束 → P1 开始+结束 → P0 开始</c>
     /// 一个来回，返回（变化逐条 · 终局快照）。</summary>
-    static (List<string> Changes, Snap End) HeroPass(List<CardDef> pool, CardDef card)
+    static (List<string> Changes, Snap End) HeroPass(List<CardDef> pool, CardDef card, PresetSpec preset = null)
     {
         int handIdx;
         bool injected;      // 督军档不用它（这条路上根本没有「补手牌」这一步）
-        var ctx = BuildFixture(pool, null, card ?? HeroOf("FIXWarlord_P0", "Fixture"), out handIdx, out injected);
+        var ctx = BuildFixture(pool, null, card ?? HeroOf("FIXWarlord_P0", "Fixture"), out handIdx, out injected, preset);
         var before = Capture(ctx);
         RuleCore.EndTurn(ctx); RuleCore.BeginTurn(ctx);      // → P1
         SetEnergy(ctx, 1);
@@ -605,16 +730,39 @@ class PlayProbe
     //        第二发走 `forced: true` = 引擎自己的「**不是玩家点出来的**那一档」
     //        （原版 `scriptedAttack(0x34)`，见 `CanAttackNow` 头注：它跳过回合/配额那一段）；
     //        ⛔ 探针**不改 `AttacksThisTurn`**。
-    //     ⑥ 打死一个敌人（`ApplyDamage`）⇒ `Slay:` / `When … dies` / 死亡触发那一族。
+    //     ⑥ 打死一个敌人 ⇒ `Slay:` / `When … dies` / 死亡触发那一族。
+    //        🔴 **`A1965` 续工（2026-10-19）**：这一句原来是裸 `ApplyDamage(999)`，而它**不处理死亡**
+    //        ⇒ 棋盘上留下负血活单位、**一条死亡触发都没响过**。现在改成**引擎攻击路**
+    //        （先把目标削到 1 血 → 被测单位/己方部队 `DeclareAttack(forced:true)` 真打死，
+    //         `steps` 里打 `kill=<rc>@<格>/<live|rem|gone>`；实在没人能打才退回旧口径并点名）。
+    //
+    //   🆕 🔴 **`A1965`（2026-10-19 第五十五会话 · 写手 `E8`）：上面那六步之外再加 6 步 ＋ 3 个夹具变体。**
+    //      步骤全表见 `RunEventPass` 与 `A1965_电池步设计.md` §四；一句话：
+    //      `selfChip`（被测单位挨一下）· `chip2`（P1 两格削到 1 血 ⇒ 两发攻击变致命）·
+    //      `tactic`（P0 打一张带目标的战术）· `enemyTactic`（P1 回合里打一张战术）·
+    //      `troop2`（P0 再部署一个带 `Waystone` 的部队）· `friendDies`（**让 P1 用攻击路**打死它、
+    //      原地留残骸）· `collect`（收那颗路标石）。
+    //      变体 = V1 能量=卡费（`Codex`）· V2 牌库抽到再打出（`Teleport`）· V3 空棋盘（条件 `Rally`）；
+    //      **四遍的净差取并集**（同一个 `net` 列）。⇒ 原来「抬不到」那九族里的大多数现在抬得起来了。
+    //      ⚠️ **三个变体把【打出那一拍】也纳入 diff**：`Codex`/`Teleport`/条件 `Rally` 全部发生在
+    //        `PlayCard` 里，只从打出之后快照的话它们在电池里**永远看不见**（实测踩过）。
+    //      ⚠️ **`selfChip` 封顶到 `Health-1`**（设计原文是硬打 2 点）：硬打会当场打死 1–2 血的被测卡，
+    //        后面所有步骤都没有被测单位 ⇒ **覆盖面倒退**。1 血单位记 `selfChip=skip`。
+    //      ⚠️ **`friendDies` 必须走攻击路**：`RuleCore.ApplyDamage` **不处理死亡**（它只扣血/发事件），
+    //        999 点之后棋盘上留下的是 **`-993` 血的活单位** ⇒ 不会翻成残骸、`collect` 必报
+    //        `ErrNotWaystone(17)`（本笔实测）。
     //   ⚠️ ④⑤ 互相**不抢**：一个单位至多只有一条主动能力（`AvailableAlternative` 的注释：
     //      全池没有任何一张同时带两个）⇒ 没有主动能力的卡在 ④ 一步都不消耗；
     //      有主动能力的卡在 ④ 用掉行动、⑤ 第一发会返回 `ErrExhausted`，第二发（`forced`）照打。
     //      **每一个返回码都照原样进 `steps` 列**（⛔ 不静默吞掉）。
     //   ⛔ **电池抬不到的**（今天**如实标着**，见 ⑥ 节逐条列出的那批）：**付费段**
-    //      （`N ☀:` / `Ecstasy N:` / `Stimulation:` / `Teleport:` 那一族要**主动付费**才进得来）、
+    //      （`N ☀:` / `Ecstasy N:` 那一族要**主动付费**才进得来）、
     //      `Ambush:`（要在**面朝下**打出那一拍触发）、被动光环（`Your other … troops have +N`，
     //      它改的是**别人**、且**不在打出去那一拍**）。那几族**仍未被电池验到** ——
     //      `play check` 的 ①-c 会**逐条把它们的 id 列出来**，⛔ 不许只印一句「已知不适用」。
+    //      ✅ **`A1965` 之后已从这一串里摘掉**：`Teleport`（V2 抽到再打出）、`Stimulation`（`tactic` 指到被测单位）、
+    //      `Codex`（V1）、条件 `Rally`（V3）、`Uprising`/部署听众（`troop2`）、`Slay`（`chip2` ⇒ 攻击击杀）、
+    //      友军阵亡（`friendDies`）、`OnCollect*`（`collect` —— ⚠️ 但引擎侧的广播缺口未修，见自检那一对的注释）。
     //
     // 🔴 **对照局（⛔ 不是可选项）**：电池抬起来的**事件本身**（两边抽牌、能量刷新、回合计数…）
     //   对**每一张卡**都会产生一串**与卡无关**的变化。不加对照，`net` 就是一锅噪声，
@@ -743,7 +891,23 @@ class PlayProbe
                            //     补它是为了**将来拿探针量这两件事**时口径是对的。
                            inventoryOptions: c.InventoryOptions,
                            showInCollectionOptions: c.ShowInCollectionOptions,
-                           initiative: c.Initiative);
+                           initiative: c.Initiative,
+                           // 🔴 🆕 **2026-10-19（`A1952` · `W_引擎线_波4.md` §二·4）**：这两个字段原来也**没传**
+                           //   ⇒ 替身与源卡不是「除 `desc` 外逐格相同」。`FromOriginalPool` 决定
+                           //   `EffectSpec` 那一条分支（`CardDef.cs:240`），`GoesSecondId` 只在
+                           //   `CreatePool.ResolveGoesSecond`（装池）里消费（替身不进池）。
+                           //   ⚠️ 本笔按账文**只补这两个**；`armour:` 仍不传（波 4 §四·3 已核：
+                           //     护甲走 `kw` 那一份，`armour:` 形参只喂对账用的 `ArmourFromPool`）。
+                           fromOriginalPool: c.FromOriginalPool,
+                           goesSecondId: c.GoesSecondId,
+                           // 🆕 **2026-10-19（第五十五会话 `E8` · `A1959` 收口）**：`choicesDefinition` 三列
+                           //   **同样照传** —— 替身的契约是「除 `desc`/`descZh` 之外逐格相同」，这三列
+                           //   现在也参与 `EffectText.Parse(…, card:)` 的注入判据（`A1960`）。
+                           //   ⚠️ 替身的 `desc` 已清空 ⇒ `HasUnspecifiedDarkPactGrant` 恒假 ⇒ **注入恒不发生**
+                           //     ⇒ 对两局净差**零影响**（不是行为改动；补它是为了契约成立、将来别被静默改坏）。
+                           choicesTargetsAffected: c.ChoicesTargetsAffected,
+                           choicesMaxTargets: c.ChoicesMaxTargets,
+                           choicesSpecificCardIds: c.ChoicesSpecificCardIds);
     }
 
     /// <summary>敌人那侧**有单位的**一格（先非督军格；都没有才退督军格）。⛔ 只决定「打哪一格」，
@@ -759,10 +923,60 @@ class PlayProbe
     /// <summary>走一趟事件电池（<see cref="RunEventPass"/> 的正文与取舍见本区块头注）。</summary>
     static EventPass RunEventPass(List<CardDef> pool, CardDef card)
     {
+        return RunEventPass(pool, card, PassVariant.Main);
+    }
+
+    /// <summary>`A1965`：带**夹具变体**的一趟电池（三个变体见 <see cref="PassVariant"/>）。
+    /// ⚠️ 主档（`Main`）的步骤序列 = 原六步 ＋ 新增 6 步（`selfChip`/`chip2`/`tactic`/`troop2`/
+    ///   `friendDies`/`collect`）＋ `enemyTactic`；三个变体**只改夹具的起始状态**，步骤一字不差
+    ///   ⇒ 变体与主档的读数可以直接并进同一个 `net`（设计 §四）。</summary>
+    static EventPass RunEventPass(List<CardDef> pool, CardDef card, PassVariant variant)
+    {
         var ep = new EventPass();
         int handIdx; bool injected;
         var ctx = BuildFixture(pool, card, null, out handIdx, out injected);
+
+        // ---- 🆕 `A1965` 变体准备（⛔ 全部在「打出被测卡」之前做完）----
+        switch (variant)
+        {
+            case PassVariant.LowEnergy:
+                // V1：能量 = 卡费 ⇒ 打出之后 == 0（`Codex 145` 的唯一闸；设计 §三 · Codex 那一行）。
+                ctx.Players[0].Energy = Math.Max(0, card.Cost);
+                break;
+            case PassVariant.FromDeck:
+                // V2：被测卡放**牌库顶**、本回合抽到再打出（`Teleport 690` 要求 `DrawnThisTurn`）。
+                //   `Deck` 的**末尾** = 牌库顶（`RuleCore.MoveDeckTopToHand` 取 `Count-1`，判据在那边）。
+                if (handIdx >= 0)
+                {
+                    var inst = ctx.Players[0].Hand[handIdx];
+                    ctx.Players[0].Hand.RemoveAt(handIdx);
+                    ctx.Players[0].Deck.Add(inst);
+                    RuleCore.Draw(ctx, 0);        // 它会置 `DrawnThisTurn` ＋ `SetupCardInHand`
+                    handIdx = HandIdx(ctx, 0, card);
+                    injected = true;              // 量具干预：不是「自然上手」那一档（与 `A1572` 同义）
+                }
+                break;
+            case PassVariant.Solo:
+                // V3：先把 P0 三张夹具部队打死 ⇒ 打出时棋盘只剩被测卡
+                //   （条件 `Rally`：`If you control no other troops`）。走引擎 `ApplyDamage`
+                //   （⛔ 不手改 `Board` —— 那会绕开护盾/触发/死亡那套，与引擎不同口径）。
+                for (int s = 0; s < BoardSpec.Size; s++)
+                {
+                    var u0 = ctx.Players[0].Board[s];
+                    if (u0 != null && !u0.IsWarlord) RuleCore.ApplyDamage(ctx, u0, 999, "夹具事件电池");
+                }
+                break;
+        }
+
         if (handIdx < 0) { ep.Steps.Add("fixture=miss"); return ep; }
+
+        // 🔴 🆕 **`A1965`：三个变体必须把【打出那一拍】也纳入 diff** —— 它们要治的事件
+        //   （`Codex 145` / `Teleport 690` / 条件 `Rally`）**全部发生在 `PlayCard` 里面**
+        //   （`RuleCore.cs:2567-2571` / `:2706` / 召唤触发那一带）⇒ 只从打出之后开始快照的话，
+        //   这些事件**在电池里永远看不见**（本笔实测：`UM15` 的 V1 `energyAfter=0`、`fxCodex=1`
+        //   却 `V1:net=0` —— 因为治疗发生在 `s0` 之前）。
+        //   主档（`Main`）**保持原样**（打出那一拍由主档 `Measure` 覆盖，电池只看之后那一段）。
+        Snap sPre = variant != PassVariant.Main ? Capture(ctx) : null;
 
         // ---- ⓪ 出牌（与 `MeasurePlay` 同一条路、同一个落点选择）----
         int slot = -1;
@@ -770,6 +984,10 @@ class PlayProbe
         ep.Played = ep.PlayRc == RuleCodes.OK;
         ep.Steps.Add("play=" + ep.PlayRc);
         if (!ep.Played) return ep;              // 打不出去 ⇒ 电池无从起步（主档已经报了这条）
+        // V1：`Codex` 只在**打出那一拍**读「能量 == 0」⇒ 打完立刻把夹具能量还回去。
+        //   ⛔ 不还的话，后面 `tactic`（0 费）之后的 `troop2`（1 费）会 `ErrCost` ——
+        //   读数会变成「夹具没钱」而不是「这张卡在别的时机有没有实得」。
+        if (variant == PassVariant.LowEnergy) SetEnergy(ctx, 0);
 
         // 🔴 逐段累积差异（⛔ 不是「末态减初态」）：中间态被改回去的（打伤又治好）那一种
         //    在「末态减初态」里**会自己抵消掉** ⇒ 那一段就白测了。与主档 `Diff(before,after)` 同形。
@@ -785,13 +1003,107 @@ class PlayProbe
             ep.Steps.Add("oath=" + RuleCore.UseOathAbility(ctx, 0, slot));
         var s1 = Capture(ctx);
 
-        // ---- ② 两个来回：P0 → P1 → P0（驱动「回合开始 / 回合结束」那一族）----
-        for (int k = 0; k < 2; k++)
+        // ================================================================
+        //  🆕 `A1965` 新增 6 步（治设计 §一「够不到的事件」那九族）
+        // ================================================================
+
+        // ---- ② `selfChip`：被测单位自己挨 2 点 ----
+        //   治 `Strike: Heals N` / `UnitDamaged` / `When this unit is damaged, …` 那一族。
+        //   🔴 设计 §七·3 点名的老坑：`BuildFixture` 只扣了 a/b/c 与督军，**从没扣过被测卡自己**
+        //      （`FixtureChip` 这个常量本来就是为了「满血治疗看不见」设的）。
+        //   ⚠️ 照设计原样打 **2 点**，但**封顶到 `Health-1`**（`A1965` 本笔的取舍，⛔ 不是原版值）：
+        //      全池 unit 里有大量 1–2 血的卡，硬打 2 点会**当场打死被测卡** ⇒ 后面 6 步 ＋ 原来的
+        //      ③④⑤⑥ 全部没有被测单位、净差塌成 0 —— 那是**覆盖面倒退**（比不补这步更糟）。
+        //      封顶之后 `Heal` / `UnitDamaged` 两族的意图不变（掉血 ⇒ 治疗看得见），
+        //      而 1 血单位**跳过**（打它必死，`selfChip=skip` 如实打出来）。
+        if (slot >= 0 && ctx.Players[0].Board[slot] != null)
         {
-            ep.Steps.Add("end" + k + "=" + RuleCore.EndTurn(ctx));
-            RuleCore.BeginTurn(ctx);
+            int hp0 = ctx.Players[0].Board[slot].Health;
+            if (hp0 <= 1) ep.Steps.Add("selfChip=skip");
+            else ep.Steps.Add("selfChip=" + RuleCore.ApplyDamage(ctx, ctx.Players[0].Board[slot],
+                                                                Math.Min(2, hp0 - 1), "夹具事件电池"));
         }
+        else ep.Steps.Add("selfChip=-");
+        var sc1 = Capture(ctx);
+
+        // ---- ②b `chip2`：P1 最低两格部队各削到 1 血 ----
+        //   让后面两发攻击**变得致命** ⇒ `Slay 120` 才会响（`TryCreditKill` 只在攻击路/效果路记凶手，
+        //   而第 ⑥ 步那记 999 伤害**不给凶手** ⇒ 结构上换不来 Slay，见设计 §三·Slay）。
+        ep.Steps.Add("chip2=" + ChipTo(ctx, 1, 2, 1));
+        var sc2 = Capture(ctx);
+
+        // ---- ③ `tactic`：P0 打一张**带目标**的战术，目标指向被测格 ----
+        //   治 `Artifice 560`（只要「打出一张战术」）＋ `Stimulation 710`（要「带目标的战术**指到被测单位**」）。
+        //   ⚠️ 夹具自己造的战术卡（`FixtureTactic`，0 费）走引擎 `PlayCard` → `PlayTactic`
+        //      ⇒ 与玩家点出去的是同一条路。
+        int tacSlot;
+        ep.Steps.Add("tactic=" + PlayFixtureTactic(ctx, 0, slot, out tacSlot) + "@" + tacSlot);
+        var sc3 = Capture(ctx);
+
+        // ---- ④ `troop2`：P0 再部署一个部队（带 `Waystone`，留给 ⑤⑥）----
+        //   治 `Uprising 680`（同回合再部署）＋ `When you deploy a X, …` 那一族；
+        //   它同时是 ⑤ 要打死的那个「友军」、⑥ 要收的那颗路标石的来源。
+        int waySlot;
+        int wayRc = DeployFixture(ctx, 0, FixtureWaystoneTroop(), out waySlot);
+        // ⚠️ `@格号` 是**诊断信息**（`A1965`）：部署失败时格号是 `-1`，下游两步会据此退化 ——
+        //   不打出来的话「troop2=0 却没落场」在 `steps` 里看起来像成功了。
+        ep.Steps.Add("troop2=" + wayRc + "@" + waySlot);
+        // ⑤ 打的就是这一格；它没落场 ⇒ 那两步如实返回 `-`（⛔ 不假装测过）。
+        int wreckSlot = waySlot;
+        var sc4 = Capture(ctx);
+
+        // ---- ② 两个来回：P0 → P1 → P0（驱动「回合开始 / 回合结束」那一族）----
+        //   🆕 `A1965` 把这两拍**摊开写**了：P1 那一拍里要插两步（`enemyTactic` / `friendDies`）。
+        ep.Steps.Add("end0=" + RuleCore.EndTurn(ctx));
+        RuleCore.BeginTurn(ctx);                       // → P1 的回合
+        // 🆕 `enemyTactic`：**在 P1 的回合里让对手打一张战术** ——
+        //   治 `When your opponent plays a Stratagem, …` 那一族。
+        {
+            int eSlot;
+            ep.Steps.Add("enemyTactic=" + PlayFixtureTactic(ctx, 1, -1, out eSlot) + "@" + eSlot);
+        }
+        var se0 = Capture(ctx);
+
+        // ---- ⑤ `friendDies`：让 **P1 打 P0 那个路标石部队**（1 血 / 0 攻），治「友军阵亡」族 ----
+        //   🔴 **为什么走「敌人打」而不是 `ApplyDamage`**（本笔踩过、实测）：
+        //      `RuleCore.ApplyDamage` **不处理死亡** —— 它只扣血/发事件，真正离场在 `Hurt` →
+        //      `RemoveIfDead` → `CleanupDeaths` 那一条上。探针打 999 点之后棋盘上留下的是
+        //      **`-993` 血的活单位**（`steps` 里 `friendDies=999@1/live+way`）⇒ 翻不成残骸、
+        //      `collect` 必报 `ErrNotWaystone(17)`。攻击路是引擎自己的死亡入口
+        //      ⇒ 残骸由 `CleanupDeaths` 的 `Waystone` 分支生成（判据见那里的 `SupportMethods__HasToTransformIntoRemnant`）。
+        //   ⚠️ `forced: true` = 引擎自己的「不是玩家点出来的」那一档（与下面两发攻击同一个口）。
+        int friendRc = -1, friendAtk = -1;
+        if (wreckSlot >= 0)
+        {
+            friendAtk = PickAttackerOnSide(ctx, 1);
+            if (friendAtk >= 0)
+                // ⚠️ 第 4 个形参是 **`tgtP`**（目标归属方）—— P1 打 P0 ⇒ **0**。
+                //    本笔第一版误传成 `1`（= 打自己那一侧的空格）⇒ `ErrNotUnit(5)`，实测踩过。
+                friendRc = RuleCore.DeclareAttack(ctx, 1, friendAtk, 0, wreckSlot, ranged: false, forced: true);
+        }
+        ep.Steps.Add("friendDies=" + friendRc + "@" + wreckSlot + "/atk@" + friendAtk);
+        var sd1 = Capture(ctx);
+
+        ep.Steps.Add("end1=" + RuleCore.EndTurn(ctx));
+        RuleCore.BeginTurn(ctx);                       // → P0 的回合
         var s2 = Capture(ctx);
+
+        // ---- ⑥ `collect`：收那颗路标石（治 `OnCollect*` 610/665/695）----
+        //   `CollectWaystone` 只认 `IsRemnant && Has(Waystone)`（`RuleCore.CanCollectWaystone`）；
+        //   不成立时把它的返回码**原样**打出来（⛔ 不静默）。
+        //   ⚠️ 后面 `/rem:标志` 是**诊断**：`rem` = 残骸、`live` = 还是活单位、`-` = 那格空的；
+        //      `+way` = 身上还带 `waystone`。没有它，`collect=17`（`ErrNotWaystone`）分不出
+        //      「没翻面」和「翻面后丢了关键词」两种因（`A1965` 施工时踩过）。
+        string remFlag = "-";
+        if (wreckSlot >= 0 && ctx.Players[0].Board[wreckSlot] != null)
+        {
+            var occ = ctx.Players[0].Board[wreckSlot];
+            remFlag = (occ.IsRemnant ? "rem" : "live") + (occ.Has(KeywordTable.Waystone) ? "+way" : "");
+        }
+        ep.Steps.Add("collect=" + (wreckSlot >= 0 && ctx.Players[0].Board[wreckSlot] != null
+                                   ? RuleCore.CollectWaystone(ctx, 0, wreckSlot).ToString() : "-")
+                     + "@" + wreckSlot + "/" + remFlag);
+        var sd2 = Capture(ctx);
 
         // ---- ③ 抽一张 ----
         RuleCore.Draw(ctx, 0);
@@ -836,27 +1148,259 @@ class PlayProbe
         }
         var s6 = Capture(ctx);
 
-        // ---- ⑥ 打死一个敌人（`Slay:` / 死亡触发那一族）----
-        int kv = PickAnyEnemy(ctx, 0);
-        var victim = ctx.Players[1].Board[kv];
+        // ---- ⑥ 打死一个敌人（`Slay:` / `When … dies` / 死亡触发那一族）----
+        //   🆕 `A1965`：`chip2` 把 P1 两格削到 1 血 ⇒ 上面两发攻击**会自己打死人** ⇒
+        //   这一族现在由**攻击路**（`TryCreditKill`，`RuleCore.cs:4704`）兑现，而不是靠下面这记 999。
+        //
+        //   🔴 🆕 **`A1965` 续工（2026-10-19 · 调度台裁定）：这一句原来是一记裸 `ApplyDamage(999)` ——
+        //   而 `RuleCore.ApplyDamage` **不处理死亡**（只扣血/发事件，`Hurt` → `RemoveIfDead` → `CleanupDeaths`
+        //   才离场）⇒ 棋盘上留下的是**负血活单位**，**一条死亡触发都没响过**
+        //   （本笔实测：`kill(dmg)=999` 之后那一格是 `-993` 血、`friendDies=999@1/live+way`）。
+        //   ⇒ 改成与 `friendDies` **同一口径的引擎攻击路**：
+        //     ① 先把目标削到 **1 血**（`ApplyDamage` 只削不死，正好当这一步的「准备」）；
+        //     ② 让**被测单位自己**去打（`forced: true` = 引擎自己的「不是玩家点出来的」那一档，
+        //        跳过回合/配额 ⇒ `Slay` 记得到凶手）；它打不了（0 攻 / 已死）就退到**己方一个夹具部队**；
+        //     ③ 两次都没打死 / P0 压根没有能攻击的单位 ⇒ 退回旧口径，`steps` 里**点名** `dmg(deadless)`。
+        //   ⚠️ `steps` 形如 `kill=<rc>@<格><M|R>/<战后状态>`，状态三档：`live` / `rem`（翻成残骸）/ `gone`。
+        //      ⛔ 不许只打 rc —— 「打出去了」和「人真的没了」是两件事（这正是本笔要治的那种静默）。
+        int kv = PickKillTarget(ctx, 1);
+        var victim = kv >= 0 ? ctx.Players[1].Board[kv] : null;
+        string killStep = "-";
         if (victim != null)
-            // ⚠️ `kill(dmg)=` 里的值是 **`ApplyDamage` 的返回（实得伤害）**，⛔ **不是 RuleCode**
-            //    —— 别跟同一串里那些 `rc` 混着读（`999` 那个数就是这么来的）。
-            ep.Steps.Add("kill(dmg)=" + RuleCore.ApplyDamage(ctx, victim, 999, "夹具事件电池"));
+        {
+            // ① 削到 1 血（不致死；只有 `Hurt` 那条路才离场）
+            if (victim.Health > 1) RuleCore.ApplyDamage(ctx, victim, victim.Health - 1, "夹具事件电池");
+            // ② 候选击杀者：被测单位优先（Slay 的凶手），其次己方攻击力最高的部队
+            var killers = new List<int>();
+            bool kRanged = false;
+            int k0 = PickKiller(ctx, 0, slot, out kRanged);
+            if (k0 >= 0) killers.Add(k0);
+            int k1 = PickAttackerOnSide(ctx, 0);
+            if (k1 >= 0 && !killers.Contains(k1)) killers.Add(k1);
+            var parts = new List<string>();
+            foreach (int k in killers)
+            {
+                var u = ctx.Players[0].Board[k];
+                if (u == null) continue;
+                bool ranged = u.RangedAttack > u.Attack;    // 哪种更高就用哪种打
+                int rc = RuleCore.DeclareAttack(ctx, 0, k, 1, kv, ranged, forced: true);
+                string after = Aftermath(ctx, 1, victim);
+                parts.Add(rc + "@" + k + (ranged ? "R" : "M") + "/" + after);
+                if (after != "live") break;                 // 真的死了/翻面了 ⇒ 不再补刀
+            }
+            if (parts.Count == 0)
+            {
+                // ③ 没有任何能攻击的己方单位：退回旧口径，但**如实点名**（这一档抬不到死亡族）
+                int rc = RuleCore.ApplyDamage(ctx, victim, 999, "夹具事件电池");
+                parts.Add(rc + "/dmg(deadless)/" + Aftermath(ctx, 1, victim));
+            }
+            killStep = string.Join(";", parts) + "@tgt" + kv;
+        }
+        ep.Steps.Add("kill=" + killStep);
         var s7 = Capture(ctx);
 
-        Diff(s0, s1, ep.Changes);
-        Diff(s1, s2, ep.Changes);
-        Diff(s2, s3, ep.Changes);
-        Diff(s3, s4, ep.Changes);
-        Diff(s4, s5, ep.Changes);
-        Diff(s5, s6, ep.Changes);
-        Diff(s6, s7, ep.Changes);
+        // 🔴 **逐段 diff，顺序 = 上面捕获的顺序**（⛔ 别只留首尾：中途被改回去的那一段会自己抵消）。
+        var snaps = new List<Snap>();
+        if (sPre != null) snaps.Add(sPre);      // 变体：把「打出那一拍」也纳入（见上面 `sPre` 的说明）
+        snaps.AddRange(new[] { s0, s1, sc1, sc2, sc3, sc4, se0, sd1, s2, sd2, s3, s4, s5, s6, s7 });
+        for (int i = 1; i < snaps.Count; i++) Diff(snaps[i - 1], snaps[i], ep.Changes);
         ep.End = s7;
         return ep;
     }
 
-    /// <summary>`A1431` 第三笔：一张卡的**事件电池读数**（含对照局的净差）。</summary>
+    // ==================================================================
+    //  🆕 `A1965`（2026-10-19 第五十五会话 · 写手 `E8`）：电池新增 6 步 ＋ 三个夹具变体
+    // ==================================================================
+    //
+    // 🔴 施工图 = `资料/普查产出_第三十会话/A1965_电池步设计.md` §四/§五（⛔ 别在这里另立一套口径）。
+    //   病灶：原来的电池只有 ⓪出牌 ①誓约 ②两个来回 ③抽一张 ④主动用 ⑤两发攻击 ⑥打死一个
+    //   ⇒ `Artifice` / `Stimulation` / `Uprising` / `OtherUnitDeath` / `OnCollect*` / `Slay` /
+    //     `Codex` / `Teleport` / 条件 `Rally` 这九族**结构上够不到**（`play check` ①-c 里那一批）。
+    //   本笔补：**主电池 6 步**（`selfChip` / `chip2` / `tactic` / `troop2` / `friendDies` / `collect`）
+    //   ＋ `enemyTactic`（在两个来回里让 P1 打一张战术）＋ **三个夹具变体**
+    //   （V1 能量=卡费 ⇒ Codex · V2 牌库抽到再打出 ⇒ Teleport · V3 棋盘只留被测卡 ⇒ 条件 Rally）。
+    //
+    // 🔴 **本笔会改全池 `E|` 段每一行**（设计 §四·风险 1）⇒ 基线/指纹**必须重生成并重钉**
+    //   —— 按既定口径**本波不做**（留到引擎线收口统一做）⇒ `play check` 现红是**预期的**。
+    //
+    // ⚠️ **两局（电池局 / 空正文对照局）跑的是同一套步骤** ⇒ 夹具自己造出来的噪声（多打一张战术、
+    //   多部署一个部队、路标石残骸…）在净差里**相减抵消**。唯一抵消不掉的是 **RNG 分叉**
+    //   （两局手牌张数错开 ⇒ 同一新步骤在两局里随机选择不同）—— 设计 §五·1 的判据
+    //   `net > 0 ⇒ raw != ctrl` 就是兜它；本笔**逐变体**都按同一条形状判（见 `MergeVariant`）。
+
+    /// <summary>🆕 `A1965`：事件电池的**四遍夹具**。`Main` = 原样；三个变体各治一族够不到的事件。</summary>
+    enum PassVariant
+    {
+        /// <summary>原夹具（主档）。</summary>
+        Main,
+        /// <summary>V1：P0 能量 = 卡费 ⇒ 打出后 == 0（`Codex 145` 的闸，设计 §三）。</summary>
+        LowEnergy,
+        /// <summary>V2：被测卡放牌库顶、本回合抽到再打出（`Teleport 690` 要求 `DrawnThisTurn`）。</summary>
+        FromDeck,
+        /// <summary>V3：先把 P0 三张夹具部队打死 ⇒ 打出时棋盘只剩被测卡（条件 `Rally`）。</summary>
+        Solo,
+    }
+
+    /// <summary>🆕 `A1965`：往 `p` 的手牌里注入一张**夹具专用**卡（走引擎自己的
+    /// `NewInstance` + `SetupCardInHand`，与 `BuildFixture` 补被测卡那一段**同形**）。返回手牌下标。</summary>
+    static int InjectToHand(BattleContext ctx, int p, CardDef card)
+    {
+        var inst = ctx.NewInstance(card);
+        ctx.Players[p].Hand.Add(inst);
+        RuleCore.SetupCardInHand(ctx, p, inst);
+        return HandIdx(ctx, p, card);
+    }
+
+    /// <summary>🆕 `A1965`：夹具专用战术卡（`tactic` / `enemyTactic` 两步用）。
+    /// 正文 = `Give +1 [Melee] to a friendly troop` ⇒ **带目标、指向自己一侧的部队**：
+    /// `Artifice 560` 只要「打出一张战术」，`Stimulation 710` 要「带目标的战术**指到被测单位**」。
+    /// 费用 0 ⇒ 两步都不会因为夹具没钱而打不出去（那会把「事件没到」和「打不起」混成一根红）。</summary>
+    static CardDef FixtureTactic() =>
+        new CardDef("FIX_TAC", "FIX_TAC", "tactic", "Give +1 [Melee] to a friendly troop",
+                    "common", "Fixture", 0, 0, 0, 0, null);
+
+    /// <summary>🆕 `A1965`：夹具专用「路标石」部队（`troop2` 部署的就是它）。
+    /// `Waystone` ⇒ 死亡时原地留残骸（`RuleCore.CleanupDeaths` 的 `Waystone` 分支），
+    /// `collect` 那一步才有东西可收（`CollectWaystone` 只认 `IsRemnant && Has(Waystone)`）。
+    /// ⚠️ **1 血 / 0 攻**是**为这一步挑的**（⛔ 不是原版值）：1 血 ⇒ P1 任何一击都能打死它、
+    ///   0 攻 ⇒ **不反击**（否则打死它的那个 P1 夹具单位会被换掉 1 点血，给净差添噪声）。</summary>
+    static CardDef FixtureWaystoneTroop() =>
+        new CardDef("FIX_WAY", "FIX_WAY", "unit", "", "common", "Fixture", 1, 0, 1, 0,
+                    new[] { "Waystone" }, subtype: "Troop");
+
+    /// <summary>该侧一个**真能当目标**的格（先要 `prefer`；没有就退到第一个非督军格）。
+    /// ⚠️ 这只是**夹具怎么点**，不是判据 —— 选错时引擎会返回错误码、如实进 `steps`。</summary>
+    static int PickOwnSlot(BattleContext ctx, int p, int prefer)
+    {
+        var b = ctx.Players[p].Board;
+        if (BoardSpec.IsValid(prefer) && prefer != BoardSpec.WarlordSlot && b[prefer] != null) return prefer;
+        for (int i = 0; i < BoardSpec.Size; i++)
+            if (i != BoardSpec.WarlordSlot && b[i] != null) return i;
+        return BoardSpec.WarlordSlot;
+    }
+
+    /// <summary>某个单位在 `p` 那一侧棋盘上的格号（找不到 = `-1`）。</summary>
+    static int SlotOf(BattleContext ctx, int p, UnitState u)
+    {
+        var b = ctx.Players[p].Board;
+        for (int i = 0; i < BoardSpec.Size; i++) if (ReferenceEquals(b[i], u)) return i;
+        return -1;
+    }
+
+    /// <summary>🆕 `A1965`：该侧一个**近战攻击力最高**的部队格（同攻取格号小者；`-1` = 没有）。
+    /// 用来让 P1 打死那个 1 血的路标石部队（`friendDies` 一步）—— 排序**定死**、不随机。</summary>
+    static int PickAttackerOnSide(BattleContext ctx, int p)
+    {
+        var b = ctx.Players[p].Board;
+        int best = -1;
+        for (int s = 0; s < BoardSpec.Size; s++)
+        {
+            var u = b[s];
+            if (u == null || u.IsWarlord || u.IsRemnant || u.Attack <= 0) continue;
+            if (best < 0 || u.Attack > b[best].Attack) best = s;
+        }
+        return best;
+    }
+
+    /// <summary>🆕 `A1965` 续工：⑥ 的击杀目标 —— 先挑**非督军**的敌人（督军打不死、只会判胜负），
+    /// 没有才退到督军格；`-1` = 敌方棋盘是空的。</summary>
+    static int PickKillTarget(BattleContext ctx, int p)
+    {
+        var b = ctx.Players[p].Board;
+        for (int s = 0; s < BoardSpec.Size; s++)
+            if (s != BoardSpec.WarlordSlot && b[s] != null && !b[s].IsRemnant) return s;
+        for (int s = 0; s < BoardSpec.Size; s++)
+            if (b[s] != null) return s;
+        return -1;
+    }
+
+    /// <summary>🆕 `A1965` 续工：⑥ 的击杀者 —— 优先**被测单位自己**（`Slay` 的凶手才记得到它），
+    /// 打不了（0 攻 / 不在了）就退到己方攻击力最高的那个部队。
+    /// `out ranged` = 该用远程打（远程值高于近战值时）。</summary>
+    static int PickKiller(BattleContext ctx, int p, int measuredSlot, out bool ranged)
+    {
+        ranged = false;
+        var b = ctx.Players[p].Board;
+        if (BoardSpec.IsValid(measuredSlot) && b[measuredSlot] != null && !b[measuredSlot].IsWarlord)
+        {
+            var m = b[measuredSlot];
+            if (Math.Max(m.Attack, m.RangedAttack) > 0)
+            {
+                ranged = m.RangedAttack > m.Attack;
+                return measuredSlot;
+            }
+        }
+        int best = -1, bestV = 0;
+        for (int s = 0; s < BoardSpec.Size; s++)
+        {
+            var u = b[s];
+            if (u == null || u.IsWarlord || u.IsRemnant) continue;
+            int v = Math.Max(u.Attack, u.RangedAttack);
+            if (v <= 0 || v <= bestV) continue;
+            best = s; bestV = v;
+        }
+        if (best >= 0) ranged = b[best].RangedAttack > b[best].Attack;
+        return best;
+    }
+
+    /// <summary>🆕 `A1965` 续工：一个单位被这一下之后**还在不在场** ——
+    /// `live`（原实例还占着格）/ `rem`（翻成残骸：新实例、同一 `CardInstance`）/ `gone`（真离场）。
+    /// ⚠️ 必须按**实例**找，⛔ 不能按格号：连续棋盘会在死亡时整体内移。</summary>
+    static string Aftermath(BattleContext ctx, int p, UnitState u)
+    {
+        var b = ctx.Players[p].Board;
+        for (int s = 0; s < BoardSpec.Size; s++)
+        {
+            if (b[s] == null) continue;
+            if (ReferenceEquals(b[s], u)) return "live";
+            if (b[s].Instance == u.Instance && b[s].IsRemnant) return "rem";
+        }
+        return "gone";
+    }
+
+    /// <summary>🆕 `A1965` 的 `chip2`：把 `p` 一侧**血最低的 `take` 个单位**各削到 `toHp` 血。
+    /// 走引擎自己的 `ApplyDamage`（⛔ 不手改 `Health`）—— 与 `BuildFixture` 的 `FixtureChip` 同一条取舍。
+    /// 排序 = (当前血量, 格号)：**定死**，⛔ 不随机（本仓「对局必须可复现」）。</summary>
+    static string ChipTo(BattleContext ctx, int p, int take, int toHp)
+    {
+        var b = ctx.Players[p].Board;
+        var pick = new List<UnitState>();
+        for (int s = 0; s < BoardSpec.Size; s++)
+            if (b[s] != null && !b[s].IsWarlord && !b[s].IsRemnant && b[s].Health > toHp) pick.Add(b[s]);
+        pick = pick.OrderBy(u => u.Health).ThenBy(u => SlotOf(ctx, p, u)).Take(take).ToList();
+        if (pick.Count == 0) return "-";
+        var rcs = new List<string>();
+        foreach (var u in pick)
+            rcs.Add(RuleCore.ApplyDamage(ctx, u, u.Health - toHp, "夹具事件电池").ToString());
+        return string.Join(",", rcs);
+    }
+
+    /// <summary>🆕 `A1965` 的 `tactic` / `enemyTactic`：给 `p` 打一张夹具战术（目标指向该侧 `prefer` 格）。
+    /// `out targetSlot` = 实际传给引擎的目标格（`-1` = 没打成 / 注入失败）—— `steps` 里要看得见它，
+    /// 否则 `tactic=18`（`ErrNoTargetAvailable`）分不出「没给格」和「那格不合法」。</summary>
+    static int PlayFixtureTactic(BattleContext ctx, int p, int prefer, out int targetSlot)
+    {
+        targetSlot = -1;
+        int idx = InjectToHand(ctx, p, FixtureTactic());
+        if (idx < 0) return -1;
+        targetSlot = PickOwnSlot(ctx, p, prefer);
+        return RuleCore.PlayCard(ctx, p, idx, targetSlot);
+    }
+
+    /// <summary>🆕 `A1965` 的 `troop2`：给 `p` 部署一张夹具部队，报出**真正落下的格**（`-1` = 没落场）。</summary>
+    static int DeployFixture(BattleContext ctx, int p, CardDef card, out int landed)
+    {
+        landed = -1;
+        int idx = InjectToHand(ctx, p, card);
+        if (idx < 0) return -1;
+        int rc = RuleCore.PlayCard(ctx, p, idx, FreeSlot(ctx, p), out landed);
+        if (rc != RuleCodes.OK) landed = -1;
+        return rc;
+    }
+
+    /// <summary>`A1431` 第三笔：一张卡的**事件电池读数**（含对照局的净差）。
+    /// 🆕 `A1965`：除主档那一遍之外，再跑**三个夹具变体**（<see cref="PassVariant"/>），
+    ///   四遍的净差**取并集**（同一个 `Net` 列，⛔ 不开四列）—— 见 <see cref="MergeVariant"/>。</summary>
     static EventReading MeasureEvents(List<CardDef> pool, CardDef card)
     {
         var r = new EventReading { C = card };
@@ -882,6 +1426,10 @@ class PlayProbe
             {
                 r.Net = a.Changes.Where(x => !b.Changes.Contains(x)).ToList();
                 if (a.End != null && b.End != null) r.NetDmg = a.End.Dmg[0] - b.End.Dmg[0];
+                // 🆕 `A1965`：三个夹具变体各跑一遍（a/b 两局同步骤 ⇒ 噪声相减抵消）。
+                MergeVariant(pool, card, PassVariant.LowEnergy, "V1", r);
+                MergeVariant(pool, card, PassVariant.FromDeck,  "V2", r);
+                MergeVariant(pool, card, PassVariant.Solo,      "V3", r);
             }
         }
         catch (Exception ex)
@@ -889,6 +1437,36 @@ class PlayProbe
             r.Crash = ex.GetType().Name + ": " + ex.Message;
         }
         return r;
+    }
+
+    /// <summary>🆕 `A1965`：跑**一个夹具变体**，把它的**新增净差**并进 `r.Net`（同一个 `net` 列）。
+    ///
+    /// 🔴 **防洗绿的两条（设计 §五·1 的形状，本笔改成【逐变体】各判一次）**：
+    ///   ① **两局（电池局 / 空正文对照局）的变化【逐条相同】⇒ 这一遍跳过** ——
+    ///      没有可归因的净差；同时这也是「两局跑了不同事件序列」（RNG 分叉）的挡板。
+    ///      ⚠️ 设计原文那条判据是 `net > 0 ⇒ raw != ctrl`，而 `raw`/`ctrl` 两列
+    ///      **只统计主档那一遍**（`PfECols` 未改）⇒ **有了变体之后不能拿它当全局判据**；
+    ///      变体这一侧的等价物就是这里的 `SequenceEqual` 短路。
+    ///   ② 变体自己没起步（出牌失败 / 对照局没起步）⇒ **整遍跳过**并在 `steps` 里点名，
+    ///      ⛔ 不当作「净差 0」（否则「没跑」与「跑了没效果」在读数上分不开）。
+    ///
+    /// ⚠️ 只有**真带来新条目**时才把这个变体的 `steps` 追加进 `r.Steps`（前缀 = `V1:`/`V2:`/`V3:`）
+    ///   —— 这样「主档那一遍没变」的行**一个字节都不变**，变体只在它**真救回一张卡**时才留下痕迹。
+    /// ⚠️ `NetDmg` 仍只取主档那一遍（四个变体的伤害基数不同，混在一起不可比）。</summary>
+    static void MergeVariant(List<CardDef> pool, CardDef card, PassVariant v, string tag, EventReading r)
+    {
+        var a = RunEventPass(pool, card, v);
+        // 🔴 **不许静默**：变体没起步 ⇒ `steps` 里**点名**（否则「这一遍没救回任何东西」
+        //   和「这一遍压根没跑」在读数上长得一模一样 —— 正是本笔要治的那一类）。
+        if (!a.Played) { r.Steps += " | " + tag + ":miss(rc=" + a.PlayRc + ")"; return; }
+        var b = RunEventPass(pool, Blank(card), v);
+        if (!b.Played) { r.Steps += " | " + tag + ":ctrlMiss(rc=" + b.PlayRc + ")"; return; }
+        if (a.Changes.Count == b.Changes.Count && a.Changes.SequenceEqual(b.Changes))
+            return;                                  // 两局逐条相同 ⇒ 没有可归因的净差（也挡 RNG 分叉）
+        var net = a.Changes.Where(x => !b.Changes.Contains(x)).ToList();
+        bool added = false;
+        foreach (var x in net) if (!r.Net.Contains(x)) { r.Net.Add(x); added = true; }
+        if (added) r.Steps += " | " + tag + ":" + string.Join(",", a.Steps);
     }
 
     // ==================================================================
@@ -1720,6 +2298,9 @@ class PlayProbe
     /// **覆盖面**：每一对都指名一个**事件**（`Strike` / `Regiment` / `Duty` / `Pray` / `Oath` /
     ///   回合开始 / 回合结束 / `Slay`）—— 这些正是「档 B」的成员挂着的那些头。
     ///   ⇒ 哪一条红了，就等于说「**这个事件电池没抬起来**」，档 B 里挂那个头的卡**仍然没被验到**。
+    ///   🆕 **`A1965`（2026-10-19）**：新 6 步（`selfChip` / `tactic` / `enemyTactic` / `troop2` /
+    ///   `friendDies` / `collect`）与三个夹具变体（V1 Codex / V2 Teleport / V3 条件 Rally）**各补一对**
+    ///   —— 设计 §五·3 要求「扩到每一个新步骤」：少一对 = 那一步坏掉之后电池只会**静默抬不起来**。
     ///
     /// ⚠️ 夹具卡**在内存里现造**（`new CardDef(...)`，⛔ 不进卡池、⛔ 不碰 `MyGame/Assets/**`）。
     /// </summary>
@@ -1744,6 +2325,37 @@ class PlayProbe
             new object[] { "Oath（誓约）",           "Oath 2: Deal 3 damage to an enemy troop",                 "Oath 2: Deal 7 damage to an enemy troop",                 new[] { "Oath" } },
             new object[] { "回合开始",               "At the start of your turn, deal 3 damage to an enemy troop", "At the start of your turn, deal 8 damage to an enemy troop", new string[0] },
             new object[] { "回合结束",               "At the end of your turn, deal 3 damage to a random enemy",  "At the end of your turn, deal 8 damage to a random enemy",  new string[0] },
+            // ============================================================
+            //  🆕 `A1965`（2026-10-19）：**新 6 步 ＋ enemyTactic ＋ 三变体**各一对。
+            //   🔴 设计 §五·3 要求「扩到每一个新步骤」—— 缺一条 = 那个新步骤**没被灭自证**，
+            //      它坏掉之后电池只会**静默变成抬不起来**（正是本笔要治的那一类）。
+            //   ⚠️ 两个数必须真的不同（`3 → 8`），且**只有这一个数**变 —— 否则「净差不同」可能来自别处。
+            // ============================================================
+            new object[] { "受伤（selfChip）",       "When this unit is damaged, deal 3 damage to an enemy troop",           "When this unit is damaged, deal 8 damage to an enemy troop",           new string[0] },
+            new object[] { "Artifice（tactic）",     "Artifice: Deal 3 damage to an enemy troop",                            "Artifice: Deal 8 damage to an enemy troop",                            new[] { "Artifice" } },
+            new object[] { "对手打战术（enemyTactic）", "When your opponent plays a Stratagem, deal 3 damage to an enemy troop", "When your opponent plays a Stratagem, deal 8 damage to an enemy troop", new string[0] },
+            new object[] { "Uprising（troop2）",     "Uprising: Deal 3 damage to an enemy troop",                            "Uprising: Deal 8 damage to an enemy troop",                            new[] { "Uprising" } },
+            new object[] { "友军阵亡（friendDies）",  "When a friendly troop dies, deal 3 damage to an enemy troop",          "When a friendly troop dies, deal 8 damage to an enemy troop",          new string[0] },
+            // 🆕 `A1965` 续工：第 ⑥ 步改成**真击杀路**之后补的这一对 —— 验「**敌方**阵亡」那一族。
+            new object[] { "敌方阵亡（⑥ 真击杀）",   "When an enemy dies, deal 3 damage to an enemy troop",                   "When an enemy dies, deal 8 damage to an enemy troop",                   new string[0] },
+            // ⚠️ **`收路标石` 这一对是看门狗 —— 它盯过一条真引擎缺陷，现已修好（2026-10-19 同日）。**
+            //   本会话实测（第五十五会话 `E8`）：`collect` 那一步 **rc=0、残骸已形成**
+            //   （`steps` 里 `collect=0@1/rem+way`），但两条正文的净差**都是 0**。
+            //   根因当时是：`RuleCore.CollectWaystone` 只往 `ctx.Signals` 塞两条表现层事件、
+            //   **没有 `BroadcastWhen(WhenEventKind.GainSpirit, …)`** ⇒「`When you collect a Spirit Stone, …`」
+            //   这条监听器**从来不会响**（与 `EffectResolver.DoGain` 那段「Signals 不能顶替广播」同一个坑）。
+            //   ✅ **引擎线同日已补上**（现读 `RuleEngine/Core/RuleCore.cs:8492` 就是那一行）；
+            //   本对随即转绿（实测 12 条 vs 12 条、伤害值 3 vs 8）⇒ **留着它当回归看门狗**：
+            //   谁把那一行拿掉，这一对会立刻红。
+            new object[] { "收路标石（collect）",     "When you collect a Spirit Stone, deal 3 damage to an enemy troop",     "When you collect a Spirit Stone, deal 8 damage to an enemy troop",     new string[0] },
+            new object[] { "Slay（攻击击杀）",        "Slay: Deal 3 damage to an enemy troop",                                "Slay: Deal 8 damage to an enemy troop",                                new[] { "Slay" } },
+            // ============================================================
+            //  🆕 `A1965` 三个**夹具变体**各一对（V1 Codex / V2 Teleport / V3 条件 Rally）。
+            //   ⚠️ 这三条**不是**新步骤，是**同一套步骤换起始状态** —— 验的是「装具换一档，读数必须跟着变」。
+            // ============================================================
+            new object[] { "V1 Codex（能量=卡费）",   "Codex: Deal 3 damage to an enemy troop",                               "Codex: Deal 8 damage to an enemy troop",                               new[] { "Codex" } },
+            new object[] { "V2 Teleport（牌库抽到）", "Teleport: Deal 3 damage to an enemy troop",                            "Teleport: Deal 8 damage to an enemy troop",                            new[] { "Teleport" } },
+            new object[] { "V3 条件 Rally（空棋盘）", "Rally: If you control no other troops, deal 3 damage to an enemy troop", "Rally: If you control no other troops, deal 8 damage to an enemy troop", new string[0] },
         };
 
         foreach (var p in pairs)
@@ -1759,7 +2371,7 @@ class PlayProbe
                               + (ra.Net.Count == 0 && rb.Net.Count == 0 ? "（**两条都是空的**）" : ""));
             Console.WriteLine("        真：`" + Clip(a, 70) + "`  ⇒ " + Clip(na, 150));
             Console.WriteLine("        改：`" + Clip(b, 70) + "`  ⇒ " + Clip(nb, 150));
-            Console.WriteLine("        steps " + Clip(ra.Steps, 110)
+            Console.WriteLine("        steps " + Clip(ra.Steps, 220)
                               + (ra.Note.Length > 0 ? "   ⚠️ " + ra.Note : ""));
             if (!diff)
             {

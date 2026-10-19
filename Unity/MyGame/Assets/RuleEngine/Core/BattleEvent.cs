@@ -28,7 +28,8 @@ namespace RuleEngine
         /// `Deploy`（那条是「进格位」，效果召唤来的单位**只有它**）。
         /// 2026-09-13 加：以前战术卡打出去**一个事件都没有**，战斗日志和表现层都看不到它。</summary>
         Play,
-        /// <summary>单位落到格位上（出牌结算完的那一刻，不是拖拽松手）</summary>
+        /// <summary>单位落到格位上（出牌结算完的那一刻，不是拖拽松手）。
+        /// 🆕 2026-10-19：「**怎么进来的**」看 <see cref="BattleEvent.DeployFrom"/>（战斗线 B3 的接口）。</summary>
         Deploy,
         /// <summary>攻击宣言 —— 伤害之前发，表现层才有「抬手 → 命中」的余地</summary>
         Attack,
@@ -183,10 +184,77 @@ namespace RuleEngine
         ///   只有注释）、`KeywordTable` 里也**没有 `secretOrder`**（`Card_Trait/secretOrder` 是我们
         ///   还没实现的词条）。⇒ 要让这一条真发出来，**先得有密令那套机制**（面朝下放置 + 揭示时机），
         ///   那是**另一件活**（判据已全部记在上面）。**今天这一条只是把表补全**，让消费端可以引用它。
+        ///
+        /// ✅ **2026-10-19（第五十五会话 · 账 `A1819`/`A1985`）就地更新（铁律 5）**：
+        ///   · 🔴 **上一段引错了对象**（`A1985`）：`+0x90 == 0x3c` 读的**不是 `CardEffect`** ——
+        ///     `EntityScript__HasSecretOrders.c:31` 的链是
+        ///     **`ActiveEnchantment.enchantmentCard(+0x10) → RawCardScript.spellType(+0x90) == 0x3c(60)`**
+        ///     （`dump.cs:118926-118930`）；`CardEffect + 0x90` 是另一回事（`RevealedSecret` 里那个
+        ///     **「已揭示」bool**，见 `EntityScript__RevealedSecret.c`）。
+        ///   · **附魔层已经建起来了**（`Core/Enchantment.cs` + `CardInstance.ActiveEnchantments`），
+        ///     所以「`RuleEngine` 里根本没有这一层」这句**已过期**。
+        ///   · **发出点也有了** = `RuleCore.RevealSecretOrders`（照
+        ///     `BattleManager._ResolveRevealOrders_d__549.MoveNext` 那条链：揭示 → 必要时摘附魔 → 发本事件）。
+        ///   · ⚠️ **仍然不可达**：触发「揭示」的上游是能力逻辑
+        ///     `AbilityLogic.chosenAbility == revealOrder(280)`（`AbilityLogic__PlayAbility.c:2492-2506`），
+        ///     而我们的能力逻辑**没有数据层**（现读 `cards_raw.json` **0 张**卡带 `revealOrder`）
+        ///     ⇒ **没有任何调用点**。判据与接口需求写在 `资料/普查产出_1019/E3_报告.md`。
         /// ⚠️ **它不是我们那张 `Secret` 兵种牌**（秘仪 / `spellType 150`）：原版打出秘仪走
         ///   `PlayerManager.AddSecretPlayed`（`_ResolvePlayCardFromHand_d__447:1274`），**与密令无关**。
         /// </summary>
         SecretOrder,
+    }
+
+    /// <summary>
+    /// 🆕 **`Deploy` 事件：这个单位是【怎么】进到格位上的**（战斗线 B3 的接口需求，2026-10-19）。
+    ///
+    /// <para>为什么需要它（判据 = 原版两条**完全不同**的协程，`d:/2/tools/decomp_full/` 逐行读过）：
+    /// 战斗线要决定「这一手要不要演手牌飞行 / 起飞两条 cue」，而原版那两件事挂在**不同的路由**上：
+    ///   · `BattleManager._ResolveCardAutoSummoned_d__511__MoveNext.c`（= 我们 `DeployFree(fromHand:true)`，
+    ///     卡面 `from your deck`，池里 2 张 `BL55` / `SW57`）—— **有**手牌飞行 + `moveCardIntoBattle` /
+    ///     `playMinionFromHand` 两条起飞 cue（`:104,122,187`）；
+    ///   · `BattleManager._ResolveSummonUnit_d__510__MoveNext.c`（= 我们 `DeployFree` 的默认档，效果召唤 /
+    ///     复制 / 凭空造）—— `MinionManager.SummonMinion` **直接插进格位**，两个声音调用点**0 个**；
+    ///   · `RuleCore.PlayCard`（手牌打出）—— 走玩家拖拽/`CardInteraction.Release` 那条，飞行由输入层给票；
+    ///   · `EffectResolver.DoReanimate`（残骸 / 墓地翻回来）—— 见那一处自己的注释。
+    /// ⇒ 这几条路在引擎里发出的 `Deploy` 事件**逐字相同**，表现层分不出（B3 报告 §三·2）。</para>
+    ///
+    /// <para>🔴 **`Unknown = 0` 是哨兵，不是 `HandPlayed`**：本工程对「新字段的默认值」有既定纪律
+    /// （见 `CardPresentation/Battle/ReplayStore.cs` 的 `tutorialStage` / `botSeatPlus2`）——
+    /// 新增字段的 **CLR 默认值**必须表示「**没写**」，⛔ 不能让一个忘了赋值的 `Deploy` 事件
+    /// 静默冒充「手牌打出」。消费端拿到 `Unknown` ⇒ 按**改前的老行为**处理（所有 `Deploy` 一视同仁）。
+    /// （⚠️ 与战斗线 B3 报告 §三·2 建议的 `0 = PlayCard / 1 = autoPlay / 2 = 召唤 / 3 = 复活` 差一位：
+    /// 这里把 `0` 留给了哨兵。**消费端以本枚举为准**。）</para>
+    ///
+    /// <para>⚠️ **回放格式不受影响**：本地录像存的是「起始条件 + 动作流」
+    /// （`ReplayStore.ReplayRecord.actions`，见 `Battle/ReplayStore.cs` 文件头），
+    /// **`BattleEvent` 不进 `.json`** ⇒ 加这一位不需要 `version +1`，旧录像照读。</para>
+    /// </summary>
+    public enum DeploySource
+    {
+        /// <summary>没写（哨兵）。旧路径 / 自检里手工合成的 `Deploy` 事件。消费端按老行为处理。</summary>
+        Unknown = 0,
+        /// <summary>**从手牌打出**（`RuleCore.PlayCard`）—— 飞行由输入层给票（`CardInteraction.Release`）。</summary>
+        HandPlayed = 1,
+        /// <summary>**从手牌免费打出**（`RuleCore.DeployFree(fromHand:true)`）—— 原版
+        /// `_ResolveCardAutoSummoned`：有手牌飞行 + 起飞两条 cue，而且会触发 Rally / 兑现手牌加成。
+        ///
+        /// <para>🔴 **「哪一方的手牌」不另开一档**（2026-10-19 · `E12` · `A2143` 查证）：
+        /// 原版 `_ResolveCardAutoSummoned_d__511__MoveNext.c:74/92/101` 读的是
+        /// **`card + 0x40`（`EntityScript.isPlayer`）**，据此选
+        /// `playerMinionManager(+0xe0)` / `enemyMinionManager(+0xe8)`（`dump.cs:30742-30743`）
+        /// ⇒ **牌从谁的手里拿出来，就落在谁的棋盘上** ⇒ 本事件的
+        /// <see cref="BattleEvent.Player"/> **就是那只手的主人**。
+        /// 表现层挑 `PlayEnemyCard`（`DisplayEnemyCardInCenter` + `TurnCardAround`）/
+        /// `PlayPlayerCard` 的判别式 = **`Player == 本机座位`**（`:110` / `:128` 两支）。
+        /// ⛔ 别为「敌方手牌」再加一个枚举值 —— 那是同一条规则的第二个表示。</para></summary>
+        AutoPlayFromHand = 2,
+        /// <summary>**效果召唤 / 复制 / 凭空造**（`RuleCore.DeployFree` 默认档）—— 原版
+        /// `_ResolveSummonUnit`：直接插进格位，**没有**飞行、没有起飞 cue、不触发 Rally。</summary>
+        Summon = 3,
+        /// <summary>**复活 / 再造**（`EffectResolver.DoReanimate`，从残骸或墓地翻回来）—— 不飞、不触发 Rally
+        /// （`DoReanimate` 的判据）；表现层按「只响落地两条」处理（B3 报告 §三·2 的消费约定）。</summary>
+        Reanimate = 4,
     }
 
     /// <summary>一条已经发生的事。字段全是**引擎知道的事实**，表现层只管往画面上翻译。</summary>
@@ -245,6 +313,48 @@ namespace RuleEngine
         /// ⚠️ **不是伏击就保持 `false`**（⛔ 别拿哨兵值顶替）；别的种类（`Attack`/`Ability`/…）不填这一位。
         /// </summary>
         public bool PlayAmbush;
+
+        /// <summary>
+        /// 🆕 **`Deploy` 专用：这个单位是【怎么】进到格位上的**（2026-10-19 · 战斗线 B3 的接口需求）。
+        /// 取值与各档的判据见 <see cref="DeploySource"/> 的 doc。
+        ///
+        /// <para>默认 = <see cref="DeploySource.Unknown"/>（哨兵，= 「没写」）⇒ 别的种类（`Play`/`Attack`/…）
+        /// 与自检里手工合成的 `Deploy` 都不填这一位；消费端读到 `Unknown` 就按**改前的老行为**处理。</para>
+        /// </summary>
+        public DeploySource DeployFrom;
+
+        /// <summary>
+        /// 🆕 **这件事的主语（/目标）是哪一份牌** —— 稳定实例号 = `UnitState.Instance.Id`
+        /// （= `CardInstance.Id`）。**`0` = 没写**（哨兵）；正数 = 真对局里的那一份；
+        /// 负数 = 没有 `BattleContext` 的场合（测试 / 演示自建单位，`CardInstance.Detached`）。
+        ///
+        /// <para>🔴 **为什么必须补这一位**（判据 = 原版**实体访问链**，`d:/2/tools/decomp_full/` +
+        /// `d:/2/tools/il2cpp_out/dump.cs`）：
+        ///   · 原版每张场上牌身上带一个**本局唯一号** `CardScript + 0x22c` —— 写点
+        ///     `CardScript__SetInBattleId.c:8`（唯一写点），发号方
+        ///     `BattleCardManager__RegisterCardInPlay.c:58` / `__CreateCard.c:152`
+        ///     （`BattleCardManager + 0x28..0x38` 那枚 `ObscuredInt` 单调递增）；
+        ///   · 所有**跨对象引用**都拿这个号反查，而不是格位：
+        ///     `BattleCardManager__GetCardFromUniqueId.c:33`（`*(int*)(card + 0x22c) == uniqueId`）、
+        ///     `PlayerAction` 的 `act` / `tget`（`dump.cs:119892`，`0x14` / `0x18` 两格就是两张牌的
+        ///     这个号，`BattleManager__ParseEnemyAction.c:64,69` 都用 `GetCardFromUniqueId` 解）；
+        ///   · 语义上格位**不是身份**：原版 `MinionManager` 是两条 `List`，单位离场/换位时格号会变
+        ///     （我们的 `BoardSlots` 同一套「插入推人 / 外侧补位」，见 `CLAUDE.md` §三）。
+        ///   ⇒ 表现层拿「座位 + 格号」对账，**同名单位同格换人**（先死后补位）时会把两件事记到
+        ///     同一个键上 —— 那正是「同名单位血账」错挂的那条路（战斗线 B3/B4 的接口需求）。
+        ///     **不许用「座位 + 格号」冒充**这一位。</para>
+        ///
+        /// <para>填法：单位相关的事件由 `<see cref="RuleEngine.BattleContext"/>` 的发送方填
+        /// （`RuleCore.EmitUnit` 一处 + 少数直接 `Emit` 的落点）；`Attack` 的**目标**填
+        /// <see cref="TargetInstanceId"/>。别的种类（`Play` 战术卡 / `Draw` / 资源类）保持 `0`。</para>
+        /// </summary>
+        public int InstanceId;
+
+        /// <summary>
+        /// 🆕 **被指向的那一份牌**（只看 `Attack` 今天填；`Ability` / `Play` 的靶向暂时不填 ——
+        /// 它们的 `Target` 三件套本来就只在「有目标」时有值，实例号这一维等消费端要了再加）。
+        /// 语义与哨兵同 <see cref="InstanceId"/>（`0` = 没写）。</summary>
+        public int TargetInstanceId;
 
         /// <summary>`Ability` / `Trigger` 专用：哪个关键词（`rally` / `slay` / `ability`…）</summary>
         public string Keyword;

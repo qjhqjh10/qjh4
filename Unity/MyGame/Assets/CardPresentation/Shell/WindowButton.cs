@@ -153,10 +153,10 @@ namespace CardPresentation
         {
             switch (st)
             {
-                case BtnState.Pressed: return new Color(PressedK, PressedK, PressedK, 1f);
-                case BtnState.Selected: return new Color(SelectedK, SelectedK, SelectedK, 1f);
+                case BtnState.Pressed: return PressedKey;
+                case BtnState.Selected: return SelectedKey;
                 case BtnState.Highlighted: return HighlightKey;
-                default: return Color.white;              // Normal = 原色（`m_NormalColor` 实测 1198/1276 是纯白）
+                default: return NormalKey;                // Normal = 原版 `m_NormalColor`（1198/1276 是纯白）
             }
         }
 
@@ -186,6 +186,30 @@ namespace CardPresentation
         /// ⚠️ `Pressed` / `Selected` 两格**不给覆盖口** —— 那五颗的 `m_PressedColor` / `m_SelectedColor`
         /// 实测**就是全库默认值**（0.7843137 / 0.9607843），没有第二个值出现过；真遇到别的再开。</summary>
         public Color HighlightKey = new Color(HighlightK, HighlightK, HighlightK, 1f);
+
+        /// <summary>🆕 **2026-10-19（`N70`）**：本颗 `m_Colors.m_NormalColor`。
+        /// 默认 **白**（= 全库默认，1198/1276 颗；逐位等于旧实现）。
+        /// <para>🔴 为什么必须有这一格：UGUI 的最终色 = **图形自己的 `m_Color` × 状态色**；
+        /// 而本类的色偏是「**基准色 × 状态键**」。原版有一族 `m_NormalColor` **不是白**
+        /// （设置窗 4 行开关 = **绿 (0.2862745, 0.9647059, 0.6862745)**）——
+        /// 若把绿写进图形基准色、状态键仍按白算，悬停会变成 **绿 × 绿**（red 通道掉到 0.08）。
+        /// ⇒ 正确映射 = 图形基准色保持白 + `NormalKey` 给绿，四种状态键**各自原值**。</para></summary>
+        public Color NormalKey = Color.white;
+
+        /// <summary>🆕 **2026-10-19（`N70`）**：本颗 `m_Colors.m_PressedColor`（`Color` 版；r=g=b 时与
+        /// <see cref="PressedK"/> **逐位等价** ⇒ 既有站点零行为变化）。
+        /// <para>为什么要开这个口：原版有一族 `m_Colors` **三通道不相等** —— 设置窗那 4 行开关（`EverguildToggle`，
+        /// `m_Transition = 1`）的 `m_PressedColor = (0.30584726, 0.8207547, 0.61052626)`（绿色系）。
+        /// 标量 `PressedK` 表达不出这个颜色，照它写会把按下态画成灰色。</para>
+        /// <para>判据（prefab 逐颗实读）：`bundle_menus_assets_all/MonoBehaviour/MonoBehaviour_-1083006033978469938.json`
+        /// 的 `m_Colors`（`Small Screen Size Toggle` 上那颗 `EverguildToggle`；四行开关逐值相同）。
+        /// ⛔ 只给有逐颗判据的站点覆盖（同 <see cref="HighlightKey"/> 那条纪律）。</para></summary>
+        public Color PressedKey = new Color(PressedK, PressedK, PressedK, 1f);
+
+        /// <summary>🆕 **2026-10-19（`N70`）**：本颗 `m_Colors.m_SelectedColor`（`Color` 版；默认 = 旧标量
+        /// <see cref="SelectedK"/>，逐位等价）。同一族站点（设置窗 4 行开关）的
+        /// `m_SelectedColor = (0.29019609, 0.95294118, 0.68235296)`。</summary>
+        public Color SelectedKey = new Color(SelectedK, SelectedK, SelectedK, 1f);
 
         // ============================================================ 🆕 **2026-10-10（A222）**
         // 把**这颗按钮之外**的图形也接进色偏 —— 原版那颗 `ColorTint` 打的**永远是「这颗 `Selectable`
@@ -484,7 +508,13 @@ namespace CardPresentation
             Pressed = true;
             // 🆕 2026-10-05（A50②）：**按下连一张图都换不动**时出声一次 —— `SwapTo(null)` 是**静默早退**，
             //   原来这一档一点痕迹都不留（`MissingSwapArt` 只记 hover 那一路）。红线：不许静默失败。
-            if (_pressedTex == null && _hoverTex == null && !_pressedSilent)
+            // 🔴 **2026-10-19（N70 · U3）就地订正：这一条少了 `tintOnHover` 那一半** ——
+            //   原版 `m_Transition = 1 (ColorTint)` 的按钮**本来就没有换图**（`m_SpriteState` 四格全空），
+            //   它的按下态靠色偏。而本类默认 `tintOnHover = true` ⇒ 那些站点（主菜单 5 颗导航钮 /
+            //   模式卡 / 聊天发送钮…）**每一次按下都会打一条「静默无效」的假告警**（画面明明变了）。
+            //   判据 = 本类自己的 `ApplyState`：色偏与换图**两条路任一生效就够** ⇒ 只有在
+            //   `!tintOnHover`（= `Bind` 过、被关掉色偏）**且**两张图都空时才是真的无效。
+            if (_pressedTex == null && _hoverTex == null && !tintOnHover && !_pressedSilent)
             {
                 _pressedSilent = true;      // 每颗只说一次（这颗每次按都会走到这里）
                 Debug.LogWarning("[WindowButton] `" + name + "`：按下**一张图都换不出来**（常态图 `"
@@ -506,6 +536,18 @@ namespace CardPresentation
         }
 
         public System.Action onDown, onUp;
+
+        /// <summary>🆕 **2026-10-19（`N70`）**：把**当前状态色立刻**写上去（不走 0.1 s 补间）。
+        /// <para>为什么要这个口：构建期没人调 `Enter/Exit/Press/Release` ⇒ 色偏停在「基准色」上；
+        /// 而原版 `Selectable.OnEnable` 会 `DoStateTransition(Normal, **instant: true**)` —
+        /// 对 `m_NormalColor` 不是白的那一族（设置窗 4 行开关 = 绿），**不立刻写就是白框**（错色）。</para>
+        /// <para>⚠️ 必须在 `TintOn(...)` / 四格 key 赋好**之后**调（它会 `Collect()` 记基准色）。</para></summary>
+        public void ApplyTintInstant()
+        {
+            Collect();
+            _k = _kTarget = KeyOf(State);
+            ApplyTint();
+        }
 
         void SetTarget(Color key)
         {

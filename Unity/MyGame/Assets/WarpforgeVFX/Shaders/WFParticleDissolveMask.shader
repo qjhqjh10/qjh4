@@ -39,9 +39,23 @@
 //    ⚠️ 通道：**自定义顶点数据路**由 `_DISSOLVE_CHANNEL_*` 关键字选（0/1/2/3 = R/G/B/A，与材质数值逐一对上），
 //       我们按**数值** `_DISSOLVE_CHANNEL` 分支；**材质值路（段 0）恒取 .r**（实读）。
 //
-// ⚠️ **如实标注（判据不足，不是不做）**：pass0 共 8 个 ps 变体，本文件只实现了**材质在用到的 4 支**
-//    （段 2/3/6/7）。段 1/4/5（`o0.w=1` 那支、G 通道那支）**没有材质用到**，而且「哪个关键字门控它们」
-//    在 DXBC 侧查不到（关键字全集里没有对应名字）⇒ **照不到判据**（铁律 3）。见证据包 §7。
+// ⚠️ **如实标注 → ✅ 2026-10-19 已收口**：pass0 共 8 个 ps 变体，**「哪个关键字组合编成哪一段」现在有了实读判据**。
+//    🔑 **办法**：`Shader.compressedBlob` 里**每个子程序前面就写着它这一变体的关键字名**（长度前缀的字符串 +
+//       DXBC 魔数）；把 8 个 ps 段与这些字符串逐段对齐（判据 = 段 0..7 的指令数/输入签名与字符串一一对上）：
+//      | 段 | 关键字（除 `_SURFACE_TYPE_TRANSPARENT` 外）                             | 含义 |
+//      |----|------------------------------------------------------------------------|------|
+//      | 0  | （无 BOOLEAN，`_DISSOLVE_CHANNEL_R`）                                   | 材质值路 · o0.w=1 |
+//      | 1  | `BOOLEAN_F96…_ON` + `BOOLEAN_D80F…_ON` + `_DISSOLVE_CHANNEL_B`（**无 SURFACE**） | 自定义顶点路 · lerp · o0.w=1 |
+//      | 2  | `BOOLEAN_F96…_ON` + `_DISSOLVE_CHANNEL_R`                              | 自定义顶点路 · 加边 · SURFACE |
+//      | 3  | `BOOLEAN_F96…_ON` + `_DISSOLVE_CHANNEL_B`                              | 同上 · B 通道 |
+//      | 4  | `BOOLEAN_F96…_ON` + `BOOLEAN_D80F…_ON` + `_DISSOLVE_CHANNEL_R`         | lerp · R 通道 |
+//      | 5  | 同上 + `_DISSOLVE_CHANNEL_G`                                           | lerp · G 通道 |
+//      | 6  | 同上 + `_DISSOLVE_CHANNEL_B`                                           | lerp · B 通道 |
+//      | 7  | `BOOLEAN_F96…_ON` + `_DISSOLVE_CHANNEL_B` + **`_ALPHATEST_ON`**        | 加边 · alpha clip + 软粒子覆盖率 |
+//      ⇒ **四支「材质用不到」的担心不成立**：材质实测确有 `_ALPHATEST_ON`（`Will Of Gork`）与
+//        **不带 `_SURFACE_TYPE_TRANSPARENT`**（`Atk_JainasMor`）的材质 ⇒ 段 1 / 段 7 **都要实现**（本文件已补）。
+//      ⚠️ `_DISSOLVE_CHANNEL_A` 在关键字全集里、但**没有任何 ps 段用它** ⇒ 原版没编这一支（铁律 11 例外①），
+//        本文件仍保留数值兜底（`_DISSOLVE_CHANNEL` = 3 时取 .a）。
 //
 // ⚠️ **它在白名单里** ⇒ 运行时走原件；本文件只在**兜底路**生效。
 Shader "WarpforgeVFX/FX/ParticleDissolveMask"
@@ -109,6 +123,14 @@ Shader "WarpforgeVFX/FX/ParticleDissolveMask"
             //    关键字名逐字来自原版（材质上带的就是 `BOOLEAN_F96BE1E6…_ON`），binder 的 `EnableKeyword` 按名打开 ✓。
             #pragma shader_feature_local BOOLEAN_F96BE1E681E64E0E98322A14BDBD35A3_ON
             #pragma shader_feature_local BOOLEAN_D80F51B627624648A0B3B2D563AA7541_ON
+            // 🆕 2026-10-19（T06）：8 个变体的门控**实读出来了**（见文件头那张表）——
+            //   下面这 6 个关键字逐个对应原版关键字全集里的同名项，⛔ 别改名、别加 `_ON`。
+            #pragma shader_feature_local_fragment _DISSOLVE_CHANNEL_R
+            #pragma shader_feature_local_fragment _DISSOLVE_CHANNEL_G
+            #pragma shader_feature_local_fragment _DISSOLVE_CHANNEL_B
+            #pragma shader_feature_local_fragment _DISSOLVE_CHANNEL_A
+            #pragma shader_feature_local_fragment _SURFACE_TYPE_TRANSPARENT
+            #pragma shader_feature_local_fragment _ALPHATEST_ON
 
             #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Core.hlsl"
 
@@ -175,11 +197,24 @@ Shader "WarpforgeVFX/FX/ParticleDissolveMask"
                              c.b <= 0.003131h ? lo.b : hi.b);
             }
 
-            /// `_DISSOLVE_CHANNEL` 的实读枚举：0=R 1=G 2=B 3=A
+            /// 溶解阈值取哪个通道。
+            /// 🔴 **2026-10-19：优先级改成「关键字优先、数值兜底」** —— 原版这一格是**关键字**门控的
+            ///   （`_DISSOLVE_CHANNEL_R/G/B/A`），数值 `_DISSOLVE_CHANNEL` 只是 ShaderGraph 顺手暴露的
+            ///   浮点属性。两者在 30 个材质块上实测一致（R=0/G=1/B=2/A=3），但**判据是关键字**。
             half PickDissolve(half4 d)
             {
-                int i = (int)_DISSOLVE_CHANNEL;
+            #if defined(_DISSOLVE_CHANNEL_R)
+                return d.r;
+            #elif defined(_DISSOLVE_CHANNEL_G)
+                return d.g;
+            #elif defined(_DISSOLVE_CHANNEL_B)
+                return d.b;
+            #elif defined(_DISSOLVE_CHANNEL_A)
+                return d.a;
+            #else
+                int i = (int)_DISSOLVE_CHANNEL;                     // 关键字缺失时的兜底（数值实读枚举）
                 return (i == 0) ? d.r : (i == 1) ? d.g : (i == 2) ? d.b : d.a;
+            #endif
             }
 
             half4 frag(Varyings IN) : SV_Target
@@ -211,7 +246,24 @@ Shader "WarpforgeVFX/FX/ParticleDissolveMask"
             #else
                 rgb = baseRGB + mask * edge;
             #endif
-                return half4(rgb, baseA * cut);
+                // ── alpha：三条输出路（2026-10-19 补齐，判据 = 段 1 / 段 2-6 / 段 7）
+            #if defined(_ALPHATEST_ON)
+                // 段 7（51 条，逐条翻译）：**不要把它当成 `_SURFACE_TYPE_TRANSPARENT` 的一支** ——
+                //   它的 o0.w 在「没有 alpha-to-mask」时**恒 1.0**，靠 `clip()` 把 alpha<0.5 的片元直接丢掉。
+                //   alphaBase = 基色.a · cut ; fw = |ddx| + |ddy|
+                //   coverage  = saturate( ((alphaBase − 0.5) − 0.5·fw) / max(fw, 1e-4) + 1 )
+                //   clip( a2m ? coverage − 1e-4 : alphaBase − 0.5 ) ; o0.w = a2m ? coverage : 1.0
+                half alphaBase = baseA * cut;
+                half fw        = abs(ddx(alphaBase)) + abs(ddy(alphaBase));
+                half coverage  = saturate(((alphaBase - 0.5h) - 0.5h * fw) / max(fw, 0.0001h) + 1.0h);
+                bool useA2M    = _AlphaToMaskAvailable != 0.0;
+                clip(useA2M ? (coverage - 0.0001h) : (alphaBase - 0.5h));
+                return half4(rgb, useA2M ? coverage : 1.0h);
+            #elif defined(_SURFACE_TYPE_TRANSPARENT)
+                return half4(rgb, baseA * cut);                                      // 段 2-6
+            #else
+                return half4(rgb, 1.0h);                                             // 段 1（`Atk_JainasMor` 就是这个）
+            #endif
             #else
                 // ══ 材质值路（段 0；30 个材质块没有一支走这里，照实现以保忠实）══
                 half  A = Vector1_4e2dbe7bff184ada93bb896e70f4c06d;

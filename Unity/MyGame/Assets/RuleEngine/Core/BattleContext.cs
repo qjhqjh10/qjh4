@@ -670,6 +670,17 @@ namespace RuleEngine
         /// </summary>
         public int NextHandEffectRecord() { return _nextHandEffectRecordId++; }
 
+        // ---- 🆕 2026-10-19（第五十五会话 · `A1567`）本局已挂过几件附魔 ----------------
+        //
+        // 原版 `BattleManager.enchatmentsUsed // +0x4E4`（`dump.cs`；`BattleManager__get_enchatmentsUsed.c`
+        // 读它、`BattleManager__UsedEnchantment.c` 就是 `+0x4e4 += 1`）。
+        // 写点只有一个：`CardScript__AddEnchantment.c:44` —— 新附魔的 `enchantmentCardID`
+        // **取的是这一刻的值**，紧接着 `:48` 调 `UsedEnchantment` 自增
+        // ⇒ 本局第 1 件附魔的 id 是 **0**。
+        // 跟着 `BattleContext` 走 ⇒ 每局从 0 开始、同种子同序号（对局可复现，⛔ 不用 Guid / 随机数）。
+        // ⚠️ 它**不是**「卡 id」—— 别拿它当 `CardDef.Id` 用（见 `ActiveEnchantment.EnchantmentCardId`）。
+        public int EnchantmentsUsed;
+
         public PlayerState ActivePlayer { get { return Players[Active]; } }
         public PlayerState Opponent { get { return Players[1 - Active]; } }
 
@@ -1447,11 +1458,18 @@ namespace RuleEngine
         }
 
         /// <summary>按字段发一条（不传的字段保持默认值）</summary>
+        /// <param name="deployFrom">🆕 **`Deploy` 专用**：这张牌怎么进场的（见 <see cref="DeploySource"/>）。
+        /// 其余种类保持默认 <see cref="DeploySource.Unknown"/>；⛔ 别拿它当「部署了」的判据。</param>
+        /// <param name="instanceId">🆕 **单位事件的稳定实例号**（= `UnitState.Instance.Id`；`0` = 没写）。
+        /// 判据与「为什么不能用座位 + 格号」见 <see cref="BattleEvent.InstanceId"/>。</param>
+        /// <param name="targetInstanceId">🆕 **被指向那一份牌**的实例号（今天只有 `Attack` 填；`0` = 没写）。</param>
         public void Emit(EvtKind kind, int player, int slot, string cardId,
                          string keyword = null, string effect = null,
                          int amount = 0, bool ranged = false,
                          int targetPlayer = -1, int targetSlot = -1,
-                         string targetCardId = null)
+                         string targetCardId = null,
+                         DeploySource deployFrom = DeploySource.Unknown,
+                         int instanceId = 0, int targetInstanceId = 0)
         {
             Emit(new BattleEvent
             {
@@ -1466,6 +1484,9 @@ namespace RuleEngine
                 TargetPlayer = targetPlayer,
                 TargetSlot = targetSlot,
                 TargetCardId = targetCardId,
+                DeployFrom = deployFrom,
+                InstanceId = instanceId,
+                TargetInstanceId = targetInstanceId,
             });
         }
 

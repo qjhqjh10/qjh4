@@ -333,6 +333,9 @@ namespace CardPresentation
             //    `fs 40.0 · auto[4.0~40.0] · base 36.0 · 折行 1`（本窗口 4 颗 TMP 逐颗实读；上限 40 = 标称 ⇒ A333 本来就对）。
             var msg = MenuDraw.TextBox(WindowNode, MsgR, TxtMessage, Color.white, "MessageText", 40f, 4f, QText,
                                        40f, 36f, face: TmpFont.Face.LatinCardBody);
+            // 🆕 **2026-10-19（`P2-7`）**：原版 `ReRollPopup Variant/Window/MessageText` 的
+            //   `m_lineSpacing = 15`（prefab 实读）⇒ 这扇窗的多行正文行距补上。
+            if (msg != null) MenuDraw.SetLineSpacing(msg, 15f);
             if (msg == null) Debug.LogWarning("[MissionReroll] `MessageText` 没建出来（红线：不许静默失败）");
             else MsgNode = msg.transform;
 

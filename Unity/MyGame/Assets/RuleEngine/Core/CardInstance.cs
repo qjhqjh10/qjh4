@@ -101,6 +101,24 @@ namespace RuleEngine
         public readonly List<HandEffect> HandEffects = new List<HandEffect>();
 
         /// <summary>
+        /// 🔴 **2026-10-19（第五十五会话 · `A1567`）：附魔层的两条并列 list。**
+        /// 原版 `EntityScript` 上：`activeEffects // +0x108`（`List&lt;CardEffect&gt;`）
+        /// 与 `activeEnchantments // +0x110`（`List&lt;ActiveEnchantment&gt;`，
+        /// `dump.cs:118926-118930`）。这里照搬那两条：
+        ///   · <see cref="ActiveEffects"/> = 附魔那一族的 `CardEffect` 记录；
+        ///   · <see cref="ActiveEnchantments"/> = 「这是哪张附魔卡 + 本局第几件」的轻量条目。
+        /// **挂 / 取 / 花 / 结算 / 开局** 五个入口全在 `Enchantments`（`Core/Enchantment.cs`）。
+        ///
+        /// ⚠️ **和 <see cref="HandEffects"/> 的关系**（别混）：两者**都**对应原版 `+0x108`，
+        ///    按**消费者**拆开 —— 手牌加成那一族在 `HandEffects`（打出时**兑现即摘**），
+        ///    附魔那一族在这里（跟着牌在场、**不按回合清**）。理由与判据 → `Enchantment.cs` 文件头。
+        /// </summary>
+        public readonly List<ActiveCardEffect> ActiveEffects = new List<ActiveCardEffect>();
+
+        /// <summary>附魔条目（原版 `EntityScript.activeEnchantments // +0x110`）。见 <see cref="ActiveEffects"/>。</summary>
+        public readonly List<ActiveEnchantment> ActiveEnchantments = new List<ActiveEnchantment>();
+
+        /// <summary>
         /// 🔴 **2026-10-18（`A885` ④ · 铁律 5 就地订正）：到期位从「一份牌一格」改成「一条效果一格」。**
         ///
         /// 原版一条 `CardEffect` **自己带**那几个到期旗标（`PlayerHand__UpdateCardEffects.c` 逐条读

@@ -165,6 +165,60 @@ namespace RuleEngine
         }
 
         /// <summary>
+        /// `EffectOp.AmountRef` → 具体数值。**判据只此一处**（铁律 6）：
+        /// 出牌路（<see cref="ResolveOps(BattleContext,int,UnitState,List{EffectOp},UnitState,out List{string},CardDef)"/>）
+        /// 与**触发路**（<see cref="ResolveOps(BattleContext,int,UnitState,IReadOnlyList{EffectOp},string,UnitState)"/>）
+        /// 都调它。
+        ///
+        /// 现认三种来源（解析侧 `EffectText` 的两条正则）：
+        ///   · `faith` —— `… equal to your Faith`（`Emperor's Judgement` / `Amalia Novena`）
+        ///   · `spirit` —— `… equal to your Spirit Stones`
+        ///   · `enemyhand` —— `… equal to the number of cards in the enemy hand`（`GSC35 Benefictus`）
+        ///
+        /// 🔴 **2026-10-19（`A2001` / E9）把这条从出牌路抽出来**：改前这半条**只写在出牌那条路上**，
+        ///    而触发路（所有 Rally/Strike/… 的正文都走它）**没有** ⇒ 触发正文里的 `equal to …`
+        ///    一律按 `Amount = 0` 结算。实测 `ruleprobe play GSC35` 的读数 = 「对 1 个目标造成 **0** 点」
+        ///    （敌方手里明明有 3 张）。同族的 `Amalia Novena`（`equal to your Faith`）也一样是 0。
+        ///
+        /// 返回 `false` = 这个来源本版不认识（已写日志与 `unresolved`，调用方跳过这一条）。
+        /// 没有 `AmountRef` 时 `resolved` 原样返回**同一个对象**（调用方用 `ReferenceEquals` 判「换没换」）。
+        /// ⚠️ **必须递副本**下去，不能改 `op.Amount` 本身 —— `EffectOp` 列表是解析产物、会被复用。
+        /// ⚠️ `n == 0` 是合法结果（`Deal 0 damage` 是「生效了但数值是 0」，不是「没生效」）。
+        /// </summary>
+        static bool TryApplyAmountRef(BattleContext ctx, int owner, string by, EffectOp op,
+                                      List<string> unresolved, out EffectOp resolved)
+        {
+            resolved = op;
+            if (string.IsNullOrEmpty(op.AmountRef)) return true;
+
+            var ps = ctx.Players[owner];
+            int n = op.AmountRef == "faith" ? ps.Faith
+                  : op.AmountRef == "spirit" ? ps.SpiritStones
+                  // 「enemy」= **施放者的对手**（`owner` 的对家）——
+                  // 判据在 `EffectText.ReEqualEnemyHandCount` 的 doc（别放宽成任一手牌）。
+                  : op.AmountRef == "enemyhand" ? ctx.Players[1 - owner].Hand.Count
+                  : -1;
+            if (n < 0)
+            {
+                ctx.Log($"{by}：「{op.Source}」的数值要取「{op.AmountRef}」，本版不认识这个来源 "
+                      + "—— **这条没生效**");
+                unresolved.Add(op.Source + "（数值来源认不出：" + op.AmountRef + "）");
+                return false;
+            }
+            var refOp = op.Clone();
+            refOp.Amount = n;
+            // `give` / `gain` / `lose` 的数值写在**载荷原文**里（同 for-each 那条注释）
+            if (n != 0 && (op.Verb == "give" || op.Verb == "gain" || op.Verb == "lose"))
+                refOp.Payload = ScalePayload(op.Payload, n);
+            ctx.Log($"{by}：「{op.Source}」的数值 = "
+                  + (op.AmountRef == "faith" ? "你的信仰"
+                     : op.AmountRef == "spirit" ? "你的灵魂石"
+                     : "对手手牌张数") + $" {n}");
+            resolved = refOp;
+            return true;
+        }
+
+        /// <summary>
         /// 结算一组效果（一张战术卡 / 一次触发 / 一个主动技能的效果部分）。
         /// </summary>
         /// <param name="chosen">表现层已选定的目标（需要选目标的战术卡才有）</param>
@@ -345,31 +399,18 @@ namespace RuleEngine
                 if (skip[i] || !paidOk[i]) continue;
                 var op = ops[i];
 
-                // ---- 数值 = 某个阵营资源：`Refill Energy equal to your Faith`（2026-09-13 第三十三轮）----
+                // ---- 数值 = 某个资源 / 计数：`… equal to your Faith` / `… equal to the number of cards in the enemy hand` ----
                 // ⚠️ 必须**递副本**下去，不能改 `op.Amount` 本身 —— 理由同下面那条注释：
                 //    `EffectOp` 列表是**解析产物、会被复用**（同一张卡第二次打出时是同一份对象）。
-                if (!string.IsNullOrEmpty(op.AmountRef))
+                // 🔴 2026-10-19（`A2001` / E9）：判据收成 `TryApplyAmountRef` **一处** ——
+                //    触发路（`ResolveOps` 的重载）原来没有这半条 ⇒ 触发正文里的 `equal to …` 按 0 结算。
+                EffectOp amtOp;
+                if (!TryApplyAmountRef(ctx, owner, by, op, unresolved, out amtOp)) continue;
+                if (!ReferenceEquals(amtOp, op))
                 {
-                    var ps = ctx.Players[owner];
-                    int n = op.AmountRef == "faith" ? ps.Faith
-                          : op.AmountRef == "spirit" ? ps.SpiritStones : -1;
-                    if (n < 0)
-                    {
-                        ctx.Log($"{by}：「{op.Source}」的数值要取「{op.AmountRef}」，本版不认识这个资源 "
-                              + "—— **这条没生效**");
-                        unresolved.Add(op.Source + "（数值来源认不出：" + op.AmountRef + "）");
-                        continue;
-                    }
-                    var refOp = op.Clone();
-                    refOp.Amount = n;
-                    // `give` / `gain` / `lose` 的数值写在**载荷原文**里（同 for-each 那条注释）
-                    if (n != 0 && (op.Verb == "give" || op.Verb == "gain" || op.Verb == "lose"))
-                        refOp.Payload = ScalePayload(op.Payload, n);
-                    ctx.Log($"{by}：「{op.Source}」的数值 = 你的"
-                          + (op.AmountRef == "faith" ? "信仰" : "灵魂石") + $" {n}");
                     // ⚠️ `n == 0` 照常递下去 —— `Deal 0 damage` / `Refill 0` 是「生效了但数值是 0」，
                     //    不是「这条没生效」（报错了玩家会以为卡坏了）。
-                    if (ResolveOne(ctx, owner, source, by, Prepaid(refOp), chosen, unresolved)) done++;
+                    if (ResolveOne(ctx, owner, source, by, Prepaid(amtOp), chosen, unresolved)) done++;
                     continue;
                 }
 
@@ -2408,6 +2449,70 @@ namespace RuleEngine
             if (op.DeployFrom == "deck") { source = ps.Deck; srcName = "牌库"; }
             else if (op.DeployFrom == "graveyard") { source = ps.Discard; srcName = "弃牌堆"; }
 
+            // ==========================================================================================
+            //  🆕 2026-10-19（第五十五会话 · 引擎线 `E12`）：**`deploy them / it` = 上一条效果刚落进手牌的那几份**
+            // ==========================================================================================
+            // 起因（`AM58 Siege Warfare`）：卡面 `Draw two Vehicles from your deck and deploy them`
+            //   解析成两条 op：`drawtype(2, vehicles)` + `deploy(payload="them", deployFrom=<空>)`。
+            //   改前第二条落进「候选池 = 全卡池 + payload 当名字查」⇒ `them` 不是卡名 ⇒
+            //   **一张都部署不了**（探针实测：只抽了 2 张、棋盘不动）。
+            // 判据：`them` 指的就是**上一条效果刚放进手牌的那几份** —— 引擎里已经有这个槽：
+            //   `BattleContext.LastHandTargets`（`DoDraw` / `DoDrawType` 末尾按**实例**填；
+            //    `BattleDraw` 的注释写着它就是 `them/it` 的代词槽）。
+            // 落法照原版 `_ResolveCardAutoSummoned` 那一族：**先拿离手牌 → `DeployFree(fromHand:true)`**
+            //   （触发 Rally、兑现手牌加成、`DeploySource = AutoPlayFromHand`）；打不出去就**留回手里**。
+            //   ⚠️ `it` 只认单数槽 `LastHandTarget`（`Draw two … give **it**` 那种写法卡池里没有，
+            //      一堆里挑一个 = 猜 —— 判空就如实报）。
+            //    ⚠️ 只收 `it` / `them` —— `the target` / `this unit` / `this troop` 指的是**场上的**
+            //      那个单位（不是手牌里的一批）；那种 `deploy …` 卡池里现读 0 条，真出现时是**另一条语义**（复制/移动），
+            //      ⛔ 别顺手塞进这一支。
+            string pronoun = (op.Payload ?? "").Trim();
+            if (source == null && (pronoun == "it" || pronoun == "them"))
+            {
+                var refs = new List<CardInstance>();
+                if (pronoun == "it")
+                {
+                    if (ctx.LastHandTarget != null) refs.Add(ctx.LastHandTarget);
+                }
+                else
+                {
+                    refs.AddRange(ctx.LastHandTargets);
+                    // `HandReferents` 的同一套兜底：槽空才退回「本次结算抽到的」那本计数账。
+                    if (refs.Count == 0 && ctx.DrawnThisResolve.Count > 0)
+                        refs.AddRange(ctx.DrawnThisResolve);
+                }
+                if (refs.Count == 0)
+                {
+                    ctx.Log($"{by}：「{op.Source}」要部署「{op.Payload}」，但**上一条效果没有留下任何一张**"
+                          + " —— **这条没生效**");
+                    unresolved.Add(op.Source + "（deploy " + op.Payload + "：上一条效果没留牌）");
+                    return false;
+                }
+                int okRef = 0;
+                ctx.LastTargets.Clear();
+                foreach (var r in refs)
+                {
+                    if (r == null) continue;
+                    ps.Hand.Remove(r);                    // 原版 `PlayerHand.RemoveCardFromHand`
+                    int rslot;
+                    if (!DeployFree(ctx, owner, r, out rslot, fromHand: true))
+                    {
+                        ps.Hand.Add(r);                   // 打不出去 ⇒ 留回手里（⛔ 不能吞掉）
+                        ctx.Log($"{by}：「{op.Source}」的「{r.Card.Name}」部署不了（场上没空格）—— 留在手里");
+                        break;
+                    }
+                    var dep0 = ps.Board[rslot];
+                    if (dep0 != null) ctx.LastTargets.Add(dep0);
+                    okRef++;
+                }
+                if (ctx.LastTargets.Count > 0) ctx.LastTarget = ctx.LastTargets[0];
+                ctx.Log($"{by}：「{op.Source}」把上一条效果留下的 {okRef}/{refs.Count} 张**直接部署**"
+                      + $"（{Names(new List<CardInstance>(refs))}）");
+                if (okRef < refs.Count)
+                    unresolved.Add(op.Source + $"（deploy {op.Payload}：只部署了 {okRef}/{refs.Count}）");
+                return okRef > 0;
+            }
+
             // 第 7 行第 2 步：区域里现在存的是**实例**，而 `CreatePool` 只认卡面属性
             // ⇒ 把区域**投影成卡模板表**（**逐份投影、保留重复** —— 和改之前那份 `List<CardDef>` 完全同长同序，
             //   所以候选池的算法与随机序列一个字都没变）。
@@ -3384,22 +3489,43 @@ namespace RuleEngine
                 case "deploy":
                 {
                     var moved = RemoveFromSource(ctx, owner, op.ChooseSrc, pick) ?? pickedInst;
+                    // 🔴 **2026-10-19（第五十五会话 `E12` · `A2143` 的「敌方手牌」那一格）：落点 = 【那张牌的主人】。**
+                    //   判据 = 原版 `BattleManager._ResolveCardAutoSummoned_d__511__MoveNext.c`：
+                    //     · `:74/92/101` 三处都读 **`*(char*)(card + 0x40)`**（`EntityScript.isPlayer`，
+                    //       `dump.cs:21973`）⇒ `isPlayer == 0` 取 `+0xe8`（**enemyMinionManager**）、
+                    //       非 0 取 `+0xe0`（`playerMinionManager`，字段名见 `dump.cs:30742-30743`）；
+                    //     · `:110` / `:128` 两个演出支：敌方牌 = `PlayEnemyCard`（`DisplayEnemyCardInCenter`
+                    //       ＋ `TurnCardAround`），本机牌 = `PlayPlayerCard`。
+                    //   ⇒ **原版没有「从敌方手牌打到自己场上」这条路**：牌从谁的手里拿出来，
+                    //     就落在**谁**的棋盘上。（`GOF93 Hunta Rig` 的「部署它」= 把对面手里的部队
+                    //     强行摆到**对面**场上，下一句 `This troop attacks it` 才是自己打它。）
+                    //   ⇒ `DeployFree` 的 `owner` 用 **`1 - owner`**；`fromHand: true`（原来漏了）——
+                    //     这条正是原版 `autoPlayFromHand(250)` 那一档（GOF93 的 SO = `chosenAbility 250`，
+                    //     `targetCriteria{targetsAffected:50, enemyUnits, selectFromChooseResolution:1}`）：
+                    //     触发 Rally、兑现手牌加成、`DeploySource` = `AutoPlayFromHand`。
+                    //   ⚠️ **不加「敌方手牌」这个 `DeploySource` 档** —— 原版的「谁的牌」就是 `Player`
+                    //     （= 牌的 `isPlayer`），事件里已经带着；再加一档 = 同一条规则的第二个表示。
+                    //     表现层挑 `PlayEnemyCard` / `PlayPlayerCard` 的判别式 = **`e.Player == 本机座位`**。
+                    int deployOwner = op.ChooseSrc == "enemyhand" ? 1 - owner : owner;
+                    bool fromHand = op.ChooseSrc == "enemyhand" || op.ChooseSrc == "hand";
                     int slot;
-                    if (!DeployFree(ctx, owner, moved, out slot))
+                    if (!DeployFree(ctx, deployOwner, moved, out slot, fromHand: fromHand))
                     {
                         ctx.Log($"{by}：「{op.Source}」选了「{pick.Name}」但场上没空格 —— **这条没生效**");
                         unresolved.Add(op.Source + "（选牌部署：场上没空格）");
                         return false;
                     }
                     // 「刚部署的那个」= 后续 `and give **it** …` 的指代对象
-                    var dep = ctx.Players[owner].Board[slot];
+                    var dep = ctx.Players[deployOwner].Board[slot];
                     if (dep != null)
                     {
                         ctx.LastTargets.Clear();
                         ctx.LastTargets.Add(dep);
                         ctx.LastTarget = dep;
                     }
-                    ctx.Log($"{by}：「{op.Source}」从{srcName}选了「{pick.Name}」（{what}）→ 部署到槽 {slot}");
+                    ctx.Log($"{by}：「{op.Source}」从{srcName}选了「{pick.Name}」（{what}）→ "
+                          + $"部署到{ctx.Players[deployOwner].Name}的槽 {slot}"
+                          + (deployOwner != owner ? "（原版 `isPlayer` 那一支：牌主 = 落点）" : ""));
                     return true;
                 }
 
@@ -3505,15 +3631,41 @@ namespace RuleEngine
         }
 
         /// <summary>
-        /// **Leviathan 那两张共用的三项**（用户 **2026-09-13** 给的）。
+        /// **Leviathan 那两张共用的六项**。
         /// ⚠️ **定义一份、两张卡引用同一份** —— 交接文档明写「两张卡共用同一套选项，
         ///    差别只在作用域」；抄成两份迟早不一致。
+        ///
+        /// 🔴 **2026-10-19（第五十五会话 E10 · `E9` 对账 β 的 `triggerEffectInCard(260)`）就地订正
+        ///    （铁律 5 / 铁律 11）**：原来这里是**用户 2026-09-13 给的三项**
+        ///    （`+1 armour` / `+2 attack` / `+2 ranged attack`）。真值（当前 build 的 SO）不是三项 ——
+        ///    `Hyper-adaptation`(`TL49`) 与 `Infinite Biomorphologies`(`TL50`) 各自的 260 能力
+        ///    指向 **6 张同族 `_enchantment` 卡**（`cards_raw.json`，`m_Name` 直接写着
+        ///    `T6 Leviathan-Hyper-adaptation_enchantment1..6` /
+        ///    `T12 Leviathan-Infinite Biomorphologies_enchantment1..6`），逐张是：
+        ///      · enchantment1 = `armourChange 1`                      （TL50 还带 `doNotStack 1`）
+        ///      · enchantment2 = `buffType 3` + `trait 70 (stealth)` + `armourChange 1`
+        ///      · enchantment3 = `meleeAttackChange 2`
+        ///      · enchantment4 = `rangeAttackChange 2`
+        ///      · enchantment5 = `healthChange 2`
+        ///      · enchantment6 = `buffType 3` + `trait 980 (vanguard)`
+        ///    ⇒ 三项里**两项对得上**（armour 1 / +2 melee / +2 ranged），
+        ///      **少** `+2 Health` · `Stealth and +1 Armour` · `Vanguard` 三项。
+        ///    判据链：`AbilityLogic@cardAbilities.abilityLogic.chosenAbility 260 = triggerEffectInCard`
+        ///    （`资料/普查产出_第二十七会话/abilityLogic_枚举词典.tsv:47`）+
+        ///    `d:/2/tools/decomp_full/AbilityLogic__PlayAbility.c:2534` 的 `0x104` 支（把目标逐个收进
+        ///    一张表、随后由 `param_1 + 0x80` 消费 —— 即 260 是「触发卡内那几条效果」的包装）；
+        ///    `trait 70/980` 的释义见同一份词典 `:224/:236`（`DefinedTrait.cs:8/95`）。
+        ///    ⚠️ 池子的**数量**由 `ChooseEffectOptions` 决定，`DoChooseEffect` 三等分/六等分都在
+        ///    `TakePick` 一处（面板侧读的是同一份，`BattleDriver` 不需要改）。
         /// </summary>
         static readonly ChooseEffectEntry[] LeviathanEffectPool =
         {
-            new ChooseEffectEntry { Label = "+1 Armour",        Payload = "+1 armour" },
-            new ChooseEffectEntry { Label = "+2 Melee Attack",  Payload = "+2 attack" },
-            new ChooseEffectEntry { Label = "+2 Ranged Attack", Payload = "+2 ranged attack" },
+            new ChooseEffectEntry { Label = "+1 Armour",            Payload = "+1 armour" },
+            new ChooseEffectEntry { Label = "+2 Melee Attack",      Payload = "+2 attack" },
+            new ChooseEffectEntry { Label = "+2 Ranged Attack",     Payload = "+2 ranged attack" },
+            new ChooseEffectEntry { Label = "+2 Health",            Payload = "+2 health" },
+            new ChooseEffectEntry { Label = "Stealth and +1 Armour", Payload = "stealth and +1 armour" },
+            new ChooseEffectEntry { Label = "Vanguard",             Payload = "vanguard" },
         };
 
         /// <summary>
@@ -3546,10 +3698,18 @@ namespace RuleEngine
             // 🆕 **2026-09-16：`Mekaniak`** —— 卡面 `Give a **Kustom Job** of your choice to a
             //    friendly Vehicle`。`Kustom Job` **不是卡名**，是**同组那三张 0 费 `Ephemeral` 卡**
             //    （三张的目标都写 `a friendly Vehicle`）。
-            //    🔴 **池子身份是「结构推断」、不是文本直证** —— **用户 2026-09-16 拍板按这个定**：
-            //      卡面编号结构 `Mekboy Gazmek`(25) + `Mekaniak`(25B) + `25C/D/E`
-            //      与 `Lieutenant Titus`(00) + `Exemplary Warrior`(00a) + `00b/c/d` **完全同形**，
-            //      而后者那三张早已被定为它的池子（2026-09-14 用户裁定）。
+            //    ✅ **2026-10-19（第五十五会话 E11）就地升级（铁律 5）：不再是「结构推断」——
+            //       SO 里有**直证**：`Mekaniak`（`cards_raw.json`，`uniqueId 9dcbe3d0…`）的
+            //       `relatedCard1/2/3` 三个 PPtr 解出来正好是
+            //       `5615906809088092713 = More Dakka` · `1138737746304900322 = Ramshackle` ·
+            //       `-8202013711145922002 = Wreckin Ball`（按 `path_id` 在 1,351 张全卡 SO 里命中）。
+            //       `relatedCard*` 这一族在反编译方法体里 grep 不到读点（只有字段访问）⇒ 判据是
+            //       **数据侧的对象引用**，不是运行期行为；语义判据仍以卡面 + `chooseeffect` 为准。
+            //    📦 **原来的判据（2026-09-16，用户拍板，仍然成立、只是不再是唯一一条）**：
+            //       卡面编号结构 `Mekboy Gazmek`(25) + `Mekaniak`(25B) + `25C/D/E` 与
+            //       `Lieutenant Titus`(00) + `Exemplary Warrior`(00a) + `00b/c/d` **完全同形**，
+            //       而后者那三张早已被定为它的池子（2026-09-14 用户裁定）。
+            //       ⇒ 两条独立判据指向同一组三张卡。全过程 → `资料/普查产出_1019/E11_报告.md` §二·2。
             //    ⚠️ 解析入口见 `EffectText.TryChooseEffect` 的 ③ 那一支（`ReGiveKustomJob`）。
             {
                 "Mekaniak", new[]
@@ -4947,7 +5107,8 @@ namespace RuleEngine
                             Shuffle(ps2.Deck, ctx.Rng);
                             break;
                     }
-                    ctx.Emit(new BattleEvent { Kind = EvtKind.Return, Player = p, Slot = slot, CardId = inst.Card.Name });
+                    ctx.Emit(new BattleEvent { Kind = EvtKind.Return, Player = p, Slot = slot, CardId = inst.Card.Name,
+                                               InstanceId = u.InstanceId });
                     moved.Add(inst);
                 }
             }
@@ -5293,7 +5454,12 @@ namespace RuleEngine
             {
                 if (skip[i]) continue;             // 🆕 `A1685`：这条被 `instead` 替换掉了
                 if (!paidOk[i]) continue;          // 这一条所属的付费前缀**没收到钱** ⇒ 整组不结算
-                ResolveOne(ctx, owner, source, by, Prepaid(ops[i]), null, unresolved);
+                // 🔴 2026-10-19（`A2001` / E9）：触发正文里的 `equal to …` 也要换成具体数值 ——
+                //   判据与出牌路**同一个函数**（`TryApplyAmountRef`），⛔ 别在这儿另写一份。
+                //   改前这条路没有这一跳 ⇒ 所有触发里的 `equal to your Faith / 敌方手牌数` 都按 0 结算。
+                EffectOp amtOp;
+                if (!TryApplyAmountRef(ctx, owner, by, ops[i], unresolved, out amtOp)) continue;
+                ResolveOne(ctx, owner, source, by, Prepaid(amtOp), null, unresolved);
             }
 
             // 🔴 **2026-09-16：这里原来「建了、传了、从来没读」。**
@@ -5354,13 +5520,20 @@ namespace RuleEngine
             {
                 var c = h0.Card;
                 if (c == null) continue;
-                // ⚠️ **这里故意不加 `if (c.IsUnit) continue;`** —— 2026-09-18 试过、**被测试挡回来了**。
-                //    理由：`Beast Snagga Nob`（unit，`GOF81`）那条 `At the end of your turn, give +1 Attack
-                //    to all Beasts in your hand` 的**投递通道就是这一趟**（它的载荷要挂到
-                //    **手牌里那几份 Beast 自己**身上，走 `GrantHandBuffForTargets`）。`RuleEngineTest.TestBeastbossAndPayloadSegments`
-                //    把这张卡放在**棋盘上**、跑三个回合结束、期望手牌上挂 **3 份**——加了卫之后掉到 2 份。
-                //    ⇒ 「单位卡不算手牌陷阱」这件事**只改判据 `EffectText.IsHandTrap`**（它管覆盖率账与
-                //      `DeckBuilder`），**不改这条广播**。判据与影响见 `EffectText.IsHandTrap` 的注释。
+                // 🔴 **2026-10-19（第五十五会话 E10 · `E9` §三·8 的 `A2001` 余账）：单位卡不进这一趟。**
+                //    判据 = **卡面语义 + `UnitState` 的在场模型**：这一段是「**躺在持有者手里**的
+                //    陷阱卡」通道（`Poisoned Supplies` / `Cult Propaganda`），原版那两个
+                //    `PlayerHand` 扫描只收**手牌**；而**单位卡自己的回合起止正文**由下面 ② 那一趟
+                //    （棋盘单位）结算 —— 原版 `CardScript.OnTurnStart/OnTurnEnd` 也只在**在场**时跑
+                //    （`CardScript__OnTurnStart.c` / `OnTurnEnd.c` 的入口闸 = `IsInPlay`）。
+                //    ⛔ **不能只加 `c.IsUnit` 一句就完**：判据只留一处 —— 用 `EffectText.IsHandTrap(c)`
+                //    （它内部就是 `c.IsUnit ⇒ false` + `SplitAtTurn`/`SplitHandTrapWhen`，见它的 doc）。
+                //    ⚠️ **2026-09-18 那次试过又撤回的**正是「裸加 `if (c.IsUnit) continue;`」——
+                //    撤回的原因是**测试**（`TestBeastbossAndPayloadSegments`）靠这条路凑数；
+                //    2026-10-19 同批把那条断言改成「棋盘那一趟自己给满 3 份」⇒ 现在可以按原版改。
+                //    实据：`SOR70` / `TAU10` 未出场的单位在回合末就结算了自己的 at-turn 句
+                //    （`E9_报告.md` §二·3），本笔之后不再发生。
+                if (!EffectText.IsHandTrap(c)) continue;
                 var at = EffectText.SplitAtTurn(c.Desc);
                 if (at == null || at[0] != phase) continue;
                 var ops = EffectText.Parse(at[1], out _, out _);
@@ -8789,6 +8962,19 @@ namespace RuleEngine
                     //       `RuleCore.DeployFree` 走的是同一个函数）—— ⛔ 别在这儿再手写一位。
                     RuleCore.ApplyDeployTurnState(back);
                     ctx.Log($"{by}：「{op.Source}」把 {rem.Name} 从**残骸**翻回来（槽 {slot}）");
+                    // 🆕 **2026-10-19（战斗线 B3 的接口）：发一条 `Deploy`，来源 = `Reanimate`。**
+                    //   🔴 **这是本批次【新加】的事件**（原来这一支**一条 `Deploy` 都不发** ⇒ 表现层
+                    //      完全不知道有个单位落到了这一格上；`DoReanimate` 的 doc 说它「走 `DeployFree`」
+                    //      只对**下面那条墓地退路**成立）。加它的理由：`EvtKind.Deploy` 的语义本来就是
+                    //      「**单位落到格位上**」（见 `BattleEvent.Deploy` 的注），再造正是这件事；
+                    //      而 B3 的消费约定要「再造 ⇒ 只响落地两条」，没有事件就演不了。
+                    //   ⚠️ **只发事件、不发 `When deployed` 广播**（本类的 `BroadcastWhen(Deploy)` /
+                    //      `ResolveDeploy` 那两跳照旧**不跑**）—— 加广播会多触发一批卡面效果，那是
+                    //      **另一条账**，不在本接口里。
+                    //   ⚠️ 位置：`ApplyDeployTurnState` 之后（与另外两个部署入口的次序一致：
+                    //      落位 → 光环/回合位 → 记日志 → 发事件）。
+                    ctx.Emit(EvtKind.Deploy, owner, slot, rem.Name, deployFrom: DeploySource.Reanimate,
+                             instanceId: rem.InstanceId);
                     // `When Reanimated, …` —— 和 `DeployFree` 那条路发同一种广播
                     // （⚠️ 那个重载是 `BroadcastWhen(ctx, kind, owner, card, unit)`：卡 + 场上单位）
                     BroadcastWhen(ctx, WhenEventKind.Reanimated, owner, rem.Card, ps.Board[slot]);
@@ -8822,7 +9008,10 @@ namespace RuleEngine
             foreach (var card in picks)
             {
                 int slot;
-                if (!DeployFree(ctx, owner, card, out slot)) break;   // 满场 → 后面的也放不下，停
+                // 🆕 2026-10-19（战斗线 B3 的接口）：墓地退路也标成 `Reanimate` ——
+                //   `DeployFree` 默认按 `fromHand:false` 会写成 `Summon`，而这一支语义上是**再造**。
+                if (!DeployFree(ctx, owner, card, out slot, deploySource: DeploySource.Reanimate))
+                    break;   // 满场 → 后面的也放不下，停
                 ctx.TakeFromGraveyard(owner, card);                   // 翻回来了，就从墓地/弃牌堆里拿走
                 ctx.Log($"{by}：「{op.Source}」把 {card.Name} 从墓地翻回来（槽 {slot}）");
                 BroadcastWhen(ctx, WhenEventKind.Reanimated, owner, card, ps.Board[slot]);

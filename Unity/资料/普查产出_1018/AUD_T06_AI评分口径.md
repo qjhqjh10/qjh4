@@ -247,12 +247,20 @@ if (targeted branch)
 
 ```c
 score += BattleManager.MaxCardsInHand() - hand.Count - 1;
-if (deck.Count == 0) score = -2 - hand.Count;      // 覆盖，不是加
+if (deck.Count == 0) score = -2 - fatigue;         // 覆盖，不是加（🔴 2026-10-19 订正：原写 hand.Count）
 return score;
 ```
 
-对应反汇编：`0x93B703 call MaxCardsInHand` → `0x93B708 not ebx(+~) / 0x93B70A add eax,ebx` = `max - hand - 1`；`0x93B71B mov eax,-2 / sub eax,ebp(hand.Count)`。
-> ⚠️ **与 `SimpleAI.ScoreDraw` 不一致**：我们对空牌库返回 `-2 - RuleCore.HandMax`（**牌库空、手牌不一定满**），原版是 `-2 - hand.Count`。这是直证偏差。
+对应反汇编：`0x93B703 call MaxCardsInHand` → `0x93B708 not ebx(+~) / 0x93B70A add eax,ebx` = `max - hand - 1`；
+`0x93B71B mov eax,-2 / sub eax,ebp` —— `ebp` 是 `0x18093B6DB` 的 `op_Implicit(fatigue)` 结果
+（`ObscuredInt` 在 `BattleManager +0x378/+0x38C` = `playerFatigue` / `enemyFatigue`，`dump.cs:30862-30864`）。
+> ⚠️ **与 `SimpleAI.ScoreDraw` 不一致**：我们对空牌库返回 `-2 - RuleCore.HandMax`（**牌库空、手牌不一定满**）。
+>
+> 🔴 **2026-10-19 就地更正（铁律 5 · E6 现核 RVA 0x93B71B / 0x18093B08B）**：本行原来写「原版是 `-2 - hand.Count`」——
+> **不成立**。`mov eax,-2; sub eax,ebp` 里的 `ebp` 是
+> `ObscuredInt.op_Implicit(BattleManager.playerFatigue / enemyFatigue)` 的结果
+> （`0x18093B6DB` / `0x18093B03B` 两处），**不是手牌数** ⇒ 原版 = **`−2 − 疲劳`**。
+> 错因：把 `ebp` 当成 `GetCardsInHandRef(...).Count` 的寄存器。已按疲劳实现。
 
 ---
 
@@ -361,7 +369,7 @@ return score;
 | `ScoreDamaging`: 没有 `invulnerable` 支 | **−10.0** | RVA 0x93B2C7→0x93B55B |
 | `ScoreHealing`: 督军恒 ×1.5 | `当前血 >10 ? ×1 : ×2` | RVA 0x93BD33-0x93BD45 |
 | `ValueInPlay`: `+ KeywordValue`（注释称 `ValueOfTraits`） | `+ ValueOfEnchantments`（activeEffects） | RVA 0x9390A1；`AI__ScoreFromJam.c:9-11` 才是 `ValueOfTraits` |
-| `ScoreDraw`: 牌库空 → `-2 - RuleCore.HandMax` | 牌库空 → **`-2 - 手牌张数`** | RVA 0x93B610：`0x93B71B mov eax,-2 / sub eax,ebp(hand.Count)` |
+| `ScoreDraw`: 牌库空 → `-2 - RuleCore.HandMax` | 牌库空 → **`-2 - 疲劳`**（🔴 2026-10-19 订正：本行原写「`-2 - 手牌张数`」，`ebp` 实为疲劳值；RVA 0x93B71B / 0x18093B6DB） | RVA 0x93B610：`0x93B71B mov eax,-2 / sub eax,ebp`（`ebp` = `op_Implicit(fatigue)`） |
 
 > 前三/第四条不在「评分列」问题本身，但都在 `A1797` 这条打分链上，且都是**原版直证** ⇒ 按铁律 11「全部都要做，只有先后」应一并进账。
 

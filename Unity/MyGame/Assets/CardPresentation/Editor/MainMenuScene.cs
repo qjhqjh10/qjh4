@@ -1524,6 +1524,13 @@ public static class MainMenuScene
                     var pu = quadUnion(pill);
                     CheckTrue(pu.HasValue, $"（前提）第 {i + 1} 格那颗药丸建出来了（公共件 `MenuDraw.Nine`）");
                     if (!pu.HasValue) { sumW += iw; continue; }
+                    // 🔴 **`A1393`（2026-10-19 · 第五十五会话 S3）：这里补【父链缩放】前提。**
+                    //   `quadUnion` 走的是**乙式**（`MenuDraw.UnionQuadRectPx` → `PosInDesignSpace`，
+                    //   **先把父级缩放除回去**）⇒「量到的就是设计 px」这条期望值**依赖父链单位缩放**。
+                    //   同一个夹具的第一个量点（`生产态每颗药丸` 那一支）早就有 `CheckParentScaleUnit`，
+                    //   这一支一直没有 ⇒ 两处口径不一致（判据 = 账 `A1393`；同族 9 处都走这个助手）。
+                    //   ⚠️ 放在前提之后：药丸没建出来时那一支已经红过了，这里不再叠一条同因的红。
+                    CheckParentScaleUnit(pill, $"第 {i + 1} 格那颗药丸的父链");
                     // ⚠️ `quadUnion` 那一支返的是**设计 px**（🆕 2026-10-10 A1330 起走 `MenuDraw.UnionQuadRectPx`；
                     //    收口前是甲式 `PxX/PxY`，两式在单位缩放 + `DesignAspect` 下差 ≤2.5e-4 px），
                     //    而 `irt.rect.*` 是**世界单位**
@@ -2143,6 +2150,29 @@ public static class MainMenuScene
             if (pwb != null) pwb.Click();
             var pw = PracticeModePopup.LastOpened;
             CheckTrue(pw != null, "点练习卡 ⇒ **开出了 `Practice Mode Menu`**");
+            // 🆕 **2026-10-19（`N83`）：同一张模式卡**重复打开不许叠窗**。
+            //   根因（改前）：`OpenMode` 每次 `Create` 一扇新的，而模式窗是 `type=Popup` ⇒ `OpenWindow`
+            //   对旧窗只 `ToBackground()`（只写状态、**不 `SetActive(false)`**，与原版 `GameWindow.ToBackground`
+            //   逐字相同）⇒ 连开 N 次台上有 N 扇（内容相同所以看不出来）。
+            //   🧨 改坏法：把 `Shell/MainMenuRuntime.OpenMode` 的任一支改回 `Create + wm.OpenWindow` ⇒
+            //   第二次点击后下面 `after` 变 2 ⇒ 红。
+            {
+                int CountPractice()
+                {
+                    int n = 0;
+                    var wm0 = WindowsManager.Instance;
+                    if (wm0 == null) return -1;
+                    foreach (var w in wm0.openWindows)
+                        if (w != null && w.gameObject != null && w.gameObject.name == "Practice Mode Menu") n++;
+                    return n;
+                }
+                Check(CountPractice(), 1, "★ 第 1 次打开后，场上 `Practice Mode Menu` **只有 1 扇**");
+                pwb.Click();                        // 同一张模式卡再点一次
+                Check(CountPractice(), 1,
+                      "★ 再点同一张卡 ⇒ **仍只有 1 扇**（`OpenByRef` 已开着就复用；⛔ 不是新建）");
+                CheckTrue(PracticeModePopup.LastOpened == pw,
+                          "★ …复用的是**同一扇**（`LastOpened` 引用没变 ⇒ 内容没重建）");
+            }
             if (pw != null)
             {
                 // 🆕 **2026-10-17（`N29` / `N46⑤`）**：滚动灵敏度逐视图对原版 ——
@@ -5728,7 +5758,27 @@ public static class MainMenuScene
                             CheckText(TextOf(FindChild(c0, "title")), a0.Name + " 1/5",
                                       "`title` = `{名} {档}/{总档}`（原版格式串 `{0} {1}/{2}`；我们没进度 ⇒ 恒第 1 档）");
                             CheckText(TextOf(FindChild(c0, "description")), a0.Challenge,
-                                      "`description` = **`challenge` 的 id**（真字符串；⚠️ 原版那格是 I2 词条，译文查不到 —— 我们拿它顶）");
+                                      "`description` = **`challenge` 的 id**（真字符串；⚠️ 原版那格是 I2 词条 —— "
+                                    + "**2026-10-19（S2 · `A2030`）订正：原写「译文查不到 —— 我们拿它顶」已过期**："
+                                    + "官方表已并入，`ProfileData` 取 `Loc.BulkOr(\"Achievements/<Ach_N>\", 资产原串)`，"
+                                    + "只有取不到 / 带 `{0}` 占位时才回 id）");
+                            var descTxt = TextOf(FindChild(c0, "description"));
+                            CheckTrue(descTxt != null
+                                      && descTxt.IndexOf("[[", System.StringComparison.Ordinal) < 0
+                                      && descTxt.IndexOf("((", System.StringComparison.Ordinal) < 0,
+                                      "★ A2030 判别式①：成就描述里**不许残留未渲染的记号**（`[[` / `((`）"
+                                    + "｜🧨 渲染层不剥记号、或把带记号的原串直接印上去 ⇒ 本行红"
+                                    + $"（实得「{(descTxt ?? "<null>")}」）");
+                            string achKey = "Achievements/" + a0.Id;
+                            if (Loc.HasEntry(achKey))
+                            {
+                                string achOfficial = Loc.T(achKey);
+                                if (!string.IsNullOrEmpty(achOfficial)
+                                    && achOfficial.IndexOf("{0}", System.StringComparison.Ordinal) < 0)
+                                    CheckTrue(a0.Challenge != a0.Id,
+                                              "★ A2030 判别式②：官方词条在表里时，描述**取的是它**、不是拿 id 顶"
+                                            + "｜🧨 把 `ProfileData` 那句 `Loc.BulkOr` 删掉（退回资产原串）⇒ 本行红");
+                            }
                             CheckTrue(TextOf(FindChild(c0, "rewards")).EndsWith(" points"),
                                       "`rewards` 照预制体 `'2 points'` 那个形式（真词条 `Achievements/Points` 在远端）");
                             // 🆕 **2026-10-08（波 C3 · A212）**：这一页是 A62 子表 A 的 **A32~A37**（本批之前
@@ -8227,6 +8277,28 @@ public static class MainMenuScene
                         CheckWrapMode(FindChild(br, "Text"), 0,
                                       $"★ 左栏第 {i + 1} 键 `{SocialWindow.Buttons[i].Label}`：**`折行=0`**"
                                     + "（原版四窗左栏键文案一律 0）");
+                        // 🆕 **2026-10-19（`N70` P0-1）：左栏页签的悬停/按下反馈**（原版 `EverguildToggle`
+                        //   `m_Transition = 1(ColorTint)` · `HL = (0.6084906, 0.9426194, 1)` 青蓝 ·
+                        //   `m_TargetGraphic` = 子件 `Icon`）。期望值是**原版字面量**（⛔ 不读 `TabHoverKey`，
+                        //   读了 = 实现与检测器同一个口 = 自证）。
+                        //   🧨 改坏法：① 把 `TintOn(iconQ)` 删掉 ⇒ 本钮只剩命中区那 1 颗**透明** quad
+                        //   （色偏打上去看不见）⇒ `GrayQuadCountForTest` 回 1，红；② 把 `HighlightKey` 改回默认灰 ⇒ 前三条红。
+                        {
+                            var hbN = FindChild(br, "Hit");
+                            var hb = hbN != null ? hbN.GetComponent<WindowButton>() : null;
+                            CheckTrue(hb != null, $"（前提）左栏第 {i + 1} 键有 `WindowButton` 命中区");
+                            if (hb != null)
+                            {
+                                CheckNear(hb.HighlightKey.r, 0.6084906f, 1e-4f,
+                                          $"★ 左栏第 {i + 1} 键**悬停色 R** = 原版 **0.6084906**（青蓝，不是默认灰 0.9607843）");
+                                CheckNear(hb.HighlightKey.g, 0.9426194f, 1e-4f, $"★ …G = 原版 **0.9426194**");
+                                CheckNear(hb.HighlightKey.b, 1f, 1e-4f, $"★ …B = 原版 **1.0**");
+                                CheckTrue(FindChild(br, "Icon") != null && hb.GrayQuadCountForTest >= 2,
+                                          $"★ …而且色偏打在**可见的 `Icon`** 上（原版 `m_TargetGraphic` = 子件 `Icon`；"
+                                        + "命中区那颗 quad 是透明的 ⇒ 不打就没反馈）。"
+                                        + "改坏法：删掉 `TintOn(iconQ)` ⇒ 本钮只剩命中区 1 颗 quad ⇒ 这条红");
+                            }
+                        }
                         {
                             var clb = FindChild(br, "Text") != null ? FindChild(br, "Text").GetComponent<Label>() : null;
                             if (clb != null)
@@ -12770,6 +12842,26 @@ public static class MainMenuScene
                 CheckText(fb.SubmitLabel != null ? fb.SubmitLabel.Text : null,
                           UiTerm("Demo/Feedback/Submit", "Submit"),
                           "反馈窗 `Submit button/Button Text` = 词条 `Demo/Feedback/Submit`");
+                // 🆕 **2026-10-19（`N70` P1-6）**：该 prefab 根 46 颗 `m_Transition = 2`(SpriteSwap) ——
+                //   `Submit button` = `40K_button` ↔ `40K_button_hover` / `40K_button_pressed`；
+                //   关窗钮圆底 = `UI_Button_Round_background` ↔ `40k_general_bt_yellow_hover`。
+                //   🧨 改坏法：删掉 `GiveFeedbackPopup` 里 `BindNine(...)` 那一句 ⇒ 前两条红；
+                //      把 `hoverArt:` 实参删掉 ⇒ 第三条红。
+                {
+                    var subHitN = FindChild(FindChild(fb.transform, "Submit button"), "Hit");
+                    var subWb0 = subHitN != null ? subHitN.GetComponent<WindowButton>() : null;
+                    CheckTrue(subWb0 != null && subWb0.HoverTexForTest != null
+                              && subWb0.HoverTexForTest.name == "40K_button_hover",
+                              "★ `Submit` 悬停换图 = **`40K_button_hover`**（原版 `m_Transition = 2`）");
+                    CheckTrue(subWb0 != null && subWb0.PressedTexForTest != null
+                              && subWb0.PressedTexForTest.name == "40K_button_pressed",
+                              "★ `Submit` 按下换图 = **`40K_button_pressed`**");
+                    var cHitN = FindChild(FindChild(fb.transform, "Generic Close Button"), "Hit");
+                    var cWb0 = cHitN != null ? cHitN.GetComponent<WindowButton>() : null;
+                    CheckTrue(cWb0 != null && cWb0.HoverTexForTest != null
+                              && cWb0.HoverTexForTest.name == "40k_general_bt_yellow_hover",
+                              "★ 关窗钮悬停换图 = **`40k_general_bt_yellow_hover`**（橙色关闭钮一族）");
+                }
                 // 面板 = 九宫 `40k_popup`（1824.95×996.86）
                 float px1, py1, px2, py2;
                 CheckTrue(fb.PanelNode != null && UnionQuadRect(fb.PanelNode, out px1, out py1, out px2, out py2)

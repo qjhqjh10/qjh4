@@ -2415,6 +2415,57 @@ public static class SettingsScene
                 }
             }
 
+            // ---------------- 🆕 U3（N70 P0-4）：FPS 滑块的**悬停 / 按下**反馈 ----------------
+            // 判据 = 原版 uGUI `Slider`：`m_Transition = 1 ColorTint` · `m_TargetGraphic` = **手柄** ·
+            //   HL `0.9607843` · PR `0.7843137` · `m_FadeDuration = 0.1`（与 `Battle/WfSlider` 同一份判据；
+            //   本窗这根 FPS 是**专用实现**，承载件不同）。
+            // 怎么打进去：`FpsFeedbackAtCanvas(画布 px, 画布 px)` —— 它就是 `UpdateFpsDragAt` 每帧调的那一支
+            //   （批处理里 `Update` 不跑、`Mouse.current == null` ⇒ 没有别的口能驱动这一层）。
+            // ⚠️ 全程**不改档位**：按下点取「当前档的手柄中心」⇒ `SetFpsFromCanvasX` 判定值没变、不写帧率。
+            Section("N70 P0-4：FPS 滑块的悬停 / 按下反馈（原版 Slider 的 ColorTint，**只染手柄**）");
+            {
+                int f0d = Application.targetFrameRate, i0d = win.FpsIndex;
+                float cyD = (736.76f + 748.46f) * 0.5f;                  // 轨道中心 y（原版字面量手算）
+                // 三档手柄中心 x（同 A202① 那节的 853.37 / 1069.90 / 1286.43）
+                var hcxD3 = new[] { 853.37f, 1069.90f, 1286.43f };
+                float hcxD = hcxD3[Mathf.Clamp(win.FpsIndex, 0, 2)];
+                win.FpsPressAtCanvas(-9999f, -9999f);                    // 先把「正在拖」清成基线
+
+                // ① 悬停：目标 = Highlighted 0.9607843（手柄图形上也要真的写成这个色）
+                win.FpsFeedbackAtCanvas(hcxD, cyD);
+                CheckNear(win.FpsFeedbackKeyForTest.r, 0.9607843f, 1e-4f,
+                          "★ 指针在手柄上（不按）⇒ 目标色 = 原版 `m_HighlightedColor` **0.9607843**"
+                        + $"（实得 {win.FpsFeedbackKeyForTest.r:F7}）；改坏法：不接反馈 / 永远 Normal ⇒ 1.0 ⇒ 红");
+                CheckNear(win.FpsHandleTintForTest.r, 0.9607843f, 1e-4f,
+                          "★ …而且**真的写到手柄图形上**（`ImageQuad.Tint`）—— 只改字段不落画面 ⇒ 红");
+
+                // ② 按下：Pressed 0.7843137（优先级高于悬停）
+                win.FpsPressAtCanvas(hcxD, cyD);
+                CheckTrue(win.FpsDragging, "（前提）按下点落在手柄 ⇒ `FpsDragging` 为真（否则下面那条等于没验）");
+                win.FpsFeedbackAtCanvas(hcxD, cyD);
+                CheckNear(win.FpsFeedbackKeyForTest.r, 0.7843137f, 1e-4f,
+                          "★ 按住 ⇒ 目标色 = 原版 `m_PressedColor` **0.7843137**（Pressed 优先于 Highlighted）"
+                        + $"（实得 {win.FpsFeedbackKeyForTest.r:F7}）；改坏法：把 Pressed 当 Highlighted ⇒ 0.9608 ⇒ 红");
+                CheckNear(win.FpsHandleTintForTest.r, 0.7843137f, 1e-4f,
+                          "★ …按下色也真的落到手柄图形上");
+
+                // ③ 松手 + 指针仍在滑块上 ⇒ 回 Highlighted（不是 Normal）
+                win.FpsPressAtCanvas(-9999f, -9999f);                    // 带外 ⇒ 只清「正在拖」
+                win.FpsFeedbackAtCanvas(hcxD, cyD);
+                CheckNear(win.FpsFeedbackKeyForTest.r, 0.9607843f, 1e-4f,
+                          "★ 松手但指针还在手柄上 ⇒ 回 **Highlighted**（不是 Normal）"
+                        + "；改坏法：Release 时把悬停一起清掉 ⇒ 1.0 ⇒ 红");
+
+                // ④ 指针离开 ⇒ Normal 1.0（灭自证：一个「不管在哪都高亮」的实现会在这里红）
+                win.FpsFeedbackAtCanvas(200f, 200f);
+                CheckNear(win.FpsFeedbackKeyForTest.r, 1f, 1e-4f,
+                          "★ 指针离开滑块 ⇒ 回 Normal（纯白 1.0）—— 灭自证：恒高亮 / 恒按下的实现在这条上红");
+
+                Check(Application.targetFrameRate, f0d,
+                      "（收尾）本节只碰反馈 —— 进程帧率一个字节没动");
+                Check(win.FpsIndex, i0d, "（收尾）档位没变");
+            }
+
             // ---------------- ★ A1092 站点②：`SettingsWindow.UpdateFpsDragAt` 的 x 换算（**必须两态**）----------------
             // 🔴 **缺陷**：`UpdateFpsDrag` 的指针路原来把世界坐标读成 **108 帧**的画布 px（`LayoutSpace.PxX/PxY`），
             //   而它喂进去的 `FpsPressAtCanvas` / `SetFpsFromCanvasX` 吃的是**设计帧**画布 px
@@ -2658,27 +2709,66 @@ public static class SettingsScene
                 //    出处 = `python 工具/menu_dump.py bundle_menus_assets_all "Graphics Tab" --depth 6 --relative`。
                 //    ⛔ 不过 `Screen()`、⛔ 不引用 `SettingsWindow.ChkL/ChkT…`（那是被测实参 —— 同式自证）。
                 //    🔴 **怎么改坏就红**：把这颗开关换到别的行（例如跟 `VSync` 一样给 2）⇒ y 差 161.28px ⇒ 红。
-                CheckRectPx(FindChild(ssNode, "Toggle"), 603.17f, 443.29f, 710.27f, 511.29f,
-                            "（A165）第 0 行那个方框 = 原版 `Small Screen Size Toggle > Toggle` 的矩形");
+                //    🔴 **2026-10-19（`N70` P0-3）就地改期望值（铁律 5）**：原版这颗 `Toggle` 的 `Image` 带
+                //    **`m_PreserveAspect = 1`**（sprite `40K_dropdown_bg` **119×102**）⇒ 画出来是
+                //    **79.33 × 68.00**、在布局框 107.10×68.00 里居中 —— ⛔ 不是「填满 107.10」（我们改前
+                //    画的是另一族的 `40K_toggle_on/off` + 拉伸）。算式：
+                //    `68.00 × 119/102 = 79.333`，左右各内缩 `(107.10−79.333)/2 = 13.883`
+                //    ⇒ `603.17+13.883 = 617.053` / `710.27−13.883 = 696.387`。
+                CheckRectPx(FindChild(ssNode, "Toggle"), 617.05f, 443.29f, 696.39f, 511.29f,
+                            "（A165 + N70 P0-3）第 0 行方框 = 原版 `40K_dropdown_bg` 按 `PreserveAspect` 画出来**居中 79.33×68.00**");
+                // 🆕 **2026-10-19（`N70` P0-3）：4 行开关的悬停/按下反馈**（原版 `EverguildToggle`
+                //   `m_Transition = 1` · `m_Colors` 逐颗实读：NOR/HL/PR/SEL 都是**绿色系**）。
+                //   期望值 = 原版字面量（⛔ 不读 `SettingsWindow.ToggleGreen*` —— 那是被测实现 = 自证）。
+                //   🧨 改坏法：删掉 `wb.TintOn(box)` ⇒ 色偏打在透明命中区上看不见 ⇒ `GrayQuadCountForTest` 回 1，红。
+                {
+                    var sHit = FindChild(ssNode, "Hit");
+                    var sWb = sHit != null ? sHit.GetComponent<WindowButton>() : null;
+                    CheckTrue(sWb != null, "（前提）这一行有 `WindowButton`");
+                    if (sWb != null)
+                    {
+                        CheckNear(sWb.NormalKey.r, 0.2862745f, 1e-4f,
+                                  "★ 开关**常态色 R** = 原版 `m_NormalColor` 0.2862745（⛔ 不是白 —— 原版这一格是绿）");
+                        CheckNear(sWb.NormalKey.g, 0.9647059f, 1e-4f, "★ …G = 原版 0.9647059");
+                        CheckNear(sWb.NormalKey.b, 0.6862745f, 1e-4f, "★ …B = 原版 0.6862745");
+                        CheckNear(sWb.HighlightKey.r, 0.2921413f, 1e-4f, "★ 开关**悬停色 R** = 原版 0.2921413（绿色系）");
+                        CheckNear(sWb.HighlightKey.g, 0.9528302f, 1e-4f, "★ …G = 原版 0.9528302");
+                        CheckNear(sWb.HighlightKey.b, 0.6816804f, 1e-4f, "★ …B = 原版 0.6816804（⛔ 不是默认灰 0.9607843）");
+                        CheckNear(sWb.PressedKey.r, 0.3058473f, 1e-4f, "★ 开关**按下色 R** = 原版 0.3058473");
+                        CheckNear(sWb.PressedKey.g, 0.8207547f, 1e-4f, "★ …G = 原版 0.8207547");
+                        CheckNear(sWb.PressedKey.b, 0.6105263f, 1e-4f, "★ …B = 原版 0.6105263");
+                        CheckTrue(sWb.GrayQuadCountForTest >= 2,
+                                  "★ …而且方框被接进了色偏（`TintOn(box)`）—— 命中区那颗 quad 是透明的，不接就零反馈");
+                    }
+                }
                 // ② 点它 ⇒ ①原版 `smallScreenUI` 那一半翻转 ②`smallUIChosenManually` 那一半也置 1 ③方框换图
                 //    （判据 = `GraphicsTab__SmallScreenToggleClick.c`：**两颗一起写**；三者一起断，少一样都能假绿）
                 var ssBox = FindChild(ssNode, "Toggle").GetComponentInChildren<ImageQuad>();
-                CheckTrue(ssBox != null && ssBox.Texture != null && ssBox.Texture.name == SettingsWindow.ArtToggleOff,
-                          "（前提）出厂这一格画的是**关**的图（" + SettingsWindow.ArtToggleOff + "）");
+                var ssChk = FindChild(ssNode, "CheckMark");
+                // 🔴 **2026-10-19（`N70` P0-3）就地改口径**：原版 `EverguildToggle` 的方框是
+                //   **`40K_dropdown_bg` + 绿色 ColorTint**（不变），开/关只切子件 `CheckMark`
+                //   （prefab：`m_TargetGraphic` = 方框 · `graphic` = `CheckMark`）。
+                //   改前我们断的是「方框在 `40K_toggle_on/off` 之间换图」—— 那是另一族控件。
+                CheckTrue(ssBox != null && ssBox.Texture != null && ssBox.Texture.name == SettingsWindow.ArtToggleBox,
+                          "（前提）方框画的是原版那颗 `" + SettingsWindow.ArtToggleBox + "`（开/关**不换图**）");
+                CheckTrue(ssChk != null && !ssChk.gameObject.activeSelf,
+                          "（前提）出厂这一格**没打勾**（原版 `CheckMark` 由 `Toggle.graphic` 开关）");
                 Click(ssNode);
                 CheckTrue(SmallScreenUI.Enabled, "★ 点一下 ⇒ 原版 `GameStaticData.smallScreenUI` 那一半**开了**");
                 CheckTrue(SmallScreenUI.ChosenManually,
                           "★ 点一下 ⇒ 原版 `smallUIChosenManually` 那一半**也置了**（只写一个 = 跟原版不一样；改坏就红）");
-                CheckTrue(ssBox != null && ssBox.Texture != null && ssBox.Texture.name == SettingsWindow.ArtToggleOn,
-                          "★ …而且方框**换成了开的图**（" + SettingsWindow.ArtToggleOn + "）");
+                CheckTrue(ssChk != null && ssChk.gameObject.activeSelf,
+                          "★ …而且**勾被打上了**（原版变化的是 `CheckMark`，不是方框贴图）");
+                CheckTrue(ssBox != null && ssBox.Texture != null && ssBox.Texture.name == SettingsWindow.ArtToggleBox,
+                          "★ …方框贴图**一个字没变**（原版 `changeSpriteOnValueChange = 0`）");
                 // 🆕 **2026-10-19（波 1b）**：需子串改走 `TermHead(键)` —— 与上面两条同族（那三条 `_flash`
                 //    也都接了词条）；⛔ 不再写死那串「本来就长得像英文」的中文列字面量（键值一改就假红）。
                 CheckTrue(win.Flash != null && win.Flash.StartsWith(TermHead("Settings/Graphics/Flash/SmallScreenUI")),
                           "★ 点完**有话说**（「" + win.Flash + "」）");
                 Click(ssNode);
                 CheckTrue(!SmallScreenUI.Enabled, "★ 再点一下 ⇒ 又关回来（两态都翻得动）");
-                CheckTrue(ssBox != null && ssBox.Texture != null && ssBox.Texture.name == SettingsWindow.ArtToggleOff,
-                          "★ …方框也换回**关**的图");
+                CheckTrue(ssChk != null && !ssChk.gameObject.activeSelf,
+                          "★ …勾也撤掉了（原版看的就是 `CheckMark` 显隐）");
             }
 
             // ---------------- 🆕 A172：图像页**第 1 行** = Auto Zoom（原版 `GameStaticData.useCombatAutoZoom` +0x125）----------------
@@ -2742,22 +2832,26 @@ public static class SettingsScene
                     // ② 出厂 = 关（cctor 没写 +0x125）
                     var azBox = FindChild(azN, "Toggle") != null
                               ? FindChild(azN, "Toggle").GetComponentInChildren<ImageQuad>() : null;
-                    CheckTrue(azBox != null && azBox.Texture != null && azBox.Texture.name == SettingsWindow.ArtToggleOff,
-                              "（前提）出厂这一格画的是**关**的图（" + SettingsWindow.ArtToggleOff + " —— cctor 没写 +0x125）");
-                    // ③ 点它 ⇒ 两半一起写 + 换图 + **有话说**
+                    var azChk = FindChild(azN, "CheckMark");
+                    // 🔴 **2026-10-19（`N70` P0-3）**：同 `Small Screen` 那一格 —— 方框 = `ArtToggleBox`
+                    //   （不换图），开/关只看 `CheckMark`。
+                    CheckTrue(azBox != null && azBox.Texture != null && azBox.Texture.name == SettingsWindow.ArtToggleBox,
+                              "（前提）方框画的是 `" + SettingsWindow.ArtToggleBox + "`（原版开/关不换图）");
+                    CheckTrue(azChk != null && !azChk.gameObject.activeSelf,
+                              "（前提）出厂**没打勾**（cctor 没写 +0x125 ⇒ 关）");
+                    // ③ 点它 ⇒ 两半一起写 + 打勾 + **有话说**
                     Click(azN);
                     CheckTrue(AutoZoom.Enabled, "★ 点一下 ⇒ 原版 `GameStaticData.useCombatAutoZoom` 那一半**开了**");
                     CheckTrue(AutoZoom.ChosenManually,
                               "★ 同一下 ⇒ 原版 `autoCombatChosenManually`(+0x12f) 那一半**也置了**（只写一个 = 跟原版不一样 ⇒ 红）");
-                    CheckTrue(azBox != null && azBox.Texture != null && azBox.Texture.name == SettingsWindow.ArtToggleOn,
-                              "★ …而且方框**换成了开的图**（" + SettingsWindow.ArtToggleOn + "）");
+                    CheckTrue(azChk != null && azChk.gameObject.activeSelf,
+                              "★ …而且**勾被打上了**（原版变化的是 `CheckMark`）");
                     // 🆕 **2026-10-19（波 1b）**：需子串改走 `TermHead(键)`（同上面那两条 —— 这句也接了词条）。
                     CheckTrue(win.Flash != null && win.Flash.StartsWith(TermHead("Settings/Graphics/Flash/AutoZoom")),
                               "★ 点完**有话说**（「" + win.Flash + "」）");
                     Click(azN);
                     CheckTrue(!AutoZoom.Enabled, "★ 再点一下 ⇒ 又关回来");
-                    CheckTrue(azBox != null && azBox.Texture != null && azBox.Texture.name == SettingsWindow.ArtToggleOff,
-                              "★ …方框也换回**关**的图");
+                    CheckTrue(azChk != null && !azChk.gameObject.activeSelf, "★ …勾也撤掉了");
                 }
                 CheckTrue(AutoZoom.PersistOverride,
                           "🔴 自检期间 `AutoZoom.PersistOverride` 是开的（不许动玩家的真设置 —— 同 `SmallScreenUI` 那条）");
@@ -2853,12 +2947,14 @@ public static class SettingsScene
                 // ③ 点它 ⇒ **只写 flag**（原版 `SuperSamplingToggleClick`：写 +0x124 + 置脏），**不当场改分辨率**
                 var ssBox = ssOn != null && FindChild(ssOn, "Toggle") != null
                           ? FindChild(ssOn, "Toggle").GetComponentInChildren<ImageQuad>() : null;
-                CheckTrue(ssBox != null && ssBox.Texture != null && ssBox.Texture.name == SettingsWindow.ArtToggleOff,
-                          "（前提）出厂这一格画的是**关**的图（原版 cctor 没写 +0x124 ⇒ 零初始化）");
+                var ssChk2 = ssOn != null ? FindChild(ssOn, "CheckMark") : null;
+                // 🔴 **2026-10-19（`N70` P0-3）**：同前两行 —— 方框 `ArtToggleBox` 不换图，开/关看 `CheckMark`。
+                CheckTrue(ssBox != null && ssBox.Texture != null && ssBox.Texture.name == SettingsWindow.ArtToggleBox,
+                          "（前提）方框画的是 `" + SettingsWindow.ArtToggleBox + "`（原版 cctor 没写 +0x124 ⇒ 关）");
+                CheckTrue(ssChk2 != null && !ssChk2.gameObject.activeSelf, "（前提）出厂**没打勾**");
                 Click(ssOn);
                 CheckTrue(SuperSampling.Enabled, "③ 点一下 ⇒ 原版 `GameStaticData.superSampling`(+0x124) 那一半**开了**");
-                CheckTrue(ssBox != null && ssBox.Texture != null && ssBox.Texture.name == SettingsWindow.ArtToggleOn,
-                          "③ …方框也换成了**开**的图");
+                CheckTrue(ssChk2 != null && ssChk2.gameObject.activeSelf, "③ …**勾被打上了**（原版变化的是 `CheckMark`）");
                 // 🆕 **2026-10-19（波 1b）**：需子串改走 `TermHead(键)`（同族第四处 —— 这句也接了词条）。
                 CheckTrue(win.Flash != null && win.Flash.StartsWith(TermHead("Settings/Graphics/Flash/SuperSampling")),
                           $"③ …点完**有话说**（「{win.Flash}」）");
@@ -3848,6 +3944,67 @@ public static class SettingsScene
                     }
                     // （还原）摆回本格进来时的那个值 —— 上面 `A169` 那一段收尾留下的也是它
                     s.SetValue(sVWas, false);
+                }
+            }
+
+            // ---------------- 🆕 U3（N70 P0-4）：壳侧三根音量滑条的**指针路径 + 悬停 / 按下** ----------------
+            // 🔴 **为什么这条非有不可**：这三根原来**一个命中节点都没有** ⇒ 真鼠标点轨道会落到
+            //   `BackgroundHit`（压暗层，`onClick = Close`）= **把设置窗关掉**，而自检一直绿（它走 `SetValue` 直调）。
+            // 判据 = 原版那三根 `… Slider`：`m_Transition = 1 ColorTint` · HL `0.9607843` · PR `0.7843137` ·
+            //   `m_TargetGraphic` = **手柄**；命中 = `Background`(pad 0) ∪ `Handle`(pad −25) 的**真并集**。
+            // 怎么打进去：`AudioSliderPointerAt(世界坐标, 按下帧, 持续按住)` —— 它就是 `UpdateAudioSliders()`
+            //   每帧调的**同一个函数**（批处理里 `Mouse.current == null`、`Update` 不跑 ⇒ 没有别的口）。
+            Section("N70 P0-4：壳侧三根音量滑块的**指针路径 + 悬停 / 按下**（U3）");
+            {
+                CheckTrue(sl != null && sl.Length == 3 && sl[0] != null && sl[1] != null && sl[2] != null,
+                          "（前提）三根滑块都在 —— 不在 ⇒ 本节等于没验");
+                if (sl != null && sl.Length == 3 && sl[0] != null && sl[1] != null && sl[2] != null)
+                {
+                    float av0 = sl[0].Value, av1 = sl[1].Value, av2 = sl[2].Value;
+
+                    // ① 悬停：指针摆到第 2 根的**轨道中心**（不按）
+                    int over1 = win.AudioSliderPointerAt(sl[1].WorldPos, false, false);
+                    Check(over1, 1, "★ 指针在第 2 根滑块的轨道上 ⇒ 命中的就是**第 2 根**");
+                    CheckNear(sl[1].FeedbackKeyForTest.r, 0.9607843f, 1e-4f,
+                              "★ 第 2 根进入 **Highlighted**（原版 `m_HighlightedColor` 0.9607843）"
+                            + $"（实得 {sl[1].FeedbackKeyForTest.r:F7}）；改坏法：不接反馈 ⇒ 1.0 ⇒ 红");
+                    CheckTrue(Mathf.Abs(sl[0].FeedbackKeyForTest.r - 1f) < 1e-4f
+                           && Mathf.Abs(sl[2].FeedbackKeyForTest.r - 1f) < 1e-4f,
+                              "★ 另两根仍在 **Normal**（纯白）—— 灭自证：一个「三根一起亮 / 恒亮」的实现会在这里红");
+                    Check(win.AudioSliderDraggingForTest, -1, "★ …而且只是悬停，**没有**开始拖");
+
+                    // ② 按下：轨道 20% 处按下 ⇒ 开始拖 + **真的改值** + Pressed 0.7843137
+                    var wp20 = Vector3.Lerp(sl[1].LeftWorld, sl[1].RightWorld, 0.2f);
+                    int over2 = win.AudioSliderPointerAt(wp20, true, true);
+                    Check(over2, 1, "★ 轨道 20% 处按下仍命中第 2 根（点轨道 = 跳到点的位置，原版 `Slider.OnPointerDown`）");
+                    Check(win.AudioSliderDraggingForTest, 1, "★ 按下 ⇒ `拖的是第 2 根`（状态位，不是返回值）");
+                    CheckNear(sl[1].FeedbackKeyForTest.r, 0.7843137f, 1e-4f,
+                              "★ 按住 ⇒ **Pressed**（原版 `m_PressedColor` 0.7843137，优先级高于 Highlighted）"
+                            + $"（实得 {sl[1].FeedbackKeyForTest.r:F7}）");
+                    // 滑区宽 = 轨道宽 − 10（原版 `Handle Slide Area`），⇒ 20% 轨道 ≈ 0.20297 的值
+                    CheckNear(sl[1].Value, 0.20297f, 0.01f,
+                              "★★ 按下点**真的写进了滑块值**（轨道 20% ⇒ 值 ≈ 0.203）—— 这条挡的是"
+                            + "「命中节点建了、但没接到 `SetFromPointer`」那种假绿（那正是本笔原来的症状）");
+                    CheckNear(sl[0].Value, av0, 1e-6f, "★ 另外两根的值**一个字节没动**（第 1 根）");
+                    CheckNear(sl[2].Value, av2, 1e-6f, "★ 另外两根的值**一个字节没动**（第 3 根）");
+
+                    // ③ 松手、指针仍在滑块上 ⇒ 回 Highlighted（不是 Normal），且拖动状态清零
+                    win.AudioSliderPointerAt(wp20, false, false);
+                    Check(win.AudioSliderDraggingForTest, -1, "★ 松手 ⇒ 拖动状态清零（`-1`）");
+                    CheckNear(sl[1].FeedbackKeyForTest.r, 0.9607843f, 1e-4f,
+                              "★ 松手但指针还在滑块上 ⇒ 回 **Highlighted**（不是 Normal）"
+                            + "；改坏法：松手时把悬停一起清掉 ⇒ 1.0 ⇒ 红");
+
+                    // ④ 指针离开 ⇒ Normal（灭自证：一个「不管在哪都高亮」的实现会在这里红）
+                    //   ⚠️ 用「第 2 根下方 5 个世界单位（= 540 px）」而不是世界原点 —— 原点在设计 (960,540)，
+                    //   那一点仍可能落在**某根手柄外扩框**里（手柄半宽 48.4 画布 px）⇒ 那会变成一条假红。
+                    win.AudioSliderPointerAt(sl[1].WorldPos + new Vector3(0f, -5f, 0f), false, false);
+                    CheckNear(sl[1].FeedbackKeyForTest.r, 1f, 1e-4f,
+                              "★ 指针离开 ⇒ 回 Normal（纯白 1.0）—— 灭自证：恒高亮 / 恒按下的实现在这条上红");
+
+                    // （还原）把这根音量摆回进本节之前的值（走 `fire: true` ⇒ AudioMixer 一起还原）
+                    sl[1].SetValue(av1, true);
+                    CheckNear(sl[1].Value, av1, 1e-6f, "（收尾）第 2 根音量已还原");
                 }
             }
 

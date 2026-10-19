@@ -162,10 +162,31 @@ namespace CardPresentation
         Transform _foeFound; PxRect _foeFoundRect, _foeNameRect; GameObject _foeNotFound;
         float _holdLeft = -1f;
 
+        // ==================================================================
+        //  🆕 **2026-10-19（`A1322` 残留 · U3）：这一局被撤 ⇒ 这扇窗自己关**
+        //
+        //  判据/口径 → `资料/普查产出_1019/L1_报告.md` §6·5 第 1 条（`NetMatchmaking.RevokeForLateCancel`
+        //  那一笔的注释里也写着「那扇窗由玩家自己关 —— 要收干净 = 在 `Shell/` 这一侧监听并 `Close()`」）。
+        //
+        //  🔴 **信号怎么拿**：⛔ 不改 `Net/**`、也没有专供的事件 ⇒ 用**现有公开状态**判：
+        //    这一局「活着的」两个特征 = `NetMatchmaking.Waiting`（我交了卡组、还没开局）
+        //    或 `NetMatchmaking.HasOpponent`（对面那副牌到手）。
+        //    `RevokeForLateCancel` / `ClearMatch` 两支都会把两格一起清空 ⇒ **两个都变假 = 这一局没了**。
+        //    ⚠️ 为什么**不**拿 `OnHint` 的文案比：那是本地化字符串、还可能被别的支路说同一句
+        //    （判字符串 = 把显示文案当状态位，改一个词就静默失效）。状态位才是判据。
+        //  ⚠️ `_sawLiveMatch` 那道闸：只有**开窗时真有一局**（或「找到对手」那一跳跑过）才允许自己关 ——
+        //    否则「开着一扇没有对局的窗」会在第一帧就自己关掉（自检夹具正是这一档）。
+        bool _sawLiveMatch;
+
+        /// <summary>自检用：把「这一局曾经活着」这一格置真（= `Open()` 在真匹配路径上做的那件事）。
+        /// ⚠️ 生产路径**不调**它 —— 它只让自检能在没有联机会话夹具时把状态机推到「曾经有局」那一档。</summary>
+        public void NoteMatchLiveForTest() { _sawLiveMatch = NetWatch; }
+
         /// <summary>自检/调试：把「切场景」这件事接过来（展示 `PresentationHold` 秒后自己走）。
         /// 正常路径由 `NetMatchmaking.HoldForPresentation` 调。</summary>
         public bool HoldSceneForPresentation(MsgStart st)
         {
+            _sawLiveMatch = true;   // 「找到对手」都到了 ⇒ 这一局确实活过（被撤时要自己收窗）
             if (NetMatchmaking.HasOpponent && NetMatchmaking.FoeDeck != null)
                 ShowOpponent(NetMatchmaking.FoeDeck.WarlordId, NetMatchmaking.FoeName);
             else
@@ -212,6 +233,17 @@ namespace CardPresentation
         /// <summary>推进「展示 → 切场景」（`Update` 与自检都走它 —— 批处理没有帧循环）。</summary>
         public void Tick(float dt)
         {
+            // 🆕 **2026-10-19（`A1322` 残留 · U3）**：这一局被撤（迟到的 `match.cancel` / 大厅阶段对面取消 /
+            //   `Reset()`）⇒ **这扇窗自己关**，回大厅。判据见 `_sawLiveMatch` 那一节。
+            //   ⚠️ 必须排在 `_holdLeft` 之前：被撤之后不能再走 `GoNow()` 那条「切战场」的路。
+            if (_sawLiveMatch && NetWatch && !NetMatchmaking.Waiting && !NetMatchmaking.HasOpponent)
+            {
+                _sawLiveMatch = false;
+                Debug.Log("[SearchingOpp] 这一局已经**被撤**（对面迟到的取消 / 大厅阶段取消 / 匹配复位）"
+                        + "⇒ 这扇窗自己关掉、回大厅（`A1322`：不再等玩家按 Esc/Cancel 收窗）");
+                Close();
+                return;
+            }
             if (_holdLeft < 0f) return;
             _holdLeft -= dt;
             if (_holdLeft > 0f) return;
@@ -264,6 +296,9 @@ namespace CardPresentation
         {
             LastOpened = this;
             Build();
+            // 🆕 2026-10-19（`A1322` 残留 · U3）：开窗那一刻**真的有一局**吗（联机那条路 = `TryStart` 已过）
+            //   ⇒ 记下来，之后这两格被清空 = 这一局被撤 ⇒ `Tick` 自己关窗。判据见 `_sawLiveMatch` 那一节。
+            _sawLiveMatch = NetWatch && (NetMatchmaking.Waiting || NetMatchmaking.HasOpponent);
             // 🆕 联机那一支：开窗即注册「切场景前那一口气」—— 配到人时由它把「找到对手」显示出来。
             //    ⚠️ 单机（打 bot）那条路**不注册** ⇒ 原来那条 12 秒链的行为一字不改。
             if (NetWatch)

@@ -41,6 +41,29 @@ namespace CardPresentation
         public static readonly Color FillTint = new Color(1f, 0.818f, 0.486f, 1f);
         const string ArtBarBg = "40k_CardAmount_bar_bg", ArtBarFill = "40k_CardAmount_bar_fill";
 
+        // ============================================================ 原版那 9 颗 `Slider` 的逐颗读数
+        // 🔴 **2026-10-19（U4 · 界面线批次 6）**：`Deck Editing Menu` 的 9 颗 `Slider` **逐颗读完**
+        // （`bundle_menus_assets_all`，路径 `Content Area/Sidebar/Deck Details/Deck Information cost drawer/
+        //  Content/Deck CostQuanityt Row Drawer` + 后缀 `"" / " (1)" .. " (8)"` + `/Slider`）——
+        // **9 颗值完全一致**（不是抽样、不是「一个值当全部情况」）：
+        //   · `m_Interactable = 0`（**不可交互**）
+        //   · `m_Transition   = 0 (None)`（**连默认的 ColorTint 都不是**）
+        //   · `m_TargetGraphic = null` · `m_HandleRect = null`（**没有手柄**）
+        //   · `m_FillRect` → 子件 `Fill`（`40k_CardAmount_bar_fill` · `m_Color (1, 0.818, 0.486, 1)` ·
+        //     `m_RaycastTarget = 0`）
+        //   · `m_Direction = 0 (LeftToRight)` · `m_MinValue = 0` · `m_MaxValue = 1` · `m_WholeNumbers = 0`
+        //   · 子件 `Background`（`40k_CardAmount_bar_bg` · 九宫 `3,0,15,0` · `m_RaycastTarget = 1`）
+        //   · `m_Colors` 仍是 UGUI 默认四格（白 / 0.9608 / 0.7843 / (0.7843, α0.502)）——
+        //     但 `m_Transition = None` ⇒ **那四格一个都不会被用上**。
+        // ⇒ **原版这一族没有任何悬停/按下反馈**：它只是「画出来的槽」
+        //   （`DeckCostQuantityRowDrawer.Initialize` 只写 `fillImage.fillAmount`）。
+        // 🔴 **⛔ 别给这 9 颗接 `WfSlider` 反馈** —— UGUI `Slider` 全族默认是 `t=1 ColorTint`，
+        //   **但这一族是显式 `t=0` + 不可交互**；「按全族默认值一刀切」会与原版相反。
+        // ⚠️ `Background` 的 `m_RaycastTarget = 1` 是序列化事实，但父 `Slider` 不可交互 ⇒
+        //   uGUI `Selectable.IsInteractable()` 早退，那一下**什么都不发生** ⇒ 我们的等价物 = 不建命中区。
+        // 我们自己那两扇窗（`DeckRuntime.BuildCurve` / 本文件 `Build`）画的都是**静态图**（`ImageQuad`），
+        // 没有 `Selectable` / `WindowButton` —— 与原版一致，⛔ 别「补交互」。
+
         /// <summary>按费用数一遍（费用 0..8，越界夹到两端）。`find` = id → 卡（两边都传 `CollectionData.Card`）。</summary>
         public static int[] Counts(PlayerDeck deck, Func<string, CardDef> find)
         {

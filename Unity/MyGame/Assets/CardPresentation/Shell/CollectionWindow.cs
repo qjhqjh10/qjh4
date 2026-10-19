@@ -1186,7 +1186,8 @@ namespace CardPresentation
                 BuildCardsCounter(parent, i, r, list[i]);
                 // ⚠️ 闭包**别捕循环变量 `i`** —— 点击发生在重建之后，那时 `i` 已经是 `list.Count`（越界）
                 var def = list[i];
-                AddHit(parent, "CardHit_" + i, r, QPageRow, () => OpenCardDetail(def));
+                var cHit = AddHit(parent, "CardHit_" + i, r, QPageRow, () => OpenCardDetail(def));
+                AttachCardHover(cHit, v);      // 🆕 N70 P0-5：悬停描边 0.2s（原版 Card2DController.ToggleHighlight）
                 BuildWatch.CellPhase("⑤ 张数条（`Rect`+`Text`）+ 命中区（`AddHit`）");
                 BuildWatch.CellEnd();
             }
@@ -1362,6 +1363,7 @@ namespace CardPresentation
                 // 一格两层（**照原版兄弟序**）：底 = `Cardback Shadow SDF`（距离场，比卡背本体大一圈）、
                 // 面 = 卡背本体。两层**各自一个渲染队列**（`QPageSdf` < `QPageRow`）—— 见梯子那段的注释。
                 var tex = CardArt.Cosmetic(names[i]);
+                Material hoverMat = null;      // 🆕 N70 P0-5：卡背悬停要拨的那颗 SDF 材质（`_Outline.a`）
                 if (tex != null)
                 {
                     // 先画 SDF（它必须**在卡背底下**）。逐值出处：`资料/普查产出_0923/A4_装饰页与驱动链.md:91`
@@ -1411,6 +1413,7 @@ namespace CardPresentation
                         {
                             var mat = new Material(sdfBase);       // ⚠️ 每格一份：共享会让所有格共用最后一张掩码
                             mat.mainTexture = sdfTex;
+                            hoverMat = mat;
                             qs.SetMaterial(mat);
                             // ⚠️ 队列必须在 `SetMaterial` **之后**再设一次：`SetMaterial` 会把**旧材质那份队列**
                             //    （`Sprites/Default` = 3000）搬过来 ⇒ 先设的 `QPageSdf` 会被它盖掉（静默降档）
@@ -1449,8 +1452,10 @@ namespace CardPresentation
                 //    （`d:/2/tools/decomp_full/CardbackCollectionTab__OnItemSelected.c:17-24`；
                 //     ctor 的符号错配成 `UpgradeCardSignal___ctor`，字段 `+0x10 = item` / `+0x18 = amount`）。
                 //    ⇒ 点一张卡背开 **`Item Display Window`**（`Shell/ItemDisplayWindow.cs`，T18 建的）。
-                AddHit(cell, "Hit", r, QPageRow,
+                var cbHit = AddHit(cell, "Hit", r, QPageRow,
                        () => WindowsManager.OpenItemDisplay(ItemDisplayWindow.ForCardback(cbName)));
+                // 🆕 N70 P0-5：原版 `CollectionCosmetic.HoverHighlight` = 材质颜色 alpha 0.2s 补到 1/0。
+                AttachOutlineHover(cbHit, hoverMat);
                 CosmoCells.Add(cell);
             }
         }
@@ -2091,7 +2096,8 @@ namespace CardPresentation
                 BuildWatch.CellPhase("④ `SetFace` + `SetHighlight`（`SetFace` 是空操作）");
                 StyleCells.Add(v.transform);
                 _styleUsed.Add(v);
-                AddHit(parent, "AltArtHit_" + a.CardId, r, QPageRow, () => OpenCardDetail(card));
+                var aHit = AddHit(parent, "AltArtHit_" + a.CardId, r, QPageRow, () => OpenCardDetail(card));
+                AttachCardHover(aHit, v);      // 🆕 N70 P0-5：悬停描边 0.2s（同卡牌格）
                 BuildWatch.CellPhase("⑤ 命中区（`AddHit`；本页**没有**张数条）");
                 BuildWatch.CellEnd();
             }
@@ -3848,6 +3854,58 @@ namespace CardPresentation
                 if (DeckScroll != null && !DeckScroll.Intersects(r)) continue;
                 DeckCells.Add(BuildDeckCell(parent, idxs[p], r));
             }
+        }
+
+        // ============================================================ 🆕 **2026-10-19（`N70` P0-5）**
+        // 收藏窗三类格子的**悬停反馈**（判据全部来自反编译，⛔ 不按截图猜）：
+        //   · 卡牌格 / 异画格 = `Card2DController.ToggleHighlight(bool)` —— 那颗图形材质某个颜色的
+        //     **alpha** 补到 1/0，时长 **0.2 s**（`DAT_1834b2bb0`）。我们的等价物 = `CardView.SetHoverHighlight`
+        //     （状态环那一层写的就是 `_Outline` 的 alpha，时长同 0.2）。
+        //   · 卡组格 = `CollectionDeck.HoverHighlight` —— **整格 `localScale` 1.0 ↔ 1.05**（瞬切、无补间），
+        //     落在 `MenuDraw.DeckCell`（一族共用一份，⛔ 别在这里再写一遍）。
+        //   · 卡背 / 装饰格 = `CollectionCosmetic.HoverHighlight` —— 同一个 `UIImageMaterialColorChanger`
+        //     把某个材质属性的 **alpha** 补到 1/0、0.2 s。那颗 SDF 材质上**只有一个颜色属性** `_Outline`
+        //     （`Core/CardView.CardbackSdfMaterialBase` 逐项实读）⇒ 用它的 alpha。
+        //     ⚠️ **判据半条（如实标）**：原版那个属性 id 是 `CollectionCosmetic` ctor 里
+        //     `Shader.PropertyToID(<字面量>)` 算出来的（偏移 `+0x70`），字面量在 metadata 里、静态读不到
+        //     ⇒ 「就是 `_Outline`」是**按材质属性集合推的**，不是读出来的字段（与 `Card2DController` 那颗同族）。
+        /// <summary>把卡格的悬停接到 `CardView` 的描边层上（判据 → 本段注释）。</summary>
+        static void AttachCardHover(Transform hit, CardView v)
+        {
+            if (hit == null || v == null) return;
+            var wb = hit.GetComponent<WindowButton>();
+            if (wb == null) return;
+            wb.onEnter = () => { if (v != null) v.SetHoverHighlight(true); };
+            wb.onExit  = () => { if (v != null) v.SetHoverHighlight(false); };
+        }
+
+        /// <summary>把装饰格（卡背）的悬停接到它那颗 SDF 材质的 `_Outline` alpha 上（0.2 s 补间）。</summary>
+        void AttachOutlineHover(Transform hit, Material sdf)
+        {
+            if (hit == null || sdf == null || !sdf.HasProperty("_Outline")) return;
+            var wb = hit.GetComponent<WindowButton>();
+            if (wb == null) return;
+            var baseC = sdf.GetColor("_Outline");
+            wb.onEnter = () => TweenOutline(sdf, baseC, 1f);
+            wb.onExit  = () => TweenOutline(sdf, baseC, 0f);
+        }
+
+        /// <summary>`_Outline` 的 alpha 补到 <paramref name="a"/>（原版 `DoColorChange(..., 0.2f)`）。
+        /// ⚠️ 用 `SetTarget(sdf)` + `Kill(sdf)` 保证**同一颗材质只有一条补间**在跑（悬停/离开快速交替时不会打架）。</summary>
+        static void TweenOutline(Material sdf, Color baseC, float a)
+        {
+            if (sdf == null) return;
+            DG.Tweening.DOTween.Kill(sdf);
+            float from = sdf.GetColor("_Outline").a;
+            var tw = DG.Tweening.DOTween.To(() => from, v =>
+            {
+                if (sdf == null) return;
+                var c = baseC; c.a = v;
+                sdf.SetColor("_Outline", c);
+            }, a, CardHighlight.OutlineAnimTime);
+            // ⚠️ 扩展方法在本文件没 `using DG.Tweening;` ⇒ 走**静态调用**（`SetTarget` 是泛型扩展）。
+            DG.Tweening.TweenSettingsExtensions.SetTarget(tw, sdf);
+            DG.Tweening.TweenSettingsExtensions.SetEase(tw, DG.Tweening.Ease.Linear);
         }
 
         /// <summary>一格卡组。版式照 A2：根 250×405、显示 **0.9 倍**。

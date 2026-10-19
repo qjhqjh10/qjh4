@@ -9,7 +9,8 @@ gen_card_anim_order.py — T05 第 3 步（驱动侧按表展开 N 拍）的**�
 ## 为什么要有这一步
 全量件里每一步只是一把键（`steps[].ca` = CardAnim 资产 GUID），参数在**另一张** `cardAnims[]` 上。
 运行期做那次 join 没有意义（表是死的）⇒ **生成期把 join 做完**，运行期的每一步都自带它那 10 个字段。
-同时把用不到的 `animInfo`（~20 字段 · 含 easeCurve 的曲线键）与 `_*` 元数据整段剔掉。
+同时把用不到的 `animInfo`（~20 字段）与 `_*` 元数据整段剔掉
+（🆕 2026-10-19 起只额外留「VFX movement」那三位：`shouldMoveVFX` / `orientToVelocity` / `easeCurve` 的关键帧）。
 
 ## 瘦身方案（逐条）
 - 🔴 **只取 `path == "activeAbility"` 的那些行**（判据见下面那一节「为什么只取 activeAbility」）——
@@ -59,6 +60,22 @@ SRC = r"d:/4/Unity/数据/游戏数据/card_anim_order.json"
 DST = r"d:/4/Unity/MyGame/Assets/CardPresentation/Resources/card_anim_order.json"
 
 # 步骤字段的短名（JsonUtility 侧一一对应 `CardAnimBeat`）
+def _ease_flat(ai):
+    """`easeCurve.m_Curve` → 扁平 `[t0,v0,t1,v1,…]`（升序）。
+
+    🆕 2026-10-19（偏差 6）：`CardAnimController.Update` 用 `Evaluate((t−timeAtStartPos)/timeMoving)`
+    当位移进度 ⇒ 运行期要这条曲线。全量件里它是 `AnimationCurve` 的序列化形状（每键 6 个字段）；
+    我们只留 `time/value` 两列（分段线性求值 —— 实测我们那 100 拍里 3 条 movers 全是直线）。
+    没有键 / 曲线是 null ⇒ 返回空列表（运行期按线性处理 = 原版 `AnimInfo..ctor` 的默认曲线）。
+    """
+    cur = ((ai.get("easeCurve") or {}).get("m_Curve") or [])
+    out = []
+    for k in sorted(cur, key=lambda x: x.get("time", 0.0)):
+        out.append(round(float(k.get("time") or 0.0), 4))
+        out.append(round(float(k.get("value") or 0.0), 4))
+    return out
+
+
 def slim_beat(step, anims, stats):
     ca = (step.get("ca") or "").strip()
     if not ca:
@@ -69,9 +86,15 @@ def slim_beat(step, anims, stats):
         stats["unresolved_guid"] += 1
         return None
     p = a.get("params") or {}
+    ai = a.get("animInfo") or {}
     vfx = a.get("vfx")
     if vfx is None:
         stats["pure_wait"] += 1
+    # 🆕 2026-10-19（偏差 6）：`shouldMoveVFX` / `orientToVelocity` / `easeCurve` 三位
+    #   —— `params` 里**没有**后两位（它们在 `animInfo` 上），所以这一段读 `ai`。
+    mv = 1 if ai.get("shouldMoveVFX") else 0
+    if mv:
+        stats["movers"] += 1
     return {
         "ca": ca,
         "vfx": vfx if vfx is not None else "",
@@ -83,6 +106,9 @@ def slim_beat(step, anims, stats):
         "tm": float(p.get("timeMoving") or 0.0),
         "te": float(p.get("timeAtEndPos") or 0.0),
         "w": int(p.get("waitAnimToApplyEffect") or 0),
+        "mv": mv,
+        "otv": 1 if ai.get("orientToVelocity") else 0,
+        "ease": _ease_flat(ai) if mv else [],
     }
 
 
@@ -91,7 +117,8 @@ def build():
     anims = {a["guid"]: a for a in d.get("cardAnims") or []}
     stats = {"blank_guid": 0, "unresolved_guid": 0, "pure_wait": 0,
              "cards": 0, "steps": 0, "cards_no_steps": 0,
-             "rows_not_active": 0, "steps_not_active": 0}
+             "rows_not_active": 0, "steps_not_active": 0,
+             "movers": 0}
     cards = []
     for c in d.get("cards") or []:
         steps = []
@@ -119,7 +146,9 @@ def build():
         "note": "运行期瘦身版。字段短名 = CardAnimBeat："
                 "ca=CardAnim guid · vfx=prefab 名（空串 = 纯延时拍）· "
                 "sp/ep/pt=startPosOption/endPosOption/pointTowardsOption · "
-                "vd/ts/tm/te=vfxDelayTime/timeAtStartPos/timeMoving/timeAtEndPos · w=waitAnimToApplyEffect",
+                "vd/ts/tm/te=vfxDelayTime/timeAtStartPos/timeMoving/timeAtEndPos · w=waitAnimToApplyEffect · "
+                "mv=shouldMoveVFX · otv=orientToVelocity · ease=easeCurve 的扁平关键帧 [t0,v0,t1,v1,…]"
+                "（2026-10-19 · 偏差 6「起→终位移 + 朝向」）",
         "stats": stats,
         "cards": cards,
     }

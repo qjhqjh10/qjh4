@@ -206,6 +206,14 @@ namespace CardPresentation.Net
                 lis.Start();
                 _listener = lis;
                 Port = ((IPEndPoint)lis.LocalEndpoint).Port;
+                // 🔴 **A1277（2026-10-19）**：**听成了就把上一次的失败话清掉** —— 照 `Setup` 里那句
+                //    `_lastError = "";` 的现成写法（口径只留这一套，⛔ 别在 `Send` / `Listen` 里再各写一份）。
+                //    为什么必须清：`Listen` 会先试双栈、失败再退 IPv4（`Listen(port)` 那两句）——
+                //    **第一次的失败话会挂在那儿**，而监听其实已经起来了 ⇒ 「听成了」和「听败了」在错误态上混着，
+                //    以后查「为什么连不上」时会被这句**旧话**指错方向。
+                //    ⚠️ 唯一的消费面 `NetSession.Send` 是**前后各读一次、变了才算**
+                //       （`_lastError` 是**粘的**，见那边的注）⇒ 在这里把它清空不会伪造出一次失败。
+                _lastError = "";
                 _acceptThread = new Thread(AcceptLoop) { IsBackground = true, Name = "wf-net-accept" };
                 _acceptThread.Start();
                 return true;
@@ -233,7 +241,21 @@ namespace CardPresentation.Net
                 TcpClient c = null;
                 try { c = lis.AcceptTcpClient(); }
                 catch { return; }                      // 监听被关掉 = 正常退出
-                if (_client != null && IsConnected)
+                // 🔴 **A1276（2026-10-19）**：整段判断**只看一次读的同一个快照** ——
+                //    原来这里是 `if (_client != null && IsConnected)`：**两次独立的读**、而且读的是
+                //    **两个不同的字段**（`_client` 由 `Setup` / `ClosePeer` 写，`IsConnected` 是 `_state`
+                //    那一个字），中间可以变 ⇒ 读到中间那个量变了也照样放行，**静默**（不抛、不报）。
+                //
+                //    判据取**状态字**（`IsConnected` 的同一个来源）：
+                //      · 它是「此刻有一条**活**连接」的**唯一权威**（`Setup` / `Fail` / `ClosePeer` 都经
+                //        同一个 `Publish` 写它，且与 `AcceptedCount` 同处一个字、一次 CAS 发布 —— 见字段区）；
+                //      · `_client != null` **不是**活连接判据：掉线之后 `Fail` **不清** `_client`
+                //        （只清连接位），那一刻 `_client` 仍非 null、而我们要的正是**接受重连** ⇒ 那一半本来就多余。
+                //    ⚠️ **已知无害的边**：`ClosePeer` 是「先 `_client = null`、后 `Publish(false)`」，
+                //       若一条重连恰好落在这两句之间，它会看到「连接位仍真」而被关掉 —— 对面 2 秒后重试
+                //       （`NetSession.ReconnectEveryMs`），**自愈**；比「两个字段各读一次、静默放行」好。
+                int stateNow = Volatile.Read(ref _state);
+                if ((stateNow & ConnBit) != 0)
                 {
                     // 已经有**活的**对家了 ⇒ 多出来的直接关掉（v1 只支持 1v1，不排队）
                     try { c.Close(); } catch { }

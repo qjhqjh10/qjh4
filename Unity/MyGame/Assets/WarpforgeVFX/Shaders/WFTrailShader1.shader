@@ -39,16 +39,18 @@
 //       与 `资料/战场13场_逐场对账_0920.md:1524` 独立记的「时间项统一是 cb0[19].x」一致）·
 //      `cb0[78..81]` = `unity_MatrixVP`（VS 拿它算 clip，独立佐证）。
 //      `cb1` = **UnityPerMaterial**；本 shader 用到 `[0].[1]`（两个 Color）· `[3].xy/[3].z` · `[4].xy` · `[6].x`。
-//      ⚠️ **`cb1[3]/[4]/[6]` 的「槽 → 属性名」是推的**（无 RDEF、材质 CB 偏移读不出来）：判据是
-//        **用法 + 名字**两路都指向同一个答案，两条都记在下面每个属性后面。
-//        「推」不等于「猜」：A/B 会再量一遍（`WFBIND_FORCE_BUILTIN=TrailShader_1`）。
-// ⑤ **两处如实标注的「判据不足」**（铁律 3）：
-//      · `cb1[6].x` 取 `_TrailLenght`（== 推 ==）：另一候选 `_TRAILALPHACUTOFF` **恒 0**（8 个材质全是），
-//        而 `_TRAILALPHACUTOFF` 同时是**关键字**（关键字全集里有它）⇒ 更像「关键字那支才用它当阈值」，
-//        而本 build **没编出那个变体**。选 `_TrailLenght` 的理由是语义：`A` 里减一个负数 = **把拖尾拉长**
-//        （那几个 Necron 材质正是 `_TrailLenght=-0.1`）。
-//      · `_TRAILALPHACUTOFF` 关键字那一支**没编进 blob**（每 pass 只有一个变体）⇒ **照不到判据**，
-//        本文件实现的是**已编译的那一支**（阈值 0.5 写死）。
+//      ✅ **2026-10-19：`cb1[*]` 的「槽 → 属性名」不再是推的 —— 已用序列化反射实读坐实**
+//        （`SerializedPass.progFragment.m_CommonParameters`，见正本 §十四「通用钥匙」1）：
+//          cb1[0]=`_Color01` · cb1[1]=`_Color02` · cb1[3].xy=`_MainTextureSpeed` · cb1[3].z=`_DissolveScale`
+//          · cb1[4].xy=`_DissolveSpeed` · **cb1[6].x=`_TrailLenght`**（off=96, dim=1）；
+//          cb0 侧同一次实读：cb0[4].x=`_GlobalMipBias` · cb0[4].z=`_AlphaToMaskAvailable` · cb0[19]=`_TimeParameters`
+//          —— 与文件头原来「推」的三条**逐条吻合**。
+// ⑤ ✅ **2026-10-19：`cb1[6].x` 那条「二选一」已结案** —— 序列化反射实读 = **`_TrailLenght`**
+//      （`m_VectorParams` 里 off=96 → slot 6、dim=1、`m_NameIndex` 解出 `_TrailLenght`）。
+//      `_TRAILALPHACUTOFF` **不在** `UnityPerMaterial` 的实参表里 ⇒ 它只在关键字那一支才被采。
+//      ⚠️ **`_TRAILALPHACUTOFF` 关键字那一支仍未实现**，但这是**判据空、不是没做**：
+//        原版每 pass 只编出一个变体（blob 里没有那一支的字节码）⇒ 按**铁律 11 例外①**留着
+//        （本文件实现的是**已编译的那一支**，阈值 0.5 写死）。
 //
 // ⚠️ **它在白名单里** ⇒ 运行时走原件；本文件只在**兜底路**生效。
 Shader "WarpforgeVFX/FX/TrailShader1"

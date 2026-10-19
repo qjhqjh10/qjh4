@@ -126,8 +126,9 @@ namespace CardPresentation
         // 文字档位（prefab 逐颗实读）
         public const float TitleFont = 34f, TitleFontMin = 20f, TitleFontMax = 34f, TitleFontBase = 47.73f;
         public const float DescFont = 28f, DescFontMin = 18f, DescFontMax = 28f, DescFontBase = 22.5f;
-        /// <summary>⚠️ `DescriptionText` 的 `m_lineSpacing = 5` —— 我们的 `MenuDraw` 没有这个形参
-        /// （同族 `BaseEventPopup` 也没接），**如实记**为未复刻的一处排版细节。</summary>
+        /// <summary>`DescriptionText` 的 `m_lineSpacing = 5`（原版 prefab 实读）。
+        /// 🆕 **2026-10-19（`P2-7`）已接**：`MenuDraw.SetLineSpacing(_desc, DescLineSpacing)` ——
+        /// 「Shell 文本层没有行距」那条缺口在公共件上补掉了（判据/单位 → `MenuDraw.SetLineSpacing` 的 doc）。</summary>
         public const float DescLineSpacing = 5f;
         public const float TapFont = 30f, TapFontMin = 18f, TapFontMax = 30f, TapFontBase = 60f;
 
@@ -298,6 +299,9 @@ namespace CardPresentation
             // `DescriptionText`：fs 28 · 基准 22.5 · auto[18~28] · 折行 1 · 白 · Center/Middle(512)
             _desc = MenuDraw.TextBox(_texts, DescR, desc, Color.white, "DescriptionText",
                                      DescFont, DescFontMin, QText, DescFontMax, DescFontBase, face: TmpFont.Face.LatinCardBody);
+            // 🆕 **2026-10-19（`P2-7`）**：原版这颗 `DescriptionText` 的 `m_lineSpacing = 5`（prefab 实读；
+            //   常量就是上面那个此前**一直没用上**的 `DescLineSpacing`）⇒ 多行正文的行距补上。
+            MenuDraw.SetLineSpacing(_desc, DescLineSpacing);
             // `Tap To continue`：fs 30 · 基准 60 · auto[18~30] · 折行 1 · 色 (0.627,0.616,0.631) · Center/**Capline**(8192)
             var tapText = Loc.HasEntry(TapTerm) ? Loc.T(TapTerm)
                                                : (Loc.Current == AvailableLanguages.Chinese ? TapZh : TapEn);

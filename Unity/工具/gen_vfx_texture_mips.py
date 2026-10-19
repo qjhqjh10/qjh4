@@ -33,6 +33,25 @@ BUNDLE_DIR = (r"D:\2\Warhammer 40k Warpforge\Warpforge_Data\StreamingAssets\aa"
 OUT = r"d:/4/Unity/数据/游戏数据/vfx_texture_mips.tsv"
 
 
+def _wrap(d, field):
+    """读 `Texture2D.m_TextureSettings.<field>`；读不到返回 -1（**未知**，调用方不许拿它覆盖）。
+
+    🆕 2026-10-19（T07）：`m_WrapU/m_WrapV` = Unity `TextureWrapMode` 的数值
+    （`Repeat=0 · Clamp=1 · Mirror=2 · MirrorOnce=3`）· `m_FilterMode`（0=Point 1=Bilinear 2=Trilinear）·
+    `m_Aniso`。原版这四格我们**从来没照抄过** —— 导入器一律写死 `Repeat + Bilinear + aniso 1`。
+    实测后果：`Data-mat-_MainTex-atlas-0`（Leviathan 背景那张 4096×2048）原版是 **Mirror(2)**、
+    我们是 Repeat ⇒ 四边形采样到边缘时**把对侧像素卷回来** = 左右各 2px 的细边（能量比 1.011）。
+    """
+    try:
+        st = getattr(d, "m_TextureSettings", None)
+        if st is None:
+            return -1
+        v = getattr(st, field, None)
+        return int(v) if v is not None else -1
+    except Exception:
+        return -1
+
+
 def main():
     check = "--check" in sys.argv
     if not os.path.isdir(BUNDLE_DIR):
@@ -42,8 +61,9 @@ def main():
     bundles = sorted(glob.glob(os.path.join(BUNDLE_DIR, "*.bundle")))
     print(f"要扫 {len(bundles)} 个包")
 
-    rows = {}          # name -> (w, h, mips, bundle)
+    rows = {}          # name -> (w, h, mips, bundle, wrapU, wrapV, filterMode, aniso)
     conflicts = []
+    setting_conflicts = []
     read_fail = 0
     for i, p in enumerate(bundles):
         bn = os.path.basename(p)
@@ -66,12 +86,18 @@ def main():
             if not name or w is None or m is None:
                 read_fail += 1
                 continue
-            rec = (int(w), int(getattr(d, "m_Height", 0)), int(m), bn)
+            rec = (int(w), int(getattr(d, "m_Height", 0)), int(m), bn,
+                   _wrap(d, "m_WrapU"), _wrap(d, "m_WrapV"),
+                   _wrap(d, "m_FilterMode"), _wrap(d, "m_Aniso"))
             old = rows.get(name)
             if old is None:
                 rows[name] = rec
             elif old[2] != rec[2]:
                 conflicts.append((name, old, rec))
+            elif (old[4:8] != rec[4:8]):
+                # 🆕 2026-10-19：同名贴图在**不同包**里 wrap/filter/aniso 不一致 ⇒ 必须报，
+                #   不能静默取第一个（「听谁的」本身是个问题）。
+                setting_conflicts.append((name, old, rec))
         if (i + 1) % 20 == 0:
             print(f"  …扫到 {i+1}/{len(bundles)}，累计 {len(rows)} 张")
 
@@ -87,6 +113,11 @@ def main():
             print(f"    {n}: {a[3]} m{a[2]}  vs  {b[3]} m{b[2]}")
     else:
         print("同名贴图的 mip 层数在各包之间**无冲突**")
+    if setting_conflicts:
+        print(f"🔴 **{len(setting_conflicts)} 张同名贴图的 wrap/filter/aniso 在不同包里不一致**：")
+        for n, a, b in setting_conflicts[:20]:
+            print(f"    {n}: {a[3]} wrap(a[4],a[5]) filter{a[6]} aniso{a[7]}  vs  "
+                  f"{b[3]} wrap({b[4]},{b[5]}) filter{b[6]} aniso{b[7]}")
 
     if check:
         if os.path.exists(OUT):
@@ -98,9 +129,9 @@ def main():
 
     os.makedirs(os.path.dirname(OUT), exist_ok=True)
     with io.open(OUT, "w", encoding="utf-8", newline="\n") as f:
-        f.write("name\twidth\theight\tmipCount\tbundle\n")
+        f.write("name\twidth\theight\tmipCount\tbundle\twrapU\twrapV\tfilterMode\taniso\n")
         for name, v in out:
-            f.write(f"{name}\t{v[0]}\t{v[1]}\t{v[2]}\t{v[3]}\n")
+            f.write(f"{name}\t{v[0]}\t{v[1]}\t{v[2]}\t{v[3]}\t{v[4]}\t{v[5]}\t{v[6]}\t{v[7]}\n")
     print(f"写出 {OUT}（{len(out)} 行）")
     return 0
 

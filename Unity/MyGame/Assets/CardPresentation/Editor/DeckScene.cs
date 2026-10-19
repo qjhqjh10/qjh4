@@ -3969,6 +3969,49 @@ public static class DeckScene
                     CheckNear(DeckRuntime.PxOfWorld(nuC.transform.position).x, 308.847f, 0.5f,
                               "右列 `Cards in deck` 中心 x = **308.847**（原版 `+95.23`）；旧写法 266.5 偏左 42.4");
             }
+            // ============================================================ 🆕 2026-10-19（U4 · 界面线批次 6）
+            // **原版那 9 颗 `Slider` 是【只画不点】的** —— 逐颗实读（`bundle_menus_assets_all` 的
+            //   `Deck Editing Menu/.../Deck Information cost drawer/Content/Deck CostQuanityt Row Drawer (±i)/Slider`）：
+            //   **9 颗值完全一致**：`m_Interactable = 0` · `m_Transition = 0 (None)` ·
+            //   `m_TargetGraphic = null` · `m_HandleRect = null`（没有手柄）。
+            //   ⇒ `m_Colors` 那四格（白 / 0.9608 / 0.7843 / α0.502）**一格都用不上**。
+            // 🔴 **⛔ 别给这 9 颗接 `WfSlider` 反馈**：UGUI `Slider` 全族默认 `t=1 ColorTint`，
+            //   **这一族是显式 `t=0` + 不可交互** —— 按全族默认值一刀切会与原版相反。
+            // 我们的等价物 = 9 根**静态 `ImageQuad`**（`curve_b*` = 原版 `Slider/Background` ·
+            //   `curve_f*` = `Slider/Fill`）；一根都不许挂 `Selectable` / `WindowButton`。
+            // 🔴 **改坏法**：① 给任一根接 `WindowButton`（= 接反馈）⇒ 第二条红；
+            //   ② 塞一颗真 `UnityEngine.UI.Slider` ⇒ 第三条红。
+            {
+                int bars = 0, wbs = 0, sels = 0;
+                for (int c = 0; c <= 8; c++)
+                {
+                    var bt = FindDeep(_rt.Root, "curve_b" + c);
+                    var ft = FindDeep(_rt.Root, "curve_f" + c);
+                    if (bt != null && bt.GetComponent<ImageQuad>() != null
+                        && ft != null && ft.GetComponent<ImageQuad>() != null) bars++;
+                    if (bt != null)
+                    {
+                        wbs += bt.GetComponentsInChildren<WindowButton>(true).Length;
+                        sels += bt.GetComponentsInChildren<UnityEngine.UI.Selectable>(true).Length;
+                    }
+                    if (ft != null)
+                    {
+                        wbs += ft.GetComponentsInChildren<WindowButton>(true).Length;
+                        sels += ft.GetComponentsInChildren<UnityEngine.UI.Selectable>(true).Length;
+                    }
+                }
+                Check(bars, 9,
+                      "★ 费用曲线 9 根槽（`curve_b0..8` + `curve_f0..8`）**都画成了 `ImageQuad`**"
+                      + "（= 原版 `Slider/Background`（`40k_CardAmount_bar_bg`）+ `Slider/Fill`（`40k_CardAmount_bar_fill`）的等价物）");
+                CheckTrue(wbs == 0,
+                          "★ 这 9 根槽**一个 `WindowButton` 都没有** —— 原版 `m_Interactable = 0` / `m_Transition = None`"
+                          + " ⇒ 悬停/按下**什么都不发生**（⛔ 别接 `WfSlider` 反馈）"
+                          + (wbs != 0 ? $"（现读 {wbs} 颗）" : ""));
+                CheckTrue(sels == 0,
+                          "★ 这 9 根槽子树里**没有任何 `UnityEngine.UI.Selectable`**"
+                          + "（原版那 9 颗在 prefab 里就是 `m_Interactable = 0` 的 `Slider`；我们是纯绘制层）"
+                          + (sels != 0 ? $"（现读 {sels} 颗）" : ""));
+            }
             // 🔴 **2026-10-05（A57 ①）：同一条「行藏没藏」再过一遍【图】那一半** —— `UiDeckRowAt` 读的是
             //    状态（`_tab` + `shown`），答不出「那棵九宫格**树**真的关掉了吗」（`SetOn(_deckRowBg[i], …)`，
             //    `DeckRuntime.cs` 的 `RefreshDeckList`）。`row_0` 正是 A57 ① 点名的受影响件之一

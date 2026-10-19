@@ -127,11 +127,18 @@
 //   u（部件横坐标） = `COLOR.w * (1 - 1/PartsCount) + 0.5/PartsCount`
 //                     （网格 `COLOR.w` 实测 = `k/(PartsCount-1)`，k = 部件号 ⇒ `u = (k+0.5)/PartsCount`）
 //   v（帧纵坐标）   = **`_State`**（+ 网格 `POSITION.x * 1e-4` 的亚 texel 抖动，量级 ≤1.3e-4 ⇒ 可忽略）
-//   `sample_l` 两张贴图，**同一个 uv**：
-//     位置贴图（`t0`）→ `p = _BoundsCenter + _BoundsExtents * (2 * T.rgb - 1)`
-//     旋转贴图（`t1`）→ `q = 2 * T.rgba - 1`（单位四元数）
-//   网格自带的「起始姿势」= `_StartBoundsCenter + _StartBoundsExtents * (2 * COLOR.rgb - 1)`
-//   最终顶点 = `起始姿势 + R(q) * (p - 起始姿势)`
+//   `sample_l` 两张贴图，**同一个 uv**（🔴 **2026-10-19 就地订正（铁律 5 · `V2` §2·3）** ——
+//      下面这三行的 t0/t1 **原来写反了**）：
+//     **`t0` = 旋转贴图（`_RotationsTex`）** → `q = 2 * T.rgba - 1`（单位四元数）
+//     **`t1` = 位置贴图（`_PositionsTex`）** → `p = _BoundsCenter + _BoundsExtents * (2 * T.rgb - 1)`
+//   判据：DXBC 里 **`sample t0` 之后只做 `*2-1` 就当四元数用**、`sample t1` 之后才用 bounds 解码成位置；
+//   旁证 = `_PositionsTex` 的 **alpha 恒 255**（若它当四元数 = w 恒 1，不成单位四元数）。
+//   ⚠️ **代码本身没错**（驱动只按**属性名** `_PositionsTex` / `_RotationsTex` 推值，槽位由 shader 的
+//      属性声明决定，不在这里）—— 错的只有这段注释；⛔ 别照着这段注释去接 shader。
+//   网格自带的「起始姿势」= `_StartBoundsCenter + _StartBoundsExtents * (2 * COLOR.rgb - 1)` ✅（这一句原本就对）
+//   最终顶点 = **`p + R(q) * (POSITION - 起始姿势)`**
+//     （🔴 **2026-10-19 订正**：原来写「起始姿势 + R(q) * (p - 起始姿势)」—— **算式反了**。
+//      DXBC 指令序：`r2 = POSITION - poseFromColor` → 旋转 → **`r1`（贴图位置）＋ `r2`**）
 //   ⚠️ **采样器是 Bilinear + Clamp、无 mip**（原资产 `m_FilterMode: 1 / m_WrapMode: 1 / m_MipCount: 1`）
 //      ⇒ **帧间是线性插值**（`_State` 是连续量，没有 floor）；`u` 正好落在两个**内容相同**的
 //      texel 边界上（见下），所以部件方向**不会**串色。
