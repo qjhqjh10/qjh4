@@ -74,6 +74,41 @@ public static class SelfCheckTextMetrics
         return true;
     }
 
+    /// <summary>🆕 **2026-10-20（`A1350` 第二批）**：<see cref="RenderedRect"/> 的**设计帧**版 ——
+    /// 同一个量法（TMP `textBounds` 四角 × `localToWorldMatrix`），但**每个角先过设计空间**
+    /// （= `MenuDraw.PosInDesignSpace` 那一条：除**该 TMP 节点的父级**那一级 `lossyScale`），
+    /// 再走 `MenuDraw.PixelOfDesign` 换画布 px。
+    /// <para>🔴 **用途 = `A1350` §二·3 那条「尺寸帧」缺陷**：`RectOf`/`RenderedRect` 的**中心**是设计帧、
+    /// **尺寸**却是世界帧（<see cref="RenderedRect"/> 的 `LayoutSpace.PxX/PxY`）⇒ 父链带缩放 M 时两半分家。
+    /// 本函数给出**整块都在设计帧**的矩形，宽高 = 设计宽高（M=2 时不再报 2 倍）。</para>
+    /// <para>⚠️ **单位缩放下与 <see cref="RenderedRect"/> 逐位相同**（除 1 就是原值；`ToDesignPixel` 与
+    /// `PxX/PxY` 在 16:9 下差 ≤ 2.5e-4 px）⇒ 今天 7 个外壳宿主（aspect 钉死 `DesignAspect`）读数不变。</para>
+    /// <para>⚠️ **契约与 <see cref="RenderedRect"/> 逐字一致**：`t` 不在 / 底下没有 TMP ⇒ `false`、四个 `out`
+    /// 全 0；取组件带 `true`（含 inactive）；空串时 `textBounds` 是 TMP 的 4.29e9 哨兵 ⇒ 那是「量法没生效」，
+    /// ⛔ 别照它改实现。**旋转/倾斜件报的仍是四角的 AABB**（两式一致，不是精确设计矩形）。</para>
+    /// <para>🔴 逐角换算**唯一实现** = <see cref="MenuCheck.DesignPx(Vector3, Transform)"/>
+    /// （除父级那一步只此一份）—— 本函数不另写除法。</para></summary>
+    public static bool RenderedRectDesign(Transform t, out float x1, out float y1, out float x2, out float y2)
+    {
+        x1 = y1 = x2 = y2 = 0f;
+        if (t == null) return false;
+        var tmp = t.GetComponentInChildren<TMPro.TextMeshPro>(true);
+        if (tmp == null) return false;
+        var b = tmp.textBounds;                       // 局部空间的行盒（`Bounds`）
+        var M = tmp.transform.localToWorldMatrix;
+        x1 = y1 = float.MaxValue; x2 = y2 = float.MinValue;
+        for (int c = 0; c < 4; c++)
+        {
+            var corner = M.MultiplyPoint3x4(new Vector3((c % 2 == 0) ? b.min.x : b.max.x,
+                                                        (c < 2) ? b.min.y : b.max.y, 0f));
+            // 设计帧：除 TMP 节点【父级】那一级 lossyScale（= `PosInDesignSpace(tmp.transform)` 的同一级）
+            var p = MenuCheck.DesignPx(corner, tmp.transform);
+            x1 = Mathf.Min(x1, p.x); x2 = Mathf.Max(x2, p.x);
+            y1 = Mathf.Min(y1, p.y); y2 = Mathf.Max(y2, p.y);
+        }
+        return true;
+    }
+
     /// <summary>🆕 **2026-10-20（`A1350` 第一批）**：`RenderedPx` 的**带 `bool` 版** —— 返回 `false`
     /// 表示**这一趟走的是退路**（`lb == null` / 点阵后端 / 底下没有 TMP）。
     /// <para>契约照 `RewardsScene.LabelRenderedWH`（本批转调这里的那一份）**逐字**：

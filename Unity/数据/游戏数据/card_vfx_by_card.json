@@ -1,7 +1,7 @@
 {
  "schema": "card_vfx_by_card/v1",
  "generatedBy": "d:/4/Unity/工具/gen_card_vfx_by_card.py",
- "generatedAt": "2026-10-19 18:57:18",
+ "generatedAt": "2026-10-20 19:30:00",
  "_sources": {
   "cardsEngine": "d:/4/Unity/MyGame/Assets/RuleEngine/Resources/cards_engine.json",
   "animAddressMap": "d:/4/Unity/数据/索引/anim_address_map.json",
@@ -17444,20 +17444,20 @@
   "EC28": {
    "trigger": [
     {
-     "prefab": "CrueltyEffect",
-     "cardanim": "CrueltyTraitTrigger",
-     "conf": "inferred-keyword",
-     "src": "keyword-trait",
-     "traitTriggerType": "EffectTriggerType.Trigger(3)",
-     "why": "卡的关键词 `Cruelty` → 原版天赋动画名的构词法 `<关键词>TraitTrigger`（= `EffectTriggerType.Trigger(3)`）"
-    },
-    {
      "prefab": "ArmourEffect",
      "cardanim": "ArmourTraitStart",
      "conf": "inferred-keyword",
      "src": "keyword-trait",
      "traitTriggerType": "EffectTriggerType.Start(0)",
      "why": "卡的关键词 `Armour 2` → 原版天赋动画名的构词法 `<关键词>TraitStart`（= `EffectTriggerType.Start(0)`）"
+    },
+    {
+     "prefab": "CrueltyEffect",
+     "cardanim": "CrueltyTraitTrigger",
+     "conf": "inferred-keyword",
+     "src": "keyword-trait",
+     "traitTriggerType": "EffectTriggerType.Trigger(3)",
+     "why": "卡的关键词 `Cruelty` → 原版天赋动画名的构词法 `<关键词>TraitTrigger`（= `EffectTriggerType.Trigger(3)`）"
     }
    ],
    "attack_ranged": [
@@ -17789,20 +17789,20 @@
   "EC57": {
    "trigger": [
     {
-     "prefab": "TalentEffect",
-     "cardanim": "TalentTraitTrigger",
-     "conf": "inferred-keyword",
-     "src": "keyword-trait",
-     "traitTriggerType": "EffectTriggerType.Trigger(3)",
-     "why": "卡的关键词 `Talent` → 原版天赋动画名的构词法 `<关键词>TraitTrigger`（= `EffectTriggerType.Trigger(3)`）"
-    },
-    {
      "prefab": "EcstasyEffect",
      "cardanim": "EcstasyTraitTrigger",
      "conf": "inferred-keyword",
      "src": "keyword-trait",
      "traitTriggerType": "EffectTriggerType.Trigger(3)",
      "why": "卡的关键词 `Ecstasy 15` → 原版天赋动画名的构词法 `<关键词>TraitTrigger`（= `EffectTriggerType.Trigger(3)`）"
+    },
+    {
+     "prefab": "TalentEffect",
+     "cardanim": "TalentTraitTrigger",
+     "conf": "inferred-keyword",
+     "src": "keyword-trait",
+     "traitTriggerType": "EffectTriggerType.Trigger(3)",
+     "why": "卡的关键词 `Talent` → 原版天赋动画名的构词法 `<关键词>TraitTrigger`（= `EffectTriggerType.Trigger(3)`）"
     }
    ],
    "attack_ranged": [
@@ -17978,20 +17978,20 @@
   "GSC32": {
    "trigger": [
     {
-     "prefab": "ConcussiveEffect",
-     "cardanim": "ConcussiveTraitTrigger",
-     "conf": "inferred-keyword",
-     "src": "keyword-trait",
-     "traitTriggerType": "EffectTriggerType.Trigger(3)",
-     "why": "卡的关键词 `Concussive` → 原版天赋动画名的构词法 `<关键词>TraitTrigger`（= `EffectTriggerType.Trigger(3)`）"
-    },
-    {
      "prefab": "ArmourEffect",
      "cardanim": "ArmourTraitStart",
      "conf": "inferred-keyword",
      "src": "keyword-trait",
      "traitTriggerType": "EffectTriggerType.Start(0)",
      "why": "卡的关键词 `Armour 1` → 原版天赋动画名的构词法 `<关键词>TraitStart`（= `EffectTriggerType.Start(0)`）"
+    },
+    {
+     "prefab": "ConcussiveEffect",
+     "cardanim": "ConcussiveTraitTrigger",
+     "conf": "inferred-keyword",
+     "src": "keyword-trait",
+     "traitTriggerType": "EffectTriggerType.Trigger(3)",
+     "why": "卡的关键词 `Concussive` → 原版天赋动画名的构词法 `<关键词>TraitTrigger`（= `EffectTriggerType.Trigger(3)`）"
     }
    ],
    "_assetRefs": [
@@ -22642,20 +22642,20 @@
    ],
    "trigger": [
     {
-     "prefab": "ArtificeEffect",
-     "cardanim": "ArtificeTraitTrigger",
-     "conf": "inferred-keyword",
-     "src": "keyword-trait",
-     "traitTriggerType": "EffectTriggerType.Trigger(3)",
-     "why": "卡的关键词 `Artifice` → 原版天赋动画名的构词法 `<关键词>TraitTrigger`（= `EffectTriggerType.Trigger(3)`）"
-    },
-    {
      "prefab": "TalentEffect",
      "cardanim": "TalentTraitTrigger",
      "conf": "inferred-keyword",
      "src": "keyword-trait",
      "traitTriggerType": "EffectTriggerType.Trigger(3)",
      "why": "卡的关键词 `Talent` → 原版天赋动画名的构词法 `<关键词>TraitTrigger`（= `EffectTriggerType.Trigger(3)`）"
+    },
+    {
+     "prefab": "ArtificeEffect",
+     "cardanim": "ArtificeTraitTrigger",
+     "conf": "inferred-keyword",
+     "src": "keyword-trait",
+     "traitTriggerType": "EffectTriggerType.Trigger(3)",
+     "why": "卡的关键词 `Artifice` → 原版天赋动画名的构词法 `<关键词>TraitTrigger`（= `EffectTriggerType.Trigger(3)`）"
     }
    ],
    "attack_ranged": [
@@ -26436,20 +26436,20 @@
   "GOF4": {
    "trigger": [
     {
-     "prefab": "RallyEffect",
-     "cardanim": "RallyTraitStart",
-     "conf": "inferred-keyword",
-     "src": "keyword-trait",
-     "traitTriggerType": "EffectTriggerType.Start(0)",
-     "why": "卡的关键词 `Rally` → 原版天赋动画名的构词法 `<关键词>TraitStart`（= `EffectTriggerType.Start(0)`）"
-    },
-    {
      "prefab": "TideEffect",
      "cardanim": "TideTraitStart",
      "conf": "inferred-keyword",
      "src": "keyword-trait",
      "traitTriggerType": "EffectTriggerType.Start(0)",
      "why": "卡的关键词 `Tide 1` → 原版天赋动画名的构词法 `<关键词>TraitStart`（= `EffectTriggerType.Start(0)`）"
+    },
+    {
+     "prefab": "RallyEffect",
+     "cardanim": "RallyTraitStart",
+     "conf": "inferred-keyword",
+     "src": "keyword-trait",
+     "traitTriggerType": "EffectTriggerType.Start(0)",
+     "why": "卡的关键词 `Rally` → 原版天赋动画名的构词法 `<关键词>TraitStart`（= `EffectTriggerType.Start(0)`）"
     }
    ],
    "_assetRefs": [
@@ -27814,6 +27814,14 @@
   "GOF26": {
    "trigger": [
     {
+     "prefab": "ArmourEffect",
+     "cardanim": "ArmourTraitStart",
+     "conf": "inferred-keyword",
+     "src": "keyword-trait",
+     "traitTriggerType": "EffectTriggerType.Start(0)",
+     "why": "卡的关键词 `Armour 2` → 原版天赋动画名的构词法 `<关键词>TraitStart`（= `EffectTriggerType.Start(0)`）"
+    },
+    {
      "prefab": "ConcussiveEffect",
      "cardanim": "ConcussiveTraitTrigger",
      "conf": "inferred-keyword",
@@ -27828,14 +27836,6 @@
      "src": "keyword-trait",
      "traitTriggerType": "EffectTriggerType.Start(0)",
      "why": "卡的关键词 `Rally` → 原版天赋动画名的构词法 `<关键词>TraitStart`（= `EffectTriggerType.Start(0)`）"
-    },
-    {
-     "prefab": "ArmourEffect",
-     "cardanim": "ArmourTraitStart",
-     "conf": "inferred-keyword",
-     "src": "keyword-trait",
-     "traitTriggerType": "EffectTriggerType.Start(0)",
-     "why": "卡的关键词 `Armour 2` → 原版天赋动画名的构词法 `<关键词>TraitStart`（= `EffectTriggerType.Start(0)`）"
     }
    ],
    "attack_ranged": [
@@ -29092,20 +29092,20 @@
      "inLibrary": true
     },
     {
-     "prefab": "TalentEffect",
-     "cardanim": "TalentTraitTrigger",
-     "conf": "inferred-keyword",
-     "src": "keyword-trait",
-     "traitTriggerType": "EffectTriggerType.Trigger(3)",
-     "why": "卡的关键词 `Talent` → 原版天赋动画名的构词法 `<关键词>TraitTrigger`（= `EffectTriggerType.Trigger(3)`）"
-    },
-    {
      "prefab": "StrikeEffect",
      "cardanim": "StrikeTraitTrigger",
      "conf": "inferred-keyword",
      "src": "keyword-trait",
      "traitTriggerType": "EffectTriggerType.Trigger(3)",
      "why": "卡的关键词 `Strike` → 原版天赋动画名的构词法 `<关键词>TraitTrigger`（= `EffectTriggerType.Trigger(3)`）"
+    },
+    {
+     "prefab": "TalentEffect",
+     "cardanim": "TalentTraitTrigger",
+     "conf": "inferred-keyword",
+     "src": "keyword-trait",
+     "traitTriggerType": "EffectTriggerType.Trigger(3)",
+     "why": "卡的关键词 `Talent` → 原版天赋动画名的构词法 `<关键词>TraitTrigger`（= `EffectTriggerType.Trigger(3)`）"
     }
    ],
    "_assetRefs": [
@@ -36235,20 +36235,20 @@
   "TAU65": {
    "trigger": [
     {
-     "prefab": "TalentEffect",
-     "cardanim": "TalentTraitTrigger",
-     "conf": "inferred-keyword",
-     "src": "keyword-trait",
-     "traitTriggerType": "EffectTriggerType.Trigger(3)",
-     "why": "卡的关键词 `Talent` → 原版天赋动画名的构词法 `<关键词>TraitTrigger`（= `EffectTriggerType.Trigger(3)`）"
-    },
-    {
      "prefab": "StrikeEffect",
      "cardanim": "StrikeTraitTrigger",
      "conf": "inferred-keyword",
      "src": "keyword-trait",
      "traitTriggerType": "EffectTriggerType.Trigger(3)",
      "why": "卡的关键词 `Strike` → 原版天赋动画名的构词法 `<关键词>TraitTrigger`（= `EffectTriggerType.Trigger(3)`）"
+    },
+    {
+     "prefab": "TalentEffect",
+     "cardanim": "TalentTraitTrigger",
+     "conf": "inferred-keyword",
+     "src": "keyword-trait",
+     "traitTriggerType": "EffectTriggerType.Trigger(3)",
+     "why": "卡的关键词 `Talent` → 原版天赋动画名的构词法 `<关键词>TraitTrigger`（= `EffectTriggerType.Trigger(3)`）"
     }
    ],
    "attack_ranged": [
@@ -38185,20 +38185,20 @@
   "TL68": {
    "trigger": [
     {
-     "prefab": "RallyEffect",
-     "cardanim": "RallyTraitStart",
-     "conf": "inferred-keyword",
-     "src": "keyword-trait",
-     "traitTriggerType": "EffectTriggerType.Start(0)",
-     "why": "卡的关键词 `Rally` → 原版天赋动画名的构词法 `<关键词>TraitStart`（= `EffectTriggerType.Start(0)`）"
-    },
-    {
      "prefab": "TalentEffect",
      "cardanim": "TalentTraitTrigger",
      "conf": "inferred-keyword",
      "src": "keyword-trait",
      "traitTriggerType": "EffectTriggerType.Trigger(3)",
      "why": "卡的关键词 `Talent` → 原版天赋动画名的构词法 `<关键词>TraitTrigger`（= `EffectTriggerType.Trigger(3)`）"
+    },
+    {
+     "prefab": "RallyEffect",
+     "cardanim": "RallyTraitStart",
+     "conf": "inferred-keyword",
+     "src": "keyword-trait",
+     "traitTriggerType": "EffectTriggerType.Start(0)",
+     "why": "卡的关键词 `Rally` → 原版天赋动画名的构词法 `<关键词>TraitStart`（= `EffectTriggerType.Start(0)`）"
     }
    ],
    "attack_ranged": [
@@ -39283,20 +39283,20 @@
   "UM80": {
    "trigger": [
     {
-     "prefab": "RallyEffect",
-     "cardanim": "RallyTraitStart",
-     "conf": "inferred-keyword",
-     "src": "keyword-trait",
-     "traitTriggerType": "EffectTriggerType.Start(0)",
-     "why": "卡的关键词 `Rally` → 原版天赋动画名的构词法 `<关键词>TraitStart`（= `EffectTriggerType.Start(0)`）"
-    },
-    {
      "prefab": "ArmourEffect",
      "cardanim": "ArmourTraitStart",
      "conf": "inferred-keyword",
      "src": "keyword-trait",
      "traitTriggerType": "EffectTriggerType.Start(0)",
      "why": "卡的关键词 `Armour 1` → 原版天赋动画名的构词法 `<关键词>TraitStart`（= `EffectTriggerType.Start(0)`）"
+    },
+    {
+     "prefab": "RallyEffect",
+     "cardanim": "RallyTraitStart",
+     "conf": "inferred-keyword",
+     "src": "keyword-trait",
+     "traitTriggerType": "EffectTriggerType.Start(0)",
+     "why": "卡的关键词 `Rally` → 原版天赋动画名的构词法 `<关键词>TraitStart`（= `EffectTriggerType.Start(0)`）"
     }
    ],
    "attack_ranged": [
@@ -43528,10 +43528,10 @@
      "guid": "c6bb19dd848ad4c8fb2de98c9e5c96df",
      "origCardId": "EC56",
      "joinKey": "id",
-     "assetName": "CSM_EmperorsChildren_inf_Icon of Excess Infractor",
+     "assetName": "CSM_EmperorsChildren_warlord_Lord Exultant",
      "assetType": "Texture2D",
      "assetBundle": "chaosspacemarinesemperorschildrencardassets_assets_all.bundle",
-     "containerKey": "c6",
+     "containerKey": "c6b",
      "assetKind": "art"
     },
     {
@@ -43541,10 +43541,10 @@
      "guid": "5a6da3153cbdeeb4aaffda01d5bb1f8e",
      "origCardId": "EC56",
      "joinKey": "id",
-     "assetName": "VO_CSM_EC_Lord Kaphrael_gen7",
+     "assetName": "VO_CSM_EC_Lord Kaphrael_attack",
      "assetType": "AudioClip",
      "assetBundle": "chaosspacemarinesemperorschildrencardassets_assets_all.bundle",
-     "containerKey": "5a",
+     "containerKey": "5",
      "assetKind": "audio"
     },
     {
@@ -56861,10 +56861,10 @@
      "guid": "a062d6b02506b2342b1c9bcb2b0a0201",
      "origCardId": "4eec3b13d157dae48b14ed412169e692",
      "joinKey": "id",
-     "assetName": "40k_Cardframes_stratagem_Emperor Children_tier4",
+     "assetName": "CSM_EmperorsChildren_strat_Elixir_Skorflense",
      "assetType": "Texture2D",
      "assetBundle": "chaosspacemarinesemperorschildrencardassets_assets_all.bundle",
-     "containerKey": "a0",
+     "containerKey": "a06",
      "assetKind": "art"
     }
    ],
@@ -79810,10 +79810,10 @@
      "guid": "f0a86ec5e49d1464eaae7c24036e5c56",
      "origCardId": "EC60",
      "joinKey": "id",
-     "assetName": "CSM_EmperorsChildren_dae_Blissbringer",
+     "assetName": "CSM_EmperorsChildren_strat_Tools of Torture",
      "assetType": "Texture2D",
      "assetBundle": "chaosspacemarinesemperorschildrencardassets_assets_all.bundle",
-     "containerKey": "f0",
+     "containerKey": "f0a",
      "assetKind": "art"
     }
    ],

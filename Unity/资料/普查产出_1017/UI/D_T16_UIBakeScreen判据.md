@@ -67,7 +67,7 @@
 1. **blur shader 的精确核**：`_Sigma` 与 `_steps` 的语义（高斯 σ / 采样步数）是从属性名 + 两趟 Blit 推的，**没有逐条读 DXBC**。要 1:1 复算得解 `Shader_339` 的字节码（工具 `工具/dump_shader_blob.py`）。
 2. **RT 的 `format` 实参**：反编译里 `new RenderTexture(w, h, 0x18, 0)` —— `0x18` 出现在「depth」形参位（24 位深度）；format 用默认。⚠️ 没跑起来核过。
 3. **`SingleCameraRequest` 的具体字段**：反编译里 `*(req + 0x10) = renderTexture`，按 URP API 推断是 `destination`；我们不用 URP API，直接 `camera.targetTexture` 等价。
-4. **Toast 与黑场谁在上**：`N21` 仍未定（与本件无直接关系，但同屏）。
+4. **Toast 与黑场谁在上**：✅ **2026-10-20 已定 —— 黑场压 Toast**（原版 `LoadingMenu` = Blocking(8)/0 > Toast = PopUps(7)/900；**排序层先于 order**）。⚠️ 原 `N21` 只读 `m_SortingOrder`、漏了 `m_SortingLayerID`，据此得出的「Toast 在上」**不成立**（就地订正见 `R_界面线剩余条目现核.md`）。判据 → `普查产出_1020/W58_界面线_Toast黑场次序判据.md`。
 
 ## 六、与其它账的关系
 

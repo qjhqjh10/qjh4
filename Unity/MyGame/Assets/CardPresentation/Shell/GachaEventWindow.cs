@@ -87,7 +87,7 @@ namespace CardPresentation
     public class GachaEventWindow : GameWindow
     {
         // ============================================================ 渲染队列档（3630–3659 · 全工程现读空档）
-        // 相邻带：`ParentEventWindow` 3610–3629 · `Tooltip` 3605 · 下一档 3935（Energy）。
+        // 相邻带：`ParentEventWindow` 3610–3629 · `Tooltip` 4077–4079（2026-10-20 W58 从 3605 搬来）· 下一档 3935（Energy）。
         // 🔴 梯子（每层 +1；同档时 `ImageQuad` 世界 z 恒 0 ⇒ 谁盖谁不可控 —— CLAUDE.md §三）：
         public const int QShade = 3630;        // `Menu Dark Background`（含「点暗底关窗」命中区）
         public const int QContentBg = 3631;    // `Content Area/Background` 渐变（低于所有页内容）

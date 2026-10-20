@@ -2,9 +2,15 @@
 """AssetGUID -> 本地资源 解析探针（只读）。
 
 数据源：
-  1) Addressables 目录 JSON:
-     C:/Users/qjh36/AppData/LocalLow/Everguild/Warpforge/com.unity.addressables/catalog_main.json
-     结构（ContentCatalogData，经典三段式）：
+  1) Addressables 目录（**优先二进制 catalog**）：
+     · 安装版 `d:/2/Warhammer 40k Warpforge/Warpforge_Data/StreamingAssets/aa/catalog.bin`
+       —— **与本地束同一个 build**（`buildResultHash ae516dc0…`，14,307 locations）；
+     · 退路 LocalLow `…/com.unity.addressables/catalog_main.bin`（`54383599…`，14,301 locations，
+       与安装版逐条同结论）；
+     · ⚠️ **最后才回退 JSON** `…/com.unity.addressables/catalog_main.json`（2025-07-30 快照，
+       `a011a011…`）—— 它**与本地束不是同一个 build**（实测 31 个 GUID 的 internalId 对不上，
+       就是旧 `guid_map.tsv` 里那 56 条「退键」）。二进制解析走同目录 `工具/parse_catalog.py`。
+     JSON 结构（ContentCatalogData，经典三段式）：
        m_InternalIds       : list[str]
        m_KeyDataString     : base64 -> [int32 keyCount] then每项 [byte type=0][int32 len][utf8] ...
        m_EntryDataString   : base64 -> [int32 entryCount] then每项 7*int32
@@ -28,8 +34,10 @@
   · **退键 ⟺ `containerKey` ≠ 该 GUID 在 catalog 里的 `internalId`**。
     `guid_map.tsv` 的 **`internalId` 列**就是目录给这条 GUID 的容器键，**`exact` 列** =
     `(containerKey == internalId)` ⇒ **`exact=False` 就是退过键**。
-    （为什么会有退键：目录的 `internalId` 与束里的容器键对少数资产不一致 —— 例 `db92a11e…`
-     目录给 `'d'`、而束里 `'d'` 是另一条 AudioClip，该资产真在 `'db9'` ⇒ 类型核对不过、退到最长前缀键。）
+    （为什么会有退键：**旧 JSON 目录与本地束不是同一 build**，`internalId` 与束里的容器键
+     对少数资产不一致 —— 例 `db92a11e…` 旧目录给 `'d'`、而束里 `'d'` 是另一条 AudioClip，
+     该资产真在 `'db9'` ⇒ 类型核对不过、退到最长前缀键。⚠️ **2026-10-20 换二进制 catalog 后
+     这类退键为 0**；下面这条「按长度判」的教训仍然成立。）
   · ⛔ **「容器键 ≤2 字符 = 退键」不成立**：实测 2 字符键里 **172/201 是非退键**；
     按「≤2 字符」判 = **真阳 30 / 假阳 171 / 假阴 26**。出处 →
     `d:/4/Unity/资料/普查产出_第三十一会话/AI_guid退键.md` §1.2（`AA_A1770.md:177` 那句是**线索不是判据**）。
@@ -39,7 +47,19 @@
 """
 import sys, os, io, json, base64, struct, collections
 
-CAT = r'C:/Users/qjh36/AppData/LocalLow/Everguild/Warpforge/com.unity.addressables/catalog_main.json'
+CAT_JSON = r'C:/Users/qjh36/AppData/LocalLow/Everguild/Warpforge/com.unity.addressables/catalog_main.json'
+# 🔴 **2026-10-20（W58-CARDFIX2 · 账 `A2037②`）：catalog 必须与本地束同 build。**
+#   判据（`资料/普查产出_1020/W58_卡牌线_剩余收口.md` §三）：安装版 `aa/catalog.bin`
+#   （`ae516dc0…`，14,307 locations）与 LocalLow `catalog_main.bin`（`54383599…`，14,301）
+#   逐条同结论；旧 `catalog_main.json`（`a011a011…`）与束**不是同一 build** ⇒ 56 条假「退键」+
+#   5 条真错（JSON 标 `exact=True` 却指向别人的资产）。
+#   回退顺序写死为「安装版 → LocalLow 二进制 → JSON（出声）」，⛔ 别再默认 JSON。
+CAT_BIN_CANDIDATES = [
+    (r'd:/2/Warhammer 40k Warpforge/Warpforge_Data/StreamingAssets/aa/catalog.bin',
+     '安装版 aa/catalog.bin（与本地束同 build）'),
+    (r'C:/Users/qjh36/AppData/LocalLow/Everguild/Warpforge/com.unity.addressables/catalog_main.bin',
+     'LocalLow catalog_main.bin（与安装版逐条同结论）'),
+]
 CARDS = r'd:/2/远端缓存_旧profile_1013/导出/cards_1195_2022时代.json'
 BUNDLES = r'd:/2/Warhammer 40k Warpforge/Warpforge_Data/StreamingAssets/aa/StandaloneWindows64'
 OUTDIR = r'd:/4/Unity/资料/普查产出_第二十七会话'
@@ -53,7 +73,65 @@ GUID_FIELDS = [
 
 
 # ---------------------------------------------------------------- catalog
-def load_catalog(path=CAT):
+def pick_catalog():
+    """选 catalog：二进制优先（与本地束同 build），JSON 只在两份二进制都不在时回退并出声。"""
+    for p, why in CAT_BIN_CANDIDATES:
+        if os.path.isfile(p):
+            return p, why
+    if os.path.isfile(CAT_JSON):
+        sys.stderr.write('⚠️ 两份二进制 catalog 都不存在 ⇒ 回退 JSON（%s）。\n'
+                         '   🔴 该 JSON 与本地束**不是同一 build**，`exact=False` 与解析结果不可信。\n' % CAT_JSON)
+        return CAT_JSON, '⚠️ JSON 回退（2025-07-30 快照，与本地束不同 build）'
+    raise SystemExit('找不到任何 Addressables catalog：\n  ' +
+                     '\n  '.join(p for p, _ in CAT_BIN_CANDIDATES + [(CAT_JSON, '')]))
+
+
+def _parse_catalog_module():
+    """加载同目录 `parse_catalog.py`（`python -I` 不会把脚本目录放进 sys.path ⇒ 显式按文件加载）。"""
+    import importlib.util
+    p = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'parse_catalog.py')
+    spec = importlib.util.spec_from_file_location('wf_parse_catalog', p)
+    mod = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(mod)
+    return mod
+
+
+def _load_catalog_bin(path):
+    """二进制 catalog → 与 JSON 那一份同形的 dict（`ids` / `buckets` / `ents` / `rtypes`）。
+
+    · `ids[lid]`          = 该 location 的 `internal_id`（树里实际用的容器键 / 束路径）；
+    · `buckets[ki]`       = key 指向的 location id 列表；
+    · `ents[lid]`         = `(internalId, 0, dependencySet, 0, 0, 0, typeIndex)`，
+      `dependencySet` 是束 location id 列表（`resolve_entry` 按它展开束名）。
+    """
+    mod = _parse_catalog_module()
+    data = io.open(path, 'rb').read()
+    cat = mod.Catalog(data, path)
+    keys, locs = cat.parse_all()
+    keyvals = [k['key']['value'] for k in keys]
+    buckets = [list(cat.array(k['locset_offset']) or []) for k in keys]
+    maxlid = max(locs) if locs else -1
+    ids = [''] * (maxlid + 1)
+    for lid, l in locs.items():
+        ids[lid] = l['internal_id'] or ''
+    rtypes, rtmap = [], {}
+    for lid in sorted(locs):
+        cls = locs[lid]['type_cls']
+        short = cls.rsplit('.', 1)[-1] if cls else None
+        if short not in rtmap:
+            rtmap[short] = len(rtypes)
+            rtypes.append({'m_ClassName': short})
+    ents = {}
+    for lid, l in locs.items():
+        cls = l['type_cls']
+        short = cls.rsplit('.', 1)[-1] if cls else None
+        ents[lid] = (ids[lid], 0, list(l['dependency_set'] or []), 0, 0, 0, rtmap.get(short))
+    return dict(keys=keyvals, ents=ents, ids=ids, rtypes=rtypes, buckets=buckets,
+                kind='bin', build=cat.readstr(cat.header['buildResultHash']),
+                path=path, nloc=len(locs))
+
+
+def _load_catalog_json(path):
     d = json.load(io.open(path, encoding='utf-8'))
     kb = base64.b64decode(d['m_KeyDataString'])
     n = struct.unpack_from('<i', kb, 0)[0]
@@ -76,7 +154,19 @@ def load_catalog(path=CAT):
         off, cnt = ints[i], ints[i + 1]
         buckets.append(ints[i + 2:i + 2 + cnt]); i += 2 + cnt
     return dict(keys=keys, ents=ents, ids=d['m_InternalIds'],
-                rtypes=d['m_resourceTypes'], buckets=buckets)
+                rtypes=d['m_resourceTypes'], buckets=buckets,
+                kind='json', build=d.get('m_BuildResultHash'), path=path,
+                nloc=len(d['m_InternalIds']))
+
+
+def load_catalog(path=None):
+    if path is None:
+        path, why = pick_catalog()
+    else:
+        why = '显式指定'
+    c = _load_catalog_json(path) if path.lower().endswith('.json') else _load_catalog_bin(path)
+    c['sourceWhy'] = why
+    return c
 
 
 def key_index(c, s):
@@ -95,6 +185,15 @@ def bundle_files_of_entry(c, ei):
 def resolve_entry(c, ei):
     """一个 entry -> dict(internalId, rtypes, bundleFiles[])"""
     e = c['ents'][ei]
+    if c.get('kind') == 'bin':
+        # 二进制 catalog：ents[lid] = (internalId, 0, dependencySet, 0, 0, 0, typeIndex)
+        iid = e[0]
+        if iid.startswith('{') and iid.endswith('.bundle'):
+            return dict(iid='', bundles=[iid], rtypes=[], entry=ei)
+        bundles = [c['ids'][x] for x in (e[2] or []) if isinstance(x, int) and 0 <= x < len(c['ids'])]
+        rt = c['rtypes'][e[6]] if e[6] is not None and e[6] < len(c['rtypes']) else None
+        rtn = rt.get('m_ClassName') if isinstance(rt, dict) else None
+        return dict(iid=iid, bundles=bundles, rtypes=[rtn], entry=ei)
     iid = c['ids'][e[0]]
     # 1) internalId 本身是束路径 -> 就是个束 entry
     if iid.startswith('{') and iid.endswith('.bundle'):
@@ -279,8 +378,13 @@ def card_field_guids(card):
 def main():
     cmd = sys.argv[1] if len(sys.argv) > 1 else 'survey'
     c = load_catalog()
-    print('keys=%d entries=%d buckets=%d internalIds=%d' %
-          (len(c['keys']), len(c['ents']), len(c['buckets']), len(c['ids'])))
+    print('catalog=%s' % c['path'])
+    print('  来源=%s' % c['sourceWhy'])
+    print('  buildResultHash=%s  kind=%s  locations=%d' % (c.get('build'), c.get('kind'), c.get('nloc') or 0))
+    print('keys=%d entries=%d buckets=%d %s=%d' %
+          (len(c['keys']), len(c['ents']), len(c['buckets']),
+           'locations' if c.get('kind') == 'bin' else 'internalIds',
+           c.get('nloc') if c.get('kind') == 'bin' else len(c['ids'])))
     if cmd == 'g':
         for h in lookup(c, sys.argv[2]):
             print(h)

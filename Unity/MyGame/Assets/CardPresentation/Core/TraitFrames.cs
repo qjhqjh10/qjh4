@@ -12,16 +12,33 @@
 //      **缩放随 prefab 自己**）。播完的回调把 GO **写进字典** + `localPosition = Vector3.zero`。
 //     已在字典里 ⇒ 只归位 + `SetActive(true)`，**不重播**。
 //   · `DisplayTriggerAnim(trait)`：**只有字典里没有才播**；回调**只对 `TriggerOnPlay(6)`** 写进字典
-//     （`Trigger(3)` 是纯放一次、不进表）。
+//     （`Trigger(3)` 是**每次触发都放**、不进表）。
+//     🔴 **2026-10-20 就地订正（`W58 · TRIGGERFIX`，铁律 5）**：本文件原来的 `DisplayTrigger` **没有照这条做** ——
+//     它把**所有**触发类框都写进 `_trigger` 去重表，于是 `Trigger(3)` 也变成「一辈子只演第一次」。
+//     原版逐句：`BattleCardUI__DisplayTriggerAnim.c:71` 只处理 `TriggerType == 3/6`；
+//     `:88-91` 的守卫是 `TraitFrameEffectsTrigger.ContainsKey(traitId)`；
+//     回调 `BattleCardUI.__c__DisplayClass91_1___DisplayTriggerAnim_b__0.c:19-21`
+//     `if (TraitEffect.TriggerType != 6) return;` → `:48-52` 才写表
+//     ⇒ **只有含 `TriggerOnPlay(6)` 的 trait 会被去重**，其余（纯 `Trigger(3)`）每触发一次演一次。
+//     ⚠️ 去重表的键是 **trait id**（不是某条 effect），所以一个 trait 只要有 6 那条 effect，
+//     它后续的**所有**触发（含 3 那条）都会被守卫挡住 —— 见下面 `TriggerOnPlayTraits`。
+//     ⚠️ 原版这个写表发生在**回调**（动画播完之后）；我们仍是**同步**写（既有简化，见报告「没查清」）。
 //   · `RemoveStatusAnim(trait)`：两本字典各自「有就 `Exit()`（没 `AnimFXController` 就 `Destroy`）+ 移除」。
 //   · `CleanStatusAnims(clearAll)`：清掉「卡上**已经不再持有**的 trait」的框（`clearAll` 时全清）；
 //     另外**无条件**销毁 `codexFrame` 与 `activeQuestFrame`（**这两个不在两本字典里**）。
 //   · 存活时间：框 prefab 上带 `AnimFXController`，`destroyTime > 0 && !preventDestroy` 时自己 `Destroy`。
 //
-// 🔴 **「哪张框配哪个 prefab」在原版本地【说不清】**（`BattleAnims.json` 里
-//    `codexActivePrefab` / `stealthPrefab` / `reflectedPrefab` / `summonSickness` 全是空引用 `{FileID:0,PathID:0}`，
-//    `CardTrait` 那份 SO 本体全库 0 命中）⇒ 下面那张绑定表是**按名字硬绑的、是我们的口径**，
-//    不是从原版证出来的（每一个都标了它的来路）。⚠️ **不许把这张表当成「原版就是这样」**。
+// 🔴 **「哪张框配哪个 prefab」在原版**：`BattleAnims.json` 里
+//    `codexActivePrefab` / `stealthPrefab` / `reflectedPrefab` / `summonSickness` 全是空引用 `{FileID:0,PathID:0}`。
+//    ⚠️ **2026-10-20 就地订正（铁律 5）**：这里原来还写着「**`CardTrait` 那份 SO 本体全库 0 命中**」——
+//    **不成立**：`CardTrait` / `CardTraitCollection` 就在 `d:/2/unity_run_ref/Warpforge_Data/sharedassets0.assets`
+//    （pid 458–530 = 73 个 trait · pid 531 `TraitsCollection`），只是 `assets_full` 对根资产文件的 JSON 导出有缺口、
+//    按文本搜必然 0 命中。2026-10-19 `K12` 已按原始字节解全（判据 → `资料/普查产出_1019/W_卡牌ID线_K12清零_1019b.md` §1.2）。
+//    ⇒ **现在每一条绑定都能报出它对应的 trait effect GUID**；下表仍标「我们的口径」的，是没有走运行时实况验证的那几条。
+//    （另：`Vanguard` 那条要注意 —— 原版 `CardTrait.Vanguard` 的 OnPlay effect 是 `VanguardIdleAnim → VanguardIdleEffect`，
+//     与我们绑的具名 `vanguardFrame` = `Vanguard Frame Animated VAT` 是**两套东西**。）
+//    ⚠️ **下面这张表仍不许当成「原版就是这样」** —— 只有逐条报出 trait effect GUID 的那几行才算「数据硬绑」，
+//    其余是「按名字硬绑、我们的口径」。
 using System.Collections.Generic;
 using RuleEngine;
 using UnityEngine;
@@ -71,6 +88,26 @@ namespace CardPresentation
             //     → `EffectExporter.RunListed` → `EffectLibraryBuilder.Run`；
             //   判据 → `资料/已知的坑.md` 的「`GetAllAssetNames()` 只吐容器里的资产」那条。
             { KeywordTable.Vanguard, "Vanguard Frame Animated VAT" },
+            // ✅ **2026-10-20（W58 · `SLAYVIS`）接上** —— 原版那条「Slay 附魔加身时演一下」的调用点
+            //   = `CardScript__AddEffect.c:889-891`：Slay 附魔（`trigger == 0x78 = 120`）加进来时
+            //   先移除宿主身上其它 Slay 附魔，再 `DisplayStatusAnim(0x2ee)` + `UpdateTraitIcons()`。
+            //   🔴 **但当前 build 里那一句是空转**（现读 `sharedassets0.assets` 原始字节，见下）：
+            //     · `0x2ee = 750` = `DefinedTrait.quest`；当前 build 的 `TraitsCollection`
+            //       （pid 531，77 条 `TraitPairs`，id 范围 5–1280）里**没有 750**
+            //       ⇒ `GetTrait(750)` 返回 null ⇒ `DisplayStatusAnim` 在 `op_Equality == null` 那一支直接返回。
+            //     · `slay` 自己的 id = **260**，对应 `CardTrait` pid 513：`_hasInPlayAnim = 0`，
+            //       唯一一条 `TraitEffect` 的 `TriggerType = 3(Trigger)` ⇒ 原版是由
+            //       **`DisplayTriggerAnim` 在 Slay 真的触发时**演（`TriggerAbility` → `PlayTriggerTraitAnim`
+            //       → `ActivateTriggerTraitAnim`），**不是**在附魔加身那一刻。
+            //   ⇒ 这一行按**那条调用点的意图**（附魔加身演一次）绑进 OnPlay 那本；prefab 来源是
+            //     Slay 自己那条 TraitEffect 的 GUID 链（**不是拿 quest 的框顶替** —— quest 连 `CardTrait` 都没有）：
+            //       `7dc58e5b008d8804f8fe911400c9bd53` → CardAnim `Slay_Effect_target`
+            //       → prefab **`SlayEffect`**（`bundle_battleprefabs_vfxandmisc_assets_all`；
+            //       三个变体 `Slay_Effect_self/target/warlord` 同指这一件）。
+            //     `SlayEffect` **已在我们的效果库**（`效果库报告.tsv` 有行 · `WarpforgeEffectLibrary.asset` 有项）。
+            //   ⚠️ 与 stealth/swarm/vanguard 同一个口径：**按数据硬绑**，不是从原版实况证出来的；
+            //      「原版在附魔加身这一刻到底演不演」当前 build **判据为否**，如实标在报告里。
+            { KeywordTable.Slay, "SlayEffect" },
         };
 
         /// <summary>按 **Trigger(3) / TriggerOnPlay(6)** 归口的那本（原版 `TraitFrameEffectsTrigger`）。
@@ -89,6 +126,46 @@ namespace CardPresentation
             //   它们归 `TraitParticles` 那条链，**本表不列**。
             { KeywordTable.BloodThirst, "BloodThirstEffect" },
         };
+        // 🔴 **2026-10-20 就地订正（`W58 · TRIGGERFIX`，铁律 5）—— 上面 `bloodthirst` 那行的「判据」不成立**：
+        //   `BloodThirst.asset`（当前 build 的 `TraitsCollection` 里 `bloodThirst → traitConfig`）的
+        //   `_traitEffects` 只有三条，各自的 `effectAnim` GUID 解出来是
+        //     · Trigger(3)      → `BloodThirstGainAnim` → prefab **`BloodThirstEffect_Gain`**
+        //     · TriggerOnPlay(6) → `BloodThirstIdleAnim` → prefab **`BloodThirstEffect_Idle`**
+        //     · End(1)          → `BloodThirstLoseAnim` → prefab **`BloodThirstEffect_Lose`**
+        //   —— **没有任何一条引用 `BloodThirstTraitTrigger`**（那一件是 CardAnim 资产，在
+        //   `bundle_cardanimsgeneral_assets_all` 里，但**不被这个 trait 引用**；同件的另一条
+        //   `Bloodthirst_Flare_Warlord` 也不在 `TraitEffect` 里）⇒ 本行绑的 `BloodThirstEffect`
+        //   是**按名字硬绑**、来路不是 trait effect GUID 链。**2026-09-30 那条注释的「判据」措辞过强**，
+        //   这里如实降级；绑定本身未改（属另一笔，见报告「没查清」）。
+
+        /// <summary>哪些 trait **含 `TriggerOnPlay(6)` 的 TraitEffect** —— 只有它们会被原版回调写进
+        /// 去重表（`TraitFrameEffectsTrigger`），其余触发类型（纯 `Trigger(3)`）每次触发都演。
+        ///
+        /// 判据（2026-10-20 `W58 · TRIGGERFIX`，逐条读当前 build 的 `CardTrait` 资产）：
+        ///   · **BloodThirst**（`sharedassets0.assets` 的 `BloodThirst.asset`，即 `TraitsCollection` 里
+        ///     `bloodThirst → traitConfig` guid `8cc3e6f2710baee42911a78559b43215`）：
+        ///     `_traitEffects` = **Trigger(3) / TriggerOnPlay(6) / End(1)** ⇒ 含 6 ⇒ 进本表。
+        ///   · **Oath**（`Oath.asset`）：**只有 Trigger(3)** ⇒ 不进本表（每次触发都演）。
+        ///   · **Slay**：只有 Trigger(3)；它绑在 `PlayFrames`，不走触发这条。
+        ///   · ⚠️ 原版去重表的键 = **trait id**，写表的是**那条 6 的 effect 播完的回调**
+        ///     （`BattleCardUI.__c__DisplayClass91_1___DisplayTriggerAnim_b__0.c:19-21` /
+        ///     `:48-52`）。所以只要 trait **有** 6 这条，字典里就有它的键，之后的触发
+        ///     （**包括它 3 那条**）都会被 `DisplayTriggerAnim:88-91` 的 ContainsKey 守卫挡住。
+        ///   · 我们每个 trait 只绑**一个** prefab（原版一条 trait 可以有多条 3/6 effect、各播各的）
+        ///     —— 这是本类既有的简化；去重语义按 **trait 粒度**照原版，不按我们这条绑定猜。
+        /// ⚠️ **新增 `TriggerFrames` 行时，必须同时判一次那个 trait 的 `_traitEffects` 里有没有 6**。
+        static readonly HashSet<string> TriggerOnPlayTraits = new HashSet<string>
+        {
+            KeywordTable.BloodThirst,
+        };
+
+        /// <summary>这个 trait 的触发框会不会写进去重表（= 原版 `DisplayTriggerAnim` 回调只对
+        /// `TriggerType == 6` 写表）。**判据只此一处**：`DisplayTrigger` 与断言共用它。</summary>
+        public static bool DedupesTrigger(string trait)
+        {
+            var t = Norm(trait);
+            return t.Length != 0 && TriggerOnPlayTraits.Contains(t);
+        }
 
         /// <summary>原版有、我们**暂时挂不上**的那几个（如实记：不是「不做」，是缺一件前置）。
         /// 键 = 原版那个具名字段（`…Frame 0xNNN`），值 = 缺什么。
@@ -145,6 +222,10 @@ namespace CardPresentation
         // ---- 断言用 ----
         public int PlayCount { get { return _play.Count; } }
         public int TriggerCount { get { return _trigger.Count; } }
+        /// <summary>**真正播出去的触发框累计次数**（断言用；`TriggerCount` 只数「进了去重表的」，
+        /// 纯 `Trigger(3)` 的框不进表，只能靠这个数看出「每触发一次演一次」）。</summary>
+        public int TriggerPlayCount { get { return _triggerPlays; } }
+        int _triggerPlays;
         public bool HasPlayFrame(string trait) { return _play.ContainsKey(Norm(trait)); }
         public bool HasTriggerFrame(string trait) { return _trigger.ContainsKey(Norm(trait)); }
         /// <summary>自检用：某一本里现在挂着哪些 trait。</summary>
@@ -224,18 +305,26 @@ namespace CardPresentation
         }
 
         /// <summary>原版 `BattleCardUI.DisplayTriggerAnim(trait)` —— 那个关键词**真的触发了**时演。
-        /// **只有表里没有才播**（原版 `:88-91`）。</summary>
+        /// **只有去重表里没有才播**（原版 `:88-91` 的 `TraitFrameEffectsTrigger.ContainsKey(traitId)`）。
+        /// 🔴 **去重表只由 `TriggerOnPlay(6)` 写**（原版回调 `…b__0.c:19-21`）：
+        /// 纯 `Trigger(3)` 的 trait（`oath` / `slay` …）**每次触发都演一次、不写表**；
+        /// 含 6 的 trait（`bloodthirst`）第一次演完写表，之后不再演。判据 → 文件头 + `TriggerOnPlayTraits`。
+        /// ⚠️ **原版同段还有一道 `playIfWarlord` 门**（`DisplayTriggerAnim.c:62-68`）：卡是督军、
+        /// 且该 `TraitEffect.playIfWarlord == 0` ⇒ **整条 effect 不播**（`Oath.asset` 那条正好是 **0**）。
+        /// 我们这条链**还没有这个门**（如实记，未实现；见 `资料/普查产出_1020/W58_战斗线_触发框只演一次修复.md`）。</summary>
         public bool DisplayTrigger(string trait)
         {
             var key = Norm(trait);
             if (key.Length == 0) return false;
-            if (_trigger.ContainsKey(key)) return false;      // 已有 ⇒ 不重播
+            bool dedupes = DedupesTrigger(key);
+            if (dedupes && _trigger.ContainsKey(key)) return false;   // 已有 ⇒ 不重播（原版守卫）
 
             var name = PrefabFor(key, true);
             if (name == null) return false;
             var p = Play(name);
             if (p == null) return false;
-            _trigger[key] = p;
+            if (dedupes) _trigger[key] = p;      // 🔴 只有 TriggerType==6 才写表
+            _triggerPlays++;
             return true;
         }
 

@@ -139,25 +139,31 @@ namespace RuleEngine
 
         /// <summary>
         /// 🆕 **撤除伏击 —— 面朝下的单位翻开了**（`Player`/`Slot` = 它还在场上那一格 ·
-        /// `CardId` = 卡名 · `Effect` = **哪条出口**：`"damage"` / `"window"`）。
+        /// `CardId` = 卡名 · `Effect` = **哪条出口**：`"damage"` / `"attack"`；
+        /// `"window"` 是**历史值、今天不可达**，见下）。
         ///
         /// **判据 = 原版**：词条 `Battle/Cemetery/ActionExitAmbush` 由
         /// `CemeteryManager.AddExitAmbushActionToCemetery` 产出（`CemeteryManager__AddExitAmbushActionToCemetery.c`，
         /// 记录里第一个 int = `0x28`），而它**唯一的调用点**是 `CardScript.SetAmbush(card, **false**)`
         /// 的尾部（`CardScript__SetAmbush.c:105`）—— 即「**把伏击状态撤掉**」那一条；
         /// 该方法头部（`param_2 != 0`）是**设**为伏击，不记日志。
-        /// `SetAmbush(card, 0)` 的调用点**三个，全是伤害路**：
-        /// `CardScript__ResolveUnitAttacked.c:111` · `CardScript__ResolveDamageDealt.c:173` ·
-        /// `BattleManager._ResolveAttack_d__438__MoveNext.c:305` ⇒ 对应我们 `ApplyDamage` 里那一句
-        /// `u.FaceDown = false`（「挨到伤害就翻开、那次伏击效果作废」）。
+        /// 🔴 **2026-10-20（`W58-AMBUSH`）就地订正（铁律 5）**：本段原写
+        /// 「`SetAmbush(card, 0)` 的调用点三个，**全是伤害路**」—— **「全是伤害路」不成立**：
+        /// 三个调用点是 `CardScript__ResolveUnitAttacked.c:111` · `CardScript__ResolveDamageDealt.c:173`
+        /// （**这两条**才是伤害路）· `BattleManager._ResolveAttack_d__438__MoveNext.c:305`
+        /// （**面朝下的攻方出手 ⇒ 取消这一记**，不是伤害路）。
+        /// 我们对应的两条出口：
+        ///   · `"damage"` → `RuleCore.ApplyDamage`（真掉血、所有减免之后）；
+        ///   · `"attack"` → `RuleCore.DeclareAttack`（伏击单位面朝下攻击 ⇒ 翻开 + 取消这一记）。
         ///
-        /// ⚠️ **`"window"` 那一档是【我们模型的出口】，原版没有**：我们另一条出口是
-        /// `RuleCore.RevealAmbush`（撑到控制者下个回合开始 → 翻开并触发，判据 = 粉丝实体版规则书 `:166`），
-        /// 而原版那条路走 `CardScript.TriggerAmbush`（`RawCardScript.OnTrigger(0x29e, …)`）——
-        /// **它不翻面**（`SetAmbush` 的调用点里没有它；`BattleManager__ResolveAction.c:7616`
-        /// 调它时也不伴随 `SetAmbush`）。⇒ 我们这条出口**与原版不同形**（另一条待办，已报给调度台）。
-        /// 仍然**两条出口都发**：本事件的名字/语义 = 「**这个单位不再面朝下**」这个状态迁移，
-        /// 而两条出口都是它；**用 `Effect` 记下是哪一档**，消费端要严格照原版就**只印 `"damage"`**。
+        /// 🔴 **2026-10-20 同一笔订正**：本段原写「`"window"` 那一档是【我们模型的出口】……
+        /// `RuleCore.RevealAmbush`（撑到控制者下个回合开始 → 翻开并触发）……仍然**两条出口都发**」
+        /// —— **已作废**：① 原版 `SetAmbush` 的 7 个调用点里**没有一个在回合开始** ⇒
+        /// 「窗口自动揭示」**不是原版行为**，`RuleCore.RevealAmbush` **已删除**；
+        /// ② `"window"` 这一档因此**今天不可达**（保留这个字符串只为读旧数据/旧断言，⛔ 别新增发送点）。
+        /// ⇒ **今天实际只有 `"damage"` / `"attack"` 两档**，两档的语义都是「这个单位不再面朝下」。
+        /// ⚠️ 翻开的**触发**不是本事件的职责：触发闸是回合归属
+        /// （`CardScript__SetAmbush.c:69-129` 的 `isPlayer == IsPlayerTurn()`），由 `RuleCore` 在发出本事件后自己判。
         /// </summary>
         AmbushExit,
 
@@ -203,6 +209,36 @@ namespace RuleEngine
         ///   `PlayerManager.AddSecretPlayed`（`_ResolvePlayCardFromHand_d__447:1274`），**与密令无关**。
         /// </summary>
         SecretOrder,
+
+        // ==================================================================
+        //  🆕 2026-10-20（战斗线 `W58`）：**治疗** —— 原版唯一显示口 `CardScript.Heal`
+        //  ⚠️ **加在这张表的【末尾】**（枚举值只许追加，见上面 `Draw` 那段：插队会让
+        //     别处存下来的整数值错位）。
+        // ==================================================================
+
+        /// <summary>
+        /// 🆕 **治疗真的落地了**（`Amount` = **实际**治疗量，恒 &gt; 0）。
+        ///
+        /// <para>**判据 = 原版唯一显示口 `CardScript.Heal` 协程**
+        /// （`d:/2/tools/decomp_full/CardScript._Heal_d__468__MoveNext.c:107-225`；逐拍表 →
+        /// `资料/普查产出_1020/W58_战斗线_HealText与InBattleId判据.md` §A）：</para>
+        /// <list type="bullet">
+        /// <item>实际量 = `min(请求量, MaxHealth − Health)`（`:109-112`）；**实际量 &lt; 1 一律不显示**（`:136`）；</item>
+        /// <item>显示点 = **被治疗那张卡自己的** `BattleCardUI.healText`（`+0x138`，`dump.cs:26173`）；
+        ///   文案 = `"+" + 实际量`，`DOScale 0.05→1.0`（0.7 s · OutQuad · Yoyo ×2）后 `WaitForSeconds(1.5)` 隐藏；</item>
+        /// <item>多目标 = `ResolveHeal` 对每个目标 `yield return StartCoroutine(CardScript.Heal)`
+        ///   ⇒ **严格串行，每目标 1.5 s**（`BattleManager._ResolveHeal_d__491__MoveNext.c:114-147`）。</item>
+        /// </list>
+        ///
+        /// <para>**发出点 = `RuleCore.HealUnit`**（治疗的唯一落地口）：`heal` op（`EffectResolver.DoHeal`）·
+        /// `heal` 能力（`RuleCore.ResolveEffect`）· 回合末再生 · 猎杀标记 —— 四条原版都进
+        /// `CardScript.Heal` 的路径，全部经它。只有**实际治疗量 &gt; 0** 才发。</para>
+        ///
+        /// <para>⚠️ **不是 `Hit` 的负数那一档**：负数 `Hit` 今天只剩「**幸存者广播**」一个发出点
+        /// （原版 `UseSurvivor.c:87 BroadcastUnitHealed`）—— 原版 Survivor **不进** `CardScript.Heal`、
+        /// **不飘治疗字**（`CardScript__UseSurvivor.c:36-40` 直接写血），所以表现层**不显示**它。</para>
+        /// </summary>
+        Heal,
     }
 
     /// <summary>
@@ -422,9 +458,28 @@ namespace RuleEngine
         }
 
         /// <summary>
+        /// 🆕 **`Heal` 专用：这次治疗是不是 Syphon（吸魂）**（原版 `HealType.Syphon = 1`）。
+        ///
+        /// <para>**判据 = 原版** `CardScript._Heal_d__468__MoveNext.c:201-225`：
+        /// 治疗特效（`BattleAnims.heal` → prefab **`Healing_Circles`**）**只在 `HealType.Normal(0)`
+        /// 那一支**实例化；Syphon（`CardScript__ResolveDamageDealt.c:49-59` 的 `HasCurrentTrait(0x6e)`
+        /// → `HealOneCharacter(..., healType = 1)`）**有飘字、无治疗圈**。</para>
+        ///
+        /// <para>⚠️ **生产侧今天没有任何发出点会把它置 `true`**：我们引擎**没有 syphon 词条/机制**
+        /// （`KeywordTable` 无此键、卡池现读 0 张带它）⇒ 这一位是「Syphon 落地那天」的接口，
+        /// 另加自检覆盖（`BattleDriver.GenericVfxFor` 对 `HealSyphon` 回 `null`）。
+        /// ⛔ **不许拿它当「这次治疗要不要显示」的开关** —— 两种治疗都显示 `+N`。</para>
+        /// </summary>
+        public bool HealSyphon;
+
+        /// <summary>
         /// 伤害 / 治疗的数值。护盾挡下 = 0。
-        /// ⚠️ **负数 = 治疗**（`Regeneration` 回合结束回血走这条）——
-        ///    表现层据此把反馈画成绿的。卡面效果造成的治疗走 `heal` 那条 op，不发这个事件。
+        /// 🔴 **2026-10-20（`W58`）就地订正（铁律 5）**：这一行原来写「**负数 = 治疗**
+        /// （`Regeneration` 回合结束回血走这条）…… 卡面效果造成的治疗走 `heal` 那条 op，不发这个事件」——
+        /// **前半句已过期**：再生 / 猎杀标记 / `heal` op / `heal` 能力**现在全部发
+        /// <see cref="EvtKind.Heal"/>**（`Amount` = 实际治疗量，正数）。
+        /// 负数 `Hit` 今天**只剩一个发出点 = 幸存者的 `BroadcastUnitHealed` 广播**
+        /// （`RuleCore.cs` 的 `CleanupDeaths`），**表现层不显示它**（原版 Survivor 不飘治疗字）。
         /// </summary>
         public int Amount;
         /// <summary>`Attack` 专用：这一刀是远程还是近战（表现层据此挑特效）</summary>
@@ -447,6 +502,10 @@ namespace RuleEngine
                     break;
                 case EvtKind.Hit:
                     sb.Append(" 受 ").Append(Amount).Append(" 伤");
+                    break;
+                case EvtKind.Heal:
+                    sb.Append(" 回 ").Append(Amount).Append(" 血")
+                      .Append(HealSyphon ? "（Syphon）" : "");
                     break;
                 case EvtKind.Ability:
                 case EvtKind.Trigger:

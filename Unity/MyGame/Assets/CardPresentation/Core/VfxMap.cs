@@ -28,7 +28,12 @@ namespace CardPresentation
         public const string AttackRanged = "attack_ranged";   // 远程攻击
         public const string Hit          = "hit";             // 挨打（掉血）
         /// <summary>🆕 2026-09-29：**治疗**（原版 `BattleAnims.heal` → `Healing_Circles`）。
-        /// 我们这边没有独立的治疗事件 —— 它是 `EvtKind.Hit` 且 `Amount &lt; 0`（见 `BattleDriver.PlaySignal`）。</summary>
+        /// 🔴 **2026-10-20（`W58`）就地订正（铁律 5）**：这一行原来写「我们这边没有独立的治疗事件 ——
+        /// 它是 `EvtKind.Hit` 且 `Amount &lt; 0`」—— **已过期**：现在有独立的
+        /// <see cref="RuleEngine.EvtKind.Heal"/>（`Amount` = 实际治疗量），由
+        /// `BattleDriver.GenericVfxFor` 映射到本名。
+        /// ⚠️ **Syphon 那一档不播**（`BattleEvent.HealSyphon`）：原版 `CardScript._Heal…:201-225`
+        /// 只在 `HealType.Normal(0)` 实例化治疗圈，Syphon(1) **只有飘字**。</summary>
         public const string Heal         = "heal";
         public const string Death        = "death";           // 阵亡
         public const string Ability      = "ability";         // 部队卡在场上发动技能
@@ -141,8 +146,10 @@ namespace CardPresentation
             //      （见 `CardFeel.DeathExplosion`；`BattleDriver.PlaySignal` 里 `EvtKind.Death` 已经不再挂它了）。
             { Death,        "Explosion Fenrisian Monstrosities" },
             // 🆕 2026-09-29 **新增 `Heal`**（判据齐）：原版 `BattleAnims.heal` → prefab **`Healing_Circles`**
-            //   （那张表其余 12 个槽在本地**全是空引用**）。我们这边「治疗」= `EvtKind.Hit` 且
-            //   `Amount < 0`（见 `BattleDriver.PlaySignal` 里那条分流）。
+            //   （那张表其余 12 个槽在本地**全是空引用**）。
+            // 🔴 **2026-10-20（`W58`）就地订正（铁律 5）**：这里原来写「我们这边『治疗』= `EvtKind.Hit`
+            //   且 `Amount < 0`」—— **已过期**。现在 = <see cref="RuleEngine.EvtKind.Heal"/>；
+            //   **Syphon 那一档在 `GenericVfxFor` 里直接回 `null`**（原版只在 `HealType.Normal` 播治疗圈）。
             { Heal,         "Healing_Circles" },
             // 🆕 2026-09-12 挑的（这两类以前**引擎里没有对应事件，压根播不出来**，
             //    所以从来没被挑过 —— 之前填的两个是占位）：
@@ -199,10 +206,13 @@ namespace CardPresentation
             //      `BattleScene` 的 `29_残骸体…` 那张只演了残骸体本身、没演收集。
             { CollectWaystone, "WaystoneCollect" },
             // 🆕 2026-10-14（`A1816`）**伏击翻面** —— 判据与「它自己带齐三层」见 <see cref="AmbushExit"/> 的 doc。
-            //    ⚠️ 原版**两条翻面出口**（`EvtKind.AmbushExit.Effect` = `"damage"` / `"window"`）
-            //    用的是**同一件**：本事件的语义 = 「这个单位不再面朝下」这个状态迁移，两条出口都是它
-            //    （`"window"` 那一档是我们模型的形状、原版没有 —— 见 `RuleCore.RevealAmbush` 的注释）。
-            //    ⇒ 两档都播；要严格照原版就只认 `Effect == "damage"`，但**那一条是消费端的事**，
+            //    ⚠️ 🔴 **2026-10-20（`W58` · 铁律 5 就地订正）**：本段原写「原版**两条翻面出口**
+            //    （`EvtKind.AmbushExit.Effect` = `"damage"` / `"window"`）……`"window"` 那一档是我们模型的形状、
+            //    原版没有 —— 见 `RuleCore.RevealAmbush` 的注释」—— **已作废**：`RuleCore.RevealAmbush` **已删除**，
+            //    今天实际发的是 **`"damage"`（`ApplyDamage`）/ `"attack"`（`DeclareAttack`，取消这一记）**；
+            //    `"window"` 是**历史值、今天不可达**（详见 `EvtKind.AmbushExit` 的 doc）。
+            //    两档用的是**同一件**：本事件的语义 = 「这个单位不再面朝下」这个状态迁移，两档都是它。
+            //    ⇒ 两档都播；要严格照原版就只认 `Effect == "damage"` / `"attack"`，但**那一条是消费端的事**，
             //      本表没有「同一事件按 `Effect` 分特效」这一层（今天也没有第二件可用）。
             { AmbushExit,   "AmbushEffect" },
         };
@@ -852,6 +862,52 @@ namespace CardPresentation
                 cursor = idx + 1;                   // ③ 游标只前进：同名重复按顺序逐次消费
             }
 
+            // ①·bis 🆕 2026-10-20（`W58-REFIX` · 铁律 5 就地订正）：**按能力序号筛行放在钉行【之后】**，
+            //   复用同一组 `pin[]`。原来这一步在 `TryResolveTriggerPicks` 里（钉行之前），
+            //   而 `CardPick` 不带行号、`pin` 的游标每次从 0 起 ⇒ 第 2 条能力被重新钉回**第 1 次出现的
+            //   同名行**上，拿到的是第 1 条能力的 `Offset`（SOR56 `#2` 实得 0/1、SOR23 `#1` 实得 0、
+            //   SOR67 `#2` 实得 0 —— 三条断言一起红）。诊断 → `资料/普查产出_1020/W58_诊断_RuleEngine14条.md` §11。
+            //   判据 = `CardDef.CardAnimTime.Order` 第一段（原版字段路径 `i.j.k` 的 `i`）。
+            //   ⚠️ 钉不上 / `Order` 解不出 ⇒ **不算这一条能力**（`evtAbility >= 0` 时宁可留白，⛔ 不多播）。
+            //   ⚠️ 只对 `Trigger` 那一档生效（改前也只有 `TryResolveTriggerPicks` 做过这件事）。
+            if (evt == Trigger && evtAbility >= 0)
+            {
+                int kept = 0;
+                for (int i = 0; i < n; i++)
+                {
+                    int ai;
+                    if (pin[i] >= 0 && CardDef.TryParseAbilityIndexOfOrder(times[pin[i]].Order, out ai)
+                        && ai == evtAbility) kept++;
+                }
+                if (kept == 0)
+                {
+                    // 与改前同口径（原来是 `TryResolveTriggerPicks` 回 false 走 `!hit` 那一支）：
+                    //   只查逐卡的不许掉兜底；允许兜底的老口径原样保留。
+                    if (perCardOnly) return NoEffectTimes;
+                    string fb = ResolveFallback(evt, faction);
+                    return string.IsNullOrEmpty(fb)
+                         ? NoEffectTimes
+                         : new[] { new ResolvedVfx { Name = fb, T = 0f } };
+                }
+                if (kept < n)
+                {
+                    var kp = new List<CardPick>(kept);
+                    var kpin = new int[kept];
+                    int q = 0;
+                    for (int i = 0; i < n; i++)
+                    {
+                        int ai;
+                        if (pin[i] < 0 || !CardDef.TryParseAbilityIndexOfOrder(times[pin[i]].Order, out ai)
+                            || ai != evtAbility) continue;
+                        kp.Add(picks[i]);
+                        kpin[q++] = pin[i];
+                    }
+                    picks = kp;
+                    pin = kpin;
+                    n = kept;
+                }
+            }
+
             // ② 跨 trigger：`ability` 事件里「收集类」那一组是另一个时刻（判据 → `CrossTriggerDrops`）。
             bool[] drop = (!perCardOnly && evt == Ability) ? CrossTriggerDrops(pin, times) : null;
 
@@ -1146,8 +1202,9 @@ namespace CardPresentation
 
         /// <summary>🆕 2026-10-19（W · `T21`）：**允许归口的原版 trigger 名**。
         ///
-        /// <para>`Ambush`(670)：引擎在伏击翻开发 `EvtKind.Trigger`（`RuleCore.RevealAmbush` 的
-        /// `FireTriggerAt(..., KeywordTable.Ambush, ...)`）。</para>
+        /// <para>`Ambush`(670)：引擎在伏击翻开发 `EvtKind.Trigger`（`RuleCore.ApplyDamage` 的伤害路 /
+        /// `RuleCore.DeclareAttack` 的攻击取消路，两处都调 `FireTriggerAt(..., KeywordTable.Ambush, ...)`；
+        /// 🔴 2026-10-20（`W58`）订正：原文写的 `RuleCore.RevealAmbush` **已删除**）。</para>
         /// <para>`TriggerEnchantment`(500)：`RuleCore.GrantDarkPact` 照原版
         /// `RawCardScript__TriggerEnchantment.c:7-13` 发的就是它。</para>
         ///
@@ -1261,9 +1318,9 @@ namespace CardPresentation
         /// 关键词在我们引擎里**根本不触发**，报告 §3·2），丢掉它们 = 不再在伏击那一拍乱播。</para>
         ///
         /// <para>🆕 **2026-10-20（`FACTION-DOUBLE605`）`abilityIndex`**（≥0 = 原版 `cardAbilities[i]`
-        /// 的 0 基下标；`-1` = 不筛 = 改前行为）：第 ③ 步之后再按 <see cref="FilterPicksByAbilityIndex"/>
-        /// 筛一次 —— 同一张卡两条 605 能力各发一条事件时，靠它各播各的动画行。
-        /// 带序号时**判不出目标 trigger（第 ②/④ 档）⇒ 留白**（⛔ 不掉回粗桶：那会把整批候选再播一遍）。
+        /// 的 0 基下标；`-1` = 不筛 = 改前行为）：本方法**不再筛**（见 ③ 的注释）——
+        /// 筛选移到 `ResolveAllTimed` 的「①·bis」，复用**同一组 `pin[]`** 读 `CardAnimTime.Order`
+        /// 第一段。带序号时**判不出目标 trigger（第 ②/④ 档）⇒ 留白**（⛔ 不掉回粗桶：那会把整批候选再播一遍）。
         /// ⚠️ **它依赖「候选顺序 == `times` 里 `cardAnimations` 的顺序」**（钉行用顺序消费）：
         /// 现读这 3 张卡的全部 `UseFaith` 行都落在**同一张桶**（`ability`）里 = 成立；
         /// 将来若出现「跨两张桶、且同名重复」的卡，钉行会错位 ⇒ 那时要按 `Order` 落数据（见报告「没查清」）。</para></summary>
@@ -1314,40 +1371,13 @@ namespace CardPresentation
             var merged = new List<CardPick>();
             if (hasTrig) foreach (var p in trig) if (NameIs(TriggerNameOf(times, p), target)) merged.Add(p);
             if (hasAbil) foreach (var p in abil) if (NameIs(TriggerNameOf(times, p), target)) merged.Add(p);
-            // 🆕 2026-10-20（`FACTION-DOUBLE605`）：再按**原版 `cardAbilities[i]` 下标**筛一次
-            //   （同一张卡两条 605 能力各发一条事件时，靠它各播各的行）。
-            if (abilityIndex >= 0) merged = FilterPicksByAbilityIndex(times, merged, abilityIndex);
+            // 🆕 2026-10-20（`W58-REFIX` · 铁律 5 就地订正）：**能力序号筛选不在这里做** ——
+            //   原来这里调 `FilterPicksByAbilityIndex`（它自己从游标 0 重钉一遍），随后
+            //   `ResolveAllTimed` 又用**另一组** `pin[]` 从游标 0 再钉一次 ⇒ 第 2 条能力被钉回
+            //   第 1 次出现的同名行（详见 `ResolveAllTimed` 的「①·bis」那段）。现在只回**合并后的
+            //   完整候选**，筛选由 `ResolveAllTimed` 在**同一组** `pin[]` 上做。
             picks = merged;
             return merged.Count > 0;
-        }
-
-        /// <summary>🆕 **2026-10-20（`FACTION-DOUBLE605`）**：只留 `CardAnimTime.Order` 第一段
-        /// == <paramref name="abilityIndex"/> 的候选（原版字段路径 `i.j.k` 的 `i`）。
-        ///
-        /// <para>**为什么不能按名字取第一条**：同一张卡里同名 `CardAnim` 可以出现多次
-        /// （`CardAnimTime.Order` 的 doc：现读 59 行同名重复）—— 本件这 3 张卡里
-        /// `Faith_trigger_*` 就各出现两次（SOR56 的 4 条 `UseFaith` 里 2 条同名、2 条同 prefab）。
-        /// 按名字取第一条会把第 2 条能力的行全判成第 1 条 ⇒ 「各播一条」变成「一条播 4 件」。
-        /// ⇒ 用 <see cref="FindAnimTimeIndex"/> 的**顺序消费**（游标只前进）逐条钉行，再读那一行的 `Order`。</para>
-        ///
-        /// <para>钉不上 / `Order` 解不出（`-.j.k` 的 `activeAbility`、空串）⇒ **不算这一条能力**
-        /// （`AbilityIndex &gt;= 0` 时宁可留白，⛔ 不多播）。</para></summary>
-        static List<CardPick> FilterPicksByAbilityIndex(IReadOnlyList<CardDef.CardAnimTime> times,
-                                                        List<CardPick> picks, int abilityIndex)
-        {
-            var outp = new List<CardPick>();
-            if (picks == null || times == null || times.Count == 0) return outp;
-            int cursor = 0;
-            for (int i = 0; i < picks.Count; i++)
-            {
-                var p = picks[i];
-                int idx = FindAnimTimeIndex(times, cursor, p);
-                if (idx >= 0) cursor = idx + 1;
-                int ai;
-                if (idx < 0 || !CardDef.TryParseAbilityIndexOfOrder(times[idx].Order, out ai)) continue;
-                if (ai == abilityIndex) outp.Add(p);
-            }
-            return outp;
         }
 
         /// <summary>`names` 里加一个（大小写不敏感去重）。<see cref="TryResolveTriggerPicks"/> 专用。</summary>
@@ -1430,7 +1460,9 @@ namespace CardPresentation
             //    「加了新事件、列表没跟上，正是 2026-09-15 那个 bug 的形状」—— 同一形状又犯了一次）。
             CollectWaystone,
             // 🔴 **2026-10-14（`A1816`）补 `Draw` / `AmbushExit`** —— 两条都早就在 `EvtKind` 里、
-            //    引擎也在发（`RuleCore.Draw` 的 `:1841` / `ApplyDamage` 的 `:5651` 与 `RevealAmbush` 的 `:5855`），
+            //    引擎也在发（`RuleCore.Draw` / `ApplyDamage` 的伤害路；🔴 2026-10-20（`W58`）订正：
+            //    原文这里还写着 `RevealAmbush` 那一处 —— **那个方法已删除**，伏击翻面的第二个发送点
+            //    现在是 `RuleCore.DeclareAttack` 的攻击取消路），
             //    **就是没进这张表**，而且 `BattleDriver.PlaySignal` 的 switch 里也没有它们的 case
             //    ⇒ 掉 `default: return`（**连 `PlayFeel` 都不进**）。同一形状第三次了（`CollectWaystone` 那次是第二次）。
             //    ⚠️ `Draw` 是**按阵营**配的（见它的 doc）⇒ 默认口径解析不出是预期的，

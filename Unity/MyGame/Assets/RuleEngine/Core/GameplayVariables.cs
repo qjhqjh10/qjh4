@@ -140,7 +140,7 @@ namespace RuleEngine
         public int deckSize = ClassicDeckSize;
 
         // ---- 7：加时 ----------------------------------------------------------
-        /// <summary>加时**触发线**（**我们用的是能量阈值**：后手方最大能量 **≥ 它**）。**两个模式都是 10**。
+        /// <summary>加时**触发线**（**回合序号阈值**：**全局回合号 `ctx.Turn` ≥ 它**）。**两个模式都是 10**。
         ///
         /// 🔴 **原版机制（2026-09-26 查实，别再按推断写）**：唯一读点 =
         /// `BattleManager._NextTurn_d__395__MoveNext.c:191` —— 把 `overtimeTurn` 包成 `Nullable&lt;int&gt;`，
@@ -152,10 +152,16 @@ namespace RuleEngine
         ///    （服务器不下发那个值 ⇒ 一次都不判），不是给我们现在用的。
         ///    ⚠️ **别把本类型塞进 `JsonUtility`** —— 它不支持可空字段，会**静默丢掉**这一个。
         ///
-        /// ⚠️ **经典那一支我们用的仍是能量阈值**（「后手方最大能量 ≥ 10」）—— 那是**改造前就在跑的老规矩**
-        ///    （用户 2026-09-17 给的判据 = 规则书「后手玩家最大能量达 10」），全套断言盯着它，**不能动**。
-        ///    两种判据在**经典模式**下等价（`manaPerTurn = 1` ⇒ 能量随回合单调增，序号阈值 ⇔ 能量阈值）；
-        ///    原版那个回合序号真值拿到之后，才谈得上把机制也换掉（见 `项目任务.md` §三 第 2 条）。
+        /// ⚠️ 🔴 **2026-10-20 就地订正（`W58-TURN-A` · 铁律 5）**：这里原来写「两种判据在经典模式下等价」——
+        ///    **不成立**。`turnCounter` 是**全局回合号**（两人共用、每回合 +1），同常数 10 下：
+        ///    · 原版（`turnCounter >= overtimeTurn`）⇒ **全局第 10 回合**（= 后手第 5 个自己的回合，经典 `MaxEnergy` 才 6）；
+        ///    · 「后手 `MaxEnergy >= 10`」⇒ 后手**第 9 个自己的回合**（≈ 全局第 18 回合）。
+        ///    两者只在服务器真值恰好为 18 时才重合。
+        /// 🔵 **现行实现 = 照原版的形状，比【全局回合数】**（`RuleCore.BeginTurn`：`ctx.Turn >= overtimeTurn`）。
+        ///    `10` 这个数**仍是推断值** —— 原版真值在服务器，本地查不到（见本文件 §六·1 那条「没查清」）。
+        ///    ⚠️ 连带：遭遇模式原来靠「每回合 +2、跳过 10」在第 4 个自己的回合进加时（文案 `Overtime begins earlier`）；
+        ///    改成全局回合后它与经典一样落在全局第 10 回合 ⇒ 那句「更早」**不再由这条机制复现**，
+        ///    除非服务器给遭遇一个更小的 `overtimeTurn`（**未解**）。
         ///
         /// ============================================================ 2026-10-17
         /// 🔴 **「回合序号」那条判据链已读完整（三段字段定义闭合，别再重复查）**：
@@ -164,23 +170,29 @@ namespace RuleEngine
         ///    · `overtimeTurn` 本身 = `dump.cs:130179` `public int overtimeTurn; // 0x28`（类 `GameplayVariablesData`）
         ///    · 它的来源 = `dump.cs:78158` `private GameplayVariablesData &lt;GameplayData&gt;k__BackingField; // 0xA8`（类 `MatchData`）
         ///    ⇒ **原版确实拿它比【回合计数器】**（字段名就叫 `turnCounter`；旁边 `0x40C` 才是 `playerTurnCounter`）。
-        ///    ⚠️ **影响面（先前低估了）**：经典下两种判据数学等价；**遭遇下不等价** ——
-        ///       按能量（`MaxEnergy` 走 `4→7→9→11`）⇒ **第 3 个自己的回合**就进加时；按回合序号（同样 10）⇒ **第 10 个回合**。
+        ///    ⚠️ **影响面（先前低估了）**：🔴 **经典下两种判据也不等价**（2026-10-20 订正：原文写「数学等价」，不成立）——
+        ///       按能量（经典后手 `MaxEnergy` 走 2/3/4…）⇒ **后手第 9 个自己的回合**（≈ 全局第 18）；
+        ///       按回合序号（同样 10）⇒ **全局第 10 回合**（后手第 5 个自己的回合、能量才 6）。
+        ///       遭遇下同样不等价（按能量 ⇒ 第 4 个自己的回合；按回合序号 ⇒ 全局第 10）。
         ///
-        /// 🔵 **用户 2026-10-17 拍板：仍按【能量】决定，⛔ 不改成回合序号。**
+        /// 🔵 **用户 2026-10-17 曾拍板：仍按【能量】决定，⛔ 不改成回合序号。**
         ///    原话口径：「**进入加时回合是看后手玩家的能量是否达到或者超过 10 点，只是看回合怎么实现？
         ///    根据之前的决策，按照能量决定。**」
-        ///    ⇒ 这是**一处有意的偏离**：**规则面**（后手能量 ≥ 10）优先于**原版实现面**（`turnCounter` 阈值）。
-        ///    ⛔ **别再按上面那条「原版是回合序号」去改代码** —— 那是**证据**，不是**口径**；口径归用户。
-        ///    ⚠️ 因此「遭遇的加时落在第 3 个自己的回合」是**有意的**，不是缺陷。
+        ///    ⇒ 那是**当时的口径**：**规则面**（后手能量 ≥ 10）优先于**原版实现面**（`turnCounter` 阈值）。
+        /// 🔴 **2026-10-20（`W58-TURN-A`）起本条已按原版形状改成【全局回合数】** —— 任务书的判据见本字段开头
+        ///    那段「2026-10-20 就地订正」。⚠️ 这一改与上面 2026-10-17 的记录**方向相反**，
+        ///    口径以用户/调度台最终确认为准；本代理只按任务书执行，⛔ 没把这条历史删掉。
+        ///    ⛔ **别再据上一段把实现改回能量阈值** —— 那是历史证据，不是现行代码。
         ///
-        /// 🔴 **遭遇模式：也有加时，而且是「更早」—— 靠的就是同一个 10**
-        ///    （**用户 2026-09-26 定案**，逐条见 `RuleCore.BeginTurn` 那段的断言）：
+        /// 📦 **下面这段是「能量口径」时期的留痕（2026-09-26 ~ 2026-10-20），⛔ 别当现行行为**：
+        ///    🔴 它说「遭遇也有加时，而且更早 —— 靠的就是同一个 10」（**用户 2026-09-26 定案**）：
         ///    · 遭遇 `manaPerTurn = 2` + `manaAccumulation = 1` ⇒ 后手方 `MaxEnergy` 走
         ///      **4 → 7 → 9 → 11**（**跳过 10**）⇒ **第 4 个自己的回合**就够阈值（经典要第 9 个）。
-        ///    · `>=` 这个**「或超过」**正是为它写的 —— 写成 `== 10` 的话遭遇**永远进不了加时**。
+        ///    · `>=` 这个「或超过」正是为它写的 —— 写成 `== 10` 的话遭遇**永远进不了加时**。
         ///    · 效果与经典**相同**：进入后**双方每回合抽 2 张**，且**进入的那一回合就抽**。
-        ///    · ⇒ 原版文案那句 `Overtime begins earlier` **由这一条解释掉了**，**不用另发明常数**。
+        ///    · ⇒ 当时认为 `Overtime begins earlier` 由这一条解释掉。
+        ///    🔴 **2026-10-20（`W58-TURN-A`）起不成立**：判据改成全局回合后，两个模式都落在全局第 10 回合
+        ///    ⇒ 那句文案要成立，得是服务器给遭遇一个**更小的 `overtimeTurn` 真值**（**未解**）。
         ///
         /// 📌 **2026-09-26 这一段翻过一次车，留痕**（免得下一个人重蹈）：
         ///    用户当天先说「遭遇没有加时」（看视频判断），我们据此把遭遇改成 `null`；
@@ -205,10 +217,16 @@ namespace RuleEngine
         /// 遭遇 **2**（⇒ 后手第 1 回合 4 点，比先手多那 1 点）。
         /// 判据同 <see cref="startingMana"/> 那条（原版 `SetupInitialMana` 两个分支）。</summary>
         public int startingManaSecond = ClassicStartingManaSecond;
-        /// <summary>⚠️ **原版有、我们不实现**：`BattleManager._NextTurn` 在 `turnCounter == 1` 时
-        /// 把它当一次性「存款」写进后手方的 `PlayerManager.SetSavedMana`（`:306,:312`）。
-        /// 我们**不用它** —— 遭遇模式那两组数（P1 3 / P2 4）**已经被 `startingMana` / `startingManaSecond`
-        /// 完全解释掉了**，再加一份会重复补贴。留着是为了对照原版那张 18 字段表（值也在服务器，本地没有）。</summary>
+        /// <summary>🔴 **2026-10-20（`W58-TURN-B`）：已实现（原来是「原版有、我们不实现」）。**
+        /// 原版 `BattleManager._NextTurn_d__395__MoveNext.c:296-334` 在 `turnCounter == 1` 时把它当
+        /// 一次性「存款」写进**后手方**的 `PlayerManager.SetSavedMana`；
+        /// `:344-352` 在那一方自己的回合 `TurnStart` **之后**兑现：
+        /// `RefillCustomMana(saved)`（= **只加当前 `unusedMana`**，`PlayerManager__RefillCustomMana.c:35-41`，
+        /// **不动 `totalMana`/最大能量**）。
+        /// ⇒ 我们的落点 = `RuleCore.BeginTurn` 里「维护费之后」那一段：
+        ///   条件 `p == Players[SecondSeat] && p.TurnCount == 1`（后手第一次自己的回合）；
+        ///   `p.Energy += addedManaSecond`，**绝不加进 `MaxEnergy`**（加了会每回合都多出这份补贴）。
+        /// ⚠️ 值是**服务器真值，本地没有** ⇒ 两个模式都是 **0**（今天恒不触发；机制照铁律 11 先做完）。</summary>
         public int addedManaSecond = 0;
         /// <summary>【文案】每回合最大能量增长：经典 1 · 遭遇 **2**（`Gain +2 Maximum Energy each turn`）。</summary>
         public int manaPerTurn = ClassicManaPerTurn;
@@ -228,18 +246,61 @@ namespace RuleEngine
         ///    现在改成**在 `EndTurn` 里结算**。⚠️ 只影响遭遇（经典 `manaAccumulation = 0` ⇒ 恒 0）。</summary>
         public int manaAccumulation = ClassicManaAccumulation;
 
+        // ---- 另加：🔴 本局累计的「永久最大能量」增量（`Gain N Energy`）----------------
+        /// <summary>🔴 **2026-10-20（`W58-TURN-A`）**：**本局累计的永久最大能量增量**（按下标 0/1）。
+        ///
+        /// <para>**为什么需要它**：原版 `PlayerManager.totalMana`（`+0x38`）被 `Gain N Energy`
+        /// （`ManaBuff.createMana`）**永久抬高**；而我们的 `MaxEnergy` 是**每回合从公式重算**的
+        /// （`RuleCore.BeginTurn`）⇒ 不单独存这份增量的话，下一回合就被公式覆盖掉。</para>
+        ///
+        /// <para>**原版语义（逐句 · 第一权威）**：
+        /// · `BattleManager__ProcessManaBuff.c:38-62`：`createMana(+0x16)` 为真 ⇒ `PlayerManager__AddNewMana`；
+        ///   `refillMana(+0x17)` 为真 ⇒ `PlayerManager__RefillOneMana`（只补当前，不动上限）。
+        /// · `PlayerManager__AddNewMana.c`：`totalMana(+0x38)++` **无条件**；
+        ///   `unusedMana(+0x4C)` 只在第 2 个实参 `filledMana` 为真时 +1（且仅当它 < 新 total）。
+        /// · 那个 `filledMana` 实参在反汇编里 = `ManaBuff.refillMana`（`+0x17`）——
+        ///   `0x971e11: movzx edx, byte ptr [rbx+0x17]` → `call AddNewMana`
+        ///   ⇒ **只有 `createMana` 的卡：上限 +N、当前能量一点不动**（DA61 `Plasma Generator` 就是这一档）。
+        ///   两张都置位的卡（全池 3 张）才是「上限 +N 且当前也 +N」。</para>
+        ///
+        /// <para>**为什么放在本类**：`PlayerState` / `BattleContext` 不在本代理的文件白名单内；
+        /// `ctx.Vars` 是**每局一份的 `Clone()`**（`BattleContext.Vars:719`）⇒ 出不了这一局。
+        /// ⚠️ 它是**可变的对局状态**、不是模式参数 —— 将来把状态搬回 `PlayerState` 时一起搬走。</para>
+        /// </summary>
+        public int manaBonusSeat0 = 0;
+        /// <inheritdoc cref="manaBonusSeat0"/>
+        public int manaBonusSeat1 = 0;
+
+        /// <summary>读某一座位的永久最大能量增量（唯一读口，⛔ 别直接摸上面两个字段）。</summary>
+        public int ManaBonus(int seat) { return seat == 0 ? manaBonusSeat0 : manaBonusSeat1; }
+        /// <summary>加某一座位的永久最大能量增量（唯一写口）。</summary>
+        public void AddManaBonus(int seat, int n)
+        {
+            if (seat == 0) manaBonusSeat0 += n; else manaBonusSeat1 += n;
+        }
+
         // ---- 14~16：手牌与换牌 -------------------------------------------------
         /// <summary>【规则书:58，**非官方**】手牌上限：经典 10 · 遭遇 **8**。</summary>
         public int handLimit = ClassicHandLimit;
-        /// <summary>【原版语义已查实】**牌堆抽空时怎么办**：true ⇒ 把弃牌堆**洗回**牌堆；
-        /// false ⇒ 改走 `BattleManager.ResolveFatigue()`（疲劳）。
-        /// 读点唯一 = `BattleManager._ResolveDrawCard_d__432__MoveNext.c:67`。
-        /// 🔴 **⚠️ 我们不实现这个字段** —— 我们的抽空**一律走疲劳**（`P1 牌库抽空 —— 疲劳 N 点伤害`）。
-        ///    而经典模式原版的真值是 **true（洗回）** ⇒ **这是一条既有的偏离，与遭遇模式无关**，
-        ///    先如实记着（它不影响本字段在遭遇里的取值：遭遇也是 false）。
-        /// ⚠️ 遭遇那条取 false 来自原版文案 `No mulligan` 的**同族推断**（不换牌、也不洗回），
-        ///    不像 `showMulligan` 那样有直接读点支撑。</summary>
-        public bool shouldReshuffle = true;
+        /// <summary>**牌堆抽空时怎么办**：true ⇒ 把墓地里的初始牌**洗回**牌堆；false ⇒ 改走
+        /// `BattleManager.ResolveFatigue()`（疲劳）。读点唯一 =
+        /// `BattleManager._ResolveDrawCard_d__432__MoveNext.c:67`。
+        ///
+        /// <para>🔴 **用户 2026-10-20 拍板：卡组空了就空，之后只走疲劳扣血，不洗卡回卡组**
+        /// ⇒ 本字段**固定 `false`**（两个模式）。我们的空库分支本来就一直是恒疲劳
+        /// （`RuleCore.MoveDeckTopToHand` 的空库分支），**行为不变**。</para>
+        ///
+        /// <para>🔴 **2026-10-20（`W58-AMBUSH`）就地订正（铁律 5）**：本字段原来写 `true`，
+        /// 注释称「经典模式原版的真值是 **true（洗回）**」—— **那句话没有任何本地判据**：
+        /// · 它是**纯服务器值**：`GameplayVariablesData +0x48`，由 LiveOps 事件载荷
+        ///   `PlayEventData.gameplayVariables`（`+0x80`）下发（`dump.cs:130187` / `:130241`）；
+        /// · 类定义里**没有初始化器** ⇒ 本地缺省 = `false`（疲劳）；
+        /// · `assets_full` / 旧 profile 缓存 / 关服前存档 / `d:/4` 全盘搜不到它的**值**。</para>
+        ///
+        /// <para>判据全文 → `资料/普查产出_1020/W58_回合流程_三处未定判据.md` §一。
+        /// ⚠️ 遭遇那条 `false` 的**依据不同**（原版文案 `No mulligan` 的同族推断，不换牌也不洗回）；
+        /// 现在两条都取 `false`，但别把那句推断当成经典模式的判据。</para></summary>
+        public bool shouldReshuffle = false;
         /// <summary>【文案】换牌阶段总开关（**bool**，已查实：false ⇒ 连弹窗都不弹，
         /// `BattleManager__SetupInitialState.c:98-104`）。遭遇 = false（`No mulligan`）。</summary>
         public bool showMulligan = true;
@@ -311,13 +372,16 @@ namespace RuleEngine
                 v.handLimit = SkirmishHandLimit;                      // 【规则书:58，非官方】
                 v.startingHand = SkirmishStartingHand;                // 【规则书:58，非官方】
                 v.manaAccumulation = SkirmishManaAccumulation;        // 【规则书:60，非官方】
-                // 🔴 **遭遇也有加时，而且「更早」—— 靠的就是同一个 10**（用户 2026-09-26 定案）。
-                //    遭遇 `manaPerTurn = 2` + `manaAccumulation = 1` ⇒ 后手 MaxEnergy 走 **4 → 7 → 9 → 11**
-                //    （**跳过 10**）⇒ 第 4 个自己的回合就够阈值。⚠️ 所以判定那边必须是 `>=`（「达到**或超过**」）——
-                //    写成 `== 10` 的话遭遇**永远进不了加时**。效果与经典相同：进入后双方每回合抽 2 张、当回合就抽。
+                // 🔴 **遭遇也有加时**（用户 2026-09-26 定案：先看错成「没有」，当天更正「是我搞错了」）。
+                //    ⚠️ **2026-10-20（`W58-TURN-A`）就地订正（铁律 5）**：上面那句「更早 —— 靠的就是同一个 10」
+                //    只在**按能量判**时成立（遭遇 `manaPerTurn = 2` + `manaAccumulation = 1` ⇒ 后手
+                //    `MaxEnergy` 走 **4 → 7 → 9 → 11**、第 4 个自己的回合就够 10）。
+                //    现在判据改回原版的**全局回合数**（`turnCounter >= overtimeTurn`）⇒ 它与经典一样落在
+                //    **全局第 10 回合**，`Overtime begins earlier` 那句**不再由这条机制复现**。
+                //    ⇒ 那条文案要成立，得是服务器给遭遇一个**更小的 `overtimeTurn` 真值**（**未解**，本地没有）。
                 //    ⛔ 这里一度被改成 `null`（「遭遇没有加时」）—— 那是照用户**当时看错的一次观察**改的，
                 //    用户当天已更正「是我搞错了」。全过程留痕 → `overtimeTurn` 字段的注释。
-                v.overtimeTurn = ClassicOvertimeTurn;
+                v.overtimeTurn = ClassicOvertimeTurn;               // 【推断】值是 10，见上
                 _skirmish = v;
                 return _skirmish;
             }

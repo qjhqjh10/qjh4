@@ -690,16 +690,20 @@ namespace RuleEngine
 
         /// <summary>
         /// **加时（Overtime）**。
-        /// 判据（**用户 2026-09-17 给**，中文规则书原文「**后手玩家最大能量达 10 时进入**加时」）：
-        /// **每回合开始判一次 `Players[SecondSeat].MaxEnergy >= Vars.overtimeTurn`，判过就不再判**。
-        /// 🔴 **2026-09-26：`Vars.overtimeTurn` 是**可空**的 —— `null` ⇒ 这一局**永不进加时**
-        ///    （原版就是拿 `null` 表达这个意思）。**遭遇模式取 `null`**（用户看原版视频确认
-        ///    「遭遇没有加时」，铁律 4 实况为准）；**经典仍是 10**，一个字没动。
-        ///    逐条推导 → `GameplayVariables.overtimeTurn` 的注释。
-        /// ⚠️ **2026-09-26 订正**：这里原来写「我们这边『后手』= `Players[1]`（本作玩家恒先手）；
-        ///    将来做随机先手要改成『第 2 个行动的那一方』」—— **两半都过期了**：
-        ///    先手早在 2026-09-26 就改成**每局按种子掷硬币**（`BattleDriver.Begin` → `firstSeat`），
-        ///    而判据本身也已经改成 `SecondSeat`（= `Ctx.FirstSeat == 0 ? 1 : 0`，**唯一出处**）。
+        /// 判据（第一权威）= 原版 `BattleManager._NextTurn_d__395__MoveNext.c:191-207`：
+        /// `overtimeTurn.HasValue && overtimeTurn &lt;= turnCounter`，其中 `turnCounter`
+        /// = **全局回合计数器**（`+0x3F8`，两人共用、每回合 +1，`dump.cs:30871`）。
+        /// ⇒ **每回合开始判一次 `ctx.Turn &gt;= Vars.overtimeTurn`，判过就不再判**。
+        ///
+        /// 🔴 **2026-10-20 就地订正（铁律 5 · `W58-TURN-B`）**：这段注释原来写的是
+        ///    「每回合开始判一次 `Players[SecondSeat].MaxEnergy >= Vars.overtimeTurn`」——
+        ///    **那是已被推翻的旧实现口径**（按能量）。`W58-TURN-A` 已把实现改回原版的**全局回合数**
+        ///    （`RuleCore.BeginTurn`：`ctx.Turn >= overtimeTurn`），注释同批订正。
+        ///    ⚠️ 附带的两句旧话也一并作废：①「遭遇模式取 `null`（没有加时）」——
+        ///    遭遇今天也是 10；②「判据是用户 2026-09-17 给的『后手最大能量达 10』」——
+        ///    那是**当时的用户口径**，现行实现与判据都按原版全局回合数（口径历史与订正留痕
+        ///    → `GameplayVariables.overtimeTurn` 的字段注释）。
+        /// ⚠️ **`null` ⇒ 这一局永不进加时**（原版拿 `null` 表达「服务器不下发」）。
         /// ⚠️ **与回合时钟没有任何关系** —— 原版那一段里一个 `ClockManager` 调用都没有
         /// （`BattleManager._NextTurn`，见 `资料/加时与冲突模式_原版规格.md` §1.1）。
         /// 唯一写入点 = `RuleCore.BeginTurn`。
@@ -1368,14 +1372,46 @@ namespace RuleEngine
         /// 处理完 5 号之后 6 号那个已经挪到 5 号格 ⇒ 按 `(6)` 去找是**空的** ⇒ 它**永远不会被清理**
         /// （留下一个 0 血的单位站在场上，静默）。
         /// ⇒ **格号只在排序时用**（= 它死的那一刻在哪一格），处理时按**身份**现查它在哪。
+        /// 🔴 **2026-10-20（`W58-INTERLEAVE` · 铁律 5 就地订正）**：出队**不再排序**了
+        /// （`W58-SLAYFIX` 改按**死亡入队顺序** = 原版 death action 的 FIFO）⇒
+        /// `SlotAtDeath` 现在**只作诊断留痕**、不参与任何判定；⛔ 别拿它去定位或排序。
         /// </summary>
         public struct PendingDeath
         {
             public int Player;
             public UnitState Unit;
             public int Killer;
-            /// <summary>它**死的那一刻**在哪一格（只用于出队排序，不用于定位）</summary>
+            /// <summary>它**死的那一刻**在哪一格。🔴 **2026-10-20（`W58-REVIEWFIX-B1` · 铁律 5）
+            /// 就地订正**：出队**不再排序**（`W58-SLAYFIX` 改按死亡入队顺序 = 原版 FIFO）
+            /// ⇒ 本字段**只作诊断留痕**，不参与定位、也不参与排序。</summary>
             public int SlotAtDeath;
+            /// <summary>
+            /// 🆕 **2026-10-20（`W58-INTERLEAVE`）：致死伤害的来源卡**（= 原版 `DamageInfo.actingCard`
+            /// / 死亡 action 上的 `actingCard`，`CardScript__TriggerUnitBacklashActions.c:44-50`）。
+            ///
+            /// **为什么要有它**：原版的死亡链路是**逐死者交错**的 ——
+            /// `TriggerUnitBacklashActions.c:181` 在判死那一刻把「死者 + actingCard」包成一条
+            /// `backlash` action 入队（FIFO）；`_ResolveBacklash_d__451__MoveNext.c:88/144` 逐条取：
+            /// 先跑**这个死者**的死亡触发（`ResolveDeadCard` / `TriggerUnitDeathActions`），
+            /// 再 `BroadcastDeadUnit` —— 广播时**凶手那张牌**按 `actingCard == this`
+            /// 命中 `ResolveDeadCard.c:248` 的 Slay 闸。
+            /// ⇒ 顺序是「死者1 反噬 → 死者1 的 Slay → 死者2 反噬 → 死者2 的 Slay」。
+            /// 我们以前把所有死者的反噬跑完再统一 Slay ⇒ **少了这层交错**：
+            /// 死者1 的 Slay 若改了盘面（打死人 / 部署 / 计数），死者2 的判定就看不见它。
+            ///
+            /// **`null` 的含义 = 这一条死亡不记击杀**（= 原版 deathType 不在
+            /// `combatDefender(15)` / `ability(20)` 两档，例如**反击**打死攻击者 = `combatAttacker(10)`；
+            /// **不稳定** / 毒那几档也没有来源卡）。
+            /// 🔴 **2026-10-20（`W58-REVIEWFIX-B1` · P2-3）就地订正（铁律 5）**：原来这里写着
+            /// 「**哨戒**那一下的 actingCard 在反编译里没钉死 ⇒ 沿用旧口径『不记』」—— **那是错的**：
+            /// `BattleManager._ResolveAttack_d__438__MoveNext.c:1421`
+            /// `ReceiveDamage(攻击者, 0x14 /* ability(20) */, DamageInfo(source = 哨戒单位))`，
+            /// `DamageInfo.__ctor` 的 `source` 实参就是哨戒单位（同文件 `:772-778`）⇒ deathType 在放行档里、
+            /// `actingCard` = 哨戒单位 ⇒ **哨戒击杀要记账**。`RuleCore.DeclareAttack` 已改为
+            /// `Hurt(..., actingCard: target)`。
+            /// ⛔ **不要为了「有来源就填」往下填** —— 填了就会在 `FlushDeaths` 里多触发一次 Slay。
+            /// </summary>
+            public UnitState ActingCard;
         }
 
         readonly List<PendingDeath> _pendingDeaths = new List<PendingDeath>();
@@ -1402,7 +1438,7 @@ namespace RuleEngine
         ///    但**猎杀标记**那一段在整个 `CleanupDeaths` 的**最前面**，
         ///    第二次进来时 `u` 还是那个死单位（棋盘上还没清）⇒ **标记会结算两遍**。
         /// </summary>
-        public void AddPendingDeath(int p, int slot, int killer)
+        public void AddPendingDeath(int p, int slot, int killer, UnitState actingCard = null)
         {
             if (p < 0 || p >= Players.Length) return;
             var u = Players[p].Board[slot];
@@ -1410,7 +1446,10 @@ namespace RuleEngine
             // 去重按**身份**（见下面那段注释：以前按格号）
             for (int i = 0; i < _pendingDeaths.Count; i++)
                 if (ReferenceEquals(_pendingDeaths[i].Unit, u)) return;
-            _pendingDeaths.Add(new PendingDeath { Player = p, Unit = u, Killer = killer, SlotAtDeath = slot });
+            _pendingDeaths.Add(new PendingDeath
+            {
+                Player = p, Unit = u, Killer = killer, SlotAtDeath = slot, ActingCard = actingCard,
+            });
         }
 
         /// <summary>**这个单位是不是已进「将死」队列**（仍在棋盘上、但已判死）—— 2026-10-12 加（账 `A1600`）。

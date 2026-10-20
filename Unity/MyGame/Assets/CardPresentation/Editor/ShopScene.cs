@@ -863,7 +863,10 @@ public static class ShopScene
             if (q == null || !q.gameObject.activeInHierarchy) continue;
             var p = q.transform.position; var ls = q.transform.lossyScale;
             float hw = Mathf.Abs(q.WorldW * Mathf.Abs(ls.x)) * K * 0.5f, hh = Mathf.Abs(q.WorldH * Mathf.Abs(ls.y)) * K * 0.5f;
-            float wx = LayoutSpace.PxX(p.x), wy = LayoutSpace.PxY(p.y);
+            // 保留甲式（`A1350` 第二批逐处判过；同 W57 §1·4 第 3/8 条那一族）：本探针的父链缩放
+            // 由**调用点**显式给（形参 `m` —— 态二传 1.2），下面自己用 `(wx − cx)/m` 除回设计 px
+            // ⇒ 这里若换 `MenuCheck.DesignPx` 会**再除一次**（R8：缩放由调用点乘回，⛔ 别在共用件里代偿）。
+            float wx = LayoutSpace.PxX(p.x), wy = LayoutSpace.PxY(p.y);   // 甲式保留：缩放由调用点形参 `m` 乘回
             x1 = Mathf.Min(x1, cx + (wx - hw - cx) / m); x2 = Mathf.Max(x2, cx + (wx + hw - cx) / m);
             y1 = Mathf.Min(y1, cy + (wy - hh - cy) / m); y2 = Mathf.Max(y2, cy + (wy + hh - cy) / m);
             n++;
@@ -1072,7 +1075,27 @@ public static class ShopScene
         // ⇒ 纯搬、**行为零变化**；本函数保留原名与本形参 ⇒ 调用点 0 改动。
         // ⚠️ 原来 label 支**内联**在体内的那份 `TmpRenderedRect` + 退回 `Label.WorldW/H`（A796′ 换口）
         //    已随本次转调并入 `SelfCheckTextMetrics.TryRenderedPx` —— 全仓不再有第 6 份。
-        return MenuCheck.NodeRectPx(t, MenuCheck.RectCenterMode.LabelNode, out x1, out y1, out x2, out y2);
+        // 🆕 **2026-10-20（`A1350` 第二批 · 计划 §2·3「尺寸帧」）**：中心仍是设计帧（`NodeRectPx` 的 `LabelNode` 档），
+        // **尺寸来源**改成 `SelfCheckTextMetrics.RenderedRectDesign`（同一块 TMP 四角，但每个角先过设计空间）
+        // —— 消掉「中心设计帧 + 尺寸世界帧」在父链带缩放 M 时分家的缺陷。
+        // 单位缩放下与旧口逐位相同（除 1，且 16:9 下斜率差 ≤ 2.5e-4 px）⇒ 今天读数不变。
+        // 量不到（点阵后端 / 底下没有 TMP）⇒ **保留** `NodeRectPx` 的退路（`Label.WorldW/H × 108`，本来就是设计长度）。
+        // ⚠️ 只动**尺寸来源**：中心不从 TMP 的 `textBounds` 重算（那是 `AlignLeft/Right` 挪节点后的口径，会动读数）。
+        if (!MenuCheck.NodeRectPx(t, MenuCheck.RectCenterMode.LabelNode, out x1, out y1, out x2, out y2))
+            return false;
+        var lb = t.GetComponentInChildren<Label>();
+        if (lb != null)
+        {
+            float dx1, dy1, dx2, dy2;
+            if (SelfCheckTextMetrics.RenderedRectDesign(lb.transform, out dx1, out dy1, out dx2, out dy2))
+            {
+                float cx = (x1 + x2) * 0.5f, cy = (y1 + y2) * 0.5f;
+                float w = dx2 - dx1, h = dy2 - dy1;
+                x1 = cx - w * 0.5f; x2 = cx + w * 0.5f;
+                y1 = cy - h * 0.5f; y2 = cy + h * 0.5f;
+            }
+        }
+        return true;
     }
 
     /// <summary>两个矩形**有没有重叠**（像素矩形的标准 AABB 判据）。</summary>
@@ -1102,11 +1125,11 @@ public static class ShopScene
         CheckTrue(win.CurrentState == WindowState.Open, "（前提）商店重开之后真的开着 —— 下面几段都靠它");
     }
 
-    /// <summary>世界 x → 画布像素 x（×108 + 960）。⚠️ **只能用在 x 上**。</summary>
-    static float PxOf(float worldX) { return worldX * 108f + 960f; }
-    /// <summary>世界 y → 画布像素 y。**y 是反的**（像素 y 向下）⇒ `540 − worldY × 108`。
-    /// 🔴 拿 `PxOf` 去量 y 会得到**假警报**（本工程踩过，见 `RewardsScene` 的 `PxYOf`）。</summary>
-    static float PxYOf(float worldY) { return 540f - worldY * 108f; }
+    // 🆕 **2026-10-20（`A1350` 第二批）**：原来的甲式点读 `PxOf/PxYOf`（`x×108+960` / `540−y×108`）
+    // 已全部换口：节点点 → `MenuCheck.DesignPx(t)`（乙式设计帧）、需要保留父链缩放的那一处
+    // （开包动画的 5 张卡）→ `MenuCheck.PointerFramePx(t)`（指针帧）、Tooltip 世界点 →
+    // `MenuDraw.PixelOfDesign(point)`。定义随之删除（W57 §六 V3 的结构闸：迁完的宿主里 `static float PxOf` = 0）。
+    // ⚠️ 仍保留的 `LayoutSpace.PxX/PxY` 只有 `NineUnionPx` 那一处（行尾标了保留理由）。
 
     /// <summary>🆕 **2026-10-13（A750）**：量一段文字 **TMP 自己渲出来那块**的像素矩形
     /// （1920×1080 · 左上原点 · y 向下）—— **这一份才是「字真的从哪开始画」**。
@@ -1435,7 +1458,7 @@ public static class ShopScene
                 if (iq != null)
                 {
                     CheckNear(iq.WorldH * 108f, 26f, 2f, "时钟图标**渲出来的高 = 26**（原版 `preferredWidth 26` + `preserveAspect`）");
-                    float pxc = PxOf(iq.transform.position.x), pyc = PxYOf(iq.transform.position.y);
+                    float pxc = MenuCheck.DesignPx(iq.transform).x, pyc = MenuCheck.DesignPx(iq.transform).y;
                     CheckNear(pyc, 110.94f, 3f, "时钟图标**在 `TimeCounter` 的竖向中心上**（y ≈ 110.94）");
                     CheckTrue(pxc > 367.47f && pxc < 678.87f,
                               $"时钟图标**落在 `TimeCounter` 的横向范围内**（实测 x {pxc:F1}，容器 367.47..678.87）");
@@ -2132,10 +2155,10 @@ public static class ShopScene
                     CheckTrue(wsTx != null, "（前提）`WebShop Button > Button Text` 那个节点在（不然下面三条等于没查）");
                     if (wsTx != null)
                     {
-                        CheckNear(PxOf(wsTx.position.x), 1362.42f, 0.5f,
+                        CheckNear(MenuCheck.DesignPx(wsTx).x, 1362.42f, 0.5f,
                                   "★ `WebShop Button > Button Text` 中心 x = **1362.42** = (1296.42+1428.42)/2"
                                 + "（原版 dump 的左右沿；旧值那对给出 1357.23 ⇒ 这一条红）");
-                        CheckNear(PxYOf(wsTx.position.y), 751.80f, 0.5f,
+                        CheckNear(MenuCheck.DesignPx(wsTx).y, 751.80f, 0.5f,
                                   "★ …中心 y = **751.80** = (725.86+777.74)/2（同一对常量的另一半）");
                         // 🔴 **2026-10-08 我加的一行**（报告 §四·4 说「宽度不增加鉴别力」——那是就**位移机理**说的；
                         //    这里断的是**这对常量的另一半**：宽度只进 `SetAutoFitBox`、**不影响中心** ⇒ 不单独断就漏）
@@ -2198,7 +2221,12 @@ public static class ShopScene
                     }
                     int scS = Tooltip.ShowCount;
                     float tipCx = (tx1 + tx2) * 0.5f, tipCy = (ty1 + ty2) * 0.5f;
-                    var hbS = layerS != null ? layerS.HoverAt(tipCx, tipCy) : null;
+                    // 🆕 **2026-10-20（`A1350` 第二批 · `W58-FRAME-RS`）**：`RectOf` 给的是**设计帧**矩形
+                    //   ⇒ 喂 `PointerLayer` 前过「设计帧 → 指针帧」的**唯一换算口**。
+                    //   🔴 `owner` = **被量那颗 `Tooltip` 的 quad 自己**（乘的是它父级那一级 `lossyScale`
+                    //   = 窗根缩放）；⚠️ 本窗 `extraScaleSmallScreen = 1.2` ⇒ 开关一开这里**真会差 20%**。
+                    var tipP = MenuCheck.PointerFramePxFromDesign(new Vector2(tipCx, tipCy), tipQ.transform);
+                    var hbS = layerS != null ? layerS.HoverAt(tipP.x, tipP.y) : null;
                     // 🔴 这一条要的是**真鼠标**那条路（`PointerLayer.HoverAt`）。
                     //    ⚠️ **若它红了，先看下面这句诊断**：两条命中区**同队列**时，`PointerLayer.HitButton`
                     //    那句「同队列再比 z」就退化成「`FindObjectsByType` 的枚举顺序」—— 因为
@@ -2225,7 +2253,9 @@ public static class ShopScene
                     //    断言报「期望 2 实得 1」。**实现是对的、是断言少了前提**（不是漏触发）。
                     //    ⇒ 挪到空白清掉悬停态、再量增量；顺带把「幂等」也钉一条（免得下次又把 `repeat` 当漏触发）。
                     var wbTip = BoosterInfoPopup.TipHit;
-                    if (layerS != null) layerS.HoverAt(5f, 5f);     // 挪开 ⇒ `Exit()`（`onExit = Tooltip.Hide`）
+                    // 🆕 2026-10-20：`(5,5)` 是**设计 px**（页坐标）⇒ 过唯一换算口（`owner` = `Tooltip` 节点）。
+                    var blankTipP = MenuCheck.PointerFramePxFromDesign(new Vector2(5f, 5f), tipNode);
+                    if (layerS != null) layerS.HoverAt(blankTipP.x, blankTipP.y);     // 挪开 ⇒ `Exit()`（`onExit = Tooltip.Hide`）
                     int tip1 = BoosterInfoPopup.TipHovers;
                     if (wbTip != null) wbTip.Enter();
                     Check(BoosterInfoPopup.TipHovers, tip1 + 1,
@@ -2241,9 +2271,13 @@ public static class ShopScene
                               "…面板里的**正文 = `TipBody`**（官方词条值；⛔ 空白占位 ⇒ 本行红）");
                     // 面板**钉在图标上**：原版这一件 `tooltipAnchor = 0`（None）⇒ pivot (.5,.5)
                     //   ⇒ 面板中心 == 图标中心（**不跟鼠标**）
-                    CheckNear(LayoutSpace.PxX(Tooltip.PanelCenter.x), tipCx, 0.5f,
+                    // 🆕 **2026-10-20（`A1350` 第二批）**：世界点 → 设计 px 走 `MenuDraw.PixelOfDesign`
+                    // （乙式；= `MenuCheck.DesignPx(point, owner)` 的同一算式，但那一位要一个 `Transform owner`，
+                    //  而 `Tooltip` 没把 `_bgRoot` 暴露给自检侧 ⇒ 这里直接喂世界点。世界档下 bgRoot 挂在场景原点、
+                    //  父链缩放为 1 ⇒ 设计帧 == 指针帧）。⛔ 期望值一个字没动。
+                    CheckNear(MenuDraw.PixelOfDesign(Tooltip.PanelCenter).x, tipCx, 0.5f,
                               "面板中心 x = 图标中心 x（`tooltipAnchor = 0` ⇒ pivot (.5,.5)）");
-                    CheckNear(LayoutSpace.PxY(Tooltip.PanelCenter.y), tipCy, 0.5f,
+                    CheckNear(MenuDraw.PixelOfDesign(Tooltip.PanelCenter).y, tipCy, 0.5f,
                               "…y 同（`offset = (0,0,0)`）—— 与锻造页那件的 anchor 25 是**两个不同的值**，别互抄");
                     // ③ 离开 ⇒ 收
                     if (wbTip != null) wbTip.Exit();
@@ -2267,7 +2301,8 @@ public static class ShopScene
                                   $"…宽 = 图标宽 + 30（外扩，**不是内缩**：实测 {hx2 - hx1:F2} vs 图标 {tx2 - tx1:F2}）");
                     }
                     // 收尾：把指针层的悬停态清掉（离开 ⇒ 收；批处理没有帧循环 ⇒ 手动结束淡出）
-                    if (layerS != null) layerS.HoverAt(5f, 5f);
+                    // 🆕 2026-10-20：同上面那处 `(5,5)` —— 设计 px → 指针帧。
+                    if (layerS != null) layerS.HoverAt(blankTipP.x, blankTipP.y);
                     Tooltip.FinishFade();
                     CheckTrue(!Tooltip.Visible, "指针挪到空白 ⇒ `Tooltip.Visible == false`");
                 }
@@ -2316,7 +2351,12 @@ public static class ShopScene
                         if (!RectOf(hn, out x1, out y1, out x2, out y2))
                         { CheckTrue(false, "…它的渲染矩形量得到"); continue; }
                         float hcx = (x1 + x2) * 0.5f, hcy = (y1 + y2) * 0.5f;
-                        var gotH = layerQ != null ? layerQ.ButtonAt(hcx, hcy) : null;
+                        // 🆕 2026-10-20（`A1350` 第二批 · `W58-FRAME-RS`）：`RectOf` 是**设计帧**
+                        //   ⇒ 喂指针前过唯一换算口。`owner` = **被量那颗命中区 quad 自己**
+                        //   （乘它父级那一级 `lossyScale`）。⚠️ 本窗 `extraScaleSmallScreen = 1.2`
+                        //   ⇒ 小屏开关一开，不换算就会点到别处（这正是本批要收的那条缺陷）。
+                        var gotHP = MenuCheck.PointerFramePxFromDesign(new Vector2(hcx, hcy), hq.transform);
+                        var gotH = layerQ != null ? layerQ.ButtonAt(gotHP.x, gotHP.y) : null;
                         CheckTrue(gotH == wbH,
                                   "…`PointerLayer.ButtonAt` 打在它的中心 ⇒ 命中的**就是它自己**"
                                   + "（实得 `" + (gotH != null ? gotH.name : "<null>") + "`）");
@@ -2330,7 +2370,10 @@ public static class ShopScene
                     //   ⚠️ 这个点上压着的商店页命中区最高 `ShopWindow.QCellInfoHit = 3031` ⇒ 正是要证明「压暗层在它之上」。
                     if (layerQ != null && darkHitN != null)
                     {
-                        var gotD = layerQ.ButtonAt(360f, 1010f);
+                        // 🆕 2026-10-20：`(360,1010)` 是**设计 px**（窗外的页坐标）⇒ 过唯一换算口
+                        //   （`owner` = 压暗层 `CloseHit`，乘它父级那一级 `lossyScale`）。
+                        var gotDP = MenuCheck.PointerFramePxFromDesign(new Vector2(360f, 1010f), darkHitN);
+                        var gotD = layerQ.ButtonAt(gotDP.x, gotDP.y);
                         CheckTrue(gotD != null && gotD == darkHitN.GetComponent<WindowButton>(),
                                   "点**窗外**（360,1010）打到的仍是压暗层 `CloseHit`"
                                   + "（原版 `BackgroundCloseButton` ⇒ 关窗）"
@@ -2469,10 +2512,13 @@ public static class ShopScene
                     float cx = 960f + wantX[i] * AncS;
                     CheckTrue(s != null, "第 " + (i + 1) + " 格 `CardInBoosterPack UI " + (i + 1) + "` 建了");
                     if (s == null) continue;
-                    CheckNear(PxOf(s.position.x), cx, 0.6f,
+                    // ⚠️ **本处必须是指针帧**（`PointerFramePx`，不除父链缩放）：期望值
+                    //   `960 + wantX × AncS` 里的 `0.87626` **就是** `Booster Animation Parent` 的缩放
+                    //   ⇒ 换 `DesignPx`（除父级缩放）会把这个 0.87626 除掉、和期望值差 12%（R8 那一档）。
+                    CheckNear(MenuCheck.PointerFramePx(s).x, cx, 0.6f,
                               "第 " + (i + 1) + " 格 x = **" + cx.ToString("F2") + "**（clip 末帧 x=" + wantX[i]
                               + " × 父级 scl 0.87626 + 960）");
-                    CheckNear(PxYOf(s.position.y), 540f, 0.6f, "第 " + (i + 1) + " 格 y = 540（容器中心）");
+                    CheckNear(MenuCheck.PointerFramePx(s).y, 540f, 0.6f, "第 " + (i + 1) + " 格 y = 540（容器中心）");
                 }
                 // 卡背**渲出来**的尺寸 = 2.17×3.14 卡单位 × `CardK` = 287.12 × 415.47
                 CheckRectPx(FindPath(t, "Booster Animation Parent/Cards/CardInBoosterPack UI 3/Content/Cardback Container/Cardback"),
@@ -4193,8 +4239,8 @@ public static class ShopScene
                 CheckNear(wrt.rect.width, LayoutSpace.Px(1128.55f), 0.05f,
                           "★ `window` 宽 = **1128.55px**（原版 `Base Offer Popup` 现读）");
                 CheckNear(wrt.rect.height, LayoutSpace.Px(663.296f), 0.05f, "★ `window` 高 = **663.296px**");
-                CheckNear(PxOf(bo.WindowNode.position.x), 960.00f, 0.05f, "★ `window` 中心 x = **960.00**（原版）");
-                CheckNear(PxYOf(bo.WindowNode.position.y), 520.00f, 0.05f, "★ `window` 中心 y = **520.00**（原版）");
+                CheckNear(MenuCheck.DesignPx(bo.WindowNode).x, 960.00f, 0.05f, "★ `window` 中心 x = **960.00**（原版）");
+                CheckNear(MenuCheck.DesignPx(bo.WindowNode).y, 520.00f, 0.05f, "★ `window` 中心 y = **520.00**（原版）");
             }
             // 右半边两段字：`Title` = 976.00,260.56→1492.72,312.56 · `Category` = 976.00,307.85→1492.72,352.85
             //  ⚠️ **量的是【渲出来】的字块**（`RectOf` 走 `Label.WorldW`）⇒ 比的是**左沿**（`AlignLeft` 把它钉在框左沿）
@@ -4301,7 +4347,7 @@ public static class ShopScene
                 CheckNear(brt.rect.width, LayoutSpace.Px(1426.11f), 0.05f,
                           "★ 大档 `window` 宽 = **1426.11px**（≠ 母版 1128.55 ⇒ 两档**可分辨**）");
                 CheckNear(brt.rect.height, LayoutSpace.Px(720.843f), 0.05f, "★ 大档 `window` 高 = **720.843px**");
-                CheckNear(PxOf(big.WindowNode.position.x), 960.00f, 0.05f, "★ 大档 `window` 中心 x = 960.00（两档同中心）");
+                CheckNear(MenuCheck.DesignPx(big.WindowNode).x, 960.00f, 0.05f, "★ 大档 `window` 中心 x = 960.00（两档同中心）");
             }
             // 🔴 与 ③ 的**另一态**：这一份是 `Artwork` **开**、`foreground` **关** —— 与 `Booster_CardOrAltArt` **正好相反**。
             { bool okArt = big.ArtworkNode != null && big.ArtFgNode != null;
@@ -4345,9 +4391,9 @@ public static class ShopScene
                                     - sit.DrawerNodes[7].localRotation.eulerAngles.z) > 1f,
                           "★ 反例：两个槽的旋转**不一样** ⇒ 上面两条不是「整窗一个角度」");
                 // 抽屉槽的矩形（画布 px · 左沿/上沿）—— 冻结原版字面量
-                CheckNear(PxOf(sit.DrawerNodes[0].position.x), (416.34f + 971.46f) * 0.5f, 0.6f,
+                CheckNear(MenuCheck.DesignPx(sit.DrawerNodes[0]).x, (416.34f + 971.46f) * 0.5f, 0.6f,
                           "★ 第 1 槽中心 x = **693.90**（原版 `416.34→971.46`）");
-                CheckNear(PxYOf(sit.DrawerNodes[0].position.y), (252.74f + 807.86f) * 0.5f, 0.6f,
+                CheckNear(MenuCheck.DesignPx(sit.DrawerNodes[0]).y, (252.74f + 807.86f) * 0.5f, 0.6f,
                           "★ 第 1 槽中心 y = **530.30**");
             }
             // 抽屉类名：**本表自带**（实读 prefab 的 `m_Script`）+ 与 `OfferContainer.SlotTypes` **互核**
@@ -5395,6 +5441,14 @@ public static class ShopScene
                     + "｜🧨 把键删掉、断言也一起删 ⇒ 这条红");
         }
 
+        // ---------------- 🆕 2026-10-20（`A1350` 第二批 · `W58-FRAME-RS`）：设计帧 → 指针帧换算口 ----------------
+        //   判据 / 恒等式 → `Shell/MenuDraw.cs` 的 `PointerFramePxFromDesign`（唯一实现；`MenuCheck` 侧一行转调）。
+        //   本宿主的调用点（`RectOf` 中心 · `(5,5)` / `(360,1010)` 设计字面量）已全部走它。
+        //   ⚠️ 本宿主那一族落在 `Booster Info Popup`（`extraScaleSmallScreen = 1.2`）⇒ 小屏开关一开，
+        //   不换算就会把设计 px 当指针 px 用（x 偏 0.2 × (设计 − 960)）。
+        Section("A1350 第二批：设计帧 → 指针帧（`PointerFramePxFromDesign`）两态探针");
+        CheckPointerFrameFromDesign("`PointerFramePxFromDesign`");
+
         Debug.Log(P + $"=== 合计：{_sink.Pass} 通过 / {_sink.Fail} 失败 ===");
         // 🔴 **2026-10-11（A350 · 调度台裁定）**：这一串是失败表的【重列】（`Check` 里已经逐条打过）
         //   ⇒ 行首标记统一成 `失败重列：`（原来写的是 `失败 N：` —— 同一件事四个宿主四种标记：
@@ -5403,6 +5457,107 @@ public static class ShopScene
         for (int i = 0; i < _sink.Failures.Count; i++)
             Debug.LogError(P + "   失败重列：" + (i + 1) + "/" + _sink.Failures.Count + ". " + _sink.Failures[i]);
         if (Application.isBatchMode) EditorApplication.Exit(_sink.Fail == 0 ? 0 : 1);
+    }
+
+    /// <summary>🆕 **2026-10-20（`A1350` 第二批 · `W58-FRAME-RS`）**：`MenuCheck.PointerFramePxFromDesign`
+    /// （**设计帧 → 指针帧**的唯一换算口，实现下沉在 `Shell/MenuDraw.cs`）的两态探针。
+    ///
+    /// <para>① **单位缩放**：新旧口**逐位相同** —— 新口 = `PointerFramePxFromDesign(DesignPx(t), t)`、
+    /// 旧口 = `PointerFramePx(t)`（两个口各自独立，⛔ 不回读被测的换算算式）。
+    /// ② **父链 ×2**：新口 = `C + (设计点 − C) × 2`（`C` = 画布中心 `(960,540)`）——
+    /// 期望值用**建夹具时给的四个字面量**独立算；并且 `ButtonAt` 在**新口**上命得中探针、
+    /// 在**未换算的设计点**上**命不中** ⇒ **结构上挡住「不乘 / 乘错基准」**。</para>
+    ///
+    /// <para>🔴 **灭自证**：`960 + (1300 − 960) × 2 = 1640` 是**夹具几何的字面量**，不是实现算出来的。
+    /// 把实现改回「原样返回设计点」（= 旧行为）⇒ 读到 1300（差 340px）、`ButtonAt(1300,420)` 也落到
+    /// 命中区 x∈[1440,1840] 之外 ⇒ 两条同时红。**把实现与断言一起改回旧写法 = 不可能同时绿**。</para>
+    ///
+    /// <para>⚠️ 父链带 2× 的节点必须落在**它自己父级的原点**（同 `CollectionScene` 同名探针的硬约束；
+    /// 判据 = `Shell/MenuDraw.cs` 的 `PosInDesignSpace` 适用范围）。</para></summary>
+    static void CheckPointerFrameFromDesign(string what)
+    {
+        const float X1 = 1200f, Y1 = 320f, X2 = 1400f, Y2 = 520f;          // 设计矩形（离画布中心 ≥1 设计单位）
+        const float Cx = (X1 + X2) * 0.5f, Cy = (Y1 + Y2) * 0.5f;          // 1300, 420
+        const float Kcx = LayoutSpace.DesignPxW * 0.5f;                      // 960（ToDesignPixel 的不动点）
+        const float Kcy = LayoutSpace.DesignPxH * 0.5f;                      // 540
+        var tex = CardArt.Solid();
+        CheckTrue(tex != null, $"（前提）{what}：纯色图取到了");
+        if (tex == null) return;
+
+        // ---------------- ① 单位缩放：新旧口逐位相同 ----------------
+        {
+            var host = new GameObject("A1350 PtrPort Unit Host");           // 世界原点 · 单位缩放
+            try
+            {
+                var node = MenuDraw.Node(host.transform, "A1350 PtrPort Unit Node", new PxRect(X1, Y1, X2, Y2));
+                CheckTrue(node != null, $"（前提）{what}：单位缩放探针节点建出来了");
+                if (node != null)
+                {
+                    var d = MenuCheck.DesignPx(node);
+                    var oldP = MenuCheck.PointerFramePx(node);
+                    var newP = MenuCheck.PointerFramePxFromDesign(d, node);
+                    CheckNear(d.x, Cx, 0.01f, $"（前提）{what}：单位缩放下设计点 x = {Cx}（实得 {d.x:F4}）");
+                    CheckNear(d.y, Cy, 0.01f, $"（前提）{what}：……设计点 y = {Cy}（实得 {d.y:F4}）");
+                    CheckTrue(newP.x == oldP.x && newP.y == oldP.y,
+                              $"★★ {what}：**单位缩放 ⇒ 换算口是恒等** —— 新旧口**逐位相同**"
+                            + $"（新 ({newP.x:F6},{newP.y:F6}) vs 旧 ({oldP.x:F6},{oldP.y:F6})）"
+                            + "｜🧨 若把「乘父链缩放」写成无条件乘：这里会差浮点尾数 ⇒ 红");
+                }
+            }
+            finally { Object.DestroyImmediate(host); }
+        }
+
+        // ---------------- ② 父链 ×2：新口 = C + (设计点 − C) × 2；ButtonAt 命中正确 ----------------
+        {
+            var host = new GameObject("A1350 PtrPort Probe Host");          // 世界原点 · 单位缩放（⛔ 见函数头）
+            var mid = new GameObject("A1350 PtrPort Probe Scaled");
+            mid.transform.SetParent(host.transform, false);                 // 局部位置进 0（被乘的那一级落在父级原点）
+            mid.transform.localScale = new Vector3(2f, 2f, 1f);
+            try
+            {
+                var q = MenuDraw.Rect(mid.transform, tex, new PxRect(X1, Y1, X2, Y2),
+                                      "A1350 PtrPort Quad", 4000);          // 队列压过真界面（保证命中路拿到它）
+                CheckTrue(q != null, $"（前提）{what}：父链 ×2 的探针 quad 建出来了");
+                if (q != null)
+                {
+                    q.gameObject.AddComponent<WindowButton>();              // 只为让 `PointerLayer.CollectHits` 收它
+                    CheckNear(q.transform.parent != null ? q.transform.parent.lossyScale.x : -1f, 2f, 1e-4f,
+                              $"（前提）{what}：**父链真的带 2×**（它是 1 的话下面全部恒等、等于没查）");
+                    var d = MenuCheck.DesignPx(q.transform);
+                    CheckNear(d.x, Cx, 0.01f, $"（前提）{what}：父链 ×2 下设计点仍是 {Cx}（实得 {d.x:F4}）");
+                    CheckNear(d.y, Cy, 0.01f, $"（前提）{what}：……设计点仍是 {Cy}（实得 {d.y:F4}）");
+
+                    var p = MenuCheck.PointerFramePxFromDesign(d, q.transform);
+                    float wantX = Kcx + (Cx - Kcx) * 2f;                    // 960 + 340×2 = 1640
+                    float wantY = Kcy + (Cy - Kcy) * 2f;                    // 540 + (420−540)×2 = 300
+                    CheckNear(p.x, wantX, 0.01f,
+                              $"★★ {what}：父链 ×2 ⇒ 新口 x = **画布中心 960 + (设计 1300 − 960) × 2 = {wantX}**"
+                            + $"（实得 {p.x:F4}）｜🧨 不乘（原样返回设计点）⇒ 得 1300 ⇒ 红");
+                    CheckNear(p.y, wantY, 0.01f,
+                              $"★★ {what}：……y = **540 + (420 − 540) × 2 = {wantY}**（实得 {p.y:F4}）");
+                    CheckNear(p.x, MenuCheck.PointerFramePx(q.transform).x, 0.01f,
+                              $"★★ {what}：新口 x 与独立的 `PointerFramePx(q)` **同帧**（两个口互证）");
+                    CheckNear(p.y, MenuCheck.PointerFramePx(q.transform).y, 0.01f,
+                              $"★★ {what}：……y 同帧");
+
+                    var pl = PointerLayer.Instance;
+                    CheckTrue(pl != null, $"（前提）{what}：`PointerLayer` 在（真命中路要它）");
+                    if (pl != null)
+                    {
+                        var hitNew = pl.ButtonAt(p.x, p.y);
+                        CheckTrue(hitNew != null && hitNew.transform == q.transform,
+                                  $"★★ {what}：**在【指针帧】的点上命得中探针 quad**"
+                                + "（拿到 " + (hitNew == null ? "**null**" : "`" + hitNew.name + "`") + "）"
+                                + "｜🧨 把新口改回「原样返回设计点」⇒ 这一点落到命中区外 ⇒ 红");
+                        var hitOld = pl.ButtonAt(d.x, d.y);
+                        CheckTrue(hitOld == null || hitOld.transform != q.transform,
+                                  $"★★ {what}：**未换算的设计点命不中它**（灭自证的另一半 —— 防「在哪儿都命中」）"
+                                + "（拿到 " + (hitOld == null ? "**null**" : "`" + hitOld.name + "`") + "）");
+                    }
+                }
+            }
+            finally { Object.DestroyImmediate(host); }
+        }
     }
 
     static void CheckByPrefix(Transform root, string prefix, int want, string msg)

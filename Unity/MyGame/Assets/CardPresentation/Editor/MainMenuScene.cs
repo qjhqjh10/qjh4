@@ -310,9 +310,33 @@ public static class MainMenuScene
     /// （`MenuDraw.PixelOfDesign(PosInDesignSpace(t))`）—— 计划 §五·3 点名的就是这一处：
     /// 16:9 + 父链单位缩放下差 ≤ 2.5e-4 px（`PxPerWorldX` 实得 107.99999；y 那一半两条口同式）；
     /// 父链带缩放 M / 非 16:9 才见真章（判据 → `资料/普查产出_1019/W57_自检线_A1350读口统一计划.md` §一·2）。
-    /// 宽高两条支**逐字不变**（字走 `SelfCheckTextMetrics.RenderedPx`、图走 `WorldW/H × 108`）。</para></summary>
+    /// 宽高两条支**逐字不变**（字走 `SelfCheckTextMetrics.RenderedPx`、图走 `WorldW/H × 108`）。</para>
+    /// <para>🆕 **2026-10-20（`A1350` 第二批 · 计划 §2·3「尺寸帧」）**：中心仍是设计帧（`NodeRectPx` 的 `Node` 档），
+    /// **尺寸来源**改成 `SelfCheckTextMetrics.RenderedRectDesign`（同一块 TMP 四角，但每个角先过设计空间）
+    /// —— 消掉「中心设计帧 + 尺寸世界帧」在父链带缩放 M 时分家的缺陷。单位缩放下与旧口逐位相同
+    /// （除 1，且 16:9 下斜率差 ≤ 2.5e-4 px）⇒ 今天读数不变；量不到（点阵后端 / 底下没有 TMP）⇒
+    /// **保留** `NodeRectPx` 的退路（`Label.WorldW/H × 108`，本来就是设计长度）。
+    /// ⚠️ 只动**尺寸来源**：中心不从 TMP 的 `textBounds` 重算（那是 `AlignLeft/Right` 挪节点后的口径，会动读数）。
+    /// ⚠️ **已知临时状态（本批白名单所限，非设计选择）**：本覆盖块与 `ShopScene` / `RewardsScene` / `CollectionScene`
+    /// 三份 `RectOf` 里的那块**逐字相同** —— 等 `MenuCheck.cs` 可写时提回去、四份即可各回一行转发。</para></summary>
     static bool RenderedRect(Transform t, out float x1, out float y1, out float x2, out float y2)
-        => MenuCheck.NodeRectPx(t, MenuCheck.RectCenterMode.Node, out x1, out y1, out x2, out y2);
+    {
+        if (!MenuCheck.NodeRectPx(t, MenuCheck.RectCenterMode.Node, out x1, out y1, out x2, out y2))
+            return false;
+        var lb = t.GetComponentInChildren<Label>();
+        if (lb != null)
+        {
+            float dx1, dy1, dx2, dy2;
+            if (SelfCheckTextMetrics.RenderedRectDesign(lb.transform, out dx1, out dy1, out dx2, out dy2))
+            {
+                float cx = (x1 + x2) * 0.5f, cy = (y1 + y2) * 0.5f;
+                float w = dx2 - dx1, h = dy2 - dy1;
+                x1 = cx - w * 0.5f; x2 = cx + w * 0.5f;
+                y1 = cy - h * 0.5f; y2 = cy + h * 0.5f;
+            }
+        }
+        return true;
+    }
 
     /// <summary>🆕 **2026-10-13（A490/A617）**：量一段文字**TMP 自己渲出来那块**的像素矩形
     /// （1920×1080 · 左上原点）—— **这一份才是「字真的从哪开始画」**。
@@ -430,7 +454,7 @@ public static class MainMenuScene
         float k = tmp.transform.lossyScale.y;           // 位移加在子节点上；缩放全在父链上
         float inkWorldY = tmp.transform.position.y + (lo + hi) * 0.5f * k;
         // 取两点之差 ⇒ 与 `PxY` 的 540 那个原点无关（符号：**向上为正**）
-        return LayoutSpace.PxY(lb.transform.position.y) - LayoutSpace.PxY(inkWorldY);
+        return LayoutSpace.PxY(lb.transform.position.y) - LayoutSpace.PxY(inkWorldY);   // 甲式保留：W57 §1·4 第 4 条 —— 字形顶点量法（`characterInfo` 字形四边形），量的是画出来的墨迹相对节点，父链缩放必须留着
     }
 
     /// <summary>🆕 **2026-10-15（A712）**：原版 `Middle` 档下「**大写墨盒中心**」相对**框心**的位置
@@ -1128,19 +1152,24 @@ public static class MainMenuScene
         // 改坏法：`QBar*` 改回 3600 段 ⇒ **第 3 条红**（吃到的是齿轮、窗也关不掉）；
         //   把顶栏那一带整个删掉 ⇒ **第 1 条红**（`ButtonAt` 返回 null）；把压暗层的「点窗外关窗」摘掉 ⇒ **第 3 条红**。
         {
-            const float gearX = 1847.0f, gearY = 35.5f;   // = 齿轮那一格的中心（1803.1..1890.9 × 4.6..66.4，正本 §五 B）
+            const float gearX = 1847.0f, gearY = 35.5f;   // = 齿轮那一格的中心（1803.1..1890.9 × 4.6..66.4，正本 §五 B）—— **设计帧**
             var pl = PointerLayer.Instance;
             var gearHit = FindChild(FindChild(bar, "SettingsBtn"), "Image");
             CheckTrue(pl != null && gearHit != null, "★ 两态探针的前置：指针层在、顶栏齿轮那颗在（否则下面几条等于没查）");
             if (pl != null && gearHit != null)
             {
+                // 🆕 2026-10-20（`A1350` 第三批 · `W58-FRAME-MM`）：`gearX/gearY` 是**设计帧**字面量
+                //   （原版 `GearBox` 现算），而 `ButtonAt/ClickAt` 吃**指针帧** ⇒ 先过唯一换算口。
+                //   `owner` = 齿轮那颗 `Image`（设计矩形就是从它量的；乘的是它**父级**那一级 `lossyScale`）。
+                //   单位缩放下逐位返回入参 ⇒ 今天读数一字不变。
+                var gearP = MenuCheck.PointerFramePxFromDesign(new Vector2(gearX, gearY), gearHit);
                 // ---- 态①：**没有弹窗** ⇒ 顶栏按钮照常吃得到（少了这条，把顶栏整个废掉也能绿）----
-                var none = pl.ButtonAt(gearX, gearY);
+                var none = pl.ButtonAt(gearP.x, gearP.y);
                 CheckTrue(none != null && none.gameObject == gearHit.gameObject,
                           "★ 态①（**没有弹窗**）：顶栏那一点吃到的仍是**齿轮那颗按钮**"
                           + "（实得 " + (none == null ? "<null>" : "`" + none.name + "`") + "）");
                 // 用**真路径**（命中 → 派发）进态② —— 上面那一组走的是直调 `wb.onClick()`，这里是另一条路
-                CheckTrue(pl.ClickAt(gearX, gearY), "★ …而且这一下走得通（`PointerLayer.ClickAt` ⇒ 命中 ⇒ 派发 `onClick`）");
+                CheckTrue(pl.ClickAt(gearP.x, gearP.y), "★ …而且这一下走得通（`PointerLayer.ClickAt` ⇒ 命中 ⇒ 派发 `onClick`）");
                 var sw = SettingsWindow.Instance;
                 CheckTrue(sw != null && sw.CurrentState == WindowState.Open,
                           "★ 态②的前置：那一下**真的开出了一扇窗**（`SettingsWindow`）");
@@ -1149,12 +1178,12 @@ public static class MainMenuScene
                     var shade = sw.ShadeHit;                        // 本窗的压暗层命中区（`MenuDraw.ShadeHit` 建的）
                     var shadeBtn = shade != null ? shade.GetComponent<WindowButton>() : null;
                     CheckTrue(shadeBtn != null, "★ …那扇窗有**压暗层命中区**（`BackgroundHit` = 「点窗外关窗」）");
-                    var over = pl.ButtonAt(gearX, gearY);
+                    var over = pl.ButtonAt(gearP.x, gearP.y);
                     CheckTrue(over != null && shade != null && over.gameObject == shade.gameObject,
                               "★ 态②（**弹窗开着**）：**同一个点**吃到的**不再是顶栏齿轮**，而是那扇窗的**压暗层命中区**"
                               + "（实得 " + (over == null ? "<null>" : "`" + over.name + "`") + "）"
                               + " —— 这就是原版「弹窗在顶栏之上」（原版的渲染序 = 射线序，拆不开）");
-                    CheckTrue(pl.ClickAt(gearX, gearY), "★ …而且点得动（真路径 `PointerLayer.ClickAt`）");
+                    CheckTrue(pl.ClickAt(gearP.x, gearP.y), "★ …而且点得动（真路径 `PointerLayer.ClickAt`）");
                     CheckTrue(sw.CurrentState == WindowState.Closed,
                               "★ 点在顶栏那一带 ⇒ **窗关了**（原版：那一点上就是本窗的「点窗外关窗」）");
                     // 收尾（幂等）：真的关掉了这句什么都不做 —— 万一上面那条红，别让它把后面几节一起带红
@@ -1254,9 +1283,17 @@ public static class MainMenuScene
                 };
                 for (int i = 0; i < probes.Length; i++)
                 {
-                    var p = probes[i]; var got = plA.ButtonAt(p.X, p.Y);
+                    var p = probes[i];
+                    // 🆕 2026-10-20（`A1350` 第三批 · `W58-FRAME-MM`）：探针坐标是**设计帧**（原版布局框 + pad 现算），
+                    //   而 `ButtonAt` 吃**指针帧** ⇒ 先过唯一换算口。`owner` = 这一点所属那颗钮的命中 quad
+                    //   （设计矩形就是从它量的；乘的是它**父级**那一级 `lossyScale`）—— 齿轮探针 → `qGear`、信封 → `qInbox`。
+                    //   单位缩放下逐位返回入参 ⇒ 今天读数一字不变。
+                    var probeOwner = p.B == bI ? qInbox : qGear;
+                    var probeP = MenuCheck.PointerFramePxFromDesign(new Vector2(p.X, p.Y), probeOwner);
+                    var got = plA.ButtonAt(probeP.x, probeP.y);
                     CheckTrue(p.Want ? got == p.B : got != p.B,
-                              "★ A1814②：" + p.Why + $"（点 ({p.X}, {p.Y})；实得 " + (got == null ? "<空点>" : "`" + got.name + "`") + "）");
+                              "★ A1814②：" + p.Why + $"（点 设计 ({p.X}, {p.Y}) → 指针 ({probeP.x:F2}, {probeP.y:F2})；实得 "
+                            + (got == null ? "<空点>" : "`" + got.name + "`") + "）");
                 }
             }
         }
@@ -1686,6 +1723,7 @@ public static class MainMenuScene
                 CheckUnionReadTwoState(a1346Host.transform, 1.07f,
                                        "`A1346` 探针九宫格根（`MenuDraw.Nine` 建）");
                 CheckQuadPxRectUnderScaledParent("`A1350` `QuadPxRect`（父链 ×2 的探针 quad）");
+                CheckDesignPxUnderScaledParent("`A1350` `DesignPx`（父链 ×2 的探针节点）");
             }
             finally { Object.DestroyImmediate(a1346Host); }
         }
@@ -2194,6 +2232,13 @@ public static class MainMenuScene
             // 战斗入口这条路要开窗 ⇒ 这里补一个宿主（`EnsureHost` 会连**指针层**一起建好）
             WindowsManager.EnsureHost(menu.transform);
 
+            // ============================================================ ★ A1350 第三批（W58-FRAME-MM）
+            // **设计帧 → 指针帧**：本宿主那批「设计点直接喂 `PointerLayer`」站点已全部换口
+            // （`MenuCheck.PointerFramePxFromDesign`，唯一实现 = `Shell/MenuDraw.cs:114`）。
+            // 这里验换算口本身：单位缩放逐位不变 · 父链 ×2 的值 + 真命中 · 灭自证。
+            Section("★ A1350 第三批：设计帧 → 指针帧（`PointerFramePxFromDesign`）两态探针");
+            CheckPointerFrameFromDesign("`PointerFramePxFromDesign`");
+
             // ============================================================ ★ N117（2026-10-19 · 用户拍板「方案 C」）
             // **左竖导航命中区 vs 模态窗压暗层** —— 按**窗类型**分：
             //   · 模态窗（`GameWindow.BlocksLeftNav` = 原版 prefab 的 `type==Popup` **或** `windowsPlacement==Popup`）
@@ -2212,12 +2257,16 @@ public static class MainMenuScene
                 CheckTrue(wmN != null, "（前提·不静默）`WindowsManager` 在 —— 不在 ⇒ 下面整段空转");
                 var navHome = NavHitButton(menu, "Home");
                 CheckTrue(navHome != null, "（前提）`Home` 那颗导航钮的命中区在");
-                const float navX = 82.69f, navY = 228.25f;   // Home 那颗按钮的中心（矩形 y 143.4..313.1）
+                const float navX = 82.69f, navY = 228.25f;   // Home 那颗按钮的中心（矩形 y 143.4..313.1）—— **设计帧**
+                // 🆕 2026-10-20（`A1350` 第三批 · `W58-FRAME-MM`）：上面是**设计帧**字面量，而 `ButtonAt` 吃**指针帧**
+                //   ⇒ 先过唯一换算口。`owner` = 这颗导航钮自己的 `Hit` 节点（设计矩形所属那颗；乘的是它**父级**那一级
+                //   `lossyScale`）。单位缩放下逐位返回入参 ⇒ 今天读数一字不变。
+                var navP = MenuCheck.PointerFramePxFromDesign(new Vector2(navX, navY), navHome != null ? navHome.transform : null);
 
                 // ---- ① 基线：常驻主菜单（原版 `type=0 Fullscreen` / `windowsPlacement=0 None`）⇒ 非模态 ----
                 Check(menu.NavHitQueueForTest, MainMenuRuntime.QNavHitForTest,
                       "① 主菜单在最上面 ⇒ 左栏命中区 = `QNavHit`（可点）");
-                CheckTrue(PointerLayer.Instance.ButtonAt(navX, navY) == navHome,
+                CheckTrue(PointerLayer.Instance.ButtonAt(navP.x, navP.y) == navHome,
                           "① 行为：这一点命中的**就是导航钮**");
 
                 // ---- ② 模态：卡片详情窗（原版 `type=1 Popup` / `windowsPlacement=15`）----
@@ -2245,7 +2294,7 @@ public static class MainMenuScene
                           && MainMenuRuntime.QNavHitForTest > cdShade.RenderQueue,
                           "★ ② 这一档**严格低于**详情窗的压暗层命中区"
                           + "（同时证明旧的 `QNavHit` 是**高于**它的 —— 这正是 N117 的根因）");
-                var hitOnShade = PointerLayer.Instance.ButtonAt(navX, navY);
+                var hitOnShade = PointerLayer.Instance.ButtonAt(navP.x, navP.y);
                 CheckTrue(hitOnShade != navHome,
                           "★ ② 行为：同一点**不再命中导航钮**（原版：这一下落在弹窗的 `Menu Dark Background` 上）");
                 CheckTrue(cdN != null && hitOnShade != null && MenuDraw.WasShadeHit(hitOnShade.transform)
@@ -2254,7 +2303,7 @@ public static class MainMenuScene
                 if (cdN != null) cdN.Close();
                 Check(menu.NavHitQueueForTest, MainMenuRuntime.QNavHitForTest,
                       "② 关掉模态窗 ⇒ 左栏命中区回到 `QNavHit`");
-                CheckTrue(PointerLayer.Instance.ButtonAt(navX, navY) == navHome,
+                CheckTrue(PointerLayer.Instance.ButtonAt(navP.x, navP.y) == navHome,
                           "② 行为：导航钮又吃得到这一下");
 
                 // ---- ③ 非模态：开一扇只声明 `Fullscreen/World` 的窗（走生产同一条 `OpenWindow` 路）----
@@ -2265,7 +2314,7 @@ public static class MainMenuScene
                 wmN.OpenWindow(plain);
                 Check(menu.NavHitQueueForTest, MainMenuRuntime.QNavHitForTest,
                       "★ ③ 非模态窗开着 ⇒ 左栏命中区**仍是 `QNavHit`**（2026-10-18 的修复不回退）");
-                CheckTrue(PointerLayer.Instance.ButtonAt(navX, navY) == navHome,
+                CheckTrue(PointerLayer.Instance.ButtonAt(navP.x, navP.y) == navHome,
                           "★ ③ 行为：非模态窗开着时点左栏**仍然命中导航钮**");
                 CheckTrue(!plain.BlocksLeftNav, "④ 对照：`Fullscreen/World` ⇒ 非模态（在它被销毁**之前**读）");
                 plain.Close();
@@ -2884,9 +2933,9 @@ public static class MainMenuScene
                         CheckTrue(nm0 != null, "（前提）`Deck Name` 在");
                         if (nm0 != null)
                         {
-                            CheckNear(LayoutSpace.PxX(nm0.position.x), 270.08f + 88f, 1.0f,
+                            CheckNear(MenuCheck.DesignPx(nm0).x, 270.08f + 88f, 1.0f,
                                       "★ 名字条**横向中心** = 格左 + (2+174)/2 = 88（宽 172 —— 原版锚点算出来的）");
-                            CheckNear(LayoutSpace.PxY(nm0.position.y), 262.64f + 153.9f, 1.0f,
+                            CheckNear(MenuCheck.DesignPx(nm0).y, 262.64f + 153.9f, 1.0f,
                                       "★ 名字条**纵向中心** = 格上 + (138.60+169.20)/2 = 153.90 ⇒ **在格的底部**"
                                       + "（我们原来是「格的顶 38px」= 格上 + 19 —— 改回顶条这条立刻红）");
                             var tmp0 = nm0.GetComponentInChildren<TMPro.TextMeshPro>();
@@ -3148,7 +3197,7 @@ public static class MainMenuScene
                         CheckTrue(row0Name != null, "（前提）`DeckRow_0` 的 `Deck Name` 在（滚 140 之后它仍与视口相交）");
                         if (row0Name != null)
                         {
-                            float nc = LayoutSpace.PxY(row0Name.position.y);
+                            float nc = MenuCheck.DesignPx(row0Name).y;
                             CheckNear(nc, 262.64f + 153.9f - 140f, 1.0f,
                                       "★ 名字条的纵向中心滚到 = 视口上沿 + (138.60+169.20)/2 − 140 = **276.54**"
                                       + "（⇒ 落在渐隐带 262.64..285.64 **里面** —— 下面那条才有鉴别力）");
@@ -3736,9 +3785,9 @@ public static class MainMenuScene
                         {
                             var c0 = ds.Cells[0];
                             // 世界坐标 → 画布 px（同 `CollectionScene` 的 `PxOf/PxYOf`；本文件没有那两个助手）
-                            CheckNear(c0.position.x * 108f + 960f, 364.5f, 0.7f,
+                            CheckNear(MenuCheck.DesignPx(c0).x, 364.5f, 0.7f,
                                       "第 1 格中心 x = **364.5**（194.50 + pad 57.5 + 225/2）");
-                            CheckNear(540f - c0.position.y * 108f, 390.88f, 0.7f,
+                            CheckNear(MenuCheck.DesignPx(c0).y, 390.88f, 0.7f,
                                       "第 1 格中心 y = **390.88**（208.63 + 364.5/2）");
                         }
                         // 抽一套（原版 `RandomizeDeck`：从当前列表随机挑 ⇒ **选中并关窗**）
@@ -3860,7 +3909,14 @@ public static class MainMenuScene
                             //   改坏法：`QBar*` 改回 3600 段 ⇒ 这里立刻返回顶栏那颗齿轮 ⇒ 两条都红。
                             {
                                 var plDs = PointerLayer.Instance;
-                                var hitDs = plDs != null ? plDs.ButtonAt(1847.0f, 35.5f) : null;
+                                // 🆕 2026-10-20（`A1350` 第三批 · `W58-FRAME-MM`）：(1847,35.5) 是**设计帧**
+                                //   （顶栏齿轮中心，原版 `GearBox`）⇒ 喂指针前换到指针帧。`owner` = 齿轮那颗 `Image`
+                                //   （设计矩形所属那颗；取不到时退 `bar` —— 两者父级那一级缩放相同）。
+                                //   单位缩放下逐位返回入参 ⇒ 今天读数一字不变。
+                                var gearQuadDs = FindChild(FindChild(bar, "SettingsBtn"), "Image");
+                                var gearDsP = MenuCheck.PointerFramePxFromDesign(new Vector2(1847.0f, 35.5f),
+                                                    gearQuadDs != null ? gearQuadDs : bar);
+                                var hitDs = plDs != null ? plDs.ButtonAt(gearDsP.x, gearDsP.y) : null;
                                 CheckTrue(hitDs != null && hitDs.transform.IsChildOf(ds2.transform),
                                           "★ 顶栏那一点（齿轮中心 1847,35.5）**吃到的在选卡组弹窗这棵树里**"
                                           + "（实得 " + (hitDs == null ? "<null>（这一点上没有任何命中区）"
@@ -4070,8 +4126,10 @@ public static class MainMenuScene
                                 CheckNear(c0.lossyScale.x, 1f, 1e-3f,
                                           "（前提）那一格的父链是**单位缩放** —— 下面那条「世界坐标差 × 108 = 画布 px」靠它成立");
                                 // 世界坐标 → 画布 px（同 `CollectionScene` 的 `PxOf/PxYOf`）
-                                float fx = facI.position.x * 108f + 960f, fy = 540f - facI.position.y * 108f;
-                                float cx0 = c0.position.x * 108f + 960f, cy0 = 540f - c0.position.y * 108f;
+                                var facP = MenuCheck.DesignPx(facI);
+                                float fx = facP.x, fy = facP.y;
+                                var c0P = MenuCheck.DesignPx(c0);
+                                float cx0 = c0P.x, cy0 = c0P.y;
                                 // ---- 原版字面量（⛔ 一处都不从实现那一侧读）----
                                 const float OA_FacX = -10.5f, OA_FacY = 273.7f;      // 格作者系 250×405
                                 const float OA_FacW = 84.5f, OA_FacH = 85.7f;
@@ -4563,7 +4621,7 @@ public static class MainMenuScene
                               "第 3 格命中区的**渲染矩形**量得到（下面六条全靠它）");
                     // （前提）下面那两条**竖位**的期望值是按「第 3 格顶边 = 659.51、滚动偏移 0」算的 ——
                     //   先把那个前提单独钉住（节点位置一挪，下面两条就变成「断的是别处」）。
-                    CheckNear(c3 != null ? LayoutSpace.PxY(c3.position.y) : float.NaN, 759.51f, 0.6f,
+                    CheckNear(c3 != null ? MenuCheck.DesignPx(c3).y : float.NaN, 759.51f, 0.6f,
                               "（前提）第 3 格（`StageCells[2]`）的中心 y = 格顶 659.51 + 半格 100 = **759.51**"
                               + "（= `Army Selector` 顶 244.89 + 2×(200 + 7.31)，滚动偏移 0）");
                     CheckNear(ty1, 654.60f, 0.6f, "★ 第 3 格命中区上沿 = 原版并集的上沿 **654.60**"
@@ -4953,10 +5011,10 @@ public static class MainMenuScene
                             float leftWorld = LayoutSpace.FromPixel(nx1, 0f).x;
                             float wantLeft = MainMenuRuntime.Center(654.16f, 654.16f, 0f, 0f).x;
                             CheckTrue(Mathf.Abs(leftWorld - wantLeft) < 0.02f,
-                                      $"`Select Item` **左对齐**到 x=654.16（原版 `m_HorizontalAlignment=Left`；实得 {LayoutSpace.PxX(leftWorld):F2}px）");
+                                      $"`Select Item` **左对齐**到 x=654.16（原版 `m_HorizontalAlignment=Left`；实得 {LayoutSpace.PxX(leftWorld):F2}px）");   // 甲式保留：W57 §1·3 世界帧 —— 上面那句断言刻意在**世界单位**下比（`FromPixel` + 0.02 世界单位），日志必须打印同一帧的值
                             float wantCy = MainMenuRuntime.Center(0f, 0f, 147.51f, 210.70f).y;
                             CheckTrue(Mathf.Abs(ttl.position.y - wantCy) < 0.02f,
-                                      $"`Select Item` 垂直居中在 y 147.51..210.70（实得 {(540f - ttl.position.y * 108f):F2}px）");
+                                      $"`Select Item` 垂直居中在 y 147.51..210.70（实得 {(540f - ttl.position.y * 108f):F2}px）");   // 甲式保留：W57 §1·3 世界帧 —— 上面那句断言比的是 `ttl.position.y`（世界单位），日志必须打印同一帧的值
                         }
                         // 🔴 **2026-10-18（`W18` §二）就地改期望值**：`TitleTab` 上屏那句已从写死英文 `TtlLabel`
                         //   改成 `Loc.T(TtlLabelTerm)` —— 键 = **`PlayerProfile/SelectTitleTip`**（原版那颗 `Localize.mTerm`，
@@ -5041,14 +5099,18 @@ public static class MainMenuScene
                             var pl = PointerLayer.Instance;
                             float y0t = grid != null && grid.childCount > 0 ? grid.GetChild(0).position.y : 0f;
                             int n0t = grid != null ? grid.childCount : 0;
-                            bool hit = pl != null && pl.WheelAt(1167f, 533f, -120f);
+                            // 🆕 2026-10-20（`A1350` 第三批 · `W58-FRAME-MM`）：(1167,533) 是**设计帧**视口中心
+                            //   （`654.16..1680.12 × 210.69..855.46`）⇒ 喂指针前换到指针帧。
+                            //   `owner` = `scr`（`Scroll Rect` 视口节点 —— `ScrollScale` 也是从它父级取缩放）。
+                            var tWheelP = MenuCheck.PointerFramePxFromDesign(new Vector2(1167f, 533f), scr);
+                            bool hit = pl != null && pl.WheelAt(tWheelP.x, tWheelP.y, -120f);
                             float y1t = grid != null && grid.childCount > 0 ? grid.GetChild(0).position.y : 0f;
                             CheckTrue(hit, "滚轮落在称号网格上（`PointerLayer.WheelAt`）");
                             CheckTrue(y1t > y0t + 0.01f,
                                       $"滚一格 ⇒ **内容真的往上走了**（world y {y0t:F3} → {y1t:F3} = {(y1t - y0t) * 108f:F1}px）");
                             CheckTrue(grid != null && grid.childCount == n0t,
                                       $"滚动重建之后格子数不变（{n0t}）—— 重建是**先清再建**（不清会越滚越多）");
-                            if (pl != null) pl.WheelAt(1167f, 533f, 120f);   // 滚回去，后面的断言要确定性
+                            if (pl != null) pl.WheelAt(tWheelP.x, tWheelP.y, 120f);   // 滚回去，后面的断言要确定性
                         }
                     }
 
@@ -5144,7 +5206,10 @@ public static class MainMenuScene
                             float y0a = cell0 != null ? cell0.position.y : 0f;
                             float iy0 = img0 != null ? img0.position.y : 0f;
                             int n0a = grid2 != null ? grid2.childCount : 0;
-                            bool hit = pl != null && pl.WheelAt(1167f, 533f, -120f);
+                            // 🆕 2026-10-20（`A1350` 第三批 · `W58-FRAME-MM`）：同上，视口中心 (1167,533) 是**设计帧**
+                            //   ⇒ 先换到指针帧。`owner` = `scr2`（`Scroll Rect` 视口节点，与 Title 页同一档）。
+                            var aWheelP = MenuCheck.PointerFramePxFromDesign(new Vector2(1167f, 533f), scr2);
+                            bool hit = pl != null && pl.WheelAt(aWheelP.x, aWheelP.y, -120f);
                             cell0 = grid2 != null && grid2.childCount > 0 ? grid2.GetChild(0) : null;
                             img0 = cell0 != null ? FindChild(cell0, "Image") : null;
                             float y1a = cell0 != null ? cell0.position.y : 0f;
@@ -5157,7 +5222,7 @@ public static class MainMenuScene
                             CheckTrue(iy1 > iy0 + 0.01f,
                                       $"格子里那一层**跟着格子一起走**（world y {iy0:F3} → {iy1:F3}）"
                                       + " —— 原来子件用的是**未偏移**坐标（底板走了、图与字留在原地）");
-                            if (pl != null) pl.WheelAt(1167f, 533f, 120f);   // 滚回去
+                            if (pl != null) pl.WheelAt(aWheelP.x, aWheelP.y, 120f);   // 滚回去
                         }
 
                         // 🆕 **滚动区登记表不许「只增不减」/ 死条目不许还能被滚到**（2026-09-27 修的那颗雷）。
@@ -5475,7 +5540,7 @@ public static class MainMenuScene
                             float bY2 = 0f;
                             {
                                 var br = eb != null ? eb.GetComponentInChildren<ImageQuad>() : null;
-                                if (br != null) bY2 = LayoutSpace.PxY(eb.position.y) + br.WorldH * 108f * 0.5f;
+                                if (br != null) bY2 = MenuCheck.DesignPx(eb).y + br.WorldH * 108f * 0.5f;
                             }
                             CheckTrue(eb != null && bY2 > 0f && bY2 <= 162.84f,
                                       $"入口按钮**下沿在列表之上**（下沿 {bY2:F2} ≤ 162.84，不压第一行）");
@@ -5676,7 +5741,7 @@ public static class MainMenuScene
                                     {
                                         if (rt.name != "Match Log") continue;
                                         fn++;
-                                        float cy = LayoutSpace.PxY(rt.position.y);
+                                        float cy = MenuCheck.DesignPx(rt).y;
                                         float y1 = cy - OrigMatchRowH * 0.5f, y2 = cy + OrigMatchRowH * 0.5f;
                                         fmin = Mathf.Min(fmin, y1);
                                         if (y2 <= FTop + 0.01f || y1 >= FBot - 0.01f) fout++;
@@ -5745,7 +5810,7 @@ public static class MainMenuScene
                                     foreach (var rt in bltC.GetComponentsInChildren<Transform>(true))
                                     {
                                         if (rt.name != "Match Log") continue;
-                                        float cy = LayoutSpace.PxY(rt.position.y);
+                                        float cy = MenuCheck.DesignPx(rt).y;
                                         if (cy - OrigMatchRowH * 0.5f >= BltVpBot) continue;   // 整行在视口之下 ⇒ 不可能是压边行
                                         // 维护「最低的两颗」：edge = 最低那颗（压边行）、ref = 次低那颗（整颗在视口内的参照行）
                                         if (cy > bltEdCy) { bltRfCy = bltEdCy; bltRf = bltEd; bltEdCy = cy; bltEd = rt; }
@@ -6213,7 +6278,11 @@ public static class MainMenuScene
                             var pl5 = PointerLayer.Instance;
                             var r0 = FindChild(cont5, "FactionScoreSmall");
                             float y0r = r0 != null ? r0.position.y : 0f;
-                            if (pl5 != null) pl5.WheelAt(1526f, 576f, -120f);
+                            // 🆕 2026-10-20（`A1350` 第三批 · `W58-FRAME-MM`）：(1526,576) 是**设计帧**视口中心
+                            //   （`1305.29..1746.97 × 288.62..864.38`）⇒ 先换到指针帧。
+                            //   `owner` = `vp5`（`viewport` 节点；滚动区视口就是它自己的矩形）。
+                            var rkWheelP = MenuCheck.PointerFramePxFromDesign(new Vector2(1526f, 576f), vp5);
+                            if (pl5 != null) pl5.WheelAt(rkWheelP.x, rkWheelP.y, -120f);
                             var r0b = FindChild(cont5, "FactionScoreSmall");
                             float y1r = r0b != null ? r0b.position.y : 0f;
                             CheckTrue(Mathf.Abs(y1r - y0r) < 0.001f,
@@ -6340,7 +6409,7 @@ public static class MainMenuScene
                 {
                     // 世界坐标 → 画布 px（本文件没有 `PxOf` 那种助手，照 `Deck Scroll View` 那条的写法）
                     var pb = FindChild(sk.transform, "Previous Deck Button");
-                    float leftPx = pb != null ? pb.position.x * 108f + 960f - SkirmishEventWindow.DbBtnW * 0.5f : 0f;
+                    float leftPx = pb != null ? MenuCheck.DesignPx(pb).x - SkirmishEventWindow.DbBtnW * 0.5f : 0f;
                     CheckNear(leftPx, 631.26f, 0.6f,
                               "第 1 颗钮的左边界 = **631.26** = 栏中心 953.00 − 4×160.87/2（照原版 HLG 算）");
                 }
@@ -6479,8 +6548,8 @@ public static class MainMenuScene
                         CheckTrue(got, "（前提）`Army Icon` 底下量得到 `ImageQuad`（量不到 ⇒ 下面那条等于没查）");
                         if (got)
                         {
-                            float dcx = (ix1 + ix2) * 0.5f - LayoutSpace.PxX(cell0.position.x);
-                            float dcy = (iy1 + iy2) * 0.5f - LayoutSpace.PxY(cell0.position.y);
+                            float dcx = (ix1 + ix2) * 0.5f - MenuCheck.DesignPx(cell0).x;
+                            float dcy = (iy1 + iy2) * 0.5f - MenuCheck.DesignPx(cell0).y;
                             CheckTrue(Mathf.Abs(dcx + 0.34f) < 0.8f && Mathf.Abs(dcy + 2.82f) < 0.8f,
                                       "`Army Icon` 的中心（**宿主 + 全部 `_soft` 子块的并集**）= 格心 + (−0.34, −2.82)"
                                     + "（原版 8.68,6.20→158.64,156.16）—— 实测 "
@@ -7004,7 +7073,13 @@ public static class MainMenuScene
                     {
                         var tgHit = FindChild(tg0, "Hit");
                         var tgWb = tgHit != null ? tgHit.GetComponent<WindowButton>() : null;
-                        var tgQ = tgHit != null ? tgHit.GetComponent<ImageQuad>() : null;
+                        // 🔴 **2026-10-20（W58-UIFIX-B · 铁律 5 就地订正）**：原来这里是
+                        //   `tgHit.GetComponent<ImageQuad>()` —— **取错访问器**，恒 null。
+                        //   `MenuDraw.Hit` 把命中 quad 建在 **`Hit` 的子节点**上（`MenuDraw.MakeHitQuad`
+                        //   → `ImageQuad.Create(node, …)`），生产命中口也是 `GetComponentInChildren`
+                        //   （`Shell/PointerLayer.cs` 的 `HitQuad`）⇒ 读口一律走 **`HitQuadForTest`**
+                        //   （严格转发那一份实现，⛔ 别在本文件重算）。
+                        var tgQ = PointerLayer.HitQuadForTest(tgWb);
                         CheckTrue(tgQ != null, "★ T16：（前提）`ChangeRankedToggle/Hit` 有一颗**带 `ImageQuad`** 的命中节点"
                                              + "（`PointerLayer.HitQuad` 只认子树里第一颗 `ImageQuad`）");
                         if (tgQ != null && QuadPxRect(tgQ, out float hx1, out float hy1, out float hx2, out float hy2))
@@ -7021,16 +7096,24 @@ public static class MainMenuScene
                             if (plT16 != null && tgWb != null)
                             {
                                 float cyT16 = (hy1 + hy2) * 0.5f;
-                                CheckTrue(plT16.ButtonAt(100f, cyT16) == tgWb,
+                                // 🆕 2026-10-20（`A1350` 第三批 · `W58-FRAME-MM`）：`hx1/hx2/cyT16` 与那两个字面量
+                                //   全是**设计帧**（`QuadPxRect(tgQ)` 那条读口）⇒ 喂指针前逐点换到指针帧。
+                                //   `owner` = `tgQ`（命中区那颗 quad —— 设计矩形就是从它量的）。
+                                //   单位缩放下逐位返回入参 ⇒ 今天读数一字不变。
+                                Vector2 P16(float x, float y)
+                                    => MenuCheck.PointerFramePxFromDesign(new Vector2(x, y), tgQ.transform);
+                                var p100 = P16(100f, cyT16); var p600 = P16(600f, cyT16);
+                                var pL0 = P16(hx1 - 1f, cyT16); var pR0 = P16(hx2 + 1f, cyT16); var pL1 = P16(hx1 + 1f, cyT16);
+                                CheckTrue(plT16.ButtonAt(p100.x, p100.y) == tgWb,
                                           "★ T16：点 `UnrankedText` 那一带（x=100，旧口径**命中区外**）⇒ 吃到的是这颗 toggle"
                                         + "｜🧨 改坏法：命中区只传底图 ⇒ `null`（或别的钮）⇒ 红");
-                                CheckTrue(plT16.ButtonAt(600f, cyT16) == tgWb,
+                                CheckTrue(plT16.ButtonAt(p600.x, p600.y) == tgWb,
                                           "★ T16：点 `RankedText` 那一带（x=600，旧口径**命中区外**）⇒ 同样是这颗 toggle");
-                                CheckTrue(plT16.ButtonAt(hx1 - 1f, cyT16) != tgWb,
+                                CheckTrue(plT16.ButtonAt(pL0.x, pL0.y) != tgWb,
                                           "★ T16：并集左沿**外 1 px**（x=11.30）⇒ 不再吃到这颗 toggle（两态判别）");
-                                CheckTrue(plT16.ButtonAt(hx2 + 1f, cyT16) != tgWb,
+                                CheckTrue(plT16.ButtonAt(pR0.x, pR0.y) != tgWb,
                                           "★ T16：并集右沿**外 1 px**（x=672.50）⇒ 不再吃到这颗 toggle");
-                                CheckTrue(plT16.ButtonAt(hx1 + 1f, cyT16) == tgWb,
+                                CheckTrue(plT16.ButtonAt(pL1.x, pL1.y) == tgWb,
                                           "★ T16：并集左沿**内 1 px**（x=13.30）⇒ 仍然吃得到（边界是闭区间）");
                             }
                         }
@@ -7139,10 +7222,56 @@ public static class MainMenuScene
                             bool done = false; so.OnPresentationDone = () => { done = true; };
                             CheckTrue(so.HoldSceneForPresentation(null),
                                       "配到人时 `HoldForPresentation` **拦下这一次切场景**（让界面先展示）");
-                            so.Tick(0.5f); CheckTrue(!done, "展示中途（0.5s / 1s）**还不放行**");
-                            so.Tick(0.6f); CheckTrue(done,
-                                      "到时（1.1s / 1s）⇒ 放行切战场（1s 取原版 `StartBattleWithDelay` 的 `waitLoadTime`）；"
-                                      + "⚠️ **拿它当展示时间是我们挑的**");
+                            // 🔴 **2026-10-20（W58-UIFIX-B · 只修夹具；⛔ 守卫一个字没动）**：
+                            //   `SearchingOpponentWindow.Tick` 里 `A1322` 的守卫要求「这一局确实活着」
+                            //   （`NetMatchmaking.Waiting || HasOpponent`）。旧夹具只设了 `NetWatch` /
+                            //   `PresentationHold`、`NetMatchmaking` 两格全空 ⇒ **第一下 `Tick` 就被判
+                            //   「这一局被撤」而 `Close()`**（2026-10-20 `menu.log` 的失败栈正落在
+                            //   `SearchingOpponentWindow.Tick` 的 `Close(); return;` 那一行）。
+                            //   这里补一桌**真活着**的局（判据 → `资料/普查产出_1020/W58_诊断_界面五宿主.md` §二 M3）：
+                            //   本地环回开主机 + 客机握手到 `Lobby`（同 `Editor/NetSelfTest.cs` §C 的写法）⇒
+                            //   `NetRuntime` 的会话指过去 ⇒ 走**生产口** `NetMatchmaking.TryStart` ⇒
+                            //   `_myDeck` 有值、`Started` 假、`_foeDeck` 空 ⇒ `Waiting == true`。
+                            //   ⛔ 别改守卫、别改 `Net/**`（它服务真机「迟到的 `match.cancel` ⇒ 自己收窗」）。
+                            {
+                                var soRt = CardPresentation.NetRuntime.Ensure();
+                                var soKeep = soRt.Session;
+                                var soHost = CardPresentation.Net.NetSession.NewTcp();
+                                var soCli = CardPresentation.Net.NetSession.NewTcp();
+                                var soCfg = new CardPresentation.Net.NetConfigData
+                                {
+                                    port = FreeLoopbackPortForFixture(), ip = "127.0.0.1", password = "",
+                                };
+                                bool soHostOk = soHost.StartHost(soCfg);
+                                if (soHostOk) soCli.CheckConnection(soCfg);
+                                bool soLive = soHostOk && PumpSessionsUntil(soHost, soCli,
+                                    () => soHost.State == CardPresentation.Net.NetState.Lobby
+                                       && soCli.State == CardPresentation.Net.NetState.Lobby, 5000);
+                                soRt.AttachForTest(soHost);
+                                string soWhy = null;
+                                bool soStarted = soLive && CardPresentation.Net.NetMatchmaking.TryStart(
+                                    new PlayerDeck("W58 界面夹具卡组", "UM3", null, null), "Classic", null, out soWhy);
+                                CheckTrue(soStarted && CardPresentation.Net.NetMatchmaking.Waiting,
+                                          "（前提·M3 夹具）这一局**确实活着**（`NetMatchmaking.Waiting == true`）"
+                                        + " —— 拿不到 ⇒ 下面两条测的就不是「到时放行」那条路"
+                                        + (soStarted ? "" : "（`TryStart` 没接管：" + soWhy + "）"));
+                                try
+                                {
+                                    so.Tick(0.5f); CheckTrue(!done, "展示中途（0.5s / 1s）**还不放行**");
+                                    so.Tick(0.6f); CheckTrue(done,
+                                              "到时（1.1s / 1s）⇒ 放行切战场（1s 取原版 `StartBattleWithDelay` 的 `waitLoadTime`）；"
+                                              + "⚠️ **拿它当展示时间是我们挑的**");
+                                }
+                                finally
+                                {
+                                    // 收尾：按生产口径清干净（`Reset` 是公开口）＋会话换回去＋断链 ——
+                                    // 后面点 `Cancel` 那一跳回到**单机基线**（不会被这个夹具改道）。
+                                    CardPresentation.Net.NetMatchmaking.Reset();
+                                    soRt.AttachForTest(soKeep);
+                                    soCli.Close(false);
+                                    soHost.Close(false);
+                                }
+                            }
                             so.OnPresentationDone = null;
                             // 关窗 ⇒ **必须把那一口气放掉**（否则这一局卡在「切不了场景」，静默失败）
                             CardPresentation.Net.NetMatchmaking.HoldForPresentation = so.HoldSceneForPresentation;
@@ -7502,7 +7631,7 @@ public static class MainMenuScene
                 var pPts = FindChild(row, "Points");
                 // ⚠️ 节点不在 ⇒ 传 `NaN` ⇒ 这一条当场红（下面那条也各自红：`TmpInkCenterPx` 给 `NaN`、
                 //    `FontPxOf` 给 −1）；⛔ 别让它 NRE —— 那会把整个自检掀掉
-                CheckNear(pPts != null ? LayoutSpace.PxY(pPts.position.y) : float.NaN, 338.845f, 0.05f,
+                CheckNear(pPts != null ? MenuCheck.DesignPx(pPts).y : float.NaN, 338.845f, 0.05f,
                           "（前提）`Points` 的**节点**仍停在原版框心 `338.845`（`(299.86+377.83)/2`）"
                           + " —— A712 的位移只动 **TMP 子节点**、⛔ 不动节点；这一条钉住"
                           + "「字墨心相对节点 = 字墨心相对框心」这个前提（它一破，下面那条就断的是别处）");
@@ -7685,7 +7814,7 @@ public static class MainMenuScene
                 const float VpTop = 288.59f, VpBot = 937.83f;   // 原版值（= 上面那句 `CheckAtWorld(vp, …)` 钉过的两个数）
                 float pitch = OrigLbRowH + OrigLbRowGap;   // 原版：行高 100 + 行距 15
                 var vpN2 = FindChild(FindChild(lb.transform, "Scroll View"), "Viewport");
-                CheckNear(vpN2 != null ? LayoutSpace.PxY(vpN2.position.y) : -9999f, (VpTop + VpBot) * 0.5f, 0.5f,
+                CheckNear(vpN2 != null ? MenuCheck.DesignPx(vpN2).y : -9999f, (VpTop + VpBot) * 0.5f, 0.5f,
                           "`Viewport` 的**实测**中心 = 288.59..937.83 的中心（下面那些期望值就按这个矩形现算）");
                 var ctn = FindChild(vpN2, "Content");
 
@@ -7706,7 +7835,7 @@ public static class MainMenuScene
                     {
                         if (rt.name != "PlayerRankingRow") continue;
                         nRows++;
-                        float cy = LayoutSpace.PxY(rt.position.y);
+                        float cy = MenuCheck.DesignPx(rt).y;
                         float y1 = cy - OrigLbRowH * 0.5f, y2 = cy + OrigLbRowH * 0.5f;
                         minTop = Mathf.Min(minTop, y1);
                         if (y2 <= VpTop + 0.01f || y1 >= VpBot - 0.01f) { nOut++; worst = $"y {y1:F2}..{y2:F2}"; }
@@ -7782,7 +7911,7 @@ public static class MainMenuScene
                         foreach (var rt in c7.GetComponentsInChildren<Transform>(true))
                         {
                             if (rt.name != "PlayerRankingRow") continue;
-                            float cy = LayoutSpace.PxY(rt.position.y);
+                            float cy = MenuCheck.DesignPx(rt).y;
                             if (cy > edgeY) { edgeY = cy; edge = rt; }
                             if (cy < topY) { topY = cy; top1 = rt; }
                         }
@@ -7900,7 +8029,7 @@ public static class MainMenuScene
                         foreach (var rt in a833C.GetComponentsInChildren<Transform>(true))
                         {
                             if (rt.name != "PlayerRankingRow") continue;
-                            float cy = LayoutSpace.PxY(rt.position.y);
+                            float cy = MenuCheck.DesignPx(rt).y;
                             if (cy - OrigLbRowH * 0.5f >= VpBot) continue;   // 整行在视口之下 ⇒ 不可能是压边行
                             // 维护「最低的两颗」：edge = 最低那颗（压边行）、ref = 次低那颗（整颗在视口内的参照行）
                             if (cy > a833EdgeCy) { a833RefCy = a833EdgeCy; a833Ref = a833Edge; a833EdgeCy = cy; a833Edge = rt; }
@@ -8106,7 +8235,7 @@ public static class MainMenuScene
                                 foreach (var rt in tC.GetComponentsInChildren<Transform>(true))
                                 {
                                     if (rt.name != "PlayerRankingRow") continue;
-                                    float cy = LayoutSpace.PxY(rt.position.y);
+                                    float cy = MenuCheck.DesignPx(rt).y;
                                     if (cy + OrigLbRowH * 0.5f <= VpTop) continue;   // 整行在视口**之上** ⇒ 不可能是压上沿那行
                                     // 维护「最高的两颗」：tEdge = 最高那颗（压上沿行）、tRef = 次高那颗（整颗在视口内的参照行）
                                     if (cy < tEdgeCy) { tRefCy = tEdgeCy; tRef = tEdge; tEdgeCy = cy; tEdge = rt; }
@@ -8200,7 +8329,7 @@ public static class MainMenuScene
                             foreach (var rt in sC.GetComponentsInChildren<Transform>(true))
                             {
                                 if (rt.name != "PlayerRankingRow") continue;
-                                float cy = LayoutSpace.PxY(rt.position.y);
+                                float cy = MenuCheck.DesignPx(rt).y;
                                 if (cy - OrigLbRowH * 0.5f >= VpBot) continue;   // 整行在视口之下 ⇒ 不可能是压边行
                                 // 维护「最低的两颗」：sEdge = 最低那颗（压边行）、sRef = 次低那颗（整颗在视口内的参照行）
                                 if (cy > sEdgeCy) { sRefCy = sEdgeCy; sRef = sEdge; sEdgeCy = cy; sEdge = rt; }
@@ -9380,9 +9509,13 @@ public static class MainMenuScene
                                 CheckTrue(aBot0 > VBot + 0.5f,
                                           $"…而最后一颗建出来的行**压在视口下沿上**（行底 {aBot0:F2} > 视口底 {VBot:F2}）"
                                           + "—— 这条是下面「没有 quad 画到框外」的**前提**（不满足说明这条测试自己失效了）");
-                                CheckTrue(pl3 != null && pl3.ScrollUnder(1117.94f, 708.53f) == os,
+                                // 🆕 2026-10-20（`A1350` 第三批 · `W58-FRAME-MM`）：视口中心 (1117.94,708.53) 是**设计帧**
+                                //   （`360.99..1874.90 × 337.29..1079.77`）⇒ 喂指针前换到指针帧。
+                                //   `owner` = `oaVp`（`Viewport` 节点；滚动区视口就是它自己的矩形）。
+                                var oaP = MenuCheck.PointerFramePxFromDesign(new Vector2(1117.94f, 708.53f), oaVp);
+                                CheckTrue(pl3 != null && pl3.ScrollUnder(oaP.x, oaP.y) == os,
                                           "视口中心（1117.94,708.53）上命中的滚动区**就是这一格**");
-                                CheckTrue(pl3 != null && pl3.WheelAt(1117.94f, 708.53f, -120f),
+                                CheckTrue(pl3 != null && pl3.WheelAt(oaP.x, oaP.y, -120f),
                                           "滚轮落在这一格上（`PointerLayer.WheelAt` —— 与真鼠标同一条路）");
                                 CheckTrue(os.Offset > 0f, $"往下滚一格 ⇒ 偏移往正走（现在 {os.Offset:F2}px）");
                                 RowSpan(oaList, "Entry", RowH0, out aTop1, out aBot1);
@@ -9501,9 +9634,13 @@ public static class MainMenuScene
                                 CheckTrue(fBot0 > VBot + 0.5f,
                                           $"…而最后一排**压在视口下沿上**（格底 {fBot0:F2} > 视口底 {VBot:F2}）"
                                           + "—— 下面「没有 quad 画到框外」的前提");
-                                CheckTrue(pl3 != null && pl3.ScrollUnder(1103.98f, 697.43f) == fsc,
+                                // 🆕 2026-10-20（`A1350` 第三批 · `W58-FRAME-MM`）：视口中心 (1103.98,697.43) 是**设计帧**
+                                //   （`332.15..1875.80 × 314.80..1080.06`）⇒ 喂指针前换到指针帧。
+                                //   `owner` = `fvNode`（`Viewport` 节点；滚动区视口就是它自己的矩形）。
+                                var fP = MenuCheck.PointerFramePxFromDesign(new Vector2(1103.98f, 697.43f), fvNode);
+                                CheckTrue(pl3 != null && pl3.ScrollUnder(fP.x, fP.y) == fsc,
                                           "视口中心（1103.98,697.43）上命中的滚动区**就是这一格**");
-                                CheckTrue(pl3 != null && pl3.WheelAt(1103.98f, 697.43f, -120f),
+                                CheckTrue(pl3 != null && pl3.WheelAt(fP.x, fP.y, -120f),
                                           "滚轮落在这一格上（`PointerLayer.WheelAt`）");
                                 CheckTrue(fsc.Offset > 0f, $"往下滚一格 ⇒ 偏移往正走（现在 {fsc.Offset:F2}px）");
                                 RowSpan(fContent, "Friend Info Item", CH, out fTop1, out fBot1);
@@ -9857,9 +9994,13 @@ public static class MainMenuScene
                                 CheckTrue(mBot0 > VBot + 0.5f,
                                           $"…而最后一排**压在视口下沿上**（行底 {mBot0:F2} > 视口底 {VBot:F2}）"
                                           + "—— 下面「没有 quad 画到框外」的前提（不满足说明这条测试自己失效了）");
-                                CheckTrue(pl3 != null && pl3.ScrollUnder(1125.17f, 786.84f) == ms,
+                                // 🆕 2026-10-20（`A1350` 第三批 · `W58-FRAME-MM`）：视口中心 (1125.17,786.84) 是**设计帧**
+                                //   （`369.67..1880.67 × 493.63..1080.05`）⇒ 喂指针前换到指针帧。
+                                //   `owner` = `mVp`（`MemberList>Scroll View>Viewport` 节点；滚动区视口就是它自己的矩形）。
+                                var mP = MenuCheck.PointerFramePxFromDesign(new Vector2(1125.17f, 786.84f), mVp);
+                                CheckTrue(pl3 != null && pl3.ScrollUnder(mP.x, mP.y) == ms,
                                           "视口中心（1125.17,786.84）上命中的滚动区**就是这一格**");
-                                CheckTrue(pl3 != null && pl3.WheelAt(1125.17f, 786.84f, -120f),
+                                CheckTrue(pl3 != null && pl3.WheelAt(mP.x, mP.y, -120f),
                                           "滚轮落在这一格上（`PointerLayer.WheelAt`）");
                                 CheckTrue(ms.Offset > 0f, $"往下滚一格 ⇒ 偏移往正走（现在 {ms.Offset:F2}px）");
                                 RowSpan(mContent, "Alliance Member Entry", CH2, out mTop1, out mBot1);
@@ -9988,12 +10129,22 @@ public static class MainMenuScene
                                           + "四角 alpha 被压过（实测最小角 alpha "
                                           + (qIn != null ? MinCornerAlpha(qIn).ToString("F3") : "—")
                                           + "）—— 拆掉 `clipSoftness` / `TrophyClipSoftness` 这一条立刻红");
-                                CheckTrue(pl3 != null && pl3.ScrollUnder(1143.985f, 729.175f) == ts,
+                                // 🆕 2026-10-20（`A1350` 第三批 · `W58-FRAME-MM`）：两个视口中心都是**设计帧**
+                                //   （奖杯 `366.97..1921.00 × 378.51..1079.84` · 成员列 `369.67..1880.67 × 493.63..1080.05`）
+                                //   ⇒ 喂指针前换到指针帧。`owner`：奖杯 = `tScroll`（它自己就是视口）；
+                                //   成员列 = 它自己的 `Viewport` 节点（这里已出了成员段的作用域 ⇒ 现场按同一路径取回）。
+                                var tP = MenuCheck.PointerFramePxFromDesign(new Vector2(1143.985f, 729.175f), tScroll);
+                                var mvVpProbe = mv != null ? FindChild(FindChild(FindChild(mv, "GeneralDetails"), "MemberList"),
+                                                                       "Scroll View") : null;
+                                mvVpProbe = FindChild(mvVpProbe, "Viewport");
+                                var mP2 = MenuCheck.PointerFramePxFromDesign(new Vector2(1125.17f, 786.84f),
+                                              mvVpProbe != null ? mvVpProbe : (mv != null ? mv.transform : null));
+                                CheckTrue(pl3 != null && pl3.ScrollUnder(tP.x, tP.y) == ts,
                                           "视口中心（1143.985,729.175）上命中的滚动区**就是这一格**");
                                 // 🔴 两个视口**在屏幕上是重叠的**（成员列 369.67,493.63→1880.67,1080.05）
                                 //   ⇒ 这一条同时验了 `Owner` 那条判据：`GeneralDetails` 已关（点 `Trophies` 切走），
                                 //     它那一片**不该再吃滚轮命中**。
-                                CheckTrue(pl3 != null && pl3.ScrollUnder(1125.17f, 786.84f) != mt3.MemberScroll,
+                                CheckTrue(pl3 != null && pl3.ScrollUnder(mP2.x, mP2.y) != mt3.MemberScroll,
                                           "★ 成员列那一格**不再吃滚轮命中**（`Owner.activeInHierarchy` —— "
                                           + "两处视口在屏幕上重叠，全靠这条判据分开）");
                                 // 🔴 **2026-10-04 首跑红了，就地订正：`tTop0` 必须在【滚之前】取** ——
@@ -10002,7 +10153,7 @@ public static class MainMenuScene
                                 float tTop0, tBot0, tTop1, tBot1;
                                 CheckTrue(RowSpan(drawer, "TrophyDisplay", TCellH, out tTop0, out tBot0),
                                           "建出来的格都在（量它们的位置，不量被裁过的 quad）");
-                                CheckTrue(pl3 != null && pl3.WheelAt(1143.985f, 729.175f, -120f),
+                                CheckTrue(pl3 != null && pl3.WheelAt(tP.x, tP.y, -120f),
                                           "滚轮落在这一格上（`PointerLayer.WheelAt` —— 与真鼠标同一条路）");
                                 CheckTrue(ts.Offset > 0f, $"往下滚一格 ⇒ 偏移往正走（现在 {ts.Offset:F2}px）");
                                 // 滚一格之后在建的格数 == 现算值（**先清再建**，不清会越滚越多）
@@ -10300,7 +10451,12 @@ public static class MainMenuScene
                                     //   ⚠️ 这一扇**本地走不到**（奖杯数恒 0 ⇒ 没有可点的格子）⇒ 自检手动造出格子再点它。
                                     {
                                         TrophyInfoPopup popT = null;
-                                        bool clicked = pl3 != null && pl3.ClickAt(525.97f, 578.51f);   // = 第 1 格中心
+                                        // 🆕 2026-10-20（`A1350` 第三批 · `W58-FRAME-MM`）：(525.97,578.51) 是**设计帧**
+                                        //   第 1 格中心（`376.97..674.97 × 401.51..755.51`）⇒ 喂指针前换到指针帧。
+                                        //   `owner` = 那一格自己（设计矩形所属那颗；取不到时退内容容器 `drawer`，父级同缩放）。
+                                        var trophyP = MenuCheck.PointerFramePxFromDesign(new Vector2(525.97f, 578.51f),
+                                                          cell0 != null ? cell0 : drawer);
+                                        bool clicked = pl3 != null && pl3.ClickAt(trophyP.x, trophyP.y);   // = 第 1 格中心
                                         popT = TrophyInfoPopup.LastOpened;
                                         CheckTrue(clicked && popT != null && popT.CurrentState == WindowState.Open,
                                                   "★ 点奖杯格 ⇒ **弹窗真的开出来了**（原版 `AllianceTrophiesView.HandleTrophyClick` "
@@ -10448,7 +10604,7 @@ public static class MainMenuScene
                                                 //   ⚠️ **本条分辨不出「档位记错」那一族**（`Middle` 那一格只有 1.84px，
                                                 //   与字形差 0.89px 同量级：档位错成 0px 目标时只差 0.95px < 容差）
                                                 //   —— 那一族由 `Editor/BattleScene.cs` §4.6d 的专门探针（逐档 + 档序）覆盖。
-                                                CheckNear(LayoutSpace.PxY(pNext.position.y), 550.92f, 0.05f,
+                                                CheckNear(MenuCheck.DesignPx(pNext).y, 550.92f, 0.05f,
                                                           "（前提）`Next Tier` 的**节点**仍停在原版框的中线 `550.92`"
                                                           + "（`(532.80+569.04)/2`）—— A712 的位移只动 **TMP 子节点**、"
                                                           + "⛔ 不动节点；它一破，下面那条就断的是别处");
@@ -10981,7 +11137,7 @@ public static class MainMenuScene
                                 CheckNear(zx2, 1862.35f, 1f,
                                           "★ 它**右对齐到 1862.35**（原版 `Right/Middle`，普查 `:187`；"
                                           + "量的是 **TMP 渲出来那块字的右缘**，不是我们写进去的节点 x）");
-                                CheckNear(LayoutSpace.PxY(xinfo.position.y), 213.02f, 1f,
+                                CheckNear(MenuCheck.DesignPx(xinfo).y, 213.02f, 1f,
                                           "…纵向中心 = 213.02（`183.02,243.02` 那条的中线）");
                             }
                             CheckText(TextOf(xinfo), "English / Private",
@@ -11491,7 +11647,10 @@ public static class MainMenuScene
                         var rowT16 = optBtnsT16 != null ? FindChild(optBtnsT16, "Add as a friend") : null;
                         var hitT16 = rowT16 != null ? FindChild(rowT16, "Hit") : null;
                         var hitWbT16 = hitT16 != null ? hitT16.GetComponent<WindowButton>() : null;
-                        var hitQT16 = hitT16 != null ? hitT16.GetComponent<ImageQuad>() : null;
+                        // 🔴 **2026-10-20（W58-UIFIX-B · 铁律 5 就地订正）**：同 `ChangeRankedToggle/Hit`
+                        //   那一条 —— quad 在 **`Hit` 的子节点**上，生产读口 = `PointerLayer.HitQuadForTest`
+                        //   （`GetComponent<ImageQuad>()` 只看自己、恒 null）。
+                        var hitQT16 = PointerLayer.HitQuadForTest(hitWbT16);
                         CheckTrue(hitQT16 != null, "★ T16：（前提）聊天选项行的 `Hit` 带 `ImageQuad`（真鼠标点得到）");
                         if (hitQT16 != null && QuadPxRect(hitQT16, out float ox1, out float oy1, out float ox2, out float oy2))
                         {
@@ -11504,12 +11663,18 @@ public static class MainMenuScene
                             if (plT16c != null && hitWbT16 != null)
                             {
                                 float cxT16 = (ox1 + ox2) * 0.5f;
-                                CheckTrue(plT16c.ButtonAt(cxT16, oy1 + 10f) == hitWbT16,
+                                // 🆕 2026-10-20（`A1350` 第三批 · `W58-FRAME-MM`）：`ox1/oy1` 是**设计帧**
+                                //   （`QuadPxRect(hitQT16)` 那条读口）⇒ 喂指针前逐点换到指针帧。
+                                //   `owner` = `hitQT16`（命中区那颗 quad —— 设计矩形就是从它量的）。
+                                var pt101 = MenuCheck.PointerFramePxFromDesign(new Vector2(cxT16, oy1 + 10f), hitQT16.transform);
+                                var pt0 = MenuCheck.PointerFramePxFromDesign(new Vector2(cxT16, oy1 - 1f), hitQT16.transform);
+                                var pt1 = MenuCheck.PointerFramePxFromDesign(new Vector2(cxT16, oy1 + 1f), hitQT16.transform);
+                                CheckTrue(plT16c.ButtonAt(pt101.x, pt101.y) == hitWbT16,
                                           "★ T16：点**文字上半段**（行顶上 9.65 px，旧口径**命中区外**）⇒ 吃到的是这一行"
                                         + "｜🧨 改坏法：只传 `rowR` ⇒ `null` ⇒ 红");
-                                CheckTrue(plT16c.ButtonAt(cxT16, oy1 - 1f) != hitWbT16,
+                                CheckTrue(plT16c.ButtonAt(pt0.x, pt0.y) != hitWbT16,
                                           "★ T16：并集上沿**外 1 px**（y=378.35）⇒ 不再吃到这一行（两态判别）");
-                                CheckTrue(plT16c.ButtonAt(cxT16, oy1 + 1f) == hitWbT16,
+                                CheckTrue(plT16c.ButtonAt(pt1.x, pt1.y) == hitWbT16,
                                           "★ T16：并集上沿**内 1 px**（y=380.35）⇒ 仍然吃得到（边界是闭区间）");
                             }
                         }
@@ -11786,7 +11951,7 @@ public static class MainMenuScene
                         {
                             if (rt.name != "Match Log") continue;
                             fn++;
-                            float cy = LayoutSpace.PxY(rt.position.y);
+                            float cy = MenuCheck.DesignPx(rt).y;
                             float y1 = cy - OrigMatchRowH * 0.5f, y2 = cy + OrigMatchRowH * 0.5f;
                             fmin = Mathf.Min(fmin, y1);
                             if (y2 <= FTop + 0.01f || y1 >= FBot - 0.01f) fout++;
@@ -11826,10 +11991,14 @@ public static class MainMenuScene
                             // ① 滚一格走**真路**：指针层命中这一格 → `MenuScroll.Wheel` → `OnChanged` 重建
                             float topBefore = TopRowTop(fc);
                             var pl2 = PointerLayer.Instance;
+                            // 🆕 2026-10-20（`A1350` 第三批 · `W58-FRAME-MM`）：视口中心 (972.5,546.5) 是**设计帧**
+                            //   （`235..1710 × 130..963`）⇒ 喂指针前换到指针帧。
+                            //   `owner` = `bvp`（`Matches>Viewport` 节点；滚动区视口就是它自己的矩形）。
+                            var blpP = MenuCheck.PointerFramePxFromDesign(new Vector2(972.5f, 546.5f), bvp);
                             // 先钉「视口中心命中的就是这一格」—— 免得滚轮落到别的窗口的滚动区上、把下面几条判成假红
-                            CheckTrue(pl2 != null && pl2.ScrollUnder(972.5f, 546.5f) == rs,
+                            CheckTrue(pl2 != null && pl2.ScrollUnder(blpP.x, blpP.y) == rs,
                                       "视口中心（972.5,546.5）上命中的滚动区**就是这一格**");
-                            bool wHit = pl2 != null && pl2.WheelAt(972.5f, 546.5f, -120f);   // 视口中心 = 235..1710 × 130..963
+                            bool wHit = pl2 != null && pl2.WheelAt(blpP.x, blpP.y, -120f);   // 视口中心 = 235..1710 × 130..963
                             CheckTrue(wHit, "滚轮落在这一格上（`PointerLayer.WheelAt`）");
                             CheckTrue(rs.Offset > 0f, $"往下滚一格 ⇒ 偏移往正走（现在 {rs.Offset:F2}px）");
                             CheckNear(topBefore - TopRowTop(fc), rs.Offset, 0.5f,
@@ -11936,7 +12105,7 @@ public static class MainMenuScene
                             foreach (var rt in mC.GetComponentsInChildren<Transform>(true))
                             {
                                 if (rt.name != "Match Log") continue;
-                                float cy = LayoutSpace.PxY(rt.position.y);
+                                float cy = MenuCheck.DesignPx(rt).y;
                                 if (cy - OrigMatchRowH * 0.5f >= MBot) continue;   // 整行在视口之下 ⇒ 不可能是压边行
                                 // 维护「最低的两颗」：mEd = 最低那颗（压边行）、mRf = 次低那颗（整颗在视口内的参照行）
                                 if (cy > mEdCy) { mRfCy = mEdCy; mRf = mEd; mEdCy = cy; mEd = rt; }
@@ -13402,7 +13571,12 @@ public static class MainMenuScene
             CheckTrue(LiveOpsLocalCatalog.TryResolveSurface(LiveOpsLocalCatalog.Surface.PremiumOfferDescription, tSW, out sv, out sWhy)
                       && sv.Term == "Event_Description/ExpansionPass/PurchasePremiumOfferDescription"
                       && sv.ArgTexts != null && sv.ArgTexts.Length == 4
-                      && sv.Text.IndexOf('{') < 0,
+                      // 🔴 **2026-10-20（W58-UIFIX-B · 铁律 5 就地订正）**：`TryResolveSurface` 给
+                      //   `Text` 的契约是**原始词条**（`Text = TermText(label.Term)`，**不填实参**），
+                      //   而这条词条原文本身就带 `{0}…{3}` ⇒ 拿 `sv.Text.IndexOf('{')` 断「不残留」
+                      //   **在当前契约下恒红**。填实参是另一个口 `FillArgs(term, args)` —— 它也正是
+                      //   UI 真正吃的那个值（`BaseOfferPopup.BuildTexts` 走 `TryResolvePremiumOffer`）。
+                      && LiveOpsLocalCatalog.FillArgs(sv.Term, sv.ArgTexts).IndexOf('{') < 0,
                       "承载面 #10 报价弹窗正文 @ SW ⇒ `PurchasePremiumOfferDescription`（4 个实参全填、**不残留 `{0}`**）");
 
             CheckTrue(LiveOpsLocalCatalog.TryResolveSurface(LiveOpsLocalCatalog.Surface.ECEventTitleArg, tEC, out sv, out sWhy)
@@ -14390,6 +14564,40 @@ public static class MainMenuScene
     static WindowButton WindowButtonOf(Transform t)
         => t == null ? null : t.GetComponent<WindowButton>();
 
+    // ============================================================ 🆕 2026-10-20（W58-UIFIX-B）：M3 夹具的「真活着一局」
+    // 判据 → `资料/普查产出_1020/W58_诊断_界面五宿主.md` §二 M3：`SearchingOpponentWindow.Tick` 里
+    //   `A1322` 的守卫要求这一局活着（`NetMatchmaking.Waiting || HasOpponent`），而 `Waiting` 唯一的
+    //   生产写入口是 `TryStart`，它又要求「会话已连上且在大厅」⇒ 自检必须真的连一对会话。
+    // 写法照 `Editor/NetSelfTest.cs` §C 的 `TestHandshakeOk`（同一台机器上已跑通的同一条链）。
+    // ⛔ 不改守卫、不改 `Net/**`。
+
+    /// <summary>随便找一个当时空着的回环端口（自检不写死端口 —— 机器上可能正好占着）。</summary>
+    static int FreeLoopbackPortForFixture()
+    {
+        var l = new System.Net.Sockets.TcpListener(System.Net.IPAddress.Loopback, 0);
+        l.Start();
+        int p = ((System.Net.IPEndPoint)l.LocalEndpoint).Port;
+        l.Stop();
+        return p;
+    }
+
+    /// <summary>两边一起推，直到条件成立或超时（批处理没有帧循环 ⇒ 收发包全靠显式 `Pump()`）。</summary>
+    static bool PumpSessionsUntil(CardPresentation.Net.NetSession a, CardPresentation.Net.NetSession b,
+                                  System.Func<bool> cond, int timeoutMs)
+    {
+        var sw = System.Diagnostics.Stopwatch.StartNew();
+        while (sw.ElapsedMilliseconds < timeoutMs)
+        {
+            if (a != null) a.Pump();
+            if (b != null) b.Pump();
+            if (cond()) return true;
+            System.Threading.Thread.Sleep(5);
+        }
+        if (a != null) a.Pump();
+        if (b != null) b.Pump();
+        return cond();
+    }
+
     static void CheckNavButton(MainMenuRuntime menu, string name, float y1, float y2, string art)
     {
         var b = menu.Find("Main Menu Navigation Button - " + name);
@@ -15162,6 +15370,143 @@ public static class MainMenuScene
         }
     }
 
+    /// <summary>🆕 **2026-10-20（`A1350` 第二批 · `BG`）**：`MenuCheck.DesignPx`（设计帧点读口）在
+    /// **父链 `localScale = 2`** 时读到的**仍是设计点**；同族的 `SelfCheckTextMetrics.RenderedRectDesign`
+    /// 报的**是设计宽**（世界帧的 `SelfCheckTextMetrics.RenderedRect` 会报 2 倍）。
+    ///
+    /// <para>🔴 **这条本身就是「灭自证」的那一半**：检测器读的是 `t.position` 这条**世界量**
+    /// （`DesignPx` 内部除的正是 `t.parent.lossyScale`），而期望值是**建它时给的、与实现无关的字面量**
+    /// —— 两边用的**不是同一处代码** ⇒ **把实现与期望一起改回甲式也救不了**（那时读到的是 `2 × 设计点`）。</para>
+    ///
+    /// <para>⚠️ **父链带 2× 的那个节点必须落在【它自己父级的原点】上**（同 `#70` 那条硬约束：
+    /// 范式的适用范围 = `Shell/MenuDraw.cs:57-61`）—— 本函数自建探针（世界原点）就是为这一条。</para>
+    ///
+    /// <para>⚠️ **文字那半条只比「两帧之差 = M」**：设计宽 = 世界宽 ÷ 2（M = 2）。⛔ 不写字形宽的字面量
+    /// （那会把字体度量钉死在本机）；而「两帧一起改回同一帧」⇒ 两边相等 ⇒ 本条照样红
+    /// （M=2 时 `worldW = designW` 或 `designW = worldW` 都过不了 `designW ≈ worldW / 2`）。
+    /// 判据 → `资料/普查产出_1019/W57_自检线_A1350读口统一计划.md` §六 `V4`。</para></summary>
+    static void CheckDesignPxUnderScaledParent(string what)
+    {
+        const float X1 = 1200f, Y1 = 300f, X2 = 1500f, Y2 = 600f;   // 设计矩形（离原点 ≥1 设计单位）
+        const float Cx = (X1 + X2) * 0.5f, Cy = (Y1 + Y2) * 0.5f;
+        var host = new GameObject("A1350 DesignPx Probe Host");    // 世界原点 · 单位缩放（⛔ 见函数头）
+        var mid = new GameObject("A1350 DesignPx Probe Scaled");
+        mid.transform.SetParent(host.transform, false);            // 局部位置进 0（被除的那一级落在父级原点）
+        mid.transform.localScale = new Vector3(2f, 2f, 1f);
+        try
+        {
+            var node = MenuDraw.Node(mid.transform, "A1350 Design Node", new PxRect(X1, Y1, X2, Y2));
+            CheckTrue(node != null, $"（前提）{what}：探针节点建出来了");
+            CheckNear(node != null ? node.parent.lossyScale.x : -1f, 2f, 1e-4f,
+                      $"（前提）{what}：**父链真的带 2×**（`PosInDesignSpace` 除的就是这一级）"
+                    + " —— 它是 1 的话下面四条**恒等**、等于没查");
+            var p = node != null ? MenuCheck.DesignPx(node) : new Vector2(-99999f, -99999f);
+            CheckNear(p.x, Cx, 0.01f,
+                      $"★★ {what}：父链 ×2 时 `DesignPx` 报的 x **仍是设计点**"
+                    + $"（实得 {p.x:F4} vs 设计 {Cx:F1}，容差 0.01px）"
+                    + "｜🧨 甲式（`PxX(裸 position)`）读到的是 `2 × 设计点` ⇒ 必红");
+            CheckNear(p.y, Cy, 0.01f, $"★★ {what}：……y（`PxY` 那一半，只断 x 会被「只除一半」蒙过）");
+            // 世界点重载同帧（`GetWorldCorners` / `textBounds` 四角那一族用的就是它）
+            var pw = node != null ? MenuCheck.DesignPx(node.position, node) : new Vector2(-99999f, -99999f);
+            CheckNear(pw.x, Cx, 0.01f, $"★★ {what}：`DesignPx(世界点, owner)` 的 x 同一帧（实得 {pw.x:F4}）");
+            CheckNear(pw.y, Cy, 0.01f, $"★★ {what}：……`DesignPx(世界点, owner)` 的 y（实得 {pw.y:F4}）");
+
+            // 文字尺寸帧：设计宽 = 世界宽 ÷ 2（⛔ 不写字形宽的字面量；两帧一起改回去 ⇒ 本条红）
+            float dx1 = 0f, dy1 = 0f, dx2 = 0f, dy2 = 0f, wx1 = 0f, wy1 = 0f, wx2 = 0f, wy2 = 0f;
+            var lb = MenuDraw.Text(mid.transform, new PxRect(X1, 700f, X2, 760f), "A1350", Color.white,
+                                   "A1350 Design Text", 30f, 3000);
+            CheckTrue(lb != null, $"（前提）{what}：探针文字建出来了");
+            bool okD = lb != null && SelfCheckTextMetrics.RenderedRectDesign(lb.transform, out dx1, out dy1, out dx2, out dy2);
+            bool okW = lb != null && SelfCheckTextMetrics.RenderedRect(lb.transform, out wx1, out wy1, out wx2, out wy2);
+            CheckTrue(okD && okW, $"（前提）{what}：两块量法都量得到（⛔ 量不到时下面两条不许静默跳过）");
+            float dw = dx2 - dx1, ww = wx2 - wx1;
+            CheckTrue(dw > 1f, $"（前提）{what}：设计宽 > 1px（{dw:F2} —— 0 的话下面那条恒等）");
+            CheckNear(dw, ww * 0.5f, 0.5f,
+                      $"★★ {what}：父链 ×2 时 `RenderedRectDesign` 报的**是设计宽**"
+                    + $"（设计 {dw:F2} vs 世界 {ww:F2} ÷ 2；容差 0.5px）"
+                    + "｜🧨 设计帧没除缩放 ⇒ `dw == ww`（差一倍）；两帧一起改回同一帧 ⇒ 本条照样红");
+        }
+        finally
+        {
+            Object.DestroyImmediate(host);                      // ⛔ 别把探针留在场景里
+        }
+    }
+
+
+    /// <summary>🆕 **2026-10-20（`A1350` 第三批 · `W58-FRAME-MM`）**：**设计帧 → 指针帧**换算口
+    /// `MenuCheck.PointerFramePxFromDesign` 的两态探针（本宿主那批「设计点直接喂 `PointerLayer`」站点换口后的验收）。
+    ///
+    /// <para>🔴 **恒等式**（唯一实现 = `Shell/MenuDraw.cs:114`）：`pointer = C + (design − C) ⊙ k`，
+    /// `C = (960,540)`、`k = owner.parent.lossyScale` 逐分量。⛔ **不是整值乘 k**（k = 2 时 x 会多偏 960）。</para>
+    /// <para>① **单位缩放逐位不变**：`k == 1` 走快路径，`==` 精确比较（今天全部调用点都是这一档）。
+    /// ② **父链 ×2 夹具**：`MenuDraw.Absorb` 建一块设计矩形 (1200,320)-(1400,520) 的命中区，
+    /// 设计中心 (1300,420) 的指针帧期望 = `(960 + 340×2, 540 − 120×2) = (1640, 300)`；
+    /// 再走**生产命中路** `PointerLayer.ButtonAt` 验命中，并与另一条独立读口 `MenuCheck.PointerFramePx(quad)` 互证。
+    /// ③ **灭自证**：设计帧点 (1300,420) 直接喂 `ButtonAt` 命不中本夹具（指针帧命中区 x ∈ [1440,1840]）
+    /// —— 想把期望值改成设计点圆回去 ⇒ 这一条红；两边不可能同时绿。</para>
+    /// <para>⚠️ 夹具吸收层档取 2900/4000（压过真界面最高档），与 `ShellScene` 的 `W58-ABSORB` 同一做法。</para></summary>
+    static void CheckPointerFrameFromDesign(string what)
+    {
+        // ① 单位缩放：换算口**逐位**返回入参
+        var unitRoot = new GameObject("A1350 PointerFrame Probe Unit");
+        try
+        {
+            unitRoot.transform.position = Vector3.zero;
+            var leaf = new GameObject("Leaf");
+            leaf.transform.SetParent(unitRoot.transform, false);      // 父级 lossyScale = 1
+            var unitDesign = new Vector2(1300f, 420f);
+            var same = MenuCheck.PointerFramePxFromDesign(unitDesign, leaf.transform);
+            CheckTrue(same.x == unitDesign.x && same.y == unitDesign.y,
+                      $"★★ {what}：单位缩放（`k == 1`）⇒ 换算口**逐位**返回入参（1300 / 420）"
+                    + $"（实得 {same.x:F6},{same.y:F6}）｜🧨 快路径写成不返回/差一个浮点尾数 ⇒ 红");
+        }
+        finally { Object.DestroyImmediate(unitRoot); }                // ⛔ 别把探针留在场景里
+
+        var pl = PointerLayer.Instance;
+        CheckTrue(pl != null, $"（前提）{what}：指针层在（不在 ⇒ 下面命中那几条等于没查）");
+        CheckTrue(!PointerLayer.InputBlocked, $"（前提）{what}：指针层没被黑场 / 遮罩锁住（`InputBlocked == false`）");
+        if (pl == null || PointerLayer.InputBlocked) return;
+
+        // ② 父链 ×2 夹具
+        var frameRoot = new GameObject("A1350 PointerFrame Probe x2");
+        try
+        {
+            frameRoot.transform.position = Vector3.zero;
+            frameRoot.transform.localScale = new Vector3(2f, 2f, 1f);
+            var abs2 = MenuDraw.Absorb(frameRoot.transform, "PointerFrameHit",
+                                       new PxRect(1200f, 320f, 1400f, 520f), 2900, 4000);
+            var q2 = abs2 != null ? abs2.GetComponentInChildren<ImageQuad>(true) : null;
+            CheckTrue(abs2 != null && q2 != null,
+                      $"（前提）{what}：×2 夹具的吸收层建出来了、且下面有 `ImageQuad`（没有就进不了 `PointerLayer` 的命中表）");
+            if (q2 != null)
+            {
+                var frameDesign = new Vector2(1300f, 420f);            // 设计矩形中心
+                var owner = q2.transform;                             // 设计矩形所属件（乘的是它**父级**那一级 lossyScale = 2）
+                var p2 = MenuCheck.PointerFramePxFromDesign(frameDesign, owner);
+                CheckNear(p2.x, 1640f, 0.01f,
+                          $"★★ {what}：父链 ×2 ⇒ x = 960 + (1300−960)×2 = **1640**"
+                        + "｜🧨 整值乘 2 会得 2600（多偏 960 —— `ToDesignPixel` 以画布中心为不动点）");
+                CheckNear(p2.y, 300f, 0.01f,
+                          $"★★ {what}：……y = 540 + (420−540)×2 = **300**（逐分量；只对一半也会红）");
+                // 与另一条**独立读口**互证（裸世界坐标 → 指针帧）
+                var viaQuad = MenuCheck.PointerFramePx(q2.transform);
+                CheckNear(viaQuad.x, p2.x, 0.01f, $"★★ {what}：与 `MenuCheck.PointerFramePx(quad)`（裸世界读口）同帧：x");
+                CheckNear(viaQuad.y, p2.y, 0.01f, $"★★ {what}：……y");
+                // 走生产命中路
+                var hit2 = pl.ButtonAt(p2.x, p2.y);
+                CheckTrue(hit2 != null && hit2.transform.IsChildOf(frameRoot.transform),
+                          $"★★ {what}：`PointerLayer.ButtonAt(换算后的点)` 命中本夹具（指针帧 1640,300 落在命中区正中）"
+                        + $"（实得 `" + (hit2 != null ? hit2.name : "<null>") + "`）");
+                // ③ 灭自证：设计帧点直接喂指针 API 命不中
+                var bad = pl.ButtonAt(frameDesign.x, frameDesign.y);
+                CheckTrue(bad == null || !bad.transform.IsChildOf(frameRoot.transform),
+                          $"★★ {what}：**灭自证** —— 设计帧点 (1300,420) 直接喂 `ButtonAt` 命不中本夹具"
+                        + "（它的指针帧命中区 x ∈ [1440,1840]）⇒ 「不换算 + 期望值跟着改成设计点」两边不可能同时绿");
+            }
+        }
+        finally { Object.DestroyImmediate(frameRoot); }
+    }
+
 
     /// <summary>🆕 **2026-10-07（A77-㉒②）**：卡组格内景**某一层**的渲染矩形（px）对不对。
     /// <para>量的是那一层底下**全部 `ImageQuad` 的并集**（`UnionQuadRect`）——
@@ -15368,7 +15713,7 @@ public static class MainMenuScene
         foreach (var rt in content.GetComponentsInChildren<Transform>(true))
         {
             if (rt.name != rowName) continue;
-            float cy = LayoutSpace.PxY(rt.position.y);
+            float cy = MenuCheck.DesignPx(rt).y;
             top = Mathf.Min(top, cy - rowH * 0.5f);
             bot = Mathf.Max(bot, cy + rowH * 0.5f);
         }
@@ -15391,7 +15736,8 @@ public static class MainMenuScene
         {
             if (q == null || !q.gameObject.activeInHierarchy) continue;
             float w = q.WorldW * 108f, h = q.WorldH * 108f;
-            float cx = LayoutSpace.PxX(q.transform.position.x), cy = LayoutSpace.PxY(q.transform.position.y);
+            var qc = MenuCheck.DesignPx(q.transform);
+            float cx = qc.x, cy = qc.y;
             float x1 = cx - w * 0.5f, x2 = cx + w * 0.5f, y1 = cy - h * 0.5f, y2 = cy + h * 0.5f;
             if (x1 < vp.x1 - tol || x2 > vp.x2 + tol || y1 < vp.y1 - tol || y2 > vp.y2 + tol)
                 bad.Add(q.name + " " + x1.ToString("F1") + "," + y1.ToString("F1")
@@ -15410,7 +15756,7 @@ public static class MainMenuScene
         if (content == null) return top;
         foreach (var rt in content.GetComponentsInChildren<Transform>(true))
             if (rt.name == "Match Log")
-                top = Mathf.Min(top, LayoutSpace.PxY(rt.position.y) - OrigMatchRowH * 0.5f);
+                top = Mathf.Min(top, MenuCheck.DesignPx(rt).y - OrigMatchRowH * 0.5f);
         return top;
     }
 

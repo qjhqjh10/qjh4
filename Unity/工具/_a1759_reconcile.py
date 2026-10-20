@@ -805,8 +805,11 @@ def match_card(c):
 #      `AuraSpecs`、静态规则 `CardDef.MatchStaticBattleRule`、关键词通用实现 `RuleCore.UnstableBlast`、
 #      `persist`/`whenclause` 信封…）。判据 = `EffectText.WillRunOps`（`EffectText.cs:2018`）把
 #      七个来源汇成「执行层」而 `scan` 只看主解析器；子规则逐条见 `e8b_alignment()` 里每一支的注释。
-#      ⛔ **`triggerEffectInCard(260)` / `followAfterResolution(320)` 的 β 卡不在白名单里**
-#      （`GOF56`/`TL49`/`TL50`/`ASH46`/`GOF41`/`SAU11`）⇒ 它们是这条规则的**反例集**。
+#      🆕 2026-10-20（W58 E07）：`triggerEffectInCard(260)` / `followAfterResolution(320)` 的六张
+#      （`GOF56`/`TL49`/`TL50`/`ASH46`/`GOF41`/`SAU11`）已**逐条建桥**到下面的
+#      `E8B_WRAPPER_BETA`（原版载荷形状 + 我方承载 op **双检**）—— 它们**不再是反例集**。
+#      判据链 = `资料/普查产出_1019/W57_引擎线_T06_T07.md` §2·2（EN-2 逐条裁）＋
+#      `资料/普查产出_1020/W58_引擎线_260_320桥.md`（本笔：把裁定落成机器可复核的两道闸）。
 #
 # 🔴 **改判必须出声**：每一条被本规则改判的行都进 `e8b_flips`，文件尾按子规则打「改判行数 + 卡名单」。
 # 🔴 **A/B 开关**：`A1759_NO_E8B=1` ⇒ 三条对齐规则**整段不生效**（用于复算「加规则前」的读数、
@@ -833,8 +836,9 @@ E8B_STATIC_RULES = {
     'UM93':  ('OathInAllTurns', 'CardDef.cs:1462', 30),
 }
 # 🔴 规则③·包装码白名单（**E9 逐条裁定 α 的那批**）：原版把一条真实效果包进 `triggerEffectInCard(260)` /
-#   `followAfterResolution(320)`，我们这边是**展开的** op。⛔ β 那 5 张（GOF56/TL49/TL50/ASH46/GOF41）
-#   与 `SAU11` **故意不在表里** —— 那样这条规则才有反例（见报告 §三）。
+#   `followAfterResolution(320)`，我们这边是**展开的** op。⛔ 这张表是**卡级白名单**（E9 裁过、
+#   **不查我方载荷**）；🆕 2026-10-20（W58 E07）：原来「β 那 6 张故意留作反例」的口径**已撤销** ——
+#   它们改走下面的 `E8B_WRAPPER_BETA`（每条都带原版载荷 + 我方承载 op 双检，失配就留红并出声）。
 E8B_WRAPPER_ALPHA = {
     'GOF31': 'blind + repeat(per friendly Vehicle) 覆盖「Repeat this effect」；follow/260 是包装码',
     'UM82':  'eachunitdeal 覆盖 Codex「Each of your units deals …」；260 是包装码',
@@ -845,6 +849,119 @@ E8B_WRAPPER_ALPHA = {
     #   `chooseone/3`（+3 attack / +3 ranged / +3 health）⇒ 分支逐条对上（`E9` 判 α）。
     'DA39':  'chooseone 三个分支（+3 attack / +3 ranged / +3 health）覆盖 choiceEnchantment',
 }
+# 🔴🔴 2026-10-20（第五十八会话 W58 · 引擎线 E07）：**`260` / `320` 的"有证据桥"** —— 六张逐条建。
+#
+# **它治的是什么**：原版把一条真实效果包进 `triggerEffectInCard(260)` / `followAfterResolution(320)`
+#   （包装码本身不是效果），我们这边是**展开的** op ⇒ 仪器按 op 逐条对不齐，六条留在 🔴「我们缺」。
+#   `W57_引擎线_T06_T07.md` §2·2 已逐条给出卡面/原版字段/我方 op 的三方判据；
+#   本表把那六条裁定落成**两道机器闸**（⛔ 不是"卡名白名单式地吞掉"）：
+#     ① `orig`：原版这一支的**载荷形状**必须仍是判据里那一种（buffType / 伤害档 / 目标筛选）；
+#     ② `need`：我们这张卡上**真的存在**承载它的 op（动词 + 数值/载荷/目标），缺一条就不放行。
+#   两道闸任一不过 ⇒ **不吞**（继续走既有口径留红），并打一行「证据对不上」的出声（see `_e8b_beta_miss`）。
+#   ⚠️ 与 `E8B_WRAPPER_ALPHA` 的分工：alpha = E9 裁过的**卡级**白名单（不查我方载荷）；
+#      beta = 本笔这六张（**卡 + 包装码**级，且双检）。两张表互不覆盖。
+#
+# 逐条证据（卡名 / 卡面原文 / 我方 op / 原版包装码 / 为什么同义）：
+#   · `GOF56` **Deffkopta** —— 卡面 `Tide 2. Rally: Other friendly Deffkopta deal 2 damage to a
+#     random enemy.`；原版 `a1`（trigger=0 `ThisCardPlayed`）`triggerEffectInCard(260)`，载荷 =
+#     `buff{buffType=15 singleUseEnchantment}` + `targetCriteria{friendlyUnits=1,includeMinions=1,
+#     filterSpecificCards=[1 张卡]}`；那 1 张 = `c40a…`（`28 Goff-Deffkopta_enchantment`，**已解**），
+#     它自己的 abilityLogic 是 `doDamage{2-2}` ⇒ **260 = 给每个其他友方 Deffkopta 挂「打 2」**。
+#     （同一 abilityLogic 里那个 `damageCriteria{1-3,valueOptions=90}` 是 `a0` 的 `Unstable` 载荷残留，
+#      不是 Rally 的伤害；本卡的 `Unstable` 在我们这边走关键词层 —— `layers.kwKeys.unstable=1`。）
+#     我们 `eachunitdeal/2` = 「其他友方 Deffkopta 各打 2」⇒ 同义。
+#   · `TL49` **Hyper-adaptation** —— 卡面 `Choose an effect and give it to a friendly troop`；
+#     原版 `a0.0` = `triggerEffectInCard(260)` + `buff{buffType=16 choiceEnchantment}` +
+#     `tgt{targetsAffected=30}`（一个友方部队）。我们 `chooseeffect/0|give`（目标 `own|troop`）
+#     = 选一种附魔并给它 ⇒ 同义（`choiceEnchantment` 就是"选一个可给的效果"的载体）。
+#   · `TL50` **Infinite Biomorphologies** —— 卡面 `Choose an effect and give it to all troops in
+#     your hand`；原版 `a0.0` = `260` + `buff{buffType=16 choiceEnchantment}` +
+#     `tgt{targetsAffected=50,friendlyUnits=1,includeMinions=1}`（手牌）。我们 `chooseeffect/0|hand`
+#     ⇒ 同义。
+#   · `ASH46` **Aerial Dominion** —— 卡面 `Deal 3 damage to a random enemy. Repeat this effect for
+#     every friendly Vehicle`；原版 `a0.1` = `260` + `tgt{friendlyUnits=1,includeMinions=1,
+#     keywordFilter=10(Vehicle)}`；它挂的 `enchantment` PPtr `5836…` 已解 = `2ece…`
+#     （`T11 SaimHann-Aerial Dominion_enchantment`），其 abilityLogic 是 `doDamage{3-3}` ⇒
+#     「对每个友方 Vehicle 各打 3」。我们 `deal/3` + `repeat ... own|vehicle|all board` 同义。
+#   · `GOF41` **Unbridled Carnage** —— 卡面 `Deal 1-2 damage to a random enemy. Repeat this effect
+#     for every friendly troop`；原版 `a0.1` = `260` + `tgt{friendlyUnits=1,includeMinions=1}`
+#     （无 keywordFilter ⇒ 每个友方 troop）；`enchantment` PPtr `2643…` 已解 = `fae4…`
+#     （`T12 Goff-Unbridled Carnage_enchantment`），其 abilityLogic 是 `doDamage{1-2,opt90}` ⇒
+#     「对每个友方 troop 各打 1-2」。我们 `deal/1~2` + `repeat own|troop|all board` 同义。
+#   · `SAU11` **Technomancer** —— 卡面 `Artifice: Reanimate a random friendly Remnant`；
+#     原版 `a0.0` = `followAfterResolution(320)` + `tgt{friendlyUnits=1,includeMinions=1,
+#     includeRemnants=1,maxTargets=1,conditionsFilter=340(onlyRemnants)}` = "先选一个随机友方残骸，
+#     再执行后续"（后续 = `a1.0` 的 `reanimate(430)`，本仪器那里已 ✅）。
+#     我们 `reanimate/0`（`DoReanimate` 残骸支：内部随机挑一个友方残骸，`ctx.Rng` 可复现）
+#     ⇒ 一条 op 覆盖 320 + 430 两步，同义。
+#
+# ⚠️ `need` 里的 `raw_has` 用 `op['raw']`（scan 的原始 op 串）—— `repeat` 的计数引用
+#   （`own|vehicle|all`）在尾部列的 `countRef`，`parse_ops_bundle` 没有单独取它（见该函数的字段表），
+#   而 `raw` 是逐字节原文 ⇒ 用它做子串核对，**不改解析器、不动既有列**。
+E8B_WRAPPER_BETA = {
+    ('GOF56', 260): {
+        'name': 'Deffkopta',
+        'face': 'Tide 2. Rally: Other friendly Deffkopta deal 2 damage to a random enemy.',
+        'ours': 'eachunitdeal/2',
+        'why': '原版 `a1` 的 260 给每个其他友方 Deffkopta 挂 '
+               '`28 Goff-Deffkopta_enchantment`（其能力 = 打 2），我们一条 `eachunitdeal 2` '
+               '就把「其他友方 Deffkopta 各打 2」落成同义机制',
+        'orig': {'bt': 15, 'dmg_opt': 90,
+                 'tc': {'friendlyUnits': 1, 'includeMinions': 1}, 'tc_filter_cards': 1},
+        'need': [{'verb': 'eachunitdeal', 'amount': '2'}],
+    },
+    ('TL49', 260): {
+        'name': 'Hyper-adaptation',
+        'face': 'Choose an effect and give it to a friendly troop',
+        'ours': 'chooseeffect/0|give',
+        'why': '原版 `buffType=16 choiceEnchantment` 就是「选一个可给的效果」的载体，'
+               '我们 `chooseeffect(give)` 对 `own|troop` 与卡面逐字同义',
+        'orig': {'bt': 16, 'tc': {'targetsAffected': 30}},
+        'need': [{'verb': 'chooseeffect', 'payload_has': 'give',
+                  'tgt': {'Side': 'own', 'Kind': 'troop'}}],
+    },
+    ('TL50', 260): {
+        'name': 'Infinite Biomorphologies',
+        'face': 'Choose an effect and give it to all troops in your hand',
+        'ours': 'chooseeffect/0|hand',
+        'why': '原版 `260` + `choiceEnchantment` 的目标是手牌（`targetsAffected=50`），'
+               '我们 `chooseeffect(hand)` 与卡面同义',
+        'orig': {'bt': 16, 'tc': {'targetsAffected': 50, 'friendlyUnits': 1, 'includeMinions': 1}},
+        'need': [{'verb': 'chooseeffect', 'payload_has': 'hand'}],
+    },
+    ('ASH46', 260): {
+        'name': 'Aerial Dominion',
+        'face': 'Deal 3 damage to a random enemy. Repeat this effect for every friendly Vehicle',
+        'ours': 'deal/3 + repeat ... own|vehicle|all board',
+        'why': '原版 `a0.1` 的 260 对每个友方 Vehicle（`keywordFilter=10`）挂 `Aerial Dominion_enchantment`'
+               '（其能力 = 打 3），我们 `deal 3` + `repeat(own|vehicle|all board)` 正好表达同一件事',
+        'orig': {'bt': 0, 'tc': {'friendlyUnits': 1, 'includeMinions': 1, 'keywordFilter': 10}},
+        'need': [{'verb': 'deal', 'amount': '3'},
+                 {'verb': 'repeat', 'raw_has': 'own|vehicle|all'}],
+    },
+    ('GOF41', 260): {
+        'name': 'Unbridled Carnage',
+        'face': 'Deal 1-2 damage to a random enemy. Repeat this effect for every friendly troop',
+        'ours': 'deal/1~2 + repeat ... own|troop|all board',
+        'why': '原版 `a0.1` 的 260 对每个友方 troop（目标只筛 friendlyUnits）挂 '
+               '`Unbridled Carnage_enchantment`（其能力 = 打 1-2），我们 `deal 1-2` + '
+               '`repeat(own|troop|all board)` 正好表达同一件事',
+        'orig': {'bt': 0, 'tc': {'friendlyUnits': 1, 'includeMinions': 1, 'keywordFilter': 0}},
+        'need': [{'verb': 'deal', 'amount': '1', 'am': 2},
+                 {'verb': 'repeat', 'raw_has': 'own|troop|all'}],
+    },
+    ('SAU11', 320): {
+        'name': 'Technomancer',
+        'face': 'Artifice: Reanimate a random friendly Remnant',
+        'ours': 'reanimate/0',
+        'why': '原版 `a0.0` 的 320（`followAfterResolution`）先选一个随机友方残骸、'
+               '再执行 `a1.0` 的 `reanimate(430)`；我们 `reanimate`（残骸支内部随机挑一个友方残骸）'
+               '一条 op 覆盖这两步，同义',
+        'orig': {'bt': 0, 'tc': {'targetsAffected': 20, 'friendlyUnits': 1, 'includeMinions': 1,
+                                 'includeRemnants': 1, 'maxTargets': 1, 'conditionsFilter': 340}},
+        'need': [{'verb': 'reanimate'}],
+    },
+}
 # 规则③·编码等价：`chosenAbility` 原值 → (需要的我方动词集合, 说明)。
 E8B_ENCODING = {
     270: (('return',), 'createCardInDeck(270) ↔ 我们 `return`（回牌库）'),
@@ -853,6 +970,52 @@ E8B_ENCODING = {
     360: (('gain', 'give', 'deal', 'heal', 'create', 'deploy', 'destroy', 'stun',
            'reanimate', 'forceattack'), 'playChosenCardAbility(360) = Oath 的包装码'),
 }
+# `E8B_WRAPPER_BETA` 的证据闸没通过时**出声一次**（⛔ 不静默：否则"桥没生效"只能靠人比数字）。
+_e8b_beta_miss = set()
+
+
+def _e8b_beta_orig_ok(meta, spec):
+    """`E8B_WRAPPER_BETA[...]['orig']` ↔ 原版这一支的**载荷形状**（⛔ 形状变了就不许沿用桥）。
+    支持四种键：`bt`（`meta['bt']`）· `dmg_opt`（`valueOptions` 档）· `tc`（`targetCriteria` 逐字段相等）
+    · `tc_filter_cards`（`filterSpecificCards` 的条数）。未知键 ⇒ **停**（⛔ 不静默跳过）。"""
+    tc = meta.get('tc_raw') or {}
+    for k, v in (spec.get('orig') or {}).items():
+        if k == 'bt':
+            if meta.get('bt') != v: return False
+        elif k == 'dmg_opt':
+            if meta.get('dmg_opt') != v: return False
+        elif k == 'tc':
+            for kk, vv in v.items():
+                if tc.get(kk) != vv: return False
+        elif k == 'tc_filter_cards':
+            if len(tc.get('filterSpecificCards') or []) != v: return False
+        else:
+            raise SystemExit('!! `E8B_WRAPPER_BETA.orig` 出现未知键 `%s`（⛔ 不静默跳过）' % k)
+    return True
+
+
+def _e8b_beta_carriers(ops, spec):
+    """`E8B_WRAPPER_BETA[...]['need']` ↔ **我们卡上真的存在的承载 op**。
+    每个 need 是 `{verb, amount?, am?, payload_has?, raw_has?, tgt?}` 的**合取**；
+    `tgt` 逐键比 `op['tgt']`（scan 的 `{T:…}` 块）。任何一条 need 找不到 ⇒ 返回 `None`（不放行）。
+    返回命中的 op 下标（按 need 顺序、去重）—— 调用方只用它作**证据**（并在行里显示第一条承载 op）；
+    ⛔ **不要把它们标 `used`**：同一个 op 可能正当地覆盖另一条原版步骤（见 ③·f-a 的注释）。"""
+    hit = []
+    for need in spec.get('need') or []:
+        found = None
+        for i, o in enumerate(ops):
+            if 'verb' in need and o['verb'] != need['verb']: continue
+            if 'amount' in need and o['amount'] != need['amount']: continue
+            if 'am' in need and o.get('am') != need['am']: continue
+            if 'payload_has' in need and \
+                    need['payload_has'].lower() not in (o['payload'] or '').lower(): continue
+            if 'raw_has' in need and need['raw_has'] not in (o['raw'] or ''): continue
+            if 'tgt' in need and any(o['tgt'].get(k) != v for k, v in need['tgt'].items()):
+                continue
+            found = i; break
+        if found is None: return None
+        if found not in hit: hit.append(found)
+    return hit
 
 
 def _e8b_branch_fams(text, forced):
@@ -1095,6 +1258,30 @@ def e8b_alignment(cid, ocid, tname, trig, fam, meta, oval, ocard, used, branch_u
         return ('⚠️表示不同·语义同', '别层承载·静态规则',
                 '原版这一支是逐卡 ability，我们的实现 = 静态规则 `%s`（`%s`）· trig=%s'
                 % (_nm, _src, tname), None)
+
+    # ---------------- ③·f-a `260` / `320` 的**有证据桥**（六张；W58 E07） ----------------
+    # 🔴 2026-10-20：`E8B_WRAPPER_BETA` 的每一张都**双检**（见那张表的头注）：
+    #   ① `orig`：原版这一支的载荷形状仍是判据里那一种；② `need`：我们卡上真的有承载 op。
+    #   ⛔ 任一不过 ⇒ 不吞（继续走下面的既有口径留红），并出声一次（`_e8b_beta_miss`）。
+    if oa in (260, 320):
+        _beta = E8B_WRAPPER_BETA.get((cid, oa))
+        if _beta is not None:
+            _hit = _e8b_beta_carriers(ops, _beta)
+            if _hit is not None and _e8b_beta_orig_ok(meta, _beta):
+                # ⚠️ **刻意不标 `used`**（与 alpha 不同）：本桥的承载 op 常常**同时**被另一条原版步骤
+                #   正当地用掉（实测 `SAU11`：`reanimate` 既覆盖 `a0.0` 的 320、又是 `a1.0` 的 430；
+                #   在 320 这一行把它标 used ⇒ `a1.0` 的 ✅ 会掉成 `⚠️拆条差异`，凭空多一条改判）。
+                #   这六张的 op 本来就各有归属（伤害/choose/reanimate 均有既有行），⛔ 不需要清「我们多」。
+                return ('⚠️表示不同·语义同', '别层承载·包装码',
+                        '原版这一支 = `%s` 包装码（%s）。卡面「%s」；我们 `%s`；%s · trig=%s'
+                        % (ANAME.get(oa, oa), _beta['name'], _beta['face'],
+                           _beta['ours'], _beta['why'], tname),
+                        ops[_hit[0]] if _hit else None)
+            if (cid, oa) not in _e8b_beta_miss:
+                _e8b_beta_miss.add((cid, oa))
+                print('   ⚠️ `E8B_WRAPPER_BETA` 的桥**证据对不上**，按原口径留红：%s/%s'
+                      '（我方应有=%s；原版载荷=%s；need 命中=%s）'
+                      % (cid, oa, _beta['ours'], oval[:100], _hit))
 
     # ---------------- ③·f 包装码白名单（`260` / `320`） ----------------
     if oa in (260, 320) and cid in E8B_WRAPPER_ALPHA:
@@ -1923,12 +2110,16 @@ for _sb, _lst in _bysub.items():
         _tag = '%s（%s · %s）' % (_cid, _nm or '?', _tg)
         if _tag not in _cards: _cards.append(_tag)
     print('     · %-16s %3d 条 · 卡：%s' % (_sb, len(_lst), '、'.join(_cards)))
-print('   ⛔ 反例集（本规则**不吞**的真缺口，仍留红）：`GOF56`/`TL49`/`TL50`/`ASH46`/`GOF41`（260 包装码 β）'
-      ' · `SAU11`（320 β）· `GOF12` 的 health 三条（γ）'
+print('   ⛔ 反例集（本规则**不吞**的真缺口，仍留红）：`GOF12` 的 health 三条（γ）'
+      ' · `36892cd…` Bitter Blows / `9dcbe3d0…` Mekaniak（判据未定）· `GOF38` 两条（SO 与卡面冲突，按卡面）'
       # 🔴 2026-10-20（W57 EN-3 · 铁律 5 就地订正）：原来这一行还列着 `SW38`（判据冲突 β）——
       #   不成立了：`our_layers_1019.jsonl` 重生后 SW38 有 `Armour 2 ← Your Warlord has Armour 2`
       #   光环行（`W57_引擎线_T07_对账_EN3.tsv` 里是 `⚠️表示不同·语义同 / 光环层承载`）。
-      ' · ⚠️（`SW38` 已于 2026-10-20 随 layers 重生转绿，从本反例集移除）')
+      ' · ⚠️（`SW38` 已于 2026-10-20 随 layers 重生转绿，从本反例集移除）'
+      # 🔴 2026-10-20（W58 E07）：原来这里把 `GOF56`/`TL49`/`TL50`/`ASH46`/`GOF41`（260）与
+      #   `SAU11`（320）当反例集 —— **不再成立**：`E8B_WRAPPER_BETA` 已逐条建桥（双检：原版载荷形状
+      #   + 我方承载 op）。桥的判据与重跑数字 → `资料/普查产出_1020/W58_引擎线_260_320桥.md`。
+      ' · ⚠️（`GOF56`/`TL49`/`TL50`/`ASH46`/`GOF41`/`SAU11` 已于 2026-10-20 建 260/320 桥，从本反例集移除）')
 
 # 🔴 账 `A1947`：**替代主动能力**（`alternativeAbility`）—— 这一段**只出声、不产出行**，
 #   理由（`GetActiveAbility` 的二选一 + 为什么⛔不替原版挑）见 `for c in truth:` 里那段长注释。

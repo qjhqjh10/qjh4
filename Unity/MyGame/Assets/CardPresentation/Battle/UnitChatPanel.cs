@@ -226,6 +226,9 @@ namespace CardPresentation
         /// ⚠️ 运行时 dump 给的是**左上角坐标**（`-25.0,-126.0` 那一栏是 `m_AnchoredPosition`，
         /// 逐位与 `RectTransform_3439.json` 的 `(−25, −126)` 一致 ⇒ 同一份判据）。</summary>
         static readonly Slot SlotRadio  = new Slot { left = 1246.2f, top = 126.0f, ax = 1f, ay = 1f };
+        // 🆕 **2026-10-20（W58 · `T09` C3）**：上面这三行 + 那组 `BubbleW/H` / `Portrait*` / `Wave*` / `Text*`
+        //   常量 = **画布档的全部几何**（点锚 + 常量 `anchoredPosition`）。⇒ `RefreshLayout()` 的画布支
+        //   已早退（见它自己的 doc）；世界档仍要重摆。⛔ 别把「分辨率相关」的算式加回 `Move` 的画布支。
 
         public bool Ready { get { return _player != null && _player.bg != null; } }
         /// <summary>自检用：现在亮着的是哪一侧（`-1` = 都没显示；`2` = `RadioChat`）。
@@ -351,6 +354,34 @@ namespace CardPresentation
             var rt = b.bg.Rect;
             if (rt == null) return new Vector2(-1f, -1f);
             return rt.anchorMin;       // `Move` 把 `anchorMin`/`anchorMax` 写成同一个点锚 ⇒ 读一个就够
+        }
+
+        /// <summary>🆕 **2026-10-20（W58 · `T09` C3）**：某一颗气泡底图的 `anchoredPosition`
+        /// （= 「贴着那个角、按**固定 px** 内缩」的那一格；画布档的 `Move` 只写这一个位置量）。
+        /// <para>它**不含画布尺寸** ⇒ 4:3 / 16:9 / 21:9 三档下**逐值相同**（断言 → `Editor/BattleScene.cs`
+        /// 的 `T09-C3` 块）。期望值取**原版 prefab 的三元组**（`ap` + `sd` + `pivot`）换算出的中心偏移，
+        /// ⛔ 别读 `Slot` / `BubbleW` 反推（那是被测实现自己的常量）。</para>
+        /// <para>世界档（没有 `RectTransform` 锚点）/ 没建出来 ⇒ `(NaN, NaN)`（⛔ 不返 `(0,0)`：
+        /// 那与「真的落在锚点原点」分不开）。</para></summary>
+        public Vector2 BubbleAnchoredPosOf(int side)
+        {
+            var b = BubbleFor(side);
+            if (b == null || b.bg == null || !_ugui || b.bg.Rect == null)
+                return new Vector2(float.NaN, float.NaN);
+            return b.bg.Rect.anchoredPosition;
+        }
+
+        /// <summary>🆕 **2026-10-20（W58 · `T09` C3）灭自证用**：把一颗气泡底图的 `anchoredPosition`
+        /// 平移 <paramref name="delta"/>（px、y 向上）。调用方测完必须**平回去**。
+        /// <para>用途：证明**画布档的 `RefreshLayout()` 不再写几何** —— 平移后调它一次，
+        /// 位置必须还停在那儿；若它被改回「无条件 `Place(...)`」，这一刀会被写回常量。</para>
+        /// <para>世界档（没有 `RectTransform`）/ 没建出来 ⇒ `false`（⛔ 不静默假装挪过）。</para></summary>
+        public bool NudgeBubbleAnchoredPosForTest(int side, Vector2 delta)
+        {
+            var b = BubbleFor(side);
+            if (b == null || b.bg == null || !_ugui || b.bg.Rect == null) return false;
+            b.bg.Rect.anchoredPosition += delta;
+            return true;
         }
 
 #if UNITY_EDITOR
@@ -490,6 +521,17 @@ namespace CardPresentation
                               "chat_card_" + name, ZPortrait);
             b.wave = Quad(at, b.left + WaveCx, topPx + WaveCy, waveTex, WaveH, "chat_wave_" + name, ZWave);
             if (b.wave != null) b.wave.SetTint(WaveTint);
+            // 🔴 2026-10-20（W58 · `T09-C3` 生产修复）：**三片的「宽 = 高 × 原版比例」在建件处就写一次**。
+            //   uGUI 档的 `Quad`（`HudCanvas.MakeImageInParent`）只按**贴图比例**给宽度
+            //   （`wPx = hPx × tex.w / tex.h` ⇒ 气泡读回 646.996 px），而 `RefreshLayout` 的画布支
+            //   按设计**早退**（锚点/偏移全是常量、与画布尺寸无关，见它的 doc）⇒ 原来唯一那句
+            //   `SetAspect` 在 `Place()` 里，画布档**永远走不到** ⇒ 宽度停在贴图比例而不是原版
+            //   `648.774 × 236.505`（差 1.778 px = 0.27%）。这里补一次与 `Place` **同源**的常量，
+            //   幂等；世界档照旧由 `Place` 在每次 `RefreshLayout` 时写（值相同、逐位不变）。
+            //   ⛔ 别改成撤掉 `RefreshLayout` 的早退 —— C3 的「幂等空转」两条断言（⑤⑥）要它不写几何。
+            if (b.bg != null) b.bg.SetAspect(BubbleW / BubbleH);
+            if (b.portrait != null) b.portrait.SetAspect(PortraitW / PortraitH);
+            if (b.wave != null) b.wave.SetAspect(WaveW / WaveH);
 
             // 文本区原版是 anchor(0.29062,0.25823)-(0.97362,0.60365) 的**拉伸矩形**、
             // 对齐 `H=1(左) V=512(中)` ⇒ 我们按**左对齐**摆（轴心 x=0），y 取那条的中线。
@@ -602,7 +644,12 @@ namespace CardPresentation
         /// <para>**uGUI 档**：走共用口 `HudCanvas.SetAnchorPx(rt, ax, ay, xPx, yPxTop)`
         /// （= 点锚 + `anchoredPosition = HudCanvas.AnchorApPx(…)`）
         /// （⛔ 不写 `localPosition`：锚点一旦不是父件中心，两者就**不再同值**；⛔ 也不写 `localPosition.z`
-        /// —— 画布上写 z 会把件**推离画布平面**，层深度由建件口那个 `z` → 兄弟序承担）。</para>
+        /// —— 画布上写 z 会把件**推离画布平面**，层深度由建件口那个 `z` → 兄弟序承担）。
+        /// 🔴 **2026-10-20（W58 · `T09` C3）：这一支【就是】「写死的归一化锚点」** ——
+        /// `ax/ay` = 原版 `m_AnchorMin/Max`（`Slot` 里逐颗写死）、`xPx/yPxTop` 由
+        /// `BubbleW/H` / `Portrait*` / `Wave*` / `Text*` 的常量算出 ⇒ `anchoredPosition` 是一个**常量**、
+        /// **不读任何画布尺寸**。⇒ 换宽高比**不需要重排**（`RefreshLayout` 的画布支已早退），
+        /// 4:3 / 16:9 / 21:9 三档 `CenterPx`/`SizePx` 逐值相同。</para>
         /// <para>**世界档**：`LayoutSpace.ToWorld(ax, ay)`（= 那个角在**可见区**里的世界坐标）
         /// `+ HudCanvas.AnchorApPx(…) × s`，`s = LayoutSpace.Px(LayoutSpace.Scale)` —— **这就是「贴着那个角、按固定 px 内缩」**
         /// 在世界空间里的写法（`Scale` = 窄屏系数，16:9 ⇒ 1 ⇒ 与改本件之前**逐位相同**）。
@@ -647,9 +694,19 @@ namespace CardPresentation
             t.transform.localPosition = new Vector3(o.x + ap.x * s, o.y + ap.y * s, z);
         }
 
-        /// <summary>分辨率变了要重算（`BattleDriver.ReanchorHud` 里调）。</summary>
+        /// <summary>分辨率变了要不要重算 —— **画布档【不用】**（几何全是写死的归一化锚点）；
+        /// 世界档仍按 `LayoutSpace` 的实测可见区摆 ⇒ 要重算。
+        /// <para>🔴 **2026-10-20（W58 · `T09` C3）：画布档早退。** 理由 = `Move` 的画布支写的是
+        /// 「点锚 `(ax, ay)` + `anchoredPosition = AnchorApPx(常量)`」——**一个画布尺寸都不读**
+        /// （`ax/ay` 是原版 `m_AnchorMin/Max`，`ap` 全由 `Slot`/`BubbleW/H`/`Portrait*`/`Wave*` 的常量算出）
+        /// ⇒ 4:3 / 16:9 / 21:9 下三颗气泡的 `CenterPx`/`SizePx` **逐值相同**（断言 → `Editor/BattleScene.cs`
+        /// 的 `T09-C3` 块）。世界档的 `LayoutSpace.ToWorld(ax, ay)` 用的是**实测可见区** ⇒ 换分辨率必须重摆。</para>
+        /// <para>⚠️ **调用点仍在 `BattleDriver.ReanchorHud`**（本批白名单外）⇒ 生产路径上它现在是**幂等空转**
+        /// （画布档一行不改）。删那一句要等 `BattleDriver` 的下一波；在那之前**别把它改回「无条件重摆」**
+        /// —— 那会让这件的几何来源又有两份（`Move` 的锚点 + 这里每次重算）。</para></summary>
         public void RefreshLayout()
         {
+            if (_ugui) return;                 // 画布档：锚点常量 ⇒ 无分辨率相关项（见上面 doc）
             Place(_player, SlotPlayer, BubbleW, PortraitW, PortraitH);
             Place(_enemy,  SlotEnemy,  BubbleW, PortraitW, PortraitH);
             Place(_radio,  SlotRadio,  BubbleW, PortraitW, PortraitH);
@@ -751,6 +808,10 @@ namespace CardPresentation
         /// <paramref name="artKey"/> = 立绘键（`BattleDriver.ArtKey`，**判据只此一处**）；
         /// <paramref name="text"/> 为空时退回显示 <paramref name="fallbackName"/>（卡名）。
         /// <paramref name="clip"/> 为 null = 这张卡没语音（那就不该调用本方法）。
+        /// ⚠️ **唯一例外（2026-10-20 · `T18`）**：开场白的定制音 `customSound` **取不到**时，
+        /// 调用方仍会调本方法（`clip = null`）把气泡/文字照原版显示出来 —— 原版
+        /// `DisplayWarlordRegularChatMessage` 在 clip 为 null 时照样 `ShowChatBox`。
+        /// 那一档的「为什么没声」由 `CardChatIntro.CustomSound` **出声一次**（⛔ 不静默）。
         /// <paramref name="chatSuffix"/> 非 null 时压过「按事件推的后缀」（只有开场白那档会传，见 <see cref="ChatTermKey"/>）。
         /// <paramref name="chatTermOverride"/> 🆕 2026-10-19（`W57` · `T17/T18`）：**完整官方键**（非 null 时压过
         /// 上面那条「`cardId + 后缀`」的拼法）—— 定制开场白两档是 `Chat_Messages/<me>-Chat0-<对手 id 或阵营名>`，
@@ -853,6 +914,19 @@ namespace CardPresentation
             _left = 0f;
         }
 
+        /// <summary>🆕 2026-10-20（W58 · G 组）：把三颗气泡挂的语音也**停掉**。
+        /// <para>`HideAll` 按既有口径**只收气泡、不碰音频**（见 `BattleDriver.CloseTutorialChatBoxes`
+        /// 那段注释：原版 `CloseChatBox` 是否停音没核到 ⇒ 别改 `HideAll` 的语义）。而「新一局 = 新场景」
+        /// 这一档必须把上一局的语音收掉（原版换场景连 AudioSource 一起没了），否则上一局的台词会串到
+        /// 下一局开场（还会挡住 `BattleDriver.TickIntroMonologue` 的「等上一条播完」闸）。</para>
+        /// <para>调用点只有 `BattleDriver.Begin`（本局账不跨局那一族）—— ⛔ 别拿它替换 `HideAll`。</para></summary>
+        public void StopVoice()
+        {
+            if (_player != null && _player.audio != null) _player.audio.Stop();
+            if (_enemy != null && _enemy.audio != null) _enemy.audio.Stop();
+            if (_radio != null && _radio.audio != null) _radio.audio.Stop();
+        }
+
         /// <summary>三颗气泡按原版那三个序号取（`0 = PlayerChatDisplay` · `1 = EnemyChatDisplay`
         /// · `2 = RadioChat`）。认不出的序号 ⇒ null + **出声**（⛔ 不静默，也别顺手落到某一颗上 ——
         /// 那会把「电台」的话说成某一边督军的）。</summary>
@@ -922,10 +996,19 @@ namespace CardPresentation
             public bool HasText;
             /// <summary>谁先说（原版 `CustomIntroChatData +0x20`）；**-1 = 这一档没有这个字段**（按阵营档）。</summary>
             public int TalksFirst;
+            /// <summary>🆕 2026-10-20（战斗线 `T18`）：原版 `entry.customSound` 的
+            /// `AssetReference.m_AssetGUID`（`CustomIntroChatData.cs:10` / `CustomIntroByArmyChatData.cs:10`）。
+            /// 空串 = 这一档没有定制音 ⇒ 回落卡自己的 `GetChatSound(Intro)`（现有 `VoiceLines` 那一链）。</summary>
+            public string SoundGuid;
+            /// <summary>🆕 2026-10-20：`soundGuid` 解出的 AudioClip 资产名（生成器用
+            /// `资料/普查产出_1018/cardanim_guid_map/guid_map_bundles.tsv` 解；加载路径 =
+            /// `Resources/Art/audio/vo/<soundAsset>`）。**空串但 `SoundGuid` 非空 = 解不出**
+            /// ⇒ 调用方出声并回落到无音（⛔ 不许拿默认音顶替）。</summary>
+            public string SoundAsset;
         }
 
-        sealed class OppEntry { public string key; public bool hasText; public int talksFirst = -1; }
-        sealed class ArmyEntry { public string key; public bool hasText; }
+        sealed class OppEntry { public string key; public bool hasText; public int talksFirst = -1; public string soundGuid; public string soundAsset; }
+        sealed class ArmyEntry { public string key; public bool hasText; public string soundGuid; public string soundAsset; }
         sealed class CardEntry
         {
             public string id;
@@ -1011,7 +1094,8 @@ namespace CardPresentation
                 OppEntry op;
                 if (c.byOpponent.TryGetValue(foeChatId, out op) && op != null && !string.IsNullOrEmpty(op.key))
                 {
-                    entry = new Entry { Key = op.key, HasText = op.hasText, TalksFirst = op.talksFirst };
+                    entry = new Entry { Key = op.key, HasText = op.hasText, TalksFirst = op.talksFirst,
+                                        SoundGuid = op.soundGuid, SoundAsset = op.soundAsset };
                     return true;
                 }
             }
@@ -1020,7 +1104,8 @@ namespace CardPresentation
                 ArmyEntry a;
                 if (c.byArmy.TryGetValue(foeArmy, out a) && a != null && !string.IsNullOrEmpty(a.key))
                 {
-                    entry = new Entry { Key = a.key, HasText = a.hasText, TalksFirst = -1 };
+                    entry = new Entry { Key = a.key, HasText = a.hasText, TalksFirst = -1,
+                                        SoundGuid = a.soundGuid, SoundAsset = a.soundAsset };
                     return true;
                 }
             }
@@ -1056,6 +1141,66 @@ namespace CardPresentation
                            + "`资料/普查产出_1019/W_战斗线_开场白数据_1019b.md` §1·B / §3·C）");
         }
 
+        // ---- 🆕 2026-10-20（战斗线 `T18`）：`customSound`（原版 `ChatManager.GetChatSoundAsset`） ----
+
+        static readonly HashSet<string> _warnedSound = new HashSet<string>();
+
+        /// <summary>表里带 `soundGuid` 的条目数（运行时现读 = 197 / 197 —— **每一条都有定制音**）。</summary>
+        public static int EntriesWithSound { get; private set; }
+        /// <summary>`soundGuid` 非空、但 `soundAsset` 空（生成器解不出 GUID）的条目数 —— 正常应为 0。</summary>
+        public static int SoundUnresolvedEntries { get; private set; }
+        /// <summary>自检用：累计有多少次「该播定制音却拿不到」（解不出 / 资源不在）。⛔ 不是总数统计，是失败计数。</summary>
+        public static int SoundLoadFailures { get; private set; }
+        /// <summary>最近一次定制音拿不到的人话原因（`null` = 没发生过）。</summary>
+        public static string LastSoundError { get; private set; }
+
+        /// <summary>自检用：清掉「定制音拿不到」的去重表与计数器（⛔ 不动已载的表）。</summary>
+        public static void ResetSoundWarningsForTest()
+        {
+            _warnedSound.Clear();
+            SoundLoadFailures = 0;
+            LastSoundError = null;
+        }
+
+        /// <summary>
+        /// 取这一条开场白的**定制音**（原版 `ChatManager__GetChatSoundAsset.c` 的 customSound 分支：
+        /// `entry.customSound(+0x18) != 0` ⇒ `AssetReferenceTyped&lt;AudioClip&gt;.Load`）。
+        /// <para>加载口 = **语音线同一条** `Resources/Art/audio/vo/&lt;soundAsset&gt;`（`VoiceLines.ClipRoot`，
+        /// ⛔ 不另开一套播放器；播放仍走 `UnitChatPanel` 气泡上那颗 `AudioSource`，已挂 `Voices` 组）。</para>
+        /// <para>返回 `null` 的三种情形：① `soundGuid` 空（这一档**没有**定制音 ⇒ 调用方回落
+        /// `VoiceLines` 那一链，**不算失败**）；② GUID 解不出资产名；③ 资源不在。
+        /// ②③ 都会**出声一次**（按 GUID 去重）并计入 <see cref="SoundLoadFailures"/> ——
+        /// ⛔ **不许静默**、⛔ **不许拿默认音顶替**（宁可没声，不可播错）。</para>
+        /// </summary>
+        public static AudioClip CustomSound(string soundGuid, string soundAsset)
+        {
+            if (string.IsNullOrEmpty(soundGuid)) return null;
+            if (string.IsNullOrEmpty(soundAsset))
+            {
+                Fail(soundGuid, null, "GUID 解不出资产名（生成器 `工具/gen_card_chat_intro.py` 的 "
+                                    + "`soundAsset` 为空 —— 查 `unresolvedSoundGuids`）");
+                return null;
+            }
+            string name = System.IO.Path.GetFileNameWithoutExtension(soundAsset);
+            var clip = Resources.Load<AudioClip>(VoiceLines.ClipRoot + name);
+            if (clip == null)
+            {
+                Fail(soundGuid, soundAsset, "`Resources/" + VoiceLines.ClipRoot + name + "` 取不到"
+                                          + "（跑 `工具/import_original_audio.py` 补齐）");
+                return null;
+            }
+            return clip;
+        }
+
+        static void Fail(string guid, string asset, string why)
+        {
+            SoundLoadFailures++;
+            LastSoundError = "guid=`" + guid + "` asset=`" + (asset ?? "") + "`：" + why;
+            if (_warnedSound.Add(guid))
+                Debug.LogWarning("[Chat] 定制开场白音效**取不到** —— " + LastSoundError
+                               + " ⇒ 这一句**回落到无音**（气泡照显示；⛔ 不猜成默认音、⛔ 不静默）");
+        }
+
         // ---- 载入 ------------------------------------------------------
 
         static void EnsureLoaded()
@@ -1077,6 +1222,8 @@ namespace CardPresentation
                 if (root == null) throw new FormatException("根不是对象");
                 _byId = new Dictionary<string, CardEntry>();
                 _chatIdOverrides = new Dictionary<string, string>();
+                EntriesWithSound = 0;
+                SoundUnresolvedEntries = 0;
 
                 object o;
                 if (root.TryGetValue("chatIdOverrides", out o))
@@ -1113,12 +1260,17 @@ namespace CardPresentation
                                 if (od == null) continue;
                                 string key = Str(od, "key");
                                 if (string.IsNullOrEmpty(key)) continue;
+                                string sg = Str(od, "soundGuid");
+                                string sa = Str(od, "soundAsset");
                                 card.byOpponent[kv.Key] = new OppEntry
                                 {
                                     key = key,
                                     hasText = Bool(od, "hasText"),
                                     talksFirst = Int(od, "talksFirst", -1),
+                                    soundGuid = sg,
+                                    soundAsset = sa,
                                 };
+                                CountSound(sg, sa);
                             }
 
                         var armies = cd.TryGetValue("introByArmy", out sub) ? sub as Dictionary<string, object> : null;
@@ -1129,7 +1281,11 @@ namespace CardPresentation
                                 if (ad == null) continue;
                                 string key = Str(ad, "key");
                                 if (string.IsNullOrEmpty(key)) continue;
-                                card.byArmy[kv.Key] = new ArmyEntry { key = key, hasText = Bool(ad, "hasText") };
+                                string sg = Str(ad, "soundGuid");
+                                string sa = Str(ad, "soundAsset");
+                                card.byArmy[kv.Key] = new ArmyEntry { key = key, hasText = Bool(ad, "hasText"),
+                                                                      soundGuid = sg, soundAsset = sa };
+                                CountSound(sg, sa);
                             }
 
                         _byId[card.id] = card;
@@ -1161,6 +1317,14 @@ namespace CardPresentation
             object o;
             if (d == null || !d.TryGetValue(k, out o) || !(o is double)) return fallback;
             return (int)(double)o;
+        }
+
+        /// <summary>载入时数「带定制音 / GUID 解不出」的条目（给自检对账；⛔ 不参与播放判定）。</summary>
+        static void CountSound(string soundGuid, string soundAsset)
+        {
+            if (string.IsNullOrEmpty(soundGuid)) return;
+            EntriesWithSound++;
+            if (string.IsNullOrEmpty(soundAsset)) SoundUnresolvedEntries++;
         }
 
         /// <summary>极简 JSON 读取器（只读；对象 → `Dictionary&lt;string,object&gt;`、数组 → `List&lt;object&gt;`）。

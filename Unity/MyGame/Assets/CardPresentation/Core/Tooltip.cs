@@ -80,51 +80,38 @@ namespace CardPresentation
             get { return _inst != null ? new Vector2(_inst._w, _inst._h) : Vector2.zero; }
         }
 
-        /// <summary>渲染队列：**全壳最高一档**（压在 HUD / 卡面 / 卡组编辑 / 每一扇窗与弹窗之上）。
+        /// <summary>渲染队列：**原版 `Blocking` 层** —— 压在 `PopUps` 层那一族（窗 / 错误横幅 / 教学高亮 / toast）之上。
         ///
-        /// 🔴 **2026-10-04（A74①）搬过一次：原来是 3199 / 3200 / 3201**，与社交窗联盟页那一档
-        ///    （`SocialWindow.QPageBase = 3200` ⇒ 页内容占 **3200–3209**）**正面重叠** ——
-        ///    哪天社交窗里出现 tooltip（它的 `AllianceMemberTab` 里已经有 `&lt;link>` 类悬停件的位置），
-        ///    提示面板会被**压在页面内容下面**（同档还更糟：`ImageQuad` 的世界 z 恒 0，谁盖谁退化成枚举顺序）。
-        ///    ⇒ 本仓硬规矩「层带不许重叠」⇒ 必须搬开一处。**搬的是 tooltip 这一处**（不是 `SocialWindow`）：
-        ///    ① 社交页那一档被**几十个 `Q` 常量 + 一百多条自检期望值**钉着（`SocialPage.Q` / 各 `SocialView.QOff`
-        ///       / 奖杯格那个「借 3204」的特例），动它 = 大面积回归；tooltip 这一处是**三个私有常量**；
-        ///    ② tooltip 的**契约**就是「必须在它解释的那个件之上」（它不属于任何一扇窗）⇒ 它本来就该在
-        ///       最上面一档，而不是嵌在某个窗的层带中间。
+        /// 🔴🔴 **相对次序 = 原版判据（2026-10-20 · W58 判据，铁律 5 就地订正）**：
+        ///   判据 = `资料/普查产出_1020/W58_界面线_Toast黑场次序判据.md` §1·1 / §2·3。
+        ///   原版 `TooltipManager` 的 Canvas = **排序层 `Blocking`（第 8 层）/ order 0**；
+        ///   `Toast Notification Controller` = **排序层 `PopUps`（第 7 层）/ order 900**。
+        ///   Unity **先比排序层、再比 order**（`globalgamemanagers/TagManager/TagManager_3.json`：
+        ///   `Default(0) … OverHand(6) &lt; PopUps(7) &lt; Blocking(8)`）⇒ **Blocking 层的 tooltip 永远画在
+        ///   PopUps 层的 toast / 窗之上**，`order = 900` 翻不过来。
+        ///   ⛔ **别拿兄弟序当判据**：`Safe area Only Horizontal` 的子件序里 `Toast Notification Controller`
+        ///   排在 `TooltipManager` **之后**，但那是**同层之内**才有效的比较；这两者**跨排序层** —— 拿兄弟序
+        ///   会得出反的结论（本注释 2026-10-20 之前就是这么写的：结论碰巧对、理由是错的）。
+        ///   · 与 `LoadingMenu`（加载黑场，也是 `Blocking` / order 0）：**同层同 order ⇒ 相对次序不可判**
+        ///     （W58 §七·6）。我们取「tooltip 在黑场**之下**」（黑场淡入时把 tooltip 一起盖住）—— 这一条是
+        ///     **[我们挑的]**。⚠️ 战斗场景可判：那里 `LoadingMenu` = `Blocking` / order **1000** > tooltip。
         ///
-        /// **选 3605 起的判据（为什么不是 3210 / 3309 / 3530）**：
-        ///   · `3210–3299` 归**奖杯格那一带**（`AllianceMemberTab.QCellBase`，见那边的「按格号错开」）⇒ 不能用；
-        ///   · `3300–3308` 聊天窗 · `3310–3326` `TrophyInfoPopup`（⚠️ 2026-10-07 更正：原写 3325；A95 给 `Next Tier` 让位后带子到 3326）· `3400–3405` 挑战弹窗 ·
-        ///     `3450–3458` 战斗日志 · `3500–3520` 排行榜 —— 都是**窗**，tooltip 得压在它们之上；
-        ///   · 🔴 **2026-10-11（A307 现读订正，铁律 5）**：这一条原写「`3600–3604` 是**主菜单顶栏**
-        ///     （用户 2026-09-28 拍板『顶栏压住窗口』）⇒ tooltip 只能排在它**之上**」——
-        ///     **号码与语义双过期**：同日的 A283 已把顶栏整条降到 **`2994–2998`**，且方向反过来
-        ///     （用户 2026-10-11 裁定「照原版」⇒ **顶栏在每一扇窗之下**；判据 → `MainMenuRuntime.QBarPanel` 那段）。
-        ///     🔴 **2026-10-18 订正（铁律 5）**：上面那个号段**又过期了一次** —— 2026-10-17 F5 把下沿从 `2994`
-        ///     放宽到 `2986` ⇒ **现带子 = `2986–2998`**（**唯一出处 = `Shell/TopBar.cs` 那张表**，
-        ///     `MainMenuRuntime.QBarPanel` 已是 `2986`）；⚠️ 本句的**方向**（顶栏在每一扇窗之下）没变、仍成立。
-        ///     ⇒ 顶栏**不再是 tooltip 要避开的对象**（它连窗都比它低），取 3605 起的理由只剩上一行那条
-        ///     「压在所有窗之上」。⚠️ **功能无影响**：`QTip = 3606` 仍是全壳最高（`3605–3607` 与 `2986–2998` 不重叠
-        ///     —— ⚠️ **2026-10-18 订正**：这里原写 `2994–2998`，同 F5 放宽了下沿；区间更短、结论不变）。
-        /// 🔴 **「tooltip 在全壳最高」不是我们挑的，是原版的兄弟序**（判据 = 原始 RT 的 `m_Children`，
-        ///   与「**弹窗**压住顶栏」那条用的是**同一把尺子** —— 铁律 4：多实例先解父链/兄弟序）：
-        ///    `bundle_scenes_scenes_mainmenuwarpforge` 场景里 `Safe area Only Horizontal` 的子件序
-        ///    （`python d:/4/Unity/工具/menu_dump.py bundle_scenes_scenes_mainmenuwarpforge
-        ///      "Safe area Only Horizontal" --md --depth 1` 实读）：
-        ///    `Navigation Panel · ChatPreview · 1 - Below Upper Bar Holder · **Upper bar** · Borders(act F) ·
-        ///     2 - Canvas Holder Above upper bar · **3 - PopUp Holder** · LoadingMenu(act F) ·
-        ///     UI Error Message Controller · **TooltipManager** · Toast Notification Controller · Loading Controller`
-        ///    ⇒ `TooltipManager` 排在 `Upper bar` 与 `3 - PopUp Holder` **之后** = **画在它们之上** ✓；
-        ///    而 `TooltipManager` 自己的矩形是 `-1010.35,1055.00→-910.35,1155.00`（屏幕外那 100×100 的挂点，
-        ///    面板是运行期 instantiate 的 —— 同本文件头那条）。
-        ///    ⚠️ **2026-10-11（A307 现读订正，铁律 5）**：这一段原写「这与 `MainMenuRuntime` 那条
-        ///      『**实拍里顶栏压住选卡组弹窗**』**不冲突**」—— **那句已过期**：A283 当天按用户裁定
-        ///      把那条口径**整个反过来**（现在是**窗压住顶栏**）⇒ 兄弟序这条判据与它**方向一致**，
-        ///      不但不冲突，两者现在用的是**同一把尺子**（判据 → `MainMenuRuntime.QBarPanel` 那段）。
-        ///   ⇒ 取 **3605 / 3606 / 3607**：全壳最高，且与任何已有层带都不重叠。
-        ///   ⚠️ 战斗场景那一侧用的是 4000（`BattleLogPanel.OverlayQ`），与本层**不同场景**、不会共存
-        ///     （相对次序也没变：原来 3200 就已在战斗 HUD 3000–3010 之上、在 4000 之下）。</summary>
-        const int QTipShadow = 3605, QTip = 3606, QTipText = 3607;
+        /// 🔑 **绝对数字 = 我们挑的**：本仓外壳不是 uGUI，层序靠显式渲染队列 ⇒ 原版那套排序层名落不成数字。
+        ///   我们取 **4077 / 4078 / 4079**：高于 toast（`ToastNotifications.QShade..QHit = 4072–4076`）、
+        ///   低于加载黑场（`LoadingMenu.QPanel = 4090`）、与任何既有层带都不重叠。
+        ///   旧值 `3605–3607` 是「tooltip 全壳最高」时代的号 —— 那时把 toast / 黑场都摆在它下面，与原版反着；
+        ///   2026-10-20 按 W58 判据搬过来（`Shell/Editor` 自检里有灭自证梯子钉住相对次序）。
+        ///   ⚠️ `QTipShadow` 今天一个读者都没有（面板**没有投影那一层** —— 原版 `EverguildTooltipItem`
+        ///   的那个 `Content`/`Line` 也不是投影）。留着只是**把号占住**（免得以后加投影时随手挑一个
+        ///   撞上 `QTip`）；⛔ **别把它当成「已经实现的层」**（同 `项目任务.md` §三 A58-R3 那条：
+        ///   一个「注释说自检会断它、实际全工程零读者」的常量 = 空口声称）。
+        /// 🆕 **uGUI 档（`UguiMode`）不受这条影响**：层级归宿主画布管，`SetRenderQueue` 在那档是
+        ///   **有注释的空操作**（见 `Build()` / `BuildBg()` 两处）⇒ 战斗侧的行为一个字没变。</summary>
+        const int QTipShadow = 4077, QTip = 4078, QTipText = 4079;
+
+        /// <summary>本层最上面那一档的队列（**自检口**）—— 相对次序 = 原版判据（`Blocking` > `PopUps`），
+        /// 绝对值 4078 = **[我们挑的]**（见上一条注释）。</summary>
+        public const int Queue = QTip;
         // ⚠️ **`QTipShadow` 今天一个读者都没有**（面板**没有投影那一层** —— 原版 `EverguildTooltipItem`
         //    的那个 `Content`/`Line` 也不是投影）。留着只是**把号占住**（免得以后加投影时随手挑一个
         //    撞上 `QTip`）；⛔ **别把它当成「已经实现的层」**（同 `项目任务.md` §三 A58-R3 那条：

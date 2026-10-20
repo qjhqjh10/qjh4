@@ -92,7 +92,7 @@ namespace CardPresentation
     public class ParentEventWindow : GameWindow
     {
         // ============================================================ 队列档（自成一档 · 3610–3629）
-        // 相邻带：`Tooltip` 3605 · 下一档 3935（`EnergySinglePlayerOnlyEventWindow`）。层带不许重叠
+        // 相邻带：下一档 3935（`EnergySinglePlayerOnlyEventWindow`）· `Tooltip` 4077–4079（2026-10-20 从 3605–3607 搬来）。层带不许重叠
         //（口径 → `Shell/BattleLogPopup.cs` 里那段同族注释）。
         public const int QShade = 3610,       // `Menu Dark Background`（含「点暗底关窗」那颗命中区）
                          QContentBg = 3611,   // `Content Area/Background` 的整块渐变（**低于所有页**）

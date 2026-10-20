@@ -135,11 +135,13 @@ public static partial class RuleEngineTest
             Check(ctx.DiedThisTurn, 0, "★ **`DiedThisTurn` 不加**（「按阵亡数结算」的效果不许把它算进去）");
             Check(S14Sig(ctx, EvtKind.Death), 0, "★ **一条 `EvtKind.Death` 都不发**");
             Check(S14Sig(ctx, EvtKind.Hit, null, -6), 1,
-                  "★ **恰好一条** `EvtKind.Hit{Amount = -6}`（负数 = 治疗，表现层据此走绿字；"
+                  "★ **恰好一条** `EvtKind.Hit{Amount = -6}`（🔴 2026-10-20（`W58`）就地订正：原写「负数 = 治疗，"
+                + "表现层据此走绿字」—— 已过期。现行口径：治疗 = `EvtKind.Heal`（唯一口 `RuleCore.HealUnit`，"
+                + "`Amount` 为正数）；负数 `Hit` 仅作幸存者广播的**标记**，表现层对它**全静默**。"
                 + "回血量 = 3 − (2 − 5) = 6）。⚠️ 规格表 `#1` 写的 `-3` 在这套夹具下不成立，见本方法头注"
                 + LogTail(ctx, 6));
             Check(S14Sig(ctx, EvtKind.Hit, null, -6) + S14Sig(ctx, EvtKind.Hit, null, 5), 2,
-                  "……而且这一格总共只有两条 `Hit`（一下 5 伤 + 一条治疗），没有多发的");
+                  "……而且这一格总共只有两条 `Hit`（一下 5 伤 + 一条幸存者广播的负数 `Hit`，没有多发的）");
         }
 
         // ---- ② #2 摧毁路**绕过**幸存者 ----
@@ -162,7 +164,8 @@ public static partial class RuleEngineTest
             Check(v.Survivor, 3, "★ 幸存者**一个都没被消耗**（还在身上、也没挂 `survivorspent`）");
             CheckTrue(!v.Has(KeywordTable.SurvivorSpent), "……`survivorspent` 也没挂");
             Check(S14Sig(ctx, EvtKind.Death), 1, "……而死亡事件照发");
-            Check(S14Sig(ctx, EvtKind.Hit, null, -6), 0, "……**也没有**那条治疗 `Hit`");
+            Check(S14Sig(ctx, EvtKind.Hit, null, -6), 0,
+                  "……**也没有**那条幸存者广播的负数 `Hit`（它只是标记，表现层对它静默）");
         }
     }
 

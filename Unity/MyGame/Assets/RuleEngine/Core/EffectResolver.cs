@@ -952,7 +952,7 @@ namespace RuleEngine
             { "reloadduty", (c, o, b, op, ch, un) => DoReloadDuty(c, o, b, op, un) },
             { "give",       (c, o, b, op, ch, un) => DoGive(c, o, b, op, ch, un, +1) },
             { "gain",       (c, o, b, op, ch, un) => DoGive(c, o, b, op, ch, un, +1) },
-            { "gainenergy", (c, o, b, op, ch, un) => DoEnergy(c, o, b, op) },
+            { "gainenergy", (c, o, b, op, ch, un) => DoEnergy(c, o, b, op, un) },
             // 阵营资源（2026-09-13 第三十三轮）：给**玩家自己**的计数器加，不是给单位加
             { "gainfaith",  (c, o, b, op, ch, un) => DoFactionResource(c, o, b, op, "faith",  un) },
             { "gainspirit", (c, o, b, op, ch, un) => DoFactionResource(c, o, b, op, "spirit", un) },
@@ -1009,12 +1009,19 @@ namespace RuleEngine
                 taken.Add(c);
                 got++;
             }
-            foreach (var c in taken) { ps.Hand.Add(c); RuleCore.SetupCardInHand(ctx, owner, c); }
-            EnforceHandLimit(ctx, owner);
+            // 🔴 **2026-10-20（`W58-REVIEWFIX-B2` · 审查 `P2-5`）：进手牌走「先判上限、再 Add」那一个 helper。**
+            //   `RuleCore.AddCardToHandWithinLimit` 的形状 = 原版 `PlayerHand._AddDrawnCardToHand_d__37:113-140`
+            //   / `_AddCardNotDrawnToHand_d__39:26-30`（满了就把**刚翻出来的这张**送墓地、手牌一张不动）。
+            //   ⛔ 别再「先全 Add、最后 `EnforceHandLimit`」—— 手牌本来就超上限时那会丢到旧牌身上。
+            var landed = new List<CardInstance>();
+            foreach (var c in taken)
+                if (RuleCore.AddCardToHandWithinLimit(ctx, owner, c)) landed.Add(c);
 
             // `For each troop drawn …` 要数这个（和 `DoDraw` 同一条路）
             // 🔴 第 7 行第 3 步：记的是**哪几份**（指代要落到具体那一份上）
-            foreach (var c in taken) ctx.DrawnThisResolve.Add(c);
+            // ⚠️ 只记**真进了手牌**的那几份 —— 与 `DoDraw` 同形（它按 `Hand` 里新增的取，
+            //   满手时被送墓地的那张本来就不算「抽到」）。
+            foreach (var c in landed) ctx.DrawnThisResolve.Add(c);
 
             // 🆕 **2026-10-18（第三会话 · `A992` 遗留乙）：手牌那一侧的代词槽也要填 —— 与 `DoDraw` 同形。**
             //    判据只此一处（`DoDraw` 那一段），这里是**照抄**它那三句（`Clear()` + 逐个 `Add` +
@@ -1028,7 +1035,7 @@ namespace RuleEngine
             //      「`draw` 之后走这一条、再 `give it/them`」——那时槽里会留着**上一批**
             //      （或干脆是空的），与「刚进手牌的那几份」不是同一批。
             ctx.LastHandTargets.Clear();
-            foreach (var c in taken) ctx.LastHandTargets.Add(c);
+            foreach (var c in landed) ctx.LastHandTargets.Add(c);
             ctx.LastHandTarget = ctx.LastHandTargets.Count == 1 ? ctx.LastHandTargets[0] : null;
 
             if (got == 0)
@@ -2001,8 +2008,13 @@ namespace RuleEngine
                 //    而阵营是 `Kills` 事件极性的判据，给 -1 = 整档监听器静默不响）。
                 // 判别式 / 发射口**只有一处** ⇒ `RuleCore.TryCreditKill`。
                 int vOwner = OwnerOf(ctx, t);
-                dealt += Hurt(ctx, t, one, by);
-                RuleCore.TryCreditKill(ctx, ctx.ActingUnit, vOwner, t);
+                // 🆕 **2026-10-20（`W58-INTERLEAVE`）**：把「致死伤害的来源卡」一并交给 `Hurt`
+                //   —— 死亡若被延后进「同时伤害」批，它会随 `PendingDeath` 走到 `FlushDeaths`，
+                //   在那个死者**自己的那一拍**上记账（原版 death action 的 FIFO：死者1 反噬
+                //   → 死者1 的 Slay → 死者2 …）。批外（没延后）的死亡仍由下面这一句当场记。
+                dealt += Hurt(ctx, t, one, by, actingCard: ctx.ActingUnit);
+                if (!ctx.DeathsDeferred)
+                    RuleCore.TryCreditKill(ctx, ctx.ActingUnit, vOwner, t);
             }
             ctx.Log($"{by}：「{op.Source}」对 {targets.Count} 个目标造成 {dmg} 点伤害（共 {dealt}）"
                   + (altUsed ? "（其中有的目标按**条件替换值**结算，见上一行）" : ""));
@@ -2410,8 +2422,10 @@ namespace RuleEngine
                 //    ⇒ 这一格是**按卡面语义**落的，不是逐跳核过的。
                 // 阵营要在 `Hurt` 之前取（打完它可能已经不在棋盘上了，见 `DoDeal` 同一条）。
                 int vOwner = OwnerOf(ctx, t);
-                dealt += Hurt(ctx, t, n, by);
-                RuleCore.TryCreditKill(ctx, u, vOwner, t);
+                // `W58-INTERLEAVE`：同 `DoDeal` —— 延后进批的死亡由 `FlushDeaths` 逐死者记账。
+                dealt += Hurt(ctx, t, n, by, actingCard: u);
+                if (!ctx.DeathsDeferred)
+                    RuleCore.TryCreditKill(ctx, u, vOwner, t);
                 hitters++;
             }
             string howMuch = fixedDmg
@@ -2428,18 +2442,23 @@ namespace RuleEngine
             // `1-5` 区间：和 `Deal` 一样走 `ctx.Rng`（我们自己的 `rule_core.gd:2677`（旁证、非权威）的 `randi_range`）
             int heal = op.AmountMax > op.Amount ? ctx.Rng.Next(op.Amount, op.AmountMax + 1) : op.Amount;
 
+            // 🆕 2026-10-20（战斗线 `W58`）：**逐目标走 `HealUnit`** —— 它负责「实际量 = min(请求, 缺失)」
+            // 与「`healed > 0` 才发 `EvtKind.Heal`」这两个原版闸（判据 → `HealUnit` 的 doc）。
+            // 多目标这条循环**逐个**调用 ⇒ 引擎按目标顺序发 N 条 `Heal` 事件；表现层的时间线
+            // 再把它们**串行**排开（每目标 1.5 s，照原版 `ResolveHeal` 的 `yield return`）。
             if (op.Target == null)
             {
                 // `Heal N` 没写目标 = **治己方督军**（我们自己的 `rule_core.gd:2842`（旁证、非权威））
                 var w = ctx.Players[owner].Warlord;
-                if (w != null) w.Health = System.Math.Min(w.MaxHealth, w.Health + heal);
-                ctx.Log($"{by}：「{op.Source}」治疗己方督军 {heal}（现 {w?.Health}）");
+                int healed = w != null ? HealUnit(ctx, w, heal, false) : 0;
+                ctx.Log($"{by}：「{op.Source}」治疗己方督军 {heal}（实际 {healed}，现 {w?.Health}）");
                 return true;
             }
             var targets = ResolveTargets(ctx, owner, op.Target, null, chosen);
+            int total = 0;
             foreach (var t in targets)
-                if (t != null && t.IsAlive) t.Health = System.Math.Min(t.MaxHealth, t.Health + heal);
-            ctx.Log($"{by}：「{op.Source}」治疗 {targets.Count} 个目标各 {heal} 点");
+                total += HealUnit(ctx, t, heal, false);
+            ctx.Log($"{by}：「{op.Source}」治疗 {targets.Count} 个目标各 {heal} 点（实际合计 {total}）");
             return true;
         }
 
@@ -2895,14 +2914,19 @@ namespace RuleEngine
                 case "enemyhand":
                 {
                     int who = op.Dest == "hand" ? owner : 1 - owner;
-                    ctx.Players[who].Hand.AddRange(made);
                     // 🆕 **2026-10-18（`W4` 整改 · 漏点）**：这一支**也是「进手牌」** ——
                     //   原版这条路 = `_ResolveCreateHandCard_d__512:135` → `PlayerHand.AddCardNotDrawnToHand`
                     //   → `:34` 内部调 `SetupCardInHand`。上一轮漏插这里（`RuleCore.SpawnTideCopies` 潮涌
                     //   与 `RuleCore.PlayCompanions` 伴生那两处都插了）⇒ 补上。⚠️ 落点用 **`who`**（牌落到谁手里就是谁的手牌）。
-                    foreach (var m in made) SetupCardInHand(ctx, who, m);
-                    ctx.LastCreated.AddRange(made);        // `They cost 1 less` 指着**那几份**（第 7 行第 3 步）
-                    EnforceHandLimit(ctx, who);
+                    // 🔴 **2026-10-20（`W58-REVIEWFIX-B2` · 审查 `P2-5`）：改走「先判上限、再 Add」。**
+                    //   原版 `_AddCardNotDrawnToHand_d__39:26-30/63-65` 是**满了就把刚造的那张送墓地**，
+                    //   不是「先全 Add、再丢表尾」⇒ 手牌本来就超上限时会误伤旧牌（同一条不变量）。
+                    var landed = new List<CardInstance>();
+                    foreach (var m in made)
+                        if (RuleCore.AddCardToHandWithinLimit(ctx, who, m)) landed.Add(m);
+                    // ⚠️ 指代槽 / 费用折扣只认**真落了手**的那几份（`They cost 1 less` 指着它们，
+                    //   进了墓地的没必要再挂）；`picked`（隐秘/破坏广播）仍是「造出来的那几张」，不改。
+                    ctx.LastCreated.AddRange(landed);      // `They cost 1 less` 指着**那几份**（第 7 行第 3 步）
 
                     // 🆕 `When you create a Secret, …` / `When you create a Sabotage, …`
                     // （2026-09-13 第三十四轮）。**放在 `hand` / `enemyhand` 这一支里** ——
@@ -2952,13 +2976,16 @@ namespace RuleEngine
                 int o2, s2;
                 if (FindUnit(ctx, t, out o2, out s2))
                 {
-                    CleanupDeaths(ctx, o2, s2);
+                    // `W58-INTERLEAVE`：把来源卡一并交给 `CleanupDeaths` —— 死亡若被延后进批，
+                    // `FlushDeaths` 会在那个死者自己的那一拍上记账；批外仍由下面这一句当场记。
+                    CleanupDeaths(ctx, o2, s2, actingCard: ctx.ActingUnit);
                     // 🔴 **2026-10-10（`A1250`）**：**「摧毁」也是击杀的一条** —— 判据 = 原版那条闸
                     // 允许 `local_28 == 0x14 /* ability(20) */`（`CardScript__ResolveDeadCard.c:252`）。
                     // ⚠️ 阵营 (`o2`) 现成（就在上一行），不用像 `DoDeal` 那样先存 —— 但那一份是
                     //    `FindUnit` 在**摧毁之前**找到的格位，同样是对的。
                     // 凶手 = `ctx.ActingUnit`（= 原版 `AbilityData.actingCard`）。
-                    RuleCore.TryCreditKill(ctx, ctx.ActingUnit, o2, t);
+                    if (!ctx.DeathsDeferred)
+                        RuleCore.TryCreditKill(ctx, ctx.ActingUnit, o2, t);
                 }
                 else ctx.Log($"{by}：摧毁 {t.Name}，但它已经不在场上");
             }
@@ -3523,12 +3550,14 @@ namespace RuleEngine
                 {
                     // 第 7 行第 2 步：来源是区域 ⇒ **沿用摘下来那一份**；来源是卡池 ⇒ 新造一份
                     var moved = RemoveFromSource(ctx, owner, op.ChooseSrc, pick) ?? pickedInst;
-                    ps.Hand.Add(moved);
-                    RuleCore.SetupCardInHand(ctx, owner, moved);   // 🆕 `A885` ②：进手牌就补登记表
-                    EnforceHandLimit(ctx, owner);
+                    // 🔴 **2026-10-20（`W58-REVIEWFIX-B2` · 审查 `P2-5`）：进手牌走「先判上限、再 Add」。**
+                    //   满了 ⇒ 这份**刚摘下来的**进弃牌堆、手牌一张不动
+                    //   （原版 `_AddCardNotDrawnToHand_d__39:26-30` 同形；⛔ 别再 `Add` 完再 `EnforceHandLimit`）。
+                    bool landed = RuleCore.AddCardToHandWithinLimit(ctx, owner, moved);
                     // `draw` 要记进「本次结算抽到的牌」—— `For each troop drawn …` 数这个
                     // （和 `DoDraw` / `DoDrawType` 同一条路；⚠️ 它还按卡模板记，第 3 步改实例）
-                    if (act == "draw") ctx.DrawnThisResolve.Add(moved);   // 第 7 行第 3 步：记那一份
+                    // ⚠️ 只记**真进了手牌**的（与 `DoDraw` 同形）。
+                    if (act == "draw" && landed) ctx.DrawnThisResolve.Add(moved);   // 第 7 行第 3 步：记那一份
                     // 🆕 **2026-10-18（第三会话 · `A992` 遗留乙）：手牌那一侧的代词槽也要填**
                     //    —— 与 `DoDraw` 同形（`Clear()` + 逐个 `Add` + 单数槽「恰好一张才填」，
                     //    判据只此一处 = `DoDraw` 那一段，⛔ 别自创形状）。理由与「今天零可观测差异」
@@ -3542,11 +3571,12 @@ namespace RuleEngine
                     if (act == "draw")
                     {
                         ctx.LastHandTargets.Clear();
-                        ctx.LastHandTargets.Add(moved);
-                        ctx.LastHandTarget = moved;
+                        if (landed) { ctx.LastHandTargets.Add(moved); ctx.LastHandTarget = moved; }
+                        else ctx.LastHandTarget = null;   // 没落手 ⇒ 槽里不留「刚进手牌的」
                     }
                     ctx.Log($"{by}：「{op.Source}」从{srcName}选了「{pick.Name}」"
-                          + $"（{what}）→ {(act == "draw" ? "抽上手" : "放入手牌")}");
+                          + $"（{what}）→ {(act == "draw" ? "抽上手" : "放入手牌")}"
+                          + (landed ? "" : "**（手牌已满 ⇒ 进弃牌堆）**"));
                     return true;
                 }
 
@@ -3658,9 +3688,9 @@ namespace RuleEngine
                 case "enemyhand":
                 {
                     var moved = RemoveFromSource(ctx, owner, op.ChooseSrc, pick) ?? pickedInst;
-                    foe.Hand.Add(moved);
-                    RuleCore.SetupCardInHand(ctx, 1 - owner, moved);   // 🆕 `A885` ②
-                    EnforceHandLimit(ctx, 1 - owner);
+                    // 🔴 **2026-10-20（`W58-REVIEWFIX-B2` · 审查 `P2-5`）**：同样先判上限再 Add
+                    //   （满了 ⇒ 进**收牌方**的弃牌堆、它的手牌一张不动）。
+                    RuleCore.AddCardToHandWithinLimit(ctx, 1 - owner, moved);
                     ctx.Log($"{by}：「{op.Source}」选了「{pick.Name}」（{what}）→ 放进**对手**手牌");
                     return true;
                 }
@@ -3669,13 +3699,13 @@ namespace RuleEngine
                 {
                     // 复制品 = **各发一份新实例**（不是选中那一份本身）
                     int n = op.ChooseCopies > 0 ? op.ChooseCopies : 2;
-                    var made = new List<CardInstance>(n);
+                    var landed = new List<CardInstance>(n);
                     for (int i = 0; i < n; i++)
                     {
                         var copy = ctx.NewInstance(pick);
-                        ps.Hand.Add(copy);
-                        made.Add(copy);
-                        RuleCore.SetupCardInHand(ctx, owner, copy);   // 🆕 `A885` ②
+                        // 🔴 **2026-10-20（`W58-REVIEWFIX-B2` · 审查 `P2-5`）**：先判上限再 Add
+                        //   （满了 ⇒ 那份复制品进弃牌堆、手牌不动）。
+                        if (RuleCore.AddCardToHandWithinLimit(ctx, owner, copy)) landed.Add(copy);
                     }
                     // 🔴 **2026-10-14（账 `A1989`）就地补：指代槽改指向【刚造出来的那批复制品】。**
                     //    与 `DoCreate` 的 `hand` 支**同形**（那支的 `ctx.LastCreated.AddRange(made)`
@@ -3693,9 +3723,9 @@ namespace RuleEngine
                     //    ⚠️ 影响面：`ChooseAct == "copies"` 的卡全池**只有 2 张**
                     //    （`GSC29` / `UM114`），后者**没有后续句** ⇒ 本笔只对 `GSC29` 可观测。
                     ctx.LastCreated.Clear();
-                    ctx.LastCreated.AddRange(made);
-                    EnforceHandLimit(ctx, owner);
-                    ctx.Log($"{by}：「{op.Source}」选了「{pick.Name}」（{what}）→ 造 {n} 张复制进手牌");
+                    ctx.LastCreated.AddRange(landed);
+                    ctx.Log($"{by}：「{op.Source}」选了「{pick.Name}」（{what}）→ 造 {n} 张复制进手牌"
+                          + (landed.Count == n ? "" : $"（其中 {landed.Count} 张落了手，其余手牌已满 ⇒ 进弃牌堆）"));
                     return true;
                 }
             }
@@ -5032,12 +5062,12 @@ namespace RuleEngine
                 //    老代码是「照样 `Hand.Add(卡模板)`」—— 结果一样是「手里多一张」，
                 //    但那会造出**第二份**幽灵，而后续的 `lower its cost by N` 钉在 `r` 上 ⇒ **静默挂空**。
                 var inst = TakeFromZone(ps.Deck, r.Card) ?? r;
-                ps.Hand.Add(inst);
-                RuleCore.SetupCardInHand(ctx, owner, inst);   // 🆕 `A885` ②
+                // 🔴 **2026-10-20（`W58-REVIEWFIX-B2` · 审查 `P2-5`）**：先判上限再 Add
+                //   （满了 ⇒ 这份进弃牌堆、手牌不动，且**不算**「抽到」）。
+                if (!RuleCore.AddCardToHandWithinLimit(ctx, owner, inst)) continue;
                 ctx.DrawnThisResolve.Add(inst);          // 第 7 行第 3 步：记**那一份**
                 got.Add(inst);
             }
-            EnforceHandLimit(ctx, owner);
 
             // 🆕 **2026-10-18（第三会话 · `A992` 遗留乙）：手牌那一侧的代词槽也要填 —— 与 `DoDraw` 同形**
             //    （`Clear()` + 逐个 `Add` + 单数槽「恰好一张才填」；判据只此一处 = `DoDraw` 那一段）。
@@ -5056,7 +5086,10 @@ namespace RuleEngine
 
             if (got.Count == 0)
             {
-                ctx.Log($"{by}：「{op.Source}」要抽「它」，但那张已经在手上了 —— 没动作");
+                // ⚠️ 两种「没动作」：已经在手上（改前的唯一一种）/ **手牌已满**（`P2-5` 之后的新一档，
+                //   helper 已经各打了一条「进弃牌堆」的日志）—— 措辞要认得这一档，别一律说成「已经在手上」。
+                ctx.Log($"{by}：「{op.Source}」要抽「它」，但没有一张落进手牌"
+                      + "（已经在手上，或手牌已满）—— 没动作");
                 return false;
             }
             ctx.Log($"{by}：「{op.Source}」把「{Names(got)}」抽上手");
@@ -5134,12 +5167,13 @@ namespace RuleEngine
                 var back = ctx.TakeFromGraveyard(owner, ctx.ActingUnit.Instance)
                            ?? ctx.ActingUnit.Instance
                            ?? ctx.NewInstance(dead);
-                ctx.Players[owner].Hand.Add(back);
-                RuleCore.SetupCardInHand(ctx, owner, back);   // 🆕 `A885` ②：回手也是进手牌
-                EnforceHandLimit(ctx, owner);
+                // 🔴 **2026-10-20（`W58-REVIEWFIX-B2` · 审查 `P2-5`）**：先判上限再 Add
+                //   （满了 ⇒ 这份原实例进弃牌堆、手牌一张不动）。
+                bool backLanded = RuleCore.AddCardToHandWithinLimit(ctx, owner, back);
                 ctx.LastCreated.Clear();      // 后面那句 `It costs 4 less` 指着刚回手的那张
-                ctx.LastCreated.Add(back);    // 🔴 一号验收靶：`LastCreated` 装的是**实例**（第 3 步）
-                ctx.Log($"{by}：「{op.Source}」→「{dead.Name}」**回到手牌**"
+                if (backLanded) ctx.LastCreated.Add(back);   // 🔴 一号验收靶：`LastCreated` 装的是**实例**（第 3 步）
+                ctx.Log($"{by}：「{op.Source}」→「{dead.Name}」"
+                      + (backLanded ? "**回到手牌**" : "**手牌已满 ⇒ 直接进弃牌堆**（原版 `AddCardNotDrawnToHand` 同形）")
                       + "（反噬排在「进弃牌堆」之前结算 —— 原版也是这个次序 ——"
                       + "所以此刻它还在等待入墓，直接沿用那一份实例）");
                 return true;
@@ -5190,9 +5224,9 @@ namespace RuleEngine
                     switch (op.Dest)
                     {
                         case "hand":
-                            ps2.Hand.Add(inst);
-                            RuleCore.SetupCardInHand(ctx, p, inst);   // 🆕 `A885` ②
-                            EnforceHandLimit(ctx, p);
+                            // 🔴 **2026-10-20（`W58-REVIEWFIX-B2` · 审查 `P2-5`）**：先判上限再 Add
+                            //   （满了 ⇒ 这份实例进弃牌堆，收牌方手牌一张不动）。
+                            RuleCore.AddCardToHandWithinLimit(ctx, p, inst);
                             break;
                         case "decktop":
                             ps2.Deck.Add(inst);      // 牌库**顶** = 列表末尾（`Draw` 从末尾 pop）；**不洗**
@@ -6815,11 +6849,45 @@ namespace RuleEngine
         /// （存进 `ctx.EventTarget`，见那个字段的注释）。
         /// </param>
         ///
+        /// <param name="preCalled">
+        /// 🔴 **2026-10-20（`W58` · D8）：已经被调用方【预调过一次】的主体** —— 快照时**跳过它**。
+        /// 传它的几族（全部逐条核过原版 `.c`）：`Damaged`（`RuleCore.EmitHit`）·
+        /// `Attack`（`RuleCore.DeclareAttack`，另见 <paramref name="preCalled2"/>）·
+        /// `Deploy`（`RuleCore` 两条部署入口）· `GetsHuntMark`（`BroadcastKeywordEvent`）。
+        ///
+        /// 判据 = 原版 `BattleManagerSupport.BroadcastUnitDamaged` @ `0x1809B77C0`（机器码直读）：
+        ///   · `0x1809B7829-0x1809B7835` 先给**被打者自己**调一次
+        ///     `CardScript.ResolveDamageDealt(damagedUnit, damagedUnit, damageInfo)`；
+        ///   · 棋盘循环 `0x1809B78BC-0x1809B78C9` 用 `UnityEngine.Object.op_Inequality(card, damagedUnit)`
+        ///     **跳过被打者**（反编译 `.c` 里那句 `op_Inequality` 丢了第二个实参，机器码是 `mov rdx, r14`）。
+        ///
+        /// ⚠️ **「预调」与「排除」必须成对**：只预调不排除 = 主体**响两次**；
+        /// 只排除不预调 = 主体**被整个漏掉**（它不在按格号序排的循环里；`Deploy` 的预调**只跑
+        /// `SelfOnly` 那一半**，见 `FireBoardWhenListener` 的 `selfOnlyOnly`）。
+        /// ⚠️ 别把这个形参推广成「所有事件都排除主体」—— 其它时机的原版形状**没有逐条核过**
+        /// （见 `W58_战斗结算_受伤广播D8.md` §「其它 BroadcastWhen 调用点核对」；
+        /// `W58_战斗结算_其余广播顺序.md` 逐条核了 `Deploy` / `Attack` / `HuntMark` /
+        /// `Mob|Regiment|Swarm`，后者原版**没有预调**、自排除在接收方体内，我们由
+        /// `WhenEvents.SelfExcludesOnKeywordTrigger` 等价实现）。
+        /// </param>
+        /// <param name="preCalled2">
+        /// 🆕 **2026-10-20（`W58` · BROADCAST）：第二个已被预调的主体** —— 目前只有 `Attack` 传。
+        ///
+        /// 判据 = 原版 `BattleManagerSupport__BroadcastUnitAttacked.c`：
+        /// `:22` 先预调 **被打者**（`ResolveUnitAttacked(target, attacker, target, …)`）、
+        /// `:29` 再预调 **攻击者**（`ResolveUnitAttacked(attacker, attacker, target, …)`）；
+        /// 棋盘循环 `:38` / `:44` 两条 `op_Inequality` 把**这两个都排除**
+        /// （`:44` 那条在机器码里是 `op_Inequality(item, target)`；`.c` 把第二实参丢了）。
+        /// ⇒ 次序是**被打者 → 攻击者 → 其余棋盘 → 手牌**（「被攻击方优先结算」）。
+        /// </param>
+        ///
         /// ⚠️ **先快照再结算**：监听器的效果会改棋盘（能打死人、也能再部署），
         ///    边遍历边改数组是未定义行为。和 <see cref="ResolveDeploy"/> 同一个理由。
         public static void BroadcastWhen(BattleContext ctx, string kind, int who, CardDef card,
                                          UnitState subject = null,
-                                         UnitState actor = null, UnitState target = null)
+                                         UnitState actor = null, UnitState target = null,
+                                         UnitState preCalled = null,
+                                         UnitState preCalled2 = null)
         {
             if (ctx == null || kind == null || ctx.IsOver) return;
             if (ctx.EffectChain >= BattleContext.MaxEffectChain)
@@ -6859,6 +6927,14 @@ namespace RuleEngine
                     // inPlayAminingAttack 0x11}）。我们对应的「不在场上」= 已入将死队列（≈ waitingToDie 5）。
                     if (ctx.IsPendingDeath(u)) continue;
                     if (u.Card.WhenTriggers.Count == 0) continue;   // 没监听器的卡直接跳过
+                    // 🔴 **2026-10-20（`W58` · D8）**：调用方已经对 `preCalled` **预调过一次**
+                    //   ⇒ 这一跳**跳过它**（原版 `BroadcastUnitDamaged` 的
+                    //   `op_Inequality(card, damagedUnit)` @ `0x1809B78C2`）。
+                    //   ⛔ 只排除不预调 = 被打者整个漏掉；只预调不排除 = 双响。
+                    // 🆕 同批（BROADCAST）：`Attack` 有**两个**预调主体（被打者 + 攻击者），
+                    //   原版 `BroadcastUnitAttacked.c:38/:44` 两条 `op_Inequality` 各排除一个。
+                    if (preCalled != null && ReferenceEquals(u, preCalled)) continue;
+                    if (preCalled2 != null && ReferenceEquals(u, preCalled2)) continue;
                     listeners.Add(u);
                 }
             }
@@ -6882,49 +6958,10 @@ namespace RuleEngine
                 {
                     foreach (var u in listeners)
                     {
-                        // ⚠️ 快照之后世界可能已经变了（前一个监听器把人打死了）——再判一次
-                        if (ctx.IsPendingDeath(u)) continue;
-
-                        int owner = OwnerOf(ctx, u);
-                        if (owner < 0) continue;                             // 已经不在场上了
-
-                        var ops = u.Card.FireWhen(kind, owner, who, card, u, subject, actor, target, targetWho);
-                        if (ops == null || ops.Count == 0) continue;
-
-                        var names = new List<string>();
-                        foreach (var t in u.Card.WhenTriggers)
-                            if (t.Ev != null && t.Ev.Kind == kind) names.Add(t.ToString());
-                        ctx.Log($"—— 事件「{kind}」触发：「{u.Name}」的监听器 → "
-                              + string.Join("；", names.ToArray()) + " ——");
-
-                        // ⚠️ **每次都重种**：上一条效果会把 `LastTargets` 覆盖掉
-                        //    （和 `ResolveDeploy` 里那句「每一条之前都要重设」同一条教训）。
-                        //    ⚠️ 这里**不再自己种** —— 交给 `ResolveOps` 的 `seed` 参数，
-                        //       否则它会紧接着把 `source`（监听者自己）盖上去，等于白种。
-                        // 🆕 2026-10-19（战斗线 `T21` · 缺口 E）：**监听者真的结算了** ⇒ 发一条按
-                        //   **反应者卡名**的 `EvtKind.Trigger`（关键词 = 这条监听能力的原版 trigger 名）。
-                        //   判据：`RawCardScript__OnCardPlayedWithTarget.c:96`（`TriggerAbilities(10)`）·
-                        //   `CardScript__TriggeredFerocity.c:7`（726）· `CardScript__ReactToUnitMarked.c:7`（510）
-                        //   —— 原版在**监听者自己**的 `OnTrigger` 上转给 `TriggerAbilities`，
-                        //   我们的等价物就是这一条（报告 §三 E）。闸 = 那张卡真有该 trigger 的动画行。
-                        EmitListenerTrigger(ctx, u.Card, owner, u, kind);
-
-                        ctx.EffectChain++;
-                        ResolveOps(ctx, owner, u, ops, "事件触发", subject);
-                        ctx.EffectChain--;
-
-                        // 🆕 2026-10-19（`T21` · 缺口 A 的另一半）：这张监听卡自己的能力里带
-                        //   `followAfterResolution(320)` ⇒ **结算完这一条监听之后**再发 410 那一拍。
-                        //   现读只有两张走这条路：`GSC14 Acolyte Leader`（10）· `ASH81 Bright Lance Vyper`（455）。
-                        if (!ctx.IsOver)
-                        {
-                            string sched = FollowUpSchedulerOf(u.Card);
-                            if (sched != null && sched == TriggerNameOfWhenKind(kind))
-                                EmitFollowUpResolution(ctx, u.Card, owner,
-                                                       FindSlot(ctx, u, out _, out int fuSlot) ? fuSlot : -1,
-                                                       u.InstanceId);
-                        }
-
+                        // 🔴 **2026-10-20（`W58` · D8）：这一跳抽成了 `FireBoardWhenListener`** ——
+                        //   `EmitHit` 的「被打者预调」必须与这里**逐句同形**（判据共用一份；
+                        //   ⛔ 别在 `EmitHit` 里另写一条简化版）。原来这段逐句原样，只是换了函数边界。
+                        FireBoardWhenListener(ctx, u, kind, who, card, subject, actor, target, targetWho);
                         if (ctx.IsOver) break;
                     }
                 }
@@ -6965,6 +7002,131 @@ namespace RuleEngine
             //   那一族是**非单位卡**的 `HandTrapWhens`（两边互斥，见 `BroadcastHandWhen` 的注释）。
             //   原版次序 = `:43-52`（当前回合方手牌）→ `:53-70`（另一方手牌），本函数按这个顺序遍历。
             BroadcastHandWhen(ctx, kind, who, card, subject, actor, target, targetWho);
+        }
+
+        /// <summary>
+        /// **一个棋盘监听者的一跳** —— `BroadcastWhen` 的棋盘那一跳与
+        /// <see cref="RuleCore.EmitHit"/> 的「被打者预调」**共用同一套**（判据共用一份，
+        /// ⛔ 别在两处各写一遍：原版这两处是**同一个口** `CardScript.ResolveDamageDealt`）。
+        ///
+        /// 🔴 **2026-10-20（`W58` · D8）**：判据 = 原版 `BattleManagerSupport.BroadcastUnitDamaged`
+        /// @ `0x1809B77C0`（机器码直读）：`0x1809B7829-0x1809B7835` 先给被打者自己
+        /// `ResolveDamageDealt(damagedUnit, damagedUnit, damageInfo)`，
+        /// 棋盘循环 `0x1809B78BC-0x1809B78C9` 再用 `op_Inequality(card, damagedUnit)` 跳过它。
+        /// ⇒ 「预调」不是另一条简化路径，就是**这一个函数**。
+        ///
+        /// ⚠️ 函数体是**从 `BroadcastWhen` 的循环体逐句搬出来的**（换的只是 `continue` → `return`）——
+        ///    `ctx.IsOver` 的循环控制留在调用方（`break` / 不调）。
+        ///
+        /// <param name="selfOnlyOnly">
+        /// 🆕 **2026-10-20（`W58` · BROADCAST）：只跑这张卡上 `SelfOnly` 的那几条监听器。**
+        /// 目前只有 `Deploy` 的预调传（`RuleCore` 的两条部署入口）。
+        ///
+        /// 判据 = 原版 `BattleManagerSupport__BroadcastUnitSummoned.c`：
+        /// `:21` 的预调是 `CardScript.ResolveUnitSummoned(self, self, …)`，而该函数体内
+        /// （`CardScript__ResolveUnitSummoned.c`）先判 `op_Inequality(param_2, param_1)`
+        /// （**不是自己**才发 `OtherUnitSummoned=190`）、再判 `op_Equality(param_2, param_1)`
+        /// （**是自己**才发 `ThisUnitSummoned=195` / `UseFaith=605`）⇒ **预调只唤醒 `ThisUnitSummoned`
+        /// 那一支**，`OtherUnitSummoned` 仍只发给别人（循环 `:34` 那句 `op_Inequality` 把主体排除）。
+        /// 我们的 `When deployed, …`（省主语）记成 `Deploy + SelfOnly`（`WhenEvent.cs:847-850`），
+        /// 正对应 `ThisUnitSummoned`；`When you deploy a troop, …` 是 `OtherUnitSummoned`。
+        /// ⛔ **不能**用整份 `FireWhen` 做 Deploy 预调 —— 那会把主体自己的「当你部署一个部队时」
+        /// 也唤醒（原版 190 是**排除**主体的），静默多触发一次。
+        /// </param>
+        static void FireBoardWhenListener(BattleContext ctx, UnitState u, string kind, int who,
+                                          CardDef card, UnitState subject, UnitState actor,
+                                          UnitState target, int targetWho,
+                                          bool selfOnlyOnly = false)
+        {
+            // ⚠️ 快照之后世界可能已经变了（前一个监听器把人打死了）——再判一次
+            if (ctx.IsPendingDeath(u)) return;
+
+            int owner = OwnerOf(ctx, u);
+            if (owner < 0) return;                             // 已经不在场上了
+
+            // 🔴 `selfOnlyOnly`：只按 `SelfOnly` 那几条取 op（判据见上面 param 块）——
+            //    ⛔ 别改 `CardDef.FireWhen` 的语义（那是棋盘那一跳的整份取法，判据只此一处）。
+            List<EffectOp> ops;
+            if (selfOnlyOnly)
+            {
+                ops = null;
+                foreach (var t in u.Card.WhenTriggers)
+                {
+                    if (t.Ev == null || t.Ev.Kind != kind || !t.Ev.SelfOnly) continue;
+                    if (!WhenEvents.Matches(t.Ev, owner, who, card, u, subject, actor, target, targetWho))
+                        continue;
+                    if (ops == null) ops = new List<EffectOp>();
+                    ops.AddRange(t.Ops);
+                }
+            }
+            else
+            {
+                ops = u.Card.FireWhen(kind, owner, who, card, u, subject, actor, target, targetWho);
+            }
+            if (ops == null || ops.Count == 0) return;
+
+            var names = new List<string>();
+            foreach (var t in u.Card.WhenTriggers)
+                if (t.Ev != null && t.Ev.Kind == kind && (!selfOnlyOnly || t.Ev.SelfOnly))
+                    names.Add(t.ToString());
+            ctx.Log($"—— 事件「{kind}」触发：「{u.Name}」的监听器 → "
+                  + string.Join("；", names.ToArray()) + " ——");
+
+            // ⚠️ **每次都重种**：上一条效果会把 `LastTargets` 覆盖掉
+            //    （和 `ResolveDeploy` 里那句「每一条之前都要重设」同一条教训）。
+            //    ⚠️ 这里**不再自己种** —— 交给 `ResolveOps` 的 `seed` 参数，
+            //       否则它会紧接着把 `source`（监听者自己）盖上去，等于白种。
+            // 🆕 2026-10-19（战斗线 `T21` · 缺口 E）：**监听者真的结算了** ⇒ 发一条按
+            //   **反应者卡名**的 `EvtKind.Trigger`（关键词 = 这条监听能力的原版 trigger 名）。
+            //   判据：`RawCardScript__OnCardPlayedWithTarget.c:96`（`TriggerAbilities(10)`）·
+            //   `CardScript__TriggeredFerocity.c:7`（726）· `CardScript__ReactToUnitMarked.c:7`（510）
+            //   —— 原版在**监听者自己**的 `OnTrigger` 上转给 `TriggerAbilities`，
+            //   我们的等价物就是这一条（报告 §三 E）。闸 = 那张卡真有该 trigger 的动画行。
+            EmitListenerTrigger(ctx, u.Card, owner, u, kind);
+
+            ctx.EffectChain++;
+            ResolveOps(ctx, owner, u, ops, "事件触发", subject);
+            ctx.EffectChain--;
+
+            // 🆕 2026-10-19（`T21` · 缺口 A 的另一半）：这张监听卡自己的能力里带
+            //   `followAfterResolution(320)` ⇒ **结算完这一条监听之后**再发 410 那一拍。
+            //   现读只有两张走这条路：`GSC14 Acolyte Leader`（10）· `ASH81 Bright Lance Vyper`（455）。
+            if (!ctx.IsOver)
+            {
+                string sched = FollowUpSchedulerOf(u.Card);
+                if (sched != null && sched == TriggerNameOfWhenKind(kind))
+                    EmitFollowUpResolution(ctx, u.Card, owner,
+                                           FindSlot(ctx, u, out _, out int fuSlot) ? fuSlot : -1,
+                                           u.InstanceId);
+            }
+        }
+
+        /// <summary>
+        /// **「先预调主体、再广播其余」里的那一半『预调』** —— 🆕 2026-10-20（`W58` · BROADCAST）。
+        ///
+        /// 原版每一族「有主体预调」的广播器都同一个形状：**同一个接收函数**先对主体调一次，
+        /// 再按棋盘序把其余接收者调一遍（循环里用 `op_Inequality` 跳过主体）。⇒ 我们这边
+        /// 「预调」与「棋盘那一跳」**必须是同一个函数**（<see cref="FireBoardWhenListener"/>），
+        /// 这里只补齐它周围那三件事（判空 / `EffectChain` 闸 / 事件槽），**判据不再写第二份**。
+        ///
+        /// 🔴 **`EffectChain` 上限必须在这里再判一次**：预调**绕过了** `BroadcastWhen` 入口
+        /// 那道闸（它只在函数开头判 `ctx.EffectChain >= MaxEffectChain`）。不判的话，
+        /// 「监听器再造成伤害/再触发」这条环在到达上限后仍会经预调继续往下走 ⇒ **无界递归**
+        /// （D8 的离线探针实测爆栈；`RuleEngineTest` 有递归守卫用例）。
+        /// 判法与 `BroadcastWhen` 入口一字不差。
+        ///
+        /// ⚠️ **事件槽与紧接着那次广播同形**（`target` / `card` 两个实参原样传）——
+        /// 原版预调那一跳带的就是同一个事件宾语与同一张来源卡。
+        /// </summary>
+        static void PreCallBoardListener(BattleContext ctx, UnitState u, string kind, int who,
+                                         CardDef card, UnitState subject, UnitState actor,
+                                         UnitState target, int targetWho, bool selfOnlyOnly = false)
+        {
+            if (u == null || ctx == null || kind == null) return;
+            if (ctx.IsOver || ctx.EffectChain >= BattleContext.MaxEffectChain) return;
+            using (EventSlotsScope.TargetAndCard(ctx, target, card))
+                FireBoardWhenListener(ctx, u, kind, who, card, subject, actor, target, targetWho,
+                                      selfOnlyOnly);
         }
 
         /// <summary>
@@ -7388,7 +7550,33 @@ namespace RuleEngine
         static void BroadcastKeywordEvent(BattleContext ctx, string kind, UnitState u)
         {
             if (u == null || u.Card == null) return;
-            BroadcastWhen(ctx, kind, OwnerOf(ctx, u), u.Card, u);
+            int owner = OwnerOf(ctx, u);
+
+            // 🔴 **2026-10-20（`W58-REVIEWFIX-B2` · 审查 `P2-7`）：`GetsMarkerlight` 与 `GetsHuntMark` 同形，
+            //   同样「先预调主体、再广播且排除它」。**
+            //   判据 = `BattleManagerSupport__BroadcastUnitObtainedMarkerlight.c`（与
+            //   `…ObtainedHuntMark.c` / `…ObtainedMark.c` **逐行同形**，只有接收函数名不同）：
+            //     · `:20 CardScript.ReactToUnitMarkerlight(param_2, param_2, 0)` —— 接收者 = 被标记者；
+            //     · 棋盘循环 `:29` 与最后一跳手牌 `:64 op_Inequality(uVar3, param_2, 0)`（**显式**）都跳过它；
+            //     · 接收端 `CardScript__ReactToUnitMarkerlight.c:7` 发 `OnTrigger(0x203 = 515)`
+            //       = `AbilityTrigger.UnitReceivesMarkerlight`。
+            //   ⚠️ 两步必须成对（只预调 = 双响；只排除 = 主体漏掉）。
+            // ⛔ **`GetsShield` 不动（映射不成立，不是「漏改」）**：它**没有**对应的原版广播器。
+            //   原版 `BroadcastUnitObtainedMark` 的 `ObtainedMark` = **Mark of Chaos**
+            //   （`CardScript__AddEffect.c:782-792` 的 `case 8` / `:926` 的 `BuffType.markOfChaos(8)`
+            //    → `Enchantments.GetMarkOfChaos` → `BroadcastMarkResolved`），接收端
+            //   `CardScript__ReactToUnitMarked.c:7` 发 `OnTrigger(0x1fe = 510)`
+            //   = `AbilityTrigger.UnitReceivesMarkOfChaos(510)`；而 `MarkOfChaosType` 只有
+            //   Khorne/Nurgle/Slaanesh/Tzeentch/Random —— **不是** `[Shield]`（`DefinedTrait.shield = 80`）。
+            //   原版 `AbilityTrigger` 表里**没有任何「获得护盾」的触发**（只有 510 / 515 / 520 这三个
+            //   「获得某标记」）⇒ `GetsShield` 是我们这一侧的**推断词**，没有原版形状可照；
+            //   要不要给它预调、预调谁，得先有判据（已记进报告，⛔ 别照 HuntMark 硬套）。
+            bool preCallSelf = kind == WhenEventKind.GetsHuntMark
+                            || kind == WhenEventKind.GetsMarkerlight;
+            if (preCallSelf)
+                PreCallBoardListener(ctx, u, kind, owner, u.Card, u, null, null, -1);
+
+            BroadcastWhen(ctx, kind, owner, u.Card, u, preCalled: preCallSelf ? u : null);
         }
 
         /// <summary>这个单位在**谁**的棋盘上。不在场上返回 -1（快照之后可能已经被打死了）。</summary>
@@ -7543,6 +7731,20 @@ namespace RuleEngine
             return Hurt(ctx, u, amount, source);
         }
 
+        /// <summary>
+        /// 🆕 2026-10-20（`W58`）自检用：把**治疗的唯一落地口**暴露出来（`HealUnit` 是 `private`）。
+        /// 和 `CountForTest` / `HurtForTest` 同一条纪律 —— **只为自检开门，不改变任何行为**。
+        ///
+        /// <para>断言要直接验的几档（原版 `CardScript.Heal` 的四道闸，见 `HealUnit` 的 doc）：
+        /// 普疗发一条 `EvtKind.Heal`（`Amount` = 实际量）· 满血 / 溢疗归零**不发** ·
+        /// 非正数**不治不发** · Syphon 置位（`HealSyphon = true`）。</para>
+        /// </summary>
+        /// <returns>实际治疗量（`0` = 没治）。</returns>
+        public static int HealForTest(BattleContext ctx, UnitState u, int amount, bool syphon = false)
+        {
+            return HealUnit(ctx, u, amount, syphon);
+        }
+
         static int CountFor(BattleContext ctx, int owner, UnitState source, EffectOp op)
         {
             string reference = op.CountRef ?? "";
@@ -7681,13 +7883,48 @@ namespace RuleEngine
             //      场上一个合法目标都没有时**照样该给**。
             //   ⚠️ 读 `payload`（不是 `payloadNow`）—— 后者是**逐目标**在循环里按 `AltHolds` 挑的，
             //      而资源**不随目标变**（`Inner Circle Companion` 也没有 alt 载荷）。
+            // 🔴 **2026-10-20（`W58-REVIEWFIX-B2` · 审查 `P3-1`）**：记一笔「**给玩家的载荷真的生效了**」。
+            //   下面 `targets.Count == 0` 那条分支原来一律打「没有合法目标，空过」——
+            //   可纯能量 / 纯资源的载荷**已经结算过了**（能量在 7904 那段、资源在这段），
+            //   日志会自相矛盾（`P2-5` 同一族的「话说反了」）。措辞按这一位分叉。
+            bool playerPayloadApplied = false;
             foreach (var p in payload)
             {
                 if (string.IsNullOrEmpty(p.Resource)) continue;
-                DoFactionResource(ctx, owner, by, new EffectOp
+                playerPayloadApplied |= DoFactionResource(ctx, owner, by, new EffectOp
                 {
                     Verb = "gain" + p.Resource, Source = op.Source, Amount = p.Value,
                 }, p.Resource, unresolved);
+            }
+
+            // 🔴 **2026-10-20（`W58-TURN-A`）：载荷里的【能量】也必须在目标循环之前单独结算一次。**
+            //   原因：能量是**玩家资源**，不是「给某个单位 +1」——
+            //   原版 `BattleManager__ProcessManaBuff.c:38-62` 按 `manaBuff.manaAmount` 循环、只对
+            //   `PlayerManager` 调一次 `AddNewMana`，**与目标个数无关**。
+            //   改之前 DA61 `Plasma Generator`（`Gain 1 Energy`）被当成「给己方全体 +1 能量」——
+            //   `ruleprobe play DA61` 实测**4 个目标各加一次当前能量**（净 +4），
+            //   而原版是 `totalMana +1`、当前能量不动。
+            //   ⚠️ 语义/判据与 <see cref="DoEnergy"/> 同一份，⛔ 别在这里另写一套：
+            //   本支只负责「**只加一次** + 不逐目标」，字段怎么动由下面这几行照 `DoEnergy` 做。
+            foreach (var p in payload)
+            {
+                if (p.Unresolved || p.Attr != "energy") continue;
+                // 🔴 **2026-10-20（`W58-REVIEWFIX-B2` · 审查 `P3-2` 的同族）**：`0` 量能量
+                //   不许写成「结算成功」—— 与 `DoEnergy` 那条同一份口径（出声 + `unresolved`）。
+                if (p.Value * sign == 0)
+                {
+                    ctx.Log($"{by}：「{op.Source}」要给能量，但数量是 0 —— **这条没生效**");
+                    unresolved?.Add(op.Source + "（能量数量为 0）");
+                    continue;
+                }
+                var eps = ctx.Players[owner];
+                eps.MaxEnergy += p.Value * sign;
+                ctx.Vars.AddManaBonus(owner, p.Value * sign);
+                ctx.Log($"{by}：「{op.Source}」最大能量 {(sign > 0 ? "+" : "")}{p.Value * sign}"
+                      + $"（现 {eps.Energy}/{eps.MaxEnergy}；`Gain N Energy` = `ManaBuff.createMana`："
+                      + "**永久抬上限、当前能量不动**，且**只结算一次**、不随目标个数翻倍）");
+                if (p.Value * sign != 0) playerPayloadApplied = true;
+                break;      // 载荷里多条能量段也只算一次（原版按 manaAmount 循环，不按目标数）
             }
 
             if (targets.Count == 0)
@@ -7696,6 +7933,21 @@ namespace RuleEngine
                 //    ⇒ 这不是「空过」，别再报一句自相矛盾的日志。原版同一件事走的是
                 //    `PlayerHand.SetupCardInHand`（效果落在**那张牌**上），本来就没有「场上目标」。
                 if (handTargets != null && handTargets.Count > 0) return true;
+                // 🔴 **2026-10-20（`W58-REVIEWFIX-B2` · 审查 `P3-1`）**：已按 `P3-1` 分叉 ——
+                //   **纯玩家载荷（能量 / 阵营资源）已经生效**时不能再打「没有合法目标，空过」，
+                //   那句话会让一条**真的结算了**的效果看起来像空过。
+                // ⚠️ **2026-10-20（`W58-REFIX`）补充（铁律 5）**：这一支在**真实对局里基本不可达** ——
+                //   `RuleCore.NewBattle` 一定把督军摆在 `Board[BoardSpec.WarlordSlot]`（`RuleCore.cs:549`），
+                //   而「纯能量」载荷没写主语 ⇒ `target = 己方全体 unit` 至少命中督军 ⇒ `targets.Count >= 1`，
+                //   走的是 `DoGive` 尾部的「只含能量 ⇒ 已按**玩家自己**结算一次」（`:8064-8068`）。
+                //   ⇒ `P3-1` 所说「两句日志会同时出现」**不成立**（`targets.Count == 0` 时这里先 `return`，
+                //   到不了 8067）。本支保留，只为真出现 0 目标时不再误报「空过」。
+                if (playerPayloadApplied)
+                {
+                    ctx.Log($"{by}：「{op.Source}」的载荷是**给玩家的**（能量 / 阵营资源）—— "
+                          + "**上面那一句已经结算了**；场上没有需要挂效果的目标，这一条不算空过");
+                    return true;
+                }
                 // ⚠️ 「只在手牌」那几张（`HandOnly`）走到这里是**正常的** —— 别报成失败
                 ctx.Log(spec.HandOnly
                         ? $"{by}：「{op.Source}」的目标只在手牌（场上不加）—— 已按 `in hand` 登记"
@@ -7774,6 +8026,9 @@ namespace RuleEngine
                         unresolved.Add(op.Source + "（载荷里认不出的段：" + p.Source + "）");
                         continue;
                     }
+                    // 🔴 **2026-10-20（`W58-TURN-A`）**：能量已在**目标循环之前**单独结算过一次
+                    //   （玩家资源，不随目标个数翻倍）⇒ 这里跳过，⛔ 别再逐目标 `Energy += val`。
+                    if (p.Attr == "energy") continue;
                     // 关键词没机制 → **说出来**（原版靠 `KW_IMPLEMENTED` 静默忽略，我们不吃这个亏）
                     if (p.IsKeyword && !KeywordTable.Implemented.Contains(p.Keyword))
                     {
@@ -7810,7 +8065,14 @@ namespace RuleEngine
                     ApplyOneGain(ctx, owner, t, p, sign, op.Duration, by, null, unresolved);
                 }
             }
-            ctx.Log($"{by}：「{op.Source}」给了 {targets.Count} 个目标");
+            // 🔴 **2026-10-20（`W58-TURN-A`）**：只有能量时**别报「给了 N 个目标」** ——
+            //   它已按玩家自己结算过一次（见上面那段），而目标循环里一个都没给。
+            bool hasEnergy = payload.Exists(x => !x.Unresolved && x.Attr == "energy");
+            bool hasOther = payload.Exists(x => !x.Unresolved && x.Attr != "energy");
+            if (hasEnergy && !hasOther)
+                ctx.Log($"{by}：「{op.Source}」只含能量 ⇒ 已按**玩家自己**结算一次（⛔ 不按目标个数翻倍）");
+            else
+                ctx.Log($"{by}：「{op.Source}」给了 {targets.Count} 个目标");
             return true;
         }
 
@@ -7946,7 +8208,12 @@ namespace RuleEngine
                         break;
                     }
                     case "energy":
-                        ctx.Players[owner].Energy += val;
+                        // 🔴 **2026-10-20（`W58-TURN-A`）**：照原版 `ManaBuff.createMana` → `AddNewMana`：
+                        //   **永久抬最大能量、当前能量不动**（原来这里是 `Energy += val`，把 `Gain` 当成了 `Refill`）。
+                        //   ⚠️ `DoGive` 已经在目标循环**之前**单独结算过一次（不逐目标）⇒ 正常路径到不了这里；
+                        //   这一支只给其它调用点兜底（今天只有 `GrantDarkPact`，它不载荷能量）。
+                        ctx.Players[owner].MaxEnergy += val;
+                        ctx.Vars.AddManaBonus(owner, val);
                         break;
 
                     // ⚠️ **兜底护栏：不认识的属性词 —— 报出来，别静默什么都不做**（2026-09-13 候选 E 加）。
@@ -8279,15 +8546,48 @@ namespace RuleEngine
             }
         }
 
-        static bool DoEnergy(BattleContext ctx, int owner, string by, EffectOp op)
+        /// <summary>
+        /// **`Gain N Energy`**（解析层的 `gainenergy`）—— 🔴 **原版语义 = 永久抬高【最大能量】**，
+        /// 不是「把已经花掉的补回来」。
+        ///
+        /// <para>**判据（第一权威 · 逐句）**：
+        /// · `BattleManager__ProcessManaBuff.c:38-62`：`ManaBuff.createMana(+0x16)` 为真 ⇒
+        ///   `PlayerManager__AddNewMana`；`refillMana(+0x17)` 为真 ⇒ `PlayerManager__RefillOneMana`。
+        /// · `PlayerManager__AddNewMana.c`：`totalMana(+0x38)++` **无条件**；
+        ///   `unusedMana(+0x4C)` 只在实参 `filledMana` 为真时 +1。
+        /// · 该实参在反汇编里 = `ManaBuff.refillMana`（`0x971e11: movzx edx, byte ptr [rbx+0x17]`
+        ///   → `call AddNewMana`）⇒ **只带 `createMana` 的卡：上限 +N、当前能量一点不动**。
+        ///   卡表里 DA61 `Plasma Generator` 就是这一档（`manaBuff.createMana = 1`、没有 `refillMana`）；
+        ///   全池带 `createMana` 的 49 处、`refillMana` 的 40 处、两者都有的只有 3 处（2026-10-20 现读
+        ///   `cards_truth.json`）。</para>
+        ///
+        /// <para>⛔ **别写成 `Min(MaxEnergy, Energy + n)`** —— 那是「补当前能量」，对应的是
+        /// <see cref="DoRefill"/> 那一支（卡面写 `Refill N Energy`，如 `GSC63 Alien Idol`）。</para>
+        /// </summary>
+        static bool DoEnergy(BattleContext ctx, int owner, string by, EffectOp op,
+                             List<string> unresolved)
         {
             var pay = GivePayload.Parse(op.Payload);
             int amount = 0;
             if (pay != null) foreach (var p in pay) amount += p.Value;
             if (amount == 0) amount = op.Amount;
+            // 🔴 **2026-10-20（`W58-REVIEWFIX-B2` · 审查 `P3-2`）：`amount == 0` 不是「结算成功」。**
+            //   改之前这里照样 `MaxEnergy += 0`、日志打「最大能量 +0」、`return true` ——
+            //   「认出了但为 0」看起来和「真的加了」一模一样（本工程红线：不许静默/假成功）。
+            //   口径与 <see cref="DoFactionResource"/> 同一条：出声 + 进 `unresolved` + 返回 false。
+            if (amount == 0)
+            {
+                ctx.Log($"{by}：「{op.Source}」要给能量，但数量是 0 —— **这条没生效**");
+                unresolved?.Add(op.Source + "（能量数量为 0）");
+                return false;
+            }
             var ps = ctx.Players[owner];
-            ps.Energy = System.Math.Min(ps.MaxEnergy, ps.Energy + amount);
-            ctx.Log($"{by}：「{op.Source}」回了 {amount} 点能量（现 {ps.Energy}/{ps.MaxEnergy}）");
+            // 原版 `totalMana++`（永久）；`unusedMana` 不动。我们这边 `MaxEnergy` 每回合会被公式重算
+            // ⇒ 把这份永久增量记进 `ctx.Vars`，`BeginTurn` 再加回来（判据 → `GameplayVariables.manaBonusSeat0`）。
+            ps.MaxEnergy += amount;
+            ctx.Vars.AddManaBonus(owner, amount);
+            ctx.Log($"{by}：「{op.Source}」最大能量 +{amount}（现 {ps.Energy}/{ps.MaxEnergy}；"
+                  + "`Gain N Energy` = `ManaBuff.createMana`：**永久抬上限、当前能量不动**）");
             return true;
         }
 

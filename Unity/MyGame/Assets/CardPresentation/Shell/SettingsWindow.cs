@@ -1106,7 +1106,7 @@ namespace CardPresentation
         public const string LwNodeName = "Login Window";
 
         /// <summary>🔴 **2026-10-19（A1175）弹窗那一族的渲染队列** —— 夹在**本窗既有最高档
-        /// （语言下拉 `QScroll = 3144`）之上、`Tooltip`（3605–3607）之下**，
+        /// （语言下拉 `QScroll = 3144`）之上、`Tooltip`（4077–4079，2026-10-20 从 3605–3607 搬来）之下**，
         /// 且**严格高于本页所有内容**（`QContent 3133` / `QText 3134` / 命中 `QOverlay 3135`）。
         /// <para>⚠️ 全工程这一段（3100–3169）本来就是**所有窗共用**的（`BoosterPackOpenWindow` 的注释里
         /// 写着「全屏/弹窗那一整段」）⇒ 撞号是常态（例：`PromptPopup.QShade` = 本窗 `QBlocker` = 3140）。

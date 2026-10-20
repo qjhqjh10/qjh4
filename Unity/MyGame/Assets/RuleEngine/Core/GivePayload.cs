@@ -518,16 +518,40 @@ namespace RuleEngine
                 //   做法：**从后往前逐词试**，哪一段能被 `KeywordTable` **整段**吃掉就用它
                 //   （i 从 0 开始 = 先试整头，**与原行为完全一致**，只是多给短后缀机会）。
                 string hitHead = null;
+                int hitAt = -1;
                 var words = head.Split(new[] { ' ' }, System.StringSplitOptions.RemoveEmptyEntries);
                 for (int i = 0; i < words.Length; i++)
                 {
                     string cand = string.Join(" ", words, i, words.Length - i);
                     int hl2;
                     string hk2 = KeywordTable.Normalize(cand.ToLowerInvariant(), out hl2);
-                    if (hk2 != null && hl2 == cand.Length) { hitHead = cand; break; }
+                    if (hk2 != null && hl2 == cand.Length) { hitHead = cand; hitAt = i; break; }
                 }
                 if (hitHead != null)
                 {
+                    // 🔴🔴 **2026-10-20（`W58-SLAYFIX` · D1）：`and` 前面那一截**必须一起保留**。**
+                    //   改之前这里是「命中后缀 ⇒ 直接 `ops.Add(Embedded)` 然后 `return true`」——
+                    //   `"Blast 2 and Slay: Deploy a Black Legionary"` 从后往前试到 `"Slay"` 命中后，
+                    //   `"Blast 2 and"` **静默消失**（实测三张卡：`Helspear Assault` 丢 `Blast 2` ·
+                    //   `Ferocious Rage` 丢 `+1 fist` · `'Uge Choppa` 丢 `+2 attack`；
+                    //   ruleprobe `play 61046837…` 改前只挂出 `{slay1}`）。
+                    //   判据 = 卡面原文本身（这三张的 `desc` 就写着「前缀 和 嵌入关键词: 正文」），
+                    //   而解析层的职责是**两段都要解释**——下面「多属性拆分」那条分支
+                    //   早就在做同一件事（`vulnerable 2 and "backlash: …"` 那族走的就是它），
+                    //   本分支只是把「后缀命中的那种写法」补齐到同一口径。
+                    //   ⚠️ **别用字符串 split 一刀切**：`and` / `:` 都可能出现在效果文字正文里
+                    //   （`Slay: Heal 2 and gain a Dark Pact of Excess`）⇒ 这里只把
+                    //   **`hitHead` 之前**那截交给 `ParseInto` 递归解释，正文一个字都不动。
+                    if (hitAt > 0)
+                    {
+                        string prefix = TrimPrefixTail(string.Join(" ", words, 0, hitAt), hitHead);
+                        if (!string.IsNullOrEmpty(prefix))
+                        {
+                            if (!ParseInto(prefix, ops))
+                                // 认不出 ⇒ 留痕（与 `:567` 那条多段拆分同一口径，⛔ 不许静默丢）
+                                ops.Add(new PayloadOp { Unresolved = true, Source = prefix });
+                        }
+                    }
                     ops.Add(new PayloadOp
                     {
                         Embedded = (hitHead + w.Substring(colon)).ToLowerInvariant(),
@@ -627,6 +651,47 @@ namespace RuleEngine
             }
 
             return false;
+        }
+
+        /// <summary>
+        /// 🆕 **2026-10-20（`W58-SLAYFIX` · D1）：把「嵌入关键词之前」的那一截载荷收干净。**
+        ///
+        /// 只做**机械收尾**（真正的解释仍交给 `ParseInto`，⛔ 不在这里另写一套语义）：
+        ///   · 尾部的连接词 `and` / `or` / `,`（`"Blast 2 and"` → `"Blast 2"`）；
+        ///   · 图标名残留（`IconNames`：`' skull slay` → 去掉 `skull` 与引号）；
+        ///   · 与嵌入关键词**重复的那个词** —— 上游把 `[Slay]` 的方括号换成关键词名之后，
+        ///     `"+2 attack and [Slay] Slay: …"` 在头里成了 `+2 attack and slay slay`，
+        ///     命中的是**最后一个** `slay`，前一个 `slay` 只是图标残留，不能当成真的 `slay 1`
+        ///     （`AddKeyword` 是**累加**的 ⇒ 多算一层会把值抬成 2）。
+        /// </summary>
+        static string TrimPrefixTail(string prefix, string hitHead)
+        {
+            if (string.IsNullOrEmpty(prefix)) return null;
+            string s = prefix.Trim().Trim('"', '\'', '“', '”').Trim();
+            string hitLast = null;
+            if (!string.IsNullOrEmpty(hitHead))
+            {
+                var hw = hitHead.Split(new[] { ' ' }, System.StringSplitOptions.RemoveEmptyEntries);
+                if (hw.Length > 0) hitLast = hw[hw.Length - 1].ToLowerInvariant();
+            }
+            // 上限 = 防御性守卫（与上面那两条「剥噪声」循环同一纪律）
+            for (int guard = 0; guard < 8; guard++)
+            {
+                s = s.Trim().Trim('"', '\'', '“', '”').TrimEnd(',').TrimEnd().Trim();
+                if (s.Length == 0) return null;
+                int sp = s.LastIndexOf(' ');
+                string last = (sp < 0 ? s : s.Substring(sp + 1))
+                              .Trim(',').Trim('"', '\'', '“', '”').ToLowerInvariant();
+                bool drop = last == "and" || last == "or";
+                if (!drop)
+                    foreach (string icon in IconNames)
+                        if (last == icon) { drop = true; break; }
+                if (!drop && hitLast != null && last == hitLast) drop = true;
+                if (!drop) break;
+                s = sp < 0 ? "" : s.Substring(0, sp);
+            }
+            s = s.Trim().Trim('"', '\'', '“', '”').TrimEnd(',').TrimEnd().Trim();
+            return s.Length == 0 ? null : s;
         }
 
         /// <summary>

@@ -5156,17 +5156,18 @@ public static class SettingsScene
                 CheckAutoFit(genTab, new[] { "Close Game Button", "Button Text" },
                              "`General Tab > Bottom Buttons > Close Game Button > Button Text`", 12f, 38f, 12f, 0, 274f, 53.3015f);
                 //  🆕 **2026-10-19（`A1186` 裁定 ②）**：`General` 页那颗 `Online` 入口钮 ——
-                //  **原版没有这一颗** ⇒ 这四格是**我们照同族那两颗抄的**（`12 / 38 / 12 · 折行 0`），
-                //  框宽 = 本颗钮那一格 **154.81** 设计 px（= `GenOnlineR − GenOnlineL` = `1431.33 − 1276.52`，
-                //  ⛔ 别照抄 300）。
-                //  ⚠️ 这一条同时是「字形装得下」的量法（`sz.x ≤ boxW × 0.9`）—— 它才是这一批要的那一档。
-                //  🔴 **2026-10-19（`A1215`）就地订正**：框那两格原来传 **154.81 × 90**（= **整颗钮**），
-                //     而实现那颗 `Button Text` 的自适应框是 **128.81 × 25.0575**
-                //     （`GenOnlineEntry` 的 `otw = onlineW − 26`、`oth = otw ÷ ArfAspectRatio`，同族 ARF 规则）。
-                //     ⇒ 旧值让「渲出来 ≤ 框」与新增的「结构框宽/框高」两条**都量错对象**（框宽了一整圈）。
-                //     ⛔ 别再写整颗钮的两个数（那是 `A1216` 在 `Redeem Code` 上修过的同一个病）。
+                //  **原版没有这一颗** ⇒ 这四格是**我们照同族那两颗抄的**（`12 / 38 / 12 · 折行 0`）。
+                //  🔴 **2026-10-20（W58-UIFIX-A · 铁律 5 就地订正）**：框那两格原来按 2026-10-18 之前
+                //     的**窄钮**（`154.81` 宽 ⇒ 文字框 `128.81 × 25.06`）写的；而 **2026-10-18**
+                //     （第五十一会话 · 用户点名「联机钮远窄于同排两颗」）已把联机钮改成 **`GenBtnW` = 300 宽**
+                //     （`Shell/SettingsWindow.cs:651-661`：`GenOnlineL = GenR − GenBtnW = 1131.33`）⇒
+                //     `GenOnlineEntry` 现在传的框 = **`otw = onlineW − 26 = 274`**、
+                //     **`oth = otw ÷ ArfAspectRatio = 274 ÷ 5.140573 = 53.3015`**（`SettingsWindow.cs:3264-3271`）。
+                //     ⇒ 期望值改成 **274 / 53.3015**（实得 246.600 / 47.971 = 274×0.9 / 53.3015×0.9，逐位吻合）。
+                //     ⛔ 不要改 `SettingsWindow`（300 宽是用户点名要的）；⛔ 别再写整颗钮的两个数
+                //     （那是 `A1216` 在 `Redeem Code` 上修过的同一个病）。
                 CheckAutoFit(genTab, new[] { "Online Button", "Button Text" },
-                             "`General Tab > Online Button > Button Text`（**我们自加**）", 12f, 38f, 12f, 0, 128.81f, 25.06f);
+                             "`General Tab > Online Button > Button Text`（**我们自加**）", 12f, 38f, 12f, 0, 274f, 53.3015f);
 
                 //  🔴 **原版【关着】autosize 的站 —— 不许接**（本笔的反面：接了就是主动制造偏离）
                 //   ① 语言框里那行 `Label`：原版 `m_fontSizeMin == m_fontSize`（18/18）

@@ -186,7 +186,16 @@ namespace CardPresentation
             //   【检查连接】（**客机**那条）都调过，而原来那一串写的是「主机重开了」
             //   ⇒ **客机这一路捎给主机的是一句语义颠倒的话**（它自己没有「主机」这个概念）。
             //   ⇒ 词条 ZH 列改成「对面重开了联机」（对**收方**恒成立：它看到的确实是「对面」重开了这一条）。
-            if (Session != null) Session.Close(true, "Settings/Online/Wire/HostRestarted");
+            if (Session != null)
+            {
+                // 🔴 **2026-10-20（W58-NETPROBE · T05 探针，只加日志、不改行为）**：旧会话对象被换掉时，
+                //   它 transport 收件箱里**还没被 `Pump()` 取走的帧**（最坏是一句迟到的 `bye`）随对象一起丢。
+                //   这一档原来是静的（W57 §三 R7）⇒ 记一笔，真连时能分清「bye 没到」还是「到了但会话被换了」。
+                Debug.Log("[Net] NET/BYE-R7/session-reset 换会话：旧会话（" + Session.State
+                        + "）的收件箱里还没被读的帧（最坏是一句迟到的 `bye`）随旧对象一起丢弃"
+                        + " —— 新会话从干净状态开始（`Reset` 的正常收尾，不是缺陷）");
+                Session.Close(true, "Settings/Online/Wire/HostRestarted");
+            }
             Session = NetSession.NewTcp();
             // 🆕 2026-10-17（B23·A902）：换会话 ⇒ 接线跟着换（`WireLobby` 自己会把旧的那台摘掉）
             NetMatchmaking.WireLobby(Session);

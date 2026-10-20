@@ -1043,10 +1043,20 @@ namespace CardPresentation
             // ⚠️ 只包**建页这一次**调用 —— 滚动时 `OnChanged` 也会调 `RebuildCardsCells`，
             //   那条路逐格重建同样贵，但不该把日志刷爆（要看就把这三行搬到滚动那条路自己量）。
             BuildWatch.CellsBegin();
+            // 🔴 **`A1834`（2026-10-20）**：这张**before 快照必须排在 `RebuildCardsCells` 之前** ——
+            //   它就是「变化之前」那一半（字形/字符计数 + 时刻）。原账的病灶就是探针只排在**变化之后**
+            //   ⇒ 建卡早把字形烘完、文本也没再变 ⇒ 那里量到的 `0.0 ms` 是**必然结果**
+            //   （判据 → `资料/普查产出_第二十八会话/A1814_A1813_诊断.md` §A1813 ③）。
+            //   ⚠️ 位置不变量由 `Editor/CollectionScene.cs` 断着（`TextRelayoutProbe.CardsAtBegin == 0`
+            //      ＋ 源码次序）⇒ 把它挪到下面两句之后，`CollectionScene.Run` 当场红。
+            BuildWatch.TextProbeBegin(CardsCells.Count);
             RebuildCardsCells(holder);
+            BuildWatch.TextProbeEnd(CardsCells.Count);     // ← 「变化之后」那一半：Δ字形 / Δ字符 / 整段 ms
             BuildWatch.CellsReport("CardsTab 卡池（只建视口内的格，自检实测 18）");
-            // 🆕 `A1628` 第二轮：再量**一次文字重排**的绝对耗时（本账最要紧的一个数；理由与
-            // 「量完把裁切补回去」那条不变量都在 `BuildWatch.TimeOneTextRelayout` 的 doc 里）。
+            // 🆕 `A1628` 第二轮：再量**一次文字重排**的绝对耗时。
+            // ⚠️ **`A1834` 订正**：这一次是**warm 重排**（卡已建好、字形已烘、文本未变）—— 它只回答
+            //   「**没有新字形**的一次 `ForceMeshUpdate` 多贵」，**不能**用来证实或推翻「字体现烘」那条假设；
+            //   那条假设的判据是上面那句 `TextProbeBegin/End` 的 **Δ字形**（方法 doc 里写清了）。
             if (CardsCells.Count > 0) BuildWatch.TimeOneTextRelayout(CardsCells[0]);
 
             // 左侧筛选栏（**在卡池之后建** ⇒ 兄弟序在原版里也是它靠后 = 画在卡池之上）
@@ -4547,20 +4557,115 @@ namespace CardPresentation
             /// **图集是 1×1 占位** ⇒ 每个新字形都得从 TTF 现烘。出处 = `Core/TmpFont.cs:27-28`）。
             /// 🔴 **它只是读数，不是结论** —— 读出 `1×1` **不证明**它就是那 2.2 秒（那要先量单次
             /// `ForceMeshUpdate` 的耗时）；读不到就如实写「读不到」，⛔ 不猜。</summary>
-            /// <summary>量**一次 `ForceMeshUpdate` 有多贵** —— 本账最要紧的那个数，因为整张卡的
-            /// 2.2 秒如果按「每段文字重排 × 次数」摊开，只有这一个数能把它对上或推翻。
+            // ============================================================ 🆕 2026-10-20（`A1834`）
+            // **before → after 快照：建这一页卡，字形表到底长没长？**
+            //
+            // 原账的病灶（判据 → `资料/普查产出_第二十八会话/A1814_A1813_诊断.md` §A1813 ③）：
+            //   `TimeOneTextRelayout` 只排在 `RebuildCardsCells` **之后** —— 卡在建的时候就 `ForceMeshUpdate`
+            //   过（`Core/CardView.cs:2476` 等）、文本之后再没变 ⇒ 那一次量到的 `0.0 ms` 是**必然结果**，
+            //   它**结构上**回答不了「每个新字形是不是要现烘」这个问题，日志却拿它当「假设被推翻」的证据。
+            // ⇒ 把**「before 快照」挪到变化之前**（`RebuildCardsCells` 的上一句）：
+            //   `TextProbeBegin` 记 **字形/字符计数 + 时刻**，`TextProbeEnd` 在建完之后算 Δ：
+            //     · **Δ字形 = 0** ⇒ 这一页一张新字形都没烘 ⇒「字体现烘」**当场排除**（与耗时大小无关）；
+            //     · **Δ字形 > 0** ⇒ 上界 = 整段 ms ÷ Δ字形（拿这个数去对「单卡 ≈2.2 s」才成立）。
+            // ⚠️ **位置不变量**（批处理也记，供 `Editor/CollectionScene.cs` 断言）：
+            //   `TextRelayoutProbe.CardsAtBegin` **必须是 0** —— 快照那一刻一张卡格都还没建。
+            //   把 `TextProbeBegin` 挪回 `RebuildCardsCells` 之后 ⇒ 变成 18 ⇒ `CollectionScene.Run` 红。
+            // ⚠️ **字形计数只在真 Play 读**：`TmpFont.Font` 是惰性加载（`Core/TmpFont.cs:108` 第一取就
+            //   `Resources.Load`）—— 批处理里提前读它会把「字体资产首次加载」从第一张卡的
+            //   `CardView.Create` 挪到这句，**扰动 `A1813` 的每格计时**。⇒ 批处理只记账位置（`CardsCells.Count`，
+            //   零开销），字形的 before/after 留给真 Play；读不到时如实写「取不到」，⛔ 不写成「Δ = 0」。
+            static bool _tpOpen;
+            static float _tpT0;
+            static int _tpCards0 = -1, _tpGlyphs0 = -1, _tpChars0 = -1;
+
+            /// <summary>**变化之前**的快照（`A1834`）。调用点必须排在 `RebuildCardsCells` <b>之前</b>。
+            /// <paramref name="cardsAlreadyBuilt"/> = 那一刻 `CardsCells.Count`（正确值 = **0**）。</summary>
+            public static void TextProbeBegin(int cardsAlreadyBuilt)
+            {
+                if (_tpOpen) TextRelayoutProbe.UnclosedBegins++;
+                TextRelayoutProbe.Begins++;
+                TextRelayoutProbe.CardsAtBegin = cardsAlreadyBuilt;
+                if (cardsAlreadyBuilt > 0) TextRelayoutProbe.BeginsWithCards++;
+                _tpOpen = true;
+                _tpCards0 = cardsAlreadyBuilt;
+                _tpT0 = Time.realtimeSinceStartup;
+                _tpGlyphs0 = _tpChars0 = -1;
+                if (!Application.isPlaying) return;
+                var f = TmpFont.Font;
+                if (f == null) return;
+                _tpGlyphs0 = f.glyphTable != null ? f.glyphTable.Count : -1;
+                _tpChars0 = f.characterTable != null ? f.characterTable.Count : -1;
+            }
+
+            /// <summary>**变化之后**那一半（`A1834`）：算 Δ 并出声（只在真 Play 出声）。</summary>
+            public static void TextProbeEnd(int cardsAfter)
+            {
+                TextRelayoutProbe.Ends++;
+                if (!_tpOpen) return;
+                _tpOpen = false;
+                double ms = (Time.realtimeSinceStartup - _tpT0) * 1000.0;
+                TextRelayoutProbe.BuildMs = ms;
+                int g1 = -1, c1 = -1;
+                if (Application.isPlaying)
+                {
+                    var f = TmpFont.Font;
+                    if (f != null)
+                    {
+                        g1 = f.glyphTable != null ? f.glyphTable.Count : -1;
+                        c1 = f.characterTable != null ? f.characterTable.Count : -1;
+                    }
+                }
+                TextRelayoutProbe.GlyphsAtBegin = _tpGlyphs0; TextRelayoutProbe.GlyphsAtEnd = g1;
+                TextRelayoutProbe.CharsAtBegin = _tpChars0; TextRelayoutProbe.CharsAtEnd = c1;
+                if (!Application.isPlaying) return;
+                var sb = new System.Text.StringBuilder();
+                sb.Append("[Collection·计时] `CardsTab` 建卡 **before → after**（`A1834`：快照在 `RebuildCardsCells` 之前）：\n");
+                sb.Append("    · 卡格 ").Append(_tpCards0).Append(" → ").Append(cardsAfter)
+                  .Append(" · 这一段 **").Append(ms.ToString("F1")).Append(" ms**\n");
+                if (_tpGlyphs0 >= 0 && g1 >= 0)
+                {
+                    int dg = g1 - _tpGlyphs0, dc = c1 - _tpChars0;
+                    sb.Append("    · 字形 ").Append(_tpGlyphs0).Append(" → ").Append(g1)
+                      .Append("（**Δ ").Append(dg).Append("**）· 字符 ")
+                      .Append(_tpChars0).Append(" → ").Append(c1)
+                      .Append("（**Δ ").Append(dc).Append("**）\n");
+                    if (dg <= 0)
+                        sb.Append("    ⇒ **Δ字形 = 0 ⇒ 这一页一张新字形都没烘** ⇒ 「字体现烘」这条假设**不能**解释这段耗时（当场排除，⛔ 与耗时大小无关）。\n");
+                    else
+                        sb.Append("    ⇒ 每新字形上界 **").Append((ms / dg).ToString("F2"))
+                          .Append(" ms**（整段 ÷ Δ字形）—— 拿它去对「单卡 ≈2.2 s」：对得上假设才成立，对不上就推翻。\n");
+                }
+                else
+                    sb.Append("    · 字形读数：**取不到**（`TmpFont.Font == null`）⇒ 本行只报耗时；⛔ 别把「取不到」读成「Δ = 0」。\n");
+                Debug.Log(sb.ToString());
+            }
+
+            /// <summary>量**一次 `ForceMeshUpdate` 有多贵**。
             ///
             /// <para>**为什么怀疑它**：本仓**只有一个字体**（`NotoSerifCJK-Regular SDF`），而它
             /// `m_AtlasPopulationMode = 1`(Dynamic)、**图集是 1×1 占位**（出处 `Core/TmpFont.cs:27-28`）
             /// ⇒ 每个字形都得从 TTF 现烘。建一张卡要走的文字重排是**几十次**
             /// （`FitToBox` 的 8 步二分每步一次 · `FitToWidth` 两次 · `SetClipFromTree` 那次裁切逐字一次），
             /// 若单次是 10ms 量级，2.2 秒就对上了；若单次是 0.2ms，那这条假设**当场被推翻**
-            /// （⛔ 那时别再往字体上查，改去看贴图/材质的首次加载）。</summary>
+            /// （⛔ 那时别再往字体上查，改去看贴图/材质的首次加载）。</para>
+            ///
+            /// <para>🔴 **`A1834`（2026-10-20）订正 —— 本条量的是【warm 重排】，不是冷启动**：
+            /// 调用点排在 `RebuildCardsCells` **之后**，那时这张卡的字形在建卡时就烘完了、文本也没再变
+            /// ⇒ 两次 `ForceMeshUpdate` 都**不可能**含「字形现生成」。原口径「两次差得大 ⇒ 第 1 次含
+            /// 字形现生成」在这条位置上是**恒假的推断**（量到 0.0 ms 是**必然结果**，判据 →
+            /// `资料/普查产出_第二十八会话/A1814_A1813_诊断.md` §A1813 ③）。
+            /// ⇒ 现在 ① 它只回答「**没有新字形**的一次重排多贵」（这个数仍然有用：× 每卡重排次数 = 上界）；
+            /// ② 它**自己在前后各读一次字形表**，`Δ字形 &gt; 0` 才敢说「第 1 次含现生成」，
+            /// `Δ字形 = 0` 就**明说这是 warm 读数、不能当证据**；
+            /// ③ 「字体现烘」那条假设的判据**不在这里**，在 `TextProbeBegin/End` 的建卡 before → after 快照。</para>
+            ///
             /// <para>⚠️ **量完必须把裁切重新贴回去**：`ForceMeshUpdate` 会把我们写进顶点的那一刀
             /// **冲掉**（这正是 `CardView.RestoreClip` 靠它还原原件的那条性质）⇒ 不补一句
             /// `SetClipFromTree()` 的话，被量的那张卡**文字会露出视口外**（真缺陷）。
             /// 补那一句之后画面与「不量这一下」逐位相同。</para>
             /// <para>⚠️ 与其余探针同闸：**只在真 Play 出声**。</para>
+            /// </summary>
             public static void TimeOneTextRelayout(Transform cardRoot)
             {
                 if (!Application.isPlaying || cardRoot == null) return;
@@ -4573,16 +4678,33 @@ namespace CardPresentation
                         return;
                     }
                     var t = tmps[0];
+                    // 🔴 `A1834`：前后各读一次字形表 —— 这一对读数才决定「第 1 次是不是冷启动」，
+                    //   而不是拿「两次耗时差得大」当推断（那是反过来的因果）。
+                    var f = TmpFont.Font;
+                    int g0 = (f != null && f.glyphTable != null) ? f.glyphTable.Count : -1;
                     float a = Time.realtimeSinceStartup;
                     t.ForceMeshUpdate();
                     float b = Time.realtimeSinceStartup;
                     t.ForceMeshUpdate();
                     float c = Time.realtimeSinceStartup;
-                    Debug.Log("[Collection·计时] 单次文字重排（`" + t.name + "`，第 1 张卡）：第 1 次 **"
+                    int g1 = (f != null && f.glyphTable != null) ? f.glyphTable.Count : -1;
+                    string cold;
+                    if (g0 >= 0 && g1 >= 0)
+                    {
+                        int dg = g1 - g0;
+                        cold = dg > 0
+                             ? "（⚠️ 这两次共烘了 **" + dg + "** 个新字形 ⇒ **第 1 次确实含字形现生成**，"
+                               + "拿「第 1 次 − 第 2 次」≈ 每个新字形的成本）"
+                             : "（⚠️ **Δ字形 = 0 ⇒ 两次都是 warm 重排** —— 这两个数**不能**用来证实或推翻"
+                               + "「字体现烘」假设；那个判据在上面的建卡 before → after 快照里，`A1834`）";
+                    }
+                    else
+                        cold = "（⚠️ 字形读数**取不到**（`TmpFont.Font == null`）⇒ 判不了这一下是 warm 还是冷启动，"
+                             + "⛔ 别把「判不了」写成「warm」。）";
+                    Debug.Log("[Collection·计时] 单次文字重排（`" + t.name + "`，第 1 张卡，**warm** 基线）：第 1 次 **"
                               + ((b - a) * 1000f).ToString("F1") + " ms** · 第 2 次 **"
-                              + ((c - b) * 1000f).ToString("F1") + " ms**"
-                              + "（⚠️ 两次差得大 ⇒ 第 1 次含**字形现生成**；两次都小 ⇒ 「字体现烘」那条假设**不成立**，"
-                              + "别往字体上查）。⚠️ 本行之后已把那张卡的裁切补回（见本方法的 doc）。");
+                              + ((c - b) * 1000f).ToString("F1") + " ms**" + cold
+                              + "。⚠️ 本行之后已把那张卡的裁切补回（见本方法的 doc）。");
                 }
                 catch (System.Exception e)
                 {
@@ -4623,6 +4745,42 @@ namespace CardPresentation
                           "若①b2a（`Resources.LoadAll` 466 张卡背）或③（帧尾/渲染）最大，" +
                           "对应的修法分别是「卡背页别在开窗时全量 `LoadAll`」/「SDF 那族 shader 与贴图别在这一帧才第一次用」。");
                 Debug.Log(sb.ToString());
+            }
+        }
+
+        // ============================================================ 🆕 2026-10-20（`A1834`）
+        /// <summary>**`A1834` 的自检读口** —— 「文字重排探针到底在什么时候跑的」。
+        /// <para>为什么要有它：原账那条探针排在 `RebuildCardsCells` **之后**（字形已烘、文本未变）
+        /// ⇒ 量到的 `0.0 ms` 是**必然结果**，却被当成「字体现烘那条假设不成立」的证据
+        /// （判据 → `资料/普查产出_第二十八会话/A1814_A1813_诊断.md` §A1813 ③）。</para>
+        /// <para>读数与修法：① `CardsAtBegin` / `BeginsWithCards` 必须是 **0** —— 快照那一刻一张卡格
+        /// 都还没建；把它挪回建卡之后 ⇒ 18 ⇒ `Editor/CollectionScene.cs` 那条断言**当场红**（灭自证）。
+        /// ② `Begins == Ends`（before/after 成对）。③ `GlyphsAtBegin/End` 只在真 Play 有值（批处理 = −1，
+        /// 理由见 `BuildWatch.TextProbeBegin` 的 doc：别让快照提前触发字体惰性加载、扰动 `A1813` 计时）。</para>
+        /// <para>⚠️ **批处理与真 Play 都记**（只读 `CardsCells.Count`，零开销、零副作用）。</para></summary>
+        public static class TextRelayoutProbe
+        {
+            public static int Begins;
+            public static int Ends;
+            /// <summary>最近一次 begin 那一刻已建好的卡格数。**正确值 = 0**（变化之前）。</summary>
+            public static int CardsAtBegin = -1;
+            /// <summary>begin 时已经有卡格的次数 —— **必须为 0**（否则探针又排到变化之后了）。</summary>
+            public static int BeginsWithCards;
+            /// <summary>上一个 begin 还没 end 就又 begin 的次数（before/after 没配对）。</summary>
+            public static int UnclosedBegins;
+            public static int GlyphsAtBegin = -1, GlyphsAtEnd = -1;
+            public static int CharsAtBegin = -1, CharsAtEnd = -1;
+            public static double BuildMs = -1.0;
+
+            /// <summary>自检开场清账（`Editor/CollectionScene.cs` 在 `CollectionWindow.Create` 之前调）。</summary>
+            public static void Reset()
+            {
+                Begins = Ends = 0;
+                CardsAtBegin = -1;
+                BeginsWithCards = 0;
+                UnclosedBegins = 0;
+                GlyphsAtBegin = GlyphsAtEnd = CharsAtBegin = CharsAtEnd = -1;
+                BuildMs = -1.0;
             }
         }
     }

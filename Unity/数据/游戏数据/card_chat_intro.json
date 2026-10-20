@@ -5,9 +5,10 @@
   "cardSO": "资料/普查产出_1018/allcards_1350/cards_raw.json（当前 build 2026-10-18 · 1,351 张 RawCardScript；bundle=D:/2/关服前存档/新建文件夹/Everguild_Warpforge/54bdb7b1114a2de41519cac560a4bce4/ea8bca4f5c6909d3124fd4975dc96173/__data）",
   "localization": "数据/游戏数据/官方本地化_en+zh-CN.json（当前 build en/zh-CN 两列）",
   "cardsEngine": "MyGame/Assets/RuleEngine/Resources/cards_engine.json（只用来判 inRuntime）",
+  "soundGuidMap": "primary=d:/4/Unity/资料/普查产出_1018/cardanim_guid_map/guid_map_bundles.tsv（1898 条 AudioClip） · fallback=d:/4/Unity/资料/普查产出_第二十七会话/guid_map.tsv（620 条 AudioClip，只补 primary 没有的）",
   "decompiled": "d:/2/tools/decomp_full/：ChatManager__GetChatMessage.c · ChatManager__GetCustomIntro.c · ChatManager__GetCustomIntroByArmy.c · ChatManager__IsPlayerFirstIntro.c · RawCardScript__GetChatId.c · RawCardScript__GetLocalizedCustomIntroChatMsg.c · RawCardScript__GetLocalizedCustomIntroChatMsgByArmy.c · RawCardScript__GetLocalizedChatMsg.c"
  },
- "note": "本条只导【文本键 + talksFirst】；customSound 的 AssetGUID 留在 soundGuid 里备查，但 GUID→音频那一跳不在本脚本（语音线另有管线）。talksFirst=null 表示精确档逐对手不同（看 introByOpponent[*].talksFirst），或该卡没有精确档条目（此时原版 IsPlayerFirstIntro 返回 1）。hasText 是「这个键在官方 en+zh-CN 表里存不存在」（en 与 zh-CN 任一非空才算有；13lang 运行时表是本表的超集：10,854/10,854 全在）。",
+ "note": "本条导【文本键 + talksFirst + customSound】。customSound 的 GUID 在 `soundGuid`、解出的 AudioClip 资产名在 `soundAsset`（解不出 ⇒ 空串并在 `unresolvedSoundGuids` 里，⛔ 不猜成默认音）。talksFirst=null 表示精确档逐对手不同（看 introByOpponent[*].talksFirst），或该卡没有精确档条目（此时原版 IsPlayerFirstIntro 返回 1）。hasText 是「这个键在官方 en+zh-CN 表里存不存在」（en 与 zh-CN 任一非空才算有；13lang 运行时表是本表的超集：10,854/10,854 全在）。",
  "algorithm": {
   "chatId": "chatMessagesReferenceId(+0x168) ?: customIntroReferenceId(+0x170) ?: uniqueId(+0x38)  —— RawCardScript__GetChatId.c",
   "foeChatId": "对手卡同一条链（RawCardScript__GetCustomIntro 里 GetChatId(foe, true)，param2=1）",
@@ -18,7 +19,8 @@
   "talksFirst": "ChatManager__IsPlayerFirstIntro.c：只查精确档；命中返回 entry.talksFirst；未命中（含只命中按阵营档）⇒ 1（玩家先说）。逐对手不同 ⇒ talksFirst=null + introByOpponent[*].talksFirst。",
   "preciseGate": "精确档的闸门是 SO 的 customIntroChatData 列表（GetCustomIntro 逐条比），不是官方表里有哪些键；表里多出来的键 = 死键。",
   "introRefRedirect": "customIntroReferenceId(+0x170) 非空时，GetCustomIntro 会先 CollectionManager.GetRawCardFromId(那个 id) 把 me 重定向到该卡，数据列表取那张卡的（本表按 SO 原样导出各自的列表；运行时 49 张chatRef/introRef 全空 ⇒ 不含重定向差异）。",
-  "vs": "-vs* 18 条：stringliteral.json 无 '-vs' 字面量、反编译无方法拼它 ⇒ 旧版本遗留，本表不建。"
+  "vs": "-vs* 18 条：stringliteral.json 无 '-vs' 字面量、反编译无方法拼它 ⇒ 旧版本遗留，本表不建。",
+  "customSound": "ChatManager__GetChatSoundAsset.c（idx=0）：① 精确档条目命中且 entry.customSound(+0x18) 非空 ⇒ `AssetReferenceTyped<AudioClip>.Load` 播它；② 否则按阵营档同一条；③ 两档都没有/条目没带 customSound ⇒ 回落 RawCardScript.GetChatSound(idx)（`introChatSound` → `defaultChatSound`）。⚠️ 运行时 49 张卡的 197 条条目**全部**带 customSound（现读）。字段 `soundGuid` = `AssetReference.m_AssetGUID`，`soundAsset` = 束里 AudioClip 的资产名（解出后我们按 `Resources/Art/audio/vo/<soundAsset>` 加载；解不出 ⇒ 空串 + 进 `unresolvedSoundGuids`，⛔ 不猜成默认音）。"
  },
  "counts": {
   "soCards": 60,
@@ -34,7 +36,12 @@
   "keysWithText": 222,
   "keysWithTextRuntime": 192,
   "keysMissing": 22,
-  "keysMissingRuntime": 5
+  "keysMissingRuntime": 5,
+  "soundEntries": 230,
+  "soundEntriesRuntime": 197,
+  "soundGuids": 190,
+  "soundGuidsResolved": 190,
+  "soundGuidsUnresolved": 0
  },
  "missingKeys": [
   "Chat_Messages/ASH76-Chat0-ASH74",
@@ -60,6 +67,7 @@
   "Chat_Messages/ef547f829b6491f45a8ad371f492278e-Chat0-TL36",
   "Chat_Messages/ef547f829b6491f45a8ad371f492278e-Chat0-UM47"
  ],
+ "unresolvedSoundGuids": [],
  "cards": [
   {
    "id": "52520927841c93c4785d2690edb9fb1f",
@@ -76,31 +84,36 @@
      "key": "Chat_Messages/GOF29-Chat0-SAU36",
      "talksFirst": 1,
      "hasText": true,
-     "soundGuid": "bb76d96801c8f1d47b140a831b7985a6"
+     "soundGuid": "bb76d96801c8f1d47b140a831b7985a6",
+     "soundAsset": "VO_Goff_Grukk_vsNemesor"
     },
     "BL34": {
      "key": "Chat_Messages/GOF29-Chat0-BL34",
      "talksFirst": 1,
      "hasText": true,
-     "soundGuid": "1609c15b1c339ff4199b0bcdc55142ac"
+     "soundGuid": "1609c15b1c339ff4199b0bcdc55142ac",
+     "soundAsset": "VO_Goff_Grukk_vsAbaddon"
     },
     "UM47": {
      "key": "Chat_Messages/GOF29-Chat0-UM47",
      "talksFirst": 1,
      "hasText": true,
-     "soundGuid": "ca033b8f0108c07499e0e8db4ac3cc7b"
+     "soundGuid": "ca033b8f0108c07499e0e8db4ac3cc7b",
+     "soundAsset": "VO_Goff_Grukk_vsUM"
     },
     "TL34": {
      "key": "Chat_Messages/GOF29-Chat0-TL34",
      "talksFirst": 1,
      "hasText": true,
-     "soundGuid": "7253440ef1488294aa9ec87b00de1f30"
+     "soundGuid": "7253440ef1488294aa9ec87b00de1f30",
+     "soundAsset": "VO_Goff_Grukk_vsTyranid"
     },
     "TAU2": {
      "key": "Chat_Messages/GOF29-Chat0-TAU2",
      "talksFirst": 0,
      "hasText": true,
-     "soundGuid": "88fcd08456bf98545aee2a000b6ca0ff"
+     "soundGuid": "88fcd08456bf98545aee2a000b6ca0ff",
+     "soundAsset": "VO_Goff_Grukk_gen2"
     }
    },
    "introByArmy": {},
@@ -122,43 +135,50 @@
      "key": "Chat_Messages/AM1-Chat0-BL34",
      "talksFirst": 1,
      "hasText": true,
-     "soundGuid": "e95f2810256747844821683a031771bc"
+     "soundGuid": "e95f2810256747844821683a031771bc",
+     "soundAsset": "VO_AM_Arcadian Leontus_vsAbaddon"
     },
     "SAU35": {
      "key": "Chat_Messages/AM1-Chat0-SAU35",
      "talksFirst": 0,
      "hasText": true,
-     "soundGuid": "8aff1fdc80cd5324f9787bd83dcef39e"
+     "soundGuid": "8aff1fdc80cd5324f9787bd83dcef39e",
+     "soundAsset": "VO_AM_Arcadian Leontus_vsImotekh"
     },
     "GOF28": {
      "key": "Chat_Messages/AM1-Chat0-GOF28",
      "talksFirst": 0,
      "hasText": true,
-     "soundGuid": "360bd3b9781da194b9e1457e9f247482"
+     "soundGuid": "360bd3b9781da194b9e1457e9f247482",
+     "soundAsset": "VO_AM_Arcadian Leontus_vsGhazghkull"
     },
     "TL34": {
      "key": "Chat_Messages/AM1-Chat0-TL34",
      "talksFirst": 0,
      "hasText": true,
-     "soundGuid": "057ffda27b242074ab964b5db45192c4"
+     "soundGuid": "057ffda27b242074ab964b5db45192c4",
+     "soundAsset": "VO_AM_Arcadian Leontus_vsTervigon"
     },
     "TL35": {
      "key": "Chat_Messages/AM1-Chat0-TL35",
      "talksFirst": 0,
      "hasText": true,
-     "soundGuid": "8bba4a13a035cdd45b8f0db5d01481c9"
+     "soundGuid": "8bba4a13a035cdd45b8f0db5d01481c9",
+     "soundAsset": "VO_AM_Arcadian Leontus_vsSwarmlord"
     },
     "GSC1": {
      "key": "Chat_Messages/AM1-Chat0-GSC1",
      "talksFirst": 1,
      "hasText": true,
-     "soundGuid": "d8dfdbf7f143cad42bba14086cfbf68a"
+     "soundGuid": "d8dfdbf7f143cad42bba14086cfbf68a",
+     "soundAsset": "VO_AM_Arcadian Leontus_vsSaffa"
     },
     "BL36": {
      "key": "Chat_Messages/AM1-Chat0-BL36",
      "talksFirst": 1,
      "hasText": true,
-     "soundGuid": "b3f95ba1d83c08f47b83da818cc9b6cc"
+     "soundGuid": "b3f95ba1d83c08f47b83da818cc9b6cc",
+     "soundAsset": "VO_AM_Arcadian Leontus_vsHexscorn"
     }
    },
    "introByArmy": {},
@@ -180,25 +200,29 @@
      "key": "Chat_Messages/AM2-Chat0-AM3",
      "talksFirst": 1,
      "hasText": true,
-     "soundGuid": "912640d093e695d4f9d62dcf47de7436"
+     "soundGuid": "912640d093e695d4f9d62dcf47de7436",
+     "soundAsset": "VO_AM_Ursula Creed_vsCommissar"
     },
     "AM1": {
      "key": "Chat_Messages/AM2-Chat0-AM1",
      "talksFirst": 1,
      "hasText": true,
-     "soundGuid": "88b153e3c4de71d4a8994d2c8d01ecce"
+     "soundGuid": "88b153e3c4de71d4a8994d2c8d01ecce",
+     "soundAsset": "VO_AM_Ursula Creed_vsLeontus"
     }
    },
    "introByArmy": {
     "Leviathan": {
      "key": "Chat_Messages/AM2-Chat0-Leviathan",
      "hasText": true,
-     "soundGuid": "c063390aae695ca41b94e9674547ca8b"
+     "soundGuid": "c063390aae695ca41b94e9674547ca8b",
+     "soundAsset": "VO_AM_Ursula Creed_vsTyranids"
     },
     "Ultramarines": {
      "key": "Chat_Messages/AM2-Chat0-Ultramarines",
      "hasText": true,
-     "soundGuid": "478656a6d724f9b4fa80ffd29c814d27"
+     "soundGuid": "478656a6d724f9b4fa80ffd29c814d27",
+     "soundAsset": "VO_AM_Ursula Creed_vsUM"
     }
    },
    "duplicateOpponentEntries": [],
@@ -219,31 +243,36 @@
      "key": "Chat_Messages/AM3-Chat0-GOF28",
      "talksFirst": 0,
      "hasText": true,
-     "soundGuid": "70c914fd21a17b1419e6fc7b8b083116"
+     "soundGuid": "70c914fd21a17b1419e6fc7b8b083116",
+     "soundAsset": "VO_AM_Commissar Elan_vsGhazghkull"
     },
     "BL35": {
      "key": "Chat_Messages/AM3-Chat0-BL35",
      "talksFirst": 1,
      "hasText": true,
-     "soundGuid": "d50d16bdf8a84b84da6357976e6cb002"
+     "soundGuid": "d50d16bdf8a84b84da6357976e6cb002",
+     "soundAsset": "VO_AM_Commissar Elan_vsHaarken"
     },
     "AM2": {
      "key": "Chat_Messages/AM3-Chat0-AM2",
      "talksFirst": 0,
      "hasText": true,
-     "soundGuid": "27d018c52e7558045ada487297942149"
+     "soundGuid": "27d018c52e7558045ada487297942149",
+     "soundAsset": "VO_AM_Commissar Elan_vsUrsula"
     },
     "AM1": {
      "key": "Chat_Messages/AM3-Chat0-AM1",
      "talksFirst": 1,
      "hasText": true,
-     "soundGuid": "dfd739b8a30c06248adb112752e54f07"
+     "soundGuid": "dfd739b8a30c06248adb112752e54f07",
+     "soundAsset": "VO_AM_Commissar Elan_vsLeontus"
     },
     "AM66": {
      "key": "Chat_Messages/AM3-Chat0-AM66",
      "talksFirst": 1,
      "hasText": true,
-     "soundGuid": "c17b491ad07b36a4e9544be83d278333"
+     "soundGuid": "c17b491ad07b36a4e9544be83d278333",
+     "soundAsset": "VO_AM_Commissar Elan_Backup1"
     }
    },
    "introByArmy": {},
@@ -265,36 +294,42 @@
      "key": "Chat_Messages/AM66-Chat0-AM1",
      "talksFirst": 0,
      "hasText": true,
-     "soundGuid": "db52d078c1807b746a478b68e67a7768"
+     "soundGuid": "db52d078c1807b746a478b68e67a7768",
+     "soundAsset": "VO_AM_Hektor Thenmann_vsLeontus-Ursula-SM"
     },
     "AM2": {
      "key": "Chat_Messages/AM66-Chat0-AM2",
      "talksFirst": 0,
      "hasText": true,
-     "soundGuid": "db52d078c1807b746a478b68e67a7768"
+     "soundGuid": "db52d078c1807b746a478b68e67a7768",
+     "soundAsset": "VO_AM_Hektor Thenmann_vsLeontus-Ursula-SM"
     },
     "AM3": {
      "key": "Chat_Messages/AM66-Chat0-AM3",
      "talksFirst": 0,
      "hasText": true,
-     "soundGuid": "2e33f5444a8b8a44b94cd667357bf0ad"
+     "soundGuid": "2e33f5444a8b8a44b94cd667357bf0ad",
+     "soundAsset": "VO_AM_Hektor Thenmann_vsDenkler"
     }
    },
    "introByArmy": {
     "Ultramarines": {
      "key": "Chat_Messages/AM66-Chat0-Ultramarines",
      "hasText": true,
-     "soundGuid": "db52d078c1807b746a478b68e67a7768"
+     "soundGuid": "db52d078c1807b746a478b68e67a7768",
+     "soundAsset": "VO_AM_Hektor Thenmann_vsLeontus-Ursula-SM"
     },
     "Goff": {
      "key": "Chat_Messages/AM66-Chat0-Goff",
      "hasText": true,
-     "soundGuid": "5863c73c29710e641bb8ad7075a29a53"
+     "soundGuid": "5863c73c29710e641bb8ad7075a29a53",
+     "soundAsset": "VO_AM_Hektor Thenmann_vsOrks"
     },
     "TauEmpire": {
      "key": "Chat_Messages/AM66-Chat0-TauEmpire",
      "hasText": true,
-     "soundGuid": "d4286e8f2aa96e34cb4f4bfa6ef03c57"
+     "soundGuid": "d4286e8f2aa96e34cb4f4bfa6ef03c57",
+     "soundAsset": "VO_AM_Hektor Thenmann_vsTau_v2"
     }
    },
    "duplicateOpponentEntries": [],
@@ -315,25 +350,29 @@
      "key": "Chat_Messages/ASH1-Chat0-BL36",
      "talksFirst": 1,
      "hasText": true,
-     "soundGuid": "d63371e292eca7f4ca6f9c9fdaa34509"
+     "soundGuid": "d63371e292eca7f4ca6f9c9fdaa34509",
+     "soundAsset": "VO_SaimHann_Anvirr_vsHexscorn"
     },
     "SAU37": {
      "key": "Chat_Messages/ASH1-Chat0-SAU37",
      "talksFirst": 0,
      "hasText": true,
-     "soundGuid": "db992ca17d4c15e49975ed68dc27fcf7"
+     "soundGuid": "db992ca17d4c15e49975ed68dc27fcf7",
+     "soundAsset": "VO_SaimHann_Anvirr_vsOrikan"
     },
     "ASH2": {
      "key": "Chat_Messages/ASH1-Chat0-ASH2",
      "talksFirst": 0,
      "hasText": true,
-     "soundGuid": "b4e8e658f8ae7cd429e1c43cd4ca5c11"
+     "soundGuid": "b4e8e658f8ae7cd429e1c43cd4ca5c11",
+     "soundAsset": "VO_SaimHann_Anvirr_vsZephyrblade"
     },
     "UM48": {
      "key": "Chat_Messages/ASH1-Chat0-UM48",
      "talksFirst": 0,
      "hasText": true,
-     "soundGuid": "b4a21837b806d1d448a46e528331127c"
+     "soundGuid": "b4a21837b806d1d448a46e528331127c",
+     "soundAsset": "VO_SaimHann_Anvirr_vsCalgar"
     }
    },
    "introByArmy": {},
@@ -355,25 +394,29 @@
      "key": "Chat_Messages/ASH2-Chat0-GOF27",
      "talksFirst": 1,
      "hasText": true,
-     "soundGuid": "2a9445abf08f03d429c794d94da94240"
+     "soundGuid": "2a9445abf08f03d429c794d94da94240",
+     "soundAsset": "VO_SaimHann_Zephyrblade_vsZagstruk"
     },
     "ASH3": {
      "key": "Chat_Messages/ASH2-Chat0-ASH3",
      "talksFirst": 1,
      "hasText": true,
-     "soundGuid": "228bd4823a9b8d84bbd9e36005019394"
+     "soundGuid": "228bd4823a9b8d84bbd9e36005019394",
+     "soundAsset": "VO_SaimHann_Zephyrblade_vsGhaelyn"
     },
     "ASH1": {
      "key": "Chat_Messages/ASH2-Chat0-ASH1",
      "talksFirst": 1,
      "hasText": true,
-     "soundGuid": "16a42638a73255f42b17cdc89ef3eede"
+     "soundGuid": "16a42638a73255f42b17cdc89ef3eede",
+     "soundAsset": "VO_SaimHann_Zephyrblade_vsKeltoc"
     },
     "GOF75": {
      "key": "Chat_Messages/ASH2-Chat0-GOF75",
      "talksFirst": 1,
      "hasText": true,
-     "soundGuid": "268a79e5c768d44ce907d6fcf19a21ba"
+     "soundGuid": "268a79e5c768d44ce907d6fcf19a21ba",
+     "soundAsset": "VO_SaimHann_Zephyrblade_gen5"
     }
    },
    "introByArmy": {},
@@ -395,25 +438,29 @@
      "key": "Chat_Messages/ASH3-Chat0-SAU35",
      "talksFirst": 0,
      "hasText": true,
-     "soundGuid": "448a961ac07fd4f0f98ce5c63cccdf6f"
+     "soundGuid": "448a961ac07fd4f0f98ce5c63cccdf6f",
+     "soundAsset": "VO_SaimHann_Ghaelyn_gen4"
     },
     "BL35": {
      "key": "Chat_Messages/ASH3-Chat0-BL35",
      "talksFirst": 1,
      "hasText": true,
-     "soundGuid": "cfcea8c16fe254407b04c75b4cbb8f3a"
+     "soundGuid": "cfcea8c16fe254407b04c75b4cbb8f3a",
+     "soundAsset": "VO_SaimHann_Ghaelyn_vs_Haarken"
     },
     "ASH2": {
      "key": "Chat_Messages/ASH3-Chat0-ASH2",
      "talksFirst": 0,
      "hasText": true,
-     "soundGuid": "173c1cd3c6c8f436fb03d968a3206d60"
+     "soundGuid": "173c1cd3c6c8f436fb03d968a3206d60",
+     "soundAsset": "VO_SaimHann_Ghaelyn_vs_Eliac"
     },
     "TL34": {
      "key": "Chat_Messages/ASH3-Chat0-TL34",
      "talksFirst": 0,
      "hasText": true,
-     "soundGuid": "c49b87daf274b40d9a041c1a4a2d1b4a"
+     "soundGuid": "c49b87daf274b40d9a041c1a4a2d1b4a",
+     "soundAsset": "VO_SaimHann_Ghaelyn_vs_Tyranids"
     }
    },
    "introByArmy": {},
@@ -435,26 +482,30 @@
      "key": "Chat_Messages/ASH74-Chat0-BL35",
      "talksFirst": 0,
      "hasText": true,
-     "soundGuid": "d8c937ca45f1d46d494b9b75fe2b8ddf"
+     "soundGuid": "d8c937ca45f1d46d494b9b75fe2b8ddf",
+     "soundAsset": "VO_CW_SaimHann_Jain Zar_vsHaarken"
     },
     "SAU35": {
      "key": "Chat_Messages/ASH74-Chat0-SAU35",
      "talksFirst": 0,
      "hasText": true,
-     "soundGuid": "f5d6f8bc4b1df412bac0b90068a27fcb"
+     "soundGuid": "f5d6f8bc4b1df412bac0b90068a27fcb",
+     "soundAsset": "VO_CW_SaimHann_Jain Zar_vsImotekh"
     },
     "AM2": {
      "key": "Chat_Messages/ASH74-Chat0-AM2",
      "talksFirst": 0,
      "hasText": true,
-     "soundGuid": "7e2e1d713d70a411ebcc18a9f62cafe3"
+     "soundGuid": "7e2e1d713d70a411ebcc18a9f62cafe3",
+     "soundAsset": "VO_CW_SaimHann_Jain Zar_vsUrsula"
     }
    },
    "introByArmy": {
     "Leviathan": {
      "key": "Chat_Messages/ASH74-Chat0-Leviathan",
      "hasText": true,
-     "soundGuid": "fe294304eb2594b27b7b88255e076009"
+     "soundGuid": "fe294304eb2594b27b7b88255e076009",
+     "soundAsset": "VO_CW_SaimHann_Jain Zar_vsTyranids"
     }
    },
    "duplicateOpponentEntries": [],
@@ -475,24 +526,28 @@
      "key": "Chat_Messages/ASH76-Chat0-ASH74",
      "talksFirst": 0,
      "hasText": false,
-     "soundGuid": "d902d9e2952de49a5b9a3c1dacf4f0f9"
+     "soundGuid": "d902d9e2952de49a5b9a3c1dacf4f0f9",
+     "soundAsset": "VO_CW_SaimHann_Lhykhis_vsJainZar"
     }
    },
    "introByArmy": {
     "Leviathan": {
      "key": "Chat_Messages/ASH76-Chat0-Leviathan",
      "hasText": true,
-     "soundGuid": "c5d79ebcce1a4455489015c34d480ddd"
+     "soundGuid": "c5d79ebcce1a4455489015c34d480ddd",
+     "soundAsset": "VO_CW_SaimHann_Lhykhis_vsTyranids"
     },
     "Sautekh": {
      "key": "Chat_Messages/ASH76-Chat0-Sautekh",
      "hasText": true,
-     "soundGuid": "e82b3b78329904f62995b0d867289735"
+     "soundGuid": "e82b3b78329904f62995b0d867289735",
+     "soundAsset": "VO_CW_SaimHann_Lhykhis_vsNecrons"
     },
     "EmperorsChildren": {
      "key": "Chat_Messages/ASH76-Chat0-EmperorsChildren",
      "hasText": true,
-     "soundGuid": "3d664e0987184477197fefa571d1bb59"
+     "soundGuid": "3d664e0987184477197fefa571d1bb59",
+     "soundAsset": "VO_CW_SaimHann_Lhykhis_vsEC"
     }
    },
    "duplicateOpponentEntries": [],
@@ -513,31 +568,36 @@
      "key": "Chat_Messages/BL34-Chat0-BL36",
      "talksFirst": 0,
      "hasText": true,
-     "soundGuid": "0d9789fa4486f4491a4808c85d847e71"
+     "soundGuid": "0d9789fa4486f4491a4808c85d847e71",
+     "soundAsset": "VO_BlackLegion_Abaddon_vsHexscorn"
     },
     "GOF29": {
      "key": "Chat_Messages/BL34-Chat0-GOF29",
      "talksFirst": 0,
      "hasText": true,
-     "soundGuid": "87dba971df87443289bd921054e1a4f0"
+     "soundGuid": "87dba971df87443289bd921054e1a4f0",
+     "soundAsset": "VO_BlackLegion_Abaddon_vsGrukk"
     },
     "SAU37": {
      "key": "Chat_Messages/BL34-Chat0-SAU37",
      "talksFirst": 0,
      "hasText": true,
-     "soundGuid": "e9f8d8841f74a4ee5a69796f6a9fee7e"
+     "soundGuid": "e9f8d8841f74a4ee5a69796f6a9fee7e",
+     "soundAsset": "VO_BlackLegion_Abaddon_vsOrikan"
     },
     "GOF75": {
      "key": "Chat_Messages/BL34-Chat0-GOF75",
      "talksFirst": 0,
      "hasText": true,
-     "soundGuid": "9b4b1919b48a6435394d38ca1237bab8"
+     "soundGuid": "9b4b1919b48a6435394d38ca1237bab8",
+     "soundAsset": "VO_BlackLegion_Abaddon_gen3"
     },
     "AM1": {
      "key": "Chat_Messages/BL34-Chat0-AM1",
      "talksFirst": 0,
      "hasText": true,
-     "soundGuid": "133ae91bb3bce4c14b04b15bb5543ca2"
+     "soundGuid": "133ae91bb3bce4c14b04b15bb5543ca2",
+     "soundAsset": "VO_BlackLegion_Abaddon_mirror"
     }
    },
    "introByArmy": {},
@@ -559,31 +619,36 @@
      "key": "Chat_Messages/BL35-Chat0-UM47",
      "talksFirst": 1,
      "hasText": true,
-     "soundGuid": "6ab559aed20bc4b3eb23b80278cb3ae9"
+     "soundGuid": "6ab559aed20bc4b3eb23b80278cb3ae9",
+     "soundAsset": "VO_BlackLegion_Haarken_Gen6"
     },
     "GOF27": {
      "key": "Chat_Messages/BL35-Chat0-GOF27",
      "talksFirst": 1,
      "hasText": true,
-     "soundGuid": "3c00e0e642870429f8f8860a4bd250c2"
+     "soundGuid": "3c00e0e642870429f8f8860a4bd250c2",
+     "soundAsset": "VO_BlackLegion_Haarken_vs_Zagstruk"
     },
     "ASH3": {
      "key": "Chat_Messages/BL35-Chat0-ASH3",
      "talksFirst": 0,
      "hasText": true,
-     "soundGuid": "f92b7ff6e08624a4483d7b6c7744f84f"
+     "soundGuid": "f92b7ff6e08624a4483d7b6c7744f84f",
+     "soundAsset": "VO_BlackLegion_Haarken_Gen7"
     },
     "SAU37": {
      "key": "Chat_Messages/BL35-Chat0-SAU37",
      "talksFirst": 0,
      "hasText": true,
-     "soundGuid": "b5e79b1844460487ba3186e48476bfac"
+     "soundGuid": "b5e79b1844460487ba3186e48476bfac",
+     "soundAsset": "VO_BlackLegion_Haarken_vs_Orikan"
     },
     "AM3": {
      "key": "Chat_Messages/BL35-Chat0-AM3",
      "talksFirst": 0,
      "hasText": true,
-     "soundGuid": "cd3dc67f1c89342f2adc23b319d2f6b9"
+     "soundGuid": "cd3dc67f1c89342f2adc23b319d2f6b9",
+     "soundAsset": "VO_BlackLegion_Haarken_vs_Commissar"
     }
    },
    "introByArmy": {},
@@ -605,25 +670,29 @@
      "key": "Chat_Messages/BL36-Chat0-UM48",
      "talksFirst": 0,
      "hasText": true,
-     "soundGuid": "7b391ebbfa3ca4d2180d39880a9ad524"
+     "soundGuid": "7b391ebbfa3ca4d2180d39880a9ad524",
+     "soundAsset": "VO_BlackLegion_Hexscorn_vs_Varro"
     },
     "BL34": {
      "key": "Chat_Messages/BL36-Chat0-BL34",
      "talksFirst": 1,
      "hasText": true,
-     "soundGuid": "4f5949e58f1f9474e963993eb3f969de"
+     "soundGuid": "4f5949e58f1f9474e963993eb3f969de",
+     "soundAsset": "VO_BlackLegion_Hexscorn_vs_Abaddon"
     },
     "ASH1": {
      "key": "Chat_Messages/BL36-Chat0-ASH1",
      "talksFirst": 0,
      "hasText": true,
-     "soundGuid": "832e34f5aede747399f14e9252bd7de7"
+     "soundGuid": "832e34f5aede747399f14e9252bd7de7",
+     "soundAsset": "VO_BlackLegion_Hexscorn_vs_Keltoc"
     },
     "AM1": {
      "key": "Chat_Messages/BL36-Chat0-AM1",
      "talksFirst": 0,
      "hasText": true,
-     "soundGuid": "435c799752fa54ea6aee0d81b5d25618"
+     "soundGuid": "435c799752fa54ea6aee0d81b5d25618",
+     "soundAsset": "VO_BlackLegion_Hexscorn_Gen5"
     }
    },
    "introByArmy": {},
@@ -645,13 +714,15 @@
      "key": "Chat_Messages/BL65-Chat0-UM65",
      "talksFirst": 1,
      "hasText": true,
-     "soundGuid": "7fbba62dd487ad246a686095abc3e6dd"
+     "soundGuid": "7fbba62dd487ad246a686095abc3e6dd",
+     "soundAsset": "VO_BL_Ghallaron_gen6"
     },
     "GSC1": {
      "key": "Chat_Messages/BL65-Chat0-GSC1",
      "talksFirst": 1,
      "hasText": true,
-     "soundGuid": "43a8cd8f978b5f04081678d7c636308d"
+     "soundGuid": "43a8cd8f978b5f04081678d7c636308d",
+     "soundAsset": "VO_BL_Ghallaron_threat"
     }
    },
    "introByArmy": {},
@@ -673,7 +744,8 @@
      "key": "Chat_Messages/DA1-Chat0-BL2",
      "talksFirst": 1,
      "hasText": false,
-     "soundGuid": "28e53abe44b6447299d3a2f34ffdbeed"
+     "soundGuid": "28e53abe44b6447299d3a2f34ffdbeed",
+     "soundAsset": "VO_DA_Azrael_vsBelial"
     }
    },
    "introByArmy": {},
@@ -695,13 +767,15 @@
      "key": "Chat_Messages/DA2-Chat0-BL1",
      "talksFirst": 0,
      "hasText": false,
-     "soundGuid": "d6def3623028043f89451ba05bbe6e5c"
+     "soundGuid": "d6def3623028043f89451ba05bbe6e5c",
+     "soundAsset": "VO_DA_Belial_vsAzrael"
     },
     "BL3": {
      "key": "Chat_Messages/DA2-Chat0-BL3",
      "talksFirst": 1,
      "hasText": false,
-     "soundGuid": "e74862622be3445c183b54e2d11628ae"
+     "soundGuid": "e74862622be3445c183b54e2d11628ae",
+     "soundAsset": "VO_DA_Belial_vsAsmodai"
     }
    },
    "introByArmy": {},
@@ -723,7 +797,8 @@
      "key": "Chat_Messages/DA3-Chat0-BL2",
      "talksFirst": 0,
      "hasText": false,
-     "soundGuid": "1e14eb864397048639a57dc4cfb37b37"
+     "soundGuid": "1e14eb864397048639a57dc4cfb37b37",
+     "soundAsset": "VO_DA_Asmodai_vsBelial"
     }
    },
    "introByArmy": {},
@@ -745,37 +820,43 @@
      "key": "Chat_Messages/DA75-Chat0-DA3",
      "talksFirst": 0,
      "hasText": true,
-     "soundGuid": "d1fa912cec0c2e44ba276583aa91b138"
+     "soundGuid": "d1fa912cec0c2e44ba276583aa91b138",
+     "soundAsset": "VO_DA_Master Zacharial_vsAsmodai&Belial"
     },
     "DA2": {
      "key": "Chat_Messages/DA75-Chat0-DA2",
      "talksFirst": 1,
      "hasText": true,
-     "soundGuid": "d1fa912cec0c2e44ba276583aa91b138"
+     "soundGuid": "d1fa912cec0c2e44ba276583aa91b138",
+     "soundAsset": "VO_DA_Master Zacharial_vsAsmodai&Belial"
     },
     "DA1": {
      "key": "Chat_Messages/DA75-Chat0-DA1",
      "talksFirst": 0,
      "hasText": true,
-     "soundGuid": "7cc11cfa08c765e409faadfc5cff55f7"
+     "soundGuid": "7cc11cfa08c765e409faadfc5cff55f7",
+     "soundAsset": "VO_DA_Master Zacharial_vsAzrael"
     },
     "TAU1": {
      "key": "Chat_Messages/DA75-Chat0-TAU1",
      "talksFirst": 0,
      "hasText": true,
-     "soundGuid": "dbf382fcc23771740be8a5a3c921c7d0"
+     "soundGuid": "dbf382fcc23771740be8a5a3c921c7d0",
+     "soundAsset": "VO_DA_Master Zacharial_vsShadowsun"
     }
    },
    "introByArmy": {
     "BlackLegion": {
      "key": "Chat_Messages/DA75-Chat0-BlackLegion",
      "hasText": true,
-     "soundGuid": "969cf94b002646445ae77e48916dcbaf"
+     "soundGuid": "969cf94b002646445ae77e48916dcbaf",
+     "soundAsset": "VO_DA_Master Zacharial_vsEC&BL"
     },
     "EmperorsChildren": {
      "key": "Chat_Messages/DA75-Chat0-EmperorsChildren",
      "hasText": true,
-     "soundGuid": "969cf94b002646445ae77e48916dcbaf"
+     "soundGuid": "969cf94b002646445ae77e48916dcbaf",
+     "soundAsset": "VO_DA_Master Zacharial_vsEC&BL"
     }
    },
    "duplicateOpponentEntries": [],
@@ -796,19 +877,22 @@
      "key": "Chat_Messages/GOF27-Chat0-BL35",
      "talksFirst": 0,
      "hasText": true,
-     "soundGuid": "090c23857511a8e4b9edf4ce39f00319"
+     "soundGuid": "090c23857511a8e4b9edf4ce39f00319",
+     "soundAsset": "VO_Goff_Zagstruk_vsTBC3"
     },
     "ASH2": {
      "key": "Chat_Messages/GOF27-Chat0-ASH2",
      "talksFirst": 0,
      "hasText": true,
-     "soundGuid": "1b0bb830d4585bc4aa2f37cd340d573a"
+     "soundGuid": "1b0bb830d4585bc4aa2f37cd340d573a",
+     "soundAsset": "VO_Goff_Zagstruk_gen6"
     },
     "GSC3": {
      "key": "Chat_Messages/GOF27-Chat0-GSC3",
      "talksFirst": 0,
      "hasText": true,
-     "soundGuid": "e4cdd4af15b1d374198567ebfe333062"
+     "soundGuid": "e4cdd4af15b1d374198567ebfe333062",
+     "soundAsset": "VO_Goff_Zagstruk_gen3"
     }
    },
    "introByArmy": {},
@@ -832,37 +916,43 @@
      "key": "Chat_Messages/GOF28-Chat0-UM46",
      "talksFirst": 0,
      "hasText": true,
-     "soundGuid": "77c46553ce656b94189f02b8191bd540"
+     "soundGuid": "77c46553ce656b94189f02b8191bd540",
+     "soundAsset": "VO_Goff_Ghazghkull_vsCalgar"
     },
     "SAU35": {
      "key": "Chat_Messages/GOF28-Chat0-SAU35",
      "talksFirst": 1,
      "hasText": true,
-     "soundGuid": "6a905b88cd2c5c74db1a22af8a969602"
+     "soundGuid": "6a905b88cd2c5c74db1a22af8a969602",
+     "soundAsset": "VO_Goff_Ghazghkull_gen4"
     },
     "GOF75": {
      "key": "Chat_Messages/GOF28-Chat0-GOF75",
      "talksFirst": 0,
      "hasText": true,
-     "soundGuid": "5b625ca59bb013346ac26113a898632b"
+     "soundGuid": "5b625ca59bb013346ac26113a898632b",
+     "soundAsset": "VO_Goff_Ghazghkull_gen1"
     },
     "TAU2": {
      "key": "Chat_Messages/GOF28-Chat0-TAU2",
      "talksFirst": 1,
      "hasText": true,
-     "soundGuid": "56ec1545f262d0a4395aa2a3eb01956d"
+     "soundGuid": "56ec1545f262d0a4395aa2a3eb01956d",
+     "soundAsset": "VO_Goff_Ghazghkull_Threat"
     },
     "AM3": {
      "key": "Chat_Messages/GOF28-Chat0-AM3",
      "talksFirst": 1,
      "hasText": true,
-     "soundGuid": "2312e4007f8c1154f844177fc0d719a5"
+     "soundGuid": "2312e4007f8c1154f844177fc0d719a5",
+     "soundAsset": "VO_Goff_Ghazghkull_vsCommissar"
     },
     "AM1": {
      "key": "Chat_Messages/GOF28-Chat0-AM1",
      "talksFirst": 1,
      "hasText": true,
-     "soundGuid": "059e491d104d8e5479548d6e27007b56"
+     "soundGuid": "059e491d104d8e5479548d6e27007b56",
+     "soundAsset": "VO_Goff_Ghazghkull_Mirror"
     }
    },
    "introByArmy": {},
@@ -884,31 +974,36 @@
      "key": "Chat_Messages/GOF29-Chat0-SAU36",
      "talksFirst": 1,
      "hasText": true,
-     "soundGuid": "bb76d96801c8f1d47b140a831b7985a6"
+     "soundGuid": "bb76d96801c8f1d47b140a831b7985a6",
+     "soundAsset": "VO_Goff_Grukk_vsNemesor"
     },
     "BL34": {
      "key": "Chat_Messages/GOF29-Chat0-BL34",
      "talksFirst": 1,
      "hasText": true,
-     "soundGuid": "1609c15b1c339ff4199b0bcdc55142ac"
+     "soundGuid": "1609c15b1c339ff4199b0bcdc55142ac",
+     "soundAsset": "VO_Goff_Grukk_vsAbaddon"
     },
     "UM47": {
      "key": "Chat_Messages/GOF29-Chat0-UM47",
      "talksFirst": 1,
      "hasText": true,
-     "soundGuid": "ca033b8f0108c07499e0e8db4ac3cc7b"
+     "soundGuid": "ca033b8f0108c07499e0e8db4ac3cc7b",
+     "soundAsset": "VO_Goff_Grukk_vsUM"
     },
     "TL34": {
      "key": "Chat_Messages/GOF29-Chat0-TL34",
      "talksFirst": 1,
      "hasText": true,
-     "soundGuid": "7253440ef1488294aa9ec87b00de1f30"
+     "soundGuid": "7253440ef1488294aa9ec87b00de1f30",
+     "soundAsset": "VO_Goff_Grukk_vsTyranid"
     },
     "TAU2": {
      "key": "Chat_Messages/GOF29-Chat0-TAU2",
      "talksFirst": 0,
      "hasText": true,
-     "soundGuid": "88fcd08456bf98545aee2a000b6ca0ff"
+     "soundGuid": "88fcd08456bf98545aee2a000b6ca0ff",
+     "soundAsset": "VO_Goff_Grukk_gen2"
     }
    },
    "introByArmy": {},
@@ -930,25 +1025,29 @@
      "key": "Chat_Messages/GOF75-Chat0-GOF28",
      "talksFirst": 1,
      "hasText": true,
-     "soundGuid": "b4c9a88d280494f45906b4b613a47a98"
+     "soundGuid": "b4c9a88d280494f45906b4b613a47a98",
+     "soundAsset": "VO_Ork_Goff_Gordrang_vsGhazghkull"
     },
     "ASH2": {
      "key": "Chat_Messages/GOF75-Chat0-ASH2",
      "talksFirst": 0,
      "hasText": true,
-     "soundGuid": "208cbe6ff57a1184992df461379db0ad"
+     "soundGuid": "208cbe6ff57a1184992df461379db0ad",
+     "soundAsset": "VO_Ork_Goff_Gordrang_vsEliac"
     },
     "BL34": {
      "key": "Chat_Messages/GOF75-Chat0-BL34",
      "talksFirst": 1,
      "hasText": true,
-     "soundGuid": "3e4755eda99a742ed979d7786941c9da"
+     "soundGuid": "3e4755eda99a742ed979d7786941c9da",
+     "soundAsset": "VO_Ork_Goff_Gordrang_vsAbaddon"
     },
     "SOR1": {
      "key": "Chat_Messages/GOF75-Chat0-SOR1",
      "talksFirst": 0,
      "hasText": true,
-     "soundGuid": "5ce58cd04eef11e47b7427dcc6cab1f4"
+     "soundGuid": "5ce58cd04eef11e47b7427dcc6cab1f4",
+     "soundAsset": "VO_Ork_Goff_Gordrang_gen4"
     }
    },
    "introByArmy": {},
@@ -970,20 +1069,23 @@
      "key": "Chat_Messages/GSC1-Chat0-BL65",
      "talksFirst": 0,
      "hasText": true,
-     "soundGuid": "48f513ab0cba647a5b78522e97a55d08"
+     "soundGuid": "48f513ab0cba647a5b78522e97a55d08",
+     "soundAsset": "VO_GSC_Saffa Rhiannor_vsGhallaron"
     },
     "AM1": {
      "key": "Chat_Messages/GSC1-Chat0-AM1",
      "talksFirst": 0,
      "hasText": true,
-     "soundGuid": "2d7d5f788bd5a453a913f17f924806dc"
+     "soundGuid": "2d7d5f788bd5a453a913f17f924806dc",
+     "soundAsset": "VO_GSC_Saffa Rhiannor_Backup4"
     }
    },
    "introByArmy": {
     "Leviathan": {
      "key": "Chat_Messages/GSC1-Chat0-Leviathan",
      "hasText": true,
-     "soundGuid": "2d7d5f788bd5a453a913f17f924806dc"
+     "soundGuid": "2d7d5f788bd5a453a913f17f924806dc",
+     "soundAsset": "VO_GSC_Saffa Rhiannor_Backup4"
     }
    },
    "duplicateOpponentEntries": [],
@@ -1004,20 +1106,23 @@
      "key": "Chat_Messages/GSC2-Chat0-GSC3",
      "talksFirst": 1,
      "hasText": true,
-     "soundGuid": "c55bcadf2c73a411c8359fab8270a901"
+     "soundGuid": "c55bcadf2c73a411c8359fab8270a901",
+     "soundAsset": "VO_GSC_Uthrel Naas_intro"
     },
     "SOR2": {
      "key": "Chat_Messages/GSC2-Chat0-SOR2",
      "talksFirst": 1,
      "hasText": true,
-     "soundGuid": "a677b841463354340ae1c76fba54bb6e"
+     "soundGuid": "a677b841463354340ae1c76fba54bb6e",
+     "soundAsset": "VO_GSC_Uthrel Naas_vsSororitas"
     }
    },
    "introByArmy": {
     "Leviathan": {
      "key": "Chat_Messages/GSC2-Chat0-Leviathan",
      "hasText": true,
-     "soundGuid": "ec9f99c853512462cb432b026b2f7422"
+     "soundGuid": "ec9f99c853512462cb432b026b2f7422",
+     "soundAsset": "VO_GSC_Uthrel Naas_hurry"
     }
    },
    "duplicateOpponentEntries": [],
@@ -1038,26 +1143,30 @@
      "key": "Chat_Messages/GSC3-Chat0-GSC2",
      "talksFirst": 0,
      "hasText": true,
-     "soundGuid": "4aa1d3957c8c84ac29f4bdc4f9a1ab1e"
+     "soundGuid": "4aa1d3957c8c84ac29f4bdc4f9a1ab1e",
+     "soundAsset": "VO_GSC_Acolyte Iconward_vsMagus"
     },
     "SAU36": {
      "key": "Chat_Messages/GSC3-Chat0-SAU36",
      "talksFirst": 0,
      "hasText": true,
-     "soundGuid": "a4f72b3c4e7184e05935364ada7e06cf"
+     "soundGuid": "a4f72b3c4e7184e05935364ada7e06cf",
+     "soundAsset": "VO_GSC_Acolyte Iconward_vsNecrons"
     },
     "GOF27": {
      "key": "Chat_Messages/GSC3-Chat0-GOF27",
      "talksFirst": 1,
      "hasText": true,
-     "soundGuid": "1c1b30997ab3946ea934a20217799acd"
+     "soundGuid": "1c1b30997ab3946ea934a20217799acd",
+     "soundAsset": "VO_GSC_Acolyte Iconward_vsOrks"
     }
    },
    "introByArmy": {
     "Leviathan": {
      "key": "Chat_Messages/GSC3-Chat0-Leviathan",
      "hasText": true,
-     "soundGuid": "e7ee225d9fafa40a3872ea8bfb47119f"
+     "soundGuid": "e7ee225d9fafa40a3872ea8bfb47119f",
+     "soundAsset": "VO_GSC_Acolyte Iconward_Backup5"
     }
    },
    "duplicateOpponentEntries": [],
@@ -1078,32 +1187,37 @@
      "key": "Chat_Messages/GSC66-Chat0-UM46",
      "talksFirst": 0,
      "hasText": true,
-     "soundGuid": "0c84dfc541c094995a0fde5ed5cf3b43"
+     "soundGuid": "0c84dfc541c094995a0fde5ed5cf3b43",
+     "soundAsset": "VO_GSC_Lhaska Szenari_vsCalgar"
     },
     "AM3": {
      "key": "Chat_Messages/GSC66-Chat0-AM3",
      "talksFirst": 0,
      "hasText": true,
-     "soundGuid": "e90c0bdfaef77458c9e95c7c1972f5eb"
+     "soundGuid": "e90c0bdfaef77458c9e95c7c1972f5eb",
+     "soundAsset": "VO_GSC_Lhaska Szenari_vsCommissar"
     },
     "UM65": {
      "key": "Chat_Messages/GSC66-Chat0-UM65",
      "talksFirst": 0,
      "hasText": true,
-     "soundGuid": "173d7b9076b1a47a6a5f214f8d14ba47"
+     "soundGuid": "173d7b9076b1a47a6a5f214f8d14ba47",
+     "soundAsset": "VO_GSC_Lhaska Szenari_vsLetharius"
     },
     "AM2": {
      "key": "Chat_Messages/GSC66-Chat0-AM2",
      "talksFirst": 0,
      "hasText": true,
-     "soundGuid": "9efcce554ca624cb5ae23bb1612e5876"
+     "soundGuid": "9efcce554ca624cb5ae23bb1612e5876",
+     "soundAsset": "VO_GSC_Lhaska Szenari_vsUrsulaCreed"
     }
    },
    "introByArmy": {
     "Leviathan": {
      "key": "Chat_Messages/GSC66-Chat0-Leviathan",
      "hasText": true,
-     "soundGuid": "29b84caff0a6845ee8d2796d4ae77d15"
+     "soundGuid": "29b84caff0a6845ee8d2796d4ae77d15",
+     "soundAsset": "VO_GSC_Lhaska Szenari_vsTyranids"
     }
    },
    "duplicateOpponentEntries": [],
@@ -1124,37 +1238,43 @@
      "key": "Chat_Messages/SAU35-Chat0-ASH3",
      "talksFirst": 1,
      "hasText": true,
-     "soundGuid": "00d90fb5c92d7481b8aa884eb3ebabdc"
+     "soundGuid": "00d90fb5c92d7481b8aa884eb3ebabdc",
+     "soundAsset": "VO_Sautekh_Imotekh_vsAeldari"
     },
     "SAU37": {
      "key": "Chat_Messages/SAU35-Chat0-SAU37",
      "talksFirst": 1,
      "hasText": true,
-     "soundGuid": "b42a0a9f6343c4e5c947f6baf7357918"
+     "soundGuid": "b42a0a9f6343c4e5c947f6baf7357918",
+     "soundAsset": "VO_Sautekh_Imotekh_vsOrikan"
     },
     "GOF28": {
      "key": "Chat_Messages/SAU35-Chat0-GOF28",
      "talksFirst": 0,
      "hasText": true,
-     "soundGuid": "8943a6e9de4c44b7e99b62c4ecb7845a"
+     "soundGuid": "8943a6e9de4c44b7e99b62c4ecb7845a",
+     "soundAsset": "VO_Sautekh_Imotekh_vsOrks"
     },
     "TL35": {
      "key": "Chat_Messages/SAU35-Chat0-TL35",
      "talksFirst": 0,
      "hasText": true,
-     "soundGuid": "f1e2caa15490a4e1fb5cb4cc3586df3b"
+     "soundGuid": "f1e2caa15490a4e1fb5cb4cc3586df3b",
+     "soundAsset": "VO_Sautekh_Imotekh_vsTyranids"
     },
     "UM46": {
      "key": "Chat_Messages/SAU35-Chat0-UM46",
      "talksFirst": 0,
      "hasText": true,
-     "soundGuid": "8d38cb13e5af54eb3b657433b4849a32"
+     "soundGuid": "8d38cb13e5af54eb3b657433b4849a32",
+     "soundAsset": "VO_Sautekh_Imotekh_vsUriel"
     },
     "AM1": {
      "key": "Chat_Messages/SAU35-Chat0-AM1",
      "talksFirst": 1,
      "hasText": true,
-     "soundGuid": "e2c951da278f44fde9d64465be291515"
+     "soundGuid": "e2c951da278f44fde9d64465be291515",
+     "soundAsset": "VO_Sautekh_Imotekh_mirror"
     }
    },
    "introByArmy": {},
@@ -1176,25 +1296,29 @@
      "key": "Chat_Messages/SAU36-Chat0-GOF29",
      "talksFirst": 0,
      "hasText": true,
-     "soundGuid": "6482c623d67734088812ee222d5da200"
+     "soundGuid": "6482c623d67734088812ee222d5da200",
+     "soundAsset": "Sautekh_Zahndrekh_vs_Grukk"
     },
     "UM47": {
      "key": "Chat_Messages/SAU36-Chat0-UM47",
      "talksFirst": 0,
      "hasText": true,
-     "soundGuid": "c3057b1fc5cce43bfb40007f61ef1046"
+     "soundGuid": "c3057b1fc5cce43bfb40007f61ef1046",
+     "soundAsset": "Sautekh_Zahndrekh_vs_Ultramarine"
     },
     "TL36": {
      "key": "Chat_Messages/SAU36-Chat0-TL36",
      "talksFirst": 0,
      "hasText": true,
-     "soundGuid": "1f1c02933d68341bcbc7138306c6c561"
+     "soundGuid": "1f1c02933d68341bcbc7138306c6c561",
+     "soundAsset": "Sautekh_Zahndrekh_vs_Tyranid"
     },
     "GSC3": {
      "key": "Chat_Messages/SAU36-Chat0-GSC3",
      "talksFirst": 1,
      "hasText": true,
-     "soundGuid": "181f534ab52624378a40704d2ed31373"
+     "soundGuid": "181f534ab52624378a40704d2ed31373",
+     "soundAsset": "Sautekh_Zahndrekh_intro"
     }
    },
    "introByArmy": {},
@@ -1216,25 +1340,29 @@
      "key": "Chat_Messages/SAU37-Chat0-SAU35",
      "talksFirst": 0,
      "hasText": true,
-     "soundGuid": "79dd2e60cae624655b0362b5be7087aa"
+     "soundGuid": "79dd2e60cae624655b0362b5be7087aa",
+     "soundAsset": "Sautekh_Orikan_vsImotekh"
     },
     "BL34": {
      "key": "Chat_Messages/SAU37-Chat0-BL34",
      "talksFirst": 1,
      "hasText": true,
-     "soundGuid": "3e171fce35d954edf9635ffb6030b793"
+     "soundGuid": "3e171fce35d954edf9635ffb6030b793",
+     "soundAsset": "Sautekh_Orikan_vsAbaddon"
     },
     "ASH1": {
      "key": "Chat_Messages/SAU37-Chat0-ASH1",
      "talksFirst": 1,
      "hasText": true,
-     "soundGuid": "2f46979a284b24b42acfd1f0cea96763"
+     "soundGuid": "2f46979a284b24b42acfd1f0cea96763",
+     "soundAsset": "Sautekh_Orikan_vsAeldari"
     },
     "BL35": {
      "key": "Chat_Messages/SAU37-Chat0-BL35",
      "talksFirst": 1,
      "hasText": true,
-     "soundGuid": "9ddadafdca51b4bf4946fa5db7058448"
+     "soundGuid": "9ddadafdca51b4bf4946fa5db7058448",
+     "soundAsset": "Sautekh_Orikan_mirror"
     }
    },
    "introByArmy": {},
@@ -1256,31 +1384,36 @@
      "key": "Chat_Messages/SAU66-Chat0-SAU37",
      "talksFirst": 1,
      "hasText": true,
-     "soundGuid": "cf1b51d6bd83b465a9fb286fe941a21d"
+     "soundGuid": "cf1b51d6bd83b465a9fb286fe941a21d",
+     "soundAsset": "VO_Sautekh_Ramatekh the Cruel_vsOrikan"
     },
     "TAU2": {
      "key": "Chat_Messages/SAU66-Chat0-TAU2",
      "talksFirst": 1,
      "hasText": true,
-     "soundGuid": "23f2b7c4b7ad24e5cb17cb634c730014"
+     "soundGuid": "23f2b7c4b7ad24e5cb17cb634c730014",
+     "soundAsset": "VO_Sautekh_Ramatekh the Cruel_vsAun'Va"
     },
     "GOF29": {
      "key": "Chat_Messages/SAU66-Chat0-GOF29",
      "talksFirst": 1,
      "hasText": true,
-     "soundGuid": "00e93ff005a0e4066ad3788c262bd8b3"
+     "soundGuid": "00e93ff005a0e4066ad3788c262bd8b3",
+     "soundAsset": "VO_Sautekh_Ramatekh the Cruel_vsGrukk"
     },
     "SAU35": {
      "key": "Chat_Messages/SAU66-Chat0-SAU35",
      "talksFirst": 1,
      "hasText": true,
-     "soundGuid": "73c1d4b3fe2dc409995a9f6a3cdbff26"
+     "soundGuid": "73c1d4b3fe2dc409995a9f6a3cdbff26",
+     "soundAsset": "VO_Sautekh_Ramatekh the Cruel_vsImotekh"
     },
     "ASH1": {
      "key": "Chat_Messages/SAU66-Chat0-ASH1",
      "talksFirst": 1,
      "hasText": true,
-     "soundGuid": "e35e0a7c735394cbaa571e51f906d17b"
+     "soundGuid": "e35e0a7c735394cbaa571e51f906d17b",
+     "soundAsset": "VO_Sautekh_Ramatekh the Cruel_vsKeltoc"
     }
    },
    "introByArmy": {},
@@ -1302,31 +1435,36 @@
      "key": "Chat_Messages/SOR1-Chat0-ASH3",
      "talksFirst": 0,
      "hasText": true,
-     "soundGuid": "967f99d77fec6cb4b9e440417e53c57d"
+     "soundGuid": "967f99d77fec6cb4b9e440417e53c57d",
+     "soundAsset": "VO_ADS_Erika Luminas_vsGhaelyn"
     },
     "BL36": {
      "key": "Chat_Messages/SOR1-Chat0-BL36",
      "talksFirst": 0,
      "hasText": true,
-     "soundGuid": "cb1ec3b5890fb85438179ddddd9c6546"
+     "soundGuid": "cb1ec3b5890fb85438179ddddd9c6546",
+     "soundAsset": "VO_ADS_Erika Luminas_vsHexscorn"
     },
     "SOR3": {
      "key": "Chat_Messages/SOR1-Chat0-SOR3",
      "talksFirst": 0,
      "hasText": true,
-     "soundGuid": "77de02fc68ab8574da786687ec266afa"
+     "soundGuid": "77de02fc68ab8574da786687ec266afa",
+     "soundAsset": "VO_ADS_Erika Luminas_vsMorvennVahl"
     },
     "SAU37": {
      "key": "Chat_Messages/SOR1-Chat0-SAU37",
      "talksFirst": 0,
      "hasText": true,
-     "soundGuid": "3de49df0867516b4c89acbe91a781840"
+     "soundGuid": "3de49df0867516b4c89acbe91a781840",
+     "soundAsset": "VO_ADS_Erika Luminas_vsOrikan"
     },
     "GOF75": {
      "key": "Chat_Messages/SOR1-Chat0-GOF75",
      "talksFirst": 1,
      "hasText": true,
-     "soundGuid": "9bf65c94a05f778469157b2c82514e2b"
+     "soundGuid": "9bf65c94a05f778469157b2c82514e2b",
+     "soundAsset": "VO_ADS_Erika Luminas_vsGordrang"
     }
    },
    "introByArmy": {},
@@ -1348,25 +1486,29 @@
      "key": "Chat_Messages/SOR2-Chat0-BL34",
      "talksFirst": 0,
      "hasText": true,
-     "soundGuid": "ce3f87297cbaed649b0c1b9a3c373a6c"
+     "soundGuid": "ce3f87297cbaed649b0c1b9a3c373a6c",
+     "soundAsset": "VO_ADS_Junith Eruita_vsAbaddon"
     },
     "SOR3": {
      "key": "Chat_Messages/SOR2-Chat0-SOR3",
      "talksFirst": 0,
      "hasText": true,
-     "soundGuid": "298551e0a41e54289a86dcacd44f3d29"
+     "soundGuid": "298551e0a41e54289a86dcacd44f3d29",
+     "soundAsset": "VO_ADS_Junith Eruita_vsMorvennVahl"
     },
     "ASH2": {
      "key": "Chat_Messages/SOR2-Chat0-ASH2",
      "talksFirst": 0,
      "hasText": true,
-     "soundGuid": "3bdab048ca439f1478feadd39020658a"
+     "soundGuid": "3bdab048ca439f1478feadd39020658a",
+     "soundAsset": "VO_ADS_Junith Eruita_vsZephyrblade"
     },
     "GSC2": {
      "key": "Chat_Messages/SOR2-Chat0-GSC2",
      "talksFirst": 0,
      "hasText": true,
-     "soundGuid": "8cf46357f197def419b5e0e118052952"
+     "soundGuid": "8cf46357f197def419b5e0e118052952",
+     "soundAsset": "VO_ADS_Junith Eruita_gen6"
     }
    },
    "introByArmy": {},
@@ -1388,37 +1530,43 @@
      "key": "Chat_Messages/SOR3-Chat0-GOF29",
      "talksFirst": 0,
      "hasText": true,
-     "soundGuid": "edb86b8a79f3026499cd5ff0cd9a7578"
+     "soundGuid": "edb86b8a79f3026499cd5ff0cd9a7578",
+     "soundAsset": "VO_ADS_Morvenn Vahl_vsGrukk"
     },
     "BL35": {
      "key": "Chat_Messages/SOR3-Chat0-BL35",
      "talksFirst": 0,
      "hasText": true,
-     "soundGuid": "abc8c2a5ff6891443a0bde87ed051be2"
+     "soundGuid": "abc8c2a5ff6891443a0bde87ed051be2",
+     "soundAsset": "VO_ADS_Morvenn Vahl_vsHaarken"
     },
     "SOR2": {
      "key": "Chat_Messages/SOR3-Chat0-SOR2",
      "talksFirst": 0,
      "hasText": true,
-     "soundGuid": "05efd02cb28725f43888b6472c558e76"
+     "soundGuid": "05efd02cb28725f43888b6472c558e76",
+     "soundAsset": "VO_ADS_Morvenn Vahl_vsJunith"
     },
     "SOR1": {
      "key": "Chat_Messages/SOR3-Chat0-SOR1",
      "talksFirst": 0,
      "hasText": true,
-     "soundGuid": "70f00a44e894867418eb23dc8671bb0d"
+     "soundGuid": "70f00a44e894867418eb23dc8671bb0d",
+     "soundAsset": "VO_ADS_Morvenn Vahl_vsLuminas"
     },
     "SAU37": {
      "key": "Chat_Messages/SOR3-Chat0-SAU37",
      "talksFirst": 0,
      "hasText": true,
-     "soundGuid": "09bc7cdd257b9a04fa2a6dfa9fa8c337"
+     "soundGuid": "09bc7cdd257b9a04fa2a6dfa9fa8c337",
+     "soundAsset": "VO_ADS_Morvenn Vahl_vsOrikan"
     },
     "TAU1": {
      "key": "Chat_Messages/SOR3-Chat0-TAU1",
      "talksFirst": 0,
      "hasText": true,
-     "soundGuid": "8518216ab9b86354491a87be3105dffa"
+     "soundGuid": "8518216ab9b86354491a87be3105dffa",
+     "soundAsset": "VO_ADS_Morvenn Vahl_vsShadowsun"
     }
    },
    "introByArmy": {},
@@ -1440,7 +1588,8 @@
      "key": "Chat_Messages/SOR65-Chat0-SOR3",
      "talksFirst": 0,
      "hasText": true,
-     "soundGuid": "af2d404ee86c7457f9eec581ac4b5086"
+     "soundGuid": "af2d404ee86c7457f9eec581ac4b5086",
+     "soundAsset": "VO_ADS_Celestian Sacresant Aveline_vsMorvenn"
     }
    },
    "introByArmy": {},
@@ -1462,24 +1611,28 @@
      "key": "Chat_Messages/SW1-Chat0-GOF76",
      "talksFirst": 0,
      "hasText": true,
-     "soundGuid": "2b55c7429ba291849aecf65b4f1c4d0f"
+     "soundGuid": "2b55c7429ba291849aecf65b4f1c4d0f",
+     "soundAsset": "VO_SpaceWolves_Logan Grimnar_vsMozrog"
     }
    },
    "introByArmy": {
     "BlackLegion": {
      "key": "Chat_Messages/SW1-Chat0-BlackLegion",
      "hasText": true,
-     "soundGuid": "d723dd3f28f995f49aa8862942a9f837"
+     "soundGuid": "d723dd3f28f995f49aa8862942a9f837",
+     "soundAsset": "VO_SpaceWolves_Logan Grimnar_vsBL"
     },
     "EmperorsChildren": {
      "key": "Chat_Messages/SW1-Chat0-EmperorsChildren",
      "hasText": true,
-     "soundGuid": "aca036df725f995439b36411b9a8ea2a"
+     "soundGuid": "aca036df725f995439b36411b9a8ea2a",
+     "soundAsset": "VO_SpaceWolves_Logan Grimnar_vsEC"
     },
     "Leviathan": {
      "key": "Chat_Messages/SW1-Chat0-Leviathan",
      "hasText": true,
-     "soundGuid": "05737f8bce160af4997016c1a09b6b09"
+     "soundGuid": "05737f8bce160af4997016c1a09b6b09",
+     "soundAsset": "VO_SpaceWolves_Logan Grimnar_vsTyranids"
     }
    },
    "duplicateOpponentEntries": [],
@@ -1500,30 +1653,35 @@
      "key": "Chat_Messages/SW3-Chat0-DA3",
      "talksFirst": 0,
      "hasText": true,
-     "soundGuid": "c22dc55db3c4e8e4e87ad84f7a2a276f"
+     "soundGuid": "c22dc55db3c4e8e4e87ad84f7a2a276f",
+     "soundAsset": "VO_SpaceWolves_Ragnar Blackmane_vsAsmodai"
     },
     "GOF28": {
      "key": "Chat_Messages/SW3-Chat0-GOF28",
      "talksFirst": 0,
      "hasText": true,
-     "soundGuid": "a7df6d5393d77e64cab79a81c11aa782"
+     "soundGuid": "a7df6d5393d77e64cab79a81c11aa782",
+     "soundAsset": "VO_SpaceWolves_Ragnar Blackmane_vsGhazghkull"
     }
    },
    "introByArmy": {
     "BlackLegion": {
      "key": "Chat_Messages/SW3-Chat0-BlackLegion",
      "hasText": true,
-     "soundGuid": "9427361650dd16444bf2aa725e1917ee"
+     "soundGuid": "9427361650dd16444bf2aa725e1917ee",
+     "soundAsset": "VO_SpaceWolves_Ragnar Blackmane_vsCSM"
     },
     "EmperorsChildren": {
      "key": "Chat_Messages/SW3-Chat0-EmperorsChildren",
      "hasText": true,
-     "soundGuid": "9427361650dd16444bf2aa725e1917ee"
+     "soundGuid": "9427361650dd16444bf2aa725e1917ee",
+     "soundAsset": "VO_SpaceWolves_Ragnar Blackmane_vsCSM"
     },
     "Sororitas": {
      "key": "Chat_Messages/SW3-Chat0-Sororitas",
      "hasText": true,
-     "soundGuid": "190f72bf0af73fd4fa212a8b4bb61f62"
+     "soundGuid": "190f72bf0af73fd4fa212a8b4bb61f62",
+     "soundAsset": "VO_SpaceWolves_Ragnar Blackmane_vsSororitas"
     }
    },
    "duplicateOpponentEntries": [],
@@ -1544,25 +1702,29 @@
      "key": "Chat_Messages/TAU1-Chat0-GOF29",
      "talksFirst": 0,
      "hasText": true,
-     "soundGuid": "9b3d8b083689e49878d768df034c3d3e"
+     "soundGuid": "9b3d8b083689e49878d768df034c3d3e",
+     "soundAsset": "VO_Tau_Empire_Shadowsun_vsGrukk"
     },
     "UM46": {
      "key": "Chat_Messages/TAU1-Chat0-UM46",
      "talksFirst": 0,
      "hasText": true,
-     "soundGuid": "337ca425ebdfd40e9ba32d32c9b2c6cb"
+     "soundGuid": "337ca425ebdfd40e9ba32d32c9b2c6cb",
+     "soundAsset": "VO_Tau_Empire_Shadowsun_vsCalgar"
     },
     "TAU2": {
      "key": "Chat_Messages/TAU1-Chat0-TAU2",
      "talksFirst": 0,
      "hasText": true,
-     "soundGuid": "ca6121e03ff7549438ab278b9f4d1413"
+     "soundGuid": "ca6121e03ff7549438ab278b9f4d1413",
+     "soundAsset": "VO_Tau_Empire_Shadowsun_vsAun'va"
     },
     "TAU3": {
      "key": "Chat_Messages/TAU1-Chat0-TAU3",
      "talksFirst": 0,
      "hasText": true,
-     "soundGuid": "2432e1d5898b34688a662c95fb76752c"
+     "soundGuid": "2432e1d5898b34688a662c95fb76752c",
+     "soundAsset": "VO_Tau_Empire_Shadowsun_vsO'Maisos"
     }
    },
    "introByArmy": {},
@@ -1584,31 +1746,36 @@
      "key": "Chat_Messages/TAU2-Chat0-GOF28",
      "talksFirst": 0,
      "hasText": true,
-     "soundGuid": "5fdd3eb4c99db4ed5a527870eb59ac9a"
+     "soundGuid": "5fdd3eb4c99db4ed5a527870eb59ac9a",
+     "soundAsset": "VO_Tau_Empire_Aun'va_vsGhazghkull"
     },
     "TAU1": {
      "key": "Chat_Messages/TAU2-Chat0-TAU1",
      "talksFirst": 1,
      "hasText": true,
-     "soundGuid": "61300c61193354e6c84135833ab49a09"
+     "soundGuid": "61300c61193354e6c84135833ab49a09",
+     "soundAsset": "VO_Tau_Empire_Aun'va_vsShadowsun"
     },
     "TAU3": {
      "key": "Chat_Messages/TAU2-Chat0-TAU3",
      "talksFirst": 1,
      "hasText": true,
-     "soundGuid": "a5a0bbef1452648c897218a129339a17"
+     "soundGuid": "a5a0bbef1452648c897218a129339a17",
+     "soundAsset": "VO_Tau_Empire_Aun'va_vsO'Maisos"
     },
     "TL34": {
      "key": "Chat_Messages/TAU2-Chat0-TL34",
      "talksFirst": 0,
      "hasText": true,
-     "soundGuid": "de41aaecef84a426e924449d270d8ecf"
+     "soundGuid": "de41aaecef84a426e924449d270d8ecf",
+     "soundAsset": "VO_Tau_Empire_Aun'va_vsTervigon"
     },
     "GOF29": {
      "key": "Chat_Messages/TAU2-Chat0-GOF29",
      "talksFirst": 1,
      "hasText": true,
-     "soundGuid": "98c918f1f7c43438abad73de4d0d074b"
+     "soundGuid": "98c918f1f7c43438abad73de4d0d074b",
+     "soundAsset": "VO_Tau_Empire_Aun'va_vsGrukk"
     }
    },
    "introByArmy": {},
@@ -1630,37 +1797,43 @@
      "key": "Chat_Messages/TAU3-Chat0-TAU2",
      "talksFirst": 0,
      "hasText": true,
-     "soundGuid": "7d2fcd031e5a24d6a97232b68072f357"
+     "soundGuid": "7d2fcd031e5a24d6a97232b68072f357",
+     "soundAsset": "VO_Tau_Empire_Commander O'Maisos_vsAun'Va"
     },
     "ASH1": {
      "key": "Chat_Messages/TAU3-Chat0-ASH1",
      "talksFirst": 0,
      "hasText": true,
-     "soundGuid": "6d72de54348e34752be84356f7cabd35"
+     "soundGuid": "6d72de54348e34752be84356f7cabd35",
+     "soundAsset": "VO_Tau_Empire_Commander O'Maisos_vsKeltoc"
     },
     "TAU1": {
      "key": "Chat_Messages/TAU3-Chat0-TAU1",
      "talksFirst": 0,
      "hasText": true,
-     "soundGuid": "70c81ee51cf8949d88c515f5bdcf1114"
+     "soundGuid": "70c81ee51cf8949d88c515f5bdcf1114",
+     "soundAsset": "VO_Tau_Empire_Commander O'Maisos_vsShadowsun"
     },
     "TL35": {
      "key": "Chat_Messages/TAU3-Chat0-TL35",
      "talksFirst": 0,
      "hasText": true,
-     "soundGuid": "f04e0c8368c474d0f939cb4e85af889a"
+     "soundGuid": "f04e0c8368c474d0f939cb4e85af889a",
+     "soundAsset": "VO_Tau_Empire_Commander O'Maisos_vsSwarmlord"
     },
     "GOF27": {
      "key": "Chat_Messages/TAU3-Chat0-GOF27",
      "talksFirst": 0,
      "hasText": true,
-     "soundGuid": "92ffc3744c4c8457bb147b815c66a9a3"
+     "soundGuid": "92ffc3744c4c8457bb147b815c66a9a3",
+     "soundAsset": "VO_Tau_Empire_Commander O'Maisos_vsZagstruk"
     },
     "GOF75": {
      "key": "Chat_Messages/TAU3-Chat0-GOF75",
      "talksFirst": 0,
      "hasText": true,
-     "soundGuid": "92ffc3744c4c8457bb147b815c66a9a3"
+     "soundGuid": "92ffc3744c4c8457bb147b815c66a9a3",
+     "soundAsset": "VO_Tau_Empire_Commander O'Maisos_vsZagstruk"
     }
    },
    "introByArmy": {},
@@ -1682,14 +1855,16 @@
      "key": "Chat_Messages/TAU65-Chat0-TAU2",
      "talksFirst": 0,
      "hasText": true,
-     "soundGuid": "6515f9e89d66e4984bee4041616fa562"
+     "soundGuid": "6515f9e89d66e4984bee4041616fa562",
+     "soundAsset": "VO_Tau_War Shaper_vsAunVa"
     }
    },
    "introByArmy": {
     "Sautekh": {
      "key": "Chat_Messages/TAU65-Chat0-Sautekh",
      "hasText": true,
-     "soundGuid": "65bbd57f501c0431b88c4a494e7235c2"
+     "soundGuid": "65bbd57f501c0431b88c4a494e7235c2",
+     "soundAsset": "VO_Tau_War Shaper_vsNecron"
     }
    },
    "duplicateOpponentEntries": [],
@@ -1710,19 +1885,22 @@
      "key": "Chat_Messages/TL34-Chat0-GOF29",
      "talksFirst": 0,
      "hasText": true,
-     "soundGuid": "8fe1347a885bf9648829892e0e3fd706"
+     "soundGuid": "8fe1347a885bf9648829892e0e3fd706",
+     "soundAsset": "VO_Tyranid_Leviathan_Tervigon_threat"
     },
     "ASH3": {
      "key": "Chat_Messages/TL34-Chat0-ASH3",
      "talksFirst": 1,
      "hasText": true,
-     "soundGuid": "a36690a6d06e8df4791020926cbf4350"
+     "soundGuid": "a36690a6d06e8df4791020926cbf4350",
+     "soundAsset": "VO_Tyranid_Leviathan_Tervigon_gen7"
     },
     "TAU2": {
      "key": "Chat_Messages/TL34-Chat0-TAU2",
      "talksFirst": 1,
      "hasText": true,
-     "soundGuid": "8037e2efbc6016741aef10e46606c42b"
+     "soundGuid": "8037e2efbc6016741aef10e46606c42b",
+     "soundAsset": "VO_Tyranid_Leviathan_Tervigon_intro"
     }
    },
    "introByArmy": {},
@@ -1744,13 +1922,15 @@
      "key": "Chat_Messages/TL35-Chat0-UM46",
      "talksFirst": 1,
      "hasText": true,
-     "soundGuid": "f32c7ce7002488243b8b7be83ce25617"
+     "soundGuid": "f32c7ce7002488243b8b7be83ce25617",
+     "soundAsset": "VO_Tyranid_Leviathan_Swarmlord_intro"
     },
     "SAU35": {
      "key": "Chat_Messages/TL35-Chat0-SAU35",
      "talksFirst": 1,
      "hasText": true,
-     "soundGuid": "bde14410e6fdf0a49b620bcdcff39135"
+     "soundGuid": "bde14410e6fdf0a49b620bcdcff39135",
+     "soundAsset": "VO_Tyranid_Leviathan_Swarmlord_gen4"
     }
    },
    "introByArmy": {},
@@ -1772,7 +1952,8 @@
      "key": "Chat_Messages/TL36-Chat0-SAU36",
      "talksFirst": 1,
      "hasText": true,
-     "soundGuid": "b97544e4c830e5947843790892b3111e"
+     "soundGuid": "b97544e4c830e5947843790892b3111e",
+     "soundAsset": "VO_Tyranid_Leviathan_Neurothrope_gen7"
     }
    },
    "introByArmy": {},
@@ -1794,37 +1975,43 @@
      "key": "Chat_Messages/UM46-Chat0-UM47",
      "talksFirst": 0,
      "hasText": true,
-     "soundGuid": "b4e0bbe9ea6765e4f8eae289e4310c9a"
+     "soundGuid": "b4e0bbe9ea6765e4f8eae289e4310c9a",
+     "soundAsset": "VO_UM_Calgar_vsUrielVentris"
     },
     "UM48": {
      "key": "Chat_Messages/UM46-Chat0-UM48",
      "talksFirst": 1,
      "hasText": true,
-     "soundGuid": "0275c05188076ca459ae87755f04bf0d"
+     "soundGuid": "0275c05188076ca459ae87755f04bf0d",
+     "soundAsset": "VO_UM_Calgar_vsVarro"
     },
     "TL35": {
      "key": "Chat_Messages/UM46-Chat0-TL35",
      "talksFirst": 0,
      "hasText": true,
-     "soundGuid": "e814861d6ca92a449a6989f3583e9000"
+     "soundGuid": "e814861d6ca92a449a6989f3583e9000",
+     "soundAsset": "VO_UM_Calgar_vsTyranids"
     },
     "GOF28": {
      "key": "Chat_Messages/UM46-Chat0-GOF28",
      "talksFirst": 1,
      "hasText": true,
-     "soundGuid": "08f1067cc48643742b0f556cb6a65f5f"
+     "soundGuid": "08f1067cc48643742b0f556cb6a65f5f",
+     "soundAsset": "VO_UM_Calgar_vsGhazghkull"
     },
     "SAU35": {
      "key": "Chat_Messages/UM46-Chat0-SAU35",
      "talksFirst": 1,
      "hasText": true,
-     "soundGuid": "609f2ed96403a4f48975c2efdd1e2879"
+     "soundGuid": "609f2ed96403a4f48975c2efdd1e2879",
+     "soundAsset": "VO_UM_Calgar_intro"
     },
     "ASH1": {
      "key": "Chat_Messages/UM46-Chat0-ASH1",
      "talksFirst": 1,
      "hasText": true,
-     "soundGuid": "63f9bcc93fa783548b9b02cd37b77371"
+     "soundGuid": "63f9bcc93fa783548b9b02cd37b77371",
+     "soundAsset": "VO_UM_Calgar_gen3"
     }
    },
    "introByArmy": {},
@@ -1846,37 +2033,43 @@
      "key": "Chat_Messages/UM47-Chat0-UM46",
      "talksFirst": 1,
      "hasText": true,
-     "soundGuid": "d463cb84b1df0d7438737cdda09e58e0"
+     "soundGuid": "d463cb84b1df0d7438737cdda09e58e0",
+     "soundAsset": "VO_Ultramarines_Ventris_vsCalgar"
     },
     "UM48": {
      "key": "Chat_Messages/UM47-Chat0-UM48",
      "talksFirst": 0,
      "hasText": true,
-     "soundGuid": "9b227224a07801c42adc2325083920ea"
+     "soundGuid": "9b227224a07801c42adc2325083920ea",
+     "soundAsset": "VO_Ultramarines_Ventris_gen1"
     },
     "GOF29": {
      "key": "Chat_Messages/UM47-Chat0-GOF29",
      "talksFirst": 0,
      "hasText": true,
-     "soundGuid": "aa62e6dc271f21444a1a251d89126d8f"
+     "soundGuid": "aa62e6dc271f21444a1a251d89126d8f",
+     "soundAsset": "VO_Ultramarines_Ventris_threat"
     },
     "BL35": {
      "key": "Chat_Messages/UM47-Chat0-BL35",
      "talksFirst": 0,
      "hasText": true,
-     "soundGuid": "edf2f50b974c04d0d8dbe8ba537a5a85"
+     "soundGuid": "edf2f50b974c04d0d8dbe8ba537a5a85",
+     "soundAsset": "VO_Ultramarines_Ventris_vsChaos"
     },
     "SAU36": {
      "key": "Chat_Messages/UM47-Chat0-SAU36",
      "talksFirst": 1,
      "hasText": true,
-     "soundGuid": "0a99e4d4d4ebd46488e47b67e55eee0e"
+     "soundGuid": "0a99e4d4d4ebd46488e47b67e55eee0e",
+     "soundAsset": "VO_Ultramarines_Ventris_intro"
     },
     "UM65": {
      "key": "Chat_Messages/UM47-Chat0-UM65",
      "talksFirst": 0,
      "hasText": true,
-     "soundGuid": "f6683e0d8d337452abcc21288db76176"
+     "soundGuid": "f6683e0d8d337452abcc21288db76176",
+     "soundAsset": "VO_Ultramarines_Ventris_gen2"
     }
    },
    "introByArmy": {},
@@ -1898,19 +2091,22 @@
      "key": "Chat_Messages/UM48-Chat0-BL36",
      "talksFirst": 1,
      "hasText": true,
-     "soundGuid": "7c162babd6dc5574592f10c1c54c3fb9"
+     "soundGuid": "7c162babd6dc5574592f10c1c54c3fb9",
+     "soundAsset": "VO_Ultramarines_Tigurius_gen7"
     },
     "UM46": {
      "key": "Chat_Messages/UM48-Chat0-UM46",
      "talksFirst": 0,
      "hasText": true,
-     "soundGuid": "3151e4ace891a2142b27787c8102f3cc"
+     "soundGuid": "3151e4ace891a2142b27787c8102f3cc",
+     "soundAsset": "VO_Ultramarines_Tigurius_vsCalgar"
     },
     "UM47": {
      "key": "Chat_Messages/UM48-Chat0-UM47",
      "talksFirst": 1,
      "hasText": true,
-     "soundGuid": "1b605098f69c34378b5cc8d297c69a1c"
+     "soundGuid": "1b605098f69c34378b5cc8d297c69a1c",
+     "soundAsset": "VO_Ultramarines_Tigurius_vsVentris"
     }
    },
    "introByArmy": {},
@@ -1932,19 +2128,22 @@
      "key": "Chat_Messages/UM65-Chat0-UM47",
      "talksFirst": 1,
      "hasText": true,
-     "soundGuid": "edf2b9421bbd6473fa0bb9a1f7b6fc1c"
+     "soundGuid": "edf2b9421bbd6473fa0bb9a1f7b6fc1c",
+     "soundAsset": "VO_UM_Chaplain Letharius_vsVentris"
     },
     "TL74": {
      "key": "Chat_Messages/UM65-Chat0-TL74",
      "talksFirst": 0,
      "hasText": true,
-     "soundGuid": "ee9b926b9ea6642c481700b1f9265db7"
+     "soundGuid": "ee9b926b9ea6642c481700b1f9265db7",
+     "soundAsset": "VO_UM_Chaplain Letharius_vsVanderghast"
     },
     "BL65": {
      "key": "Chat_Messages/UM65-Chat0-BL65",
      "talksFirst": 0,
      "hasText": true,
-     "soundGuid": "4257491bbeeef47dc8c5d25ece58de58"
+     "soundGuid": "4257491bbeeef47dc8c5d25ece58de58",
+     "soundAsset": "VO_UM_Chaplain Letharius_vsGhallaron"
     }
    },
    "introByArmy": {},
@@ -1966,22 +2165,26 @@
     "SaimHann": {
      "key": "Chat_Messages/UM76-Chat0-SaimHann",
      "hasText": true,
-     "soundGuid": "c566018ec649093489b50bfc51737997"
+     "soundGuid": "c566018ec649093489b50bfc51737997",
+     "soundAsset": "VO_UM_Titus_vsAeldari"
     },
     "BlackLegion": {
      "key": "Chat_Messages/UM76-Chat0-BlackLegion",
      "hasText": true,
-     "soundGuid": "a841870dcefba224c9d4631465c2dbad"
+     "soundGuid": "a841870dcefba224c9d4631465c2dbad",
+     "soundAsset": "VO_UM_Titus_vsChaos"
     },
     "Goff": {
      "key": "Chat_Messages/UM76-Chat0-Goff",
      "hasText": true,
-     "soundGuid": "3d3791f8f8c39b743a5a65d103849dc3"
+     "soundGuid": "3d3791f8f8c39b743a5a65d103849dc3",
+     "soundAsset": "VO_UM_Titus_vsOrk"
     },
     "Leviathan": {
      "key": "Chat_Messages/UM76-Chat0-Leviathan",
      "hasText": true,
-     "soundGuid": "7ed1ba61da9e99c498a6b59a7ad3f510"
+     "soundGuid": "7ed1ba61da9e99c498a6b59a7ad3f510",
+     "soundAsset": "VO_UM_Titus_vsTyranids"
     }
    },
    "duplicateOpponentEntries": [],
@@ -2002,32 +2205,37 @@
      "key": "Chat_Messages/UM87-Chat0-BL34",
      "talksFirst": 0,
      "hasText": true,
-     "soundGuid": "f807621cc92a52d41afddfc3feeb01ba"
+     "soundGuid": "f807621cc92a52d41afddfc3feeb01ba",
+     "soundAsset": "VO_UM_Guilliman_vsAbaddon"
     },
     "EC55": {
      "key": "Chat_Messages/UM87-Chat0-EC55",
      "talksFirst": 0,
      "hasText": true,
-     "soundGuid": "db72c6136ef703143bd50e98afbe0b28"
+     "soundGuid": "db72c6136ef703143bd50e98afbe0b28",
+     "soundAsset": "VO_UM_Guilliman_vsLucius"
     },
     "SOR3": {
      "key": "Chat_Messages/UM87-Chat0-SOR3",
      "talksFirst": 0,
      "hasText": true,
-     "soundGuid": "c05aa9af4ed1c0a41a32876ecefe3743"
+     "soundGuid": "c05aa9af4ed1c0a41a32876ecefe3743",
+     "soundAsset": "VO_UM_Guilliman_vsMorven"
     },
     "UM47": {
      "key": "Chat_Messages/UM87-Chat0-UM47",
      "talksFirst": 1,
      "hasText": true,
-     "soundGuid": "2f983f059ee43f44c9c2ff8f7978935a"
+     "soundGuid": "2f983f059ee43f44c9c2ff8f7978935a",
+     "soundAsset": "VO_UM_Guilliman_vsUriel"
     }
    },
    "introByArmy": {
     "Leviathan": {
      "key": "Chat_Messages/UM87-Chat0-Leviathan",
      "hasText": true,
-     "soundGuid": "ddfbc0debbe1c7343884ce6b9849ea08"
+     "soundGuid": "ddfbc0debbe1c7343884ce6b9849ea08",
+     "soundAsset": "VO_UM_Guilliman_vsTyranid"
     }
    },
    "duplicateOpponentEntries": [],
@@ -2048,12 +2256,14 @@
     "EmperorsChildren": {
      "key": "Chat_Messages/UM88-Chat0-EmperorsChildren",
      "hasText": true,
-     "soundGuid": "5474de3274e79274fb3596c5f621c5fc"
+     "soundGuid": "5474de3274e79274fb3596c5f621c5fc",
+     "soundAsset": "VO_UM_Valius Paxor_vsEC"
     },
     "Leviathan": {
      "key": "Chat_Messages/UM88-Chat0-Leviathan",
      "hasText": true,
-     "soundGuid": "70dfba82e5b4acb48b29b3914c6e4cad"
+     "soundGuid": "70dfba82e5b4acb48b29b3914c6e4cad",
+     "soundAsset": "VO_UM_Valius Paxor_vsTyranids"
     }
    },
    "duplicateOpponentEntries": [],
@@ -2074,31 +2284,36 @@
      "key": "Chat_Messages/BL35-Chat0-UM47",
      "talksFirst": 1,
      "hasText": true,
-     "soundGuid": "6ab559aed20bc4b3eb23b80278cb3ae9"
+     "soundGuid": "6ab559aed20bc4b3eb23b80278cb3ae9",
+     "soundAsset": "VO_BlackLegion_Haarken_Gen6"
     },
     "GOF27": {
      "key": "Chat_Messages/BL35-Chat0-GOF27",
      "talksFirst": 1,
      "hasText": true,
-     "soundGuid": "3c00e0e642870429f8f8860a4bd250c2"
+     "soundGuid": "3c00e0e642870429f8f8860a4bd250c2",
+     "soundAsset": "VO_BlackLegion_Haarken_vs_Zagstruk"
     },
     "ASH3": {
      "key": "Chat_Messages/BL35-Chat0-ASH3",
      "talksFirst": 0,
      "hasText": true,
-     "soundGuid": "f92b7ff6e08624a4483d7b6c7744f84f"
+     "soundGuid": "f92b7ff6e08624a4483d7b6c7744f84f",
+     "soundAsset": "VO_BlackLegion_Haarken_Gen7"
     },
     "SAU37": {
      "key": "Chat_Messages/BL35-Chat0-SAU37",
      "talksFirst": 0,
      "hasText": true,
-     "soundGuid": "b5e79b1844460487ba3186e48476bfac"
+     "soundGuid": "b5e79b1844460487ba3186e48476bfac",
+     "soundAsset": "VO_BlackLegion_Haarken_vs_Orikan"
     },
     "AM3": {
      "key": "Chat_Messages/BL35-Chat0-AM3",
      "talksFirst": 0,
      "hasText": true,
-     "soundGuid": "cd3dc67f1c89342f2adc23b319d2f6b9"
+     "soundGuid": "cd3dc67f1c89342f2adc23b319d2f6b9",
+     "soundAsset": "VO_BlackLegion_Haarken_vs_Commissar"
     }
    },
    "introByArmy": {},
@@ -2120,25 +2335,29 @@
      "key": "Chat_Messages/BL36-Chat0-UM48",
      "talksFirst": 0,
      "hasText": true,
-     "soundGuid": "7b391ebbfa3ca4d2180d39880a9ad524"
+     "soundGuid": "7b391ebbfa3ca4d2180d39880a9ad524",
+     "soundAsset": "VO_BlackLegion_Hexscorn_vs_Varro"
     },
     "BL34": {
      "key": "Chat_Messages/BL36-Chat0-BL34",
      "talksFirst": 1,
      "hasText": true,
-     "soundGuid": "4f5949e58f1f9474e963993eb3f969de"
+     "soundGuid": "4f5949e58f1f9474e963993eb3f969de",
+     "soundAsset": "VO_BlackLegion_Hexscorn_vs_Abaddon"
     },
     "ASH1": {
      "key": "Chat_Messages/BL36-Chat0-ASH1",
      "talksFirst": 0,
      "hasText": true,
-     "soundGuid": "832e34f5aede747399f14e9252bd7de7"
+     "soundGuid": "832e34f5aede747399f14e9252bd7de7",
+     "soundAsset": "VO_BlackLegion_Hexscorn_vs_Keltoc"
     },
     "AM1": {
      "key": "Chat_Messages/BL36-Chat0-AM1",
      "talksFirst": 0,
      "hasText": true,
-     "soundGuid": "435c799752fa54ea6aee0d81b5d25618"
+     "soundGuid": "435c799752fa54ea6aee0d81b5d25618",
+     "soundAsset": "VO_BlackLegion_Hexscorn_Gen5"
     }
    },
    "introByArmy": {},
@@ -2160,37 +2379,43 @@
      "key": "Chat_Messages/UM47-Chat0-UM46",
      "talksFirst": 1,
      "hasText": true,
-     "soundGuid": "d463cb84b1df0d7438737cdda09e58e0"
+     "soundGuid": "d463cb84b1df0d7438737cdda09e58e0",
+     "soundAsset": "VO_Ultramarines_Ventris_vsCalgar"
     },
     "UM48": {
      "key": "Chat_Messages/UM47-Chat0-UM48",
      "talksFirst": 0,
      "hasText": true,
-     "soundGuid": "9b227224a07801c42adc2325083920ea"
+     "soundGuid": "9b227224a07801c42adc2325083920ea",
+     "soundAsset": "VO_Ultramarines_Ventris_gen1"
     },
     "GOF29": {
      "key": "Chat_Messages/UM47-Chat0-GOF29",
      "talksFirst": 0,
      "hasText": true,
-     "soundGuid": "aa62e6dc271f21444a1a251d89126d8f"
+     "soundGuid": "aa62e6dc271f21444a1a251d89126d8f",
+     "soundAsset": "VO_Ultramarines_Ventris_threat"
     },
     "BL35": {
      "key": "Chat_Messages/UM47-Chat0-BL35",
      "talksFirst": 0,
      "hasText": true,
-     "soundGuid": "edf2f50b974c04d0d8dbe8ba537a5a85"
+     "soundGuid": "edf2f50b974c04d0d8dbe8ba537a5a85",
+     "soundAsset": "VO_Ultramarines_Ventris_vsChaos"
     },
     "SAU36": {
      "key": "Chat_Messages/UM47-Chat0-SAU36",
      "talksFirst": 1,
      "hasText": true,
-     "soundGuid": "0a99e4d4d4ebd46488e47b67e55eee0e"
+     "soundGuid": "0a99e4d4d4ebd46488e47b67e55eee0e",
+     "soundAsset": "VO_Ultramarines_Ventris_intro"
     },
     "UM65": {
      "key": "Chat_Messages/UM47-Chat0-UM65",
      "talksFirst": 0,
      "hasText": true,
-     "soundGuid": "f6683e0d8d337452abcc21288db76176"
+     "soundGuid": "f6683e0d8d337452abcc21288db76176",
+     "soundAsset": "VO_Ultramarines_Ventris_gen2"
     }
    },
    "introByArmy": {},
@@ -2212,19 +2437,22 @@
      "key": "Chat_Messages/TL34-Chat0-GOF29",
      "talksFirst": 0,
      "hasText": true,
-     "soundGuid": "8fe1347a885bf9648829892e0e3fd706"
+     "soundGuid": "8fe1347a885bf9648829892e0e3fd706",
+     "soundAsset": "VO_Tyranid_Leviathan_Tervigon_threat"
     },
     "ASH3": {
      "key": "Chat_Messages/TL34-Chat0-ASH3",
      "talksFirst": 1,
      "hasText": true,
-     "soundGuid": "a36690a6d06e8df4791020926cbf4350"
+     "soundGuid": "a36690a6d06e8df4791020926cbf4350",
+     "soundAsset": "VO_Tyranid_Leviathan_Tervigon_gen7"
     },
     "TAU2": {
      "key": "Chat_Messages/TL34-Chat0-TAU2",
      "talksFirst": 1,
      "hasText": true,
-     "soundGuid": "8037e2efbc6016741aef10e46606c42b"
+     "soundGuid": "8037e2efbc6016741aef10e46606c42b",
+     "soundAsset": "VO_Tyranid_Leviathan_Tervigon_intro"
     }
    },
    "introByArmy": {},
@@ -2246,19 +2474,22 @@
      "key": "Chat_Messages/SAU36-Chat0-GOF29",
      "talksFirst": 0,
      "hasText": true,
-     "soundGuid": "6482c623d67734088812ee222d5da200"
+     "soundGuid": "6482c623d67734088812ee222d5da200",
+     "soundAsset": "Sautekh_Zahndrekh_vs_Grukk"
     },
     "UM47": {
      "key": "Chat_Messages/SAU36-Chat0-UM47",
      "talksFirst": 0,
      "hasText": true,
-     "soundGuid": "c3057b1fc5cce43bfb40007f61ef1046"
+     "soundGuid": "c3057b1fc5cce43bfb40007f61ef1046",
+     "soundAsset": "Sautekh_Zahndrekh_vs_Ultramarine"
     },
     "TL36": {
      "key": "Chat_Messages/SAU36-Chat0-TL36",
      "talksFirst": 0,
      "hasText": true,
-     "soundGuid": "1f1c02933d68341bcbc7138306c6c561"
+     "soundGuid": "1f1c02933d68341bcbc7138306c6c561",
+     "soundAsset": "Sautekh_Zahndrekh_vs_Tyranid"
     }
    },
    "introByArmy": {},
@@ -2280,43 +2511,50 @@
      "key": "Chat_Messages/d1a037ffd7c538c4aae209e1708aef13-Chat0-6675433574dcd49edae7c4c4cabb85fd",
      "talksFirst": 1,
      "hasText": false,
-     "soundGuid": ""
+     "soundGuid": "",
+     "soundAsset": ""
     },
     "c9d0f799164c14b29bf04d0c863082ff": {
      "key": "Chat_Messages/d1a037ffd7c538c4aae209e1708aef13-Chat0-c9d0f799164c14b29bf04d0c863082ff",
      "talksFirst": 0,
      "hasText": false,
-     "soundGuid": ""
+     "soundGuid": "",
+     "soundAsset": ""
     },
     "b9d9416beb9054b2180cc01d8b65d2bc": {
      "key": "Chat_Messages/d1a037ffd7c538c4aae209e1708aef13-Chat0-b9d9416beb9054b2180cc01d8b65d2bc",
      "talksFirst": 1,
      "hasText": false,
-     "soundGuid": ""
+     "soundGuid": "",
+     "soundAsset": ""
     },
     "13b690f8fe2afef42a88c17278eda417": {
      "key": "Chat_Messages/d1a037ffd7c538c4aae209e1708aef13-Chat0-13b690f8fe2afef42a88c17278eda417",
      "talksFirst": 0,
      "hasText": false,
-     "soundGuid": ""
+     "soundGuid": "",
+     "soundAsset": ""
     },
     "1541330c776394cb2831de21114977a8": {
      "key": "Chat_Messages/d1a037ffd7c538c4aae209e1708aef13-Chat0-1541330c776394cb2831de21114977a8",
      "talksFirst": 0,
      "hasText": false,
-     "soundGuid": ""
+     "soundGuid": "",
+     "soundAsset": ""
     },
     "3ff2bfaa69e913d46879719c4e43c8af": {
      "key": "Chat_Messages/d1a037ffd7c538c4aae209e1708aef13-Chat0-3ff2bfaa69e913d46879719c4e43c8af",
      "talksFirst": 0,
      "hasText": false,
-     "soundGuid": ""
+     "soundGuid": "",
+     "soundAsset": ""
     },
     "67e9f01a00d11dd47858c1342db6c74a": {
      "key": "Chat_Messages/d1a037ffd7c538c4aae209e1708aef13-Chat0-67e9f01a00d11dd47858c1342db6c74a",
      "talksFirst": 0,
      "hasText": false,
-     "soundGuid": ""
+     "soundGuid": "",
+     "soundAsset": ""
     }
    },
    "introByArmy": {},
@@ -2353,43 +2591,50 @@
      "key": "Chat_Messages/ec0d25faeb266ea4eaec41ae72b8d8ad-Chat0-6675433574dcd49edae7c4c4cabb85fd",
      "talksFirst": 1,
      "hasText": false,
-     "soundGuid": ""
+     "soundGuid": "",
+     "soundAsset": ""
     },
     "c9d0f799164c14b29bf04d0c863082ff": {
      "key": "Chat_Messages/ec0d25faeb266ea4eaec41ae72b8d8ad-Chat0-c9d0f799164c14b29bf04d0c863082ff",
      "talksFirst": 0,
      "hasText": false,
-     "soundGuid": ""
+     "soundGuid": "",
+     "soundAsset": ""
     },
     "b9d9416beb9054b2180cc01d8b65d2bc": {
      "key": "Chat_Messages/ec0d25faeb266ea4eaec41ae72b8d8ad-Chat0-b9d9416beb9054b2180cc01d8b65d2bc",
      "talksFirst": 1,
      "hasText": false,
-     "soundGuid": ""
+     "soundGuid": "",
+     "soundAsset": ""
     },
     "13b690f8fe2afef42a88c17278eda417": {
      "key": "Chat_Messages/ec0d25faeb266ea4eaec41ae72b8d8ad-Chat0-13b690f8fe2afef42a88c17278eda417",
      "talksFirst": 0,
      "hasText": false,
-     "soundGuid": ""
+     "soundGuid": "",
+     "soundAsset": ""
     },
     "1541330c776394cb2831de21114977a8": {
      "key": "Chat_Messages/ec0d25faeb266ea4eaec41ae72b8d8ad-Chat0-1541330c776394cb2831de21114977a8",
      "talksFirst": 0,
      "hasText": false,
-     "soundGuid": ""
+     "soundGuid": "",
+     "soundAsset": ""
     },
     "3ff2bfaa69e913d46879719c4e43c8af": {
      "key": "Chat_Messages/ec0d25faeb266ea4eaec41ae72b8d8ad-Chat0-3ff2bfaa69e913d46879719c4e43c8af",
      "talksFirst": 0,
      "hasText": false,
-     "soundGuid": ""
+     "soundGuid": "",
+     "soundAsset": ""
     },
     "67e9f01a00d11dd47858c1342db6c74a": {
      "key": "Chat_Messages/ec0d25faeb266ea4eaec41ae72b8d8ad-Chat0-67e9f01a00d11dd47858c1342db6c74a",
      "talksFirst": 0,
      "hasText": false,
-     "soundGuid": ""
+     "soundGuid": "",
+     "soundAsset": ""
     }
    },
    "introByArmy": {},
@@ -2411,25 +2656,29 @@
      "key": "Chat_Messages/ASH3-Chat0-SAU35",
      "talksFirst": 0,
      "hasText": true,
-     "soundGuid": "448a961ac07fd4f0f98ce5c63cccdf6f"
+     "soundGuid": "448a961ac07fd4f0f98ce5c63cccdf6f",
+     "soundAsset": "VO_SaimHann_Ghaelyn_gen4"
     },
     "BL35": {
      "key": "Chat_Messages/ASH3-Chat0-BL35",
      "talksFirst": 1,
      "hasText": true,
-     "soundGuid": "cfcea8c16fe254407b04c75b4cbb8f3a"
+     "soundGuid": "cfcea8c16fe254407b04c75b4cbb8f3a",
+     "soundAsset": "VO_SaimHann_Ghaelyn_vs_Haarken"
     },
     "ASH2": {
      "key": "Chat_Messages/ASH3-Chat0-ASH2",
      "talksFirst": 0,
      "hasText": true,
-     "soundGuid": "173c1cd3c6c8f436fb03d968a3206d60"
+     "soundGuid": "173c1cd3c6c8f436fb03d968a3206d60",
+     "soundAsset": "VO_SaimHann_Ghaelyn_vs_Eliac"
     },
     "TL34": {
      "key": "Chat_Messages/ASH3-Chat0-TL34",
      "talksFirst": 0,
      "hasText": true,
-     "soundGuid": "c49b87daf274b40d9a041c1a4a2d1b4a"
+     "soundGuid": "c49b87daf274b40d9a041c1a4a2d1b4a",
+     "soundAsset": "VO_SaimHann_Ghaelyn_vs_Tyranids"
     }
    },
    "introByArmy": {},
@@ -2451,19 +2700,22 @@
      "key": "Chat_Messages/ef547f829b6491f45a8ad371f492278e-Chat0-GOF29",
      "talksFirst": 0,
      "hasText": false,
-     "soundGuid": "6482c623d67734088812ee222d5da200"
+     "soundGuid": "6482c623d67734088812ee222d5da200",
+     "soundAsset": "Sautekh_Zahndrekh_vs_Grukk"
     },
     "UM47": {
      "key": "Chat_Messages/ef547f829b6491f45a8ad371f492278e-Chat0-UM47",
      "talksFirst": 0,
      "hasText": false,
-     "soundGuid": "c3057b1fc5cce43bfb40007f61ef1046"
+     "soundGuid": "c3057b1fc5cce43bfb40007f61ef1046",
+     "soundAsset": "Sautekh_Zahndrekh_vs_Ultramarine"
     },
     "TL36": {
      "key": "Chat_Messages/ef547f829b6491f45a8ad371f492278e-Chat0-TL36",
      "talksFirst": 0,
      "hasText": false,
-     "soundGuid": "1f1c02933d68341bcbc7138306c6c561"
+     "soundGuid": "1f1c02933d68341bcbc7138306c6c561",
+     "soundAsset": "Sautekh_Zahndrekh_vs_Tyranid"
     }
    },
    "introByArmy": {},

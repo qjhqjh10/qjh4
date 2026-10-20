@@ -125,7 +125,7 @@ namespace CardPresentation
     /// <summary>原版 `BoosterPackOpenWindow`（商店买完卡包弹的那扇**开包窗**）。</summary>
     public class BoosterPackOpenWindow : GameWindow
     {
-        // 队列档：**在全屏/弹窗那一整段（3100–3169）之上、`Tooltip`（3605–3607）之下**。
+        // 队列档：**在全屏/弹窗那一整段（3100–3169）之上、`Tooltip`（4077–4079）之下**。
         // 🔴 为什么落在这里：原版这一扇是 `windowsPlacement = 5 (Canvas)` = 挂在
         //    `2 - Canvas Holder Above upper bar` 上（**在顶栏之上**）。
         //    🔴 **2026-10-11（A307 现读订正，铁律 5）**：这里原写「我们的壳把顶栏定死在 `QBar* = 3600~3604`
@@ -137,7 +137,8 @@ namespace CardPresentation
         //    （本窗 3170–3197 仍在顶栏之上 —— 放宽的是**下沿**，顶栏最高那一号 `QBarOverlay 2998` 没动）。
         //    ⇒ 本窗 **3170–3197** 现在**在顶栏【之上】**，与原版（挂 `2 - Canvas Holder Above upper bar`）**一致**
         //    ⇒ ✅ **已对齐、不再是偏离**（⛔ 别再把这条当待办挂着）。
-        //    ⚠️ 顺带订正同段两个旧号：`Tooltip` 早已不是 **3199**（2026-10-04 搬到 `3605–3607`）、
+        //    ⚠️ 顺带订正同段两个旧号：`Tooltip` 早已不是 **3199**（2026-10-04 搬到 `3605–3607`；
+        //       2026-10-20 W58 再搬到 `4077–4079` —— 前一号段是历史留痕，⛔ 别当现状）、
         //       这段带子的下界也从 **3169** 变 **3170**（`QCloseSurface = QBase − 1` 那号 2026-10-04 A47 就删了）。
         public const int QBase = 3170;
         // ⚠️ `public`（2026-10-04 A47 接线批）：自检宿主要拿这两个档核「压暗命中区档 = 压暗层那一档

@@ -171,18 +171,62 @@ namespace CardPresentation
             return n;
         }
 
+        /// <summary>转圈件（原版 `MenuLoadingController`）的取用口。
+        /// <para>判据（反编译 `JoinAllianceMenu__Initialize.c:53` / `JoinAllianceMenu__FillOpenAlliances.c:29`）：
+        /// 原版**唯一**两处 `ShowLoading()` 都在联盟搜索这一支；回调第一句 `HideLoading()`
+        /// （`JoinAllianceMenu.__c__DisplayClass23_0___FillOpenAlliances_b__0.c:30`）。
+        /// 生产态走 `ShellRuntime.Instance.LoadingCtl`；批处理/自检里 `ShellRuntime.Instance` 恒 null ⇒
+        /// 兜底 `LoadingMenu.Current`（同一个件，见它那段 doc）。取不到就返回 null（调用处不静默：见 `WithLoading`）。</para></summary>
+        static LoadingController Loading
+        {
+            get
+            {
+                var rt = ShellRuntime.Instance;
+                var lm = rt != null && rt.Loading != null ? rt.Loading : LoadingMenu.Current;
+                return lm != null ? lm.Controller : null;
+            }
+        }
+
+        /// <summary>按原版次序包一层「显示转圈 → 重填 → 隐藏转圈」。
+        /// <para>⚠️ **视觉上仍是 0 帧**：我们三张联盟表是本地同步数据、没有异步源 ⇒ `Show()` 与 `Hide()`
+        /// 落在**同一个调用栈**里（引擎帧末才画）。这不是「假装加载」，而是**只复刻代码路径** ——
+        /// 将来接上真异步源即自动生效。⛔ **别为了看见转圈加人为延时 / 最小持续时间**（那是自造行为）。</para></summary>
+        void WithLoading(System.Action refill)
+        {
+            var loading = Loading;
+            if (loading == null)
+            {
+                // 不许静默：原版这里必有一次转圈；取不到宿主 = 这一层没接上
+                Debug.LogWarning("[AllianceSearchTab] 转圈件取不到（`ShellRuntime.Instance` 与 `LoadingMenu.Current` 都为 null）"
+                               + " —— 联盟搜索的 `ShowLoading/HideLoading` 这一段**没跑**；数据重填照常。");
+                refill();
+                return;
+            }
+            loading.Show();
+            try { refill(); }
+            finally { loading.Hide(); }
+        }
+
         /// <summary>`ShowJoin`（原版 `AllianceSearchTab.ShowJoinAllianceMenu`）—— 切到 `List View`。
         /// 🆕 A55②：也是「看别的盟」那一态的**退路** —— 原版在那一态把两个 `EverguildToggle` 都置
         /// `isOn = 0`（`HandleDisplayAlliance` 的头两句），而 `ShowJoinAllianceMenu` 的第一句就是
         /// `set_isOn(1)` ⇒ **再点一次 `Join` 键就回到列表**（`Start` 里就是把这两个键的 `onValueChanged`
-        /// 接到 `ShowJoinAllianceMenu` / `ShowCreateAllianceMenu`，反编译 `AllianceSearchTab__Start.c`）。</summary>
+        /// 接到 `ShowJoinAllianceMenu` / `ShowCreateAllianceMenu`，反编译 `AllianceSearchTab__Start.c`）。
+        /// <para>🔴 **2026-10-20（W58·D4）**：本方法末尾那一步重填按原版走 `WithLoading`
+        /// （`JoinAllianceMenu.Initialize` 的 `ShowLoading → GetGroupList → 回调首句 HideLoading`）。</para></summary>
         public void ShowJoin()
         {
-            if (_listView != null) _listView.gameObject.SetActive(true);
-            if (_createView != null) _createView.gameObject.SetActive(false);
-            if (_detail != null) _detail.gameObject.SetActive(false);
-            SetJoinLabel(LabelJoin);
-            SwapTabArt(0);
+            WithLoading(() =>
+            {
+                if (_listView != null) _listView.gameObject.SetActive(true);
+                if (_createView != null) _createView.gameObject.SetActive(false);
+                if (_detail != null) _detail.gameObject.SetActive(false);
+                SetJoinLabel(LabelJoin);
+                SwapTabArt(0);
+                // 原版 `JoinAllianceMenu.Initialize()` → `GetGroupList` 回调里 `ReloadData()` 那一步
+                // （本地数据同步 ⇒ 就是一次「清空重填」）。
+                if (_openList != null) RebuildOpenAlliances();
+            });
         }
 
         /// <summary>`ShowCreateAllianceMenu` —— 切到 `Create Alliance View`（并**出声**：建盟要服务器）。
@@ -333,8 +377,14 @@ namespace CardPresentation
             Rect(go, "40k_icon_search", SearchGoIconR, "Image", L_Art, null, true);
             // ⚠️ 原版这个钮里那个 `Button Text = 'X'`（act **F**）是调试残留 ⇒ 不建。
             // 🆕 A17：原版 `Social Submenu Variant>…>Search Field>Generic Round Button Variant` 是 SpriteSwap（普查 §块 5 第 12 行）
-            Hit(go, "GoHit", SearchGoR, L_Hit, () => Say("搜索联盟：要**服务器**（原版走 `JoinAllianceMenu.searchButton`）。"),
-                goQ, "40k_general_bt_yellow");
+            // 🔴 **2026-10-20（W58·D4）**：原版这一颗的点击 = `JoinAllianceMenu.OnEnable` 挂的
+            //   `FillOpenAlliances`（`JoinAllianceMenu__FillOpenAlliances.c:29`）⇒ **`ShowLoading()` → 取数重填 →
+            //   回调第一句 `HideLoading()`**（`…b__0.c:30`）。本地同步 ⇒ 同帧收尾、视觉 0 帧（见 `WithLoading`）。
+            Hit(go, "GoHit", SearchGoR, L_Hit, () =>
+            {
+                WithLoading(RebuildOpenAlliances);      // 原版 `FillOpenAlliances` 本身也是「清空重填」
+                Say("搜索联盟：要**服务器**（原版走 `JoinAllianceMenu.searchButton` 的 `GetGroupList`）。");
+            }, goQ, "40k_general_bt_yellow");
 
             // `List Area`（VLG spacing 25）→ `Invitations` / `Open Alliances`
             var area = Node(_listView, "List Area", new PxRect(361.00f, 252.29f, 1874.90f, 1079.77f));

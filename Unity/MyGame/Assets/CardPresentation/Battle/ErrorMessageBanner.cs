@@ -171,9 +171,10 @@
 //    中文（汉字占 1 em = 60 px > 56.85）才撑到不被切。⛔ 这一条**是我们的取舍**，如实标。
 // B. **`SetAsLastSibling` / `ForceRebuildLayoutImmediate` 那一跳**：原版靠 uGUI 的兄弟序与布局系统
 //    把「刚弹的那条压在最上面」＋「底条贴合文字」。我们**没有 uGUI** ⇒ 等价物 = **渲染队列**
-//    （`CLAUDE.md` §三：分层要用队列、别靠 z）：本件整条在 **`Q = 4001`**（高于日志面板的 4000、
-//    也高于 tooltip 的 3607 ⇒ 等价于原版那个 `SortingOrder = 1` 的独立 overlay Canvas），
-//    底条 `Q` / 文字 `Q + 1`（= 原版「Background 先、Text 后」的兄弟序）。
+//    （`CLAUDE.md` §三：分层要用队列、别靠 z）：本件整条在 **战斗档 `Q = 4001`**（高于日志面板的 4000）、
+//    **菜单档 `MenuQueue = 4035`**（高于窗带最高 4030、低于教学 4040 / toast 4072）—— 两档的绝对值都是
+//    **[我们挑的]**，等价于原版那个独立 overlay Canvas（`UI Error Message Controller` = `PopUps` / order 1，
+//    **在所有窗之上**），底条 `Q` / 文字 `Q + 1`（= 原版「Background 先、Text 后」的兄弟序）。
 // C. **时间轴自推**：原版靠 DOTween 帧循环；**批处理下没有帧循环** ⇒ 本件把三段
 //    （`0.15` / `2.0` / `0.25`）做成**能被显式推的** `Advance(dt)`，挂在 `BattleDriver.AdvanceTimeline`
 //    这个泵上（同 `TickOvertime` / `TickTargetSelection` 那一族）。
@@ -284,6 +285,14 @@ namespace CardPresentation
             /// 战斗 `56.849998474121094`（`RT 2942`）· 菜单 `34.11000061035156`（`RT 1207`）。
             /// 用途与取舍见文件头 A（底条高 = `max(它, 我们量到的文字高) + 4`）。</summary>
             public float RefLineHeightPx;
+            /// <summary>整条横幅（底条 + 文字）的**渲染队列**，文字 = 本值 + 1。
+            /// <para>🔴 **两档不同**（原版两处是**不同排序层位置**）：战斗 `PopUps/1`、菜单也是 `PopUps/1`，
+            /// 但本仓两侧落在**不同的层带**里 —— 战斗侧在战场 HUD 之上（`Q = 4001`，高于 `BattleLogPanel.OverlayQ = 4000`），
+            /// 菜单侧必须压在**全部窗**（最高 `AlliancePanelWindow.QText = 4030`）之上（`MenuQueue = 4035`）。
+            /// ⛔ 战斗档的数字**一个都别动**（它有自己的层序，`Editor/BattleScene.cs` 有回归闸）。
+            /// 相对次序 = 原版判据（`UI Error Message Controller = PopUps/1 > 3 - PopUp Holder = PopUps/0`）；
+            /// 绝对值 = [我们挑的]。</para></summary>
+            public int Queue;
         }
 
         /// <summary>**战斗档** = 原版 13 个 `battlearena*`（`RT 3373` 那一族）。
@@ -295,6 +304,7 @@ namespace CardPresentation
             ItemWPx = 1439.1600341796875f, ItemHPx = 80.00f,
             RefBarWPx = 870.97998046875f, RefBarHPx = 60.849998474121094f,
             FontPx = 60f, RefLineHeightPx = 56.849998474121094f,
+            Queue = Q,
         };
 
         /// <summary>**主菜单档** = 原版 `bundle_scenes_scenes_mainmenuwarpforge` 那一颗（`RT 1206` 那一族）。
@@ -307,10 +317,16 @@ namespace CardPresentation
             ItemWPx = 1310f, ItemHPx = 50.00f,
             RefBarWPx = 618.5899658203125f, RefBarHPx = 38.11000061035156f,
             FontPx = 36f, RefLineHeightPx = 34.11000061035156f,
+            Queue = MenuQueue,
         };
 
         /// <summary>本件这一颗用的是哪一档（自检要能分辨「壳里那颗取的是菜单档」）。</summary>
         public LayoutPreset Preset { get { return _preset; } }
+
+        /// <summary>本件**实际**用的渲染队列（底条那一档；文字 = 本值 + 1）—— 自检口。
+        /// <para>战斗档 `4001` / 菜单档 `4035`。⚠️ 读的是**实例的档**（不是 `BattlePreset` 常量）
+        /// ⇒ 能验「壳里那颗真的取了菜单档」，而不是只验常量表。</para></summary>
+        public int BarQueue { get { return _preset.Queue; } }
 
         /// <summary>本件这一档的根上缘（自上而下 px）—— 自检口（战斗 `213.5997314453125` / 菜单 `0`）。</summary>
         public float RootTopPx { get { return _preset.RootTopPx; } }
@@ -340,9 +356,19 @@ namespace CardPresentation
         public static readonly Color BarTint = new Color(0.3584906f, 0.3584906f, 0.3584906f, 1f);
 
         // ---- 渲染队列（等价物 B） ----
-        /// <summary>整条横幅的队列：高于日志面板（4000）与 tooltip（3607）⇒ 等价于原版那个 `SortingOrder = 1`。</summary>
+        /// <summary>**战斗档**整条横幅的队列 = `4001`：高于战场日志面板（`BattleLogPanel.OverlayQ = 4000`），
+        /// 等价于原版那个独立 overlay Canvas（`UI Error Message Controller` = `PopUps` / order **1**）。
+        /// ⛔ 战斗侧的数字**别动**（它有自己的层序；`Editor/BattleScene.cs` 有回归闸）。</summary>
         public const int Q = 4001;
-        /// <summary>底条队列；文字比它大 1（= 原版兄弟序 Background → Text）。</summary>
+        /// <summary>**菜单档**整条横幅的队列 = **4035**。
+        /// <para>🔴 **相对次序 = 原版判据**：原版主菜单里这颗 `UI Error Message Controller` = **`PopUps` / order 1**
+        /// ⇒ 在 `3 - PopUp Holder`（窗，`PopUps`/0）**之上**、教学高亮（`PopUps`/601）与 toast（`PopUps`/900）**之下**
+        /// （判据 → `资料/普查产出_1020/W58_界面线_Toast黑场次序判据.md` §2·3）。</para>
+        /// <para>🔑 **4035 这个绝对值 = [我们挑的]**：窗带最高 `AlliancePanelWindow.QText = 4030` 之上、
+        /// 教学高亮 `MenuTutorialHighlight.QShade = 4040` 之下。⛔ 别把它套到战斗档（两档的层带不同）。</para></summary>
+        public const int MenuQueue = 4035;
+        /// <summary>**战斗档**的底条队列（= `Q`）；文字比它大 1（= 原版兄弟序 Background → Text）。
+        /// ⚠️ 菜单档**不用**这两个常量 —— 用 <see cref="LayoutPreset.Queue"/>（运行时按档取）。</summary>
         public const int QBar = Q, QText = Q + 1;
 
         /// <summary>内层子件的 z（相机看 +Z ⇒ **z 越小越靠前**）：底条 0、文字 −0.01。
@@ -560,7 +586,7 @@ namespace CardPresentation
                         foreach (var q in t.barRoot.GetComponentsInChildren<ImageQuad>(true))
                         {
                             q.SetTint(BarTint);
-                            q.SetRenderQueue(QBar);
+                            q.SetRenderQueue(_preset.Queue);
                             t.barParts.Add(HudPiece.Of(q));
                         }
                     }
@@ -582,7 +608,7 @@ namespace CardPresentation
                 //    定字号按 `ActualFace` 的 em 换算（判据 → `Label.TmpFontSize`）。
                 t.text.SetFace(TmpFont.Face.LatinCardBody);
                 t.text.SetScriptHeight("ERROR MESSAGE CONTENT", _preset.FontPx, _ugui ? 1f : 108f);
-                t.text.SetRenderQueue(QText);       // uGUI 档是有注释的空操作（层级归画布管）
+                t.text.SetRenderQueue(_preset.Queue + 1);       // uGUI 档是有注释的空操作（层级归画布管）
             }
         }
 
@@ -667,7 +693,7 @@ namespace CardPresentation
                                              new Vector2(0.5f, 0.5f), ZText, "ErrorMesage Text", face: TmpFont.Face.LatinCardBody)
                         : Label.Create(it.root, text, new Vector3(0f, 0f, ZText), 1,
                                        color, new Vector2(0.5f, 0.5f), "ErrorMesage Text");
-                if (it.text != null) it.text.SetRenderQueue(QText);   // uGUI 档是**有注释的空操作**
+                if (it.text != null) it.text.SetRenderQueue(_preset.Queue + 1);   // uGUI 档是**有注释的空操作**
                 // 🔴 2026-10-17（A1024③ 第 2 批）：原版 `ErrorMesage Text` = Pragati（两档都过这里）。
                 if (it.text != null) it.text.SetFace(TmpFont.Face.LatinCardBody);
             }
@@ -756,7 +782,7 @@ namespace CardPresentation
             foreach (var q in it.barRoot.GetComponentsInChildren<ImageQuad>(true))
             {
                 q.SetTint(BarTint);
-                q.SetRenderQueue(QBar);
+                q.SetRenderQueue(_preset.Queue);
                 it.barParts.Add(HudPiece.Of(q));
             }
         }

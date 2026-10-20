@@ -67,6 +67,8 @@ public static class NetSelfTest
             TestFailVoiceA1267A1268(FreePort()); // 🆕 2026-10-19（A1267/A1268）：掉线原因要进日志 · 旧读线程迟到不许改状态
             TestPeerLostGateOffA1269(FreePort()); // 🆕 2026-10-19（A1269）：掉线闸必须挡 `Off`（收工后不许再报一次）
             TestGracefulCloseA1264();          // 🆕 2026-10-19（A1264 X2）：关闭路径必须先 `Shutdown(Send)` 再有界 `Close()`
+            TestByeGracefulClose(FreePort());  // 🆕 2026-10-20（W58-NETFIX）：bye 收尾四条（NETPROBE ②③④⑤）
+            TestReplacementWhileLiveS6(FreePort()); // 🆕 2026-10-20（W58-S6FIX）：S6 —— 活连接还在时，新连接先当候选、凭据齐了才替换
             TestOpponentHintA932();            // 🆕 2026-10-18（A932）：排位那扇全屏窗的**提示行**（自建节点）
             TestNetTermBilingual();            // 🆕 2026-10-19（P6 · 双语）：`Net/` 那批词条的两语档 + 灭自证
             TestHostResolve();
@@ -2426,7 +2428,276 @@ public static class NetSelfTest
          + "｜🧨 把 helper 体改回 `_t.Close()` ⇒ 本条红（`Close` 那半边照样绿 = 弱断言，所以两条要分开）");
     }
 
-    /// <summary>🆕 2026-10-18（A961 续）：`§Q⑤-a` 用的**最小联机宿主** —— 只把「说给玩家听的那句话」记下来。
+    // ==================================================================
+    //  §W58（2026-10-20 · W58-NETFIX）：bye 收尾四条（NETPROBE ②③④⑤）
+    //  ③ 夹具验优雅档 · ④ 夹具验 `Ack` 拒支 · ⑤ 真 TCP 回环验 `Close` 清收件箱
+    //  判据 = `资料/普查产出_1020/W58_联机线_Bye优雅收尾修复.md` §三（可粘贴块）
+    // ==================================================================
+    static void TestByeGracefulClose(int port)
+    {
+        // ③ 收 `bye` ⇒ 优雅档（不是硬拆）：夹具上验「收尾意向」
+        {
+            var tr = new ScriptedTransport();
+            var s = new NetSession(tr);
+            tr.Inject(NetKind.Bye, NetProtocol.Pack(new MsgBye { reason = "W58-test" }));
+            s.Pump();
+            Ok(s.State == NetState.Closed, "W③① 收到 bye ⇒ 会话 Closed");
+            Eq(s.GracefulCloseRequestedForTest, 1, "W③② 收 bye 走的是**优雅收尾**（NETPROBE ③）");
+            Eq(s.HardCloseRequestedForTest, 0, "W③③ 没有走硬关");
+        }
+
+        // ④ `case Proof` 拒绝支：Ack 写出去了 ⇒ 优雅档（理由要先出门）
+        {
+            var tr = new ScriptedTransport();
+            var s = new NetSession(tr);
+            Ok(s.StartHost(Cfg(port, "")), "W④① 主机起来（夹具）");
+            int closed = 0; s.OnClosed = _ => closed++;
+            tr.Inject(NetKind.Proof, NetProtocol.Pack(new MsgProof
+            { protoVer = NetProtocol.Version + 1, gameVer = "W58", name = "W58", proof = "" }));
+            s.Pump();
+            Ok(s.State == NetState.Closed, "W④② 版本不符 ⇒ 拒绝并 Closed");
+            Eq(closed, 1, "W④③ `OnClosed` 叫了一次");
+            Eq(s.GracefulCloseRequestedForTest, 1, "W④④ 拒绝支走**优雅收尾**（ack 先出去再拆）");
+            // ⚠️ 别断 `HardCloseRequestedForTest == 0`：`StartHost` 内部那句 `Close(false)` 本来就会计一次。
+        }
+
+        // ⑤ 真 TCP 回环：Close() 清收件箱（R6 根治口）
+        {
+            var a = new TcpTransport();
+            var b = new TcpTransport();
+            a.Listen(port);
+            Ok(a.IsListening, "W⑤① 监听起来了");
+            Ok(b.Connect("127.0.0.1", port, 3000), "W⑤② 裸传输连得上");
+            for (int i = 0; i < 400 && !a.IsConnected; i++) Thread.Sleep(5);
+            Ok(a.IsConnected, "W⑤③ 接受线程把连接发布了");
+            b.Send("test.w58", "{}");
+            for (int i = 0; i < 400 && a.PendingFrameCountForTest == 0; i++) Thread.Sleep(5);
+            Eq(a.PendingFrameCountForTest, 1, "W⑤④ 帧已经进了收件箱（还没人 Pump）");
+            a.Close();
+            Eq(a.PendingFrameCountForTest, 0, "W⑤⑤ Close() 之后收件箱清空");
+            Eq(a.DroppedPendingFrameCountForTest, 1, "W⑤⑥ 丢弃计数 = 1（`NET/BYE-R6/inbox-cleared` 的来源）");
+            b.Close();
+        }
+    }
+
+    // ==================================================================
+    //  §W58-S6（2026-10-20 · W58-S6FIX）：**活连接还在时进来的新连接**
+    //  S6 = `AcceptLoop` 把新连接静默拒收（客机重连只看到「连上又断」）。
+    //  判据 = `资料/普查产出_1020/W58_联机线_S6拒收修复.md`（可粘贴块见 §五）。
+    // ==================================================================
+    /// <summary>🔴 **S6 的正题**：主机已有活对家时，新连接不再被直接关掉，而是先当**候选**；
+    /// 只有 `Challenge → Proof(密码) → Reconnect{sessionToken}` 全部对上才**提升**。
+    ///
+    /// <para>三条路径各验一次：</para>
+    /// <list type="number">
+    /// <item>凭据齐全 ⇒ 候选接管、旧连接**确实被关掉**（客机读到 FIN）、主机灌 `resume`；</item>
+    /// <item>密码不对 ⇒ 拒候选、**当前连接原样保留**、日志 `NET/BYE-S6/reject-no-proof`；</item>
+    /// <item>密码对但 `sessionToken` 不对 ⇒ 拒候选、当前连接保留、日志 `NET/BYE-S6/reject-no-token`。</item>
+    /// </list>
+    /// <para>🧨 **灭自证**：把 `AcceptLoop` 改回「`ConnBit` 立着就直接 `c.Close()`」⇒ 第 ① 条
+    /// 连 `Challenge` 都收不到 ⇒ **S6④ 红**（而后面那些「拒收」断言照样绿 —— 所以判据必须盯
+    /// **第一条**：「新连接能被收作候选」）。</para></summary>
+    static void TestReplacementWhileLiveS6(int port)
+    {
+        var host = NetSession.NewTcp();
+        var cli = NetSession.NewTcp();
+        var ht = (TcpTransport)host.Transport;
+        var logs = new List<string>();
+        Application.LogCallback lg = (string m, string st, LogType ty) =>
+        {
+            if (m != null && m.Contains("NET/BYE-S6")) logs.Add(m);
+        };
+        Application.logMessageReceived += lg;
+        TcpTransport cand = null, bad = null, badTok = null;
+        try
+        {
+            Ok(host.StartHost(Cfg(port, "pw-s6")), "S6① 主机起来了（设了密码）");
+            cli.Connect(Cfg(port, "pw-s6"));
+            Ok(PumpUntil(host, cli, () => host.State == NetState.Lobby && cli.State == NetState.Lobby, 5000),
+               "S6② 先正常握手到 Lobby（这条就是「活着的旧连接」）");
+            host.EnterBattle(); cli.EnterBattle(0);
+            host.Pump();     // 让上层把「允许替换」写进传输层（`ReplacementArmed` 由 `NetSession.Pump` 写）
+            Ok(((IPendingReplacementHost)ht).ReplacementArmed, "S6③ 对局中 ⇒ 传输层允许收候选");
+
+            var start = new MsgStart { seed = 20261020, mode = "Classic", arena = "Battle_arena1", hostDeckJson = "{}", clientDeckJson = "{}" };
+            var acts = new List<MsgAction> { new MsgAction { seq = 0, kind = 4 } };
+            host.ResumeProvider = () => (start, acts);
+
+            // ---- ① 凭据齐全 ⇒ 提升 ----
+            cand = new TcpTransport();
+            Ok(cand.Connect("127.0.0.1", port, 3000), "S6④ 重连的新 TCP 连接建得起来（S6 的触发前提：旧连接还没被判死）");
+            string nonce = null;
+            var sw = System.Diagnostics.Stopwatch.StartNew();
+            while (sw.ElapsedMilliseconds < 4000 && nonce == null)
+            {
+                host.Pump();
+                var list = new List<NetFrame>();
+                cand.Pump(list);
+                foreach (var f in list)
+                {
+                    if (f.kind == NetKind.Challenge) nonce = NetProtocol.Unpack<MsgChallenge>(f.payload)?.nonce;
+                    else if (f.kind == NetKind.Ping) cand.Send(NetKind.Pong, f.payload);
+                }
+                Thread.Sleep(5);
+            }
+            Ok(nonce != null,
+               "S6⑤ ★★ 旧连接还在时，新连接被收作**候选**并收到 `Challenge`"
+             + " —— 🧨 改坏法：`AcceptLoop` 恢复成「ConnBit 立着就直接关」⇒ 永远收不到 Challenge（红）");
+            Eq(ht.ReplacementPromotedCountForTest, 0, "S6⑥ 此刻还只是候选：**没有**提升");
+            Ok(ht.IsConnected, "S6⑦ 候选阶段旧连接照旧立着");
+
+            cand.Send(NetKind.Proof, NetProtocol.Pack(new MsgProof
+            {
+                protoVer = NetProtocol.Version,
+                gameVer = Application.version,
+                name = "W58-S6",
+                proof = NetSession.Proof("pw-s6", nonce ?? ""),
+            }));
+            bool gotAck = false;
+            sw.Restart();
+            while (sw.ElapsedMilliseconds < 4000 && !gotAck)
+            {
+                host.Pump();
+                var list = new List<NetFrame>();
+                cand.Pump(list);
+                foreach (var f in list)
+                {
+                    if (f.kind == NetKind.Ack) { var a = NetProtocol.Unpack<MsgAck>(f.payload); gotAck = a != null && a.ok; }
+                    else if (f.kind == NetKind.Ping) cand.Send(NetKind.Pong, f.payload);
+                }
+                Thread.Sleep(5);
+            }
+            Ok(gotAck, "S6⑧ 密码 proof 通过 ⇒ 候选收到 `ack ok`");
+            Eq(ht.ReplacementPromotedCountForTest, 0, "S6⑨ 光有 proof **还不够**：对局中的替换要等 `sessionToken`");
+
+            cand.Send(NetKind.Reconnect, NetProtocol.Pack(new MsgReconnect
+            { sessionToken = host.SessionToken, lastSeq = 1 }));
+            bool gotResume = false;
+            sw.Restart();
+            while (sw.ElapsedMilliseconds < 5000 && !gotResume)
+            {
+                host.Pump();
+                var list = new List<NetFrame>();
+                cand.Pump(list);
+                foreach (var f in list)
+                {
+                    if (f.kind == NetKind.Resume) gotResume = true;
+                    else if (f.kind == NetKind.Ping) cand.Send(NetKind.Pong, f.payload);
+                }
+                Thread.Sleep(5);
+            }
+            Ok(gotResume, "S6⑩ ★★ 钥匙对 ⇒ 候选被**提升**并收到 `resume`");
+            Eq(ht.ReplacementPromotedCountForTest, 1, "S6⑪ 提升计数 = 1");
+            Ok(host.State == NetState.InBattle, $"S6⑫ 主机回到 `InBattle`（实际 {host.State}）");
+            Ok(ht.IsConnected, "S6⑬ 当前连接仍然活着（换成了候选那条）");
+
+            // 旧客机必须看到 FIN —— 替换不是「两条并存」。
+            // ⚠️ **别 `Pump` 这台旧客机**：它在同一帧里会「发现掉线 → 立刻退避重连」（`ReconnectEveryMs` 那条），
+            //   于是它自己又变成一条候选，把下面 ②/③ 的候选位占住（测试就会假红）。
+            //   `PeerLost` 由**它的读线程**异步置上，不 `Pump` 也看得到。
+            sw.Restart();
+            while (sw.ElapsedMilliseconds < 3000 && !cli.Transport.PeerLost) Thread.Sleep(5);
+            Ok(cli.Transport.PeerLost, "S6⑭ 旧连接被**关掉了**（客机读到 FIN）—— 旧连接走的是收尾，不是被遗忘");
+            host.Transport.Pump(null);
+            Ok(logs.Exists(m => m.Contains("NET/BYE-S6/replaced")), "S6⑮ 替换有判别日志 `NET/BYE-S6/replaced`");
+
+            // ---- ② 密码不对 ⇒ 拒候选、当前连接保留 ----
+            int rejectedBefore = ht.ReplacementRejectedCountForTest;
+            bad = new TcpTransport();
+            Ok(bad.Connect("127.0.0.1", port, 3000), "S6⑯ 第二条新连接建得起来（当前仍有活连接）");
+            string nonce2 = null;
+            sw.Restart();
+            while (sw.ElapsedMilliseconds < 4000 && nonce2 == null)
+            {
+                host.Pump();
+                var list = new List<NetFrame>();
+                bad.Pump(list);
+                foreach (var f in list)
+                    if (f.kind == NetKind.Challenge) nonce2 = NetProtocol.Unpack<MsgChallenge>(f.payload)?.nonce;
+                var live = new List<NetFrame>();
+                cand.Pump(live);
+                foreach (var f in live) if (f.kind == NetKind.Ping) cand.Send(NetKind.Pong, f.payload);
+                Thread.Sleep(5);
+            }
+            Ok(nonce2 != null, "S6⑰ 第二条候选拿到 `Challenge`");
+            bad.Send(NetKind.Proof, NetProtocol.Pack(new MsgProof
+            { protoVer = NetProtocol.Version, gameVer = Application.version, name = "bad", proof = "deadbeef" }));
+            sw.Restart();
+            while (sw.ElapsedMilliseconds < 3000 && ht.ReplacementRejectedCountForTest == rejectedBefore)
+            {
+                host.Pump();
+                bad.Pump(null);
+                // 顺手喂一下**当前**那条连接的心跳（否则主机 10 秒静默超时会把状态打回等待重连，
+                // 后面那两条「当前连接/状态没被打断」的断言就会假红 —— 与 S6 无关）
+                var live = new List<NetFrame>();
+                cand.Pump(live);
+                foreach (var f in live) if (f.kind == NetKind.Ping) cand.Send(NetKind.Pong, f.payload);
+                Thread.Sleep(5);
+            }
+            Eq(ht.ReplacementRejectedCountForTest, rejectedBefore + 1,
+               "S6⑱ ★★ 密码不对 ⇒ **拒掉候选**（`NET/BYE-S6/reject-no-proof`）");
+            Ok(ht.IsConnected, "S6⑲ ★★ …而**当前连接原样保留**（陌生连接踢不掉人）");
+            Ok(host.State == NetState.InBattle, "S6⑳ 会话状态也没被打断");
+            host.Transport.Pump(null);
+            Ok(logs.Exists(m => m.Contains("NET/BYE-S6/reject-no-proof")), "S6㉑ 拒收**有日志**（绝不静默）");
+
+            // ---- ③ 密码对、`sessionToken` 不对 ⇒ 拒候选、当前连接保留 ----
+            int rejected2 = ht.ReplacementRejectedCountForTest;
+            badTok = new TcpTransport();
+            Ok(badTok.Connect("127.0.0.1", port, 3000), "S6㉒ 第三条新连接建得起来");
+            string nonce3 = null;
+            sw.Restart();
+            while (sw.ElapsedMilliseconds < 4000 && nonce3 == null)
+            {
+                host.Pump();
+                var list = new List<NetFrame>();
+                badTok.Pump(list);
+                foreach (var f in list)
+                    if (f.kind == NetKind.Challenge) nonce3 = NetProtocol.Unpack<MsgChallenge>(f.payload)?.nonce;
+                var live = new List<NetFrame>();
+                cand.Pump(live);
+                foreach (var f in live) if (f.kind == NetKind.Ping) cand.Send(NetKind.Pong, f.payload);
+                Thread.Sleep(5);
+            }
+            Ok(nonce3 != null, "S6㉓ 第三条候选拿到 `Challenge`");
+            badTok.Send(NetKind.Proof, NetProtocol.Pack(new MsgProof
+            {
+                protoVer = NetProtocol.Version,
+                gameVer = Application.version,
+                name = "bad-token",
+                proof = NetSession.Proof("pw-s6", nonce3 ?? ""),
+            }));
+            // 帧有序：先 Proof 后 Reconnect ⇒ 即使主机还没回 ack，Reconnect 也会排在 Proof 之后处理
+            badTok.Send(NetKind.Reconnect, NetProtocol.Pack(new MsgReconnect
+            { sessionToken = "wrong-token", lastSeq = 1 }));
+            sw.Restart();
+            while (sw.ElapsedMilliseconds < 4000 && ht.ReplacementRejectedCountForTest == rejected2)
+            {
+                host.Pump();
+                badTok.Pump(null);
+                var live = new List<NetFrame>();
+                cand.Pump(live);
+                foreach (var f in live) if (f.kind == NetKind.Ping) cand.Send(NetKind.Pong, f.payload);
+                Thread.Sleep(5);
+            }
+            Ok(ht.ReplacementRejectedCountForTest > rejected2,
+               "S6㉔ ★★ 钥匙对不上 ⇒ 拒掉候选（`NET/BYE-S6/reject-no-token`）—— 认不出就不是这局的人");
+            Ok(ht.IsConnected && host.State == NetState.InBattle,
+               "S6㉕ ★★ …当前连接与会话状态**都没动**");
+            host.Transport.Pump(null);
+            Ok(logs.Exists(m => m.Contains("NET/BYE-S6/reject-no-token")), "S6㉖ 拒收有日志 `NET/BYE-S6/reject-no-token`");
+        }
+        finally
+        {
+            Application.logMessageReceived -= lg;
+            try { badTok?.Close(); } catch { }
+            try { bad?.Close(); } catch { }
+            try { cand?.Close(); } catch { }
+            host.Close(false); cli.Close(false);
+        }
+    }
+
+
     /// `A961` 那一条要验的是 `Abort` 那条路（`NetBattle.Dispatch` → `Abort` → `NetSay` + `NetRuntime.Notice`），
     /// 而 `Abort` **一次都不碰引擎**（它里面没有 `Ctx`）⇒ 别的成员给空实现就够了。
     /// ⛔ 别拿它当「真宿主」的替身 —— 真对局那一路是 `BattleDriver`，同族先例见 `NetBattleTest.BareHost`。</summary>

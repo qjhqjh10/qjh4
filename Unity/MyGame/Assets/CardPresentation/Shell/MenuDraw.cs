@@ -83,6 +83,54 @@ namespace CardPresentation
         static float DivByScale(float v, float k)
             => (float.IsNaN(k) || float.IsInfinity(k) || Mathf.Abs(k) < 1e-6f) ? v : v / k;
 
+        /// <summary>🆕 **2026-10-20（`W58-ABSORB`）**：**设计帧的点 → 指针帧的点** —— `DivByScale`
+        /// / <see cref="PosInDesignSpace"/> 的**逆**。给「先用**设计帧**几何算出一个点、再喂
+        /// `PointerLayer.ButtonAt / ClickAt / ScrollUnder`」的调用方用。
+        ///
+        /// <para>🔴 **唯一实现在这里**（运行期件）—— `Editor/MenuCheck.PointerFramePxFromDesign`
+        /// **只转调本函数**。为什么落在这里：`Shell/MenuDraw` 是运行期程序集，`Editor/MenuCheck`
+        /// 引用不到反方向；而 `CheckAbsorbRule`（本文件、约 32 扇窗共用）在运行期就要用这条换算。
+        /// ⛔ **别在 Editor 侧再写一份**（两份公式迟早漂 —— CLAUDE.md §三）。</para>
+        ///
+        /// <para>🔴 **恒等式**：`PointerFramePx(t) ≡ PointerFramePxFromDesign(DesignPx(t), t)`
+        /// （窗根在世界原点，前提同 <see cref="PosInDesignSpace"/>）。设 `p = t.position`、
+        /// `k = t.parent.lossyScale`（逐分量），则 `DesignPx(t) = ToDesignPixel(p / k)`、
+        /// `PointerFramePx(t) = ToDesignPixel(p)`，而 `ToDesignPixel` 是**以画布中心
+        /// `C = (DesignPxW/2, DesignPxH/2) = (960, 540)` 为不动点**的仿射
+        /// ⇒ **`pointer = C + (design − C) ⊙ k`**（逐分量）。</para>
+        ///
+        /// <para>🔴 **⛔ 不是「整值乘 k」**：乘的是**相对画布中心的偏移**。整值乘 k 会多偏
+        /// `C·(k−1)`（k = 2 时 x 整整多偏 **960 px**）。同一算式 = `Shell/PointerLayer.cs` 的
+        /// `DesignToPtrPx` / `ScaleAbout`（生产侧、`private`；本函数是它的**点**版本）。</para>
+        ///
+        /// <para>⚠️ **退化守卫（与 <see cref="PosInDesignSpace"/> / <see cref="DivByScale"/> 互逆）**：
+        /// `owner == null` ⇒ `(-99999,-99999)`（哨兵：⛔ 不许落回画面中心）；`owner.parent == null`
+        /// ⇒ **k = 1**（根：链上没有缩放可乘）；`k` 非有限 / `|k| &lt; 1e-6` ⇒ **该分量按 1**。
+        /// **单位缩放（两分量 `k == 1`）⇒ 逐位返回入参**（快路径 —— 今天全部调用点走的都是这一档）。</para>
+        ///
+        /// <para>⚠️ **`owner` = 这个设计点【所属的那一颗】**，乘的是它**父级**那一级 `lossyScale`
+        /// （与 `PosInDesignSpace(t)` 除的是同一级）。⛔ 别传它的父件（会多一级 / 少一级）。
+        /// 窗内任意一点的坐标若不属于某颗具体件，传**那一层里任一颗父级链路相同的件**。</para></summary>
+        public static Vector2 PointerFramePxFromDesign(Vector2 designPx, Transform owner)
+        {
+            if (owner == null) return new Vector2(-99999f, -99999f);
+            var above = owner.parent;
+            if (above == null) return designPx;                       // 根：没有缩放可乘
+            var k = above.lossyScale;
+            float cx = LayoutSpace.DesignPxW * 0.5f;                  // 960：`ToDesignPixel` 的不动点
+            float cy = LayoutSpace.DesignPxH * 0.5f;                  // 540
+            return new Vector2(ScaleAboutPx(cx, designPx.x, k.x),
+                               ScaleAboutPx(cy, designPx.y, k.y));
+        }
+
+        /// <summary><see cref="PointerFramePxFromDesign"/> 的**单分量**仿射：`c + (v − c)·k`。
+        /// 退化（`k` 非有限 / ≈0）⇒ **按 1**（原样返回）；`k == 1` ⇒ 原样返回（**逐位**，
+        /// 让单位缩放下新旧口同值可作精确断言）。形状与 `Shell/PointerLayer.cs` 的
+        /// `private static ScaleAbout` 相同（那一份生产侧只读）。</summary>
+        static float ScaleAboutPx(float centerPx, float v, float k)
+            => (float.IsNaN(k) || float.IsInfinity(k) || Mathf.Abs(k) < 1e-6f || k == 1f)
+                 ? v : centerPx + (v - centerPx) * k;
+
         /// <summary>清空一个节点的全部子件。🔴 **批处理下必须 `DestroyImmediate`** —— 没有帧循环，
         /// `Destroy` 不会立刻消失，会和新净的叠在一起。
         /// ⚠️ 2026-09-27：这段原来只在 `MainMenuSubmenuWindow.DestroyChildren` 一处，
@@ -2781,12 +2829,21 @@ namespace CardPresentation
             var pl = PointerLayer.Instance;
             chk(pl != null, $"{what}：场景里有指针层（没有的话下面两条等于没查）");
             if (pl == null) return;
+            // 🔴 **2026-10-20（`W58-ABSORB`）：候选点活在设计帧，`PointerLayer.ButtonAt` 吃的是指针帧**
+            //    —— 先换算再喂（唯一换算口 → `MenuDraw.PointerFramePxFromDesign`）。
+            //    `designOwner` = 吸收层那颗 `ImageQuad` 自己：上面 ③ 的 `QuadRectPx(q)` 量出来的设计矩形
+            //    就是**它的**设计帧（乘的是它**父级**那一级 `lossyScale`，与 `DesignPx` 除的是同一级）。
+            //    取不到 `q` 时退 `node` / `winRoot`（那两档 `q == null` 上面已经报过红）。
+            //    ⚠️ **今天各窗父链缩放 = 1 ⇒ 读数逐位不变**（`k == 1` 快路径）；父链被
+            //    `TransformScalerBySmallScreenUI` 乘 M（或窗内自带缩放）时，旧写法在矩形离画布中心
+            //    较远处**一个点都找不着**（= 潜伏缺陷，`A94` 那族「点面板却关窗」会换个样子回来）。
+            var designOwner = q != null ? q.transform : (node != null ? node : winRoot);
             // 🔴 **2026-10-19（`A2141`）：候选点必须命中【本窗自己的】吸收层** —— 旧扫描只判
             //    `hb.absorbOnly` ⇒ 别家窗遗留的同名 `AbsorbHit` 只要叠在同一块矩形上，就能让
             //    `found` 变真、**断言假绿**（`MainMenuScene` 14 条级联时 `CardPresentation/Editor/MainMenuScene.cs` 那条在 #10–#13 全红时仍 ✓）。
             //    判据收进 `IsOwnAbsorbHit`（与同函数末段那条「(5,5) 命中的必须是**这扇窗自己的**压暗层」
             //    同口径：`IsChildOf(winRoot)` ∧ 公共件标记）。
-            bool found = FindOwnAbsorbPoint(winRoot, x1, y1, x2, y2,
+            bool found = FindOwnAbsorbPoint(winRoot, designOwner, x1, y1, x2, y2,
                                             (tx, ty) => pl.ButtonAt(tx, ty), out float px, out float py);
             chk(found, $"{what}：**原版面板矩形以内找得到一个点、它的命中是【本窗自己的】吸收层**"
                        + "（找不到 ⇒ 窗内空白处没吃下这一下，射线会穿到压暗层上 ⇒ A94 那个缺陷还在；"
@@ -2807,7 +2864,7 @@ namespace CardPresentation
                     var dwb = dh.AddComponent<WindowButton>();
                     dwb.absorbOnly = true;
                     dh.AddComponent<AbsorbMark>();
-                    bool decoyFound = FindOwnAbsorbPoint(winRoot, x1, y1, x2, y2,
+                    bool decoyFound = FindOwnAbsorbPoint(winRoot, designOwner, x1, y1, x2, y2,
                                                          (tx, ty) => dwb, out _, out _);
                     chk(!decoyFound, $"{what}：**A2141 灭自证** —— 同一矩形上盖一扇【别家窗】的吸收层时，"
                                    + "「找得到自己的吸收层」必须**找不着**（`MenuDraw.Absorb` 建出来的节点逐字满足"
@@ -2874,7 +2931,7 @@ namespace CardPresentation
                 && hb.transform.IsChildOf(winRoot) && WasAbsorb(hb.transform);
         }
 
-        /// <summary>在 `[x1..x2]×[y1..y2]`（画布 px）里按**固定候选序**找一个
+        /// <summary>在 `[x1..x2]×[y1..y2]`（**设计帧**画布 px）里按**固定候选序**找一个
         /// 「命中是**本窗自己的**吸收层」的点（判据 = <see cref="IsOwnAbsorbHit"/>）。
         /// <para>候选点：**原版矩形中心**优先 → 中心外一圈(±80) → 最后**贴着四条边内缩的那一圈**
         /// （面板的边框那一圈通常没有内容件；例：练习窗选卡组那一列中间**全被卡组格盖住**，
@@ -2884,8 +2941,15 @@ namespace CardPresentation
         /// <para>⚠️ 用定长数组而不是 `List&lt;Vector2&gt;`：本文件只 `using UnityEngine`（⛔ 别为这一行去动
         /// using 块），而**候选的序与取值与 5 份副本逐位相同**（中心 1 + 8 向 + 每档 8 条）。</para>
         /// <para>🔴 **2026-10-19（`A2141`）**：`at` 这一口是为了让**灭自证**能用同一份扫描去问一颗
-        /// 「别家窗的吸收层」—— 生产路径传 `(tx,ty) =&gt; PointerLayer.Instance.ButtonAt(tx,ty)`。</para></summary>
-        static bool FindOwnAbsorbPoint(Transform winRoot, float x1, float y1, float x2, float y2,
+        /// 「别家窗的吸收层」—— 生产路径传 `(tx,ty) =&gt; PointerLayer.Instance.ButtonAt(tx,ty)`。</para>
+        /// <para>🔴 **2026-10-20（`W58-ABSORB`）**：候选点与矩形都是**设计帧**，而 `at` 吃的是**指针帧**
+        /// ⇒ 每个候选先过 <see cref="PointerFramePxFromDesign"/>（`designOwner` 必须与矩形同帧 ——
+        /// `CheckAbsorbRule` 传的是上面 `QuadRectPx(q)` 量的那颗 `q`）。**产出的 `px/py` 也是指针帧**
+        /// （直接喂 `PointerLayer.ClickAt`）。⛔ 别退回「设计点直接喂 `at`」：父链带缩放时
+        /// 矩形离画布中心较远的那些候选会全部落空（潜伏缺陷；单位缩放下两式逐位相同）。
+        /// 同批把「在屏幕里」那条守卫也挪到了**指针帧**上（屏幕真的那一帧；`k == 1` 时逐位不变）。</para></summary>
+        static bool FindOwnAbsorbPoint(Transform winRoot, Transform designOwner,
+                                       float x1, float y1, float x2, float y2,
                                        System.Func<float, float, WindowButton> at, out float px, out float py)
         {
             px = 0f; py = 0f;
@@ -2910,17 +2974,33 @@ namespace CardPresentation
             {
                 float tx = ccx + cand[i].x, ty = ccy + cand[i].y;
                 if (tx <= x1 + 3f || tx >= x2 - 3f || ty <= y1 + 3f || ty >= y2 - 3f) continue;   // 必须落在**原版**矩形里
-                if (tx < 2f || tx > 1918f || ty < 2f || ty > 1078f) continue;                    // 而且**在屏幕里**（玩家点不到屏外的点）
-                if (IsOwnAbsorbHit(at(tx, ty), winRoot)) { px = tx; py = ty; return true; }
+                var pt = PointerFramePxFromDesign(new Vector2(tx, ty), designOwner);             // 设计帧 → 指针帧
+                // 「在屏幕里」这一条判的是**指针帧**（= 屏幕真的那一帧）：设计帧在父链缩放 ≠ 1 时
+                // 与屏幕不同帧 ⇒ 拿设计坐标判会把「换算后掉到屏外」的候选放进来（k == 1 时逐位不变）。
+                if (pt.x < 2f || pt.x > 1918f || pt.y < 2f || pt.y > 1078f) continue;            // 玩家点不到屏外的点
+                if (IsOwnAbsorbHit(at(pt.x, pt.y), winRoot)) { px = pt.x; py = pt.y; return true; }
             }
             for (float gy = y1 + 4f; gy <= y2 - 4f; gy += 40f)
                 for (float gx = x1 + 4f; gx <= x2 - 4f; gx += 40f)
                 {
-                    if (gx < 2f || gx > 1918f || gy < 2f || gy > 1078f) continue;
-                    if (IsOwnAbsorbHit(at(gx, gy), winRoot)) { px = gx; py = gy; return true; }
+                    var pt = PointerFramePxFromDesign(new Vector2(gx, gy), designOwner);        // 设计帧 → 指针帧
+                    if (pt.x < 2f || pt.x > 1918f || pt.y < 2f || pt.y > 1078f) continue;
+                    if (IsOwnAbsorbHit(at(pt.x, pt.y), winRoot)) { px = pt.x; py = pt.y; return true; }
                 }
             return false;
         }
+
+        /// <summary>🆕 **2026-10-20（`W58-ABSORB`）**：<see cref="FindOwnAbsorbPoint"/> 的**自检只读口**
+        /// —— 函数体只允许 `=> 私有实现(...)` **一跳**，⛔ **不在这里加工 / 重算 / 换坐标系**
+        /// （转发纪律同 `PointerLayer.AllButtonsForTest`）。
+        /// <para>⚠️ 必须是 `public`：本仓 **0 个 `.asmdef`** ⇒ 运行期在 `Assembly-CSharp`、
+        /// 自检宿主在 `Assembly-CSharp-Editor`，`internal` 那一侧看不见（`资料/已知的坑.md`）。
+        /// 生产路径**一处都不调**这个口。</para>
+        /// <para>`designOwner` / 返回值帧的语义 → <see cref="FindOwnAbsorbPoint"/> 的 doc。</para></summary>
+        public static bool FindOwnAbsorbPointForTest(Transform winRoot, Transform designOwner,
+                                        float x1, float y1, float x2, float y2,
+                                        System.Func<float, float, WindowButton> at, out float px, out float py)
+            => FindOwnAbsorbPoint(winRoot, designOwner, x1, y1, x2, y2, at, out px, out py);
 
         /// <summary>`CheckAbsorbRule` 贴边候选的**内缩**距离（px，固定三档；见那段注释）。
         /// 🔴 **2026-10-15（A825）起只有这一份**：上一版 5 个宿主各有一份同值的 `EdgeInset`，

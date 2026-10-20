@@ -72,7 +72,11 @@
 // ④ **层级 / 队列口径**：原版靠 Canvas 的 `SortingOrder = 900`（+ 排序层 `PopUps`），
 //    本仓外壳是**世界空间 quad + 显式渲染队列**（`MainMenuRuntime` 的注释：
 //    「档位号本身是【我们自己起的梯子】」）。⇒ 本文件取**加载黑场之下、shell 之上**那一档
-//    （现网 = 加载黑场 `LoadingController.QDark 4080`…`LoadingMenu.QPanel 4090` · `BlockingOverlay 4070/4071` ·
+//    （现网 = 加载黑场 `LoadingMenu.QPanel 4090` · 转圈件 `LoadingController.QDark/QSkull/QCog 3327/3328/3329`
+//    （🔴 **2026-10-20（W58·D4）起**；原版它在 `Default` 层 ⇒ 在 toast 之下，判据 →
+//    `资料/普查产出_1020/W58_界面线_联盟搜索形态判据.md` §一·4）· `BlockingOverlay 3338/3339`
+//    （降级件，无运行时调用点；🔴 **2026-10-20（W58）**：由 `4070/4071` 降下来，判据 →
+//    `资料/普查产出_1020/W58_界面线_BlockingOverlay收尾.md`）·
 //    shell 最高 `4030`）—— 具体值见下面 `QShade` 那一段。
 //    🔴🔴 **2026-10-17（本批 · `N21①`）：判据【已定】，而且它推翻了旧账【和】R 报告的两句话。**
 //    **原版实读（`globalgamemanagers/TagManager/TagManager_3.json` + 两个 Canvas JSON）**：
@@ -85,9 +89,22 @@
 //    · 旧账「黑场在 toast 之上」**是对的**；
 //    · R 报告 `R_界面线剩余条目现核.md` §N21① 只比了 `m_SortingOrder`（900 > 0）、**漏了 `m_SortingLayerID`**
 //      ⇒ 它那句「Toast 在黑场之上 / 我们已经同序」**不成立**（错因 = 拿两个**不同排序层**的 order 直接比）。
-//    ⇒ 我们的值**跟着改**：原来 5000（压过加载黑场）是**反的**，现在落在
-//      `BlockingOverlay 4071` 与**加载黑场最底层** `LoadingController.QDark 4080` 之间（4072–4076）
-//      （= 仍高过全部 shell UI 与压暗层、但**低于**加载黑场）。⛔ 别再按「5000 起」去推。
+//    ⇒ 我们的值**跟着改**：原来 5000（压过加载黑场）是**反的**，现在落在 **4072–4076**：
+//      **高过**全部 shell UI（`4030`）与转圈件（`LoadingController.QDark/QSkull/QCog = 3327/3328/3329` ——
+//      原版转圈件在 `Default` 层、本来就该被 toast 盖住），**低过** tooltip（`4078`）与加载黑场（`4090`）。
+//      （🔴 **2026-10-20（W58·D4）**：转圈件由 4080–4082 降到 3327–3329，本段原写「在 BlockingOverlay 4071 与
+//      加载黑场 4080 之间」**已过期** —— 那两个数现在都不是转圈件的档，就地订正，铁律 5。）
+//      （🔴 **2026-10-20（W58·TOASTCOMMENT）**：上句引文里的 `BlockingOverlay 4071` 这个数**也已过期** ——
+//      它已由 `4070/4071` 降到 **`3338/3339`**，判据 → `资料/普查产出_1020/W58_界面线_BlockingOverlay收尾.md`；
+//      引文照旧保留，别据此再推转圈件的档。）⛔ 别再按「5000 起」去推。
+// ⑤ **hover 色偏（W58 · D6，2026-10-20）**：`Toast` / `Level Up` / `Get XP` 的根 `EverguildButton` 是
+//    `m_Transition = 1 (ColorTint)`、`m_Colors` = 全库默认组（Highlighted `0.9608…` / Pressed `0.7843…` /
+//    `m_FadeDuration 0.1`；`MonoBehaviour_504/508/513.json`）⇒ `ShowInternal` 里用
+//    `WindowButton.TintOn(Background 的九宫格)` 接上去（= 原版 `m_TargetGraphic`）。
+//    **`Mission` 不接**：`MB_520` 的 `m_Transition = 0 (None)` ⇒ 原版悬停不变。
+// ⑥ **生命周期（W58 · D5，2026-10-20）**：原版控制器只在**主菜单场景**（13 个战场 0 处）⇒ 切场景即整棵销毁；
+//    我们挂在 DDOL 壳上 ⇒ `ShellRuntime` 在切场景时调 `DisposeForSceneChange()`（清在飞 + 销毁控制器），
+//    回主菜单由 `MainMenuRuntime.Build` 重建。判据与调用点 → `DisposeForSceneChange` 上方那一段。
 //
 // ============================ 🔴 数据源现状（如实出声，⛔ 不编数据） ============================
 // · **任务进度**：有本地数据源 —— `Shell/DailyData.cs`（`DailyDesc` / `DailyCounter` /
@@ -218,10 +235,12 @@ namespace CardPresentation
 
         // ============================================================ 渲染队列（⚠️ 我们挑的梯子）
         // 原版这一层 = 排序层 `PopUps` + Canvas `SortingOrder 900`（**低于**加载黑场的 `Blocking` 层）。
-        // 本仓外壳是显式渲染队列：shell 最高 `4030`、`BlockingOverlay` 降级遮罩 `4070/4071`、
-        // **加载黑场那一族 `LoadingController.QDark/QSkull/QCog = 4080/4081/4082` + `LoadingMenu.QPanel 4090`** ⇒
-        // 这一族取 **4072–4076**：**高过全部 shell / 压暗层，低于加载黑场的最底层（4080）**
-        // （= 原版「toast 被加载黑场盖住」那一条）。
+        // 本仓外壳是显式渲染队列：shell 最高 `4030`、`BlockingOverlay` 降级遮罩 `3338/3339`（降级件，无运行时调用点；
+        // 🔴 2026-10-20（W58）：由 `4070/4071` 降下来，判据 → `资料/普查产出_1020/W58_界面线_BlockingOverlay收尾.md`）、
+        // **转圈件 `LoadingController.QDark/QSkull/QCog = 3327/3328/3329`（🔴 2026-10-20（W58·D4）起；原版它在
+        // `Default` 层、在 toast 之下）+ 加载黑场 `LoadingMenu.QPanel 4090`** ⇒
+        // 这一族取 **4072–4076**：**高过全部 shell UI 与转圈件，低于 tooltip（4078）与加载黑场（4090）**
+        // （= 原版「toast 属于 PopUps、盖住 Default 层的转圈件、被 Blocking 层的 tooltip/黑场盖住」那一条）。
         // 🔴 2026-10-17（`N21①`）：原来是 5000–5004（压过加载黑场）——**和原版反了**，判据见文件头 ④。
         public const int QShade = 4072, QBg = 4073, QArt = 4074, QText = 4075, QHit = 4076;
 
@@ -571,8 +590,11 @@ namespace CardPresentation
             //   TMP fs 37.2 · 白 · **Center/Midline** · autosize min 18 / max 37.2 / base 36.89（`MB 505`）
             var lvlTextRect = UguiRect.Child(lvlRect, Vector2.zero, Vector2.one, new Vector2(0.5f, 0.5f),
                                              new Vector2(-3.05176e-05f, 0f), new Vector2(-13.722f, -13.722f));
+            // 🔴 **2026-10-20（W58 · D7）**：`wrap: false` → **`true`**。
+            //   原版 `MB_505`（`Player Level Text`）的 `m_TextWrappingMode = 1 (Normal)`；
+            //   我们这一格原来是 `0 (NoWrap)`（RV·L1）。单/双位数字看不出差别，但字段必须与原版同值。
             var lvlText = Tmp(lvl, lvlTextRect, "-", Color.white, "Player Level Text", 37.2f, QText,
-                              wrap: false, autoMin: 18f, autoMax: 37.2f, autoBase: 36.89f, face: TmpFont.Face.LatinCardBody);
+                              wrap: true, autoMin: 18f, autoMax: 37.2f, autoBase: 36.89f, face: TmpFont.Face.LatinCardBody);
             MenuDraw.SetVAlign(lvlText, Label.VAlign.Midline, lvlTextRect);
 
             MenuDraw.Hit(root, "Hit", rootRect, QHit, null);
@@ -842,7 +864,31 @@ namespace CardPresentation
             // 根 = `EverguildButton`（原版 `ToastNotification.Initialize` 把 `context.OnClick` 挂到
             // `button.onClick`）。⚠️ 放在**量高之后**：`ApplyMeasuredHeight` 可能重建命中区。
             var hitBtn = go.GetComponentInChildren<WindowButton>(true);
-            if (hitBtn != null) hitBtn.onClick = ctx.OnClick;
+            if (hitBtn != null)
+            {
+                hitBtn.onClick = ctx.OnClick;
+
+                // 🔴 **2026-10-20（W58 · D6）hover 色偏（判据 → 文件头 ⑤）**：
+                //   原版 `Toast` / `Toast Collection Level Up` / `Get XP` 的根 `EverguildButton`
+                //   是 `m_Transition = 1 (ColorTint)`、`m_Colors` = 全库默认那一组
+                //   （Normal 白 / Highlighted `0.9608…` / Pressed `0.7843…` / `m_FadeDuration 0.1`
+                //   —— `MonoBehaviour_504/508/513.json`）⇒ 悬停时**根底图乘 0.9608**。
+                //   `Mission` **不接**：它的 `EverguildButton` 是 `m_Transition = 0 (None)`、`target = 0`
+                //   （`MonoBehaviour_520.json`）⇒ 原版悬停什么都不变。⛔ 别四颗一起补。
+                //   ⚠️ 必须在**第一次悬停之前**接（`WindowButton.Collect` 只收一次、顺带记基准色）；
+                //      且必须放在 `ApplyMeasuredHeight` **之后** —— 那一刻 `Background` 的九宫格可能刚被重建，
+                //      之前抓的 quad 已经是旧的那一批（A222 的 `TintOn` 语义 = 原版 `m_TargetGraphic`）。
+                if (ctx.Type != ToastNotificationType.MissionProgress)
+                {
+                    var bg = go.transform.Find("Background");
+                    var bgQuads = bg != null ? bg.GetComponentsInChildren<ImageQuad>(true) : null;
+                    if (bgQuads != null && bgQuads.Length > 0)
+                        hitBtn.TintOn(bgQuads);
+                    else
+                        Debug.LogWarning($"[ToastNotifications] `{ctx.Type}` 的 hover 色偏没接上："
+                                       + "`Background` 下没有 quad ⇒ 悬停时**画面不变**（⛔ 不静默）。");
+                }
+            }
 
             // ⑤⑥ 入场位置 + 格位
             int slot = _freeSpot; _freeSpot++;
@@ -1172,6 +1218,55 @@ namespace CardPresentation
             if (Application.isPlaying) Destroy(go); else DestroyImmediate(go);
         }
 
+        // ============================================================ 切场景生命周期（W58 · D5）
+        //
+        // 🔴 **2026-10-20（W58 · D5）判据**：原版 `ToastNotificationController` **只存在于主菜单场景**
+        //   （`bundle_scenes_scenes_mainmenuwarpforge/MonoBehaviour_1939.json`；13 个 `battlearena*` 里 **0 处**）
+        //   ⇒ **切场景 = 整棵控制器连同在飞的 toast 一起销毁**，不存在跨场景存活。
+        //   我们这一颗建在 `DontDestroyOnLoad` 的**壳**的 `Safe area Only Horizontal` 下
+        //   （`MainMenuRuntime.Build` → `ToastNotifications.Build`），壳不清它就会跨场景活着。
+        //   ⇒ 下面两个口：① `ClearLive()` 只清在飞的（控制器还在）；
+        //     ② `DisposeForSceneChange()` = 清在飞 + **连控制器一起销毁**（= 原版「随主菜单场景销毁」）。
+        //   ⚠️ 调用点 = `ShellRuntime.LoadSceneWithFade`（切场景前）+ `ShellRuntime` 的全局
+        //      `SceneManager.sceneLoaded` 兜底（覆盖不走本方法的 `LoadScene` 站点）。
+        //   回主菜单时由 `MainMenuRuntime.Build` 重新 `Build` 一颗 —— 与原版「主菜单场景里有、别处没有」同构。
+
+        /// <summary>清掉**所有在飞的 toast**（+ 排队中的 `ScheduleNotification`），格位归零；**控制器本身留着**。
+        /// <para>⚠️ 只清本文件的 toast；顶部那条**错误横幅**（`MessageToast` / `UIMessageController`）是另一个类，
+        /// 原版在 13 个战场里也有它 ⇒ **别在这里顺手清它**。</para></summary>
+        public static void ClearLive()
+        {
+            if (Instance == null) return;
+            Instance.ClearLiveInternal();
+        }
+
+        void ClearLiveInternal()
+        {
+            for (int i = _live.Count - 1; i >= 0; i--)
+            {
+                var l = _live[i];
+                if (l.Go == null) continue;
+                // 先关再删：Play 下 `Destroy` 是**帧末**才真消失，不关会多画一帧（同 `Build` 的写法）。
+                l.Go.SetActive(false);
+                Kill(l.Go);
+            }
+            _live.Clear();
+            _scheduled.Clear();
+            _freeSpot = 0;
+        }
+
+        /// <summary>切场景前调：清在飞 toast + **销毁控制器节点**（`Instance` 归 null）。
+        /// <para>= 原版「`ToastNotificationController` 随主菜单场景一起销毁」的等效物（判据 → 上面那一段）。
+        /// ⚠️ 只由 `ShellRuntime` 在切场景时调；自检要「从零再建」仍用 <see cref="DisposeForTest"/>。</para></summary>
+        public static void DisposeForSceneChange()
+        {
+            if (Instance == null) return;
+            Instance.ClearLiveInternal();
+            // Play 下 `Destroy` 是**帧末**才真消失 ⇒ 先关掉整棵，保证切场景那一帧起它一帧都不再画 / 不再跑 `Update`。
+            Instance.gameObject.SetActive(false);
+            DisposeForTest();
+        }
+
         // ============================================================ 缓动（DOTween `Ease.OutBack` / `InBack`）
         // 判据：`__ShowNotificationInternal.c` 的 `SetEase(0x1b)` / `SetEase(0x1a)`；DOTween 的
         // `Ease` 枚举 = `InBack 26` / `OutBack 27`（`Battle/BattleCameraSreenSize.cs` 那张表的同源）。
@@ -1252,7 +1347,12 @@ namespace CardPresentation
             {
                 lb.SetAutoFitBox(LayoutSpace.Px(r.W), LayoutSpace.Px(r.H), autoMin,
                                  autoMax > 0f ? autoMax : fontPx, autoBase);
-                if (!wrap) lb.SetWrapping(false);      // 原版 `m_TextWrappingMode = 0`
+                // 🔴 **2026-10-20（W58 · D7）**：这里原来只在 `!wrap` 时调 `SetWrapping(false)`，
+                //   `wrap == true` 时**什么都不调** —— 而 `Label.BuildTmp` 的出厂值就是 `NoWrap`
+                //   （`Battle/Label.cs` 的 `BuildTmp`：`_tmp.textWrappingMode = NoWrap`）
+                //   ⇒ 「自适应 + 折行」那两颗（`Level Up` 的 `Text` / `Player Level Text`）**实际仍是 NoWrap**。
+                //   原版两格都是 `1 (Normal)`（`MB_523` / `MB_505`）⇒ **两态都要显式写**。
+                lb.SetWrapping(wrap);
             }
             else if (wrap)
             {

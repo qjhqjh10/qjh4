@@ -66,15 +66,22 @@ ChatManager.GetChatMessage(idx, isPlayer)                    // ChatManager__Get
 2. `d:/4/Unity/MyGame/Assets/CardPresentation/Resources/card_chat_intro.json` —— **运行时件**
    （只收 49 张运行时卡；`Resources.Load<TextAsset>("card_chat_intro")`）
 
+🆕 **2026-10-20（战斗线 `T18`）**：每条开场白多导两格 —— `soundGuid`（SO 的
+`customSound.m_AssetGUID`）与 `soundAsset`（用 `资料/普查产出_1018/cardanim_guid_map/
+guid_map_bundles.tsv` 解出的 AudioClip 资产名；解不出 ⇒ 空串 + 全量件 `unresolvedSoundGuids`，
+**⛔ 不猜成默认音**）。运行时按 `Resources/Art/audio/vo/<soundAsset>` 加载（语音线导入器已把
+卡包的 1,857 条 AudioClip 全拷到那里）。
+
 ## 用法
 
     python -I -X utf8 d:/4/Unity/工具/gen_card_chat_intro.py            # 重出两份产物
     python -I -X utf8 d:/4/Unity/工具/gen_card_chat_intro.py --check    # 只比不写（幂等自检）
 
-⛔ 不读写 `d:/2`（只读上面那两份 JSON 与卡池）；⛔ 不碰 `cards_engine.json`；
+⛔ 不读写 `d:/2`（只读上面那两份 JSON + 卡池 + 本地 `guid_map*.tsv`）；⛔ 不碰 `cards_engine.json`；
 ⛔ 缺文案的键**照原版算法拼出来但标 `hasText=false`**，**不自译、不补假键**。
 """
 
+import csv
 import io
 import json
 import os
@@ -86,6 +93,18 @@ ROOT4 = "d:/4/Unity"
 CARDS_RAW = ROOT4 + "/资料/普查产出_1018/allcards_1350/cards_raw.json"
 LOC_ZH_EN = ROOT4 + "/数据/游戏数据/官方本地化_en+zh-CN.json"
 CARDS_ENGINE = ROOT4 + "/MyGame/Assets/RuleEngine/Resources/cards_engine.json"
+
+# ---- `customSound` 的 `AssetReference GUID → 资产名` 对照表 ----
+# 🆕 2026-10-20（战斗线 `T18`）：开场白每条的 `customSound` 是 Unity Addressables 的
+#   `AssetReferenceTyped<AudioClip>`（`CustomIntroChatData.cs:10` / `CustomIntroByArmyChatData.cs:10`），
+#   运行时原版走 `ChatManager.GetChatSoundAsset` → `AssetReference.Load`（`ChatManager__GetChatSoundAsset.c`）。
+#   我们按 **`Resources/Art/audio/vo/<资产名>`** 加载（语音线导入器把卡包里的 AudioClip 全拷到了那里）。
+#   ⚠️ 两张表都要读：
+#     · `guid_map_bundles.tsv`（2026-10-18 直接枚举本地束的容器键建的）—— **190/190 命中**；
+#     · 旧 `guid_map.tsv`（2026-10-15 从 Addressables 目录出发）—— **0/190 命中**（音频不在那份目录里）。
+#   ⇒ 以束枚举表为主、旧表只作兜底；两表都查不到 ⇒ 落 `unresolvedSoundGuids` 并 **出声**（⛔ 不猜成默认音）。
+GUID_MAP_BUNDLES = ROOT4 + "/资料/普查产出_1018/cardanim_guid_map/guid_map_bundles.tsv"
+GUID_MAP_OLD = ROOT4 + "/资料/普查产出_第二十七会话/guid_map.tsv"
 
 OUT_FULL = ROOT4 + "/数据/游戏数据/card_chat_intro.json"
 OUT_RT = ROOT4 + "/MyGame/Assets/CardPresentation/Resources/card_chat_intro.json"
@@ -136,11 +155,74 @@ def _sound_guid(entry):
     return cs.get("m_AssetGUID") or ""
 
 
+def _read_guid_map(path, source):
+    """`guid_map*.tsv` → {assetGuid: {"name":…, "type":…, "bundle":…, "source":…}}。
+
+    ⚠️ 同一 GUID 可能有多行（旧表里 Texture2D/Sprite 各一行）⇒ **只认 AudioClip**；
+    同一 GUID 的多条 AudioClip 若名字不同 ⇒ 出声（本项目「宁可认不出，不可认错」）。
+    """
+    out = {}
+    if not os.path.exists(path):
+        return out, "缺失: %s" % path
+    with io.open(path, encoding="utf-8") as fh:
+        for row in csv.DictReader(fh, delimiter="\t"):
+            if row.get("type") != "AudioClip":
+                continue
+            g = row.get("assetGuid") or ""
+            n = row.get("name") or ""
+            if not g or not n:
+                continue
+            old = out.get(g)
+            if old is None:
+                out[g] = {"name": n, "type": row.get("type"), "bundle": row.get("bundle"),
+                          "source": source}
+            elif old["name"] != n:
+                print("[WARN] GUID %s 在 `%s` 里对上两个不同 AudioClip（`%s` / `%s`）—— 保留第一个"
+                      % (g, source, old["name"], n))
+    return out, None
+
+
+def _load_guid_map():
+    """束枚举表优先、旧表兜底。返回 (map, 说明 list)。"""
+    primary, err1 = _read_guid_map(GUID_MAP_BUNDLES, "bundle-container")
+    if err1:
+        raise SystemExit("[FATAL] " + err1 + " —— customSound 没法解资产名；"
+                         "先跑 `python 工具/gen_guid_map_from_bundles.py`（⛔ 别猜）")
+    fallback, err2 = _read_guid_map(GUID_MAP_OLD, "old-map")
+    notes = ["primary=%s（%d 条 AudioClip）" % (GUID_MAP_BUNDLES, len(primary))]
+    if err2:
+        notes.append("fallback 不可用（%s）" % err2)
+    else:
+        notes.append("fallback=%s（%d 条 AudioClip，只补 primary 没有的）" % (GUID_MAP_OLD, len(fallback)))
+    merged = dict(fallback)
+    merged.update(primary)          # primary 压过 fallback（它是当前 build 的束枚举）
+    return merged, notes
+
+
 def build():
     raw_doc = _read_json(CARDS_RAW)
     raw_cards = raw_doc["cards"]
     i2 = _read_json(LOC_ZH_EN)["terms"]
     engine_ids = {c["id"] for c in _read_json(CARDS_ENGINE)["cards"]}
+    guid_map, guid_notes = _load_guid_map()
+
+    # customSound 的对账口径（运行时件与全量件共用同一套）
+    sound_guids = set()
+    sound_unresolved = set()
+    n_sound_entries = 0
+
+    def sound_asset(sg):
+        """GUID → AudioClip 资产名；解不出 ⇒ 空串（并记进 `sound_unresolved`）。"""
+        nonlocal n_sound_entries
+        if not sg:
+            return ""
+        n_sound_entries += 1
+        sound_guids.add(sg)
+        rec = guid_map.get(sg)
+        if rec is None:
+            sound_unresolved.add(sg)
+            return ""
+        return rec["name"]
 
     selected = []
     for c in raw_cards:
@@ -184,11 +266,13 @@ def build():
                 continue
             n_prec_uniq += 1
             key = CHAT_PREFIX + chat_id + "-Chat" + str(INTRO_IDX) + "-" + opp
+            sg = _sound_guid(e)
             intro_by_opponent[opp] = {
                 "key": key,
                 "talksFirst": int(e.get("talksFirst") or 0),
                 "hasText": key in i2,
-                "soundGuid": _sound_guid(e),
+                "soundGuid": sg,
+                "soundAsset": sound_asset(sg),
             }
             if key not in i2 and key not in seen_missing:
                 seen_missing.add(key)
@@ -212,10 +296,12 @@ def build():
                 continue
             n_army_uniq += 1
             key = CHAT_PREFIX + chat_id + "-Chat" + str(INTRO_IDX) + "-" + aname
+            sg = _sound_guid(e)
             intro_by_army[aname] = {
                 "key": key,
                 "hasText": key in i2,
-                "soundGuid": _sound_guid(e),
+                "soundGuid": sg,
+                "soundAsset": sound_asset(sg),
             }
             if key not in i2 and key not in seen_missing:
                 seen_missing.add(key)
@@ -282,6 +368,15 @@ def build():
             all_unique.add(v["key"])
             all_with_text += 1 if v["hasText"] else 0
 
+    rt_sound_entries = sum(
+        1 for c in rt_cards
+        for v in list(c["introByOpponent"].values()) + list(c["introByArmy"].values())
+        if v.get("soundGuid"))
+    rt_sound_unresolved = sorted({
+        v["soundGuid"] for c in rt_cards
+        for v in list(c["introByOpponent"].values()) + list(c["introByArmy"].values())
+        if v.get("soundGuid") and not v.get("soundAsset")})
+
     counts = {
         "soCards": len(cards),
         "runtimeCards": len(rt_cards),
@@ -299,6 +394,12 @@ def build():
         "keysWithTextRuntime": rt_with_text,
         "keysMissing": len(all_missing),
         "keysMissingRuntime": len(rt_missing),
+        # 🆕 2026-10-20（`T18`）：`customSound`（原版 `ChatManager.GetChatSoundAsset` 的定制音）
+        "soundEntries": n_sound_entries,
+        "soundEntriesRuntime": rt_sound_entries,
+        "soundGuids": len(sound_guids),
+        "soundGuidsResolved": len(sound_guids) - len(sound_unresolved),
+        "soundGuidsUnresolved": len(sound_unresolved),
     }
 
     algorithm = {
@@ -325,6 +426,14 @@ def build():
                             "数据列表取那张卡的（本表按 SO 原样导出各自的列表；运行时 49 张"
                             "chatRef/introRef 全空 ⇒ 不含重定向差异）。",
         "vs": "-vs* 18 条：stringliteral.json 无 '-vs' 字面量、反编译无方法拼它 ⇒ 旧版本遗留，本表不建。",
+        "customSound": "ChatManager__GetChatSoundAsset.c（idx=0）：① 精确档条目命中且 "
+                       "entry.customSound(+0x18) 非空 ⇒ `AssetReferenceTyped<AudioClip>.Load` 播它；"
+                       "② 否则按阵营档同一条；③ 两档都没有/条目没带 customSound ⇒ 回落 "
+                       "RawCardScript.GetChatSound(idx)（`introChatSound` → `defaultChatSound`）。"
+                       "⚠️ 运行时 49 张卡的 197 条条目**全部**带 customSound（现读）。"
+                       "字段 `soundGuid` = `AssetReference.m_AssetGUID`，`soundAsset` = 束里 AudioClip 的资产名"
+                       "（解出后我们按 `Resources/Art/audio/vo/<soundAsset>` 加载；解不出 ⇒ 空串 + 进 "
+                       "`unresolvedSoundGuids`，⛔ 不猜成默认音）。",
     }
 
     full_doc = {
@@ -335,14 +444,16 @@ def build():
                       "（当前 build 2026-10-18 · 1,351 张 RawCardScript；bundle=%s）" % raw_doc.get("bundle", ""),
             "localization": "数据/游戏数据/官方本地化_en+zh-CN.json（当前 build en/zh-CN 两列）",
             "cardsEngine": "MyGame/Assets/RuleEngine/Resources/cards_engine.json（只用来判 inRuntime）",
+            "soundGuidMap": " · ".join(guid_notes),
             "decompiled": "d:/2/tools/decomp_full/：ChatManager__GetChatMessage.c · ChatManager__GetCustomIntro.c"
                           " · ChatManager__GetCustomIntroByArmy.c · ChatManager__IsPlayerFirstIntro.c"
                           " · RawCardScript__GetChatId.c · RawCardScript__GetLocalizedCustomIntroChatMsg.c"
                           " · RawCardScript__GetLocalizedCustomIntroChatMsgByArmy.c"
                           " · RawCardScript__GetLocalizedChatMsg.c",
         },
-        "note": "本条只导【文本键 + talksFirst】；customSound 的 AssetGUID 留在 soundGuid 里备查，"
-                "但 GUID→音频那一跳不在本脚本（语音线另有管线）。"
+        "note": "本条导【文本键 + talksFirst + customSound】。customSound 的 GUID 在 `soundGuid`、"
+                "解出的 AudioClip 资产名在 `soundAsset`（解不出 ⇒ 空串并在 `unresolvedSoundGuids` 里，"
+                "⛔ 不猜成默认音）。"
                 "talksFirst=null 表示精确档逐对手不同（看 introByOpponent[*].talksFirst），"
                 "或该卡没有精确档条目（此时原版 IsPlayerFirstIntro 返回 1）。"
                 "hasText 是「这个键在官方 en+zh-CN 表里存不存在」（en 与 zh-CN 任一非空才算有；"
@@ -350,16 +461,19 @@ def build():
         "algorithm": algorithm,
         "counts": counts,
         "missingKeys": all_missing,
+        "unresolvedSoundGuids": sorted(sound_unresolved),
         "cards": cards,
     }
 
     rt_doc = {
         "schema": "card_chat_intro/1",
-        "note": "原版定制开场白两档（精确档 / 按阵营档）+ talksFirst。"
+        "note": "原版定制开场白两档（精确档 / 按阵营档）+ talksFirst + customSound。"
                 "键拼法见全量件 `数据/游戏数据/card_chat_intro.json` 的 algorithm 节。"
                 "只收 cards_engine.json 里有的卡（inRuntime=true）；副本/教程 SO 见全量件。"
                 "talksFirst=null ⇒ 逐对手不同（看 introByOpponent[*].talksFirst）或无精确档（默认 1）。"
-                "hasText=false 的键在官方表里没有原文（⛔ 不补假键；Loc.T 会回显键名）。",
+                "hasText=false 的键在官方表里没有原文（⛔ 不补假键；Loc.T 会回显键名）。"
+                "soundGuid = SO 的 `customSound.m_AssetGUID`；soundAsset = 解出的 AudioClip 资产名"
+                "（加载路径 = `Resources/Art/audio/vo/<soundAsset>`；空串 = 这条没有定制音）。",
         "chatIdOverrides": chat_id_overrides,
         "counts": {
             "cards": len(rt_cards),
@@ -368,6 +482,12 @@ def build():
             "uniqueKeys": len(rt_unique),
             "keysWithText": rt_with_text,
             "keysMissing": len(rt_missing),
+            "soundEntries": rt_sound_entries,
+            "soundGuids": len({v.get("soundGuid")
+                               for c in rt_cards
+                               for v in list(c["introByOpponent"].values()) + list(c["introByArmy"].values())
+                               if v.get("soundGuid")}),
+            "soundGuidsUnresolved": len(rt_sound_unresolved),
         },
         "cards": [],
     }
@@ -382,11 +502,13 @@ def build():
             "chatId": c["chatId"],
             "talksFirst": c["talksFirst"],
             "introByOpponent": {
-                k: {"key": v["key"], "talksFirst": v["talksFirst"], "hasText": v["hasText"]}
+                k: {"key": v["key"], "talksFirst": v["talksFirst"], "hasText": v["hasText"],
+                    "soundGuid": v["soundGuid"], "soundAsset": v["soundAsset"]}
                 for k, v in c["introByOpponent"].items()
             },
             "introByArmy": {
-                k: {"key": v["key"], "hasText": v["hasText"]}
+                k: {"key": v["key"], "hasText": v["hasText"],
+                    "soundGuid": v["soundGuid"], "soundAsset": v["soundAsset"]}
                 for k, v in c["introByArmy"].items()
             },
         })
@@ -442,6 +564,13 @@ def main():
     print("[统计] 官方表命中 %d 条 / 缺 %d 个（运行时命中 %d 条 / 缺 %d 个）"
           % (counts["keysWithText"], counts["keysMissing"],
              counts["keysWithTextRuntime"], counts["keysMissingRuntime"]))
+    print("[统计] customSound 条目 %d（运行时 %d）｜GUID %d 个（解出 %d / 解不出 %d）"
+          % (counts["soundEntries"], counts["soundEntriesRuntime"], counts["soundGuids"],
+             counts["soundGuidsResolved"], counts["soundGuidsUnresolved"]))
+    if full_doc.get("unresolvedSoundGuids"):
+        print("[customSound GUID 解不出]（⛔ 不猜成默认音 —— 运行时件对应条目 soundAsset 为空串）")
+        for g in full_doc["unresolvedSoundGuids"]:
+            print("   " + g)
     if rt_missing:
         print("[运行时缺键]（⛔ 不补假键）")
         for k in rt_missing:

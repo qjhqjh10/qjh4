@@ -18,11 +18,61 @@ namespace CardPresentation
     {
         public struct Glyph
         {
-            public string variant;   // "thin" / "thick"（原版两档描边）
+            public string variant;   // "thin" / "thick" / "thick3d"（原版三档描边）
             public char ch;
             public int x, y, w, h;   // 在表里的位置与尺寸（表内像素）
             public float adv;        // 步进
             public float bearingX;   // 左轴承
+        }
+
+        /// <summary>字形档 = 原版三种 TMP 材质的 `_OutlineWidth`（见 `PragatiDigits.Data.cs` 的
+        /// <see cref="OutlineWidth(string)"/>，那个数就是烘字形时用的数）。
+        /// <para>· `Thin` **0.05** —— 2D 卡面的生命/近战/远程（`Atlas Material Thin Outline`）</para>
+        /// <para>· `Thick` **0.097** —— 2D 卡面的护甲/费用（`Atlas Material Thick Outline`）</para>
+        /// <para>· `Thick3D` **0.12** —— 🔴 **场上四个数值**共用的
+        /// `Pragati-Regular White_thick Offset for 3D`（`Material_-1760077249967186717`，
+        /// `_OutlineWidth 0.12` / `_FaceDilate 0.12`）。2026-10-20（W58）补的这一档。</para></summary>
+        public enum Variant { Thin, Thick, Thick3D }
+
+        /// <summary>档 → 字形表里的 variant 标签（唯一映射处；别在别处再抄一份字符串）。</summary>
+        public static string Tag(Variant v)
+        {
+            switch (v)
+            {
+                case Variant.Thin:   return "thin";
+                case Variant.Thick:  return "thick";
+                default:             return "thick3d";
+            }
+        }
+
+        /// <summary>这一档烘进去的描边宽度（数值来自**生成器那张表**，见 `Data.cs` 的注释）。</summary>
+        public static float OutlineWidth(Variant v) { return OutlineWidth(Tag(v)); }
+
+        /// <summary>表里有没有这一档的字形（缺档时 `Find` 会返回默认值 ⇒ 静默画不出来，
+        /// 所以自检要能直接问这一句）。</summary>
+        public static bool HasVariant(Variant v)
+        {
+            if (!Load()) return false;
+            string want = Tag(v);
+            for (int i = 0; i < Rows.Length; i++)
+                if (Rows[i].variant == want) return true;
+            return false;
+        }
+
+        /// <summary>某个字符在某一档里的**不透明像素数**（表内像素，描边也算）。
+        /// 用来验证「粗档确实比细档粗」—— 不断言具体数字，只断相对关系。</summary>
+        public static int InkPixels(char c, Variant v)
+        {
+            if (!Load()) return 0;
+            var g = Find(c, v);
+            if (g.h == 0 || g.w == 0) return 0;
+            int n = 0;
+            for (int y = 0; y < g.h; y++)
+            {
+                int row = (g.y + y) * SheetW + g.x;
+                for (int x = 0; x < g.w; x++) if (_sheet[row + x].a > 0) n++;
+            }
+            return n;
         }
 
         /// <summary>逐像素：`rgb` = 字面色（白），`a` = **描边**覆盖。表里不存 RGB，见生成器注释</summary>
@@ -61,11 +111,17 @@ namespace CardPresentation
         /// <summary>一行数字有多宽（表内像素）。表里没有的字符按半个字宽跳过（**不静默画成别的字**）</summary>
         public static int Measure(string s, bool thick)
         {
+            return Measure(s, thick ? Variant.Thick : Variant.Thin);
+        }
+
+        /// <summary>同上，按档取（2026-10-20 W58：场上四个数值走 <see cref="Variant.Thick3D"/>）。</summary>
+        public static int Measure(string s, Variant v)
+        {
             if (string.IsNullOrEmpty(s) || !Load()) return 0;
             int w = 0;
             foreach (var c in s)
             {
-                var g = Find(c, thick);
+                var g = Find(c, v);
                 w += g.h == 0 ? DigitH / 2 : Mathf.RoundToInt(g.adv);
             }
             return w;
@@ -89,14 +145,21 @@ namespace CardPresentation
         /// </param>
         public static void Draw(Color32[] px, int W, int H, string s, int cx, int cy, bool thick, int maxW = 0)
         {
+            Draw(px, W, H, s, cx, cy, thick ? Variant.Thick : Variant.Thin, maxW);
+        }
+
+        /// <summary>同上，按档取（2026-10-20 W58：场上四个数值走 <see cref="Variant.Thick3D"/>，
+        /// 描边 0.12 —— 原版 `White_thick Offset for 3D`）。</summary>
+        public static void Draw(Color32[] px, int W, int H, string s, int cx, int cy, Variant v, int maxW = 0)
+        {
             if (string.IsNullOrEmpty(s) || !Load() || px == null) return;
             float scale = 1f;
             if (maxW > 0)
             {
-                int measured = Measure(s, thick);
+                int measured = Measure(s, v);
                 if (measured > maxW) scale = (float)maxW / measured;
             }
-            int x = cx - Mathf.RoundToInt(Measure(s, thick) * scale * 0.5f);
+            int x = cx - Mathf.RoundToInt(Measure(s, v) * scale * 0.5f);
             // 🔴 **2026-10-18（`N109` 收尾）：按【墨迹包围框】居中，而不是按【步进盒】居中。**
             //   旧写法只减 `Measure()*0.5`（步进盒），而 `bearingX` 一直存着没用 ⇒ 数字墨迹**固定偏左 ≈1.4 面像素**
             //   （`W15_卡面数值与费用图标.md` §5.2 · `R_卡面元素对账A_6阵营.md` §二）。
@@ -105,7 +168,7 @@ namespace CardPresentation
                 float inkL = 0f, inkR = 0f, pen = 0f; bool firstInk = true;
                 foreach (var ch2 in s)
                 {
-                    var g2 = Find(ch2, thick);
+                    var g2 = Find(ch2, v);
                     if (g2.h == 0) { pen += Mathf.RoundToInt(DigitH * scale * 0.5f); continue; }
                     float gl = pen + g2.bearingX * scale;
                     float gr = gl + g2.w * scale;
@@ -118,7 +181,7 @@ namespace CardPresentation
             int top = cy - Mathf.RoundToInt(DigitH * scale * 0.5f);
             foreach (var c in s)
             {
-                var g = Find(c, thick);
+                var g = Find(c, v);
                 if (g.h == 0) { x += Mathf.RoundToInt(DigitH * scale * 0.5f); continue; }
                 Blit(px, W, H, g, x, top, scale);
                 x += Mathf.RoundToInt(g.adv * scale);
@@ -164,9 +227,9 @@ namespace CardPresentation
             }
         }
 
-        static Glyph Find(char c, bool thick)
+        static Glyph Find(char c, Variant v)
         {
-            string want = thick ? "thick" : "thin";
+            string want = Tag(v);
             for (int i = 0; i < Rows.Length; i++)
                 if (Rows[i].ch == c && Rows[i].variant == want) return Rows[i];
             return default(Glyph);

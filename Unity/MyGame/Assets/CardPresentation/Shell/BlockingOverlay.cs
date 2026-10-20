@@ -15,13 +15,21 @@
 //   本件留着的原因有两条，**都不是「原版长这样」**：
 //     ① `Editor/ShellScene.cs` 的自检直接调 `StartSpinning/StopSpinning` 探 `IsBlocking`；
 //     ② 图取不到时 `LoadingController` 会报错，此时它是「只剩一块暗底 + 旧圈」的那条兜底。
-//   ⚠️ **现读全仓没有任何运行时调用点**（`grep "BlockingOverlay"` 只命中本文件 / `ShellRuntime.Build` /
-//      `ShellScene` 自检 / 注释）—— 别以为大厅断线在用它（那条走 `NetRuntime.Notice` 那套）。
+//   ⚠️ **现读全仓没有任何运行时调用点**（`grep "BlockingOverlay"` 只命中本文件 / `ShellRuntime.Build`（只建不调）/
+//      `PointerLayer`（只读 `IsBlocking`）/ `ShellScene` 自检 / 注释）—— 别以为大厅断线在用它（那条走 `NetRuntime.Notice` 那套）。
 //   ⚠️ 它画的圈是旧图 `40K_menu_loading`、128px、转速我们挑的 —— **与原版不符**，只当兜底。
 //
-// 🔴 2026-10-17：渲染队列 3060/3061 → **4070/4071**。原来的 3060 写着「挡住一切」，
-//   而壳侧弹窗/面板的队列已到 4030（`AlliancePanelWindow.QText`）⇒ 作为兜底它其实**挡不住**。
-//   抬到全部 shell UI 之上、加载黑场（4090）之下。本件没有运行时调用点 ⇒ 行为面零影响。
+// 🔴 2026-10-17：渲染队列 3060/3061 → 4070/4071（当时的判据 = 压在全部 shell UI 之上、黑场 4090 之下）。
+// 🔴 **2026-10-20（W58 · 遗留 1）：4070/4071 再降到 3338/3339 —— 上面那条判据已过期**（铁律 5）。
+//   原版加载遮罩那两件（`MenuLoadingController` = `Default`(0) 层 · `LoadingMenu` = `Blocking` 层）
+//   **不在 toast（`PopUps`/900）之上**；真正那两件已建在 `Shell/LoadingMenu.cs`
+//   （转圈 `QDark/QSkull/QCog = 3327–3329` · 黑场 `QPanel = 4090`）⇒ 本件作为**备用加载遮罩**跟着落回同一档。
+//   取值 = `GenericOptionsPanel` 带尾（`QHit = 3337`）与 `AllianceMemberOptionsPopup` 带首
+//   （`QShade = 3340`）之间**唯一的双槽空隙 3338/3339** —— 与转圈件 3327–3329 同族、不抢它的号、
+//   也不落进任何窗的号段（再往上 3340→3487 是连续弹窗带，只剩单槽空隙、容不下 dim+spinner 两件）。
+//   ⚠️ **已知残留（如实记）**：它因此高于 `GenericOptionsPanel` 那一带弹窗 —— 与转圈件「高于
+//   `TrophyInfoPopup` 带」是同一类倒置（那张表里那个空隙是 2 槽，容不下第三、四件）；
+//   本件**零运行时调用点**、只在降级路径被手动打开，与任何弹窗都不同屏 ⇒ 今天不可见。
 
 using System.Collections;
 using UnityEngine;
@@ -31,8 +39,13 @@ namespace CardPresentation
     public class BlockingOverlay : MonoBehaviour
     {
         /// <summary>有没有东西在挡输入。菜单的点击/拖拽入口都要问它一句。
-        /// ⚠️ **现读全仓没有消费者**（只有自检读它）—— 这条「挡输入」目前是**没有接线**的。</summary>
+        /// 消费者 = `PointerLayer.InputBlocked`（2026-10-17 `N8` 接上）+ 自检；
+        /// ⚠️ **`StartSpinning` 现读全仓仍零运行时调用点** —— 它只在降级路径/自检里被手动打开。</summary>
         public static bool IsBlocking { get; private set; }
+
+        /// <summary>渲染队列（⚠️ **[我们挑的]梯子**，判据与取舍 → 文件头 2026-10-20 那一段）。
+        /// 取 `GenericOptionsPanel` 带尾 3337 与 `AllianceMemberOptionsPopup` 带首 3340 之间的空隙。</summary>
+        public const int QDim = 3338, QSpinner = 3339;
 
         ImageQuad _dim, _spinner;
 
@@ -47,14 +60,14 @@ namespace CardPresentation
             {
                 _dim.SetAspect(1f);
                 _dim.SetTint(new Color(0f, 0f, 0f, 0.35f));
-                _dim.SetRenderQueue(4070);      // 高于全部 shell UI（现读最高 4030）、低于加载黑场（4090）
+                _dim.SetRenderQueue(QDim);      // 备用加载遮罩档（降级件）：与转圈件 3327–3329 同族，见文件头
             }
 
             var tex = CardArt.MenuUi("40K_menu_loading");
             if (tex != null)
                 _spinner = ImageQuad.Create(transform, tex, Vector3.zero, 128f / 108f,
                                             new Vector2(0.5f, 0.5f), "Spinner");
-            if (_spinner != null) _spinner.SetRenderQueue(4071);
+            if (_spinner != null) _spinner.SetRenderQueue(QSpinner);
         }
 
         void SetActiveState(bool on)

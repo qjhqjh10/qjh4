@@ -253,10 +253,24 @@ namespace RuleEngine
         /// <summary>
         /// **面朝下**（`Ambush`，2026-09-13 A2）—— 规则书 `:166`「伏击：**面朝下打出**；
         /// **下次回合前**若被伤害：翻开**无效果**；若未被伤害：翻开**并触发效果**」。
+        /// ⚠️ **2026-10-20 补注**：上面这句是**粉丝实体版规则书**（非官方）的说法，
+        ///    **不是数字版判据** —— 数字版的真实行为见下（两者在「挨打触不触发」上相反）。
         ///
-        /// 两条出口（都在 `RuleCore` 里，判据各只一处）：
-        ///   · 挨到**实际伤害** → <see cref="RuleCore.ApplyDamage"/> 里翻开，**不触发**；
-        ///   · 撑到自己**下一个回合开始** → <see cref="RuleCore.RevealAmbush"/> 翻开并触发。
+        /// 🔴 **2026-10-20（`W58-AMBUSH` · 铁律 5 就地订正）**：本段原写
+        /// 「两条出口：挨到**实际伤害** → `ApplyDamage` 里翻开、**不触发**；撑到自己**下一个回合开始**
+        /// → `RuleCore.RevealAmbush` 翻开并触发」—— **两句都已作废**：
+        ///   ① 原版 `CardScript.SetAmbush` 全二进制**只有 7 个调用点、没有一个在回合开始**
+        ///      ⇒ 「窗口到期自动揭示」**不存在**（`RuleCore.RevealAmbush` **已删除**）；
+        ///   ② 「挨打不触发」也不对 —— 触发与否看**回合归属**，不是看有没有挨打
+        ///      （`CardScript__SetAmbush.c:69-129` 最后那道 `isPlayer == IsPlayerTurn()` 闸）。
+        ///
+        /// **现行两条出口**（都在 `RuleCore` 里，判据各只一处）：
+        ///   · 挨到**实际伤害**（所有减免之后）→ `RuleCore.ApplyDamage` 里 `FaceDown = false`
+        ///     并发 `EvtKind.AmbushExit{Effect="damage"}`；**卡主自己那一方是当前行动方**才触发伏击正文；
+        ///   · **面朝下地出手攻击** → `RuleCore.DeclareAttack` 里 `FaceDown = false`
+        ///     并发 `EvtKind.AmbushExit{Effect="attack"}`，**这一记攻击被取消**
+        ///     （原版 `_ResolveAttack:288-305`）；同样只在卡主自己那一方是当前行动方时触发正文。
+        /// ⚠️ `EvtKind.AmbushExit.Effect` 里 `"window"` 是**历史值、今天不可达**（见它的 doc）。
         ///
         /// ⚠️ **我们不做「藏起来」** —— 引擎里双方都看得见对方场上是什么（全工程没有隐藏信息这一层），
         ///    这里只实现**时机**那一半。表现层要盖张卡背是它自己的事。
@@ -357,8 +371,14 @@ namespace RuleEngine
         ///     （`System_Math__Min`）写回 `+0x68..0x78`；
         ///   · `:41-42` `RemoveBuffedTrait(0x1ae)` + `RemoveTrait(0x1ae)`（= **整个摘掉** `survivor`）；
         ///   · `:71` `AddTraitSilently(0x1b8 /*survivorSpent*/)`；
-        ///   · `:87` `BattleManager.BroadcastUnitHealed(card)` → 我们发一条**负数 `Hit`**（= 治疗，
-        ///     表现层据此走绿字，与 `EndTurn` 的再生段**同一个约定**）。
+        ///   · `:87` `BattleManager.BroadcastUnitHealed(card)` → 我们发一条**负数 `Hit`**
+        ///     （🔴 **2026-10-20（`W58`）就地订正（铁律 5）**：本行原来写「负数 `Hit` = 治疗，
+        ///     表现层据此走绿字，与 `EndTurn` 的再生段**同一个约定**」—— **已过期**。
+        ///     现行口径：**治疗 = `EvtKind.Heal`**（唯一口 `RuleCore.HealUnit`，`Amount` = 实际治疗量、正数；
+        ///     再生 / 猎杀标记 / `heal` op / `heal` 能力都走它）；
+        ///     **负数 `Hit` 仅作幸存者广播的标记**（发出点 = `RuleCore.CleanupDeaths`，
+        ///     **表现层对它全静默** —— 原版 Survivor 不进 `CardScript.Heal`，不飘治疗字、没有治疗圈）。
+        ///     详见 `BattleEvent.Amount` 的 doc；⛔ 别把它改成 `EvtKind.Heal`）。
         ///   · `:73-75` 🔴 **`RawCardScript.OnTrigger(raw, 0x1a4, …)`** ——
         ///     `0x1a4` = `AbilityTrigger.Survivor = 420` ⇒ 「幸存者**作为触发 id**」那一半
         ///     （本方法**自己不发** —— `UnitState` 上没有 ctx，由调用点

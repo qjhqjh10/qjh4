@@ -22,6 +22,8 @@
 
 用法：PYTHONIOENCODING=utf-8 python Unity/工具/gen_pragati_digits.py
       加 `--dry` = 只跑计算、打印读数、**零写盘**（默认行为不变；`A1648` 同族口径）。
+      加 `--check` = 只跑计算、把【内存里的产物】与盘上逐字节比，**零写盘**；
+                     全一致退 0，有差异/缺文件退 1（幂等自检用，2026-10-20 W58）。
 """
 import io, json, os, sys
 
@@ -31,7 +33,9 @@ from PIL import Image
 sys.stdout.reconfigure(encoding="utf-8")
 
 # 🔴 `--dry` = 只跑计算、打印读数、**零写盘**。默认（不带它）行为与以前完全一样。
+# 🔴 `--check` = 只跑计算、与盘上逐字节比、**零写盘**（幂等）。
 DRY = "--dry" in sys.argv[1:]
+CHECK = "--check" in sys.argv[1:]
 
 ASSETS = "d:/2/新解包资源/assets_full/bundle_fonts_assets_all"
 FONT_JSON = os.path.join(ASSETS, "MonoBehaviour/Pragati-Regular SDF.json")   # ⚠️ 名字里有空格，路径照抄
@@ -68,11 +72,26 @@ namespace CardPresentation
         /// ⇒ 0.222 卡单位 ⇒ 我们 256×407 的卡面贴图上正好 28 px。</summary>
         public const int DigitH = __H_DIGIT__;
 
-        /// <summary>一行一个字：variant（`thin`/`thick`）、字符、x、y、w、h、步进、左轴承（表内像素）</summary>
+        /// <summary>一行一个字：variant（`thin`/`thick`/`thick3d`）、字符、x、y、w、h、步进、左轴承（表内像素）</summary>
         public static readonly Glyph[] Rows =
         {
 __ROWS__
         };
+
+        /// <summary>本表**实际烘进去**的描边宽度（= 生成器 `OUTLINES`，逐档一项）。
+        /// <para>`thin 0.05` / `thick 0.097` = **2D 卡面**材质（`Pragati-Regular Atlas Material
+        /// {Thin,Thick} Outline`）；`thick3d 0.12` = **场上四个数值**共用的
+        /// `Pragati-Regular White_thick Offset for 3D`（`_OutlineWidth 0.12` / `_FaceDilate 0.12`）。</para>
+        /// <para>返回值与烘字形时用的是**同一个数**（都来自生成器那张表）⇒ 自检读它不会自证。
+        /// 未知档返回 **−1**（不静默返回 0）。</para></summary>
+        public static float OutlineWidth(string variant)
+        {
+            switch (variant)
+            {
+__OUTLINE_CASES__
+                default: return -1f;
+            }
+        }
 
         /// <summary>整张表的像素（base64，每像素 2 字节，行主序）</summary>
         public const string SheetB64 =
@@ -92,10 +111,15 @@ FONT_POINT = 95.0
 GRADIENT_SCALE = 21.0       # = m_AtlasPadding(20) + 1，TMP 的 SDF 梯度标尺
 PAD = 3                     # 每格四周留的空白（描边+抗锯齿要地方）
 
-# 两档描边（原版材质里的 `_OutlineWidth`，见 `TmpFont.ApplyOutline` 的注释）：
-#   生命/近战/远程 = Thin 0.05；护甲/费用 = Thick 0.097
-# ⚠️ 这张表同时出**两套**字形，C# 侧按位子选哪一套。
-OUTLINES = {"thin": 0.05, "thick": 0.097}
+# 三档描边（原版材质里的 `_OutlineWidth`，见 `TmpFont.ApplyOutline` 的注释）：
+#   · `thin`    0.05  —— 2D 卡面的生命/近战/远程（`Atlas Material Thin Outline`）
+#   · `thick`   0.097 —— 2D 卡面的护甲/费用（`Atlas Material Thick Outline`）
+#   · `thick3d` 0.12  —— 🆕 2026-10-20（W58）**场上四个数值**共用的
+#                       `Pragati-Regular White_thick Offset for 3D`
+#                       （`Material_-1760077249967186717`：`_OutlineWidth 0.12` / `_FaceDilate 0.12`）
+# ⚠️ 这张表同时出**三套**字形，C# 侧按位子选哪一套。**追加新档只能加在末尾** ——
+#    行号 = 表里的 y 位置，插在中间会让已有两档的坐标全部平移（无功能问题，但 diff 会炸）。
+OUTLINES = {"thin": 0.05, "thick": 0.097, "thick3d": 0.12}
 
 DIGITS = "0123456789"
 
@@ -145,7 +169,13 @@ def main():
         big_w, big_h = w_t * SS, DIGIT_H * SS
         src = np.array(Image.fromarray((sub * 255).astype(np.uint8))
                        .resize((big_w, big_h), Image.BILINEAR)).astype(np.float32) / 255.0
-        sc = (DIGIT_H / m["m_Height"]) / SS                     # 图集像素 → 4× 目标像素
+        sc = (DIGIT_H / m["m_Height"]) * SS                     # 图集像素 → 4× 目标像素
+        # 🔴 **2026-10-20（W58）就地订正**：原来这里写的是 `/ SS` —— **量纲错了 16 倍**
+        #    （`src` 是 4× 的超采样场，`coverage_from_sdf` 里的距离必须用「4× 像素」；
+        #    1 图集像素 = `DIGIT_H*SS/m_Height` ≈ 1.81 个 4× 像素）。
+        #    后果（改前实测）：`0.05 / 0.097 / 0.12` 三档的 **face 通道逐字节相同**，而描边层在
+        #    整块字形矩形里**饱和**（`alpha>0` 的像素 = 4340/4340）⇒ 每个数字背后都是一个
+        #    **不透明黑方块**；三档描边宽度**全部是空转**。
         faces = {}
         for tag, ow in OUTLINES.items():
             extra = ow * GRADIENT_SCALE * (DIGIT_H / m["m_Height"]) * SS
@@ -168,9 +198,12 @@ def main():
             c = cells[ch]
             face_cov, out_cov = c["faces"][tag]
             # 4× → 目标：降采样（两路一起降，保证 face 永远在 out 之内）
+            # 🔴 **2026-10-20（W58）**：`LANCZOS` → **`BOX`**。覆盖率图在 4× 上已经是
+            #    抗过锯齿的，降采样只需要**取平均**；`LANCZOS` 是带锐化的，会在字形周围
+            #    ring 出一圈孤立小点（实测每格 30–40 个低 alpha 噪点，1 px 大、贴在字边上）。
             stack = np.stack([face_cov, out_cov], axis=-1)
             small = np.array(Image.fromarray((stack * 255).astype(np.uint8))
-                             .resize((c["w"], c["h"]), Image.LANCZOS)).astype(np.float32) / 255.0
+                             .resize((c["w"], c["h"]), Image.BOX)).astype(np.float32) / 255.0
             f, o = small[..., 0], small[..., 1]
             o = np.maximum(o, f)                                # 描边至少把字面盖住
             rgb = np.zeros((c["h"], c["w"], 3), np.float32)     # 字面白、描边黑
@@ -183,23 +216,22 @@ def main():
             meta[tag][ch] = dict(x=x, y=y, w=c["w"], h=c["h"],
                                  adv=c["adv"], bearing_x=c["bearing_x"])
 
-    if DRY:
-        print("干跑（未写盘）：%s / %s / %s" % (OUT_PNG, OUT_JSON, OUT_TXT))
-    else:
-        os.makedirs(os.path.dirname(OUT_PNG), exist_ok=True)
-        img.save(OUT_PNG)
-        json.dump(dict(rows=meta, cell=[cell_w, cell_h], digit_h=DIGIT_H,
-                       note="由 工具/gen_pragati_digits.py 从原版 Pragati-Regular SDF 图集生成，别手改"),
-                  io.open(OUT_JSON, "w", encoding="utf-8"), ensure_ascii=False, indent=1)
-        # 再出一份**纯文本表**给 C# —— `JsonUtility` 解不了「字典键是数字」的结构，
-        # 而这份表就是 10×2 行数字，用 `Split(',')` 读最省事（也不用引 JSON 库）。
-        with io.open(OUT_TXT, "w", encoding="utf-8", newline="\n") as fh:
-            fh.write("# variant,digit,x,y,w,h,adv,bearing_x   由 gen_pragati_digits.py 生成，别手改\n")
-            for tag in tags:
-                for ch in DIGITS:
-                    m = meta[tag][ch]
-                    fh.write("%s,%s,%d,%d,%d,%d,%.4f,%.4f\n"
+    # ── 先在【内存里】把四份产物都算出来（`--check` / `--dry` 都靠这一步，零写盘）──
+    buf = io.BytesIO()
+    img.save(buf, format="PNG")
+    png_bytes = buf.getvalue()
+    json_bytes = json.dumps(dict(rows=meta, cell=[cell_w, cell_h], digit_h=DIGIT_H,
+                                 note="由 工具/gen_pragati_digits.py 从原版 Pragati-Regular SDF 图集生成，别手改"),
+                            ensure_ascii=False, indent=1).encode("utf-8")
+    # 再出一份**纯文本表**给 C# —— `JsonUtility` 解不了「字典键是数字」的结构，
+    # 而这份表就是 10×N 行数字，用 `Split(',')` 读最省事（也不用引 JSON 库）。
+    txt_lines = ["# variant,digit,x,y,w,h,adv,bearing_x   由 gen_pragati_digits.py 生成，别手改"]
+    for tag in tags:
+        for ch in DIGITS:
+            m = meta[tag][ch]
+            txt_lines.append("%s,%s,%d,%d,%d,%d,%.4f,%.4f"
                              % (tag, ch, m["x"], m["y"], m["w"], m["h"], m["adv"], m["bearing_x"]))
+    txt_bytes = ("\n".join(txt_lines) + "\n").encode("utf-8")
 
     # ── 给 C# 的**数据源文件** ────────────────────────────────────────────────
     # 为什么不走 `Resources` 的 PNG：读像素要 `m_IsReadable=1`，而那个位在 `.meta` 里
@@ -221,15 +253,39 @@ def main():
             lines.append(f'            new Glyph {{ variant = "{tag}", ch = \'{ch}\', '
                          f'x = {m["x"]}, y = {m["y"]}, w = {m["w"]}, h = {m["h"]}, '
                          f'adv = {m["adv"]:.4f}f, bearingX = {m["bearing_x"]:.4f}f }},')
+    # 描边宽度表（生成物自己带着「烘的时候用的是多少」—— 自检读它才不自证）
+    outline_cases = "\n".join(f'                case "{tag}": return {ow:.6g}f;'
+                              for tag, ow in OUTLINES.items())
     src = (CS_TEMPLATE
            .replace("__W__", str(img.width)).replace("__H__", str(img.height))
            .replace("__H_DIGIT__", str(DIGIT_H))
            .replace("__ROWS__", "\n".join(lines))
+           .replace("__OUTLINE_CASES__", outline_cases)
            .replace("__B64__", b64))
+    cs_bytes = src.encode("utf-8")
+
+    outputs = [(OUT_PNG, png_bytes), (OUT_JSON, json_bytes),
+               (OUT_TXT, txt_bytes), (OUT_CS, cs_bytes)]
+
+    if CHECK:
+        bad = 0
+        for path, want in outputs:
+            if not os.path.exists(path):
+                print(f"缺文件  {path}"); bad += 1; continue
+            got = io.open(path, "rb").read()
+            if got != want:
+                print(f"不一致  {path}  （盘上 {len(got)} B / 应为 {len(want)} B）"); bad += 1
+            else:
+                print(f"一致    {path}  （{len(want)} B）")
+        print(f"{'--check 通过（幂等）' if bad == 0 else f'--check 失败：{bad} 份不一致'}")
+        sys.exit(0 if bad == 0 else 1)
+
     if DRY:
-        print(f"干跑（未写盘）{OUT_CS}（base64 {len(b64)} 字符 / {len(packed)} 字节）；要落盘请去掉 --dry")
+        print("干跑（未写盘）：%s / %s / %s" % (OUT_PNG, OUT_JSON, OUT_TXT))
     else:
-        io.open(OUT_CS, "w", encoding="utf-8", newline="\n").write(src)
+        for path, data in outputs:
+            os.makedirs(os.path.dirname(path), exist_ok=True)
+            io.open(path, "wb").write(data)
 
     print(f"{'干跑（未写盘）' if DRY else '写出'} {OUT_PNG}  {img.size}  · 每格 {cell_w}×{cell_h} · 字高 {DIGIT_H}px")
     print(f"      {OUT_JSON}" + ("（干跑：未写）" if DRY else ""))

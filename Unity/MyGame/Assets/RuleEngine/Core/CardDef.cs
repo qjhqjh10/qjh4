@@ -760,7 +760,12 @@ namespace RuleEngine
             KeywordTable.Stimulation,
             // 传送（2026-09-13 A2）：**当回合从牌库抽到即打出时**触发（`RuleCore.PlayCard` 里）
             KeywordTable.Teleport,
-            // 伏击（2026-09-13 A2）：**面朝下打出**，窗口到期时翻开（`RuleCore.RevealAmbush` / `ApplyDamage`）
+            // 伏击（2026-09-13 A2）：**面朝下打出**；翻开只有两条路 —— 真挨到伤害
+            // （`RuleCore.ApplyDamage`）或**面朝下地出手攻击**（`RuleCore.DeclareAttack`，这一记被取消）。
+            // 🔴 **2026-10-20（`W58-AMBUSH` · 铁律 5 就地订正）**：本行原写「**窗口到期时**翻开
+            //   （`RuleCore.RevealAmbush` / `ApplyDamage`）」—— **作废**：原版 `SetAmbush` 的 7 个调用点里
+            //   没有一个在回合开始 ⇒ 「窗口到期自动揭示」不存在，`RuleCore.RevealAmbush` **已删除**。
+            //   （本表这一条的作用不变：`FireTriggerAt(..., Ambush, …)` 要收得到 `Ambush:` 的正文。）
             KeywordTable.Ambush,
             // 🔴 典籍（2026-09-14 A4 批 4）：`Codex: <正文>` 的正文要收得下来，
             //    否则 `TriggerOps("codex")` **恒为 null** ⇒ 强行触发它（`Author of the Codex`）
@@ -3779,8 +3784,12 @@ namespace RuleEngine
         ///    所以**效果完全由规则定义**，不进 `RoutableTriggers`（没有 `Unstable:` 那种正文可收）。
         /// 目标池与伤害范围**照我们上一版 Godot 复刻** `rule_core.gd:4578 _unstable_blast`：
         /// **场上随机单位（含双方）**、`randi_range(1,3)`（⚠️ **旁证、非判据**，见文件头）。
-        /// 结算在 `RuleCore.CleanupDeaths`，**排在 `Backlash` 之前**（上一版复刻 `rule_core.gd:4529`
-        /// 就是这个顺序 —— 同属**旁证**；⚠️ 2026-10-18 更正：这两句原来按**判据**写的）。
+        /// 结算在 `RuleCore.CleanupDeaths`，**排在 `Backlash` 之后**。
+        /// 🔴 **2026-10-20（`W58`）就地订正（铁律 5）**：本行原来写「**排在 `Backlash` 之前**（上一版复刻
+        /// `rule_core.gd:4529` 就是这个顺序 —— 同属**旁证**）」—— **已过期**：`W58` 的 **D5** 按原版
+        /// `BattleManager._ResolveBacklash_d__451__MoveNext.c:88`（80 `ThisUnitDeath` = Backlash）
+        /// `< :144`（81 `Unstable`）改成 **Backlash 先、Unstable 后**（见 `CleanupDeaths` 里那段）。
+        /// 旧文案里的 `rule_core.gd:4529` 一直是**旁证、非判据**（文件头已写明）。
         /// </summary>
         public const string Unstable = "unstable";
 
@@ -4226,6 +4235,20 @@ namespace RuleEngine
             //   ⚠️ 不登记在这一栏 ⇒ 卡面会白打一个 `*`、`UnimplementedKeywords` 会多报一条。
             //   判据与全池张数见 `RuleCore.Unstunnable` 的注释。全池今天 **0 张卡**带它。
             RuleCore.Unstunnable,
+            // 🆕 2026-10-20（`W58` · 审查 `P2-6` 收口）：**`sentinel`（哨兵，trait 670）·
+            //   `berzerk`（狂暴，trait 360）· `maintenance`（维护费，trait 370）**。
+            //   机制本批已建（三个常量的判据与落点 → `RuleCore.Sentinel` / `Berzerk` / `Maintenance`
+            //   的 doc，⛔ 别在这里抄第二份），进这一栏的判据 = 「**那个时机真的有人读它**」
+            //   （与 `Sacrifice` / `DropPod` / `Unstoppable` 同一把尺子，⛔ 不是承诺书）：
+            //     · `sentinel`    → `RuleCore.HasSentinelInPlay`（`u.Has(Sentinel)`）→ 回合开始抽牌闸；
+            //     · `berzerk`     → `RuleCore.PendingBerzerkUnits`（`u.Has(Berzerk)`）→ 回合结束强制攻击；
+            //     · `maintenance` → `RuleCore.BeginTurn`（`mu.KwValue(Maintenance)`）→ 回合开始扣能量。
+            //   ⚠️ **不登记在这一栏的代价**：卡面白打一个 `*`、`UnimplementedKeywords` 多报一条
+            //      （同 `unstunnable`）；而 `Prefixes` 不登记则是**静默丢弃**（更糟，见那一节）。
+            //   ⚠️ 今天全池 **0 张卡**在 `keywords` / `cardTraits` 里带这三个词
+            //      （`cards_engine.json` 1127 张现扫；名字里含 `Sentinel` / `Berzerker` 的卡不算 ——
+            //       卡名不走 `Normalize`）⇒ **不改动任何现有解析结果**。
+            RuleCore.Sentinel, RuleCore.Berzerk, RuleCore.Maintenance,
             // 🆕 2026-10-15（接线批）：**`unstoppable`（不可阻挡，trait 180）** —— 机制本笔接上
             //   （`RuleCore.IsValidTarget` 里「无视 Vanguard」那句 `&&` 的第二个入口，
             //  判据 = 原版 `BattleManager__IsValidAttackTarget.c:149`）。
@@ -4754,6 +4777,39 @@ namespace RuleEngine
             new[] { "spirit stone", KeywordTable.SpiritStone },
             new[] { "spiritstone", KeywordTable.SpiritStone },
             new[] { "faith", "faith" },
+            // 🆕 2026-10-20（`W58` · 审查 `P2-6`）：**`sentinel`（哨兵，trait 670）·
+            //    `berzerk`（狂暴，trait 360）· `maintenance`（维护费，trait 370）**。
+            //    机制本批已建（判据/落点 → `RuleCore.Sentinel` / `Berzerk` / `Maintenance` 的 doc），
+            //    ⚠️ **为什么必须登记在这里**（与 `noncombatant` / `unstunnable` 同一条先例）：
+            //    不登记 ⇒ `Normalize` 返回 null ⇒ `KeywordTable.Parse` 与构造函数**双双丢弃**
+            //    ⇒ 卡数据 `keywords` 列写 `Sentinel` / `Berzerk` / `Maintenance 2` 会被
+            //    `NoteDropped` + `continue` **静默丢掉**（卡面既不报「未实现」、也不打 `*`）
+            //    —— 正是本工程「不许静默失败」红线。三个词也一并进了 `Implemented`（那里才有判据）。
+            //    ⚠️ **前缀撞车已现核**（`Normalize` = `StartsWith` + **先到先得**）：
+            //      · `sentinel` 与既有 `sentry` 在**第 5 个字符**分开（`s-e-n-t-i` vs `s-e-n-t-r`），
+            //        两个方向都**不互为前缀**；以 `s` 开头的其余条目（`stealth` / `slay` / `shield` /
+            //        `stun` / `strike` / `stomp` / `shuriken` / `sniper` / `swarm` / `synapse` /
+            //        `stimulation` / `sacrifice` / `survivor` / `sabotage` / `spirit stone`）
+            //        第 2 个字符就分开；
+            //      · `berzerk` 与既有 `backlash` / `bastion` / `blast` / `blind` / `blood thirst` /
+            //        `bloodthirst` 第 2 个字符就分开（`b-e` vs `b-a` / `b-l`）；
+            //      · `maintenance` 与既有 `mob`（第 2 个字符）· `markerlight`（第 3 个字符）分开；
+            //      · **反向（新词抢先吃掉老词）也不成立**：既有条目里没有任何一个以
+            //        `sentinel` / `berzerk` / `maintenance` 开头。
+            //    ⚠️ **影响面实测（2026-10-20，拿全池文本现扫）**：`cards_engine.json` 1127 张的
+            //      `keywords` / `desc` / `descZh` 三列命中 **0 条**；`cards_raw.json` 1,351 张的
+            //      `cardTraits` 命中 **0 条**（唯一命中是**卡名**里的 `Armoured Sentinel` /
+            //      `Khorne Berzerker` —— 卡名不过 `Normalize`）⇒ 加这三条**不改动任何现有解析结果**。
+            //    ⚠️ `maintenance` 是**裸数值 trait**（原版 `CurrentMaintenance =
+            //      GetCurrentTraitValueWithModifiers(0x172)`）⇒ 卡面写 `Maintenance 2` 时
+            //      `Parse` 的 `FirstNumber`（`':'` 之前那半段）会给它 **2**，与 `Survivor 3` 同形；
+            //      `RuleCore.BeginTurn` 读的就是 `KwValue(Maintenance)`。
+            //    ⚠️ 拼写照原版枚举名 **`berzerk`**（`DefinedTrait.berzerk = 360`）；
+            //      ⛔ **别顺手加 `berserk`** —— 全池 / `cards_raw.json` / 本地化表都 **0** 命中，
+            //      没有判据的别名就是发明一个词。
+            new[] { "sentinel", RuleCore.Sentinel },
+            new[] { "berzerk", RuleCore.Berzerk },
+            new[] { "maintenance", RuleCore.Maintenance },
             // ⚠️ 本工程自定（原版 61 个里没有）—— 放最后，免得吃掉将来可能加进来的同前缀词
             new[] { "ability", Ability },
         };

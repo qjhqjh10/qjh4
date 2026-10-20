@@ -162,6 +162,64 @@ public static class MenuCheck
         => t == null ? new Vector2(-99999f, -99999f)
                      : MenuDraw.PixelOfDesign(MenuDraw.PosInDesignSpace(t));
 
+    /// <summary>🆕 **2026-10-20（`A1350` 第二批）**：**设计帧点**（乙式）的**世界点重载** ——
+    /// 给「`GetWorldCorners` / TMP `textBounds` 四角」那几处用（节点点仍走 <see cref="DesignPx(Transform)"/>）。
+    /// <para>🔴 **除的是 `owner` 的【父级】那一级 `lossyScale`** —— 这正是甲式
+    /// `LayoutSpace.PxX/PxY(裸 position)` 漏掉的那一级（与 `MenuDraw.PosInDesignSpace` 同一条口径：
+    /// 自己的 `localScale` 只影响**它的孩子**、不影响它自己的位置）。`owner` = 被量那棵树里的任一件；
+    /// 量一个**临时件**的四角就传那个临时件自己（⛔ 不是它的父件）。</para>
+    /// <para>⚠️ `owner == null` ⇒ 返回 `(-99999,-99999)`（与 <see cref="DesignPx(Transform)"/> 同一个哨兵：
+    /// ⛔ **不许**落回 `(960,540)`）；`owner.parent == null` ⇒ **不除**（与 `PosInDesignSpace` 的退化档一致：
+    /// 它就是根，链上没有任何缩放可除）。</para>
+    /// <para>⚠️ **退化守卫逐字同 `MenuDraw.DivByScale`**（缩放非有限 / `|k| &lt; 1e-6` ⇒ 原样返回）——
+    /// 那一份是 `private`，这里照抄算式，⛔ 没有去改生产侧的可见性。</para>
+    /// <para>⚠️ 与 <see cref="DesignPx(Transform)"/> 的关系：`DesignPx(t)` ≡ `DesignPx(t.position, t)`
+    /// （同一个除父级 + 同一个 `PixelOfDesign`），16:9 + 父链单位缩放下差 ≤ 2.5e-4 px。</para></summary>
+    public static Vector2 DesignPx(Vector3 worldPoint, Transform owner)
+    {
+        if (owner == null) return new Vector2(-99999f, -99999f);
+        var above = owner.parent;
+        if (above == null) return MenuDraw.PixelOfDesign(worldPoint);   // 根：链上没有缩放可除
+        var k = above.lossyScale;
+        return MenuDraw.PixelOfDesign(new Vector3(DivByScale(worldPoint.x, k.x),
+                                                  DivByScale(worldPoint.y, k.y),
+                                                  DivByScale(worldPoint.z, k.z)));
+    }
+
+    /// <summary>`MenuDraw.DivByScale` 的**逐字副本**（那份是 `private`，本文件只读生产侧 ⇒ 不改可见性）。
+    /// <para>语义：`k` 非有限 / ≈0 ⇒ **原样返回**（这一档下该件本来就画不出来，与
+    /// `Label.ParentXInDesignSpace` / `PosInDesignSpace` 同一处置）。⛔ 别在这里加别的兜底。</para></summary>
+    static float DivByScale(float v, float k)
+        => (float.IsNaN(k) || float.IsInfinity(k) || Mathf.Abs(k) < 1e-6f) ? v : v / k;
+
+    /// <summary>🆕 **2026-10-20（`A1350` 第二批）**：**指针帧点** —— 与 `Shell/PointerLayer.HitBoxPx`
+    /// **同帧**：`LayoutSpace.ToDesignPixel(裸 t.position)`，**不除**父链缩放（画出来多大就多大，
+    /// 父链缩放**留着**）。
+    /// <para>🔴 **它服务的语义是「喂 `PointerLayer.ButtonAt/ClickAt`」** ——
+    /// `ShellScene.PxCenterOf` 今天用的是甲式 `LayoutSpace.ToPixel`，与 `HitBoxPx` 的
+    /// `ToDesignPixel(裸世界)` **不同帧**（非 16:9 下 x 差 `VisibleWidth / DesignWidth` 倍）；
+    /// 修法是换成这一档，⛔ **不是**换成设计帧 <see cref="DesignPx(Transform)"/>（那个除了缩放）。
+    /// 判据 → `Shell/PointerLayer.cs` 的 `HitBoxPx` doc、`Core/LayoutSpace.cs` 的 `ToDesignPixel` doc。</para>
+    /// <para>⚠️ 名字是 `PointerFramePx`、**不是** `PointerPx` —— 后者是 `Battle/TutorialOverlay.cs`
+    /// 里已有的私有常量（类内私有，不会编译冲突，但读起来会混）。</para>
+    /// <para>⚠️ `t == null` ⇒ `(-99999,-99999)`（同一哨兵纪律：⛔ 不许落回画面中心）。</para></summary>
+    public static Vector2 PointerFramePx(Transform t)
+        => t == null ? new Vector2(-99999f, -99999f)
+                     : LayoutSpace.ToDesignPixel(t.position);
+
+    /// <summary>🆕 **2026-10-20（`A1350` 第二批 · `W58-PTRPORT`）**：**设计帧 → 指针帧**的点换算 ——
+    /// 给「先用**设计帧**几何算出一个点、再喂 `PointerLayer.ButtonAt / ClickAt / ScrollUnder`」的那几处用。
+    ///
+    /// <para>🔴 **本函数只是一行转发**；**唯一实现在 `MenuDraw.PointerFramePxFromDesign`**
+    /// （`Shell/MenuDraw.cs` —— 运行期件，`CheckAbsorbRule` 在运行期也要用同一条换算）。
+    /// 恒等式、退化守卫、「不是整值乘 k」的推导、`owner` 该传哪一级 —— **全部写在那份 doc 里**
+    /// （⛔ 别在这里抄第二份：两份公式迟早漂 = CLAUDE.md §三）。
+    /// 🆕 **2026-10-20（`W58-ABSORB`）**：本函数原来自带一份实现，已按「唯一实现」原则下沉到
+    /// `MenuDraw`，本文件改为转调；`ScaleAboutPx` 也随之删除（运行期侧有同名一份，私有的）。</para>
+    /// <para>⚠️ 保留本签名是为了 `CollectionScene` 那 6 个调用点一个都不用改。</para></summary>
+    public static Vector2 PointerFramePxFromDesign(Vector2 designPx, Transform owner)
+        => MenuDraw.PointerFramePxFromDesign(designPx, owner);
+
     /// <summary>🆕 **2026-10-20（`A1350` 第一批）**：`NodeRectPx` 的**中心语义**（⚠️ 显式枚举、
     /// **没有默认值** —— 让编译期拦住「没想清楚该量哪一颗」的调用点）。
     /// <list type="bullet">

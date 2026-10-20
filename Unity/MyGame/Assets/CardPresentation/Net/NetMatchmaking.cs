@@ -615,7 +615,14 @@ namespace CardPresentation.Net
                             break;
                         }
                         var m = NetProtocol.Unpack<MsgDeck>(f.payload);
-                        if (m == null || string.IsNullOrEmpty(m.deckJson)) { Debug.LogWarning("[Net] 收到空的卡组包"); break; }
+                        if (m == null || string.IsNullOrEmpty(m.deckJson))
+                        {
+                            // 🔴 **2026-10-20（W58-NETPROBE · T05 探针，只加日志）**：唯一前缀，方便真连时
+                            //   一眼分清「卡组包坏了」与「本机取消过 ⇒ 主动丢掉」（上面那一支）。
+                            Debug.LogWarning("[Net] NET/BYE-R1/deck-unparsable 收到空的卡组包（NET/DECK/empty）"
+                                           + " —— 丢掉这一条；主机不会因此开局");
+                            break;
+                        }
                         _foeDeck = JsonUtility.FromJson<PlayerDeck>(m.deckJson);
                         _foeMode = m.gameMode;
                         _foeFaction = m.faction;
@@ -641,7 +648,15 @@ namespace CardPresentation.Net
                             break;
                         }
                         var st = NetProtocol.Unpack<MsgStart>(f.payload);
-                        if (st == null) break;
+                        if (st == null)
+                        {
+                            // 🔴 **2026-10-20（W58-NETPROBE · T05 探针，只加日志、不改行为）**：原来是一句
+                            //   光秃秃的 `break` —— 开局包解不出来时本机会**静默留在原地**（对面已进战场）。
+                            Debug.LogWarning("[Net] NET/BYE-R1/start-unparsable 主机发来的开局包 `start` **解不出来**"
+                                           + "（载荷坏了 / 版本对不上）⇒ 丢掉这一条、**不切场景**；"
+                                           + "对面那一端已经按「已开局」走了 —— 这一局会两端分叉，必须查");
+                            break;
+                        }
                         // 🆕 客机在这一刻才知道「对面是谁」（大厅阶段拿不到，只有主机收得到 Deck）。
                         //    ⚠️ 这几个字段都是**主机视角**的名字：`myName` 是主机的名字、`hostDeckJson`
                         //    是主机那副牌 —— 对客机来说它们正是「对面」。
@@ -740,7 +755,15 @@ namespace CardPresentation.Net
         static void HostStartMatch()
         {
             var s = NetRuntime.Instance != null ? NetRuntime.Instance.Session : null;
-            if (s == null) return;
+            if (s == null)
+            {
+                // 🔴 **2026-10-20（W58-NETPROBE · T05 探针，只加日志、不改行为）**：原来静默返回 ——
+                //   两端都交完卡组、而这一刻会话没了（被 `Reset` 换掉 / `NetRuntime` 不在）⇒ 谁都开不了局。
+                Debug.LogWarning("[Net] NET/BYE-R7/no-session 主机要开局，但**这一刻没有会话**"
+                               + "（`NetRuntime.Instance.Session == null`）⇒ 开不了局；"
+                               + "这一局会停在这里（不是「正在等对手」）");
+                return;
+            }
 
             // ① 模式必须一致（首版只做经典；两端都带遭遇牌也允许 —— 同一套引擎，但**要出声**）
             string mode = _myMode ?? "Classic";

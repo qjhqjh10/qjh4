@@ -240,8 +240,20 @@ namespace CardPresentation
         /// <summary>`Cog` 的 `SimpleRotation.speed.z`（度/秒，负 = 顺时针）。</summary>
         public const float SpinDegPerSecond = -20f;
 
-        // 渲染队列：都要高于全部 shell UI（现读最高 4030）；黑场 4090 在它们之上。
-        public const int QDark = 4080, QSkull = 4081, QCog = 4082;
+        // 渲染队列（🔴 **2026-10-20（W58·D4）重定档** —— 原版判据见下，⛔ 别按「高于全部 shell UI」去推）：
+        //   **原版判据**：`MenuLoadingController` 在 `Game UI` 画布的 **Default(0) 层**（自己**没有** Canvas；
+        //   唯一子 Canvas 是 `Cog` 的 `Canvas_1078`，`m_OverrideSorting = false`），且是 `Safe area Only Horizontal`
+        //   的**最后一个孩子**（兄弟序 11）⇒ **压在主窗（`windowsPlacement` 5/10）之上、在全部 PopUps
+        //   （窗/横幅/教学/toast）与 Blocking（tooltip/黑场）之下**
+        //   （判据 → `资料/普查产出_1020/W58_界面线_联盟搜索形态判据.md` §一·4）。
+        //   **我们的梯子 [我们挑的]**：原版按排序层排，我们这张显式队列表里没有对应的号段（placement-5 活动窗
+        //   已占到 3729，而 placement-15 弹窗最低 3310）⇒ 取 `TrophyInfoPopup.QHit = 3326` 与
+        //   `GenericOptionsPanel.QShade = 3330` 之间的空隙 **3327–3329**：高于社交窗全部内容
+        //   （页 3200–3209 · 奖杯格 3210–3299 · 聊天 3300–3308），又不落进任何窗的号段。
+        //   ⚠️ **已知残留倒置（如实记）**：`TrophyInfoPopup` 是 placement-15 弹窗、原版应在转圈之上，而本档在它之上；
+        //   两者在可达状态里互斥（奖杯格只在「已入盟」支，转圈只在「未入盟」Join 列表）⇒ 今天不可见。
+        //   要严格消除见判据 §四「备选 5a」（动 `TrophyInfoPopup` 整带，不在本批）。
+        public const int QDark = 3327, QSkull = 3328, QCog = 3329;
 
         public const string ArtSkull = "40K_icon_searching_skull";
         public const string ArtCog = "40K_icon_searching_cog";

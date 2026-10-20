@@ -23,6 +23,12 @@ namespace CardPresentation.Net
         public const int SilentTimeoutMs = 10000;   // 多久没收到对面的任何包 = 掉线
         public const int ReconnectEveryMs = 2000;   // 客机重连尝试间隔
         public const int ConnectTimeoutMs = 4000;   // 单次连接超时
+        /// <summary>🆕 🔴 **2026-10-20（W58-S6FIX）**：**待替换候选**从被接受到凭据齐了的最长等待。
+        /// 过期 ⇒ 关候选、**旧连接原样保留**（`NET/BYE-S6/replacement-timeout`）。
+        /// 取值理由：正常凭据往返是**毫秒级**（同机/局域网），6 秒足够容忍一次丢包重传；
+        /// 又不至于让「候选位被占着」把客机的下一次重试（`ReconnectEveryMs` = 2 秒）拖太久。
+        /// ⚠️ 这是**我们自拟的**边界值，原版没有对应参数（原版走 Photon 的重连，判据不在本地）。</summary>
+        public const int ReplacementHandshakeTimeoutMs = 6000;
 
         public NetRole Role { get; private set; }
         public NetState State { get; private set; }
@@ -61,6 +67,15 @@ namespace CardPresentation.Net
         string _hostPassword = "";
         /// <summary>已经发过握手包的那条连接的序号（边沿触发用，见 `INetTransport.AcceptedCount`）。</summary>
         int _lastAccepted = -1;
+
+        // ---- 🆕 🔴 **2026-10-20（W58-S6FIX · 缺陷 S6）：待替换候选的状态**（主机侧）----
+        // 只在 `IPendingReplacementHost` 上跑（真 TCP）。候选的帧走**独立队列**，凭据没过之前
+        // 它说的话**不能**被当成当前对家说的话 —— 这正是「陌生连接踢不掉人」的实现边界。
+        readonly List<NetFrame> _pendBuf = new List<NetFrame>();
+        int _pendingGen = -1;          // 已经发过 Challenge 的那条候选代次
+        string _pendingNonce;          // 专门给候选的那次 nonce（与当前连接的 `_nonce` 分开）
+        string _pendingPeerName;       // 候选在 `Proof` 里报的名字（钳过，`Proof` 通过才用）
+        bool _pendingProofOk;          // 候选已经过了密码/版本那一关，等 `Reconnect{sessionToken}`
 
         /// <summary>🔴 **自检可以把它换掉**（不换就得**真睡 10 秒**才验得到静默超时）——
         /// `SetClockForTest(f)`，传 `null` 恢复成真实秒表。**生产路径一处都不调它**
@@ -196,7 +211,20 @@ namespace CardPresentation.Net
         {
             _buf.Clear();
             _t.Pump(_buf);
-            for (int i = 0; i < _buf.Count; i++) Handle(_buf[i]);
+            for (int i = 0; i < _buf.Count; i++)
+            {
+                try { Handle(_buf[i]); }
+                catch (Exception e)
+                {
+                    // 🔴 **2026-10-20（W58-NETPROBE · T05 探针，只加日志、不改行为）**：`Handle` 抛异常时，
+                    //   原来这**一帧和队列里剩下的帧**都随异常一起没了（`Pump` 当场中断），而且只有
+                    //   Unity 的通用异常日志、不说是哪条消息。⛔ 这里**照旧 rethrow**（不改行为），
+                    //   只把「丢了几帧、是哪一条」补进日志。
+                    Debug.LogError("[Net] NET/BYE-R1/handle-threw 处理 `" + _buf[i].kind + "` 时抛异常 ⇒ 本帧**和队列里剩下的 "
+                                 + (_buf.Count - i - 1) + " 帧**都不会被处理（`Pump` 在本帧中断）；异常原文：" + e);
+                    throw;
+                }
+            }
             _buf.Clear();
 
             long now = NowMs;
@@ -224,6 +252,13 @@ namespace CardPresentation.Net
             }
 
             if (State == NetState.Closed || State == NetState.Off) return;
+
+            // ---- 🆕 🔴 **2026-10-20（W58-S6FIX · S6）：主机已有活连接时进来的新连接** ----
+            //   旧行为：传输层直接关掉（客机重连只看到「连上了又断」）。现在先收作**候选**，
+            //   在这里走凭据（`Challenge → Proof → Reconnect{sessionToken}`）；凭据齐了才提升。
+            //   ⚠️ 必须跑在下面「静默超时」判据**之前**吗？不需要 —— 候选提升会刷新 `_lastRecvMs`，
+            //      而旧连接该超时照旧超时（它本来就可能已经死了）。放在最前面只是为了**尽早**处理。
+            PumpReplacement();
 
             // ---- 主机：有新连接进来就握手（**边沿触发**：看 `AcceptedCount` 变没变，
             //      别看 `IsConnected` —— 那是电平，会在等重连期间**反复重发握手包**）----
@@ -334,6 +369,248 @@ namespace CardPresentation.Net
         }
 
         // ==================================================================
+        //  🆕 🔴 **2026-10-20（W58-S6FIX · 缺陷 S6）：主机侧「待替换候选」的凭据流程**
+        //  旧行为：`TcpTransport.AcceptLoop` 看到 `ConnBit` 立着就把新连接**直接关掉** ——
+        //  而「旧连接已经死了、只是主机还没判出来」正是客机重连最常见的时序 ⇒ 客机看到「连上又断」。
+        //  新行为（**安全边界写在函数里**）：
+        //    ① 候选先拿一次 `Challenge`（新 nonce，与当前连接分开）；
+        //    ② `Proof` = HMAC(房间密码, nonce) 必须对上；对不上 ⇒ 关候选，**旧连接原样保留**；
+        //    ③ 对局中的替换**还必须**再过 `Reconnect{sessionToken}`（这一局的钥匙）——
+        //       「认不出 = 不是这局的人 ⇒ 拒绝」（正本 §5·6 第 3 条）；
+        //    ④ 凭据齐了才 `PromotePendingReplacement()`：候选成为当前连接、旧连接走有界优雅收尾。
+        //  ⇒ 任意第三方（只要连得上端口）**踢不掉人**：它拿不到密码 proof、也拿不到 sessionToken。
+        // ==================================================================
+        void PumpReplacement()
+        {
+            var rh = _t as IPendingReplacementHost;
+            if (rh == null) return;           // 夹具 / 非真 TCP：行为与加这一段之前逐字相同
+
+            bool armed = Role == NetRole.Host
+                      && (State == NetState.InBattle
+                          || (State == NetState.WaitingReconnect && _wasInBattle));
+            rh.ReplacementArmed = armed;
+
+            if (!rh.HasPendingReplacement)
+            {
+                if (_pendingGen != -1) ResetPendingReplacementState();
+                return;
+            }
+            if (!armed)
+            {
+                rh.RejectPendingReplacement("not-in-battle");
+                Debug.LogWarning("[Net] NET/BYE-S6/reject-no-proof 主机此刻**不在对局 / 等重连**（会话 " + State
+                               + "）⇒ 候选连接不参与替换（大厅/握手阶段没有「客机重连」这回事）—— 关候选，当前连接不动");
+                ResetPendingReplacementState();
+                return;
+            }
+            if (rh.PendingReplacementAgeMs >= ReplacementHandshakeTimeoutMs)
+            {
+                rh.RejectPendingReplacement("timeout");
+                Debug.LogWarning("[Net] NET/BYE-S6/replacement-timeout 候选连接（第 " + rh.PendingReplacementGeneration
+                               + " 代 · " + rh.PendingReplacementPeer + "）在 " + ReplacementHandshakeTimeoutMs
+                               + " ms 内没交齐凭据 ⇒ 关掉候选，**旧连接原样保留**（客机下一次退避重试会再连）");
+                ResetPendingReplacementState();
+                return;
+            }
+
+            int gen = rh.PendingReplacementGeneration;
+            if (gen != _pendingGen)
+            {
+                // 新候选（或被拒之后又来了一条）：发一次**专门给它**的 Challenge
+                _pendingGen = gen;
+                _pendingProofOk = false;
+                _pendingPeerName = null;
+                _pendingNonce = NewToken();
+                if (!rh.SendToPendingReplacement(NetKind.Challenge,
+                        NetProtocol.Pack(new MsgChallenge { nonce = _pendingNonce })))
+                    Debug.LogWarning("[Net] NET/BYE-S6/pending-challenge-failed 候选（第 " + gen
+                                   + " 代）的 `Challenge` **没发出去** ⇒ 它交不出 proof，会走到超时（旧连接不受影响）");
+            }
+
+            _pendBuf.Clear();
+            rh.PumpPendingReplacement(_pendBuf);
+            for (int i = 0; i < _pendBuf.Count; i++)
+            {
+                if (!rh.HasPendingReplacement) break;      // 中途被提升/被拒 ⇒ 后面的帧属于已作废的候选
+                try { HandlePendingFrame(rh, _pendBuf[i]); }
+                catch (Exception e)
+                {
+                    Debug.LogError("[Net] NET/BYE-S6/pending-handler-threw 处理候选帧 `" + _pendBuf[i].kind
+                                 + "` 时抛异常 ⇒ 立即作废候选（旧连接不受影响）；异常原文：" + e);
+                    rh.RejectPendingReplacement("handler-threw");
+                    ResetPendingReplacementState();
+                    break;
+                }
+            }
+            _pendBuf.Clear();
+        }
+
+        void ResetPendingReplacementState()
+        {
+            _pendingGen = -1;
+            _pendingProofOk = false;
+            _pendingNonce = null;
+            _pendingPeerName = null;
+        }
+
+        void HandlePendingFrame(IPendingReplacementHost rh, NetFrame f)
+        {
+            switch (f.kind)
+            {
+                case NetKind.Ping:
+                {
+                    var m = NetProtocol.Unpack<MsgPing>(f.payload);
+                    rh.SendToPendingReplacement(NetKind.Pong, NetProtocol.Pack(new MsgPing { t = m != null ? m.t : 0 }));
+                    return;
+                }
+                case NetKind.Pong: return;
+
+                case NetKind.Proof:
+                {
+                    var m = NetProtocol.Unpack<MsgProof>(f.payload);
+                    object[] args;
+                    string key = CheckProofKey(m, _pendingNonce, out args);
+                    if (key != null)
+                    {
+                        string why = args == null ? Loc.T(key) : string.Format(Loc.T(key), args);
+                        rh.SendToPendingReplacement(NetKind.Ack, NetProtocol.Pack(new MsgAck
+                        {
+                            ok = false,
+                            reason = NetWireText.Pack(key, args),
+                            sessionToken = null,
+                        }));
+                        rh.RejectPendingReplacement("bad-proof");
+                        Debug.LogWarning("[Net] NET/BYE-S6/reject-no-proof 候选（第 " + _pendingGen + " 代 · "
+                                       + rh.PendingReplacementPeer + "）的 `Proof` **没过**（" + why
+                                       + "）⇒ 关候选，**旧连接原样保留**（凭据是替换的唯一入口）");
+                        ResetPendingReplacementState();
+                        return;
+                    }
+                    _pendingPeerName = ClampPeerText(m != null ? m.name : null, NetProtocol.MaxPeerNameChars);
+                    if (!rh.SendToPendingReplacement(NetKind.Ack, NetProtocol.Pack(new MsgAck
+                    {
+                        ok = true,
+                        reason = "",
+                        // 🔴 **2026-10-20（W58-S6FIX · 安全边界）**：候选**永远不**在 `Ack` 里拿到 `sessionToken`。
+                        //   重连的客机本来就有它；下发只会让「知道密码 / 空密码房间」的候选白拿这把钥匙 ⇒
+                        //   等于把替换门槛降到零。候选必须**自己**在 `Reconnect` 里出示它。
+                        sessionToken = null,
+                    })))
+                    {
+                        rh.RejectPendingReplacement("ack-write-failed");
+                        Debug.LogWarning("[Net] NET/BYE-S6/reject-no-proof 候选（第 " + _pendingGen
+                                       + " 代）的 `Ack` 写不出去（连接已坏）⇒ 作废候选，旧连接不动");
+                        ResetPendingReplacementState();
+                        return;
+                    }
+                    _pendingProofOk = true;
+                    Debug.Log("[Net] NET/BYE-S6/proof-ok 候选（第 " + _pendingGen + " 代 · " + rh.PendingReplacementPeer
+                            + "）密码/版本通过 ⇒ 等它的 `Reconnect{sessionToken}` 才提升"
+                            + "（对局中的替换必须有这一道：钥匙对不上就不是这局的人）");
+                    return;
+                }
+
+                case NetKind.Reconnect:
+                {
+                    if (!_pendingProofOk)
+                    {
+                        rh.SendToPendingReplacement(NetKind.Bye,
+                            NetProtocol.Pack(new MsgBye { reason = NetWireText.Pack("Settings/Online/Wire/BadKey") }));
+                        rh.RejectPendingReplacement("reconnect-before-proof");
+                        Debug.LogWarning("[Net] NET/BYE-S6/reject-no-proof 候选（第 " + _pendingGen
+                                       + " 代）**没交 proof 就发 `Reconnect`** ⇒ 作废候选，旧连接不动");
+                        ResetPendingReplacementState();
+                        return;
+                    }
+                    var m = NetProtocol.Unpack<MsgReconnect>(f.payload);
+                    if (m == null || (SessionToken != null && m.sessionToken != SessionToken))
+                    {
+                        rh.SendToPendingReplacement(NetKind.Bye,
+                            NetProtocol.Pack(new MsgBye { reason = NetWireText.Pack("Settings/Online/Wire/BadKey") }));
+                        rh.RejectPendingReplacement("bad-token");
+                        Debug.LogWarning("[Net] NET/BYE-S6/reject-no-token 候选（第 " + _pendingGen + " 代 · "
+                                       + rh.PendingReplacementPeer + "）的 `Reconnect` **钥匙对不上这一局**"
+                                       + " ⇒ 关候选，**旧连接原样保留**（正本 §5·6：认不出 = 不是这局的人 ⇒ 拒绝）");
+                        ResetPendingReplacementState();
+                        return;
+                    }
+                    if (ResumeProvider == null)
+                    {
+                        rh.SendToPendingReplacement(NetKind.Bye,
+                            NetProtocol.Pack(new MsgBye { reason = NetWireText.Pack("Settings/Online/Wire/NoRecord") }));
+                        rh.RejectPendingReplacement("no-record");
+                        Debug.LogWarning("[Net] NET/BYE-S6/reject-no-proof 候选（第 " + _pendingGen
+                                       + " 代）钥匙对、但本机**没有重放记录**（`ResumeProvider == null`）⇒ 作废候选，旧连接不动");
+                        ResetPendingReplacementState();
+                        return;
+                    }
+
+                    // 凭据齐了：**先**取重放数据（失败不影响旧连接），**再**提升
+                    var (start, actions) = ResumeProvider();
+                    if (!rh.PromotePendingReplacement())
+                    {
+                        Debug.LogWarning("[Net] NET/BYE-S6/promote-failed 候选（第 " + _pendingGen
+                                       + " 代）凭据已通过、但提升那一步失败（候选已被别的线程作废？）⇒ 保持旧连接");
+                        ResetPendingReplacementState();
+                        return;
+                    }
+                    PeerName = _pendingPeerName;
+                    long nowMs = NowMs;
+                    _lastRecvMs = nowMs;
+                    _lastPingMs = nowMs;
+                    // 从这里起 `Send` 走的是**新**连接（`_stream` 已被提升那一步换掉）
+                    Send(NetKind.Resume, new MsgResume
+                    {
+                        start = start,
+                        actionsJson = NetProtocol.Pack(new MsgActionList { items = actions ?? new List<MsgAction>() }),
+                    });
+                    SetState(NetState.InBattle, string.Format(Loc.T("Settings/Online/St/ResumeSent"),
+                                                              PeerName, actions?.Count ?? 0));
+                    _wasInBattle = false;
+                    Debug.Log("[Net] NET/BYE-S6/replaced 候选（第 " + _pendingGen + " 代 · " + PeerName
+                            + "）凭据齐全 ⇒ **接管当前连接**（旧连接已在传输层走有界优雅收尾）；"
+                            + "已灌 `resume`（权威动作流 " + (actions?.Count ?? 0) + " 条）");
+                    ResetPendingReplacementState();
+                    return;
+                }
+
+                case NetKind.Bye:
+                    rh.RejectPendingReplacement("peer-bye");
+                    Debug.Log("[Net] NET/BYE-S6/candidate-bye 候选（第 " + _pendingGen + " 代 · "
+                            + rh.PendingReplacementPeer + "）自己说了 `bye` ⇒ 作废候选，旧连接不动");
+                    ResetPendingReplacementState();
+                    return;
+
+                default:
+                    // 凭据阶段只认 Proof / Reconnect / Ping / Pong / bye；别的都不足以提升候选，也**不能**
+                    // 交给上层（它不是当前对家说的话）。不静默。
+                    Debug.LogWarning("[Net] NET/BYE-S6/pending-unexpected 候选（第 " + _pendingGen + " 代）发来 `"
+                                   + f.kind + "`（凭据阶段不认）⇒ 忽略这一帧；候选**不会**因此被提升");
+                    return;
+            }
+        }
+
+        /// <summary>握手口令核对（**唯一一份规则**：当前连接的 `case Proof` 与候选路径都走它）。
+        /// 返回 `null` = 通过；否则返回**词条键**（`args` 是它的格式化参数）。
+        /// ⚠️ 空密码 = 不校验（局域网自用；`Settings/Online/St/WrongPassword` 只在设了密码时成立）。</summary>
+        string CheckProofKey(MsgProof m, string nonce, out object[] args)
+        {
+            args = null;
+            if (m == null) return "Settings/Online/St/BadHello";
+            if (m.protoVer != NetProtocol.Version)
+            {
+                args = new object[] { m.protoVer, NetProtocol.Version };
+                return "Settings/Online/St/VersionMismatch";
+            }
+            var want = Proof(_hostPassword, nonce);       // ⚠️ 用**开台那一刻**的密码
+            if (!string.IsNullOrEmpty(_hostPassword) && m.proof != want)
+                return "Settings/Online/St/WrongPassword";
+            if (string.IsNullOrEmpty(_hostPassword))
+                Debug.LogWarning("[Net] 本局**没有设密码** —— 局域网自用可以，公网请设一个");
+            return null;
+        }
+
+        // ==================================================================
         //  收包
         // ==================================================================
 
@@ -353,6 +630,11 @@ namespace CardPresentation.Net
                 case NetKind.Challenge:                          // 只有客机会收到
                 {
                     var m = NetProtocol.Unpack<MsgChallenge>(f.payload);
+                    // 🔴 **2026-10-20（W58-NETPROBE · T05 探针，只加日志）**：解不出来原来会**静默**按空 nonce
+                    //   继续（`MsgChallenge` 只有一个字段，坏包多半是版本/编码问题）⇒ 握手会拿错 nonce 算口令。
+                    if (m == null)
+                        Debug.LogWarning("[Net] NET/BYE-R1/challenge-unparsable 对面发来的 `hello.challenge` **解不出来**"
+                                       + " ⇒ 按**空 nonce** 继续握手（这一条不改行为；真连时看到它 = 握手包坏了）");
                     _nonce = m != null ? m.nonce : "";
                     var cfg = NetConfig.Current;
                     Send(NetKind.Proof, new MsgProof
@@ -385,21 +667,10 @@ namespace CardPresentation.Net
                     //     ⇒ 另开 `Wire/*` 只会多出一份迟早会漂的副本（铁律 6）。
                     //     ⛔ 与那 7 条 `Wire/*` 的分别：那一族是**本机那句与发给对面的那句措辞不同**
                     //     （例 `St/RejectBadKey`「重连被拒：钥匙对不上」vs `Wire/BadKey`「这把钥匙对不上这一局」）。
-                    string whyKey = null; object[] whyArgs = null;
-                    if (m == null) whyKey = "Settings/Online/St/BadHello";
-                    else if (m.protoVer != NetProtocol.Version)
-                    {
-                        whyKey = "Settings/Online/St/VersionMismatch";
-                        whyArgs = new object[] { m.protoVer, NetProtocol.Version };
-                    }
-                    else
-                    {
-                        var want = Proof(_hostPassword, _nonce);       // ⚠️ 用**开台那一刻**的密码
-                        if (!string.IsNullOrEmpty(_hostPassword) && m.proof != want)
-                            whyKey = "Settings/Online/St/WrongPassword";
-                        else if (string.IsNullOrEmpty(_hostPassword))
-                            Debug.LogWarning("[Net] 本局**没有设密码** —— 局域网自用可以，公网请设一个");
-                    }
+                    // 🔴 **2026-10-20（W58-S6FIX）**：口令/版本那三条规则抽到 `CheckProofKey` ——
+                    //   候选路径（`HandlePendingFrame`）走**同一份**规则。⛔ 别在两处各写一份（迟早漂）。
+                    object[] whyArgs;
+                    string whyKey = CheckProofKey(m, _nonce, out whyArgs);
                     // 本机那一份（`SetState` 里那句「拒绝了这次连接：{0}」要的是**已渲染**的整句）
                     string why = whyKey == null ? null
                                : (whyArgs == null ? Loc.T(whyKey) : string.Format(Loc.T(whyKey), whyArgs));
@@ -409,17 +680,29 @@ namespace CardPresentation.Net
                     //   校验放在 PlayFab 服务端，客户端一次都不查）。
                     PeerName = ClampPeerText(m != null ? m.name : null, NetProtocol.MaxPeerNameChars);
                     // 🔴 **P6d：线上发【键 + 参数】，⛔ 不发已渲染的文本**（收侧 `NetWireText.Unpack` 取词）
-                    Send(NetKind.Ack, new MsgAck
+                    // 🔴 **2026-10-20（W58-NETFIX · NETPROBE ④）**：接住返回值 —— 下面那条拒绝支要靠它判
+                    //   「这句理由到底有没有写进传输层」，从而决定收尾要不要排空（见那个分支的注释）。
+                    bool sentAck = Send(NetKind.Ack, new MsgAck
                     {
                         ok = whyKey == null,
                         reason = whyKey == null ? "" : NetWireText.Pack(whyKey, whyArgs),
-                        sessionToken = SessionToken,
+                        // 🆕 🔴 **2026-10-20（W58-S6FIX · 安全边界）**：**对局中（含等重连）不再下发钥匙**。
+                        //   原来这里无条件下发 `SessionToken` —— 而重连的客机**本来就已经有**它（重连退避的
+                        //   前提就是 `SessionToken` 非空）。无条件下发只有一个效果：**任何**知道/不需要密码
+                        //   的连接都能在握手时白拿这把钥匙 —— 配上候选替换就等于「空密码房间谁都能踢人」。
+                        //   ⇒ `InBattle` / `_wasInBattle` 这两档发空串；入局前（Lobby 之前）照旧下发。
+                        sessionToken = (State == NetState.InBattle || _wasInBattle) ? null : SessionToken,
                     });
                     if (why != null)
                     {
                         LastError = why;
                         SetState(NetState.Closed, string.Format(Loc.T("Settings/Online/St/Refused"), why));
-                        _t.Close();
+                        // 🔴 **2026-10-20（W58-NETFIX · NETPROBE ④）**：原来是 `Send(Ack ok=false, 理由)` 之后
+                        //   **立刻** `_t.Close()` —— 与 `bye` 旧形状同构，那句**拒绝理由**可能到不了对面
+                        //   （对面只看到「连上了又断了」）。改走唯一收口点：
+                        //   `sentAck == true` ⇒ 真 TCP 上 `Shutdown(Send)` + 有界排空，让 `ack` 先出去；
+                        //   `sentAck == false` ⇒ 没有要排空的字节，照旧直接关（别白等 200 ms）。
+                        CloseTransportAfterBye(sentAck);
                         if (OnClosed != null) OnClosed(why);
                     }
                     else if (_wasInBattle)
@@ -449,12 +732,24 @@ namespace CardPresentation.Net
                                    : Loc.T("Settings/Online/St/PeerRefused");
                         LastError = why;
                         SetState(NetState.Closed, why);
-                        _t.Close();
+                        // 🔴 **2026-10-20（W58-NETFIX · NETPROBE ③ 的同族顺手）**：这一支原来也是
+                        //   `_t.Close()` **硬拆**。对端（主机）在 `case Proof` 拒绝支里刚发完这句
+                        //   `ack ok=false`、正按 ④ 走优雅收尾 ⇒ 本机一个 RST 打过去会把它的排空打成
+                        //   `NET/BYE-S5/drain-error`，而**那句拒绝理由**正是它要送给我们的。
+                        //   ⇒ 与收 `bye` 同一档：`graceWithoutBye:true`（本机没 `bye` 要发，只给对端礼节）。
+                        CloseTransportAfterBye(false, true);
                         if (_checkMode && OnCheckDone != null) OnCheckDone(false, why);
                         if (OnClosed != null) OnClosed(why);
                         return;
                     }
-                    SessionToken = m.sessionToken;
+                    // 🆕 🔴 **2026-10-20（W58-S6FIX · 安全边界）**：**重连这一趟不要用 `Ack` 覆盖钥匙** ——
+                    //   主机在对局中/等重连时**故意**发空 `sessionToken`（见 `case Proof` 的注释；
+                    //   理由：不能让候选白拿钥匙）。重连的客机**本来就持有**这把钥匙
+                    //   （它的退避闸 `!string.IsNullOrEmpty(SessionToken)` 就是前提）。
+                    //   ⛔ 别改回无条件赋值：那会把客机自己的钥匙**抹成空** ⇒ 下一次 `Reconnect`
+                    //   必然钥匙对不上（重连永远失败，而且日志看起来像「主机拒绝」）。
+                    if (!_wasInBattle && !string.IsNullOrEmpty(m.sessionToken))
+                        SessionToken = m.sessionToken;
                     // 🆕 **2026-10-19（P6d · A1079①）**：这一句原来是一段**裸中文字面量**，而它会经
                     //     `OnCheckDone` 进设置窗（`Shell/SettingsWindow.cs` 的 `SetFlash(() => (ok ? "✅ " : "❌ ") + why)`）
                     //     ⇒ **是①类玩家可见文案**，落键。键名/两列**两张原版表都搜过、0 命中**（原版联机走 PlayFab、
@@ -542,11 +837,27 @@ namespace CardPresentation.Net
                     //   排查「`bye` 丢在哪一跳」时：这一行出现 = **对端的 `bye` 真的到了本机应用层**
                     //   （与下面 `SetState(Closed, …)` 那条自动打的 `[Net] Closed：…` **不是同一个观测口** ——
                     //    `Closed` 也可能是 `Ack` 被拒 / 重连被拒，理由不同）。
-                    //   ⚠️ 打的是**钳过**的原串（`MsgBye.reason` 是对端可控的）—— ⛔ 别把钳去掉。
+                    // ⚠️ 打的是**钳过**的原串（`MsgBye.reason` 是对端可控的）—— ⛔ 别把钳去掉。
+                    // 🔴 **2026-10-20（W58-NETPROBE · T05 探针，只加日志、不改行为）**：本机**先关**过
+                    //   （`Closed`/`Off`）之后队列里仍可能剩下一条迟到的 `bye`（`Close` 不清 transport 的
+                    //   `_inbox`，W57 顺手发现 #1）⇒ 这一档会说**第二遍告别**。记一笔，避免真连时把它
+                    //   当成「对面刚刚才离开」而与 `OnPeerLost` 的时序对不上。
+                    if (State == NetState.Closed || State == NetState.Off)
+                        Debug.Log("[Net] NET/BYE-R6/bye-after-local-close 收到 `bye` 时会话**已经是 " + State
+                                + "**（本机先关的）⇒ 这是队列里迟到的告别，不是对面**新的**离开"
+                                + "（`Close` 不清传输层收件箱 ⇒ 旧 `bye` 仍会被处理；见 W57 顺手发现 #1）"
+                                + "【⚠️ 2026-10-20 W58-NETFIX ⑤ 之后：`TcpTransport.Close()` 已清收件箱 + 入队口加了 `_closed` 闸，"
+                                + "这一档只剩「本机没走 Close 的换会话/夹具路径」，正常真连应看不到它】");
                     Debug.Log("[Net] 收到 `bye`（reason = "
                             + (m != null && m.reason != null ? ClampPeerText(m.reason) : "<null>") + "）");
                     SetState(NetState.Closed, why);
-                    _t.Close();
+                    // 🔴 **2026-10-20（W58-NETFIX · NETPROBE ③）**：原来这里 `_t.Close()` **硬拆** ——
+                    //   本机确实没东西要发，但对端可能还在它那 200 ms 排空里（`CloseGracefully` 等 FIN），
+                    //   一个 RST 打过去会让它看到 `NET/BYE-S5/drain-error`。改成走**同一个收口点**的
+                    //   优雅档（真 TCP：`Shutdown(Send)` + 有界排空 + `Close()`；夹具：照旧 `Close()`）。
+                    //   ⚠️ `sentBye:false` —— 本机没有 `bye` 要发，不需要为「发出 `bye`」额外等；`graceWithoutBye:true`
+                    //   表达的是「对端在收尾，我给足它礼节」。两段等待共用一个 `GracefulCloseDrainMs` 预算。
+                    CloseTransportAfterBye(false, true);
                     if (OnClosed != null) OnClosed(why);
                     return;
                 }
@@ -587,7 +898,7 @@ namespace CardPresentation.Net
             if (_t == null || !_t.IsConnected)
             {
                 // 没连上就丢：调用方看 StatusText/LastError —— **但要出声**（红线）。
-                Debug.LogWarning("[Net] 这条 `" + kind + "` **没发出去、被丢掉了**：这一刻没有活的连接"
+                Debug.LogWarning("[Net] NET/BYE-S2/no-live-link 这条 `" + kind + "` **没发出去、被丢掉了**：这一刻没有活的连接"
                                + $"（会话 {State} · 本机角色 {Role}）—— 如实说出来，别让玩家只看到「什么都没发生」");
                 return false;
             }
@@ -602,8 +913,10 @@ namespace CardPresentation.Net
             string errAfter = _t.LastError;
             if (!string.IsNullOrEmpty(errAfter) && !string.Equals(errAfter, errBefore, StringComparison.Ordinal))
             {
-                Debug.LogWarning("[Net] 这条 `" + kind + "` 在**传输层报失败了**（写失败 / 链路刚断）："
-                               + errAfter + " —— 对面的那半边收不到它（红线：不许静默失败）");
+                Debug.LogWarning("[Net] NET/BYE-S4/net-session-send-failed 这条 `" + kind + "` 在**传输层报失败了**（写失败 / 链路刚断）："
+                               + errAfter + " —— 对面的那半边收不到它（红线：不许静默失败）"
+                               + "。⚠️ 本判据是「调用前后 `_lastError` 变了」，同一个原因**第二次**出现时它认不出来"
+                               + "（W57 顺手发现 #3）—— 那种情况去看传输层 `NET/BYE-S4/write-failed` 那一行");
                 return false;
             }
             return true;
@@ -644,7 +957,7 @@ namespace CardPresentation.Net
             if (say)
             {
                 if (_t == null || !_t.IsConnected || State == NetState.Off)
-                    Debug.LogWarning("[Net] 本来要给对面捎一句 `bye`（" + NetWireText.Unpack(key) + "）"
+                    Debug.LogWarning("[Net] NET/BYE-S1/no-live-link 本来要给对面捎一句 `bye`（" + NetWireText.Unpack(key) + "）"
                                    + $"—— 但**这一刻没有活的连接**（会话 {State}）⇒ 这句话**没发出去**，"
                                    + "对面**不会收到任何通知**（它那边只能靠心跳超时发现）。如实说出来（红线）");
                 else
@@ -657,7 +970,9 @@ namespace CardPresentation.Net
                     //   ⛔ 别把它并进下面那条失败告警里 —— 两条是不同的观测口。
                     if (sentBye)
                         Debug.Log("[Net] 已给对面捎一句 `bye`（" + NetWireText.Unpack(key) + "）"
-                                + " ⇒ 走有界优雅关闭（发送侧：**已交给传输层**）");
+                                + " ⇒ 走有界优雅关闭（发送侧：**已交给传输层**）[NET/BYE-S1/sent]"
+                                + " —— ⚠️ 这一行只证明「本机写进了传输层」，**不代表对面收到**；"
+                                + "对面那一侧要有 `收到 `bye`` 才算闭环");
                 }
             }
             // 🆕 关台时**把要来的那条映射撤掉**（别在玩家路由器上留一条没人用的转发规则）。
@@ -704,14 +1019,58 @@ namespace CardPresentation.Net
         ///
         /// <para>🔴 **唯一收口点**：`Close()` 与 `Handle` 的 `case NetKind.Reconnect` 两条拒绝支
         /// （`Wire/BadKey` / `Wire/NoRecord` —— 那里也是「发完 `bye` 立刻 `_t.Close()`」的旧形状）
-        /// **都走这里**。⛔ 别再在别处手写 `Shutdown` / `CloseGracefully` / `_t.Close()` 三件套。</para></summary>
-        void CloseTransportAfterBye(bool sentBye)
+        /// **都走这里**。⛔ 别再在别处手写 `Shutdown` / `CloseGracefully` / `_t.Close()` 三件套。</para>
+        ///
+        /// <para>🆕 🔴 **2026-10-20（W58-NETFIX · NETPROBE ③④）：新增 `graceWithoutBye` 一档，收口点扩到两处新调用方。**
+        ///   · `case NetKind.Bye`（**收**到对面的告别，③）：本机没有 `bye` 要发，但**同样不该硬拆** ——
+        ///     对面可能还在它那 200 ms 排空里，一个 RST 打过去会让它看到 `drain-error`。
+        ///     ⇒ 传 `(sentBye: false, graceWithoutBye: true)` ⇒ 真 TCP 上照样
+        ///     `Shutdown(Send)` + 有界排空 + `Close()`（半关闭礼节）。
+        ///   · `case NetKind.Proof` 的拒绝支（④）：`Send(Ack ok=false, 理由)` 之后原来**立刻** `_t.Close()`
+        ///     ⇒ 那句拒绝理由可能到不了对面。现在把 `Send` 的返回值接进来，**真写出去了才走优雅档**
+        ///     （没写出去就没有要排空的字节，照旧直接关 —— 别白等 200 ms）。</para>
+        ///
+        /// <para>⚠️ **`graceWithoutBye` 只影响「真 TCP 且本次没有 `bye`」这一档**；`Close(false)` 这类
+        /// 常用路仍然**直接 `Close()`**（自检里大量 `Close(false)`，别让每条都白等 200 ms）。
+        /// 夹具 transport（非 `TcpTransport`）在 `graceWithoutBye` 下仍是 `Close()`，只多一行说明日志。</para>
+        /// </summary>
+        /// <param name="sentBye">本次**真的把 `bye` 写进了传输层**（`Send` 的返回值）。</param>
+        /// <param name="graceWithoutBye">本次没发 `bye`，但**对端已经在收尾**，仍要走优雅档（③ 收 `bye` / ④ 拒绝支）。</param>
+        void CloseTransportAfterBye(bool sentBye, bool graceWithoutBye = false)
         {
             if (_t == null) return;
+            bool graceful = sentBye || graceWithoutBye;
+            if (graceful) GracefulCloseRequestedForTest++;
+            else HardCloseRequestedForTest++;
             var tcp = _t as TcpTransport;
-            if (tcp != null && sentBye) tcp.CloseGracefully();
-            else _t.Close();
+            if (tcp != null && graceful) tcp.CloseGracefully();
+            else
+            {
+                // 🔴 **2026-10-20（W58-NETPROBE · T05 探针，只加日志、不改行为）**：假 transport（自检夹具）
+                //   没有 `Shutdown`/排空的语义 ⇒ 走这一档是**设计内的**，但说出来，免得真连日志里
+                //   把「没走优雅关闭」当成缺陷。
+                if (sentBye)
+                    Debug.Log("[Net] NET/BYE-S5/not-tcp 这台传输层不是真 TCP（" + _t.GetType().Name
+                            + "）⇒ 没法 `Shutdown`/排空，直接 `Close()`（自检夹具走这一档，正常）");
+                else if (graceWithoutBye)
+                    Debug.Log("[Net] NET/BYE-S5/not-tcp 收尾要求优雅档（收 `bye` / 拒绝支），但这台传输层不是真 TCP（"
+                            + _t.GetType().Name + "）⇒ 直接 `Close()`（夹具没有排空语义，正常）");
+                _t.Close();
+            }
         }
+
+        // ==================================================================
+        //  🆕 🔴 **2026-10-20（W58-NETFIX）静态可验证的读口**（生产路径一处都不读）
+        //  说明：`NetSession` 不持有 socket 的快照，读口只记**收尾意向**（该不该走优雅档），
+        //  与传输层真的怎么做（`TcpTransport.CloseGracefully`）分开 —— 夹具（`ScriptedTransport` /
+        //  `RecordingTransport`）走不到真 socket，但**收尾语义照样能被断言**。
+        //  ⚠️ 可粘贴的自检块见交件报告（`Editor/NetSelfTest.cs` 不在本轮白名单）。
+        // ==================================================================
+
+        /// <summary>③④ 本轮「**该走优雅收尾**」的次数（`sentBye` 或 `graceWithoutBye`）。</summary>
+        public int GracefulCloseRequestedForTest { get; private set; }
+        /// <summary>「没有告别、也不需要对端礼节」⇒ 直接硬关的次数（`Close(false)` 那一档，行为未变）。</summary>
+        public int HardCloseRequestedForTest { get; private set; }
 
         /// <summary>🆕 🔴 **A914 / 独立审查 R3（2026-10-18）**：**停掉客机那条「每 2 秒重连一次」的退避**，
         /// 但**不关台、不离开房间**。

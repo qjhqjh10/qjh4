@@ -306,7 +306,16 @@ namespace CardPresentation.Net
         /// <summary>这一局挂在会话上的回调**只在这一处接**（两个 `Attach` 都走它 —— 一条规矩一处写）。</summary>
         void WireSession()
         {
-            if (_s == null) return;
+            if (_s == null)
+            {
+                // 🔴 **2026-10-20（W58-NETPROBE · T05 探针，只加日志、不改行为）**：联机层挂上了、
+                //   却没有会话 ⇒ 之后 `bye`/掉线/RESUME **一条都收不到**（`Send` 那边也发不出去）。
+                //   自检里有故意传 `null` 的夹具（那一档正常）；真 Play 出现这一行就是缺陷。
+                Debug.LogWarning("[Net] NET/BYE-R7/no-session 对局联机层挂上了，但**本类没有会话**（`_s == null`）"
+                               + " ⇒ 之后 `bye` / 掉线 / `resume` 一条都收不到（自检夹具的正常档；"
+                               + "真 Play 看到它就是缺陷）");
+                return;
+            }
             _s.OnResumed += OnResumed;            // 客机：收到 `resume` ⇒ 重建 + 全量重放
             _s.OnPeerLost += HandlePeerLost;      // 🔴 A880①：对面掉线（心跳超时 / 连接断）
             _s.OnClosed += HandlePeerClosed;      // 🔴 A880②：对面主动离开这一局（收到 `bye`）
@@ -1203,6 +1212,11 @@ namespace CardPresentation.Net
                 case NetKind.Mulligan:                                  // 主机收
                 {
                     var m = NetProtocol.Unpack<MsgMulligan>(f.payload);
+                    // 🔴 **2026-10-20（W58-NETPROBE · T05 探针，只加日志、不改行为）**：坏包原来被**静默**
+                    //   当成「对面换了 0 张」继续定序 ⇒ 两端换牌结果不同、指纹迟早对不上。出声。
+                    if (m == null)
+                        Debug.LogWarning("[Net] NET/BYE-R1/mulligan-unparsable 对手换牌包 **解不出来** ⇒ 按「换了 0 张」继续定序"
+                                       + "（这一条不改行为；真连看到它 = 换牌包坏了，两端牌序可能因此分叉）");
                     _theirMulligan = true; _theirMulliganMarks = m != null ? m.indices : new int[0];
                     Debug.Log($"[Net] 主机收到对手换牌（{(_theirMulliganMarks != null ? _theirMulliganMarks.Length : 0)} 张）");
                     if (_myMulligan != null) HostResolveMulligan();
@@ -1240,6 +1254,11 @@ namespace CardPresentation.Net
                     //   `SendForfeit` 根本不带参数 —— 见 `BattleResult` 的注）。
                     Debug.Log("[Net] 对面投降了（`NetKind.Resign` ⇒ 理由码 `Forfeit`(2)，原版 `ReceiveEnemyForfeit.c:37`）");
                     if (_d != null) _d.NetRemoteResign(BattleResult.Forfeit);
+                    else
+                        // 🔴 **2026-10-20（W58-NETPROBE · T05 探针，只加日志、不改行为）**：没有宿主 ⇒
+                        //   这条投降**判不了**（对面已经退出，本机却什么都没发生）。
+                        Debug.LogWarning("[Net] NET/BYE-R7/no-host 收到对面投降，但**本机没有对局宿主**（`_d == null`）"
+                                       + " ⇒ 判负这一跳走不了，这一局不会结束（真 Play 看到它就是缺陷）");
                     return;
                 }
             }
@@ -1287,7 +1306,14 @@ namespace CardPresentation.Net
         /// <summary>客机：收到 `resume` ⇒ **丢掉本地状态、从种子重建、按序全量重放**（不许增量补）。</summary>
         void OnResumed(MsgStart start, List<MsgAction> actions)
         {
-            if (IsHost) return;
+            if (IsHost)
+            {
+                // 🔴 **2026-10-20（W58-NETPROBE · T05 探针，只加日志、不改行为）**：`resume` 只有
+                //   主机发得出来（客机收）。主机收到它 = 消息走反了方向 ⇒ 丢掉，但必须说出来。
+                Debug.LogWarning("[Net] NET/BYE-R1/resume-wrong-direction 主机收到了 `resume`（它该只有客机收）"
+                               + " ⇒ 忽略；这条消息走反了方向，查对面是谁发的");
+                return;
+            }
             Debug.Log($"[Net] 重连：重建这一局并重放 {actions.Count} 条动作");
             Log.Clear();
             foreach (var m in actions) Log.Add(m);

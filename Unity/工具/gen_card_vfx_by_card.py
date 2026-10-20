@@ -1126,6 +1126,10 @@ def main():
                     help="卡 SO 的 AssetGUID → 资产名对照表（默认 %s）" % GUID_MAP_TSV)
     ap.add_argument("--no-truth", action="store_true",
                     help="跳过权威档（只重出旧那三档 + 通用链；排障用）")
+    # 🆕 2026-10-20（W58-CARDFIX2）：`generatedAt` 默认是当前时间 ⇒ 两次跑不能逐字节比。
+    #   加这个开关（或环境变量 `WF_GENERATED_AT`）只为**确定性复跑/对拍**，⛔ 不改默认行为。
+    ap.add_argument("--generated-at", default=os.environ.get("WF_GENERATED_AT"),
+                    help="固定 generatedAt（默认当前时间；复跑对拍时用）")
     args = ap.parse_args()
     t0 = time.time()
 
@@ -1280,7 +1284,7 @@ def main():
     out = {
         "schema": "card_vfx_by_card/v1",
         "generatedBy": "d:/4/Unity/工具/gen_card_vfx_by_card.py",
-        "generatedAt": time.strftime("%Y-%m-%d %H:%M:%S"),
+        "generatedAt": args.generated_at or time.strftime("%Y-%m-%d %H:%M:%S"),
         "_sources": {
             "cardsEngine": rel(CARDS_ENGINE),
             "animAddressMap": rel(ADDR_MAP),

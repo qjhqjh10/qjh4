@@ -198,6 +198,31 @@ namespace CardPresentation
             return true;
         }
 
+        /// <summary>弹一条**错误色**提示（红）。
+        /// <para>🔴 **2026-10-20（W58 · D9）判据**：原版 `UIMessageController.ShowError(串, localize)` =
+        /// `ShowMessage(串, errorColor, …)`，`errorColor = (0.8, 0, 0, 1)`（`__ShowError.c` 只有一句转调 ·
+        /// `MC_2087.json` 的 `errorColor`）；调用点 = `DeckEditingWindow.OnCardClick` / `CheckCardDrag` /
+        /// `DeckInfoPopup.EditDeck`。我们这一侧原来**只转发了 `ShowMessage`（白）** ⇒ 壳里想弹红字时没有口
+        /// （`Battle/ErrorMessageBanner.ShowError` 早就有，缺的只是这层转发）。</para>
+        /// <para>⚠️ 白 / 红是**同一条通道的两个色档**（同「5 条一池 / 轮转」那一套），⛔ 别另建第二颗横幅。</para></summary>
+        /// <param name="text">文案；<paramref name="localize"/> 为真时它是**词条键**。</param>
+        /// <param name="localize">过不过词条表（原版 `ShowError` 也带这一格）。</param>
+        /// <param name="fallback">键不在表里时的兜底整句（语义同 <see cref="Show"/>）。</param>
+        /// <returns>弹出去了没有（没建出来 / 空串 ⇒ false）。</returns>
+        public static bool ShowError(string text, bool localize = false, string fallback = null)
+        {
+            if (string.IsNullOrEmpty(text))
+            {
+                // 同 `Show`：原版空串 ⇒ `LogError` + return（红线：不许静默）
+                Debug.LogError("[MessageToast] `ShowError` 收到空串 ⇒ **什么都没弹**（出声，不静默）");
+                return false;
+            }
+            var t = Ensure();
+            if (t == null || t._banner == null) return false;
+            t._banner.ShowError(text, localize, fallback);       // 色 = `ErrorMessageBanner.ErrorColor`（0.8,0,0,1）
+            return true;
+        }
+
         // ==================================================================
         //  泵
         // ==================================================================

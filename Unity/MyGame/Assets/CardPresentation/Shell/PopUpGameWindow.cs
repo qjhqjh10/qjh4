@@ -82,9 +82,10 @@ namespace CardPresentation
     /// 两扇的窗参、面板尺寸、字号、按钮行布局**逐项不同**（900×? 居中 vs 750/850×420/430 死尺寸）。</para>
     ///
     /// <para>🔴 **它不在任何一页的层带里**：自成一档 **3560–3565**（= 全壳**所有窗**之上：
-    /// 最高的窗带是排行榜 `LeaderboardWindow.QBase = 3500`…`3520`；**之下**是 `Core/Tooltip.cs` 的
-    /// `QTipShadow/QTip/QTipText = 3605/3606/3607` —— 提示面板仍必须最高，那是原版的兄弟序，
-    /// 见 `Core/Tooltip.cs:75-84`）⇒ 层带不重叠。</para></summary>
+    /// 最高的窗带是排行榜 `LeaderboardWindow.QBase = 3500`…`3520`；**再往上**是 `Core/Tooltip.cs` 的
+    /// `QTipShadow/QTip/QTipText = 4077/4078/4079` —— 提示面板仍必须最高，那是原版排序层
+    /// （`TooltipManager` = `Blocking`(8) > `PopUps`(7)；⚠️ 2026-10-20 W58 就地订正：原来这里写
+    /// 「原版的兄弟序」**理由不成立**、号段也是旧的），见 `Core/Tooltip.cs:83-110`）⇒ 层带不重叠。</para></summary>
     public class PopUpGameWindow : GameWindow
     {
         // ============================================================ 队列档（本窗自成一档 · 3560–3565）

@@ -263,6 +263,20 @@ namespace CardPresentation
         static readonly Vector2 BoardHealthAt = new Vector2(0.7705f, 0.8928f);
         static readonly Vector2 BoardArmourAt = new Vector2(0.8240f, 0.7683f);
 
+        // 🔴 **2026-10-20（`W58`）：可行动/可选目标那颗底光在原版里是【独立子节点】**，不是「直接画在
+        //    数值中心」。判据 = 原版 prefab 的 `Highlight` / `Highlight ranged` Transform（3DBody 空间，
+        //    逐级 `Base Attack Counters(0.139241) × Melee/Range Attack Container(7.1817865)` 现算）：
+        //    · `Highlight`       局部 (−0.006, 0.005) ⇒ 3DBody **(−0.6810, 0.7599)**；
+        //      同法算出 `Melee AttackText` 中心 = (−0.6800, 0.7399) ⇒ 底光偏 **(−0.001, +0.020)**
+        //    · `Highlight ranged` 局部 (+0.011, 0)   ⇒ 3DBody **(−0.4230, 0.4207)**；
+        //      `Range Attack Text` 中心 = (−0.4340, 0.4057) ⇒ 偏 **(+0.011, +0.015)**
+        //    （`HighlightAttackType.highlightObject` 指向的就是这两个节点；尺寸/层级不变）
+        //    两张 glow 的缩放（0.6548 / 0.6557）我们仍按 `GlowOfCard` 一套走 —— 两者差 0.14%，可忽略。
+        static readonly Vector2 BoardMeleeGlowAt  = new Vector2(BoardMeleeAt.x  - 0.001f / CardUnitW,
+                                                               BoardMeleeAt.y  - 0.020f / CardUnitH);
+        static readonly Vector2 BoardRangedGlowAt = new Vector2(BoardRangedAt.x + 0.011f / CardUnitW,
+                                                                BoardRangedAt.y - 0.015f / CardUnitH);
+
         // ==================================================================
         // 🔴 **2026-10-18（W15）—— 2D 卡面上那三个数 / 费用六边形【跟着卡框凹槽走】，⛔ 不再用固定常量。**
         //
@@ -728,6 +742,23 @@ namespace CardPresentation
         //    护甲干脆只有数字、没有那面盾。两张图当时就躺在 `Resources/Art/ui_deck/` 里。
         const float CostBgW = 0.4891f, CostBgH = 0.4809f;
         const float ArmourIconW = 0.3067f, ArmourIconH = 0.3784f;
+
+        // 🔴 **2026-10-20（`W58`）：场上那面盾是【另一个尺寸/另一个落点】，⛔ 别拿 2D 这套顶。**
+        //    判据（原版 prefab，`bundle_battleprefabs_vfxandmisc_assets_all`）：
+        //    · `Armour Text/Armour Background` 局部 `(−0.003, 0.024, 0.06145)`、
+        //      localScale **0.26422**，父 `Armour Text` 的**世界 scale = 0.48287**
+        //      · `m_Size = 2.48 × 3.06` ⇒ 实绘 **0.3164 × 0.3904** 卡单位（我们原来是 0.3067 × 0.3784，−3.1%）
+        //    · 中心（3DBody 空间）= Armour Container (0.663, 0.771) + local × 0.48287
+        //      = **(0.675, 0.7956)** ⇒ 比数字中心（`BoardArmourAt`，3DBody y 0.771）**高 0.024**
+        //    ⚠️ 2D 卡面那套（`ArmourIconAt` / `ArmourIconW/H`）是卡框上另一个 Image，**不改**。
+        const float BoardArmourIconW = 0.3164f, BoardArmourIconH = 0.3904f;
+        /// <summary>场上护甲盾中心 = **数字中心 + (−0.003, +0.024)**（原版 `Armour Background` 局部
+        /// `(−0.003, 0.024)`；报告 `W58` 的裁定值 ⇒ 3DBody **(0.675, 0.7956)**）。
+        /// ⚠️ 见报告「没查清」：父级 scale 0.48287 是否也作用在这个局部偏移上，报告**没有乘**
+        /// （它乘了尺寸、没乘位置）；本批按任务口径「比数字高 **0.024**」落地。
+        /// 2D 卡面那面盾（`ArmourIconAt`）**不动**。</summary>
+        static readonly Vector2 BoardArmourShieldAt =
+            new Vector2(BoardArmourAt.x - 0.003f / CardUnitW, BoardArmourAt.y - 0.024f / CardUnitH);
 
         /// <summary>🔴 **W27（2026-10-18）遗留 —— 2026-10-19 主对话裁定后【无消费者】，仅历史/复核。**
         /// <para>费用底板贴图 `Card_Frame_Cost_Icon.png` 的**不透明 bbox**（实测 alpha&gt;8：
@@ -1534,8 +1565,9 @@ namespace CardPresentation
             {
                 var amf = _armourIcon.GetComponent<MeshFilter>();
                 if (amf != null) amf.sharedMesh = SpriteQuad(board ? "armourIconBoard" : "armourIcon",
-                                                             board ? BoardArmourAt : ArmourIconAt,
-                                                             ArmourIconW, ArmourIconH);
+                                                             board ? BoardArmourShieldAt : ArmourIconAt,
+                                                             board ? BoardArmourIconW : ArmourIconW,
+                                                             board ? BoardArmourIconH : ArmourIconH);
                 // z 也要换：场上是 3D 卡体，覆盖层必须落在**卡体正面之前**（见 `BoardInfoZ` 那段注释）
                 var ap = _armourIcon.transform.localPosition; ap.z = board ? BoardArmourIconZ : ArmourIconZ;
                 _armourIcon.transform.localPosition = ap;
@@ -1556,6 +1588,17 @@ namespace CardPresentation
             //    （`_info` 里烘一份 + 四个独立层再画一份）。
             BuildStatLayers();
             SyncStatLayers();
+            // 🔴 **2026-10-20（`W58`）**：徽标 / 虫群图标 / 治疗飘字**只在场上出现** → 换到非场上形态
+            //    必须显式关掉（铁律 10 第 5 条：换形态入口只有这一处）。
+            //    ⚠️ `SetFace(Hand)` 原来**不隐藏**那 7 个 `badge*` 层（今天没有 board→hand 路径，
+            //    所以一直没暴露；加回手路径时会看到「手牌上挂着词条徽标」）。`SetBadges(null)`
+            //    只是把层关掉、**不销毁**（手牌→场上再出牌时仍是懒建好的那几层）。
+            if (!board)
+            {
+                SetBadges(null);
+                SetSwarm(false);
+                HideHeal();
+            }
             // 🆕 2026-10-08（A181）：换形态 = 换掉/开关了一堆层 ⇒ **重裁一次**（只在已裁过时走）
             //    🔴 2026-10-13（A435 辛 · A774）：判据 = `Clipping`（显式矩形**或**跟随节点），理由见 `SetData` 那一处。
             if (Clipping) ApplyClip();
@@ -2129,7 +2172,34 @@ namespace CardPresentation
         /// <summary>角标数字的字号：字形高 ≈ 半个图标（图标 0.456 卡单位 ⇒ 0.16）。</summary>
         static float BadgeCounterFontSize
         {
-            get { return TmpFont.FontSizeForGlyphHeight(Badges.IconSize * 0.35f); }
+            // 🔴 **2026-10-20（`W58`）就地订正：原版 `TraitCounter` 的 TMP `m_fontSize = 5.5`。**
+            //    但那个字挂在 `TraitIconContainer`（localScale **0.7502**）下，而我们的 TMP 挂在
+            //    `FaceRoot`（scale 1）⇒ 换算成我们的字号 = **5.5 × 0.7502 = 4.1261**。
+            //    ⚠️ 旧实现是 `FontSizeForGlyphHeight(IconSize × 0.35)`（按**汉字墨高**反推，≈1.68）
+            //    —— 只有原版的 **41%**，而且用错了面（这层是 Pragati 拉丁面，em=0.1×fontSize）。
+            //    判据 = `GameObject/TraitCounter*.json` 六份 TMP 逐份同值（`m_fontSize 5.5`）+
+            //    父链 `Transform` 实读（容器 scale 0.7502）。
+            get { return 5.5f * 0.7502f; }
+        }
+
+        /// <summary>原版 `TraitCounter` 的**字重与描边** —— 全部在材质/组件字段里，逐值照抄：
+        /// · TMP `m_fontStyle = 1`（**Bold**）
+        /// · 材质 `Pragati-Regular Atlas Material Extra Thick Outline`
+        ///   （`bundle_fonts_assets_all/Material/Material_-7686741775824149781.json`）：
+        ///   `_OutlineWidth = 0.106` · `_OutlineColor = (0,0,0,0.7882)` · `_FaceDilate = 0.093`
+        /// ⚠️ 用 `fontMaterial`（**实例材质**）—— 改共享材质会让全工程所有卡一起变。</summary>
+        static void ApplyBadgeCounterStyle(TextMeshPro t)
+        {
+            if (t == null) return;
+            t.fontStyle = FontStyles.Bold;
+            var mat = t.fontMaterial;                 // ⚠️ 实例材质
+            if (mat == null) return;
+            mat.EnableKeyword("OUTLINE_ON");
+            mat.SetColor(ShaderUtilities.ID_OutlineColor, new Color(0f, 0f, 0f, 0.7882f));
+            mat.SetFloat(ShaderUtilities.ID_OutlineWidth, 0.106f);
+            mat.SetFloat(ShaderUtilities.ID_FaceDilate, 0.093f);
+            // 描边会把字形画到原 quad 之外 ⇒ 重算网格留白，不然描边被裁掉
+            t.UpdateMeshPadding();
         }
 
         /// <summary>
@@ -2257,13 +2327,16 @@ namespace CardPresentation
             return new Vector2(cardUnit.x / CardUnitW + 0.5f, 0.5f - cardUnit.y / CardUnitH);
         }
 
-        /// <summary>**图标本体**的位置 —— 原版的图标是容器下的 `Container` 节点，比容器再往卡外偏
-        /// `Badges.IconOutward`（0.287 × 0.750）。🔴 2026-09-20 补：以前图标直接画在**容器**位置上，
-        /// 整体偏内 0.215 卡单位（≈卡宽的 10%）。角标文字跟着图标走，所以也用它。</summary>
+        /// <summary>**图标本体**的位置 = **容器中心**（原版 `TraitIconContainer`）。
+        /// <para>🔴 **2026-10-20 就地订正（`W58`）**：这里原来再加一档 `Badges.IconOutward`
+        /// （0.287 × 0.750 = 0.21525）—— **那是误读**：容器下 `Container`(∓0.287) 与它自己下一级
+        /// `Without counter`/`With counter`(±0.287) **互相抵消** ⇒ 原版图标就在容器中心。
+        /// 多偏那一档会把图标外缘画到 −1.006，超出**可见 3D 卡体**半宽 0.9286 有 0.078
+        /// （用户报的「词条图标超出卡面」）。判据全文 = `资料/普查产出_1020/W58_战斗线_场上词条判据.md` §二。
+        /// 角标文字跟着图标走，所以也用它。</para></summary>
         static Vector2 BadgeIconAt01(int i)
         {
-            var at = Badges.SlotAt(i);
-            return ToAt01(new Vector2(at.x + (at.x < 0f ? -Badges.IconOutward : Badges.IconOutward), at.y));
+            return ToAt01(Badges.SlotAt(i));
         }
 
         // ==================================================================
@@ -2367,6 +2440,10 @@ namespace CardPresentation
             //    （普查表 §2·5 卡面那一格）⇒ `LatinCardBody`。
             var t = TmpFont.NewText(FaceRoot, "badgeCounter" + i, "", BadgeCounterFontSize, BadgeCounterInk,
                                     TmpFont.Face.LatinCardBody);
+            // 🔴 2026-10-20（`W58`）：原版 `TraitCounter` 是 **Bold + Extra Thick Outline 0.106**
+            //    （`m_fontStyle = 1`；材质 `Pragati-Regular Atlas Material Extra Thick Outline`）。
+            //    判据与色值见 `ApplyBadgeCounterStyle`。
+            ApplyBadgeCounterStyle(t);
             StampTmpQueue(t);   // 🆕 A1665：角标数字也是这张卡的一层
             // 🔴 **2026-10-18（`A848` 的补齐件 · `A994③` 同一轮）**：角标数字那层的纵向对齐 =
             //   原版 **`TraitCounter`** 的 **`Midline`(4096)** —— 现读
@@ -2886,8 +2963,9 @@ namespace CardPresentation
                     _armourIcon = AddLayer("armourIcon", armourTex,
                                            board ? BoardArmourIconZ : ArmourIconZ, armourTex,
                                            SpriteQuad(board ? "armourIconBoard" : "armourIcon",
-                                                      board ? BoardArmourAt : ArmourIconAt,
-                                                      ArmourIconW, ArmourIconH));
+                                                      board ? BoardArmourShieldAt : ArmourIconAt,
+                                                      board ? BoardArmourIconW : ArmourIconW,
+                                                      board ? BoardArmourIconH : ArmourIconH));
                 // ⚠️ 数值层：场上传 `statsOnly` —— **费用/卡名/效果文字都不烘进去**
                 //    （原版场上那些层整棵关掉；只有攻/血/甲留着）
                 // 🆕 2026-09-29：**场上那四个数字改由四个独立图层画**（`BuildStatLayers`）——
@@ -5361,6 +5439,225 @@ namespace CardPresentation
         public static Vector3 WillDieToForCheck { get { return WillDieTo; } }
 
         // ==================================================================
+        //  🆕 2026-10-20（`W58`）：原版场上卡还有两层我们一直没做 —— `SwarmIcon` · `HealText`
+        // ==================================================================
+        //
+        // 判据（原版 prefab `bundle_battleprefabs_vfxandmisc_assets_all`，逐份实读）：
+        //  · `3DBody/SwarmIcon`：local **(0, 3.329, −0.05)**、scale **1.016651**、
+        //    `SpriteRenderer.m_Size = 3.06 × 4.45`、`m_SortingOrder = 1`、**默认关**；
+        //    sprite = **`Atlas_trait_icon_swarm`**（PathID −8621708576942405447，已用 UnityPy 在
+        //    `atlasindividual_assets_40ktraiticonatlas.bundle` 里解析出名字；
+        //    我们的 `Resources/Art/traits/swarm.png` 就是同一张图）。
+        //  · 运行时那一份是 Addressable 预制体 **`Swarm Battle Card Icon`**（`CardScript.swarmObject`，
+        //    GUID `87a100c766fda41059e261e3e1ed817b`）：根下子节点 `Icon` 的 scale/size 与上面逐值相同，
+        //    挂 `SwarmIconController`（`offAnimationTime = 0.3`、`myAnimation`、`toggleOnSound`）。
+        //    `SwarmIconController.Toggle`（反编译实读）：on = 直接 SetActive + 开 Animation + 放声音；
+        //    off = **DOFade 到 0 + DOLocalMove 回原位，时长 `offAnimationTime`（0.3s）**，完成后关掉。
+        //    ⚠️ **缺件**：那条 AnimationClip（外部 CAB，PathID 6836189287277267510）与 `toggleOnSound`
+        //    本批**没有**取到 / 播放 —— 现在只做「显示 + 0.3s 淡出」，动画与音效另立账。
+        //    ⚠️ **触发链也没有接**（`CardScript.DisplaySwarm/RemoveSwarm` 的调用点在 `BattleDriver`，
+        //    不在本批白名单里）：本类只提供 `SetSwarm(bool)`，接线由战斗线另行安排。
+        GameObject _swarmIcon;
+        MeshRenderer _swarmIconMr;
+        Tweener _swarmFade;
+        float _swarmAlpha = 1f;
+
+        /// <summary>原版 `SwarmIconController.offAnimationTime = 0.3`（预制体字段，秒）。</summary>
+        public const float SwarmOffFadeTime = 0.3f;
+        /// <summary>Swarm 图标中心（卡根 = 原版 3DBody 空间；y = 3.329 − 半卡高）。</summary>
+        public static Vector3 SwarmLocalPos { get { return new Vector3(0f, 3.329f - CardUnitH * 0.5f, -0.05f); } }
+        /// <summary>Swarm 图标尺寸 = `m_Size 3.06×4.45` × localScale 1.016651（卡单位；SpriteRenderer 是拉伸画）。</summary>
+        public static Vector3 SwarmLocalScale { get { return new Vector3(3.06f * 1.016651f, 4.45f * 1.016651f, 1f); } }
+
+        /// <summary>显示 / 收起「虫群合并」图标（原版 `CardScript.DisplaySwarm/RemoveSwarm` → `SwarmIconController.Toggle`）。
+        /// ⚠️ 判据缺口见上面那一段（动画 clip / 音效 / 触发接线）。</summary>
+        public void SetSwarm(bool on)
+        {
+            if (on && _swarmIcon == null) BuildSwarm();
+            if (_swarmIcon == null) return;
+            if (_swarmFade != null && _swarmFade.IsActive()) _swarmFade.Kill();
+            if (on)
+            {
+                _swarmAlpha = 1f;
+                ApplySwarmAlpha();
+                _swarmIcon.SetActive(true);
+                return;
+            }
+            if (!_swarmIcon.activeSelf) return;
+            // 原版 off 那一支：淡出 + 位移动画，时长 `offAnimationTime`；这里只做淡出（见上面缺件说明）。
+            _swarmFade = DOTween.To(() => _swarmAlpha, v => { _swarmAlpha = v; ApplySwarmAlpha(); }, 0f, SwarmOffFadeTime)
+                                .SetUpdate(CardTween.Mode)
+                                .OnComplete(() => { if (_swarmIcon != null) _swarmIcon.SetActive(false); });
+        }
+
+        void ApplySwarmAlpha()
+        {
+            if (_swarmIconMr == null || _swarmIconMr.sharedMaterial == null) return;
+            var c = _swarmIconMr.sharedMaterial.color;
+            c.a = _swarmAlpha;
+            _swarmIconMr.sharedMaterial.color = c;
+        }
+
+        void BuildSwarm()
+        {
+            var tex = CardArt.Trait("swarm");
+            if (tex == null)
+            {
+                Debug.LogWarning("[CardView] `SwarmIcon` 取不到贴图 `Art/traits/swarm.png`"
+                               + "（原版那枚 = `Atlas_trait_icon_swarm`，`40ktraiticonatlas`）⇒ 整层不建");
+                return;
+            }
+            _swarmIcon = new GameObject("SwarmIcon");
+            // ⚠️ 挂在**卡根**下 —— 我们的卡根就是原版 `3DBody` 的等价物（见 `CanActParticles` 那段：
+            //    挂到 `_body3D` 底下会多乘一次 0.88586）。
+            _swarmIcon.transform.SetParent(transform, false);
+            _swarmIcon.transform.localPosition = SwarmLocalPos;
+            _swarmIcon.transform.localRotation = Quaternion.identity;
+            // `QuadMesh()` 是 1×1 的 Quad ⇒ localScale 就是世界尺寸。原版 `m_Size` 是**非等比**的
+            // （3.06 × 4.45），SpriteRenderer 照拉不误 ⇒ 这里也照拉，⛔ 别按贴图比例内接。
+            _swarmIcon.transform.localScale = SwarmLocalScale;
+            _swarmIcon.AddComponent<MeshFilter>().sharedMesh = QuadMesh();
+            _swarmIconMr = _swarmIcon.AddComponent<MeshRenderer>();
+            var m = new Material(BaseMaterial()) { name = "SwarmIcon" };
+            m.mainTexture = tex;
+            m.color = Color.white;
+            _swarmIconMr.sharedMaterial = m;
+            _swarmIconMr.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
+            _swarmIconMr.receiveShadows = false;
+            // ⚠️ **不进 `_layers`**：颜色/alpha 由本类按 `SetSwarm` 的补间说了算（同 `Minion Death Icon`）。
+            _swarmIcon.SetActive(false);
+        }
+
+        /// <summary>自检用：Swarm 图标现在显示着吗（没建过 = false）。</summary>
+        public bool SwarmVisible { get { return _swarmIcon != null && _swarmIcon.activeSelf; } }
+        /// <summary>自检用：Swarm 图标的贴图名（取不到 = null）。</summary>
+        public string SwarmTexName
+        {
+            get
+            {
+                var m = _swarmIconMr != null ? _swarmIconMr.sharedMaterial : null;
+                return (m != null && m.mainTexture != null) ? m.mainTexture.name : null;
+            }
+        }
+        /// <summary>自检用：Swarm 图标在卡根空间的**当前位置**（原版 3DBody (0,3.329,−0.05) → 卡根）。</summary>
+        public Vector3 SwarmIconLocalPos { get { return _swarmIcon != null ? _swarmIcon.transform.localPosition : Vector3.zero; } }
+        /// <summary>自检用：Swarm 图标的 localScale（原版 m_Size × 1.016651）。</summary>
+        public Vector3 SwarmIconLocalScale { get { return _swarmIcon != null ? _swarmIcon.transform.localScale : Vector3.zero; } }
+
+        // ── 治疗飘字（原版 `Board Elements/HealText`）──────────────────────────────
+        //
+        //  · 位置：`m_AnchoredPosition = (0, 2)`（Board Elements 与 3DBody 同位、scale 1）
+        //    ⇒ 卡根 **(0, 2 − 3.3313/2 = +0.33435, −0.05)**（z = RectTransform localPosition z）
+        //  · TMP：`m_text "+5"` · `m_fontSize 0.7` · **`m_isOrthographic = 1`**（⇒ 世界 em = 0.7，
+        //    不是 3D 那档的 0.07）· `m_fontColor` 纯白 · Center/Middle（2 / 512）· 默认关
+        //  · ✅ **2026-10-20（`W58`）：触发链查到了** —— 原版唯一显示口 = `CardScript.Heal` 协程
+        //    （`d:/2/tools/decomp_full/CardScript._Heal_d__468__MoveNext.c:155-225`；判据 →
+        //    `资料/普查产出_1020/W58_战斗线_HealText与InBattleId判据.md` §A）：
+        //      实际量 = `min(请求, MaxHealth − Health)`（`:109-112`）；**实际量 < 1 不显示**（`:136`）；
+        //      文案 `"+" + 实际量`；**先压到 `localScale = one × 0.05`**（`:166-196`，常量 `0x1834b2f94`），
+        //      再 `DOScale(one, 0.7s)`（`0x1834b3188`）· `SetEase(6 = OutQuad)` · `SetLoops(2, 1 = Yoyo)`
+        //      （`:195-200`）⇒ 0.05→1.0→0.05 共 **1.4 s**；之后 `WaitForSeconds(1.5)`（`0x1834b3090`）
+        //      才 `SetActive(false)`（`:204` → 第二拍 `:64-84`）。
+        //    ⚠️ 原来这段写着「何时显示查不到 / `decomp_full` 按 `healText` 零命中」—— **那是没找到**：
+        //      显示点走的是字段偏移 `BattleCardUI.healText (+0x138)`，按字段名 grep 命不中（铁律 5）。
+        TextMeshPro _healText;
+        /// <summary>治疗飘字当前那条补间（重入时先 `Kill`；自检用 `HealTweenNow` 读时长）。</summary>
+        Tween _healSeq;
+
+        /// <summary>原版 HealText 的**缩放段**时长：`DOScale(0.7)` × `SetLoops(2, Yoyo)` ⇒ 1.4 s 全程。
+        /// 判据 = `CardScript._Heal_d__468__MoveNext.c:195-200` 的 `0x1834b3188`（实读 0.7）。</summary>
+        public const float HealTextScaleSeconds = 0.7f;
+        /// <summary>原版 HealText 的**生命周期**（显示 → `SetActive(false)`）= **1.5 s**。
+        /// 判据 = `CardScript._Heal_d__468__MoveNext.c:204` 的 `WaitForSeconds(0x1834b3090 = 1.5)`。
+        /// 🔴 **这是「一条治疗占多久」的唯一判据**：`BattleDriver.PlaySignals` 的时间线、
+        /// 以及多目标治疗的**串行**（每目标 1.5 s）都读它（⛔ 别在别处再写一个字面量 1.5）。</summary>
+        public const float HealTextHoldSeconds = 1.5f;
+
+        /// <summary>原版 HealText 的世界字号（3D TMP 的 `fontSize`）—— `0.7` 在 `m_isOrthographic = 1`
+        /// 那一档就是世界 em 0.7；我们的 TMP 是 3D 档（em = 0.1 × fontSize）⇒ 传 **7.0**。</summary>
+        public const float HealTextFontSize = 7.0f;
+        /// <summary>HealText 在卡根空间的中心。</summary>
+        public static Vector3 HealTextLocalPos { get { return new Vector3(0f, 2f - CardUnitH * 0.5f, -0.05f); } }
+
+        /// <summary>显示「+N」治疗飘字（原版 `HealText` / `CardScript.Heal`）。
+        ///
+        /// <para>🔴 **`amount` 必须是【实际治疗量】**（= `min(请求, MaxHealth − Health)`）——
+        /// 原版 `CardScript._Heal…:109-112` 先 clamp、`:136` 再判 `< 1`；
+        /// ⛔ **别再在这里夹 `Mathf.Max(1, …)`**：那会把「0 / 负数治疗」显示成 `+1`，
+        /// 满血被治疗也会冒出一颗 `+1`（原版那一档**什么都不显示**）。</para>
+        ///
+        /// <para>动画照原版（`:166-200`）：`localScale = one × 0.05` → `DOScale(one, 0.7s)`
+        /// `OutQuad` `Loops(2, Yoyo)` → 停到 `1.5 s` 关。重入 = 先 `Kill` 旧序列再重开
+        /// （同一张卡连续被治疗时原版也是重新压小再涨一次）。</para></summary>
+        public void ShowHeal(int amount)
+        {
+            // 原版 `:136`：实际量 < 1 ⇒ 连显示那一支都不进（文本保持上一次的值也无所谓 —— 反正关着）
+            if (amount < 1) { HideHeal(); return; }
+            if (_healText == null) BuildHealText();
+            if (_healText == null) return;
+
+            if (_healSeq != null) { _healSeq.Kill(false); _healSeq = null; }
+
+            _healText.text = "+" + amount.ToString();
+            _healText.gameObject.SetActive(true);
+
+            var tr = _healText.transform;
+            // 原版 `:166-196`：先把 scale 写死成 `one × 0.05`（常量 `0x1834b2f94` 实读 0.05），再起补间
+            tr.localScale = Vector3.one * 0.05f;
+            var seq = DOTween.Sequence();
+            // `DOScale(one, 0.7)` + `SetEase(6 = OutQuad)` + `SetLoops(2, Yoyo)`（`:195-200`）
+            // ⇒ 第一段 0.05→1.0、第二段 1.0→0.05，共 1.4 s。
+            seq.Append(tr.DOScale(Vector3.one, HealTextScaleSeconds)
+                         .SetEase(Ease.OutQuad)
+                         .SetLoops(2, LoopType.Yoyo));
+            // 原版 `:204` 的 `WaitForSeconds(1.5)` 从**显示那一刻**起算 ⇒ 补足剩下的 0.1 s 再关。
+            float rest = HealTextHoldSeconds - HealTextScaleSeconds * 2f;
+            if (rest > 0f) seq.AppendInterval(rest);
+            // ⚠️ 序列自己的 ease 用 `Linear`（= 恒等映射）—— 否则 `SetEase` 会**覆盖**子补间的 OutQuad。
+            seq.OnComplete(() => { _healSeq = null; HideHeal(); });
+            _healSeq = CardTween.Use(seq, Ease.Linear, tr);
+        }
+
+        /// <summary>收起治疗飘字（生命周期到点、换到非场上形态、或重入时先清）。
+        /// 原版另一个关闭点 = `BattleCardUI.HideExtraEffects`（`mineuLight / canAttackAnim /
+        /// damageCounter / healText` 一起关，由 `SetObjectVisibility` 调）——
+        /// 我们对应的入口 = <see cref="SetFace"/> 的「非场上」那一支。</summary>
+        public void HideHeal()
+        {
+            if (_healSeq != null) { _healSeq.Kill(false); _healSeq = null; }
+            if (_healText != null) _healText.gameObject.SetActive(false);
+        }
+
+        void BuildHealText()
+        {
+            // 原版字体 = Pragati（`m_fontAsset` PathID 3485036404935369831，`bundle_fonts_assets_all`）
+            // ⇒ 我们的 `Face.LatinCardBody`。
+            _healText = TmpFont.NewText(transform, "HealText", "+5", HealTextFontSize, Color.white,
+                                        TmpFont.Face.LatinCardBody);
+            if (_healText == null)
+            {
+                Debug.LogWarning("[CardView] `HealText` 建不出来（TMP 字体资产取不到）⇒ 治疗飘字整层没有");
+                return;
+            }
+            _healText.transform.localPosition = HealTextLocalPos;
+            _healText.alignment = TextAlignmentOptions.Center;    // 原版 H=Center(2) / V=Middle(512)
+            _healText.gameObject.SetActive(false);
+            // ⚠️ **不进 `_layers`**：它是「只属于治疗那一下」的飘字，颜色由自己说了算
+            //    （同 `Minion Death Icon` / `SwarmIcon` 的理由）。
+        }
+
+        /// <summary>自检用：治疗飘字现在显示着吗。</summary>
+        public bool HealTextVisible { get { return _healText != null && _healText.gameObject.activeSelf; } }
+        /// <summary>自检用：治疗飘字当前文本（没建过 = null）。</summary>
+        public string HealTextText { get { return _healText != null ? _healText.text : null; } }
+        /// <summary>自检用：治疗飘字在卡根空间的位置。</summary>
+        public Vector3 HealTextLocalPosNow { get { return _healText != null ? _healText.transform.localPosition : Vector3.zero; } }
+        /// <summary>自检用：治疗飘字当前的 <c>localScale</c>（没建过 = 零向量）。</summary>
+        public Vector3 HealTextScaleNow { get { return _healText != null ? _healText.transform.localScale : Vector3.zero; } }
+        /// <summary>自检用：治疗飘字当前那条补间（时长应 == <see cref="HealTextHoldSeconds"/>；没在播 = null）。</summary>
+        public Tween HealTweenNow { get { return _healSeq; } }
+
+        // ==================================================================
         //  合法目标的底光（原版 `Highlight` / `Highlight ranged`）
         // ==================================================================
 
@@ -5425,9 +5722,9 @@ namespace CardPresentation
             // 🔴 2026-10-18（W15）：2D 那一档也跟 `FaceStatAt01` 走 —— 与数字/命中区**同一份判据**
             //    （底光锚点就是「那颗数值格」，三处各写一套迟早分家）。
             _glowMelee = MakeGlow("40K_melee_glow",
-                                  board ? BoardMeleeAt : FaceStatAt01(StatMelee, _frameTex), dia, "glow_melee");
+                                  board ? BoardMeleeGlowAt : FaceStatAt01(StatMelee, _frameTex), dia, "glow_melee");
             _glowRanged = MakeGlow("40K_ranged_glow",
-                                   board ? BoardRangedAt : FaceStatAt01(StatRanged, _frameTex), dia, "glow_ranged");
+                                   board ? BoardRangedGlowAt : FaceStatAt01(StatRanged, _frameTex), dia, "glow_ranged");
         }
 
         ImageQuad MakeGlow(string artName, Vector2 at, float dia, string name)
@@ -7525,10 +7822,19 @@ namespace CardPresentation
                 var rangedAt = statsOnly ? BoardRangedAt : FaceStatAt01(StatRanged, frameTex);
                 var armourAt = statsOnly ? BoardArmourAt : ArmourAt;
                 var healthAt = statsOnly ? BoardHealthAt : FaceStatAt01(StatHealth, frameTex);
-                DrawStatAt(px, meleeAt, d.melee, false);
-                DrawStatAt(px, rangedAt, d.ranged, false);
-                if (d.armor > 0) DrawStatAt(px, armourAt, d.armor, true);   // 护甲 = 原版 Thick 描边
-                DrawStatAt(px, healthAt, d.health, false);
+                // 🔴 **2026-10-20（`W58`）：场上（`statsOnly`）的两个尺子都与 2D 卡面分开** ——
+                //    ① 四个数值原版**全是 thick 0.12**（同一份 `White_thick Offset for 3D` 材质）；
+                //    ② 最大墨宽按原版 3D TMP 的 Rect（53/59/45 px），⛔ 不套 2D 的 31。
+                //    ⚠️ 这条路只在字形表缺失时才会真画（`SplitStats` 为假）；判据仍要与
+                //    `StatTexture` 那四个独立层**同一份**，所以两边都走 `StatVariant` / `StatMaxW`。
+                DrawStatAt(px, meleeAt, d.melee, StatVariant(StatMelee, statsOnly),
+                           statsOnly ? StatMaxW(StatMelee) : 0);
+                DrawStatAt(px, rangedAt, d.ranged, StatVariant(StatRanged, statsOnly),
+                           statsOnly ? StatMaxW(StatRanged) : 0);
+                if (d.armor > 0) DrawStatAt(px, armourAt, d.armor, StatVariant(StatArmour, statsOnly),
+                                            statsOnly ? StatMaxW(StatArmour) : 0);   // 护甲 = 原版 Thick 描边
+                DrawStatAt(px, healthAt, d.health, StatVariant(StatHealth, statsOnly),
+                           statsOnly ? StatMaxW(StatHealth) : 0);
             }
 
             return BakeInfo(key, px);
@@ -7559,6 +7865,16 @@ namespace CardPresentation
 
         /// <summary>一个数值格独立贴图的边长（面像素）。🔴 **与 <see cref="StatCell"/> 成对**，改一个必须改另一个。</summary>
         const int StatCanvas = 64;
+        /// <summary>Health 那一格自己的画布边长 —— 原版字号 **8**（其余三个 **7**，+14.3%）。
+        /// <para>🔴 **2026-10-20（`W58`）**：四个 3D TMP 的 `m_fontSize` 是 7/7/8/7，而**它们各自的
+        /// RectTransform scale 不同**（Melee/Range/Armour 0.48287、Health 3.46789 × 父 0.13924），
+        /// 有效世界字号 3.380 vs 3.863 —— 正好 8/7。`PragatiDigits.Draw` 没有字号参数（字形表
+        /// `DigitH = 28` 是常量）⇒ **画进一块 64×7/8 = 56 的画布、再铺满同一个 `StatCell`**，
+        /// 数字就按 8/7 放大（最近邻，像素密度差一档可忽略）。</para></summary>
+        const int StatHealthCanvas = StatCanvas * 7 / 8;      // = 56
+
+        static int StatCanvasOf(int s) { return s == StatHealth ? StatHealthCanvas : StatCanvas; }
+
         /// <summary>数值格在**卡单位**里的边长 = `CardUnitW × StatCanvas / FaceW`。
         /// 这样算出来，数字的像素尺寸与「烘在 `FaceW` 宽的大图里」时**逐像素相同** ——
         /// 卡面上别处的数字（手牌那张脸）与场上这四个看上去一样大。</summary>
@@ -7590,8 +7906,45 @@ namespace CardPresentation
             }
         }
 
-        /// <summary>护甲那个数字原版是 **Thick 描边**（`DrawStatAt` 的 `thick` 参数同一条判据）。</summary>
-        static bool StatThick(int s) { return s == StatArmour; }
+        /// <summary>这个数值用哪一档字形（描边宽度由 <see cref="PragatiDigits.OutlineWidth(PragatiDigits.Variant)"/> 读，
+        /// 那个数就是烘字形时用的数）。
+        /// <para>🔴 **2026-10-20（`W58`）：场上四个数值原版【全是 thick 0.12】** —— 四份 TMP 的
+        /// `m_sharedMaterial` 逐份实读都是 `Pragati-Regular White_thick Offset for 3D`
+        /// （`_OutlineWidth 0.12` / `_FaceDilate 0.12` / `_ColorMask 15`，同一份
+        /// `Material_-1760077249967186717`）⇒ 走 <see cref="PragatiDigits.Variant.Thick3D"/>。
+        /// 我们原来只有 armour 给了 thick（0.097，那一档是 **2D** 卡面的材质）⇒ 场上另外三个偏细。</para>
+        /// <para>2D 卡面（手牌 / 详情 / 卡池）**不变**：那边只有护甲是 thick(0.097)。判据只有这一处。</para>
+        /// ⚠️ 字形表三档：thin 0.05 / thick 0.097 / **thick3d 0.12**（2026-10-20 由
+        /// `工具/gen_pragati_digits.py` 补烘；`Core/PragatiDigits.Data.cs` 是生成物）。</summary>
+        static PragatiDigits.Variant StatVariant(int s, bool board)
+        {
+            if (board) return PragatiDigits.Variant.Thick3D;
+            return s == StatArmour ? PragatiDigits.Variant.Thick : PragatiDigits.Variant.Thin;
+        }
+
+        /// <summary>场上数值 `s` 用的字形档标签（自检读口 —— `Editor/BattleScene.cs` 用它断
+        /// 「四个数值都在 0.12 那档上」）。</summary>
+        public static string BoardStatVariantTag(int s) { return PragatiDigits.Tag(StatVariant(s, true)); }
+
+        /// <summary>场上数值的**最大墨宽**（面像素；0 = 不夹）。
+        /// <para>🔴 **2026-10-20（`W58`）：场上的尺子不能再借 2D 卡面的 `StatDigitMaxW = 31`。**
+        /// 原版四个 3D TMP 的 Rect 宽（× 各自 RectTransform scale）：
+        /// Melee/Range `0.9 × 0.48287 = 0.4346` · Health `1.0 × 0.48287 = 0.4830` ·
+        /// Armour `0.7747 × 0.48287 = 0.3741` 卡单位；我们 `FaceW=256` 时 1 px = 2.0927/256 卡单位
+        /// ⇒ **53 / 59 / 45 px**（`StatCanvas` 与 `FaceW` 每像素密度相同，所以两个画布共用这组数）。
+        /// 旧值 31 px 对应 0.2534 卡单位 —— 只有原版两位数额度（0.4346）的 58%、
+        /// 三位数会被明显缩号（用户从原版视频里看到的是**不缩**）。</para>
+        /// ⚠️ 这里按**原版 Rect 宽**取上限，不是「量截图」—— 视频截图有透视，量不出精确值。</summary>
+        static int StatMaxW(int s)
+        {
+            switch (s)
+            {
+                case StatMelee:  return 53;
+                case StatRanged: return 53;
+                case StatArmour: return 45;
+                default:         return 59;                       // Health（字号也大 8/7）
+            }
+        }
 
         /// <summary>一个数值格的独立贴图（`StatCanvas`²、数字居中）。字形表不在时返回 **null**
         /// ⇒ 调用方不拆（数值仍旧烘在 `_info` 里）。</summary>
@@ -7603,10 +7956,14 @@ namespace CardPresentation
             Texture2D cached;
             if (StatCache.TryGetValue(key, out cached) && cached != null) return cached;
 
-            var px = Blank(StatCanvas, StatCanvas);
-            PragatiDigits.Draw(px, StatCanvas, StatCanvas, v.ToString(),
-                               StatCanvas / 2, StatCanvas / 2, StatThick(s), StatDigitMaxW);
-            var tex = new Texture2D(StatCanvas, StatCanvas, TextureFormat.RGBA32, false) { name = "Stat_" + key };
+            // 🔴 2026-10-20（`W58`）：画布边长按 stat 取（Health 56 = 64×7/8 ⇒ 字号 ×8/7）；
+            //    场上的最大墨宽按原版 Rect（`StatMaxW`），⛔ 不再套 2D 的 31。
+            //    场上四个数值原版**全是 thick 0.12**（同一份 `White_thick Offset for 3D`）。
+            int canvas = StatCanvasOf(s);
+            var px = Blank(canvas, canvas);
+            PragatiDigits.Draw(px, canvas, canvas, v.ToString(),
+                               canvas / 2, canvas / 2, StatVariant(s, true), StatMaxW(s));
+            var tex = new Texture2D(canvas, canvas, TextureFormat.RGBA32, false) { name = "Stat_" + key };
             tex.SetPixels32(px);
             tex.Apply();
             StatCache[key] = tex;
@@ -7866,11 +8223,15 @@ namespace CardPresentation
         /// 出处：`资料/PnP卡图_逐张对账_0915.md` §六末 **A3** —— 原版费用与四个数值全是
         /// `TextMeshProUGUI` + **`Pragati-Regular SDF`**（逐字段读 `MonoBehaviour_{3782,4009,…}.json`），
         /// **没有任何点阵字形**。颜色是**白字 + 黑描边**（`m_fontColor=(1,1,1,1)`；
-        /// 描边在材质里：生命/近战/远程 `Thin` `_OutlineWidth=0.05`，**护甲/费用 `Thick` 0.097**）。
+        /// 描边在材质里：生命/近战/远程 `Thin` `_OutlineWidth=0.05`，护甲/费用 `Thick` 0.097）。
         /// ⇒ 所以这里的 `thick` 不是我们挑的，是照原版材质分的。
+        /// 🔴 **2026-10-20（`W58`）：上面那两档是【2D 卡面】的材质。场上四个 3D 数值原版共用
+        /// `Pragati-Regular White_thick Offset for 3D`（`_OutlineWidth 0.12`）⇒ 场上四个都走
+        /// <see cref="PragatiDigits.Variant.Thick3D"/>（字形表里烘好的 0.12 一档），
+        /// 判据见 <see cref="StatVariant"/>。**
         /// 字形表 = `Core/PragatiDigits.Data.cs`（生成物，从原版 SDF 图集抠的）。
         /// </summary>
-        static void DrawStatAt(Color32[] px, Vector2 at, int value, bool thick)
+        static void DrawStatAt(Color32[] px, Vector2 at, int value, PragatiDigits.Variant v, int maxW = 0)
         {
             if (!PragatiDigits.Available)
             {
@@ -7879,11 +8240,11 @@ namespace CardPresentation
                 return;
             }
             PragatiDigits.Draw(px, FaceW, FaceH, Mathf.Max(0, value).ToString(),
-                               Mathf.RoundToInt(at.x * FaceW), Mathf.RoundToInt(at.y * FaceH), thick,
-                               StatDigitMaxW);
+                               Mathf.RoundToInt(at.x * FaceW), Mathf.RoundToInt(at.y * FaceH), v,
+                               maxW > 0 ? maxW : StatDigitMaxW);
         }
 
-        /// <summary>数值格里的数字**最多多宽**（面像素）—— 超过就整体缩号（见 `PragatiDigits.Draw` 的 `maxW`）。
+        /// <summary>**2D 卡面**数值格里的数字最多多宽（面像素）—— 超过就整体缩号（见 `PragatiDigits.Draw` 的 `maxW`）。
         ///
         /// 来历：数值圆是**烘在卡框图里**的，代码里没有半径常量。2026-09-16 量出来的算法是：
         /// 子代理在 700 px 宽的渲染图上量紫圈内沿为 x 113→203 = **90 px** ⇒ 占卡宽 12.86%
@@ -7891,7 +8252,9 @@ namespace CardPresentation
         /// 一位数总宽 ≈ 18 面像素，不受影响；两位数（`Measure("10")` = 36.6）缩到 0.85 倍后进得去。
         /// ⚠️ 原版的两位数**本来就比一位数小**（同一张 `EC41` 卡图上，原版紫圈里的 `10` 四周都有余量），
         /// 所以「按位数缩号」不是我们的将就，是照原版。
-        /// </summary>
+        /// 🔴 **2026-10-20（`W58`）：这个 31 只属于【2D 卡面】。场上那四个 3D TMP 的尺子是
+        /// <see cref="StatMaxW"/>（53/59/45 px，原版 Rect 宽）—— 2D 的尺子套到 3D 卡体会把
+        /// 两/三位数夹小 25–40%。</summary>
         const int StatDigitMaxW = 31;
 
         /// <summary>尖朝左右的正六边形（费用底）。

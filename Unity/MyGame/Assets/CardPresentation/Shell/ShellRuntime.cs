@@ -121,6 +121,8 @@ namespace CardPresentation
             var rt = Instance;
             if (rt == null || rt.Loading == null)
             {
+                // 🔴 W58·D5：原版 toast 控制器随主菜单场景销毁 ⇒ 直切这条也清（判据 → 上面那一段）
+                ToastNotifications.DisposeForSceneChange();
                 UnityEngine.SceneManagement.SceneManager.LoadScene(scene);
                 return;
             }
@@ -134,7 +136,11 @@ namespace CardPresentation
                 {
                     // `LoadingFade(true)` 内部 `!isPlaying ⇒ Complete()` ⇒ 回调当场跑、`LoadScene` 立即切
                     //（这一句与改前**逐位相同**）
-                    loading.LoadingFade(true, () => UnityEngine.SceneManagement.SceneManager.LoadScene(scene));
+                    loading.LoadingFade(true, () =>
+                    {
+                        ToastNotifications.DisposeForSceneChange();       // 🔴 W58·D5
+                        UnityEngine.SceneManagement.SceneManager.LoadScene(scene);
+                    });
                 }
                 finally
                 {
@@ -176,6 +182,9 @@ namespace CardPresentation
 
                 try
                 {
+                    // 🔴 W58·D5：此刻黑场已是 α=1（完全遮住），先销毁 toast 再切场景 ——
+                    //    与原版「控制器随主菜单场景一起销毁」同一时刻（判据 → `OnSceneLoadedCleanupToast` 上方）。
+                    ToastNotifications.DisposeForSceneChange();
                     UnityEngine.SceneManagement.SceneManager.LoadScene(scene);
                 }
                 catch (System.Exception e)
@@ -361,7 +370,45 @@ namespace CardPresentation
         void OnDestroy()
         {
             if (_videoRt != null) { _videoRt.Release(); Destroy(_videoRt); _videoRt = null; }
+            // 撤掉切场景时清 toast 的全局订阅（壳正常不会销毁，这里只做卫生）
+            if (_sceneHookOn)
+            {
+                UnityEngine.SceneManagement.SceneManager.sceneLoaded -= OnSceneLoadedCleanupToast;
+                _sceneHookOn = false;
+            }
         }
+
+        // ============================================================ 切场景 ⇒ 清 toast（W58 · D5）
+        //
+        // 🔴 **2026-10-20（W58 · D5）判据**：原版 `ToastNotificationController` **只存在于主菜单场景**
+        //   （`bundle_scenes_scenes_mainmenuwarpforge`；13 个 `battlearena*` 里 0 处）⇒ **切场景即整棵销毁**。
+        //   我们这一颗建在 DDOL 壳上（`MainMenuRuntime.Build` → `ToastNotifications.Build`）⇒ 必须显式清：
+        //   · `LoadSceneWithFade` 里**切之前**调一次（最贴近原版「随场景销毁」的时刻）；
+        //   · 另有几处**不走** `LoadSceneWithFade` 的直调 `SceneManager.LoadScene`（收藏窗→卡组编辑、
+        //     开战那几扇窗、`MatchLogRow` 等）⇒ 用全局 `sceneLoaded` 兜底（覆盖**所有**切场景路径）。
+        //   回主菜单时 `MainMenuRuntime.Start → Build` 会重新建一颗（`sceneLoaded` 早于 `Start`，不会误杀新的）。
+        //   ⚠️ 只清 `ToastNotifications`（右下角那族飘窗）；顶部错误横幅 `MessageToast` 原版在 13 个战场里也有
+        //     ⇒ **不跟着清**（判据 → `Shell/MessageToast.cs` 文件头 ②）。
+        static bool _sceneHookOn;
+
+        static void OnSceneLoadedCleanupToast(UnityEngine.SceneManagement.Scene scene,
+                                              UnityEngine.SceneManagement.LoadSceneMode mode)
+        {
+            ToastNotifications.DisposeForSceneChange();
+        }
+
+        /// <summary>挂上「任何场景加载完 ⇒ 清 toast」的兜底订阅（幂等；`Build` 里调）。</summary>
+        static void EnsureSceneCleanupHook()
+        {
+            if (_sceneHookOn) return;
+            UnityEngine.SceneManagement.SceneManager.sceneLoaded += OnSceneLoadedCleanupToast;
+            _sceneHookOn = true;
+        }
+
+        /// <summary>自检用：切场景清 toast 的**全局订阅**挂上了没有（`Build` 里挂、`OnDestroy` 撤）。
+        /// <para>⚠️ 只读；⛔ 别拿它当「清过了」的判据 —— 它只证明订阅在，清没清看
+        /// `ToastNotifications.DisposeForSceneChange()` 的那几条断言。</para></summary>
+        public static bool SceneCleanupHookInstalledForTest { get { return _sceneHookOn; } }
 
         // ============================================================ 建
 
@@ -369,6 +416,7 @@ namespace CardPresentation
         public void Build()
         {
             _built = true;
+            EnsureSceneCleanupHook();           // 🔴 W58·D5：任何切场景都要清 toast（判据 → 上面那一段）
             var root = transform;
 
             // 🆕 **2026-10-17（界面线 T16 / `N4`）：安全区不再是个空节点** —— 两个 zone 的归属（原版树判据见下面建件那一节）：

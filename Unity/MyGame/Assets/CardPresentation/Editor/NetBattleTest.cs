@@ -1443,9 +1443,16 @@ public static class NetBattleTest
                     f.cb.LastSay = null;
 
                     // 对面那条连接没了 —— 客机这一侧看到的与「自己断网」**同形**（这正是判不了的那一件）
+                    // 🔴 取证用**事件**，不等瞬态状态：客机（`Role == Client`）的退避支在**同一次 `Pump()` 内**
+                    //    就把 `WaitingReconnect` 继续推到 `Handshaking`（`_lastReconnMs` 初值 0 + 进程秒表 ⇒ 立刻重连）
+                    //    ⇒ `PumpOne` 的 `cond()` 永远看不到那个中间态。
+                    //    判据：`资料/普查产出_1020/W58_诊断_NetBattle2条.md` §一 / §3·1。
+                    //    `+=` 是**追加**，与 `NetBattle.WireSession` 里挂的 `HandlePeerLost` **并存**（不顶掉生产接线）。
+                    bool cLost = false;
+                    f.cs.OnPeerLost += () => cLost = true;
                     f.hs.Transport.ClosePeer();
-                    Ok(PumpOne(f.cs, () => f.cs.State == NetState.WaitingReconnect, 8000),
-                       $"（结算掉线②）夹具：客机**确实看到**连接断了（实际 {f.cs.State}）");
+                    Ok(PumpOne(f.cs, () => cLost, 8000) && f.cs.State != NetState.InBattle,
+                       $"（结算掉线②）夹具：客机**确实看到**连接断了（`OnPeerLost` 已响；状态 {f.cs.State} = 已进入自动重连）");
                     f.cs.StopReconnecting();                    // 夹具止血：别让它在断言期间真去重连（那是 NetSession 自己的事）
                     f.cNB.Tick();
 
@@ -1472,9 +1479,13 @@ public static class NetBattleTest
                     NetRuntime.DrainNoticesForTest();
                     f.cb.LastSay = null;
 
+                    // 🔴 同 14②：用 `OnPeerLost` 事件取证（瞬态 `WaitingReconnect` 在同一次 `Pump()` 内
+                    //    就被客机退避支推到 `Handshaking`，`PumpOne` 的边界上看不到它）。
+                    bool cLost = false;
+                    f.cs.OnPeerLost += () => cLost = true;
                     f.hs.Transport.ClosePeer();
-                    Ok(PumpOne(f.cs, () => f.cs.State == NetState.WaitingReconnect, 8000),
-                       $"（结算掉线③）夹具：客机看到对面掉了（实际 {f.cs.State}）");
+                    Ok(PumpOne(f.cs, () => cLost, 8000) && f.cs.State != NetState.InBattle,
+                       $"（结算掉线③）夹具：客机看到对面掉了（`OnPeerLost` 已响；状态 {f.cs.State} = 已进入自动重连）");
                     Ok(f.cNB.ReconnectCountdownRunning && f.cb.LastSay != null,
                        "（结算掉线③）夹具：**对局中**掉线 ⇒ 倒计时照常起、提示照常说"
                      + "（与 14①/② 的分档点 = `Ctx.IsOver`）");

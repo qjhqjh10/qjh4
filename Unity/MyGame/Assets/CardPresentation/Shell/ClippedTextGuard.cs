@@ -1,6 +1,7 @@
 // ClippedTextGuard.cs —— 从 `Shell/MenuDraw.cs` 里拆出来的（A1506：MonoBehaviour 的类名【必须】与文件名相同，
 // 否则 Unity 建不出 MonoScript ⇒ 存场景时被烘成内联 `!u!115` 存根 ⇒ player 加载即崩）。
 // ⚠️ 它本来就是**命名空间顶层**（原来只是恰好写在了 `MenuDraw.cs` 里）⇒ 引用处一律不用改。零行为改动。
+using System.Collections.Generic;
 using UnityEngine;
 
 namespace CardPresentation
@@ -57,8 +58,40 @@ namespace CardPresentation
             _lb = lb; _clipArg = clip; _softArg = softPx;
             _tmp = lb != null ? lb.GetComponentInChildren<TMPro.TextMeshPro>() : null;
             if (_on) return;
-            TMPro.TMPro_EventManager.TEXT_CHANGED_EVENT.Add(OnTextChanged);
+            // 🔴 **2026-10-20（W58-S4FIX）**：不再逐守卫直挂 TMP 的 `FastAction`。
+            //   成因：`OnTextChanged` 在回调里 `OnDisable()` 自我摘除，而 `FastAction.Call` 是
+            //   `node = node.Next` 迭代、`LinkedList.Remove` 会把被摘节点的 `Next` 置 null
+            //   ⇒ **只要有一颗 `_lb` 已销毁却仍订阅的守卫，排在它后面的订阅者这一趟全收不到且静默**
+            //   （实测：探针守卫排在最后 ⇒ `entry=0`、计数停在 70）。
+            //   修法：整类共用**一个**静态派发器 + 一份我们自己的列表；派发时遍历**副本**，
+            //   守卫在回调里摘自己只动列表、不动正在遍历的 `FastAction` 链。
+            if (!Live.Contains(this)) Live.Add(this);
+            EnsureHook();
             _on = true;
+        }
+
+        static readonly List<ClippedTextGuard> Live = new List<ClippedTextGuard>();
+        static bool _hooked;
+
+        /// <summary>把唯一派发器挂到 TMP 的事件上（只挂一次，**永不在回调里摘**）。</summary>
+        static void EnsureHook()
+        {
+            if (_hooked) return;
+            TMPro.TMPro_EventManager.TEXT_CHANGED_EVENT.Add(Dispatch);
+            _hooked = true;
+        }
+
+        /// <summary>遍历**副本**：回调里 `OnDisable()` 摘自己只改 `Live`，不影响这一趟。</summary>
+        static void Dispatch(Object obj)
+        {
+            var arr = Live.ToArray();
+            for (int i = 0; i < arr.Length; i++)
+            {
+                var g = arr[i];
+                if (g == null) continue;
+                g.OnTextChanged(obj);
+            }
+            Live.RemoveAll(g => g == null);
         }
 
         /// <summary>🔴 **按「现在」的裁切状态**算这一刀该落在哪个框里（= 重新走一遍 `ViewportClip.Resolve`）。
@@ -94,18 +127,30 @@ namespace CardPresentation
             if (MenuDraw.ClipTextNow(_lb, c, s)) MenuDraw.TextReclipAfterPlace++;
         }
 
+        /// <summary>🆕 2026-10-20（W58-S4FIX）：自检读口 —— 守卫**实际**认的那一颗 TMP。
+        /// `_tmp` 在 `Arm` 时解析；若那一刻 TMP 子件还没建好，`OnTextChanged` 会按 `_lb` 重新解析。
+        /// ⛔ 生产路径不读它。</summary>
+        public TMPro.TextMeshPro TmpForTest
+        {
+            get { return _tmp != null ? _tmp : (_lb != null ? _lb.GetComponentInChildren<TMPro.TextMeshPro>() : null); }
+        }
+
         /// <summary>摘订阅。⚠️ `DestroyImmediate` 也会走到这里（`MenuDraw.ClearChildren` 批处理下就是它）
         /// —— 忘了摘的话，静态事件表会一直攥着这块内存（而且它已经不在场景里了）。</summary>
         void OnDisable()
         {
             if (!_on) return;
-            TMPro.TMPro_EventManager.TEXT_CHANGED_EVENT.Remove(OnTextChanged);
+            Live.Remove(this);
             _on = false;
         }
 
         void OnTextChanged(Object obj)
         {
             if (_lb == null) { OnDisable(); return; }     // 标签先没了 ⇒ 自己下岗
+            // 🆕 2026-10-20（W58-S4FIX）：`Arm` 那一刻 TMP 子件可能还没建好（`_tmp == null`）
+            // ⇒ 这里按 `_lb` 重新解析一次；仍取不到就保持订阅（点阵后端本来就没有事件）。
+            if (_tmp == null) _tmp = _lb.GetComponentInChildren<TMPro.TextMeshPro>();
+            if (_tmp == null) return;
             if (obj != _tmp) return;                      // 全局事件：只认自己那一个 TMP
             PxRect c; Vector2 s;
             if (!CurClip(out c, out s)) return;           // 🔴 A435①：同 `Reclip()` —— 框当场重解析

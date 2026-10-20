@@ -97,12 +97,12 @@ public static class CollectionScene
         /// 显式排出谁深谁浅」的尺子（原版靠 `m_Children` 的兄弟序定胜负，我们这侧只能靠 z）。
         /// **那不是「节点没摆对」**，却**一个人就能吃满 `CheckAt` 的容差** ⇒ 那种红是**口径错**，不是缺陷。</para>
         /// <para>口径：容差 **±1.5px**、**逐轴**比（与四条边那组 `CheckNear` 同一个口径；换算尺子仍只此一份
-        /// —— 转调 `LayoutSpace.ToPixel`）。判别力照旧：抓的是「节点停在容器 `(0,0)`」这类
+        /// —— 转调 `MenuCheck.DesignPx`（设计帧 / 乙式；🆕 2026-10-20 `A1350` 第二批换口））。判别力照旧：抓的是「节点停在容器 `(0,0)`」这类
         /// **几百 px** 的错（2026-09-23 那个「节点全停在容器原点、只有里面的 quad 画对了」的坑）。</para></summary>
         static void CheckAtPx(Transform t, float cx, float cy, float tol, string what)
         {
             if (t == null) { CheckTrue(false, what + "（节点不在）"); return; }
-            var p = LayoutSpace.ToPixel(t.position);
+            var p = MenuCheck.DesignPx(t);
             float dx = p.x - cx, dy = p.y - cy;
             CheckTrue(Mathf.Abs(dx) <= tol && Mathf.Abs(dy) <= tol,
                       $"{what}（实测中心 ({p.x:F2},{p.y:F2})，期望 ({cx:F2},{cy:F2})±{tol:F2}px，"
@@ -277,8 +277,12 @@ public static class CollectionScene
             return ew != null && ew.gameObject.activeSelf;
         }
 
-        static float PxOf(float worldX) { return worldX * 108f + 960f; }
-        static float PxYOf(float worldY) { return 540f - worldY * 108f; }
+        // 🆕 **2026-10-20（`A1350` 第二批）**：本文件原来那两个甲式点读定义
+        // `static float PxOf(float worldX) => worldX * 108f + 960f;` /
+        // `static float PxYOf(float worldY) => 540f - worldY * 108f;` **已删除**（V3 结构闸：真定义 0 处）。
+        // 全部调用点换口：与设计 px 期望值比的走 `MenuCheck.DesignPx(t)`（设计帧 / 乙式）；
+        // 喂 `PointerLayer` 的走 `MenuCheck.PointerFramePx(t)`（指针帧）。判据 →
+        // `资料/普查产出_1019/W57_自检线_A1350读口统一计划.md` §1·2 / §2·2。
 
         /// <summary>🆕 **2026-10-13（A750）**：量一段文字 **TMP 自己渲出来那块**的像素矩形
         /// （1920×1080 · 左上原点 · y 向下）—— **这一份才是「字真的从哪开始画」**。
@@ -368,7 +372,7 @@ public static class CollectionScene
                 int cnt = gi != null ? gi.Count : vs.Length;
                 for (int i = 0; i < cnt; i++)
                 {
-                    var p = LayoutSpace.ToPixel(mr.transform.TransformPoint(vs[gi != null ? gi[i] : i]));
+                    var p = LayoutSpace.ToPixel(mr.transform.TransformPoint(vs[gi != null ? gi[i] : i]));   // 甲式保留：顶点量法（W57 §1·4 第 4 条）
                     verts++;
                     x1 = Mathf.Min(x1, p.x); x2 = Mathf.Max(x2, p.x);
                     y1 = Mathf.Min(y1, p.y); y2 = Mathf.Max(y2, p.y);
@@ -542,9 +546,27 @@ public static class CollectionScene
             // 🆕 **2026-10-20（`A1350` 第一批）**：实现转调 `MenuCheck.NodeRectPx(…, LabelNode, …)`
             // （自检侧**唯一一份**节点矩形读口）。中心本来就是乙式（`A1350` 第 ② 步 · 第五十五会话 S3 已落）
             // ⇒ 纯搬、**行为零变化**；本函数保留原名与本形参 ⇒ 调用点 0 改动。
-            // ⚠️ 尺寸项仍是「字走 `SelfCheckTextMetrics.RenderedPx`（TMP 活值）/ 图走 `WorldW×108`」——
-            //    与下面原注释里的换口口径逐字一致；世界帧 vs 设计帧那笔账（§二·3）不在本批。
-            return MenuCheck.NodeRectPx(t, MenuCheck.RectCenterMode.LabelNode, out x1, out y1, out x2, out y2);
+            // 🆕 **2026-10-20（`A1350` 第二批 · 计划 §2·3「尺寸帧」）**：中心仍是设计帧（`NodeRectPx` 的 `LabelNode` 档），
+            // **尺寸来源**改成 `SelfCheckTextMetrics.RenderedRectDesign`（同一块 TMP 四角，但每个角先过设计空间）
+            // —— 消掉「中心设计帧 + 尺寸世界帧」在父链带缩放 M 时分家的缺陷。
+            // 单位缩放下与旧口逐位相同（除 1，且 16:9 下斜率差 ≤ 2.5e-4 px）⇒ 今天读数不变。
+            // 量不到（点阵后端 / 底下没有 TMP）⇒ **保留** `NodeRectPx` 的退路（`Label.WorldW/H × 108`，本来就是设计长度）。
+            // ⚠️ 只动**尺寸来源**：中心不从 TMP 的 `textBounds` 重算（那是 `AlignLeft/Right` 挪节点后的口径，会动读数）。
+            if (!MenuCheck.NodeRectPx(t, MenuCheck.RectCenterMode.LabelNode, out x1, out y1, out x2, out y2))
+                return false;
+            var lb = t.GetComponentInChildren<Label>();
+            if (lb != null)
+            {
+                float dx1, dy1, dx2, dy2;
+                if (SelfCheckTextMetrics.RenderedRectDesign(lb.transform, out dx1, out dy1, out dx2, out dy2))
+                {
+                    float cx = (x1 + x2) * 0.5f, cy = (y1 + y2) * 0.5f;
+                    float w = dx2 - dx1, h = dy2 - dy1;
+                    x1 = cx - w * 0.5f; x2 = cx + w * 0.5f;
+                    y1 = cy - h * 0.5f; y2 = cy + h * 0.5f;
+                }
+            }
+            return true;
         }
         static string TextOf(Transform t)
         {
@@ -567,7 +589,7 @@ public static class CollectionScene
             if (lb == null) return -9999f;
             float w = LabelRenderedPx(lb).x;      // 🆕 A796′：走 TMP `textBounds`（旧口 = 缓存 `Label.WorldW`）
             if (!(w > 20f && w < 2000f)) return -9999f;
-            return PxOf(lb.transform.position.x) - w * 0.5f;
+            return MenuCheck.DesignPx(lb.transform).x - w * 0.5f;
         }
 
         // ============================================================ 🆕 2026-10-04：软边接线探针
@@ -804,7 +826,11 @@ public static class CollectionScene
             //      `资料/普查产出_1011/DIAG-B_Rewards十一条红.md` §二·#1（`RewardsScene` 那 8 条红就是同一个形状）。
             var wm = WindowsManager.EnsureHost();      // 它自己建 "Window Anchors" + 三颗 Holder + 管理器，并**登记 `Instance`**
 
-            var win = CollectionWindow.Create(wm);
+            // 🔴 **`A1834`（2026-10-20）**：清一次探针读账 —— 下面那条断言读的是「**建这一扇窗时**
+            //   文字重排探针在什么位置跑的」，别让上一次建窗（或别的宿主）的读数混进来。
+            CollectionWindow.TextRelayoutProbe.Reset();
+
+            var win = CollectionWindow.Create(wm);       // ← `Create` 末尾会 `Build()`（四页全建）
             wm.OpenWindow(win);
             root = win.transform;
             return win;
@@ -965,6 +991,51 @@ public static class CollectionScene
                   + "（原版 `GameStaticData.deckSize = 30`）—— A10 尾巴那一整段的阳性前提");
 
             var win = Build(out var root);
+
+            // ---------------- 🆕 2026-10-20（`A1834`）：文字重排探针**排在它要观察的那一步之前**吗 ----------------
+            //
+            // 判据（原账）：`Shell/CollectionWindow.cs` 的 `TimeOneTextRelayout` 排在 `RebuildCardsCells`
+            // **之后**（字形在建卡时就烘完、文本也没再变）⇒ 它量到的 `0.0 ms` 是**必然结果**，
+            // 日志却拿它当「字体现烘那条假设不成立」的证据
+            // （`资料/普查产出_第二十八会话/A1814_A1813_诊断.md` §A1813 ③）。
+            // 修法 = 把 **before 快照**挪到变化之前（`BuildWatch.TextProbeBegin`）＋ 建完之后算 Δ（`TextProbeEnd`）。
+            // 本条从**两个互相独立的维**断「位置对不对」：
+            //   ① **源码次序**（静态，**灭自证**）：位置是源码里的事实，⛔ 不是被测量对象自己报的数 ——
+            //      把 begin 挪回 `RebuildCardsCells` 之后 ⇒ 红；
+            //   ② **运行时读数**（刚建完这扇窗）：`CardsAtBegin` / `BeginsWithCards` 必须为 **0**，before/after 成对。
+            Section("A1834：文字重排探针的位置（静态源码次序）");
+            {
+                // 🔴 **2026-10-20（W58-UIFIX-A · 铁律 5 就地订正）**：这里原来还挂着 **5 条运行时读数**
+                //   （`Begins >= 1` / `CardsAtBegin` / `BeginsWithCards` / 成对 / `UnclosedBegins`）——
+                //   ⛔ 已搬到**第一次切到 Cards 页之后**（本文件「切页」那一节之后，`A1834（运行时读数）`）。
+                //   **原因**：T09（2026-10-17）起四页**懒建** —— `CollectionWindow.Build()` 只建第 0 页（Deck），
+                //   Cards 页要第一次 `tabButtons.Click(1)` 才 `Setup()`（`Shell/CollectionTabPage.cs:44-80`）；
+                //   而这里在 `Create` 之后**立刻**读，那时 Cards 页还没建 ⇒ `Begins = 0` **恒红**
+                //   （判据 → `普查产出_1020/W58_诊断_界面五宿主.md` §五 C1；日志侧证 = A1834 之前只有
+                //   `BuildDeckList` 栈、没有 `BuildCardsPage` 栈）。
+                //   ⚠️ 静态源码那 3 条**不依赖建页** ⇒ 留在原处（它们也在这里就地守着「别把 begin 挪到建卡之后」）。
+                //   ⛔ 不要为了那条去在 `Create` 里强制建 Cards 页（那会推翻 T09 的首开性能修复）。
+                // ① 静态：源码里那三句的**先后**（⛔ 不读任何我们自己算出来的量）
+                const string cwPath = "Assets/CardPresentation/Shell/CollectionWindow.cs";
+                string cwSrc = File.Exists(cwPath) ? File.ReadAllText(cwPath) : "";
+                CheckTrue(cwSrc.Length > 0,
+                          $"（前提·不静默）A1834：读得到 `{cwPath}` —— 读不到 ⇒ 下面三条**没跑**，不是绿");
+                if (cwSrc.Length > 0)
+                {
+                    int iBegin = cwSrc.IndexOf("BuildWatch.TextProbeBegin(", System.StringComparison.Ordinal);
+                    int iEnd = cwSrc.IndexOf("BuildWatch.TextProbeEnd(", System.StringComparison.Ordinal);
+                    // ⚠️ 锚点带行首 12 个空格 —— 页面 Setup 里那一句；`:1040` 的
+                    //   `OnChanged = () => RebuildCardsCells(holder);`（lambda）**不该**被当成变化点。
+                    int iRebuild = cwSrc.IndexOf("\n            RebuildCardsCells(holder);", System.StringComparison.Ordinal);
+                    CheckTrue(iBegin >= 0 && iRebuild >= 0 && iEnd >= 0,
+                              $"★ A1834 · 三句都在（begin `{iBegin}` · RebuildCardsCells `{iRebuild}` · end `{iEnd}`）");
+                    CheckTrue(iBegin >= 0 && iRebuild > iBegin,
+                              "★ A1834 · **`TextProbeBegin` 排在 `RebuildCardsCells(holder);` 之前**（= 变化之前）"
+                            + "｜🧨 挪回建卡之后 ⇒ 本条红（探针又会量到恒 0）");
+                    CheckTrue(iEnd > iRebuild,
+                              "★ A1834 · **`TextProbeEnd` 排在 `RebuildCardsCells(holder);` 之后**（Δ 才算得到）");
+                }
+            }
 
             // ---------------- 窗口参数（原版 MB `-6401214277658680619`）----------------
             Section("窗口参数（正本 §一；`Collection Menu Variant` 根 MB 原文）");
@@ -1297,9 +1368,9 @@ public static class CollectionScene
                 //   = `(1589.1 − 1470 + 20)/2` = **69.55** ⇒ 第 1 格左沿 **400.45**、中心 **512.95**。
                 //   旁证（用户实拍 `桌面/warpforge参考图/收藏—卡组的参考图.png`）：把实拍按卡框宽 221.4
                 //   归一后量到的第 1 格左沿 = **400.4 ± 3**（旧那套给 340.9，差 59.6px）。
-                CheckNear(PxOf(c0.position.x), 512.95f, 0.6f,
+                CheckNear(MenuCheck.DesignPx(c0).x, 512.95f, 0.6f,
                           "第 1 格中心 x = **512.95**（视口左边 330.9 + RSR 整体居中 69.55 + 225/2）");
-                CheckNear(PxYOf(c0.position.y), 338.15f, 0.6f,
+                CheckNear(MenuCheck.DesignPx(c0).y, 338.15f, 0.6f,
                           "第 1 格中心 y = **338.15**（视口顶 155.9 + 364.5/2）");
                 var frame = FindChild(c0, "Frame");
                 CheckNear(Wpx(frame), 246f * 0.9f, 2f, "格内卡框宽 = **221.4**（原版 246 × 显示比例 0.9）");
@@ -1310,7 +1381,7 @@ public static class CollectionScene
                 //   ⇒ 与上一格同一条订正。居中后的第 6 格右边界 = `400.45 + 5×245 + 225` = **1850.45**。
                 // 6 列：第 6 格右边界 = 400.45 + 5×245 + 225 = 1850.45 ≤ 1920
                 if (cells.Count >= 6)
-                    CheckNear(PxOf(cells[5].position.x) + DeckCellWpx() / 2f, 1850.45f, 0.6f,
+                    CheckNear(MenuCheck.DesignPx(cells[5]).x + DeckCellWpx() / 2f, 1850.45f, 0.6f,
                               "第 **6** 格右边界 = **1850.45** ≤ 1920（**这是「6 列」的判据** —— 7 列要 1972.95）");
             }
 
@@ -1325,7 +1396,7 @@ public static class CollectionScene
                           "★ 卡组网格的列方向原点 = **69.55**（RSR 整体居中；不是 padL 10）");
                 var dcell0 = FindChild(win.PageRoot(0), "CollectionDeck_0");
                 if (dcell0 != null)
-                    CheckNear(PxOf(dcell0.position.x) - 225f / 2f, 400.45f, 0.6f,
+                    CheckNear(MenuCheck.DesignPx(dcell0).x - 225f / 2f, 400.45f, 0.6f,
                               "★ 第 1 格**左沿 = 400.45**（视口左 330.9 + 69.55；实拍实测 400.4±3，"
                               + "旧的 `padL 10` 给 340.9 = 差 59.6px）");
 
@@ -1374,7 +1445,7 @@ public static class CollectionScene
                               "起手收起（**照原版**：`SetupFilters` 把抽屉摆到 `hiddenPosition` 那一头）");
                     CheckNear(win.DrawerSlide(3), 0f, 0.001f,
                               "🆕 A11：Deck 页这一列也走**同一套滑动**，收起 = 进度 **0**（不只在原位隐身）");
-                    float dCx0 = PxOf(dflt.position.x);
+                    float dCx0 = MenuCheck.DesignPx(dflt).x;
                     CheckNear(dCx0, 167.81f - 385f, 1.5f,
                               "…收起 = 按**原版行程 −385px** 滑出去（`hiddenPosition.x − originalAnchorPosition.x`"
                               + " = −550 −(−165)；原位中心 167.81 → −217.19）—— 有洞的实现在这里就红");
@@ -1531,8 +1602,8 @@ public static class CollectionScene
                 {
                     // 🆕 **2026-10-16（A796′）换口**：半宽（`WorldW × 54`）不再读**字段缓存** `Label.WorldW`（`_tmpW`），
                     //    改走 `LabelRenderedPx`（TMP `textBounds` 那条口）—— 中心仍是**节点位置**（只换「从哪个口读那个数」）。
-                    float cfR = PxOf(lcf.transform.position.x) + LabelRenderedPx(lcf).x * 0.5f;
-                    float iL = PxOf(lil.transform.position.x) - LabelRenderedPx(lil).x * 0.5f;
+                    float cfR = MenuCheck.DesignPx(lcf.transform).x + LabelRenderedPx(lcf).x * 0.5f;
+                    float iL = MenuCheck.DesignPx(lil.transform).x - LabelRenderedPx(lil).x * 0.5f;
                     CheckTrue(cfR < iL,
                               $"`Clear filters`（右缘 **{cfR:F0}**）与 `Import Deck`（左缘 **{iL:F0}**）**不叠**"
                               + " —— 判据是 A2 §161 的实测落点 612.2，**别自己按容器推**");
@@ -1587,8 +1658,8 @@ public static class CollectionScene
                 var ihq = FindChild(tabsRoot, "ImportHit");
                 var cq = chq != null ? chq.GetComponentInChildren<ImageQuad>() : null;
                 var iq = ihq != null ? ihq.GetComponentInChildren<ImageQuad>() : null;
-                float ccx = cq != null ? PxOf(cq.transform.position.x) : -1f;
-                float icx = iq != null ? PxOf(iq.transform.position.x) : -1f;
+                float ccx = cq != null ? MenuCheck.DesignPx(cq.transform).x : -1f;
+                float icx = iq != null ? MenuCheck.DesignPx(iq.transform).x : -1f;
                 CheckNear(icx, 1513.50f, 1f, "`Import` 中心 x = **1513.50**（原版左缘 1391.00 + 245/2）");
                 CheckNear(ccx, 1783.50f, 1f, "`Create` 中心 x = **1783.50**（原版左缘 1661.01 + 245/2）");
                 CheckNear(ccx - icx, 270f, 1f,
@@ -1615,10 +1686,10 @@ public static class CollectionScene
                           "★ `Control Buttons` **组节点**建了（原版 `Select Deck Tab>Header/Control Buttons`）");
                 if (cbg != null)
                 {
-                    CheckNear(PxOf(cbg.position.x), 1550.01f, 1f,
+                    CheckNear(MenuCheck.DesignPx(cbg).x, 1550.01f, 1f,
                               "★ 组节点中心 x = **1550.01**（原版组矩形 1180.00→1920.01；宽 740.01"
                               + " = 186.01+245+245+25+25+**14**(pad.right)）");
-                    CheckNear(PxYOf(cbg.position.y), 110.94f, 1f, "★ …中心 y = **110.94**（原版 80.94→140.94）");
+                    CheckNear(MenuCheck.DesignPx(cbg).y, 110.94f, 1f, "★ …中心 y = **110.94**（原版 80.94→140.94）");
                     var bNew = FindChild(cbg, "Create");
                     var bImp = FindChild(cbg, "Import");
                     CheckTrue(bNew != null && bImp != null,
@@ -1634,9 +1705,9 @@ public static class CollectionScene
                                   && bImp.GetSiblingIndex() < uUn.GetSiblingIndex(),
                                   "★ 组内**树序** = 原版 `[Create, Import, Unlock]`（`reverse=1` ⇒ 视觉序**反之**："
                                   + "最左是 `Unlock`）");
-                        CheckNear(PxOf(uUn.position.x), 1273.01f, 1f,
+                        CheckNear(MenuCheck.DesignPx(uUn).x, 1273.01f, 1f,
                                   "★ `Unlock` 中心 x = **1273.01**（原版 1180.00→1366.01，宽 186.01）");
-                        CheckNear(PxYOf(uUn.position.y), 110.94f, 1f, "…中心 y = **110.94**（与另两颗同一行）");
+                        CheckNear(MenuCheck.DesignPx(uUn).y, 110.94f, 1f, "…中心 y = **110.94**（与另两颗同一行）");
                         // 🆕 **2026-10-06（A125③）：`Unlock` 的**两个子件**（原来一条断言都没有 —— 摆错不会红）**。
                         //    判据 = **逐字段直读** prefab（`bundle_menus_assets_all`；我另跑了一遍 RT 索引复核，
                         //    与 `Shell/CollectionWindow.cs` 的 `BuildUnlockPlaceholder` 注释同一份数据）：
@@ -1664,10 +1735,10 @@ public static class CollectionScene
                                              + " —— 不在 ⇒ 下面两条等于没验");
                         else
                         {
-                            CheckNear(PxOf(uBo.position.x), 1273.01f, 1f,
+                            CheckNear(MenuCheck.DesignPx(uBo).x, 1273.01f, 1f,
                                       "★ `Button Outline` 中心 x = **1273.01**（原版相对 `Unlock`"
                                       + " (0.50,0)→(185.51,60)：左右各内缩 0.50 ⇒ 与 `Unlock` 同心）");
-                            CheckNear(PxYOf(uBo.position.y), 110.94f, 1f,
+                            CheckNear(MenuCheck.DesignPx(uBo).y, 110.94f, 1f,
                                       "★ `Button Outline` 中心 y = **110.94**（原版上下**不**内缩 ⇒ 与 `Unlock` 同中心）");
                         }
                         if (uTx == null)
@@ -1675,10 +1746,10 @@ public static class CollectionScene
                                              + " —— 不在 ⇒ 下面两条等于没验");
                         else
                         {
-                            CheckNear(PxOf(uTx.position.x), 1273.01f, 1f,
+                            CheckNear(MenuCheck.DesignPx(uTx).x, 1273.01f, 1f,
                                       "★ `Text` 中心 x = **1273.01**（原版相对 `Unlock` (8.36,8.59)→(177.65,51.41)："
                                       + "左右各内缩 8.36 ⇒ 与 `Unlock` 同心）");
-                            CheckNear(PxYOf(uTx.position.y), 110.94f, 1f,
+                            CheckNear(MenuCheck.DesignPx(uTx).y, 110.94f, 1f,
                                       "★ `Text` 中心 y = **110.94**（上下各内缩 8.59 ⇒ 与 `Unlock` 同心）");
                         }
                         if (uBo != null && uTx != null)
@@ -1696,7 +1767,7 @@ public static class CollectionScene
                             CheckTrue(false, "★ `Import` 那颗钮的**图片本体**（`ImageQuad`）拿得到"
                                              + " —— 拿不到就量不了它相对 `Unlock` 的位置，下面那条等于没验");
                         else
-                            CheckNear(PxOf(bImpQ.transform.position.x) - PxOf(uUn.position.x), 240.5f, 1f,
+                            CheckNear(MenuCheck.DesignPx(bImpQ.transform).x - MenuCheck.DesignPx(uUn).x, 240.5f, 1f,
                                       "★ `Unlock` 中心 →`Import` 中心 = **240.5**（= 186.01/2 + spacing **25** + 245/2）"
                                       + " —— 原版那颗占位**参与排布**，位置摆错这条就红");
                         int uq = uUn.GetComponentsInChildren<ImageQuad>(true).Length;
@@ -1745,12 +1816,12 @@ public static class CollectionScene
                     var last = CollectionData.DeckCount() - 1;
                     var lastCell = FindChild(tabsRoot, "CollectionDeck_" + last);
                     CheckTrue(lastCell != null
-                              && PxYOf(lastCell.position.y) + DeckCellHpx() / 2f <= 1080.5f,
+                              && MenuCheck.DesignPx(lastCell).y + DeckCellHpx() / 2f <= 1080.5f,
                               "**滚到底 ⇒ 最后一格完整落进视口**（这是「够不着」那个缺口的判据）"
                               + "【实测：max=" + max.ToString("F1") + " · 末格=" + last + " · 取到=" + (lastCell != null)
-                              + " · 末格中心 y=" + (lastCell != null ? PxYOf(lastCell.position.y).ToString("F1") : "-")
+                              + " · 末格中心 y=" + (lastCell != null ? MenuCheck.DesignPx(lastCell).y.ToString("F1") : "-")
                               + " · 格高=" + DeckCellHpx().ToString("F1")
-                              + " · 底边=" + (lastCell != null ? (PxYOf(lastCell.position.y) + DeckCellHpx() / 2f).ToString("F1") : "-")
+                              + " · 底边=" + (lastCell != null ? (MenuCheck.DesignPx(lastCell).y + DeckCellHpx() / 2f).ToString("F1") : "-")
                               + "】");
                     win.DeckScroll.ScrollBy(-max);
                 }
@@ -1775,14 +1846,14 @@ public static class CollectionScene
                     {
                         var c = win.DeckCells[i];
                         if (c == null) continue;
-                        float cy = PxYOf(c.position.y);
+                        float cy = MenuCheck.DesignPx(c).y;
                         if (cy + DeckCellHpx() * 0.5f > CollectionWindow.DeckViewport.y2 + 0.5f)
                         { edge = c; edgeCy = cy; break; }
                     }
                     CheckTrue(edge != null, "起手有一格**压在视口下边上**（否则这一条等于没验）");
                     if (edge != null)
                     {
-                        float ecx = PxOf(edge.position.x);
+                        float ecx = MenuCheck.DesignPx(edge).x;
                         var full = new PxRect(ecx - DeckCellWpx() * 0.5f, edgeCy - DeckCellHpx() * 0.5f,
                                               ecx + DeckCellWpx() * 0.5f, edgeCy + DeckCellHpx() * 0.5f);
                         PxRect vis;
@@ -1793,13 +1864,13 @@ public static class CollectionScene
                         CheckTrue(eHit != null, "压在边上的那一格**建了** `Hit`（部分越界 ⇒ 建、但位置被截）");
                         if (eHit != null)
                         {
-                            CheckNear(PxOf(eHit.position.x), vis.CX, 0.5f,
+                            CheckNear(MenuCheck.DesignPx(eHit).x, vis.CX, 0.5f,
                                       "命中区中心 x = **露出来那块的中心**（横向没裁 ⇒ 与格中心同）");
-                            CheckNear(PxYOf(eHit.position.y), vis.CY, 0.5f,
+                            CheckNear(MenuCheck.DesignPx(eHit).y, vis.CY, 0.5f,
                                       "命中区中心 y = **露出来那块的中心**（**不是**整格中心）");
-                            CheckNear(Mathf.Abs(PxYOf(eHit.position.y) - edgeCy), (full.H - vis.H) * 0.5f, 0.5f,
+                            CheckNear(Mathf.Abs(MenuCheck.DesignPx(eHit).y - edgeCy), (full.H - vis.H) * 0.5f, 0.5f,
                                       "…与整格中心的差 = 被裁掉那半截的一半（"
-                                      + $"{Mathf.Abs(PxYOf(eHit.position.y) - edgeCy):F1} ≈ {(full.H - vis.H) * 0.5f:F1}）");
+                                      + $"{Mathf.Abs(MenuCheck.DesignPx(eHit).y - edgeCy):F1} ≈ {(full.H - vis.H) * 0.5f:F1}）");
                         }
                     }
                     ds.SetOffset(savedD);
@@ -1834,7 +1905,7 @@ public static class CollectionScene
                         if (hq != null)
                             Check(hq.RenderQueue, CollectionWindow.QPageRow,
                                   "命中 quad 的渲染队列 = `QPageRow`（与 `DeckCell` 的入参同档）");
-                        var b0 = pl.ButtonAt(PxOf(c0.position.x), PxYOf(c0.position.y));
+                        var b0 = pl.ButtonAt(MenuCheck.PointerFramePx(c0).x, MenuCheck.PointerFramePx(c0).y);   // 指针帧（喂 PointerLayer，W57 §1·2 第三帧）
                         CheckTrue(b0 != null && b0.transform == h0,
                                   "★ **真命中路**（`PointerLayer.ButtonAt`）在格中心拿到的是**这一格**"
                                   + "（拿到 " + (b0 == null ? "**null** = 真鼠标点不动" : "`" + b0.name + "`") + "）");
@@ -1846,14 +1917,14 @@ public static class CollectionScene
                     {
                         var c = win.DeckCells[i];
                         if (c == null) continue;
-                        float cy = PxYOf(c.position.y);
+                        float cy = MenuCheck.DesignPx(c).y;
                         if (cy + DeckCellHpx() * 0.5f > CollectionWindow.DeckViewport.y2 + 0.5f)
                         { edge = c; edgeCy = cy; break; }
                     }
                     CheckTrue(edge != null, "起手有一格**压在视口下边上**（否则下面那条等于没验）");
                     if (edge != null)
                     {
-                        float ecx = PxOf(edge.position.x);
+                        float ecx = MenuCheck.DesignPx(edge).x;
                         var full = new PxRect(ecx - DeckCellWpx() * 0.5f, edgeCy - DeckCellHpx() * 0.5f,
                                               ecx + DeckCellWpx() * 0.5f, edgeCy + DeckCellHpx() * 0.5f);
                         PxRect vis;
@@ -1876,7 +1947,8 @@ public static class CollectionScene
                             CheckNear(ehq != null ? ehq.WorldH * 108f : -1f, vis.H, 1.5f,
                                       "★ 压在边上的那一格：命中 quad 的高 = **露出来那块**的高"
                                       + "（`Hit` 跟着 `RectMask2D` 的射线那一面裁）");
-                            var be = pl.ButtonAt(vis.CX, vis.CY);
+                            var beP = MenuCheck.PointerFramePxFromDesign(new Vector2(vis.CX, vis.CY), edge);   // 设计帧 → 指针帧（喂 PointerLayer；`vis` 来自模式设计 px 的 `ClipRect`）
+                            var be = pl.ButtonAt(beP.x, beP.y);
                             CheckTrue(be != null && be.transform == eh,
                                       "★ …而**露出来那块的中心**（不是整格中心）点得到它"
                                       + "（拿到 " + (be == null ? "**null**" : "`" + be.name + "`") + "）");
@@ -2031,14 +2103,14 @@ public static class CollectionScene
                     //   内容宽 `2×324.5 + 36 = 685` ⇒ 起点 = `669.3 + (1101.4−685) = 1085.70`
                     //   ⇒ `Practice Deck` 中心 = `1085.70 + 162.25 = **1247.95**`（真机参照图：练习从 0.57 屏宽起）。
                     //   实现 = `Shell/DeckInfoPopup.LayoutButtonRow()`（按可见集合重排，判据写在那个方法上）。
-                    CheckNear(pb != null ? PxOf(pb.position.x) : -1f, 1247.95f, 1f,
+                    CheckNear(pb != null ? MenuCheck.DesignPx(pb).x : -1f, 1247.95f, 1f,
                               "`Practice Deck` 中心 x = **1247.95**（`Select Deck` 藏着 ⇒ 布局组只排两颗 ⇒ "
                             + "右对齐到 1770.70：1085.70…1410.20）");
                     var sb = pop.Btn("Select Deck");
                     // ⚠️ 量的是**关着的**那颗（`Transform.Find` 找得到关着的节点）—— `LayoutButtonRow()` 把
                     //    **藏起来的复位到基线**（原三格里的第三格）⇒ 它停在 `1446.20…1770.70`、中心仍是 1608.45。
                     //    🔴 别把这个数当成「布局排出来的」：它是**基线**，不看它在画面上有没有出现。
-                    CheckNear(sb != null ? PxOf(sb.position.x) : -1f, 1608.45f, 1f,
+                    CheckNear(sb != null ? MenuCheck.DesignPx(sb).x : -1f, 1608.45f, 1f,
                               "`Select Deck`（藏着）复位在**基线** = 三格里的第三格 ⇒ 中心 x = **1608.45**");
                     CheckTrue(pop.Opt("Delete") != null && pop.Opt("Switch Deck Info") != null
                               && pop.Opt("Share") != null && pop.Opt("Share On Chat") != null
@@ -2069,7 +2141,7 @@ public static class CollectionScene
                     for (int oi = 0; oi < oNames.Length; oi++)
                     {
                         var ot = pop.Opt(oNames[oi]);
-                        oPx[oi] = ot != null ? PxOf(ot.position.x) : float.NaN;
+                        oPx[oi] = ot != null ? MenuCheck.DesignPx(ot).x : float.NaN;
                     }
                     // ① 逐颗严格递减（树序第 i 颗必须比第 i+1 颗**靠右** —— 这就是「视觉序 = 树序倒排」）
                     bool oReversed = true;
@@ -2085,9 +2157,9 @@ public static class CollectionScene
                               + "树序从左往右必须**逐颗更靠左**；实测：" + oTrace
                               + "（**改成镜像 ⇒ 这条红**）");
                     // ② 身位：最左 = `Delete` 中心 **1370.52**（= 组左沿 1263.74 + 69.59 + 74.386/2）；最右 = `Switch Deck Info`
-                    CheckNear(od != null ? PxOf(od.position.x) : -1f, 1370.52f, 1f,
+                    CheckNear(od != null ? MenuCheck.DesignPx(od).x : -1f, 1370.52f, 1f,
                               "**最左**那颗是 `Delete`（中心 1370.52 = 1333.33 + 74.386/2；旧镜像读数 1746.43 是它【最右】的位置）");
-                    CheckNear(os2 != null ? PxOf(os2.position.x) : -1f, 1746.43f, 1f,
+                    CheckNear(os2 != null ? MenuCheck.DesignPx(os2).x : -1f, 1746.43f, 1f,
                               "**最右**那颗是 `Switch Deck Info`（中心 1746.43；旧镜像读数 1648.89 作废）");
                     // ③ 步进 = **93.976**（原版 `childSize 143.976 + spacing(−50)`）⇒ 首尾差 = 4 × 93.976 = 375.90
                     CheckNear(oPx[0] - oPx[4], 375.90f, 1f,
@@ -2131,7 +2203,7 @@ public static class CollectionScene
                                 continue;
                             }
                             float oW = oQ.WorldW * 108f, oH = oQ.WorldH * 108f;
-                            float oCX = PxOf(oQ.transform.position.x), oCY = PxYOf(oQ.transform.position.y);
+                            float oCX = MenuCheck.DesignPx(oQ.transform).x, oCY = MenuCheck.DesignPx(oQ.transform).y;
                             // ② 四条边 + 宽高（绝对值 · **±0.3px** —— 容差是 2026-10-11 A308 从 ±1.5 收下来的，
                             //    理由见下面「为什么能收」那段）。
                             //    改坏法（逐条都会红）：去掉外扩 ⇒ 实测退回按钮矩形 `x1,130.20 → x1+74.386,205.805`
@@ -2167,7 +2239,7 @@ public static class CollectionScene
                             else
                             {
                                 float fW = fQ.WorldW * 108f, fH = fQ.WorldH * 108f;
-                                float fCX = PxOf(fQ.transform.position.x), fCY = PxYOf(fQ.transform.position.y);
+                                float fCX = MenuCheck.DesignPx(fQ.transform).x, fCY = MenuCheck.DesignPx(fQ.transform).y;
                                 CheckNear((fCX - fW * 0.5f) - (oCX - oW * 0.5f), 20f, 0.5f,
                                           "★ A299：命中区**左外扩 = 20**（相对同颗的 `Face` 层）");
                                 CheckNear((oCX + oW * 0.5f) - (fCX + fW * 0.5f), 20f, 0.5f,
@@ -2203,7 +2275,7 @@ public static class CollectionScene
                                 CheckTrue(false, $"`Bg {oNames[oi]}` 那一层不在 ⇒ 「子件矩形不居中」两条没法量");
                             else
                             {
-                                float bCX = PxOf(bQ.transform.position.x), bCY = PxYOf(bQ.transform.position.y);
+                                float bCX = MenuCheck.DesignPx(bQ.transform).x, bCY = MenuCheck.DesignPx(bQ.transform).y;
                                 CheckNear(oCX - bCX, -0.610f, 0.3f,
                                           $"★ A308：`{oNames[oi]}` 的子件矩形中心 **比按钮中心偏左 0.610**"
                                           + "（原版左内缩 8.151 / 右 9.371，⛔ 不是「居中」的 8.763）");
@@ -2276,14 +2348,23 @@ public static class CollectionScene
                         var plA299 = PointerLayer.Instance;
                         if (plA299 != null)
                         {
-                            var oWin = plA299.ButtonAt(1417.2f, 168.0f);
+                            // 🆕 2026-10-20（A1350 第二批）：这两个**字面量是设计 px**（原版 prefab 的坐标）
+                            //   ⇒ 喂 `PointerLayer` 前要走「设计帧 → 指针帧」那一跳（单位缩放下逐位不变；
+                            //   父链带缩放时直接把设计 px 喂进去会点到别处）。`owner` 取那一点所属的那颗钮。
+                            var delT = pop.Opt("Delete");
+                            var shareT = pop.Opt("Share On Chat");
+                            var oWinP = MenuCheck.PointerFramePxFromDesign(new Vector2(1417.2f, 168.0f),
+                                            delT != null ? delT : clq.transform);
+                            var oWin = plA299.ButtonAt(oWinP.x, oWinP.y);
                             CheckTrue(oWin != null && oWin.name == "Opt_Delete",
                                       "★ A299：重叠带里**靠左那颗（`Delete`）赢** —— 原版靠兄弟序（它是 `m_Children` "
                                       + "最后一个 = 最深），我们靠 z；实得「"
                                       + (oWin == null ? "**null**（这一点上谁都没中）" : oWin.name) + "」");
                             // 反向对照：另一颗的**中心**（远离重叠带，1464.5 = `Share On Chat` 按钮中心 x）
                             // 必须还是它自己 —— 防「赢家恒为某一颗」这种假绿。
-                            var oWin2 = plA299.ButtonAt(1464.5f, 168.0f);
+                            var oWin2P = MenuCheck.PointerFramePxFromDesign(new Vector2(1464.5f, 168.0f),
+                                             shareT != null ? shareT : clq.transform);
+                            var oWin2 = plA299.ButtonAt(oWin2P.x, oWin2P.y);
                             CheckTrue(oWin2 != null && oWin2.name == "Opt_Share On Chat",
                                       "★ …反向对照：远离重叠带的 `Share On Chat` **中心**拿到的还是它自己（实得「"
                                       + (oWin2 == null ? "**null**" : oWin2.name) + "」）");
@@ -2300,7 +2381,7 @@ public static class CollectionScene
                         var colXs = new List<float>();
                         foreach (var rr in pop.Rows)
                         {
-                            float cx = PxOf(rr.position.x);
+                            float cx = MenuCheck.DesignPx(rr).x;
                             bool seen = false;
                             foreach (var x in colXs) if (Mathf.Abs(x - cx) < 0.5f) { seen = true; break; }
                             if (!seen) colXs.Add(cx);
@@ -2312,14 +2393,14 @@ public static class CollectionScene
                             + "｜🧨 夹具再加一张卡（31 行 ⇒ 4 列）⇒ 这条先红（不是只留下「第 4 列被裁」的观感）");
                         float maxRight = float.MinValue;
                         foreach (var rr in pop.Rows)
-                            maxRight = Mathf.Max(maxRight, PxOf(rr.position.x) + DeckInfoPopup.RowW * 0.5f);
+                            maxRight = Mathf.Max(maxRight, MenuCheck.DesignPx(rr).x + DeckInfoPopup.RowW * 0.5f);
                         CheckTrue(maxRight <= DeckInfoPopup.PanelR + 0.5f,
                                   $"★ A1545：最后一列右缘 **{maxRight:F1}** ≤ `Content` 右缘 {DeckInfoPopup.PanelR:F0}"
                                 + "（超了就是「第 4 列溢出 / 被裁」那一档）"
                                 + "｜🧨 把列宽 / 间距改宽 ⇒ 红");
                     }
                     var r0 = pop.Rows.Count > 0 ? pop.Rows[0] : null;
-                    CheckNear(r0 != null ? PxOf(r0.position.x) : -1f, 854f, 1f,
+                    CheckNear(r0 != null ? MenuCheck.DesignPx(r0).x : -1f, 854f, 1f,
                               "第 1 行中心 x = **854**（Info Panel 左 659 + pad 15 + 180）");
                     // 🔴 **2026-10-12（`A1531⑥` 连带 · 本会话按铁律 5 就地改期望值）**：这一条原来是 **`247.10`**
                     //   （= `218.10 + 58/2`）—— 那一档**漏了 `Content` 的 `m_Padding.m_Top`**。
@@ -2332,7 +2413,7 @@ public static class CollectionScene
                     //   ⚠️ **x 那一侧本来就加了 15**（`RowL = PanelL + RowPadL`）—— **只有 y 漏了**，
                     //      所以上面那条 x = 854 **一个字不用改**。
                     //   🧨 **改坏法**：把 `Shell/DeckInfoPopup.cs` 的 `RowT` 改回 `PanelT`（= 漏 `m_Top`）⇒ 本条红。
-                    CheckNear(r0 != null ? PxYOf(r0.position.y) : -1f, 262.10f, 1f,
+                    CheckNear(r0 != null ? MenuCheck.DesignPx(r0).y : -1f, 262.10f, 1f,
                               "第 1 行中心 y = **262.10**（`218.10` + 原版 `m_Padding.m_Top` **15** + `58/2`）"
                             + "｜🧨 `RowT` 改回 `PanelT`（漏掉 `m_Top` 那半截）⇒ 本条红（整块偏上 15px）");
 
@@ -2357,9 +2438,9 @@ public static class CollectionScene
                         if (pop.Rows.Count > k10)
                         {
                             var r10 = pop.Rows[k10];
-                            CheckNear(r10 != null ? PxOf(r10.position.x) : -1f, 1225f, 1f,
+                            CheckNear(r10 != null ? MenuCheck.DesignPx(r10).x : -1f, 1225f, 1f,
                                       "★ A1531③ 第 11 行（下标 10）落**第 2 列**：中心 x = **1225**（第 1 行 854 + 格宽 360 + 间距 11）");
-                            CheckNear(r10 != null ? PxYOf(r10.position.y) : -1f, 262.10f, 1f,
+                            CheckNear(r10 != null ? MenuCheck.DesignPx(r10).y : -1f, 262.10f, 1f,
                                       "★ …而且落在**那一列最上面那一格**（y = 262.10 = 与第 1 行同高）"
                                     + " —— 原版 `m_StartAxis = Vertical` ⇒ **逐列**"
                                     + "｜🧨 把 `int c = i / rowCap, rr = i % rowCap` 改回 `i % cols, i / cols`（逐行）"
@@ -2493,14 +2574,14 @@ public static class CollectionScene
                             //    ⇒ 取不到时整条**静默空转**（同 A52-F10 那个坑）。
                             CheckTrue(dnl != null, "（前提）`Deck Name` 底下量得到 `Label`（量不到 ⇒ 下面那条等于没验）");
                             if (dnl != null)
-                                CheckNear(PxOf(dnl.transform.position.x) - LabelRenderedPx(dnl).x * 0.5f, 764.03f, 2f,
+                                CheckNear(MenuCheck.DesignPx(dnl.transform).x - LabelRenderedPx(dnl).x * 0.5f, 764.03f, 2f,
                                           "`Deck Name` 左缘 = **764.03**（隐藏态；2026-10-18：`Game Mode Icon` 按原版机制隐藏"
                                         + "（判据 → `R_DeckInfoPopup_对账.md`）；位置随之左移 108.87 ⇒ 872.9 → 764.03）");
                             var wnT = FindChild(pr, "Warlord Name");
                             var wnl = wnT != null ? wnT.GetComponentInChildren<Label>() : null;
                             CheckTrue(wnl != null, "（前提）`Warlord Name` 底下量得到 `Label`（同上）");
                             if (wnl != null)
-                                CheckNear(PxOf(wnl.transform.position.x) - LabelRenderedPx(wnl).x * 0.5f, 764.03f, 2f,
+                                CheckNear(MenuCheck.DesignPx(wnl.transform).x - LabelRenderedPx(wnl).x * 0.5f, 764.03f, 2f,
                                           "`Warlord Name` 左缘 = **764.03**（隐藏态 · 同 `Deck Name`）");
                         }
                         // ② `Game Mode Icon`（A10 补的第一件）—— **classic 态：不建**
@@ -2545,13 +2626,13 @@ public static class CollectionScene
                                 var sdnl = sdnT != null ? sdnT.GetComponentInChildren<Label>() : null;
                                 CheckTrue(sdnl != null, "（前提）②′ `Deck Name` 底下量得到 `Label`");
                                 if (sdnl != null)
-                                    CheckNear(PxOf(sdnl.transform.position.x) - LabelRenderedPx(sdnl).x * 0.5f, 872.9f, 2f,
+                                    CheckNear(MenuCheck.DesignPx(sdnl.transform).x - LabelRenderedPx(sdnl).x * 0.5f, 872.9f, 2f,
                                               "②′ `Deck Name` 左缘 = **872.9**（有图标态不左移）");
                                 var swnT = FindChild(sr, "Warlord Name");
                                 var swnl = swnT != null ? swnT.GetComponentInChildren<Label>() : null;
                                 CheckTrue(swnl != null, "（前提）②′ `Warlord Name` 底下量得到 `Label`");
                                 if (swnl != null)
-                                    CheckNear(PxOf(swnl.transform.position.x) - LabelRenderedPx(swnl).x * 0.5f, 872.9f, 2f,
+                                    CheckNear(MenuCheck.DesignPx(swnl.transform).x - LabelRenderedPx(swnl).x * 0.5f, 872.9f, 2f,
                                               "②′ `Warlord Name` 左缘 = **872.9**（同上）");
                                 raw0.GameMode = gmSaved;          // 还原（夹具是 classic）
                                 pop.Open();                       // 把树建回 classic 那一版给后面几小节用
@@ -2625,8 +2706,8 @@ public static class CollectionScene
                         else
                         {
                             float wqW = wq.WorldW * 108f, wqH = wq.WorldH * 108f;
-                            float wqX = LayoutSpace.PxX(wq.transform.position.x);
-                            float wqY = LayoutSpace.PxY(wq.transform.position.y);
+                            float wqX = MenuCheck.DesignPx(wq.transform).x;
+                            float wqY = MenuCheck.DesignPx(wq.transform).y;
                             CheckNear(wqX - wqW * 0.5f, WnL, 1.5f,
                                       "立绘命中区**左沿** = **137.82**（原版 `m_RaycastPadding` 复算 · 1108² 里那 246.8 的缩）");
                             CheckNear(wqY - wqH * 0.5f, WnT, 1.5f, "…**上沿** = **98.39**");
@@ -2770,8 +2851,8 @@ public static class CollectionScene
                     else
                     {
                         float chW = chQ.WorldW * 108f, chH2 = chQ.WorldH * 108f;
-                        float chCx = LayoutSpace.PxX(chQ.transform.position.x);
-                        float chCy = LayoutSpace.PxY(chQ.transform.position.y);
+                        float chCx = MenuCheck.DesignPx(chQ.transform).x;
+                        float chCy = MenuCheck.DesignPx(chQ.transform).y;
                         CheckNear(chCx - chW * 0.5f, ChL, 0.3f, "关闭钮命中区**左沿** = **1771.0**（子件 1791.0 外扩 20）");
                         CheckNear(chCy - chH2 * 0.5f, ChT, 0.3f, "…**上沿** = **51.2**");
                         CheckNear(chCx + chW * 0.5f, ChR, 0.3f, "…**右沿** = **1867.8**");
@@ -3992,7 +4073,7 @@ public static class CollectionScene
                             var pl2 = PointerLayer.Instance;
                             if (shq != null && pl2 != null)
                             {
-                                var sb = pl2.ButtonAt(PxOf(sc0.position.x), PxYOf(sc0.position.y));
+                                var sb = pl2.ButtonAt(MenuCheck.PointerFramePx(sc0).x, MenuCheck.PointerFramePx(sc0).y);   // 指针帧（喂 PointerLayer）
                                 CheckTrue(sb != null && sb.transform == sh0,
                                           "★ …而**真命中路**在格中心拿到的就是这一格"
                                           + "（拿到 " + (sb == null ? "**null** = 真鼠标点不动" : "`" + sb.name + "`") + "）");
@@ -4027,7 +4108,7 @@ public static class CollectionScene
                             {
                                 var c = sel.Cells[i];
                                 if (c == null) continue;
-                                float cy = PxYOf(c.position.y);
+                                float cy = MenuCheck.DesignPx(c).y;
                                 if (cy - DeckSelectionPopup.CellH * 0.5f >= DeckSelectionPopup.SvRect.y1 - 0.5f
                                     && cy + DeckSelectionPopup.CellH * 0.5f <= DeckSelectionPopup.SvRect.y2 + 0.5f)
                                 { inC = c; break; }
@@ -4055,7 +4136,7 @@ public static class CollectionScene
                             {
                                 var c = sel.Cells[i];
                                 if (c == null) continue;
-                                float cy = PxYOf(c.position.y);
+                                float cy = MenuCheck.DesignPx(c).y;
                                 if (cy + DeckSelectionPopup.CellH * 0.5f > DeckSelectionPopup.SvRect.y2 + 0.5f)
                                 { edge2 = c; e2cy = cy; break; }
                             }
@@ -4074,7 +4155,7 @@ public static class CollectionScene
                             }
                             else
                             {
-                                float e2cx = PxOf(edge2.position.x);
+                                float e2cx = MenuCheck.DesignPx(edge2).x;
                                 var full2 = new PxRect(e2cx - DeckSelectionPopup.CellW * 0.5f,
                                                        e2cy - DeckSelectionPopup.CellH * 0.5f,
                                                        e2cx + DeckSelectionPopup.CellW * 0.5f,
@@ -4476,8 +4557,8 @@ public static class CollectionScene
                     //   （同一条规则两处写 = 迟早不一致；`ph` 本身还被下面那条 y 落位断言用着 ⇒ 保留）。
                     // 🔴 实拍抓的：占位符第一版**跑到输入框上面去了**（`basis` 给了 root 而 parent 是 `Window`）
                     var phLb = ph != null ? ph.GetComponent<Label>() : null;
-                    CheckTrue(phLb != null && Mathf.Abs(PxYOf(ph.transform.position.y) - 441.03f) <= 1.5f,
-                              $"占位符**落在输入框里**（中心 y 实测 {(ph != null ? PxYOf(ph.transform.position.y) : -1f):F1}"
+                    CheckTrue(phLb != null && Mathf.Abs(MenuCheck.DesignPx(ph.transform).y - 441.03f) <= 1.5f,
+                              $"占位符**落在输入框里**（中心 y 实测 {(ph != null ? MenuCheck.DesignPx(ph.transform).y : -1f):F1}"
                               + "，原版 `Text Area` 377→505.06 ⇒ 中心 **441.03**）");
                     // 同上（A891）：`Confirm` 钮的字也走词条了（原版 `Button Text` 挂着 `Localize`）⇒ 期望值随语档。
                     CheckText(TextOf(FindChild(iroot, "Confirm Text")),
@@ -4594,9 +4675,11 @@ public static class CollectionScene
 
             // ---------------- 切页（`visualTypes` 必须整表替换） ----------------
             Section("切页（正本 §二；`visualTypes` 被本窗整表替换）");
+            bool cardsPageOpened = false;                   // A1834（运行时读数）的前提：Cards 页被真正点开过
             if (win.tabButtons != null)
             {
                 win.tabButtons.Click(1);
+                cardsPageOpened = true;                     // A1834 运行时读数（下面那节）的前提
                 Check(win.CurrentTab, WindowTabType.CollectionCards, "点第 2 键 ⇒ 切到 **Cards** 页");
                 var p2 = FindChild(tabsRoot, "CardsTab");
                 CheckTrue(p2 != null && p2.gameObject.activeSelf,
@@ -4618,6 +4701,38 @@ public static class CollectionScene
                               "亮的是**第 1 键**（当前页 = Decks）");
             }
 
+            // ---------------- 🆕 2026-10-20（A1834 · 运行时读数）：文字重排探针在懒建之后读 ----------------
+            // 🔴 **W58-UIFIX-A 就地订正（铁律 5）**：这 5 条原来紧跟在 `CollectionWindow.Create` 之后
+            //   （旧行号 `:1008-1021`），而 T09（2026-10-17）起四页**懒建** —— `Build()` 只建第 0 页（Deck），
+            //   Cards 页要**第一次** `tabButtons.Click(1)`（上面「切页」那一节）才 `Setup()`
+            //   （`Shell/CollectionTabPage.cs:44-80`）⇒ 原来读到的 `Begins` 恒 0。
+            //   判据 → `普查产出_1020/W58_诊断_界面五宿主.md` §五 C1。
+            //   ⛔ 不要为了这条去在 `Create` 里强制建 Cards 页（那会推翻 T09 的首开性能修复）。
+            //   ⚠️ 静态源码次序那 3 条仍留在原处（`A1834 …（静态源码次序）` 那一节，不依赖建页）。
+            Section("A1834：文字重排探针的位置（运行时读数 —— 在 Cards 页懒建之后读）");
+            {
+                CheckTrue(cardsPageOpened,
+                          "（前提·不静默）A1834：Cards 页被点开过（懒建那一次在上一节）—— "
+                        + "没点开 ⇒ 下面 5 条**没跑**，不是绿");
+                if (cardsPageOpened)
+                {
+                    CheckTrue(CollectionWindow.TextRelayoutProbe.Begins >= 1,
+                              "★ A1834 · 探针**接上了**（本次建 Cards 页至少一次 `TextProbeBegin`）—— 删掉那句调用 ⇒ 本条红");
+                    if (CollectionWindow.TextRelayoutProbe.Begins >= 1)
+                    {
+                        Check(CollectionWindow.TextRelayoutProbe.CardsAtBegin, 0,
+                              "★ A1834 · 快照那一刻**一张卡格都还没建**（`CardsAtBegin` = 0）= 「变化之前」");
+                        Check(CollectionWindow.TextRelayoutProbe.BeginsWithCards, 0,
+                              "★ A1834 · **没有任何一次** begin 落在建卡之后（`BeginsWithCards` = 0）"
+                            + "｜🧨 把 `BuildWatch.TextProbeBegin(...)` 挪回 `RebuildCardsCells(holder);` 之后 ⇒ 变 18 ⇒ 红");
+                        Check(CollectionWindow.TextRelayoutProbe.Ends, CollectionWindow.TextRelayoutProbe.Begins,
+                              "★ A1834 · before/after **成对**（每个 `TextProbeBegin` 都配了 `TextProbeEnd`）");
+                        Check(CollectionWindow.TextRelayoutProbe.UnclosedBegins, 0,
+                              "★ A1834 · 没有「上一个 begin 还没 end 就又 begin」");
+                    }
+                }
+            }
+
             // ---------------- Cards 页：卡池网格（正本 §四；A3 实测）----------------
             Section("Cards 页：卡池网格（6 列 · 262.5×384 · **贴左但整体居中**）");
             win.tabButtons.Click(1);                       // 切到 Cards
@@ -4637,7 +4752,7 @@ public static class CollectionScene
             if (win.CardsCells.Count > 0)
             {
                 var cc0 = win.CardsCells[0];
-                CheckNear(PxOf(cc0.position.x), 468.8f, 1.5f,
+                CheckNear(MenuCheck.DesignPx(cc0).x, 468.8f, 1.5f,
                           "第 1 格中心 x = **468.8**（贴左但整体居中：330.2 + 7.35 + 262.5/2）");
                 // 🔴 **2026-10-18 就地订正（铁律 5）**：这条原来钉 **347.9**（= 格心 155.9 + 384/2），
                 //   `W11`（2026-10-18，用户报「张数与卡牌重叠」）之后**卡**不再占满整格 ——
@@ -4647,7 +4762,7 @@ public static class CollectionScene
                 //   **`CardView` 的 transform**（`CardPresentation/Core/CardView.cs`）⇒ 这里量到的是**卡块中心**：
                 //   347.9 − 38.272/2 = **328.764**（实得 328.76 逐位吻合）。
                 //   ⛔ 别再改回 347.9（那是格心，不是卡心）。
-                CheckNear(PxYOf(cc0.position.y), 328.76f, 1.5f,
+                CheckNear(MenuCheck.DesignPx(cc0).y, 328.76f, 1.5f,
                           "第 1 格**卡块**中心 y = **328.76**（= 格心 347.9 − 张数条 38.272/2；W11）");
             }
             if (win.CardsScroll != null && win.CardsScroll.MaxOffset > 0f)
@@ -4655,7 +4770,7 @@ public static class CollectionScene
                 win.CardsScroll.ScrollBy(win.CardsScroll.MaxOffset);
                 int lastIdx = win.CardsVisibleCount - 1;
                 var lc = FindChild(tabsRoot, "CollectionCard_" + lastIdx);
-                CheckTrue(lc != null && PxYOf(lc.position.y) + 192f <= 1080.5f,
+                CheckTrue(lc != null && MenuCheck.DesignPx(lc).y + 192f <= 1080.5f,
                           $"**滚到底 ⇒ 第 {lastIdx + 1} 张（最后一张）完整落进视口**");
                 win.CardsScroll.ScrollBy(-win.CardsScroll.MaxOffset);
             }
@@ -5246,7 +5361,7 @@ public static class CollectionScene
                             var gv = GlyphVertsOf(tmp, tvs.Length);
                             for (int i = 0; i < gv.Count; i++)
                             {
-                                var p = LayoutSpace.ToPixel(tmp.transform.TransformPoint(tvs[gv[i]]));
+                                var p = LayoutSpace.ToPixel(tmp.transform.TransformPoint(tvs[gv[i]]));   // 甲式保留：顶点量法（W57 §1·4 第 4 条）
                                 qn++;
                                 qy1 = Mathf.Min(qy1, p.y); qy2 = Mathf.Max(qy2, p.y);
                                 if (Mathf.Abs(p.y - vp.y1) <= 0.5f || Mathf.Abs(p.y - vp.y2) <= 0.5f) qEdge++;
@@ -5587,8 +5702,8 @@ public static class CollectionScene
                           + "第 1 格 = 「" + (facs.Count > 0 ? facs[0] : "?") + "」");
                 if (a0 != null)
                 {
-                    CheckNear(PxOf(a0.position.x), 64.25f, 0.6f, "Army 第 1 格中心 x = **64.25**（0.25+14+50）");
-                    CheckNear(PxYOf(a0.position.y), 434.92f, 0.6f,
+                    CheckNear(MenuCheck.DesignPx(a0).x, 64.25f, 0.6f, "Army 第 1 格中心 x = **64.25**（0.25+14+50）");
+                    CheckNear(MenuCheck.DesignPx(a0).y, 434.92f, 0.6f,
                               "Army 第 1 格中心 y = **434.92**（155.9+179.02+50+50）");
                     CheckArt(a0, DeckRuntime.FactionIcon(facs[0]), "Army 格的图 = 该阵营图标（原版运行时赋）");
                     // 🆕 2026-10-05（A32③）：Army 行**关着时**的 off 色 = `(0.5,0.5,0.5,1)`（出厂无阵营筛选 ⇒ 全是关的）
@@ -5602,7 +5717,7 @@ public static class CollectionScene
                 CheckTrue(r0 != null, "Rarity 的 Common 格在");
                 if (r0 != null)
                 {
-                    CheckNear(PxYOf(r0.position.y), 999.92f, 0.6f,
+                    CheckNear(MenuCheck.DesignPx(r0).y, 999.92f, 0.6f,
                               "Rarity 第 1 格中心 y = **999.92**（155.9 + **729.02** + 65 + 50；729.02 = Army 行 550 之后）");
                     CheckArt(r0, "1_40k_cardframe_rarity_common", "Rarity Common 的图 = `1_40k_cardframe_rarity_common`");
                     var bg = FindChild(r0, "Background");
@@ -5615,7 +5730,7 @@ public static class CollectionScene
                     var lab0 = FindChild(r0, "Label");
                     var lb0 = lab0 != null ? lab0.GetComponent<Label>() : null;
                     float lw = LabelRenderedPx(lb0).x;   // 🆕 A796′ 换口：TMP `textBounds`（旧口 = 缓存 `Label.WorldW`；null ⇒ 0）
-                    float lleft = lab0 != null ? PxOf(lab0.position.x) - lw * 0.5f : -999f;
+                    float lleft = lab0 != null ? MenuCheck.DesignPx(lab0).x - lw * 0.5f : -999f;
                     CheckTrue(lb0 != null && lw > 20f,
                               $"Rarity 格的标签**量得出宽度**（实测 {lw:F1}px）—— 量到 0 就是「TMP 在非激活对象上量不出尺寸」");
                     CheckTrue(lb0 != null && lw <= 100.5f,
@@ -5691,7 +5806,7 @@ public static class CollectionScene
                     var olab = FindChild(FindChild(fltPanel, "Cell_owned"), "Label");
                     var olb = olab != null ? olab.GetComponent<Label>() : null;
                     float owl = LabelRenderedPx(olb).x;   // 🆕 A796′ 换口（旧口 = 缓存 `Label.WorldW`；null ⇒ 0）
-                    float oleft = olab != null ? PxOf(olab.position.x) - owl * 0.5f : -999f;
+                    float oleft = olab != null ? MenuCheck.DesignPx(olab).x - owl * 0.5f : -999f;
                     CheckTrue(olb != null && owl > 20f, $"`Owned only` 的标签量得出宽度（实测 {owl:F1}px）");
                     CheckNear(oleft, 25.25f, 1.0f,
                               "`Owned only` 的标签**左对齐**在面板内 x = **25.25**（原版 `Label` rect 的左缘）"
@@ -5713,9 +5828,9 @@ public static class CollectionScene
                     CheckTrue(c0 != null, "滚到底 ⇒ Cost 的 `1-` 格建出来了");
                     if (c0 != null)
                     {
-                        CheckNear(PxOf(c0.position.x), 47.75f, 0.6f, "Cost 第 1 格中心 x = **47.75**（0.25+15+32.5）");
+                        CheckNear(MenuCheck.DesignPx(c0).x, 47.75f, 0.6f, "Cost 第 1 格中心 x = **47.75**（0.25+15+32.5）");
                         // 面板内 y = 609.02+65+32.5（旧值，见 `ArmyRowH`）→ 现在 = 1009.02+65+32.5，再减可滚量 464.92
-                        CheckNear(PxYOf(c0.position.y), 155.9f + 1009.02f + 65f + 32.5f - 464.92f, 0.8f,
+                        CheckNear(MenuCheck.DesignPx(c0).y, 155.9f + 1009.02f + 65f + 32.5f - 464.92f, 0.8f,
                                   "Cost 第 1 格中心 y（滚到底后）= **797.5**");
                         CheckNear(Wpx(c0), 65f, 2f, "Cost 格 = **65×65**（原版 `cell 65×65`）");
                         CheckArt(c0, "Card_Frame_Cost_Icon", "Cost 格的图 = `Card_Frame_Cost_Icon`");
@@ -5734,7 +5849,7 @@ public static class CollectionScene
                               "★ Cost 族的标签 **`折行=1`**（原版实读；三族一起设成 0 就红）");
                     }
                     var th = FindChild(fltPanel, "Cell_type_hero");
-                    CheckTrue(th != null && PxYOf(th.position.y) + 50f <= 1080.5f,
+                    CheckTrue(th != null && MenuCheck.DesignPx(th).y + 50f <= 1080.5f,
                               "滚到底 ⇒ Type 那 3 格**完整落进视口**");
                     CheckArt(th, "40k_menu_search_icon_warlord", "Type 第 1 格（Warlord）的图 = `40k_menu_search_icon_warlord`");
                     CheckTrue(string.IsNullOrEmpty(CollectionWindow.CardsState.Filter.Type),
@@ -5958,7 +6073,7 @@ public static class CollectionScene
                 win.ToggleFilters();                                   // 开（批处理里直接到位）
                 CheckNear(win.DrawerSlide(0), 1f, 0.001f, "点一次 ⇒ 进度 **1**（原位）");
                 CheckTrue(win.DrawerSettled(0), "…到位了 ⇒ 命中/滚轮生效");
-                float baseCx = PxOf(fltPanel.position.x);
+                float baseCx = MenuCheck.DesignPx(fltPanel).x;
 
                 // ① 时间推进：0.15 秒 = 半个 0.3 ⇒ 进度正好 0.5（这一步**只有真按 `animationTime` 走**才成立）
                 win.SetDrawerProgressForTest(0, 0f);
@@ -5969,21 +6084,21 @@ public static class CollectionScene
                 win.TickDrawers(0.15f);
                 CheckNear(win.DrawerSlide(0), 0.5f, 0.01f, "推进 **0.15 秒**（`animationTime` = 0.3）⇒ 进度 **0.5**");
                 CheckTrue(fltPanel.gameObject.activeSelf, "…滑动途中整栏**活着**（要看得见它在滑）");
-                float midCx = PxOf(fltPanel.position.x);
+                float midCx = MenuCheck.DesignPx(fltPanel).x;
                 CheckNear(baseCx - midCx, 385f * 0.5f, 1f,
                           "…而且**真的挪了半个行程**（原位 → 左移 **192.5px** = 385 × 0.5，"
                           + "行程 = 原版 `−550 −(−165)`）");
 
                 // ② 位移没停稳 ⇒ 命中区与滚轮都失效（**这一条量的是「真鼠标路」，不是我们自己那个布尔**）
                 win.SetDrawerProgressForTest(0, 0.9f);
-                CheckNear(baseCx - PxOf(fltPanel.position.x), 385f * 0.1f, 1f,
+                CheckNear(baseCx - MenuCheck.DesignPx(fltPanel).x, 385f * 0.1f, 1f,
                           "进度 0.9 ⇒ 离原位还差 **10%**（左移 **38.5px**；位移 = `行程 × (1 − 进度)`、只动 x）");
                 var rc = FindChild(fltPanel, "Cell_rar_common");
                 var rcq = rc != null ? rc.GetComponentInChildren<ImageQuad>() : null;
                 CheckTrue(rcq != null, "拿得到一格（否则下面两条等于没验）");
                 if (rcq != null)
                 {
-                    float cx = PxOf(rcq.transform.position.x), cy = PxYOf(rcq.transform.position.y);
+                    float cx = MenuCheck.PointerFramePx(rcq.transform).x, cy = MenuCheck.PointerFramePx(rcq.transform).y;   // 指针帧（下面喂 ButtonAt / ScrollUnder）
                     // ★ 前置：这一格**现在还在屏内** —— 否则「点不到」是因为它滑出屏外、不是命中失效（等于没验）
                     CheckTrue(cx > 0f && cx < 1920f && cy > 0f && cy < 1080f,
                               $"★ 这一格此刻**还在屏内**（{cx:F0},{cy:F0}）—— 这条是下面「点不到」那个断言的前提");
@@ -6001,12 +6116,12 @@ public static class CollectionScene
                 // ③ 推到目标 ⇒ 回原位、命中恢复（**同一格、同一条真命中路** —— 与 ② 正好两态）
                 win.TickDrawers(0.2f);
                 CheckNear(win.DrawerSlide(0), 1f, 0.001f, "再推 0.2 秒 ⇒ 收尾到 **1**（`MoveTowards` 夹住）");
-                CheckNear(PxOf(fltPanel.position.x), baseCx, 0.5f, "…回到原位（位移是加在 `BasePos` 上的）");
+                CheckNear(MenuCheck.DesignPx(fltPanel).x, baseCx, 0.5f, "…回到原位（位移是加在 `BasePos` 上的）");
                 CheckTrue(win.DrawerSettled(0), "…到位 ⇒ 命中/滚轮**恢复**");
                 if (rcq != null)
                 {
                     var wbBack = pl3 != null
-                        ? pl3.ButtonAt(PxOf(rcq.transform.position.x), PxYOf(rcq.transform.position.y)) : null;
+                        ? pl3.ButtonAt(MenuCheck.PointerFramePx(rcq.transform).x, MenuCheck.PointerFramePx(rcq.transform).y) : null;   // 指针帧
                     CheckTrue(wbBack != null && rc != null && wbBack.transform == FindChild(rc, "Hit"),
                               "★ 同一格现在**又点得到了**（拿到 " + (wbBack == null ? "**null**" : "`" + wbBack.name + "`") + "）");
                 }
@@ -6019,9 +6134,9 @@ public static class CollectionScene
                 // 「收起」的语义 = **整栏真的在屏幕左外**（不是停在原位隐身）——
                 //   判据要的是这一条，不是某个定点（原版那个 −550 是**父系里的绝对锚点值**；
                 //   我们的**行程** = `hiddenPosition.x − originalAnchorPosition.x` = −385px，见 `ApplyDrawerSlide`）
-                CheckTrue(PxOf(fltPanel.position.x) + CollectionWindow.FltView.W * 0.5f < 0f,
+                CheckTrue(MenuCheck.DesignPx(fltPanel).x + CollectionWindow.FltView.W * 0.5f < 0f,
                           "…而且此刻**整栏都在屏幕左外**（右缘 "
-                          + (PxOf(fltPanel.position.x) + CollectionWindow.FltView.W * 0.5f).ToString("F1")
+                          + (MenuCheck.DesignPx(fltPanel).x + CollectionWindow.FltView.W * 0.5f).ToString("F1")
                           + " < 0）—— 这才叫「滑出去」"
                           + "（行程 −385 时右缘 = −49.4；⚠️ 行程若再缩小到 < 335 这条就红）");
             }
@@ -6181,8 +6296,8 @@ public static class CollectionScene
             {
                 var k0 = win.CosmoCells[0];
                 // 内容**整体居中**：pad = (1584.56 − 6×250) / 2 = **42.285** ⇒ 首格中心 335.44+42.285+125
-                CheckNear(PxOf(k0.position.x), 502.73f, 0.6f, "第 1 格中心 x = **502.73**（335.44 + pad 42.285 + 250/2）");
-                CheckNear(PxYOf(k0.position.y), 358.44f, 0.6f, "第 1 格中心 y = **358.44**（155.94 + 405/2）");
+                CheckNear(MenuCheck.DesignPx(k0).x, 502.73f, 0.6f, "第 1 格中心 x = **502.73**（335.44 + pad 42.285 + 250/2）");
+                CheckNear(MenuCheck.DesignPx(k0).y, 358.44f, 0.6f, "第 1 格中心 y = **358.44**（155.94 + 405/2）");
                 var art = FindChild(k0, "Cardback");
                 var qArt0 = art != null ? art.GetComponentInChildren<ImageQuad>() : null;
                 var tex0 = qArt0 != null ? qArt0.Texture as Texture2D : null;
@@ -6218,10 +6333,10 @@ public static class CollectionScene
                     if (CardbackOffsetPx(tex0, CollectionWindow.CosmoCellW, CollectionWindow.CosmoCellH, out odx, out ody))
                     {
                         // 第 1 格**整块在视口里**（上面 Wpx/Hpx 两条已经依赖这一点）⇒ 渲染中心 == 框中心 + 偏移
-                        CheckNear(PxOf(qArt0.transform.position.x) - PxOf(k0.position.x), odx, 0.6f,
+                        CheckNear(MenuCheck.DesignPx(qArt0.transform).x - MenuCheck.DesignPx(k0).x, odx, 0.6f,
                                   $"★ 卡背格里的画心**不居中**：横偏移 = **{odx:F2}**px"
                                 + "（= (padL−padR)/2 × 250/707 ⇒ 没做这一半时恒为 **0**）");
-                        CheckNear(PxYOf(qArt0.transform.position.y) - PxYOf(k0.position.y), ody, 0.6f,
+                        CheckNear(MenuCheck.DesignPx(qArt0.transform).y - MenuCheck.DesignPx(k0).y, ody, 0.6f,
                                   $"★ ……纵偏移 = **{ody:F2}**px（= −(padB−padT)/2 × 250/707 —— **反号那一处**："
                                 + "uGUI 的 y 向上、本仓画布 y 向下；没做这一半时恒为 **0**）");
                     }
@@ -6267,7 +6382,7 @@ public static class CollectionScene
                         float sdfPad0 = (SdfBoxH - sdfFit0.y) * 0.5f;      // 上下各内缩（= 56.025）
                         float sdfBottom0 = SdfBoxBottomRel - sdfPad0;      // 相对格上沿的**底边**
                         float sh0 = sq0 != null ? sq0.WorldH * 108f : -1f;
-                        float st0 = sq0 != null ? PxYOf(sq0.transform.position.y) - sh0 * 0.5f : -1f;
+                        float st0 = sq0 != null ? MenuCheck.DesignPx(sq0.transform).y - sh0 * 0.5f : -1f;
                         // 第一排那一格的**格上沿 == 视口上沿** ⇒ 内接后整体仍 `-14.85` 上溢（< 0）
                         // ⇒ 露出来的就是 `sdfBottom0` 那一段（= 423.9；原来是拉满时的 479.925）。
                         CheckNear(sh0, sdfBottom0, 1.5f,
@@ -6450,10 +6565,14 @@ public static class CollectionScene
                             // 先问一句「这一点上到底是谁吃到了」—— 若前几段漏关了别的窗（层更高），
                             // 下面那条「窗开出来了」会红在**错误的原因**上 ⇒ 这一句把原因钉住。
                             var hit0 = FindChild(cell0, "Hit");
-                            var at0 = pl != null ? pl.ButtonAt((cellR.x1 + cellR.x2) * 0.5f, (cellR.y1 + cellR.y2) * 0.5f) : null;
+                            // 🆕 2026-10-20（A1350 第二批）：`cellR` 是**设计 px**（`CosmoCellRect` + `MenuScroll.Shift`
+                            //   都活在设计帧）⇒ 喂指针前换到指针帧（单位缩放下逐位不变）。`owner` = 那一格自己。
+                            var cellP = MenuCheck.PointerFramePxFromDesign(
+                                new Vector2((cellR.x1 + cellR.x2) * 0.5f, (cellR.y1 + cellR.y2) * 0.5f), cell0);
+                            var at0 = pl != null ? pl.ButtonAt(cellP.x, cellP.y) : null;
                             CheckTrue(hit0 != null && at0 != null && at0.gameObject == hit0.gameObject,
                                       "★ 卡背格中心吃到的是**它自己的命中区**（没被别的窗顶掉）");
-                            bool clicked = pl != null && pl.ClickAt((cellR.x1 + cellR.x2) * 0.5f, (cellR.y1 + cellR.y2) * 0.5f);
+                            bool clicked = pl != null && pl.ClickAt(cellP.x, cellP.y);
                             CheckTrue(clicked, "★ 点卡背格：`PointerLayer.ClickAt` 命中并派发了 onClick（真路径）");
 
                             var idw = ItemDisplayWindow.LastOpened;
@@ -6538,7 +6657,12 @@ public static class CollectionScene
 
                                 // ---- 点暗底 ⇒ 关窗（原版靠 `ItemDisplayWindow.OnEnable` 把 Close 挂到
                                 //      `BackgroundCloseButton.onClick`；prefab 里 `window` PPtr 是 0）----
-                                CheckTrue(pl.ClickAt(5f, 5f), "★ 点暗底（5,5）：`PointerLayer.ClickAt` 命中并派发");
+                                // 🆕 2026-10-20（A1350 第二批）：(5,5) 是**设计 px**（屏幕左上角那一档）⇒ 换到指针帧。
+                                //   `owner` = 压暗层那颗命中区（它是窗根的直接子件 ⇒ 乘的是窗根那一级缩放）。
+                                var shadeT = FindChild(idw.transform, "BackgroundHit");
+                                var shadeP = MenuCheck.PointerFramePxFromDesign(new Vector2(5f, 5f),
+                                                 shadeT != null ? shadeT : idw.transform);
+                                CheckTrue(pl.ClickAt(shadeP.x, shadeP.y), "★ 点暗底（设计 (5,5) → 指针帧）：`PointerLayer.ClickAt` 命中并派发");
                                 Check(idw.CurrentState, WindowState.Closed,
                                       "★ 点暗底 ⇒ **窗关了**（`BackgroundHit` = 原版那条「点窗外关窗」）");
                             }
@@ -6719,7 +6843,7 @@ public static class CollectionScene
                 var r0 = FindChild(dpg, "CollectionDeck_0");
                 var r1 = FindChild(dpg, "CollectionDeck_6");
                 if (r0 != null && r1 != null)
-                    CheckNear(Mathf.Abs(PxOf(r0.position.y) - PxOf(r1.position.y)), 364.5f, 1.5f,
+                    CheckNear(Mathf.Abs(MenuCheck.DesignPx(r0).y - MenuCheck.DesignPx(r1).y), 364.5f, 1.5f,
                               "★ A1503⑥ Deck 页**行距 = 364.5**（原版 `RSR._spacingY = 0`；我们原来拿横向那个 20 当行距 ⇒ 每行多 20）");
                 else CheckTrue(false, "（前提）第 0 格与第 6 格（下一行）都在视口内 —— 上面那条的前提");
                 // ⑤ 军种格顺序：按原版 option 序号**单调**
@@ -6926,7 +7050,7 @@ public static class CollectionScene
             //    （四页共用同一条 `Header`；理由见 `CollectionWindow.BuildFilterHeader` 的注释）。
             {
                 var bq = FindChild(cpage, "Clear filters");
-                CheckTrue(bq != null && Mathf.Abs(PxOf(bq.position.x) - 737.17f) <= 1f,
+                CheckTrue(bq != null && Mathf.Abs(MenuCheck.DesignPx(bq).x - 737.17f) <= 1f,
                           "`Clear filters` 底图中心 x = **737.17**（= 612.17 + 250/2 —— 与另外三页同值）"
                           + " —— **别照抄 dump 里的 1405 / 1488.59**（那是布局组跑之前的模板位）");
                 var ttlT = FindChild(cpage, "Header Label");
@@ -6949,8 +7073,8 @@ public static class CollectionScene
                     lt.ForceRelayout(); lc2.ForceRelayout();
                     // 🆕 **2026-10-16（A796′）换口**：半宽（`WorldW × 54`）→ `LabelRenderedPx`（TMP `textBounds`）；
                     //    中心仍是**节点位置**（只换「从哪个口读那个数」）。
-                    float tLeft = PxOf(lt.transform.position.x) - LabelRenderedPx(lt).x * 0.5f;
-                    float cRight = PxOf(lc2.transform.position.x) + LabelRenderedPx(lc2).x * 0.5f;
+                    float tLeft = MenuCheck.DesignPx(lt.transform).x - LabelRenderedPx(lt).x * 0.5f;
+                    float cRight = MenuCheck.DesignPx(lc2.transform).x + LabelRenderedPx(lc2).x * 0.5f;
                     CheckTrue(tLeft > cRight,
                               $"标题（左缘 **{tLeft:F0}**，右对齐到 1821）与 `Clear filters`（右缘 **{cRight:F0}**）**不叠**");
                     if (cfParent != null && !cfPWas) cfParent.gameObject.SetActive(false);
@@ -6993,8 +7117,8 @@ public static class CollectionScene
                 if (ca0 != null)
                 {
                     // 面板内 (pad L14, 15+50) ⇒ `Abs` 加 (0.25,155.9) ⇒ 中心 (64.25, 270.9)
-                    CheckNear(PxOf(ca0.position.x), 64.25f, 0.6f, "Army 第 1 格中心 x = **64.25**（0.25+14+50）");
-                    CheckNear(PxYOf(ca0.position.y), 270.9f, 0.6f,
+                    CheckNear(MenuCheck.DesignPx(ca0).x, 64.25f, 0.6f, "Army 第 1 格中心 x = **64.25**（0.25+14+50）");
+                    CheckNear(MenuCheck.DesignPx(ca0).y, 270.9f, 0.6f,
                               "Army 第 1 格中心 y = **270.9**（155.9+15+50+50）"
                               + " —— 这一页 **Army 在前**（卡牌那套是 Owned/Upgradable 在前）");
                     CheckArt(ca0, DeckRuntime.FactionIcon(cf[0]), "Army 格的图 = 该阵营图标（原版运行期赋）");
@@ -7004,7 +7128,7 @@ public static class CollectionScene
                 CheckTrue(co != null, "`Owned` 那一格在");
                 if (co != null)
                 {
-                    CheckNear(PxYOf(co.position.y), 758.71f, 0.6f,
+                    CheckNear(MenuCheck.DesignPx(co).y, 758.71f, 0.6f,
                               "`Owned` 行中心 y = **758.71**（155.9 + 577.81 + 25 —— Army 行 550 一高，它跟着往下走）");
                     // 🔴 **2026-10-18（波 2a · W2）改「随语档」**：这颗字从波 1b（P1）起走词条
                     //   （`Core/FilterPanelModel.cs` 的 `BuildCosmetics` 那颗 `Owned` 格，键 = `MenuDeck/Filters/ShowOwnedOnly`）
@@ -7102,7 +7226,7 @@ public static class CollectionScene
                 win.CosmoScroll.ScrollBy(win.CosmoScroll.MaxOffset);
                 int last = CollectionWindow.CosmoTotal - 1;
                 var lc = FindChild(cpage, "CollectionCosmetic_" + last);
-                CheckTrue(lc != null && PxYOf(lc.position.y) + 405f * 0.5f <= 1080.5f,
+                CheckTrue(lc != null && MenuCheck.DesignPx(lc).y + 405f * 0.5f <= 1080.5f,
                           $"**滚到底 ⇒ 第 {last + 1} 张（最后一张卡背）完整落进视口**");
                 win.CosmoScroll.ScrollBy(-win.CosmoScroll.MaxOffset);
             }
@@ -7137,7 +7261,7 @@ public static class CollectionScene
                     {
                         if (q == null || !q.gameObject.activeInHierarchy) continue;
                         float w = q.WorldW * 108f, h = q.WorldH * 108f;
-                        float cx = LayoutSpace.PxX(q.transform.position.x), cy = LayoutSpace.PxY(q.transform.position.y);
+                        float cx = MenuCheck.DesignPx(q.transform).x, cy = MenuCheck.DesignPx(q.transform).y;
                         float x1 = cx - w * 0.5f, x2 = cx + w * 0.5f, y1 = cy - h * 0.5f, y2 = cy + h * 0.5f;
                         quads++;
                         if (y1 < vpC.y1 - 0.5f || y2 > vpC.y2 + 0.5f
@@ -7433,9 +7557,9 @@ public static class CollectionScene
                                         + " —— 改坏法：`CardDetailPopup` 那三处不传第 10 参 ⇒ 落到标称档 52.6/57/52.6");
                                 // ---- A575：整块的落位。块宽是**渲出来的**真测量（TMP 自己那块 `textBounds`
                                 //     —— 🆕 **2026-10-16（A796′）换口**：改走 `LabelRenderedPx`，⛔ 不再读字段缓存 `Label.WorldW`），
-                                //     ⛔ 不是回读我们传进去的实参；`PxOf` 与 `TitleLeftPx` 同一个设计空间口径。
+                                //     ⛔ 不是回读我们传进去的实参；`MenuCheck.DesignPx` 与 `TitleLeftPx` 同一个设计空间口径。
                                 float wpx = LabelRenderedPx(alb).x;
-                                float cx = PxOf(alb.transform.position.x);
+                                float cx = MenuCheck.DesignPx(alb.transform).x;
                                 CheckTrue(wpx > 5f,
                                           $"（前提）`{ac.Name}` 的渲染块宽 {wpx:F2}px > 5 —— 量不出宽度时下面那条会**退化**"
                                         + "（`MenuDraw.Align*` 自己也有 `HasMeasuredWidth` 早退，这条防的是「两边一起变成 0」）");
@@ -7610,7 +7734,7 @@ public static class CollectionScene
                                               $"…**渲出来 {sgLbW:F1}×{sgLbH:F1}px ≤ 原版框 170×50**"
                                             + "（容差 1.5px = TMP 二分收敛粒度；只比字号会漏掉「字号对而溢出」那一族）");
                                     // 落位：原版这颗 `m_HorizontalAlignment = 2 (Center)` = 我们的出厂档 ⇒ **不调 `Align*`**
-                                    float sgLbCx = PxOf(sgLb.transform.position.x);
+                                    float sgLbCx = MenuCheck.DesignPx(sgLb.transform).x;
                                     CheckNear(sgLbCx, rSg2.CX, 0.5f,
                                               $"★ …**块心 = {rSg2.CX:F0}**（原版 `Center` = 出厂档）—— 改坏法："
                                             + "把上面 dup 那颗的 `MenuDraw.AlignRight` 抄过来 ⇒ 块心右移半个块宽");
@@ -7887,7 +8011,7 @@ public static class CollectionScene
                                 //    尺寸才用渲染盒（下面平台那条 `frame_` 高度就是渲染真值）。
                                 if (b0.HasValue)
                                 {
-                                    var c0 = LayoutSpace.ToPixel(s0.transform.position);
+                                    var c0 = MenuCheck.DesignPx(s0.transform);
                                     CheckNear(c0.x, 960f, 2f, "前台那张**中心 x = 960**（原版 clip 末帧 `anchoredPosition.x = 0`）");
                                     CheckNear(c0.y, 480f, 2f, "…**中心 y = 480**（原版 `anchoredPosition.y = 60` ⇒ 屏幕 y = 540−60）");
                                 }
@@ -7896,7 +8020,7 @@ public static class CollectionScene
                                 var s1 = cd.SlotView(1);
                                 if (s1 != null && s0 != null)
                                 {
-                                    var c1 = LayoutSpace.ToPixel(s1.transform.position);
+                                    var c1 = MenuCheck.DesignPx(s1.transform);
                                     CheckNear(c1.x, 960f - 121f, 2.5f,
                                               "槽 1 中心 x = **839**（原版 clip：`anchoredPosition.x = −121` ⇒ 扇形**朝左开**）");
                                     CheckNear(c1.y, 480f + 7f, 2.5f,
@@ -7961,8 +8085,8 @@ public static class CollectionScene
                                             var sa = cd.SlotView(i - 1); var sb = cd.SlotView(i);
                                             if (sa == null || sb == null) continue;
                                             pairs++;
-                                            CheckTrue(LayoutSpace.ToPixel(sb.transform.position).x
-                                                       < LayoutSpace.ToPixel(sa.transform.position).x - 10f,
+                                            CheckTrue(MenuCheck.DesignPx(sb.transform).x
+                                                       < MenuCheck.DesignPx(sa.transform).x - 10f,
                                                       $"槽 {i} 比槽 {i - 1} **更靠左**（扇形继续张开）");
                                             CheckTrue(sb.transform.localScale.x < sa.transform.localScale.x,
                                                       $"槽 {i} 比槽 {i - 1} **更小**（原版就是越远越小）");
@@ -8202,11 +8326,11 @@ public static class CollectionScene
             // 两个换风格圆钮：**按位置**（脚本字段名反着：`leftStyleButton` 挂的是右边那颗）
             var aL = spage != null ? FindChild(spage, "Select Art Button Left") : null;
             var aR = spage != null ? FindChild(spage, "Select Art Button Right") : null;
-            CheckNear(aL != null ? PxOf(aL.position.x) : -1f, 720.595f, 1f,
+            CheckNear(aL != null ? MenuCheck.DesignPx(aL).x : -1f, 720.595f, 1f,
                       "`Select Art Button Left` 中心 x = **720.60**（683.40 + 74.39/2）");
-            CheckNear(aR != null ? PxOf(aR.position.x) : -1f, 1357.59f, 1f,
+            CheckNear(aR != null ? MenuCheck.DesignPx(aR).x : -1f, 1357.59f, 1f,
                       "`Select Art Button Right` 中心 x = **1357.59**（1320.40 + 74.39/2）");
-            CheckTrue(aL != null && aR != null && Mathf.Abs(PxYOf(aL.position.y) - 228.47f) <= 1f,
+            CheckTrue(aL != null && aR != null && Mathf.Abs(MenuCheck.DesignPx(aL).y - 228.47f) <= 1f,
                       "两个圆钮中心 y = **228.47**（190.67 + 75.61/2）");
             // 🆕 **2026-10-18（`A1149` 第一半 · 第九会话 P6）**：这两颗**换风格圆钮**的**圆底盘实绘矩形**
             //   —— 同族那个「圆底盘长在子件上」的偏离（判据 = 原版 `/Header/Select Art Button {L,R}` 自己带
@@ -8340,8 +8464,8 @@ public static class CollectionScene
             {
                 var s0 = win.StyleCells[0];
                 // 内容**整体居中**：pad = (1589.78 − 6×262.5) / 2 = **7.39** ⇒ 首格中心 330.22+7.39+131.25
-                CheckNear(PxOf(s0.position.x), 468.86f, 0.7f, "第 1 格中心 x = **468.86**（330.22 + pad 7.39 + 262.5/2）");
-                CheckNear(PxYOf(s0.position.y), 479.67f, 0.7f, "第 1 格中心 y = **479.67**（287.67 + 384/2）");
+                CheckNear(MenuCheck.DesignPx(s0).x, 468.86f, 0.7f, "第 1 格中心 x = **468.86**（330.22 + pad 7.39 + 262.5/2）");
+                CheckNear(MenuCheck.DesignPx(s0).y, 479.67f, 0.7f, "第 1 格中心 y = **479.67**（287.67 + 384/2）");
                 // 🔴 判「卡面用的是**异画**立绘」—— 扫这一格**所有** `MeshRenderer` 的材质贴图名字。
                 //    ⚠️ **别只看第一个**：第一版取「第一个有贴图的」拿到的是**卡框**
                 //    （`astramilitarum_tier3`），断言因此误报。`CardView` 的层走的是**自定义 mesh**
@@ -8731,7 +8855,7 @@ public static class CollectionScene
                         CheckTrue(cBase != null, "（前提 · A843）落点探针 `Cell_owned` 在（那一行横跨整个抽屉宽）");
                         if (cBase != null)
                         {
-                            CheckNear(PxOf(cBase.position.x), 167.905f, 1f,
+                            CheckNear(MenuCheck.DesignPx(cBase).x, 167.905f, 1f,
                                       "★ **A843 · 基准落点**：`Cell_owned` 中心 x = **167.905**（原版那一行横跨"
                                       + "抽屉全宽 0.25…335.56 ⇒ 取中点）—— 这一版是【抽屉开着】时建的"
                                       + "（`Slide == 1` ⇒ `RowsBuiltOffBase` 为假）⇒ **④ 碰不到它**"
@@ -8742,7 +8866,7 @@ public static class CollectionScene
                             var cRide = FindChild(cDrawer, "Cell_owned");
                             CheckTrue(cRide != null && cRide == cBase,
                                       "…而且**没重建**（还是同一颗节点）—— 它只是跟着面板一起滑走了");
-                            CheckNear(cRide != null ? PxOf(cRide.position.x) : -9999f, 167.905f - 385f, 1f,
+                            CheckNear(cRide != null ? MenuCheck.DesignPx(cRide).x : -9999f, 167.905f - 385f, 1f,
                                       "…这一颗**跟着面板左移 385px**（167.905 − 385 = **−217.095**）——"
                                       + "「基准版按基准位建」+ 这一条 = 这杆子真被 `ApplyDrawerSlide` 挪过"
                                       + "（`HasBasePos == true` ⇒ 下面那一版才可能「欠」）");
@@ -8753,7 +8877,7 @@ public static class CollectionScene
                                       + "（`RebuildFilterRowsNow` 先销毁再重建）—— 不换 = 夹具空转、下面两条等于没验");
                             if (cOff != null)
                             {
-                                float offCx = PxOf(cOff.position.x);
+                                float offCx = MenuCheck.DesignPx(cOff).x;
                                 CheckTrue(Mathf.Abs(offCx - 167.905f) < 1f
                                           || Mathf.Abs(offCx - (167.905f - 385f)) < 1f,
                                           "（前提 · A843）这一版是**照某一帧建出来**的：实得 **" + offCx.ToString("F1") + "**——"
@@ -8774,7 +8898,7 @@ public static class CollectionScene
                                 CheckNear(win.DrawerSlide(0), 1f, 0.001f,
                                           "…`TickDrawers(0.3)`（原版 `animationTime`）⇒ 进度 **1**（到位）");
                                 var cAfter = FindChild(cDrawer, "Cell_owned");
-                                CheckNear(cAfter != null ? PxOf(cAfter.position.x) : -9999f, 167.905f, 1f,
+                                CheckNear(cAfter != null ? MenuCheck.DesignPx(cAfter).x : -9999f, 167.905f, 1f,
                                           "★★ **A843 · 落点**：展开到位后 `Cell_owned` 必须**重排回 167.905**。"
                                           + "🔴 **改坏法：删掉 `RebuildFilterRowsNow` 里那句 `DrawerHome(_flt)`"
                                           + "（A834，2026-10-18 落地的修法）⇒ 这一条当场红**"
@@ -8813,7 +8937,7 @@ public static class CollectionScene
                                 CheckTrue(win.FiltersOpen && win.DrawerSettled(0),
                                           "…点一下 ⇒ 展开到位（`Toggle*` 那一支）");
                                 var cAfter2 = FindChild(cDrawer, "Cell_owned");
-                                CheckNear(cAfter2 != null ? PxOf(cAfter2.position.x) : -9999f, 167.905f, 1f,
+                                CheckNear(cAfter2 != null ? MenuCheck.DesignPx(cAfter2).x : -9999f, 167.905f, 1f,
                                           "★ **A843 · 落点（`Toggle*` 那条入口）**：同上，必须回到 **167.905** ——"
                                           + "删掉 ④ ⇒ 红（实得 **552.905**）；这一条与上面那条**各管一个入口**"
                                           + "（⚠️ 它**不是**灭自证那一条：这条入口在 `Toggle*` 里，补偿路碰得到它）");
@@ -8849,7 +8973,7 @@ public static class CollectionScene
                         // ① **基准**那一版（抽屉开着时建）—— 两条读数各取一个零点
                         win.ClearCardFilters();
                         var a8Base = FindChild(cDrawer, "Cell_owned");
-                        float a8Cell0 = a8Base != null ? PxOf(a8Base.position.x) : -9999f;
+                        float a8Cell0 = a8Base != null ? MenuCheck.DesignPx(a8Base).x : -9999f;
                         float a8Army0 = TitleLeftPx(cDrawer, "Army");
                         CheckNear(a8Cell0, 167.905f, 1f,
                                   "（前提 · A834）基准版 `Cell_owned` 中心 x = **167.905**（开着建的那一版）");
@@ -8863,7 +8987,7 @@ public static class CollectionScene
                         CheckTrue(a8Ride != null && a8Ride != a8Base,
                                   "★ **前提（A834 的欠版已就位）**：收起态这一次重建**真的换了节点**"
                                   + "（`RebuildFilterRowsNow` 先销毁再重建）—— 不换 = 夹具空转、下面三条等于没验");
-                        CheckNear(a8Ride != null ? PxOf(a8Ride.position.x) : -9999f, 167.905f - 385f, 1f,
+                        CheckNear(a8Ride != null ? MenuCheck.DesignPx(a8Ride).x : -9999f, 167.905f - 385f, 1f,
                                   "★★ **A834 · 建的是【基准帧】**：收起态这一版建完（面板被摆回收起位）⇒ 中心 x = "
                                   + "**−217.095**（= 167.905 − 385）。"
                                   + "🔴 **改坏法：删掉 `RebuildFilterRowsNow` 里那句 `DrawerHome(_flt)`** ⇒ 局部坐标多烘 "
@@ -8874,7 +8998,7 @@ public static class CollectionScene
                         CheckNear(win.DrawerSlide(0), 0.5f, 0.001f,
                                   "（前提 · A834）`TickDrawers(0.15)` ⇒ 进度 **0.5**（`animationTime` 0.3 的一半）");
                         var a8Mid = FindChild(cDrawer, "Cell_owned");
-                        float a8Cell1 = a8Mid != null ? PxOf(a8Mid.position.x) : -9999f;
+                        float a8Cell1 = a8Mid != null ? MenuCheck.DesignPx(a8Mid).x : -9999f;
                         float a8Army1 = TitleLeftPx(cDrawer, "Army");
                         CheckTrue(a8Mid != null && a8Mid == a8Ride,
                                   "★ **A834 · 过渡帧里一次都不重建**：滑到一半时还是收起态那一版"
@@ -9296,7 +9420,7 @@ public static class CollectionScene
                             {
                                 int v = ch.vertexIndex + k;
                                 if (v < 0 || v >= mesh.vertices.Length || v >= mesh.colors32.Length) continue;
-                                float y = LayoutSpace.ToPixel(ttTmp.transform.TransformPoint(mesh.vertices[v])).y;
+                                float y = LayoutSpace.ToPixel(ttTmp.transform.TransformPoint(mesh.vertices[v])).y;   // 甲式保留：顶点量法（W57 §1·4 第 4 条）
                                 int a = mesh.colors32[v].a;
                                 nV++;
                                 minA = Mathf.Min(minA, a);
@@ -9462,14 +9586,14 @@ public static class CollectionScene
                         var r0 = RowOf("msg-00");
                         CheckTrue(r0 != null, "偏移 0 ⇒ **第 1 行**建出来了");
                         if (r0 != null)
-                            CheckNear(PxYOf(r0.position.y), 196f, 0.6f,
+                            CheckNear(MenuCheck.DesignPx(r0).y, 196f, 0.6f,
                                       "…它的中心 = 视口顶 161 + `_ContentPadding.top` 5 + 半行 30 = **196**");
                         CheckTrue(RowOf("msg-19") == null,
                                   "★ 偏移 0 ⇒ **最后一行根本没建**（它整行在 y 1496..1556，视口底下；"
                                   + "补之前是「画到框外」，现在是「不建」——两种都不该出现在画面上）");
 
                         // 滚到最下（`SetOffset` 就是滚轮/拖拽那条路公用的那一个口）
-                        float y10 = RowOf("msg-10") != null ? PxYOf(RowOf("msg-10").position.y) : float.NaN;
+                        float y10 = RowOf("msg-10") != null ? MenuCheck.DesignPx(RowOf("msg-10")).y : float.NaN;
                         csc.SetOffset(csc.ClampHi);
                         CheckNear(csc.Offset, 650f, 0.01f, "滚到最下 ⇒ 偏移 = `ClampHi` = **650**");
                         var last = RowOf("msg-19");
@@ -9478,7 +9602,7 @@ public static class CollectionScene
                                   + "分不出这两态：两种偏移下都是 11 行）");
                         if (last != null)
                         {
-                            float ly = PxYOf(last.position.y);
+                            float ly = MenuCheck.DesignPx(last).y;
                             CheckTrue(ly >= csc.Viewport.y1 && ly <= csc.Viewport.y2,
                                       $"…而且它**落在视口里**（中心 y = {ly:F1}，视口 {csc.Viewport.y1:F1}..{csc.Viewport.y2:F1}）");
                         }
@@ -9487,7 +9611,7 @@ public static class CollectionScene
                         var r10b = RowOf("msg-10");
                         CheckTrue(r10b != null, "…中间那行（msg-10）两种偏移下都在视口里（下面拿它量位移）");
                         if (r10b != null && !float.IsNaN(y10))
-                            CheckNear(y10 - PxYOf(r10b.position.y), 650f, 0.6f,
+                            CheckNear(y10 - MenuCheck.DesignPx(r10b).y, 650f, 0.6f,
                                       "★ 同一行**真的换了位置**：内容上移的像素数 == 偏移（650）");
 
                         // ★ 「**裁**」那半份也要有判据（改之前那一页是「既不滚也不裁」，行直接画到框外）。
@@ -9508,7 +9632,13 @@ public static class CollectionScene
                         else CheckTrue(false, "拿不到最后一行头像命中区的矩形 —— 这一条等于没验（滚出视口/被裁没了？）");
 
                         var cpl = PointerLayer.Instance;
-                        var under = cpl != null ? cpl.ScrollUnder(1200f, 500f) : null;
+                        // 🆕 2026-10-20（A1350 第二批）：(1200,500) 是**设计 px**（视口中央）；
+                        //   `ScrollUnder` 内部把它和 `DesignToPtrPx(Viewport, Owner.lossyScale)` 比 ⇒ 先换到指针帧。
+                        //   `owner` = `Viewport` 节点（`ScrollScale` 取的正是它父级 `_root` 那一级 `lossyScale`）。
+                        var vpNode = ctab.transform.Find("Viewport");
+                        var underP = MenuCheck.PointerFramePxFromDesign(new Vector2(1200f, 500f),
+                                         vpNode != null ? vpNode : ccon);
+                        var under = cpl != null ? cpl.ScrollUnder(underP.x, underP.y) : null;
                         CheckTrue(under == csc,
                                   "★ 视口中央那一点，**滚轮落到的就是这一区**（`SocialPage.RegisterScroll` 那条路）——"
                                   + "拿到 " + (under == null ? "**null**（没登记）" : "`" + under.GetType().Name + "`"));
@@ -10886,6 +11016,12 @@ public static class CollectionScene
                 }
             }
 
+            // ---------------- 🆕 2026-10-20（`A1350` 第二批 · `W58-PTRPORT`）：设计帧 → 指针帧换算口 ----------------
+            //   判据 / 恒等式 → `Editor/MenuCheck.cs` 的 `PointerFramePxFromDesign`；
+            //   本宿主的调用点（`vis` / 设计 px 字面量 / `cellR` / 暗底 (5,5)）已全部走它。
+            Section("A1350 第二批：设计帧 → 指针帧（`PointerFramePxFromDesign`）两态探针");
+            CheckPointerFrameFromDesign("`PointerFramePxFromDesign`");
+
             int total = _sink.Pass + _sink.Fail;
             if (_sink.Fail == 0) Debug.Log(P + $"=== 结束：{_sink.Pass}/{total} 全过 ✅ ===");
             else
@@ -10897,6 +11033,107 @@ public static class CollectionScene
                 Debug.LogError(sb.ToString());
             }
             if (Application.isBatchMode) EditorApplication.Exit(_sink.Fail == 0 ? 0 : 1);
+        }
+
+        /// <summary>🆕 **2026-10-20（`A1350` 第二批 · `W58-PTRPORT`）**：`MenuCheck.PointerFramePxFromDesign`
+        /// （**设计帧 → 指针帧**的唯一换算口）的两态探针。
+        ///
+        /// <para>① **单位缩放**：新旧口**逐位相同** —— 新口 = `PointerFramePxFromDesign(DesignPx(t), t)`、
+        /// 旧口 = `PointerFramePx(t)`（两个口各自独立，⛔ 不回读被测的换算算式）。
+        /// ② **父链 ×2**：新口 = `C + (设计点 − C) × 2`（`C` = 画布中心 `(960,540)`）——
+        /// 期望值用**建夹具时给的四个字面量**独立算；并且 `ButtonAt` 在**新口**上命得中探针、
+        /// 在**未换算的设计点**上**命不中** ⇒ **结构上挡住「不乘 / 乘错基准」**。</para>
+        ///
+        /// <para>🔴 **灭自证**：`960 + (1300 − 960) × 2 = 1640` 是**夹具几何的字面量**，不是实现算出来的。
+        /// 把实现改回「原样返回设计点」（= 旧行为）⇒ 读到 1300（差 340px）、`ButtonAt(1300,420)` 也落到
+        /// 命中区 x∈[1440,1840] 之外 ⇒ 两条同时红。**把实现与断言一起改回旧写法 = 不可能同时绿**。</para>
+        ///
+        /// <para>⚠️ 父链带 2× 的节点必须落在**它自己父级的原点**（同 `CheckQuadPxRectUnderScaledParent`
+        /// 的硬约束；判据 = `Shell/MenuDraw.cs` 的 `PosInDesignSpace` 适用范围）。</para></summary>
+        static void CheckPointerFrameFromDesign(string what)
+        {
+            const float X1 = 1200f, Y1 = 320f, X2 = 1400f, Y2 = 520f;          // 设计矩形（离画布中心 ≥1 设计单位）
+            const float Cx = (X1 + X2) * 0.5f, Cy = (Y1 + Y2) * 0.5f;          // 1300, 420
+            const float Kcx = LayoutSpace.DesignPxW * 0.5f;                      // 960（ToDesignPixel 的不动点）
+            const float Kcy = LayoutSpace.DesignPxH * 0.5f;                      // 540
+            var tex = CardArt.Solid();
+            CheckTrue(tex != null, $"（前提）{what}：纯色图取到了");
+            if (tex == null) return;
+
+            // ---------------- ① 单位缩放：新旧口逐位相同 ----------------
+            {
+                var host = new GameObject("A1350 PtrPort Unit Host");           // 世界原点 · 单位缩放
+                try
+                {
+                    var node = MenuDraw.Node(host.transform, "A1350 PtrPort Unit Node", new PxRect(X1, Y1, X2, Y2));
+                    CheckTrue(node != null, $"（前提）{what}：单位缩放探针节点建出来了");
+                    if (node != null)
+                    {
+                        var d = MenuCheck.DesignPx(node);
+                        var oldP = MenuCheck.PointerFramePx(node);
+                        var newP = MenuCheck.PointerFramePxFromDesign(d, node);
+                        CheckNear(d.x, Cx, 0.01f, $"（前提）{what}：单位缩放下设计点 x = {Cx}（实得 {d.x:F4}）");
+                        CheckNear(d.y, Cy, 0.01f, $"（前提）{what}：……设计点 y = {Cy}（实得 {d.y:F4}）");
+                        CheckTrue(newP.x == oldP.x && newP.y == oldP.y,
+                                  $"★★ {what}：**单位缩放 ⇒ 换算口是恒等** —— 新旧口**逐位相同**"
+                                + $"（新 ({newP.x:F6},{newP.y:F6}) vs 旧 ({oldP.x:F6},{oldP.y:F6})）"
+                                + "｜🧨 若把「乘父链缩放」写成无条件乘：这里会差浮点尾数 ⇒ 红");
+                    }
+                }
+                finally { Object.DestroyImmediate(host); }
+            }
+
+            // ---------------- ② 父链 ×2：新口 = C + (设计点 − C) × 2；ButtonAt 命中正确 ----------------
+            {
+                var host = new GameObject("A1350 PtrPort Probe Host");          // 世界原点 · 单位缩放（⛔ 见函数头）
+                var mid = new GameObject("A1350 PtrPort Probe Scaled");
+                mid.transform.SetParent(host.transform, false);                 // 局部位置进 0（被乘的那一级落在父级原点）
+                mid.transform.localScale = new Vector3(2f, 2f, 1f);
+                try
+                {
+                    var q = MenuDraw.Rect(mid.transform, tex, new PxRect(X1, Y1, X2, Y2),
+                                          "A1350 PtrPort Quad", 4000);          // 队列压过真界面（保证命中路拿到它）
+                    CheckTrue(q != null, $"（前提）{what}：父链 ×2 的探针 quad 建出来了");
+                    if (q != null)
+                    {
+                        q.gameObject.AddComponent<WindowButton>();              // 只为让 `PointerLayer.CollectHits` 收它
+                        CheckNear(q.transform.parent != null ? q.transform.parent.lossyScale.x : -1f, 2f, 1e-4f,
+                                  $"（前提）{what}：**父链真的带 2×**（它是 1 的话下面全部恒等、等于没查）");
+                        var d = MenuCheck.DesignPx(q.transform);
+                        CheckNear(d.x, Cx, 0.01f, $"（前提）{what}：父链 ×2 下设计点仍是 {Cx}（实得 {d.x:F4}）");
+                        CheckNear(d.y, Cy, 0.01f, $"（前提）{what}：……设计点仍是 {Cy}（实得 {d.y:F4}）");
+
+                        var p = MenuCheck.PointerFramePxFromDesign(d, q.transform);
+                        float wantX = Kcx + (Cx - Kcx) * 2f;                    // 960 + 340×2 = 1640
+                        float wantY = Kcy + (Cy - Kcy) * 2f;                    // 540 + (420−540)×2 = 300
+                        CheckNear(p.x, wantX, 0.01f,
+                                  $"★★ {what}：父链 ×2 ⇒ 新口 x = **画布中心 960 + (设计 1300 − 960) × 2 = {wantX}**"
+                                + $"（实得 {p.x:F4}）｜🧨 不乘（原样返回设计点）⇒ 得 1300 ⇒ 红");
+                        CheckNear(p.y, wantY, 0.01f,
+                                  $"★★ {what}：……y = **540 + (420 − 540) × 2 = {wantY}**（实得 {p.y:F4}）");
+                        CheckNear(p.x, MenuCheck.PointerFramePx(q.transform).x, 0.01f,
+                                  $"★★ {what}：新口 x 与独立的 `PointerFramePx(q)` **同帧**（两个口互证）");
+                        CheckNear(p.y, MenuCheck.PointerFramePx(q.transform).y, 0.01f,
+                                  $"★★ {what}：……y 同帧");
+
+                        var pl = PointerLayer.Instance;
+                        CheckTrue(pl != null, $"（前提）{what}：`PointerLayer` 在（真命中路要它）");
+                        if (pl != null)
+                        {
+                            var hitNew = pl.ButtonAt(p.x, p.y);
+                            CheckTrue(hitNew != null && hitNew.transform == q.transform,
+                                      $"★★ {what}：**在【指针帧】的点上命得中探针 quad**"
+                                    + "（拿到 " + (hitNew == null ? "**null**" : "`" + hitNew.name + "`") + "）"
+                                    + "｜🧨 把新口改回「原样返回设计点」⇒ 这一点落到命中区外 ⇒ 红");
+                            var hitOld = pl.ButtonAt(d.x, d.y);
+                            CheckTrue(hitOld == null || hitOld.transform != q.transform,
+                                      $"★★ {what}：**未换算的设计点命不中它**（灭自证的另一半 —— 防「在哪儿都命中」）"
+                                    + "（拿到 " + (hitOld == null ? "**null**" : "`" + hitOld.name + "`") + "）");
+                        }
+                    }
+                }
+                finally { Object.DestroyImmediate(host); }
+            }
         }
 
         static float DeckCellWpx() { return CollectionWindow.DeckCellW; }

@@ -52,8 +52,13 @@ namespace CardPresentation
         /// <summary>原图尺寸（Sprite `m_Rect` 实读 128×128）。</summary>
         public const int MaskSize = 128;
 
-        // 队列：压在所有窗之上、指针之下（本链自成一档 4100–4109）。
-        public const int QShade = 4100;
+        // 队列：**原版 `Tutorial highlight` 的 Canvas = 排序层 `PopUps`(7) / order 601**
+        //   （判据 → `资料/普查产出_1020/W58_界面线_Toast黑场次序判据.md` §2·3；Canvas_1073.json + TagManager_3.json）
+        //   ⇒ 在窗（PopUps/0）与错误横幅（PopUps/1）**之上**、在 **toast（PopUps/900）与 Blocking 层之下**。
+        // 🔑 相对次序 = 原版判据；**4040 这个绝对值 = [我们挑的]**（本仓外壳用显式渲染队列）：
+        //   窗带最高 `AlliancePanelWindow.QText = 4030` 之上 · toast `4072` 与黑场 `4090` 之下。
+        // ⛔ 别再把它抬回 4100（旧值：压住 toast、黑场淡入时浮在黑屏上），W58-D2 自检有灭自证梯子钉着。
+        public const int QShade = 4040;
 
         /// <summary>遮罩贴图（运行时生成；**只建一次**，所有实例共用）。</summary>
         static Texture2D _mask;

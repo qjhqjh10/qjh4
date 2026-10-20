@@ -282,7 +282,7 @@ public static class ShellScene
             if (v < 0 || v + 3 >= vm.Length) continue;
             for (int k = 0; k < 4; k++)
             {
-                var p = LayoutSpace.ToPixel(tmp.transform.TransformPoint(vm[v + k]));
+                var p = LayoutSpace.ToPixel(tmp.transform.TransformPoint(vm[v + k]));   // 甲式保留：顶点量法（W57 §1·4 第 4 条）
                 if (p.x < minX) minX = p.x;
                 if (p.x > maxX) maxX = p.x;
                 if (p.y < minY) minY = p.y;
@@ -325,7 +325,7 @@ public static class ShellScene
             if (v < 0 || v + 3 >= mesh.vertices.Length || v + 3 >= mesh.colors32.Length) continue;   // 🔴 整字跳过
             for (int k = 0; k < 4; k++)
             {
-                px.Add(LayoutSpace.ToPixel(tmp.transform.TransformPoint(mesh.vertices[v + k])));
+                px.Add(LayoutSpace.ToPixel(tmp.transform.TransformPoint(mesh.vertices[v + k])));   // 甲式保留：顶点量法（W57 §1·4 第 4 条）
                 alpha.Add(mesh.colors32[v + k].a / 255f);
             }
         }
@@ -534,12 +534,17 @@ public static class ShellScene
     /// <summary>🆕 2026-10-07（A77⑮/⑧a）：一颗节点的命中 quad **中心**的画布像素（左上原点，y 向下）
     /// —— `PointerLayer.ButtonAt/ClickAt` 吃的就是这一套口径。
     /// ⚠️ 一律**现算**、不写死坐标：这样「页面几何改了」不会把断言变成假红，而它要断的
-    /// 「这一点上谁吃得到」与具体数字无关。</summary>
+    /// 「这一点上谁吃得到」与具体数字无关。
+    /// <para>🔴 **2026-10-20（`A1350` 第二批）换口**：本函数原来走**甲式** `LayoutSpace.ToPixel`，
+    /// 与 `PointerLayer.HitBoxPx`（`LayoutSpace.ToDesignPixel(裸世界)` + `PxPerWorldX`）**不同帧**
+    /// （非 16:9 下 x 差 `VisibleWidth / DesignWidth` 倍）= 真缺陷 ⇒ 现在走**指针帧**唯一读口
+    /// <see cref="MenuCheck.PointerFramePx"/>。⛔ **不是**设计帧 `MenuCheck.DesignPx` —— 那个除父链缩放，
+    /// 而指针帧**留着**（画出来多大就多大；判据 → `Shell/PointerLayer.cs` 的 `HitBoxPx` doc）。</para></summary>
     static Vector2 PxCenterOf(Transform node)
     {
         var q = node != null ? node.GetComponentInChildren<ImageQuad>(true) : null;
         if (q == null) return new Vector2(-99999f, -99999f);      // 取不到 ⇒ 一定不在任何命中点上 ⇒ 断言会红
-        return LayoutSpace.ToPixel(q.transform.position);
+        return MenuCheck.PointerFramePx(q.transform);
     }
 
     /// <summary>🆕 2026-10-07（A77⑲）：一颗 quad 头上那份材质用的 **shader 内部名**（没有材质就是 `&lt;没有材质&gt;`）。
@@ -578,33 +583,34 @@ public static class ShellScene
         bool OnClipEdge(float v) { return vertical
             ? (Mathf.Abs(v - clip.x1) <= 0.5f || Mathf.Abs(v - clip.x2) <= 0.5f)
             : (Mathf.Abs(v - clip.y1) <= 0.5f || Mathf.Abs(v - clip.y2) <= 0.5f); }
-        const float K = LayoutSpace.DesignPxH / LayoutSpace.DesignHeight;   // 108 px / 世界单位
         foreach (var q in root.GetComponentsInChildren<ImageQuad>(true))
         {
             if (q == null) continue;
-            Vector2 hc = LayoutSpace.ToPixel(q.transform.position);
-            float hw = q.WorldW * K * 0.5f, hh = q.WorldH * K * 0.5f;
+            // 🔴 **2026-10-20（`A1350` 第二批）换口**：本段原来自己写的是**甲式**
+            //   （`LayoutSpace.ToPixel(q.transform.position)` + `WorldW/H × K`）⇒ 已收口到
+            //   `MenuDraw.QuadRectPx`（**乙式**设计帧，唯一读口；与 `QuadPxRect` 逐字同一份）。
+            //   ⚠️ `k == 1`（小屏缩放开关出厂关）时两式逐位相同 ⇒ 出厂态读数零变化。
+            if (!MenuDraw.QuadRectPx(q, out float hx1, out float hy1, out float hx2, out float hy2)) continue;
             for (int i = 0; i < q.transform.childCount; i++)
             {
                 var c = q.transform.GetChild(i).GetComponent<ImageQuad>();
                 // ⚠️ **只认软边切出来的子块**（名字闸：`ApplySoftEdges` 起的是 `…_soft<i><j>`）——
                 //    九宫格那 9 块是**兄弟**不是父子，但留一道名字闸更保险。
                 if (c == null || c.name.IndexOf("_soft") < 0) continue;
-                Vector2 cc = LayoutSpace.ToPixel(c.transform.position);
-                float cw = c.WorldW * K * 0.5f, ch = c.WorldH * K * 0.5f;
+                if (!MenuDraw.QuadRectPx(c, out float cx1, out float cy1, out float cx2, out float cy2)) continue;
                 if (vertical)
                 {
-                    float vR = cc.x - cw;                    // 子块在**右** ⇒ 切线 = 子块左沿
-                    float vL = cc.x + cw;                    // 子块在**左** ⇒ 切线 = 子块右沿
-                    if (Mathf.Abs(vR - (hc.x + hw)) < 0.5f) { if (!OnClipEdge(vR)) cuts.Add(vR); }
-                    else if (Mathf.Abs(vL - (hc.x - hw)) < 0.5f) { if (!OnClipEdge(vL)) cuts.Add(vL); }
+                    float vR = cx1;                          // 子块在**右** ⇒ 切线 = 子块左沿
+                    float vL = cx2;                          // 子块在**左** ⇒ 切线 = 子块右沿
+                    if (Mathf.Abs(vR - hx2) < 0.5f) { if (!OnClipEdge(vR)) cuts.Add(vR); }
+                    else if (Mathf.Abs(vL - hx1) < 0.5f) { if (!OnClipEdge(vL)) cuts.Add(vL); }
                 }
                 else
                 {
-                    float vB = cc.y - ch;                    // 子块在**下** ⇒ 切线 = 子块上沿
-                    float vT = cc.y + ch;                    // 子块在**上** ⇒ 切线 = 子块下沿
-                    if (Mathf.Abs(vB - (hc.y + hh)) < 0.5f) { if (!OnClipEdge(vB)) cuts.Add(vB); }
-                    else if (Mathf.Abs(vT - (hc.y - hh)) < 0.5f) { if (!OnClipEdge(vT)) cuts.Add(vT); }
+                    float vB = cy1;                          // 子块在**下** ⇒ 切线 = 子块上沿（y 向下 ⇒ 小 y）
+                    float vT = cy2;                          // 子块在**上** ⇒ 切线 = 子块下沿（y 向下 ⇒ 大 y）
+                    if (Mathf.Abs(vB - hy2) < 0.5f) { if (!OnClipEdge(vB)) cuts.Add(vB); }
+                    else if (Mathf.Abs(vT - hy1) < 0.5f) { if (!OnClipEdge(vT)) cuts.Add(vT); }
                 }
             }
         }
@@ -1521,8 +1527,10 @@ public static class ShellScene
             //      （`ShellScene.cs` 的 `MessageText`：`PanelH` = `MessageText` **实测**渲染高与 100 取大 + 110），不是拿本条算式反推。
             // ⚠️ 量的是**九块的并集**（`CreateNineSlice` 建的是「根 + 9 块」，只取第一块会量成某个角块 ——
             //   `Editor/SettingsScene.cs` 里那条「弹窗底量成 182×173」注 那条注释记的「弹窗底量成 182×173」当场踩的就是这个）。
-            // ⚠️ 换算：**本处这一段仍是甲式**（下面那段内联循环走 `LayoutSpace.ToPixel(q.transform.position)`
-            //   + `WorldW/H × K`，不再乘 108 那一层）。
+            // ⚠️ 换算：🔴 **2026-10-20（`A1350` 第二批）已换口** —— 下面那段内联循环现在走 `QuadPxRect`
+            //   （= `MenuDraw.QuadRectPx`，**乙式**设计帧）。（改前原文：「本处这一段仍是甲式
+            //   （下面那段内联循环走 `LayoutSpace.ToPixel(q.transform.position)` + `WorldW/H × K`）」——
+            //   换口后 16:9 + 本窗缩放恒 1 下甲乙两式逐位相同 ⇒ 读数不变。）
             //   🔴 **2026-10-18（A1003）就地订正（铁律 5）**：这一行原来写的是「**沿用本文件 `PiecesOutsideClip`
             //   的口径**」—— `PiecesOutsideClip` 已收口到 `MenuDraw.QuadRectPx`（**乙式**）⇒ **两者不再同口径**。
             //   ⚠️ 本窗那棵树的缩放恒为 1（下面两条理由）⇒ **今天甲乙两式逐位相同、读数不变**；
@@ -1553,16 +1561,18 @@ public static class ShellScene
                           "`Generic Popup Background` 底下**真有块**（九宫格建出了 `ImageQuad`，不是空节点）");
                 if (bgQuads != null && bgQuads.Length > 0)
                 {
-                    const float K = LayoutSpace.DesignPxH / LayoutSpace.DesignHeight;      // 画布 px / 世界单位
                     float lx = float.MaxValue, ty = float.MaxValue, rx = float.MinValue, by = float.MinValue;
                     for (int i = 0; i < bgQuads.Length; i++)
                     {
                         var q = bgQuads[i];
                         if (q == null || !q.gameObject.activeInHierarchy) continue;
-                        var c = LayoutSpace.ToPixel(q.transform.position);
-                        float hw = q.WorldW * K * 0.5f, hh = q.WorldH * K * 0.5f;
-                        lx = Mathf.Min(lx, c.x - hw); rx = Mathf.Max(rx, c.x + hw);
-                        ty = Mathf.Min(ty, c.y - hh); by = Mathf.Max(by, c.y + hh);
+                        // 🔴 **2026-10-20（`A1350` 第二批）换口**：原来这里自己写甲式
+                        //   （`LayoutSpace.ToPixel(q.transform.position)` + `WorldW/H × K`）⇒ 改走 `QuadPxRect`
+                        //   （= `MenuDraw.QuadRectPx`，**乙式**设计帧，本文件唯一 quad 矩形读口）。
+                        //   本窗那棵树缩放恒为 1（理由见本节上面那一段）⇒ 甲乙两式逐位相同、读数不变。
+                        if (!QuadPxRect(q, out float qx1, out float qy1, out float qx2, out float qy2)) continue;
+                        lx = Mathf.Min(lx, qx1); rx = Mathf.Max(rx, qx2);
+                        ty = Mathf.Min(ty, qy1); by = Mathf.Max(by, qy2);
                     }
                     // 夹具**必须非方形**：宽 1000 与 高 PanelH+100 差 > 100px，两个方向都分开比 ⇒ 写反必红。
                     // （`PanelH` 有朝一日真到 900 时这条会响 —— 那是提醒换一条更长的示例文案，不是放宽断言。）
@@ -1930,6 +1940,10 @@ public static class ShellScene
         //   会让 TMP **重算 mesh** ⇒ 那一刀被抹掉、压在视口边上的字**又画出去了**（静默）。
         //   修法：`ClippedTextGuard` 订 TMP 自己的「文字已重排」事件（`TMPro_EventManager.TEXT_CHANGED_EVENT`，
         //   `TextMeshPro.cs:5047-5063`），收到就照原参数**再裁一刀**。
+        // 🔴 **2026-10-20（W58-S4FIX）**：`ON_TEXT_CHANGED` **发不发**由 TMP 自己的 awake/active 前提决定
+        //   （`TextMeshPro.cs:2119` 第一句静默早退），批处理**不保证**（判据全文 → 本节 `n0` 那一段注释）。
+        //   ⇒ 本节的判据改成「TMP 播报一次 ⇒ 守卫重裁一次」（显式播报 `TMPro_EventManager.ON_TEXT_CHANGED`），
+        //   ⛔ 别再写成「调一次 `ForceMeshUpdate` 就该涨」。
         Section("共用件：文字裁切扛得住之后的重排（A38② —— 订 TMP 的 `TEXT_CHANGED_EVENT`）");
         {
             // 🔴 **2026-10-16（A799 · 夹具现核）：本节（含 ⑤·d-3 那两处）这 3 个 `MenuDraw.Text` 探针
@@ -1948,14 +1962,58 @@ public static class ShellScene
             {
                 bool moved = MenuDraw.ClipText(lb, live, Vector2.zero);
                 CheckTrue(moved, "`ClipText` 当场**真的切了**（否则下面那条等于没验）");
-                CheckTrue(lb.GetComponent<ClippedTextGuard>() != null,
+                var guard = lb.GetComponent<ClippedTextGuard>();
+                CheckTrue(guard != null,
                           "★ 裁过的字上**挂着 `ClippedTextGuard`**（= 之后每一次重排都会自动重裁）");
                 var tmp = lb.GetComponentInChildren<TMPro.TextMeshPro>();
                 CheckTrue(tmp != null, "这一段字走的是 TMP 那条后端（守卫生效的那条）");
                 if (tmp != null)
                 {
+                    // 🔴 **2026-10-20（W58-S4FIX）：判据改成「TMP **播报**一次重排 ⇒ 守卫重裁一次」，不再指望
+                    //   `ForceMeshUpdate()` 自己发那一条。** 两路证据（实测 + 源码）：
+                    //
+                    //   ▸ **实测**（`ShellScene.Run` 2026-10-20 两趟，探针读数见
+                    //     `普查产出_1020/W58_自检线_S4自动重裁.md`）：
+                    //     在本 TMP 上量到 **`entry=0`** —— 而且**整条 `TEXT_CHANGED_EVENT` 一个订阅者都没被调到**
+                    //     （「其它对象 0」）⇒ **事件真的没发**（ⓐ），不是「发了但这一刀是空操作」（ⓑ，
+                    //     `wouldClip=True` 反而说明这一刀本来就有得可裁），也不是「残留守卫把 `FastAction`
+                    //     链表截断」（ⓒ：`staleOn=0`，且第二趟仍然 `+0` —— ⓒ 的实证是「第二趟能收到」）。
+                    //
+                    //   ▸ **源码**：`ON_TEXT_CHANGED` 的发出点只有 TMP 自己的 `GenerateTextMesh()` 里那三处
+                    //     （`Library/PackageCache/com.unity.ugui@…/Runtime/TMP/TextMeshPro.cs:2210 / :4169 / :5063`），
+                    //     而它**唯一入口** `OnPreRenderObject()` 的第一句是**静默早退**：
+                    //       `if (!m_isAwake || (this.IsActive() == false && m_ignoreActiveState == false)) return;`（`:2119`）
+                    //     ⇒ **发不发**取决于 **TMP 自己的 awake/active 前提**，而 `-batchmode -executeMethod`
+                    //     （编辑模式、没有帧循环）**不保证**那个前提 —— 这在本仓自己就是写死的口径：
+                    //     `Shell/ClippedTextGuard.cs:40`「批处理里没有帧循环 ⇒ **没有重排事件**：自检别拿它自证」
+                    //     · `Shell/MenuDraw.cs` 的 `ArmTextGuard` 同一句。（2026-10-18 那条绿 = TMP 当时恰好
+                    //     满足前提；10-20 两趟都红 ⇒ **它本来就不可靠**，不是本批引入的回归。）
+                    //     ⚠️ 也就是说：**生产侧没有「少发事件」**（这条事件从来不是我们发的），
+                    //     而测试也**没有调错重排路径**（`ForceMeshUpdate` 正是 TMP 会发事件的那一条）——
+                    //     红的是「**拿 TMP 的内部前提当我们的契约**」。
+                    //
+                    //   ⇒ **本件真正的契约**（`ClippedTextGuard` 存在的理由）= 「TMP 播报『文字已重排』⇒ 我们重裁一刀」。
+                    //     所以这里**真重排一次**（`ForceMeshUpdate`，网格换成未裁的那一代）之后，
+                    //     **显式播报 TMP 在正常路径里会发的那一条**（`TMPro_EventManager.ON_TEXT_CHANGED(tmp)`，
+                    //     逐字等于 `TextMeshPro.cs:5063` 那一句），再由断言咬住「守卫收到 ⇒ 重裁」。
+                    //     ⚠️ 断言仍写 `> n0`（不是 `== n0 + 1`）：TMP 若自己发了，这里会涨 2 次 —— 两条都对。
+                    //
+                    //   🔴 **牙口（改坏必红）**：删 `ClippedTextGuard.Arm` 里的
+                    //     `TEXT_CHANGED_EVENT.Add(OnTextChanged)`（`ClippedTextGuard.cs:60`）⇒ 计数不涨 ⇒ 红；
+                    //     删掉整颗守卫 ⇒ 红；把 `OnTextChanged` 里的 `ClipTextNow` 删掉 ⇒ 红。
+                    //   ⛔ 别改回「只调 `ForceMeshUpdate` 就指望 TMP 自己发」——那测的是 TMP 的内部前提，不是本件。
+                    //   ⚠️ **生产路径不受影响**：真实重排（`Label.SetText` / `SetAutoFitBox` / `ForceRelayout` …）
+                    //     除了 TMP 这条事件，还经 `Label.RefreshBounds()` **末句** `guard.Reclip()` 落一刀
+                    //     —— 下一节 `TextReclipAfterPlace` 断的就是那一条（今天 0→1，照旧绿）。
                     int n0 = MenuDraw.TextClipReapplied;
-                    tmp.ForceMeshUpdate();                     // = `SetText` 之后 TMP 会做的那件事（重排）
+                    tmp.ForceMeshUpdate();                          // 真重排（把网格换回未裁的那一代）
+                    // 🔴 **2026-10-20（W58-S4FIX 再订正）**：`OnTextChanged` 只认**守卫自己那颗** `_tmp`
+                    //   （`obj != _tmp ⇒ return`）；而 `Arm` 那一刻 TMP 子件可能还没建好 ⇒ `_tmp == null`
+                    //   ⇒ 用局部 `tmp` 播报会被静默丢掉。这里改用 `guard.TmpForTest`（它会按 `_lb`
+                    //   重新解析），并先断「守卫认得出这一颗」——不成立时这条本来就等于没验。
+                    var evTmp = guard != null ? guard.TmpForTest : null;
+                    CheckTrue(evTmp != null, "（前提）守卫认得出这一颗 TMP（否则事件播报没有人接）");
+                    if (evTmp != null) TMPro.TMPro_EventManager.ON_TEXT_CHANGED(evTmp);  // = TMP 重排完之后发的那一条（`TextMeshPro.cs:5063`）
                     CheckTrue(MenuDraw.TextClipReapplied > n0,
                               $"★ 重排之后**自动重裁了一次**（计数 {n0} → {MenuDraw.TextClipReapplied}）"
                               + " —— 拿掉守卫这里就不会涨");
@@ -2261,7 +2319,7 @@ public static class ShellScene
                             //   判到哪个世界 x 上。⚠️ 全局把 `ToPixel` 收口成同一条换算的那天这个数会变 0 ——
                             //   那时本节**照旧有效**（期望值走的是 `FromPixel`）⇒ 所以它不该被断死。
                             float wReal = LayoutSpace.FromPixel(t, 0f).x;
-                            float oldPx = LayoutSpace.ToPixel(new Vector3(wReal, 0f, 0f)).x;
+                            float oldPx = LayoutSpace.ToPixel(new Vector3(wReal, 0f, 0f)).x;   // 甲式保留：A990 两式对照（W57 §1·4 第 6 条，只打数不判）
                             worstOld = Mathf.Max(worstOld,
                                 Mathf.Abs(LayoutSpace.FromPixel(Mathf.Clamp(oldPx, a990Box.x1, a990Box.x2), 0f).x - wantL));
                         }
@@ -3345,6 +3403,105 @@ public static class ShellScene
 
             shell.Windows.CloseAllWindows();
             Object.DestroyImmediate(wgo);
+        }
+
+        // ---------------- ⑤·l 🆕 2026-10-20（`W58-ABSORB`）：吸收层候选点「设计帧 → 指针帧」
+        //
+        // 🔴 **为什么单开一段**：`MenuDraw.CheckAbsorbRule`（约 32 扇窗共用）里那个候选扫描
+        //    （`FindOwnAbsorbPoint`）原来把**设计帧**候选点直接喂 `PointerLayer.ButtonAt`（**指针帧**）。
+        //    今天各窗父链缩放 = 1 ⇒ 两帧逐位相同、**零可观测差**；一旦父链被
+        //    `TransformScalerBySmallScreenUI` 乘 M（或窗内自带缩放），矩形离画布中心较远的候选
+        //    **全部落空** ⇒ `found = false` ⇒ 每扇窗的红都会打在「找不到吸收层」上（潜伏缺陷）。
+        //    判据 / 恒等式 / 退化守卫 → `Shell/MenuDraw.cs` 的 `PointerFramePxFromDesign`（**唯一实现**，
+        //    `Editor/MenuCheck.PointerFramePxFromDesign` 只转调它）。
+        //
+        // 🔴 **夹具几何为什么是 (1200,320)-(1400,520)**：设计中心 (1300,420) 与画布中心 (960,540)
+        //    的 x 偏移 340 > 半宽 100 × 2 ⇒ 父链 ×2 时**设计点全部落在指针帧命中区之外**
+        //    （命中区 x ∈ [1440,1840]），而换算后的中心落在正中 (1640,300) ⇒ 两种实现分得出。
+        Section("W58-ABSORB：吸收层候选点『设计帧 → 指针帧』（父链 ×2 夹具）—— `MenuDraw.PointerFramePxFromDesign`");
+        {
+            var plB = PointerLayer.Instance;
+            CheckTrue(plB != null, "前提：场景里有指针层（没有的话下面几条等于没查）");
+            // ⛔ 锁着的时候 `HitButton` 第一句就 return null ⇒ 下面几条会红在**错的原因**上
+            CheckTrue(!PointerLayer.InputBlocked, "前提：指针层没被黑场 / 遮罩锁住（`InputBlocked == false`）");
+            if (plB != null && !PointerLayer.InputBlocked)
+            {
+                // ① 单位缩放：换算口**逐位**返回入参（= 今天全部调用点的读数；新旧口同值可作精确断言）
+                var unitRoot = new GameObject("AbsorbFrameProbeUnit");
+                try
+                {
+                    unitRoot.transform.position = Vector3.zero;
+                    var uLeaf = new GameObject("Leaf");
+                    uLeaf.transform.SetParent(unitRoot.transform, false);   // 父级 lossyScale = 1
+                    var unitDesign = new Vector2(1300f, 420f);              // 下面 ×2 那条的同一设计点
+                    var same = MenuDraw.PointerFramePxFromDesign(unitDesign, uLeaf.transform);
+                    CheckTrue(same.x == unitDesign.x && same.y == unitDesign.y,
+                              "★ ① 单位缩放：换算口**逐位**返回入参（1300 / 420；`k == 1` 快路径，⛔ 不是「差一个浮点尾数」）"
+                            + $"（实得 {same.x:F6},{same.y:F6}）");
+                }
+                finally { Object.DestroyImmediate(unitRoot); }
+
+                // ② 父链 ×2 夹具：吸收层建在一个 `localScale = 2` 的根下
+                var frameRoot = new GameObject("AbsorbFrameProbe");
+                try
+                {
+                    frameRoot.transform.position = Vector3.zero;
+                    frameRoot.transform.localScale = new Vector3(2f, 2f, 1f);
+                    // 吸收层矩形 = 设计帧 (1200,320)-(1400,520)；档取 3999（压过真界面最高档 ~3362，
+                    // 免得真界面上恰好有颗钮叠在同一点 —— 与 `CollectionScene` A1350 那批探针同一做法）。
+                    var abs2 = MenuDraw.Absorb(frameRoot.transform, "AbsorbHit",
+                                               new PxRect(1200f, 320f, 1400f, 520f), 2900, 4000);
+                    CheckTrue(abs2 != null && MenuDraw.WasAbsorb(abs2),
+                              "（前提）② 夹具的吸收层是公共件 `MenuDraw.Absorb` 建的（自己挂 `WindowButton` = 绕开被测那条路）");
+                    var q2 = abs2 != null ? abs2.GetComponentInChildren<ImageQuad>(true) : null;
+                    CheckTrue(q2 != null, "（前提）② …它下面有 `ImageQuad`（没有就进不了 `PointerLayer` 的命中表）");
+                    if (q2 != null)
+                    {
+                        var frameDesign = new Vector2(1300f, 420f);   // 设计帧中心 = 原版矩形 (1200..1400)×(320..520) 的中心
+                        var owner = q2.transform;                     // 设计矩形所属件（乘的是它**父级**那一级 lossyScale = 2）
+                        // 期望值 = C + (design − C)·2 = (960 + (1300−960)×2, 540 + (420−540)×2) = (1640, 300)
+                        var p2 = MenuDraw.PointerFramePxFromDesign(frameDesign, owner);
+                        CheckNear(p2.x, 1640f, 0.01f,
+                                  "★ ② 父链 ×2：换算 x = 画布中心 + (设计点 − 中心)×2 = 960 + 340×2 = **1640**"
+                                + "（⛔ 不是整值乘 2：那会得 2600、多偏 960 —— `ToDesignPixel` 以画布中心为不动点）");
+                        CheckNear(p2.y, 300f, 0.01f, "★ ② …y = 540 + (420−540)×2 = **300**（逐分量、无统一标量）");
+                        // ③ 与【另一条独立的读口】互证：那颗 quad 自己的裸世界位置（`PointerLayer.HitBoxPx`
+                        //    的中心项走同一条 `ToDesignPixel(裸世界)`）。
+                        var viaQuad = MenuCheck.PointerFramePx(q2.transform);
+                        CheckNear(viaQuad.x, p2.x, 0.01f,
+                                  "★ ③ 换算口与 `MenuCheck.PointerFramePx(quad)`（裸世界坐标读口）**同帧**：x（容差 0.01）");
+                        CheckNear(viaQuad.y, p2.y, 0.01f, "★ ③ …y（容差 0.01）");
+                        // ④ 生产扫描（`FindOwnAbsorbPoint`）在 ×2 下找得到、且返回的是**指针帧**的点
+                        bool found2 = MenuDraw.FindOwnAbsorbPointForTest(
+                            frameRoot.transform, owner, 1200f, 320f, 1400f, 520f,
+                            (tx, ty) => plB.ButtonAt(tx, ty), out float fx, out float fy);
+                        CheckTrue(found2, "★ ④ `FindOwnAbsorbPoint` 在**父链 ×2** 夹具上**找得到**本窗吸收层"
+                                        + "（候选点先换算再喂 `ButtonAt` ⇒ 中心候选 (1640,300) 落在命中区正中）");
+                        if (found2)
+                        {
+                            CheckNear(fx, 1640f, 0.01f,
+                                      "★ ④ 返回点 x = **指针帧** 1640（设计帧 1300 会被下一条否掉）");
+                            CheckNear(fy, 300f, 0.01f, "★ ④ 返回点 y = **指针帧** 300");
+                            var hit2 = plB.ButtonAt(fx, fy);
+                            CheckTrue(hit2 != null && hit2.transform.IsChildOf(frameRoot.transform),
+                                      "★ ④ `PointerLayer.ButtonAt(返回点)` 命中的就是本夹具那颗吸收层"
+                                    + "（走生产命中路，不是另算一遍）"
+                                    + "（实得 `" + (hit2 != null ? hit2.name : "<null>") + "`）");
+                        }
+                        // ⑤ 灭自证（**结构上不可能同时满足**）：本夹具的吸收层在指针帧命中区
+                        //    x ∈ [1440,1840]，而设计帧点 (1300,420) 不在其中 ⇒
+                        //    · 实现退回「设计点直接喂 `at`」⇒ ④ 的 `found` 变假（中心候选 1300 落空）；
+                        //    · 想靠「把 ④ 的期望值也改成 1300」圆回去 ⇒ 那一点 `ButtonAt` 命不中本夹具 ⇒ 这一条红。
+                        var bad = plB.ButtonAt(frameDesign.x, frameDesign.y);
+                        CheckTrue(bad == null || !bad.transform.IsChildOf(frameRoot.transform),
+                                  "★ ⑤ 灭自证：**设计帧点 (1300,420) 直接喂 `ButtonAt`** 命不中本夹具的吸收层"
+                                + "（它的指针帧命中区 x ∈ [1440,1840]）⇒ 「实现不换算 + 期望值跟着改成设计点」"
+                                + "两边不可能同时绿"
+                                + "（实得 `" + (bad != null ? bad.name : "<null>") + "`）");
+                    }
+                }
+                finally { Object.DestroyImmediate(frameRoot); }
+            }
         }
 
         // ---------------- ⑤·j 🆕 2026-10-07（A77㉑①②）：ESC 的三道原版门槛 + 关掉最上面那扇后底窗回 `Open`
@@ -4942,6 +5099,15 @@ public static class ShellScene
             // ============================================================ ② 社交窗（A27–A30 + B13）
             var socW = SocialWindow.Create(shell.Windows);
             shell.Windows.OpenWindow(socW);
+            // 🔴 **2026-10-20（W58·D4 · 切片 3）**：建窗会走 `AllianceSearchTab.Build → ShowJoin()`
+            //   ⇒ 原版那一段 `JoinAllianceMenu.Initialize` 的 `ShowLoading() → 重填 → 回调首句 HideLoading()`
+            //   被完整走了一遍。本地数据同步 ⇒ **必须同帧收尾**（不留在屏上）。
+            //   判据 → `资料/普查产出_1020/W58_界面线_联盟搜索形态判据.md` §一·3 / §四「切片 3」。
+            CheckTrue(shell.Loading != null && shell.Loading.Controller != null
+                      && !shell.Loading.Controller.IsShowing,
+                      "★ W58·D4：社交窗建完（`ShowJoin` 走完 Show→重填→Hide）之后，转圈件**没有留在屏上**"
+                    + "（原版 `FillOpenAlliances` 回调第一句就是 `HideLoading()`）"
+                    + "｜🧨 把 `AllianceSearchTab.WithLoading` 的 `finally { loading.Hide(); }` 去掉 ⇒ 本条红");
             var pa = socW.PageAlliances;
             var pf = socW.PageFriends;
             CheckTrue(pa != null && pf != null, "（前提）社交窗两页都在（`Alliances` / `Friends`）");
@@ -5448,33 +5614,30 @@ public static class ShellScene
             // 🔴 **必须取并集**：软边（`MenuDraw.ApplySoftEdges`）会把宿主切成「主格 + 若干子块」
             //   （子块是挂在宿主**下面**的 `ImageQuad`）⇒ 只量宿主那一颗会漏掉大部分面积。
             //   ⚠️ 跳过 `!activeInHierarchy` 的件（画面上没有的东西不算「画出来的并集」）。
+            // 🔴 **2026-10-20（`A1350` 第二批）收口**：函数体 = 一行转发 `MenuDraw.UnionQuadRectPx`。
+            //   **逐项保留现闸**（⛔ 别顺手统一成别的 `QuadGate`）：`QuadGate.InHierarchy` + `searchInactive:true`
+            //   就是本处原来手写的「`GetComponentsInChildren<ImageQuad>(true)` + 跳过 `!activeInHierarchy`」
+            //   （两种口径**逐字等价**）。⚠️ 失败时四个 out 现在归 **0**（旧体是 MaxValue/MinValue）——
+            //   调用点一律先判返回值再读 out（本段原有纪律），⛔ 别拿失败档的 out 去算。
             bool UnionPx(Transform node, out float x1, out float y1, out float x2, out float y2)
-            {
-                x1 = y1 = float.MaxValue; x2 = y2 = float.MinValue;
-                bool any = false;
-                if (node == null) return false;
-                foreach (var q in node.GetComponentsInChildren<ImageQuad>(true))
-                {
-                    if (q == null || !q.gameObject.activeInHierarchy) continue;
-                    float a, b, c, d;
-                    if (!QuadPxRect(q, out a, out b, out c, out d)) continue;
-                    if (a < x1) x1 = a; if (b < y1) y1 = b;
-                    if (c > x2) x2 = c; if (d > y2) y2 = d;
-                    any = true;
-                }
-                return any;
-            }
+                => MenuDraw.UnionQuadRectPx(node, MenuDraw.QuadGate.InHierarchy, true,
+                                             out x1, out y1, out x2, out y2);
 
-            // 一颗节点**自己的** px 矩形（中心走 `LayoutSpace.ToPixel`、尺寸走 `rect × K`）——
-            // 与 `QuadPxRect` **同一份口径**（`MenuDraw.SetPxSize` 把锚点写成重合 ⇒ `rect` 只由 `sizeDelta` 决定）。
-            // 命中区那一路没有「主格/子块」这回事（它不吃软边）⇒ 直接量节点本身，就是 `MenuDraw.ClipRectAbove` 的产物。
+            // 一颗节点**自己的** px 矩形（中心走**设计帧**读口 `MenuCheck.DesignPx`、尺寸走 `rect × K`）——
+            // 🔴 **2026-10-20（`A1350` 第二批）换口**：中心从甲式 `LayoutSpace.ToPixel` 换成乙式
+            //   `MenuCheck.DesignPx(t)` —— 它正是 `MenuCheck.NodeRectPx` 在 `RectCenterMode.Node` 档取的**同一个中心**
+            //   （中心恒在传入节点）。⚠️ **`rt.rect` 的尺寸项单独保留**（R2：布局框 ≠ 实绘）：
+            //   ⛔ 不能整函数转发 `MenuCheck.NodeRectPx` —— 它的尺寸取 `Label` / `ImageQuad` 的**实绘**大小，
+            //   而本函数量的是一颗**命中框节点**的布局矩形（`MenuDraw.SetPxSize` 把锚点写成重合 ⇒ `rect` 只由
+            //   `sizeDelta` 决定），两者本来就不是同一样东西。命中区那一路没有「主格/子块」这回事（它不吃软边）
+            //   ⇒ 直接量节点本身，就是 `MenuDraw.ClipRectAbove` 的产物。
             bool NodeRectPx(Transform t, out float x1, out float y1, out float x2, out float y2)
             {
                 const float K = LayoutSpace.DesignPxH / LayoutSpace.DesignHeight;
                 x1 = y1 = x2 = y2 = 0f;
                 var rt = t as RectTransform;
                 if (rt == null) return false;
-                Vector2 c = LayoutSpace.ToPixel(t.position);
+                Vector2 c = MenuCheck.DesignPx(t);
                 float hw = rt.rect.width * K * 0.5f, hh = rt.rect.height * K * 0.5f;
                 x1 = c.x - hw; x2 = c.x + hw; y1 = c.y - hh; y2 = c.y + hh;
                 return true;
@@ -6095,28 +6258,20 @@ public static class ShellScene
             // 一棵子树**画出来**的并集（画布 px · 左上原点）—— 口径同戊段：
             // 🔴 **必须取并集**：软边（`MenuDraw.ApplySoftEdges`）会把宿主切成「主格 + 若干子块」。
             // ⚠️ 跳过 `!activeInHierarchy` 的件（画面上没有的东西不算「画出来的并集」）。
+            // 🔴 **2026-10-20（`A1350` 第二批）收口**：函数体 = 一行转发 `MenuDraw.UnionQuadRectPx`，
+            //   **逐项保留现闸**（⛔ 别顺手统一）：`QuadGate.InHierarchy` + `searchInactive:true` 即本处原手写闸。
+            //   ⚠️ 失败时四个 out 现在是 **0**（旧体是 MaxValue/MinValue）—— 调用点一律先判返回值（原有纪律）。
             bool GUnion(Transform node, out float x1, out float y1, out float x2, out float y2)
-            {
-                x1 = y1 = float.MaxValue; x2 = y2 = float.MinValue;
-                bool any = false;
-                if (node == null) return false;
-                foreach (var q in node.GetComponentsInChildren<ImageQuad>(true))
-                {
-                    if (q == null || !q.gameObject.activeInHierarchy) continue;
-                    float a, b, c, d;
-                    if (!QuadPxRect(q, out a, out b, out c, out d)) continue;
-                    if (a < x1) x1 = a; if (b < y1) y1 = b;
-                    if (c > x2) x2 = c; if (d > y2) y2 = d;
-                    any = true;
-                }
-                return any;
-            }
+                => MenuDraw.UnionQuadRectPx(node, MenuDraw.QuadGate.InHierarchy, true,
+                                             out x1, out y1, out x2, out y2);
 
-            // 一颗节点**自己的** px 矩形（中心走 `LayoutSpace.ToPixel`、尺寸走 `rect × K`）——
+            // 一颗节点**自己的** px 矩形（中心走**设计帧**读口 `MenuCheck.DesignPx`、尺寸走 `rect × K`）——
             // ⚠️ **2026-10-18（A1003）就地订正（铁律 5）**：这行原来写「与 `QuadPxRect` 同一份口径」——
             //   而 `QuadPxRect` 已收口成**设计帧读口**（`MenuDraw.QuadRectPx`：中心先除回父级缩放；
             //   ⛔ **尺寸项**在本函数里是取 `rt.rect`、在那边是取 `quad.WorldW/H`，本来也不是同一样东西）
-            //   ⇒ 本函数**仍是甲式**、只在「父链无缩放」时与它同值。⚠️ 本函数**当前零调用点**（无人用）。
+            //   ⇒ 尺寸项只在本帧自洽。🔴 **2026-10-20（`A1350` 第二批）**：中心已从甲式
+            //   `LayoutSpace.ToPixel` 换成乙式 `MenuCheck.DesignPx(t)`（与 `NodeRectPx` 同一档），
+            //   尺寸项照旧 = `rt.rect × K`。⚠️ 本函数**当前零调用点**（无人用，保留待用）。
             //   （`MenuDraw.SetPxSize` 把锚点写成重合 ⇒ `rect` 只由 `sizeDelta` 决定。）
             // 🔴 **2026-10-14 订正**：这行原来写着「命中区那一路不吃软边 ⇒ 直接量节点本身就是真值」——
             //   **后半句是错的**：`MenuDraw.Hit` 把节点摆在**父原点**、真矩形长在它的 quad 上（见 `GHitRect`）
@@ -6128,7 +6283,7 @@ public static class ShellScene
                 x1 = y1 = x2 = y2 = 0f;
                 var rt = t as RectTransform;
                 if (rt == null) return false;
-                Vector2 c = LayoutSpace.ToPixel(t.position);
+                Vector2 c = MenuCheck.DesignPx(t);
                 float hw = rt.rect.width * K * 0.5f, hh = rt.rect.height * K * 0.5f;
                 x1 = c.x - hw; x2 = c.x + hw; y1 = c.y - hh; y2 = c.y + hh;
                 return true;
@@ -7237,6 +7392,19 @@ public static class ShellScene
                           "★★★ A1139④（灭自证）：壳里这颗取的是**菜单档**（`ItemHPx 50` / `RootTopPx 0` / `FontPx 36`）—— 现读 "
                         + $"ItemHPx={a1139.Preset.ItemHPx:F4} RootTopPx={a1139.Preset.RootTopPx:F4} FontPx={a1139.Preset.FontPx:F4}"
                         + "｜🧨 把 `Shell/MessageToast.cs` 里那个 `MenuPreset` 换回 `BattlePreset` ⇒ ④红（而 ③ 仍绿 —— 这正是 ④ 的牙）");
+                // 🆕 2026-10-20（W58 · D3）：**实际那一颗横幅**的队列 = 菜单档（4035）——
+                //   原版 `UI Error Message Controller` = `PopUps` / order 1 ⇒ **在全部窗之上**
+                //   （判据 → `资料/普查产出_1020/W58_界面线_Toast黑场次序判据.md` §2·3）。
+                //   ⛔ 断的是实例的档（`Banner.BarQueue`），不是只查 `MenuPreset` 常量 —— 否则把 `Create(..., MenuPreset)`
+                //   换成 `BattlePreset` 时两边一起变、看不出来（灭自证）。
+                CheckTrue(a1139.Banner != null
+                          && a1139.Banner.BarQueue == ErrorMessageBanner.MenuQueue
+                          && a1139.Banner.BarQueue == ErrorMessageBanner.MenuPreset.Queue
+                          && a1139.Banner.BarQueue > AlliancePanelWindow.QText,
+                          "★★ W58-D3：壳里这台横幅的**实际队列** = " + (a1139.Banner != null ? a1139.Banner.BarQueue.ToString() : "<空>")
+                        + $"（菜单档 {ErrorMessageBanner.MenuQueue}）—— 高于窗带最高 {AlliancePanelWindow.QText}"
+                        + "（原版 `PopUps`/1 > `3 - PopUp Holder` `PopUps`/0）"
+                        + "｜🧨 把 `MenuPreset.Queue` 改回 4001 ⇒ 红（4001 < 窗 4030）");
                 // ⑤ 两档不同档（把「菜单档」与「战斗档」钉成两个不同的值）
                 CheckTrue(a1139.Preset.ItemHPx != ErrorMessageBanner.BattlePreset.ItemHPx
                           && Mathf.Abs(ErrorMessageBanner.BattlePreset.RootTopPx - 213.5997314453125f) < 1e-4f,
@@ -7257,6 +7425,10 @@ public static class ShellScene
         // ============================================================ 🆕 2026-10-17（`N20`/`N21`/`N23`）Toast 控制器
         // 判据：`资料/普查产出_1017/UI/R_界面线剩余条目现核.md` §二·4/5 + §N21 —— **下面三条期望值全是
         // 原版字面量 / 原版树形**，⛔ 不从 `ToastNotifications` 自己的常量算式里取。
+        // 🔴 **2026-10-20 订正（铁律 5）**：那份 1017 报告的 `N21①`（「Toast 在黑场之上 / 已经同序」）**不成立**
+        //    —— 它只比了 `m_SortingOrder`、漏了 `m_SortingLayerID`。现行判据 =
+        //    `资料/普查产出_1020/W58_界面线_Toast黑场次序判据.md`（原版 `Toast` = PopUps/900 · `LoadingMenu` = Blocking/0
+        //    ⇒ **黑场在 toast 之上**），下面 ① 已按它重写，并补了 D1/D2/D3 的**层序梯子**。
         Section("🆕 N20/N21/N23：Toast 控制器 —— 队列低于加载黑场 / 两颗死模板已删 / 根高按文案现量 / 完成态显隐");
         {
             ToastNotifications.DisposeForTest();
@@ -7265,17 +7437,105 @@ public static class ShellScene
                       "（前提）Toast 控制器建出来了（`Safe area Only Horizontal ▸ Toast Notification Controller ▸ Holder`）");
             if (tn != null)
             {
-                // ---- ① `N21①`：队列**低于加载黑场** ----
-                // 原版 = 排序层 PopUps(7) + order 900 vs `LoadingMenu` 的 Blocking(8) + order 0
-                // （`globalgamemanagers/TagManager/TagManager_3.json`；排序层**先于** order 比较）⇒ 黑场在上。
-                // 我们 = 显式队列：加载黑场那一族的**最底层**是 `LoadingController.QDark = 4080`、
-                // 降级遮罩 `BlockingOverlay` = 4071 ⇒ toast 必须落在 **4071 < q < 4080**。
-                CheckTrue(ToastNotifications.QShade > 4071
-                          && ToastNotifications.QShade < LoadingController.QDark
-                          && ToastNotifications.QShade < LoadingMenu.QPanel,
-                          $"★ N21①：toast 队列 = {ToastNotifications.QShade} —— 落在 **4071 < q < "
-                        + $"{LoadingController.QDark}**（降级遮罩 `BlockingOverlay` 之上、加载黑场最底层之下）"
-                        + "｜🧨 改回 5000（压在黑场之上）⇒ 本条红（原版是 Blocking 层盖住 PopUps 层）");
+                // ---- ① `N21①`：层序 —— **原版判据** + 我们的梯子（2026-10-20 · W58 判据重写，铁律 5） ----
+                // 🔴 **原版判据**（`资料/普查产出_1020/W58_界面线_Toast黑场次序判据.md` §1·1 / §2·3）：
+                //   `Toast Notification Controller` = 排序层 **`PopUps`(7) / order 900**；
+                //   `LoadingMenu` = 排序层 **`Blocking`(8) / order 0**。Unity **先比排序层、再比 order**
+                //   （`globalgamemanagers/TagManager/TagManager_3.json`）⇒ **黑场在 toast 之上**。
+                //   ⛔ **别只比 order**（900 > 0 会得出反的结论 —— 旧版 N21① 就是这么错的，`R_界面线剩余条目现核.md:33`）。
+                CheckTrue(ToastNotifications.QHit < LoadingMenu.QPanel,
+                          $"★ N21①（原版判据）：toast 队列 = {ToastNotifications.QShade}..{ToastNotifications.QHit} —— "
+                        + $"**整族都在加载黑场 `LoadingMenu.QPanel = {LoadingMenu.QPanel}` 之下**"
+                        + "（原版 `Toast` = PopUps/900 · `LoadingMenu` = Blocking/0；排序层**先于** order 比较）"
+                        + "｜🧨 把 toast 改回 5000（压在黑场之上）⇒ 本条红");
+                // ---- ①a `N21①`：转圈件的层序 —— **原版判据** + 我们的梯子（2026-10-20 · W58 · D4，铁律 5） ----
+                // 🔴 **原版判据**（`资料/普查产出_1020/W58_界面线_联盟搜索形态判据.md` §一·4）：
+                //   `MenuLoadingController` 在 `Game UI` 画布的 **`Default`(0) 层**（自己**没有** Canvas；
+                //   唯一子 Canvas 是 `Cog` 的 `Canvas_1078`，`m_OverrideSorting = false`），且是
+                //   `Safe area Only Horizontal` 的**最后一个孩子**（兄弟序 11）⇒ 压在主窗（placement 5/10）之上、
+                //   在全部 **PopUps**（窗/横幅/教学/toast）与 **Blocking**（tooltip/黑场）之下。
+                //   ⛔ 断的不是「转圈在上」—— 旧版这里写 `Toast.QShade < LoadingController.QDark`，那**不是**原版判据
+                //   （只是本仓旧梯子），本次 D4 已把它降回原版该在的那一档。
+                CheckTrue(LoadingController.QCog < ToastNotifications.QShade
+                          && LoadingController.QCog < Tooltip.Queue
+                          && LoadingController.QCog < LoadingMenu.QPanel,
+                          $"★ N21①a（原版判据）：转圈件（QDark/QSkull/QCog = {LoadingController.QDark}/"
+                        + $"{LoadingController.QSkull}/{LoadingController.QCog}）**在 toast({ToastNotifications.QShade}) / "
+                        + $"tooltip({Tooltip.Queue}) / 黑场({LoadingMenu.QPanel}) 之下** —— "
+                        + "原版 `MenuLoadingController` = `Default`(0)、`Safe area` 最后孩子；toast = `PopUps`/900 · "
+                        + "tooltip/黑场 = `Blocking`"
+                        + "｜🧨 把转圈件改回 4080–4082 ⇒ 本条红");
+                // ⚠️ **我们的梯子 = [我们挑的]**：原版按排序层排，我们这张显式队列表里没有对应号段 ⇒ 取
+                //   `TrophyInfoPopup.QHit(3326)` 与 `GenericOptionsPanel.QShade(3330)` 之间的空隙 **3327–3329**：
+                //   必须**压在社交窗整带之上**（页 3200–3209 · 奖杯格 3210–3299 · 聊天 3300–3308），
+                //   否则联盟搜索的转圈会被 Social 窗自己盖住；又不落进任何窗的号段。
+                CheckTrue(LoadingController.QDark > SocialWindow.QPageBase + 99
+                          && LoadingController.QCog < GenericOptionsPanel.QShade,
+                          $"★ N21①a（我们的梯子，[我们挑的]）：转圈 = {LoadingController.QDark}..{LoadingController.QCog} —— "
+                        + $"高于社交窗整带（页基 {SocialWindow.QPageBase} + 99）且低于下一档窗 "
+                        + $"`GenericOptionsPanel.QShade({GenericOptionsPanel.QShade})`"
+                        + "｜🧨 把 `LoadingController.QDark/QCog` 改回 4080/4082 ⇒ 本条红（4080 > 3299 与 4082 > 3330 两侧都越界）");
+                // 绝对值的回归闸（[我们挑的]）—— 上一条挡「转圈 + 社交窗两边一起挪」，这条只钉住这张表本身
+                CheckTrue(LoadingController.QDark == 3327 && LoadingController.QSkull == 3328
+                          && LoadingController.QCog == 3329,
+                          $"（回归闸）W58·D4 的绝对值：[我们挑的] 转圈 QDark/QSkull/QCog = "
+                        + $"{LoadingController.QDark}/{LoadingController.QSkull}/{LoadingController.QCog}"
+                        + "（期望 3327/3328/3329）");
+
+                // ---- ①a2 🆕 2026-10-20（W58 · 遗留 1）：**降级遮罩 `BlockingOverlay` 也落回加载档** ----
+                // 判据同 ①a：原版加载遮罩（`Default`(0) / `Blocking`）**不在 toast（`PopUps`/900）之上**；
+                // 本件是**零运行时调用点的降级路径**（`ShellRuntime.Build` 建 · `PointerLayer` 只读 `IsBlocking`），
+                // 早先的 **4070/4071** 是「压过全部 shell UI 与 toast」的旧口径 ⇒ 已过期（铁律 5 订正）。
+                // [我们挑的] 梯子 = 转圈件 3327–3329 同族里**唯一剩下的双槽空隙**：
+                //   `GenericOptionsPanel` 带尾（`QHit = 3337`）与 `AllianceMemberOptionsPopup` 带首（`QShade = 3340`）之间
+                //   ⇒ 3338（dim）/ 3339（旧圈）。再往上 3340→3487 只剩单槽空隙，容不下两件。
+                CheckTrue(BlockingOverlay.QDim == 3338 && BlockingOverlay.QSpinner == 3339,
+                          $"（回归闸）W58 遗留 1：降级遮罩 `BlockingOverlay` QDim/QSpinner = "
+                        + $"{BlockingOverlay.QDim}/{BlockingOverlay.QSpinner}（期望 3338/3339）"
+                        + "｜🧨 改回 4070/4071 ⇒ 本条红");
+                CheckTrue(BlockingOverlay.QDim > GenericOptionsPanel.QHit
+                          && BlockingOverlay.QSpinner < AllianceMemberOptionsPopup.QShade
+                          && BlockingOverlay.QSpinner < ToastNotifications.QShade,
+                          $"★ 降级遮罩 {BlockingOverlay.QDim}..{BlockingOverlay.QSpinner} 落在 "
+                        + $"`GenericOptionsPanel.QHit({GenericOptionsPanel.QHit})` 与 "
+                        + $"`AllianceMemberOptionsPopup.QShade({AllianceMemberOptionsPopup.QShade})` 之间的空隙里、"
+                        + $"且低于 toast({ToastNotifications.QShade}) —— 不落进任何窗号段"
+                        + "｜🧨 改回 4070/4071 ⇒ 本条红（4071 > 3340）");
+
+                // ---- ①b 🆕 2026-10-20（W58 · D1/D2/D3）：三层相对次序 = **原版排序层判据** ----
+                // 原版（层序低→高）：窗 `PopUps`/0 < 错误横幅 `PopUps`/1 < 教学高亮 `PopUps`/601
+                //   < toast `PopUps`/900 < `Blocking` 层（tooltip / 加载黑场）。
+                // 🔑 **相对次序 = 原版判据；绝对值（4035 / 4040 / 4077–4079）= [我们挑的]**。
+                // 🔴 **灭自证**：下面这条梯子的**两端钉在外部件的常量上**（窗带最高 `AlliancePanelWindow.QText = 4030`、
+                //   黑场 `LoadingMenu.QPanel = 4090`）⇒ **把 D1/D2/D3 任意一处改回旧值，整条链必红**
+                //   （旧值：tooltip 3606 < toast · 教学 4100 > 黑场 · 横幅 4001 < 窗 4030）。
+                int qWinMax = AlliancePanelWindow.QText;     // 已知的最高窗队列（= 4030）
+                int qBanner = ErrorMessageBanner.MenuPreset.Queue;
+                int qTut = MenuTutorialHighlight.QShade;
+                int qToastLo = ToastNotifications.QShade, qToastHi = ToastNotifications.QHit;
+                int qTip = Tooltip.Queue;
+                CheckTrue(qWinMax < qBanner && qBanner < qTut && qTut < qToastLo
+                          && qToastHi < qTip && qTip < LoadingMenu.QPanel,
+                          "★★★ W58 层序梯子（原版判据 = 排序层 PopUps/0 → 1 → 601 → 900 → Blocking）："
+                        + $" 窗({qWinMax}) < 横幅({qBanner}) < 教学({qTut}) < toast({qToastLo}..{qToastHi}) "
+                        + $"< tooltip({qTip}) < 黑场({LoadingMenu.QPanel})"
+                        + "｜🧨 任一处改回旧值（tooltip 3606 / 教学 4100 / 横幅 4001）⇒ 本条红");
+                // 逐条拆开（红的时候能一眼看出是哪一层坏了）
+                CheckTrue(qTip > qToastHi,
+                          $"★ W58-D1：tooltip({qTip}) **在 toast({qToastHi}) 之上** —— 原版 `Blocking`(8) > `PopUps`(7)"
+                        + "（`TooltipManager` = Blocking/0 · `Toast` = PopUps/900；排序层先比较）"
+                        + "｜🧨 改回 3606 ⇒ 红");
+                CheckTrue(qTut < qToastLo && qTut < LoadingMenu.QPanel,
+                          $"★ W58-D2：教学高亮({qTut}) **在 toast({qToastLo}) 与黑场({LoadingMenu.QPanel}) 之下** —— "
+                        + "原版 `Tutorial highlight` = PopUps/601 < toast PopUps/900 < Blocking"
+                        + "｜🧨 改回 4100 ⇒ 红");
+                CheckTrue(qBanner > qWinMax && qBanner < qTut,
+                          $"★ W58-D3：错误横幅({qBanner}) **在全部窗({qWinMax} 及以下)之上、教学({qTut})之下** —— "
+                        + "原版 `UI Error Message Controller` = PopUps/1 > `3 - PopUp Holder` PopUps/0"
+                        + "｜🧨 改回 4001 ⇒ 红（4001 < 窗 4030）");
+                // 绝对值的回归闸（[我们挑的]）—— 上一条挡「两边一起挪」，这条只钉住我们这张表本身
+                CheckTrue(qTip == 4078 && qTut == 4040 && qBanner == 4035,
+                          $"（回归闸）W58 的绝对值：[我们挑的] tooltip {qTip}（期望 4078）· 教学 {qTut}（4040）· 横幅 {qBanner}（4035）");
 
                 // ---- ② `N21②③`：两颗死模板**不在** `Templates` 下 ----
                 int dead = 0, tplKids = tn.Templates != null ? tn.Templates.childCount : -1;
@@ -7353,6 +7613,118 @@ public static class ShellScene
             ToastNotifications.DisposeForTest();
             CheckTrue(ToastNotifications.Instance == null,
                       "（收尾）`DisposeForTest()` 之后 `Instance` 归 null（下一节不会被这一颗污染）");
+        }
+
+        // ============================================================ 🆕 2026-10-20（W58）Toast 规格与生命周期
+        // 判据：资料/普查产出_1020/W58_界面线_Toast黑场次序判据.md §五 D5/D6/D7/D9；
+        //       落地与逐条对照 → 资料/普查产出_1020/W58_界面线_Toast规格与生命周期.md
+        //  ⚠️ 本节只验「我们照判据做到了」；原版真机 `rect.height`（D10）本地没有读数 ⇒ 不在本节断。
+        Section("🆕 W58：toast 生命周期 / hover 色偏 / Player Level 折行 / 错误色转发");
+        {
+            ToastNotifications.DisposeForTest();
+            MessageToast.DisposeForTest();
+            var w58 = ToastNotifications.Build(root);
+            CheckTrue(w58 != null && w58.Built, "（前提）W58：Toast 控制器建出来了");
+
+            // ---- ① D5：ClearLive() 只清在飞；DisposeForSceneChange() 连控制器一起销毁 ----
+            ToastNotifications.Show(ToastNotifications.ToastNotificationType.Achievement, "w58.a");
+            ToastNotifications.Show(ToastNotifications.ToastNotificationType.Achievement, "w58.b");
+            CheckTrue(w58.LiveCount == 2 && w58.FreeSpot == 2,
+                      $"（前提）W58-D5：两条在飞（现读 Live={w58.LiveCount} / freeSpot={w58.FreeSpot}）");
+            ToastNotifications.ClearLive();
+            CheckTrue(w58.LiveCount == 0 && w58.FreeSpot == 0 && w58.ScheduledCount == 0
+                      && ToastNotifications.Instance == w58,
+                      $"★★ W58-D5①：`ClearLive()` 清空在飞/排队/格位、**控制器还在**"
+                    + $"（现读 Live={w58.LiveCount} / sched={w58.ScheduledCount} / freeSpot={w58.FreeSpot}）");
+
+            ToastNotifications.Show(ToastNotifications.ToastNotificationType.Achievement, "w58.c");
+            var w58Ctrl = w58.gameObject;
+            ToastNotifications.DisposeForSceneChange();
+            CheckTrue(ToastNotifications.Instance == null && w58Ctrl == null,
+                      "★★ W58-D5②：`DisposeForSceneChange()` ⇒ 控制器节点**整棵销毁**、`Instance` 归 null"
+                    + "（= 原版『Toast 控制器只在主菜单场景，切场景即销毁』；13 个战场 0 处）"
+                    + "｜🧨 只清在飞、不销毁控制器 ⇒ 本条红");
+            CheckTrue(ShellRuntime.SceneCleanupHookInstalledForTest,
+                      "★ W58-D5③：`ShellRuntime.Build` 挂上了『任何 sceneLoaded ⇒ 清 toast』的兜底订阅"
+                    + "（覆盖不走 `LoadSceneWithFade` 的直调 `LoadScene` 站点）"
+                    + "｜🧨 删掉 `Build()` 里 `EnsureSceneCleanupHook()` ⇒ 红");
+
+            // ---- ② D6：Toast/LevelUp/GetXP 悬停乘 0.9608 / 按下 0.7843；Mission 不接 ----
+            w58 = ToastNotifications.Build(root);          // ② 之前刚整棵销毁过 ⇒ 重新建
+            ToastNotifications.Show(ToastNotifications.ToastNotificationType.Achievement, "w58.hover");
+            var aToast = w58.Holder != null ? w58.Holder.GetChild(w58.Holder.childCount - 1) : null;
+            var aBg = aToast != null ? aToast.Find("Background") : null;
+            var aQuads = aBg != null ? aBg.GetComponentsInChildren<ImageQuad>(true) : null;
+            var aHit = aToast != null ? aToast.GetComponentInChildren<WindowButton>(true) : null;
+            CheckTrue(aQuads != null && aQuads.Length > 0 && aHit != null,
+                      "（前提）W58-D6：toast 有 `Background` quad 和命中 `WindowButton`");
+            if (aQuads != null && aQuads.Length > 0 && aHit != null)
+            {
+                var aBase = aQuads[0].Tint;
+                aHit.Enter();                 // 编辑模式 ⇒ `SetTarget` 直接落目标色（不走 0.1s 补间）
+                float k = aQuads[0].Tint.g / Mathf.Max(1e-6f, aBase.g);
+                CheckTrue(Mathf.Abs(k - WindowButton.HighlightK) < 1e-3f,
+                          $"★★ W58-D6①：悬停后**可见底图**乘 0.9608（现读 k={k:F4}，期望 {WindowButton.HighlightK:F4}）"
+                        + "（原版 `MonoBehaviour_504.json`：`m_Transition = 1` · `m_HighlightedColor = 0.9608` · fade 0.1）"
+                        + "｜🧨 删掉 `ShowInternal` 里那句 `hitBtn.TintOn(bgQuads)` ⇒ 本条红（色只打在透明命中区上）");
+                aHit.Press();
+                float kp = aQuads[0].Tint.g / Mathf.Max(1e-6f, aBase.g);
+                CheckTrue(Mathf.Abs(kp - WindowButton.PressedK) < 1e-3f,
+                          $"★ W58-D6②：按下后乘 0.7843（现读 k={kp:F4}，期望 {WindowButton.PressedK:F4}）"
+                        + "｜🧨 把 `TintOn` 换成只给命中区上色 ⇒ 红");
+                aHit.Release(); aHit.Exit();
+            }
+            var mission = new ToastNotifications.Context("w58 mission",
+                                                          ToastNotifications.ToastNotificationType.MissionProgress);
+            mission.ShowProgress = true; mission.Progress01 = 0.5f; mission.ProgressText = "1/2";
+            ToastNotifications.ShowNotification(mission);
+            var mToast = w58.Holder.GetChild(w58.Holder.childCount - 1);
+            var mBg = mToast.Find("Background");
+            var mQuad = mBg != null ? mBg.GetComponentInChildren<ImageQuad>(true) : null;
+            var mHit = mToast.GetComponentInChildren<WindowButton>(true);
+            CheckTrue(mQuad != null && mHit != null, "（前提）W58-D6：mission toast 有 `Background` quad 和命中钮");
+            if (mQuad != null && mHit != null)
+            {
+                var mBase = mQuad.Tint;
+                mHit.Enter();
+                CheckTrue(Mathf.Abs(mQuad.Tint.g - mBase.g) < 1e-4f,
+                          $"★★ W58-D6③（灭自证）：**Mission 悬停不变色**（现读 {mBase.g:F4}→{mQuad.Tint.g:F4}）"
+                        + "（原版 `MonoBehaviour_520.json`：`m_Transition = 0 (None)`、`target = 0`）"
+                        + "｜🧨 去掉 `if (ctx.Type != MissionProgress)`（四颗一起接）⇒ 本条红");
+                mHit.Exit();
+            }
+
+            // ---- ③ D7：`Player Level Text` 折行 = Normal(1) ----
+            var lvlText = w58.Templates != null
+                        ? w58.Templates.Find(ToastNotifications.LevelUpPrefabName + "/Player Level (1)/Player Level Text")
+                        : null;
+            var lvlLb = lvlText != null ? lvlText.GetComponent<Label>() : null;
+            Check(lvlLb != null ? lvlLb.WrappingMode : -1, 1,
+                  "★ W58-D7：`Player Level Text` 的 `m_TextWrappingMode` = 1 (Normal)（原版 `MB_505`）"
+                + "｜🧨 调用点改回 `wrap: false`、或 `Tmp()` 里去掉 `lb.SetWrapping(wrap)` ⇒ 本条红");
+
+            ToastNotifications.DisposeForTest();
+
+            // ---- ④ D9：`MessageToast.ShowError` 转发错误色（0.8,0,0,1）；白档仍是白 ----
+            var mt = MessageToast.Ensure();
+            CheckTrue(mt != null && mt.Built, "（前提）W58-D9：`MessageToast` 建出来了");
+            if (mt != null && mt.Built)
+            {
+                bool okRed = MessageToast.ShowError("w58.err", false, "x");
+                var red = mt.Banner.TextColorOf(0);
+                CheckTrue(okRed && Mathf.Abs(red.r - 0.8f) < 1e-4f
+                          && red.g < 1e-4f && red.b < 1e-4f && Mathf.Abs(red.a - 1f) < 1e-4f,
+                          $"★★ W58-D9①：`ShowError` 文字色 = (0.8,0,0,1)（现读 {red.r:F4},{red.g:F4},{red.b:F4},{red.a:F4}）"
+                        + "（原版 `UIMessageController.ShowError` → `errorColor`）"
+                        + "｜🧨 让 `ShowError` 改走 `ShowMessage` 白档 ⇒ 本条红");
+                bool okWhite = MessageToast.Show("w58.msg", false, "x");
+                var white = mt.Banner.TextColorOf(1);
+                CheckTrue(okWhite && Mathf.Abs(white.r - 1f) < 1e-4f
+                          && Mathf.Abs(white.g - 1f) < 1e-4f
+                          && Mathf.Abs(white.b - 1f) < 1e-4f,
+                          $"★ W58-D9②（反证）：白档仍是 (1,1,1,1)（现读 {white.r:F4},{white.g:F4},{white.b:F4}）");
+            }
+            MessageToast.DisposeForTest();
         }
 
         Debug.Log(P + shell.Dump());
@@ -7718,29 +8090,37 @@ public static class ShellScene
                                   + $" —— 实得 {rz2.x:F1}×{rz2.y:F1}px（本闸上界 100000px）");
                     if (!rzOk) continue;
                     var bx2 = ShellLabelBoxPx(l2);
-                    // ①
-                    // 🔴 **2026-10-17（R1 现核）**：`Timer` 那条旧前提**过期** —— 换 Pragati 后行盒 0.947em，
-                    //   38px 的字自然高 ≈38px，自适应**停在上限**、框高两侧都不紧 ⇒ 「渲出高 = 框高 55.905」
-                    //   不再是它该有的形状。改断**原版 `m_fontSize = 38`**（±0.06，判据 = 上面 fitCase 那条 dump）。
-                    if (nm == "Timer")
-                        CheckNear(l2.FontPxNow, 38f, 0.06f,
-                                  "★ A1178 · `Timer`：字号 = 原版 **`m_fontSize` 38px**（±0.06）"
-                                + "｜🧨 框高/框宽改错到让它被压 ⇒ 本行红");
-                    else
-                    {
-                        // 🔴 **2026-10-17（末轮复跑实测）**：这颗实际是**宽度紧、高度松** ——
-                        //   框宽 **174.96** / 渲出宽 **174.87**（差 0.09）；框高 **73.385** / 渲出高 **53.47**（余 19.9）。
-                        //   旧断言把两侧写反了（原来断「高度顶住 + 宽度有余量」）。
-                        CheckTrue(Mathf.Abs(bx2.x - rz2.x) <= 1.5f && rz2.x <= bx2.x + 1.5f,
-                                  $"★ A1178 · `{nm}`：**宽度那一侧是紧的**（框宽 `{bx2.x:F2}` − 渲出宽 `{rz2.x:F2}`"
-                                + $" = `{bx2.x - rz2.x:F2}`px，|差| ≤ 1.5；且**不许溢出**）"
-                                + "｜🧨 框宽改错（回 `254.112f` 或再窄）⇒ 本行红");
-                        CheckTrue(bx2.y - rz2.y >= 1.5f,
-                                  $"★ A1178 · `{nm}`：**高度那一侧有余量**（框高 `{bx2.y:F2}` − 渲出高 `{rz2.y:F2}`"
-                                + $" = `{bx2.y - rz2.y:F2}`px ≥ 1.5）—— 收敛值不是被高度顶住的");
-                    }
+                    // 🔴 **2026-10-20（W58-UIFIX-A · 铁律 5 就地订正）**：A1178 这三条 2026-10-19 起是红的 ——
+                    //   **（α）断言过期**，不是画面不对。根因链（判据 → `普查产出_1020/W58_诊断_界面五宿主.md` §一 S1–S3）：
+                    //   ① P05（2026-10-19）把这两颗的文字换成**中文**（`Loc.T`：`Timer` =
+                    //      `Event_Description/General/EndsInPlusOrangeTime`「结束于：{0}」·
+                    //      `Vicotries title` = `Ranked/Victories`「胜利：」—— `Shell/EnergySinglePlayerOnlyEventWindow.cs:755-757 / :625`）；
+                    //   ② `Label.ActualFace` 的**汉字闸**把实际生效面翻回 `Cjk`（`Battle/Label.cs:1010-1013`）；
+                    //   ③ `NotoSerifCJK` 行盒 ≈ **1.52em**（四条独立读数 1.5170 / 1.5252 / 1.5470 / 1.5252，
+                    //      见 `D1_九条红诊断.md` §证据 A），而原版框高 55.905 / 73.385 是按**原版行盒 ≤1.47em**
+                    //      摆的 ⇒ TMP 的竖界先压字号：实得 **36.851 / 48.111**（`shell.log:33139 / 33215`）。
+                    //   ⇒ 旧的期望（`38 ± 0.06`、「宽紧 + 高松」两条关系式）**只对拉丁面成立** ⇒ 全部换成
+                    //      「**字号 ∈ [下限, 上限] + 不溢出框**」。上下限仍然只从**原版那一份**推：
+                    //        · 上限 = 原版 `m_fontSize`（38 / 53.5，= 上面 `fitCase` 那条 dump 读数）；
+                    //        · 下限 = **原版框高 ÷ 1.55em**（CJK 行盒实测上界 1.547em 向上取整）——
+                    //          字号被任何一侧压到「连 CJK 行盒都装不下原版框高」的那一档 ⇒ 红；
+                    //        · 不溢出 = 渲出宽/高各自 ≤ 框 + 1.5px（TMP 二分粒度）。
+                    //   ⚠️ **系统性残差如实登记**（本报告）：`NotoSerifCJK` 行盒 1.52em vs 原版 ≤1.47em。
+                    //      它该落 `项目任务.md` §三（本件白名单里没有正本；残差账 → `W2_A1126A1.md` §五）。
+                    //   ⛔ 别为了回到 38px 去**压行盒 / 换更矮的 CJK 面** —— 原版中文客户端的回退字体
+                    //      行盒本地拿不到 = **没有判据**（那等于发明一个原版没有的值）。
+                    float fontHi = nm == "Timer" ? 38f : 53.5f;   // 原版 `m_fontSize`（dump 现读）
+                    float fontLo = boxHOrig / 1.55f;              // 原版框高 ÷ CJK 行盒上界（1.55em）
+                    CheckTrue(l2.FontPxNow >= fontLo - 0.06f && l2.FontPxNow <= fontHi + 0.06f,
+                              $"★ A1178 · `{nm}`：字号 ∈ **[{fontLo:F2}, {fontHi:F2}]px**（实得 `{l2.FontPxNow:F3}`）"
+                            + $"｜下限 = 原版框高 {boxHOrig:F3} ÷ CJK 行盒上界 1.55em；上限 = 原版 `m_fontSize`"
+                            + "｜🧨 框高/框宽改错到让它被压 / 字被任何一侧压小 ⇒ 本行红");
+                    CheckTrue(rz2.x <= bx2.x + 1.5f && rz2.y <= bx2.y + 1.5f,
+                              $"★ A1178 · `{nm}`：**不溢出框**（渲出 `{rz2.x:F2}×{rz2.y:F2}` vs 框 `{bx2.x:F2}×{bx2.y:F2}`，"
+                            + "每轴 ≤ 框 + 1.5px = TMP 二分粒度）");
                     // ② `Timer`：宽度那一侧【不是】约束 —— 框宽比渲出宽有余量
-                    //   （`Vicotries title` 是相反的一档，已在上面那一支里断「宽紧 + 高松」）
+                    //   （`Vicotries title` 那一档在中文下**宽度已不是紧的**（渲出 152.28 / 框 169.56），
+                    //    它的收敛值现在由**框高**决定 ⇒ 由上面那两条兜住，⛔ 不再单独断「宽紧」）
                     if (nm == "Timer")
                         CheckTrue(bx2.x - rz2.x >= 1.5f,
                                   $"★ A1178 · `{nm}`：**宽度那一侧不是约束** —— 框宽 `{bx2.x:F2}` − 渲出宽 `{rz2.x:F2}`"

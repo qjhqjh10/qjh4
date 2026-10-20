@@ -57,17 +57,21 @@
 //        `HudCanvas.SetPxSize` / `FillParent`（本面板的根**不是一个整屏矩形** —— 它在世界档里只有
 //        「一个点 + 一组手算尺寸」，件才是载体）。
 //  · 🔴🔴 **2026-10-16（`T09` 批 3 · 主对话裁定「按原版锚点补正」）：面板那一级从【固定设计 px】
-//    改成【照原版锚点现算】** —— 见 `CvAnchorMinX` 那一组常量与 `PanelCvRect`。
+//    改成【照原版锚点】** —— 见 `CvAnchorMinX` 那一组常量与 `PanelCvRect`。
 //    判据 = **`T09` §五·补③ 一 的 2026-10-16 就地订正**（⛔ 不是旧那版「px 常量一律固定」）：
 //    **「面板那一级与它的子件，锚点要照原版 `m_AnchorMin`/`m_AnchorMax` 逐级写；只有当原版那一级
 //    是【双轴点锚】时，才等价于『固定设计 px』。」** 原版 `ActiveSkillDesc` 是**双轴部分拉伸**
-//    （宽 30.02% × 高 30.40%）⇒ 必须真按锚点算，否则窄屏（画布被 `Expand` 撑高）下面板**不跟着变高**
+//    （宽 30.02% × 高 30.40%）⇒ 必须真按锚点走，否则窄屏（画布被 `Expand` 撑高）下面板**不跟着变高**
 //    （4:3 下只有原版的 **≈75%**）。
-//  · ⚠️ **如实记着的一条差异**（本次**没做**、按 `T09` §五·补⑩ 二「差异如实记」）：
-//    ① **节点层级**：原版是「父画布 → `ActiveSkillDesc`（**面板矩形那一级**）→ 7 个件」；
-//       我们画布档是「子画布 → 7 个件」—— **少了 `ActiveSkillDesc` 那一级**
-//       （我们这边对应它的是**世界空间那层壳** `transform`，它两档都不装画布上的件）。
-//       ⇒ 那一级的锚点由 `PanelCvRect` **在算坐标时现算**（等价的几何、少一个节点）；⛔ 没自造中间层。
+//  · 🔴🔴 **2026-10-20（W58 · `T09` 步骤 C4）：那一级现在是【真的节点】= `_panelRt`（`MakePanelNode`）** ——
+//    双轴拉伸锚 + `pivot/ap/sd` 逐值照抄原版 `RT_3104`，**父画布一拉伸它自己就跟着变**；
+//    `PanelCvRect` 读它（实测支 = Unity 的 `rect`，退档支 = 它自己的锚点字段 + `CanvasPx`），
+//    ⛔ 不再用「我们那组常量 × 画布尺寸」现算第二遍（来源只有一份）。
+//  · ⚠️ **如实记着的一条差异**（按 `T09` §五·补⑩ 二「差异如实记」）：
+//    ① **件不挂在 `ActiveSkillDesc` 下面**：原版是「父画布 → `ActiveSkillDesc` → 7 个件」；
+//       我们画布档是「子画布 → **`ActiveSkillDesc`（只承载几何、不装件）** + 7 个平级件」。
+//       ⇒ 几何那一半（面板矩形/随父拉伸）已经与原版同构；**嵌套那一半仍不同**（⛔ 倒嵌套会动
+//       4 颗自适应字吃的框宽/框高，另开一件再谈）。
 //    ② ✅ **原来这里记的那条「尺寸口径 = 固定设计 px」已按上面的裁定做掉** —— 不再欠。
 //  · ⚠️ **两档在 16:9 下逐位相同 —— 这句话 2026-10-16 一度只对 6 颗件成立，现已恢复为「对全部 7 颗」
 //    都成立**：`_light`（原版 `Lights`）那格曾按「画布档 = 原版锚点盒 / 世界档 = `A2106③` 的冻结值
@@ -130,6 +134,10 @@
 //    ③ **按下音效** `AbilityBoxClick`：本工程音效表里**查不到这个 cue**（`grep -rn AbilityBox` 全仓 0 命中，
 //       `SoundAssetCollection.get_AbilityBoxClick` 的资产也不在本地 91 个包里）⇒ ⛔ 不接、不猜一个近似的。
 //  · ⚠️ **两条结构性差异**（我们保持扁平层级、⛔ 不为此改框/加中间层 —— 那样会动 4 颗自适应字吃的框宽）：
+//    🔴 **2026-10-20（W58 · `T09` C4 / `HideAbilityButton` 锚点补正）就地补注**：本件现在**有一颗 `ActiveSkillDesc` 节点**，
+//    它承载几何（`PanelCvRect` 读它的锚点）+ **原版那一颗 `HideAbilityButton`**（父链照原版）；
+//    **其余 7 件仍是子画布的平级子件** ⇒ 下面两条差异**照旧成立**
+//    （⛔ 别把「有了同名节点」读成「嵌套已经倒过来了」）。
 //    ① 原版 `NameText`/`DescText` 是 `AbilityContainer` 的**子件**（TMP `m_RaycastTarget = 1` ⇒ 点击沿父链冒泡到
 //       容器那颗 `EventTrigger`）；我们三颗字是子画布的**平级子件**（`TmpFont.NewTextUgui` 默认 rt=0）。
 //       等效性：`NameRect`/`DescRect` 的整块都落在 `BgRect` 内（逐格核过）⇒ 点在字上时射线直接落到 `_bg` 上，
@@ -159,7 +167,7 @@ namespace CardPresentation
         /// 🔴 **2026-10-16（`T09` 批 3 · 锚点补正）**：它现在**只剩两个用途**：
         /// ① **归一化分母**（`DescMarginPx / PanelPxW` 那种「面板内比例」）；② **自证基准**
         /// （`PanelCvRect` 在 1920×1080 下必须算出这一对数 —— 算式见 §⑤ 报告）。
-        /// ⛔ **画布档的尺不再是它**——是 `PanelCvRect` 现算出来的 `size`（跟着画布高走）；
+        /// ⛔ **画布档的尺不再是它**——是 `PanelCvRect` 从锚点节点读出来的 `size`（跟着画布高走）；
         /// 世界档的尺是 `PanelW/PanelH`（= 屏幕比例 × 30%，见它们）。两档只在这一处换算
         /// （`BoxW/BoxH`）—— ⛔ 别在调用点自己乘。</summary>
         const float PanelPxW = 576.41f, PanelPxH = 324.82f;
@@ -174,6 +182,10 @@ namespace CardPresentation
         //  🔑 **`_cv`（子画布）就是原版那一级的父**（`Safe area FrontCanvas`）：它四边贴合根画布
         //     ⇒ `rect.min = −画布尺寸/2`、`rect` 的宽高 = 画布的设计 px 尺寸。公式见 `PanelCvRect`。
         //  ⛔ **逐值照抄、⛔ 别改数**（这是原版真值；改一个数 = 面板当场偏）。
+        //  🔴 **2026-10-20（W58 · `T09` C4）**：这组常量现在**只用于【建】`_panelRt`**
+        //     （`MakePanelNode` 把它们写进节点）；**运行时判据是那个节点**（`PanelCvRect` 读它，
+        //     ⛔ 不再拿这组常量 × 画布尺寸现算第二遍 —— 那样「来源」就有两份）。
+        //     ⇒ 改这里的数 = 同时改节点；改断言期望值请走**原版 JSON 字面量**（⛔ 别读常量反推）。
         const float CvAnchorMinX = 0.665576696395874f;
         const float CvAnchorMinY = 0f;
         const float CvAnchorMaxX = 0.965788722038269f;
@@ -195,18 +207,35 @@ namespace CardPresentation
         /// ⛔ **别把它们写进画布件的 `localPosition.z`**（那会把件推离画布平面）。</summary>
         const float ZBg = 0.02f, ZText = 0f, ZLight = -0.02f;
         /// <summary>🆕 **2026-10-20（`T09` A3-e）：原版 `HideAbilityButton` 那块全屏透明捕获区的兄弟序**。
-        /// **比 `_bg` 再大 0.02** ⇒ 排在它**后面**（`HudCanvas.Group.Add`：z 大的排前面 = 画在**底下**）——
-        /// ⇒ 射线排序上面板本体先收、面板外才轮到捕获区（与原版「`AbilityContainer` 是 `HideAbilityButton`
-        /// 的后置兄弟」同构）。⛔ 别把它调到 `ZBg` 以下 —— 那会让捕获区盖住整块面板、点哪都关窗。</summary>
+        /// **比 `_bg` 再大 0.02** ⇒ 排在它**后面**（`HudCanvas.Group.Add`：z 大的排前面 = 画在**底下**）。
+        /// 🔴 **2026-10-20（W58）**：捕获区现在挂在**面板节点** `_panelRt` 下 ⇒ 真正决定它在子画布里
+        /// 前后的是 **`ZPanelNode`**（见下面那颗）；本值现在只是它**在面板节点内部**的兄弟序（单子件，
+        /// 无实际作用，保留以免 `MakeImageInParent` 的 z 语义变空）。
+        /// 判据不变：捕获区必须被面板本体盖住（射线先给 `_bg`，面板外才轮到它）。</summary>
         const float ZHideBtn = ZBg + 0.02f;
 
-        // ── 🆕 2026-10-20（`T09` A3-e）：原版 `HideAbilityButton`（`RectTransform_2860` / arena2 `3053`）──
-        //  逐字段现读（`bundle_scenes_scenes_battlearena1` 与 `…arena2` **逐值相同**）：
+        /// <summary>🆕 **2026-10-20（W58）：面板锚点节点在子画布里的兄弟序** —— **比所有件都靠前（画在最底下）**。
+        /// <para>🔑 **为什么必须登记**：`_panelRt` 现在是 `HideAbilityButton` 的父 —— 不登记的话
+        /// `HudCanvas.Group.Add` 每次给平级件 `SetSiblingIndex(i)` 都会把这个「没进账」的节点往**后**挤，
+        /// 它会漂到最上层 ⇒ 整块透明捕获区盖住面板，**点面板本体先命中捕获区（面板当场关掉）**。
+        /// 取 `ZHideBtn + 0.02` ⇒ 面板子树（含捕获区）永远排在 `_bg` 之前 = 画在底下、射线最后收。</para></summary>
+        const float ZPanelNode = ZHideBtn + 0.02f;
+
+        // ── 🆕 2026-10-20（`T09` A3-e）：原版 `HideAbilityButton`（arena1 `RT_2860` / arena2 `RT_3053`）──
+        //  逐字段现读（13 个 `battlearena*` 包**逐值相同**；判据 =
+        //  `bundle_scenes_scenes_battlearena2/RectTransform/RectTransform_3053.json` +
+        //  `…/GameObject/HideAbilityButton.json`，2026-10-20 现读）：
         //    `aMin = aMax = (1, 0)` · `pivot = (1, 0)` · `m_AnchoredPosition = (220.3900146484375, −146.0101776123047)`
         //    `m_SizeDelta = (3707.830078125, 1985.3199462890625)` · `m_LocalScale = (1,1,1)`
-        //  ⇒ 它的**右下角**锚在画布右下角外 220.39 / 下 146.01，矩形向左上铺开 3707.83 × 1985.32。
+        //  🔴 **2026-10-20（W58 · `HideAbilityButton` 锚点补正）就地订正（铁律 5）**：
+        //    本段原写「锚在**画布**右下角外」—— **错**。原版 `RT_3053.m_Father = 3104` =
+        //    **`ActiveSkillDesc` 面板节点**（运行时 dump 的 path 也把它放在 `…/Safe area FrontCanvas/ActiveSkillDesc`
+        //    之下）⇒ 这五元组是**相对面板**的：16:9 下面积 = 面板右下角（画布坐标 x≈1248.2 / y≈56.8）
+        //    + ap ⇒ 矩形向左上铺开 3707.83 × 1985.32。
         //  ⛔ 别把 `sd` 改成「铺满画布」（`FillParent`）：原版底右锚定 + 固定尺寸在 21:9 / 4:3 下
-        //    都是**覆盖整屏且有余**（1920×1080 时 y 顶到 1839 > 1440），改锚定会改变非 16:9 的覆盖形状。
+        //    覆盖形状与 16:9 不同（y 轴在 16:9 下从 −89.3 到 1896.1，覆盖整屏且有余），改锚定会改变它。
+        //  ⚠️ 如实记：按面板右下角锚定后，x 轴**右边缘**在 16:9 下到 1468.6（屏幕右界 1920）——
+        //    **右侧约 451 px 不在捕获区内**。这就是原版自己的布局（⛔ 别为此擅自改 ap/sd）。
         const float HideBtnW = 3707.830078125f, HideBtnH = 1985.3199462890625f;
         const float HideBtnAnchoredX = 220.3900146484375f, HideBtnAnchoredY = -146.0101776123047f;
 
@@ -381,9 +410,24 @@ namespace CardPresentation
         /// ⇒ **它的中心 = 画布中心、局部单位 = 设计 px**（`T09` §五·补③ 一）。</para></summary>
         RectTransform _cv;
 
+        /// <summary>🆕🔴 **2026-10-20（W58 · `T09` C4）：原版 `ActiveSkillDesc`（`RT_3104`）那一级的【锚点节点】。**
+        /// <para>它**自己就是「写死的归一化锚点」**：双轴拉伸 `aMin (0.665576696395874, 0)` /
+        /// `aMax (0.965788722038269, 0.3040129840373993)` + `pivot (0.5,0.5)` +
+        /// `ap (−606.110107421875, 55.0008544921875)` + `sd (−0.0003662100061774254, −3.509999990463257)`
+        /// （逐字段 = `bundle_scenes_scenes_battlearena2/RectTransform/RectTransform_3104.json` 原版真值）
+        /// ⇒ **父画布一拉伸它就跟着变**（4:3 / 21:9 不用任何人重算）。</para>
+        /// <para>`PanelCvRect` 现在**从它读**（不再是「我们那组常量 × 画布尺寸」的第二次现算）。</para>
+        /// <para>⚠️ 本节点**只承载几何 + 原版那一颗捕获区**：没有 `Image`、不吃射线；
+        /// **唯一的子件** = `HideAbilityButton`（原版 `RT_3053.m_Father = 3104`，2026-10-20 W58 补上）。
+        /// 其余 7 件仍是子画布的平级子件（那条「⛔ 不倒嵌套」的已知差异照旧，见文件头 §输入层 那两条结构性差异）。</para>
+        /// <para>`null` = 世界档 / 没建起来（世界档没有画布坐标，`PanelCvRect` 恒不被读）。</para></summary>
+        RectTransform _panelRt;
+
         // ── 🆕 2026-10-20（W57 · `T09` 步骤 A3-e）：uGUI 输入层（判据 → 文件头「输入层换 uGUI」那一段）──
         //  ⚠️ **只有画布档建这一组**（世界档用不了 uGUI 射线 —— 件是 `ImageQuad`，`SetRaycastTarget` 会出声拒绝）。
         /// <summary>原版 `HideAbilityButton`：一块**远大于屏幕的透明点击捕获区**（`m_Color.a = 0`、`rt = 1`）。
+        /// 🔴 **2026-10-20（W58）**：父 = **面板锚点节点** `_panelRt`（原版 `RT_3053.m_Father = 3104`），
+        /// ⛔ 不是子画布；五元组见 `PlaceHideButton`。
         /// `null` = 世界档 / 没建起来（见 `BuildInput` 的出声）。</summary>
         HudPiece _hideBtn;
         /// <summary>原版 `AbilityContainer` 上那颗 `EventTrigger`（自检 / 诊断用）。</summary>
@@ -459,6 +503,38 @@ namespace CardPresentation
         /// 1920×1080，见 <see cref="CanvasPx"/>）。断言用它自己独立算一遍期望矩形。</summary>
         public Vector2 CanvasPxSize { get { return CanvasPx; } }
 
+        /// <summary>🆕 **2026-10-20（W58 · `T09` C4）：面板锚点节点（原版 `ActiveSkillDesc` / `RT_3104`）的
+        /// 五个字段读回** —— 自检 / 断言用（这是「来源」那一侧的独立读数）。
+        /// <para>顺序：`aMin` · `aMax` · `pivot` · `anchoredPosition` · `sizeDelta`。
+        /// 返回 `false` = 世界档 / 节点没建出来（**五个 `out` 都是 `NaN`** ——
+        /// ⛔ 别折成 `(0,0)`：那与「锚点真是 0」分不开，会让断言假绿）。</para>
+        /// <para>期望值取**原版 JSON 的字面量**（⛔ 不读这里反推；那就成了拿实现证明实现）。</para></summary>
+        public bool PanelAnchorsForTest(out Vector2 aMin, out Vector2 aMax, out Vector2 pivot,
+                                        out Vector2 anchoredPos, out Vector2 sizeDelta)
+        {
+            aMin = aMax = pivot = anchoredPos = sizeDelta = new Vector2(float.NaN, float.NaN);
+            var rt = _panelRt;
+            if (rt == null) return false;
+            aMin = rt.anchorMin;
+            aMax = rt.anchorMax;
+            pivot = rt.pivot;
+            anchoredPos = rt.anchoredPosition;
+            sizeDelta = rt.sizeDelta;
+            return true;
+        }
+
+        /// <summary>🆕 **2026-10-20（W58 · `T09` C4）灭自证用**：把面板锚点节点的 `anchoredPosition`
+        /// 平移 <paramref name="delta"/>（px、y 向上）。调用方测完必须**平回去**。
+        /// <para>用途：证明 `PanelCvRect` **真的从节点读** —— ap 动 ⇒ 面板中心必须跟着动、尺寸不变；
+        /// 若它被改回「拿 `CvAnchor*` 常量 × 画布尺寸现算」（不看节点），中心**不会动** ⇒ 断言红。</para>
+        /// <para>世界档 / 节点没建 ⇒ `false`（⛔ 不静默假装挪过）。</para></summary>
+        public bool NudgePanelAnchoredPosForTest(Vector2 delta)
+        {
+            if (_panelRt == null) return false;
+            _panelRt.anchoredPosition += delta;
+            return true;
+        }
+
         /// <summary>🔴 **2026-10-16（`T09` 批 3）：把本面板接到 uGUI 档。**
         /// <paramref name="host"/> = **本面板那块子画布的 `RectTransform`**
         /// （= `HudCanvas.EnsureSubCanvas(null, SubCanvasName, HudCanvas.SortingLayer.OverHand, 0)` 的返回值）。
@@ -505,6 +581,10 @@ namespace CardPresentation
             KillGo(_targets != null ? _targets.gameObject : null);
             // 🆕 2026-10-20（`T09` A3-e）：输入层那两件也要拆（否则换档之后盘着一块**旧画布**的捕获区）
             KillGo(_hideBtn != null ? _hideBtn.gameObject : null);
+            // 🆕 2026-10-20（W58 · `T09` C4）：面板锚点节点也要拆（否则换档之后盘着一颗**旧画布**的节点，
+            //   而它正是 `PanelCvRect` 的几何来源 ⇒ 下次 `BuildCanvas` 会再建一颗、两颗并存）。
+            KillGo(_panelRt != null ? _panelRt.gameObject : null);
+            _panelRt = null;
             _bg = _light = _manaIcon = null;
             _name = _cost = _desc = _targets = null;
             _hideBtn = null;
@@ -632,6 +712,10 @@ namespace CardPresentation
         /// 子画布 rect 在 `Expand` 档下比 1920×1080 高 ⇒ 套错了会**静默摆到别处**（`T09` §七·10）。</para></summary>
         void BuildCanvas()
         {
+            // 🆕 2026-10-20（W58 · `T09` C4）：先建原版 `ActiveSkillDesc` 那一级的锚点节点 ——
+            //   `PanelCvRect` 的唯一几何来源（判据见字段 doc）。⛔ 除原版那一颗 `HideAbilityButton` 外，
+            //   别把件挂到它下面（其余 7 件仍是子画布的平级子件）。
+            _panelRt = MakePanelNode();
             _bg = MakeCv(Solid(), "AbilityContainer", ZBg);
             _light = MakeCv(Solid(), "Lights", ZLight);
 
@@ -652,6 +736,29 @@ namespace CardPresentation
             // 🆕 2026-10-20（`T09` A3-e）：输入层（原版 `AbilityContainer` + `HideAbilityButton` 两口）。
             //   ⚠️ 必须排在件建完之后（它要用 `_bg` / `_targets`）；显隐由 `SetInputEnabled` 跟着走。
             BuildInput();
+        }
+
+        /// <summary>🆕🔴 **2026-10-20（W58 · `T09` C4）：建原版 `ActiveSkillDesc`（`RT_3104`）那一级的锚点节点。**
+        /// <para>五个字段**逐字照抄**原版 JSON（出处 → <see cref="_panelRt"/> 的 doc 与 `CvAnchor*` 那一组常量）：
+        /// 双轴拉伸 + `pivot (0.5,0.5)` + `ap (−606.11, 55.00)` + `sd (−0.00037, −3.51)`。
+        /// ⇒ **父画布一拉伸它就跟着变** —— 这就是 C4 要的「锚点表达（随父级拉伸）」，
+        /// ⛔ 不再是「我们那组常量 × 画布尺寸」的第二次现算。</para>
+        /// <para>⛔ 别把它改成中心点锚 / 别删：`PanelCvRect` 的实测支与退档支都读它。</para></summary>
+        RectTransform MakePanelNode()
+        {
+            var go = new GameObject("ActiveSkillDesc", typeof(RectTransform));
+            go.transform.SetParent(_cv, false);
+            var rt = (RectTransform)go.transform;
+            rt.anchorMin = new Vector2(CvAnchorMinX, CvAnchorMinY);
+            rt.anchorMax = new Vector2(CvAnchorMaxX, CvAnchorMaxY);
+            rt.pivot = new Vector2(CvPivotX, CvPivotY);
+            rt.anchoredPosition = new Vector2(CvAnchoredX, CvAnchoredY);
+            rt.sizeDelta = new Vector2(CvSizeDeltaX, CvSizeDeltaY);
+            // 🔴 **2026-10-20（W58）**：登记进子画布的 z 账 —— 否则平级件每次 `SetSiblingIndex`
+            //   都会把这颗「没进账」的节点挤到后面，它的子件 `HideAbilityButton`（透明捕获区）
+            //   就会盖在面板本体上（点面板 = 关面板）。见 `ZPanelNode` 的 doc。
+            HudCanvas.Add(rt, ZPanelNode);
+            return rt;
         }
 
         /// <summary>画布档建一块**纯色/贴图**件（尺寸随后由 `RefreshLayout` 的 `PlaceQuad` 写 ——
@@ -687,8 +794,15 @@ namespace CardPresentation
                 Debug.LogError("[Battle] 技能面板：`AbilityContainer` 挂不上 `EventTrigger`"
                              + " ⇒ **点面板放不了技能 / 按压不亮灯**（不静默）");
 
-            // ② 关闭捕获区：原版 `HideAbilityButton` —— 全屏、透明、`rt=1`、pad 0
-            _hideBtn = HudCanvas.MakeImageInParent(_cv, Solid(), "HideAbilityButton",
+            // ② 关闭捕获区：原版 `HideAbilityButton` —— 全屏、透明、`rt=1`、pad 0。
+            //    🔴 **2026-10-20（W58 · 锚点补正）**：父 = **面板锚点节点** `_panelRt`
+            //    （原版 `RT_3053.m_Father = 3104` = `ActiveSkillDesc`；⛔ 不是子画布）。
+            //    五元组由 `PlaceHideButton` 逐字写原版字面量（届时 `RefreshLayout` 会跑一次）。
+            if (_panelRt == null)
+                Debug.LogError("[Battle] 技能面板：面板锚点节点 `ActiveSkillDesc` 没建起来"
+                             + " ⇒ `HideAbilityButton` 只能挂到子画布上（锚点语义会偏；不静默）");
+            _hideBtn = HudCanvas.MakeImageInParent(_panelRt != null ? (Transform)_panelRt : _cv,
+                                                   Solid(), "HideAbilityButton",
                                                    0f, 0f, 1f, 1f, ZHideBtn, new Color(1f, 1f, 1f, 0f));
             if (_hideBtn == null)
             {
@@ -828,23 +942,25 @@ namespace CardPresentation
             if (CloseRequested != null) CloseRequested();
         }
 
-        /// <summary>把捕获区按**原版 `RT_2860` 的锚点五元组**摆进当前画布（每次 `RefreshLayout` 重跑）。
-        /// <para>算式：`anchorMin = anchorMax = (1,0)`、`pivot = (1,0)` ⇒
-        /// `rect.xMax = 画布宽 + apX`、`rect.yMin = apY`（= −146.01）、`size = sd`。
-        /// 本工程的画布件用**中心锚**（`MakeImageInParent`）⇒ 换成「相对画布中心」：
-        /// `cx = (rect.xMax − sd.x/2) − 画布宽/2`、`cy = (rect.yMin + sd.y/2) − 画布高/2`。</para>
-        /// <para>⚠️ 用 `CanvasPx`（= `PanelCvRect` 同一个「现算画布尺寸」口）⇒ 非 16:9 下也跟着画布走。</para></summary>
+        /// <summary>把捕获区按**原版 `RT_3053` 的锚点五元组**摆到**面板节点**下（每次 `RefreshLayout` 重跑）。
+        /// <para>🔴 **2026-10-20（W58 · `HideAbilityButton` 锚点补正）**：父 = `_panelRt`
+        /// （原版 `ActiveSkillDesc` / `RT_3104` 那一级），⛔ **不是画布** ——
+        /// 原版 `RT_3053.m_Father = 3104`（运行时 dump 的 path 也写着 `…/ActiveSkillDesc` 是父）。
+        /// 旧实现按「画布底右锚」用 `CanvasPx` 换算到中心锚 ⇒ 与原版相差 **606.11 px**（面板 ap.x）。</para>
+        /// <para>五元组**逐字照抄**原版：`aMin = aMax = (1,0)` · `pivot = (1,0)` ·
+        /// `ap = (220.3900146484375, −146.0101776123047)` · `sd = (3707.830078125, 1985.3199462890625)`。
+        /// ⇒ 「右下角」= **面板**右下角；矩形向左上铺开。</para>
+        /// <para>⚠️ **不做 `ap/pivot` 换算**：报告 `C3C4` 里那条 `ap' = ap + (0.5 − pivot) × sd`
+        /// 只在「把 pivot 改成 (0.5,0.5)」时才需要。本实现**保留原版 pivot `(1,0)`** ⇒ 直接写字面量
+        /// （两种写法等价，但保留原版字段才能让断言逐字段对原版 JSON）。</para></summary>
         void PlaceHideButton()
         {
             if (_hideBtn == null || !UguiMode || _hideBtn.Rect == null) return;
-            var c = CanvasPx;
-            float cx = (c.x + HideBtnAnchoredX - HideBtnW * 0.5f) - c.x * 0.5f;
-            float cy = (HideBtnAnchoredY + HideBtnH * 0.5f) - c.y * 0.5f;
             var rt = _hideBtn.Rect;
-            rt.anchorMin = rt.anchorMax = new Vector2(0.5f, 0.5f);   // 中心锚（见 doc）
-            rt.pivot = new Vector2(0.5f, 0.5f);
+            rt.anchorMin = rt.anchorMax = new Vector2(1f, 0f);   // 原版：**面板**右下角（点锚）
+            rt.pivot = new Vector2(1f, 0f);                      // 原版 pivot（⛔ 别改成中心）
             rt.sizeDelta = new Vector2(HideBtnW, HideBtnH);
-            rt.anchoredPosition = new Vector2(cx, cy);
+            rt.anchoredPosition = new Vector2(HideBtnAnchoredX, HideBtnAnchoredY);
         }
 
         /// <summary>输入层跟着显隐开关（**必须**：我们的件收起时**不 `SetActive(false)`**，只把 alpha 压到 0
@@ -937,11 +1053,16 @@ namespace CardPresentation
         /// 按当前分辨率摆一遍（幂等）。
         /// <para><b>世界档</b>：面板是**屏幕的固定比例**（30% 宽 × 30% 高），宽高比跟着屏幕走 ——
         /// 只摆一次的话切分辨率就错位（HUD 那几个 Label 踩过一模一样的坑）。</para>
-        /// <para><b>画布档</b>：🔴 **2026-10-16（锚点补正）后它【也要】重排** ——
-        /// 面板矩形由 <see cref="PanelCvRect"/> 从**画布尺寸**现算，而 `Expand` 档下画布高随屏变
-        /// （4:3 ⇒ 1440 单位、16:9 ⇒ 1080、21:9 ⇒ 画布宽 2560）⇒ **换了宽高比就得重跑本函数**
-        /// （`CanvasScaler` 只管缩放，管不了「锚点盒随父尺寸变」这件事）。
-        /// 换分辨率的既有入口 = `BattleDriver.ReanchorHud` → 本函数（那一句**照旧留着**，⛔ 别摘）。
+        /// <para><b>画布档</b>：🔴 **2026-10-20（W58 · `T09` C4）后，面板那一级已经不再由本函数定位** ——
+        /// 它是 `_panelRt`（原版 `ActiveSkillDesc` / `RT_3104` 的锚点五元组）**自己随父画布拉伸**，
+        /// `PanelCvRect` 直接读它（见那个属性）。**本函数对画布档仍然必要**，但只剩一件事：
+        /// **把「显式 `sizeDelta`」的那几件按新面板尺寸重写一遍** ——
+        /// 4 颗自适应字的框宽/框高（`Label.SetAutoFitBox` 把框写进 `sizeDelta`）+
+        /// `manaIcon` 的「方形 = min(w,h)」+ `Lights`/底板/字的位置（位置虽然可按锚点写，
+        /// 但它们与框是同一次布局，合在这里一起落）。
+        /// ⚠️ **删调用之前先解决上面那件事**（给 `Label` 一条「锚点框」的路）—— 否则 4:3 / 21:9 下
+        /// 字框还停在 16:9 的 px 上（静默、只有非 16:9 才露）。换分辨率的既有入口 =
+        /// `BattleDriver.ReanchorHud` → 本函数（那一句**照旧留着**，⛔ 别摘）。
         /// ⚠️ 它仍然幂等；同一宽高比下重跑 = 一个字节都不改。</para>
         /// </summary>
         public void RefreshLayout()
@@ -1014,7 +1135,7 @@ namespace CardPresentation
             //    （连调两次 `RefreshLayout` ⇒ 四颗的 `FontPxNow` 逐位不变）。
 
             PlaceManaIcon();
-            // 🆕 2026-10-20（`T09` A3-e）：全屏捕获区也跟着画布尺寸走（原版底右锚定 + 固定 sd）
+            // 🆕 2026-10-20（`T09` A3-e / W58）：捕获区五元组 = 原版 `RT_3053`（**相对面板节点**的底右点锚）
             PlaceHideButton();
             ApplyColors();
         }
@@ -1076,33 +1197,75 @@ namespace CardPresentation
         }
         bool _warnedDegenerateCanvas;
 
-        /// <summary>🔴🔴 **2026-10-16（`T09` 批 3 · 主对话「按原版锚点补正」）：画布档的【面板矩形】**
-        /// （`_cv` 局部 px、**中心原点、y 向上**）—— 由 `CvAnchorMinX` 那一组锚点字段**现算**。
-        /// <para>**判据只此一处**：`CvPos` / `Wpx` / `Hpx` / `Contains` / `HitBoxWorldSize` 全读它
-        /// （⛔ 别在别处再算一次 —— 那就是「同一个规矩的第二份写法」）。</para>
-        /// <para>**算式**（uGUI 的拉伸锚）：
-        /// `size = (aMax − aMin) × 父尺寸 + sizeDelta`；
-        /// 锚参考点 = `父 rect.min + (aMin + (aMax−aMin) × pivot) × 父尺寸`，`anchoredPosition` 是
-        /// **枢轴**相对它的偏移，而面板枢轴 = (0.5,0.5) = 中心 ⇒ 参考点 + `ap` **就是面板中心**。</para>
-        /// <para>⚠️ 少了 `ActiveSkillDesc` 那一级（见文件头 ①）⇒ 本属性**就是**那一级的矩形（等价几何）。</para>
-        /// <para>✅ **自证（1920×1080）**：算出 `size = 576.4067 × 324.8240`、中心 `(0.0007, −320.8321)`
-        /// ⇒ 归一化矩形 x[0.3498945, 0.6501059] y[0.0525517, 0.3533147] —— 与 `PanelX0/X1/Y0/Y1`
-        /// **逐位吻合**（≤ 5e−5）、与 `PanelPxW/H` 差 **≤ 0.004 px**（那两个常量是 2 位小数的舍入）。
-        /// 算式全文 → 本轮报告 §④。</para></summary>
+        /// <summary>🔴🔴 **2026-10-20（W58 · `T09` C4）：画布档的【面板矩形】现在读【锚点节点】** ——
+        /// `_panelRt`（原版 `ActiveSkillDesc` / `RT_3104` 那一级）**自己随父画布拉伸**；
+        /// 本属性只把它的结果换算成 `_cv` 局部坐标（中心原点、y 向上）。
+        /// <para>**实测支**（正常路径）：`size = rt.rect.size`、矩形左下 = `rt.localPosition + rt.rect.min`
+        /// —— 那是 **Unity 按锚点排出来的真值**（换分辨率/换父尺寸由布局系统自己更新，⛔ 不经过我们的算式）。
+        /// ⚠️ **它要与锚点字段那支互校**（尺寸/原点差 ≤ 2 px 才采信）：防「整流排了一半」那一瞬
+        /// （父画布尺寸刚变、子节点 `localPosition` 还没跟上）静默偏一整格（面板中心 y ≈ −320 px）。</para>
+        /// <para>**退档支**（批处理里画布还没排过版 ⇒ `rect` 0×0，见 `CanvasPx` 的 doc）：按 `_panelRt`
+        /// **自己的锚点字段** + `CanvasPx`（它再退参考分辨率）算同一格。两支在 16:9 下逐位相同
+        /// （自证 → `PanelPxW/H` 的 doc 与 §④）。</para>
+        /// <para>🔑 **灭自证（两个独立来源）**：实测支读 Unity 的布局结果，退档支读序列化的锚点五元组；
+        /// 断言侧的期望值又是**从原版 JSON 抄来的字面量**（⛔ 不读本属性）⇒ 三处一起写错才会假绿。</para>
+        /// <para>⚠️ **`RefreshLayout` 仍然要跑**（唯一原因）：4 颗自适应字的框宽 / 框高 + `manaIcon` 的方形
+        /// 走的是**显式 `sizeDelta`**（`Label.SetAutoFitBox` 的语义），**不随锚点拉伸**
+        /// ⇒ 换宽高比时仍要按新面板尺寸重写一遍。本属性只保证「面板那一格」是锚点真值、
+        /// 不再在每次读的时候拿画布尺寸重算一遍。</para></summary>
         Rect PanelCvRect
         {
             get
             {
-                var c = CanvasPx;
-                float spanX = CvAnchorMaxX - CvAnchorMinX, spanY = CvAnchorMaxY - CvAnchorMinY;
-                var size = new Vector2(spanX * c.x + CvSizeDeltaX, spanY * c.y + CvSizeDeltaY);
-                // `_cv` 四边贴合（锚 0–1、`sd` 0、pivot 居中）⇒ 它的 `rect.min = −父尺寸/2`，
-                // 归一化锚点 0…1 直接映射到 `rect.min … rect.min + 尺寸`。
-                var center = new Vector2(-c.x * 0.5f + (CvAnchorMinX + spanX * CvPivotX) * c.x + CvAnchoredX,
-                                         -c.y * 0.5f + (CvAnchorMinY + spanY * CvPivotY) * c.y + CvAnchoredY);
-                return new Rect(center.x - size.x * 0.5f, center.y - size.y * 0.5f, size.x, size.y);
+                var rt = _panelRt;
+                if (rt != null)
+                {
+                    // ── 锚点字段 → 期望矩形（**面板节点自己的五个字段** + 画布尺寸；退档支与互校支共用）──
+                    var c = CanvasPx;
+                    float aMinX = rt.anchorMin.x, aMinY = rt.anchorMin.y;
+                    float aMaxX = rt.anchorMax.x, aMaxY = rt.anchorMax.y;
+                    float pvX = rt.pivot.x, pvY = rt.pivot.y;
+                    float apX = rt.anchoredPosition.x, apY = rt.anchoredPosition.y;
+                    float sdX = rt.sizeDelta.x, sdY = rt.sizeDelta.y;
+                    float spanX = aMaxX - aMinX, spanY = aMaxY - aMinY;
+                    var size = new Vector2(spanX * c.x + sdX, spanY * c.y + sdY);
+                    var center = new Vector2(-c.x * 0.5f + (aMinX + spanX * pvX) * c.x + apX,
+                                             -c.y * 0.5f + (aMinY + spanY * pvY) * c.y + apY);
+
+                    // ── 实测支：Unity 按锚点排出来的 `rect` + `localPosition`（互校不过 ⇒ 不信它）──
+                    //   ⚠️ 互校不是「两边差不多就行」——它是**防「整流排了一半」**：批处理/编辑模式下
+                    //   父画布尺寸刚变、子节点的 `localPosition` 还没跟上的那一瞬，直接用会静默偏一整格
+                    //   （面板中心 y ≈ −320 px）。偏差 > 2 px ⇒ 退回锚点字段那一格（与旧实现逐位相同）。
+                    var rr = rt.rect;
+                    if (rr.width >= 1f && rr.height >= 1f)
+                    {
+                        var p = rt.localPosition;
+                        float dx = p.x + rr.x - (center.x - size.x * 0.5f);
+                        float dy = p.y + rr.y - (center.y - size.y * 0.5f);
+                        if (Mathf.Abs(rr.width - size.x) <= 2f && Mathf.Abs(rr.height - size.y) <= 2f
+                            && Mathf.Abs(dx) <= 2f && Mathf.Abs(dy) <= 2f)
+                            return new Rect(p.x + rr.x, p.y + rr.y, rr.width, rr.height);
+                    }
+                    // ── 退档支（`rect` 0×0 / 整流未完成）：锚点字段那一格 ──
+                    return new Rect(center.x - size.x * 0.5f, center.y - size.y * 0.5f, size.x, size.y);
+                }
+                // 兜底（**不该发生**：画布档一定建了 `_panelRt`）—— 退到那组原始常量，并出声一次。
+                if (!_warnedNoPanelNode)
+                {
+                    _warnedNoPanelNode = true;
+                    Debug.LogWarning("[Battle] 技能面板：`PanelCvRect` 读不到锚点节点 `ActiveSkillDesc`"
+                                   + " ⇒ 暂按 `CvAnchor*` 那组常量算（画布档不该走到这里；世界档不读本属性）");
+                }
+                var c2 = CanvasPx;
+                float span2X = CvAnchorMaxX - CvAnchorMinX, span2Y = CvAnchorMaxY - CvAnchorMinY;
+                var size2 = new Vector2(span2X * c2.x + CvSizeDeltaX, span2Y * c2.y + CvSizeDeltaY);
+                var center2 = new Vector2(-c2.x * 0.5f + (CvAnchorMinX + span2X * CvPivotX) * c2.x + CvAnchoredX,
+                                          -c2.y * 0.5f + (CvAnchorMinY + span2Y * CvPivotY) * c2.y + CvAnchoredY);
+                return new Rect(center2.x - size2.x * 0.5f, center2.y - size2.y * 0.5f, size2.x, size2.y);
             }
         }
+        /// <summary>上面最后那支兜底的「出声一次」闩（诊断用；正常路径恒 false）。</summary>
+        bool _warnedNoPanelNode;
 
         /// <summary>面板内归一化（x 从左 0→右 1，y 从**面板顶** 0→底 1）→ **子画布局部**
         /// （中心原点、**y 向上**、设计 px）。给字与 `localPosition` 用。
@@ -1561,7 +1724,8 @@ namespace CardPresentation
         public Vector4 HideButtonRaycastPaddingForTest { get { return GraphicRaycastPadding(_hideBtn); } }
 
         /// <summary>捕获区**实读的矩形**（`RectTransform.rect`；原版 `sd` = 3707.8301 × 1985.3199，
-        /// 任何画布尺寸下都不变 —— 变的是它相对画布中心的位置）。没有那件 ⇒ `(NaN,NaN,NaN,NaN)`。</summary>
+        /// 任何画布尺寸下都不变 —— 变的是它**相对面板节点**的位置）。
+        /// 没有那件 ⇒ `(NaN,NaN,NaN,NaN)`。</summary>
         public Rect HideButtonRectForTest
         {
             get
@@ -1571,7 +1735,10 @@ namespace CardPresentation
             }
         }
 
-        /// <summary>捕获区**相对画布中心**的 `anchoredPosition`（原版底右锚 + `ap` 换算出来的那一格）。</summary>
+        /// <summary>捕获区自己的 `anchoredPosition`（**相对它的父节点**）。
+        /// 🔴 **2026-10-20（W58）就地订正**：本行原写「相对画布中心（底右锚 + `ap` 换算出来的那一格）」——
+        /// **已过期**：父节点从子画布改成了面板节点 `_panelRt`，现在它**就是原版 `RT_3053` 的字面量**
+        /// `(220.3900146484375, −146.0101776123047)`（⛔ 不再是换算值）。</summary>
         public Vector2 HideButtonAnchoredPosForTest
         {
             get
@@ -1580,6 +1747,107 @@ namespace CardPresentation
                 return rt != null ? rt.anchoredPosition : new Vector2(float.NaN, float.NaN);
             }
         }
+
+        /// <summary>🆕 **2026-10-20（W58 · `HideAbilityButton` 锚点补正）**：面板锚点节点
+        /// （原版 `ActiveSkillDesc` / `RT_3104`）—— 父链断言用。`null` = 世界档 / 没建起来。</summary>
+        public RectTransform PanelAnchorRectForTest { get { return _panelRt; } }
+
+        /// <summary>🆕 **2026-10-20（W58）**：捕获区的父节点。**判据 = 面板锚点节点**（⛔ 不是子画布）；
+        /// 没建 ⇒ `null`。</summary>
+        public RectTransform HideButtonParentForTest
+        {
+            get
+            {
+                var rt = _hideBtn != null ? _hideBtn.Rect : null;
+                return rt != null ? rt.parent as RectTransform : null;
+            }
+        }
+
+        /// <summary>🆕 **2026-10-20（W58）**：捕获区 `RectTransform` 的五元组读回
+        /// （顺序 `aMin` · `aMax` · `pivot` · `anchoredPosition` · `sizeDelta`）。
+        /// <para>判据 = 原版 `bundle_scenes_scenes_battlearena2/RectTransform/RectTransform_3053.json`
+        /// 的**字面量**（13 个 `battlearena*` 包逐值相同）：
+        /// `(1,0)` / `(1,0)` / `(1,0)` / `(220.3900146484375, −146.0101776123047)` /
+        /// `(3707.830078125, 1985.3199462890625)`。⛔ 期望值别读本口反推（同义反复）。</para>
+        /// <para>没有那件 ⇒ `false` 且五个 `out` 全是 `NaN`（⛔ 别折成 0 —— 与「锚点真是 0」分不开）。</para></summary>
+        public bool HideButtonAnchorsForTest(out Vector2 aMin, out Vector2 aMax, out Vector2 pivot,
+                                             out Vector2 anchoredPos, out Vector2 sizeDelta)
+        {
+            aMin = aMax = pivot = anchoredPos = sizeDelta = new Vector2(float.NaN, float.NaN);
+            var rt = _hideBtn != null ? _hideBtn.Rect : null;
+            if (rt == null) return false;
+            aMin = rt.anchorMin;
+            aMax = rt.anchorMax;
+            pivot = rt.pivot;
+            anchoredPos = rt.anchoredPosition;
+            sizeDelta = rt.sizeDelta;
+            return true;
+        }
+
+        /// <summary>🆕 **2026-10-20（W58）**：捕获区是否**画在面板本体之下**（射线顺序正确）。
+        /// <para>判据 = 面板节点 `_panelRt` 与 `_bg`（`AbilityContainer`）**是同一父节点的兄弟**，
+        /// 且 `_panelRt.GetSiblingIndex() < _bg.GetSiblingIndex()`（Unity：先画 = 在下 = 射线后收）。</para>
+        /// <para>🔑 **为什么要断它**：`_panelRt` 是在 `BuildCanvas` 里手工 `new` 的节点，
+        /// 若不登记进 `HudCanvas` 的 z 账，后续平级件的 `SetSiblingIndex` 会把它挤到**最上层**
+        /// ⇒ 透明捕获区盖住面板，**点面板本体先命中捕获区（面板当场关掉）**（静默、不报错）。</para></summary>
+        public bool HideButtonBehindAbilityContainerForTest
+        {
+            get
+            {
+                var prt = _panelRt;
+                var bg = _bg != null ? _bg.Rect : null;
+                if (prt == null || bg == null || prt.parent == null || bg.parent != prt.parent) return false;
+                return prt.GetSiblingIndex() < bg.GetSiblingIndex();
+            }
+        }
+
+        /// <summary>🆕 **2026-10-20（W58）**：捕获区在【子画布局部坐标】（设计 px、中心原点、y 向上）的
+        /// **实测中心与尺寸** —— 断言 `CenterPx/SizePx` 用。
+        /// <para>**实测支**：`panel.localPosition + hide.localPosition + hide.rect.center`
+        /// （= Unity 按锚点排出来的真值；父尺寸由画布给）。⚠️ 这里**只读 Transform 的布局结果**，
+        /// ⛔ 不复用 `PanelCvRect` / `CanvasPx`（那是被测实现自己的另一条路）。</para>
+        /// <para>**退档支**（批处理里画布 `rect` 还没排过版 ⇒ 0×0）：按捕获区自己的锚点字段 +
+        /// `PanelCvRect`（它自己也有同一档退路）算同一格，并**出声一次**（⛔ 不静默假装量到）。</para>
+        /// <para>没有那件 / 没有父节点 ⇒ `false` 且两个 `out` 是 `NaN`。</para></summary>
+        public bool HideButtonCenterSizeForTest(out Vector2 centerPx, out Vector2 sizePx)
+        {
+            centerPx = sizePx = new Vector2(float.NaN, float.NaN);
+            var rt = _hideBtn != null ? _hideBtn.Rect : null;
+            var parent = rt != null ? rt.parent as RectTransform : null;
+            if (rt == null || parent == null) return false;
+
+            // ── 实测支：Unity 布局结果 ──
+            var rr = rt.rect;
+            var pr = parent.rect;
+            if (rr.width >= 1f && rr.height >= 1f && pr.width >= 1f && pr.height >= 1f)
+            {
+                sizePx = rr.size;
+                centerPx = (Vector2)parent.localPosition + (Vector2)rt.localPosition + rr.center;
+                return true;
+            }
+
+            // ── 退档支：锚点字段 + 面板矩形 ──
+            if (!_warnedHideGeoDegenerate)
+            {
+                _warnedHideGeoDegenerate = true;
+                Debug.LogWarning("[Battle] 技能面板：捕获区 / 面板的 `rect` 还量不到（批处理下画布没排过版）"
+                               + " ⇒ `HideButtonCenterSizeForTest` 按锚点字段 + `PanelCvRect` 算同一格（不静默）");
+            }
+            var r = PanelCvRect;
+            float spanX = rt.anchorMax.x - rt.anchorMin.x;
+            float spanY = rt.anchorMax.y - rt.anchorMin.y;
+            var size = new Vector2(spanX * r.width + rt.sizeDelta.x,
+                                   spanY * r.height + rt.sizeDelta.y);
+            var anchorRef = new Vector2((rt.anchorMin.x + spanX * rt.pivot.x) * r.width,
+                                        (rt.anchorMin.y + spanY * rt.pivot.y) * r.height);
+            var rel = anchorRef + rt.anchoredPosition
+                    + new Vector2((0.5f - rt.pivot.x) * size.x, (0.5f - rt.pivot.y) * size.y);
+            sizePx = size;
+            centerPx = new Vector2(r.xMin + rel.x, r.yMin + rel.y);
+            return true;
+        }
+        /// <summary>`HideButtonCenterSizeForTest` 退档支「出声一次」的闩（诊断用；正常路径恒 false）。</summary>
+        bool _warnedHideGeoDegenerate;
 
         /// <summary>uGUI 各事件的到达次数（灭自证：喂一次 uGUI = 1；世界侧手搓路**不经过这里**）。</summary>
         public int SkillPointerDownCountForTest { get { return _downCount; } }

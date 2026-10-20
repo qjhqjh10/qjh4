@@ -422,17 +422,21 @@ public static class CardFaceProbe
                   $"A1661 ⑤ 同一张表里别的关键词**照画**（`armour` 在、整表 {bl.Count} 条 —— "
                 + "不然「整个表都不画」也绿）");
 
-            // ⑥ **7 个位（含图标本体，不只是底板）都不许越出卡面** —— 判据 = **卡本体矩形**（卡单位，
-            //    `±CardUnitW/2 × ±CardUnitH/2` = ±1.04635 / ±1.66565；卡面每一层共用这套坐标）。
-            //    ⚠️ **口径写死在这里**：若把「卡面」读成**屏幕上那块 3D 网格体**
-            //    （`Card 3D WH40k` 2.0901 宽 × 它自己那个 `localScale 0.88586` ⇒ 半宽 **0.9286**，
-            //     见 `资料/3DBody_原版场上卡体规格.md:31,40`），那 7 个图标**都**会超出去 **0.0777** ——
-            //    而**原版那 7 个 `TraitIconContainer` 活在同一套【未缩放】空间里、超得一样多**
-            //    ⇒ 那一档**不是本笔改出来的**、也不是徽标线能定的（**另立一条账**，见报告 §五）。
-            //    🧨 改坏法：`Badges.IconOutward` / `IconSize` 调大一档 ⇒ 必红（并且下面那条会点名是哪一位）。
+            // ⑥ **7 个位（含图标本体，不只是底板）都不许越出【可见 3D 卡体】的左右边界** ——
+            //    🔴 **2026-10-20（`W58`）就地订正**：这里原来的口径是「卡面矩形 ±1.04635」，
+            //    还写着一句**前提错误**的注释（「按 3D 网格判 7 个都会超出去 0.0777 ⇒ 不是本笔改出来的」）——
+            //    超出去的是**带 `IconOutward` 的旧实现**，原版容器位根本不超。
+            //    判据（`资料/普查产出_1020/W58_战斗线_场上词条判据.md` §2·2）：
+            //    `Card 3D` localScale **0.88586** × 网格半宽 **1.0482** ⇒ **可见卡体半宽 0.9286**；
+            //    图标中心 = 容器 **±0.563**、半宽 `IconSize/2 = 0.228` ⇒ 外缘 **0.791 < 0.9286**（余 0.1376）。
+            //    ⚠️ **y 仍用卡面半高 ±1.66565**：7 个容器活在**未缩放的 3DBody 空间**里（`TraitIcons`
+            //    是 `3D Body` 的孩子、与 `Card 3D` 平级）⇒ 最上一行的板顶（1.0439）本来就在
+            //    缩放后网格顶（0.967）之上；**那是原版几何，不是缺陷**，代码与判据都不该把它判红。
+            //    🧨 改坏法：把 `IconOutward` / `IconSize` 调大一档 ⇒ 必红（下面那条「灭自证」也会点名）。
             {
                 float k = CardView.CardUnitW / CardView.Width;            // 世界 → 卡单位（今天 = 1，别写死）
-                float hw = CardView.CardUnitW * 0.5f, hh = CardView.CardUnitH * 0.5f;
+                const float visibleBodyHalfW = 0.9286f;                   // 0.88586 × 1.0482
+                float hw = visibleBodyHalfW, hh = CardView.CardUnitH * 0.5f;
                 float minClear = float.MaxValue, over = 0f;
                 string tight = "", worst = "";
 
@@ -462,15 +466,42 @@ public static class CardFaceProbe
                                  (ic.localPosition.x + ib.extents.x) * k, (ic.localPosition.y + ib.extents.y) * k);
                 }
                 Check(over <= 0f,
-                      $"A1661 ⑥ 7 个位（**图标本体 + 底板**）都在卡面矩形内（±{hw:F4} / ±{hh:F4}）"
+                      $"A1661 ⑥ 7 个位（**图标本体 + 底板**）都不越出**可见 3D 卡体**左右边界"
+                    + $"（半宽 ±{hw:F4}；y 用卡面半高 ±{hh:F4}，理由见源码注释）"
                     + $"；最紧的一处 = {tight} 余 {minClear:F4}" + (over > 0f ? " ⚠️ " + worst : ""));
 
-                // 再钉一条**原版几何**的：左右两列**图标外缘**距卡边 = `halfW − (|SlotAt.x| + IconOutward + IconSize/2)`
-                // = 1.04635 − 1.00625 = **0.0401**（原版那 7 个 `TraitIconContainer` 就在这儿）。
-                // 🧨 改坏法：`IconOutward` / `IconSize` 改大一档 ⇒ 必红（与上面那条**互相印证**）。
-                float pinned = hw - (Mathf.Abs(Badges.SlotAt(0).x) + Badges.IconOutward + Badges.IconSize * 0.5f);
-                Check(Mathf.Abs(pinned - 0.0401f) < 0.005f,
-                      $"A1661 ⑥ 图标外缘距卡边 0.0401 卡单位（原版那套几何常量定的），实际 {pinned:F4}");
+                // 再钉一条**原版几何**的：图标外缘 = 容器 **0.563** + 图标半宽 **0.228** = **0.791**，
+                // 距可见卡体半宽 0.9286 **余 0.1376**（原版 `TraitIconContainer` 就在这儿）。
+                // ⚠️ 期望值用**字面量**（0.563 / 0.228），⛔ 不再从 `Badges.IconOutward` 反推 ——
+                //    以前那条 `pinned = hw − (|SlotAt| + IconOutward + IconSize/2)` 是自证：
+                //    实现与期望同源，把 IconOutward 改回去两边一起变、断言还是绿的。
+                // 🧨 改坏法：`IconOutward` / `IconSize` 改大一档 ⇒ 必红。
+                float outer = Mathf.Abs(Badges.SlotAt(0).x) + Badges.IconSize * 0.5f;
+                Check(Mathf.Abs(outer - 0.791f) < 0.005f && visibleBodyHalfW - outer > 0.13f,
+                      $"A1661 ⑥ 图标外缘 = 0.563 + 0.228 = 0.791（实际 {outer:F4}），"
+                    + $"距可见卡体半宽 0.9286 余 {visibleBodyHalfW - outer:F4}");
+
+                // 🔴 **灭自证（`W58` 新增）**：直接读【视图里】7 个 `badgeIcon{i}` 的 `localPosition.x`，
+                //    与 `Badges.SlotAt(i).x`（= 原版容器位 ±0.563）**逐位相等**。
+                //    这一条**结构上不可能同时满足**「把 `IconOutward` 加回来、又同步改上面那条期望值」：
+                //    它比的是**原版容器位本身**，不是我们算出来的外缘。
+                //    🧨 改坏法：`BadgeIconAt01` 里再加任何外偏 ⇒ 7 位全部点名。
+                int badX = 0;
+                var badXMsg = new System.Text.StringBuilder();
+                for (int i = 0; i < Badges.MaxSlots; i++)
+                {
+                    var ic = bv.FaceLayerRoot.Find("badgeIcon" + i);
+                    if (ic == null) continue;
+                    float want = Badges.SlotAt(i).x;
+                    if (Mathf.Abs(ic.localPosition.x - want) > 1e-3f)
+                    {
+                        badX++;
+                        badXMsg.Append($"〔位{i} x {ic.localPosition.x:F4} ≠ {want:F4}〕");
+                    }
+                }
+                Check(badX == 0,
+                      "A1661 ⑥★ 灭自证：7 个图标的 `localPosition.x` = 原版容器位 `SlotAt(i).x`"
+                    + "（⛔ 不是「容器位 + 我们记的外偏」）" + (badX > 0 ? " ⚠️ " + badXMsg : ""));
             }
             Object.DestroyImmediate(root);
         }
