@@ -659,7 +659,8 @@ namespace CardPresentation
         //    段3  0.1s  `AppendInterval`（停在目标身上）
         //    段4  0.2s  `DOLocalMove(originalLocalPosInPlay)` **OutQuart**
         //    段5  0.2s  转向归位（回单位四元数）· **Join**
-        //  ⇒ **整条 0.4 s、命中在 t = 0.1 s**（收招那 0.3 s 由**挨打动画**覆盖，见 `EventTiming.MeleeImpactLag`）。
+        //  ⇒ **整条 0.4 s、命中在 t = 0.1 s**（收招那 0.3 s 由**挨打动画**覆盖；
+        //     命中帧在时间线上的位置 = `EventTiming.HitFrameLag`，伤害结算 = `EventTiming.MeleeDamageLag`）。
         //  ⚠️ 段1 用 `DOMove`（世界）而段4 用 `DOLocalMove`（局部）—— **别混**，原版就是这么写的。
 
         /// <summary>原版卡预制体 `playerAttackMargin` —— 出手时停在**离目标多远**（世界单位，沿归一化方向）</summary>
@@ -1314,19 +1315,54 @@ namespace CardPresentation
         /// 就是我们 `CardFeel.cs` 段4 写的 `Ease.OutQuart` ⇒ 两个值互相印证）。</summary>
         public const float CemeteryGrowTime = 0.3f;
 
-        /// <summary>阵亡视图的总寿命（秒）—— 从「引擎说它死了」到被收掉。
-        /// = 抖动（`DeathDissolve(isWarlord)`）+ <see cref="DeathHoldBeforeFx"/> + <see cref="DeathFxHold"/>。
-        /// **判据只此一处**（自检要按它推时间轴，别各写一份）。</summary>
-        public static float DeathTotal(bool isWarlord)
+        /// <summary>阵亡那条链的**时刻表**（秒，相对 <see cref="DeathExplosion"/> 起播）——
+        /// 「什么时候发生什么」的**判据只此一处**。
+        /// <para>🔴 **2026-10-21（W61 战斗线「新账-65」第 1 批 · 第 1 条）**：三拍改成**并行起算** ——
+        /// 原版 `DOShakePosition` 之后**没有** `yield return` 它，紧接着就是
+        /// `WaitForSeconds(gVars + 0x34)`（`CardScript._UnitDeath_d__446__MoveNext.c:114-126`，
+        /// 抖动那两行 `:110-116`、等待那几行 `:117-126`）⇒ **爆散体恒在 +0.5 s**，与抖动时长无关。
+        /// 我们原来写成 `Append(shake) → AppendInterval(0.5)`（串行）⇒ 爆散体 +0.7（小兵）/ +1.0（督军）、
+        /// 总寿命 0.9 / 1.2 —— **那 0.2/0.5 s 的偏差就是这条修掉的**。</para></summary>
+        public struct DeathBeats
         {
-            return DeathDissolve(isWarlord) + DeathHoldBeforeFx + DeathFxHold;
+            /// <summary>抖动**结束**的时刻（小兵 0.2 / 督军 0.5）。⚠️ 它**不是**任何一拍的开始 —— 原版不等它。</summary>
+            public float ShakeEnd;
+            /// <summary>关 3D 体 + 在卡位生成爆散体（原版 state 1）。**恒 0.5**（`deathTimeWarlordDuration`，不分档）。</summary>
+            public float BodyAt;
+            /// <summary>`GoToCemetery`（原版 state 2）。恒 **0.7**（= 0.5 + `minionDeathTime` 0.2）。</summary>
+            public float CemeteryAt;
         }
 
+        /// <summary>阵亡三拍的时刻表。判据见 <see cref="DeathBeats"/> 的注释（`_UnitDeath_d__446:110-126,374-379`）。</summary>
+        public static DeathBeats DeathBeatsOf(bool isWarlord)
+        {
+            DeathBeats b;
+            b.ShakeEnd = DeathDissolve(isWarlord);
+            b.BodyAt = DeathHoldBeforeFx;
+            b.CemeteryAt = DeathHoldBeforeFx + DeathFxHold;
+            return b;
+        }
+
+        /// <summary>阵亡视图的总寿命（秒）—— 从「引擎说它死了」到被收掉。
+        /// = <see cref="DeathBeats.CemeteryAt"/> = **0.7 s，小兵/督军同**（抖动与那 0.5 s 等待同帧起算）。
+        /// **判据只此一处**（自检要按它推时间轴，别各写一份）。
+        /// ⚠️ 参数保留只是为了让调用点不用改、并提醒「这一档现在**不分档**」——
+        ///   分档只体现在 <see cref="DeathBeats.ShakeEnd"/>（抖动长度），而抖动**不影响**总寿命。</summary>
+        public static float DeathTotal(bool isWarlord)
+        {
+            return DeathBeatsOf(isWarlord).CemeteryAt;
+        }
+
+        /// <summary>最近一次 <see cref="DeathExplosion"/> 里「爆散体生成」那一刻的**相对时刻**（秒，相对起播）。
+        /// 自检用它钉「抖动与那 0.5 s 等待**同帧起算**」—— 改回串行时这里会变成
+        /// `DeathDissolve + 0.5`（小兵 0.7 / 督军 1.0），断言当场红。</summary>
+        public static float LastDeathBodyAt { get; private set; }
+
         /// <summary>
-        /// **阵亡**：卡原地抖 → **0.5 s 后**在卡位生成死亡爆散体（并把 3D 体关掉）→ 再 0.2 s 后
-        /// `GoToCemetery` 把它挪到墓地卡位。
+        /// **阵亡**：卡原地抖（**不等它**）→ **同帧起算的 0.5 s 之后**在卡位生成死亡爆散体（并把 3D 体关掉）
+        /// → 再 0.2 s 后 `GoToCemetery` 把它挪到墓地卡位 ⇒ **总 0.7 s，小兵/督军同**。
         ///
-        /// 时间轴 / 每段的判据见上面那一段头注（原版是四拍协程，我们这里是一串 `Sequence`）。
+        /// 时间轴 / 每段的判据见上面那一段头注与 <see cref="DeathBeats"/>（原版是四拍协程，我们这里是一串 `Sequence`）。
         /// 取不到那件爆散体时**退回** <see cref="Dissolve"/>（旧表现）并出声。
         /// ⚠️ 收掉视图仍是**调用方**那件事（原版是 `CemeteryManager.AddCardToCemetery` 尾巴上的
         /// `SetActive(false)`，我们这边是 `onDone` → `Kill`）。
@@ -1358,12 +1394,19 @@ namespace CardPresentation
             }
 
             var tr = card.transform;
+            var beats = DeathBeatsOf(isWarlord);
             var seq = DOTween.Sequence();
-            // ① 抖（原版 state 0）—— ⚠️ **这时 3D 体还开着**（原版到第②拍才 `SetActive(false)`）
-            seq.Append(tr.DOShakePosition(DeathDissolve(isWarlord), new Vector3(DeathShakeX, DeathShakeY, 0f),
-                                          (int)DeathShakeVibrato, DeathShakeRandomness, false, true));
-            // ② 留一拍：`WaitForSeconds(deathTimeWarlordDuration)` → 这一帧才生成爆散体、关 3D 体
-            seq.AppendInterval(DeathHoldBeforeFx);
+            // ①② **同帧起算**（🔴 2026-10-21 · W61 第 1 批 · 第 1 条）：
+            //   原版 `DOShakePosition` **不等**它 —— 紧接着的那一句就是 `WaitForSeconds(gVars + 0x34)`
+            //   （`CardScript._UnitDeath_d__446__MoveNext.c:110-126`）⇒ 爆散体落在 **+0.5 s**。
+            //   ⛔ 别改回 `Append(shake) → AppendInterval(0.5)`：那是串行，爆散体会晚
+            //      0.2 s（小兵）/ 0.5 s（督军），总寿命变 0.9/1.2（本批修掉的正是它）。
+            seq.AppendInterval(beats.BodyAt);
+            // ① 抖（原版 state 0）—— ⚠️ **这时 3D 体还开着**（原版到第②拍才 `SetActive(false)`）；
+            //    用 `Insert(0f, …)` 让它与上面那句 `AppendInterval` **同帧起播**（= 原版的不 await）。
+            seq.Insert(0f, tr.DOShakePosition(DeathDissolve(isWarlord), new Vector3(DeathShakeX, DeathShakeY, 0f),
+                                              (int)DeathShakeVibrato, DeathShakeRandomness, false, true));
+            // ② 这一帧才生成爆散体、关 3D 体
             seq.AppendCallback(() =>
             {
                 card.SetBody3DVisible(false);
@@ -1372,9 +1415,13 @@ namespace CardPresentation
                                    + " ⇒ 这一张阵亡**没有爆散体**（原版 `UnitDeath` state 1 会 `Instantiate` 它）");
             });
             // ③ 再等 `minionDeathTime`（原版还有一句 `StopAnimsInPlay`，我们这套卡没有 Animation）
-            seq.AppendInterval(DeathFxHold);
+            seq.AppendInterval(beats.CemeteryAt - beats.BodyAt);
             // ④ `GoToCemetery`（原版紧接着还有一句 `SetActive(false)`，那是调用方的 `onDone`）
             seq.AppendCallback(() => GoToCemetery(card));
+
+            // 自检口：这一串里「爆散体」那一刻的**相对时刻**（由 `beats.BodyAt` 算出来的，
+            // ⛔ 不是另算一份）—— 断言拿它钉「同帧起算」，改回串行时它会变 0.2/0.5+0.5。
+            LastDeathBodyAt = beats.BodyAt;
 
             var t = CardTween.Use(seq, Ease.Linear, tr).SetDelay(delay);
             if (onDone != null) t.OnComplete(() => onDone());
@@ -1461,15 +1508,41 @@ namespace CardPresentation
             return lib.TryGet(name, out e);
         }
 
+        /// <summary>「这张卡没有 `body3D` 节点」只出声一次（别每张阵亡都刷一行）。</summary>
+        static bool _warnedNoBody3D;
+
         /// <summary>在卡位生成死亡爆散体（原版 `Instantiate(cardDestroyFX, 卡位置, 3D体旋转)`）。
-        /// `perCard` / `fx` 由 <see cref="PickDeathFx"/> 定好；返回 false = 这一刻放不出来（调用方出声）。</summary>
+        /// `perCard` / `fx` 由 <see cref="PickDeathFx"/> 定好；返回 false = 这一刻放不出来（调用方出声）。
+        /// <para>🔴 **2026-10-21（W61 第 1 批 · 第 6 条）：位姿照原版**。判据逐句 =
+        /// `CardScript._UnitDeath_d__446__MoveNext.c`：`:245-263` 位置取**卡 transform** 的 `position`、
+        /// 旋转取 **3D 体 transform 的 `rotation`**，`Instantiate(prefab, pos, rot)`；
+        /// 紧接着 `:266-274` `set_localScale(**3D 体 lossyScale**)`（**绝对赋值**，不是乘）。
+        /// 我们原来只传位置（`scale = 1f`、无旋转）⇒ 尺寸差 2.8×/1.45×（见对账 §2·5 #5）。</para></summary>
         static bool SpawnDeathBody(CardView card, string perCard, string fx)
         {
+            // 3D 卡体那一层（`CardView.BuildBody3D` 建的子节点，名字恒为 `body3D`；
+            // 同一个口 `Editor/BattleScene.cs:14092` 也在用）。取不到 = 这张卡没有 3D 体
+            // （例如 `CardView.DebugNoBody3D` 那条退回档）⇒ 退回卡根自己的位姿并**出声一次**。
+            var body = card.transform.Find("body3D");
+            if (body == null && !_warnedNoBody3D)
+            {
+                _warnedNoBody3D = true;
+                Debug.LogWarning($"[CardFeel] 阵亡爆散体：卡 `{card.Data.id}` 上找不到 `body3D` 节点 "
+                               + "⇒ 位姿退回**卡根**（原版取 3D 体的 rotation / lossyScale；"
+                               + "没有 3D 体的卡本来就没有那个等价物）");
+            }
+            Quaternion rot = body != null ? body.rotation : card.transform.rotation;
+            Vector3 scale = body != null ? body.lossyScale : card.transform.lossyScale;
+
             var p = WarpforgeVFX.WarpforgeEffectPlayer.Play(fx, null, card.transform.position, 1f);
             // 逐卡那件**在库里**、但这一刻放不出来 ⇒ 照老写法退回默认件再试一次（原版 `:240` 那个判别式）。
             if (p == null && !string.IsNullOrEmpty(perCard))
                 p = WarpforgeVFX.WarpforgeEffectPlayer.Play(DeathBodyFx, null, card.transform.position, 1f);
             if (p == null) return false;
+            // 位姿：**两个出口都要写**（逐卡件 / 默认件）—— 原版那一句 `set_localScale` 在二选一**之后**。
+            // ⚠️ 父节点是 null ⇒ local 就是 world；`Play` 只在 `scale != 1` 时乘，这里传的就是 1 ⇒ 直接赋值等价。
+            p.transform.rotation = rot;
+            p.transform.localScale = scale;
             // 原版从卡上借贴图：`_CardImage = rawCard.cardSprite.texture` · `_MatCap = GetCardMatCapByCardTier(tier)`，
             // 再给爆散纹理一个**随机偏移**（`_ExplosionTextureOffsetModifier = Random.value`）。
             var art = card.BodyArtTexture;

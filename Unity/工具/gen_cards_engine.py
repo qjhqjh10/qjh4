@@ -1158,6 +1158,113 @@ def load_ability_trigger_names():
                                  body.group(1), re.M)}
 
 
+# ==========================================================================================
+#  🆕 2026-10-21（引擎线 `T03·c` 批 B · 第 0 步 · 数据层）：`CardAbility.priority` → 逐卡 `triggerPriority`
+# ==========================================================================================
+# 判据：`资料/普查产出_1021/W61_引擎线_T03c批B判据.md` §2.1 / §2.2 / §2.6（第一权威 = 全量反编译
+#   `d:/2/tools/decomp_full/`）：
+#   · 原版 `CardAbility.priority`（`ActionPriority`）**默认 1 = Instant**
+#     （`CardAbility__.ctor.c:5` 写 `+0x18 = 1`）⇒ 本列**只落 != 1 的**，缺键即 1。
+#   · 分道：0→Player · 1→Instant · 2→Interrupt · 3→DelayedInstant；其他值在
+#     `BattleManager__AddAutoActionToQueue` 里 **LogError 并丢弃**（⛔ 不 clamp、不默认）。
+#   · 消费序 = Interrupt(2) → Instant(1) → DelayedInstant(3) → Player(0)（⛔ 不是按枚举数值排）。
+#
+# 🔴 **本列的键 = 引擎侧的【触发关键词】**（与 `Core/CardDef.cs` 的 `KeywordTable.*` 同一套字符串）——
+#    原版 priority 是**逐 ability** 的，而我们引擎今天按**关键词**路由触发正文
+#    （`CardDef.TriggerOps(keyword)` / `FireTriggerAt` / `FireTriggerAlways` / `FireTriggerOnSide` / `SpiritOps`）
+#    ⇒ 只有「引擎真的按这个关键词发」的触发才表达得成一行 `{"keyword", "priority"}`。
+#    收词三条（缺一条都不收）：
+#      ① `AbilityTrigger` 枚举里真有这个值（`d:/2/Warpforge_code/Scripts/Assembly-CSharp/AbilityTrigger.cs` 现读）；
+#      ② `CardDef.RoutableTriggers` 里有这个关键词（引擎收得到正文）；
+#      ③ 引擎**有**按它发触发的调用点（`RuleCore` / `EffectResolver` 现核，逐行写在值后面）。
+#    ⛔ **没收的那些是【结构性表达不出】，不是漏做**：0 `ThisCardPlayed`（单位 Rally 正文 / 战术卡正文，
+#       走 `ResolveDeploy` / `Desc` 那条路，**没有关键词**）· 30/31 `TurnStart*` 与 40/41 `TurnEnd`
+#       （走 `ResolveAtTurn(ctx, "turn_start"/"turn_end")`，**没有关键词**）· 190/195 `*UnitSummoned`
+#       （`WhenEvent.Deploy`）· 80/90 `*UnitDeath`（`WhenEvent.Die`）· 510/515/520 标记族
+#       （`WhenEvent.Gets*`）· 410 / 500 / 605 / 610 / 650 / 695 …（见 `资料/卡牌制作_三张表.md` 表 A
+#       的「我们引擎对应事件」那一列）。**这些原版有 priority 的照样在跑完读数里报出来**
+#       （`report["unmapped"]`）—— 等队列接进 `WhenEvent` 那一层再落，⛔ 不在这里编造键名。
+ABILITY_TRIGGER_KEYWORD = {
+    120: "slay",           # Slay           → KeywordTable.Slay（`FireTriggerAlways(Slay)`）
+    145: "codex",          # Codex          → KeywordTable.Codex
+    220: "sacrifice",      # Sacrifice      → KeywordTable.Sacrifice
+    280: "abouttoattack",  # AboutToAttack  → KeywordTable.AboutToAttack
+    300: "mob",            # Mob            → KeywordTable.Mob
+    301: "regiment",       # Regiment       → KeywordTable.Regiment
+    420: "survivor",       # Survivor       → KeywordTable.Survivor
+    440: "landing",        # Landing        → KeywordTable.Landing
+    560: "artifice",       # Artifice       → KeywordTable.Artifice（`FireTriggerOnSide(Artifice)`）
+    580: "strike",         # Strike         → KeywordTable.Strike
+    600: "spiritstone",    # UseSpiritStone → KeywordTable.SpiritStone（正文走 `SpiritOps`）
+    655: "pray",           # Pray           → KeywordTable.Pray（`UseAlternative`）
+    662: "duty",           # Duty           → KeywordTable.Duty（`UseAlternative`）
+    670: "ambush",         # Ambush         → KeywordTable.Ambush
+    680: "uprising",       # Uprising       → KeywordTable.Uprising（`FireUprising`）
+    690: "teleport",       # Teleport       → KeywordTable.Teleport
+    705: "agenda",         # Agenda         → KeywordTable.Agenda（`UseAlternative`）
+    710: "stimulation",    # Stimulation    → KeywordTable.Stimulation
+    715: "ecstasy",        # Ecstasy        → KeywordTable.Ecstasy（`FireTriggerOnBoard`）
+    720: "cruelty",        # Cruelty        → KeywordTable.Cruelty
+    725: "ferocity",       # Ferocity       → KeywordTable.Ferocity（`UseAlternative`）
+}
+
+# 原版默认值 = Instant(1)。**只落 != 它的**（判据见上一段）。
+TRIGGER_PRIORITY_DEFAULT = 1
+# 原版 `ActionPriority` 的合法值；别的值原版 LogError 丢弃 ⇒ 本生成器照样**出声**、不落（`report["bad"]`）。
+TRIGGER_PRIORITY_VALID = (0, 1, 2, 3)
+
+
+def trigger_priorities_of(cid, name, trow, trig_names, report):
+    """一张卡 → `[{"keyword": …, "priority": …}, …]`（**只收 != 1 的**，按 keyword 排序）。
+
+    🔴 **GOF97 陷阱**（判据报告 §4.A 第 0 步）：有的卡在**同一个 trigger** 下有两条 ability ——
+       一条 `priority=0` 但 `abilityLogic` **为空**（占位/模板），另一条 `priority=1` 才是真效果。
+       实测（2026-10-21 现读）：`Gargantuan Squiggoth`（`GOF97`）第 0 条
+       `trigger=0 / priority=0 / logic=0`、第 1 条 `trigger=0 / priority=1 / logic=2`。
+       ⇒ **只看「该 trigger 下有 logic 的那条」**：空 logic 的 ability **没有动作可排队**，
+       它的 priority **不落**（否则 GOF97 会被记成 `priority=0`、凭空多一条 Player 道）。
+
+    ⚠️ **同一张卡、同一个关键词出现两个不同 priority** ⇒ 本列一格只能一个值、表达不出 ⇒
+       **整条丢掉并出声**（`report["conflict"]`），⛔ 不挑一个、不取 max（那就是静默编口径）。
+       （2026-10-21 现读：0 条。）
+    """
+    if trow is None:
+        report["no_truth"] += 1
+        return []
+    by_kw = {}
+    for i, ab in enumerate(trow.get("cardAbilities") or []):
+        pr = ab.get("priority", TRIGGER_PRIORITY_DEFAULT)
+        if isinstance(pr, bool) or not isinstance(pr, int):
+            report["bad"].append((cid, name, i, ab.get("trigger"), pr))
+            continue
+        if pr == TRIGGER_PRIORITY_DEFAULT:
+            continue                    # 默认值不落（本列的约定：缺键 = 1）
+        if pr not in TRIGGER_PRIORITY_VALID:
+            # 原版 `AddAutoActionToQueue` 对非法值 LogError 并**丢弃**（判据报告 §2.2）⇒ 不出声就是静默。
+            report["bad"].append((cid, name, i, ab.get("trigger"), pr))
+            continue
+        if not (ab.get("abilityLogic") or []):
+            report["empty_logic"].append((cid, name, i, ab.get("trigger"), pr))
+            continue
+        tg = ab.get("trigger")
+        kw = ABILITY_TRIGGER_KEYWORD.get(tg)
+        if kw is None:
+            report["unmapped"].append((cid, name, trig_names.get(tg, ""), tg, pr))
+            continue
+        by_kw.setdefault(kw, set()).add(pr)
+    out = []
+    for kw in sorted(by_kw):
+        prs = by_kw[kw]
+        if len(prs) > 1:
+            report["conflict"].append((cid, name, kw, sorted(prs)))
+            continue
+        out.append({"keyword": kw, "priority": next(iter(prs))})
+    if out:
+        report["cards"] += 1
+        report["rows"] += len(out)
+    return out
+
+
 def load_anim_guid_index(report):
     """`guid_map_bundles.tsv` → `{guid: (name, bundle, type, className)}`。
 
@@ -2099,6 +2206,14 @@ def build():
     anim_trig_names = load_ability_trigger_names()
     # 🆕 2026-10-19（`E12` · `A2142`）：天赋名 → id 表的跑完读数
     talent_name_report = {"keys": 0, "conflicts": 0, "conflict_rows": []}
+    # 🆕 2026-10-21（引擎线 `T03·c` 批 B）：`triggerPriority` 的跑完读数 ——
+    #   `cards`/`rows` = 落值的卡数/条数；其余五个口都是「**没落成**」的原因，**一条都不许吞**
+    #   （`no_truth` = 真值快照里没有这张卡 ⇒ 不知道它有没有非默认 priority；`bad` = 非法值；
+    #    `empty_logic` = 有 priority 但 abilityLogic 为空（GOF97 那一类）；
+    #    `unmapped` = 触发时机在我们引擎里**没有关键词**（见 `ABILITY_TRIGGER_KEYWORD` 上面那段）；
+    #    `conflict` = 同卡同关键词两个不同 priority，表达不出）。
+    trigger_priority_report = {"cards": 0, "rows": 0, "no_truth": 0,
+                               "bad": [], "empty_logic": [], "unmapped": [], "conflict": []}
     if not anim_trig_names:
         print(f"⚠️ 读不到 `AbilityTrigger` 枚举桩 {ABILITY_TRIGGER_STUB} ⇒ `animTimes[].tn` 将全空"
               f"（数值 `tg` 照落；⛔ 不猜名字）")
@@ -2571,6 +2686,13 @@ def build():
         if _anim:
             anim_report["cards"] += 1
             anim_report["rows"] += len(_anim)
+        # ---- 🆕 2026-10-21（引擎线 `T03·c` 批 B · 第 0 步）：逐触发关键词的 `priority` ----------
+        # 判据 / 收词三条 / 未收的那些为什么收不了 → `ABILITY_TRIGGER_KEYWORD` 上面那段长注释。
+        # ⚠️ **只落 != 1 的**（缺键 = 原版默认 1 = Instant）；全池今天只有 4 张卡有非默认值。
+        # 形状 = `[{"keyword": …, "priority": …}]`（`JsonUtility` 不支持字典，与 `talentNameIds` 同一条口径）。
+        _tp = trigger_priorities_of(cid, name, trow, anim_trig_names, trigger_priority_report)
+        if _tp:
+            entry["triggerPriority"] = _tp
         # ---- 卡面逐张核对修正（2026-09-13）----
         # 上面那两列 `subtype` / `keywords` 都是**从 OCR 那份源表来的**，实测会串列、会掉数值。
         # 这一层用「1118 张逐张看卡图独立抄」的结果盖掉 —— 见 `CARD_FACE_FIXES_SRC` 的长注释。
@@ -3023,7 +3145,7 @@ def build():
     talent_name_ids = build_talent_name_ids(truth_cards, truth_by_path, cards, talent_name_report)
 
     return {
-        "version": 12,         # v6: 每张卡带稳定 id（🔴 2026-10-18 `W25` 起按原版 `uniqueId` 直取，
+        "version": 13,         # v6: 每张卡带稳定 id（🔴 2026-10-18 `W25` 起按原版 `uniqueId` 直取，
                                #    名级联降为交叉校验；自造 = 生成期自检硬失败）
                                # v7（2026-10-14 `A1798`）：加 `inventoryOptions` / `showInCollectionOptions` 两列
                                # v8（2026-10-14 `A1775`）：加 `initiative` 一列（先后手；原版真值）
@@ -3049,6 +3171,13 @@ def build():
                                #    的对象引用 → 我们池子的 id，键 = `CreatePool.Norm` 归一后的名字。
                                #    `SpawnTalents` 的「按显示名查卡」兜底先查它（按 id 取），
                                #    ⛔ 不再是「改名即静默失配」。
+                               # v13（2026-10-21 第六十一会话 · 引擎线 `T03·c` 批 B · 数据层）：
+                               #    加逐卡 **`triggerPriority`**（触发关键词 → 原版 `CardAbility.priority`，
+                               #    **只落 != 1 的**，缺键 = 1 = Instant）—— 判据
+                               #    `资料/普查产出_1021/W61_引擎线_T03c批B判据.md` §2.1/§2.2。
+                               #    ⚠️ 加列【必须】bump（`CardDatabase.cs` 的 version 守卫靠它出声）。
+                               #    🔴 今天**还没有消费者**：`CardDef.TriggerPriority(keyword)` 已就位，
+                               #       `CardDatabase.CardDto` 那一跳（读列 → 传给 `CardDef` 构造）**另批做**。
         "source": "Unity/数据/游戏数据/card_stats.json（稀有度另取 资料/卡牌数据表/卡牌宝石稀有度_0824.md；"
                   "英文名 / 中文名都以**原版官方表** 数据/游戏数据/官方本地化_en+zh-CN.json 的 `Card_Name/*` 为准"
                   "（🔴 2026-10-18 用户改判：**`name` 也换官方显示名** —— 此前「卡名一个字不动」的 PnP 时代口径作废；"
@@ -3152,7 +3281,7 @@ def build():
         rarity_truth_filled, rarity_src_truth, rarity_src_table, rarity_src_source,
         orphan_rarity_key), \
        (offname_hit, offname_same, offname_miss, off_names_stats), \
-       choices_report, anim_report, talent_name_report
+       choices_report, anim_report, talent_name_report, trigger_priority_report
 
 
 def fix_own_armour(entry):
@@ -3215,7 +3344,7 @@ def main():
      art_guard_bad, art_known_bad, key_conflicts,
      goes_second, off, off_desc,
      inv, init, truth, rarity_guard, offname, choices_report, anim_report,
-     talent_name_report) = build()
+     talent_name_report, trigger_priority_report) = build()
     offname_hit, offname_same, offname_miss, off_names_stats = offname
     id_direct, id_cascade, id_cross_mismatch, direct_ambiguous = id_new
     def_report, _gs_n, _gs_hero, _gs_missing_fac = goes_second
@@ -3874,6 +4003,27 @@ def main():
     if talent_name_report["conflicts"]:
         print(f"  ⚠️ 一个名字指向多张卡、**整条丢掉**（⛔ 不猜）：{talent_name_report['conflicts']} 条 —— "
               + "；".join(f"`{k}` → {ids}" for k, ids in talent_name_report["conflict_rows"][:5]))
+
+    # 🆕 2026-10-21（引擎线 `T03·c` 批 B · 第 0 步）：`triggerPriority` 的覆盖率
+    #    ＋ **每一个没落成的口都出声**（本工程红线：静默失败比报错更贵）。
+    _tp = trigger_priority_report
+    print(f"触发优先级   `triggerPriority` 落值 **{_tp['cards']}/{doc['count']}** 张 · {_tp['rows']} 条"
+          f"（原版 `CardAbility.priority`，**默认 1 省略** —— 判据 `W61_引擎线_T03c批B判据.md` §2.1）")
+    if _tp["no_truth"]:
+        print(f"  ⚠️ 真值快照里没有的卡 {_tp['no_truth']} 张 —— 它们的 priority **未知**"
+              "（≠「没有非默认值」；快照比现池旧，见 `TRUTH_CARDS_SRC`）")
+    for _cid, _nm, _i, _tg, _pr in _tp["bad"]:
+        print(f"  🔴 非法 priority：{_cid} {_nm} 第 {_i} 条 ability（trigger={_tg}）priority={_pr!r}"
+              " ⇒ **丢弃**（原版 `AddAutoActionToQueue` 对非法值 LogError 后丢弃，⛔ 不 clamp）")
+    for _cid, _nm, _i, _tg, _pr in _tp["empty_logic"]:
+        print(f"  ℹ️ 有 priority 但 `abilityLogic` 为空：{_cid} {_nm} 第 {_i} 条"
+              f"（trigger={_tg} priority={_pr}）⇒ 没有动作可排队、**不落**（GOF97 那一类）")
+    for _cid, _nm, _tn, _tg, _pr in _tp["unmapped"]:
+        print(f"  ℹ️ 引擎没有关键词的触发：{_cid} {_nm} · trigger={_tg} {_tn} · priority={_pr}"
+              " ⇒ **不落**（等队列接进 `WhenEvent` 那一层；⛔ 不编造键名）")
+    for _cid, _nm, _kw, _prs in _tp["conflict"]:
+        print(f"  🔴 同卡同关键词两个不同 priority：{_cid} {_nm} · `{_kw}` = {_prs}"
+              " ⇒ **整条丢掉**（一格只能一个值，表达不出）")
 
     if args.check:
         if os.path.exists(DST):

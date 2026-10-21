@@ -154,6 +154,20 @@ public static class EffectExporter
         { "Legacy Shaders/Particles/Alpha Blended Premultiply", "WarpforgeVFX/Particles/Extra Color*" },
         { "Legacy Shaders/Particles/Anim Alpha Blended",    "WarpforgeVFX/Particles/Extra Color*" },
         { "UI/Additive",                                    "WarpforgeVFX/Particles/Extra Color*" },
+
+        // ---- 🆕 2026-10-21（`A1325` 第三跳）：**TMP 那两跳的材质**（`CardPrefab` 的 9 种描边材质）----
+        // 不写这一条也不坏：`ImportMaterial` 在表里查不到时会退到 `Shader.Find(src.shader.name)`
+        // （`:2740`），而 `TextMeshPro/Distance Field` 在工程里**确实有**
+        // （`Assets/TextMesh Pro/Shaders/TMP_SDF.shader:1`）⇒ 照旧 `approx = false`。
+        // 显式写出来是为了让「TMP 族」在表里可见 —— 与下面那条近似档放在一起才看得出区别。
+        { "TextMeshPro/Distance Field",                     "TextMeshPro/Distance Field" },
+        // ⚠️ **近似**：原版 `CardPrefab` 里 `Pragati-Regular White_thick Offset for 3D`（4 条）用的就是它，
+        //    而本地 TMP Essentials 的 13 张 shader 里**没有这个名字**（只有 `Distance Field`，没有 `Offset`）。
+        //    判据与运行时表**同一条** → `WarpforgeVFX/Runtime/WarpforgeShaderMap.cs:338-343`
+        //    （那里也写了「不映射的话运行时报找不到 shader ⇒ 那个材质槽保留占位 ⇒ 整块渲成洋红」）。
+        //    ⛔ 别把它漏给下面的兜底：它不含 `Particles`/`FX/` ⇒ 会掉进 `Universal Render Pipeline/Unlit`，
+        //    那是**文字**材质，套 Unlit 等于这一格画不出来。
+        { "TextMeshPro/Distance Field Offset",              "TextMeshPro/Distance Field*" },
     };
 
     const string ReportPath = Root + "/导出报告.tsv";
@@ -757,13 +771,22 @@ public static class EffectExporter
         //   的 `_unresolved`（生成器每次重跑都会自己报这条）。
         "Orks Environmental Condition Night",
         // 🆕 **2026-10-21（第六十会话）**：修了导出器两处缺口后要重导的那几件 ——
-        //   · 3 条 OrkBuff：骷髅发射器 `UVModule.sprites` 全 guid 0（图集 `Skull Particle icons`
-        //     走新加的已知图集兜底）；判据 → `W60_真机与Unity_结果.md` §九 / `EffectExporter.TryKnownAtlasFallback`
+        //   · 3 条 OrkBuff：骷髅发射器 `UVModule.sprites` 全 guid 0（图集 `Skull Particle icons`）
+        //     🔴 **2026-10-21 就地订正（铁律 5 · W61 现核）**：本行原来写「走新加的已知图集兜底」——
+        //     **实际走的是 ③ `m_RenderDataMap`**（`export_listed_1021.log:5574/5596/6387/6409`），
+        //     导出的 4 张 PNG 与原图集逐像素相同；`KnownUvModuleSprites` 那支只在 `GetSprite` 读成 null 时兜底。
+        //     判据 → `资料/普查产出_1021/W61_特效_E60_OrkBuff.md` §2。
         //   · `Explosion Hive Fleet Arrival Tendrils OLD`：4 个 `SkinnedMeshRenderer.m_Mesh` 全 guid 0
         //     （新加 SMR 分支）。
         "OrkBuff_Recall",
         "OrkBuffGreenWaaagh",
         "OrkBuff_Snakebitez_2_Intense",
+        // 🆕 **2026-10-21（W61 顺手发现）**：同族另外两件**同一个病**（骷髅 `UVModule.sprites`
+        //   仍是 `{fileID: <原包 pathID>, guid: 0}` 的伪引用；prefab 停在 **10-10 16:08** 那一版）。
+        //   判据 → `资料/普查产出_1021/W61_特效_E60_OrkBuff.md` §5：全工程这样的一共 **35 件 / 50 格**，
+        //   这两件先跟本批一起重导（其余见报告，别在这份名单里一把梭）。
+        "OrkBuff_KrumpDaGitz",
+        "OrkBuff_Snakebitez_2",
         "Explosion Hive Fleet Arrival Tendrils OLD",
         // 🆕 **2026-10-01**：`AnimFXModuleChangeMaterial` 的那 3 个效果 —— 它们要的材质
         //   原来**只被模块字段引用**、挂在渲染器上根本看不见，所以从来没过导出器
@@ -1873,7 +1896,51 @@ public static class EffectExporter
             for (int i = 0; i < n; i++)
             {
                 var s = tsa.GetSprite(i);
-                if (s == null) continue;
+                if (s == null)
+                {
+                    // 🆕 **2026-10-21（W61）：`s == null` 这一支不再静默 `continue`。**
+                    //   三件 OrkBuff 的骷髅发射器就是在这里丢的：旧循环一句 `continue` ⇒ `ImportSprite` 根本没跑
+                    //   ⇒ prefab 里留下 `sprites: - sprite: {fileID: 0}`（或从实例带过来的
+                    //   `{fileID: <原包 pathID>, guid: 0}` 伪引用）⇒ 运行时粒子退化成**白色方块**
+                    //   ⇒ 台账里那三条「偏亮 1.46 / 1.48 / 1.54×」。
+                    //   分工：
+                    //     ① 这条 PS 的路径命中 `KnownUvModuleSprites`（**原包里逐槽核过的 16 个槽**）⇒
+                    //        按图集真值 rect 直接裁一张精灵补上（`spriteCount == 1` 才走，绝不按序号猜）；
+                    //     ② 表外的 null 槽：**只有**「模块启用 + mode = Sprites」才出声（其余是 Unity 的
+                    //        默认单元素空表，本来就不该有精灵 —— 出声只会把日志刷满）。
+                    //   ⛔ 两条都不拿别的图顶上（那等于静默画错一张）。
+                    if (n == 1 && i == 0 && tsa.mode == ParticleSystemAnimationMode.Sprites
+                        && TryKnownUvModuleSprite(inst, ps, out var knownName, out var knownRect))
+                    {
+                        var ktex = FindTextureInPacks(KnownSkullAtlasTexture);
+                        if (ktex != null && InAtlasBounds(ktex, knownRect))
+                        {
+                            var knownPivot = new Vector2(knownRect.width * 0.5f, knownRect.height * 0.5f);
+                            var importedKnown = ImportSpriteFromRect(knownName, ktex, knownRect, 100f,
+                                                                    knownPivot, knownRect.size, Vector4.zero);
+                            if (importedKnown != null)
+                            {
+                                ps.textureSheetAnimation.SetSprite(i, importedKnown);
+                                Debug.Log($"[EffectExporter] `UVModule.sprites` 第 {i} 格在 "
+                                        + $"`{inst.name}/{TransformRelPath(inst.transform, ps.transform)}` 上是 null "
+                                        + $"⇒ **走已知槽位表**补成 `{knownName}`（图集 `{ktex.name}` · 裁切 "
+                                        + $"({knownRect.x},{knownRect.y},{knownRect.width},{knownRect.height})）");
+                                continue;
+                            }
+                        }
+                        Debug.LogWarning(EX1 + $"`UVModule.sprites` 第 {i} 格在 "
+                                       + $"`{inst.name}/{TransformRelPath(inst.transform, ps.transform)}` 上是 null；"
+                                       + $"已知槽位表说它该是 `{knownName}`，但图集纹理 `{KnownSkullAtlasTexture}` "
+                                       + "取不到或 rect 越界 ⇒ 这一格留空");
+                        continue;
+                    }
+                    if (tsa.mode == ParticleSystemAnimationMode.Sprites && tsa.enabled)
+                        Debug.LogWarning(EX1 + $"`UVModule.sprites` 第 {i} 格在 "
+                                       + $"`{inst.name}/{TransformRelPath(inst.transform, ps.transform)}` 上是 null"
+                                       + $"（spriteCount={n} · 模块已启用）⇒ 这一格留空"
+                                       + "（若是原版非空槽，先按原包证明清楚再加进 `KnownUvModuleSprites`）");
+                    continue;
+                }
                 var imported = ImportSprite(s);
                 // ⚠️ **直接挂在属性上**（2026-09-19 实测：`TextureSheetAnimationModule` 是结构体，
                 //    `AddSprite` 走局部副本**不生效**；`SetSprite` 实测有效，但**统一写法**，
@@ -2033,19 +2100,95 @@ public static class EffectExporter
             }
         }
 
+        // ---- 🆕 2026-10-21（`A1325` 第三跳）：**TMP 的 `m_sharedMaterial`（第二跳的材质半边）** ----
+        // 上面那段头注写的「两跳」只有 `m_Sprite` 与 TMP `m_fontAsset`；**材质这一跳一直没人显式接**，
+        // 而是靠 `t.font = f` 的**副作用**顺带改 —— 而那个副作用是**有条件的**：
+        // `TextMeshProUGUI.cs:1256-1263` 只在「`m_sharedMaterial` 为 null / 没有 `_MainTex` /
+        //  `_MainTex` 不是 `m_fontAsset.atlasTexture`」时才把它改成 `m_fontAsset.material`。
+        // ⇒ 原版 `CardPrefab` 里 38 条 `m_sharedMaterial` 指向 **9 种描边材质**，被**统一成 2 种**
+        //   （两份字体各自自带的那一份）—— 描边粗细 / 描边色 / `_FaceColor` / `_GradientScale` 全部丢掉。
+        //   现读产物 `Prefabs/CardPrefab.prefab` 正是这个结果：38 条只剩 **2** 个 guid
+        //   （`Pragati-Regular Atlas Material` ×30 · `Asar-Regular Atlas Material` ×8）。
+        //   ⚠️ `check_prefab_refs.py` **看不出来**（refs 都解析得到，只是指错了东西）——
+        //   判据得数「不同的 guid 个数 = 9」，见报告 §6。
+        // 写法照 `BoosterPackExporter.cs:600-620`：逐条 `ImportMaterial` → `fontSharedMaterial`。
+        // 🔴 **顺序**：必须**先读 `m_sharedMaterial`、再设 `t.font`** —— 设字体那一下会把序列化字段覆盖掉，
+        //    反过来的话读到的永远是字体自带材质（= 把原版值读没了，而且**看着完全正常**）。
+        // ⚠️ 纪律同上面几支：**接不上就留空 + 点名出声**，⛔ 不拿别的材质顶上。
         int tmpFontOk = 0, tmpFontMiss = 0;
+        int tmpMatOk = 0, tmpMatMiss = 0, tmpMatApprox = 0, tmpMatAtlasRebound = 0, tmpMatAlreadyProject = 0;
         var missingFonts = new Dictionary<string, int>();
+        var missingMats = new Dictionary<string, int>();
+        // `ShaderUtilities.ID_MainTex` 是 `GetShaderPropertyIDs()` 里填的（TMP 自己在 `LoadFontAsset()` 开头也调它）；
+        // 这里显式先调一次，免得「字体没接上 ⇒ 没走进 LoadFontAsset ⇒ ID 还是 0」时读错属性。
+        TMPro.ShaderUtilities.GetShaderPropertyIDs();
         foreach (var t in inst.GetComponentsInChildren<TMPro.TMP_Text>(true))
         {
+            // ① 先读原版材质（见上面那段「顺序」）。
+            var srcMat = SerializedFieldRef(t, "m_sharedMaterial") as Material;
+
+            // ② 字体那一跳（原样保留）。
             var srcFont = SerializedFieldRef(t, "m_fontAsset") as TMPro.TMP_FontAsset;
-            if (srcFont == null) continue;
-            var f = FindProjectAsset<TMPro.TMP_FontAsset>(srcFont.name);
-            if (f != null) { t.font = f; tmpFontOk++; }
-            else
+            TMPro.TMP_FontAsset f = null;
+            if (srcFont != null)
             {
-                tmpFontMiss++;
-                missingFonts[srcFont.name] =
-                    (missingFonts.TryGetValue(srcFont.name, out int c0) ? c0 : 0) + 1;
+                f = FindProjectAsset<TMPro.TMP_FontAsset>(srcFont.name);
+                if (f != null) { t.font = f; tmpFontOk++; }
+                else
+                {
+                    tmpFontMiss++;
+                    missingFonts[srcFont.name] =
+                        (missingFonts.TryGetValue(srcFont.name, out int c0) ? c0 : 0) + 1;
+                }
+            }
+
+            // ③ 材质那一跳。
+            if (srcMat == null) continue;          // 原版本来就空的那种（不算「丢」）
+            // 3D `TMPro.TextMeshPro` 的渲染器在 `:1769` 那圈里**已经导过**（材质池是同一个）⇒ 直接复用。
+            // ⛔ 别在这里二次 `ImportMaterial` —— 源已经是工程资产时那等于「自己导自己」。
+            if (AssetDatabase.Contains(srcMat))
+            {
+                t.fontSharedMaterial = srcMat; tmpMatOk++; tmpMatAlreadyProject++;
+                continue;
+            }
+            var pm = ImportMaterial(srcMat, out bool tmpApprox, out string tmpShader);
+            if (pm == null)
+            {
+                tmpMatMiss++;
+                missingMats[srcMat.name] =
+                    (missingMats.TryGetValue(srcMat.name, out int c1) ? c1 : 0) + 1;
+                Debug.LogWarning($"[EffectExporter] A1325 `{src.name}` / `{t.gameObject.name}` 上的 TMP `m_sharedMaterial`"
+                    + $"（`{srcMat.name}` · 原 shader `{tmpShader}`）导不成工程材质 ⇒ **这一格留空**"
+                    + "（⛔ 不拿空材质顶上；⚠️ TMP 随后会按 `LoadFontAsset()` 回落成**字体自带材质** ——"
+                    + " 那是近似，不是原版那一份描边）");
+                continue;
+            }
+            // 🔴 **图集守卫**：TMP 认材质的前提是「`_MainTex` == 该字体的图集」——
+            //    否则下次 `LoadFontAsset()`（运行时 Awake/OnEnable 就会走）又会把这一格改回字体自带材质，
+            //    **9 种描边在游戏里重新塌成 2 种，而且一声不吭**。
+            //    今天两者通常是同一份资产（`ImportTexture` 落到的路径恰好就是字体图集那份 `.png`），
+            //    所以这一支一般是空转；写在这里是**把「恰好」变成「保证」**（字体资产一换名就会踩）。
+            //    ⚠️ 同一条资产时 `ImportTexture` 的 `SaveAndReimport()` 会把贴图对象换掉，而
+            //       `TMP_FontAsset.atlasTexture` 是**缓存过的** ⇒ 这里读到的可能是个已销毁对象，
+            //       `wantAtlas != null` 为 false ⇒ **静默跳过**。这一档恰好就是「本来就匹配」的那档，
+            //       跳过无害；真要改绑时（两份不同资产）字体图集不会被重导，读到的一定是活对象。
+            if (f != null)
+            {
+                var wantAtlas = f.atlasTexture;
+                var haveAtlas = pm.GetTexture(TMPro.ShaderUtilities.ID_MainTex);
+                if (wantAtlas != null && haveAtlas != wantAtlas)
+                {
+                    pm.SetTexture(TMPro.ShaderUtilities.ID_MainTex, wantAtlas);
+                    EditorUtility.SetDirty(pm);
+                    tmpMatAtlasRebound++;
+                }
+            }
+            t.fontSharedMaterial = pm; tmpMatOk++;
+            if (tmpApprox)
+            {
+                tmpMatApprox++;
+                Debug.LogWarning($"[EffectExporter] A1325 `{src.name}` / `{t.gameObject.name}` 的 TMP 材质 `{srcMat.name}`"
+                    + $"（原 shader `{tmpShader}`）**是按近似 shader 替代的** —— 接上了，但观感不是原版");
             }
         }
         if (uiSpriteOk > 0 || uiSpriteMiss > 0)
@@ -2062,6 +2205,17 @@ public static class EffectExporter
                 mv.Add($"`{kv.Key}`×{kv.Value}");
             Debug.Log($"[EffectExporter] A1325 `{src.name}` TMP `m_fontAsset`：接回 **{tmpFontOk}** / 留空 **{tmpFontMiss}**"
                     + (mv.Count > 0 ? $"（工程里没有这些 TMP_FontAsset：{string.Join(" · ", mv)}）" : ""));
+        }
+        if (tmpMatOk > 0 || tmpMatMiss > 0)
+        {
+            var mm = new List<string>();
+            foreach (var kv in missingMats.OrderByDescending(k => k.Value))
+                mm.Add($"`{kv.Key}`×{kv.Value}");
+            Debug.Log($"[EffectExporter] A1325 `{src.name}` TMP `m_sharedMaterial`：接回 **{tmpMatOk}** 条"
+                    + (tmpMatAlreadyProject > 0 ? $"（其中 {tmpMatAlreadyProject} 条本来就是工程资产，直接复用）" : "")
+                    + (tmpMatApprox > 0 ? $"（其中近似 shader {tmpMatApprox} 条）" : "")
+                    + (tmpMatAtlasRebound > 0 ? $"（图集改绑回字体资产 {tmpMatAtlasRebound} 条）" : "")
+                    + (tmpMatMiss > 0 ? $"、**留空 {tmpMatMiss} 条**（见上面的告警）" : ""));
         }
 
         // ---- 挂 binder：进游戏时用原版 shader 重建材质 ----
@@ -3086,13 +3240,25 @@ public static class EffectExporter
         if (tex == null && !TryResolveAtlasSprite(s, out tex, out rect))
             return null;                                // ← 里面已按精灵名**出声**（⛔ 不静默）
 
+        var asset = ImportSpriteFromRect(s.name, tex, rect, s.pixelsPerUnit, s.pivot, s.rect.size, s.border);
+        SpriteCache[s] = asset;
+        return asset;
+    }
+
+    /// <summary>🆕 **2026-10-21（W61）**：`ImportSprite` 的「已知名字 + 图集纹理 + 像素矩形」入口。
+    /// 给「原版实例上 `tsa.GetSprite(i)` 是 null、但槽位名已从**原包**里证明」的那一格用
+    /// （`KnownUvModuleSprites` / `TryKnownUvModuleSprite`）。
+    /// ⚠️ 它和 `ImportSprite` 走的是**同一段**裁切 / 落 PNG / 导入代码 —— ⛔ 别抄第二份（两份迟早不一致）。</summary>
+    static Sprite ImportSpriteFromRect(string name, Texture2D tex, Rect rect, float ppu,
+                                       Vector2 pivot, Vector2 fullSize, Vector4 border)
+    {
         int w = Mathf.RoundToInt(rect.width), h = Mathf.RoundToInt(rect.height);
         if (w <= 0 || h <= 0) { rect = new Rect(0, 0, tex.width, tex.height); w = tex.width; h = tex.height; }
 
         var readable = ReadableCopy(tex);
         if (readable == null)                       // 🆕 A1325：这几种 return null 原来都是**静默**的
         {
-            Debug.LogWarning(EX1 + $"精灵 `{s.name}` 的纹理 `{tex.name}`（{tex.format}）**读不出像素** ⇒ 这一格留空");
+            Debug.LogWarning(EX1 + $"精灵 `{name}` 的纹理 `{tex.name}`（{tex.format}）**读不出像素** ⇒ 这一格留空");
             return null;
         }
 
@@ -3106,12 +3272,12 @@ public static class EffectExporter
         if (readable != tex) UnityEngine.Object.DestroyImmediate(readable);
         if (png == null)
         {
-            Debug.LogWarning(EX1 + $"精灵 `{s.name}` 从 `{tex.name}` 裁 ({rect.x},{rect.y},{w}x{h}) 后"
+            Debug.LogWarning(EX1 + $"精灵 `{name}` 从 `{tex.name}` 裁 ({rect.x},{rect.y},{w}x{h}) 后"
                            + " **`EncodeToPNG` 返回 null** ⇒ 这一格留空（多半是纹理格式读不了，见 `ReadableCopy` 头部）");
             return null;
         }
 
-        var path = $"{TexDir}/{Sanitize(s.name)}_sprite.png";
+        var path = $"{TexDir}/{Sanitize(name)}_sprite.png";
         File.WriteAllBytes(Path.Combine(Directory.GetCurrentDirectory(), path), png);
         AssetDatabase.ImportAsset(path, ImportAssetOptions.ForceUpdate);
 
@@ -3120,7 +3286,7 @@ public static class EffectExporter
         {
             ti.textureType = TextureImporterType.Sprite;
             ti.spriteImportMode = SpriteImportMode.Single;
-            ti.spritePixelsPerUnit = s.pixelsPerUnit > 0f ? s.pixelsPerUnit : 100f;
+            ti.spritePixelsPerUnit = ppu > 0f ? ppu : 100f;
             ti.alphaIsTransparency = true;
             ti.mipmapEnabled = false;
             ti.wrapMode = TextureWrapMode.Clamp;
@@ -3131,18 +3297,18 @@ public static class EffectExporter
             // Center 对齐导入就是对的。**如果以后碰到自定义轴心的精灵**，得改用
             // `TextureImporterSettings.spriteAlignment = Custom` + `spritePivot`，
             // 否则精灵会被挪半张图的位置（对 SpriteMask 就是遮罩区域整体偏掉）。
-            var sz = s.rect.size;
+            var sz = fullSize;
             ti.spritePivot = new Vector2(
-                sz.x > 0f ? s.pivot.x / sz.x : 0.5f,
-                sz.y > 0f ? s.pivot.y / sz.y : 0.5f);
+                sz.x > 0f ? pivot.x / sz.x : 0.5f,
+                sz.y > 0f ? pivot.y / sz.y : 0.5f);
             // 🆕 **2026-10-21（`A1325` 第二半）：九宫格边框。** 这一支原来**完全没设 `spriteBorder`**
             //   —— 而 `Card Text smooth background` 的原版 `m_Border = (7,0,7,9)`、`CardPrefab` 里
             //   用到它的 Image 是 `m_Type: 1`（Sliced）⇒ 不补边框的话精灵接上了也会被**拉成一整块**。
             //   ⚠️ Sliced 还要求精灵网格是 **FullRect**（Tight 会把边框区裁掉 ⇒ 九宫格画不对），
             //   所以这里连 `spriteMeshType` 一起改；**只在 border 非零时**动，别的精灵一字不变。
-            if (s.border != Vector4.zero)
+            if (border != Vector4.zero)
             {
-                ti.spriteBorder = s.border;
+                ti.spriteBorder = border;
                 var tsx = new TextureImporterSettings();
                 ti.ReadTextureSettings(tsx);
                 if (tsx.spriteMeshType != SpriteMeshType.FullRect)
@@ -3150,19 +3316,18 @@ public static class EffectExporter
                     tsx.spriteMeshType = SpriteMeshType.FullRect;
                     ti.SetTextureSettings(tsx);
                 }
-                Debug.Log($"[EffectExporter] A1325 精灵 `{s.name}` 写九宫格 border={s.border}"
+                Debug.Log($"[EffectExporter] A1325 精灵 `{name}` 写九宫格 border={border}"
                         + "（网格同时改 FullRect —— Sliced 下 Tight 会把边框区裁掉）");
             }
             ti.SaveAndReimport();
         }
         else
-            Debug.LogWarning(EX1 + $"精灵 `{s.name}` 的 PNG 已写到 `{path}`，但**取不到 `TextureImporter`**"
+            Debug.LogWarning(EX1 + $"精灵 `{name}` 的 PNG 已写到 `{path}`，但**取不到 `TextureImporter`**"
                            + " ⇒ 它不会被改成 Sprite 类型（下面多半加载成 null）");
 
         var asset = AssetDatabase.LoadAssetAtPath<Sprite>(path);
         if (asset == null)
-            Debug.LogWarning(EX1 + $"精灵 `{s.name}` 的 PNG 落到 `{path}` 后**加载不成 `Sprite`** ⇒ 这一格留空");
-        SpriteCache[s] = asset;
+            Debug.LogWarning(EX1 + $"精灵 `{name}` 的 PNG 落到 `{path}` 后**加载不成 `Sprite`** ⇒ 这一格留空");
         return asset;
     }
 
@@ -3249,8 +3414,12 @@ public static class EffectExporter
 
         // ---- ④ 已知图集兜底（🆕 2026-10-21 · **只对表里那四个名字生效**）----
         //  三件 OrkBuff 的骷髅发射器引用的是 `UVModule.sprites`（= `textureSheetAnimation` 的 sprite 列表，
-        //  序列化键名就叫 `UVModule`）里的四张精灵，全部来自图集 `Skull Particle icons`；本 build 上
-        //  ①②③ 对这一格都给不出来 ⇒ 列表整个落成 guid 0。表里是真值（见 `KnownRects_SkullParticleIcons`）。
+        //  序列化键名就叫 `UVModule`）里的四张精灵，全部来自图集 `Skull Particle icons`。表里是真值
+        //  （见 `KnownRects_SkullParticleIcons`）。
+        //  🔴 **2026-10-21 就地订正（铁律 5 · W61 现核）**：这里原来写「本 build 上 ①②③ 对这一格
+        //     **都给不出来**」—— **不成立**。③ 在 `SpriteRenderDataKey` 那句静默 return 修掉之后就给得出
+        //     （`export_listed_1021.log:5574/5596/6387/6409`），三件 prefab 的 8 个槽现在都是真 guid
+        //     （W61 报告 §2）。⇒ ④ 只是**再一层兜底**；真正的「null 槽」由 `KnownUvModuleSprites` 那支接。
         if (TryKnownAtlasFallback(s, out tex, out rect)) return true;
 
         if (AtlasMissLogged.Add(s.name))
@@ -3618,6 +3787,11 @@ public static class EffectExporter
     //    `sactx-0-1024x512-BC7-Skull Particle icons`；⛔ **不是算出来的**，别改数。
     //    ⚠️ **只对这四个名字生效**（`TryKnownAtlasFallback` 先查名字，表外直接 false）——
     //       ⛔ 别把它扩成「任何图集精灵都套一张表」（那等于静默画错一张）。
+    //    🔴 **2026-10-21 就地订正（铁律 5 · W61 现核）**：本段原来写「连图集那一步都拿不到这一格」
+    //       —— **不成立**。同一天修掉 `TryAtlasRectFromMap` 里 `SpriteRenderDataKey(s) == null` 那句
+    //       **静默 return** 之后，③（`m_RenderDataMap` → `m_PackedSpriteNamesToIndex`）当场就能给出
+    //       这四格；`export_listed_1021.log:5574/5596/6387/6409` 四条 `名字表idx=4/3/1/0` 就是它，
+    //       导出的 PNG 与原图集逐像素相同（W61 报告 §2）。⇒ 本表（④）现在只是**兜底**，正常路径不走它。
     static readonly Dictionary<string, Rect> KnownRects_SkullParticleIcons = new Dictionary<string, Rect>
     {
         { "Skulltop",  new Rect(638.08f, 259.01f, 175.91f, 178.91f) },
@@ -3627,6 +3801,73 @@ public static class EffectExporter
     };
     /// <summary>`KnownRects_SkullParticleIcons` 那四格所在图集的纹理名（解包真名）。</summary>
     const string KnownSkullAtlasTexture = "sactx-0-1024x512-BC7-Skull Particle icons";
+
+    // ═══ 🆕 **2026-10-21（W61）：`UVModule.sprites` 的「已知槽位」表** ═══════════════════════════
+    //
+    // **只覆盖 OrkBuff 家族这五件的骷髅发射器（16 个槽）—— 表外一律不猜。** 触发条件见 `Export()` 里那段：
+    //   只有 `tsa.GetSprite(i) == null`（原版实例上这一格读不出来）**且** `spriteCount == 1` 才会用它。
+    //
+    // 真值来源（逐槽在原包里核过，**不是按名字猜左右**）：
+    //   `d:/2/10.13游戏/Warpforge_Data/StreamingAssets/aa/StandaloneWindows64/battleprefabs_vfxandmisc_assets_all.bundle`
+    //   → 每个 `ParticleSystem` 的 `UVModule.sprites[i].sprite`（PPtr）→ 解到**同一个 CAB**
+    //   （`CAB-d47690319398b604c3bb5a35a8ed2499`）里的 `Sprite`，读它的 `m_Name`。
+    //   十六个槽**每个只有一张精灵**（`spriteCount == 1`）：
+    //     · `OrkBuff_Recall`                `Sparks/Skulls` = Skulltop · `Sparks/Jaw` = Skull_jaw
+    //     · `OrkBuffGreenWaaagh`            `Border Glow/Skulls` = Skulltop ·
+    //                                       `Border Glow/Skulls/Jaw` = Skull_jaw ·
+    //                                       `Border Glow/Skulls/Left` = **BW_Trim3** ·
+    //                                       `Border Glow/Skulls/Right` = **BW_Trim2**
+    //     · `OrkBuff_Snakebitez_2_Intense`  `Sparks/Skulls` = Skulltop · `Sparks/Skulls/Jaw` = Skull_jaw
+    //     · **同族另外两件**（2026-10-21 W61 现读：它们的 prefab 还是 **10-10 16:08** 那一版、
+    //       `sprites` 仍是 `{fileID: <原包 pathID>, guid: 0}` 的伪引用 ⇒ 重导即修，本表同时兜底）：
+    //       `OrkBuff_KrumpDaGitz`            `Border Glow/Skulls` = Skulltop ·
+    //                                        `Border Glow/Skulls/{Jaw,Left,Right}` = Skull_jaw / BW_Trim3 / BW_Trim2
+    //       `OrkBuff_Snakebitez_2`           `Sparks/Skulls` = Skulltop ·
+    //                                        `Sparks/Skulls/{Jaw,Left,Right}` = Skull_jaw / BW_Trim3 / BW_Trim2
+    //   ⚠️ `Left` = **BW_Trim3**、`Right` = **BW_Trim2**（原包就是这样，⛔ 别按「左小右大」去猜）。
+    //   ⚠️ 键 = `prefab 根名 + "/" + 相对根的 Transform 路径`（`TransformRelPath`）。
+    //   🔴 这十六条是**唯一**的映射关系；要加新条目，先把原包那一条的 PPtr 解出来再写。
+    static readonly Dictionary<string, string> KnownUvModuleSprites = new Dictionary<string, string>
+    {
+        { "OrkBuff_Recall/Sparks/Skulls",                        "Skulltop"  },
+        { "OrkBuff_Recall/Sparks/Jaw",                           "Skull_jaw" },
+        { "OrkBuffGreenWaaagh/Border Glow/Skulls",               "Skulltop"  },
+        { "OrkBuffGreenWaaagh/Border Glow/Skulls/Jaw",           "Skull_jaw" },
+        { "OrkBuffGreenWaaagh/Border Glow/Skulls/Left",          "BW_Trim3"  },
+        { "OrkBuffGreenWaaagh/Border Glow/Skulls/Right",         "BW_Trim2"  },
+        { "OrkBuff_Snakebitez_2_Intense/Sparks/Skulls",          "Skulltop"  },
+        { "OrkBuff_Snakebitez_2_Intense/Sparks/Skulls/Jaw",      "Skull_jaw" },
+        { "OrkBuff_KrumpDaGitz/Border Glow/Skulls",              "Skulltop"  },
+        { "OrkBuff_KrumpDaGitz/Border Glow/Skulls/Jaw",          "Skull_jaw" },
+        { "OrkBuff_KrumpDaGitz/Border Glow/Skulls/Left",         "BW_Trim3"  },
+        { "OrkBuff_KrumpDaGitz/Border Glow/Skulls/Right",        "BW_Trim2"  },
+        { "OrkBuff_Snakebitez_2/Sparks/Skulls",                  "Skulltop"  },
+        { "OrkBuff_Snakebitez_2/Sparks/Skulls/Jaw",              "Skull_jaw" },
+        { "OrkBuff_Snakebitez_2/Sparks/Skulls/Left",             "BW_Trim3"  },
+        { "OrkBuff_Snakebitez_2/Sparks/Skulls/Right",            "BW_Trim2"  },
+    };
+
+    /// <summary>`t` 相对 `root` 的 Transform 路径（`/` 连接，**不含** `root` 自己）。</summary>
+    static string TransformRelPath(Transform root, Transform t)
+    {
+        var seg = new List<string>();
+        for (var cur = t; cur != null && cur != root; cur = cur.parent) seg.Add(cur.name);
+        seg.Reverse();
+        return string.Join("/", seg);
+    }
+
+    /// <summary>null 槽兜底：`prefab 根名/相对路径` 命中 `KnownUvModuleSprites` ⇒ 给出精灵名 + 图集矩形
+    /// （矩形来自 `KnownRects_SkullParticleIcons`）。**只认表里那八条**，表外直接 false。</summary>
+    static bool TryKnownUvModuleSprite(GameObject root, ParticleSystem ps, out string spriteName, out Rect rect)
+    {
+        spriteName = null; rect = default;
+        if (root == null || ps == null) return false;
+        string key = root.name + "/" + TransformRelPath(root.transform, ps.transform);
+        if (!KnownUvModuleSprites.TryGetValue(key, out spriteName)) return false;
+        if (KnownRects_SkullParticleIcons.TryGetValue(spriteName, out rect)) return true;
+        spriteName = null; rect = default;
+        return false;   // 表里写了名字但矩形表没有 ⇒ 当成不命中（⛔ 不编一个 rect）
+    }
 
     /// <summary>④ 已知图集兜底：精灵名命中 `KnownRects_SkullParticleIcons` ⇒ 按名字找那张图集纹理、
     /// 配上表里的 rect。**只认表里那四个名字**；命中、落空都出声（⛔ 不静默）。</summary>

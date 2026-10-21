@@ -1588,6 +1588,10 @@ namespace CardPresentation
                                + "（`SetFace` 只用于「手牌 → 场上」），出现了就是有新的入口，要补层。");
 
             Show(_frame, !board);
+            // 🆕 2026-10-21（`W61`）：描边专用层跟 `_frame` 同一条口径 —— 场上（3D 卡体）不画描边
+            //   （原版场上把整张 `2DCard` 关掉，SDF 那层只剩影子）。⚠️ 出生入口在建层处已按默认开着，
+            //   这里是**换形态入口**（铁律 10 第 5 条），两处都要显式设一次。
+            if (_outlineLayer != null) Show(_outlineLayer, !board);
             Show(_artFront, !board);
             Show(_textBg, !board);       // 效果文字底板
             // 🔴 **2026-10-14（`A2006①`）：费用六边形多一个门 —— 督军整格不印。**
@@ -2011,12 +2015,15 @@ namespace CardPresentation
             }
         }
 
-        /// <summary>那圈高亮描边现在的颜色（自检用；场上恒为透明 —— 场上是 3D 卡体，原版那层 SDF 关着）。</summary>
+        /// <summary>那圈高亮描边现在的颜色（自检用；场上恒为透明 —— 场上是 3D 卡体，原版那层 SDF 关着）。
+        /// 🔴 2026-10-21（`W61`）：读的是 <see cref="OutlineMat"/> —— 正常那张卡上是**描边专用层**
+        /// （`outlineGlow`）的 `_Outline`；建不出那一层时退回 `_shadowLayer`（= 改前的行为）。
+        /// 自检 `BattleScene` ⑦ 就是读这个（「打不打得出去」那一条），**别改语义**。</summary>
         public Color OutlineColor
         {
             get
             {
-                var m = _shadowLayer != null ? _shadowLayer.sharedMaterial : null;
+                var m = OutlineMat;
                 return (m != null && m.HasProperty("_Outline")) ? m.GetColor("_Outline") : new Color(0f, 0f, 0f, 0f);
             }
         }
@@ -2028,7 +2035,8 @@ namespace CardPresentation
             {
                 string tw = _outlineTween == null ? "无补间"
                           : (_outlineTween.IsActive() ? $"补间跑着 {_outlineTween.Elapsed():F3}s" : "补间已停");
-                return $"{tw}·目标={_outlineTarget}·现在={OutlineColor}·alpha={_alpha:F2}·层={(_shadowLayer != null)}";
+                return $"{tw}·目标={_outlineTarget}·现在={OutlineColor}·alpha={_alpha:F2}"
+                     + $"·层={(_outlineLayer != null ? "描边专用" : "退回SDF")}（软光/影={(_shadowLayer != null)}）";
             }
         }
 
@@ -2911,6 +2919,12 @@ namespace CardPresentation
                     // 🔴 **建完立刻按本档刷一次** —— 基材质上那份是「材质默认 0.604」，
                     //    而放大窗那一档原版运行时显式设成 0.8（`A2111` 表三·2，判据见 `ShadowAlpha`）。
                     ApplyShadowColor();
+                    // 🆕 2026-10-21（`W61` · `新账-66`）：**描边单独一层**（放大 `OutlineGlowScale`），
+                    //    ⇒ 那圈光沿着**整张卡框**走，而不是沿插图画窗走。理由/判据/那个可调数
+                    //    全在 `OutlineGlowScale` 那一段注释里（⛔ 别在这里再抄一遍）。
+                    //    ⚠️ **这一层是懒建的**（`EnsureOutlineLayer`，第一次真的要亮描边时才建）——
+                    //       收藏/卡池那些只看的卡永远不亮描边 ⇒ 不为它们多付一块 6² 的 SDF 过绘制。
+                    _outlineSdfTex = sdfTex;
                 }
                 // ---- 场上：换**原版那张 3D 卡体**（`3DBody` → `Card 3D`）----
                 // 原版在 inPlay 类状态把整张 `2DCard` 关掉、换成 3D 体（`BattleCardUI.ChangeCardToMinion`），
@@ -3859,11 +3873,121 @@ namespace CardPresentation
             F("_SpriteAlphaEdge_Inner",  0.043f);
             F("_NoiseIntensity",         1.15f);
             F("_NoiseMaskScale",         1f);
+            // 🔴 **2026-10-21（`W61` 卡牌线 `新账-66`）：补上 `_Noise` 槽。**
+            //    判据 = `bundle_duplicateassetisolation_assets_all/Material/Material_-3316280387615011577.json`
+            //    的 `m_TexEnvs`：`_Noise` → pathID **-8214795764591836323** = 贴图 **`Noise Combined`**
+            //    （128²；卡背那份材质 `Card Backs SDF` 绑的是**同一张**——卡背那条路早就绑了，
+            //    **卡面这条一直漏着** ⇒ 采样落到默认白图上，`_NoiseIntensity=1.15` 等于白算）。
+            //    用户参考图（`桌面/warpforge参考图/战斗截图参考.png`）里那圈**带颗粒、有流动感**的绿光
+            //    就是这张噪声 + `_Noise_Speed_Scale_StepLow_StepHigh` 的产物；不绑 = 一条干净的带子。
+            var noise = CardArt.CardbackSdfNoise();
+            if (noise != null && _sdfMat.HasProperty("_Noise")) _sdfMat.SetTexture("_Noise", noise);
+            else Debug.LogWarning("[CardView] 卡面 SDF：`Noise Combined` 取不到 ⇒ 描边发光少一层颗粒"
+                               + "（跑 `工具/import_original_card_sdf.py` 补）");
+            // 同一条材质里的 `_Noise_Speed_Scale_StepLow_StepHigh = (0.01, 2, 0.06, 0.21)`（逐值现读）。
+            C("_Noise_Speed_Scale_StepLow_StepHigh", new Color(0.01f, 2f, 0.06f, 0.21f));
             _sdfMat.EnableKeyword("_ALPHACHANNEL_R");     // 原版 `m_ValidKeywords`
             _sdfMat.EnableKeyword("_NOISE_CHANNEL_B");
             _sdfMat.renderQueue = 3000;                   // 原版 `m_CustomRenderQueue`
             Debug.Log($"[CardView] 卡面软光/影：`{Name}` ← {src}（材质值照原版 `Card Frame SDF`）");
             return _sdfMat;
+        }
+
+        // ==================================================================
+        //  描边发光层（只负责 `_Outline`）—— 🆕 2026-10-21（`W61` 卡牌线 `新账-66`）
+        // ==================================================================
+        //
+        // **要解决的问题（用户 2026-10-21 原话）**：「外面的光芒边缘应该是**围绕着卡框**的，
+        //   不是在卡框上面**围绕插图**」。
+        //   现状：`_Outline` 画在 `_shadowLayer`（4.4281² 的 SDF quad）上，而那条等值带**实测**
+        //   落在卡半宽的 **≈72%** 处（x ±0.755 / 卡半宽 1.046，见 `hand_tactic2.png` 逐像素量法：
+        //   卡左缘 122px、卡心 358px、光带 178..197px）—— 正好压在**战术卡那扇画窗的内沿**上，
+        //   框的金属边把带子的外侧挡住 ⇒ 只有窗里那一小段看得见 ⇒ 看起来像「围插图」。
+        //   **实拍判据（铁律 4：实况 > 字段）**：`C:/Users/qjh36/Desktop/warpforge参考图/战斗截图参考.png`
+        //   里两张绿色可打出战术卡 + 一张紫色「短暂」卡，光带**围着整张卡框**（含拱顶与外沿）。
+        //   ⚠️ 原版字段（`CardFramesByArmy.json` 的 `stratagemHighlightFrame` / `troopHighlightFrame`
+        //   → 那两张 SDF）与实拍**矛盾**（两张 SDF 逐像素几乎相同、都是「实心卡形」，等值带在卡内
+        //   72%，不是外沿）—— 矛盾如实留在 `资料/普查产出_1021/W61_卡牌线_战术卡插图与描边.md`。
+        //   ⇒ 这里**另开一层**：同一套 shader + 同一张 SDF，但把 quad 放大 `OutlineGlowScale`，
+        //   让那条等值带落到**卡框外沿**；`_ShadowColor.a = 0` ⇒ 这一层**只出描边**，
+        //   不参与落地阴影（阴影仍由 `_shadowLayer` 原样负责，观感零影响）。
+        //
+        //   🔴 `OutlineGlowScale` 的来路：**唯一一个从实拍反推的可调数**（1.046 / 0.755 ≈ 1.39，
+        //   取 1.35 让带子稍微压进框内一点、由框盖住内半边 —— 与实拍里「光在框外一圈、框内没有」
+        //   一致）。⛔ 主对话渲一张并排图后若偏内/偏外，**只改这一个数**（并同步改本段注释）。
+        const float OutlineGlowScale = 1.35f;
+        /// <summary>描边那层的 z：比软光/影（`ShadowZ`）近、比立绘（0.03）远 —— 仍然在卡的**后面**，
+        /// 只有露到卡框外沿以外的那半圈才看得见（= 实拍里「光在框外」）。</summary>
+        const float OutlineZ = 0.055f;
+
+        static Mesh _outlineMesh;
+        /// <summary>描边那层的 quad：与 `ShadowMesh` 同形 × `OutlineGlowScale`。
+        /// UV 仍是 0..1（整张 SDF 铺满这层 quad）⇒ **放大 quad = 等值带整体外移**。</summary>
+        static Mesh OutlineMesh()
+        {
+            if (_outlineMesh != null) return _outlineMesh;
+            float w = ShadowSize * 0.5f * OutlineGlowScale;
+            float oy = ShadowY * OutlineGlowScale;
+            var m = new Mesh { name = "CardOutlineGlowQuad" };
+            m.vertices = new[]
+            {
+                new Vector3(-w, -w + oy, 0f), new Vector3(w, -w + oy, 0f),
+                new Vector3(w,  w + oy, 0f),  new Vector3(-w, w + oy, 0f),
+            };
+            m.uv = new[] { new Vector2(0, 0), new Vector2(1, 0), new Vector2(1, 1), new Vector2(0, 1) };
+            m.triangles = new[] { 0, 2, 1, 0, 3, 2 };
+            m.RecalculateBounds();
+            _outlineMesh = m;
+            return m;
+        }
+
+        /// <summary>描边层的材质模板 = `SdfMaterial()` 再克隆一份 + `_ShadowColor.a = 0`
+        /// （这一层只出 `_Outline`）。`AddLayer` 会在它上面再 `new Material(...)` 一次（每张卡一份）。
+        /// ⚠️ 模板本身**只建一次**（静态缓存）—— 每张卡都克隆一次模板 = 每张卡多一份永远不用的材质。</summary>
+        static Material _outlineGlowTemplate;
+        static Material OutlineGlowMaterialTemplate()
+        {
+            if (_outlineGlowTemplate != null) return _outlineGlowTemplate;
+            var baseMat = SdfMaterial();
+            if (baseMat == null) return null;
+            var m = new Material(baseMat) { name = "CardOutlineGlow" };
+            if (m.HasProperty("_ShadowColor")) m.SetColor("_ShadowColor", new Color(0f, 0f, 0f, 0f));
+            if (m.HasProperty("_Outline"))     m.SetColor("_Outline", new Color(1f, 1f, 1f, 0f));
+            _outlineGlowTemplate = m;
+            return m;
+        }
+
+        MeshRenderer _outlineLayer;
+        /// <summary>`Build` 里记下的那张 SDF 贴图 —— 描边层懒建时要用（见 `EnsureOutlineLayer`）。</summary>
+        Texture2D _outlineSdfTex;
+
+        /// <summary>🔴 **懒建**描边专用层（`Build` **不**建它）。
+        /// 为什么懒：这一层的 quad 是 `4.4281×1.35 = 5.98` 见方、shader 还是那张带噪声的 SDF，
+        /// 收藏/卡池那种「只看的卡」永远不会亮描边 ⇒ 给它们各挂一块 6² 的过绘制是白花。
+        /// 一次性代价：一张卡第一次要亮描边时建一个 GameObject + mesh + 材质（很便宜）。
+        /// ⚠️ 建不出（shader / SDF 取不到）⇒ 什么都不做，`OutlineMat` 自动退回 `_shadowLayer`。</summary>
+        void EnsureOutlineLayer()
+        {
+            if (_outlineLayer != null) return;
+            if (_faceMode == CardFace.Board) return;                 // 场上不画描边（原版整张 2DCard 关着）
+            var glowMat = OutlineGlowMaterialTemplate();
+            if (glowMat == null) return;
+            var tex = _outlineSdfTex != null ? _outlineSdfTex
+                     : (_shadowLayer != null && _shadowLayer.sharedMaterial != null
+                        ? _shadowLayer.sharedMaterial.mainTexture as Texture2D : null);
+            _outlineLayer = AddLayer("outlineGlow", tex, OutlineZ, tex, OutlineMesh(), mat: glowMat);
+        }
+
+        /// <summary>描边现在画在哪份材质上 —— **判据只此一处**（`SetOutline` / `OutlineColor` / `ApplyTint` 都读它）。
+        /// 建不出独立层（shader/SDF 取不到）时退回 `_shadowLayer`（= 改前的行为，不静默失败）。</summary>
+        Material OutlineMat
+        {
+            get
+            {
+                if (_outlineLayer != null && _outlineLayer.sharedMaterial != null)
+                    return _outlineLayer.sharedMaterial;
+                return _shadowLayer != null ? _shadowLayer.sharedMaterial : null;
+            }
         }
 
         // ==================================================================
@@ -4977,18 +5101,23 @@ namespace CardPresentation
             //    这里只把**卡的整体淡出**跟过去：卡淡出了、影子还实着，一眼就假。
             if (_shadowLayer != null && _shadowLayer.sharedMaterial != null)
             {
-                var sm = _shadowLayer.sharedMaterial;
                 // 🔴 **阴影色走 `ApplyShadowColor()`（按本档取 alpha）** —— 2026-10-15（`A2111`）之前这里
                 //    写死用材质默认那个 0.604，放大窗就比原版淡了 0.196（原版显式设 0.8）。
                 ApplyShadowColor();
-                // 描边（`_Outline`）同理要跟着淡 —— 但它可能是**正在补间**的（`SetOutline`），
-                // 那种时候别插手：补间的每一帧自己会乘 `_alpha`。
+            }
+            // 描边（`_Outline`）同理要跟着淡 —— 但它可能是**正在补间**的（`SetOutline`），
+            // 那种时候别插手：补间的每一帧自己会乘 `_alpha`。
+            // 🔴 2026-10-21（`W61`）：描边现在画在**专用层**上（见 `OutlineMat`），
+            //    所以这条写口也跟着换、并**移出**上面那个软光/影的判空 —— 否则
+            //    「卡淡出、描边不淡」会回来。
+            {
                 bool outlineBusy = _outlineTween != null && _outlineTween.IsActive();
-                if (!outlineBusy && sm.HasProperty("_Outline"))
+                var om = OutlineMat;
+                if (!outlineBusy && om != null && om.HasProperty("_Outline"))
                 {
                     var oc = _outlineTarget;
                     oc.a *= _alpha;
-                    sm.SetColor("_Outline", oc);
+                    om.SetColor("_Outline", oc);
                 }
             }
 
@@ -6812,7 +6941,12 @@ namespace CardPresentation
             //    （表现：描边一直不亮，而判据、颜色、材质全都是对的）。
             if (SameColor(_outlineTarget, c)) return;
             _outlineTarget = c;
-            var m = (_faceMode != CardFace.Board && _shadowLayer != null) ? _shadowLayer.sharedMaterial : null;
+            // 🔴 2026-10-21（`W61` · `新账-66`）：描边**改画在专用的 `outlineGlow` 层**上
+            //    （quad 放大 `OutlineGlowScale` ⇒ 光带沿**整张卡框**走）；建不出那层时 `OutlineMat`
+            //    自动退回 `_shadowLayer`（= 改前的行为）。判据只此一处。
+            //    ⚠️ 那一层是**懒建**的（`EnsureOutlineLayer`）—— 走到这儿 = 真的要亮，才付这块过绘制。
+            if (_faceMode != CardFace.Board) EnsureOutlineLayer();
+            var m = (_faceMode != CardFace.Board) ? OutlineMat : null;
             if (m == null || !m.HasProperty("_Outline")) return;
 
             if (_outlineTween != null && _outlineTween.IsActive()) _outlineTween.Kill();
@@ -7110,6 +7244,199 @@ namespace CardPresentation
 
         static readonly Dictionary<int, Rect> _frameArtWindowCache = new Dictionary<int, Rect>();
 
+        // ==================================================================
+        //  卡框「透明开口」的**逐行区间** —— 🆕 2026-10-21（`W61` 卡牌线 `新账-66`）
+        // ==================================================================
+        //
+        // **为什么不能再只用一个矩形**：`FrameArtWindow` 给的是「开口最宽处的矩形」。
+        //   战术卡 tier3/tier4 的开口是**拱形 / 异形**，矩形装不满 —— 逐张量了全部 75 张 `_strat` 卡框
+        //   （泛洪算「被框围住的透明区」，再与矩形求差）：中位缺 **0.75%**、最差 **6.8%**
+        //   （`genestealers_strat_tier4` 6.8% · `blacklegion/ember_strat_tier3` 6.3% ·
+        //   `astramilitarum_strat_tier4` 5.8%）。缺的不是散点，是**开口上/下沿的整条带**。
+        //   用户 2026-10-21 原话：「它是覆盖了战术卡框的上面的空白地方（允许有边缘被卡框盖着），
+        //   你现在是不覆盖全部的空白处」。
+        //
+        // **做法**：从卡框贴图的 alpha 现算「**被框围住的透明区**」——`free`（透明）里**到不了
+        //   画框矩形四边**的那些像素就是它（4 连通泛洪；框的金属是闭合的环 ⇒ 窗里的透明区到不了外面）。
+        //   逐行取左右边界 ⇒ 立绘网格按行切成条带（`ArtWindowMesh`）。
+        //   ⚠️ 立绘仍然画在**卡框下面**（z 0.03 > 框 0），所以条带左右各外扩 `FrameArtBleedPx`
+        //   像素**钻进框的金属下面**，抗锯齿边不会漏底；框的不透明部分照常盖住立绘 ——
+        //   这正是用户说的「允许有边缘被卡框盖着」。
+
+        /// <summary>开口左右/上下各外扩几像素（贴图像素）：让立绘钻进框的金属下面，避免抗锯齿边露缝。</summary>
+        const int FrameArtBleedPx = 3;
+
+        sealed class FrameRows
+        {
+            public int X0, X1;        // 贴图列范围（闭区间）
+            public int Y0, Y1;        // 贴图行范围（闭区间，**自底向上**，与 `GetPixels32` 的索引一致）
+            public short[] L, R;      // 长度 = Y1-Y0+1；-1 = 该行没有开口
+            public bool HasAny;
+        }
+        static readonly Dictionary<int, FrameRows> _frameRowsCache = new Dictionary<int, FrameRows>();
+
+        /// <summary>卡框的逐行开口（按贴图缓存）。拿不到（贴图不可读 / 一个开口都没有）⇒ **null**，
+        /// 调用方退回 <see cref="FrameArtWindow"/> 那个矩形（= 改前的行为）。</summary>
+        static FrameRows FrameRowsOf(Texture2D frameTex)
+        {
+            if (frameTex == null) return null;
+            int id = frameTex.GetInstanceID();
+            FrameRows hit;
+            if (_frameRowsCache.TryGetValue(id, out hit)) return hit;
+            FrameRows rows = BuildFrameRows(frameTex);
+            _frameRowsCache[id] = rows;
+            return rows;
+        }
+
+        static FrameRows BuildFrameRows(Texture2D frameTex)
+        {
+            if (!frameTex.isReadable || frameTex.width <= 0 || frameTex.height <= 0) return null;
+            int tw = frameTex.width, th = frameTex.height;
+            Rect uv = FrameUv(frameTex);
+            int x0 = Mathf.Clamp(Mathf.FloorToInt(uv.xMin * tw), 0, tw - 1);
+            int x1 = Mathf.Clamp(Mathf.CeilToInt(uv.xMax * tw) - 1, 0, tw - 1);
+            int y0 = Mathf.Clamp(Mathf.FloorToInt(uv.yMin * th), 0, th - 1);
+            int y1 = Mathf.Clamp(Mathf.CeilToInt(uv.yMax * th) - 1, 0, th - 1);
+            int w = x1 - x0 + 1, h = y1 - y0 + 1;
+            if (w < 8 || h < 8) return null;
+
+            var px = frameTex.GetPixels32();
+            // free[]：贴图透明（alpha <= 8）= 可通行。行号 j 自底向上（= `GetPixels32` 的索引约定）。
+            var free = new bool[w * h];
+            for (int j = 0; j < h; j++)
+            {
+                int src = (y0 + j) * tw + x0, dst = j * w;
+                for (int i = 0; i < w; i++) free[dst + i] = px[src + i].a <= 8;
+            }
+
+            // 4 连通泛洪：从**画框矩形**的四边出发 ⇒ 走得到的透明像素 = 框**外面**。
+            // ⚠️ 从画框矩形而不是整张贴图的边出发：sprite rect 之外的像素不参与画框（判据同 `FrameUv`）。
+            var outside = new bool[w * h];
+            var stack = new Stack<int>();
+            for (int i = 0; i < w; i++)
+            {
+                if (free[i]) stack.Push(i);                                  // j = 0
+                if (free[(h - 1) * w + i]) stack.Push((h - 1) * w + i);      // j = h-1
+            }
+            for (int j = 0; j < h; j++)
+            {
+                if (free[j * w]) stack.Push(j * w);
+                if (free[j * w + w - 1]) stack.Push(j * w + w - 1);
+            }
+            while (stack.Count > 0)
+            {
+                int idx = stack.Pop();
+                if (outside[idx] || !free[idx]) continue;
+                int j = idx / w, i = idx - j * w;
+                int l = i; while (l > 0 && free[j * w + l - 1] && !outside[j * w + l - 1]) l--;
+                int r = i; while (r < w - 1 && free[j * w + r + 1] && !outside[j * w + r + 1]) r++;
+                int rowBase = j * w;
+                for (int k = l; k <= r; k++) outside[rowBase + k] = true;
+                for (int nj = j - 1; nj <= j + 1; nj += 2)
+                {
+                    if (nj < 0 || nj >= h) continue;
+                    int nb = nj * w;
+                    // **每段只压一个种子**（扫描线泛洪的标准做法）—— 逐像素压栈在 68 万格的
+                    // 卡框上会多出几十万次无用的 push/pop（每张卡框只算一次，但 150 张卡框就是秒级）。
+                    int k = l;
+                    while (k <= r)
+                    {
+                        while (k <= r && !(free[nb + k] && !outside[nb + k])) k++;
+                        if (k > r) break;
+                        stack.Push(nb + k);
+                        while (k <= r && free[nb + k] && !outside[nb + k]) k++;
+                    }
+                }
+            }
+
+            var res = new FrameRows { X0 = x0, X1 = x1, Y0 = y0, Y1 = y1, L = new short[h], R = new short[h] };
+            for (int j = 0; j < h; j++)
+            {
+                int l = -1, r = -1, rowBase = j * w;
+                for (int i = 0; i < w; i++)
+                {
+                    if (!free[rowBase + i] || outside[rowBase + i]) continue;
+                    if (l < 0) l = i;
+                    r = i;
+                }
+                if (l < 0) { res.L[j] = -1; res.R[j] = -1; continue; }
+                res.L[j] = (short)Mathf.Max(0, l - FrameArtBleedPx);
+                res.R[j] = (short)Mathf.Min(w - 1, r + FrameArtBleedPx);
+                res.HasAny = true;
+            }
+            if (!res.HasAny) return null;
+            // 上下各扩 `FrameArtBleedPx` 行（沿用最近那行的区间）—— 开口的上下沿同样是抗锯齿边
+            int top = -1, bot = -1;
+            for (int j = 0; j < h; j++) if (res.L[j] >= 0) { if (bot < 0) bot = j; top = j; }
+            for (int j = top + 1; j <= Mathf.Min(h - 1, top + FrameArtBleedPx); j++)
+            { res.L[j] = res.L[top]; res.R[j] = res.R[top]; }
+            for (int j = Mathf.Max(0, bot - FrameArtBleedPx); j < bot; j++)
+            { res.L[j] = res.L[bot]; res.R[j] = res.R[bot]; }
+            return res;
+        }
+
+        /// <summary>贴图列（**像素边界**，不是像素中心）→ 卡面 x（卡单位，中心原点）。
+        /// 与 `FramePxAt01` / `FrameMesh` 同一条链（`FrameUv` → `FrameQuad`），只是这里画的是条带的**边**。</summary>
+        static float FramePxXEdge(Texture2D tex, int col)
+        {
+            Rect uv = FrameUv(tex);
+            float fu = (col / (float)tex.width - uv.xMin) / uv.width;
+            return (fu - 0.5f) * FrameUnitW;
+        }
+
+        /// <summary>贴图行（**像素边界**，自底向上）→ 卡面 y（卡单位）。同 `FramePxXEdge` 的那条链。</summary>
+        static float FramePxYEdge(Texture2D tex, int row)
+        {
+            Rect uv = FrameUv(tex);
+            float fv = (row / (float)tex.height - uv.yMin) / uv.height;
+            return (fv - 0.5f) * FrameUnitH + FrameUnitY;
+        }
+
+        /// <summary>按卡框开口的逐行区间建**条带**立绘网格（每行一条 quad；左右/上下区间相同的相邻行合并）。
+        /// 顶点序/三角形序与 `ArtMeshInFrame` 的单 quad 那条路一致（BL/BR/TR/TL）。</summary>
+        static Mesh ArtWindowMesh(Texture2D art, Texture2D frameTex, FrameRows rows,
+                                  float xL0, float yB0, float boardW, float boardH,
+                                  float bxL, float bxR, float byB, float byT)
+        {
+            var verts = new List<Vector3>(512);
+            var uvs = new List<Vector2>(512);
+            var tris = new List<int>(768);
+            int h = rows.Y1 - rows.Y0 + 1;
+            int j = 0;
+            while (j < h)
+            {
+                if (rows.L[j] < 0) { j++; continue; }
+                int j0 = j;
+                short L = rows.L[j], R = rows.R[j];
+                while (j + 1 < h && rows.L[j + 1] == L && rows.R[j + 1] == R) j++;
+                int j1 = j;                                      // 闭区间
+                float xL = Mathf.Max(FramePxXEdge(frameTex, rows.X0 + L), bxL);
+                float xR = Mathf.Min(FramePxXEdge(frameTex, rows.X0 + R + 1), bxR);
+                float yB = Mathf.Max(FramePxYEdge(frameTex, rows.Y0 + j0), byB);
+                float yT = Mathf.Min(FramePxYEdge(frameTex, rows.Y0 + j1 + 1), byT);
+                if (xR > xL && yT > yB)
+                {
+                    int b = verts.Count;
+                    verts.Add(new Vector3(xL, yB, 0f)); verts.Add(new Vector3(xR, yB, 0f));
+                    verts.Add(new Vector3(xR, yT, 0f)); verts.Add(new Vector3(xL, yT, 0f));
+                    float uL = (xL - xL0) / boardW, uR = (xR - xL0) / boardW;
+                    float vB = (yB - yB0) / boardH, vT = (yT - yB0) / boardH;
+                    uvs.Add(new Vector2(uL, vB)); uvs.Add(new Vector2(uR, vB));
+                    uvs.Add(new Vector2(uR, vT)); uvs.Add(new Vector2(uL, vT));
+                    tris.Add(b);     tris.Add(b + 2); tris.Add(b + 1);
+                    tris.Add(b);     tris.Add(b + 3); tris.Add(b + 2);
+                }
+                j++;
+            }
+            if (verts.Count == 0) return null;
+            var m = new Mesh { name = "CardArtWindow" };
+            m.SetVertices(verts);
+            m.SetUVs(0, uvs);
+            m.SetTriangles(tris, 0);
+            m.RecalculateBounds();
+            return m;
+        }
+
         static Mesh ArtMeshInFrame(Texture2D art, Vector3 frameQuad, float artScale = 1f,
                                    Texture2D frameTex = null, bool clipWindow = false)
         {
@@ -7164,10 +7491,21 @@ namespace CardPresentation
                 //    **下半块是空心的**（框只在上半留出插图画窗，下半靠文字底板遮），而我们把立绘
                 //    裁到**整个卡体矩形** ⇒ 立绘从框的透明侧边/下沿漏出来（大图档一眼可见）。
                 //    原版靠 SoftMask（卡框 alpha 给立绘挖洞）；我们没那层 ⇒ **把非单位卡的立绘
-                //    直接裁到「卡框的透明开口」**（开口从卡框贴图 alpha 现算，见 `FrameArtWindow`）。
+                //    直接裁到「卡框的透明开口」**。
                 //    单位卡**不裁**：角色立绘本来就要铺到框下、由框的 alpha 轮廓剪（大图档另有 opt-in 越框）。
                 if (clipWindow && frameTex != null)
                 {
+                    // 🔴 **2026-10-21（`W61` · 用户第二次报：拱顶那块空白没盖住）**：
+                    //    优先走**逐行开口条带**（`FrameRowsOf` / `ArtWindowMesh`）——
+                    //    拱形开口才能被填满（逐张量了 75 张 `_strat` 卡框：矩形 union 中位缺开口的
+                    //    **0.75%**、最差 **6.8%**，缺的是开口上/下沿的**整条带** ⇒ 一眼可见）。
+                    var rowsForArt = FrameRowsOf(frameTex);
+                    if (rowsForArt != null && rowsForArt.HasAny)
+                    {
+                        var strip = ArtWindowMesh(art, frameTex, rowsForArt, xL0, yB0, w, h, xL, xR, yB, yT);
+                        if (strip != null) { _artMeshCache[key] = strip; return strip; }
+                    }
+                    // 拿不到逐行开口（贴图不可读 / 没有闭合开口）⇒ **退回矩形**（= 改前的行为）。
                     Rect win = FrameArtWindow(frameTex);
                     if (win.width > 0.01f && win.height > 0.01f)
                     {

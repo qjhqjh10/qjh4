@@ -616,7 +616,12 @@ namespace CardPresentation
             b.audio.spatialBlend = 0f;            // 2D（原版也挂在 UI 上）
             b.audio.volume = 0.85f;               // ⚠️ 这个系数是**我们自己定的**（原版逐 source 的音量没查到）
             // 🆕 2026-09-19：挂到 `Voices` 通道 ⇒ 受设置面板那根「语音」滑块控制（原版就是这么分的）
-            b.audio.outputAudioMixerGroup = WarpforgeAudio.VoicesGroup;
+            // 🆕 2026-10-21（`新账-63` 诊断）：`WF_VOICE_NO_MIXER=1` 时**不挂 Voices 组**，
+            //   用来判定「Play 后立刻 isPlaying=false」是不是 mixer 组造成的。生产默认不变。
+            if (System.Environment.GetEnvironmentVariable("WF_VOICE_NO_MIXER") == "1")
+                b.audio.outputAudioMixerGroup = null;
+            else
+                b.audio.outputAudioMixerGroup = WarpforgeAudio.VoicesGroup;
             return b;
         }
 
@@ -854,6 +859,8 @@ namespace CardPresentation
 
             HideAll();                                  // 同时只显示一条（另一侧说话就把这条顶掉）
             _current = b;
+            _warnedNotPlaying = false;                  // 🆕 2026-10-21（新账-63）：每条气泡各自报一次
+            _warnedZeroSpectrum = false;
             _left = Duration(clip);
             LastCardId = cardId; LastEvent = evt; LastClipName = clipFile;
             LastClipLoaded = clip != null;
@@ -916,7 +923,26 @@ namespace CardPresentation
 
             // ⚠️ 用 `clip=` + `Play()` 而不是 `PlayOneShot` —— 后者的声音**停不掉**
             //    （`Stop()` 管不到 one-shot），而我们要在气泡收起来时把话掐掉
-            if (clip != null && b.audio != null) { b.audio.clip = clip; b.audio.Play(); }
+            if (clip != null && b.audio != null)
+            {
+                b.audio.clip = clip;
+                b.audio.Play();
+                // 🔴 2026-10-21（`新账-63` · 第二层诊断）：Play 的**当场**状态只打一次 ——
+                //   用来区分「length=0 / 没加载 / 对象未激活 / Play 后立刻停」。⛔ 别每句都打（刷屏）。
+                if (!_loggedClipState)
+                {
+                    _loggedClipState = true;
+                    float vv = 999f;
+                    if (b.audio.outputAudioMixerGroup != null && b.audio.outputAudioMixerGroup.audioMixer != null
+                        && !b.audio.outputAudioMixerGroup.audioMixer.GetFloat("VolumeVoices", out vv)) vv = 999f;
+                    Debug.Log($"[UnitChat] Play 当场：{clip.name} · len={clip.length:F3}s"
+                              + $" · loadState={clip.loadState} · isPlaying={b.audio.isPlaying}"
+                              + $" · audioEnabled={b.audio.enabled} · goActive={b.audio.gameObject.activeInHierarchy}"
+                              + $" · vol={b.audio.volume:F2} · mixer={(b.audio.outputAudioMixerGroup != null ? b.audio.outputAudioMixerGroup.name : "null")}"
+                              + $" · VolumeVoices={(vv > 900f ? "-" : vv.ToString("F1") + "dB")}"
+                              + $" · listenerVol={AudioListener.volume:F2} · listenerPause={AudioListener.pause}");
+                }
+            }
         }
 
         /// <summary>
@@ -979,15 +1005,36 @@ namespace CardPresentation
         public void Advance(float dt)
         {
             if (_current == null) return;
+            // 🔴 2026-10-21（`新账-63` · 第三层诊断）：每 0.4 s 打一次「气泡在场时的真实状态」——
+            //   用来区分「音频没播」/「频谱全 0」/「amplitude 写了但材质没变」。定位完可以删。
+            if (Time.unscaledTime - _lastDiagAt > 0.4f)
+            {
+                _lastDiagAt = Time.unscaledTime;
+                float mA = _current.waveMat != null ? _current.waveMat.GetFloat("_Amplitude") : -999f;
+                Debug.Log($"[UnitChat] tick playing={(_current.audio != null && _current.audio.isPlaying)}"
+                          + $" waveMat={(_current.waveMat != null)} waveAmp={_waveAmp:F3} matAmp={mA:F3}"
+                          + $" spec0={(_spectrum != null ? _spectrum[0] : -1f):F6} left={_left:F2}");
+            }
             // 🆕 2026-10-21：音波幅度 —— 原版 `AudioWaveEqualizer__Update` 同法（前 16 bin ×15、clamp01、10×dt 平滑）。
             //    ⚠️ 取到不了频谱就回 0（直线），⛔ 不静默留一个假波。
             if (_current.audio != null && _current.audio.isPlaying && _current.waveMat != null)
             {
                 if (_spectrum == null) _spectrum = new float[64];
-                _current.audio.GetSpectrumData(_spectrum, 0, FFTWindow.Blackman);
+                // 🔴 2026-10-21（第六十一会话 · `新账-63`）：原版 `AudioWaveEqualizer__Update` 传的第 3 参是
+                //   **2 = `FFTWindow.Hamming`**（`d:/2/tools/decomp_full/AudioWaveEqualizer__Update.c:29-33`
+                //   的 `GetSpectrumData(src, array, 0, 2, 0)`）—— 我们原来写的是 Blackman(4)，按原版改回。
+                _current.audio.GetSpectrumData(_spectrum, 0, FFTWindow.Hamming);
                 float sum = 0f;
                 for (int i = 0; i < 16; i++) sum += _spectrum[i];
                 float target = Mathf.Clamp01(sum * 15f);
+                // 🔴 不许静默失败：语音在播、频谱却全 0 ⇒ 音波会是直线（真机 `新账-63` 就是这现象）。
+                //   只报一次，够定位「是频谱取不到」还是「音频根本没播」。
+                if (target <= 0f && !_warnedZeroSpectrum)
+                {
+                    _warnedZeroSpectrum = true;
+                    Debug.LogWarning("[UnitChat] 语音在播（`isPlaying=1`）但 `GetSpectrumData` 前 16 bin 全 0"
+                                     + " ⇒ 音波线不会动。查：AudioSource 是否被 mixer 组静音 / 平台是否禁了频谱。");
+                }
                 _waveAmp = Mathf.Lerp(_waveAmp, target, Mathf.Clamp01(10f * dt));
                 _current.waveMat.SetFloat("_Amplitude", _waveAmp * 0.22f);   // 0.22 UV ≈ 上下的可见摆幅
             }
@@ -995,6 +1042,23 @@ namespace CardPresentation
             {
                 _waveAmp = 0f;
                 _current.waveMat.SetFloat("_Amplitude", 0f);
+            }
+            // 🔴 `新账-63` 的另一半：气泡在显示、音频**却没在播**（clip=null / Play 失败）⇒ 也出声一次。
+            //   别把「没声」和「频谱全 0」混成同一个现象（两者的修法不同）。
+            else if (_current.audio != null && !_current.audio.isPlaying && !_warnedNotPlaying)
+            {
+                _warnedNotPlaying = true;
+                var a = _current.audio;
+                var cl = a.clip;
+                // 🔴 2026-10-21（`新账-63` · 第二层诊断）：把「为什么没播」一次打全 ——
+                //   长度/加载状态/组件开关/所在对象激活/mute/音量。首轮只报了 clip 名，定位不到是
+                //   「clip 长度 0」「没加载」「对象未激活」还是「Play 失败」。
+                Debug.LogWarning($"[UnitChat] 气泡在显示但没有音频在播（clip={(cl == null ? "null" : cl.name)}"
+                                 + $" · length={(cl != null ? cl.length : -1f):F3}s"
+                                 + $" · loadState={(cl != null ? cl.loadState.ToString() : "-")}"
+                                 + $" · audioEnabled={a.enabled} · goActive={a.gameObject.activeInHierarchy}"
+                                 + $" · mute={a.mute} · vol={a.volume:F2}）"
+                                 + " ⇒ 音波线不会动（这一条台词本来就没声？还是 Play 失败？）。");
             }
             _left -= dt;
             if (_left > 0f) return;
@@ -1004,6 +1068,11 @@ namespace CardPresentation
 
         float _waveAmp;
         float[] _spectrum;
+        // 🔴 2026-10-21（`新账-63`）：两种「音波不会动」的原因各只报一次，避免每帧刷屏。
+        bool _warnedZeroSpectrum;
+        bool _warnedNotPlaying;
+        bool _loggedClipState;
+        float _lastDiagAt;
     }
 
     // ==================================================================

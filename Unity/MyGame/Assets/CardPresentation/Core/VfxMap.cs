@@ -969,6 +969,115 @@ namespace CardPresentation
             return res;
         }
 
+        // ==================================================================
+        //  🆕 2026-10-21（W61 战斗线「新账-65」第 1 批 · 第 2/3 条）：
+        //  **这条事件在原版动作队列里「演多久」** —— 远程攻击的伤害就在那一刻结算
+        // ==================================================================
+        //  判据：原版 `cardAnimations[]` 的每条候选各占一条 `playAnim` 动作，队列一次弹一条、
+        //  每条等完 `AnimInfo.GetAnimDuration()` 才结束 ⇒ 整条链的收尾 = `max(起点 + 时长)`
+        //  （`BattleManager__ResolveActionFromQueue.c:44-76` + `_ResolveAnim_d__466__MoveNext.c:200-210`；
+        //   远程那一支另外还有 `_ResolveAnimInfoRangeAttack…:111-124` 的 `WaitForSeconds(GetAnimDuration())`）。
+        //
+        //  🔴 **为什么不能用 `ResolveAllTimed` 直接取**：它对**单候选**故意把 `Duration` 压成 0
+        //  （「回归口径」，B6 §三·2 —— 队尾由事件自己负责），而**逐卡攻击动画恰好几乎都是单候选**
+        //  ⇒ 直接读会拿到 0（那就等于退回写死常数了）。这里在同一次钉行结果上补一次真值。
+        // ------------------------------------------------------------------
+
+        /// <summary>🆕 2026-10-21（W61 · 第 2 条）：**这条事件演多久**（秒，相对事件起播）。
+        /// 逐卡候选有 `CardAnimTime` 真值时 = 「最后收尾那一条的 `起点 + 时长`」；
+        /// 只有共享件（没有逐卡时间）时 = 那件 prefab 自己的 `AnimInfo` 时长（<see cref="AnimDurationOfPrefab"/>）。
+        /// <para>⚠️ 返回 **0** = 既没有逐卡时间、也不在共享件表里（调用方按「不等」处理，并已由
+        /// <see cref="AnimDurationOfPrefab"/> 出过声）。</para></summary>
+        public static float ChainDuration(string evt, string faction, string cardIdOrName,
+                                          IReadOnlyList<CardDef.CardAnimTime> times)
+        {
+            if (string.IsNullOrEmpty(evt)) return 0f;
+
+            // ① 先按常规解（多候选时它给的是**真的** `T + Duration`）
+            var items = ResolveAllTimed(evt, faction, cardIdOrName, times);
+            float end = 0f;
+            for (int i = 0; i < items.Length; i++)
+                if (items[i].T + items[i].Duration > end) end = items[i].T + items[i].Duration;
+            if (end > 0f) return end;
+
+            // ② 全 0（单候选回归口径 / 没有逐卡时间表）⇒ 在**同一次钉行**上补真值。
+            //    钉行规则与 `ResolveAllTimed` **逐条相同**（`FindAnimTimeIndex` + 游标只前进），
+            //    ⛔ 不另写一份 join。
+            List<CardPick> picks;
+            if (times != null && times.Count > 0
+                && TryResolvePerCardPicks(evt, faction, cardIdOrName, out picks)
+                && picks != null && picks.Count > 0)
+            {
+                int cursor = 0;
+                for (int i = 0; i < picks.Count; i++)
+                {
+                    int idx = FindAnimTimeIndex(times, cursor, picks[i]);
+                    if (idx < 0) continue;
+                    cursor = idx + 1;
+                    var t = times[idx];
+                    // 单候选 ⇒ 组偏移按 0（与 `ResolveAllTimed` 的 `onlyOne` 同口径）
+                    float at = (picks.Count <= 1 ? 0f : (t.Offset > 0f ? t.Offset : 0f))
+                             + (t.Delay > 0f ? t.Delay : 0f);
+                    float e2 = at + (t.Duration > 0f ? t.Duration : 0f);
+                    if (e2 > end) end = e2;
+                }
+                if (end > 0f) return end;
+            }
+
+            // ③ 共享件（按阵营 / 按事件兜底）：读它自己的 AnimInfo 时长
+            for (int i = 0; i < items.Length; i++)
+            {
+                float d = AnimDurationOfPrefab(items[i].Name);
+                if (d > end) end = d;
+            }
+            return end;
+        }
+
+        /// <summary>🆕 2026-10-21（W61）：**共享（非逐卡）攻击件的 `AnimInfo` 时长表** —— 秒。
+        /// <para>判据 = `数据/游戏数据/animinfo_lookup.json`（键 = prefab 名，值 = `m` 那条 CardAnim；
+        /// 时长 = `ts + tm + te` = `timeAtStartPos + timeMoving + timeAtEndPos`，
+        /// 与 `AnimInfo.GetAnimDuration()` 同口径 —— 那 418 条里**没有一条** `vfxDelay ≠ 0`，
+        /// 所以这里不加 `Delay`）。</para>
+        /// <para>⚠️ **只收「共享件」**（`ByFaction[AttackRanged]` 4 条 + `ByEvent[AttackRanged]` 1 条 +
+        /// 1-shot 那一档 + 近战兜底件 1 条）。逐卡件**不进来** —— 它们的时长在 `CardDef.AnimTimes` 里
+        /// （逐卡真值优先）。</para>
+        /// <para>🔴 现读值（2026-10-21）：`BulletImpact_1shot_trail` **0.3** · `BulletImpact_2shot` **0.4** ·
+        /// 4 个阵营的 `2shot*` / `NecronGauss` 全部 **0.75**。原版对这五档的 `sp/ep` 都是 `0/2`
+        /// （起点 = 攻方 `effectsAnchor`、终点 = `abilityTarget`）。</para></summary>
+        static readonly Dictionary<string, float> SharedRangedVfxDuration = new Dictionary<string, float>
+        {
+            // ===== `ByFaction[AttackRanged]` 那 4 条（`card_vfx_by_card.json` generic.attackRangedByArmy）=====
+            { "BulletImpact_2shot_trail",             0.75f },   // Atk_BulletImpact_2shot（Ultramarines）
+            { "BulletImpact_2shot_trail_ork_NEW",     0.75f },   // Atk_BulletImpact_2shot_ork（Goff）
+            { "NecronGauss",                          0.75f },   // Atk_Gauss_Basic（Sautekh）
+            { "BulletImpact_2shot_trail_chaos",       0.75f },   // Atk_BulletImpact_2shot_chaos（BlackLegion）
+            // ===== `ByEvent[AttackRanged]`（没配专属粒子的阵营走它）=====
+            { "BulletImpact_2shot",                   0.40f },   // `BulletImpact_2shot`（同名 CardAnim）
+            // ===== 1-shot 那一档（`RangedAttackParticlesByArmy` 的 `BulletImpact_1shot_trail`）=====
+            //   ⚠️ 今天 `ByFaction` 没配它（4 个阵营全是 2shot）—— 留在这里是因为它是**同名 prefab 的
+            //   原版时长**，`ChainDuration` 的断言要拿它当**第三档**（0.3 ≠ 0.75 ≠ 1.0）判「没有写死一个数」。
+            { "BulletImpact_1shot_trail",             0.30f },   // Atk_BulletImpact_1shot
+            // ===== 近战那一档的兜底件（`ByEvent[AttackMelee]`，我们挑的替代品）=====
+            //   原版近战**没有**通用件（`attack_melee` 只 13/1127 张卡有）⇒ 这一行只是让队尾算得出来。
+            { "BulletImpactBurst_crowd",              0.40f },   // `BulletImpactBurst_ability_unit`
+        };
+
+        /// <summary>🆕 2026-10-21（W61）：共享攻击件 prefab → `AnimInfo` 时长（秒）。
+        /// 查不到 ⇒ **出声**（上限 32 条，别刷屏）并返回 0（调用方按「不等 / 走兜底常数」处理，⛔ 不拿别的数凑）。</summary>
+        public static float AnimDurationOfPrefab(string prefabName)
+        {
+            if (string.IsNullOrEmpty(prefabName)) return 0f;
+            float d;
+            if (SharedRangedVfxDuration.TryGetValue(prefabName, out d)) return d;
+            if (_warnedNoAnimDuration.Count < 32 && _warnedNoAnimDuration.Add(prefabName))
+                Debug.LogWarning($"[VfxMap] 共享特效 `{prefabName}` 没有登记 `AnimInfo` 时长 "
+                               + "⇒ 时间线按「不等」处理（远程攻击那一档还会退回 `EventTiming.RangedVfxFallback` 0.75）。"
+                               + "补它：`数据/游戏数据/animinfo_lookup.json` 里 `ts + tm + te`，"
+                               + "追加到 `SharedRangedVfxDuration`");
+            return 0f;
+        }
+        static readonly HashSet<string> _warnedNoAnimDuration = new HashSet<string>();
+
         /// <summary>🆕 2026-10-19（W · 多候选 ①）：`ability` 事件里的**跨 trigger** 那一档 ——
         /// 「收集类」候选要丢。
         ///

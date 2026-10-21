@@ -113,6 +113,16 @@ namespace CardPresentation
         /// 现在 `Pop()` 走 `CardLocalToOursFor(enemy)`（玩家 0.6071 / 敌方 0.5507）。</summary>
         public const float BoxW = 0.8009615f, BoxH = 0.6837339f;
 
+        /// <summary>红色血痕（原版 `3DBody/DamageCounter/DamageIcon`）**自己的**局部缩放曲线的两个端点 ——
+        /// 判据 = clip `InBattleDamageCounter Variation 1` 的 `m_ScaleCurves[path="DamageIcon"]`：
+        /// **0.5763395 @0.1167 → 0.7 @0.2**（之后保持到 1.8333）。
+        /// 🔴 **2026-10-21（W61 第 1 批 · 第 5 条）**：原来固定用 prefab 原值 `1.01665`（不跑曲线）⇒
+        /// 实拍比原版大 **45%~76%**、也没有那一下 pop。⛔ 别写回 `1.01665`。
+        /// ⚠️ prefab 上那个 `1.01665` 只在**动画不播**时才可见（原版有 Animator ⇒ 曲线覆盖它）。</summary>
+        public const float DamageIconScaleFrom = 0.5763395f;
+        /// <summary>血痕缩放的终点（同 <see cref="DamageIconScaleFrom"/>）。</summary>
+        public const float DamageIconScaleTo = 0.7f;
+
         // ================= 我们这一侧 =================
 
         /// <summary>1 em 的**卡局部单位**值 = `fontSize × (isOrthographic ? 1 : 0.1) × 自己 RT 的 localScale`
@@ -263,8 +273,11 @@ namespace CardPresentation
             //    红色血痕 = 原版 `3DBody/DamageCounter/DamageIcon` —— 一张**SpriteRenderer**（sprite
             //    `Card Damage`，256²），z −0.05、**sortingOrder 1**（数字是 2 ⇒ 血痕在数字后一层）。
             //    我们**从没建过这个节点**（`CardFeel.cs` 当时写着「图标我们没画」）。
-            //    这里从效果库的 `CardPrefab` 里取那颗现成节点、按原版 offset/scale 摆到飘字同一处，
-            //    并把它挂进同一条 DOTween 时间线（α 0→0.8235 @PopIn、保持、PopOut→0）。
+            //    这里从效果库的 `CardPrefab` 里取那颗现成节点、按原版 offset/sortingOrder 摆到飘字同一处，
+            //    并把它挂进同一条 DOTween 时间线（α 0→0.8235 @PopIn、保持、PopOut→0；
+            //    **缩放 0.5763→0.7 @PopIn→PopScaleIn** —— 见下面那段，2026-10-21 W61 第 5 条）。
+            //    ⚠️ 它是**飘字节点的子件**（原版那颗 `DamageIcon` 就在 `DamageCounter` 根底下）——
+            //    这样父节点 0.6641→1 的 pop 会**同时**作用在血痕上，位置偏移也跟着缩（与原版一致）。
             SpriteRenderer hitIcon = null;
             if (!heal)
             {
@@ -276,10 +289,20 @@ namespace CardPresentation
                             ? FindDeep(entry.prefab.transform, "DamageIcon") : null;
                     if (src != null)
                     {
-                        var go = Object.Instantiate(src.gameObject, parent, false);
+                        // 🔴 **2026-10-21（W61 战斗线「新账-65」第 1 批 · 第 5 条）：血痕按原版 clip 跑缩放曲线。**
+                        //   判据 = clip `InBattleDamageCounter Variation 1`
+                        //   （`bundle_battleprefabs_vfxandmisc_assets_all/AnimationClip/AnimationClip_-3234148433819516763.json`）：
+                        //     · 根（path `""`）scale **0.6641 @0 → 1.0 @0.2**（= 我们这颗飘字自己的 `PopScaleFrom → 1`）；
+                        //     · `DamageIcon` scale **0.5763 @0.1167 → 0.7 @0.2**，之后保持到 1.8333。
+                        //   ⇒ 它必须是**那颗 pop 节点的子件**（原版它就在根底下）⇒ 世界缩放 = 根 × 自身。
+                        //   ⛔ 别再固定 `1.01665 × bridge`：那是 prefab 的原值、不跑曲线，实拍比原版**大 45%~76%**、
+                        //      而且没有那一下 pop。
+                        var go = Object.Instantiate(src.gameObject, lbl.transform, false);
                         go.name = "PopDamageIcon";
-                        go.transform.position = worldPos + new Vector3(0.094f, -0.104f, 0f) * bridge;
-                        go.transform.localScale = Vector3.one * (1.01665f * bridge);
+                        // 局部偏移（**卡局部单位 × 到我们世界单位的桥**）：跟着父节点的 pop 一起缩 —— 原版也是这样
+                        // （血痕的 localPosition 烘在 prefab 里、父节点跑 0.6641→1 的 ScaleCurves）。
+                        go.transform.localPosition = new Vector3(0.094f, -0.104f, 0f) * bridge;
+                        go.transform.localScale = Vector3.one * (DamageIconScaleFrom * bridge);
                         hitIcon = go.GetComponent<SpriteRenderer>();
                         if (hitIcon != null)
                         {
@@ -321,6 +344,19 @@ namespace CardPresentation
                 seq.Insert(CardFeel.PopHoldUntil,
                            DOTween.To(() => 1f, a => SetIconAlpha(hitIcon, a * 0.8235f), 0f,
                                       CardFeel.PopOut - CardFeel.PopHoldUntil).SetEase(Ease.Linear));
+                // 🔴 2026-10-21（W61 第 1 批 · 第 5 条）：**血痕自己的缩放曲线** ——
+                //   clip 的 `DamageIcon`：0.5763 @0.1167 → 0.7 @0.2（0.0833 s）。
+                //   ⚠️ 用 **`Insert(PopIn, …)`（绝对时刻）**，⛔ 别用 `Join`/`Append` ——
+                //      `Join` 接在当前游标（= `PopIn` 之后）没问题、`Append` 会把后面整条推后 0.083 s。
+                //   缓动：clip 的关键帧是 auto 切线（`inSlope/outSlope = 0` + `weightedMode = 0`），
+                //   真形状要 Unity 自己算 ⇒ 这里用**与父节点 pop 同一条** `OutQuad`（视觉同族）。
+                var iconTr = hitIcon.transform;
+                seq.Insert(CardFeel.PopIn,
+                           DOTween.To(() => DamageIconScaleFrom,
+                                      k => iconTr.localScale = Vector3.one * (k * bridge),
+                                      DamageIconScaleTo,
+                                      Mathf.Max(1e-4f, CardFeel.PopScaleIn - CardFeel.PopIn))
+                                  .SetEase(Ease.OutQuad));
             }
             seq.OnComplete(() => { KillLabel(lbl); KillIcon(hitIcon); });
             LastPopTween = CardTween.Use(seq, Ease.Linear, tr);

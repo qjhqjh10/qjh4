@@ -290,8 +290,12 @@ namespace CardPresentation
         /// <summary>🔴 **2026-10-13**：那几张牌**搬进换牌区之前**的位姿（`Open` 时存、`ClearCardButtons` 还）。
         /// 不复位的话换牌结束后它们会**留在屏幕中央** —— `RefreshAll()` 只按 `_dealt`（这一轮新进手牌）
         /// 重摆，**不保证覆盖到这几张**（`HandLayout.Place` 的调用面看的是那一份）。
-        /// ⚠️ 存的是**世界位**（`transform.position`），不是 `localPosition` —— 卡的父链是 `HandArea`。</summary>
+        /// 🔴 **2026-10-21（第六十一会话 · 换牌残余 ②）**：改成存**父空间局部位**（`localPosition`）
+        /// + **绕 Z 角**，归还走 `CardView.SetPose` —— 见 <see cref="ClearCardButtons"/> 里那段「为什么必须是
+        /// `SetPose`」的理由（`CardView._baseScale` 只有 `SetPose` 会写，直接写 `transform.localScale`
+        /// 会让它停在**手牌尺度**上，之后任何一次 `ApplyScale()` 都把卡缩回手牌大小）。</summary>
         readonly List<Vector3> _savedPos = new List<Vector3>();
+        readonly List<float> _savedRotZ = new List<float>();
         readonly List<Vector3> _savedScale = new List<Vector3>();
         readonly List<int> _marked = new List<int>();
 
@@ -374,6 +378,18 @@ namespace CardPresentation
         /// `Label.Create(…, Color.white, …)`；判据 = `MonoBehaviour_3731.json` / `MonoBehaviour_3856.json`
         /// 的 `m_fontColor32 = 4294967295`）。断言在 `Editor/BattleScene` 里那条断 `m_fontColor32` 的检查。</summary>
         const float TurnCx = 966.03f, TurnCy = 156.5f, TurnW = 1307.06f, TurnH = 54.17f, TurnPx = 55f;
+        /// <summary>🔴 **2026-10-21（第六十一会话 · 换牌残余 ④）**：那一颗 TMP 的 **`m_fontSizeBase`**。
+        /// 判据 = 现读 `bundle_scenes_scenes_battlearena1/MonoBehaviour/MonoBehaviour_3856.json`：
+        /// `m_fontSize = 55`（= 我们把 `TurnPx` 当标称字号那一档）· **`m_fontSizeBase = 36`** ·
+        /// `m_fontSizeMin = 18` · `m_fontSizeMax = 55` · `m_enableAutoSizing = 1`。
+        /// ⚠️ 原来 `SetAutoFitBox` 的 base 实参写的是 `TurnPx`（55）—— **与字段不符**（35%）。
+        /// 它只改自适应二分的**起点**（TMP 从 `m_fontSizeMax` 起步、`base` 是回写值），视觉差异小，
+        /// 但「原版字段是什么就写什么」（铁律 3），⛔ 别再拿 `TurnPx` 顶它。
+        /// <para>运行期实渲（原版中文档同一棵树、同一串「你是第二个行动」）= **41.8**（提示行 53.7 ·
+        /// 钮上「继续」45.0，出处 `panel_0914b/p3_mulligan_tree.tsv:13-15`）—— 那个数是**自适应在
+        /// 原版字体资产上的产物**，⛔ 不是可以钉进来的常量（`A1104` 已裁定：复刻 auto + 上下限 + 框）。
+        /// ⇒ 本条收口 = **框 1307.064×54.168 + 18/55/36 + auto=1** 四格与原版逐字段一致。</para></summary>
+        const float TurnFsBase = 36f;
         /// <summary>「完成换牌」那颗钮（原版 `MulliganContinueButton/Button`）的中心与框：
         /// `BarCx/BarCy` = 原版那颗的框中心（`RT_2659` 的绝对矩形 1322.7–1900.2 × 948.3–1012.2 ⇒
         /// (1611.45, 980.25)，与 `工具/menu_dump.py bundle_scenes_scenes_battlearena1 "Mulligan"`
@@ -759,10 +775,14 @@ namespace CardPresentation
             //   框 = 原版 `TurnText` 的绝对矩形 **1307.064 × 54.168**（= 本类 `TurnW`/`TurnH` 那两个常数；
             //   判据 = `RectTransform_3403.json` 的 `sd (-36.936, -25.272)` + 父整屏 1920×1080，
             //   **13 场逐字段相同 + 运行期 dump 逐位相同**；全文 → `资料/普查产出_第六会话/W_换牌那行rect_A1076.md`）。
-            //   ⚠️ 下面那句按语种的手工字号**保留**：它现在只提供 `fontSizeBase` 那个起点，
+            //   ⚠️ 下面那句按语种的手工字号**保留**：它现在只提供**标称**（`cur`），自适应四格按它折算；
             //      开了自适应之后最终大小由 TMP 在 `[18,55]` 里自己收敛（原版也是这么跑的）。
+            //   🔴 **2026-10-21（第六十一会话 · 换牌残余 ④）**：`base` 实参从 `TurnPx`(55) 改成
+            //      **原版字段 36**（`TurnFsBase`）—— 同一次现读的 `MonoBehaviour_3856.json` 里
+            //      `m_fontSizeBase = 36`。`m_fontSize = 55` 那一档仍由 `SetScriptFont(…, TurnPx)` 提供。
             if (p._turnText != null)
-                p._turnText.SetAutoFitBox(TurnW, TurnH, 18f, 55f, TurnPx);   // 🔴 框 = **设计 px**（去掉 `U()`，同 `_prompt`）
+                p._turnText.SetAutoFitBox(TurnW, TurnH, 18f, 55f, TurnFsBase);   // 🔴 框 = **设计 px**（去掉 `U()`，同 `_prompt`）
+                                                                                 // 🔴 base = **原版 `m_fontSizeBase` = 36**（见 `TurnFsBase`；原来喂的是 `TurnPx` 55）
 
             // 完成按钮：底图 `40k_bt_underbutton`（原版 577.5×63.8）+ 圆形播放钮 `40k_UI_bt_play`
             // 🔴 **2026-10-16（`T09` 批 3）**：三颗都换成画布上的 `HudPiece`（`Img` = 面板内**设计 px**、
@@ -866,17 +886,27 @@ namespace CardPresentation
             if (n == 0) return;
 
             // ---- ① 起手牌搬进换牌区那一行 ----
-            // 🔴 **一律写世界位**（`transform.position`）：这几张卡**不在本面板的父链下**
-            //    （它们在 `HandArea` 里，那条链的 `lossyScale` 与我们差着数量级）⇒
-            //    写 `localPosition` 会把牌甩到屏幕外（`CardChoicePanel` 能写局部是因为那几张是它自己的子件）。
+            // 🔴 **2026-10-21（第六十一会话 · 换牌残余 ②）就地改写法（铁律 5）**：
+            //   原来这里是「存世界位 + 直接写 `transform.localScale` + 直接写 `transform.position`」。
+            //   两个问题，第二个是**真缺陷**：
+            //   ① `transform.localScale` 是**卡体那一层**的缩放，而 `CardView` 的缩放是
+            //      「基础缩放 × 高亮系数」（`CardView.ApplyScale`）—— 直接写它**不会更新 `_baseScale`**
+            //      ⇒ `_baseScale` 仍停在**手牌尺度**（0.7301 = 165 px）。之后任何一次
+            //      `ApplyScale()`（`SetHighlight`/`SetHighlightScale` 那一族会调）都会把这张卡
+            //      **弹回手牌尺度**——静默、只在实机上看得见（批处理不开这些补间）。
+            //   ② 写 `transform.position`（世界位）本身是对的（卡在 `HandArea` 那条父链下），
+            //      但同族的 `ReapplyRowPoses` 早就走 `SetPose(局部位, 0, 卡宽尺度)`；两条写法并存 =
+            //      同一条规则的第二次实现（本仓红线）。⇒ 现在统一成 `SetPose` 一条路。
+            //   ⚠️ `RowLocalPos` **必须**在 `_cards` 填好之后调（它按 `_cards.IndexOf` 算槽位）——
+            //      上面那一段已经 `_cards.Add` 完，顺序不能挪。
             float cardScale = MulliganCardScale;
             for (int i = 0; i < n; i++)
             {
                 var c = _cards[i];
-                _savedPos.Add(c.transform.position);
+                _savedPos.Add(c.transform.localPosition);          // 父空间（`HandArea`）
+                _savedRotZ.Add(c.transform.localEulerAngles.z);
                 _savedScale.Add(c.transform.localScale);
-                c.transform.localScale = new Vector3(cardScale, cardScale, 1f);
-                c.transform.position = RowWorldPosAt(i, n);   // 🔴 判据只此一处
+                c.SetPose(RowLocalPos(c), 0f, cardScale);          // 🔴 判据只此一处（`RowWorldPosAt` 的局部位版）
             }
 
             // ---- ② 每张牌下面那颗「替换」钮 ----
@@ -1034,13 +1064,20 @@ namespace CardPresentation
             // 🔴 **2026-10-13**：把起手牌**放回搬进来之前**的位姿（`Open` 存、这里还）。
             //   ⛔ **别依赖换牌结束后的 `RefreshAll()` 替我们复位** —— 它重摆的是 `_dealt`
             //   （这一轮新进手牌）那一份，**不保证覆盖到这几张**；不复位它们就会**留在屏幕中央**。
+            // 🔴 **2026-10-21（第六十一会话 · 换牌残余 ②）**：归还**必须走 `CardView.SetPose`**，不能像原来那样
+            //   直接写 `transform.position` / `transform.localScale` —— 理由与 `BuildCardButtons` 那段同一条：
+            //   `_baseScale` 只有 `SetPose` 会写。直接写的话它会**停在换牌区那一档（1.292）**，而
+            //   `HandLayout.Place` 在实机上走的是 `animateRelayout` 补间（只写 `transform.localScale`、
+            //   **不写 `_baseScale`**）⇒ 之后玩家一悬停（`SetHighlight(Hover)` → `ApplyScale`）那张牌会
+            //   **弹到换牌区尺度 × 1.05**（比手牌大 77%）。批处理里 `animateRelayout=false` ⇒ 结构上测不出来。
             for (int i = 0; i < _cards.Count && i < _savedPos.Count; i++)
             {
                 if (_cards[i] == null) continue;
-                _cards[i].transform.position = _savedPos[i];
-                _cards[i].transform.localScale = _savedScale[i];
+                _cards[i].SetPose(_savedPos[i], i < _savedRotZ.Count ? _savedRotZ[i] : 0f,
+                                  i < _savedScale.Count ? _savedScale[i].x : 1f);
             }
             _savedPos.Clear();
+            _savedRotZ.Clear();
             _savedScale.Clear();
             _cards.Clear();
         }

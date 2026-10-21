@@ -947,6 +947,35 @@ namespace CardPresentation
         string _deckNote;
         /// <summary>HUD 是不是已经建过了（**只能建一次**，见 `BuildHud`）</summary>
         bool _hudBuilt;
+        /// <summary>🔴 **2026-10-21（第六十一会话 · 换牌残余 ①）**：**战斗 HUD 那一整层的容器**
+        /// （`BuildHud` 建，铺满根画布 `HudCanvas.Ensure(cam)`；`Hud()` / `HudImageTex()` / `AddEnergyLight()`
+        /// 建出来的件都挂在它下面）。
+        /// <para>**为什么要有它（判据，不是我们自己挑的）**：原版换牌期**整层战斗 HUD 是收起来的** ——
+        /// ① 用户实拍 `战斗—替换手卡参考图（先手/后手）.png` 里**没有**结束回合 / 能量 / 名牌 / 牌堆 / 敌方手牌；
+        /// ② 反编译里那一层是**滑动进出场**、不是压暗：`BattleManager._FinishMulliganFinalPhase_d__351__MoveNext.c:113`
+        ///    = `BattleHud.ToggleWithAnimation(hud, 1, 1, 0)`（换牌收尾才 **show**），
+        ///    对应 7 段 legacy clip（`bundle_battlesharedresources_assets_all/AnimationClip/`）：
+        ///    `BattleHudHidden`(pid −1315085872149960500) / `BattleHudHiddenNoHand`(4247708151348801114) 把
+        ///    `LeftArea/PlayerInfo`(x −240,y −330) · `LeftArea/EnemyInfo`(x −240,y +330) · `RightArea/SettingsBtn`(310,311) ·
+        ///    `RightArea/PlayerDeck`(−190,−461) · `RightArea/EnemyDeck`(−190,+461) · **`RightArea/Right Anchor` x 0→476**
+        ///    （`Energy And turn holder` = 结束回合钮 + 能量就在它下面，见运行期 dump
+        ///     `runtime_ui_dump_drive_0912.tsv:232-244`）· **`LeftArea/Left Anchor` x 0→−449** ·
+        ///    `UpperAnchor/EnemyArea` y → 402.83（敌方手牌）· `BottomAnchor/PlayerArea/HandArea` y → −479
+        ///    逐条滑出屏幕。
+        /// ⇒ **原版 = 隐藏（滑出屏幕），不是压暗**；我们这一批用「整层 `CanvasGroup.alpha = 0`」做等价物
+        /// （滑动补间**没做**，如实记在 `资料/普查产出_1021/W61_战斗线_换牌残余.md`）。
+        /// ⚠️ 原版那 8 条**没包括**提示条（`AboveShader/TipText`） —— 我们的提示条在**自己的子画布**上、
+        ///   不挂这一层，所以换牌期照常可见（和原版一致）。</para>
+        /// <para>⚠️ **别把这一层和 `hudRoot` 混了**：`hudRoot` 是**裸 `Transform`**、给震镜头反补用
+        /// （`CardFeel.ShakeCamera`），uGUI 件从 `T09` 起一个都不挂它。</para>
+        /// <para>⚠️ `HudLabelOnCanvasForTest` 的父链判据是 `p == RootRect || p.parent == RootRect`
+        /// ⇒ 字挂本层时它走**后一条**（`_hudLayer.parent == RootRect`），断言仍然成立、判别力不变。</para>
+        /// <para>🔴 **收起来的手法是 `CanvasGroup.alpha = 0`（不是 `SetActive(false)`）** —— 见
+        /// <see cref="ApplyMulliganHudVisibility"/> 里那条理由（未激活的 TMP 量不出尺寸，会连带影响同一层里
+        /// 21 颗 HUD 字的版面/自检读出）。视觉上等价于「原版滑出屏幕」：屏幕上看不到任何 HUD 件。</para></summary>
+        RectTransform _hudLayer;
+        /// <summary>本层那枚 `CanvasGroup`（`BuildHud` 建；换牌期 `alpha = 0` + `blocksRaycasts = false`）。</summary>
+        CanvasGroup _hudGroup;
         /// <summary>本局的卡池（`CardDatabase.Load()` 那一份）。战斗日志要把卡名翻成中文名，所以留着</summary>
         List<CardDef> _pool;
         /// <summary>墓地/战斗日志面板（原版 `CemeteryLogPanel`）。入口是敌方名牌上那颗按钮</summary>
@@ -977,6 +1006,28 @@ namespace CardPresentation
 
         readonly Dictionary<int, CardView> _myUnits = new Dictionary<int, CardView>();
         readonly Dictionary<int, CardView> _foeUnits = new Dictionary<int, CardView>();
+
+        /// <summary>🔴 **2026-10-21（第六十一会话 · `G3`）**：把「格号 → 视图」表里**还活着、但被关掉**的
+        /// 视图拨回 `SetActive(true)`，返回拨了几张。只在 <see cref="Begin"/> 的跨局清理那一段调。
+        /// <para>**为什么需要它**：`BeginTutorial` 会把敌方督军视图 `SetActive(false)`（教程开场两拍先藏），
+        /// 而那张视图**跨局复用**（`SyncBoard` 按格号认领旧视图）⇒ 下一局会把一张 inactive 的卡认领过来
+        /// （不画、`CardHit` 恒 false）。判据全文与「为什么不会把该藏的拨亮」→ `Begin` 里那段注释。</para>
+        /// <para>⚠️ **不许静默失败**：拨完仍在 `activeInHierarchy` 之外的（= 父链关着）当场 `LogWarning`，
+        /// ⛔ 不要让它安静地留在「表里有、画面上没有」那一态。</para></summary>
+        static int ReviveBoardViews(Dictionary<int, CardView> views)
+        {
+            int n = 0;
+            foreach (var kv in views)
+            {
+                var v = kv.Value;
+                if (v == null) continue;                       // 已销毁（Unity 伪 null）⇒ `SyncBoard` 会换掉
+                if (!v.gameObject.activeSelf) { v.gameObject.SetActive(true); n++; }
+                if (!v.gameObject.activeInHierarchy)
+                    Debug.LogWarning($"[Battle] 场上视图 `{v.name}`（格 {kv.Key}）拨回激活后**仍在未激活的父链**下"
+                                   + " —— 它在场上既画不出来也点不到（G3 复位失败，⛔ 不静默）");
+            }
+            return n;
+        }
 
         // 🔴 **2026-10-01：单位 → 视图**（身份表，与上面那两张「格号 → 视图」并排存在）。
         //
@@ -3562,6 +3613,27 @@ namespace CardPresentation
             foreach (var kv in _foeFading) if (kv.Value != null) Kill(kv.Value.gameObject);
             _myFading.Clear(); _foeFading.Clear();
             _myUnitViewByUnit.Clear(); _foeUnitViewByUnit.Clear();   // 身份表跨局必须清（上局的单位对象全换了）
+            // 🔴 **2026-10-21（第六十一会话 · `G3`）：复用的场上视图要【显式】拨回激活态。**
+            //   病灶：`BeginTutorial`（本文件里 `foeW.SetActive(false)` 那一句）会把**敌方督军视图**
+            //   `SetActive(false)`（教程开场「两拍」：先藏、`TutWarlordBeatSeconds = 0.6s` 后再显）。
+            //   可那两拍只在 `TickTutorialView` 里跑，而它第一句是 `if (Ctx.Tutorial == null) return;`
+            //   ⇒ 教程局没跑完两拍、或紧接着开下一局（本函数上面还会把 `_tutBeatDone` 拨回 false）
+            //   ⇒ 那张视图**留在 inactive** 上。
+            //   而 `_myUnits` / `_foeUnits` 是**跨局复用**的（`SyncBoard` 在身份表清空后走
+            //   「这一格键上那张视图的主人已经不在场上 ⇒ 认领它」那条退路）
+            //   ⇒ **新一局直接复用同一张 inactive 的视图**：屏幕上那张卡不画，`CardHit` 对
+            //   `!activeInHierarchy` 恒 false ⇒ **那张卡点不到**（真机表现 = 敌督军点不动）。
+            //   ⛔ 这里**只拨激活态**：不 Kill、不清表、不改复用机制 —— 复用本身是对的（原版「同一张卡翻个面」
+            //   的残骸体就靠它接住，见 `SyncBoard` ② 那条注释）。
+            //   ⚠️ 只看 `_myUnits` / `_foeUnits` 里**还活着**的视图（被销毁的条目由 `SyncBoard` 自己换掉）。
+            //   ⚠️ 反过来的风险已核：除了教程两拍，全仓**没有**第二处把场上 `CardView` `SetActive(false)`
+            //   （飞行那一档用的是「关渲染器」`_aiDeployHiddenRenderers`，不是关节点）⇒ 这里不会把该藏的拨亮。
+            {
+                int nRevived = ReviveBoardViews(_myUnits) + ReviveBoardViews(_foeUnits);
+                if (nRevived > 0)
+                    Debug.Log($"[Battle] 新一局：把上一局留下的 **{nRevived}** 张未激活的场上视图拨回激活"
+                            + "（来源 = 教程督军两拍 / `SetActive(false)`；判据 → `Begin` G3 那段注释）");
+            }
             _previewMoved.Clear(); _previewOwner = -1; _previewRequested = -1;
 
             // ⚠️ **上一局没播完的事件也要清掉**（`_timeline` 是跨局留着的）。
@@ -5224,10 +5296,13 @@ namespace CardPresentation
                 else                     CardEffects.Fire(p.cueVfx, p.cuePos, p.cueParent);
                 return true;
             }
+            // 🆕 2026-10-21（W61 第 1 批）：回调 cue 在**单步**这条出口上同样要跑
+            // （铁律 10 第 5 条：一个对象有多个入口时状态要带齐）。
+            if (p.cueAction != null) { p.cueAction(); return true; }
             PlaySignal(p.evt, p.drawFromEnd, p.points, p.pointIndex,
                        p.beat, p.beatVfx, p.beatSp, p.beatEp, p.beatPt, p.beatTail,
                        p.beatMove, p.beatOtv, p.beatTs, p.beatTm, p.beatEase,
-                       p.cueUnitDamage, p.cueMeleeHit, p.beatData);
+                       p.cueUnitDamage, p.cueMeleeHit, p.beatData, p.hitOfAttack, p.hitAmount);
             return true;
         }
 
@@ -9577,6 +9652,41 @@ namespace CardPresentation
             return HitSlot(side == _me ? _myUnits : _foeUnits, world);
         }
 
+        /// <summary>自检用：把一个**原始世界坐标**（例如 `CardView.transform.position`、卡局部系
+        /// `TransformPoint` 出来的点）换算成**生产指针的那个点** ——
+        /// `boardCam.WorldToScreenPoint(world)` → `LayoutSpace.ScreenToWorld(屏幕点, cam)`。
+        /// <para>🔴 **2026-10-21（战斗线 `新账-64`）为什么必须有它**：`HitSlot` 的入参是
+        /// `WorldPointer()` 那个**正交指针平面**的点，不是战场世界点。测试若直接把卡的原始世界坐标喂进去，
+        /// 等于问错空间 —— 那正是「我方整排点不到」这个 bug 能静默到今天的**原因之一**
+        /// （诊断 → `资料/普查产出_1021/W61_战斗线_战将点击诊断.md` §4·3）。
+        /// ⇒ **凡是「点在卡画出来的位置上」的探针，一律先过这一跳再喂 `HitSlotForTest` / `HitUnitSlotForTest`。**</para>
+        /// <para>⚠️ 名字**不叫** `PointerWorldForTest`：那个名字是同文件里那颗**静态字段**
+        /// `<see cref="PointerWorldForTest"/>`（自检钉死指针用），C# 不允许同名的字段与方法。</para>
+        /// <para>⚠️ **2D 档逐位恒等**（`use3DBoard == false` / 没有 `boardCam`）：那时卡就摆在正交平面上，
+        /// 原始世界点本来就是指针点 ⇒ 原样返回（⛔ 别在 2D 档硬走一遍屏幕往返，白吃精度）。</para>
+        /// <para>⚠️ 点在相机背后（`WorldToScreenPoint.z &lt;= 0`）⇒ **出声一次**并原样返回 ——
+        /// 那说明探针拿了个画不出来的点，测试自己的前提就不成立。</para></summary>
+        public Vector3 PointerAtWorldForTest(Vector3 world)
+        {
+            if (!use3DBoard || boardCam == null || cam == null) return world;
+            Vector3 sp = boardCam.WorldToScreenPoint(world);
+            if (sp.z <= 0f)
+            {
+                if (!_pointerAtWorldWarned)
+                {
+                    _pointerAtWorldWarned = true;
+                    Debug.LogWarning("[Battle] `PointerAtWorldForTest`：点 " + world + " 在战场相机背后"
+                                   + "（`WorldToScreenPoint.z = " + sp.z.ToString("F3") + "`）⇒ 原样返回；"
+                                   + "探针取了一个画不出来的点。");
+                }
+                return world;
+            }
+            return LayoutSpace.ScreenToWorld(new Vector2(sp.x, sp.y), cam);
+        }
+
+        /// <summary>`PointerAtWorldForTest` 那条「点在相机背后」警告的只出声一次闩。</summary>
+        bool _pointerAtWorldWarned;
+
 #if UNITY_EDITOR
         // ---- 🆕 2026-10-20（`W57` · 战斗线 `T09` 步骤 B2b）只读探针（只给 `Editor/BattleScene.cs` 的断言）----
         //  ⚠️ 播放器里一个都不编。全部**只读**（⛔ 没有一个会改状态；唯一例外见断言侧：临时改 collider 尺寸后必须复原）。
@@ -9606,8 +9716,10 @@ namespace CardPresentation
             return best;
         }
 
-        /// <summary>自检用：这个点上**有几张**候选单位的真 collider 命中（同 `side` 的那一侧）。
-        /// 用途 = 「重叠优先取 z 最小」那条断言的**前提**（先证明 ≥2 张都命中，否则那条断言没有判别力）。</summary>
+        /// <summary>自检用：这个点上**有几张**候选单位的 collider 命中（同 `side` 的那一侧）。
+        /// 用途 = 「重叠优先取 z 最小」那条断言的**前提**（先证明 ≥2 张都命中，否则那条断言没有判别力）。
+        /// 🔴 **2026-10-21（`新账-64`）判据与 `HitSlot` 共用 `CardHit`**（3D 档 = 正交平面上的投影矩形；
+        /// 2D 档 = 原 `HitByCollider`）—— ⛔ 别在这里另写一份「喂 `Physics2D`」，那会让两条断言口径分家。</summary>
         public int HitSlotHitCountForTest(int side, Vector3 world)
         {
             var views = side == _me ? _myUnits : _foeUnits;
@@ -9616,7 +9728,7 @@ namespace CardPresentation
             foreach (var kv in views)
             {
                 var v = kv.Value;
-                if (v != null && v.HitByCollider(world)) n++;
+                if (CardHit(v, world)) n++;
             }
             return n;
         }
@@ -14015,7 +14127,7 @@ namespace CardPresentation
                     drawFromEnd = drawCount[e.Player] - drawSeen[e.Player];
                     drawIndex = drawSeen[e.Player]++;
                 }
-                t += EventTiming.DelayBetween(prev, e);
+                t += EventTiming.DelayBetween(prev, e, RangedVfxDurationBefore(e, prev));
 
                 // 🆕 2026-10-17（`T05` 第 3 步）：**「一次技能」按表展开成 N 拍**。
                 //   判据链/表结构 → `Battle/CardAnimOrder.cs` 文件头；口径「引擎不动、由驱动侧展开」→
@@ -14049,7 +14161,13 @@ namespace CardPresentation
                     points = drawIndex >= 0 && e.Player < drawPoints.Length ? drawPoints[e.Player] : null,
                     pointIndex = drawIndex,
                     cueUnitDamage = i == cueUnitDamage,
-                    cueMeleeHit = IsMeleeHitCueAt(_signalBuf, i),
+                    // 🔴 2026-10-21（W61 第 1 批 · 第 2 条）：命中音**打在 Attack 那条信号上** ——
+                    //   它要在**命中帧**（Attack + `HitFrameLag`）响，不是伤害结算那一拍。
+                    //   判据仍是 `IsMeleeHitCueAt`（问的是「下一条 Hit 算不算近战命中」），一行没多。
+                    cueMeleeHit = IsMeleeHitCueAt(_signalBuf, i + 1),
+                    hitAmount = (i + 1 < _signalBuf.Count && _signalBuf[i + 1] != null) ? _signalBuf[i + 1].Amount : 0,
+                    hitOfAttack = e.Kind == EvtKind.Hit && i > 0 && _signalBuf[i - 1] != null
+                                  && _signalBuf[i - 1].Kind == EvtKind.Attack,
                 });
                 // 🆕 2026-10-20（`W58`）：**治疗那一拍占多久 = 卡上 `HealText` 自己的生命周期（1.5 s）** ——
                 //   原版 `CardScript.Heal` 是**协程**，`ResolveHeal` 对每个目标 `yield return` 等它放完
@@ -14288,8 +14406,26 @@ namespace CardPresentation
             // ── 🆕 2026-10-19（偏差 4）：两条「批内视野」cue 的**播放时刻**（由 `PlaySignals` 算、这里只带下去）──
             /// <summary>`true` = 这一条 `Hit` 是这一批里**最后**一条该响 `unitDamage` 的（`UnitDamageCueIndex`）。</summary>
             public bool cueUnitDamage;
-            /// <summary>`true` = 这一条 `Hit` 是**近战攻击命中**（`IsMeleeHitCueAt`）⇒ 响 `meleeAttackHit*`。</summary>
+            /// <summary>`true` = 这一条 `Hit` 是**近战攻击命中**（`IsMeleeHitCueAt`）⇒ 响 `meleeAttackHit*`。
+            /// 🔴 **2026-10-21（W61 第 1 批 · 第 2 条）**：这条标记现在打在**它前面那条 `Attack`**
+            /// 的 `PendingSignal` 上（命中音在**命中帧**响，⛔ 不是伤害结算那一拍）——
+            /// 判据仍是 `IsMeleeHitCueAt(buf, i+1)`，一处没多。</summary>
             public bool cueMeleeHit;
+
+            /// <summary>🆕 2026-10-21（W61 第 1 批 · 第 2 条）：**打在 `Attack` 那条信号上的「这一击的伤害额」**
+            /// （= 紧跟其后的那条 `Hit` 的 `Amount`）—— 命中帧的后坐分「轻重档」要用它，
+            /// 而 `Attack` 事件自己不带伤害值。</summary>
+            public int hitAmount;
+
+            /// <summary>🆕 2026-10-21（W61 第 1 批 · 第 2/3/4 条）：这一条 `Hit` **紧跟在一条 `Attack` 后面**
+            /// （= 那一击的**伤害结算**拍）。⇒ 这一拍**不再播** `VfxMap.Hit` 通用件 —— 命中粒子已经挪到
+            /// **命中帧**（`ScheduleAttackPresentation`），两个都播就是同一击两下。</summary>
+            public bool hitOfAttack;
+
+            /// <summary>🆕 2026-10-21（W61 第 1 批）：**到点跑一次的回调 cue**（和 `cueVfx` 同一条泵、同一个口径：
+            /// 它不是事件 —— 不重演语音/战斗音效/血账/视图同步）。用途 = 命中帧那一拍（命中粒子 + 命中音 + 后坐/震屏）
+            /// 与攻击 VFX 的延迟实例化（近战 +0.4 / 远程 +0.2）。</summary>
+            public System.Action cueAction;
 
             // ── 🆕 2026-10-19（B6）：**「只补播一件特效」的延迟 cue** ─────────────────────────
             //  用途 = 同一 (卡, 事件) 的多候选按原版 `cardAnimations[]` 的串行时长**错开**
@@ -14786,10 +14922,13 @@ namespace CardPresentation
                     else                     CardEffects.Fire(p.cueVfx, p.cuePos, p.cueParent);
                     continue;
                 }
+                // 🆕 2026-10-21（W61 第 1 批）：**到点跑一次的回调 cue**（命中帧那一拍 / 攻击 VFX 的延迟实例化）。
+                //   与 `cueVfx` 同一个口径：它不是事件、不跑事件级副作用。
+                if (p.cueAction != null) { p.cueAction(); continue; }
                 PlaySignal(p.evt, p.drawFromEnd, p.points, p.pointIndex,
                            p.beat, p.beatVfx, p.beatSp, p.beatEp, p.beatPt, p.beatTail,
                            p.beatMove, p.beatOtv, p.beatTs, p.beatTm, p.beatEase,
-                           p.cueUnitDamage, p.cueMeleeHit, p.beatData);
+                           p.cueUnitDamage, p.cueMeleeHit, p.beatData, p.hitOfAttack, p.hitAmount);
             }
 
             // 🆕 2026-10-19（偏差 1 的残余④）：**登场那一拍到了 ⇒ 把视图补建出来**。
@@ -15975,6 +16114,181 @@ namespace CardPresentation
             if (_blocking) _blockingQuietAt = Mathf.Max(_blockingQuietAt, end);
         }
 
+        /// <summary>🆕 2026-10-21（W61 第 1 批）：把一记**回调**排进 `_timeline`（与 <see cref="ScheduleVfxCue"/>
+        /// 同一条泵、同一个口径 —— 批处理没有帧循环，挂在 `Update` 里就成了「只在一种环境下活」的实现）。
+        /// <para>`duration` = 这一拍**演多久**（推进队尾 / 演出闸用；`0` = 只按起点算）。</para>
+        /// <para>⚠️ 它**不是事件** —— `AdvanceTimeline` 弹到它只跑这个回调，不重演任何事件级副作用。</para></summary>
+        void ScheduleAction(float delay, System.Action act, float duration = 0f)
+        {
+            if (act == null) return;
+            float at = _clock + Mathf.Max(0f, delay);
+            _timeline.Add(new PendingSignal { at = at, cueAction = act });
+            ExtendTimelineTail(at + Mathf.Max(0f, duration));
+        }
+
+        /// <summary>把「队尾 / 演出闸」推到 <paramref name="end"/>（`_clock` 口径）。
+        /// 理由同 <see cref="ScheduleVfxCue"/> 末段：只排了起点、不推队尾的话，下一批事件可能插到它前面开场。</summary>
+        void ExtendTimelineTail(float end)
+        {
+            _timelineTailAt = Mathf.Max(_timelineTailAt, end);
+            if (_blocking) _blockingQuietAt = Mathf.Max(_blockingQuietAt, end);
+        }
+
+        // ==================================================================
+        //  🆕 2026-10-21（W61 战斗线「新账-65」第 1 批 · 第 2/3/4 条）
+        //  **攻击那一拍的演出**：命中帧 / VFX 发出 / 伤害结算，三件事各在各的时刻、各在各的锚点
+        // ==================================================================
+        //  原版逐条（`d:/2/tools/decomp_full/`）：
+        //   · **近战**：整条动画 0.4 s（位移 0.1 + 转向 0.1 + 停 0.1 + 归位 0.2，
+        //     `CardScript._AttackMeleeAnim_d__357__MoveNext.c:130-268`）。
+        //     命中帧 = 段1 位移的 OnComplete（`__c__DisplayClass357_0___AttackMeleeAnim_b__1.c:16-27`）：
+        //     **同帧** `ResolveAttackAnimationEffects`（震屏 → `SoundManager.Play2D(meleeAttackHit*)` →
+        //     `Instantiate(attackHitSmallParticles, **攻方 effectsAnchor.position**, LookRotation(方向))`
+        //     + `set_localScale(**攻方卡 localScale**)`，`CardScript__ResolveAttackAnimationEffects.c:26-107`）
+        //     + `ReceiveAttackAnim`（后坐）。整条跑完之后 `BroadcastUnitAttacked` → 逐卡 `UnitAttack` 动画
+        //     → `ReceiveDamage`（伤害计数器）。
+        //   · **远程**：回正 0.1 + 等 0.1（`_ResolveAttackRangedAnim…:80-104`）→ `DelayedVFXPlay`
+        //     （先等 `vfxDelayTime`，`_DelayedVFXPlay_d__469:17-27`）→ `CreateAnim`：
+        //     位置/父节点 = `GetAnimTransform(startPosOption)`（= 攻方 `effectsAnchor`）、
+        //     `CardAnimController.RotateAnim` 把 `transform.forward = end − self`、
+        //     缩放继承卡的 `lossyScale`（`CreateAnim.c:55-100` + `RotateAnim.c:130-152`）→
+        //     再等 `AnimInfo.GetAnimDuration()` → `ReceiveDamage`。
+        //  ⇒ 本方法按这三段排：**命中帧手感**（近战）/ **VFX**（远近各自的时刻）/ 伤害结算交给 `Hit` 事件。
+        // ------------------------------------------------------------------
+
+        /// <summary>上一记攻击是不是**远程**（给 `PlayHitFeel` 判「后坐要不要在这一拍再做一次」）。</summary>
+        bool _lastAttackRanged;
+
+        /// <summary>排一条攻击的演出（近战：命中帧 + 收尾的逐卡特效；远程：VFX 发出那一刻）。
+        /// 调用点 = `PlaySignal` 的 `EvtKind.Attack` 那一段（唯一入口）。</summary>
+        void ScheduleAttackPresentation(BattleEvent e, string evt, string faction,
+                                        bool perCardOnly, string keyword, bool meleeHitCue, int hitAmount)
+        {
+            var atkView = ViewAt(e.Player, e.Slot);
+            var tgtView = ViewAt(e.TargetPlayer, e.TargetSlot);
+
+            // **锚点**：原版 `AbilityLogic.GetPos` 的 `0 self` / `2 abilityTarget` 两档
+            // （逐卡 `Atk_*` 的 `AnimInfo` 现读 `sp = 0 / ep = 2`，`数据/游戏数据/animinfo_lookup.json`）。
+            // ⛔ 判据只此一处 = `AnimAnchors.Resolve`（别在这里自己 switch / 自己取 transform）。
+            var actx = new AnimAnchors.Ctx { self = atkView, target = tgtView, actorSeat = e.Player, mySeat = _me };
+            Transform start = AnimAnchors.Resolve(PositionOption.self, actx);
+            Transform end = AnimAnchors.Resolve(PositionOption.abilityTarget, actx);
+
+            Vector3 startPos = start != null ? start.position
+                             : (atkView != null ? atkView.transform.position : Vector3.zero);
+            Vector3 endPos = end != null ? end.position
+                           : (tgtView != null ? tgtView.transform.position : startPos);
+            if (start == null)
+                Debug.LogWarning($"[BattleDriver] 攻击特效取不到攻方锚点（槽 {e.Slot} / 座位 {e.Player}）"
+                               + " ⇒ 退回卡根、只保留朝向；这一件的**缩放不再继承卡**（原版继承 `lossyScale`）");
+
+            // ① **攻击 VFX**：近战在整条动画收尾（+0.4），远程在 VFX 发出那一刻（+0.2）。
+            //    ⚠️ 候选可能有多件、且有各自的组偏移 `T`（`ResolveAllTimed` 的判据）。
+            var times = AnimTimesOf(e.CardId, faction);
+            var items = VfxMap.ResolveAllTimed(evt, faction, e.CardId, times,
+                                               _vfxOffsetRng, perCardOnly, keyword);
+            float vfxAt = e.Ranged ? EventTiming.AttackStepRanged : EventTiming.MeleeDamageLag;
+            // `WFEffectCards.Resolver` 是**全局静态**、读的是特效**创建那一刻**的 `_animfxCtx`
+            // ⇒ 延迟 cue 到点时那个值早就被 `default` 掉了 ⇒ 这里把**排期时**那份上下文带下去。
+            var capCtx = _animfxCtx;
+            var capEvt = _animfxLastEvent;
+            for (int i = 0; i < items.Length; i++)
+            {
+                string nm = items[i].Name;
+                ScheduleAction(vfxAt + Mathf.Max(0f, items[i].T),
+                               () => FireAttackVfxWithCtx(nm, start, startPos, endPos, capCtx, capEvt));
+            }
+            // 队尾：整条链按原版**演完**才算完（`ChainDuration` 用逐卡 `AnimInfo` 真值；
+            // ⚠️ `items[i].Duration` 在「单候选回归口径」下恒 0 ⇒ 不能拿它当队尾）。
+            ExtendTimelineTail(vfxAt + VfxMap.ChainDuration(evt, faction, e.CardId, times));
+
+            // ② **命中帧那一拍**（只有近战 —— 原版 `ResolveAttackAnimationEffects` **只**被
+            //    `_AttackMeleeAnim` 的 OnComplete 调，`decomp_full` 里没有第二个调用点；
+            //    远程那一族没有震屏/命中音/`AttackHitSmall`）。
+            if (!e.Ranged)
+            {
+                bool feel = animateFeel;
+                bool cue = meleeHitCue;
+                ScheduleAction(EventTiming.HitFrameLag(e), () =>
+                {
+                    // `AttackHitSmall`：位置 = **攻方 effectsAnchor**、朝向 = 目标−攻方、缩放 = 攻方卡
+                    // （`ResolveAttackAnimationEffects.c:82-106`：`Instantiate(…, effectsAnchor.position, LookRotation(dir))`
+                    //   + `set_localScale(攻方 localScale)`）。
+                    FireAttackVfxWithCtx(VfxMap.Resolve(VfxMap.Hit), start, startPos, endPos, capCtx, capEvt);
+                    if (cue) BattleSfx.Play(BattleSfx.MeleeAttackHitSmall);
+                    if (feel) PlayHitFrameFeel(e, tgtView, hitAmount);
+                });
+            }
+        }
+
+        /// <summary>🆕 2026-10-21（W61 第 1 批）：**带卡上下文**播一件攻击特效。
+        /// <para>为什么需要：`WarpforgeVFX.WFEffectCards.Resolver` 是**全局静态**、读的是特效
+        /// **创建那一刻**的 `_animfxCtx`（见 `Begin` 里 `HookAnimAnchors` 那一带的挂钩），
+        /// 而本批把这些件改成了**延迟 cue** ⇒ 到点时上下文早被 `default` 掉了。
+        /// ⇒ 这里把**排期时**那一份临时换回去、播完还原。</para></summary>
+        void FireAttackVfxWithCtx(string name, Transform anchor, Vector3 anchorPos, Vector3 targetPos,
+                                  WarpforgeVFX.WFEffectCardContext ctx, BattleEvent evt)
+        {
+            var sCtx = _animfxCtx;
+            var sEvt = _animfxLastEvent;
+            _animfxCtx = ctx;
+            _animfxLastEvent = evt;
+            try { FireAtAttackAnchor(name, anchor, anchorPos, targetPos); }
+            finally { _animfxCtx = sCtx; _animfxLastEvent = sEvt; }
+        }
+
+        /// <summary>把一件特效播在**攻方锚点**上、朝目标（原版 `CreateAnim` 那条路的最小等价物）。
+        /// <para>做法 = **载体**：挂在攻方 `effectsAnchor` 下（⇒ 位置 = 锚点、世界缩放继承卡的 `lossyScale`，
+        /// 与原版 `Instantiate(prefab, startPos, rot, startParent)` 等价），把载体的**世界朝向**设成
+        /// `LookRotation(目标 − 锚点)`，播完立刻把特效摘到世界（`ReleaseAbilityCarrier`）。</para>
+        /// <para>⚠️ 取不到锚点（没有视图）时退回「根特效 + 世界点」，并已由调用方出过声。</para></summary>
+        void FireAtAttackAnchor(string name, Transform anchor, Vector3 anchorPos, Vector3 targetPos)
+        {
+            if (string.IsNullOrEmpty(name)) return;
+            if (anchor == null)
+            {
+                CardEffects.Fire(name, anchorPos, null);
+                return;
+            }
+            // 锚点层校准（`EffectAnchorBoard` 是**懒建**的 ⇒ 可能停在层 0，而特效的层是**跟直接父节点**
+            // 继承的 —— 见 `EnsureAnchorSpace` 的 doc）。判据只此一处。
+            EnsureAnchorSpace(anchor);
+            var go = new GameObject("AttackVfxCarrier");
+            go.layer = anchor.gameObject.layer;             // 卡在竞技场层 ⇒ 特效也归那台相机画
+            var carrier = go.transform;
+            carrier.SetParent(anchor, false);
+            carrier.localPosition = Vector3.zero;
+            carrier.localRotation = Quaternion.identity;
+            carrier.rotation = AttackVfxRotation(anchor.position, targetPos);   // 世界朝向（原版 `set_forward`）
+            CardEffects.Fire(name, Vector3.zero, carrier);  // `parent != null` ⇒ `pos` 是**局部**点
+            ReleaseAbilityCarrier(carrier);
+        }
+
+        /// <summary>🆕 2026-10-21（W61 第 1 批 · 第 3 条）：攻击特效朝目标的方向 ——
+        /// 原版 `CardAnimController.RotateAnim` 的非督军那一支：`transform.set_forward(end − self)`
+        /// （`CardAnimController__RotateAnim.c:130-152`）⇒ 等价于 `Quaternion.LookRotation(方向)`。
+        /// 两点重合时退 `identity`（`LookRotation(0)` 在 Unity 会**报错**，原版 `set_forward(0)` 保持原朝向）。</summary>
+        public static Quaternion AttackVfxRotation(Vector3 from, Vector3 to)
+        {
+            Vector3 d = to - from;
+            if (d.sqrMagnitude < 1e-8f) return Quaternion.identity;
+            return Quaternion.LookRotation(d.normalized, Vector3.up);
+        }
+
+        /// <summary>命中帧那一拍的**手感**（只有近战）：后坐 + 震屏。
+        /// 判据 = `CardScript__ResolveAttackAnimationEffects.c:26-58`（震屏 → 命中音 → 命中粒子）＋
+        /// `CardScript.ReceiveAttackAnim`（后坐，同一个 OnComplete 里紧接着调）。
+        /// ⚠️ 只在 `animateFeel` 开着时排（批处理自检要**当场**精确坐标 —— 与 `PlayFeel` 同一条口径）。</summary>
+        void PlayHitFrameFeel(BattleEvent e, CardView target, int hitAmount)
+        {
+            if (target == null) return;
+            // 方向 / 幅度 / 轻重档与 `PlayHitFeel` **同一条口径**（那边现在是「非近战攻击」那一支）。
+            Vector3 away = e.Player == _me ? Vector3.down : Vector3.up;
+            CardFeel.HitReact(target.transform, away,
+                              Mathf.Abs(hitAmount) >= CardFeel.HeavyHitDamage, 0f, _lastAttackerMelee);
+            CardFeel.ShakeCameraForHit(cam, hudRoot, _lastAttackerMelee, 0f, boardCam);
+        }
+
         /// <summary>`t` 小到什么程度就当成「与事件同一拍」（浮点防御）。
         /// 依据：数据侧的 `t` 是**若干已给定时长之和**，合法取值要么是 0，要么 ≥ 0.05 s
         /// （现读最小非零 `t` 是 0.1 s）⇒ 1e-3 不会把真实的错开吞掉。</summary>
@@ -15989,6 +16303,26 @@ namespace CardPresentation
             return card != null ? card.AnimTimes : null;
         }
 
+        /// <summary>🆕 2026-10-21（W61 第 1 批 · 第 2 条）：`e` 是 `Hit`、`prev` 是它前面那条**远程** `Attack`
+        /// ⇒ 返回这一击 VFX 自己演多久（`EventTiming.DelayBetween` 的第三参）；其余组合 ⇒ **-1**（= 没传）。
+        /// <para>判据 = `VfxMap.ChainDuration`（逐卡 `AnimInfo.GetAnimDuration()` 真值优先，共享件查表）。
+        /// ⚠️ 阵营取**攻方**（`prev.Player`）—— 原版这条链读的是攻方卡自己的
+        /// `customRangedAttackParticles` / 攻方 clan 的 `RangedAttackParticlesByClanSO`。</para></summary>
+        float RangedVfxDurationBefore(BattleEvent e, BattleEvent prev)
+        {
+            if (e == null || prev == null || e.Kind != EvtKind.Hit
+                || prev.Kind != EvtKind.Attack || !prev.Ranged) return -1f;
+            string f = prev.Player == _me ? _myFaction : _foeFaction;
+            float d = VfxMap.ChainDuration(VfxMap.AttackRanged, f, prev.CardId, AnimTimesOf(prev.CardId, f));
+            // 🔴 **2026-10-21（W61 第 1 批 · 第 2 条）：查不到逐卡/共享时长 ⇒ 回 -1，交给
+            //   `EventTiming.RangedVfxFallback`（0.75）兜底，⛔ 不在这里写死、也不静默当 0。**
+            //   ⚠️ 现读**确实有半数是这一档**：逐卡 `customRangedAttackParticles` 是卡 SO 的**顶层字段**，
+            //     而 `CardDef.AnimTimes` 只收 `cardAbilities[].abilityLogic[].cardAnimations[]`
+            //     ⇒ 226 条攻击 CardAnim 里有 241 条**没有** `AnimTimes` 行（ASH77 就是一条）。
+            //     判据 → `资料/普查产出_1021/W61_战斗线_演出链第1批.md` §4。
+            return d > 0f ? d : -1f;
+        }
+
         /// <summary>一条引擎事件 → 一个特效。（事件种类和特效名的对应在 `VfxMap` 里）
         /// <paramref name="drawFromEnd"/> 🆕（`A1865`）= 抽卡那一件专用：**这一段里它是倒数第几张**
         /// （1 起；别的种类恒 -1）。由 `PlaySignals` 排时间线时算好、随 `PendingSignal` 一路带下来。
@@ -16000,7 +16334,8 @@ namespace CardPresentation
                         bool beatMove = false, bool beatOtv = false, float beatTs = 0f, float beatTm = 0f,
                         float[] beatEase = null,
                         bool cueUnitDamage = false, bool cueMeleeHit = false,
-                        CardAnimBeat beatData = null)
+                        CardAnimBeat beatData = null,
+                        bool hitOfAttack = false, int hitAmount = 0)
         {
             // 🆕 2026-10-17（`T05` 第 3 步）：**「按表展开的一拍」那条出口**（展开点 = `ExpandAbilityBeats`）。
             //   它**整条在这里处理**（含第一拍的事件级副作用），走完就 return ⇒ 下面原来那整段
@@ -16032,8 +16367,11 @@ namespace CardPresentation
 
             // 🆕 2026-10-19（偏差 4）：**这两条 cue 在「事件到点」这一拍才响**（原来在 `PlaySignals` 的
             //   drain 里当场响 ⇒ 命中音比受击帧早到）。判据见 `UnitDamageCueIndex` / `IsMeleeHitCueAt`。
+            // 🔴 **2026-10-21（W61 第 1 批 · 第 2 条）**：`meleeAttackHit*` **搬去命中帧**了 ——
+            //   原版它在 `ResolveAttackAnimationEffects` 里（近战动画的命中回调，
+            //   `CardScript__ResolveAttackAnimationEffects.c:30-64` ← `<AttackMeleeAnim>b__1.c:16`），
+            //   不在伤害结算那一拍 ⇒ 现在由 `ScheduleAttackPresentation` 排到 `HitFrameLag` 那一刻。
             if (cueUnitDamage) BattleSfx.Play(BattleSfx.UnitDamage);
-            if (cueMeleeHit) BattleSfx.Play(BattleSfx.MeleeAttackHitSmall);
 
             // 🆕 2026-10-19（偏差 1 的残余④）：**这一格等到 `Deploy` 这一拍才把视图建出来**
             //   （`SyncBoard` 在 `PlaySignals` 之后跑 ⇒ 这一笔会在本帧同步完成，见 `_syncAfterDeploy`）。
@@ -16080,7 +16418,9 @@ namespace CardPresentation
 
             // **手感补间**（和特效同一时刻起，参数在 `CardFeel` 里、逐条有出处）。
             // ⚠️ 必须赶在 `SyncBoard` 之前 —— 阵亡那一格马上就要空了，视图还在的只有现在。
-            if (animateFeel) PlayFeel(e);
+            // 🆕 2026-10-21（W61 第 1 批 · 第 2 条）：把「这条 `Hit` 是某一击攻击的伤害结算」传下去 ——
+            //   近战那一击的后坐/震屏已经在**命中帧**做过，这一拍不再做（判据见 `PlayHitFeel`）。
+            if (animateFeel) PlayFeel(e, hitOfAttack);
 
             // 🆕 2026-10-01：**trait 的 FromCode 粒子**（见 `PlayTraitParticles` 的头注释）。
             // ⚠️ 必须放在下面 `evt == null` 那道 early-return **之前** —— 阵亡那一条也会走这里。
@@ -16129,6 +16469,27 @@ namespace CardPresentation
             // 但格位坐标只跟棋盘几何有关 —— 直接问 layout，不依赖视图
             _animfxLastEvent = e;
             _animfxCtx = BuildCardContext(e);              // AnimFX 模块要用「为哪两张卡播的」
+
+            // 🔴 2026-10-21（W61 战斗线「新账-65」第 1 批 · 第 3/4 条）：**攻击那一拍的特效不走下面那条路**。
+            //   原版的攻击特效是「从**攻方**的 `effectsAnchor` 发出、朝目标」，时刻也不是事件那一拍：
+            //   · 近战逐卡 `UnitAttack` 在**整条近战动画跑完之后**（`BroadcastUnitAttacked`）；
+            //   · 远程在回正 0.2 s 之后 `DelayedVFXPlay`。
+            //   ⇒ 交给 `ScheduleAttackPresentation` 排（用同一个时间线泵）。
+            if (e.Kind == EvtKind.Attack)
+            {
+                // ⚠️ 归属方 = **攻方**（`e.Player`）：原版的逐卡件挂攻方卡的脚本
+                //  （`RawCardScript.customRangedAttackParticles`）、阵营兜底件也是攻方的 clan
+                //  （`RangedAttackParticlesByClanSO.GetRangedClanParticles(rawCard +0x2c)`，
+                //    `CardScript._ResolveAttackRangedAnim_d__360__MoveNext.c:146-176`）。
+                //  🔴 原来这里套的是**目标**那一方（`owner`）—— 后果：跨阵营攻击时
+                //  `AnimTimesOf(cardId, faction)` 用错阵营查不到**攻方**那张卡 ⇒ 逐卡时长整块丢掉
+                //  （名字仍能解出来，因为重名只是 3 组）。这一条在本批修掉。
+                string atkFaction = e.Player == _me ? _myFaction : _foeFaction;
+                ScheduleAttackPresentation(e, evt, atkFaction, perCardOnly, triggerKeyword, cueMeleeHit, hitAmount);
+                _animfxCtx = default;
+                return;
+            }
+
             // 🔴 **2026-10-16（`A367` 的改法落地 · 与 `A337`/`A359` 同一族、同一口）**：
             //   原来喂 `layout.SlotPosition(slot)` —— 那是**2D 兜底布局的行线点**（屏上 708 px），
             //   而 3D 下卡真正画在 **631~657 px（逐格不同）** ⇒ 根特效比卡偏 **51~72 px**。
@@ -16149,7 +16510,11 @@ namespace CardPresentation
                 //   其余事件保持原样（各自的判据还没查全 —— 见报告）。
                 if (e.Kind == EvtKind.Deploy)
                     FireDeployVfxInArenaSpace(evt, e, faction, perCardOnly);
-                else
+                // 🔴 2026-10-21（W61 第 1 批 · 第 2 条）：**这一击的命中粒子已经在命中帧播过了**
+                //   （`ScheduleAttackPresentation` 的 `HitFrameLag` 那一拍）⇒ 伤害结算这一拍
+                //   ⛔ 不再叠一件 `VfxMap.Hit`（否则同一击两下、而且第二下晚 0.3 s）。
+                //   ⚠️ 只挡「紧跟在 `Attack` 后面的那条 `Hit`」；技能伤害等别的 `Hit` 照旧播。
+                else if (!hitOfAttack)
                     FireEventAll(evt, layout.DropTargetWorld(slot), faction, e.CardId,
                                  parent: null, perCardOnly: perCardOnly, keyword: triggerKeyword);
             }
@@ -16737,12 +17102,12 @@ namespace CardPresentation
         /// <summary>打开手感补间。批处理自检里由用例显式打开，见 `BattleScene` 第 13 节</summary>
         public bool animateFeel = false;
 
-        void PlayFeel(BattleEvent e)
+        void PlayFeel(BattleEvent e, bool hitOfAttack = false)
         {
             switch (e.Kind)
             {
                 case EvtKind.Attack: PlayAttackFeel(e); break;
-                case EvtKind.Hit:    PlayHitFeel(e);    break;
+                case EvtKind.Hit:    PlayHitFeel(e, hitOfAttack);    break;
                 // 🆕 2026-10-20（`W58`）：**治疗**有自己的一拍（卡上 `HealText`），
                 // ⛔ 不走 `PlayHitFeel`（原版治疗没有后仰 / 震镜头 / 伤害计数器）。
                 case EvtKind.Heal:   PlayHealFeel(e);   break;
@@ -16889,6 +17254,9 @@ namespace CardPresentation
                 ? Ctx.Players[e.Player].Board[e.Slot] : null;
             _lastAttackerMelee = attacker != null ? attacker.Attack : -1;
             _lastAttackerSide = e.Player;
+            // 🆕 2026-10-21（W61 第 1 批 · 第 2 条）：记下远近 —— 挨打那两拍要按它分流
+            //（近战的后坐/震屏已在**命中帧**做过，伤害结算那一拍不再做；远程仍在结算那一拍做）。
+            _lastAttackRanged = e.Ranged;
 
             var v = ViewAt(e.Player, e.Slot);
             if (v == null) return;
@@ -16916,7 +17284,9 @@ namespace CardPresentation
             }
 
             // 近战：原版那条三段式（0.4s 全程、**命中在 t = 0.1**）——
-            // 命中时刻由 `EventTiming.MeleeImpactLag = 0` 保证（见那份文档 §一）。
+            // 命中时刻由 `EventTiming.HitFrameLag`（= `AttackStepMelee` 0.1）保证，命中帧的**手感**
+            // 由 `ScheduleAttackPresentation` 单独排（2026-10-21 · W61 第 1 批：原来这里引的是已删除的
+            // `EventTiming.MeleeImpactLag`）。
             CardFeel.MeleeAttack(v.transform,
                                  CardFeel.MeleeEndPos(v.transform.position, tv.transform.position, e.Player == _me),
                                  home);
@@ -16960,8 +17330,10 @@ namespace CardPresentation
         }
 
         /// <summary>挨打：位置弹一下 + 转一下（`Impact Light Tween`），
-        /// 顺便把伤害数值飘出来（`InBattleDamageCounter Variation 1` 的时间轴）</summary>
-        void PlayHitFeel(BattleEvent e)
+        /// 顺便把伤害数值飘出来（`InBattleDamageCounter Variation 1` 的时间轴）
+        /// <para>🆕 2026-10-21（W61 第 1 批 · 第 2 条）：<paramref name="hitOfAttack"/> = 这条 `Hit` **紧跟在
+        /// 一条 `Attack` 后面**（= 那一击的伤害结算拍；由 `PlaySignals` 按事件流现判，⛔ 不靠粘性字段）。</para></summary>
+        void PlayHitFeel(BattleEvent e, bool hitOfAttack = false)
         {
             // 🔴🆕 2026-10-20（`W58`）：**负数 `Hit` 是「幸存者广播」的标记，不是治疗** ——
             //   原版 `CardScript.__UseSurvivor.c:36-40` 直接写血、`:87` 只 `BroadcastUnitHealed`，
@@ -16994,7 +17366,19 @@ namespace CardPresentation
             //      （`RuleCore` 给玩家自己的督军发的那条 `Hit`）没有攻击方 ⇒ 不加护栏会把**上一刀**的攻击方档位套上去。
             int melee = (e.Player != _lastAttackerSide) ? _lastAttackerMelee : -1;
 
-            if (v != null)
+            // 🔴 **2026-10-21（W61 第 1 批 · 第 2 条）**：**近战攻击**那一击的「后坐 + 震屏」已经挪到
+            //   **命中帧**（`ScheduleAttackPresentation` → `PlayHitFrameFeel`，判据见那里）——
+            //   这一拍是**伤害结算**（攻方动画收尾，近战 Attack+0.4），⛔ 别在同一击上再做一次
+            //   （否则挨打反应又回到「晚 0.3 s」，而且一次挨打两下）。
+            //   ⚠️ 只挡「紧跟着一记**近战**攻击」的那条 `Hit`：
+            //      · **远程**仍留在这一拍（原版那条弹道飞完就是命中，没有更早的挨打反馈）；
+            //      · 技能伤害 / 疲劳 / 反伤没有攻击方 ⇒ 照旧在事件那一拍。
+            //   🔴 **判据用 `hitOfAttack`（这一批事件流里紧跟在 Attack 后面），⛔ 不用 `_lastAttackerSide`** ——
+            //     那是**粘性**字段（整局都在），会把「上一回合那一刀之后的一次技能伤害」误判成近战追击
+            //     ⇒ 那次技能伤害会**丢掉后坐/震屏**（静默）。`_lastAttackRanged` 只在 `hitOfAttack` 为真时才读。
+            bool meleeAttackFollow = hitOfAttack && !_lastAttackRanged;
+
+            if (v != null && !meleeAttackFollow)
             {
                 // 「背离攻击者」= 往**自己那半场的外侧**弹。攻击永远来自对面半场，
                 // 所以这个方向不需要事件里再带攻击者是谁。
@@ -17017,7 +17401,7 @@ namespace CardPresentation
             //   **一档都没接上**。现在改传**攻击方那一档**（`melee`，同一条 `if` 外的语义）。
             //   ⚠️ 判据 = preset 真件 `Shake Hit Small`（amplitude 2.0 · direction (0,0.2,0.2)）＋
             //      `CardScript__ResolveAttackAnimationEffects.c:32-52` 的覆盖点。
-            CardFeel.ShakeCameraForHit(cam, hudRoot, melee, 0f, boardCam);
+            if (!meleeAttackFollow) CardFeel.ShakeCameraForHit(cam, hudRoot, melee, 0f, boardCam);
 
             // 伤害 0 = 被挡下（原版也发事件）—— 那一条不飘字，免得屏幕上冒出「-0」
             // 🔴 **2026-10-17（`A1213②`）**：伤害 / 治疗走**两条独立路径**（原版是两颗不同的 TMP 组件，
@@ -18556,6 +18940,11 @@ namespace CardPresentation
                 tr.localScale = Vector3.one;
             }
 
+            // 🔴 **2026-10-21（第六十一会话 · 换牌残余 ①）**：换牌期**敌方手牌整排收起来** ——
+            //   判据与做法**只在** `ApplyMulliganHudVisibility()` 一处（`UpdateHud` 每帧调的那个整层开关；
+            //   这一排是世界空间 quad，`_hudLayer` 够不着它 ⇒ 那里单独扫 `_foeHandViews`）。
+            //   ⛔ 别在这里再写一遍显隐（同一条规则的第二次实现）。
+
             // 发牌入场：从**敌方牌堆**飞进手牌，时长 = `VarsGlobal.timeToDrawEnemyCard` = 0.15
             if (animateFeel && _foeDealt.Count > 0)
             {
@@ -19039,6 +19428,44 @@ namespace CardPresentation
             hudGo.transform.SetParent(transform, false);
             hudRoot = hudGo.transform;
             var root = hudRoot;      // 下面所有 HUD 件都挂这个根（原来直接挂 `transform`）
+
+            // ---- 🔴 2026-10-21（第六十一会话 · 换牌残余 ①）：战斗 HUD 那一整层的容器 ----------------
+            // 判据与「原版是隐藏不是压暗」的逐条出处 → `_hudLayer` 的 doc。这里只做两件事：
+            //   ① 在根画布下建一块**铺满**的 `RectTransform`（归一化锚点与画布逐位同尺 ⇒ 建件口
+            //      照旧用 `x01/y01`，几何一个数都不变）；② 换牌期整层 `SetActive(false)`（见 `UpdateHud`）。
+            // ⚠️ 建不出来（根画布没立）⇒ `_hudLayer` 留 null ⇒ `Hud()`/`HudImageTex()` 退回**根画布**
+            //   （与加这一层之前逐位相同）—— 但那条路上换牌期的 HUD 就藏不掉，所以要出声。
+            {
+                var cvRoot = HudCanvas.Ensure(cam);
+                if (cvRoot != null)
+                {
+                    var lgo = new GameObject("BattleHudLayer", typeof(RectTransform));
+                    lgo.transform.SetParent(cvRoot, false);
+                    _hudLayer = (RectTransform)lgo.transform;
+                    HudCanvas.FillParent(_hudLayer);
+                    // 🔴 收起/放回用 **`CanvasGroup`**（不是 `SetActive`）—— 理由见 `ApplyMulliganHudVisibility`。
+                    _hudGroup = lgo.AddComponent<CanvasGroup>();
+                    // 🔴 **必须把这一层也登记进根画布那本 z 账**（2026-10-21 现核）：
+                    //   `HudCanvas.Group.Add` 的下标是**只在登记过的子件之间**算的
+                    //   （`rt.SetSiblingIndex(i)`，`i` 不含未登记的兄弟）⇒ 不登记的话，之后每建一颗
+                    //   登记件都会把它从 index 0 **往后挤一格**，最后整层 HUD 反而排到
+                    //   **等待横幅（z −0.45）/ 黑边填充（z 5）之后** ⇒ HUD 盖住等待横幅（静默、只在运行时现形）。
+                    //   🔴 **2026-10-21（第六十一会话 · `G2`）就地订正**：本行原来写「取一个**远大于所有 HUD 件**
+                    //   的 z（填充件最大 5）⇒ 本层恒排最前」并传 **1000** —— **不成立**：那会把两枚黑边件
+                    //   （`ZFiller = 5f`）从子件序 0/1 挤到 1/2，而原版它们是 `BattleHud/Canvas` 的
+                    //   `m_Children[0]/[1]`（画在所有 UI **之下**）⇒ 黑边反而盖在整层 HUD 之上（1 条红）。
+                    //   ⇒ 取 **(0.6, 5) 之间 = 4.9**：> 底板 0.6 / 字 0（HUD 件都在本层内部，与外层兄弟序无关），
+                    //   < 5（两枚黑边件仍在**本层之下**）；其余根画布直子件（等待横幅 −0.45 / 回放条 0.3 /
+                    //   排次表（`SubCanvasRank`）里的子画布排末尾）都比它小 ⇒ 相对次序与加这一层之前一致。
+                    //   判据 → `资料/普查产出_1021/W61_战斗线_BattleScene47红诊断.md` §3·G2。
+                    HudCanvas.Add(_hudLayer, 4.9f);
+                }
+                else
+                {
+                    Debug.LogWarning("[Battle] 根画布没建起来 ⇒ 战斗 HUD 那一层容器 `BattleHudLayer` 不建"
+                                   + "（HUD 仍建在根画布下；**换牌期整层隐藏**这一条会失效）");
+                }
+            }
             CardArt.Load();
             // 🆕 2026-10-01（§三 第 26 条 · ⑥ 的接线那半）：**把补间钩子挂上** ——
             //   原来 `WFModuleTween.OnInvoke` 全仓没人赋值 ⇒ 138 个 `AnimFXModuleTween` 的请求**全落在
@@ -21625,6 +22052,24 @@ namespace CardPresentation
         /// <summary>自检口：uGUI 层建起来了没有（`T09` 第 2 步「层立住了」就靠它）。</summary>
         public bool HudCanvasReady { get { return HudCanvas.RootRect != null; } }
 
+        /// <summary>🆕 **2026-10-21（第六十一会话 · 换牌残余 ①）自检口**：战斗 HUD 那一整层现在**露着没有**。
+        /// 判据 = **`CanvasGroup.alpha`**（收起来那一档是 `0`，放回来是 `1`；⛔ 不是 `activeSelf` ——
+        /// 那一层**从来不 `SetActive(false)`**，见 `ApplyMulliganHudVisibility` 里的理由）。
+        /// 换牌期应为 **false**、换牌结束应回 **true**。
+        /// ⚠️ 层没建出来（根画布缺失）⇒ `false` —— 与「换牌期收起来」同值，所以断言要**配一条前提**
+        /// （`HudLayerBuiltForTest`），否则那一格没有判别力。</summary>
+        public bool HudLayerActiveForTest
+        {
+            get
+            {
+                if (_hudGroup != null) return _hudGroup.alpha > 0.5f;
+                return _hudLayer != null && _hudLayer.gameObject.activeSelf;
+            }
+        }
+
+        /// <summary>见 <see cref="HudLayerActiveForTest"/>：那一层**建出来了没有**（前提探针）。</summary>
+        public bool HudLayerBuiltForTest { get { return _hudLayer != null; } }
+
         // 🔴 **2026-10-17（`BSC62` · 批 5 · a）：这里原来是 `HudLabelScaleForTest(int)`（读标签 `localScale.x`）。
         //   字族迁 uGUI 后它**恒为 1**（字不再乘 `LayoutSpace.HudTextScale`）⇒ 原意没了、**全仓零活调用者**
         //   ⇒ 已删（连同它那段「留着只为编得过」的 doc）。⛔ 别加回来。要读这族字用
@@ -21789,7 +22234,9 @@ namespace CardPresentation
             //   ② `Label.CreateUgui`（uGUI 档）+ **归一化锚点**：与图族同一套 ⇒ 非 16:9 下图/字同尺。
             //   ③ `SetAutoFitBox` 收的是**设计 px**（⛔ 不再 `Px(...)`）。
             var cv = root as RectTransform;
-            if (cv == null) cv = HudCanvas.Ensure(cam);      // 幂等；`cam` 与 `HudImageTex` 同一个
+            // 🔴 **2026-10-21（换牌残余 ①）**：裸 `Transform`（= `hudRoot`）这一档建进 **`_hudLayer`**
+            //   （战斗 HUD 那一整层的容器 ⇒ 换牌期整层收掉）；容器没建起来时才退回根画布（同加这层之前）。
+            if (cv == null) cv = _hudLayer != null ? _hudLayer : HudCanvas.Ensure(cam);   // 幂等；`cam` 与 `HudImageTex` 同一个
             if (cv == null)
             {
                 // ⛔ **不许静默退回世界档**（那会出现「一半在画布、一半在世界」的半迁移态，而它 16:9 下看不见）
@@ -21929,7 +22376,9 @@ namespace CardPresentation
             //   —— 面板一开（`PopUps`/`OverHand` 的其它子画布）底板就会被盖住、字却还在上面。
             //   ✅ 现在：`root` 是 `RectTransform`（= 那块子画布）就用它；否则（`hudRoot`）才建根画布。
             var parent = root as RectTransform;
-            if (parent == null) parent = HudCanvas.Ensure(cam);
+            // 🔴 **2026-10-21（换牌残余 ①）**：同 `Hud()` —— 裸 `Transform` 那一档建进 **`_hudLayer`**
+            //   （子画布那一档仍用它自己，例如提示条底板 → `AboveShader Canvas`）。
+            if (parent == null) parent = _hudLayer != null ? _hudLayer : HudCanvas.Ensure(cam);
             if (parent == null)
             {
                 // ⛔ **不许静默退回旧 quad 那条路** —— 那会出现「一半在画布、一半在世界」的半迁移态，
@@ -21991,7 +22440,11 @@ namespace CardPresentation
         /// 因为「一个 canvas 单位 = 一个设计 px」（见 `HudCanvas` 文件头那条推导）。</summary>
         void AddEnergyLight(Texture2D tex, string name, float x, float y, float w, float h, Color c)
         {
-            var parent = HudCanvas.Ensure(cam);
+            // 🔴 **2026-10-21（换牌残余 ①）**：挂 **`_hudLayer`**（战斗 HUD 那一层）—— 原版这 6 枚在
+            //   `RightArea/Right Anchor/Energy And turn holder/Lights` 下，而那一整条在换牌期被
+            //   `BattleHudHidden` 滑出屏幕（x 0→476）⇒ 换牌期必须跟着整层一起收掉。
+            var parent = _hudLayer != null ? (Transform)_hudLayer : HudCanvas.Ensure(cam);
+            if (parent == null) return;                     // 根画布都没立（`HudCanvas.Ensure` 已出声）
             // 原版逐枚的 `Image.color`（同一张图靠颜色区分）· `PA=0` ⇒ 拉满那个矩形（`MakeImage` 里定死）
             var rt = HudCanvas.MakeImage(parent, tex, name, x, y, w, h, c);
             if (rt == null) return;
@@ -22108,9 +22561,53 @@ namespace CardPresentation
                     + "本局第 " + _stopBattleAfterEndCount + " 次）");
         }
 
+        /// <summary>🔴 **2026-10-21（第六十一会话 · 换牌残余 ①）**：战斗 HUD 那一整层跟着
+        /// 「在不在换牌期」显隐（`_hudLayer` 的 doc 有原版判据全文）。
+        /// <para>**语义 = 整层隐藏**，不是压暗：原版那 8 条 legacy clip 把名牌/设置/牌堆/能量+结束回合/
+        /// 敌方手牌/我方手牌区逐条**滑出屏幕**，换牌收尾 `FinishMulliganFinalPhase` 才 `ToggleWithAnimation(show)`。
+        /// 我们这一批用 **`CanvasGroup.alpha = 0`** 做等价物（滑出屏幕的补间未做，已记报告）。</para>
+        /// <para>🔴 **为什么不用 `SetActive(false)`**：那一层里装着 21 颗 HUD 字，而**未激活的 TMP 量不出尺寸**
+        /// （`textBounds` 是哨兵 4.29e9，本仓 `Label`/`CLAUDE.md` 都记着）—— `UpdateHud` 每帧都在写这批字，
+        /// 层一关它们就量不到、`RefreshBounds` 只能靠哨兵守卫跳过；虽然换牌结束会自愈，但同层里还有
+        /// `HandLabel` 的 `PlaceHandPlate`（判的是 `activeSelf`，父层关着它仍是 true）这类会读到陈旧尺寸的路径。
+        /// `CanvasGroup.alpha` **不改激活态**（TMP 照常量、照常排版）⇒ 版面零风险，视觉上与「滑出屏幕」同效
+        /// （屏幕上一样看不到）。同时关掉 `blocksRaycasts/interactable`（换牌期点击本就由面板吃掉，双保险）。</para>
+        /// <para>⚠️ **幂等、只在状态翻转那一帧写三个字段**。</para>
+        /// <para>⚠️ 只动**那一层**：换牌面板（`Mulligan Canvas` 子画布）、提示条（`AboveShader` 子画布）、
+        /// 压暗层、3D 战场、卡体都不在这一层里 —— 原版那 8 条 clip 也没有它们。</para></summary>
+        void ApplyMulliganHudVisibility()
+        {
+            bool show = !InMulligan;
+            if (_hudGroup != null && !Mathf.Approximately(_hudGroup.alpha, show ? 1f : 0f))
+            {
+                _hudGroup.alpha = show ? 1f : 0f;
+                _hudGroup.blocksRaycasts = show;
+                _hudGroup.interactable = show;
+            }
+            if (_hudLayer != null && _hudGroup == null && _hudLayer.gameObject.activeSelf != show)
+                _hudLayer.gameObject.SetActive(show);      // 兜底：`CanvasGroup` 没建出来时才退回显隐（见上一条理由）
+            // 敌方手牌那一排是**世界空间 quad**（`SyncFoeHand` 建的 `ImageQuad`，不挂 `HudCanvas`）——
+            // `_hudLayer` 够不着它，单独扫一遍。判据 = 原版 `BattleHudHidden` / `BattleHudHiddenNoHand`
+            // 那两条 legacy clip 把 `Canvas/BackCanvas/Safe area BackCanvas/UpperAnchor/EnemyArea` 的
+            // `m_AnchoredPosition.y` 从 0 滑到 **402.83**（滑出屏幕顶端）；用户实拍换牌参考图里
+            // 屏幕顶部**没有**敌方手牌。⚠️ 幂等（只在翻转那一帧 `SetActive`；这几颗是 `MeshRenderer` 的 quad、
+            // 不带 TMP ⇒ 没有「未激活量不出」那一档）。
+            for (int i = 0; i < _foeHandViews.Count; i++)
+            {
+                var q = _foeHandViews[i];
+                if (q == null) continue;
+                if (q.gameObject.activeSelf != show) q.gameObject.SetActive(show);
+            }
+        }
+
         void UpdateHud()
         {
             if (_turnLabel == null || Ctx == null) return;
+            // 🔴 **2026-10-21（第六十一会话 · 换牌残余 ①）**：换牌期**整层战斗 HUD 收起来**（原版判据 →
+            //   `_hudLayer` 的 doc：`FinishMulliganFinalPhase` 才 `BattleHud.ToggleWithAnimation(show)`）。
+            //   ⚠️ 它只写 `CanvasGroup` 那三个字段（**不改激活态**）⇒ 本函数后面那批字照常量得准、排得对，
+            //     换牌一结束下一帧 alpha 回 1，画面上直接就是真值（没有「重新量一遍」的中间态）。
+            ApplyMulliganHudVisibility();
             ReanchorHud();
             // 🆕 2026-10-18（A940）：教程那五个 `hide*` 在这里落（每帧算一遍 —— 那些元素也被本函数每帧写）。
             // ⚠️ 非教程局逐条还原成显示 ⇒ 普通对局与加这一句之前**逐字等价**。
@@ -22957,8 +23454,19 @@ namespace CardPresentation
         /// ⚠️ 与 `Contains` 的语义差（倾摆 / `SetActive(false)` / collider 没建时退回手算）逐条见
         /// `CardView.HitByCollider` 的 doc；0° 倾摆下两判据逐点一致（B1 §3·1）。
         /// ⚠️ **未实测**：批处理（无帧循环）下 `Physics2D` 查询是否直接可用 —— 本波「只做不验」，
-        /// 第一次跑 `BattleScene.Run` 时先看 `T09/B2b` 那组断言。</para></summary>
-        static int HitSlot(Dictionary<int, CardView> views, Vector3 world)
+        /// 第一次跑 `BattleScene.Run` 时先看 `T09/B2b` 那组断言。</para>
+        /// <para>🔴🔴 **2026-10-21（战斗线 `新账-64`）：真 3D 战场下命中判据改走 `CardHit`
+        /// （= collider 在【正交指针平面】上的投影矩形），⛔ 不再直接喂 `Physics2D`。**
+        /// **原因（只读诊断 → `资料/普查产出_1021/W61_战斗线_战将点击诊断.md` §2）**：
+        /// `world` 来自 `WorldPointer()` = `LayoutSpace.ScreenToWorld(屏幕点, cam)`，z=0 的 **UI 正交平面**；
+        /// 而 3D 棋盘卡的 collider 被 `PoseFor` 摆在**透视战场世界**（我方行 y≈+0.60/+0.67，
+        /// 指针平面我方行 y≈−0.89 ⇒ 纵向差 **1.49–1.56 世界单位**，远大于 collider 半高 0.54/0.60）
+        /// ⇒ 原判据对**我方整排（含战将）恒 false**（敌方行只差 0.09、半高 1.04，碰巧能点）。
+        /// 两个坐标系的桥 = `boardCam.WorldToScreenPoint` → `LayoutSpace.ScreenToWorld(…, cam)`——
+        /// 与用户看到的一致。**2D 档（`use3DBoard == false` / 没有 `boardCam`）判据逐位不变。**</para>
+        /// <para>⚠️ 槽号选择（`transform.position.z` **最小**）与查询前那次 `Physics2D.SyncTransforms()`
+        /// **逐位不变**（后者现在只对 2D 档 / 退回分支有意义，留着是为了那条路不静默差一帧）。</para></summary>
+        int HitSlot(Dictionary<int, CardView> views, Vector3 world)
         {
             int best = -1;
             float bestZ = float.MaxValue;
@@ -22966,12 +23474,77 @@ namespace CardPresentation
             foreach (var kv in views)
             {
                 var v = kv.Value;
-                if (v == null || !v.HitByCollider(world)) continue;
+                if (!CardHit(v, world)) continue;
                 float z = v.transform.position.z;
                 if (z < bestZ) { bestZ = z; best = kv.Key; }
             }
             return best;
         }
+
+        /// <summary>`v` 的命中判定 —— 🔴 **判据只此一处**（`HitSlot` / `HitSlotHitCountForTest` 共用）。
+        /// <para>**真 3D 战场**（`use3DBoard && boardCam != null && cam != null`）：
+        /// 取本卡那颗 `BoxCollider2D`（挂在 `_tiltRoot` = 原版 `2DCard` 那一级，
+        /// `CardView.EnsureHitCollider` 建；`size/offset` 由 `HitRect()` 刷），
+        /// 把它 **4 个角**（含 `offset/size`、含卡的缩放/旋转）用 `transform.TransformPoint` 换到
+        /// **战场世界** → `boardCam.WorldToScreenPoint` 投到**屏幕** → `LayoutSpace.ScreenToWorld(…, cam)`
+        /// 换回**生产指针用的正交平面** ⇒ 取轴对齐包围矩形判 `orthoWorld` 在不在里面。
+        /// 这条桥的两端就是「用户看见卡在哪」与「指针落在哪」，⛔ 别再拿原始世界坐标直接比。</para>
+        /// <para>为什么是 4 角 / 轴对齐包围：卡根与 `_tiltRoot` 在棋盘上恒 identity 旋转
+        /// （`ArenaSlots.cs:19-21` 原版 `set_localRotation(identity)`；`CardView.cs:2840`），
+        /// 倾摆（`AutoCardRotation` ±10°）只在运行时才会出现 —— 那时 4 角包围只会**略大**（多认），
+        /// ⛔ 不会静默漏掉（漏掉 = 点不到，正是本账要消灭的那种失败）。</para>
+        /// <para>**2D 档 / 相机不在**：走原判据 `CardView.HitByCollider`（逐位不变）。</para>
+        /// <para>⚠️ `getComponent` 取 collider 而不是读 `_hitCollider` 私有字段：本类与 `CardView` 之间
+        /// 不新开写口（`ColliderForTest` 只在 `UNITY_EDITOR` 里、且是探针口）。取不到 ⇒
+        /// 退回 `HitByCollider` 并**出声一次**（⛔ 不静默：那等于又回到「我方整排点不到」的老病）。</para></summary>
+        bool CardHit(CardView v, Vector3 orthoWorld)
+        {
+            if (v == null) return false;
+            // 🔴 **没画出来的卡不参与命中** —— 与原来「`Physics2D` 只认激活层级里的 collider」逐位等价：
+            //   `Physics2D` 查不到停用对象上的 collider（教程把敌方督军 `SetActive(false)` 藏起来时
+            //   就是靠这条不被点到）。投影判据不看 `Physics2D` ⇒ 必须在这里显式挡掉（⛔ 漏了 = 藏起来的卡又变可点）。
+            if (!v.gameObject.activeInHierarchy) return false;
+            if (!use3DBoard || boardCam == null || cam == null) return v.HitByCollider(orthoWorld);
+
+            var col = v.GetComponentInChildren<BoxCollider2D>(true);
+            if (col == null)
+            {
+                if (!_cardHitNoColliderWarned)
+                {
+                    _cardHitNoColliderWarned = true;
+                    Debug.LogWarning("[Battle] " + v.name + "：3D 棋盘上取不到 `BoxCollider2D` ⇒ 命中退回 "
+                                   + "`HitByCollider`（它拿**正交指针平面**的点去问 `Physics2D`，与 3D 卡不在同一平面 "
+                                   + "⇒ 我方整排会点不到，`新账-64`）；唯一成因 = `CardView.Build()` 没跑过 / "
+                                   + "collider 被摘掉");
+                }
+                return v.HitByCollider(orthoWorld);
+            }
+            if (!col.enabled) return false;      // 同 `Physics2D`：collider 关掉 = 不参与命中
+
+            Vector2 half = col.size * 0.5f;
+            Vector2 off  = col.offset;
+            var cf = col.transform;
+            float minX = float.MaxValue, maxX = float.MinValue;
+            float minY = float.MaxValue, maxY = float.MinValue;
+            for (int i = 0; i < 4; i++)
+            {
+                var local = new Vector3(off.x + (((i & 1) == 0) ? -half.x : half.x),
+                                        off.y + (((i & 2) == 0) ? -half.y : half.y),
+                                        0f);
+                Vector3 sp = boardCam.WorldToScreenPoint(cf.TransformPoint(local));
+                if (sp.z <= 0f) return false;        // 角落在相机背后 ⇒ 投影无效（这张卡这一帧画不出来）
+                Vector3 op = LayoutSpace.ScreenToWorld(new Vector2(sp.x, sp.y), cam);
+                if (op.x < minX) minX = op.x;
+                if (op.x > maxX) maxX = op.x;
+                if (op.y < minY) minY = op.y;
+                if (op.y > maxY) maxY = op.y;
+            }
+            return orthoWorld.x >= minX && orthoWorld.x <= maxX
+                && orthoWorld.y >= minY && orthoWorld.y <= maxY;
+        }
+
+        /// <summary>`CardHit` 那条「取不到 collider」警告的只出声一次闩（同 `CardView._hitColliderWarned` 的用法）。</summary>
+        bool _cardHitNoColliderWarned;
 
         // ---- 给批处理自检用的显式接口（不进 play 模式也能走完整流程）----
         //

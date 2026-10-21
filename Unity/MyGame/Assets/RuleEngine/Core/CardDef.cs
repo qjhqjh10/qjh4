@@ -490,7 +490,8 @@ namespace RuleEngine
                        int armour = 0,
                        int choicesTargetsAffected = -1, int choicesMaxTargets = -1,
                        IEnumerable<string> choicesSpecificCardIds = null,
-                       IEnumerable<CardAnimTime> animTimes = null)
+                       IEnumerable<CardAnimTime> animTimes = null,
+                       IEnumerable<KeyValuePair<string, int>> triggerPriority = null)
         {
             Id = id; Name = name; Type = type ?? ""; Desc = desc ?? ""; Rarity = rarity; Faction = faction;
             NameZh = nameZh ?? ""; DescZh = descZh ?? "";
@@ -512,6 +513,24 @@ namespace RuleEngine
             if (animTimes != null)
                 foreach (var _at in animTimes)
                     if (_at != null) _animTimes.Add(_at);
+            // 🆕 2026-10-21（引擎线 `T03·c` 批 B · 数据层）：逐触发关键词的**原版 priority** ——
+            //   原样收下（`cards_engine.json` v13 的 `triggerPriority`，**只出现 != 1 的那几条**）。
+            //   🔴 非法值（不在 `ActionPriority` 的 0..3）**出声并丢弃** —— 原版
+            //   `BattleManager__AddAutoActionToQueue` 对非法 priority 也是 LogError 后丢弃
+            //   （判据报告 §2.2），⛔ 这里**不 clamp、不默认**（静默改口径是本工程红线）。
+            if (triggerPriority != null)
+                foreach (var _tp in triggerPriority)
+                {
+                    if (string.IsNullOrEmpty(_tp.Key)) continue;
+                    if (_tp.Value < 0 || _tp.Value > 3)
+                    {
+                        UnityEngine.Debug.LogError(
+                            $"[RuleEngine] 卡「{name}」的触发 `{_tp.Key}` priority={_tp.Value} **非法**"
+                            + "（合法 0..3）—— 已丢弃该条（原版对非法 priority 也是 LogError 后丢弃）");
+                        continue;
+                    }
+                    _triggerPriority[_tp.Key] = _tp.Value;
+                }
             // 督军后手那张防御卡：这里只收**数据里的 id**；对象引用由 `CardDatabase.Parse`
             // 建完卡表之后按 id 反查置上（见 `GoesSecondCard` 的说明）。
             GoesSecondId = goesSecondId ?? "";
@@ -1005,6 +1024,37 @@ namespace RuleEngine
         {
             List<EffectOp> v;
             return (keyword != null && _triggerOps.TryGetValue(keyword, out v)) ? v : null;
+        }
+
+        /// <summary>原版 `CardAbility.priority` 的**默认值** = `1`（`ActionPriority.Instant`）。
+        /// 判据：`CardAbility__.ctor.c:5` 写 `+0x18 = 1`（不写就是 Instant）。</summary>
+        public const int DefaultTriggerPriority = 1;
+
+        /// <summary>
+        /// 触发关键词 → **原版 `CardAbility.priority`**（`ActionPriority`：0 Player / 1 Instant /
+        /// 2 Interrupt / 3 DelayedInstant）。**只存 != 1 的**（缺键 = <see cref="DefaultTriggerPriority"/>）。
+        ///
+        /// 🔴 **为什么是「按关键词」而不是「按 ability」**：原版 priority 是**逐 ability** 的
+        /// （`CardAbility.priority` → `AbilityData+0x44` → `BattleManager.AddAutoActionToQueue` 分道），
+        /// 而我们引擎今天按**关键词**路由触发正文（<see cref="TriggerOps"/> / `RuleCore.FireTriggerAt`）
+        /// ⇒ 数据层把「该关键词那条 ability 的 priority」落成一行
+        /// （`cards_engine.json` 的 `triggerPriority: [{keyword, priority}]`，v13 起）。
+        ///
+        /// 判据：`资料/普查产出_1021/W61_引擎线_T03c批B判据.md` §2.1 / §2.2 / §2.6（第一权威 = 全量反编译）。
+        /// ⚠️ **本批只落数据、零行为变化** —— 读点（四道队列）在 `Core/ActionQueue.cs`，接线另批；
+        /// 今天全池只有 **4 张卡**有非默认值（`ASH53` spiritstone 3 · `SAU13`/`SAU70` artifice 3 ·
+        /// `UM37` codex 3）。
+        /// </summary>
+        readonly Dictionary<string, int> _triggerPriority =
+            new Dictionary<string, int>(System.StringComparer.Ordinal);
+
+        /// <summary>这个触发关键词的**原版 priority**。没有登记 ⇒ <see cref="DefaultTriggerPriority"/>（1 = Instant）。
+        /// 🔴 **⛔ 别拿它当「这个触发会不会结算」的判据** —— 那个看 <see cref="TriggerOps"/>。</summary>
+        public int TriggerPriority(string keyword)
+        {
+            int v;
+            return (keyword != null && _triggerPriority.TryGetValue(keyword, out v))
+                 ? v : DefaultTriggerPriority;
         }
 
         /// <summary>触发关键词 → 正文原文（日志与卡面用）</summary>

@@ -218,6 +218,21 @@ namespace RuleEngine
             /// 见 <see cref="CardDef.CardAnimTime"/> 的 doc（字段一一对应）。
             /// ⚠️ 缺值 = `null` / 空数组；旧表（&lt; v11）读进来是 `null` ⇒ 下面那条 version 守卫会出声。</summary>
             public AnimTimeDto[] animTimes;
+
+            /// <summary>🆕 v13（2026-10-21 · 引擎线 `T03·c` 批 B）：逐触发关键词的**原版
+            /// `CardAbility.priority`**（`ActionPriority`：0 Player / 1 Instant / 2 Interrupt /
+            /// 3 DelayedInstant），喂 <see cref="CardDef.TriggerPriority(string)"/>。
+            ///
+            /// 🔴 **只出现 != 1 的那几条**（缺键 = 原版默认 **1**，见 `CardDef.DefaultTriggerPriority`）——
+            /// 2026-10-21 现读全池 1127 张**只有 4 张**有本键：
+            /// `ASH53` spiritstone 3 · `SAU13`/`SAU70` artifice 3 · `UM37` codex 3。
+            /// ⇒ 对**本列**而言「这一列不存在」与「这张卡全是默认值」是同一件事；但旧表（&lt; v13）
+            /// **整列没有** ⇒ 下面的 version 守卫照样出声（别让「表是旧的」被读成「全池都是默认」）。
+            ///
+            /// ⚠️ `keyword` = **引擎侧触发关键词**（`artifice` / `codex` / `spiritstone` …，21 个），
+            /// ⛔ 不是原版枚举名 —— 映射表在 `工具/gen_cards_engine.py` 的 `ABILITY_TRIGGER_KEYWORD`。
+            /// 数据源 = 真值 SO 快照 `cardAbilities[].priority`（与 `cards_truth.json` 同一份数据）。</summary>
+            public TriggerPriorityDto[] triggerPriority;
         }
 
         /// <summary>🆕 v11：`animTimes` 的传输形状（字段名**故意与 JSON 列名一致**，JsonUtility 直读）。
@@ -244,6 +259,13 @@ namespace RuleEngine
         /// `n` = `CreatePool.Norm` 归一后的名字（两侧同一份归一）。</summary>
         [System.Serializable]
         public class TalentNameIdDto { public string n; public string id; }
+
+        /// <summary>🆕 v13（2026-10-21 · 引擎线 `T03·c` 批 B）：`triggerPriority` 的一行
+        /// （**字段名故意与 JSON 列名逐字一致**，`JsonUtility` 直读）。
+        /// `keyword` = 引擎侧触发关键词；`priority` = 原版 `CardAbility.priority`（0..3）。
+        /// 语义 → <see cref="CardDef.TriggerPriority(string)"/>。</summary>
+        [System.Serializable]
+        public class TriggerPriorityDto { public string keyword; public int priority; }
 
         /// <summary>🆕 **2026-10-18（T09）**：解析结果的缓存。
         /// 🔴 `JsonUtility.FromJson` + 1127 张卡的构造实测 **≈2.4 s**，而全仓有 **216 个调用点**，
@@ -346,6 +368,16 @@ namespace RuleEngine
                 Debug.LogWarning($"[RuleEngine] 卡表 version={dto.version} < 12 —— 没有 `talentNameIds` 真值表"
                                + "（天赋名 → 天赋卡 id）；`RuleCore.SpawnTalents` 的最后兜底会退回"
                                + "「按卡面显示名查」那条路（改名即静默失配）。跑一下 gen_cards_engine.py 重生成（`E12`）。");
+            // 🆕 2026-10-21（引擎线 `T03·c` 批 B · 数据层）：v13 起才有逐卡 `triggerPriority`
+            //   （原版 `CardAbility.priority`）。**旧表整列没有 = 每张卡都按默认 1 处理** ——
+            //   而本列的约定正是「缺键 = 1」⇒ 「表是旧的」与「全池都是默认值」在数据上**分不开**
+            //   ⇒ 必须出声，否则非默认那 4 张卡（`ASH53`/`SAU13`/`SAU70`/`UM37`）会被**静默当默认**。
+            if (dto.version < 13)
+                Debug.LogWarning($"[RuleEngine] 卡表 version={dto.version} < 13 —— 没有 `triggerPriority` 一列"
+                               + "（原版 `CardAbility.priority`：0 Player / 1 Instant / 2 Interrupt / 3 DelayedInstant）；"
+                               + "所有触发都会退回默认 **1（Instant）** ⇒ 四道动作队列接线之后，"
+                               + "`ASH53`/`SAU13`/`SAU70`/`UM37` 这 4 张卡的结算顺序会按默认排。"
+                               + "跑一下 gen_cards_engine.py 重生成（`T03·c`）。");
 
             int noId = 0;
 
@@ -417,7 +449,12 @@ namespace RuleEngine
                     choicesSpecificCardIds: c.choicesSpecificCardIds,
                     // 🆕 v11（2026-10-19 · `E12`）：逐候选动画时间 —— 只落数据，
                     //    ⚠️ 缺值口径 = 空表（旧表整列没有 ⇒ 上面的 version 守卫已经出过声）。
-                    animTimes: MapAnimTimes(c.animTimes)));
+                    animTimes: MapAnimTimes(c.animTimes),
+                    // 🆕 v13（2026-10-21 · 引擎线 `T03·c` 批 B）：逐触发关键词的原版 priority ——
+                    //    只落数据（今天没有消费点）；**0..3 的合法性校验在 `CardDef` 构造函数里**
+                    //    （非法 ⇒ `LogError` + 丢弃该条，与原版 `AddAutoActionToQueue` 同口径）。
+                    //    ⚠️ 缺值口径 = 空表（缺键 = 原版默认 1；旧表整列没有 ⇒ 上面的 version 守卫出声）。
+                    triggerPriority: MapTriggerPriority(c)));
             }
             // 🔴 🆕 2026-10-15（接线批）：**护甲两套口径一旦分叉就出声** ——
             //   引擎读的那一份（`CardDef` 构造里定下来的 `_keywords[armour]`）由
@@ -478,6 +515,45 @@ namespace RuleEngine
                     TimeMoving = a.m, TimeAtEndPos = a.e,
                     Duration = a.u, Offset = a.t,
                 });
+            }
+            return list;
+        }
+
+        /// <summary>🆕 v13（2026-10-21 · 引擎线 `T03·c` 批 B）：`triggerPriority` DTO →
+        /// `CardDef` 构造参数（`IEnumerable&lt;KeyValuePair&lt;string,int&gt;&gt;`）。
+        /// `null` / 空 ⇒ 空表（`Parse` 那边一律传非 null 的 `IEnumerable`）。
+        ///
+        /// 🔴 **本方法只搬值，不判 0..3 合不合法** —— 那条校验在 `CardDef` 构造函数里
+        /// （非法 ⇒ `LogError` + 丢弃该条，与原版 `AddAutoActionToQueue` 同口径；⛔ 不 clamp）。
+        /// 这里只出声**本方法才看得见**的两种数据缺陷（到了 `CardDef` 那边会被**静默**吃掉）：
+        ///   ① `keyword` 为空 ⇒ `CardDef` 直接 `continue`（静默丢）；
+        ///   ② 同一张卡同一个关键词出现两次 ⇒ `CardDef` 是「后写覆盖」（静默取后者）。
+        ///      生成器那一侧对「同卡同词两个不同 priority」已整条丢弃并报 `report["conflict"]`
+        ///      （2026-10-21 现读 0 条）—— 这里是**第二道闸**。
+        /// ⚠️ ①跳过、②照旧两条都往下传（保持 `CardDef` 的既有覆盖口径，⛔ 不在这里另立一套）。
+        /// </summary>
+        static List<KeyValuePair<string, int>> MapTriggerPriority(CardDto c)
+        {
+            var list = new List<KeyValuePair<string, int>>();
+            if (c == null || c.triggerPriority == null) return list;
+            HashSet<string> seen = null;
+            foreach (var tp in c.triggerPriority)
+            {
+                if (tp == null) continue;
+                if (string.IsNullOrEmpty(tp.keyword))
+                {
+                    Debug.LogError($"[RuleEngine] 卡「{c.name}」（{c.id}）的 `triggerPriority` 有一条没有 "
+                                 + $"`keyword`（priority={tp.priority}）—— 已跳过该条（`CardDef` 那边也会静默丢）。"
+                                 + "重跑工具/gen_cards_engine.py。");
+                    continue;
+                }
+                if (seen == null) seen = new HashSet<string>(StringComparer.Ordinal);
+                if (!seen.Add(tp.keyword))
+                    Debug.LogError($"[RuleEngine] 卡「{c.name}」（{c.id}）的 `triggerPriority` 里 `{tp.keyword}` "
+                                 + "**出现了不止一次** —— 引擎口径是「后写覆盖」（`CardDef` 的字典赋值）⇒ "
+                                 + "最终生效的是最后一条。一张卡一个关键词只能有一个 priority；"
+                                 + "重跑工具/gen_cards_engine.py（它会整条丢弃并报 `conflict`）。");
+                list.Add(new KeyValuePair<string, int>(tp.keyword, tp.priority));
             }
             return list;
         }

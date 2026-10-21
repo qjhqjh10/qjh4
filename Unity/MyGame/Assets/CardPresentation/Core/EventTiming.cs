@@ -30,8 +30,20 @@ namespace CardPresentation
         /// <summary>
         /// 上一条事件播完到这一条开始，隔多久（秒）。
         /// `prev == null` = 这一串里的第一条。
+        /// <para>⚠️ **这一条重载拿不到「哪张卡 / 哪个阵营」** ⇒ 远程那一档只能用兜底时长
+        /// （<see cref="RangedVfxFallback"/>）。**生产路径必须走三参那个重载**
+        /// （`BattleDriver.PlaySignals` 从 `VfxMap.ChainDuration` 现算）—— 同
+        /// <see cref="DurationOf(EvtKind)"/> / <see cref="DurationOf(BattleEvent)"/> 那一对的分工。</para>
         /// </summary>
         public static float DelayBetween(BattleEvent prev, BattleEvent next)
+        {
+            return DelayBetween(prev, next, -1f);
+        }
+
+        /// <summary>带「远程那条 VFX 自己的时长」的重载（🔴 **2026-10-21（W61 第 1 批 · 第 2 条）**）。
+        /// <paramref name="rangedVfxDuration"/> = 该次远程攻击 VFX 的 `AnimInfo.GetAnimDuration()`
+        /// （`VfxMap.ChainDuration` 现算）；**&lt; 0 = 没传** ⇒ 用兜底 <see cref="RangedVfxFallback"/>。</summary>
+        public static float DelayBetween(BattleEvent prev, BattleEvent next, float rangedVfxDuration)
         {
             if (next == null) return 0f;
 
@@ -40,13 +52,19 @@ namespace CardPresentation
 
             switch (next.Kind)
             {
-                // **命中那一下 → 真正扣血**（不是「弹道飞行」—— 飞行那一段已经算在起手→命中里了）。
-                // 近战 **0**（命中与段1 位移的 OnComplete 同帧：`…b__1.c:16-27`）·
-                // 远程 = 该 VFX 的 `AnimInfo.GetAnimDuration()`（`_ResolveAttackRangedAnim…:122-124`；
-                // 没有全局常数，填死 1.0）。见两个常量的注释。
+                // 🔴 **2026-10-21（W61 第 1 批 · 第 2 条）：这条 `Hit` 已经是【伤害结算】那一拍。**
+                //   原版 `ReceiveDamage`（改血 / 伤害计数器）在**整条攻击动画跑完之后**才进：
+                //     · 近战 0.4 s（`_AttackMeleeAnim`：位移 0.1 + 转向 0.1 + 停 0.1 + 归位 0.2）⇒ Attack+0.4；
+                //     · 远程 0.2 s（`_ResolveAttackRangedAnim`：回正 0.1 + 等 0.1）+ 该 VFX 的
+                //       `AnimInfo.GetAnimDuration()`（`_ResolveAnimInfoRangeAttack…` state 3 的
+                //       `WaitForSeconds`，`:111-124`）⇒ Attack+0.2+VFX。
+                //   而「出手到命中帧」那一段（近战 0.1 / 远程 0.2）已经算在 `DurationOf(Attack)` 里
+                //   ⇒ 这里返回的是**剩余**那一截（近战 0.3 / 远程 = VFX 时长）。
+                //   👉 命中帧的**手感**（后坐/震屏/命中粒子/命中音）不在这一拍 —— 见 <see cref="HitFrameLag"/>。
                 case EvtKind.Hit:
                     if (prev.Kind != EvtKind.Attack) return 0f;
-                    return prev.Ranged ? RangedFlight : MeleeImpactLag;
+                    if (!prev.Ranged) return MeleeDamageLag - AttackStepMelee;
+                    return rangedVfxDuration >= 0f ? rangedVfxDuration : RangedVfxFallback;
 
                 // 阵亡：链路查到了（`_DestroyUnitsAfterBattleEnd_d__392__MoveNext.c` 里
                 // `UnitDeath` 之后 `WaitForSeconds(VarsGlobal.deathTimeMinionDuration + …)`）。
@@ -205,24 +223,45 @@ namespace CardPresentation
         /// 见 `BattleManager._ResolveAnimInfoRangeAttack_d__468__MoveNext.c:29-31`。</summary>
         public const float AttackStepRanged = 0.2f;
 
-        /// <summary>**命中那一下到真正扣血**之间的空档。
-        /// 出处：`CardScript._AttackMeleeAnim_d__357__MoveNext.c:258,260`（近战）·
-        /// `_ResolveAttackRangedAnim_d__360__MoveNext.c:122-124`（远程 = 该 VFX 的 `AnimInfo.GetAnimDuration()`）。
-        /// 远程**没有全局常数**（随 VFX 变，124 条 `Atk_*` 里众数 1.0 / 34 条）⇒ 填死用 1.0。
-        ///
-        /// 🔴 **2026-09-19 更正：近战那一档从 0.3 改成 0 —— 原来把「收招」当成了「前摇」。**
-        ///   实读那两行：`:258-259` 是 `AppendInterval(0.1)`（命中**之后**停一拍）·
-        ///   `:260,264-268` 是**归位位移** `2 × attackStepTime = 0.2` ⇒ 合起来 0.3 是**命中之后的收招**。
-        ///   而命中本身发生在**段1 位移的 OnComplete**：
-        ///   `CardScript.__c__DisplayClass357_0___AttackMeleeAnim_b__1.c:16-27` 同帧调
-        ///   `ResolveAttackAnimationEffects` + `ReceiveAttackAnim`（注册处 `:202-207`）
-        ///   ⇒ **命中帧 = 出手后 `AttackStepMelee` = 0.1 s**，不是 0.4 s。
-        ///   收招那 0.3 s 由 `DurationOf(Hit)`（`HitRotDuration 0.5 + ResetDuration 0.25 = 0.75`）覆盖
-        ///   ⇒ **整条序列总时长不变，只是扣血/后坐回到了正确的帧**。
-        ///   ⚠️ **别改回 0.3** —— 那正是这次修掉的错（症状：挨打反应慢半拍）。
-        ///   判据出处 = `资料/普查产出_0919/第18行_攻击时序_反编译定案.md`。</summary>
-        public const float RangedFlight = 1.0f;
-        public const float MeleeImpactLag = 0f;
+        /// <summary>**命中帧在出手事件之后的延迟**（秒）—— 原版「打中那一帧」/「VFX 发出那一刻」。
+        /// <list type="bullet">
+        /// <item>**近战 0.1**：段1 位移的 OnComplete 就是命中帧（`CardScript.__c__DisplayClass357_0___AttackMeleeAnim_b__1.c:16-27`），
+        ///   那时 `ResolveAttackAnimationEffects`（震屏 + 命中音 + `AttackHitSmall`）与 `ReceiveAttackAnim`（后坐）同帧。</item>
+        /// <item>**远程 0.2**：回正 `DOLocalMove(…, attackStepTime)` + `WaitForSeconds(attackStepTime)`
+        ///   （`CardScript._ResolveAttackRangedAnim_d__360__MoveNext.c:80-104,122-124`）之后才 `DelayedVFXPlay`。</item>
+        /// </list>
+        /// ⚠️ 它**等于** `DurationOf(Attack)` —— 也就是说「出手那一拍占的时长」正好到命中帧为止；
+        /// 本函数只是给「手感/VFX 要在命中帧播」的调用点一个**有名字的口**（⛔ 别在调用点写 0.1/0.2）。</summary>
+        public static float HitFrameLag(BattleEvent attack)
+        {
+            if (attack == null) return 0f;
+            return attack.Ranged ? AttackStepRanged : AttackStepMelee;
+        }
+
+        /// <summary>**出手 → 伤害结算**的间隔（近战档）= **0.4 s** —— 原版整条近战动画：
+        /// 段1 位移 0.1 + 段2 转向 0.1 + 段3 停 0.1 + 段4/5 归位 0.2
+        /// （`CardScript._AttackMeleeAnim_d__357__MoveNext.c:130-207,214-268`）。
+        /// 跑完之后 `BattleManager._ResolveAttack_d__438__MoveNext.c:988-1000` 才 `BroadcastUnitAttacked`
+        /// → `ReceiveDamage`（伤害计数器 / 改血）。
+        /// 🔴 **2026-10-21（W61 第 1 批 · 第 2 条）**：原来伤害绑在命中帧（0.1）⇒ **早 0.3 s**。</summary>
+        public const float MeleeDamageLag = 0.4f;
+
+        /// <summary>**出手 → 伤害结算**的间隔（远程档）= `AttackStepRanged`(0.2) + 该 VFX 的
+        /// `AnimInfo.GetAnimDuration()`（= `vfxDelayTime + timeAtStartPos + timeMoving + timeAtEndPos`）。
+        /// 判据：`_ResolveAttackRangedAnim…` state 3 的 `WaitForSeconds(AnimInfo.GetAnimDuration())`
+        /// （`BattleManager._ResolveAnimInfoRangeAttack_d__468__MoveNext.c:111-124`）。
+        /// ⚠️ **没有全局常数**（124 条 `Atk_*` 里 0.25~3.0 都有）⇒ 生产走 `VfxMap.ChainDuration` 现算。</summary>
+        public static float RangedDamageLag(float vfxDuration)
+        {
+            return AttackStepRanged + (vfxDuration >= 0f ? vfxDuration : RangedVfxFallback);
+        }
+
+        /// <summary>拿不到「这张卡 / 这个阵营」时远程 VFX 的兜底时长 = **0.75 s**。
+        /// 判据 = 4 个阵营的共享件 `Atk_BulletImpact_2shot`（`BulletImpact_2shot_trail*` / `NecronGauss`）
+        /// 的 `AnimInfo` 时长全部 = 0.75（`数据/游戏数据/animinfo_lookup.json` 逐条现读）；
+        /// `ByEvent` 那条通用兜底 `BulletImpact_2shot` 是 0.4 —— 这里取**阵营档**（生产路径绝大多数命中这一档）。
+        /// 🔴 **2026-10-21**：原来这里写死 1.0（旧 `RangedFlight`），ASH77 会晚 0.25 s、1-shot 会晚 0.7 s。</summary>
+        public const float RangedVfxFallback = 0.75f;
 
         /// <summary>
         /// 🆕 2026-09-29 **出牌落位之后那一拍**（0.3 s）—— 我们以前整个缺这一段，整局节奏因此偏快。
