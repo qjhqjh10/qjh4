@@ -176,6 +176,8 @@ namespace CardPresentation
             /// <summary>🔴 **2026-10-16（`T09` 批 3）：类型 `ImageQuad` → `HudPiece`** —— 这一族现在是
             /// 「世界空间 quad **或** uGUI `RectTransform+Image`」二选一（见 `HudPiece` 文件头那条铁律）。</summary>
             public HudPiece bg, portrait, wave;
+            /// <summary>音波材质（`CardPresentation/VoiceWave`）—— `Advance` 每帧写 `_Amplitude`。</summary>
+            public Material waveMat;
             public Label text;
             public AudioSource audio;
             public float left;
@@ -519,8 +521,32 @@ namespace CardPresentation
             // 卡图先拿一张**占位**建起来（原版是运行时 `set` sprite）—— 说话时再 `SetTexture` 换成那张卡的立绘
             b.portrait = Quad(at, b.left + PortraitCx, topPx + PortraitCy, CardArt.Solid(), PortraitH,
                               "chat_card_" + name, ZPortrait);
+            // 🔴 **2026-10-21（第六十会话 · 真机缺陷：头像被底板挡住）**：立绘 PNG 的 alpha 是
+            //    **角色抠图**（`art_*.png` 81% 透明），按默认 UI 材质画会把 81% 透出底板 ⇒ 看着像「头像被挡」。
+            //    原版这一格挂 `Card Image Overflow` 材质（完整插图）；我们用等价的 `ArtOpaque`
+            //    （只取 RGB、alpha 当 1，见 `CardView.OpaqueMaterial`）。每颗气泡一份材质（别共享改纹理）。
+            if (b.portrait != null)
+            {
+                var sh = Shader.Find("CardPresentation/ArtOpaque");
+                if (sh != null) b.portrait.SetMaterial(new Material(sh));
+                else Debug.LogWarning("[UnitChat] 找不到 `CardPresentation/ArtOpaque` shader ⇒ 头像仍按抠图 alpha 画（会透底板）");
+            }
             b.wave = Quad(at, b.left + WaveCx, topPx + WaveCy, waveTex, WaveH, "chat_wave_" + name, ZWave);
             if (b.wave != null) b.wave.SetTint(WaveTint);
+            // 🔴 **2026-10-21（第六十会话）**：音波底图只是一条直线，动态来自原版 `AudioWaveEqualizer`；
+            //    给它换 `CardPresentation/VoiceWave`（UV 位移），幅度由 `Advance` 按频谱写（0 = 直线）。
+            if (b.wave != null)
+            {
+                var waveSh = Shader.Find("CardPresentation/VoiceWave");
+                if (waveSh != null)
+                {
+                    b.waveMat = new Material(waveSh);
+                    b.waveMat.mainTexture = waveTex;
+                    b.waveMat.SetColor("_Color", Color.white);
+                    b.wave.SetMaterial(b.waveMat);
+                }
+                else Debug.LogWarning("[UnitChat] 找不到 `CardPresentation/VoiceWave` shader ⇒ 音波仍是直线");
+            }
             // 🔴 2026-10-20（W58 · `T09-C3` 生产修复）：**三片的「宽 = 高 × 原版比例」在建件处就写一次**。
             //   uGUI 档的 `Quad`（`HudCanvas.MakeImageInParent`）只按**贴图比例**给宽度
             //   （`wPx = hPx × tex.w / tex.h` ⇒ 气泡读回 646.996 px），而 `RefreshLayout` 的画布支
@@ -953,11 +979,31 @@ namespace CardPresentation
         public void Advance(float dt)
         {
             if (_current == null) return;
+            // 🆕 2026-10-21：音波幅度 —— 原版 `AudioWaveEqualizer__Update` 同法（前 16 bin ×15、clamp01、10×dt 平滑）。
+            //    ⚠️ 取到不了频谱就回 0（直线），⛔ 不静默留一个假波。
+            if (_current.audio != null && _current.audio.isPlaying && _current.waveMat != null)
+            {
+                if (_spectrum == null) _spectrum = new float[64];
+                _current.audio.GetSpectrumData(_spectrum, 0, FFTWindow.Blackman);
+                float sum = 0f;
+                for (int i = 0; i < 16; i++) sum += _spectrum[i];
+                float target = Mathf.Clamp01(sum * 15f);
+                _waveAmp = Mathf.Lerp(_waveAmp, target, Mathf.Clamp01(10f * dt));
+                _current.waveMat.SetFloat("_Amplitude", _waveAmp * 0.22f);   // 0.22 UV ≈ 上下的可见摆幅
+            }
+            else if (_current.waveMat != null && _waveAmp > 0f)
+            {
+                _waveAmp = 0f;
+                _current.waveMat.SetFloat("_Amplitude", 0f);
+            }
             _left -= dt;
             if (_left > 0f) return;
             if (_current.audio != null && _current.audio.isPlaying) _current.audio.Stop();
             HideAll();
         }
+
+        float _waveAmp;
+        float[] _spectrum;
     }
 
     // ==================================================================

@@ -3992,7 +3992,7 @@ public static class BattleScene
                 {
                     var hv2 = driver.HandViewAt(i);
                     if (hv2 == null) continue;
-                    // 我们这边「打不出去」= `Unplayable`（置灰）；其余状态都算「能打」⇒ 该有描边
+                    // 我们这边「打不出去」= `Unplayable`（**只表示没描边 —— 手牌不灰**，2026-10-21 订正）；其余状态都算「能打」⇒ 该有描边
                     bool wantOn = hv2.State != CardHighlightState.Unplayable;
                     bool isOn = hv2.OutlineColor.a > 0.5f;
                     det.Append($"[{i}]{hv2.State}/{(isOn ? "亮" : "灭")}({hv2.OutlineDebug}) ");
@@ -17468,7 +17468,9 @@ public static class BattleScene
             //   落点只有一处 = `BattleDriver.FaceTextFull`（手牌/场上/卡组编辑/收藏/两扇详情窗/相关卡
             //   全都经 `ToCardData` 或 `FaceTextFull` 到它）。
             //   判据与逐条清单 → `资料/普查产出_1019/W_卡牌线_A1945官方显示_1019b.md`。
-            //   白名单（非缺陷）= `ASH48`（官方截断）· `SAU58`（官方截断，PnP 亲读）· `SOR25`（内容分歧待裁）。
+            //   白名单（非缺陷，6 个）= `ASH48`（官方截断）· `SAU58`（官方截断，PnP 亲读）· `SAU15`（官方缺 Rally 句）
+            //   · `TAU65`（官方缺 Strike 行）· `AM72`（官方把 Strike 写成 slay）· `SOR25`（官方缺 +1/+1；
+            //   2026-10-21 亲读 PnP 已裁「我们是对的」）。
             {
                 var langWasA1945 = Loc.Current;
                 var poolA1945 = RuleEngine.CardDatabase.Load();

@@ -18564,7 +18564,19 @@ namespace CardPresentation
             }
         }
 
-        /// <summary>付不起/不能打的牌置灰 —— **判据全部来自引擎**，这里不自己算费用</summary>
+        /// <summary>手牌的「能不能打」高亮 —— **判据全部来自引擎**，这里不自己算费用。
+        ///
+        /// <para>🔴 **2026-10-21（第六十会话 · 真机缺陷：手牌被整片灰掉）**：原版战斗里**打不出 ≠ 变灰** ——
+        /// 原版只是**不亮绿描边**，卡面照样全彩（判据：原版实拍 `桌面/warpforge参考图/战斗截图参考.png`
+        /// 里 0 张灰卡；反编译 `PlayerHand__LightPlayableHand` → `BattleManager__CanPlayCard` →
+        /// `CardScript__ActivateCard` 只走 `ToggleHighlight(false)` / `ChangeToHighlightColor`，
+        /// **`_GreyScale` 的调用点只在收藏/菜单**）。我们原来把 `Unplayable` 一律 `SetGrey(1)`
+        /// ⇒ 战术/防御卡（`IsUnit` 为假）**永远**被灰、敌方回合整手全灰。
+        /// ⇒ 这里在 `SetHighlight` 之后**显式把手牌灰度清零**（`State` 仍保留 `Unplayable`，
+        /// 描边/自检口径不动）；灰化本身别改 —— 换牌/选牌/卡池那三处是**故意**用它的。</para>
+        /// <para>🔴 同批：`playable` 原来要求 `card.IsUnit` ⇒ 战术/防御卡**永远没有绿描边**（与原版不符）。
+        /// 原版按「付得起 + 有可用目标/格位」亮，静态手牌那一眼**付得起就亮**（参考图里费用 3/5 两张
+        /// 不亮、其余亮的判据就是费用）⇒ 非单位卡改成「`Cost >= 0` 且付得起」；单位卡仍要求有空格位。</para></summary>
         void RefreshHandPlayable()
         {
             bool myTurn = Ctx.Active == _me && !Ctx.IsOver;
@@ -18576,9 +18588,13 @@ namespace CardPresentation
                 if (_handViews[i] == null) continue;
                 var inst = p.Hand[i];              // 第 7 行第 2 步：手牌存实例
                 var card = inst.Card;
-                bool playable = myTurn && card.IsUnit && card.Cost <= p.Energy && hasSlot;
+                // `Cost < 0` = 原版 `manaCost = -1` 的哨兵（附魔模板）⇒ 不可直接打出（判据同 `RuleCore.CanPlayCard`）。
+                bool playable = myTurn && card.Cost >= 0 && card.Cost <= p.Energy
+                                && (card.IsUnit ? hasSlot : true);
                 _handViews[i].SetHighlight(playable ? CardHighlightState.Normal
                                                     : CardHighlightState.Unplayable);
+                // 🔴 原版手牌不灰：`Unplayable` 只表达「没描边」，不是去饱和。
+                _handViews[i].SetGrey(0f);
                 // 🆕 2026-09-19：原版卡面那圈 **`_Outline` 高亮描边**（打得出去才有，按 trait 分色、补间 0.2s）。
                 //    判据只在 `CardHighlight.OutlineOf` 一处；这里把**只有引擎知道的**两样算好传进去：
                 //      · `inst.DrawnThisTurn` —— 这一**份**是不是本回合从牌库抽到的（`Teleport` 那条要用它）；
@@ -18742,9 +18758,11 @@ namespace CardPresentation
         /// （PnP `Tau/1督军/Warpforge_01_War-Shaper.png` 印着这句）。</para>
         /// <para>· `AM72 Vitus Gryf` —— 官方写 `[[slay]]: Deploy a $$AM71$$`，PnP
         /// `Astra Militarum/3部队/Warpforge_08_Vitus-Gryf.png` 印的是 `Strike: Deploy a Tempestus Aquilon`
-        /// ⇒ **关键词分歧**（与 `SOR25` 同类，待用户裁）。</para>
+        /// ⇒ **关键词分歧**；⚠️ **2026-10-21 第六十会话亲读 PnP 复核**：卡面印的就是 `Strike`（与 `TAU65` 同一颗红骷髅图标），
+        /// 官方的 `[[slay]]` 是错的 ⇒ 沿用我们的。</para>
         /// <para>· `SOR25 Imagifier` —— 官方只写 `flank`，我们多 `+1 [Attack], +1 [Ranged]`
-        /// （内容分歧，待 PnP 裁定）⇒ 照旧用我们的。</para>
+        /// （**2026-10-21 第六十会话亲读 PnP 已裁**：`Sorotitas/3部队/Warpforge_29_Imagifier.png` 印着
+        /// `+1 [近战], +1 [远程] and Flank to a friendly troop` ⇒ **我们是对的、官方表缺**）⇒ 照旧用我们的。</para>
         /// <para>⛔ **不在这张表里的卡一律优先取官方**；`desc` / `descZh` 数据与解析路径一字节不动。
         /// 加卡必须有判据 + 日期，逐条清单见
         /// `资料/普查产出_1019/W_卡牌线_A1945官方显示_1019b.md`。</para></summary>
@@ -19246,13 +19264,13 @@ namespace CardPresentation
             bool meQp = ShowsQuestPoints(_myFaction);
             bool foeQp = ShowsQuestPoints(_foeFaction);
             _myQuestIcon = HudImageTex(root, CardArt.Ui("UI_Quest_Points"), MyQuestX01, MyQuestY01,
-                        new Vector2(0.5f, 0.5f), QuestPx / 108f, "PlayerQuestPoints", HudDecorZ + 0.05f);
+                        new Vector2(0.5f, 0.5f), QuestPx / 108f, "PlayerQuestPoints", HudDecorZ - 0.05f);
             _foeQuestIcon = HudImageTex(root, CardArt.Ui("UI_Quest_Points"), FoeQuestX01, FoeQuestY01,
-                        new Vector2(0.5f, 0.5f), QuestPx / 108f, "EnemyQuestPoints", HudDecorZ + 0.05f);
+                        new Vector2(0.5f, 0.5f), QuestPx / 108f, "EnemyQuestPoints", HudDecorZ - 0.05f);
             _myQuestJoin = HudImageTex(root, CardArt.Ui("UI_Quest_Points_Joint"), MyQuestX01, MyQuestJoinY01,
-                        new Vector2(0.5f, 0.5f), QuestJoinPx / 108f, "PlayerQuestJoin", HudDecorZ + 0.04f);
+                        new Vector2(0.5f, 0.5f), QuestJoinPx / 108f, "PlayerQuestJoin", HudDecorZ - 0.06f);
             _foeQuestJoin = HudImageTex(root, CardArt.Ui("UI_Quest_Points_Joint"), FoeQuestX01, FoeQuestJoinY01,
-                        new Vector2(0.5f, 0.5f), QuestJoinPx / 108f, "EnemyQuestJoin", HudDecorZ + 0.04f);
+                        new Vector2(0.5f, 0.5f), QuestJoinPx / 108f, "EnemyQuestJoin", HudDecorZ - 0.06f);
             _myQuestIcon.gameObject.SetActive(meQp);
             _myQuestJoin.gameObject.SetActive(meQp);
             _foeQuestIcon.gameObject.SetActive(foeQp);
@@ -19265,9 +19283,9 @@ namespace CardPresentation
             //    已经作废 —— 调用方一直就在 `PlayerManager__ResetMana.c`，`Uses*` 就是 `阵营 id == 30/80/110`）。
             //    详见 `ShowsSpiritStone` 的注释。
             _myFaithIcon = HudImageTex(root, CardArt.Ui("40k_Battle_Display_Faith"), MyFaithX01, MyFaithY01,
-                        new Vector2(0.5f, 0.5f), FaithH / 108f, "PlayerFaithHolder", HudDecorZ + 0.05f);
+                        new Vector2(0.5f, 0.5f), FaithH / 108f, "PlayerFaithHolder", HudDecorZ - 0.05f);
             _foeFaithIcon = HudImageTex(root, CardArt.Ui("40k_Battle_Display_Faith"), FoeFaithX01, FoeFaithY01,
-                        new Vector2(0.5f, 0.5f), FaithH / 108f, "EnemyFaithHolder", HudDecorZ + 0.05f);
+                        new Vector2(0.5f, 0.5f), FaithH / 108f, "EnemyFaithHolder", HudDecorZ - 0.05f);
             // 🔴 **2026-10-10（A1213①）**：这四颗的框/四格 ← 原版
             //    `…/Right Anchor/Energy And turn holder/{Player,Enemy}Mana/{FaithHolder,SpiritStoneHolder}/…`
             //    （`RectTransform_3246`(我信仰) · `_3090`(敌信仰) · `_2975`(我灵魂石) · `_2906`(敌灵魂石)）。
@@ -19283,16 +19301,16 @@ namespace CardPresentation
                                 57.43f, 88.40f, 8f, 40f, 36f, face: TmpFont.Face.LatinCardBody);
 
             _myStoneIcon = HudImageTex(root, CardArt.Ui("UI_Energy_Eldar"), MyStoneX01, MyStoneY01,
-                        new Vector2(0.5f, 0.5f), StoneH / 108f, "PlayerSpiritStoneHolder", HudDecorZ + 0.05f);
+                        new Vector2(0.5f, 0.5f), StoneH / 108f, "PlayerSpiritStoneHolder", HudDecorZ - 0.05f);
             _foeStoneIcon = HudImageTex(root, CardArt.Ui("UI_Energy_Eldar"), FoeStoneX01, FoeStoneY01,
-                        new Vector2(0.5f, 0.5f), StoneH / 108f, "EnemySpiritStoneHolder", HudDecorZ + 0.05f);
+                        new Vector2(0.5f, 0.5f), StoneH / 108f, "EnemySpiritStoneHolder", HudDecorZ - 0.05f);
             // 石头那颗宝石（原版 `SpiritStone`，框 **51.028×63.015**、挂 `PA=0`（拉伸）——
             // 🔴 2026-10-16（`A1302` 同族审计）：原来把框【宽】51.0 当高传了 ⇒ 高宽各小 19%，已修）
             _myStoneGem = HudImageTex(root, CardArt.Ui("UI_Gem_Eldar"), MyStoneX01, MyStoneY01,
-                        new Vector2(0.5f, 0.5f), Px(StoneGemH), "PlayerSpiritStone", HudDecorZ + 0.04f);
+                        new Vector2(0.5f, 0.5f), Px(StoneGemH), "PlayerSpiritStone", HudDecorZ - 0.06f);
             if (_myStoneGem != null) _myStoneGem.SetAspect(StoneGemW / StoneGemH);
             _foeStoneGem = HudImageTex(root, CardArt.Ui("UI_Gem_Eldar"), FoeStoneX01, FoeStoneY01,
-                        new Vector2(0.5f, 0.5f), Px(StoneGemH), "EnemySpiritStone", HudDecorZ + 0.04f);
+                        new Vector2(0.5f, 0.5f), Px(StoneGemH), "EnemySpiritStone", HudDecorZ - 0.06f);
             if (_foeStoneGem != null) _foeStoneGem.SetAspect(StoneGemW / StoneGemH);
             // ⚠️ 文字位置按 **holder 中心** 摆：dump 里 `SpiritStoneText` 是**拉伸锚点**
             //    （anchorMin/Max (0.075,0)-(0.934,0.855)、sizeDelta (−43.6,−36.7)），中心≈holder 中心。
@@ -19327,13 +19345,15 @@ namespace CardPresentation
             //   ⚠️ 原来那两个 `{My,Foe}EnergyPlateX01/Y01` 是**各量各的**，与我方球心差 1.5 px / 0.6 px
             //   —— 已停用（留痕在常量声明处）。⛔ 别再拿它们当第二份判据。
             _myEnergyPlate = HudImageTex(root, CardArt.DeckUi("Card_Frame_Cost_Icon"), MyEnergyOrbX01, MyEnergyOrbY01,
-                        new Vector2(0.5f, 0.5f), 93.32f / 108f, "PlayerEnergyPlate", HudDecorZ + 0.1f);
+                        new Vector2(0.5f, 0.5f), 93.32f / 108f, "PlayerEnergyPlate", HudDecorZ - 0.1f);
             if (_myEnergyPlate != null) _myEnergyPlate.SetAspect(90.61f / 93.32f);
             _foeEnergyPlate = HudImageTex(root, CardArt.DeckUi("Card_Frame_Cost_Icon"), FoeEnergyOrbX01, FoeEnergyOrbY01,
-                        new Vector2(0.5f, 0.5f), 91.32f / 108f, "EnemyEnergyPlate", HudDecorZ + 0.1f);
+                        new Vector2(0.5f, 0.5f), 91.32f / 108f, "EnemyEnergyPlate", HudDecorZ - 0.1f);
             if (_foeEnergyPlate != null) _foeEnergyPlate.SetAspect(94.61f / 91.32f);
 
-            var gold = new Color(1f, 0.86f, 0.42f);
+            // 🔴 **2026-10-21（第六十会话）**：原版能量数字是**白色**（判据 `B1_HUD左右区_层参数表.md:116/134`
+            //    `ManaText` 颜色 (1,1,1,1)）；我们原来写的是 gold (1,0.86,0.42) ⇒ 真机看到「橙色 0/3」。
+            var energyNum = Color.white;
             // 我方水晶
             // 🔴 **2026-10-16（`A1302` 同族审计）就地订正**：原来两对水晶传的都是 **`0.72f`**，
             //    而 `0.72 × 108 = 77.76` 量的是原版那格的**框【宽】**（`Energy Player Accumulation ON|OFF`
@@ -19364,14 +19384,14 @@ namespace CardPresentation
             //    ⚠️ 这颗文案是 `10/10`（5 字），框只有 74~77 px 宽 ⇒ **折行档 = 原版 `1`**（会折行）
             //    —— 原版就开着折行、且 `m_fontSizeMax = 40`（我 39.15 是**缩过**的收敛值，说明原版那颗框略紧），
             //    我们这一侧字体行盒更高（`Noto` 1.437 em vs 原版 `Pragati` 0.947 em）⇒ 收敛值会与原版不同。
-            _energyLabel = Hud(root, "", MyEnergyLabelX01, MyEnergyLabelY01, 4, gold, new Vector2(0.5f, 0.5f), "EnergyLabel",
+            _energyLabel = Hud(root, "", MyEnergyLabelX01, MyEnergyLabelY01, 4, energyNum, new Vector2(0.5f, 0.5f), "EnergyLabel",
                                73.90f, 82.48f, 8f, 40f, 36f, face: TmpFont.Face.LatinCardBody);
             // 敌方水晶：原版有（`EnemyMana`，也带 `ManaText`），**我们原来一颗都没画** ——
             // 于是玩家看不到对手还剩多少能量，只能靠猜。
             // 🔴 **2026-10-16（`A2102` R4）**：敌方球心那一对也**已删除**，理由与上面我方那一对**完全同一条**
             //   （原版球心是 `Card Frame Cost Icon` = `_foeEnergyPlate`；满/空那一对在 −81.3 px 的
             //    `EnergyAccumulation` 上）。⛔ 别建回来。
-            _foeEnergyLabel = Hud(root, "", FoeEnergyLabelX01, FoeEnergyLabelY01, 4, gold,
+            _foeEnergyLabel = Hud(root, "", FoeEnergyLabelX01, FoeEnergyLabelY01, 4, energyNum,
                                   new Vector2(0.5f, 0.5f), "FoeEnergyLabel",
                                   77.34f, 80.95f, 8f, 40f, 36f, face: TmpFont.Face.LatinCardBody);
             // ⚠️ x01 从 0.017 挪到 0.075：手牌数底板有 **259 px 宽**，还摆在屏幕左缘的话整块板会有一半在屏幕外

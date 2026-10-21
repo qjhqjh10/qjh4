@@ -413,7 +413,9 @@ namespace CardPresentation
 
         /// <summary>飘字的时间轴，全部来自那条 clip：
         /// 父 scale 0.6641→1.0 @0→0.2；`DamageText.m_fontColor.a` 0→1 @0→0.1167、保持到 1.6667、
-        /// 到 1.8333 归 0；`DamageIcon.m_Color.a` 0→0.8235 @0→0.1167（图标我们没画）。</summary>
+        /// 到 1.8333 归 0；`DamageIcon.m_Color.a` 0→0.8235 @0→0.1167。
+        /// 🔴 **2026-10-21（第六十会话）**：`DamageIcon`（红色血痕）**已接** —— `PopNumber` 从效果库的
+        /// `CardPrefab` 取 `DamageIcon` 节点，按原版 offset/scale/sortingOrder（1 &lt; 数字 2）挂进同一条时间线。</summary>
         public const float PopIn = 0.1167f;
         public const float PopScaleIn = 0.2f;
         public const float PopHoldUntil = 1.6667f;

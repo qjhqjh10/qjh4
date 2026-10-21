@@ -133,7 +133,12 @@ Shader "WarpforgeVFX/FX/MultiRay"
                 float4 _Color1, _Color2, _Color3, _Color4;
                 float4 _Remap_Color_Min_XY_Max_ZW;
                 float  _General_Speed_Modifier;
-                float  _USEBORDERFADE;
+                // 🔴 **2026-10-21**：这里原来还有 `float _USEBORDERFADE;` —— **删掉**。
+                //    它是**关键字名**（`#pragma shader_feature_local_fragment _USEBORDERFADE`）：
+                //    关键字一开，Unity 会 `#define _USEBORDERFADE` ⇒ 下一行变成 `float 1;` ⇒
+                //    `Shader error: redefinition of '_USEBORDERFADE'`（2026-10-21 扫描日志实测）。
+                //    本 shader 里**没有任何代码读它的值**（只用 `#if defined(_USEBORDERFADE)` 分叉），
+                //    所以直接不声明；Properties 里那一条保留（材质上有它，但没人采样）。
                 float4 _Border_Fade_XminXmax_YminYmax;
                 float  _BorderFadeMultiplier;
                 float  _Surface, _Blend, _AlphaClip;

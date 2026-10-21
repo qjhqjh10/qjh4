@@ -292,6 +292,13 @@ namespace CardPresentation
         ImageQuad _videoQuad;
         AudioSource _musicA, _musicB;
         bool _built;
+        /// <summary>壳自己所在场景名（`Awake` 里、`DontDestroyOnLoad` **之前**记下）。
+        /// 🔴 **2026-10-21（第六十会话 · 工具线 `T02`）**：`-wfscene Battle` 的真机缺陷 —— `PlayerBoot`
+        /// 确实把战斗场景载进来了（下层看到 mulligan），但**壳是 DDOL**、开场播完 `FinishIntro →
+        /// FadeThenMenu → LoadMainMenu()` **无条件**再切主菜单，把 Battle 顶掉。
+        /// ⇒ 开场/切菜单两处都要问一句「当前活动场景还是不是壳自己」；不是就**停在场内**、不再切。
+        /// ⚠️ DDOL 之后 `gameObject.scene.name` 会变成 `DontDestroyOnLoad` ⇒ 必须先在 `Awake` 里存下。</summary>
+        string _ownSceneName;
         public bool IntroPlaying { get { return Current == Phase.Intro; } }
         public float IntroTime { get { return _video != null ? (float)_video.time : 0f; } }
         public float IntroLength { get { return _video != null && _video.clip != null ? (float)_video.clip.length : 0f; } }
@@ -301,6 +308,7 @@ namespace CardPresentation
         void Awake()
         {
             Instance = this;
+            _ownSceneName = gameObject.scene.name;   // ⚠️ 必须在 DDOL 之前（之后读不到真名）
             DontDestroyOnLoad(gameObject);      // 壳要跨场景活着（进主菜单/战斗都不重建）
         }
 
@@ -949,6 +957,16 @@ namespace CardPresentation
         /// <summary>原版跳过判据：`GameBootController.Update()` 里 `Input.anyKeyDown` **或鼠标左键** ⇒ `time = clip.length - ε`。**没有按钮、没有 UI**。</summary>
         void TickIntro(float dt)
         {
+            // 🔴 2026-10-21：`-wfscene` 已经把别的场景载进来了 ⇒ 壳不要再播开场、更不要再切主菜单。
+            if (!string.IsNullOrEmpty(_ownSceneName)
+                && UnityEngine.SceneManagement.SceneManager.GetActiveScene().name != _ownSceneName)
+            {
+                Debug.Log("[Shell] 当前场景已不是壳场景（`-wfscene` 等）⇒ 停止开场、留在场内");
+                if (_video != null) _video.Stop();
+                if (_videoQuad != null) _videoQuad.gameObject.SetActive(false);
+                Current = Phase.Menu;
+                return;
+            }
             var kb = Keyboard.current;
             var ms = Mouse.current;
             bool anyKey = (kb != null && kb.anyKey.wasPressedThisFrame)
@@ -1007,6 +1025,14 @@ namespace CardPresentation
             if (!Application.isPlaying)
             {
                 Debug.Log("[Shell] （编辑器里不切场景）");
+                return;
+            }
+            // 🔴 2026-10-21：已经不在壳场景（`-wfscene` 载了 Battle/DeckEditor）⇒ 绝不切主菜单。
+            if (!string.IsNullOrEmpty(_ownSceneName)
+                && UnityEngine.SceneManagement.SceneManager.GetActiveScene().name != _ownSceneName)
+            {
+                Debug.Log("[Shell] 已不在壳场景（`-wfscene` 等）⇒ 不切主菜单（留在目标场景）");
+                Current = Phase.Menu;
                 return;
             }
             if (Application.CanStreamedLevelBeLoaded(scene))

@@ -435,12 +435,13 @@ namespace CardPresentation
         /// 后两个把 `x/y` 当**屏幕绝对 px**，只在父 rect 恰好是 1920×1080 时才等于「相对父中心」——
         /// 而本帧在非 16:9 下比它高（`CanvasScaler(Expand)`）⇒ 套错了会**静默摆到别处**（`T09` §七·10）。</para>
         /// <para>⚠️ 贴图取不到 ⇒ 返回 `null`（⛔ 不静默建一块白图）。</para></summary>
-        static HudPiece Img(Transform parent, Texture2D tex, string name, float cx, float cy, float hPx, float z)
+        static HudPiece Img(Transform parent, Texture2D tex, string name, float cx, float cy, float hPx, float z,
+                            Color? tint = null)
         {
             if (tex == null) return null;
             float w = hPx * tex.width / Mathf.Max(1f, tex.height);
             var l = Px(cx, cy);
-            return HudCanvas.MakeImageInParent(parent, tex, name, l.x, -l.y, w, hPx, z, Color.white);
+            return HudCanvas.MakeImageInParent(parent, tex, name, l.x, -l.y, w, hPx, z, tint ?? Color.white);
         }
 
         /// <summary>把面板内**设计 px**（左上原点、y 向下）换算成**这一件真正画在哪**（世界坐标）。
@@ -535,7 +536,11 @@ namespace CardPresentation
         /// · 钮中心在**卡下沿下方** `(1.7513 − 卡半高 1.6655) = 0.0858` 框单位
         ///   —— ⚠️ 这一格**取自实拍更直接**：实拍量得卡底 600、钮中心 632 ⇒ 32 帧px = **39 设计 px**。
         ///   （两个读法差 3 px，取实拍那个。）</summary>
-        const float BtnWFactor = 1.30f / 2.3335f;      // 钮宽 = 卡宽 × 它
+        // 🔴 **2026-10-21（第六十会话）**：宽度从 `1.30/2.3335 = 0.557` 改成 **1.086 卡宽**
+        //    —— 判据 = 原版 `ReplaceTextBg` 的 `RectTransform_-5362673195939889351.json`
+        //    `m_SizeDelta = 2.5345×0.8232` 卡单位（≈317 设计 px，与参考图「替换」横条 292–316 px 对得上）；
+        //    原来只画 161 px（参考的 55%）。高度不动（参考条≈40 px，原图按钮 0.33 框单位）。
+        const float BtnWFactor = 1.086f;               // 钮宽 = 卡宽 × 它（原版 `ReplaceTextBg` 宽）
         const float BtnHFactor = 0.33f / 2.3335f;      // 钮高 = 卡宽 × 它
         const float BtnBelowCardPx = 39f;              // 钮**中心**在卡下沿下方多少 px
 
@@ -673,7 +678,7 @@ namespace CardPresentation
             //   （⛔ 别用 `Add`：它不去重，同一个件会占两行账）。
             p._shade = HudCanvas.MakeImagePiece(frame, CardArt.Solid(), "MulliganShade",
                                                 0f, 0f, LayoutSpace.DesignPxW, LayoutSpace.DesignPxH,
-                                                new Color(0f, 0f, 0f, 0.55f));
+                                                new Color(0f, 0f, 0f, 0.88f));
             if (p._shade != null)
             {
                 HudCanvas.FillParent(p._shade.Rect);
@@ -762,7 +767,11 @@ namespace CardPresentation
             // 完成按钮：底图 `40k_bt_underbutton`（原版 577.5×63.8）+ 圆形播放钮 `40k_UI_bt_play`
             // 🔴 **2026-10-16（`T09` 批 3）**：三颗都换成画布上的 `HudPiece`（`Img` = 面板内**设计 px**、
             //   按**高**定、宽由贴图比例来 —— 与旧 `ImageQuad.Create` 逐字同义）。
-            p._bar = Img(frame, CardArt.Ui("40k_bt_underbutton"), "MulliganContinueBar", BarCx, BarCy, BarH, Z);
+            p._bar = Img(frame, CardArt.Ui("40k_bt_underbutton"), "MulliganContinueBar", BarCx, BarCy, BarH, Z,
+                         // 🔴 2026-10-21：原版 `Button.m_Color = (0.3686,0.8941,0.5874,1)`（绿）
+                         //    判据 = `bundle_scenes_scenes_battlearena1/MonoBehaviour/MonoBehaviour_5292.json`；
+                         //    原来 `Img` 写死白 ⇒ 真机是灰色的。
+                         new Color(0.3686f, 0.8941f, 0.5874f, 1f));
             // 🔴 **2026-09-27 修（PA 普查抓的）**：原版这条底 `m_PreserveAspect = 0`、`m_Type=0`（Simple）
             //    ⇒ **拉满 577.5×63.84**；`ImageQuad` 默认按贴图比例定宽，而 `40k_bt_underbutton` 是
             //    **485×83**（5.8434）⇒ 我们只画出 **372.8×63.84**、**窄 204.7 px**。
@@ -929,10 +938,15 @@ namespace CardPresentation
                 // 🔴 **2026-10-16（`T09` 批 3）**：`Label.Create` → `HudCanvas.MakeText`（**设计 px**、
                 //    `z` 形参承担旧那句 `localPosition += (0,0,Z−0.05)`；画布上写 `localPosition.z` 会推离平面）。
                 string btnText = CardBtnWord(_marked.Contains(i));
-                var t = HudCanvas.MakeText(_frame, btnText, bx, by, 5, new Color(1f, 0.9f, 0.7f),
+                // 🔴 **2026-10-21（第六十会话 · 真机缺陷：四颗钮全空）**：`bx/by` 是**面板内设计 px**
+                //    （左上原点），而 `MakeText` 吃的是**父件局部坐标** —— 直接喂绝对 px ⇒ 四颗字
+                //    落到屏幕上方外（`(+339,+782)` 而不是 `(-621,-242)`），钮只剩空框。
+                //    同文件其它字都先过 `Px()`；这里补上。
+                var btnLp = Px(bx, by);
+                var t = HudCanvas.MakeText(_frame, btnText, btnLp.x, btnLp.y, 5, new Color(1f, 0.9f, 0.7f),
                                            new Vector2(0.5f, 0.5f), Z - 0.05f, "MulliganBtnText_" + i, face: TmpFont.Face.LatinCardBody);
                 if (t != null)
-                    SetScriptFont(t, btnText, 28f);           // 语种定字号（英文档不再大 39%）
+                    SetScriptFont(t, btnText, 37f);           // 原版 `ReplaceText` 0.30 卡单位 ≈ 37.5 px（第六十会话现核）
                 _cardTexts.Add(t);
             }
             BuildFeedback();

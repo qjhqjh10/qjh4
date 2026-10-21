@@ -756,6 +756,15 @@ public static class EffectExporter
         //   判据 → `资料/普查产出_0930/§28逐场核_第一轮.md` + `数据/游戏数据/environment_conditions.json`
         //   的 `_unresolved`（生成器每次重跑都会自己报这条）。
         "Orks Environmental Condition Night",
+        // 🆕 **2026-10-21（第六十会话）**：修了导出器两处缺口后要重导的那几件 ——
+        //   · 3 条 OrkBuff：骷髅发射器 `UVModule.sprites` 全 guid 0（图集 `Skull Particle icons`
+        //     走新加的已知图集兜底）；判据 → `W60_真机与Unity_结果.md` §九 / `EffectExporter.TryKnownAtlasFallback`
+        //   · `Explosion Hive Fleet Arrival Tendrils OLD`：4 个 `SkinnedMeshRenderer.m_Mesh` 全 guid 0
+        //     （新加 SMR 分支）。
+        "OrkBuff_Recall",
+        "OrkBuffGreenWaaagh",
+        "OrkBuff_Snakebitez_2_Intense",
+        "Explosion Hive Fleet Arrival Tendrils OLD",
         // 🆕 **2026-10-01**：`AnimFXModuleChangeMaterial` 的那 3 个效果 —— 它们要的材质
         //   原来**只被模块字段引用**、挂在渲染器上根本看不见，所以从来没过导出器
         //   （`Export()` 2026-10-01 起新增了一个 pass 收它们，见那段注释）。
@@ -1819,6 +1828,16 @@ public static class EffectExporter
         // 漏掉这一条，Mesh 模式发射的粒子（弹体/光环等）在导出后会整个消失
         foreach (var psr in inst.GetComponentsInChildren<ParticleSystemRenderer>(true))
             if (psr.mesh != null) psr.mesh = ImportMesh(psr.mesh);
+
+        // 🆕 **2026-10-21（审计现读）：`SkinnedMeshRenderer` 的网格** —— 上面那两条**都收不到它**
+        //   （它既不挂 `MeshFilter`，也不是 `ParticleSystemRenderer.mesh`）。不导的话
+        //   `PrefabUtility.SaveAsPrefabAsset` 落下来是 `m_Mesh: {fileID: 0, guid: 000…0}` ⇒ 整件不画。
+        //   实测受害者：`Explosion Hive Fleet Arrival Tendrils OLD` 的 4 个 SMR
+        //   （`Cone.001`–`Cone.004`）`m_Mesh` 全是 guid 全 0，台账上那一件因此 **0.20×**。
+        //   原版这 4 个 = 1789 verts / 17 bindpose / **非流式**（走 `Instantiate` 是安全的；
+        //   因为带 bindpose，`ImportMesh` 会按「形状复杂」打一条 Warning 后退回 `Instantiate` —— 属预期）。
+        foreach (var smr in inst.GetComponentsInChildren<SkinnedMeshRenderer>(true))
+            if (smr.sharedMesh != null) smr.sharedMesh = ImportMesh(smr.sharedMesh);
 
         // 精灵：SpriteRenderer / SpriteMask 的 sprite 同样是 **bundle 资产**，
         // 不导的话引用落不下来（序列化成 guid 全 0 的伪引用，运行时解析成 null）。
@@ -3228,6 +3247,12 @@ public static class EffectExporter
             }
         }
 
+        // ---- ④ 已知图集兜底（🆕 2026-10-21 · **只对表里那四个名字生效**）----
+        //  三件 OrkBuff 的骷髅发射器引用的是 `UVModule.sprites`（= `textureSheetAnimation` 的 sprite 列表，
+        //  序列化键名就叫 `UVModule`）里的四张精灵，全部来自图集 `Skull Particle icons`；本 build 上
+        //  ①②③ 对这一格都给不出来 ⇒ 列表整个落成 guid 0。表里是真值（见 `KnownRects_SkullParticleIcons`）。
+        if (TryKnownAtlasFallback(s, out tex, out rect)) return true;
+
         if (AtlasMissLogged.Add(s.name))
             Debug.LogWarning($"[EffectExporter] A1325 图集精灵 `{s.name}` **解析不出来** ⇒ 这一格留空"
                            + $"（`m_SpriteAtlas` {(atlas == null ? "没取到" : "取到了但没给出这一格")}"
@@ -3235,6 +3260,11 @@ public static class EffectExporter
                            + $" · 已登记图集 {_atlases?.Count ?? 0} 个"
                            + $"）逐层实况【{diag}】"
                            + "—— ⛔ 不拿别的图顶上（那等于静默画错一张）");
+        // 🔴 **返回 false 时把两个 out 清干净**（2026-10-21 顺手堵）：调用方那句是
+        //   `if (tex == null && !TryResolveAtlasSprite(s, out tex, out rect)) return null;`
+        //   —— 「失败却把 tex 留下非空」会让整句短路成 false，接着拿 `rect = default`（0×0）
+        //   走 `ImportSprite` 的「rect 非法 ⇒ 改成整张纹理」那一支，**把整张图集导成一张精灵**（静默画错）。
+        tex = null; rect = default;
         return false;
     }
 
@@ -3579,6 +3609,86 @@ public static class EffectExporter
     {
         if (!string.Equals(atlasName, "0_GeneralUI Atlas", StringComparison.Ordinal)) return null;
         return KnownRects_GeneralUI.TryGetValue(spriteName, out var r) ? r : (Rect?)null;
+    }
+
+    // 🔴 **`Skull Particle icons` 图集的硬编码兜底（🆕 2026-10-21）** —— 与上面 `KnownRects_GeneralUI` 同族，
+    //    差别是这一张**按精灵名索引**、**不要求图集对象解析得到**：受害的三件 prefab
+    //    （`OrkBuff_Recall` / `OrkBuffGreenWaaagh` / `OrkBuff_Snakebitez_2_Intense`）连图集那一步都拿不到这一格。
+    //    真值来源 = 该图集的 `m_RenderDataMap`（pathID 1583738769577704870），纹理
+    //    `sactx-0-1024x512-BC7-Skull Particle icons`；⛔ **不是算出来的**，别改数。
+    //    ⚠️ **只对这四个名字生效**（`TryKnownAtlasFallback` 先查名字，表外直接 false）——
+    //       ⛔ 别把它扩成「任何图集精灵都套一张表」（那等于静默画错一张）。
+    static readonly Dictionary<string, Rect> KnownRects_SkullParticleIcons = new Dictionary<string, Rect>
+    {
+        { "Skulltop",  new Rect(638.08f, 259.01f, 175.91f, 178.91f) },
+        { "Skull_jaw", new Rect(647.02f,   0.08f, 232.91f, 222.91f) },
+        { "BW_Trim2",  new Rect(  0.08f,   0.08f, 226.85f, 333.87f) },
+        { "BW_Trim3",  new Rect(437.08f,  49.08f, 211.85f, 276.85f) },
+    };
+    /// <summary>`KnownRects_SkullParticleIcons` 那四格所在图集的纹理名（解包真名）。</summary>
+    const string KnownSkullAtlasTexture = "sactx-0-1024x512-BC7-Skull Particle icons";
+
+    /// <summary>④ 已知图集兜底：精灵名命中 `KnownRects_SkullParticleIcons` ⇒ 按名字找那张图集纹理、
+    /// 配上表里的 rect。**只认表里那四个名字**；命中、落空都出声（⛔ 不静默）。</summary>
+    static bool TryKnownAtlasFallback(Sprite s, out Texture2D tex, out Rect rect)
+    {
+        tex = null; rect = default;
+        if (s == null || s.name == null) return false;
+        if (!KnownRects_SkullParticleIcons.TryGetValue(s.name, out var r)) return false;
+
+        // ⚠️ 只往局部变量里放，**成功才回填 out**（失败时 out 必须还是 null —— 见 `TryResolveAtlasSprite`
+        //    末尾那条注释：失败却留下非空 tex 会让调用方拿整张纹理顶上去）
+        var t = FindTextureInPacks(KnownSkullAtlasTexture);
+        if (t == null)
+        {
+            Debug.LogWarning(EX1 + $"走已知图集兜底：`{s.name}` 命中兜底表，但图集纹理 "
+                           + $"`{KnownSkullAtlasTexture}` 在内存与已加载的包里**都取不到** ⇒ 这一格留空");
+            return false;
+        }
+        if (!InAtlasBounds(t, r))
+        {
+            Debug.LogWarning(EX1 + $"走已知图集兜底：`{s.name}` 的 rect ({r.x},{r.y},{r.width},{r.height}) "
+                           + $"**落在纹理 `{t.name}`（{t.width}x{t.height}）之外** ⇒ 这一格留空"
+                           + "（⛔ 不裁图外空白）");
+            return false;
+        }
+        tex = t; rect = r;
+        Debug.Log($"[EffectExporter] A1325 图集精灵 `{s.name}` **走已知图集兜底：{s.name}**"
+                + $"（纹理 `{t.name}` {t.width}x{t.height} · 真值抄自 `m_RenderDataMap`）⇒ 裁切 "
+                + $"({r.x},{r.y},{r.width},{r.height})");
+        return true;
+    }
+
+    static readonly Dictionary<string, Texture2D> TexByNameCache = new Dictionary<string, Texture2D>();
+
+    /// <summary>按名字找一张**已加载**的纹理：先看内存里的对象（`Resources.FindObjectsOfTypeAll`，
+    /// 不再加载任何东西），再逐包 `LoadAllAssets&lt;Texture2D&gt;()` 兜底。
+    /// ⚠️ 只给「已知图集兜底」用（表里就四个名字，且只在正常解析失败时才走到）—— ⛔ 别放进热路径。</summary>
+    static Texture2D FindTextureInPacks(string name)
+    {
+        if (string.IsNullOrEmpty(name)) return null;
+        if (TexByNameCache.TryGetValue(name, out var cached) && cached != null) return cached;
+
+        foreach (var t in Resources.FindObjectsOfTypeAll<Texture2D>())
+            if (t != null && t.name == name) { TexByNameCache[name] = t; return t; }
+
+        foreach (var kv in LoadedPacks)
+        {
+            var b = kv.Value;
+            if (b == null) continue;
+            Texture2D[] all = null;
+            try { all = b.LoadAllAssets<Texture2D>(); }
+            catch (Exception e)
+            {
+                Debug.LogWarning(EX1 + $"按名字找纹理时 `{kv.Key}` 的 `LoadAllAssets<Texture2D>()` 抛了："
+                               + $"{e.GetType().Name}: {e.Message}");
+                continue;
+            }
+            if (all == null) continue;
+            foreach (var t in all)
+                if (t != null && t.name == name) { TexByNameCache[name] = t; return t; }
+        }
+        return null;
     }
 
     /// <summary>一句话描述某个打包精灵（写 `diag` 用）：名字 / 纹理 / 矩形大小。</summary>

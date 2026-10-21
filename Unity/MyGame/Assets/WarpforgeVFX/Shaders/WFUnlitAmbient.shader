@@ -100,6 +100,21 @@
 //      **未坐实**）。原版那些烛光网格 `m_Channels` 里**有** ch3（4 维颜色）⇒ 走的是 COLOR 那支。
 //      ⛔ **我们的 OBJ 导出链把颜色通道丢了** ⇒ `IN.color` 落到 (1,1,1,1)（详见报告「顺手发现」）。
 //    · `_EmissiveColor` 的**原版声明默认值 = (2.113019, 2.297397, 0, 0)**（`dump_shader.py` 实读，**HDR**）。
+//
+// ✅ **2026-10-21（T17）第三轮：原版的三支补完了** —— `_ENABLEMATCAP` / `_USEDISTORT` / `_ROTATEUVS`。
+//    判据 = **Ruri 反编译出的原版源码**（第一权威）：
+//      `D:/2/tools/ruri_out_1020_rootshaders/ExportedProject/Assets/d331b23a2c64740568bbacdab1c8eb1f.shader`
+//      ＝ `Shader "Everguild/UnlitAmbient"`（125 KB 真反编译体）＋ 同目录 `d331b23a…/` 的逐变体 HLSL：
+//      `Sub0_Pass0_Fragment_b47`（matcap）· `b48`（distort）· `Sub0_Pass0_Vertex_b10`（rotateUVs）·
+//      `b11`（matcap 的视图法线 UV）· `b12`（distort 的滚动 UV）。
+//    ⚠️ ⛔ **任务给的那个目录（`D:/2/tools/assetripper_out/…/Assets/`）里 218 个 `.shader` **全部**是
+//      `//DummyShaderTextExporter` 占位**（全文件搜标记：218/218；其中 `Shader/` 子目录占 149 个）。
+//      而且 `Everguild/UnlitAmbient` 三份**不在 `Shader/` 子目录**、在 `Assets/` 根下用 **hash 命名**
+//      （`d331b23a…` = UnlitAmbient · `3446a6a4…` = Emissive Flickker · `6dbe0042…` = Unlit Wind）。
+//      ⇒ **那份只能当属性表用**（Properties 是真的，序列化自 `m_ParsedForm`），算式必须用 Ruri 那份。
+//    ⚠️ 本轮同时订正了一处真差异：环境色 tint 原来乘在顶点色 lerp **之后**，原版乘在**之前**（详见 frag 里那段）。
+//    ⚠️ 原版另外三个属性 `_DistortionStrength` / `_DistortionStrength_1` / `_UVSpeed` 在全部 78 个导出的
+//      变体里**零引用**（死属性），只为属性表对齐而保留、不参与算式。
 Shader "WarpforgeVFX/UnlitAmbient"
 {
     Properties
@@ -107,6 +122,38 @@ Shader "WarpforgeVFX/UnlitAmbient"
         _Color("Color", Color) = (1,1,1,1)
         _BaseMap("BaseMap", 2D) = "white" {}
         _ClipThreshold("ClipThreshold", Range(0, 1)) = 0.5
+
+        // ================= 🔴 2026-10-21（T17）补齐原版三支：matcap / distort / rotateUVs =================
+        // **判据（第一权威）= Ruri 反编译出的原版源码**：
+        //   `D:/2/tools/ruri_out_1020_rootshaders/ExportedProject/Assets/d331b23a2c64740568bbacdab1c8eb1f.shader`
+        //   （= `Shader "Everguild/UnlitAmbient"`，125 KB **真反编译体**）＋ 同目录 `d331b23a…/` 下的逐变体 HLSL。
+        //   逐支判据文件：`Sub0_Pass0_Fragment_b47`（matcap）· `Sub0_Pass0_Fragment_b48`（distort）·
+        //                 `Sub0_Pass0_Vertex_b10`（rotateUVs）。
+        // ⚠️ 属性名 / 类型 / 默认值这一块取自
+        //   `D:/2/tools/assetripper_out/ExportedProject/Assets/d331b23a2c64740568bbacdab1c8eb1f.shader` 的 Properties
+        //   —— 那份的**方法体是 `//DummyShaderTextExporter` 占位**（本任务给的目录里 49 个 `.shader` 全是占位），
+        //   但 **Properties 块是真的**（直接序列化自 `m_ParsedForm`），与 `资料/普查产出_0917/shader属性表_块3.md` §85 逐字吻合。
+        // 🔑 三支的开关在原版都是 `[Toggle(KEYWORD)]` + `#pragma multi_compile_local`（**不是** shader_feature）
+        //   ⇒ 我们也用 `multi_compile_local`：材质是运行时从 bundle 灌进来的，`shader_feature` 变体会被 player 剥掉。
+        // ⚠️ 本轮现读（2026-10-21）：`d:/2/新解包资源/assets_full/bundle_*_assets_all/Material/*.json`
+        //   **898 个材质**里 `m_ValidKeywords` 含 `_ENABLEMATCAP` / `_USEDISTORT` / `_ROTATEUVS` 的
+        //   **各 0 个**（属性键有、关键字全关）⇒ 本轮是「补齐能力」，对现状视觉零变化。
+        [Toggle(_ROTATEUVS)] _ROTATEUVS("RotateUVs", Float) = 0
+        _RotationSpeed("RotationSpeed", Float) = 1
+        // ⚠️ 下面三个在 48 个 fragment + 30 个 vertex 变体里**零引用**
+        //    （`grep -l "_DistortionStrength\|_UVSpeed"` 在 `d331b23a…/` 下 0 命中）—— 原版属性表里有、
+        //    但 ShaderGraph 已经不再采它们。只为「属性表与材质序列化值一一对应」保留，**不参与任何算式**。
+        _DistortionStrength("DistortionStrength", Float) = 1
+        _DistortionStrength_1("DistortionStrength (1)", Float) = 1
+        _UVSpeed("UVSpeed", Vector) = (1,1,0,0)
+        [Toggle(_ENABLEMATCAP)] _ENABLEMATCAP("EnableMatcap", Float) = 0
+        // ⚠️ 原版拼写就是 `_Matacap`（少一个 t）—— 别「顺手修」，材质里存的键就是这个。
+        [NoScaleOffset] _Matacap("Matacap", 2D) = "white" {}
+        _MatcapIntensity("MatcapIntensity", Float) = 1
+        [Toggle(_USEDISTORT)] _USEDISTORT("UseDistort", Float) = 0
+        _DistortStrength("DistortStrength", Float) = 0.01
+        [NoScaleOffset] [Normal] _DistortTex("DistortTex", 2D) = "bump" {}
+        _DistortSpeed_XY_Scale_ZW("DistortSpeed(XY) Scale (ZW)", Vector) = (1,1,1,1)
 
         // 🔴 2026-10-12 更正（铁律 5）：原来写 `(0,0,0,1)`；**原版声明的默认值是 `(2.113019, 2.297397, 0, 0)`**
         //   （`dump_shader.py "UnlitAmbient"` 实读，**HDR**）。只在「材质没显式设过它」时可见 ——
@@ -208,6 +255,14 @@ Shader "WarpforgeVFX/UnlitAmbient"
             //   ⇒ 恒假、恒走 `#else` 分支去 clip。补上它，裁不裁才真的由材质的关键字说了算。
             #pragma shader_feature_local_fragment _ALPHATEST_ON
             #pragma multi_compile_fragment _ _SHADOWS_SOFT
+            // 🔴 2026-10-21（T17）：原版三支的开关。**照原版用 `multi_compile_local`**（原版逐字：
+            //   `#pragma multi_compile_local _ _ROTATEUVS` / `_ENABLEMATCAP` / `_USEDISTORT`，
+            //   见 `d331b23a2c64740568bbacdab1c8eb1f.shader:66-68`）。
+            //   ⛔ 不能写 `shader_feature`：材质是运行时从 bundle 灌的，构建期没有材质替它保活 ⇒ 变体被剥掉、
+            //      关键字静默失效（本项目踩过同族坑：`_APPLYAMBIENTCOLOR` 那条注释）。
+            #pragma multi_compile_local _ _ROTATEUVS
+            #pragma multi_compile_local _ _ENABLEMATCAP
+            #pragma multi_compile_local _ _USEDISTORT
 
             #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Core.hlsl"
             #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Lighting.hlsl"
@@ -231,6 +286,13 @@ Shader "WarpforgeVFX/UnlitAmbient"
                 float  _AlphaClip; float _AlphaToMask;
                 float  _QueueOffset; float  _QueueControl;
                 float  _CastShadows;
+                // 🔴 2026-10-21（T17）：原版三支要用的四个量。**追加在末尾**（前面的偏移一个都不动），
+                //   三个 float 正好填满 `_CastShadows` 那一个寄存器剩下的 .yzw，`float4` 落在下一个整寄存器。
+                //   ⚠️ ShadowCaster 那份 CBUFFER 必须逐字段同序（SRP Batcher 要求），下面已同步。
+                float  _RotationSpeed;
+                float  _MatcapIntensity;
+                float  _DistortStrength;
+                float4 _DistortSpeed_XY_Scale_ZW;
             CBUFFER_END
 
             // ⚠️ **在 CBUFFER 外**：**进程级全局**（`Shader.SetGlobalFloat`），不是材质属性。
@@ -250,6 +312,13 @@ Shader "WarpforgeVFX/UnlitAmbient"
 
             TEXTURE2D(_BaseMap);
             SAMPLER(sampler_BaseMap);
+            // 🔴 2026-10-21（T17）：原版 matcap 支采 `_Matacap`（`b47` 里 `Texture2D<float4> _Matacap : register(t1, space0)`）；
+            //   distort 支采 `_DistortTex`（`b48`，同样在 **t1**）。两支在原版永不同时开 ⇒ 共用同一个槽；
+            //   我们按**名字**取纹理，不受寄存器号影响。
+            TEXTURE2D(_Matacap);
+            SAMPLER(sampler_Matacap);
+            TEXTURE2D(_DistortTex);
+            SAMPLER(sampler_DistortTex);
 
             // 🔴 2026-10-12：原版 Flickker 那份的**第二张图 = 闪烁噪声图**（原版 PS 的 `t0`；我们原来只声明、从没采样）。
             //    属性名逐字是原版的（ShaderGraph 自动生成）—— 我们的 Properties 里也一直是它。
@@ -274,6 +343,13 @@ Shader "WarpforgeVFX/UnlitAmbient"
                 float3 normalWS   : TEXCOORD2;
                 half4  color      : COLOR;
                 float  fogFactor  : TEXCOORD3;
+                // 🔴 2026-10-21（T17）：原版两支各自的 UV。
+                //   · matcap：原版在 **VS** 里算 `viewNormal.xy * 0.5 + 0.5`（`Sub0_Pass0_Vertex_b11` 末尾三条）
+                //     并作为独立插值器（原版 `INTERP_4` = TEXCOORD20）—— **不是**用主 UV。
+                //   · distort：原版在 **VS** 里算 `uv*ZW + frac(t*XY)`（`Sub0_Pass0_Vertex_b12`）→ `INTERP_2.w/INTERP_3.w`，
+                //     再由 PS 用它去采 `_DistortTex`（`b48`：`Sample(float2(INTERP_2.w, INTERP_3.w))`）。
+                float2 matcapUV   : TEXCOORD4;
+                float2 distortUV  : TEXCOORD5;
                 UNITY_VERTEX_OUTPUT_STEREO
             };
 
@@ -289,7 +365,49 @@ Shader "WarpforgeVFX/UnlitAmbient"
                 OUT.positionCS = p.positionCS;
                 OUT.positionWS = p.positionWS;
                 OUT.normalWS   = n.normalWS;
-                OUT.uv         = TRANSFORM_TEX(IN.uv, _BaseMap);
+
+                // ================= 🔴 2026-10-21（T17）：三支 UV =================
+                // 判据逐行 → 见 Properties 里那段文件头。
+                // ① 原版主 UV **直通**（`Sub0_Pass0_Vertex_b9`：`INTERP.x = TEXCOORD.x; INTERP.y = TEXCOORD.y;`），
+                //    而 `_BaseMap` 在原版是 `[NoScaleOffset]` ⇒ 没有 `_ST` 这一跳。我们原来写的是
+                //    `TRANSFORM_TEX(IN.uv, _BaseMap)` —— 因为 `_BaseMap_ST` 恒为 (1,1,0,0)，**数值上恒等**，
+                //    但原版确实不乘，这里跟着改成直通。
+                float2 uv0 = IN.uv;
+
+                // ② `_ROTATEUVS`（`Sub0_Pass0_Vertex_b10` 逐行）：
+                //      `_197 = _TimeParameters.x * _RotationSpeed` → `sin`/`cos`
+                //      `INTERP.x = (uv.x-0.5)*c + (uv.y-0.5)*s + 0.5`
+                //      `INTERP.y = (uv.x-0.5)*(-s) + (uv.y-0.5)*c + 0.5`
+                //    ⚠️ 旋转矩阵是 `[c s; -s c]`（不是常见的 `[c -s; s c]`）—— 原版就是逆着转，照抄。
+                #ifdef _ROTATEUVS
+                    float ang = _TimeParameters.x * _RotationSpeed;
+                    float rs  = sin(ang);
+                    float rc  = cos(ang);
+                    float2 rc0 = uv0 - 0.5;
+                    uv0 = float2(rc0.x * rc + rc0.y * rs + 0.5,
+                                 rc0.x * (-rs) + rc0.y * rc + 0.5);
+                #endif
+
+                OUT.uv = uv0;
+
+                // ③ `_ENABLEMATCAP`（`Sub0_Pass0_Vertex_b11` 末尾三条）：
+                //      `INTERP_4.xy = mad(MV·nWS, 0.5, 0.5)` —— 视图空间法线的 xy 映射到 [0,1]。
+                //    原版 `unity_MatrixV` 的用法是 `MV[0]*nx + MV[1]*ny + MV[2]*nz`，即 `mul((float3x3)MV, nWS)`。
+                #ifdef _ENABLEMATCAP
+                    OUT.matcapUV = mul((float3x3)UNITY_MATRIX_V, n.normalWS).xy * 0.5 + 0.5;
+                #endif
+
+                // ④ `_USEDISTORT`（`Sub0_Pass0_Vertex_b12` 逐行）：
+                //      `frac(t * _DistortSpeed_XY_Scale_ZW.x)` / `.y` 是滚动量，
+                //      `uv.x * .z` / `uv.y * .w` 是缩放 ⇒ `distortUV = uv*ZW + frac(t*XY)`。
+                //    ⚠️ 用的是**原始 TEXCOORD**（不是旋转后的 uv0）—— 原版这两支在变体表里互斥，照写最保守。
+                #ifdef _USEDISTORT
+                    float tNow = _TimeParameters.x;
+                    OUT.distortUV = float2(
+                        IN.uv.x * _DistortSpeed_XY_Scale_ZW.z + frac(tNow * _DistortSpeed_XY_Scale_ZW.x),
+                        IN.uv.y * _DistortSpeed_XY_Scale_ZW.w + frac(tNow * _DistortSpeed_XY_Scale_ZW.y));
+                #endif
+
                 OUT.color      = IN.color;
                 OUT.fogFactor  = ComputeFogFactor(p.positionCS.z);
                 return OUT;
@@ -297,7 +415,18 @@ Shader "WarpforgeVFX/UnlitAmbient"
 
             half4 frag(Varyings IN) : SV_Target
             {
-                half4 tex = SAMPLE_TEXTURE2D(_BaseMap, sampler_BaseMap, IN.uv);
+                // 🔴 2026-10-21（T17）`_USEDISTORT`（判据 = `Sub0_Pass0_Fragment_b48` 逐行）：
+                //     `_135   = dt.x * dt.w`                       ; **x 用 r×a 两个分量**
+                //     `uv.x' = (dt.x*dt.w * 2 - 1) * _DistortStrength + INTERP.x`
+                //     `uv.y' = (dt.y     * 2 - 1) * _DistortStrength + INTERP.y`   ; **y 只用 .y**
+                //   在**主图采样之前**推到 UV 上（原版就是先算 UV 再 `_BaseMap.SampleBias`）。
+                float2 baseUV = IN.uv;
+                #ifdef _USEDISTORT
+                    float4 dt = SAMPLE_TEXTURE2D(_DistortTex, sampler_DistortTex, IN.distortUV);
+                    baseUV += float2((dt.x * dt.w * 2.0 - 1.0) * _DistortStrength,
+                                     (dt.y          * 2.0 - 1.0) * _DistortStrength);
+                #endif
+                half4 tex = SAMPLE_TEXTURE2D(_BaseMap, sampler_BaseMap, baseUV);
                 // 🔴 **2026-10-02 晚订正（铁律 5）：上一版那句 `lerp(tex.rgb, IN.color.rgb, IN.color.w)`
                 //    **把整片天空渲成纯白**（并排图 `_tmp_view/cmp_crop3/Leviathan_UA_三连.png` 的中图；
                 //    `EffectCompare` 强制 `UnlitAmbient` 时全图 `|exp|/|orig| = 1.766`、43452 个像素差 > 12）。**
@@ -354,11 +483,15 @@ Shader "WarpforgeVFX/UnlitAmbient"
                 //   它拿得到 `MeshFilter.sharedMesh` / `SkinnedMeshRenderer.sharedMesh`。
                 // ⚠️ **只对基础那份生效**：`… Emissive Flickker` 的 PS 用的是 `v3`，而它的 COLOR 支
                 //   把 `o3` 写成 `(cb0[61].xyz, 0)`（`w = 0`）⇒ 对 Flickker 恒等，**binder 不会开这个闸**。
-                half3 col;
-                if (_VertexColorLerpOn > 0.5)
-                    col = lerp(tex.rgb, IN.color.rgb, IN.color.w) * _Color.rgb;
-                else
-                    col = tex.rgb * _Color.rgb;
+                // 🔴 2026-10-21（T17）`_ENABLEMATCAP`（判据 = `Sub0_Pass0_Fragment_b47` 逐行）：
+                //     `_140..142 = _Matacap.rgb * _MatcapIntensity`
+                //     `_158..160 = _140..142 * tex.rgb`        ; ⇒ **matcap 是乘在主图上的**（不是加、也不是替换）
+                //    之后才进环境色 tint → 顶点色 lerp → × _Color。
+                half3 base = tex.rgb;
+                #ifdef _ENABLEMATCAP
+                    float4 mc = SAMPLE_TEXTURE2D(_Matacap, sampler_Matacap, IN.matcapUV);
+                    base *= mc.rgb * _MatcapIntensity;
+                #endif
 
                 // ✅ **2026-10-02 修（原来是加法 `col += SampleSH(normalWS) * _ExtraAmbientColor.rgb`）**：
                 //    判据与本工程 `ArenaEnvGlobal.cs` 的注释一致（那句注释就是照着这件 shader 写的）：
@@ -367,10 +500,26 @@ Shader "WarpforgeVFX/UnlitAmbient"
                 //    并靠 `EffectCompare` 的对照图坐实）。⚠️ **是乘性、乘在整条积上**，不是加法、也不是 `SampleSH`。
                 //    ⚠️ `_AmbientColorBlend` 是**进程级全局**（`Shader.SetGlobalFloat`，由 `ArenaEnvGlobal` 灌）
                 //    ⇒ 声明在 CBUFFER 外；13 个战场里它是 0 ⇒ tint ≡ 1（那一层是恒等），但非零时必须对。
+                // 🔴 **2026-10-21（T17）就地订正：tint 必须乘在【lerp 之前】。**
+                //    原版 `Sub0_Pass0_Fragment_b44` 逐行：
+                //      `_127   = _100 * _122`                       ; = ambTint * tex
+                //      `_158   = mad(w, mad(-_100, _122, vcol), _127) * _Color`
+                //             = lerp(ambTint*tex, **vcol**, w) * _Color
+                //    ⇒ 顶点色的**目标色是未染色的 vcol**。我们原来写成
+                //      `lerp(tex, vcol, w) * _Color` 再 `*= tint` = `lerp(tint*tex, tint*vcol, w)` —— 差一项。
+                //    ⚠️ 现状 tint ≡ 1（13 个战场 `_AmbientColorBlend = 0`）⇒ **两版逐位相同**，改动零回归；
+                //      只有 `_AmbientColorBlend ≠ 0` 且 `_VertexColorLerpOn` 开时才看得出。
+                half3 tinted = base;
                 #ifdef _APPLYAMBIENTCOLOR
                     half3 amb = LinearToSrgb(_ExtraAmbientColor.rgb);
-                    col *= (1.0h + _AmbientColorBlend * (amb * unity_AmbientSky.rgb - 1.0h));
+                    tinted *= (1.0h + _AmbientColorBlend * (amb * unity_AmbientSky.rgb - 1.0h));
                 #endif
+
+                half3 col;
+                if (_VertexColorLerpOn > 0.5)
+                    col = lerp(tinted, IN.color.rgb, IN.color.w) * _Color.rgb;
+                else
+                    col = tinted * _Color.rgb;
 
                 #ifdef _RECEIVESHADOWS
                     float4 shadowCoord = TransformWorldToShadowCoord(IN.positionWS);
@@ -434,6 +583,9 @@ Shader "WarpforgeVFX/UnlitAmbient"
                 float _SrcBlendAlpha; float _DstBlendAlpha; float _ZWrite; float _ZWriteControl;
                 float _ZTest; float _Cull; float _AlphaClip; float _AlphaToMask;
                 float _QueueOffset; float _QueueControl; float _CastShadows;
+                // 🔴 2026-10-21（T17）：与 pass 0 逐字段同序（SRP Batcher / 影子 pass 读值要求）
+                float _RotationSpeed; float _MatcapIntensity; float _DistortStrength;
+                float4 _DistortSpeed_XY_Scale_ZW;
             CBUFFER_END
 
             TEXTURE2D(_BaseMap);

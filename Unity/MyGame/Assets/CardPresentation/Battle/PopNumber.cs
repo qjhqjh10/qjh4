@@ -259,6 +259,48 @@ namespace CardPresentation
 
             lbl.SetColor(new Color(lbl.color.r, lbl.color.g, lbl.color.b, 0f));
 
+            // 🔴 **2026-10-21（第六十会话 · 用户报「只见白色 -2，不见红色血痕」）**：
+            //    红色血痕 = 原版 `3DBody/DamageCounter/DamageIcon` —— 一张**SpriteRenderer**（sprite
+            //    `Card Damage`，256²），z −0.05、**sortingOrder 1**（数字是 2 ⇒ 血痕在数字后一层）。
+            //    我们**从没建过这个节点**（`CardFeel.cs` 当时写着「图标我们没画」）。
+            //    这里从效果库的 `CardPrefab` 里取那颗现成节点、按原版 offset/scale 摆到飘字同一处，
+            //    并把它挂进同一条 DOTween 时间线（α 0→0.8235 @PopIn、保持、PopOut→0）。
+            SpriteRenderer hitIcon = null;
+            if (!heal)
+            {
+                try
+                {
+                    var lib = WarpforgeVFX.WarpforgeEffectLibrary.Instance;
+                    var entry = lib != null ? lib.Get("CardPrefab") : null;
+                    var src = entry != null && entry.prefab != null
+                            ? FindDeep(entry.prefab.transform, "DamageIcon") : null;
+                    if (src != null)
+                    {
+                        var go = Object.Instantiate(src.gameObject, parent, false);
+                        go.name = "PopDamageIcon";
+                        go.transform.position = worldPos + new Vector3(0.094f, -0.104f, 0f) * bridge;
+                        go.transform.localScale = Vector3.one * (1.01665f * bridge);
+                        hitIcon = go.GetComponent<SpriteRenderer>();
+                        if (hitIcon != null)
+                        {
+                            hitIcon.sortingOrder = 1;      // 原版 1 < 数字 2（数字压血痕）
+                            var c = hitIcon.color; c.a = 0f; hitIcon.color = c;
+                        }
+                    }
+                    else
+                    {
+                        Debug.LogWarning("[PopNumber] `CardPrefab` 里找不到 `DamageIcon` ⇒ 这一下没有红色血痕"
+                                       + "（跑一次 `EffectExporter.RunListed` / 检查效果库是否含 CardPrefab）");
+                    }
+                }
+                catch (System.Exception e)
+                {
+                    Debug.LogWarning($"[PopNumber] 建血痕失败：{e.GetType().Name}: {e.Message}");
+                }
+            }
+            // 数字的 sortingOrder = 2（原版 DamageText = 2）
+            foreach (var mr in lbl.GetComponentsInChildren<MeshRenderer>(true)) mr.sortingOrder = 2;
+
             var tr = lbl.transform;
             tr.localScale = Vector3.one * CardFeel.PopScaleFrom;
 
@@ -271,7 +313,16 @@ namespace CardPresentation
             seq.AppendInterval(CardFeel.PopHoldUntil - CardFeel.PopScaleIn);
             seq.Append(DOTween.To(() => 1f, a => SetLabelAlpha(lbl, a), 0f,
                                   CardFeel.PopOut - CardFeel.PopHoldUntil).SetEase(Ease.Linear));
-            seq.OnComplete(() => KillLabel(lbl));
+            // 血痕：α 0→0.8235（原 clip）→ 保持 → PopOut 段淡到 0。
+            if (hitIcon != null)
+            {
+                seq.Insert(0f, DOTween.To(() => 0f, a => SetIconAlpha(hitIcon, a * 0.8235f), 1f,
+                                          CardFeel.PopIn).SetEase(Ease.Linear));
+                seq.Insert(CardFeel.PopHoldUntil,
+                           DOTween.To(() => 1f, a => SetIconAlpha(hitIcon, a * 0.8235f), 0f,
+                                      CardFeel.PopOut - CardFeel.PopHoldUntil).SetEase(Ease.Linear));
+            }
+            seq.OnComplete(() => { KillLabel(lbl); KillIcon(hitIcon); });
             LastPopTween = CardTween.Use(seq, Ease.Linear, tr);
             return lbl;
         }
@@ -290,6 +341,32 @@ namespace CardPresentation
             if (l == null) return;
             var c = l.color;
             l.SetColor(new Color(c.r, c.g, c.b, a));
+        }
+
+        /// <summary>递归按名字找子件（`Transform.Find` 只找直接子件 —— 见 CLAUDE.md 那条坑）。</summary>
+        static Transform FindDeep(Transform root, string name)
+        {
+            if (root == null) return null;
+            if (root.name == name) return root;
+            for (int i = 0; i < root.childCount; i++)
+            {
+                var hit = FindDeep(root.GetChild(i), name);
+                if (hit != null) return hit;
+            }
+            return null;
+        }
+
+        static void SetIconAlpha(SpriteRenderer sr, float a)
+        {
+            if (sr == null) return;
+            var c = sr.color; c.a = Mathf.Clamp01(a); sr.color = c;
+        }
+
+        static void KillIcon(SpriteRenderer sr)
+        {
+            if (sr == null) return;
+            if (Application.isPlaying) Object.Destroy(sr.gameObject);
+            else Object.DestroyImmediate(sr.gameObject);
         }
     }
 }

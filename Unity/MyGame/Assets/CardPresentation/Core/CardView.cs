@@ -1169,6 +1169,61 @@ namespace CardPresentation
                 StampQueue(pr);
             }
             foreach (var lb in GetComponentsInChildren<Label>(true)) lb.SetRenderQueue(q);
+            ApplyBoardSortingOrders();   // 🔴 2026-10-21：同队列内再按层号定序（见方法注释）
+        }
+
+        /// <summary>🔴 **2026-10-21（第六十会话 · 真机缺陷：场上词条徽标被底板盖住 / 数值被底光盖掉）**。
+        ///
+        /// <para>**为什么 z 不够**：Unity 的透明队列**按到相机的包围盒中心距离排序，不是按 z**
+        /// （本文件 `:1105-1111` 早写过这条限制）。卡内各层 z 差只有 0.006（徽标板 −0.118 / 图标 −0.124）
+        /// 或 0.14（底光 −0.01 / 数值 −0.150）—— 卡越偏离相机轴、横向差越大，距离就把 z 序翻过来
+        /// ⇒ 徽标底板压住图标、合法目标底光压住数值（真机 07/19 截图两处都中）。</para>
+        /// <para>**修法**：同队列内 `Renderer.sortingOrder` **先于**距离比较 ⇒ 给卡内每层显式层号
+        /// （数值 60 > 护甲 50 > 徽标 42/41/40 > 文字层 32 … > 立绘 10）。**只对场上形态生效**
+        /// （`CardFace.Board`）—— 场上每张卡由 `BoardLayout.QueueOf` 给了一段**独立队列**，
+        /// 卡与卡之间仍由队列段隔离，不会互相穿插；手牌/收藏/大图档一个字节不动。</para>
+        /// <para>⛔ **别改 `BoardLayout` 那套队列号**（那是一张卡一段的唯一实现）。</para></summary>
+        void ApplyBoardSortingOrders()
+        {
+            if (_faceMode != CardFace.Board) return;
+            // ⚠️ **按 FaceRoot 的【每个直接子件】分别定序** —— 整棵树按 FaceRoot 的名字取号
+            //    会把所有层都设成同一个号（2026-10-21 实现时踩过，当场改）。
+            if (FaceRoot != null)
+                foreach (Transform c in FaceRoot) ApplySortingOrderTree(c);
+            // 卡根下还挂着：合法目标底光（`glow_melee/ranged`）与 3D 卡体 —— 也一并定序。
+            foreach (Transform c in transform)
+                if (c != FaceRoot) ApplySortingOrderTree(c);
+        }
+
+        void ApplySortingOrderTree(Transform root)
+        {
+            if (root == null) return;
+            int o = SortingOrderFor(root.name);
+            if (o < 0) return;   // 未列名的层（VFX / 血痕 / 3D 卡体等）**不动** —— 别把它们统一压成 0
+            foreach (var r in root.GetComponentsInChildren<Renderer>(true)) r.sortingOrder = o;
+        }
+
+        /// <summary>卡内一层的排序号（只在**同一队列**内比较；判据见 `ApplyBoardSortingOrders`）。
+        /// 数值 = 原版 `Highlight.SortingOrder` 那一套的语义：越大越靠前。</summary>
+        static int SortingOrderFor(string n)
+        {
+            if (string.IsNullOrEmpty(n)) return 0;
+            if (n == "shadow") return 1;
+            if (n == "art") return 10;
+            if (n == "glow_melee" || n == "glow_ranged") return 15;
+            if (n == "frame") return 20;
+            if (n == "artFront") return 25;
+            if (n == "textBg") return 30;
+            if (n == "costBg") return 31;
+            if (n == "info") return 32;
+            if (n == "gem") return 33;
+            if (n == "ephemeral") return 34;
+            if (n.StartsWith("badgePlate")) return 40;
+            if (n.StartsWith("badgeIcon")) return 41;
+            if (n.StartsWith("badgeCounter")) return 42;
+            if (n == "armourIcon") return 50;
+            if (n.StartsWith("stat")) return 60;
+            return -1;  // 未列名的层（VFX / 血痕 / 3D 卡体…）：**不动它的 sortingOrder**（保持原值/默认）
         }
 
         /// <summary>把**这一层**的队列设成这张卡当前那一段（建层当场调一次 —— 免得「建出来之后
@@ -2080,6 +2135,9 @@ namespace CardPresentation
             // 🆕 2026-10-19（`A2139`）：`SetData` 可能**新建层**（徽标/数值/文字）⇒ 整卡灰补到新层上。
             //    ⚠️ 判 `_grey > 0` 再扫：这一句在「战场每刷新一次」的热路径上，`_grey = 0` 时一个字节都不动。
             if (_grey > 0f) ApplyGrey();
+            // 🔴 2026-10-21：每一次刷新都可能**新建层**（徽标/数值/文字）⇒ 场上的层号补一次
+            //   （同队列内定序；非场上形态直接 return，零影响）。
+            ApplyBoardSortingOrders();
         }
 
         /// <summary>原版 `CardTextCountersController.DoColorChange(old, new)` 那两下：
@@ -2814,12 +2872,17 @@ namespace CardPresentation
                 GetComponent<MeshRenderer>().enabled = false;
                 var artTex = ArtTexture(d);
                 if (bt) m0 = _buildWatch.ElapsedMilliseconds;      // 图加载（CardArt.Load + Frame + ArtTexture）到此
-                // 🔴 **2026-10-18（用户点名「卡片详情大图立绘要超出卡框」）**：
-                //   大图档把立绘放大 ×1.27（原版 `CardImageController.bigSizeMultiplier`，见 `BigArtScale`），
-                //   小卡照旧 1.0 —— **放大发生在「收边到卡体」之前**（`ArtMeshInFrame` 里裁），
-                //   所以放多大都不会画到卡体外面（原版也是「卡体矩形收边」）。
+                // 🔴 **2026-10-21（第六十会话 · 用户报「插图超过卡框」）**：**放大只给前景抠图层**。
+                //    原来 `_art`（底层、opaque=true）与 `_artFront` **共用同一块 ×1.27 的网格** ⇒
+                //    大图档里那张**矩形**立绘也放大，越过卡框不透明外沿露出「天空/底色带」
+                //    （受影响的卡：useOverDraw=0 的战术/防御卡 485 张 + 部队卡 264 张，判据 →
+                //     `普查产出_1021/W60_真机与Unity_结果.md` §五）。原版只放大「角色抠图」那一层。
                 float artScale = (_bigImage && BigCardOverdraw) ? BigArtScale : 1f;
-                var artMesh = ArtMeshInFrame(artTex, FrameQuad(frameTex), artScale);
+                var artMesh = ArtMeshInFrame(artTex, FrameQuad(frameTex), 1f,
+                                             frameTex, clipWindow: !d.isUnit);
+                var artFrontMesh = artScale > 1f
+                    ? ArtMeshInFrame(artTex, FrameQuad(frameTex), artScale)
+                    : artMesh;
                 // ---- 立绘：**画在框下、由框的 alpha 剪出来**（原版小卡档就是这个，**不越出**）----
                 //   ① 底层「完整插图」：**忽略贴图的 alpha**（那张图的 alpha 是角色抠图，不是不透明信息），
                 //      垫在卡框下面 —— 卡框拱窗自己也是透明的（实测 alpha=0），窗里的背景就靠这一层。
@@ -2883,7 +2946,7 @@ namespace CardPresentation
                 //      ⇒ 那种卡**不建**前景层（原版对非抠图卡也有 `frameMask`，我们这条近似做不到，如实标注）。
                 bool bigFront = !board && cut && _bigImage && BigCardOverdraw;
                 if (bigFront || (!board && cut && UseFrontLayer))
-                    _artFront = AddLayer("artFront", frameTex, -0.008f, artTex, artMesh);
+                    _artFront = AddLayer("artFront", frameTex, -0.008f, artTex, artFrontMesh);
                 if (!board) _frame = AddLayer("frame", frameTex, 0f, null);
                 // 🆕 文字底板（原版 `Front/Textbackgrounds`）—— 让卡名/效果文字在黑底上读得清。
                 //    原版开哪一块由 `CardTextsController` 的 state 表决定：
@@ -5750,6 +5813,9 @@ namespace CardPresentation
             // ⚠️ 底光是**懒建**的（`SetTargetGem`→`EnsureGlow`），调用点在最后一次 `SyncBoard` 的
             //    `SetQueue` **之后** ⇒ 不在这里补一次，下一次 `SetQueue` 之前它就一直是 3000。
             q.SetRenderQueue(Queue);
+            // 🔴 2026-10-21：底光是懒建的（`SetQueue` 之后才建）⇒ 当场补层号，
+            //    否则同队列内仍按距离排、会盖住数值（真机「红盘/紫圈里没有数」就是这个）。
+            ApplySortingOrderTree(q.transform);
             q.gameObject.SetActive(false);
             return q;
         }
@@ -6968,7 +7034,84 @@ namespace CardPresentation
             return new Vector2(0.5f + x / w, (y - (cy - h * 0.5f)) / h);
         }
 
-        static Mesh ArtMeshInFrame(Texture2D art, Vector3 frameQuad, float artScale = 1f)
+        /// <summary>🔴 **2026-10-21（第六十会话）**：从**卡框贴图**里现算「插图画窗」在卡面坐标里的矩形
+        /// （卡单位，中心原点）。
+        ///
+        /// <para>为什么需要：战术/防御卡的卡框**只有上半留出透明画窗**，下半是实心框面 + 文字底板；
+        /// 而我们把立绘裁到**整个卡体矩形** ⇒ 立绘从框的透明侧边/下沿漏出来（用户报的
+        /// 「战术卡插图跑到下面」）。原版用 `SoftMaskScript`（拿卡框 alpha 给立绘挖洞），
+        /// 我们没那层 ⇒ 退一步：**把非单位卡的立绘直接裁进这个矩形**。</para>
+        /// <para>算法：只在不透明块（`FrameUv`）内，沿中列自上而下找**最长的透明带**（= 画窗），
+        /// 在该带中线再向左右找透明带边界 ⇒ 一个保守的内接矩形。取不到（不可读 / 没有透明带）
+        /// 就返回 `Rect.zero`（调用方不裁，行为与改前一致）。</para></summary>
+        static Rect FrameArtWindow(Texture2D frameTex)
+        {
+            if (frameTex == null) return Rect.zero;
+            int id = frameTex.GetInstanceID();
+            Rect hit;
+            if (_frameArtWindowCache.TryGetValue(id, out hit)) return hit;
+            Rect result = Rect.zero;
+            if (frameTex.isReadable && frameTex.width > 0 && frameTex.height > 0)
+            {
+                int W = frameTex.width, H = frameTex.height;
+                var px = frameTex.GetPixels32();
+                Rect uv = FrameUv(frameTex);
+                int x0 = Mathf.Clamp(Mathf.FloorToInt(uv.xMin * W), 0, W - 1);
+                int x1 = Mathf.Clamp(Mathf.CeilToInt(uv.xMax * W) - 1, 0, W - 1);
+                int y0 = Mathf.Clamp(Mathf.FloorToInt(uv.yMin * H), 0, H - 1);
+                int y1 = Mathf.Clamp(Mathf.CeilToInt(uv.yMax * H) - 1, 0, H - 1);
+                int cx = (x0 + x1) / 2;
+                int runTop = -1, bestTop = -1, bestBot = -1;
+                for (int y = y1; y >= y0; y--)
+                {
+                    bool clear = px[y * W + cx].a <= 8;
+                    if (clear) { if (runTop < 0) runTop = y; }
+                    else if (runTop >= 0)
+                    {
+                        if (bestTop < 0 || (runTop - y) > (bestTop - bestBot)) { bestTop = runTop; bestBot = y + 1; }
+                        runTop = -1;
+                    }
+                }
+                if (runTop >= 0 && (bestTop < 0 || (runTop - y0) > (bestTop - bestBot)))
+                { bestTop = runTop; bestBot = y0; }
+                if (bestTop >= 0 && bestTop - bestBot >= Mathf.RoundToInt(H * 0.08f))
+                {
+                    // 🔴 2026-10-21（第二次真机）：横向取**整个开口的最高/最宽处**（union），
+                    //    ⛔ 不是中线那一行 —— 卡窗是拱形，中线最窄 ⇒ 拱顶两角会切出黑三角；
+                    //    而只取「卡体宽」又会从框外侧的透明余量漏出去。取 union = 填满拱形、
+                    //    同时不会越过框的不透明内沿（拱顶窄处由框自身的不透明部分盖住）。
+                    int l = cx, r = cx;
+                    for (int y = bestBot; y <= bestTop; y++)
+                    {
+                        if (px[y * W + cx].a > 8) continue;
+                        int ll = cx, rr = cx;
+                        while (ll > x0 && px[y * W + ll - 1].a <= 8) ll--;
+                        while (rr < x1 && px[y * W + rr + 1].a <= 8) rr++;
+                        if (ll < l) l = ll;
+                        if (rr > r) r = rr;
+                    }
+                    // 内缩 1 px，避开半透明边（框边是抗锯齿的）
+                    int l2 = Mathf.Min(l + 1, r), r2 = Mathf.Max(r - 1, l);
+                    int b2 = Mathf.Min(bestBot + 1, bestTop), t2 = Mathf.Max(bestTop - 1, bestBot);
+                    // `GetPixels32` 的 y=0 在图**底**；`FramePxAt01` 的 py 从**顶部**数
+                    var tl = FramePxAt01(frameTex, l2, H - 1 - t2);
+                    var br = FramePxAt01(frameTex, r2, H - 1 - b2);
+                    if (!float.IsNaN(tl.x) && !float.IsNaN(br.x))
+                    {
+                        float xL = (tl.x - 0.5f) * Width, xR = (br.x - 0.5f) * Width;
+                        float yT = (0.5f - tl.y) * Height, yB = (0.5f - br.y) * Height;
+                        if (xR > xL && yT > yB) result = new Rect(xL, yB, xR - xL, yT - yB);
+                    }
+                }
+            }
+            _frameArtWindowCache[id] = result;
+            return result;
+        }
+
+        static readonly Dictionary<int, Rect> _frameArtWindowCache = new Dictionary<int, Rect>();
+
+        static Mesh ArtMeshInFrame(Texture2D art, Vector3 frameQuad, float artScale = 1f,
+                                   Texture2D frameTex = null, bool clipWindow = false)
         {
             float s = Width / CardUnitW;
             float aw, ah, acy;
@@ -6984,6 +7127,9 @@ namespace CardPresentation
                     + Mathf.RoundToInt(aw * 10f) * 100
                     + Mathf.RoundToInt(ah * 10f);
             key = key * 100 + Mathf.RoundToInt(artScale * 100f);
+            // 🔴 2026-10-21：战术卡「裁到卡框开口」也进键（不同阵营/tier 的开口不同）。
+            key = key * 10 + (clipWindow ? 1 : 0);
+            if (clipWindow && frameTex != null) key = unchecked(key * 31 + frameTex.GetInstanceID());
             Mesh cached;
             if (_artMeshCache.TryGetValue(key, out cached) && cached != null) return cached;
 
@@ -7014,6 +7160,24 @@ namespace CardPresentation
                 float hw = Width * 0.5f, hh = Height * 0.5f;
                 float xL = Mathf.Max(xL0, -hw), xR = Mathf.Min(xR0, hw);
                 float yB = Mathf.Max(yB0, -hh), yT = Mathf.Min(yT0, hh);
+                // 🔴 **2026-10-21（第六十会话 · 用户报「战术卡插图跑到下面」）**：战术/防御卡框的
+                //    **下半块是空心的**（框只在上半留出插图画窗，下半靠文字底板遮），而我们把立绘
+                //    裁到**整个卡体矩形** ⇒ 立绘从框的透明侧边/下沿漏出来（大图档一眼可见）。
+                //    原版靠 SoftMask（卡框 alpha 给立绘挖洞）；我们没那层 ⇒ **把非单位卡的立绘
+                //    直接裁到「卡框的透明开口」**（开口从卡框贴图 alpha 现算，见 `FrameArtWindow`）。
+                //    单位卡**不裁**：角色立绘本来就要铺到框下、由框的 alpha 轮廓剪（大图档另有 opt-in 越框）。
+                if (clipWindow && frameTex != null)
+                {
+                    Rect win = FrameArtWindow(frameTex);
+                    if (win.width > 0.01f && win.height > 0.01f)
+                    {
+                        // 纵向：裁到开口的上下沿（下半块不许有插图）。
+                        // 横向：裁到**开口的最宽处（union）**—— 拱顶窄处由框自身的不透明部分盖住，
+                        //       而框外侧的透明余量里不会再漏出矩形插图（2026-10-21 第二次真机修）。
+                        xL = Mathf.Max(xL, win.xMin); xR = Mathf.Min(xR, win.xMax);
+                        yB = Mathf.Max(yB, win.yMin); yT = Mathf.Min(yT, win.yMax);
+                    }
+                }
                 if (xR <= xL || yT <= yB)
                 {
                     // 理论上不会发生（板总有交集）；真发生了就退回整张图，别画出负尺寸的网格
@@ -7393,7 +7557,8 @@ namespace CardPresentation
         public static bool BigCardOverdraw = true;
 
         /// <summary>大图档立绘的放大倍率 = 原版 `CardImageController.bigSizeMultiplier`（**1.27**）。
-        /// 只乘**立绘**（`_art` 与 `_artFront` 共用同一块网格），**卡框不动**；
+        /// 🔴 **2026-10-21 订正**：只乘**前景抠图层**（`_artFront`）；底层 `_art`（opaque 矩形底图）**保持 1.0**
+        /// —— 共用一块 ×1.27 的网格会把矩形立绘放大到卡框外（用户报的「插图超过卡框」）。卡框不动；
         /// 放大发生在「收边到卡体」之前 ⇒ 放多大都不会画到卡体外面（原版也是卡体矩形收边）。</summary>
         public const float BigArtScale = 1.27f;
 
@@ -8000,6 +8165,7 @@ namespace CardPresentation
                 _layers.Add(mr);
                 _stats[s] = mr;
             }
+            ApplyBoardSortingOrders();   // 🔴 2026-10-21：数值层晚建 ⇒ 当场补层号（同队列内定序）
         }
 
         /// <summary>把四个数值层的位置 / 贴图 / 显隐刷一遍。`board` = 现在是场上形态。</summary>
