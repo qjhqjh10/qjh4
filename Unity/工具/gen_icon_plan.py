@@ -43,6 +43,8 @@
 
 用法：
   PYTHONIOENCODING=utf-8 python 工具/gen_icon_plan.py            # 只报告
+  PYTHONIOENCODING=utf-8 python 工具/gen_icon_plan.py --check    # 🆕 2026-10-21（A2003）：只读核对
+                                                                 #   盘上两份产物 == 现在会写出来的内容（⛔ 不写盘）
   PYTHONIOENCODING=utf-8 python 工具/gen_icon_plan.py --write    # 落盘（**但有任何未解决问题就不落盘**）
   PYTHONIOENCODING=utf-8 python 工具/gen_icon_doc.py             # 再铺一遍人看的文档
 
@@ -61,7 +63,14 @@ import hashlib
 import collections
 
 sys.stdout.reconfigure(encoding="utf-8")
-WRITE = "--write" in sys.argv
+# 🆕 **2026-10-21（`A2003`）：`--check` = 只读核对「盘上两份产物 == 本脚本现在会写出来的内容」。**
+#   为什么需要：这条账的原始症状是「**脚本 mtime 比产物新** ⇒ 判不出产物是不是过期」——
+#   比 mtime 判不出来（脚本改注释也会动 mtime；反过来 `--write` 又会直接改 `Assets/`）。
+#   判据 = **内容**：逐字节比 `json.dumps(..., ensure_ascii=False, indent=1)`。
+#   ⛔ 一个字节都不写；退出码 0 = 一致，1 = 有差异 / 缺产物（或本就有未解决问题 `bad`）。
+#   ⚠️ `--check` **恒只读**：就算同时给了 `--write` 也不落盘（下面那行把它按住）。
+CHECK = "--check" in sys.argv
+WRITE = ("--write" in sys.argv) and not CHECK
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))   # d:/4/Unity
 
 RESTORED = os.path.join(ROOT, "资料/卡表核对_卡图提取/_还原效果文字.md")
@@ -3727,6 +3736,43 @@ def main():
             for _d in _off_bad:
                 print(f"       - {_d}")
         print("   ⇒ 先把上面这些解决掉再 `--write`（⛔ 别绕过这道闸 —— 非 0 就该没有产物）。")
+    elif CHECK:
+        # 🆕 2026-10-21（`A2003`）：**只读**核对盘上产物与本脚本现在会写出来的内容（⛔ 一个字节都不写）。
+        # 两份产物的 `note` 不同 ⇒ 各算各的期望值，都从同一个 `dump_plan(plan)` 来（与 `--write` 同形）。
+        _expect = [
+            (OUT_JSON, {"version": 1,
+                        "note": "卡面图标计划：每张卡每个记号画哪张图。由 工具/gen_icon_plan.py 生成，别手改。"
+                                "sprite 名在 Resources/Art/traits/ 或 Resources/Art/ui/ 下。"}),
+            (OUT_RES, {"version": 1,
+                       "note": "卡面图标计划（运行时那一份，由 工具/gen_icon_plan.py 与 数据/ 下那份一起写）。"}),
+        ]
+        print("")
+        print("=== `--check`：盘上产物 vs 本脚本现在会写出来的内容（⛔ 不写盘；判据 = 内容，不是 mtime）===")
+        _stale = []
+        for _path, _head in _expect:
+            _head["cards"] = dump_plan(plan)
+            _want = json.dumps(_head, ensure_ascii=False, indent=1)
+            if not os.path.exists(_path):
+                print(f"  🔴 缺产物：{_path}")
+                _stale.append(_path)
+                continue
+            with open(_path, encoding="utf-8", newline=None) as _f:
+                _got = _f.read()
+            if _got == _want:
+                print(f"  ✅ 一致：{_path}（{len(_want.encode('utf-8'))} B）")
+                continue
+            _stale.append(_path)
+            _at = next((i for i, (a, b) in enumerate(zip(_got, _want)) if a != b),
+                       min(len(_got), len(_want)))
+            print(f"  🔴 **过期 / 不一致**：{_path}")
+            print(f"       盘上 {len(_got.encode('utf-8'))} B · 现在会是 {len(_want.encode('utf-8'))} B"
+                  f" · 第一处不同在字符 {_at}：盘上 {_got[_at:_at + 40]!r} / 现在 {_want[_at:_at + 40]!r}")
+        if _stale:
+            print("  ⇒ 产物与现在的脚本不一致：跑 `--write` 才会同步"
+                  "（⚠️ 那会写 `Assets/`；在只读批里请交给有写权限的那一轮）。")
+        else:
+            print("  ✅ 两份产物都与脚本一致 —— **mtime 谁新谁旧不重要，内容为准**。")
+        return 1 if (bad or _stale) else 0
     elif WRITE:
         os.makedirs(os.path.dirname(OUT_JSON), exist_ok=True)
         with open(OUT_JSON, "w", encoding="utf-8", newline="\n") as f:

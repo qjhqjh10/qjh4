@@ -82,8 +82,12 @@ Shader "WarpforgeVFX/Particles/Extra Color EC"
             "PreviewType" = "Plane"
         }
 
-        // 只用两参数形式：粒子材质几乎不写 alpha 通道，四参数分离混合反而容易出意外
-        Blend [_SrcBlend] [_DstBlend]
+        // 🔴 2026-10-21（T17 · Ruri 反编译对拍）：原来这里写「粒子材质几乎不写 alpha 通道 ⇒ 只用两参数形式」，
+        //    **那句不成立** —— 原版 pass0 就是 `Blend [_SrcBlend] [_DstBlend], [_SrcBlendAlpha] [_DstBlendAlpha]`
+        //    （色与 alpha **分开寻址**），且材质的 `_SrcBlendAlpha`/`_DstBlendAlpha` 真的带值
+        //    （工程 969 个 .mat 现读：`_SrcBlendAlpha` 1→555 / 5→359 · `_DstBlendAlpha` 10→444 / 1→358 / 0→120）。
+        //    判据 = `Everguild/FX/Extra Color` 反编译体（Ruri 导出，pass0）。
+        Blend [_SrcBlend] [_DstBlend], [_SrcBlendAlpha] [_DstBlendAlpha]
         ZWrite [_ZWrite]
         ZTest [_ZTest]
         Cull [_Cull]

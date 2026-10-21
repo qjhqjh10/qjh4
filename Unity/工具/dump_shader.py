@@ -28,6 +28,22 @@ MATNEEDLE = sys.argv[2] if len(sys.argv) > 2 else "Distort"
 
 TYPE = {0: "Color", 1: "Vector", 2: "Float", 3: "Range", 4: "Texture", 5: "Int"}
 
+# 🆕 2026-10-21（`T17`·本笔）：**混合状态要能看出「色与 alpha 分开寻址」**（`Blend A B, C D`）。
+# 起因：`WFMatcap.shader` 文件头当年据本工具的输出判成「原版 `separateBlend=False`」——
+#   **那个结论是错的**：原版 pass0 是单行四参数 `Blend [_SrcBlend] [_DstBlend], [_SrcBlendAlpha] [_DstBlendAlpha]`
+#   （判据 = 反编译方法体，见该文件头 2026-10-21 那条）。错因有两条，都在本工具的输出里：
+#   ① `st.rtSeparateBlend`（ShaderLab 的 `SeparateBlend` 开关）**全库都是 False**，它**不等于**
+#      「没有分开的 alpha 混合」—— 真正的 alpha 因子记在 `rtBlend0.srcBlendAlpha/destBlendAlpha`；
+#   ② 原来把 `rtBlend0` 整个 `vars()` 打出来，`srcBlend=…val=0.0` 在**属性驱动**时（name=`_SrcBlend`）
+#      那个 `0.0` 是**占位不是真值**，肉眼很容易读成 `Blend Zero Zero`。
+# ⇒ 现在补一行**解码后**的 `blend:` + 一行**还原出的 ShaderLab**；`separateAlpha(inEffect)` 是**推导值**：
+#    alpha 两侧与色两侧的「驱动名不同」或「烘死值不同」就算分开寻址。
+# 数值→名字取自 Unity 公开枚举（BlendMode / BlendOp），与 `_dump_shaders_batch.py` 同一张表。
+BLEND = {0: "Zero", 1: "One", 2: "DstColor", 3: "SrcColor", 4: "OneMinusDstColor",
+         5: "SrcAlpha", 6: "OneMinusSrcColor", 7: "DstAlpha", 8: "OneMinusDstAlpha",
+         9: "SrcAlphaSaturate", 10: "OneMinusSrcAlpha"}
+BLENDOP = {0: "Add", 1: "Sub", 2: "RevSub", 3: "Min", 4: "Max"}
+
 
 def prop_lines(pi):
     # UnityPy 有时把 m_PropInfo 直接展成 props 列表，有时包一层 m_Props
@@ -49,10 +65,70 @@ def tagmap(t):
     return dict(getattr(t, "tags", t))
 
 
-def state_line(st):
+def _blend_side(fv, pdef):
+    """`SerializedShaderFloatValue` → (显示串, 驱动名或 None, 真值或 None)。
+
+    - 驱动名 = 不以 `<noninit>` 开头（原版大量是 `_SrcBlend` 这种**材质属性驱动**）；
+      此时 `val` 是**占位**，真值在 shader 属性表的默认值里，有就一并标出来。
+    - `<noninit>` ⇒ 这一格**烘死在 pass 里**，`val` 就是真值。
+    """
+    nm = str(getattr(fv, "name", "") or "")
+    raw = getattr(fv, "val", None)
+    if nm and nm != "<noninit>":
+        s = f"[{nm}"
+        if nm in pdef:
+            d = int(round(float(pdef[nm])))
+            s += f"={d}:{BLEND.get(d, d)}"
+        return s + "]", nm, None
+    try:
+        v = int(round(float(raw)))
+    except Exception:
+        return str(raw), None, None
+    return f"{v}:{BLEND.get(v, v)}", None, v
+
+
+def _op_side(fv):
+    nm = str(getattr(fv, "name", "") or "")
+    if nm and nm != "<noninit>":
+        return f"[{nm}]"
+    try:
+        v = int(round(float(getattr(fv, "val", 0))))
+    except Exception:
+        return str(getattr(fv, "val", None))
+    return BLENDOP.get(v, str(v))
+
+
+def blend_line(st, pdef):
+    """🆕 2026-10-21：解码后的混合状态 + `separateAlpha(inEffect)` 推导 + 还原的 ShaderLab。
+
+    `pdef` = shader 属性表里 `Float/Range` 的默认值（`名 → 默认值`）；驱动名的真值靠它。
+    """
+    b = st.rtBlend0
+    src, src_n, src_v = _blend_side(b.srcBlend, pdef)
+    dst, dst_n, dst_v = _blend_side(b.destBlend, pdef)
+    sa, sa_n, sa_v = _blend_side(b.srcBlendAlpha, pdef)
+    da, da_n, da_v = _blend_side(b.destBlendAlpha, pdef)
+    # 「分开寻址」的判据（三条任一）：序列化开关为真 · 两侧驱动名不同 · 两侧烘死值不同。
+    # ⚠️ 只看 `rtSeparateBlend` 会误判 —— 该字段全库 False，而 Matcap 这类单行四参数写法
+    #    （`Blend [_SrcBlend] [_DstBlend], [_SrcBlendAlpha] [_DstBlendAlpha]`）同样是分开寻址。
+    sep = (bool(getattr(st, "rtSeparateBlend", False))
+           or (src_n != sa_n) or (src_v != sa_v) or (dst_n != da_n) or (dst_v != da_v))
+    s = (f"      blend: src={src} dst={dst} op={_op_side(b.blendOp)}"
+         f" | srcA={sa} dstA={da} opA={_op_side(b.blendOpAlpha)}"
+         f" | colMask={int(round(float(getattr(b.colMask, 'val', 0))))}"
+         f"  separateBlend(序列化)={getattr(st, 'rtSeparateBlend', None)}"
+         f"  separateAlpha(inEffect)={sep}")
+    four = f"      BlendShaderLab: Blend {src} {dst}"
+    if sep:
+        four += f", {sa} {da}"
+    return s + "\n" + four
+
+
+def state_line(st, pdef=None):
     b = st.rtBlend0
     return (f"      rtBlend0={vars(b) if hasattr(b, '__dict__') else b} "
             f"separateBlend={st.rtSeparateBlend}\n"
+            + (blend_line(st, pdef or {}) + "\n" if pdef is not None else "") +
             f"      zWrite={st.zWrite} zTest={st.zTest} zClip={st.zClip} cull={st.culling} "
             f"alphaToMask={st.alphaToMask} lighting={st.lighting} fogMode={st.fogMode}\n"
             f"      offset=({st.offsetFactor},{st.offsetUnits}) gpuProgramID={st.gpuProgramID}")
@@ -66,6 +142,14 @@ def dump_shader(sh):
     print(f"  ShaderRequirements = {getattr(pf, 'm_ShaderRequirements', None)}")
     print(f"  CommonParameters = {getattr(pf, 'm_CommonParameters', None)}")
     _props = pf.m_PropInfo.m_Props if hasattr(pf.m_PropInfo, "m_Props") else pf.m_PropInfo
+    # 🆕 属性驱动型混合状态（`Blend [_SrcBlend] …`）的真值 = shader 自己声明的默认值。
+    pdef = {}
+    for p in _props:
+        if getattr(p, "m_Type", None) in (2, 3) and getattr(p, "m_Name", None):
+            try:
+                pdef[p.m_Name] = p.m_DefValue_0_
+            except Exception:
+                pass
     print(f"  属性（{len(_props)} 个）:")
     for l in prop_lines(pf.m_PropInfo):
         print(l)
@@ -75,7 +159,7 @@ def dump_shader(sh):
             print(f"    Pass {p.m_Name!r} type={p.m_Type} tags={tagmap(p.m_Tags)}")
             print(f"      platforms={p.m_Platforms} progMask={p.m_ProgramMask} "
                   f"nameIndices={list(p.m_NameIndices)}")
-            print(state_line(p.m_State))
+            print(state_line(p.m_State, pdef))
 
 
 mat_total = 0

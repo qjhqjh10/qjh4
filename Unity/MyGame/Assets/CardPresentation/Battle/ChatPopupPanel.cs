@@ -903,6 +903,12 @@ namespace CardPresentation
         public void Show()
         {
             _open = true;                     // **立刻**算开（原版 `SetActive(true)` + `interactable=true`）
+            // 🔴 **2026-10-21（真缺陷 · 同 `P1-3`）**：重开 ⇒ 丢掉上一帧还没落的待关。
+            //   不清的话：`OnClosePointerDown` 挂起（`_closePending = true`）之后同帧又 `Show()`，
+            //   本帧末尾 `LateUpdate` → `ApplyPendingClose()` 会把**刚开的**这扇窗关掉
+            //   （再发一次 `CloseRequested` ⇒ 驱动那边也当玩家关了）。
+            //   同款两处：`Battle/MultiCardDisplay.cs:694` · `Battle/CardDisplayWindow.cs:1211`（本件漏了这一句）。
+            _closePending = false;
             _fadingOut = false;
             gameObject.SetActive(true);
             RefreshLayout();

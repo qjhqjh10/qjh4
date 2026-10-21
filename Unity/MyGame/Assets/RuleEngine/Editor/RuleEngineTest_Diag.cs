@@ -54,33 +54,35 @@ public static partial class RuleEngineTest
         "TestFlyingMeleeBlocked", "TestEffectSpecParsing", "TestFlankInvulnVulnerable", "TestAttackKeywords", "TestBattleKeywords", "TestRally",
         "TestStrikeAndSlay", "TestW58BlastStompSlay", "TestW58SlayInterleave", "TestW58HuntMarkNoKillerGate", "TestW58NestedDeathInterleave", "TestW58SentrySlay",
         "TestA1279SlaySelfChain", "TestBacklash", "TestDeathAccountsAfterBacklash", "TestW58DeathOrderD5", "TestW58DeathOrderD4", "TestW58DamagedBroadcastOrderD8",
-        "TestW58AttackBroadcastOrder", "TestW58DeployBroadcastOrder", "TestW58HuntMarkBroadcastOrder", "TestPenitence", "TestAbility", "TestAbilityTargetRules",
-        "TestWillDiePreviewEntries", "TestDodgeKeyword", "TestShieldOneRepresentation", "TestHealAndDraw", "TestEffectChainGuard", "TestStarterCardEffects",
-        "TestA1618TwoParsersAgree", "TestAiUsesAbility", "TestAiKillLine", "TestCreate", "TestDeploy", "TestLowerCost",
-        "TestA5Batch3", "TestA5Batch4", "TestChooseCard", "TestChooseFamilyB14", "TestPlayedTableB19", "TestPlayedCountB24",
-        "TestReturnAndRefs", "TestPersistentEffects", "TestDeployBuffAndCostMore", "TestUnitDescTriggers", "TestMobAndRegimentKeyword", "TestKeywordTriggeredEvents",
-        "TestFactionResourceEvents", "TestQuestTriggeredSecretFidelity", "TestW57FactionMechanics", "TestW57Fix2FactionReview", "TestW57Double605", "TestListenerCardType",
-        "TestUnknownPayloadAttr", "TestWeaponIsRanged", "TestKeywordImplementedList", "TestUnstableEcstasyCruelty", "TestOrAltIf", "TestDoubleAndCreateCost",
-        "TestTalentKeyword", "TestMentionedCards", "TestDarkPactRelated", "TestRelatedCardsTruth", "TestW10EngineLine", "TestW15TalentLine",
-        "TestW15PrayAndAltAbility", "TestWhenEvents", "TestEventLayerTail", "TestEphemeral", "TestSimultaneousDamage", "TestFactionMechanics",
-        "TestWinnerByWarlord", "TestDrawIsDraw", "TestForfeit", "TestBattleVictoryCode", "TestFatigue", "TestDeterminism",
-        "TestSignalDeterminism", "TestFullGameWithRealCards", "TestFactionBattle", "TestAiOriginal", "TestHandInstanceEffects", "TestHandEffectExpiryAndUses",
-        "TestCoreLayerPurity", "TestPlayedCardsExcludesCompanionAndTide", "TestTutorialEngineHalf", "TestTutorialDontDrawAndTurnEndEnchantment", "TestNewUnitEntryList", "TestW5EngineBacklog",
-        "TestG3EngineRealDiffs", "TestS7BroadcastBeforeBookkeeping", "TestS10CompanyMasterLowerCost", "TestA947NoncombatantAttackBan", "TestDiedThisTurnDuringBacklash", "TestA974NotePlayedAfterPlayBroadcast",
-        "TestA976LastCreatedNotCarriedAcrossCards", "TestA963HandListenerSelfDoesNotSpread", "TestA993TriggerEntryClearsReferentSlots", "TestA992OathDeployExemption", "TestA992CannotAttackThisTurn", "TestA985TermKey",
-        "TestA1098SummonSicknessReads", "TestA992HandSlotThreeWritePoints", "TestA992ReanimateDeployTurnState", "TestA985ErrSlotSplit", "TestA985TargetedAndAmbushFields", "TestS14SurvivorRescueAndDestroyBypass",
-        "TestS14EcstasyPrintedVersusGranted", "TestS14StunWatcherGainsAttack", "TestS14ApplyDeployTurnState", "TestS14PoisonAtOwnTurnEnd", "TestS14PoisonBranchDoesNotSkipStunGate", "TestS14BastionAbsorbsWholeHit",
-        "TestS14CounterIgnoresBastion", "TestS14DropPodPool", "TestS14DropPodTakesPrecedenceOverBastion", "TestS14VulnerableWithBastion", "TestS14SacrificeOnOwnTurnRescue", "TestS14SacrificeNotTriggeredOnEnemyTurn",
-        "TestS14SacrificeNotTriggeredOnRealDeath", "TestS14SurvivorTriggerAlwaysFires", "TestS14WouldKillByEntries", "TestS14HandAndBoardInstancesDisjoint", "TestS14PronounTargetSide", "TestS14PronounSideUnknownStaysUnknown",
-        "TestS14PronounSideChains", "TestS14ParseIsIdempotent", "TestS14ScoreGivingChargeSide", "TestS14KeywordNumberAndHasNumber", "TestS14PaidPrefixCarry", "TestS14OathActivationChargesOnce",
-        "TestS14CostSharedChargesOnce", "TestS14FaithCheckCondition", "TestS14WhenBodyTargetIsSubjectless", "TestS14FaithCostKind", "TestS14WouldKillByEntriesDropPodLayer", "TestS14DropPodOpensAtTurnStart",
-        "TestS14DropPodOpensAfterAttack", "TestS14SwarmTriggerBothHalves", "TestS14BloodThirstTriggerBothHalves", "TestA1564EcstasyHeadGates", "TestA1564Ec28SlayStopsAtEcstasy", "TestA1564DA25WhenBodyCarry",
-        "TestA1564AboutToAttackCancel", "TestA1564StealthExpiryAfterDropPod", "TestA1564BastionFullAbsorbBroadcasts", "TestA1564InsteadTargetCarry", "TestA1562KeywordTriggerSelfExclusion", "TestA1562SelfExclusionNullPair",
-        "TestA1574SwarmSubject", "TestA1576SacrificeOrder", "TestA1563VulnerableDamageSplit", "TestA1566LandingAndAboutToAttackRegistration", "TestA1462NonKeywordTargetFilter", "TestA1606TurnStartForceAttack",
-        "TestA1631HalfUnderstoodTriggerBody", "TestA1632EachTurnAttackOnOpponentTurn", "TestA1455DeployNamedTroop", "TestA1600SelfFatalHitHeard", "TestA1468BatchAllEnemiesHitsStealth", "TestA1600DyingListenerExcluded",
-        "TestA1468SingleTargetStealthGate", "TestS23ParseWhenPrefix", "TestS23ParseCostWhenInstead", "TestS23ParseCostWhenIconMarker", "TestS23AssertImplementedReadSites", "TestS23AssertA1413PayGroup",
-        "TestS23ResolveDeployCopyOfThisTroop", "TestS23ResolveInsteadOnAbilityLayer", "TestS23ResolveInsteadConditionalNotPairedOnAbilityLayer", "TestS23ResolveLandingCancelsAttack", "TestS23ResolveA1426GiveToDyingOnBoard", "TestS23ResolveArmourTwoRepresentations",
-        "TestS23ResolveA1692DeployFreeNoOverwrite", "TestS23ResolveA1690WhenBodyAdjacentAnchor", "TestS23ResolveA1312KeepStatusTurnState",
+        "TestW58AttackBroadcastOrder", "TestT03dAttackerKilledBySentryStillFiresOwnAttack", "TestW58DeployBroadcastOrder", "TestW58HuntMarkBroadcastOrder", "TestPenitence", "TestAbility",
+        "TestAbilityTargetRules", "TestWillDiePreviewEntries", "TestDodgeKeyword", "TestShieldOneRepresentation", "TestHealAndDraw", "TestEffectChainGuard",
+        "TestStarterCardEffects", "TestA1618TwoParsersAgree", "TestAiUsesAbility", "TestAiKillLine", "TestCreate", "TestDeploy",
+        "TestLowerCost", "TestA5Batch3", "TestA5Batch4", "TestChooseCard", "TestChooseFamilyB14", "TestPlayedTableB19",
+        "TestPlayedCountB24", "TestReturnAndRefs", "TestPersistentEffects", "TestDeployBuffAndCostMore", "TestUnitDescTriggers", "TestMobAndRegimentKeyword",
+        "TestKeywordTriggeredEvents", "TestFactionResourceEvents", "TestQuestTriggeredSecretFidelity", "TestW57FactionMechanics", "TestW57Fix2FactionReview", "TestW57Double605",
+        "TestListenerCardType", "TestUnknownPayloadAttr", "TestWeaponIsRanged", "TestKeywordImplementedList", "TestUnstableEcstasyCruelty", "TestOrAltIf",
+        "TestDoubleAndCreateCost", "TestTalentKeyword", "TestMentionedCards", "TestDarkPactRelated", "TestRelatedCardsTruth", "TestW10EngineLine",
+        "TestW15TalentLine", "TestW15PrayAndAltAbility", "TestWhenEvents", "TestEventLayerTail", "TestEphemeral", "TestSimultaneousDamage",
+        "TestFactionMechanics", "TestWinnerByWarlord", "TestDrawIsDraw", "TestForfeit", "TestBattleVictoryCode", "TestFatigue",
+        "TestDeterminism", "TestSignalDeterminism", "TestFullGameWithRealCards", "TestFactionBattle", "TestAiOriginal", "TestHandInstanceEffects",
+        "TestHandEffectExpiryAndUses", "TestCoreLayerPurity", "TestPlayedCardsExcludesCompanionAndTide", "TestTutorialEngineHalf", "TestTutorialDontDrawAndTurnEndEnchantment", "TestNewUnitEntryList",
+        "TestW5EngineBacklog", "TestG3EngineRealDiffs", "TestS7BroadcastBeforeBookkeeping", "TestS10CompanyMasterLowerCost", "TestA947NoncombatantAttackBan", "TestDiedThisTurnDuringBacklash",
+        "TestA974NotePlayedAfterPlayBroadcast", "TestA976LastCreatedNotCarriedAcrossCards", "TestA963HandListenerSelfDoesNotSpread", "TestA993TriggerEntryClearsReferentSlots", "TestA992OathDeployExemption", "TestA992CannotAttackThisTurn",
+        "TestA985TermKey", "TestA1098SummonSicknessReads", "TestA992HandSlotThreeWritePoints", "TestA992ReanimateDeployTurnState", "TestA985ErrSlotSplit", "TestA985TargetedAndAmbushFields",
+        "TestS14SurvivorRescueAndDestroyBypass", "TestS14EcstasyPrintedVersusGranted", "TestS14StunWatcherGainsAttack", "TestS14ApplyDeployTurnState", "TestS14PoisonAtOwnTurnEnd", "TestS14PoisonBranchDoesNotSkipStunGate",
+        "TestS14BastionAbsorbsWholeHit", "TestS14CounterIgnoresBastion", "TestS14DropPodPool", "TestS14DropPodTakesPrecedenceOverBastion", "TestS14VulnerableWithBastion", "TestS14SacrificeOnOwnTurnRescue",
+        "TestS14SacrificeNotTriggeredOnEnemyTurn", "TestS14SacrificeNotTriggeredOnRealDeath", "TestS14SurvivorTriggerAlwaysFires", "TestS14WouldKillByEntries", "TestS14HandAndBoardInstancesDisjoint", "TestS14PronounTargetSide",
+        "TestS14PronounSideUnknownStaysUnknown", "TestS14PronounSideChains", "TestS14ParseIsIdempotent", "TestS14ScoreGivingChargeSide", "TestS14KeywordNumberAndHasNumber", "TestS14PaidPrefixCarry",
+        "TestS14OathActivationChargesOnce", "TestS14CostSharedChargesOnce", "TestS14FaithCheckCondition", "TestS14WhenBodyTargetIsSubjectless", "TestS14FaithCostKind", "TestS14WouldKillByEntriesDropPodLayer",
+        "TestS14DropPodOpensAtTurnStart", "TestS14DropPodOpensAfterAttack", "TestS14SwarmTriggerBothHalves", "TestS14BloodThirstTriggerBothHalves", "TestA1564EcstasyHeadGates", "TestA1564Ec28SlayStopsAtEcstasy",
+        "TestA1564DA25WhenBodyCarry", "TestA1564AboutToAttackCancel", "TestA1564StealthExpiryAfterDropPod", "TestA1564BastionFullAbsorbBroadcasts", "TestA1564InsteadTargetCarry", "TestA1562KeywordTriggerSelfExclusion",
+        "TestA1562SelfExclusionNullPair", "TestA1574SwarmSubject", "TestA1576SacrificeOrder", "TestA1563VulnerableDamageSplit", "TestA1566LandingAndAboutToAttackRegistration", "TestA1462NonKeywordTargetFilter",
+        "TestA1606TurnStartForceAttack", "TestA1631HalfUnderstoodTriggerBody", "TestA1632EachTurnAttackOnOpponentTurn", "TestA1455DeployNamedTroop", "TestA1600SelfFatalHitHeard", "TestA1468BatchAllEnemiesHitsStealth",
+        "TestA1600DyingListenerExcluded", "TestA1468SingleTargetStealthGate", "TestS23ParseWhenPrefix", "TestS23ParseCostWhenInstead", "TestS23ParseCostWhenIconMarker", "TestS23AssertImplementedReadSites",
+        "TestS23AssertA1413PayGroup", "TestS23ResolveDeployCopyOfThisTroop", "TestS23ResolveInsteadOnAbilityLayer", "TestS23ResolveInsteadConditionalNotPairedOnAbilityLayer", "TestS23ResolveLandingCancelsAttack", "TestS23ResolveA1426GiveToDyingOnBoard",
+        "TestS23ResolveArmourTwoRepresentations", "TestS23ResolveA1692DeployFreeNoOverwrite", "TestS23ResolveA1690WhenBodyAdjacentAnchor", "TestS23ResolveA1312KeepStatusTurnState", "TestW59PlayOrderSameSideDeploy", "TestW59PlayOrderCrossPlayer",
+        "TestW59PlayOrderTurnStartEnd", "TestW59PlayOrderReentry", "TestW59PlayOrderInvariant", "TestW59PlayOrderOnSide", "TestT02OrConditionTargetDiesOrFriendly", "TestT02SacrificeBodyLandsOnSelf",
+        "TestT02PlacementNoOverwriteFamily",
     };
 
     // 本次诊断真正跑过的用例（顺序同 `RunCaseNames`）—— 只给对账用
@@ -334,6 +336,7 @@ public static partial class RuleEngineTest
         Safe("TestW58DeathOrderD4", () => TestW58DeathOrderD4());
         Safe("TestW58DamagedBroadcastOrderD8", () => TestW58DamagedBroadcastOrderD8());
         Safe("TestW58AttackBroadcastOrder", () => TestW58AttackBroadcastOrder());
+        Safe("TestT03dAttackerKilledBySentryStillFiresOwnAttack", () => TestT03dAttackerKilledBySentryStillFiresOwnAttack());
         Safe("TestW58DeployBroadcastOrder", () => TestW58DeployBroadcastOrder());
         Safe("TestW58HuntMarkBroadcastOrder", () => TestW58HuntMarkBroadcastOrder());
         Safe("TestPenitence", () => TestPenitence());
@@ -492,6 +495,15 @@ public static partial class RuleEngineTest
         Safe("TestS23ResolveA1692DeployFreeNoOverwrite", () => TestS23ResolveA1692DeployFreeNoOverwrite());
         Safe("TestS23ResolveA1690WhenBodyAdjacentAnchor", () => TestS23ResolveA1690WhenBodyAdjacentAnchor());
         Safe("TestS23ResolveA1312KeepStatusTurnState", () => TestS23ResolveA1312KeepStatusTurnState());
+        Safe("TestW59PlayOrderSameSideDeploy", () => TestW59PlayOrderSameSideDeploy());
+        Safe("TestW59PlayOrderCrossPlayer", () => TestW59PlayOrderCrossPlayer());
+        Safe("TestW59PlayOrderTurnStartEnd", () => TestW59PlayOrderTurnStartEnd());
+        Safe("TestW59PlayOrderReentry", () => TestW59PlayOrderReentry());
+        Safe("TestW59PlayOrderInvariant", () => TestW59PlayOrderInvariant());
+        Safe("TestW59PlayOrderOnSide", () => TestW59PlayOrderOnSide());
+        Safe("TestT02OrConditionTargetDiesOrFriendly", () => TestT02OrConditionTargetDiesOrFriendly());
+        Safe("TestT02SacrificeBodyLandsOnSelf", () => TestT02SacrificeBodyLandsOnSelf());
+        Safe("TestT02PlacementNoOverwriteFamily", () => TestT02PlacementNoOverwriteFamily());
 
         VerifyDiagCoverage();
 

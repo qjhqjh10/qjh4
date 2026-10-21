@@ -925,6 +925,12 @@ public static class BattleScene
                   $"远程出手 {EventTiming.AttackStepRanged}s（`ResolveAttackRangedAnim` 那一档）");
             Check(Mathf.Abs(EventTiming.DurationOf(EvtKind.Hit) - 0.75f) < 1e-3f,
                   $"挨打 {EventTiming.DurationOf(EvtKind.Hit)}s（`Impact Light Tween`：0.5 的旋转 Punch + 0.25 复位）");
+            // 🆕 2026-10-21（战斗线四笔静态项 · 笔 1）：**治疗占多久 = 卡上 `HealText` 的生命周期**。
+            //   判据 = `CardView.HealTextHoldSeconds`（`CardScript._Heal_d__468__MoveNext.c:204` 的 1.5）。
+            //   🧨 **防两表分叉**：`EventTiming` 里只要另写一个字面量、而 `CardView` 那个常量一改，这条就红。
+            Check(Mathf.Abs(EventTiming.DurationOf(EvtKind.Heal) - CardView.HealTextHoldSeconds) < 1e-3f,
+                  $"★ 治疗占 {CardView.HealTextHoldSeconds}s（= 卡上 `HealText` 生命周期 "
+                + "`CardScript._Heal…:204` 的 `WaitForSeconds(1.5)`；多目标治疗严格串行）");
             // 🆕 2026-10-14（`A1767`）：**「发动能力」的时长 = 逐卡真值**，不再是那条常数 1.0。
             //   判据 = 该卡 `activeAbility` 各 `cardAnimations` 的 `AnimInfo.GetAnimDuration()` 之和
             //   （`d:/2/tools/decomp_full/AnimInfo__GetAnimDuration.c` 四字段 + `AbilityLogic__PlayAnim.c`
@@ -8330,16 +8336,18 @@ public static class BattleScene
                         }
                     }
 
-                    // ---- 🔴 2026-10-20（W57 · 战斗线 `T09-FIX5` · P0-2）：**回放条不可见时不许吃释放沿** ----
-                    //   现读（改前）：`HandleReplayBar()` = `_replayBar == null || !ReleasedThisFrame()` —— 而
-                    //     `_replayBar` 在**普通对局里恒非空**（`BuildHud` 里 `ReplayBar.Create(root)` + `Setup(false)`，
-                    //     `Setup` 只把 `Holder` 关掉）⇒ `Update` 里**第一个** release 分支就把每一下松手消费掉，
-                    //     排在后面的换牌 `Done` / 选牌 `Done` / 点牌堆 / 选目标 / 聊天选台词等分支在真机
-                    //     **一次都收不到沿**（自检从不调 `Update` ⇒ 全绿）。
-                    //   原版判据：那 4 颗只在回放局里存在（`objHolder.SetActive(matchType == 0xA0)`，
-                    //     见 `ReplayBar.cs` 文件头）⇒ 普通对局里 `EventSystem` 根本不会把点击派发给它们 ⇒ **不吃沿**。
-                    //   🧨 **灭自证**：把 `HandleReplayBar` 改回「先消费沿、再看可见性」⇒ 第 2 条红；
-                    //     反过来改成「可见时也不吃沿」⇒ 第 4 条（对照）红。
+                    // ---- 🔴 2026-10-20（W57 · `T09-FIX5` · P0-2）+ 2026-10-21（`T09` A4）：回放条那一路的输入闸 ----
+                    //   ① **不可见时不许吃释放沿**（P0-2）：`_replayBar` 在**普通对局里恒非空**
+                    //      （`BuildHud` 里 `ReplayBar.Create(root)` + `Setup(false)`，`Setup` 只把 `Holder` 关掉）
+                    //      ⇒ 一旦写成「先消费沿、再看可见性」，`Update` 里**第一个** release 分支就把每一下松手
+                    //      消费掉，排在后面的换牌 `Done` / 选牌 `Done` / 点牌堆 / 选目标 / 聊天选台词
+                    //      等分支在真机上**一次都收不到沿**（自检从不调 `Update` ⇒ 全绿）。
+                    //   ② **可见时只做模态、不碰手搓沿、不碰命中**（A4）：四颗钮已改 uGUI 单一所有者
+                    //      （`ReplayBar` 里各挂一颗 `BattleHudButton` → `OnReplayButtonClicked` → `LateUpdate` 落账）。
+                    //      原版判据：那 4 颗只在回放局里存在（`objHolder.SetActive(matchType == 0xA0)`）。
+                    //   🧨 **灭自证**：把 `HandleReplayBar` 改回「先消费沿、再看可见性」⇒ 下面那条
+                    //      「不可见 ⇒ 没吃掉释放沿」红；把 `ReplayClickAt`/`ReplayBar.Hit` 那条手搓支
+                    //      加回来 ⇒ 本段末条红（指针**故意**钉在暂停钮的矩形上 —— 手搓路还在的话会当场暂停）。
                     {
                         var rbP0 = driver.Replay;
                         Check(rbP0 != null && !rbP0.HolderVisible,
@@ -8348,6 +8356,7 @@ public static class BattleScene
                         {
                             bool? heldWasR = BattleDriver.PointerHeldForTest;
                             Vector3? worldWasR = BattleDriver.PointerWorldForTest;
+                            bool pausedWasR = driver.ReplayPaused;
                             try
                             {
                                 BattleDriver.PointerWorldForTest = Vector3.zero;
@@ -8367,20 +8376,26 @@ public static class BattleScene
                                     + "换牌 Done / 选牌 Done / 点牌堆 / 选目标 / 聊天选台词那些 release 分支还收得到"
                                     + "｜🧨 改回「先消费沿、再看 `HolderVisible`」⇒ 本条红（真机上那些分支全是死的）");
 
-                                // 对照：**可见时行为逐位不变** —— 沿照样被它吃掉（即使没点在钮上）。
-                                Check(rbP0.Hit(Vector3.zero) == ReplayBar.Btn.None,
-                                      "★ …（前提）下面喂的世界点**不在回放条任何一颗钮上**（`Hit` = `Btn.None`）");
+                                // 对照：**可见** ⇒ 模态（整帧到此为止），但**不碰手搓沿、不做命中**。
                                 rbP0.Setup(true);
                                 Check(rbP0.HolderVisible, "★ …（夹具）回放条切到可见");
+                                // 指针**故意钉在暂停钮的世界坐标上** —— 手搓路若还在，这一下会当场暂停
+                                BattleDriver.PointerWorldForTest = rbP0.PauseWorldPos;
                                 BattleDriver.PointerHeldForTest = true;
                                 driver.PollInputEdgesForTest();
                                 BattleDriver.PointerHeldForTest = false;
                                 driver.PollInputEdgesForTest();
-                                Check(!driver.TickReplayBarForTest(),
-                                      "★ …（对照）可见但没点在钮上 ⇒ `HandleReplayBar` 返回 false");
-                                Check(!driver.ReleasedThisFrameForTest(),
-                                      "★ T09-FIX5/P0-2（对照·灭自证）：回放条**可见**时沿**照旧被吃掉**"
-                                    + "（可见时的行为逐位不变）｜🧨 写成「可见也不吃」⇒ 本条红");
+                                Check(driver.TickReplayBarForTest(),
+                                      "★ T09/A4（对照）：回放条**可见** ⇒ `HandleReplayBar` 返回 true"
+                                    + "（模态：整帧到此为止；命中与动作全归 uGUI）");
+                                Check(driver.ReleasedThisFrameForTest(),
+                                      "★ T09/A4（灭自证）：可见时**不再耗手搓沿**（动作全归 uGUI）"
+                                    + "｜🧨 在 `HandleReplayBar` 里重新调 `ReleasedThisFrame()` ⇒ 本条红"
+                                    + "（而且 `ClickLog` 会被多记一条）");
+                                Check(driver.ReplayPaused == pausedWasR,
+                                      $"★ T09/A4（**手搓路已退**）：指针压在暂停钮的矩形上、松手沿也喂了 —— "
+                                    + $"**什么都没发生**（`ReplayPaused` {pausedWasR} → {driver.ReplayPaused}）"
+                                    + "｜🧨 把 `ReplayClickAt` / `ReplayBar.Hit` 加回来 ⇒ 本条红（会静默暂停）");
                             }
                             finally
                             {
@@ -14614,6 +14629,10 @@ public static class BattleScene
         //      `ClickNextStepReplay`（**回放的播放控制**）。
         //   ⚠️ 下面这些交互断言走的**仍是我们那套「本局时间控制」**（原版那四个动作要回放播放端，我们还没有）
         //   —— 它**不是复刻**，代码与 `ReplayBar.cs` 文件头都标着；**界面入口已挪到键盘**（`Space` / `.`）。
+        // 🔴 **2026-10-21（战斗线 `T09` A4）：交互断言已改成 uGUI 契约。**
+        //   · 四颗各挂一颗 `BattleHudButton`（`ReplayBar.AttachClicks`）—— `rb.ClickForTest(Btn.X)` 就是那一跳；
+        //   · 动作**挂起到 `LateUpdate`** ⇒ 断言里必须再调 `drv.ApplyPendingReplayForTest()` 才算落账；
+        //   · 手搓路（`ReplayClickAt` / `ReplayBar.Hit`）**已退场** —— 本段末尾有行为 + 结构两条钉住它。
         Debug.Log(P + "--- 回放条（原版 ReplayButtons）---");
         {
             var drv = Object.FindObjectOfType<BattleDriver>();
@@ -14627,8 +14646,18 @@ public static class BattleScene
                 //    `objHolder.SetActive(matchType == 0xA0)`（**只有回放局**才出现）。
                 //    我们从不进回放局 ⇒ `Begin()` 之后**整条是关的**（原来一直摆着，是错的）。
                 Check(!rb.HolderVisible, "★ 普通对局 ⇒ 整条**不显示**（原版 `matchType == 0xA0` 才亮）");
-                Check(!drv.ReplayClickAt(rb.PauseWorldPos),
-                      "★ 不显示时**点它也不接**（`ReplayClickAt` 那道闸 —— 否则会看不见地触发暂停）");
+                // 🔴 T09/A4：四颗**各挂一颗** `BattleHudButton`（`Play` / `Pause` 是两个 GO、各挂各的）
+                Check(rb.ButtonForTest(ReplayBar.Btn.Replay) != null
+                   && rb.ButtonForTest(ReplayBar.Btn.Play) != null
+                   && rb.ButtonForTest(ReplayBar.Btn.Pause) != null
+                   && rb.ButtonForTest(ReplayBar.Btn.Step) != null,
+                      "★ T09/A4：四颗**各挂了一颗** `BattleHudButton`（Play/Pause 是同 rect 的两个 GO，各挂各的）"
+                    + "｜🧨 只挂一颗再按 `activeSelf` 分派（旧手搓写法）⇒ 本条红");
+                bool pausedBeforeHide = drv.ReplayPaused;
+                Check(!rb.ClickForTest(ReplayBar.Btn.Pause) && drv.ReplayPaused == pausedBeforeHide,
+                      "★ 不显示时**点它也不接**（uGUI：`Holder` 关着 ⇒ `activeInHierarchy` 为假 ⇒ 收不到射线；"
+                    + "原来那道手搓 `HolderVisible` 闸的作用由它接管）"
+                    + "｜🧨 把 `Holder` 的开关挪到根节点之外 / 或加一条手搓命中 ⇒ 本条红");
                 rb.Setup(true);                    // 下面的交互断言要在「回放局」这个前提下走
                 Check(rb.HolderVisible, "★ 摆成回放局 ⇒ 整条亮起来（开关在 `Holder` 那一层，不是根节点）");
                 Check(rb.VisibleCount == 3, $"同屏 3 枚（Play/Pause 互斥），实得 {rb.VisibleCount}");
@@ -14650,10 +14679,18 @@ public static class BattleScene
                 Check((rb.PlayWorldPos - rb.PauseWorldPos).magnitude < 0.0001f,
                       "Play 与 Pause **同座标**（原版就是互斥的两张图）");
 
-                // 暂停 / 继续 —— 走**和真实点击同一条判定**
-                Check(drv.ReplayClickAt(rb.PauseWorldPos) && drv.ReplayPaused, "★ 点一下 → 进入暂停");
+                // 暂停 / 继续 —— 走 **uGUI 那一跳**（`BattleHudButton` → `Clicked` → `LateUpdate` 落账）
+                Check(rb.ClickForTest(ReplayBar.Btn.Pause), "★ T09/A4：暂停钮**点得动**（uGUI `BattleHudButton`）");
+                Check(!drv.ReplayPaused,
+                      "★ T09/A4：点击回调**只挂起、不当场改状态**（动作在 `LateUpdate` 落账 —— 同 S1）"
+                    + "｜🧨 在 `OnReplayButtonClicked` 里直接 `SetReplayPaused` ⇒ 本条红");
+                Check(drv.ApplyPendingReplayForTest() && drv.ReplayPaused, "★ 点一下 → 进入暂停");
                 Check(rb.PlayShown, "停住时亮的是「播放」那枚（点它继续）");
-                Check(drv.ReplayClickAt(rb.PlayWorldPos) && !drv.ReplayPaused, "再点一下 → 继续播");
+                Check(!rb.ClickForTest(ReplayBar.Btn.Pause),
+                      "★ T09/A4：停住时**藏着的那一枚**收不到射线（uGUI `activeSelf` 互斥；原版就是两张图）"
+                    + "｜🧨 给 Play/Pause 挂同一颗按钮、靠 `Hit` 判 `activeSelf` 分派（旧手搓写法）⇒ 本条红");
+                Check(rb.ClickForTest(ReplayBar.Btn.Play) && drv.ApplyPendingReplayForTest() && !drv.ReplayPaused,
+                      "再点一下 → 继续播");
 
                 // 单步：先打一刀造出待播事件（攻击的「抬刀」那一段是有延迟的）
                 int a2, tp2, ts2;
@@ -14664,15 +14701,54 @@ public static class BattleScene
                 int queued = drv.TimelinePending;
                 Check(queued > 0, $"打一刀之后有待播事件（{queued} 条 —— 「抬刀」那一段）");
                 int after = queued;
-                Check(drv.ReplayClickAt(rb.StepWorldPos) && drv.TimelinePending == after - 1,
+                Check(rb.ClickForTest(ReplayBar.Btn.Step) && drv.ApplyPendingReplayForTest()
+                   && drv.TimelinePending == after - 1,
                       $"★ 单步推掉一条（{after} → {drv.TimelinePending}）");
                 Check(drv.ReplayPaused, "单步会**先停下**（和视频编辑器一个习惯）");
 
                 // 重开：换一局，且**暂停态不跨局带过去**
                 var old = drv.Ctx;
-                Check(drv.ReplayClickAt(rb.ReplayWorldPos) && drv.Ctx != old, "★ 点重开 → 换了一局");
+                Check(rb.ClickForTest(ReplayBar.Btn.Replay) && drv.ApplyPendingReplayForTest() && drv.Ctx != old,
+                      "★ 点重开 → 换了一局");
                 Check(!drv.ReplayPaused, "重开之后回到「正在播」（暂停态不带过去）");
+
+                // 🔴 **2026-10-21（`T09` A4 · **手搓路已退** · 结构性那一半）**：驱动里不再有
+                //   `ReplayClickAt`、`ReplayBar` 里不再有 `Hit(Vector3)`。
+                //   行为那一半在上面 `T09-FIX5/P0-2` 那组末条（把指针压在暂停钮矩形上喂松手沿 ⇒ 什么都没发生）。
+                //   ⚠️ 只数**活代码行** —— 以 `//` 开头的（含 `///`）留痕注释不算（那些提到名字是故意的）。
+                //   🧨 把任何一条手搓命中加回来 ⇒ 本条红（两条路并存 = 一次点击做两遍，`T09` §四 R1）。
+                {
+                    string drvSrcPathA4 = System.IO.Path.Combine(Application.dataPath,
+                                                                 "CardPresentation/Battle/BattleDriver.cs");
+                    string rbSrcPathA4 = System.IO.Path.Combine(Application.dataPath,
+                                                                "CardPresentation/Battle/ReplayBar.cs");
+                    if (!System.IO.File.Exists(drvSrcPathA4) || !System.IO.File.Exists(rbSrcPathA4))
+                        Check(false, "★ T09/A4：（前提）读得到 `BattleDriver.cs` / `ReplayBar.cs` —— "
+                                   + "读不到时下面这条源级断言**等于没验**，所以这里当场红");
+                    else
+                    {
+                        int liveDrvA4 = 0, liveRbA4 = 0;
+                        foreach (var L0 in System.IO.File.ReadAllLines(drvSrcPathA4))
+                        {
+                            string L = L0.TrimStart();
+                            if (L.StartsWith("//")) continue;
+                            if (L.IndexOf("ReplayClickAt(", System.StringComparison.Ordinal) >= 0) liveDrvA4++;
+                        }
+                        foreach (var L0 in System.IO.File.ReadAllLines(rbSrcPathA4))
+                        {
+                            string L = L0.TrimStart();
+                            if (L.StartsWith("//")) continue;
+                            if (L.IndexOf("Hit(Vector3", System.StringComparison.Ordinal) >= 0) liveRbA4++;
+                        }
+                        Check(liveDrvA4 == 0 && liveRbA4 == 0,
+                              $"★ T09/A4（**手搓路已退**）：`BattleDriver` 里 `ReplayClickAt` 活代码 {liveDrvA4} 处 · "
+                            + $"`ReplayBar` 里 `Hit(Vector3` 活代码 {liveRbA4} 处（都必须 = 0）"
+                            + "｜🧨 把任何一条手搓命中加回来 ⇒ 本条红（uGUI 与手搓并存 = 一次点击做两遍）");
+                    }
+                }
                 Shot(cam, "19_回放条");
+                // 还原成普通对局：可见的回放条会让 `HandleReplayBar` 吞掉后面所有段的整帧输入链
+                rb.Setup(false);
             }
         }
 
@@ -14957,13 +15033,19 @@ public static class BattleScene
                 for (int i = 0; i < hand.Count; i++)
                 {
                     if (!VoiceLines.Has(hand[i].Card.Id)) continue;   // ⚠️ 要**卡 id（字符串）**，不是实例号（int）
+                    // 🆕 2026-10-21（战斗线四笔静态项 · 笔 3）：**部署这一档现在只走精确绑定**
+                    //   （原版 `summonAudio`；`VoiceLinesController__DisplaySummonMessage.c:36-75` 取不到就 return、
+                    //    没有后缀兜底）⇒ 这一条端到端必须挑一张**真有可用精确绑定**的卡，
+                    //   否则它测的是一条已经不存在的退路（会变成「断言过期」式的假红）。
+                    if (!VoiceLines.TryPickExact(hand[i].Card.Id, VoiceLines.ExactDeploy, out string _exfPick, out _)
+                        || VoiceLines.Clip(_exfPick) == null) continue;
                     if (RuleCore.CostOf(drv.Ctx, drv.MyIndex, hand[i]) > drv.Ctx.Players[drv.MyIndex].Energy) continue;   // 第 7 行第 3 步：按**那一份**算
                     voiced = i;
                     break;
                 }
                 if (voiced < 0)
                 {
-                    Debug.Log(P + "   （这一手没有带语音的卡，跳过「事件驱动」那两条断言）");
+                    Debug.Log(P + "   （这一手没有**带精确部署绑定**的卡，跳过「事件驱动」那两条断言）");
                 }
                 else
                 {
@@ -15010,6 +15092,63 @@ public static class BattleScene
                         chat.Advance(10f);      // 气泡停留 = clamp(文本长,1,4)+0.4 ≤ 4.4 s ⇒ 10 s 足够
                         Check(chat.ShownSide == -1, "★ 停留时间走完 → 气泡自己收起来");
                     }
+                }
+
+                // ---- 🆕 2026-10-21（战斗线四笔静态项 · 笔 3）：**没有 `summonAudio` 的卡，部署时不出声、不弹气泡** ----
+                //   判据 = `d:/2/tools/decomp_full/VoiceLinesController__DisplaySummonMessage.c:36-75`：
+                //     `GetSummonSound()` 为 null ⇒ **直接 return**（气泡 + 语音一起没有）；
+                //     台词为空也只 `CustomDebug.LogError(<卡名>)`、**不 `ShowChatBox`**。
+                //   ⇒ 原版**没有**「按文件名后缀猜一条」这条退路（那一跳是我们早期自己加的）。
+                //   名单 = 现核里「`deploy` 行 text 全空 + 无 `summonAudio`」的那 6 张
+                //   （`资料/普查产出_1019/W_战斗线_T19现核_1019b.md` §二 的 `A1858` 残留）。
+                {
+                    string[] noSummon = { "AM66", "ASH3", "BL34", "BL35", "SAU36", "UM48" };
+                    int stillNoBinding = 0;
+                    var wronglyBound = new List<string>();
+                    foreach (var id in noSummon)
+                    {
+                        string f0, t0;
+                        if (!VoiceLines.TryPickExact(id, VoiceLines.ExactDeploy, out f0, out t0)) stillNoBinding++;
+                        else wronglyBound.Add(id + " → " + f0);
+                    }
+                    Check(stillNoBinding == noSummon.Length,
+                          $"★ T19（数据级）：这 {noSummon.Length} 张卡**都没有** `summonAudio` 精确绑定"
+                        + $"（实得 {stillNoBinding} 张没有；多出来的绑定：{string.Join(" · ", wronglyBound.ToArray())}）"
+                        + "｜数据哪天补上 `summonAudio` ⇒ 本条红，跟着改名单，⛔ 别删");
+
+                    // 行为级：喂一条 `Deploy` ⇒ **不说话**（气泡也不弹）。
+                    //   🔴 **挑 `UM48` 当主判据**：它属于本局的**我方阵营**（`Ultramarines`），
+                    //     `SpeakFor` 才解析得到卡（`CardDatabase.Find(_pool, 名, 阵营)`）；
+                    //     `AM66` 是 AstraMilitarum、在这一局里**解析不到卡** ⇒ 那条早退会让断言
+                    //     「因为错的原因」变绿（自证）。两条都跑，但**只有 `UM48` 那条有判别力**。
+                    //   🧨 把 `SpeakFor` 里 `if (e.Kind == EvtKind.Deploy && clip == null) return;` 删掉
+                    //     （= 恢复 deploy 后缀兜底）⇒ `UM48` 从 `deploy` 桶捞到
+                    //     `VO_BlackLegion_Hexscorn_vs_Varro.ogg`（盘上真有）⇒ 气泡冒出、本条红。
+                    string[] idsToProbe = { "AM66", "UM48" };
+                    var probeResult = new List<string>();
+                    var allCards = CardDatabase.Load();       // 进程级缓存，只取一份（`FindById` 每次扫一遍）
+                    bool allSilent = true;
+                    foreach (var id in idsToProbe)
+                    {
+                        var def = CardDatabase.FindById(allCards, id);
+                        if (def == null) { probeResult.Add(id + ":卡池里没有"); continue; }
+                        chat.HideAll();
+                        chat.StopVoice();
+                        // ⚠️ `Slot` **必须显式给 −1**：`BattleEvent.Slot` 默认 0 是**合法格号**，
+                        //    `SpeakFor` 会先看 `board[0]`（我方督军）⇒ 拿到的就不是这张卡了（静默测错对象）。
+                        drv.SpeakForForTest(new BattleEvent
+                        {
+                            Kind = EvtKind.Deploy, Player = drv.MyIndex, Slot = -1, CardId = def.Name,
+                        });
+                        int side = chat.ShownSide;
+                        bool silent = side == -1;
+                        if (!silent) allSilent = false;
+                        probeResult.Add($"{id}({def.Name}) → ShownSide={side}");
+                    }
+                    Check(allSilent,
+                          "★ T19（行为级）：无 `summonAudio` 的卡部署时**不出声、不弹气泡**"
+                        + $"（{string.Join(" · ", probeResult.ToArray())}；期望全部 −1）"
+                        + "｜🧨 把 `SpeakFor` 的 deploy 后缀兜底放回去 ⇒ `UM48` 那条红");
                 }
 
                 // ---- 🆕 2026-09-25：**台词不许溢出**台词框（`项目任务.md` §三 第 12 条 第 2 项）----
@@ -15606,6 +15745,40 @@ public static class BattleScene
                         for (float t = 0f; t < 2f && pop.Visible; t += 1f / 30f) Step(1f / 30f);
                         Check(outsideAte && !pop.Visible,
                               $"★ 点面板外 → 面板关掉（原版那条全屏关闭区；淡出 {ChatPopupPanel.FadeTime}s）");
+
+                        // ---- 🔴 **2026-10-21（真缺陷 · 补断言）**：`Show()` 必须清掉「挂起的关闭」----
+                        //  病根（已修，`Battle/ChatPopupPanel.cs` 的 `Show()` 里那句 `_closePending = false;`）：
+                        //    `OnClosePointerDown` 只**挂起**关闭（真正落账在 `LateUpdate`）⇒ 同一帧里紧接着
+                        //    `Show()` 重开面板时，帧末 `ApplyPendingClose()` 会把**刚开的这扇窗**关掉，
+                        //    再发一次 `CloseRequested`（驱动那边也当玩家关了）。
+                        //  判据/同款两处 → `Show()` 里那段注释（`MultiCardDisplay.cs` · `CardDisplayWindow.cs`）。
+                        //  ⚠️ **不加测试口**：走 `ExecuteEvents` 把 `PointerDown` 派给关闭区那颗 `EventTrigger`
+                        //    （= 生产那条输入链的入口；`OnClosePointerDown` 本身是私有的，别为它开一个 setter）。
+                        if (pop.IsUgui)
+                        {
+                            pop.Show();                      // 必须开着：`OnClosePointerDown` 有 `Interactable` 闸
+                            var closeGo = pop.CloseTriggerForTest != null
+                                        ? pop.CloseTriggerForTest.gameObject : null;
+                            Check(closeGo != null,
+                                  "（前提）关闭区那颗 `EventTrigger` 在（原版 `CloseChatPopup` 的 `PointerDown`）");
+                            if (closeGo != null)
+                            {
+                                ExecuteEvents.Execute<IPointerDownHandler>(
+                                    closeGo, NewPointerEventData(), ExecuteEvents.pointerDownHandler);
+                                Check(pop.ClosePendingForTest,
+                                      "（前提）按下关闭区 ⇒ 关闭**已挂起**（`LateUpdate` 本帧还没跑）");
+                                pop.Show();                  // 同帧又把面板开回来
+                                Check(!pop.ClosePendingForTest,
+                                      "★ `ChatPopupPanel.Show()` **清掉挂起的关闭**（`ClosePendingForTest == false`）"
+                                    + "｜🧨 把 `Show()` 里那句 `_closePending = false;` 删掉 ⇒ 本行红");
+                                bool fell = pop.ApplyPendingClose();   // 批处理没有帧循环 ⇒ 手动落一次帧末那一跳
+                                Check(!fell && pop.Visible,
+                                      "★ …于是帧末 `ApplyPendingClose()` **空转**（返回 false）、刚开的窗**没被关掉**"
+                                    + "（`Visible == true`）"
+                                    + "｜🧨 删掉 `Show()` 里那句 `_closePending = false;` ⇒ 本条也红（`Hide()` 会把刚开的面板关掉）");
+                            }
+                            pop.HideImmediate();             // 收尾：本节最后的状态仍是「关着」
+                        }
                     }
                 }
                 // ---- 🆕 2026-10-19（战斗线 `T17` · 账 `A1754`/`A1805`）：**台词文本 = 官方 `Chat_Messages/*`** ----
@@ -21841,7 +22014,9 @@ public static class BattleScene
             Check(driver.AiShouldDriveOpponent, "拆掉联机层 ⇒ 又回到单机那一路（幂等，不留后遗症）");
 
             Debug.Log(P + "--- 联机客机视图（`_me = 1`）：自己那侧该在屏幕下半 ---");
-            driver.SetMySeat(1);
+            // 🆕 2026-10-21（`T04`）：这是**局已开始之后**翻座位（前面几节已经在场上摆过东西了）
+            //   ⇒ 传 `rebuildViews: true`，让视图侧按新座位整套重建（`BattleDriver.SetMySeat` 的 doc）。
+            driver.SetMySeat(1, rebuildViews: true);
             Check(driver.MyIndex == 1, "`SetMySeat(1)` ⇒ `MyIndex = 1`（引擎那边一切照旧，只是视图翻过来）");
             // 引擎侧不变：`Ctx.Players[1]` 就是「我」那一方
             Check(driver.Ctx == ctx, "换座位**不动引擎**（同一个 `Ctx`，只是「哪一侧画在下面」变了）");
@@ -21879,13 +22054,26 @@ public static class BattleScene
                 //    这里要钉的是：**`MyUnits` 认的必须是 `_me` 那一方的棋子、`FoeUnits` 认另一方**。
                 //
                 // 🆕 2026-10-20（W58 · P1-B/13）：`DeployFree` → `RefreshAll` 时 `Deploy` 事件排在**队尾**
-                //   ⇒ `SyncBoard` 被 `IsPendingDeploy` 压着**不建视图**（`BattleDriver.cs:17482`）⇒ 翻座位后
+                //   ⇒ `SyncBoard` 被 `IsPendingDeploy` 压着**不建视图**（`BattleDriver.cs:17652`）⇒ 翻座位后
                 //   两边都读到 null（日志 `70192/70218`）。**先把旧队排空**，让两条 `Deploy` 在这一步演到。
-                //   ⚠️ 若排空后仍为 null：下面那条红会把 `DeployPendingForTest` 和两边字典的实际内容一起打出来
-                //   —— 用来分清「还是 pending-deploy」还是「`SetMySeat` 中途翻座位没重映射身份表」
-                //   （后者是生产侧未支持场景，诊断 §B 已记；本夹具只负责把原因打出来）。
-                DrainQueue(driver);
-                driver.SetMySeat(1); driver.RefreshAll();
+                //   ⚠️ 若排空后仍为 null：下面那条红会把 `DeployPendingForTest` 和两边字典的实际内容一起打出来。
+                // 🔴 **2026-10-21（`T04`）就地订正（铁律 5）**：这一行原来写「`SetMySeat` 中途翻座位
+                //   **生产侧未支持**，本夹具只负责把原因打出来」—— **已不成立**：`SetMySeat` 现在有
+                //   `rebuildViews: true`（真翻座位时按新座位把视图侧整套重建）⇒ 「翻座位之后建不出件」
+                //   不再是已知缺口，而是本节**断言 A / B** 钉住的行为。
+                // ⚠️ **2026-10-21（`T04` 审查）再订正**：上面「`DrainQueue` 让两条 `Deploy` 在这一步演到」
+                //   **位置不对** —— `DeployFree` 只是把事件写进 `Ctx.Signals`（`RuleCore.DeployFree` 里那句
+                //   `ctx.Emit(EvtKind.Deploy, …)`）；它们是在 **`RefreshAll → PlaySignals`** 里才记账、排期的。
+                // 🔴 **2026-10-21（`T04` 实跑订正，铁律 5）**：这两条 `Deploy` 排在同一批里，但**只有排在
+                //   前面那条是「当刻到期」的** —— 实跑（`BattleScene.Run` 4071/2）读到
+                //   `seat1/5=False · seat0/1=True`：第二条还在队尾、`IsPendingDeploy`（`BattleDriver.cs:17652`）
+                //   把 `FoeUnits[1]` 继续压住（**这条断言当场就是红在这**，不是「两边都没建」）。
+                //   ⇒ 修法 = **排两次队**：先排空**更早几节遗留**的队尾（否则下面新摆的卡会被旧事件打掉，
+                //   同 `:6858` 那条教训），`RefreshAll` 之后再排一次，让这两条 `Deploy` **真的演到**
+                //   （演到 = `CompletePendingDeploy` 销账 + `_syncAfterDeploy` 那次 `SyncBoard` 建件）。
+                DrainQueue(driver);                        // ① 先清「更早几节遗留」的队尾
+                driver.SetMySeat(1); driver.RefreshAll();  // ② 记账 + 排期（两条 Deploy 进时间线，尚未演到）
+                DrainQueue(driver);                        // ③ 再排一次：让两条 Deploy 演到（销账 + 建件）
                 var vm = Lookup(driver.MyUnits, mineSlot);
                 var vf = Lookup(driver.FoeUnits, foeSlot);
                 CardView vm0 = null, vf0 = null;
@@ -21903,7 +22091,18 @@ public static class BattleScene
                   + $"seat0/{foeSlot}={driver.DeployPendingForTest(0, foeSlot)}；期望 {card1.Name} / {card0.Name}）");
 
                 // 反向对照：座位 0 视角下**两个字典要认另一边**
-                driver.SetMySeat(0); driver.RefreshAll();
+                // 🆕 2026-10-21（`T04`）：这是**局已开始之后**翻座位（`_me` 1 → 0）——
+                //   必须 `rebuildViews: true`：否则身份表（`UnitViewMap` 按 `owner == _me` 挑表，
+                //   `BattleDriver.cs:994`）与登场账（键 = 绝对座位 `HpKey`，`:14281`）都停在旧座位
+                //   那一边 ⇒ `SyncBoard` 被 `IsPendingDeploy` 闸住（`:17652`）、两边的坑位都建不出件。
+                Check(card0.Name != card1.Name,
+                      "夹具前提：两边摆的是**不同名**单位（否则下面两条不辨方向）");
+                // 前提：`_me = 1` 时视图侧的「我方阵营」必须是**座位 1** 的（`FactionOf` 那条）。
+                Check(driver.MyFactionForTest == card1.Faction,
+                      $"（前提）`_me = 1` 时视图侧「我方阵营」= 座位 1 的阵营"
+                    + $"（实得 `{driver.MyFactionForTest}`，应为 `{card1.Faction}`）");
+                int seatRebuildsBefore = driver.SeatRebuildCountForTest;
+                driver.SetMySeat(0, rebuildViews: true); driver.RefreshAll();
                 vm0 = Lookup(driver.MyUnits, foeSlot);
                 vf0 = Lookup(driver.FoeUnits, mineSlot);
                 if (vm0 != null && vf0 != null)
@@ -21918,6 +22117,82 @@ public static class BattleScene
                   + $"{(vm0 == null ? "null" : vm0.Data.id)} / FoeUnits[{mineSlot}]={(vf0 == null ? "null" : vf0.Data.id)}；"
                   + $"DeployPending：seat0/{foeSlot}={driver.DeployPendingForTest(0, foeSlot)} · "
                   + $"seat1/{mineSlot}={driver.DeployPendingForTest(1, mineSlot)}；期望 {card0.Name} / {card1.Name}）");
+
+                // 🆕 2026-10-21（`T04`）**断言 A / B**：翻座位（1 → 0）之后视图侧要**整套按新座位重建**。
+                //   直接读当前两张表，不复用上面那两个变量（它们可能落在失败分支里、本来就是 null）。
+                var aMine = Lookup(driver.MyUnits, foeSlot);     // `_me = 0` ⇒ 座位 0 的兵在「我方」表里
+                var aFoe = Lookup(driver.FoeUnits, mineSlot);    // 座位 1 的兵在「敌方」表里
+                // 🔴 **灭自证（2026-10-21 审查后加强）**：只断「两个不同 id」**不够** —— **不重建**时
+                //   `SyncBoard` 还会走「认领旧视图」那条退路（`BattleDriver.cs:17671-17679`），把**另一侧**
+                //   槽位上的旧视图认过来、再 `SetData` 改掉 id ⇒ id 断言照样全过。⇒ 三条一起断：
+                //   ① 重建计数**真的** +1（`SeatRebuildCountForTest`，生产口径、只增）；
+                //   ② 那两件**不是翻之前的那两件**（`vm`/`vf` 是旧对象；批处理里 `Kill` = `DestroyImmediate`
+                //      ⇒ 它们已变「假 null」，而 `ReferenceEquals` 仍认得出「同一个对象被认领过来」）；
+                //   ③ 两件不是同一对象、id 各自等于**绝对座位**那一方的卡。
+                Check(driver.SeatRebuildCountForTest == seatRebuildsBefore + 1,
+                      "★ 这次翻座位走的是**重建**那条路（`SeatRebuildCountForTest` "
+                    + $"{seatRebuildsBefore} → {driver.SeatRebuildCountForTest}，应 +1）");
+                // 🔴 第二条判别式：**翻之前那两件必须已经被销毁**（批处理里 `Kill` = `DestroyImmediate`
+                //   ⇒ Unity 的 `== null` 对已销毁对象为真）。不重建的话它们还活着 ⇒ 本条红。
+                Check(vm == null && vf == null,
+                      "★ 翻座位重建时**旧的那两件视图被销毁了**（`vm`/`vf` 应成 Unity 假 null；"
+                    + $"实得 vm={(vm == null ? "null" : "还在")} / vf={(vf == null ? "null" : "还在")}）"
+                    + " —— 🧨 不重建 ⇒ 旧视图留着（两张表各多一条脏账）⇒ 本条红");
+                Check(aMine != null && aFoe != null,
+                      "★ `_me` 1→0 翻座位之后：**两边的场上视图都重建出来了**"
+                    + $"（MyUnits[{foeSlot}]={(aMine == null ? "null" : aMine.Data.id)} / "
+                    + $"FoeUnits[{mineSlot}]={(aFoe == null ? "null" : aFoe.Data.id)}）");
+                Check(aMine != null && aFoe != null
+                      && !ReferenceEquals(aMine, aFoe)
+                      && !ReferenceEquals(aMine, vf) && !ReferenceEquals(aFoe, vm)
+                      && aMine.Data.id != aFoe.Data.id
+                      && aMine.Data.id == card0.Name && aFoe.Data.id == card1.Name,
+                      "★ 翻座位之后那两件是**新建的、不同的对象、不同的卡**，且各自认的是**绝对座位**那一方"
+                    + $"（我方「{(aMine == null ? "null" : aMine.Data.id)}」应为「{card0.Name}」/ "
+                    + $"对面「{(aFoe == null ? "null" : aFoe.Data.id)}」应为「{card1.Name}」）"
+                    + "｜🧨 没重建 / 只清一张表 / 把另一侧的旧视图认领过来（`SetData` 会改 id）⇒ 本条红");
+                // 阵营那两格也是**视图侧**（`FactionOf(seat)`）—— 翻回 0 之后「我方阵营」必须是座位 0 的，
+                // 否则重建出来的视图描边色 / 卡背停在旧座位（翻过去了、颜色没翻）。
+                Check(driver.MyFactionForTest == card0.Faction,
+                      "★ 翻回 `_me = 0` 之后视图侧「我方阵营」= 座位 0 的阵营"
+                    + $"（实得 `{driver.MyFactionForTest}`，应为 `{card0.Faction}`）");
+
+                // ---- 断言 B（2026-10-21 审查后**重做**）----
+                //  原来那版断「翻座位之后那两笔登场账都作废」：③ 把两条 `Deploy` 都演到之后，走到翻转
+                //  这一步时两本账**本来就是空的** ⇒ 那条断言恒绿（不辨真假）。⇒ 改成**自己造一笔
+                //  「还没演到」的登场**：
+                //  往 `Ctx.Signals` 塞一条 `Deploy`（那一格本来就站着人 ⇒ `NotePendingDeploy` 会记账，
+                //  `InstanceId` 取那一份自己的号，判据 = `BattleDriver.NotePendingDeploy`：14944 起），`RefreshAll` 之后
+                //  ① 先确认账上**真的**压着一笔（否则下面那条不辨真假 —— 如实说没验，不装作验过）；
+                //  ② 再翻座位 ⇒ 那一笔必须被作废。
+                var bUnit = ctx.Players[0].Board[foeSlot];
+                if (bUnit != null)
+                {
+                    ctx.Signals.Add(new BattleEvent
+                    {
+                        Kind = EvtKind.Deploy, Player = 0, Slot = foeSlot,
+                        CardId = card0.Name, InstanceId = bUnit.InstanceId,
+                    });
+                    driver.RefreshAll();                      // 记账 + 排期（还没演到 ⇒ 账上压着）
+                    if (driver.DeployPendingForTest(0, foeSlot))
+                    {
+                        int bBefore = driver.SeatRebuildCountForTest;
+                        driver.SetMySeat(1, rebuildViews: true);
+                        Check(driver.SeatRebuildCountForTest == bBefore + 1,
+                              "（B 的前提）这一次翻座位**真的重建**了（`SeatRebuildCountForTest` 应 +1）");
+                        Check(!driver.DeployPendingForTest(0, foeSlot)
+                              && driver.DeployPendingInstanceForTest(0, foeSlot) == 0,
+                              "★ 翻座位重建之后，那笔**还没演到**的登场账被作废了"
+                            + $"（`DeployPending`(0,{foeSlot}) = {driver.DeployPendingForTest(0, foeSlot)}，"
+                            + $"实例号 {driver.DeployPendingInstanceForTest(0, foeSlot)}）"
+                            + " —— 🧨 不清的话它会把重建后的视图继续闸住（`SyncBoard` 的 `continue`）");
+                        driver.SetMySeat(0, rebuildViews: true);   // 还原（下面 19b 按 `_me = 0` 写）
+                    }
+                    else
+                        Debug.LogWarning(P + "  ⚠️ **登场账作废那一条没验**：塞进去的 `Deploy` 在 `RefreshAll`"
+                                         + " 里当场就演完了（账上已经是空的）—— 如实说没验，不装作验过");
+                }
+                else Check(false, $"（B 的前提）槽 {foeSlot} 上还站着座位 0 那个单位（拿不到就造不出「还没演到的登场」）");
 
                 // ---- 19b. 客机视角：**其余 HUD 认的是不是 `_me` 那一方** ----
                 //  判据：`BattleDriver.UpdateHud` 里 `me = Ctx.Players[_me]` / `foe = Ctx.Players[1 - _me]`
@@ -21938,10 +22213,12 @@ public static class BattleScene
                     {
                         return BattleDriver.CountText(BattleDriver.DeckCountTerm, ctx.Players[seat].Deck.Count);
                     }
-                    driver.SetMySeat(0); driver.RefreshAll();
+                    // 🆕 2026-10-21（`T04`）：本节所有翻座位调用都带 `rebuildViews: true`
+                    //   （同值再调 = 幂等，只打日志；真翻的时候才拆表重建）。
+                    driver.SetMySeat(0, rebuildViews: true); driver.RefreshAll();
                     Check(driver.MyEnergyText == WantE(0) && driver.FoeEnergyText == WantE(1),
                           $"（对照）主机视角：能量条两侧各认自己的（{driver.MyEnergyText} / {driver.FoeEnergyText}）");
-                    driver.SetMySeat(1); driver.RefreshAll();
+                    driver.SetMySeat(1, rebuildViews: true); driver.RefreshAll();
                     Check(driver.MyEnergyText == WantE(1),
                           $"★ 客机视角：**我方能量 = 座位 1 的**（实得 {driver.MyEnergyText}，应为 {WantE(1)}）");
                     Check(driver.FoeEnergyText == WantE(0),
@@ -21959,7 +22236,7 @@ public static class BattleScene
                           + $"只剩阵营；实得「{driver.FoePlateText}」）");
                     // ⚠️ **必须把座位还原成 0** —— 原来这行夹在那两条断言中间，改断言时**差点丢掉**
                     //    （丢了后面那批「同一局面」的用例就全在客机视角下跑，会静默改变语义）。
-                    driver.SetMySeat(0); driver.RefreshAll();
+                    driver.SetMySeat(0, rebuildViews: true); driver.RefreshAll();
                     ctx.Players[0].Energy = e0; ctx.Players[1].Energy = e1;
                     ctx.Players[0].Warlord.Health = h0; ctx.Players[1].Warlord.Health = h1;
 
@@ -21973,11 +22250,11 @@ public static class BattleScene
                     bool foeSlotEmptyForSeat1 = ctx.Players[1].Board[foeSlot] == null;
                     if (foeSlotEmptyForSeat1)
                     {
-                        driver.SetMySeat(1); driver.RefreshAll();
+                        driver.SetMySeat(1, rebuildViews: true); driver.RefreshAll();
                         Check(!driver.SimulateOpenCommand(foeSlot),
                               $"★ 客机视角：点槽 {foeSlot}（**座位 1 那边是空的**）⇒ **弹不出选择器**"
                               + "（`OpenCommand` 读的是 `Players[_me]` ⇒ 对面那个兵不算我的）");
-                        driver.SetMySeat(0); driver.RefreshAll();
+                        driver.SetMySeat(0, rebuildViews: true); driver.RefreshAll();
                         Check(driver.SimulateOpenCommand(foeSlot),
                               $"（对照）主机视角：同一个槽 {foeSlot} 是**我自己的兵**（且已解行动） ⇒ 弹得出选择器");
                         if (driver.SelectorOpen) driver.SimulateCommand(AttackKind.Melee);   // 收起，别留给下一节
@@ -21987,11 +22264,11 @@ public static class BattleScene
                                          + "（拿不到「一侧空着」的槽）—— 如实说没验，不装作验过");
                 }
 
-                driver.SetMySeat(0); driver.RefreshAll();
+                driver.SetMySeat(0, rebuildViews: true); driver.RefreshAll();
             }
             else Check(false, "客机视角：能给两边各摆一个单位（`DeployFree`）");
 
-            driver.SetMySeat(0);        // 🔴 **还原**（后面 `CheckSavedScene` 那一节还要用）
+            driver.SetMySeat(0, rebuildViews: true);   // 🔴 **还原**（后面 `CheckSavedScene` 那一节还要用）
             driver.RefreshAll();
         }
 
@@ -23669,73 +23946,164 @@ public static class BattleScene
                         Check(pop4 != null && pop4.Ready, "★ A462：（前提）`ChatPopup` 建起来了");
                         if (pop4 != null && pop4.Ready)
                         {
-                            // ① 条外关闭：拿「`ChatButton` 那一颗」当条外的一点（实测它在面板矩形外 ——
-                            //    面板 x 77.2..680.8 / y 481.9..777.3，那颗钮在 (50.9, 880)）
+                            // ① 条外关闭：**uGUI `CloseChatPopup` 的 `EventTrigger` + `PointerDown`** ——
+                            //    🔴 **2026-10-21（战斗线 `T09` A4 · 步骤 S1）就地改口径（铁律 5）**：驱动那条手搓支
+                            //    （`ClickedThisFrame()` + `PointerDownAt`）已整段退场 ⇒ 这条断言不再喂手搓指针，
+                            //    改为「**uGUI 入口点一次 ⇒ 动作 1 次 + `TickChatInputForTest()` 只做模态吞掉**」。
                             pop4.Show();
+                            Check(pop4.UguiInputReadyForTest,
+                                  "★ A462：（前提）`ChatPopup` 的 uGUI 输入层整组装好（6 条命中条 + 关闭区触发器）");
+                            var pd4 = new UnityEngine.EventSystems.PointerEventData(
+                                           UnityEngine.EventSystems.EventSystem.current);
+                            // 按下那一帧（世界侧）：先喂一次按下沿，好让下面那条「松手沿被吞」有东西可吞
                             BattleDriver.PointerWorldForTest = wb4.HudButtonWorldPosForTest("chat");
                             BattleDriver.PointerHeldForTest = true;
                             wb4.PollInputEdgesForTest();
-                            wb4.TickChatInputForTest();
-                            Check(!pop4.Visible,
-                                  "★ A462：`ChatPopup` 的**条外关闭**判的是**按下那一帧**"
+                            int close4 = pop4.UguiCloseCountForTest;
+                            var closeTrig4 = pop4.CloseTriggerForTest;
+                            Check(closeTrig4 != null,
+                                  "★ A462：（前提）关闭区那颗 `EventTrigger` 在（原版 `CloseChatPopup` 的 `PointerDown`）");
+                            if (closeTrig4 != null) closeTrig4.OnPointerDown(pd4);   // uGUI：原版那颗 `EventTrigger`
+                            Check(pop4.Visible && pop4.ClosePendingForTest && pop4.UguiCloseCountForTest == close4,
+                                  "★ A462：条外**按下** ⇒ 面板只记「待关」、**不当场 `Hide()`**"
+                                + "（`T09-FIX3` P1-3：当场关会让驱动这一帧看不到模态 ⇒ 同一按落到棋盘/手牌）");
+                            Check(wb4.TickChatInputForTest(),
+                                  "★ A462：气泡开着 ⇒ 驱动**只做模态吞掉**（`HandleChatPopup` 恒 true、不做事）");
+                            // 🔴 `ClickLog`：uGUI 入口那一下**仍记一笔**（判据 → `T09` 迁移计划 §四 R8）——
+                            //   驱动退掉手搓沿之后，这条记录必须由订阅方（`OnChatCloseRequested`）补上，
+                            //   否则真机点一下「日志里一条都没有」，而画面一切正常 = 典型静默。
+                            var chatProbe4 = Path.Combine(OutDir, "_wb4_chat_close_probe.txt");
+                            if (File.Exists(chatProbe4)) File.Delete(chatProbe4);
+                            ClickLog.OverridePath = chatProbe4;
+                            bool chatApplied4 = pop4.ApplyPendingClose();
+                            ClickLog.End();
+                            string chatBlk4 = ClickLog.LastBlock ?? "";
+                            ClickLog.OverridePath = null;
+                            Check(chatApplied4 && !pop4.Visible && pop4.UguiCloseCountForTest == close4 + 1,
+                                  "★ A462：……**面板自己的 `LateUpdate` 落账** ⇒ 关掉"
                                 + "（原版 `CloseChatPopup` = `EventTrigger` `eventID 2 = PointerDown`）");
+                            Check(chatBlk4.Contains("来源 BattleDriver") && File.Exists(chatProbe4),
+                                  "★ A462：……uGUI 那一下**进了「真实点击记录」**（`CloseRequested` → `LogClickBeat`）"
+                                + "｜🧨 把驱动那半边订阅摘掉 ⇒ 手搓沿退了、记录也没了 ⇒ 本条红（`wf_click.py` 验收口会少一大片）"
+                                + $"（探针文件 {(File.Exists(chatProbe4) ? "有" : "**没有**")}："
+                                + "`ClickLog.End()` 在没有新记录时会早退、`LastBlock` 停在上一笔 ⇒ "
+                                + "所以这里**同时看文件**，别只信那串文本）");
+                            // 同一次按住的**松手沿不许把聊天钮又点开**（`CloseRequested` → `_swallowNextRelease`）
                             BattleDriver.PointerHeldForTest = false;
                             wb4.PollInputEdgesForTest();
-                            wb4.TickChatInputForTest();
-                            // 🔴 **2026-10-19（`T09` A2）**：聊天钮已走 uGUI ⇒ 松手那一帧 `TickChatInputForTest`
-                            //   只剩「气泡开着」那条模态支（此刻气泡已被按下沿关掉 ⇒ 恒 false）。
-                            //   生产里 uGUI 的 `IPointerClickHandler` 只在「按下与松开命中的是同一件」时派发，
-                            //   而这一按的按下沿被 `ChatPopup` 的全屏关闭区吃掉了 ⇒ 同一次按住不会回头点开那颗钮
-                            //   （= 原版 `_swallowNextRelease` 那件事由 `EventSystem` 自己保证）。
-                            Check(!pop4.Visible,
-                                  "★ A462：……同一次按住的**松手沿不会把它又打开**（指针就压在那颗 `ChatButton` 上；"
-                                + "批处理这里喂的是手搓沿 —— 生产里 uGUI 的 click 需要按下/松开同一件，"
-                                + "按下已被面板的关闭区吃掉 ⇒ 同样不会重开）");
+                            Check(!wb4.ReleasedThisFrameForTest(),
+                                  "★ A462：……同一次按住的**松手沿被吞掉**（`OnChatCloseRequested` 里置 `_swallowNextRelease`）"
+                                + "｜🧨 删掉那一句 ⇒ 真机上松手会把聊天钮又点开（画面闪一下、看着像「点了没反应」）");
 
-                            // ② 选台词：按在钮上**不说话**，松手才说
+                            // ② 选台词：**按下那一帧不说**（uGUI `IPointerClickHandler` = 松手才派发），
+                            //    说哪一句由面板的 `BattleHudButton` → `ButtonClicked` → 驱动 `LateUpdate` 落账。
                             pop4.Show();
-                            var r4 = pop4.ButtonRect(0);
-                            BattleDriver.PointerWorldForTest =
-                                LayoutSpace.ToWorld((r4.x + r4.width * 0.5f) / 1920f,
-                                                    1f - (r4.y + r4.height * 0.5f) / 1080f);
-                            int clicked0 = pop4.LastClicked;
-                            BattleDriver.PointerHeldForTest = true;
-                            wb4.PollInputEdgesForTest();
-                            wb4.TickChatInputForTest();
-                            // ⚠️ 比的是「**没有变成 0**」而不是「等于上一帧那个值」—— 按下那一帧
-                            //    `PointerDownAt` 会把 `LastClicked` 归 -1（一次新的点击开始了），
-                            //    那是它本来就有的语义（见 `ChatPopupPanel.PointerDownAt`）。
-                            Check(pop4.Visible && pop4.LastClicked != 0,
-                                  $"★ A462：按在台词钮上 —— **按下那一帧不说那句**（`LastClicked` 实得 {pop4.LastClicked}，"
-                                + $"期望不是 0；上一帧是 {clicked0}）"
-                                + "（原版 6 颗 = `ChatPopupButton : EverguildButton` ⇒ `onClick` 在松手那一帧）");
-                            BattleDriver.PointerHeldForTest = false;
-                            wb4.PollInputEdgesForTest();
-                            wb4.TickChatInputForTest();
-                            Check(pop4.LastClicked == 0,
-                                  $"★ A462：……**松手那一帧才说那一句**（`LastClicked` 实得 {pop4.LastClicked}，期望 0）");
+                            var hit4 = pop4.ButtonClickComponentForTest(0);
+                            Check(hit4 != null,
+                                  "★ A462：（前提）台词钮的 uGUI 点击适配器在（不在 ⇒ 这颗钮点不动）");
+                            if (hit4 != null)
+                            {
+                                int uc4 = pop4.UguiButtonClickCountForTest;
+                                BattleDriver.PointerWorldForTest = pop4.ButtonWorldPos(0);
+                                BattleDriver.PointerHeldForTest = true;
+                                wb4.PollInputEdgesForTest();
+                                Check(wb4.TickChatInputForTest() && pop4.Visible
+                                   && pop4.UguiButtonClickCountForTest == uc4,
+                                      "★ A462：台词钮**按下那一帧不说话**（窗还开着、uGUI 点击计数不动）"
+                                    + "（原版 6 颗 = `ChatPopupButton : EverguildButton` ⇒ `onClick` 在松手那一帧）");
+                                BattleDriver.PointerHeldForTest = false;
+                                wb4.PollInputEdgesForTest();
+                                Check(wb4.TickChatInputForTest(),
+                                      "★ A462：……松手那一帧仍由驱动**吞掉**（模态；动作归面板的 uGUI）");
+                                hit4.ClickForTest();                     // uGUI：`IPointerClickHandler` 那一跳
+                                Check(pop4.UguiButtonClickCountForTest == uc4 + 1 && pop4.Visible,
+                                      "★ A462：uGUI **点一次 = 动作 1 次**，而且**窗还开着**"
+                                    + "（`Hide()` + 说话挂起到 `LateUpdate`，⛔ 不在 `EventSystem` 回调里当场做）");
+                                Check(wb4.ApplyPendingChatForTest() && !pop4.Visible,
+                                      "★ A462：……**落账之后才说那句 + 关气泡**"
+                                    + "（原版 `ClickChat`：先 `Hide` 再 `OnVoiceLinePressed`）"
+                                    + "｜🧨 把 `ReleasedThisFrame()` + `PointerUpAt` 那条手搓支加回 `HandleChatPopup` ⇒ "
+                                    + "上面「点一次 = 1」与「窗还开着」两条结构上不可能同时满足");
+                            }
                             if (pop4.Visible) pop4.Hide();
                         }
 
                         // ============================================================
-                        //  六、`#1` 多卡摊开窗：按下不关、松手才关
+                        //  六、`#1` 多卡摊开窗：关闭的**唯一入口** = 面板自己的 uGUI（`T09` A4 · S1）
+                        //    🔴 **2026-10-21 就地改口径（铁律 5）**：驱动那条手搓支
+                        //    （`ReleasedThisFrame()` + `_multiCards.Hide()`）已整段删除 ⇒ 这里不再断
+                        //    「松手那一帧才关」，改断「**驱动一条沿都不耗、一颗都不关**」（= 手搓路确实退了），
+                        //    关闭改由 uGUI 入口点一次 ⇒ 挂起 → 落账。
                         // ============================================================
                         Check(wb4.Ctx != null, "★ A462：（前提）这一局还有 `Ctx`（多卡窗靠牌库内容才开得起来）");
                         if (wb4.Ctx != null)
                         {
-                            wb4.ShowMyDeck(true);
-                            Check(wb4.MultiCardsVisibleForTest, "★ A462：（前提）多卡摊开窗开得起来");
-                            BattleDriver.PointerWorldForTest = LayoutSpace.ToWorld(0.5f, 0.5f);   // 随便一点（不是牌堆）
-                            BattleDriver.PointerHeldForTest = true;
-                            wb4.PollInputEdgesForTest();
-                            wb4.TickMultiCardsForTest();
-                            Check(wb4.MultiCardsVisibleForTest,
-                                  "★ A462：多卡窗**按下那一帧不关**（原版 `BackgroundCloseButton` / `Close` 钮都是 uGUI 点击）");
-                            BattleDriver.PointerHeldForTest = false;
-                            wb4.PollInputEdgesForTest();
-                            wb4.TickMultiCardsForTest();
-                            Check(!wb4.MultiCardsVisibleForTest,
-                                  "★ A462：……**松手那一帧才关**（改坏法：换回 `ClickedThisFrame()` ⇒ 前一条红）");
+                            var mcd4 = wb4.MultiCards;
+                            Check(mcd4 != null && mcd4.ContinueButtonForTest != null
+                               && mcd4.BackgroundCloseButtonForTest != null,
+                                  "★ A462：（前提）多卡摊开窗开得起来，且两颗 uGUI 关闭件（「继续」条 / 全屏背景）都在");
+                            if (mcd4 != null && mcd4.ContinueButtonForTest != null
+                                && mcd4.BackgroundCloseButtonForTest != null)
+                            {
+                                // ① 手搓那条路**已经退场**：按下 / 松手都不关窗
+                                wb4.ShowMyDeck(true);
+                                Check(wb4.MultiCardsVisibleForTest, "★ A462：（前提）多卡摊开窗开得起来");
+                                BattleDriver.PointerWorldForTest = LayoutSpace.ToWorld(0.5f, 0.5f);   // 随便一点（不是牌堆）
+                                BattleDriver.PointerHeldForTest = true;
+                                wb4.PollInputEdgesForTest();
+                                Check(wb4.TickMultiCardsForTest(),
+                                      "★ A462：窗开着 ⇒ 这一帧**被吞掉**（全屏模态，`TickMultiCards` 恒 true）");
+                                Check(wb4.MultiCardsVisibleForTest,
+                                      "★ A462：多卡窗**按下那一帧不关**");
+                                BattleDriver.PointerHeldForTest = false;
+                                wb4.PollInputEdgesForTest();
+                                Check(wb4.TickMultiCardsForTest() && wb4.MultiCardsVisibleForTest,
+                                      "★ A462：**松手那一帧也不关** —— 关闭只走面板自己的 uGUI 入口"
+                                    + "（原版 `BackgroundCloseButton` / `Close` 钮都是 uGUI 点击）"
+                                    + "｜🧨 把 `if (tapped) _multiCards.Hide();` 加回 `TickMultiCards` ⇒ 本条红"
+                                    + "（那正是「两条关闭路并存」= 一次点击走两遍）");
+
+                                // ② 点牌堆本身：同样只走 uGUI（全屏背景关闭件），驱动这一侧不关也不重开
+                                Vector3 deckW4 = wb4.MyDeckPlateWorldPos;
+                                Check(deckW4 != Vector3.zero && BattleDriver.HitMyDeckPile(deckW4),
+                                      "★ A462：（前提）牌堆底板的世界坐标落在 `HitMyDeckPile` 的命中区里");
+                                BattleDriver.PointerWorldForTest = deckW4;
+                                BattleDriver.PointerHeldForTest = true;
+                                wb4.PollInputEdgesForTest();
+                                wb4.TickMultiCardsForTest();
+                                Check(wb4.MultiCardsVisibleForTest,
+                                      "★ A462：指在牌堆上 —— **按下那一帧不关**");
+                                BattleDriver.PointerHeldForTest = false;
+                                wb4.PollInputEdgesForTest();
+                                Check(wb4.TickMultiCardsForTest() && wb4.MultiCardsVisibleForTest,
+                                      "★ A462：指在牌堆上 —— **松手那一帧也不再靠手搓关**（那条已退场；"
+                                    + "关这一下由全屏背景关闭件收）"
+                                    + "｜🧨 把「`if (tapped) Hide()` + `if (tapped && onDeck) ShowMyDeck(true);`」"
+                                    + "加回去 ⇒ 本条红（窗会被 hide 完立刻 show，永远关不掉）");
+
+                                // ③ uGUI：点「继续」⇒ 只挂起 → 面板 `LateUpdate` 落账（批处理手动落）
+                                int mcdClick4 = mcd4.UguiCloseClickCountForTest;
+                                // 🔴 `ClickLog`：uGUI 入口那一下仍记一笔（判据 → `T09` 迁移计划 §四 R8）
+                                var mcdProbe4 = Path.Combine(OutDir, "_wb4_multicard_close_probe.txt");
+                                if (File.Exists(mcdProbe4)) File.Delete(mcdProbe4);
+                                ClickLog.OverridePath = mcdProbe4;
+                                mcd4.ContinueButtonForTest.ClickForTest();
+                                ClickLog.End();
+                                string mcdBlk4 = ClickLog.LastBlock ?? "";
+                                ClickLog.OverridePath = null;
+                                Check(mcd4.Visible && mcd4.ClosePendingForTest
+                                   && mcd4.UguiCloseClickCountForTest == mcdClick4 + 1,
+                                      "★ A462：uGUI 点「继续」⇒ **只记「待关」**（窗还开着、不当场 `Hide`）");
+                                Check(mcdBlk4.Contains("来源 BattleDriver") && File.Exists(mcdProbe4),
+                                      "★ A462：……uGUI 那一下**进了「真实点击记录」**（`CloseRequested` → `LogClickBeat`）"
+                                    + "｜🧨 摘掉 `_multiCards.CloseRequested += LogClickBeat;` ⇒ 手搓沿退了、记录也没了 ⇒ 红"
+                                    + $"（探针文件 {(File.Exists(mcdProbe4) ? "有" : "**没有**")}；"
+                                    + "没记录时 `ClickLog.End()` 会早退、`LastBlock` 是上一笔 ⇒ 所以同时看文件）");
+                                Check(mcd4.ApplyPendingCloseForTest() && !mcd4.Visible,
+                                      "★ A462：……落账 ⇒ 关掉一次，而且**同一按不会被 `ShowMyDeck(true)` 开回来**"
+                                    + "｜🧨 改回手搓那两句 ⇒ 本条与上面那条**结构上不可能同时满足**");
+                            }
+                            wb4.ShowMyDeck(false);      // 收尾：别让窗挂着影响后面几段
                         }
 
                         // ============================================================
@@ -23935,24 +24303,28 @@ public static class BattleScene
                                         || L.StartsWith("public bool ClickedThisFrameForTest")) continue;   // 定义 / 自检口
                                     downCallSites.Add("行" + (i + 1) + ":" + L.Substring(0, Mathf.Min(52, L.Length)));
                                 }
-                                // **按下沿**允许留下的调用点（逐处判据 → WA462 §三 / §四）：
+                                // **按下沿**允许留下的调用点（逐处判据 → WA462 §三 / §四；**2026-10-21 现读**）：
                                 //  ① 日志面板背板 `shade`（原版 `EventTrigger` `eventID 2 = PointerDown`）
-                                //  ② `ChatPopup` 条外关闭 `CloseChatPopup`（同上）
-                                //  ③ 攻击选择器的**槽外取消**（原版没有对应物 —— 保持现状，WA462 §四·3）
-                                //  ④ `DrivePlayerTurn` ⑤ 记 `_pressSlot`（我们自己的中间态，纪律 3）
-                                //  ⑥ 🆕 **2026-10-16（W22）：结算后的出口**（`HandleEndBattleExit` 里那句
-                                //     `bool clicked = ClickedThisFrame();`）—— 原版那句就是
-                                //     `UnityEngine_Input__GetMouseButtonDown(0)`（`BattleManager__Update.c:116`），
-                                //     **本来就是按下沿**、而且**无坐标判定**（点屏幕任意处）⇒ 这一处**不该**改成抬起。
+                                //  ② 攻击选择器的**槽外取消**（原版没有对应物 —— 保持现状，WA462 §四·3）
+                                //  ③ 记 `_pressSlot`（我们自己的中间态，纪律 3）
+                                //  ④ 结算后的出口（`HandleEndBattleExit` 里那句 `bool clicked = ClickedThisFrame();`）——
+                                //     原版那句就是 `UnityEngine_Input__GetMouseButtonDown(0)`
+                                //     （`BattleManager__Update.c:116`），**本来就是按下沿**、而且**无坐标判定**
+                                //     （点屏幕任意处）⇒ 这一处**不该**改成抬起。
                                 //     判据全文 → `资料/普查产出_1016/判据_结算后出口.md` §2.1 / §3。
-                                //     ⚠️ **这一条的数从 4 改成了 5**（原来只列了 ①~④；同一天 W22 加了 ⑥）
-                                //        —— 订正痕在此，⛔ 别再按「只剩 4 处」去核。
+                                //  🔴 **2026-10-21（战斗线 `T09` A4 · 步骤 S1）：数从 5 改成 4** ——
+                                //     原来那条「`ChatPopup` 条外关闭 `CloseChatPopup`」**已退场**：
+                                //     气泡的条外关闭现在完全归面板自己的 uGUI（`EventTrigger.PointerDown` →
+                                //     `OnClosePointerDown`），驱动 `HandleChatPopup` 只做模态吞掉、**一条沿都不耗**。
+                                //     ⚠️ 旧注里列的「`DrivePlayerTurn`」那一处**早已不在这个函数上**（它直接读 `_downEdge`，
+                                //     见 `Update` 里那条注释）—— 那是旧注的残留，别再按它去核。
+                                //     🧨 判据：把 `ClickedThisFrame()` 加回 `HandleChatPopup` ⇒ 本条红（两条关闭路并存）。
                                 string joined4 = string.Join(" | ", downCallSites.ToArray());
-                                Check(downCallSites.Count == 5,
-                                      $"★ A462：`BattleDriver.cs` 里用**按下沿**的代码行**只剩 5 处**"
+                                Check(downCallSites.Count == 4,
+                                      $"★ A462：`BattleDriver.cs` 里用**按下沿**的代码行**只剩 4 处**"
                                     + $"（实得 {downCallSites.Count} 处：{joined4}）"
-                                    + " —— 多一处 = 有一条该改抬起的没改；少一处 = 把一个本来就该按下的改掉了"
-                                    + "（④~⑥ 那几处：`Update` 里两条沿的行为断言覆盖不到 ⇒ 这里补"
+                                    + " —— 多一处 = 有一条该改抬起的没改（或有一条已退场的手搓路被加回来了）；少一处 = 把一个本来就该按下的改掉了"
+                                    + "（②~④ 那几处：`Update` 里两条沿的行为断言覆盖不到 ⇒ 这里补"
                                     + "「那一行到底调的是哪条沿」）");
                             }
                         }

@@ -311,31 +311,20 @@ public static class MainMenuScene
     /// 16:9 + 父链单位缩放下差 ≤ 2.5e-4 px（`PxPerWorldX` 实得 107.99999；y 那一半两条口同式）；
     /// 父链带缩放 M / 非 16:9 才见真章（判据 → `资料/普查产出_1019/W57_自检线_A1350读口统一计划.md` §一·2）。
     /// 宽高两条支**逐字不变**（字走 `SelfCheckTextMetrics.RenderedPx`、图走 `WorldW/H × 108`）。</para>
-    /// <para>🆕 **2026-10-20（`A1350` 第二批 · 计划 §2·3「尺寸帧」）**：中心仍是设计帧（`NodeRectPx` 的 `Node` 档），
-    /// **尺寸来源**改成 `SelfCheckTextMetrics.RenderedRectDesign`（同一块 TMP 四角，但每个角先过设计空间）
-    /// —— 消掉「中心设计帧 + 尺寸世界帧」在父链带缩放 M 时分家的缺陷。单位缩放下与旧口逐位相同
-    /// （除 1，且 16:9 下斜率差 ≤ 2.5e-4 px）⇒ 今天读数不变；量不到（点阵后端 / 底下没有 TMP）⇒
-    /// **保留** `NodeRectPx` 的退路（`Label.WorldW/H × 108`，本来就是设计长度）。
+    /// <para>🆕 **2026-10-21（`T02` · 计划 §2·3「尺寸帧」收口）**：原来这里有一块**尺寸覆盖块**
+    /// （拿 `SelfCheckTextMetrics.RenderedRectDesign` 的宽高、以原中心重铺），本轮**提回**
+    /// `MenuCheck.NodeRectPx` 的 `designSize: true` 档（四份逐字相同的覆盖块归一 ⇒ 全仓一份）
+    /// —— 行为**逐字不变**：中心仍是设计帧（`Node` 档，`A668` 有意），尺寸改读设计帧；
+    /// 量不到时与缺省档同一条退路（`Label.WorldW/H × 108`，本来就是设计长度）。
     /// ⚠️ 只动**尺寸来源**：中心不从 TMP 的 `textBounds` 重算（那是 `AlignLeft/Right` 挪节点后的口径，会动读数）。
-    /// ⚠️ **已知临时状态（本批白名单所限，非设计选择）**：本覆盖块与 `ShopScene` / `RewardsScene` / `CollectionScene`
-    /// 三份 `RectOf` 里的那块**逐字相同** —— 等 `MenuCheck.cs` 可写时提回去、四份即可各回一行转发。</para></summary>
+    /// 🔴 **2026-10-21 就地订正（铁律 5）**：上面那句「已知临时状态（本批白名单所限）」**已过期**
+    /// —— `MenuCheck.cs` 可写之后四份已提回，本函数现在是**一行转发**。</para></summary>
     static bool RenderedRect(Transform t, out float x1, out float y1, out float x2, out float y2)
     {
-        if (!MenuCheck.NodeRectPx(t, MenuCheck.RectCenterMode.Node, out x1, out y1, out x2, out y2))
-            return false;
-        var lb = t.GetComponentInChildren<Label>();
-        if (lb != null)
-        {
-            float dx1, dy1, dx2, dy2;
-            if (SelfCheckTextMetrics.RenderedRectDesign(lb.transform, out dx1, out dy1, out dx2, out dy2))
-            {
-                float cx = (x1 + x2) * 0.5f, cy = (y1 + y2) * 0.5f;
-                float w = dx2 - dx1, h = dy2 - dy1;
-                x1 = cx - w * 0.5f; x2 = cx + w * 0.5f;
-                y1 = cy - h * 0.5f; y2 = cy + h * 0.5f;
-            }
-        }
-        return true;
+        // 🧨 **把 `designSize: true` 改回缺省（或删掉 `MenuCheck` 里那一支）⇒ 父链 ×2 时本行报 `2 × 设计宽`
+        //     ⇒ 尾部「T02：`RenderedRect` 的尺寸帧」那条 `设计宽 ≈ 世界宽 ÷ 2` 红。**
+        return MenuCheck.NodeRectPx(t, MenuCheck.RectCenterMode.Node,
+                                    out x1, out y1, out x2, out y2, designSize: true);
     }
 
     /// <summary>🆕 **2026-10-13（A490/A617）**：量一段文字**TMP 自己渲出来那块**的像素矩形
@@ -2238,6 +2227,22 @@ public static class MainMenuScene
             // 这里验换算口本身：单位缩放逐位不变 · 父链 ×2 的值 + 真命中 · 灭自证。
             Section("★ A1350 第三批：设计帧 → 指针帧（`PointerFramePxFromDesign`）两态探针");
             CheckPointerFrameFromDesign("`PointerFramePxFromDesign`");
+
+            // ---------------- 🆕 2026-10-21（`T02`）：尺寸帧（`NodeRectPx(designSize: true)`）两态 ----------------
+            //   判据 → `Editor/MenuCheck.cs` 的 `NodeRectPx` `designSize` 那一支（四份覆盖块的归一口）；
+            //   夹具与量法唯一一份 = `MenuCheck.DesignSizeTwoStateProbe`（本宿主只交**自己的** `RenderedRect`）。
+            //   ⛔ 期望值**不是**今天量到的宽：它是「父链 ×2」这条夹具的不变量（设计宽 = 世界宽 ÷ 2）。
+            Section("T02：`RenderedRect` 的尺寸帧（`designSize: true`）两态探针");
+            {
+                float dw, ww;
+                CheckTrue(MenuCheck.DesignSizeTwoStateProbe(RenderedRect, out dw, out ww),
+                          "（前提）T02：尺寸帧探针量得到（`RenderedRect` 返回 `false` ⇒ 下面两条不许静默跳过）");
+                CheckTrue(dw > 1f, $"（前提）T02：设计宽 > 1px（{dw:F2} —— 0 的话下面那条恒等）");
+                CheckNear(dw, ww * 0.5f, 0.5f,
+                          $"★★ T02：父链 ×2 时 `RenderedRect` 报的**是设计宽**（本宿主 {dw:F2} vs 世界 {ww:F2} ÷ 2；容差 0.5px）"
+                        + "｜🧨 把本文件 `RenderedRect` 的 `designSize: true` 改回缺省（或删掉 `MenuCheck` 里那一支）"
+                        + " ⇒ 读到 `2 × 设计宽` ⇒ **本条红**；两帧一起改回同一帧 ⇒ 本条照样红");
+            }
 
             // ============================================================ ★ N117（2026-10-19 · 用户拍板「方案 C」）
             // **左竖导航命中区 vs 模态窗压暗层** —— 按**窗类型**分：
@@ -4169,6 +4174,26 @@ public static class MainMenuScene
                                       $"**难度角标**画了，第一副难度 {tab[0].difficulty} ⇒ `Menu_Icon_Gallons_1`（一条杠）"
                                     + "（节点名 `DificultyLevel` 是**照抄原版的拼写**，别改成 Difficulty）");
 
+                            // 🆕 **2026-10-21（夹具归一，与下面那节「预组档全量刷新」配套）**：
+                            //   下面要断「选预组之后 `Selected Army Title` 换成了这副的阵营」，
+                            //   而**改前**它就会等于阵营的前提是「之前那副的阵营与它不同」。
+                            //   上面那句 `Random` 抽中的是哪一套是**随机的**（夹具里有一套合法 30 张 =
+                            //   **Ultramarines**，正好与 `Tab[0]`（`UMDeck1`）同阵营）⇒ 抽到它时
+                            //   「标题有没有换」这条**没有鉴别力**（改回去也绿）。
+                            //   ⇒ 先点第 0 套（夹具第 0 套 = `SaimHann`，有督军）把面板钉在一个**已知不同**的阵营上。
+                            //   ⛔ 不是改口径：走的是本窗自己的正规入口（点卡组那一行的命中区 ⇒ `PickDeck`）。
+                            {
+                                var preRow = FindChild(pw.transform, "DeckRow_0");
+                                var preHit = preRow != null ? FindChild(preRow, "Hit") : null;
+                                var preBtn = preHit != null ? preHit.GetComponent<WindowButton>() : null;
+                                CheckTrue(preBtn != null, "（夹具归一·前提）`DeckRow_0` 的命中区在");
+                                if (preBtn != null) preBtn.Click();
+                                CheckTrue(pw.ArmyTitleText != first.faction.ToUpperInvariant(),
+                                          "（夹具归一）选预组**之前**，`Selected Army Title` ≠ 这副预组的阵营「"
+                                        + first.faction.ToUpperInvariant() + "」（实测「" + pw.ArmyTitleText + "」）"
+                                        + " —— 不成立 ⇒ 下面「标题换没换」那条**没有鉴别力**（改回去也绿）");
+                            }
+
                             ds2.Pick(new DeckSelectionPopup.DeckPick
                             {
                                 Prebuilt = true,
@@ -4196,6 +4221,155 @@ public static class MainMenuScene
                             CheckTrue(PrebuiltDecks.TakePendingBattleDeck() == null,
                                       "**读一次就清** —— 下一局不会再带上上一局挑的预组牌");
                             Check(ds2.CurrentState, WindowState.Closed, "选完 ⇒ **窗自己关上**（原版 `Select` 的两步）");
+
+                            // ============================================================ ★ **2026-10-21（真机缺陷 · 第五十九会话）**
+                            // **选完预组 ⇒ 面板必须整块跟着换**（阵营标题 / 费用曲线 / 卡表），
+                            // 而且 `Battle!` 不能被「这套卡组还没有督军，开不了局。」挡死。
+                            //
+                            // 🔴 **病根**（用户真机截图 `_tmp_view/shots/2026-10-21_第五十九会话/16,17,18`）：
+                            //   `PracticeModePopup.PickPrebuilt` 原先只做**增量刷新**（卡组名 / 督军 / 阵营图 /
+                            //   卡背 / lore），而面板另外四处读的是**另一份状态** `DeckIndex`（预组档由 `PickPrebuilt`
+                            //   显式写 −1）⇒ 标题「（未选阵营）」· 曲线 9 行全 0 · 卡表不建 · `Battle!` 被督军闸挡死。
+                            //   修法 = **唯一判源 `PracticeModePopup.CurrentDeck`**（预组走 `PrebuiltDecks.ToPlayerDeck`）。
+                            //
+                            // 🔴 **期望值一律从【预组数据】取**（`first` = `PrebuiltDecks.Tab[0]` 的 `faction` /
+                            //   `cardIds` / `defensiveId`）。下面对实现只做**三处观测**（`ArmyTitleText` /
+                            //   `CostRows` / `CardRows` + `SearchingMatch`），⛔ **不拿**
+                            //   `PracticeModePopup.CurrentDeck` / `SelectedArmyName()` / `CostCurveDrawer.Counts(...)`
+                            //   当期望值 —— 那与实现同一个口 = 自证。
+                            Section("★ 2026-10-21 预组档全量刷新（面板半空 / 开不了局 —— 真机缺陷）");
+                            {
+                                // ---- ① 阵营标题：`Selected Army Title` 上那句 == 这副预组的 `faction` ----
+                                // 🧨 **改坏法**：把 `PickPrebuilt` 那批全量刷新删回原来那版增量刷新
+                                //   （只刷名字 / 督军 / 图 / 卡背 / lore）⇒ 连 `RebuildDeckRows` 末尾那次
+                                //   `_txtArmy` 刷新一起没了 ⇒ 标题**停在上一次那副的阵营**上
+                                //   （本夹具 = 「SAIMHANN」，上面那格「夹具归一」已经钉住了它）⇒ **本条红**。
+                                //   ⚠️ 真机那次停的是「（未选阵营）」—— 因为真机上当时那副没有督军；
+                                //   两种都红，本条不依赖是哪种（前提 = 上面那条「≠ 期望」）。
+                                CheckText(pw.ArmyTitleText, first.faction.ToUpperInvariant(),
+                                          "★ 选完预组 ⇒ `Selected Army Title` = 这副的 `faction`「"
+                                        + first.faction.ToUpperInvariant() + "」（预组「" + first.deckId + "」）"
+                                        + "｜🧨 改坏法：`PickPrebuilt` 退回增量刷新 ⇒ 标题停在上一次那副的阵营 ⇒ 本条红");
+
+                                // ---- ② 费用曲线：9 行之和 == 这副牌的卡表长度 ----
+                                // 期望值 = `first.cardIds.Length`（预组数据的字面量；预组的 `cardIds` **不含**
+                                // 督军与防御卡 —— 与 `Shell/DeckInfoPopup.cs` 那条费用曲线同一个口径）。
+                                // 🧨 **改坏法**：把 `RefreshCostRows` 的判源换回 `CollectionData.Raw(DeckIndex)`
+                                //   （预组档 = −1 ⇒ null ⇒ `Counts` 全 0）⇒ 9 行全 0、和 = 0 ⇒ **本条红**。
+                                //   ⚠️ 只断「和」不断「每行」：`CostCurveDrawer` 的分桶（费用 0..8）另有断言守着
+                                //   （本文件 `CostRows` 那处 9 行那条），这里要咬的是「换卡组之后有没有人重算」。
+                                Check(pw.CostRows.Count, 9, "★ 费用曲线仍是 9 行（费用 0..8）");
+                                {
+                                    int costSum = 0;
+                                    for (int k2 = 0; k2 < pw.CostRows.Count; k2++) costSum += pw.CostRows[k2];
+                                    Check(costSum, first.cardIds.Length,
+                                          "★ 预组的费用曲线：9 行之和 = 这副牌的卡表长度 **" + first.cardIds.Length + "**"
+                                        + "（读数：" + CostCurveDrawer.Dump(pw.CostRows.ToArray()) + "）"
+                                        + "｜🧨 改坏法：`RefreshCostRows` 的判源换回 `CollectionData.Raw(DeckIndex)`"
+                                        + "（预组档 = null）⇒ 9 行全 0 ⇒ 本条红");
+                                }
+                                // ---- ②b **逐档**（只断「和」不够 —— 见下面那条的理由）----
+                                // 期望值 = 从 **`first.cardIds` + 卡表自己的 `Cost`** 现算（舱位 = 费用 0..8，
+                                // 越界并入两端 —— 那是原版 `DeckEnergyCostDrawer` 那 **9 行**的口径，
+                                // 出处 → `Core/CostCurveDrawer.cs` 文件头）。⛔ 不读 `CostCurveDrawer.Counts(...)`
+                                // —— 那是被测实现，读了就与它同一个口（自证）。
+                                {
+                                    int[] wantCost = new int[9];
+                                    foreach (var cid in first.cardIds)
+                                    {
+                                        var cdef = CollectionData.Card(cid);
+                                        if (cdef == null) continue;
+                                        int bin = cdef.Cost < 0 ? 0 : (cdef.Cost > 8 ? 8 : cdef.Cost);
+                                        wantCost[bin]++;
+                                    }
+                                    var sbWant = new System.Text.StringBuilder();
+                                    var sbGot = new System.Text.StringBuilder();
+                                    for (int k2 = 0; k2 < 9; k2++)
+                                    {
+                                        if (k2 > 0) { sbWant.Append(' '); sbGot.Append(' '); }
+                                        sbWant.Append(wantCost[k2]);
+                                        sbGot.Append(k2 < pw.CostRows.Count ? pw.CostRows[k2] : -1);
+                                    }
+                                    Check(sbGot.ToString(), sbWant.ToString(),
+                                          "★ 预组的费用曲线**逐档**对得上（期望从 `first.cardIds` + 卡表 `Cost` 现算）"
+                                        + "｜期望「" + sbWant + "」实得「" + sbGot + "」"
+                                        + "｜🧨 改坏法：`RefreshCostRows` 的判源换回 `CollectionData.Raw(DeckIndex)` ⇒ 本条红"
+                                        + "｜⚠️ **只断「和 = 30」不够**：改前面板若停在夹具那套「合法 30 张」上，"
+                                        + "和同样是 30、分布却不同 ⇒ 和那条没有鉴别力");
+                                }
+
+                                // ---- ③ 卡表：预组那 30 张 + 我们补的防御卡 1 张 ----
+                                // 期望值从预组数据推：`cardIds.Length` + 防御卡 1 张（原版预组那份是 null，
+                                // 加它是**我们的选择** —— 见 `PrebuiltDecks.Deck.defensiveId` 的 doc）。
+                                // ⚠️ 先断前提（防御卡 id 在卡表里查得到）—— 否则「+1」这个期望本身不成立。
+                                CheckTrue(!string.IsNullOrEmpty(first.defensiveId)
+                                          && CollectionData.Card(first.defensiveId) != null,
+                                          "（前提）这副预组补的防御卡 `" + first.defensiveId + "` 在卡表里查得到"
+                                        + "（查不到 ⇒ 下面那条「+1」的期望不成立）");
+                                Check(pw.CardRows.Count, first.cardIds.Length + 1,
+                                      "★ 选完预组 ⇒ **卡表建出来了** = " + first.cardIds.Length + " 张 + 防御卡 1 张"
+                                    + "｜🧨 改坏法：`BuildCardRows` 的判源换回 `CollectionData.Raw(DeckIndex)`"
+                                    + "（预组档 = null）⇒ 首句 `if (deck == null) return;` ⇒ **0 行** ⇒ 本条红");
+
+                                // ---- ④ `Battle!` 的督军闸：预组档必须放行 ----
+                                // 判据 = **进了匹配**（`SearchingMatch`）—— 那是 `StartBattle` 里督军闸**之后**
+                                // 才会发生的事（闸挡死 ⇒ 弹 `MenuDeck/Error/CantStartNoWarlord` 并 `return`）。
+                                // ⚠️ **不是**用 `StartedBattle`：它在本节之前那次「我的卡组」开战里**已经是 true**，
+                                //   拿它当判据等于没查。
+                                // 🔴 **2026-10-21（审查代理 #5 就地订正）**：原来这里写「通道已被上面两条
+                                //   `TakePendingBattleDeck()` 排空」—— **那句是错的**：`TakePendingBattleDeck`
+                                //   只清 `_pending`、**不清 `_pendingSrc`**（`Shell/PrebuiltDecks.cs:276,289-295`），
+                                //   而 `PendingSource` 读的是**后者**。所以这里**显式** `ClearPendingBattleDeck()`
+                                //   把通道真排空（两个字段一起清）⇒ 这条才真的证明「闸读的是面板自己的判源、
+                                //   不是那条通道」（同时让 `StartBattle` 走 `pre0 == null` 那一支）。
+                                // 🧨 **改坏法**：`StartBattle` 首句换回 `CollectionData.DeckAt(DeckIndex)`
+                                //   （预组档 `DeckIndex` = −1 ⇒ 空 `DeckInfo` ⇒ `WarlordId` 空）⇒ 早退弹窗、
+                                //   不进匹配 ⇒ **本条红**。
+                                CheckTrue(!pw.SearchingMatch, "（前提）此刻**不在**匹配中（下面那条要能看出「进没进匹配」）");
+                                PrebuiltDecks.ClearPendingBattleDeck();
+                                CheckTrue(PrebuiltDecks.PendingSource == null,
+                                          "（前提）「本局用这副牌」通道**真的空了**（`PendingSource == null`）"
+                                        + " ⇒ 下面那条不是靠它放行的");
+                                var spPre = FindChild(pw.transform, "Searching Oponent Popup");
+                                var spPreC = spPre != null ? spPre.GetComponent<SearchingMatchPopup>() : null;
+                                pw.StartBattle();
+                                CheckTrue(pw.SearchingMatch,
+                                          "★ 预组档点 `Battle!` ⇒ **真的进了匹配**（`Searching Oponent Popup` 起来了）"
+                                        + " —— 没被 `MenuDeck/Error/CantStartNoWarlord` 挡死"
+                                        + "｜🧨 改坏法：`StartBattle` 首句换回 `CollectionData.DeckAt(DeckIndex)` ⇒ 本条红");
+                                // 收尾：撤掉这一次匹配。⛔ 不能留着 —— 本宿主没有帧循环，但只要本节的下一段
+                                //   有人 `TickSearch` 满 12 秒就会真跑 `StartBotBattle`（写 `SetPendingPlayMode`
+                                //   的跨场景通道 ⇒ 污染后面 `A853` 那一节「通道是空的」前提）。
+                                if (spPreC == null)   // 极少数情况：点 `Battle!` 那一刻才 `Attach` 出来
+                                {
+                                    var spPost = FindChild(pw.transform, "Searching Oponent Popup");
+                                    spPreC = spPost != null ? spPost.GetComponent<SearchingMatchPopup>() : null;
+                                }
+                                CheckTrue(spPreC != null, "（收尾·前提）拿得到匹配窗上的 `SearchingMatchPopup` —— 下面那句靠它撤");
+                                if (spPreC != null) spPreC.Cancel();
+                                CheckTrue(!pw.SearchingMatch, "（收尾）撤掉这一次匹配 ⇒ 不再「等对手」");
+                                // 通道排空（同本文件那条先例：本窗写进去的跨场景通道不许留给下一节）
+                                PrebuiltDecks.ClearPendingBattleDeck();
+                                BattleDriver.TakePendingPlayMode();
+
+                                // ---- ⑤ 夹具复位：面板摆回「我的卡组」那一档 ----
+                                // 为什么：本块之后还有两次 `TryOpen()` / 三次 `Open()` **重建**，以及 `Back`/压暗层
+                                //   那几下点击（A94 / A796 / A1517 三段）—— 让面板在**本块结束时**就回到「自建那副」，
+                                //   后面几段读到的状态才是它们按「我的卡组」写的那个（`DeckIndex >= 0`）。
+                                //   ⚠️ `Open()` 自己现在也会清预组档（判据 = 原版 `__Close → ResetContent`），
+                                //   但那要等到下一次重建；本步保证**在此之前**也是自建态。
+                                // ⛔ 这不是改口径：复位走**本窗自己的正规入口**（点卡组那一行的命中区 ⇒ `PickDeck`，
+                                //   `PickDeck` 是 private，自检一律这样点，同上面那三处）。
+                                var resetRow = FindChild(pw.transform, "DeckRow_0");
+                                var resetHit = resetRow != null ? FindChild(resetRow, "Hit") : null;
+                                var resetBtn = resetHit != null ? resetHit.GetComponent<WindowButton>() : null;
+                                CheckTrue(resetBtn != null,
+                                          "（夹具复位·前提）`DeckRow_0` 的命中区在 —— 下面那条要靠它摆回「我的卡组」");
+                                if (resetBtn != null) resetBtn.Click();
+                                CheckTrue(pw.PickedPrebuilt == null && pw.DeckIndex >= 0,
+                                          "（夹具复位）点第 1 套自建卡组 ⇒ 面板摆回「我的卡组」那一档"
+                                        + $"（`PickedPrebuilt` = null · `DeckIndex` = {pw.DeckIndex}）");
+                            }
 
                             // ---- ⑦ 再开一次，验关闭圆钮 ----
                             var ds3 = pw.OpenDeckSelection();
@@ -6403,6 +6577,206 @@ public static class MainMenuScene
                              "`Deck Warlord`（居中）");
                 CheckText(TextOf(FindChild(sk.transform, "Deck Name")), "菜单测试卡组 1",
                           "卡组名画的是**当前选中那套**（自检里第 1 套塞了督军）");
+
+                // ============================================================ ★ 2026-10-21（真缺陷）预组档 ⇒ 卡组那一栏要跟着换
+                // 🔴 病根：`OpenDeckSelection` 的回调里 **自建那一支**收尾调了 `RefreshDeckColumn()`，
+                //   **预组那一支**只写了 `PickedPrebuilt` + `PrebuiltDecks` 通道就 `return`
+                //   ⇒ 挑完预组，`Ranked Deck Selection` 画的还是上一副自建卡组（名字 / 督军 / 阵营徽记三样全错），
+                //   而开战用的是预组（`StartMatch` 读 `PrebuiltDecks.PendingSource`）= **面板与实战不是同一副牌**。
+                // 🔴 期望值**一律从预组数据取**（`pickPre.DisplayName` / `pickPre.faction` / 那副督军的卡名）——
+                //   ⛔ 不读本窗的 `ShownPrebuilt` / `ShownDeckName` 那一族（那是被测实现 = 自证）。
+                // 🧨 改坏法：删掉 `Shell/LiveOpsEventWindow.cs` 预组支里那句 `RefreshDeckColumn();`
+                //   ⇒ 名字停在上一次那副（本夹具 = 「菜单测试卡组 1」；下面「≠」那条前提保证它有鉴别力）⇒ 三条红。
+                {
+                    string curDeckTitle = TextOf(FindChild(sk.transform, "Deck Name"));
+                    var curDeckInfo = CollectionData.DeckAt(sk.DeckIndex);
+                    PrebuiltDecks.Deck pickPre = null;
+                    foreach (var pd in PrebuiltDecks.Tab)
+                    {
+                        if (pd == null || string.IsNullOrEmpty(pd.heroId)) continue;
+                        if (CollectionData.Card(pd.heroId) == null) continue;       // 督军那条要拿卡名当期望值
+                        if (pd.faction == curDeckInfo.Faction) continue;            // 阵营相同 ⇒ 徽记那条没有鉴别力
+                        if (pd.DisplayName == curDeckTitle) continue;
+                        // ⚠️ 徽记图**必须真在盘上** —— 那一栏的 `Tex()` 取不到会记账进 `MissingArt`，
+                        //   而本窗后面那条「图一张都不缺」（`sk.MissingArt.Count == 0`）就会被**夹具**弄红。
+                        if (CardArt.MenuUi(DeckRuntime.FactionIcon(pd.faction)) == null) continue;
+                        pickPre = pd; break;
+                    }
+                    CheckTrue(pickPre != null,
+                              "（夹具）预组池里有一副**阵营与当前那副不同**、名字也不同的牌（三条断言靠它才有鉴别力；"
+                            + "当前那副 =「" + curDeckTitle + "」/" + curDeckInfo.Faction + "）");
+                    if (pickPre != null)
+                    {
+                        var dspk = sk.OpenDeckSelection();
+                        CheckTrue(dspk != null, "（前提）遭遇窗里开得出 `Deck Selection Popup`");
+                        if (dspk != null)
+                        {
+                            dspk.Pick(new DeckSelectionPopup.DeckPick
+                            {
+                                Prebuilt = true,
+                                Info = DeckSelectionPopup.InfoOf(pickPre),
+                                OwnIndex = -1,
+                                PrebuiltDeck = pickPre,
+                            });
+                            CheckTrue(sk.PickedPrebuilt == pickPre,
+                                      "（前提）回调把这一副交出去了（`PickedPrebuilt` = " + pickPre.deckId + "）");
+                            // 那一栏是**重建**出来的（旧节点已销毁）⇒ 一律重新取节点，⛔ 别用上面那把旧引用
+                            CheckText(TextOf(FindChild(sk.transform, "Deck Name")), pickPre.DisplayName,
+                                      "★ 挑完**预组** ⇒ 卡组那一栏的名字 = 这副预组的 `DisplayName`（" + pickPre.deckId + "）"
+                                    + "｜🧨 改坏法：删掉预组支那句 `RefreshDeckColumn();` ⇒ 停在上一次那副「"
+                                    + curDeckTitle + "」⇒ 本条红");
+                            var heroPick = CollectionData.Card(pickPre.heroId);
+                            CheckText(TextOf(FindChild(sk.transform, "Deck Warlord")),
+                                      heroPick != null ? heroPick.Name : null,
+                                      "★ …督军那一行也换成**这副预组的督军**（" + pickPre.heroId + "）");
+                            string wantIcon = DeckRuntime.FactionIcon(pickPre.faction);
+                            var fqPick = FindChild(sk.transform, "Faction Icon Image");
+                            var fqi = fqPick != null ? fqPick.GetComponent<ImageQuad>() : null;
+                            CheckTrue(fqi != null && fqi.Texture != null && fqi.Texture.name == wantIcon,
+                                      "★ …阵营徽记也换成预组那一副的阵营「" + pickPre.faction + "」⇒ `" + wantIcon + "`"
+                                    + "（实测 " + (fqi != null && fqi.Texture != null ? fqi.Texture.name : "无图") + "）");
+
+                            // ============================================================ ★ 2026-10-21（真缺陷）预组选中 ⇒ `View Deck Button` 开的是**这一副**
+                            // 🔴 病根：`OpenDeckInfo()` 原来恒走 `DeckInfoPopup.Create(Manager, DeckIndex)` ——
+                            //   而预组**不在 `DeckLibrary` 里**（`DeckIndex` 恒指不到它）⇒ 面板上画着预组、
+                            //   点眼睛开出来的却是**库里那一副**（名字 / 督军 / 卡表三样全不是它）。
+                            // 修法 = `Create(Manager, -1)` + `OverrideDeck` / `OverrideInfo` / `IsPlayerDeck = false`
+                            //   （`DeckInfoPopup` 给「外面送进来的卡组」留的唯一那个口；先例 = `PracticeModePopup.ShowDeckContent`）。
+                            // 🔴 期望值**一律从预组数据取**（`pickPre.DisplayName` / `pickPre.heroId` /
+                            //   `PrebuiltDecks.ToPlayerDeck`）—— ⛔ 不读 `OpenDeckInfo` 刚写进去的 `OverrideDeck`（那是被测实现 = 自证）。
+                            // 🧨 改坏法：把 `Shell/LiveOpsEventWindow.cs` 的 `OpenDeckInfo` 改回
+                            //   `DeckInfoPopup.Create(Manager, DeckIndex)` ⇒ 名字/督军/张数变成库里那副「`curDeckTitle`」⇒ 四条红。
+                            {
+                                var dip = sk.OpenDeckInfo();
+                                CheckTrue(dip != null, "（前提）预组选中时 `View Deck Button` 开得出 `Deck info Popup`");
+                                if (dip != null)
+                                {
+                                    var wantPd = PrebuiltDecks.ToPlayerDeck(pickPre);
+                                    CheckText(dip.CurInfo.Name, pickPre.DisplayName,
+                                              "★ 预组选中 ⇒ `View Deck Button` 开出来的是**这副预组**（`CurInfo.Name` = `DisplayName`）"
+                                            + "｜🧨 改回 `Create(Manager, DeckIndex)` ⇒ 这里是「" + curDeckTitle + "」");
+                                    CheckText(dip.CurInfo.WarlordId, pickPre.heroId,
+                                              "★ …督军也是预组那副的（" + pickPre.heroId + "）");
+                                    Check(dip.CurDeck != null ? dip.CurDeck.CardIds.Count : -1,
+                                          wantPd != null ? wantPd.CardIds.Count : -2,
+                                          "★ …卡表张数 = `PrebuiltDecks.ToPlayerDeck` 那一份（含我们补的防御卡）");
+                                    CheckTrue(!dip.IsPlayerDeck,
+                                              "★ …且 `IsPlayerDeck = false`（原版 `InventoryManager.HasItem(预组)` 为假 ⇒ "
+                                            + "`Practice Deck` / `Share` / `Delete` / `Duplicate` 全按判据藏）"
+                                            + "｜🧨 删掉修法里那句 `w.IsPlayerDeck = false;` ⇒ 这条红");
+                                    dip.Close();
+                                }
+                            }
+
+                            // ---- 收尾：清回「自建卡组」那一档 ----
+                            // 🔴 **必须清 `PickedPrebuilt`**：`SelectedDeckFitsMode` 是**预组优先**，留着它
+                            //   ⇒ 下面「遭遇窗里选中一副**经典**卡组 ⇒ 不合模式」那条的前提就没了（判的会是这副预组）。
+                            //   走本窗**自己的正规入口**收尾（= 自建那一支：`PickedPrebuilt = null` + 排空通道 + 刷新）。
+                            // ⚠️ 用 `sk.DeckIndex` 原值收尾（预组那一支**不动下标** ⇒ 它还是进来时那副），
+                            //   ⛔ 别按名字回查（同名卡组 `IndexOf` 只给第一个 ⇒ 可能落到另一副同名的上）。
+                            int backIdx = sk.DeckIndex;
+                            CheckTrue(CollectionData.Raw(backIdx) != null,
+                                      "（夹具）当前那副还在库里（下标 " + backIdx + " =「" + curDeckTitle + "」）");
+                            if (CollectionData.Raw(backIdx) != null)
+                            {
+                                var dspk2 = sk.OpenDeckSelection();
+                                CheckTrue(dspk2 != null, "（收尾）再开一次 `Deck Selection Popup`");
+                                if (dspk2 != null)
+                                    dspk2.Pick(new DeckSelectionPopup.DeckPick
+                                    {
+                                        Prebuilt = false,
+                                        Info = CollectionData.DeckAt(backIdx),
+                                        OwnIndex = backIdx,
+                                    });
+                            }
+                            CheckTrue(sk.PickedPrebuilt == null && PrebuiltDecks.PendingSource == null,
+                                      "（收尾）预组那一档清干净了（`PickedPrebuilt` / `PendingSource` 都空）");
+                            CheckText(TextOf(FindChild(sk.transform, "Deck Name")), curDeckTitle,
+                                      "（收尾）卡组那一栏回到原来那副（= 下面各节的前提）");
+
+                            // ============================================================ ★ 2026-10-21（真缺陷）箭头 / 阵营格必须**先撤预组**
+                            // 🔴 病根：`StepDeck`（上/下一套两颗箭头）与 `PickArmy`（阵营格）只改 `DeckIndex` +
+                            //   `RefreshDeckColumn()`，**没清 `PickedPrebuilt`** —— 而这一栏的显示判源是**预组优先**
+                            //   （`ShownPrebuilt` / `ShownDeckName` / `ShownWarlord` / `ShownFaction`），开战那条路也读
+                            //   `PickedPrebuilt`（`SelectedDeckFitsMode` / `StartMatch`）⇒ 预组选着的时候点这两处，
+                            //   **看起来点了没反应**（那一栏还画着预组、开战还用预组）。
+                            // 修法 = 照「我的卡组」那一支（`OpenDeckSelection` 回调）的顺序：
+                            //   改下标 → `PickedPrebuilt = null` → `PrebuiltDecks.ClearPendingBattleDeck()` → 刷新。
+                            // 🧨 改坏法：删掉 `Shell/LiveOpsEventWindow.cs` 里 `StepDeck` / `PickArmy` 那两句清预组
+                            //   ⇒ 下面「撤预组」那两条 + 「那一栏跟着换」那条全红（预组还留着）。
+                            {
+                                // ---- ① 上/下一套箭头（`StepDeck`）----
+                                var dspArrow = sk.OpenDeckSelection();
+                                CheckTrue(dspArrow != null, "（前提·箭头）再开一次 `Deck Selection Popup`");
+                                if (dspArrow != null)
+                                {
+                                    dspArrow.Pick(new DeckSelectionPopup.DeckPick
+                                    {
+                                        Prebuilt = true,
+                                        Info = DeckSelectionPopup.InfoOf(pickPre),
+                                        OwnIndex = -1,
+                                        PrebuiltDeck = pickPre,
+                                    });
+                                    CheckTrue(sk.PickedPrebuilt == pickPre && PrebuiltDecks.PendingSource != null,
+                                              "（前提·箭头）预组又选上了（`PickedPrebuilt` + 开战通道都在）");
+                                    var nextHit = FindChild(FindChild(sk.transform, "Next Deck Button"), "Hit");
+                                    var nextBtn = nextHit != null ? nextHit.GetComponent<WindowButton>() : null;
+                                    CheckTrue(nextBtn != null, "（前提·箭头）`Next Deck Button/Hit` 有点击区（要的正是它背后的 `StepDeck(+1)`）");
+                                    if (nextBtn != null)
+                                    {
+                                        nextBtn.Click();
+                                        CheckTrue(sk.PickedPrebuilt == null && PrebuiltDecks.PendingSource == null,
+                                                  "★ 预组选着时点「下一套」⇒ **先把预组撤掉**"
+                                                + "（`PickedPrebuilt` 与开战通道 `PendingSource` 都清）"
+                                                + "｜🧨 删掉 `StepDeck` 里那两句 ⇒ 预组还留着（本条红）");
+                                        CheckTrue(sk.DeckIndex >= 0 && CollectionData.Raw(sk.DeckIndex) != null,
+                                                  "（前提·箭头）`StepDeck` 落在一套**库里有的**卡组上（下标 " + sk.DeckIndex + "）");
+                                        CheckText(TextOf(FindChild(sk.transform, "Deck Name")),
+                                                  CollectionData.DeckAt(sk.DeckIndex).Name,
+                                                  "★ …那一栏也跟着换成**库里那一副**（= 新 `DeckIndex` 指向的），"
+                                                + "不再是预组的名字「" + pickPre.DisplayName + "」"
+                                                + "｜🧨 少了那两句清预组 ⇒ 这里还是预组的名字（本条红）");
+                                    }
+                                }
+                                // ---- ② 阵营格（`PickArmy`）----
+                                var dspArmy = sk.OpenDeckSelection();
+                                CheckTrue(dspArmy != null, "（前提·阵营）再开一次 `Deck Selection Popup`");
+                                if (dspArmy != null)
+                                {
+                                    dspArmy.Pick(new DeckSelectionPopup.DeckPick
+                                    {
+                                        Prebuilt = true,
+                                        Info = DeckSelectionPopup.InfoOf(pickPre),
+                                        OwnIndex = -1,
+                                        PrebuiltDeck = pickPre,
+                                    });
+                                    CheckTrue(sk.PickedPrebuilt == pickPre,
+                                              "（前提·阵营）预组又选上了（`PickedPrebuilt` = " + pickPre.deckId + "）");
+                                    var cellHit = sk.ArmyCells.Count > 0 && sk.ArmyCells[0] != null
+                                                ? FindChild(sk.ArmyCells[0], "Hit") : null;
+                                    var cellBtn = cellHit != null ? cellHit.GetComponent<WindowButton>() : null;
+                                    CheckTrue(cellBtn != null, "（前提·阵营）第 1 格阵营（`ArmyCells[0]`）有点击区");
+                                    if (cellBtn != null)
+                                    {
+                                        cellBtn.Click();
+                                        CheckTrue(sk.ArmyIndex == 0, "（前提·阵营）筛选确实生效了（`ArmyIndex` = 0）");
+                                        CheckTrue(sk.PickedPrebuilt == null && PrebuiltDecks.PendingSource == null,
+                                                  "★ 预组选着时改阵营筛选 ⇒ **同样先把预组撤掉**"
+                                                + "｜🧨 删掉 `PickArmy` 里那两句 ⇒ 预组还留着（本条红）");
+                                    }
+                                }
+                                // ---- 收尾：`Open()` 复位（`ArmyIndex = -1` · `DeckIndex` 吸附回本模式第一套 · 整树重建）----
+                                sk.Open();
+                                CheckTrue(sk.PickedPrebuilt == null && PrebuiltDecks.PendingSource == null
+                                          && sk.ArmyIndex == -1,
+                                          "（收尾·箭头/阵营）`Open()` 复位：预组 / 开战通道 / 阵营筛选全清");
+                                CheckText(TextOf(FindChild(sk.transform, "Deck Name")), curDeckTitle,
+                                          "（收尾·箭头/阵营）复位后卡组那一栏回到原来那副（= 下面各节的前提）");
+                            }
+                        }
+                    }
+                }
+
                 // 四颗圆钮（HLG spacing 0 · align MiddleCenter · 每颗 160.87×128）
                 foreach (var nm in new[] { "Previous Deck Button", "Change Deck Button", "View Deck Button", "Next Deck Button" })
                     CheckTrue(FindChild(sk.transform, nm) != null, $"`{nm}` 建了（四颗圆钮之一）");
@@ -6949,7 +7323,7 @@ public static class MainMenuScene
                         CheckTrue(!pop.Searching, "…而且**不跑**那 12 秒 bot 倒计时（条件 `Searching` 为假）");
                         pop.Tick(20f);          // 推进 20 秒 —— 单机那一支 12 秒就该转 bot 了
                         CheckTrue(pop.IsShowing && !pop.Searching, "推进 20 秒也**不会自己收掉**（等真人等到为止）");
-                        CheckTrue(pop.TypedText.Length > 0, "打字机照跑（联机等待也显示原版那句 `Searching`）");
+                        CheckTrue(pop.TypedText.Length > 0, "打字机照跑（联机等待也显示原版那句 `Searching...`）");
                         // 🆕 2026-10-03：**`Cog` 自转**（原版 `Skull` 上那条 legacy `Animation` + clip `SearchingOpponentCog`）
                         //   判据 = 那条 clip 的 37 个键（`AnimationClip_-6716633893720174568.json`）。抽 6 个点核。
                         var S = CardPresentation.SearchingMatchPopup.CogLoop;
@@ -6980,6 +7354,55 @@ public static class MainMenuScene
                                         560f, 234.07f, 1360f, 685.93f,
                                         SearchingMatchPopup.QSr, SearchingMatchPopup.QSrHit,
                                         () => pop.IsShowing ? WindowState.Open : WindowState.Closed);
+                        // 🆕 **2026-10-21（第五十九会话 · 真机缺陷：`Searching` 被截成 `Searchin`）**：
+                        //   🔴 判据 = 原版 `searchTextKey.mTerm = Demo/DeckSelectionDemo/Searching` 的**本地化值
+                        //   `Searching...`**（窗 prefab 5/5 同值 + 官方本地化表 + 「`m_text` 是序列化占位」三条
+                        //   判据全文 → `Shell/SearchingMatchPopup.cs` 的 `SearchingText` doc）。
+                        //   打字机起点 = `len-3`（`_TypeWriteEffect_d__14__MoveNext.c`）⇒ **只有带三个点那一版**
+                        //   的四档才是「完整单词 + 点越打越多」；写成 9 个字母 ⇒ 起点 6 ⇒ 词被一格一格吃掉。
+                        // ⛔ 这里**不**断 `SearchingText == "Searching..."`（抄被测常量 = 同式自证）——
+                        //   断的是**行为**：四档都以完整单词开头、长度覆盖 9~12；再断最长那档**渲出宽 ≤ 框宽**。
+                        // 🧨 改坏法：常量改回 `"Searching"` ⇒ 起手就是 `Search`、第一档 `Searchi` ⇒ 前两条红；
+                        //   把 `TypedChars` 的 `len-3` 换成别的起点 ⇒ 档位/长度那条红；
+                        //   把 `MenuDraw.Text` 的 `wrapPx`/`autoMaxPx` 改坏（框变窄）⇒ 宽度那条红。
+                        {
+                            var msgN = FindChild(pop.transform, "Main Search message");
+                            var msgLb = msgN != null ? msgN.GetComponent<Label>() : null;
+                            CheckTrue(msgLb != null, "夹具：匹配窗那行字 `Main Search message` 上挂着 `Label`");
+                            pop.Show();
+                            CheckTrue(pop.TypedText == "Searching",
+                                      $"★ 打字机起手 = **完整的 `Searching`**（实得「{pop.TypedText}」）"
+                                    + " —— 原版起点 `len-3` 落在三个点上，⛔ 不是落在词尾字母上");
+                            bool[] seen = new bool[13];
+                            if (pop.TypedText.Length >= 0 && pop.TypedText.Length < seen.Length)
+                                seen[pop.TypedText.Length] = true;
+                            for (int i = 0; i < 4; i++)
+                            {
+                                pop.Tick(SearchingMatchPopup.LetterInterval);
+                                string s = pop.TypedText;
+                                if (s.Length >= 0 && s.Length < seen.Length) seen[s.Length] = true;
+                                CheckTrue(s.StartsWith("Searching"),
+                                          $"★ 打字机第 {i + 1} 档「{s}」= **完整单词 + 点**"
+                                        + "（常量少了那三个点时会变成 `Searchi` / `Searchin`）");
+                                CheckTrue(s.Length >= 9 && s.Length <= 12,
+                                          $"…第 {i + 1} 档长度 {s.Length} 落在 `Searching`(9)~`Searching...`(12) 之间");
+                            }
+                            CheckTrue(seen[9] && seen[10] && seen[11] && seen[12],
+                                      "★ 四档 = 9/10/11/12 字（`Searching` + 0~3 个点）—— 三点原地循环，词本身不被吃掉");
+                            // 最长那档（12 字）的**渲出宽** ≤ 框宽 700（原版 `Main Search message` rect
+                            // 610→1310，`m_margin` 全 0 ⇒ 折行宽 = 框宽）。
+                            // ⚠️ **断「渲出宽 ≤ 框宽」、不断字号**（本仓教训：字号对而溢出 = 假绿）。
+                            pop.Show();
+                            pop.Tick(SearchingMatchPopup.LetterInterval * 3f);     // 0.5s×3 ⇒ 最长那档
+                            CheckTrue(pop.TypedText == "Searching...",
+                                      $"（前提）最长那档 = `Searching...`（实得「{pop.TypedText}」）");
+                            var px = LabelRenderedPx(msgLb);
+                            CheckTrue(px.x > 1f && px.x <= 700.5f,
+                                      $"★ 最长那档**渲出来宽 {px.x:F1}px ≤ 框宽 700px**"
+                                    + "（原版 rect 610→1310；超了 = 字会被裁/折行）");
+                            CheckTrue(msgLb.LineCount == 1,
+                                      $"★ 一行装得下（实得 {msgLb.LineCount} 行 —— 折成两行说明框宽或字号档不对）");
+                        }
                         pop.Hide();
 
                         // 🆕 **2026-10-15（A796）**：压暗层「点了会不会关」走公共口（判据 → 上面 `选卡组窗` 那一段）。

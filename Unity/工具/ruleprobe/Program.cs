@@ -187,7 +187,10 @@ class Program
     //   `check` 现读**解析差异 = 本笔 3 张**（`SOR31` `gainenergy`→`gainfaith` · `SOR44`/RR `cost 5/4` 的 `ck` 空→`faith`）
     //   ＋并行写手的 `ASH34`（`Talent:` 修复）⇒ `PinnedParseMd5` **应重钉为 `23da247f…`**（由主对话裁定，本轮未动）；
     //   `PinnedBaselineMd5` 原样不动（基线文件没重生成）。判据 → `资料/普查产出_1019/W57_阵营机制_修女三卡数据.md`。
-    public const string PinnedPoolMd5 = "e5894c4026b6f33ba37755b72209911f";
+    //   🔴 **2026-10-21（第五十九会话 · 引擎线 `T02`）重钉** —— 卡池 md5 现值变了（`a56aa0ba…`）：
+    //   本批**没有改任何卡数据**，是**卡池内容随前几轮落盘**后这条钉子一直没跟上（`check` 自报「三个指纹都该重钉」）。
+    //   同日改动只有解析层一处（`SOR31` 的 `or is a friendly unit` 新条件种类），逐行核过 ⇒ 按工具首条判据一并重钉。
+    public const string PinnedPoolMd5 = "a56aa0bac2bcac00049eadd3ff2790dd";
 
     /// <summary>钉住的基线内容指纹（`工具/ruleprobe/基线/out_baseline.txt` 的 md5，**按字节**）。
     /// 与上面那个配对使用 —— 判据见上面那段长注释。</summary>
@@ -215,7 +218,13 @@ class Program
     //   那 4 行已逐行核过（`scan` 连跑两次逐字节一致 = 496,525 B / md5 `9d830493…`；
     //   `git diff` 该基线文件 = **4/4 行**，新增 0 / 消失 0）⇒ 按 `check` 的首条判据
     //   「先修好解析器，再跑 `scan` 把它定为新基线」重生成，⛔ 不是把红抹平。
-    public const string PinnedBaselineMd5 = "9d8304939112056abdba248776891c01";
+    //   🔴 **2026-10-21（第五十九会话 · 引擎线 `T02`）有意重钉** —— 基线重生成（`scan` 后 1,122 行 / 496,535 B /
+    //   md5 `691dd3eb…`），**唯一差异 = `SOR31|Dogmata`**（`EffectCondition.Normalize` 新增
+    //   `targetdiesorfriendly` 分支：卡面「Deal 1 damage. If the target dies **or is a friendly unit**, gain 1 ☀.」
+    //   的**后半句**原来被静默吃掉）。判据 → `资料/任务线/引擎线/任务总表.md` `T02` 行 ＋ 卡面中文
+    //   「如果目标死亡或为友方单位」＋ `cards_1195_2022时代.json` 的 `targetCriteria(friendlyUnits=1/enemyUnits=1)`。
+    //   ⇒ 按「先修好解析器，再跑 `scan` 定为新基线」重生成，⛔ 不是把红抹平。
+    public const string PinnedBaselineMd5 = "691dd3ebbdf40969a1f1eb29706f79d0";
 
     /// <summary>🆕 **解析输出指纹**（`A1382` **一般情形**的堵法，2026-10-12 第二十一会话 · 写手 `E5`）
     /// —— 「`check` 的判据是『与**基线文件**比』，而**基线文件同一个工具就能重写**」这条洞的机器级补丁。
@@ -277,7 +286,10 @@ class Program
     //      · `SOR31` / `SOR44` / `Righteous Repugnance` = `FACTION-DATA` 把 Faith 误抄成 Energy 的
     //        数据修正（`gainenergy→gainfaith` · `cost 5/4` 的 `ck energy→faith`）。
     //    判据 → `资料/普查产出_1019/W57_引擎线_T07工具收口.md` §四 ＋ `W57_阵营机制_修女三卡数据.md` §六。
-    public const string PinnedParseMd5 = "23da247f2a40a2160b355938a949609d";
+    //   🔴 **2026-10-21（第五十九会话 · 引擎线 `T02`）重钉** —— 唯一变化 = `SOR31|Dogmata` 的条件种类
+    //   （`targetdies` → `targetdiesorfriendly`）。行为侧另有三条新断言（友方活着 +1 / 敌方活着 +0 /
+    //   敌方被打死 +1）钉住它，见 `Assets/RuleEngine/Editor/RuleEngineTest_T02.cs`。
+    public const string PinnedParseMd5 = "c9f6c6429c12a918bcfbd8f0df6850db";
 
     /// <summary>一个文件的 md5（按字节；读不到返回 `null` —— ⛔ 不静默当成空串）。</summary>
     public static string Md5File(string path)

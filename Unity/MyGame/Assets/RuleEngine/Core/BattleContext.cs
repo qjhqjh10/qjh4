@@ -363,6 +363,19 @@ namespace RuleEngine
         /// <summary>效果链最多连锁几层</summary>
         public const int MaxEffectChain = 8;
 
+        /// <summary>🔴 2026-10-21（引擎线 `T03·c` 批 A · `W59`）：**进场序号发号器** —— 单调递增，
+        /// 一个 `BattleContext` 一份。语义与判据见 <see cref="UnitState.PlayOrder"/>。
+        /// ⚠️ **只在「新单位真的落到棋盘上」那一刻**取号（`RuleCore.PlayCard` / `DeployFree` /
+        /// `BuildPlayer`（督军）/ `EffectResolver.DoReanimate` / `TutorialScript.PlaceTroops` /
+        /// 控制权归还）；⛔ 别在「算目标 / 造牌进手牌」这类**没入场**的地方顺手取 ——
+        /// 那会把「进场序」稀释成一堆没人用的号（不影响正确性，但会让它与原版列表序对不上，
+        /// 以后想按号反查「这是第几个进场的」就没法信）。
+        /// </summary>
+        int _playOrderSeq;
+
+        /// <summary>取下一个**进场序号**。⚠️ 每调一次就前进一格 —— 只在确认要落场时调。</summary>
+        public int TakePlayOrder() => _playOrderSeq++;
+
         /// <summary>
         /// **「强行触发」的深度**（2026-09-14 A4 批 4）。`&gt; 0` 时，
         /// <see cref="EffectCondition.EnergyZero"/> 那条条件**一律判成立**。

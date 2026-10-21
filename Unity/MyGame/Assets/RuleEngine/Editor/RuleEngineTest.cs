@@ -328,6 +328,8 @@ public static partial class RuleEngineTest
         //    `Mob|Regiment|Swarm` 的原版自排除在**接收方体内**（`TriggerOtherCard*` 的 `op_Inequality`），
         //    我们由 `WhenEvents.SelfExcludesOnKeywordTrigger` 等价实现 —— 既有 `TestA1562*` 已钉住。
         Step(TestW58AttackBroadcastOrder);
+        // 🆕 2026-10-21（引擎线 `T03·d` · 「被哨戒打死的攻击者仍要响自己的攻击时触发」）
+        Step(TestT03dAttackerKilledBySentryStillFiresOwnAttack);
         Step(TestW58DeployBroadcastOrder);
         Step(TestW58HuntMarkBroadcastOrder);
         Step(TestPenitence);
@@ -802,6 +804,31 @@ public static partial class RuleEngineTest
         Step(TestS23ResolveA1692DeployFreeNoOverwrite);
         Step(TestS23ResolveA1690WhenBodyAdjacentAnchor);
         Step(TestS23ResolveA1312KeepStatusTurnState);
+
+        // ============================================================
+        //  🔴 2026-10-21（引擎线 `T03·c` 批 A · 账 `W59`）：**进场序（`PlayOrder`）排序**
+        // ============================================================
+        //  判据 = 原版 `BattleManager.allCardsInPlay`（`+0x470`）是**进场顺序的追加列表**
+        //  （`资料/普查产出_1020/W58_战斗结算_多词条顺序判据.md` §〇 / §一·A1）⇒ 多单位同听一个事件时
+        //  「先落场的先结算」，⛔ 不是棋盘格号、不是座位序。
+        //  测试体全在**新分册** `RuleEngineTest_Order.cs`（本文件只加这一段用例表）。
+        Section("🆕 `W59`：多单位触发次序 = **进场序**（`PlayOrder`）");
+        Step(TestW59PlayOrderSameSideDeploy);   // 同侧：格号 vs 进场序（部署广播）
+        Step(TestW59PlayOrderCrossPlayer);      // 跨玩家：不是座位序
+        Step(TestW59PlayOrderTurnStartEnd);     // 回合末 at-turn（ResolveAtTurn 的棋盘趟）
+        Step(TestW59PlayOrderReentry);          // 死 → 复活 = 新号（DoReanimate）/ PlayCard 号递增
+        Step(TestW59PlayOrderInvariant);        // 不变量：新落场一定取到号（防排序静默失效）
+        Step(TestW59PlayOrderOnSide);           // 单方关键词那一趟（FireTriggerOnSide）
+
+        // ============================================================
+        //  🔴 2026-10-21（引擎线 `T02`）：**`or` 族的条件析取 + 落位锚点族的另外两个写入点**
+        // ============================================================
+        //  判据 → `资料/任务线/引擎线/任务/T02_条件替代与落位锚点.md`（同族未补那一批）。
+        //  ⚠️ 测试体全在**新分册** `RuleEngineTest_T02.cs`（本文件只加这一段用例表）。
+        Section("🆕 `T02`：`or` 族条件析取 / 落位不覆盖（同族）");
+        Step(TestT02OrConditionTargetDiesOrFriendly);   // `If the target dies or is a friendly unit`
+        Step(TestT02SacrificeBodyLandsOnSelf);          // `Sacrifice:` 正文的 +1 落在被献祭那张自己身上
+        Step(TestT02PlacementNoOverwriteFamily);        // 抢单位 / 控制到期归还 也走同一道不覆盖闸
 
         // 🔴 **`Run()` 自己的「静默少跑」闸**（`A1591`）—— 必须在【汇总】之前跑，
         //    否则它的 `Check` 不计进 `_pass/_fail`（汇总行会漏掉它）。
@@ -2138,6 +2165,10 @@ public static partial class RuleEngineTest
         // ⚠️ 夹具本来**绕过**了那几个入口（见 `TestAuras` 的注释：光环要自己 `Recompose`）——
         //    这里补上，免得测试里的单位看起来像「上一回合就在场」。
         u.DeployedTurn = ctx.Turn;
+        // 🔴 2026-10-21（引擎线 `T03·c` 批 A · `W59`）：夹具摆上去 = **进场** ⇒ 也要取进场序号。
+        //   不取的话夹具单位全是 `-1` ⇒ 「按进场序排序」会**静默退化成原顺序**
+        //   （= 排序那几条断言全变假绿）。取号口径与 `UnitState.PlayOrder` 的 doc 一致。
+        u.PlayOrder = ctx.TakePlayOrder();
         // ⚠️ **2026-10-18（批 3 · `A992` 遗留甲）如实标着**：本夹具**不写**
         //    `UnitState.CannotAttackThisTurn`（= 原版 `canAttack` `+0x23C`，由
         //    `RuleCore.ApplyDeployTurnState` 在**真部署入口**写）—— 它绕过了那个入口，

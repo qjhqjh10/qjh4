@@ -245,6 +245,40 @@ namespace RuleEngine
         }
 
         /// <summary>
+        /// 🔴 **`NextWithoutDisplacing` 的「防空覆盖」版** —— 落点与它**逐字相同**，只是多一层保险：
+        /// 「不挤别人」那条算法假设**棋盘连续无洞**（原版两侧是 `List`，结构上不可能有洞），
+        /// 而我们的 `Board[]` 是定长数组，**自检夹具**可以直接写出洞
+        /// （见 <see cref="WarnHoley"/>）⇒ 那时算出来的那一格**可能已经有人**。
+        ///
+        /// 处置 = **不覆盖**：改从**同一侧**最外那一格往里找第一个空格。
+        ///   · 找不到 ⇒ `-1`（按「这一侧满了」处理，调用方各自的满场分支接管）。
+        /// ⚠️ **原版行为【不可比】**：原版根本没有「目标格被占」这一档
+        ///    （`MinionManager__GetNextSlotWithoutDisplacing.c:14-30` 全文只比两个 `List.Count`、
+        ///    没有任何占用检查）。⛔ **别在注释里写成「照原版」** —— 这是补**我们表示法**的洞。
+        /// 🔴 **判据只此一处**：`RuleCore.DeployFree`（免费部署）· `EffectResolver.DoTakeControl`（抢单位）·
+        ///    `RuleCore.EndTurn` 的「本回合控制到期、还回去」三处**都调它**
+        ///    （以前只有 `DeployFree` 一处内联了这个保险，另外两处会静默盖掉人 —— `T02` 同族）。
+        /// </summary>
+        /// <param name="blockedSlot">被挡住的那一格（`-1` = 没被挡，落点与 `NextWithoutDisplacing` 相同）。
+        /// 调用方用它决定要不要出声，以及「是满场」还是「目标格被占」。</param>
+        public static int NextFreeWithoutDisplacing(PlayerState ps, out int blockedSlot)
+        {
+            blockedSlot = -1;
+            int dst = NextWithoutDisplacing(ps);
+            if (dst < 0) return -1;                       // 该侧满了（`NextWithoutDisplacing` 的口径）
+            if (ps.Board[dst] == null) return dst;        // 连续棋盘：恒走这一支（行为与以前逐字相同）
+
+            blockedSlot = dst;                            // 有洞 ⇒ 那一格已经被占了
+            int side = SideOf(dst);
+            for (int i = BoardSpec.SlotsPerSide - 1; i >= 0; i--)
+            {
+                int s = SlotOf(side, i);
+                if (ps.Board[s] == null) return s;        // 该侧最外的空格
+            }
+            return -1;                                    // 该侧一个空格都没有
+        }
+
+        /// <summary>
         /// **自检用**：这一方的棋盘是不是「每侧连续、贴督军起无洞」。
         /// 只应该在断言里被调用 —— 引擎自己每一处增删都走 <see cref="Insert"/> / <see cref="RemoveAt"/>，
         /// 不变量自然成立；**夹具**（自检里直接 `Board[x] = …` 的地方）是唯一可能破坏它的地方。

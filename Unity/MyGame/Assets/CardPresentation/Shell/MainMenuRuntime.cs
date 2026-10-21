@@ -394,10 +394,34 @@ namespace CardPresentation
             //    ⚠️ 不先收回去，下面那轮清场会连它一起销毁；Play 下 `Destroy` **延迟到帧末**（当场还非 null）⇒
             //    新挂上去的模式卡会跟着它一起消失（**静默**）。收回去 = 本轮重新挂（见下面「安全区」那一节）。
             var shell = ShellRuntime.Instance;
+            // 🆕 **2026-10-21（W59）**：自检/批处理里 `Awake` 不跑 ⇒ `ShellRuntime.Instance` 恒 null（同族坑 →
+            //   `GameWindow.SetBake` 那段注释），可「场上有一台壳」这一档**必须走有壳那一支** —— 外壳常驻件挂在
+            //   壳的 `safeH` 下（缺陷 B / 「回主菜单不许累积旧件」都只在这一支里）。⚠️ 真·独立场景档
+            //   （`MainMenu.unity` 直起 / 空场景自检）场上**没有壳** ⇒ 这一句仍是 null，行为逐位不变。
+            if (shell == null) shell = UnityEngine.Object.FindFirstObjectByType<ShellRuntime>();
             bool rebuilding = _root.childCount > 0;          // 同一棵树上重来一次（上一轮的件还在）
             if (shell != null)
             {
                 shell.ReclaimSafeZones();
+                // 🆕 **2026-10-21（W59 · 缺陷 B 的恢复半边）**：进战斗时 `ShellRuntime` 把左栏 / 顶栏 / 聊天
+                //    这三件关掉了（原版战斗场景里没有它们，判据 → `ShellRuntime.ApplyMenuChrome` 那段）。
+                //    ⇒ **回主菜单、在重建菜单树之前先放回**。⛔ 别删：删了就是「进过一次战斗，左栏再也不回来」。
+                //    ⚠️ 位置在 `ReclaimSafeZones()` **之后**（先把安全区收回壳根，再动它下面的孩子）；
+                //      也必须在下面那轮重建**之前**（`BuildNavigationPanel` 会再建一套新的，旧的那一套放不放回都不影响画面，
+                //      但状态必须是对的 —— 「关着」留到下次进战斗就没人看得见那是谁关的）。
+                ShellRuntime.ApplyMenuChrome(true, "回主菜单");
+                // 🆕 **2026-10-21（W59 · 顺手发现 ①）**：把**上一轮**留在壳 `Safe area Only Horizontal` 下的常驻件清掉。
+                //   为什么必须清：下面 `BuildNavigationPanel` / `TopBar.Build` / `BuildChatPreview` 全是**无条件 `New`**，
+                //   而上面那轮 `_root` 清场**只清主菜单场景自己的孩子** —— 这三件挂在**壳**的 `safeH` 下
+                //   （壳 DDOL、跨场景活着）⇒ 不清就会「菜单 ↔ 战斗每往返一次 +1 套」（视觉完全重叠看不出来，
+                //   但旧件上的 `WindowButton` 闭包指的是**已销毁的** `MainMenuRuntime`，而且是纯泄漏）。
+                //   🧨 改坏法：删掉这三句 ⇒ `Editor/ShellScene.cs` 的「W59（续）」那一节红（第二次 `Build` 后每类变 2 个）。
+                //   ⚠️ 只清 `ShellRuntime.MenuChromeNames` 里那三个名字（`LoadingMenu` / `Window Anchors` 等⛔ 别扫）。
+                int staleChrome = ShellRuntime.ClearStaleMenuChrome(shell.SafeAreaOnlyHorizontal);
+                if (staleChrome > 0)
+                    Debug.Log($"[Menu] 清掉上一轮遗留的壳常驻件 {staleChrome} 件"
+                            + "（左栏 / 顶栏 / 聊天预览 —— 它们挂在壳的 `Safe area Only Horizontal` 下、不随主菜单场景卸载；"
+                            + "不清就每回一次主菜单多一套）");
                 // ⚠️ 上一轮建在 `Safe area All` 下的模式卡**不跟着 `_root` 那轮清场**（它们随安全区节点被搬进了壳根）
                 //    ⇒ 这里补一刀；否则重建后会**多出一整套**模式卡（静默）。
                 var oldSafeA = shell.SafeAreaAll;

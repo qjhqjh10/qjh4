@@ -80,7 +80,11 @@ Shader "WarpforgeVFX/FX/AlphaMaskOneLayer"
         }
 
         // 原版这几项都是**材质属性间接引用**，而且两种活组合都出现过 —— 不许改成字面量
-        Blend [_SrcBlend] [_DstBlend]
+        // 🔴 2026-10-21（T17 · Ruri 反编译对拍）：原版 pass0 是
+        //    `Blend [_SrcBlend] [_DstBlend], [_SrcBlendAlpha] [_DstBlendAlpha]` —— **色与 alpha 分开寻址**。
+        //    我们原来只写了前半截 ⇒ alpha 通道跟着色的因子走。
+        //    判据 = `Everguild/FX/Alpha Mask One Layer` 反编译体（Ruri 导出，pass0）。
+        Blend [_SrcBlend] [_DstBlend], [_SrcBlendAlpha] [_DstBlendAlpha]
         Cull [_Cull]
         ZWrite [_ZWrite]
         ZTest [_ZTest]

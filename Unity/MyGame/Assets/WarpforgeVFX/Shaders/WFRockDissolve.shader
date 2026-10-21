@@ -34,7 +34,10 @@
 // ⑤ **光照**（段 0 行 77-159；这正是 URP 自己的光照，**不乘任何 albedo**）：
 //      N = normalize(v10)   V = unity_OrthoParams.w==0 ? normalize(camPos−v9) : (view 矩阵的一列)
 //      mainLight = `_MainLightColor`.rgb · saturate(N·L) · shadow · **unity_LightData.z**
-//      spec      = 0.04 / max( 6.000120 · saturate(dot(L,H))², 0.1 )    ; H = normalize(V+L)
+//      spec      = 0.04 / ( max( saturate(dot(L,H))², 0.1 ) · 6.000120 )   ; H = normalize(V+L)
+//      ⚠️ 2026-10-21 就地订正（铁律 5）：本行原来写「0.04 / max(6.000120·NdotH², 0.1)」——**地板的位置写反了**，
+//         原版是 `_350 = max(_347, 0.1) * 6.00012` 再取倒数（`Fx_RockDissolve` b8 `_346.._353`）
+//         ⇒ 分母下限 0.600012，不是 0.1（照旧写法掠射角下 spec 最高亮 6 倍）。代码已改。
 //      addLights = Σ_i [ 主光那套同构：atten_i · saturate(N·L_i) · color_i · spec_i ]
 //      o0.rgb = **r1（Emission 那支）+ spec·mainLight + addLights**
 //    ⚠️ **光照项不乘 albedo**（159 行是纯 `add`）⇒ 可见颜色几乎全来自 Emission 那支。
@@ -86,10 +89,16 @@ Shader "WarpforgeVFX/FX/RockDissolve"
 
             #pragma multi_compile _ _MAIN_LIGHT_SHADOWS _MAIN_LIGHT_SHADOWS_CASCADE _MAIN_LIGHT_SHADOWS_SCREEN
             #pragma multi_compile _ _ADDITIONAL_LIGHTS_VERTEX _ADDITIONAL_LIGHTS
-            #pragma multi_compile_fragment _ _ADDITIONAL_LIGHT_SHADOWS
+            // ⛔ **不要 `_ADDITIONAL_LIGHT_SHADOWS`** —— 原版 `Fx_RockDissolve` 编出来的 4 个变体里
+            //   附加光的衰减是 `_432 * _460`（距离 × 聚光），**没有阴影项**（b8 `_459.._464`）⇒
+            //   而我们 PC_RPAsset 里 `m_AdditionalLightShadowsSupported: 1`（全局会开那个关键字）
+            //   ⇒ 写了这行就等于给附加光多乘一层阴影（原件没有）。
             #pragma multi_compile_fragment _ _SHADOWS_SOFT
             #pragma multi_compile _ SHADOWS_SHADOWMASK
-            #pragma multi_compile_fog
+            // ⛔ **不要 `#pragma multi_compile_fog` / `MixFog`** —— 原版 `Fx_RockDissolve` 的
+            //   4 个已编变体里**没有任何 fog 关键字**、FS 里也没有雾那一项（Ruri 反编译整份 `grep -i fog` = 0）。
+            //   ⚠️ 而战场是**会开雾**的（`ArenaSceneState.cs:84` `RenderSettings.fog = fogRunDensity > 0`）
+            //   ⇒ 原来加了 `MixFog` 会在开雾的战场上把 Effect 染成雾色/压暗（实测判据见本文件 2026-10-21 那条）。
 
             #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Core.hlsl"
             #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Lighting.hlsl"
@@ -124,7 +133,6 @@ Shader "WarpforgeVFX/FX/RockDissolve"
                 float3 positionWS  : TEXCOORD4;   // ps 的 v9
                 float3 normalWS    : TEXCOORD5;   // ps 的 v10
                 float4 shadowCoord : TEXCOORD6;   // ps 的 v2
-                float  fogFactor   : TEXCOORD7;
                 UNITY_VERTEX_OUTPUT_STEREO
             };
 
@@ -143,7 +151,6 @@ Shader "WarpforgeVFX/FX/RockDissolve"
                 OUT.uv1 = IN.uv1;
                 OUT.uv2 = IN.uv2;
                 OUT.color = IN.color;
-                OUT.fogFactor = ComputeFogFactor(OUT.positionCS.z);
                 return OUT;
             }
 
@@ -171,7 +178,11 @@ Shader "WarpforgeVFX/FX/RockDissolve"
                 half3 L  = mainLight.direction;
                 half3 H  = normalize(V + L);
                 half  sp = saturate(dot(L, H));
-                half  spec = 0.04h / max(6.000120h * sp * sp, 0.1h);
+                // 🔴 2026-10-21（T17 · Ruri 反编译对拍）：**地板在乘 6.00012 之前，不是之后**。
+                //   原版 `Shader Graphs/Fx_RockDissolve`（Ruri 反编译 `Sub0_Pass0_Fragment_b8.hlsl`
+                //   `_346.._353`）：`_350 = max(sp*sp, 0.1) * 6.00012` ; `_353 = (1/_350) * 0.04`
+                //   ⇒ 分母下限 = 0.600012（我们原来写成 `max(6.00012*sp*sp, 0.1)` ⇒ 掠射角下最高亮 6 倍）。
+                half  spec = 0.04h / (max(sp * sp, 0.1h) * 6.000120h);
                 half3 lighting = spec * mainLight.color
                                * saturate(dot(N, L))
                                * (mainLight.shadowAttenuation * mainLight.distanceAttenuation);
@@ -183,14 +194,15 @@ Shader "WarpforgeVFX/FX/RockDissolve"
                     half3 Li = l.direction;
                     half3 Hi = normalize(V + Li);
                     half  si = saturate(dot(Li, Hi));
-                    half  specI = 0.04h / max(6.000120h * si * si, 0.1h);
+                    // 同主光：地板在乘 6.00012 之前（原版 `_487.._492` 与主光同一段算式）
+                    half  specI = 0.04h / (max(si * si, 0.1h) * 6.000120h);
                     lighting += specI * l.color * saturate(dot(N, Li))
                               * (l.distanceAttenuation * l.shadowAttenuation);
                 LIGHT_LOOP_END
             #endif
 
+                // 原版**没有雾**（判据见上面 `#pragma` 那段的注释）⇒ 这里 ⛔ 不要再加 `MixFog`
                 half3 col = emission + lighting;
-                col = MixFog(col, IN.fogFactor);
                 return half4(col, a2m ? clipA : 1.0h);
             }
             ENDHLSL

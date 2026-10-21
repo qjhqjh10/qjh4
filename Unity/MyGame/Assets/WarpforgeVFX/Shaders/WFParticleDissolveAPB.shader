@@ -96,7 +96,9 @@ Shader "WarpforgeVFX/FX/ParticleDissolveAPB"
         }
 
         // 原版写死在 pass 里（材质上没有 _SrcBlend）—— 不许改成间接寻址
-        Blend SrcAlpha OneMinusSrcAlpha
+        // 🔴 2026-10-21（T17 · Ruri 反编译对拍）：原版 pass0 = `Blend SrcAlpha OneMinusSrcAlpha, One OneMinusSrcAlpha`
+        //    （单行四参数，alpha 单独给 `One OneMinusSrcAlpha`）；我们原来只写了前半截。
+        Blend SrcAlpha OneMinusSrcAlpha, One OneMinusSrcAlpha
         Cull Off
         ZWrite Off
 

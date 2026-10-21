@@ -9056,6 +9056,20 @@ namespace RuleEngine
             if (string.IsNullOrEmpty(cond)) return null;
             string c = cond.Trim().ToLowerInvariant();
 
+            // 🔴 **2026-10-21（引擎线 `T02` · `or` 族）：`A or B` 的**条件** —— 两个析取项都要判。**
+            //   `If the target dies or is a friendly unit, gain 1 ☀`（`SOR31 Dogmata`；
+            //   中文判据 `descZh`：「如果目标死亡或为友方单位」）。
+            //   ⚠️ **必须排在下面那条 `Contains("target dies")` 之前**：那条会把后半句
+            //      **静默吃掉**（归成 `targetdies` ⇒ 「目标活着且是友方」那一半永远不成立）。
+            //   原版把「友方」表达成 `targetCriteria.friendlyUnits`（不是在文本里判生死）：
+            //   `cards_1195_2022时代.json` 的 `SOR31.cardAbilities[1].targetCriteria` =
+            //   `targetsAffected 10 / friendlyUnits 1 / includeHero 1 / includeMinions 1 / includeRemnants 1`
+            //   ⇒ 结算层判的应该是**目标此刻所处的那一侧**（见 `ConditionHolds` 那一支）。
+            if ((c.Contains("target dies") || c.Contains("it dies"))
+                && (c.Contains("is a friendly unit") || c.Contains("is a friendly troop")
+                    || c.Contains("is friendly")))
+                return "targetdiesorfriendly";
+
             // `If the target dies` / `If it dies` —— 判「上一条效果的目标还在不在场上」
             if (c.Contains("target dies") || c.Contains("it dies") || c.Contains("the unit dies"))
                 return "targetdies";

@@ -137,6 +137,11 @@
 //        | 偏移 | 字段 | 原版节点名 | 显示规则（`Initialize(popup, context, isPlayerDeck)`） |
 //        |---|---|---|---|
 //        | +0x20 | `editButton`         | **`Edit Deck`**               | `state < 2`；`SoftDisable(!CanImportDeck(popup, context.Deck))`；文本 `state==1` 换一条本地化键 |
+//        ⚠️ **2026-10-21（真缺陷 · 如实记）**：上表那一格是**原版**判据（只看 `state`）。我们这一侧
+//        多了一个合取项 `OverrideDeck == null` —— `OverrideDeck != null` 的卡组（预组 / 选卡组弹窗送进来的）
+//        在库里**没有下标**，而我们的编辑器入口 `CollectionWindow.GoEdit(int)` 只认下标 ⇒ 原版
+//        `DeckInfoPopup__EditDeck.c` 那一跳「`OpenWindow(context.Deck)`」我们接不上。
+//        判据与偏离理由集中写在 **`EditDeckShown()`** 那一处（⛔ 别在两处各写一份）。
 //        | +0x28 | `selectButton`       | **`Select Deck`**             | `context.SelectButton != null` |
 //        | +0x30 | `shareButton`        | **`Share Button`**            | `state == 0 && isPlayerDeck` |
 //        | +0x38 | `shareOnChatButton`  | **`Share On Chat`**           | 同上 |
@@ -673,13 +678,32 @@ namespace CardPresentation
             return _parts.TryGetValue(key, out l) && l.Count > 0 && l[0] != null && l[0].activeSelf;
         }
 
+        /// <summary>🔴 **2026-10-21（真缺陷）**：`Edit Deck` 那颗**露不露** —— **唯一判据**
+        /// （`ApplyStateVisibility` 与 `LayoutButtonRow` 都调它；⛔ 别在两处各写一份）。
+        ///
+        /// <para>**原版判据**（判据原文 = `DeckInfoControls__Initialize.c:77`
+        /// `SetActive(editButton, *(uint *)(context + 0x18) < 2)`）：**只看 `state`**，
+        /// 与 `isPlayerDeck` **无关** —— 那一半另有一条断言守着（`Editor/CollectionScene.cs` 的 ④：
+        /// 「`isPlayerDeck = false` 但 `Edit Deck` 照旧露」），⛔ 别把 `IsPlayerDeck` 乘进来。
+        /// 点击动作的原版语义（`DeckInfoPopup__EditDeck.c`）：先跑 `context.EditButtonAction`
+        /// （本窗所有调用点都传 0 = null），再 `Close()` → `WindowsManager.OpenWindow(context.Deck)`
+        /// —— 交给编辑器的是**卡组对象本身**，不是下标。</para>
+        ///
+        /// <para>🔴 **我们多出来的那半个合取项（如实记，铁律 11）**：`OverrideDeck != null` = 这一副是
+        /// **外部送进来的**（预组 / 选卡组弹窗那一档），它在 `DeckLibrary` 里**没有下标**，而我们的
+        /// 编辑器入口 `CollectionWindow.GoEdit(int)` 只认库下标 ⇒ 原版那一跳**接不上**。
+        /// 留着一颗点不动的钮 = 玩家可见的静默失败（`OnButton("Edit Deck")` 里那条守卫只打得进日志），
+        /// 所以这一档**把它藏掉**。⚠️ 等编辑器有了「按卡组对象开」的入口，**删掉 `OverrideDeck == null`
+        /// 这半个合取项**即回到原版（⛔ 别顺手改成用 `IsPlayerDeck` 判）。</para></summary>
+        bool EditDeckShown() { return (int)State < 2 && OverrideDeck == null; }
+
         /// <summary>按 `State` / `SelectButtonProvided` / `IsPlayerDeck` 摆 8 颗钮的显隐。
         /// **只有这一份实现** —— `Build()` 末尾调一次；自检改完 `State` 再调它一次就能复验。</summary>
         public void ApplyStateVisibility()
         {
             bool mine = IsPlayerDeck;
             int st = (int)State;
-            ShowItem("Btn:Edit Deck", st < 2);                                    // 原版 :76
+            ShowItem("Btn:Edit Deck", EditDeckShown());                           // 原版 :77（只看 state）+ 2026-10-21 那半个合取项
             ShowItem("Btn:Select Deck", SelectButtonProvided);                    // 原版 :~100（`context.SelectButton != null`）
             ShowItem("Opt:Share", st == 0 && mine);                               // 原版 :60-72（四颗同一条）
             ShowItem("Opt:Share On Chat", st == 0 && mine);
@@ -727,13 +751,14 @@ namespace CardPresentation
             bool mine = IsPlayerDeck;
             int st = (int)State;
             string[] order = { "Btn:Practice Deck", "Btn:Edit Deck", "Btn:Select Deck" };
-            // ⚠️ 可见判据**逐字照抄 `ApplyStateVisibility`**（同一份规则，⛔ 别在这里另写一套）
+            // ⚠️ 可见判据**逐字照抄 `ApplyStateVisibility`**（同一份规则）—— 🔴 **2026-10-21**：
+            //    `Edit Deck` 那一档改调 `EditDeckShown()`（两处各写一份 = 迟早不一致，CLAUDE.md §三）。
             var shown = new List<string>();
             for (int i = 0; i < order.Length; i++)
             {
                 string k = order[i];
                 bool on = k == "Btn:Practice Deck" ? (mine && (st == 0 || st == 2))
-                        : k == "Btn:Edit Deck" ? (st < 2)
+                        : k == "Btn:Edit Deck" ? EditDeckShown()
                         : SelectButtonProvided;
                 if (on && _parts.ContainsKey(k)) shown.Add(k);
             }
@@ -2143,10 +2168,13 @@ namespace CardPresentation
         {
             if (key == "Edit Deck")
             {
-                // 🆕 **2026-10-17（T24）**：`OverrideDeck != null` = 这一副是**外面送进来的**（选卡组弹窗里的预组卡组），
-                //   没有 `CollectionData` 下标 ⇒ 进不了编辑器。原版这条钮只在 `state < 2` 露出，而选卡组弹窗
-                //   那条路的状态恒为 **3（Practice）** ⇒ **这一支实际不可达**；留着是防「将来那条路的状态被改小」。
-                //   ⛔ 不静默：真走到这里要出声。
+                // 🆕 **2026-10-17（T24）**：`OverrideDeck != null` = 这一副是**外面送进来的**（预组卡组 /
+                //   选卡组弹窗那一档），没有 `CollectionData` 下标 ⇒ 进不了编辑器。
+                //   🔴 **2026-10-21（真缺陷 · 本笔）**：这一支现在**正常走不到**了 —— 那颗钮已经由
+                //   `EditDeckShown()` 在 `OverrideDeck != null` 时**藏掉**（原版会让它露着、并把
+                //   `context.Deck` 交给编辑器，我们接不上；理由与判据都在 `EditDeckShown` 那一处）。
+                //   ⚠️ **这条守卫仍然留着**（第二道闸）：任何将来「露出来了又没下标」的组合走到这里，
+                //   都**在这儿停住并出声**，⛔ 绝不落到下面 `CollectionWindow.GoEdit(DeckIndex)` 去把 −1 交出去。
                 if (OverrideDeck != null)
                 {
                     Debug.LogWarning("[DeckInfo] `Edit Deck`：这一副来自选卡组弹窗（预组卡组、不在收藏库里）"

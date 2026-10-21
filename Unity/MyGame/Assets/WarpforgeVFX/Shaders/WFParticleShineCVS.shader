@@ -38,11 +38,15 @@ Shader "WarpforgeVFX/FX/ParticleShineCVS"
     Properties
     {
         _MainTex("MainTex", 2D) = "white" {}
-        Texture2D_0bfdc50de139497fa85c0cd08848879a("Shine Tex", 2D) = "white" {}
-        Color_a142b0353b4945a49e1990789c04ea35("Shine Color", Color) = (1, 1, 1, 1)
+        // 🔴 2026-10-21（T17 · 属性默认值照原版反编译体逐条改）：
+        //    Shine Tex 原版是 **"black"**（我们原来写 "white" ⇒ 缺这张图的材质会 g=1、整片发光）
+        //    · Shine Color 原版 `(1,1,1,**0**)`（alpha 不参与算式，但值要照原版）
+        //    · AnimationTime 原版 **0.5**（我们原来 0）；`[NoScaleOffset]` 原版两张图都有。
+        [NoScaleOffset] Texture2D_0bfdc50de139497fa85c0cd08848879a("Shine Tex", 2D) = "black" {}
+        Color_a142b0353b4945a49e1990789c04ea35("Shine Color", Color) = (1, 1, 1, 0)
         _ShineScale("ShineScale", Vector) = (1, 1, 1, 1)
         Vector1_c76b369469204ddeb1ee5d707098307c("Uv Rotation", Float) = 0.93
-        Vector1_90576362d340403fa7a5cc36416fb824("AnimationTime", Float) = 0
+        Vector1_90576362d340403fa7a5cc36416fb824("AnimationTime", Float) = 0.5
         Vector1_a48438ecc6b346ab85bcbad930c537e2("ShineIntensity", Float) = 1
         Shine_Width("Shine Width", Vector) = (0, 1, 0, 0)
         BOOLEAN_7733627BA3A1447E9D9F28A82CD0E4D4("UseCustomVertexData", Float) = 1
@@ -60,7 +64,9 @@ Shader "WarpforgeVFX/FX/ParticleShineCVS"
         }
 
         // 原版两个 pass 全是字面量（材质上的 _Cull/_SrcBlend 是死值）—— 硬编码，不许间接寻址
-        Blend SrcAlpha OneMinusSrcAlpha
+        // 🔴 2026-10-21（T17 · Ruri 反编译对拍）：原版 pass0 = `Blend SrcAlpha OneMinusSrcAlpha, One OneMinusSrcAlpha`
+        //    （单行四参数，alpha 单独给 `One OneMinusSrcAlpha`）；我们原来只写了前半截。
+        Blend SrcAlpha OneMinusSrcAlpha, One OneMinusSrcAlpha
         Cull Off
         ZWrite Off
         ZTest LEqual

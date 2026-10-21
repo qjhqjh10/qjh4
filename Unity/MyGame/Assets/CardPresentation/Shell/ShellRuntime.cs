@@ -369,12 +369,21 @@ namespace CardPresentation
 
         void OnDestroy()
         {
+            // 🆕 **2026-10-21（W59）**：静态实例跟着清（同族写法 → `MainMenuRuntime.OnDestroy` / `WindowsManager.OnDestroy`）。
+            //   壳在正常游戏里不会销毁，但「删壳重建」的宿主（自检夹具 / 以后真做重载）会留一个**已销毁的**静态引用 ——
+            //   而 `ApplyMenuChrome` 的第一句就是读 `Instance`（读到死对象 ⇒ 那一跳静默落空）。
+            if (Instance == this) Instance = null;
             if (_videoRt != null) { _videoRt.Release(); Destroy(_videoRt); _videoRt = null; }
             // 撤掉切场景时清 toast 的全局订阅（壳正常不会销毁，这里只做卫生）
             if (_sceneHookOn)
             {
                 UnityEngine.SceneManagement.SceneManager.sceneLoaded -= OnSceneLoadedCleanupToast;
                 _sceneHookOn = false;
+            }
+            if (_chromeHookOn)
+            {
+                UnityEngine.SceneManagement.SceneManager.sceneLoaded -= OnSceneLoadedApplyChrome;   // 🆕 W59
+                _chromeHookOn = false;
             }
         }
 
@@ -390,6 +399,10 @@ namespace CardPresentation
         //   ⚠️ 只清 `ToastNotifications`（右下角那族飘窗）；顶部错误横幅 `MessageToast` 原版在 13 个战场里也有
         //     ⇒ **不跟着清**（判据 → `Shell/MessageToast.cs` 文件头 ②）。
         static bool _sceneHookOn;
+        /// <summary>🆕 W59：外壳常驻件显隐那只钩子的**独立闩**。
+        /// <para>为什么不跟 `_sceneHookOn` 共用：共用的话，删掉下面那一行订阅、自检里
+        /// `SceneChromeHookInstalledForTest` **照样是真**（断言就没有牙了）。两个闩 = 两条订阅各有一条能红的断言。</para></summary>
+        static bool _chromeHookOn;
 
         static void OnSceneLoadedCleanupToast(UnityEngine.SceneManagement.Scene scene,
                                               UnityEngine.SceneManagement.LoadSceneMode mode)
@@ -397,18 +410,191 @@ namespace CardPresentation
             ToastNotifications.DisposeForSceneChange();
         }
 
-        /// <summary>挂上「任何场景加载完 ⇒ 清 toast」的兜底订阅（幂等；`Build` 里调）。</summary>
+        /// <summary>挂上「任何场景加载完 ⇒ 清 toast」的兜底订阅（幂等；`Build` 里调）。
+        /// <para>🆕 **W59 起同一个方法还挂第二只钩子** <see cref="OnSceneLoadedApplyChrome"/>（外壳常驻件显隐）——
+        /// 两者**同一个入口挂、`OnDestroy` 一起撤**，但各有一个闩（`_sceneHookOn` / `_chromeHookOn`）：
+        /// 这样「删掉其中一条订阅」能被自检各自抓到（共用闩的话删了一条另一条仍让断言为真）。</para></summary>
         static void EnsureSceneCleanupHook()
         {
-            if (_sceneHookOn) return;
-            UnityEngine.SceneManagement.SceneManager.sceneLoaded += OnSceneLoadedCleanupToast;
-            _sceneHookOn = true;
+            if (!_sceneHookOn)
+            {
+                UnityEngine.SceneManagement.SceneManager.sceneLoaded += OnSceneLoadedCleanupToast;
+                _sceneHookOn = true;
+            }
+            if (!_chromeHookOn)
+            {
+                UnityEngine.SceneManagement.SceneManager.sceneLoaded += OnSceneLoadedApplyChrome;   // 🆕 W59
+                _chromeHookOn = true;
+            }
         }
 
         /// <summary>自检用：切场景清 toast 的**全局订阅**挂上了没有（`Build` 里挂、`OnDestroy` 撤）。
         /// <para>⚠️ 只读；⛔ 别拿它当「清过了」的判据 —— 它只证明订阅在，清没清看
         /// `ToastNotifications.DisposeForSceneChange()` 的那几条断言。</para></summary>
         public static bool SceneCleanupHookInstalledForTest { get { return _sceneHookOn; } }
+
+        // ============================================================ 切场景 ⇒ 外壳常驻件显隐（W59 · 缺陷 A / B）
+        //
+        // 🔴 **2026-10-21（W59）这两个缺陷的判据 / 根因**（真机实拍 → `资料/普查产出_1021/W59_真机验收_结果.md` §三·6）：
+        //   · **缺陷 A —— 模糊快照盖住整个战场**：`UIBakeScreen`（离屏 1/4 分辨率 + 两趟高斯，`DisplayQueue 2895`）
+        //     建在 **DDOL 壳**上（`Awake` → `DontDestroyOnLoad`，本文件 `:304`）。主菜单被压背景/隐藏/关闭时
+        //     `GameWindow.SetBake(true)` 把它点亮（`GameWindow.cs` 的 `ToBackground / Hide / Close` 三处）；
+        //     进战斗后**没有任何人关它** —— 唯一关闭点是「回前台」那三处（`GameWindow.TryOpen` 两支 + `Close` 的
+        //     `baseMenu` 支），而战斗里 `baseMenu`（`MainMenuWindow`）已经随主菜单场景销毁 ⇒ 闸门恒不开，
+        //     更不会有人去关 ⇒ **整屏盖着主菜单那张糊图**，3D 战场被挡死。`LoadSceneWithFade` 也不碰它。
+        //   · **缺陷 B —— 外壳左栏留在战斗里**：`Navigation Panel` / `Upper bar` / `ChatPreview` 由
+        //     `MainMenuRuntime.Build` 建在壳的 `Safe area Only Horizontal` 下（`MainMenuRuntime.cs:506/515/516`），
+        //     壳不随场景卸载 ⇒ 单场景切战斗时它们**不销毁**，而全仓没有任何「战斗里隐藏它」的代码。
+        //   **原版判据（现核运行期 dump）**：`资料/原版参照图/Unity参照管线_0825/data/runtime_ui_dump_Battle_Arena_1.tsv`
+        //     （1243 行）**只有 `Scenario` / `BattlePrefab` 两个根**；`Navigation Panel` / `Upper bar` /
+        //     `ChatPreview` / `Toast Notification Controller` 各 **0 处**（`Chat` 的 69 处**全在战斗自己的 HUD**：
+        //     `…/Safe area FrontCanvas/Unit Chat/ChatPopup/…` 与 `…/BattleSettingsPanel/Volume Sliders/ChatToggle`
+        //     —— 没有一处是主菜单的 `ChatPreview`）
+        //     ⇒ 战斗里这三件**必须关**。反向（**该留**，同样逐条有 dump 证据）：
+        //     `LoadingMenu`（`:1105`，`BattleHud/Canvas/FrontCanvas/Safe area FrontCanvas/LoadingMenu`）·
+        //     `TooltipManager`（`:1146`）· `UI Error Message Controller (MUST BE ENABLED)`（`:1172`）。
+        //   ⚠️ `Toast Notification Controller` **不列进下面那张表**：它已由 `OnSceneLoadedCleanupToast` 在切场景时
+        //     整棵销毁、回主菜单由 `MainMenuRuntime.Build` 重建（判据 → 上面那一段）—— **两套机制别叠**。
+        //
+        // 🔴 **为什么钩子挂在 `sceneLoaded`（而不是 `LoadSceneWithFade` / `BattleDriver.Begin`）**：
+        //   ① 进战斗**不是一条路** —— `PracticeModePopup` / `LiveOpsEventWindow` 走 `LoadSceneWithFade`，
+        //      而 `TutorialModePopup:738` · `NetMatchmaking:503/848` · `MatchLogRow:391` **直调** `SceneManager.LoadScene`
+        //      ⇒ 挂在 `LoadSceneWithFade` 里只能盖住 2 / 6 条；
+        //   ② `BattleDriver.Begin` 只覆盖「战场场景」—— 卡组编辑（`DeckEditor`，独立场景）同样是非菜单场景、
+        //      原版那里左栏也是收起态（`NavigationPanelController.Toggle(0,1,0)`），漏掉就又是一次「回菜单前左栏乱入」；
+        //   ③ 本仓已有同一形状的先例（`OnSceneLoadedCleanupToast`，W58·D5）⇒ 一条订阅覆盖**所有**切场景路径，
+        //      包括以后新加的入口，不用逐个调用点补。
+        //   🔑 **恢复那一半落在 `MainMenuRuntime.Build` 开头**（⛔ 不是「一次关掉、永不恢复」）：回主菜单时
+        //      外壳常驻件必须在**重建菜单树之前**放回 —— 那一轮重建会再建一套新的（`BuildNavigationPanel` 等），
+        //      旧的那一份保持「放回」态也不影响画面（同位置完全重叠），但**绝不能留在关掉的状态**。
+
+        /// <summary>主菜单专用的外壳常驻件（**名字 = 原版节点名**，`Safe area Only Horizontal` 的直接子件）。
+        /// 判据 → 上面那一段（战斗 dump 里三件各 0 处）。</summary>
+        static readonly string[] MenuChromeNames = { "Navigation Panel", "Upper bar", "ChatPreview" };
+
+        /// <summary>按「这一屏是不是主菜单」把**外壳常驻件**放回 / 关掉（幂等）。
+        /// <list type="bullet">
+        /// <item>`menuIsUp == false` ⇒ 关 `UIBakeScreen`（若正显示）+ 关 <see cref="MenuChromeNames"/> 那三件 + 关压暗四条；</item>
+        /// <item>`menuIsUp == true` ⇒ 只把这三件与压暗四条放回（快照**保持关** —— 原版回前台那一侧就是 `Toggle(false)`）。</item>
+        /// </list>
+        /// <para>调用点两处（都别再各写一份规则）：① <see cref="OnSceneLoadedApplyChrome"/>（切场景）；
+        /// ② `MainMenuRuntime.Build` 开头（回主菜单、重建菜单树之前）。</para>
+        /// <para>⚠️ **没有壳**（独立场景档 `MainMenu.unity` / 自检）⇒ 直接返回：那一档没有跨场景常驻件，不是失败。
+        /// ⚠️ 自检/批处理里 `Awake` 不跑 ⇒ `Instance` 恒 null，这里退到 `FindFirstObjectByType`（同族坑 →
+        /// `GameWindow.SetBake` 那段注释）。</para></summary>
+        public static void ApplyMenuChrome(bool menuIsUp, string reason)
+        {
+            var rt = Instance;
+            if (rt == null) rt = UnityEngine.Object.FindFirstObjectByType<ShellRuntime>();   // 自检/批处理档
+            if (rt == null) return;
+            rt.ApplyMenuChromeNow(menuIsUp, reason);
+        }
+
+        /// <summary>实例版（= <see cref="ApplyMenuChrome"/> 的本体；自检直接拿 `shell` 调也行）。
+        /// **出声**：每一次真的改变了显隐都打一条日志（红线：不许静默失败 —— 否则「战斗里为什么左栏没了/还在」无从分辨）。</summary>
+        public void ApplyMenuChromeNow(bool menuIsUp, string reason)
+        {
+            if (!menuIsUp && Bake != null && Bake.Showing)
+            {
+                Bake.Toggle(false);
+                Debug.Log($"[Shell] `{reason}` 不是主菜单 ⇒ **关掉离屏模糊快照**（原版只有主菜单带 `screenBaker`；"
+                        + $"不关 ⇒ 整屏盖着上一帧主菜单的糊图，3D 战场被挡死）");
+            }
+
+            var safeH = SafeAreaOnlyHorizontal;         // 取的时候保证活着（被场景卸载带走就补建）
+            for (int i = 0; safeH != null && i < safeH.childCount; i++)
+            {
+                var ch = safeH.GetChild(i);
+                if (System.Array.IndexOf(MenuChromeNames, ch.name) < 0) continue;
+                if (ch.gameObject.activeSelf == menuIsUp) continue;
+                ch.gameObject.SetActive(menuIsUp);
+                Debug.Log($"[Shell] `{reason}` ⇒ 外壳常驻件 `{ch.name}` {(menuIsUp ? "**放回**" : "**关掉**")}"
+                        + (menuIsUp ? "（主菜单专用件，回主菜单要恢复 —— ⛔ 别改成「一次关掉、永不恢复」）"
+                                    : "（原版战斗场景里没有它；判据 → `runtime_ui_dump_Battle_Arena_1.tsv`）"));
+            }
+
+            // ③ 压暗四条（`FadeBackground`，原版 `Smooth background fade *`）：战斗 dump 里 `Fade` **0 处**。
+            //    🔴 **不关的后果比原来更明显**：快照（`DisplayQueue 2895`）一关，这一层（`FadeQueue 2890`）就露出来了
+            //    —— 左右各 205.8px 的纯黑→透明渐变（`FadeAlphaOuter = 1` / `FadeAlphaMid 0.7098`）。
+            //    ⚠️ 只切**父节点**：上下两条出厂就是关的（`FadeEdge` 的 `q.gameObject.SetActive(active)`），
+            //      开父节点不会把它们点亮。
+            var fadeRoot = transform.Find("FadeBackground");
+            if (fadeRoot != null && fadeRoot.gameObject.activeSelf != menuIsUp)
+            {
+                fadeRoot.gameObject.SetActive(menuIsUp);
+                Debug.Log($"[Shell] `{reason}` ⇒ 压暗四条 `FadeBackground` {(menuIsUp ? "**放回**" : "**关掉**")}"
+                        + (menuIsUp ? "（原版主菜单/开场有它）"
+                                    : "（原版战斗场景里没有它；不关 ⇒ 快照一撤就露出左右两片黑边）"));
+            }
+        }
+
+        /// <summary>清掉 `Safe area Only Horizontal` 下**上一轮遗留**的 <see cref="MenuChromeNames"/>（返回清掉的件数）。
+        /// <para>调用点**只有一处** = `MainMenuRuntime.Build` 开头（那一轮重建会再建一套新的）。
+        /// 🔴 **为什么必须是「按名字清」而不是靠主菜单那轮清场**：`MainMenuRuntime.Build` 开头那轮
+        /// `DestroySafe(_root 的孩子)` 只清**主菜单场景自己**的孩子，而这三件挂在**壳**的 `safeH` 下
+        /// （壳 DDOL、跨场景活着）⇒ 不清就是「菜单 ↔ 战斗每往返一次 +1 套」（视觉完全重叠看不出来，
+        /// 但旧件上的 `WindowButton` 闭包指的是**已销毁的** `MainMenuRuntime`，且是纯泄漏）。</para>
+        /// <para>⚠️ 只清名字在 <see cref="MenuChromeNames"/> 里的**直接子件** —— `LoadingMenu` ·
+        /// `Window Anchors` · `Toast Notification Controller` 等**不是主菜单独占件**，⛔ 别一起扫掉。
+        /// ⚠️ 本方法**不出声**（它返回件数），由调用点打日志 —— 与 `DestroySafe` 的分工一致。</para></summary>
+        public static int ClearStaleMenuChrome(Transform safeH)
+        {
+            if (safeH == null) return 0;
+            int n = 0;
+            // 倒序：边删边遍历（删的是自己这一格之后的下标不受影响）
+            for (int i = safeH.childCount - 1; i >= 0; i--)
+            {
+                var ch = safeH.GetChild(i);
+                if (System.Array.IndexOf(MenuChromeNames, ch.name) < 0) continue;
+                var go = ch.gameObject;
+                // 🔴 Play 下 `Destroy` 是**帧末**才生效（同 `ToastNotifications.Build` 那条先例）⇒ 先关掉，
+                //    免得旧件在这一帧继续画 / 继续吃指针（新件马上会建出来占同一处）。
+                go.SetActive(false);
+                DestroySafe(go);
+                n++;
+            }
+            return n;
+        }
+
+        /// <summary>🆕 W59：任何场景加载完 ⇒ 按「新场景是不是主菜单」放回 / 关掉外壳常驻件。
+        /// <para>「是不是主菜单」有两道判据，**任一成立即算**（见下）；⛔ 不复刻 `MainMenuRuntime.Build` ——
+        /// 那一轮由到达端自己做（它才是「按来路回」的消费点）。</para></summary>
+        static void OnSceneLoadedApplyChrome(UnityEngine.SceneManagement.Scene scene,
+                                             UnityEngine.SceneManagement.LoadSceneMode mode)
+        {
+            // ① 新场景里有 `MainMenuRuntime`（它在 `Awake` 里登记 `Instance`，而 `sceneLoaded` 在 Awake 之后、
+            //    Start 之前 ⇒ 这一刻读得到的已经是**新场景**那一台；旧的一台随场景卸载 `OnDestroy` 置 null）。
+            // ② 场景名 = 主菜单场景名（判据只留一处 = `BattleDriver.MainMenuSceneName`，⛔ 别在这里再写一个字面量）。
+            //    为什么要 ②：万一某版 Unity 把旧场景的 `OnDestroy` 排到新场景 `Awake` **之后**，只看 ① 会把主菜单
+            //    当成非菜单 ⇒ 回主菜单时左栏被关掉（症状 =「回来之后左栏没了」）。⛔ 但**不能只看 ②**：
+            //    场景名还没进 Build Settings 的临时场景、或改名之后，① 仍然是对的。
+            bool menuIsUp = MainMenuRuntime.Instance != null
+                         || scene.name == BattleDriver.MainMenuSceneName;
+            ApplyMenuChrome(menuIsUp, "场景 `" + scene.name + "`");
+        }
+
+        /// <summary>🆕 W59 自检用：切场景那两只钩子（清 toast + 外壳常驻件）挂上了没有 —— **这只专指「外壳常驻件」那一条**
+        /// （它有自己的闩 `_chromeHookOn`，删掉那条订阅 ⇒ 这条红）。
+        /// <para>⚠️ 只读；它只证明订阅在，**切场景那一跳本身**在批处理里验不了（`SceneManager.LoadScene` 编辑模式不允许）
+        /// ⇒ 真机复核步骤 → `Editor/ShellScene.cs` 的「W59」那一节末尾。</para></summary>
+        public static bool SceneChromeHookInstalledForTest { get { return _chromeHookOn; } }
+
+        /// <summary>🆕 W59 自检用：模糊快照现在是否显示在屏上（= `UIBakeScreen.Showing`；壳/件没有 ⇒ false）。</summary>
+        public bool BakeVisibleForTest { get { return Bake != null && Bake.Showing; } }
+
+        /// <summary>🆕 W59 自检用：`Safe area Only Horizontal` 下的 `Navigation Panel` 是否可见（不在树里 ⇒ false）。
+        /// <para>⚠️ 只读；⛔ 别拿 `MainMenuRuntime.NavPanelXForTest` 代替 —— 那个读的是 `MainMenuRuntime._navPanel`，
+        /// 而**战斗里那一台已经随主菜单场景销毁了**（本口直接看壳上的节点，跨场景仍然有效）。</para></summary>
+        public bool NavPanelVisibleForTest
+        {
+            get
+            {
+                var safeH = _safeH;
+                if (safeH == null) return false;
+                var p = safeH.Find("Navigation Panel");
+                return p != null && p.gameObject.activeSelf;
+            }
+        }
 
         // ============================================================ 建
 

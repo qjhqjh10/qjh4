@@ -101,7 +101,9 @@ Shader "WarpforgeVFX/FX/MultiRay"
         }
 
         // 原版这几项都是**材质属性间接引用**（38 个材质实测 5/10）—— 不许改成字面量
-        Blend [_SrcBlend] [_DstBlend]
+        // 🔴 2026-10-21（T17 · Ruri 反编译对拍）：原版 pass0 = `Blend [_SrcBlend] [_DstBlend], [_SrcBlendAlpha] [_DstBlendAlpha]`
+        //    （色与 alpha 分开寻址）；我们原来只写了前半截。判据 = `Everguild/FX/Multi Ray` 反编译体。
+        Blend [_SrcBlend] [_DstBlend], [_SrcBlendAlpha] [_DstBlendAlpha]
         Cull [_Cull]
         ZWrite [_ZWrite]
         ZTest [_ZTest]

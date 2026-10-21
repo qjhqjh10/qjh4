@@ -817,6 +817,16 @@ public static class EffectExporter
         //   （子树里 0 个 `ParticleSystemRenderer`）—— 那条先例的注释见上面。
         //   判据 → `资料/普查产出_1016战斗/A2080_特效库缺名普查.md` §二。
         "Teleport Trigger Board Effect Only",
+        // 🆕 **2026-10-21（`A1325` 收口）**：`CardPrefab.prefab` 也是要「按名字导」的一件 ——
+        //   它的 `Image.m_Sprite` 6 条 / TMP `m_fontAsset` 38 条 guid 全 0，落码的那一跳
+        //   （本文件 `A1325` 那两支）只有在**重新导出这一件**时才会跑；而它子树里没有
+        //   `ParticleSystemRenderer` ⇒ `Run()` 的「效果根」过滤器永远筛不到它（与上面
+        //   `Teleport Trigger Board Effect Only` 同款理由）。
+        //   ⇒ 加进本名单、走 `RunListed()`（**不清产物、固定路径覆盖写 ⇒ guid 不变**）。
+        //   ✅ **2026-10-21 当天补齐（`A1325` 第二半）**：那 5 条 uGUI `Image.m_Material` 现在**也接了**
+        //   （`Export()` 里 `m_Material` 那一支，读序列化字段 + `ImportMaterial`），下面这条不再是缺口。
+        //   ⚠️ 验它得给 `check_prefab_refs.py` 传 `--fields … ,m_Material`，默认字段集看不到那一列。
+        "CardPrefab",
     };
 
     /// <summary>
@@ -1968,6 +1978,42 @@ public static class EffectExporter
             img.sprite = imported; uiSpriteOk++;
         }
 
+        // ---- 🆕 2026-10-21（`A1325` 第二半）：**uGUI `Image.m_Material` 那一跳** ----
+        // 头注（`:1950` 那段）写的「`A1325` 两跳」其实只有 `m_Sprite` 与 TMP `m_fontAsset`；
+        // `m_Material` **一直没人接** ⇒ 现读 `Prefabs/CardPrefab.prefab` 里 `m_Material` guid 全 0 **5 条**
+        // （`Card Backs SDF` ×1 · `Card Image Overflow` ×1 · `Card Frame SDF` ×1 ·
+        //  `Card Frame and Cardback for combat` ×2）。写法与 `BoosterPackExporter.Export()` 里
+        // 同名那一支（(2) 段）**同形**：
+        // 🔴 **不能读 `img.material`** —— 那是**带回落**的 getter：`m_Material == null` 时它返回
+        //    **内建默认材质**（带 alpha 分离贴图的精灵还会返回 `defaultETC1GraphicMaterial`）
+        //    ⇒ 照它取值会把「本来没有材质」的 Image 也数成有、再给它们各写一份工程副本
+        //    （= **静默改掉原始数据**）。必须按**序列化字段名**读（`SerializedFieldRef`）。
+        // ⚠️ 四份源材质里三份工程里**已有** `WarpforgeVFX/Materials/*.mat`（`ImportMaterial` 走
+        //    **固定路径 + 原地覆盖**，guid 不变），`Card Frame and Cardback for combat` 没有 ⇒ 由它落一份。
+        //    shader 全是 Everguild 私有 ⇒ 会落**近似替代**（`ImportMaterial` 已出声，这里再点名一次）。
+        int uiMatOk = 0, uiMatMiss = 0, uiMatApprox = 0;
+        foreach (var img in inst.GetComponentsInChildren<UnityEngine.UI.Image>(true))
+        {
+            var om = SerializedFieldRef(img, "m_Material") as Material;
+            if (om == null) continue;              // 原版本来就空（绝大多数 Image）
+            var nm = ImportMaterial(om, out bool uiApprox, out string uiShader);
+            if (nm == null)
+            {
+                uiMatMiss++;
+                Debug.LogWarning($"[EffectExporter] A1325 `{src.name}` / `{img.gameObject.name}` 上的 `Image.m_Material`"
+                    + $"（`{om.name}` · 原 shader `{uiShader}`）导不成工程材质 ⇒ **这一格留空**"
+                    + "（⛔ 不拿空材质顶上）");
+                continue;
+            }
+            img.material = nm; uiMatOk++;
+            if (uiApprox)
+            {
+                uiMatApprox++;
+                Debug.LogWarning($"[EffectExporter] A1325 `{src.name}` / `{img.gameObject.name}` 的材质 `{om.name}`"
+                    + $"（原 shader `{uiShader}`）**是按近似 shader 替代的** —— 接上了，但观感不是原版");
+            }
+        }
+
         int tmpFontOk = 0, tmpFontMiss = 0;
         var missingFonts = new Dictionary<string, int>();
         foreach (var t in inst.GetComponentsInChildren<TMPro.TMP_Text>(true))
@@ -1986,6 +2032,10 @@ public static class EffectExporter
         if (uiSpriteOk > 0 || uiSpriteMiss > 0)
             Debug.Log($"[EffectExporter] A1325 `{src.name}` uGUI `Image.m_Sprite`：接回 **{uiSpriteOk}** 条"
                     + (uiSpriteMiss > 0 ? $"、**没接上 {uiSpriteMiss} 条**（见上面的告警）" : ""));
+        if (uiMatOk > 0 || uiMatMiss > 0)
+            Debug.Log($"[EffectExporter] A1325 `{src.name}` uGUI `Image.m_Material`：接回 **{uiMatOk}** 条"
+                    + (uiMatOk > 0 ? $"（其中近似替代 {uiMatApprox} 条）" : "")
+                    + (uiMatMiss > 0 ? $"、**没接上 {uiMatMiss} 条**（见上面的告警）" : ""));
         if (tmpFontOk > 0 || tmpFontMiss > 0)
         {
             var mv = new List<string>();
@@ -3005,14 +3055,27 @@ public static class EffectExporter
         if (SpriteCache.TryGetValue(s, out var c) && c != null) return c;
 
         var tex = s.texture as Texture2D;
-        if (tex == null) return null;
-
         var rect = s.textureRect;                       // 在图集里的像素矩形（左下原点）
+        // 🔴 **2026-10-21（`A1325` 第二半）：图集精灵（SpriteAtlas 打包）那一支。**
+        //   原来这里是一句 `if (tex == null) return null;` —— 而**图集精灵的 `m_RD.texture` 是
+        //   `PPtr(pathID = 0)`**（本次四张：`Card Text smooth background` / `pedestal_icon_armor` /
+        //   `Card Frame Cost Icon` / `1_40k_cardframe_rarity_common`，`m_SpriteAtlas` = `4765312961718699286`
+        //   = `0_GeneralUI Atlas`）⇒ `CardPrefab` 那 **6 条 `Image.m_Sprite` 静默落空**（guid 全 0）。
+        //   现在改走「先问图集要这一格」：图集纹理与这一格在图集里的矩形都在 `SpriteAtlas` 里
+        //   （`m_RenderDataMap`：Card Text=(1491,196,32,32) · Cost Icon=(0,1742,248,244) ·
+        //    pedestal=(516,0,248,306) · rarity=(1491,116,84,76)），裁切/编码仍走下面**同一条**路。
+        if (tex == null && !TryResolveAtlasSprite(s, out tex, out rect))
+            return null;                                // ← 里面已按精灵名**出声**（⛔ 不静默）
+
         int w = Mathf.RoundToInt(rect.width), h = Mathf.RoundToInt(rect.height);
         if (w <= 0 || h <= 0) { rect = new Rect(0, 0, tex.width, tex.height); w = tex.width; h = tex.height; }
 
         var readable = ReadableCopy(tex);
-        if (readable == null) return null;
+        if (readable == null)                       // 🆕 A1325：这几种 return null 原来都是**静默**的
+        {
+            Debug.LogWarning(EX1 + $"精灵 `{s.name}` 的纹理 `{tex.name}`（{tex.format}）**读不出像素** ⇒ 这一格留空");
+            return null;
+        }
 
         var px = readable.GetPixels(Mathf.RoundToInt(rect.x), Mathf.RoundToInt(rect.y), w, h);
         var sub = new Texture2D(w, h, TextureFormat.RGBA32, false);
@@ -3022,7 +3085,12 @@ public static class EffectExporter
         try { png = sub.EncodeToPNG(); } catch { }
         UnityEngine.Object.DestroyImmediate(sub);
         if (readable != tex) UnityEngine.Object.DestroyImmediate(readable);
-        if (png == null) return null;
+        if (png == null)
+        {
+            Debug.LogWarning(EX1 + $"精灵 `{s.name}` 从 `{tex.name}` 裁 ({rect.x},{rect.y},{w}x{h}) 后"
+                           + " **`EncodeToPNG` 返回 null** ⇒ 这一格留空（多半是纹理格式读不了，见 `ReadableCopy` 头部）");
+            return null;
+        }
 
         var path = $"{TexDir}/{Sanitize(s.name)}_sprite.png";
         File.WriteAllBytes(Path.Combine(Directory.GetCurrentDirectory(), path), png);
@@ -3048,12 +3116,534 @@ public static class EffectExporter
             ti.spritePivot = new Vector2(
                 sz.x > 0f ? s.pivot.x / sz.x : 0.5f,
                 sz.y > 0f ? s.pivot.y / sz.y : 0.5f);
+            // 🆕 **2026-10-21（`A1325` 第二半）：九宫格边框。** 这一支原来**完全没设 `spriteBorder`**
+            //   —— 而 `Card Text smooth background` 的原版 `m_Border = (7,0,7,9)`、`CardPrefab` 里
+            //   用到它的 Image 是 `m_Type: 1`（Sliced）⇒ 不补边框的话精灵接上了也会被**拉成一整块**。
+            //   ⚠️ Sliced 还要求精灵网格是 **FullRect**（Tight 会把边框区裁掉 ⇒ 九宫格画不对），
+            //   所以这里连 `spriteMeshType` 一起改；**只在 border 非零时**动，别的精灵一字不变。
+            if (s.border != Vector4.zero)
+            {
+                ti.spriteBorder = s.border;
+                var tsx = new TextureImporterSettings();
+                ti.ReadTextureSettings(tsx);
+                if (tsx.spriteMeshType != SpriteMeshType.FullRect)
+                {
+                    tsx.spriteMeshType = SpriteMeshType.FullRect;
+                    ti.SetTextureSettings(tsx);
+                }
+                Debug.Log($"[EffectExporter] A1325 精灵 `{s.name}` 写九宫格 border={s.border}"
+                        + "（网格同时改 FullRect —— Sliced 下 Tight 会把边框区裁掉）");
+            }
             ti.SaveAndReimport();
         }
+        else
+            Debug.LogWarning(EX1 + $"精灵 `{s.name}` 的 PNG 已写到 `{path}`，但**取不到 `TextureImporter`**"
+                           + " ⇒ 它不会被改成 Sprite 类型（下面多半加载成 null）");
 
         var asset = AssetDatabase.LoadAssetAtPath<Sprite>(path);
+        if (asset == null)
+            Debug.LogWarning(EX1 + $"精灵 `{s.name}` 的 PNG 落到 `{path}` 后**加载不成 `Sprite`** ⇒ 这一格留空");
         SpriteCache[s] = asset;
         return asset;
+    }
+
+    // ═══ `A1325` 第二半：**图集精灵**（SpriteAtlas 打包）的解析 ═══════════════════════════════════
+    //
+    // 为什么得单开一支：`Sprite.texture` 对图集精灵**恒为 null**（`m_RD.texture` 是 `PPtr(pathID = 0)`），
+    //   而它的纹理与「这一格在图集里的矩形」只有 `SpriteAtlas` 那边有。按顺序试：
+    //   ① 精灵自己的 `m_SpriteAtlas` **PPtr**（序列化字段；bundle 载着 ⇒ 按需解析，不要求图集是「可加载根」）
+    //      → `SpriteAtlas.GetSprite(name)` / `GetSprites(...)` 拿**打包后的精灵**（纹理 + textureRect 都对）；
+    //   ② ① 取不到图集对象时，扫**已加载的包**里的 `SpriteAtlas`（`m_AtlasTags` 里的名字优先）再走同一套 API；
+    //   ③ 那两个 API 给不出这一格时 **无条件**落到 `TryAtlasRectFromMap`：读 `SpriteAtlas.m_RenderDataMap`，
+    //      定位顺序 = Hash128（`m_RenderDataKey`）→ 名字表下标（`m_PackedSpriteNamesToIndex`）→
+    //      **硬编码兜底表**（`KnownRects_GeneralUI`，只覆盖 `0_GeneralUI Atlas` 那四张，来源见那里的注释）。
+    // 🔴 **2026-10-21 实证（`export_cardprefab2.log`）**：bundle 里载入的图集，`GetSprite`/`GetSprites`
+    //   **对每一张都返回空**（日志：`已登记图集 25 个`、每个精灵都「取到了但没给出这一格」）⇒ ①② 基本是空的，
+    //   真正的活路是 ③。上一版 ③ 的第一句是 `if (SpriteRenderDataKey(s) == null) return false;` ——
+    //   Hash128 一读不到就**静默**跳过整条退路（日志里连 `退路走不通` 都没有，就是它），本轮已修。
+    // 全失败 ⇒ **点名出声 + 逐层实况**（`diag`）、返回 false（调用方留空）。⛔ 绝不拿别的图/别的格顶上。
+    static readonly HashSet<string> AtlasMissLogged = new HashSet<string>();
+    static List<UnityEngine.U2D.SpriteAtlas> _atlases;
+    static int _atlasScanStamp = -1;
+
+    /// <summary>把一张图集精灵解析成「图集纹理 + 这一格在图集里的像素矩形」。
+    /// 成功时打一行 `A1325 图集精灵 …` 说明走的哪条路；失败时**出声**（每个精灵名只吼一次）。</summary>
+    static bool TryResolveAtlasSprite(Sprite s, out Texture2D tex, out Rect rect)
+    {
+        tex = null; rect = default;
+        var diag = new System.Text.StringBuilder();
+
+        // ---- ① 精灵自己指的那个图集（`m_SpriteAtlas` 序列化字段，bundle 内 PPtr）----
+        var atlas = SerializedFieldRef(s, "m_SpriteAtlas") as UnityEngine.U2D.SpriteAtlas;
+        if (atlas != null)
+        {
+            int sc = -1; try { sc = atlas.spriteCount; } catch { }
+            diag.Append($"图集=`{atlas.name}`(spriteCount={sc}); ");
+            if (TryPackedSprite(atlas, s, out tex, out rect, out string how1, diag))
+            {
+                Debug.Log($"[EffectExporter] A1325 图集精灵 `{s.name}` 走 {how1}（图集 `{atlas.name}` · "
+                        + $"纹理 `{tex.name}` {tex.width}x{tex.height}）⇒ 裁切 "
+                        + $"({rect.x},{rect.y},{rect.width},{rect.height})");
+                return true;
+            }
+            // ③ 退路：`GetSprite`/`GetSprites` 给不出这一格 ⇒ 直接翻 `m_RenderDataMap`
+            //    🔴 **无条件走这里**（上一版在 `SpriteRenderDataKey` 读不到时静默 return，四张全落空）
+            if (TryAtlasRectFromMap(atlas, s, out tex, out rect, diag))
+            {
+                Debug.Log($"[EffectExporter] A1325 图集精灵 `{s.name}` **走退路** `m_RenderDataMap`"
+                        + $"（图集 `{atlas.name}` · 纹理 `{tex.name}` {tex.width}x{tex.height}）⇒ 裁切 "
+                        + $"({rect.x},{rect.y},{rect.width},{rect.height})｜{diag}");
+                return true;
+            }
+        }
+        else diag.Append("m_SpriteAtlas=null; ");
+
+        // ---- ② `m_SpriteAtlas` 取不到（或那两条路都没给出这一格）⇒ 扫**已加载的包**里的图集 ----
+        //  ⚠️ 这一步会扫 84 个包，**只在上面失败时才走**（happy path 一次都不扫）。
+        var tags = AtlasTagsOf(s);
+        var cands = new List<UnityEngine.U2D.SpriteAtlas>();
+        foreach (var a in LoadedAtlases())
+        {
+            if (a == null || a == atlas) continue;
+            bool tagHit = false;
+            foreach (var t in tags) if (a.name == t) tagHit = true;
+            if (tagHit) cands.Insert(0, a); else cands.Add(a);       // 同名图集排前面
+        }
+        diag.Append($"扫包{cands.Count}个; ");
+        foreach (var a in cands)
+        {
+            if (TryPackedSprite(a, s, out tex, out rect, out string how2))
+            {
+                Debug.Log($"[EffectExporter] A1325 图集精灵 `{s.name}` 走 {how2}（图集 `{a.name}` · 扫包找到 · "
+                        + $"纹理 `{tex.name}` {tex.width}x{tex.height}）⇒ 裁切 "
+                        + $"({rect.x},{rect.y},{rect.width},{rect.height})");
+                return true;
+            }
+            if (TryAtlasRectFromMap(a, s, out tex, out rect))
+            {
+                Debug.Log($"[EffectExporter] A1325 图集精灵 `{s.name}` **走退路** `m_RenderDataMap`"
+                        + $"（图集 `{a.name}` · 扫包找到 · 纹理 `{tex.name}` {tex.width}x{tex.height}）⇒ 裁切 "
+                        + $"({rect.x},{rect.y},{rect.width},{rect.height})");
+                return true;
+            }
+        }
+
+        if (AtlasMissLogged.Add(s.name))
+            Debug.LogWarning($"[EffectExporter] A1325 图集精灵 `{s.name}` **解析不出来** ⇒ 这一格留空"
+                           + $"（`m_SpriteAtlas` {(atlas == null ? "没取到" : "取到了但没给出这一格")}"
+                           + $" · `m_AtlasTags` [{string.Join(",", tags)}]"
+                           + $" · 已登记图集 {_atlases?.Count ?? 0} 个"
+                           + $"）逐层实况【{diag}】"
+                           + "—— ⛔ 不拿别的图顶上（那等于静默画错一张）");
+        return false;
+    }
+
+    /// <summary>`Sprite.m_AtlasTags`（原版这四张都写着 `["0_GeneralUI Atlas"]`）。读不到返回空表、**不出声**
+    /// —— 它只是②那条路的提示，不是判据。</summary>
+    static string[] AtlasTagsOf(Sprite s)
+    {
+        try
+        {
+            using (var so = new SerializedObject(s))
+            {
+                var p = so.FindProperty("m_AtlasTags");
+                if (p == null || !p.isArray || p.arraySize == 0) return new string[0];
+                var r = new string[p.arraySize];
+                for (int i = 0; i < r.Length; i++)
+                {
+                    var e = p.GetArrayElementAtIndex(i);
+                    r[i] = e.propertyType == SerializedPropertyType.String ? e.stringValue : "";
+                }
+                return r;
+            }
+        }
+        catch { return new string[0]; }
+    }
+
+    /// <summary>已加载包里的全部 `SpriteAtlas`（**惰性扫一次**，按 `LoadedPacks` 的规模失效）。
+    /// ⚠️ 两条取法都要：这个 build 的 `LoadAllAssets&lt;T&gt;()` 在某些包上**只吐可加载根**，
+    ///   而 `GetAllAssetNames()` 吐的是**容器键** ⇒ 按容器键 `LoadAsset&lt;SpriteAtlas&gt;` 再兜一遍。</summary>
+    static List<UnityEngine.U2D.SpriteAtlas> LoadedAtlases()
+    {
+        if (_atlases != null && _atlasScanStamp == LoadedPacks.Count && _atlases.All(a => a != null))
+            return _atlases;
+        _atlases = new List<UnityEngine.U2D.SpriteAtlas>();
+        _atlasScanStamp = LoadedPacks.Count;
+        int packs = 0, viaAll = 0, viaKey = 0;
+        foreach (var kv in LoadedPacks)
+        {
+            var b = kv.Value;
+            if (b == null) continue;
+            packs++;
+            int before = _atlases.Count;
+            try
+            {
+                foreach (var a in b.LoadAllAssets<UnityEngine.U2D.SpriteAtlas>())
+                    if (a != null) _atlases.Add(a);
+            }
+            catch (Exception e)
+            {
+                Debug.LogWarning(EX1 + $"`{kv.Key}` 的 `LoadAllAssets<SpriteAtlas>()` 抛了：{e.GetType().Name}: {e.Message}");
+            }
+            if (_atlases.Count > before) { viaAll++; continue; }
+            // 兜底：按容器键逐个试（只在 `LoadAllAssets` 没捞到时才走，慢）
+            string[] names = null;
+            try { names = b.GetAllAssetNames(); } catch { }
+            if (names == null) continue;
+            foreach (var n in names)
+            {
+                try
+                {
+                    var a = b.LoadAsset<UnityEngine.U2D.SpriteAtlas>(n);
+                    if (a != null && !_atlases.Contains(a)) { _atlases.Add(a); viaKey++; }
+                }
+                catch { }
+            }
+        }
+        Debug.Log($"[EffectExporter] A1325 图集登记：{_atlases.Count} 个 `SpriteAtlas`"
+                + $"（扫 {packs} 个包 · `LoadAllAssets` 命中 {viaAll} 个包 · 按容器键补 {viaKey} 个）");
+        return _atlases;
+    }
+
+    /// <summary>问图集要「这一格的打包精灵」，再把它换算成（图集纹理 + 图集内矩形）。
+    /// 两条 API 都试：`GetSprite(name)`（按名字取克隆）；不行再用
+    /// `GetSprites(...)`（**它把精灵克隆填进你给的数组、返回填了几个**，所以要自己按名字挑回来）。
+    /// ⚠️ 2026-10-21 实测（`export_cardprefab2.log`）：**bundle 里载入的图集这两条都返回空/不可用**
+    ///   ⇒ 本函数返回 false 是常态，真正的兜底在同族的 `TryAtlasRectFromMap`。每次结果都写进 `diag`。</summary>
+    static bool TryPackedSprite(UnityEngine.U2D.SpriteAtlas atlas, Sprite s,
+                                out Texture2D tex, out Rect rect, out string how,
+                                System.Text.StringBuilder diag = null)
+    {
+        tex = null; rect = default; how = null;
+        Sprite hit = null;
+        try { hit = atlas.GetSprite(s.name); }
+        catch (Exception e)
+        {
+            Debug.LogWarning(EX1 + $"图集 `{atlas.name}`.GetSprite(`{s.name}`) 抛了：{e.GetType().Name}: {e.Message}");
+            diag?.Append($"GetSprite抛{e.GetType().Name}; ");
+        }
+        diag?.Append($"GetSprite→{DescribePacked(hit)}; ");
+        if (UsablePacked(hit, out tex, out rect)) { how = "`GetSprite`"; return true; }
+        tex = null; rect = default;
+
+        hit = null;
+        try
+        {
+            // ⚠️ `GetSprites` 的语义是**「把图集里的精灵克隆一份，填进你给的数组」**（返回填了几个），
+            //    不是「返回打包精灵」⇒ 传进去的数组是**输出**，要自己按名字挑回来。
+            var one = new Sprite[8];
+            atlas.GetSprites(one, s.name);
+            for (int i = 0; i < one.Length; i++)
+                if (one[i] != null && one[i].name == s.name) { hit = one[i]; break; }
+            if (hit == null)
+            {
+                var all = new Sprite[Mathf.Max(1, atlas.spriteCount)];
+                int n = atlas.GetSprites(all);
+                diag?.Append($"GetSprites→填{n}/{all.Length}(spriteCount={atlas.spriteCount}); ");
+                for (int i = 0; i < n && i < all.Length; i++)
+                    if (all[i] != null && all[i].name == s.name) { hit = all[i]; break; }
+            }
+        }
+        catch (Exception e)
+        {
+            Debug.LogWarning(EX1 + $"图集 `{atlas.name}`.GetSprites(`{s.name}`) 抛了：{e.GetType().Name}: {e.Message}");
+            diag?.Append($"GetSprites抛{e.GetType().Name}; ");
+        }
+        diag?.Append($"GetSprites选中→{DescribePacked(hit)}; ");
+        if (!UsablePacked(hit, out tex, out rect)) { tex = null; rect = default; return false; }
+
+        // 防御：矩形必须落在纹理里，否则宁可当失败也别裁一块空白出来
+        if (rect.x < 0f || rect.y < 0f
+            || rect.x + rect.width > tex.width + 0.5f || rect.y + rect.height > tex.height + 0.5f)
+        {
+            Debug.LogWarning(EX1 + $"图集 `{atlas.name}` 给 `{s.name}` 的矩形 "
+                           + $"({rect.x},{rect.y},{rect.width},{rect.height}) **不在纹理 `{tex.name}` "
+                           + $"{tex.width}x{tex.height} 里** ⇒ 这一格按失败处理（⛔ 不裁一块空白顶上）");
+            tex = null; rect = default; return false;
+        }
+        how = "`GetSprites`";
+        return true;
+    }
+
+    static bool UsablePacked(Sprite hit, out Texture2D tex, out Rect rect)
+    {
+        tex = null; rect = default;
+        if (hit == null) return false;
+        tex = hit.texture as Texture2D;
+        if (tex == null) return false;
+        rect = hit.textureRect;
+        return rect.width > 0f && rect.height > 0f;
+    }
+
+    /// <summary>**退路**：直接读图集的 `m_RenderDataMap`（序列化里是 `[Key, SpriteAtlasData]` 表），
+    /// 拿这一格的 `texture`（图集纹理）+ `textureRect`（在图集里的矩形）。**三层定位，逐层降级**：
+    ///   ① `Sprite.m_RenderDataKey`（Hash128）== 记录 Key 里的 Hash128 —— 两边是同一个值；
+    ///   ② 读不到 Hash128 时改用**下标**：`m_PackedSpriteNamesToIndex[i] == 精灵名` ⇒ 表里第 i 条
+    ///      （解包态实测两者同序：`Card Text smooth background` = 第 110 条，rect = (1491,196,32,32) ✔）；
+    ///   ③ 还定不到位 ⇒ 从**任意一条**记录里捞图集纹理（同一张图集的每一格共用一个 `texture`），
+    ///      再配 `KnownRects_GeneralUI` 那张**从解包真值抄来的**硬编码表（⛔ 不是通用算法，见那里的注释）。
+    /// 🔴 **2026-10-21 修**：上一版这里第一句是 `if (key == null) return false;` —— Hash128 一读不到就
+    ///    **静默整条退路不跑**（`export_cardprefab2.log` 里四张全落空、却一条 `退路走不通` 都没有，就是它）。
+    ///    现在**任何**失败都写进 `diag` / 打 Warning，且 ②③ 不依赖 Hash128。</summary>
+    static bool TryAtlasRectFromMap(UnityEngine.U2D.SpriteAtlas atlas, Sprite s,
+                                    out Texture2D tex, out Rect rect,
+                                    System.Text.StringBuilder diag = null)
+    {
+        tex = null; rect = default;
+        try
+        {
+            using (var so = new SerializedObject(atlas))
+            {
+                var map = so.FindProperty("m_RenderDataMap");
+                if (map == null)
+                {
+                    diag?.Append("m_RenderDataMap=找不到; ");
+                    Debug.LogWarning(EX1 + $"图集 `{atlas.name}` 上找不到 `m_RenderDataMap` ⇒ 退路 ①②③ 全走不通");
+                    return false;
+                }
+                if (!map.isArray || map.arraySize == 0)
+                {
+                    // 不是数组 ⇒ ①② 的下标定位做不了，但 ③ 还能用（纹理可以从整棵子树里捞一张）
+                    diag?.Append($"map非数组(type={map.propertyType}·isArray={map.isArray}); ");
+                }
+                else
+                    diag?.Append($"map={map.arraySize}条; ");
+                bool mapArr = map.isArray && map.arraySize > 0;
+
+                // ---- ① 名字 → 下标（`m_PackedSpriteNamesToIndex`）：**先走这条**，它是一次查表；
+                //      Hash128 那条要逐条扫整张表（139 条 × 25 个图集 = 很贵），而且它未必读得到 ----
+                string key = SpriteRenderDataKey(s);
+                diag?.Append($"RenderDataKey={(key ?? "null")}; ");
+                int idx = -1;
+                if (mapArr)
+                {
+                    idx = AtlasNameIndex(so, s.name);
+                    if (idx >= 0) diag?.Append($"名字表idx={idx}; ");
+                }
+
+                // ---- ② Hash128 兜底（名字表读不出来时才扫）----
+                if (mapArr && idx < 0 && key != null)
+                {
+                    for (int i = 0; i < map.arraySize; i++)
+                    {
+                        bool hh = false; Texture2D t0 = null; Rect r0 = default;
+                        ScanRenderRecord(map.GetArrayElementAtIndex(i), key, ref hh, ref t0, ref r0);
+                        if (hh) { idx = i; break; }
+                    }
+                    diag?.Append($"Hash128命中idx={idx}; ");
+                }
+
+                if (mapArr && idx >= 0 && idx < map.arraySize)
+                {
+                    Texture2D t1 = null; Rect r1 = default;
+                    ReadRenderRecord(map, idx, out t1, out r1);        // 取不到也算，值仍留着
+                    if (t1 == null) t1 = FirstMapTexture(map);          // 那条里没 `texture` ⇒ 从别条捞一张同款
+                    if (t1 != null && InAtlasBounds(t1, r1))
+                    {
+                        tex = t1; rect = r1;
+                        return true;
+                    }
+                    diag?.Append($"第{idx}条读不出(texture={(t1 == null ? "null" : t1.name)}"
+                               + $" rect={r1.width}x{r1.height}); ");
+                }
+
+                // ---- ③ 硬编码兜底（纹理从任意一条记录里捞，全表共用一张）----
+                var kt = KnownAtlasRect(atlas.name, s.name);
+                if (kt.HasValue)
+                {
+                    var any = FirstMapTexture(map);
+                    diag?.Append($"兜底表rect={kt.Value.width}x{kt.Value.height}·纹理="
+                               + $"{(any == null ? "null" : any.name)}; ");
+                    if (any != null && InAtlasBounds(any, kt.Value))
+                    {
+                        tex = any; rect = kt.Value;
+                        Debug.LogWarning($"[EffectExporter] A1325 图集精灵 `{s.name}` **用的是【硬编码兜底表】**"
+                                       + $"（从解包 `SpriteAtlas.m_RenderDataMap` 抄的真值，⛔ 不是算出来的）："
+                                       + $"rect=({kt.Value.x},{kt.Value.y},{kt.Value.width},{kt.Value.height})"
+                                       + $" · 纹理 `{any.name}` {any.width}x{any.height}");
+                        return true;
+                    }
+                }
+                else diag?.Append("无兜底表项; ");
+            }
+        }
+        catch (Exception e)
+        {
+            diag?.Append($"读map抛{e.GetType().Name}; ");
+            Debug.LogWarning(EX1 + $"读 `{atlas.name}.m_RenderDataMap` 失败：{e.GetType().Name}: {e.Message}");
+        }
+        return false;
+    }
+
+    /// <summary>矩形必须在纹理里（⛔ 宁可不导，也别裁一块图外空白出来）。</summary>
+    static bool InAtlasBounds(Texture2D t, Rect r)
+        => t != null && r.width > 0f && r.height > 0f
+           && r.x >= 0f && r.y >= 0f
+           && r.x + r.width <= t.width + 0.5f && r.y + r.height <= t.height + 0.5f;
+
+    /// <summary>从 `m_RenderDataMap` 的第 `i` 条里抠出 `texture` + `textureRect`（不按 Hash128 匹配）。</summary>
+    static bool ReadRenderRecord(SerializedProperty map, int i, out Texture2D tex, out Rect rect)
+    {
+        tex = null; rect = default;
+        if (map == null || !map.isArray || i < 0 || i >= map.arraySize) return false;
+        bool hh = false;
+        ScanRenderRecord(map.GetArrayElementAtIndex(i), null, ref hh, ref tex, ref rect);
+        return tex != null && rect.width > 0f && rect.height > 0f;
+    }
+
+    /// <summary>表里任意一条的 `texture`（同一张图集的所有格共用同一张纹理 ⇒ 前几条里拿一条就够）。
+    /// 表**不是数组**时退到「整棵子树里找第一张 `texture`」—— 只为了给 ③ 兜底表配一张纹理。</summary>
+    static Texture2D FirstMapTexture(SerializedProperty map, int probe = 4)
+    {
+        if (map == null) return null;
+        if (map.isArray && map.arraySize > 0)
+        {
+            int n = Mathf.Min(map.arraySize, Mathf.Max(1, probe));
+            for (int i = 0; i < n; i++)
+            {
+                bool hh = false; Texture2D t = null; Rect r = default;
+                ScanRenderRecord(map.GetArrayElementAtIndex(i), null, ref hh, ref t, ref r);
+                if (t != null) return t;
+            }
+            return null;
+        }
+        bool hh2 = false; Texture2D t2 = null; Rect r2 = default;
+        ScanRenderRecord(map, null, ref hh2, ref t2, ref r2);
+        return t2;
+    }
+
+    /// <summary>`SpriteAtlas.m_PackedSpriteNamesToIndex` 里这张精灵的下标；读不出返回 −1。
+    /// 解包态实测：它是**与 `m_RenderDataMap` 同序的名字表**（139/139 一一对应）。</summary>
+    static int AtlasNameIndex(SerializedObject so, string name)
+    {
+        try
+        {
+            var p = so.FindProperty("m_PackedSpriteNamesToIndex");
+            if (p == null) return -1;
+            if (!p.isArray) return -1;
+            for (int i = 0; i < p.arraySize; i++)
+            {
+                var e = p.GetArrayElementAtIndex(i);
+                if (e.propertyType == SerializedPropertyType.String)
+                {
+                    if (e.stringValue == name) return i;
+                    continue;
+                }
+                // `map<string,int>` 被摊成「每条一对」的情形：找 string 子字段 + int 子字段
+                string str = null; int val = -1;
+                ScanNamePair(e, ref str, ref val);
+                if (str == name && val >= 0) return val;
+            }
+        }
+        catch (Exception e)
+        {
+            Debug.LogWarning(EX1 + $"读 `m_PackedSpriteNamesToIndex` 失败：{e.GetType().Name}: {e.Message}");
+        }
+        return -1;
+    }
+
+    static void ScanNamePair(SerializedProperty rec, ref string str, ref int val)
+    {
+        var end = rec.GetEndProperty(true);
+        var p = rec.Copy();
+        InspectNamePairField(p, ref str, ref val);
+        while (p.Next(true) && !SerializedProperty.EqualContents(p, end))
+            InspectNamePairField(p, ref str, ref val);
+    }
+
+    static void InspectNamePairField(SerializedProperty p, ref string str, ref int val)
+    {
+        try
+        {
+            if (p.propertyType == SerializedPropertyType.String && str == null) str = p.stringValue;
+            else if (p.propertyType == SerializedPropertyType.Integer && val < 0) val = p.intValue;
+        }
+        catch { }
+    }
+
+    // 🔴 **从解包真值抄来的硬编码兜底（2026-10-21）** —— ⛔ **它不是通用算法**，只是这四张的实测真值：
+    //    来源 = `d:/2/新解包资源/assets_full/bundle_duplicateassetisolation_assets_all/SpriteAtlas/
+    //    SpriteAtlas_4765312961718699286.json`（`0_GeneralUI Atlas`），按 `m_PackedSpriteNamesToIndex`
+    //    下标与 `m_RenderDataMap[i].textureRect` 逐条对上（同批已用 `m_PackedSprites` 的 pathID 与
+    //    `CardPrefab` 里那 4 个 `m_Sprite` fileID 交叉验证过）。
+    //    **只在**「图集名 = `0_GeneralUI Atlas`」且 ①② 都没把这格读出来时用；用了一定打 Warning 说明。
+    static readonly Dictionary<string, Rect> KnownRects_GeneralUI = new Dictionary<string, Rect>
+    {
+        { "Card Text smooth background",   new Rect(1491f, 196f,  32f,  32f) },
+        { "Card Frame Cost Icon",          new Rect(0f,    1742f, 248f, 244f) },
+        { "pedestal_icon_armor",           new Rect(516f,  0f,    248f, 306f) },
+        { "1_40k_cardframe_rarity_common", new Rect(1491f, 116f,  84f,  76f) },
+    };
+
+    static Rect? KnownAtlasRect(string atlasName, string spriteName)
+    {
+        if (!string.Equals(atlasName, "0_GeneralUI Atlas", StringComparison.Ordinal)) return null;
+        return KnownRects_GeneralUI.TryGetValue(spriteName, out var r) ? r : (Rect?)null;
+    }
+
+    /// <summary>一句话描述某个打包精灵（写 `diag` 用）：名字 / 纹理 / 矩形大小。</summary>
+    static string DescribePacked(Sprite x)
+    {
+        if (x == null) return "null";
+        var t = x.texture;
+        var rr = x.textureRect;
+        return $"`{x.name}`(texture={(t == null ? "null" : t.name + " " + t.width + "x" + t.height)}"
+             + $" · textureRect={rr.width}x{rr.height})";
+    }
+
+    /// <summary>在 `m_RenderDataMap` 的一条记录里找三样东西：Hash128（匹配用，`key=null` 时不用）、
+    /// `texture`、`textureRect`。⚠️ 用 `Next(true)`/`GetEndProperty(true)`（**含隐藏字段**）——
+    /// 这些是原生结构，`m_Hash` 之类的子字段不一定是「可见」的。</summary>
+    static void ScanRenderRecord(SerializedProperty rec, string key,
+                                 ref bool hashHit, ref Texture2D tex, ref Rect rect)
+    {
+        var end = rec.GetEndProperty(true);
+        var p = rec.Copy();
+        InspectRenderField(p, key, ref hashHit, ref tex, ref rect);
+        while (p.Next(true) && !SerializedProperty.EqualContents(p, end))
+            InspectRenderField(p, key, ref hashHit, ref tex, ref rect);
+    }
+
+    static void InspectRenderField(SerializedProperty p, string key,
+                                   ref bool hashHit, ref Texture2D tex, ref Rect rect)
+    {
+        try
+        {
+            if (key != null && p.propertyType == SerializedPropertyType.Hash128)
+            {
+                if (p.hash128Value.ToString() == key) hashHit = true;
+                return;
+            }
+            // `SpriteAtlasData.texture` / `.alphaTexture` —— 只认 `texture` 那一格（alphaTexture 同形时是 0）
+            if (p.propertyType == SerializedPropertyType.ObjectReference && p.name == "texture" && tex == null)
+            { tex = p.objectReferenceValue as Texture2D; return; }
+            if (p.propertyType == SerializedPropertyType.Rect && p.name == "textureRect" && rect.width <= 0f)
+                rect = p.rectValue;
+        }
+        catch { }
+    }
+
+    /// <summary>`Sprite.m_RenderDataKey` 里那个 Hash128（`"…"` 字符串；读不到返回 null）。
+    /// 它和 `SpriteAtlas.m_RenderDataMap` 的 Key 是**同一个值** —— 退路① 的唯一依据。
+    /// ⚠️ **读不到不等于退路作废**：上一版就是在这里 `return null` 之后被调用方**静默跳过**整条退路
+    /// （`export_cardprefab2.log` 四张全空、一条声都没有）。现在读不到只会写进 `diag`，退路改走 ②③。</summary>
+    static string SpriteRenderDataKey(Sprite s)
+    {
+        try
+        {
+            using (var so = new SerializedObject(s))
+            {
+                var p = so.FindProperty("m_RenderDataKey");
+                if (p == null) return null;
+                if (p.propertyType == SerializedPropertyType.Hash128) return p.hash128Value.ToString();
+                var end = p.GetEndProperty(true);
+                var it = p.Copy();
+                while (it.Next(true) && !SerializedProperty.EqualContents(it, end))
+                    if (it.propertyType == SerializedPropertyType.Hash128) return it.hash128Value.ToString();
+            }
+        }
+        catch { }
+        return null;
     }
 
     /// <summary>拿一份「可读」的 Texture2D。原贴图有 read/write 就直接用，

@@ -623,27 +623,16 @@ public static class RewardsScene
         // 🆕 **2026-10-20（`A1350` 第一批）**：实现转调 `MenuCheck.NodeRectPx(…, LabelNode, …)`
         // （自检侧**唯一一份**节点矩形读口）。中心本来就是乙式（`A1350` 第 ② 步 · 第五十五会话 S3 已落）
         // ⇒ 纯搬、**行为零变化**；本函数保留原名与本形参 ⇒ 调用点 0 改动。
-        // 🆕 **2026-10-20（`A1350` 第二批 · 计划 §2·3「尺寸帧」）**：中心仍是设计帧（`NodeRectPx` 的 `LabelNode` 档），
-        // **尺寸来源**改成 `SelfCheckTextMetrics.RenderedRectDesign`（同一块 TMP 四角，但每个角先过设计空间）
-        // —— 消掉「中心设计帧 + 尺寸世界帧」在父链带缩放 M 时分家的缺陷。
-        // 单位缩放下与旧口逐位相同（除 1，且 16:9 下斜率差 ≤ 2.5e-4 px）⇒ 今天读数不变。
-        // 量不到（点阵后端 / 底下没有 TMP）⇒ **保留** `NodeRectPx` 的退路（`Label.WorldW/H × 108`，本来就是设计长度）。
+        // 🆕 **2026-10-21（`T02` · 计划 §2·3「尺寸帧」收口）**：原来这里有一块**尺寸覆盖块**
+        // （拿 `SelfCheckTextMetrics.RenderedRectDesign` 的宽高、以原中心重铺），本轮**提回**
+        // `MenuCheck.NodeRectPx` 的 `designSize: true` 档（四份逐字相同的覆盖块归一 ⇒ 全仓一份）
+        // —— 行为**逐字不变**：中心仍是设计帧（`LabelNode` 档），尺寸改读设计帧；
+        // 量不到时与缺省档同一条退路（`Label.WorldW/H × 108`，本来就是设计长度）。
         // ⚠️ 只动**尺寸来源**：中心不从 TMP 的 `textBounds` 重算（那是 `AlignLeft/Right` 挪节点后的口径，会动读数）。
-        if (!MenuCheck.NodeRectPx(t, MenuCheck.RectCenterMode.LabelNode, out x1, out y1, out x2, out y2))
-            return false;
-        var lb = t.GetComponentInChildren<Label>();
-        if (lb != null)
-        {
-            float dx1, dy1, dx2, dy2;
-            if (SelfCheckTextMetrics.RenderedRectDesign(lb.transform, out dx1, out dy1, out dx2, out dy2))
-            {
-                float cx = (x1 + x2) * 0.5f, cy = (y1 + y2) * 0.5f;
-                float w = dx2 - dx1, h = dy2 - dy1;
-                x1 = cx - w * 0.5f; x2 = cx + w * 0.5f;
-                y1 = cy - h * 0.5f; y2 = cy + h * 0.5f;
-            }
-        }
-        return true;
+        // 🧨 **把 `designSize: true` 改回缺省（或删掉 `MenuCheck` 里那一支）⇒ 父链 ×2 时本行报 `2 × 设计宽`
+        //     ⇒ 尾部「T02：`RectOf` 的尺寸帧」那条 `设计宽 ≈ 世界宽 ÷ 2` 红。**
+        return MenuCheck.NodeRectPx(t, MenuCheck.RectCenterMode.LabelNode,
+                                    out x1, out y1, out x2, out y2, designSize: true);
     }
 
     static bool Overlaps(float ax1, float ay1, float ax2, float ay2,
@@ -12077,6 +12066,22 @@ public static class RewardsScene
         //   `AddHit` 的夹具矩形）已全部走它。
         Section("A1350 第二批：设计帧 → 指针帧（`PointerFramePxFromDesign`）两态探针");
         CheckPointerFrameFromDesign("`PointerFramePxFromDesign`");
+
+        // ---------------- 🆕 2026-10-21（`T02`）：尺寸帧（`NodeRectPx(designSize: true)`）两态 ----------------
+        //   判据 → `Editor/MenuCheck.cs` 的 `NodeRectPx` `designSize` 那一支（四份覆盖块的归一口）；
+        //   夹具与量法唯一一份 = `MenuCheck.DesignSizeTwoStateProbe`（本宿主只交**自己的** `RectOf`）。
+        //   ⛔ 期望值**不是**今天量到的宽：它是「父链 ×2」这条夹具的不变量（设计宽 = 世界宽 ÷ 2）。
+        Section("T02：`RectOf` 的尺寸帧（`designSize: true`）两态探针");
+        {
+            float dw, ww;
+            CheckTrue(MenuCheck.DesignSizeTwoStateProbe(RectOf, out dw, out ww),
+                      "（前提）T02：尺寸帧探针量得到（`RectOf` 返回 `false` ⇒ 下面两条不许静默跳过）");
+            CheckTrue(dw > 1f, $"（前提）T02：设计宽 > 1px（{dw:F2} —— 0 的话下面那条恒等）");
+            CheckNear(dw, ww * 0.5f, 0.5f,
+                      $"★★ T02：父链 ×2 时 `RectOf` 报的**是设计宽**（本宿主 {dw:F2} vs 世界 {ww:F2} ÷ 2；容差 0.5px）"
+                    + "｜🧨 把本文件 `RectOf` 的 `designSize: true` 改回缺省（或删掉 `MenuCheck` 里那一支）"
+                    + " ⇒ 读到 `2 × 设计宽` ⇒ **本条红**；两帧一起改回同一帧 ⇒ 本条照样红");
+        }
 
         Debug.Log(P + win.Dump());
         Debug.Log(P + $"=== 合计：{_sink.Pass} 通过 / {_sink.Fail} 失败 ===");

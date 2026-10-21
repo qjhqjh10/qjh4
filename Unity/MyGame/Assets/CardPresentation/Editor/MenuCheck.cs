@@ -245,16 +245,30 @@ public static class MenuCheck
     /// 中心走 <see cref="DesignPx"/>（乙式）。**调用点一个字没动**（三份宿主各留同名一行转发）。</para>
     /// <para>🔴 **两种中心语义见 <see cref="RectCenterMode"/>** —— ⛔ 别偷偷统一：`LabelNode` 是三份
     /// `RectOf` 的口径（`A796′`），`Node` 是 `MainMenuScene.RenderedRect` 的口径（`A668` 明确「中心不随
-    /// Label 节点走」；那一份**本批未迁** —— `MainMenuScene.cs` 不在白名单）。</para>
+    /// Label 节点走」）。🔴 **2026-10-21（`T02`）就地订正**：原来这里写「`MainMenuScene` 那一份**本批未迁**
+    /// —— 不在白名单」—— **已过期**：它的**尺寸覆盖块**已随四份一起提回本函数（见下一条 `designSize`），
+    /// **中心档仍是 `Node`、一个字没动**。</para>
     /// <para>⚠️ `t == null` / 子树里既没有 `Label` 也没有 `ImageQuad` ⇒ 返回 `false`、四个 `out` 全 0
     /// （契约与三份 `RectOf` 逐字一致 —— 调用方必须先判它，否则 `0 ≤ 期望值` 会假绿）。</para>
-    /// <para>⚠️ **尺寸项与中心在「父链带缩放」时不同帧**（这是 `A1350` §二·3 已登记的既有缺陷，
-    /// **本批未修** —— 不在第一批那两件里）：字走 `SelfCheckTextMetrics.RenderedPx`，它的 TMP 路径是
+    /// <para>⚠️ **尺寸项与中心在「父链带缩放」时原本不同帧**（这是 `A1350` §二·3 已登记的既有缺陷）：
+    /// 字走 `SelfCheckTextMetrics.RenderedPx`，它的 TMP 路径是
     /// **世界帧**（`localToWorldMatrix` ⇒ 父链缩放会乘进来）；而**量不到时的退路** `Label.WorldW/H × 108`
     /// 与**图那一支** `ImageQuad.WorldW/H × 108` 是**设计长度**。⇒ 16:9 + 父链单位缩放下两半自洽
-    /// （逐位不变）；父链带 M 时会分家。⛔ 别在本函数里改尺寸帧 —— 那是 `RenderedRectDesign` 那笔账。</para></summary>
+    /// （逐位不变）；父链带 M 时会分家。</para>
+    /// <para>🆕 **2026-10-21（`T02` · `A1350` §二·3 的收口）**：原来自检侧**四份**各自带一块「尺寸覆盖块」
+    /// （`CollectionScene.RectOf` / `RewardsScene.RectOf` / `ShopScene.RectOf` /
+    /// `MainMenuScene.RenderedRect`，四份**逐字相同**：拿 `RenderedRectDesign` 的宽高原地重铺中心）。
+    /// 现已**提回本函数** ⇒ <c>designSize: true</c> 时字那一支改走
+    /// <see cref="SelfCheckTextMetrics.RenderedRectDesign"/>（宽高 = **设计宽高**），
+    /// **量不到时与缺省档逐字同一条退路**（`RenderedPx` → `Label.WorldW/H × 108`）；
+    /// 图那一支两档**不变**（`ImageQuad.WorldW/H × 108` 本来就是设计长度）。
+    /// ⇒ 单位缩放下两档逐位相同（除 1）；父链带 M 时只有 `true` 档报设计值（那正是这笔账要修的）。
+    /// 两态判据 = <see cref="DesignSizeTwoStateProbe"/>（四份宿主各一条断言钉自己的那一行）。
+    /// ⏭ **缺省档（`designSize: false`）有意保留世界帧**（`TmpRenderedRect` 那一族的口径，`A1350` §一·2 的甲式）
+    /// —— ⛔ 别把缺省也改成设计帧，那会动别的宿主的读数。</para></summary>
     public static bool NodeRectPx(Transform t, RectCenterMode center,
-                                  out float x1, out float y1, out float x2, out float y2)
+                                  out float x1, out float y1, out float x2, out float y2,
+                                  bool designSize = false)
     {
         x1 = y1 = x2 = y2 = 0f;
         if (t == null) return false;
@@ -265,8 +279,29 @@ public static class MenuCheck
         if (lb != null)
         {
             if (center == RectCenterMode.LabelNode) node = lb.transform;
-            var sz = SelfCheckTextMetrics.RenderedPx(lb);
-            w = sz.x; h = sz.y;
+            // 🆕 **2026-10-21（`T02`）**：`designSize` 档 = **尺寸也读设计帧**（正是四份覆盖块那句
+            // `RenderedRectDesign` 的宽高「以原中心重新铺开」—— 中心仍由下面的 `DesignPx(node)` 给）。
+            // 🧨 **把这一支删掉（或把宿主改回 `designSize: false`）⇒ 父链 ×2 时这里报 `2 × 设计宽`**
+            //     ⇒ `DesignSizeTwoStateProbe` 那条 `设计宽 ≈ 世界宽 ÷ 2`（四份宿主各一条）**当场红**。
+            if (designSize)
+            {
+                float dx1, dy1, dx2, dy2;
+                if (SelfCheckTextMetrics.RenderedRectDesign(lb.transform, out dx1, out dy1, out dx2, out dy2))
+                {
+                    w = dx2 - dx1; h = dy2 - dy1;
+                }
+                else
+                {
+                    // 量不到（点阵后端 / 底下没有 TMP）⇒ **与缺省档同一条退路**（`Label.WorldW/H × 108` 本来就是设计长度）
+                    var szd = SelfCheckTextMetrics.RenderedPx(lb);
+                    w = szd.x; h = szd.y;
+                }
+            }
+            else
+            {
+                var sz = SelfCheckTextMetrics.RenderedPx(lb);
+                w = sz.x; h = sz.y;
+            }
         }
         else
         {
@@ -279,6 +314,58 @@ public static class MenuCheck
         x1 = c.x - w * 0.5f; x2 = c.x + w * 0.5f;
         y1 = c.y - h * 0.5f; y2 = c.y + h * 0.5f;
         return true;
+    }
+
+    /// <summary>宿主自检侧的「矩形量法」形参类型（= 四份 `RectOf` / `RenderedRect` 的同形签名）。
+    /// 🆕 **2026-10-21（`T02`）**：只给 <see cref="DesignSizeTwoStateProbe"/> 用 —— 把**被测的那一行**
+    /// （宿主自己的量法）当方法组传进来。</summary>
+    public delegate bool RectMeasure(Transform t, out float x1, out float y1, out float x2, out float y2);
+
+    /// <summary>🆕 **2026-10-21（`T02` · `A1350` §二·3 收口的验收口）**：**尺寸帧两态探针**的夹具与量法
+    /// —— 自检侧**唯一一份**（四份宿主各一条断言，⛔ 别在宿主里再抄一份夹具）。
+    ///
+    /// <para>🔴 **它证明什么**：在**父链 `localScale = 2`** 的夹具上，`measured`（= 宿主自己的
+    /// `RectOf` / `RenderedRect`，已传 `designSize: true`）报的宽 **必须 ≈ 世界帧宽 ÷ 2**；
+    /// 而 `worldW` 由 <see cref="NodeRectPx"/> 的**缺省档**（世界帧 · `SelfCheckTextMetrics.RenderedPx`）
+    /// **独立**量出 ⇒ **两边不是同一处代码**。</para>
+    /// <para>🔴 **灭自证（结构上不可能同时满足）**：
+    /// ① 宿主把 `designSize: true` 改回缺省 ⇒ `designW == worldW` ⇒ `designW ≈ worldW/2` 必不过；
+    /// ② 把 <see cref="NodeRectPx"/> 里 `designSize` 那一支删掉（参数被忽略）⇒ 同 ①；
+    /// ③ 把缺省档也改成设计帧（「两边一起改回同一帧」）⇒ `worldW` 也减半 ⇒ `designW == worldW` ⇒ 仍必不过。
+    /// ⇒ 三面都堵；而期望值**不是本机量出来的字面量**（字体度量不钉死），是**夹具缩放这条不变量**。</para>
+    /// <para>⚠️ **父链带 2× 的节点必须落在【它自己父级的原点】**（`mid.localPosition = 0`；同
+    /// `MainMenuScene.CheckDesignPxUnderScaledParent` / `CollectionScene.CheckPointerFrameFromDesign` 的硬约束，
+    /// 判据 = `Shell/MenuDraw.cs` 的 `PosInDesignSpace` 适用范围）。</para>
+    /// <para>⚠️ 夹具自建自毁（`finally` 里 `DestroyImmediate`），⛔ 不留在场景里；
+    /// 量不到（建不出 `Label` / 宿主量法返回 `false`）⇒ 返回 `false` 且两个 `out` 为 0
+    /// —— 调用方**必须先判它**（⛔ 不许静默跳过那两条）。</para></summary>
+    public static bool DesignSizeTwoStateProbe(RectMeasure measured, out float designW, out float worldW)
+    {
+        designW = worldW = 0f;
+        if (measured == null) return false;
+        var host = new GameObject("A1350 DesignSize Probe Host");        // 世界原点 · 单位缩放
+        var mid = new GameObject("A1350 DesignSize Probe Scaled");
+        mid.transform.SetParent(host.transform, false);                   // 局部位置进 0（被除的那一级落在父级原点）
+        mid.transform.localScale = new Vector3(2f, 2f, 1f);
+        try
+        {
+            var lb = MenuDraw.Text(mid.transform, new PxRect(1200f, 700f, 1500f, 760f), "A1350",
+                                   Color.white, "A1350 Design Text", 30f, 3000);
+            if (lb == null) return false;
+            float dx1, dy1, dx2, dy2;
+            if (!measured(lb.transform, out dx1, out dy1, out dx2, out dy2)) return false;
+            designW = dx2 - dx1;
+            // 世界帧那一半：**缺省档**（与 `measured` 走的不是同一条尺寸支）
+            float wx1, wy1, wx2, wy2;
+            if (!NodeRectPx(lb.transform, RectCenterMode.LabelNode,
+                            out wx1, out wy1, out wx2, out wy2)) return false;
+            worldW = wx2 - wx1;
+            return true;
+        }
+        finally
+        {
+            UnityEngine.Object.DestroyImmediate(host);                    // ⛔ 别把探针留在场景里
+        }
     }
 
     // ============================================================ 截图（6 个变体）

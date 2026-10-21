@@ -415,6 +415,53 @@ namespace CardPresentation
         /// 遭遇战：`Timer` · `Banned card in deck`；排位：`ChangeRankedToggle`。</summary>
         protected virtual void BuildExtras(Transform root) { }
 
+        // ------------------------------------------------------------ 卡组那一栏的**显示判源**
+        /// <summary>卡组那一栏（`Ranked Deck Selection`）**显示**的是哪一副 —— 🔴 **预组优先**。
+        ///
+        /// <para>🔴 **2026-10-21 新增（真缺陷）**：本窗原来**没有这一层** —— `BuildDeckSelection` /
+        /// `BuildDeckTexts` 四处一律读 `CollectionData.DeckAt(DeckIndex)` / `CollectionData.Warlord(DeckIndex)`，
+        /// 而**预组不在 `DeckLibrary` 里**（`DeckIndex` 永远指不到它）⇒ 在「选卡组」弹窗里挑一副预组之后，
+        /// 这一栏画的还是**上一副自建卡组**（名字 / 督军 / 阵营徽记三样全错）＝ **面板显示与开战实际用的牌不是同一副**。
+        /// 判据：`OpenDeckSelection` 的回调（预组支）只写了 `PickedPrebuilt` + `PrebuiltDecks` 通道，**没有重建这一栏**。</para>
+        ///
+        /// <para>⚠️ 与 `PracticeModePopup.CurrentDeck`（2026-10-21 收成的「唯一判源」）是**同一口径的两处实现**：
+        /// 那边返回 `PlayerDeck`（供卡表 / 费用曲线用），本窗这一栏只要**名字 / 阵营 / 督军**三样
+        /// ⇒ 这里是**显示用**的薄解析，**不是**第三个「这局用哪副牌」的判源 —— 开战那条路读的仍然是
+        /// `PrebuiltDecks.PendingSource`（`StartMatch` 里那句），两者由回调 / `PickDeck` 成对写入。
+        /// ⛔ 想合并成一份就得把它抬到共用件里去改 `PracticeModePopup` —— 本笔**不动那个文件**。</para></summary>
+        PrebuiltDecks.Deck ShownPrebuilt { get { return PickedPrebuilt; } }
+
+        /// <summary>这一栏的督军卡：预组 = 它自己的 `heroId` 那张；自建 = `DeckIndex` 那副的督军。取不到 ⇒ null。</summary>
+        CardDef ShownWarlord
+        {
+            get
+            {
+                var pre = ShownPrebuilt;
+                return pre != null ? CollectionData.Card(pre.heroId) : CollectionData.Warlord(DeckIndex);
+            }
+        }
+
+        /// <summary>这一栏的卡组名：预组 = `DisplayName`（官方 zh-CN 优先，同 `PrebuiltDecks` 那条口径）；
+        /// 自建 = 卡组库里那副的名字（没有 = 空串）。</summary>
+        string ShownDeckName
+        {
+            get
+            {
+                var pre = ShownPrebuilt;
+                return pre != null ? pre.DisplayName : CollectionData.DeckAt(DeckIndex).Name;
+            }
+        }
+
+        /// <summary>这一栏的阵营：预组 = 它自己的 `faction`；自建 = 督军的阵营（没有督军 = 空串）。</summary>
+        string ShownFaction
+        {
+            get
+            {
+                var pre = ShownPrebuilt;
+                return pre != null ? pre.faction : CollectionData.DeckAt(DeckIndex).Faction;
+            }
+        }
+
         // ------------------------------------------------------------ 中间那一栏：卡组选择
         /// <summary>`Ranked Deck Selection`（**两扇窗逐格相同**）。
         /// 🔴 三层的先后**照原版的兄弟序**：`Faction Icon Image` → `Warlod Image`（里面再叠 `Warlord Darkening`）
@@ -424,14 +471,15 @@ namespace CardPresentation
             var col = MenuDraw.Node(root, "Ranked Deck Selection",
                                     new PxRect(DeckSelL, DeckSelT, DeckSelR, DeckSelB));
 
-            var d = CollectionData.DeckAt(DeckIndex);
+            // 🔴 **2026-10-21**：判源走 `ShownFaction` / `ShownWarlord`（预组优先，见那两个属性）——
+            //   原来这两处一律读 `CollectionData.*(DeckIndex)`，选完预组时画的是**上一副自建卡组**。
 
             // 阵营大徽记（原版 sprite=0 ⇒ 运行时喂 = 该阵营的 `40k_DeckSelection_icon_Faction*`）
-            MenuDraw.Rect(col, Tex(DeckRuntime.FactionIcon(d.Faction)),
+            MenuDraw.Rect(col, Tex(DeckRuntime.FactionIcon(ShownFaction)),
                           new PxRect(FacIconL, FacIconT, FacIconR, FacIconB), "Faction Icon Image", QDeck, null, true);
 
             // 督军立绘（原版同样是运行时喂；我们用督军卡自己的立绘 —— 同 `DeckInfoPopup` 那条路）
-            var wl = CollectionData.Warlord(DeckIndex);
+            var wl = ShownWarlord;
             var wlRoot = MenuDraw.Node(col, "Warlod Image", new PxRect(WlL, WlT, WlR, WlB));
             var wlTex = wl != null ? CardArt.Portrait(wl.Id) : null;
             if (wlTex != null)
@@ -518,8 +566,9 @@ namespace CardPresentation
 
         void BuildDeckTexts(Transform col)
         {
-            var d = CollectionData.DeckAt(DeckIndex);
-            var wl = CollectionData.Warlord(DeckIndex);
+            // 🔴 **2026-10-21**：判源走 `ShownDeckName` / `ShownWarlord`（预组优先）——
+            //   原来这两处读 `CollectionData.*(DeckIndex)`，选完预组时名字/督军停在上一副自建卡组上。
+            var wl = ShownWarlord;
             bool hasDeck = wl != null;
             // 🔴 **对齐照修好的 `menu_dump.py` 重导**（原来那份的 `hAlign` 映射错位一位：
             //    真枚举是位标志 `Left=1 · Center=2 · Right=4 · Flush=16` —— 见 `资料/已知的坑.md`）。
@@ -530,7 +579,7 @@ namespace CardPresentation
             //   `m_fontSizeMax = **72**` · `m_fontSizeBase = **36**` · 折行 = 1。
             //   ⚠️ 本窗刻度 = 原版刻度（下面 `No Deck Text` 那处传的就是原版原值 `18/45/36`，"原文"逐字）
             //   ⇒ 四格照抄、**不做比例换算**。
-            _txtDeckName = MenuDraw.Text(col, new PxRect(DnL, DnT, DnR, DnB), d.Name, Color.white,
+            _txtDeckName = MenuDraw.Text(col, new PxRect(DnL, DnT, DnR, DnB), ShownDeckName, Color.white,
                                          "Deck Name", 62.85f, QText, DnR - DnL, 18f, 72f, 36f, face: TmpFont.Face.LatinUi);
             _txtDeckWarlord = MenuDraw.Text(col, new PxRect(DwL, DwT, DwR, DwB),
                                             wl != null ? wl.Name : "", Color.white, "Deck Warlord", 44.65f, QText,
@@ -1283,6 +1332,13 @@ namespace CardPresentation
                 for (int k = 0; k < CollectionData.DeckCount(); k++)
                     if (CollectionData.DeckAt(k).Faction == _facs[ArmyIndex] && DeckFitsMode(CollectionData.Raw(k)))
                     { DeckIndex = k; break; }
+            // 🔴 **2026-10-21（真缺陷）**：**改阵营筛选 = 从「我的卡组」里挑** ⇒ 先把预组那一档撤掉。
+            //   病根：本窗这一栏的显示判源是**预组优先**（`ShownPrebuilt` / `ShownDeckName` / `ShownWarlord` /
+            //   `ShownFaction` 四处），开战那条路也读 `PickedPrebuilt`（`SelectedDeckFitsMode` / `StartMatch`）
+            //   ⇒ 留着它，「点阵营格」就**看起来点了没反应**（那一栏还画着预组、开战还用预组）。
+            //   顺序照「我的卡组」那一支（`OpenDeckSelection` 的回调）：改下标 → 清预组 → 排空通道 → 刷新。
+            PickedPrebuilt = null;
+            PrebuiltDecks.ClearPendingBattleDeck();
             if (_armyHolder != null) RebuildArmyCells(_armyHolder);
             RefreshDeckColumn();
             Debug.Log("[Event] 阵营筛选：" + (ArmyIndex < 0 ? "不限" : _facs[ArmyIndex]));
@@ -1303,6 +1359,12 @@ namespace CardPresentation
                 if (armyOk && DeckFitsMode(CollectionData.Raw(cur))) break;
             }
             DeckIndex = cur;
+            // 🔴 **2026-10-21（真缺陷）**：同 `PickArmy` —— 上/下一套这两颗箭头改的是「我的卡组」那一档，
+            //   而这一栏的显示与开战都是**预组优先**（`ShownPrebuilt` / `PickedPrebuilt`）
+            //   ⇒ 不撤预组的话这俩箭头**看起来点了没反应**（那一栏还是那副预组、开战还是它）。
+            //   顺序照 `OpenDeckSelection` 的自建支：改下标 → 清预组 → 排空通道 → 刷新。
+            PickedPrebuilt = null;
+            PrebuiltDecks.ClearPendingBattleDeck();
             RefreshDeckColumn();
             Debug.Log("[Event] 换卡组：" + CollectionData.DeckAt(DeckIndex).Name);
         }
@@ -1332,6 +1394,11 @@ namespace CardPresentation
                 {
                     PickedPrebuilt = pick.PrebuiltDeck;
                     PrebuiltDecks.SetPendingBattleDeck(pick.PrebuiltDeck);
+                    // 🔴 **2026-10-21（真缺陷）**：这一支原来**少了这一步** —— 只写状态、不重建卡组那一栏
+                    //   ⇒ 挑完预组之后 `Ranked Deck Selection` 还是上一副（自建那一支一直有这一跳，见下一行）。
+                    //   ⚠️ `DeckIndex` **故意不动**（预组不在 `DeckLibrary` 里、没有下标可指）：
+                    //   这一栏现在靠 `ShownPrebuilt`/`ShownWarlord`/`ShownDeckName`/`ShownFaction` 解析出**预组那一副**。
+                    RefreshDeckColumn();
                     Debug.Log("[Event] 选中**预组卡组**「" + pick.PrebuiltDeck.DisplayName + "」("
                               + pick.PrebuiltDeck.deckId + ") ⇒ 本局就用它（防御卡 = 我们补的「"
                               + pick.PrebuiltDeck.defensiveNameZh + "」" + pick.PrebuiltDeck.defensiveId + "）");
@@ -1352,7 +1419,37 @@ namespace CardPresentation
         {
             LastDeckInfo = null;
             if (Manager == null) { Debug.LogWarning("[Event] 没有 `WindowsManager`，开不了 `Deck info Popup`"); return null; }
-            var w = DeckInfoPopup.Create(Manager, DeckIndex);
+            DeckInfoPopup w;
+            var pre = PickedPrebuilt;
+            if (pre != null)
+            {
+                // 🔴 **2026-10-21（真缺陷）**：预组**不在 `DeckLibrary` 里**（`DeckIndex` 恒指不到它）⇒
+                //   原来这里恒传 `DeckIndex` ⇒ 选中预组之后点这颗眼睛，开出来的是**库里那一副**
+                //   （名字 / 督军 / 卡表全不是面板上这副）。修法照 `Shell/PracticeModePopup.cs` 的
+                //   `ShowDeckContent`（同一批真机缺陷的先例）：`Create(Manager, -1, …)` + `OverrideDeck` /
+                //   `OverrideInfo` / `IsPlayerDeck = false` —— 那两个字段是 `DeckInfoPopup` 给
+                //   「外面送进来的卡组」留的**唯一那个口**（`CurDeck` / `CurInfo` 只此一处判源）。
+                //   ⚠️ **不**走 `CreateForPicked`：那一支强制 `SelectButtonProvided = true`（会多一颗
+                //     `Select Deck`）；原版这颗 `View Deck Button` 传的 `selectButton = null`
+                //     （判据 = `decomp_full/RankedDeckSelector__OnViewDeckButtonClick.c` 的
+                //      `DeckInfoContext___ctor(ctx, currentDeck, 0, 0, 1, 0, 0)`）。
+                //   ⚠️ **state 保持默认 `Edit(0)`**（= 原版上面那句的第二个实参 `0`）—— ⛔ 别照
+                //     练习窗那扇抄成 `View(2)`：那是**另一个按钮**（`cardInDeckInfoButton`，原版传 2）。
+                //   `IsPlayerDeck = false` = 原版 `InventoryManager.HasItem(预组)` 为假
+                //   ⇒ `Practice Deck` / `Share` / `Delete` / `Duplicate` 按判据藏（预组没有库下标，点了也无从下手）。
+                //   🔴 **2026-10-21（真缺陷 · 本笔）**：`Edit Deck` 这颗在这一档**也藏掉**了 ——
+                //     原版 `state < 2` 会让它露着、点了把 `context.Deck` 交给编辑器；我们接不上
+                //     （编辑器入口只吃库下标、预组没有下标）⇒ 判据/理由/回退条件全集中在一处：
+                //     `DeckInfoPopup.EditDeckShown()`。⛔ 别在这里再写一遍、也别改 `DeckIndex` 那条通用逻辑。
+                w = DeckInfoPopup.Create(Manager, -1);
+                w.OverrideDeck = PrebuiltDecks.ToPlayerDeck(pre);
+                w.OverrideInfo = DeckSelectionPopup.InfoOf(pre);
+                w.IsPlayerDeck = false;
+            }
+            else
+            {
+                w = DeckInfoPopup.Create(Manager, DeckIndex);
+            }
             Manager.OpenWindow(w);
             LastDeckInfo = w;
             Debug.Log("[Event] 开 `Deck info Popup`");

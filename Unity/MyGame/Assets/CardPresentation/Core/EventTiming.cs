@@ -135,6 +135,15 @@ namespace CardPresentation
                 //      （`CardFeel.DealInQuad` 走 `DealDurationFoe = 0.15`），只有这条时间线会多排 0.15 s。
                 case EvtKind.Draw: return DrawDeal;
 
+                // 🆕 2026-10-21（战斗线四笔静态项 · 笔 1）**治疗**占多久 = 卡上 `HealText` 的**生命周期**
+                //   （显示 → `SetActive(false)`，1.5 s）。原版 `CardScript.Heal` 是**协程**，
+                //   `ResolveHeal` 对每个目标 `yield return` 等它放完
+                //   （`BattleManager._ResolveHeal_d__491__MoveNext.c:114-147`）⇒ 多目标治疗**严格串行**、
+                //   每目标 1.5 s。
+                //   🔑 **判据只此一处** = `CardView.HealTextHoldSeconds`（⛔ 别在这里另写 1.5；
+                //      这里引的是**那个常量本身**，所以仍然只有一张表）。
+                case EvtKind.Heal: return CardView.HealTextHoldSeconds;
+
                 default: return 0f;
             }
         }
@@ -319,6 +328,9 @@ namespace CardPresentation
                 case EvtKind.Death: return "`VarsGlobal.deathTimeMinionDuration`=0.2（督军那档 0.5 见 `CardFeel.DeathDissolve`）";
                 case EvtKind.Draw: return "`VarsGlobal.timeToDrawPlayerCard`=0.3（= `CardFeel.DealDuration`，发牌入场那条补间）"
                                         + "；⚠️ 只覆盖**我方档**（敌方 0.15 这一张表取不到座位号）";
+                case EvtKind.Heal: return "`CardScript._Heal_d__468__MoveNext.c:204` 的 `WaitForSeconds(1.5)`"
+                                        + "（= `CardView.HealTextHoldSeconds`；`ResolveHeal` 每目标 `yield return` 等它跑完 "
+                                        + "⇒ 多目标治疗严格串行，`BattleManager._ResolveHeal_d__491__MoveNext.c:114-147`）";
                 case EvtKind.AmbushExit: return "**占 0**（原版 `CardScript.SetAmbush(card,false)` 是普通方法、不阻塞，"
                                               + "紧跟着就是同一击的 `Hit`）；那件特效自己的材质补间 = "
                                               + "`AmbushEffect` 的 `MaterialTweenFloat(_Blend)` delay 0.35 + duration 1.0 = 1.35"

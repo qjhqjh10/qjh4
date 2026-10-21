@@ -548,6 +548,14 @@ namespace RuleEngine
             }
             p.Board[BoardSpec.WarlordSlot] = p.Warlord;
 
+            // 🔴 2026-10-21（引擎线 `T03·c` 批 A · `W59`）：**督军也占一个进场序号**。
+            //   判据 = 原版开场先放 P0 督军、再放 P1 督军（`BattleManager__SetupBoardPhase.c:120/:145`
+            //   → `SetupFullHero.c:43-70` 两次 `List.Add`）⇒ 两个督军的先后**由建人顺序决定**：
+            //   `NewBattle` 先 `BuildPlayer(0)` 再 `BuildPlayer(1)` ⇒ P0 督军恒在前（与原版同形）。
+            //   ⚠️ 后面「先手起始兵 → 后手起始兵」的号自然更大（`TutorialScript.PlaceTroops` 取号），
+            //   与 `SetupBoardPhase.c:159-166` 的次序一致。
+            p.Warlord.PlayOrder = ctx.TakePlayOrder();
+
             // ---- 防御卡：**后手的那一张**（2026-09-13 第三十三轮；2026-09-26 改成只给后手）----
             // 规则书 `:105`「后手（防守方）可打出的特殊战术」· `:121`「**后手**取得防御卡
             // （**抽牌后置入起手牌**）」 —— 它不是抽来的，所以**不参与洗牌、也不进牌库**。
@@ -2038,22 +2046,38 @@ namespace RuleEngine
                     //    这里原来写的是「原来那格还空着就还原位」（**我们挑的**，见上面 ⚠️）。
                     //    ⚠️ 棋盘改成连续模型之后「原来那格还空着」几乎必然为真（洞不存在了），
                     //    所以这两条路现在**结果一致**；仍然统一到原版那一条，免得留两份判据。
-                    to = BoardSlots.NextWithoutDisplacing(ctx.Players[tc.Owner]);
+                    to = BoardSlots.NextFreeWithoutDisplacing(ctx.Players[tc.Owner], out int holeBlocked);
                     if (to < 0)
                     {
-                        // ⚠️ **措辞照原版那一条**（2026-10-08 `D28` 施工单 C）：原版判「接不走」时是
-                        //    `CustomDebug.LogWarning(...)` + **整个转移不作数**（`_ResolveStealMinion_d__551:41/:107`），
-                        //    不是「先把人挪过去、回头再说」。我们这一侧（归还）的行为保持原样、
-                        //    **只是把它说清楚**：这一格没接住 ⇒ 人留在抢它的人那儿。
-                        ctx.Log($"⚠️ {ctx.Players[tc.Owner].Name} 的部署位也满了 —— **{u.Name} 还不回去**"
-                              + "（转移要接收方有空位，原版 `MinionManager.IsAvailableSlot` 那一判）"
-                              + "，暂时留在抢它的人那儿（本版没做「放不下怎么办」）");
+                        // 🔴 2026-10-21（`T02` 同族 · `A1692`）：`holeBlocked >= 0` = 棋盘有洞、目标格被占
+                        //    ⇒ 单独说清楚（**原版没有这一档**，这一层是补我们定长数组表示法的洞）。
+                        if (holeBlocked >= 0)
+                            ctx.Log($"⚠️ {ctx.Players[tc.Owner].Name} 的归还落点 {holeBlocked} 被 "
+                                  + $"{ctx.Players[tc.Owner].Board[holeBlocked].Name} 占着（棋盘不连续）、"
+                                  + $"该侧也没有空格 —— **{u.Name} 还不回去**，暂时留在抢它的人那儿");
+                        else
+                            ctx.Log($"⚠️ {ctx.Players[tc.Owner].Name} 的部署位也满了 —— **{u.Name} 还不回去**"
+                                  + "（转移要接收方有空位，原版 `MinionManager.IsAvailableSlot` 那一判）"
+                                  + "，暂时留在抢它的人那儿（本版没做「放不下怎么办」）");
                         continue;
                     }
+                    if (holeBlocked >= 0)
+                        ctx.Log($"（归还：落点 {holeBlocked} 已被 {ctx.Players[tc.Owner].Board[holeBlocked].Name}"
+                              + $" 占着（棋盘不连续）—— **不覆盖**，{u.Name} 改放该侧最外的空格 {to}）");
+                    // ⚠️ **措辞照原版那一条**（2026-10-08 `D28` 施工单 C）：原版判「接不走」时是
+                    //    `CustomDebug.LogWarning(...)` + **整个转移不作数**（`_ResolveStealMinion_d__551:41/:107`），
+                    //    不是「先把人挪过去、回头再说」。我们这一侧（归还）的行为保持原样、
+                    //    **只是把它说清楚**：这一格没接住 ⇒ 人留在抢它的人那儿（上面那两支已各说各的）。
 
                     // 从「抢它的人」那边摘掉 = 原版 `RemoveMinion` ⇒ **要补位**
                     BoardSlots.RemoveAt(ctx.Players[nowP], nowSlot);
                     ctx.Players[tc.Owner].Board[to] = u;    // `to` 就是 `NextWithoutDisplacing` 给的最外一格
+                    // 🔴 2026-10-21（引擎线 `T03·c` 批 A · `W59`）：**重取进场序号** ——
+                    //   摘掉再放回 = 原版的「离开列表 → 重新进列表（落表尾）」。
+                    //   ⚠️ **判据待核**：`_ResolveStealMinion_d__551` 里 `RemoveMinion` 那一跳**核过**，
+                    //   但「归还」这一侧对应的 `Add`/`InsertMinion` 那一跳**没逐行坐实** ⇒ 本行标「待核」。
+                    //   与紧邻的 `ResetSummonSickness(u)`（同一句注释说「转移归属 ⇒ 重新入场」）保持同一口径。
+                    u.PlayOrder = ctx.TakePlayOrder();
                     ResetSummonSickness(u);                 // 见上面 ②（原版：转移归属 ⇒ 重新入场 ⇒ 召唤病）
                     ctx.Log($"{u.Name} 归还给 {ctx.Players[tc.Owner].Name}（{to} 号格）——「本回合控制」到期");
                     back++;
@@ -3243,6 +3267,10 @@ namespace RuleEngine
             //    这一行就是「手牌 → 场上会不会丢实例」的那一跳。丢了的话单位死了回不到原来那一份。
             var unit = new UnitState(inst, false);
             unit.DeployedTurn = ctx.Turn;   // 🆕 誓约能力的「本回合部署」判据（`UnitState.DeployedTurn`）
+            // 🔴 2026-10-21（引擎线 `T03·c` 批 A · `W59`）：**进场序号** —— 原版这一跳是
+            //   `allCardsInPlay.Add`（`_ResolvePlayCardFromHand_d__447__MoveNext.c:709-711`）。
+            //   判据与「为什么不能复用 `InstanceId`」→ `UnitState.PlayOrder` 的 doc。
+            unit.PlayOrder = ctx.TakePlayOrder();
             // 🔴 **2026-10-01：落格走「插入」**（原版 `MinionManager.InsertMinion`）——
             //    它真正落在哪一格由 `BoardSlots.Insert` 算（可能**不是**玩家拖到的那一格：
             //    插进中间会把后面的单位整体外移一格），所以**下面所有事件都用回填后的 `slot`**
@@ -3917,14 +3945,19 @@ namespace RuleEngine
             //    ＋ `MinionManager__GetNextSlotWithoutDisplacing.c:14-30`（左 < 右 ⇒ 左，否则右）。
             //    ⚠️ 名字里的 **without displacing** 是判据：这条路**不挤人** ⇒ 直接写在那一格上，
             //      不需要走 `Insert`（那一格按定义就是空的）。
-            int dst = BoardSlots.NextWithoutDisplacing(ps);
+            int dst = BoardSlots.NextFreeWithoutDisplacing(ps, out int blockedSlot);
             // 🔴 **2026-10-21（`A1352`）：这条出声原来挂在函数【尾部】**，而这一支是**无条件 `return false`**
             //    ⇒ 尾部那句 `ctx.Log(…场上没空格了…)` + 紧跟的 `return false` 是**死代码**（编译器 `CS0162`），
             //    **一次都没跑过** —— 「场上没空格了」这条诊断从来没打过（撞本仓「**不许静默失败**」那条）。
             //    ⇒ 就地挪进这一支。⛔ **口径一个字没变**：满场 = 什么都不做、返回 `false`（原来就是这样）。
             if (dst < 0)
             {
-                ctx.Log($"{ps.Name} 场上没空格了 —— {card.Name} 部署不了");
+                if (blockedSlot >= 0)     // 有洞、且目标格被占 ⇒ 该侧也没有空格（`T02` 同族：照旧出声）
+                    ctx.Log($"{ps.Name} 的免费部署目标格 {blockedSlot} 被 "
+                          + $"{ps.Board[blockedSlot].Name} 占着（棋盘不连续）、该侧也没有空格 —— "
+                          + $"{card.Name} 部署不了");
+                else
+                    ctx.Log($"{ps.Name} 场上没空格了 —— {card.Name} 部署不了");
                 return false;
             }
             // 🔴 **2026-10-19（`A1692`）：目标格被占时【不许静默覆盖】。**
@@ -3937,32 +3970,25 @@ namespace RuleEngine
             //   会**把那个人静默抹掉**（`S23` 那一批实测踩过：复制体盖掉了陪衬单位）。
             //
             //   🔴 **原版行为【不可比】**：原版根本没有「目标格被占」这一档（不是「原版选择盖掉」）。
-            //   ⇒ 下面这一闸是**补我们表示法的洞**，⛔ 别在注释里写成「照原版」。
+            //   ⇒ 这一闸是**补我们表示法的洞**，⛔ 别在注释里写成「照原版」。
             //   处置 = **出声 + 换到该侧最外的空格**（从最外往里找；找不到 ⇒ 按满场处理）。
             //   ⚠️ 只在**有洞**时才会走到（引擎自己的增删路径都维持连续无洞）。
-            if (ps.Board[dst] != null)
+            //   🔴 **2026-10-21（`T02` 同族）：算法已收进 `BoardSlots.NextFreeWithoutDisplacing`**
+            //      —— 原来这里内联了一段，而 `DoTakeControl` / 「本回合控制到期还回去」两处
+            //      **没有这层保险**（同样会静默盖人）。现在三处共用同一份判据（铁律 6）。
+            if (blockedSlot >= 0)
             {
-                int side = BoardSlots.SideOf(dst);
-                int alt = -1;
-                for (int i = BoardSpec.SlotsPerSide - 1; i >= 0; i--)
-                {
-                    int s = BoardSlots.SlotOf(side, i);
-                    if (ps.Board[s] == null) { alt = s; break; }
-                }
-                if (alt < 0)
-                {
-                    ctx.Log($"{ps.Name} 的免费部署目标格 {dst} 被 "
-                          + $"{ps.Board[dst].Name} 占着（棋盘不连续）、该侧也没有空格 —— "
-                          + $"{card.Name} 部署不了");
-                    return false;
-                }
-                ctx.Log($"{ps.Name} 的免费部署目标格 {dst} 已被 {ps.Board[dst].Name} 占着"
-                      + $"（棋盘不连续）—— **不覆盖**，改放到该侧最外的空格 {alt}：{card.Name}");
-                dst = alt;
+                ctx.Log($"{ps.Name} 的免费部署目标格 {blockedSlot} 已被 {ps.Board[blockedSlot].Name} 占着"
+                      + $"（棋盘不连续）—— **不覆盖**，改放到该侧最外的空格 {dst}：{card.Name}");
             }
             {
                 var unit = new UnitState(inst, false);   // 第 7 行第 2 步：实例原样上场
                 unit.DeployedTurn = ctx.Turn;   // 🆕 同上：免费部署也算「本回合上场」
+                // 🔴 2026-10-21（引擎线 `T03·c` 批 A · `W59`）：**进场序号** ——
+                //   原版效果召唤 / 自动召唤同样是 `allCardsInPlay.Add`
+                //   （`_ResolveSummonUnit_d__510__MoveNext.c:179-183` ·
+                //     `_ResolveCardAutoSummoned_d__511__MoveNext.c:284`）。
+                unit.PlayOrder = ctx.TakePlayOrder();
                 ps.Board[dst] = unit;
                 // 🔴 **2026-10-19（`A1571`）：`autoPlayFromHand` 那一档要兑现【手牌加成】。**
                 //   判据 = `_ResolveCardAutoSummoned_d__511__MoveNext.c` 末尾的
@@ -5552,7 +5578,22 @@ namespace RuleEngine
                 //     ⛔ **别再把这一块排到 `Strike` 后面**（改之前的形状），那是一条**与原版相反**的次序。
                 //   ⚠️ **`seed: target` = 这一下的被打者** —— 正文里的「那个被打的」全靠它
                 //      （代词走 `LastTargets`，`AttackedBySelf` 也走那儿，见 `ResolveTargets`）。
-                if (attacker.IsAlive && ctx.Players[p].Board[atkSlot] == attacker)
+                // 🔴 **2026-10-21（引擎线 `T03·d` · `P2-2` 副产物）：这一族【不看攻击者还活不活】。**
+                //  判据 = 原版 `BattleManagerSupport__BroadcastUnitAttacked.c:29`
+                //   `CardScript__ResolveUnitAttacked(attacker, attacker, target, attackType)` —— **无条件预调**
+                //   （只判 `param_2 != 0`）；`CardScript__ResolveUnitAttacked.c:26` 的闸也只有
+                //   「接收者身上有 `RawCardScript`」，**没有** `IsInPlay` / 生死。
+                //  能力层自己的闸是 `CardAbility__CanTriggerAbility` → `CardAbility__IsRightContext.c`：
+                //   `abilityContext = InPlayOrDying(40)` 走 `CardScript__IsInPlayOrDying.c:10-13`
+                //   （**状态 5 = 待死算在场**）；`Play(0)` 才走 `IsInPlay`（不算）。
+                //  现读当前 build 的卡数据（`资料/普查产出_1018/allcards_1350/cards_raw.json`）：
+                //   这 6 张「… attacked [by this unit]」的 `abilityContext` **全是 40** ⇒
+                //   哨戒打死攻击者之后，这几张的正文**仍然要结算**；原来的 `attacker.IsAlive` 把整族跳过了
+                //   （症状 = 攻击 Venomthrope 这类卡、被哨戒反杀时，「Destroy any troop attacked by this unit」
+                //    静默不发生）。
+                //  ⚠️ 位置条件（`Board[atkSlot] == attacker`）保留：原版传的是「那张牌」，它得还在场上
+                //   —— 本段在 `using (SimultaneousDamage)` 里，死亡延后 ⇒ 这一拍它还在棋盘上。
+                if (ctx.Players[p].Board[atkSlot] == attacker)
                 {
                     var atkOps = attacker.Card != null ? attacker.Card.AttackedOps : null;
                     if (atkOps != null)
@@ -5670,12 +5711,33 @@ namespace RuleEngine
                 //   ⚠️ 两步必须成对：只预调不排除 = 这两个各响两次；只排除不预调 = 它们被整个漏掉。
                 //   ⚠️ 预调走 `PreCallBoardListener`（= 棋盘那一跳**同一个函数** + `EffectChain` 闸）。
                 {
+                    // 🔴 **2026-10-21（引擎线 `T03·d` · `P2-2` 副产物）：攻击者那一下预调【不挡待死单位】。**
+                    //  判据 = `BattleManagerSupport__BroadcastUnitAttacked.c:29`
+                    //   `CardScript__ResolveUnitAttacked(attacker, attacker, target, attackType)` ——
+                    //   在棋盘循环**之外**、**没有 `IsInPlay`**（循环 `:48` 那一句只管「其余棋盘监听者」）；
+                    //   `CardScript__ResolveUnitAttacked.c:26` 的闸也只有「接收者身上有 `RawCardScript`」。
+                    //  能力层自己的闸 = `CardAbility__CanTriggerAbility` → `CardAbility__IsRightContext.c:16-33/51-55`，
+                    //  按 `abilityContext` 分档：
+                    //    · `InPlayOrDying(40)` ⇒ `CardScript__IsInPlayOrDying.c:10-13`（**状态 5 = 待死算在场**）⇒ 响；
+                    //    · `Play(0)`          ⇒ `IsInPlay`（状态 5 **不算**在场）⇒ 不响。
+                    //  现读当前 build（`资料/普查产出_1018/allcards_1350/cards_raw.json`）：
+                    //   `SW16 Long Fang`（全池唯一 `When this unit attacks …`）= **40** ⇒
+                    //   **哨戒把攻击者打死之后，它仍然要响**（改前被 `IsPendingDeath` 闸整个挡掉）。
+                    //  ⚠️ **如实标着（残余）**：我们这一层**没有** `abilityContext` 字段 ⇒ 同族里
+                    //   `Play(0)` 的那几张（`UM83 Valtus` / `GSC12 Neophyte Iconbearer` / `DA22 Techmarine`）
+                    //   在**自己正待死**时也会跟着响，原版不响。要精确收口得把 `abilityContext` 带进卡数据。
+                    //  ⚠️ **被打者那一下（`:22`）本轮不动**：原版同样无条件，但今天没有可达症状，
+                    //   而且被打者侧的 ctx 是混合的（`Doomstalker`/`Invictor Warsuit` = 40，`Harpy` = 0）
+                    //   ⇒ 判据不闭合，先留原样（见本笔报告的「没查清」）。
+                    //  ⛔ 别把整个 `Attack` 广播都放开：棋盘循环那一跳原版有 `IsInPlay`
+                    //   （= 我们的待死闸），`TestW58AttackBroadcastOrder` 的次序断言也靠它。
                     int tgtWho = target != null ? OwnerOf(ctx, target) : -1;
                     PreCallBoardListener(ctx, target, WhenEventKind.Attack, p, attacker.Card,
                                          attacker, attacker, target, tgtWho);
                     if (!ReferenceEquals(target, attacker))
                         PreCallBoardListener(ctx, attacker, WhenEventKind.Attack, p, attacker.Card,
-                                             attacker, attacker, target, tgtWho);
+                                             attacker, attacker, target, tgtWho,
+                                             allowPendingDeath: true);
                 }
                 BroadcastWhen(ctx, WhenEventKind.Attack, p, attacker.Card, attacker,
                               actor: attacker, target: target,
@@ -8150,6 +8212,14 @@ namespace RuleEngine
                 var rem = new UnitState(u.Instance, false)
                 {
                     IsRemnant = true,
+                    // 🔴 2026-10-21（引擎线 `T03·c` 批 A · `W59`）：**沿用被翻面那张的进场号**。
+                    //   ⚠️ **原版是否重排：判据未闭合**（如实标）—— 残骸是「原地翻面」，原版走
+                    //   `CardScript__TransformIntoRemnant`（只改状态、不动 `allCardsInPlay`），
+                    //   而 `_ResolveMinionDeath` 的 `Remove` 分支在这一支之前就已经分流走 ⇒
+                    //   **看不出有 Remove+Add 一趟**；但我们**没有**逐机器码坐实「它仍在表里原位」。
+                    //   ⇒ 先按「沿用原号」实现（原号位置 = 翻面前的位置），待核缺口记在
+                    //   `资料/普查产出_1020/W58_战斗结算_多词条顺序判据.md` §七。
+                    PlayOrder = u.PlayOrder,
                     Attack = 0, RangedAttack = 0,
                     Health = 1, MaxHealth = 1,          // 挨任何一下就没（规则书：受伤害即被摧毁）
                     Exhausted = true,                   // 残骸不能行动
@@ -10156,6 +10226,41 @@ namespace RuleEngine
             return true;
         }
 
+        /// <summary>🔴 2026-10-21（引擎线 `T03·c` 批 A · `W59`）：**按「进场序」稳定排序** ——
+        /// 所有「多单位谁先结算」的地方都必须走这一份（判据只此一处）。
+        ///
+        /// **判据** = 原版 `BattleManager.allCardsInPlay`（`+0x470`）是**进场顺序的追加列表**，
+        /// 所有 `Broadcast*` 族照它遍历（`W58_战斗结算_多词条顺序判据.md` §〇 / §一·A1）——
+        /// 所以「谁先响」= **谁先进场**，⛔ 不是棋盘格号、不是座位序、不是玩家索引。
+        ///
+        /// ⚠️ **`PlayOrder &lt; 0`（没取过号）排末尾**：夹具漏取号 / 老数据没有号时，
+        /// 它保持**原来的相对次序**（见下一条），而不是被当成「最早进场」。
+        /// 🔴 **必须是【稳定】排序**：`List.Sort` / `Array.Sort` 都**不稳定** —— 两个同号元素
+        /// （例如两条 `AtTurn` 段指向同一个 `PlayOrder = -1` 的夹具单位）相对次序一变，
+        /// 同一局面两次跑出两种日志序 ⇒ **对局不可复现**。这里用「下标做第二排序键」兜住。
+        /// </summary>
+        internal static void StableSortByPlayOrder<T>(List<T> list, System.Func<T, int> key)
+        {
+            if (list == null || list.Count < 2) return;
+            int n = list.Count;
+            var items = new T[n];
+            var keys = new int[n];
+            var idx = new int[n];
+            for (int i = 0; i < n; i++)
+            {
+                items[i] = list[i];
+                int k = key(items[i]);
+                keys[i] = k < 0 ? int.MaxValue : k;   // 没取号 ⇒ 末尾
+                idx[i] = i;
+            }
+            Array.Sort(idx, (a, b) =>
+            {
+                int c = keys[a].CompareTo(keys[b]);
+                return c != 0 ? c : a.CompareTo(b);   // 同号 ⇒ 保持原始下标序（稳定）
+            });
+            for (int i = 0; i < n; i++) list[i] = items[idx[i]];
+        }
+
         /// <summary>
         /// 给**某一方场上所有带这个触发关键词的单位**各触发一次。
         ///
@@ -10179,20 +10284,29 @@ namespace RuleEngine
         /// </summary>
         static void FireTriggerOnSide(BattleContext ctx, int side, string keyword, UnitState except)
         {
-            var slots = new List<int>();
+            // 🔴 2026-10-21（引擎线 `T03·c` 批 A · `W59`）：**收集齐之后按【进场序】排，再逐条触发**
+            //   —— ⛔ **别按格号拿人**。原版这一族（`Broadcast*` 的棋盘趟）遍历的是
+            //   `allCardsInPlay`（进场序），我们原来按「格号升序」⇒ 先部署却站在大格号的单位
+            //   会**晚响**（判据 → `资料/普查产出_1020/W58_战斗结算_多词条顺序判据.md` §一·A1 / §四·D1）。
+            //   ⚠️ 快照 = **单位对象**（不是格号）：结算会改棋盘（打死人 ⇒ 后面的人整体内移），
+            //   按格号回读会**认错人**（原实现就有这个隐患：`Board[s]` 可能已经换了住户）。
+            var found = new List<UnitState>();
             for (int s = 0; s < BoardSpec.Size; s++)
             {
                 var t = ctx.Players[side].Board[s];
                 if (t == null || !t.IsAlive || t.Card == null) continue;
                 if (except != null && ReferenceEquals(t, except)) continue;
                 if (!t.HasFx(keyword)) continue;
-                slots.Add(s);
+                found.Add(t);
             }
-            foreach (int s in slots)
+            StableSortByPlayOrder(found, u => u.PlayOrder);
+            foreach (var t in found)
             {
-                var t = ctx.Players[side].Board[s];
                 if (t == null || !t.IsAlive) continue;      // 快照之后可能已经被前一个打死了
-                FireTriggerAt(ctx, t, keyword, side, s);
+                // 它的**当前**格号（触发可能把它挪走 / 换位）—— 找不到 = 已不在场上 ⇒ 跳过
+                int owner, nowSlot;
+                if (!FindUnit(ctx, t, out owner, out nowSlot) || owner != side) continue;
+                FireTriggerAt(ctx, t, keyword, side, nowSlot);
             }
         }
 

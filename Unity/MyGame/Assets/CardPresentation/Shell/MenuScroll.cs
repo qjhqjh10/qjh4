@@ -103,10 +103,18 @@ namespace CardPresentation
         /// ⛔ 别把本行读成「我们每一处传的都是原版值」）。
         /// 判据 → `资料/普查产出_1017/UI/D_N29_滚动灵敏度逐视图.md`。
         /// <para>🔴 **2026-10-18（用户拍板）：`120` 是【我们挑的可用步长】，⛔ 不是原版值。**
-        /// 原版这些视图的 `m_ScrollSensitivity` 都是 **1.0**（主菜单模式卡那台还是 horizontal-only，
-        /// 纵向滚轮在原版本来就不参与、靠拖拽）；若照 1.0 传，一格滚轮只走 **1 px**，
+        /// 原版这些视图的 `m_ScrollSensitivity` 都是 **1.0**，若照 1.0 传，一格滚轮只走 **1 px**，
         /// 几百 px 的行程要滚几百格 = **实际滚不动**。**用户 2026-10-18 明确保留 120**，
         /// 按铁律 11 记为「**待将来评估的偏离**」（判据 → `W16_横向滚轮步长.md`）。
+        /// ⚠️ **2026-10-21 订正（铁律 5）**：这一版之前写的是「（主菜单模式卡那台还是 horizontal-only，
+        /// 纵向滚轮在原版本来就不参与、靠拖拽）」—— **两句都不成立**：
+        /// ① 原版这 8 台**全是** horizontal-only（`m_Horizontal=1 / m_Vertical=0`，**不是只有模式卡** ——
+        ///    `资料/普查产出_1018/W13_横向滚动.md` §三「横向列表宿主清单」逐台列了）；
+        /// ② 纵向滚轮**是参与**的：uGUI `ScrollRect.OnScroll` 在 `horizontal &amp;&amp; !vertical` 时把
+        ///    `delta.y` 搬进 `delta.x`（`Library/PackageCache/com.unity.ugui@27635d171b1a/
+        ///    Runtime/UGUI/UI/Core/ScrollRect.cs:665-670`；`position += delta × sensitivity` 在 :675-676）
+        ///    ⇒ 原版一格滚轮**也走 1 px**，只是慢到看不出，不是「滚轮不参与」。
+        ///    ⇒ 结论（**120 是我们挑的**）不变，**理由换成这两条**。
         /// 现共 **8 处**显式实参：主菜单模式卡 `MainMenuRuntime.cs`（N66）＋
         /// `LeaderboardWindow.cs` · `RewardWindow.cs` · `ForgeTab.cs` ·
         /// `CampaignTab.cs` · `DailyRewardPopup.cs`（W16 那 7 处）。

@@ -1400,6 +1400,9 @@ namespace RuleEngine
                 }
                 var u = new UnitState(ctx.NewInstance(d), false);
                 u.DeployedTurn = ctx.Turn;
+                // 🔴 2026-10-21（引擎线 `T03·c` 批 A · `W59`）：起始兵也是「进场」——
+                //   原版 `BattleManager__CreateStartingTroop.c:71-100` 走的是 `allCardsInPlay.Add`。
+                u.PlayOrder = ctx.TakePlayOrder();
                 int slot = BoardSlots.Insert(ps, u, 0);      // 原版落点 = 「贴督军那格起往左」，插入语义
                 if (slot < 0) { UnityEngine.Debug.LogWarning("[Tutorial] 场上放不下起始单位「" + d.Name + "」"); continue; }
                 // 🔴 **2026-10-19（`A1975`/`A1990`）：三条落地钩子，判据见 `SetupStartingTroops` 的 doc。**

@@ -39,15 +39,17 @@
 //   🔴 **2026-10-02 更正（铁律 5）**：这里原来写「Blend SrcAlpha OneMinusSrcAlpha」—— **是错的**。
 //      原版状态**全是材质属性引用**，没有字面量：
 //        `Blend [_SrcBlend][_DstBlend]` · `ZWrite [_ZWrite]` · `ZTest [_ZTest]` · `Cull [_Cull]`
-//        · `alphaToMask [_AlphaToMask]` · `separateBlend=False`
+//        · `alphaToMask [_AlphaToMask]` · **`separateBlend=True`**
 //      而两个原版 shader 的属性默认值**都是** `_SrcBlend=1(One) / _DstBlend=0(Zero)` ⇒ **默认不透明**。
 //      （判据：`工具/dump_shader.py "Matcap Full Options"` / `"Matcap With Texture"` 的属性表 + 同一份
-//       输出里的 `rtBlend0`。）我们下面那两行 `Blend` 用的是 `[_SrcBlend][_DstBlend]`，这一层本来就对；
+//       输出里的 `rtBlend0`。）我们下面那行 `Blend` 用的是 `[_SrcBlend][_DstBlend]`，这一层本来就对；
 //      错的只是**属性的默认值**（5/10 → 已改 1/0）。
-//      ⚠️ **还开着一条**：原版 `separateBlend=False`，而我们把 alpha 单列了一行
-//      （`Blend [_SrcBlendAlpha][_DstBlendAlpha]`）。现有材质上 `_SrcBlendAlpha=1/_DstBlendAlpha=0`
-//      ⇒ 两种写法**同值**、量不出差别；但「separateBlend=False 时 Unity 到底认不认那两个 alpha 字段」
-//      **判据不足，没查到** ⇒ 先不动，记在这里。
+//      🔴 **2026-10-21（T17）就地订正：这里原来写「原版 `separateBlend=False`，而我们把 alpha 单列了一行 …
+//      判据不足、没查到、先不动」—— 现在有第一判据（原版反编译源码）了，**原版是 `separateBlend=True`**：
+//      反编译体的 pass0 逐字是 `Blend [_SrcBlend] [_DstBlend], [_SrcBlendAlpha] [_DstBlendAlpha]`
+//      （`Everguild/Matcap/Matcap Full Options` 与 `Matcap With Texture` 都是；`dump_shader.py` 的
+//      `rtBlend0` 读法把这一条看漏了）。⇒ **alpha 单列是对的，但必须写成【同一行】的四参数形式**
+//      （两行 `Blend` 会让后一行整条覆盖前一行 = 色的因子被 alpha 那组盖掉），已按此改。
 //   Queue=Geometry, RenderType=Opaque, UniversalMaterialType=Unlit
 Shader "WarpforgeVFX/Matcap/Matcap"
 {
@@ -132,8 +134,16 @@ Shader "WarpforgeVFX/Matcap/Matcap"
             "UniversalMaterialType" = "Unlit"
         }
 
-        Blend [_SrcBlend] [_DstBlend]
-        Blend [_SrcBlendAlpha] [_DstBlendAlpha]
+        // 🔴 2026-10-21（T17 · Ruri 反编译对拍）：原来这里是**两行** `Blend`：
+        //      Blend [_SrcBlend] [_DstBlend]
+        //      Blend [_SrcBlendAlpha] [_DstBlendAlpha]
+        //    文件头记的「原版 separateBlend=False」**不成立** —— 原版 pass0 是单行四参数：
+        //      `Blend [_SrcBlend] [_DstBlend], [_SrcBlendAlpha] [_DstBlendAlpha]`
+        //    （判据 = `Everguild/Matcap/Matcap Full Options` 反编译体 pass0；`Matcap With Texture` 同）。
+        //    ShaderLab 的 `Blend` 是**整条状态**、后写的会盖掉前面的 ⇒ 两行写法下**色的因子被 alpha 那组覆盖**
+        //    （`_SrcBlendAlpha` 默认 1 / `_DstBlendAlpha` 默认 0 ⇒ 变成 `Blend One Zero` = 不透明写）。
+        //    改成一行的四参数形式，与原件逐字一致。
+        Blend [_SrcBlend] [_DstBlend], [_SrcBlendAlpha] [_DstBlendAlpha]
         ZWrite [_ZWrite]
         ZTest [_ZTest]
         Cull [_Cull]

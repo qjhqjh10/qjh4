@@ -103,6 +103,7 @@
 //  · ⏭ **仍欠**（如实记）：`closeOnESC = 1`（原版 ESC 关窗；我们的 `BattleDriver` 只在结算屏处理 ESC）·
 //    `enableCardTooltips = 1`（卡片 tooltip）—— 两条都要动 `BattleDriver` 或卡片，**本波白名单外**。
 // ═════════════════════════════════════════════════════════════════════════════
+using System;
 using System.Collections.Generic;
 using TMPro;
 using UnityEngine;
@@ -723,12 +724,22 @@ namespace CardPresentation
         //  x[1615,1845] y[850,1080] **大面积重叠**）⇒ 点「继续」反而开回牌库窗。
         // ═══════════════════════════════════════════════════════════════════════════════════════════
 
+        /// <summary>🆕 **2026-10-21（战斗线 `T09` A4·S1）**：uGUI 关闭入口（`Continue` 条 / 全屏背景关闭件）
+        /// 被点了一下。宿主（`BattleDriver`）订阅它，把**「真实点击记录」（`ClickLog`）那一笔**搬过来 ——
+        /// 判据 = `资料/普查产出_1019/W57_战斗线_T09迁移计划.md` §四 R8（驱动退掉手搓沿之后，
+        /// 这条路的记录不能少；`wf_click.py` 的验收口就是它）。
+        /// ⚠️ **只报「关闭被请求了一下」**：关窗仍然挂在 <see cref="ApplyPendingClose"/> 里，
+        /// ⛔ 订阅方**别**在这里 `Hide()`（那正是本窗 `_closePending` 要挡的「与驱动抢同一帧」）。</summary>
+        public event Action CloseRequested;
+
         /// <summary>uGUI（`Continue` 条 / 全屏背景关闭件）被点 —— **只记「待关」**，⛔ 不当场 `Hide()`。</summary>
         void RequestCloseByUgui()
         {
             if (!Visible) return;              // 窗关着 ⇒ 这一下不算（件本来也收不到射线，双保险）
             _uguiCloseClicks++;
             _closePending = true;
+            var cb = CloseRequested;
+            if (cb != null) cb();              // 只做记账（`ClickLog`）；关窗仍由 `LateUpdate` 落账
         }
 
         /// <summary>把挂起的「关窗」落账（**幂等**）。批处理没有帧循环 ⇒ 自检手动调；

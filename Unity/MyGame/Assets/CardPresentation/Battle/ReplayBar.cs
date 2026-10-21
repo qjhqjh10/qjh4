@@ -69,6 +69,21 @@
 //   我们的等价物 = **根画布 + `HudCanvas.Add(z = 0.3)`**（与 HUD 图族同一档）。
 //   ⚠️ 四枚钮的 `m_AnchoredPosition` **取原版序列化值**（`-86 / -6.9488 / -6.9488 / +72.2512`），
 //   ⛔ 别再按 `BarX + SlotDx + BtnW/2` 反算（那会差 0.03 px，且把原版的两套坐标混成一套）。
+//
+// 🔴 **2026-10-21（战斗线 `T09` A4 · 承接 S1）：四颗钮的点击已改 uGUI 单一所有者（`BattleHudButton`）。**
+//   · 判据（`battlearena2` 四份 `Image` MB 现读，`MonoBehaviour_5127` 等）：
+//     `m_RaycastTarget = 1` · **`m_RaycastPadding = (0,0,0,0)`** · `m_PreserveAspect = 0`
+//     ⇒ 命中框 = 节点 rect = **79.80×48.57**，与 `MakeImageInParent` 建出来的 `sizeDelta` **逐位相同**
+//     ⇒ ⛔ **不需要** `SetNodeRect` / `SetRaycastPadding`（原版本来就没外扩/内缩）。
+//   · `Play` / `Pause` 在原版就是**两个 GameObject**（同 rect、靠 `activeSelf` 互斥），
+//     ⇒ 这里也各建一个 GO、各挂一颗 `BattleHudButton`（⛔ 不是同一颗挂两种动作）。
+//   · **手搓命中 `Hit(Vector3)` 已删**（连同「Play/Pause 那一对故意不看 `activeSelf`」那条特殊判据）：
+//     点击只由 `EventSystem` 的射线 + `BattleHudButton`（`IPointerClickHandler`，**松手那一帧**）触发，
+//     再经 `Clicked` 事件交给驱动（`BattleDriver.OnReplayButtonClicked`）。
+//     ⛔ 两条路并存 = 点一下做两遍（`T09` §四 R1）。
+//   · `Holder` 的显隐闸**不变**：`Setup(false)` 关 `Holder` ⇒ 四颗 `activeInHierarchy` 为假 ⇒
+//     uGUI 天然收不到射线（原版普通对局里就是关着 —— `ReplayHud.Setup()`）。
+using System;
 using UnityEngine;
 
 namespace CardPresentation
@@ -107,6 +122,11 @@ namespace CardPresentation
         const float Z = 0.3f;
 
         HudPiece _replay, _play, _pause, _step;
+
+        /// <summary>四颗钮被点了（uGUI `BattleHudButton` → `IPointerClickHandler`，**松手那一帧**）。
+        /// 🔴 **这是唯一的点击入口**（手搓 `Hit` 已退场，见文件头）。
+        /// 驱动侧只做「记账 + 挂起」，真动作在 `LateUpdate` 落账（`BattleDriver.OnReplayButtonClicked`）。</summary>
+        public event Action<Btn> Clicked;
 
         /// <summary>自检用：4 枚图都取到了没有</summary>
         public bool HasArt
@@ -192,6 +212,7 @@ namespace CardPresentation
             _play   = Make("Play",     SlotApX[1], "40K_replay_bt_play");
             _pause  = Make("Pause",    SlotApX[1], "40K_replay_bt_pause");
             _step   = Make("StepPlay", SlotApX[2], "40K_replay_bt_next");
+            AttachClicks();        // 🔴 2026-10-21（`T09` A4）：四颗各挂一颗 `BattleHudButton`（唯一入口）
             SetPlaying(true);      // 开局就在播 ⇒ 亮的是「暂停」（**与原版 `Initialize()` 一致**，见文件头 ③）
         }
 
@@ -214,6 +235,85 @@ namespace CardPresentation
             return p;
         }
 
+        // ============================================================ uGUI 点击（2026-10-21 · `T09` A4）
+        //
+        //  🔴 **四颗各一颗 `BattleHudButton`，`IPointerClickHandler` 是唯一入口。**
+        //    `Play` / `Pause` 是**两个 GameObject**（原版就是互斥的两枚图，同 rect）⇒ 各挂各的，
+        //    不靠「同一颗判 activeSelf 再分派」那条手搓写法（那条已随 `Hit` 一起删除）。
+        //  ⚠️ 显隐闸不在本类里另做：`Holder` 关着 ⇒ `activeInHierarchy` 为假 ⇒ `EventSystem` 打不到。
+
+        void AttachClicks()
+        {
+            BindClick(Btn.Replay, _replay);
+            BindClick(Btn.Play,   _play);
+            BindClick(Btn.Pause,  _pause);
+            BindClick(Btn.Step,   _step);
+        }
+
+        void BindClick(Btn which, HudPiece piece)
+        {
+            if (piece == null)
+            {
+                // ⛔ 不许静默：这一枚没建出来 ⇒ 玩家点那块位置什么都没发生
+                Debug.LogError($"[ReplayBar] `{which}` 这一枚没建出来 ⇒ 挂不上 uGUI 点击（这一枚点不动）");
+                return;
+            }
+            if (BattleHudButton.Attach(piece, () => RaiseClick(which)) == null)
+                Debug.LogError($"[ReplayBar] `{which}` 挂 **uGUI 点击**失败（`BattleHudButton.Attach` 返回 null）"
+                             + " ⇒ 这一枚点不动（手搓命中已按 `T09` A4 退场，⛔ 不许静默）");
+        }
+
+        void RaiseClick(Btn which)
+        {
+            var h = Clicked;
+            if (h == null)
+            {
+                // 没有订阅者 = 这一下没人做（自检探针建的条就是这种）—— 说出来，别静默
+                Debug.LogWarning($"[ReplayBar] `{which}` 被点了，但**没有订阅者**（`Clicked` 没人接）⇒ 这一下没有效果");
+                return;
+            }
+            h(which);
+        }
+
+        /// <summary>键 → 件（`None` / 未知 ⇒ null）。</summary>
+        HudPiece PieceOf(Btn which)
+        {
+            switch (which)
+            {
+                case Btn.Replay: return _replay;
+                case Btn.Play:   return _play;
+                case Btn.Pause:  return _pause;
+                case Btn.Step:   return _step;
+            }
+            return null;
+        }
+
+        /// <summary>自检用：某一枚的 uGUI 点击组件（这一枚没建出来 / 没挂 ⇒ null）。</summary>
+        public BattleHudButton ButtonForTest(Btn which)
+        {
+            var p = PieceOf(which);
+            if (p == null) return null;
+            var go = p.gameObject;
+            return go != null ? go.GetComponent<BattleHudButton>() : null;
+        }
+
+        /// <summary>自检用：像 uGUI 那样点一下某一枚（= `BattleHudButton.ClickForTest`，
+        /// **不做命中判定** —— 命中归 `EventSystem` 的射线）。
+        /// <para>返回 false = 这一下**不该/不能**触发：这一枚不存在 · **不在激活层级里**
+        /// （`Holder` 关着、或 Play/Pause 里当前藏着的那一枚 —— uGUI 同样收不到射线）· 没挂组件。
+        /// ⛔ 不静默造一次点击。</para>
+        /// <para>⚠️ 它只触发 `Clicked`（驱动那边**挂起**动作）—— 落账要再调
+        /// `BattleDriver.ApplyPendingReplayForTest()`（批处理里 `LateUpdate` 不跑）。</para></summary>
+        public bool ClickForTest(Btn which)
+        {
+            var b = ButtonForTest(which);
+            if (b == null) return false;
+            var go = b.gameObject;
+            if (go == null || !go.activeInHierarchy) return false;
+            b.ClickForTest();
+            return true;
+        }
+
         // 🔴 **2026-10-17：`RefreshLayout()` 那个空口已删**（连同 `BattleDriver.ReanchorHud` 里对它的调用）——
         //    uGUI 档位置/尺寸由 `RectTransform` 的锚点自己跟画布缩放走（原版也是这么做的），
         //    留一个空方法只会让人以为「这里还要重算」。⛔ 别再把它加回来当万能钩子。
@@ -234,17 +334,14 @@ namespace CardPresentation
         /// <summary>自检读口：`Holder` 那个容器节点（原版 `objHolder`）。</summary>
         public Transform Holder { get { return _holder; } }
 
-        /// <summary>这一下点在回放条的哪一枚上（没点中返回 <see cref="Btn.None"/>）。</summary>
-        public Btn Hit(Vector3 world)
-        {
-            if (_replay != null && _replay.gameObject.activeSelf && _replay.Contains(world)) return Btn.Replay;
-            // Play / Pause **同座标**（原版就是互斥的两枚图）⇒ 命中判据用**同一个矩形**，
-            // 报哪一枚看当前亮着哪一枚。⚠️ 不能只判「亮着的那一枚」——那样停着的时候
-            // 点它永远返回 None，**就再也播不起来了**（2026-09-17 自检当场抓到）。
-            if (_play != null && _play.Contains(world)) return _play.gameObject.activeSelf ? Btn.Play : Btn.Pause;
-            if (_step != null && _step.gameObject.activeSelf && _step.Contains(world)) return Btn.Step;
-            return Btn.None;
-        }
+        // ---- 手搓命中（2026-10-21 · `T09` A4 已删，留痕 + 改坏法）----
+        //  原来的 `public Btn Hit(Vector3 world)`（「这一下点在回放条的哪一枚上」）**已删**：
+        //  ⛔ 手搓命中退场，点击归 uGUI（`BattleHudButton` + `EventSystem` 射线，见文件头）。
+        //  ⛔ 别把它加回来：它与 uGUI 并存 ⇒ 一次点击走两条路（`T09` §四 R1）。
+        //  ⚠️ 原来那条「`Play`/`Pause` 同座标、命中判据用同一矩形、按 `activeSelf` 报哪一枚」的
+        //    特殊写法也随之消失 —— uGUI 下**藏着的那一枚根本不在射线候选里**，天然不会点错。
+        //  自检读口：想知道「四颗都挂上点击了吗」请用 `ButtonForTest`。
+        //  🧨 改坏法：`Editor/BattleScene.cs` 的 14b 那一组断言（手搓路已退 + uGUI 是唯一入口）红。
 
         /// <summary>
         /// 切「在播 / 已停」。

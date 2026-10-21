@@ -84,7 +84,10 @@ Shader "WarpforgeVFX/FX/UnlitUVScroll"
         }
 
         // 15 个材质实测恒定 5/10 —— 属性仍然声明（照原版属性表），但状态写死
-        Blend SrcAlpha OneMinusSrcAlpha
+        // 🔴 2026-10-21（T17 · Ruri 反编译对拍）：原版 pass0 = `Blend [_SrcBlend] [_DstBlend], [_SrcBlendAlpha] [_DstBlendAlpha]`
+        //    （色与 alpha 分开寻址）。写死色的那半截保持本文件原有结论不变，**只补上 alpha 那半截**：
+        //    15 个材质实测 `_SrcBlendAlpha=1` / `_DstBlendAlpha=10` ⇒ alpha = `One OneMinusSrcAlpha`。
+        Blend SrcAlpha OneMinusSrcAlpha, One OneMinusSrcAlpha
         Cull [_Cull]
         ZWrite Off
         ZTest LEqual

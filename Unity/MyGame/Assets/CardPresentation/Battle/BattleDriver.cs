@@ -1294,6 +1294,14 @@ namespace CardPresentation
         AlliancePanelWindow _alliancePanel;
         ChatPopupPanel _chatPopup;
         float _chatCooldown;                      // 原版 `CHAT_INTERACTABLE_COOLDOWN = 4f`
+        /// <summary>🆕 **2026-10-21（战斗线 `T09` A4 · 步骤 S1）**：uGUI 点中某句台词之后**挂起的「说这句」**。
+        /// <para>为什么不当场说：`ButtonClicked` 由 `EventSystem.Update` 在**松手那一帧**派发，而
+        /// `EventSystem.Update` 与 `BattleDriver.Update` 都是默认执行顺序 —— 在回调里当场
+        /// `Hide()` + 播音会与驱动抢同一帧（先 `SpeakChatAt` 里那句 `Hide()` ⇒ 驱动的模态支看到
+        /// 「气泡已关」⇒ 同一次按住继续落到棋盘/手牌）。⇒ 只记「要说什么」，由 <see cref="LateUpdate"/>
+        /// 在所有 `Update` 跑完之后落账（判据与先例 → `BattleLogPanel.ApplyPendingClose`）。</para>
+        /// <para>⚠️ `-1` = 没有挂起项。重开气泡 / 关气泡都**不**自动清它 —— 落账时再判一次 `Visible`。</para></summary>
+        int _chatSpeakPendingIdx = -1;
         CardDisplayWindow _cardDisplay;
         /// <summary>🆕 2026-09-29：**点开大卡窗的那张牌**（手牌那张 / 棋盘上那个单位）。
         /// 「指针移开就关」那条要用它 —— 原版守的是**那张卡自己的** `CardCollider.OnPointerExit`。</summary>
@@ -2805,11 +2813,145 @@ namespace CardPresentation
             get { int n = 0; ForEachStaticHook((cur, clear) => n++); return n; }
         }
 
-        /// <summary>本机是几号座位（**绝对编号**）。单机恒 0；联机客机 = 1。</summary>
-        public void SetMySeat(int seat)        {
+        /// <summary>本机是几号座位（**绝对编号**）。单机恒 0；联机客机 = 1。
+        /// <para>🆕 **2026-10-21（`T04`）**：加了 <paramref name="rebuildViews"/> —— **局已开始之后翻座位**
+        /// （`_me` 0↔1）时，视图侧必须**按新座位重建**。原来这里只写 `_me`，两处会静默失效：
+        /// ① 身份表 `UnitViewMap(owner)`（`:992`）是按 `owner == _me` **二选一**挑表的 ⇒ 翻了座位之后
+        ///    同一个 `owner` 解析到**另一张**表，而两张表里装的都是旧座位认人时记下的视图；
+        /// ② 登场账 `_pendingDeploy` / `_pendingDeployByName` 的键是**绝对座位** `HpKey`（`:14281`）
+        ///    ⇒ 翻座位不会自己作废，`SyncBoard` 那道闸（`:17652` → `IsPendingDeploy` `:15079`）
+        ///    查不到已登记的视图就 `continue` ⇒ **两边都建不出件**（`MyUnits` / `FoeUnits` 空）。
+        /// ⇒ `true` 时整套拆掉重来，见 <see cref="RebuildViewsAfterSeatFlip"/>。</para>
+        /// <para>⚠️ **产品路径恒用单参**（`BeginFromPendingCore:2600` · `BeginFromDeckLibrary:2949` ·
+        /// `BeginTutorial:3105`）—— 那三处都在 `Begin` **之前**调，那时**上一局的 `Ctx` 还活着**
+        /// ⇒ ⛔ **不能**拿「`Ctx != null`」自动判「局中」。默认 `false` ⇒ 行为与改前逐字一致。</para></summary>
+        public void SetMySeat(int seat, bool rebuildViews = false)
+        {
             if (seat != 0 && seat != 1) { Debug.LogError("[Net] `SetMySeat(" + seat + ")` 只认 0/1"); return; }
+            bool flipped = seat != _me;   // 座位**真的变了**才算「翻座位」（同值再调 = 幂等，只打日志）
             _me = seat;
             Debug.Log($"[Net] 本机座位 = {_me}（视图侧跟着它翻：`_me` 那一侧画在下面）");
+            if (!rebuildViews) return;    // 🔴 **产品路径（三处单参调用）到这里为止** —— 与改前逐字等价
+            if (!flipped) return;         // 同值再调 ⇒ 什么都不用重建（幂等）
+            if (Ctx == null || Ctx.Players == null)
+            {
+                // 明确出声，别静默跳过：真出现「以为重建了、其实没有」是最难查的那一类。
+                Debug.LogWarning($"[Net] `SetMySeat({seat}, rebuildViews: true)` 但这一局还没有 `Ctx`"
+                               + "（`Begin` 之前）⇒ 视图侧没有可重建的表，只翻了 `_me`。");
+                return;
+            }
+            // 🔴 **阵营那两格也是【视图侧】** —— `FactionOf(seat)`（`:6090`）· `SyncBoard` 选描边
+            //    （`:17639`）· `ToCardData`（`:15108`）· 卡背 resolver（`:1934`）全是
+            //    `owner == _me ? _myFaction : _foeFaction`；而它们只在 `BeginFromPendingCore:2649`
+            //    按 `_me == 1` 换过**一次** ⇒ 中途翻座位必须**成对交换**，否则重建出来的视图
+            //    阵营色 / 卡背全停在旧座位（画面「翻过去了、颜色没翻」= 静默错）。
+            //    ⛔ **别把这一句挪进 `Begin` 那条路** —— 那条已经换过一次了（会双换回原样）。
+            { var t = _myFaction; _myFaction = _foeFaction; _foeFaction = t; }
+            RebuildViewsAfterSeatFlip();
+        }
+
+        /// <summary>自检用：**局中翻座位触发过几次「按新座位整套重建视图」**（生产口径、只增）。
+        /// 断言拿「前 → 后」的**增量**比（⛔ 别断绝对值 —— 本节前面还会翻几次）。</summary>
+        public int SeatRebuildCountForTest { get; private set; }
+
+        /// <summary>🆕 **2026-10-21（`T04`）**：<see cref="SetMySeat"/> 的 `rebuildViews: true` 那一支 ——
+        /// **局已开始后翻座位**时把视图侧整套拆掉、按新 `_me` 重建。
+        /// <para>🔴 只动**视图侧**（`_me` 与它那几张表）：**绝对座位**（`Ctx.Players[0/1]` 的含义）
+        /// 一个字不碰 —— 联机口径见 `资料/联机P2P_设计与交接.md` §六（`FromWire` 也**不许**翻座位）。</para></summary>
+        void RebuildViewsAfterSeatFlip()
+        {
+            SeatRebuildCountForTest++;   // 自检口：这一次是**真的**重建了（⛔ 不是「以为重建了」）
+
+            // ① 选择态先收干净 —— 高亮 / 选择器 / 准星都挂在**旧视图**上，下面就要销毁它们。
+            ClearSelection();
+
+            // ② 拆两张「格号 → 视图」表 + 两张身份表（`_myUnitViewByUnit` / `_foeUnitViewByUnit`）。
+            //    🔴 **必须清空重建，不能只「对调两张字典」**：身份表的键是 `UnitState` 对象，
+            //       而 `UnitViewMap(owner)` 是按 `owner == _me` 挑表的（`:992`）—— 清掉之后
+            //       `SyncBoard` 会按**新** `_me` 重新认人、重新登记（`byUnit` 空 ⇒ 走「首次同步」那条退路，`:17671`）。
+            //    ⚠️ 销毁前补一次 `DOTween.Kill(transform)`（同 `:4341` 那条先例）：走 `CardTween.Use` 的
+            //       补间本来就有 `SetLink(gameObject)`、销毁即被杀；这一句盖的是**没走 `CardTween.Use`
+            //       的裸补间**。🔴 **没查清的部分**：目标不是 transform（而是某个组件 / 用 getter-setter
+            //       的 `DOTween.To`，如 `:9701` 那条 dissolve 序列）的补间这一句盖不到 —— 那些补间在本表
+            //       里的成员上没有已知用例，按「尽力」。**没跑 Unity 验过**。
+            foreach (var kv in _myUnits)
+            {
+                if (kv.Value == null) continue;
+                DG.Tweening.DOTween.Kill(kv.Value.transform);
+                Kill(kv.Value.gameObject);
+            }
+            foreach (var kv in _foeUnits)
+            {
+                if (kv.Value == null) continue;
+                DG.Tweening.DOTween.Kill(kv.Value.transform);
+                Kill(kv.Value.gameObject);
+            }
+            _myUnits.Clear(); _foeUnits.Clear();
+            _myUnitViewByUnit.Clear(); _foeUnitViewByUnit.Clear();
+
+            // ③ 「已经让出格号、演出还没播」的那两张也一样（键同样是格号，翻座位之后没人认领）。
+            foreach (var kv in _myFading)
+            {
+                if (kv.Value == null) continue;
+                DG.Tweening.DOTween.Kill(kv.Value.transform);
+                Kill(kv.Value.gameObject);
+            }
+            foreach (var kv in _foeFading)
+            {
+                if (kv.Value == null) continue;
+                DG.Tweening.DOTween.Kill(kv.Value.transform);
+                Kill(kv.Value.gameObject);
+            }
+            _myFading.Clear(); _foeFading.Clear();
+
+            // ④ 「让位」预览态 —— `_previewOwner` 是按 `_me` 折出来的（`:17926`），不清的话它会拿
+            //    旧方向去推新视图。
+            _previewMoved.Clear(); _previewOwner = -1; _previewRequested = -1;
+
+            // ⑤ 登场账 + 它的飞行票 —— 成套照 `Begin` 的跨局清法（`:3581-3596`）。
+            //    🔴 账按**绝对座位**记（`:14281`）⇒ 翻座位不会自己作废；不清的话 `IsPendingDeploy`
+            //       会继续把两边压着（`:17652` 那条 `continue`）。
+            _pendingDeploy.Clear();
+            _pendingDeployByName.Clear();
+            _syncAfterDeploy = false;
+            _aiDeployFlights.Clear();
+            _aiDeployLandingCue.Clear();
+            _aiDeployFlying.Clear();
+            foreach (var kv in _aiDeployFlyingHand) if (kv.Value != null) Kill(kv.Value.gameObject);
+            _aiDeployFlyingHand.Clear();
+            _aiDeployHandedOff.Clear();
+            RestoreAllBoardViewVisibility();   // 飞行期间藏起来的渲染器要还原；这里同时把「藏了的」那本账清掉
+            _aiTicketHandIdx = -1; _aiTicketName = null; _aiTicketAt = -999f;
+            _playerTakeoffAt = -999f;
+            _playerFlightTakeoffPlayed = false;
+
+            // ⑥ 🔴 **时间线也要清** —— 判据与 `Begin` 那条 `_timeline.Clear()` 同一个道理：队列里每条
+            //    事件**只带格号**（`BattleEvent.Slot`），而 `PlayDeathFeel`（`:16891-16895`）/
+            //    `PlayReturnFeel`（`:16961-16966`）都是「先在 fade 表找、找不到就退到**当前** `views[e.Slot]`」
+            //    ⇒ 排在未来的那条阵亡 / 回手会去溶掉 / 收走**重建后站在同一格的新主人**（静默，而且
+            //    只在翻座位时现形）。所以**整条清掉**，并把队尾收回当前时刻 —— 不清队尾的话那条
+            //    「未来」的收尾时刻会把后面的事件全堵住（`Begin` 那段注释 `:3559-3566` 记过同一个坑）。
+            _timeline.Clear();
+            _timelineTailAt = _clock;
+            _lastBatchStartAt = _clock;
+            // 连带一笔：`_blocking` 是「演出未收尾 ⇒ 挡输入」那道门，它的放行靠 `TickBlockingWindow`
+            //（`:14656`：队列空 **且** 过了 `_blockingQuietAt`）⇒ 演出被我们丢掉了，门必须**当场放行**，
+            // 否则玩家要等到那条（已经不存在的）cue 的收尾时刻才动得了。
+            _blocking = false; _blockingQuietAt = _clock;
+
+            // ⑦ 按新 `_me` 重画一遍（棋盘 / 手牌 / HUD 一起翻）。
+            RefreshAll();
+
+            // ⑧ 🔴 **`RefreshAll` 里的 `PlaySignals()` 可能在**这一帧**刚给 `Deploy` 记过账**
+            //    （`NotePendingDeploy` `:15079`，它只对**本次 drain 到的**新事件记账）⇒ 那两下
+            //    `SyncBoard` 可能刚被闸过。这里**再清一遍**并**显式**同步两边：保证「已经站在场上、
+            //    但账还压着」的单位当场有视图。
+            //    ⚠️ **代价（如实记）**：这样会**丢掉那一批的登场演出**（原版是动作队列演到那一步才建卡）。
+            //    翻座位本来就是「整套重建」，旧的演出也已经随 ⑥ 作废 ⇒ 这里选择「先有卡、别缺件」。
+            _pendingDeploy.Clear();
+            _pendingDeployByName.Clear();
+            SyncBoard(_me, _myUnits, true);
+            SyncBoard(1 - _me, _foeUnits, false);
         }
 
         public void BeginFromDeckLibrary()
@@ -4604,30 +4746,36 @@ namespace CardPresentation
         /// <summary>`ChatPopup` 的点击。规矩和设置面板一样：
         /// **开着 ⇒ 无条件接管（模态）**；关着 ⇒ **不再接管**（🆕 2026-10-19 `T09` A2：
         /// 聊天钮已走 uGUI —— `BattleHudButton` 的动作 `ClickChatHud`）。
-        /// （两条沿各自只能在这里耗一次 —— 见 `HandleSettings` 上面那段注释。）
         ///
-        /// 🔴 **2026-10-13（A462）：开着那一段是【两种不同的触发沿】，拆成两半 —— ⛔ 别合并。**
+        /// 🔴 **2026-10-13（A462）：开着那一段是【两种不同的触发沿】—— ⛔ 别合并。**
         /// · **条外关闭** = 全屏关闭区 `CloseChatPopup`：原版挂的是 `EventTrigger`，
         ///   `m_Delegates[].eventID = 2 = PointerDown`（判据见 `PollInputEdges` 上面那一段）
-        ///   ⇒ 走 `ClickedThisFrame()`，**按下那一帧就收**。
+        ///   ⇒ **按下那一帧就收**。
         /// · **选台词** = 6 颗 `ChatButton (1)..(5)` / `ChatButton`，组件 `ChatPopupButton : EverguildButton`
         ///   （`ChatPopupButton.cs:7`）⇒ uGUI `onClick`，**抬起那一帧**才说那句话。
-        /// ⚠️ 两半的**命中优先级不动**（原版靠 `GraphicRaycaster` 排序，谁在上没读 ⇒ 保持我们现有算法）。</summary>
+        /// ⚠️ 两半的**命中优先级不动**（原版靠 `GraphicRaycaster` 排序，谁在上没读 ⇒ 保持我们现有算法）。
+        ///
+        /// 🔴🔴 **2026-10-21（战斗线 `T09` A4 · 步骤 S1）就地改口径（铁律 5）：上面那两半的【触发沿】
+        /// 现在归面板自己的 uGUI，本方法**一条沿都不耗**。**
+        /// 原来这里写的是「条外关闭走 `ClickedThisFrame()` / 选台词走 `ReleasedThisFrame()`」——
+        /// 那是**手搓**那条路的写法（`PointerDownAt` / `PointerUpAt`），已整段退场。
+        /// 现在的分工：面板收 uGUI（`OnClosePointerDown` / `BattleHudButton`）→ 发 `CloseRequested` /
+        /// `ButtonClicked` → 驱动只记账 + 置「待办」（见 `OnChatCloseRequested` / `OnChatButtonClicked`）；
+        /// 面板开着时本方法只 `return true`（吞掉这一帧的世界侧输入）。</summary>
         bool HandleChatPopup()
         {
             if (_chatPopup != null && _chatPopup.Visible)
             {
-                var wp = WorldPointer();
-                if (ClickedThisFrame())
-                {
-                    // 条外那一按**已经把面板关掉了** ⇒ 吞掉**同一次按住**的松手沿
-                    // （理由同 `HandleBattleLog`：原版那块全屏关闭区在最上层，底下那颗 `ChatButton`
-                    //   收不到这次按下 ⇒ 松手不该把它又打开）。
-                    if (_chatPopup.PointerDownAt(wp)) _swallowNextRelease = true;
-                    return true;
-                }
-                if (ReleasedThisFrame() && _chatPopup.Visible)
-                    SpeakChatAt(_chatPopup.PointerUpAt(wp));
+                // 🔴🔴 **2026-10-21（战斗线 `T09` A4 · 步骤 S1）：气泡开着 ⇒ 本方法只做「吞掉这一帧」。**
+                //   · 条外关闭 = 面板自己的关闭区（`CloseChatPopup` 的 `EventTrigger.PointerDown`
+                //     → `ChatPopupPanel.OnClosePointerDown` → `_closePending` → `LateUpdate` → `CloseRequested`）；
+                //   · 选台词   = 面板自己的 6 颗 `BattleHudButton`（`ButtonClicked`）。
+                //   ⛔ 原来那两半（`ClickedThisFrame` + `PointerDownAt` / `ReleasedThisFrame` + `PointerUpAt`）
+                //     **已整段删除**：两条路并存 = 一次点击做两遍（`T09` §四 R1）。
+                //   ⚠️ 仍在驱动这一侧的两件事（在 `OnChatCloseRequested` / `OnChatButtonClicked` 里）：
+                //     ① 同一次按住的**松手沿要吞掉**（`_swallowNextRelease`）—— 原版那块全屏关闭区在最上层，
+                //        底下那颗 `ChatButton` 收不到这次按下 ⇒ 松手不该把它又打开；
+                //     ② 「真实点击记录」(`ClickLog`) 那一笔搬过来了（判据 → `T09` 迁移计划 §四 R8）。
                 return true;
             }
             // 🔴 **2026-10-19（W57 · 战斗线 `T09` 步骤 A2）：本方法现在只剩「气泡开着」那一半（模态）。
@@ -4639,8 +4787,68 @@ namespace CardPresentation
             return false;
         }
 
+        // ═══════════════════════════════════════════════════════════════════════════════════════════
+        //  🔴 2026-10-21（战斗线 `T09` A4 · 步骤 S1）：`ChatPopup` 的 uGUI 回调 → 驱动这一侧
+        //  接线配方 = `资料/普查产出_1019/W57_战斗线_T09_A3e1*.md` + 迁移计划 §四 R8。
+        //  ⛔ 这两个回调里**不做**任何会改状态的动作（`Hide()` / 播音）—— 只记账 + 置「待办」，
+        //     由 `LateUpdate` 落账（理由见 `_chatSpeakPendingIdx` 的 doc）。
+        // ═══════════════════════════════════════════════════════════════════════════════════════════
+
+        /// <summary>条外关闭区被**按下**了（面板已把关闭挂起，`LateUpdate` 落账）。
+        /// 这里只做两件事：① 记「真实点击记录」② 吞掉同一次按住的松手沿。</summary>
+        void OnChatCloseRequested()
+        {
+            LogClickBeat();
+            _swallowNextRelease = true;
+        }
+
+        /// <summary>6 颗台词钮之一被点了（uGUI `IPointerClickHandler`，**松手那一帧**）。
+        /// 只把「说第几句」挂起，真正的 `Hide()` + `SpeakChat` 在 <see cref="ApplyPendingChat"/> 里。</summary>
+        void OnChatButtonClicked(int idx)
+        {
+            LogClickBeat();
+            _swallowNextRelease = true;
+            _chatSpeakPendingIdx = idx;
+        }
+
+        /// <summary>把挂起的「说那句台词」落账（**幂等**：没有挂起项就返回 false）。
+        /// 批处理没有帧循环 ⇒ 自检手动调 <see cref="ApplyPendingChatForTest"/>；真机由 `LateUpdate` 每帧调。</summary>
+        bool ApplyPendingChat()
+        {
+            int idx = _chatSpeakPendingIdx;
+            if (idx < 0) return false;
+            _chatSpeakPendingIdx = -1;
+            // 落账这一刻**再判一次**：气泡可能已经被别的入口（条外关闭 / 驱动）关掉了 ⇒ 这句不说了。
+            // 闸用 `Interactable`（`_open && !_fadingOut`）= 面板自己给 6 颗钮开的那道闸
+            //（原版 `Hide()` 一开头就把 `CanvasGroup.interactable` 置 0 ⇒ 淡出途中点不动）。
+            if (_chatPopup == null || !_chatPopup.Interactable)
+            {
+                Debug.Log($"[Battle] `ChatPopup` 的台词点击已挂起（第 {idx + 1} 句），但落账时气泡已不可交互"
+                        + " ⇒ **这句不说**（同一次按住里它已经被关掉了）");
+                return false;
+            }
+            SpeakChatAt(idx);
+            return true;
+        }
+
+        /// <summary>自检用：手动落一次「挂起的台词」（批处理里 `LateUpdate` 不跑）。
+        /// 与真机**同一个函数**（⛔ 别在自检里另写一份说话逻辑）。</summary>
+        public bool ApplyPendingChatForTest() { return ApplyPendingChat(); }
+
+        /// <summary>🔴 **2026-10-21（战斗线 `T09` A4 · 步骤 S1，A4 续）**：驱动这一侧的 `LateUpdate` ——
+        /// **只落「uGUI 回调里不该当场做的事」**。今天两件：
+        /// ① 挂起的台词（理由 → `_chatSpeakPendingIdx`，S1 落地）；
+        /// ② 挂起的**回放条点击**（理由 → `_replayPendingBtn`，A4 落地）。
+        /// ⚠️ 与 `BattleDriver.Update` **同帧**（`LateUpdate` 不是下一帧）；Unity 保证所有 `Update`
+        /// 跑完才跑 `LateUpdate` ⇒ `EventSystem.Update` 与 `Update` 谁先谁后都安全。</summary>
+        void LateUpdate()
+        {
+            ApplyPendingChat();
+            ApplyPendingReplay();
+        }
+
         /// <summary>「让我方督军说 `ChatPopup` 第 `hit` 句」那一步（**冷却也在这一处**）——
-        /// `ChatClickAt` 与 `HandleChatPopup` 的抬起半**共用它**，别在两处各写一遍。
+        /// `ChatClickAt`（自检口）与 `ApplyPendingChat`（uGUI 那条路的落账口）**共用它**，别在两处各写一遍。
         /// 🔴 **2026-10-20（`T09` WIRE）**：这里**先把气泡关掉**再说话（原版 `ClickChat` 的顺序）。
         /// `hit &lt; 0` = 没点到钮（`false`）。</summary>
         bool SpeakChatAt(int hit)
@@ -4660,8 +4868,12 @@ namespace CardPresentation
         }
 
         /// <summary>一次**完整**的点击落在 `ChatPopup` 上（按下 + 抬起在同一个点上）——
-        /// **真实输入与自检走同一条判定**（自检拿钮的世界坐标喂进来，不直接调 `SpeakChat`），
-        /// 只是真实那一路把它拆成了**两帧两个入口**（见 `HandleChatPopup`）。
+        /// ⚠️ **2026-10-21（战斗线 `T09` A4 · 步骤 S1）之后它只服务自检**：生产那条路已经整条交给面板
+        /// 自己的 uGUI（`CloseChatPopup` 的 `EventTrigger.PointerDown` + 6 颗 `BattleHudButton`），
+        /// 驱动 `HandleChatPopup` 一帧只做模态吞掉（见那里的 doc）。本方法保留下来，是因为
+        /// 自检要**逐颗钮验「面板自己的命中/出话判据」**（`PointerDownAt` / `PointerUpAt` 仍在面板里）；
+        /// ⛔ **别把它当成「生产那条路的等价物」再写新断言** —— 生产请用
+        /// `ChatPopupPanel.CloseTriggerForTest.OnPointerDown(...)` / `ButtonClickComponentForTest(i).ClickForTest()`。
         /// 🔴 **2026-10-20（`T09` WIRE）**：点中某句台词 ⇒ 那句话生效 **且气泡关掉**
         /// （原版 `VoiceLinesPopupSelector__ClickChat.c`：`Hide()` → `OnVoiceLinePressed(index)`）。
         /// 返回「这一下被面板吃掉了没有」。</summary>
@@ -4787,7 +4999,18 @@ namespace CardPresentation
             AudioClip clip = null;
             if (VoiceLines.TryPickExact(card.Id, evt, out file, out text))
                 clip = VoiceLines.Clip(file);      // 取不到 ⇒ 它已经报过警告，下面退回兜底
-            // ② 没绑定 / 绑的那条音频不在工程里 ⇒ **后缀兜底**（老行为，一字不改）
+            // 🆕 2026-10-21（战斗线四笔静态项 · 笔 3）：**召唤这一档【只】走精确绑定，没有后缀兜底**。
+            //   判据 = `d:/2/tools/decomp_full/VoiceLinesController__DisplaySummonMessage.c:36-75`：
+            //     `GetSummonSound()` 返回 null ⇒ **直接 return**（气泡 + 语音一起没有）；
+            //     台词 `IsNullOrEmpty` ⇒ 只 `CustomDebug.LogError(<卡名>)`，**不 `ShowChatBox`**。
+            //   ⇒ 原版**没有**「按文件名后缀猜一条」这条退路（`VoiceLines.ForDeploy = { "deploy" }`
+            //     那条兜底是我们早期自己加的）。不砍掉的话，那批没有 `summonAudio` 的卡
+            //     （`AM66`/`ASH3`/`BL34`/`BL35`/`SAU36`/`UM48` 等）照样会从 `deploy` 桶里捞一条
+            //     （其中还有 14 条是 `_vs_<对手>` 错归进来的）念出来、并把**卡名**印进气泡。
+            //   ⚠️ `attack` / `death` 两档**不动**（原版那两档只 `PlaySoundClip`、连气泡都没有 ——
+            //     那是另一笔，见 `资料/普查产出_1019/W_战斗线_T19现核_1019b.md` §四·4）。
+            if (e.Kind == EvtKind.Deploy && clip == null) return;
+            // ② 没绑定 / 绑的那条音频不在工程里 ⇒ **后缀兜底**（老行为，一字不改；只对 attack/death 生效）
             if (clip == null)
             {
                 var order = VoiceLines.SuffixOrderFor(evt);
@@ -4801,6 +5024,11 @@ namespace CardPresentation
             _unitChat.Speak(e.Player == _me ? 0 : 1, card.Id, e.Kind.ToString(),
                             ArtKey(card), CardDisplayName(card, null), text, clip, file);
         }
+
+        /// <summary>自检用：喂一条引擎事件给 <see cref="SpeakFor"/>（**转发**，判据只有那一份 ——
+        /// ⛔ 别在自检里另写一份「该不该说话」的判据）。
+        /// 🆕 2026-10-21（战斗线四笔静态项 · 笔 3）：给 T19 那 6 张卡（无 `summonAudio`）用。</summary>
+        public void SpeakForForTest(BattleEvent e) { SpeakFor(e); }
 
         /// <summary>投降时说一句（原版 `concede` 那一族台词；只有督军有）。</summary>
         void SpeakConcede(int who)
@@ -4953,6 +5181,12 @@ namespace CardPresentation
         ReplayBar _replayBar;
         bool _replayPaused;
 
+        /// <summary>🔴 **2026-10-21（战斗线 `T09` A4）**：uGUI 点中回放条的那一枚，**挂起到 `LateUpdate` 落账**。
+        /// `Btn.None` = 没有挂起项。理由与 S1 的 `_chatSpeakPendingIdx` 同一条：
+        /// `IPointerClickHandler` 跑在 `EventSystem.Update` 里，那一跳**不能当场**改状态
+        /// （Pause/Play 会 `SetActive` 正在处理这次点击的自身；Replay 会 `Restart()` 重建整局）。</summary>
+        ReplayBar.Btn _replayPendingBtn = ReplayBar.Btn.None;
+
         /// <summary>现在是不是暂停着（暂停 = 事件时间线 / 回合计时 / AI 步进**三处一起停**）</summary>
         public bool ReplayPaused { get { return _replayPaused; } }
 
@@ -4997,8 +5231,9 @@ namespace CardPresentation
             return true;
         }
 
-        /// <summary>回放条的一次点击。返回 true = 这一帧到此为止（和设置面板同一个形状）。
-        /// 🔴 A462：**抬起**（原版那四颗 `Replay`/`Play`/`Pause`/`StepPlay` 都是 `EverguildButton`）。
+        /// <summary>回放条这一路的输入闸。返回 true = 这一帧到此为止（和设置面板同一个形状）。
+        /// 🔴 A462：原版那四颗 `Replay`/`Play`/`Pause`/`StepPlay` 都是 `EverguildButton` ⇒ 动作在**抬起**
+        /// （2026-10-21 起这一点由 `BattleHudButton`/`IPointerClickHandler` 保证，⛔ 不再是手搓沿）。
         ///
         /// <para>🔴🔴 **2026-10-20（W57 · 战斗线 `T09-FIX5` · P0-2）：回放条【不可见时不吃释放沿】。**
         /// 改前 = `_replayBar == null || !ReleasedThisFrame()` —— 而 `_replayBar` 在**普通对局里恒非空**
@@ -5008,30 +5243,58 @@ namespace CardPresentation
         /// 等分支在真机上**一次都收不到沿**（自检从不调 `Update` ⇒ 全绿）。
         /// 判据：原版那 4 颗只在回放局里存在（`objHolder.SetActive(BattleManager.matchType == 0xA0)`，
         /// 见 `ReplayBar.cs` 文件头）⇒ 普通对局里它们的 `GameObject` 是关的、`EventSystem` 根本不会
-        /// 把点击派发给它们 ⇒ **不吃沿**。⚠️ 可见时的行为**逐位不变**（顺序仍是 null → 沿 → `ReplayClickAt`，
-        /// 后者自己的 `HolderVisible` 闸与 `null` 检查都保留）。</para>
-        /// <para>🧨 改坏法：改回「先消费沿、再看可见性」⇒ `T09-FIX5/P0-2` 那条红；
-        /// 反过来写成「可见也不吃沿」⇒ 同组对照条红。</para></summary>
+        /// 把点击派发给它们 ⇒ **不吃沿**。
+        /// 🔴 **2026-10-21 就地订正（铁律 5）**：本段原来末尾写「可见时的行为**逐位不变**（顺序仍是
+        /// null → 沿 → `ReplayClickAt`）」—— **已不成立**：A4 把那条手搓支整段删了，
+        /// 可见时现在**只吞帧、不耗沿**（见下一段）。「不可见 ⇒ 不吃沿」那半**仍然成立**。</para>
+        /// <para>🔴🔴 **2026-10-21（战斗线 `T09` A4 · 承接 S1）：四颗钮已改 uGUI 单一所有者
+        /// （`ReplayBar` 里各挂一颗 `BattleHudButton`）⇒ 本方法**只剩模态语义**：
+        /// **整条可见 ⇒ 吞掉这一帧的世界侧输入**（`return true`），命中与动作全归四颗 uGUI 钮。
+        /// ⛔ 原来那半（`ReleasedThisFrame()` + `ReplayClickAt(WorldPointer())`）**已整段删除**：
+        /// 两条路并存 = 一次点击做两遍（`T09` §四 R1）；
+        /// 而且**「真实点击记录」（`ClickLog`）那一笔必须跟着搬到 uGUI 入口**
+        /// （`OnReplayButtonClicked` 里那句 `LogClickBeat()`），⛔ 别再留在手搓沿上
+        /// （`ReleasedThisFrame()` 自己会记一笔 ⇒ 留在那里 = 一次点击记两条）。
+        /// ⚠️ 判据（原版）：那 4 颗的图 `m_RaycastTarget = 1` · `m_RaycastPadding = (0,0,0,0)`
+        /// （`battlearena2` 四份 Image MB 现读）—— uGUI 射线打的就是它们自己。</para>
+        /// <para>⚠️ **如实记（产线不可达，但别当成「已验」）**：可见时整帧输入链被本方法接管，
+        /// 排在它后面的 `AdvanceTimeline` / 回合驱动这一帧都不跑。我们**从不进回放局**
+        /// （`BuildHud` 里 `Setup(false)`，原版 `matchType == 0xA0` 才有）⇒ 产线走不到；
+        /// 真接回放模式那一批要复核「播放时钟该不该跟着停」——**还没查清**。</para>
+        /// <para>🧨 改坏法：把 `ReplayClickAt`/`Hit` 那条手搓支加回来 ⇒ `T09` A4 那组断言红
+        /// （手搓路已退 + uGUI 是唯一入口）。</para></summary>
         bool HandleReplayBar()
         {
-            if (_replayBar == null || !_replayBar.HolderVisible) return false;
-            if (!ReleasedThisFrame()) return false;
-            return ReplayClickAt(WorldPointer());
+            // 模态：整条可见 ⇒ 这一帧到此为止（动作由四颗 uGUI 钮的 `IPointerClickHandler` 做）
+            return _replayBar != null && _replayBar.HolderVisible;
         }
 
-        /// <summary>
-        /// 回放条上点一下 —— **真实输入与自检走的是同一条判定**
-        /// （自检拿按钮的世界坐标喂进来，不直接调 `Restart` / `SetReplayPaused`）。
-        /// </summary>
-        public bool ReplayClickAt(Vector3 world)
+        /// <summary>🔴 **2026-10-21（战斗线 `T09` A4）**：回放条某一颗被点了（uGUI
+        /// `BattleHudButton` → `IPointerClickHandler`，**松手那一帧**）。
+        /// 本方法**只做两件事**：① 记「真实点击记录」（`ClickLog` 那一笔从手搓沿搬到这里）
+        /// ② 置「待办」，由 <see cref="ApplyPendingReplay"/> 在 `LateUpdate` 落账。
+        /// ⛔ 别在这里直接 `Restart()` / `SetReplayPaused(...)`（判据见 `_replayPendingBtn` 的 doc）。</summary>
+        void OnReplayButtonClicked(ReplayBar.Btn which)
         {
-            if (_replayBar == null) return false;
-            // 🔴 **2026-09-27：整条不显示时**一律不接**点**。原版 `ReplayHud` 平时是 `Holder.SetActive(false)`，
-            //    而 `ReplayBar.Hit` 对 `Play`/`Pause` 那一对是**只判矩形、不判 activeSelf**的
-            //    （见那边的注释：不这么写「停着的时候点它永远返回 None」）⇒ 不加这道闸，
-            //    普通对局里点屏幕那个位置会**看不见地**触发暂停/单步（典型静默）。
-            if (!_replayBar.HolderVisible) return false;
-            switch (_replayBar.Hit(world))
+            if (which == ReplayBar.Btn.None) return;
+            LogClickBeat();
+            _replayPendingBtn = which;
+        }
+
+        /// <summary>把挂起的「回放条点击」落账（**幂等**：没有挂起项 ⇒ false）。
+        /// 批处理没有帧循环 ⇒ 自检手动调 <see cref="ApplyPendingReplayForTest"/>；真机由 `LateUpdate` 每帧调。
+        /// <para>落账这一刻**再判一次可见性**（同 S1 的 `ApplyPendingChat`）：整条可能已经被别的入口关掉了。</para></summary>
+        bool ApplyPendingReplay()
+        {
+            var which = _replayPendingBtn;
+            if (which == ReplayBar.Btn.None) return false;
+            _replayPendingBtn = ReplayBar.Btn.None;
+            if (_replayBar == null || !_replayBar.HolderVisible)
+            {
+                Debug.Log($"[Replay] 回放条 `{which}` 的点击已挂起，但落账时整条已不可见 ⇒ **这一下不做**");
+                return false;
+            }
+            switch (which)
             {
                 case ReplayBar.Btn.Replay: Restart(); return true;
                 case ReplayBar.Btn.Play:   SetReplayPaused(false); return true;
@@ -5043,6 +5306,10 @@ namespace CardPresentation
             }
             return false;
         }
+
+        /// <summary>自检用：手动落一次「挂起的回放条点击」（批处理里 `LateUpdate` 不跑）。
+        /// 与真机**同一个函数**（⛔ 别在自检里另写一份动作）。</summary>
+        public bool ApplyPendingReplayForTest() { return ApplyPendingReplay(); }
 
         /// <summary>
         /// 🆕 2026-09-27：**我们那套「本局时间控制」的键盘入口**。
@@ -8268,6 +8535,17 @@ namespace CardPresentation
             if (_logPanel == null || !_logPanel.Visible) return false;
             int row = _logPanel.RowAt(wp);
             if (row < 0) return false;
+            return ClickLogRow(row);
+        }
+
+        /// <summary>🆕 2026-10-21（战斗线四笔静态项 · 笔 4）：**「点第 `row` 行」那一手的全部动作** ——
+        /// 从 `TryClickLogRow` 里抽出来，好让 uGUI 那条路（<see cref="BattleLogPanel.RowClicked"/>，
+        /// 由 `BG` 的 `PointerDown` 派发）**复用同一份判据**（⛔ 不另写第二份）。
+        /// 调用前提：`row >= 0`、且行号是本面板的（`RowAt` / `OnBgPointerDown` 给的）。
+        /// 返回 true = 这一下被吃掉了（调用方不要再当「点面板外 = 关面板」）。
+        /// 判据与分支逐条说明见上面 `TryClickLogRow` 的 doc（一个字没改）。</summary>
+        bool ClickLogRow(int row)
+        {
             if (!CemeteryRowClickAllowed)
             {
                 // ⛔ 不静默：这一档只有「教程关把 hideCemetery 打开」时才可能为假（数据里 6 关全 0）
@@ -8302,6 +8580,30 @@ namespace CardPresentation
             //     （自检直调本函数时不该留下一条挂起的 `_swallowNextRelease`）。
             _logPanel.Hide();
             return true;
+        }
+
+        /// <summary>🆕 2026-10-21（战斗线四笔静态项 · 笔 4）：**uGUI 那条路的行点击** ——
+        /// `BattleLogPanel.RowClicked` 的订阅者（事件由 `BG` 的 `EventTrigger PointerDown` 派发，
+        /// 判据见 `BattleLogPanel.cs` 文件头那段 + `资料/普查产出_1019/W57_战斗线_T09_A3c_BattleLogPanel.md`
+        /// §一·1 / §五·2）。
+        ///
+        /// <para>🔴 **必须吞掉同一次按住的松手沿**：`EventSystem.Update` 与 `BattleDriver.Update` 都是
+        /// **默认执行顺序**（本工程只给 `Shell/PointerLayer.cs` 写了 `[DefaultExecutionOrder]`），
+        /// 谁先谁后**没有契约**。若 uGUI 先跑 ⇒ 这里当场 `Hide()` 之后，驱动这一帧的
+        /// `HandleBattleLog()` 会看到 `Visible == false` ⇒ **它不再吃这一下** ⇒ 同一次按住继续落到
+        /// `DrivePlayerTurn()`（棋盘 / 手牌）= 静默的「点一下做了两件事」。
+        /// `_swallowNextRelease` 在 `PollInputEdges` 里把 `_upEdge` 置假（它只在「新的一次按下」时复位），
+        /// 所以松手那一帧不会再派发任何世界侧点击。
+        /// ⚠️ 驱动先跑的顺序下：驱动自己那条手搓链已经处理过并按同一判据置过它 ⇒ 这里再置一次**幂等**。</para>
+        ///
+        /// <para>⚠️ 这一句挡的是**松手沿**；按下沿本身挡不住（驱动先被 uGUI 关掉面板时，`_pressSlot`
+        /// 那一路仍可能记一次）—— 与 `W57` §五·3 记的 `HudClickBlocked` 时序缺口是同一族，如实留在那里。</para>
+        /// </summary>
+        void OnLogRowClicked(int row)
+        {
+            if (_logPanel == null || !_logPanel.Visible) return;   // 面板已关 ⇒ 这一下不该再算行点击
+            _swallowNextRelease = true;
+            ClickLogRow(row);
         }
 
         /// <summary>自检用：直接点第 `i` 行（批处理里 `WorldPointer()` 是死点，走 `TryClickLogRow` 喂不进去）。
@@ -9739,10 +10041,13 @@ namespace CardPresentation
             // 放大窗开着时：**这一下点击先交给窗**（卡格换位 / 语音钮 / 眼睛钮 —— 判据只此一处）
             if (TickCardDisplayClick()) return;
 
-            // 回放条（原版 `ReplayButtons`）：先吃掉点击 —— 暂停 / 单步 / 重开都在这一下里做完
-            // 🔴 **2026-10-20（`T09-FIX5` · P0-2）**：它**只在回放条可见时**才吃这条释放沿
-            //   （普通对局 `Holder` 关着 ⇒ 直接 return、**不消费**）—— 否则下面换牌/选牌/点牌堆/
-            //   选目标/聊天那些 release 分支在真机上一条都收不到沿。判据见 `HandleReplayBar` 的 doc。
+            // 回放条（原版 `ReplayButtons`）：整条可见 ⇒ 这一帧到此为止（模态）。
+            // 🔴 **2026-10-21（战斗线 `T09` A4）：四颗钮的动作已归 uGUI**（`BattleHudButton` →
+            //   `OnReplayButtonClicked` → `LateUpdate` 落账）⇒ 这里**不再做命中、也不再耗手搓沿**，
+            //   只剩「整条可见时别让这一下再落到世界里」。
+            // 🔴 **2026-10-20（`T09-FIX5` · P0-2）仍然成立的那半**：普通对局 `Holder` 关着 ⇒ 直接 false、
+            //   **不吃释放沿** —— 否则下面换牌/选牌/点牌堆/选目标/聊天那些 release 分支在真机上一条都收不到沿。
+            //   判据见 `HandleReplayBar` 的 doc。
             if (HandleReplayBar()) { UpdateHud(); return; }
 
             // 事件时间线：每帧推 —— 动作才有节奏，不是同一帧全点着
@@ -9854,21 +10159,25 @@ namespace CardPresentation
         }
 
         /// <summary>🆕 2026-10-13（A462）：`Update` 里的「多卡摊开窗」那一支 —— **抽成方法只是为了让自检
-        /// 走同一条判据**（`TickMultiCardsForTest`），判据一个字都没动。返回 true = 这一帧就此打住。
-        /// 🔴 **松手那一帧**才关（原来判的是「按下」）—— 原版这一窗的两个关闭入口
-        /// （背景 `Menu Dark Background` 上的 `BackgroundCloseButton`、`Close` 钮）
-        /// 都是 uGUI `IPointerClickHandler` / `EverguildButton` ⇒ 抬起。</summary>
+        /// 走同一条判据**（`TickMultiCardsForTest`）。返回 true = 这一帧就此打住（窗开着就是**全屏模态**）。
+        ///
+        /// 🔴🔴 **2026-10-21（战斗线 `T09` A4 · 步骤 S1）：关闭的【唯一入口】= 面板自己的 uGUI 回调**
+        ///   （`Continue` 条 / 全屏背景关闭件 → `MultiCardDisplay.RequestCloseByUgui` → `_closePending`
+        ///   → 它自己的 `LateUpdate` 落账，判据与先例 → `BattleLogPanel.ApplyPendingClose`）。
+        ///   ⛔ 这里原来还有 `bool tapped = ReleasedThisFrame(); … if (tapped) _multiCards.Hide();`
+        ///   —— **已整段删除**：两条路并存 = 一次点击走两遍（`T09` §四 R1）。
+        ///   ⚠️ 本方法**不再耗两条沿**：`ReleasedThisFrame()` 是手搓输入入口，退场之后谁都不该再拿它
+        ///   「代表一次点击」（`ClickLog` 那一笔已搬到面板的 `CloseRequested` → `LogClickBeat`，
+        ///   判据 → `T09` 迁移计划 §四 R8）。窗开着 ⇒ 直接吞掉这一帧，底下任何分支都收不到这条沿。</summary>
         bool TickMultiCards()
         {
             if (_multiCards == null || !_multiCards.Visible) return false;
-            bool tapped = ReleasedThisFrame();
-            Vector3 wp = WorldPointer();
             // 🆕 2026-10-19（B4 · `N70` P0-2）：继续钮的悬停/按下反馈
-            _multiCards.TickFeedback(wp, PointerHeldRaw());
-            bool onDeck = HitMyDeckPile(wp);
-            if (tapped) _multiCards.Hide();
+            _multiCards.TickFeedback(WorldPointer(), PointerHeldRaw());
             UpdateHud();
-            if (tapped && onDeck) ShowMyDeck(true);   // 点牌堆本身 = 关掉（别立刻又开一次）
+            // 🔴 点牌堆本身 = 关掉，**且不许同一帧再开回来**：那一下由全屏背景关闭件收（uGUI），
+            //   `ShowMyDeck(true)` 那条世界侧入口在这一帧**根本到不了**（本方法已 return）。
+            //   🧨 改坏法：把 `if (tapped) _multiCards.Hide();` 加回来 ⇒ 又变成两条关闭路并存。
             return true;
         }
 
@@ -9876,7 +10185,15 @@ namespace CardPresentation
         /// 🔴 **松手那一帧**（原来判「按下」）—— 那四条支路原版全是 uGUI 点击：
         /// `backgroundButton`(`BackgroundCloseButton`) · `voiceOverButton`/`showCardTextButton`
         /// (`EverguildButton`) · 卡格 `UIGenericEventCatcher.IPointerClickHandler`。
-        /// 返回 true = 这一下被窗吃掉了（**只有三条全真才返回 true** —— 窗开着但没人接，照旧往下走）。</summary>
+        /// 返回 true = 这一下被窗吃掉了（**只有三条全真才返回 true** —— 窗开着但没人接，照旧往下走）。
+        ///
+        /// 🔴🔴 **2026-10-21（战斗线 `T09` A4 · 步骤 S1）如实记：这一扇【只迁完了一半】，剩下的一半
+        /// 是【卡格】，而且现在**还不能删**。**
+        /// · **已归面板 uGUI**：背景关闭（`cdw_background_close` 上的 `BattleHudButton` → `_closePending`
+        ///   → 面板 `LateUpdate`）、语音钮（`Voice Over Button`），A3-e/WIRE 已落地；
+        /// · **仍是手搓**：卡格 `HitSlot` → `SwapToFront`。卡体还是世界空间的 `MeshRenderer`，
+        ///   uGUI 够不着 —— 卡格迁上画布是 `T09` 第 5/6 步，不是本步。⛔ **现在删掉这条手搓路 = 卡格点不动**。
+        /// ⇒ 所以本方法**保留** `<see cref="ReleasedThisFrame"/>` 那一跳（它同时承担「窗开着时吞掉这一帧」）。</summary>
         bool TickCardDisplayClick()
         {
             if (_cardDisplay == null || !_cardDisplay.Visible) return false;
@@ -13739,8 +14056,11 @@ namespace CardPresentation
                 //   （`BattleManager._ResolveHeal_d__491__MoveNext.c:114-147`）⇒ 多目标治疗**严格串行**、
                 //   每目标 1.5 s。我们的等价物 = 把这条时长排进时间线（下一条 `Heal` 自然晚 1.5 s）。
                 //   🔑 **判据只此一处** = `CardView.HealTextHoldSeconds`（⛔ 别在这里另写 1.5；
-                //   也别再往 `EventTiming` 抄第二份 —— 那会变成两张表）。
-                t += e.Kind == EvtKind.Heal ? CardView.HealTextHoldSeconds : EventTiming.DurationOf(e);
+                //   也别往别处抄第二份 —— 那会变成两张表）。
+                //   🆕 2026-10-21（战斗线四笔静态项 · 笔 1）：这一拍**搬进 `EventTiming.DurationOf`**
+                //   （`case EvtKind.Heal` 引的就是那个常量本身，所以仍然只有一张表），
+                //   `PlaySignals` 这里不再分叉。
+                t += EventTiming.DurationOf(e);
                 _timelineTailAt = Mathf.Max(_timelineTailAt, t);   // 🆕 偏差 3：队尾跟着走
                 prev = e;
             }
@@ -19437,6 +19757,12 @@ namespace CardPresentation
             //    ⚠️ 我们原来接在这 4 枚上的那套**本局时间控制**没删 —— 挪到键盘了（`HandleTimeControlKeys`）。
             _replayBar = ReplayBar.Create(root);
             _replayBar.Setup(false);
+            // 🔴 **2026-10-21（战斗线 `T09` A4）：订阅四颗钮的 uGUI 点击**（`ReplayBar` 自己挂的
+            //   `BattleHudButton` → `Clicked`）。回调只记账 + 挂起，动作在 `LateUpdate` 落账
+            //   （见 `OnReplayButtonClicked` / `ApplyPendingReplay`）。
+            //   ⚠️ `_replayBar` 只在 `BuildHud` 建一次（`_hudBuilt` 闩住，重开一局不会重建）
+            //   ⇒ 这个订阅**不需要**在别处重挂。
+            _replayBar.Clicked += OnReplayButtonClicked;
 
             // 单位语音条（原版 `Unit Chat`：我方的在左下、敌方的在左上）——
             // 形状/数值/「哪些是我们挑的」都在 `UnitChatPanel.cs` 文件头。
@@ -19490,6 +19816,12 @@ namespace CardPresentation
                                  + " ⇒ 这颗钮**点不动**（手搓那条路已按 `T09` A2 退场，⛔ 不许静默）");
             }
             _logPanel = BattleLogPanel.Create(root);
+            // 🆕 2026-10-21（战斗线四笔静态项 · 笔 4）：把面板的 **uGUI 行点击**接到驱动。
+            //   事件由 `BG` 的 `EventTrigger PointerDown` 派发（不是 `IPointerClickHandler` —— 原版那两处
+            //   都是按下，见 `BattleLogPanel.cs` 文件头那段）；动作复用 `ClickLogRow`（判据只有那一份）。
+            //   接线配方 = `资料/普查产出_1019/W57_战斗线_T09_A3c_BattleLogPanel.md` §五·2。
+            if (_logPanel != null) _logPanel.RowClicked += OnLogRowClicked;
+            else Debug.LogError("[Battle] 日志面板没建出来 ⇒ `RowClicked` 接不上（uGUI 那条行点击**不会工作**）");
 
             // 结算面板：原版 `EndBattlePanel`。它自己管显示/隐藏，平时是关着的。
             _endPanel = EndPanel.Create(root);
@@ -19498,6 +19830,12 @@ namespace CardPresentation
             // 多张一起看的展示窗：原版 `UIMultiCardDisplay`（`Generic Multi Card Display Combat`）。
             // 布局数值与出处见 `MultiCardDisplay.cs` 文件头；**入口（点我方牌堆）是我们挑的**。
             _multiCards = MultiCardDisplay.Create(root);
+            // 🔴 **2026-10-21（战斗线 `T09` A4 · 步骤 S1）**：uGUI 关闭入口（`Continue` 条 / 全屏背景关闭件）
+            //   是**唯一**的关窗路 —— 驱动那条手搓沿已退场 ⇒ 「真实点击记录」(`ClickLog`) 必须搬到这里，
+            //   否则 `wf_click.py` 的验收日志会少一大半、而画面一切正常（判据 → `T09` 迁移计划 §四 R8）。
+            if (_multiCards != null) _multiCards.CloseRequested += LogClickBeat;
+            else Debug.LogError("[Battle] 多卡展示窗没建出来 ⇒ 它的 `CloseRequested` 接不上"
+                              + "（uGUI 关窗那一下**不会进点击日志**）");
 
             // 「原版有、我们原来缺」的那批 HUD 件（2026-09-13 补摆，见那个方法的注释）
             BuildHudExtras(root);
@@ -20340,6 +20678,15 @@ namespace CardPresentation
                 if (_chatPopup == null)
                     Debug.LogError("[Battle] 聊天弹窗**建不出来**（`ChatPopup` 子画布不在 `Canvas` 下？）"
                                  + "⇒ 6 个钮与那个入口整件缺席（⛔ 面板自己不退回世界空间 quad，见那边的 doc）");
+                else
+                {
+                    // 🔴 **2026-10-21（战斗线 `T09` A4 · 步骤 S1）**：气泡的两条 uGUI 入口接上驱动 ——
+                    //   ① `ButtonClicked`（6 颗台词钮，松手那一帧）→ 挂起「说第几句」，`LateUpdate` 落账；
+                    //   ② `CloseRequested`（条外关闭区按下 + 面板自己 `LateUpdate` 落账之后）→ 记账 + 吞松手沿。
+                    //   ⛔ 驱动 `HandleChatPopup` 里那两条手搓沿已退场（两条路并存 = 一次点击做两遍）。
+                    _chatPopup.ButtonClicked += OnChatButtonClicked;
+                    _chatPopup.CloseRequested += OnChatCloseRequested;
+                }
             }
 
             // ---- 任务点数字 `QPText '0/3'`：fs 40.5、**Bold**、白、H 居中 / V Capline ----
@@ -22336,8 +22683,11 @@ namespace CardPresentation
         /// <summary>**按下**那一帧（一次按住只给一次）。名字保留（`Clicked…` 读起来像「点击」，实际是**按下沿**）。
         /// ⚠️ 它的语义**一个字都没改**（还是按下沿）；改的是**谁还在用它**：
         /// 2026-10-13（A462）之后，凡对应原版 uGUI 的钮都改走 <see cref="ReleasedThisFrame"/>，
-        /// 全文件只剩 **4 处**还在用它（两处原版本来就是按下 + 选择器槽外取消 + `_pressSlot` 那个中间态）
-        /// —— `Editor/BattleScene.cs` 的 `★ A462` 段有一条**源级断言**钉住这个数。</summary>
+        /// 全文件只剩 **4 处**还在用它（两处原版本来就是按下 —— 日志背板 `shade` 与结算后出口；
+        /// 另两处 = 攻击选择器槽外取消 + `_pressSlot` 那个中间态）
+        /// —— `Editor/BattleScene.cs` 的 `★ A462` 段有一条**源级断言**钉住这个数。
+        /// 🔴 **2026-10-21（战斗线 `T09` A4 · 步骤 S1）**：`ChatPopup` 条外关闭那一处**已退场**
+        /// （气泡的关闭全归面板自己的 uGUI `EventTrigger.PointerDown`）⇒ 数从 5 回到 4。</summary>
         bool ClickedThisFrame()
         {
             if (!_downEdge) return false;
@@ -22438,8 +22788,21 @@ namespace CardPresentation
         /// ⚠️ 2026-10-19（`T09` A2）起**只剩「面板开着」那条模态支**（设置钮已走 uGUI ——
         /// 自检开面板请走 `ClickHudButtonForTest("settings")`）。</summary>
         public bool TickSettingsInputForTest() { return HandleSettings(); }
-        /// <summary>自检用：跑一次回放条那一路的输入闸。</summary>
+        /// <summary>自检用：跑一次回放条那一路的输入闸。
+        /// ⚠️ **2026-10-21（战斗线 `T09` A4）起只剩「整条可见」那条模态支**（四颗钮已走 uGUI ——
+        /// 自检点钮请走 `ReplayBar.ClickForTest(Btn)` + <see cref="ApplyPendingReplayForTest"/>）。</summary>
         public bool TickReplayBarForTest() { return HandleReplayBar(); }
+
+        /// <summary>🔴 **2026-10-21（战斗线 `T09` A4）**：自检用：像 uGUI 那样点一下回放条某一颗
+        /// （= 走 `BattleHudButton` 的点击动作；**不做命中判定** —— 命中归 `EventSystem` 的射线）。
+        /// <para>返回 false = 这一下**不该/不能**触发：这一枚不存在 · 不在激活层级（`Holder` 关着、
+        /// 或 Play/Pause 里当前藏着的那一枚）· 没挂组件。⛔ 不静默造一次点击。</para>
+        /// <para>⚠️ 它只**挂起**动作（`OnReplayButtonClicked`）—— 落账要再调
+        /// <see cref="ApplyPendingReplayForTest"/>（批处理里 `LateUpdate` 不跑）。</para></summary>
+        public bool ClickReplayButtonForTest(ReplayBar.Btn which)
+        {
+            return _replayBar != null && _replayBar.ClickForTest(which);
+        }
         /// <summary>自检用：跑一次换牌面板那一路的输入闸。</summary>
         public bool TickMulliganInputForTest() { return HandleMulligan(); }
         /// <summary>自检用：跑一次选牌面板那一路的输入闸。</summary>

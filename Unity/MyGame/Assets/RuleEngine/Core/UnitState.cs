@@ -596,6 +596,33 @@ namespace RuleEngine
         /// </summary>
         public int DeployedTurn = -1;
 
+        /// <summary>🔴 2026-10-21（引擎线 `T03·c` 批 A · `W59`）：**单位进入战场的先后号**
+        /// （`BattleContext.TakePlayOrder` 发的单调递增号；`-1` = 从没取过号）。
+        ///
+        /// **原版判据**（第一权威 → `资料/普查产出_1020/W58_战斗结算_多词条顺序判据.md` §一·A1）：
+        ///   `BattleManager.allCardsInPlay`（字段 `+0x470`）是**「进场顺序」的追加列表** ——
+        ///   `SetupFullHero.c:43-70`（督军）· `CreateStartingTroop.c:71-100`（起始兵）·
+        ///   `_ResolvePlayCardFromHand_d__447__MoveNext.c:709-711`（手牌打出）·
+        ///   `_ResolveSummonUnit_d__510__MoveNext.c:179-183`（召唤）全是 `List.Add`；
+        ///   死亡是 `_ResolveMinionDeath_d__454__MoveNext.c:56-59` 的 `List.Remove`。
+        ///   所有 `Broadcast*` 族都**照这个列表遍历** ⇒ **多单位「谁先响」= 谁先进场**，
+        ///   ⛔ **不是棋盘格号、不是座位序、不是卡 id / 卡名**。
+        ///
+        /// 🔴 **每次进场都重取**（不是首次生成时固定一次）：原版死掉 = `Remove`、
+        ///   复活 / 再造 = 重新 `Add` 到**表尾** ⇒ 它**不能复用 `InstanceId`**
+        ///   （那是「建卡序」—— 同一份实例复活之后号不变，但原版里它的位置已经跑到表尾了）。
+        ///   写点（= `TestNewUnitEntryList` 那 4 个正路 + 2 个特例，另加控制权归还）：
+        ///     · `RuleCore.BuildPlayer`（督军）· `RuleCore.PlayCard` · `RuleCore.DeployFree`
+        ///     · `EffectResolver.DoReanimate`（残骸翻回来 = 重新进场）· `TutorialScript.PlaceTroops`
+        ///     · `RuleCore.CleanupDeaths`（残骸翻面**沿用**被翻面那张的号 —— 原版是否重排判据未闭合）
+        ///     · 控制权归还（`RuleCore` 里 `TempControls` 到期那一跳 —— 重新入场，判据待核）
+        ///   ⚠️ **夹具也要取号**：`RuleEngineTest.Place` 不取的话夹具里全是 `-1` ⇒
+        ///     「按进场序排序」会**静默退化成原顺序**（排序等于没测）。
+        ///
+        /// ⚠️ 负数（`-1`）= 没取过号 ⇒ **排序时排在末尾**（见 `RuleCore.StableSortByPlayOrder`）。
+        /// </summary>
+        public int PlayOrder = -1;
+
         readonly Dictionary<string, int> _keywords;
 
         /// <summary>

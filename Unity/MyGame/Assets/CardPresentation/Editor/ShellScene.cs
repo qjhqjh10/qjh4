@@ -8644,6 +8644,121 @@ public static class ShellScene
             }
         }
 
+            // ---------------- 🆕 2026-10-21（W59）：切非菜单场景 ⇒ 外壳常驻件必须关；回主菜单放回 ----------------
+            //
+            // 缺陷 / 根因 / 原版判据（逐条 dump 证据）→ `Shell/ShellRuntime.cs` 的「切场景 ⇒ 外壳常驻件显隐」那一节。
+            // 🔴 **为什么落在 `ShellScene`**：壳就是这两件（模糊快照 / 左栏那三件）的**宿主**，本节要的夹具正是壳本身。
+            // 🔴 **批处理验不了的那一格（如实写，⛔ 不是造假绿）**：`SceneManager.LoadScene` 在编辑模式下不允许
+            //    ⇒ **跨场景那一跳**（`sceneLoaded` → `OnSceneLoadedApplyChrome`）批处理跑不到。本节断的是两件能断的：
+            //      ① 那一跳**唯一调用的** `ShellRuntime.ApplyMenuChrome(false/true, …)` 真的把件关了 / 放回来了；
+            //      ② 两只钩子的订阅挂上了（`SceneChromeHookInstalledForTest`）。
+            //    **真机复核步骤**（`-wfscene Shell` 起 player）：等进主菜单 → 点模式卡 → 选卡组 → `Battle!` ⇒
+            //      **进战场后整屏是 3D 战场**（不是主菜单那张糊图）、**左侧没有 玩/收藏/商店/奖励/社交 五钮**；
+            //      投降 / 打完 / `LeaveBattle` 回主菜单 ⇒ 左栏与顶栏**都回来**、快照仍是关的。
+            Section("W59：进非菜单场景 ⇒ 模糊快照 + 左栏 / 顶栏 / 聊天 全关；回主菜单放回");
+            {
+                var safeH = shell.SafeAreaOnlyHorizontal;
+                CheckTrue(safeH != null, "（前提）壳的 `Safe area Only Horizontal` 在场");
+                // 三件「名字 = 原版节点名」的**替身**：`ShellScene` 这一档**不跑** `MainMenuRuntime.Build`
+                // ⇒ 左栏/顶栏/聊天本来不存在。这里只为验**显隐那一段**（⛔ 不验它们的版面 —— 版面归 `MainMenuScene`）。
+                var probes = new List<GameObject>();
+                foreach (var n in new[] { "Navigation Panel", "Upper bar", "ChatPreview" })
+                {
+                    var g = new GameObject(n);
+                    g.transform.SetParent(safeH, false);
+                    probes.Add(g);
+                }
+                var anchors = safeH.Find("Window Anchors");
+                bool anchorsWereActive = anchors == null || anchors.gameObject.activeSelf;
+                var fadeRoot = shell.transform.Find("FadeBackground");
+                CheckTrue(fadeRoot != null, "（前提）压暗四条 `FadeBackground` 在场");
+
+                shell.Bake.Toggle(true);          // 模拟「主菜单被压背景 / 隐藏 / 关闭」那一拍（原版：先烘再藏）
+                CheckTrue(shell.BakeVisibleForTest, "（前提）模糊快照先**点亮**（= 主菜单不在前台那一刻）");
+
+                ShellRuntime.ApplyMenuChrome(false, "自检：模拟切到战斗场景");
+                CheckTrue(!shell.BakeVisibleForTest,
+                          "★ 进非菜单场景 ⇒ 模糊快照**关**（缺陷 A：不关 ⇒ 整屏盖着主菜单的糊图、3D 战场被挡死）"
+                        + " —— 改坏法：删掉 `ApplyMenuChromeNow` 里那个 `Toggle(false)` ⇒ 这条红");
+                CheckTrue(!shell.NavPanelVisibleForTest,
+                          "★ …左竖导航 `Navigation Panel` **关**（缺陷 B：原版战斗 dump 里 0 处）");
+                foreach (var g in probes)
+                    CheckTrue(!g.activeSelf,
+                              $"★ …`{g.name}` 也**关**（判据 → `runtime_ui_dump_Battle_Arena_1.tsv` 里 0 处）");
+                CheckTrue(fadeRoot != null && !fadeRoot.gameObject.activeSelf,
+                          "★ …压暗四条 `FadeBackground` 也**关**（原版战斗 dump 里 `Fade` 0 处；"
+                        + "不关 ⇒ 快照一撤就露出左右各 205.8px 的纯黑渐变）");
+
+                ShellRuntime.ApplyMenuChrome(true, "自检：模拟回主菜单");
+                foreach (var g in probes)
+                    CheckTrue(g.activeSelf,
+                              $"★ 回主菜单 ⇒ `{g.name}` **放回** —— 挡「进战斗一次性关掉、永不恢复」那种写法");
+                CheckTrue(!shell.BakeVisibleForTest,
+                          "★ 回主菜单 ⇒ 快照**保持关**（原版 `ToFocus` 那一侧就是 `Toggle(false)`；"
+                        + "这条挡住「恢复时顺手把糊图点亮」）");
+                CheckTrue(fadeRoot == null || fadeRoot.gameObject.activeSelf,
+                          "★ 回主菜单 ⇒ 压暗四条**放回**（原版开场 / 主菜单都有它）");
+
+                // 灭自证 / 范围：不该跟着关的件必须原样（`Window Anchors` = 三个 Holder 的宿主，战斗里开弹窗全靠它）
+                if (anchors != null)
+                    CheckTrue(anchors.gameObject.activeSelf == anchorsWereActive,
+                              "★ 范围：`Window Anchors`（窗口三锚点）**没被动** —— 战斗里开设置等弹窗还靠它");
+                CheckTrue(ShellRuntime.SceneChromeHookInstalledForTest,
+                          "（接线）切场景那两只钩子挂上了（`Build` 里 `EnsureSceneCleanupHook`）");
+
+                foreach (var g in probes) Object.DestroyImmediate(g);
+            }
+
+            // ---------------- 🆕 2026-10-21（W59 · 顺手发现①）：回主菜单**不许累积**旧件 ----------------
+            //
+            // 根因：`MainMenuRuntime.Build` 开头那轮清场（`DestroySafe(_root.GetChild(i))`）**只清主菜单场景自己的孩子**，
+            //   而 `Navigation Panel` / `Upper bar` / `ChatPreview` 建在**壳的** `Safe area Only Horizontal` 下
+            //   （`MainMenuRuntime.cs:506/515/516`；壳 `DontDestroyOnLoad`）⇒ 不清就是「每回一次主菜单 +1 套」。
+            //   旧件上的 `WindowButton` 闭包还指着**已销毁的** `MainMenuRuntime`（纯泄漏 + 悬空回调）。
+            // 🔴 这一节**走真的 `MainMenuRuntime.Build()` 两趟**（⛔ 不是拿帮手函数糊过去）：只有这样才守得住
+            //   「**调用点**被删掉」那种改坏法 —— 只测 `ClearStaleMenuChrome` 本身的话，调用点删了它照样绿。
+            // ⚠️ 这一档用的是**有壳**那一支（场上有一台 `ShellRuntime`）⇒ 与运行期那条路逐级一致。
+            Section("W59（续）：连跑两次 `MainMenuRuntime.Build` ⇒ `safeH` 下每类外壳常驻件仍只有 1 个");
+            {
+                var safeH = shell.SafeAreaOnlyHorizontal;      // 上一节那个 `safeH` 只活在它自己那对花括号里
+                CheckTrue(safeH != null, "（前提）壳的 `Safe area Only Horizontal` 在场");
+                System.Func<string, int> countChrome = what =>
+                {
+                    int cnt = 0;
+                    for (int i = 0; i < safeH.childCount; i++)
+                        if (safeH.GetChild(i).name == what) cnt++;
+                    return cnt;
+                };
+                var chrome = new[] { "Navigation Panel", "Upper bar", "ChatPreview" };
+                var prevBase = shell.Windows.BaseMenu;
+                var mmGo = new GameObject("W59 MainMenu Probe");
+                var mmRt = mmGo.AddComponent<MainMenuRuntime>();
+                try
+                {
+                    foreach (var n in chrome) Check(countChrome(n), 0, $"（前提）第 1 趟之前 `safeH` 下没有 `{n}`");
+
+                    mmRt.Build();     // 第 1 趟：0 → 1
+                    foreach (var n in chrome)
+                        Check(countChrome(n), 1, $"★ 第 1 趟 `MainMenuRuntime.Build` ⇒ `safeH` 下 `{n}` = 1 个");
+
+                    mmRt.Build();     // 第 2 趟：**不清场就会变成 2 个**
+                    foreach (var n in chrome)
+                        Check(countChrome(n), 1,
+                              $"★ 第 2 趟 `MainMenuRuntime.Build` 之后 `safeH` 下的 `{n}` —— **仍只有 1 个**"
+                            + "（🧨 删掉 `MainMenuRuntime.Build` 开头那句 `ShellRuntime.ClearStaleMenuChrome` ⇒ 变 2 ⇒ 这条红）");
+                }
+                finally
+                {
+                    // 收尾：探针树 / `baseMenu` / 安全区 / 快照 / 本节建出来的三件 + 探针那颗 toast —— 全还原
+                    shell.Windows.SetBaseMenu(prevBase);       // 清表 + 还原（同上面 T16 那一节的收尾口径）
+                    Object.DestroyImmediate(mmGo);
+                    shell.ReclaimSafeZones();                  // `Safe area All` 刚被搬进探针树（可能已被一起销毁）⇒ 收回/补建
+                    shell.Bake.Toggle(false);                  // 探针窗口若经 `Close()`/`Hide()` 烘过一张 ⇒ 关掉
+                    ShellRuntime.ClearStaleMenuChrome(safeH);  // 清掉这一节自己建出来的三件（不出声 = 自检收尾，不是生产路径）
+                    ToastNotifications.DisposeForSceneChange();// 探针 `Build` 会在 `safeH` 下建一颗 toast 控制器
+                }
+            }
+
             // ---------------- 🆕 U3（`A1322` 残留）：这一局被撤 ⇒ `SearchingOpponentWindow` 自己关 ----------------
             // 判据/口径 → `资料/普查产出_1019/L1_报告.md` §6·5 第 1 条；信号 **不改 `Net/**`** ——
             //   用现有公开状态 `NetMatchmaking.Waiting` / `HasOpponent`（`ClearMatch()` 两格一起清 ⇒ 两个都假 = 撤了）。

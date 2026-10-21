@@ -6088,6 +6088,14 @@ namespace RuleEngine
                 persistJobs.Add(new AtTurnPersistJob { Owner = pe.Owner, Card = pe.Source, Ops = pe.Ops });
             }
 
+            // 🔴 2026-10-21（引擎线 `T03·c` 批 A · `W59`）：**棋盘那一趟按【进场序】**（双方混排）——
+            //   原版 `BroadcastTurnStart` / `BroadcastTurnEnd` 的棋盘趟遍历的是 `allCardsInPlay`
+            //   （判据 → `资料/普查产出_1020/W58_战斗结算_多词条顺序判据.md` §二「回合开始/结束」两行 +
+            //     §一·A1）⇒ 原来是「玩家索引 0 → 1、每方格号升序」，多单位局面会**与原版不同**。
+            //   ⚠️ **手牌陷阱仍排在它前面**（③ 那一趟的顺序本次**不动**：①②③ 的相对次序是既有口径，
+            //   原版「棋盘 vs 手牌」的先后另有一条账，见 §四·D11，⛔ 别顺手一起改）。
+            RuleCore.StableSortByPlayOrder(unitJobs, j => j.Unit.PlayOrder);
+
             int total = handJobs.Count + unitJobs.Count + persistJobs.Count;
             if (total == 0) return;
 
@@ -6490,13 +6498,23 @@ namespace RuleEngine
                 // 🔴 2026-10-01：落点改成原版那一条 —— 抢来的单位走 `GetNextSlotWithoutDisplacing`
                 //    （人少的一侧的最外一格、平手走右），出处 = `BattleManager._ResolveStealMinion_d__551__MoveNext.c:79`
                 //    （`SummonMinion/MoveMinionIntoSlot` 的实参就是它）。原来写的是「从 0 号格起第一个空格」。
-                int to = BoardSlots.NextWithoutDisplacing(ctx.Players[owner]);
+                // 🔴 2026-10-21（引擎线 `T02` 同族 · `A1692`）：落点与「免费部署」**同一条判据**
+                //    （`BoardSlots.NextFreeWithoutDisplacing`）—— 有洞时那一格可能已经有人，
+                //    ⛔ **不许静默覆盖**（原版没有这一档：两侧是连续 `List`、不做占用检查）。
+                int to = BoardSlots.NextFreeWithoutDisplacing(ctx.Players[owner], out int blocked);
                 if (to < 0)
                 {
-                    ctx.Log($"{by}：你的部署位满了 —— 「{op.Source}」抢不过来（{t.Name} 留在对面）");
+                    if (blocked >= 0)
+                        ctx.Log($"{by}：落点 {blocked} 被 {ctx.Players[owner].Board[blocked].Name} 占着"
+                              + $"（棋盘不连续）、该侧也没有空格 —— 「{op.Source}」抢不过来（{t.Name} 留在对面）");
+                    else
+                        ctx.Log($"{by}：你的部署位满了 —— 「{op.Source}」抢不过来（{t.Name} 留在对面）");
                     unresolved.Add(op.Source + "（己方没有空格放抢来的单位）");
                     continue;
                 }
+                if (blocked >= 0)
+                    ctx.Log($"{by}：落点 {blocked} 已被 {ctx.Players[owner].Board[blocked].Name} 占着"
+                          + $"（棋盘不连续）—— **不覆盖**，抢来的 {t.Name} 改放该侧最外的空格 {to}");
 
                 // 从原主那边摘掉 = 原版 `RemoveMinion` ⇒ **要补位**（外侧的人整体内移一格）
                 BoardSlots.RemoveAt(ctx.Players[fromP], fromSlot);
@@ -6940,6 +6958,15 @@ namespace RuleEngine
             }
 
             // ---- ② 棋盘那一跳（原版第 2 跳）----
+            // 🔴 2026-10-21（引擎线 `T03·c` 批 A · `W59`）：**先按【进场序】排，再逐条结算** ——
+            //   原版这一趟遍历的是 `allCardsInPlay`（进场顺序的追加列表，`BattleManager + 0x470`），
+            //   ⛔ 不是棋盘格号、也不是「玩家 0 整排 → 玩家 1 整排」
+            //   （判据 → `资料/普查产出_1020/W58_战斗结算_多词条顺序判据.md` §〇 / §一·A1 / §四·D1；
+            //    样例 = `BattleManagerSupport__BroadcastUnitSummoned.c:25-39`）。
+            //   ⇒ 多单位同时听同一个事件时，「先部署的那个先响」。
+            //   ⚠️ 排序发生在**快照之后、预调之外**（`preCalled` / `preCalled2` 已经被排除出快照，
+            //   它们的先后仍由调用方决定 —— 原版那条预调本来就在循环之前，不在这一趟里）。
+            RuleCore.StableSortByPlayOrder(listeners, u => u.PlayOrder);
             if (listeners.Count > 0)
             {
                 // ⚠️ `LastTargets` 是**代词机制**的存放位置：`it` / `this troop` 全从它取。
@@ -7033,13 +7060,36 @@ namespace RuleEngine
         /// ⛔ **不能**用整份 `FireWhen` 做 Deploy 预调 —— 那会把主体自己的「当你部署一个部队时」
         /// 也唤醒（原版 190 是**排除**主体的），静默多触发一次。
         /// </param>
+        ///
+        /// <param name="allowPendingDeath">
+        /// 🆕 **2026-10-21（引擎线 `T03·d` · `P2-2` 副产物）：这一跳**允许**监听者已在「待死」队列里。**
+        ///
+        /// 判据 = 原版广播器的**预调**那一跳在棋盘循环**之外**、**不带 `IsInPlay`**：
+        ///   · `BattleManagerSupport__BroadcastUnitAttacked.c:22`（被打者）/ `:29`（攻击者）只判非 null，
+        ///     循环 `:48` 才 `CardScript__IsInPlay(...)`；
+        ///   · `CardScript__ResolveUnitAttacked.c:26` 也只有「接收者身上有 `RawCardScript`」一道闸。
+        /// 能力层自己的闸是 `CardAbility.IsRightContext`：`InPlayOrDying(40)` 用 `IsInPlayOrDying`
+        /// （`CardScript__IsInPlayOrDying.c:10-13`：**状态 5 = 待死算在场**）、`Play(0)` 用
+        /// `IsInPlay`（不算）。现读当前 build（`资料/普查产出_1018/allcards_1350/cards_raw.json`）：
+        /// `SW16 Long Fang`（全池唯一 `When this unit attacks …`）的 `abilityContext` = **40** ⇒
+        /// 哨戒把攻击者打死之后，它自己的 `When this unit attacks` **仍然要响**。
+        /// ⚠️ **只给「预调」那一跳用，而且本轮只有【攻击者】那一下传 `true`**：
+        ///   · 棋盘循环那一跳必须继续挡待死单位（原版那里有 `IsInPlay`）；
+        ///   · 被打者那一下（`:22`）原版同样无条件，但被打者侧的 ctx 是**混合**的
+        ///     （`SAU31 Doomstalker` / `UM70 Invictor Warsuit` = 40、`TL24 Harpy` = 0）⇒ 判据不闭合，先留原样。
+        ///
+        /// ⚠️ **如实标着（残余）**：我们这一层**没有** `abilityContext` 字段 ⇒ `Play(0)` 的同族卡
+        /// （`UM83 Valtus` / `GSC12 Neophyte Iconbearer` / `DA22 Techmarine`）**自己正待死**时也会跟着响，
+        /// 原版不响（它们的 `abilityContext` = 0）。要精确收口得把 `abilityContext` 带进卡数据。
+        /// </param>
         static void FireBoardWhenListener(BattleContext ctx, UnitState u, string kind, int who,
                                           CardDef card, UnitState subject, UnitState actor,
                                           UnitState target, int targetWho,
-                                          bool selfOnlyOnly = false)
+                                          bool selfOnlyOnly = false, bool allowPendingDeath = false)
         {
             // ⚠️ 快照之后世界可能已经变了（前一个监听器把人打死了）——再判一次
-            if (ctx.IsPendingDeath(u)) return;
+            // 🔴 但「预调」那一跳（`allowPendingDeath`）照原版**不挡**待死单位（判据见 param 块）。
+            if (!allowPendingDeath && ctx.IsPendingDeath(u)) return;
 
             int owner = OwnerOf(ctx, u);
             if (owner < 0) return;                             // 已经不在场上了
@@ -7117,16 +7167,21 @@ namespace RuleEngine
         ///
         /// ⚠️ **事件槽与紧接着那次广播同形**（`target` / `card` 两个实参原样传）——
         /// 原版预调那一跳带的就是同一个事件宾语与同一张来源卡。
+        ///
+        /// 🆕 **`allowPendingDeath`**：照原版，**预调那一跳不判 `IsInPlay`** ⇒ 主体已经在待死队列里也照跑
+        /// （本轮**只有 `Attack` 的【攻击者】那一下**传 `true`；判据全文 → `FireBoardWhenListener` 的 param 块）。
+        ///     ⚠️ 棋盘循环那一跳**不许**传它 —— 原版那里逐张判 `IsInPlay`。
         /// </summary>
         static void PreCallBoardListener(BattleContext ctx, UnitState u, string kind, int who,
                                          CardDef card, UnitState subject, UnitState actor,
-                                         UnitState target, int targetWho, bool selfOnlyOnly = false)
+                                         UnitState target, int targetWho, bool selfOnlyOnly = false,
+                                         bool allowPendingDeath = false)
         {
             if (u == null || ctx == null || kind == null) return;
             if (ctx.IsOver || ctx.EffectChain >= BattleContext.MaxEffectChain) return;
             using (EventSlotsScope.TargetAndCard(ctx, target, card))
                 FireBoardWhenListener(ctx, u, kind, who, card, subject, actor, target, targetWho,
-                                      selfOnlyOnly);
+                                      selfOnlyOnly, allowPendingDeath);
         }
 
         /// <summary>
@@ -9125,6 +9180,28 @@ namespace RuleEngine
             holds = false;
             switch (op.ConditionKind)
             {
+                case "targetdiesorfriendly":
+                {
+                    // 🔴 **2026-10-21（引擎线 `T02` · `or` 族）**：`If the target dies **or** is a
+                    //   friendly unit, gain 1 ☀`（`SOR31 Dogmata`；中文「如果目标死亡**或**为友方单位」）。
+                    //   **两个析取项都要判** —— 改前 `EffectCondition.Normalize` 只认前半句
+                    //   （`Contains("target dies")`）⇒ 归成 `targetdies`，后半句**静默消失**。
+                    //
+                    //   「死了」那一半沿用 `targetdies` 的口径（`LastTarget == null` 也算 ——
+                    //   前面那句一个目标都没选中）。「友方」那一半判的是**目标此刻在谁的棋盘上**
+                    //   （原版把「友方」表达成 `targetCriteria.friendlyUnits`：
+                    //    `cards_1195_2022时代.json` 的 `SOR31.cardAbilities[1].targetCriteria` =
+                    //    `targetsAffected 10 / friendlyUnits 1 / includeHero 1 / includeMinions 1 /
+                    //     includeRemnants 1`）⇒ ⛔ 不是「这张卡的阵营/卡种」那种静态属性。
+                    //   ⚠️ 目标优先取「上一条效果打中的那个」（`LastTarget`），其次才是本次选定的
+                    //      —— 卡面说的是「**那个**目标」，而这句话紧跟在 `Deal 1 damage` 之后。
+                    var t = ctx.LastTarget ?? chosen;
+                    if (t == null) { holds = true; return true; }      // 同 `targetdies`：没有目标 ⇒ 当「死了」
+                    if (!t.IsAlive) { holds = true; return true; }
+                    int tp, tslot;
+                    holds = FindSlot(ctx, t, out tp, out tslot) && tp == owner;
+                    return true;
+                }
                 case "targetdies":
                 {
                     // 「目标死了没有」—— 判的是**上一条效果的目标**
@@ -10214,6 +10291,12 @@ namespace RuleEngine
                     //    ⇒ **沿用同一个实例**，不新发一份。
                     var back = new UnitState(rem.Instance, false);
                     back.DeployedTurn = ctx.Turn;   // 🆕 誓约能力的「本回合部署」判据（同上）
+                    // 🔴 2026-10-21（引擎线 `T03·c` 批 A · `W59`）：**残骸翻回来 = 重新进场** ⇒ 取**新号**。
+                    //   判据 = 原版「死掉 `List.Remove`、之后复活/再造 `List.Add` 到**表尾**」
+                    //   （`_ResolveMinionDeath_d__454__MoveNext.c:56-59` 与
+                    //     `_ResolveSummonUnit_d__510__MoveNext.c:179-183`；总述见 `UnitState.PlayOrder` 的 doc）
+                    //   ⇒ 翻回来的那个单位在「谁先响」上要排到**所有现存在场者之后**。
+                    back.PlayOrder = ctx.TakePlayOrder();
                     ps.Board[slot] = back;
                     Auras.Recompose(ctx);      // 🆕 A7：棋盘变动 ⇒ 光环重算
                     // 🔴 **2026-10-17（F9）：部署豁免在【第三个入口】上也要重算一次** ——

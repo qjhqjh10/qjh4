@@ -89,8 +89,31 @@ namespace CardPresentation
         /// 用 `工具/read_literal.py` 读出 `DAT_1834b3160` = **12.0**（能匹配真人那一支走远端配置，本地没有）。
         /// 轮询间隔 = `DAT_1834b2bb8` = **1.0 秒**。</summary>
         public const float WaitForOpponentSeconds = 12f;
-        /// <summary>被逐字打出来的那句话（原版 `searchTextKey = Demo/DeckSelectionDemo/Searching`，本地无术语表 ⇒ 用它的英文原文）。</summary>
-        public const string SearchingText = "Searching";
+        /// <summary>被逐字打出来的那句话 —— 🔴 **带三个点：`Searching...`**。
+        ///
+        /// <para>**判据（三条，逐条实读）**：
+        /// ① 原版五份窗 prefab 的 `SearchingMatchWindowDemo` 都写着
+        ///   `searchTextKey = {"mTerm": "Demo/DeckSelectionDemo/Searching"}` ——
+        ///   `d:/2/新解包资源/assets_full/bundle_menus_assets_all/MonoBehaviour/`
+        ///   的 `MonoBehaviour_-4104094843614359207` / `_-7876346491111824683` / `_2027333971220400048` /
+        ///   `_3238362926157418300` / `_6077665188785245554`（5/5 同值）；
+        /// ② 官方本地化表 `Unity/数据/游戏数据/官方本地化_en+zh-CN.json` 的
+        ///   `Demo/DeckSelectionDemo/Searching` = **`["Searching...", "搜索中..."]`**（2026-10-18 `K07` 并入的那一份）；
+        /// ③ 那颗 TMP（`MonoBehaviour_-6561808484806384939`）里的 `m_text = "Searching"` **是序列化占位值** ——
+        ///   运行时由 `searchTextKey` 的本地化结果覆盖它 ⇒ **不是运行时文案**，⛔ 别拿它当判据。
+        /// </para>
+        ///
+        /// <para>🔴 **少了那三个点 = 打字机会吃掉三个真字母**（2026-10-21 第五十九会话真机缺陷的根因）：
+        /// 原版 `_TypeWriteEffect_d__14__MoveNext.c` 是 **`maxVisibleCharacters`** 的循环 ——
+        /// 起手 **`cur = len-3`**、每 `timeBetweenSearchingLetters = 0.5s` 进一格、`cur > len` 绕回 `len-3`。
+        /// ⇒ 只有 `len = 12`（`"Searching..."`）时起点 **9** 才正好是**完整的 "Searching"**，四档是
+        /// `Searching` / `Searching.` / `Searching..` / `Searching...`（三点在原地循环）；
+        /// 写成 9 个字母时起点 = **6** ⇒ 四档是 `Search` / `Searchi` / `Searchin` / `Searching`
+        /// —— **词本身被一格一格吃掉**，真机上截到的那一帧就是 `Searchin`
+        /// （截图 `_tmp_view/shots/2026-10-21_第五十九会话/21_battle_1.png`）。
+        /// `TypedChars` 的公式与 4 档节奏**一个字没动**（原版公式对任何 `len` 都成立），改的只是这个常量。
+        /// </para></summary>
+        public const string SearchingText = "Searching...";
 
         // ---- 🆕 2026-10-03：`Cog` 的**自转**（原版那条 legacy `Animation` + clip `SearchingOpponentCog`）----
         //
@@ -230,11 +253,13 @@ namespace CardPresentation
             //      · `m_HorizontalAlignment 2`（Center）· `m_VerticalAlignment 512`（Middle）。
             //    ⇒ 折行宽 = 本框宽 **700**（`MsgR - MsgL` = 1310 − 610；margin 全 0 ⇒ 框宽就是折行宽）、
             //      自适应 **4~50**、base **36**。
-            //    ⚠️ 原来只传了 `50f` ⇒ **既没折行、也没自适应**（九个字母的 "Searching" 看不出来，
+            //    ⚠️ 原来只传了 `50f` ⇒ **既没折行、也没自适应**（`Searching...` 这十几个字符看不出来，
             //      可一旦往这一行放一句人话就会溢出框外）。
-            //    ⚠️ 对原来那台打字机**行为不变**："Searching" 在 50px 下只有约 225px 宽（< 700）、
-            //      一行高 50（< 148）⇒ 自适应收敛到上限 = **还是 50px**（`SetAutoFitBox` 的搜索起点是
-            //      base、收敛结果是「装得下的最大号」，上限就是原来那个 50）。
+            //    ⚠️ 对原来那台打字机**行为不变**：`Searching...` 在 50px 下按拉丁字宽 ≈ 0.5em 估
+            //      约 **300px** 宽（< 700），一行高 50（< 148）⇒ 自适应收敛到上限 = **还是 50px**
+            //      （`SetAutoFitBox` 的搜索起点是 base、收敛结果是「装得下的最大号」，上限就是原来那个 50）。
+            //      🔴 2026-10-21：这句话**是估计、不是读数**（本批不跑 Unity）—— 真读数由自检
+            //      `Editor/MainMenuScene.cs` 那条「最长那档渲出来宽 ≤ 700px」当场量。
             _msg = MenuDraw.Text(win, new PxRect(MsgL, MsgT, MsgR, MsgB), "", Color.white,
                                  "Main Search message", 50f, QSrText,
                                  wrapPx: MsgR - MsgL, autoMinPx: 4f, autoMaxPx: 50f, autoBasePx: 36f, face: TmpFont.Face.LatinCardBody);
@@ -375,8 +400,14 @@ namespace CardPresentation
         //   · 本窗 = 原版 `SearchingMatchWindowDemo`，全量反编译里它**只有两个** TMP 文本节点
         //     （字段表 `d:/2/tools/il2cpp_out/dump.cs:108646-108695`：`searchingText`(0x90) /
         //      `notEnoughPlayersText`(0xA0)）：
-        //       ① **`Main Search message`** = `searchingText`：`m_text = "Searching"`（键
-        //          `Demo/DeckSelectionDemo/Searching`；本地无词条表 ⇒ 用英文原文，同 B13 先例），
+        //       ① **`Main Search message`** = `searchingText`：prefab 里 `m_text = "Searching"` **是占位值**，
+        //          **运行时文案 = `searchTextKey`（`Demo/DeckSelectionDemo/Searching`）的本地化值
+        //          `Searching...`**（三个点！判据见 `SearchingText` 的 doc）。
+        //          🔴 **2026-10-21 就地订正（铁律 5）**：本行原写「本地无词条表 ⇒ 用英文原文，同 B13 先例」
+        //          —— **两个错**：① 少记了那三个点（真机缺陷的根因）；②「本地无词条表」**已过期**：
+        //          官方本地化表已于 **2026-10-18（`K07`）** 并入 `Unity/数据/游戏数据/官方本地化_en+zh-CN.json`
+        //          （10,854 条），本键在其中 = `["Searching...", "搜索中..."]`。本窗仍用英文原文
+        //          （同窗其余文案 `Cancel` 等也都是英文硬编码）；**要不要改走 `Loc` 是另一条账**，见本文件的报告。
         //          由 `SearchingMatchWindowDemo._TypeWriteEffect_d__14__MoveNext.c` **无限循环**打字
         //          （起手 `len-3`，每 `timeBetweenSearchingLetters = 0.5s` 进一格，`cur > len` 绕回）
         //          —— **原版从头到尾不改这行字**。

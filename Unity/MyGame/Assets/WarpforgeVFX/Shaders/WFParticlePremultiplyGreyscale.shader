@@ -26,14 +26,20 @@
 //      `finalColor.a = OutputAlpha(finalColor.a, isTransparent)`，而 `OutputAlpha` = `isTransparent ? alpha : 1.0`
 //      ⇒ **没开 `_SURFACE_TYPE_TRANSPARENT` 的那支才是 `o0.w = 1`**。40+ 材质**全部只带这一个关键字**
 //      ⇒ 实机走 `o0.w = alpha` 那支。**必须声明该 pragma**（不声明 `#ifdef` 恒假，2026-10-02 踩过）。
-// ⑤ **如实标注（推 + 存疑）**：
-//    · `cb1[3] = `_Color`（灰度=1 端）· `cb1[1] = `_Color2`（灰度→0 端）**—— 名字是按「哪端该亮」推的
-//      （`FireBlack` 材质火心 `_Color=(0,0,0)`、边缘 `_Color2` 是绿 ⇒ 「黑火」要求火心=黑 ✓）。
-//      ⚠️ **槽序与同族规则对不上**（`Multi Ray`/`Shine` 那两件的「贴图 _ST 在前、其余按声明序」会把两色放在
-//      `[1]/[2]`，这里却在 `[1]/[3]`）⇒ 标 **== 存疑 ==**；若 A/B 偏大，**先试把这两个换过来**。
+// ⑤ **如实标注**：
+//    · 🔴 **2026-10-21（T17）就地订正：这里原来写着「`cb1[3] = _Color`（灰度=1 端）· `cb1[1] = _Color2`（0 端），
+//      存疑、偏大就换过来」—— 现在有**第一判据（原版反编译源码）**了，结论是【换过来】。**
+//      判据 = `Everguild/FX/Particle Premultiply Greyscale Coloring` 反编译体
+//      （Ruri 导出，`c4556cf50b7d94c2e8104377be230b32/Sub0_Pass0_Fragment_b3.hlsl`）：
+//        `cbuffer type_UnityPerMaterial { … float4 _Color : packoffset(c1); … float4 _Color2 : packoffset(c3); }`
+//        `_154 = mad(t, mad( L2S(_Color2) * t, t, −L2S(_Color)*t ), L2S(_Color)*t)`
+//      ⇒ `rgb = t·(1−t)·L2S(_Color) + t²·L2S(_Color2) = t · lerp(L2S(_Color), L2S(_Color2), t)`
+//      ⇒ **灰度→0 端 = `_Color`（槽 1）· 灰度=1 端 = `_Color2`（槽 3）**。
+//      原来的槽位（3 / 1）与「哪端该亮」的推断**两个都错**，`frag` 里已按本条改正（A/B 两端互换）。
 //    · `_ENABLEVERTEXSTREAMS` / `_SOFTPARTICLES` / `_Depth_And_Offset` 在**已编译变体里一次都没出现**
 //      （这个 build 没编出那几支）⇒ 照不到判据，本文件**不实现**（软粒子那支是空的）。
-//    · `_Color`/`_Color2` 的 **alpha 完全没进算式**（只用 .rgb）—— 预乘用的 alpha 是 `tex.a × vcol.a` ✓。
+//    · `_Color`/`_Color2` 的 **alpha 完全没进算式**（只用 .rgb）—— 预乘用的 alpha 是 `tex.a × vcol.a` ✓
+//      （反编译体亦如此：`_146 = t.a * vcol.a`，两个 `_Color*.w` 一次都没读到）。
 //
 // ⚠️ **白名单里** ⇒ 运行时走原件；本文件只在**兜底路**生效。
 Shader "WarpforgeVFX/FX/ParticlePremultiplyGreyscale"
@@ -75,7 +81,10 @@ Shader "WarpforgeVFX/FX/ParticlePremultiplyGreyscale"
             "PreviewType" = "Plane"
         }
 
-        Blend [_SrcBlend] [_DstBlend]
+        // 🔴 2026-10-21（T17 · Ruri 反编译对拍）：原版 pass0 = `Blend [_SrcBlend] [_DstBlend], [_SrcBlendAlpha] [_DstBlendAlpha]`
+        //    （色与 alpha 分开寻址）；我们原来只写了前半截。
+        //    本件的材质实测 SrcA=1 / DstA=10 ⇒ 与色的因子恰好相同，**观测不到差别**，但状态要照原版写。
+        Blend [_SrcBlend] [_DstBlend], [_SrcBlendAlpha] [_DstBlendAlpha]
         Cull [_Cull]
         ZWrite [_ZWrite]
         ZTest [_ZTest]
@@ -151,8 +160,17 @@ Shader "WarpforgeVFX/FX/ParticlePremultiplyGreyscale"
             {
                 half4 t = SAMPLE_TEXTURE2D_BIAS(_MainTex, sampler_MainTex, IN.uv0.xy, _GlobalMipBias.x);
 
-                half3 A = LinearToSrgb(_Color.rgb);      // 灰度 = 1 端（== 存疑 ==，见文件头 ⑤）
-                half3 B = LinearToSrgb(_Color2.rgb);     // 灰度 → 0 端
+                // 🔴🔴 **2026-10-21（T17）：文件头 ⑤ 那条「== 存疑 ==」已由原版反编译体【判定】——
+                //    两个颜色【原来写反了】，本轮已换过来。**
+                //    判据 = `Everguild/FX/Particle Premultiply Greyscale Coloring` 反编译体
+                //    （Ruri 导出：`c4556cf50b7d94c2e8104377be230b32/Sub0_Pass0_Fragment_b3.hlsl:12-25,71-78`）：
+                //      cbuffer 符号实读 —— `_Color` 在 **packoffset(c1)**（槽 1）· `_Color2` 在 **packoffset(c3)**（槽 3）；
+                //      算式 `_154 = mad(t, mad(L2S(_Color2)*t, t, −L2S(_Color)*t), L2S(_Color)*t)`
+                //      = **t·(1−t)·L2S(_Color) + t²·L2S(_Color2)** = `t · lerp(L2S(_Color), L2S(_Color2), t)`
+                //    ⇒ **灰度 → 0 端 = `_Color`（槽 1）· 灰度 = 1 端 = `_Color2`（槽 3）**。
+                //    （我们原来 `A = L2S(_Color)` 当「1 端」、`B = L2S(_Color2)` 当「0 端」⇒ 两端互换。）
+                half3 A = LinearToSrgb(_Color2.rgb);     // 灰度 = 1 端（t→1）
+                half3 B = LinearToSrgb(_Color.rgb);      // 灰度 → 0 端（t→0）
                 half  g = t.r;
 
                 // `t·lerp(B,A,t)` = t²·A + t(1−t)·B（逐条：mul / mad / mad）—— **不是普通 lerp**

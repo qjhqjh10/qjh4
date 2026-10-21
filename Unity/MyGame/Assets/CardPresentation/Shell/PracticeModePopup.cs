@@ -682,11 +682,9 @@ namespace CardPresentation
                 wrapPx: CostTxtR - CostTxtL, autoMinPx: 1f, autoMaxPx: 34f, autoBasePx: 22.3f,
                 face: TmpFont.Face.LatinCardBody);
             {
-                var counts = CostCurveDrawer.Counts(CollectionData.Raw(DeckIndex), CollectionData.Card);
-                CostCurveDrawer.Build(_general, CostDrwCX, CostDrwCY, CostDrwScl, counts, QPrRow, QPrText);
-                CostRows.Clear();
-                CostRows.AddRange(counts);
-                Debug.Log("[Practice] 费用曲线画了 9 行（" + CostCurveDrawer.Dump(counts) + "）");
+                // 🔴 **2026-10-21**：数一遍 + 画一遍收进 `RefreshCostRows()` —— 换卡组（`PickDeck` /
+                //   `PickPrebuilt`）也要重画，**画法与判源只此一处**（⛔ 别在换卡组那边再写一份）。
+                RefreshCostRows();
             }
 
             _cardback = ImgTex(_general, CardArt.DeckCardback(d.CardbackId, d.Faction), "Cardback(这副牌的卡背)", CbL, CbT, CbR, CbB,
@@ -729,6 +727,39 @@ namespace CardPresentation
             _chgHit = HitOn(_general, _general, "ChangeDeckHit", new PxRect(ChgL, ChgT, ChgR, ChgB), () => OpenDeckSelection());
         }
 
+        /// <summary>🆕 **2026-10-21**：重画 `Deck information cost drawer` 那 **9 行**（费用 0..8）。
+        ///
+        /// <para>🔴 **数一遍 + 画一遍只此一处**：建窗（`BuildGeneralContainer`）与换卡组（`PickDeck` /
+        /// `PickPrebuilt`）都走它。原来那段内联在 `BuildGeneralContainer` 里 ⇒ 换卡组时**没人重算**，
+        /// 面板上留着上一副的曲线（预组那一档更是 9 行全 0，真机 2026-10-21 抓到）。</para>
+        ///
+        /// <para>⚠️ **判源 = <see cref="CurrentDeck"/>**（预组那一支 = `PrebuiltDecks.ToPlayerDeck`，
+        /// 其 `CardIds` 就是 `PrebuiltDecks.Deck.cardIds`，**不含督军与防御卡** —— 与
+        /// `Shell/DeckInfoPopup.cs` 那条费用曲线同一个口径）。</para>
+        ///
+        /// <para>⚠️ **重建前必须先撤掉上一次那 9 行**：`CostCurveDrawer.Build` 只建不删
+        /// （它的形参 `rowName` 缺省 = 原版节点名 `Deck CostQuanityt Row Drawer`，拼写照抄原版），
+        /// 连调两次会长出第二套、叠在一起（静默 —— 数字看着还是对的）。</para></summary>
+        void RefreshCostRows()
+        {
+            if (_general == null) return;
+            const string rowName = "Deck CostQuanityt Row Drawer";   // = `CostCurveDrawer.Build` 的缺省 `rowName`（原版节点名）
+            for (int i = _general.childCount - 1; i >= 0; i--)
+            {
+                var ch = _general.GetChild(i);
+                if (!ch.name.StartsWith(rowName, System.StringComparison.Ordinal)) continue;
+                // ⚠️ 运行期 `DestroySafe` 走的是 `Object.Destroy`（**帧末才真销毁**）⇒ 不先关掉的话，
+                //    这一帧里新旧两套 9 行同矩形、同队列会叠着画（z-fighting 闪一下）。先 `SetActive(false)`。
+                ch.gameObject.SetActive(false);
+                RewardsWindow.DestroySafe(ch.gameObject);
+            }
+            var counts = CostCurveDrawer.Counts(CurrentDeck, CollectionData.Card);
+            CostCurveDrawer.Build(_general, CostDrwCX, CostDrwCY, CostDrwScl, counts, QPrRow, QPrText, rowName);
+            CostRows.Clear();
+            CostRows.AddRange(counts);
+            Debug.Log("[Practice] 费用曲线画了 9 行（" + CostCurveDrawer.Dump(counts) + "）");
+        }
+
         /// <summary>🆕 **2026-10-19（界面线 P05）**：原版 `DeckGeneralInfoDemo` 的 `changePlayerDeck` 显隐 ——
         /// **演示（预组）卡组** ⇒ `ShowDemoDeckInfo` 里 `SetActive(false)`；**玩家自己的卡组** ⇒ `SetContent`
         /// 里 `SetActive(true)`（两处都反编译实读）。三件一起切（底图 / 字 / 命中区）——
@@ -757,12 +788,44 @@ namespace CardPresentation
                 Debug.LogWarning("[Practice] 没有 `WindowsManager`，开不了 `Deck info Popup`");
                 return null;
             }
-            var w = DeckInfoPopup.Create(Manager, DeckIndex, DeckInfoPopup.DeckInfoState.View);
+            DeckInfoPopup w;
+            var pre = PickedPrebuilt;
+            if (pre != null)
+            {
+                // 🔴 **2026-10-21（同一批真机缺陷）**：预组**不在 `DeckLibrary` 里** ⇒ 原来这里传 `DeckIndex`
+                //   （预组档 = **−1**）开出来的是一扇**空窗**（没有督军、没有卡表、费用曲线全 0）。
+                //   现在把预组那份数据喂进去 —— `OverrideDeck` + `OverrideInfo` 是 `DeckInfoPopup` 给
+                //   「外面送进来的卡组」留的**唯一那个口**（`CurDeck` / `CurInfo` 只此一处判源，
+                //   见 `Shell/DeckInfoPopup.cs` 那两条 doc）；预组那一支的用法与
+                //   `DeckSelectionPopup.UpdateInfo` 逐句相同。
+                //   ⚠️ **不**走 `CreateForPicked`：那一支是「在选卡组窗里点行预览」那条，它强制
+                //     `SelectButtonProvided = true`（会多出一颗 `Select Deck`）；而原版这颗 `Show Deck Content`
+                //     开的是 **`DeckInfoContext(deck, 2(View), selectButton = null, …)`**（判据见文件头）
+                //     ⇒ 保持 `Create(...)` 那条老路，**只换数据**。
+                //   `IsPlayerDeck = false` = 原版 `InventoryManager.HasItem(context.Deck)` 对预组为假
+                //   ⇒ `Practice Deck` / `Share` / `Delete` / `Duplicate` 全按判据藏（预组没有库下标，
+                //   那几颗点了也无从下手 —— 原来那颗永远灰着的「练习」钮就是这么来的）。
+                w = DeckInfoPopup.Create(Manager, -1, DeckInfoPopup.DeckInfoState.View);
+                w.OverrideDeck = PrebuiltDecks.ToPlayerDeck(pre);
+                // 🔴 **2026-10-21（审查代理 #10）**：显示信息**复用** `DeckSelectionPopup.InfoOf`（它已经是
+                //   「预组 → `DeckInfo`」唯一那一份，选卡组窗的格子就用它）—— 我原来又写了一份
+                //   `InfoOfPrebuilt`，两处同一条规则。
+                //   ⚠️ 它**不带 `GameMode`**（= 0）：`DeckInfoPopup` 里读 `CurInfo.GameMode` 的只有
+                //   `SelectPracticeOpponentDeck` 的 `modeFilter` 那一处，而那颗 `Practice Deck` 钮按
+                //   `IsPlayerDeck = false` 已经藏了、走不到 ⇒ 这里是**够用的**（审查代理同结论）。
+                w.OverrideInfo = DeckSelectionPopup.InfoOf(pre);
+                w.IsPlayerDeck = false;
+            }
+            else
+            {
+                w = DeckInfoPopup.Create(Manager, DeckIndex, DeckInfoPopup.DeckInfoState.View);
+            }
             Manager.OpenWindow(w);
             LastDeckInfo = w;
             Debug.Log("[Practice] `Show Deck Content` ⇒ 开 `Deck info Popup`"
                       + "（原版 `cardInDeckInfoButton → OpenWindow(new DeckInfoContext(deck, 2, …))`）"
-                      + " · state = **View(2)**");
+                      + " · state = **View(2)**"
+                      + (pre != null ? " · 数据 = **预组「" + pre.DisplayName + "」**（`OverrideDeck` 那一支）" : ""));
             return w;
         }
 
@@ -788,11 +851,51 @@ namespace CardPresentation
         /// <summary>现在显示的是不是总览（= `General container` 开着）。</summary>
         public bool ShowingGeneralInfo { get { return _general != null && _general.gameObject.activeSelf; } }
 
-        /// <summary>当前选中的卡组（默认 = `DeckLibrary` 的当前那套）。</summary>
+        /// <summary>当前选中的卡组（默认 = `DeckLibrary` 的当前那套）。
+        /// ⚠️ **只在「我的卡组」那一档有意义**：预组不在卡组库里 ⇒ `PickPrebuilt` 会把它显式写成 **−1**
+        /// （⛔ 别拿它判「当前是哪副」，见 <see cref="CurrentDeck"/>）。</summary>
         public int DeckIndex;
         /// <summary>在「预组卡组」那一页选中的那副（空 = 用的是「我的卡组」）。
         /// ⚠️ **还不能拿去开战** —— 原因与出处见 `PrebuiltDecks.WarnNotPlayableYet`。</summary>
         public PrebuiltDecks.Deck PickedPrebuilt;
+        /// <summary>🔴 **2026-10-21：本面板「当前是哪一副」的【唯一判源】。**
+        ///
+        /// <para>面板上**凡是问「当前是哪一副」的地方一律走它**（阵营标题 / 费用曲线 / 卡表 /
+        /// 阵营列那颗 `Has Player Deck` 火漆印 / `Battle!` 的督军闸 / `Show Deck Content` 开的详情窗）——
+        /// ⛔ 别再直接读 <see cref="DeckIndex"/>：**预组不在卡组库里**，预组档 `DeckIndex` 恒为 −1，
+        /// 直接读它 = 拿到「一副空卡组」（`CollectionData.Raw(-1)` / `DeckAt(-1)` 都是空的）。</para>
+        ///
+        /// <para>🔴 **为什么非有这一处不可**（真机缺陷 · 2026-10-21）：`PickPrebuilt` 原先是**只刷一半**的
+        /// 增量刷新（卡组名 / 督军 / 阵营图 / 卡背 / lore），而面板另外四处读的是 `DeckIndex`（此时 −1）
+        /// ⇒ 选完预组之后：阵营标题回到「（未选阵营）」· 费用曲线 9 行全 0 · 卡表不建 ·
+        /// 点 `Battle!` 被「这套卡组还没有督军，开不了局。」挡死。
+        /// **两处各判一次「当前是哪副」= 迟早不一致**（`CLAUDE.md` §三）。</para>
+        ///
+        /// <para>⚠️ 预组这一支走 `PrebuiltDecks.ToPlayerDeck`（每次**新造**一份只读视图，含我们补的防御卡；
+        /// 它**不写回**任何数据）—— 面板上用得起；⛔ 别拿它去 `CollectionData` 那套「按库下标」的动作。</para>
+        /// <para>⚠️ 它与「本局用这副牌」那条**跨场景通道**（`PrebuiltDecks.PendingSource`）是**两件事**：
+        /// 这里是**面板显示态**，那条是**交给战斗场景**的；两者由 `PickPrebuilt` / `PickDeck` / `ResetContent`
+        /// **成对**写入与清空（见那三处）。</para></summary>
+        public RuleEngine.PlayerDeck CurrentDeck
+        {
+            get
+            {
+                if (PickedPrebuilt != null) return PrebuiltDecks.ToPlayerDeck(PickedPrebuilt);
+                return CollectionData.Raw(DeckIndex);
+            }
+        }
+
+        /// <summary>督军 id → 阵营（**与 `CollectionData.DeckAt` 里那条推导同一个**：督军卡身上的 `Faction`）。
+        /// 预组没有库下标 ⇒ 只能这样取；⛔ 别在这里另立一套阵营判据。</summary>
+        static string FactionOf(string warlordId)
+        {
+            var hero = string.IsNullOrEmpty(warlordId) ? null : CollectionData.Card(warlordId);
+            return hero != null ? hero.Faction : "";
+        }
+
+        /// <summary>`Selected Army Title` 现在显示的那句话（自检用）。
+        /// ⚠️ 读的是**真 `Label` 上那句**（⛔ 不是重新算一次 `SelectedArmyName()` —— 那会与实现同一个口 = 自证）。</summary>
+        public string ArmyTitleText { get { return _txtArmy != null ? _txtArmy.Text : ""; } }
         /// <summary>🆕 2026-10-03：本局**对手**卡组（`Deck info Popup` 的 `Practice Deck` 那条链选出来的那一副）。
         /// `null` = 没指定 ⇒ 照旧自动凑 —— 这正是原版练习窗自己那条 `Battle!` 的行为
         /// （`PracticeModePopup__BattleButtonOnClick.c:225`：`enemyDeck` 传的是 **0 / null**）。</summary>
@@ -857,6 +960,17 @@ namespace CardPresentation
         public override void Open()
         {
             LastOpened = this;
+            // 🔴 **2026-10-21（审查代理 #3）**：**开窗先清「预组」这一档** —— 原来只重置 `DeckIndex`、
+            //   把 `PickedPrebuilt` 留在上一窗口那副上 ⇒ 同一实例再 `Open()`（= `Build()` 重建）会变成
+            //   「头显示自建那副（`BuildDeckInfoHead` / `BuildGeneralContainer` 读 `DeckIndex`）、
+            //   体显示预组（`CurrentDeck` 优先 `PickedPrebuilt`）」的**混合态**。
+            //   清掉之后，下面 `Build()` 期间 `PickedPrebuilt == null` ⇒ `CurrentDeck` ≡ `Raw(DeckIndex)`，
+            //   那两处按库下标读的老代码**与唯一判源逐位一致**（所以不必再改它们）。
+            //   通道**一并作废**：原版 `PracticeModePopup__Close` 第三句就是 `ResetContent()`
+            //   （`decomp_full/PracticeModePopup__Close.c` 三句实读）⇒「关窗/再开 = 选择归零」是原版行为；
+            //   留着通道会出现「闸验自建、发牌发预组」（审查代理 #11 那条）。
+            PickedPrebuilt = null;
+            PrebuiltDecks.ClearPendingBattleDeck();
             DeckIndex = CollectionData.CurrentIndex();
             ArmyIndex = -1;
             // 🆕 2026-10-17（U4-1）：`Game mode` 初值 = **当前选中卡组自己的模式**
@@ -864,6 +978,39 @@ namespace CardPresentation
             //   必须在 `Build()` **之前**：`BuildGameModeToggle` 要按它画底图、`RebuildDeckRows` 要按它筛。
             SelectedGameMode = ToggleModeOf(CollectionData.DeckAt(DeckIndex).GameMode);
             Build();
+        }
+
+        /// <summary>🔴 **2026-10-21（审查代理 #11）**：关窗时把**本窗这一档选择**归零（面板 + `PrebuiltDecks` 通道）。
+        ///
+        /// <para>判据 = 原版 `PracticeModePopup__Close` 的**三句**（`decomp_full/PracticeModePopup__Close.c` 实读）：
+        /// `GameWindow.Close()` · `SaveSelectedDeck()` · **`ResetContent()`** —— 第三句就是「选择归零」。
+        /// 我们这边与 `SaveSelectedDeck` 对应的那一步 = **选定时就写进 `PrebuiltDecks` 通道**（`PickPrebuilt`），
+        /// 所以关窗这里只需补 `ResetContent` 的等价物。</para>
+        ///
+        /// <para>🔴 **为什么非清不可**：那条通道是**全静态**的，`Shell/LiveOpsEventWindow.cs` 的
+        /// `StartBotBattle` 也读它（`:1179` 附近）。关掉练习窗之后若还留着上一次挑的预组，
+        /// 下一场（排位 / 遭遇 / 再开练习窗）就会**闸验自建那副、发牌发预组那副** —— 全静默。</para>
+        ///
+        /// <para>⚠️ **只有一种情况不许清**：`StartedBattle` —— `StartBotBattle` 已经把「本局用哪副」
+        /// 定下、正要切场景，而**跨场景那一次读在 `BattleDriver` 里**（`TakePendingBattleDeck()`），
+        /// 清掉就等于「这一局打的是别的牌」。
+        /// ⚠️ 匹配中（`SearchingMatch`）**不豁免**：关掉本窗 = 那 12 秒的 `Update` 再也不跑
+        /// （`TickSearch` 挂在 `Update` 上）⇒ 这一局本来就不会开打，通道留着只会漏到下一场去。
+        /// ⚠️ 原版「关窗重开能恢复上次选的牌」是靠 `SaveSelectedDeck` → `PlayerDataManager.SetDemoDeck`
+        /// 再接 `LoadSavedDeck`（两个方法体都在本地，见 `decomp_full`）；**我们没做那两条口**
+        /// ⇒ 这一档如实退化成「关窗 = 归零」（并且出声，不假装记住了）。</para></summary>
+        public override void Close()
+        {
+            if (!StartedBattle)
+            {
+                if (PickedPrebuilt != null)
+                    Debug.Log("[Practice] 关窗 ⇒ 预组选择归零（「" + PickedPrebuilt.DisplayName + "」，"
+                              + PickedPrebuilt.deckId + "）—— 原版 `__Close → SaveSelectedDeck + ResetContent`；"
+                              + "⚠️ 我们没做 `SaveSelectedDeck`/`LoadSavedDeck` 那两条口 ⇒ 重开窗不会恢复它");
+                PickedPrebuilt = null;
+                PrebuiltDecks.ClearPendingBattleDeck();
+            }
+            base.Close();
         }
 
         void Build()
@@ -1092,6 +1239,9 @@ namespace CardPresentation
             PrebuiltDecks.ClearPendingBattleDeck();
             if (_deckHolder != null) RebuildDeckRows(_deckHolder);
             if (_info != null) BuildCardRows(_info);
+            // 🔴 **2026-10-21（审查代理 #1）**：一套都不剩 ⇒ 曲线也必须归零（判源 = `CurrentDeck` = null
+            //   ⇒ `Counts` 全 0）。原来这一支不重画，面板上会**留着一副已经不存在的牌**的 9 行。
+            RefreshCostRows();
             if (_txtDeckName != null) _txtDeckName.SetText("");
             if (_txtWarlord != null) _txtWarlord.SetText("");
             if (_txtArmy != null) _txtArmy.SetText(SelectedArmyName());
@@ -1221,8 +1371,11 @@ namespace CardPresentation
             //   下面的粗筛走 `VisibleAbove`、逐件的 `clip` 全部传 `null` ⇒ `MenuDraw.*` 沿父链解析到它。
             //   ⛔ 别在这里再留一个 `view` 局部量（留着 = 下一个人照它写就又回到「两处状态」那条老路）。
             // 🆕 A178：`Has Player Deck` 的显隐要用**当前选中卡组的阵营**（见下面那段判据）—— 循环外算一次。
-            string deckFac = (DeckIndex >= 0 && DeckIndex < CollectionData.DeckCount())
-                             ? (CollectionData.DeckAt(DeckIndex).Faction ?? "") : "";
+            // 🔴 **2026-10-21**：改走唯一判源 `CurrentDeck`（原来按 `DeckIndex` 取 —— 预组档是 −1 ⇒
+            //   预组明明有阵营，这一列的火漆印一个都不亮）。owned 档两处逐位相同
+            //   （`CollectionData.DeckAt` 里那条 `Faction` 就是督军卡身上的字段，与 `FactionOf` 同一条推导）。
+            var curDeck = CurrentDeck;
+            string deckFac = curDeck != null ? FactionOf(curDeck.WarlordId) : "";
             // 🔴 格位：横轴**居中**（`m_ChildAlignment = 4` ⇒ `align % 3 = 1`），纵轴第一格贴 `Viewport` 上沿
             float x1 = ArmyCellL, x2 = ArmyCellL + ArmyCell;
             for (int i = 0; i < facs.Count; i++)
@@ -1612,10 +1765,13 @@ namespace CardPresentation
                 var c = CollectionWindow.CardsState;
                 return _facs[ArmyIndex].ToUpperInvariant();
             }
-            var d = CollectionData.DeckAt(DeckIndex);
+            // 🔴 **2026-10-21**：阵营一律从 <see cref="CurrentDeck"/> 的督军推 —— 预组档 `DeckIndex` 是 −1，
+            //   原来那句 `CollectionData.DeckAt(DeckIndex)` 拿到的是**空 `DeckInfo`** ⇒ 预组明明有阵营，
+            //   标题却回到「（未选阵营）」（真机 2026-10-21）。⛔ 别再改回读下标。
+            string fac = FactionOf(CurrentDeck != null ? CurrentDeck.WarlordId : null);
             // 兜底那句也走词条（键 `MenuDeck/HUD/NoArmySelected`；
             //   ZH 列与改前写死串**逐字相同** ⇒ 中文档零变化）。⚠️ P3 两个附件源都漏了这条（它会画上屏）。
-            return string.IsNullOrEmpty(d.Faction) ? Loc.T("MenuDeck/HUD/NoArmySelected") : d.Faction.ToUpperInvariant();
+            return string.IsNullOrEmpty(fac) ? Loc.T("MenuDeck/HUD/NoArmySelected") : fac.ToUpperInvariant();
         }
 
         /// <summary>开 `Deck Selection Popup with Tabs`（原版 `DeckGeneralInfoDemo.ChangePlayerDeckButton` 那条）。</summary>
@@ -1691,7 +1847,11 @@ namespace CardPresentation
             // 原版 `Content` 是布局组节点；我们的 `Deck List Drawer` 的 localPosition 已经把它摆到 (1240.38,207.65)，
             // 而 `Content` 的绝对矩形是 1261.27,318.42→1787.37,793.87 ⇒ 子件的坐标**一律用页面绝对 px**，
             // `Local3(_cardHolder, …)` 会自己换算（这是本工程画图小工具的约定）。
-            var deck = CollectionData.Raw(DeckIndex);
+            // 🔴 **2026-10-21**：卡表读 <see cref="CurrentDeck"/>（唯一判源）—— 预组档 `DeckIndex` 是 −1，
+            //   原来那句 `CollectionData.Raw(DeckIndex)` 返回 null ⇒ 直接 return、**卡表根本不建**
+            //   （真机 2026-10-21 的「右侧半空」）。预组那一支的 `CardIds` 就是 `Deck.cardIds`，
+            //   防御卡照旧由下面 `deck.DefensiveId` 那一段并进来（与 `DeckInfoPopup` 同一条口径）。
+            var deck = CurrentDeck;
             if (deck == null) return;
 
             // 🔴 **2026-10-12（A1531⑧）这一支照 `DeckListDrawer` 修**（本窗挂的就是那个类；判据 =
@@ -1841,6 +2001,10 @@ namespace CardPresentation
             bool wasList = !ShowingGeneralInfo;             // 换卡组时**别把抽屉状态翻掉**
             BuildCardRows(_info);                          // 重建卡列表（卡组换了）
             Toggle(wasList ? false : true);
+            // 🔴 **2026-10-21（审查代理 #1）**：换「我的卡组」也要重画费用曲线 —— 同一副面板上
+            //   「哪副牌」只有一个判源（`CurrentDeck`），**曲线不能比它慢一拍**。
+            //   原来只有建窗那一次算 ⇒ 自建卡组互切之后 9 行仍是上一副的（与本次要修的预组症状同源）。
+            RefreshCostRows();
             var info = CollectionData.DeckAt(i);
             if (_txtDeckName != null) _txtDeckName.SetText(info.Name);
             var wl = CollectionData.Warlord(i);
@@ -1870,15 +2034,34 @@ namespace CardPresentation
         public void PickPrebuilt(PrebuiltDecks.Deck d)
         {
             if (d == null) return;
+            // 🔴 **2026-10-21 就地重写（真机缺陷）**：这一支原来只做**增量刷新**（卡组名 / 督军 / 阵营图 /
+            //   卡背 / lore），而面板另外四处读的是**另一份状态** `DeckIndex`（预组档 = −1）⇒ 真机症状：
+            //   阵营标题回到「（未选阵营）」· 费用曲线 9 行全 0 · 卡表不建 · 点 `Battle!` 被
+            //   「这套卡组还没有督军，开不了局。」挡死。
+            //   ⇒ 现在照 `PickDeck` 那条「我的卡组」的路走一次**全量刷新**，两边**同一个判源**
+            //   <see cref="CurrentDeck"/>（⛔ 别再回到「四处各读一份状态」那版）。
+            //   ⚠️ `PickDeck` 那条路的行为一个字没改（它只多用了同一个判源，owned 档两处逐位相同）。
+            DeckIndex = -1;                  // 显式作废旧下标（预组不在 `DeckLibrary` 里；⛔ 别让旧下标留在面板上）
             PickedPrebuilt = d;
             PrebuiltDecks.SetPendingBattleDeck(d);
-            // 面板上要显示「选的是哪副」—— 卡列表那是「我的卡组」的，这里只把身份显示对
+            // ① 卡组那一列：重列（把「我的卡组」那一格的选中态清掉 —— 预组不在那一列里）
+            if (_deckHolder != null) RebuildDeckRows(_deckHolder);
+            // ② 卡表 + 抽屉状态（换卡组时**别把抽屉状态翻掉** —— 同 `PickDeck`）
+            bool wasList = !ShowingGeneralInfo;
+            BuildCardRows(_info);                          // 卡表 = 预组那一副（走 `CurrentDeck`）
+            Toggle(wasList ? false : true);
+            // ③ 费用曲线 9 行（走 `CurrentDeck` ⇒ 预组的 `cardIds`）
+            RefreshCostRows();
+            // ④ 身份那几件
             if (_txtDeckName != null) _txtDeckName.SetText(d.DisplayName);
             if (_txtWarlord != null)
             {
                 var wl = CollectionData.Card(d.heroId);
                 _txtWarlord.SetText(wl != null ? wl.Name : Loc.T("MenuDeck/Error/NoWarlord"));
             }
+            // ⚠️ `RebuildDeckRows` 末尾自己会刷一次 `Selected Army Title`；这里再写一次是为了
+            //   `_deckHolder == null`（没建出来）那一档也不留旧字（同 `PickDeck` 的写法）。
+            if (_txtArmy != null) _txtArmy.SetText(SelectedArmyName());
             if (_armyIcon != null) _armyIcon.SetTexture(CardArt.MenuUi(d.FactionIcon));
             if (_cardback != null) _cardback.SetTexture(d.Cardback);
             // 🆕 **2026-10-19（界面线 P05）**：预组 = 原版的「演示卡组」⇒ 两件照 `ShowDemoDeckInfo` 办：
@@ -2019,10 +2202,17 @@ namespace CardPresentation
         /// 等不到真人再打 bot。真正的开战在 `StartBotBattle`。</summary>
         public void StartBattle()
         {
-            var info = CollectionData.DeckAt(DeckIndex);
-            if (string.IsNullOrEmpty(info.WarlordId))
+            // 🔴 **2026-10-21：督军闸读【唯一判源】`CurrentDeck`**（原来读 `CollectionData.DeckAt(DeckIndex)`）——
+            //   预组档 `DeckIndex` 是 −1 ⇒ `DeckAt(-1)` 是一份**空 `DeckInfo`**，`WarlordId` 空
+            //   ⇒ 面板上明明是一副有督军的预组，却被「这套卡组还没有督军，开不了局。」挡死
+            //   （真机 2026-10-21 的第三处症状）。⛔ 别再在这里读下标。
+            //   ⚠️ **发牌那一侧不动**：仍然是 `PrebuiltDecks.PendingSource`（跨场景通道，见下面那一段）——
+            //      它与 `PickedPrebuilt` 由 `PickPrebuilt` / `PickDeck` / `ResetContent` **成对**写入与清空。
+            var deck = CurrentDeck;
+            if (deck == null || string.IsNullOrEmpty(deck.WarlordId))
             {
-                Debug.LogWarning("[Practice] 这套卡组**没有督军**，开不了局 —— 如实说，不静默。");
+                Debug.LogWarning("[Practice] 这套卡组**没有督军**，开不了局 —— 如实说，不静默。"
+                                 + "（现在这副 = " + (deck == null ? "**空**（连卡组都没有）" : "「" + deck.Name + "」") + "）");
                 // 弹窗正文走**整句**词条（键 `MenuDeck/Error/CantStartNoWarlord`）。
                 // 🔴 **2026-10-18（波 1b · `A1034` 裁定）**：上一轮这里复用了**短键** `MenuDeck/Error/NoWarlord`
                 //    （「还没有选战将」）⇒ 正文从「这套卡组还没有选战将，开不了局。」缩成 5 个字 = 玩家可见
@@ -2038,7 +2228,10 @@ namespace CardPresentation
             //   **另一套槽位**，我们没有那套数据 ⇒ **如实警告**，⛔ 不许静默换成别的牌。
             {
                 var preSel = PrebuiltDecks.PendingSource;
-                int selMode = preSel != null ? preSel.gameMode : info.GameMode;
+                // 🔴 **2026-10-21**：兜底那一支从 `info.GameMode`（按库下标取的）换成 `deck.GameMode`
+                //   —— 同一副牌的两处取法逐位相同（`PlayerDeck.GameMode` 就是 `DeckAt` 那一列），
+                //   但预组档只有 `deck` 这条能取到（`DeckIndex` = −1）。
+                int selMode = preSel != null ? preSel.gameMode : deck.GameMode;
                 if (ToggleModeOf(selMode) != SelectedGameMode)
                     Debug.LogWarning("[Practice] ⚠️ 选中的卡组是 "
                                      + (ToggleModeOf(selMode) == GameMode.Classic ? "Classic(0)" : "Skirmish(13)")
@@ -2050,15 +2243,17 @@ namespace CardPresentation
             //    （判据 → `资料/联机P2P_设计与交接.md` §六 N3）。没接管时照旧 —— 单机行为一字不改。
             {
                 var pre0 = PrebuiltDecks.PendingSource;
-                var pd = pre0 != null ? PrebuiltDecks.ToPlayerDeck(pre0) : CollectionData.Raw(DeckIndex);
+                // 🔴 **2026-10-21**：`pd` / 阵营的兜底支改成 `deck`（= `CurrentDeck`）——
+                //   预组档 `CollectionData.Raw(-1)` 是 null，原来那一支会把「一副空牌」交给联机层。
+                var pd = pre0 != null ? PrebuiltDecks.ToPlayerDeck(pre0) : deck;
                 // 🔴 **2026-10-15（A383）**：过网的模式从写死的 `"Classic"` 换成**本窗真正的模式号**
                 //    （`PlayModeNames.Name(PlayMode)` —— 练习窗自己 = `"OfflinePractice"`，
                 //    `Deck info ▸ Practice Deck` 那条 = `"OwnDeckTraining"`）。两端各自声明、
                 //    主机开局时比对（`NetMatchmaking.HostStartMatch` 那道闸）。
                 if (NetMatchmaking.TryStart(pd, PlayModeNames.Name(PlayMode),
-                                            pre0 != null ? pre0.faction : info.Faction, out string netWhy))
+                                            pre0 != null ? pre0.faction : FactionOf(deck.WarlordId), out string netWhy))
                 {
-                    Debug.Log($"[Practice] 这一局走**联机**（本机交了卡组「{info.Name}」）—— 不跑 12 秒 bot 链");
+                    Debug.Log($"[Practice] 这一局走**联机**（本机交了卡组「{pd.Name}」）—— 不跑 12 秒 bot 链");
                     // 🆕 2026-10-03：**对手由对面决定** ⇒ `Practice Deck` 那条链指的那一副作废
                     //    （原版那一支也是另一条路：`MatchMakerManager` 匹配到真人就轮不到 bot 的 `enemyDeck`）。
                     if (PendingOpponent != null)

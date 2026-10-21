@@ -42,6 +42,10 @@ Unity Addressables 2.x 的 `ContentCatalogData` 二进制格式（magic `0x0DE38
     catalog_errors.txt     解析过程中"认不出/越界"的地方（有才写）
 
 ⛔ 只读输入；⛔ 不联网；⛔ 不猜：认不出的字段一律写 None / '?' 并在 errors 里记一行。
+
+自检（🆕 2026-10-21，`A1787`）：加 `--check` ⇒ **一个字节都不写**，只比「盘上 `--out` 目录里的产物」
+与「现在这份脚本 + 同样的参数会写出来的内容」；退出码 0 = 逐字节一致，1 = 有差异 / 缺产物。
+（判据是**内容**，⛔ 不是 mtime —— 那条账最初就是被「脚本比产物新」这种 mtime 比较卡住的。）
 """
 import argparse
 import io
@@ -295,9 +299,20 @@ class Catalog(object):
 
 
 # -------------------------------------------------------------------- 输出工具
+# 🆕 2026-10-21（`A1787`）：`--check` 由 `main()` 置位 ⇒ `_w` 改成「只比不写」，
+#   差异收进 `_CHECK_BAD`，由 `main()` 汇总打印并以 1 退出。⛔ 只读输入、⛔ 不建目录。
+CHECK = False
+_CHECK_BAD = []
+
+
 def _w(path, text):
-    """确定性写盘：UTF-8 无 BOM、LF。"""
+    """确定性写盘：UTF-8 无 BOM、LF。`--check` 下只比对、不写。"""
     data = text.encode('utf-8').replace(b'\r\n', b'\n')
+    if CHECK:
+        got = io.open(path, 'rb').read() if os.path.exists(path) else None
+        if got != data:
+            _CHECK_BAD.append((path, -1 if got is None else len(got), len(data)))
+        return
     with io.open(path, 'wb') as f:
         f.write(data)
 
@@ -507,6 +522,7 @@ def decode_tail(cat, nbytes, refs=None):
 
 # -------------------------------------------------------------------- main
 def main(argv=None):
+    global CHECK
     ap = argparse.ArgumentParser(description='Addressables binary catalog parser (read-only)')
     ap.add_argument('catalog', help='catalog.bin / catalog_main.bin')
     ap.add_argument('--out', default=None, help='输出目录（默认 %s/<stem>/）' % DEFAULT_OUT_ROOT)
@@ -515,7 +531,11 @@ def main(argv=None):
     ap.add_argument('--cache', action='append', default=[],
                     help='CCD/Android 缓存目录（<bundleNameHash>/<contentHash>/__data 布局）')
     ap.add_argument('--tail', type=int, default=512, help='尾部解码字节数（默认 512）')
+    ap.add_argument('--check', action='store_true',
+                    help='🆕 A1787：只核对 --out 目录里的产物与现在会写出来的内容（⛔ 不写盘）')
     args = ap.parse_args(argv)
+    CHECK = bool(args.check)
+    del _CHECK_BAD[:]          # 同进程里被调用多次时别带上一轮的差异
 
     with io.open(args.catalog, 'rb') as f:
         data = f.read()
@@ -528,7 +548,7 @@ def main(argv=None):
 
     outdir = args.out or os.path.join(DEFAULT_OUT_ROOT,
                                       os.path.splitext(os.path.basename(args.catalog))[0])
-    if not os.path.isdir(outdir):
+    if not CHECK and not os.path.isdir(outdir):
         os.makedirs(outdir)
 
     h = cat.header
@@ -659,12 +679,27 @@ def main(argv=None):
     if cat.errors:
         _w(os.path.join(outdir, 'catalog_errors.txt'),
            '\n'.join(cat.errors) + '\n')
+    elif CHECK:
+        # 盘上留着一份「上一版有错」的 catalog_errors.txt，但现在一处错都没有 ⇒ 也算产物过期。
+        _stale_err = os.path.join(outdir, 'catalog_errors.txt')
+        if os.path.exists(_stale_err):
+            _CHECK_BAD.append((_stale_err, os.path.getsize(_stale_err), 0))
 
     # ---- stdout
     sys.stdout.write('\n'.join(s) + '\n')
     sys.stdout.write('output: %s\n' % outdir)
     if cat.errors:
         sys.stdout.write('errors: %d（见 catalog_errors.txt）\n' % len(cat.errors))
+    if CHECK:
+        if _CHECK_BAD:
+            sys.stdout.write('CHECK: 🔴 %d 个产物与现在会写出来的内容不一致（⛔ 一个字节都没写）\n'
+                             % len(_CHECK_BAD))
+            for p, got, want in _CHECK_BAD:
+                sys.stdout.write('  DIFF %s（盘上 %s B / 现在 %d B）\n'
+                                 % (p, '缺产物' if got < 0 else '%d' % got, want))
+            return 1
+        sys.stdout.write('CHECK: ✅ 产物与现在会写出来的内容逐字节一致（%s）\n' % outdir)
+        return 0
     return 0
 
 

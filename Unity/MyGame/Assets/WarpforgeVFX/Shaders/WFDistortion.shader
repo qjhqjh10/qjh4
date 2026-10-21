@@ -59,12 +59,14 @@ Shader "WarpforgeVFX/FX/Distortion"
 {
     Properties
     {
+        // 🔴 2026-10-21（T17）：两张图原版都是 `[NoScaleOffset]`（属性表里没有 `_DistortTex_ST` / `_Mask_ST`）
+        //    ⇒ 补上标号、并去掉 VS 里的 `TRANSFORM_TEX`（否则会去读一个原版不存在的 `_ST`）。
         _DistortionStrength("DistortionStrength", Float) = 1.0
-        _DistortTex("DistortTex", 2D) = "bump" {}
+        [NoScaleOffset] _DistortTex("DistortTex", 2D) = "bump" {}
 
         [Toggle(_SOFTPARTICLES)] _SOFTPARTICLES("SoftParticles", Float) = 0
         [Toggle(_USEMASK)] _USEMASK("UseMask", Float) = 0
-        _Mask("Mask", 2D) = "white" {}
+        [NoScaleOffset] _Mask("Mask", 2D) = "white" {}
         _Depth_And_Fallof("Depth And Fallof", Vector) = (1, 0.1, 0, 0)
 
         [Toggle(_ANIMUVS)] _ANIMUVS("AnimUVs", Float) = 0
@@ -101,7 +103,10 @@ Shader "WarpforgeVFX/FX/Distortion"
         }
 
         // ↓ 原版 pass0 的状态，硬编码（原版也没有可驱动的属性）
-        Blend SrcAlpha OneMinusSrcAlpha
+        // 🔴 2026-10-21（T17 · Ruri 反编译对拍）：原版 pass0 是单行四参数
+        //    `Blend SrcAlpha OneMinusSrcAlpha, One OneMinusSrcAlpha`（alpha 单独给 `One OneMinusSrcAlpha`）；
+        //    我们原来只写了前半截。判据 = `Everguild/FX/Particle Distortion Affect Transparents` 反编译体 pass0。
+        Blend SrcAlpha OneMinusSrcAlpha, One OneMinusSrcAlpha
         ZWrite Off
         ZTest LEqual
         Cull Back
@@ -179,7 +184,7 @@ Shader "WarpforgeVFX/FX/Distortion"
 
                 VertexPositionInputs p = GetVertexPositionInputs(IN.positionOS.xyz);
                 OUT.positionCS = p.positionCS;
-                OUT.uv         = TRANSFORM_TEX(IN.uv, _DistortTex);
+                OUT.uv         = IN.uv;   // 原版两张图都是 NoScaleOffset ⇒ 不做 TRANSFORM_TEX（2026-10-21 T17）
                 OUT.color      = IN.color;
                 OUT.eyeDepth   = p.positionWS.z;
                 return OUT;
@@ -187,10 +192,17 @@ Shader "WarpforgeVFX/FX/Distortion"
 
             half4 frag(Varyings IN) : SV_Target
             {
+                // 🔴 2026-10-21（T17 · Ruri 反编译对拍）：`_ANIMUVS` 这一支原来是「把 uv 改掉、然后**主图和遮罩一起用**」。
+                //    原版反编译体（`Everguild/FX/Particle Distortion Affect Transparents`，
+                //    `…/Sub0_Pass0_Vertex_b4.hlsl:92-95` + `Sub0_Pass0_Fragment_b17.hlsl:52,65`）实际是：
+                //      · 动的**只有 `_DistortTex` 那条 UV**：`INTERP_2/3.w = uv0.xy · _UVScale.xy + **frac**(t · _UVSpeed.xy)`
+                //        （**偏移量取 `frac`**、uv 本身不 `frac`）；
+                //      · `_Mask` 采的是 **`INTERP.xy` = 原始 uv0**，**不跟着动**。
+                //    ⇒ 我们要改的两处：① 补 `frac()`；② 遮罩用回原始 `IN.uv`。
                 float2 uv = IN.uv;
 
                 #ifdef _ANIMUVS
-                    uv = uv * _UVScale.xy + _UVSpeed.xy * _Time.y;
+                    uv = uv * _UVScale.xy + frac(_UVSpeed.xy * _Time.y);
                 #endif
 
                 // 🔴🔴 **2026-10-02：整段算式照【反编译 DXBC】重写。**
@@ -214,8 +226,12 @@ Shader "WarpforgeVFX/FX/Distortion"
                 //      ③ alpha 取自 `_DistortTex.a`（原版取自 `grab.a`）· `_Mask` 取 `.r`（原版取 `.a`）
                 //      ④ 软粒子：原版是 `pow(saturate(d/_Depth_And_Fallof.x), .y)` 且**缩放偏移**；
                 //         我们写成 `saturate(d/_Depth_And_Fallof.y)` 且**衰减 alpha**
-                //    ⚠️ **仍不确定的一处**：`cb1[2]` 我按「就是 `_Depth_And_Fallof`」映射
-                //      （属性表里唯一与衰减有关的那个）。**软粒子档手感不对时先回来核这一条。**
+                //    ✅ **2026-10-21（T17）上面那条「`cb1[2]` 是不是 `_Depth_And_Fallof`」已坐实** —— 判据是原版反编译体
+                //    的 cbuffer 符号（`…/Sub0_Pass0_Fragment_b19.hlsl:37`）：
+                //      `cbuffer type_UnityPerMaterial : register(b1) { float _DistortionStrength : packoffset(c0); …
+                //        float2 _Depth_And_Fallof : packoffset(c2); }` ⇒ **就是 `cb1[2]`**，且软粒子公式逐字为
+                //      `f = clamp((sceneEyeZ − fragEyeZ) / _Depth_And_Fallof.x, 0, 1)`、`strength = pow(f, _Depth_And_Fallof.y) * vcol.a`
+                //      （= `exp2(log2(clamp)·y)`）—— 与我们的一致。
 
                 half4 d = SAMPLE_TEXTURE2D(_DistortTex, sampler_DistortTex, uv);
                 float2 offset = (d.rg * 2.0 - 1.0) * _DistortionStrength;
@@ -247,7 +263,8 @@ Shader "WarpforgeVFX/FX/Distortion"
                 half4 outc = scene * IN.color;
 
                 #ifdef _USEMASK
-                    outc.a *= SAMPLE_TEXTURE2D(_Mask, sampler_Mask, uv).a;    // 原版取 alpha
+                    // 原版取**原始 uv0**（`INTERP.xy`，不受 `_ANIMUVS` 影响）、取 `.w`（alpha）
+                    outc.a *= SAMPLE_TEXTURE2D(_Mask, sampler_Mask, IN.uv).a;
                 #endif
 
                 return outc;

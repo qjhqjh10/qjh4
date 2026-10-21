@@ -145,8 +145,11 @@ Shader "WarpforgeVFX/UnlitAmbient"
         [Toggle(_RECEIVESHADOWS)] _RECEIVESHADOWS("ReceiveShadows", Float) = 0
         _FogContribution("FogContribution", Range(0, 1)) = 1
 
-        [Toggle(_APPLYAMBIENTCOLOR)] _APPLYAMBIENTCOLOR("ApplyAmbientColor", Float) = 0
-        _ExtraAmbientColor("ExtraAmbientColor", Color) = (1,1,1,1)
+        // 🔴 2026-10-21（T17 · 默认值照原版反编译体）：三份原版（`UnlitAmbient` / `…Emissive Flickker` / `Unlit Wind`）
+        //    `_APPLYAMBIENTCOLOR` 默认**都是 1**，我们原来写 0 ⇒ 缺该属性的材质会**丢掉环境色那一层**；
+        //    `_ExtraAmbientColor` 默认是 `(1,1,1,**0**)`（原来 a=1）；`_DstBlendAlpha` 默认 0（原来 1）。
+        [Toggle(_APPLYAMBIENTCOLOR)] _APPLYAMBIENTCOLOR("ApplyAmbientColor", Float) = 1
+        _ExtraAmbientColor("ExtraAmbientColor", Color) = (1,1,1,0)
         _SampleTexture2D_56151bd863ba4ebfae5e17e92f13cf49_Texture_1_Texture2D("Texture2D", 2D) = "white" {}
         [HideInInspector] _CastShadows("_CastShadows", Float) = 0
 
@@ -156,7 +159,7 @@ Shader "WarpforgeVFX/UnlitAmbient"
         _SrcBlend("__src", Float) = 1
         _DstBlend("__dst", Float) = 0
         _SrcBlendAlpha("__srcA", Float) = 1
-        _DstBlendAlpha("__dstA", Float) = 1
+        _DstBlendAlpha("__dstA", Float) = 0
         _ZWrite("__zw", Float) = 1
         _ZWriteControl("__zwc", Float) = 0
         _ZTest("__zt", Float) = 4
@@ -179,8 +182,12 @@ Shader "WarpforgeVFX/UnlitAmbient"
             "UniversalMaterialType" = "Unlit"
         }
 
-        Blend [_SrcBlend] [_DstBlend]
-        Blend [_SrcBlendAlpha] [_DstBlendAlpha]
+        // 🔴 2026-10-21（T17 · Ruri 反编译对拍）：原来这里是**两行** `Blend`（色一行、alpha 一行）。
+        //    原版 pass0 是**单行四参数**：`Blend [_SrcBlend] [_DstBlend], [_SrcBlendAlpha] [_DstBlendAlpha]`
+        //    （判据 = `Everguild/UnlitAmbient` / `…Emissive Flickker` / `Unlit Wind` 三份反编译体的 pass0，逐字相同）。
+        //    ShaderLab 的 `Blend` 是**整条状态**、后写的盖掉前面的 ⇒ 两行写法下色的因子会被 alpha 那组覆盖
+        //    （`_SrcBlendAlpha`=1 / `_DstBlendAlpha`=0 ⇒ `Blend One Zero` = 不透明写）。
+        Blend [_SrcBlend] [_DstBlend], [_SrcBlendAlpha] [_DstBlendAlpha]
         ZWrite [_ZWrite]
         ZTest [_ZTest]
         Cull [_Cull]
