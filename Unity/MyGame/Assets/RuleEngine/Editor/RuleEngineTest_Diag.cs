@@ -82,7 +82,7 @@ public static partial class RuleEngineTest
         "TestS23AssertA1413PayGroup", "TestS23ResolveDeployCopyOfThisTroop", "TestS23ResolveInsteadOnAbilityLayer", "TestS23ResolveInsteadConditionalNotPairedOnAbilityLayer", "TestS23ResolveLandingCancelsAttack", "TestS23ResolveA1426GiveToDyingOnBoard",
         "TestS23ResolveArmourTwoRepresentations", "TestS23ResolveA1692DeployFreeNoOverwrite", "TestS23ResolveA1690WhenBodyAdjacentAnchor", "TestS23ResolveA1312KeepStatusTurnState", "TestW59PlayOrderSameSideDeploy", "TestW59PlayOrderCrossPlayer",
         "TestW59PlayOrderTurnStartEnd", "TestW59PlayOrderReentry", "TestW59PlayOrderInvariant", "TestW59PlayOrderOnSide", "TestW61ActionQueue", "TestT02OrConditionTargetDiesOrFriendly",
-        "TestT02SacrificeBodyLandsOnSelf", "TestT02PlacementNoOverwriteFamily",
+        "TestT02SacrificeBodyLandsOnSelf", "TestT02PlacementNoOverwriteFamily", "TestW61bSpentAllMana", "TestW61bSpendInsufficientDrainsToZero", "TestW61bInitialModifiers", "TestW61bSkipCardDrawProducer",
     };
 
     // 本次诊断真正跑过的用例（顺序同 `RunCaseNames`）—— 只给对账用
@@ -505,6 +505,10 @@ public static partial class RuleEngineTest
         Safe("TestT02OrConditionTargetDiesOrFriendly", () => TestT02OrConditionTargetDiesOrFriendly());
         Safe("TestT02SacrificeBodyLandsOnSelf", () => TestT02SacrificeBodyLandsOnSelf());
         Safe("TestT02PlacementNoOverwriteFamily", () => TestT02PlacementNoOverwriteFamily());
+        Safe("TestW61bSpentAllMana", () => TestW61bSpentAllMana());
+        Safe("TestW61bSpendInsufficientDrainsToZero", () => TestW61bSpendInsufficientDrainsToZero());
+        Safe("TestW61bInitialModifiers", () => TestW61bInitialModifiers());
+        Safe("TestW61bSkipCardDrawProducer", () => TestW61bSkipCardDrawProducer());
 
         VerifyDiagCoverage();
 

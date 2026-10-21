@@ -809,15 +809,12 @@ public static class DeckScene
             DeckEditorState state;
             try
             {
+                // 🔴 **2026-10-22（`W62`）**：这一拍 `Build` 的前提是**库空、存档不存在** ——
+                //   那正是本节要验的**新不变式**（原版 `SelectDecksTab__CreateDeck.c:17,26,28` =
+                //   `CardDeck.GetEmptyDeck()` → 打模式 → 直接开 `DeckEditingWindow`，**全链无入库调用**）。
+                //   ⛔ 别在这之前预建卡组：预建了，「空库时不写盘」那几条就没有鉴别力了。
+                //   夹具在 `TestLibraryWiring()`（断空库那一拍）**之后**才建，见 `TestLibraryAfterDone()`。
                 state = Build(DeckLibrary.Load(), out _root);
-                // 🆕 **2026-10-20**：**开局那一套的坐标** —— 收尾复位要用（见本 `try` 末了那一节）。
-                //   必须在这里取：**再往下就会被自检改掉** —— `UiCommitName("自检·改的名")` 那一节
-                //   真改名并落盘 ⇒ 等到收尾再想读「原来叫什么 / 原来是第几套」已经读不到了。
-                //   🔴 **2026-10-17（T23 删件）**：原来这里还举了「两处 `UiTryImport()` 往库里加副本」——
-                //   导入弹窗删了，那两条路没有了；这条复位仍然需要（改名那一条还在）。
-                string origDeckName = state.Deck != null ? state.Deck.Name : null;
-                int origLibIndex = _rt.Library.CurrentIndex;
-                int origLibCount = _rt.Library.Count;
                 // 🔴 2026-09-20：**根上必须挂着 `DeckRuntime`** —— 场景存盘后按 Play 就是靠它的
                 //    `Start()` 建界面；忘了挂组件 = Play 出来一片黑，而这条断言能挡住。
                 //    （铁律 10 第 5 条：`Build` 直调与 Play 的 `Start()` 是两个入口，**各配一条断言**。）
@@ -827,11 +824,28 @@ public static class DeckScene
                 // 🆕 2026-10-17（`A1212` 块 1）：15 处「实参 = 原版四格」的断言（必须在 `TestLayout` 之后 ——
                 //   `_root` 是 `Build` 出来的那棵树；本组只读，不建任何东西）。
                 TestA1212();
+                // ★ **2026-10-22（`W62`）顺序有讲究**：`TestLibraryWiring()` 断的是「**空库那一拍**」
+                //   ⇒ **必须赶在夹具建库之前**；`TestLibraryAfterDone()` 则负责显式建夹具那套并落盘
+                //   （走生产那条 `Done` → `Library.Insert` 的路，= 原版 `UploadUnsyncedDeck`）。
+                //   ⛔ 别把这两次调用对调，也别让生产代码替夹具建库。
+                TestLibraryWiring();
+                TestLibraryAfterDone();
+                // 🆕 **2026-10-20**：**开局那一套的坐标** —— 收尾复位要用（见本 `try` 末了那一节）。
+                //   必须在这里取：**再往下就会被自检改掉** —— `UiCommitName("自检·改的名")` 那一节
+                //   真改名并落盘 ⇒ 等到收尾再想读「原来叫什么 / 原来是第几套」已经读不到了。
+                //   🔴 **2026-10-17（T23 删件）**：原来这里还举了「两处 `UiTryImport()` 往库里加副本」——
+                //   导入弹窗删了，那两条路没有了；这条复位仍然需要（改名那一条还在）。
+                //   🔴 **2026-10-22（`W62`）挪位**：这三行原来紧跟 `Build` —— 现在必须挪到
+                //   `TestLibraryAfterDone()` **之后**：空库那一拍库里是 0 套，开局那套是**夹具**建的。
+                string origDeckName = state.Deck != null ? state.Deck.Name : null;
+                int origLibIndex = _rt.Library.CurrentIndex;
+                int origLibCount = _rt.Library.Count;
                 // 🔴 **2026-10-17（N16 撤回，铁律 5）**：原版 `RankedEventWindow ◂ Deck info` 那棵树属于
                 //   **V1 旧窗**；本窗实现的是**现役 V2**（V2 prefab 没有 `deckInfo` 字段），而且原版事件类
                 //   只有 `RankedV2Event` / `RankedV3Event`（无 V1 事件）⇒ 往 V2 里加那块会盖住三栏、且是死件。
                 //   ⇒ 已撤回；判据与结论 → `资料/普查产出_1017/UI/U3_弹窗与小界面族.md` + 界面线总表 N16 行。
-                TestLibraryWiring();
+                // 🔴 **2026-10-22（`W62`）**：这里原来的 `TestLibraryWiring();` 已上移（见上面那一段）——
+                //   它断言的是**空库那一拍**，必须赶在 `TestLibraryAfterDone()` 建夹具之前跑。
                 // 🆕 2026-10-17：**拖拽那两条链**（卡背预览 / 松手投递 /「拖 vs 滚动」阈值）
                 //    —— 必须在 `TestLayout` 之后（它才把 `_rt` 建出来）
                 Section("拖拽：卡背预览 / 松手投递 / 「拖 vs 滚动」");
@@ -1214,6 +1228,10 @@ public static class DeckScene
                     "Card_Rarity/Rare", "Card_Rarity/Special",
                     "MainMenu/General/Confirm", "MainMenu/MainButtons/ButtonLabel/Back",
                     "MenuCollection/NoCardsFound",
+                    // 🔴 **2026-10-22（`W62`）如实注**：`MenuDeck/DefaultDeckName`（「我的卡组」）是**原版键，
+                    //   但今天没有生产消费点** —— 它唯一的消费点（`DeckRuntime.Build` 空库时
+                    //   `Library.Create(Loc.T(它))` 给那套起名）已随 W62 删掉（原版那一拍根本不入库）。
+                    //   ⛔ 词条与本条断言都**留着**：A1025 钉的是「表里有这条键」，不是「有人在用」。
                     "MenuDeck/DefaultDeckName", "MenuDeck/DemoDeckName",
                     "MenuDeck/Error/ImportBadString", "MenuDeck/Error/ImportEmpty",
                     "MenuDeck/Error/ImportNotPersisted", "MenuDeck/Error/InvalidDeck",
@@ -2495,27 +2513,102 @@ public static class DeckScene
                       "……而且那张不合法牌**还在源卡组里**（摘的确实是副本，不是库/存档那份）");
         }
 
-        /// <summary>卡组库接进场景之后，这几件事必须成立。</summary>
+        /// <summary>卡组库接进场景之后，这几件事必须成立。
+        ///
+        /// <para>🔴 **2026-10-22（`W62`）口径改了**：空库时 `Build` **不再**替玩家建一套并落盘。
+        /// 判据（原版）= `SelectDecksTab__CreateDeck.c:17`（`CardDeck.GetEmptyDeck()`）→ `:26`（打模式）→
+        /// `:28`（`WindowsManager.OpenWindow&lt;DeckEditingWindow&gt;`）—— **全链没有一个入库调用**；
+        /// 入库唯一路径 = `DeckEditingWindow__TrySaveDeck.c:100 UploadDeck`（先 `:80 ValidateDeck`，
+        /// 不合法 `:81-98` 弹窗后 `return`）。⇒ 原来那三条（「空库时会建一套 / 有选中 / 建出来的不是空的」）
+        /// 断的是**我们自己的旧副作用**，已按铁律 5 换成**新不变式**：
+        /// 库仍然 0 套 · 没有选中 · **存档一个字节都没写** · 编辑器里**有东西可编辑**（演示牌只是内存载体）。
+        /// ⚠️ 本方法**只在空库那一拍调用一次**（必须赶在夹具建库之前 —— 见 `RunCore` 的调用点）。</para>
+        /// 🧨 改坏法：`DeckRuntime.Build` 里加回 `Library.Create` + `CommitCurrent` ⇒ 前三条红。</summary>
         static void TestLibraryWiring()
         {
             var lib = DeckLibrary.Load();
-            CheckTrue(lib.Count >= 1, $"空库时场景会替玩家建一套（现在 {lib.Count} 套）");
-            CheckTrue(lib.Current != null, "有选中的卡组");
-            CheckTrue(lib.Current.CardIds.Count > 0 || lib.Current.WarlordId != null,
-                      "建出来的演示卡组不是空的");
+            Check(lib.Count, 0, $"★ W62：空库时**库里仍然是 0 套**（实际 {lib.Count} 套）"
+                + "｜🧨 改坏法：`DeckRuntime.Build` 里加回「空库 `Library.Create` + `CommitCurrent`」⇒ 这条红");
+            CheckTrue(lib.Current == null,
+                      "★ W62：……也**没有「选中的卡组」**（空库 = 没有当前那套；原版这时走的是「新建卡组」）");
+            CheckTrue(!File.Exists(RuleEngine.DeckStore.Path),
+                      "★ W62：……而且**一个字节都没写存档**（`WarpforgeDecks.json` 不存在）"
+                    + " —— 改前它一开编辑器就被静默写出来（Birth=00:09:26 那次实测）");
+            Check(_rt.Library.Count, 0, "★ W62：……运行期那一刻的库也是 0 套（`_rt.Library` 与盘上一致）");
+            CheckTrue(_rt.Library.Current == null, "★ W62：……`_rt.Library.Current` 也是 null（没有选中项）");
+            // ★ 另一半（**缺了它，「不写盘」可以靠「干脆什么都不建」蒙过去**）：
+            //   编辑器里仍然有东西可编辑 —— 演示牌只当**未入库**的内存载体。
+            var d = _rt.State.Deck;
+            CheckTrue(d != null && (d.CardIds.Count > 0 || !string.IsNullOrEmpty(d.WarlordId)),
+                      "★ W62：……但编辑器里**有东西可编辑**（演示牌只当**尚未入库**的内存载体："
+                    + (d == null ? "`State.Deck = null`"
+                                 : $"{d.CardIds.Count} 张 / 督军 {d.WarlordId ?? "<无>"}") + "）");
+            CheckTrue(d == null || !ReferenceEquals(d, _rt.Library.Current),
+                      "★ W62：……而且那份载体**不是库里那个对象**（`State.Deck` 是 `LoadDeck` 装出来的副本；"
+                    + "库空时 `Library.Current` 是 null）—— 否则任何库级 `Save()` 都会把它顺手写盘（A397 那条不变式）");
+            // ⚠️ 断**满编**、不断「`DeckCount == Deck.CardIds.Count`」—— 那是同一个表达式的同义反复
+            //   （`DeckEditorState.DeckCount` 就是 `Deck.CardIds.Count`），零鉴别力。
+            Check(_rt.State.DeckCount, DeckRules.ClassicCards,
+                  $"★ W62：……而且是**合法满编**那一副（{_rt.State.DeckCount}/{DeckRules.ClassicCards} 张，"
+                + "不是一副空壳；空壳的话下面按 `Done` 会被 `ValidateDeck` 挡住，整条夹具链就断了）");
+        }
 
-            var before = lib.Current.Name;
+        /// <summary>🔴 **2026-10-22（`W62`）**：验「**打开编辑器不写盘 · 按 `Done` 才入库落盘**」，
+        /// 并**由它把夹具那套造出来 + 落盘**（从这一拍往下各节的前提：库里有一套）。
+        ///
+        /// <para>判据（原版）：打开 = `SelectDecksTab__CreateDeck.c:17,26,28`（**无入库调用**）；
+        /// 入库 = `DeckEditingWindow__TrySaveDeck.c:80 ValidateDeck` → `:100 UploadDeck` →
+        /// `DeckEditingWindow__UploadDeck.c:63 CardDeck.CopyDeck` + `:74 UploadUnsyncedDeck`。</para>
+        ///
+        /// <para>🧨 **灭自证**：「打开不写」与「`Done` 才写」这两条**必须成对** ——
+        /// 只留后者 ⇒ 一个「打开就写」的实现照样绿；只留前者 ⇒ 一个「永远不写」的实现照样绿。</para></summary>
+        static void TestLibraryAfterDone()
+        {
+            var path = RuleEngine.DeckStore.Path;
+            CheckTrue(!File.Exists(path), "（前提）此刻存档仍不存在（`DeleteFile()` 之后一个字节都没写）");
+            Check(_rt.Library.Count, 0, "（前提）此刻库里 0 套（空库那一拍）");
+            Check(_rt.State.Validate(), DeckError.None,
+                  "（前提）开场那副演示牌**合法** ⇒ 下面按 `Done` 会放行（原版 `__TrySaveDeck.c:80` 那道闸）");
+
+            // ---- ① 按 `Done`（= 原版 `TrySaveDeck` 成功支）⇒ **这时才**入库 + 落盘 ----
+            _rt.UiPressDone();
+            Check(_rt.Library.Count, 1,
+                  "★ W62：按 `Done` ⇒ **这时才**入库（`Library.Insert` = 原版 `UploadUnsyncedDeck`）");
+            CheckTrue(File.Exists(path), "★ W62：……而且**这时才**出现 `WarpforgeDecks.json`");
+            var disk = DeckLibrary.Load();
+            Check(disk.Count, 1, "★ ……重读存档：库里恰好那 1 套（落盘往返）");
+            Check(disk.Current != null ? disk.Current.Name : "(null)",
+                  _rt.State.Deck != null ? _rt.State.Deck.Name : "(null)",
+                  "★ ……盘上那套就是刚按 `Done` 存下去的这一副（名字一致）");
+
+            // ---- ② 库里有卡组时，**再开一次编辑器也不写盘**（存档 mtime 一字未变）----
+            DateTime mtime0 = File.GetLastWriteTimeUtc(path);
+            var rgo = new GameObject("W62ReopenSmoke");
+            var rrt = rgo.AddComponent<DeckRuntime>();
+            rrt.Build(DeckLibrary.Load());
+            CheckTrue(rrt.State != null && rrt.State.Deck != null, "（前提）重开也装进了那套（不是空的）");
+            Check(File.GetLastWriteTimeUtc(path), mtime0,
+                  "★ W62：**再开一次编辑器不写盘**（存档 mtime 一字未变）"
+                + "｜🧨 让 `Build` 顺手 `Save()`（或重新建库）⇒ 这条红");
+            Check(DeckLibrary.Load().Count, 1, "★ ……而且库也没多没少");
+            UnityEngine.Object.DestroyImmediate(rgo);
+
+            // ---- ③ 落盘往返（原来这一段是以「生产替你建的那套」为前提，现挪到**夹具这套**上）----
+            var lib = _rt.Library;
             int n0 = lib.Count;
+            string fixtureName = lib.Current != null ? lib.Current.Name : null;
+            CheckTrue(!string.IsNullOrEmpty(fixtureName), "（前提）夹具那套有名字");
             lib.Create("第二套");
             Check(lib.Count, n0 + 1, "新建一套后库里多了一条");
             var lib2 = DeckLibrary.Load();
             Check(lib2.Count, n0 + 1, "**新建立刻落盘**（重新载入还在）");
-            Check(lib2.Current.Name, "第二套", "选中项也落盘了");
-
-            lib2.Select(0);
-            lib2.Delete(0);
+            Check(lib2.Current != null ? lib2.Current.Name : "(null)", "第二套", "选中项也落盘了");
+            // 删回夹具那套 —— ⚠️ 用 `_rt.Library` **自己**删（内存与盘一起回）；
+            //   ⛔ 别拿 `lib2` 删：那只改盘，`_rt.Library` 会与盘长期不一致，后面各节全遭殃。
+            lib.Delete(lib.Count - 1);
             Check(DeckLibrary.Load().Count, n0, "删除也落盘了");
-            CheckTrue(!string.IsNullOrEmpty(before), "（原卡组名非空，便于下面对账）");
+            Check(_rt.Library.Current != null ? _rt.Library.Current.Name : "(null)", fixtureName,
+                  "★ ……而且库里当前又回到夹具那套（后续各节的前提）");
         }
 
         static DeckRuntime _rt;

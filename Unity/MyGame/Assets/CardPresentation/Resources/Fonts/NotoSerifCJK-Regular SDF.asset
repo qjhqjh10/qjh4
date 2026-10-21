@@ -131,7 +131,7 @@ MonoBehaviour:
     m_FamilyName: Noto Serif CJK SC
     m_StyleName: Regular
     m_PointSize: 50
-    m_Scale: 1
+    m_Scale: 0.9
     m_UnitsPerEM: 1000
     m_LineHeight: 71.85
     m_AscentLine: 57.55

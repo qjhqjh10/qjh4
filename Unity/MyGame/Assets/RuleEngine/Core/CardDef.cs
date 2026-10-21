@@ -178,6 +178,102 @@ namespace RuleEngine
         /// ⇒ 我们池子里这 56 位督军**全是 20**，比先攻值那一段**永远平局**（详见 `FirstSeatRules`）。</para></summary>
         public int Initiative { get; }
 
+        // ==================================================================
+        //  🆕 2026-10-21（引擎线 `T03·b` · 回合流程残余）：**开局加成三列**
+        //  （原版 `RawCardScript` 上那三个 `initial*Modifier`，只有督军会写）
+        // ==================================================================
+        //  判据（全量反编译，逐句）：
+        //   · **起手张数** —— `PlayerHand._AddCardsToMulligan_d__41__MoveNext.c:35-76`：
+        //       `count = ScenarioVariables.startingHand(+0x1C) + 督军 initialHandModifier(+0x118)
+        //                + （这一手不是玩家那侧 ? secondExtraCards(+0x20) : 0）`，
+        //       第三个实参非 0 时**整个覆盖**（教程关卡的指定起手）。
+        //       ⚠️ 那段代码把「负修正」拆成 `base += mod` 两支写、正修正拆成 `handMod = mod` 两支写，
+        //          **两种情况下总数都是 `startingHand + mod`** —— 所以这里落成一个整数项即可。
+        //   · **初始法力** —— `BattleManager__SetupInitialMana.c:20-46`：
+        //       `ResetMana(模式基数(startingMana/Second) + 督军 initialManaModifier(+0x11C) + 教程关卡增量,
+        //                  initialPlasma(+0x124), initialPsychic(+0x120), initialSpiritStone(+0x128))`。
+        //       ⚠️ `initialPlasma/initialPsychic` **不建模** —— 原版那两个货币在这个 build 是死功能
+        //          （`UsesPsychicEnergy()` 恒 false、`ProcessManaBuff` 不读那两个 flag，
+        //          判据 → `普查产出_1020/W58_回合流程_三处未定判据.md` §二），
+        //          1351 张也全 0 ⇒ 建模没有可观察语义。
+        //   · **初始灵魂石** —— 同一个 `ResetMana` 的第 4 个实参（`+0x128`）。灵魂石是**活的**货币
+        //      （`ManaType.SpiritStone = 5`），所以这一列**要**建模。
+        //
+        //  🔴 **今天这三个值在 1351 张里全是 0**（2026-10-21 现读 `cards_raw.json` 的 `full_raw`）
+        //     ⇒ **休眠机制**；照铁律 11 建完（卡池数值只决定先后，不决定做不做）。
+        //     ⚠️ 生成器**只在非 0 时才落列** ⇒ 卡表字节不变（`--check` 仍一致），别以为「没落列 = 没做」。
+        //  ⚠️ 缺列/缺值口径 = **0**（`initial*Modifier` 的 0 是**合法取值**「不加不减」，
+        //     与 `inventoryOptions` / `initiative` 那两列的 `-1` 哨兵不同口径 —— ⛔ 别混用）。
+
+        /// <summary>原版 `RawCardScript.initialHandModifier // +0x118`：**起手张数的修正**
+        /// （负值 = 少摸）。消费点**只有一处** = `RuleCore.NewBattle`（⛔ 别在别处再算一遍起手张数）。</summary>
+        public int InitialHandModifier { get; }
+
+        /// <summary>原版 `RawCardScript.initialManaModifier // +0x11C`：**初始法力上限的修正**。
+        /// 我们这边能量是**每回合重算**的 ⇒ 落成 `MaxEnergy` 的一个**常量加项**
+        /// （与原版「`totalMana` 一次性抬高、之后逐回合累加」等价 —— 见 `RuleCore.BeginTurn` 的注释）。
+        /// 消费点**只有一处** = `RuleCore.BeginTurn` 那句 `MaxEnergy` 式子。</summary>
+        public int InitialManaModifier { get; }
+
+        /// <summary>原版 `RawCardScript.initialSpiritStoneModifier // +0x128`：**开局灵魂石**。
+        /// 消费点**只有一处** = `RuleCore.NewBattle`（开局一次性加进 `PlayerState.SpiritStones`）。</summary>
+        public int InitialSpiritStoneModifier { get; }
+
+        // ==================================================================
+        //  🆕 2026-10-21（引擎线 `T03·b`）：**`skipCardDraw` 手牌效果的数据生产者**
+        // ==================================================================
+        /// <summary>
+        /// 原版 `HandEffect` 里 `cardEffect.buffType == BuffType.skipCardDraw(7)` 的那一族
+        /// —— **「本回合不抽牌」**（`dump.cs:45441`）。
+        ///
+        /// 链路（全量反编译，逐句）：
+        ///   · **谁写** = `AbilityLogic__PlayAbility.c:1377-1414`：`abilityLogic` 的逻辑类型 = `0x32`(50)
+        ///     时，把 `AbilityLogic.handBuff(+0x60)` 复制一份（`HandEffect.GetNewInstanceOfThisEffect`）、
+        ///     盖上 `isPlayer` 与 `+0xA8 = 1`，然后 `BattleManager__AddHandEffect(...)`（动作 `0x19`）。
+        ///   · **落到哪** = `PlayerHand__AddHandEffect.c:88-139`：**两处**——① 这份记录进
+        ///     `PlayerHand.activeEffects(+0x48)`（= 我们的 `PlayerState.HandEffectRecords`）；
+        ///     ② 同时按 `HandEffect.targetCriteria` 逐张贴到**手牌里符合条件的那几张**上。
+        ///   · **谁读** = `PlayerHand__CanDrawTurnStartCard.c:56-99`：扫 `+0x48` 找
+        ///     `cardEffect.buffType == 7` 的**最后一条** ⇒ 不抽牌；`HandEffect.limitedUses(+0x28)`
+        ///     真则 `numberOfUses(+0x2C)--`，扣到 <1 `PlayerHand.RemoveHandEffectAt` 整条摘。
+        ///
+        /// 🔴 **今天 1,351 张卡里 `handBuff` 的 `buffType` 取值只有 0 / 2 / 3**（现读），
+        ///    **没有一张是 7** ⇒ **休眠机制**（照铁律 11 建完）。
+        /// ⚠️ 数据形状 = `[{"keyword": …, "uses": …, "limited": …}]`：
+        ///    原版的 `trigger`（`AbilityTrigger` 数值）在生成器里翻成**引擎触发关键词**，
+        ///    对不上的**不落并出声**（⛔ 不编造键名）。消费点 =
+        ///    `RuleCore.FireTriggerDeferred`（触发正文结算前挂这条效果）。
+        /// ⚠️ 与 <see cref="TriggerOps"/> 是**两条独立的数据流**：一条给「正文 op」、
+        ///    一条给「手牌效果」。同一次触发可以两条都有（原版就是两条 ability）。
+        /// </summary>
+        public IReadOnlyList<SkipDrawSpec> SkipDraws { get { return _skipDraws; } }
+
+        /// <summary>**一次 `skipCardDraw` 手牌效果**（原版 `HandEffect` 上那三格的可观察部分）。</summary>
+        public sealed class SkipDrawSpec
+        {
+            /// <summary>引擎触发关键词（`KeywordTable.*`）—— 这条效果跟着**哪一次触发**挂上去。</summary>
+            public string Keyword;
+            /// <summary>原版 `HandEffect.numberOfUses // +0x2C`：能顶掉几次回合开始抽牌。</summary>
+            public int Uses = 1;
+            /// <summary>原版 `HandEffect.limitedUses // +0x28`：`false` = **不限次**（永远不摘）。</summary>
+            public bool Limited = true;
+            /// <summary>原文（日志用）。</summary>
+            public string Source;
+        }
+
+        readonly List<SkipDrawSpec> _skipDraws = new List<SkipDrawSpec>();
+
+        /// <summary>这一次触发（<paramref name="keyword"/>）有没有挂 `skipCardDraw` 的规格；
+        /// 没有返回 `null`。⚠️ 同一次触发多条时取**第一条**（原版 `RemoveHandEffectAt` 只看最后一条
+        /// 命中的**记录**；一条触发对应一条 ability，今天 0 张卡，未见过多条的实例）。</summary>
+        public SkipDrawSpec SkipDrawFor(string keyword)
+        {
+            if (string.IsNullOrEmpty(keyword)) return null;
+            for (int i = 0; i < _skipDraws.Count; i++)
+                if (_skipDraws[i] != null && _skipDraws[i].Keyword == keyword) return _skipDraws[i];
+            return null;
+        }
+
         /// <summary>
         /// 🆕 **2026-10-15（接线批）**：卡池 v9 的 **`armour` 数值列**原值（`>0` = 卡底那枚银盾里的数字，
         /// `0` = 没有银盾）。
@@ -491,7 +587,10 @@ namespace RuleEngine
                        int choicesTargetsAffected = -1, int choicesMaxTargets = -1,
                        IEnumerable<string> choicesSpecificCardIds = null,
                        IEnumerable<CardAnimTime> animTimes = null,
-                       IEnumerable<KeyValuePair<string, int>> triggerPriority = null)
+                       IEnumerable<KeyValuePair<string, int>> triggerPriority = null,
+                       int initialHandModifier = 0, int initialManaModifier = 0,
+                       int initialSpiritStoneModifier = 0,
+                       IEnumerable<SkipDrawSpec> skipDraws = null)
         {
             Id = id; Name = name; Type = type ?? ""; Desc = desc ?? ""; Rarity = rarity; Faction = faction;
             NameZh = nameZh ?? ""; DescZh = descZh ?? "";
@@ -501,6 +600,17 @@ namespace RuleEngine
             ShowInCollectionOptions = showInCollectionOptions;
             // 🆕 2026-10-14（`A1775`）：先攻值同一条规矩 —— **原样收下、缺了就是 -1**。
             Initiative = initiative;
+            // 🆕 2026-10-21（引擎线 `T03·b`）：开局加成三列 —— **原样收下、缺省 0**
+            //   （`initial*Modifier` 的 0 是**合法取值**「不加不减」，不是缺值哨兵；
+            //     判据与「今天全 0」那一格 → <see cref="InitialHandModifier"/> 的 doc）。
+            InitialHandModifier = initialHandModifier;
+            InitialManaModifier = initialManaModifier;
+            InitialSpiritStoneModifier = initialSpiritStoneModifier;
+            // 🆕 2026-10-21（引擎线 `T03·b`）：**`skipCardDraw` 手牌效果**的数据生产者
+            //   （原版 `abilityLogic.handBuff.cardEffect.buffType == 7`，判据 → <see cref="SkipDraws"/>）。
+            if (skipDraws != null)
+                foreach (var _sd in skipDraws)
+                    if (_sd != null && !string.IsNullOrEmpty(_sd.Keyword)) _skipDraws.Add(_sd);
             // 🆕 2026-10-19（`A1959`/`A1960`）：原版 `choicesDefinition` 三列 —— 同样**原样收下、缺了就是 -1**。
             //    ⚠️ 这里**只落值**；「该不该发 `choosecard`」的判据在 `EffectText.Parse(…, card)`
             //    （见 `HasSpecificCardChoice` 的 doc：本属性只回答「数据在不在」）。
@@ -852,7 +962,11 @@ namespace RuleEngine
             //   ⚠️ **`AboutToAttackSpaced` 那一格是【另一种拼法】、不是第三个词** ——
             //      理由写在它自己的 doc 里（`AddTriggerOp` 的 head 不走 `Normalize`）。
             KeywordTable.Landing,
-            KeywordTable.AboutToAttack, KeywordTable.AboutToAttackSpaced };
+            KeywordTable.AboutToAttack, KeywordTable.AboutToAttackSpaced,
+            // 🆕 2026-10-21（引擎线 `T03·b`）：**花光法力（`SpentAllMana:`）** —— 正文要收得下来，
+            //   否则 `FireTriggerAt(..., SpentAllMana, …)` 恒走「没有正文」那一支（只发事件、静默）。
+            //   ⚠️ 全池今天 **0 张卡**带这个词 ⇒ 不可观测、不改动任何现有解析（铁律 11 先接上）。
+            KeywordTable.SpentAllMana };
 
         // ==================================================================
         //  狂喜 X 的**阈值 X**（2026-09-14）
@@ -1000,6 +1114,11 @@ namespace RuleEngine
             //   ⚠️ 全池今天 0 张卡带它们（现扫 0 命中）⇒ 不改动任何现有解析结果。
             KeywordTable.Landing,
             KeywordTable.AboutToAttack, KeywordTable.AboutToAttackSpaced,
+            // 🆕 2026-10-21（引擎线 `T03·b`）：**`spentallmana`** —— 与 `landing` / `abouttoattack`
+            //   **同一族**（触发 id ＋ 可选的 `词: 正文` 两用词）⇒ 两个名单都进，否则
+            //   `Skirmish. SpentAllMana: …` 那种多 ability 卡面会被上一条**静默吞并**。
+            //   ⚠️ 全池今天 0 张卡带它 ⇒ 不改动任何现有解析。
+            KeywordTable.SpentAllMana,
         };
 
         /// <summary>
@@ -4059,6 +4178,29 @@ namespace RuleEngine
         /// <summary>**伏击**（基因窃取者）：`面朝下打出；下次回合前若被伤害：翻开无效果；若未被伤害：翻开并触发效果`（规则书 `:166`）。</summary>
         public const string Ambush = "ambush";
 
+        /// <summary>🔴 🆕 2026-10-21（引擎线 `T03·b` · 回合流程残余）：**「花光法力」触发**
+        /// （原版 `AbilityTrigger.SpentAllMana = 641`，`Assembly-CSharp/AbilityTrigger.cs:77`）。
+        ///
+        /// **判据（全量反编译，逐句）**：
+        ///   · **触发点** = `PlayerManager__UseNormalEnergy.c:100-124` —— **任何**一次
+        ///     「正常法力」支出（`amount &gt; 0`）之后，若 `unusedMana` **恰好变成 0**，
+        ///     就对**双方督军**各调一次 `CardScript__TriggerSpentAllMana`；
+        ///     `actingCard` = **花钱那一方的督军**（见下面 `RuleCore.SpendNormalMana` 的实现）。
+        ///   · **唯一的法力出口** = `PlayerManager__UseMana.c:97`（`ManaType.Normal` 那一支）
+        ///     ⇒ 出牌（`BattleManager__PayCardCost.c:27`）· 主动技能 / 誓约
+        ///     （`PayActiveAbilityCostOath.c:27` / `PayCardPlayedCostOath.c:22`）· 维护费
+        ///     （`PlayerManager__TurnStart.c:110`）**全部**经过它。
+        ///     ⚠️ 灵魂石（`ManaType.SpiritStone = 5`）**不走**这条路 ⇒ **花光灵魂石不触发**。
+        ///   · **投递** = `CardScript__TriggerSpentAllMana.c:24-28` → `RawCardScript.OnTrigger(0x281 = 641)`。
+        ///
+        /// ⚠️ 今天**全池 0 张卡**有这条触发（`cards_raw.json` 1,351 张里 `trigger == 641` 只有
+        ///    `Factories Overdrive` 两张 ability，而它是**战役附魔**、不在我们 1127 张池内）
+        /// ⇒ **休眠机制**；照铁律 11 先做完（卡池张数只决定先后，不决定做不做）。
+        /// ⚠️ 卡面写法按原版枚举名 `SpentAllMana:`（无空格）。⛔ 别加 `Spent all mana:` 之类
+        /// 「看着更自然」的别名 —— 没有任何卡面证据，那就是发明一个词。
+        /// </summary>
+        public const string SpentAllMana = "spentallmana";
+
         /// <summary>🆕 2026-10-19（战斗线 `T21` 缺口 B）：**附魔卡被触发**
         /// （原版 `AbilityTrigger.TriggerEnchantment = 500`，`dump.cs:20298`）。
         ///
@@ -4860,6 +5002,16 @@ namespace RuleEngine
             new[] { "sentinel", RuleCore.Sentinel },
             new[] { "berzerk", RuleCore.Berzerk },
             new[] { "maintenance", RuleCore.Maintenance },
+            // 🆕 2026-10-21（引擎线 `T03·b`）：**`spentallmana`（花光法力触发，原版
+            //   `AbilityTrigger.SpentAllMana = 641`）**。判据与「今天 0 张卡」那一格 →
+            //   <see cref="SpentAllMana"/> 的 doc。
+            //   ⚠️ **前缀撞车已现核**：以 `sp` 开头的既有条目只有 `spirit stone` / `spiritstone`，
+            //     第 3 个字符就分开（`s-p-e` vs `s-p-i`）；反向也不成立（没有条目以
+            //     `spentallmana` 开头）。
+            //   ⚠️ **影响面实测（2026-10-21，拿全池现扫）**：`cards_engine.json` 1127 张的
+            //     `keywords` / `desc` / `descZh` 三列命中 **0 条**
+            //     ⇒ 加这一条**不改动任何现有解析结果**。
+            new[] { "spentallmana", SpentAllMana },
             // ⚠️ 本工程自定（原版 61 个里没有）—— 放最后，免得吃掉将来可能加进来的同前缀词
             new[] { "ability", Ability },
         };

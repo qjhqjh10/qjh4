@@ -2060,7 +2060,8 @@ namespace CardPresentation
         // 全部出处 = `Core/Loc.cs` 的「波 0b 补的 111 条」那一节（逐条依据写在 `Loc.cs` 各自那行）。
         // ⛔ 一律**裸 `Loc.T(k)`**，不留 `HasEntry ? … : 原串` 兜底 —— 键已全在表，兜底就是**静默失败**。
         const string lkRedeemUnavailable = "Settings/General/RedeemCodeUnavailable";
-        const string lkAudioMixerNote    = "Settings/Media/AudioMixerNote";
+        // ⛔ **2026-10-22（W62-D4）删掉 `lkAudioMixerNote`**：那行说明原版没有、连同词条一起删
+        //    （判据见 `BuildAudioPage` 里那一段与 `资料/普查产出_1022/W62_缺陷诊断.md` §D4）。
         // 联机页（整页是我们自己加的 ⇒ `Settings/Online/*` 在两张表里 **0 命中**，那一族 EN/ZH 都是**自拟**）。
         // ⚠️ **页标题**用的是表里早有的 `Settings/Online/Title`（与 `Settings/General/Title` 对称：
         //    `General` 那条既当**页签名**又当**页标题**；这一条同理。ZH「联机」/ EN「Online」= 现值）。
@@ -5386,16 +5387,14 @@ namespace CardPresentation
                     winBg, ArtLangField);
             }
 
-            // ③ 那一行「音量走 AudioMixer」= **我们自己的**（键自拟，原版没有）。
-            //   🆕 T17 起原版那个位置被 `WindowMode Selector` 占了 ⇒ 把这行**挪到它下面**
-            //   （`Visual Settings` 组下方那片在原版里是空的）。**位置是我们挑的**，不冒充原版。
-            float noteT = WinB + 16f, noteB = noteT + 40f;
-            var note = Text(page, "Note", Loc.T(lkAudioMixerNote), AuL, AuR, noteT, noteB,
-                            FontSmall, new Color(1f, 1f, 1f, 0.6f), QText);
-            if (note != null) AlignLeft(note, new PxRect(AuL, noteT, AuR, noteB));
-            // 🆕 2026-10-18（换语言刷新链）：这一行是 `Build()` 里**只画一次**的 ⇒ 登记进 `_onLabels`
-            //   （换语言只能在 General 页做，那时本页是关着的 ⇒ 不登记就停在旧语言）。
-            OnLangText(note, () => Loc.T(lkAudioMixerNote));
+            // ⛔ **2026-10-22（W62-D4 · 真机审计）删掉了原来这里那一行「音量走 AudioMixer」说明**：
+            //  它**是我们自己加的**（自拟键 `Settings/Media/AudioMixerNote` + 自拟文案），原版**没有这个节点**。
+            //  判据（逐字段实读，全文 → `资料/普查产出_1022/W62_缺陷诊断.md` §D4）：
+            //  `bundle_menus_assets_all/GameObject/Media Tab.json` 的 `RectTransform_5522936096292634534`
+            //   只有 **3 个子件**：`Tab Title` · `Audio Settings` · `Visual Settings`；
+            //   全库 `assets_full/*/GameObject/*.json` 里名字以 `Note` 开头的 **0 个**。
+            //  ⇒ 连 `Loc.cs` 那条键、三处自检引用一并删（别留半条死词条）；`Editor/SettingsScene.cs`
+            //    另有一条「子件数 = 3」的断言盯着它别再长回来。
             Debug.Log("[Settings] 音频页：已补建原版下半 `Visual Settings > WindowMode Selector`"
                     + "（`Media Tab` 的 `PlatformBasedComponents`：**PC 档 enable 1**、android/iOS 0）；"
                     + "选项 = 原版 I2 那两条 `Settings/Media/WindowMode/{Fullscreen,Windowed}`，"

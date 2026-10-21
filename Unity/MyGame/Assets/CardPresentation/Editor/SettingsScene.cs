@@ -4439,16 +4439,20 @@ public static class SettingsScene
                     new { What = "图像页 `FPS Slider` 第 3 格刻度", Key = "Settings/Graphics/UnlimitedFPS", Differ = true,
                           Find = (System.Func<Transform>)(() => FindChild(FindChild(FindChild(FindChild(root, "Graphics Tab"),
                                           "FPS Limit"), "FPS Slider"), SettingsWindow.FpsTickName[2])) },
-                    // —— 🆕 2026-10-19（`A1059` / `A1048`）：音频页 **4 处** ——
-                    //   🔴 这四处**只在 `BuildAudioPage` 里建一次**、本页没有重建链 ⇒ 挂的是**长链** `_onLabels`
+                    // —— 🆕 2026-10-19（`A1059` / `A1048`）：音频页的标签 ——
+                    //   ⚠️ **2026-10-22（W62-D4）**：原来是 **4 处**，第 4 处（`Note` 说明行）随原版口径删掉了
+                    //     （原版 `Media Tab` 没有那一行）⇒ 现在 **3 处**。
+                    //   🔴 这三处**只在 `BuildAudioPage` 里建一次**、本页没有重建链 ⇒ 挂的是**长链** `_onLabels`
                     //     （图像页那族每滚一格都被 `RebuildGfxRows()` 整批重建 ⇒ 走短链 `_gfxRowLabels`）
                     //     ⇒ 它们在两档之间**真的跟着变**，正是 `A1048` 那条刷新链的判据；而三根音量行标签
                     //     另是 `A1059`「键早在表里、代码画字面量」那四笔里的三笔（第四笔 = 图像页 `Auto zoom`，
                     //     那条在本文件 `A172` 那一节里已两语档断过）。
                     //   ⚠️ 节点名一个都没动**显示字**（显示字由 `keys[]` 那一行走表给、跟着语言变）：
                     //      行容器 = `{"Music","FX","Voiceovers"} + " Container"`（🔴 2026-10-20（`A1202`）
-                    //      已照原版 `m_Name` 订正 —— 原写 `Sound Effects` / `Voice-overs`）、
-                    //      说明行仍是 `Note`（⛔ 别按显示字找，那是会随语言变的那一层）。
+                    //      已照原版 `m_Name` 订正 —— 原写 `Sound Effects` / `Voice-overs`）。
+                    //   🔴 **2026-10-22（W62-D4）删掉了原来第 4 处（音频页 `Note` 说明行）** ——
+                    //      原版 `Media Tab` 只有 3 个子件、没有这一行；现在本页的「子件数 = 3」由下面
+                    //      §④ 的一条专门断言盯着（判据 → `资料/普查产出_1022/W62_缺陷诊断.md` §D4）。
                     new { What = "音频页 `Music Container` 行标签", Key = "MainMenu/Settings/SettingLabel/Music", Differ = true,
                           Find = (System.Func<Transform>)(() => FindChild(FindChild(FindChild(FindChild(root, "Media Tab"),
                                           "Audio Settings"), "Music Container"), "Label")) },
@@ -4458,8 +4462,6 @@ public static class SettingsScene
                     new { What = "音频页 `Voiceovers Container` 行标签", Key = "Settings/Media/VoiceOvers", Differ = true,
                           Find = (System.Func<Transform>)(() => FindChild(FindChild(FindChild(FindChild(root, "Media Tab"),
                                           "Audio Settings"), "Voiceovers Container"), "Label")) },
-                    new { What = "音频页 `Note` 说明行", Key = "Settings/Media/AudioMixerNote", Differ = true,
-                          Find = (System.Func<Transform>)(() => FindChild(FindChild(root, "Media Tab"), "Note")) },
                     // —— 联机页 9 处（两颗角色钮 / 测外网 / 两个标签 / 刷新 / 保存 / 检查连接）——
                     new { What = "联机页 `Role Host` 钮上的字", Key = "Settings/Online/RoleHost", Differ = true,
                           Find = (System.Func<Transform>)(() => FindChild(FindChild(FindChild(root, "Online Tab"),
@@ -4574,7 +4576,8 @@ public static class SettingsScene
                     // 旁证 —— ⛔ **不能单独当判据**（登记了不生效照样能过这一条；真判据 = 上面那些字真的变了）
                     CheckTrue(win.OnLabelCount >= 15,
                               $"（`A1048` 旁证）`_onLabels` 链上挂着 **{win.OnLabelCount}** 条"
-                            + "（四页 `Build()` 里登记的那一批：音频页 4 + 联机页 12 + 图像页 2 上下）");
+                            + "（四页 `Build()` 里登记的那一批：音频页 3 + 联机页 12 + 图像页 2 上下"
+                            + " —— ⚠️ 音频页 2026-10-22 起是 **3**：W62-D4 删掉了原版没有的 `Note` 那行）");
                 }
 
                 // ---- ④″ 🔴 **反向断**（⛔ 防「顺手把不该接的也接上」）：`FPS Slider` 前两格是**纯数字** ----
@@ -5223,6 +5226,29 @@ public static class SettingsScene
                 Check(win.Current, SettingsTab.Audio, "点 `Media` ⇒ 切到第 2 页（下面这些站的宿主）");
                 var meTab = FindChild(root, "Media Tab");
                 CheckTrue(meTab != null && meTab.gameObject.activeSelf, "（前提）`Media Tab` 开着");
+                // 🔴 **2026-10-22（W62-D4 · 真机审计）**：`Media Tab` 的子件**只有原版那 3 组** ——
+                //   `Tab Title` · `Audio Settings` · `Visual Settings`。
+                //   判据（逐字段实读）= `bundle_menus_assets_all/GameObject/Media Tab.json` 的
+                //   `RectTransform_5522936096292634534` 的 `m_Children` **3 条**；
+                //   全库 `assets_full/*/GameObject/*.json` 里名字以 `Note` 开头的 **0 个**。
+                //   ⇒ 我们原来那行「音量走 AudioMixer」说明（自拟键 `Settings/Media/AudioMixerNote`）
+                //     已删，`Loc.cs` 那条词条也一起删（⛔ 别留死词条）。
+                //   🧨 改坏法：把那一行（或任何自造节点）加回 `BuildAudioPage` ⇒ 子件数 4 ⇒ 本条红。
+                //   ⚠️ 子件名在同一处逐条断，防「删了一个又加了一个别的、数目仍是 3」那种改法。
+                if (meTab != null)
+                {
+                    var kids = new List<string>();
+                    for (int i = 0; i < meTab.childCount; i++) kids.Add(meTab.GetChild(i).name);
+                    bool hasThree = meTab.childCount == 3
+                                    && kids.Contains("Tab Title")
+                                    && kids.Contains("Audio Settings")
+                                    && kids.Contains("Visual Settings");
+                    CheckTrue(hasThree,
+                              "★（W62-D4）`Media Tab` 的子件 = 原版那 **3** 组"
+                            + "（`Tab Title` / `Audio Settings` / `Visual Settings`）—— 实得 "
+                            + $"**{meTab.childCount}** 个：[{string.Join(" / ", kids)}]"
+                            + "；多一个就红（原版没有 `Note` 那一行，判据见 `资料/普查产出_1022/W62_缺陷诊断.md` §D4）");
+                }
                 CheckAutoFit(meTab, new[] { "Tab Title" }, "`Media Tab > Tab Title`", 4f, 55f, 55f, 1, 942.26f, 70f);
                 //  原版三颗 `… Container > Label` 逐颗同值 = 18 / 42 / 36 · 折行 1（⚠️ 下限 18，同 FPS 那行）
                 //  ⚠️ 框高逐颗实读：`Music Container` **62.00**、另两颗 **63.00**（⛔ 别一刀切取同一个数）。
@@ -5382,7 +5408,7 @@ public static class SettingsScene
                 "Settings/Graphics/Flash/Vsync", "Settings/Graphics/FpsText/Unlimited", "Settings/Graphics/FpsText/Value",
                 "Settings/Graphics/FrameLimit", "Settings/Graphics/IncreaseUISize", "Settings/Graphics/SelectQuality",
                 "Settings/Graphics/Title", "Settings/Graphics/UnlimitedFPS", "Settings/Graphics/Vsync",
-                "Settings/Media/AudioMixerNote", "Settings/Media/Title", "Settings/Media/VoiceOvers",
+                "Settings/Media/Title", "Settings/Media/VoiceOvers",
                 "Settings/Online/CheckConnection", "Settings/Online/ClickAgain", "Settings/Online/HostFailed",
                 "Settings/Online/HostReady", "Settings/Online/HostReadyNoPassword", "Settings/Online/HostReadyToFriend",
                 "Settings/Online/HowToConnect/DontUseTestSite", "Settings/Online/HowToConnect/Intro", "Settings/Online/HowToConnect/Lan",

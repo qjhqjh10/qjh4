@@ -3071,6 +3071,12 @@ namespace CardPresentation
                               //   高 57.69（宽 +28.56 / 高 +2.31 = `RM_原版TMP框尺寸.md` 表 B 那一行）。
                               //   ⚠️ **本处只改宽**：`MenuWindowBase.Text` 的框高来自传进去的矩形（60），
                               //   高的那 2.31 未跟 —— 同一族理由见 `DeckRuntime.hdr_back_t` 那条（CJK 行盒 1.516em）。
+                              //   🔴 **2026-10-21（`A1262`）**：这个 1.516em 是**渲出比 = face 行盒 ÷ 汉字墨高**
+                              //   （1.437 ÷ 0.948）；**原版那份 CJK 资产带 `m_FaceInfo.m_Scale = 0.9` ⇒ 有效行盒 1.293em**
+                              //   （同一份资产我们原来写的是 `m_Scale: 1`，**2026-10-21 起已对齐成 0.9**）。
+                              //   ⚠️ 但 **1.516 这个比值不变**（分子分母同乘 `m_Scale`）⇒ 本处那个「高 +2.31 未跟」
+                              //   的结论**照旧成立**，别因为对齐了字段就把 1.516 改成 1.293。
+                              //   判据/修法 → `资料/普查产出_1021/W61b_界面_A1262_mScale.md`。
                               wrapPx: 221.44f, autoMinPx: 10f, autoMaxPx: 42f, autoBasePx: 12f);
             if (clrLab != null)
             {
@@ -3224,6 +3230,46 @@ namespace CardPresentation
         /// <summary>四页一起刷（便宜且幂等 —— 见 <see cref="RefreshFilterToggle"/>）。</summary>
         void RefreshFilterToggles() { for (int i = 0; i < _hdrFltBtn.Length; i++) RefreshFilterToggle(i); }
 
+        /// <summary>本窗 `Content Area/Tab Buttons` 的顶边（**原版 158.64**）—— 左栏 `Shadow` 从这一行起。
+        /// <para>判据 = `工具/menu_dump.py bundle_menus_assets_all "Collection Menu Variant" --depth 5`：
+        /// `Tab Buttons` = **167.2,158.6 → 332.2,1080**（165×921.36）。⚠️ **本窗与奖励窗/商店不同**
+        /// （那两扇的 `Tab Buttons` 铺满 `Content Area`，从 `ContentT`=70.94 起）—— 铁律 5·c 那一类，
+        /// ⛔ 别把这个数搬去基类。</para></summary>
+        const float TabBarTop = 158.64f;
+
+        /// <summary>🆕 **2026-10-22（W62 · 界面线）**：把左栏 `Shadow` 按**原版**重画（见 `Build()` 里那段判据）。
+        /// <para>**为什么是「删掉重建」而不是「改个色」**：基类那件连**矩形**都不对（它从 `ContentT`=70.94 起，
+        /// 原版本窗从 **158.64** 起）—— 只改色会在页头那 88 px 上多压一条黑影。</para>
+        /// <para>⚠️ **本方法是【临时补丁】**：正解是基类 `MainMenuSubmenuWindow.BuildBar` 那一行为
+        /// `Rect(...)` 补 `tint`（并让起始 y 按窗取）；那份文件不在本批白名单 ⇒ 先在本窗落一份**同值**的。
+        /// 基类修好后本方法可整段删掉 —— 删之前先确认基类那件已经是「同矩形 + 同色」，
+        /// 否则会**变回**白带（本方法只在 `Build()` 里被调一次，删掉它基类那件就原样留在画面上）。</para></summary>
+        void RebuildTabBarShadow(Transform bar)
+        {
+            if (bar == null)
+            {
+                Debug.LogError("[Collection] `Tab Buttons` 没建出来 ⇒ 左栏 `Shadow` 重画不了（白带会留着）");
+                return;
+            }
+            var old = bar.Find("Shadow");
+            if (old != null)
+            {
+                var go = old.gameObject;
+#if UNITY_EDITOR
+                if (!Application.isPlaying) { Object.DestroyImmediate(go); }
+                else
+#endif
+                Object.Destroy(go);
+            }
+            // 原版那一件：`40k_main_tab_shadow`（51×4 · Simple）· 色 **(0,0,0,0.475)** ·
+            //   矩形 167.17,158.64 → 214.81,1080（宽 = `BarShadowW` 47.64）
+            var q = Rect(bar, ArtBarShadow, ContentL, ContentL + BarShadowW, TabBarTop, ContentB,
+                         "Shadow", QPanel, new Color(0f, 0f, 0f, 0.475f));
+            if (q == null)
+                Debug.LogError("[Collection] 左栏 `Shadow` 重画失败（`" + ArtBarShadow + "` 取不到？）"
+                             + " —— 旧件已销毁、新件没建出来（**有声的失败**，不是静默）");
+        }
+
         public void Build()
         {
             // 🔴 **2026-10-17（`A1536`）：首句就把本窗名下的旧滚动区撤掉 —— `Build()` 必须可重入。**
@@ -3260,6 +3306,25 @@ namespace CardPresentation
             ApplyVisualTypes();
 
             var res = BuildShell(transform, Buttons, "CollectionTabButton_", "Tabs", lastIsMaster: false);
+            // ══════════════════════════════════════════════════════════════════════════════════
+            //  🆕 2026-10-22（W62 · 界面线）：左栏 `Shadow` 照**原版**重画（浅白带 → 黑阴影）
+            //  **病灶**（真机截图 `_tmp_view/shots/2026-10-22_第六十二会话/02_collection.png` +
+            //    裁图 `45_subnav_crop.png`）：主左栏与子导航列之间有一条**竖向浅白带** ——
+            //    实测设计 px **x≈167..232 · y≈368..1079**（正好是 `Tab Buttons/Shadow` 那个矩形，
+            //    从第一个页签下沿一直贯到屏底；上面那截被选中页签的红底 `QHighlight` 盖住了）。
+            //    原版实拍同一位置是**暗红**（裁图 `46_ref_subnav.png` · 原图 `收藏—卡组的参考图.png`）。
+            //  **根因** = 基类画这一件时**没给 tint**（= 白）：`40k_main_tab_shadow` 这张图本身是
+            //    **纯白 + alpha 渐变**（51×4、左 255 → 右 3，实测 `Resources/Art/ui_deck/40k_main_tab_shadow.png`），
+            //    原版那颗 `Image.m_Color` = **(0,0,0,0.475)** 才是「黑阴影」的来源。
+            //  **判据**（原版 prefab 现读：`工具/menu_dump.py bundle_menus_assets_all "Collection Menu Variant"`）：
+            //    `Content Area/Tab Buttons/Shadow` = **167.2,158.6 → 214.8,1080**（47.64×921.36）·
+            //    `40k_main_tab_shadow 51×4` · **Simple (0,0,0,0.475)**（= `Image` + 色）。
+            //  ⚠️ **为什么在本窗重画、而不是改基类**：基类 `MainMenuSubmenuWindow.BuildBar` **不在本批白名单**
+            //    （另有代理可能正在动它）。而且基类那件连**矩形**都不一样：它从 `ContentT`(**70.94**) 起算，
+            //    原版本窗是从**158.64** 起（本窗 `Tab Buttons` 自己的矩形，见 `BarPadTop` 那条 doc）。
+            //    🔴 **正解仍是基类那一行**（加 tint + 按窗给起始 y）：主对话合并后**应删掉本段**（同值幂等）。
+            // ══════════════════════════════════════════════════════════════════════════════════
+            RebuildTabBarShadow(res.bar);
             tabButtons = res.buttons;
             _btnHighlight = res.highlight;
             _btnRes = res;

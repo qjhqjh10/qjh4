@@ -10,6 +10,17 @@
 `A1298`/`A1299` 修的是 `m_Script`，`A1325` 修的是 uGUI `Image.m_Sprite`
 与 TMP `m_fontAsset` / `m_sharedMaterial`（对照实现 → `MyGame/Assets/WarpforgeArena1/Editor/BoosterPackExporter.cs:512` / `:563`）。
 
+🔴 **2026-10-21 起默认集补上 `m_Mesh` / `m_Texture`**（`A1325` 的 `ShapeModule` 那一跳，
+实现 → `EffectExporter.cs:1912-2055`）。补之前**不传 `--fields` 扫特效 prefab 是假绿的**：
+`m_Mesh` 坏引用全仓现读 **47 条 / 8 件**（2026-10-21 23:2x 复扫）——
+**40 条 / 7 件在 `ParticleSystem`（`ShapeModule.m_Mesh`）**，即 `W61b_特效_ShapeModule导出.md` §2.1 那一批
+（那份报告写 45 条 / 12 件是**补前**口径，其中 5 条 Shield 变体已在 23:18 的重导里归零）；
+**另 7 条在 `SkinnedMeshRenderer.m_Mesh`**（`Explosion Hive Fleet Arrival Explosions only.prefab`，
+那份报告没数 —— 它只扫 ShapeModule）。⚠️ `m_Texture` 补时现读 **2 条 / 2 件**（`Buff_Sororitas_quick_fire*`，
+全是 ShapeModule），**23:18 的重导后已归零**（2026-10-21 23:30 复扫 = 0）。
+⚠️ **`m_Material` 仍然不在默认集里**（`A1325` 的 `Image.m_Material` 那一跳要显式
+`--fields …,m_Material`，交接文档里一直这么用）。
+
 🔴 **判据不能数「`fileID: 0`」** —— 那是**合法的空引用**（原版本来就空的 `Image` / 没挂脚本的节点），
 一数就会得到几十条假警报（本工具 2026-10-21 第一次写时就差点按那个口径报「`m_Sprite` 坏 32 条」）。
 **坏引用 = `fileID != 0` 且 `guid` 全 0**：文件那头说「我要这张图」，工程里却没有这张图。
@@ -19,9 +30,17 @@
     python -I -X utf8 d:/4/Unity/工具/check_prefab_refs.py                 # 默认查 CardPrefab.prefab
     python -I -X utf8 d:/4/Unity/工具/check_prefab_refs.py <a.prefab> [<b.unity> ...]
     python -I -X utf8 d:/4/Unity/工具/check_prefab_refs.py --fields m_Script,m_Sprite,m_fontAsset ...
+    python -I -X utf8 d:/4/Unity/工具/check_prefab_refs.py --fields m_Material,m_Mesh     # 显式覆盖仍有效（只查列出来的）
 
 输出：每个文件 × 每个字段一行 `total / 合法空(fileID=0) / 本地引用(无 guid) / 坏引用(guid 全 0)`，
 坏引用再逐条列出 `行号 + fileID`（最多 `--max-detail` 条，默认 10）。
+
+⚠️ **本工具只认「工程内 guid」** —— Unity **内置默认资源**（`Cube`/`Quad` 之类）在序列化里
+也是 `guid: 0000…0` + 一个小 fileID，形状与坏引用**完全一样**。2026-10-21 全仓实扫
+（984 个 `.prefab` + 全部 `.unity`）**没有这种内建形状的 `m_Mesh`/`m_Texture` 引用**
+⇒ 这一版**不做大小 fileID 的形状排除**（按 fileID 大小切是猜，会把真坏引用也放过）。
+将来若真扫出内建引用，做法是**在导出器里把它解析成工程资产**（`EffectExporter` 的 `IsUnityBuiltinMesh` 那条路），
+⛔ 不是在本工具里静默跳过。
 
 退出码：`0` = 所有被查字段的坏引用 = 0 · `1` = 有坏引用 · `2` = 文件不存在 / 读不了。
 ⛔ 只读：不改工程、不跑 Unity、不联网。
@@ -34,7 +53,8 @@ import sys
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))      # d:/4/Unity
 DEFAULT_TARGETS = [os.path.join(ROOT, 'MyGame/Assets/WarpforgeVFX/Prefabs/CardPrefab.prefab')]
-DEFAULT_FIELDS = ['m_Script', 'm_Sprite', 'm_fontAsset', 'm_sharedMaterial']
+DEFAULT_FIELDS = ['m_Script', 'm_Sprite', 'm_fontAsset', 'm_sharedMaterial',
+                  'm_Mesh', 'm_Texture']   # 2026-10-21 补后两个（ShapeModule 资产引用，见文件头）
 ZERO_GUID = '0' * 32
 
 # `m_Sprite: {fileID: -123, guid: <32hex>, type: 3}` —— 也容忍字段顺序变化与缺 guid。

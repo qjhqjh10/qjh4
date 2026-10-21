@@ -1057,7 +1057,6 @@ namespace CardPresentation
         void NavButton(Transform parent, int idx, string name, string art, float y1, float y2, string locKey,
                        float ih, float ix1, float ix2, float iy1, float fontPx)
         {
-            const float cx0 = 82.69f;      // 键的水平中心（原版 `Highlight` 的矩形是 -0.3..164.0 ⇒ 中心 81.85）
             var b = New(parent, "Main Menu Navigation Button - " + name, NavBtnW, NavBtnH);
             // 🆕 **2026-10-11（`A1522④`）：把「这一颗 + 它的 (顶,底)」记进表** —— `SelectNav` 换高亮时
             //    只撤旧的那一颗、在新选中的这一颗底下重建（⛔ 面板本体不重建，理由见 `SelectNav` 的注释）。
@@ -1080,7 +1079,10 @@ namespace CardPresentation
             else MissingArt.Add(art);
 
             // `Text Background`(nametag) 的 y 偏移实证 = **+118.3**、`Badge` = **+91.7**（§五 C 表，五个按钮一致）
-            Rect(b, "40k_main_bt_nametag", 9.3f, 156.2f, y1 + 118.3f, y1 + 157.7f, "Text Background", QContent);
+            // ⚠️ 这两块矩形**同时**是命中区并集的组成部分（下面 `hitR`）⇒ 只写一份、两处共用，
+            //    别在命中那一段再手抄一遍（抄了改一处忘一处 = 静默错）。
+            var textBgR = new PxRect(9.3f, y1 + 118.3f, 156.2f, y1 + 157.7f);
+            Rect(b, "40k_main_bt_nametag", textBgR.x1, textBgR.x2, textBgR.y1, textBgR.y2, "Text Background", QContent);
             // 🔴 **2026-10-11（界面复刻 · A1493②）：文案走 `Loc.T(locKey)`** —— 原版这五颗 GO 上各挂一颗 I2
             //   `Localize`，屏上的字是**运行时查表**得到的；我们原来直接把资产里的英文 `m_text`（`PLAY`/…）
             //   写死 ⇒ **中文档永远出英文**。键名与中文出处逐条记在 `Core/Loc.cs` 的 **E1** 那一节。
@@ -1092,7 +1094,7 @@ namespace CardPresentation
             //    `ChatPreview/text`、模式卡 `Event Title` / `Timer Description` / `Timer Text`、
             //    `Position #` / `Position Value` / `Individual rating value` 全是 **Pragati**）⇒ 本文件全走 `LatinCardBody`。
             //    ⚠️ 场景里确有 Asar 的 `Title`/`Player Name` 等，但那些是**别的窗**（卡牌详情/顶栏）的件，不属本文件。
-            Text(b, Loc.T(locKey), 9.3f, 156.2f, y1 + 118.3f, y1 + 157.7f, 6,
+            Text(b, Loc.T(locKey), textBgR.x1, textBgR.x2, textBgR.y1, textBgR.y2, 6,
                                new Color(0.9961f, 0.9294f, 0.7098f), "Text", fontPx,
                                // 🔴 **2026-10-17（`A1233`）**：原来这里是「先 `Text`、再自己补
                                //    `navText.SetAutoFitBox(146.92/108, 39.39/108, 18, 33, 24)`」——
@@ -1114,30 +1116,56 @@ namespace CardPresentation
             // 红点：亮图 × `m_Color (0.7358,0.7358,0.7358,1)` = **中灰**（原版这就是「无内容/禁用」的灰点）
             // 🔴 **只有 REWARDS（第 4 个导航钮）有真实的通知源** —— 原版它由 `Missions.CheckNotification` 驱动；
             //    其余四个我们**没有通知源** ⇒ 按 `Hide()` 的样子 **alpha = 0**（不是画一个假的灰点）。
-            Rect(b, "40K_notification_number", 117.8f, 152.8f, y1 + 91.7f, y1 + 126.7f, "Badge Highlight", QContent,
+            var badgeR = new PxRect(117.8f, y1 + 91.7f, 152.8f, y1 + 126.7f);
+            Rect(b, "40K_notification_number", badgeR.x1, badgeR.x2, badgeR.y1, badgeR.y2, "Badge Highlight", QContent,
                  BadgeAlpha(idx == 3 && DailyData.RewardsHasBadge));
 
-            // 点击区（整键）。原版每个导航钮上挂的是 `OpenWindowButton{windowToOpenPrefab, windowPayload}`：
+            // 点击区（**原版口径 = 可射线件的并集**，⛔ 不是整颗钮高）。
+            // 原版每个导航钮上挂的是 `OpenWindowButton{windowToOpenPrefab, windowPayload}`：
             // `0 Main(PLAY)` 例外 —— 它开的是**场景内的** `MainMenuWindow`（正本 §三 第 1 条）。
             // A332：⚠️ **原版没有这个节点** —— 原版导航钮自己就是按钮（GO 上挂 `EverguildToggle` /
             //   `OpenWindowButton`），射线由 uGUI 按它自己的 `Graphic` 收；我们这套没有 uGUI 射线
-            //   ⇒ 另建一个透明命中区。所以这里的矩形**是我们自己的**（= 下面那颗 quad 那一格：
-            //   `cx0 ± 82` × `y1..y2`），⛔ 别去原版找「Hit」这个名字（那一族 5 颗子件是
-            //   `Selected highlight` / `Image` / `Text Background` / `Badge Highlight`，没有 Hit）。
-            var hitGo = New(b, "Hit", 164f, y2 - y1);
-            var hq = ImageQuad.Create(hitGo, CardArt.Solid(),
-                                      LayoutSpace.FromPixel(cx0, (y1 + y2) * 0.5f), LayoutSpace.Px(y2 - y1),
-                                      new Vector2(0.5f, 0.5f), "Hit");
-            if (hq != null)
-            {
-                hq.SetAspect((164f) / (y2 - y1));
-                hq.SetTint(new Color(0f, 0f, 0f, 0f));
-                hq.SetRenderQueue(QNavHit);     // 🆕 2026-10-18：见 `QNavHit` —— 子窗开着时左栏也要能点
-                _navHitQuads.Add(hq);           // 🆕 2026-10-19（N117）：交给 `RefreshNavHitQueue` 按模态窗升降
-            }
+            //   ⇒ 另建一个透明命中区。⛔ 别去原版找「Hit」这个名字（那一族 5 颗子件是
+            //   `Selected highlight` / `Image` / `Text Background` / `Badge Highlight`，没有 Hit）——
+            //   **但「可点范围」照原版可射线件的并集算**（下面这一段）。
+            //
+            // 🔴 **2026-10-22（W62-D2 · 真机缺陷）就地改口径：原来那颗 quad 高 = 整钮高 169.68**
+            //   （`NavBtnH`），而相邻钮步进只有 **153.33**（= 169.68 − 原版 VLG `m_Spacing −16.35`，
+            //   `bundle_scenes_scenes_mainmenuwarpforge/MonoBehaviour/MonoBehaviour_1973.json`）
+            //   ⇒ **每对相邻钮的命中区叠 16.4 px**。两颗队列都是 `QNavHit`、`ImageQuad.z` 又恒 0
+            //   ⇒ 平局落回「先收集者赢」，而实测那是**前兄弟** ⇒ **点「奖励」的上沿命中「商店」**
+            //   （真机日志 `_tmp_view/click_log.txt:8604-8611`：画布 (73.5, 615.0) 同时压在
+            //    Shop / Rewards 两颗命中区上，Shop 赢；Rewards 那颗钮的顶边就是 603.4）。
+            //
+            // **原版判据（逐字段实读；判据全文 = `资料/普查产出_1022/W62_缺陷诊断.md` §D2）**：
+            //   · 钮根**没有 Graphic**（`RectTransform_1247/1245` 只挂 `EverguildToggle` / `OpenWindowButton`）；
+            //   · 可射线件 = 图标 `Image` **140×140** + `Text Background` **146.92×39.39** + `Badge Highlight` **35×35**
+            //     （`MonoBehaviour_2119/2121` 等：`m_RaycastTarget = 1`、`m_RaycastPadding` **全 0**）；
+            //     —— TMP `Text` 的矩形与 `Text Background` **同一格** ⇒ 并集不多一块。
+            //   · 并集 ⇒ 每颗只跨 **1.7…157.7**（钮底 12 px 死区），相邻两颗只叠 **2.615 px**，
+            //     且重叠带里**后兄弟（Rewards）在上层必赢**（uGUI 遍历序，见 `PointerLayer` 的平局判据）。
+            // ⇒ 命中区 = 这三块的 `MenuDraw.Union`（全工程唯一一份；⛔ 别在别处再写一份并集算式）。
+            var hitR = MenuDraw.Union(
+                new PxRect(ix1, iy1, ix2, iy1 + ih),        // 图标 `Image`（140×140；Home 137.435）
+                textBgR,                                    // `Text Background`（+ 同格的 TMP `Text`）
+                badgeR);                                    // `Badge Highlight` 35×35
             int captured = idx;
-            var wb = hitGo.gameObject.AddComponent<WindowButton>();
-            wb.onClick = () => OnNavClick(captured);
+            var hitGo = MenuDraw.Hit(b, "Hit", hitR, QNavHit, () => OnNavClick(captured));
+            var wb = hitGo != null ? hitGo.GetComponent<WindowButton>() : null;
+            if (hitGo != null)
+            {
+                // 🆕 2026-10-18：命中区队列见 `QNavHit`（子窗开着时左栏也要能点）；
+                // 🆕 2026-10-19（N117）：交给 `RefreshNavHitQueue` 按模态窗升降。
+                var hq = hitGo.GetComponentInChildren<ImageQuad>(true);
+                if (hq != null) _navHitQuads.Add(hq);
+            }
+            if (wb == null)
+            {
+                // 不许静默失败：`MenuDraw.Hit` 只在 `CardArt.Solid()` 取不到时才不建 quad
+                // （那种情况它自己会 LogWarning）；这里再如实说一句「这颗钮点不动」。
+                Debug.LogError($"[Menu] 导航钮 `{name}` 的命中区没建出来 ⇒ 这一颗**真鼠标点不动**");
+                return;
+            }
             // 🆕 **2026-10-18（音效线缺口 `AUD` §三 C9）**：原版这五颗导航钮是 `EverguildToggle` +
             //   **`allowClickWhenAlreadySelected = 0`** ⇒ 再点**当前**那一颗时连按钮音一起跳过
             //   （`EverguildToggle__OnPointerClick.c` 第一段）。行为面与 `SelectNav` 已有的

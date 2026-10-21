@@ -7,7 +7,7 @@
 - **Tidewall Gunrig（C）= 假阳性**：`LIT_MIN=60` 稀疏阈值假象；同一份数据在 1021 normal 跑是 **Z**，最新跑是 **C**，两侧逐时点 `sum` 几乎逐位相同，亮度比中位 1.00–1.045。
 - **BulletTrail_Single（D）= 假阳性**：原版峰值亮点 **59**，比 `LIT_MIN=60` 少 1 个像素就被判「原版空」；两侧 0.30–1.00s 都有内容，亮度比中位 1.045。
 - **EnvironmentalCondition Sororitas Raging Storm（E）= 判据未闭合**：`尺子不稳定名单.tsv` 第 1 名（最大 `Δ|ln|` 0.4120，历史上判过「偏暗↔对得上」），当前 `|ln|` 0.425 已在噪声上限；1021 受控 A/B 指向「走原件」侧（normal 0.349 → builtin 0.031），但最新跑 prefab 已重导、orig 侧尾部也变了，E 的幅度不能归给单一资产。
-- **ShieldTraitEffect_Idle Necron Variant（E）= 判据未闭合**：同一 prefab 在 1021 跑是 **Z 1.183**，最新跑是 **E 1.424**；TAU 1.37 / Necron 1.42 只差 3.9%，一带之隔。另发现一个**已证实**的导出缺陷：`Lightning Burst` 的 `ShapeModule.m_Mesh` 是 guid 全 0；但它只影响 0.15–0.5s，解释不了 2–3s 的 1.8–1.9×。
+- **ShieldTraitEffect_Idle Necron Variant（E）= 判据未闭合**：同一 prefab 在 1021 跑是 **Z 1.183**，最新跑是 **E 1.424**；TAU 1.37 / Necron 1.42 只差 3.9%，一带之隔。另发现一个**已证实**的导出缺陷：`Lightning Burst` 的 `ShapeModule.m_Mesh` 是 guid 全 0；~~但它只影响 0.15–0.5s，解释不了 2–3s 的 1.8–1.9×~~ 🔴 **2026-10-21 就地订正（铁律 5 · 代理 C 现核）**：「只影响 0.15–0.5s」**不成立** —— 这批坏引用**全是死字段**：45 条 `m_Mesh` 里**没有一条挂在 `ShapeModule.type == 6`（Mesh 形状）上**（type 分布 = 0球14 / 10圆10 / 2半球7 / 4锥6 / 18矩形5 / 12单边2 / 5盒1），原版解包侧 15,311 个 PS 里 `type==6` 的 46 个 `m_Mesh` **全空**。⇒ 修它 = **清伪引用**，对画面**零影响**，**别把重导后的任何变化归给 shape mesh**（详见 `W61b_特效_ShapeModule导出.md` §1）。
 
 **净结论：四条里 0 条可直接判为「缺内容/丢效果」缺陷；C/D 是尺子假阳性；两条 E 都落在 `|ln|≲0.6` 分不出真假的区。**
 

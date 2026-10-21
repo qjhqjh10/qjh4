@@ -73,13 +73,22 @@ namespace RuleEngine
                   + $"「{(string.IsNullOrEmpty(entry.nameZh) ? entry.name : entry.nameZh)}」"
                   + " 的 PlayedThirdCardInTurn 触发（卡面文案在远端，本地按 abilityLogic 结算）");
 
-            for (int ai = 0; ai < abilities.Count; ai++)
-            {
-                var ab = abilities[ai];
-                if (ab == null || ab.logic == null) continue;
-                for (int li = 0; li < ab.logic.Length; li++)
-                    ApplyOffensiveLogic(ctx, seat, entry, ab.logic[li]);
-            }
+            // 🔴 2026-10-21（`T03·c` 批 B 接线）：**这条 ability 也只入队**（原版
+            //   `RawScript.OnCardPlayedWithTarget:105-112` → `TriggerAbility` → `PlayAbility`
+            //   → `AddAutoActionToQueue`）。⚠️ 那道 `CardsPlayedInTurn != 3` 的闸留在**入队这一步**
+            //   （原版也是先判后排队）；`abilities` / `seat` 按帧捕获。
+            var _ab = abilities; var _seat = seat; var _entry = entry;
+            EnqueueAbility(ctx, ListenerLane(null), "第3张牌:" + playedName,
+                           () =>
+                           {
+                               for (int ai = 0; ai < _ab.Count; ai++)
+                               {
+                                   var ab = _ab[ai];
+                                   if (ab == null || ab.logic == null) continue;
+                                   for (int li = 0; li < ab.logic.Length; li++)
+                                       ApplyOffensiveLogic(ctx, _seat, _entry, ab.logic[li]);
+                               }
+                           });
         }
 
         /// <summary>跑一条 `AbilityLogic`（见文件头的「效果怎么落」）。</summary>

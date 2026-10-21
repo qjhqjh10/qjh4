@@ -19,9 +19,9 @@
 //
 // 🔴 **本文件只有【原语】**：`Enqueue` / `TryDequeue` / `Count` / `Resolving`。
 //    ⛔ 它**不是**调度器 —— `Core/ActionScheduler.cs` 是另一件东西（DateTime 定时调度），别混。
-//    ⛔ 本批**不接线**：`RuleCore` / `EffectResolver` 仍走同步递归（行为零变化）；
-//       泵点（谁调 `TryDequeue`、`Resolving` 何时置位）是 `T03·c` 后续批的**施工决策**
-//       （判据报告 §6 第 3 条：原版有帧循环，我们没有）。
+//    ✅ **2026-10-21 接线批之后**：`RuleCore` / `EffectResolver` 的所有触发**只入队**，
+//       泵点是 `Core/ActionPump.cs` 的 `ActionScope` / `PumpActionQueues`
+//       （⚠️ 本文件头原来写着「本批不接线，仍走同步递归」—— 那句自接线批起**已不成立**，就地订正）。
 using System.Collections.Generic;
 
 namespace RuleEngine
@@ -65,8 +65,53 @@ namespace RuleEngine
         /// <summary>人话标签（卡名 / 正文 / 触发关键词）—— 只给日志与排查用。</summary>
         public string Label;
 
-        /// <summary>动作载荷。**本批没有消费者**（后续批接 `ResolveOps` 的入参）。</summary>
+        /// <summary>动作载荷。自由形态（排查 / 将来的结构化动作用）。</summary>
         public object Payload;
+
+        /// <summary>
+        /// 🆕 2026-10-21（审查 `W61b` 第 3 条）：**这条 ability 的「施放者」** ——
+        /// 原版 `BattleAction` 里那一格 `actingCard` 的对应物（我们这边是场上的 `UnitState`）。
+        ///
+        /// 泵点在出队之后、结算之前拿它复核「施放者还在不在场上」
+        /// （判据 → `RuleCore.PumpActionQueues` 里那一段注释）。`null` = 这条动作不关任何场上单位
+        /// （战术卡留下的常驻效果 / 手牌里的监听器 / 死亡结转 …）。
+        /// </summary>
+        public UnitState Actor;
+
+        /// <summary>
+        /// 🆕 同上：**出队时要不要复核 <see cref="Actor"/> 还在场上**。
+        /// `true` = 原版 `abilityContext = Play(0)`（`CardAbility__IsRightContext.c:20-30` 要求 `IsInPlay`）；
+        /// `false`（缺省）= 原版 `InPlayOrDying(40)` 或「没有施放者」—— **一律照跑**。
+        /// ⛔ 缺省 `false` 是**故意的**：死亡触发那一族（`Backlash` / `Unstable` / `minionDeath` 记账）
+        /// 的施放者**正是刚死的那个人**，判「还在场」会把整条链掐死。
+        /// </summary>
+        public bool RequireActorInPlay;
+
+        /// <summary>
+        /// 🆕 **2026-10-22（`W62` · R2 · Mob「再来一次」）：这一条是【额外触发】那一条**
+        /// （= 卡面 `it triggers an additional time` / `it applies the effect twice`）。
+        ///
+        /// 🔴 **为什么需要**：`ctx.ExtraTriggerDepth` 那道**重入守卫**原来夹在
+        /// `RuleCore.FireExtraTriggers` 的`for` 循环外面 —— 那是因为旧的「额外触发」是
+        /// **当场结算**的（广播也在当场，守卫拦得住 `DoExtraTrigger` 重新挂额度）。
+        /// 触发改入队之后，`ExtraTriggerDepth` 在**入队那一刻**顶起来、入队完就落下，
+        /// 而真正会再广播一遍的是**出队时**的那一刻 ⇒ 守卫**完全失效**（额度会被无限重新挂上，
+        /// 一路撞到 `MaxPumpedActionsPerDrain`）。
+        /// ⇒ 改成随条目走：泵点在 `Execute()` 外面顶/落这个深度（见 `RuleCore.PumpActionQueues`）。
+        /// ⛔ 别删这个字段回到「只在 `FireExtraTriggers` 里顶」—— 那条路今天挡不住任何东西。
+        /// </summary>
+        public bool ExtraTrigger;
+
+        /// <summary>
+        /// 🔴 **出队后真正要跑的那段结算**（2026-10-21 接线批加）。
+        /// 泵点（<see cref="RuleCore.PumpActionQueues"/>）在 `Resolving = true` 的那一小段里调它一次。
+        ///
+        /// ⚠️ 它**必须自带全部上下文**（闭包捕获：op 列表、施放者、代词槽…）——
+        /// 入队之后到出队之前，`ctx` 上的那些槽可能已经被别的动作改过（原版也是这个形状：
+        /// `BattleAction` 把 `actingCard` / `targetCard` / `DamageInfo` 一起打包带走）。
+        /// ⚠️ `null` ⇒ 只占位不结算（单测里造纯顺序用例时用），**泵点不报错**。
+        /// </summary>
+        public System.Action Execute;
 
         public override string ToString()
             => (Label ?? "?") + "@" + Priority + "#" + Seq;
@@ -130,6 +175,15 @@ namespace RuleEngine
         /// 原版对非法 priority 是 `LogError` 后丢弃（`AddAutoActionToQueue.c`），这里同口径。</summary>
         public int Dropped { get { return _dropped; } }
 
+        /// <summary>原版 `ActionsInQueue` = 「四道总数 &gt; 0 **或** resolving」。
+        /// ⚠️ 与它同名的那条在 `BattleManagerActionsInQueue.c` 里就是这么写的 ——
+        /// **正在结算的那一条也算「忙」**（调用方拿它判「这回合还有没有东西要跑」）。
+        /// 🔴 2026-10-21（审查 `W61b` 第 11 条）：**今天没有任何调用点** —— 它是按原版名字
+        /// 保留的一等 API（「输入层该不该放行」本来该读它，我们走的是「每个动作边界必取空」
+        /// 那条路 ⇒ 无可观测差异）。⛔ 别删（删了就没有「忙」这个名字了），
+        /// 也⛔ 别拿它去拦输入 —— 那是另一笔要做的事。</summary>
+        public bool Busy { get { return Resolving || Count > 0; } }
+
         /// <summary>某一条道里现在有几条（排查/断言用）。</summary>
         public int CountOf(ActionPriority lane)
         {
@@ -192,8 +246,10 @@ namespace RuleEngine
             return false;
         }
 
-        /// <summary>清空四条道（**不重置** <see cref="Resolving"/> / <see cref="Dropped"/>）——
-        /// 一局重开时由上层显式调用（本批没有调用点）。</summary>
+        /// <summary>清空四条道（**不重置** <see cref="Resolving"/> / <see cref="Dropped"/>）。
+        /// 🔴 唯一的调用点 = `RuleCore.PumpActionQueues` 的「触发环硬闸」（`MaxPumpedActionsPerDrain`）——
+        ///    正常对局永远走不到。⚠️ 2026-10-21 审查（`W61b` 第 11 条）原文写「`Clear()` 无调用点」，
+        ///    已不成立（泵点那一支就是）。⛔ 别在别处顺手调它当「重开」用（一局重开是新建 `BattleContext`）。</summary>
         public void Clear()
         {
             for (int i = 0; i < LaneCount; i++) _lanes[i].Clear();

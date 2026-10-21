@@ -111,7 +111,7 @@
 //          y ∈ [63.6, 896.4]（`CardFan`：中心 (960,480) + `523.175×832.825`，其余槽 x 全为负偏移、
 //          尺寸只减不增 ⇒ 都落在里面）；
 //        · 画布上的件：`EffectList` x ≥ **1358.1**（离卡体右缘 **136.5 px**）· 风味条 y ≥ **900.84**
-//          （离卡体下缘 **4.4 px**）· 提示行 y = 1064 · 语音钮 x ∈ [1650.0, 1738.7]。
+//          （离卡体下缘 **4.4 px**）· 提示行 y = 1064（🔴 2026-10-22 已删，这行留作历史账）· 语音钮 x ∈ [1650.0, 1738.7]。
 //        ⇒ **没有一处需要「谁压谁」的裁决** ✓（`EffectList` 在原版里本来就排在 `Cards` 之后 ⇒ 即使将来
 //          卡体变大压过来，也是「画布在上」才对）。
 //   · **命中那一路（`HitSlot`/`HitVoice`/`ContainsPointer`）当时一个字没改**：它们比的是
@@ -183,9 +183,8 @@ namespace CardPresentation
         /// `FlavourTextBG` / `EffectList`）。
         /// <para>旧那套它们一律是 `z = 0`（`MenuDraw.Node` 不写 z）—— 那时容器**不渲染**、z 无所谓。
         /// uGUI 档**整棵子树跟着容器排**（兄弟序是整个树的深度优先次序）⇒ 容器那一档决定的是
-        /// 「它**这一整棵**」与**同一个父件下**的别的件谁先谁后。本窗 `_root` 下只有三样
-        /// （`Card Display` 容器 / `EffectList` 容器 / 提示行 `cdw_hint`）⇒ 取 `ZContent` 让两个容器
-        /// 与各自的**内容同档**；提示行再小 0.02 ⇒ 排最后 = 画在最上（它与风味底图那条带重叠）。</para>
+        /// 「它**这一整棵**」与**同一个父件下**的别的件谁先谁后。🔴 **2026-10-22**：底部那行自拟提示
+        /// `cdw_hint` 已删（原版子树没有它）⇒ `_root` 下只剩两个容器 ⇒ 同取 `ZContent`。</para>
         /// <para>⚠️ 整屏遮罩**不在画布上**（有意，见文件头）⇒ 它不参与这一档的账。</para></summary>
         const float ZGroup = ZContent;
 
@@ -263,7 +262,9 @@ namespace CardPresentation
         /// 只在 `Application.isPlaying` 生效；驱动那条链退场后本对字段可删（见文件头「过渡期」）。</summary>
         int _voiceFrame = int.MinValue;
         bool _voiceFrameOk;
-        Label _lore, _hint;
+        // 🔴 **2026-10-22（用户口径「战斗里原版没有的设计不要」）**：`Label _hint`（底部「再点一下关闭」）
+        //   已删 —— 原版 `Card Display Window` 子树里没有这个节点（见 `Build` 里那一段）。
+        Label _lore;
         AudioSource _voiceAudio;
 
         // 「谁给我加的 buff」那一竖列（原版 `Card Display/EffectList`）—— **建一次**，之后只切 activeSelf + 改字
@@ -431,8 +432,10 @@ namespace CardPresentation
         public RectTransform WindowRect { get { return (RectTransform)transform; } }
 
         /// <summary>🆕 **2026-10-17（`A1024`③ 批 2–4）自检口**：本窗的几颗字（**只给自检读**，生产路径不经过）。
-        /// <para>0 = `AffectedBy` · 1 = `EnchanterText[0]` · 2 = `EffectText[0]` · 3 = `LoreText` · 4 = `cdw_hint`。</para>
-        /// <para>⚠️ 没建出来 ⇒ `null`（lore 无文本时整块 `FlavourTextBG` 关着 / 效果清单在 `Build` 之后就建好了）。</para></summary>
+        /// <para>0 = `AffectedBy` · 1 = `EnchanterText[0]` · 2 = `EffectText[0]` · 3 = `LoreText`。</para>
+        /// <para>🔴 **2026-10-22**：原来的 4 = `cdw_hint`（底部「再点一下关闭」）**已删** ——
+        /// 原版 `Card Display Window` 子树里没有那个节点（照用户口径「原版没有的设计不要」）。
+        /// ⚠️ 没建出来 ⇒ `null`（lore 无文本时整块 `FlavourTextBG` 关着 / 效果清单在 `Build` 之后就建好了）。</para></summary>
         public Label TextForTest(int i)
         {
             switch (i)
@@ -441,7 +444,6 @@ namespace CardPresentation
                 case 1: return _fxWho != null && _fxWho.Length > 0 ? _fxWho[0] : null;
                 case 2: return _fxWhat != null && _fxWhat.Length > 0 ? _fxWhat[0] : null;
                 case 3: return _lore;
-                case 4: return _hint;
             }
             return null;
         }
@@ -548,24 +550,12 @@ namespace CardPresentation
             }
             else Debug.LogError("[展示窗] 世界壳没建出来 ⇒ **整屏压暗建不了**（本窗打开时不会压暗）");
 
-            // 🔴 **2026-10-18（W12 · W6 顺手核）：「这行是我们自加的」成立，判据补齐** ——
-            //    原版 `Card Display Window` 子树里**没有**「再点一下关闭」这样的节点
-            //    （2026-10-18 逐节点走了一遍 `battlearena1` 那棵树；`Battle/` 那 93 条代码字面量里
-            //     也没有对应的键，见 `d:/2/tools/il2cpp_out/stringliteral.json`）。
-            //    ⇒ 铁律 11 例外①（原版没有）⇒ **保留中文、不改**，只把判据落在这里。
-            //    ⚠️ 代价如实记：**英文档下这行会露中文**（没有原版键可接）。
-            // 🔴 **2026-10-16（`T09` 批 3）**：`Label.Create(_root, …, EndPanel.Pos(960,1064,z), 2, …)` →
-            //    `Text(...)`（**px**；位置 = `HudCanvas.PosPx(960,1064)`，即父中心下 524 px）。
-            //    `scale: 2` 照旧 —— 两个空间里「一个 scale 档」都是 **7 px 的大写高**（`Label.CapUnitOfScale`）。
-            //    ⚠️ 它比内容那一族**再靠前 0.02**：位置 (960,1064) 正落在风味底图那条带里
-            //    （`LoreBgT..LoreBgB` = 900.84–1078.84），而 uGUI 档里**同 z 的先后由创建顺序定**
-            //    （旧那套同 z 时先后本来就是未定义的）⇒ 给它一个明确的档，免得提示行被底图吃掉。
-            //    📌 **这一格是有意收口、不是原版值**（原版这一行是我们自加的，见上一段）。
-            // 🔴 **2026-10-17（`A1024`③ 批 2–4）**：原版 `Card Display Window` 子树里**没有**对应节点
-            //    （判据 = 上面 2026-10-18 `W12`·`W6` 那段现核）⇒ **不换面、保持 `Cjk`**（⛔ 不猜）。
-            _hint = Text(_root, "cdw_hint", "再点一下关闭", HudCanvas.PosPx(960f, 1064f), 2,
-                         0f, 0f, 0f, 0f, 0f, ZContent - 0.02f,
-                         new Color(0.7f, 0.7f, 0.75f), new Vector2(0.5f, 0.5f));
+            // 🔴 **2026-10-22（用户口径「战斗里原版没有的设计不要」）：底部那行提示【删了】。**
+            //    判据（2026-10-18 `W12`·`W6` 已核）：原版 `Card Display Window` 子树里**没有**
+            //    「再点一下关闭」这样的节点（逐节点走了一遍 `battlearena1` 那棵树；`Battle/` 那 93 条
+            //    代码字面量里也没有对应的键，见 `d:/2/tools/il2cpp_out/stringliteral.json`）。
+            //    原来那句是我们自拟的中文（英文档还会露中文）⇒ 整颗 `cdw_hint` 删掉。
+            //    ⚠️ 关窗能力一点没少：背景关闭区 + 关闭钮 + 点卡/空白那几条路都在。
 
             // ── 🆕 2026-10-20（W57 · `T09` A3-e）：**背景关闭区**（原版 `Menu Dark Background` 上的
             //    `BackgroundCloseButton`）────────────────────────────────────────────────────
@@ -955,7 +945,7 @@ namespace CardPresentation
         void SetChrome(bool on)
         {
             if (_mask != null) _mask.gameObject.SetActive(on);
-            if (_hint != null) _hint.gameObject.SetActive(on);
+            // 🔴 2026-10-22：`_hint`（底部自拟提示）已删。
             if (_voiceBtn != null) _voiceBtn.gameObject.SetActive(on);
             // 🆕 2026-10-20（A3-e）：背景关闭区**必须跟着开关** —— 漏了它 = 一块全屏射线靶在窗关着时
             //   继续挡着整个屏幕（`SetActive(false)` 会把它移出 `GraphicRegistry`，同 `MultiCardDisplay` 那条）。

@@ -841,6 +841,20 @@ public static partial class RuleEngineTest
         Step(TestT02SacrificeBodyLandsOnSelf);          // `Sacrifice:` 正文的 +1 落在被献祭那张自己身上
         Step(TestT02PlacementNoOverwriteFamily);        // 抢单位 / 控制到期归还 也走同一道不覆盖闸
 
+        // ============================================================
+        //  🔴 2026-10-21（引擎线 `T03·b`）：**回合流程残余的三块缺失机制**
+        //    （`SpentAllMana` / 开局加成三列 / `skipCardDraw` 的生产者）
+        // ============================================================
+        //  判据 → `资料/普查产出_1020/W58_战斗结算_回合流程对比.md` ＋ 全量反编译
+        //    `PlayerManager__UseNormalEnergy.c` / `PlayerHand._AddCardsToMulligan_d__41__MoveNext.c` /
+        //    `BattleManager__SetupInitialMana.c` / `AbilityLogic__PlayAbility.c`。
+        //  ⚠️ 测试体全在**新分册** `RuleEngineTest_T03b.cs`（本文件只加这一段用例表）。
+        Section("🆕 `T03·b`：`SpentAllMana` / 开局加成三列 / `skipCardDraw` 生产者");
+        Step(TestW61bSpentAllMana);                  // 花光法力 ⇒ 双方督军触发（含 0 费 / 付不起两档）
+        Step(TestW61bSpendInsufficientDrainsToZero); // 付不起 ⇒ 原版把余额**清零**（不是「不扣」）
+        Step(TestW61bInitialModifiers);              // initialHand/Mana/SpiritStoneModifier
+        Step(TestW61bSkipCardDrawProducer);          // skipCardDraw 的生产 → 消费 → 摘除
+
         // 🔴 **`Run()` 自己的「静默少跑」闸**（`A1591`）—— 必须在【汇总】之前跑，
         //    否则它的 `Check` 不计进 `_pass/_fail`（汇总行会漏掉它）。
         // ⚠️ **故意缩进深一层**：`工具/gen_diag_runner.py` 只把「**8 空格缩进的顶层语句**」当用例
@@ -14763,12 +14777,17 @@ public static partial class RuleEngineTest
     ///      夹具里**故意先打一张战术**把「上一张」坐实，再打潮涌 / 伴生卡 —— 两条造牌路各钉一次。
     ///   ④ **「挪一份」≠「造一份」**：从手牌打出去的那一份（`PlayCard` 把它**原样搬上场**、
     ///      不调 `NewInstance`）**不该**有来源。
+    ///   ⑤ 🆕 **2026-10-22（`W62/D5②`）「不在结算期新造的那一份」也不该有来源** ——
+    ///      判据 = 原版 `createdBy` 的三个写点传的都是「正在结算的那张卡」，抽牌 / 补牌 / 天赋生成
+    ///      那几条路**没有 creator**。🧨 把来源改回读 `PlayingCard`（它从不清空）⇒ 这一条红。
+    ///      另配两条结构判据：`ctx.CreationSource` 在作用域外必须 `null`（save/restore 没漏）。
     ///
-    /// 🧨 **改坏法**（两条各自能红、互不覆盖）：
-    ///   · 删掉 `BattleContext.NewInstance` 里那句 `if (creator != null) _createdBy[inst.Id] = creator;`
-    ///     ⇒ ② ③ 全红（① ④ 照旧绿）；
-    ///   · 删掉 `BattleContext.NotePlayed` 里那句 `PlayingCard = inst != null ? inst.Card : null;`
-    ///     ⇒ **只有 ③ 红**（①②④ 照旧绿）—— 这正是 ③ 必须单独存在的原因。
+    /// 🧨 **改坏法**（三条各自能红、互不覆盖）：
+    ///   · 删掉 `BattleContext.NewInstance` 里那句 `_createdBy[inst.Id] = creator;` ⇒ ② ③ 全红（① ④ 照旧绿）；
+    ///   · 🔴 **2026-10-22（`W62/D5②`）订正**：删 `NotePlayed` 里刷 `PlayingCard` 的那句**不再**能让 ③ 红
+    ///     （③ 现在读的是 `CreationSource`）。现行改坏法 = **删掉 `RuleCore.PlayCard` 里那句
+    ///     `PushCreationSource`（或它的还原）** ⇒ **只有 ③ 红**（①②④ 照旧绿）—— 这正是 ③ 单独存在的理由；
+    ///   · 把 `NewInstance` 的来源改回 `PlayingCard`（改前那版）⇒ **第 ⑤ 件红**（不在结算期新造的那一份被盖章）。
     ///
     /// 🔴 **灭自证 ≤ 两条，都是结构性的**（防「两边一起改回去」）：
     ///   · ③ 除了断「来源 == 刚打出的那张」，**还断「来源 != 上一张那张」** —— 来源在实现里是
@@ -14776,6 +14795,8 @@ public static partial class RuleEngineTest
     ///     （A/B 是两张不同的卡定义对象）⇒ 退回旧写法时这两条**一起红**，不会只红一条被顺手改绿。
     ///   · ④ 挡的是「按**卡定义**盖章 / 谁上场都盖章」那种退化实现：那个写法下 ②③ 可以全绿，
     ///     **④ 必红**（同一个 `CardDef`、两份实例，一份该有来源、一份不该有）。
+    ///   · ⑤ 挡的是「来源字段从不清空」那一族（`PlayingCard` 的老毛病）：它**同时**断「没有来源」
+    ///     与「来源 != 上一张」，旧写法下两条**一起红** ⇒ 改单边改不绿。
     /// </summary>
     static void TestCreatedBy()
     {
@@ -14831,6 +14852,26 @@ public static partial class RuleEngineTest
         CheckTrue(ReferenceEquals(ctx.PlayingCard, poke),
                   "夹具前提：此刻「上一张结算的卡」真的挂在 `ctx.PlayingCard` 上（= 那张战术）");
 
+        // ---- ⑥ 🔴 **2026-10-22（`W62/D5②`）：「不在结算期新造的那一份」不许盖上上一张的名字** ----
+        //  判据 = 原版 `createdBy` 的写点**只有三处**（`AddNewCardToHand` / `AddNewCardToDeck` /
+        //  `_ResolveSummonUnit`），每一处传的都是「**正在结算的那张卡**」；**抽牌 / 回合起补牌 /
+        //  天赋生成**这些路上根本没有 `creator` 参数 ⇒ 原版那几份的 `createdBy` 恒 `null`。
+        //  🧨 **改坏法**：把 `BattleContext.NewInstance` 的来源改回 `PlayingCard`（改前的写法）⇒
+        //     此刻 `PlayingCard == poke`（上面那条前提刚断过）⇒ 这份实例被盖章 ⇒ **本条红**。
+        //  ⚠️ 位置放在「上一张」已经坐实之后、潮涌/伴生两条**正向**用例之前 —— 那份新实例不进手牌、
+        //     不参与后面的选择，也不改变 `CreatedByCount`（没盖章 ⇒ 表里不长）。
+        var ctxFresh = ctx.NewInstance(Unit("CbFresh", 1, 0, 1));
+        CheckTrue(!ctx.HasCreatedBy(ctxFresh),
+                  "★★【W62/D5②】**不在结算期新造的实例没有来源** —— "
+                + "此刻 `PlayingCard` 明明停在那张战术上（上一张），它**不该**被盖成「由它创建」"
+                + "（真机症状：萨姆-罕的牌上写着兽人 Goff 计策的名字）");
+        CheckTrue(ctxFresh != null && !ReferenceEquals(ctx.CreatedByOf(ctxFresh), poke),
+                  "★★【灭自证】来源**不是**上一张那张战术 —— 「同一个引用既是 null 又是 poke」结构上不可能成立"
+                + "（退回读 `PlayingCard` 的旧写法时，上面两条**一起红**）");
+        CheckTrue(ctx.CreationSource == null,
+                  "★★【结构】出牌作用域之外 `ctx.CreationSource` 必须是 `null`"
+                + "（它是 save/restore 的作用域量 —— 泄漏了就回到「陈旧来源」那个老毛病）");
+
         // ---- ③-a 潮涌：复制品记的是【刚打出的这张】 ----
         CheckCode(RuleCore.PlayCard(ctx, 0, HandIdx(ctx, 0, "FixtureCbTide"), 2), RuleCodes.OK,
                   "打出带 `Tide 1` 的单位（`SpawnTideCopies` 在 `RuleCore.PlayCard` 里紧接着造复制品）");
@@ -14874,6 +14915,14 @@ public static partial class RuleEngineTest
         Check(ctx.CreatedByCount, cbBase + 2,
               "★ 这一局一共只有 2 份牌有来源（潮涌复制品 + 伴生卡）"
               + " —— 抽到手的 / 开局发的 / 打出去的那几份**一份都不在里面**");
+
+        // ---- ⑥ 收尾：**两次出牌都退出之后，作用域量必须干干净净** ----
+        //  🔴 结构判据（`W62/D5②`）：`CreationSource` 是 save/restore 的 —— 出牌入口退出时一定还原。
+        //  🧨 漏还原（例如把 `finally` 写成只在成功分支还原）⇒ 本条红；而上面 ③ 那两条**照样绿**
+        //     （它们只看出牌**当次**的名字对不对）—— 这正是本条单独存在的理由。
+        CheckTrue(ctx.CreationSource == null,
+                  "★★【W62/D5② · 结构】两次出牌都退出之后 `ctx.CreationSource` 仍是 `null`"
+                + "（作用域量泄漏 = 又一路「陈旧来源」）");
     }
 
     /// <summary>
@@ -18690,8 +18739,20 @@ public static partial class RuleEngineTest
             int lost = (50 - a.Health) + (50 - x.Health);
             CheckTrue(lost >= 3,
                       $"★ **链真的往下跑了几层**（我方两个单位共掉 {lost} 血，攻击本身只贡献 1）");
-            CheckTrue(a.Health > 0 && x.Health > 0,
-                      "链是被**上限**截断的，不是被「有人死了」截断的（两个都还活着）");
+            // 🔴 **2026-10-22（`W62` · R5）口径更正（铁律 5）：旧口径「链是被**上限**截断的，
+            //   不是被『有人死了』截断的（两个都还活着）」已经不成立** ——
+            //   触发从 2026-10-21 起一律入队、递归深度恒为 1 ⇒ `MaxEffectChain` 不再截断这一族，
+            //   这条环会**一路跑到有人被打死**。「两个都还活着」不是判据了。
+            //   现在钉两件：① 没有摸到结构闸（`MaxPumpedActionsPerDrain`，摸到就是触发环）；
+            //            ② 停得干净（四道取空）。判据 → `Core/ActionPump.cs:44-58`。
+            int echoTriggers = 0;
+            foreach (var e2 in ctx.Signals) if (e2.Kind == EvtKind.Trigger) echoTriggers++;
+            CheckTrue(echoTriggers > 0 && echoTriggers < RuleCore.MaxPumpedActionsPerDrain,
+                      $"★ 链被**结构闸**兜住、没有无限循环（{echoTriggers} 条 Trigger 信号 < "
+                    + $"{RuleCore.MaxPumpedActionsPerDrain}）"
+                    + " —— 环现在会一路跑到有人被打死，不再被 `MaxEffectChain` 截断");
+            CheckTrue(ctx.IsOver || ctx.ActionQueue.Count == 0,
+                      $"★ 链停下来了，四道队列取空（现 {ctx.ActionQueue.Count} 条）");
             Check(ctx.EffectChain, 0,
                   "★ **效果链归零了** —— 每一层的 `--` 都执行到了（漏掉会残留或变负）");
         }
@@ -23690,15 +23751,26 @@ public static partial class RuleEngineTest
             Check(mctx2.Players[0].Energy, 2,
                   "对照：对手场上的 maintenance 不在 P1 回合扣（原版只为**当前行动方**扫自己那边）");
 
-            // 对照 B：维护费 > 当前能量 ⇒ 原版 `LogError` + **一点不扣**（不是扣到 0）
+            // 对照 B：维护费 > 当前能量 ⇒ 原版 `LogError` + **余额清零** ——
+            // 🔴 **2026-10-22（`W62` · R6）就地订正（铁律 5）：旧口径「一点不扣」是【读错 `iVar3`】**。
+            //   逐句现读 `d:/2/tools/decomp_full/PlayerManager__UseNormalEnergy.c:35-66`：
+            //     ```c
+            //     if (mana < amount) { Debug.LogError(...); iVar3 = 0; }   // ← 局部量置 0
+            //     else { iVar3 = mana - amount; }
+            //     … op_Implicit(&local_58, iVar3, 0) …                     // ← **写回余额**
+            //     ```
+            //   ⇒ 不足时写回去的是 **0**，不是原值。`RuleCore.SpendNormalMana`（判定 `:10471-10473`）
+            //   一直是照原版做的 —— **实现是对的，是这条断言钉错了值**。
+            //   ⛔ 别把这句「改回去」：那是「实现跟着断言走」。
             var mctx3 = Battle(new[] { Unit("A", 1, 1, 1), Unit("B", 1, 1, 1), Unit("C", 1, 1, 1) },
                                new[] { Unit("X", 1, 1, 1), Unit("Y", 1, 1, 1), Unit("Z", 1, 1, 1) });
             var up3 = Place(mctx3, 0, 3, Unit("HugeUpkeep", 1, 1, 5));
             up3.AddKeyword(RuleCore.Maintenance, 5);
             RuleCore.BeginTurn(mctx3);
-            Check(mctx3.Players[0].Energy, 2,
-                  "★ 维护费 5 > 当前能量 2 ⇒ **一点不扣**"
-                  + "（原版 `PlayerManager__UseNormalEnergy.c:35-66` 的 LogError 支，不是扣到 0）");
+            Check(mctx3.Players[0].Energy, 0,
+                  "★ 维护费 5 > 当前能量 2 ⇒ **余额清零**（`LogError` + 写回 0）"
+                  + "（原版 `PlayerManager__UseNormalEnergy.c:35-66`：不足时 `iVar3 = 0` 再 `op_Implicit` 写回"
+                  + "｜旧口径写的是「一点不扣」= 读错了 `iVar3`，2026-10-22 更正）");
 
             // ---- ④ 后手一次性起始法力补贴 `addedManaSecond` ----
             var actx = Battle(new[] { Unit("A", 1, 1, 1), Unit("B", 1, 1, 1), Unit("C", 1, 1, 1) },
@@ -26724,11 +26796,24 @@ public static partial class RuleEngineTest
         foreach (var e in ctx.Signals) if (e.Kind == EvtKind.Trigger) triggers++;
 
         CheckTrue(triggers > 0, $"链真的转起来了（{triggers} 次触发）");
-        CheckTrue(triggers <= BattleContext.MaxEffectChain,
-                  $"被深度上限截断，没有无限递归（{triggers} ≤ {BattleContext.MaxEffectChain}）");
+        // 🔴 **2026-10-22（`W62` · R5）口径更正（铁律 5）：旧口径「被深度上限截断（≤ `MaxEffectChain`=8）」
+        //   已经不成立** —— 触发从 2026-10-21 起**一律入队**，递归深度**恒为 1**，
+        //   `BattleContext.MaxEffectChain` 只决定「一条 ability 里还能嵌套几层」，**不再截断这一族**。
+        //   现在的结构闸 = `RuleCore.MaxPumpedActionsPerDrain`（`Core/ActionPump.cs:44-58`：
+        //   超了就 LogError + 清空四道 + 停泵）。它按设计比真实动作量高三个数量级 ⇒
+        //   **正常对局摸不到**，所以这里钉「没摸到它」+「链确实停下来了」。
+        CheckTrue(triggers < RuleCore.MaxPumpedActionsPerDrain,
+                  $"链被**结构闸**兜住、没有无限循环（{triggers} < {RuleCore.MaxPumpedActionsPerDrain}）"
+                + "【旧口径：「被深度上限截断（" + triggers + " ≤ " + BattleContext.MaxEffectChain + "）」"
+                + "—— 触发改走队列后递归深度恒为 1，判据 → Core/ActionPump.cs:44-58】");
         Check(ctx.EffectChain, 0, "结算完深度回到 0（不然下一刀就少一层可用额度）");
-        CheckTrue(Board(ctx, 0, 3).IsAlive && Board(ctx, 1, 3).IsAlive,
-                  "两个乒乓单位都还活着（这条链是「互相点」，不是同归于尽）");
+        // ⚠️ 原来这里断言「两个乒乓单位都还活着」—— 那是**同步递归**时代的现象（到第 8 层就停手）。
+        //   走队列之后这条环会一路跑到**有人被打死**为止，「都还活着」不再是判据
+        //   （而且那一格已经空了 ⇒ 上一版在这里 `NullReferenceException`）。
+        //   本轮要钉的是「链停下来了、队列是空的」。
+        CheckTrue(ctx.IsOver || ctx.ActionQueue.Count == 0,
+                  $"★ 链停下来了，四道队列被取空（现 {ctx.ActionQueue.Count} 条；"
+                + "对局已结束那一档允许残留，见 `ActionScope.Dispose` 的口径）");
     }
 
     /// <summary>自己那套卡：效果文字**全部**解析得出来，六类关键词都有人用</summary>
@@ -27829,14 +27914,19 @@ public static partial class RuleEngineTest
         CheckTrue(files.Length >= 20, $"扫到 {files.Length} 个 `Core/*.cs`（锚点，太少 = 路径不对）");
 
         // 钉死的清单 = 【当前】全部「构造一个新 UnitState」的宿主方法。
+        // 🔴 **2026-10-22（`W62` · R6）就地订正（铁律 5）**：原来钉的是 `PlayCard` / `DeployFree`，
+        //   而 2026-10-21「触发一律入队」那一批把这两个公开入口拆成了
+        //   **壳**（`PlayCard` / `DeployFree`，只做 `BeginAction`）+ **体**（`PlayCardCore` /
+        //   `DeployFreeCore`，`new UnitState(` 现在在体里，`RuleCore.cs:3343` / `:4068`）。
+        //   ⇒ 本清单改钉**体**。⛔ 别「让扫描跳过 `*Core`」—— 那会把将来真正新增的入口一起藏掉。
         var pinned = new Dictionary<string, string>
         {
-            { "BuildPlayer",   "督军创建（恒不疲劳，不走部署钩子）" },
-            { "PlayCard",      "① 手牌打出" },
-            { "DeployFree",    "② 效果免费部署 / 召唤" },
-            { "DoReanimate",   "③ 再造（残骸翻回）" },
-            { "PlaceTroops",   "④ 教程起始单位（不吃召唤病；专用钩子 ActivateTraitsOnSummonOrEnchantment）" },
-            { "CleanupDeaths", "特例：残骸翻面（写死 Exhausted=true，不是新入场）" },
+            { "BuildPlayer",     "督军创建（恒不疲劳，不走部署钩子）" },
+            { "PlayCardCore",    "① 手牌打出（壳 `PlayCard` 只包 `ActionScope`，2026-10-21 接线批拆出）" },
+            { "DeployFreeCore",  "② 效果免费部署 / 召唤（壳 `DeployFree` 同上）" },
+            { "DoReanimate",     "③ 再造（残骸翻回）" },
+            { "PlaceTroops",     "④ 教程起始单位（不吃召唤病；专用钩子 ActivateTraitsOnSummonOrEnchantment）" },
+            { "CleanupDeaths",   "特例：残骸翻面（写死 Exhausted=true，不是新入场）" },
         };
 
         var found = new SortedDictionary<string, string>();   // 方法名 → 文件:行（取第一处）

@@ -24,7 +24,11 @@
 //    `_Noise1ScaleAndSpeed` / `_Noise2ScaleAndSpeed`），**运算逻辑拿不到**。
 //    ⚠️ 场景那个材质上还挂着一堆 `_WaveScale1/2/3` / `_Movement` / `_Resolution` / `_Parallax` ——
 //    **那些是内置 Standard shader 的残留值、当前 shader 根本不读**（`CLAUDE.md` 那条「原版材质带残留」的坑）。
-//    ⇒ **我们这里画的是静态图**：自写一个等化器等于自己发明（逻辑无法照抄）。这是**如实标注的差异**。
+//    ⇒ 🔴 **2026-10-21 就地订正（铁律 5）**：本段原来写「**我们这里画的是静态图**」—— **已过期**。
+//    现在有一个**等价近似**的自写 shader `Resources/VoiceWave.shader`（UV 空间 sin 位移采样 y），
+//    幅度由 C# 端按原版公式（前 16 bin ×15 → clamp01 → 10×dt 平滑）写 **原版属性名 `_MovementRange`**。
+//    仍然如实标着的差异：**位移的 UV 量纲是我们的**（`_WaveScale=0.22`），原版
+//    `Shader Graphs/Equalizer` 的数学拿不到 ⇒ 形状不保证逐像素一致。
 //
 // 🔴🔴 **2026-10-16（修波 `FD` · 账 `G1-4`）就地订正（铁律 5）**：本段原来那句「**查不到的（所以是我们挑的）**」
 //    下面两句**今天都不成立**（这是同一句错话的**第 5 份**，也是**最后一份**没有更正痕的）：
@@ -176,7 +180,7 @@ namespace CardPresentation
             /// <summary>🔴 **2026-10-16（`T09` 批 3）：类型 `ImageQuad` → `HudPiece`** —— 这一族现在是
             /// 「世界空间 quad **或** uGUI `RectTransform+Image`」二选一（见 `HudPiece` 文件头那条铁律）。</summary>
             public HudPiece bg, portrait, wave;
-            /// <summary>音波材质（`CardPresentation/VoiceWave`）—— `Advance` 每帧写 `_Amplitude`。</summary>
+            /// <summary>音波材质（`CardPresentation/VoiceWave`）—— `Advance` 每帧写 `_MovementRange`（原版属性名）。</summary>
             public Material waveMat;
             public Label text;
             public AudioSource audio;
@@ -940,21 +944,32 @@ namespace CardPresentation
                               + $" · audioEnabled={b.audio.enabled} · goActive={b.audio.gameObject.activeInHierarchy}"
                               + $" · vol={b.audio.volume:F2} · mixer={(b.audio.outputAudioMixerGroup != null ? b.audio.outputAudioMixerGroup.name : "null")}"
                               + $" · VolumeVoices={(vv > 900f ? "-" : vv.ToString("F1") + "dB")}"
-                              + $" · listenerVol={AudioListener.volume:F2} · listenerPause={AudioListener.pause}");
+                              + $" · listenerVol={AudioListener.volume:F2} · listenerPause={AudioListener.pause}"
+                              + $" · listeners={UnityEngine.Object.FindObjectsByType<AudioListener>(FindObjectsSortMode.None).Length}"
+                              + $" · dspRate={AudioSettings.outputSampleRate} · speakerMode={AudioSettings.speakerMode}");
                 }
             }
         }
 
         /// <summary>
-        /// 显示多久。⚠️ **原版查得到两个常量**：`MAX_AUDIO_DURATION = 2 s`（截断）、
-        /// `CHAT_INTERACTABLE_COOLDOWN = 4 s`；但**没有**「气泡停留多久」那条。
-        /// 我们取 `clamp(音频长度, 1.0, 4.0) + 0.4` —— **这是我们挑的**（按音频长度走最省心，
-        /// 也不会出现「说完了气泡还挂着」或「话没说完就收了」）。
+        /// 显示多久 = **原版真值**：`VoiceLinesController.GetCurrentClipLength`（反编译
+        /// `VoiceLinesController__GetCurrentClipLength.c:9-33`）：
+        /// <code>
+        /// clip == null            → 2.0
+        /// 否则                    → Mathf.Max(2.0, clip.length + 0.3)
+        /// </code>
+        /// 两个常量都是从 `GameAssembly.dll` 现读的（`DAT_1834b2bbc = 2.0` · `DAT_1834b2dc8 = 0.3`；
+        /// RVA = VA − ImageBase(0x180000000)，见 `资料/战斗规则与数值_出处.md` §三）。
+        /// 🔴 **2026-10-21 就地订正（铁律 5）**：本方法原来写 `clamp(len,1,4)+0.4` 并自认
+        /// 「这是我们挑的」—— **判据是有的**（就是上面那条），所以那句「我们挑的」不成立。
+        /// 差别很实：原版对**短 clip**（本工程 1778 条语音里中位数只有 0.41 s）**不会缩短气泡**，
+        /// 一律至少 **2.0 s**；我们原来 0.25 s 的 clip 只显示 1.4 s。
+        /// 另：原版 `MAX_AUDIO_DURATION = 2` 是**音频侧**的截断，不是气泡时长 —— ⛔ 别再把两者混为一谈。
         /// </summary>
         static float Duration(AudioClip clip)
         {
-            float len = clip != null ? clip.length : 1.5f;
-            return Mathf.Clamp(len, 1.0f, 4.0f) + 0.4f;
+            if (clip == null) return 2.0f;
+            return Mathf.Max(2.0f, clip.length + 0.3f);
         }
 
         public void HideAll()
@@ -1005,43 +1020,58 @@ namespace CardPresentation
         public void Advance(float dt)
         {
             if (_current == null) return;
-            // 🔴 2026-10-21（`新账-63` · 第三层诊断）：每 0.4 s 打一次「气泡在场时的真实状态」——
-            //   用来区分「音频没播」/「频谱全 0」/「amplitude 写了但材质没变」。定位完可以删。
-            if (Time.unscaledTime - _lastDiagAt > 0.4f)
+            // 🔴 2026-10-21（`新账-63` · 第三层诊断）：每 **0.08 s** 打一次「气泡在场时的真实状态」——
+            //   原来 0.4 s 太稀：本工程语音中位数只有 **0.41 s**，0.4 s 的采样点**整个落在播放窗口之外**
+            //   （上一轮真机日志里 4 个 tick 只有 1 个 `playing=True`，且那一个时刻 `_spectrum` 还是 null）。
+            //   定位完可以删。
+            if (Time.unscaledTime - _lastDiagAt > 0.08f)
             {
                 _lastDiagAt = Time.unscaledTime;
-                float mA = _current.waveMat != null ? _current.waveMat.GetFloat("_Amplitude") : -999f;
-                Debug.Log($"[UnitChat] tick playing={(_current.audio != null && _current.audio.isPlaying)}"
+                float mA = _current.waveMat != null ? _current.waveMat.GetFloat("_MovementRange") : -999f;
+                float ss = 0f;
+                if (_spectrum != null) for (int i = 0; i < 16; i++) ss += _spectrum[i];
+                var a0 = _current.audio;
+                // 🔴 2026-10-21 第四层诊断：真机实测「`isPlaying=True`、`aTime` 在走，频谱却恒 ≈0」
+                //   ⇒ 需要区分「**source 专有 API 取不到**」与「**整条音频链路没输出**」：
+                //   同一时刻再读一次 `AudioListener.GetSpectrumData`（全场混音），两者对比即判。
+                if (_lspec == null) _lspec = new float[64];
+                AudioListener.GetSpectrumData(_lspec, 0, FFTWindow.Hamming);
+                float ls = 0f; for (int i = 0; i < 16; i++) ls += _lspec[i];
+                Debug.Log($"[UnitChat] tick playing={(a0 != null && a0.isPlaying)}"
+                          + $" aTime={(a0 != null ? a0.time : -1f):F3} aLen={(a0 != null && a0.clip != null ? a0.clip.length : -1f):F3}"
+                          + $" load={(a0 != null && a0.clip != null ? a0.clip.loadState.ToString() : "-")}"
+                          + $" vol={(a0 != null ? a0.volume : -1f):F2} mute={(a0 != null && a0.mute)}"
                           + $" waveMat={(_current.waveMat != null)} waveAmp={_waveAmp:F3} matAmp={mA:F3}"
-                          + $" spec0={(_spectrum != null ? _spectrum[0] : -1f):F6} left={_left:F2}");
+                          + $" specSum16={ss:F6} lisSum16={ls:F6} left={_left:F2}");
             }
-            // 🆕 2026-10-21：音波幅度 —— 原版 `AudioWaveEqualizer__Update` 同法（前 16 bin ×15、clamp01、10×dt 平滑）。
-            //    ⚠️ 取到不了频谱就回 0（直线），⛔ 不静默留一个假波。
-            if (_current.audio != null && _current.audio.isPlaying && _current.waveMat != null)
+            // 🆕 2026-10-21：音波幅度 —— **逐行照原版 `AudioWaveEqualizer.Update`**
+            //   （`d:/2/tools/decomp_full/AudioWaveEqualizer__Update.c:29-67`）：
+            //     · 每帧 `GetSpectrumData(src, spectrum, 0, 2 /*Hamming*/, 0)` —— **原版不判 `isPlaying`**，
+            //       只要 `audioSource != null` 就读（没播时频谱天然是 0，靠平滑自然落到 0）；
+            //     · 前 16 bin 求和 × `spectrumModifier`(15) → clamp01 → 按 `deltaTime * speedChange`(10) 平滑；
+            //     · 写 `Material.SetFloat`（属性名在 `DAT_184235590`）。
+            //   两个字段值来自原版场景对象：`bundle_scenes_scenes_battlearena1/MonoBehaviour/
+            //   MonoBehaviour_4115.json` 的 `spectrumModifier = 15.0` / `speedChange = 10.0`。
+            if (_current.audio != null && _current.waveMat != null)
             {
                 if (_spectrum == null) _spectrum = new float[64];
-                // 🔴 2026-10-21（第六十一会话 · `新账-63`）：原版 `AudioWaveEqualizer__Update` 传的第 3 参是
-                //   **2 = `FFTWindow.Hamming`**（`d:/2/tools/decomp_full/AudioWaveEqualizer__Update.c:29-33`
-                //   的 `GetSpectrumData(src, array, 0, 2, 0)`）—— 我们原来写的是 Blackman(4)，按原版改回。
                 _current.audio.GetSpectrumData(_spectrum, 0, FFTWindow.Hamming);
                 float sum = 0f;
                 for (int i = 0; i < 16; i++) sum += _spectrum[i];
                 float target = Mathf.Clamp01(sum * 15f);
                 // 🔴 不许静默失败：语音在播、频谱却全 0 ⇒ 音波会是直线（真机 `新账-63` 就是这现象）。
                 //   只报一次，够定位「是频谱取不到」还是「音频根本没播」。
-                if (target <= 0f && !_warnedZeroSpectrum)
+                if (target <= 0f && _current.audio.isPlaying && !_warnedZeroSpectrum)
                 {
                     _warnedZeroSpectrum = true;
                     Debug.LogWarning("[UnitChat] 语音在播（`isPlaying=1`）但 `GetSpectrumData` 前 16 bin 全 0"
                                      + " ⇒ 音波线不会动。查：AudioSource 是否被 mixer 组静音 / 平台是否禁了频谱。");
                 }
                 _waveAmp = Mathf.Lerp(_waveAmp, target, Mathf.Clamp01(10f * dt));
-                _current.waveMat.SetFloat("_Amplitude", _waveAmp * 0.22f);   // 0.22 UV ≈ 上下的可见摆幅
-            }
-            else if (_current.waveMat != null && _waveAmp > 0f)
-            {
-                _waveAmp = 0f;
-                _current.waveMat.SetFloat("_Amplitude", 0f);
+                // 🔴 属性名 = **原版那个 `_MovementRange`**（名字来自 `DAT_184235590` 的字符串，
+                //   RVA 0x4235590；材质默认值 0.00591）。我们原来起名 `_Amplitude` 并在这里乘 0.22 ——
+                //   现在量纲收进 shader 的 `_WaveScale`，这里写的是**原版 0..1 的原值**。
+                _current.waveMat.SetFloat("_MovementRange", _waveAmp);
             }
             // 🔴 `新账-63` 的另一半：气泡在显示、音频**却没在播**（clip=null / Play 失败）⇒ 也出声一次。
             //   别把「没声」和「频谱全 0」混成同一个现象（两者的修法不同）。
@@ -1068,6 +1098,7 @@ namespace CardPresentation
 
         float _waveAmp;
         float[] _spectrum;
+        float[] _lspec;                 // 🔴 2026-10-21 第四层诊断：全场混音频谱（与 source 专有 API 对比）
         // 🔴 2026-10-21（`新账-63`）：两种「音波不会动」的原因各只报一次，避免每帧刷屏。
         bool _warnedZeroSpectrum;
         bool _warnedNotPlaying;

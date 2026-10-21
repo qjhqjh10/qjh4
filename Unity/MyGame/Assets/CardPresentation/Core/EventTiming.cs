@@ -109,7 +109,12 @@ namespace CardPresentation
                 // 🆕 2026-09-29：再加**落位之后那一拍**（`DeployLandHold`）——
                 //    原版 `_ResolvePlayCardFromHand` 的 state 4→5 就是 `WaitForSeconds(0.3)`
                 //    （`DAT_1834b2dc8` 实读 = 0.3），发生在**落位动画跑完之后**。
-                case EvtKind.Deploy: return 1.0f + DeployLandHold;
+                // 🔴 **2026-10-21（W61 第 2 批 · 第 3 条）：这一格【按来源分档】了** ——
+                //    手牌打出 = **0.4**（`_MinionPlayedIntoField` state 3 尾的 `attackStepTime` 0.1 +
+                //    `_ResolvePlayCardFromHand` state 4 的 0.3）；`Summon Troop Tween` 的 1.0 只给
+                //    **效果召唤/复活**。分档要 `BattleEvent.DeployFrom` ⇒ 见 `DurationOf(BattleEvent)`。
+                //    ⛔ **这条只按 EvtKind 的重载拿不到来源** ⇒ 返回**兜底**（老口径，给探针/旧路径用）。
+                case EvtKind.Deploy: return DeploySummonHold + DeployLandHold;
 
                 // 出手 → 命中：**近战档 0.10**（远程 0.20，走 `DurationOf(BattleEvent)` 那个重载）。
                 // 🔴 **2026-09-18 更正**：这里原来是 `ChargeTime + AttackPunchDuration = 0.65`，
@@ -178,6 +183,10 @@ namespace CardPresentation
             if (e == null) return 0f;
             if (e.Kind == EvtKind.Attack)
                 return e.Ranged ? AttackStepRanged : AttackStepMelee;
+            // 🔴 **2026-10-21（W61 第 2 批 · 第 3 条）**：`Deploy` **按「怎么进来的」分档** ——
+            //    判据见 <see cref="DeployHoldOf"/>。⛔ 别退回 `DurationOf(EvtKind.Deploy)`（那是兜底 1.3，
+            //    手牌出牌会被它多排 0.9 s —— 正是这条账要修的那 0.9）。
+            if (e.Kind == EvtKind.Deploy) return DeployHoldOf(e.DeployFrom);
             // 🆕 `A1767`：**发动能力 = 逐卡真值**。`e.CardId` 装的是 `CardDef.Name`（英文卡名），
             //    表里 id 与卡名两个键都有（见 `AbilityAnimDurations.TryGet`）。
             //    查不到 ⇒ 退回 `AbilityFallbackSeconds`，`TryGet` 自己会**出声**（每张卡一次，不刷屏）。
@@ -283,6 +292,46 @@ namespace CardPresentation
         /// </summary>
         public const float DeployLandHold = 0.3f;
 
+        /// <summary>**效果召唤 / 复活**那一档的 `Deploy` 占多久（秒）= **1.0**
+        /// —— `Summon Troop Tween` 的 **`DelayTween.duration = 1.0`**
+        /// （`数据/游戏数据/tween/Summon Troop Tween.json` 现读：ScaleTween d=0 · DelayTween **1.0** ·
+        ///  ResetBodyTween 0.3）。原版走 `BattleManager._ResolveSummonUnit_d__510__MoveNext`。
+        /// ⚠️ ResetBodyTween 那 0.3（`appendType=0` = After）**没算进去**：`waitAnimation = 0`
+        ///    ⇒ 它不阻塞下一条动作；要照字面全算的话这一档会变成 1.3（**如实记**，
+        ///    见 `资料/普查产出_1021/W61b_战斗线_演出链第2批.md`）。</summary>
+        public const float DeploySummonHold = 1.0f;
+
+        /// <summary>🆕 **2026-10-21（W61 第 2 批 · 第 3 条）：`Deploy` 这一拍占多久 —— 按「怎么进来的」分档。**
+        ///
+        /// <para>判据（逐条现读 `d:/2/tools/decomp_full/`）：</para>
+        /// <list type="bullet">
+        /// <item>**手牌打出**（`_ResolvePlayCardFromHand_d__447__MoveNext.c`）：
+        ///   `yield MinionPlayedIntoField` 整条跑完之后 state 4→5 是 `WaitForSeconds(DAT_1834b2dc8 = 0.3)`；
+        ///   而 `_MinionPlayedIntoField_d__314__MoveNext.c` 的 **state 3 尾**还有
+        ///   `WaitForSeconds(get_AttackStepTime() = 0.1)` ⇒ **合计 0.4**
+        ///   （0.1 + 0.3）。⚠️ 这就是对账 §2·1 #11 那句「0.1 + `_ResolvePlayCardFromHand` 0.3 = 0.4」。</item>
+        /// <item>**自动从手牌打出**（`_ResolveCardAutoSummoned_d__511__MoveNext.c`）：只有
+        ///   `MinionPlayedIntoField` 那一段（state 3→4 直接接下去，**没有**再等 0.3）⇒ **0.1**。</item>
+        /// <item>**效果召唤 / 复活**（`_ResolveSummonUnit_d__510__MoveNext.c`）：走 `Summon Troop Tween`
+        ///   ⇒ <see cref="DeploySummonHold"/> 1.0。</item>
+        /// <item>**没写来源**（`DeploySource.Unknown`：旧路径 / 自检手工合成的 `Deploy`）⇒ **老口径 1.3**，
+        ///   与 `BattleEvent.DeploySource` 的 doc「消费端读到 `Unknown` 就按改前的老行为处理」一致。</item>
+        /// </list>
+        /// <para>🔴 修之前全档都是 1.3 ⇒ **手牌出牌每个兵多 0.9 s**（对账 §2·1 #11「数值错（疑似）」坐实）。</para>
+        /// </summary>
+        public static float DeployHoldOf(DeploySource from)
+        {
+            switch (from)
+            {
+                case DeploySource.HandPlayed:       return AttackStepMelee + DeployLandHold;   // 0.4
+                case DeploySource.AutoPlayFromHand: return AttackStepMelee;                    // 0.1
+                case DeploySource.Summon:
+                case DeploySource.Reanimate:        return DeploySummonHold;                   // 1.0
+                default:                            return DeploySummonHold + DeployLandHold;   // 1.3（老口径）
+            }
+        }
+
+
         /// <summary>命中和阵亡之间那一下的间隔。**这条是我们挑的**（0.1 = 引擎节拍 `minDelay`）。
         /// ⚠️ 原文写「`VarsGlobal` 资产缺失、查不到」—— **那句过期了**：整表 2026-09-17 已解出，
         /// 但**那个字段（原版等的是 `deathTimeMinionDuration`）我们算在阵亡动画时长里了**
@@ -355,7 +404,10 @@ namespace CardPresentation
         {
             switch (kind)
             {
-                case EvtKind.Deploy: return "`Summon Troop Tween` 的 DelayTween duration=1.0";
+                case EvtKind.Deploy: return "🆕 2026-10-21 按 `BattleEvent.DeployFrom` 分档（见 `DeployHoldOf`）"
+                                          + "：手牌打出 0.1+0.3=**0.4** · 自动打出 0.1 · 效果召唤/复活 "
+                                          + "`Summon Troop Tween` 的 DelayTween **1.0**；"
+                                          + "无来源（Unknown）退回老口径 1.3";
                 case EvtKind.Attack: return "`CardScript.attackStepTime`=0.1（位移完成即命中帧；远程 0.2）";
                 case EvtKind.Hit: return "`Impact Light Tween`：Punch 0.5 + ResetBody 0.25（`appendType=After`）";
                 case EvtKind.Ability: return "🆕 2026-10-14（`A1767`）**逐卡真值**：该卡 `activeAbility` 各 CardAnim 的 "

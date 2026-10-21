@@ -7755,7 +7755,7 @@ public static class ShellScene
                 "Settings/Graphics/Flash/Vsync", "Settings/Graphics/FpsText/Unlimited", "Settings/Graphics/FpsText/Value",
                 "Settings/Graphics/FrameLimit", "Settings/Graphics/IncreaseUISize", "Settings/Graphics/SelectQuality",
                 "Settings/Graphics/Title", "Settings/Graphics/UnlimitedFPS", "Settings/Graphics/Vsync",
-                "Settings/Media/AudioMixerNote", "Settings/Media/Title", "Settings/Media/VoiceOvers",
+                "Settings/Media/Title", "Settings/Media/VoiceOvers",
                 "Settings/Online/CheckConnection", "Settings/Online/ClickAgain", "Settings/Online/HostFailed",
                 "Settings/Online/HostReady", "Settings/Online/HostReadyNoPassword", "Settings/Online/HostReadyToFriend",
                 "Settings/Online/HowToConnect/DontUseTestSite", "Settings/Online/HowToConnect/Intro", "Settings/Online/HowToConnect/Lan",
@@ -7991,6 +7991,45 @@ public static class ShellScene
                 CheckTrue(a1126Tut.CurrentState == WindowState.Closed, "收尾：教程模式窗关掉");
             }
 
+            // ---------------- ③′ `A1262`（2026-10-21）：CJK 字体资产的 `m_Scale` 与「有效行盒」----------------
+            // 期望值**全部取自原版资产**（`d:/2/新解包资源/assets_full/bundle_fonts_assets_all/MonoBehaviour/
+            // NotoSerifCJK-Regular SDF.json` 的 `m_FaceInfo`：pointSize 50 · lineHeight 71.85 · **scale 0.9**），
+            // ⛔ 不取我们自己那份 —— 否则就是「拿实现证明实现」。
+            // 判据链：TMP 的一行字盒 = `(ascentLine − descentLine)/pointSize × faceInfo.scale`
+            //   （包源码 `TMP_Text.cs:4188/4190` 把 `fontFace.scale` 乘进 `adjustedScale`，
+            //    `:4391/:4396` 再用它算 ascender/descender）⇒ 有效行盒 = 1.437 × 0.9 = **1.2933 em**。
+            // ⚠️ **本组是 `A1262` 唯一会动的断言**：它读的是**资产字段**。画面/版面那一侧
+            //   **逐位不变**（见下面 A1178 那段 2026-10-21 的补注：px 口径按**实测字形高**折算，
+            //   而字形高与行盒同时乘 `m_Scale` ⇒ 比值与 `m_Scale` 无关）。
+            {
+                var cjkFa = Resources.Load<TMPro.TMP_FontAsset>("Fonts/NotoSerifCJK-Regular SDF");
+                CheckTrue(cjkFa != null,
+                          "（前提·不静默）A1262：`Resources/Fonts/NotoSerifCJK-Regular SDF` 取得到"
+                        + " —— ⛔ 取不到就**不往下断**（不静默变绿）");
+                if (cjkFa != null)
+                {
+                    float cjkPs = cjkFa.faceInfo.pointSize;
+                    CheckNear(cjkPs, 50f, 1e-3f,
+                              "★ A1262：CJK 资产 `m_PointSize` = **50**（原版 `m_FaceInfo.m_PointSize`）");
+                    CheckNear(cjkFa.faceInfo.scale, 0.9f, 1e-4f,
+                              "★ A1262：CJK 资产 `m_Scale` = 原版 **0.9**（原版 `m_FaceInfo.m_Scale`；"
+                            + "我们原来是 1 ⇒ 同一 `m_fontSize` 下汉字大 11%、行盒高 11%）"
+                            + "｜实得 " + cjkFa.faceInfo.scale.ToString("F4")
+                            + "｜🧨 把 `Resources/Fonts/…SDF.asset` 或 `TmpSetup` 那一刀改回 1 ⇒ 本行红");
+                    if (cjkPs > 0f)
+                    {
+                        CheckNear(cjkFa.faceInfo.lineHeight / cjkPs, 1.437f, 0.002f,
+                                  "★ A1262：**face 行盒** `lineHeight ÷ pointSize` = 1.437 em"
+                                + "（原版同一份 TTF 度量：hhea 1151/−286 @upem 1000；`71.85 ÷ 50`）");
+                        CheckNear(cjkFa.faceInfo.lineHeight / cjkPs * cjkFa.faceInfo.scale, 1.2933f, 0.005f,
+                                  "★ A1262：**有效行盒** = face 行盒 × `m_Scale` = **1.2933 em**"
+                                + "（判据 = `TMP_Text.cs:4188/4190` 的 `… / pointSize * faceInfo.scale`；"
+                                + "原版运行期三条旁证 1.2944 / 1.2931 / 1.2959，见 `panel_0914b/p3_*.tsv`）"
+                                + "｜🧨 少了 `m_Scale` 那一格 ⇒ 本行红（我们曾经就是这一档）");
+                    }
+                }
+            }
+
             // ---------------- ③ `Shell/EnergySinglePlayerOnlyEventWindow.cs`（两处）----------------
             // 期望值出处 = `工具/menu_dump.py bundle_menus_assets_all "EnergySinglePlayerOnlyEventWindow" --depth 6 --md`。
             // ⚠️ 原版这两颗的**框宽都是 0**（+ `ContentSizeFitterMinMax(h:PreferredSize)` ⇒ 运行时框宽 = 文字的
@@ -8107,8 +8146,25 @@ public static class ShellScene
                     //        · 不溢出 = 渲出宽/高各自 ≤ 框 + 1.5px（TMP 二分粒度）。
                     //   ⚠️ **系统性残差如实登记**（本报告）：`NotoSerifCJK` 行盒 1.52em vs 原版 ≤1.47em。
                     //      它该落 `项目任务.md` §三（本件白名单里没有正本；残差账 → `W2_A1126A1.md` §五）。
-                    //   ⛔ 别为了回到 38px 去**压行盒 / 换更矮的 CJK 面** —— 原版中文客户端的回退字体
-                    //      行盒本地拿不到 = **没有判据**（那等于发明一个原版没有的值）。
+                    //   🔴 **2026-10-21（`A1262` · 铁律 5 就地订正）—— 上面那两句「原版回退字体行盒本地拿不到 /
+                    //      没有判据」+「残差 1.52em vs 原版 ≤1.47em」【已过期】，⛔ 别照它推**：
+                    //      · 原版那份 CJK 资产**本地就有**（`bundle_fonts_assets_all/MonoBehaviour/
+                    //        NotoSerifCJK-Regular SDF.json`），它带 `m_FaceInfo.m_Scale = 0.9` ⇒
+                    //        **有效行盒 1.2933 em**（face 1.437 × 0.9）。我们 2026-10-21 起已按它对齐
+                    //        （资产 + `Editor/TmpSetup.cs` 的烘焙参数都改了，见上面 ③′ 那组断言）。
+                    //      · ⛔ **但「改成 0.9 就会回到 38 / 53.5」不成立**，所以本处**故意不收紧**成 `38 ± 0.06`：
+                    //        本工程的 px 口径 = **汉字墨高**（`Label.FontSizeToPx` = `fontSize × WorldGlyphPerFontSize × 108`，
+                    //        而那个比值是**运行时实测**的 `TmpFont.MeasureGlyph('国')`）⇒ 在 `SetAutoFitBox` 里
+                    //        `fontSizeMax = maxPx ÷ (Wglyph × 108)`，而一行字的世界高 = `fontSize × face 行盒 × m_Scale × 0.1`
+                    //        ⇒ `Wglyph` 与行盒**同时**乘 `m_Scale`，**乘积与 `m_Scale` 无关**（渲染逐位不变）。
+                    //        实测坐实：渲出比 **1.52 = 1.437(face 行盒) ÷ 0.948(汉字墨高/em)** —— 两个因子都含
+                    //        `m_Scale`，约掉了；这也正是四条读数 1.5170 / 1.5252 / 1.5470 / 1.5252 的来历。
+                    //      · ⇒ 真正的残差是**口径**（我们的「px」= 汉字墨高，而原版 `m_fontSize` 的墨高只有
+                    //        `0.948 × 0.9 = 0.853 × px`），**不是缺 `m_Scale`**。要回到 38 / 53.5 得改口径或
+                    //        逐站改 `minPx/maxPx` 实参（全仓 510+ 站、实渲缩 ≈15%）⇒ 属**另一笔**、须单独一批 + 真机验收。
+                    //        **本轮只落资产字段（铁律 11「先完全复刻」）并把口径残差记账** ⇒ 本处上下限
+                    //        **维持 2026-10-20 那一档**，⛔ 别为「让断言看着更紧」去改期望值（那会是假红/假绿）。
+                    //      判据全文 → `资料/普查产出_1021/W61b_界面_A1262_mScale.md`。
                     float fontHi = nm == "Timer" ? 38f : 53.5f;   // 原版 `m_fontSize`（dump 现读）
                     float fontLo = boxHOrig / 1.55f;              // 原版框高 ÷ CJK 行盒上界（1.55em）
                     CheckTrue(l2.FontPxNow >= fontLo - 0.06f && l2.FontPxNow <= fontHi + 0.06f,

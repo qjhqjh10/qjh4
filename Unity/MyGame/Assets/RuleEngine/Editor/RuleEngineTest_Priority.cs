@@ -19,7 +19,9 @@
 // 🔴 **期望值一律写死字面量**（`0/1/2/3`、`"2,1,3,0"`）—— ⛔ 不从 `ActionQueue` 的实现常量反算
 //    （那会自证：实现改错、期望跟着错，永远绿）。
 //
-// ⚠️ 本批**不接线**（`RuleCore` / `EffectResolver` 仍同步递归）⇒ 这里只测**原语**，不碰对局。
+// ⚠️ **2026-10-21 就地订正**：本文件头原来写着「本批**不接线**（`RuleCore` / `EffectResolver`
+//    仍同步递归）⇒ 这里只测**原语**」—— 那句**自接线批起已不成立**。现在：T1~T13 测原语，
+//    T4/T20~T22 测泵点，**T23~T29 从公开入口 / 真卡走一遍**（接线层的回归保护，见那一组的分节注释）。
 using System;
 using System.Collections.Generic;
 using RuleEngine;
@@ -40,9 +42,355 @@ public static partial class RuleEngineTest
         W61T8InterruptJumpsQueue();
         W61T9DelayedInstantLast();
         W61T13InvalidPriority();
+        // 🆕 2026-10-21（**接线批**）：下面五条测**泵点 / 动作外壳 / 道与入队序的关系** ——
+        //   T1~T13 只测 `ActionQueue` 原语（那时还没有泵点，T4 测不了）。
+        W61T4NoPreempt();
+        W61T20EnqueueDoesNotShortCircuit();
+        W61T21PumpOrderAndRequeue();
+        W61T22ScopeDrains();
+        W61T5PriorityBeatsEnqueueOrder();
         // 🆕 2026-10-21（接线第一步）：数据层那一跳（`cards_engine.json` v13 `triggerPriority`
         //   → `CardDatabase.Parse` → `CardDef._triggerPriority`）—— 上面六条测的是原语，这条测**接线**。
         W61T14DataTriggerPriority();
+        // ==================================================================
+        //  🆕 2026-10-21（审查 `W61b` 第 3 / 7 / 8 条 · **接线层**的回归保护）
+        //
+        //  🔴 为什么单开这一组：上面 T1~T22 全部只作用于 `EnqueueAbility` / `PumpActionQueues` /
+        //     `ActionQueue` **本身** —— 把 `FireTriggerAt` / 三跳广播 / `ResolveAtTurn` / `ResolveDeploy`
+        //     全部改回**同步递归**（即 `T03·c` 之前的形态），那 19 条**依然全绿**。
+        //     ⇒ 下面五条**从公开入口或真卡走一遍**，观测点 = 「动作体里 / 边界之前」那一刻状态。
+        // ==================================================================
+        W61T23BroadcastQueuesUntilBoundary();
+        W61T24AtTurnEntryNeedsPump();
+        W61T25DeployEntryNeedsPump();
+        W61T29FireTriggerQueuesUntilBoundary();
+        W61T26PumpPointCount();
+        W61T27ActorLeftPlayCancels();
+        W61T28MissingPriorityDropped();
+    }
+
+    // ==================================================================
+    //  🧰 本组夹具（`W61` 打头 = 辅助方法，不会被 `RunCoverageCompiledCases` 当成用例）
+    // ==================================================================
+
+    /// <summary>按**卡名**从真卡池取一张（取不到返回 null，调用方自己 `CheckTrue` 出声）。</summary>
+    static CardDef W61PoolCard(string name)
+    {
+        foreach (var c in CardDatabase.Load())
+            if (c != null && c.Name == name) return c;
+        return null;
+    }
+
+    /// <summary>手牌里那张卡的下标（-1 = 不在手里）。</summary>
+    static int W61HandIdx(BattleContext c, int p, CardDef card)
+    {
+        for (int i = 0; i < c.Players[p].Hand.Count; i++)
+            if (c.Players[p].Hand[i].Card == card) return i;
+        return -1;
+    }
+
+    // ==================================================================
+    //  T23 · **三跳广播 → 棋盘一跳**：监听器的结算必须等动作边界
+    // ==================================================================
+    /// <summary>
+    /// 真卡：`Ork Nob`（`When you play a troop, give it Flank`）。
+    /// 场景 = 外面**自己开一层 `BeginAction`**（于是 `PlayCard` 自己的外壳变成内层、**不泵队**）：
+    ///   ① 在动作体里打出 `Assault Intercessor` ⇒ 广播入队、监听器**还没结算**；
+    ///   ② 动作体里断言「新兵**没有** Flank」＋「队列里有一条」；
+    ///   ③ 外壳退出（= 动作边界）⇒ 泵点结算 ⇒ 新兵**有了** Flank。
+    /// 🧨 把 `BroadcastWhen` 棋盘那一跳改回**同步 `ResolveOps`** ⇒ ① 之后 Flank 已经加上 ⇒ 第 ② 条红。
+    ///    （这正是 `T03·c` 之前的形态 —— 本批之前没有任何一条断言能抓住它。）
+    /// 🧪 夹具自检：`Assault Intercessor` 自己**没有** Flank（否则「有 Flank」证明不了监听器跑过）。
+    /// </summary>
+    static void W61T23BroadcastQueuesUntilBoundary()
+    {
+        var nob = W61PoolCard("Ork Nob");
+        var grunt = W61PoolCard("Assault Intercessor");
+        CheckTrue(nob != null && grunt != null, "T23 夹具：卡池里拿得到 `Ork Nob` / `Assault Intercessor`");
+        if (nob == null || grunt == null) return;
+
+        var ctx = Battle(new[] { nob, grunt }, new CardDef[0]);
+        ctx.Players[0].Energy = 99;
+        // 注意：`Flank` 没有 `KeywordTable` 常量（不在那张表里，见 `CardDef` 的 54 词清单）⇒ 用字面量。
+        CheckTrue(!grunt.Has("flank"), "🧪 T23 夹具：`Assault Intercessor` 自己**没有** flank 关键词");
+
+        RuleCore.PlayCard(ctx, 0, W61HandIdx(ctx, 0, nob), 2, out int slotNob);
+        CheckTrue(slotNob >= 0 && ctx.Players[0].Board[slotNob] != null, "T23 前提：`Ork Nob` 已上场（监听者就位）");
+        Check(ctx.ActionQueue.Count, 0, "T23 前提：打出 Nob 之后队列已被泵空（他的监听器不为自己响）");
+
+        UnitState gruntU = null;
+        using (RuleCore.BeginAction(ctx))                       // ← 外层外壳：PlayCard 变成内层（不泵队）
+        {
+            RuleCore.PlayCard(ctx, 0, W61HandIdx(ctx, 0, grunt), 3, out int slotG);
+            gruntU = slotG >= 0 ? ctx.Players[0].Board[slotG] : null;
+            CheckTrue(gruntU != null, "T23 中间态：`Assault Intercessor` 已上场");
+            if (gruntU == null) return;
+            CheckTrue(ctx.ActionQueue.Count > 0, "★ T23 动作体内：监听器那条**在队列里等着**（⛔ 不是当场结算）");
+            Check(gruntU.Has("flank"), false,
+                  "★ T23 动作体内：监听器**还没结算** ⇒ 新兵此刻**没有** flank"
+                + " —— 🧨 把 `BroadcastWhen` 棋盘那一跳改回同步 `ResolveOps` ⇒ 本条红");
+            Check(ctx.ActionQueue.Resolving, true, "🧪 T23 动作体内：`Resolving` 为真（所以泵队空转）");
+        }
+        CheckTrue(gruntU.Has("flank"), "★ T23 边界之后：监听器结算完毕 ⇒ 新兵**拿到了** flank"
+                                     + " —— 🧨 `ActionScope.Dispose` 不泵队 ⇒ 本条红");
+        Check(ctx.ActionQueue.Count, 0, "T23 边界之后：队列取空");
+    }
+
+    // ==================================================================
+    //  T24 · **`ResolveAtTurn` 公开入口**：只入队，没人泵就不结算（审查第 1 条）
+    // ==================================================================
+    /// <summary>
+    /// 真卡：`TAU6 Gun Drone`（`At the start of your turn, deal 2 damage to a random enemy`）。
+    /// 敌方棋盘空 ⇒ 「随机敌人」只能是敌方督军。
+    ///   ① 裸调 `RuleEngine.ResolveAtTurn(ctx, "turn_start")`（**不包 `BeginAction`**）
+    ///      ⇒ 敌方督军血量**一点没掉**、队列里有一条；
+    ///   ② `PumpActionQueues` ⇒ 掉 2。
+    /// 🧨 `ResolveAtTurn` 改回同步 `ResolveOps` ⇒ ① 就掉血 ⇒ 红。
+    /// 🧨 有人给 `EnqueueAbility` 加「队列空就直接跑」的短路 ⇒ ① 就掉血 ⇒ 红。
+    /// ⚠️ 这一条钉的正是 `CardPresentation/Editor/BattleScene.cs` 那两处**裸调**（审查第 1 条：
+    ///    `Gun Drone` 的 2 伤实际上从来没落地）；那边已改成包 `BeginAction`（并有自己的落地断言）。
+    /// </summary>
+    static void W61T24AtTurnEntryNeedsPump()
+    {
+        var drone = W61PoolCard("Gun Drone");
+        CheckTrue(drone != null, "T24 夹具：卡池里拿得到 `Gun Drone`");
+        if (drone == null) return;
+
+        var ctx = Battle(new[] { drone }, new CardDef[0]);
+        ctx.Players[0].Energy = 99;
+        RuleCore.PlayCard(ctx, 0, W61HandIdx(ctx, 0, drone), 2, out int slot);
+        CheckTrue(slot >= 0 && ctx.Players[0].Board[slot] != null, "T24 前提：`Gun Drone` 已上场");
+        Check(ctx.ActionQueue.Count, 0, "T24 前提：打出之后队列已空");
+        var foe = ctx.Players[1].Warlord;
+        CheckTrue(foe != null, "T24 前提：敌方督军在");
+        if (foe == null) return;
+        int hp0 = foe.Health;
+
+        RuleCore.ResolveAtTurn(ctx, "turn_start");              // ← 裸调：没有外壳、没有泵点
+        Check(foe.Health, hp0, "★ T24 裸调 `ResolveAtTurn` ⇒ 敌方督军**一点血都没掉**（触发只入队）"
+                            + " —— 🧨 改回同步结算 ⇒ 本条红");
+        CheckTrue(ctx.ActionQueue.Count > 0, "★ T24 那条 at-turn 作业**在队列里**（⛔ 不是丢了）");
+
+        RuleCore.PumpActionQueues(ctx);
+        Check(foe.Health, hp0 - 2, "★ T24 泵点之后：`Gun Drone` 的 2 伤**落地**"
+                                 + " —— 🧨 入队之后没有任何泵点 ⇒ 本条红");
+        Check(ctx.ActionQueue.Count, 0, "T24 泵完 ⇒ 队列空");
+    }
+
+    // ==================================================================
+    //  T25 · **`ResolveDeploy` 公开入口**：只入队，没人泵就不结算
+    // ==================================================================
+    /// <summary>
+    /// 夹具 = **手搓一条 `Trigger == "deploy"` 的常驻效果**（`PersistentEffect` 是本工程自设计的容器，
+    /// 见 `BattleContext.PersistentEffects` 的注释）⇒ 它只经过 `ResolveDeploy` 那一条真实路径。
+    /// 正文 = `Deal 2 damage to the enemy Warlord`。
+    ///   ① 裸调 `RuleCore.ResolveDeploy` ⇒ 督军血量不变、队列里有一条；
+    ///   ② 泵点 ⇒ 掉 2。
+    /// 🧨 `ResolveDeploy` 里那句 `EnqueueAbility` 改回同步 `ResolveOne` ⇒ ① 就掉血 ⇒ 红。
+    /// </summary>
+    static void W61T25DeployEntryNeedsPump()
+    {
+        var peon = Unit("DeployPeon", 1, 1, 2);
+        var ctx = Battle(new[] { peon }, new CardDef[0]);
+        ctx.Players[0].Energy = 99;
+        RuleCore.PlayCard(ctx, 0, W61HandIdx(ctx, 0, peon), 2, out int slot);
+        var dep = slot >= 0 ? ctx.Players[0].Board[slot] : null;
+        CheckTrue(dep != null, "T25 前提：`DeployPeon` 已上场");
+        if (dep == null) return;
+
+        var ops = EffectText.Parse("Deal 2 damage to the enemy Warlord", out _, out _);
+        CheckTrue(ops != null && ops.Count > 0, "T25 夹具：`Deal 2 damage to the enemy Warlord` 解析得出来");
+        if (ops == null || ops.Count == 0) return;
+
+        ctx.PersistentEffects.Add(new PersistentEffect
+        {
+            Owner = 0,
+            Source = Tactic("DeployWatcher", 1, ""),
+            Trigger = "deploy",
+            Ops = ops,
+            Body = "Deal 2 damage to the enemy Warlord",
+        });
+
+        var foe = ctx.Players[1].Warlord;
+        CheckTrue(foe != null, "T25 前提：敌方督军在");
+        if (foe == null) return;
+        int hp0 = foe.Health;
+
+        RuleCore.ResolveDeploy(ctx, 0, dep);                    // ← 裸调：没有外壳、没有泵点
+        Check(foe.Health, hp0, "★ T25 裸调 `ResolveDeploy` ⇒ 部署触发**没结算**（只入队）"
+                            + " —— 🧨 改回同步 `ResolveOne` ⇒ 本条红");
+        CheckTrue(ctx.ActionQueue.Count > 0, "★ T25 那条部署触发**在队列里**");
+
+        RuleCore.PumpActionQueues(ctx);
+        Check(foe.Health, hp0 - 2, "★ T25 泵点之后：部署触发的 2 伤**落地**");
+        Check(ctx.ActionQueue.Count, 0, "T25 泵完 ⇒ 队列空");
+    }
+
+    // ==================================================================
+    //  T29 · **`FireTriggerAt` 那一跳**（Rally 走的就是它）：只入队
+    // ==================================================================
+    /// <summary>
+    /// 夹具 = 一张**合成卡**：`Rally: Deal 2 damage to the enemy Warlord`（从手牌打出 ⇒
+    /// `RuleCore.PlayCardCore` 调 `FireTriggerOnBoard(unit, Rally)` → `FireTriggerAt`）。
+    /// 外面包一层 `BeginAction`（于是 `PlayCard` 自己的外壳不泵队）：
+    ///   ① 动作体里：敌方督军血量**没掉**、队列里有一条（`·rally`）；
+    ///   ② 边界之后：掉 2。
+    /// 🧨 `FireTriggerAt` 改回同步 `ResolveOps` / `ResolveEffect` ⇒ ① 就掉血 ⇒ 红。
+    /// </summary>
+    static void W61T29FireTriggerQueuesUntilBoundary()
+    {
+        var rallier = new CardDef("ZZW61Rally", "ZZW61Rally", "unit",
+                                  "Rally: Deal 2 damage to the enemy Warlord", "common", "Test",
+                                  1, 1, 1, 0, null);
+        CheckTrue(rallier.TriggerOps(KeywordTable.Rally) != null,          // 语法不成立这条就早红
+                  "T29 夹具：`Rally: …` 解析出了触发 op");
+        var ctx = Battle(new[] { rallier }, new CardDef[0]);
+        ctx.Players[0].Energy = 99;
+        var foe = ctx.Players[1].Warlord;
+        CheckTrue(foe != null, "T29 前提：敌方督军在");
+        if (foe == null) return;
+        int hp0 = foe.Health;
+
+        using (RuleCore.BeginAction(ctx))
+        {
+            RuleCore.PlayCard(ctx, 0, W61HandIdx(ctx, 0, rallier), 2, out int slot);
+            CheckTrue(slot >= 0 && ctx.Players[0].Board[slot] != null, "T29 中间态：本单位已上场");
+            CheckTrue(ctx.ActionQueue.Count > 0, "★ T29 动作体内：`Rally` 那条**在队列里**（⛔ 不是当场结算）");
+            Check(foe.Health, hp0, "★ T29 动作体内：`Rally` 的 2 伤**还没落地**"
+                                + " —— 🧨 把 `FireTriggerAt` 改回同步结算 ⇒ 本条红");
+        }
+        Check(foe.Health, hp0 - 2, "★ T29 边界之后：`Rally` 的 2 伤**落地**");
+        Check(ctx.ActionQueue.Count, 0, "T29 边界之后：队列取空");
+    }
+
+    // ==================================================================
+    //  T26 · **泵点集合 = 14 个 `BeginAction` 调用点**（审查第 8 条）
+    // ==================================================================
+    /// <summary>
+    /// 「漏一个泵点 = 静默丢一条动作」（审查第 1 / 第 5 条就是这么来的）⇒ 这个数必须钉住。
+    /// 判据 = **源码里 `using (BeginAction(ctx))` / `using (RuleCore.BeginAction(ctx))`
+    /// 出现在行首的条数**（注释行以 `//`/`///` 开头，不会被数进来）。
+    ///
+    /// 2026-10-21 现读：`RuleCore.cs` **13** + `EffectResolver.cs` **1**（`PlayTacticCore`）= **14**。
+    /// 🧨 任何一处 `using (BeginAction…)` 被删 / 被注释掉 ⇒ 数字变小 ⇒ 红（= 那个顶层入口从此不泵队）。
+    /// 🧨 **新增**顶层入口时本条也会红 —— 那是**故意的**：去确认新入口真的包了 `BeginAction`，
+    ///    再把这里的期望值 +1（⛔ 别改成「≥14」，那会让「漏一个」和「加一个」分不开）。
+    /// </summary>
+    static void W61T26PumpPointCount()
+    {
+        string assets = UnityEngine.Application.dataPath;      // …/MyGame/Assets
+        int nRule = W61CountPumpPoints(System.IO.Path.Combine(assets, "RuleEngine/Core/RuleCore.cs"),
+                                       "using (BeginAction(ctx))");
+        int nEff = W61CountPumpPoints(System.IO.Path.Combine(assets, "RuleEngine/Core/EffectResolver.cs"),
+                                      "using (RuleCore.BeginAction(ctx))");
+        CheckTrue(nRule > 0 && nEff > 0,
+                  "T26 夹具：两份源码都读到了（读不到 = -1；见上面打的路径）");
+        Check(nRule, 13, "★ T26 `RuleCore.cs` 的 `using (BeginAction(ctx))` = 13（2026-10-21 现读）");
+        Check(nEff, 1, "★ T26 `EffectResolver.cs` 的 `using (RuleCore.BeginAction(ctx))` = 1（`PlayTacticCore`）");
+        Check(nRule + nEff, 14, "★ T26 **泵点总数 = 14**（漏一个 ⇒ 那个顶层入口的触发永远不结算）");
+    }
+
+    /// <summary>`T26` 的行扫描：只数**行首**就是那个 `using` 的行（注释行以 `/` 开头 ⇒ 排除）。</summary>
+    static int W61CountPumpPoints(string path, string prefix)
+    {
+        if (!System.IO.File.Exists(path))
+        {
+            Check(path, "<存在>", "T26 夹具：找不到源码文件 —— 下面的计数断言会一起红");
+            return -1;
+        }
+        int n = 0;
+        foreach (string line in System.IO.File.ReadAllLines(path))
+            if (line.TrimStart().StartsWith(prefix, StringComparison.Ordinal)) n++;
+        return n;
+    }
+
+    // ==================================================================
+    //  T27 · **出队复核「施放者已离场」**（审查第 3 条）
+    // ==================================================================
+    /// <summary>
+    /// 原版判据 = `CardAbility__IsRightContext.c:20-30`（`Play(0)` 要求 `IsInPlay`）⇒
+    /// 结算那一刻施放者已经离场（死亡 / 回手 / 移出棋盘）⇒ 这条 ability **不结算**。
+    /// 三步（**后两步是灭自证**）：
+    ///   ① 施放者**在场上** ⇒ 照常结算（防「泵点恒取消」的假绿）；
+    ///   ② 把它从棋盘上摘掉（= 离场）⇒ 同一条动作**被取消**（`ran` 不涨）、并从队列里出掉（⛔ 不是卡住）；
+    ///   ③ 同一条动作但 `requireActorInPlay: false`（= 死亡触发那一族 `InPlayOrDying`）⇒ **照跑**
+    ///      （防「只要 Actor 非 null 就一律取消」—— 那会把 `Backlash`/`Unstable`/`minionDeath` 整条链掐死）。
+    /// 🧨 删掉泵点里那个 `RequireActorInPlay` 分支 ⇒ ② 的 `ran` 变 1 ⇒ 红。
+    /// 🧨 把那个分支写成「有 Actor 就取消」⇒ ③ 的 `ran` 不变 ⇒ 红。
+    /// </summary>
+    static void W61T27ActorLeftPlayCancels()
+    {
+        var ghost = Unit("Ghost", 1, 1, 1);
+        var ctx = Battle(new[] { ghost }, new CardDef[0]);
+        ctx.Players[0].Energy = 99;
+        RuleCore.PlayCard(ctx, 0, W61HandIdx(ctx, 0, ghost), 2, out int slot);
+        var u = slot >= 0 ? ctx.Players[0].Board[slot] : null;
+        CheckTrue(u != null, "T27 前提：`Ghost` 已上场");
+        if (u == null) return;
+
+        int ran = 0;
+        // ① 对照：还在场上 ⇒ 照常结算
+        RuleCore.EnqueueAbility(ctx, ActionPriority.Instant, "T27-在場", () => ran++,
+                                actor: u, requireActorInPlay: true);
+        RuleCore.PumpActionQueues(ctx);
+        Check(ran, 1, "🧪 T27 对照：施放者**还在场上** ⇒ 这条照常结算（防「泵点恒取消」假绿）");
+
+        // ② 摘掉它（= 离场：死亡 / 回手 / 移出棋盘，三种都是「不在任何一方棋盘上」）
+        ctx.Players[0].Board[slot] = null;
+        RuleCore.EnqueueAbility(ctx, ActionPriority.Instant, "T27-已離場", () => ran++,
+                                actor: u, requireActorInPlay: true);
+        RuleCore.PumpActionQueues(ctx);
+        Check(ran, 1, "★ T27 施放者已离场 ⇒ 这条**被取消**（⛔ 没结算）"
+                    + " —— 🧨 删掉泵点里 `RequireActorInPlay` 那个分支 ⇒ 本条红");
+        Check(ctx.ActionQueue.Count, 0, "★ T27 被取消的那条**已经出队**（⛔ 不是卡在队列里）");
+
+        // ③ 死亡触发那一族（原版 `InPlayOrDying(40)`）：施放者已离场也**照跑**
+        RuleCore.EnqueueAbility(ctx, ActionPriority.Instant, "T27-死亡族", () => ran++,
+                                actor: u, requireActorInPlay: false);
+        RuleCore.PumpActionQueues(ctx);
+        Check(ran, 2, "★ T27 `requireActorInPlay: false`（= 原版 `InPlayOrDying`）⇒ 施放者离场**也照跑**"
+                    + " —— 🧨 写成「有 Actor 就取消」⇒ `Backlash`/`Unstable`/`minionDeath` 整条链断 ⇒ 本条红");
+        ctx.Players[0].Board[slot] = u;                        // 还原（不影响别的用例，纯礼貌）
+    }
+
+    // ==================================================================
+    //  T28 · **`priority` 缺键 ⇒ 出声 + 丢弃**（审查第 7 条）
+    // ==================================================================
+    /// <summary>
+    /// 引擎侧（`CardDatabase.MapTriggerPriority`）与探针侧（`工具/ruleprobe/Program.cs` 的 `nBadTp`）
+    /// 必须**同口径**：`priority` 缺键 / 越界 **都出声并丢弃**。
+    /// 修之前：`TriggerPriorityDto.priority` 是 `int` 默认 **0** ⇒ 缺键那条**静默落进 Player(0) 道**
+    /// （最后才结算的一条道），而探针报「1 条形不全」—— 同一份数据两个读数。
+    /// 本条把一段**手写 JSON**（v13，一张卡，`triggerPriority` 那条**没有 `priority` 键**）喂给
+    /// `CardDatabase.Parse`，断言读回来是**默认 1**（= 那条被丢了），⛔ 不是 0。
+    /// 🧨 把哨兵 `TriggerPriorityDto.MissingPriority` 改回 0 / 去掉 `MapTriggerPriority` 那道闸
+    ///    ⇒ 读回 0 ⇒ 红（并会多打一条 `Debug.LogError`，那条**不是**失败，是本用例在测的「出声」）。
+    /// </summary>
+    static void W61T28MissingPriorityDropped()
+    {
+        const string json = "{\"version\":13,\"cards\":[{"
+            + "\"id\":\"ZZW61\",\"name\":\"ZZW61NoPrio\",\"type\":\"unit\",\"desc\":\"\","
+            + "\"rarity\":\"common\",\"faction\":\"Test\",\"cost\":1,\"attack\":1,\"health\":1,"
+            + "\"ranged\":0,\"keywords\":[],"
+            + "\"triggerPriority\":[{\"keyword\":\"artifice\"}]}]}";
+        var pool = CardDatabase.Parse(json);
+        Check(pool.Count, 1, "T28 夹具：手写 JSON 解析出 1 张卡");
+        if (pool.Count != 1) return;
+        var c = pool[0];
+        CheckTrue(c != null && c.Id == "ZZW61", "T28 夹具：拿到那张卡（id = ZZW61）");
+        if (c == null) return;
+        Check(c.TriggerPriority("artifice"), CardDef.DefaultTriggerPriority,
+              "★ T28 `priority` 缺键那一行**被丢弃** ⇒ 读回默认 1（⛔ 不是 0 = Player 道）"
+            + " —— 🧨 去掉哨兵 / 去掉 `MapTriggerPriority` 那道闸 ⇒ 读回 0 ⇒ 红");
+        // 🧪 对照：合法值必须照收（防「整列都被丢」的假绿）
+        Check(c.TriggerPriority("no_such_keyword"), 1, "🧪 T28 对照：没登记的关键词 ⇒ 默认 1");
+
+        // ⚠️ **副作用隔离**：`CardDatabase.Parse` 末尾会重建**全局卡名索引**
+        //   （`CreatePool.BuildNameIndex`）⇒ 不还原的话，本次自检**后面**那些靠卡名指目标的用例
+        //   会拿到「只有 1 张卡」的索引（静默变红，且根因看不出来）。用真卡池重建一次。
+        CreatePool.BuildNameIndex(CardDatabase.Load());
+        CheckTrue(CreatePool.MatchCardName("Ork Nob") != null,
+                  "T28 收尾：全局卡名索引已用真卡池重建（`Ork Nob` 又能按卡名指到）");
     }
 
     // ==================================================================
@@ -313,5 +661,151 @@ public static partial class RuleEngineTest
         Check(got.Count, 4, "★ T14 全池非默认 priority 的**条目数** = 4（2026-10-21 现读；漏接线 ⇒ 0、多落一条 ⇒ 5+）");
         Check(string.Join(",", got.ToArray()), "ASH53/spiritstone=3,SAU13/artifice=3,SAU70/artifice=3,UM37/codex=3",
               "★ T14 全池非默认 priority 的**逐条清单**（`id/关键词=值`，按 Ordinal 排序）");
+    }
+
+    // ==================================================================
+    //  T4 · 不抢占：`Resolving` 为真时泵点**一条都不取**
+    // ==================================================================
+    /// <summary>
+    /// 原版 `BattleManager__Update.c:1271` —— `resolvingActionFlag(+0x280)` 为真时**不泵队**；
+    /// Interrupt 只是「下一个动作边界上的最高道」，**不会打断正在结算的那一条**。
+    /// 🧨 若 `PumpActionQueues` 不看 `Resolving` ⇒ 第一次泵就会跑掉 1 条 ⇒ 第一条断言红。
+    /// 🧪 对照：把 `Resolving` 清成 false 再泵，**必须**跑掉那条 ⇒ 防「泵点恒不干活」的假绿。
+    /// </summary>
+    static void W61T4NoPreempt()
+    {
+        var ctx = Battle(new CardDef[0], new CardDef[0]);
+        int ran = 0;
+        RuleCore.EnqueueAbility(ctx, ActionPriority.Interrupt, "T4", () => ran++);
+
+        ctx.ActionQueue.Resolving = true;                       // = 正在结算一条动作
+        RuleCore.PumpActionQueues(ctx);
+        Check(ran, 0, "T4 `Resolving = true` ⇒ 泵点**一条都不取**（Interrupt 不抢占当前动作）");
+        Check(ctx.ActionQueue.Count, 1, "T4 那条动作仍在队列里（⛔ 没被丢弃）");
+
+        ctx.ActionQueue.Resolving = false;
+        RuleCore.PumpActionQueues(ctx);
+        Check(ran, 1, "🧪 T4 对照：`Resolving = false` 之后同一条**必须**被结算（防「泵点恒不干活」假绿）");
+        Check(ctx.ActionQueue.Count, 0, "T4 泵完 ⇒ 队列空");
+    }
+
+    // ==================================================================
+    //  T20 · 入队**不短路**（「全队列」与「队列空就直接跑」的分水岭）
+    // ==================================================================
+    /// <summary>
+    /// 🔴 这一条钉的是**用户 2026-10-21 的口径：按原版做全队列，⛔ 不许降级成「队列空就直接结算」**。
+    /// 原版 `BattleManager.AddAutoActionToQueue` 只做 `List.Add`，取队的是 `Update`。
+    /// 🧨 若有人给 `EnqueueAbility` 加一句「`Count == 0` 就直接跑」的短路「优化」⇒ 这条立刻红。
+    ///    而那种改动在**单条动作**的对局里**看不出任何差别**（T2/T5 那种跨道用例才露，且看起来只是「顺序怪」）
+    ///    ⇒ 所以单开一条把它钉死。
+    /// </summary>
+    static void W61T20EnqueueDoesNotShortCircuit()
+    {
+        var ctx = Battle(new CardDef[0], new CardDef[0]);
+        int ran = 0;
+        bool ok = RuleCore.EnqueueAbility(ctx, ActionPriority.Instant, "T20", () => ran++);
+        CheckTrue(ok, "T20 夹具：入队成功");
+        Check(ran, 0, "★ T20 入队之后**一次都没跑**（入队 ≠ 结算 —— 全队列，⛔ 不是「空了就直接跑」）");
+        Check(ctx.ActionQueue.Count, 1, "T20 它在队列里等着泵点");
+    }
+
+    // ==================================================================
+    //  T21 · 泵序 + 动作内部产生的触发**只入队、排到道序位上**
+    // ==================================================================
+    /// <summary>
+    /// 场景（一条动作 = A，它在结算时再入队 B(Instant) 与 C(Interrupt)）：
+    ///   ① 泵取 A（Instant 道）→ A 执行 → 它把 B、C 追加进各自的队尾；
+    ///   ② 泵**接着**取 —— 此时队里有 B(1)、C(2) ⇒ **C 先**（跨道 priority 压过入队序）；
+    ///   ③ 最后 B。
+    /// ⇒ 期望执行序 = `A,C,B`。
+    /// 🧨 若动作内部**递归**结算（A 里直接跑 B/C）⇒ 观测到 `A,B,C` ⇒ 红；
+    ///    若泵点按入队顺序取（单队列）⇒ 也是 `A,B,C` ⇒ 红。
+    /// 🧪 夹具自检：A 里那两次入队都必须返回 true（否则「压根没入队」会让期望巧合成立）。
+    /// </summary>
+    static void W61T21PumpOrderAndRequeue()
+    {
+        var ctx = Battle(new CardDef[0], new CardDef[0]);
+        var seq = new List<string>();
+        ctx.ActionQueue.Enqueue(new QueuedAction
+        {
+            Label = "A",
+            Execute = () =>
+            {
+                seq.Add("A");
+                CheckTrue(RuleCore.EnqueueAbility(ctx, ActionPriority.Instant, "B", () => seq.Add("B")),
+                          "🧪 T21 A 内部：B 入队成功");
+                CheckTrue(RuleCore.EnqueueAbility(ctx, ActionPriority.Interrupt, "C", () => seq.Add("C")),
+                          "🧪 T21 A 内部：C 入队成功");
+            },
+        }, ActionPriority.Instant);
+
+        RuleCore.PumpActionQueues(ctx);
+        Check(string.Join(",", seq.ToArray()), "A,C,B",
+              "T21 泵序：A(先) → C(Interrupt 跨道压过入队序) → B（动作内部的触发 **只入队**，⛔ 不递归）");
+        Check(ctx.ActionQueue.Count, 0, "T21 泵完 ⇒ 队列空");
+    }
+
+    // ==================================================================
+    //  T22 · 顶层动作外壳：`using (BeginAction(ctx))` 退出时把队列取空
+    // ==================================================================
+    /// <summary>
+    /// 这是「泵点集合」那条施工决策的**唯一结构断言**：只要动作是在 `BeginAction` 里跑的，
+    /// 它内部入队的触发**必然**在退出那一刻被结算（我们无帧循环 ⇒ 等价于原版下一帧）。
+    /// 🧨 若 `ActionScope.Dispose` 忘了泵（或 `Resolving` 忘了清）⇒ `ran` 停在 0 ⇒ 红。
+    /// 🧪 第二条外壳是**灭自证**：只测一次的话，「Dispose 把 `Resolving` 留成 true」这种错
+    ///    在单次运行里看不出来（第二次会静默一条都不跑）。
+    /// </summary>
+    static void W61T22ScopeDrains()
+    {
+        var ctx = Battle(new CardDef[0], new CardDef[0]);
+        int ran = 0;
+        using (RuleCore.BeginAction(ctx))
+        {
+            RuleCore.EnqueueAbility(ctx, ActionPriority.DelayedInstant, "T22", () => ran++);
+            Check(ran, 0, "T22 外壳内部：触发**只入队**（`Resolving` 为真 ⇒ 不结算）");
+        }
+        Check(ran, 1, "★ T22 外壳退出 ⇒ 队列被取空（DelayedInstant 也照样跑）");
+        Check(ctx.ActionQueue.Resolving, false, "T22 外壳退出后 `Resolving` 必须清掉（否则以后所有泵点都空转）");
+
+        using (RuleCore.BeginAction(ctx))
+            RuleCore.EnqueueAbility(ctx, ActionPriority.Player, "T22b", () => ran++);
+        Check(ran, 2, "🧪 T22 第二个外壳仍然能把动作泵出来（防「Resolving 残留 ⇒ 之后全静默」）");
+    }
+
+    // ==================================================================
+    //  T5 · **真卡数据**上的「跨道 priority 压过入队序」
+    // ==================================================================
+    /// <summary>
+    /// 判据（判据报告 §2.6）：层次 = **① 监听者遍历序（进场序 / `PlayOrder`）→ ② 卡内序 →
+    ///   ③ 入队（各 ability 的 priority 道尾）→ ④ 执行（固定道序，同道 FIFO）**
+    ///   ⇒ `PlayOrder` **只**在同一条道内等价于执行序；**跨道时 priority 压过它**。
+    ///
+    /// 本条用**真卡真数据**造那一步：`SAU13`（`artifice` = 3 = DelayedInstant）**先**入队、
+    /// `SAU1`（`artifice` = 1 = Instant）**后**入队 ⇒ 出队必须是 `SAU1 → SAU13`。
+    /// 🧨 若 `TriggerLane` 不读数据（恒 1）⇒ 两条都进 Instant ⇒ 出队变成 `SAU13,SAU1`（先入先出）⇒ 红。
+    /// 🧨 若泵点按入队序执行 ⇒ 同样是 `SAU13,SAU1` ⇒ 红。
+    /// 🧪 夹具自检：两条的 `TriggerLane` 必须**分别是 3 与 1**（否则这条只是在测「两条 Instant 的 FIFO」）。
+    /// ⚠️ 它**不能**替代真对局里的 T5（那要跑 `Artifice` 的实际触发）；它钉的是
+    ///    「数据 → 道 → 消费序」这条链**在真实卡数据上**是通的。
+    /// </summary>
+    static void W61T5PriorityBeatsEnqueueOrder()
+    {
+        var pool = CardDatabase.Load();
+        var sau13 = CardDatabase.FindById(pool, "SAU13");
+        var sau1 = CardDatabase.FindById(pool, "SAU1");
+        CheckTrue(sau13 != null && sau1 != null, "T5 夹具：SAU13 / SAU1 都在池里");
+        if (sau13 == null || sau1 == null) return;
+
+        Check((int)RuleCore.TriggerLaneOfCard(sau1, "artifice"), 1, "🧪 T5 夹具：`SAU1` 的 artifice 道 = 1（Instant）");
+        Check((int)RuleCore.TriggerLaneOfCard(sau13, "artifice"), 3, "🧪 T5 夹具：`SAU13` 的 artifice 道 = 3（DelayedInstant）");
+
+        var ctx = Battle(new CardDef[0], new CardDef[0]);
+        var seq = new List<string>();
+        RuleCore.EnqueueAbility(ctx, RuleCore.TriggerLaneOfCard(sau13, "artifice"), "SAU13", () => seq.Add("SAU13"));
+        RuleCore.EnqueueAbility(ctx, RuleCore.TriggerLaneOfCard(sau1, "artifice"), "SAU1", () => seq.Add("SAU1"));
+        RuleCore.PumpActionQueues(ctx);
+
+        Check(string.Join(",", seq.ToArray()), "SAU1,SAU13",
+              "★ T5 **跨道 priority 压过入队序**：后入队的 SAU1(Instant) 先于先入队的 SAU13(DelayedInstant)");
     }
 }

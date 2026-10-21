@@ -1092,6 +1092,14 @@ namespace CardPresentation
         /// 🔴 **必须存一份**：`BuildTextLayers` 会被 `SetData` 反复调（战场每刷新一次都走）
         ///    —— 不存的话每次刷新这行字都会被 `Fill(空)` 拆掉（`EphemeralShown` 那类状态同理）。</summary>
         string _createdByName;
+        /// <summary>🆕 2026-10-22（`W62/D5①`）这张视图现在处在本层的**哪一档原版状态**
+        /// （`CardStateOptions` 那 18 档里我们用到的那四档，见 `SetCreatedBy` 注释）。
+        /// ⚠️ 默认**必须是 `Hidden`**（枚举里它是 `-1`，而 C# 字段默认值是 `0` ⇒ 这里显式初始化）——
+        ///   漏了这一步，所有没推过状态的视图（详情窗 / 收藏 / 展示窗）都会落在「亮着」那一档。</summary>
+        CreatedByState _createdByState = CreatedByState.Hidden;
+        /// <summary>🆕 2026-10-22（`W62/D5①`）原版 `CardScript +0x40`（`isPlayer`）：只影响
+        /// `InHandPlaying` 那一档的显隐（我方打出的那张**不印**，见 `SetCreatedBy` 的判据表）。</summary>
+        bool _createdByIsLocalPlayer = true;
         static Material _quadMat;
 
         readonly List<MeshRenderer> _layers = new List<MeshRenderer>();
@@ -1564,7 +1572,17 @@ namespace CardPresentation
 
             // 🔴 整卡倾摆跟着形态开关（原版：场上把 `2DCard` 整个 `Toggle(false)` ⇒ 倾摆也停）。
             //    入口**只有这一处**（铁律 10 第 5 条）—— 手牌打出去走的就是这里。
+            // 🔴 **2026-10-21（`新账-67`）：停用 ≠ 复位**。`AutoCardRotation` 只在 `Update` 里写
+            //    `cacheTransform.localRotation`（= 这个节点自己的 `localRotation`），`enabled=false`
+            //    只是**不再更新那一帧之后的值** ⇒ 手牌**正倾着**（拖拽时 ≤±10°，见
+            //    `AutoCardRotation.Step`）被打出去时，那份倾摆会**永久留在这个节点上**。
+            //    画面上看不出（场上那一套 2D 层在下面全关掉了），但：① `HitFrame()` 的标架**就是**
+            //    `_tiltRoot`（`BoxCollider2D` 挂在它身上）⇒ 命中框跟着歪、投影包围盒变大；
+            //    ② 将来任何挂在这一级的东西（3D 卡体若改挂这里）都会跟着歪 —— 静默。
+            //    ⇒ 换到场上时**显式复位**。（出生入口 `Build` 那个新节点的 `localRotation` 天然是
+            //    identity ⇒ 那边不用写；两个入口都符合铁律 10 第 5 条。）
             if (_tilt != null) _tilt.enabled = !board;
+            if (board && _tiltRoot != null) _tiltRoot.localRotation = Quaternion.identity;
 
             // 🔴 **2026-09-20 补：3D 卡体也属于「场上那一套」，必须在这一层里一起换。**
             //    出生就在场上的卡（督军 / AI 出的牌）走 `Create(face: Board)` ⇒ `Build` 里已经建好；
@@ -1616,7 +1634,10 @@ namespace CardPresentation
             //    🔴 铁律 10 第 5 条：换形态的入口**只有这一处**，不在这里显式设一次就是
             //    「手牌打出去的兵在场上还挂着这行字」（原版 `DisplayCreatedByText` 在 inPlay 那几档
             //    是**先把节点关掉再 return** 的 ⇒ 场上不印）。
-            Show(_createdBy, !board);
+            // 🔴 **2026-10-22（`W62/D5①`）**：这里原来只判 `!board`；现在**状态门也要过** ——
+            //    判据共用 `CreatedByVisible` 一个口（⛔ 别在这儿再拼一遍「8 / 10 + isPlayer」）。
+            //    ⚠️ `_faceMode` 在本函数开头就写过了 ⇒ 这个属性读到的已经是**新**形态。
+            Show(_createdBy, CreatedByVisible);
             // ⚠️ **`_armourIcon` 不关**：护甲是数值，原版场上也显示（`Board Elements` 里有它）
             // 🔴 但**位置要跟着换**（2026-09-20）：2D 卡面与 3D 卡体是两套坐标，盾牌不跟着走
             //    就会和它上面那个数字**分家**（`SpriteQuad` 把位置烘进 mesh ⇒ 换 mesh，不是换 transform）。
@@ -2191,38 +2212,94 @@ namespace CardPresentation
         /// <summary>
         /// **这张牌是谁造出来的** —— 传 `null` = 不是被造出来的（初始牌库 / 抽到的牌 / 督军…）。
         ///
-        /// **判据**（反编译亲读，逐条）：
-        ///   · 消费面 = `BattleCardUI.DisplayCreatedByText(CardStateOptions state)`
-        ///     （`BattleCardUI__DisplayCreatedByText.c`，另一处同判据在 `BattleCardUI__SetObjectVisibility.c:100-133`）：
-        ///     **先把节点关掉**，只有 `card.createdBy != null`（`card = BattleCardUI+0x248`，
-        ///     `createdBy = card+0x268`）**且**状态 ∈ {`inHandShowing=8`, `inHandPlaying=10`} 时才点亮；
-        ///     状态 10 那一支还有个 `card + 0x40`（= `isPlayer`）判据 —— **本地方**就 `return`（不点亮）。
-        ///   · 文案 = `SupportMethods.GetCreatedByText(创建者卡名)`
-        ///     （`SupportMethods__GetCreatedByText.c`：`GetTranslation("Battle/HUD/CreatedBy").Replace("{0}", 名字)`），
-        ///     而「创建者卡名」= `RawCardScript.GetLocalizedCardName(creator.rawCard)`
-        ///     ⇒ **吃的是创建者那张【卡】**，不是玩家名。
-        ///   · 清掉的时机：`_DisplayOffensiveCardInCenter_d__264` 的 state 3 把那个节点
-        ///     `SetActive(false)`（`…MoveNext.c:79-80`）—— 也就是**那一段大图演完就收**。
+        /// 🔴 **2026-10-22（`W62/D5①`）：这一层现在是【有显隐门】的** —— 名字非空**不等于**要印，
+        /// 还要看这张牌处在原版哪一档状态。改前「只要有来源就亮」，真机上静置手牌全挂着这行字。
         ///
-        /// ⇒ 本方法**只吃「创建者那张卡」**：卡名走 `CardText.Name`（= 原版那个
-        ///   `GetLocalizedCardName`，与卡面别的字同一条按语言取名的路）。
-        ///   ⚠️ 表现层只负责**内容与显隐**；什么时候调由战斗表现层定（`BattleDriver.SyncHand` 每轮推一次）。
+        /// **原版状态表（逐值照抄，不挑档）** —— `CardStateOptions`（`d:/2/tools/il2cpp_out/dump.cs:45465-45486`，
+        /// 18 档全列在这里，⛔ 别再缩成「手牌那两档」）：
+        /// ```
+        ///   inDeck            = 0     inHand            = 1     inPlay               = 2
+        ///   inPlayAttacking   = 3     waitingToBePlayed = 4     waitingToDie         = 5
+        ///   inCemetery        = 6     drawing           = 7     inHandShowing        = 8  ← 点亮
+        ///   inHandMoving      = 9     inHandPlaying     = 10 ← 点亮（仅对手那张）
+        ///   removedFromGame   = 11    inHandJustCreated = 12    inMulliganSelected   = 13
+        ///   inMulliganDiscarded = 14  inPlayTransforming = 15   inDeckDrawing        = 16
+        ///   inPlayAminingAttack = 17
+        /// ```
+        /// **点亮判据**（`BattleCardUI__DisplayCreatedByText.c:9-50`，逐行读过）：节点 **先 `SetActive(false)`**，
+        /// 之后只在 `createdBy(+0x268) != null` 且：
+        ///   · `param_2 == 8`（`inHandShowing`）⇒ 点亮（**两边都亮**，10 那一支的 `isPlayer` 闸走不到）；
+        ///   · `param_2 == 10`（`inHandPlaying`）⇒ `*(card + 0x40)`（= `isPlayer`）**非 0 就直接 return**
+        ///     ⇒ **只点亮对手那张**；`isPlayer == 0` 才继续去取卡名。
+        ///   · 其余 **16 档**（含 `inHand=1` 静置手牌、`inPlay=2` 场上、`inDeck=0` 牌堆、`inCemetery=6`、
+        ///     `inMulligan*` 13/14、`drawing` 7 …）⇒ 函数在上面就 `return`，节点保持关着。
+        /// **这两档是谁置的**（同一份判据链，⛔ 别只记「手牌」两个字）：
+        ///   · 8 = `CardScript__ShowCardInHand.c:38` —— `CardScript__OnTouchEnter.c:30` 在**指针进入一张
+        ///     `inHand(1)` 的自己的手牌**时调它（把牌放大展示）；我们这边的等价物 = 手牌悬停
+        ///     （`Hand/CardInteraction.UpdateHover` ⇒ `HandLayout.Refresh(hover)` 抬 30 px、放大 1.3）;
+        ///   · 10 = `CardScript__MoveIntoFieldFromHand.c:17`（打出飞行段）与
+        ///     `BattleManager._ResolveDisplayFromHand_d__548__MoveNext.c:193`（中央展示）。
+        ///     我方打出的那张**不点亮**（`isPlayer != 0`），对手那张才点亮 —— 与上面那条 `+0x40` 闸一致。
+        /// 文案 = `SupportMethods.GetCreatedByText(创建者卡名)`
+        ///   （`SupportMethods__GetCreatedByText.c`：`GetTranslation("Battle/HUD/CreatedBy").Replace("{0}", 名字)`），
+        ///   而「创建者卡名」= `RawCardScript.GetLocalizedCardName(creator.rawCard)`
+        ///   ⇒ **吃的是创建者那张【卡】**，不是玩家名。
+        /// 清掉的时机：`_DisplayOffensiveCardInCenter_d__264` 的 state 3 把那个节点
+        ///   `SetActive(false)`（`…MoveNext.c:79-80`）—— 也就是**那一段大图演完就收**。
         ///
-        /// ⚠️ **两处如实标注**：
-        ///   ① 原版那两档「状态」判据（8/10 + `isPlayer`）在我们这边**没有对应物** ——
-        ///      我们的卡视图没有 `CardStateOptions` 状态机，所以**只要这张视图有来源就亮**。
-        ///      这是**近似**（近似在一档：原版「自己打出去的那张」在 inHandPlaying 时是不亮的）。
-        ///   ② 文案见 `CreatedByLine`（那个本地化键的值在远端，中文那半是我们写的）。
+        /// ⇒ 本方法**只吃「创建者那张卡」+「当前状态」**：卡名走 `CardText.Name`（= 原版那个
+        ///   `GetLocalizedCardName`）。什么时候调、传哪一档由战斗表现层定（`BattleDriver.PushCreatedByStates`
+        ///   每轮 + 悬停变化各推一次）。
+        ///
+        /// ⚠️ **默认值 = `InHandShowing`**：那是**唯一「名字非空就亮」的原版档**，给自检探针与
+        ///   非手牌形态的临时视图用；⛔ 产品里的手牌路径必须**显式传档**（`BattleDriver` 就是这么做的）。
         /// </summary>
-        public void SetCreatedBy(RuleEngine.CardDef creator)
+        /// <param name="state">原版 `CardStateOptions` 里与本层有关的那几档（其余档一律传 `Hidden`）。</param>
+        /// <param name="isLocalPlayer">原版 `CardScript +0x40`（`isPlayer`）—— 只对 `InHandPlaying` 有意义：
+        /// `true`（我方那张）⇒ **不印**，`false`（对手那张）⇒ 印。</param>
+        public void SetCreatedBy(RuleEngine.CardDef creator,
+                                 CreatedByState state = CreatedByState.InHandShowing,
+                                 bool isLocalPlayer = true)
         {
             // 🔴 **2026-10-17（`N42` 收尾）**：原来传 `(Name, NameZh)` ⇒ 非中英语言档印英文。
             //   改走 `Name(CardDef)`（P1 新增的那个口）—— 它按 `CardDef.Id` 取 13 语言表的 `Card_Name/<id>`。
             string name = creator != null ? CardText.Name(creator) : null;
-            if (name == _createdByName) return;           // 同一张卡重复推（每帧都走的那条路）不动手
+            // 去重：**名字与状态都要比**（同一张卡每帧都推；但悬停进出只改状态、名字不变）
+            if (name == _createdByName && state == _createdByState && isLocalPlayer == _createdByIsLocalPlayer)
+                return;
             _createdByName = name;
+            _createdByState = state;
+            _createdByIsLocalPlayer = isLocalPlayer;
             // 场上形态没有这一层（原版那里整张 `2DCard` 关掉；`BuildTextLayers` 也走不到）
             if (_faceMode != CardFace.Board) FillCreatedBy();
+        }
+
+        /// <summary>本层要用的那几档原版状态 —— **值 = `CardStateOptions` 原文**（见 `SetCreatedBy` 那张表）。
+        /// ⚠️ 只列我们用到的四档；其余各档（18 档减去 8/10 这两档）一律走 <see cref="Hidden"/>。</summary>
+        public enum CreatedByState
+        {
+            /// <summary>不印：静置手牌 `inHand=1` / 场上 `inPlay=2` / 牌堆 `inDeck=0` / 墓地 `inCemetery=6` /
+            /// 换牌 13·14 / 详情窗 …（原版那 16 档的统一落点）。</summary>
+            Hidden = -1,
+            /// <summary>静置手牌（原版 `inHand = 1`）—— 原版**不印**；单列一档是为了让调用点写得出
+            /// 「这是手牌、但静置」，⛔ 别拿它当「亮着」。</summary>
+            InHand = 1,
+            /// <summary>手牌「展示」档（原版 `inHandShowing = 8`）—— 原版在指针进入手牌、把牌放大展示时置。</summary>
+            InHandShowing = 8,
+            /// <summary>手牌「打出」档（原版 `inHandPlaying = 10`）—— 打出飞行 / 中央展示。
+            /// **只有对手那张**（`isPlayer == 0`）才点亮。</summary>
+            InHandPlaying = 10,
+        }
+
+        /// <summary>这一档到底印不印（判据 = 上面那张原版状态表；⛔ 别在别处再拼一次）。</summary>
+        bool CreatedByVisible
+        {
+            get
+            {
+                if (_faceMode == CardFace.Board) return false;                  // 原版场上（inPlay 那几档）先把节点关掉
+                if (_createdByState == CreatedByState.InHandShowing) return true;
+                return _createdByState == CreatedByState.InHandPlaying && !_createdByIsLocalPlayer;
+            }
         }
 
         /// <summary>现在这行字印的是什么（`null` = 没印 / 印着但这一档关着）—— 自检用。
@@ -2866,7 +2943,9 @@ namespace CardPresentation
             //      `TierOf` 那条「一律最高档」的老路**只留给不带 tier 的调用点**，两处不打架）。
             //   ⚠️ `artId` 为空（演示卡 / 没有引擎 id 的占位卡）⇒ **退回老行为 `MaxTier`**：
             //      那种卡不在 `CardProgress` 的表里，按「缺省等级 1」画会把演示卡框无故降档。
-            int frameTier = string.IsNullOrEmpty(d.artId) ? CardArt.MaxTier : CardProgress.Level(d.artId);
+            int frameTier = DebugFrameTier > 0
+                          ? Mathf.Clamp(DebugFrameTier, 1, CardArt.MaxTier)
+                          : (string.IsNullOrEmpty(d.artId) ? CardArt.MaxTier : CardProgress.Level(d.artId));
             var frameTex = CardArt.Frame(d.faction, d.rarity, !d.isUnit, frameTier);
             // 🔴 2026-10-18（W15）：记下来 —— `SetFace` / `SetData` 重烘 `_info` 时要按**同一张卡框**
             //    的 uv 反算四个数值/费用的落点（`FaceStatAt01` / `FaceCostAt01`）。
@@ -3173,6 +3252,8 @@ namespace CardPresentation
         ///   · **文字**（`MonoBehaviour_4833287377952691000.json`）：`m_fontColor` = **纯白**；
         ///     `m_fontSize = 2.45` 且 **开着自动缩放** `[0.3, 3.0]`（`m_overflowMode = 0` = Overflow）
         ///     ⇒ 真字号是**运行时缩出来的**；`m_HorizontalAlignment = 2`(Center) · `512`(Middle) · 不折行。
+        ///     🔴 **2026-10-22（`W62/D5③`）补一跳**：节点 `m_LocalScale = 1` 而 **`m_isOrthographic = 0`**
+        ///     ⇒ 真 em = `0.1 × 2.45` = **0.245 卡单位**（见 `CreatedByEmOfCard` 那条注释）。
         ///     材质 = `Asar-Regular White w outline`（`Material_6389513473928706012.json`：
         ///     `_OutlineWidth = 0.2` · `_FaceDilate = 0.2` · 黑描边 · **无 underlay**）。
         ///   · 出厂 `m_IsActive = false` —— 原版只在 `BattleCardUI.DisplayCreatedByText` 里点亮
@@ -3184,15 +3265,30 @@ namespace CardPresentation
         ///      一小条。我们按**可见**放在**卡面之前**（我们这层是 TMP、不受 `2DCard` 的倾摆与
         ///      渲染顺序约束），并且**不照搬** `m_fontSizeMin = 0.3` 那个下限（照搬的话长卡名会
         ///      横向溢出到 2 倍卡宽）—— 这两条等真 Play 看到原版那行字多大再定。
-        ///   ② 文案：原版是个**本地化键** `Battle/HUD/CreatedBy`（值在**远端 I2 表**，本地没有），
-        ///      见 `CreatedByLine`。
+        ///   ② 文案：原版是个**本地化键** `Battle/HUD/CreatedBy`，值就在我们的表里（`Core/Loc.cs`，
+        ///      与官方 `官方本地化_en+zh-CN.json` 逐字相同 —— ⚠️ 2026-10-22 就地订正：这里原来写
+        ///      「值在**远端 I2 表**、本地没有」，那是官方表解出来**之前**的结论，已过期），见 `CreatedByLine`。
         /// </summary>
         static readonly Vector2 CreatedByAt01 = ToAt01(new Vector2(0f, 1.65f));
         const float CreatedByBoxW = 2.5f;                    // 卡单位（= 原版 `m_SizeDelta.x`）
         const float CreatedByBoxH = 0.38f;                   // 卡单位（= 原版 `m_SizeDelta.y`）
-        /// <summary>基准字号 = 原版 `m_fontSize` 2.45 卡单位 ⇒ 折成「em 对卡高比」，再按框回缩
-        /// （我们的 `FitToBox` 与它那条 autosize 同语义：先给上限、量着缩）。</summary>
-        const float CreatedByEmOfCard = 2.45f / CardUnitH;
+        /// <summary>基准字号 = 原版 `CreatedByText` 那颗 TMP 的 **em**（em ÷ 卡高），再按框回缩
+        /// （我们的 `FitToBox` 与它那条 autosize 同语义：先给上限、量着缩）。
+        ///
+        /// 🔴 **2026-10-22（`W62/D5③`）就地订正 —— 原值是 `2.45f / CardUnitH`，**10 倍错**。**
+        /// 实读 `bundle_menus_assets_all/GameObject/CreatedByText.json`：
+        ///   · TMP `m_fontSize = 2.45` · 该节点的 `m_LocalScale = (1,1,1)` · **`m_isOrthographic = 0`**；
+        ///   ⇒ 非正交那一档的换算律（`TMP_Text.cs:7183`）`em = fontSize × 0.1 × localScale`
+        ///   ⇒ 原版 em = **0.245 卡单位**（= 卡高 3.3313 的 **7.35%**），不是 2.45。
+        /// ⚠️ 改前「看着没问题」是因为它永远被 `FitToBox`（框高 `CreatedByBoxH = 0.38`）压到装得下 ——
+        ///   两种写法都被同一只框压住 ⇒ 屏幕上几乎一样；但**常量本身必须是原版那个 em**，
+        ///   否则「框够大时它该多大」这一题永远答错（同族先例：`Battle/PopNumber.cs` 头部记的那次 10 倍）。
+        /// 判据出处：`资料/普查产出_1022/W62_缺陷诊断.md` §D5 + `W62_卡面红修复.md` §四·1。</summary>
+        const float CreatedByEmOfCard = 0.245f / CardUnitH;
+
+        /// <summary>自检用（`W62/D5③`）：这条常量本身 = **em ÷ 卡高**（原版 0.245 ÷ 3.3313 = 0.07354）。
+        /// ⛔ 产品代码别用它 —— 要字号用 <see cref="CreatedByFontSize"/>。</summary>
+        public static float CreatedByEmPerCardHeight { get { return CreatedByEmOfCard; } }
         /// <summary>字色 —— **原版是纯白**（组件 `m_fontColor = (1,1,1,1)`、材质 `_FaceColor` 也是纯白）。</summary>
         static readonly Color32 CreatedByInk = new Color32(255, 255, 255, 255);
 
@@ -3256,22 +3352,37 @@ namespace CardPresentation
         }
 
         /// <summary>刷那一层。**只在非场上形态调**（原版场上整张 `2DCard` 关掉，自然也没有它）。
-        /// 没来源时 `Fill` 收到空串 ⇒ 把对象拆掉、返回 null（= 原版 `SetActive(false)`）。</summary>
+        /// 没来源时 `Fill` 收到空串 ⇒ 把对象拆掉、返回 null（= 原版 `SetActive(false)`）；
+        /// 有来源但**当前档不印**（`CreatedByVisible == false`）⇒ **层建着、只是关着**
+        /// （= 原版那句「先 `SetActive(false)`、够条件再点亮」，⛔ 别把层拆掉 ——
+        ///  拆了就看不出「该藏的时候藏住了没有」，而 `CreatedByShown` 正是靠 `activeSelf` 分辨这两态）。</summary>
         void FillCreatedBy()
         {
             if (!TmpFont.Available) return;
+            // 🔴 **量之前必须先激活**：TMP 在**未激活**对象上 `ForceMeshUpdate` 量不出尺寸
+            //   （本仓已知坑，见 `CLAUDE.md` 第三节「面板画出来了、字不在」的三条）
+            //   ⇒ 上一轮若把它关掉了，这一轮的 `FitToBox` 会量到垃圾、把字号顶到上限。
+            if (_createdBy != null) _createdBy.gameObject.SetActive(true);
             float k = Width / CardUnitW;                  // 卡单位 → 世界（当前 = 1）
             _createdBy = Fill(_createdBy, "createdBy", CreatedByLine(_createdByName),
                               CreatedByAt01, CreatedByBoxW * k, CreatedByFontSize,
                               CreatedByInk, false, CreatedByBoxH * k,
                               face: TmpFont.Face.LatinUi);       // 原版 `CreatedByText` = Asar（§2·5）
             ApplyCreatedByOutline(_createdBy);
+            Show(_createdBy, CreatedByVisible);           // ← 显隐门只此一处（`SetFace` 那条走同一个属性）
         }
 
-        /// <summary>那行字的基准字号（em = 2.45 卡单位 ⇒ 折成我们这套字号）</summary>
+        /// <summary>那行字的基准字号（em = 原版 `CreatedByText` 的 em ⇒ 折成我们这套字号）。
+        /// 🔴 **2026-10-22（`W62/T2`）按面标定**：这层渲的是 **Asar**（`Face.LatinUi`，见 `FillCreatedBy`），
+        /// 而 `FontSizeForGlyphHeight` 的标定值量的是**汉字墨高**（`WorldGlyphPerFontSize`）——
+        /// CJK 的 `m_Scale` 一改（2026-10-21 对齐成 0.9），拉丁面就跟着**凭空变大 11%**。
+        /// ⇒ 改用按面的 <see cref="TmpFont.FontSizeForEm"/>（原版真 em = `0.1 × fontSize`，与 `m_Scale` 解耦）。
+        /// ✅ **同日（`W62/D5③`）`CreatedByEmOfCard` 那条 10 倍错已订正**（2.45 → **0.245**，
+        /// 判据写在那个常量上）⇒ 现在 `Height × CreatedByEmOfCard` 就是原版的 0.245 卡单位。
+        /// ⚠️ 这是**可见变化**：`FitToBox` 不再需要把它压掉 10 倍，成字尺寸回到原版那一档。</summary>
         static float CreatedByFontSize
         {
-            get { return TmpFont.FontSizeForGlyphHeight(Height * CreatedByEmOfCard); }
+            get { return TmpFont.FontSizeForEm(TmpFont.Face.LatinUi, Height * CreatedByEmOfCard); }
         }
 
         /// <summary>
@@ -3488,16 +3599,20 @@ namespace CardPresentation
             "Secret",
         };
 
-        /// <summary>阵营行字号（原版 `ArmyTextUnit` fs15 × scale0.01 = 0.15 卡单位）</summary>
+        /// <summary>阵营行字号（原版 `ArmyTextUnit` fs15 × scale0.01 = 0.15 卡单位）。
+        /// 🔴 **2026-10-22（`W62/T2`）按面标定**：这层渲的是 **Pragati**（`Face.LatinCardBody`）⇒ 走
+        /// `FontSizeForEm`，⛔ 别再拿汉字墨高（`FontSizeForGlyphHeight`）标定 —— 那会让字号跟着 CJK 的
+        /// `m_Scale` 一起漂（2026-10-21 的 1→0.9 就把这行放大了 11%）。判据见 `TmpFont.EmPerFontSize`。</summary>
         public static float ArmyFontSize
         {
-            get { return TmpFont.FontSizeForGlyphHeight(Height * ArmyEmOfCard); }
+            get { return TmpFont.FontSizeForEm(TmpFont.Face.LatinCardBody, Height * ArmyEmOfCard); }
         }
 
-        /// <summary>兵种行字号（原版 `RaceText` fs18 × scale0.01 = 0.18 卡单位）</summary>
+        /// <summary>兵种行字号（原版 `RaceText` fs18 × scale0.01 = 0.18 卡单位）。
+        /// 🔴 **2026-10-22（`W62/T2`）按面标定**：渲的是 **Pragati** ⇒ `FontSizeForEm`（同 `ArmyFontSize`）。</summary>
         public static float RaceFontSize
         {
-            get { return TmpFont.FontSizeForGlyphHeight(Height * RaceEmOfCard); }
+            get { return TmpFont.FontSizeForEm(TmpFont.Face.LatinCardBody, Height * RaceEmOfCard); }
         }
 
         /// <summary>
@@ -3647,21 +3762,31 @@ namespace CardPresentation
         ///    我们只有 `FitToWidth` 的固定回缩，同构。</summary>
         const float TitleEmOfCardZoom = 0.0480f;
 
-        /// <summary>卡名的字号。汉字约占 1 em，所以「em 高度」直接喂给 `FontSizeForGlyphHeight`。
+        /// <summary>卡名的字号。原版 `NameTextUnit` 的 `m_fontSize = 19`、`m_LocalScale = 0.01`
+        /// ⇒ **em = 0.19 卡单位**（19 × 0.01）⇒ 喂给按面的 <see cref="TmpFont.FontSizeForEm"/>。
+        /// 🔴 **为什么是 `FontSizeForEm` 而不是 `FontSizeForGlyphHeight`（2026-10-22 · `W62/T2`）**：
+        /// ① 这一层渲的是 **Asar**（`Face.LatinUi`），而 `FontSizeForGlyphHeight` 标定的是**汉字墨高**
+        ///    ⇒ CJK 的 `m_Scale` 1→0.9 之后卡面拉丁字**真大 11%**（`W62_卡面红诊断.md` §2·2）；
+        /// ② 原版那枚 TMP 是 **`m_isOrthographic = 1`**
+        ///    （`bundle_battleprefabs_vfxandmisc_assets_all/MonoBehaviour/MonoBehaviour_-6860425428091954240.json`）
+        ///    ⇒ `em = fontSize × face.scale × localScale`；我们是 3D `TextMeshPro`（出厂 false）
+        ///    ⇒ `em = 0.1 × fontSize × face.scale`（`TMP_Text.cs:7183`）⇒ **fontSize 必须取 em ÷ 0.1 = 1.9**。
+        ///    ⛔ 别把 0.19 当「19 × 0.01 的巧合」改掉 —— 两边 `isOrthographic` 那一跳差 10 倍。
         /// ⚠️ **静态这一份 = 默认档（19）** —— 编辑器的探针（`TmpSetup` / `IconSizeProbe`）用它。
         /// 卡面**实际用的是实例属性** <see cref="NameFontSize"/>（会按 <see cref="CardUse"/> 分档）。</summary>
         public static float TitleFontSize
         {
-            get { return TmpFont.FontSizeForGlyphHeight(Height * TitleEmOfCard); }
+            get { return TmpFont.FontSizeForEm(TmpFont.Face.LatinUi, Height * TitleEmOfCard); }
         }
 
         /// <summary>🔴 **本卡实际用的卡名字号**（按 <see cref="CardUse"/> 分档）—— `BuildTextLayers` 用它。
-        /// ⛔ 别改回静态的 <see cref="TitleFontSize"/>：那会让放大窗又大 18.75%（`A2110` 就是这笔账）。</summary>
+        /// ⛔ 别改回静态的 <see cref="TitleFontSize"/>：那会让放大窗又大 18.75%（`A2110` 就是这笔账）。
+        /// ⚠️ 换算与 <see cref="TitleFontSize"/> **同一档**（按面 `FontSizeForEm`，2026-10-22 `W62/T2`）。</summary>
         public float NameFontSize
         {
             get
             {
-                return TmpFont.FontSizeForGlyphHeight(
+                return TmpFont.FontSizeForEm(TmpFont.Face.LatinUi,
                     Height * (_use == CardUse.ZoomWindow ? TitleEmOfCardZoom : TitleEmOfCard));
             }
         }
@@ -3673,10 +3798,13 @@ namespace CardPresentation
         /// ⚠️ 原版同时开着 `m_enableAutoSizing`（`m_fontSizeMax = 24`），长描述运行时会被缩下来 ——
         ///    所以 7.07% 是**上限**；我们靠 `FitToBox` 按 `DescBoxH`（原版那块版面框高）收缩，同构。
         /// 出处：`子代理读报_2dcard_0827.md` A3 表 `DescTextUnit`。
+        /// 🔴 **2026-10-22（`W62/T2`）按面标定**：这一层渲的是 **Pragati**（`Face.LatinCardBody`）⇒ 走
+        /// `FontSizeForEm`（原版真 em = `0.1 × fontSize`）。⛔ 别再拿汉字墨高标定 —— CJK 的 `m_Scale`
+        /// 1→0.9 之后，效果文字会跟着放大 11%（`W62_卡面红诊断.md` §2·3）。
         /// </summary>
         public static float KeywordFontSize
         {
-            get { return TmpFont.FontSizeForGlyphHeight(Height * DescEmOfCard); }
+            get { return TmpFont.FontSizeForEm(TmpFont.Face.LatinCardBody, Height * DescEmOfCard); }
         }
 
         /// <summary>0.2355 / 3.3313 —— 效果文字的 em 对卡高比</summary>
@@ -7266,11 +7394,38 @@ namespace CardPresentation
         /// <summary>开口左右/上下各外扩几像素（贴图像素）：让立绘钻进框的金属下面，避免抗锯齿边露缝。</summary>
         const int FrameArtBleedPx = 3;
 
+        /// <summary>🔴 **2026-10-21（`W61b` · `新账-66` 残余）**：卡框 alpha ≥ 这个值就算「不透明」
+        /// —— 立绘在它底下露不出来（合成式 `frame·α + art·(1−α)` 里贡献不足 3%）。
+        ///
+        /// <para>**原版口径**：`SoftMaskScript` + **`FlipAlphaMask = 1`** —— 立绘**铺开**、由卡框 alpha
+        /// **反相遮罩**，卡框半透明处立绘按 `1−α` 透出来。
+        /// 判据（逐字段）：`bundle_staticgeneralassets_assets_all/MonoBehaviour/
+        /// MonoBehaviour_5590396362908354958.json` —— `FlipAlphaMask=1` · `AlphaMask=null` · `CutOff=0` ·
+        /// `HardBlend=0` · `DontClipMaskScalingRect=1`；`MaskArea` 指向 **2.7484²** 的那一级
+        /// （= `CardImage` 立绘板，与 `ArtUnitSquare` 同一个数）。</para>
+        ///
+        /// <para>⚠️ 我们没做真 mask（那要原版那只 mask shader + Unity 里试），等价物 = **让立绘铺到
+        /// 卡框半透明的那一圈下面**：合成后它的贡献就是 `1−α`（实测见
+        /// `资料/普查产出_1021/W61b_卡牌_斜面遮罩.md` §2）。</para></summary>
+        const int FrameBevelOpaquePx = 248;
+
         sealed class FrameRows
         {
             public int X0, X1;        // 贴图列范围（闭区间）
             public int Y0, Y1;        // 贴图行范围（闭区间，**自底向上**，与 `GetPixels32` 的索引一致）
-            public short[] L, R;      // 长度 = Y1-Y0+1；-1 = 该行没有开口
+            // 🔴 **2026-10-22（`W62/T1`）删掉了原来的 `L`/`R`（每行开口的 min..max）** ——
+            //    它是 `FrameArtCoverage` 的旧基线，而那个基线把「同一行里被实心金属隔开的两块开口之间那段金属」
+            //    也算成该有图 ⇒ 三张 tier4 卡框凭空多出 5.10%～7.37% 的假「漏」。现在覆盖统计**自己**
+            //    走 `FrameMaskData` 的逐像素掩码（`hole ∪ ring` ∩ 立绘板 ∩ 卡体），不再从这里取基线。
+            //    ⛔ 别把它加回来当第二份基线 —— 一份基线两处存，迟早又不一致（这次就是这么来的）。
+            /// <summary>每行的**绘制片段** =`开口 ∪ 半透明内斜面`，已按 `FrameArtBleedPx` 外扩、
+            /// 并按「框外面」夹过。长度 = Y1-Y0+1；元素 = 扁平数组 `[l0,r0,l1,r1,…]`（贴图列，已减 X0），
+            /// `null` = 该行不画。
+            /// <para>🔴 **为什么要拆成多段**：斜面在个别行会**被框上的透明缺口隔开**
+            /// （实测 `frame_ultramarines_strat_tier4` 底部 16 行）—— 取 min..max 会把立绘画进那个缺口，
+            /// 正是用户报的「战术卡插图跑到下面」。拆段后缺口一点不碰（离线 75 张实测 `spill = 0`）。</para></summary>
+            public short[][] Runs;
+            public int RunRows;       // 有绘制片段的行数（日志/断言用）
             public bool HasAny;
         }
         static readonly Dictionary<int, FrameRows> _frameRowsCache = new Dictionary<int, FrameRows>();
@@ -7290,28 +7445,99 @@ namespace CardPresentation
 
         static FrameRows BuildFrameRows(Texture2D frameTex)
         {
-            if (!frameTex.isReadable || frameTex.width <= 0 || frameTex.height <= 0) return null;
+            byte[] alpha; bool[] hole, outside, ring;
+            int x0, y0, w, h;
+            if (!FrameMaskData(frameTex, out alpha, out hole, out outside, out ring, out x0, out y0, out w, out h))
+                return null;
+
+            var res = new FrameRows
+            {
+                X0 = x0, X1 = x0 + w - 1, Y0 = y0, Y1 = y0 + h - 1,
+                Runs = new short[h][],
+            };
+            var runs = new List<short>(8);
+            for (int j = 0; j < h; j++)
+            {
+                int rowBase = j * w;
+
+                // ---- ① 画法：`开口 ∪ 半透明内斜面` 的**连通片段** ----
+                runs.Clear();
+                int runL = -1;
+                for (int i = 0; i < w; i++)
+                {
+                    if (hole[rowBase + i] || ring[rowBase + i]) { if (runL < 0) runL = i; }
+                    else if (runL >= 0) { AddBevelRun(runs, rowBase, runL, i - 1, outside, w); runL = -1; }
+                }
+                if (runL >= 0) AddBevelRun(runs, rowBase, runL, w - 1, outside, w);
+                if (runs.Count > 0) { res.Runs[j] = runs.ToArray(); res.RunRows++; }
+
+                // ---- ② 这张卡框**有没有闭合开口**（`ArtMeshInFrame` 读 `HasAny` 决定走条带还是退回矩形）----
+                // 🔴 **2026-10-22（`W62/T1`）**：这一段原来是「每行开口的 min..max」基线（`L`/`R`），
+                //    现在基线改由 `FrameArtCoverage` **自己**从 `FrameMaskData` 的逐像素掩码取
+                //    （`hole ∪ ring` ∩ 立绘板 ∩ 卡体）⇒ 这里只留「有没有」这一个判据，⛔ 别再存第二份基线。
+                if (!res.HasAny)
+                    for (int i = 0; i < w; i++) if (hole[rowBase + i]) { res.HasAny = true; break; }
+            }
+            if (!res.HasAny) return null;
+            // 上下各扩 `FrameArtBleedPx` 行（沿用最近那行的片段，再按「框外面」夹一次）——
+            // 开口的上下沿同样是抗锯齿边
+            int top = -1, bot = -1;
+            for (int j = 0; j < h; j++) if (res.Runs[j] != null) { if (bot < 0) bot = j; top = j; }
+            for (int j = top + 1; j <= Mathf.Min(h - 1, top + FrameArtBleedPx); j++)
+                res.Runs[j] = ClampBevelRuns(res.Runs[top], j * w, outside, w);
+            for (int j = Mathf.Max(0, bot - FrameArtBleedPx); j < bot; j++)
+                res.Runs[j] = ClampBevelRuns(res.Runs[bot], j * w, outside, w);
+            return res;
+        }
+
+        /// <summary>卡框贴图 → 「开口 / 框外面 / 半透明内斜面」三张掩码（行号 j 自底向上，与 `GetPixels32` 一致）。
+        ///
+        /// <para>· `hole` = 透明（alpha ≤ 8）**且到不了 sprite rect 四边**的像素 = 被框围住的开口；
+        /// · `outside` = 透明且与四边连通 = 框**外面**（立绘⛔不许画到这里）；
+        /// · `ring` = alpha 在 **9..247**、**且与开口 4 连通**的像素 = 半透明内斜面。</para>
+        ///
+        /// <para>🔴 上界取 `FrameBevelOpaquePx`(248) 而不是 255：α ≥ 248 时立绘贡献 &lt; 3%（不可辨），
+        /// 再往里就是框的实心金属 —— 立绘钻进去也看不见。
+        /// ⚠️ **必须从开口长出去**（4 连通、只走半透明像素）：外发光/投影那圈半透明离开口很远、
+        /// 中间隔着不透明金属 ⇒ 泛洪走不过去 ⇒ 不会把立绘铺到卡框外面（实测 75 张 `_strat`：`spill = 0`）。
+        /// 判据出处 → `资料/普查产出_1021/W61b_卡牌_斜面遮罩.md`。</para>
+        ///
+        /// <para>返回 false = 贴图不可读 / sprite rect 太小（调用方退回矩形方案）。</para></summary>
+        static bool FrameMaskData(Texture2D frameTex, out byte[] alpha, out bool[] hole,
+                                  out bool[] outside, out bool[] ring,
+                                  out int x0, out int y0, out int w, out int h)
+        {
+            alpha = null; hole = null; outside = null; ring = null;
+            x0 = y0 = w = h = 0;
+            if (frameTex == null || !frameTex.isReadable || frameTex.width <= 0 || frameTex.height <= 0)
+                return false;
             int tw = frameTex.width, th = frameTex.height;
             Rect uv = FrameUv(frameTex);
-            int x0 = Mathf.Clamp(Mathf.FloorToInt(uv.xMin * tw), 0, tw - 1);
+            x0 = Mathf.Clamp(Mathf.FloorToInt(uv.xMin * tw), 0, tw - 1);
             int x1 = Mathf.Clamp(Mathf.CeilToInt(uv.xMax * tw) - 1, 0, tw - 1);
-            int y0 = Mathf.Clamp(Mathf.FloorToInt(uv.yMin * th), 0, th - 1);
+            y0 = Mathf.Clamp(Mathf.FloorToInt(uv.yMin * th), 0, th - 1);
             int y1 = Mathf.Clamp(Mathf.CeilToInt(uv.yMax * th) - 1, 0, th - 1);
-            int w = x1 - x0 + 1, h = y1 - y0 + 1;
-            if (w < 8 || h < 8) return null;
+            w = x1 - x0 + 1; h = y1 - y0 + 1;
+            if (w < 8 || h < 8) return false;
 
             var px = frameTex.GetPixels32();
+            alpha = new byte[w * h];
             // free[]：贴图透明（alpha <= 8）= 可通行。行号 j 自底向上（= `GetPixels32` 的索引约定）。
             var free = new bool[w * h];
             for (int j = 0; j < h; j++)
             {
                 int src = (y0 + j) * tw + x0, dst = j * w;
-                for (int i = 0; i < w; i++) free[dst + i] = px[src + i].a <= 8;
+                for (int i = 0; i < w; i++)
+                {
+                    byte a = px[src + i].a;
+                    alpha[dst + i] = a;
+                    free[dst + i] = a <= 8;
+                }
             }
 
             // 4 连通泛洪：从**画框矩形**的四边出发 ⇒ 走得到的透明像素 = 框**外面**。
             // ⚠️ 从画框矩形而不是整张贴图的边出发：sprite rect 之外的像素不参与画框（判据同 `FrameUv`）。
-            var outside = new bool[w * h];
+            outside = new bool[w * h];
             var stack = new Stack<int>();
             for (int i = 0; i < w; i++)
             {
@@ -7349,30 +7575,79 @@ namespace CardPresentation
                 }
             }
 
-            var res = new FrameRows { X0 = x0, X1 = x1, Y0 = y0, Y1 = y1, L = new short[h], R = new short[h] };
+            hole = new bool[w * h];
+            for (int k = 0; k < w * h; k++) hole[k] = free[k] && !outside[k];
+
+            // ---- 半透明内斜面：从开口往外 4 连通（只走 8 < alpha < 248）----
+            // 先找「贴着开口的半透明像素」当种子，再泛洪（一次全场扫描 + 一次 BFS）。
+            ring = new bool[w * h];
+            var ringStack = new Stack<int>();
             for (int j = 0; j < h; j++)
-            {
-                int l = -1, r = -1, rowBase = j * w;
                 for (int i = 0; i < w; i++)
                 {
-                    if (!free[rowBase + i] || outside[rowBase + i]) continue;
-                    if (l < 0) l = i;
-                    r = i;
+                    int idx = j * w + i;
+                    if (hole[idx] || ring[idx]) continue;
+                    byte a = alpha[idx];
+                    if (a <= 8 || a >= FrameBevelOpaquePx) continue;
+                    if ((i > 0 && hole[idx - 1]) || (i < w - 1 && hole[idx + 1])
+                        || (j > 0 && hole[idx - w]) || (j < h - 1 && hole[idx + w]))
+                        ringStack.Push(idx);
                 }
-                if (l < 0) { res.L[j] = -1; res.R[j] = -1; continue; }
-                res.L[j] = (short)Mathf.Max(0, l - FrameArtBleedPx);
-                res.R[j] = (short)Mathf.Min(w - 1, r + FrameArtBleedPx);
-                res.HasAny = true;
+            while (ringStack.Count > 0)
+            {
+                int idx = ringStack.Pop();
+                if (ring[idx]) continue;
+                ring[idx] = true;
+                int j = idx / w, i = idx - j * w;
+                for (int d = 0; d < 4; d++)
+                {
+                    int ni = i + (d == 0 ? -1 : d == 1 ? 1 : 0);
+                    int nj = j + (d == 2 ? -1 : d == 3 ? 1 : 0);
+                    if (ni < 0 || ni >= w || nj < 0 || nj >= h) continue;
+                    int nIdx = nj * w + ni;
+                    if (ring[nIdx] || hole[nIdx]) continue;
+                    byte a = alpha[nIdx];
+                    if (a <= 8 || a >= FrameBevelOpaquePx) continue;
+                    ringStack.Push(nIdx);
+                }
             }
-            if (!res.HasAny) return null;
-            // 上下各扩 `FrameArtBleedPx` 行（沿用最近那行的区间）—— 开口的上下沿同样是抗锯齿边
-            int top = -1, bot = -1;
-            for (int j = 0; j < h; j++) if (res.L[j] >= 0) { if (bot < 0) bot = j; top = j; }
-            for (int j = top + 1; j <= Mathf.Min(h - 1, top + FrameArtBleedPx); j++)
-            { res.L[j] = res.L[top]; res.R[j] = res.R[top]; }
-            for (int j = Mathf.Max(0, bot - FrameArtBleedPx); j < bot; j++)
-            { res.L[j] = res.L[bot]; res.R[j] = res.R[bot]; }
-            return res;
+            return true;
+        }
+
+        /// <summary>把一行的片段 [a,b] 左右各外扩最多 `FrameArtBleedPx` 像素（⛔ 不越过「框外面」），
+        /// 与外扩后相接的上一段合并。贴图列**已减 X0**（= 相对 sprite rect）。</summary>
+        static void AddBevelRun(List<short> runs, int rowBase, int a, int b, bool[] outside, int w)
+        {
+            for (int k = 0; k < FrameArtBleedPx && a > 0 && !outside[rowBase + a - 1]; k++) a--;
+            for (int k = 0; k < FrameArtBleedPx && b < w - 1 && !outside[rowBase + b + 1]; k++) b++;
+            int n = runs.Count;
+            if (n >= 2 && runs[n - 1] + 1 >= a)
+            {
+                if (b > runs[n - 1]) runs[n - 1] = (short)b;
+                return;
+            }
+            runs.Add((short)a);
+            runs.Add((short)b);
+        }
+
+        /// <summary>把上一行的片段搬到 `rowBase` 这一行，并**逐像素剔掉「框外面」**
+        /// （上下沿那圈抗锯齿的补丁；⛔ 不夹的话立绘会从缺口漏到卡框外 —— 离线实测 5025 px）。</summary>
+        static short[] ClampBevelRuns(short[] src, int rowBase, bool[] outside, int w)
+        {
+            if (src == null || src.Length == 0) return null;
+            List<short> dst = null;
+            for (int k = 0; k + 1 < src.Length; k += 2)
+            {
+                int a = src[k], b = src[k + 1];
+                while (a <= b && outside[rowBase + a]) a++;
+                while (b >= a && outside[rowBase + b]) b--;
+                if (a > b) continue;
+                if (dst == null) dst = new List<short>(src.Length);
+                if (dst.Count >= 2 && dst[dst.Count - 1] + 1 >= a)
+                { if (b > dst[dst.Count - 1]) dst[dst.Count - 1] = (short)b; }
+                else { dst.Add((short)a); dst.Add((short)b); }
+            }
+            return dst == null ? null : dst.ToArray();
         }
 
         /// <summary>贴图列（**像素边界**，不是像素中心）→ 卡面 x（卡单位，中心原点）。
@@ -7392,8 +7667,13 @@ namespace CardPresentation
             return (fv - 0.5f) * FrameUnitH + FrameUnitY;
         }
 
-        /// <summary>按卡框开口的逐行区间建**条带**立绘网格（每行一条 quad；左右/上下区间相同的相邻行合并）。
-        /// 顶点序/三角形序与 `ArtMeshInFrame` 的单 quad 那条路一致（BL/BR/TR/TL）。</summary>
+        /// <summary>按卡框的**逐行片段**建立绘网格（每行每段一条 quad；相邻行的片段列表相同的合并）。
+        /// 顶点序/三角形序与 `ArtMeshInFrame` 的单 quad 那条路一致（BL/BR/TR/TL）。
+        /// <para>🔴 `rows.Runs` 是**已经算好的画法**（`开口 ∪ 半透明内斜面`，含 `FrameArtBleedPx` 外扩、
+        /// 已按「框外面」夹过）—— 覆盖统计（`FrameArtCoverage`）**另走一条路**：它拿
+        /// `FrameMaskData` 的逐像素掩码当基线（`hole ∪ ring` ∩ 立绘板 ∩ 卡体），⛔ 不从 `Runs` 反推、
+        /// 也不从外扩后的值反推（混了就会把「钻到框底下那一圈」算成开口、覆盖率永远是 0）。
+        /// 2026-10-22（`W62/T1`）之前 `FrameRows` 里还存过一份逐行 `L/R` 基线 —— 已删（见 `FrameRows` 的注释）。</para></summary>
         static Mesh ArtWindowMesh(Texture2D art, Texture2D frameTex, FrameRows rows,
                                   float xL0, float yB0, float boardW, float boardH,
                                   float bxL, float bxR, float byB, float byT)
@@ -7405,27 +7685,29 @@ namespace CardPresentation
             int j = 0;
             while (j < h)
             {
-                if (rows.L[j] < 0) { j++; continue; }
+                short[] r0 = rows.Runs[j];
+                if (r0 == null || r0.Length == 0) { j++; continue; }
                 int j0 = j;
-                short L = rows.L[j], R = rows.R[j];
-                while (j + 1 < h && rows.L[j + 1] == L && rows.R[j + 1] == R) j++;
+                while (j + 1 < h && SameBevelRuns(r0, rows.Runs[j + 1])) j++;
                 int j1 = j;                                      // 闭区间
-                float xL = Mathf.Max(FramePxXEdge(frameTex, rows.X0 + L), bxL);
-                float xR = Mathf.Min(FramePxXEdge(frameTex, rows.X0 + R + 1), bxR);
                 float yB = Mathf.Max(FramePxYEdge(frameTex, rows.Y0 + j0), byB);
                 float yT = Mathf.Min(FramePxYEdge(frameTex, rows.Y0 + j1 + 1), byT);
-                if (xR > xL && yT > yB)
-                {
-                    int b = verts.Count;
-                    verts.Add(new Vector3(xL, yB, 0f)); verts.Add(new Vector3(xR, yB, 0f));
-                    verts.Add(new Vector3(xR, yT, 0f)); verts.Add(new Vector3(xL, yT, 0f));
-                    float uL = (xL - xL0) / boardW, uR = (xR - xL0) / boardW;
-                    float vB = (yB - yB0) / boardH, vT = (yT - yB0) / boardH;
-                    uvs.Add(new Vector2(uL, vB)); uvs.Add(new Vector2(uR, vB));
-                    uvs.Add(new Vector2(uR, vT)); uvs.Add(new Vector2(uL, vT));
-                    tris.Add(b);     tris.Add(b + 2); tris.Add(b + 1);
-                    tris.Add(b);     tris.Add(b + 3); tris.Add(b + 2);
-                }
+                if (yT > yB)
+                    for (int k = 0; k + 1 < r0.Length; k += 2)
+                    {
+                        float xL = Mathf.Max(FramePxXEdge(frameTex, rows.X0 + r0[k]), bxL);
+                        float xR = Mathf.Min(FramePxXEdge(frameTex, rows.X0 + r0[k + 1] + 1), bxR);
+                        if (xR <= xL) continue;
+                        int b = verts.Count;
+                        verts.Add(new Vector3(xL, yB, 0f)); verts.Add(new Vector3(xR, yB, 0f));
+                        verts.Add(new Vector3(xR, yT, 0f)); verts.Add(new Vector3(xL, yT, 0f));
+                        float uL = (xL - xL0) / boardW, uR = (xR - xL0) / boardW;
+                        float vB = (yB - yB0) / boardH, vT = (yT - yB0) / boardH;
+                        uvs.Add(new Vector2(uL, vB)); uvs.Add(new Vector2(uR, vB));
+                        uvs.Add(new Vector2(uR, vT)); uvs.Add(new Vector2(uL, vT));
+                        tris.Add(b);     tris.Add(b + 2); tris.Add(b + 1);
+                        tris.Add(b);     tris.Add(b + 3); tris.Add(b + 2);
+                    }
                 j++;
             }
             if (verts.Count == 0) return null;
@@ -7435,6 +7717,15 @@ namespace CardPresentation
             m.SetTriangles(tris, 0);
             m.RecalculateBounds();
             return m;
+        }
+
+        /// <summary>两行的片段列表是否逐值相同（= 可以合并成一条 quad 带）。</summary>
+        static bool SameBevelRuns(short[] a, short[] b)
+        {
+            if (a == null || b == null) return a == b;
+            if (a.Length != b.Length) return false;
+            for (int k = 0; k < a.Length; k++) if (a[k] != b[k]) return false;
+            return true;
         }
 
         static Mesh ArtMeshInFrame(Texture2D art, Vector3 frameQuad, float artScale = 1f,
@@ -7541,6 +7832,217 @@ namespace CardPresentation
             m.RecalculateBounds();
             _artMeshCache[key] = m;
             return m;
+        }
+
+        /// <summary>自检用（`新账-66` 收口）：**卡框开口的逐像素覆盖统计**（卡面单位口径）。
+        ///
+        /// <para>返回 false = 量不了（卡框不可读 / 没有闭合开口 / 网格没建出来）—— 调用方**别读成通过**。</para>
+        /// <para>`rectMissPct` = 改前「矩形 union」方案（`FrameArtWindow` + 夹取）漏掉的基线面积占比；
+        /// `stripMissPct` = **这张卡真正用的那块网格**（`ArtMeshInFrame(clipWindow: true)`）漏掉的占比；
+        /// 两个都按「漏 / 基线总面积」算，`holePctOfCard` = 基线占卡面（`Width × Height`）的百分比。</para>
+        ///
+        /// <para>🔴 **基线口径（2026-10-22 · `W62/T1` 改，⛔ 别改回逐行 min..max）**：**逐像素**
+        /// `hole ∪ ring` ∩ **立绘板** ∩ **卡体** —— 与 <see cref="FrameArtBevelCoverage"/> 同一套。
+        /// 为什么不能再用「每行开口的 min..max」：那个口径把**同一行里被实心金属隔开的两块开口之间那段金属**
+        /// 也算成「该有图」，而条带只画**连通段**（`BuildFrameRows` 的 `Runs`）⇒ 三张 tier4 卡框凭空多出
+        /// **5.10%～7.37%** 的「漏」，逐像素复核那一段全是 **alpha 254–255 的实心金属**（画面上零差别；
+        /// 判据 = `资料/普查产出_1022/W62_卡面红诊断.md` §1·2：三张 tier4 开口漏 0 个、斜面漏 0 个）。
+        /// 逐行那套还顺带把**立绘板之上**的几行（gene y≈1.398–1.408 &gt; 板顶 1.385）算进基线，原版那里也没有图。</para>
+        ///
+        /// <para>判据（原版口径）= `SoftMaskScript` + **`FlipAlphaMask = 1`** + `CutOff = 0` + `HardBlend = 0`
+        /// （`bundle_staticgeneralassets_assets_all/MonoBehaviour/MonoBehaviour_5590396362908354958.json`）：
+        /// 立绘**铺开、由卡框 alpha 反相遮罩** ⇒ 透明处（开口）必须有图、半透明处按 `1−α` 透出；
+        /// **不透明金属底下有没有图看不出来** ⇒ 基线**不该含金属**。这就是「改断言口径、不改渲染」的原版依据。</para>
+        ///
+        /// <para>🔴 **灭自证**：`stripMissPct` 量的是 `ArtMeshInFrame` **真交给渲染器的那块网格**（把它的三角形
+        /// 逐行投影回来），⛔ 不是把条带算法再算一遍 —— 谁把 `ArtMeshInFrame` 改回矩形，
+        /// `stripMissPct` 会跟 `rectMissPct` 变成一个数、断言立刻红。</para>
+        /// </summary>
+        public static bool FrameArtCoverage(Texture2D frameTex, Texture2D art, float artScale,
+                                            out float rectMissPct, out float stripMissPct,
+                                            out float holePctOfCard, out int rows, out int quads)
+        {
+            rectMissPct = stripMissPct = 100f; holePctOfCard = 0f; rows = 0; quads = 0;
+            byte[] alpha; bool[] hole, outside, ring;
+            int x0, y0, w, h;
+            if (!FrameMaskData(frameTex, out alpha, out hole, out outside, out ring, out x0, out y0, out w, out h))
+                return false;
+            var mesh = ArtMeshInFrame(art, FrameQuad(frameTex), artScale, frameTex, true);
+            if (mesh == null || mesh.vertexCount < 4) return false;
+
+            // 网格三角形 → 逐个 quad（顶点序 BL/BR/TR/TL，见 `ArtWindowMesh` / 单 quad 那条路）
+            var vs = mesh.vertices;
+            int nq = vs.Length / 4;
+            var qx0 = new float[nq]; var qx1 = new float[nq];
+            var qy0 = new float[nq]; var qy1 = new float[nq];
+            for (int q = 0; q < nq; q++)
+            {
+                qx0[q] = Mathf.Min(vs[q * 4].x, vs[q * 4 + 1].x);
+                qx1[q] = Mathf.Max(vs[q * 4].x, vs[q * 4 + 1].x);
+                qy0[q] = Mathf.Min(vs[q * 4].y, vs[q * 4 + 2].y);
+                qy1[q] = Mathf.Max(vs[q * 4].y, vs[q * 4 + 2].y);
+            }
+            quads = nq;
+
+            // 立绘真正能画到的范围 = **立绘板 ∩ 卡体**（与 `FrameArtBevelCoverage` / `ArtMeshInFrame` 同一口径）——
+            // 板外的开口（框最外侧的小装饰洞）原版也不该有图，⛔ 不能算进「漏」里。
+            ArtBoard(art, artScale, out float bw, out float bh, out float bcy);
+            float bxL = Mathf.Max(-bw * 0.5f, -Width * 0.5f), bxR = Mathf.Min(bw * 0.5f, Width * 0.5f);
+            float byB = Mathf.Max(bcy - bh * 0.5f, -Height * 0.5f), byT = Mathf.Min(bcy + bh * 0.5f, Height * 0.5f);
+            if (bxR <= bxL || byT <= byB) return false;
+
+            Rect win = FrameArtWindow(frameTex);
+            // 一格像素在卡面上占多大（面积口径用；x/y 两条映射都是均匀的 ⇒ 一列/一行一个常数）
+            float pxW = (FramePxXEdge(frameTex, x0 + w) - FramePxXEdge(frameTex, x0)) / w;
+            float pxH = (FramePxYEdge(frameTex, y0 + h) - FramePxYEdge(frameTex, y0)) / h;
+
+            double basePx = 0, rectMissPx = 0, stripMissPx = 0;
+            var iv = new List<Vector2>(16);
+            for (int j = 0; j < h; j++)
+            {
+                float yB = FramePxYEdge(frameTex, y0 + j);
+                float yT = FramePxYEdge(frameTex, y0 + j + 1);
+                float yMid = (yB + yT) * 0.5f;
+                if (yMid < byB || yMid > byT) continue;
+                iv.Clear();
+                for (int q = 0; q < nq; q++)
+                {
+                    if (qy1[q] <= yB || qy0[q] >= yT) continue;
+                    float a = Mathf.Max(qx0[q], bxL), b = Mathf.Min(qx1[q], bxR);
+                    if (b > a) iv.Add(new Vector2(a, b));
+                }
+                // ⚠️ **不许**在 `iv.Count == 0` 时跳过整行 —— 那等于「这一带没有网格 ⇒ 不计入」，
+                //    正是自证：把整条带删掉反而全绿（同 `FrameArtBevelCoverage` 那条注释）。
+                //    空表就让它逐像素判「没盖住」。
+                bool rowCounted = false;
+                for (int i = 0; i < w; i++)
+                {
+                    int idx = j * w + i;
+                    if (!hole[idx] && !ring[idx]) continue;
+                    float xc = (FramePxXEdge(frameTex, x0 + i) + FramePxXEdge(frameTex, x0 + i + 1)) * 0.5f;
+                    if (xc < bxL || xc > bxR) continue;
+                    rowCounted = true;
+                    basePx += 1.0;
+
+                    // ① 改前那个矩形方案（`FrameArtWindow` + 夹取）
+                    bool rectCov = win.width > 0.01f && win.height > 0.01f
+                                && xc >= win.xMin && xc <= win.xMax
+                                && yMid >= win.yMin && yMid <= win.yMax;
+                    if (!rectCov) rectMissPx += 1.0;
+
+                    // ② 这张卡**真用的网格**
+                    if (!InIntervals(iv, xc)) stripMissPx += 1.0;
+                }
+                if (rowCounted) rows++;
+            }
+            if (basePx <= 0) return false;
+            rectMissPct = (float)(100.0 * rectMissPx / basePx);
+            stripMissPct = (float)(100.0 * stripMissPx / basePx);
+            holePctOfCard = (float)(100.0 * basePx * pxW * pxH / (Width * Height));
+            return true;
+        }
+
+        /// <summary>自检用（`新账-66` 残余 · **半透明内斜面**）：量两件事 ——
+        /// ① 「立绘在该点的贡献 = `1 − 卡框α`」（原版 `FlipAlphaMask=1` 的等价物）；
+        /// ② 「立绘有没有画到卡框外面」（本轮那条「按框外面夹取」的**灭自证**）。
+        ///
+        /// <para>`ringPx` = **立绘板 ∩ 卡体之内**、与开口 4 连通、alpha 在 9..247 的像素数（= 斜面面积）；
+        /// `missPct` = 其中**没被立绘网格盖住**的像素占比；
+        /// `meanErr` / `maxErr` = 贡献误差 —— 盖住 ⇒ 贡献 `1−α`（误差 0）；没盖住 ⇒ 贡献 0，
+        /// 误差 = `1−α`。两个都按**环像素**做分母（不是按「漏掉的像素」），所以它是「整圈平均丢了多少」。</para>
+        ///
+        /// <para>🔴 **灭自证**：`missPct` 量的是 `ArtMeshInFrame` **真交给渲染器的那块网格**
+        /// （把它的三角形逐行投影回来），⛔ 不是把画法再算一遍 —— 谁把 `ArtWindowMesh` 改回「只画开口
+        /// + 3 px 外扩」，`missPct` 会从 0 跳回 **~90%**（离线 75 张实测），本条立刻红。
+        /// 谁把 `AddBevelRun` / `ClampBevelRuns` 里的「框外面」夹取去掉，`spillPct` 会跳起来
+        /// （`frame_ultramarines_strat_tier4` 底部 5025 px）。</para>
+        ///
+        /// <para>返回 false = 量不了（卡框不可读 / 没有开口 / 网格没建出来）—— 调用方**别读成通过**。</para>
+        /// </summary>
+        public static bool FrameArtBevelCoverage(Texture2D frameTex, Texture2D art, float artScale,
+                                                 out int ringPx, out float missPct,
+                                                 out float meanErr, out float maxErr, out float spillPct)
+        {
+            ringPx = 0; missPct = 100f; meanErr = 1f; maxErr = 1f; spillPct = 100f;
+            byte[] alpha; bool[] hole, outside, ring;
+            int x0, y0, w, h;
+            if (!FrameMaskData(frameTex, out alpha, out hole, out outside, out ring, out x0, out y0, out w, out h))
+                return false;
+            var mesh = ArtMeshInFrame(art, FrameQuad(frameTex), artScale, frameTex, true);
+            if (mesh == null || mesh.vertexCount < 4) return false;
+
+            // 网格三角形 → 逐个 quad（顶点序 BL/BR/TR/TL，见 `ArtWindowMesh` / 单 quad 那条路）
+            var vs = mesh.vertices;
+            int nq = vs.Length / 4;
+            var qx0 = new float[nq]; var qx1 = new float[nq];
+            var qy0 = new float[nq]; var qy1 = new float[nq];
+            for (int q = 0; q < nq; q++)
+            {
+                qx0[q] = Mathf.Min(vs[q * 4].x, vs[q * 4 + 1].x);
+                qx1[q] = Mathf.Max(vs[q * 4].x, vs[q * 4 + 1].x);
+                qy0[q] = Mathf.Min(vs[q * 4].y, vs[q * 4 + 2].y);
+                qy1[q] = Mathf.Max(vs[q * 4].y, vs[q * 4 + 2].y);
+            }
+
+            // 立绘真正能画到的范围 = **立绘板 ∩ 卡体**（与 `ArtMeshInFrame` 同一口径）——
+            // 板比卡窄时（671×1024 那档立绘）板外那圈本来就没有立绘，⛔ 不能算进「漏」里。
+            ArtBoard(art, artScale, out float bw, out float bh, out float bcy);
+            float bxL = Mathf.Max(-bw * 0.5f, -Width * 0.5f), bxR = Mathf.Min(bw * 0.5f, Width * 0.5f);
+            float byB = Mathf.Max(bcy - bh * 0.5f, -Height * 0.5f), byT = Mathf.Min(bcy + bh * 0.5f, Height * 0.5f);
+            double ringA = 0, missA = 0, errSum = 0, spillA = 0;
+            float worst = 0f;
+            var iv = new List<Vector2>(16);
+            for (int j = 0; j < h; j++)
+            {
+                float yB = FramePxYEdge(frameTex, y0 + j);
+                float yT = FramePxYEdge(frameTex, y0 + j + 1);
+                float yMid = (yB + yT) * 0.5f;
+                // 口径同 `FrameArtCoverage`：只算**立绘板 ∩ 卡体**之内
+                if (yMid < byB || yMid > byT) continue;
+                iv.Clear();
+                for (int q = 0; q < nq; q++)
+                {
+                    if (qy1[q] <= yB || qy0[q] >= yT) continue;
+                    float a = Mathf.Max(qx0[q], bxL), b = Mathf.Min(qx1[q], bxR);
+                    if (b > a) iv.Add(new Vector2(a, b));
+                }
+                // ⚠️ **不许**在 `iv.Count == 0` 时跳过这一行 —— 那等于「这一带没有网格 ⇒ 不计入」，
+                //    正是自证：把整条带删掉反而全绿。空表就让它逐像素判「没盖住」。
+                for (int i = 0; i < w; i++)
+                {
+                    int idx = j * w + i;
+                    bool isOut = outside[idx];
+                    if (!isOut && !ring[idx]) continue;
+                    float xc = (FramePxXEdge(frameTex, x0 + i) + FramePxXEdge(frameTex, x0 + i + 1)) * 0.5f;
+                    if (xc < bxL || xc > bxR) continue;
+                    bool cov = InIntervals(iv, xc);
+                    if (isOut)
+                    {
+                        if (cov) spillA += 1.0;          // ② 画到框外面
+                        continue;
+                    }
+                    ringA += 1.0;                        // ① 斜面像素
+                    if (cov) continue;                   // 盖住 ⇒ 贡献正好是 `1−α`（误差 0）
+                    float exp = 1f - alpha[idx] / 255f;  // 没盖住 ⇒ 那一点该有的 `1−α` 全丢了
+                    missA += 1.0;
+                    errSum += exp;
+                    if (exp > worst) worst = exp;
+                }
+            }
+            if (ringA <= 0) return false;
+            ringPx = (int)ringA;
+            missPct = (float)(100.0 * missA / ringA);
+            meanErr = (float)(errSum / ringA);
+            maxErr = worst;
+            spillPct = (float)(100.0 * spillA / ringA);
+            return true;
+        }
+
+        /// <summary>x 是否落在（未合并的）区间表里 —— 区间按 x0 升序，逐个比即可（表很短）。</summary>
+        static bool InIntervals(List<Vector2> iv, float x)
+        {
+            for (int k = 0; k < iv.Count; k++) if (x >= iv[k].x && x <= iv[k].y) return true;
+            return false;
         }
 
         /// <summary>
@@ -7860,6 +8362,17 @@ namespace CardPresentation
         ///    （那会把**所有**小卡一起变成出血，正是 2026-10-10 用户报的那个缺陷）。
         /// </summary>
         public static bool UseFrontLayer = false;
+
+        /// <summary>探针/自检用：**临时指定卡框档**（1..4；`0` = 不覆盖，走正常口径）。
+        ///
+        /// <para>为什么要有这个口：正常口径是 `CardProgress.Level(artId)`（玩家存档，缺省 1），
+        /// 而 **tier3/4 的战术卡框才是哥特拱窗**（tier1/2 是圆角矩形 + 徽记处的外凸缺口）
+        /// —— 想渲一张拱顶的图，就必须能不改存档地把档位抬上去
+        /// （`CardProgress.SetLevel` 会**落盘到玩家存档**，探针里⛔不许用，见那段的 `_persist` 说明）。</para>
+        /// <para>⚠️ 只在**探针/自检**里临时改，改完立刻还原（`CardFaceProbe` 里那一段就是 3/4 两档各渲一张）。</para>
+        /// <para>判据（原版一手）：卡框档 = 卡等级（`CardFramesSO.GetClanFrame(army, tier, cardType)`），
+        /// 见建层处 `frameTier` 那一段。</para></summary>
+        public static int DebugFrameTier = 0;
 
         // ==================================================================
         //  🆕 2026-10-18 **大图档：立绘越出卡框 + 立绘 ×1.27**

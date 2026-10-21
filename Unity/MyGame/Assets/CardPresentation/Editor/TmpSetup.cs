@@ -46,6 +46,10 @@ public static class TmpSetup
     // ── 建字体资产的参数**照抄原版**。出处：解包资产
     //    `10_字体/字体资源/MonoBehaviour/NotoSerifCJK-Regular SDF.json`
     //      m_FaceInfo.m_PointSize        = 50
+    //      m_FaceInfo.m_Scale            = 0.9   ← ⚠️ 原版有、我们原来漏抄（账 `A1262`）
+    //            （TMP 的**有效行盒** = `lineHeight ÷ pointSize × m_Scale`
+    //             = 71.85 ÷ 50 × 0.9 = **1.2933 em**；漏了它 ⇒ 1.437 em ⇒ 同一 `m_fontSize` 下汉字大 11%、
+    //             行盒高 11%。`TMP_FontAsset.CreateFontAsset` **不会**替我们抄这一格 ⇒ 见下面那一刀。）
     //      m_AtlasPadding                = 5
     //      m_AtlasWidth / m_AtlasHeight  = 2048 / 2048
     //      m_AtlasRenderMode             = 4165 → GlyphRenderMode.SDFAA
@@ -163,6 +167,15 @@ public static class TmpSetup
         var fa = TMP_FontAsset.CreateFontAsset(font, PointSize, Padding, RenderMode,
                                                AtlasW, AtlasH, AtlasPopulationMode.Dynamic, true);
         if (fa == null) { Fail("TMP_FontAsset.CreateFontAsset 返回 null。"); return; }
+
+        // 🔴 **2026-10-21（`A1262`）**：原版那份 `NotoSerifCJK-Regular SDF` 的 `m_FaceInfo.m_Scale = 0.9`
+        //    （TMP 的有效行盒 = lineHeight/pointSize × scale ⇒ 1.437 × 0.9 = **1.2933 em**）；
+        //    `CreateFontAsset` 只按 TTF 的度量建、**不会**替我们抄这一格（出厂恒 1）⇒ 建完补一刀。
+        //    ⚠️ 漏了这一刀 = 下次重烘又回到 1（盘上的 `.asset` 是**生成物**，每次重建都会被覆盖）。
+        //    ⚠️ `faceInfo` 是**结构体属性**（取值拷贝）⇒ 必须整份写回，⛔ 别写 `fa.faceInfo.scale = 0.9f`（编不过）。
+        var fi = fa.faceInfo;
+        fi.scale = 0.9f;
+        fa.faceInfo = fi;
 
         fa.name = "NotoSerifCJK-Regular SDF";
 

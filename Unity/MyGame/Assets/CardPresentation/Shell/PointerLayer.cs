@@ -24,7 +24,8 @@
 //   ⑤ 🆕 **推进滚动区的惯性/回弹**（`TickScrolls` → `MenuScroll.Tick`）
 //   ⑥ 🆕 **A49 键盘导航**：ESC 关当前窗（门槛 = 那扇窗自己的 `closeOnEsc`）+ 方向键选 + 回车确认
 //      （`KeyFrame`；判据与「我们挑的」三处 → 下面「键盘导航（A49）」那一节）
-// 命中顺序：**渲染队列大的先**（画在上面的先吃），同队列再比 `z`（越小越靠前 —— 照 `CardInteraction.HitTest`）。
+// 命中顺序：**渲染队列大的先**（画在上面的先吃），同队列再比 `z`（越小越靠前 —— 照 `CardInteraction.HitTest`）；
+//           **队列与 z 都相同 ⇒ 后兄弟优先**（= 原版 uGUI 的层级遍历序，见 `IsAboveInHierarchy`；2026-10-22 W62-D2）。
 //
 // ⚠️ **仍没实现的（出声，不静默）**：
 //   · ✅ **摇杆/手柄那条输入 —— 2026-10-17（T12）已接**：左摇杆（原版 type=2 的 axis 0/1）→ 方向；
@@ -487,8 +488,12 @@ namespace CardPresentation
             return s;
         }
 
-        /// <summary>这一点上**所有**候选件（含被压住的），按「渲染队列↓ · z↑」排 —— 第一个才是真吃到的。
-        /// 🔴 这一列专治本工程反复踩的「同一个队列谁盖谁不可控」那一族坑。</summary>
+        /// <summary>这一点上**所有**候选件（含被压住的），按「渲染队列↓ · z↑ · **后兄弟先**」排 ——
+        /// 第一个才是真吃到的（与 <see cref="HitButton"/> 的判据**逐条同源**：队列 → z → `IsAboveInHierarchy`）。
+        /// 🔴 这一列专治本工程反复踩的「同一个队列谁盖谁不可控」那一族坑。
+        /// <para>🔴 **2026-10-22（W62-D2）**：原来的排序只到 z 为止 ⇒ 同队列同 z 时列表顺序 = `CollectHits`
+        /// 的枚举序，而真正的赢家已经改按层级序取（见 `IsAboveInHierarchy`）⇒ 不补这一段的话，
+        /// 点击日志会把「Q=3156 z=0 的 Shop 排在 Rewards 前面」印成「Shop 才是吃到的」——**日志与实况不符**。</para></summary>
         static List<string> HitLines(float px, float py)
         {
             var list = new List<string>();
@@ -496,7 +501,11 @@ namespace CardPresentation
             all.Sort((a, b) =>
             {
                 if (a.q.RenderQueue != b.q.RenderQueue) return b.q.RenderQueue.CompareTo(a.q.RenderQueue);
-                return a.q.transform.position.z.CompareTo(b.q.transform.position.z);
+                float za = a.q.transform.position.z, zb = b.q.transform.position.z;
+                if (Mathf.Abs(za - zb) > ZTieEps) return za.CompareTo(zb);
+                if (IsAboveInHierarchy(a.q.transform, b.q.transform)) return -1;
+                if (IsAboveInHierarchy(b.q.transform, a.q.transform)) return 1;
+                return 0;
             });
             int n = Mathf.Min(all.Count, 8);
             for (int i = 0; i < n; i++)
@@ -1382,20 +1391,67 @@ namespace CardPresentation
 
         // ============================================================ 命中
 
-        /// <summary>命中顺序：**渲染队列大的先**（画在上面的先吃），同队列再比 `z`（越小越靠前）。</summary>
+        /// <summary>命中顺序：**渲染队列大的先**（画在上面的先吃），同队列再比 `z`（越小越靠前）；
+        /// **队列与 `z` 都相同 ⇒ 后兄弟优先**（判据见 <see cref="IsAboveInHierarchy"/>）。</summary>
         WindowButton HitButton(float px, float py)
         {
             if (InputBlocked) return null;      // 🆕 N8：黑场/遮罩期间指针命中一条都不给（判据见 `InputBlocked`）
             WindowButton best = null;
+            ImageQuad bestQuad = null;
             int bestQ = int.MinValue;
             float bestZ = float.MaxValue;
             foreach (var c in CollectHits(px, py))
             {
                 var q = c.q; float z = q.transform.position.z;
-                if (q.RenderQueue > bestQ || (q.RenderQueue == bestQ && z < bestZ))
-                { best = c.btn; bestQ = q.RenderQueue; bestZ = z; }
+                bool take;
+                if (best == null) take = true;
+                else if (q.RenderQueue != bestQ) take = q.RenderQueue > bestQ;
+                else if (z < bestZ - ZTieEps) take = true;
+                else if (z > bestZ + ZTieEps) take = false;
+                else take = IsAboveInHierarchy(q.transform, bestQuad.transform);
+                if (!take) continue;
+                best = c.btn; bestQuad = q; bestQ = q.RenderQueue; bestZ = z;
             }
             return best;
+        }
+
+        /// <summary>`z` 差在这个量以内算**同一层**（`ImageQuad` 的 z 恒 0，只有少数件手写过 z）。</summary>
+        const float ZTieEps = 1e-4f;
+
+        /// <summary>同渲染队列、同 `z` 时的平局判据 —— **后兄弟优先**（= 原版 uGUI 射线在「渲染顺序相同」时的层级序）。
+        ///
+        /// <para>🔴 **判据（uGUI 的遍历序）**：`GraphicRaycaster.Raycast` 把命中的每一颗 `Graphic` 收进同一张表，
+        /// 表里带 `depth`（同一画布内的绘制序，由 `Canvas` 按层级遍历赋：**父先子后、兄弟按 `m_Children` 顺序**），
+        /// 最后按 `depth` 取**最上面**那一颗 ⇒ **后兄弟画在后、先吃到指针**。</para>
+        ///
+        /// <para>🔴 **我们为什么需要它（2026-10-22 · W62-D2 真机缺陷）**：本工程分层靠**渲染队列**，
+        /// 而队列是逐件手写的常量 ⇒ 「同队列 + `z` 都是 0」在相邻件上很常见。原来平局会落到
+        /// 「`FindObjectsByType` 的枚举顺序」= **谁先被扫到谁赢**，实测那就是**前兄弟**赢：
+        /// 左栏导航 Shop(idx2)/Rewards(idx3) 两颗命中区在同一点上时 Shop 赢，
+        /// 于是**点「奖励」的上沿命中「商店」**（`_tmp_view/click_log.txt:8604-8611`）。
+        /// 改成层级序 = 与原版同一口径；配合 `MainMenuRuntime` 把命中区改成原版可射线件的并集
+        /// （相邻只叠 2.615 px 而不是 16.4 px），那 2.6 px 的重叠带里赢家 = **Rewards（后兄弟）**。</para>
+        ///
+        /// <para>比较法：从**根向下**逐级比 `GetSiblingIndex()`（同一级下标相同 ⇒ 必然是同一个父 ⇒ 继续往下比）；
+        /// 若一条链是另一条的前缀（祖先 vs 后代）⇒ **后代赢**（子件画在父件之后）。</para>
+        /// <para>⛔ 别改成「比 `CollectHits` 的枚举顺序」或「比 `GetInstanceID()`」—— 那两者都不是渲染序。</para></summary>
+        static bool IsAboveInHierarchy(Transform a, Transform b)
+        {
+            if (a == b) return false;
+            if (a == null) return false;
+            if (b == null) return true;
+            var sa = new List<Transform>();
+            for (var t = a; t != null; t = t.parent) sa.Add(t);
+            var sb = new List<Transform>();
+            for (var t = b; t != null; t = t.parent) sb.Add(t);
+            int n = Mathf.Min(sa.Count, sb.Count);
+            for (int k = 1; k <= n; k++)
+            {
+                int ia = sa[sa.Count - k].GetSiblingIndex();
+                int ib = sb[sb.Count - k].GetSiblingIndex();
+                if (ia != ib) return ia > ib;
+            }
+            return sa.Count > sb.Count;      // 前缀：后代在上
         }
 
         /// <summary>🆕 **2026-10-07（A77⑮④）：这一颗现在吃得到指针吗** —— 它所属的那扇窗（有的话）必须是 `Open`。

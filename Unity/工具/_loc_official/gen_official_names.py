@@ -16,7 +16,7 @@
 | `Achievements/Title/*` | `"Achievements/Title/" + eventId` | `achievements[].id`（`Ach_N`）|
 | `Achievements/*`（**描述**）| `"Achievements/" + eventId` | 同上 |
 | `Achievements/Types/*` | `"Achievements/Types/" + <枚举名>` | `ProfileData.TypeName` 今天回的那 4 个词 |
-| `PrebuiltDecks/*` | `"PrebuiltDecks/" + <原版 SO 名>` | ⚠️ 我们的 `deckId`（`AM_SK_1`）**与官方键（`AstraMilitarumDeck1`）不同源** ⇒ 这一族**按英文名匹配**，见 `PrebuiltDecks.cs` |
+| `PrebuiltDecks/*` | `"PrebuiltDecks/" + <deckId>` | 🔴 **我们的 `deckId` 与原版键【同源】**（原版 `LocalizedName` 读的就是 `deckId`，见下）⇒ 直接同形取；取不到才退"按英文名 join" |
 | `Cardbacks/*` | `"Cardbacks/" + <SO 名>` | `Resources/Cardbacks.json` 的 `items[].name`（= SO 名）|
 | `Event_Description/*` · `Item_Description/*` · `Ranked/*` · `PackName/*` · `PlayfabErrors/*` · `CustomErrors/*` · `MenuLogin/*` · `PCTips/*` · `PlayerProfile/*` | 全族原样落 | 见报告「哪族没做」 |
 
@@ -27,10 +27,13 @@
   python -I -X utf8 d:/4/Unity/工具/_loc_official/gen_official_names.py            # 干跑
   python -I -X utf8 d:/4/Unity/工具/_loc_official/gen_official_names.py --write
 
-🔴 `A1854`：`PrebuiltDecks/*` 是**按英文名的生成期 join**（我们的 `deckId` 与官方键不同源）——
-  `MyGame/Assets/RuleEngine/Resources/prebuilt_decks.json` **一变（增删副 / 改名 / 重排版）就必须重跑本脚本**，
-  否则那 95 条会**静默停在旧 deckId 上**（运行时按 deckId 取，取不到 = 回兜底英文名）。
-  本脚本在「上游比产物新」时会**出声**（见 `resolve_prebuilt_decks` 末尾那段），但它只报不拦。
+🔴 `A1854`：`PrebuiltDecks/*` 是**生成期 join**（键 = `"PrebuiltDecks/" + deckId`，见 `resolve_prebuilt_decks`）——
+  `MyGame/Assets/RuleEngine/Resources/prebuilt_decks.json` **一变（增删副 / 改 deckId / 重排版）就必须重跑本脚本**，
+  否则那 101 条会**静默停在旧 deckId 上**（运行时按 deckId 取，取不到 = 回兜底英文名）。
+  本脚本在「上游比产物新」时会**出声**（见 `resolve_prebuilt_decks` 里那段），但它只报不拦。
+  🔴 **2026-10-22 就地订正（铁律 5 · `W62`）**：这一行原来写「按英文名的生成期 join / 我们的 `deckId` 与官方键不同源」
+  —— **两半都是错的**：原版 `LocalizedName` 读的是 `deckId`（`+0x48`），我们的 `deckId` 与官方键**同源**
+  （现读 103 副里 **101 副**同形直中；旧口径按英文名只中 95 副）。判据 → `resolve_prebuilt_decks` 的 docstring。
 """
 import io
 import json
@@ -135,15 +138,31 @@ def card_trait_complement(off):
 
 
 def resolve_prebuilt_decks(off, terms):
-    """`PrebuiltDecks/*` 要做一次**生成期 join**：官方键是原版 SO 名（`AstraMilitarumDeck1`），
-    而我们的 `deckId` 是另一种写法（`AM_SK_1`）⇒ **两者不同源**。
+    """`PrebuiltDecks/*` 要做一次**生成期 join**：产物里的键必须是**运行时真去取的那一个**。
 
-    判据：**按英文名匹配**（我们 `prebuilt_decks.json` 的 `name` 列**就是原版 `deckName`**）。
-    现读（2026-10-19）：103 副里 **95 副**能配上（官方 `PrebuiltDecks/*` 现读 215 条，含变体）。
-    ⚠️ **同名歧义 73 例**（一副牌与它的 `_Starter` / `_PRACTICE` 变体同名）⇒ 取**不带那两种后缀**的那条。
-    ⇒ 产物里落成 `PrebuiltDecks/<我们的 deckId>`，运行时就能直接按 deckId 取。
+    🔴🔴 **2026-10-22 就地订正（铁律 5 · `W62`）—— 原来这段写「官方键是原版 SO 名、与我们的
+    `deckId` 不同源 ⇒ 只能按英文名匹配」，那是【错的】**：
+    原版 `PrebuiltDeck.get_LocalizedName` 读的是 **`deckId`**（`+0x48`），不是 `deckName`（`+0x40`）
+    ⇒ 原版键 = **`"PrebuiltDecks/" + deckId`**，与我们的 `deckId` **同源**。
+    判据：
+      · `d:/2/tools/decomp_full/PrebuiltDeck__get_LocalizedName.c:15`
+        `System_String__Concat(DAT_1842cf0f0, *(undefined8 *)(param_1 + 0x48), 0)`（前缀字面量 = `PrebuiltDecks/`）；
+      · `d:/2/tools/il2cpp_out/dump.cs:22915-22916`（`deckName` = `0x40` · **`deckId` = `0x48`**）。
+    现读（2026-10-22）：我们的 **103 副里 101 副**能按 `PrebuiltDecks/<deckId>` **直接命中**；
+    旧口径（按英文名 join）只中 95 副 —— 差的 6 副（`AeldariDeck4` · `Deck_UM_Titus` · `ORK_SK_6` ·
+    `SpaceWolvesDeck1/3/5`）是因为我们 `name` 列的值与官方值**字面不同**
+    （例 `SpaceWolvesDeck5` 我们叫 `Wolves - Ferocity+HM Control`、官方 `Lupine Companions`）。
 
-    返回 (落了几副, 配上英文名但没能挑出唯一键的例数)。
+    ⇒ 次序：**① 先按 `PrebuiltDecks/<deckId>` 同形取**（原版口径）；② 取不到才退**按英文名 join**
+    （旧口径，只作保底：万一某副的 `deckId` 被改写过、而 `name` 还是原版 `deckName`）。
+    英文名那一支的**同名歧义**照旧：一副牌与它的 `_Starter` / `_PRACTICE` 变体同名 ⇒ 取不带那两种后缀的。
+
+    ⚠️ **仍然取不到的 2 副**（`DA_SK_4` · `DarkAngelsDeck7`，两个 SO 的 `deckName` 都是
+    "The Vengeful Brethren"、`isPracticeDeck=1`）：官方 `PrebuiltDecks/*` 215 条里**彻底没有**这两个键
+    ⇒ **原版的 `LocalizedName` 就是 null（画出来是空名）**。我们保留 `nameZh` 兜底（比原版多做的），
+    但**在这里出声**（见 `main()`），⛔ 别当成 join 写错了去「修」。
+
+    返回 `(按 deckId 命中数, 按英文名兜底数, 英文名歧义例数, 仍缺的 deckId 列表)`。
     """
     byen = {}
     for k, v in off.items():
@@ -151,27 +170,35 @@ def resolve_prebuilt_decks(off, terms):
             byen.setdefault(v[0], []).append(k[len("PrebuiltDecks/"):])
     src = r"d:/4/Unity/MyGame/Assets/RuleEngine/Resources/prebuilt_decks.json"
     if not os.path.exists(src):
-        return 0, 0
+        return 0, 0, 0, []
     # 🔴 `A1854`：这一族是**生成期 join** ⇒ 上游变了、产物就静默过期（旧 deckId / 旧英文名）。
     #    这里只**出声**（不拦写入）：mtime 比产物新就告诉你要重跑。
     if os.path.exists(OUT) and os.path.getmtime(src) > os.path.getmtime(OUT):
         print("🔴 上游 %s 比产物新 ⇒ `PrebuiltDecks/*` 的 join 已过期（`A1854`）"
               "—— **必须重跑本脚本**（--write）" % src)
     decks = json.load(io.open(src, encoding="utf-8")).get("decks") or []
-    n, amb = 0, 0
+    n_direct, n_fb, amb, missing = 0, 0, 0, []
     for d in decks:
-        cand = byen.get(d.get("name"))
-        if not cand:
+        did = d.get("deckId")
+        # ① 原版口径：`PrebuiltDeck.get_LocalizedName` = GetTranslation("PrebuiltDecks/" + deckId)
+        if did and ("PrebuiltDecks/" + did) in off:
+            terms["PrebuiltDecks/" + did] = off["PrebuiltDecks/" + did]
+            n_direct += 1
             continue
-        # 同名歧义：优先「不是 Starter / PRACTICE 变体」的那条（那就是卡组本身）
-        plain = [c for c in cand if "Starter" not in c and "PRACTICE" not in c]
-        pick = plain[0] if plain else cand[0]
-        if len(plain) > 1:
-            amb += 1
-        en, zh = off["PrebuiltDecks/" + pick]
-        terms["PrebuiltDecks/" + d["deckId"]] = (en, zh)
-        n += 1
-    return n, amb
+        # ② 保底：旧口径按英文名 join（我们 `name` 列 = 原版 `deckName` 时才成立）
+        cand = byen.get(d.get("name"))
+        if cand:
+            # 同名歧义：优先「不是 Starter / PRACTICE 变体」的那条（那就是卡组本身）
+            plain = [c for c in cand if "Starter" not in c and "PRACTICE" not in c]
+            pick = plain[0] if plain else cand[0]
+            if len(plain) > 1:
+                amb += 1
+            en, zh = off["PrebuiltDecks/" + pick]
+            terms["PrebuiltDecks/" + did] = (en, zh)
+            n_fb += 1
+            continue
+        missing.append(did)
+    return n_direct, n_fb, amb, missing
 
 
 def main():
@@ -189,8 +216,14 @@ def main():
     # `PrebuiltDecks/*` 的两份键形只留**运行时真用的那一份**（按 deckId）—— 见上面那段 doc
     for k in [k for k in terms if k.startswith("PrebuiltDecks/")]:
         del terms[k]
-    n_pre, amb = resolve_prebuilt_decks(off, terms)
-    print("PrebuiltDecks：按英文名 join 上 **%d** 副（同名歧义 %d 例，取非 Starter/PRACTICE 那条）" % (n_pre, amb))
+    n_direct, n_fb, amb, missing = resolve_prebuilt_decks(off, terms)
+    print("PrebuiltDecks：按 deckId 命中 **%d** 副 / 按英文名兜底 %d 副（同名歧义 %d 例） / **仍缺 %d 副**"
+          % (n_direct, n_fb, amb, len(missing)))
+    if missing:
+        # ⛔ 这几副**不是 join 写错了**：原版按 `PrebuiltDecks/<deckId>` 也取不到 ⇒ 原版画出来就是空名。
+        print("   ⚠️ 仍缺（官方 `PrebuiltDecks/*` 表里没有这些键 ⇒ **原版 `LocalizedName` 也是 null/空名**）："
+              + "、".join(missing))
+        print("   ⇒ 运行时回 `nameZh` 兜底（`DisplayName` 第二档）—— **这是我们比原版多做的**，不是漏")
     # 🆕 2026-10-15（P3 相 · `A1763` 数据层）：`Card_Trait/*` **只补 `Loc.cs` 手写表没有的那些** ——
     #    判据与理由见 `card_trait_complement()` 的 docstring。整族放进来会与手写表**同键两份**（铁律 6）。
     ct_terms, ct_diag = card_trait_complement(off)

@@ -80,6 +80,35 @@ namespace RuleEngine
             /// → `工具/gen_cards_engine.py`。</summary>
             public int initiative;
 
+            /// <summary>🔴 🆕 2026-10-21（引擎线 `T03·b`）：**开局加成三列**
+            /// （原版 `RawCardScript.initialHandModifier / initialManaModifier /
+            /// initialSpiritStoneModifier`，偏移 `+0x118 / +0x11C / +0x128`）。
+            ///
+            /// <para>判据与消费点 → `CardDef.InitialHandModifier` / `InitialManaModifier` /
+            /// `InitialSpiritStoneModifier` 三个属性的 doc（⛔ 别在这里抄第二份）。</para>
+            ///
+            /// <para>⚠️ **缺值口径 = `0`**（不是 `-1`）：这三个字段的 `0` 是**合法取值**
+            /// 「不加不减」；原版真值 1,351 张**全是 0**，生成器**只在非 0 时才落列**
+            /// ⇒ 今天卡表里根本没有这三个键，读进来就是 `0`。</para></summary>
+            public int initialHandModifier;
+            /// <inheritdoc cref="initialHandModifier"/>
+            public int initialManaModifier;
+            /// <inheritdoc cref="initialHandModifier"/>
+            public int initialSpiritStoneModifier;
+
+            /// <summary>🔴 🆕 2026-10-21（引擎线 `T03·b`）：**`skipCardDraw` 手牌效果的生产列**
+            /// —— 原版 `cardAbilities[].abilityLogic[].handBuff` 里
+            /// `cardEffect.buffType == BuffType.skipCardDraw(7)` 的那些条目。
+            ///
+            /// <para>形状 `[{"keyword": …, "uses": …, "limited": …, "source": …}]`：
+            /// 原版的 `trigger`（`AbilityTrigger` 数值）在 `工具/gen_cards_engine.py` 里翻成
+            /// **引擎触发关键词**；对不上的**不落并在跑完摘要里出声**。</para>
+            ///
+            /// <para>⚠️ 真值 1,351 张里 `handBuff.buffType` **没有一张是 7**（只有 0 / 2 / 3）
+            /// ⇒ 今天这个键**根本不会出现**（休眠机制，铁律 11 先建）。</para>
+            /// </summary>
+            public SkipDrawDto[] skipDraws;
+
             /// <summary>🔴 🆕 **v9（2026-10-15 · P2 相 `A1776`）**：**护甲值**（卡底那枚银盾里的数字）
             /// —— `Armour N` 关键词里的那个 `N` 的**一等公民**版本。
             ///
@@ -263,9 +292,46 @@ namespace RuleEngine
         /// <summary>🆕 v13（2026-10-21 · 引擎线 `T03·c` 批 B）：`triggerPriority` 的一行
         /// （**字段名故意与 JSON 列名逐字一致**，`JsonUtility` 直读）。
         /// `keyword` = 引擎侧触发关键词；`priority` = 原版 `CardAbility.priority`（0..3）。
-        /// 语义 → <see cref="CardDef.TriggerPriority(string)"/>。</summary>
+        /// 语义 → <see cref="CardDef.TriggerPriority(string)"/>。
+        ///
+        /// 🔴🆕 **2026-10-21（审查 `W61b` 第 7 条）：`priority` 用 `-1` 哨兵，⛔ 别退回 `0` 默认。**
+        /// 为什么：`int` 的默认值 `0` = **`Player` 道**（合法取值）⇒ 「JSON 里没写 `priority` 这个键」
+        /// 与「写了 `priority: 0`」**在 DTO 上分不开** ⇒ 缺键那一行会**静默走最后才结算的 Player 道**，
+        /// 而探针（`工具/ruleprobe/Program.cs`）对同一条数据是「报 1 条形不全并跳过」——
+        /// 两侧口径不一致（原版对非法 priority 是 `LogError` 后丢弃：
+        /// `BattleManager__AddAutoActionToQueue.c:226-228`）。
+        /// 做法 = 字段初值 `-1`：`JsonUtility.FromJson` 用默认构造造对象、**只覆盖 JSON 里出现的字段**
+        /// （`FromJsonOverwrite` 的语义：没出现的字段保持原值）⇒ 缺键那一行读出来就是 `-1`
+        /// ⇒ `MapTriggerPriority` 能认出「缺键」并**出声 + 丢弃**（与探针同口径）。
+        /// 🧨 若哪天 `-1` 不再保留（换了序列化器），`RuleEngineTest.W61T28` 会红 —— 那一轮就改走原始文本扫描。
+        /// </summary>
         [System.Serializable]
-        public class TriggerPriorityDto { public string keyword; public int priority; }
+        public class TriggerPriorityDto
+        {
+            /// <summary>「JSON 里没有 `priority` 这个键」的哨兵值（见类注释）。</summary>
+            public const int MissingPriority = -1;
+            public string keyword;
+            public int priority = MissingPriority;
+        }
+
+        /// <summary>🆕 2026-10-21（引擎线 `T03·b`）：`skipDraws` 的一行
+        /// （**字段名故意与 JSON 列名逐字一致**，`JsonUtility` 直读）。
+        /// 语义 → <see cref="CardDef.SkipDrawSpec"/>。
+        /// 🔴 **本列【不】提卡表 version** —— 与 v9..v13 那几列不同：「缺列」与「空表」语义相同
+        /// （都 = 没有卡带这条效果），所以旧表读进来**不需要出声**。理由写在
+        /// `工具/gen_cards_engine.py` 的 `INITIAL_MODIFIER_COLS` 上面那一段。
+        /// ⚠️ `limited` **显式落成 0/1**（`JsonUtility` 不写 `bool` 序号时默认 `false`，
+        /// 而原版 `HandEffect.limitedUses` 的语义是「真 = 限次」⇒ 少写这一列会把限次效果
+        /// **静默变成永久**，所以生成器**永远显式写它**）。</summary>
+        [System.Serializable]
+        public class SkipDrawDto
+        {
+            public string keyword;   // 引擎触发关键词（`KeywordTable.*`）
+            public int uses;         // 原版 `HandEffect.numberOfUses // +0x2C`
+            public int limited;      // 原版 `HandEffect.limitedUses // +0x28`（1 = 限次）
+            public string source;    // 原文（日志用）
+        }
+
 
         /// <summary>🆕 **2026-10-18（T09）**：解析结果的缓存。
         /// 🔴 `JsonUtility.FromJson` + 1127 张卡的构造实测 **≈2.4 s**，而全仓有 **216 个调用点**，
@@ -453,8 +519,17 @@ namespace RuleEngine
                     // 🆕 v13（2026-10-21 · 引擎线 `T03·c` 批 B）：逐触发关键词的原版 priority ——
                     //    只落数据（今天没有消费点）；**0..3 的合法性校验在 `CardDef` 构造函数里**
                     //    （非法 ⇒ `LogError` + 丢弃该条，与原版 `AddAutoActionToQueue` 同口径）。
+                    //    🔴 2026-10-21（审查 `W61b` 第 7 条）：**「缺 `priority` 键」在 `MapTriggerPriority`
+                    //    里就出声丢弃**（`-1` 哨兵；⛔ 不许静默落成 0 = Player 道）—— 见那边 doc 的 ③。
                     //    ⚠️ 缺值口径 = 空表（缺键 = 原版默认 1；旧表整列没有 ⇒ 上面的 version 守卫出声）。
-                    triggerPriority: MapTriggerPriority(c)));
+                    triggerPriority: MapTriggerPriority(c),
+                    // 🆕 2026-10-21（引擎线 `T03·b`）：开局加成三列 + `skipCardDraw` 生产列 ——
+                    //    ⚠️ 缺值口径 = `0` / 空表（见 `CardDto.initialHandModifier` 的 doc）。
+                    //    ⚠️ 这两族**不提卡表 version**（缺席 ⇔ 0 / 空表，语义完全相同）。
+                    initialHandModifier: c.initialHandModifier,
+                    initialManaModifier: c.initialManaModifier,
+                    initialSpiritStoneModifier: c.initialSpiritStoneModifier,
+                    skipDraws: MapSkipDraws(c)));
             }
             // 🔴 🆕 2026-10-15（接线批）：**护甲两套口径一旦分叉就出声** ——
             //   引擎读的那一份（`CardDef` 构造里定下来的 `_keywords[armour]`）由
@@ -525,12 +600,19 @@ namespace RuleEngine
         ///
         /// 🔴 **本方法只搬值，不判 0..3 合不合法** —— 那条校验在 `CardDef` 构造函数里
         /// （非法 ⇒ `LogError` + 丢弃该条，与原版 `AddAutoActionToQueue` 同口径；⛔ 不 clamp）。
-        /// 这里只出声**本方法才看得见**的两种数据缺陷（到了 `CardDef` 那边会被**静默**吃掉）：
+        /// 这里只出声**本方法才看得见**的三种数据缺陷（到了 `CardDef` 那边会被**静默**吃掉）：
         ///   ① `keyword` 为空 ⇒ `CardDef` 直接 `continue`（静默丢）；
         ///   ② 同一张卡同一个关键词出现两次 ⇒ `CardDef` 是「后写覆盖」（静默取后者）。
         ///      生成器那一侧对「同卡同词两个不同 priority」已整条丢弃并报 `report["conflict"]`
         ///      （2026-10-21 现读 0 条）—— 这里是**第二道闸**。
-        /// ⚠️ ①跳过、②照旧两条都往下传（保持 `CardDef` 的既有覆盖口径，⛔ 不在这里另立一套）。
+        ///   ③ 🔴🆕 2026-10-21（审查 `W61b` 第 7 条）：**`priority` 键缺失**（= 哨兵
+        ///      `TriggerPriorityDto.MissingPriority`）⇒ **出声 + 丢弃该条**。
+        ///      为什么必须丢：`0` 是**合法取值**（`Player` 道，最后才结算）⇒ 缺键被读成 0
+        ///      就是把一条坏数据**静默塞进最后那一道**。口径与探针
+        ///      （`工具/ruleprobe/Program.cs` 的 `nBadTp`）**逐字对齐**：
+        ///      原版对非法 priority 也是 `LogError` 后丢弃（`BattleManager__AddAutoActionToQueue.c:226-228`）。
+        ///      ⚠️ **越界值（4 / -2 …）仍交给 `CardDef` 构造函数出声丢弃**（那条规则只留一处，见上面）。
+        /// ⚠️ ①③跳过、②照旧两条都往下传（保持 `CardDef` 的既有覆盖口径，⛔ 不在这里另立一套）。
         /// </summary>
         static List<KeyValuePair<string, int>> MapTriggerPriority(CardDto c)
         {
@@ -547,6 +629,17 @@ namespace RuleEngine
                                  + "重跑工具/gen_cards_engine.py。");
                     continue;
                 }
+                // 🔴🆕 2026-10-21（审查 `W61b` 第 7 条）：缺 `priority` 键 ⇒ **出声 + 丢弃**
+                //   （⛔ 不许让它静默落进 Player(0) 道；判据与后果 → 方法 doc 的 ③）。
+                if (tp.priority == TriggerPriorityDto.MissingPriority)
+                {
+                    Debug.LogError($"[RuleEngine] 卡「{c.name}」（{c.id}）的 `triggerPriority` 里 `{tp.keyword}` "
+                                 + "**没有 `priority` 键** —— 已丢弃该条（⛔ 没当成 0 = Player 道："
+                                 + "`0` 是合法取值，缺键与「明确写 0」在数据上必须分开）。"
+                                 + "探针 `ruleprobe check` 对同一条数据同样报「形状不全」并跳过；"
+                                 + "重跑工具/gen_cards_engine.py。");
+                    continue;
+                }
                 if (seen == null) seen = new HashSet<string>(StringComparer.Ordinal);
                 if (!seen.Add(tp.keyword))
                     Debug.LogError($"[RuleEngine] 卡「{c.name}」（{c.id}）的 `triggerPriority` 里 `{tp.keyword}` "
@@ -554,6 +647,44 @@ namespace RuleEngine
                                  + "最终生效的是最后一条。一张卡一个关键词只能有一个 priority；"
                                  + "重跑工具/gen_cards_engine.py（它会整条丢弃并报 `conflict`）。");
                 list.Add(new KeyValuePair<string, int>(tp.keyword, tp.priority));
+            }
+            return list;
+        }
+
+        /// <summary>🆕 v14（2026-10-21 · 引擎线 `T03·b`）：`skipDraws` 列 → `CardDef.SkipDrawSpec`。
+        /// 语义/判据 → <see cref="CardDef.SkipDraws"/> 的 doc（⛔ 别在这里抄第二份）。
+        /// 两道闸：① `keyword` 为空 ⇒ **出声并跳过**（`CardDef` 那边也会静默丢）；
+        ///          ② `uses &lt; 1` ⇒ 出声并**按 1 收**（原版 `numberOfUses --` 后 `&lt; 1` 立刻摘，
+        ///             0 次的效果等于不存在 —— 但不能静默改成「不限次」）。
+        /// ⚠️ `limited == 0` 是**合法值**（不限次），⛔ 别拿它当缺值。
+        /// </summary>
+        static List<CardDef.SkipDrawSpec> MapSkipDraws(CardDto c)
+        {
+            var list = new List<CardDef.SkipDrawSpec>();
+            if (c == null || c.skipDraws == null) return list;
+            foreach (var sd in c.skipDraws)
+            {
+                if (sd == null) continue;
+                if (string.IsNullOrEmpty(sd.keyword))
+                {
+                    Debug.LogError($"[RuleEngine] 卡「{c.name}」（{c.id}）的 `skipDraws` 有一条没有 `keyword` "
+                                 + "—— 已跳过该条（`CardDef` 那边也会静默丢）。重跑工具/gen_cards_engine.py。");
+                    continue;
+                }
+                int uses = sd.uses;
+                if (uses < 1)
+                {
+                    Debug.LogError($"[RuleEngine] 卡「{c.name}」（{c.id}）的 `skipDraws`（`{sd.keyword}`）"
+                                 + $"uses={sd.uses} 非法（小于 1）—— 按 **1** 收。");
+                    uses = 1;
+                }
+                list.Add(new CardDef.SkipDrawSpec
+                {
+                    Keyword = sd.keyword,
+                    Uses = uses,
+                    Limited = sd.limited != 0,
+                    Source = string.IsNullOrEmpty(sd.source) ? (c.name + "（抽牌封锁）") : sd.source,
+                });
             }
             return list;
         }

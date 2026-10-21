@@ -85,12 +85,19 @@ namespace CardPresentation
             public string[] overLegendary; // 「我们标成传说、原版放了 2 张」——**口径差不是缺陷**
 
             /// <summary>显示名。🔴 **2026-10-14（第二十八会话 · `A1803`）改成「官方 zh-CN 优先」**：
-            /// 先取官方词条 `PrebuiltDecks/&lt;deckId&gt;`（**键的 join 在生成期做过** —— 官方那 97 条的键是
-            /// **原版 SO 名** `AstraMilitarumDeck1`，与我们的 `deckId`（`AM_SK_1`）**不同源** ⇒ 只能按**英文名**
-            /// 匹配，见 `工具/_loc_official/gen_official_names.py` 的 `resolve_prebuilt_decks`；现读 103 副里配上 **74** 副）。
-            /// 取不到 ⇒ 回改前的口径（**有中文用中文，没有才回落英文原名** —— `zh_decks.json`，**我们自译**）。
-            /// ⚠️ 那 74 副里 **61 副的官方中文与我们自译的不同**（例 `Press the Attack`：我们「主动出击」、
-            /// 官方「发起攻击」）⇒ 换过来之后**界面中文会变**，这是**对的**（官方值）。
+            /// 先取官方词条 `PrebuiltDecks/&lt;deckId&gt;`（**键的 join 在生成期做过**）。
+            /// 🔴 **2026-10-22 就地订正（铁律 5 · `W62`）**：这段原来写「官方键是**原版 SO 名**
+            /// `AstraMilitarumDeck1`，与我们的 `deckId`（`AM_SK_1`）**不同源** ⇒ 只能按**英文名**匹配；
+            /// 现读 103 副里配上 **74** 副」—— **三处都错**：
+            /// ① 原版 `LocalizedName` 拼的是 **`prefix + deckId`**（不是 SO 名 / 不是 `deckName`）；
+            /// ② 我们的 `deckId` 与官方键**同源**，生成器**同形直取**即可；
+            /// ③ 现读（2026-10-22 重跑 `gen_official_names.py` 之后）**103 副里 101 副**有官方词条。
+            /// 判据 → `d:/2/tools/decomp_full/PrebuiltDeck__get_LocalizedName.c:15`（读 `+0x48` = `deckId`，
+            /// `dump.cs:22915-22916`）+ `工具/_loc_official/gen_official_names.py` 的 `resolve_prebuilt_decks`。
+            /// 取不到（现读只剩 **2** 副：`DA_SK_4` / `DarkAngelsDeck7`，官方表里**彻底没有**这两个键 ⇒
+            /// 原版 `LocalizedName` 也是 null/空名）⇒ 回改前的口径
+            /// （**有中文用中文，没有才回落英文原名** —— `zh_decks.json`，**我们自译**）。
+            /// ⚠️ 换成官方值之后**界面中文会变**，这是**对的**（官方值）。
             /// ⚠️ 判据只此一处（与卡面同一条口径，见 `Core/CardText.cs`）。</summary>
             public string DisplayName
             {

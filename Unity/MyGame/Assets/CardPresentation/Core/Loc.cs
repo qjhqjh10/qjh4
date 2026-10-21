@@ -1462,8 +1462,17 @@ namespace CardPresentation
             //   `BattleManager.NextTurn`（`BattleManager._NextTurn_d__395__MoveNext.c:480-483`）：
             //   `BattleTipController.ShowHeadsUpMessage(GetTranslation(词条), …)` = **回合开始那句抬头提示**
             //   （`0x4288a48`）。⇒ 它**不是** HUD 里那颗常驻节点的字（原版 HUD 的 `TurnText` 只有 `END TURN`
-            //   那一个样例），所以本表这两条只提供**文案**；我们的回合行本身是自加的（见 `BattleDriver` 的注释）。
+            //   那一个样例）。🔴 **2026-10-22 补**：我们那条常驻「回合行」已按用户口径**删掉**
+            //   （原版没有那个节点）；本条词条**保留** —— 原版确实拿它做**回合开始的抬头提示**
+            //   （`BattleTipController.ShowHeadsUpMessage`），我们今天**还没接**那一跳（记在报告里）。
             { "Battle/HUD/YourTurn",               new Entry("你的回合", "Your turn") },    // 🔴 2026-10-14（`A1803`）EN 改官方（原注「值在远端」**作废** —— 官方 zh-CN 表已到手，两列都逐字对上了）
+            // ── `MenuLogin/Guest` ────────────────────────────────────────────────────────
+            //   🆕 **2026-10-22**：名牌（`PlayerNameText`/`EnemyNameText`）在**名字为空**时用它 ——
+            //   判据 = 原版 `PlayerProfileUIController.SetProfileName` 对空串调
+            //   `GetTranslation(0x42D0DE0)`，那个常量在 `stringliteral.json` 里就是 `MenuLogin/Guest`
+            //   （两列 = `New player` / `新玩家`）⇒ **这是原版自己的兜底，不是我们编的称呼**。
+            //   ⚠️ 消费点 = `BattleDriver.PlateName`（单机局的敌方没有名字数据源 ⇒ 走这一条）。
+            { "MenuLogin/Guest",                   new Entry("新玩家", "New player") },
             // ── `Battle/HUD/TargetsAvailable` ────────────────────────────────────────────
             //   `SupportMethods.GetTargetsAvailableText(int n)`
             //   （`SupportMethods__GetTargetsAvailableText.c`，2026-10-18 亲读）= `GetTranslation(词条)`
@@ -1936,8 +1945,9 @@ namespace CardPresentation
             //      ⛔ `Demo/MainMenu/OK` **没建**：没有消费点，且与已在表的 `MainMenu/General/OK` 同值（建了就是空键）。
             { "Settings/General/RedeemCodeUnavailable", new Entry("兑换码要走原版的服务器（`GeneralTab.RedeemCode` → `TryRedeemCode` → 远端校验），这个项目没有那台服务器 ⇒ 这里兑不了。",
                                                                   "Redeem codes go through the original server (`GeneralTab.RedeemCode` → `TryRedeemCode` → remote check); this project has no such server ⇒ redeeming does not work here.") },
-            { "Settings/Media/AudioMixerNote",         new Entry("音量走 AudioMixer（与对局内设置面板同一套）",
-                                                                  "Volume is handled by the AudioMixer (the same one the in-battle settings panel uses)") },
+            // 🔴 **2026-10-22（W62-D4）删掉 `Settings/Media/AudioMixerNote`**：原版 `Media Tab`
+            //    只有 3 个子件（`Tab Title` / `Audio Settings` / `Visual Settings`），没有那一行说明
+            //    ⇒ 键与文案一起删，⛔ 别留死词条（判据 → `资料/普查产出_1022/W62_缺陷诊断.md` §D4）。
             { "Settings/Online/TitleNote",             new Entry("这一页不是原版（原版是联网游戏，没有「当主机」这回事）。",
                                                                   "This page is not in the original game (the original is an online title; hosting a match is not a thing there).") },
             { "Settings/Online/TitleNoteBody",         new Entry("IP 直连 —— 公网怎么走 / 路由器要不要放开端口：点这一行看",
@@ -2106,17 +2116,13 @@ namespace CardPresentation
             //       「它们没有原版 `mTerm`，接的时候要和这次重构一起决定键名，**⛔ 别先自造一批键**」；P4 也「建议【先不加】」
             //       ⇒ 等重构那一轮（**要做，只是先后** —— 铁律 11）。
             //       ✅ **2026-10-14（`A985⑥③` · L 波）就地订正（铁律 5）：这一格【已办】—— 那一轮就是本会话。**
-            //          日志重构（`A985⑥` 的 ③ 半）已把 `BattleDriver.RefreshBattleLog` 那 12 句模板整段改走词条，
-            //          键 = `Battle/Log/{Play,Deploy,Attack,Melee,Ranged,Heal,Damage,Death,Return,Ability,Trigger,Bare}`
-            //          **同批进本表**（落在本节下面 `Battle/Log/*` 那一小节的 `EffectFallback` 之后）。
-            //          ⚠️ 原文写「**11 句**」是**旧数**（同一件事在本文件另两处都写「12 句」）—— 现读 **12** 条；
-            //          错因 = 那句是抄更早的普查 ⇒ 同一件事在本文件里有**三份说法**，另两份同在**本文件里**
-            //          （本节下面 `Battle/Log/*` 那一小节的那段订正 · §⑬ 双语③ 波 0b2 那一节的那段订正）
-            //          —— ⛔ 这里**刻意不写行号**（本文件还在动、行号会漂 ⇒ 按小节的标题找，别按行号找）。
-            //          🔴 ⇒ **本行那句「两族【故意没建】」现在只剩【一族】**：`Battle/CardDisplayWindow` 的
-            //          `Battle/CardWindow/TapToClose`（下一条，**仍未建、理由照旧成立** —— 铁律 11 例外①）。
+            //          日志重构（`A985⑥` 的 ③ 半）曾把那 12 句模板改走 `Battle/Log/*`。
+            //          🔴 **2026-10-22 再订正（用户口径「战斗里原版没有的设计不要」）**：那一族**整族删了** ——
+            //          原版 `CemeteryActionType` 只有九种**动作**（无伤害/治疗/阵亡/回手/触发/部署），
+            //          日志行只有 `Battle/Cemetery/*` 那 18 条 ⇒ 12 条自拟键与它们的调用分支一起移除。
             //     · **`Battle/CardWindow/TapToClose`** —— in-code 判据写着「原版子树没这个节点、`Battle/` 93 条字面量里也没有键
-            //       ⇒ 铁律 11 例外① ⇒ 保留中文不改」（`Battle/CardDisplayWindow` 里那处；附件把它列成 ① 是错的）。
+            //       ⇒ 铁律 11 例外①」⇒ 当年**没有建**这条键。🔴 **2026-10-22**：那颗自拟提示
+            //       （`cdw_hint`）**连节点一起删了** ⇒ 这条键**永远不需要建**（不是「漏建」）。
             //   ⚠️ `Battle/{Hint,Log,Chat,MultiCard,ChooseCard,CardWindow}/` 整族在 `stringliteral.json` 里**不存在**
             //     （P4 逐前缀核过：`Battle/` 93 条 · `MainMenu/` 86 · `Settings/` 10 · `Tips/` 8 · `MenuShop/` 13）⇒ **这一族全自拟**。
             //   🔴 **2026-10-14（`A1803`）就地订正**：这一段原来写「原版标签来自远端 I2、本地没有任何一处能印真标签」
@@ -2129,67 +2135,26 @@ namespace CardPresentation
             //     ZH **本来就是官方值**（原来标「自拟」是错的）。
             //   ⚠️ `Battle/BattleEnd/Rounds` 带**三个尾空格**（照 `EndPanel` 里那句 `$"{rounds} 回合   "` 的拼法）；
             //     `RoundsOnly` / `RoundsMinFoeHealth` 是另外两种整句（同文件那三行）—— ⛔ 三条别合并（值不同）。
-            { "Battle/Hint/MulliganDone",              new Entry("换牌完成，开打", "Mulligan done — battle on") },
-            { "Battle/Hint/Reconnected",               new Entry("已重连并追平", "Reconnected and caught up") },
-            { "Battle/Hint/DeckLoadFailed",            new Entry("卡组存档读不出来（{0}）—— 本局自动凑了一副",
-                                                                  "The deck save could not be read ({0}) — a deck was put together automatically for this battle") },
-            { "Battle/Hint/MulliganPick",              new Entry("换牌中：点牌上的「换」标记要替换的牌，然后点「完成换牌」",
-                                                                  "Mulligan: tap the swap mark on the cards to replace, then tap Done") },
-            { "Battle/Hint/MulliganSent",              new Entry("换牌已提交，等主机定序…", "Mulligan submitted, waiting for the host to order it…") },
-            { "Battle/Hint/ReplacedCount",             new Entry("换掉了 {0} 张", "Replaced {0} card(s)") },
-            // 附件只列了 `:4086`/`:4107`，漏了紧随其后那两句 `SetHint`（P4 §⑥·1）—— 两句各一条键。
-            { "Battle/Hint/OffensivePhase",            new Entry("选择进攻卡（先手）—— 选完点「继续」",
-                                                                  "Pick an offensive card (you go first) — tap Continue when done") },
-            { "Battle/Hint/DefensivePhase",            new Entry("选择防御卡（后手）—— 选完点「继续」",
-                                                                  "Pick a defensive card (you go second) — tap Continue when done") },
-            { "Battle/Hint/ChooseCard",                new Entry("选一张牌，然后点「继续」", "Pick a card, then tap Continue") },
-            { "Battle/Hint/ChooseOption",              new Entry("选一项，然后点「继续」", "Pick an option, then tap Continue") },
-            { "Battle/Hint/NoRestartOnline",           new Entry("联机局不能自己重开 —— 对面还在这一局里",
-                                                                  "An online battle cannot be restarted on your own — the other side is still in it") },
+            // 🔴 **2026-10-22（用户口径「战斗里原版没有的设计不要」）：`Battle/Hint/*` 一族【整族删除】。**
+            //    原来那 11 条（`MulliganDone` / `Reconnected` / `DeckLoadFailed` / `MulliganPick` /
+            //    `MulliganSent` / `ReplacedCount` / `OffensivePhase` / `DefensivePhase` / `ChooseCard` /
+            //    `ChooseOption` / `NoRestartOnline`）是**我们自拟的提示句**，没有原版权威
+            //    （官方表 `Battle/Hint/*` 一族 **0 条**）⇒ 句子与词条一起删（调用点 → `BattleDriver.SetHint` 的 doc）。
+            //    ⚠️ 官方那条**提示通道**照旧（`Battle/Tips/*` / `Battle/Codes/*` 等），只是不再有自拟句。
             { "Battle/ChooseCard/Offensive",           new Entry("选择进攻卡", "Choose an offensive card") },
             { "Battle/ChooseCard/Defensive",           new Entry("选择防御卡", "Choose a defensive card") },
             { "Battle/MultiCard/Title",                new Entry("你的牌库", "Your deck") },
-            { "Battle/MultiCard/TapToClose",           new Entry("点「继续」或再点一下牌堆关闭", "Tap Continue or tap the deck again to close") },
-            { "Battle/Log/SideMe",                     new Entry("我方", "Our side") },
-            { "Battle/Log/SideFoe",                    new Entry("敌方", "Enemy") },
-            // 🔴 **2026-10-08（波 0b3）**：EN 列原来那个**全角空格**（U+3000）会被 `Loc.HasCjk`（区间 `0x3000-0x303F`，
-            //   见 `Loc.cs` 本文件 `HasCjk`）判成「含汉字」 ⇒ 换成**半角**（1:1，与 `Settings/Online/*` 那 6 条同法）。
-            //   ⚠️ ZH 列那个全角空格**不动**（中文档本来就该有）。本行只是把已存在的键修干净。
-            //   🔴 **2026-10-14（`A985⑥③` · L 波）就地订正（铁律 5）—— 本段原来那两句【都已过期】**：
-            //     · 原写「全仓 `*.cs` grep `Battle/Log/TurnPrefix` ⇒ **0 个调用点**（只有本行的定义）、
-            //       ⇒ 今天没有任何地方取它」⇒ **不成立**：`BattleDriver.cs` 现在有键名常量
-            //       `LogTurnPrefixTerm = "Battle/Log/TurnPrefix"`（`:6587`）**且被调用**
-            //       （`RefreshBattleLog` `:6814`）；错因 = 那句是**接线之前**写的，日志重构那一轮把调用点接上了。
-            //     · 原写「`Battle/Log/*` 另外 12 句**仍未建**（等日志重构那一轮）」⇒ **那一轮就是本会话**：
-            //       12 条键**同批进本表**（紧接本行下面的 `Play`/`Deploy`/`Attack`/`Melee`/`Ranged`/
-            //       `Heal`/`Damage`/`Death`/`Return`/`Ability`/`Trigger`/`Bare` 那 12 行），
-            //       调用点 `BattleDriver.RefreshBattleLog`（`:6739-6808`）已全部改走词条。
-            //   ⚠️ 本段引用的 `BattleDriver.cs` 行号是 **2026-10-14 现读**值 —— 那份文件**另有写手**在收尾
-            //      ⇒ 行号可能漂；要找就按**常量名 / 方法名**找（`LogTurnPrefixTerm` · `RefreshBattleLog` · `LogTerm`）。
-            { "Battle/Log/TurnPrefix",                 new Entry("回合 {0}　{1}", "Round {0} {1}") },
-            { "Battle/Log/EffectFallback",             new Entry("效果", "effect") },
-            // ---- 🆕 2026-10-14（`A985⑥③` · L 波）：`BattleDriver.RefreshBattleLog` 那 12 句模板 ----
-            //   判据 = `资料/普查产出_第三十一会话/H_A985尾巴6.md` §六（ready-to-paste）；键名出处 =
-            //   `资料/普查产出_第四会话/施工单_双语③逐处换key_附_BattleDeck.md:44-54`（当时就定名、裁定「要做、只是先后」）。
-            //   🔴 两列的 `{N}` 编号 = `BattleDriver.cs` 那 12 个调用点传的实参次序（占位符个数逐条点过）。
-            //   ✅ 这 12 行进表之后，`BattleDriver.LogTerm` 里那两列**过渡期兜底**永不触发（值与本表逐字相同）。
-            { "Battle/Log/Play",                       new Entry("{0}打出「{1}」", "{0} plays {1}") },
-            { "Battle/Log/Deploy",                     new Entry("{0}「{1}」进入格位 {2}", "{0} {1} enters slot {2}") },
-            { "Battle/Log/Attack",                     new Entry("{0}「{1}」{2}攻击「{3}」", "{0} {1} makes a {2} attack on {3}") },
-            { "Battle/Log/Melee",                      new Entry("近战", "melee") },
-            { "Battle/Log/Ranged",                     new Entry("远程", "ranged") },
-            { "Battle/Log/Heal",                       new Entry("{0}「{1}」回复 {2} 点生命", "{0} {1} restores {2} health") },
-            { "Battle/Log/Damage",                     new Entry("{0}「{1}」受到 {2} 点伤害", "{0} {1} takes {2} damage") },
-            { "Battle/Log/Death",                      new Entry("{0}「{1}」阵亡", "{0} {1} dies") },
-            { "Battle/Log/Return",                     new Entry("{0}「{1}」离开格位（回手牌或牌库）", "{0} {1} leaves its slot (back to hand or deck)") },
-            { "Battle/Log/Ability",                    new Entry("{0}「{1}」发动技能", "{0} {1} uses an ability") },
-            { "Battle/Log/Trigger",                    new Entry("{0}「{1}」触发「{2}」", "{0} {1} triggers {2}") },
-            { "Battle/Log/Bare",                       new Entry("{0}「{1}」", "{0} {1}") },
-            // 🔴 **2026-10-19（战斗线 `T17`）就地补注**：上面这一族里 **`Play` / `Attack` / `Ability` /
-            //   `Melee` / `Ranged` 五条今天已无消费点** —— `BattleDriver.RefreshBattleLog` 的那三档改走了
-            //   **原版键** `Battle/Cemetery/Action*`（`Play` 6 档 · `Ability` 2 档 · `Attack` 2 档）。
-            //   五条**留在表里**（自建族整族保留、便于回查原文）；⛔ 别把它们当「原版缺键时的兜底」加回去 ——
-            //   原版键缺了 `LogTerm` 会出声，兜底那两句是**我们自拟的措辞**（第二份权威）。
+            // 🔴 **2026-10-22**：`Battle/MultiCard/TapToClose`（「点「继续」或再点一下牌堆关闭」）**已删** ——
+            //   那是我们自拟的底部提示（原版 `Generic Multi Card Display Combat` 子树里没有这一行），
+            //   句子与词条一起删（调用点 → `Battle/MultiCardDisplay.cs`）。
+            // 🔴 **2026-10-22（用户口径「战斗里原版没有的设计不要」）：`Battle/Log/*` 那一族【整族删除】。**
+            //    原来那 16 条（`SideMe` / `SideFoe` / `TurnPrefix` / `EffectFallback` /
+            //    `Play` / `Deploy` / `Attack` / `Melee` / `Ranged` / `Heal` / `Damage` / `Death` /
+            //    `Return` / `Ability` / `Trigger` / `Bare`）是**我们自拟的日志措辞**；
+            //    判据 = 原版 `CemeteryActionType` 只有九种**动作**（无伤害/治疗/阵亡/回手/触发/部署，
+            //    `dump.cs:45490-45503`），行文字就是 `CemeteryManager.GetActionText` 的返回值
+            //    （外面不套「回合 N」/「我方·敌方」）⇒ 这些键与它们的调用分支一并删。
+            //    ⚠️ 现存的日志行**全部**走官方键 `Battle/Cemetery/*`（本节上面那一族）。
             // 🔴 **2026-10-19（T17）核过：下面这 5 条 `Battle/BattleEnd/*` 是【我们加的，非原版】** ——
             //   官方表 `Battle/BattleEnd/` 只有 11 条（`CantLoseRating` · `DamageDone` · `Defeat` · `Draw` ·
             //   `Location` · `TapToContinue` · `TapToContinueMobile` · `Time` · `Title` · `TroopsDead` · `Victory`），
@@ -2208,8 +2173,12 @@ namespace CardPresentation
             { "Battle/Chat/Taunt",                     new Entry("嘲讽", "Taunt") },
             { "Battle/Chat/Sorry",                     new Entry("抱歉", "Sorry") },
             { "Battle/Chat/Oops",                      new Entry("哎呀", "Oops") },
-            { "Battle/Settings/Title",                 new Entry("设置", "Settings") },
-            { "Battle/Settings/AiDifficulty",          new Entry("AI 难度", "AI Difficulty") },
+            // 🔴 **2026-10-22（用户口径「战斗里原版没有的设计不要」）**：这两条**已删** ——
+            //    · `Battle/Settings/Title`（「设置 / Settings」）：原版 `BattleSettingsPanel` **没有标题节点**
+            //      （判据 → `资料/普查产出_1022/W62_战斗非原版元素审计.md` C 表第 3 行）；我们那颗自拟标题已删。
+            //    · `Battle/Settings/AiDifficulty`（「AI 难度」）：原版**没有玩家可见的难度开关**（C 表第 4 行）；
+            //      那一行已整行删。
+            //    ⚠️ 官方 `Battle/Settings/` 只有 `Exit` / `ResignButton` / `SkipTutorial` 三条（本表前两条在上面）。
             { "MainMenu/Campaign/Points",              new Entry("战役点数：{0}", "Points: {0}") },
             // ============================================================ ⑬ 双语③ 波 0b2 · P6（`Net/` 整片）· 76 条
             //

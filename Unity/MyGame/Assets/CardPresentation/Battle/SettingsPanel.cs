@@ -103,8 +103,6 @@ namespace CardPresentation
         public bool Visible { get; private set; }
         /// <summary>点「投降」时回调（驱动层接 `BattleDriver.Forfeit`）</summary>
         public Action OnResign;
-        /// <summary>点「对手难度」时回调（驱动层换下一档，再用 <see cref="SetDifficulty"/> 回写文字）</summary>
-        public Action OnCycleDifficulty;
         /// <summary>🔴 **2026-10-20（W57 · `T09` A3-b）**：点「跳过教程」时回调。
         /// <para>为什么新开这个口：那颗钮的**语义那一半**在驱动层（`BattleDriver.SkipTutorialFromSettings`，
         /// `private`；原版 `BattleSettingsWindow__SkipTutorialButtonOnClick`：先关窗、再 `BattleManager.ClickSkip`）——
@@ -118,10 +116,12 @@ namespace CardPresentation
         //   `HudPiece` 的适配面（`SetTint` / `SetTexture` / `SetAspect` / `Contains` / `WorldW/H` /
         //   `transform` / `gameObject`）把下游用法挡在类型后面，见 `Battle/HudPiece.cs` 文件头。
         HudPiece _bg, _close, _shade;
-        Label _title, _resignText, _closeText;
+        // 🔴 **2026-10-22（用户口径「战斗里原版没有的设计不要」）**：`_title` / `_diffBtn` /
+        //   `_diffLabel` / `_diffValue` 四颗**已删** —— 原版 `BattleSettingsPanel` 子树里
+        //   **没有标题节点**、也**没有玩家可见的难度开关**（判据 →
+        //   `资料/普查产出_1022/W62_战斗非原版元素审计.md` C 表第 3、4 行）。
+        Label _resignText, _closeText;
         HudPiece _closeIcon;
-        HudPiece _diffBtn;
-        Label _diffLabel, _diffValue;
         /// <summary>投降钮的根。⚠️ **不是 `ImageQuad`** —— 原版底图 `40K_button` 是
         /// `Image.Type = Sliced`（border 234,46,234,46），要九宫格；单个 quad 拉不出那个形。
         /// 🔴 **2026-10-16（`T09` 批 2）**：现在是 **一张 `Image (Sliced)`**（`HudCanvas.MakeSlicedPiece`
@@ -202,7 +202,7 @@ namespace CardPresentation
         // ================= 🔴 2026-10-20（W57 · `T09` A3-b）：本面板的 uGUI 输入句柄 =================
         // 一颗件 → 一个 `BattleHudButton`（`IPointerClickHandler`）。判据与「为什么必须同批退掉手搓那条路」
         // 全在文件头那段（R1）。⚠️ 这些**只做动作**，命中由 `EventSystem` 的射线定 —— ⛔ 别在这儿再写几何。
-        BattleHudButton _btnResign, _btnSkip, _btnDifficulty, _btnClose, _btnAutoZoom, _btnMuteChat;
+        BattleHudButton _btnResign, _btnSkip, _btnClose, _btnAutoZoom, _btnMuteChat;
         BattleHudButton _btnLangField, _btnBlocker, _btnShade;
         /// <summary>语言下拉那 12 行的可点件（下标 = `_langRows[i].Idx`；只在 `real` 行建）。</summary>
         readonly List<BattleHudButton> _btnLangRows = new List<BattleHudButton>();
@@ -876,7 +876,10 @@ namespace CardPresentation
         /// ⇒ 自检要**量面板帧**、以及**跨档找面板内的件**（含三根 `WfSlider` 的子件）都要走这个口。</summary>
         public RectTransform PanelRect { get { return _panel; } }
 
-        public static SettingsPanel Create(Transform parent, Action onResign, Action onCycleDifficulty)
+        /// <param name="onResign">点「投降」时回调。
+        /// 🔴 **2026-10-22**：原来还有 `onCycleDifficulty` 一路 —— 随「对手难度」那一行一起删了
+        /// （原版没有那个入口；`aiDifficulty` 仍留在驱动层，见 `BattleDriver.aiDifficulty`）。</param>
+        public static SettingsPanel Create(Transform parent, Action onResign)
         {
             // 🔴 **2026-10-11（A218）**：根节点是 `RectTransform` + 写 `sizeDelta`。
             //    判据 = 原版 `BattleSettingsPanel` 实读（`bundle_scenes_scenes_battlearena1`，2026-10-11 现读）：
@@ -895,7 +898,6 @@ namespace CardPresentation
             MenuDraw.SetPxSize(go.transform, PanelW, PanelH);
             var p = go.AddComponent<SettingsPanel>();
             p.OnResign = onResign;
-            p.OnCycleDifficulty = onCycleDifficulty;
 
             // ---- 子画布：`PopUps` / order 0（判据 → `T09c` §一 `SettingsPanel` 那一行）----------------
             // 🔴 **子 Canvas 一个 `CanvasScaler` 都不许加**（原版全场景只有一个、在根上 ⇒ 加了会二次缩放）。
@@ -968,18 +970,13 @@ namespace CardPresentation
             _bg = Img(_panel, "settings_bg", SolidTex(PanelW / PanelH), 0f, 0f, PanelW, PanelH, Z, 0,
                       new Color(0.13f, 0.13f, 0.16f, 0.98f));
 
-            // 🔴 2026-09-19 用户口径：面板上这些**先用英文**（之后做彻底的完全翻译）。
-            // ⚠️ 原版这个面板**有没有标题查不到**（规格文档 §① 里没记标题这一项）⇒ `Settings` 是**我们起的**。
-            // 🔴 **2026-10-18（第十二轮 · W6）补判据（结论不变）**：本轮把「查不到」升级成**否定证据**——
+            // 🔴 **2026-10-22（用户口径「战斗里原版没有的设计不要」）：标题那条【删了】。**
+            //    判据（2026-10-18 `W6` 已升级成否定证据，本轮只是照它执行）：
             //    `battlearena1` 那棵树**逐文本节点**走了一遍（**137 个**有字或有词条的节点），
-            //    `BattleSettingsPanel` 子树里**没有一个标题节点**；而且 `Battle/` 前缀的
+            //    `BattleSettingsPanel` 子树里**没有一个标题节点**；`Battle/` 前缀的
             //    **93 条代码字面量**（`d:/2/tools/il2cpp_out/stringliteral.json`）里也**没有**标题键
             //    （`Battle/Settings/` 那一族只有 `Exit` / `ResignButton` / `SkipTutorial` 三条）。
-            //    ⇒ **原版确实没有这一格**（铁律 11 例外①）⇒ 保留英文/中文自拟，⛔ 别去替它编一条原版键。
-            _title = HudCanvas.MakeText(_panel, "Settings", 0f, U(PanelH * 0.5f) - U(70f),
-                                        4, new Color(0.95f, 0.93f, 0.88f), new Vector2(0.5f, 0.5f),
-                                        Z - 0.01f, "settings_title");
-            // A1024③ 判不出（原版 `BattleSettingsPanel` 无标题节点）⇒ 保持 `Face.Cjk`，⛔ 不猜
+            //    ⇒ 原来那颗 `_title`（我们自拟的「Settings」）**整颗删掉**，⛔ 别替它编一条原版键。
 
             // ---- 关闭钮：75×75，圆底 + 叉（原版 `Generic Close Button`）----
             // 🔴 **2026-10-16（`T09` 批 2）**：两张图都改走 `Img`（uGUI `Image`、中心锚、px）；
@@ -1009,8 +1006,9 @@ namespace CardPresentation
             var resignTex = CardArt.Ui("40K_button");
             _resignTex = resignTex;
             // 🔴 **2026-10-16（`T09` 批 2）**：原来这两行 `resignTexW/H` 只喂 `MenuDraw.Nine` 的
-            //    `texW/texH`（切 uv 用）—— uGUI 那一侧由 `Sprite` 自己带尺寸 ⇒ **删掉**（`diffH` 那条
-            //    算式本来就直接读 `resignTex`，有自己的 null 兜底）。
+            //    `texW/texH`（切 uv 用）—— uGUI 那一侧由 `Sprite` 自己带尺寸 ⇒ **删掉**。
+            //    （那段注释原来还提到一个 `diffH` 的消费者 —— 那个消费者是「对手难度」那一行，
+            //     2026-10-22 已随整行删除。）
             // 🔴 **2026-10-04（A50③）：投降钮收口到公共件 `MenuDraw.Nine`** —— 原来直调
             //    `ImageQuad.CreateNineSlice`（= 绕开公共件的那条路，拿不到 `clip`）。两处**逐项等价**，别改：
             //    ① **矩形 = 投降钮的画布 px 矩形** —— 本面板挂在战斗 HUD 根下、`localPosition = 0`
@@ -1099,35 +1097,13 @@ namespace CardPresentation
             // 🆕 **2026-10-17（`A1213③`）**：与 `Resign` **逐字段同形**的四格（`38 / 12 / [12, 38] / 折行 0`）。
             ApplyAutoFit(_skipText, BtnTextWPx, BtnTextHPx, BtnAutoMin, ResignFontPx, BtnAutoBase, 0);
 
-            // ---- 对手难度（🆕 2026-09-17）----
-            // 用的是**现成的两样东西**：投降那颗钮同一张原版按钮图 `40K_button`（同宽 249 px，
-            // 免得压扁），以及 `Label`。位置我们挑的 —— 原版**没有这个入口**
-            // （那个旋钮在 `AIBotsConfig` 里、按排位/连败自动挑配置，玩家改不了；
-            // 见 `资料/AI_原版反编译_0917.md` §三末）。所以这一行**是我们加的**，如实标着。
-            // ⚠️ 它**不跟着投降钮改成九宫格** —— 那颗钮的形制是原版的，这一行是我们自己的，
-            //    按贴图宽高比铺就够了（2026-09-19：投降钮改真值时这行原样保留）。
-            float diffH = resignTex != null ? 249f * resignTex.height / resignTex.width : 100f;
-            // ⚠️ **2026-09-19 从 y=+120 挪到 y=−220**：原来那格正好压在**音乐滑块**（y=120.07）上。
-            //    原版没有这一行（那个旋钮在 `AIBotsConfig` 里、玩家改不了），所以**让位的是我们**。
-            // 🔴 **2026-10-16（`T01`）再挪一次：−220 → −155。** 原来那句「−220 落在原版 `ChatToggle`
-            //    （−174.94）与投降钮（−310.5）之间，不撞任何原版元素」**两处都不成立**：
-            //    ① 原版 `ChatToggle` 的中心现读 = **−254.062**（不是 −174.94，那是旧错值）；
-            //    ② 本行框高 ≈ 54.5 ⇒ y=−220 那一档占 **−247.3…−192.7**，与 `ChatToggle` 的
-            //       **−281.5…−226.6** **重叠** ⇒ 我们有义务让开（本行是我们加的，原版没有它）。
-            //    新档 **−155**：它在**第三根滑块标签框底边**（−55.13 − 55/2 = **−82.63**）与
-            //    `ChatToggle` 顶边（**−226.6**）之间那段空带里居中（空带中心 = −154.6）。
-            //    ⚠️ 这一行**仍然是我们加的**，⛔ 别拿它当原版件去对账。
-            float diffY = U(-155f);
-            _diffLabel = HudCanvas.MakeText(_panel, "AI Difficulty", -U(190f), diffY,
-                                            4, new Color(0.95f, 0.93f, 0.88f), new Vector2(0.5f, 0.5f),
-                                            Z - 0.02f, "settings_diff_label");   // A1024③ 判不出（我们加的 AI 难度行）⇒ 保持 Cjk
-            _diffBtn = Img(_panel, "settings_diff_btn", resignTex, U(70f), diffY, U(diffH), Z - 0.01f);
-            _diffValue = HudCanvas.MakeText(_panel, "", U(70f), diffY,
-                                            4, new Color(1f, 0.86f, 0.55f), new Vector2(0.5f, 0.5f),
-                                            Z - 0.02f, "settings_diff_value");   // A1024③ 判不出（我们加的 AI 难度值）⇒ 保持 Cjk
-            // 🔴 **2026-10-20（W57 · `T09` A3-b）**：这一行**是我们加的**（原版没有玩家可见的难度开关，见上面那段）
-            //   ⇒ 命中也照我们自己的 `HitDifficulty`（= `_diffBtn` 的**实画矩形**，与 uGUI 的 rect 逐值相同）。
-            _btnDifficulty = AttachClick(_diffBtn, OnDifficultyClicked, "AI Difficulty");
+            // 🔴 **2026-10-22（用户口径「战斗里原版没有的设计不要」）：「对手难度」那一行【整行删了】。**
+            //    原来这三件（标签 `AI Difficulty` / 那颗钮 / 值）**全是我们的**：原版没有玩家可见的
+            //    难度开关（那个旋钮在 `AIBotsConfig` 里、按排位/连败自动挑配置，玩家改不了；
+            //    见 `资料/AI_原版反编译_0917.md` §三末）。⇒ 三件 + 命中判定 + 词条（`DifficultyName` /
+            //    `NextDifficulty` / `SetDifficulty`）+ 驱动层那个 `CycleAiDifficulty` 一起删。
+            //    ⚠️ `BattleDriver.aiDifficulty` 那个**值**留着（它喂 `SimpleAI`，对应原版那台
+            //    `AIBotsConfig` 自动挑的结果）；只是**玩家改不了**它了。
 
             // ---- 🆕 2026-10-12（A424）：`Auto Zoom` 那一行（原版 `Auto Zoom Toggle`）----
             // 为什么要有它：原版**战斗内这一扇**设置窗（`BattleSettingsWindow`）本来就有这一行，
@@ -1341,16 +1317,6 @@ namespace CardPresentation
                                 + "`onSkipTutorial: SkipTutorialFromSettings`）—— 这一下**没有效果**");
         }
 
-        /// <summary>`AI Difficulty`（**我们加的那一行**，原版没有这个入口）：换下一档、**不关窗**
-        /// （原 `SettingsClickAt` 第三支 → `CycleAiDifficulty()`）。</summary>
-        void OnDifficultyClicked()
-        {
-            if (!Visible) return;
-            var cb = OnCycleDifficulty;
-            if (cb != null) cb();
-            else Debug.LogWarning("[Settings] 「对手难度」钮被点了，但 `OnCycleDifficulty` **没接**");
-        }
-
         /// <summary>`Generic Close Button`：关窗（原 `SettingsClickAt` 最后一支）。</summary>
         void OnCloseClicked() { if (Visible) Hide(); }
 
@@ -1423,7 +1389,6 @@ namespace CardPresentation
             {
                 case "Resign Button": return _btnResign;
                 case "SkipTutorial Button": return _btnSkip;
-                case "AI Difficulty": return _btnDifficulty;
                 case "Generic Close Button": return _btnClose;
                 case "Auto Zoom Toggle": return _btnAutoZoom;
                 case "ChatToggle": return _btnMuteChat;
@@ -1493,7 +1458,6 @@ namespace CardPresentation
             {
                 case "Resign Button": return RaycastTargetOf(_resignBtn);
                 case "SkipTutorial Button": return RaycastTargetOf(_skipBtn);
-                case "AI Difficulty": return RaycastTargetOf(_diffBtn);
                 case "Generic Close Button": return RaycastTargetOf(_closeIcon) || RaycastTargetOf(_close);
                 case "Auto Zoom Toggle": return RaycastTargetOf(_azBox) && RaycastTargetOf(_azLabelHit);
                 case "ChatToggle": return RaycastTargetOf(_muteOffBg) && RaycastTargetOf(_muteLabelHit);
@@ -2373,37 +2337,12 @@ namespace CardPresentation
             return ls[i] != null ? ls[i].Text : null;
         }
 
-        /// <summary>难度显示名。🔴 **2026-09-19 改回英文** —— 用的就是**原版的枚举名**
-        /// `SuperEasy / Easy / Normal / Hard`（原版没有玩家可见的难度开关，所以没有「原版文案」可抄；
-        /// 枚举名是原版的）。之前那套中文是我们起的。（彻底的完全翻译留到后面统一做。）</summary>
-        public static string DifficultyName(AiDifficulty d)
-        {
-            switch (d)
-            {
-                case AiDifficulty.SuperEasy: return "SuperEasy";
-                case AiDifficulty.Easy: return "Easy";
-                case AiDifficulty.Hard: return "Hard";
-                default: return "Normal";
-            }
-        }
-
-        /// <summary>按下一档（很简单 → 简单 → 普通 → 困难 → 很简单）。</summary>
-        public static AiDifficulty NextDifficulty(AiDifficulty d)
-        {
-            switch (d)
-            {
-                case AiDifficulty.SuperEasy: return AiDifficulty.Easy;
-                case AiDifficulty.Easy: return AiDifficulty.Normal;
-                case AiDifficulty.Normal: return AiDifficulty.Hard;
-                default: return AiDifficulty.SuperEasy;
-            }
-        }
-
-        /// <summary>把当前难度写到按钮上（驱动层改完 `aiDifficulty` 就调它）。</summary>
-        public void SetDifficulty(AiDifficulty d)
-        {
-            if (_diffValue != null) _diffValue.SetText(DifficultyName(d));
-        }
+        // 🔴 **2026-10-22（用户口径「战斗里原版没有的设计不要」）**：这一族原来有
+        //   `DifficultyName` / `NextDifficulty` / `SetDifficulty` 三条（还有 `HitDifficulty` /
+        //   `DifficultyText` / `DifficultyWorldPos` 三个自检口）—— 随「对手难度」那一行**整批删除**。
+        //   原版没有玩家可见的难度开关（旋钮在 `AIBotsConfig` 里、按排位/连败自动挑，玩家改不了）。
+        //   ⚠️ 枚举 `AiDifficulty` 在 `RuleEngine/Data/SimpleAI.cs`，**留着** —— 驱动层那个
+        //   `BattleDriver.aiDifficulty` 仍喂给 `SimpleAI.NextAction`（对应原版自动挑档的结果）。
 
         // ==================================================================
         //  🆕 2026-10-12（A424）：「Auto Zoom」那一行的三条链
@@ -2493,11 +2432,11 @@ namespace CardPresentation
         }
         void SetActive(bool on)
         {
-            foreach (var go in new[] { _shade, _bg, _close, _closeIcon, _diffBtn })
+            foreach (var go in new[] { _shade, _bg, _close, _closeIcon })
                 if (go != null) go.gameObject.SetActive(on);
             if (_resignBtn != null) _resignBtn.gameObject.SetActive(on);   // 一张 `Image (Sliced)`（不是 `ImageQuad`）
             if (_skipBtn != null) _skipBtn.gameObject.SetActive(on);       // 🆕 A991：同上（那颗也是九宫格 ⇒ uGUI 一张）
-            foreach (var l in new[] { _title, _resignText, _skipText, _diffLabel, _diffValue,
+            foreach (var l in new[] { _resignText, _skipText,
                                       _musicLabel, _fxLabel, _voiceLabel, _azLabel,
                                       // 🆕 2026-10-17：语言那一行的两颗字（框里的语言名 + 左边的标签）
                                       _langCap, _langSelText,
@@ -2609,15 +2548,6 @@ namespace CardPresentation
             }
         }
 
-        /// <summary>这一下点在「对手难度」上吗
-        /// （🔴 **2026-10-16（`T09` 批 2）**：`Contains` → `RectContains`，同 `HitClose` 那条口径）。</summary>
-        public bool HitDifficulty(Vector3 world)
-        {
-            if (!Visible || _diffBtn == null) return false;
-            var s = HudCanvas.SizePx(_diffBtn.Rect);
-            return RectContains(_diffBtn.transform, world, s.x, s.y);
-        }
-
         /// <summary>点面板的空白处 —— 吃掉，但不做事（原版有 `Dark Shade` 挡住背后）</summary>
         public bool HitBlank(Vector3 world) { return Visible && Contains(world); }
 
@@ -2656,10 +2586,6 @@ namespace CardPresentation
         public Vector3 SkipTutorialWorldPos { get { return _skipBtn != null ? _skipBtn.transform.position : Vector3.zero; } }
         /// <summary>那颗字上写的是什么（原版 TMP 原文 `Skip tutorial`）。</summary>
         public string SkipTutorialText { get { return _skipText != null ? _skipText.Text : null; } }
-        /// <summary>难度按钮上写着的字（自检用）</summary>
-        public string DifficultyText { get { return _diffValue != null ? _diffValue.Text : null; } }
-        /// <summary>难度按钮的世界坐标（自检照着它点）</summary>
-        public Vector3 DifficultyWorldPos { get { return _diffBtn != null ? _diffBtn.transform.position : Vector3.zero; } }
         /// <summary>自检用（**A276**）：投降钮那一层占的 **z 档**（没建出来 ⇒ `NaN`）。
         /// <para>判据 = 它**只由本件的 `PanelZ` 那一套决定**，不许随本面板的世界 z 变。</para>
         /// <para>🔴 **2026-10-16（`T09` 批 2）语义换了（铁律 5，如实记）**：uGUI 档里**根本没有局部 z**
@@ -2678,7 +2604,6 @@ namespace CardPresentation
                 return _bg != null && _bg.Texture != null
                     && _close != null && _close.Texture != null
                     && _resignBtn != null && _resignTex != null
-                    && _diffBtn != null && _diffBtn.Texture != null
                     // 🆕 A424：Auto Zoom 那一行的两张图（少一张 = 那一行画不出来 ⇒ 这条要红）
                     && _azBox != null && _azBox.Texture != null
                     && _azCheck != null && _azCheck.Texture != null;

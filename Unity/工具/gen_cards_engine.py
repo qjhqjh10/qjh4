@@ -1265,6 +1265,82 @@ def trigger_priorities_of(cid, name, trow, trig_names, report):
     return out
 
 
+# ==========================================================================================
+#  🆕 2026-10-21（引擎线 `T03·b` · 回合流程残余）：
+#    **① 开局加成三列** · **② `skipCardDraw` 手牌效果的生产列**
+# ==========================================================================================
+#  判据（全量反编译 `d:/2/tools/decomp_full/`，逐句）：
+#   · **开局加成** —— `RawCardScript.initialHandModifier(+0x118)` /
+#     `initialManaModifier(+0x11C)` / `initialSpiritStoneModifier(+0x128)`（`dump.cs:23282-23286`）：
+#       `PlayerHand._AddCardsToMulligan_d__41__MoveNext.c:35-76`（起手张数）·
+#       `BattleManager__SetupInitialMana.c:20-46`（`ResetMana` 的四个实参）。
+#       语义与消费点 → `CardDef.InitialHandModifier` / `InitialManaModifier` /
+#       `InitialSpiritStoneModifier` 的 doc（⛔ 别在这里抄第二份）。
+#   · **`skipCardDraw`** —— `BuffType.skipCardDraw = 7`（`dump.cs:45441`）；
+#       写在 `cardAbilities[].abilityLogic[].handBuff.cardEffect.buffType`，
+#       由 `AbilityLogic__PlayAbility.c:1377-1414` → `BattleManager.AddHandEffect`
+#       → `PlayerHand__AddHandEffect.c:88-139` 落到 `PlayerHand.activeEffects(+0x48)`，
+#       读点是 `PlayerHand__CanDrawTurnStartCard.c:56-99`。
+#
+#  🔴 **只在「有值」时才落列**（三个 modifier 非 0 / 有 skipCardDraw 的卡）——
+#     真值 1,351 张**一个都没有**（2026-10-21 现读：三个 modifier 全 0；`handBuff.buffType`
+#     取值只有 0/2/3，**没有 7**）⇒ **卡表字节不变**、`--check` 仍一致。
+#     ⚠️ **不单独提版本号**：这三列 + `skipDraws` 的「缺席」与「值 = 0 / 空表」**语义完全相同**
+#     （`initial*Modifier` 的 0 是合法取值「不加不减」），所以旧表读进来不会出错、也无需出声
+#     —— 与 v9..v13 那几列（缺列会被当成「全池默认」）的口径**不同**，别照抄那条 §version 守卫。
+#     ⛔ 真要改这一点，先想清楚「缺席 ⇔ 0」这条等价还成不成立。
+INITIAL_MODIFIER_COLS = (
+    "initialHandModifier",
+    "initialManaModifier",
+    "initialSpiritStoneModifier",
+)
+
+# 原版 `BuffType.skipCardDraw`（`dump.cs:45441`）。⛔ 不是 `AbilityTrigger` 的编号。
+SKIP_DRAW_BUFF_TYPE = 7
+
+
+def skip_draws_of(cid, name, trow, trig_names, report):
+    """一张卡 → `[{"keyword":…, "uses":…, "limited":…, "source":…}]`。
+
+    只收 `abilityLogic[].handBuff.cardEffect.buffType == skipCardDraw(7)` 的条目；
+    `trigger`（`AbilityTrigger` 数值）翻成**引擎触发关键词**（与 `ABILITY_TRIGGER_KEYWORD`
+    同一张表），翻不出来的**不落并出声**（`report["unmapped"]`）—— ⛔ 不编造键名。
+    """
+    if trow is None:
+        report["no_truth"] += 1
+        return []
+    out = []
+    for i, ab in enumerate(trow.get("cardAbilities") or []):
+        tg = ab.get("trigger")
+        for j, lg in enumerate(ab.get("abilityLogic") or []):
+            hb = lg.get("handBuff")
+            if not hb:
+                continue
+            ce = hb.get("cardEffect") or {}
+            if ce.get("buffType") != SKIP_DRAW_BUFF_TYPE:
+                continue
+            kw = ABILITY_TRIGGER_KEYWORD.get(tg)
+            if kw is None:
+                report["unmapped"].append((cid, name, trig_names.get(tg, ""), tg, i, j))
+                continue
+            uses = hb.get("numberOfUses", 1)
+            if isinstance(uses, bool) or not isinstance(uses, int) or uses < 1:
+                report["bad_uses"].append((cid, name, uses, i, j))
+                uses = 1
+            out.append({
+                "keyword": kw,
+                "uses": uses,
+                # 原版 `HandEffect.limitedUses(+0x28)`：真 = 限次。**显式写 0/1**
+                # （`JsonUtility` 缺列 = false，而 false 的语义是「不限次」⇒ 少写会把限次变永久）
+                "limited": 1 if hb.get("limitedUses") else 0,
+                "source": name + "（本回合不抽牌）",
+            })
+            report["rows"] += 1
+    if out:
+        report["cards"] += 1
+    return out
+
+
 def load_anim_guid_index(report):
     """`guid_map_bundles.tsv` → `{guid: (name, bundle, type, className)}`。
 
@@ -2214,6 +2290,9 @@ def build():
     #    `conflict` = 同卡同关键词两个不同 priority，表达不出）。
     trigger_priority_report = {"cards": 0, "rows": 0, "no_truth": 0,
                                "bad": [], "empty_logic": [], "unmapped": [], "conflict": []}
+    # 🆕 2026-10-21（引擎线 `T03·b`）：开局加成三列 / `skipCardDraw` 生产列的跑完读数。
+    initial_modifier_report = {c: {"cards": 0} for c in INITIAL_MODIFIER_COLS}
+    skip_draw_report = {"cards": 0, "rows": 0, "no_truth": 0, "unmapped": [], "bad_uses": []}
     if not anim_trig_names:
         print(f"⚠️ 读不到 `AbilityTrigger` 枚举桩 {ABILITY_TRIGGER_STUB} ⇒ `animTimes[].tn` 将全空"
               f"（数值 `tg` 照落；⛔ 不猜名字）")
@@ -2693,6 +2772,18 @@ def build():
         _tp = trigger_priorities_of(cid, name, trow, anim_trig_names, trigger_priority_report)
         if _tp:
             entry["triggerPriority"] = _tp
+        # ---- 🆕 2026-10-21（引擎线 `T03·b`）：开局加成三列 --------------------------------------
+        # 判据 / 为什么「只在非 0 时落列」→ `INITIAL_MODIFIER_COLS` 上面那一段。
+        for _col in INITIAL_MODIFIER_COLS:
+            _v = truth_int(trow, _col, default=0)
+            if _v != 0:
+                entry[_col] = _v
+                initial_modifier_report[_col]["cards"] += 1
+        # ---- 🆕 2026-10-21（引擎线 `T03·b`）：`skipCardDraw` 手牌效果的生产列 -------------------
+        # 判据 → `skip_draws_of()` 的 doc。今天 0 张卡（`handBuff.buffType` 没有 7）。
+        _sd = skip_draws_of(cid, name, trow, anim_trig_names, skip_draw_report)
+        if _sd:
+            entry["skipDraws"] = _sd
         # ---- 卡面逐张核对修正（2026-09-13）----
         # 上面那两列 `subtype` / `keywords` 都是**从 OCR 那份源表来的**，实测会串列、会掉数值。
         # 这一层用「1118 张逐张看卡图独立抄」的结果盖掉 —— 见 `CARD_FACE_FIXES_SRC` 的长注释。
@@ -3281,7 +3372,8 @@ def build():
         rarity_truth_filled, rarity_src_truth, rarity_src_table, rarity_src_source,
         orphan_rarity_key), \
        (offname_hit, offname_same, offname_miss, off_names_stats), \
-       choices_report, anim_report, talent_name_report, trigger_priority_report
+       choices_report, anim_report, talent_name_report, trigger_priority_report, \
+       initial_modifier_report, skip_draw_report
 
 
 def fix_own_armour(entry):
@@ -3344,7 +3436,8 @@ def main():
      art_guard_bad, art_known_bad, key_conflicts,
      goes_second, off, off_desc,
      inv, init, truth, rarity_guard, offname, choices_report, anim_report,
-     talent_name_report, trigger_priority_report) = build()
+     talent_name_report, trigger_priority_report,
+     initial_modifier_report, skip_draw_report) = build()
     offname_hit, offname_same, offname_miss, off_names_stats = offname
     id_direct, id_cascade, id_cross_mismatch, direct_ambiguous = id_new
     def_report, _gs_n, _gs_hero, _gs_missing_fac = goes_second
@@ -4024,6 +4117,24 @@ def main():
     for _cid, _nm, _kw, _prs in _tp["conflict"]:
         print(f"  🔴 同卡同关键词两个不同 priority：{_cid} {_nm} · `{_kw}` = {_prs}"
               " ⇒ **整条丢掉**（一格只能一个值，表达不出）")
+
+    # 🆕 2026-10-21（引擎线 `T03·b`）：开局加成三列 + `skipCardDraw` 生产列的读数。
+    #   三列/一列都**只在有值时才落** ⇒ 这条摘要就是「今天有没有卡走到」的唯一凭据。
+    _im = initial_modifier_report
+    print("开局加成     "
+          + " · ".join(f"`{c}` {_im[c]['cards']} 张" for c in INITIAL_MODIFIER_COLS)
+          + "（原版 `RawCardScript.initial*Modifier`；0 = 不加不减 ⇒ **不落列**）")
+    _sdr = skip_draw_report
+    print(f"抽牌封锁     `skipDraws` 落值 **{_sdr['cards']}/{doc['count']}** 张 · {_sdr['rows']} 条"
+          f"（原版 `handBuff.cardEffect.buffType == skipCardDraw(7)`；0 条 = 休眠机制）")
+    if _sdr["no_truth"]:
+        print(f"  ⚠️ 真值快照里没有的卡 {_sdr['no_truth']} 张 —— 它们有没有这条效果**未知**")
+    for _cid, _nm, _tn, _tg, _i, _j in _sdr["unmapped"]:
+        print(f"  ℹ️ 触发时机在我们引擎里没有关键词：{_cid} {_nm} 第 {_i} 条 ability 第 {_j} 条 logic"
+              f"（trigger={_tg} {_tn}）⇒ **不落**（⛔ 不编造键名）")
+    for _cid, _nm, _u, _i, _j in _sdr["bad_uses"]:
+        print(f"  ⚠️ `numberOfUses` 非法：{_cid} {_nm} 第 {_i} 条 ability 第 {_j} 条 logic "
+              f"uses={_u!r} ⇒ 按 **1** 收")
 
     if args.check:
         if os.path.exists(DST):

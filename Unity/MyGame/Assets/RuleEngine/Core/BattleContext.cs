@@ -363,6 +363,18 @@ namespace RuleEngine
         /// <summary>效果链最多连锁几层</summary>
         public const int MaxEffectChain = 8;
 
+        /// <summary>
+        /// 🔴 **四条动作队列**（2026-10-21 引擎线 `T03·c` 批 B 接线 · 原版
+        /// `BattleManager` 的 `actionQueue(+0x350)` / `instantQueue(+0x358)` /
+        /// `delayedInstantQueue(+0x360)` / `interruptQueue(+0x368)`）。
+        ///
+        /// 语义与判据 → `Core/ActionQueue.cs`（原语）与 `Core/ActionPump.cs`（泵点 / 动作外壳）。
+        /// 🔴 **一局一份**（挂在对局上而不是静态）—— 同一进程里可以并行跑多局
+        ///    （`RuleEngineTest` 的夹具就是几十个独立 `BattleContext`），静态会把它们的触发串在一起。
+        /// ⚠️ `ActionQueue.Resolving` 就是原版 `resolvingActionFlag(+0x280)`：**正在结算一条动作**。
+        /// </summary>
+        public readonly ActionQueue ActionQueue = new ActionQueue();
+
         /// <summary>🔴 2026-10-21（引擎线 `T03·c` 批 A · `W59`）：**进场序号发号器** —— 单调递增，
         /// 一个 `BattleContext` 一份。语义与判据见 <see cref="UnitState.PlayOrder"/>。
         /// ⚠️ **只在「新单位真的落到棋盘上」那一刻**取号（`RuleCore.PlayCard` / `DeployFree` /
@@ -613,14 +625,20 @@ namespace RuleEngine
 
             // 🆕 2026-10-18（`A985④`）**「这份牌是谁造出来的」** —— 见下面 `_createdBy` 那一段。
             //   `ActingUnit` 优先（每次 op 都 save/restore，出了结算必为 `null` ⇒ 它是**结算中**的
-            //   可靠信号；这个「先 `ActingUnit` 再 `PlayingCard`」的次序是照本仓既有口径 ——
+            //   可靠信号；这个「先 `ActingUnit` 再回落」的次序是照本仓既有口径 ——
             //   `EffectResolver` 里那两处 `ActingUnit != null ? ActingUnit.Card : PlayingCard` 就是同一个写法）；
             //   战术卡那条路 `source` 是 `null`（`EffectResolver` 里那处传的是
-            //   `ResolveOps(ctx, p, null, …)`）⇒ 靠 `PlayingCard`（`ResolveOps` 入口 + **`NotePlayed`
-            //   那一刻**写的那张卡，见 `NotePlayed` 里那段注释）。
+            //   `ResolveOps(ctx, p, null, …)`）⇒ 靠 <see cref="CreationSource"/>（出牌 / 结算作用域里
+            //   save/restore 的那张来源卡，见那个字段的 doc）。
             //   ⚠️ 只在**有来源**时盖章：开局那几处（初始牌库 / 督军 / 起手 / 防御卡）跑在任何
-            //   `ResolveOps`/`NotePlayed` 之前 ⇒ 来源是 `null` ⇒ 不盖章（与原版一致：那几条路从不设 `createdBy`）。
-            var creator = ActingUnit != null ? ActingUnit.Card : PlayingCard;
+            //   出牌作用域之前 ⇒ 来源是 `null` ⇒ 不盖章（与原版一致：那几条路从不设 `createdBy`）。
+            //   🔴 **2026-10-22（`W62/D5②`）就地订正 —— 原来这里回落到 `PlayingCard`**：
+            //      那个字段**从不清空**（见 <see cref="PlayingCard"/> 与 <see cref="CardPlaySource"/> 的 doc：
+            //      写点只有 `NotePlayed` 与 `ResolveOps` 的出牌重载，出完结算**留在原地**）
+            //      ⇒ 任何**不在结算期**新造的实例（抽牌 / 回合起补牌 / 天赋生成…）都会被盖上
+            //      「本局最后打出那张卡」的名字 —— 真机上就是「萨姆-罕的牌上写着兽人 Goff 计策的名字」。
+            //      `CreationSource` 是 save/restore 的（出了作用域一定还原成 `null`）⇒ 结构上不可能泄漏。
+            var creator = ActingUnit != null ? ActingUnit.Card : CreationSource;
             if (creator != null) _createdBy[inst.Id] = creator;
 
             return inst;
@@ -640,7 +658,9 @@ namespace RuleEngine
         //      （`*(summoned + 0x268) = *(param_1 + 0xf8)`）
         //  ⇒ **三处的来源都是「正在结算的那张卡」**（`AbilityLogic__PlayAbility.c` 传的是技能属主
         //    那张卡；`CardScript__ProcessCompanion.c` 传的是它自己）—— 这就是本条取
-        //    `ActingUnit` / `PlayingCard` 当来源的依据。
+        //    `ActingUnit`（正在结算的那个单位）＋ <see cref="CreationSource"/>（正在跑的那次出牌/结算
+        //    的来源卡）当依据的原因。🔴 **两者都是 save/restore 作用域内的量**；
+        //    ⛔ 别再用 `PlayingCard`（它**从不清空** ⇒ 会盖错名字，见 <see cref="NewInstance"/> 那段）。
         //
         //  🔴 **消费面只有一处**：`BattleCardUI.DisplayCreatedByText`（卡面那行小字）→
         //    `SupportMethods.GetCreatedByText(创建者卡名)` =
@@ -670,6 +690,59 @@ namespace RuleEngine
 
         /// <summary>这局一共有几份牌「有来源」（自检 / 排查用；这张表本身不参与指纹与录像）。</summary>
         public int CreatedByCount { get { return _createdBy.Count; } }
+
+        /// <summary>
+        /// 🆕 **2026-10-22（`W62/D5②`）「这次出牌 / 这次结算」的来源卡** ——
+        /// <see cref="NewInstance"/> 盖章时的**第二顺位**（第一顺位 = <see cref="ActingUnit"/>）。
+        /// `null` = **不在任何出牌 / 结算作用域里**。
+        ///
+        /// <para>**为什么必须有它、又为什么不能拿 `PlayingCard` 顶替**：`PlayingCard` 那个字段
+        /// **从不清空**（本来只是「常驻效果登记」记的来源，写点 = `NotePlayed` 与 `ResolveOps` 的出牌重载）
+        /// ⇒ 任何**不在结算期**新造的实例（抽牌 / 补牌 / 天赋生成…）都会读到「本局最后打出那张卡」，
+        /// 把它当成创建者盖上去 —— 真机就是「萨摩-罕的牌上写着兽人 Goff 计策的名字」
+        /// （`资料/普查产出_1022/W62_缺陷诊断.md` §D5·3）。本字段**只在作用域内非 null**，
+        /// 结构上不可能泄漏到作用域外。</para>
+        ///
+        /// <para>**写点（全部 save/restore —— `try { … } finally { CreationSource = prev; }`，⛔ 别在别处写）**：
+        /// ① `RuleCore.PlayCard`（单位卡打出整段：覆盖 `SpawnTideCopies` / `PlayCompanions` 那两条
+        ///    「紧接着造牌、但还没进任何 `ResolveOps`」的路 —— 原版 `ProcessTide` / `ProcessCompanion`
+        ///    正是把**打出的那张牌**当 `param_3` 传给 `AddNewCardToHand`）；
+        /// ② `EffectResolver.PlayTactic`（战术卡整条结算，含它在 `ActionScope` 里泵出去的队列体）；
+        /// ③ `EffectResolver.PersistentListenerDeferred`（常驻效果 / 手牌监听：来源 = 写出这条效果的卡
+        ///    `PersistentEffect.Source`，与它那边 `CardPlaySource` 同一份判据、同一段 `try/finally`）。</para>
+        ///
+        /// <para>⚠️ **优先级仍是 `ActingUnit` 更高**（原版 `createdBy` 吃的是 `AbilityLogic.PlayAbility`
+        /// 里的 `AbilityData.thisCard` = **能力属主**）：一次出牌期间别的单位触发自家能力造牌时，
+        /// `ActingUnit` 是那个单位（= 它的能力属主）⇒ 必须压过本字段（否则会盖成「被打出的那张」）。</para>
+        /// <para>⚠️ **已知残差（如实标着，未修）**：`EffectResolver.ResolveDeploy` / `ResolveAtTurn` 那几条
+        /// 常驻作业把「刚部署的那个单位」当 `source` 传给 `ResolveOne`（那是本工程为代词/相邻锚点做的
+        /// 结构选择，见 `FactionSourceCard` 的 doc）⇒ 那些路上 `ActingUnit` **是事件宾语、不是能力属主**，
+        /// 由常驻效果造出来的牌仍会盖成「被部署的那个单位」。修它要动那三条路的 `ResolveOne` 入口，
+        /// 与 `FactionSourceCard` 同一笔活（不在本笔范围）—— 记在报告的「没查清」。}</para>
+        /// </summary>
+        public CardDef CreationSource;
+
+        /// <summary>把「当前来源卡」压进去，**返回上一份** —— 调用点必须
+        /// `try { … } finally { ctx.CreationSource = prev; }`（见 <see cref="CreationSource"/> 的写点清单）。
+        /// ⚠️ 单独包一个方法是**为了不留「改了没还原」的半成品**：读点只有 `NewInstance` 一处。</summary>
+        public CardDef PushCreationSource(CardDef src)
+        {
+            var prev = CreationSource;
+            CreationSource = src;
+            return prev;
+        }
+
+        /// <summary>安全地取「第 <paramref name="p"/> 方的第 <paramref name="handIdx"/> 张手牌是哪张卡」
+        /// （越界 / 空位 ⇒ `null`，⛔ 不抛）。两个出牌入口（`RuleCore.PlayCard` / `EffectResolver.PlayTactic`）
+        /// 用它给 <see cref="CreationSource"/> 种值 —— ⛔ 它**不参与任何规则判定**（判定在各自核心里）。</summary>
+        public CardDef HandCardOrNull(int p, int handIdx)
+        {
+            if (Players == null || p < 0 || p >= Players.Length) return null;
+            var hand = Players[p].Hand;
+            if (hand == null || handIdx < 0 || handIdx >= hand.Count) return null;
+            var inst = hand[handIdx];
+            return inst != null ? inst.Card : null;
+        }
 
         // ---- 🆕 2026-10-18（`W4` 整改 · 审查问题 6）「同一次手牌效果挂载」的记录号 ----
 
@@ -1109,18 +1182,20 @@ namespace RuleEngine
             });
 
             // 🆕 2026-10-18（`A985④`）**顺手把 `PlayingCard` 刷成刚打出的这张** ——
-            //  「这张牌是谁造出来的」（<see cref="CreatedByOf"/>）在**出牌那一刻**要它。
-            //  为什么必须在这儿刷（而不是只靠 `ResolveOps` 入口那句）：打出**单位卡**时，
-            //  `RuleCore.PlayCard` 里紧接着就造东西（`SpawnTideCopies` 造潮涌复制品 `:1750`、
-            //  `PlayCompanions` 造伴生卡 `:1929`），而**那一刻还没进任何 `ResolveOps`**
-            //  ⇒ 只靠入口那句的话，`PlayingCard` 还停在**上一张**结算的卡上 = 会把来源记错
-            //  （静默写错一个名字）。
+            //  理由：打出**单位卡**时，`RuleCore.PlayCard` 里紧接着就造东西
+            //  （`SpawnTideCopies` 造潮涌复制品 / `PlayCompanions` 造伴生卡），而**那一刻还没进任何
+            //  `ResolveOps`** ⇒ 不在这儿刷的话 `PlayingCard` 还停在**上一张**结算的卡上
+            //  （它是「常驻效果登记 / 日志」那一族读的「最近打出的牌」）。
             //  🔴 **原版就是这么传的**：`BattleManager.AddNewCardToHand(…, param_3 = creator, …)`
             //  的调用者里，`CardScript__ProcessCompanion.c` 传**它自己**、`AbilityLogic__PlayAbility.c`
             //  传**技能属主那张卡** ⇒ 「刚打出/正在结算的那张卡」正是同一个东西。
             //  ⚠️ **不改变任何既有读者**：`PlayingCard` 现在的读点全在 op 里，而 `ResolveOps`
             //  入口**每次都覆写**它（含写成 `null`）⇒ 这一句在它们之前就被顶掉了
             //  （`EffectResolver` 里 `ctx.PlayingCard = sourceCard` 那一句是唯一另一处写点，语义不变）。
+            //  🔴 **2026-10-22（`W62/D5②`）就地订正**：上面「这张牌是谁造出来的要它」**已不成立** ——
+            //  `CreatedBy` 那条链改吃 <see cref="CreationSource"/>（save/restore 的作用域量），
+            //  因为本字段**从不清空**、在非结算期造牌会盖错名字（见 <see cref="NewInstance"/> 那段）。
+            //  ⛔ 别把本字段再挂回 `CreatedByOf`。
             PlayingCard = inst != null ? inst.Card : null;
         }
 
@@ -1477,8 +1552,24 @@ namespace RuleEngine
             return false;
         }
 
-        internal List<PendingDeath> TakePendingDeaths()
-        {
+        /// <summary>
+        /// 🆕 **2026-10-22（`W62` · R2 · 「被哨戒打死的攻击者」那一格）：本条顶层动作里已经离场（判死）的单位。**
+        ///
+        /// 🔴 **为什么需要**：原版 `CardScript.IsInPlayOrDying`（`CardScript__IsInPlayOrDying.c:8-13`）
+        /// 把 **`waitingToDie(5)` 也算在场**，而那张牌在 `CardScript._UnitDeath` 协程跑完
+        /// （两拍 `WaitForSeconds`）之前**一直留在棋盘的连续列表里**。
+        /// 我们这边 `CleanupDeaths` **当场**就 `BoardSlots.RemoveAt` ⇒ 等到队列里的监听器结算时，
+        /// 那个单位「既不在场、也不活着」，于是 `DoGive` 的「活着 ∨ 还在棋盘上」闸把它**静默丢掉**
+        /// （实测：`When this unit attacks, gain +1 Attack` 的攻击者被哨戒打死后，加成不落地）。
+        ///
+        /// ⇒ 判死时在这里记一笔，`ActionScope` 在**最外层动作退出（泵完队之后）**清空 ——
+        ///   生命期 = **一条顶层动作**，正好是原版「死亡协程还没跑完」那个窗口的等价物。
+        /// ⚠️ 只用于「还能不能对它加效果 / 指代它」这类**在场判据**（`IsUnitInPlayOrDying`），
+        ///   ⛔ **不能**拿它当「还活着」（`IsAlive` 仍是 `Health &gt; 0`，别改那个）。
+        /// </summary>
+        public readonly HashSet<UnitState> DyingThisAction = new HashSet<UnitState>();
+
+        internal List<PendingDeath> TakePendingDeaths()        {
             var copy = new List<PendingDeath>(_pendingDeaths);
             _pendingDeaths.Clear();
             return copy;

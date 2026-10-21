@@ -256,7 +256,7 @@ namespace CardPresentation
         /// ⚠️ 三件都**严格小于** `ZContent`（标题那一档）⇒ 整组画在**标题之上**，与原版
         /// `RT_3370.m_Children = [Menu Dark Background] · [Header Text] · [Viewport] · [BattleContinueButton]`
         /// 的先后一致 ✓ —— **不靠建序**（标题比条先建这件事只是巧合，⛔ 别拿它当判据）。
-        /// （底部提示行 `mcd_hint` 仍是 `ZContent`，在整组**之下**；两者不重叠，无画面后果。）</summary>
+        /// （🔴 **2026-10-22**：底部那行自拟提示 `mcd_hint` 已删 —— 见 `Build` 里那一段。）</summary>
         const float ZBtnBar = ZContent - 0.01f, ZBtnText = ZContent - 0.02f, ZBtnCircle = ZContent - 0.03f;
         /// <summary>🆕 2026-10-20（A3-e2）：背景关闭件（`mcd_background_close`）在**子画布**里的 z 档。
         /// 必须**大于 `ZBody`** —— `HudCanvas.Add` 按 z **降序**排兄弟序（z 大 ⇒ 前面 ⇒ 画在底下）
@@ -292,7 +292,9 @@ namespace CardPresentation
         // 🆕 2026-10-19（B4 · `N70` P0-2）：继续钮的反馈（原版那一族 `Continue Button` t=1 ColorTint +
         //   `CircleButton` t=2 SpriteSwap `40k_UI_bt_play_hover/_pressed`；本地缺那两张 ⇒ 圆钮退回 tint 并出声）。
         BattleButtonFx _fxBar, _fxCircle;
-        Label _header, _barText, _hint;
+        // 🔴 **2026-10-22（用户口径「战斗里原版没有的设计不要」）**：`Label _hint`（底部那行自拟提示）
+        //   已删 —— 见 `Build` 里那一段的判据。
+        Label _header, _barText;
         readonly List<CardView> _cards = new List<CardView>();
 
         /// <summary>窗是不是开着（自检用）</summary>
@@ -543,16 +545,12 @@ namespace CardPresentation
                 Debug.LogWarning("[多卡展示窗] 「继续」条的 `raycastPadding` 没写进去 ⇒ 命中框少了上下各 40 px");
             }
 
-            // ⚠️ **这行提示是我们自加的**：原版 `Generic Multi Card Display Combat` 下只有
-            //    `Header Text`（TMP = `Header Text`、**无 `Localize`**）· `BattleContinueButton` ·
-            //    `CardUI Reference` · `Viewport` ⇒ **原版这一格零词条**（铁律 11 例外①）。
-            //    它里面那个「继续」是**夹在中文句子里**的 ⇒ 英文档下这行会露中文 ——
-            //    **这是已知缺口**（没有原版键可接，要修得先自拟一条两条语言都编的键），已记进交件报告。
-            var hntp = HudCanvas.PosPx(960f, BandBottomPx + 34f);
-            _hint = HudCanvas.MakeText(_panel, "点「继续」或再点一下牌堆关闭", hntp.x, hntp.y, 2,
-                                       new Color(0.7f, 0.7f, 0.75f), new Vector2(0.5f, 0.5f), ZContent, "mcd_hint");
-            // A1024③ 判不出（原版 `Generic Multi Card Display Combat` 无这一行，我们自加）⇒ 保持 `Face.Cjk`
-            if (_hint == null) Debug.LogWarning("[多卡展示窗] 底部提示行没建起来（`MakeText` 返回 null —— 拿不到 TMP 字体？）");
+            // 🔴 **2026-10-22（用户口径「战斗里原版没有的设计不要」）：底部那行提示【删了】。**
+            //    判据：原版 `Generic Multi Card Display Combat` 下只有 `Header Text`（TMP = `Header Text`、
+            //    **无 `Localize`**）· `BattleContinueButton` · `CardUI Reference` · `Viewport`
+            //    ⇒ 原版这一格**零节点、零词条**。原来那行「点「继续」或再点一下牌堆关闭」是我们自拟的
+            //    （且英文档会露中文），`Core/Loc.cs` 里配套的 `Battle/MultiCard/TapToClose` 一起删了。
+            //    ⚠️ 关窗能力一点没少：继续条 + 圆钮 + 背景关闭区 + 再点牌堆这几条路都在。
 
             SetChrome(false);
             // 🆕 2026-10-19（B4 · `N70` P0-2）
@@ -587,7 +585,7 @@ namespace CardPresentation
             if (_bar != null) _bar.gameObject.SetActive(on);
             if (_circle != null) _circle.gameObject.SetActive(on);
             if (_barText != null) _barText.gameObject.SetActive(on);
-            if (_hint != null) _hint.gameObject.SetActive(on);
+            // 🔴 2026-10-22：`_hint`（底部自拟提示）已删。
             if (_header != null) _header.gameObject.SetActive(on);
             // 🆕 2026-10-20（A3-e2）：背景关闭件**必须跟着开关** —— 漏了它 = 一块全屏射线靶
             //   在窗口关着时继续挡着整个屏幕（`SetActive(false)` 会把它移出 `GraphicRegistry`）。

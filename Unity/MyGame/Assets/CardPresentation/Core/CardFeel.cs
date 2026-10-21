@@ -568,6 +568,8 @@ namespace CardPresentation
             P("HandToBoardEnd", HandToBoardEnd, Src.Field, "clip 最后一条关键帧（0.9167）"),
             P("HandToBoardDissolveEnd", HandToBoardDissolveEnd, Src.Field, "clip 的 `material._DissolveAmount` 终点"),
             P("HandToBoardShrink", HandToBoardShrink, Src.Field, "clip 的 `CardImage` ScaleCurves 终点"),
+            P("HandToBoardBodyY0", HandToBoardBodyY0, Src.Field, "clip 的 `Board Elements.m_LocalPosition.y` 起始关键帧（0 s）"),
+            P("HandToBoardBodyY1", HandToBoardBodyY1, Src.Field, "同上，0.1667 / 0.7 两个关键帧的低点"),
             P("DissolveTime", DissolveTime, Src.Derived, "`HandToBoardDissolveEnd − HandToBoardLand`（⚠️ **只留给「将来要做出战侧溶解」** —— 阵亡侧 2026-09-18 起改用下面那两个原版字段）"),
             P("DeathDissolveMinion", DeathDissolveMinion, Src.Field, "`VarsGlobal.deathTimeMinionDuration` = 0.2（另有两个同值字段 `minionDeathTime` / `timeToDissolveCard`）"),
             P("DeathDissolveWarlord", DeathDissolveWarlord, Src.Field, "`VarsGlobal.deathTimeWarlordDuration` = 0.5（督军那档；出处 `资料/VarsGlobal_原版数值.md`）"),
@@ -1232,6 +1234,168 @@ namespace CardPresentation
         public const float ReturnLiftScale = 3.0f;
 
         // ==================================================================
+        //  ① 手牌 → 战场（**正向** `Card Hand To Board`）—— 2026-10-21（W61 第 2 批 · 第 1 条）
+        // ==================================================================
+        //  判据（逐条现读）：
+        //   · 播的时刻 = `MinionManager__MoveMinionToConversionPoint.c:95-99` 那条 `DOLocalMove(0.3)`
+        //     的 **OnComplete**（委托 → `CardScript.CardToMinionAnim` → `BattleCardUI.PlayInvokeAnimation`）
+        //     ⇒ **飞行结束那一刻**（我们 = `DeploySequence.MoveTime` 0.3）。
+        //   · `BattleCardUI__PlayInvokeAnimation.c:30-40`：`Animation.Play(clip)`、`speed = 1.0`
+        //     （`DAT_1834b2bb8` 实读）、并 `ToggleBody3D(true)`。
+        //   · clip 本身 = `AnimationClip_-3614292623624764332.json`（17 条曲线，关键帧 → 上面 `HandToBoard*`）。
+        //   · 0.55 s 的 AnimationEvent `CardHandToBoardAnimationFinished` → `DelayedResetMaterial(0.55)`
+        //     → `BattleCardUI__SetCardMaterial(默认材质, initializeWithCardImage: true)`。
+
+        /// <summary>`Board Elements` 那一组（**3D 体 + 计数器**）的 y 起始值（卡单位）。
+        /// clip 的 `m_PositionCurves`：0 → −0.43、0.1667 → −1.347（停到 0.7）、0.9167 → 0。</summary>
+        public const float HandToBoardBodyY0 = -0.43f;
+        /// <summary>同上的低点（0.1667 / 0.7 两个关键帧都是它）= −1.347（卡单位）。</summary>
+        public const float HandToBoardBodyY1 = -1.347f;
+
+        /// <summary>「登场溶解不可用」只出声一次（别每张登场都刷一行）。</summary>
+        static bool _warnedHandToBoardDissolve;
+
+        /// <summary>**登场正向 `Card Hand To Board`**（原版 0.3 s 起播、全长 **0.9167 s**）。
+        ///
+        /// <para>覆盖到的那几条曲线（全部按 clip 的关键帧与切线喂值）：
+        /// · `Board Elements.m_IsActive` 0→1 @**0.1667**（3D 体在那一刻出现）；
+        /// · `Board Elements/3DBody/Card 3D` 的 `material._DissolveAmount` **1→0** @[0.1667, 0.7]
+        ///   （两端切线为 0 ⇒ Hermite = smoothstep，这里用 `InOutSine` 近似）；
+        /// · `Board Elements` 的 y：−0.43 → −1.347 @0.1667 · 停到 0.7 · → 0 @0.9167；
+        /// · `2DCard.m_Alpha` **1→0** @[0.3333, 0.6667]；
+        /// · `2DCard.m_IsActive` **1→0 @0.7** + `Base Attack/Health Counters` 的 alpha **→1 @0.7**
+        ///   （= `SetFace(Board)` 那一刻）+ 换回正常材质（原版 0.55 的 `DelayedResetMaterial`）。
+        /// </para>
+        ///
+        /// <para>🔴 **我们这一侧的差异（如实记，⛔ 别当成原版）**：
+        /// · 我们的卡没有 `Animation` 组件 ⇒ 按同一条时间轴**用代码喂值**（同 <see cref="ReturnToHand"/>）；
+        /// · 原版 `2DCard` 是一个 `CanvasGroup`（一处 α 管整组），我们的 2D 层是**逐层材质** ⇒
+        ///   这里用 `CardView.SetAlpha`（整卡 α）。它在 3D 体已换成**溶解材质**时**跳过 3D 体**
+        ///   （溶解材质没有 `_Color`，见 `CardView.ApplyTint`）⇒ 这一段里淡的正好只有 2D 那一套，
+        ///   与 `2DCard.m_Alpha` 同义；到 0.7 才 `SetFace(Board)` + α 复位。
+        /// · **材质复位放在 0.7（原版 0.55）**：0.55 就换回正常材质的话，它带 `_Color`
+        ///   ⇒ 剩下的 2D 淡出会把 3D 体**一起再淡一遍**（原版那时 3D 体已经实了）。
+        ///   要做到 0.55 需要 `CardView` 给「按层 alpha」的口 —— 见报告。
+        /// · **没做的曲线（判据在，但缺 API / 缺节点）**：
+        ///   `CardFrame.m_Enabled` 0→1@0.0333→0@0.75 与 `floatProperty1` 1→0（没有「只开关卡框」的口）·
+        ///   `CardImage` 的 y −0.065 与 scale→**0.905** @0.55（立绘层局部变换不公开）·
+        ///   `2DCard` 的 z −0.043 · `ToBoardFX` / `Spawn Particles` / `Trail`（原版是**卡预制体自带的
+        ///   粒子节点**，我们这套卡没有；它与 `normalSummon` 是不是同一件**判据未闭合**，见对账 §四#2）。
+        /// </para>
+        ///
+        /// <para>⚠️ **3D 体是懒建的**（`SetFace(Board)` 才建）⇒ 这里先借它把体建出来、再立刻退回原形态：
+        /// 原版 `2DCard` 要到 0.7 才关，一直藏着就演不出「2D 淡出 + 3D 溶解」的交叉。</para>
+        /// </summary>
+        public static Tween HandToBoard(CardView card, System.Action onDone = null)
+        {
+            if (card == null) return null;
+            var tr = card.transform;
+            // 已经是场上形态 = 没有 2D 卡面可淡 ⇒ 这条 clip 不适用（调用方按 null 走老路）
+            if (card.Face == CardFace.Board) return null;
+
+            // ① 先借此卡的 `Board` 形态把 3D 体 / 数值层建出来，然后马上退回原形态（见上面那段）
+            var prevFace = card.Face;
+            card.SetFace(CardFace.Board);
+            card.SetFace(prevFace);
+            card.SetBody3DVisible(false);
+
+            var body = tr.Find("body3D");
+            Vector3 bodyBase = body != null ? body.localPosition : Vector3.zero;
+            if (body == null)
+                Debug.LogWarning("[CardFeel] 登场 clip：这张卡建不出 `body3D`（3D 卡体）⇒ "
+                               + "`Board Elements` 的位移与 `_DissolveAmount` 两段**不演**"
+                               + "（原版一定有 3D 体，判据 = clip 的 `Board Elements/3DBody/Card 3D` 曲线）");
+
+            var seq = DOTween.Sequence();
+            seq.AppendInterval(HandToBoardEnd);     // 先把总长定成 0.9167；下面全是 Insert（不受游标影响）
+
+            // ② 0.1667：3D 体出现 + 开始溶解（`m_IsActive 0→1` 与 `_DissolveAmount 1→0` 同刻起）
+            seq.InsertCallback(HandToBoardLand, () =>
+            {
+                card.SetBody3DVisible(true);
+                bool ok = card.BeginDissolve();
+                if (!ok && !_warnedHandToBoardDissolve)
+                {
+                    _warnedHandToBoardDissolve = true;
+                    Debug.LogWarning("[CardFeel] 登场 clip：卡体溶解不可用（取不到原版 shader "
+                                   + "`Everguild/Cards/3D Card Dissolve`，或这张卡没有 3D 体）"
+                                   + " ⇒ 3D 体**直接出现**，与原版的「溶解出」不一致（不静默）");
+                }
+                if (ok) card.SetDissolveAmount(1f);
+            });
+            // ⚠️ 起点用**捕获的局部变量**（不是 `card.DissolveAmount`）—— `DOTween.To` 的起点是它**开始那一刻**
+            //    去读 getter 的，而同一刻的 `InsertCallback` 刚把溶解材质装好（`BeginDissolve` 会把量归 0）⇒
+            //    直接读 getter 会把起点读成 0（= 一开场就全实）。局部量 = 原版曲线的 1。
+            float dissolveFrom = 1f;
+            seq.Insert(HandToBoardLand,
+                DOTween.To(() => dissolveFrom, v => { dissolveFrom = v; card.SetDissolveAmount(v); }, 0f,
+                           HandToBoardDissolveEnd - HandToBoardLand).SetEase(Ease.InOutSine));
+
+            // ③ `Board Elements` 的 y：−0.43 → −1.347 →（停）→ 0
+            if (body != null)
+            {
+                seq.Insert(0f, BodyYTo(body, bodyBase.y + HandToBoardBodyY0,
+                                       bodyBase.y + HandToBoardBodyY1, HandToBoardLand));
+                seq.Insert(HandToBoardDissolveEnd,
+                           BodyYTo(body, bodyBase.y + HandToBoardBodyY1, bodyBase.y,
+                                   HandToBoardEnd - HandToBoardDissolveEnd));
+            }
+
+            // ④ `2DCard.m_Alpha` 1 → 0（[0.3333, 0.6667]）—— 起点同样是**捕获量**（原版那条曲线从 1 起）
+            float alphaFrom = 1f;
+            seq.Insert(HandToBoardFadeStart,
+                DOTween.To(() => alphaFrom, v => { alphaFrom = v; card.SetAlpha(v); }, 0f,
+                           HandToBoardFadeEnd - HandToBoardFadeStart).SetEase(Ease.InOutSine));
+
+            // ⑤ 0.7：`2DCard.m_IsActive` 关 + 计数器 α→1（= 换到场上形态）+ 换回正常材质 + 整卡 α 复位
+            seq.InsertCallback(HandToBoardDissolveEnd, () =>
+            {
+                card.SetFace(CardFace.Board);
+                card.SetDissolveAmount(0f);
+                card.RestoreOriginalMaterial();
+                card.SetAlpha(1f);
+            });
+
+            var t = CardTween.Use(seq, Ease.Linear, tr);
+            if (onDone != null) t.OnComplete(() => onDone());
+            return t;
+        }
+
+        /// <summary>把 <paramref name="body"/> 的**局部 y** 从 <paramref name="from"/> 补到
+        /// <paramref name="to"/>（秒）。clip 里那两条位置曲线的两端切线都是 0
+        /// （`inSlope`/`outSlope` 全 0、`weightedMode = 0`）⇒ Hermite 插值等价于 smoothstep，
+        /// 这里用 `InOutSine` 近似（⚠️ 近似，不是逐帧逐值）。</summary>
+        static Tween BodyYTo(Transform body, float from, float to, float dur)
+        {
+            if (body == null || dur <= 0f) return null;
+            // ⚠️ 起点用**捕获量**：`DOTween.To` 的起点是在 tween **开始那一刻**读 getter 的，
+            //   而同一串里前一条 tween 早把 `localPosition.y` 改成别的值了 ⇒ 读 getter 会拿到错的起点。
+            float y = from;
+            return DOTween.To(() => y,
+                              v => { y = v; var p = body.localPosition; p.y = v; body.localPosition = p; },
+                              to, dur).SetEase(Ease.InOutSine);
+        }
+
+        /// <summary>**远程攻击的「回正」段**（0.1 s）—— 原版 `CardScript._ResolveAttackRangedAnim_d__360__MoveNext.c:80-104`：
+        /// <para>一个 `Sequence` 里三条**同时**（时长全是 `attackStepTime` = 0.1，无 `SetEase` ⇒
+        /// DOTween 默认 `OutQuad`）：`DOLocalMove(handHomePos, 0.1)` + `DORotateQuaternion(identity, 0.1)`
+        /// + `DOScale(DefaultScale, 0.1)`；然后 `WaitForCompletion`（= 这三条跑完），再
+        /// `WaitForSeconds(attackStepTime)` 0.1 ⇒ **合计 0.2 s 才发 VFX**
+        /// （我们的 `EventTiming.AttackStepRanged` 正是这 0.2）。</para>
+        /// <para>我们原来**没有这一段**（只有 `LeanHomeOf` 把瞄准抬手那个字段关掉了，卡可能停在半途）。
+        /// 判据里的 `handHomePos` = 抬手之前那个静止位、`DefaultScale` = `GetUnitSizeInPlay`。</para>
+        /// </summary>
+        public static Tween AttackRecover(Transform tr, Vector3 home, float scale, float delay = 0f)
+        {
+            if (tr == null) return null;
+            var seq = DOTween.Sequence();
+            seq.Append(tr.DOLocalMove(home, AttackStepTime));
+            seq.Join(tr.DORotateQuaternion(Quaternion.identity, AttackStepTime));
+            seq.Join(tr.DOScale(Vector3.one * Mathf.Max(1e-4f, scale), AttackStepTime));
+            return CardTween.Use(seq, Ease.Linear, tr).SetDelay(delay);
+        }
+
+        // ==================================================================
         //  阵亡（原版 `CardScript.UnitDeath`）—— **不是把场上的卡溶解掉**
         // ==================================================================
         // 判据（2026-09-29 逐句读过；🔴 原文那条「阵亡 = 材质溶解 `_DissolveAmount`」**已作废** ——
@@ -1545,8 +1709,15 @@ namespace CardPresentation
             p.transform.localScale = scale;
             // 原版从卡上借贴图：`_CardImage = rawCard.cardSprite.texture` · `_MatCap = GetCardMatCapByCardTier(tier)`，
             // 再给爆散纹理一个**随机偏移**（`_ExplosionTextureOffsetModifier = Random.value`）。
+            // 🔴 **2026-10-21（W61 第 2 批 · 第 6 条）**：matcap **按卡等级分四档**（原来恒 Level1）。
+            //   判据 = `CardMaterialHelper__GetCardMatCapByCardTier.c`（拿 `RawCardScript.CardTier` 当数组下标）
+            //   + `CardMaterialHelper.matcapTexturesByCardTier`（`MonoBehaviour_4274` 的 4 个 Texture2D 引用，
+            //   UnityPy 逐 PathID 解出：Tier1 `MatCap Card Level 1` / Tier2 `Matcap Bronze` /
+            //   Tier3 `Matcap Silver` / Tier4 `Matcap Gold`）。档位口径与卡框同一个：
+            //   `CardProgress.Level(artId)` 是 **1 基**（= 原版 `CardTier + 1`）。
             var art = card.BodyArtTexture;
-            var matcap = CardArt.Card3DMatcap();
+            int tierLevel = string.IsNullOrEmpty(card.Data.artId) ? 0 : CardProgress.Level(card.Data.artId);
+            var matcap = CardArt.Card3DMatcap(tierLevel);
             foreach (var r in p.GetComponentsInChildren<MeshRenderer>(true))
             {
                 // 🔴 **2026-10-19（`A1967` 残尾）**：这里原来写的是 `r.material` ——

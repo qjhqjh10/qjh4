@@ -1062,6 +1062,37 @@ public static class CollectionScene
                           + " —— 本条是「`BarPadTop` 覆写成 117.7」的判据");
             }
 
+            // ============================================================ 左栏 `Shadow`（W62 · 界面线）
+            //  **病灶**（真机截图 `_tmp_view/shots/2026-10-22_第六十二会话/02_collection.png` 与
+            //    裁图 `45_subnav_crop.png`）：主左栏与子导航列之间有一条**竖向浅白带**
+            //    （实测设计 px x≈167..232 · y≈368..1079）。原版实拍同位置是**暗红/黑**（裁图 `46_ref_subnav.png`）。
+            //  **根因**：`40k_main_tab_shadow` 这张图是**纯白 + alpha 渐变**（51×4、左 255 → 右 3），
+            //    原版靠那颗 `Image.m_Color = (0,0,0,0.475)` 把它变成黑阴影；我们建它时**没给 tint**（= 白）。
+            //  **判据**（原版 prefab 现读，⛔ 不是从实现抄）：
+            //    `工具/menu_dump.py bundle_menus_assets_all "Collection Menu Variant" --depth 5`
+            //    ⇒ `Shadow | 167.2 158.6 214.8 1080.0 | Image | 40k_main_tab_shadow 51×4 | Simple (0,0,0,0.475)`。
+            //  ⚠️ **本件在【原版里有】** ⇒ 处置是「照原版画」，⛔ 不是「删掉」（裁图 `46_ref_subnav.png`
+            //    同一位置是**一条更暗的竖带**，只是不像白色那么刺眼）。
+            Section("左栏 `Shadow`（W62：原版存在 ⇒ 照原版画成黑，⛔ 别删）");
+            {
+                var shadow = FindChild(bar, "Shadow");
+                CheckTrue(shadow != null,
+                          "★ W62①：`Content Area/Tab Buttons/Shadow` **存在**"
+                        + "（原版这一件有 —— 处置是照它画，不是删）");
+                if (shadow != null)
+                {
+                    CheckArt(shadow, "40k_main_tab_shadow",
+                             "★ W62②：Shadow 的贴图 = 原版 `40k_main_tab_shadow`");
+                    CheckTint(shadow, new Color(0f, 0f, 0f, 0.475f),
+                              "★ W62③：Shadow 的色 = 原版 prefab 的 **Simple (0,0,0,0.475)**"
+                            + "｜🧨 不给 tint（= 白）⇒ 屏上就是那条**浅白带** ⇒ 本条红");
+                    CheckRectPx(shadow, 167.17f, 167.17f + 47.64f, 158.64f, 1080f,
+                                "★ W62④：Shadow 的矩形 = 原版 167.17,158.64→214.81,1080（47.64×921.36）");
+                    CheckAt(shadow, 167.17f, 167.17f + 47.64f, 158.64f, 1080f,
+                            "★ W62④′：Shadow 落在原版矩形中心");
+                }
+            }
+
             // ---------------- 四页签：**卡面文案不是页节点名** ----------------
             Section("四页签：文案 / 切页（正本 §二；A1 表 `:17-22`）");
             // 🔴 **2026-10-11（`A1498`）就地改口径**：四键文案**从写死的英文改成 `Loc.T(键)`** ——

@@ -915,7 +915,47 @@ namespace CardPresentation
         /// → **「≈上限」必红**。⇒ **落地形态改成两条关系式**（见 `Editor/ShellScene.cs` 那一段）：
         /// ①「渲出高 ≈ **原版那一颗的框高**」②「**框宽 − 渲出宽 ≥ 1.5px**」（宽度那一侧不是约束）。
         /// ⚠️ 这是**字体度量的差**（行盒 `1.52em` vs 原版 `≤1.47em`，已立 **`A1262`**），
-        /// ⛔ **不是框摆错了** ⇒ 无需改本文件。</para></summary>
+        /// ⛔ **不是框摆错了** ⇒ 无需改本文件。
+        ///
+        /// <para>🔴 **2026-10-21（`A1262` / `T07` 尾巴 · 铁律 5）就地补：上面那个「≤1.47em」只是【上界】，
+        /// 原版的真值已经查到了 = **1.293 em** —— 差的那一格在字体资产的 `m_Scale`。**</para>
+        /// <list type="bullet">
+        /// <item>原版那份 CJK 资产 =
+        /// `d:/2/新解包资源/assets_full/bundle_fonts_assets_all/MonoBehaviour/NotoSerifCJK-Regular SDF.json`：
+        /// `m_FaceInfo` = `m_PointSize 50` · **`m_Scale 0.9`** · `m_LineHeight 71.85` · `m_AscentLine 57.55` ·
+        /// `m_DescentLine −14.3` ⇒ face 行盒 = 71.85 ÷ 50 = **1.437 em**；TMP 再乘 `faceInfo.scale`
+        /// （`Library/PackageCache/com.unity.ugui@…/Runtime/TMP/TMP_Text.cs:4188/4190`：
+        /// `adjustedScale = fontSize / pointSize × faceInfo.scale × …`）
+        /// ⇒ **有效行盒 = 1.437 × 0.9 = 1.2933 em**。</item>
+        /// <item>我们那份 = `Resources/Fonts/NotoSerifCJK-Regular SDF.asset` 的 `m_FaceInfo:134` **`m_Scale: 1`**
+        /// ⇒ 1.437 em —— `Editor/TmpSetup.cs` 的烘焙参数抄了 pointSize / padding / atlas / renderMode /
+        /// populationMode，**独独漏了这一格**（那份注释列的参数表里也没有它）。</item>
+        /// <item>原版**运行期**旁证（中文 TMP，`资料/原版参照图/Unity参照管线_0825/data/panel_0914b/`）：
+        /// `p3_choose_tree.tsv` 的 `ContinueText` = `rect.height 43.62 ÷ fontSize 33.7` = **1.2944**（作者摆的固定框）；
+        /// `p3_mulligan_tree.tsv` 的 `MulliganText/Text` 69.44 ÷ 53.7 = **1.2931**、
+        /// `MulliganText/TurnText` 54.17 ÷ 41.8 = **1.2959**（这两颗的高度由父件 79.44 撑出来，
+        /// 而父件 79.44 = 53.7 × 1.2933 + 10 ⇒ 同一把行盒）。</item>
+        /// </list>
+        /// <para>🔴 **2026-10-21（`A1262` 已落地 · 铁律 5 就地订正）—— 上面那句「外推 `1.517 × 0.9 = 1.365` ⇒
+        /// 会重新收敛到 38 / 53.5」以及「全部 CJK 站点实渲缩 ≈10%」【都不成立】，错因 = 把 `fontSize` 当成了不变量。**</para>
+        /// <list type="bullet">
+        /// <item>✅ **已落地的部分**：资产 `Resources/Fonts/NotoSerifCJK-Regular SDF.asset` 的 `m_Scale` 已改 **0.9**，
+        /// `Editor/TmpSetup.cs` 建完也补了同一刀（`var fi = fa.faceInfo; fi.scale = 0.9f; fa.faceInfo = fi;`）
+        /// ⇒ 这一格与原版一致。断言 → `Editor/ShellScene.cs` 的 `③′`（`A1262` 那组，**读资产字段**）。</item>
+        /// <item>❌ **渲染结果逐位不变**：本工程的 px 口径 = **汉字墨高**
+        /// （`Label.FontSizeToPx` = `fontSize × TmpFont.WorldGlyphPerFontSize × 108`，后者是**运行时实测**的
+        /// `TmpFont.MeasureGlyph('国')`）。`SetAutoFitBox` 里 `fontSizeMax = maxPx ÷ (Wglyph × 108)`，
+        /// 而一行字的世界高 = `fontSize × face 行盒 × m_Scale × 0.1` ⇒ `Wglyph` 与行盒**同时**乘 `m_Scale`
+        /// ⇒ **乘积与 `m_Scale` 无关**。实测坐实：渲出比 **1.52 = 1.437 ÷ 0.948** —— 分子分母都含 `m_Scale`、约掉了
+        /// （这正是那四条读数 1.5170 / 1.5252 / 1.5470 / 1.5252 的来历：它们量的**不是「我们的行盒」**，
+        /// 而是**行盒 ÷ 汉字墨高**）。</item>
+        /// <item>⇒ **真正的残差是【口径】，不是缺 `m_Scale`**：我们的「px」= 汉字墨高，而原版 `m_fontSize` 对应的
+        /// 墨高只有 `0.948 × 0.9 = 0.853 × px` ⇒ 同一句话我们排出来比原版大 **≈17%**。要回到 38 / 53.5 得改**口径**
+        /// （`EmPerFontSize(Cjk)` 换成真 em）或**逐站改 `minPx/maxPx` 实参**（全仓 510+ 站、实渲缩 ≈15%），
+        /// 属**另一笔**、须单独一批 + 真机并排验收。⛔ 别在本文件里单独挪某一站的字号去「凑回 38」。</item>
+        /// </list>
+        /// <para>⛔ **本文件一个字都不用改**（框、`PreferredWidthPx`、`A1178` 的两条关系式都与 `m_Scale` 无关）。
+        /// 判据全文 → `资料/普查产出_1021/W61b_界面_A1262_mScale.md`。</para></summary>
         static float PreferredWidthPx(Label lb, string who)
         {
             if (lb == null) return 0f;

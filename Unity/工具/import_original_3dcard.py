@@ -14,7 +14,9 @@
 `Assets/CardPresentation/Resources/Art/card3d/`（**gitignore**，本地件，和 `cards/`、`card_sdf/` 同规矩）：
   · `Card 3D WH40k.asset`            网格（**UV1 是立绘那套、UV2 是计数器面板开关** —— 三个通道都在，实读确认过）
   · `Card3D_BaseColor.png`           材质 `_BaseMap`：512² 底板图集（正/背/侧/滚边/计数器面板）
-  · `MatCap_Card_Level1.png`         材质 `_MatCap`（**只有 Level 1 有**，其它 tier 的 matcap 本地没解出来）
+  · `MatCap_Card_Level1.png`         材质 `_MatCap` 的 Tier1；🆕 2026-10-21 起还有 `MatCap_Bronze/Silver/Gold`
+                                     （原版 `CardMaterialHelper.matcapTexturesByCardTier` 四档 —— 原来这里写
+                                     「其它 tier 本地没解出来」**是错的**，见下面 JOBS 里那段订正）
 
 用法
 ----
@@ -28,12 +30,27 @@ import sys
 
 VFX = "d:/4/Unity/MyGame/Assets/WarpforgeVFX"
 DEST = "d:/4/Unity/MyGame/Assets/CardPresentation/Resources/Art/card3d"
+# 🆕 2026-10-21（W61 第 2 批 · 第 6 条）：`Matcap Gold` 导出器**没导**（`WarpforgeVFX/Textures/` 里没有），
+#   直接从解包原图拿 —— 判据见下面对应那一行的注释。
+ASSETS = "d:/2/新解包资源/assets_full"
 
 # (源, 目标名, 说明)
 JOBS = [
     (f"{VFX}/Meshes/Card 3D WH40k.asset",        "Card 3D WH40k.asset", "网格（881 顶点 / UV0+UV1+UV2）"),
     (f"{VFX}/Textures/WF 3D Card_Card 3D_BaseColor.png", "Card3D_BaseColor.png", "`_BaseMap` 底板图集 512²"),
     (f"{VFX}/Textures/MatCap Card Level 1.png",  "MatCap_Card_Level1.png", "`_MatCap`（只有 tier1 这一张）"),
+    # 🆕 2026-10-21（W61 第 2 批 · 第 6 条）：**matcap 四档** —— 🔴 原来这一行上面写着「只有 tier1 这一张 /
+    #   其它 tier 的 matcap 本地没解出来」，**那是错的**（铁律 5 就地订正）。
+    #   判据 = `CardMaterialHelper.matcapTexturesByCardTier`（`bundle_scenes_scenes_battlearena1` 的
+    #   `MonoBehaviour_4274`）是 4 个 Texture2D 引用，UnityPy 逐 PathID 落到
+    #   `battlesharedresources_assets_all.bundle`：
+    #     [0] Tier1 `MatCap Card Level 1`（上一行）· [1] Tier2 `Matcap Bronze` ·
+    #     [2] Tier3 `Matcap Silver` · [3] Tier4 `Matcap Gold`（`CardTier.cs` = Tier1=0 … Tier4=3）。
+    #   ⚠️ 前两张 `WarpforgeVFX/Textures/` 里有（导出器产物）；**Gold 那份没有** ⇒ 取解包原图。
+    (f"{VFX}/Textures/Matcap Bronze.png",        "MatCap_Bronze.png",       "`_MatCap` Tier2（原版 `Matcap Bronze`）"),
+    (f"{VFX}/Textures/Matcap Silver.png",        "MatCap_Silver.png",       "`_MatCap` Tier3（原版 `Matcap Silver`）"),
+    (f"{ASSETS}/bundle_battlesharedresources_assets_all/Texture2D/Matcap Gold.png", "MatCap_Gold.png",
+     "`_MatCap` Tier4（原版 `Matcap Gold`；导出器没导，取解包原图）"),
     # 🆕 2026-09-25：**卡底那枚软阴影**（原版 `BlobShadowController` 用的 sprite）。
     #   · 原版 sprite：`Card blob shadow`（`bundle_battleprefabs_vfxandmisc_assets_all/Sprite/Card blob shadow.json`）
     #     矩形 128×128、`m_PixelsToUnits = 100`、pivot (0.5,0.5)；`textureRect` = 124.848² @ (2.076,1.076)

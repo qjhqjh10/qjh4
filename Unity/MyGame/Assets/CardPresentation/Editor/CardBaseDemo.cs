@@ -979,23 +979,31 @@ public static class CardBaseDemo
                 + "｜🧨 只挪其中一块（今天就是这样）⇒ 本条红，而别处全绿");
 
             // ---- ② 与**卡上那一行字**的实测关系（与 ① 结构上不可能同时满足）----
-            //  ① 锚的是**原版那一对 apos 原值**，② 锚的是**我们卡上那层 TMP 的实测行心** ——
+            //  ① 锚的是**原版那一对 apos 原值**，② 锚的是**我们卡上那层 TMP 的实测墨心** ——
             //  两个来源不可能被同一次改动一起满足（例：把底板与 `UnitNameAt` 一起下移 0.08
             //  ⇒ ① 红、② 仍绿；只挪底板 ⇒ 两条都红）。
-            //  ⚠️ 容差取 0.02 卡单位：`PlaceAt` 摆的是 `Middle` 的行盒、随后才改成 `Midline`
-            //     ⇒ 实测行心与「目标点」差一个 `c_G`（`CardView` 注释里记的 ≈1.25 px ≈ 0.01 卡单位）。
-            //     0.02 既盖得住它，又比要抓的那个 0.08 小 4 倍。
+            //  🔴 **2026-10-22（`W62/T3`）**：容差从 0.02 收到 **0.005** —— 原来那个 0.02 是为了盖住
+            //    「量行盒心」带来的 `c_G`（行盒心 ↔ 墨心，∝ 字号，实测 0.0181/0.0201）；现在量的就是墨心，
+            //    那个系统性偏移不存在了。判据 = 节点中心 −0.2735（原版 `RectTransform_4173703600236829632`
+            //    的 apos + 父级，见 `TmpInkCenterY` 的注释）。
             var tBig = LayerTmp(vBig.transform, "title");
             bool tOk = tBig != null;
-            if (tOk) { tBig.ForceMeshUpdate(); tOk = tBig.textBounds.size.y > 0.01f; }
-            Check(tOk, "★ 前提：卡名那层 TMP 建出来了、**行盒非空**"
-                     + "（空盒会让「行心」退化成垃圾值 ⇒ 下面那条假绿）");
             if (tOk)
             {
-                float rowBig = TmpRowCenterY(vBig, tBig);
-                Check(Mathf.Abs(yBig - (rowBig - NameGapUnit)) < 0.02f,
-                      $"② 板心 = **单位**卡名行心 − {NameGapUnit:F4} 卡单位"
-                    + $"（板心 {yBig:F4}，卡名行心 {rowBig:F4}，差 {rowBig - yBig:F4}）"
+                tBig.ForceMeshUpdate();
+                float l0, h0;
+                tOk = CardFaceProbe.InkSpanY(tBig, out l0, out h0) && h0 - l0 > 0.01f;
+            }
+            Check(tOk, "★ 前提：卡名那层 TMP 建出来了、**字墨非空**"
+                     + "（量不到可见字形 ⇒ 墨心是 NaN ⇒ 下面那条会**假绿**）");
+            if (tOk)
+            {
+                float inkBig = TmpInkCenterY(vBig, tBig);
+                Check(Mathf.Abs(yBig - (inkBig - NameGapUnit)) < 0.005f,
+                      $"② 板心 = **单位**卡名**墨心** − {NameGapUnit:F4} 卡单位"
+                    + $"（板心 {yBig:F4}，卡名墨心 {inkBig:F4}，差 {inkBig - yBig:F4}）"
+                    + "｜旧口径量的是 `textBounds.center`（**行盒心**），Midline 下它与墨心差一个 `c_G`（∝ 字号）"
+                    + " ⇒ 旧容差只能放 0.02、抓不出字号回归；现在量墨心、容差 0.005"
                     + "｜🧨 把底板与 `UnitNameAt` 一起平移 ⇒ ① 红、本条仍绿（这就是两条的分工）");
             }
             var dTac = CardData.Placeholder(0);
@@ -1004,14 +1012,20 @@ public static class CardBaseDemo
             var rTac = LayerMesh(vTac.transform, "textBg");
             var tTac = LayerTmp(vTac.transform, "title");
             bool tTacOk = rTac != null && tTac != null;
-            if (tTacOk) { tTac.ForceMeshUpdate(); tTacOk = tTac.textBounds.size.y > 0.01f; }
-            Check(tTacOk, "★ 前提：**战术卡**那一份的 `textBg` + 卡名层都建出来了");
             if (tTacOk)
             {
-                float yTac = LayerCenterY(vTac, rTac), rowTac = TmpRowCenterY(vTac, tTac);
-                Check(Mathf.Abs(yTac - (rowTac - NameGapTactic)) < 0.02f,
-                      $"② 板心 = **战术**卡名行心 − {NameGapTactic:F4} 卡单位"
-                    + $"（板心 {yTac:F4}，卡名行心 {rowTac:F4}，差 {rowTac - yTac:F4}）"
+                tTac.ForceMeshUpdate();
+                float l1, h1;
+                tTacOk = CardFaceProbe.InkSpanY(tTac, out l1, out h1) && h1 - l1 > 0.01f;
+            }
+            Check(tTacOk, "★ 前提：**战术卡**那一份的 `textBg` + 卡名层都建出来了、字墨非空");
+            if (tTacOk)
+            {
+                float yTac = LayerCenterY(vTac, rTac), inkTac = TmpInkCenterY(vTac, tTac);
+                Check(Mathf.Abs(yTac - (inkTac - NameGapTactic)) < 0.005f,
+                      $"② 板心 = **战术**卡名**墨心** − {NameGapTactic:F4} 卡单位"
+                    + $"（板心 {yTac:F4}，卡名墨心 {inkTac:F4}，差 {inkTac - yTac:F4}）"
+                    + "｜容差 0.005（口径同单位卡那条：量墨心，不量行盒心）"
                     + "｜🧨 把单位/战术两套卡名位置写成一个（不分档）⇒ 本条红");
             }
 
@@ -1900,15 +1914,31 @@ public static class CardBaseDemo
         return DistinctSorted(vals, 1e-4f);
     }
 
-    /// <summary>一层 TMP 的**行盒中心 y**（卡单位）。`PlaceAt` 摆的就是 `textBounds.center`
-    /// ⇒ `局部位置 + textBounds.center` 才是这一行的视觉中心（⛔ 只读 `localPosition` 会差半个行盒）。
-    /// ⚠️ `textBounds.center` 在 TMP 自己的局部系里，而 TMP 相对父级没有缩放/旋转 ⇒ 可直接相加。</summary>
-    static float TmpRowCenterY(CardView card, TMPro.TextMeshPro t)
+    /// <summary>一层 TMP 的**字墨中心 y**（卡单位）。
+    ///
+    /// <para>🔴 **2026-10-22（`W62/T3`）就地改口径：原来量的是「行盒心」，那是错的。**
+    ///   旧实现是 `localPosition + textBounds.center`，而 `textBounds` 给的是 **TMP 的排版框**（行盒）。
+    ///   卡名那一层是 **`Midline`**（`VerticalAlignmentOptions.Geometry` = 4096），它的定义是把
+    ///   **字墨**的中点摆到节点中心 —— 判据：
+    ///   · 节点：`bundle_battleprefabs_vfxandmisc_assets_all/RectTransform/RectTransform_4173703600236829632.json`
+    ///     （`m_AnchoredPosition.y = 0.5009999871`、`m_LocalScale 0.01`、父级 −0.7745 ⇒ 节点中心 **−0.2735**）；
+    ///   · 对齐：同包 `MonoBehaviour_-6860425428091954240.json` 的 **`m_VerticalAlignment = 4096`**；
+    ///   · 语义：`TMP_Text.cs`/`TextMeshPro.cs:4223-4225` —— `Geometry` 分支按
+    ///     `m_meshExtents` 的 `(max.y + min.y) / 2` 对齐，也就是**网格（字墨）中点**。
+    ///   ⇒ 行盒心与墨心差一个 **`c_G`**，而 **`c_G ∝ 字号**：字号一变大行心就跟着偏。
+    ///   2026-10-21 的 CJK `m_Scale` 1→0.9 就是把本条偏差从 **0.0181** 顶到 **0.0201** 的
+    ///   （比值 1.1105 ≈ 1/0.9）—— 那是**口径错**才需要 0.02 的容差，也正是这条当年没抓住字号回归的原因。
+    ///   现在量真墨心（`CardFaceProbe.InkSpanY`，与 `A848` 那条同源、全仓只此一份实现），容差收到 **0.005**。</para>
+    /// ⚠️ `textInfo.meshInfo` 的顶点在 TMP 自己的局部系里，TMP 相对父级没有缩放/旋转 ⇒ 可直接相加。
+    /// <returns>量不到可见字形时回 `NaN`（调用方拿它判「没验到」，⛔ 别当成通过）。</returns></summary>
+    static float TmpInkCenterY(CardView card, TMPro.TextMeshPro t)
     {
         if (t == null) return float.NaN;
         t.ForceMeshUpdate();
+        float lo, hi;
+        if (!CardFaceProbe.InkSpanY(t, out lo, out hi)) return float.NaN;
         var parent = t.rectTransform.parent;
-        Vector3 local = t.rectTransform.localPosition + t.textBounds.center;
+        Vector3 local = t.rectTransform.localPosition + new Vector3(0f, (lo + hi) * 0.5f, 0f);
         Vector3 w = parent != null ? parent.TransformPoint(local) : local;
         return card.transform.InverseTransformPoint(w).y * (CardView.CardUnitH / CardView.Height);
     }

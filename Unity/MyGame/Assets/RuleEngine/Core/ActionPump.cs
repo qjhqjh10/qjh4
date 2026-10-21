@@ -1,0 +1,379 @@
+// ActionPump.cs — 原版「四条动作队列」的**泵点 / 动作外壳**（引擎线 `T03·c` 批 B · 行为接线）
+//
+// 判据正本（第一权威 = 全量反编译 `d:/2/tools/decomp_full/`）：
+//   `资料/普查产出_1021/W61_引擎线_T03c批B判据.md` §2.3 / §4.A 第 3、5 步
+//   `资料/普查产出_1020/W58_战斗结算_多词条顺序判据.md` §二
+//
+// 原版形状（`BattleManager__Update.c:1250-1299` + `NextActionInQueue.c:11-28`
+//           + `ResolveActionFromQueue.c:32-44` + `FinishResolvingAction.c:34-46`）：
+//   ```
+//   Update():
+//     if (!duringBattle && !duringScriptedActions) return;
+//     if (resolvingActionFlag(+0x280)) return;                  // ← 正在结算 ⇒ 本帧不泵
+//     lane = NextActionInQueue();                               // ← 2 → 1 → 3 → 0
+//     if (lane 没有动作) return;
+//     resolvingActionFlag = true;
+//     action = lane[0]; lane.RemoveAt(0);                       // ← 同道 FIFO
+//     ResolveAction(action);
+//     FinishResolvingAction();                                  // ← 清 flag
+//   ```
+//   ⇒ **每帧最多一条**。我们**没有帧循环**（铁律：批处理下没有帧循环），
+//     所以等价物 = **在「一次顶层动作结束」这个边界上把队列取空** ——
+//     取出的**次序**与原版逐字相同（2→1→3→0 循环），差的只有「两条之间夹了几帧」，
+//     而帧间隔在纯规则引擎里**不可观测**（表现层读的是 `ctx.Signals` 序列，序列本身不变）。
+//
+// 🔴 **三条设计口径（都有判据，别推翻）**：
+//   ① **动作内部不递归泵队** —— `Resolving` 为真时 `PumpActionQueues` 直接返回；
+//      动作里产生的触发由**当前泵的循环**接着取（原版同一个形状：`Update` 下一帧才取）。
+//   ② **闸在泵点、不在队列** —— `ActionQueue.TryDequeue` 不看 `Resolving`（见那个类的注释）。
+//   ③ **顶层动作外壳 = `ActionScope`** —— 进入时 `Resolving = true`（这一条动作正在结算，
+//      里面产生的触发**只入队**），退出时清 flag 并**取空队列**。
+//      原版那个「当前动作」是 `ResolveActionFromQueue` 结算的那一条；我们是玩家/引擎的
+//      顶层入口（出牌 / 攻击 / 回合起止 / 主动技能 / 死亡处理 …）。
+//
+// ⚠️ **为什么「顶层入口也要算一条正在结算的动作」**：原版玩家点一下 → 建一条
+//   `remotePlayerAction(36)`@Player 入队 → `Update` 取它结算；它结算期间产生的触发
+//   **全部排队**，等它跑完才轮到。我们如果把出牌直接跑完再泵，次序**一样**
+//   （Player 道本来就是最后消费的一条道）；差别只出现在「队列里已经攒着东西」时 ——
+//   而原版每帧都泵，玩家点得动的时候队列**必然已经空**（`Busy` 时输入层不该放行）。
+//   ⇒ 两种写法观测等价；本实现选「外壳」这一种，因为它不必把 `PlayCard` 的返回值/`out`
+//     参数改成异步（那会成片改调用点，且 `RuleEngineTest` 的 6000+ 条断言都同步读终局）。
+namespace RuleEngine
+{
+    public static partial class RuleCore
+    {
+        /// <summary>
+        /// **一次泵最多结算几条** —— ⛔ 不是队列容量，是**防跑飞的硬闸**。
+        ///
+        /// 为什么需要：原版的触发链由**游戏规则**保证收敛（没有深度上限，
+        /// `CardAbility.priority` 只决定道，不决定次数）。而我们这边一旦有
+        /// 「A 触发 B、B 再触发 A」这种环，队列会**永不空** —— 没有栈溢出，但会死循环。
+        /// 既有那条 `ctx.EffectChain &lt; MaxEffectChain(8)` 是**同步递归**时代的上限，
+        /// 现在触发改走队列、递归深度回到 1（泵是循环，不是递归）⇒ 那条闸**不再兜得住**。
+        /// ⇒ 这里补一条**结构**上的兜底：超过就 **LogError（出声）+ 清空四道 + 停止泵**。
+        /// ⚠️ 值取 4096 的依据：一回合内真实动作量在**个位到几十**（一次攻击最多 ~10 条，
+        ///    一次出牌 ~20 条），4096 是「三个数量级以上的余量」⇒ 正常对局摸不到，
+        ///    摸到就一定是环。⛔ 别拿它当「队列满了」的容量判据。
+        /// </summary>
+        public const int MaxPumpedActionsPerDrain = 4096;
+
+        /// <summary>
+        /// 「**一条顶层动作正在结算**」的作用域 —— 相当于原版
+        /// `ResolveActionFromQueue` 里置 `resolvingActionFlag(+0x280)` 到
+        /// `FinishResolvingAction` 清掉的那一段。
+        ///
+        /// 用法：<c>using (RuleCore.BeginAction(ctx)) { …原有函数体… }</c>
+        ///
+        /// 🔴 **必须成对**（`using` 交给编译器），否则 flag 会留在 `true` 上 ⇒
+        ///   之后**所有**泵点都不干活（静默：触发全部堆在队列里不结算）。
+        /// 🔴 **嵌套安全**：内层看到 `Resolving == true` ⇒ 什么都不做（**不泵队**、退出时也不清 flag）
+        ///   —— 这正是「动作内部不递归泵队」。
+        /// ⚠️ 进入时**先泵一次**：把「上一个顶层入口没取干净的残留」结掉。
+        ///   今天不该有残留（每个顶层入口退出时都取空），这一步是**结构性兜底**，
+        ///   零成本（队列空时 `TryDequeue` 立刻 false）。
+        /// </summary>
+        public struct ActionScope : System.IDisposable
+        {
+            readonly BattleContext _ctx;
+            readonly bool _outermost;
+
+            internal ActionScope(BattleContext ctx)
+            {
+                _ctx = ctx;
+                _outermost = ctx != null && !ctx.ActionQueue.Resolving;
+                if (_outermost)
+                {
+                    // 先把上一轮残留结掉（正常情况下队列是空的，见类型注释）
+                    PumpActionQueues(ctx);
+                    ctx.ActionQueue.Resolving = true;
+                }
+            }
+
+            public void Dispose()
+            {
+                if (_ctx == null || !_outermost) return;
+                _ctx.ActionQueue.Resolving = false;
+                PumpActionQueues(_ctx);          // ← 出队到空（2→1→3→0 循环）
+                // 🔴 **结构性兜底（不该发生）**：顶层动作都跑完了队列却没空 ⇒ 两种病，**分开报**。
+                //    ⛔ 不静默；⛔ **别合并成一句** —— 两种病的修法完全不同：
+                //      ① **泵点漏了**（`Resolving` 已清、队列还有东西）⇒ 去找哪个顶层入口没包 `BeginAction`；
+                //      ② **`Resolving` 闸泄漏**（退出后它还是 `true`）⇒ 泵点循环的条件就是 `!q.Resolving`
+                //         （见 `PumpActionQueues`），泄漏时**一条都不取**、队列当然非空 ——
+                //         这**不是**泵点漏，是有人把 `Resolving` 置真却没配对清掉（`ActionScope` 之外不许写它）。
+                //    ⚠️ 2026-10-21 审查（`W61b` 第 6 条）：原来只有 ① 那一句、还带着 `!Resolving` 的前置 ——
+                //      ⇒ 最该报的 ② 恰好在此时沉默（「从此所有触发都不结算」却一条日志都没有）。
+                //    对局结束时队列本来就允许有残留（见泵点），所以 `IsOver` 那一档不报。
+                if (_ctx.ActionQueue.Count > 0 && !_ctx.IsOver)
+                {
+                    if (_ctx.ActionQueue.Resolving)
+                        UnityEngine.Debug.LogError(
+                            $"[ActionQueue] 顶层动作退出后 `Resolving` **仍为 true**，队列里还有 "
+                            + $"{_ctx.ActionQueue.Count} 条 —— 这是**闸泄漏**（不是泵点漏）：泵点循环的条件是 "
+                            + "`!Resolving` ⇒ 从此一条都不会被取出（症状 = 之后所有触发都不结算）。"
+                            + "查谁在 `ActionScope` 之外直接写 `ActionQueue.Resolving`"
+                            + "（判据 → Core/ActionPump.cs 的 `ActionScope` doc）。");
+                    else
+                        UnityEngine.Debug.LogError(
+                            $"[ActionQueue] 顶层动作结束后队列仍有 {_ctx.ActionQueue.Count} 条没结算 —— "
+                            + "泵点漏了（哪个顶层入口没包 `BeginAction`？判据 → Core/ActionPump.cs 头注释）");
+                }
+                // 🆕 **2026-10-22（`W62` · R2）**：本条顶层动作结束 ⇒ 关掉「刚离场」窗口
+                //   （`BattleContext.DyingThisAction` 的 doc：原版那面窗口 = `UnitDeath` 协程跑完之前，
+                //   我们等价成**一条顶层动作**）。⚠️ 必须**泵完之后**才清 —— 队列里那些监听器
+                //   正是靠这个窗口才还能指着刚死的那个人。
+                _ctx.DyingThisAction.Clear();
+            }
+        }
+
+        /// <summary>开一个顶层动作作用域（见 <see cref="ActionScope"/>）。`ctx == null` ⇒ 空作用域。</summary>
+        public static ActionScope BeginAction(BattleContext ctx)
+        {
+            return new ActionScope(ctx);
+        }
+
+        /// <summary>
+        /// 把**一条 ability 的结算**排进队列（原版 `BattleManager.AddAutoActionToQueue`）。
+        ///
+        /// 🔴 **它只入队、不结算** —— 哪怕队列是空的、哪怕当前没有动作在跑。
+        ///   「什么时候真的跑」只由泵点决定（`ActionScope` 退出 / 显式 `PumpActionQueues`）。
+        ///   原版也是这样：`AddAutoActionToQueue` 只 `List.Add`，取队的是 `Update`。
+        /// ⚠️ **不要**在这里做「队列空就直接执行」那种短路 —— 那会把
+        ///   「跨道 priority 压过入队序」这条语义整个抹掉（先入 DelayedInstant 的东西
+        ///   会被后来的 Instant 抢到前面去）。
+        /// </summary>
+        /// <param name="lane">进哪一条道。非法值（不在 0..3）由 `ActionQueue.Enqueue` LogError 后丢弃。</param>
+        /// <param name="label">人话标签（日志 / 排查用）</param>
+        /// <param name="body">出队时要跑的那段结算（**必须自带上下文** —— 见 <see cref="QueuedAction.Execute"/>）</param>
+        /// <param name="actor">
+        /// 🆕 2026-10-21（审查 `W61b` 第 3 条）：**这条 ability 的「施放者」是哪个场上单位**
+        /// （原版把 `actingCard` 一起打包进 `BattleAction`）。`null` = 不关任何单位
+        /// （战术卡留下的常驻效果 / 手牌里的监听器 / 死亡结转那一族）。
+        /// </param>
+        /// <param name="requireActorInPlay">
+        /// 🆕 同上：**出队时要不要复核「施放者还能不能跑这条 ability」**（判据 = 原版
+        /// `CardAbility.abilityContext`，`CardAbility__IsRightContext.c`）：
+        /// `true` = `Play(0)` —— 结算那一刻要求 `CardScript.IsInPlay(card)`，
+        /// 所以出队时施放者已经离场（死亡 / 回手 / 移出棋盘 / 变成残骸）⇒ **这条作废**；
+        /// `false` = `InPlayOrDying(40)`（**待死也算在场**）/ `50`（**在墓地也算**）/ 没有施放者 —— 照跑。
+        /// ⚠️ 缺省 `false`：既有调用点**行为零变化**，只有显式传 `true` 的才参与复核；
+        ///   「哪个关键词能判」由 `ActorMustBeInPlayForTrigger`（数据表）一处决定。
+        /// </param>
+        public static bool EnqueueAbility(BattleContext ctx, ActionPriority lane, string label,
+                                          System.Action body,
+                                          UnitState actor = null, bool requireActorInPlay = false,
+                                          bool extraTrigger = false)
+        {
+            if (ctx == null || body == null) return false;
+            var act = new QueuedAction
+            {
+                Label = label, Execute = body,
+                Actor = actor, RequireActorInPlay = requireActorInPlay,
+                ExtraTrigger = extraTrigger,
+            };
+            return ctx.ActionQueue.Enqueue(act, lane);
+        }
+
+        /// <summary>
+        /// 🆕 2026-10-21（审查 `W61b` 第 3 条）：**这个触发关键词的那条 ability，出队时要不要
+        /// 复核「施放者还在场上」** —— 判据 = 原版 `CardAbility.abilityContext`
+        /// （`CardAbility__IsRightContext.c`）：
+        ///   · `Play(0)` ⇒ `CardScript.IsInPlay(card)`（**不在场就不结算**）；
+        ///   · `InPlayOrDying(40)` ⇒ `IsInPlayOrDying`（**待死也算在场**）；
+        ///   · `50` ⇒ `IsInCemetery || IsInPlay`（**在墓地也算**）。
+        ///
+        /// 🔴 **判据是数据，不是猜** —— 现读 `资料/普查产出_1018/allcards_1350/cards_raw.json`
+        /// （1,351 张卡的 `cardAbilities[].abilityContext`）按原版 `AbilityTrigger` 分组：
+        /// <code>
+        ///   触发（原版 id）              abilityContext 分布             本函数
+        ///   rally / ThisUnitSummoned(195)   {0:1}                          true
+        ///   mob   / Mob(300)                {0:17}                         true
+        ///   slay  / Slay(120)               {0:22}                         true
+        ///   artifice / Artifice(560)        {0:19}                         true
+        ///   abouttoattack / (280)           {0:3}                          true
+        ///   strike / Strike(580)            {0:29, 40:5}                   false ← 混着
+        ///   regiment / Regiment(301)        {40:10, 50:3}                  false ← **一条 0 都没有**
+        ///   codex / Codex(145)              {0:34, 50:3}                   false ← 混着
+        ///   backlash / ThisUnitDeath(80)    {0:10, 50:1, 40:1}             false ← 施放者正是死者
+        ///   unstable / Unstable(81)         {40:18}                        false ← 全 40
+        /// </code>
+        /// ⇒ **只有「整族都是 `0`」的才在这一层判**；混着 40/50 的**一律不取消**
+        /// （否则会把「待死 / 在墓地也照跑」那一档静默掐掉 —— 那比「多跑一条」更糟：
+        ///  `Rage` / `Unstable` / `Regiment` 这一族正是靠它工作的）。
+        ///
+        /// ⛔ **别按关键词名猜**（`strike` 听着像「在场才能打」，数据里却有 5 条是 40）。
+        /// ⏭ **要把这一层做准**：得把 `abilityContext` 落进卡表（新列 + 生成器，本批不在白名单里），
+        ///    然后这里改成读**这张卡这条 ability** 的 context。已写进审查修复报告的「没查清 / 欠账」。
+        /// </summary>
+        public static bool ActorMustBeInPlayForTrigger(string keyword)
+        {
+            return keyword == KeywordTable.Rally
+                || keyword == KeywordTable.Mob
+                || keyword == KeywordTable.Slay
+                || keyword == KeywordTable.Artifice
+                || keyword == KeywordTable.AboutToAttack;
+        }
+
+        /// <summary>
+        /// 🆕 2026-10-21（审查 `W61b` 第 3 条）：**这个单位此刻还在不在「场上」** ——
+        /// 泵点出队前复核施放者用（<see cref="QueuedAction.RequireActorInPlay"/>）。
+        ///
+        /// 判据（原版 `CardScript__IsInPlay` + `CardAbility__IsRightContext` 的 `Play(0)` 那一支）：
+        ///   · 死了（`IsAlive` 假 = 生命归零）⇒ 不算；
+        ///   · 不在**任何一方棋盘**上（回手 / 回牌库 / 被移出 / 翻面成残骸时原 `UnitState` 已被换掉）⇒ 不算。
+        /// ⚠️ **督军就在 `Board[BoardSpec.WarlordSlot]` 上**（`PlayerState.Warlord` 是同一个对象的
+        ///    另一个引用），所以这一趟扫棋盘就覆盖了督军，⛔ 不需要另判。
+        /// ⚠️ 「待死」（`ctx.DeferDeaths` 窗口里已经归零、但还没结算死亡）在原版是**状态 5** ——
+        ///    它只满足 `InPlayOrDying`，**不满足** `IsInPlay` ⇒ 这里返回 `false` 是对的
+        ///    （`IsAlive` 已经是假的：我们的 `Health <= 0` 与「待死」是同一个状态）。
+        /// </summary>
+        public static bool UnitInPlay(BattleContext ctx, UnitState u)
+        {
+            if (ctx == null || u == null) return true;          // 没有施放者 ⇒ 不关任何单位
+            if (!u.IsAlive) return false;
+            for (int p = 0; p < 2; p++)
+            {
+                var board = ctx.Players[p].Board;
+                for (int s = 0; s < BoardSpec.Size; s++)
+                    if (ReferenceEquals(board[s], u)) return true;
+            }
+            return false;
+        }
+
+        /// <summary>按**卡 + 触发关键词**取这条 ability 的原版道（`CardAbility.priority`）。
+        /// 缺数据 ⇒ `1`（Instant）。⚠️ 非法值（数据坏）⇒ 原样返回，由 `ActionQueue.Enqueue` 出声丢弃。</summary>
+        public static ActionPriority TriggerLane(UnitState u, string keyword)
+        {
+            return TriggerLaneOfCard(u != null ? u.Card : null, keyword);
+        }
+
+        /// <inheritdoc cref="TriggerLane(UnitState,string)"/>
+        public static ActionPriority TriggerLaneOfCard(CardDef card, string keyword)
+        {
+            int p = card != null ? card.TriggerPriority(keyword) : CardDef.DefaultTriggerPriority;
+            return (ActionPriority)p;
+        }
+
+        /// <summary>
+        /// **事件监听器那一条 ability 的道**（`When … , …` / `At the end of your turn` / 常驻效果）。
+        ///
+        /// 🔴 **如实标着（数据缺口）**：`cards_engine.json` 的 `triggerPriority` 是按
+        /// **引擎触发关键词**（`artifice` / `codex` / `spiritstone` / `slay` …）落的，
+        /// 而监听器走的是 `WhenEventKind`（`play` / `deploy` / `die` / `damaged` …），
+        /// 两者**不是同一套词**（生成器 `ABILITY_TRIGGER_KEYWORD` 那 21 条里没有 `otherunitdeath(90)`
+        /// 这一族）⇒ 监听器这条路上**没有数据可查**，一律取原版默认 **1 = Instant**。
+        /// ⚠️ 现读全池：`priority != 1` 的 12 条 ability **没有一条**是监听器族
+        /// （判据报告 §3「已闭合旧账」：1484 Instant / 6 Interrupt / 4 DelayedInstant / 2 Player，
+        /// 那 10 条非默认全在关键词触发上）⇒ **今天零可观测差异**。
+        /// ⏭ 缺口：要让监听器也吃到 priority，得在生成器里把「`When …` 那一族 → 原版 trigger 名」
+        ///   也映进同一张表（`TriggerNameOfWhenKind` 已经有那套名字，但数据列没按它落）。见报告 §没查清。
+        /// </summary>
+        public static ActionPriority ListenerLane(CardDef card)
+        {
+            return (ActionPriority)CardDef.DefaultTriggerPriority;
+        }
+
+        /// <summary>
+        /// **泵点** —— 原版 `BattleManager.Update` 那一段的等价物：
+        /// `Resolving` 为假时按 **Interrupt(2) → Instant(1) → DelayedInstant(3) → Player(0)**
+        /// 一条一条取、结算，直到四道全空。
+        ///
+        /// 🔴 **`Resolving` 为真就立刻返回**（原版 `Update` 同一条闸）⇒ 动作内部调到这里是**空转**。
+        /// 🔴 每结算一条，把它自己的 `Resolving` 置真/置假 —— 于是**它内部产生的触发只入队**，
+        ///   由**本循环**接着取（原版下一帧取，次序相同）。
+        /// 🔴 🆕 2026-10-21（审查 `W61b` 第 3 条）：**取出来之后、结算之前复核「施放者还在不在」** ——
+        ///   见下面那个 `RequireActorInPlay` 分支。
+        /// ⚠️ `ctx.IsOver` ⇒ 停止泵队（原版 `duringBattleFlag` 为假时 `Update` 也不再取）。
+        ///   剩下的条目**保留在队列里**并如实记一条日志（⛔ 不静默丢）。
+        /// </summary>
+        public static void PumpActionQueues(BattleContext ctx)
+        {
+            if (ctx == null) return;
+            var q = ctx.ActionQueue;
+            if (q.Resolving) return;
+            // 原版 `Update` 只在 `duringBattleFlag || duringScriptedActionsFlag` 时才泵
+            // （`Update.c:1250`）⇒ 对局结束就不再取队（剩下的条目保留，由下面那句如实记）。
+            if (ctx.IsOver) return;
+
+            int n = 0;
+            ActionPriority lane;
+            QueuedAction act;
+            while (!q.Resolving && q.TryDequeue(out lane, out act))
+            {
+                if (++n > MaxPumpedActionsPerDrain)
+                {
+                    UnityEngine.Debug.LogError(
+                        $"[ActionQueue] 一次泵队超过 {MaxPumpedActionsPerDrain} 条 —— 判定为触发环，"
+                        + $"**已清空四道并停止泵队**（剩余 {q.Count} 条被丢弃；最后一条 = 「{act}」）");
+                    q.Clear();
+                    return;
+                }
+                // ============================================================
+                //  🔴🆕 2026-10-21（审查 `W61b` 第 3 条）：**出队时复核「施放者还能不能跑」**
+                //
+                //  判据（第一权威 = 全量反编译）：
+                //    · `CardAbility__IsRightContext.c:20-30`（`abilityContext = Play(0)`）——
+                //      结算那一刻要求 `CardScript.IsInPlay(card)`；**不在场就不结算**。
+                //    · `CardAbility__IsRightContext.c:41-46`（`InPlayOrDying(40)`）——
+                //      走 `CardScript__IsInPlayOrDying`（状态 5 = 待死**算**在场）⇒ 死亡触发那一族**照跑**。
+                //    · 另有四处「效果被剥夺」的**主动**取消：`BattleManager__CancelEffectsFromDisappearingUnit`
+                //      的四个调用点 —— `removeEffect(16)`（`ResolveAction.c:2574`，只取消**动画**那四条道）、
+                //      `jamUnit(22)`、`transformUnit(27)`、`TransformIntoRemnant`（`RemoveSelfBuffsFromQueues`
+                //      → `CancelEffectsFromDisappearingUnit`，保留 `destroyUnit(45)` / `recallToHand(26)`）。
+                //      ⚠️ **死亡本身【不】走这个取消口**（全库只有那四个调用点）—— 死者的待结算 ability
+                //      是被**上面那道 `IsRightContext` 闸**挡掉的。两者可观测等价，我们统一在这一处做。
+                //      ⚠️ `CancelEffectsFromDisappearingUnitFromQueue` 还有第二个匹配维（`otherCard`：
+                //      「这条动作**的目标**也是这张牌」）—— 但四个调用点里只有 jam / transform 传它，
+                //      死亡路传的是 0 ⇒ 我们**只做施放者一侧**，这一半如实记在审查修复报告里。
+                //  ⇒ 只有**显式声明了「施放者必须在场」**的条目才复核；其余（死亡触发 / 常驻 / 手牌 /
+                //     `InPlayOrDying` 那一族）一律照跑。⛔ 别写成「有 Actor 就一律取消」——
+                //     那会把 `Backlash` / `Unstable` / `minionDeath` 记账整条链掐死。
+                //  ⚠️ **如实标着的残余**：我们**没有** `abilityContext` 字段 ⇒ 「哪条 ability 是
+                //     `Play(0)`」是**入队点自己声明的**（`requireActorInPlay:`），不是从数据读的。
+                //     另外原版那四种「主动取消」（jam / transform / 变残骸 / 剥夺效果）今天**没有单独建模**，
+                //     其中「变残骸」在我们这里恰好等价（原 `UnitState` 被换成新的 `rem` ⇒ 复核失败），
+                //     jam / transform 今天零可达（引擎没有那两条动作），如实记在审查修复报告里。
+                // ============================================================
+                if (act != null && act.RequireActorInPlay && !UnitInPlay(ctx, act.Actor))
+                {
+                    UnityEngine.Debug.LogWarning(
+                        $"[ActionQueue] **取消**一条待结算动作「{act.Label}」（{act.Priority} 道）—— "
+                        + $"施放者「{(act.Actor != null ? act.Actor.Name : "?")}」已经离场"
+                        + "（原版 `CardAbility.IsRightContext` 的 `Play(0)` 同样不结算；"
+                        + "⛔ 不是静默丢，这条就是出声口）");
+                    continue;
+                }
+                q.Resolving = true;
+                // 🆕 2026-10-22（`W62` · R2）：**额外触发**那一条在它**结算期间**顶起重入守卫
+                //   （判据 → `QueuedAction.ExtraTrigger` 的 doc：守卫必须盖住「它再广播一遍」的那一刻，
+                //    而不是「它入队」的那一刻）。
+                if (act != null && act.ExtraTrigger) ctx.ExtraTriggerDepth++;
+                try
+                {
+                    // 🔴🆕 **2026-10-22（`W62` · R2 · Slay 交错那一格）：一条动作里死的人，
+                    //   攒到这条动作**跑完**再结算**（原版：`CardScript__CheckIfDead` 判死那一刻
+                    //   只 `AddAutoActionToQueue` 一条 death action，它排在本动作**之后**）。
+                    //   不加这一层，队列体里打死的单位会**当场**跑完整条 `CleanupDeaths`
+                    //   （`EvtKind.Death` 信号、被移除棋盘…）⇒ 「外层动作的 Slay 记账」与
+                    //   「嵌套死亡的死讯」的先后会被抹掉（`TestW58NestedDeathInterleave` ①② 的红）。
+                    //   ⇒ `DeathBatch.Dispose` → `FlushDeaths`：把本条动作攒下的死者逐个处理，
+                    //   **它们的死亡触发 / 记账一律再入队到队尾**（FIFO = 原版 `[A,B,C]`）。
+                    using (SimultaneousDamage(ctx))
+                    {
+                        if (act != null && act.Execute != null) act.Execute();
+                    }
+                }
+                finally
+                {
+                    if (act != null && act.ExtraTrigger) ctx.ExtraTriggerDepth--;
+                    q.Resolving = false;
+                }
+                if (ctx.IsOver)
+                {
+                    if (q.Count > 0)
+                        ctx.Log($"[ActionQueue] 对局已结束 —— 停止泵队，队列里还剩 {q.Count} 条不结算");
+                    return;
+                }
+            }
+        }
+    }
+}

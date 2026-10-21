@@ -134,6 +134,24 @@ public static class CardFaceProbe
         else { _fail++; Debug.LogError("[cardface-chk]   ✗ " + msg); }
     }
 
+    /// <summary>`W62/T2`：一条「卡面某档字号 = 原版 em」的断言。
+    /// <para>`origFontSize` = 原版 prefab 上那个 TMP 的 `m_fontSize`，`m_LocalScale` **恒 0.01**（逐份实读）
+    /// ⇒ 原版 em = `origFontSize × 0.01` 卡单位；`emPerFontSize` = TMP 的 `0.1 × face.scale`；
+    /// `ourFontSize` = 我们这一档的**名义**字号（⛔ 不含 `FitToWidth`/`FitToBox` 的回缩 —— 那两处
+    /// 对应原版的 `m_enableAutoSizing`）。</para></summary>
+    static void CheckFaceSize(string what, string origNode, float origFontSize,
+                              float emPerFontSize, float ourFontSize, float cardH)
+    {
+        float wantEm = origFontSize * 0.01f;
+        float gotEm = ourFontSize * emPerFontSize;
+        Check(Mathf.Abs(gotEm - wantEm) <= wantEm * 0.01f,
+              $"W62/T2 {what}字号 = 原版 `{origNode}` 的 em：期望 **{wantEm:F4}** 卡单位"
+            + $"（fs {origFontSize:F2} × scale 0.01），实测 **{gotEm:F4}**"
+            + $"（我们 fontSize {ourFontSize:F3} × {emPerFontSize:F3} em/fs）"
+            + $" ⇒ 卡高 {gotEm / cardH * 100f:F2}%（原版 {wantEm / cardH * 100f:F2}%）"
+            + "｜🧨 改回**汉字墨高**标定（`FontSizeForGlyphHeight`）⇒ 实测 ×1.172 ⇒ 红");
+    }
+
     static int MinOf(int[] a)
     {
         int m = int.MaxValue;
@@ -538,6 +556,173 @@ public static class CardFaceProbe
             Object.DestroyImmediate(root);
         }
 
+        // ---------------------------------------------------------------- 新账-66
+        //  🔴 2026-10-21（卡牌线 `新账-66` 收口）：**战术/防御卡插图要盖满卡框的开口**。
+        //  判据（原版口径）= `SoftMaskScript` + `FlipAlphaMask=1`：立绘**铺满卡体**、由卡框 alpha
+        //  反相遮罩 ⇒ 卡框**围住的透明区**（含 tier3/4 的拱顶/异形开口）都该有立绘。
+        //  我们没那层 mask，等价物 = 按卡框 alpha 的**逐行条带**（`CardView.ArtWindowMesh`）。
+        //  ⚠️ 这不是「算法自证」：`FrameArtCoverage` 量的是 `ArtMeshInFrame` **真交给渲染器的那块网格**
+        //     （把它的三角形逐行投影回来）⇒ 谁把那条路改回矩形，`stripMissPct` 会立刻跳起来。
+        //  🧨 改坏法：`ArtMeshInFrame` 的 `clipWindow` 分支删掉条带、只留 `FrameArtWindow` 那个矩形
+        //     ⇒ 下面 tier3/tier4 两条**必红**（矩形漏 5~7%）。
+        //  🔴 **2026-10-22（`W62/T1`）基线口径改成【逐像素 `hole ∪ ring` ∩ 立绘板 ∩ 卡体】**
+        //     （原来那份是「每行开口 min..max」，把同一行里被实心金属隔开的两块开口之间那段金属也当基线
+        //      ⇒ 三张 tier4 凭空多出 5.10%～7.37% 的「漏」，逐像素复核那一段全是 alpha 254–255 的金属）。
+        //     连带 `rectMiss` 的口径也换成逐像素 ⇒ 阈值从 1f **收紧**到 0.5（ultramarines tier4 只漏 0.99%）。
+        {
+            // 全 60 张 `_strat` tier 卡框按「矩形会漏多少」排出来的最差几张（离线量法见报告 §2）。
+            string[] worstFrames =
+            {
+                "genestealers|4", "blacklegion|3", "astramilitarum|4", "ultramarines|4",  // 拱顶/异形开口
+                "saimhann|1",                                                            // 圆角矩形窗（对照档）
+            };
+            var art = CardArt.Portrait("UM75");            // 1024² —— 战术卡立绘的**真实形状**（现读 446 张 tactic 里 483 张是 1024²）
+            foreach (var spec in worstFrames)
+            {
+                var parts = spec.Split('|');
+                string fac = parts[0];
+                int tier = int.Parse(parts[1]);
+                var frTex = CardArt.Frame(fac, "", true, tier);
+                float rectMiss = 0f, stripMiss = 100f, holePct = 0f;
+                int rowCount = 0, quadCount = 0;
+                bool ok = frTex != null && CardView.FrameArtCoverage(
+                    frTex, art, 1f, out rectMiss, out stripMiss, out holePct,
+                    out rowCount, out quadCount);
+                Check(ok, $"新账-66 前提：{fac} tier{tier} 的战术卡框读得到、开口量得出来"
+                        + (ok ? "（可读）" : " ⚠️ 量不出来 ⇒ 下面几条**没验到**，别读成通过"));
+                if (!ok) continue;
+                Check(stripMiss <= 0.5f,
+                      $"新账-66 {fac} tier{tier}：条带网格盖住开口 **{100f - stripMiss:F2}%**"
+                    + $"（基线 = 逐像素 `开口 ∪ 斜面` ∩ 立绘板 ∩ 卡体，占卡面 {holePct:F1}% · {rowCount} 行 / 合并成 {quadCount} 块）"
+                    + "｜判据 = 原版 `FlipAlphaMask=1`：不透明金属底下有没有图看不出来 ⇒ 基线不含金属");
+                // 这一档的开口是**拱形/异形** ⇒ 矩形方案必须真的漏（否则上一条就没有意义）
+                if (tier >= 3)
+                    Check(rectMiss > 0.5f,
+                          $"新账-66 {fac} tier{tier}：⋯⋯而改前的**矩形**方案会漏 **{rectMiss:F2}%**"
+                        + "（`FrameArtWindow` 只是一个内接矩形：拱顶那块填不满，开口一圈的半透明斜面它更是一点没盖"
+                        + " —— 这条是上一条的牙齿；逐像素口径下 ultramarines tier4 的**开口部分**只漏 0.99% ⇒ 阈值取 0.5）");
+            }
+        }
+
+        // ---------------------------------------------------------------- 新账-66 残余（半透明内斜面）
+        //  🔴 2026-10-21（`W61b`）：开口一圈还有 **中位 ~11 px（p90 ~20）宽、alpha 从 ~10 缓升到 ~207**
+        //  的内斜面 —— 原来条带在 `alpha <= 8` 处**硬切** ⇒ 那圈没有立绘（实测漏 1.5～2.3 万 px/张
+        //  ≈ 开口面积的 11%～23%）。原版 `SoftMaskScript` + `FlipAlphaMask=1` 会让立绘按 `1−α` 透出来；
+        //  我们的等价物 = 让立绘铺到「与开口 4 连通、alpha 在 9..247 的像素」下面
+        //  （`CardView.FrameMaskData` 的 `ring` → `BuildFrameRows` 的 `Runs` → `ArtWindowMesh`）。
+        //  判据 / 量法 / 逐档表 → `资料/普查产出_1021/W61b_卡牌_斜面遮罩.md`。
+        //  🧨 改坏法：① 把 `ArtWindowMesh` 改回只画开口（去掉 ring）⇒ `missPct` 从 0 跳到 ~90%，
+        //              第二/三条红；② 去掉 `AddBevelRun` / `ClampBevelRuns` 里「框外面」的夹取 ⇒ 最后一条红。
+        {
+            var art = CardArt.Portrait("UM75");            // 1024²，与上一组同一个立绘
+            string[] bevelFrames =
+            {
+                "ultramarines|4", "genestealers|4", "blacklegion|3", "astramilitarum|2", "saimhann|1",
+            };
+            foreach (var spec in bevelFrames)
+            {
+                var parts = spec.Split('|');
+                string bFac = parts[0];
+                int bTier = int.Parse(parts[1]);
+                var bFr = CardArt.Frame(bFac, "", true, bTier);
+                int ringPx = 0;
+                float missPct = 100f, meanErr = 1f, maxErr = 1f, spillPct = 100f;
+                bool ok = bFr != null && CardView.FrameArtBevelCoverage(
+                    bFr, art, 1f, out ringPx, out missPct, out meanErr, out maxErr, out spillPct);
+                Check(ok, $"新账-66(残余) 前提：{bFac} tier{bTier} 的斜面量得出来"
+                        + (ok ? "（可读）" : " ⚠️ 量不出来 ⇒ 下面几条**没验到**，别读成通过"));
+                if (!ok) continue;
+                Check(ringPx > 5000,
+                      $"新账-66(残余) {bFac} tier{bTier}：开口一圈量出 **{ringPx}** 个半透明斜面像素（立绘板∩卡体内）");
+                Check(missPct <= 0.5f,
+                      $"新账-66(残余) {bFac} tier{bTier}：立绘盖住斜面 **{100f - missPct:F2}%**"
+                    + "（原版 `FlipAlphaMask=1`：卡框半透明处立绘按 `1−α` 透出来）");
+                Check(meanErr <= 0.01f,
+                      $"新账-66(残余) {bFac} tier{bTier}：贡献 α ≈ 1−卡框α —— 整圈平均误差 **{meanErr:F4}**"
+                    + $"（最大单点 {maxErr:F3} 只作参考、不定阈值：边界上那一个像素的 α 就能把它顶到 ~0.96）");
+                Check(spillPct <= 0.5f,
+                      $"新账-66(残余) {bFac} tier{bTier}：立绘**没画到卡框外面** —— {spillPct:F2}%"
+                    + "（框上的透明缺口一点没碰；判据 = `frame_ultramarines_strat_tier4` 底部 5025 px）");
+            }
+        }
+
+        // ---------------------------------------------------------------- W62/T2 卡面拉丁字号 = 原版 em
+        //  🔴 2026-10-22（`W62/T2`）：卡面这几档渲的是 **Asar / Pragati**，字号却一直拿**汉字墨高**
+        //  标定（`TmpFont.FontSizeForGlyphHeight` → `WorldGlyphPerFontSize`，量的是「国」）。
+        //  CJK 资产的 `m_Scale` 一改（2026-10-21 对齐原版：1 → 0.9），这些**拉丁**字就跟着变大 **11%**
+        //  （`资料/普查产出_1022/W62_卡面红诊断.md` §2·2/§2·3）。
+        //
+        //  判据（原版，逐字段实读，不是我们挑的）：
+        //    · 卡名 `NameTextUnit`：`m_fontSize = 19` × `m_LocalScale 0.01` ⇒ **em 0.19 卡单位**
+        //      （`bundle_battleprefabs_vfxandmisc_assets_all/RectTransform/RectTransform_4173703600236829632.json`
+        //       的 `m_LocalScale` = 0.01 ＋ 同包 `MonoBehaviour_-6860425428091954240.json` 的 `m_fontSize` = 19）
+        //    · 效果文字 `DescTextUnit` 23.55 → **0.2355** · 阵营 `ArmyTextUnit` 15 → **0.15** · 兵种 `RaceText` 18 → **0.18**
+        //      （同包三份 GameObject → MonoBehaviour：`m_fontSize` 依次 23.55 / 15 / 18，`m_LocalScale` 全 0.01）
+        //    · 卡高 `2DCard.m_SizeDelta.y` = **3.3313** ⇒ 5.70% / 7.07% / 4.50% / 5.40%
+        //    · 🔴 **原版卡面 TMP 是 `m_isOrthographic = 1`**（`MonoBehaviour_-6860425428091954240.json`），
+        //      而我们的卡面是 3D `TextMeshPro`（出厂 **false**）⇒ 两边同一条 TMP 换算律
+        //      `fontScale = fontSize / pointSize × face.scale × (isOrtho ? 1 : 0.1)`
+        //      （`Library/PackageCache/com.unity.ugui@…/Runtime/TMP/TMP_Text.cs:7183`）里那一跳**不一样**：
+        //      · 原版：em = `fontSize × face.scale × localScale` = 19 × 1 × 0.01 = **0.19**
+        //      · 我们：em = `0.1 × fontSize × face.scale` ⇒ 要让 em = 0.19，**fontSize 必须是 1.9**
+        //      （同族先例：`Battle/PopNumber.cs` 头部记的「少了 isOrthographic 那一跳 ⇒ 小 10 倍」）。
+        //  量法：`fontSize × 0.1 × face.scale` 必须 == 原版 em，容差 1%。
+        //  🧨 改坏法：把任一条改回 `FontSizeForGlyphHeight`（汉字墨高 0.0853）⇒ 读数 ×1.172 ⇒ **红**。
+        //  ⚠️ 为什么单开这一条：在此之前**全仓 0 条断言量卡面字号**（本次日志里一条「字号」都没有），
+        //     字号回归只被 `CardBaseDemo` ② 间接抓到 —— 而它量的是行盒心、容差 0.02，只抓到一半。
+        {
+            var faUi = TmpFont.FaceAsset(TmpFont.Face.LatinUi);
+            var faBody = TmpFont.FaceAsset(TmpFont.Face.LatinCardBody);
+            Check(faUi != null && faBody != null,
+                  "W62/T2 前提：Asar / Pragati 两份字体资产加载得到（缺 ⇒ 下面四条**没验到**，别读成通过）");
+            if (faUi != null && faBody != null)
+            {
+                // 拉丁面：1 em = 0.1 × fontSize × face.scale（TMP 的 3D 换算，见上面那段）
+                float kUi = 0.1f * faUi.faceInfo.scale;
+                float kBody = 0.1f * faBody.faceInfo.scale;
+                float cardH = CardView.Height;                  // 3.3313 = 原版 `2DCard.m_SizeDelta.y`
+                CheckFaceSize("卡名", "NameTextUnit", 19f, kUi, CardView.TitleFontSize, cardH);
+                CheckFaceSize("效果文字", "DescTextUnit", 23.55f, kBody, CardView.KeywordFontSize, cardH);
+                CheckFaceSize("阵营行", "ArmyTextUnit", 15f, kBody, CardView.ArmyFontSize, cardH);
+                CheckFaceSize("兵种行", "RaceText", 18f, kBody, CardView.RaceFontSize, cardH);
+            }
+        }
+
+        // ---------------------------------------------------------------- 新账-67
+        //  🔴 2026-10-21：`SetFace(Board)` 必须**复位**整卡倾摆。
+        //  `AutoCardRotation` 只在 `Update` 里写 `_tiltRoot.localRotation`，`enabled=false` 只表示
+        //  「不再更新」⇒ 手牌**正倾着**（拖拽时 ≤±10°）被打出去，那份倾摆会永久留在节点上。
+        //  画面上看不出（场上 2D 层全关），但 `HitFrame()` 的标架就是 `_tiltRoot` ⇒ 命中框跟着歪。
+        //  🧨 改坏法：删掉 `SetFace` 里那句 `_tiltRoot.localRotation = Quaternion.identity` ⇒ 本条必红。
+        {
+            var root = new GameObject("chk_67_tilt");
+            try
+            {
+                var v = CardView.Create(root.transform, data, "chk_67_card", CardFace.Hand);
+                var tilt = v.Tilt;
+                Check(tilt != null && v.FaceLayerRoot != null && v.FaceLayerRoot != v.transform,
+                      "新账-67 前提：倾摆组件与 `2DCard` 那一级都在（缺 ⇒ 下面几条没验到）");
+                if (tilt != null && v.FaceLayerRoot != null && v.FaceLayerRoot != v.transform)
+                {
+                    // 模拟「拖到一半」：`AutoCardRotation` 写的就是**这个节点自己的** `localRotation`
+                    var fanRot = v.transform.localRotation;                 // 卡根的扇形角（布局写的）
+                    v.FaceLayerRoot.localRotation = Quaternion.Euler(6f, 8f, 0f);
+                    float before = Quaternion.Angle(v.FaceLayerRoot.localRotation, Quaternion.identity);
+                    Check(before > 5f, $"新账-67 前提：先把倾摆**拧到 {before:F1}°**（不拧就验不到复位）");
+                    v.SetFace(CardFace.Board);
+                    float after = Quaternion.Angle(v.FaceLayerRoot.localRotation, Quaternion.identity);
+                    Check(after < 0.01f,
+                          $"新账-67 `SetFace(Board)` 把倾摆**复位成 identity**（{before:F1}° → {after:F3}°）");
+                    Check(!tilt.enabled, "新账-67 ⋯⋯倾摆组件在场上也**关着**（原版场上整张 `2DCard` 关掉）");
+                    Check(Quaternion.Angle(v.transform.localRotation, fanRot) < 0.01f,
+                          "新账-67 ⋯⋯复位只动 `2DCard` 这一级，**卡根的扇形角没被动**");
+                }
+            }
+            // ⚠️ `finally`：这张卡若半路抛异常，**必须**从场景里清掉 ——
+            //    `Run()` 的 `CheckLayers()` 之后还要接着渲图，留在原点的卡会出现在每一张截图里。
+            finally { Object.DestroyImmediate(root); }
+        }
+
         Debug.Log($"[cardface-chk] === 合计：{_pass} 通过 / {_fail} 失败 ===");
     }
 
@@ -678,6 +863,26 @@ public static class CardFaceProbe
                     Object.DestroyImmediate(r4);
                 }
             }
+
+            // 🆕 2026-10-21（卡牌线 `新账-66`）：**拱顶那一档**必须渲一张 —— 上面那张走的是
+            //   `CardProgress.Level(artId)` 的缺省档（=1：圆角矩形窗 + 徽记处的外凸缺口），
+            //   而 **tier3/4 才是哥特拱窗**（`frame_<阵营>_strat_tier{3,4}.png`）。
+            //   这是「插图画窗有没有盖满拱顶」唯一能肉眼看的口子（断言只量得出几何覆盖，量不出观感）。
+            //   ⚠️ 走 `CardView.DebugFrameTier`（**临时覆盖，不碰玩家存档**）——
+            //      `CardProgress.SetLevel` 会**落盘改存档**，探针里⛔不许用。
+            if (name == "Armoured Offensive")
+            {
+                int prevTier = CardView.DebugFrameTier;
+                for (int tier = 3; tier <= 4; tier++)
+                {
+                    CardView.DebugFrameTier = tier;
+                    var rArch = new GameObject("probe_strat_tier" + tier);
+                    var vArch = CardView.Create(rArch.transform, data, name + "_tier" + tier);
+                    Shot(vArch, Path.Combine(OutDir, SafeName(name) + "_tier" + tier + ".png"));
+                    Object.DestroyImmediate(rArch);
+                }
+                CardView.DebugFrameTier = prevTier;
+            }
         }
         Debug.Log("[cardface] 结束");
     }
@@ -779,16 +984,29 @@ public static class CardFaceProbe
     ///    要「有牙」得先实跑确认那颗标签的 `textInfo.meshInfo.Length ≥ 2`（**要跑 Unity**）—— 线索交调度台。</summary>
     /// <returns>字墨中点（TMP 本地单位的 y）；**一个可见字形都量不到时回 `0f`**（哨兵值不变 ——
     /// ⚠️ 它与「字墨中点恰好是 0」撞车，调用点只打日志、不拿它判存在性）。</returns>
-    static float InkCenterY(TMP_Text t)
+    internal static float InkCenterY(TMP_Text t)
     {
-        var ti = t.textInfo;
-        if (ti == null || ti.meshInfo == null || ti.meshInfo.Length == 0 || ti.characterInfo == null) return 0f;
+        float lo, hi;
+        return InkSpanY(t, out lo, out hi) ? (lo + hi) * 0.5f : 0f;
+    }
+
+    /// <summary>**字墨**的纵向跨度（TMP 本地坐标）：该 TMP 全部可见字形顶点的 `[min, max]`。
+    /// <para>🔴 **2026-10-22（`W62/T3`）从 `InkCenterY` 拆出来**：`CardBaseDemo` ② 要量墨心，
+    /// 但「有没有量到字」得看**跨度**（`InkCenterY` 的 0f 是哨兵值，与「墨心恰好在原点」撞车）。
+    /// `CardBaseDemo` 用的是同一份实现（⛔ 别在那边再写一份 —— 两处写同一条规则迟早不一致）。</para>
+    /// <para>⚠️ 调用前必须已经 `ForceMeshUpdate()`（对象激活之后再调，否则 `textInfo` 是垃圾）。</para></summary>
+    /// <returns>true = 量到了至少一个可见字形；false = 一个都没有（`lo`/`hi` 回 0）。</returns>
+    internal static bool InkSpanY(TMP_Text t, out float lo, out float hi)
+    {
+        lo = 0f; hi = 0f;
+        var ti = t != null ? t.textInfo : null;
+        if (ti == null || ti.meshInfo == null || ti.meshInfo.Length == 0 || ti.characterInfo == null) return false;
         // 🔴 **2026-10-18（`A965`）**：网格槽按**字形自己的** `materialReferenceIndex` 取（原来写死 `[0]`，
         //    一行里混了 `<sprite name=…>` 就会把这个字串到 0 号槽里**同下标那个字**的顶点上）。
         //    取法照 `Editor/ShellScene.cs` 的 `SpanOfTmp` / `Editor/RewardsScene.cs` 的 `TmpVertPx`（`A851` 那三处）。
         var meshes = ti.meshInfo;
         var chr = ti.characterInfo;
-        float lo = float.MaxValue, hi = float.MinValue;
+        float l = float.MaxValue, h = float.MinValue;
         int n = Mathf.Min(ti.characterCount, chr.Length);
         for (int i = 0; i < n; i++)
         {
@@ -803,12 +1021,13 @@ public static class CardFaceProbe
                 int idx = vi + k;
                 if (idx < 0 || idx >= v.Length) continue;        // 角越界 ⇒ 跳这个角（⛔ 不静默当 0）
                 float y = v[idx].y;
-                if (y < lo) lo = y;
-                if (y > hi) hi = y;
+                if (y < l) l = y;
+                if (y > h) h = y;
             }
         }
-        if (lo > hi) return 0f;   // 一个可见字都没有（空串 / 全不可见）—— 与改前「0 号槽取不到网格」同一个哨兵值
-        return (lo + hi) * 0.5f;
+        if (l > h) return false;   // 一个可见字都没有（空串 / 全不可见）
+        lo = l; hi = h;
+        return true;
     }
 
     /// <summary>把这张卡单独渲进一张图 —— 相机正交、正好框住整张卡（含卡框外沿）</summary>

@@ -859,7 +859,52 @@ public static class EffectExporter
         //   （`Export()` 里 `m_Material` 那一支，读序列化字段 + `ImportMaterial`），下面这条不再是缺口。
         //   ⚠️ 验它得给 `check_prefab_refs.py` 传 `--fields … ,m_Material`，默认字段集看不到那一列。
         "CardPrefab",
+        // 🆕 **2026-10-21（W61b）**：`Export()` 新增了 **`ShapeModule` 资产引用**那一支
+        //   （`m_Mesh` / `m_Sprite` / `m_Texture`，见那段注释）。要重导的件：
+        //   · `ShieldTraitEffect_Idle` **5 个变体** —— 它们的 `ShapeModule.m_Mesh`
+        //     （pid 8804033814099603246 · 网格对得上 `Shield Ico`，187 顶点）全是 guid 全 0。
+        //     ⚠️ 这条**不会**改变 Necron Variant 那条 E 的亮度（该形状类型 = 18 Rectangle，
+        //     `m_Mesh` 不参与取样；判据 → `资料/普查产出_1021/W61b_特效_ShapeModule导出.md` §一）。
+        "ShieldTraitEffect_Idle",
+        "ShieldTraitEffect_Idle Emperor's Children Variant",
+        "ShieldTraitEffect_Idle Necron Variant",
+        "ShieldTraitEffect_Idle Sororitas Variant",
+        "ShieldTraitEffect_Idle TAU Variant",
+        // 🆕 **2026-10-21（W61b · 同族顺手）**：这两件的 `ShapeModule.m_Sprite` / `m_Texture` 也是
+        //   同一种伪引用（16 条 / 2 条）。⚠️ 其中 **type 19（Sprite 形状）那 2 条是活的**，其余落在
+        //   type 4/10（死字段）。台账当前都是 Z（1.00 / 0.95）⇒ 重导**不预期**改亮度，只清伪引用。
+        "Buff_Sororitas_quick_fire",
+        "Buff_Sororitas_quick_fire_intense",
     };
+
+    /// <summary>🎯 **本轮实际要导的名单** = `ListedPrefabs` 扣掉 `WFEFFECT_ONLY` 之外的那些
+    /// （2026-10-21 · W61b 新增；不设该变量 = 原样返回整张表，**老行为一字不变**）。
+    ///
+    /// **为什么需要它**：`RunListed()` 只认那张**硬编码表** ⇒ 原来「只想重导 7 件」的办法是
+    /// **临时改源码、跑完再改回来**（「VAT 那一节」`AttachOneVat` 上面的注释当年写的就是这个流程 ——
+    /// 有 `WFEFFECT_ONLY` 之后那一步可以省了，那条注释也已就地指向这里）。
+    /// 而表里现在还躺着 `EnvironmentalCondition Sororitas Raging Storm`（W61 定了「**暂不重导**」，
+    /// 它 21:54 刚导过、且是 `尺子不稳定名单` 第 1 名）—— 为了补 shape mesh 顺手把它重导一遍，
+    /// 等于把 E 那条判据的基线又动了一次，**两件事就再也分不开了**。
+    ///
+    /// **匹配规则**：`WFEFFECT_ONLY` 按 `,` 拆、**逐字**与 `ListedPrefabs` 的条目比对
+    /// （⛔ 不做子串匹配 —— 否则 `ShieldTraitEffect_Idle` 会把 5 个变体一起吞掉）。
+    /// 表里没有的名字会**逐条出声**（打错名字 = 一件都不导，`want`/`done` 会对不上）。</summary>
+    static string[] ListedTargets()
+    {
+        var env = System.Environment.GetEnvironmentVariable("WFEFFECT_ONLY");
+        if (string.IsNullOrEmpty(env)) return ListedPrefabs;
+
+        var want = env.Split(',').Select(x => x.Trim()).Where(x => x.Length > 0).ToArray();
+        var hit = ListedPrefabs.Where(n => want.Contains(n)).ToArray();
+        foreach (var w in want)
+            if (!hit.Contains(w))
+                Debug.LogWarning(EX1 + $"`WFEFFECT_ONLY` 里的 `{w}` **不在 `ListedPrefabs` 表里** ⇒ 这一件不会被导"
+                               + "（那张表是唯一入口 —— 要导它得先把它加进表）");
+        Debug.Log(EX1 + $"`WFEFFECT_ONLY` 生效：本趟只导 **{hit.Length}** 件（表里共 {ListedPrefabs.Length} 件）—— "
+                      + string.Join(" · ", hit));
+        return hit;
+    }
 
     /// <summary>
     /// **只导指定的那几个 prefab**（按 GameObject 名匹配）。
@@ -871,6 +916,8 @@ public static class EffectExporter
     /// 用法：
     ///   unset ELECTRON_RUN_AS_NODE &amp;&amp; "$UNITY" -batchmode -quit -projectPath "D:\4\Unity\MyGame" \
     ///     -executeMethod EffectExporter.RunListed -logFile "d:/4/_tmp_view/exportone.log"
+    /// 🔬 **只导其中几件**：加环境变量 `WFEFFECT_ONLY="名字1,名字2"`（逗号分隔、**逐字**匹配 `ListedPrefabs`）。
+    ///   不设 = 老行为（表里**全部** 43 件）。判据/理由见 `ListedTargets()` 的头注。
     /// 筛输出：grep "^EX1 "
     /// ⚠️ 导完**必须**跟一次「生成效果库」（`EffectLibraryBuilder`），否则新 prefab 进不了库。
     /// </summary>
@@ -914,12 +961,13 @@ public static class EffectExporter
         if (vfx == null) Debug.LogWarning(EX1 + $"源包 `{VfxBundleName}` 没加载上 —— 检查 BundleDir 路径");
         CopyShaderBundle();
 
-        int want = ListedPrefabs.Length, done = 0;
+        var targets = ListedTargets();       // 🆕 W61b：`WFEFFECT_ONLY` 不设时 = 整张表（老行为）
+        int want = targets.Length, done = 0;
         var picked = new HashSet<string>();
 
         // ---- 第一遍：**按名字直接加载**（`LoadAsset<GameObject>(name)`）----
         //  非 addressable 的 prefab 走不了容器枚举，但按名字仍可能取到（重打过的包里必然能）。
-        foreach (var t in ListedPrefabs)
+        foreach (var t in targets)
         {
             GameObject g = null;
             string from = null;
@@ -958,7 +1006,7 @@ public static class EffectExporter
                 if (g.name != null && (g.name.Contains("Card 3D") || g.name.Contains("Death") || g.name.Contains("Vanguard")))
                 { nameHits++; Debug.Log(EX1 + $"  候选（枚举）：`{g.name}`（包 `{b.name}`）"); }
                 bool hit = false;
-                foreach (var t in ListedPrefabs) if (g.name == t) hit = true;
+                foreach (var t in targets) if (g.name == t) hit = true;
                 if (!hit || !picked.Add(g.name)) continue;
                 try { Export(g); done++; Debug.Log(EX1 + $"已导出 `{g.name}`（枚举取的，来自包 `{b.name}`）—— {LastDetail}"); }
                 catch (Exception e) { Debug.LogError(EX1 + $"导出 `{g.name}` 失败：{e.GetType().Name}: {e.Message}"); }
@@ -1110,6 +1158,8 @@ public static class EffectExporter
     //    🆕 `RemnantBody3D Necrons` **不在** `ListedPrefabs`（它是**效果根**：16 个 ParticleSystem、
     //    已在 `WarpforgeEffectLibrary.asset` 里）⇒ 它由 `Run()` 全量导出覆盖；
     //    要**只**重导它时，临时把名字加进 `ListedPrefabs` 走 `RunListed()`（`Export()` 幂等，重复无害）。
+    //    🆕 2026-10-21：加了 `WFEFFECT_ONLY`（见 `ListedTargets()`）—— 名字还是得先进表，
+    //       但**跑的时候不必再把别的条目临时注释掉**了。
     //  ⚠️ **两张 VAT 贴图不是被任何材质引用的** ⇒ 导出器**永远不会**自己导它们
     //    （它们是**手放进** `Textures/` 的，导入设置照原资产手设过：28×41 / 14×41 是 **NPOT** ⇒
     //     `nPOTScale: 0`、`sRGBTexture: 0`（线性数据贴图）、无 mip、RGBA32 不压缩）。
@@ -1861,6 +1911,149 @@ public static class EffectExporter
         //   因为带 bindpose，`ImportMesh` 会按「形状复杂」打一条 Warning 后退回 `Instantiate` —— 属预期）。
         foreach (var smr in inst.GetComponentsInChildren<SkinnedMeshRenderer>(true))
             if (smr.sharedMesh != null) smr.sharedMesh = ImportMesh(smr.sharedMesh);
+
+        // ---- 🔴 2026-10-21（W61b）：**`ShapeModule` 的资产引用**（`m_Mesh` / `m_Sprite` / `m_Texture`）----
+        //
+        // 上面那三条网格路（`MeshFilter.m_Mesh` · `ParticleSystemRenderer.mesh` · `SkinnedMeshRenderer.sharedMesh`）
+        // **一条都收不到 `ShapeModule`** —— 它既不是渲染器、也不挂 `MeshFilter`。不导的话
+        // `PrefabUtility.SaveAsPrefabAsset` 落下来是
+        // `m_Mesh: {fileID: <原包 pathID>, guid: 00000000000000000000000000000000, type: 0}`
+        // （= 「文件那头说我要这颗网格，工程里却没有」）。现扫实测
+        // （2026-10-21 · `WarpforgeVFX/Prefabs/*.prefab` 964 件 · 判据 `工具/check_prefab_refs.py --fields m_Mesh,m_Sprite,m_Texture`
+        //   的口径「`fileID != 0` 且 `guid` 全 0」）：
+        //   · `ShapeModule.m_Mesh` 坏引用 **45 条 / 12 件** —— `Godspear Warhead Full` 19 ·
+        //     `Vortex Explosion Massive` 15 · `Goff_ProperKilly` 2 · `ShieldTraitEffect_Idle` **5 个变体各 1** ·
+        //     `EC_Target_user` / `EC_Target_user Lucius` / `Sword_10x_EC` / `Will Of Gork` 各 1。
+        //   · `ShapeModule.m_Sprite` 坏引用 **16 条 / 2 件**（`Buff_Sororitas_quick_fire` / `…_intense`）·
+        //     `m_Texture` 2 条（同一件）。
+        //
+        // ⚠️ **量级要说实话 —— 这不是「补回一块缺的视觉」**（别把台账的 E 归给它）：
+        //   原版 **15,311** 个 `ParticleSystem` 里 `ShapeModule.type == 6`（Mesh 形状）的 **46 个 `m_Mesh` 全是空**；
+        //   上面那 45 条坏引用**全落在非 Mesh 形状**（实测分布：0 球 ×14 · 10 圆 ×10 · 2 半球 ×7 ·
+        //   4 锥 ×6 · 18 矩形 ×5 · 12 单边 ×2 · 5 盒 ×1 —— **type 6 一条都没有**）—— 是**改过形状之后留下的陈旧字段**，
+        //   不参与发射位置取样。台账里那 8 件也全是 **Z（对得上）**。
+        //   ⇒ 修它的意义 = 清掉伪引用（运行时那次空解析 + 资产账干净），**不是**亮度会变。
+        //   `m_Sprite` 那 16 条里 **2 条在 type 19（Sprite 形状）上 —— 那条是活的**（会改取样）。
+        //   判据 → `资料/普查产出_1021/W61b_特效_ShapeModule导出.md`。
+        //
+        // ⚠️ **只导「不是工程资产」的**：`AssetDatabase.GetAssetPath` 为空 = 还是包里的原件
+        //   （同 `ParticleModuleProbe.MatDetail` 的判据）；非空 = 工程资产，重复导等于自己导自己
+        //   —— 与 `ImportMaterial` / TMP `m_sharedMaterial` 那条纪律一致。
+        // ⚠️ **Unity 内置图元不碰**（`Sphere` / `Quad`…，pid 10207/10210）：原版自己就把它们序列化成
+        //   `guid: 0000000000000000e000000000000000`、落盘完全正常。判据 = **对象同一性**
+        //   （`Resources.GetBuiltinResource<Mesh>(名 + ".fbx")` 回的就是同一颗），⛔ 不按名字猜。
+        // ⚠️ **写完读回来**：`ShapeModule` 是**结构体**（`ps.shape` 返回的是值 ⇒ 必须落在局部变量上改，
+        //   写回靠它内部的 `ParticleSystem` 指针）；万一某个形状类型下 setter 不落地，退到
+        //   `SerializedObject` 再写一次，还不行就**出声**（⛔ 不许静默）。
+        int shapeRefOk = 0, shapeRefMiss = 0;
+        foreach (var ps in inst.GetComponentsInChildren<ParticleSystem>(true))
+        {
+            var rel = TransformRelPath(inst.transform, ps.transform);
+            try
+            {
+                var shp = ps.shape;
+
+                // ① `m_Mesh`（网格形状发射器的取样网格）
+                //    ⚠️ 为什么要留一条**序列化字段**的兜底读：`ShapeModule.mesh` 这个 getter 在
+                //    「形状类型不是 Mesh/MeshRenderer/SkinnedMeshRenderer」时会不会挡住**没有实测过**
+                //    （本文件不能跑 Unity 验证）。只看 getter 的话，万一它返回 null，这一支会**静默跳过**
+                //    —— 那正是最坏的结果（重导一场，界面上什么都没变、日志里也没有一句）。
+                //    ⇒ getter 空时再读一次**原生序列化字段**（`ShapeModule.m_Mesh`，prefab YAML 里逐字如此）。
+                var srcMesh = shp.mesh;
+                if (srcMesh == null) srcMesh = SerializedShapeRef<Mesh>(ps, "ShapeModule.m_Mesh");
+                if (srcMesh != null && string.IsNullOrEmpty(AssetDatabase.GetAssetPath(srcMesh))
+                    && !IsUnityBuiltinMesh(srcMesh))
+                {
+                    var im = ImportMesh(srcMesh);
+                    if (im == null)
+                    {
+                        shapeRefMiss++;
+                        Debug.LogWarning(EX1 + $"`{inst.name}/{rel}` 的 `ShapeModule.m_Mesh`"
+                                       + $"（原网格 `{srcMesh.name}`）导不成工程 `.asset` ⇒ **这一格留空**"
+                                       + "（⛔ 不拿别的网格顶上）");
+                    }
+                    else
+                    {
+                        shp.mesh = im;
+                        bool got = ps.shape.mesh == im;
+                        if (!got) got = ForceShapeRef(ps, "ShapeModule.m_Mesh", im);
+                        if (got) shapeRefOk++;
+                        else
+                        {
+                            shapeRefMiss++;
+                            Debug.LogWarning(EX1 + $"`{inst.name}/{rel}` 的 `ShapeModule.m_Mesh` **写不进去**"
+                                           + $"（形状类型 {ps.shape.shapeType} · 导入的 `{im.name}`）"
+                                           + " ⇒ 运行时那颗网格仍是伪引用");
+                        }
+                    }
+                }
+
+                // ② `m_Sprite`（Sprite 形状的取样精灵 —— 原版 type 19 那两颗是**活**的）
+                var srcSpr = shp.sprite;
+                if (srcSpr == null) srcSpr = SerializedShapeRef<Sprite>(ps, "ShapeModule.m_Sprite");
+                if (srcSpr != null && string.IsNullOrEmpty(AssetDatabase.GetAssetPath(srcSpr)))
+                {
+                    var im = ImportSprite(srcSpr);
+                    if (im == null)
+                    {
+                        shapeRefMiss++;
+                        Debug.LogWarning(EX1 + $"`{inst.name}/{rel}` 的 `ShapeModule.m_Sprite`"
+                                       + $"（原精灵 `{srcSpr.name}`）导不成工程精灵 ⇒ **这一格留空**"
+                                       + "（⛔ 不拿别的图顶上）");
+                    }
+                    else
+                    {
+                        shp.sprite = im;
+                        bool got = ps.shape.sprite == im;
+                        if (!got) got = ForceShapeRef(ps, "ShapeModule.m_Sprite", im);
+                        if (got) shapeRefOk++;
+                        else
+                        {
+                            shapeRefMiss++;
+                            Debug.LogWarning(EX1 + $"`{inst.name}/{rel}` 的 `ShapeModule.m_Sprite` **写不进去**"
+                                           + $"（形状类型 {ps.shape.shapeType} · 导入的 `{im.name}`）");
+                        }
+                    }
+                }
+
+                // ③ `m_Texture`（纹理取样 — 原版只有 `Buff_Sororitas_quick_fire*` 那 2 条非空）
+                var srcTex = shp.texture;
+                if (srcTex == null) srcTex = SerializedShapeRef<Texture2D>(ps, "ShapeModule.m_Texture");
+                if (srcTex != null && string.IsNullOrEmpty(AssetDatabase.GetAssetPath(srcTex)))
+                {
+                    var im = ImportTexture(srcTex);
+                    if (im == null)
+                    {
+                        shapeRefMiss++;
+                        Debug.LogWarning(EX1 + $"`{inst.name}/{rel}` 的 `ShapeModule.m_Texture`"
+                                       + $"（原纹理 `{srcTex.name}`）导不成工程贴图 ⇒ **这一格留空**"
+                                       + "（⛔ 不拿别的图顶上）");
+                    }
+                    else
+                    {
+                        shp.texture = im;
+                        bool got = ps.shape.texture == im;
+                        if (!got) got = ForceShapeRef(ps, "ShapeModule.m_Texture", im);
+                        if (got) shapeRefOk++;
+                        else
+                        {
+                            shapeRefMiss++;
+                            Debug.LogWarning(EX1 + $"`{inst.name}/{rel}` 的 `ShapeModule.m_Texture` **写不进去**"
+                                           + $"（形状类型 {ps.shape.shapeType} · 导入的 `{im.name}`）");
+                        }
+                    }
+                }
+            }
+            catch (Exception e)
+            {
+                shapeRefMiss++;
+                Debug.LogWarning(EX1 + $"`{inst.name}/{rel}` 的 `ShapeModule` 资产引用这一跳抛了"
+                               + $"（{e.GetType().Name}: {e.Message}）⇒ 该 PS 的这几个字段保持原样");
+            }
+        }
+        if (shapeRefOk > 0 || shapeRefMiss > 0)
+            Debug.Log(EX1 + $"`ShapeModule` 资产引用（m_Mesh/m_Sprite/m_Texture）：接回 **{shapeRefOk}** 条"
+                          + (shapeRefMiss > 0 ? $"、**没接上 {shapeRefMiss} 条**（逐条见上面的告警）" : ""));
 
         // 精灵：SpriteRenderer / SpriteMask 的 sprite 同样是 **bundle 资产**，
         // 不导的话引用落不下来（序列化成 guid 全 0 的伪引用，运行时解析成 null）。
@@ -4107,6 +4300,63 @@ public static class EffectExporter
         AssetDatabase.CreateAsset(copy, path);
         MeshCache[m] = copy;
         return copy;
+    }
+
+    /// <summary>Unity **内置图元**网格的名字（`Library/unity default resources`，pid 10207/10210 那一族）。
+    /// ⚠️ 只当 `IsUnityBuiltinMesh` 的**预筛**用（名字不像就立刻返回，省掉 6 次 API 调用）——
+    /// **判据是对象同一性，不是名字**（重包里可能有同名网格）。</summary>
+    static readonly string[] BuiltinMeshNames = { "Sphere", "Capsule", "Cylinder", "Cube", "Plane", "Quad" };
+
+    /// <summary>`m` 是不是 Unity **内置图元**网格？判据 = **对象同一性**
+    /// （`Resources.GetBuiltinResource&lt;Mesh&gt;(名 + ".fbx")` 回的就是同一颗；这条 API 的既有先例 =
+    /// `ArenaBuilder` 的 `MeshEntry.builtinMesh` 那一支），⛔ 不按名字下结论。
+    /// 为什么必须把内置的排除在外：它们在 prefab 里本来就序列化成
+    /// `guid: 0000000000000000e000000000000000`（= 指向 `Library/unity default resources`），
+    /// 落盘完全正常、运行时也解析得到 ⇒ **不需要导**（导了等于白造一份同内容的 `.asset` 并改写引用）。
+    /// 判据 → `资料/普查产出_1021/W61b_特效_ShapeModule导出.md`。</summary>
+    static bool IsUnityBuiltinMesh(Mesh m)
+    {
+        if (m == null || Array.IndexOf(BuiltinMeshNames, m.name) < 0) return false;
+        foreach (var n in BuiltinMeshNames)
+        {
+            Mesh b = null;
+            try { b = Resources.GetBuiltinResource<Mesh>(n + ".fbx"); }
+            catch (Exception) { continue; }
+            if (b != null && b == m) return true;
+        }
+        return false;
+    }
+
+    /// <summary>`ShapeModule` 的资产引用**直接 setter 没落地**时的兜底：走 `SerializedObject` 再写一次。
+    /// 返回 true = 写完**从原生序列化字段读回来**确实是它（⛔ 不用 `ps.shape.X` 那个 getter 复核 ——
+    /// getter 被形状类型挡住时会把「其实写进去了」误报成失败）。
+    /// ⚠️ 属性名（`ShapeModule.m_Mesh` / `m_Sprite` / `m_Texture`）用的是 Unity 对 `ParticleSystem`
+    /// 的**原生序列化名**（prefab YAML 里逐字如此）；找不到就返回 false —— 调用方负责**出声**
+    /// （⛔ 不许静默；铁律 2：查不到就说查不到）。</summary>
+    static bool ForceShapeRef(ParticleSystem ps, string propPath, UnityEngine.Object want)
+    {
+        var so = new SerializedObject(ps);
+        var p = so.FindProperty(propPath);
+        if (p == null)
+        {
+            Debug.LogWarning(EX1 + $"兜底路也不通：`SerializedObject` 里找不到 `{propPath}`"
+                           + "（原生序列化名变了？）");
+            return false;
+        }
+        p.objectReferenceValue = want;
+        so.ApplyModifiedPropertiesWithoutUndo();
+        return SerializedShapeRef<UnityEngine.Object>(ps, propPath) == want;
+    }
+
+    /// <summary>读 `ShapeModule` 的**原生序列化字段**（`ShapeModule.m_Mesh` / `m_Sprite` / `m_Texture`）。
+    /// 用途 = `ps.shape.X` 那个 getter 在「形状类型对不上」时可能返回 null 的**兜底读**
+    /// （本项目**没有实测过**那个 getter 挡不挡 —— 不能跑 Unity 验证，所以两条路都走）。
+    /// 属性路径取不到时返回 null（**不**抛）。</summary>
+    static T SerializedShapeRef<T>(ParticleSystem ps, string propPath) where T : UnityEngine.Object
+    {
+        var so = new SerializedObject(ps);
+        var p = so.FindProperty(propPath);
+        return p != null ? p.objectReferenceValue as T : null;
     }
 
     /// <summary>把网格**逐流读出来**再重建一份（顶点流 0 + 索引流 + 子网格 + bounds）。

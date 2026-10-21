@@ -1917,10 +1917,17 @@ public static class MainMenuScene
                 mbox(nb, $"导航钮 `{navNames[i]}`", 164.31f, 169.68f,
                      "原版五颗 `Main Menu Navigation Button - *` 的 `m_SizeDelta` **逐值相同** = 164.31 × 169.68"
                      + "（⚠️ 与「选中态高亮」那一格 `−0.3..164.0` **不是同一个数**，别互推）");
-                mbox(FindChild(nb, "Hit"), $"导航钮 `{navNames[i]}` 的命中区 `Hit`", 164f, 169.7f,
-                     "⚠️ **我们自己的**（原版这 5 颗钮的子件是 `Selected highlight`/`Image`/`Text Background`/"
-                     + "`Badge Highlight`，**没有 `Hit`** —— 原版靠钮自己挂的 `EverguildToggle` 收射线）"
-                     + "；矩形 = 那颗透明 quad 那一格 `cx0±82` × `钮顶..钮底`（164 × 169.7）");
+                // 🔴 **2026-10-22（W62-D2）改期望值**：命中区不再是「整颗钮高」，而是**原版可射线件的并集**
+                //   （图标 `Image` + `Text Background` + `Badge Highlight`，`m_RaycastPadding` 全 0）。
+                //   ⇒ Home：x 4.6..160.9 / y 顶+3.0..顶+157.7 = **156.3 × 154.7**；
+                //     其余四颗：x 9.3..156.2 / y 顶+1.7..顶+157.7 = **146.9 × 156.0**。
+                //   判据（逐字段实读 + 为什么必须改）→ `资料/普查产出_1022/W62_缺陷诊断.md` §D2。
+                mbox(FindChild(nb, "Hit"), $"导航钮 `{navNames[i]}` 的命中区 `Hit`",
+                     i == 0 ? 156.3f : 146.9f, i == 0 ? 154.7f : 156.0f,
+                     "⚠️ **我们自己的节点**（原版没有 `Hit` 子件；原版靠钮自己挂的 `EverguildToggle` 收射线）"
+                     + "，**但矩形照原版可射线件的并集**：`Image` 140×140 + `Text Background` 146.92×39.39"
+                     + " + `Badge Highlight` 35×35（各块 `m_RaycastPadding` 全 0）"
+                     + " ⇒ ⛔ **不是整颗钮 164.31 × 169.68**（那个写法让相邻钮命中区叠 16.4px，点「奖励」会命中「商店」）");
             }
             mbox(bar, "顶栏 `Upper bar`", 1920f, 100f,
                  "原版：`anchor (0,0)-(1,1)` + `sizeDelta.y −980` ⇒ 高 100（⚠️ **不是**下面子件 `Background` 那一格）");
@@ -1957,6 +1964,75 @@ public static class MainMenuScene
                 mbox(prac, "模式卡 `Practice`", 535f, 414.4f, "同上（`CardW × CardH` = 535 × 414.4）");
                 mbox(FindChild(prac, "Hit"), "模式卡 `Practice` 的命中区 `Hit`", 535f, 414.4f,
                      "⚠️ **我们自己的**：原版卡自己挂 `EverguildButton`、**没有** `Hit` 子件；矩形 = 卡那一格");
+            }
+        }
+
+        // ============================================================ ★ W62-D2（2026-10-22 · 真机缺陷）
+        // **左栏导航命中区的两条判据**（真机症状：点「奖励」的上沿命中「商店」）。
+        //  ① 相邻两颗的命中区**重叠高度 = 原版量级**（2.615 px ± 0.5）——
+        //     旧写法（整钮高 169.68 × 步进 153.33）叠 **16.35 px**，是根因；
+        //  ② 重叠带里点一下 ⇒ 命中**后兄弟**（原版 uGUI 遍历序：后兄弟画在上层、先吃到；
+        //     旧写法同队列同 z 时落到「先收集者」= 前兄弟）。
+        // 判据全文 → `资料/普查产出_1022/W62_缺陷诊断.md` §D2；真机日志 `_tmp_view/click_log.txt:8604-8611`。
+        // 🧨 改坏法：① 命中区改回 `164 × (y2−y1)` ⇒ ①那条红（重叠 16.35）；
+        //    ② `PointerLayer.HitButton` 去掉 `IsAboveInHierarchy` 那一支 ⇒ ②/②·b 红（落到 Shop）。
+        Section("★ W62-D2：左栏导航命中区 = 原版可射线件的并集 + 重叠带里后兄弟赢");
+        {
+            var d2Names = new[] { "Home", "Collection", "Shop", "Rewards", "Social" };
+            var d2Rect = new PxRect[d2Names.Length];
+            var d2Btn = new WindowButton[d2Names.Length];
+            bool d2Ok = true;
+            for (int i = 0; i < d2Names.Length; i++)
+            {
+                d2Btn[i] = NavHitButton(menu, d2Names[i]);
+                Vector2 c, h; ImageQuad q;
+                if (d2Btn[i] == null || !PointerLayer.HitBoxForTest(d2Btn[i], out c, out h, out q))
+                {
+                    CheckTrue(false, $"（前提）`{d2Names[i]}` 的命中区量得到"
+                                   + "（`PointerLayer.HitBoxForTest` —— 转发生产那一份 `HitBoxPx`）");
+                    d2Ok = false; continue;
+                }
+                d2Rect[i] = new PxRect(c.x - h.x, c.y - h.y, c.x + h.x, c.y + h.y);
+            }
+            if (d2Ok)
+            {
+                // ---- ① 相邻两颗的重叠高度（x 也真的相交才算「重叠」）----
+                for (int i = 0; i < d2Names.Length - 1; i++)
+                {
+                    var a = d2Rect[i]; var c2 = d2Rect[i + 1];
+                    float xOv = Mathf.Min(a.x2, c2.x2) - Mathf.Max(a.x1, c2.x1);
+                    float yOv = Mathf.Min(a.y2, c2.y2) - Mathf.Max(a.y1, c2.y1);
+                    float ov = xOv > 0f ? yOv : 0f;
+                    CheckTrue(ov >= 2.115f && ov <= 3.115f,
+                              $"★ ① `{d2Names[i]}` / `{d2Names[i + 1]}` 的命中区重叠高度 = **{ov:F3}px**"
+                            + "（原版 **2.615 ± 0.5**）—— 旧写法（整钮高）是 **16.35px**"
+                            + "（= 169.68 − 153.33，正是「点奖励命中商店」的根因）；"
+                            + " 实得两颗 = ["
+                            + $"{a.x1:F2},{a.y1:F2}→{a.x2:F2},{a.y2:F2}] / [{c2.x1:F2},{c2.y1:F2}→{c2.x2:F2},{c2.y2:F2}]");
+                }
+                // ---- ② 重叠带中心点一下 ⇒ 后兄弟（Rewards，第 3 颗）----
+                {
+                    int iS = 2, iR = 3;
+                    float ox1 = Mathf.Max(d2Rect[iS].x1, d2Rect[iR].x1), ox2 = Mathf.Min(d2Rect[iS].x2, d2Rect[iR].x2);
+                    float oy1 = Mathf.Max(d2Rect[iS].y1, d2Rect[iR].y1), oy2 = Mathf.Min(d2Rect[iS].y2, d2Rect[iR].y2);
+                    CheckTrue(ox2 > ox1 && oy2 > oy1,
+                              "（前提）Shop / Rewards 的命中区真的叠着（不叠 ⇒ 下面两条没有鉴别力）");
+                    var designPt = new Vector2((ox1 + ox2) * 0.5f, (oy1 + oy2) * 0.5f);
+                    var pPtr = MenuCheck.PointerFramePxFromDesign(designPt, d2Btn[iR].transform);
+                    var got = PointerLayer.Instance.ButtonAt(pPtr.x, pPtr.y);
+                    CheckTrue(got == d2Btn[iR],
+                              $"★ ② 重叠带中心（设计 {designPt.x:F2},{designPt.y:F2}）点一下 ⇒ 命中**后兄弟 `Rewards`**"
+                            + $"（实得 `{(got != null ? got.name : "<null>")}`）—— 原版 uGUI 遍历序：后兄弟画在上层先吃到；"
+                            + "改回「先收集者赢」⇒ 实测这一点落到 `Shop`（`_tmp_view/click_log.txt:8604-8611`）");
+                    // ②·b 真机那一击的同一个点（画布 73.5, 615.0）：在 Rewards 的图标区里，
+                    //      在 Shop **并集下沿（607.8）之外** —— 旧写法它压在 Shop 的整钮命中区（450.1..619.8）里。
+                    var pReal = MenuCheck.PointerFramePxFromDesign(new Vector2(73.5f, 615f), d2Btn[iR].transform);
+                    var gotReal = PointerLayer.Instance.ButtonAt(pReal.x, pReal.y);
+                    CheckTrue(gotReal == d2Btn[iR],
+                              "★ ②·b 真机那一击（画布 73.5, 615.0）现在命中 `Rewards`"
+                            + $"（实得 `{(gotReal != null ? gotReal.name : "<null>")}`）"
+                            + "—— 旧写法这里命中 `Shop`（它的整钮命中区 450.1..619.8 盖住了 Rewards 的顶边）");
+                }
             }
         }
 

@@ -60,7 +60,8 @@ namespace CardPresentation
         ///
         /// 🔴 **它走「按阵营」那一档，⛔ 不在 `ByEvent` 里** —— 本地**只有 2 个阵营**有这件
         /// （`UM_CardDraw` / `SAU_CardDraw`，都在效果库里 ✓），其余 11 个阵营**留白**
-        /// （`Resolve` 回 null ⇒ 不播）。⚠️ **同 `SummonCircleOf` 的先例**：宁可留白，⛔ 不硬凑一件。
+        /// （`Resolve` 回 null ⇒ 不播）。⚠️ **同「登场召唤法阵」那条的教训**（那一层 2026-10-21 已整层删掉）：
+        /// 宁可留白，⛔ 不硬凑一件。
         /// 🔴 **2026-10-16（账 `A1731`）：留白不再静默** —— `Resolve` 走到底（= 这个事件只能按阵营配、
         /// 而这个阵营没配）时会 `Debug.LogWarning` 一次（每种 (事件, 阵营) 只说一次，见 `WarnNoFactionVariant`）；
         /// `Draw` 是本表里**唯一**会走到那个出口的事件。
@@ -99,7 +100,7 @@ namespace CardPresentation
         ///
         /// | 我们的事件 | 原版接的是 | 在我们导出索引里能用吗 |
         /// |---|---|---|
-        /// | `deploy` | `BlueSummonCircle`（+ 卡专属查名） | ⚠️ 在，但**偏亮 2.7×** |
+        /// | `deploy` | ~~`BlueSummonCircle`（+ 卡专属查名）~~ 🔴 **2026-10-21 作废**：那 4 个候选其实是**某些卡的技能动画**，不是登场法阵（原版没有这一层）⇒ 已删 | —— |
         /// | `death` | `Card 3D Death Explosion` | ❌ **不在导出索引**（脚本驱动的 3D 效果） |
         /// | `attack_melee` | 按阵营查 `SLASH_VFX`：`Whip Attack EC Normal` / `Cut Axe SW` / `Sword Slash` / `Slash Repeating 2x` / `Rapacious Claw Slash` | 只有 `Cut Axe SW` 干净（对得上/中/1.01）；`Sword Slash`·`Rapacious Claw Slash` **不在索引**，另两个一个「全程空」一个「偏暗 0.19」 |
         /// | `attack_ranged` | 按阵营查 `RANGED_VFX`（`BulletImpact_1shot_trail` 等 ~11 键） | ❌ `BulletImpact_1shot_trail` 判「**两边全程空（完全脚本驱动）**」 |
@@ -218,15 +219,17 @@ namespace CardPresentation
         };
 
         /// <summary>阵营覆盖：**远程攻击**与**抽卡**按阵营换。
-        /// ⚠️ **登场那条不在这里** —— 登场在我们这边是「卡的淡入（`VfxMap.Deploy`）+ 召唤法阵」**两件叠加**，
-        /// 而 `Resolve` 一次只回一个名字 ⇒ 法阵改由 `BattleDriver.PlaySignal` 的 deploy 分支**单独补一发**
-        /// （判据 → <see cref="SummonCircleOf"/>）。
-        /// ⚠️ **`SummonCircleOf` 那一层本身存疑**（现读的引用证据是**逐卡**的，不是按阵营 —— 见它的 doc
-        /// 那段订正；要不要留这一层是**另一条账**，⛔ 别拿这里的 4 个名字当「原版就是这样」）。
-        /// ⚠️ **没配到的阵营一律留白**（回 null ⇒ 不播）—— **两条按阵营的表都是**：`Draw` 只有 UM / SAU 两件
-        /// （见 <see cref="Draw"/> 的 doc）、`SummonCircleByFaction` 只有 4 个候选。🔴 **2026-10-16（账 `A1731`）：
-        /// 留白不再静默** —— `Resolve` 走到底 / `SummonCircleOf` 回 null 之前都会 `Debug.LogWarning`
-        /// 一次（每种 (事件, 阵营) 只说一次，见 `WarnNoFactionVariant`）。
+        /// 🔴 **2026-10-21（W61 第 2 批 · 第 2 条）：登场那条【没有】按阵营的第二件了** ——
+        ///   我们原来在登场拍另补一发「阵营召唤法阵」（`SummonCircleByFaction` 4 个候选：
+        ///   Ember/Tide 是**我们挑的**、SaimHann/TauEmpire 是**按名字前缀推断的**），
+        ///   而原版**没有「按阵营的登场法阵」这一层**（`decomp_full` 按 `SummonCircle` /
+        ///   `summonParticles` / `SummonAnim` 搜 **0 命中**；`assets_full` 的 `*ByArmy*` 只有
+        ///   `RangedAttackParticlesByArmy` / `CardFramesByArmy` 两条）⇒ **整层已删**。
+        ///   登场那一拍有判据的只有：卡的淡入（`CardPrefab.normalSummon` → `VfxMap.Deploy`）+
+        ///   逐卡 `summonAnimDelayed` + 落地扬尘。判据 → `资料/普查产出_1021/W61_战斗线_演出链对账.md` §2·1 #10。
+        /// ⚠️ **没配到的阵营一律留白**（回 null ⇒ 不播）；🔴 **2026-10-16（账 `A1731`）：
+        /// 留白不再静默** —— `Resolve` 走到底回 null 之前会 `Debug.LogWarning` 一次
+        /// （每种 (事件, 阵营) 只说一次，见 `WarnNoFactionVariant`）。
         /// ⚠️ `AttackRanged` **不属于这一档**：它在 `ByEvent` 里有一件通用替代品 ⇒ 没配专属粒子的阵营走它，
         /// 不构成留白（`Resolve` 只在「`ByEvent` 里根本没有这个事件」时才出声）。</summary>
         static readonly Dictionary<string, Dictionary<string, string>> ByFaction =
@@ -252,65 +255,14 @@ namespace CardPresentation
                   { AttackRanged, "BulletImpact_2shot_trail_chaos" } } },
         };
 
-        /// <summary>登场时那个**召唤法阵**（原版按阵营/逐卡，本地只有 4 个候选）。
-        /// 判据 → `数据/游戏数据/card_vfx_by_card.json` 的 `generic.deploySummonCandidates`
-        /// （`AeldariSummon` → `BlueSummonCircle` · `Tau_Summon` / `Tau_Kroot_Summon` → `Tau_SummonCircle` ·
-        /// `RelentlessMarchSummon` → `GreenSummonCircle`）。
-        /// ⚠️ **Ember / Tide 那两条是我们挑的**（这两个起始阵营在原版里没有对应物）。
-        /// 🔴 **没配到的阵营：出声 + 留白**（账 `A1731`；⛔ 不硬凑一件，见下面那段订正）。
-        ///
-        /// 🔴 **2026-10-16 就地订正（铁律 5 · 账 `A1731`）**：本行原来写「其余阵营的召唤动画**在远端包** ⇒ 返回 null」——
-        ///    **这句没有判据**（它是从「本地只有 4 个候选」推的）。现读证据：
-        ///      · 本机**没有**任何「CardAnim → 阵营」的字段 —— `assets_full` 里 `*ByArmy*` 的 MonoBehaviour
-        ///        只有 `RangedAttackParticlesByArmy` / `CardFramesByArmy` **两条**（没有 summon 那一支）；
-        ///        `decomp_full` 按 `SummonCircle` / `summonParticles` / `SummonAnim` 搜 **0 命中**。
-        ///        生成器自己也写着「『哪个 CardAnim 属哪个阵营』**没有本地字段**（靠名字前缀）= 推断」
-        ///        （`工具/gen_card_vfx_by_card.py:534`）。
-        ///      · 本地**唯一**的引用证据是**逐卡**的：卡 SO 的
-        ///        `cardAbilities[].abilityLogic[].cardAnimations[]`（`资料/普查产出_第二十七会话/guid_map.tsv`）——
-        ///        `AeldariSummon` ← `ASH52 Hosts of the Dead` / `ASH17 Spiritseer` / `Path of Command` / `Path of the Warrior`；
-        ///        `Tau_Summon` ← `TAU56 Valued Sacrifice` / `TAU64 Tidewall Droneport` / `Homing Beacon`；
-        ///        `SororitasSummon_Basic` ← `SOR34 Celestian Superior`；`Guard Summon` ← `AM73 Taurox Prime` / `AM34 Valkyrie` /
-        ///        `AM76 Armoured Lightning` / `AM72 Vitus Gryf`；`RelentlessMarchSummon` ← `SAU46 Spyder Nest` / `SAU71 Immortals Phalanx` / …
-        ///      ⇒ **本机的这 4 个候选是「某些卡的技能动画」，不是「阵营的登场法阵」**；
-        ///        上面 SaimHann / TauEmpire 那两行是**按名字前缀**绑的（= 推断档，⛔ 别当成 `conf: exact`）。
-        ///      ⚠️ **本机查不到「原版登场到底按不按阵营播法阵」** —— 按现读的字段，登场这一拍**有判据**的是
-        ///        「卡自己的 `summonAnimDelayed`（逐卡，`conf: authoritative`）+ 共享的 `normalSummon` 淡入」。
-        ///        **这一层（`SummonCircleOf` 要不要留、`ByFaction` 那两行算不算）是另一条账**（不是本件），
-        ///        ⛔ 别拿这里的 4 个名字当「原版就是这样」。</summary>
-        public static string SummonCircleOf(string faction)
-        {
-            if (string.IsNullOrEmpty(faction)) return null;
-            string v;
-            if (SummonCircleByFaction.TryGetValue(faction, out v)) return v;
-            // 🔴 2026-10-16（账 `A1731`）：**没配到就出声** —— 原来这里静默 `return null`，
-            //    「原版这一档我们没有」与「表里漏抄了」在日志里分不出来（本仓红线：不许静默失败）。
-            WarnNoFactionVariant("阵营召唤法阵（deploy）", faction,
-                $"本地只有 {SummonCircleByFaction.Count} 个候选（`SummonCircleByFaction` 那张表）；"
-                + "⛔ 别按名字前缀给这个阵营凑一件（本机没有『CardAnim → 阵营』的字段，见本方法 doc 里那段订正）。");
-            return null;
-        }
-
-        /// <summary>**阵营 → 召唤法阵名**（判据只此一处 —— <see cref="SummonCircleOf"/> 与
-        /// <see cref="AllNames"/> 共用同一份）。
-        /// ⚠️ **键要用【我们的阵营名】**（= `CardDef.Faction`，13 个：SaimHann / TauEmpire / …；
-        ///    2026-09-30 核过与 `Resources/OffensiveCards.json` 的 `army` **逐字相同**）。
-        ///    写 "Aeldari"/"Tau" 那种**原版文件夹名**会**静默不播**（查不到 ⇒ 回 null）。
-        /// 🔴 **2026-10-16（`A2080` 顺手查出的自检覆盖洞）**：原来这是一个 `switch`、而
-        ///    `AllNames()` **枚举不到它** ⇒ BattleScene 那条「VfxMap 里的名字在库里都找得到」
-        ///    的断言**覆盖不到这三个名字**。改成一张表，两个消费点共用 ——
-        ///    以后往里加阵营，`AllNames()` 自动跟着覆盖（⛔ 别再写回 `switch`）。</summary>
-        static readonly Dictionary<string, string> SummonCircleByFaction =
-            new Dictionary<string, string>
-        {
-            { "Ember",     "Sororitas Summon Basic" },   // 我们挑的（原版这个起始阵营没有对应物）
-            { "Tide",      "Tau_SummonCircle" },         // 我们挑的
-            { "SaimHann",  "BlueSummonCircle" },         // ⚠️ 名字前缀推断（`AeldariSummon`）—— 不是原版字段，见 `SummonCircleOf` doc 那段订正
-            { "TauEmpire", "Tau_SummonCircle" },         // ⚠️ 同上（`Tau_Summon` / `Tau_Kroot_Summon`）
-            // 其余阵营 ⇒ 不配：`SummonCircleOf` 回 null **并出声**（账 `A1731`；⛔ 不硬凑一件）。
-            // ⚠️ 原来这里写「其余阵营的召唤动画**在远端包**」—— **那句没有判据**，2026-10-16 已按实据订正
-            //    （见 `SummonCircleOf` 的 doc：本机的这 4 个候选其实是**某些卡的技能动画**）。
-        };
+        // 🔴 **2026-10-21（W61 第 2 批 · 第 2 条）：`SummonCircleOf` / `SummonCircleByFaction` 整层已删。**
+        //   它们原来给「登场」补一发**按阵营的召唤法阵**（Ember/Tide 是我们挑的、SaimHann/TauEmpire 按名字前缀推），
+        //   而原版**没有这一层**：`decomp_full` 按 `SummonCircle` / `summonParticles` / `SummonAnim` 搜 0 命中；
+        //   `assets_full` 的 `*ByArmy*` 只有 `RangedAttackParticlesByArmy` / `CardFramesByArmy` 两条；
+        //   本地那 4 个候选其实是**某些卡的技能动画**（逐卡 `cardAbilities[].abilityLogic[].cardAnimations[]`）。
+        //   ⇒ 登场那一拍只保留有判据的三件：卡淡入（`normalSummon` → `VfxMap.Deploy`）· 逐卡
+        //   `summonAnimDelayed` · 落地扬尘。判据 → `资料/普查产出_1021/W61_战斗线_演出链对账.md` §2·1 #10。
+        //   ⛔ 别再给它补一件「看起来像法阵」的替代品（那是原版没有的额外段）。
 
         /// <summary>逐卡覆盖（键 = **卡 id**；事件名同 <see cref="Resolve"/>）。
         /// **2026-10-14 起它由 `Resources/card_vfx_by_card.json` 载入**（见 <see cref="EnsureLoaded"/>），
@@ -386,8 +338,8 @@ namespace CardPresentation
 
         // ============================ 🔴 2026-10-16（账 `A1731`）：**按阵营配的东西，这个阵营没有 ⇒ 出声** ============================
         //
-        // **背景（本仓红线：不许静默失败）**：`ByFaction`（远程攻击 / 抽卡）与 `SummonCircleByFaction`
-        // （阵营召唤法阵）都是**按阵营配**的表 —— 没配到的阵营解析出来是 `null`，而
+        // **背景（本仓红线：不许静默失败）**：`ByFaction`（远程攻击 / 抽卡）是**按阵营配**的表 ——
+        // 没配到的阵营解析出来是 `null`，而
         // `CardEffects.Fire(null, …)` 的第 1 行就是 `if (string.IsNullOrEmpty(effectName)) return;`
         // （那一行是给「通用兜底也没配」用的）⇒ 玩家看到「这一拍什么都没发生」，
         // 而日志里**一个字都没有**，「原版这一档我们没有」与「表里漏抄了」分不出来。
@@ -1543,14 +1495,13 @@ namespace CardPresentation
         ///      2026-10-14 起才**懒载入**的 ⇒ 那条断言跑在第一次 `Resolve` **之前**时，
         ///      `ByCard` 还是空的、**逐卡那一档整块没被查** —— 暗黑天使 `DA48` 那条
         ///      「值在表里、库里没有」就是这么**静默**挂着的（判据 → `任务/T05` §2·1 ②）。
-        ///   ② **补 <see cref="SummonCircleByFaction"/>** —— 它原来是 `switch`、枚举不到，
-        ///      三个召唤法阵名同样没进过那条断言。`ResolvePerCard` 那一档也已经由 `ByCard` 覆盖。</summary>
+        ///   ② 当年还补过 `SummonCircleByFaction`（阵营召唤法阵）—— 🔴 **2026-10-21 那张表整层已删**（原版没有），
+        ///      本条不再枚举它。`ResolvePerCard` 那一档也已经由 `ByCard` 覆盖。</summary>
         public static IEnumerable<string> AllNames()
         {
             EnsureLoaded();                                   // ① 见上面 doc：不载表 ⇒ 逐卡那一档整块漏查
             foreach (var kv in ByEvent) yield return kv.Value;
             foreach (var f in ByFaction) foreach (var kv in f.Value) yield return kv.Value;
-            foreach (var kv in SummonCircleByFaction) yield return kv.Value;   // ② 召唤法阵
             foreach (var c in ByCard)
                 foreach (var kv in c.Value)
                     foreach (var nm in kv.Value) yield return nm.N;   // 🆕 B3：一行可能有多件（全播）；B6：`N` = prefab 名

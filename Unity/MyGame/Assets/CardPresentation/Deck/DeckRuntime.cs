@@ -1260,16 +1260,16 @@ namespace CardPresentation
             //    不清的话重建之后会带着上一趟的起点去命中一张**已经销毁的**内容）
             _cosmArmName = null; _cardArmDef = null;
 
-            // 空库时先替玩家建一套（演示卡组），这样界面一打开就有内容
-            if (Library.Count == 0)
-            {
-                var fresh = NewState();
-                // 🔴 **2026-10-18（双语线 · 波 1 · P1）**：默认卡组名走词条 `MenuDeck/DefaultDeckName`
-                //   （键名 = 调度台 2026-10-18 裁定自拟；中文列 = 改之前写死的 `我的卡组` ⇒ 中文档零变化）。
-                //   ⚠️ 这一串**会被画上屏**（页头 + 卡组列表），所以它算 ①；玩家自己命名的卡组名**绝不进表**。
-                Library.Create(Loc.T("MenuDeck/DefaultDeckName"));
-                Library.CommitCurrent(PlayerDeckForDemo(fresh));
-            }
+            // 🔴 **2026-10-22（`W62`）删掉「空库时替玩家建一套并当场落盘」** —— 原来这里是：
+            //   `Library.Create(Loc.T("MenuDeck/DefaultDeckName"))` + `Library.CommitCurrent(PlayerDeckForDemo(NewState()))`
+            //   ⇒ **一打开卡组编辑器就把一副演示卡组（「复仇者之刃」）静默写进玩家存档**、
+            //   连默认名一起覆盖（`DeckLibrary.CommitCurrent` 会 `dst.Name = deck.Name`）。
+            //   **原版没有这个副作用**：`SelectDecksTab__CreateDeck.c:17,26,28` = `CardDeck__GetEmptyDeck()`
+            //   → 打上模式 → **直接 `WindowsManager.OpenWindow<DeckEditingWindow>(…)`**，全链没有一个入库调用；
+            //   入库的唯一路径 = `DeckEditingWindow__TrySaveDeck.c:100 UploadDeck`（先 `:80 ValidateDeck`，
+            //   不合法就弹错误窗 `return`，**绝不走到 `:100`**；`:74 UploadUnsyncedDeck` 才真写）。
+            //   ⇒ 现在改走同一条「**只造、不入库、不落盘**」的路（见下面 `_newDeck` 那一段）。
+
             // 🔴 **「从收藏进编辑」的交接**（2026-09-23）：收藏窗点「编辑」时把下标写进
             //    `CollectionData.PendingEditDeck`，这里**开局就读掉并清掉** ⇒ 编辑器直接打开那一套。
             //    （原版在同一扇窗里换页、不需要交接；我们是两个场景 —— 见 `资料/阶段二_卡组线_原版规格.md` §七。）
@@ -1298,12 +1298,42 @@ namespace CardPresentation
                 }
                 else Debug.Log("[Deck] 交接的下标 " + want + " 越界（共 " + Library.Count + " 套）—— 退回当前那套");
             }
+
+            // 🔴 **2026-10-22（`W62`）空库 = 照原版「新建卡组」那条路开窗**（⛔ **不写玩家存档**）。
+            // 判据（逐行读过，见 `Shell/CollectionData.CreateDeck` 那一段的同一组出处）：
+            //   `SelectDecksTab__CreateDeck.c:17` `CardDeck__GetEmptyDeck()`（= 一副**不在库里**的空卡组；
+            //   `CardDeck__GetEmptyDeck.c:25-27` 把名称/战将/防御都置空、`:28-31` 清 `cardLibraryIds`）
+            //   → `:26` 打模式 → `:28` `WindowsManager__OpenWindow<DeckEditingWindow>(…)` —— **全链没有一个入库调用**；
+            //   原版入库的唯一路径 = `DeckEditingWindow__TrySaveDeck.c:100 UploadDeck`（先 `:80 ValidateDeck`，
+            //   不合法就 `:81-98` 弹错误窗 `return`，**绝不走到 `:100`**）→ `DeckEditingWindow__UploadDeck.c:63`
+            //   `CardDeck.CopyDeck` + `:74 PlayerDataManager.UploadUnsyncedDeck`。
+            //
+            // ⚠️ **演示卡组只当内存里的临时载体**（改动前它是**当场落盘**的 —— 那是本次修掉的真缺陷）：
+            //   编辑器**总得有一副东西可编辑**，而库里一套都没有时，我们拿 `PlayerDeckForDemo` 填一副
+            //   **尚未入库**的 `_newDeck`（与上面 `PendingNewDeck` 那一路**同一个状态**）
+            //   ⇒ 只有玩家按 `Done` 且过了校验，它才 `Library.Insert`（= 原版 `UploadUnsyncedDeck`）落盘。
+            //
+            // ⚠️ **如实标注（偏离）**：原版 `GetEmptyDeck` 是一副**空卡组**（没有督军、没有牌、名字为空），
+            //   我们这里给的是一副**合法满编的演示牌**（名字「复仇者之刃」）。
+            //   这是**我们多做的**、不是原版行为 —— 保留它只为「编辑器一打开不是一片空白」。
+            //   ⛔ 别因此把「演示牌」写进库或存档（那正是本次删掉的那段）。
+            if (_newDeck == null && Library.Count == 0)
+            {
+                _newDeck = PlayerDeckForDemo(NewState());
+                CollectionData.PendingEditDeck = -1;   // ⛔ 防呆：两个交接口不许同时生效
+                Debug.Log("[Deck] 库里一套卡组都没有 ⇒ 照原版 `SelectDecksTab.CreateDeck` 开一副**尚未入库**的卡组"
+                          + "（演示牌只当内存载体：**不写存档**，`Done` 过了校验才 `Insert` 落盘）"
+                          + " —— 原版 `GetEmptyDeck` 给的是空卡组，我们这里给的是演示满编（明账偏离）");
+            }
+
             State = NewState();
             // 🔴 **A397（2026-10-13）**：`LoadDeck` 装的是**副本**（原版 `DeckEditingWindow__TryOpen.c:41-45`
             //    的 `new CardDeck` + 拷贝构造）⇒ 从这里往下，编辑器改的**都不是** `Library.Current` 那个对象；
             //    库里那份只在 `CommitDeck()`（= `Done`/`ESC`）那一拍被整份拷回去。
             // 🔴 **A1697**：新建那一路装的是 `PendingNewDeck`（还没入库的那一副）—— 同一个「装副本」语义。
-            State.LoadDeck(freshDeck != null ? freshDeck : Library.Current);
+            // 🔴 **2026-10-22（`W62`）**：空库那一路也走 `_newDeck`（`GetEmptyDeck` 那个位置）——
+            //    ⛔ 不要再退回 `Library.Current`（空库时它是 null）。
+            State.LoadDeck(_newDeck != null ? _newDeck : Library.Current);
 
             BuildAreaBackground();
             BuildTopBar();

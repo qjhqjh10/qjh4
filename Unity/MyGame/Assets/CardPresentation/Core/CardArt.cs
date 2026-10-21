@@ -154,10 +154,62 @@ namespace CardPresentation
         /// <summary>3D 卡体的底板图集（512²，材质的 `_BaseMap`）</summary>
         public static Texture2D Card3DBase() { return Get(Root + "card3d/Card3D_BaseColor"); }
 
-        /// <summary>3D 卡体的 matcap（材质的 `_MatCap`）。
-        /// ⚠️ **本地只解出 tier1 这一张** —— 原版是按 `CardTier` 取一个数组
-        /// （`CardMaterialHelper.GetCardMatCapByCardTier`），其余档的解包资源里没有 ⇒ 四档先用同一张。</summary>
-        public static Texture2D Card3DMatcap() { return Get(Root + "card3d/MatCap_Card_Level1"); }
+        /// <summary>3D 卡体的 matcap（材质的 `_MatCap`）—— **按卡等级（= 原版 `CardTier`）分四档**。
+        ///
+        /// 🔴 **2026-10-21（W61 第 2 批 · 第 6 条）就地订正（铁律 5）**：本行原来写
+        /// 「本地只解出 tier1 这一张，其余档的解包资源里没有 ⇒ 四档先用同一张」—— **那是错的**：
+        /// 四张都在本地。判据（UnityPy 直读 shipped bundle，不是按名字猜）：
+        ///   `CardMaterialHelper.matcapTexturesByCardTier`（`bundle_scenes_scenes_battlearena1` 的
+        ///   `MonoBehaviour_4274`）是 4 个 Texture2D 引用，逐 PathID 落到
+        ///   `battlesharedresources_assets_all.bundle`：
+        ///   | 数组下标 = `CardTier` | 贴图 |
+        ///   |---|---|
+        ///   | 0 `Tier1` | `MatCap Card Level 1` |
+        ///   | 1 `Tier2` | `Matcap Bronze` |
+        ///   | 2 `Tier3` | `Matcap Silver` |
+        ///   | 3 `Tier4` | `Matcap Gold` |
+        ///   （`CardTier.cs` = `Tier1=0 … Tier4=3`；取法 = `CardMaterialHelper__GetCardMatCapByCardTier.c`
+        ///    直接拿 `CardTier` 当数组下标、越界夹到末位。）
+        ///
+        /// <param name="level">**1 基**的卡等级（= 我们 `CardProgress.Level(artId)`，1..4；与原版
+        /// `CardTier + 1` 同值 —— 与卡框那一路 `CardArt.Frame(..., tier)` 是**同一个口径**）。
+        /// `0`（缺省）= 原版 Tier1 ⇒ **老调用点行为一字不变**。</param>
+        /// <para>⚠️ 这里只覆盖**死亡爆散体**那个调用点（`CardFeel.SpawnDeathBody`）；**场上那张 3D 体**
+        /// 的 `_MatCap` 还在 `CardView.BuildBody3D` 里写死 tier1 —— 原版 `SetCardImageTo3DBase`
+        /// 走的是同一个 `GetCardMatCapByCardTier`（`BattleCardUI__SetCardImageTo3DBase.c:58`）
+        /// ⇒ 那一处要改得动 `CardView`（本批白名单外），已如实记进报告。</para>
+        /// </summary>
+        public static Texture2D Card3DMatcap(int level = 0)
+        {
+            string name = "MatCap_Card_Level1";
+            if (level > 0)
+            {
+                switch (Mathf.Clamp(level, 1, MaxTier))
+                {
+                    case 2: name = "MatCap_Bronze"; break;
+                    case 3: name = "MatCap_Silver"; break;
+                    case 4: name = "MatCap_Gold"; break;
+                }
+            }
+            var t = Get(Root + "card3d/" + name);
+            // 缺那一档（`Resources/Art/card3d/` 是本地件，别的机器没跑过导入脚本）⇒ 退回 tier1，
+            //  **出声一次**（不许静默：那会让「这张卡是 tier4」在画面上看不出来）。
+            if (t == null && name != "MatCap_Card_Level1")
+            {
+                if (!_warnedMatcapTier)
+                {
+                    _warnedMatcapTier = true;
+                    Debug.LogWarning($"[CardArt] 缺 `{Root}card3d/{name}` ⇒ 3D 卡体/爆散体的 matcap 退回 tier1"
+                                   + "（判据 = 原版 `matcapTexturesByCardTier` 四档；补：跑 "
+                                   + "`python 工具/import_original_3dcard.py`）");
+                }
+                t = Get(Root + "card3d/MatCap_Card_Level1");
+            }
+            return t;
+        }
+
+        /// <summary>「某一档 matcap 缺图」只出声一次。</summary>
+        static bool _warnedMatcapTier;
 
         /// <summary>🆕 2026-09-25：**卡底那枚软阴影**的图（原版 sprite `Card blob shadow`）。
         /// 原版是 128×128 @ `m_PixelsToUnits = 100`（内容 `textureRect` 124.848²）；我们导的是**裁掉透明边**

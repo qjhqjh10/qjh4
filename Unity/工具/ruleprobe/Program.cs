@@ -537,6 +537,8 @@ class Program
         //   ⚠️ **缺列一律 `-1`（= 缺值）并出声**，⛔ 不许借 `I()`（它对缺列返回 `0`，
         //     而 `0` 在 `choicesTargetsAffected` 上是**合法真值** = `TargetsAffected.any`）。
         int nMissChoicesTa = 0, nMissChoicesMt = 0, nMissChoicesIds = 0;
+        // 🆕 2026-10-21（`T03·c` 批 B 接线）：`triggerPriority` 的读数列（v13）
+        int nTpCards = 0, nBadTp = 0;
         foreach (var c in doc.RootElement.GetProperty("cards").EnumerateArray())
         {
             string S(string k) => c.TryGetProperty(k, out var v) && v.ValueKind == JsonValueKind.String ? v.GetString() : null;
@@ -562,6 +564,33 @@ class Program
             if (!hasCTa) nMissChoicesTa++;
             if (!hasCMt) nMissChoicesMt++;
             if (!hasCIds) nMissChoicesIds++;
+            // 🆕 2026-10-21（引擎线 `T03·c` 批 B 接线）：**v13 的 `triggerPriority` 也要传**。
+            //   不传的后果与 `A1911` / `A1959` 逐字同族：**探针与引擎口径不同** ——
+            //   引擎侧 `Data/CardDatabase.cs` 从 v13 起把这一列传进 `CardDef`（`MapTriggerPriority`），
+            //   探针不传 ⇒ `CardDef.TriggerPriority()` **恒 1** ⇒ 四道队列在探针里**永远走 Instant**，
+            //   任何靠探针量「priority 压过 PlayOrder」的读数都会被静默钉成错基线。
+            //   ⚠️ 缺列 / 形状不对**一律出声**（⛔ 不静默当成默认值）—— 本列的口径是「缺键 = 1」，
+            //     所以「整列没有」与「全池都是默认值」在数据上分不开，必须靠 `version` 那道闸分辨。
+            bool hasTp = c.TryGetProperty("triggerPriority", out var tpEl) && tpEl.ValueKind == JsonValueKind.Array;
+            var trigPrio = new List<KeyValuePair<string, int>>();
+            if (hasTp)
+                foreach (var e in tpEl.EnumerateArray())
+                {
+                    if (e.ValueKind != JsonValueKind.Object) { nBadTp++; continue; }
+                    string tpk = e.TryGetProperty("keyword", out var ke) && ke.ValueKind == JsonValueKind.String
+                                 ? ke.GetString() : null;
+                    bool hasPv = e.TryGetProperty("priority", out var pvEl) && pvEl.ValueKind == JsonValueKind.Number;
+                    if (string.IsNullOrEmpty(tpk) || !hasPv) { nBadTp++; continue; }
+                    // 🔴🆕 2026-10-21（审查 `W61b` 第 7 条）：**越界值也算「形状坏」并丢弃** ——
+                    //   引擎侧 `CardDef` 构造函数对不在 0..3 的值同样 LogError + 丢弃；
+                    //   探针这里再收进来的话，`TriggerLaneOfCard` 会拿到一个非法道号、
+                    //   由 `ActionQueue.Enqueue` 出声丢弃 —— 两处报的是同一件事，但**计数**口径不同。
+                    //   ⇒ 统一在「读数」这一层就按坏行处理（探针不再往下传）。
+                    int pv = pvEl.GetInt32();
+                    if (pv < 0 || pv > 3) { nBadTp++; continue; }
+                    trigPrio.Add(new KeyValuePair<string, int>(tpk, pv));
+                }
+            if (trigPrio.Count > 0) nTpCards++;
             list.Add(new CardDef(S("id"), S("name"), S("type"), S("desc"), S("rarity"), S("faction"),
                                  I("cost"), I("attack"), I("health"), I("ranged"), kws,
                                  S("nameZh"), S("descZh"), true, S("subtype"), S("goesSecond"),
@@ -572,7 +601,10 @@ class Program
                                  //   ⛔ 不在这里替消费侧决定「该不该开面板」（那在 `EffectText` 那四道闸）。
                                  choicesTargetsAffected: hasCTa ? cTaEl.GetInt32() : -1,
                                  choicesMaxTargets: hasCMt ? cMtEl.GetInt32() : -1,
-                                 choicesSpecificCardIds: hasCIds ? chIds : null));
+                                 choicesSpecificCardIds: hasCIds ? chIds : null,
+                                 // 🆕 2026-10-21（`T03·c` 批 B 接线）：v13 的逐卡触发优先级 ——
+                                 //   `CardDef` 那个形参是**可选**（默认 null ⇒ 全池 1），这里只在有值时才传。
+                                 triggerPriority: trigPrio.Count > 0 ? trigPrio : null));
         rawKw.Add(kws);
         }
         // 🔴 **缺列一律出声**（铁律「不许静默失败」）：缺了就是缺了，⛔ 不让它静默变成「某张卡的值是 X」。
@@ -592,6 +624,20 @@ class Program
                               + " 行 · `choicesSpecificCardIds` 缺 " + nMissChoicesIds + " 行 —— "
                               + "⇒ `HasSpecificCardChoice` 对这些行恒假、`A1960` 的选牌注入**看不见**；"
                               + "先确认卡池是 v10（`gen_cards_engine.py`）。");
+        // 🆕 2026-10-21（`T03·c` 批 B 接线）：`triggerPriority` 的读数（缺列 / 形状不对**都出声**）。
+        if (poolVersion >= 0 && poolVersion < 13)
+            Console.WriteLine("⚠️ 卡池 `version`=" + poolVersion + " < 13 —— 这一版没有 `triggerPriority` 一列"
+                              + "（引擎侧 `CardDatabase.cs` 同样会为此出声）⇒ 探针把它读成 **1（原版默认 Instant）**，"
+                              + "`ActionQueue` 的四道在探针里就**永远只有 Instant 那条有东西**。"
+                              + "跑 `工具/gen_cards_engine.py` 重生成。");
+        if (nBadTp > 0)
+            Console.WriteLine("⚠️ 卡池 `triggerPriority` 有 " + nBadTp + " 条形不全（缺 `keyword` / 缺 `priority` / "
+                              + "`priority` 不在 0..3）"
+                              + "—— 已跳过（⛔ 没当成默认值 1、也没当成 0 悄悄收下）。"
+                              + "引擎侧 `CardDatabase.MapTriggerPriority` / `CardDef` 构造函数是同口径（出声 + 丢弃）。");
+        Console.WriteLine("  triggerPriority: 带非默认值的卡 = " + nTpCards
+                          + "（缺键 = 1 = Instant；判据 `CardAbility__.ctor.c:5`）");
+
         Pool = list;
         // 🆕 **同序留一份 `keywords` 原文**（见 `PoolRawKeywords` 的说明）——
         //    `CardDef.Keywords` 只有规范化之后的键，`willrun` 要判「卡面上写着哪几段正文」得看原文。
