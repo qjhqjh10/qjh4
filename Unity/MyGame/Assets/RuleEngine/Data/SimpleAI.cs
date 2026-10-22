@@ -519,8 +519,16 @@ namespace RuleEngine
         /// <summary>
         /// 一刀值多少分 = `伤害分 − 反击分`（原版 `ScoreFromBuffedAttack` 的无 buff 版）。
         ///
-        /// 反击口径**照引擎**（`RuleCore.DeclareAttack`）：目标用**近战攻击力**反击；
+        /// 反击口径**照引擎**（`RuleCore.DeclareAttack:5598` 的
+        /// `counterAtk = FieldAttack(ctx, tgtP, target, ranged)`）＝原版
+        /// `GetCombatDamage(defender, attackType)`：**远程攻击引发的反击取守方的【远程】攻击力**
+        /// （`EntityScript__GetCombatDamage.c:19-24`：`attackType == 2 ⇒ CurrentRangeAttack`，
+        /// 否则 `CurrentMeleeAttack`）⇒ 这里同样走 `RuleCore.FieldAttack(ctx, foe, target, a.Ranged)`。
         /// 只有 `LongRange`（远程）与 `Sniper`（远程击杀）免 —— 别退回「远程不吃反击」那个错口径。
+        /// ⚠️ **2026-10-22 订正（铁律 5）**：上面原来写「目标用**近战攻击力**反击」、实现是
+        ///    `int counter = target.Attack`（`UnitState.Attack` = **当前近战**）⇒ 远程攻击时取错档
+        ///    （守方远程≠近战时估值就偏）。判据与出处 →
+        ///    `资料/普查产出_1022/W63_飞行与卡ID演出_调查.md` §B 最后一条。
         /// </summary>
         public static float ScoreFromAttack(BattleContext ctx, AiAction a)
         {
@@ -534,10 +542,12 @@ namespace RuleEngine
 
             float s = ScoreDamaging(target, atk);       // 里面已经按「是不是督军」分了两支
 
-            // 反击：目标用**近战攻**还手（引擎里就是这么结算的）
+            // 反击：取守方**本次打法那一档**的攻击力（原版 `GetCombatDamage(守方, 本次打法)`；
+            //   引擎侧同一口径 = `RuleCore.DeclareAttack` 的
+            //   `counterAtk = FieldAttack(ctx, tgtP, target, ranged)`）
             bool noCounter = a.Ranged && u.Has(KeywordTable.LongRange);
             bool sniperKill = a.Ranged && u.Has("sniper") && RuleCore.WouldKill(target, atk);
-            int counter = target.Attack;
+            int counter = RuleCore.FieldAttack(ctx, foe, target, a.Ranged);
             if (!noCounter && !sniperKill && counter > 0)
             {
                 s -= ScoreDamaging(u, counter);

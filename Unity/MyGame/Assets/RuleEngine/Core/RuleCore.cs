@@ -5264,21 +5264,25 @@ namespace RuleEngine
         ///   「外层 Die 广播 → 外层 Slay 记账 → 嵌套死亡 action」；外层记账就在这里，所以嵌套死亡
         ///   必须在**这一步之后**才 flush（`CleanupDeaths` 末尾因此不替它抢先）。
         /// · `FlushDeaths` 传 `false` —— 它自己把新入队的追加到本地队列尾部（原版 FIFO）。</param>
+        /// <param name="inlineSlay">🆕 **2026-10-22（`W63` #2）**：Slay 那条 ability **就地结算**、
+        /// 不再排一条队列。只有 `FlushDeaths` 的 `slay-credit` 那一条传 `true`。
+        /// 判据 / 为什么只此一处 → <see cref="FireTriggerAt"/> 调用点那段注释。</param>
         /// <returns>真 = 已经记过一次击杀（`Slay` 触发 + `Kills` 广播）。</returns>
         static bool TryCreditKill(BattleContext ctx, UnitState killer, int victimP, UnitState victim,
-                                  bool flushNestedDeaths = true)
+                                  bool flushNestedDeaths = true, bool inlineSlay = false)
         {
             // 🔴 **P2-1**：记账本身也会打死人（`Slay:` 的伤害 / `Kills` 监听器）—— 也攒进「死亡批」，
             //   保证「外层 Die → 外层 Slay → 嵌套死亡」。`Release` 之后由下面那一句决定谁来 flush。
             ctx.DeferDeaths();
             bool credited;
-            try { credited = TryCreditKillCore(ctx, killer, victimP, victim); }
+            try { credited = TryCreditKillCore(ctx, killer, victimP, victim, inlineSlay); }
             finally { ctx.ReleaseDeferDeaths(); }
             if (flushNestedDeaths && !ctx.DeathsDeferred) FlushDeaths(ctx);
             return credited;
         }
 
-        static bool TryCreditKillCore(BattleContext ctx, UnitState killer, int victimP, UnitState victim)
+        static bool TryCreditKillCore(BattleContext ctx, UnitState killer, int victimP, UnitState victim,
+                                      bool inlineSlay = false)
         {
             // ① 凶手 ≠ 死者（原版 `:242`）
             if (killer == null || victim == null) return false;
@@ -5300,7 +5304,13 @@ namespace RuleEngine
             // ---- 唯一发射口 ----
             // 这两个消费者是「同一件事的两种写法」：`Slay:` 关键词 / 卡面 `When this unit kills an enemy, …`
             // （原版只有一个 `AbilityTrigger.Slay = 120`，见 `AbilityTrigger.cs:22`）。
-            FireTriggerAt(ctx, killer, KeywordTable.Slay, kOwner, kSlot);
+            // 🆕 **2026-10-22（`W63` #2）：`inlineSlay` ⇒ Slay 正文就地结算、不二次入队。**
+            //   只有 `FlushDeaths` 的 `slay-credit` 那一条传 `true` —— 它出队时攻击者**还活着**
+            //   （上面 ② 刚放行），再排一条队列就会落到**下一个死者的反噬之后**，
+            //   那时攻击者已被反噬打死 ⇒ `requireActorInPlay` 把整条正文取消（督军一点都不掉）。
+            //   直接路（`DoDestroy` / `Hurt` 那几处）**不传** —— 那条路上没有「下一个死者」压着，
+            //   保持「原版 `AddTriggerSlay` → `AddAutoActionToQueue` 只入队」的形状。
+            FireTriggerAt(ctx, killer, KeywordTable.Slay, kOwner, kSlot, inlineTrigger: inlineSlay);
             // `subject` = **被击杀的那个**（正文里的 `it` 指它），`actor` = **凶手**
             // （`this unit …` 的自指判据问的是它）—— 两个槽不能混，见 `WhenEvent`。
             // `who` = 死者的阵营：极性（`kills an enemy` = 敌方）靠它判。
@@ -5572,7 +5582,20 @@ namespace RuleEngine
             // 反击值**现在就取**：规则书 `:145` 那个例子里，被这一下打死的初生者**照样反击** 1 点，
             // 所以取的是「受伤**之前**」的攻击力。⚠️ 我们自己的 `rule_core.gd:4310`（旁证、非权威） 有一条修正记录
             // 「此前『目标死则不反击』= 近战击杀免反（规则偏差）」——**别退回**。
-            int counterAtk = target.Attack;
+            // 🔴 **2026-10-22（`W63`）：取哪一档攻击力 —— 照原版 `GetCombatDamage(守方, 本次打法)`。**
+            //   · 原版 `BattleManager._ResolveAttack_d__438__MoveNext.c:1116`：
+            //     `GetCombatDamage(守方 /* +0x130 */, *(int *)(攻击上下文 + 0x58) /* 本次打法 */)`；
+            //   · `EntityScript__GetCombatDamage.c:19-24`：`attackType == 2 ⇒ CurrentRangeAttack`，
+            //     否则 `CurrentMeleeAttack` ⇒ **远程攻击引发的反击取守方的【远程】攻击力**（不是近战）。
+            //   ⚠️ 原来这里写死 `target.Attack`（`UnitState.Attack` = **当前近战**）⇒ 远程攻击时反击取错。
+            //     判据与出处 → `资料/普查产出_1022/W63_飞行与卡ID演出_调查.md` §B 最后一条。
+            //   ✅ 走 `FieldAttack`（本文件「场上攻击力」的唯一口，对位原版那对
+            //     `CurrentMeleeAttack`/`CurrentRangeAttack`：已含 Blind→0、Pack、MeleeEqualsHealth），
+            //     `p` 传**守方** `tgtP`（Pack 数的是守方自己的友军）。
+            //     攻击方那一半（`:5369`）本来就调同一个函数、传同一个 `ranged` ⇒ 两边口径一致。
+            //   ⚠️ **取值时机**仍在主伤害之前（原版是在 `:1116`、即主伤害 `:999` 之后才读）——
+            //     这是一条**独立**的既有偏差（只对 `MeleeEqualsHealth` 守方有影响），不并进这一笔。
+            int counterAtk = FieldAttack(ctx, tgtP, target, ranged);
 
             // 🔴 **2026-10-20（`W58-SLAYFIX` · D2/D3/D4）**：本批内**被溅射打死**的死者，
             //   按「伤害 / 死亡入队」的顺序攒在这里，批末统一记账（落点 = `DeclareAttack` 末尾、
@@ -5980,7 +6003,12 @@ namespace RuleEngine
                     }
                 }
 
-                // 反击：目标用**近战攻击力**反击（不是远程）。只有两个来源能免：
+                // 反击：目标用**本次打法对应**的那一档攻击力反击（远程攻击 ⇒ 它的远程攻击力；近战 ⇒ 近战）。
+                //   ✅ **2026-10-22（`W63`）订正**：本行原来写「用**近战攻击力**反击（不是远程）」——**错**。
+                //      原版 `EntityScript__GetCombatDamage.c:19-24` 按 `attackType` 分档，
+                //      而 `:1116` 传的就是本次打法 ⇒ 远程那一支取 `CurrentRangeAttack`。
+                //      （取值处 = 本函数上面的 `int counterAtk = FieldAttack(ctx, tgtP, target, ranged);`）
+                //   只有两个来源能免：
                 //   · Long Range：远程攻击不承受伤害（规则书 :191）
                 //   · Sniper：「若**远程**攻击**会摧毁**目标：不承受反击伤害」（规则书 :209；原版 `:4312`）
                 // ⚠️ 🔴 **2026-10-11 就地订正（`A1305`）：原来写「原版 `rule_core.gd:4310`」—— 用词错**（那份 `.gd`
@@ -8239,7 +8267,10 @@ namespace RuleEngine
                 // 🆕 `W58-INTERLEAVE`：把「致死伤害的来源卡」一起记下 —— 出批时**逐个死者**
                 //   反噬 → 记击杀（Slay）→ 下一个死者（原版 death action 的 FIFO，见
                 //   `BattleContext.PendingDeath.ActingCard` 的 doc）。`null` = 不记击杀。
-                ctx.AddPendingDeath(p, slot, killer, actingCard);
+                // 🔴 **2026-10-22（`W63` #5–#8）**：**`maySurvive` 也必须一起带走** ——
+                //   摧毁那条路（`maySurvive: false`）同样会走到这一跳，而入队时丢掉它、
+                //   出队时硬编码 `true` ⇒ 摧毁打不穿 Survivor。见 `PendingDeath.MaySurvive`。
+                ctx.AddPendingDeath(p, slot, killer, actingCard, maySurvive);
                 return;
             }
             // ---- 猎杀标记：**带标记的敌方部队被摧毁时** ----
@@ -8519,7 +8550,12 @@ namespace RuleEngine
             // ⚠️ 单位**已经不在棋盘上了**，所以得把格位显式传进去 ——
             //    它既决定特效播在哪，也是「这张卡死在哪」的唯一记录。
             // ⚠️ **必须排在 Unstable(81) 之前**（判据见上面那段 80 → 81）。
-            FireTriggerAt(ctx, u, KeywordTable.Backlash, p, slot);
+            // 🔴 **2026-10-22（`W63` #3）：`deferSignal: true`** —— 这条触发的 `EvtKind.Trigger`
+            //   与队列体**同层**发出。理由：死讯（`EvtKind.Death`）从 2026-10-22 起是**入队**的，
+            //   而反噬信号仍在入队这一刻同步发 ⇒ 表现层收到的是「反噬 → 阵亡」（反了）。
+            //   两者都随队列走 ⇒ 恢复「死讯 → 反噬」的原次序，且不引入新的乱序
+            //   （队列内相对次序不变，只是两条信号都挪到出队那一刻）。
+            FireTriggerAt(ctx, u, KeywordTable.Backlash, p, slot, deferSignal: true);
 
             // ---- Unstable（不稳定，原版 **81**）：「**本单位死亡时：对随机单位造成 1-3 伤害**」
             //      —— 规则书 `:221`。
@@ -8781,12 +8817,18 @@ namespace RuleEngine
                 //    （旧代码直接 `CleanupDeaths(ctx, pd[0], pd[1], pd[2])`，同一批死两个时第二个会被静默漏掉。）
                 int nowP, nowSlot;
                 if (!FindSlot(ctx, pd.Unit, out nowP, out nowSlot)) continue;   // 已经不在场上了 ⇒ 跳过
-                // 🔴 **`maySurvive: true`**：这一批入队的全是**伤害**造成的将死
-                //   （唯一的入队点是 `CleanupDeaths` 里 `ctx.DeathsDeferred` 那一跳，
-                //   而伤害路才传 `maySurvive`）⇒ 与 `RemoveIfDead` 同一个入口的延期形态。
+                // 🔴 **`maySurvive` 原样回放**（不是硬编码 `true`）：这一批入队的**不全是**
+                //   伤害造成的将死 —— **摧毁**那条路（`DoDestroy` → `CleanupDeaths(maySurvive:false)`）
+                //   同样会走到入队那一跳（队列动作一律裹 `SimultaneousDamage`）。
+                //   🔴 **2026-10-22（`W63` #5–#8）就地订正（铁律 5）**：本段原来写着
+                //   「这一批入队的全是**伤害**造成的将死（唯一的入队点是伤害路，而伤害路才传 maySurvive）」
+                //   —— **那句话是错的**，它正是「摧毁打不穿 Survivor」那 4 条断言的根因。
+                //   判据（不变）：原版 `BattleManager__ResolveDestroyUnit` 全文没有
+                //   `UseSurvivor` / `CurrentSurvivor` / `CheckIfDead`（见 `CleanupDeaths` 的形参 doc）。
+                //   现在**只此一处**决定要不要问幸存者：入队带、出队回放，两跳都不自己写死。
                 // 🔴 `holdNestedDeaths: true` —— 本死者触发段里的嵌套死亡**留给本循环**
                 //   追加到队尾（见上面那段 P2-1 判据）。
-                CleanupDeaths(ctx, nowP, nowSlot, pd.Killer, maySurvive: true,
+                CleanupDeaths(ctx, nowP, nowSlot, pd.Killer, maySurvive: pd.MaySurvive,
                               holdNestedDeaths: true);
                 // ---- 这一个死者的击杀记账（`W58-INTERLEAVE` 的交错点）----
                 // ⚠️ 放在 `CleanupDeaths` **之后**（见上面那段判据）；`TryCreditKill` 自己判
@@ -8804,8 +8846,11 @@ namespace RuleEngine
                 if (pd.ActingCard != null)
                 {
                     var _ck = pd.ActingCard; var _cv = pd.Unit; int _cp = pd.Player;
+                    // 🔴 **2026-10-22（`W63` #2）**：`inlineSlay: true` —— Slay 正文在**这一条动作里**
+                    //   就地结算，⛔ 不再二次入队（否则落到下一个死者的反噬之后、攻击者已死 ⇒
+                    //   `requireActorInPlay` 把正文取消）。判据见 `FireTriggerAt` 调用点那段。
                     EnqueueAbility(ctx, ActionPriority.Instant, "slay-credit:" + (_cv.Name ?? "?"),
-                                   () => TryCreditKill(ctx, _ck, _cp, _cv),
+                                   () => TryCreditKill(ctx, _ck, _cp, _cv, inlineSlay: true),
                                    actor: _ck, requireActorInPlay: false);
                 }
                 // ---- 把本死者触发段里新死的人接到队尾（原版 `AddAutoActionToQueue`）----
@@ -10275,7 +10320,8 @@ namespace RuleEngine
         static bool FireTriggerAt(BattleContext ctx, UnitState u, string keyword,
                                   int owner, int slot, UnitState chosen = null,
                                   UnitState subject = null, ActiveEnchantment only = null,
-                                  bool extraTrigger = false)
+                                  bool extraTrigger = false, bool inlineTrigger = false,
+                                  bool deferSignal = false)
         {
             // 🆕 2026-10-19（第五十五会话 · `A1567`）：`only != null` = **只结算这一件附魔卡上的这条能力**。
             //   「取消攻击」第 ① 条通道的 `ResolveCancelAttack` 那一跳用它 —— 原版
@@ -10330,9 +10376,12 @@ namespace RuleEngine
 
             // 事件先发：表现层要的是「这一刻、这一格，有个触发发生了」，
             // 效果成不成立（比如对面场上没人可打）是另一回事
-            ctx.Emit(EvtKind.Trigger, owner, slot, u.Name,
+            // 🆕 **2026-10-22（`W63` #3）**：这一句做成**闭包** —— `deferSignal` 那一档要把它
+            //   挪进队列体（见下面 `body` 那一段）。**构造只此一处**（判据不复制）。
+            System.Action emitSignal = () => ctx.Emit(EvtKind.Trigger, owner, slot, u.Name,
                      keyword: keyword, effect: what, amount: ops != null ? 0 : (spec != null ? spec.Amount : 0),
                      instanceId: u.InstanceId);
+            if (!deferSignal) emitSignal();
             ctx.Log(only != null
                     ? $"{u.Name} 身上的附魔「{only.Card.Name}」触发 {keyword.ToUpperInvariant()}：「{what}」"
                     : $"{u.Name} 触发 {keyword.ToUpperInvariant()}：「{what}」");
@@ -10349,9 +10398,15 @@ namespace RuleEngine
             //  ⇒ 这里把「结算 + 触发后的两跳尾巴」整体包成**一条队列动作**：
             //      · 道 = 这张卡**这条** ability 的 `CardAbility.priority`（数据列 `triggerPriority`）；
             //      · 入队之后**立刻返回** —— 调用方继续跑它自己那条动作，触发留到泵点。
-            //  ⚠️ `EvtKind.Trigger` 与那句日志**仍在这一刻发**（= 入队那一刻）：
+            //  ⚠️ `EvtKind.Trigger` 与那句日志**默认仍在这一刻发**（= 入队那一刻）：
             //     它是「这件事发生了」的**表现信号**，不是结算结果；挪进队列会让
             //     `RuleEngineTest` 里按信号/日志下标写的断言整体位移（判据报告 §5 的连带风险）。
+            //     🔴 **2026-10-22（`W63` #3）唯一的例外 = `deferSignal: true`**（目前只有
+            //     `CleanupDeaths` 的 `Backlash` 那一跳传）：死亡族里 `EvtKind.Death` 从 2026-10-22
+            //     起是**入队**的（`death-signal:*`），若反噬信号仍在入队这一刻发，就会出现
+            //     「反噬信号排在死讯**前面**」（表现层先看到触发、后看到阵亡）。
+            //     ⇒ 两者**同层**（都随队列体走）才恢复「死讯 → 触发」的原次序。
+            //     ⛔ 别把整个 `FireTriggerAt` 的信号都挪进队列 —— 那正是上面那句警告的位移风险。
             //  ⚠️ 附魔那几条能力（`ench`）在**队列体内部**递归调用本函数 ⇒ 它们排在本条**之后**
             //     （原版共享尾块 `0x18094B822` 的遍历序）。今天 0 张卡可达，如实标着。
             // ============================================================
@@ -10364,7 +10419,7 @@ namespace RuleEngine
             //   狂暴那一路 `FireTriggerAt` 之后紧接着就把它洗回牌库（`ResolveAlternativeAction`）。
             //   ⚠️ 只对「载体自己那条触发」拍（`only == null`）—— 与 `FireTriggerDeferred` 里
             //      那条广播的闸逐字同一条（附魔那几条能力不各发一次，见那边的注释）。
-            List<UnitState> listenerSnap = (only == null && u != null && u.Card != null)
+            List<BoardListener> listenerSnap = (only == null && u != null && u.Card != null)
                                          ? SnapshotBoardListeners(ctx, null, null)
                                          : null;
             // 🔴🆕 2026-10-21（审查 `W61b` 第 3 条）：**带上施放者**，并声明「他必须在场」——
@@ -10373,10 +10428,25 @@ namespace RuleEngine
             //   ⚠️ **哪些关键词能这么判 = 数据说了算**（整族都是 `Play(0)` 的才判；混着
             //   `InPlayOrDying(40)` / `InCemetery||InPlay(50)` 的一律不判）—— 逐族分布与判据
             //   全写在 `ActorMustBeInPlayForTrigger` 的 doc 里（⛔ 别在这儿另写一份名单）。
+            System.Action body = () => FireTriggerDeferred(ctx, u, keyword, owner, slot, chosen, subject,
+                                                           only, ops, spec, ench, listenerSnap);
+            if (deferSignal)
+            {
+                // 🆕 2026-10-22（`W63` #3）：信号**与队列体同层**（先发信号、再结算）——
+                //   见 `CleanupDeaths` 里 `Backlash` 那个调用点为什么必须这样。
+                var _inner = body;
+                body = () => { emitSignal(); _inner(); };
+            }
+            // 🔴🆕 **2026-10-22（`W63` #2 · Slay 伤害整条丢失）**：`inlineTrigger` ⇒ **就地结算、不二次入队**。
+            //   为什么：`FlushDeaths` 的 `slay-credit` 那一条出队时，攻击者**这一刻还活着**
+            //   （`TryCreditKillCore` 的「凶手还活着」闸刚放行）⇒ 记账成立；但 Slay 正文若再排一条
+            //   队列，就会落到**下一个死者的反噬之后**，那时攻击者已经被反噬打死 ⇒
+            //   出队时 `requireActorInPlay` 把整条正文取消（观测：督军一点都不掉）。
+            //   判据见 `TryCreditKill` 的 `inlineSlay` 形参 doc。
+            if (inlineTrigger) { body(); return true; }
             bool queued = EnqueueAbility(ctx, lane,
                 (u != null ? u.Name : "?") + "·" + keyword,
-                () => FireTriggerDeferred(ctx, u, keyword, owner, slot, chosen, subject, only,
-                                          ops, spec, ench, listenerSnap),
+                body,
                 actor: u, requireActorInPlay: ActorMustBeInPlayForTrigger(keyword),
                 extraTrigger: extraTrigger);
             return queued;
@@ -10393,7 +10463,7 @@ namespace RuleEngine
         static void FireTriggerDeferred(BattleContext ctx, UnitState u, string keyword,
                                         int owner, int slot, UnitState chosen, UnitState subject,
                                         ActiveEnchantment only, IReadOnlyList<EffectOp> ops, EffectSpec spec,
-                                        List<ActiveEnchantment> ench, List<UnitState> listenerSnap)
+                                        List<ActiveEnchantment> ench, List<BoardListener> listenerSnap)
         {
             // 🆕 2026-10-21（引擎线 `T03·b`）：**`skipCardDraw` 手牌效果**先挂上（原版
             //   `AbilityLogic__PlayAbility.c:1412` 的 `AddHandEffect` 是这条 ability 自己的动作）。

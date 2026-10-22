@@ -245,12 +245,20 @@ namespace CardPresentation
         {
             get
             {
-                // 🔴 **2026-10-18（波 1b）**：这两句走词条（键 `MenuDeck/GameMode/{Skirmish,Classic}`，
-                //   键名照原版；ZH 列与改前写死串**逐字相同** ⇒ 中文档零变化）。
+                // 🔴 **2026-10-22（`W63` · 铁律 5 就地订正）：这两句改用【官方词条键】**
+                //   `MainMenu/GameMode/{Skirmish,Classic}` —— 判据 = 官方本地化表逐字：
+                //   `数据/游戏数据/官方本地化_en+zh-CN.json` 的 `terms["MainMenu/GameMode/Skirmish"]`
+                //   = `["Skirmish","小冲突"]`、`…/Classic` = `["Classic","经典"]`；
+                //   `Resources/official_loc_13lang.json` 同键 13 列同。
+                //   ⚠️ **订正**：原来这两句走 `MenuDeck/GameMode/{Skirmish,Classic}`，注释写着「键名照原版」——
+                //   **不成立**：那两条是**自拟键、非原版**（两张官方表 0 命中；条目在 `Core/Loc.cs:2071-2072`，
+                //   值里还嵌着我们自己的卡组张数注解「（Skirmish · 12 张）」/「（Classic · 30 张）」，
+                //   官方词条没有这层注解）⇒ 界面上印的模式名在此偏离原版。现在换官方键，
+                //   值 = 官方的「小冲突 / 经典」（⚠️ `Core/Loc.cs` 那两条**没删**，本笔只改引用）。
                 //   ⚠️ 别与 `StartMatch` 里那个 `modeStr`（`"Skirmish"`/`"Classic"`）混为一谈 —— 那两个是
                 //   **网络协议串**（喂 `NetMatchmaking.TryStart`、两边对账用），⛔ 绝不能翻（`A1036`）。
                 return DeckGameMode == (int)GameMode.Skirmish
-                     ? Loc.T("MenuDeck/GameMode/Skirmish") : Loc.T("MenuDeck/GameMode/Classic");
+                     ? Loc.T("MainMenu/GameMode/Skirmish") : Loc.T("MainMenu/GameMode/Classic");
             }
         }
 
@@ -289,6 +297,12 @@ namespace CardPresentation
                 if (pre.gameMode == DeckGameMode) { why = null; return true; }
                 // 整句走词条（键 `MenuDeck/Error/WrongGameMode`）。
                 // ⚠️ 两个替换值**都来自 `Loc`**（词条正文里不会有花括号）⇒ 次序无所谓；这一处照「高位先填」。
+                // 🔴 **2026-10-22（`W63`）**：`{0}` 用的 `MenuDeck/GameMode/{Skirmish,Classic}Tag` 是**自拟键、非原版**
+                //   —— 官方两张本地化表里**没有** `*Tag*` 类键（`MainMenu/GameMode/*` 只有
+                //   `Classic` / `Skirmish` / `Practice` 三条；`MenuDeck/*` 112 条里没有 `MenuDeck/GameMode/*`
+                //   这一族 —— 唯一带 Mode 的 `MenuDeck/SelectDeckGameMode` 是「选择游戏模式」的标题，不是模式名）
+                //   ⇒ 按「⛔ 不另造新键」**沿用** `Core/Loc.cs:2073-2074` 那两条
+                //   （值 = 「遭遇 · 12 张」/「经典 · 30 张」，属于我们自拟的短形状，不是原版词条）。
                 why = Loc.T("MenuDeck/Error/WrongGameMode")
                           .Replace("{1}", DeckGameModeName)
                           .Replace("{0}", pre.gameMode == (int)GameMode.Skirmish
@@ -308,6 +322,9 @@ namespace CardPresentation
             // 🔴 **`{0}` 必须最后填**：`Replace` 会**再扫一遍已填入的内容**，而 `{0}` 是**玩家数据**（卡组名，
             //    用户随便起）—— 只有「最后填」才能保证名字里万一出现 `{1}`/`{2}` 也不会被当成占位符换掉。
             //    （`{2}`/`{1}` 的值来自 `Loc`，词条正文不含花括号。）
+            // ⚠️ **2026-10-22（`W63`）**：`{1}` 的 `MenuDeck/GameMode/{Skirmish,Classic}Tag` 与上面
+            //    `WrongGameMode` 那条同源 —— **自拟键、非原版**（官方两张表没有 `*Tag*` 类键）
+            //    ⇒ 沿用 `Core/Loc.cs:2073-2074`，⛔ 不另造新键。
             why = Loc.T("MenuDeck/Error/WrongGameModeDeck")
                       .Replace("{2}", DeckGameModeName)
                       .Replace("{1}", raw.IsSkirmish ? Loc.T("MenuDeck/GameMode/SkirmishTag")
@@ -915,7 +932,19 @@ namespace CardPresentation
                 RootRect = new PxRect(HdrL, HdrT, HdrR, HdrB),
                 PlateRect = new PxRect(HdrL, HdrBg1T, plateR, HdrBg1B),
                 TitleRect = new PxRect(titleL, HdrT + 16.36f, titleL + 369.36f, HdrT + 99.01f),
-                TitleText = "Game mode",       // prefab 出厂 `m_text`；运行时被 `WindowHeaderWithBackButton.Initialize` 换掉
+                // 🔴 **2026-10-22（`W63` §四）：标题按【当前模式的官方名】喂，不再写死出厂占位字**。
+                //   改前这一格是 prefab 出厂 `m_text = "Game mode"`；原版运行时由
+                //   `WindowHeaderWithBackButton.Initialize` 换掉，换上的就是这一局模式的标题
+                //   （参考图 `C:/Users/qjh36/Desktop/warpforge参考图/经典模式参考图.png` 上是 **「经典」**）
+                //   ⇒ 照抄出厂字 = 我们的标题永远停在占位值。
+                //   模式来源 = **本类既有的 `DeckGameMode`**（子类覆写：`SkirmishEventWindow` → 遭遇 13，
+                //   其余走基类默认经典 0）—— ⛔ 不新造状态位。
+                //   词条键 = 官方 `MainMenu/GameMode/{Classic,Skirmish}`
+                //   （`官方本地化_en+zh-CN.json` 现读 **Classic / 经典** 与 **Skirmish / 小冲突**）。
+                //   判据 → `资料/普查产出_1022/W63_卡组双模式与卡组内容_调查.md` §四。
+                TitleText = DeckGameMode == (int)GameMode.Skirmish
+                          ? Loc.T("MainMenu/GameMode/Skirmish")
+                          : Loc.T("MainMenu/GameMode/Classic"),
                 TitleMode = WindowHeader.TitleFit.FitAfterSpacing,
                 TitleFitW = 369.36f, TitleFitH = 82.65f,   // 照本窗原来的字面量（⛔ 别改成 `TitleRect.W/H`）
                 // 🔴 **2026-10-18（三扇标题垂直档漏网 · 铁律 11）**：补这一档 —— 原版 `Window Title` 那颗 TMP 是

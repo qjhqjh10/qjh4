@@ -1238,7 +1238,7 @@ public static class ShellScene
             CheckTrue(plN8.ButtonAt(400f, 400f) == n8Btn,
                       "① 出厂：同一坐标命中的是探针钮（= 下面「黑场中 == null」的对照）");
             float n8Off0 = n8Scroll.Offset;
-            CheckTrue(plN8.WheelAt(400f, 400f, -120f), "① 出厂：滚轮滚得到（`WheelAt` 命中滚动区）");
+            CheckTrue(plN8.WheelAt(400f, 400f, -1f), "① 出厂：滚轮滚得到（`WheelAt` 命中滚动区）");   // 2026-10-22 量纲 120→1（一格 = ±1）
             CheckTrue(n8Scroll.Offset > n8Off0, "① …而且偏移**真的动了**（返回 true 但没滚 = 假绿）");
             CheckTrue(plN8.HoverAt(400f, 400f) == n8Btn && n8Btn.Hovered, "① 出厂：悬停落到它身上");
 
@@ -1246,7 +1246,7 @@ public static class ShellScene
             shell.Blocker.StartSpinning();
             CheckTrue(PointerLayer.InputBlocked, "② `BlockingOverlay.StartSpinning()` ⇒ `InputBlocked == true`（把零消费者接上）");
             CheckTrue(plN8.ButtonAt(400f, 400f) == null, "② …同一坐标命不到了");
-            CheckTrue(!plN8.WheelAt(400f, 400f, -120f), "② …滚轮也落空");
+            CheckTrue(!plN8.WheelAt(400f, 400f, -1f), "② …滚轮也落空");   // 2026-10-22 量纲 120→1（一格 = ±1）
             shell.Blocker.StopSpinning();
             CheckTrue(!PointerLayer.InputBlocked, "② 停转之后放开（与上面那一对合起来才分得开）");
             CheckTrue(plN8.ButtonAt(400f, 400f) == n8Btn, "② …同一坐标恢复命中");
@@ -1262,7 +1262,7 @@ public static class ShellScene
             CheckTrue(!plN8.ClickAt(400f, 400f), "③ 黑场：`ClickAt` 也吃不到（命中既空 ⇒ 不派发）");
             Check(n8Fired, 0, "③ …探针钮一次都没被点");
             float n8Off1 = n8Scroll.Offset;
-            CheckTrue(!plN8.WheelAt(400f, 400f, -120f),
+            CheckTrue(!plN8.WheelAt(400f, 400f, -1f),   // 2026-10-22 量纲 120→1（一格 = ±1）
                       "③ 黑场：滚轮落空（`HitScroll` 是**另一条**登记表路 —— 只拦 `HitButton` 时这里会静默地滚）");
             CheckNear(n8Scroll.Offset, n8Off1, 0.001f, "③ …偏移一个像素都没动");
             CheckTrue(plN8.HoverAt(400f, 400f) == null && plN8.HoveredForTest == null && !n8Btn.Hovered,
@@ -1296,7 +1296,7 @@ public static class ShellScene
             CheckTrue(plN8.ButtonAt(400f, 400f) == n8Btn,
                       "⑥ 淡回后同一坐标**恢复命中**探针钮（⛔ 只断 ③ 不断这条 ⇒「恒返回 null」也能全绿）");
             float n8Off2 = n8Scroll.Offset;
-            CheckTrue(plN8.WheelAt(400f, 400f, -120f), "⑥ 淡回后滚轮恢复");
+            CheckTrue(plN8.WheelAt(400f, 400f, -1f), "⑥ 淡回后滚轮恢复");   // 2026-10-22 量纲 120→1（一格 = ±1）
             CheckTrue(n8Scroll.Offset > n8Off2, "⑥ …偏移真的又动了");
             CheckTrue(plN8.HoverAt(400f, 400f) == n8Btn && n8Btn.Hovered, "⑥ 淡回后悬停恢复");
 

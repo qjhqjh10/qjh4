@@ -6173,7 +6173,9 @@ public static partial class RuleEngineTest
             var ctx = Battle(new[] { Unit("A", 1, 1, 1) }, new[] { Unit("X", 1, 1, 1) });
             ToP1Turn(ctx, 1);
             var sniper = Place(ctx, 0, 3, Ranged("Sniper", 1, 0, 10, 5, "Sniper"));
-            Place(ctx, 1, 3, Unit("Victim", 1, 9, 3));
+            // ⚠️ 2026-10-22（`W63`）：远程反击取守方的**远程**攻击力 ⇒ 这里必须给 9，
+            //   否则反击本来就是 0，本条「Sniper 免掉 9 点反击」会**空转**（灭自证）。
+            Place(ctx, 1, 3, Ranged("Victim", 1, 9, 3, 9));
 
             Check(RuleCore.DeclareAttack(ctx, 0, 3, 1, 3, ranged: true), RuleCodes.OK, "远程攻击打出去");
             Check(sniper.Health, 10, "Sniper 远程击杀 → **一点反击都没吃**（9 攻的反击被免了）");
@@ -6182,7 +6184,7 @@ public static partial class RuleEngineTest
             var ctx2 = Battle(new[] { Unit("A", 1, 1, 1) }, new[] { Unit("X", 1, 1, 1) });
             ToP1Turn(ctx2, 1);
             var plain = Place(ctx2, 0, 3, Ranged("Plain", 1, 0, 10, 5));
-            Place(ctx2, 1, 3, Unit("Victim", 1, 9, 3));
+            Place(ctx2, 1, 3, Ranged("Victim", 1, 9, 3, 9));   // 同上：远程 9 才有「满反击」可吃
             RuleCore.DeclareAttack(ctx2, 0, 3, 1, 3, ranged: true);
             Check(plain.Health, 1, "没有 Sniper 的远程攻击者照样吃满反击（10 → 1）");
 
@@ -6193,6 +6195,30 @@ public static partial class RuleEngineTest
             Place(ctx3, 1, 3, Unit("Victim", 1, 3, 3));
             RuleCore.DeclareAttack(ctx3, 0, 3, 1, 3);
             Check(melee.Health, 7, "近战击杀**仍然吃反击**（10 → 7）");
+        }
+
+        // ④·b 🔴 **2026-10-22（`W63`）：反击取哪一档攻击力 —— 照原版 `GetCombatDamage(守方, 本次打法)`**
+        //    判据：`EntityScript__GetCombatDamage.c:19-24`（`attackType == 2 ⇒ CurrentRangeAttack`，否则近战）
+        //        ＋ `BattleManager._ResolveAttack_d__438__MoveNext.c:1116`（传的是**本次打法**）。
+        //    报告：`资料/普查产出_1022/W63_飞行与卡ID演出_调查.md` §B 最后一条。
+        //    🔴 **改坏法**：把 `RuleCore` 里 `counterAtk` 退回 `target.Attack`（或写成 `ranged: false`）⇒
+        //       ① 期望 14、实际 19；② 对照组期望 19、实际 14 —— **两条同时翻**，不可能一起绿。
+        {
+            // ① 远程攻击 ⇒ 守方的**远程**攻击力（6），不是近战（1）
+            var ctx = Battle(new[] { Unit("A", 1, 1, 1) }, new[] { Unit("X", 1, 1, 1) });
+            ToP1Turn(ctx, 1);
+            var shooter = Place(ctx, 0, 3, Ranged("Shooter", 1, 2, 20, 3));   // 近战 2 / 远程 3
+            Place(ctx, 1, 3, Ranged("Gunner", 1, 1, 20, 6));                  // 近战 1 / 远程 6
+            RuleCore.DeclareAttack(ctx, 0, 3, 1, 3, ranged: true);
+            Check(shooter.Health, 14, "远程攻击引发的反击 = 守方**远程**攻击力 6（不是近战 1）");
+
+            // ② 对照组（灭自证）：近战攻击 ⇒ 守方的**近战**攻击力（1），不是远程（6）
+            var ctx2 = Battle(new[] { Unit("A", 1, 1, 1) }, new[] { Unit("X", 1, 1, 1) });
+            ToP1Turn(ctx2, 1);
+            var brawler = Place(ctx2, 0, 3, Ranged("Brawler", 1, 2, 20, 3));
+            Place(ctx2, 1, 3, Ranged("Gunner2", 1, 1, 20, 6));
+            RuleCore.DeclareAttack(ctx2, 0, 3, 1, 3);
+            Check(brawler.Health, 19, "近战攻击引发的反击 = 守方**近战**攻击力 1（不是远程 6）");
         }
 
         // ⑤ 再生 X：每回合结束时治疗 X（规则书 :201；我们上一版复刻 `:2025`，旁证）—— **双方单位都治**
@@ -18733,24 +18759,52 @@ public static partial class RuleEngineTest
 
             PassTurn(ctx);
             Check(ctx.Active, 1, "换到对手的回合");
+            // ⚠️ **先清信号**：下面按 `EvtKind.Hit` 数「环跑了几层」，而**这一击本身恰好贡献 1 条** ——
+            //    换回合 / 摆位期间的任何残留都不该混进来（判据见下面 2026-10-22 `W63` 那段注释）。
+            ctx.ClearSignals();
             // ⚠️ 这一句**必须能返回** —— 不返回就是死循环（下面几条都到不了）
             CheckCode(RuleCore.DeclareAttack(ctx, 1, 3, 0, 2), RuleCodes.OK, "对手打 echoA 一下");
 
             int lost = (50 - a.Health) + (50 - x.Health);
+            // 🔴 **2026-10-22（`W63`）就地订正（铁律 5）**：这条的文案原来写「攻击本身只贡献 1」——
+            //    **不成立**：`FixtureEchoKiller` 是 **3 攻**（`Unit(name, cost, atk, hp)`），
+            //    而 `echoA` 0 攻**不反击** ⇒ 一击本身就掉 3。⇒ 这一条只能当「伤害真的落地了」的**前提**，
+            //    「环跑没跑」由下面按 `EvtKind.Hit` 数的那一条判（⛔ 别再把它当鉴别力）。
             CheckTrue(lost >= 3,
-                      $"★ **链真的往下跑了几层**（我方两个单位共掉 {lost} 血，攻击本身只贡献 1）");
+                      $"★ 前提：这一击**真的落地了**（我方两个单位共掉 {lost} 血；"
+                    + "攻击本身贡献 3 —— `FixtureEchoKiller` 3 攻，`echoA` 0 攻不反击）"
+                    + "｜环跑没跑看下面 `Hit` 的条数，不看这个数");
             // 🔴 **2026-10-22（`W62` · R5）口径更正（铁律 5）：旧口径「链是被**上限**截断的，
             //   不是被『有人死了』截断的（两个都还活着）」已经不成立** ——
             //   触发从 2026-10-21 起一律入队、递归深度恒为 1 ⇒ `MaxEffectChain` 不再截断这一族，
             //   这条环会**一路跑到有人被打死**。「两个都还活着」不是判据了。
-            //   现在钉两件：① 没有摸到结构闸（`MaxPumpedActionsPerDrain`，摸到就是触发环）；
-            //            ② 停得干净（四道取空）。判据 → `Core/ActionPump.cs:44-58`。
-            int echoTriggers = 0;
-            foreach (var e2 in ctx.Signals) if (e2.Kind == EvtKind.Trigger) echoTriggers++;
-            CheckTrue(echoTriggers > 0 && echoTriggers < RuleCore.MaxPumpedActionsPerDrain,
-                      $"★ 链被**结构闸**兜住、没有无限循环（{echoTriggers} 条 Trigger 信号 < "
-                    + $"{RuleCore.MaxPumpedActionsPerDrain}）"
-                    + " —— 环现在会一路跑到有人被打死，不再被 `MaxEffectChain` 截断");
+            //   现在钉两件：① 环**真的往下跑**（多过这一击本身）；
+            //            ② 没有摸到结构闸（`MaxPumpedActionsPerDrain`，摸到就是触发环）。
+            //   判据 → `Core/ActionPump.cs:44-58`。
+            // 🔴 **2026-10-22（`W63`）再把「量什么」订正一次（铁律 5）：`EvtKind.Trigger` → `EvtKind.Hit`。**
+            //   错因：`EmitCardTrigger` 的闸是 `card.HasAnimTrigger(triggerName)`
+            //   （`Core/EffectResolver.cs:5911`），而合成夹具 `FixtureEchoA`（上面那行）
+            //   **没有 `animTimes`** ⇒ 那道闸**恒假**、`EvtKind.Trigger` **恒 0**。
+            //   旧断言量的其实是「这张合成卡有没有动画行」，**不是「环跑没跑」**
+            //   —— 所以前置的「掉血」绿着，它照样红（不是环没跑）。
+            //   换成 `EvtKind.Hit`：**每一层 echo 都要真扣 1 点血**，而扣血必发 `Hit`
+            //   （`RuleCore.EmitHit`，`Core/RuleCore.cs:7953-7955`），与动画行 / 表现层闸**完全无关**。
+            //   ⚠️ **鉴别力（灭自证）**：`ClearSignals()` 之后**这一击本身恰好贡献 1 条 `Hit`**
+            //   （3 攻打 0 攻、不反击）⇒ `> 1` 只能由**环的下一层**贡献；
+            //   🧨 删掉 `When … receives damage` 那条监听注册（`AddWhenTrigger`）⇒ 只剩那 1 条 ⇒ 红。
+            int echoHits = 0;
+            foreach (var e2 in ctx.Signals) if (e2.Kind == EvtKind.Hit) echoHits++;
+            CheckTrue(echoHits > 1,
+                      $"★ **环真的往下跑了**（这一击之后共 {echoHits} 条 `Hit`，攻击本身只贡献 1 条）"
+                    + " —— 🧨 监听注册被删 / 正文解析不出来 ⇒ 只剩攻击那 1 条 ⇒ 本条红");
+            // ⚠️ **如实标着**：今天这条环是**靠「有人被打死」自然收敛**的（两个单位各 50 血）
+            //   ⇒ 正常情况下 `echoHits` 只有几十条，离 4096 很远。
+            //   🧨 只有让环**不收敛**才会红：例 = 给 `echoA` / `extra` 挂 `Invulnerable`
+            //   （`ApplyDamageCore` 对它是 `EmitHit(ctx, u, 0)` 后 `return`、**不消耗**，
+            //    见 `Core/RuleCore.cs:7282-7287`）⇒ 血永不掉、`damaged` 每层照广播 ⇒ 摸到 4096 结构闸 ⇒ 本条红。
+            CheckTrue(echoHits < RuleCore.MaxPumpedActionsPerDrain,
+                      $"★ **没有摸到结构闸**（{echoHits} 条 `Hit` < {RuleCore.MaxPumpedActionsPerDrain}）"
+                    + " —— 环现在靠「有人被打死」自然收敛；摸到 4096 就说明它**不收敛**了");
             CheckTrue(ctx.IsOver || ctx.ActionQueue.Count == 0,
                       $"★ 链停下来了，四道队列取空（现 {ctx.ActionQueue.Count} 条）");
             Check(ctx.EffectChain, 0,
@@ -24060,8 +24114,12 @@ public static partial class RuleEngineTest
     static void TestRangedEatsCounter()
     {
         UnitState a, b;
-        // 远程 2 攻、2 血；目标 1 攻 5 血（远程没打死 → 吃反击）
-        var ctx = Duel(Ranged("Sniper", 2, 0, 2, 2), Unit("Rat", 1, 1, 5), out a, out b);
+        // 远程 2 攻、2 血；目标近战 1 / 远程 1、5 血（远程没打死 → 吃反击）
+        // 🔴 **2026-10-22（`W63`）夹具订正**：守方原来写 `Unit("Rat", 1, 1, 5)`（远程 = 0），
+        //   而远程攻击引发的反击现在取**守方的远程攻击力**（原版 `EntityScript__GetCombatDamage.c:19-24`
+        //   ＋ `BattleManager._ResolveAttack_d__438__MoveNext.c:1116` 传的是本次打法）⇒ 远程 0 会让
+        //   本条「照样吃 1 伤」**静默变成 0 反击而误绿**。这里两档都给 1，意图不变（只验「吃不吃」）。
+        var ctx = Duel(Ranged("Sniper", 2, 0, 2, 2), Ranged("Rat", 1, 1, 5, 1), out a, out b);
         Check(a.RangedAttack, 2, "远程攻击力 2 进了单位状态");
 
         CheckCode(RuleCore.DeclareAttack(ctx, 0, 3, 1, 3, ranged: true), RuleCodes.OK, "远程攻击");

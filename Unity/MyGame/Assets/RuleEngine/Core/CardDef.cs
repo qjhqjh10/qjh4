@@ -158,6 +158,36 @@ namespace RuleEngine
         /// 消费点同样只有 <see cref="DeckRules.CannotAddToDeck"/>。`-1` 含义同上。</summary>
         public int ShowInCollectionOptions { get; }
 
+        /// <summary>🔴 🆕 **2026-10-22（卡牌线 `T04`）：这张卡允不允许「立绘溢出卡框」**
+        /// —— 原版 `RawCardScript.useOverDraw`（`Assembly-CSharp/RawCardScript.cs:19`，
+        /// 字段偏移 **+0x58**，见下面的判据）。
+        ///
+        /// <para>🔴 **语义已闭合（一手 = 全量反编译，三处消费点逐句读过）**：原版那个值就是
+        /// `CardImageController.ImageInFrameSize` 的开关（`Small = 0` / `Big = 1`）——
+        ///   · `CardDisplayWindow__CardOverdrawHandle.c:14-33`：`useOverDraw == 0 || idx != 0`
+        ///     ⇒ `SetImageOverDraw(Small)`；`useOverDraw != 0 &amp;&amp; idx == 0` ⇒ `Big`；
+        ///   · `CardDisplayWindow__ShowCard.c:75-84`：开窗那张前台同理（`+0x58` 为 0 ⇒ 只 `Small`）；
+        ///   · `CardDisplayWindow__ChangeCardPosition.c:75-79`：换位时**让位那张恒 `Small`**、
+        ///     **接位那张**直接传 `*(char *)(它的 RawCardScript + 0x58) != '\0'`。
+        ///   `Big` 那一档 = `CardImageController.ChangeState(1)`：立绘 ×`bigSizeMultiplier`、
+        ///   挂 instanced material + `frameMask`（用立绘 alpha 给卡框挖洞）⇒ 角色压在框上。
+        ///   ⚠️ `+0x58` 的偏移不是猜的：`SetRawCardData` 里 `+0x50` = `cardImageReference`、
+        ///   `+0x60/0x68/0x70` = `cardName/refNameId/nameModifier`、`+0x78` = `manaCost`、
+        ///   `+0x94` = `cardType`（`RawCardScript__IsUnit.c:1-12` 亲读）⇒ 夹在中间的 1 字节就是它。</para>
+        ///
+        /// <para>⚠️ **原版消费点只在【卡片详情窗】那一族**（上面三处全是 `CardDisplayWindow`）；
+        /// 小卡档（手牌 / 卡池 / 收藏 / 卡组格）没有任何一处读它 —— 与本工程
+        /// `CardView` 只在**大图档**建 `_artFront` 的现状自洽。</para>
+        ///
+        /// <para>🔴 **缺值口径 = `true`（允许）**，⛔ 不是 `false`：
+        ///   · 数据列 `-1` = 真值快照里没有这张卡（`CardDto.useOverDraw` 的 doc）——
+        ///     「没数据」不能静默变成「这张卡不溢出」（铁律 2 那条红线）；
+        ///   · 缺列 / 旧卡表（`&lt; v9`）同理，且 `CardDatabase.Parse` 那条 `version &lt; 9` 守卫会出声；
+        ///   · 构造函数的缺省也是 `true` ⇒ 全仓测试夹具 / `StarterCards` 行为一个字节不变。</para>
+        /// <para>消费点：`CardPresentation/Core/CardView.cs` 的 `UseOverDraw` →
+        /// `ArtFrontVisible`（三层门控的最内层，见那边的注释）。</para></summary>
+        public bool UseOverDraw { get; }
+
         /// <summary>🔴 🆕 **2026-10-14（`A1775`）：原版 `RawCardScript.initiative` 的原样值**
         /// （`Initiative` 枚举：`Undefined = 0` / `Low = 10` / `Medium = 20` / `High = 30` /
         /// `VeryHigh = 40`，见 `Assembly-CSharp/Initiative.cs`）—— **谁先手**的判据。
@@ -590,7 +620,21 @@ namespace RuleEngine
                        IEnumerable<KeyValuePair<string, int>> triggerPriority = null,
                        int initialHandModifier = 0, int initialManaModifier = 0,
                        int initialSpiritStoneModifier = 0,
-                       IEnumerable<SkipDrawSpec> skipDraws = null)
+                       IEnumerable<SkipDrawSpec> skipDraws = null,
+                       // 🆕 2026-10-22（引擎线 `W63` · `T03·c/d`）：原版 `CardAbility.abilityContext`
+                       //   （v14 的 `abilityContext` 列）。⚠️ **追加在参数表末尾** —— 前面全是可选形参，
+                       //   而全仓有多处**位置传参**的老调用点（测试夹具 / `StarterCards` / `BattleScene`）
+                       //   ⇒ 插在中间会把它们静默错位。
+                       IEnumerable<AbilityContextSpec> abilityContext = null,
+                       // 「这一列**来自 v14 卡表**」的正面信号（只有 `CardDatabase.Parse` 知道；
+                       //   缺省 `false` = 未知来源）。⚠️ 它**不参与**上面两个访问器的判定
+                       //   （查不到一律 `-1`）—— 只是给自检/探针一个「表够不够新」的判据。
+                       bool abilityContextsVersioned = false,
+                       // 🆕 2026-10-22（卡牌线 `T04`）：原版 `RawCardScript.useOverDraw`（v9 起那一列）。
+                       //   同样**追加在参数表末尾**（理由同上一条：全仓有位置传参的老调用点）。
+                       //   🔴 **缺省 `1`（允许溢出）**，⛔ 不是 `0` —— 见 `UseOverDraw` 属性的 doc：
+                       //     「没数据」不许静默变成「这张卡不溢出」；同时保证所有老调用点行为不变。
+                       int useOverDraw = 1)
         {
             Id = id; Name = name; Type = type ?? ""; Desc = desc ?? ""; Rarity = rarity; Faction = faction;
             NameZh = nameZh ?? ""; DescZh = descZh ?? "";
@@ -598,6 +642,10 @@ namespace RuleEngine
             // 🆕 2026-10-14（`A1798`）：原版那两个字段**原样收下**（`-1` = 真值里没有这张卡，别当 0）。
             InventoryOptions = inventoryOptions;
             ShowInCollectionOptions = showInCollectionOptions;
+            // 🆕 2026-10-22（卡牌线 `T04`）：`useOverDraw` 是 **0/1 的标志位**，不是三态枚举 ——
+            //   但数据列带着 `-1`（真值快照里没这张卡）⇒ **`0` 才是不允许，其余一律允许**。
+            //   ⛔ 别写成 `useOverDraw == 1`：那会把 `-1`（以及将来任何非 0 值）静默判成「不溢出」。
+            UseOverDraw = useOverDraw != 0;
             // 🆕 2026-10-14（`A1775`）：先攻值同一条规矩 —— **原样收下、缺了就是 -1**。
             Initiative = initiative;
             // 🆕 2026-10-21（引擎线 `T03·b`）：开局加成三列 —— **原样收下、缺省 0**
@@ -641,6 +689,23 @@ namespace RuleEngine
                     }
                     _triggerPriority[_tp.Key] = _tp.Value;
                 }
+            // 🆕 2026-10-22（引擎线 `W63` · `T03·c/d` · 数据层）：原版 `CardAbility.abilityContext` ——
+            //   原样收下（`cards_engine.json` v14 的 `abilityContext` 列，**只落 context != 0 的行**）。
+            //   这里只**建两本索引**（按 `AbilityTrigger` 枚举名 / 按引擎触发关键词）。
+            //   🔴 四道合法性闸（缺 `name` / 缺 `trigger` / `context` 不在 {0,10,20,30,40,50} / 同 key 重复）
+            //   **在 `CardDatabase.MapAbilityContext` 那一层就出声丢弃** —— 与 `triggerPriority` 的分工
+            //   一致（那四道只在数据入口做一次，⛔ 别在这里再写第二份判据，两处迟早不一致）。
+            if (abilityContext != null)
+                foreach (var _ac in abilityContext)
+                {
+                    if (_ac == null || string.IsNullOrEmpty(_ac.Name)) continue;
+                    _abilityContexts.Add(_ac);
+                    // 同 key 后写覆盖 —— 与 `_triggerPriority` 同口径；重复本当已在数据入口被丢弃。
+                    _abilityContextByTriggerName[_ac.Name] = _ac.Context;
+                    if (!string.IsNullOrEmpty(_ac.Keyword))
+                        _abilityContextByKeyword[_ac.Keyword] = _ac.Context;
+                }
+            AbilityContextsVersioned = abilityContextsVersioned;
             // 督军后手那张防御卡：这里只收**数据里的 id**；对象引用由 `CardDatabase.Parse`
             // 建完卡表之后按 id 反查置上（见 `GoesSecondCard` 的说明）。
             GoesSecondId = goesSecondId ?? "";
@@ -1175,6 +1240,161 @@ namespace RuleEngine
             return (keyword != null && _triggerPriority.TryGetValue(keyword, out v))
                  ? v : DefaultTriggerPriority;
         }
+
+        // ==================================================================
+        //  🆕 2026-10-22（引擎线 `W63` · `T03·c/d`）：原版 `CardAbility.abilityContext`
+        // ==================================================================
+        //
+        // **它是什么**：这一条 ability 的**载体（`thisCard`）此刻必须待在哪个区域**。
+        //   · 字段 = `CardAbility.abilityContext // +0x14`
+        //     （`d:/2/Warpforge_code/Scripts/Assembly-CSharp/CardAbility.cs:10`；
+        //      枚举 = 同目录 `AbilityContext.cs:1-9`）；
+        //   · 原版只在**一处**判它：`CardAbility__CanTriggerAbility` 里经
+        //     `CardAbility__IsRightContext` 判一次（`d:/2/tools/decomp_full/CardAbility__IsRightContext.c`）；
+        //   · 时机 = **广播那一刻 / 入队之前**（`RawCardScript__TriggerAbilities.c:108,207`）
+        //     ⇒ ⛔ **不是「出队时」判**（出队那道另有一格：
+        //     `BattleAction.checkIfCasterStillInPlay // +0xD0`）。
+        //
+        // **六档取值**（判据 = `CardAbility__IsRightContext.c` 逐句，见
+        // <see cref="AbilityContextOfTrigger"/> 的 doc）：
+        //   · 0  `Play`              —— 活着在场（`IsInPlay` 且没有待死伤害、且不是残骸）；
+        //   · 10 `Hand`              —— 在手；
+        //   · 20 `Deck`              —— 在牌库（`inDeck(0)` / `inDeckDrawing(16)`）；
+        //   · 30 `Cemetery`          —— 在墓地（`cardState == 6`）；
+        //   · 40 `InPlayOrDying`     —— 在棋盘，**含状态 5「待死」**；
+        //   · 50 `InPlayOrCementery` —— 在场**或**墓地，🔴 **不含状态 5「待死」**。
+        //   ⇒ **40 与 50 不等价**（40 含待死、50 不含），⛔ 别把两档合并成一个判据。
+        //
+        // **不是所有触发都读它**（`CardAbility__CanTriggerAbility.c:69-95`）：
+        //   trigger ∈ **{0 `ThisCardPlayed` · 80 `ThisUnitDeath` · 145 `Codex` · 220 `Sacrifice` ·
+        //   500 `TriggerEnchantment`}** 整段**跳过**这一格（这几族**不判上下文**）；
+        //   600/605（`UseSpiritStone` / `UseFaith`）在余额判定**之前**显式检查（`:85-124`）；
+        //   其余走 `:126` 兜底。⇒ **数据侧全量落，消费端照这张 skip 表** ——
+        //   ⛔ 别拿「这一行没有 context」当「这张卡不用判」。
+        //
+        // **数据形状**（`cards_engine.json` v14，每卡一列数组）：
+        //   `[{"trigger":50,"name":"UnitAttack","context":0}]`
+        //   `[{"trigger":580,"name":"Strike","keyword":"strike","context":40}]`
+        //   · `name` = 原版 `AbilityTrigger` **枚举名**；`trigger` = 同一枚举的**数值**；
+        //   · `keyword` = **引擎侧触发关键词**（`KeywordTable.*`，小写），**只在生成器的
+        //     `ABILITY_TRIGGER_KEYWORD` 有映射时出现** —— ⛔ 只按 `keyword` 落会漏掉
+        //     `UnitAttack` 这一族（恰恰是 `W63` 点名要修的那 5 张卡）；
+        //   · **只落 `context != 0` 的行**（0 = 绝大多数，缺行与写 0 语义相同）。
+        //
+        // 🔴 **`-1` = 未知**（旧表 / 这张卡没有对应 ability / 生成器还没落这一列）——
+        //   ⛔ **不是 `Play(0)`**：`0` 是**合法取值**（「必须活着在场」），把「未知」读成 0 会把
+        //   **死亡族 / 墓地族**的触发**静默掐死**。消费端拿到 <see cref="AbilityContextUnknown"/>
+        //   时**回退旧口径**（`QueuedAction.RequireActorInPlay` 那一套）并出声，⛔ 不许自己挑一档。
+        //
+        // 判据报告 → `资料/普查产出_1022/W63_abilityContext_施工简报.md` §1/§3/§4。
+
+        /// <summary>原版 `AbilityContext.Play` = `0`：**载体必须活着在场**
+        /// （`IsInPlay` 且没有待死伤害、且不是残骸）。</summary>
+        public const int AbilityContextPlay = 0;
+        /// <summary>原版 `AbilityContext.Hand` = `10`：载体在**手牌**里。</summary>
+        public const int AbilityContextHand = 10;
+        /// <summary>原版 `AbilityContext.Deck` = `20`：载体在**牌库**里
+        /// （`inDeck(0)` / `inDeckDrawing(16)`）。</summary>
+        public const int AbilityContextDeck = 20;
+        /// <summary>原版 `AbilityContext.Cemetery` = `30`：载体在**墓地**（`cardState == 6`）。</summary>
+        public const int AbilityContextCemetery = 30;
+        /// <summary>原版 `AbilityContext.InPlayOrDying` = `40`：载体在**棋盘**，🔴 **含状态 5「待死」**。
+        /// ⚠️ 与 <see cref="AbilityContextInPlayOrCemetery"/>（50）**不等价** —— 50 不含待死。</summary>
+        public const int AbilityContextInPlayOrDying = 40;
+        /// <summary>原版 `AbilityContext.InPlayOrCementery` = `50`：载体**在场或墓地**
+        /// （`IsInCemetery || IsInPlay`），🔴 **不含状态 5「待死」**（与 40 的差别就在这一格）。</summary>
+        public const int AbilityContextInPlayOrCemetery = 50;
+        /// <summary>**未知**（= `-1`）：旧卡表 / 这张卡没有对应 ability / 这一行没落。
+        /// ⛔ **别当成 <see cref="AbilityContextPlay"/>（0）** —— 见上面那段注释的最后三条。</summary>
+        public const int AbilityContextUnknown = -1;
+
+        /// <summary>🆕 v14（2026-10-22 · 引擎线 `W63` · `T03·c/d`）：**一条 ability 的
+        /// `abilityContext`**（原版 `CardAbility.abilityContext // +0x14`）。
+        /// 六档语义 / skip 表 / `-1` 契约 → 上面那段注释（本节开头）。
+        /// ⚠️ 字段名与 `cards_engine.json` 的列名**逐字一致**（生成器 → DTO → 本类三段同名）。</summary>
+        public sealed class AbilityContextSpec
+        {
+            /// <summary>原版 `CardAbility.trigger`（`AbilityTrigger` 枚举**数值**）。
+            /// `-1` = 这一行没落（数据缺陷 ⇒ `CardDatabase.MapAbilityContext` 已出声丢弃）。</summary>
+            public int Trigger = -1;
+            /// <summary>原版 `AbilityTrigger` **枚举名**（`UnitAttack` / `Strike` / `UseFaith` …）。
+            /// 查找**大小写不敏感**（照 <see cref="HasAnimTrigger"/> 的写法）。</summary>
+            public string Name;
+            /// <summary>引擎侧触发关键词（`KeywordTable.*`，小写）；
+            /// **只在生成器的 `ABILITY_TRIGGER_KEYWORD` 有映射时非空**（无映射 = `null`）。</summary>
+            public string Keyword;
+            /// <summary>原版 `AbilityContext` 数值：0/10/20/30/40/50 之一；
+            /// <see cref="AbilityContextUnknown"/>（`-1`）= 未知。</summary>
+            public int Context = AbilityContextUnknown;
+        }
+
+        /// <summary>这张卡全部**非 0** 的 `abilityContext` 行（原版顺序 = `cardAbilities` 数组序）。
+        /// 空表 = 这张卡每条 ability 都是 `Play(0)`，或者生成器还没落这一列（见 <see cref="AbilityContextsVersioned"/>）——
+        /// 两者在**本属性**上分不开，要区分就读 <see cref="AbilityContextsVersioned"/>。</summary>
+        public IReadOnlyList<AbilityContextSpec> AbilityContexts { get { return _abilityContexts; } }
+
+        /// <summary>🆕 v14：这张卡的 `abilityContext` 列**是不是来自 v14 卡表** ——
+        /// `CardDatabase.Parse` 按表 `version` 置的**正面信号**。`false` = 旧表（&lt; v14）/
+        /// 解析路径没接这一列。
+        /// ⚠️ 它**只回答「表够不够新」**，**不参与** <see cref="AbilityContextOfTrigger"/> /
+        /// <see cref="AbilityContextOfKeyword"/> 的判定（那两个是「查不到就是 -1」）。
+        /// ⛔ 别把 `false` 读成「全池都是 Play(0)」—— 那正是 `CardDatabase.Parse` 的 `&lt; 14`
+        /// 守卫**必须出声**的原因。</summary>
+        public bool AbilityContextsVersioned { get; private set; }
+
+        readonly List<AbilityContextSpec> _abilityContexts = new List<AbilityContextSpec>();
+
+        /// <summary>按 `AbilityTrigger` **枚举名**查（**大小写不敏感**）。两本索引都是「后写覆盖」。</summary>
+        readonly Dictionary<string, int> _abilityContextByTriggerName =
+            new Dictionary<string, int>(System.StringComparer.OrdinalIgnoreCase);
+
+        /// <summary>按**引擎触发关键词**查（`KeywordTable.*`）。⚠️ 只覆盖 53/159 行（有映射的那部分）。</summary>
+        readonly Dictionary<string, int> _abilityContextByKeyword =
+            new Dictionary<string, int>(System.StringComparer.OrdinalIgnoreCase);
+
+        /// <summary>
+        /// 这条触发（`AbilityTrigger` **枚举名**，大小写不敏感）的原版 **`abilityContext`**；
+        /// 没登记 ⇒ <see cref="AbilityContextUnknown"/>（`-1`）。
+        ///
+        /// <para><b>六档</b>（判据 = `d:/2/tools/decomp_full/CardAbility__IsRightContext.c` 逐句）：
+        /// <c>0 Play</c> = 活着在场 · <c>10 Hand</c> = 在手 · <c>20 Deck</c> = 在牌库 ·
+        /// <c>30 Cemetery</c> = 在墓地（`cardState == 6`）·
+        /// <c>40 InPlayOrDying</c> = 在棋盘、<b>含状态 5「待死」</b> ·
+        /// <c>50 InPlayOrCementery</c> = 在场或墓地、<b>不含待死</b>。</para>
+        ///
+        /// <para>⚠️ <b>不是所有触发都该读它</b>：trigger
+        /// <c>0 ThisCardPlayed</c> / <c>80 ThisUnitDeath</c> / <c>145 Codex</c> /
+        /// <c>220 Sacrifice</c> / <c>500 TriggerEnchantment</c> 在原版 `CanTriggerAbility` 里
+        /// <b>整段跳过</b>这一格（`CardAbility__CanTriggerAbility.c:69-95`）—— 消费端照 skip 表，
+        /// ⛔ 别对这几族判上下文。</para>
+        ///
+        /// <para>🔴 <c>-1</c> = **未知**，⛔ 不是 `Play(0)`（0 是合法取值「必须活着在场」）——
+        /// 拿到未知必须**回退旧口径**（`QueuedAction.RequireActorInPlay` 那一套）并出声。</para>
+        /// </summary>
+        public int AbilityContextOfTrigger(string name)
+        {
+            if (string.IsNullOrEmpty(name)) return AbilityContextUnknown;
+            int v;
+            return _abilityContextByTriggerName.TryGetValue(name, out v) ? v : AbilityContextUnknown;
+        }
+
+        /// <summary>
+        /// 这条**引擎触发关键词**（`KeywordTable.*`）对应的原版 `abilityContext`；
+        /// 没映射 / 没登记 ⇒ <see cref="AbilityContextUnknown"/>（`-1`）。
+        ///
+        /// <para>⚠️ 关键词只覆盖**有映射**的那部分 trigger（生成器 `ABILITY_TRIGGER_KEYWORD`，
+        /// 2026-10-22 现读 53/159 行）—— **`UnitAttack` 一族没有关键词**，
+        /// 必须走 <see cref="AbilityContextOfTrigger"/>，⛔ 别以为「关键词查不到 = 不用判」。</para>
+        ///
+        /// <para>🔴 `-1` 契约同 <see cref="AbilityContextOfTrigger"/>：未知 ≠ `Play(0)`。</para>
+        /// </summary>
+        public int AbilityContextOfKeyword(string kw)
+        {
+            if (string.IsNullOrEmpty(kw)) return AbilityContextUnknown;
+            int v;
+            return _abilityContextByKeyword.TryGetValue(kw, out v) ? v : AbilityContextUnknown;
+        }
+
 
         /// <summary>触发关键词 → 正文原文（日志与卡面用）</summary>
         readonly Dictionary<string, string> _triggerText = new Dictionary<string, string>();

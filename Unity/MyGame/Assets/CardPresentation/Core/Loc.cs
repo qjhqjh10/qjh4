@@ -1464,7 +1464,8 @@ namespace CardPresentation
             //   （`0x4288a48`）。⇒ 它**不是** HUD 里那颗常驻节点的字（原版 HUD 的 `TurnText` 只有 `END TURN`
             //   那一个样例）。🔴 **2026-10-22 补**：我们那条常驻「回合行」已按用户口径**删掉**
             //   （原版没有那个节点）；本条词条**保留** —— 原版确实拿它做**回合开始的抬头提示**
-            //   （`BattleTipController.ShowHeadsUpMessage`），我们今天**还没接**那一跳（记在报告里）。
+            //   （`BattleTipController.ShowHeadsUpMessage`）；🔴 **2026-10-22 已接**（`BattleDriver.ShowYourTurnHeadsUp`，
+            //   不透明底那一档；教程局第 1 回合按原版跳过）。
             { "Battle/HUD/YourTurn",               new Entry("你的回合", "Your turn") },    // 🔴 2026-10-14（`A1803`）EN 改官方（原注「值在远端」**作废** —— 官方 zh-CN 表已到手，两列都逐字对上了）
             // ── `MenuLogin/Guest` ────────────────────────────────────────────────────────
             //   🆕 **2026-10-22**：名牌（`PlayerNameText`/`EnemyNameText`）在**名字为空**时用它 ——

@@ -1182,8 +1182,9 @@ namespace CardPresentation
         // ============================================================ 可被自检直调的两条入口
         // （批处理里没有输入事件 ⇒ 自检用它们量「这一处到底吃不吃得到这次输入」）
 
-        /// <summary>在画布像素点 `(px,py)` 上滚一格（`dy` 是 `Mouse.current.scroll` 的原值，
-        /// Windows 上一格 ±120）。返回**是不是真的滚到了某个区**。</summary>
+        /// <summary>在画布像素点 `(px,py)` 上滚一格（`dy` 是 `Mouse.current.scroll` 的原值 ——
+        /// **本机实测一格 ±1**，2026-10-22 `[SCROLLPROBE] raw=1.0000`，见 `MenuScroll.ScrollUnitsPerNotch`）。
+        /// 返回**是不是真的滚到了某个区**。</summary>
         public bool WheelAt(float px, float py, float dy)
         {
             var s = HitScroll(px, py);

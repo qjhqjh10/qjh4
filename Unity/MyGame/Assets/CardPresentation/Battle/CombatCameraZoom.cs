@@ -251,11 +251,13 @@ namespace CardPresentation
         //  输入源：原版 `TouchInputManager` 那三格（✅ 2026-10-13 A463 起那件真的有了，见文件头 ⑦）
         // ==================================================================
 
-        /// <summary>Windows 上一个滚轮刻度 = **120**（`Shell/MenuScroll.cs` 的 `NotchK` 那条同源口径：
-        /// 「`Mouse.current.scroll.ReadValue().y`，Windows 上一格 ±120」）。
-        /// <para>🔴 **2026-10-13（A463）：量纲换算已经搬进 `TouchInputManager`**（那件组件现在真的有了，
-        /// 见 <see cref="PollPointerSource"/>）—— 这一格**只剩一个转发口**，给 `Editor/BattleScene.cs` 那条
-        /// A422 断言（「常量 = 原版字面量」）用。⛔ 别在这儿再乘/除一次。</para></summary>
+        /// <summary>滚轮量纲的转发口（现在 = **1**）。
+        /// <para>🔴 **2026-10-22 订正（铁律 5）**：原来这里写「Windows 上一个滚轮刻度 = **120**」——**不成立**。
+        /// 真机 `WF_SCROLL_PROBE=1` 实测 `[SCROLLPROBE] raw=1.0000` ⇒ 本工程 Input System 每格就是 **±1**
+        /// （和 legacy `Input.mouseScrollDelta` 同量纲）；写 120 会让缩放慢 120 倍。
+        /// 真身 = <see cref="TouchInputManager.ScrollUnitsPerNotch"/>（= 1）。</para>
+        /// <para>🔴 **2026-10-13（A463）：量纲换算已经搬进 `TouchInputManager`**（见 <see cref="PollPointerSource"/>）
+        /// —— 这一格**只剩一个转发口**，给 `Editor/BattleScene.cs` 那条 A422 断言用。⛔ 别在这儿再乘/除一次。</para></summary>
         public const float ScrollUnitsPerNotch = TouchInputManager.ScrollUnitsPerNotch;
 
         /// <summary>`dt × 10.0` 那一格（`DAT_1834b2da8`，文件头 ④）。</summary>

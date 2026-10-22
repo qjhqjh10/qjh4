@@ -86,9 +86,15 @@ namespace CardPresentation
     /// ③ 注册给指针层：`PointerLayer.RegisterScroll(_scroll)`（滚轮才会找到它）。</summary>
     public class MenuScroll
     {
-        /// <summary>Windows 上一个滚轮刻度 = **120**（原始 `WHEEL_DELTA`；`Wheel` 收到的就是它）。
-        /// 与 `Battle/TouchInputManager.ScrollUnitsPerNotch` 同源口径。</summary>
-        public const float ScrollUnitsPerNotch = 120f;
+        /// <summary>一格滚轮 = 多少**输入单位** = **1**（`Wheel` 收到的 `dy` 就是它 ⇒ `NotchK = NotchPx / 1 = NotchPx`，
+        /// 即**一格滚 `NotchPx` 画布像素**）。
+        /// <para>🔴 **2026-10-22 真机实测就地订正（铁律 5）**：原来这里写「Windows 上一个滚轮刻度 = **120**
+        /// （原始 `WHEEL_DELTA`；`Wheel` 收到的就是它）」—— **不成立**：`WF_SCROLL_PROBE=1` 起 player 滚一格，
+        /// 日志 `[SCROLLPROBE] raw=1.0000` ⇒ `Mouse.current.scroll.ReadValue().y` 在本机**已经是 legacy 单位（±1）**。
+        /// 写 120 ⇒ 一格只滚 `NotchPx / 120` ⇒ **慢 120 倍**（`DefaultNotchPx 48` 那档只剩 0.4 px/格）。
+        /// ⛔ `工具/wf_click.py` 的 `WHEEL_DELTA = 120` 是 **Win32 `SendInput` 那一层的单位**，与本处不同量纲、别照抄。
+        /// 与 `Battle/TouchInputManager.ScrollUnitsPerNotch` 同源口径（同一天同样改成 1）。</para></summary>
+        public const float ScrollUnitsPerNotch = 1f;
 
         /// <summary>一格滚轮 = 多少画布像素的**缺省值**（= 旧的全壳手感 `0.4 × 120`）。
         /// 🔴 **缺省 = 未现读到原版值的视图**（没有判据时保留旧行为并出声）；**有判据的视图一律显式传**
@@ -123,7 +129,8 @@ namespace CardPresentation
         public readonly float NotchPx;
 
         /// <summary>一格滚轮对应的系数。**每个滚动区一份**（原来是全壳常量 `0.4`）。
-        /// `Wheel` 收到的 `dy` 是原始 `WHEEL_DELTA`（一格 = ±120）⇒ `NotchK = NotchPx / 120`。</summary>
+        /// `Wheel` 收到的 `dy` 是**一格 = ±1**（2026-10-22 真机实测，见 `ScrollUnitsPerNotch`）
+        /// ⇒ `NotchK = NotchPx / 1 = NotchPx`。</summary>
         public readonly float NotchK;
 
         // ============================================================ 原版字段（照抄 UGUI，别自己编）
@@ -278,7 +285,7 @@ namespace CardPresentation
             if (OnChanged != null) OnChanged();
         }
 
-        /// <summary>滚轮一格（`Mouse.current.scroll.ReadValue().y`，Windows 上一格 ±120）。
+        /// <summary>滚轮一格（`Mouse.current.scroll.ReadValue().y` —— **本机实测一格 ±1**，见 `ScrollUnitsPerNotch`）。
         /// 往下滚（`dy&lt;0`）= 内容左移 = 看右边的东西（照卡组编辑的方向）。
         /// 照 UGUI `OnScroll`（`ScrollRect.cs:648-679`）：**Clamped 才夹回**；Elastic 允许滚出范围、随后回弹；
         /// 滚轮**不产生速度**（惯性只由拖拽产生）。</summary>

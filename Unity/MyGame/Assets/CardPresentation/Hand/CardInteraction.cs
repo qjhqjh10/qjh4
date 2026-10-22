@@ -257,11 +257,30 @@ namespace CardPresentation
         public int InsertIndex { get { return _insertIndex; } }
         public IReadOnlyDictionary<int, CardView> Placed { get { return _placed; } }
 
-        public void SetCards(List<CardView> cards)
+        /// <summary>把「当前手牌是哪几张」推给交互层。
+        ///
+        /// <paramref name="relayout"/> = **要不要让手牌布局走「带补间的重排」**（默认 `true`，老调用点行为不变）。
+        /// 🔴 **2026-10-22（W63 · 换牌那排卡是斜的）**：换牌期传 `false` —— 那几张牌的位姿归
+        ///   `MulliganPanel`（`BuildCardButtons` / `ReapplyRowPoses`，**平 0° 横排**），
+        ///   而 `HandLayout.Place` 在实机上开的是 **0.2 s 带旋转的重排补间**（`animateRelayout == 1`）：
+        ///   它算的是**手牌扇形角** ⇒ 补间的旋转尾巴在那 0.2 s 末尾落盘，把换牌区那一行带歪
+        ///   （位置/尺度会被面板当场改回来，角度不会）。这里**连补间都不让它开**，从根上断掉。
+        /// <para>⚠️ **但位姿仍要当场算一遍**（`animateRelayout` 临时关掉，跑完还原）—— 两处都靠它：
+        ///   ① `HandLayout._lastPose` 是 `CommitDealtPoses` 落实新牌的**唯一来源**；
+        ///   ② `MulliganPanel.BuildCardButtons` 的 `_savedPos/_savedRotZ/_savedScale` 存的是
+        ///   「搬进换牌区之前」的位姿（面板 `Close()` 时原样还回去）。不算这一遍的话那几个值会是
+        ///   卡视图的初始位（驱动根原点 = **屏幕正中**）⇒ 点「完成换牌」那一刻手牌会从屏幕中间飞下来。
+        ///   本方法写出来的位姿在**同一帧**里就会被 `MulliganPanel` 覆写成换牌区那一行（⛔ 不会被渲染出来）。</para>
+        ///   ⚠️ `_cards` 照样更新（换牌面板的命中 `CardAt` 转发本类的 `HitTest`，靠的就是它）。</summary>
+        public void SetCards(List<CardView> cards, bool relayout = true)
         {
             _cards.Clear();
             _cards.AddRange(cards);
-            Relayout();
+            if (relayout) { Relayout(); return; }
+            bool animate = hand.animateRelayout;
+            hand.animateRelayout = false;
+            try { Relayout(); }
+            finally { hand.animateRelayout = animate; }
         }
 
         /// <summary>

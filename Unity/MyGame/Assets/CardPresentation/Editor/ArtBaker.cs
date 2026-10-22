@@ -29,6 +29,50 @@ public static class ArtBaker
 
     const int W = 1920, H = 1080;
 
+    /// <summary>
+    /// 🔴 **2026-10-22：`Resources/Art` 下【原版是 Repeat】的贴图白名单**（不在表里的一律 Clamp）。
+    ///
+    /// **为什么要有这张表**：`ApplyImportSettings()` 原来对 `Resources/Art` 下所有 Texture2D
+    /// **无条件** `ti.wrapMode = TextureWrapMode.Clamp` ⇒ 手工把下面这几张改成 Repeat 之后，
+    /// **下一次美术烘焙（`BakeAll` / `BakeFromCLI` 都会调本方法）就会把它们静默改回 Clamp** ——
+    /// 没有报错、没有日志，只有画面上的接缝不对（亮弧滚不过接缝、纹理在边缘被拉成一条线）。
+    ///
+    /// **判据 = 原版 bundle 实读**（UnityPy 直读 `Texture2D.m_TextureSettings`，`m_WrapU/V = 0` 即 Repeat）：
+    /// | 原版贴图名 | 我们的文件 | 原版 m_WrapU/V |
+    /// |---|---|---|
+    /// | `Spark UI`（128²）            | `CanAct_SparkUI.png`     | 0 / 0 |
+    /// | `Circle_Hoop`（256²）         | `CanAct_CircleHoop.png`  | 0 / 0 |
+    /// | `WF 3D Card_Card 3D_BaseColor`| `Card3D_BaseColor.png`   | 0 / 0 |
+    /// | `MatCap Card Level 1`         | `MatCap_Card_Level1.png` | 0 / 0 |
+    /// | `Matcap Bronze`               | `MatCap_Bronze.png`      | 0 / 0 |
+    /// | `Matcap Silver`               | `MatCap_Silver.png`      | 0 / 0 |
+    /// | `Matcap Gold`                 | `MatCap_Gold.png`        | 0 / 0 |
+    /// 出处 → `资料/普查产出_1022/W63_场上卡牌与底座绿光_调查.md` §2（代理 R 现核）。
+    ///
+    /// ⛔ **不要改成「全部 Repeat」** —— 同目录的 `CardBlobShadow.png`（原版 `Card blob shadow`）
+    ///    原版实读就是 **Clamp(1,1)**，改成 Repeat 反而与原版不符。
+    /// ⚠️ 原版数据只给了 `m_WrapU/V`，**`m_WrapW` 不在判据里** ⇒ 这里也只写 U/V，`.meta` 的 `wrapW` 保持 1。
+    /// </summary>
+    static readonly string[] RepeatTextures =
+    {
+        "CanAct_SparkUI.png",       // 原版 `Spark UI`      —— 底座绿光的 UV 滚动环（`Sparks UI Additive Scroll`）
+        "CanAct_CircleHoop.png",    // 原版 `Circle_Hoop`   —— `CanActParticles` 的粒子贴图
+        "Card3D_BaseColor.png",     // 原版 `WF 3D Card_Card 3D_BaseColor`
+        "MatCap_Card_Level1.png",   // 原版 `MatCap Card Level 1`
+        "MatCap_Bronze.png",        // 原版 `Matcap Bronze`
+        "MatCap_Silver.png",        // 原版 `Matcap Silver`
+        "MatCap_Gold.png",          // 原版 `Matcap Gold`
+    };
+
+    /// <summary>本路径是否命中 Repeat 白名单（按文件名比、忽略大小写）。</summary>
+    static bool IsRepeatTexture(string path)
+    {
+        var name = Path.GetFileName(path);
+        foreach (var n in RepeatTextures)
+            if (string.Equals(n, name, System.StringComparison.OrdinalIgnoreCase)) return true;
+        return false;
+    }
+
     [MenuItem("Tools/CardPresentation/烘焙原版美术")]
     public static void BakeAll()
     {
@@ -409,7 +453,18 @@ public static class ArtBaker
             //    我这次就是跑了本方法把 `fix_art_meta` 关掉的开关又打开了，卡面当场变马赛克。
             ti.alphaIsTransparency = false;
             ti.mipmapEnabled = false;
-            ti.wrapMode = TextureWrapMode.Clamp;
+            // 🔴 **2026-10-22：Repeat 白名单放行** —— 原版那 7 张（见 `RepeatTextures` 的表）是 Repeat，
+            //   这里若仍无条件 Clamp，会把手工改好的 `.meta` **静默改回 Clamp**（本方法每次烘焙都会跑）。
+            //   白名单之外**仍然是 Clamp**（`CardBlobShadow.png` 原版就是 Clamp，别一起改）。
+            if (IsRepeatTexture(path))
+            {
+                ti.wrapModeU = TextureWrapMode.Repeat;
+                ti.wrapModeV = TextureWrapMode.Repeat;
+            }
+            else
+            {
+                ti.wrapMode = TextureWrapMode.Clamp;
+            }
             ti.filterMode = FilterMode.Bilinear;
             ti.maxTextureSize = isBackdrop ? 2048 : (path.Contains("/ui_deck/") ? 2048 : 1024);
             // ⚠️ **必须关掉 NPOT 缩放**：默认会把非 2 次幂的图缩到最近的 2 次幂 ——

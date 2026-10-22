@@ -264,43 +264,70 @@ public static partial class RuleEngineTest
     }
 
     // ==================================================================
-    //  T26 · **泵点集合 = 14 个 `BeginAction` 调用点**（审查第 8 条）
+    //  T26 · **泵点集合 = 18 个 `BeginAction` 调用点**（审查第 8 条）
     // ==================================================================
     /// <summary>
     /// 「漏一个泵点 = 静默丢一条动作」（审查第 1 / 第 5 条就是这么来的）⇒ 这个数必须钉住。
-    /// 判据 = **源码里 `using (BeginAction(ctx))` / `using (RuleCore.BeginAction(ctx))`
-    /// 出现在行首的条数**（注释行以 `//`/`///` 开头，不会被数进来）。
+    /// 判据 = **源码里 `using (BeginAction(ctx))` / `using (RuleCore.BeginAction(ctx))` 出现的条数**
+    /// （**整行正则**：行内**任意位置**都算；注释行以 `//` / `*` 开头 ⇒ 排除）。
     ///
-    /// 2026-10-21 现读：`RuleCore.cs` **13** + `EffectResolver.cs` **1**（`PlayTacticCore`）= **14**。
+    /// 🔴 **2026-10-22（`W63`）就地订正（铁律 5）：旧版是「只看行首 + 只认 `RuleCore.` 前缀」，两处都漏** ——
+    ///   ① `RuleCore.cs:3307` 的 `PlayCard` 写成 `try { using (BeginAction(ctx)) return … }`
+    ///      ⇒ `using` **不在行首**，旧扫描器漏计；
+    ///   ② `EffectResolver.cs:1676` 也是同一个 `try { … }` 同行写法；另外两处（`:7164` / `:8775`）
+    ///      **连 `RuleCore.` 前缀都没有**（同一个类里直接调 `BeginAction`）
+    ///      ⇒ 旧前缀在整份 `EffectResolver.cs` 里命中 **0**（`nEff = 0` 就是这么来的）。
+    ///   ⇒ 旧期望「13 + 1 = 14」是**扫描器给出的假数**；现读真值 = **`RuleCore.cs` 15 + `EffectResolver.cs` 3 = 18**。
+    ///   ⚠️ **没有丢泵点**：W62 列的 13 个全在，+ R1 新增的
+    ///      `Hurt`（`RuleCore.cs:7690`）/ `TryCancelAttack`（`RuleCore.cs:6800`）= 15。
     /// 🧨 任何一处 `using (BeginAction…)` 被删 / 被注释掉 ⇒ 数字变小 ⇒ 红（= 那个顶层入口从此不泵队）。
     /// 🧨 **新增**顶层入口时本条也会红 —— 那是**故意的**：去确认新入口真的包了 `BeginAction`，
-    ///    再把这里的期望值 +1（⛔ 别改成「≥14」，那会让「漏一个」和「加一个」分不开）。
+    ///    再把这里的期望值 +1（⛔ 别改成「≥18」，那会让「漏一个」和「加一个」分不开）。
     /// </summary>
     static void W61T26PumpPointCount()
     {
         string assets = UnityEngine.Application.dataPath;      // …/MyGame/Assets
-        int nRule = W61CountPumpPoints(System.IO.Path.Combine(assets, "RuleEngine/Core/RuleCore.cs"),
-                                       "using (BeginAction(ctx))");
-        int nEff = W61CountPumpPoints(System.IO.Path.Combine(assets, "RuleEngine/Core/EffectResolver.cs"),
-                                      "using (RuleCore.BeginAction(ctx))");
-        CheckTrue(nRule > 0 && nEff > 0,
-                  "T26 夹具：两份源码都读到了（读不到 = -1；见上面打的路径）");
-        Check(nRule, 13, "★ T26 `RuleCore.cs` 的 `using (BeginAction(ctx))` = 13（2026-10-21 现读）");
-        Check(nEff, 1, "★ T26 `EffectResolver.cs` 的 `using (RuleCore.BeginAction(ctx))` = 1（`PlayTacticCore`）");
-        Check(nRule + nEff, 14, "★ T26 **泵点总数 = 14**（漏一个 ⇒ 那个顶层入口的触发永远不结算）");
+        int nRule = W61CountPumpPoints(System.IO.Path.Combine(assets, "RuleEngine/Core/RuleCore.cs"));
+        int nEff = W61CountPumpPoints(System.IO.Path.Combine(assets, "RuleEngine/Core/EffectResolver.cs"));
+        // 夹具只判「文件读到了」。⛔ **别在这里要求 `> 0`** —— 那会让「真丢了一个泵点」同时红两条，
+        //    分不清是**夹具前提塌了**还是**实现缺陷**（`W63` 之前就是这种双重红：#10 只是 #12 的级联）。
+        CheckTrue(nRule >= 0 && nEff >= 0,
+                  "T26 夹具：两份源码都读到了（**-1 = 文件不存在**；路径见上面两行）");
+        Check(nRule, 15, "★ T26 `RuleCore.cs` 的 `using (BeginAction(ctx))` = 15（2026-10-22 现读）");
+        Check(nEff, 3, "★ T26 `EffectResolver.cs` 的 `using (BeginAction(ctx))` = 3"
+                     + "（`PlayTacticCore` :1676 · `BroadcastWhen` 壳 :7164 · `GrantDarkPact` 壳 :8775）");
+        Check(nRule + nEff, 18, "★ T26 **泵点总数 = 18**（漏一个 ⇒ 那个顶层入口的触发永远不结算）");
     }
 
-    /// <summary>`T26` 的行扫描：只数**行首**就是那个 `using` 的行（注释行以 `/` 开头 ⇒ 排除）。</summary>
-    static int W61CountPumpPoints(string path, string prefix)
+    /// <summary>`T26` 的行扫描：**整行正则** —— 行内**任意位置**出现
+    /// `using (BeginAction(ctx))` 或 `using (RuleCore.BeginAction(ctx))` 都算一条。
+    /// ⚠️ 两条都必须认：`EffectResolver.cs` 有两处（`:7164` / `:8775`）**没有 `RuleCore.`**；
+    ///    而且必须看**行内**（`RuleCore.cs:3307` 与 `EffectResolver.cs:1676` 都被 `try { … }` 包在同一行）。
+    /// 排除 = **注释行**（trim 后以 `//` 或 `*` 开头；行尾注释不影响 —— 只要代码那半句还在，
+    /// 那本来就是活的泵点）。
+    /// ⚠️ **如实标着的残余**：`/* … */` 块注释里提到它时本扫描器仍会数进来（这两个文件里今天没有）。
+    /// 🧨 **改坏法**：只认行首（`StartsWith`）⇒ `EffectResolver.cs` 只数到 **2**（`:1676` 的 `try {` 挡掉）
+    ///    ⇒ 第二条红；去掉正则里的 `(?:RuleCore\.)?` ⇒ 还是 **2**（`:7164`/`:8775` 没有前缀）⇒ 同样红
+    ///    —— **两半都是必需的**。
+    /// </summary>
+    static int W61CountPumpPoints(string path)
     {
         if (!System.IO.File.Exists(path))
         {
             Check(path, "<存在>", "T26 夹具：找不到源码文件 —— 下面的计数断言会一起红");
             return -1;
         }
+        var re = new System.Text.RegularExpressions.Regex(
+            @"using\s*\(\s*(?:RuleCore\.)?BeginAction\s*\(\s*ctx\s*\)\s*\)",
+            System.Text.RegularExpressions.RegexOptions.Compiled);
         int n = 0;
         foreach (string line in System.IO.File.ReadAllLines(path))
-            if (line.TrimStart().StartsWith(prefix, StringComparison.Ordinal)) n++;
+        {
+            string t = line.TrimStart();
+            if (t.StartsWith("//", StringComparison.Ordinal)) continue;   // 行注释 / doc 注释
+            if (t.StartsWith("*", StringComparison.Ordinal)) continue;    // 块注释续行
+            n += re.Matches(line).Count;
+        }
         return n;
     }
 

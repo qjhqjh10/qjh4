@@ -1635,8 +1635,9 @@ public static class ShopScene
                     // 回顶必须精确回到 0（`SetOffset` 是**绝对**设值 —— 2026-09-23 那条重入教训）
                     gs.SetOffset(0f);
                     CheckNear(gs.Offset, 0f, 0.01f, "回顶后偏移精确 = 0");
-                    // 滚轮一格 = **1px**（原版 `m_ScrollSensitivity = 1.0` —— 新输入系统一格 ±120，
-                    // `MenuScroll` 按 `NotchPx / 120` 换算；判据 → `D_N29`）。
+                    // 滚轮一格 = **1px**（原版 `m_ScrollSensitivity = 1.0` —— 2026-10-22 量纲 120→1：
+                    // 真机 `[SCROLLPROBE] raw=1.0000` 实测一格本来就是 ±1，`MenuScroll` 按 `NotchPx / 1` 换算
+                    // ⇒ 下面那行 `-6f × ScrollUnitsPerNotch` **自洽抵消**（= 6 格）；判据 → `D_N29`）。
                     // 🔴 2026-10-05（A28）：档位改成 **Elastic** 之后**滚轮不再被夹**（照 UGUI `OnScroll`：**Clamped 才夹回**）
                     //    ⇒ 本页只有 4.62px 可滚，**喂 6 格（6px）**才越得出去，随后由 `Tick` 的 `SmoothDamp`
                     //    回弹到上界（`smoothTime = m_Elasticity`；回弹那一支同 `RewardsScene` 的写法）。

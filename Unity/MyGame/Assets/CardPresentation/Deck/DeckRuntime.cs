@@ -6823,10 +6823,15 @@ namespace CardPresentation
         //
         // 🔴 **2026-10-21（`A1702①`）：滚轮一格滚多少 px —— 按【各台 ScrollRect 自己的】`m_ScrollSensitivity`。**
         //
-        // ① **输入量纲**：新输入系统 `Mouse.current.scroll.ReadValue().y` 在 Windows 上是**原始
-        //    `WHEEL_DELTA`** ⇒ **一格 = ±120**（同源口径 = `Shell/MenuScroll.cs` 的 `NotchK` /
-        //    `Battle/TouchInputManager.ScrollUnitsPerNotch` / `工具/wf_click.py:112` 的 `WHEEL_DELTA`）。
-        //    ⇒ 本函数一律先把它除成**格数**，再乘各台的 `px / 格`。
+        // ① **输入量纲**：`Mouse.current.scroll.ReadValue().y` 在本机**一格 = ±1**（= legacy 量纲）。
+        //    🔴 **2026-10-22 真机实测就地订正（铁律 5）**：原来这里写「新输入系统在 Windows 上是**原始
+        //    `WHEEL_DELTA`** ⇒ **一格 = ±120**」—— **不成立**：`WF_SCROLL_PROBE=1` 起 player 滚一格，
+        //    日志 `[SCROLLPROBE] raw=1.0000`。按 120 除 ⇒ 一格 = 0.0083 格 ⇒ 卡池（100 px/格）只剩
+        //    **0.83 px/格** = **慢 120 倍**。同源口径 = `Shell/MenuScroll.cs.ScrollUnitsPerNotch` /
+        //    `Battle/TouchInputManager.ScrollUnitsPerNotch`（同一天都改成 1）。
+        //    ⛔ `工具/wf_click.py:112` 的 `WHEEL_DELTA = 120` 是 **Win32 `SendInput` 那一层的单位**
+        //    （合成 OS 滚轮事件时是对的），与 `Mouse.current` 的读数**不是同一个量纲**，别拿它当本处的判据。
+        //    ⇒ 本函数一律先把它除成**格数**（除 1 = 恒等），再乘各台的 `px / 格`。
         // ② **各台的 `px / 格` = 原版 prefab 上那台 `ScrollRect` 的 `m_ScrollSensitivity`**
         //    （uGUI `OnScroll` 就是 `position += scrollDelta × scrollSensitivity`，而
         //     `PointerEventData.scrollDelta` 在 Windows 上**一格 = 1**）：
@@ -6850,8 +6855,9 @@ namespace CardPresentation
         // ⚠️ 原来三处**共用一个** `step = dy * 0.4f`（= **48 px / 格**）⇒ 卡池比原版**慢 2.08 倍**、
         //    卡组列表比原版**慢 1.04 倍**（那条 48 与原版 50 只差 4%，所以一直没被注意到）。
 
-        /// <summary>滚轮一格 = 多少**输入单位**（Windows 上 `Mouse.current.scroll` 是原始 `WHEEL_DELTA`）。</summary>
-        const float ScrollUnitsPerNotch = 120f;
+        /// <summary>滚轮一格 = 多少**输入单位** = **1**（2026-10-22 真机实测：`Mouse.current.scroll` 一格 ±1，
+        /// 见上面 ①；⛔ 别再写 120 —— 那会让滚动慢 120 倍）。</summary>
+        const float ScrollUnitsPerNotch = 1f;
         /// <summary>卡池那台 `Deck Scroll View` 的 `m_ScrollSensitivity`（原版 100 ⇒ **100 px / 格**）。</summary>
         const float PoolScrollPxPerNotch = 100f;
         /// <summary>左侧卡组列表那台 `Scroll View` 的 `m_ScrollSensitivity`（原版 50 ⇒ **50 px / 格**）。</summary>

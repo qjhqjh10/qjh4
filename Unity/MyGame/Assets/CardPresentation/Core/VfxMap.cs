@@ -108,6 +108,12 @@ namespace CardPresentation
         /// | `play` / `ability` / `trigger` | 台账里没有对应行 | — |
         /// | `return` / 三个资源事件 | 见下面 `ByEvent` 里那四行的注释 | ✅ 三件 UI 特效 + 一件 MECH 都能用 |
         ///
+        /// 🔴 **2026-10-22（`W63` §B）就地订正（铁律 5）**：上面 `attack_melee` 那一行是 **0824 台账**的
+        ///    口径（`SLASH_VFX`）—— **原版代码里没有「通用近战粒子」这一档**：
+        ///    `CardScript.ResolveAttackAnimationEffects` 只在**命中帧**播 `AttackHitSmall`。
+        ///    ⇒ 我们的 `ByEvent[AttackMelee]` **整行已删**（见下表），`Resolve(AttackMelee)` 回 null 是**正确结果**。
+        ///    判据 → `资料/普查产出_1022/W63_飞行与卡ID演出_调查.md` §B。
+        ///
         /// ⇒ **原版那条链在我们管线里大部分跑不通**（脚本驱动 / 没导出 / 偏亮），
         ///    所以下面用替代品是**有理由的**、不是随手挑的。**但替代品必须是同一语义族** ——
         ///    2026-09-15 查出台账把这两件判成了别的东西、和我们的用法**对不上**：
@@ -129,11 +135,26 @@ namespace CardPresentation
             //   出处：`数据/游戏数据/card_vfx_by_card.json` 的 `generic.byEvent.deploy`（`conf: exact`）。
             //   ⚠️ 原来那件 `Sororitas Summon Basic` 是**我们挑的替代品**（2026-09-12 挑的）。
             { Deploy,       "Invoke Minion Card Fade Default" },
-            { AttackMelee,  "BulletImpactBurst_crowd" },    // 近战：碎屑迸溅
+            // 🔴 **2026-10-22（`W63` §B）：`attack_melee` 这一行【已删】—— 原版【没有】通用近战件。**
+            //   原版近战只在**命中帧**播 `AttackHitSmall`（`CardScript.ResolveAttackAnimationEffects`），
+            //   没有「通用近战粒子」这一档（`decomp_full` 里没有；逐卡 `AlternateArtCard.attackAnim`
+            //   1,195 张里只有 2 张、且都是空引用 ⇒ 判据为空）。
+            //   逐卡 `attack_melee` 现读只有 **13 行 / 1127 张卡**，且那 13 条其实是 `UnitAttack` 触发的
+            //   **技能动画**（语义归口另案，见报告 §B/§D）⇒ 631 个近战攻击者里 618 个原本落到这件。
+            //   ⇒ 原来这里挂的 `BulletImpactBurst_crowd` 是**我们挑的替代品** = 原版没有的第二下，已删。
+            //   ⚠️ 删了以后 `Resolve(AttackMelee)` 回 `null` 是**正确结果**（不是漏配）——
+            //     `ResolveFallback` 里对它有显式分支、**不出声**（见那一处）。
+            //   判据 → `资料/普查产出_1022/W63_飞行与卡ID演出_调查.md` §B。
+            //
             // 🆕 2026-09-29 **换成原版那件**（判据齐）：`CardScript.attackHitSmallParticles` →
             //   prefab `AttackHitSmall`（原版 `attackHitSmallParticles` 与 `attackHitBigParticles`
             //   是**同一个 pathId**，两档同对象）。
-            { AttackRanged, "BulletImpact_2shot" },         // 远程：弹着点
+            // 🔴 **2026-10-22（`W63` §B）：远程兜底件换成原版那一件** —— 原版
+            //   `RangedAttackParticlesByClanSO__GetRangedClanParticles.c` 查不到时**返回 SO 第一条**
+            //   = Ultra 的 **`BulletImpact_2shot_trail`**；原来这里挂的是 `BulletImpact_2shot`
+            //   （少了 `_trail`）⇒ 我们播的**不是同一件**。现读 37 张没有
+            //   `customRangedAttackParticles` 的卡走这一行。判据 → 同上报告 §B。
+            { AttackRanged, "BulletImpact_2shot_trail" },   // 远程：原版查不到时的第一条（Ultra）
             // 🔴 **这件仍是替代品**：原版攻击结算处接的是 `AttackHitSmall` / `Actual_Explosion`，
             //    **现在 `Hit` 已经改成原版那件**（见下），这一行留着是为了说明当时的取舍。
             // ⚠️ 2026-09-15 实拍复核过（`_tmp_view/pick_hit.png`）：五个候选里这件最好看。
@@ -991,11 +1012,13 @@ namespace CardPresentation
         /// 与 `AnimInfo.GetAnimDuration()` 同口径 —— 那 418 条里**没有一条** `vfxDelay ≠ 0`，
         /// 所以这里不加 `Delay`）。</para>
         /// <para>⚠️ **只收「共享件」**（`ByFaction[AttackRanged]` 4 条 + `ByEvent[AttackRanged]` 1 条 +
-        /// 1-shot 那一档 + 近战兜底件 1 条）。逐卡件**不进来** —— 它们的时长在 `CardDef.AnimTimes` 里
-        /// （逐卡真值优先）。</para>
-        /// <para>🔴 现读值（2026-10-21）：`BulletImpact_1shot_trail` **0.3** · `BulletImpact_2shot` **0.4** ·
-        /// 4 个阵营的 `2shot*` / `NecronGauss` 全部 **0.75**。原版对这五档的 `sp/ep` 都是 `0/2`
-        /// （起点 = 攻方 `effectsAnchor`、终点 = `abilityTarget`）。</para></summary>
+        /// 1-shot 那一档 + 近战那件 1 条）。逐卡件**不进来** —— 它们的时长在 `CardDef.AnimTimes` 里
+        /// （逐卡真值优先）。🔴 **2026-10-22（`W63` §B）**：近战那一条**已经不是兜底件**（原版无通用近战件，
+        /// `ByEvent[AttackMelee]` 已删），见下面那一段的注释。</para>
+        /// <para>🔴 现读值（2026-10-22）：`BulletImpact_1shot_trail` **0.3** · `BulletImpact_2shot` **0.4**
+        /// （**不再是兜底件**）· 4 个阵营的 `2shot*` / `NecronGauss` 全部 **0.75**（`ByEvent[AttackRanged]`
+        /// 现在也取 `BulletImpact_2shot_trail` ⇒ **兜底档同样是 0.75**，与 `EventTiming.RangedVfxFallback` 一致）。
+        /// 原版对这五档的 `sp/ep` 都是 `0/2`（起点 = 攻方 `effectsAnchor`、终点 = `abilityTarget`）。</para></summary>
         static readonly Dictionary<string, float> SharedRangedVfxDuration = new Dictionary<string, float>
         {
             // ===== `ByFaction[AttackRanged]` 那 4 条（`card_vfx_by_card.json` generic.attackRangedByArmy）=====
@@ -1004,13 +1027,20 @@ namespace CardPresentation
             { "NecronGauss",                          0.75f },   // Atk_Gauss_Basic（Sautekh）
             { "BulletImpact_2shot_trail_chaos",       0.75f },   // Atk_BulletImpact_2shot_chaos（BlackLegion）
             // ===== `ByEvent[AttackRanged]`（没配专属粒子的阵营走它）=====
-            { "BulletImpact_2shot",                   0.40f },   // `BulletImpact_2shot`（同名 CardAnim）
+            //   🆕 **2026-10-22（`W63` §B）**：兜底名已改成 `BulletImpact_2shot_trail`（上面第一行 0.75）
+            //   —— 原版 `RangedAttackParticlesByClanSO__GetRangedClanParticles` 查不到时返回 SO 第一条
+            //   = Ultra 那件。`BulletImpact_2shot`（0.4）**不再是兜底件**，今天只剩
+            //   `UM34 Point-Blank Shot` 的逐卡 `play` 行还引用它（逐卡时长走 `CardDef.AnimTimes`、
+            //   不读这张表）⇒ **保留这一行**只为「谁播到它都查得到时长」，⛔ 别再挂回 `ByEvent`。
+            { "BulletImpact_2shot",                   0.40f },   // `BulletImpact_2shot`（同名 CardAnim · 仅逐卡引用）
             // ===== 1-shot 那一档（`RangedAttackParticlesByArmy` 的 `BulletImpact_1shot_trail`）=====
             //   ⚠️ 今天 `ByFaction` 没配它（4 个阵营全是 2shot）—— 留在这里是因为它是**同名 prefab 的
             //   原版时长**，`ChainDuration` 的断言要拿它当**第三档**（0.3 ≠ 0.75 ≠ 1.0）判「没有写死一个数」。
             { "BulletImpact_1shot_trail",             0.30f },   // Atk_BulletImpact_1shot
-            // ===== 近战那一档的兜底件（`ByEvent[AttackMelee]`，我们挑的替代品）=====
-            //   原版近战**没有**通用件（`attack_melee` 只 13/1127 张卡有）⇒ 这一行只是让队尾算得出来。
+            // ===== 近战那一件（🔴 **2026-10-22（`W63` §B）：兜底件已从 `ByEvent` 删除**）=====
+            //   原版近战**没有**通用件（`attack_melee` 逐卡只 13/1127 张、且那 13 条其实是 `UnitAttack`
+            //   技能动画）⇒ **今天没有任何生产路径会播它**。保留这一行只为「试片台/历史引用播到它时
+            //   查得到时长」，⛔ 别再把它挂回 `ByEvent[AttackMelee]`（那是原版没有的第二下）。
             { "BulletImpactBurst_crowd",              0.40f },   // `BulletImpactBurst_ability_unit`
         };
 
@@ -1173,7 +1203,9 @@ namespace CardPresentation
         }
 
         /// <summary>`Resolve` / `ResolveAll` 共用的**兜底链**（逐卡那一档没有命中之后）：
-        /// `ByFaction` → `ByEvent` → 留白出声。⛔ 判据只此一处。</summary>
+        /// `ByFaction` → `ByEvent` → 留白出声。
+        /// 🔴 **2026-10-22（`W63` §B）例外**：`AttackMelee` 在 `ByEvent` 之前**显式回 null 且不出声**
+        /// —— 原版没有「通用近战件」，那是原版的形状、不是漏配（见方法体里那一段注释）。⛔ 判据只此一处。</summary>
         static string ResolveFallback(string evt, string faction)
         {
             Dictionary<string, string> m;
@@ -1183,6 +1215,17 @@ namespace CardPresentation
                 if (m.TryGetValue(evt, out s)) return s;
             }
             string fallback;
+            // 🔴 **2026-10-22（`W63` §B）：近战没有「通用兜底件」—— 这是【原版的形状】，不是漏配。**
+            //   原版近战只在命中帧播 `AttackHitSmall`（`CardScript.ResolveAttackAnimationEffects`），
+            //   没有「通用近战粒子」这一档；`ByEvent` 里原来那件 `BulletImpactBurst_crowd` 是我们挑的
+            //   替代品（= 原版没有的第二下）⇒ 已删（见 `ByEvent` 那张表的注释）。
+            //   ⇒ **回 null 就是正确结果**，所以这里**不出声**：下面 `WarnNoFactionVariant` 那条警告是给
+            //     「按阵营配、这个阵营漏配」的**缺陷**用的；近战这一档不是缺陷，喊出来只会变成假信号。
+            //   ⚠️ `ByFaction` 的查询在**上面**（真有阵营想给近战配专属件时仍然生效），别把这条挪到它前面。
+            //   ⚠️ 调用方拿到的空数组 / null 一律是「这一拍没有粒子」——`CardEffects.Fire` 的第一行就
+            //     挡掉空名字（不是静默失败：`Describe()` 里会如实打成 `attack_melee=—`）。
+            //   判据 → `资料/普查产出_1022/W63_飞行与卡ID演出_调查.md` §B。
+            if (evt == AttackMelee) return null;
             if (ByEvent.TryGetValue(evt, out fallback)) return fallback;
             // 🔴 2026-10-16（账 `A1731`）：**走到这里 = 这个事件只能按阵营配**（`ByEvent` 里没有它 ——
             //    现读只有 `Draw` 是这种），而这个阵营没有那一条 ⇒ **出声**再回 null。
@@ -1553,7 +1596,11 @@ namespace CardPresentation
             return false;
         }
 
-        /// <summary>自检用：**解析不出特效名**的事件（正常应当为空）。见 <see cref="Events"/>。</summary>
+        /// <summary>自检用：**解析不出特效名**的事件（正常应当为空）。见 <see cref="Events"/>。
+        /// <para>🔴 **2026-10-22（`W63` §B）**：`AttackMelee` 现在**必然**出现在这个列表里 —— 原版**没有**
+        /// 通用近战件（`ByEvent` 那一行已删，回 null 是**正确结果**，见 `ResolveFallback` 的注释）。
+        /// ⇒ 断言批改时这一条要把它**显式排除**（⛔ 别为了让它绿而往表里塞一件替代品）。
+        /// 判据 → `资料/普查产出_1022/W63_飞行与卡ID演出_调查.md` §B。</para></summary>
         public static IEnumerable<string> Unmapped()
         {
             foreach (var e in Events)

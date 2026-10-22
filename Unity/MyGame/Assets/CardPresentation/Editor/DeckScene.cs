@@ -820,16 +820,24 @@ public static class DeckScene
                 //    （铁律 10 第 5 条：`Build` 直调与 Play 的 `Start()` 是两个入口，**各配一条断言**。）
                 CheckTrue(_root != null && _root.GetComponent<DeckRuntime>() != null,
                           "根对象上挂着 DeckRuntime（按 Play 的入口）");
-                TestLayout(state);
-                // 🆕 2026-10-17（`A1212` 块 1）：15 处「实参 = 原版四格」的断言（必须在 `TestLayout` 之后 ——
-                //   `_root` 是 `Build` 出来的那棵树；本组只读，不建任何东西）。
-                TestA1212();
-                // ★ **2026-10-22（`W62`）顺序有讲究**：`TestLibraryWiring()` 断的是「**空库那一拍**」
-                //   ⇒ **必须赶在夹具建库之前**；`TestLibraryAfterDone()` 则负责显式建夹具那套并落盘
-                //   （走生产那条 `Done` → `Library.Insert` 的路，= 原版 `UploadUnsyncedDeck`）。
+                // ★ **2026-10-22（`W62`/`W63`）顺序有讲究 —— 这一块【必须在 `TestLayout` 之前】**：
+                //   `TestLibraryWiring()` 断的是「**空库那一拍**」⇒ **必须赶在夹具建库之前**；
+                //   `TestLibraryAfterDone()` 则负责显式建夹具那套并落盘（走生产那条 `Done` →
+                //   `Library.Insert` 的路，= 原版 `UploadUnsyncedDeck`）。
+                //   🔴 **2026-10-22（`W63`）挪位（铁律 5，原文留痕）**：这两次调用原来排在
+                //   `TestLayout(state)` **之后** —— 那样 A363 那一节（在 `TestLayout` 里）先按
+                //   `EscPressed()` 落盘、库里变成 1 套 ⇒ 本块「空库 0 套 / 一个字节都没写」那一族
+                //   至少 5 条红；而 `DeckRuntime.Build` 已按原版删掉「空库替玩家建一套」那个副作用
+                //   ⇒ A363 读 `stale.Current` 时直接 NRE。⇒ **整块上移到 `TestLayout` 之前**。
                 //   ⛔ 别把这两次调用对调，也别让生产代码替夹具建库。
                 TestLibraryWiring();
                 TestLibraryAfterDone();
+                // 🆕 2026-10-17（`A1212` 块 1）：15 处「实参 = 原版四格」的断言（必须在 `TestLayout` 之后 ——
+                //   `_root` 是 `Build` 出来的那棵树；本组只读，不建任何东西）。
+                //   🔴 **2026-10-22（`W63`）**：`TestLayout` 现在排在本块**之后**（见上）——
+                //   「`TestA1212` 在 `TestLayout` 之后」这条既有顺序要求**没有被破坏**。
+                TestLayout(state);
+                TestA1212();
                 // 🆕 **2026-10-20**：**开局那一套的坐标** —— 收尾复位要用（见本 `try` 末了那一节）。
                 //   必须在这里取：**再往下就会被自检改掉** —— `UiCommitName("自检·改的名")` 那一节
                 //   真改名并落盘 ⇒ 等到收尾再想读「原来叫什么 / 原来是第几套」已经读不到了。
@@ -5892,6 +5900,10 @@ public static class DeckScene
                 CheckTrue(_rt.DeckDirty, "★ A363：换完卡背 ⇒ **标脏**（`Drop.c:26` 那句 `[+0x60] = 0`）");
                 {
                     var stale = DeckLibrary.Load();
+                    // 🔴 **2026-10-22（`W63`）前提断言**：本节靠「盘上有一份基线」做对照 —— 基线由
+                    //   `TestLibraryAfterDone()` 那套夹具提供（`RunCore` 里它已排在本节之前）。
+                    //   ⛔ 别改成 `stale.Current == null || …`（恒真）或 null 容错跳过。
+                    CheckTrue(stale.Current != null, "（前提）盘上有一份基线存档");
                     CheckTrue(stale.Current.CardbackId != names[8],
                               "★ A363：……而且**盘上还是旧的**（「" + (stale.Current.CardbackId ?? "<空>")
                               + "」）—— 改一下就写盘 = 这条红");

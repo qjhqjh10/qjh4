@@ -318,7 +318,13 @@ namespace CardPresentation
                 // 🔴 2026-10-22：原来这里 `SetHint("换牌完成，开打")` —— **我们自拟的句子，已删**
                 //   （原版没有对应词条；判据与删除范围 → `SetHint` 的 doc）。
             }
-            if (NetApply.EndsTurn(m)) { _aiTimer = aiStepDelay; _aiSteps = 0; _aiRejected.Clear(); }
+            if (NetApply.EndsTurn(m))
+            {
+                _aiTimer = aiStepDelay; _aiSteps = 0; _aiRejected.Clear();
+                // 🆕 2026-10-22（`W63`）：**联机局的回合从这里开始**（`ApplyLoggedAction` 不调 `ResetClock`）
+                //   ⇒ 抬头只在这一处补；⛔ **不顺手修时钟/`ResetClock`**（那是另一条账，见 `ShowYourTurnHeadsUp` 的 doc）。
+                ShowYourTurnHeadsUp();
+            }
 
             // 🆕 2026-09-30：**进攻卡那一条落地之后，环境要补跑一次**。
             //   为什么：本机是**后手**时，自己那条防御卡先落地、`BeginBattleAfterSetup` 已经跑过一遍，
@@ -1163,7 +1169,13 @@ namespace CardPresentation
         Label _tipText;
         HudPiece _tipBg;
         /// <summary>待播的提示（原版 `BattleTipController` 的队列）。</summary>
-        readonly List<string> _tipQueue = new List<string>();
+        readonly List<TipEntry> _tipQueue = new List<TipEntry>();
+        /// <summary>队列里的一条：文案 + **要不要不透明底**。
+        /// 🔴 **2026-10-22（`W63`）**：原版 `ShowHeadsUpMessage(string, opaqueBackground, bgColorRed)` 是**两档**底色
+        /// （`opaqueBackground != 0` ⇒ α 1.0，否则 α 0.6，常量见 <see cref="TipBgColor"/> 的 doc）。
+        /// ⇒ 队列必须**逐条**记住它，不能只看「当前显示的是哪档」。
+        /// ⚠️ **旧调用点一律 `Opaque = false`**（`SetHint(string)` 走这一档）⇒ 行为与接抬头之前一致。</summary>
+        struct TipEntry { public string Text; public bool Opaque; }
         /// <summary>当前这条还剩几秒（原版是 `WaitForSeconds(tipDuration)`，我们用显式计时 —— 批处理没有帧循环）。</summary>
         float _tipLeft;
         /// <summary>最近一次**露出来**的那条提示的渲染宽（**设计 px** —— 🔴 2026-10-16 `T09` 字族迁 uGUI
@@ -1176,15 +1188,26 @@ namespace CardPresentation
         const float TipDuration = 1.7f;
         /// <summary>队列上限 —— 原版 `VarsGlobal.tipQueueSize = 3`；**满了丢【第二条】**（`RemoveAt(1)`，留最早那条）。</summary>
         const int TipQueueMax = 3;
+        /// <summary>「你的回合」抬头那句的词条键 —— 原版 `BattleManager._NextTurn_d__395__MoveNext.c:480`
+        /// 读的那个常量 `DAT_184288a48`，在 `stringliteral` 里就是 `Battle/HUD/YourTurn`
+        /// （官方两列 =「你的回合」/「Your turn」，见 `Core/Loc.cs`）。</summary>
+        const string YourTurnTerm = "Battle/HUD/YourTurn";
 
         /// <summary>提示条的几何 / 配色（全部从 `bundle_scenes_scenes_battlearena2` 现读，13 场同构）：
         /// `TipText` = `piv(0.5,0.5)` · `ap(1.0600586, 91.78)` · `size(2450.1299, 99.697)` ·
         /// `Image` sprite `40k_bt_underbutton` · `col(0.368627, 0.894118, 0.587437, 0.596078)`；
         /// 子 `Text` TMP = **fs60 · 白 (1,1,1,1) · 横中(v=2)竖中(512)** · `enableAutoSizing=1` · **min 4 / max 60**。
-        /// ⚠️ **原版运行时还会 `SetSpriteAlpha(tipsBackground, <常量>)`**（`DAT_1834b2bb8` / `DAT_1834b3180`），
-        ///    那两个常量的**值读不出**（不在 `stringliteral` 里，是 float）⇒ 我们**保留序列化那份 alpha 0.596078**，
-        ///    ⛔ **不拿推断值去顶**（铁律 3：查不到就写查不到）。</summary>
-        static readonly Color TipBgColor = new Color(0.368627f, 0.894118f, 0.587437f, 0.596078f);
+        /// ⚠️ **原版运行时还会 `SetSpriteAlpha(tipsBackground, <常量>)`**（`DAT_1834b2bb8` / `DAT_1834b3180`）。
+        /// 🔴 **2026-10-22 就地订正（铁律 5 · `W63`）**：原来这里写「那两个常量的**值读不出**」—— **读得出**，
+        ///    错因是只在 `stringliteral` 里找过（那是字符串表，float 当然不在）。读法 = 从 `GameAssembly.dll`
+        ///    按 RVA 直取 4 字节：`RVA = 地址 − ImageBase(0x180000000)` → 查 PE 节表落到 `.rdata`：
+        ///    `0x1834b2bb8 = 1.0f`（**不透明档**）· `0x1834b3180 = 0.6f`（**普通档**）。
+        ///    ⇒ `BattleTipController._DisplayTip` 的 `param_3`（`+0x29`）非 0 用 1.0、否则 0.6；
+        ///    全仓 6 个 `ShowHeadsUpMessage` 调用点里**只有「回合开始抬头」那一处传 1**。
+        ///    ⇒ 我们两档都按原版真值：普通档 α **0.596078 → 0.6**，抬头档改用 <see cref="TipBgOpaqueColor"/>。</summary>
+        static readonly Color TipBgColor = new Color(0.368627f, 0.894118f, 0.587437f, 0.6f);
+        /// <summary>抬头那一档的底色 = **不透明**（原版 α = `1.0f`，见上；`ShowHeadsUpMessage(..., opaqueBackground:1, bgColorRed:0)`）。</summary>
+        static readonly Color TipBgOpaqueColor = new Color(0.368627f, 0.894118f, 0.587437f, 1f);
         const float TipWpx = 2450.1299f, TipHpx = 99.697f;
         const float TipCxPx = 960f + 1.0600586f;      // 原版锚点 (0.5,0.5) ⇒ 960 + ap.x
         const float TipCyPx = 540f - 91.78f;          // 原版 y 向上 ⇒ 屏幕 y 向下要取负
@@ -10452,8 +10475,36 @@ namespace CardPresentation
             //   **紧跟 `ClockManager.StartTimer` 之后**（同一支里 `:427` 就是那句 `StartTimer`）；
             //   而本方法正是我们这一侧的 `StartTimer` 等价物（`_hurrySaidThisTurn` 那句注释即此）。
             //   ⚠️ 闸 = `Ctx.Active == _me` ⇒ **AI 回合不喊**（原版那句本来就在玩家分支里）。
-            if (Ctx != null && !Ctx.IsOver && Ctx.Active == _me) BattleSfx.Play(BattleSfx.StartTurn);
+            bool myTurnNow = Ctx != null && !Ctx.IsOver && Ctx.Active == _me;
+            if (myTurnNow) BattleSfx.Play(BattleSfx.StartTurn);
+            // 🆕 2026-10-22（`W63`）：「你的回合」抬头 —— 原版同一支里**紧跟音效之后**（`:480-483`）。
+            //   ⚠️ 与音效**共用同一个闸**（提成 `myTurnNow`）：两处各写一份迟早不一致。
+            if (myTurnNow) ShowYourTurnHeadsUp();
             UpdateClockLabel();
+        }
+
+        /// <summary>「你的回合」那条**不透明底**抬头（原版 `BattleManager._NextTurn_d__395__MoveNext.c:444-491`）。
+        ///
+        /// <para>**判据（逐句）**：`:444` 判 `param_1+0x28 != 0`（= 本地玩家分支）→ `:450` `Play2D(StartTurn)`
+        /// → `:451-475` **教程局第 1 回合整段跳过** → `:480-481` `GetTranslation(0x4288a48 /*Battle/HUD/YourTurn*/)`
+        /// → `:483` `ShowHeadsUpMessage(词条, opaqueBackground:1, bgColorRed:0)` → `:485` `WaitForSeconds(1.5f)`
+        /// （⚠️ **那是协程自己的停顿，不是横幅时长** —— 横幅 1.7 s 见 `TipDuration`；我们不搬那 1.5 s 停顿，
+        /// 抽牌在 `RuleCore.BeginTurn` 里已经同步做完了，见 `W63` 简报 §5）。</para>
+        ///
+        /// <para>**调用点两处**（⛔ 别在别处再叫）：
+        /// ① <see cref="ResetClock"/>（单机 / 联机各自的「玩家回合开始」都从这儿过）；
+        /// ② <see cref="ApplyLoggedAction"/> 的 `NetApply.EndsTurn` 支 —— **联机局的回合是在权威流里开始的**，
+        ///    那条路**不调 `ResetClock`**（同一个缺口也吃掉了「每回合重置时钟」与 `StartTurn` 音效，
+        ///    那是另一条账）⇒ 只补抬头、⛔ 不动时钟。</para>
+        ///
+        /// ⚠️ 闸在这里**再做一遍**（`ResetClock` 已经筛过，联机那一支没有）—— 免得将来多一个调用点就漏闸。</summary>
+        void ShowYourTurnHeadsUp()
+        {
+            if (Ctx == null || Ctx.IsOver || Ctx.Active != _me) return;
+            // 教程局第 1 回合：原版整段跳过（`_NextTurn` `:451-475` 那道 `IsTutorialMatch ∧ turnCounter == 1`）。
+            // `Ctx.Turn` 在 `RuleCore.BeginTurn` 开头 `++`、从 0 起算 ⇒ 第 1 回合就是 1。
+            if (MatchTypes.IsTutorialMatch(Ctx.MatchType) && Ctx.Turn == 1) return;
+            SetHintOpaque(Loc.T(YourTurnTerm));
         }
 
         /// <summary>走表。只有**玩家的回合**走（原版时钟也只给行动方看）。</summary>
@@ -11503,12 +11554,20 @@ namespace CardPresentation
         ///    ⚠️ **通道本身保留**：今天仍在用的调用点全是**原版词条**
         ///    （`Battle/Tips/*` / `Battle/Codes/*` / `Battle/Phrase/*` 等，见各调用点）。</para>
         /// </summary>
-        void SetHint(string s)
+        void SetHint(string s) { SetHint(s, false); }
+
+        /// <summary>**不透明底**那一档（原版 `ShowHeadsUpMessage(..., opaqueBackground: 1, ...)`）。
+        /// 🔴 全仓**只有「Your Turn」抬头**用它（→ <see cref="ShowYourTurnHeadsUp"/>）；别处一律走
+        /// <see cref="SetHint(string)"/>（α 0.6）。</summary>
+        void SetHintOpaque(string s) { SetHint(s, true); }
+
+        /// <param name="opaque">true = 不透明底（α 1.0）；false = 普通档（α 0.6）。两档常量见 <see cref="TipBgColor"/> 的 doc。</param>
+        void SetHint(string s, bool opaque)
         {
             if (string.IsNullOrEmpty(s)) { ClearTips(); return; }                      // 「撤下来」（我们加的，见 doc）
-            if (_tipQueue.Count > 0 && _tipQueue[_tipQueue.Count - 1] == s) return;   // ① 去重：比队尾
+            if (_tipQueue.Count > 0 && _tipQueue[_tipQueue.Count - 1].Text == s) return;   // ① 去重：比队尾
             if (_tipQueue.Count >= TipQueueMax) _tipQueue.RemoveAt(1);                // ② 满了丢【第二条】
-            _tipQueue.Add(s);
+            _tipQueue.Add(new TipEntry { Text = s, Opaque = opaque });
             if (!TipVisible) TickTipBanner(0f);      // 原版：没在显示 ⇒ 立刻起播（在显示就等它 1.7s 到点）
         }
 
@@ -11535,7 +11594,10 @@ namespace CardPresentation
             if (!TipVisible)                                 // 起播队首
             {
                 SetTipVisible(true);
-                if (_tipText != null) _tipText.SetText(_tipQueue[0]);
+                if (_tipText != null) _tipText.SetText(_tipQueue[0].Text);
+                // 🔴 **2026-10-22（`W63`）**：底色**逐条**定档（原版 `_DisplayTip` 按 `opaqueBackground` 取 1.0 / 0.6）。
+                //    ⚠️ 必须在这里（每次起播）设 —— 队列里前后两条可能是不同档。
+                if (_tipBg != null) _tipBg.SetTint(_tipQueue[0].Opaque ? TipBgOpaqueColor : TipBgColor);
                 _tipLeft = TipDuration;
                 // 🔴 **量一次宽度并缓存**（`HintWidth` 读它）：`Label.WorldW` 量的是 TMP 的
                 //    `textBounds`，而 **TMP 在对象没激活时量不出尺寸**（本工程老坑，见 CLAUDE.md §三）。
@@ -11547,7 +11609,8 @@ namespace CardPresentation
             if (_tipLeft > 0f) return;
             _tipQueue.RemoveAt(0);                           // ③ 到点，丢掉第一条
             if (_tipQueue.Count == 0) { SetTipVisible(false); return; }
-            if (_tipText != null) _tipText.SetText(_tipQueue[0]);   // 接着播下一条
+            if (_tipText != null) _tipText.SetText(_tipQueue[0].Text);   // 接着播下一条
+            if (_tipBg != null) _tipBg.SetTint(_tipQueue[0].Opaque ? TipBgOpaqueColor : TipBgColor);   // 同上：逐条定档
             if (_tipText != null) _tipW = _tipText.WorldW;          // 同上：趁激活时量
             _tipLeft = TipDuration;
         }
@@ -16665,11 +16728,22 @@ namespace CardPresentation
                 //   其余事件保持原样（各自的判据还没查全 —— 见报告）。
                 if (e.Kind == EvtKind.Deploy)
                     FireDeployVfxInArenaSpace(evt, e, faction, perCardOnly);
-                // 🔴 2026-10-21（W61 第 1 批 · 第 2 条）：**这一击的命中粒子已经在命中帧播过了**
-                //   （`ScheduleAttackPresentation` 的 `HitFrameLag` 那一拍）⇒ 伤害结算这一拍
-                //   ⛔ 不再叠一件 `VfxMap.Hit`（否则同一击两下、而且第二下晚 0.3 s）。
-                //   ⚠️ 只挡「紧跟在 `Attack` 后面的那条 `Hit`」；技能伤害等别的 `Hit` 照旧播。
-                else if (!hitOfAttack)
+                // 🔴 **2026-10-22（W63 · `新账-65` 第②条）：`Hit` 这一拍【一件粒子都不播】。**
+                //   判据（第一权威）= 原版 `CardScript._ReceiveDamage…MoveNext.c` —— 扣血之后**只**调
+                //   `BattleCardUI.DamageReceived`（伤害计数器 = 血痕 + 飘字），**不生成任何粒子**。
+                //   改前这里对**非攻击来源**的 `Hit`（技能伤害 / 疲劳 / 反噬 / 反击）多播一件
+                //   `AttackHitSmall`（`VfxMap.Hit`）= 原版没有的第二下 ⇒ 删。
+                //   报告 → `资料/普查产出_1022/W63_飞行与卡ID演出_调查.md` §B（`hit` 那一行）。
+                //   ✔ **原版仍有的表现一件没少**（它们本来就不在这一支）：伤害计数器/飘字
+                //     = `PlayHitFeel` → `PopNumber.PopDamage`（血痕是它的子件）· 受击音效 = `BattleSfx.UnitDamage`
+                //     （`cueUnitDamage` 那一拍，判据 = `UnitDamageCueIndex` 的 doc；`PlayBattleSfx` 的 `Hit` 支本来就是空转）
+                //     · 后坐 + 转一下 = `CardFeel.HitReact` · 震镜头 = `CardFeel.ShakeCameraForHit`。
+                //   ✔ **攻击来源的 `Hit` 不受影响**：它的命中粒子在**命中帧**由 `ScheduleAttackPresentation`
+                //     播（上面 `EvtKind.Attack` 那一段的 `HitFrameLag`），**从来不经过这一支**
+                //     ⇒ 2026-10-21 那条 `!hitOfAttack` 守卫到此被本条**吸收**（`Hit` 一律不播，不必再判来路）。
+                //   ⚠️ **技能伤害自己的技能动画**是另一条路（`ExpandAbilityBeats` → `PlayAbilityBeat`；
+                //     逐卡 `hit` 桶里那 4 条其实也是 `UnitDamaged(60)` 技能动画）—— 另账，⛔ 不在这一笔。
+                else if (e.Kind != EvtKind.Hit)
                     FireEventAll(evt, layout.DropTargetWorld(slot), faction, e.CardId,
                                  parent: null, perCardOnly: perCardOnly, keyword: triggerKeyword);
             }
@@ -17559,14 +17633,33 @@ namespace CardPresentation
             }
         }
 
-        /// <summary>伤害飘字相对**基准点**（受击那张卡所在格）的偏移。
-        /// 出处 = `CardFeel` 的 `Catalog` 里那句「**飘字的字号 / 颜色 / 位置偏移**（`PopNumber` 里那几个字面量）」
-        /// ⇒ **这一项是我们挑的**（原版查不到等价字段：那枚计数器的父节点是卡自己的
-        /// `damageCounterParent`，偏移烘在 prefab 里）。
+        /// <summary>伤害飘字（含它底下那颗**红色血痕** —— 血痕是这颗飘字的子件，见 `PopNumber.cs:304`）
+        /// 相对**基准点**（受击那张卡的**卡身中点**）的偏移。
+        /// <para>🔴 **2026-10-22 订正（铁律 5 · `W63`）：原文写「原版查不到等价字段 ⇒ 这一项是我们挑的」—— 已过期，判据找到了。**
+        /// 真身 = `3DBody/DamageCounter/DamageIcon`（判据 → `资料/普查产出_1022/W63_场上卡牌与底座绿光_调查.md` §4）：</para>
+        /// <list type="bullet">
+        /// <item>`DamageCounter` 在 `3DBody` 空间 `localPosition = (0, 1.708, 0)`；血痕 `DamageIcon` 再偏
+        /// `(0.094, −0.104, −0.05)` —— 那一跳是**子件偏移**，`PopNumber` 已按卡局部单位扣在血痕自己身上
+        /// （`PopNumber.cs:304`），**不在本常量里重复扣**。</item>
+        /// <item>我们的**卡根**在 `3DBody` 空间 y = `CardView.Height / 2` = **1.66565**
+        /// ⇒ `DamageCounter` 在**卡根局部** y = `1.708 − 1.66565` = **+0.04235**。</item>
+        /// <item>基准点 `BoardLayout.DropTargetWorld` 投的是 `ArenaSlots.CardCenter`
+        /// = 卡根局部 **−0.34335**（`ArenaSlots.BodyMidOffset`）⇒ 差 = **0.3857 卡局部单位**。</item>
+        /// <item>卡局部 → 我们世界单位 = `PopNumber.CardLocalToOurs`（`desiredScale 0.36 × 182.14/108` = 0.60713）
+        /// ⇒ **0.2342 我们世界单位**（我方那一行；敌方行由 `PopOffsetWorldFor` 再乘 0.9071）。</item>
+        /// </list>
+        /// <para>⚠️ 旧值 `CardFeel.ToOurs(0.35)` = **0.5903** ⇒ **高 2.52 倍**（落在卡根局部 +0.63 ≈ 卡身上部），
+        /// 用户报的「血痕 / 白字跑到卡上部」就是这一条（白字与血痕同挂这个节点，一起修）。</para>
+        /// <para>⛔ `z = −0.4` **不是**原版数据（原版血痕的 z −0.05 已含在子件偏移里）—— 那是我们这颗 HUD 飘字
+        /// 往相机方向的**绘制选择**，保留；别拿它当判据。</para>
         /// 🔴 **判据只此一处**（铁律 6）：`PlayHitFeel` 用它摆飘字，`Editor/BattleScene.cs` 那条
         /// 「飘在挨打那张卡上」的位置断言**读同一个常量** —— 两处各抄一份的话，偏移一改，
         /// 断言就变成「拿旧靶判新位置」（2026-10-11 A359 顺手收口：原来它内联在下面那句实参里）。</summary>
-        public static readonly Vector3 PopOffset = new Vector3(0f, CardFeel.ToOurs(0.35f), -0.4f);
+        public static readonly Vector3 PopOffset = new Vector3(
+            0f,
+            // = 0.3857 卡局部单位 × 卡局部 → 我们世界单位的桥（我方行那一档；敌方由 `PopOffsetWorldFor` 再缩放）
+            (1.708f - CardView.Height * 0.5f - ArenaSlots.BodyMidOffset) * PopNumber.CardLocalToOurs,
+            -0.4f);
 
         /// <summary>🆕 **2026-10-20（W58 · BTFIX3）**：某个座位的飘字相对基准点的**世界偏移**
         /// = `PopOffset` × 该行「卡局部单位 → 我们世界单位」那一档比。
@@ -18590,7 +18683,39 @@ namespace CardPresentation
                 //      所以近战/远程各问一次（`CanActNow` 内部就是这两问）。
                 //   ⚠️ 挂在这里（`SyncBoard`）是因为**每一个改动棋盘/回合的地方最后都会走到它**
                 //      —— 和光环那 9 个写入点 + `BeginTurn` 是同一条纪律。
-                v.SetCanAct(RuleCore.CanActNow(Ctx, owner, s));
+                bool canAct = RuleCore.CanActNow(Ctx, owner, s);
+
+                // 🆕 2026-10-22（「出牌后绿光整回合不亮」的**结构兜底**）：**场上视图停在非场上形态**
+                //   ⇒ 补一次换体。根因那一半（请求不再丢）在 `CardView.SetCanAct`；正常路径由登场 clip
+                //   在 **0.7 s** 的 `SetFace(CardFace.Board)` 收口（`CardFeel.cs:1351-1357`）。
+                //   这一条防的是「clip 被杀 / 没起播」⇒ 那张卡**永久**停在 `Hand` 形态
+                //   （绿光整局不亮 + 2D 卡面盖在场上，两样都静默）。
+                //   ⚠️ 判据**刻意排除 `_handToBoardCard`**（clip 正在演的那一张 —— 形态归 clip 在 0.7 切，
+                //      `EnterBoardBody` 对那张只换父节点，见 `:9977-9981`），否则会在 0.3~1.0 s 之间
+                //      把登场演出硬切掉（正是对账 §2·1 #2 那条）。
+                //   ⚠️ `EnterBoardBody` 幂等（`SetFace` 同形态首句早退、`SetParent` 同父是空操作）⇒ 安全；
+                //      出生入口（`:18595` 直接按 `CardFace.Board` 建）与 AI 飞行视图都不会走到这里。
+                if (v.Face != CardFace.Board && v != _handToBoardCard)
+                {
+                    Debug.LogWarning($"[BattleDriver] 场上视图停在 `{v.Face}` 形态（turn {Ctx.Turn} "
+                                   + $"seat {owner} slot {s}，`{u.Name}`）⇒ 补一次 `EnterBoardBody`"
+                                   + "（登场 clip 没跑到 0.7 s？）");
+                    EnterBoardBody(v);
+                }
+
+                v.SetCanAct(canAct);
+
+                // 🔧 临时诊断探针（2026-10-22）—— **只在 `WF_CANACT_PROBE=1` 时打印**，零行为变化。
+                //   用途 = 判真机「场上单位底座看不到绿光」到底是哪一档：
+                //     ① `can=0` ⇒ **单位真的不能行动**（`CanActNow` 的疲劳/眩晕/配额那几条里有一条没过）；
+                //     ② `can=1 built=1 vis=1` 但 `playing=0` ⇒ **能行动、粒子没循环**（`CardView.BuildCanAct`
+                //        那套 `looping=false` + `ringBufferMode=Loop range(0.1,0.9)` 的问题）；
+                //     ③ `can=1 built=1 vis=1 playing=1` ⇒ 视图与粒子都对 ⇒ 往渲染层找（队列/相机/材质）。
+                //   🔴 判据 = 原版 `CardScript.ActivateMinion` → `BattleCardUI.canAttackAnim`
+                //      （就是上面 `SetCanAct` 那一段注释所复刻的东西；粒子 = 原版 `CanActParticles`
+                //      + 子节点 `RotatingRing`，参数注释在 `Core/CardView.cs`）。
+                //   ⛔ 只读：不 `Play`/`Stop`/`Emit`/`Clear`，不改粒子参数、不改 `SetCanAct` 语义。
+                CanActProbe(owner, s, u, v, canAct);
 
                 // 🆕 2026-10-14（`A1863`）：**伏击「面朝下」**（原版 `CardScript.SetAmbush(card, true)`）。
                 //   · 判据 = **引擎那一格上的事实** `UnitState.FaceDown`（⛔ 不在这里另算一遍
@@ -18633,6 +18758,85 @@ namespace CardPresentation
                     && !_aiDeployHandedOff.Contains(HpKey(owner, s)))
                     ReHideNewRenderers(HpKey(owner, s), v);
             }
+        }
+
+        // ==================================================================
+        //  🔧 临时诊断探针：「未行动绿光」到底卡在哪一层（2026-10-22）
+        // ==================================================================
+        //
+        // **只在 `WF_CANACT_PROBE=1` 时生效**（环境变量由 `_canActProbeState` 缓存，只读一次 ——
+        // 同 `TouchInputManager.ScrollProbe` 那套；真机上它不会中途变）。
+        //
+        // **零行为变化**：只读三样东西 —— 已经在 `SyncBoard` 里算好的 `canAct`、`CardView` 的
+        // `CanActVisible` / `CanActBuilt`、以及 `ParticleSystem.isPlaying` / `particleCount`。
+        // ⛔ 不调 `Play` / `Stop` / `Emit` / `Clear`，不改 `SetCanAct` 语义，不动粒子参数。
+        //
+        // **判据** = 原版 `CardScript.ActivateMinion` → `BattleCardUI.canAttackAnim`
+        // （`SetCanAct` 就是它的复刻，判据全文见 `SyncBoard` 里那一段注释）；
+        // 粒子那两层 = 原版 `CanActParticles` + 子节点 `RotatingRing`（参数注释在 `Core/CardView.cs`）。
+        //
+        // **怎么读这一行**：
+        //   · `can=0` ⇒ 单位**真的不能行动** ⇒ 问题在引擎判据那一侧，与粒子无关；
+        //   · `can=1 built=1 vis=1 playing=0` ⇒ **能行动、粒子没循环起来** ⇒ 问题在粒子那一侧；
+        //   · `can=1 built=1 vis=1 playing=1` ⇒ 视图和粒子都对 ⇒ 往渲染层找（渲染队列 / 相机 / 材质）。
+        static int _canActProbeState;                                   // 0 = 还没判过 · 1 = 开 · -1 = 关
+        /// <summary>节流用：`(seat, slot)` → 上一次打印时的「组合串」。组合**不含** `particleCount`
+        /// （它每帧都在变，含进去就等于每帧刷屏）。</summary>
+        static readonly Dictionary<int, string> _canActProbeLast = new Dictionary<int, string>();
+
+        /// <summary>见上面那段注释。**⛔ 临时诊断用，不含任何行为。**</summary>
+        void CanActProbe(int owner, int s, UnitState u, CardView v, bool canAct)
+        {
+            if (_canActProbeState == 0)
+                _canActProbeState = System.Environment.GetEnvironmentVariable("WF_CANACT_PROBE") == "1" ? 1 : -1;
+            if (_canActProbeState < 0) return;
+
+            bool built = v != null && v.CanActBuilt;
+            bool vis = v != null && v.CanActVisible;
+            ParticleSystem[] pss;
+            if (built) pss = v.CanActRoot.GetComponentsInChildren<ParticleSystem>(true);
+            else pss = System.Array.Empty<ParticleSystem>();
+
+            // 节流：`(seat,slot)` 这一格的「组合」没变就**不打**。
+            // 组合 = 单位名 + can/vis/built + 每颗粒子的 isPlaying（位置不同也算变化）。
+            var combo = new System.Text.StringBuilder();
+            combo.Append(u != null ? u.Name : "?").Append('|')
+                 .Append(canAct ? 1 : 0).Append(vis ? 1 : 0).Append(built ? 1 : 0);
+            for (int i = 0; i < pss.Length; i++) combo.Append(pss[i].isPlaying ? '1' : '0');
+            string comboStr = combo.ToString();
+            int key = owner * 100 + s;
+            string prev;
+            if (_canActProbeLast.TryGetValue(key, out prev) && prev == comboStr) return;
+            _canActProbeLast[key] = comboStr;
+
+            var sb = new System.Text.StringBuilder();
+            sb.Append("[CANACTPROBE] turn=").Append(Ctx.Turn)
+              .Append(" active=").Append(Ctx.Active)
+              .Append(" seat=").Append(owner)
+              .Append(" slot=").Append(s)
+              .Append(" unit=").Append(u != null ? u.Name : "?")
+              .Append(" can=").Append(canAct ? 1 : 0)
+              .Append(" vis=").Append(vis ? 1 : 0)
+              .Append(" built=").Append(built ? 1 : 0)
+              .Append(" atk=").Append(u != null ? u.Attack : 0)
+              .Append(" rng=").Append(u != null ? u.RangedAttack : 0)
+              .Append(" hp=").Append(u != null ? u.Health : 0)
+              .Append(" faceDown=").Append(u != null && u.FaceDown ? 1 : 0)
+              .Append(" ps=");
+            if (pss.Length == 0) sb.Append("-");
+            for (int i = 0; i < pss.Length; i++)
+            {
+                if (i > 0) sb.Append("; ");
+                sb.Append(pss[i].name)
+                  .Append(" playing=").Append(pss[i].isPlaying ? 1 : 0)
+                  .Append(" n=").Append(pss[i].particleCount);
+            }
+            // 🆕 2026-10-22：**视图现在是哪个形态**（`CardFace`）—— 判「绿光整回合不亮」的第四个分档：
+            //   绿光那层只有 `Board` 形态才建得出来（`CardView.ApplyCanAct`），而形态要到登场 clip 0.7 s
+            //   才切（`CardFeel.cs:1351-1357`）⇒ `face=Hand` 就是那一档的直接证据。
+            //   （`CardView.Face` 是 public 只读，`CardView.cs:1476`。）
+            sb.Append(" face=").Append(v != null ? v.Face.ToString() : "-");
+            Debug.Log(sb.ToString());
         }
 
         // ==================================================================
@@ -18823,7 +19027,17 @@ namespace CardPresentation
 
             _handViews.Clear();
             _handViews.AddRange(ordered);
-            interaction.SetCards(new List<CardView>(_handViews));
+            // 🔴 **2026-10-22（W63 · 换牌那排卡是斜的）**：换牌期**不让手牌布局走带补间的重排** ——
+            //   这几张牌这一档的位姿归 `MulliganPanel`（`BuildCardButtons` / `ReapplyRowPoses`：
+            //   **平 0°** 横排，判据 = 原版 `MB_4881` `m_useRotation=0` + `GetRotation` 直接返回
+            //   `Quaternion.identity`）。而 `HandLayout.Place` 在实机上（`animateRelayout == 1`）开的是
+            //   **0.2 s 带旋转的重排补间**、算的是**手牌扇形角** ⇒ 它的旋转尾巴会在 0.2 s 末尾落盘，
+            //   把换牌区那一行带斜（位置/尺度会被面板当场改回，**只有角度不会**）。
+            //   `relayout:false` = **算而无补间**（位姿要算：`_lastPose` 与面板 `Close()` 的复位都靠它，
+            //   见 `CardInteraction.SetCards` 的 doc），补间**一条都不开**。
+            //   ⛔ 别退回「每轮 `SetCards` 之后靠 `ReapplyRowPoses` 补一下」—— 那只盖住位置/尺度，
+            //   盖不住「补间还没跑完」这件事（补间还在，0.2 s 后照样写旋转）。
+            interaction.SetCards(new List<CardView>(_handViews), relayout: !Ctx.MulliganOpen);
 
             // ---- 「临时卡」角标（规则书 :183/:229）--------------------------------
             // **判据来自引擎**（`BattleContext.IsEphemeral` —— 它同时管「卡自己带关键词」和
@@ -19015,7 +19229,17 @@ namespace CardPresentation
                 // 🔴 换牌期落点 = **换牌区那一行**，而且是**世界**位（`DealInPose` 走 `DOMove`）。
                 if (MulliganRowPose(v, out p, out sc))
                 {
-                    CardFeel.DealInPose(v, deck, p, 0f, sc, back: CardArt.CardBack(_myFaction));
+                    var deal = CardFeel.DealInPose(v, deck, p, 0f, sc, back: CardArt.CardBack(_myFaction));
+                    // 🔴 **2026-10-22（W63 · 换牌那排卡是斜的）**：**确定性兜底** —— 这条发牌补间
+                    //   是这一帧**最后结束**的那一条（`CardFeel.DealDuration = 0.3 s`；
+                    //   它内嵌的翻面只占两段 `× 0.25` = **0.15 s**，那 0.15 s 之后**没人再写旋转**）。
+                    //   ⇒ 收尾那一刻把位姿**显式**写成换牌区那一行（**平 0°**）。这样就算将来又有谁
+                    //   开了一条比 0.3 s 短的带旋转补间（手牌重排 = 0.2 s 那一档），最后落盘的也是这一句。
+                    //   ⚠️ 这里**不** `DOKill`：补间已经完成、没有「自己杀自己」的必要；
+                    //      而 `0.3 s > 0.2 s` 正是这条兜底能赢的**前提**，⛔ 别把 DealDuration 调短。
+                    Vector3 rowLocal; float rowAng, rowSc;
+                    if (deal != null && MulliganRowLocalPose(v, out rowLocal, out rowAng, out rowSc))
+                        deal.OnComplete(() => { if (v != null) v.SetPose(rowLocal, 0f, rowSc); });
                 }
                 else if (hl != null && hl.TryLastPose(v, out p, out ang, out sc))
                 {
@@ -20496,6 +20720,14 @@ namespace CardPresentation
             _endPanel = EndPanel.Create(root);
             // 卡牌放大展示窗：原版 `CardDisplayWindow`。轻点卡牌开关，平时关着。
             _cardDisplay = CardDisplayWindow.Create(root);
+            // 🔴 **2026-10-22（战斗线 `T09` 残账 A4 · 过渡期补丁）：把「指针世界点」接给展示窗。**
+            //   卡体还是世界空间 mesh（不在 uGUI 射线里）⇒ 点卡那一下会落到全屏 backdrop
+            //   `cdw_background_close` 上、把窗关掉（原版是卡自己的 `2DCard/UI Collider` 先吃掉，
+            //   判据 → `资料/普查产出_1022/W63_相机与大图详情_调查.md` §二）。
+            //   窗里用这道口做 `RequestCloseByUgui` 的几何门（门与字段的删点都写在那边）。
+            //   ⚠️ `Create` 在子画布立不起来时**会返回 null**（它自己已报错）⇒ 照邻居 `_multiCards` 的写法守卫，
+            //      别让这条接线在这一档变成一个新的空引用。
+            if (_cardDisplay != null) _cardDisplay.PointerWorld = WorldPointer;
             // 多张一起看的展示窗：原版 `UIMultiCardDisplay`（`Generic Multi Card Display Combat`）。
             // 布局数值与出处见 `MultiCardDisplay.cs` 文件头；**入口（点我方牌堆）是我们挑的**。
             _multiCards = MultiCardDisplay.Create(root);
@@ -23896,9 +24128,14 @@ namespace CardPresentation
         {
             if (string.IsNullOrEmpty(s)) return false;
             if (HintText == s) return true;
-            for (int i = 0; i < _tipQueue.Count; i++) if (_tipQueue[i] == s) return true;
+            for (int i = 0; i < _tipQueue.Count; i++) if (_tipQueue[i].Text == s) return true;
             return false;
         }
+
+        /// <summary>**自检用**：提示条底板此刻的 tint。
+        /// 🔴 用来判**两档底色**（原版 `_DisplayTip` 按 `opaqueBackground` 取常量）：抬头 α = **1.0**，普通提示 α = **0.6**
+        /// （拍板依据 / 常量出处 → `TipBgColor` 的 doc）。没建起来 ⇒ `Color.clear`。</summary>
+        public Color TipBgTintForTest { get { return _tipBg != null ? _tipBg.Tint : Color.clear; } }
         public IReadOnlyDictionary<int, CardView> MyUnits { get { return _myUnits; } }
         public IReadOnlyDictionary<int, CardView> FoeUnits { get { return _foeUnits; } }
 

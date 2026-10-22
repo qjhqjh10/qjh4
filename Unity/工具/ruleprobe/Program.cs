@@ -190,7 +190,10 @@ class Program
     //   🔴 **2026-10-21（第五十九会话 · 引擎线 `T02`）重钉** —— 卡池 md5 现值变了（`a56aa0ba…`）：
     //   本批**没有改任何卡数据**，是**卡池内容随前几轮落盘**后这条钉子一直没跟上（`check` 自报「三个指纹都该重钉」）。
     //   同日改动只有解析层一处（`SOR31` 的 `or is a friendly unit` 新条件种类），逐行核过 ⇒ 按工具首条判据一并重钉。
-    public const string PinnedPoolMd5 = "a56aa0bac2bcac00049eadd3ff2790dd";
+    //   🔴 **2026-10-22（第六十三会话 · `W63` · `abilityContext` v14）有意重钉** —— 卡表新增 `abilityContext` 列 ⇒
+    //   卡池 md5 变（`99d4f87e…`）。**解析输出逐字节没动**（`check` 解析差异 0 行 · ⑦ 输出指纹 `c9f6c642…` 仍一致）
+    //   ⇒ **只重钉 PinnedPoolMd5**，`PinnedBaselineMd5` / `PinnedParseMd5` 原样不动。
+    public const string PinnedPoolMd5 = "99d4f87ec2972b26b15f068006721bfa";
 
     /// <summary>钉住的基线内容指纹（`工具/ruleprobe/基线/out_baseline.txt` 的 md5，**按字节**）。
     /// 与上面那个配对使用 —— 判据见上面那段长注释。</summary>
@@ -539,6 +542,12 @@ class Program
         int nMissChoicesTa = 0, nMissChoicesMt = 0, nMissChoicesIds = 0;
         // 🆕 2026-10-21（`T03·c` 批 B 接线）：`triggerPriority` 的读数列（v13）
         int nTpCards = 0, nBadTp = 0;
+        // 🆕 2026-10-22（引擎线 `W63` · `T03·c/d`）：`abilityContext` 的读数列（v14）。
+        //   `nAcRows` / `nAcCards` 只数**收下来且 `context != 0`** 的行（生成器也只落非 0 行）——
+        //   期望对账值 = **157 张 / 170 条**（池内原始非 0 173/157，合并 3 条同 (trigger,context) 重复行后 170；判据 → `资料/普查产出_1022/W63_abilityContext_施工简报.md` §2，2026-10-22 已订正）。
+        //   `nBadAc` = 被四道闸丢弃的条数；`nAcOnOldTable` = 「表 version<14 却带着这一列」的卡数
+        //   （正常应为 0 —— 非 0 就是在说「探针与引擎会分叉」，见下面读数那一段）。
+        int nAcRows = 0, nAcCards = 0, nBadAc = 0, nAcOnOldTable = 0;
         foreach (var c in doc.RootElement.GetProperty("cards").EnumerateArray())
         {
             string S(string k) => c.TryGetProperty(k, out var v) && v.ValueKind == JsonValueKind.String ? v.GetString() : null;
@@ -591,6 +600,76 @@ class Program
                     trigPrio.Add(new KeyValuePair<string, int>(tpk, pv));
                 }
             if (trigPrio.Count > 0) nTpCards++;
+            // 🆕 2026-10-22（引擎线 `W63` · `T03·c/d`）：**v14 的 `abilityContext` 也要传** ——
+            //   不传的后果与 `A1911` / `A1959` / v13 的 `triggerPriority` **逐字同族**：
+            //   **探针与引擎口径不同**。引擎侧 `Data/CardDatabase.cs:597` 经 `MapAbilityContext`
+            //   把这一列传进 `CardDef`；探针不传 ⇒ `CardDef.AbilityContextOfTrigger/OfKeyword`
+            //   在探针里**恒 -1**，任何靠探针量「这条触发要不要判载体区域」的读数都被静默钉成旧口径。
+            //
+            //   🔴 **`-1` 契约（⛔ 绝不退回 `0`）**：`context = 0` 是**合法值** = `Play`
+            //     （载体必须**活着在场**）。缺键若读成 `0`，**死亡族 / 墓地族**触发会被静默掐死
+            //     ⇒ 缺键一律 `-1`（= 未知），消费端按「未知」**回退旧口径**
+            //     （`QueuedAction.RequireActorInPlay` 那一套），⛔ 不许在这里替它挑一档。
+            //   🔴 **skip 表**（只是读数的背景，本函数**不做**消费侧判断）：原版
+            //     `CardAbility__CanTriggerAbility.c:69-95` 对 trigger ∈ {0 ThisCardPlayed ·
+            //     80 ThisUnitDeath · 145 Codex · 220 Sacrifice · 500 TriggerEnchantment} 整段
+            //     **跳过** context 判定；600 UseSpiritStone / 605 UseFaith 在余额判定前显式检查；
+            //     其余走 `:126` 兜底。⇒ 数据**全量照收**（含这五族），skip 由消费端按
+            //     `CardDef.AbilityContextOfTrigger/OfKeyword` 自己判（⛔ 别在这里替它丢行）。
+            //   判据 → `资料/普查产出_1022/W63_abilityContext_施工简报.md` §1/§3。
+            bool hasAc = c.TryGetProperty("abilityContext", out var acEl) && acEl.ValueKind == JsonValueKind.Array;
+            var ablCtx = new List<CardDef.AbilityContextSpec>();
+            if (hasAc && poolVersion < 14)
+            {
+                // 🔴 `version < 14` 的表**整列不采**（= 全 `-1` 未知，见下面那声 `⚠️`）。
+                //   但这一格必须**单独计数**：真出现「旧表却带着新列」时 ⛔ 不许静默丢掉 ——
+                //   引擎侧 `CardDatabase.Parse` 只按 `version` 出声、列**照样映射** ⇒ 两边会分叉，得看得见。
+                nAcOnOldTable++;
+            }
+            else if (hasAc)
+            {
+                HashSet<string> acNames = null, acKws = null;
+                foreach (var e in acEl.EnumerateArray())
+                {
+                    // ↓ 四道闸与 `CardDatabase.MapAbilityContext`（`Data/CardDatabase.cs:739-814`）
+                    //   **同口径**：全部「计数 + 丢弃该条」，⛔ 不静默、⛔ 不默认。
+                    if (e.ValueKind != JsonValueKind.Object) { nBadAc++; continue; }
+                    // ① 缺 `name`（`AbilityTrigger` 枚举名是唯一按键；关键词只覆盖 53/173 行）。
+                    string acName = e.TryGetProperty("name", out var anEl) && anEl.ValueKind == JsonValueKind.String
+                                    ? anEl.GetString() : null;
+                    if (string.IsNullOrEmpty(acName)) { nBadAc++; continue; }
+                    // ② 缺 `trigger` 键（⛔ 不许落成 `0` = `ThisCardPlayed` —— `0` 是**合法 trigger**）。
+                    bool hasTrig = e.TryGetProperty("trigger", out var atEl) && atEl.ValueKind == JsonValueKind.Number;
+                    if (!hasTrig) { nBadAc++; continue; }
+                    // ③ `context` 缺键（`-1` 哨兵）或不在 {0,10,20,30,40,50}（⛔ `0` 是合法的 `Play`，不拒）。
+                    bool hasCtx = e.TryGetProperty("context", out var acvEl) && acvEl.ValueKind == JsonValueKind.Number;
+                    if (!hasCtx) { nBadAc++; continue; }
+                    int acv = acvEl.GetInt32();
+                    if (!IsLegalAbilityContextProbe(acv)) { nBadAc++; continue; }
+                    // ④ 同 `name` / 同 `keyword` 重复 ⇒ 丢弃**后出现**的那条（先到的保留）。
+                    //    ⚠️ 顺序照引擎：`name` **先**入表再看 `keyword` —— 所以「keyword 重复被丢」的那条，
+                    //    它的 `name` 已经占位（后面的同名行照样算重复）。别改这个顺序（一改就与引擎分叉）。
+                    if (acNames == null) acNames = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+                    if (!acNames.Add(acName)) { nBadAc++; continue; }
+                    string acKw = e.TryGetProperty("keyword", out var akEl) && akEl.ValueKind == JsonValueKind.String
+                                  ? akEl.GetString() : null;
+                    if (!string.IsNullOrEmpty(acKw))
+                    {
+                        if (acKws == null) acKws = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+                        if (!acKws.Add(acKw)) { nBadAc++; continue; }
+                    }
+                    ablCtx.Add(new CardDef.AbilityContextSpec
+                    {
+                        Trigger = atEl.GetInt32(),
+                        Name = acName,
+                        // 引擎侧同样把空串归一成 `null`（`MapAbilityContext:809`）
+                        Keyword = string.IsNullOrEmpty(acKw) ? null : acKw,
+                        Context = acv,
+                    });
+                    if (acv != 0) nAcRows++;      // 只数**非 0**（生成器也只落非 0 行）
+                }
+                if (ablCtx.Any(x => x.Context != 0)) nAcCards++;
+            }
             list.Add(new CardDef(S("id"), S("name"), S("type"), S("desc"), S("rarity"), S("faction"),
                                  I("cost"), I("attack"), I("health"), I("ranged"), kws,
                                  S("nameZh"), S("descZh"), true, S("subtype"), S("goesSecond"),
@@ -604,7 +683,15 @@ class Program
                                  choicesSpecificCardIds: hasCIds ? chIds : null,
                                  // 🆕 2026-10-21（`T03·c` 批 B 接线）：v13 的逐卡触发优先级 ——
                                  //   `CardDef` 那个形参是**可选**（默认 null ⇒ 全池 1），这里只在有值时才传。
-                                 triggerPriority: trigPrio.Count > 0 ? trigPrio : null));
+                                 triggerPriority: trigPrio.Count > 0 ? trigPrio : null,
+                                 // 🆕 2026-10-22（引擎线 `W63` · `T03·c/d`）：v14 的逐条 `abilityContext`。
+                                 //   四个形参**全是可选**（`CardDef.cs:598/602`）⇒ 这一段只补两个命名实参，
+                                 //   前面那些老调用点的位置传参**不受影响**。
+                                 //   `-1` 契约 / 四道闸 / skip 表 → 上面读数那一段注释（⛔ 别在这里抄第二份）。
+                                 //   表 `< 14` 时 `ablCtx` 恒空 ⇒ 整列不传（= 全 -1 未知），
+                                 //   与引擎 `Parse` 的 `< 14` 守卫同口径。
+                                 abilityContext: ablCtx.Count > 0 ? ablCtx : null,
+                                 abilityContextsVersioned: poolVersion >= 14));
         rawKw.Add(kws);
         }
         // 🔴 **缺列一律出声**（铁律「不许静默失败」）：缺了就是缺了，⛔ 不让它静默变成「某张卡的值是 X」。
@@ -637,6 +724,31 @@ class Program
                               + "引擎侧 `CardDatabase.MapTriggerPriority` / `CardDef` 构造函数是同口径（出声 + 丢弃）。");
         Console.WriteLine("  triggerPriority: 带非默认值的卡 = " + nTpCards
                           + "（缺键 = 1 = Instant；判据 `CardAbility__.ctor.c:5`）");
+        // 🆕 2026-10-22（引擎线 `W63` · `T03·c/d`）：`abilityContext` 的读数（旧表 / 形状不对**都出声**）。
+        //   ⚠️ 「缺列」与「这一列的每一格都是 `Play(0)`」在数据上**分不开**（生成器只落非 0 行）
+        //     ⇒ 只能靠 `version` 那道闸区分 —— 这正是 `< 14` **必须出声**的原因
+        //     （引擎侧同一条判据 → `CardDatabase.cs:498-504`）。
+        if (poolVersion < 14)
+            Console.WriteLine("⚠️ 卡池 `version`=" + poolVersion + " < 14 —— 这一版没有 `abilityContext` 一列"
+                              + "（原版 `CardAbility.abilityContext`：0 Play / 10 Hand / 20 Deck / 30 Cemetery"
+                              + " / 40 InPlayOrDying（**含**待死） / 50 InPlayOrCementery（**不含**待死））；"
+                              + "引擎侧 `CardDatabase.cs:498-504` 同样为此出声 ⇒ 探针一律读成 **-1（未知）**，"
+                              + "⛔ 不是 `Play(0)`（那会把死亡族 / 墓地族触发**静默掐死**）。"
+                              + "跑 `工具/gen_cards_engine.py` 重生成。");
+        if (nAcOnOldTable > 0)
+            Console.WriteLine("⚠️ 卡池 `version`=" + poolVersion + " < 14 **却带着 `abilityContext` 列**："
+                              + nAcOnOldTable + " 张卡的这一列被**整列忽略**（= 全 -1 未知）。"
+                              + "⚠️ 引擎侧 `CardDatabase.Parse` 只按 `version` 出声、列**照样映射** ⇒ "
+                              + "这种表上探针与引擎**会分叉**，⛔ 别拿这份读数当引擎现状。");
+        if (nBadAc > 0)
+            Console.WriteLine("⚠️ 卡池 `abilityContext` 有 " + nBadAc + " 条被丢弃（缺 `name` / 缺 `trigger` 键 / "
+                              + "`context` 缺键或不在 {0,10,20,30,40,50} / 同 `name` 或同 `keyword` 重复）"
+                              + " —— ⛔ 没当成 0（Play）、也没静默取最后一条。"
+                              + "引擎侧 `CardDatabase.MapAbilityContext` 是同口径（出声 + 丢弃）；"
+                              + "先跑 `工具/gen_cards_engine.py`。");
+        Console.WriteLine("  abilityContext: 带非 0 context 的卡 = " + nAcCards + " · 条 = " + nAcRows
+                          + "（收下来的行；对账期望 = **170 条 / 157 张**"
+                          + " —— 判据 → 资料/普查产出_1022/W63_abilityContext_施工简报.md §2）");
 
         Pool = list;
         // 🆕 **同序留一份 `keywords` 原文**（见 `PoolRawKeywords` 的说明）——
@@ -660,6 +772,24 @@ class Program
         //   否则探针会报「`GoesSecondCard` 有值 0 张」这种**看起来像工程缺陷**的假读数
         //   （与上面 `A1339` 那条同族：**探针与引擎不同口径**）。
         CreatePool.ResolveGoesSecond(list);
+    }
+
+    /// <summary>🆕 2026-10-22（引擎线 `W63` · `T03·c/d`）：`AbilityContext` 的**六档合法值** ——
+    /// `0 Play` / `10 Hand` / `20 Deck` / `30 Cemetery` / `40 InPlayOrDying`（**含**待死） /
+    /// `50 InPlayOrCementery`（**不含**待死）。
+    /// ⚠️ 引擎侧同一件事写在 `CardDatabase.IsLegalAbilityContext`（`private`，探针够不着）——
+    /// **常量本身只有一份** = `CardDef.AbilityContextPlay` 那一族（`Core/CardDef.cs:1252-1270`），
+    /// 这里只做「是不是这六个数之一」，⛔ 别另抄一组数字（两处迟早不一致）。
+    /// 🔴 `-1`（<see cref="CardDef.AbilityContextUnknown"/>）**不合法**：它是「缺键 / 未知」的哨兵，
+    /// ⛔ 别放进来当第七档。</summary>
+    static bool IsLegalAbilityContextProbe(int ctx)
+    {
+        return ctx == CardDef.AbilityContextPlay
+            || ctx == CardDef.AbilityContextHand
+            || ctx == CardDef.AbilityContextDeck
+            || ctx == CardDef.AbilityContextCemetery
+            || ctx == CardDef.AbilityContextInPlayOrDying
+            || ctx == CardDef.AbilityContextInPlayOrCemetery;
     }
 
     static void Dump(string line, string tag = "SEG", CardDef card = null)

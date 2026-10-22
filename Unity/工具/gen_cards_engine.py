@@ -1266,6 +1266,106 @@ def trigger_priorities_of(cid, name, trow, trig_names, report):
 
 
 # ==========================================================================================
+#  🆕 2026-10-22（引擎线 `W63` · `T03·c/d` 数据层）：`CardAbility.abilityContext` → 逐卡 `abilityContext`
+# ==========================================================================================
+# 判据：`资料/普查产出_1022/W63_abilityContext_施工简报.md` §1/§2/§3
+#   （第一权威 = 全量反编译 `d:/2/tools/decomp_full/CardAbility__IsRightContext.c`）：
+#   · 原版 `CardAbility.abilityContext`（`d:/2/Warpforge_code/Scripts/Assembly-CSharp/CardAbility.cs:10`，
+#     字段偏移 **+0x14**）= **「这条 ability 的载体（thisCard）此刻必须待在哪个区域」**；
+#   · 取值只有这六个：0 Play · 10 Hand · 20 Deck · 30 Cemetery ·
+#     40 InPlayOrDying（`IsInPlayOrDying`，**含状态 5 待死**）·
+#     50 InPlayOrCemetery（`IsInCemetery || IsInPlay`，**不含待死**）
+#     —— 🔴 40 与 50 **不等价**（差的就是「待死」那一档），⛔ 别互相顶替；
+#   · 读点全库只有一处：`CardAbility.CanTriggerAbility` → `IsRightContext`
+#     （**入队前**判 —— `RawCardScript__TriggerAbilities.c:108,207` 在广播那一刻同步调）。
+#   ⚠️ **不是所有触发都读它**：`CanTriggerAbility.c:69-95` 有 skip 表（trigger ∈
+#     {0 ThisCardPlayed · 80 ThisUnitDeath · 145 Codex · 220 Sacrifice · 500 TriggerEnchantment}
+#     整段跳过；600/605 在余额判定前显式检查，`:85-124`）—— **数据全量落、skip 表由消费端照抄**。
+#     ⛔ 别在本脚本里替消费端丢数据：那等于用生成器实现一条引擎判据（两边迟早不一致）。
+#
+# 🔴 **只落 context != 0 的行**（0 = Play = 本列的默认值，省略）—— 与 `triggerPriority`
+#    （缺键 = 原版默认 1）同一条口径。消费端契约（那半边不在本文件，⛔ 别在这里写第二份）：
+#      **缺键 / 卡上没有这一列 ⇒ `-1` 未知**（`CardDef.AbilityContextOfTrigger`），
+#      ⛔ **不许读成 Play(0)** —— 那会把死亡族(40) / 墓地族(50) 整片掐死（简报 §6·2）。
+#    代价（**已知、写在这里免得下一个人当成 bug**）：context 全 0 的卡在 JSON 里**没有这一列**，
+#    消费端看到的是「未知」而不是「Play」⇒ 它必须按 `-1` 回退旧表。真值快照里**没有这张卡**
+#    与「有卡但全 0」在本脚本里**分开记账**（`no_truth` vs 不落列），⛔ 别让读数把两件事混成一件。
+# 🔴 **`name` 必须落**（`AbilityTrigger` 枚举名，由 `load_ability_trigger_names()` 反查）：
+#    只按 `keyword` 落会**漏掉 trigger 50 `UnitAttack`**（它不在 `ABILITY_TRIGGER_KEYWORD` 里）
+#    ⇒ 恰恰修不了简报点名的那 5 张卡（关键词路只覆盖全部非 0 行里的一小半）。
+#    `keyword` **只在映射表里有**时才出现 —— 复用同一张 `ABILITY_TRIGGER_KEYWORD`，⛔ 别另立一张。
+# 🔴 **同 trigger 同 context 的重复行【合并】**（原版一张卡在同一 trigger 下可以有多条 ability：
+#    现读 3 张，`605` / `0` 各有一对同值行）：它对消费端是**纯噪声** ——
+#    `CardDatabase.MapAbilityContext` 把「同 key 重复」当冲突出声后**整组丢弃**，
+#    不合并会让那 3 张卡**凭白丢掉整列**。合并条数照实打在跑完读数里（`report["dup_same"]`）。
+#    同 trigger **不同** context（现读 0 条）⇒ **两行都落**（数据是真的）+ `report["conflict"]` 出声，
+#    由消费端按它自己的规则裁（⛔ 生成器不替它挑一个、也不整组丢 —— 那都是静默编口径）。
+ABILITY_CONTEXT_VALID = (0, 10, 20, 30, 40, 50)
+ABILITY_CONTEXT_DEFAULT = 0        # Play —— 本列省略这一档（缺键 = 未知，见上面那段）
+
+
+def ability_contexts_of(cid, name, trow, trig_names, report):
+    """一张卡 → `[{"trigger":…, "name":…, ["keyword":…,] "context":…}, …]`（按 trigger 排序）。
+
+    `JsonUtility` 不支持字典（与 `talentNameIds` / `triggerPriority` 同一条口径）⇒ 落数组，
+    每行自带 `trigger`（`AbilityTrigger` 数值）＋ `name`（枚举名）＋ 可选 `keyword`。
+
+    落值口径（判据与代价 → 上面那段长注释）：**只落 context != 0 的**（0 = Play = 默认）；
+    同 `(trigger, context)` 的重复行合并；同 `trigger` 不同 `context` 的两行都落并出声；
+    `AbilityTrigger` 名查不出来（枚举桩缺失）⇒ **不落并出声**（`name` 是消费端主键，
+    ⛔ 不猜名字）；真值快照里没有这张卡 ⇒ `report["no_truth"]`（≠「全 0」，见上）。
+    """
+    if trow is None:
+        report["no_truth"] += 1
+        return []
+    rows, seen = [], set()
+    for i, ab in enumerate(trow.get("cardAbilities") or []):
+        tg = ab.get("trigger")
+        ctx = ab.get("abilityContext")
+        if isinstance(ctx, bool) or not isinstance(ctx, int):
+            # 缺键 / 非整数：⛔ 不默认成 0（那等于替原版编一个 Play 口径 ⇒ 静默错一批卡）。
+            report["bad"].append((cid, name, i, tg, ctx))
+            continue
+        if ctx == ABILITY_CONTEXT_DEFAULT:
+            continue                    # 默认值不落（本列的约定：缺键 = 未知，0 由消费端的默认/skip 表兜）
+        if ctx not in ABILITY_CONTEXT_VALID:
+            report["bad"].append((cid, name, i, tg, ctx))
+            continue
+        tn = trig_names.get(tg, "")
+        if not tn:
+            # 枚举桩读不到（`load_ability_trigger_names()` 返回 `{}`）或出现枚举里没有的数值。
+            # ⚠️ 不落：`name` 是消费端的主键，落一个空主键等于给它一批「用不了的行」。
+            report["no_name"].append((cid, name, i, tg, ctx))
+            continue
+        key = (tg, ctx)
+        if key in seen:
+            report["dup_same"].append((cid, name, tg, ctx))
+            continue
+        seen.add(key)
+        row = {"trigger": tg, "name": tn}
+        kw = ABILITY_TRIGGER_KEYWORD.get(tg)
+        if kw is not None:
+            row["keyword"] = kw
+        row["context"] = ctx
+        rows.append(row)
+    # 排序 = `(trigger, context)`：**字节稳定**靠它（幂等：两次 `--write` 必须逐字节相同）。
+    rows.sort(key=lambda r: (r["trigger"], r["context"]))
+    per_tg = {}
+    for r in rows:
+        per_tg.setdefault(r["trigger"], []).append(r["context"])
+    for tg in sorted(per_tg):
+        if len(per_tg[tg]) > 1:
+            report["conflict"].append((cid, name, tg, per_tg[tg]))
+    for r in rows:
+        report["by_trigger"][r["trigger"]] = report["by_trigger"].get(r["trigger"], 0) + 1
+        report["by_context"][r["context"]] = report["by_context"].get(r["context"], 0) + 1
+    if rows:
+        report["cards"] += 1
+        report["rows"] += len(rows)
+    return rows
+
+
+# ==========================================================================================
 #  🆕 2026-10-21（引擎线 `T03·b` · 回合流程残余）：
 #    **① 开局加成三列** · **② `skipCardDraw` 手牌效果的生产列**
 # ==========================================================================================
@@ -2290,6 +2390,13 @@ def build():
     #    `conflict` = 同卡同关键词两个不同 priority，表达不出）。
     trigger_priority_report = {"cards": 0, "rows": 0, "no_truth": 0,
                                "bad": [], "empty_logic": [], "unmapped": [], "conflict": []}
+    # 🆕 2026-10-22（引擎线 `W63`）：`abilityContext` 的跑完读数 —— 与 `trigger_priority_report` 同形：
+    #   `cards`/`rows` = 落值的卡数/条数；`no_truth` = 真值快照里没有这张卡；`bad` = 非法/缺键；
+    #   `no_name` = `AbilityTrigger` 枚举名查不出来（枚举桩缺失 ⇒ 不落）；`dup_same` = 同
+    #   `(trigger, context)` 合并掉的重复行；`conflict` = 同 trigger 不同 context（**两行都落**、出声备查）；
+    #   后两个是分布读数（「非 0 条数」与「按 trigger 分布」的唯一凭据）。
+    ability_context_report = {"cards": 0, "rows": 0, "no_truth": 0, "bad": [], "no_name": [],
+                              "dup_same": [], "conflict": [], "by_trigger": {}, "by_context": {}}
     # 🆕 2026-10-21（引擎线 `T03·b`）：开局加成三列 / `skipCardDraw` 生产列的跑完读数。
     initial_modifier_report = {c: {"cards": 0} for c in INITIAL_MODIFIER_COLS}
     skip_draw_report = {"cards": 0, "rows": 0, "no_truth": 0, "unmapped": [], "bad_uses": []}
@@ -2772,6 +2879,13 @@ def build():
         _tp = trigger_priorities_of(cid, name, trow, anim_trig_names, trigger_priority_report)
         if _tp:
             entry["triggerPriority"] = _tp
+        # ---- 🆕 2026-10-22（引擎线 `W63` · `T03·c/d` 数据层）：逐 ability 的 `abilityContext` ----
+        # 判据 / 为什么只落非 0 / `-1` 契约 / 为什么 `name` 必须落 → `ABILITY_CONTEXT_VALID` 上面那段。
+        # 形状 = `[{"trigger": …, "name": <AbilityTrigger 枚举名>, ["keyword": …,] "context": …}]`
+        # （`JsonUtility` 不支持字典，与 `triggerPriority` 同一条口径）。
+        _acx = ability_contexts_of(cid, name, trow, anim_trig_names, ability_context_report)
+        if _acx:
+            entry["abilityContext"] = _acx
         # ---- 🆕 2026-10-21（引擎线 `T03·b`）：开局加成三列 --------------------------------------
         # 判据 / 为什么「只在非 0 时落列」→ `INITIAL_MODIFIER_COLS` 上面那一段。
         for _col in INITIAL_MODIFIER_COLS:
@@ -3236,7 +3350,7 @@ def build():
     talent_name_ids = build_talent_name_ids(truth_cards, truth_by_path, cards, talent_name_report)
 
     return {
-        "version": 13,         # v6: 每张卡带稳定 id（🔴 2026-10-18 `W25` 起按原版 `uniqueId` 直取，
+        "version": 14,         # v6: 每张卡带稳定 id（🔴 2026-10-18 `W25` 起按原版 `uniqueId` 直取，
                                #    名级联降为交叉校验；自造 = 生成期自检硬失败）
                                # v7（2026-10-14 `A1798`）：加 `inventoryOptions` / `showInCollectionOptions` 两列
                                # v8（2026-10-14 `A1775`）：加 `initiative` 一列（先后手；原版真值）
@@ -3269,6 +3383,14 @@ def build():
                                #    ⚠️ 加列【必须】bump（`CardDatabase.cs` 的 version 守卫靠它出声）。
                                #    🔴 今天**还没有消费者**：`CardDef.TriggerPriority(keyword)` 已就位，
                                #       `CardDatabase.CardDto` 那一跳（读列 → 传给 `CardDef` 构造）**另批做**。
+                               # v14（2026-10-22 第六十三会话 · 引擎线 `W63` · `T03·c/d` 数据层）：
+                               #    加逐卡 **`abilityContext`**（原版 `CardAbility.abilityContext` @+0x14 ——
+                               #    「这条 ability 的载体此刻必须待在哪个区域」；**只落 context != 0 的**，
+                               #    缺键 = **未知(-1)**，⛔ 不是 Play(0)）—— 判据
+                               #    `资料/普查产出_1022/W63_abilityContext_施工简报.md` §1/§2/§3。
+                               #    形状 `[{"trigger":…, "name":<AbilityTrigger 名>, ["keyword":…,] "context":…}]`
+                               #    （`name` 必须落：只按 keyword 会漏掉 trigger 50 `UnitAttack`）。
+                               #    ⚠️ 加列【必须】bump（`CardDatabase.cs` 的 version 守卫靠它出声）。
         "source": "Unity/数据/游戏数据/card_stats.json（稀有度另取 资料/卡牌数据表/卡牌宝石稀有度_0824.md；"
                   "英文名 / 中文名都以**原版官方表** 数据/游戏数据/官方本地化_en+zh-CN.json 的 `Card_Name/*` 为准"
                   "（🔴 2026-10-18 用户改判：**`name` 也换官方显示名** —— 此前「卡名一个字不动」的 PnP 时代口径作废；"
@@ -3373,7 +3495,7 @@ def build():
         orphan_rarity_key), \
        (offname_hit, offname_same, offname_miss, off_names_stats), \
        choices_report, anim_report, talent_name_report, trigger_priority_report, \
-       initial_modifier_report, skip_draw_report
+       ability_context_report, initial_modifier_report, skip_draw_report
 
 
 def fix_own_armour(entry):
@@ -3437,6 +3559,7 @@ def main():
      goes_second, off, off_desc,
      inv, init, truth, rarity_guard, offname, choices_report, anim_report,
      talent_name_report, trigger_priority_report,
+     ability_context_report,
      initial_modifier_report, skip_draw_report) = build()
     offname_hit, offname_same, offname_miss, off_names_stats = offname
     id_direct, id_cascade, id_cross_mismatch, direct_ambiguous = id_new
@@ -4117,6 +4240,32 @@ def main():
     for _cid, _nm, _kw, _prs in _tp["conflict"]:
         print(f"  🔴 同卡同关键词两个不同 priority：{_cid} {_nm} · `{_kw}` = {_prs}"
               " ⇒ **整条丢掉**（一格只能一个值，表达不出）")
+
+    # 🆕 2026-10-22（引擎线 `W63` · 数据层）：`abilityContext` 的覆盖率 + 按 context / trigger 的分布
+    #    ＋ **每一个没落成的口都出声**（本工程红线：静默失败比报错更贵）。
+    _acr = ability_context_report
+    _ac_bc = " · ".join(f"{_c}:{_n}" for _c, _n in sorted(_acr["by_context"].items())) or "（无）"
+    _ac_bt = " · ".join(f"{_t}:{_n}" for _t, _n in sorted(_acr["by_trigger"].items())) or "（无）"
+    print(f"能力上下文   `abilityContext` 落值 **{_acr['cards']}/{doc['count']}** 张 · {_acr['rows']} 条"
+          f"（原版 `CardAbility.abilityContext`，**Play(0) 省略** —— 判据 `W63_abilityContext_施工简报.md` §1）")
+    print(f"             按 context：{_ac_bc}"
+          "（10 Hand · 20 Deck · 30 Cemetery · 40 InPlayOrDying〔含待死〕· 50 InPlayOrCemetery〔不含待死〕）")
+    print(f"             按 trigger：{_ac_bt}")
+    if _acr["no_truth"]:
+        print(f"  ⚠️ 真值快照里没有的卡 {_acr['no_truth']} 张 —— 它们的 abilityContext **未知**"
+              "（≠「全是 Play」；快照比现池旧，见 `TRUTH_CARDS_SRC`）")
+    for _cid, _nm, _i, _tg, _c in _acr["bad"]:
+        print(f"  🔴 非法 abilityContext：{_cid} {_nm} 第 {_i} 条 ability（trigger={_tg}）"
+              f"context={_c!r} ⇒ **丢弃**（合法值只有 0/10/20/30/40/50；⛔ 不默认成 Play）")
+    if _acr["no_name"]:
+        print(f"  ⚠️ `AbilityTrigger` 枚举名查不出来 {len(_acr['no_name'])} 条 ⇒ **不落**"
+              f"（枚举桩缺失？见 `ABILITY_TRIGGER_STUB`）")
+    for _cid, _nm, _tg, _c in _acr["dup_same"]:
+        print(f"  ℹ️ 同 (trigger, context) 重复行**合并**：{_cid} {_nm} · trigger={_tg} context={_c}"
+              "（不合并会让消费端当成「同 key 重复」整组丢弃）")
+    for _cid, _nm, _tg, _cs in _acr["conflict"]:
+        print(f"  🔴 同 trigger 两个不同 abilityContext：{_cid} {_nm} · trigger={_tg} = {_cs}"
+              " ⇒ **两行都落**（数据是真的），由消费端按它的规则裁")
 
     # 🆕 2026-10-21（引擎线 `T03·b`）：开局加成三列 + `skipCardDraw` 生产列的读数。
     #   三列/一列都**只在有值时才落** ⇒ 这条摘要就是「今天有没有卡走到」的唯一凭据。

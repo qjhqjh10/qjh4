@@ -1610,7 +1610,10 @@ namespace CardPresentation
             //   （原版场上把整张 `2DCard` 关掉，SDF 那层只剩影子）。⚠️ 出生入口在建层处已按默认开着，
             //   这里是**换形态入口**（铁律 10 第 5 条），两处都要显式设一次。
             if (_outlineLayer != null) Show(_outlineLayer, !board);
-            Show(_artFront, !board);
+            // 🆕 2026-10-22（卡牌线 `T04` 第二笔）：这一层比 `!board` 多一个门 —— **大图档里只有前台那张
+            //   允许角色压框**（原版 `CardDisplayWindow__ChangeCardPosition.c:75-79`）。判据收在
+            //   `ArtFrontVisible` 一处，⛔ 别在这儿再拼一遍 `_bigImage / _artOverdraw`。
+            Show(_artFront, ArtFrontVisible);
             Show(_textBg, !board);       // 效果文字底板
             // 🔴 **2026-10-14（`A2006①`）：费用六边形多一个门 —— 督军整格不印。**
             //   判据 = `ShowsCost(d)`（出处见那个函数的注释；⛔ 别在这里另写一份 `cost >= 0`）。
@@ -1688,6 +1691,15 @@ namespace CardPresentation
             // 🆕 2026-10-19（`A2139`）：换形态可能**新建层**（3D 卡体/数值/徽标）⇒ 整卡灰补到新层上
             //    （铁律 10 第 5 条：多入口各显式设一次；`_grey = 0` 时零成本）。
             if (_grey > 0f) ApplyGrey();
+            // 🔴 2026-10-22（「出牌后绿光整回合不亮」的根因那一半）：**换形态要重放「要不要亮」**。
+            //   绿光那层**只有场上形态才建**（见 `ApplyCanAct`），而调用方的请求常常在**还是手牌形态**
+            //   的时候就到了（`BattleDriver.SyncBoard` 不是逐帧跑 ⇒ 等它下一次跑时请求已经丢了）。
+            //   真机判据：turn 5 `built=0` → turn 7 才 `built=1`；而出牌后那张卡要到登场 clip **0.7**
+            //   （`CardFeel.cs:1351-1357`）才走到这里 ⇒ 不在这儿补就是「绿光整回合不亮」。
+            //   ⚠️ 排在**最末**：上面那些 `Show(...)` 可能刚把 3D 体建出来，绿光要挂在建好之后。
+            //   ⚠️ 出生入口（`Build`，按 `CardFace.Board` 建）那边不用写 —— 调用方每次同步都会调
+            //      `SetCanAct` 把请求落下去（两个入口各显式设一次，铁律 10 第 5 条）。
+            ApplyCanAct();
         }
 
         /// <summary>**场上要不要把四个数值拆成独立图层** —— 判据只有这一处（`Build` 与 `SetFace`
@@ -2064,6 +2076,12 @@ namespace CardPresentation
         /// <summary>换卡面（同一张卡换数据时用，比如手牌换牌）。</summary>
         public void SetData(CardData d)
         {
+            // ⚠️ 🆕 2026-10-22（`T04`）：**`UseOverDraw` 不在这里重置** —— `CardData` 不带这一列
+            //   （`CardDef` → `CardData` 的唯一转换点 `BattleDriver.ToCardData` 不在本笔的改动范围），
+            //   它由**大图档那两个窗口**在 `Create` 之后按卡表项显式设一次（`CardDisplayWindow.BuildFan` /
+            //   `CardDetailPopup.BuildCardStack`）。那两处都是「一张卡一次建一个视图」，不复用视图换卡
+            //   ⇒ 不存在「换了卡还带着上一张的溢出许可」这条路。⛔ 别在这儿写 `_useOverDraw = true`
+            //   图省事：那会把窗口刚设好的逐卡门控**静默抹掉**。
             // 🔴 **必须赶在 `Data = d` 之前** —— 之后就看不到旧值了，而「涨了还是落了」要旧值。
             CaptureStatChanges(d);
             Data = d;
@@ -2998,7 +3016,8 @@ namespace CardPresentation
                     // 🔴 **建完立刻按本档刷一次** —— 基材质上那份是「材质默认 0.604」，
                     //    而放大窗那一档原版运行时显式设成 0.8（`A2111` 表三·2，判据见 `ShadowAlpha`）。
                     ApplyShadowColor();
-                    // 🆕 2026-10-21（`W61` · `新账-66`）：**描边单独一层**（放大 `OutlineGlowScale`），
+                    // 🆕 2026-10-21（`W61` · `新账-66`）：**描边单独一层**（quad 由 `OutlineGlowScale` 定，
+                    //    ⚠️ 2026-10-22 起 = **1.0 = 原版** —— 原版那个节点 `localScale` 就是 1），
                     //    ⇒ 那圈光沿着**整张卡框**走，而不是沿插图画窗走。理由/判据/那个可调数
                     //    全在 `OutlineGlowScale` 那一段注释里（⛔ 别在这里再抄一遍）。
                     //    ⚠️ **这一层是懒建的**（`EnsureOutlineLayer`，第一次真的要亮描边时才建）——
@@ -3999,6 +4018,15 @@ namespace CardPresentation
             F("_Inner_Fallof",           0.224f);
             F("_SpriteAlphaEdge_Outer",  0.484f);
             F("_SpriteAlphaEdge_Inner",  0.043f);
+            // 🔴 **2026-10-22：原版材质里还躺着一个 `_SpriteAlphaEdge = 0.397`**（逐值现读
+            //    `bundle_duplicateassetisolation_assets_all/Material/Material_-3316280387615011577.json`
+            //    的 `m_SavedProperties.m_Floats` = 0.3970000147819519）。卡背那份材质抄过它（见 `CardbackSdfMaterialBase`），
+            //    卡面这条一直漏着 ⇒ 补齐。
+            //    ⚠️ **本版 shader 并不声明它**：`Everguild/FX/Card Highlight And Shadow` 的 21 个属性里
+            //    只有 `_SpriteAlphaEdge_Outer` / `_SpriteAlphaEdge_Inner`（判据 = `资料/普查产出_0917/shader属性表_块1.md:248`）
+            //    ⇒ 它在原版材质上属**残留死值**（同 `_Metallic` / `_FaceDilate` 那批），`HasProperty` 守 ⇒
+            //    今天**不改变任何像素**。抄它只为让材质表与原版逐项对齐，别据此推断行为。
+            F("_SpriteAlphaEdge",        0.397f);
             F("_NoiseIntensity",         1.15f);
             F("_NoiseMaskScale",         1f);
             // 🔴 **2026-10-21（`W61` 卡牌线 `新账-66`）：补上 `_Noise` 槽。**
@@ -4040,10 +4068,17 @@ namespace CardPresentation
         //   让那条等值带落到**卡框外沿**；`_ShadowColor.a = 0` ⇒ 这一层**只出描边**，
         //   不参与落地阴影（阴影仍由 `_shadowLayer` 原样负责，观感零影响）。
         //
-        //   🔴 `OutlineGlowScale` 的来路：**唯一一个从实拍反推的可调数**（1.046 / 0.755 ≈ 1.39，
-        //   取 1.35 让带子稍微压进框内一点、由框盖住内半边 —— 与实拍里「光在框外一圈、框内没有」
-        //   一致）。⛔ 主对话渲一张并排图后若偏内/偏外，**只改这一个数**（并同步改本段注释）。
-        const float OutlineGlowScale = 1.35f;
+        //   🔴🔴 **2026-10-22 订正（铁律 5）：`OutlineGlowScale` 回 1.0 = 原版**。
+        //   原版那个节点（`RT_6990339727227853760`，4.4281×4.4281 @ y −0.01265）**`localScale = 1`**
+        //   —— 「光带落在卡框外沿」本来就是 SDF 自己的等值线位置，**不需要放大 quad**。
+        //   ⚠️ 本段原文写「1.35 是从实拍反推的可调数（1.046 / 0.755 ≈ 1.39）」—— **那个反推掩盖了真因**：
+        //   原版是 **Gamma 色彩空间**、我们是 **Linear**，同一张 SDF 被 sRGB→linear 解码
+        //   （R 0.565→0.278）⇒ 等值带从卡半宽 0.84..0.99 内移到 0.69..0.83；1.35 只是把带子推回去的补偿
+        //   （0.75×1.35≈1.01），**顺带把带宽与噪声一起放大了 35%**。
+        //   ✅ 根治 = `card_sdf/*.png.meta` 的 `sRGBTexture: 0`（Linear 工程下按原始值采 = 等效原版 Gamma）
+        //   ⇒ 这里回 **1.0**。判据全文 = `资料/普查产出_1022/W63_换牌倾斜与绿光判据_调查.md` §2。
+        //   ⚠️ 若并排渲图后带子仍偏内/偏外：**先查贴图的 sRGB 导入设置**，再考虑动这个数（并同步改本注释）。
+        const float OutlineGlowScale = 1.0f;
         /// <summary>描边那层的 z：比软光/影（`ShadowZ`）近、比立绘（0.03）远 —— 仍然在卡的**后面**，
         /// 只有露到卡框外沿以外的那半圈才看得见（= 实拍里「光在框外」）。</summary>
         const float OutlineZ = 0.055f;
@@ -4090,7 +4125,7 @@ namespace CardPresentation
         Texture2D _outlineSdfTex;
 
         /// <summary>🔴 **懒建**描边专用层（`Build` **不**建它）。
-        /// 为什么懒：这一层的 quad 是 `4.4281×1.35 = 5.98` 见方、shader 还是那张带噪声的 SDF，
+        /// 为什么懒：这一层的 quad 是 `4.4281 × OutlineGlowScale`（现 = 1.0 ⇒ 4.4281）见方、shader 还是那张带噪声的 SDF，
         /// 收藏/卡池那种「只看的卡」永远不会亮描边 ⇒ 给它们各挂一块 6² 的过绘制是白花。
         /// 一次性代价：一张卡第一次要亮描边时建一个 GameObject + mesh + 材质（很便宜）。
         /// ⚠️ 建不出（shader / SDF 取不到）⇒ 什么都不做，`OutlineMat` 自动退回 `_shadowLayer`。</summary>
@@ -4690,6 +4725,10 @@ namespace CardPresentation
         /// <summary>绿光那棵树（懒建、建好留着）。**不进 `_layers`** —— 颜色是它自己说了算。</summary>
         GameObject _canAct;
 
+        /// <summary>绿光**要不要亮**（调用方最近一次给的请求）。判据 / 为什么必须记下来
+        /// → <see cref="SetCanAct"/> 的注释（非场上形态时那次请求**不能丢**）。</summary>
+        bool _canActWanted;
+
         // ==================================================================
         //  🆕 2026-10-16 **卡背那一层**（抽我方牌翻面的前半段看的就是它）
         // ==================================================================
@@ -4762,10 +4801,26 @@ namespace CardPresentation
         public bool CanActVisible { get { return _canAct != null && _canAct.activeSelf; } }
 
         /// <summary>「未行动」绿光亮 / 灭。判据在**调用方**（`BattleDriver.SyncBoard` 用
-        /// `RuleCore.CanActNow` —— 那是唯一判据，本层只管画）。</summary>
+        /// `RuleCore.CanActNow` —— 那是唯一判据，本层只管画）。
+        /// <para>🔴 2026-10-22 **修「出牌后绿光整回合不亮」**：原来这个方法在**非场上形态直接 `return`、
+        /// 不留痕** ⇒ 那一次请求就丢了。而形态要到登场 clip **0.7 s** 才切成 `Board`
+        /// （`CardFeel.cs:1351-1357`，真机拖拽那档），`SyncBoard` **又不是逐帧跑**
+        /// ⇒ 出牌那一刻发下来的 `SetCanAct(true)` 落空，要等**下一次** refresh 才补上
+        /// （真机日志：turn 5 `built=0` → turn 7 `built=1`；战将 `built=1` ⇒ 不是 `BuildCanAct` 失败）。
+        /// 现在**只记请求**（<see cref="_canActWanted"/>），形态切到场上时由 `SetFace` 末尾那把
+        /// `ApplyCanAct()` **当场**补上 —— ⛔ 别再退回「等下一次 refresh 才补」。</para></summary>
         public void SetCanAct(bool on)
         {
-            if (!on)
+            _canActWanted = on;
+            ApplyCanAct();
+        }
+
+        /// <summary>按 <see cref="_canActWanted"/> 把绿光落到实际那棵树上 —— **原 `SetCanAct` 的方法体**，
+        /// 逻辑一个字没改，只是把形参换成了字段。「请求与落地分开」的两个入口：
+        /// ① 调用方每次同步（`SetCanAct`）；② **换形态**（`SetFace` 末尾，铁律 10 第 5 条）。</summary>
+        void ApplyCanAct()
+        {
+            if (!_canActWanted)
             {
                 if (_canAct != null && _canAct.activeSelf) _canAct.SetActive(false);
                 return;
@@ -4805,6 +4860,7 @@ namespace CardPresentation
 
         static void SetF(Material m, string p, float v) { if (m.HasProperty(p)) m.SetFloat(p, v); }
         static void SetC(Material m, string p, Color v) { if (m.HasProperty(p)) m.SetColor(p, v); }
+        static void SetV(Material m, string p, Vector4 v) { if (m.HasProperty(p)) m.SetVector(p, v); }
 
         /// <summary>按**原版 shader** 建一份粒子材质。
         /// ⚠️ **只在 shader 真声明了那个属性时才写**（`HasProperty`）—— 原版那批材质上带着
@@ -4847,6 +4903,23 @@ namespace CardPresentation
             SetF(m, "_Cutoff", 0.5f);
             m.EnableKeyword("_SURFACE_TYPE_TRANSPARENT");                 // 原版 `m_ValidKeywords` 就这一条
             m.renderQueue = 3000;                                        // 原版 `m_CustomRenderQueue`
+
+            // ---- 原版 `Sparks UI Additive Scroll` 的两条 ShaderGraph 哈希名属性 ----
+            // 判据 = 原版材质 `08_预制体特效/战斗预制体/Material/Material_-5419391226463376386.json`
+            //        （`m_Name` = `Sparks UI Additive Scroll`，shader PathID 8443069757019562635 =
+            //        `Everguild/FX/Halo UV scroll`）的 `m_SavedProperties/m_Colors` 实读：
+            //   · `Vector4_62056e41ff4042358d02be808b0352f9`（property 描述 `UV Scale (XY) Speed (ZW)`）
+            //     = **(1, 1, 0.63, 0)**；shader 默认是 (1, 1, **0.2**, 0) ⇒ 不写就慢 **3.15 倍**，
+            //     绿光是「亮弧沿环爬」，速度不够看起来就是走一半就停。
+            //   · `Vector3_65160a41016e4bb0ad3f5043d258b214`（`Border Fade (X) Clamp(YZ)`）
+            //     = **(1, 0, 1, 0)**（正好等于 shader 默认值，仍照抄坐实，别让默认值哪天变）。
+            // 两条在 shader 里都是 `m_Type = 1`（Vector），所以用 `SetVector`；同族写法见
+            // `Battle/TargetReticle.cs:403-405`。`HasProperty` 守 ⇒ 另一个 `Circle_Hoop Additive`
+            // （URP Particles/Unlit，没有这两个属性）不受影响。
+            // 报告：`资料/普查产出_1022/W63_场上卡牌与底座绿光_调查.md` §2 根因 1 / §5 第 2 条。
+            SetV(m, "Vector4_62056e41ff4042358d02be808b0352f9", new Vector4(1f, 1f, 0.63f, 0f));
+            SetV(m, "Vector3_65160a41016e4bb0ad3f5043d258b214", new Vector4(1f, 0f, 1f, 0f));
+
             if (tex != null)
             {
                 if (m.HasProperty(texProp)) m.SetTexture(texProp, tex);
@@ -7070,7 +7143,7 @@ namespace CardPresentation
             if (SameColor(_outlineTarget, c)) return;
             _outlineTarget = c;
             // 🔴 2026-10-21（`W61` · `新账-66`）：描边**改画在专用的 `outlineGlow` 层**上
-            //    （quad 放大 `OutlineGlowScale` ⇒ 光带沿**整张卡框**走）；建不出那层时 `OutlineMat`
+            //    （quad = 原版 4.4281² × `OutlineGlowScale`，2026-10-22 起 1.0 ⇒ 光带按 SDF 等值线落在卡框外沿）；建不出那层时 `OutlineMat`
             //    自动退回 `_shadowLayer`（= 改前的行为）。判据只此一处。
             //    ⚠️ 那一层是**懒建**的（`EnsureOutlineLayer`）—— 走到这儿 = 真的要亮，才付这块过绘制。
             if (_faceMode != CardFace.Board) EnsureOutlineLayer();
@@ -8339,10 +8412,15 @@ namespace CardPresentation
         ///    「最严重的还是插图超出卡框」⇒ 真因就是这一层）。
         ///    原版的破框 = **立绘画在框下、由框的 alpha 剪出来** —— 我们的 `_art`（z = +0.03，在框下）
         ///    + `_frame`（z = 0）那两层就是它，**一字不动**。
-        ///    「越出」在原版是**逐卡 opt-in、默认关**：`RawCardScript.useOverDraw`（偏移 **0x58**，
-        ///    **值在服务器**）→ `CardDisplayWindow` 调 `BasicCardUI.SetImageOverDraw(卡, 卡.useOverDraw)`
+        ///    「越出」在原版是**逐卡 opt-in**：`RawCardScript.useOverDraw`（偏移 **0x58**）→
+        ///    `CardDisplayWindow` 调 `BasicCardUI.SetImageOverDraw(卡, 卡.useOverDraw)`
         ///    → `CardImageController.ChangeSize() → ChangeState() → DoChange()`（把立绘 re-parent + ×1.26999998）；
         ///    而 `currentState` 是**非序列化 private** ⇒ **出厂态 = `Small(0)` = 不溢出**。
+        ///    🔴 **2026-10-22 就地更正（铁律 5）**：本段原来写「**值在服务器**（我们拿不到）」——
+        ///    **不成立**：`cards_engine.json` **v9 起就有 `useOverDraw` 列**（现读 **641×1 / 486×0**），
+        ///    已接进 `CardDef.UseOverDraw` → 本文件的 `UseOverDraw` → `ArtFrontVisible`（大图档两轴门控）。
+        ///    ⛔ 上面那条「出厂态 = 不溢出」说的是**原版字段的缺省**，与本文件那个开关的**默认 `true`**
+        ///    （= 保持我们现状）不是一回事，别混。
         ///    出处：`资料/战斗规格/战斗重建_0827/子代理读报_2dcard_0827.md:310`（D2 条）· 反编译
         ///    `d:/2/tools/decomp_full/CardDisplayWindow__CardOverdrawHandle.c` /
         ///    `BasicCardUI__SetImageOverDraw.c` / `CardImageController__ChangeState.c`。
@@ -8351,9 +8429,9 @@ namespace CardPresentation
         ///
         /// ⛔ **改成 `true` 就是复现那个缺陷**：那一层在框上**重画同一张立绘、带真 alpha** ⇒ 整条角色
         ///    轮廓盖住卡框（剑尖/肩甲出拱顶），再叠一层 `ArtCoverMargin`(1.04)。
-        /// ⚠️ 口子留着只为「将来能恢复」：原版是**逐卡** opt-in、值在服务器（我们拿不到）⇒ 只能**整卡池一起开**，
-        ///    而那不是原版的做法。真要复活得**按 `card_cutouts.json` 做成每卡实参**（或等远端数据），
-        ///    ⛔ 别再整卡池默认打开。
+        /// ⚠️ 口子留着只为「将来能恢复」：**小卡档**（本开关管的那一族）在原版**从不**溢出，
+        ///    所以这一档仍然只有「整卡池一起开」这一种用法 —— ⛔ 别拿 `UseOverDraw` 来给**小卡**开门
+        ///    （那个逐卡值在原版只喂 `CardDisplayWindow`，见 `CardDef.UseOverDraw` 的 doc）。
         ///
         /// 📌 `false` 这一档（原来是「`FrameCutout`：卡框按遮罩挖洞」）**已随 2026-10-10 那次改动删掉**
         ///    —— 它是我们自造的近似、非原版机制、且至今没人渲图看过（见那条建层处的注释）。
@@ -8412,6 +8490,86 @@ namespace CardPresentation
         /// —— 共用一块 ×1.27 的网格会把矩形立绘放大到卡框外（用户报的「插图超过卡框」）。卡框不动；
         /// 放大发生在「收边到卡体」之前 ⇒ 放多大都不会画到卡体外面（原版也是卡体矩形收边）。</summary>
         public const float BigArtScale = 1.27f;
+
+        /// <summary>🆕 2026-10-22（卡牌线 `T04` 第二笔）：**这张卡当前允不允许「角色压框」** ——
+        /// 原版 `BasicCardUI.SetImageOverDraw(bool)` 的等价物（**默认 `true`** = 建出来的样子不变）。
+        ///
+        /// <para>🔴 **判据（一手，亲读）**：`CardDisplayWindow__ChangeCardPosition.c:75-79` —— 换位一开始
+        /// `SetImageOverDraw(旧前台, false)` + `SetImageOverDraw(新前台, 它的 useOverDraw)`；
+        /// `CardDisplayWindow__CardOverdrawHandle.c:14-33` 对 `idx != 0` 的相关卡**一律 false**
+        /// ⇒ **卡片详情扇形的 1 主卡 + N 相关卡里，只有前台那张能溢出**。
+        /// 报告 → `资料/普查产出_1021/W60_真机与Unity_结果.md` §四 ⑤ · §五（「扇形只有前台那张可溢出」这条待办）。</para>
+        ///
+        /// <para>⚠️ `false` = 原版 `CardImageController` 的**状态 0**（`ChangeState(0)`）：立绘在框下、
+        /// **不放大、不在框上重画** ⇒ 我们的等价物是**整层关掉 `_artFront`**，露出来的就是底层 `_art`
+        /// （1.0 那一档）。⛔ 别把它理解成「把 `_artFront` 缩到 1.0 继续画」—— 抠图板本身比卡框宽 1.22×
+        /// （2.7484 vs 2.2452，判据同 <see cref="BigArtScale"/> 的 doc），画在框上仍然是「插图超出卡框」。</para>
+        ///
+        /// <para>⚠️ 只在**大图档**（<see cref="BigImage"/>）上真起作用：小卡档若靠 `UseFrontLayer` 建了
+        /// 同名那一层，那个老口子**不受本开关管**（见 `ArtFrontVisible`）。层是在 `Build` 那一趟建的 ⇒
+        /// `BigCardOverdraw = false` 建出来的卡根本没有这一层，切本开关是空操作（不静默造层）。</para>
+        public bool ArtOverdraw
+        {
+            get { return _artOverdraw; }
+            set
+            {
+                if (_artOverdraw == value) return;
+                _artOverdraw = value;
+                // ⚠️ 判据与 `SetFace` 那条**共用同一个函数**（`ArtFrontVisible`）—— 两处各写一遍 = 迟早不一致。
+                Show(_artFront, ArtFrontVisible);
+            }
+        }
+        bool _artOverdraw = true;
+
+        /// <summary>🔴 🆕 **2026-10-22（卡牌线 `T04` 第一笔）：【这张卡】允不允许角色压框** ——
+        /// 原版 `RawCardScript.useOverDraw` 的等价物（**默认 `true`** = 建出来的样子不变）。
+        ///
+        /// <para>🔴 **判据（一手 · 全量反编译）**：`CardDisplayWindow__CardOverdrawHandle.c:14-33` ——
+        /// `useOverDraw == 0 || idx != 0` ⇒ `SetImageOverDraw(Small)`；`!= 0 &amp;&amp; idx == 0` ⇒ `Big`。
+        /// 同一条口径还出现在 `CardDisplayWindow__ShowCard.c:75-84`（开窗那张前台）与
+        /// `CardDisplayWindow__ChangeCardPosition.c:75-79`（换位时接位那张传
+        /// `*(char *)(它的 RawCardScript + 0x58) != '\0'`，让位那张恒 `Small`）。
+        /// 数据侧 = `CardDef.UseOverDraw`（`cards_engine.json` 的 `useOverDraw` 列，现读 641×1 / 486×0）。</para>
+        ///
+        /// <para>⚠️ **它和 <see cref="ArtOverdraw"/> 是两层，⛔ 别合并**：
+        ///   · <see cref="ArtOverdraw"/> = **这一格是不是前台**（场景态；换位/开窗时由窗改）；
+        ///   · 本开关 = **这张卡允不允许溢出**（逐卡数据；建卡时定，换位不改）。
+        /// 原版把两者压成了一个参数的两次调用，但语义就是这两个轴 —— 合成 `ArtFrontVisible` 里那一个 `&amp;&amp;`。</para>
+        ///
+        /// <para>⚠️ `false` 的效果 = **关掉 `_artFront` 那一层**（露出 1.0 的底层 `_art`，不放大、不压框）——
+        /// 与原版 `CardImageController` 状态 0 同义；⛔ 不是「把前景缩到 1.0 继续画」（那张抠图板本身比卡框宽 1.22×）。
+        /// 只在**大图档**真起作用（`_artFront` 只在大图档建，见 `BigCardOverdraw`）。</para>
+        public bool UseOverDraw
+        {
+            get { return _useOverDraw; }
+            set
+            {
+                if (_useOverDraw == value) return;
+                _useOverDraw = value;
+                // ⚠️ 与 `SetFace` / `ArtOverdraw` **共用同一个判据函数**（`ArtFrontVisible`）—— 两处各写一遍 = 迟早不一致。
+                Show(_artFront, ArtFrontVisible);
+            }
+        }
+        bool _useOverDraw = true;
+
+        /// <summary>`_artFront`（角色抠图压框层）现在该不该亮 —— **判据只此一处**（换形态口 `SetFace` 与
+        /// 两个切换口 <see cref="ArtOverdraw"/> / <see cref="UseOverDraw"/> 共用；出生态 `Build` 建出来即亮，
+        /// 与两者的默认 `true` 一致）。
+        /// 小卡档那条老口子（`UseFrontLayer`）不受这两个开关管；大图档由它们决定。
+        ///
+        /// 🔴 **三层门控（2026-10-22 `T04` 合成完整，由外到内）**：
+        ///   ① `_artFront == null` —— 这一层根本没建（非大图档 / 非抠图 / `BigCardOverdraw = false`）；
+        ///   ② `_bigImage` —— 只有大图档才谈得上「溢出」；
+        ///   ③ `_artOverdraw`（**前台**）× `_useOverDraw`（**逐卡** `useOverDraw` 列）—— 两个都真才亮。</summary>
+        bool ArtFrontVisible
+        {
+            get
+            {
+                if (_artFront == null) return false;
+                if (_faceMode == CardFace.Board) return false;
+                return !_bigImage || (_artOverdraw && _useOverDraw);
+            }
+        }
 
         // 🔴 **2026-10-10 删掉了 `FrameCutoutMaterial()` / `_frameCutMat`** —— 它们只服务于
         //    `UseFrontLayer = false` 那条「卡框挖洞」支路，而那支路已删（理由见建层处的注释）。

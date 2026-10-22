@@ -891,6 +891,16 @@ namespace CardPresentation
                 // **前台白 / 相关卡压暗到 0.65**（原版 `cardInBackGroundColorTint`）——
                 // ⚠️ **必须排在 `SetHighlight` 之后**（那个自己也写 `SetTint`，谁后调谁生效）。
                 CardFan.ApplySlotTint(v, i == 0);
+                // 🔴 **2026-10-22（卡牌线 `T04`）：大图档「角色压框」的两轴门控。**
+                //    ① <c>ArtOverdraw</c> = **这一格是不是前台**（槽 0；换位时由 `SwapToFront` 改）；
+                //    ② <c>UseOverDraw</c> = **这张卡允不允许溢出**（逐卡 `CardDef.UseOverDraw`
+                //       ← `cards_engine.json` 的 `useOverDraw` 列；建卡时定，换位不改）。
+                //    合成判据**只在 `CardView.ArtFrontVisible` 一处**（⛔ 别在这儿再拼一遍）。
+                //    原版判据 → `CardDisplayWindow__CardOverdrawHandle.c:14-33`：`idx != 0` 一律 `Small`；
+                //    `idx == 0` 且 `useOverDraw != 0` 才 `Big`（本窗与原版同一个 `CardDisplayWindow` 族）。
+                //    ⚠️ 缺卡表项时按 `true`（= 本笔之前的行为，不静默变严）。
+                v.ArtOverdraw = (i == 0);
+                v.UseOverDraw = def != null ? def.UseOverDraw : true;
                 SlotViews[i] = v; _slotDefs[i] = def;
             }
             // 🔴 **每格一个独立的渲染队列**（越靠前台越高）—— 判据与坑（为什么必须走 `.material`）→ `CardFan`。
@@ -1018,6 +1028,17 @@ namespace CardPresentation
             var a = SlotViews[0]; var b = SlotViews[idx];
             if (a == null || b == null) return;
             _swapping = true;
+
+            // 🔴 **2026-10-22（卡牌线 `T04`）：换位【一开始】就换「谁能溢出」。**
+            //    原版 `CardDisplayWindow__ChangeCardPosition.c:75-79`（亲读）——
+            //    `BasicCardUI__SetImageOverDraw(cardInFront, 0)` ⇒ 让位那张收回；
+            //    `BasicCardUI__SetImageOverDraw(被点那张, 它的 useOverDraw)` ⇒ 新前台按**它自己的**卡表值决定。
+            //    本窗这里只改「前台」那一轴（`ArtOverdraw`）；逐卡那一轴（`UseOverDraw`）在 `BuildCardStack`
+            //    建卡时就按卡表定死了 ⇒ 两轴相与的结果与原版那句**同义**（逐卡为 0 的卡换到前台照样不溢出）。
+            //    ⚠️ 位置就是这里（原版那两句在两条补间**之前**），⛔ 别挪进 `OnComplete`
+            //    （原版 `CardSwapFinished` 只管 lore / 语音 / 颜色）。
+            b.ArtOverdraw = true;     // 被点那张 → 即将成为前台
+            a.ArtOverdraw = false;    // 让位那张 → `CardImageController` 状态 0
 
             var pa = a.transform.position; var pb = b.transform.position;
             float ra = a.transform.eulerAngles.z, rb = b.transform.eulerAngles.z;

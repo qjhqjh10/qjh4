@@ -95,9 +95,13 @@
 //     🔴 **2026-10-17 就地订正（铁律 5 · `U4` 现核）：这一句【已过期】** —— 两颗**都画了**
 //     （`DeckCell` 的 `showDifficulty: !OwnDecks` 那一路，2026-09-26 就落了）。
 //     错因 = 实现落地后没回来改这段文件头。⛔ 别再按它去「补画角标/模式图标」。
-//   · **两个页签的文案是我们定的**：原版两个 `m_text` 都是**空串**、只有 `mTerm`
-//     （`MenuDeck/Button/PresetDeck` / `MenuDeck/Button/OwnDeck`），而**本地没有任何术语表/翻译源**
-//     （2026-09-24 在 `assets_full` / `extract` / 反编译 / `资料/` 四处搜过，0 命中）⇒ 写 `Prebuilt Decks` / `My Decks`。
+//   · ✅ **两个页签的文案已改走官方词条（2026-10-22 · `W63` §四；铁律 5 就地订正）**：
+//     原版两个 `m_text` 都是**空串**、只有 `mTerm`（`MenuDeck/Button/PresetDeck` / `MenuDeck/Button/OwnDeck`）。
+//     ⚠️ 原来这里写「本地没有任何术语表/翻译源（2026-09-24 四处搜过 0 命中）⇒ 写 `Prebuilt Decks` / `My Decks`」
+//     —— **「没有」那半句已过期**：官方 zh-CN 表 2026-10-14 已解开
+//     （`数据/游戏数据/官方本地化_en+zh-CN.json` 现读 **Preset Decks / 预设卡组** · **Own Decks / 自有卡组**），
+//     且 `Loc.T` 自 `N71`（2026-10-18）起中英档也会兜到官方全表 ⇒ 现在走 `Loc.T(键)`。
+//     **错因** = 那句话写于官方表解开之前，之后没回来改。判据 → `资料/普查产出_1022/W63_卡组双模式与卡组内容_调查.md` §四。
 //   · `Instructions 2`(act=Y)：**本地拿不到译文**（它只带 `mTerm`，`m_text` 是空串）。
 //     ⚠️ **2026-10-17（D6）就地更正**：原来这里接着写「同窗的 `Instructions`(act=N) 有明文
 //     **"Select deck"** ⇒ **我们用它那句**填在 `Instructions 2` 的框里」—— **那句现在不成立了**：
@@ -498,8 +502,16 @@ namespace CardPresentation
             // 2) 两个页签（HLG spacing 12.45 ⇒ 第 2 个从 196.30 + 260 + 12.45 起）
             //    容器高 **68.50**、键高 **67.6421** ⇒ 竖直居中（`align=MiddleLeft`）
             float ty1 = TabT + (68.50f - TabH) * 0.5f, ty2 = ty1 + TabH;
-            BuildTab(root, "Prebuilt Decks", TabL, ty1, ty2, false);
-            BuildTab(root, "My Decks", TabL + TabW + TabGap, ty1, ty2, true);
+            // 🔴 **2026-10-22（`W63` §四）：两页签的文案改走【官方词条】** —— 原版两颗 Toggle 的
+            //   `Localize.mTerm` 就是 `MenuDeck/Button/PresetDeck` / `MenuDeck/Button/OwnDeck`；
+            //   官方本地化表（`Unity/数据/游戏数据/官方本地化_en+zh-CN.json` 的 `terms`）现读两列：
+            //   **Preset Decks / 预设卡组** · **Own Decks / 自有卡组**。
+            //   ⚠️ 改前写死的 `Prebuilt Decks` / `My Decks` 是自拟（当时没找到译文源，见文件头那一条）；
+            //   `Loc.T` 自 `N71`（2026-10-18）起中英档也会兜到官方全表
+            //   （`Resources/official_loc_13lang.json`，这两条现读 idx **6701 / 6702**）⇒ 直接取得到。
+            //   判据 → `资料/普查产出_1022/W63_卡组双模式与卡组内容_调查.md` §四。
+            BuildTab(root, Loc.T("MenuDeck/Button/PresetDeck"), TabL, ty1, ty2, false);
+            BuildTab(root, Loc.T("MenuDeck/Button/OwnDeck"), TabL + TabW + TabGap, ty1, ty2, true);
 
             // 3) 红底板
             MenuDraw.Nine(root, CardArt.MenuUi("UI_Deck_Information_Back"), new PxRect(RedL, RedT, RedR, RedB),

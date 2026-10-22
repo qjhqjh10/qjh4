@@ -1500,6 +1500,21 @@ namespace RuleEngine
             /// ⛔ **不要为了「有来源就填」往下填** —— 填了就会在 `FlushDeaths` 里多触发一次 Slay。
             /// </summary>
             public UnitState ActingCard;
+
+            /// <summary>
+            /// 🆕 **2026-10-22（`W63` · `RuleEngineTest` #5–#8）：这一条死亡是不是【伤害】造成的**
+            /// —— = <see cref="RuleCore.CleanupDeaths"/> 的 `maySurvive` 形参，**原样带回放**。
+            ///
+            /// 🔴 **为什么必须随条目走**：`CleanupDeaths(maySurvive: false)`（= **摧毁**那条路，
+            /// 判据见那个形参的 doc：原版 `BattleManager__ResolveDestroyUnit` 全文没有
+            /// `UseSurvivor` / `CurrentSurvivor` / `CheckIfDead`）现在也会在「同时伤害 / 队列动作批」
+            /// 里走到「只入队、不处理」那一跳。改前那个形参在入队时**被丢掉**，出队时一律按
+            /// `true` 回放 ⇒ **摧毁打不穿 Survivor**（幸存者把单位救回来、`survivor` 被清 0、
+            /// `survivorspent` 被挂上）—— 4 条断言的同一个根因。
+            /// ⇒ 现在**只此一处**决定「要不要问幸存者」，入队/出队两跳都不再自己写死。
+            /// ⚠️ 缺省 `false` = 摧毁那一档（⛔ 别改成 `true`）。
+            /// </summary>
+            public bool MaySurvive;
         }
 
         readonly List<PendingDeath> _pendingDeaths = new List<PendingDeath>();
@@ -1526,7 +1541,8 @@ namespace RuleEngine
         ///    但**猎杀标记**那一段在整个 `CleanupDeaths` 的**最前面**，
         ///    第二次进来时 `u` 还是那个死单位（棋盘上还没清）⇒ **标记会结算两遍**。
         /// </summary>
-        public void AddPendingDeath(int p, int slot, int killer, UnitState actingCard = null)
+        public void AddPendingDeath(int p, int slot, int killer, UnitState actingCard = null,
+                                    bool maySurvive = false)
         {
             if (p < 0 || p >= Players.Length) return;
             var u = Players[p].Board[slot];
@@ -1537,6 +1553,8 @@ namespace RuleEngine
             _pendingDeaths.Add(new PendingDeath
             {
                 Player = p, Unit = u, Killer = killer, SlotAtDeath = slot, ActingCard = actingCard,
+                // 🆕 2026-10-22（`W63` #5–#8）：**原样带走**，出队时原样回放（见 `PendingDeath.MaySurvive`）。
+                MaySurvive = maySurvive,
             });
         }
 

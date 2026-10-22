@@ -52,9 +52,13 @@
 //    ⇒ **只有新输入系统，legacy `Input` 不可用**（同 `CombatCameraZoom.PollPointerSource`）。
 //    等价物 = `ReadRaw()`：`Mouse.current.{position,scroll,leftButton,rightButton}` +
 //    `Touchscreen.current.touches`（活动手指）。**逐格对应关系写在那张表里，没有一处是靠猜的。**
-//    ⚠️ 唯一的量纲换算：滚轮。legacy 一格 = **±1**，新输入系统一格 = **±120**
-//    （同源口径 = `Shell/MenuScroll.cs` 的 `NotchK`）⇒ 除 `ScrollUnitsPerNotch`。⛔ 只影响 `ScrollDelta` 一格的**数值大小**，
-//    「取 `.y`」这条语义不变。
+//    🔴 **量纲换算：滚轮 —— 2026-10-22 真机实测后就地订正（铁律 5）。**
+//    原来这里写「legacy 一格 = ±1，新输入系统一格 = **±120** ⇒ 除 `ScrollUnitsPerNotch`(120)」—— **不成立**：
+//    `WF_SCROLL_PROBE=1` 起 player 滚一格，日志是
+//    `[SCROLLPROBE] raw=1.0000 raw/120=0.008333 sens=0.1000 invert=1 zoomDelta=-0.000833`（反方向 `raw=-1.0000`）
+//    ⇒ **`Mouse.current.scroll.ReadValue().y` 在本机已经就是 legacy 单位（一格 ±1）**，那个 `/120` 是错的等价物
+//    ⇒ 缩放**慢 120 倍**。现在 `ScrollUnitsPerNotch = 1`（保留这一除 = 明确「这里不做换算」）。
+//    ⛔ 只影响 `ScrollDelta` 一格的**数值大小**，「取 `.y`」这条语义不变。
 // B. **`Ensure()`（惰性自建）**：原版这东西是**摆在战场场景里的一件组件**
 //    （`bundle_scenes_scenes_battlearena1/MonoBehaviour/MonoBehaviour_4011.json`，挂 GO `712`）。
 //    我们的战场是一棵**自己搭的树**，没有那件 ⇒ 第一次有人读它时把它建出来（幂等）。
@@ -114,8 +118,9 @@ namespace CardPresentation
         /// <summary>`+0x18`。`TouchDragDelta` 的**视口**版（各轴 ÷ `Screen.width` / `Screen.height`，
         /// 分母那个 `1.0` = `DAT_1834b2bb8` ⇒ 屏宽 = 1）。`AttackTypesButtonsController.MoveButtons` 读它。</summary>
         public static Vector2 TouchDragDeltaViewport { get; private set; }
-        /// <summary>`+0x20`。滚轮这一帧的读数 —— **legacy 量纲**（Windows 一格 = ±1；原版取的是 `mouseScrollDelta.y`，
-        /// 见文件头 ⑥）。新输入系统那一格是 ±120 ⇒ 除 <see cref="ScrollUnitsPerNotch"/>（见文件头 A）。</summary>
+        /// <summary>`+0x20`。滚轮这一帧的读数 —— **legacy 量纲**（一格 = ±1；原版取的是 `mouseScrollDelta.y`，
+        /// 见文件头 ⑥）。新输入系统 `Mouse.current.scroll` 在本机**本来就是一格 ±1**（2026-10-22 真机实测，
+        /// 见文件头 A）⇒ 除 <see cref="ScrollUnitsPerNotch"/>（= 1）**是恒等**，只留作换算点。</summary>
         public static float ScrollDelta { get; private set; }
         /// <summary>`+0x24`。两指中点（屏像素）—— 双指时它同时是 `TouchPosition` 与 `UpdateDrag` 的输入。</summary>
         public static Vector2 TwoFingerMidPoint { get; private set; }
@@ -316,10 +321,22 @@ namespace CardPresentation
         //  等价物 A：原始读数（legacy `Input` 不可用 ⇒ 走新输入系统，见文件头 A）
         // ==================================================================
 
-        /// <summary>Windows 上一个滚轮刻度 = **120**（同源口径 = `Shell/MenuScroll.cs` 的 `NotchK`；
-        /// `CombatCameraZoom.ScrollUnitsPerNotch` 是同一个数的**另一处**用途 —— 那件组件现在改从本类读，
-        /// 所以口径只此一处：**这里**）。</summary>
-        public const float ScrollUnitsPerNotch = 120f;
+        /// <summary>一格滚轮 = 多少**输入单位** = **1**（= legacy `Input.mouseScrollDelta` 那一档）。
+        /// <para>🔴 **2026-10-22 真机实测（`WF_SCROLL_PROBE=1`）**：滚一格日志
+        /// `[SCROLLPROBE] raw=1.0000 raw/120=0.008333 sens=0.1000 invert=1 zoomDelta=-0.000833`、
+        /// 反方向 `raw=-1.0000` ⇒ **`Mouse.current.scroll.ReadValue().y` 在本机已经是 legacy 单位（±1）**。
+        /// ⛔ **不许再写 120** —— 那会让 `ScrollDelta` 变成 ±0.0083 ⇒ **缩放慢 120 倍**
+        /// （2026-10-22 之前的那条缺陷就是这么来的；`工具/wf_click.py` 的 `WHEEL_DELTA = 120` 是
+        /// **Win32 `SendInput` 那一层**的单位，⛔ 与本处 `Mouse.current` 的读数不是同一个量纲）。</para>
+        /// <para>同源口径 = `Shell/MenuScroll.cs` 的 `ScrollUnitsPerNotch`（同一天同样改成 1）·
+        /// `Deck/DeckRuntime.cs` 的 `ScrollUnitsPerNotch`（同）；
+        /// `CombatCameraZoom.ScrollUnitsPerNotch` 是**转发本常量**（别在那边再乘/除一次）。</para></summary>
+        public const float ScrollUnitsPerNotch = 1f;
+
+        /// <summary>🆕 **自检口**：<see cref="ScrollUnitsPerNotch"/> 的只读转发 —— 给 `Editor/` 那几条
+        /// 「一格滚轮的量纲」断言用（钉住的期望值 = **1**，判据见上面那条真机证据）。
+        /// ⛔ 不是第二个常量：值只此一处。</summary>
+        public static float ScrollUnitsPerNotchForTest { get { return ScrollUnitsPerNotch; } }
 
         /// <summary>`TouchPhase.Began` 的枚举值（legacy)。原版两处判 `phase == 0`。</summary>
         const int PhaseBegan = 0;
@@ -365,11 +382,17 @@ namespace CardPresentation
             if (m != null)
             {
                 r.PointerPos = m.position.ReadValue();                 // 屏幕像素、原点左下（与 legacy 同）
-                r.Scroll = new Vector2(0f, m.scroll.ReadValue().y / ScrollUnitsPerNotch);   // 一格 ±120 ⇒ ±1
+                // 🔬 除之前的原始值先落一个局部（只有探针要用；生产语义**没变**：仍是「除完 ⇒ legacy 一格 ±1」）。
+                float rawScrollY = m.scroll.ReadValue().y;
+                // 真机实测「一格 = ±1」（= legacy 量纲）⇒ 除数 = 1，这一句**是恒等**（见 ScrollUnitsPerNotch）。
+                r.Scroll = new Vector2(0f, rawScrollY / ScrollUnitsPerNotch);
                 r.LeftHeld = m.leftButton.isPressed;
                 r.RightHeld = m.rightButton.isPressed;
                 r.LeftDown = m.leftButton.wasPressedThisFrame;
                 r.RightDown = m.rightButton.wasPressedThisFrame;
+
+                // 🔬 探针：`WF_SCROLL_PROBE=1` 且这一帧**真有滚动**时才打一行（见 ScrollProbe 的注释）。
+                if (rawScrollY != 0f) ScrollProbe(rawScrollY, r.Scroll.y);
             }
             var ts = UnityEngine.InputSystem.Touchscreen.current;
             if (ts != null)
@@ -400,6 +423,47 @@ namespace CardPresentation
             }
             return r;
         }
+
+        // ==================================================================
+        //  🔬 测量探针：滚轮原始值（⛔ **不是行为改动**；默认关闭）
+        // ==================================================================
+
+        /// <summary>【测量探针 · ⛔ 不是行为改动】`WF_SCROLL_PROBE=1` 时，每次**非零滚动**往 Console 打一行
+        /// `[SCROLLPROBE] …`，用来在**真机**上量「Windows 滚一格到底报多少原始单位」。
+        /// <para>为什么要有它：<see cref="ScrollUnitsPerNotch"/> 原来写 **120**（「我们挑的等价物」，原版读 legacy
+        /// `Input`、本工程只有新输入系统 —— 见文件头 A），**从未在真机上量过**。
+        /// 🔴 **2026-10-22 已用它量过**：滚一格 `raw=1.0000` ⇒ 那个 120 是**错的**（缩放慢 120 倍），
+        /// 常量已按实测改成 **1**。**探针留着**：以后换鼠标 / 换输入设备、怀疑量纲变了，设
+        /// `WF_SCROLL_PROBE=1` 再量一次即可；探针本身**不改任何状态**（只读 + 打日志）。</para>
+        /// <para>⛔ 生产零影响：环境变量没设 ⇒ 一次也不打（连 <c>FindFirstObjectByType</c> 都不会跑）；
+        /// 滚动为 0 的帧 ⇒ 不打 ⇒ **正常游玩不会刷屏**。</para>
+        /// <para>⚠️ `zoomDelta` 是**候选增量**（`legacy × ZoomSensitivity`，桌面且 `invertMouseScrollWheel`
+        /// 为真时翻符号 —— 与 `CombatCameraZoom.HandleManualControl` 那两句同一算式）；真正落不落还要过它那两道门
+        /// （指针在不在 UI 上 / 窗口有没有焦点），这里看不到 ⇒ **别把这一列当成「一定生效了」**。</para></summary>
+        static void ScrollProbe(float rawY, float legacyY)
+        {
+            // 环境变量只判一次（真机上它不会中途变）。
+            if (_scrollProbeState == 0)
+                _scrollProbeState = System.Environment.GetEnvironmentVariable("WF_SCROLL_PROBE") == "1" ? 1 : -1;
+            if (_scrollProbeState < 0) return;
+
+            // `ZoomSensitivity` / `invertMouseScrollWheel` 是实例字段 ⇒ 借现成的那个实例读；没有就报 `?`
+            // （⛔ 不在这里另抄一份灵敏度 —— 两处写同一条规则迟早不一致）。
+            var zoom = UnityEngine.Object.FindFirstObjectByType<CombatCameraZoom>();
+            float sens = zoom != null ? zoom.ZoomSensitivity : float.NaN;
+            bool invert = zoom != null && !Application.isMobilePlatform && zoom.InvertMouseScrollWheelTest;
+            float zoomDelta = (float.IsNaN(sens) ? float.NaN : legacyY * sens) * (invert ? -1f : 1f);
+
+            Debug.Log("[SCROLLPROBE] raw=" + rawY.ToString("F4")
+                    + " raw/" + ScrollUnitsPerNotch.ToString("F0") + "=" + legacyY.ToString("F6")
+                    + " sens=" + (zoom != null ? sens.ToString("F4") : "?")
+                    + " invert=" + (invert ? 1 : 0)
+                    + " zoomDelta=" + (float.IsNaN(zoomDelta) ? "?" : zoomDelta.ToString("F6"))
+                    + " dt=" + Time.unscaledDeltaTime.ToString("F5"));
+        }
+
+        /// <summary>0 = 还没判过；1 = 探针开；−1 = 探针关（见 <see cref="ScrollProbe"/>）。</summary>
+        static int _scrollProbeState;
 
         // ==================================================================
         //  等价物 C：自检口（⛔ 生产路径一律不碰）

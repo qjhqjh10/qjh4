@@ -88,8 +88,31 @@ namespace RuleEngine
         public bool RequireActorInPlay;
 
         /// <summary>
-        /// 🆕 **2026-10-22（`W62` · R2 · Mob「再来一次」）：这一条是【额外触发】那一条**
-        /// （= 卡面 `it triggers an additional time` / `it applies the effect twice`）。
+        /// 🔴🆕 **2026-10-22（引擎线 `W63` · C1）：这条 ability 的原版 `abilityContext`**
+        /// （=`CardAbility.abilityContext // +0x14`；六档判据见 `RuleCore.IsRightContext` 的 doc）。
+        ///
+        /// <para>泵点在出队之后、结算之前按它复核「**载体**还在不在原版要求的区域」：
+        /// `0` 活着在场 · `10` 手牌 · `20` 牌库 · `30` 墓地 · `40` 在场（**含待死**）·
+        /// `50` 在场或墓地（**不含待死**）。</para>
+        ///
+        /// <para>🔴 <see cref="CardDef.AbilityContextUnknown"/>（`-1`，**缺省**）= 未知 ⇒
+        /// 泵点**回退** <see cref="RequireActorInPlay"/> 那条旧口径（`-1` 是旧卡表 / 这一路还没接线的
+        /// 正常状态，**今天所有调用点都是这一档** ⇒ 行为零变化）。
+        /// ⛔ **别把「未知」读成 `Play(0)`** —— 0 是合法取值（「必须活着在场」），
+        /// 读错会把死亡族 / 墓地族的触发静默掐死。</para>
+        /// </summary>
+        public int AbilityContext = CardDef.AbilityContextUnknown;
+
+        /// <summary>
+        /// 🆕 **2026-10-22（`W62` · R2 · Mob「再来一次」）：这一条属于【额外触发链】**
+        /// （链首 = 卡面 `it triggers an additional time` / `it applies the effect twice` 那一条）。
+        ///
+        /// 🔴 **口径（2026-10-22 `W63` 订正 · 铁律 5）**：旧文案写的是「**这一条是**额外触发
+        /// **那一条**」—— 那只描述了**链首**，与实现不符。实现里它是
+        /// <c>extraTrigger || ctx.ExtraTriggerDepth &gt; 0</c>（`RuleCore.EnqueueAbility`）：
+        /// **链首**由入队点显式传 `extraTrigger: true`，而**派生动作**（额外触发结算期间入队的
+        /// 那些监听者动作）靠 `ctx.ExtraTriggerDepth &gt; 0` **自动继承** ⇒ 本字段 = 「额外触发
+        /// **或**派生自额外触发链」，不是「只有链首」。
         ///
         /// 🔴 **为什么需要**：`ctx.ExtraTriggerDepth` 那道**重入守卫**原来夹在
         /// `RuleCore.FireExtraTriggers` 的`for` 循环外面 —— 那是因为旧的「额外触发」是

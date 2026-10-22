@@ -249,6 +249,17 @@ namespace CardPresentation
         HudPiece _backdrop;
         /// <summary>背景关闭区上的 `BattleHudButton`（`null` = 没建出来 / 没挂上）。</summary>
         BattleHudButton _backdropBtn;
+        /// <summary>🔴 **2026-10-22（战斗线 `T09` 残账 A4 · 过渡期补丁）：指针的世界点**（驱动层
+        /// `BattleDriver.WorldPointer` 的转发；`null` = 没接线 ⇒ 下面那道门不生效）。
+        /// <para>**唯一用途** = <see cref="RequestCloseByUgui"/> 判「这一下点是不是落在卡格上」。
+        /// 判据是原版的**射线序**：每张卡自己的 `2DCard/UI Collider`（`Image.m_RaycastTarget = 1` +
+        /// `UIGenericEventCatcher`）本身就在 uGUI 射线里、且排在背景 `Menu Dark Background` **之上**
+        /// ⇒ 点卡时背景那颗 `BackgroundCloseButton` **根本收不到点击**（报告 →
+        /// `资料/普查产出_1022/W63_相机与大图详情_调查.md` §二）。我们卡体是世界空间 mesh
+        /// （`T09` 第 5/6 步还没迁）⇒ 只能在背景回调里补一道等价的**几何门**。</para>
+        /// <para>⛔ **别拿它当「点击是否有效」的判据** —— 它只服务这一道门。卡格迁上画布
+        /// （`T09-残 A4`）之后原版射线序天然成立 ⇒ **本字段与那道门一起删**。</para></summary>
+        public System.Func<Vector3> PointerWorld;
         /// <summary>🔴 **2026-10-20（W57 · `T09-FIX3` · P1-3）：uGUI 关窗只记「待关」**，
         /// 由 <see cref="LateUpdate"/> 在本帧末尾落账（同 `ChatPopupPanel` / `BattleLogPanel` / `AlliancePanelWindow`）。
         /// <para>为什么不当场 `Hide()`：`EventSystem.Update` 与 `BattleDriver.Update` 都是默认执行顺序 ——
@@ -1278,6 +1289,22 @@ namespace CardPresentation
         void RequestCloseByUgui()
         {
             if (!Visible) return;              // 窗关着 ⇒ 这一下不算（件本来也收不到射线，双保险）
+            // 🔴 **2026-10-22（战斗线 `T09` 残账 A4 · 过渡期补丁）：卡格「先吃掉」这一下。**
+            //   判据（原版）= **uGUI 射线序**：每张卡的 `2DCard/UI Collider`（`m_RaycastTarget = 1` +
+            //   `UIGenericEventCatcher`；`CardDisplayWindow.AddCardsListeners` 往它的 `OnClick` 上
+            //   `AddListener`）排在背景 `Menu Dark Background` **之上** ⇒ 点卡那一下由**卡自己**接走，
+            //   背景那颗 `BackgroundCloseButton` **收不到**（报告 →
+            //   `资料/普查产出_1022/W63_相机与大图详情_调查.md` §二）。
+            //   我们卡体是世界空间 mesh（不在 uGUI 射线里）⇒ 这一下**全落到全屏 backdrop** 上，
+            //   同一次松手置 `_closePending` ⇒ `LateUpdate` 把刚起的 `SwapToFront` 补间连同整扇窗杀掉。
+            //   ⇒ 这里补一道**几何门**：指针落在**任一卡格**上 = 那一格先吃掉这次点击
+            //   （`HitSlot` 已是前台优先，矩形 = 原版 `UI Collider`，判据只此一份 —— 见它的 doc）。
+            //   ⚠️ 三种点击的落点：点后面的卡（slot > 0）⇒ 门挡住 ⇒ 窗不关，换位由驱动那条手搓沿做；
+            //      点前排自己（slot 0）⇒ 门挡住 ⇒ 窗不关、`SwapToFront(0)` 自己早退（原版闸②
+            //      `ChangeCardPosition.c:50-57`）；点空白 ⇒ `HitSlot == -1` ⇒ 照旧挂「待关」。
+            //   ⛔ **这是迁 uGUI 之前的补丁**：卡格迁上画布（`T09` 第 5/6 步 · 残 A4）之后，
+            //      原版那条射线序天然成立 ⇒ **本门连同 `PointerWorld` 字段一起删**。
+            if (PointerWorld != null && HitSlot(PointerWorld()) >= 0) return;
             _uguiCloseClicks++;
             _closePending = true;
         }
@@ -1353,6 +1380,18 @@ namespace CardPresentation
                 v.SetFace(CardFace.Full);
                 v.SetHighlight(CardHighlightState.Normal);   // 展示窗里的卡不吃「可出牌/不可出牌」那套状态色
                 CardFan.ApplySlotTint(v, i == 0);            // 前台白 / 相关卡压暗（原版 `cardInBackGroundColorTint`）
+                // 🔴 **2026-10-22（卡牌线 `T04` 第二笔）：扇形里【只有前台那张】允许角色越框。**
+                //    原版 `CardDisplayWindow__ChangeCardPosition.c:75-79`（旧前台 `SetImageOverDraw(…, false)` ·
+                //    新前台拿自己的 `useOverDraw`）＋ `CardDisplayWindow__CardOverdrawHandle.c:14-33`
+                //    （`idx != 0` 的相关卡**一律 false**）⇒ 非前台 = `CardImageController` 状态 0：
+                //    立绘在框下、不放大、不在框上重画（我们的等价物 = 关掉 `_artFront`，见 `CardView.ArtOverdraw`）。
+                //    判据 / 来源 → `资料/普查产出_1021/W60_真机与Unity_结果.md` §四 ⑤ · §五（那条待办）。
+                //    🔴 **2026-10-22（卡牌线 `T04` 第一笔）：逐卡 `useOverDraw` 已接上** ——
+                //      `defs[i].UseOverDraw`（`cards_engine.json` 的 `useOverDraw` 列，现读 641×1 / 486×0）
+                //      与本行「是不是前台」是**两轴**，相与的判据收在 `CardView.ArtFrontVisible` 一处
+                //      （⛔ 别在这儿再拼一遍）。缺卡表项时按 `true`（= 保持本笔之前的行为，不静默变严）。
+                v.ArtOverdraw = (i == 0);
+                v.UseOverDraw = defs[i] != null ? defs[i].UseOverDraw : true;
                 SlotViews[i] = v; _slotDefs[i] = defs[i];
             }
             CardFan.ApplyQueues(SlotViews, SlotCount, CardFan.QCardBase);
@@ -1469,6 +1508,19 @@ namespace CardPresentation
             var a = SlotViews[0]; var b = SlotViews[idx];
             if (a == null || b == null) return;
             _swapping = true;
+
+            // 🔴 **2026-10-22（卡牌线 `T04` 第二笔）：换位【一开始】就换「谁能溢出」。**
+            //    原版 `CardDisplayWindow__ChangeCardPosition.c:75-79`（亲读）——
+            //    `BasicCardUI__SetImageOverDraw(cardInFront, 0)` ⇒ 让位那张收回；
+            //    `BasicCardUI__SetImageOverDraw(被点那张, 它的 useOverDraw)` ⇒ 新前台放大。
+            //    ⚠️ **位置就是这里**：原版这两句在两条补间（`DOTween.Sequence`）**之前**，
+            //       ⛔ 别挪到 `OnComplete` 里（那是 `CardSwapFinished`，原版在那儿只管 lore/语音/颜色）。
+            //    ✅ **逐卡 `useOverDraw` 已接上（`T04` 第一笔）**：这里只改「谁是前台」那一轴，
+            //       另一轴 `UseOverDraw` 在这张卡建出来时就按卡表定死了（`BuildFan`）⇒ 合成结果
+            //       与 `BasicCardUI__SetImageOverDraw(被点那张, 它的 useOverDraw)` **同义**
+            //       （逐卡为 0 的卡即使换到前台也照旧不放大、不压框 —— 由 `CardView.ArtFrontVisible` 判）。
+            b.ArtOverdraw = true;     // 被点那张 → 即将成为前台（原版 `SetImageOverDraw(card, useOverDraw)`）
+            a.ArtOverdraw = false;    // 让位那张 → `CardImageController` 状态 0（原版 `SetImageOverDraw(cardInFront, false)`）
 
             // 🔴 **2026-10-19（`T04`）：补间一律走 `CardView.TweenPose`，⛔ 别退回 `CardTween.ToPose`。**
             //    `CardTween.ToPose` 直接写 `transform.localScale`，而我们的缩放是「基础 × 高亮系数」

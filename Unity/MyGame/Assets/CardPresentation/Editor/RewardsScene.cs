@@ -3932,9 +3932,9 @@ public static class RewardsScene
                         float o0 = ft2.TrackScroll.Offset;
                         var wheelInP = MenuCheck.PointerFramePxFromDesign(new Vector2(1125f, 700f), forge);
                         var wheelOutP = MenuCheck.PointerFramePxFromDesign(new Vector2(1125f, 300f), forge);
-                        CheckTrue(layer.WheelAt(wheelInP.x, wheelInP.y, -120f), "在锻造轨道**视口里**滚轮被接受");
+                        CheckTrue(layer.WheelAt(wheelInP.x, wheelInP.y, -1f), "在锻造轨道**视口里**滚轮被接受");   // 2026-10-22 量纲 120→1（一格 = ±1）
                         CheckTrue(!Mathf.Approximately(ft2.TrackScroll.Offset, o0), "…而且偏移**真的变了**");
-                        CheckTrue(!layer.WheelAt(wheelOutP.x, wheelOutP.y, -120f),
+                        CheckTrue(!layer.WheelAt(wheelOutP.x, wheelOutP.y, -1f),   // 2026-10-22 量纲 120→1（一格 = ±1）
                                   "在锻造轨道视口**外**（y=300，两条滚动区都不覆盖）滚轮不生效");
                         ft2.TrackScroll.ScrollBy(o0 - ft2.TrackScroll.Offset);     // 还原
                     }

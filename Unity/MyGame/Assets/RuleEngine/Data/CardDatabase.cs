@@ -186,9 +186,11 @@ namespace RuleEngine
             /// 实测形状 = 「标的是**哪张卡**、不是哪个卡 SO」（本体与 `(tutorial)` 副本同号）。</summary>
             public int cardShortId;
 
-            /// <summary>立绘**溢出卡框**的逐卡 opt-in（0/1）。原版消费点 =
+            /// <summary>立绘**溢出卡框**的逐卡 opt-in（0/1，缺值 `-1`）。原版消费点 =
             /// `CardDisplayWindow__ChangeCardPosition.c:75-79` → `BasicCardUI.SetImageOverDraw`。
-            /// ⚠️ `CardPresentation/Core/CardView.cs` 里那句「值在服务器、我们拿不到」**已过期**（铁律 5）。</summary>
+            /// ⚠️ `CardPresentation/Core/CardView.cs` 里那句「值在服务器、我们拿不到」**已过期**（铁律 5）。
+            /// 🆕 2026-10-22（卡牌线 `T04`）：**已接线** —— `CardDef.UseOverDraw`（`0` ⇒ false，其余 ⇒ true）
+            /// → `CardView.UseOverDraw` → `ArtFrontVisible` 的最内层门控。</summary>
             public int useOverDraw;
 
             /// <summary>「不能被随机生成」（0/1）。⚠️ **读取点没找到**（`allcards_未挖字段盘点.md` §四）
@@ -262,6 +264,19 @@ namespace RuleEngine
             /// ⛔ 不是原版枚举名 —— 映射表在 `工具/gen_cards_engine.py` 的 `ABILITY_TRIGGER_KEYWORD`。
             /// 数据源 = 真值 SO 快照 `cardAbilities[].priority`（与 `cards_truth.json` 同一份数据）。</summary>
             public TriggerPriorityDto[] triggerPriority;
+
+            /// <summary>🆕 v14（2026-10-22 · 引擎线 `W63` · `T03·c/d`）：逐条 ability 的**原版
+            /// `CardAbility.abilityContext`**（载体此刻必须待在哪个区域），喂
+            /// <see cref="CardDef.AbilityContextOfTrigger"/> / <see cref="CardDef.AbilityContextOfKeyword"/>。
+            ///
+            /// 🔴 **只落 `context != 0` 的行**（`0` = `Play`，占绝大多数；缺行与写 0 语义相同）。
+            /// 六档语义 / skip 表 / `-1` 契约 → `CardDef` 里本节那段注释（⛔ 别在这里抄第二份）。
+            /// ⚠️ `name` = 原版 `AbilityTrigger` 枚举名；`keyword` = 引擎触发关键词，
+            /// **只在生成器 `ABILITY_TRIGGER_KEYWORD` 有映射时出现**（⛔ 只按 keyword 落会漏掉
+            /// `UnitAttack` 这一族）。旧表（&lt; v14）整列没有 ⇒ 下面的 version 守卫出声，
+            /// 访问器一律 `-1`（未知）。
+            /// 数据源 = 真值 SO 快照 `cardAbilities[].abilityContext`。</summary>
+            public AbilityContextDto[] abilityContext;
         }
 
         /// <summary>🆕 v11：`animTimes` 的传输形状（字段名**故意与 JSON 列名一致**，JsonUtility 直读）。
@@ -312,6 +327,37 @@ namespace RuleEngine
             public const int MissingPriority = -1;
             public string keyword;
             public int priority = MissingPriority;
+        }
+
+        /// <summary>🆕 v14（2026-10-22 · 引擎线 `W63` · `T03·c/d`）：`abilityContext` 的一行
+        /// （**字段名故意与 JSON 列名逐字一致**，`JsonUtility` 直读）。
+        /// 语义（六档 / skip 表 / `-1` 契约）→ <see cref="CardDef.AbilityContextOfTrigger"/>。
+        ///
+        /// 🔴🆕 **`trigger` 与 `context` 都用 `-1` 哨兵，⛔ 别退回 `0`。**
+        /// 为什么：**两者的 `0` 都是合法取值** —— `trigger = 0` 是 `ThisCardPlayed`、
+        /// `context = 0` 是 `Play`（「必须活着在场」）⇒「JSON 里没写这个键」与「明确写 0」
+        /// 在 DTO 上分不开。缺键若静默读成 0：`context` 那条会把**死亡族 / 墓地族**的触发
+        /// **掐死**（0 = 载体必须活着在场），`trigger` 那条会把「没落 trigger」伪装成一条
+        /// 合法的 `ThisCardPlayed` 行。做法与 `TriggerPriorityDto` 同款 —— 字段初值 `-1`：
+        /// `JsonUtility.FromJson` 用默认构造造对象、**只覆盖 JSON 里出现的字段**
+        /// ⇒ `MapAbilityContext` 能认出「缺键」并**出声 + 丢弃**。
+        /// </summary>
+        [System.Serializable]
+        public class AbilityContextDto
+        {
+            /// <summary>「JSON 里没有 `trigger` 这个键」的哨兵值（见类注释）。</summary>
+            public const int MissingTrigger = -1;
+            /// <summary>「JSON 里没有 `context` 这个键」的哨兵值（见类注释）。
+            /// ⚠️ 它同时是 `CardDef.AbilityContextUnknown` 的值 —— 语义正好对齐（`-1` = 不可用）。</summary>
+            public const int MissingContext = -1;
+            /// <summary>原版 `CardAbility.trigger`（`AbilityTrigger` 枚举数值；`0` = `ThisCardPlayed` 合法）。</summary>
+            public int trigger = MissingTrigger;
+            /// <summary>原版 `AbilityTrigger` **枚举名**（`UnitAttack` / `Strike` / `UseFaith` …）。</summary>
+            public string name;
+            /// <summary>引擎侧触发关键词（`KeywordTable.*`）；**只在生成器有映射时出现**（无映射 = `null`）。</summary>
+            public string keyword;
+            /// <summary>原版 `AbilityContext` 数值：`0/10/20/30/40/50`。</summary>
+            public int context = MissingContext;
         }
 
         /// <summary>🆕 2026-10-21（引擎线 `T03·b`）：`skipDraws` 的一行
@@ -444,8 +490,29 @@ namespace RuleEngine
                                + "所有触发都会退回默认 **1（Instant）** ⇒ 四道动作队列接线之后，"
                                + "`ASH53`/`SAU13`/`SAU70`/`UM37` 这 4 张卡的结算顺序会按默认排。"
                                + "跑一下 gen_cards_engine.py 重生成（`T03·c`）。");
+            // 🆕 2026-10-22（引擎线 `W63` · `T03·c/d` · 数据层）：v14 起才有逐条 ability 的
+            //   `abilityContext`（原版 `CardAbility.abilityContext // +0x14`）。
+            //   **旧表整列没有** ⇒ `CardDef.AbilityContextOfTrigger/OfKeyword` **一律 `-1`（未知）**。
+            //   🔴 **必须出声，而且必须说清回退到哪一档**：`0` 是**合法取值**
+            //   （`Play` = 载体必须活着在场）⇒ 「缺列」若被读成 0，会把**死亡族 / 墓地族**的触发
+            //   **静默掐死**；反过来也⛔ 不能把「缺列」当「全池都是 Play」。未知的处置 =
+            //   消费端**回退旧口径**（`QueuedAction.RequireActorInPlay` 那一套），⛔ 不许自己挑一档。
+            if (dto.version < 14)
+                Debug.LogWarning($"[RuleEngine] 卡表 version={dto.version} < 14 —— 没有 `abilityContext` 一列"
+                               + "（原版 `CardAbility.abilityContext`：0 Play / 10 Hand / 20 Deck / 30 Cemetery"
+                               + " / 40 InPlayOrDying（**含**待死） / 50 InPlayOrCementery（**不含**待死））；"
+                               + "`CardDef.AbilityContextOfTrigger/OfKeyword` 会一律返回 **-1 = 未知**"
+                               + "（⛔ 不是 Play(0)：那会把死亡族/墓地族触发掐死）⇒ 消费端按「未知」回退旧口径。"
+                               + "跑一下 gen_cards_engine.py 重生成（`W63`）。");
 
             int noId = 0;
+
+            // 🆕 2026-10-22（卡牌线 `T04`）：`useOverDraw` 一列的**缺列兜底** —— v9 才有这一列，
+            //   而 `JsonUtility` 对**整列不存在**给的是 `0`（= 「这张卡不允许溢出」）⇒ 旧表会把
+            //   **全池 1127 张静默变成「不放大、不压框」**。上面那条 `version < 9` 只出声、不拦。
+            //   ⇒ 缺列时统一传 `-1`（`CardDef` 那边 `!= 0` ⇒ **允许** = 与接线前行为一致）。
+            //   ⚠️ 判据是**表版本**、不是「这张卡的值是不是 0」—— `0` 在 v9+ 里是**合法真值**（486 张）。
+            bool useOverDrawKnown = dto.version >= 9;
 
             // 🔴 **2026-10-21：卡名索引必须【先】建 —— 在造 `CardDef` 之前。**
             //   `CardDef` 的**构造函数**里就跑 `CollectTriggerOps` ⇒ `EffectText.Parse` ⇒
@@ -506,6 +573,12 @@ namespace RuleEngine
                     goesSecondId: c.goesSecond,
                     inventoryOptions: c.inventoryOptions,
                     showInCollectionOptions: c.showInCollectionOptions,
+                    // 🆕 2026-10-22（卡牌线 `T04`）：立绘溢出的**逐卡** opt-in —— 原样透传（`0` = 不许溢出，
+                    //   `-1`/缺列 = 允许；口径见 `CardDef.UseOverDraw` 的 doc）。
+                    //   ⚠️ 缺列（表 < v9）时传 `-1`、⛔ 不传 `c.useOverDraw`（那会是 `0` ⇒ 全池变严）——
+                    //   见上面 `useOverDrawKnown` 那一段。
+                    //   消费点 = `CardPresentation/Core/CardView.cs` 的 `UseOverDraw` → `ArtFrontVisible`。
+                    useOverDraw: useOverDrawKnown ? c.useOverDraw : -1,
                     initiative: c.initiative,
                     armour: c.armour,
                     // 🆕 v10（2026-10-19 · `A1959`/`A1960`）：原版 `choicesDefinition` 三列 ——
@@ -529,7 +602,15 @@ namespace RuleEngine
                     initialHandModifier: c.initialHandModifier,
                     initialManaModifier: c.initialManaModifier,
                     initialSpiritStoneModifier: c.initialSpiritStoneModifier,
-                    skipDraws: MapSkipDraws(c)));
+                    skipDraws: MapSkipDraws(c),
+                    // 🆕 v14（2026-10-22 · 引擎线 `W63` · `T03·c/d`）：逐条 ability 的原版
+                    //    `abilityContext` —— **只落数据**（消费点 = `ActionPump` / `EffectResolver`，
+                    //    另批接线）。四道闸（缺 `name` / 缺 `trigger` / 非法 `context` / 同 key 重复）
+                    //    在 `MapAbilityContext` 里**出声丢弃**，⛔ 不在这里另判一遍。
+                    //    ⚠️ 缺值口径 = 空表 + `AbilityContextsVersioned = false`（旧表整列没有
+                    //    ⇒ 上面的 `< 14` 守卫已经出过声）；访问器一律 `-1`（未知），⛔ 不是 Play(0)。
+                    abilityContext: MapAbilityContext(c),
+                    abilityContextsVersioned: dto.version >= 14));
             }
             // 🔴 🆕 2026-10-15（接线批）：**护甲两套口径一旦分叉就出声** ——
             //   引擎读的那一份（`CardDef` 构造里定下来的 `_keywords[armour]`）由
@@ -651,12 +732,127 @@ namespace RuleEngine
             return list;
         }
 
-        /// <summary>🆕 v14（2026-10-21 · 引擎线 `T03·b`）：`skipDraws` 列 → `CardDef.SkipDrawSpec`。
+        /// <summary>🆕 v14（2026-10-22 · 引擎线 `W63` · `T03·c/d`）：`abilityContext` 列 →
+        /// `CardDef.AbilityContextSpec`。`null` / 空 ⇒ 空表（`Parse` 那边一律传非 null 的 `IEnumerable`）。
+        ///
+        /// 🔴 **四道闸，全部「出声 + 丢弃该条」**（与 `MapTriggerPriority` 同口径：坏数据挡在
+        /// `CardDef` 之前 —— 到了那边只会「后写覆盖」，也就是**静默**）：
+        ///   ① `name` 为空 ⇒ 丢弃。`AbilityTrigger` **枚举名**是我们唯一的按键（关键词只覆盖
+        ///      53/159 行），空名查不到任何东西。
+        ///   ② `trigger` 缺键（= `AbilityContextDto.MissingTrigger`，`-1`）⇒ 丢弃。
+        ///      ⛔ 别让它静默落成 0：`0` = `ThisCardPlayed`，是**合法** trigger。
+        ///   ③ `context` 缺键（`-1`）或不在 **{0,10,20,30,40,50}** ⇒ 丢弃。
+        ///      `0` 是**合法值**（`Play`）—— 生成器只落 `!= 0` 的行，但这里**不拒** 0
+        ///      （手写/测试数据直接给 0 语义清楚）。原版对非法值也是 `LogError` 后丢弃。
+        ///   ④ 同一张卡 `name` 或 `keyword` 重复 ⇒ **丢弃后出现的那条**（先到的保留）＋出声。
+        ///      生成器对「同卡同 trigger 两个不同 context」已整条丢弃并报 `conflict`
+        ///      （2026-10-22 现读 0 条）—— 这里是**第二道闸**，且**必须**丢：
+        ///      `CardDef` 的索引是「后写覆盖」⇒ 不丢就是静默取最后一条。
+        /// ⚠️ 槽位语义（0 活着在场 / 40 含待死 / 50 不含待死 / skip 表）**只在 `CardDef` 那一段
+        /// 注释里有一份**，⛔ 别在这里抄第二份。
+        /// </summary>
+        static List<CardDef.AbilityContextSpec> MapAbilityContext(CardDto c)
+        {
+            var list = new List<CardDef.AbilityContextSpec>();
+            if (c == null || c.abilityContext == null) return list;
+            HashSet<string> seenName = null;
+            HashSet<string> seenKeyword = null;
+            foreach (var ac in c.abilityContext)
+            {
+                if (ac == null) continue;
+                // ① 缺 `name`（`AbilityTrigger` 枚举名）。
+                if (string.IsNullOrEmpty(ac.name))
+                {
+                    Debug.LogError($"[RuleEngine] 卡「{c.name}」（{c.id}）的 `abilityContext` 有一条没有 "
+                                 + $"`name`（trigger={ac.trigger}, context={ac.context}）—— 已丢弃该条"
+                                 + "（`AbilityTrigger` 枚举名是唯一按键；`CardDef` 那边也会静默丢）。"
+                                 + "重跑工具/gen_cards_engine.py。");
+                    continue;
+                }
+                // ② 缺 `trigger` 键（⛔ 不许静默落成 0 = ThisCardPlayed）。
+                if (ac.trigger == AbilityContextDto.MissingTrigger)
+                {
+                    Debug.LogError($"[RuleEngine] 卡「{c.name}」（{c.id}）的 `abilityContext` 里 `{ac.name}` "
+                                 + "**没有 `trigger` 键** —— 已丢弃该条（⛔ 没当成 0 = ThisCardPlayed："
+                                 + "`0` 是合法取值，缺键与「明确写 0」在数据上必须分开）。"
+                                 + "重跑工具/gen_cards_engine.py。");
+                    continue;
+                }
+                // ③ `context` 缺键 / 非法值。
+                if (ac.context == AbilityContextDto.MissingContext)
+                {
+                    Debug.LogError($"[RuleEngine] 卡「{c.name}」（{c.id}）的 `abilityContext` 里 `{ac.name}` "
+                                 + "**没有 `context` 键** —— 已丢弃该条（⛔ 没当成 0 = Play："
+                                 + "`0` = 「载体必须活着在场」，缺键读成 0 会把死亡族/墓地族触发掐死）。"
+                                 + "重跑工具/gen_cards_engine.py。");
+                    continue;
+                }
+                if (!IsLegalAbilityContext(ac.context))
+                {
+                    Debug.LogError($"[RuleEngine] 卡「{c.name}」（{c.id}）的 `abilityContext` 里 `{ac.name}` "
+                                 + $"context={ac.context} **非法**（合法只有 0 Play / 10 Hand / 20 Deck / "
+                                 + "30 Cemetery / 40 InPlayOrDying / 50 InPlayOrCementery）—— 已丢弃该条。"
+                                 + "重跑工具/gen_cards_engine.py。");
+                    continue;
+                }
+                // ④ 同 key 重复 ⇒ 丢弃后出现的那条（先到的保留）。name 与 keyword 两本索引都要防。
+                if (seenName == null) seenName = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+                if (!seenName.Add(ac.name))
+                {
+                    Debug.LogError($"[RuleEngine] 卡「{c.name}」（{c.id}）的 `abilityContext` 里 `{ac.name}` "
+                                 + "**出现了不止一次** —— 已丢弃**后出现**的那条（先到的保留）。"
+                                 + "一张卡一个 trigger 只能有一个 context；"
+                                 + "重跑工具/gen_cards_engine.py（它会整组丢弃并报 `conflict`）。");
+                    continue;
+                }
+                if (!string.IsNullOrEmpty(ac.keyword))
+                {
+                    if (seenKeyword == null) seenKeyword = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+                    if (!seenKeyword.Add(ac.keyword))
+                    {
+                        Debug.LogError($"[RuleEngine] 卡「{c.name}」（{c.id}）的 `abilityContext` 里关键词 "
+                                     + $"`{ac.keyword}` **出现了不止一次** —— 已丢弃**后出现**的那条"
+                                     + "（先到的保留；`CardDef` 的关键词索引是「后写覆盖」，不丢就是静默取最后一条）。"
+                                     + "重跑工具/gen_cards_engine.py。");
+                        continue;
+                    }
+                }
+                list.Add(new CardDef.AbilityContextSpec
+                {
+                    Trigger = ac.trigger,
+                    Name = ac.name,
+                    Keyword = string.IsNullOrEmpty(ac.keyword) ? null : ac.keyword,
+                    Context = ac.context,
+                });
+            }
+            return list;
+        }
+
+        /// <summary>`AbilityContext` 的**六档合法值**：`0 Play` / `10 Hand` / `20 Deck` / `30 Cemetery` /
+        /// `40 InPlayOrDying`（含待死） / `50 InPlayOrCementery`（不含待死）。
+        /// ⚠️ 常量本身在 <see cref="CardDef"/>（`AbilityContextPlay` 那一族）—— 这里只做
+        /// 「是不是这六个数之一」的判定，⛔ 别在这里另立语义或另抄一组数字。
+        /// </summary>
+        static bool IsLegalAbilityContext(int ctx)
+        {
+            return ctx == CardDef.AbilityContextPlay
+                || ctx == CardDef.AbilityContextHand
+                || ctx == CardDef.AbilityContextDeck
+                || ctx == CardDef.AbilityContextCemetery
+                || ctx == CardDef.AbilityContextInPlayOrDying
+                || ctx == CardDef.AbilityContextInPlayOrCemetery;
+        }
+
+        /// <summary>🆕 2026-10-21（引擎线 `T03·b`）：`skipDraws` 列 → `CardDef.SkipDrawSpec`。
         /// 语义/判据 → <see cref="CardDef.SkipDraws"/> 的 doc（⛔ 别在这里抄第二份）。
         /// 两道闸：① `keyword` 为空 ⇒ **出声并跳过**（`CardDef` 那边也会静默丢）；
         ///          ② `uses &lt; 1` ⇒ 出声并**按 1 收**（原版 `numberOfUses --` 后 `&lt; 1` 立刻摘，
         ///             0 次的效果等于不存在 —— 但不能静默改成「不限次」）。
         /// ⚠️ `limited == 0` 是**合法值**（不限次），⛔ 别拿它当缺值。
+        /// 🔴 **2026-10-22 就地订正（铁律 5）**：本行原来写「🆕 **v14**（2026-10-21 · 引擎线 `T03·b`）」——
+        ///    **那次并没有 bump 卡表 version**（当时仍是 v13），而本列**本来就约定不提 version**
+        ///    （「缺列」⇔「空表」，见 `SkipDrawDto` 的 doc）⇒ 那个 `v14` 标签是错的。
+        ///    **`v14` 已被 `abilityContext` 一列占用**（2026-10-22 · `W63`）。
         /// </summary>
         static List<CardDef.SkipDrawSpec> MapSkipDraws(CardDto c)
         {

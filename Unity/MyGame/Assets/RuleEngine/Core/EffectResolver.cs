@@ -7152,7 +7152,7 @@ namespace RuleEngine
                                          UnitState actor = null, UnitState target = null,
                                          UnitState preCalled = null,
                                          UnitState preCalled2 = null,
-                                         List<UnitState> boardListeners = null)
+                                         List<BoardListener> boardListeners = null)
         {
             // 🔴 **2026-10-22（`W62` · R1）：公开入口必须自带 `ActionScope`。**
             //   触发改「只入队」之后，广播**本身**会把监听器的 ability 排进队列；而泵点只在
@@ -7170,7 +7170,7 @@ namespace RuleEngine
         static void BroadcastWhenCore(BattleContext ctx, string kind, int who, CardDef card,
                                       UnitState subject, UnitState actor, UnitState target,
                                       UnitState preCalled, UnitState preCalled2,
-                                      List<UnitState> boardListeners)
+                                      List<BoardListener> boardListeners)
         {
             if (ctx == null || kind == null || ctx.IsOver) return;
             if (ctx.EffectChain >= BattleContext.MaxEffectChain)
@@ -7200,7 +7200,7 @@ namespace RuleEngine
             // 🆕 2026-10-22（`W62` · R2）：快照要么由调用方在【事件发生那一刻】给（见 `boardListeners`），
             //   要么就在这里现扫（老行为，绝大多数调用点）。拷一份是因为下面 `StableSortByPlayOrder` 会原地排序。
             var listeners = boardListeners != null
-                          ? new List<UnitState>(boardListeners)
+                          ? new List<BoardListener>(boardListeners)
                           : SnapshotBoardListeners(ctx, preCalled, preCalled2);
 
             // ---- ② 棋盘那一跳（原版第 2 跳）----
@@ -7212,7 +7212,7 @@ namespace RuleEngine
             //   ⇒ 多单位同时听同一个事件时，「先部署的那个先响」。
             //   ⚠️ 排序发生在**快照之后、预调之外**（`preCalled` / `preCalled2` 已经被排除出快照，
             //   它们的先后仍由调用方决定 —— 原版那条预调本来就在循环之前，不在这一趟里）。
-            RuleCore.StableSortByPlayOrder(listeners, u => u.PlayOrder);
+            RuleCore.StableSortByPlayOrder(listeners, l => l.Unit.PlayOrder);
             if (listeners.Count > 0)
             {
                 // ⚠️ `LastTargets` 是**代词机制**的存放位置：`it` / `this troop` 全从它取。
@@ -7229,12 +7229,15 @@ namespace RuleEngine
                 //    （`Neurotyrant`）要它，见 `BattleContext.EventCard` 的注释。
                 using (EventSlotsScope.TargetAndCard(ctx, target, card))
                 {
-                    foreach (var u in listeners)
+                    foreach (var l in listeners)
                     {
                         // 🔴 **2026-10-20（`W58` · D8）：这一跳抽成了 `FireBoardWhenListener`** ——
                         //   `EmitHit` 的「被打者预调」必须与这里**逐句同形**（判据共用一份；
                         //   ⛔ 别在 `EmitHit` 里另写一条简化版）。原来这段逐句原样，只是换了函数边界。
-                        FireBoardWhenListener(ctx, u, kind, who, card, subject, actor, target, targetWho);
+                        // 🆕 2026-10-22（`W63` #9）：`pinnedOwner` = 快照那一刻的归属 —— 出队时
+                        //   那个人可能已经被洗回牌库 / 移出棋盘，现查会把它的监听器静默丢掉。
+                        FireBoardWhenListener(ctx, l.Unit, kind, who, card, subject, actor, target, targetWho,
+                                              pinnedOwner: l.Owner);
                         if (ctx.IsOver) break;
                     }
                 }
@@ -7278,15 +7281,34 @@ namespace RuleEngine
         }
 
         /// <summary>
+        /// **棋盘监听者快照的一条** —— 单位 + **它在快照那一刻的归属方**（🆕 2026-10-22 `W63` #9）。
+        ///
+        /// 🔴 **为什么要把 owner 一起照下来**：触发改入队之后，「拍快照」与「逐条唤醒监听者」
+        /// 之间隔着一整段队列（`FireTriggerAt` 在**入队那一刻**拍，`FireTriggerDeferred` 在
+        /// **出队那一刻**才广播）。这段时间里世界会变 —— 典型反例 `A1562-③`：
+        /// 带 `Ferocity` 的单位自己用狂暴，`FireTriggerAt` 之后**紧接着**被洗回牌库
+        /// （`RuleCore.ResolveAlternativeCore`）⇒ 出队时 `OwnerOf` 反查得 `-1`，
+        /// 它自己的 `When … triggers Ferocity` 监听器**一次都不响**（静默）。
+        /// 原版是**同步广播**（`BroadcastUnitFerocity`，RVA `0x9B7C50`，三跳 0 条 `op_Inequality`）
+        /// ⇒ 归属应当取**事件发生那一刻**的值，⛔ 不是出队那一刻现查的。
+        /// </summary>
+        public struct BoardListener
+        {
+            public UnitState Unit;
+            /// <summary>快照那一刻它在谁的棋盘上（= 快照循环的 `p`）。⛔ 别用 `OwnerOf` 现查替代。</summary>
+            public int Owner;
+        }
+
+        /// <summary>
         /// **棋盘那一跳的「监听者快照」** —— 从 `BroadcastWhen` ②里那段逐字抽出来
         /// （2026-10-22 `W62` · R2：`FireTriggerAt` 要能在**入队那一刻**拍同一份快照）。
         /// 过滤口径与抽出来之前**逐字相同**（⛔ 别在这里改）：
         /// 跳过无卡 / 待死 / 没有监听器的单位，并排除 `preCalled` / `preCalled2` 两个预调主体。
         /// </summary>
-        static List<UnitState> SnapshotBoardListeners(BattleContext ctx, UnitState preCalled,
+        static List<BoardListener> SnapshotBoardListeners(BattleContext ctx, UnitState preCalled,
                                                       UnitState preCalled2)
         {
-            var listeners = new List<UnitState>();
+            var listeners = new List<BoardListener>();
             if (ctx == null) return listeners;
             for (int p = 0; p < 2; p++)
             {
@@ -7308,7 +7330,8 @@ namespace RuleEngine
                     //   原版 `BroadcastUnitAttacked.c:38/:44` 两条 `op_Inequality` 各排除一个。
                     if (preCalled != null && ReferenceEquals(u, preCalled)) continue;
                     if (preCalled2 != null && ReferenceEquals(u, preCalled2)) continue;
-                    listeners.Add(u);
+                    // 🆕 2026-10-22（`W63` #9）：**归属一起照下来**（见 `BoardListener` 的 doc）。
+                    listeners.Add(new BoardListener { Unit = u, Owner = p });
                 }
             }
             return listeners;
@@ -7368,14 +7391,29 @@ namespace RuleEngine
         static void FireBoardWhenListener(BattleContext ctx, UnitState u, string kind, int who,
                                           CardDef card, UnitState subject, UnitState actor,
                                           UnitState target, int targetWho,
-                                          bool selfOnlyOnly = false, bool allowPendingDeath = false)
+                                          bool selfOnlyOnly = false, bool allowPendingDeath = false,
+                                          int pinnedOwner = -1)
         {
             // ⚠️ 快照之后世界可能已经变了（前一个监听器把人打死了）——再判一次
             // 🔴 但「预调」那一跳（`allowPendingDeath`）照原版**不挡**待死单位（判据见 param 块）。
             if (!allowPendingDeath && ctx.IsPendingDeath(u)) return;
 
-            int owner = OwnerOf(ctx, u);
-            if (owner < 0) return;                             // 已经不在场上了
+            // 🆕 **2026-10-22（`W63` #9 · `A1562-③`）**：**`pinnedOwner >= 0` ⇒ 用快照那一刻的归属，
+            //   ⛔ 不再用 `OwnerOf` 现查。**
+            //   为什么：触发改入队之后，「拍快照」在**入队那一刻**、「逐条唤醒」在**出队那一刻**，
+            //   中间隔着一整段队列。典型反例 = 带 `Ferocity` 的单位自己用狂暴：`FireTriggerAt`
+            //   之后紧接着被洗回牌库（`RuleCore.ResolveAlternativeCore`）⇒ 出队时 `OwnerOf` 得 `-1`，
+            //   它自己的 `When … triggers Ferocity` 监听器被这一行静默丢掉。
+            //   原版是**同步广播**（`BroadcastUnitFerocity`，RVA `0x9B7C50`，三跳 0 条 `op_Inequality`）
+            //   ⇒ 归属取**事件发生那一刻**的值才对。口径写在 `BoardListener` 的 doc 里（只此一处）。
+            //   ⚠️ 缺省 `-1` = 老行为（`EmitHit` 的「被打者预调」那一跳直接调本函数，没有快照）。
+            int owner;
+            if (pinnedOwner >= 0) owner = pinnedOwner;
+            else
+            {
+                owner = OwnerOf(ctx, u);
+                if (owner < 0) return;                         // 已经不在场上了
+            }
 
             // 🔴 `selfOnlyOnly`：只按 `SelfOnly` 那几条取 op（判据见上面 param 块）——
             //    ⛔ 别改 `CardDef.FireWhen` 的语义（那是棋盘那一跳的整份取法，判据只此一处）。

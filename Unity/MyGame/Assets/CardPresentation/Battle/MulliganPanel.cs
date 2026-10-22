@@ -966,6 +966,15 @@ namespace CardPresentation
                 _savedScale.Add(c.transform.localScale);
                 // 🔴 **2026-10-22（W62 · `D6`）**：记下**搬进来之前**的队列，`ClearCardButtons` 还回去。
                 _savedQueue.Add(c.Queue);
+                // 🔴 **2026-10-22（W63 · 换牌那排卡是斜的）**：**先掐掉这张卡身上还活着的手牌重排补间**，
+                //   再写 `SetPose(…, 0f, …)`。为什么：`SyncHand` → `CardInteraction.Relayout` →
+                //   `HandLayout.Place` 在实机上（`animateRelayout == 1`）开的是一条 **0.2 s 的
+                //   `CardTween.ToPose`（位置 + **旋转** + 尺度）**，它会把牌慢慢转到**手牌扇形角**；
+                //   本方法这一句只写**当时**的局部旋转、**不会**让那条补间停下 ⇒ 0.2 s 后补间的
+                //   旋转尾巴最后落盘，换牌区那排牌就**位置对、角度斜**（用户真机报的正是它）。
+                //   同族同形：`ReapplyRowPoses`（本文件 `:681`）早就是「先 `DOKill` 再 `SetPose`」。
+                //   ⛔ 别改成 `DOKill(true)`：那会让补间**跳到终点**（扇形角），正好是要躲的那一档。
+                c.transform.DOKill();
                 c.SetPose(RowLocalPos(c), 0f, cardScale);          // 🔴 判据只此一处（`RowWorldPosAt` 的局部位版）
                 // 🔴 **2026-10-22（W62 · `D6`）**：把这张卡的**整段队列**抬到压暗层之上（判据 → `QMulliganCard`）。
                 //   ⚠️ 必须在 `SetPose` 之后、且**每一轮重建都要重设** —— `SyncHand`（`RefreshAll`）会走

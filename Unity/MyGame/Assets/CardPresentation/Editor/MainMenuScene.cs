@@ -5353,14 +5353,14 @@ public static class MainMenuScene
                             //   （`654.16..1680.12 × 210.69..855.46`）⇒ 喂指针前换到指针帧。
                             //   `owner` = `scr`（`Scroll Rect` 视口节点 —— `ScrollScale` 也是从它父级取缩放）。
                             var tWheelP = MenuCheck.PointerFramePxFromDesign(new Vector2(1167f, 533f), scr);
-                            bool hit = pl != null && pl.WheelAt(tWheelP.x, tWheelP.y, -120f);
+                            bool hit = pl != null && pl.WheelAt(tWheelP.x, tWheelP.y, -1f);   // 2026-10-22 量纲 120→1（一格 = ±1）
                             float y1t = grid != null && grid.childCount > 0 ? grid.GetChild(0).position.y : 0f;
                             CheckTrue(hit, "滚轮落在称号网格上（`PointerLayer.WheelAt`）");
                             CheckTrue(y1t > y0t + 0.01f,
                                       $"滚一格 ⇒ **内容真的往上走了**（world y {y0t:F3} → {y1t:F3} = {(y1t - y0t) * 108f:F1}px）");
                             CheckTrue(grid != null && grid.childCount == n0t,
                                       $"滚动重建之后格子数不变（{n0t}）—— 重建是**先清再建**（不清会越滚越多）");
-                            if (pl != null) pl.WheelAt(tWheelP.x, tWheelP.y, 120f);   // 滚回去，后面的断言要确定性
+                            if (pl != null) pl.WheelAt(tWheelP.x, tWheelP.y, 1f);   // 滚回去，后面的断言要确定性（2026-10-22 量纲 120→1）
                         }
                     }
 
@@ -5459,7 +5459,7 @@ public static class MainMenuScene
                             // 🆕 2026-10-20（`A1350` 第三批 · `W58-FRAME-MM`）：同上，视口中心 (1167,533) 是**设计帧**
                             //   ⇒ 先换到指针帧。`owner` = `scr2`（`Scroll Rect` 视口节点，与 Title 页同一档）。
                             var aWheelP = MenuCheck.PointerFramePxFromDesign(new Vector2(1167f, 533f), scr2);
-                            bool hit = pl != null && pl.WheelAt(aWheelP.x, aWheelP.y, -120f);
+                            bool hit = pl != null && pl.WheelAt(aWheelP.x, aWheelP.y, -1f);   // 2026-10-22 量纲 120→1（一格 = ±1）
                             cell0 = grid2 != null && grid2.childCount > 0 ? grid2.GetChild(0) : null;
                             img0 = cell0 != null ? FindChild(cell0, "Image") : null;
                             float y1a = cell0 != null ? cell0.position.y : 0f;
@@ -5472,7 +5472,7 @@ public static class MainMenuScene
                             CheckTrue(iy1 > iy0 + 0.01f,
                                       $"格子里那一层**跟着格子一起走**（world y {iy0:F3} → {iy1:F3}）"
                                       + " —— 原来子件用的是**未偏移**坐标（底板走了、图与字留在原地）");
-                            if (pl != null) pl.WheelAt(aWheelP.x, aWheelP.y, 120f);   // 滚回去
+                            if (pl != null) pl.WheelAt(aWheelP.x, aWheelP.y, 1f);   // 滚回去（2026-10-22 量纲 120→1）
                         }
 
                         // 🆕 **滚动区登记表不许「只增不减」/ 死条目不许还能被滚到**（2026-09-27 修的那颗雷）。
@@ -6532,7 +6532,7 @@ public static class MainMenuScene
                             //   （`1305.29..1746.97 × 288.62..864.38`）⇒ 先换到指针帧。
                             //   `owner` = `vp5`（`viewport` 节点；滚动区视口就是它自己的矩形）。
                             var rkWheelP = MenuCheck.PointerFramePxFromDesign(new Vector2(1526f, 576f), vp5);
-                            if (pl5 != null) pl5.WheelAt(rkWheelP.x, rkWheelP.y, -120f);
+                            if (pl5 != null) pl5.WheelAt(rkWheelP.x, rkWheelP.y, -1f);   // 2026-10-22 量纲 120→1（一格 = ±1）
                             var r0b = FindChild(cont5, "FactionScoreSmall");
                             float y1r = r0b != null ? r0b.position.y : 0f;
                             CheckTrue(Mathf.Abs(y1r - y0r) < 0.001f,
@@ -7011,7 +7011,27 @@ public static class MainMenuScene
                 }
 
                 // 顶上标题栏 + 两颗按钮
-                CheckText(TextOf(FindChild(sk.transform, "Window Title")), "Game mode", "`Window Title` 文案");
+                // 🔴 **2026-10-22（`W63` §四）：期望值 `"Game mode"` → **本窗模式的官方名**（官方词条键
+                //   `MainMenu/GameMode/Skirmish`）。改前断的是 prefab 出厂占位值：原版运行时由
+                //   `WindowHeaderWithBackButton.Initialize` 把它换掉（参考图 `经典模式参考图.png` 上是「经典」），
+                //   而 `Shell/LiveOpsEventWindow.cs` 的 `BuildHeader` 自 2026-10-22 起按 `DeckGameMode` 取
+                //   `MainMenu/GameMode/{Classic,Skirmish}` ⇒ 本窗（`SkirmishEventWindow`，`DeckGameMode` = 遭遇 13）
+                //   的标题 = **Skirmish / 小冲突**，旧期望值（占位字）会红。
+                //   判据 = 官方本地化表逐字：`数据/游戏数据/官方本地化_en+zh-CN.json` 的
+                //   `terms["MainMenu/GameMode/Skirmish"]` = `["Skirmish","小冲突"]`；
+                //   `Resources/official_loc_13lang.json` 同键 13 列同。
+                //   ⚠️ 期望值取 `Loc.T(键)`（跟着当前语档走），⛔ 别写字面量「小冲突」—— 那会把本条钉死在中文档。
+                //   🧨 改坏法：① `BuildHeader` 的 `TitleText` 删回 prefab 占位值 / 那一格被删 ⇒ 实测「Game mode」⇒ 红；
+                //     ② 两个模式分支写反（取成 `…/Classic`）⇒ 实测「经典」≠ 期望 ⇒ 红。
+                //   ⚠️ **灭自证**：期望值只读 `Loc.T(官方键)`，⛔ 不读 `sk.DeckGameModeName` / 任何被测常量
+                //      （读了 = 实现与检测器同一个口）。「键缺 ⇒ 两边一起退回键名 = 假绿」由下面那条**前提断言**堵住；
+                //      它语档无关（`!= 键名` 即解析成功，任何语档都成立）。
+                CheckTrue(Loc.T("MainMenu/GameMode/Skirmish") != "MainMenu/GameMode/Skirmish",
+                          "（前提）官方键 `MainMenu/GameMode/Skirmish` 在当前语档解析得到真文案"
+                        + "（⛔ 解析不到 ⇒ 下一条两边一起退化成键名 = 假绿）");
+                CheckText(TextOf(FindChild(sk.transform, "Window Title")), Loc.T("MainMenu/GameMode/Skirmish"),
+                          "`Window Title` 文案 = 本窗模式的官方名（`MainMenu/GameMode/Skirmish`；"
+                        + "原来断的是 prefab 出厂占位字「Game mode」）");
                 // 原版 hAlign = **Left**（旧 dump 错印成 Center）⇒ 比**渲出来的左边缘** = HLG 的 padLeft **155**
                 // ⚠️ 期望值写【字面量】**155.0** = 原版 prefab `RankedEventWindowV2 | SkirmishModeEventWindow > Window Title`
                 //    的 rect 左沿（`python 工具/menu_dump.py bundle_menus_assets_all "SkirmishModeEventWindow"
@@ -9904,7 +9924,7 @@ public static class MainMenuScene
                     //   AllianceMemberTab}.cs` 零命中）⇒ 内容一多就**画到框外**（原版那四个 `RectMask2D`/`Mask` 没人等效）。
                     //   本批补了「整行滚出视口 ⇒ 不建」这道守卫 ⇒ **没有滚动区就会把后面的行彻底藏掉** ——
                     //   两件必须**一起**补（`BattleLogPopup` 上就是这么踩过来的）。下面每处都断三件：
-                    //   ① 滚动区真的建了（且档位照原版）· ② 走**真路**（`PointerLayer.WheelAt(视口中心, ∓120)`）真的滚得动
+                    //   ① 滚动区真的建了（且档位照原版）· ② 走**真路**（`PointerLayer.WheelAt(视口中心, ∓1)`；2026-10-22 量纲 120→1）真的滚得动
                     //   · ③ 越界内容**不再画到框外**（量**渲出来那块**，不是节点 —— 裁剪会把 quad 挪走、节点不动）。
                     // 🔴 **档位先读原版那个 `ScrollRect` 的 `m_MovementType` 再定**：四件**全是 `m_MovementType = 1`**
                     //   （原始 JSON 实读：`bundle_menus_assets_all/MonoBehaviour/` 里 `…-992038356198235997.json`（Friends
@@ -10014,7 +10034,7 @@ public static class MainMenuScene
                                 var oaP = MenuCheck.PointerFramePxFromDesign(new Vector2(1117.94f, 708.53f), oaVp);
                                 CheckTrue(pl3 != null && pl3.ScrollUnder(oaP.x, oaP.y) == os,
                                           "视口中心（1117.94,708.53）上命中的滚动区**就是这一格**");
-                                CheckTrue(pl3 != null && pl3.WheelAt(oaP.x, oaP.y, -120f),
+                                CheckTrue(pl3 != null && pl3.WheelAt(oaP.x, oaP.y, -1f),   // 2026-10-22 量纲 120→1（一格 = ±1）
                                           "滚轮落在这一格上（`PointerLayer.WheelAt` —— 与真鼠标同一条路）");
                                 CheckTrue(os.Offset > 0f, $"往下滚一格 ⇒ 偏移往正走（现在 {os.Offset:F2}px）");
                                 RowSpan(oaList, "Entry", RowH0, out aTop1, out aBot1);
@@ -10139,7 +10159,7 @@ public static class MainMenuScene
                                 var fP = MenuCheck.PointerFramePxFromDesign(new Vector2(1103.98f, 697.43f), fvNode);
                                 CheckTrue(pl3 != null && pl3.ScrollUnder(fP.x, fP.y) == fsc,
                                           "视口中心（1103.98,697.43）上命中的滚动区**就是这一格**");
-                                CheckTrue(pl3 != null && pl3.WheelAt(fP.x, fP.y, -120f),
+                                CheckTrue(pl3 != null && pl3.WheelAt(fP.x, fP.y, -1f),   // 2026-10-22 量纲 120→1（一格 = ±1）
                                           "滚轮落在这一格上（`PointerLayer.WheelAt`）");
                                 CheckTrue(fsc.Offset > 0f, $"往下滚一格 ⇒ 偏移往正走（现在 {fsc.Offset:F2}px）");
                                 RowSpan(fContent, "Friend Info Item", CH, out fTop1, out fBot1);
@@ -10499,7 +10519,7 @@ public static class MainMenuScene
                                 var mP = MenuCheck.PointerFramePxFromDesign(new Vector2(1125.17f, 786.84f), mVp);
                                 CheckTrue(pl3 != null && pl3.ScrollUnder(mP.x, mP.y) == ms,
                                           "视口中心（1125.17,786.84）上命中的滚动区**就是这一格**");
-                                CheckTrue(pl3 != null && pl3.WheelAt(mP.x, mP.y, -120f),
+                                CheckTrue(pl3 != null && pl3.WheelAt(mP.x, mP.y, -1f),   // 2026-10-22 量纲 120→1（一格 = ±1）
                                           "滚轮落在这一格上（`PointerLayer.WheelAt`）");
                                 CheckTrue(ms.Offset > 0f, $"往下滚一格 ⇒ 偏移往正走（现在 {ms.Offset:F2}px）");
                                 RowSpan(mContent, "Alliance Member Entry", CH2, out mTop1, out mBot1);
@@ -10652,7 +10672,7 @@ public static class MainMenuScene
                                 float tTop0, tBot0, tTop1, tBot1;
                                 CheckTrue(RowSpan(drawer, "TrophyDisplay", TCellH, out tTop0, out tBot0),
                                           "建出来的格都在（量它们的位置，不量被裁过的 quad）");
-                                CheckTrue(pl3 != null && pl3.WheelAt(tP.x, tP.y, -120f),
+                                CheckTrue(pl3 != null && pl3.WheelAt(tP.x, tP.y, -1f),   // 2026-10-22 量纲 120→1（一格 = ±1）
                                           "滚轮落在这一格上（`PointerLayer.WheelAt` —— 与真鼠标同一条路）");
                                 CheckTrue(ts.Offset > 0f, $"往下滚一格 ⇒ 偏移往正走（现在 {ts.Offset:F2}px）");
                                 // 滚一格之后在建的格数 == 现算值（**先清再建**，不清会越滚越多）
@@ -12497,7 +12517,7 @@ public static class MainMenuScene
                             // 先钉「视口中心命中的就是这一格」—— 免得滚轮落到别的窗口的滚动区上、把下面几条判成假红
                             CheckTrue(pl2 != null && pl2.ScrollUnder(blpP.x, blpP.y) == rs,
                                       "视口中心（972.5,546.5）上命中的滚动区**就是这一格**");
-                            bool wHit = pl2 != null && pl2.WheelAt(blpP.x, blpP.y, -120f);   // 视口中心 = 235..1710 × 130..963
+                            bool wHit = pl2 != null && pl2.WheelAt(blpP.x, blpP.y, -1f);   // 视口中心 = 235..1710 × 130..963 · 2026-10-22 量纲 120→1（一格 = ±1）
                             CheckTrue(wHit, "滚轮落在这一格上（`PointerLayer.WheelAt`）");
                             CheckTrue(rs.Offset > 0f, $"往下滚一格 ⇒ 偏移往正走（现在 {rs.Offset:F2}px）");
                             CheckNear(topBefore - TopRowTop(fc), rs.Offset, 0.5f,
