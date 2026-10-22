@@ -142,6 +142,8 @@ namespace CardPresentation
         ///    本批把 6 条「我们挑的 / 同名不同物 / 判据只有我们自己的 Godot 台账」的通用件全撤了：
         ///    `play`（B1）· `ability`（B2）· `death`（B3）· `return`（B4）· `draw` 两行（B5）· `ambush_exit`（B7）·
         ///    `collect_waystone`（B8）。逐条原版出处写在 `ByEvent` 那张表对应那一段注释里。
+        ///    🔴 **2026-10-22（P6）补一笔**：`collect_waystone` 的真件（`Remnant Aeldari Collect particles`）
+        ///    当天已导进效果库、**已接回 `ByEvent`**（不再是缺口）—— 其余五条维持「不播」。
         ///    ⇒ **剩下还挂替代品的只有 `Hit` / `AttackRanged` 两件**（A4 那件其实是原版 SO 第一条，不是发明）。
         ///    ⛔ 别再把「反正是替代品、有总比没有强」当理由 —— 本仓口径是「**原版没有的就不播**」。
         ///
@@ -184,12 +186,15 @@ namespace CardPresentation
         }
 
         /// <summary>② **有真件、但本机还接不上**的事件（回 `null` **且出声一次**，⛔ 绝不拿替代品顶）。
-        /// <para>`CollectWaystone`（B8）：真件 = `Remnant Aeldari Collect particles`，**还没导进效果库**。</para>
         /// <para>`AmbushExit`（B7）：真件在 `CardTrait._traitEffects[]` 的 `FromCode(5)` 槽里，
-        /// 而**那张 trait→effect 真值表本地没有导出**（见 `ByEvent` 里那段注释）。</para></summary>
+        /// 而**那张 trait→effect 真值表本地没有导出**（见 `ByEvent` 里那段注释）。</para>
+        /// <para>🔴 **2026-10-22（P6 · `W64` B8 收口）：`CollectWaystone` 已从这里【移出】** ——
+        /// 真件 `Remnant Aeldari Collect particles` 当天已导进效果库、映射见 `ByEvent` 那一行
+        /// ⇒ 它现在**解析得出**，不再是缺口。⚠️ 把它留在这个名单里会**劫持** `ResolveFallback`：
+        /// 那个分支排在 `ByEvent.TryGetValue` **之前**（见 `ResolveFallback`），留着 ⇒ 那一行永远读不到。</para></summary>
         public static bool IsKnownGapEvent(string evt)
         {
-            return evt == CollectWaystone || evt == AmbushExit;
+            return evt == AmbushExit;
         }
 
         static readonly Dictionary<string, string> ByEvent = new Dictionary<string, string>
@@ -312,21 +317,27 @@ namespace CardPresentation
             //   ⇒ **已删**（2026-09-12 那次「三选一挑通用性最好的」本身就不是判据问题、是**事件有没有粒子**的问题）。
             //   ⚠️ 真要复刻回手表现，去解 `PlayBackToHandAnimation` 播的那条 clip（不是粒子）—— 那是另一笔账。
             //   判据 → `资料/普查产出_1022/W64_兜底审计_特效.md` §一 B4。
-            // 🔴 **2026-10-22（`W64` §B8）：`collect_waystone` 这一行【暂时为空】—— 真件没导入。**
+            // 🆕 **2026-10-22（P6 · `W64` §B8 收口）：`collect_waystone` 这一行【已接上】。**
             //   判据（第一权威）= `RemnantAeldari__CollectWaystoneEffect.c` 逐句读：先 `AudioCue.Play3D`，
-            //   再 `Instantiate(param_1[0xf])` —— `+0xf` 是**残骸 prefab 自己序列化的 `collectParticles`**，
-            //   位置 = 残骸 `transform.position`。同族件就是 **`Remnant Aeldari Collect particles`**
-            //   （`assets_full/bundle_battleprefabs_vfxandmisc_assets_all/GameObject/` 现读存在，
-            //      自带 `AnimFXModuleMoveParticlesToTarget`＝「灵魂飞向目标」，语义对得上）。
-            //   🔴 **但这一件【不在我们的效果库】里**（`WarpforgeVFX/Prefabs/` 只有 `RemnantBody3D Aeldari/
-            //   Necrons` 两件；`效果库报告.tsv` 同）⇒ 换名字就会让「名字在库里都找得到」那条断言红。
-            //   ⇒ 按铁律 11 / 「⛔ 不硬凑一件替代品」：**先留白 + 出声**，不拿 `WaystoneCollect` 顶。
+            //   再 `Instantiate(collectParticles = +0xf, GetDeathParticlePosition(),
+            //   该 prefab 自己 transform 的 rotation)` —— `+0xf` 是**残骸 prefab 自己序列化的
+            //   `collectParticles`**（`RemnantBody3D Aeldari.waystoneCollectVFX` ⇒ 本件），
+            //   随后 `AnimFXController.SetData(card)` + `Destroy(残骸体)`。
+            //   **落点**：`RemnantAeldari__GetDeathParticlePosition.c` 取 `this + 0x68` 那个 Transform 的
+            //   `position` —— P5 实读那一位 = **`wayStoneIdle`**，落到 prefab 节点
+            //   `RemnantBody3D Aeldari / Idle / Spirit Stone Idle`（localPosition `(0, 1.203, 0)`）。
+            //   我们的等价实现 = `BattleDriver.PlaySignal` 里那一支（**只此一处判据**）：
+            //   `CardView.TryGetRemnantNode(CardView.RemnantIdleNodePath)` 取世界坐标，
+            //   取不到才退回 `DropTargetWorld`（= 格心）**并出声**。
+            //   ✅ **它今天在库里**：`效果库报告.tsv` 有 `Remnant Aeldari Collect particles`
+            //   （自带 `AnimFXModuleMoveParticlesToTarget` = 「灵魂飞向目标」，语义对得上）。
             //   ⚠️ 原来挂的 `WaystoneCollect`（`assets_full` 里同名那件）**不是** collectParticles：
             //      `anim_address_map` 里它的 CardAnim 是 `WaystoneCollectAnim`（`cardanimsgeneral`），
-            //      而**全池没有任何卡 SO 引用它**（`card_vfx_by_card.json` 0 命中）⇒ 同名不同物。
-            //   ⏭ 补法：把 `Remnant Aeldari Collect particles` 走 `工具/extract_missing_shaders.py --prefabs`
-            //      → `EffectExporter` → `EffectLibraryBuilder` 导进来（**需要 Unity 批处理**，本批没做），
-            //      再把这一行写成那件名字。
+            //      而**全池没有任何卡 SO 引用它**（`card_vfx_by_card.json` 0 命中）⇒ 同名不同物，⛔ 别再挂回去。
+            //   ⏭ 历史（2026-10-22 之前）：这一行曾因「真件没导入」留白 + 出声；真件由
+            //      `工具/extract_missing_shaders.py --prefabs` → `EffectExporter` → `EffectLibraryBuilder`
+            //      导进来之后**本行才接上**。判据 → `资料/普查产出_1022/W64_兜底审计_特效.md` §一 B8。
+            { CollectWaystone,  "Remnant Aeldari Collect particles" },
             // 🆕 2026-10-14（`A1816`）**伏击翻面**（`ambush_exit`）—— 🔴 **2026-10-22（`W64` §B7）也留空**：
             //   原版 trait 特效的取法 = `BattleManager.GetTraitEffect(trait, FromCode(5), army)`
             //   （`CardTraitCollection__GetTraitEffectObject.c` → `CardTrait._traitEffects[]` 里按
@@ -1423,7 +1434,9 @@ namespace CardPresentation
         /// 🔴 **2026-10-22（`W64`，判据只在 <see cref="IsOriginalNoGenericEvent"/> / <see cref="IsKnownGapEvent"/> 两处）**：
         /// `play` / `ability` / `death` / `return` / `attack_melee` **回 null 且不出声**
         /// （原版没有这一档；`death` 是**真件另有播放口**，见 <see cref="IsOriginalNoGenericEvent"/>）；
-        /// `collect_waystone` / `ambush_exit` **回 null 且出声**（有真件、本机接不上）。
+        /// `ambush_exit` **回 null 且出声**（有真件、本机接不上）。
+        /// 🔴 **2026-10-22（P6）：`collect_waystone` 已从这一族移出** —— 真件导进库、`ByEvent` 那行接上了
+        /// （判据见那一行），它现在**解析得出**。
         /// ⛔ 别为了「让它有件」往 `ByEvent` 里塞替代品 —— 那正是 `W64` 销掉的那批账。</summary>
         static string ResolveFallback(string evt, string faction)
         {
@@ -1439,8 +1452,9 @@ namespace CardPresentation
             //   ① **原版的形状**（`play` / `ability` / `death` / `return` / `attack_melee`）⇒ 回 null、
             //      **不出声**：下面 `WarnNoFactionVariant` 那条警告是给「按阵营配、这个阵营漏配」的
             //      **缺陷**用的；这几档不是缺陷，喊出来只会变成假信号（`Describe()` 里会如实打成 `xx=—`）。
-            //   ② **有真件、本机接不上**（`collect_waystone` / `ambush_exit`）⇒ 回 null、**出声一次**：
+            //   ② **有真件、本机接不上**（今天只剩 `ambush_exit`）⇒ 回 null、**出声一次**：
             //      这是已知缺口，⛔ 不拿替代品顶、也⛔ 不静默。
+            //      （🔴 2026-10-22（P6）：`collect_waystone` 已接上真件、**不在这条路上**了。）
             //   ⚠️ `ByFaction` 的查询在**上面**（真有阵营想给这些事件配专属件时仍然生效），
             //      别把这两条挪到它前面。
             //   判据 → `资料/普查产出_1022/W64_兜底审计_特效.md` §一 B1–B8（逐条原版出处）
@@ -1806,8 +1820,10 @@ namespace CardPresentation
             //    ⚠️ 🔴 **2026-10-22（`W64` §B5）**：本段原来写「`Draw` 是**按阵营**配的 ⇒ 默认口径解析不出
             //       是预期的，判断时要配 `ResolvesForSomeFaction`」—— **已过期**：`ByFaction` 里
             //       `Draw` 那两行已删（原版抽卡 0 粒子）⇒ 今天**任何一个阵营都解析不出**。
-            //       `Unmapped()` 里 `Draw` / `AmbushExit` / `CollectWaystone` 会一直出现，那是**预期的**
+            //       `Unmapped()` 里 `Draw` / `AmbushExit` 会一直出现，那是**预期的**
             //       （由 `IsOriginalNoGenericEvent` / `IsKnownGapEvent` 解释，不是漏配）。
+            //       🔴 **2026-10-22（P6）**：`CollectWaystone` **不再出现在那个名单里** ——
+            //       它已接上 `Remnant Aeldari Collect particles`（见 `ByEvent` 那一行）。
             Draw, AmbushExit,
         };
 
@@ -1843,7 +1859,7 @@ namespace CardPresentation
         ///   ① 原版本来就没有通用件 ⇒ <see cref="IsOriginalNoGenericEvent"/>
         ///      （`play` / `ability` / `death` / `return` / `attack_melee`）；
         ///   ② 有真件、本机接不上 ⇒ <see cref="IsKnownGapEvent"/>
-        ///      （`collect_waystone` / `ambush_exit`）；
+        ///      （今天只有 `ambush_exit`；🔴 2026-10-22（P6）`collect_waystone` 已接上、不在此列）；
         ///   ③ 只能按阵营配、而今天一个阵营都没配（`draw` —— 🔴 2026-10-22 B5 之后连 `ByFaction` 也没了）。
         /// ⇒ 断言批改时这三族要**显式排除**（⛔ 别为了让它绿而往表里塞一件替代品 —— 那正是本批销掉的账）。
         /// 判据 → `资料/普查产出_1022/W63_飞行与卡ID演出_调查.md` §B + `W64_兜底审计_特效.md` §一。</para></summary>

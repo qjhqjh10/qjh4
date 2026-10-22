@@ -224,9 +224,35 @@ namespace WarpforgeVFX
             //    ⚠️ 与上面那些 Everguild 名字不同：这一件是 **Unity 包 shader**，走原件的唯一顾虑是
             //      「URP 下能不能渲」—— 原版自己就是 URP 6000.2.6f2 的工程，用的就是这一份，**不需要我们再判断**。
             "TextMeshPro/Distance Field Offset",                       //   1（`CardPrefab.prefab` 的 4 条描边材质）
-            // ⏸ **暂缓的大头（仅剩这一个）**（改它会一次性动 233 条效果，要单独一批 + 一次全量 sweep 量过再动）：
-            //   `Everguild/FX/Particle Distortion Affect Transparents`（233）
-            //   （另一件 `Everguild/FX/Extra Color` 741 **已于 2026-10-19 改走原件**，见上一段。）
+            // ---- 🆕 2026-10-22（W64 · 兜底审计 **M6**）：**`Particle Distortion Affect Transparents` 改走原件** ----
+            // 🔴 **来由**：它是白名单里**最后一条「⏸ 暂缓的大头」**（原文：「改它会一次性动 233 条效果，
+            //    要单独一批 + 一次全量 sweep 量过再动」）。现在动它的依据：
+            //    ① 原件**就在随包主包** `wf_shaders.bundle` 里（UnityPy 实读 45 个 Shader 对象含这一条，
+            //       与 2026-10-19 `Extra Color` 741 处**同形**）；
+            //    ② `Replacements` 里那条指向的是**自建重建** `WarpforgeVFX/FX/Distortion`
+            //       （`WFDistortion.shader` 文件头自承：原版 ShaderGraph 的 HLSL 与字节码**都被剥了**，
+            //        只按属性表 + pass 状态重建）。
+            //    ⇒ 走原件 = **零猜测**。判据全文 → `资料/普查产出_1022/W64_素材导出缺口.md` §一 M6。
+            // ⚠️ **`Replacements` 里那一条【保留不动】** —— 与上面 `Extra Color` 同款理由：
+            //    ① **导出期占位材质要用**（占位材质不能是 bundle 里的 shader，`Shader.Find` 拿不到非工程资产）；
+            //    ② **原件包不在场时的兜底路**要用（新克隆没有 `StreamingAssets/WarpforgeVFX/`）。
+            //    ⚠️ `TryResolve` 里白名单排在 `Replacements` **前面**、且**取件失败才回落** ⇒ 进白名单**不改变兜底路**。
+            // 🔴 **影响面 = 233 个 prefab 引用**（判据：`grep -rl "Particle Distortion Affect Transparents"
+            //    d:/4/Unity/MyGame/Assets/WarpforgeVFX/Prefabs/ | wc -l`，2026-10-22 现读 = **233**）。
+            // 🔴 **⚠️ A/B 尚未跑**（本轮不起 Unity）：这 233 条效果的**画面可能整体变化** ——
+            //    原件这一族是真·抓屏扭曲（`_DistortTex` 偏移重采样场景色），我们的重建版是另一套同名近似算式。
+            //    ⏭ 待办：跑一次 `WFSWEEP_SIDE=both` 的 sweep（`EffectCompare` / `EffectSweepBatch`）量差异。
+            "Everguild/FX/Particle Distortion Affect Transparents",    // 233
+            // ---- 🆕 2026-10-22（W64 · 兜底审计 **M7**）：**两条 `Everguild/Cards/*` 把已有行为写成数据** ----
+            // 🔴 **来由**：这两条原来**两张表里都没有**（既不在 `Replacements`、也不在 `UseOriginal`）
+            //    ⇒ 只靠 `TryResolve` **最后一步**「去已加载的包里取原件」**静默**兜着（各 1 条效果）。
+            //    ⚠️ **写进白名单不改变解析结果**：工程里没有任何 `.shader` 资产用这两个名字
+            //    （2026-10-22 全仓 `grep 'Shader "…"'` 现读为空），`Shader.Find` 对这类私有名本来也返回 null
+            //    ⇒ 加不加它，**渲染逐位相同**（与 2026-10-01 那两条 `Gem Crystal Glitter*` 同款判定）。
+            //    买到的是：① 把「这两件要用原件」写成**数据**；② 让 `ShaderResolveProbe` 的白名单断言**盯住它们**。
+            //    判据全文 → `资料/普查产出_1022/W64_素材导出缺口.md` §一 M7。
+            "Everguild/Cards/3D Card Blend Image",                     //   1（`AmbushEffect`）
+            "Everguild/Cards/3D Card Stealth",                         //   1（`StealthEffect`）
         };
 
         /// <summary>原版 shader 名 → 本工程 shader 名</summary>
@@ -523,7 +549,7 @@ namespace WarpforgeVFX
             //    在编辑器里 `Shader.Find` **找得到**（Unity 自带同一批），而找到的恰恰是
             //    「在 URP 下渲染不了」的那一份 ⇒ 不换序的话白名单**永远走不到 bundle**，
             //    等于没生效、而且是**静默**的（画面还是自建近似，没人看得出来）。
-            //    对原有 21 条零影响：它们都是 Everguild / ShaderGraph 的私有名，
+            //    对原有 21 条零影响（**这是 2026-09-19 当时的条数**；现读以 `UseOriginal.Count` 为准）：它们都是 Everguild / ShaderGraph 的私有名，
             //    `Shader.Find` 本来就返回 null（`ShaderResolveProbe` 的白名单断言要求 21/21 走「原版bundle」，
             //    换序前后都过 —— 这条正是用来钉住这次改动的）。
             if (wantOriginal && WarpforgeShaderLoader.TryGetShader(originalName, out shader))
@@ -540,11 +566,14 @@ namespace WarpforgeVFX
             //        · **8 个内置管线名**（`Mobile/Particles/*` …）→ `Shader.Find` **命中引擎自带那一份**
             //          ⇒ 走的是「**在 URP 下渲染不了**」的那个 shader ✗✗。
             //    **与项目记录不符**：`项目任务.md` / 本文档都写着「**新克隆一个包都没有 ⇒ 兜底路必然被走到**」，
-            //      而按上面的路径，白名单那 59 个名字**根本走不到自建替代**。
+            //      而按上面的路径，白名单里的名字**根本走不到自建替代**
+            //      （条数现读 = `UseOriginal.Count`，2026-10-22 为 **64** —— ⛔ 别在此写死，加了新条目就会变）。
             //    **改法**：白名单那次取件已经**失败**才会执行到这里 ⇒ 允许它落 `Replacements`（= 我们那份），
             //      这比「引擎那个渲不出来的」或「干脆没有」都更接近原版。
             //      ⚠️ **正常态不受影响**：包在 → 上面早就 `return true` 了。
-            //    **自检**：`ShaderResolveProbe.Run` 的 `59 个走原件 / 0 个没走成` 不变（它就是在验这条路径）。
+            //    **自检**：`ShaderResolveProbe.Run` 现在应报 `64 个走原件 / 0 个没走成`
+            //      （2026-10-22 加完三条后的现数；⚠️ **本轮没跑 Unity**，条数以 `UseOriginal.Count` 为准）。
+            //      它逐条遍历本表并断言 `source.StartsWith("原版bundle")` ⇒ 白名单**只增不减**时它只会更严。
             if (PreferBuiltIn && Replacements.TryGetValue(originalName, out var mine))
             {
                 shader = Shader.Find(mine);

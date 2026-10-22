@@ -20,8 +20,9 @@
 //    官方 zh-CN 词条表 2026-10-14 已解开 ⇒ **上面那个「资源名反推」现在只是【兜底】** ——
 //    取值改成先走 `Loc.BulkOr("Titles/" + <32hex id>, 反推名)` / `Loc.BulkOr("Avatars/" + <反推名>, 反推名)`
 //    （键的拼法 = 原版 `GetTranslation("…")` 的拼法，见 `工具/_loc_official/gen_official_names.py` 文件头）。
-//    现读命中：**Titles 368/462 · Avatars 234/469 · 成就名 95/102 · 成就描述 95/102**
-//    （命中不到的 = 2025-07-30 快照之后新增的，**保留资源名反推、⛔ 不填占位**）。
+//    现读命中：**Titles 459/462 · Avatars 468/469 · 成就名 102/102 · 成就描述 102/102**
+//    （2026-10-22 P1 现读复核：成就那两列从 95 涨到 102 —— 上一批把官方表接全了；
+//     Titles 459 是官方表本身的条数，余额 3 条**官方没有**。⚠️ 引用这些数一律现读，别抄。）
 //    🔴 **2026-10-18（W18）就地订正**：上面那个 **Avatars 234/469** 是「**只拿反推显示名当键**」时的数 ——
 //       原版的键其实是 `Avatars/<nameTextReference 原文>`：老一批 SO 的原文**不带前缀**
 //       （`Aggressor Sergeant`）、新一批**带**（`Avatar_UM_Attack Bike`）⇒ 拿原文当键才两批都命中。
@@ -163,8 +164,8 @@ namespace CardPresentation
         /// · **别再在别处写第二份**（`NetSession.PlayerName()` 原来自己取机器名，2026-09-27 已收口到这里）。</summary>
         public static string PlayerName
         {
-            get { return string.IsNullOrEmpty(_nameOverride) ? DefaultPlayerName : _nameOverride; }
-            set { _nameOverride = value; }
+            get { EnsureSave(); return string.IsNullOrEmpty(_nameOverride) ? DefaultPlayerName : _nameOverride; }
+            set { _nameOverride = value; SaveIfAuto(); }
         }
 
         /// <summary>🔴 **默认显示名 —— 用户 2026-09-28 拍板：「暂时显示『玩家123』之类的」**。
@@ -222,8 +223,8 @@ namespace CardPresentation
         /// <para>⚠️ setter **不夹取**（与原来的字段逐位同语义）：越界值由下面两个读口各自 `Mathf.Clamp`。</para></summary>
         public static int AvatarIndex
         {
-            get { return _avatarIndex; }
-            set { _avatarIndex = value; }
+            get { EnsureSave(); return _avatarIndex; }
+            set { _avatarIndex = value; SaveIfAuto(); }
         }
         static int _avatarIndex = 0;
 
@@ -234,6 +235,7 @@ namespace CardPresentation
         /// （省掉「存了但存错了时机」那一类坑）。</para></summary>
         public static int SetAvatarIndexForTest(int index)
         {
+            EnsureSave();                 // 先读盘，别让「加载」在测试写完之后把值盖掉
             int prev = _avatarIndex;
             _avatarIndex = index;
             return prev;
@@ -241,7 +243,7 @@ namespace CardPresentation
 
         /// <summary>🆕 **2026-10-19（`A1519`）自检专用** —— 把 <see cref="SetAvatarIndexForTest"/> 交回的原值放回去。
         /// ⚠️ 只做赋值、**不夹取**（原值本来就来自这个字段）。</summary>
-        public static void RestoreAvatarIndexForTest(int saved) { _avatarIndex = saved; }
+        public static void RestoreAvatarIndexForTest(int saved) { EnsureSave(); _avatarIndex = saved; }
 
         /// <summary>当前选中头像的**图名**（喂给 `CardArt.Cosmetics`）。清单没读进来时返回 null。</summary>
         public static string AvatarArt
@@ -280,8 +282,16 @@ namespace CardPresentation
         //   ⇒ 名牌上**整块不显示**（判据 = `PlayerProfileUIController__SetProfileTitle.c` 的
         //   `!IsNullOrEmpty`）。⛔ 别学头像那样给个默认下标 —— 那等于凭空给玩家一个他从没选过的称号。
 
-        /// <summary>当前选中称号的**下标**（**−1 = 没选**）。档案窗 `Title` 页写；战斗 HUD 名牌读。</summary>
-        public static int TitleIndex = -1;
+        /// <summary>当前选中称号的**下标**（**−1 = 没选**）。档案窗 `Title` 页写；战斗 HUD 名牌读。
+        /// <para>🆕 **2026-10-22（P1 · 账户界面批次）**：从裸字段改成**属性** —— 写口加一层 `SaveIfAuto()`
+        /// （落盘层见本文件末尾「本地存档」那一节）。读口 `EnsureSave()` 保证先读盘再返回；
+        /// ⛔ 语义不变（setter 仍**不夹取**，越界由读口 `TitleName` 挡）。</para></summary>
+        public static int TitleIndex
+        {
+            get { EnsureSave(); return _titleIndex; }
+            set { _titleIndex = value; SaveIfAuto(); }
+        }
+        static int _titleIndex = -1;
 
         /// <summary>当前选中称号的**显示名**。没选（`TitleIndex &lt; 0`）/ 越界 / 清单为空 ⇒ **`""`**
         /// （空串 = 没有称号 ⇒ HUD 那一块整块关，判据见 `BattleDriver.SetTitle`）。</summary>
@@ -403,6 +413,222 @@ namespace CardPresentation
             for (int i = 0; i < src.Count; i++)
                 if (src[i].Army == army || src[i].Army == 0) r.Add(src[i]);
             return r;
+        }
+
+        // ============================================================ 本地存档（唯一一份）
+        //
+        // 🔴 **这一层是【我们自建】的等价物，不是原版行为**。原版这五样全在服务器（PlayFab）：
+        //    玩家名 · 已装备头像 · 已装备头衔 · 头像边框 · 成就进度/积分
+        //    （`PlayerDataManager.set_PlayerTitle` · `PlayerAvatarDataManager` 存档 ·
+        //     `AchievementsManager.achievementsSave` + `UploadPooledProgress`）。
+        //    关服 ⇒ 本地没有来源 ⇒ 这里只做到「**关掉游戏再打开还在**」（跨设备同步做不到）。
+        //
+        // · 路径照既有先例（`Battle/ReplayStore` = `persistentDataPath/WarpforgeReplays/` ·
+        //   `Shell/DailyData` = `persistentDataPath/WarpforgeDaily/daily.json`）：
+        //   **`persistentDataPath/WarpforgeProfile/profile.json`**。
+        // · 形状 = 一个 JSON（`JsonUtility`），字段见 <see cref="SaveDto"/>。
+        // · 🔴 **批处理（`-batchmode`）默认不读也不写真存档**：自检会把 `TitleIndex` 写成 7 / 9999、
+        //   把 `AvatarIndex` 拨来拨去（`SetAvatarIndexForTest` 那一族）—— 若照写，测试状态会污染玩家存档、
+        //   下次跑又读到脏值（自检不幂等）。自检验落盘走 `SaveNowForTest()` / `ReloadSaveForTest()`。
+        // · ⚠️ **迁移**：`ver` 只是记号；读到不认识的版本 ⇒ 缺的字段保持默认值（`JsonUtility` 的语义），
+        //   ⛔ 不做破坏性迁移（这份文件里没有不可重建的数据）。
+
+        /// <summary>存档文件内容（`JsonUtility` 只认 public 字段）。</summary>
+        [Serializable]
+        public class SaveDto
+        {
+            /// <summary>格式版本（`1` = 2026-10-22 首版）。</summary>
+            public int ver = 1;
+            /// <summary>`PlayerName` 的**覆盖值**（空串 = 用默认占位名）。</summary>
+            public string playerName = "";
+            public int avatarIndex = 0;
+            /// <summary>−1 = 没选（与 `TitleIndex` 同义）。</summary>
+            public int titleIndex = -1;
+            public bool avatarBorderOn = true;
+            /// <summary>成就进度：与 <see cref="achValues"/> 同下标配对（`Ach_N`）。</summary>
+            public string[] achIds = new string[0];
+            public int[] achValues = new int[0];
+        }
+
+        public const string SaveDirName = "WarpforgeProfile";
+        public const string SaveFileName = "profile.json";
+
+        /// <summary>🆕 **自检专用**：把存档路径改到临时文件（`null` = 正常路径）。
+        /// 🔴 为什么要有它：自检会改 `AvatarIndex`/`TitleIndex` 再验「落盘后读回还是那一个」——
+        /// 若直接写 `persistentDataPath`，**测试状态会污染玩家真存档**，下次启动就带着脏值。
+        /// 用完必须置回 `null` 并删掉临时文件（自检那边负责）。</summary>
+        public static string SavePathOverrideForTest;
+
+        /// <summary>存档完整路径（`persistentDataPath/WarpforgeProfile/profile.json`；
+        /// 自检可用 <see cref="SavePathOverrideForTest"/> 改道）。</summary>
+        public static string SavePath
+        {
+            get
+            {
+                if (!string.IsNullOrEmpty(SavePathOverrideForTest)) return SavePathOverrideForTest;
+                return System.IO.Path.Combine(System.IO.Path.Combine(Application.persistentDataPath, SaveDirName), SaveFileName);
+            }
+        }
+
+        static SaveDto _save;
+        static Dictionary<string, int> _achProgress;
+        static bool _saveTried;
+
+        /// <summary>头像边框显隐（`Avatar Tab/Toggle borde`）。**读写都落盘**（原版在 `PlayerAvatarDataManager`）。</summary>
+        public static bool AvatarBorderOn
+        {
+            get { EnsureSave(); return _save.avatarBorderOn; }
+            set { EnsureSave(); _save.avatarBorderOn = value; SaveIfAuto(); }
+        }
+
+        /// <summary>第一次用存档时读盘（批处理下跳过 —— 见本节头）。</summary>
+        static void EnsureSave()
+        {
+            if (_saveTried) return;
+            _saveTried = true;
+            _save = new SaveDto();
+            _achProgress = new Dictionary<string, int>();
+            if (Application.isBatchMode) return;      // 自检不碰真存档
+            LoadFromDisk();
+        }
+
+        static void LoadFromDisk()
+        {
+            try
+            {
+                if (!System.IO.File.Exists(SavePath)) return;
+                var d = JsonUtility.FromJson<SaveDto>(System.IO.File.ReadAllText(SavePath));
+                if (d == null) return;
+                _save = d;
+                _nameOverride = string.IsNullOrEmpty(d.playerName) ? null : d.playerName;
+                _avatarIndex = d.avatarIndex;
+                _titleIndex = d.titleIndex;
+                if (d.achIds != null && d.achValues != null)
+                    for (int i = 0; i < d.achIds.Length && i < d.achValues.Length; i++)
+                        if (!string.IsNullOrEmpty(d.achIds[i])) _achProgress[d.achIds[i]] = d.achValues[i];
+            }
+            catch (Exception e)
+            {
+                Debug.LogWarning("[Profile] 读存档失败（" + SavePath + "）：" + e.Message + " ⇒ 用默认值");
+            }
+        }
+
+        /// <summary>写盘（正式入口；内部会先做「越界值不落盘」的净化）。批处理下由 <see cref="SaveIfAuto"/> 挡掉。</summary>
+        public static void SaveNow()
+        {
+            EnsureSave();
+            // 净化：自检会把 TitleIndex 写成 9999 之类 —— 那种值**不写进玩家存档**
+            if (_titles != null && _titles.Count > 0)
+            {
+                if (_titleIndex < -1 || _titleIndex >= _titles.Count) _save.titleIndex = -1;
+                else _save.titleIndex = _titleIndex;
+                if (_avatarIndex < 0 || _avatarIndex >= _avatars.Count) _save.avatarIndex = 0;
+                else _save.avatarIndex = _avatarIndex;
+            }
+            _save.playerName = _nameOverride ?? "";
+            var ids = new List<string>(); var vals = new List<int>();
+            foreach (var kv in _achProgress) { ids.Add(kv.Key); vals.Add(kv.Value); }
+            _save.achIds = ids.ToArray(); _save.achValues = vals.ToArray();
+            try
+            {
+                System.IO.Directory.CreateDirectory(System.IO.Path.GetDirectoryName(SavePath));
+                System.IO.File.WriteAllText(SavePath, JsonUtility.ToJson(_save, true));
+            }
+            catch (Exception e)
+            {
+                // 不许静默：写不进去要说出来（原版这一步是上传服务器）
+                Debug.LogWarning("[Profile] 存档写盘失败（" + SavePath + "）：" + e.Message);
+            }
+        }
+
+        static void SaveIfAuto() { if (!Application.isBatchMode) SaveNow(); }
+
+        /// <summary>🆕 自检专用：强制写盘（批处理下也能验落盘）。</summary>
+        public static void SaveNowForTest() { EnsureSave(); SaveNow(); }
+
+        /// <summary>🆕 自检专用：强制从盘上重读（批处理下也能验「落盘后读回还是那一个」）。
+        /// ⚠️ 只改「已装备」三样与成就进度；**不**重读清单（清单是只读资产）。</summary>
+        public static void ReloadSaveForTest()
+        {
+            EnsureSave();
+            _achProgress = new Dictionary<string, int>();
+            LoadFromDisk();
+        }
+
+        // ---- 成就进度（原版 `Achievement.CurrentValue` / `CurrentPoints`，服务器；这里 = 本机存档）----
+
+        /// <summary>一条成就的当前进度值（没记录 ⇒ 0）。</summary>
+        public static int AchievementValue(string id)
+        {
+            EnsureSave();
+            int v;
+            return !string.IsNullOrEmpty(id) && _achProgress.TryGetValue(id, out v) ? v : 0;
+        }
+
+        /// <summary>写一条成就的进度值（负数按 0 收）。原版这条走 `AchievementsManager` + 批量上传。</summary>
+        public static void SetAchievementValue(string id, int value)
+        {
+            if (string.IsNullOrEmpty(id)) return;
+            EnsureSave();
+            _achProgress[id] = Mathf.Max(0, value);
+            SaveIfAuto();
+        }
+
+        /// <summary>一条成就**当前在第几档**（1 起；已达满档则 = 总档数）。照原版 `Achievement.TargetTier`：
+        /// 档 n 的判定是「进度 ≥ 第 n 档阈值」，展示用 `{已达档数 + 1}`，封顶总档数。</summary>
+        public static int AchievementTierOf(Achievement a)
+        {
+            int total = a != null && a.Thresholds != null ? a.Thresholds.Length : 0;
+            if (total <= 0) return 1;
+            int v = AchievementValue(a.Id), reached = 0;
+            for (int i = 0; i < total; i++) if (v >= a.Thresholds[i]) reached++;
+            return Mathf.Clamp(reached + 1, 1, total);
+        }
+
+        /// <summary>那一档的目标阈值（`0` = 没有数据）。</summary>
+        public static int AchievementTargetOf(Achievement a, int tier)
+        {
+            if (a == null || a.Thresholds == null || a.Thresholds.Length == 0) return 0;
+            return a.Thresholds[Mathf.Clamp(tier - 1, 0, a.Thresholds.Length - 1)];
+        }
+
+        /// <summary>那一档的积分奖励（`Achievements/Points` 的那个数；`0` = 没有数据）。</summary>
+        public static int AchievementRewardOf(Achievement a, int tier)
+        {
+            if (a == null || a.Quantities == null || a.Quantities.Length == 0) return 0;
+            return a.Quantities[Mathf.Clamp(tier - 1, 0, a.Quantities.Length - 1)];
+        }
+
+        /// <summary>一条成就**已拿到的积分** = 所有「已达档」的 `quantity` 之和
+        /// （原版 `Achievement.CurrentPoints`；本地按存档推）。</summary>
+        public static int AchievementPointsOf(Achievement a)
+        {
+            if (a == null || a.Thresholds == null || a.Quantities == null) return 0;
+            int v = AchievementValue(a.Id), sum = 0;
+            for (int i = 0; i < a.Thresholds.Length && i < a.Quantities.Length; i++)
+                if (v >= a.Thresholds[i]) sum += a.Quantities[i];
+            return sum;
+        }
+
+        /// <summary>全量成就积分之和（`Trophies` 页右上那个计数器；不受分类筛选影响）。</summary>
+        public static int AchievementPointsTotal()
+        {
+            var all = Achievements;
+            int sum = 0;
+            for (int i = 0; i < all.Count; i++) sum += AchievementPointsOf(all[i]);
+            return sum;
+        }
+
+        /// <summary>当前这一档的进度比例（0..1）。上一档阈值 = 起点，本档阈值 = 终点。</summary>
+        public static float AchievementProgress01(Achievement a, int tier)
+        {
+            if (a == null || a.Thresholds == null || a.Thresholds.Length == 0) return 0f;
+            int idx = Mathf.Clamp(tier - 1, 0, a.Thresholds.Length - 1);
+            int target = a.Thresholds[idx];
+            int from = idx > 0 ? a.Thresholds[idx - 1] : 0;
+            if (target <= from) return 1f;
+            int v = AchievementValue(a.Id);
+            return Mathf.Clamp01((float)(v - from) / (target - from));
         }
     }
 }

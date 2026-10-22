@@ -25,6 +25,10 @@ sys.stdout.reconfigure(encoding="utf-8")
 SRC = "d:/2/新解包资源/assets_full/bundle_uiwarlords_assets_all/Texture2D"
 OUT = "d:/4/Unity/MyGame/Assets/CardPresentation/Resources/Art/ui_menu"
 PREFIX = "UI_Deck_Warlord_"
+# 🆕 2026-10-22：原版里**不带前缀**的督军立绘（逐条给判据，别往里加没核过的名字）。
+EXTRA_NAMES = [
+    "UI_Deck_Master Zacharial.png",   # DA75 Master Zacharial（`fullHeroSpriteReference` 原文）
+]
 
 
 def main():
@@ -38,14 +42,25 @@ def main():
     os.makedirs(OUT, exist_ok=True)
 
     src = sorted(f for f in os.listdir(SRC) if f.startswith(PREFIX) and f.endswith(".png"))
+    # 🆕 **2026-10-22**：原版有 **1 张不带 `UI_Deck_Warlord_` 前缀**的督军立绘 ——
+    #   `UI_Deck_Master Zacharial.png`（2048²，`bundle_uiwarlords_assets_all/Texture2D/` 现读）。
+    #   它对应卡池里的 `DA75 Master Zacharial`，`cards_engine.json` 的 `fullHeroSpriteReference`
+    #   原文就是 `UI_Deck_Master Zacharial`（**第一手判据**，不靠名字猜）。
+    #   漏了它 ⇒ 那一张永远退回卡面插图（用户报的「立绘残缺」）。
+    #   落盘名仍按 `CardArt.MenuUi` 的取法：空格 → 下划线。
+    src += sorted(f for f in EXTRA_NAMES if os.path.exists(os.path.join(SRC, f)))
+    src = sorted(set(src))
     if not src:
         print(f"FAIL 源目录里没有 {PREFIX}*.png")
         return 2
 
     copied = skipped = 0
     for f in src:
-        name = f[len(PREFIX):-4]                    # <督军名>
-        dst_name = PREFIX + name.replace(" ", "_") + ".png"
+        if f.startswith(PREFIX):
+            name = f[len(PREFIX):-4]                # <督军名>
+            dst_name = PREFIX + name.replace(" ", "_") + ".png"
+        else:
+            dst_name = f.replace(" ", "_")          # 特例：原名就去掉空格，不加前缀
         dst = os.path.join(OUT, dst_name)
         if os.path.exists(dst):
             skipped += 1

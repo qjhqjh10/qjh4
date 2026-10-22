@@ -15,12 +15,19 @@
 //    **预制体里 0 个实例**（`Item Drawer` 的 `m_Children` 为空、`sizeDelta.y = 0.00`）——
 //    运行期 `Instantiate` 出来的（`TitleTab.Initialize:195` 的 `ItemDrawer.Draw`）。
 //
-// ---- 🔴 数据：**没有数据源**（原版在服务器）----
-//   称号来自 `PlayerDataManager.get_PlayerTitle`（`TitleTab__Initialize.c:68`），本地没有 ⇒
-//   按用户口径「**有什么复刻什么，具体的数据和排名这些可以空着**」⇒ **画空态、不编数字**。
-//   ⚠️ 原版预制体里那两个**占位值**记在这里备查（**不画**，免得看着像真数据）：
-//     · `Selected Item Panel/Avatar Name` 的 `m_text` = `'Warrior of the Raging Winds'`（字号 43.35 · auto[15~50] · 色 (1,0.693,0.00784,1)）
-//     · `Selected Item Panel/Image` 的 sprite = `40k_DeckSelection_icon_FactionUM`（Ultramarines 阵营图 · 221.21×221.21）
+// ---- 🔴 数据：**清单在本地资产里，已装备的那一条在本地存档里** ----
+//   清单 = `ProfileData.Titles`（462 个 `CosmeticItemTitle` SO，装配见 `Shell/ProfileData.cs` 文件头）。
+//   当前装备的那一条 = `ProfileData.TitleIndex`（原版 `PlayerDataManager.get_PlayerTitle` 从服务器读；
+//   我们的等价物 = `persistentDataPath/WarpforgeProfile/profile.json`，见 `ProfileData` 末尾「本地存档」）。
+//   🆕 **2026-10-22（P1 · 账户界面批次）**：本页补上原版的**「预览 ≠ 装备」**两段式
+//   （判据 = `TitleTab__OnItemClick.c` 只调 `ProfileItemDisplay.Initialize`（换大图预览）+
+//    `ProfileItemDisplay__ToggleButton`（换钮的状态）；**装备**发生在 `TitleTab__OnSelect.c`
+//    —— 点那颗钮才 `PlayerDataManager.set_PlayerTitle` + `UploadOnlineDemoData`）。
+//   ⇒ 点格子 = **只预览**；点 `Select Avatar Button` = **装备**；
+//      预览的那条 == 已装备的那条 ⇒ 钮文案换成 `PlayerProfile/InUse`（`In use` / `正在使用`）且**不可点**
+//      （`ProfileItemDisplay__ToggleButton.c` 的三分支：相等 ⇒ InUse · 未解锁 ⇒ Locked · 否则 ⇒ Select）。
+//   ⚠️ 原版那两条占位串（`Selected Item Panel/Avatar Name` 的 `'Warrior of the Raging Winds'`、
+//      `Image` 的 `40k_DeckSelection_icon_FactionUM`）**只在 prefab 里、运行期会被覆盖** ⇒ 我们**不画占位**。
 using UnityEngine;
 
 namespace CardPresentation
@@ -123,10 +130,66 @@ namespace CardPresentation
         const float CellW = 325.9f, CellH = 130f, GapX = 15f, GapY = 50f;
         const float PadL = 7f, PadT = 40f;
 
+        // ============================================================ 格子模板（`Title Drawer Horizontal Variant`）
+        //
+        // 🔴 **2026-10-22（P1）**：格子的版式**不再是「我们挑的」** —— 真模板已定位并逐层读出：
+        //   根 prefab = GO pid `3945556096783145118` / RT `-2705666888391468898`（身上 `TitleDrawerHorizontal`），
+        //   表 = `python 工具/menu_dump.py bundle_menus_assets_all --rt -2705666888391468898 --depth 8 --md`。
+        //   · `Content` 设计框 **1028×370**，`UIScaleToFit` 按 `min(父宽/1028, 父高/370)` 缩放（反汇编 `Fit()`，
+        //     `fitInParent=1` ⇒ 目标 = 本格 325.9×130）⇒ **视觉 325.9×117.3，垂直居中**。
+        //   · `Background` = **`40k_Profile_display_title`**（322×116 石板 + 金边），锚点 (0,0)-(1,1) ⇒ 铺满 Content。
+        //   · `Title` = 称号名（TMP `Asar-Regular Title Reward` 材质 ⇒ **字色黑**、`auto[15~90]`、基准 36、折行、Center/Middle）。
+        //   · `Image` + `Image Top` = **阵营徽记**（两层叠印，见下）。
+        //   · `Army`（阵营名 TMP）出厂 **`m_IsActive = 0`** 且 `ItemDrawer.Draw` 只 `set_text`、**从不 SetActive`
+        //     ⇒ 原版**不画** ⇒ 我们**不建**（参考图里那格也只有名字和徽记，没有阵营名）。
+        //   · `Lock`：原版 `ToggleLock` 按「有没有解锁」切；本项目**全解锁**（用户边界）⇒ 不建。
+        const float TplContentW = 1028f, TplContentH = 370f;
+        /// <summary>石板底（原版 `Background`）。</summary>
+        public const string ArtPlate = "40k_Profile_display_title";
+        /// <summary>`Title` 在 Content 里的锚点（比例）：`a=(0.05,0.171297)-(0.95,0.826)`、`sizeDelta=(0,-9.5e-7)`。</summary>
+        static readonly Vector2 TplTtlA = new Vector2(0.05f, 0.171297f), TplTtlB = new Vector2(0.95f, 0.826f);
+        /// <summary>字色：**黑**（原版那颗 TMP 的 `m_sharedMaterial` = pid `1930305694072827706`
+        /// ⇒ `bundle_fonts_assets_all/Material/Material_1930305694072827706.json`，`m_Name = Asar-Regular Title Reward`、
+        /// `_FaceColor = (0,0,0,1)`、`_UnderlayColor = (0.988,0.988,0.988,0.639)`（浅色衬底 = 参考图上那圈浮印）。
+        /// ⚠️ prefab 里 `m_fontColor` 是白 —— 那是**顶点色乘数**，材质 face 是黑 ⇒ 实测上屏就是黑。</summary>
+        static readonly Color TitleCellColor = new Color(0f, 0f, 0f, 1f);
+        /// <summary>字号：`m_fontSize 90` / `auto[15~90]` / 基准 36（**都是 Content 设计单位**）
+        /// ⇒ 落到本格要乘缩放 `s = min(325.9/1028, 130/370)`。</summary>
+        const float TtlPxDesign = 90f, TtlAutoMinDesign = 15f, TtlBaseDesign = 36f;
+        /// <summary>`Image`（阵营徽记）锚点：`a=(0.765251,0.046)-(0.976665,0.617596)`；两层色见下。</summary>
+        static readonly Vector2 FacA = new Vector2(0.765251f, 0.046f), FacB = new Vector2(0.976665f, 0.617596f);
+        static readonly Color FacTint = new Color(0.519f, 0.519f, 0.519f, 0.282f);
+        static readonly Color FacTopTint = new Color(1f, 1f, 1f, 0.416f);
+        /// <summary>`highlight`（选中态）：`Highlight Rounded Square`（九宫 73,75,73,75）· 色 (0.981,0.589,0.31,1)。
+        /// 模板里它比 Content **大一圈**：Content 视觉 1920×691 时 highlight 是 2028.68×775.39
+        /// ⇒ 每边 +54.7/+54.0（x）、+42.9/+41.4（y）；折算到本格（325.9×117.3，比例 0.16974）
+        /// = **每边 +9.2 / +7.2**（⚠️ 别直接抄 54/42 —— 那是 1920 帧的数，不是格子帧）。</summary>
+        public const string ArtHighlight = "Highlight_Rounded_Square";
+        static readonly Color HlTint = new Color(0.981f, 0.589f, 0.31f, 1f);
+        static readonly Vector4 HlBorder = new Vector4(73f, 75f, 73f, 75f);
+        const float HlPadX = 9.2f, HlPadY = 7.2f;
+        /// <summary>「正在使用」词条（原版 `ProfileItemDisplay.ToggleButton` 里那个分支的官方键 ——
+        /// 官方表 `PlayerProfile/InUse` = `In use` / `正在使用`；参考图两颗钮都印这个）。</summary>
+        public const string InUseTerm = "PlayerProfile/InUse";
+
         MenuScroll _scroll;
         Label _nameLabel;
         ImageQuad _icon;
         Transform _grid;
+        Label _btnLabel;
+        WindowButton _btnHit;
+        Transform _selPanel;
+        readonly System.Collections.Generic.List<GameObject> _cellHl = new System.Collections.Generic.List<GameObject>();
+        readonly System.Collections.Generic.List<int> _cellIdx = new System.Collections.Generic.List<int>();
+        /// <summary>🆕 2026-10-23（P4）：上一次为「预览没有阵营图」出声的那条下标（同一条**不重复刷日志**）。</summary>
+        int _noIconLogged = -2;
+
+        /// <summary>🆕 2026-10-22（P1）：**预览**的那一条（点格子只改它；`Select` 钮才写 `ProfileData.TitleIndex`）。
+        /// 原版 = `TitleTab.currentItem`（`OnItemClick` 写）；`OnOpen` 用已装备的那条重设
+        /// （`TitleTab__Initialize.c` 的 `OnItemClick(PlayerDataManager.PlayerTitle)` 那一路）。</summary>
+        public int PreviewIndex = -1;
+        /// <summary>已装备的那一条（= `ProfileData.TitleIndex`，全工程唯一一份）。</summary>
+        public int Equipped { get { return ProfileData.TitleIndex; } }
 
         /// <summary>🆕 **2026-10-13（A465 · W-A435己）**：这一页那个**纵向**滚动区（**自检用** ——
         /// 同 `LeaderboardWindow.RowsScroll` / `BattleLogTab.RowsScroll` 那条理由：断言要能读到
@@ -142,6 +205,8 @@ namespace CardPresentation
 
         protected override void Build()
         {
+            // 🆕 2026-10-22（P1）：**先**定预览项，再建「当前预览」那块（原版 `OnOpen` 也是先 `OnItemClick(已装备那条)`）
+            PreviewIndex = ProfileData.TitleIndex;
             // ---- ① `Item Display Panel`：底 → 滚动内容 → 小标题（队列**从低到高**＝绘制顺序）----
             var disp = Node("Item Display Panel", new PxRect(DisL, DisT, DisR, DisB));
             Nine(disp, ArtPanel, new PxRect(DisL, DisT, DisR, DisB), PanelBorder, "Background", 0);
@@ -192,13 +257,22 @@ namespace CardPresentation
                  TtlPx, 3, autoFit: true, autoMinPx: TtlAutoMin, alignLeft: true, wrap: true,
                  autoMaxPx: 35f, basePx: 26.1f, face: TmpFont.Face.LatinCardBody);
 
-            // ---- ② `Selected Item Panel`：当前选中的称号（图 + 名 + 选择钮）----
+            // ---- ② `Selected Item Panel`：当前预览的那条称号（阵营徽记 + 名 + 选择钮）----
             var sel = Node("Selected Item Panel", new PxRect(SelL, SelT, SelR, SelB));
-            // 🔴 `Image` 那一层**不建**：它装的是「称号自带的阵营图标」，而**我们没有称号数据**。
-            //    ⚠️ 别拿 `art = null` 建个纯色块顶替 —— `CardArt.Solid()` 是**不透明白块**，
-            //    会变成面板正中一大块白色（2026-09-27 写这一页时差点这么干）。
-            //    有数据时由 `Refresh()` 用 `Art(iconName)` 现建（矩形常量 `IconL/T/R/B` 已备好）。
-            _icon = null;
+            _selPanel = sel;
+            // 🔴 **2026-10-22（P1）就地订正（铁律 5）**：原来这里写「`Image` 那一层**不建** —— 我们没有称号数据」。
+            //   **判据早就有了**：原版 `ProfileItemDisplay__Initialize.c` 第一段就是
+            //   `image.sprite = ArmyUtilities.GetArmyIcon(item.cardArmy)`（称号**自带阵营**，不是逐条图标）——
+            //   参考图上那块大号盾徽就是它。`Item.Army` 在本地齐全 ⇒ 照 `Core/ArmyIcons.cs` 的 13 阵营表画。
+            //   🔴 **2026-10-23（P4）就地订正（铁律 5）**：那句「取不到图时**不建**」**改成「建、但 `SetActive(false)`」** ——
+            //   判据 = `ProfileItemDisplay__Initialize.c`：`image` 是 **prefab 里那颗常驻件**，`Initialize` 只做
+            //   `set_sprite` + `Behaviour.set_enabled(item != null)`，**从不销毁它**。而 `ProfilePage.Rect(art: null)`
+            //   走的是 `CardArt.Solid()`（1×1 白）那条纯色路 ⇒ **不关掉就是面板正中一大块白**（旧注释担心的正是这个）。
+            //   ⇒ 节点永远建（结构稳定、预览换到有阵营的条目时**直接换图**），取不到图就关掉。
+            //   ⚠️ 原版 prefab 这颗 `Image` 是 `Simple` + **`m_PreserveAspect = 0`**（dump 那一行末尾是「否」）⇒ `keepAspect: false`。
+            string previewIcon = PreviewArmyIcon();
+            _icon = Rect(sel, previewIcon, new PxRect(IconL, IconT, IconR, IconB), "Image", 4, null, false);
+            if (_icon != null) _icon.gameObject.SetActive(!string.IsNullOrEmpty(previewIcon));
             // 🔴 **A406**：`Title Tab/Selected Item Panel/Avatar Name` 原版
             //   `auto[15.0~**50.0**] 基准=36.0` ⇒ 上限 **50**（= 本文件早就写好的 `NameAutoMax` ——
             //   **它此前是死常量**，本件才第一次接上）· base **36.0**（同一条 dump）。
@@ -219,17 +293,19 @@ namespace CardPresentation
             // 🔴 **2026-10-18（`W22`）**：文案**走官方词条**（`Demo/AvatarMenu/SelectAvatarButton`
             //   = `Select` / `选择`，与头像页那颗同键 —— 见 `BtnLabelTerm` 那段）。改前写死 `BtnLabel` 英文
             //   ⇒ **中文档下这颗仍是英文**（用户 2026-10-18 第六轮真机截图点名）。⛔ 别再直接印常量。
-            var lbBtn = Text(btn, Loc.T(BtnLabelTerm), new PxRect(BtnTxtL, BtnTxtT, BtnTxtR, BtnTxtB), Color.white, "Button Text",
+            var lbBtn = Text(btn, ButtonLabel(), new PxRect(BtnTxtL, BtnTxtT, BtnTxtR, BtnTxtB), Color.white, "Button Text",
                  BtnTxtPx, 7, autoFit: true, autoMinPx: BtnTxtAutoMin, alignLeft: false, wrap: false,
                  autoMaxPx: 36f, basePx: 12f, face: TmpFont.Face.LatinCardBody);
+            _btnLabel = lbBtn;
             // 🆕 **2026-10-16（A712 阶段 2）**：纵向那一半 —— 原版
             //   `Title Tab/Selected Item Panel/Select Avatar Button/Button Text`（`'Selecionar'`）
             //   = `对齐=Center/**Capline**`（判据 = 上面 :176-179 那条 dump 原文；`--depth 25 --md` 同报
             //   `字号=36.0 auto[10.0~36.0] 对齐=Center/Capline 折行=0`）。
             MenuDraw.SetVAlign(lbBtn, Label.VAlign.Capline, new PxRect(BtnTxtL, BtnTxtT, BtnTxtR, BtnTxtB));
             // 🆕 A17：原版 `Title Tab>Selected Item Panel>Select Avatar Button` 是 SpriteSwap（普查 §块 5 第 8 行）
-            Hit(sel, "SelectHit", new PxRect(BtnL, BtnT, BtnR, BtnB), 8, OnSelectClicked, selQ, ArtButton,
+            var hit = Hit(sel, "SelectHit", new PxRect(BtnL, BtnT, BtnR, BtnB), 8, OnSelectClicked, selQ, ArtButton,
                 clickCue: WindowSounds.SelectAvatarCue);
+            _btnHit = hit != null ? hit.GetComponent<WindowButton>() : null;
 
             Refresh();
         }
@@ -246,50 +322,73 @@ namespace CardPresentation
             // 内容极值：`MenuScroll.TopAligned` 造出来的是 `[y1, y1+contentH]`，这里按真实内容高改一次
             _scroll.ContentX2 = GridT + contentH;
 
+            _cellHl.Clear(); _cellIdx.Clear();
             for (int i = 0; i < n; i++)
             {
                 int col = i % cols, row = i / cols;
                 float x, y; CellXY(col, row, out x, out y);
                 var r = _scroll.Shift(new PxRect(x, y, x + CellW, y + CellH));
                 if (!_scroll.Intersects(r)) continue;      // 视口外的**整格不建**（顺带它的点击区也不存在）
-                // ⚠️ **格子的长相是我们挑的**：原版那 0 个实例说明它由 `ItemDrawer.Draw` 运行期装，
-                //    模板是 `Title Drawer Horizontal Variant*` 那一族，而**哪一份没查到**
-                //    （普查文件 §C5：配置是 Addressables 资产不是代码）⇒ 这里只画
-                //    「一块暗底 + 居中称号名」，**不是原版的格子版式**。查到了要换掉。
                 var cell = Node(_grid, "TitleDrawer_" + i, r);
-                Solid(cell, r, "Plate", 1, new Color(1f, 1f, 1f, 0.055f));
-                // 🔴 子件从**偏移后**的 `r` 起算（拿未偏移的 x/y = 一滚就「底板走了、字没走」，2026-09-27 修）
-                // 🆕 **2026-10-08（A212）折行的判据找到了**（原来这里记的是「模板是哪一份没查到」，见下面那段
-                //    「格子的长相是我们挑的」）：模板是 **`Title Drawer Horizontal Variant`** —— `bundle_menus_assets_all`
-                //    里**同名实例有多份**（工具在一份 `GameObject/` 目录里就报了 18 处命中、8 个不同 pid），
-                //    本行读的是工具取的**第一份**（`-6140934185811029764`，名字就是裸名那一份）：
-                //    `Content > Label > Name`（出厂文本 `'TITLE'`）实测 **`折行=0`**（`字号=19.0 auto[12.0~75.0]
-                //    对齐=Center/Midline`）—— 判据命令：
-                //    `python 工具/menu_dump.py bundle_menus_assets_all "Title Drawer Horizontal Variant" --depth 6 --md`
-                //    ⇒ 本行**不传 `wrap`**（= `autoFit` 不再隐含折行）就是原版那一档。
-                //    ⚠️ **其余同名实例没逐份核**（如实说；要逐份核就 `--rt <那个 pid>` 一份份来）。
-                //    ⚠️ 那只解决**折行**这一格；**版式**（底板 / 字号 30 / 居中）仍然是**我们挑的**，照旧。
-                // 🔴 **A406（2026-10-12）**：同一条命令的 `Content > Label > Name` 行实读
-                //   `字号=19.0 基准=**36.0** auto[**12.0~75.0**] 对齐=Center/Midline 折行=0`
-                //   ⇒ 上限 **75.0**（我们原来拿 `fontPx 30` 当上限 ⇒ 短标题永远画小一档）· base **36.0**。
-                //   ⚠️ **`m_fontSize 19.0` 与本行的 `fontPx 30` 不等** —— 那个 30 是**我们挑的版式值**
-                //   （见上一段），本件**没动它**；自适配上/下限是绝对 px ⇒ 与标称无关。
-                var cellR = new PxRect(r.x1 + 8f, r.y1 + 8f, r.x2 - 8f, r.y2 - 8f);
-                var lbCell = Text(cell, items[i].Name, cellR,
-                     Color.white, "Name", 30f, 2, autoFit: true, autoMinPx: 12f, alignLeft: false, wrap: false,
-                     autoMaxPx: 75f, basePx: 36f, face: TmpFont.Face.LatinCardBody);
-                // 🆕 **2026-10-16（A712 阶段 2）**：纵向那一半 —— 原版模板
-                //   `Title Drawer Horizontal Variant/Content > Label > Name` 实读
-                //   `对齐=Center/**Midline**`（判据 = 上面 :220-227 那两段引的同一条 dump）。
-                //   ⚠️ 本格的字号/居中版式**仍是我们挑的**（见上面那段），**只有档位**来自原版。
-                MenuDraw.SetVAlign(lbCell, Label.VAlign.Midline, cellR);
+
+                // ---- `Content`：`UIScaleToFit` 的等价物 ----
+                // 反汇编 `Fit()`：`ratio = min(目标框.w / 1028, 目标框.h / 370)`，`fitInParent=1` ⇒ 目标 = 本格
+                // ⇒ 视觉 **325.9×117.3，垂直居中**（格子 130 高，上下各留 6.35）。
+                float s = Mathf.Min(CellW / TplContentW, CellH / TplContentH);
+                float cw = TplContentW * s, ch = TplContentH * s;
+                var cr = new PxRect(r.CX - cw * 0.5f, r.CY - ch * 0.5f, r.CX + cw * 0.5f, r.CY + ch * 0.5f);
+                var content = Node(cell, "Content", cr);
+
+                // `highlight`：模板第一颗子件（**画在石板下面**），比 Content 每边大一圈 —— 选中（= 预览的那条）才亮
+                var hlGo = Nine(content, ArtHighlight,
+                                new PxRect(cr.x1 - HlPadX, cr.y1 - HlPadY, cr.x2 + HlPadX, cr.y2 + HlPadY),
+                                HlBorder, "highlight", 1, HlTint);
+                if (hlGo != null) hlGo.SetActive(i == PreviewIndex);
+                _cellHl.Add(hlGo);
+                _cellIdx.Add(i);
+
+                // `Background`：石板（`40k_Profile_display_title`，锚点 (0,0)-(1,1) ⇒ 铺满 Content）
+                Rect(content, ArtPlate, cr, "Background", 2, null, true);
+
+                // `Image` + `Image Top`：**阵营徽记**（= `ArmyUtilities.GetArmyIcon(item.cardArmy)`，两层叠印）。
+                // 结构（判据 = `工具/menu_dump.py bundle_menus_assets_all --rt -2705666888391468898 --depth 8 --md`）：
+                //   模板里**每一格都建这两颗**，且 `Image Top` 是 **`Image` 的孩子**（锚点 (0,0)-(1,1)、铺满父件）
+                //   ⇒ 树是 `Content > Image > Image Top`。
+                // 🔴 **2026-10-23（P4）就地订正（铁律 5）**：上一位（P2，同日）把「无图那一档」判成
+                //   **uGUI 的纯色 quad**（一层淡灰 `FacTint` + 一层淡白 `FacTopTint`），理由链是
+                //   `Image.activeSprite == null ⇒ Graphic.OnPopulateMesh`。**那条链漏了一环 —— 运行期调用点自己关掉了**：
+                //   判据 = 反编译 `d:/2/tools/decomp_full/TitleDrawer__Draw.c`：
+                //     `image.sprite = ArmyUtilities.GetArmyIcon(item.cardArmy);`
+                //     `imageTop.sprite = image.sprite;`
+                //     `if (image.sprite == null) { image.gameObject.SetActive(false); imageTop.gameObject.SetActive(false); }`
+                //   ⇒ **`Neutral(0)`（前 19 条 `All Generic`）那两格是 `SetActive(false)`**，原版**什么都不画**。
+                //   而照 P2 那条写出来的实际观感 = 每格右缘**一块白方块**（两层半透明白叠在浅色石板上），
+                //   用户 2026-10-23 对着参考图点名了这个（参考图上那一处是**深色阵营小圆章**或干脆没有）。
+                //   ⛔ **不是删掉这两颗**：模板结构要保留（结构断言按 `Content > Image > Image Top` 查），
+                //   只是 `SetActive(false)` —— 同族先例 `Shell/DailyData.cs:323`（`GetArmyIcon` 取不到 ⇒ 整格隐藏）。
+                string facArt = ArmyIcons.IconName(items[i].Army);
+                bool hasFac = !string.IsNullOrEmpty(facArt);
+                var fr = UguiRect.Child(cr, FacA, FacB, UguiRect.P50c, Vector2.zero, Vector2.zero);
+                var facBase = Rect(content, hasFac ? facArt : null, fr, "Image", 3, FacTint, hasFac);
+                if (facBase != null)
+                {
+                    var facTop = Rect(facBase.transform, hasFac ? facArt : null, fr, "Image Top", 4, FacTopTint, hasFac);
+                    // ⚠️ 显式给两态（原版只在 null 那一支 `SetActive(false)`、没有回 true 的那一支 ——
+                    //    因为它每格都是新 `Instantiate` 的；我们这里同样是**新建**，显式写清更稳）。
+                    facBase.gameObject.SetActive(hasFac);
+                    if (facTop != null) facTop.gameObject.SetActive(hasFac);
+                }
+
+                // `Title`：称号名（黑字 · `Center/Middle` · 折行 · auto[15~90]/基准 36，全按 Content 设计单位 × s）
+                var tr = UguiRect.Child(cr, TplTtlA, TplTtlB, UguiRect.P50c, Vector2.zero, Vector2.zero);
+                var lbCell = Text(content, items[i].Name, tr, TitleCellColor, "Title", TtlPxDesign * s, 3,
+                                  autoFit: true, autoMinPx: TtlAutoMinDesign * s, alignLeft: false, wrap: true,
+                                  autoMaxPx: TtlPxDesign * s, basePx: TtlBaseDesign * s, face: TmpFont.Face.LatinUi);
+                MenuDraw.SetVAlign(lbCell, Label.VAlign.Midline, tr);
+
                 int captured = i;
-                // 🆕 2026-10-17（音效线 S01）：**推断**（R3 §四·A #24 的节点名 `Toggle borde` 与本页不符）——
-                //   现读：本处是 `BuildRows` 里的**称号格子**（`Title Drawer Horizontal Variant/Content` 下
-                //   运行期 `Instantiate` 出来的条目，见文件头 ③），点它 `Select(captured)`。
-                //   而 `Toggle borde` 在本页是**死节点**（文件头 ①：出厂 INACT、全包无字段指向、8 个方法体没碰过）
-                //   ⇒ R3 那一行的节点名标错了，但**cue 本身**（`SelectAvatar` = 头像/称号这一族的选择音）
-                //   仍然适用于这颗格子 ⇒ 保留。⛔ 若将来判据推翻，改这一处即可。
+                // 点格子 = **只预览**（原版 `TitleTab.OnItemClick` → `ProfileItemDisplay.Initialize` + `ToggleButton`，
+                // **不**写 `PlayerDataManager.PlayerTitle`；装备在 `SelectHit` 那颗钮上）。
                 Hit(cell, "Hit", r, 3, () => Select(captured), clickCue: WindowSounds.SelectAvatarCue);
             }
         }
@@ -323,42 +422,117 @@ namespace CardPresentation
         ///   ⇒ 只在本次会话里有效（同 `ProfileData.AvatarIndex` 那条边界）。</summary>
         public void Select(int index)
         {
-            // 越界**不写**（守住 `ProfileData.TitleIndex`，别让它变成脏值）
-            if (index < 0 || index >= Titles.Count) { Debug.Log("[Profile] 称号选中越界：" + index); return; }
-            Selected = index;
+            // 越界**不改**（预览值也得守住，别让它变成脏值）
+            if (index < 0 || index >= Titles.Count) { Debug.Log("[Profile] 称号预览越界：" + index); return; }
+            PreviewIndex = index;
             Refresh();
+            RefreshGridHighlight();
         }
 
-        /// <summary>当前选中的下标（**−1 = 没选**）。**读写都直接落 `ProfileData.TitleIndex`**
-        /// （🔴 2026-10-17 · `T20` / `A2118`：原来这里是本页自己的字段 ⇒ 关窗即丢、战斗 HUD 读不到）。</summary>
+        /// <summary>装备当前预览的那条 —— 原版 `TitleTab.OnSelect`（`ProfileItemDisplay.GetItem` →
+        /// `PlayerDataManager.set_PlayerTitle` + `UploadOnlineDemoData`）。
+        /// 我们的等价物 = `ProfileData.TitleIndex`（全工程唯一一份，**会落盘**）。</summary>
+        public void ConfirmSelect()
+        {
+            if (PreviewIndex < 0 || PreviewIndex >= Titles.Count)
+            {
+                Debug.Log("[Profile] `Select`（称号页）：**还没预览任何一条称号** —— 先在右边格子里点一个");
+                return;
+            }
+            ProfileData.TitleIndex = PreviewIndex;
+            Refresh();
+            RefreshGridHighlight();
+            Debug.Log("[Profile] 已装备称号「" + Titles[PreviewIndex].Name + "」（# " + PreviewIndex
+                    + "）—— 写进 `ProfileData.TitleIndex`（战斗 HUD 名牌读它），并落盘到 "
+                    + "`persistentDataPath/WarpforgeProfile/profile.json`");
+        }
+
+        /// <summary>当前**预览**的下标（**−1 = 没预览**）。旧的 `Selected` 名字保留（外部只读它）；
+        /// ⚠️ 语义已从「已装备」改成「预览」—— 已装备那条读 <see cref="Equipped"/> / `ProfileData.TitleIndex`。</summary>
         public int Selected
         {
-            get { return ProfileData.TitleIndex; }
-            set { ProfileData.TitleIndex = value; }
+            get { return PreviewIndex; }
+            set { PreviewIndex = value; }
         }
 
-        /// <summary>把「当前选中的称号」刷到 `Selected Item Panel`。出处：原版 `TitleTab.Initialize`
-        /// 末尾那段 `ProfileItemDisplay.Initialize(...)`。
-        /// ⚠️ **图标那一层不画**：称号的 `imageReference` 在原版里**就是空的**（462 条全空，普查 §2.1）——
-        /// 所以 `ProfileItemDisplay.image` 本来就没东西可喂，**不是我们没做**。</summary>
+        /// <summary>每次切到本页：预览回到**已装备的那条**（原版 `OnOpen` → `OnItemClick(PlayerTitle)`）。</summary>
+        public override void OnOpen()
+        {
+            PreviewIndex = ProfileData.TitleIndex;
+            Refresh();
+            RefreshGridHighlight();
+        }
+
+        /// <summary>把「当前预览的称号」刷到 `Selected Item Panel` + 那颗钮。出处：原版
+        /// `ProfileItemDisplay.Initialize`（图 + 名）+ `ProfileItemDisplay.ToggleButton`（钮文案/可点性）。
+        /// ⚠️ 图标 = **称号自带的阵营徽记**（`ArmyUtilities.GetArmyIcon(item.cardArmy)`；逐条图标在原版里就是空的）。</summary>
         public void Refresh()
         {
-            bool has = Selected >= 0 && Selected < Titles.Count;
-            if (_nameLabel != null) _nameLabel.SetText(has ? Titles[Selected].Name : "");
-            if (_icon != null) _icon.gameObject.SetActive(has);
+            bool has = PreviewIndex >= 0 && PreviewIndex < Titles.Count;
+            if (_nameLabel != null) _nameLabel.SetText(has ? Titles[PreviewIndex].Name : "");
+            string art = has ? PreviewArmyIcon() : null;
+            var tex = string.IsNullOrEmpty(art) ? null : Art(art);
+            // 兜底：正常 `Build` 已经把节点建好了（2026-10-23 P4 起**永远建**）；这里只在它意外为空时补一颗
+            if (_icon == null && _selPanel != null)
+                _icon = Rect(_selPanel, art, new PxRect(IconL, IconT, IconR, IconB), "Image", 4, null, false);
+            if (_icon != null)
+            {
+                if (tex != null) { _icon.SetTexture(tex); _icon.gameObject.SetActive(true); }
+                else _icon.gameObject.SetActive(false);
+            }
+            // 🔴 **2026-10-23（P4）：不许静默** —— 预览那条没有盾徽时**说一句**（用户 2026-10-23 点名「头衔那里预览的是
+            //    该头像的阵营图标，现在是否有？」）。两条成因分开说：`Army = 0 (Neutral)` 是**原版就没有这张图**
+            //    （`ArmyIconsSO` 里只有 13 条、没有 Neutral），图名取不到 / 贴图缺文件是**我们的问题**。
+            if (has && tex == null && _noIconLogged != PreviewIndex)
+            {
+                _noIconLogged = PreviewIndex;
+                if (string.IsNullOrEmpty(art))
+                    Debug.Log("[Profile] 称号「" + Titles[PreviewIndex].Name + "」的 `Army` = " + Titles[PreviewIndex].Army
+                            + "（`0` = Neutral）—— 原版 `ArmyIconsSO` 里**没有**这一条，`ArmyUtilities.GetArmyIcon` 返回 null；"
+                            + "原版对 null 的处置是 **`SetActive(false)`**（判据 `d:/2/tools/decomp_full/TitleDrawer__Draw.c`）"
+                            + " ⇒ 预览盾徽同样关掉，只留橙色的称号名。");
+                else
+                    Debug.LogWarning("[Profile] 称号「" + Titles[PreviewIndex].Name + "」的阵营图 `" + art
+                                   + "` **取不到**（`MissingArt` 会汇总）⇒ 预览盾徽先关掉（⛔ 这不是原版的空态）");
+            }
+            // 钮：预览 == 已装备 ⇒ `PlayerProfile/InUse`（In use / 正在使用）**且不可点**；
+            //     否则 ⇒ `Demo/AvatarMenu/SelectAvatarButton`（Select / 选择）、可点。
+            //     判据 = `ProfileItemDisplay__ToggleButton.c` 的三分支（相等 / 未解锁 / 其他 ⇒ InUse / Locked / Select）。
+            if (_btnLabel != null) _btnLabel.SetText(ButtonLabel());
+            if (_btnHit != null) _btnHit.Interactable = has && PreviewIndex != ProfileData.TitleIndex;
+        }
+
+        /// <summary>当前预览那条的**阵营徽记**图名（`Army = 0` / 认不出 ⇒ `null`）。
+        /// = 原版 `ArmyUtilities.GetArmyIcon(item.cardArmy)`；映射表唯一一份在 `Core/ArmyIcons.cs`。</summary>
+        string PreviewArmyIcon()
+        {
+            return PreviewIndex >= 0 && PreviewIndex < Titles.Count ? ArmyIcons.IconName(Titles[PreviewIndex].Army) : null;
+        }
+
+        /// <summary>那颗钮当前该印什么（自检也读它）。</summary>
+        public string ButtonLabel()
+        {
+            bool has = PreviewIndex >= 0 && PreviewIndex < Titles.Count;
+            if (has && PreviewIndex == ProfileData.TitleIndex)
+            {
+                string v = Loc.T(InUseTerm);
+                // 词条取不到 ⇒ 回官方英文原文（⛔ 不许把键名印上屏）
+                return string.IsNullOrEmpty(v) || v == InUseTerm ? "In use" : v;
+            }
+            string sel = Loc.T(BtnLabelTerm);
+            return string.IsNullOrEmpty(sel) || sel == BtnLabelTerm ? BtnLabel : sel;
+        }
+
+        void RefreshGridHighlight()
+        {
+            for (int k = 0; k < _cellHl.Count; k++)
+                if (_cellHl[k] != null)
+                    _cellHl[k].SetActive(k < _cellIdx.Count && _cellIdx[k] == PreviewIndex);
         }
 
         void OnSelectClicked()
         {
-            if (Selected < 0)
-            {
-                Debug.Log("[Profile] `Select`（称号页）：**还没选中任何一个称号** —— 先在上面那张表里点一个");
-                return;
-            }
-            Debug.Log("[Profile] 选中称号「" + Titles[Selected].Name + "」（# " + Selected + "）—— "
-                    + "⚠️ **没有存档**：原版这一步会 `PlayerDataManager.set_PlayerTitle` + `UploadOnlineDemoData`，"
-                    + "我们只记在**本次会话**的 `ProfileData.TitleIndex` 里（见 `ProfileData.cs` 那一段），"
-                    + "战斗 HUD 名牌会读它");
+            ConfirmSelect();
         }
     }
 }

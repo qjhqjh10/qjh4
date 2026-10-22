@@ -175,10 +175,19 @@ namespace CardPresentation
         Transform _grid;
         Label _bigName;          // 大图那份的 `Avatar Name`
         ImageQuad _bigArt, _bigHighlight;
+        Label _btnLabel;         // `Select Avatar Button > Button Text`
+        WindowButton _btnHit;
         readonly List<ImageQuad> _cellArt = new List<ImageQuad>();
         readonly List<ImageQuad> _cellHl = new List<ImageQuad>();
         /// <summary>每个建出来的格子对应**清单里的第几条**（换选中时要按它点亮对的那一格）。</summary>
         readonly List<int> _cellIdx = new List<int>();
+
+        /// <summary>🆕 2026-10-22（P1）：**预览**的那一张（点格子只改它；`Select` 钮才写 `ProfileData.AvatarIndex`）。
+        /// 原版 = `AvatarTab.currentItem`（`OnAvatarClick` 写）+ `OnOpen` 里用 `PlayerAvatarItem` 重设
+        /// （`AvatarTab__RefreshDisplays.c` 末尾那一路）。</summary>
+        public int PreviewIndex = 0;
+        /// <summary>已装备的那一张（= `ProfileData.AvatarIndex`，全工程唯一一份）。</summary>
+        public int Equipped { get { return ProfileData.AvatarIndex; } }
 
         /// <summary>格子左上（**内容坐标**，未加滚动偏移）。`GridLayoutGroup` 的 UpperLeft + 水平优先。</summary>
         public static void CellXY(int col, int row, out float x, out float y)
@@ -195,6 +204,8 @@ namespace CardPresentation
 
         protected override void Build()
         {
+            // 🆕 2026-10-22（P1）：**先**定预览项（原版 `RefreshDisplays` 也是先取 `PlayerAvatarItem` 再刷大图）
+            PreviewIndex = Mathf.Clamp(ProfileData.AvatarIndex, 0, Mathf.Max(0, Avatars.Count - 1));
             // ---- ① `Item Display Panel`（与 `Title Tab` 逐位相同的那套壳）----
             var disp = Node("Item Display Panel", new PxRect(DisL, DisT, DisR, DisB));
             Nine(disp, ArtPanel, new PxRect(DisL, DisT, DisR, DisB), PanelBorder, "Background", 0);
@@ -267,8 +278,8 @@ namespace CardPresentation
             //    原版兄弟序 = **`Highlight → Border → Image`**（`Image` 最后 = 画在最上面）
             //    ⇒ 队列必须是 `Highlight 4 < Border 5 < Image 6`。同族先例（已收口）：
             //    `ProfileTab.L_ArtOverFrame` / `RankedTab.L_ArtOverFrame` / `TopBar.QBarAvatarFrame<QBarAvatar`。
-            WarnIfAvatarMissing(Avatars.Count > 0 ? Avatars[Selected].Art : null);
-            _bigArt = CosmeticRect(ic, Avatars.Count > 0 ? Avatars[Selected].Art : null,
+            WarnIfAvatarMissing(Avatars.Count > 0 ? Avatars[PreviewIndex].Art : null);
+            _bigArt = CosmeticRect(ic, Avatars.Count > 0 ? Avatars[PreviewIndex].Art : null,
                                    new PxRect(ImL, ImT, ImR, ImB), "Image", 6);
             Rect(ic, ArtBorder, new PxRect(BdL, BdT, BdR, BdB), "Border", 5, null, true);
             // 🔴 **2026-10-07（A62 子表 A · A28）**：原版 `Avatar Tab > Selected Item Panel > Avatar Name`
@@ -287,13 +298,26 @@ namespace CardPresentation
             // 🔴 **A62 · A29**：原版 `Button Text`（`'Selecionar'`）是 **`折行=0 auto[10~36]`** ⇒ 关掉。
             // 🔴 **A406**：`Avatar Tab/Selected Item Panel/Select Avatar Button/Button Text`
             //   原版 `auto[10.0~36.0] 基准=12.0` ⇒ 上限 36（= 标称）· base **12.0**。
-            var selTx = Text(btn, AvatarButtonTerm(BtnLabelTerm, "Select", "选择"), new PxRect(BtL, BtT, BtR, BtB), Color.white, "Button Text",
-                             CNmPx, 7, autoFit: true, autoMinPx: 10f, alignLeft: false, wrap: false,
+            // 🔴🔴 **2026-10-23（P5）画序订正：字必须**严格**排在底图之上（`Q+8` > 底图 `Q+7`）** ——
+            //   实拍（`_tmp_view/menu/11_档案窗_头像页.png`）那颗钮**一个字都没有**，而同页的
+            //   `Toggle borde`（同一套写法）中文正常。两者的唯一差别 = 这颗钮此刻是 **`interactable = false`**
+            //   ⇒ `WindowButton.RefreshGray` 把底图材质换成 `Everguild/UI/Greyscale`（一份**新材质**）。
+            //   改前字与底图**同为 `Q+7`**：同队列的透明件按「到相机距离」排（CLAUDE.md §三），
+            //   距离相等时由材质当决胜键 —— 换灰材质那一下就把顺序翻了过来 ⇒ 底图盖住字。
+            //   **判据**：① 同一颗钮在**头衔页**（那颗钮当时**没变灰**）中文正常（`_p5_title_btn.png`）；
+            //            ② 参考图 `账户-头像参考图.png` 里原版**灰钮上照样印白字「正在使用」**；
+            //            ③ 原版 prefab 的 `Button Text` 是 `Select Avatar Button` 的**子件**（永远画在 Image 之上）。
+            //   ⛔ 别改回同队列：那等于把「字在不在」交给材质决胜键（静默、且只在变灰时才现形）。
+            var selTx = Text(btn, ButtonLabel(), new PxRect(BtL, BtT, BtR, BtB), Color.white, "Button Text",
+                             CNmPx, 8, autoFit: true, autoMinPx: 10f, alignLeft: false, wrap: false,
                              autoMaxPx: 36f, basePx: 12f, face: TmpFont.Face.LatinCardBody);
             if (selTx != null) selTx.SetWrapping(false);
+            _btnLabel = selTx;
             // 🆕 A17：原版 `Avatar Tab>Selected Item Panel>Select Avatar Button` 是 SpriteSwap（普查 §块 5 第 8 行）
-            Hit(sel, "SelectHit", new PxRect(BtnL, BtnT, BtnR, BtnB), 8, OnSelectClicked, selQ, ArtButton,
+            // ⚠️ 命中区顺延到 `Q+9`（原 `Q+8` 与字同号）—— 那颗 quad 是**透明**的，抬一号只为不留新的同号并列。
+            var selHit = Hit(sel, "SelectHit", new PxRect(BtnL, BtnT, BtnR, BtnB), 9, OnSelectClicked, selQ, ArtButton,
                 clickCue: WindowSounds.SelectAvatarCue);
+            _btnHit = selHit != null ? selHit.GetComponent<WindowButton>() : null;
 
             var tbn = Node(sel, "Toggle borde", new PxRect(TbL, TbT, TbR, TbB));
             var tbQ = Rect(tbn, ArtButton, new PxRect(TbL, TbT, TbR, TbB), "Image", 7);
@@ -303,12 +327,15 @@ namespace CardPresentation
             // 🔴 **2026-10-18（`W22`）**：文案**走官方词条**（原版这颗 `Localize.mTerm = "Demo/AvatarMenu/ToggleBorder"`，
             //   官方两列 `Toggle Border` / `切换边框`）—— 改前写死 `ToggleBorderLabel` 英文 ⇒ **中文档下这颗仍是英文**
             //   （用户 2026-10-18 第六轮真机截图点名）。⛔ 别再直接印常量。
+            // 🔴 **2026-10-23（P5）**：与上面那颗钮同一条画序纪律 —— 字 `Q+8` **严格**在底图 `Q+7` 之上
+            //   （这颗钮今天不变灰、所以改前「碰巧对」；它的队列关系与上面那颗**逐位同形**，
+            //    留成同号就是留一颗同类的雷）。理由与实拍判据 → 上面 `Select Avatar Button` 那段。
             var tbTx = Text(tbn, Loc.T(ToggleBorderTerm), new PxRect(TbtL, TbtT, TbtR, TbtB), Color.white, "Button Text",
-                            CNmPx, 7, autoFit: true, autoMinPx: 10f, alignLeft: false, wrap: false,
+                            CNmPx, 8, autoFit: true, autoMinPx: 10f, alignLeft: false, wrap: false,
                             autoMaxPx: 36f, basePx: 12f, face: TmpFont.Face.LatinCardBody);
             if (tbTx != null) tbTx.SetWrapping(false);
-            // 🆕 A17：`Toggle borde` 同族（普查 §块 5 第 9 行）
-            Hit(sel, "BordeHit", new PxRect(TbL, TbT, TbR, TbB), 8, ToggleBorder, tbQ, ArtButton,
+            // 🆕 A17：`Toggle borde` 同族（普查 §块 5 第 9 行）；命中区 `Q+9`（同上面那条理由）
+            Hit(sel, "BordeHit", new PxRect(TbL, TbT, TbR, TbB), 9, ToggleBorder, tbQ, ArtButton,
                 clickCue: WindowSounds.SelectAvatarCue);
 
             Refresh();
@@ -412,47 +439,83 @@ namespace CardPresentation
         //    ⚠️ 显示名是我们从资源名反推的（`Avatar_UM_Attack Bike` → `Attack Bike`）。
         public static List<ProfileData.Item> Avatars { get { return ProfileData.Avatars; } }
 
-        /// <summary>当前选中的下标。🔴 **2026-09-27 收口：读写都走 `ProfileData.AvatarIndex`** ——
-        /// 原来它是**这个页签实例上的字段** ⇒ 关掉档案窗就没了，**主菜单顶栏那块头像读不到它**
-        /// （顶栏比档案窗先建 ⇒ 玩家在档案窗选了头像、顶栏不变）。判据 → `ProfileData.AvatarIndex` 那段注释。
-        /// ⚠️ **默认 0 是我们挑的**（原版的默认头像靠一个解不出来的常量挑，见同一处注释）。</summary>
-        public int Selected { get { return ProfileData.AvatarIndex; } }
-        /// <summary>要不要画头像边框（`Toggle borde` 那个钮）。原版由 `PlayerAvatarDataManager` 的边框字段驱动。</summary>
-        public bool BorderOn = true;
+        /// <summary>「正在使用」词条（原版 `AvatarTab.ToggleSelectButton` 里「选中的那张 == 当前装备」那一支；
+        /// 官方表 `PlayerProfile/InUse` = `In use` / `正在使用`；参考图两颗钮都印这个）。</summary>
+        public const string InUseTerm = "PlayerProfile/InUse";
 
+        /// <summary>当前**预览**的下标。🔴 **2026-09-27 收口：已装备那一份读写都走 `ProfileData.AvatarIndex`**
+        /// （原来它是这个页签实例上的字段 ⇒ 关掉档案窗就没了，主菜单顶栏那块头像读不到它）。
+        /// 🆕 **2026-10-22（P1）**：本属性从「已装备」改成「**预览**」（原版 `AvatarTab.currentItem` 语义）——
+        /// 点格子只换预览；**装备**在 `Select Avatar Button`（`ConfirmSelect`）。
+        /// ⚠️ **默认 0 是我们挑的**（原版的默认头像靠一个解不出来的常量挑，见 `ProfileData.AvatarIndex` 注释）。</summary>
+        public int Selected { get { return PreviewIndex; } set { PreviewIndex = value; } }
+        /// <summary>要不要画头像边框（`Toggle borde` 那个钮）。原版由 `PlayerAvatarDataManager` 的边框字段驱动；
+        /// 🆕 2026-10-22 起**落盘**（`ProfileData.AvatarBorderOn`）。</summary>
+        public bool BorderOn
+        {
+            get { return ProfileData.AvatarBorderOn; }
+            set { ProfileData.AvatarBorderOn = value; }
+        }
+
+        /// <summary>点格子 = **只预览**（原版 `AvatarTab.OnAvatarClick` → `AvatarDisplay.Initialize` +
+        /// `ToggleSelectButton`，**不**写 `PlayerAvatarDataManager`；装备在那颗钮上）。</summary>
         public void Select(int index)
         {
-            if (index < 0 || index >= Avatars.Count) { Debug.Log("[Profile] 头像选中越界：" + index); return; }
-            ProfileData.AvatarIndex = index;      // 🆕 唯一一份（顶栏/别的页都读它）
+            if (index < 0 || index >= Avatars.Count) { Debug.Log("[Profile] 头像预览越界：" + index); return; }
+            PreviewIndex = index;
             Refresh();
         }
 
-        /// <summary>切「显不显示头像边框」。原版 `AvatarTab.ToggleAvatarBorder` → `SetCurrentItem(border, cb)`。</summary>
+        /// <summary>装备当前预览的那张 —— 原版 `AvatarTab.OnChoseAvatar/SetAvatar`（`SetCurrentItem` + 上传）。
+        /// 我们的等价物 = `ProfileData.AvatarIndex`（唯一一份，会落盘）。</summary>
+        public void ConfirmSelect()
+        {
+            if (PreviewIndex < 0 || PreviewIndex >= Avatars.Count)
+            {
+                Debug.Log("[Profile] `Select`（头像页）：**还没预览任何一张**");
+                return;
+            }
+            ProfileData.AvatarIndex = PreviewIndex;
+            Refresh();
+            Debug.Log("[Profile] 已装备头像「" + Avatars[PreviewIndex].Name + "」（# " + PreviewIndex
+                    + "）—— 写进 `ProfileData.AvatarIndex`（顶栏读它），并落盘到 "
+                    + "`persistentDataPath/WarpforgeProfile/profile.json`");
+        }
+
+        /// <summary>每次切到本页：预览回到**已装备的那张**（原版 `RefreshDisplays` 末尾那条）。</summary>
+        public override void OnOpen()
+        {
+            PreviewIndex = Mathf.Clamp(ProfileData.AvatarIndex, 0, Mathf.Max(0, Avatars.Count - 1));
+            Refresh();
+        }
+
+        /// <summary>切「显不显示头像边框」。原版 `AvatarTab.ToggleAvatarBorder` → `SetCurrentItem(border, cb)`。
+        /// 🆕 2026-10-22：结果落盘（`ProfileData.AvatarBorderOn`）。</summary>
         public void ToggleBorder()
         {
             BorderOn = !BorderOn;
             Refresh();
             Debug.Log("[Profile] 头像边框 = " + (BorderOn ? "显示" : "隐藏")
-                    + "（⚠️ 没有存档：原版这一步会 `PlayerAvatarDataManager.SaveAvatarBorder`）");
+                    + "（已落盘：`ProfileData.AvatarBorderOn`；原版这一步是 `PlayerAvatarDataManager.SaveAvatarBorder`）");
         }
 
-        /// <summary>把「当前选中的头像」刷一遍：大图那块（立绘 + 名）+ 格子上的选中高亮 + 边框显隐。
+        /// <summary>把「当前预览的头像」刷一遍：大图那块（立绘 + 名）+ 格子上的选中高亮 + 边框显隐 + 那颗钮。
         /// 出处：原版 `AvatarTab.RefreshDisplays` → `AvatarDisplay.Initialize(...)`；
         /// 「旧选 `ToggleHighlight(false)` + 新选 `true`」那条链在 `AvatarTab__OnAvatarClick.c:25/28`。
-        /// ⚠️ **不重建格子**（原版也只切 `Highlight` 的 active）—— 所以换选中**不需要重跑 `BuildRows`**。</summary>
+        /// ⚠️ **不重建格子**（原版也只切 `Highlight` 的 active）—— 所以换预览**不需要重跑 `BuildRows`**。</summary>
         public void Refresh()
         {
-            bool has = Selected >= 0 && Selected < Avatars.Count;
-            if (_bigName != null) _bigName.SetText(has ? Avatars[Selected].Name : "");
+            bool has = PreviewIndex >= 0 && PreviewIndex < Avatars.Count;
+            if (_bigName != null) _bigName.SetText(has ? Avatars[PreviewIndex].Name : "");
             if (_bigArt != null)
             {
-                var tex = has ? CardArt.Cosmetics(Avatars[Selected].Art) : null;
+                var tex = has ? CardArt.Cosmetics(Avatars[PreviewIndex].Art) : null;
                 if (tex != null) { _bigArt.SetTexture(tex); _bigArt.gameObject.SetActive(true); }
                 else _bigArt.gameObject.SetActive(false);
             }
             if (_bigHighlight != null) _bigHighlight.gameObject.SetActive(false);   // 大图那份恒关（见常量注释）
             for (int k = 0; k < _cellHl.Count; k++)
-                if (_cellHl[k] != null) _cellHl[k].gameObject.SetActive(k < _cellIdx.Count && _cellIdx[k] == Selected);
+                if (_cellHl[k] != null) _cellHl[k].gameObject.SetActive(k < _cellIdx.Count && _cellIdx[k] == PreviewIndex);
             // 边框：`Toggle borde` 那个钮管的（`AvatarTab.CheckEnableAvatarBorder`）。
             // ⚠️ 原版是按 `FindActiveAvatarBorder() != null` 决定**这个钮能不能点**，不是直接藏边框图；
             //    我们这里**简化为「开关边框那一层」** —— 这是**我们的做法**，如实标着。
@@ -461,13 +524,21 @@ namespace CardPresentation
                 var bd = _grid.GetChild(k).Find("Image Container/Border");
                 if (bd != null) bd.gameObject.SetActive(BorderOn);
             }
+            // 钮：预览 == 已装备 ⇒ `PlayerProfile/InUse`（不可点）；否则 ⇒ Select（可点）。
+            //   判据 = `AvatarTab__ToggleSelectButton.c` 的三分支（相等 / 未解锁 / 其他 ⇒ InUse / Locked / Select）。
+            if (_btnLabel != null) _btnLabel.SetText(ButtonLabel());
+            if (_btnHit != null) _btnHit.Interactable = has && PreviewIndex != ProfileData.AvatarIndex;
         }
 
-        void OnSelectClicked()
+        /// <summary>那颗钮当前该印什么（自检也读它）。</summary>
+        public string ButtonLabel()
         {
-            if (Selected < 0) { Debug.Log("[Profile] `Select`（头像页）：**还没选中任何一个**"); return; }
-            Debug.Log("[Profile] 选中头像「" + Avatars[Selected].Name + "」（# " + Selected + "）—— "
-                    + "⚠️ **没有存档**：原版会 `PlayerAvatarDataManager.SetCurrentItem` + 上传，我们只在本局记住");
+            bool has = PreviewIndex >= 0 && PreviewIndex < Avatars.Count;
+            return has && PreviewIndex == ProfileData.AvatarIndex
+                 ? AvatarButtonTerm(InUseTerm, "In use", "正在使用")
+                 : AvatarButtonTerm(BtnLabelTerm, "Select", "选择");
         }
+
+        void OnSelectClicked() { ConfirmSelect(); }
     }
 }

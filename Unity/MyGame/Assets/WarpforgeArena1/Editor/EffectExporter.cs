@@ -885,6 +885,86 @@ public static class EffectExporter
         //   type 4/10（死字段）。台账当前都是 Z（1.00 / 0.95）⇒ 重导**不预期**改亮度，只清伪引用。
         "Buff_Sororitas_quick_fire",
         "Buff_Sororitas_quick_fire_intense",
+        // 🆕 **2026-10-22（W64 · M1–M3）**：`RemnantBody3D` 的字段**直接引用**这三件粒子 ——
+        //   M1 = `RemnantBody3D Aeldari.waystoneCollectVFX`（MB_4264721938747747763 → pid -5927265983621035281）
+        //   M2 = `RemnantBody3D Aeldari.particleDeath`（pid 6910315040393640781）
+        //   M3 = `RemnantBody3D Necrons.particleDeath`（MB_9217091644567071602 → pid -4358118985528859315）。
+        //   三件**都不在 addressables 容器里**（`anim_address_map.json` 的 `guid_to_asset` 无对应 guid；
+        //   实读 Transform `m_Father = None` = 独立根）⇒ `Run()` 的容器枚举与按名 `LoadAsset` 都取不到
+        //   ⇒ 已当**根**重打进 `wf_prefabs_extra.bundle`（`工具/extract_missing_shaders.py` 的
+        //   `PREFAB_TARGETS` 2026-10-22 那一批；UnityPy 回读 3/3 在包里，pathID 与判据文件一致）。
+        //   判据 → `资料/普查产出_1022/W64_素材导出缺口.md` §一 M1–M3。
+        "Remnant Aeldari Collect particles",
+        "Remnant Aeldari Destroy particles",
+        "Remnant Necrons Destroy particles",
+        // 🆕 **2026-10-22（W64 · M4）**：`anim_address_map.cardanim_to_asset["Earthquake Shake only 2s"]`
+        //   指向本件（1,099 条 CardAnim 里**唯一一条「目标存在但没进库」**的）。它**在容器里**
+        //   （guid `d2058fddbf2991c4db6553201f833327`）⇒ **不需要重打包**，只走 `RunListed()`。
+        //   它被 `Run()` 的「效果根」过滤器挡掉的理由**与 `Environmental Condition Particles Orbital`
+        //   （`A211`）/ `Teleport Trigger Board Effect Only` 同款** —— 子树里 0 个 `ParticleSystemRenderer`
+        //   （那两条先例的注释见上面）。
+        //   判据 → `资料/普查产出_1022/W64_素材导出缺口.md` §一 M4。
+        "Earthquake Shake only",
+        // 🆕 **2026-10-22（P8 · P5 §⑦ 缺口 2）**：两件 `RemnantBody3D` 宿主**要重导一次**。
+        //   · `RemnantBody3D Necrons` —— `VatSpots` 那一行（`Root = "RemnantBody3D Necrons"`，**10-19** 才加）
+        //     **从来没落到 prefab 上**：现读 `WarpforgeVFX/Prefabs/RemnantBody3D Necrons.prefab` 只有
+        //     **1 个 MonoBehaviour**（根上的 `WarpforgeEffectBinder`），**没有** `WarpforgeVatDriver` /
+        //     `WarpforgeVatPoolPicker`；它的 mtime = **2026-10-10 16:09**（比 `VatSpots` 早 9 天）。
+        //     判据 → `资料/普查产出_1022/P5_四未查清.md` §⑦ 缺口 2（对照组 = `Vanguard Frame Animated VAT`
+        //     10-21 重导过，`:106` 已有驱动）。
+        //   · `RemnantBody3D Aeldari` —— 同一批导入的姊妹件（同样 10-10 16:09、同样只剩 1 个 MonoBehaviour），
+        //     它引用的 M1/M2 两件粒子（`Remnant Aeldari Collect particles` / `… Destroy particles`）
+        //     已在 10-22 当根重打进 `wf_prefabs_extra.bundle`（见上面 W64 那段），**宿主也要跟着重导**才对得上。
+        //     判据 → `资料/普查产出_1022/W64_素材导出缺口.md` §一 M1/M2 + §四⑦。
+        //   ⚠️ 这两件**本来就是「效果根」**（`Run()` 会导它们，且已在 `WarpforgeEffectLibrary.asset` 里）——
+        //     列进本表**不是为了补漏**，是为了「**只**重导这两件」时不必跑全量的 958 件（`Export()` 幂等，重复无害）。
+        //   ⚠️ 名字**逐字**照 bundle `m_Name`（本表与 `WFEFFECT_ONLY` 都按逐字比）：`RemnantBody3D` 后面是
+        //     **一个空格**、没有空格在词中间（实读 `bundle_battleprefabs_vfxandmisc_assets_all/GameObject/`
+        //     里就是 `RemnantBody3D Aeldari.json` / `RemnantBody3D Necrons.json` 两个文件）。
+        "RemnantBody3D Aeldari",
+        "RemnantBody3D Necrons",
+        // 🆕 **2026-10-22（`A2` §1·2 X2）**：主菜单「用万能卡」那 **8 个**粒子 prefab。
+        //   **为什么要进本表**：它们子树里都有 `ParticleSystemRenderer`（实读 6~13 个节点、子件
+        //   `Circling Particle`）⇒ 本来是「效果根」，但原版把它们放在
+        //   **`scenes_scenes_mainmenuwarpforge.bundle`**，而 `Run()` 只枚举特效主包那**一个** `vfx` 包的容器
+        //   ⇒ 那条路永远扫不到它们（不是「被过滤器挡掉」，是「根本不在那张名单里」）。
+        //   **为什么名字加进来还不够、必须同时重打包**：那是个**流式场景包** —— `m_Container` **只有 1 条**
+        //   （=`MainMenu Warpforge.unity` 场景自己），`m_IsStreamedSceneAssetBundle = True`
+        //   ⇒ `GetAllAssetNames()` 只有那一条、`LoadAllAssets()` 在场景包上**直接抛异常**；
+        //   `数据/索引/anim_address_map.json` 的 `guid_to_asset`（10,539 条）**8/8 都没有对应 guid**
+        //   ⇒ 它们也不是 addressable 容器项。故已当**根**重打进 `wf_mainmenu_extra.bundle`
+        //   （`工具/extract_missing_shaders.py` 的 **`MAINMENU_GROUPS`**，实读 8/8 都是 `m_Father = 0`
+        //   的独立根、且与 `AssetBundle` 对象同在那份 `.sharedAssets` CAB 里）。
+        //   ⚠️ **先后顺序**：重打包那一步（`--prefabs`）没跑之前，本表这 8 条会在 `RunListed` 第一遍
+        //   报「按名字加载 → 没取到」，第二遍枚举也兜不到 —— 不是回归，是那一包还没生成。
+        //   判据 → `资料/普查产出_1022/A2_素材未导出与未使用.md` §1·2 X2。
+        "Wildcard_Use_Button 1 Common",
+        "Wildcard_Use_Button 2 Rare",
+        "Wildcard_Use_Button 3 Epic",
+        "Wildcard_Use_Button 4 Legendary",
+        "Wildcard_Use_Card 1 Common",
+        "Wildcard_Use_Card 2 Rare",
+        "Wildcard_Use_Card 3 Epic",
+        "Wildcard_Use_Card 4 Legendary",
+        // 🆕 **2026-10-22（`A2` §1·1 B5）**：`Swarm Battle Card Icon` —— 卡面「虫群」标记那颗图标的原版 prefab
+        //   （`CardView.cs:6276` 自认缺件：现在只做显示 + 0.3s 淡出，动画另立账）。
+        //   **路径**：在 `battleprefabs_vfxandmisc_assets_all.bundle` 里、**在容器里但键是 assetGUID**
+        //   （`87a100c766fda41059e261e3e1ed817b`）⇒ 第一遍「按名字 `LoadAsset`」**取不到**，
+        //   但它在 `m_PreloadTable` 里 ⇒ 第二遍 `LoadAllAssets<GameObject>()` 能按 `g.name` 兜到。
+        //   **不需要重打包**（与 `Earthquake Shake only`／A211／M4 同款判据：在容器里就走本表）。
+        //   **它进不了 `Run()`** 的理由与 `Environmental Condition Particles Orbital`（A211）同款：
+        //   子树里 **0 个 `ParticleSystemRenderer`**（实读：2 个节点 `Swarm Battle Card Icon`/`Icon`，
+        //   组件只有 `Animation` + `MonoBehaviour` + `SpriteRenderer`）。
+        //   🎯 **顺带把 `SwarmIconOn` 那条 clip 一起落成 `.anim`**：它挂在本件根上的 legacy `Animation`
+        //   （`Animation_7363347156327180276`，`m_Animations[0]` = PathID `6836189287277267510`，FID 15 = 跨包），
+        //   实读 `m_Legacy = 1` / `m_MuscleClipSize = 0` / `m_FloatCurves = 1` / 60 fps（**不是** muscle 格式，
+        //   落得成工程资产）；`Export()` 的 `A1095` 那一支（本文件 `:2285`）对每条 `Animation` 片段调
+        //   `ImportClip` ⇒ 写到 `Assets/WarpforgeVFX/Animations/SwarmIconOn.anim`。
+        //   ⚠️ 跨包引用取得到：本件那条 clip 在 **`cardanimsgeneral_assets_all.bundle`**，
+        //   `RunListed` 把 `BundleDir` 下全部源包都 `LoadFromFile` 了（`:1020`）⇒ 与本文件 `:2280` 记的
+        //   `ScytheAssault` 是**同一条路**（那条也在 `cardanimsgeneral`）。
+        //   判据 → 同上报告 §1·1 B5。
+        "Swarm Battle Card Icon",
     };
 
     /// <summary>🎯 **本轮实际要导的名单** = `ListedPrefabs` 扣掉 `WFEFFECT_ONLY` 之外的那些
@@ -1165,9 +1245,12 @@ public static class EffectExporter
     //  ⚠️ **顺序**：与 `AttachPoolables` 一样 —— 必须**在 `StripMissingScripts` 之后**
     //    （否则刚挂上的又会被那一趟当 missing 删掉）、`PrefabUtility.SaveAsPrefabAsset`（`:1283`）之前。
     //  ⚠️ **两个 Vanguard 宿主已在 `ListedPrefabs` 里** ⇒ 不需要为它们再改名单。
-    //    🆕 `RemnantBody3D Necrons` **不在** `ListedPrefabs`（它是**效果根**：16 个 ParticleSystem、
-    //    已在 `WarpforgeEffectLibrary.asset` 里）⇒ 它由 `Run()` 全量导出覆盖；
-    //    要**只**重导它时，临时把名字加进 `ListedPrefabs` 走 `RunListed()`（`Export()` 幂等，重复无害）。
+    //    🆕 `RemnantBody3D Necrons` 它是**效果根**（16 个 ParticleSystem、已在 `WarpforgeEffectLibrary.asset`
+    //       里）⇒ `Run()` 全量导出本来就会覆盖它。
+    //       🔴 **2026-10-22 就地订正（铁律 5 · P8）**：本行原来写它「**不在** `ListedPrefabs`，要只重导它
+    //       时临时把名字加进表里」——**现在它在表里了**（`ListedPrefabs` 末尾 2026-10-22 那一段：
+    //       它和 `RemnantBody3D Aeldari` 一起加进去，判据 → `资料/普查产出_1022/P5_四未查清.md` §⑦ 缺口 2）。
+    //       原因正是「10-10 那版 prefab 上没有 VAT 驱动、必须重导」这件事本身。
     //    🆕 2026-10-21：加了 `WFEFFECT_ONLY`（见 `ListedTargets()`）—— 名字还是得先进表，
     //       但**跑的时候不必再把别的条目临时注释掉**了。
     //  ⚠️ **两张 VAT 贴图不是被任何材质引用的** ⇒ 导出器**永远不会**自己导它们

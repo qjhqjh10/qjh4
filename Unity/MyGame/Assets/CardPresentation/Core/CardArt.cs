@@ -439,37 +439,149 @@ namespace CardPresentation
 
         /// <summary>督军的**方形整身立绘**（`UI_Deck_Warlord_&lt;督军名&gt;`，`bundle_uiwarlords_assets_all`，
         /// **2048×2048 方形**、透明底抠图、构图居中；本机现读 63 张）。
-        /// <para>🔴🔴 **2026-10-18 适用范围改判（铁律 5）—— 本函数【只】给卡组详情窗那一档用**：
-        /// 现在唯一的调用点是 `Shell/DeckInfoPopup.cs` 的 `Warlord Image`（详情窗**左侧那张大立绘**）。
+        /// <para>🔴🔴 **2026-10-18 适用范围改判（铁律 5）—— 卡组格不用它**：
         /// **卡组格（`MenuDraw.DeckCell`）不用它** —— 用户 2026-10-18 明确纠正：卡格上要的是
         /// **卡牌里的插图**（卡面那张图），不是这张立绘；判据 + 参考图逐格模板匹配 →
-        /// `Shell/MenuDraw.cs` 的 `DeckCell` 里「2026-10-18 改判」那一段。⛔ 别再把本函数接回卡格。</para>
+        /// `Shell/MenuDraw.cs` 的 `DeckCell` 里「2026-10-18 改判」那一段。⛔ 别再把本函数接回卡格。
+        /// 🔴 **2026-10-22 就地订正**：本行原文写「现在唯一的调用点是 `Shell/DeckInfoPopup.cs`」——
+        /// **已过期**：同一天起 `Shell/LiveOpsEventWindow.cs`（排位/遭遇窗的 `Warlod Image`）与
+        /// `Shell/PracticeModePopup.cs`（`Deck info ▸ Character Image`，905²）也都改走它了。</para>
         /// <para>⚠️ 旧的这条注释写着「原版 `deckHero.cardImageReference` 指向的就是这一族」—— **那句不成立**
         /// （同一天就地推翻了）：`RawCardScript.cardImageReference` 是 `AssetReferenceTyped&lt;Sprite&gt;`
         /// = **卡面那张 sprite**；这一族是 UI 立绘，两者不是同一样东西。
         /// 旧注释里「卡面插图（668×1024）拉进方框会裁掉大半」说的**其实是画框折算错了**（已经修）——
         /// 那个 347.7 方框对应的是**整张 1024² 纹理**，可见区正好是插图整幅，见 `MenuDraw.DcImgX` 的补注。</para>
-        /// <para>取不到（快照之后新增的 16 位督军没有这张图）⇒ 退回 <see cref="Portrait"/>（卡面插图），
-        /// 调用点会按**非方形图**走等比内接 —— **这一档是我们挑的兜底**，不是原版做法。</para></summary>
+        /// <para>🔴 **2026-10-22（界面线 M3）取名改成「按原版数据取」，不再按卡名拼** —— 旧实现拿
+        /// **卡名**拼 `UI_Deck_Warlord_` + `name.Replace(' ','_')`，而原版资产名与卡名**并不总是同名**：
+        /// `UM76 "Lieutenant Titus"` → 原版资产是 `UI_Deck_Warlord_Titus`（不是 `…_Lieutenant_Titus`）⇒
+        /// 取不到、静默退回卡面插图（= 用户报的「战将立绘残缺」的真根因：905² 方框里塞 671×1024 的卡面图，
+        /// 等比内接成 593×905）。取舍名的两个**第一手来源**：
+        /// ① 卡 SO 的 `fullHeroSpriteReference` **原文**（`cards_engine.json`；56 张里 **36 张**这个字段
+        ///    **直接就是资产名**，如 `UI_Deck_Warlord_Titus` / `UI_Deck_Warlord_Lord Exultant`）—— 直接用，不猜；
+        /// ② 剩下 **20 张**那个字段里只有 **AssetReference 的 GUID**（`A2033` 记过旧 `guid_map.tsv` 解不出）——
+        ///    本轮用 **Addressables 目录 → `uiwarlords_assets_all.bundle` → `AssetBundle.m_Container`
+        ///    （键 = GUID）→ 资产 `m_Name`** 现解（65/65 个容器键全解）。
+        /// 两条来源的落值**合成同一张表** <see cref="_deckArtById"/>（56 行，逐行标了是哪一来源）——
+        /// ⛔ 不另存一份 JSON：`CardDef` 不带这个字段（`RuleEngine` 那边只保留在 DTO），
+        /// 而「两份表 = 迟早不一致」（铁律 6）。
+        /// ⛔ **不要再加「卡名归一化」的猜测规则**：`AM3 Commissar Denkler` 的原版资产叫 **Commissar Deckler**
+        /// （原版拼写就对不上卡名），归一化永远配不上。</para>
+        /// <para>⚠️ **两档可判别**：本函数只在**真拿到方形立绘**时返回 true；取不到时**出声**（⛔ 不静默）。
+        /// <see cref="DeckHero"/> 保留旧签名 = true 就给方形图、false 退回 <see cref="Portrait"/>（卡面插图，
+        /// **这一档是我们挑的兜底**，不是原版做法）。</para></summary>
+        public static bool TryDeckHero(string warlordId, out Texture2D tex)
+        {
+            tex = null;
+            if (string.IsNullOrEmpty(warlordId)) return false;
+            string art;
+            bool known = _deckArtById.TryGetValue(warlordId, out art) && !string.IsNullOrEmpty(art);
+            if (known)
+            {
+                tex = MenuUi(art.Replace(' ', '_'));
+                if (tex != null) return true;
+            }
+            // 取不到 —— **一律出声**（⛔ 不许静默兜底）：分清「表里没这一位」与「表里有、工程里没图」。
+            Debug.LogWarning("[CardArt] 督军 " + warlordId + " 的**整身立绘**取不到："
+                             + (known
+                                 ? "原版资产 `" + art + "` 在工程里没有（期望 `Resources/Art/ui_menu/"
+                                   + art.Replace(' ', '_') + ".png`）"
+                                 : "`_deckArtById` 表里没有这一位（新督军？⛔ 不许按卡名猜资产名）")
+                             + " ⇒ 调用方按「没有方形立绘」处理（`DeckHero` 会退回卡面插图 `Portrait`）。");
+            return false;
+        }
+
+        /// <summary>旧签名（兼容）：拿到方形立绘就给，否则退回 <see cref="Portrait"/>（卡面插图）。
+        /// ⚠️ 退回**不是静默的** —— <see cref="TryDeckHero"/> 已经打过 Warning；
+        /// 新代码要「两档可判别」就直接用 `TryDeckHero`（例如按方形/竖构图决定要不要等比内接）。</summary>
         public static Texture2D DeckHero(string warlordId)
         {
-            if (string.IsNullOrEmpty(warlordId)) return null;
-            if (_nameById == null)
-            {
-                _nameById = new System.Collections.Generic.Dictionary<string, string>();
-                foreach (var c in RuleEngine.CardDatabase.Load())
-                    if (!string.IsNullOrEmpty(c.Id) && !string.IsNullOrEmpty(c.Name))
-                        if (!_nameById.ContainsKey(c.Id)) _nameById[c.Id] = c.Name;
-            }
-            string name;
-            if (_nameById.TryGetValue(warlordId, out name) && !string.IsNullOrEmpty(name))
-            {
-                var t = MenuUi("UI_Deck_Warlord_" + name.Replace(' ', '_'));
-                if (t != null) return t;
-            }
+            Texture2D t;
+            if (TryDeckHero(warlordId, out t)) return t;
             return Portrait(warlordId);
         }
-        static System.Collections.Generic.Dictionary<string, string> _nameById;
+
+        /// <summary>**督军 id → 原版整身立绘资产名**（唯一一张表，56 位现池督军全覆盖）。
+        /// <para>判据两来源，**逐条**标在行尾：`SO 原文` = 卡 SO 的 `fullHeroSpriteReference` 字段
+        /// **直接就是资产名**（36 条，`cards_engine.json` 现读，第一手，⛔ 不是我们归一化出来的）；
+        /// `GUID→容器` = 那个字段里只有 **AssetReference 的 GUID**（20 条；`A2033` 记过旧 `guid_map.tsv`
+        /// 解不出）⇒ 本轮用 **Addressables 目录 → `uiwarlords_assets_all.bundle` → 该 bundle 的
+        /// `AssetBundle.m_Container`（键 = GUID，65 个键 / 65 张图全解）→ 资产 `m_Name`** 现解。
+        /// 判据（可复查）= 该 bundle 的 `AssetBundle.m_Container`（**键 = GUID** → `m_PathID`）与各资产 `m_Name`
+        /// —— UnityPy 读 `d:/2/unity_run_ref/Warpforge_Data/StreamingAssets/aa/StandaloneWindows64/uiwarlords_assets_all.bundle`
+        /// （同一条链的现成工具 = `工具/_guid_resolve_probe.py`，catalog → bundle → `m_Container` → `m_Name`）。
+        /// **交叉核对**：解出的 65 个名字与 `assets_full/…_uiwarlords_assets_all/Sprite/` 那 **65 份 json 的
+        /// `m_Name` 逐条相同**（两条独立提取路径，65/65 一致）。</para>
+        /// <para>⚠️ **六条名字与卡名对不上**（⛔ 别「按卡名去头衔/归一化」猜，那样这几条永远配不上）：
+        /// `AM3 Commissar Denkler→Commissar Deckler`（原版资产名的拼写就是 Deckler）·
+        /// `BL36 Sylar Hexscorn→Sylar Hexcorn`（原版也是 Hexcorn 这个拼写）·
+        /// `GSC3 Iconward Malak Vorenth→Acolyte Iconward` · `GSC2 Magus Uthrel Naas→Magus` ·
+        /// `EC56 Lord Kaphrael→Lord Exultant` · `TL74 Terror of Vardenghast→Winged Tyranid Prime`
+        /// （后四条是「立绘用的是另一套人设名」）。</para>
+        /// <para>🔴 `DA75` 那条是 **`UI_Deck_Master Zacharial`** —— ⚠️ **没有 `_Warlord_` 前缀**，而且
+        /// **工程里还没导入**（原版包里有：`…_uiwarlords_assets_all/Texture2D/UI_Deck_Master Zacharial.png`，
+        /// 2048²）⇒ 今天它走 `DeckHero` 的 `Portrait` 兜底并出声；补图后放
+        /// `Resources/Art/ui_menu/UI_Deck_Master_Zacharial.png` 即自动生效（本表不用改）。
+        /// **`noArt` 就只有这一条**（其余 55 条工程里全有，逐条核过：`Resources/Art/ui_menu/` 现读 63 张，
+        /// 含 7 张 `_AA_HB` 异画与 `UI_Deck_Warlord_AzraelAA`，那 8 张不进本表 —— 异画不是本局立绘）。</para></summary>
+        static readonly Dictionary<string, string> _deckArtById = new Dictionary<string, string>
+        {
+            { "AM1",     "UI_Deck_Warlord_Leontus" },                 // GUID→容器
+            { "AM2",     "UI_Deck_Warlord_Ursula Creed" },            // GUID→容器
+            { "AM3",     "UI_Deck_Warlord_Commissar Deckler" },       // GUID→容器
+            { "AM66",    "UI_Deck_Warlord_Hektor Thenmann" },         // GUID→容器
+            { "ASH1",    "UI_Deck_Warlord_Anvirr Keltoc" },           // SO 原文
+            { "ASH2",    "UI_Deck_Warlord_Eliac Zephyrblade" },       // SO 原文
+            { "ASH3",    "UI_Deck_Warlord_Medreyal Ghaelyn" },        // SO 原文
+            { "ASH74",   "UI_Deck_Warlord_Jain Zar" },                // GUID→容器
+            { "ASH76",   "UI_Deck_Warlord_Lhykhis" },                 // GUID→容器
+            { "BL34",    "UI_Deck_Warlord_Abaddon" },                 // SO 原文
+            { "BL35",    "UI_Deck_Warlord_Haarken Worldclaimer" },    // SO 原文
+            { "BL36",    "UI_Deck_Warlord_Sylar Hexcorn" },           // SO 原文
+            { "BL65",    "UI_Deck_Warlord_Ghallaron" },               // SO 原文
+            { "DA1",     "UI_Deck_Warlord_Azrael" },                  // GUID→容器
+            { "DA2",     "UI_Deck_Warlord_Belial" },                  // GUID→容器
+            { "DA3",     "UI_Deck_Warlord_Asmodai" },                 // GUID→容器
+            { "DA75",    "UI_Deck_Master Zacharial" },                // GUID→容器 · ⚠️工程未导入
+            { "EC55",    "UI_Deck_Warlord_Lucius" },                  // GUID→容器
+            { "EC56",    "UI_Deck_Warlord_Lord Exultant" },           // SO 原文
+            { "EC57",    "UI_Deck_Warlord_Daemon Prince" },           // SO 原文
+            { "GOF27",   "UI_Deck_Warlord_Boss Zagstruk" },           // SO 原文
+            { "GOF28",   "UI_Deck_Warlord_Ghazghkull Thraka" },       // SO 原文
+            { "GOF29",   "UI_Deck_Warlord_Grukk Face-Rippa" },        // SO 原文
+            { "GOF75",   "UI_Deck_Warlord_Gordrang" },                // SO 原文
+            { "GOF76",   "UI_Deck_Warlord_Mozrog Skragbad" },         // SO 原文
+            { "GOF77",   "UI_Deck_Warlord_Beastboss Morgrim" },       // SO 原文
+            { "GSC1",    "UI_Deck_Warlord_Saffa Rhiannor" },          // GUID→容器
+            { "GSC2",    "UI_Deck_Warlord_Magus" },                   // GUID→容器
+            { "GSC3",    "UI_Deck_Warlord_Acolyte Iconward" },        // GUID→容器
+            { "GSC66",   "UI_Deck_Warlord_Lhaska Szenari" },          // GUID→容器
+            { "SAU35",   "UI_Deck_Warlord_Imotekh the Stormlord" },   // SO 原文
+            { "SAU36",   "UI_Deck_Warlord_Nemesor Zahndrekh" },       // SO 原文
+            { "SAU37",   "UI_Deck_Warlord_Orikan the Diviner" },      // SO 原文
+            { "SAU66",   "UI_Deck_Warlord_Ramatekh" },                // SO 原文
+            { "SOR1",    "UI_Deck_Warlord_Erika Luminas" },           // SO 原文
+            { "SOR2",    "UI_Deck_Warlord_Junith Eruita" },           // SO 原文
+            { "SOR3",    "UI_Deck_Warlord_Morvenn Vahl" },            // SO 原文
+            { "SOR65",   "UI_Deck_Warlord_Celestian Sacresant Aveline" }, // GUID→容器
+            { "SW1",     "UI_Deck_Warlord_Logan Grimnar" },           // GUID→容器
+            { "SW2",     "UI_Deck_Warlord_Njal Stormcaller" },        // GUID→容器
+            { "SW3",     "UI_Deck_Warlord_Ragnar Blackmane" },        // GUID→容器
+            { "TAU1",    "UI_Deck_Warlord_Shadowsun" },               // SO 原文
+            { "TAU2",    "UI_Deck_Warlord_AunVa" },                   // SO 原文
+            { "TAU3",    "UI_Deck_Warlord_Commander OMaisos" },       // SO 原文
+            { "TAU65",   "UI_Deck_Warlord_War Shaper" },              // SO 原文
+            { "TL34",    "UI_Deck_Warlord_Tervigon" },                // SO 原文
+            { "TL35",    "UI_Deck_Warlord_Swarmlord" },               // SO 原文
+            { "TL36",    "UI_Deck_Warlord_Neurothrope" },             // SO 原文
+            { "TL74",    "UI_Deck_Warlord_Winged Tyranid Prime" },    // SO 原文
+            { "UM46",    "UI_Deck_Warlord_Marneus Calgar" },          // SO 原文
+            { "UM47",    "UI_Deck_Warlord_Uriel Ventris" },           // SO 原文
+            { "UM48",    "UI_Deck_Warlord_Varro Tigurius" },          // SO 原文
+            { "UM65",    "UI_Deck_Warlord_Chaplain Letharius" },      // SO 原文
+            { "UM76",    "UI_Deck_Warlord_Titus" },                   // SO 原文
+            { "UM87",    "UI_Deck_Warlord_Guilliman" },               // GUID→容器
+            { "UM88",    "UI_Deck_Warlord_Valius Paxor" },            // SO 原文
+        };
 
         /// <summary>按**卡名**取立绘 —— **只给「手上只有卡名」的那一处用**（`BattleLogPanel` 的
         /// 小头像：战斗事件里带的是卡名，见 `BattleEvent.CardId`）。

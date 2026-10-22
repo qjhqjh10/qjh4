@@ -5672,6 +5672,12 @@ public static class ShellScene
 
             var pw = PracticeModePopup.Create(shell.Windows);
             shell.Windows.OpenWindow(pw);
+            // 🔴 **2026-10-22（`W65` 收藏线与原版对齐）**：练习窗的默认模式已改回原版 **Skirmish(13)**
+            //   （判据 = `decomp_full/PracticeModePopup__.ctor.c` 首句 `*(param_1+0x110) = 0xd`）。
+            //   而本段夹具那 4 套卡组是 `lib.Create(name)` 建的（缺省 `gameMode = 0` = **Classic**）
+            //   ⇒ 不切模式的话 `DeckRows` **一格都不建**、下面 ③ 那几态全塌（前提断言会先红）。
+            //   ⛔ 别改成“让夹具建 Skirmish 卡组”：本段验的是**版式几何**，模式只要与夹具一致即可。
+            pw.SetGameMode(RuleEngine.GameMode.Classic);
             CheckTrue(pw != null && pw.CurrentState == WindowState.Open,
                       "（前提）开出一扇练习窗（本段末尾关掉）—— 它是 `GameWindow` 直系，但不是 `MenuWindowBase` 族");
 
@@ -5776,8 +5782,11 @@ public static class ShellScene
             CheckTrue(pw.ArmyCells.Count > 0,
                       $"（前提）生产框下**建出阵营格**来了（{pw.ArmyCells.Count} 格）—— 为 0 的话 ② 那几态等于没验");
             CheckTrue(pw.DeckRows.Count > 0,
-                      $"（前提）生产框下**建出卡组格**来了（{pw.DeckRows.Count} 格；夹具 4 套 ⇒ 两列 2 行）"
-                      + " —— 为 0 的话 ③ 那几态等于没验");
+                      $"（前提）生产框下**建出卡组格**来了（{pw.DeckRows.Count} 格）"
+                      + " —— 为 0 的话 ③ 那几态等于没验"
+                      + "｜⚠️ 2026-10-22 订正（铁律 5）：原来这里写着「夹具 4 套 ⇒ 两列 2 行」—— **已过期**："
+                      + "练习窗左列现在读原版 78 对 `DemoDeckInfoSO`（`demo_deck_pairs.json`），"
+                      + "逻辑 78 格、**视口内实建 8 格**（4 行 × 2 列，RectMask2D 只裁不建）");
 
             // ============================================================ ② A754-a：阵营视口（`Army Selector/Viewport`）
             // 夹具 = 第 0 格（`Army_0`）：格 = **116.98,149.07 → 198.98,231.07**（`ArmyCellL` 那一段现算的
@@ -8846,6 +8855,110 @@ public static class ShellScene
                           "★（灭自证）从没有过对局的窗 **不会** 被这个信号关掉 —— 无条件 `Close()` 的实现在这条上红");
                 Object.DestroyImmediate(sWin2.gameObject);
                 CardPresentation.Net.NetMatchmaking.Reset();          // 收尾：别把静态状态带到后面
+            }
+
+            // ---------------- 🆕 2026-10-22：排位升段窗的三条 legacy 动画 clip ----------------
+            // 判据链 → `工具/gen_division_clips.py` 文件头 + `Shell/RankedDivisionChangeWindow.cs` 的「动画」段。
+            // 本段验四件事：① 数据表 ② 曲线条数守恒（原生 + 手动 = JSON）③ 两档播的**不是同一条**
+            // ④ 播完停在 clip 末帧（不是 Build 时的出厂姿态）。
+            Section("🆕 2026-10-22 排位升段窗：三条 legacy 动画 clip（`Division Config` / `Rank Up` / `Division Up`）");
+            {
+                CheckTrue(RankedDivisionChangeWindow.ClipsLoaded,
+                          "★ `Resources/division_clips.json` 载进来了"
+                        + (RankedDivisionChangeWindow.ClipsError != null ? "（错：" + RankedDivisionChangeWindow.ClipsError + "）" : ""));
+                Check(RankedDivisionChangeWindow.ClipCount, 3, "表里 3 条 clip（= 原版 `m_Animations` 那三条）");
+
+                var dCfg = RankedDivisionChangeWindow.FindClipData("divisionConfig");
+                var dRank = RankedDivisionChangeWindow.FindClipData("rankUp");
+                var dDiv = RankedDivisionChangeWindow.FindClipData("divisionUp");
+                CheckTrue(dCfg != null && dRank != null && dDiv != null,
+                          "三个键都在（`divisionConfig` / `rankUp` / `divisionUp`）—— 运行期只按 key 查，⛔ 不按名字");
+                if (dCfg != null && dRank != null && dDiv != null)
+                {
+                    Check(dCfg.curves.Length, 14, "`Division Config` 曲线 14 条（3 缩放分量 + 11 float）");
+                    Check(dRank.curves.Length, 16, "`Rank Up` 曲线 16 条（6 缩放分量 + 10 float）");
+                    Check(dDiv.curves.Length, 14, "`Division Up` 曲线 14 条（3 缩放分量 + 11 float）");
+                    CheckTrue(dCfg.legacy && dRank.legacy && dDiv.legacy,
+                              "★ 三条都是 legacy（`m_Legacy=true` · `m_MuscleClipSize=0`）—— 不是的话根本重建不出来");
+                    CheckNear(dRank.length, 3.9166667f, 0.0005f,
+                              "`Rank Up` 长度 = 它 `AnimationFinished` 事件的时刻");
+                    CheckNear(dDiv.length, 3.8333333f, 0.0005f, "`Division Up` 长度 = 3.8333 s");
+                    CheckNear(dCfg.length, 0.2166667f, 0.0005f, "`Division Config` 长度 = 0.2167 s");
+
+                    // ② 建 clip：**原生 + 手动 = JSON 条数**（改坏法：生成器少导一条 / 这里漏接一族 ⇒ 红）
+                    var clipRank = RankedDivisionChangeWindow.BuildClip(dRank);
+                    int nNative = RankedDivisionChangeWindow.LastNativeCurveCount;
+                    int nManual = RankedDivisionChangeWindow.LastManualCurveCount;
+                    int nErr = RankedDivisionChangeWindow.LastCurveErrors;
+                    CheckTrue(clipRank != null && clipRank.legacy, "`Rank Up` 能建出 legacy `AnimationClip`");
+                    Check(nErr, 0, "`SetCurve` 一条都没抛");
+                    Check(nNative + nManual, dRank.curves.Length,
+                          "★ 曲线条数守恒：原生 " + nNative + " + 手动 " + nManual + " = JSON " + dRank.curves.Length
+                        + "（改坏法：少接一族通道 / 生成器少导一条 ⇒ 红）");
+                    Check(nNative, 8, "原生交给 `SetCurve` 的 = 8 条（6 缩放分量 + 2 `m_IsActive`）");
+                    var clipCfg = RankedDivisionChangeWindow.BuildClip(dCfg);
+                    Check(RankedDivisionChangeWindow.LastNativeCurveCount, 5,
+                          "`Division Config` 原生 5 条（3 缩放分量 + 2 `m_IsActive`）");
+                    CheckTrue(clipCfg != null, "`Division Config` 也能建出来");
+                }
+
+                // ③ 两档各开一扇窗，推过 promote 延迟，看播的是哪一条
+                var winRank = RankedDivisionChangeWindow.Create(shell.Windows,
+                                    new RankedDivisionChangeWindow.Context { IsDivisionChange = false });
+                CheckTrue(winRank != null, "（前提）开出一扇升段窗");
+                if (winRank != null)
+                {
+                    Check(winRank.PlayingClipKey, RankedDivisionChangeWindow.ClipKeyDivisionConfig,
+                          "`Open()` 立刻播 `Division Config`（= 原版 `Open()` 里那句 `Play(\"Division Config\")`）");
+                    CheckNear(winRank.PromoteDelayRemaining, RankedDivisionChangeWindow.PromoteDelay(RankedDivisionChangeWindow.StepR.Length), 0.02f,
+                              "promote 延迟 = `GetTotalAnimationTime() − 0.25`（4 颗印玺 ⇒ "
+                            + RankedDivisionChangeWindow.PromoteDelay(RankedDivisionChangeWindow.StepR.Length).ToString("F2") + " s）");
+                    CheckTrue(winRank.NodeForTest("Particles Rank Up") != null,
+                              "★ `Particles Rank Up` 节点在（原版 prefab 有、我们原来漏建；缺了那两条曲线会静默空转）");
+                    CheckTrue(winRank.NodeForTest("Particles DivisionUp/Sparks Burn") != null,
+                              "★ `Particles DivisionUp/Sparks Burn` 节点在（clip 的 `ShapeModule.m_Scale` 指向它）");
+
+                    winRank.TickForTest(RankedDivisionChangeWindow.PromoteDelay(RankedDivisionChangeWindow.StepR.Length) + 0.001f);
+                    Check(winRank.PlayingClipKey, RankedDivisionChangeWindow.ClipKeyRankUp,
+                          "★ 升段（`IsDivisionChange=false`）⇒ 播 `Rank Up`");
+                    CheckTrue(winRank.IsPlaying, "`Rank Up` 正在播（自己的计数器）");
+                    CheckTrue(winRank.NativeAnimation != null, "窗上挂着 `Animation` 组件，三条 clip 都 `AddClip` 进去了");
+
+                    // ④ 播完停在 clip 末帧（⛔ 不是 Build 时的出厂值）
+                    winRank.TickForTest(winRank.AnimationLength + 1f);
+                    CheckTrue(!winRank.IsPlaying, "★ 播完 `IsPlaying` 变假（不会一直挂着）");
+                    Check(winRank.LastFinishedClipKey, RankedDivisionChangeWindow.ClipKeyRankUp,
+                          "播完记的是 `Rank Up`");
+                    CheckNear(winRank.NodeScaleForTest("Division Image").x, 1.0f, 0.005f,
+                              "★ 播完停在末帧：`Division Image` 缩放 = 1.0（起播那一档是 0.8）");
+                    CheckNear(winRank.NodeAlphaForTest("Title"), 1.0f, 0.005f,
+                              "★ 播完 `Title` alpha = 1（`Rank Up` 3.1833 s 那一档）");
+                    CheckTrue(winRank.NodeActiveForTest("Particles Rank Up"),
+                              "`Rank Up` 末帧 `Particles Rank Up` = 开着（`m_IsActive` 在 0.3833 s 拨到 1）");
+                    CheckTrue(!winRank.NodeActiveForTest("Particles DivisionUp"),
+                              "同一帧 `Particles DivisionUp` = 关着（另一条 `m_IsActive` 曲线）");
+                }
+
+                var winDiv = RankedDivisionChangeWindow.Create(shell.Windows,
+                                    new RankedDivisionChangeWindow.Context { IsDivisionChange = true });
+                CheckTrue(winDiv != null, "（前提）开出一扇分段变化窗");
+                if (winDiv != null)
+                {
+                    winDiv.TickForTest(RankedDivisionChangeWindow.PromoteDelay(RankedDivisionChangeWindow.StepR.Length) + 0.001f);
+                    Check(winDiv.PlayingClipKey, RankedDivisionChangeWindow.ClipKeyDivisionUp,
+                          "★ 分段变化（`IsDivisionChange=true`）⇒ 播 `Division Up`");
+                    // 🔴 灭自证：**两档播的不是同一条**（「永远播第一条」的实现在这条上红）
+                    CheckTrue(winRank != null && winDiv.PlayingClipKey != winRank.PlayingClipKey,
+                              "★ 灭自证：升段 / 分段变化播的是**两条不同的 clip**");
+                    winDiv.TickForTest(winDiv.AnimationLength + 1f);
+                    CheckTrue(winDiv.NodeActiveForTest("Particles DivisionUp"),
+                              "`Division Up` 末帧 `Particles DivisionUp` = 开着（与 `Rank Up` 那一档相反）");
+                    CheckTrue(!winDiv.NodeActiveForTest("Particles Rank Up"),
+                              "同一帧 `Particles Rank Up` = 关着");
+                }
+
+                if (winRank != null) Object.DestroyImmediate(winRank.gameObject);
+                if (winDiv != null) Object.DestroyImmediate(winDiv.gameObject);
             }
 
         Debug.Log(P + $"=== 合计：{_sink.Pass} 通过 / {_sink.Fail} 失败 ===");

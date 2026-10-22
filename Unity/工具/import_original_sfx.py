@@ -132,7 +132,17 @@ EXTRA_CUES = ["Reward open item by item", "CardStartDrag",
               #     `RankedEventDivisionChangeWindowNewSystem._DoPromoteAnimations_d__22.MoveNext.c:32-33`
               #     `AudioCue__Play2D(cue, 3)` ⇒ **MixerType 3 = Jingles**（⛔ 不是 FX）。
               #     clip `Division Increase`，ttp 0.01。
-              "CardExpand", "Close Card Display", "Division Change"]
+              "CardExpand", "Close Card Display", "Division Change",
+              # —— 战斗线（2026-10-22 · L-D）：`SwarmIconController.toggleOnSound` ——
+              # 判据 = `bundle_battleprefabs_vfxandmisc_assets_all/MonoBehaviour/
+              #   MonoBehaviour_-220689081911957516.json`（= `SwarmIconController`）的
+              #   `toggleOnSound` = PPtr(fileID 9, pid −4158225771113159080)
+              #   ⇒ `bundle_soundcollection_assets_all` 里 `m_Name = "Swarm Trait UI Enabled"` 的 `AudioCue`
+              #   （`clipList` 唯一一条 = `Tyranid_BulletHit` · pitch 0.9–1.1 · vol 1–1 · ttp 0.01）。
+              # 消费点 = `CardView.PlaySwarmOnSound`（原版 `SoundManager.Play2D` ⇒ 2D）。
+              # ⚠️ 原版**只有开音**：`SwarmIconController` 没有 toggleOffSound 字段，
+              #   `Toggle(false)` 的方法体里也没有任何 `SoundManager` 调用。
+              "Swarm Trait UI Enabled"]
 
 # 🔴 **2026-10-16（A828）第三来源 —— `collisionEvent` 上的 `PlaySound`。**
 #   `AnimFXModuleCollisions` 的 `collisionAndParticles[i].particleSystemsDefinition[j].collisionEvent`

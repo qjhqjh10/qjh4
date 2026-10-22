@@ -206,6 +206,12 @@ namespace RuleEngine
         ///     扫描**遇到空位就停**（`get_Item` 返回 null 就 `break`）。
         ///   · 「该侧已满」的判据是 `slotPos.Count(恒 4) − minions.Count &lt; 1`。
         ///
+        /// 🔴 **2026-10-22（`W63`）**：第三支（平衡）改走 `BoardSlots.NextFreeWithoutDisplacing` ——
+        /// 原版那一步同样只读 `List.Count`、**没有「目标格被占」这一档**（原版两侧是 `List`，
+        /// 结构上不可能有洞）；我们这边 `Board[]` 是定长数组、且 `CountSide` 只数活人
+        /// ⇒ 非法局面下 `WarlordSlot ± (count+1)` 会指到**已被占**的那一格，
+        /// 再喂给 `RuleCore.PlayCard` 就会**静默抹掉**外侧单位。判据与措辞口径见方法体第 3 段。
+        ///
         /// 返回 **棋盘槽号（0..8）**；两处都放不下（格不合法）时返回 **-1**。
         /// </summary>
         public static int NextDeploySlot(BattleContext ctx, int p)
@@ -240,10 +246,37 @@ namespace RuleEngine
             }
 
             // ---- 3. 平衡：左少 ⇒ 左；否则右（两侧相等 ⇒ 先右）----
-            int slot = (leftCount < rightCount)
-                     ? BoardSpec.WarlordSlot - (leftCount + 1)
-                     : BoardSpec.WarlordSlot + (rightCount + 1);
-            return BoardSpec.IsDeployable(slot) ? slot : -1;
+            // 🔴 **2026-10-22（`W63` 普查 · `T02` 同族的**第五处**写入点）：第三支也必须判「这一格真的可占」。**
+            //   原版这一步就是 `GetNextSlotCheckingAdjacents.c:44` 那一跳
+            //   `GetNextSlotWithoutDisplacing` —— 它**只比两条 `List.Count`、没有任何占用检查**
+            //   （`MinionManager__GetNextSlotWithoutDisplacing.c:14-30`），因为原版两侧是 `List`、
+            //   结构上不可能有洞。⚠️ 我们这边的差异有两层，**都只可能出现在非法局面上**：
+            //     · `CountSide` 数的是「贴督军起**连续且 `IsAlive`**」的段 ⇒ 段首那个
+            //       **非空但已死**的残留单位会让它**提前停**（引擎自己的死亡路径当场 `RemoveAt`，
+            //       正常对局打不出这种局面，只有夹具能写出来）；
+            //     · `Board[]` 是**定长数组**，自检夹具可以直接写出洞。
+            //   ⇒ 这时原来那句 `WarlordSlot ± (count + 1)` 会指到**已经被占**的那一格，而
+            //      `RuleCore.PlayCard` 会把它喂给 `BoardSlots.Insert`：有洞时那条降级路径落到插推，
+            //      会把外侧单位**静默抹掉**（同一族的原始症状见 `A1692` / `FirstFreeSlot`）。
+            //   ⇒ 改走**同一个判据的第二档** `BoardSlots.NextFreeWithoutDisplacing`
+            //     （`FirstFreeSlot` / `RuleCore.DeployFree` / `EffectResolver.DoTakeControl` /
+            //      `RuleCore.EndTurn` 四处已经用它）；⛔ 别在这里另写一份「空格 = 没单位」。
+            //   ⚠️ **连续棋盘上行为逐字不变**：那一档的第一支原样返回 `NextWithoutDisplacing`，
+            //     而它与原版 `GetNextSlotWithoutDisplacing.c:14-30` 是同一条算式（左 < 右 ⇒ 左、否则右，
+            //     平手走右），落点 = 该侧最外那一格。
+            //   ⚠️ **原版行为【不可比】**：原版根本没有「目标格被占」这一档 ⇒ 这是**补我们表示法**的洞，
+            //     ⛔ 别在注释里写成「照原版」（同 `A1692` 的措辞口径）。
+            int slot = BoardSlots.NextFreeWithoutDisplacing(ctx.Players[p], out int blockedSlot);
+            if (blockedSlot >= 0)
+            {
+                UnityEngine.Debug.LogWarning("[SimpleAI] ⚠️ 棋盘不连续：`NextDeploySlot`（平衡支）按原版规则算出的 "
+                    + blockedSlot + " 号格已被 " + (board[blockedSlot] != null ? board[blockedSlot].Name : "?")
+                    + " 占着 —— **不覆盖**，改选该侧最外的空格 "
+                    + (slot >= 0 ? slot.ToString() : "（该侧没有空格）")
+                    + "。引擎的增删路径都维持「每侧从贴督军那格起连续无洞」，出现这种局面说明"
+                    + "**有地方（多半是自检夹具）直接写了 `Board[]`**（`T02` / `A1692` 同族）。");
+            }
+            return slot;
         }
 
         /// <summary>
@@ -1480,10 +1513,37 @@ namespace RuleEngine
         /// 棋盘现在是**连续无洞**的（`BoardSlots`），请求「0 号格」会被夹到该侧最里那一格，
         /// 于是**「请求的格」和「落下的格」不是同一个**，调用方（自检 / 演示）拿它当落点就会对不上。
         /// 改成原版那条之后，**请求值 = 落点值**（那一格按定义是空的、且在最外 ⇒ 插入下标 = 人数）。
-        /// 满场返回 -1。</summary>
+        /// 满场返回 -1。
+        ///
+        /// 🔴 **2026-10-22（引擎线 `T02` 同族 · `A1692` 的最后一处残留）：这里也必须判「这一格真的可占」。**
+        ///   `NextWithoutDisplacing` 的前提是**棋盘连续无洞**（原版两侧是 `List`、结构上不可能有洞 ——
+        ///   `MinionManager__GetNextSlotWithoutDisplacing.c:14-30` 全文只比两个 `List.Count`、
+        ///   不做任何占用检查），而我们的 `Board[]` 是定长数组，**自检夹具**可以直接写出洞 ⇒
+        ///   它算出的 `SlotOf(side, CountOnSide(side))` **可能已经有人**。调用方（演示 / 自检 /
+        ///   `BattleDriver` 的拖放兜底）随后把这个值喂给 `RuleCore.PlayCard`，而
+        ///   `BoardSlots.Insert` 的「有洞降级」分支在**请求格被占**时会落到插推路径上
+        ///   ⇒ **外侧那个单位被静默抹掉**（`WarnHoley` 只报错、不救）。
+        ///   ⇒ 改走**同一个判据的第二档** `BoardSlots.NextFreeWithoutDisplacing`
+        ///     （`RuleCore.DeployFree` / `EffectResolver.DoTakeControl` / `RuleCore.EndTurn`
+        ///      三处已经用它）；⛔ 别在这里另写一份「空格 = 没单位」
+        ///     （`CLAUDE.md` §三：两处写同一条规则 = 迟早不一致）。
+        ///   ⚠️ **连续棋盘上行为逐字不变**（那一档的第一支就是原样返回）；只有**有洞**时才会换格
+        ///     ⇒ 这是**补我们表示法的洞**，⛔ 别在注释里写成「照原版」。
+        ///   ⚠️ 有洞还要**出声**（本仓红线「不许静默失败」）—— 这种棋盘只可能来自夹具直接写 `Board[]`。
+        /// </summary>
         public static int FirstFreeSlot(PlayerState p)
         {
-            return BoardSlots.NextWithoutDisplacing(p);
+            int slot = BoardSlots.NextFreeWithoutDisplacing(p, out int blocked);
+            if (blocked >= 0)
+            {
+                UnityEngine.Debug.LogWarning("[SimpleAI] ⚠️ 棋盘不连续：`FirstFreeSlot` 按原版规则算出的 "
+                    + blocked + " 号格已被 " + (p.Board[blocked] != null ? p.Board[blocked].Name : "?")
+                    + " 占着 —— **不覆盖**，改选该侧最外的空格 "
+                    + (slot >= 0 ? slot.ToString() : "（该侧没有空格）")
+                    + "。引擎的增删路径都维持「每侧从贴督军那格起连续无洞」，出现洞说明"
+                    + "**有地方（多半是自检夹具）直接写了 `Board[]`**（`T02` / `A1692` 同族）。");
+            }
+            return slot;
         }
 
         /// <summary>

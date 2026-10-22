@@ -90,6 +90,32 @@ namespace RuleEngine
         }
 
         /// <summary>
+        /// 🔴 **原版 `MinionManager.IsAvailableSlot(mm, n)` 的等价物 —— 「两侧合起来还放得下 n 个单位吗」
+        /// 的【唯一判据】**。所有「这里还接得住吗」的问法都走它，⛔ 别在调用点另写「空格 = 没单位」。
+        ///
+        /// 判据（第一权威，逐句）：`MinionManager__IsAvailableSlot.c:19-29`
+        /// ── `return (左容量 − 左人数) + (右容量 − 右人数) >= n;`
+        /// （容量 = `left/rightSlotPos.Length`，`+0x20/+0x28`；人数 = `left/rightMinions.Count`，
+        ///  `+0x60/+0x68` —— 字段表见 `BoardSlots.cs` 文件头 2026-10-01 那条）
+        /// · **两侧相加**（不是「某一侧放得下」）；**只看 `List.Count`**，**不看任何具体格号**
+        ///   —— 原版两侧是无洞 `List`，「人数」与「占了哪几格」是同一件事。
+        /// · 同族旁证：`MinionManager__IsAvailableSlotLeft.c:19` / `…Right.c:19` 是分侧版
+        ///   （`容量 − 人数 >= n`），`MinionManager__AvailableSlotsCount.c` 直接返回那个和式。
+        /// · 原版**全部**调用点传的都是 `n = 1`：`BattleManager__CanPlayCard.c:109`（出牌入口 · 棋盘满 ⇒
+        ///   `NotEnoughRoom`）· `_ResolveStealMinion_d__551:35`（抢单位入口）·
+        ///   `_ResolveSummonUnit_d__510:64` · `_ResolveCardAutoSummoned_d__511:83` ·
+        ///   `AbilityLogic__PlayAnim.c:111/:119/:127`。
+        ///
+        /// ⚠️ 我们的 `CountOnSide` 数的是**非空格数** ⇒ 与 `List.Count` 逐字同义；
+        ///    「有洞时到底哪一格能落」**不在**这条判据里（原版根本没有那一档，见
+        ///    <see cref="NextFreeWithoutDisplacing"/>）—— 那条只管落点，不管「有没有位」。
+        /// </summary>
+        public static bool IsAvailableSlot(PlayerState ps, int n)
+        {
+            return RoomOnSide(ps, Left) + RoomOnSide(ps, Right) >= n;
+        }
+
+        /// <summary>
         /// **把「想放这一格」翻译成「插到哪一侧的第几个下标」** —— 判据只此一处。
         ///
         /// 返回 false = 真的放不下（**两侧都满**）。三条分支，逐条照原版 `AdjustedSlot`：
@@ -100,7 +126,9 @@ namespace RuleEngine
         ///     `:104-107` 左满 ⇒ 返回 `rightOccupation.Count + 1`）。
         ///     ⚠️ 2026-10-01 之前我们这里返回 false（= 打不出去），**那是错的** —— 已按原版改；
         ///   · 请求督军格（或越界）⇒ 退化路：**挑人数少的一侧、平手走右**（`AdjustedSlot.c:45-61`），
-        ///     落到该侧最外那一格。
+        ///     落到该侧最外那一格。🔴 **2026-10-22（`T02` 同族 · `W63` 点名的那一笔）：这一支的落点
+        ///     改走 <see cref="NextFreeWithoutDisplacing"/>**（选侧规则与原来那句 `l &lt; r ? 左 : 右`
+        ///     **逐字相同**，多出来的只有「那一格真的空着吗」那道保险 —— 见方法体里的注释）。
         ///
         /// ⚠️ **全盘满**时原版是 `LogError` 之后**原样返回请求格**（`:38-44`）—— 那会让
         ///    `InsertMinion` 算出越界下标，说明**调用方事先用 `SpacesInTheBoard` 筛过**；
@@ -115,11 +143,37 @@ namespace RuleEngine
             int reqSide = SideOf(requestedSlot);
             if (reqSide == 0)
             {
-                // 退化路（督军格 / 越界）：原版 `AdjustedSlot.c:45-61` —— 左 < 右 ⇒ 左；否则右（平手也走右）
+                // 退化路（督军格 / 越界）：原版 `AdjustedSlot.c:45-61` —— 左 < 右 ⇒ 左；否则右（平手也走右）。
+                //
+                // 🔴 **2026-10-22（`T02` 同族 · `W63` 普查点名的那最后一笔）：落点改走
+                //    `NextFreeWithoutDisplacing`**（= 与 `DeployFree` / `DoTakeControl` / `EndTurn` /
+                //    `SimpleAI.FirstFreeSlot` / `SimpleAI.NextDeploySlot` **同一个**「真的可占」判据）。
+                //    为什么：原来那句 `index = CountOnSide(ps, side)` **假设棋盘连续无洞**
+                //    （原版两侧是 `List`，人数 = 占了哪几格是同一件事）；我们的 `Board[]` 是定长数组，
+                //    **自检夹具**可以直接写出洞（见 `WarnHoley`）⇒ 那时算出的下标**可能已经有人**，
+                //    而 `Insert` 在有洞时会落到「插推」路径上 ⇒ **静默抹掉**那一格的人
+                //    （与 `A1692` 的原始症状同族）。
+                //   ⚠️ **原版行为【不可比】**：原版根本没有「目标格被占」这一档 ——
+                //    `GetNextSlotWithoutDisplacing.c:14-30` 全文只比两个 `List.Count`、没有任何占用检查
+                //    ⇒ 换格是补**我们表示法**的洞，⛔ 别在注释里写成「照原版」（同 `A1692` 的措辞口径）。
+                //   ⚠️ **连续棋盘上行为逐字不变**：那一档的第一支就是原样返回
+                //    `NextWithoutDisplacing`（选侧 `l < r ? 左 : 右`、落点 = 该侧最外那一格）。
+                //   ⚠️ 有洞且真的换了格要**出声**（本仓红线「不许静默失败」；同 `SimpleAI` 那两处）。
                 int l = CountOnSide(ps, Left), r = CountOnSide(ps, Right);
-                side = l < r ? Left : Right;
-                if (CountOnSide(ps, side) >= BoardSpec.SlotsPerSide) { index = 0; return false; }  // 两侧都满
-                index = CountOnSide(ps, side);     // 该侧最外那一格
+                side = l < r ? Left : Right;                 // 失败时也保持老行为（out 参数）
+                int slot = NextFreeWithoutDisplacing(ps, out int blockedSlot);
+                if (slot < 0) { index = 0; return false; }   // 两侧都满（= `IsAvailableSlot(ps,1)` 为假）
+                if (blockedSlot >= 0)
+                {
+                    UnityEngine.Debug.LogWarning("[BoardSlots] ⚠️ 棋盘不连续：`Resolve`（督军格退化路）"
+                        + "按原版规则算出的 " + blockedSlot + " 号格已被 "
+                        + (ps.Board[blockedSlot] != null ? ps.Board[blockedSlot].Name : "?")
+                        + " 占着 —— **不覆盖**，改选该侧最外的空格 " + slot
+                        + "。引擎的增删路径都维持「每侧从贴督军那格起连续无洞」，出现洞说明"
+                        + "**有地方（多半是自检夹具）直接写了 `Board[]`**（`T02` / `A1692` 同族）。");
+                }
+                side = SideOf(slot);
+                index = IndexOf(slot);
                 return true;
             }
 
@@ -166,10 +220,17 @@ namespace RuleEngine
         }
 
         /// <summary>只问「放得下吗」，不关心落到哪一格 —— `CanPlayCard` 用。</summary>
+        /// <remarks>
+        /// 判据 = <see cref="IsAvailableSlot"/>（原版 `BattleManager__CanPlayCard.c:109` 那一跳
+        /// `MinionManager.IsAvailableSlot(mm, 1)` 就是它）：**两侧合计**有空位就放得下，
+        /// 与「请求哪一格」无关 —— 请求的那一侧满了时 `Resolve` 也会换到对侧最外一格
+        /// （`AdjustedSlot.c:64-72 / :104-107`），所以两种问法在布尔上恒等。
+        /// ⚠️ `requestedSlot` **保留形参**：调用方语义（`RuleCodes.ErrNotEnoughRoom` 那条）
+        /// 仍按「想在 slot 出牌」来读；⛔ 别因为它现在不参与判据就把它删掉。
+        /// </remarks>
         public static bool HasRoomFor(PlayerState ps, int requestedSlot)
         {
-            int side, index;
-            return Resolve(ps, requestedSlot, out side, out index);
+            return IsAvailableSlot(ps, 1);
         }
 
         /// <summary>
@@ -187,6 +248,24 @@ namespace RuleEngine
                 {
                     ps.Board[requestedSlot] = u;
                     return requestedSlot;
+                }
+                // 🔴 **2026-10-22（`T02` 同族 · `W63` 点名的那一笔）：督军格 / 越界请求也【不推人】。**
+                //    `Resolve` 的督军支现在给的是「人少那侧最外的**空格**」（判据 =
+                //    `NextFreeWithoutDisplacing`），但那个空格的下标**可能小于人数**
+                //    （洞在内侧：例如 3 号格空着、2/1/0 号格都有人）—— 这种形状下走下面那段
+                //    插推循环会把**最外那一格的人覆盖掉**（循环从 `count-1` 搬到 `count`，
+                //    而 `count` 那格有人）：实测 256 种有洞棋盘里有 34 种会这样（见
+                //    `RuleEngineTest_T02` 的 `TestT02ResolveWarlordSlotHonoursAvailability`）。
+                //    ⇒ 有洞时**一律直写**（本方法在非法局面上的既定契约就是「不推别人」）。
+                //    ⚠️ 连续棋盘走不到这里（`IsContiguous` 已挡）⇒ **合法局面的行为一个字不变**。
+                if (!BoardSpec.IsValid(requestedSlot) || requestedSlot == BoardSpec.WarlordSlot)
+                {
+                    int hs, hi;
+                    if (!Resolve(ps, requestedSlot, out hs, out hi)) return -1;
+                    int dst = SlotOf(hs, hi);
+                    if (ps.Board[dst] != null) return -1;   // 理论上到不了；宁可打不出去，也不覆盖
+                    ps.Board[dst] = u;
+                    return dst;
                 }
             }
             int side, index;
@@ -236,11 +315,23 @@ namespace RuleEngine
         /// （`_ResolveSummonUnit` 与 `_ResolveStealMinion` 都在用）。
         /// 满场时返回 -1。
         /// </summary>
+        /// <remarks>
+        /// 🔴 **「满场」那一判只此一处** = <see cref="IsAvailableSlot"/>(ps, 1)
+        /// （原版 `MinionManager__IsAvailableSlot.c:19-29`；调用点同族全部传 1）。
+        /// 为什么可以拿「两侧合计」替掉原来的「选中那侧的人数 >= 每侧格数」——
+        /// 选侧规则是 `l &lt; r ? 左 : 右`（`GetNextSlotWithoutDisplacing.c:14-30`）：
+        ///   · 若 `l &lt; r` 且左支 `l >= 每侧格数` ⇒ `r &gt; l >= 每侧格数`，不可能 ⇒ **左支不可能满**；
+        ///   · 只剩 `l >= r` 且右支 `r >= 每侧格数` ⇒ `l >= 每侧格数` ⇒ **两侧都满**。
+        /// ⇒ 「选中那侧满」⇔「两侧都满」⇔ `IsAvailableSlot(ps, 1) == false`。
+        /// （2026-10-22 之前这两句本来就已经等价，本次只是把判据显式收口到**原版那一条**上。）
+        /// ⚠️ 原版这里**不做占用检查**（全文只比两条 `List.Count`）—— 目标格被占那一档见
+        /// <see cref="NextFreeWithoutDisplacing"/>。
+        /// </remarks>
         public static int NextWithoutDisplacing(PlayerState ps)
         {
+            if (!IsAvailableSlot(ps, 1)) return -1;       // 两侧都满（原版 `IsAvailableSlot(mm,1)` 那一判）
             int l = CountOnSide(ps, Left), r = CountOnSide(ps, Right);
             int side = l < r ? Left : Right;
-            if (CountOnSide(ps, side) >= BoardSpec.SlotsPerSide) return -1;
             return SlotOf(side, CountOnSide(ps, side));
         }
 
@@ -261,11 +352,16 @@ namespace RuleEngine
         /// </summary>
         /// <param name="blockedSlot">被挡住的那一格（`-1` = 没被挡，落点与 `NextWithoutDisplacing` 相同）。
         /// 调用方用它决定要不要出声，以及「是满场」还是「目标格被占」。</param>
+        /// <remarks>
+        /// 返回 `-1` 的**两种**含义（调用方据此分支出声）：
+        ///   · `blockedSlot &lt; 0` ⇒ **两侧都满**（判据 = <see cref="IsAvailableSlot"/>(ps, 1) == false）；
+        ///   · `blockedSlot &gt;= 0` ⇒ 棋盘有洞、目标格被占，**且那一侧一个空格都没有**。
+        /// </remarks>
         public static int NextFreeWithoutDisplacing(PlayerState ps, out int blockedSlot)
         {
             blockedSlot = -1;
             int dst = NextWithoutDisplacing(ps);
-            if (dst < 0) return -1;                       // 该侧满了（`NextWithoutDisplacing` 的口径）
+            if (dst < 0) return -1;                       // 两侧都满（`NextWithoutDisplacing` → `IsAvailableSlot` 的口径）
             if (ps.Board[dst] == null) return dst;        // 连续棋盘：恒走这一支（行为与以前逐字相同）
 
             blockedSlot = dst;                            // 有洞 ⇒ 那一格已经被占了

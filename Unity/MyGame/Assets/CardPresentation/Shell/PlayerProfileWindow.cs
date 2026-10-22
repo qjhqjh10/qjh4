@@ -154,6 +154,8 @@ namespace CardPresentation
         // ⚠️ `Icon` 的框**六个键各不相同**（`141.41×94.15` / `155×96.11` / `140.30×85.44` / …）
         //     —— 原版没挂 AspectRatioFitter，就是**各自摆的**，**别按一个尺寸统一**。
         // ⚠️ 文案与键名**不一致**：「`Trophies`」键的文案是 **`Achievements`**、「`Ranked`」键的文案是 **`Ranking`**。
+        // 🆕 **2026-10-22（P1）**：下面这六个 `Label` 只是**英文原文 / 词条取不到时的兜底** ——
+        //    上屏一律走 <see cref="TabLabel"/>（官方词条，见 <see cref="TabTerms"/>）。
         public static readonly PpTabSpec[] Tabs =
         {
             // Node              Label          Icon                            fs      autoMin autoMax  Icon 框(绝对)                       Label 上下  BgDy        BgA
@@ -167,6 +169,25 @@ namespace CardPresentation
 
         /// <summary>`button_bg` 的 `m_Color`（六个键 rgb 相同、只差 a）。</summary>
         public static readonly Color BgTint = new Color(1f, 0.5723676681518555f, 0f);
+
+        /// <summary>🔴 **2026-10-22（P1）**：六个键的**官方词条键** —— 判据 = 每颗
+        /// `Tab Toggle Title` 上那个 `Localize.mTerm`（`资料/普查产出_1022/N1_账户界面与数据普查.md` §一 逐键实读）。
+        /// ⚠️ 节点名与词条**不同源**：`Trophies` 键 → `Achievements/Achievements` · `Ranked` 键 → `Ranked/RankingTab`。
+        /// 官方两列（`数据/游戏数据/官方本地化_en+zh-CN.json`）：
+        /// `Profile`/个人资料 · `Avatar`/头像 · `Title`/头衔 · `Battle Log`/战斗记录 · `Achievements`/成就 · `Ranking`/排名。</summary>
+        public static readonly string[] TabTerms =
+        {
+            "PlayerProfile/Profile", "PlayerProfile/Avatar", "PlayerProfile/Title",
+            "PlayerProfile/BattleLog", "Achievements/Achievements", "Ranked/RankingTab",
+        };
+
+        /// <summary>键上屏文案：**走官方词条**（取不到才回 <see cref="Tabs"/> 里那份英文原文）。
+        /// 🆕 2026-10-22（P1）：改前直接印 `Tabs[i].Label` ⇒ 中文档下六个键全是英文（参考图是中文）。</summary>
+        public static string TabLabel(int i)
+        {
+            string v = Loc.T(TabTerms[i]);
+            return string.IsNullOrEmpty(v) || v == TabTerms[i] ? Tabs[i].Label : v;
+        }
 
         /// <summary>出厂打开的那一页（**`Title`，第 3 个键**）—— 判据见文件头 ③。</summary>
         public const int DefaultTabIndex = 2;
@@ -324,7 +345,7 @@ namespace CardPresentation
                 //    `m_fontSize` 六个键是 35/35/**33.65**/35/**32.75**/35 —— 后两个是**编辑器里 autosize 缩过的**
                 //    ⇒ 我们把**那个值当基准**、`max` 仍给 35，让 TMP 自己缩（与原版同一套设置）。
                 var labRect = new PxRect(LabL, t.LabT, LabR, t.LabB);
-                var lbl = MenuDraw.Text(b, labRect, t.Label, Color.white, "Tab Toggle Title", t.FontPx, QText, face: TmpFont.Face.LatinCardBody);
+                var lbl = MenuDraw.Text(b, labRect, TabLabel(i), Color.white, "Tab Toggle Title", t.FontPx, QText, face: TmpFont.Face.LatinCardBody);
                 // 🔴 **2026-10-11（A305①）**：第 5 个实参 = 原版 `Tab Toggle Title` 的 `m_fontSizeBase` **原文**。
                 //    **六颗页签全同 = `35.0`**（原版实读：`/Player Profile Window/Menu Area/Tab Buttons/*/Label/Tab Toggle Title`
                 //    `m_fontSize 35/35/33.65/35/32.75/35` · `auto[10~35]` · **base 六颗都是 35.0** —— 逐站表 §二·3 #21），

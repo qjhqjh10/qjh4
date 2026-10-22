@@ -18,24 +18,29 @@
 // ---- 🔴 数据：本地有 102 条成就（**真数据**，不是我们编的）----
 // `Resources/profile_cosmetics.json` 的 `achievements`（生成器 `工具/gen_profile_cosmetics.py` 读
 // `bundle_staticgeneralassets_assets_all` 的 `AllAchievements` + `ACH1..102` 两个 SO）。
-// **我们自己在进度上没有任何数据**（原版读 `Achievement.CurrentValue`，那是服务器存档）⇒ 逐格按「0 进度」渲染：
-//   · `title`        = `"{名} {档}/{总档}"`（原版格式串 `{0} {1}/{2}`，档从 1 起 ⇒ 我们一律第 1 档）
-//   · `description`  = **`challenge` 的 `id`**（真字符串）——⚠️ **原版那格是 I2 词条 `LocalizedText`，译文在远端查不到**（§C1）
-//   · `rewards`      = `"{该档奖励数} points"`（照预制体 `'2 points'` 那个形式；真词条 `Achievements/Points` 也在远端）
-//   · `counter`      = `"0/{该档阈值}"`（原版格式串 `{0}/{1}`）
-//   · 进度条          = 空的（我们的进度恒 0 ⇒ `Fill` 那一层**不画**）
+// **进度/积分**：原版读 `Achievement.CurrentValue` / `CurrentPoints`（服务器存档）。
+//   🆕 **2026-10-22（P1 · 账户界面批次）**：改读 **`ProfileData` 的本地存档**
+//   （`persistentDataPath/WarpforgeProfile/profile.json` 的 `achIds/achValues`；
+//    形状/边界 → `Shell/ProfileData.cs` 末尾「本地存档」一节）。
+//   没记录 ⇒ 0 ⇒ 第一档、进度条空 —— 与本地真实状态一致（我们**没有**服务端进度可导）。
+//   · `title`        = `"{名} {档}/{总档}"`（原版格式串 `{0} {1}/{2}`，档从 1 起）
+//   · `description`  = 官方词条 `Achievements/<Ach_N>`（现读 **102/102**；见下面那节订正）
+//   · `rewards`      = 官方词条 `Achievements/Points`（`{0} Points` / `{0} 分`）—— **2026-10-22 接上**
+//   · `counter`      = `"{当前值}/{该档阈值}"`（原版格式串 `{0}/{1}`）
+//   · 进度条          = 按 `当前值 / 本档阈值` 画 `Fill`（`40k_campaign_bar_fill`，色 (1,0.509,0,1)）
 //   · 勋章图          = `40k_Achievements_icon_medal{档}`（原版 `AchievementsManager.GetIconByTier(tier)`；
 //                      ⚠️ **档位图 ↔ 档位的对应关系本地查不到**，我们按 `medal1..5` 顺序 = 档 1..5 推 —— **这是推断**）
-// ⚠️ **分类那 4 行文案是我们挑的**（用枚举名，真译在远端）—— 见 `ProfileData.TypeName` 的注释。
+// ⚠️ **分类那 4 行文案**走官方词条 `Achievements/Types/<枚举名>`（见 `ProfileData.TypeName`）。
 //
 // 🔴 **2026-10-14（第二十八会话 · `A1803`）就地订正上面两条「远端查不到」**（铁律 5）：
 //   官方 zh-CN 词条表已解开（`数据/游戏数据/官方本地化_en+zh-CN.json`）⇒
-//     · `title` 那一格现在走 `Achievements/Title/<Ach_N>`（**现读命中 95/102**）；
-//     · `description` 那一格现在走 `Achievements/<Ach_N>`（**同样 95/102**；命中不到的 = 快照之后新增的，
-//       仍回资产里的 `challenge` id）；
+//     · `title` 那一格现在走 `Achievements/Title/<Ach_N>`；
+//     · `description` 那一格现在走 `Achievements/<Ach_N>`；
 //     · **分类那 4 行**现在走 `Achievements/Types/<枚举名>`。
-//   ⚠️ 但仍**有一格是自拟的**：`rewards` 那句 `"{n} points"` —— 官方 `Achievements/Points` 我们**没接**
-//     （那条是否真是「points」这个字形未核，⛔ 不猜）。判据 → `资料/普查产出_第二十八会话/W4_官方文案族.md`。
+//   🔴 **2026-10-22（P1）再订正（铁律 5）**：上面那两条括号里的「现读 95/102」是 10-14 的旧读数 ——
+//     **现读 = 102/102（两列都是）**；`rewards` 那句也从自拟的 `"{n} points"` **换成官方词条**
+//     （`Achievements/Points` = `{0} Points` / `{0} 分`，与参考图「50 分」逐字吻合）。
+using System.Collections.Generic;
 using UnityEngine;
 
 namespace CardPresentation
@@ -127,6 +132,24 @@ namespace CardPresentation
         /// <summary>`Outline`：`40k_campaign_bar_outline`（46×22 · 九宫 20,0,20,0 · 色 (1,0.841,0,1)）。</summary>
         const string ArtBarOutline = "40k_campaign_bar_outline";
         static readonly Color BarOutlineTint = new Color(1f, 0.841f, 0f, 1f);
+        /// <summary>`Fill`：`40k_campaign_bar_fill`（42×18 · 九宫 10,0,10,0 · 色 (1,0.509,0,1)）——
+        /// 原版 `Slider` 的 `m_FillRect`，宽度由进度值驱动（`MissionProgressBarDisplay`）。</summary>
+        const string ArtBarFill = "40k_campaign_bar_fill";
+        static readonly Vector4 BarFillBorder = new Vector4(10f, 0f, 10f, 0f);
+        static readonly Color BarFillTint = new Color(1f, 0.509f, 0f, 1f);
+        /// <summary>`Fill/end`（进度条右端那枚箭头）：`40k_campaign_bar_end`（22×18 · Simple · 色 (1,1,1,0.698)）。</summary>
+        const string ArtBarEnd = "40k_campaign_bar_end";
+        static readonly Color BarEndTint = new Color(1f, 1f, 1f, 0.698f);
+        /// <summary>🔴 **成就 `title` 的字色 = 橙色**（参考图逐字：标题橙、描述白）。
+        /// 判据（不是眼睛量的）= 原版 prefab `Achievement Container > title` 那颗 TMP 的
+        /// `m_sharedMaterial` = pid **-5772249770677823286** ⇒ `bundle_fonts_assets_all/Material/
+        /// Material_-5772249770677823286.json` 的 `m_Name = **Pragati-Regular Orange**`、
+        /// `_FaceColor = (0.996078, 0.596078, 0.117647, 1)`。
+        /// （`description` 用的是另一份 `Pragati-Regular Atlas Material Thin Outline`、`_FaceColor` 白 ⇒ `Color.white`。）</summary>
+        static readonly Color TitleColor = new Color(0.9960784912109375f, 0.5960784554481506f, 0.11764706671237946f, 1f);
+        /// <summary>`Achievements/Points` 的**兜底原文**（官方表取不到时才用；⛔ 不上屏，只作兜底）。</summary>
+        const string PointsTerm = "Achievements/Points";
+        const string PointsFallback = "{0} Points";
         /// <summary>`counter`（`a=(0.2,0.2)-(0.8,0.7) p=(0,0.5)`）：fs 12 · **Center/Middle** · 折行=1。</summary>
         static readonly Vector2 CntA = new Vector2(0.2f, 0.2f), CntB = new Vector2(0.8f, 0.7f), CntP = new Vector2(0f, 0.5f);
         /// <summary>勋章图（`Image` 130×130，`a=(0,0.5) p=(0,0.5) pos=(15,0)`）——
@@ -332,36 +355,57 @@ namespace CardPresentation
         /// <summary>一个成就格子（`AchievementContainer`）—— 七件照 §A·4 ④ 那张表逐个落。</summary>
         void BuildCell(PxRect r, ProfileData.Achievement a)
         {
-            int tier = 1;                                   // 我们没有进度 ⇒ 一律第 1 档（原版读 `TargetTier`）
+            // 🆕 2026-10-22（P1）：档位/进度/积分 **从本地存档读**（原版 `Achievement.TargetTier/CurrentValue`，
+            //   服务器；我们的等价物 → `ProfileData` 末尾「本地存档」）。没记录 ⇒ 0 ⇒ 第 1 档、进度条空。
             int total = Mathf.Max(1, a.TierCount);
-            int target = (a.Thresholds != null && a.Thresholds.Length >= tier) ? a.Thresholds[tier - 1] : 0;
-            int reward = (a.Quantities != null && a.Quantities.Length >= tier) ? a.Quantities[tier - 1] : 0;
+            int tier = ProfileData.AchievementTierOf(a);
+            int target = ProfileData.AchievementTargetOf(a, tier);
+            int reward = ProfileData.AchievementRewardOf(a, tier);
+            int value = ProfileData.AchievementValue(a.Id);
 
             var cell = Node(_holder, "Achievement Container", r);
             Nine(cell, ArtPanel, r, PanelBorder, "Background", L_Bg);
 
             var tR = UguiRect.Child(r, TxA, TxB, TxP, TitlePos, TitleSz);
-            var tLb = Text(cell, a.Name + " " + tier + "/" + total, tR, Color.white, "title", CellPx, L_Text,
+            // 🔴 标题色 = 橙（判据见 `TitleColor` 的注释：原版 title 那颗 TMP 的材质是 `Pragati-Regular Orange`）。
+            var tLb = Text(cell, a.Name + " " + tier + "/" + total, tR, TitleColor, "title", CellPx, L_Text,
                  autoFit: true, autoMinPx: CellAutoMin, alignLeft: true, wrap: true);
             // 🆕 **2026-10-16（A712 阶段 2）**：纵向那一半 —— 本文件 `本文件` 那条 summary 写的是
             //   「格子里的字：fs 12 · auto[12~35] · **Left/Midline** · 折行=1」⇒ 格子内 `title`/`description`/`rewards`
             //   **三颗同档 `Midline`**（该 summary 只核了横向那一半）。
             MenuDraw.SetVAlign(tLb, Label.VAlign.Midline, tR);
+            // 🆕 **2026-10-23（P6）**：**必须在 `SetVAlign` 之后**再贴一次左（根因/判据 → `RealignLeft`）。
+            //   判据（原版 prefab 现读，`Achievement Container`）：`title` = `818.06,253.24 → 1177.01,285.93`
+            //   （`对齐=Left/Midline`）· 勋章槽 `Image` = `681.06,242.27 → 811.06,372.27`
+            //   ⇒ **字块左缘 818.06 在勋章右缘 811.06 之右 7.0px**（原版本来就不相交）。
+            RealignLeft(tLb, tR);
 
             var dR = UguiRect.Child(r, TxA, TxB, TxP, DescPos, DescSz);
             var dLb = Text(cell, a.Challenge, dR, Color.white, "description", CellPx, L_Text,
                  autoFit: true, autoMinPx: CellAutoMin, alignLeft: true, wrap: true);
+            // 🆕 **2026-10-23（P5）**：把行内 `<sprite>` 关键词图标抬到正文那一档队列
+            //   （改前图标停在 3000、被格子底 3200 盖住 ⇒ 实拍那一格只有一个字符宽的空洞）。
+            //   根因 / 三条反证 / 做法 → `SocketKeywordSprites` 上面那一段。
+            SocketKeywordSprites(dLb, Q + L_Text);
             MenuDraw.SetVAlign(dLb, Label.VAlign.Midline, dR);   // A712 阶段 2：格子内三颗同档 `Left/Midline`
+            RealignLeft(dLb, dR);                                // 🆕 P6：同 `title`（这一颗框高 48.423，本来就没中招）
 
             var rwR = UguiRect.Child(r, TxA, TxB, TxP, RewPos, RewSz);
-            var rwLb = Text(cell, reward + " points", rwR, Color.white, "rewards", CellPx, L_Text2,
+            // 🆕 2026-10-22（P1）：**换官方词条**（原来是自拟的 `"{n} points"`）。
+            //   键 `Achievements/Points`、官方两列 = `{0} Points` / `{0} 分`（参考图「50 分」逐字吻合）。
+            var rwLb = Text(cell, PointsText(reward), rwR, Color.white, "rewards", CellPx, L_Text2,
                  autoFit: true, autoMinPx: CellAutoMin, alignLeft: true, wrap: true);
             MenuDraw.SetVAlign(rwLb, Label.VAlign.Midline, rwR);   // A712 阶段 2：同上（`rewards` 也在那一格里）
+            // 🆕 **2026-10-23（P6）**：`rewards` 与 `title` 是**同一个病**（框高 29.457 < 行盒 ⇒ 自适应缩字号
+            //   ⇒ 对齐那一刻量到的宽度是空的）。实拍里「5 分」正压在印章 `rewardIcon` 上。
+            //   原版 prefab 现读：`rewards` = `1068.75,334.35 → 1177.01,363.81` · `rewardIcon` = `1040.22…1068.75`
+            //   ⇒ 字块左缘正好贴印章右缘。
+            RealignLeft(rwLb, rwR);
             // `rewardIcon` 挂在 `rewards` 里（自己的锚点是 a=(0,.5) p=(1,.5) ⇒ 贴在 `rewards` 左缘外）
             var siR = UguiRect.Child(rwR, SealA, SealA, SealP, Vector2.zero, SealSz);
             Rect(cell, ArtSeal, siR, "rewardIcon", L_Art, null, true);
 
-            // `Progress` > `Slider`（`MissionProgressBarDisplay`）：底 + 外框 + 数字。**没有进度 ⇒ 不画 `Fill`**
+            // `Progress` > `Slider`（`MissionProgressBarDisplay`）：底 + **填充** + 外框 + 数字
             var prR = UguiRect.Child(r, TxA, TxB, TxP, ProgPos, ProgSz);
             var prog = Node(cell, "Progress", prR);
             var slR = UguiRect.Child(prR, UguiRect.A00, UguiRect.A11, UguiRect.P51, SliderPos, SliderSz);
@@ -369,9 +413,22 @@ namespace CardPresentation
             var barR = UguiRect.Child(slR, BarA, BarB, BarP, Vector2.zero, Vector2.zero);
             var barN = Node(sl, "Background", barR);
             Nine(barN, ArtBarBg, barR, BarBorder, "Image", L_Bg, BarBgTint);
-            Node(barN, "Fill Area", UguiRect.Child(barR, BarA, BarB, BarP, Vector2.zero, new Vector2(0f, 6.56498f)));
+            var faR = UguiRect.Child(barR, BarA, BarB, BarP, Vector2.zero, new Vector2(0f, 6.56498f));
+            var faN = Node(barN, "Fill Area", faR);
+            // 🆕 2026-10-22（P1）：**进度条真的画出来了**（原来 `Fill` 恒空 —— 那时进度恒 0）。
+            //   宽度 = `Fill Area` 宽 × `AchievementProgress01`（本档区间内的比例）；
+            //   右端那枚 `end` 箭头照原版 prefab（29.44×31.86，以填充右缘为中心）。
+            float frac = ProfileData.AchievementProgress01(a, tier);
+            if (frac > 0.0005f)
+            {
+                var flR = new PxRect(faR.x1, faR.y1, faR.x1 + faR.W * frac, faR.y2);
+                var flN = Node(faN, "Fill", flR);
+                Nine(flN, ArtBarFill, flR, BarFillBorder, "Image", L_Bg2, BarFillTint);
+                var enR = new PxRect(flR.x2 - 14.718f, flR.CY - 15.929f, flR.x2 + 14.718f, flR.CY + 15.929f);
+                Rect(flN, ArtBarEnd, enR, "end", L_Art, BarEndTint, true);
+            }
             var cntR = UguiRect.Child(slR, CntA, CntB, CntP, Vector2.zero, Vector2.zero);
-            Text(sl, "0/" + target, cntR, Color.white, "counter", CellPx, L_Text2,
+            Text(sl, value + "/" + target, cntR, Color.white, "counter", CellPx, L_Text2,
                  autoFit: true, autoMinPx: CellAutoMin, alignLeft: false, wrap: true);
             // 🔴 **2026-10-12（A323）**：`alignLeft: false` 显式补上（原来靠缺省 ⇒ 零行为变化）。
             //   原版值 = **`Center/Middle`**（`Achievement Container > Progress > Slider > counter`，
@@ -386,9 +443,79 @@ namespace CardPresentation
             // ⚠️ 原版格子的 `backgroundButton` 字段 **`m_PathID = 0`（原版没接）** ⇒ **我们也不加点击**（判据在 §A·4 ④ 末）
         }
 
+        /// <summary>🔴 **2026-10-23（P6）**：把一颗「原版 `m_HorizontalAlignment = Left`」的标签**真正**贴到框左沿 ——
+        /// **重排一次，再 `AlignLeft`**（顺序不能反）。
+        ///
+        /// <para>**病灶**（实拍 `_tmp_view/menu/13_档案窗_成就页.png` · 2026-10-23 01:24）：格子里 `title` 与
+        /// `rewards` 的字块**中心**落在**框左沿**上，于是左缘 = 框左沿 − 字宽/2 ⇒ 头几个字压到勋章绶带 / 印章上
+        /// （量到的像素：`title` 左缘 **756** vs 框左沿 **818.06**，差 **62 = 字宽 124 / 2**；
+        /// `rewards` 左缘 **1050** vs 框左沿 **1068.76**，差 **17.5 = 字宽 35 / 2** —— 两颗都是「中心 = 框左沿」）。
+        /// 即 `Label.AlignLeftOn` 当时拿到的 `WorldW ≈ 0`（`Battle/Label.cs` 的 `RefreshBounds` 在量不到时把
+        /// `_tmpW` 写成 `Max(|0|, 1e-4)`，而 `HasMeasuredWidth` 只挡 `w <= 0` ⇒ **1e-4 被当成真测量**；
+        /// 同族守卫 `A70`/`A1751` 挡的是 `4.29e9` 那种**哨兵**，挡不住这一档）。</para>
+        ///
+        /// <para>**为什么偏偏是 `title` / `rewards` 中招、`description` 不中**（判据 = 三颗的框高，现读 prefab）：
+        /// `title` 框高 **32.691** · `rewards` **29.457** · `description` **48.423**；而字号 29.55 的**行盒**
+        /// ≈ **44.8**（Noto Serif CJK 的行盒/字形 ≈ **1.516**，见 `Core/TmpFont.cs` 的 `MeasureGlyph` doc）
+        /// ⇒ 前两颗**装不下** ⇒ `SetAutoFitBox` 的自适应要**缩字号**（实拍缩到 ≈21.6px），
+        /// 而那一版版面是**后续重排**才排出来的 ⇒ 对齐那一刻量到的还是空的。
+        /// `description` 装得下（48.4 > 44.8）⇒ 一次就排定 ⇒ 一直是对的。
+        /// ⚠️ **这是推导 + 像素实证**（上面的 62 / 17.5 两个差值是量出来的）；TMP 内部在哪一趟把
+        /// `textBounds` 留成 0 **本笔没有逐帧验**（本笔不跑 Unity）—— 所以修法不依赖那个细节：
+        /// 不管它是「没排」还是「排在后面」，**先重排、再对齐**都成立。</para>
+        ///
+        /// <para>**为什么必须是「重排 + 对齐」两步**：只补 `AlignLeft` 不够 —— 量到的还是空的那一版
+        /// （`1e-4`），贴完照旧是「中心 = 框左沿」。`Label.ForceRelayout()` 是现成的公开口
+        /// （`SetFontSize(现值)` → `ForceMeshUpdate()` + `RefreshBounds()`），它会把**自适应缩过字号**的
+        /// 那一版版面真正排出来并刷进 `_tmpW` ⇒ 随后的 `AlignLeftOn` 才拿到真宽度。
+        /// 同族先例 = **`A490`**（`LiveOpsEventWindow` 那颗 `Window Title`：`SetCharSpacing` 排在
+        /// `MenuDraw.AlignLeft` **之后** ⇒ 停在「按旧宽定位」的位置）—— 那一处的结论也是「对齐必须排最后」。</para>
+        ///
+        /// <para>⛔ **别改成「硬把字挪走」**：原版 prefab 里标题本来就**不与勋章重叠**
+        /// （`title` 左缘 818.06 vs 勋章槽右缘 811.06），所以这不是「原版靠层级/裁切解决」的那一档，
+        /// 而是我们这边**对齐没落地**。也 ⛔ 别动 rect 常量（它们与 prefab 逐位相同）。
+        /// 断言 → `Editor/MainMenuScene.cs` 成就段（`CheckLeftAlignedAtWorld` + 与勋章不相交那两条）。</para>
+        ///
+        /// <para>🔴 **2026-10-23（P7）就地订正（铁律 5）**：上面那段「TMP 内部在哪一趟把 `textBounds`
+        /// 留成 0 本笔没有逐帧验」**已经查清**，而且原来那条「`ForceRelayout()` 会把自适应缩过字号的那一版
+        /// 真正排出来」**不成立** —— 本页的标签是在**未激活**的页里建的，`ForceMeshUpdate()` 在未激活对象上
+        /// 早退（`TextMeshPro.cs:2119`），所以 `ForceRelayout()` 当时**什么都没排**。
+        /// **真根因**（判据 = TMP 源码现读）：`GetTextInfo` 只走**一遍** `GenerateTextMesh`，而**自适应**的
+        /// 「超框 ⇒ 缩字号 ⇒ `return`」那一族 early-return 全在 Phase II 之前，`m_textInfo.characterCount`
+        /// 是 Phase II（`:5005`）才赋值的 ⇒ 一遍排完 `characterCount` 仍是 **0** ⇒ `textBounds` 退化成
+        /// 空集哨兵（画布 px ≈ ±2.3e11）⇒ `RefreshBounds` 早退 ⇒ `_tmpW` 停在 `1e-4`
+        /// ⇒ `HasMeasuredWidth` 原来只挡 `w <= 0` ⇒ **1e-4 被当成真测量** ⇒ 中心钉在框左沿。
+        /// ✅ **修在 `Battle/Label.cs`**（P7）：① 未激活时 `ForceRelayout`/`EnsureMeasured` 走
+        /// `PushLayoutInactive()`（反复 `GetTextInfo` 直到自适应收敛）；② `_measured` 让「一次都没量到」
+        /// 不再被当成测量；③ 量不到宽时把对齐**记成待办**，由真测量落定的那一拍补上。
+        /// ⇒ 本方法的「重排 + 对齐」两步**现在第一步真的排了**（这一处代码不必再改）。</para></summary>
+        static void RealignLeft(Label lb, PxRect r)
+        {
+            if (lb == null) return;
+            lb.ForceRelayout();          // ① 把（自适应之后的）版面真正排出来 ⇒ `WorldW` 才是真宽
+            MenuDraw.AlignLeft(lb, r);   // ② 再把字块左缘钉到框左沿
+            // ③ 仍然量不到宽（版面没排出来）⇒ **出声**（红线：不许静默失败）。
+            //    ⚠️ 只说一次：一屏 3 颗 × 每次重画都会走到这里，逐次打会把日志刷满。
+            //    🔴 **2026-10-23（P7）就地订正（铁律 5）**：阈值原来是 `< 0.01f` px —— 而「一次都没量到」
+            //       那一档的 `WorldW` = **1e-4 世界单位 = 0.0108 px** > 0.01 ⇒ **这条告警恰恰在它要报的
+            //       那一档上永远不响**（本次实跑日志里确实一条都没有）。改成 0.1 px（≈ 0.001 世界单位）：
+            //       正常文本（最短的 `rewards` 也有 35 px）离它两个数量级，不会误报。
+            if (!_warnedDegenerateWidth && lb.WorldW * 108f < 0.1f)
+            {
+                _warnedDegenerateWidth = true;
+                // ⚠️ 文案按 P7 之后的真实后果写：现在**不会**再把中心钉到框左沿 —— `AlignLeftOn` 会把这次
+                //    请求记成待办（`Label._pendAlignX`），量到宽的那一拍才补；在那之前字块停在**框心**。
+                Debug.LogWarning("[Profile] 成就格 `" + (lb.Text ?? "<null>") + "` 左对齐时量不到宽度"
+                               + "（`WorldW` ≈ " + (lb.WorldW * 108f).ToString("F3") + "px）"
+                               + " ⇒ 这次对齐**没落下**（已记成待办，等量到宽再补；在那之前字块停在框心，"
+                               + "可能压在勋章/印章上）（本进程只报这一次）");
+            }
+        }
+        static bool _warnedDegenerateWidth;
+
         /// <summary>`Counter`：**全量成就积分之和**（判据 ③：不受筛选影响、`ToString()` 无格式）。
-        /// ⚠️ 原版那和是**玩家进度**（`Achievement.CurrentPoints`，服务器）；我们**没有进度** ⇒ 显示 `0`
-        /// （这是**真值**不是编的：本地确实一点进度都没有）。</summary>
+        /// 🔴 **2026-10-22（P1）**：数值从**本地存档**读（`ProfileData.AchievementPointsTotal()`；
+        /// 原版是 `Achievement.CurrentPoints`，服务器）。没记录 ⇒ `0`（本地真实状态，不编）。</summary>
         void BuildCounter()
         {
             var c = Node("Counter", new PxRect(CnL, CnT, CnR, CnB));
@@ -408,17 +535,93 @@ namespace CardPresentation
             Rect(c, ArtSeal, icR, "Image", L_Art, null, true);
         }
 
-        /// <summary>计数条那串数字（自检与将来接进度都读它）。</summary>
-        public static string PointsText()
+        // ============================================================ 🆕 2026-10-23（P5）：行内关键词图标
+        //
+        // 🔴 **病灶（实拍 `d:/4/_tmp_view/menu/13_档案窗_成就页.png`）**：描述里 `[[codex]]` / `[[markOfChaos]]`
+        //   已经被渲染成 `<nobr><sprite name="Atlas_trait_icon_codex"><b>典籍</b></nobr>`
+        //   （`ProfileData` 走 `Loc.BulkOr` → `CardIcons.RewriteMarks`），画面上却是
+        //   「触发　　**典籍**」—— **一个字符宽的空洞**（词在、图不在）。
+        //
+        // 🔴 **根因 = 图标的渲染队列没跟上正文**（**不是**词条缺、也不是图缺）：
+        //   · TMP 的行内 `<sprite>` 画在**另一个子网格**上（`TMP_SubMesh`，自带一个 `MeshRenderer`），
+        //     它的材质是 `CardIcons.SpriteAsset.material` —— 一份**全工程共享**的材质，队列停在 shader 默认 **3000**；
+        //   · 而 `Label.ApplyQueue` 只盖**字体材质**（本页正文 = `Q + L_Text` = **3204**）
+        //     ⇒ 图标留在 3000，被本页格子底（`Q + L_Bg` = **3200**、不透明）整块盖住 ⇒ 只剩 TMP 量出来的空白。
+        //   · 同族先例 = `CardView.StampTmpQueue`（卡面「图标与文字同队列」就靠它）；卡面能用，`Label` 这条路没接。
+        //   · **三条反证**（都指向「不是数据问题」）：① 那次运行的日志里 **0 条** `[CardIcons]` 告警
+        //     （`SpriteExists` 为真才会插 `<sprite>` 标签；图不在时它把标签整个省掉、**连空洞都没有**）；
+        //     ② 空洞宽度正好等于一个字形（TMP 认出了这张图、留了位）；
+        //     ③ 同页 `title` / `rewards`（不带图标）位置完全正常。
+        //   · ⚠️ 判据不足、如实标着的那一半：**「为什么卡面上正常」我没有逐帧验**（本笔不跑 Unity）；
+        //     从代码看是 `CardView.StampTmpQueue` 把子网格一起盖了队列 —— 与本笔修的是同一件事。
+        //
+        // ✅ **做法**：给这颗标签换一份**按队列克隆**的 `TMP_SpriteAsset`（`material` = 同一张贴图的克隆、
+        //   `renderQueue` = 正文那一档）；**已经建出来的**子网格再当场盖一次材质
+        //   （TMP 是在**建子网格那一刻**把 `spriteAsset.material` 抄给 `TMP_SubMesh` 的 ⇒ 光换 asset 不会回头改它）。
+        //   ⛔ **绝不写共享材质本体** —— `Editor/CardFaceProbe` / `Editor/BattleScene` 的 A1665/A1672
+        //   两条断言会当场红（写脏它 = 所有卡的文字/图标队列一起被改）。
+
+        /// <summary>「本页某一档队列」那一份 sprite asset（首次按队列克隆，之后缓存）。
+        /// `CardIcons.SpriteAsset` 取不到 ⇒ 返回 null（那边自己会出声；⛔ 我们不自造一份空 asset）。</summary>
+        static readonly Dictionary<int, TMPro.TMP_SpriteAsset> _spriteAssetAtQ =
+            new Dictionary<int, TMPro.TMP_SpriteAsset>();
+
+        static TMPro.TMP_SpriteAsset SpriteAssetAtQueue(int q)
         {
-            var all = ProfileData.Achievements;
-            int sum = 0;
-            for (int i = 0; i < all.Count; i++) sum += CurrentPointsOf(all[i]);
-            return sum.ToString();
+            var baseSa = CardIcons.SpriteAsset;
+            if (baseSa == null || baseSa.material == null) return null;
+            if (baseSa.material.renderQueue == q) return baseSa;      // 共享那份本来就是这一档 ⇒ 直接用（不克隆）
+            TMPro.TMP_SpriteAsset hit;
+            if (_spriteAssetAtQ.TryGetValue(q, out hit) && hit != null) return hit;
+            var sa = Object.Instantiate(baseSa);
+            sa.name = baseSa.name + " (q" + q + ")";
+            var m = new Material(baseSa.material);
+            m.name = baseSa.material.name + " (q" + q + ")";
+            m.renderQueue = q;
+            sa.material = m;
+            _spriteAssetAtQ[q] = sa;
+            return sa;
         }
 
-        /// <summary>一条成就「已拿到的分」。**我们恒 0**（没有存档）；原版读 `Achievement.CurrentPoints`(+0x30)。
+        /// <summary>把一颗标签的行内图标抬到它自己那一档队列（根因 / 判据 → 上面那一段）。</summary>
+        static void SocketKeywordSprites(Label lb, int q)
+        {
+            if (lb == null) return;
+            var tmp = lb.GetComponentInChildren<TMPro.TMP_Text>(true);
+            if (tmp == null) return;                  // 点阵后端没有 `<sprite>` 这回事（`StripTags` 已剥）
+            var sa = SpriteAssetAtQueue(q);
+            if (sa == null) return;
+            tmp.spriteAsset = sa;                     // 将来重建子网格时用它
+            // 已经建出来的子网格：当场换成同一份按队列克隆的材质（理由见上）
+            var subs = lb.GetComponentsInChildren<TMPro.TMP_SubMesh>(true);
+            for (int i = 0; i < subs.Length; i++)
+            {
+                if (subs[i] == null) continue;
+                var mr = subs[i].GetComponent<MeshRenderer>();
+                if (mr == null || mr.sharedMaterial == null) continue;
+                if (mr.sharedMaterial.renderQueue == q) continue;
+                mr.sharedMaterial = sa.material;
+            }
+        }
+
+        /// <summary>计数条那串数字（自检与将来接进度都读它）。**全量成就积分之和**（来自本地存档）。</summary>
+        public static string PointsText()
+        {
+            return ProfileData.AchievementPointsTotal().ToString();
+        }
+
+        /// <summary>一条成就「已拿到的分」（来自本地存档）。原版读 `Achievement.CurrentPoints`(+0x30)。
         /// 单独抽出来是为了将来接进度时**只改这一处**。</summary>
-        public static int CurrentPointsOf(ProfileData.Achievement a) { return 0; }
+        public static int CurrentPointsOf(ProfileData.Achievement a) { return ProfileData.AchievementPointsOf(a); }
+
+        /// <summary>格子 `rewards` 那一句 = 官方词条 `Achievements/Points`（`{0} Points` / `{0} 分`）。
+        /// 🔴 判据：`数据/游戏数据/官方本地化_en+zh-CN.json` 的 `Achievements/Points`；参考图「50 分」逐字吻合。
+        /// 取不到词条 / 词条里没有 `{0}` ⇒ 回英文兜底（⛔ 别把 `{0}` 原样印上屏）。</summary>
+        public static string PointsText(int reward)
+        {
+            string fmt = Loc.T(PointsTerm);
+            if (string.IsNullOrEmpty(fmt) || fmt == PointsTerm || fmt.IndexOf("{0}") < 0) fmt = PointsFallback;
+            return string.Format(fmt, reward);
+        }
     }
 }

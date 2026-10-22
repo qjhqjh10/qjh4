@@ -589,6 +589,10 @@ public static class BattleScene
         //  🔴 四条通用读法（出处 → `资料/普查产出_第十一会话/PH_A1213Hud补框.md` §五）：
         //    · 从 `drv.hudRoot` 按**节点名**找 `Label` —— `Label.Create` 是 `SetParent(root)` 直接挂的
         //      ⇒ 这 17 颗都是 `HudRoot` 的**直接子件**（`Transform.Find` 不递归，正好够用）。
+        //      🔴 **2026-10-22（`K2`）就地订正：本条已过期两次** —— ① 字族已迁 uGUI 画布（`EW8`，根画布是
+        //      **根对象**，不挂 `hudRoot`）；② 第六十一会话起又收进 `BattleHudLayer`，换牌动画接线
+        //      （`BattleHudAnim.MoveInto`）再搬进 `BattleHudLayer/<rig>/<件>`。**查找口只认 `FindHudNode`**
+        //      （三档：根画布直子 → 层直子 → rig 子树），⛔ 别再按「直子件 + `Transform.Find`」写新代码。
         //    · TMP 子节点叫 `"text"`（`TmpFont.NewText(transform, "text", …)`）；这里走
         //      `GetComponentInChildren<TMP_Text>(true)`（同 §4.6b 那两条的读法）。
         //    · `Label.FontSizeMin/Max/Base` 读的是 **TMP 里那几个真字段**，经工程唯一那份
@@ -611,7 +615,8 @@ public static class BattleScene
         /// <para>⚠️ 按**节点名**取（同族先例 = 本文件的 `CheckHudBox` / `Quad()` 那一族），查找口 = `FindHudNode`。
         /// 🔴 **2026-10-21（`G1`）就地订正**：原文写「那些件都是 `HudImageTex` 建的、`root` 是**裸 `Transform`
         /// 的 `hudRoot`** ⇒ 父件恒为根画布的直接子件」—— **已过期**：第六十一会话起那一族挂在 `BattleHudLayer`
-        /// 下（换牌期整层 `CanvasGroup.alpha = 0`）⇒ 直接子件找不到，必须回退 `BattleHudLayer/<name>`。
+        /// 下（换牌期整层 `CanvasGroup.alpha = 0`）⇒ 直接子件找不到，必须回退到 `BattleHudLayer` 那一层
+        /// （含其下 rig 子树；口径见 `FindHudNode`）。
         /// 几何一个数都没变（层是铺满画布的零尺寸容器，见 `_hudLayer` 的 doc）。</para>
         /// <para>⚠️ `HudCanvas.RootRect` 是**进程级静态**的根画布 ⇒ `Find` 取的是**第一个**同名件 ——
         /// 本宿主只建一个 `BattleDriver` ⇒ 安全（多驱动的宿主⛔ 别照抄，见 `EW8` 报告 ⑥·3）。</para>
@@ -623,24 +628,50 @@ public static class BattleScene
         }
 
         /// <summary>🔴 **2026-10-21（第六十一会话 · `G1`）：按名字找一件战斗 HUD 的绘制节点** ——
-        /// **先根画布直接子件，再 `BattleHudLayer/`**。
+        /// **三档：① 根画布直子件 → ② `BattleHudLayer` 直子件 → ③ `BattleHudLayer` 下各 rig 的子树**。
         /// <para>**为什么要回退**：第六十一会话把整层战斗 HUD 收进了 `BattleHudLayer`
         /// （`BattleDriver.BuildHud` 里 `new GameObject("BattleHudLayer", …)` + `HudCanvas.Add(_hudLayer, 4.9f)`），
         /// `Hud()` / `HudImageTex()` / `AddEnergyLight()` 建出来的件现在是**根画布的孙辈**；
         /// 而 `Transform.Find` **不递归** ⇒ 只找直接子件的六处查找口**全部 null**（43 条红：
         /// `HudPxOf` 8 · `CheckHudBox` 前提 19（并让它后面 ≈171 条静默不跑）· `A1302` 4 · `A1502②/Rt` 12）。
         /// 判据 → `资料/普查产出_1021/W61_战斗线_BattleScene47红诊断.md` §3·G1。</para>
-        /// <para>⚠️ 两档都要留：两枚黑边件 / 回放条 / 等待横幅**不进那一层**（它们画在 HUD 之下 / 之上），
+        /// <para>⚠️ 三档都要留：两枚黑边件 / 回放条 / 等待横幅**不进那一层**（它们画在 HUD 之下 / 之上），
         /// 仍在根画布直下；层名 `"BattleHudLayer"` 与 `BattleDriver.BuildHud` 那一句 `new GameObject`
         /// 成对 —— 改名 ⇒ 这里**静默**退回 null（所以两边别各改各的）。</para>
+        /// <para>🔴 **2026-10-22（`K2`）第三档：rig 子树。** 换牌期 HUD 动画接线（`BattleHudAnim`）把 16 颗字
+        /// 搬进了 `BattleHudLayer/<rig>/<件>`（rig 由 `BattleDriver.BuildHudAnimRigs` → `MoveInto` 建/搬），
+        /// 而前两档只到**直接子件** ⇒ 那 16 颗恒 `null`（16 条前提红 + 每颗后面 9 条被 `return` 跳过）。
+        /// **怎么找**：遍历 `BattleHudLayer` 的每个子件（rig），在该子树里**递归按 `name` 精确比**。
+        /// ⛔ **不能**写成 `layer.Find("LeftArea/PlayerInfo/" + name)` —— **rig 名里带 `/`**
+        /// （如 `LeftArea/Left Anchor`），`Transform.Find` 会把 `/` 当路径分隔符拆开，永远找不到。
+        /// ⚠️ **确定性**：rig 按**兄弟序**、子树按 `GetComponentsInChildren` 的**深度优先序**（= 兄弟序递归）
+        /// ⇒ 同名多命中时取**第一个**，与 `Transform.Find` 的「取第一个同名直子件」同一条口。</para>
         /// <para>⚠️ 遍历口径与旧写法一致：`HudCanvas.RootRect` 是进程级静态根画布 ⇒ 取第一个同名件；
         /// 本宿主只建一个 `BattleDriver` ⇒ 安全（多驱动宿主 ⛔ 别照抄，见 `EW8` 报告 ⑥·3）。</para></summary>
         Transform FindHudNode(string name)
         {
             var root = HudCanvas.RootRect;
             if (root == null || string.IsNullOrEmpty(name)) return null;
+            // ① 根画布直子件（两枚黑边件 / 回放条 / 等待横幅等**不进 `BattleHudLayer`** 的件）
             var t = root.Find(name);
-            return t != null ? t : root.Find("BattleHudLayer/" + name);
+            if (t != null) return t;
+            // ② `BattleHudLayer` 直子件（层里**没搬进 rig** 的件）
+            var layer = root.Find("BattleHudLayer");
+            if (layer == null) return null;
+            t = layer.Find(name);
+            if (t != null) return t;
+            // ③ rig 子树（换牌期动画接线把件搬进了 `BattleHudLayer/<rig>/<件>`）。
+            //    ⛔ 别用 `Find` 拼路径：rig 名里带 `/`（如 `LeftArea/Left Anchor`）会被当成路径拆开。
+            //    ⚠️ 确定性：rig 兄弟序 × 子树深度优先序，取**第一个**同名件（同 ① 的口径）。
+            for (int i = 0; i < layer.childCount; i++)
+            {
+                var rig = layer.GetChild(i);
+                if (rig == null) continue;
+                var all = rig.GetComponentsInChildren<Transform>(true);
+                for (int k = 0; k < all.Length; k++)
+                    if (all[k].name == name) return all[k];
+            }
+            return null;
         }
 
         /// <summary>文字块按 `anchor` 插值出来的那个点，相对**节点原点**的偏移（世界单位）。
@@ -672,7 +703,7 @@ public static class BattleScene
         /// ⇒ **它是根对象**（`HudCanvas.cs` 文件头第 2 条明文「⛔ 根 canvas 不能挂在 HUD 根下」——
         /// 那是反向补震用的）⇒ `hudRoot.Find` 找不到（`Transform.Find` **不递归**）。
         /// 旧路能中只是因为 `Label.Create` 当年直接挂 `hudRoot`。</para>
-        /// <para>⚠️ 查找走 `FindHudNode`（先根画布直接子件、再 `BattleHudLayer/`）。
+        /// <para>⚠️ 查找走 `FindHudNode`（根画布直子 → 层直子 → rig 子树，三档）。
         /// 🔴 **2026-10-21（`G1`）就地订正**：原文写「只找**根画布的直接子件** —— 本助手的 16 颗都在那一层」，
         /// **已过期**：那 16 颗随整层 HUD 挂进了 `BattleHudLayer`（换牌期整层收掉）⇒ 直接子件那一档恒 null。
         /// 提示条那颗（`TipText_Text`）仍挂在 `AboveShader` 子画布下，**本来就不在名单里**。</para></summary>
@@ -851,7 +882,8 @@ public static class BattleScene
                     // ① 原版**本来就没有**通用件（`play`/`ability`/`death`/`return`/`attack_melee`）——
                     //    `Resolve` 回 null 是**正确结果**，不是漏配。
                     if (VfxMap.IsOriginalNoGenericEvent(ev)) { noGeneric++; noGenericSeen.Add(ev); continue; }
-                    // ② **有真件、本机接不上**（`collect_waystone` / `ambush_exit`）—— 也在 `Unmapped` 里，
+                    // ② **有真件、本机接不上**（今天只剩 `ambush_exit`；`collect_waystone` 于 2026-10-22
+                    //    P6 接上真件、已从这一族移出）—— 也在 `Unmapped` 里，
                     //    但那是**已知缺口**（`ResolveFallback` 会**出声**），不是「结构上永远不播」。
                     if (VfxMap.IsKnownGapEvent(ev)) { knownGap++; knownGapSeen.Add(ev); continue; }
                     // ③ 只能按阵营配 ⇒ 问一次 `ResolvesForSomeFaction`（今天 `Draw` 已经两边都没配，
@@ -880,12 +912,17 @@ public static class BattleScene
                     + "`play` / `ability` / `return` / `attack_melee`（原版没有这一档）· `death`（真件走 `CardFeel` 那条二选一）"
                     + $"（实得 {string.Join("/", noGenericSeen.ToArray())}）"
                     + "｜🧨 任何一个挂回替代品 ⇒ 红（`W64` B1/B2/B3/B4 + `W63` §B）");
-                Check(knownGapSeen.Count == 2
-                      && knownGapSeen.Contains(VfxMap.CollectWaystone)
+                // 🔴 **2026-10-22（P6 · `W64` B8 收口）就地改**：原来这条要 2 个已知缺口
+                //   （`collect_waystone` / `ambush_exit`）。B8 的真件已导进效果库、`ByEvent` 那行接上 ⇒
+                //   `collect_waystone` **不再落在 `Unmapped()` 里**，今天只剩 `ambush_exit` 一个。
+                //   🧨 灭自证：把 `ByEvent[CollectWaystone]` 删掉 / 挪进 `IsKnownGapEvent` ⇒
+                //     它会重新出现在 `knownGapSeen`（count 变 2）⇒ 本条红 —— 与下面那条「已接上」互为反向锁。
+                Check(knownGapSeen.Count == 1
                       && knownGapSeen.Contains(VfxMap.AmbushExit),
-                      "★ 两个**已知缺口**（有真件、本机接不上）：`collect_waystone` / `ambush_exit`"
-                    + $"（实得 {string.Join("/", knownGapSeen.ToArray())}）—— 判据见 `VfxMap` 那两段注释"
-                    + "｜🧨 拿替代品顶上去（`WaystoneCollect` / `AmbushEffect`）⇒ 红");
+                      "★ **已知缺口只剩 1 个**（有真件、本机接不上）：`ambush_exit`"
+                    + $"（实得 {string.Join("/", knownGapSeen.ToArray())}）—— 判据见 `VfxMap` 那几段注释"
+                    + "；`collect_waystone` 已于 2026-10-22（P6）接上真件、不在此列"
+                    + "｜🧨 拿替代品顶上去（`AmbushEffect`）或把 `collect_waystone` 改回缺口 ⇒ 红");
             }
 
             // ---- 🔴 🆕 2026-10-14（第二十七会话）：**逐卡那一档真的接上了** ----
@@ -4539,6 +4576,95 @@ public static class BattleScene
 
             if (dragIdx >= 0)
             {
+                // 🔴🆕 2026-10-22（`W63·审查-右键hover`）：**右键按着 ⇒ 悬停/起拖/拖拽三个入口都必须早退**
+                //   判据 = `d:/2/tools/decomp_full/CardScript__IsRightButtonOrTwoFingerTouch.c:8-10`
+                //          （`Input.GetMouseButton(1) | touchCount > 1`）
+                //        + `CardScript__OnTouchEnter.c:12-14` / `CardScript__OnTouchDrag.c:19-21`（第一句早退）
+                //   实现 = `Hand/CardInteraction.IsRightButtonOrTwoFingerTouch()`（**唯一判据**，三个入口共用）。
+                //   ⚠️ 原版 `OnTouchExit` / `OnTouchUpAsButton` / `OnTouchDown` **没有**这道闸
+                //      ⇒ 下面第 ④ 条专门钉「离开照旧生效」这个不对称（⛔ 别被当成 bug「修」成整段冻结）。
+                {
+                    int nHand = it.HandCardCountForTest;
+                    var cvA = it.HandCardForTest(0);
+                    var cvB = it.HandCardForTest(nHand - 1);
+                    Vector3 ptA = cvA != null ? cvA.transform.position : Vector3.zero;
+                    Vector3 ptB = cvB != null ? cvB.transform.position : Vector3.zero;
+                    int hA = it.HitCardForTest(ptA), hB = it.HitCardForTest(ptB);
+                    Check(it.Dragging == null, "（前提）进这一小段时没有正在拖的牌");
+                    Check(nHand >= 2 && hA >= 0 && hB >= 0 && hA != hB,
+                          $"（前提）手牌两端的卡心各自只命中自己（共 {nHand} 张；左端 ⇒ {hA}、右端 ⇒ {hB}）"
+                        + " —— 两个靶分不开的话，下面那条「hover 不变」对「闸恒开」无感");
+
+                    // ① 对照：闸关着（= 真没按右键）⇒ hover 跟着指针走。**灭自证的第一半。**
+                    it.SetRightButtonHeldForTest(false);
+                    it.SimulateHover(ptA);
+                    Check(it.HoveredIndex == hA, $"（对照）闸关着 ⇒ 指针到 A 就 hover A（实得 {it.HoveredIndex}）");
+                    it.SimulateHover(ptB);
+                    Check(it.HoveredIndex == hB, $"（对照）…指针到 B 就 hover B（实得 {it.HoveredIndex}）"
+                        + " —— 🧨 把闸写成恒 true ⇒ 这条当场红");
+                    it.SimulateHover(ptA);
+
+                    // ② 右键按着 ⇒ `OnTouchEnter` 早退：指针挪到 B 的卡心上，hover 仍是 A
+                    it.SetRightButtonHeldForTest(true);
+                    it.SimulateHover(ptB);
+                    Check(it.HoveredIndex == hA,
+                          $"★ 右键按着 ⇒ **悬停入口早退**（指针已在 B={hB} 的卡心上，hover 仍是 A={hA}）"
+                        + " —— 判据 `CardScript__OnTouchEnter.c:12-14`；"
+                        + " 🧨 删掉 `CardInteraction.UpdateHover` 那道闸 ⇒ 红");
+
+                    // ③ 右键按着 ⇒ 按下不许抓手牌（`TryDraggingFromHand` 在 `OnTouchDrag` 闸内）
+                    it.SimulatePress(ptA);
+                    Check(it.Dragging == null,
+                          "★ 右键按着 ⇒ **按下不抓手牌**（`Dragging` 仍为 null）"
+                        + " —— 判据 `CardScript__OnTouchDrag.c:19-21`；"
+                        + " 🧨 删掉 `CardInteraction.PickUp` 那道闸 ⇒ 红");
+
+                    // ④ 但 `OnTouchExit` 原版没有闸 ⇒ 离开照旧把 hover 清掉（这个不对称是**原版就有的**）
+                    it.SimulateHover(LayoutSpace.ToWorld(0.50f, 0.85f));
+                    Check(it.HoveredIndex == -1,
+                          "★ …可**离开照旧生效**（右键按着、指针挪到手牌外 ⇒ hover 清成 −1）"
+                        + " —— `CardScript__OnTouchExit.c` 通篇没有 `GetMouseButton(1)`，"
+                        + " ⛔ 别把闸「统一」到 exit 上（那是过度还原）");
+                    it.SetRightButtonHeldForTest(false);
+
+                    // ⑤ 对照：闸一放开，左键照旧能抓 —— **灭自证的第二半**（闸写成「任何键都早退」⇒ 红）
+                    it.SimulateHover(ptA);
+                    it.SimulatePress(ptA);
+                    Check(it.Dragging != null, "（对照）闸一放开 ⇒ 左键按下照样抓手牌"
+                        + " 🧨 把闸写成「任何情况下都早退」⇒ 红");
+
+                    // ⑥ 右键按着 ⇒ `OnTouchDrag` 早退：卡一步都不跟手、插槽号也不动
+                    for (int k = 0; k < 12; k++) Step(1f / 60f);   // 抓起那 0.1s 的补间先走完（否则 Step 自己也会挪卡）
+                    var dragPt = LayoutSpace.ToWorld(0.90f, HandBaselineY);
+                    Vector3 beforePos = it.Dragging.transform.position;
+                    int slotBefore = it.InsertIndex;
+                    it.SetRightButtonHeldForTest(true);
+                    for (int k = 0; k < 6; k++) it.SimulateDrag(dragPt, 1f / 30f);
+                    float frozen = Vector3.Distance(it.Dragging.transform.position, beforePos);
+                    int slotFrozen = it.InsertIndex;
+                    Check(frozen < 1e-6f && slotFrozen == slotBefore,
+                          $"★ 右键按着 ⇒ **拖拽入口早退**（6 帧、指针已到远端，卡一步都没挪：{frozen:E2}；"
+                        + $" 插槽 {slotFrozen} 也没动）—— 判据 `CardScript__OnTouchDrag.c:19-21`；"
+                        + " 🧨 删掉 `CardInteraction.UpdateDrag` 那道闸 ⇒ 红");
+                    it.SetRightButtonHeldForTest(false);
+
+                    // ⑦ 对照：闸放开 ⇒ 同一批喂法立刻跟手（挡「卡本来就不动」那种假绿）
+                    for (int k = 0; k < 6; k++) it.SimulateDrag(dragPt, 1f / 30f);
+                    float moved = Vector3.Distance(it.Dragging.transform.position, beforePos);
+                    Check(moved > 0.1f,
+                          $"（对照）闸一放开 ⇒ 卡立刻跟手（挪了 {moved:F3} 世界单位）"
+                        + " —— 🧨 上面那条若因为「卡压根不动」而绿，这条会红");
+
+                    // 收尾：拖回手牌带再松手（这一拖走得很远 ⇒ `_travel` 远超轻点阈值，不会弹展示窗）
+                    var backPt = LayoutSpace.ToWorld(0.20f, HandBaselineY);
+                    for (int k = 0; k < 6; k++) it.SimulateDrag(backPt, 1f / 30f);
+                    it.SimulateRelease(backPt);
+                    Check(it.Dragging == null && it.HandCardCountForTest == nHand,
+                          $"（收尾）这张牌回到手牌（仍 {it.HandCardCountForTest} 张、没有正在拖的）"
+                        + " —— 下一段「拖拽上场」从同一个状态接着跑");
+                    for (int k = 0; k < 20; k++) Step(1f / 60f);   // 回弹补间走完
+                }
+
                 var view = driver.HandViewAt(dragIdx);
                 int freeSlot = SimpleAI.FirstFreeSlot(ctx.Players[0]);
                 // 🔴 2026-09-20：拖拽的**落点**用 `DropTargetWorld` —— 真 3D 时卡画在透视层，
@@ -5397,6 +5523,254 @@ public static class BattleScene
                 + "｜🧨 改坏法（专抓那个洞）：字面写成 `Loc.T(RuleCodes.TermKey(rc)) ?? RuleCodes.Describe(rc)`"
                 + " ⇒ 无键时 `Loc.T(null)` 返回**空串**（`Loc.T` **从不返回 null**：空键给 `\"\"`、缺键给键名）"
                 + " ⇒ `??` 那一半**永不触发** ⇒ 本条当场红 —— 真机上那行提示会**全空**（静默失败，本工程红线）");
+        }
+
+        // ---- 3c. 🆕 2026-10-22（战斗线 `W63`）：**拒绝反馈 · ESC 两条 · 日志 3 键** ----
+        //  判据（逐条读过 `d:/2/tools/decomp_full/`）：
+        //   · `NotifyCantDoAction` = **语音 + 抬头文字一次调用**（`BattleTipController__NotifyCantDoAction.c:5-14`）；
+        //     原版那 14 个「操作被拒」点**全走它**（清单 → `资料/语音线_原版规格与ASR管道.md` §1.3）。
+        //   · ESC 两条：`BattleHud__Update.c:20-35`（普通对局开设置窗）·
+        //     `BattleManager__Update.c:1303-1340`（气泡开着时关气泡）。
+        //   · 日志 3 键：`Battle/Cemetery/ActionDisplay{Your,Enemy}CardInHand`（原版 case `0x1E`）·
+        //     `AmbushedTroop`（`CemeteryManager__GetActionWithParams.c:117` —— 目标**面朝下**时那个定语）。
+        {
+            var drv3c = Object.FindObjectOfType<BattleDriver>();
+            if (drv3c == null)
+            {
+                Check(false, "找不到 BattleDriver（3c 拒绝反馈 / ESC / 日志 3 键 —— ⛔ 不静默跳过）");
+            }
+            else
+            {
+                bool? escWas3c = BattleDriver.EscapePressedForTest;
+                try
+                {
+                    // ---------- ① **拒绝反馈**：指挥一个「已经行动过」的单位 ⇒ 原版 `UnitNotReady` ----------
+                    //  判据 = `CanUseActiveAbility.c:116-132`：`canAct == 0` ⇒ `NotifyCantDoAction(UnitNotReady)`。
+                    //  我们的等价物 = `OpenCommand` 里 `u.Exhausted` 那一道闸（部署当回合就是 exhausted）。
+                    int slotEx = -1, slotAny = -1;
+                    var myB = drv3c.Ctx.Players[drv3c.MyIndex].Board;
+                    for (int s = 0; s < BoardSpec.Size; s++)
+                    {
+                        var uu = myB[s];
+                        if (uu == null || uu.IsRemnant || uu.IsWarlord) continue;
+                        if (slotAny < 0) slotAny = s;
+                        if (uu.Exhausted) { slotEx = s; break; }
+                    }
+                    int slotPick = slotEx >= 0 ? slotEx : slotAny;
+                    if (slotPick < 0)
+                    {
+                        // ⚠️ **这一档是条件性的，不判红**：本节的夹具取决于「上面那一步有没有付得起的牌」
+                        //   （§2 自己也写着「没有付得起的牌，跳过拖拽用例」）⇒ 开局只有督军时这里没有部队可指。
+                        //   出声、不静默；拒绝反馈那条链本身仍由下面 ②（`PleaseWait`，**不依赖棋盘**）
+                        //   与 ②b（静态覆盖普查，数 10 个调用点）兜着。
+                        Debug.LogWarning(P + "   ⚠️ 3c①：我方场上没有部队 ⇒ 「UnitNotReady 拒绝反馈」这一条"
+                                           + "**这次没验到**（夹具条件不成立，如实记）");
+                    }
+                    else
+                    {
+                        // 夹具：把这一格**掰成「已经行动过」**（部署当回合本来就是 exhausted；
+                        // 这里显式钉一下，免得前面万一推过一回合就变成「有行动 ⇒ 开选择器」）。
+                        // 用完**原样还原** —— 后面 §4 还要照常出牌。
+                        bool exWas = myB[slotPick].Exhausted;
+                        myB[slotPick].Exhausted = true;
+                        int cBefore = drv3c.CantDoCount;
+                        drv3c.SimulateOpenCommand(slotPick);
+                        myB[slotPick].Exhausted = exWas;
+                        Check(drv3c.CantDoCount == cBefore + 1,
+                              $"★ **拒绝点走一次 ⇒ 真的出声了**（`NotifyCantDoAction` 计数 {cBefore} → {drv3c.CantDoCount}，"
+                            + "槽 " + slotPick + "）｜🧨 把那句 `NotifyCantDoAction(...)` 改回只 `SetHint(...)`/"
+                            + "只 `Debug.Log` ⇒ 本行红");
+                        Check(!string.IsNullOrEmpty(drv3c.LastCantDoTerm)
+                              && !drv3c.LastCantDoTerm.StartsWith("Battle/"),
+                              $"★ …而且喂给抬头的是**人话**、⛔ 不是键名：`{drv3c.LastCantDoTerm}`"
+                            + "｜🧨 改坏法：把 `Loc.T(键)` 换成裸键名 ⇒ 本行红");
+                        if (myB[slotPick] != null && myB[slotPick].Exhausted)
+                            Check(drv3c.LastCantDoTerm == Loc.T(BattleDriver.UnitNotReadyTerm),
+                                  $"★ 已行动过 ⇒ 用的就是原版那条 `{BattleDriver.UnitNotReadyTerm}`"
+                                + $"（实测「{drv3c.LastCantDoTerm}」· 期望「{Loc.T(BattleDriver.UnitNotReadyTerm)}」）"
+                                + "｜🧨 换成别的词条（例如自拟的「这个单位已经行动过了」）⇒ 本行红");
+                        drv3c.SimulateDeselect();
+                    }
+
+                    // ---------- ② **拒绝反馈**：演出没演完又点了一下 ⇒ 原版 `PleaseWait` ----------
+                    //  判据 = `WaitingForBlockingAction.c:126-134`（`NotifyCantDoAction(PleaseWait)`）。
+                    drv3c.SetBlockingForTest(true);
+                    int cB2 = drv3c.CantDoCount;
+                    drv3c.SimulateCommandFromUi(AttackKind.Melee);
+                    drv3c.SetBlockingForTest(false);
+                    Check(drv3c.CantDoCount == cB2 + 1
+                          && drv3c.LastCantDoTerm == Loc.T(BattleDriver.PleaseWaitTerm),
+                          $"★ **`WaitingForBlockingAction` 挡下时出声**（期望「{Loc.T(BattleDriver.PleaseWaitTerm)}」，"
+                        + $"实测「{drv3c.LastCantDoTerm}」· 计数 {cB2} → {drv3c.CantDoCount}）"
+                        + "｜🧨 改回 `if (fromUi && WaitingForBlockingAction) return;`（静默）⇒ 本行红");
+
+                    // ---------- ②b **覆盖普查（静态）**：本模型可达的拒绝点必须**都**接在这个口上 ----------
+                    //  数 `BattleDriver.cs` 里 `NotifyCantDoAction(` 的**调用行数**（注释行与定义那一行不算）。
+                    //  ⚠️ 这是源码级兜底：上面只跑得到 3 条真局面（UnitNotReady / PleaseWait / 日志），
+                    //    其余几条（DoPlay / DoResolve / 技能面板 / 狂暴）要不同夹具才触发得到；
+                    //    任何一处被改回只 `Debug.Log`，这里立刻掉数。
+                    {
+                        string drvSrc3c = System.IO.Path.Combine(Application.dataPath,
+                                                                 "CardPresentation/Battle/BattleDriver.cs");
+                        int calls3c = 0;
+                        if (!System.IO.File.Exists(drvSrc3c))
+                        {
+                            Check(false, $"（前提）读得到 `BattleDriver.cs`（{drvSrc3c}）—— 读不到时下面那条覆盖普查"
+                                       + "**等于没验**，所以当场红");
+                        }
+                        else
+                        {
+                            foreach (var L0 in System.IO.File.ReadAllLines(drvSrc3c))
+                            {
+                                string L = L0.TrimStart();
+                                if (L.StartsWith("//")) continue;                        // 注释里提到的不算
+                                if (L.StartsWith("void NotifyCantDoAction")) continue;    // 定义那一行不算
+                                if (L.Contains("NotifyCantDoAction(")) calls3c++;
+                            }
+                        }
+                        Check(calls3c >= 10,
+                              $"★ **拒绝反馈覆盖普查（静态）**：`BattleDriver.cs` 里 `NotifyCantDoAction(...)` 的调用有 "
+                            + $"{calls3c} 处（≥10：UnitNotReady×2 · CannotAct×2 · DragToTarget · DoPlay · DoResolve ·"
+                            + " PleaseWait×2 · NoTargetAvailable · PendingBerzerk）"
+                            + "｜🧨 任何一处改回只 `Debug.Log` / 只 `SetHint` ⇒ 这里掉数 ⇒ 红");
+                    }
+
+                    // ---------- ③ **ESC：普通对局 ⇒ 开设置窗** ----------
+                    //  判据 = `BattleHud__Update.c:20-35`（`UIstate == normalBattle` ∧ 没有窗开着 ⇒
+                    //  `WindowsManager.OpenWindow(设置窗)`）。
+                    if (drv3c.BattleLog != null && drv3c.BattleLog.Visible) drv3c.BattleLog.Hide();
+                    if (drv3c.Settings != null && drv3c.Settings.Visible) drv3c.Settings.Hide();
+                    if (drv3c.ChatPopup != null && drv3c.ChatPopup.Visible) drv3c.ChatPopup.Hide();
+                    Check(drv3c.Settings != null && !drv3c.Settings.Visible, "（前提）设置窗关着");
+                    BattleDriver.EscapePressedForTest = false;
+                    Check(!drv3c.TickSettingsEscForTest(),
+                          "★ **灭自证（反向）**：**没按 ESC** ⇒ 设置窗**不会**自己开（否则下一行就是同义反复）");
+                    BattleDriver.EscapePressedForTest = true;
+                    bool escOpened = drv3c.TickSettingsEscForTest();
+                    BattleDriver.EscapePressedForTest = false;
+                    Check(escOpened && drv3c.Settings.Visible,
+                          "★ **ESC ⇒ 打开设置窗**（原版 `BattleHud__Update.c:20-35`）"
+                        + "｜🧨 把 `HandleSettingsEsc` 从 `Update` 里删掉 / 让它恒 false ⇒ 本行红");
+                    drv3c.Settings.Hide();
+
+                    // ---------- ④ **ESC：气泡开着 ⇒ 关气泡** ----------
+                    //  判据 = `BattleManager__Update.c:1303-1340`（`GetKeyDown(0x1b)` ∧
+                    //  `IsPopUpActiveAndEnabled` ⇒ `ClickChat()`）。
+                    var pop3c = drv3c.ChatPopup;
+                    if (pop3c == null)
+                    {
+                        Check(false, "（前提）`ChatPopup` 建起来了 —— 没建时这一条等于没验");
+                    }
+                    else
+                    {
+                        pop3c.Show();
+                        Check(pop3c.Visible, "（前提）聊天气泡开着");
+                        BattleDriver.EscapePressedForTest = true;
+                        bool tookEsc = drv3c.TickChatEscForTest();
+                        BattleDriver.EscapePressedForTest = false;
+                        Check(tookEsc && !pop3c.Visible,
+                              "★ **气泡开着按 ESC ⇒ 关掉气泡**（原版 `BattleManager__Update.c:1303-1340`）"
+                            + "｜🧨 把 `HandleChatPopup` 里那个 `if (EscPressed())` 整块删掉 ⇒ 本行红");
+                        Check(drv3c.TickChatEscForTest() == false,
+                              "★ **灭自证（反向）**：气泡关着时那一支**不再接管**这一帧"
+                            + "（不然它会一直吞输入 —— 原版 `IsPopUpActiveAndEnabled` 为假就不进那一支）");
+                    }
+
+                    // ---------- ⑤ **日志 3 键** ----------
+                    //  🔴 这三条验的是**渲染 + 取词**（原版键 → 官方文案），不是「今天有没有发出点」：
+                    //     `ActionDisplay*` 的发出点今天**没有**（卡池里没有 `Display from hand` 那句正文），
+                    //     如实记在 `RefreshBattleLog` 的 `case EvtKind.Draw` 那一支里。
+                    var log3c = drv3c.BattleLog;
+                    if (log3c == null)
+                    {
+                        Check(false, "（前提）日志面板在 —— 不在时日志 3 键那几条等于没验");
+                    }
+                    else
+                    {
+                        var langWas3c = Loc.Current;
+                        Loc.RestoreForTest(AvailableLanguages.Chinese);
+                        string myCard = drv3c.Ctx.Players[drv3c.MyIndex].Warlord.Card.Name;
+                        string foeCard = drv3c.Ctx.Players[1 - drv3c.MyIndex].Warlord.Card.Name;
+
+                        // ① 你展示了**敌人手中**的牌
+                        drv3c.AppendLogEventForTest(new BattleEvent
+                        {
+                            Kind = EvtKind.Draw, Effect = "display",
+                            Player = drv3c.MyIndex, CardId = foeCard,
+                        });
+                        string r1 = log3c.RowText(0);
+                        Check(!string.IsNullOrEmpty(r1) && r1.Contains("展示了敌人手中的")
+                              && !r1.Contains("Battle/Cemetery/"),
+                              $"★ 日志键 `{BattleDriver.CemeteryDisplayEnemyTerm}` 产出一行、且**印的是词条值**：`{r1}`"
+                            + "｜🧨 把那条分支删掉 / 让它印键名 ⇒ 本行红");
+
+                        // ② 对手展示了**你手中**的牌
+                        drv3c.AppendLogEventForTest(new BattleEvent
+                        {
+                            Kind = EvtKind.Draw, Effect = "display",
+                            Player = 1 - drv3c.MyIndex, CardId = myCard,
+                        });
+                        string r2 = log3c.RowText(0);
+                        Check(!string.IsNullOrEmpty(r2) && r2.Contains("对手展示了你手中的")
+                              && !r2.Contains("Battle/Cemetery/"),
+                              $"★ 日志键 `{BattleDriver.CemeteryDisplayYourTerm}` 产出一行、且**印的是词条值**：`{r2}`"
+                            + "｜🧨 两支接反（`Player == _me` 那一支写反）⇒ 本行红");
+
+                        // ③ 面朝下目标 ⇒ `AmbushedTroop` 定语（`GetActionWithParams.c:117`）
+                        const int fakeInst = 990001;
+                        drv3c.AppendLogEventForTest(new BattleEvent
+                        {
+                            Kind = EvtKind.Attack, Player = drv3c.MyIndex, CardId = myCard,
+                            TargetPlayer = 1 - drv3c.MyIndex, TargetSlot = 0, TargetCardId = foeCard,
+                            TargetInstanceId = fakeInst, Ranged = false,
+                        });
+                        // …这个单位随后才翻开（`AmbushExit` 排在攻击**之后** ⇒ 攻击那一刻它还是面朝下的）
+                        drv3c.AppendLogEventForTest(new BattleEvent
+                        {
+                            Kind = EvtKind.AmbushExit, Player = 1 - drv3c.MyIndex, Slot = 0,
+                            CardId = foeCard, InstanceId = fakeInst, Effect = "damage",
+                        });
+                        string r3 = log3c.RowText(1);      // 行是**新的在前** ⇒ 攻击那行在第 1 格
+                        Check(!string.IsNullOrEmpty(r3) && r3.Contains("具有伏击的军队"),
+                              $"★ 日志键 `{BattleDriver.CemeteryAmbushedTroopTerm}`：**目标面朝下**时"
+                            + $"攻击行印的是那条定语、⛔ 不是卡名：`{r3}`"
+                            + "｜🧨 把 `TargetText(...)` 换回 `Zh(e.TargetCardId)` ⇒ 本行红");
+                        // 反面对照：**翻开之后**再打它 ⇒ 该印真名（否则上面那条就是恒真）
+                        drv3c.AppendLogEventForTest(new BattleEvent
+                        {
+                            Kind = EvtKind.Attack, Player = drv3c.MyIndex, CardId = myCard,
+                            TargetPlayer = 1 - drv3c.MyIndex, TargetSlot = 0, TargetCardId = foeCard,
+                            TargetInstanceId = fakeInst, Ranged = false,
+                        });
+                        string r4 = log3c.RowText(0);
+                        Check(!string.IsNullOrEmpty(r4) && !r4.Contains("具有伏击的军队"),
+                              $"★ **灭自证（反向）**：同一个实例**翻开之后**再挨一刀 ⇒ 攻击行印回真名：`{r4}`"
+                            + "｜🧨 把 `WasFaceDownAt` 写成「只要这个实例有 `AmbushExit` 就恒真」⇒ 本行红");
+
+                        drv3c.RemoveInjectedLogEventsForTest();
+                        Check(log3c.RowText(0) != r4 || string.IsNullOrEmpty(log3c.RowText(0)),
+                              "★ 自检注进去的那几条**摘干净了**（⛔ 别把测试数据留在真日志里）");
+                        Loc.RestoreForTest(langWas3c);
+                    }
+
+                    // ---------- ⑥ 终局出口**仍在**（ESC 那两条不许把它顶掉）----------
+                    //  判据 = `BattleManager__Update.c:116-122`（结算后 ESC ⇒ `LeaveBattle`）。
+                    //  这里只钉**入口还在**：`HandleEndBattleExit` 的第一道闸是 `ExitReady`，
+                    //  本局还没结算 ⇒ 它必须**不接管**（= 没有把 ESC 这一下吞掉）。
+                    BattleDriver.EscapePressedForTest = true;
+                    bool endTook = drv3c.TickEndBattleExitForTest();
+                    BattleDriver.EscapePressedForTest = false;
+                    Check(!endTook,
+                          "★ **终局出口那道闸没被顶掉**：本局还没结算（`ExitReady == false`）⇒ "
+                        + "`HandleEndBattleExit()` **不接管**这一帧｜🧨 把它的 `if (!ExitReady) return false;` "
+                        + "删掉 ⇒ 本行红（真机上会一按 ESC 就回主菜单）");
+                }
+                finally
+                {
+                    BattleDriver.EscapePressedForTest = escWas3c;
+                    drv3c.SetBlockingForTest(false);
+                }
+            }
         }
 
         // ---- 4. 出牌（走引擎直通车，验数值账）----
@@ -11589,9 +11963,34 @@ public static class BattleScene
                         // 🆕 2026-09-29：残骸体那圈光（原版 `FrameHighlightRemnant` = prefab 里的 `RemnantLight`）
                         //   —— 原来这层**永远是黑的**（prefab 的 `m_Sprite` 空着，而且没人驱动它）。
                         //   判据（反编译实读 `CardHighlight__SetRemnantHighlight.c`）：把**主状态环的颜色原样拷过去**。
-                        Check(vA.RemnantLightSpriteName == "Glow UI W40K",
-                              $"★ 残骸体那圈的 sprite 挂上了（实得 '{vA.RemnantLightSpriteName}'；原版 = `Glow UI W40K`"
-                            + " 123×123 @PPU100 —— prefab 里 `m_Sprite` 原本是空的）");
+                        // 🔴 **2026-10-22 订正（铁律 5）**：写这条时（09-29）prefab 的 `m_Sprite` 是空的，
+                        //   只能走运行期兜底 `CardView.RemnantGlowSprite()`，那颗自建 sprite 的名字被
+                        //   **手动设成** `"Glow UI W40K"`（`Core/CardView.cs` 里 `sp.name = …` 那行）
+                        //   ⇒ 当时「名字相等」能当判据。
+                        //   **2026-10-22 重导之后 prefab 里已经是真件了**（实读
+                        //   `WarpforgeVFX/Prefabs/RemnantBody3D Aeldari.prefab` / `…Necrons.prefab`：
+                        //   `RemnantLight → SpriteRenderer.m_Sprite` guid `d1d0e521e3fe489418b015ad0eb65622`
+                        //   = `WarpforgeVFX/Textures/Glow UI W40K_sprite.png`（**实测 123×123** @PPU100），
+                        //   且 `m_WasSpriteAssigned: 1`）⇒ 兜底不再触发，名字变成真件名 `Glow UI W40K_sprite`。
+                        //   🔴 **这是变好了，不是坏了**（prefab 现在和原版一样「资产里就挂着那颗 sprite」）。
+                        //   ⇒ 判据从「名字相等」升级成 **存在性 + 尺寸**，名字只用来分档：
+                        //      **真件优先**（`Glow UI W40K_sprite`）；`Glow UI W40K` = 「prefab 里没有时
+                        //      运行期自建」那一档。两档都是**同一颗原版图**（123×123）。
+                        //   🧨 两档都去掉（名字不认识 / sprite 为空 / 尺寸不是 123×123）⇒ 红。
+                        {
+                            string rlSName = vA.RemnantLightSpriteName;
+                            Rect rlSRect = vA.RemnantLightSpriteRect;
+                            bool rlSNamed = rlSName == "Glow UI W40K_sprite"   // 真件（重导后常态，优先）
+                                         || rlSName == "Glow UI W40K";        // 运行期自建（prefab 里没有时）
+                            Check(rlSNamed
+                                  && Mathf.Abs(rlSRect.width - 123f) < 0.01f
+                                  && Mathf.Abs(rlSRect.height - 123f) < 0.01f,
+                                  $"★ 残骸体那圈的 sprite 挂上了、而且**是原版那颗 123×123**"
+                                + $"（实得 '{rlSName}' {rlSRect.width:F0}×{rlSRect.height:F0}；"
+                                + "原版 = `Glow UI W40K` 123×123 @PPU100 —— 真件 `Glow UI W40K_sprite` 优先，"
+                                + "`Glow UI W40K` 是「prefab 里没有时运行期自建」那一档）"
+                                + "｜🧨 两档都去掉 ⇒ 红");
+                        }
                         vA.SetHighlight(CardHighlightState.ValidTarget);
                         Check(vA.RemnantLightColor.r < 0.01f && Mathf.Abs(vA.RemnantLightColor.g - 1f) < 0.01f
                               && vA.RemnantLightColor.a > 0.9f,
@@ -11835,6 +12234,22 @@ public static class BattleScene
                         Check(RemnantSfx.Played == 1 && RemnantSfx.LastMoment == RemnantSfx.Moment.Collect,
                               "★ `CollectWaystone` 事件 ⇒ 播**收集**");
 
+                        // 🆕 2026-10-22（P6 · M1/M2）：**收集带出来的那条 `Death` 不播「被打掉」cue** ——
+                        //   原版 `RemnantAeldari__DoDestroy.c` 在 `deathType == 50(collectWaystone)` 走收集链、
+                        //   **不**进 `DoDestroyByAttack`（那里开头才是 `deathSound`）。判据 → `IsCollectDeathAt`。
+                        //   🧨 灭自证：把 `PlayRemnantSfx` 里 `if (collectDeath) return;` 删掉 ⇒ 这条红
+                        //      （这一格此刻立着残骸 ⇒ 会走「出现」那一支、`Played` 变 1）。
+                        RemnantSfx.ResetCounters();
+                        RemnantSfx.ResetThrottle();     // ⚠️ 不清节流的话「0 次」可能是被节流挡出来的假绿
+                        driver.PlayRemnantSfx(new RuleEngine.BattleEvent
+                        {
+                            Kind = RuleEngine.EvtKind.Death, Player = 0, Slot = free0,
+                            CardId = "Probe_Waystone"
+                        }, collectDeath: true);
+                        Check(RemnantSfx.Played == 0,
+                              $"★ 收集带出的那条 `Death` **不播**「被打掉/出现」cue（实得 Played={RemnantSfx.Played}）"
+                            + "｜🧨 删掉 `PlayRemnantSfx` 里的 `if (collectDeath) return;` ⇒ 红");
+
                         //   ③·b 🆕 2026-09-29 **原版 `AudioCue` 的随机区间**（音高 / 音量 / 重播间隔）
                         //        数据 = `Resources/Art/audio/sfx/remnant_cue_props.json`
                         //        （`工具/import_remnant_sfx.py` 从 `soundcollection` 包抽的）。
@@ -11897,6 +12312,69 @@ public static class BattleScene
                                   $"★ 死灵残骸体的材质也**全绑上了**（{nb} 层；没绑 {nbad} 层{nwhy}）");
                         }
 
+                        // 🔴🆕 2026-10-22（P6 · M2/M3）：**残骸阵亡那一拍播什么** —— 原版**不播**普通阵亡件。
+                        //   判据（第一权威，逐行读的）：
+                        //    · `CardScript._UnitDeath_d__446__MoveNext.c:196` 按 `isRemnant(+0x65)` 分支，
+                        //      **只有非残骸那一支**才 `Instantiate(cardDestroyFX)`；
+                        //    · `RemnantBody__DoDestroyByAttack.c`：`Instantiate(particleDeath = +0x9, …)` ——
+                        //      件是**残骸 prefab 自己序列化的** `particleDeath`
+                        //      （逐件真值 → `CardFeel.RemnantDestroyByBody`；P5 实读 Aeldari/Necrons 各一件）。
+                        //   🧨 灭自证：把 `PickDeathFx` 的残骸那一支删掉 / 让它复用普通阵亡链 ⇒ 下面会退回
+                        //      `Card 3D Death Explosion`（`CardFeel.DeathBodyFx`）⇒ 红。
+                        var defA = c2.Players[0].Board[free0] != null ? c2.Players[0].Board[free0].Card : null;
+                        var defN = c2.Players[0].Board[free1] != null ? c2.Players[0].Board[free1].Card : null;
+                        {
+                            var pickA = CardFeel.PickDeathFx(vA, defA);
+                            var pickN = CardFeel.PickDeathFx(vN, defN);
+                            Check(pickA.Remnant && pickA.Fx == "Remnant Aeldari Destroy particles",
+                                  $"★ 灵族残骸阵亡 ⇒ **`Remnant Aeldari Destroy particles`**"
+                                + $"（实得 `{pickA.Fx ?? "null"}`）—— 件来自 `RemnantBody3D Aeldari.particleDeath`");
+                            Check(pickA.Fx != CardFeel.DeathBodyFx,
+                                  $"★ ……而且**不是**普通阵亡件 `{CardFeel.DeathBodyFx}`"
+                                + "（原版 `_UnitDeath…:196` 对残骸根本不进 `cardDestroyFX` 那一支）"
+                                + "｜🧨 把残骸那一支删掉、复用普通阵亡链 ⇒ 红");
+                            Check(pickN.Remnant && pickN.Fx == "Remnant Necrons Destroy particles",
+                                  $"★ 死灵残骸阵亡 ⇒ **`Remnant Necrons Destroy particles`**"
+                                + $"（实得 `{pickN.Fx ?? "null"}`）—— 件来自 `RemnantBody3D Necrons.particleDeath`");
+                            // 反例：判据看的是**卡的关键词**（`CardFeel.IsRemnantFamily`，与 `PlayRemnantSfx` 共用），
+                            //       不是「这具视图上有没有残骸体」⇒ 不带那两个关键词的卡照旧走普通阵亡链。
+                            var plain = new CardDef("Probe_Plain", "Probe Plain", "unit", "", null, "Test",
+                                                    1, 0, 1, 0, new string[0]);
+                            var pickP = CardFeel.PickDeathFx(vA, plain);
+                            Check(!pickP.Remnant && pickP.Fx == CardFeel.DeathBodyFx,
+                                  $"★ 反例：**不带 `Waystone` / `Remnant` 关键词**的卡 ⇒ 照旧走普通阵亡链"
+                                + $"（实得 `{pickP.Fx ?? "null"}`）"
+                                + "｜🧨 把「是不是残骸」判成「残骸体在不在」/ 恒真 ⇒ 红（判据只此一处 = "
+                                + "`CardFeel.IsRemnantFamily`）");
+                        }
+
+                        // 🔴🆕 2026-10-22（P6 · M1）：**收集粒子的落点** = 残骸体上的 `Idle/Spirit Stone Idle`
+                        //   （原版 `RemnantAeldari.GetDeathParticlePosition` 取 `wayStoneIdle` ——
+                        //   判据 → `BattleDriver.TryRemnantIdleWorld` / `CardView.RemnantIdleNodePath`）。
+                        //   🧨 灭自证：把落点改回格心（= 卡根）⇒ 「离卡心 > 0.05」那条红。
+                        {
+                            Transform idleNode = vA != null && vA.RemnantBodyRoot != null
+                                ? vA.RemnantBodyRoot.transform.Find(CardView.RemnantIdleNodePath) : null;
+                            Check(idleNode != null,
+                                  $"★ 灵族残骸体里**真有** `{CardView.RemnantIdleNodePath}` 那颗节点"
+                                + "（原版 `wayStoneIdle`）—— 没有它，收集粒子就落不回原版那个点");
+                            Vector3 helperPos;
+                            bool helperOk = BattleDriver.TryRemnantIdleWorld(vA, out helperPos);
+                            Check(idleNode != null && helperOk
+                                  && Vector3.Distance(helperPos, idleNode.position) < 1e-4f,
+                                  "★ `TryRemnantIdleWorld` 给的 = **那颗节点的世界坐标**"
+                                + "（原版 `GetDeathParticlePosition` 就是取这个 position）");
+                            Check(idleNode != null
+                                  && Vector3.Distance(idleNode.position, vA.transform.position) > 0.05f,
+                                  "★ ……而且它**不在卡心 / 格心**"
+                                + $"（离卡根 {Vector3.Distance(idleNode.position, vA.transform.position):F3} > 0.05）"
+                                + "｜🧨 把落点改回格心（`DropTargetWorld` / 卡根）⇒ 红");
+                            Vector3 unused;
+                            Check(vN != null && !BattleDriver.TryRemnantIdleWorld(vN, out unused),
+                                  "★ 死灵那具**没有**这颗节点 ⇒ 它的落点只能取残骸体根"
+                                + "（原版 `RemnantNecrons__GetDeathParticlePosition` 取自身 `transform.position`）");
+                        }
+
                         // 📸 **两具并排留一张图** —— 断言管「在不在」，这张管「像不像」
                         //    （`CLAUDE.md` 铁律：改完表现层至少抽一张真值图看一眼）。
                         // ⚠️ **先 `Step` 再拍**：残骸体那一大坨几乎全是**粒子**（`Spirit Stone Idle`
@@ -11906,14 +12384,22 @@ public static class BattleScene
                         Step(0.35f);
                         Shot(cam, "29_残骸体_灵族与死灵");
 
-                        // 📸 再留一张**收集那一下**的实拍 —— 🔴 **2026-10-22（`W64` §B8）就地改**：
-                        //    原来的写法是 `FireEvent(CollectWaystone)` 播那件**同名不同物**的
-                        //    `WaystoneCollect`（它是 `cardanimsgeneral` 里一条没有卡引用的 CardAnim，
-                        //    不是残骸 prefab 的 `collectParticles`）。真件 `Remnant Aeldari Collect particles`
-                        //    **还没导进效果库** ⇒ 这一拍今天**没有件可播**，先留一张「留白」的实拍当现状记录
-                        //    （真件导进来之后这张图要重拍）。
-                        Step(0.30f);
-                        Shot(cam, "30_收集灵魂石_特效（真件未导入·留白）");
+                        // 📸 再留一张**收集那一下**的实拍 —— 🔴 **2026-10-22（P6 · `W64` §B8 收口）就地改**：
+                        //    真件 `Remnant Aeldari Collect particles` **已导进效果库** ⇒ 这里**真播一次**、
+                        //    落点照原版（`Idle/Spirit Stone Idle`，判据 → `BattleDriver.TryRemnantIdleWorld`）。
+                        //    ⚠️ 这张图只是出图用：产品路径 = `VfxMap.ByEvent[CollectWaystone]` +
+                        //    `PlaySignal` 的 `RemnantCollectWorld`（不经过这里）。
+                        {
+                            Vector3 collectAt;
+                            if (vA != null && BattleDriver.TryRemnantIdleWorld(vA, out collectAt))
+                                WarpforgeVFX.WarpforgeEffectPlayer.Play(
+                                    "Remnant Aeldari Collect particles", null, collectAt, 1f);
+                            else
+                                Debug.LogWarning(P + "   （出图用：取不到灵族残骸的 `Spirit Stone Idle` "
+                                                 + "⇒ 这一张收集特效没法按原版落点播）");
+                        }
+                        Step(0.25f);
+                        Shot(cam, "30_收集灵魂石_特效");
 
                         // 🔴 **「引擎说它死了、可那一格还站着人」的接缝**（守卫在 `PlayDeathFeel` 开头）——
                         //    引擎在「变成残骸」那条路上**也会发 `EvtKind.Death`**（`CleanupDeaths` 两个分支都发）；
@@ -12006,6 +12492,129 @@ public static class BattleScene
                                 + "（症状：撤掉残骸之后那一格**空着**，而「残骸体撤了没有」照样绿）");
                         }
 
+                        // ============================================================
+                        //  🔴🆕 2026-10-22（P5 §⑦ 缺口 1/2）：**残骸体的动画 / 闲置粒子 / 卡面材质**
+                        //  判据（反编译逐行读的，全部可复查；P5 报告 §⑦ 已把字段→资产解全）：
+                        //   · 出生播「转成残骸」：`RemnantNecrons__Toggle.c` 末尾 `Animation.Play(toRemnantAnimationName)`；
+                        //     灵族同一条在**它的 override**（`RemnantAeldari$$Toggle` @ RVA `0x640200`，
+                        //     `withAnimation && option` 那一支）。⚠️ 两份重载同名，`decomp_full/RemnantAeldari__Toggle.c`
+                        //     那个文件是**私有重载**（产物互相覆盖）—— 别拿它当「灵族不播」的证据。
+                        //   · 撤场（死灵）：`SetActive(go,1)` **保持可见** + `ParticleSystem.Stop(+0x70)` +
+                        //     `Animation.Play(reanimateAnimationName)`；演完由片段里的动画事件
+                        //     `AnimationResurrectionEnd`（**1.8 s**）收尾 → 藏掉 + 恢复卡身。
+                        //   · 撤场（灵族）：没有 `From Remnant` 片段 ⇒ `SetActive(go,0)` **立即**撤、不播。
+                        //   · 材质：`RemnantBody.Initialize` / `RemnantNecrons.Initialize` 对 `remnant`（+0x40）
+                        //     与 `card3D`（+0x68）各调一次 `CardMaterialHelper.ConfigureMaterial`
+                        //     —— 它全部内容 = 写 `_CardImage` / `_MatCap` 两个槽。
+                        // ⚠️ edit mode 下 `Animation.isPlaying` 不可靠（批处理没有帧循环）⇒ 观测点 = **调用计数**
+                        //   + 最近一次的片段名（与 `ParticleEmitOnEnable.PlayCalls` 同一条先例）。
+                        // ⚠️ 夹具：上面那一格 `free1` 已经被腾给 `v2D`（`vN` 那个视图已随 `RefreshAll` 销毁）
+                        //   ⇒ 这里**另摆一具死灵**（`FreeSlot` 取下一个合法格），灵族那一半借现成的 `v2D`；
+                        //   死灵这具**用完把这格清掉**（后面的用例还要 `FreeSlot`）。
+                        {
+                            int slotN = FreeSlot(c2, 0);
+                            var vN2 = slotN >= 0
+                                    ? ProbeRemnantView(driver, c2, slotN, KeywordTable.Remnant,
+                                                       "RemnantBody3D Necrons", idSuffix: "Anim")
+                                    : null;
+                            Check(vN2 != null && v2D != null,
+                                  $"（前提）第三具残骸体（死灵）摆得下、`v2D` 也在（`FreeSlot` 实得 {slotN}）"
+                                + " —— 下面是这一组的全部动画/材质断言");
+                            if (vN2 != null && v2D != null)
+                            {
+                                // ---- ① 撤场（死灵）：保持可见 + 停闲置粒子 + 播 `From Remnant Necrons` ----
+                                int playsN0 = vN2.RemnantAnimationPlayCalls;
+                                int stopsN0 = vN2.RemnantIdleStopCalls;
+                                vN2.SetRemnantBody(false, null);
+                                Check(vN2.RemnantHiding && vN2.RemnantBodyVisible,
+                                      "★ 死灵撤场**先演 `From Remnant`、残骸体此刻仍可见**"
+                                    + "（原版 `RemnantNecrons__Toggle.c` 那一支先 `SetActive(go,1)`；藏掉是动画事件那一步）"
+                                    + "｜🧨 改回「立即 SetActive(false)」⇒ 红");
+                                Check(vN2.RemnantAnimationPlayCalls == playsN0 + 1
+                                      && vN2.RemnantLastAnimation == CardView.RemnantFromNecronsClip,
+                                      $"★ ……播的是 `{CardView.RemnantFromNecronsClip}`"
+                                    + $"（`reanimateAnimationName` 的实读值；实得 `{vN2.RemnantLastAnimation ?? "null"}`）");
+                                Check(vN2.RemnantIdleStopCalls == stopsN0 + 1,
+                                      "★ ……并且 `ParticleSystem.Stop()` 被调了一次"
+                                    + "（原版那句 `ParticleSystem.Stop(this+0x70)` = `remnantIdleParticleSystem`）"
+                                    + "｜🧨 删掉 `StopRemnantIdleParticles()` ⇒ 红");
+                                vN2.SetRemnantBody(false, null);      // `BattleDriver.SyncBoard` 每次刷新都会调 ⇒ 必须幂等
+                                Check(vN2.RemnantAnimationPlayCalls == playsN0 + 1,
+                                      "★ 重复撤场**幂等**（不重播）"
+                                    + "｜🧨 去掉 `if (_remnantHideAt >= 0f) return;` ⇒ 每次 `RefreshAll` 都把 `From Remnant` 从头演一遍");
+                                vN2.TickRemnantHide(0.5f);
+                                Check(vN2.RemnantBodyVisible && vN2.RemnantHiding,
+                                      "★ 1.8 s 之前**不藏**（原版等那条动画事件，不是立刻藏）");
+                                vN2.TickRemnantHide(2f);
+                                Check(!vN2.RemnantBodyVisible && !vN2.RemnantHiding && vN2.Body3DVisible,
+                                      "★ 到点之后：残骸体藏掉、**原卡卡身回来**（原版 `AnimationResurrectionEnd` 那三句）");
+
+                                // ---- ② 出生（死灵）＋「已经盖着时不重播」（`SyncBoard` 每次刷新都会调）----
+                                int playsN1 = vN2.RemnantAnimationPlayCalls;
+                                vN2.SetRemnantBody(true, "RemnantBody3D Necrons");
+                                Check(vN2.RemnantAnimationPlayCalls == playsN1 + 1
+                                      && vN2.RemnantLastAnimation == CardView.RemnantToNecronsClip,
+                                      $"★ 死灵残骸**出生** ⇒ 播 `{CardView.RemnantToNecronsClip}`"
+                                    + $"（实得 `{vN2.RemnantLastAnimation ?? "null"}`）"
+                                    + "｜🧨 删掉 `SetRemnantBody(true,…)` 里那句 `PlayRemnantClip(...)` ⇒ 红"
+                                    + "（`m_PlayAutomatically: 0` ⇒ 片段不会自己播）");
+                                int playsN2 = vN2.RemnantAnimationPlayCalls;
+                                vN2.SetRemnantBody(true, "RemnantBody3D Necrons");   // 已经可见 ⇒ 不是「出生」
+                                Check(vN2.RemnantAnimationPlayCalls == playsN2,
+                                      "★ 已经盖着的时候再调一次**不重播**"
+                                    + "｜🧨 把「出生」判据改成「调了就算」⇒ 红（`To Remnant` 会每次刷新从头演）");
+
+                                // ---- ③ 灵族：出生播 `To Remnant Aeldari`；撤场**一次都不播** ----
+                                v2D.SetRemnantBody(false, null);           // 灵族撤场 = 立即（无 From 片段）
+                                Check(!v2D.RemnantBodyVisible && !v2D.RemnantHiding,
+                                      "★ 灵族撤场 = **立即**（`RemnantAeldari$$Toggle` 的 `withAnimation && !option` 那一支"
+                                    + "就是 `SetActive(go,0)` + `BodyVisibilityToggle(true)`）");
+                                int playsA0 = v2D.RemnantAnimationPlayCalls;
+                                v2D.SetRemnantBody(true, "RemnantBody3D Aeldari");
+                                Check(v2D.RemnantAnimationPlayCalls == playsA0 + 1
+                                      && v2D.RemnantLastAnimation == CardView.RemnantToAeldariClip,
+                                      $"★ 灵族残骸**出生** ⇒ 播 `{CardView.RemnantToAeldariClip}`"
+                                    + $"（实得 `{v2D.RemnantLastAnimation ?? "null"}`）");
+                                int playsA1 = v2D.RemnantAnimationPlayCalls;
+                                v2D.SetRemnantBody(false, null);
+                                Check(v2D.RemnantAnimationPlayCalls == playsA1,
+                                      "★ 灵族撤场**一次都没播**"
+                                    + "｜🧨 把 `RemnantFromClipOf` 改成「什么 prefab 都返回 From Remnant Necrons」⇒ 红"
+                                    + "（灭自证：两档对照 —— 死灵那条必须播、灵族这条必须不播）");
+
+                                // ---- ④ `card3D` / `remnant` 的 `ConfigureMaterial` 等价物（真值回读）----
+                                var artN = vN2.BodyArtTexture;
+                                Check(artN != null, "（前提）死灵那张卡的立绘贴图取得到（`BodyArtTexture`）");
+                                Check(vN2.RemnantMaterialTexture(CardView.RemnantNecronsRemnantNode,
+                                                                 CardView.RemnantCardImageProp) == artN,
+                                      $"★ 死灵 `{CardView.RemnantNecronsRemnantNode}`（原版 `remnant`）的 "
+                                    + $"`{CardView.RemnantCardImageProp}` = 这张卡的立绘（`ConfigureMaterial` 第一句）"
+                                    + "｜🧨 删掉 `ConfigureRemnantMaterials()` 里那颗 ⇒ 红");
+                                Check(vN2.RemnantMaterialTexture(CardView.RemnantNecronsCard3DNode,
+                                                                 CardView.RemnantCardImageProp) == artN,
+                                      $"★ `{CardView.RemnantNecronsCard3DNode}`（原版 `card3D`）**也**配了一次"
+                                    + "（`RemnantNecrons.Initialize` 比基类多调的那一次 `+0x68`）"
+                                    + "｜🧨 只配 `remnant`、漏掉 `card3D` ⇒ 红");
+                                Check(vN2.RemnantMaterialTexture(CardView.RemnantNecronsRemnantNode,
+                                                                 CardView.RemnantMatCapProp) != null,
+                                      $"★ `{CardView.RemnantMatCapProp}` 也写进去了"
+                                    + "（`ConfigureMaterial` 第二句：按卡等级取 matcap）");
+                                var artA = v2D.BodyArtTexture;
+                                Check(artA != null, "（前提）灵族那张卡的立绘贴图取得到（`BodyArtTexture`）");
+                                Check(v2D.RemnantMaterialTexture(CardView.RemnantAeldariRemnantNode,
+                                                                 CardView.RemnantCardImageProp) == artA,
+                                      $"★ 灵族 `{CardView.RemnantAeldariRemnantNode}`（基类 `remnant`）也配了卡面"
+                                    + "（原版 `RemnantBody.Initialize` 那一句，两阵营都有）"
+                                    + "｜🧨 只给死灵那两个节点配、漏掉灵族 ⇒ 红");
+                            }
+                            // 把这格腾出来（后面的用例还要 `FreeSlot`；`vN2` 之后不能再碰）
+                            if (slotN >= 0 && c2.Players[0].Board[slotN] != null)
+                            {
+                                c2.Players[0].Board[slotN] = null;
+                                driver.RefreshAll();
+                            }
+                        }
+
                         // 🔴 反例：**那一格真空了**时，同一条 Death 事件必须照常消散
                         //    （守卫「用格子上还有没有东西」当判据，而不是 `IsRemnant` —— 反过来会把正常阵亡也吃掉）
                         //    ⚠️ **顺序要紧**：**先把 Death 塞进队列、再清空格子**。
@@ -12027,24 +12636,116 @@ public static class BattleScene
 
                         // 🆕 2026-09-25 **收集那一下的接线**（`EvtKind.CollectWaystone` → 特效名 → 库里真有）：
                         //    原版收走一颗石头是**独立的一条链**（`RemnantAeldari.CollectWaystoneEffect`：
-                        //    播收集音 + 在残骸原位 `Instantiate(collectParticles)` + 销毁残骸体），**不是**阵亡消散。
-                        //    🔴🔴 **2026-10-22（`W64` §B8）就地改判（铁律 5）**：本条原来断「接的是同名那件
-                        //    `WaystoneCollect`、库里真有」—— 那件**不是** `collectParticles`（见 `VfxMap` 那段注释）。
-                        //    真件 = `Remnant Aeldari Collect particles`（`assets_full` 有、**我们库里没有**）。
-                        //    ⇒ 改成断「**今天必须留白 + 真件名字记在案**」，并且**顺带验它确实没导入**
-                        //      （导进来之后这条会红 —— 那是提醒「该把映射接回去了」，不是坏消息）。
-                        string cx = VfxMap.Resolve(VfxMap.CollectWaystone);
-                        Check(cx == null,
-                              $"★ 收集灵魂石**今天留白**（`W64` B8：真件没导入、⛔ 不拿 `WaystoneCollect` 顶）—— "
-                            + $"实得「{cx ?? "null"}」｜🧨 把 `WaystoneCollect` 挂回去 ⇒ 红");
+                        //    播收集音 + `Instantiate(collectParticles = +0xf, GetDeathParticlePosition(), prefab.rotation)`
+                        //    + 销毁残骸体），**不是**阵亡消散。
+                        //    🔴🔴 **2026-10-22（P6 · `W64` §B8 收口）就地改判（铁律 5）**：
+                        //    真件 `Remnant Aeldari Collect particles` **已导进效果库** ⇒ 这条从「必须留白」
+                        //    改成「**必须解析出真件、且库里真有它**」。
+                        //    🧨 灭自证：把 `ByEvent[CollectWaystone]` 删空 / 挪回 `IsKnownGapEvent` ⇒ 第一条红；
+                        //      把老的 `WaystoneCollect` 挂回去 ⇒ 第二条红（那是同名不同物，⛔ 不是 `collectParticles`）。
                         const string CollectTruePiece = "Remnant Aeldari Collect particles";
+                        string cx = VfxMap.Resolve(VfxMap.CollectWaystone);
+                        Check(cx == CollectTruePiece,
+                              $"★ 收集灵魂石 ⇒ **`{CollectTruePiece}`**（原版 `collectParticles`，判据 = "
+                            + "`RemnantAeldari__CollectWaystoneEffect.c` 的 `+0xf`）"
+                            + $"—— 实得「{cx ?? "null"}」｜🧨 把 `ByEvent[CollectWaystone]` 删掉 ⇒ 红");
+                        Check(cx != "WaystoneCollect",
+                              "★ ……而且**不是**老的同名那件 `WaystoneCollect`（它是 `cardanimsgeneral` 里一条"
+                            + "没有卡引用的 CardAnim，⛔ 不是残骸 prefab 的 `collectParticles`）"
+                            + "｜🧨 把 `WaystoneCollect` 挂回去 ⇒ 红");
                         var lib2 = WarpforgeVFX.WarpforgeEffectLibrary.Instance;
                         WarpforgeVFX.WFEffectEntry ce;
                         bool inLib = lib2 != null && lib2.TryGet(CollectTruePiece, out ce) && ce.prefab != null;
-                        Check(lib2 != null && !inLib,
-                              $"（现状记录）真件 `{CollectTruePiece}` **还没进效果库**（实得 inLib={inLib}）—— "
-                            + "它一进来本条就红 ⇒ 那时把 `VfxMap.ByEvent[CollectWaystone]` 接上、"
-                            + "并把上一条改成断那件名字（判据 = `RemnantAeldari__CollectWaystoneEffect.c` 的 `+0xf`）");
+                        Check(inLib,
+                              $"★ 真件 `{CollectTruePiece}` **在效果库里**（实得 inLib={inLib}）"
+                            + "—— 取不到就跑 `python 工具/extract_missing_shaders.py --prefabs` → "
+                            + "`EffectExporter.RunListed` → `EffectLibraryBuilder.Run`");
+
+                        // 🔴🆕 2026-10-22（P6 · M1/M2）：**收集那一下带出来的 `Death` 不算「被打掉」**。
+                        //   原版 `RemnantAeldari__DoDestroy.c`：`deathType == 50(collectWaystone)`
+                        //   ⇒ 走收集链、**不**走 `DoDestroyByAttack`（判据 → `BattleDriver.IsCollectDeathAt`）。
+                        //   🧨 灭自证：把「同一批里有同格收集事件」这条判据去掉 ⇒ 第一条红；
+                        //      把 `PickDeathFx` 的 `Suppressed` 分支去掉 ⇒ 第二条红（那会多播一件 Destroy）。
+                        var collectBatch = new System.Collections.Generic.List<BattleEvent>
+                        {
+                            new BattleEvent { Kind = EvtKind.CollectWaystone, Player = 0, Slot = free0 },
+                            new BattleEvent { Kind = EvtKind.Death, Player = 0, Slot = free0, CardId = "Probe_Waystone" },
+                            new BattleEvent { Kind = EvtKind.Death, Player = 0, Slot = free1, CardId = "Probe_Remnant" },
+                        };
+                        Check(BattleDriver.IsCollectDeathAt(collectBatch, 1)
+                              && !BattleDriver.IsCollectDeathAt(collectBatch, 2)
+                              && !BattleDriver.IsCollectDeathAt(collectBatch, 0)
+                              && !BattleDriver.IsCollectDeathAt(null, 0),
+                              "★ **收集带出来的那条 `Death` 认得出来**（同格 `CollectWaystone`）："
+                            + "第 1 条 true、别的格 false（`BattleDriver.IsCollectDeathAt`）"
+                            + "｜🧨 判据改成「同批任意收集事件」/「按时间窗猜」⇒ 红");
+                        {
+                            // 这一条只看 `Suppressed`（不依赖 vA 还在不在）：`null` 卡 + `null` def 也走这一支。
+                            var pickCollect = CardFeel.PickDeathFx(null, null, collectedWaystone: true);
+                            Check(pickCollect.Suppressed && pickCollect.Fx == null && !pickCollect.Remnant,
+                                  "★ 收集那一拍 `PickDeathFx` 判成 **Suppressed**（一件都不播）"
+                                + "—— 原版 `DoDestroy` 的 `deathType == 50` 只走收集链"
+                                + "｜🧨 把 `collectedWaystone` 那一支删掉 ⇒ 这里会退回普通阵亡链（`Fx` 变成 "
+                                + $"`{CardFeel.DeathBodyFx}`）⇒ 红");
+                        }
+
+                        // 🔴🆕 2026-10-22（P6 · M2）：**位姿照原版那三句**（行为断言 —— 只比纯函数挡不住
+                        //   「`SpawnRemnantDestroy` 里把落点/尺度写错」）。判据 = `RemnantBody__DoDestroyByAttack.c`：
+                        //   位置 = `GetDeathParticlePosition()`（灵族 = `wayStoneIdle` 的 position）、
+                        //   旋转 = prefab 自身（不动）、**尺度 = 赋值成残骸体的 lossyScale**。
+                        //   🧨 灭自证：`SpawnRemnantDestroy` 落点改回 `card.transform.position` ⇒ 「不是卡心」红；
+                        //      尺度写成 `scale = 1`（不做赋值）⇒ 尺度那条红。
+                        {
+                            int free2 = FreeSlot(c2, 0);
+                            var vR = free2 >= 0
+                                   ? ProbeRemnantView(driver, c2, free2, KeywordTable.Waystone, "RemnantBody3D Aeldari")
+                                   : null;
+                            var defR = (vR != null && c2.Players[0].Board[free2] != null)
+                                     ? c2.Players[0].Board[free2].Card : null;
+                            Transform idle = (vR != null && vR.RemnantBodyRoot != null)
+                                           ? vR.RemnantBodyRoot.transform.Find(CardView.RemnantIdleNodePath) : null;
+                            Vector3 cardPos = vR != null ? vR.transform.position : Vector3.zero;
+                            Vector3 remScale = (vR != null && vR.RemnantBodyRoot != null)
+                                             ? vR.RemnantBodyRoot.transform.lossyScale : Vector3.zero;
+                            bool remLib = WarpforgeVFX.WarpforgeEffectLibrary.Available
+                                       && WarpforgeVFX.WarpforgeEffectLibrary.Instance.TryGet(
+                                              "Remnant Aeldari Destroy particles", out _);
+                            Check(vR != null && idle != null && remLib,
+                                  "（前提）灵族残骸体 + `Idle/Spirit Stone Idle` + Destroy 件**都在**（下面要真跑一次）");
+                            if (vR != null && idle != null && remLib)
+                            {
+                                CardFeel.DeathExplosion(vR, 0f, null, false, defR);
+                                CardTween.Advance(CardFeel.DeathBeatsOf(false).BodyAt + 0.01f);
+                                var spawned = LastSpawnedEffect("Remnant Aeldari Destroy particles");
+                                Check(spawned != null,
+                                      "★ 残骸阵亡**真的生成了** `Remnant Aeldari Destroy particles`"
+                                    + "（走的是 `SpawnRemnantDestroy`，不是普通爆散体那条路）");
+                                if (spawned != null)
+                                {
+                                    Check(Vector3.Distance(spawned.transform.position, idle.position) < 1e-3f,
+                                          "★ 落点 = **`Idle/Spirit Stone Idle` 的世界坐标**"
+                                        + $"（差 {Vector3.Distance(spawned.transform.position, idle.position):F4}）"
+                                        + "—— 原版 `GetDeathParticlePosition()` 取的就是它");
+                                    Check(Vector3.Distance(spawned.transform.position, cardPos) > 0.05f,
+                                          "★ ……**不是卡心 / 格心**"
+                                        + "｜🧨 `SpawnRemnantDestroy` 里落点改回 `card.transform.position` ⇒ 红");
+                                    Check((spawned.transform.localScale - remScale).magnitude < 1e-3f,
+                                          "★ 尺度 = **残骸体的 `lossyScale`**（原版 `set_localScale(lossyScale)` 那句）"
+                                        + $"（{spawned.transform.localScale.y:F4} vs {remScale.y:F4}）"
+                                        + "｜🧨 写成 `scale = 1`（不做赋值）⇒ 红");
+                                    if (Application.isPlaying) Object.Destroy(spawned.gameObject);
+                                    else Object.DestroyImmediate(spawned.gameObject);
+                                }
+                                DG.Tweening.DOTween.Kill(vR);       // 别让那条阵亡序列继续跑（会把它挪进墓地）
+                            }
+                            // 清场：**先清棋盘再 `RefreshAll`**（与上面 v2D 那一处同一手法 ——
+                            // 直接覆盖会让 `SyncBoard` 把旧视图认领走）
+                            if (free2 >= 0)
+                            {
+                                c2.Players[0].Board[free2] = null;
+                                driver.RefreshAll();
+                            }
+                        }
                     }
                     else Debug.Log(P + "   （场上空位不足 2 个，跳过残骸体检查）");
                 }
@@ -21075,7 +21776,7 @@ public static class BattleScene
                 string IsDrawn(string nm)
                 {
                     var rt = Rt(nm);
-                    if (rt == null) return "节点不在（`FindHudNode` 在 `HudCanvas.RootRect` 与 `BattleHudLayer/` 下都找不到）";
+                    if (rt == null) return "节点不在（`FindHudNode` 在根画布直子 / `BattleHudLayer` 直子 / rig 子树三档里都找不到）";
                     if (!rt.gameObject.activeSelf || !rt.gameObject.activeInHierarchy) return "`active` 是关的";
                     var iv = rt.GetComponent<Image>();
                     if (iv == null || iv.sprite == null || iv.sprite.texture == null)
@@ -21348,6 +22049,182 @@ public static class BattleScene
                 drv.offensivePhaseEnabled = savedOffAv;
                 drv.Begin("Ultramarines", "Goff", 20260916);
                 Step(0.3f);
+            }
+        }
+
+        // ---- 16·c 🔴 2026-10-22（E-C）：换牌期那 8 条原版 `BattleHud*` legacy clip 的接线 ----
+        //  判据 → `资料/普查产出_1022/E-C_BattleHud8条.md` §三；实现/坑 → `Battle/BattleHudAnim.cs` 文件头。
+        //  本节验四件事：① 表 + 时长（读**重建出来的 `clip.length`**）② rig 搬家零位移
+        //  ③ 两个端点（Hidden 的 9 个 delta / Show 末帧全 0）④ 触发链（换牌进/出各播哪条）。
+        //  🧨 各条都写清「改回 `alpha = 0` 硬切 / 把 delta 写成绝对值 ⇒ 红」。
+        Debug.Log(P + "--- 换牌期 HUD 动画（8 条 BattleHud* legacy clip）---");
+        {
+            var drv = Object.FindObjectOfType<BattleDriver>();
+            if (drv == null) Check(false, "★ E-C（前提）找不到 BattleDriver");
+            else
+            {
+                Check(drv.HudAnimBuiltForTest,
+                      "★ E-C（前提）换牌期 HUD 动画播放器 + 9 颗 rig 都建出来了"
+                    + $"（实得 {(drv.HudAnimForTest != null ? drv.HudAnimForTest.RigCount.ToString() : "<无播放器>")} 颗）"
+                    + "｜🧨 删掉 `BuildHudAnimRigs()` 那一句（或让它排在 `BuildHudExtras` 之前）⇒ 本条 + 下面全红");
+                var ha = drv.HudAnimForTest;
+                if (ha != null && ha.Built)
+                {
+                    // ---- ① 表：8 条 · 无载表错误 · 时长（**读重建出来的 `AnimationClip.length`**）----
+                    //  🧨 改坏法：`Resources/battlehud_clips.json` 没带 / `SetCurve` 的绑定写错（曲线进不去）
+                    //     ⇒ `clip.length` 变 0 ⇒ Show 那条当场红（⛔ 不是「读 JSON 字段」那种自证）。
+                    Check(BattleHudAnim.Loaded && BattleHudAnim.ClipCount == 8,
+                          $"★ E-C：表里有 8 条 clip（实得 {BattleHudAnim.ClipCount}；错误 = "
+                        + $"{BattleHudAnim.LastError ?? "<无>"}）"
+                        + "｜🧨 生成器没跑 / `Resources/battlehud_clips.json` 没拷 ⇒ 红");
+                    Check(Mathf.Abs(BattleHudAnim.LengthOf("BattleHudShow") - 1f) < 1e-4f,
+                          $"★ E-C：`BattleHudShow` 时长 = **1.000 s**（实得 {BattleHudAnim.LengthOf("BattleHudShow"):F4}）"
+                        + "｜🧨 曲线没写进 clip（`SetCurve` 绑错）⇒ 长度变 0 ⇒ 红");
+                    Check(Mathf.Abs(BattleHudAnim.LengthOf("BattleHudShowInstant") - 0f) < 1e-6f
+                       && Mathf.Abs(BattleHudAnim.LengthOf("BattleHudHiddenNoHand") - 0f) < 1e-6f
+                       && Mathf.Abs(BattleHudAnim.LengthOf("BattleHudHideNoHand") - 1f) < 1e-4f,
+                          "★ E-C：Instant 那 4 条 = **0.000 s**、带补间那 4 条 = **1.000 s**"
+                        + $"（实得 ShowInstant={BattleHudAnim.LengthOf("BattleHudShowInstant"):F4} / "
+                        + $"HiddenNoHand={BattleHudAnim.LengthOf("BattleHudHiddenNoHand"):F4} / "
+                        + $"HideNoHand={BattleHudAnim.LengthOf("BattleHudHideNoHand"):F4}）"
+                        + "｜🧨 把时长写死成同一个数 ⇒ 红（原版就是 4+4）");
+                    Check(BattleHudAnim.CurveCountOf("BattleHudHidden") == 16
+                       && BattleHudAnim.CurveCountOf("BattleHudHiddenNoHand") == 14
+                       && BattleHudAnim.CurveCountOf("BattleHudShowInstantNoHand") == 15,
+                          "★ E-C：曲线条数照原版（Hidden 16 / HiddenNoHand 14 / ShowInstantNoHand 15）"
+                        + $"（实得 {BattleHudAnim.CurveCountOf("BattleHudHidden")}/"
+                        + $"{BattleHudAnim.CurveCountOf("BattleHudHiddenNoHand")}/"
+                        + $"{BattleHudAnim.CurveCountOf("BattleHudShowInstantNoHand")}）");
+
+                    // ---- ② rig：9 颗 + **搬家零位移**（全屏 + 单位变换）----
+                    Check(ha.RigCount == 9,
+                          $"★ E-C：9 个原版落点各一颗 rig（实得 {ha.RigCount}）—— 原版那 8 条 clip 动的就是这 9 个组节点");
+                    Check(ha.MoveMaxDeltaWorld <= 1e-5f,
+                          $"★ E-C：**搬家零位移** —— 把件搬进 rig 前后 `transform.position` 最大偏差 = "
+                        + $"{ha.MoveMaxDeltaWorld:E2} 世界单位（阈值 1e-5 ≈ 1e-3 px）"
+                        + "｜🧨 rig 不是「全屏 stretch + 单位变换」（例如给了 sizeDelta / 非零 anchoredPosition）⇒ 红");
+
+                    // ---- ③ 端点：`t=0` 播 `BattleHudHidden` ⇒ 9 个 delta 就是原版隐藏位移 ----
+                    //  期望值 = **原版末键之差**（`hidden − shown`，逐条从 clip 数据手核；见 E-C §一·2 表），
+                    //  ⛔ 不是从被测实现读回来的。
+                    ha.SnapTo("BattleHudHidden", 0f);
+                    Vector2 P(string node) { return ha.RigAnchoredPosition(node); }
+                    bool Near(Vector2 v, float x, float y) { return Mathf.Abs(v.x - x) < 1e-3f && Mathf.Abs(v.y - y) < 1e-3f; }
+                    Check(Near(P("LeftArea/PlayerInfo"), -290f, -358f),
+                          $"★ E-C：`t=0` 我方名牌 delta = (−290, −358)（实得 {P("LeftArea/PlayerInfo")}；"
+                        + "= `BattleHudHidden` (−240,−330) − `BattleHudShow` 末键 (50,28)）"
+                        + "｜🧨 把 delta 写成**绝对值**（−240,−330）⇒ 红；把 `shown` 换成场景 rest（31.7 / −48.1）⇒ 红");
+                    Check(Near(P("LeftArea/EnemyInfo"), -290f, 358f),
+                          $"★ E-C：`t=0` 敌方名牌 delta = (−290, +358)（实得 {P("LeftArea/EnemyInfo")}）");
+                    Check(Near(P("RightArea/SettingsBtn"), 364f, 320.199951f),
+                          $"★ E-C：`t=0` 设置钮 delta = (+364, +320.19995)（实得 {P("RightArea/SettingsBtn")}）"
+                        + "—— y 那一格尤其能抓「把 shown 当成 0」：311 − (−9.19995) = 320.19995");
+                    Check(Near(P("RightArea/PlayerDeck"), 0f, -461f)
+                       && Near(P("RightArea/EnemyDeck"), 27.699951f, 461f),
+                          $"★ E-C：`t=0` 两侧牌堆 delta = 我 (0,−461) / 敌 (+27.69995,+461)（实得 {P("RightArea/PlayerDeck")} / {P("RightArea/EnemyDeck")}）"
+                        + "｜🧨 敌方牌堆 x 写成 0（漏掉 −190 vs −217.7 那一档）⇒ 红");
+                    Check(Near(P("RightArea/Right Anchor"), 476f, 0f)
+                       && Near(P("LeftArea/Left Anchor"), -449f, 0f),
+                          $"★ E-C：`t=0` 右锚 +476 / 左锚 −449（实得 {P("RightArea/Right Anchor")} / {P("LeftArea/Left Anchor")}）"
+                        + "｜🧨 把 `Right Anchor` 里那批（能量/结束回合）留在 rig 外 ⇒ 位置对但**件不跟着走** ⇒ 下面那条手牌/件的检查会红");
+                    //  两处「不是 uGUI 件」的落点：位移走 `HandLayout.areaOffsetY`
+                    drv.ApplyHudAnimHandOffsetsForTest();
+                    Check(Mathf.Abs(drv.hand.areaOffsetY - (-479f / 1080f)) < 1e-6f,
+                          $"★ E-C：`t=0` 我方手牌区下移 479 px（`areaOffsetY` = {drv.hand.areaOffsetY:F6}，"
+                        + $"期望 {(-479f / 1080f):F6} = 原版 `HandArea.m_LocalPosition.y`）"
+                        + "｜🧨 只搬 uGUI 件、不驱动 `HandLayout` ⇒ 红（真机上手牌不会跟着滑进滑出）");
+                    if (drv.foeHand != null)
+                        Check(Mathf.Abs(drv.foeHand.areaOffsetY - (402.82998657f / 1080f)) < 1e-4f,
+                              $"★ E-C：`t=0` 敌方手牌区上移 402.83 px（`areaOffsetY` = {drv.foeHand.areaOffsetY:F6}）"
+                            + "｜🧨 用错符号（−402.83）⇒ 敌手往屏幕里掉 ⇒ 红");
+                    //  真·世界坐标：同一次 `SlotPosition` 在「有位移 / 无位移」两档之间必须差 479 px
+                    if (drv.hand != null && drv.HandCount > 0)
+                    {
+                        drv.hand.areaOffsetY = 0f;
+                        float y0 = drv.hand.SlotPosition(drv.HandCount - 1, drv.HandCount).y;
+                        drv.ApplyHudAnimHandOffsetsForTest();      // 重新按动画值写回
+                        float y1 = drv.hand.SlotPosition(drv.HandCount - 1, drv.HandCount).y;
+                        float dyPx = (y1 - y0) / LayoutSpace.VisibleHeight * 1080f;
+                        Check(Mathf.Abs(dyPx - (-479f)) < 0.01f,
+                              $"★ E-C（灭自证）：手牌**世界坐标**真的跟着动了 —— 同一个槽位在「归零 / 换牌隐藏」两档之间差 "
+                            + $"{dyPx:F3} px（期望 −479）"
+                            + "｜🧨 只把 `areaOffsetY` 写进去、`SlotPosition` 不读它（或读了别的分量）⇒ 红");
+                    }
+
+                    // ---- ④ `t=1` 播 `BattleHudShow` ⇒ 9 个 delta **全 0**（回到我们自己的显示基准）----
+                    ha.SnapTo("BattleHudShow", 1f);
+                    drv.ApplyHudAnimHandOffsetsForTest();
+                    int zero = 0, total = 0;
+                    string worstNode = null; float worstMag = 0f;
+                    for (int i = 0; i < ha.RigCount; i++)
+                    {
+                        var node = ha.RigNodeAt(i);
+                        var v = ha.RigAnchoredPositionAt(i);
+                        total++;
+                        float mag = Mathf.Max(Mathf.Abs(v.x), Mathf.Abs(v.y));
+                        if (mag < 1e-3f) zero++; else if (mag > worstMag) { worstMag = mag; worstNode = node; }
+                    }
+                    Check(zero == total,
+                          $"★ E-C：`t=1`（显示态）**9 颗 rig 全部 delta = 0**（{zero}/{total}"
+                        + (worstNode != null ? $"；最差 `{worstNode}` = {ha.RigAnchoredPosition(worstNode)}" : "") + "）"
+                        + "｜🧨 `Apply` 里写成 `delta = key`（不减 `shown`）⇒ 整块 HUD 被搬到原版那棵树的位置 ⇒ 红");
+                    Check(Mathf.Abs(drv.hand.areaOffsetY) < 1e-6f
+                       && (drv.foeHand == null || Mathf.Abs(drv.foeHand.areaOffsetY) < 1e-6f),
+                          "★ E-C：`t=1` 两处手牌区位移都回 0（换牌结束手牌回到原版那条基线）");
+
+                    // ---- ⑤ 灭自证（结构上不可能与实现一起改绿）：**表里的原始绝对值** ----
+                    //  这三条读的是**原版 clip 的末键**（绝对坐标），期望值手写在断言里（E-C §一·2 逐条核过）。
+                    //  把 `Apply` 的 delta 口径改坏时上面几条会红；把**生成器**改坏时这三条红 —— 两条路都堵上。
+                    Check(Mathf.Abs(BattleHudAnim.RawLastKey("BattleHudShow", "LeftArea/PlayerInfo", "m_AnchoredPosition.x") - 50f) < 1e-4f
+                       && Mathf.Abs(BattleHudAnim.RawLastKey("BattleHudShow", "LeftArea/PlayerInfo", "m_AnchoredPosition.y") - 28f) < 1e-4f,
+                          "★ E-C（灭自证·原始值）：表里 `BattleHudShow` 的末键 = 原版 **(50, 28)**"
+                        + $"（实得 ({BattleHudAnim.RawLastKey("BattleHudShow", "LeftArea/PlayerInfo", "m_AnchoredPosition.x"):F4}, "
+                        + $"{BattleHudAnim.RawLastKey("BattleHudShow", "LeftArea/PlayerInfo", "m_AnchoredPosition.y"):F4})）"
+                        + "｜🧨 生成器按「场景 rest」重算 reference（31.7002）⇒ 红");
+                    Check(Mathf.Abs(BattleHudAnim.RawLastKey("BattleHudHidden", "UpperAnchor/EnemyArea", "m_AnchoredPosition.y") - 402.82998657f) < 1e-3f,
+                          "★ E-C（灭自证·原始值）：表里 `BattleHudHidden` 的 EnemyArea = 原版 **402.8299865722656**"
+                        + $"（实得 {BattleHudAnim.RawLastKey("BattleHudHidden", "UpperAnchor/EnemyArea", "m_AnchoredPosition.y"):F4}）");
+                    Check(Mathf.Abs(BattleHudAnim.RawLastKey("BattleHudHidden", "RightArea/SettingsBtn", "m_AnchoredPosition.x") - 310f) < 1e-4f
+                       && Mathf.Abs(BattleHudAnim.RawLastKey("BattleHudHidden", "RightArea/Right Anchor", "m_AnchoredPosition.x") - 476f) < 1e-4f,
+                          "★ E-C（灭自证·原始值）：`BattleHudHidden` 的 SettingsBtn.x = **310**、RightAnchor.x = **476**");
+                    Check(Mathf.Abs(BattleHudAnim.RefShown("RightArea/SettingsBtn", "m_AnchoredPosition.x") - (-54f)) < 1e-4f
+                       && Mathf.Abs(BattleHudAnim.RefShown("LeftArea/PlayerInfo", "m_AnchoredPosition.x") - 50f) < 1e-4f,
+                          "★ E-C：`refs[].shown` 取的是 `BattleHudShow` 末键（SettingsBtn.x = −54 · PlayerInfo.x = 50）"
+                        + "—— 这两格正是**场景 rest 与 clip 末键不同**的那两处（E-C §2·2，偏移由显示基准那一侧去修）");
+
+                    // ---- ⑥ 触发链：换牌进 / 出各播哪条（原版两处调用点）----
+                    //  ⚠️ 本节在**批处理**下跑：`Play` 直接落终态 ⇒ 这里只断「播的是哪一条」（几何已由 ③④ 单独验）。
+                    bool savedMulE = drv.mulliganEnabled, savedOffE = drv.offensivePhaseEnabled;
+                    drv.mulliganEnabled = true;
+                    drv.offensivePhaseEnabled = false;
+                    drv.Begin("Ultramarines", "Goff", 20260916);
+                    Check(drv.InMulligan, "★ E-C⑥（前提）这一局进了换牌阶段 —— 不成立时下面两条等于没验");
+                    if (drv.InMulligan)
+                    {
+                        Check(ha.CurrentClipName == BattleHudAnim.HiddenNoHandClip && !drv.HudLayerActiveForTest,
+                              $"★ E-C⑥：进换牌期 ⇒ 播 `BattleHudHiddenNoHand`（原版 `m_PlayAutomatically` 的默认 clip）"
+                            + $"（实得 `{ha.CurrentClipName ?? "<没播>"}` · HudLayerActive={drv.HudLayerActiveForTest}）"
+                            + "｜🧨 退回 `CanvasGroup.alpha = 0` 硬切（不再起播）⇒ 本条红");
+                        drv.SimulateMulliganDone();
+                        Check(ha.CurrentClipName == BattleHudAnim.ShowClip && drv.HudLayerActiveForTest,
+                              $"★ E-C⑥：换牌结束 ⇒ 播 `BattleHudShow`"
+                            + "（判据 = `_FinishMulliganFinalPhase_d__351__MoveNext.c:113` = `(1,1,0)`）"
+                            + $"（实得 `{ha.CurrentClipName ?? "<没播>"}`）"
+                            + "｜🧨 只在状态翻转**之外**每帧 `Play`（会一直重置到 t=0）⇒ 真机上看不出滑入 ⇒ 红");
+                    }
+                    drv.mulliganEnabled = savedMulE;
+                    drv.offensivePhaseEnabled = savedOffE;
+
+                    // ---- 收工：把动画状态与这一局的局面都还原（后面的小节复用同一个 driver）----
+                    ha.ResetAll();
+                    drv.ApplyHudAnimHandOffsetsForTest();
+                    drv.Begin("Ultramarines", "Goff", 20260916);
+                    drv.RefreshAll();
+                    Check(Mathf.Abs(ha.RigAnchoredPosition("LeftArea/PlayerInfo").x) < 1e-3f
+                       && Mathf.Abs(ha.RigAnchoredPosition("LeftArea/PlayerInfo").y) < 1e-3f,
+                          "★ E-C：`Begin()` 会把上一局残留的 HUD 位移**清干净**（`ResetAll`）"
+                        + "｜🧨 删掉 `Begin` 里那两行复位 ⇒ 上一局「战斗结束收 HUD」的位移带进下一局 ⇒ 红");
+                }
             }
         }
 
@@ -32581,6 +33458,67 @@ public static class BattleScene
                     }
                 }
 
+                // ---- ⑤ 虫群图标：原版 `SwarmIconOn` 动画 + 开音（2026-10-22 · L-D）----
+                //  判据 = `SwarmIconController__Toggle.c`（on = `SetActive(true)` → `enabled = true`
+                //  → `SoundManager.Play2D(toggleOnSound)` → `myAnimation.Play()`；off = `enabled = false`
+                //  → `DOFade(0, 0.3)` → 走完 `SetActive(false)`，**全程没有声音**）
+                //  + prefab `Animation.m_Animations[0]` = `SwarmIconOn.anim`（`m_PlayAutomatically: 0`）
+                //  + AudioCue `Swarm Trait UI Enabled`。
+                {
+                    CardTween.Mode = DG.Tweening.UpdateType.Manual;
+                    var swarmRoot = new GameObject("W58SwarmProbeRoot");
+                    var sv = CardView.Create(swarmRoot.transform, CardData.Placeholder(1), "W58SwarmProbe");
+                    if (sv == null) Check(false, "W58⑤（前提）：建得出虫群图标探针卡");
+                    else
+                    {
+                        Check(sv.SwarmAnimationPlayCalls == 0 && !sv.SwarmVisible,
+                              "W58⑤（前提）：还没开时 —— 图标关着、播放计数 0");
+
+                        sv.SetSwarm(true);
+                        Check(sv.SwarmVisible, "★ W58⑤：`SetSwarm(true)` ⇒ 图标显示出来");
+                        Check(sv.SwarmTexName == "swarm",
+                              $"★ W58⑤：贴的是 `Art/traits/swarm.png`（实测 {sv.SwarmTexName}）");
+                        Check(sv.SwarmAnimationPlayCalls == 1,
+                              $"★ W58⑤：开的那一拍**真的调了一次** `Animation.Play`（实得 {sv.SwarmAnimationPlayCalls}）"
+                            + "｜🧨 删掉 `SetSwarm(true)` 里的 `PlaySwarmAnimation()` ⇒ 本条红");
+                        Check(sv.SwarmLastAnimationClip == CardView.SwarmClipName,
+                              $"★ W58⑤：播的片段 = `{CardView.SwarmClipName}`（实得 {sv.SwarmLastAnimationClip ?? "null"}）"
+                            + "｜🧨 把 `Play(...)` 的名字改成任意别的 ⇒ 本条红");
+                        Check(Mathf.Abs(sv.SwarmAlphaNow) < 1e-3f,
+                              $"★ W58⑤：开的那一拍 alpha 归 **0**（clip 的 `m_Color.a` 曲线起点；实得 {sv.SwarmAlphaNow:F3}）"
+                            + "｜🧨 把 `_swarmAlpha = 0f` 改回 1f ⇒ 本条红");
+                        CardTween.Advance(CardView.SwarmFadeInTime);
+                        Check(Mathf.Abs(sv.SwarmAlphaNow - 1f) < 1e-2f,
+                              $"★ W58⑤：{CardView.SwarmFadeInTime:F2} s 后淡到 1（实得 {sv.SwarmAlphaNow:F3}）");
+                        Check(sv.SwarmOnSoundCalls == 1 && sv.SwarmLastSoundCue == CardView.SwarmOnCue,
+                              $"★ W58⑤：开音 = cue `{CardView.SwarmOnCue}` 交给播放器 **1** 次"
+                            + $"（实得 {sv.SwarmOnSoundCalls} 次 / `{sv.SwarmLastSoundCue ?? "null"}`）"
+                            + "｜🧨 删掉 `PlaySwarmOnSound()` ⇒ 本条红");
+
+                        sv.SetSwarm(false);
+                        Check(sv.SwarmOnSoundCalls == 1 && sv.SwarmAnimationPlayCalls == 1,
+                              "★ W58⑤：关的那一拍**既不重播动画、也不出声**"
+                            + "（原版 `Toggle(false)` 里一个 `SoundManager` 调用都没有）"
+                            + "｜🧨 给关那一支补一条音 / 一次 `Play` ⇒ 本条红（开、关两档计数必须不同）");
+                        Check(sv.SwarmVisible,
+                              "★ W58⑤：关是 **0.3 s 淡出**，此刻**还没**隐藏（原版 `DOFade` 走完才 `SetActive(false)`）");
+                        CardTween.Advance(CardView.SwarmOffFadeTime + 0.05f);
+                        Check(!sv.SwarmVisible,
+                              "★ W58⑤：0.3 s 后隐藏"
+                            + "｜🧨 去掉 `OnComplete` 里那句 `SetActive(false)` ⇒ 本条红");
+                        Check(Mathf.Abs(sv.SwarmAlphaNow) < 1e-3f, "★ W58⑤：淡出到 0");
+
+                        // 开 / 关 **两档对照**（灭自证：只认「开的那一下涨、关的那一下不涨」）
+                        sv.SetSwarm(true);
+                        Check(sv.SwarmAnimationPlayCalls == 2 && sv.SwarmOnSoundCalls == 2,
+                              $"★ W58⑤：第二次开 ⇒ 播放 {sv.SwarmAnimationPlayCalls} 次 / 出声 {sv.SwarmOnSoundCalls} 次（都 +1）");
+                        sv.SetSwarm(false);
+                        Check(sv.SwarmAnimationPlayCalls == 2 && sv.SwarmOnSoundCalls == 2,
+                              "★ W58⑤：第二次关 ⇒ 两个计数都**不动**（关永远不出声、不重播）");
+                        Object.DestroyImmediate(swarmRoot);
+                    }
+                }
+
                 // ---- ④ 表现层：时间线串行（每目标 1.5 s）+ 不碰 HitReact / 震镜头 / PopNumber ----
                 if (driver == null)
                     Check(false, "W58④（前提）：找得到 `BattleDriver` —— 找不到时下面整组等于没验");
@@ -35513,6 +36451,17 @@ public static class BattleScene
         var ps = WarpforgeVFX.WarpforgeEffectPlayer.ActivePlayers;
         for (int i = ps.Count - 1; i >= 0; i--)
             if (ps[i] != null && ps[i].EffectName == CardFeel.DeathBodyFx) return ps[i];
+        return null;
+    }
+
+    /// <summary>🆕 2026-10-22（P6 · M2/M3）：最近一次生成的**指定特效**（按 `EffectName` 找最后一件）。
+    /// 判残骸阵亡那件的位姿（落点 / 尺度）用；没有 ⇒ null。</summary>
+    static WarpforgeVFX.WarpforgeEffectPlayer LastSpawnedEffect(string effectName)
+    {
+        if (string.IsNullOrEmpty(effectName)) return null;
+        var ps = WarpforgeVFX.WarpforgeEffectPlayer.ActivePlayers;
+        for (int i = ps.Count - 1; i >= 0; i--)
+            if (ps[i] != null && ps[i].EffectName == effectName) return ps[i];
         return null;
     }
 

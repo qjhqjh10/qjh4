@@ -70,14 +70,20 @@ public static class AnimFXCheck
         //    **它们不在效果库的 958 个里**，本来就不该收。所以断言必须用交集，
         //    否则每次都会红 —— 而「一直红的断言」等于没有断言。
         int expectEff = 0, expectMods = 0;
-        var inLib = new HashSet<string>(entries.Select(e => e.name));
+        // ⚠️ 2026-10-22：join 键**两侧都要 Trim**。原版有一个效果名带**尾随空格**
+        //    （`"Orbital 5 repeat "`，见 `EffectLibraryBuilder.JoinKey` 的注释），而库条目名来自
+        //    **Windows 文件名**（文件系统落不了尾随空格）⇒ 逐字比会被两边**同时漏掉**：
+        //    库修好之前恰好还是平的（它的 modules 是空的），修好之后 `withMods` / `totalMods`
+        //    会各多 1 / 2 ⇒ 下面 :83 :84 两条断言转红。口径必须和 `EffectLibraryBuilder.JoinKey` 一致
+        //    （CLAUDE.md §三「两处写同一条规则 = 迟早不一致」）—— 那个函数是 private，这里就地实现同一口径。
+        var inLib = new HashSet<string>(entries.Select(e => (e.name ?? "").Trim()));
         if (System.IO.File.Exists(EffectLibraryBuilder.DefaultModulesJson))
         {
             var d = JsonUtility.FromJson<ModuleDoc>(
                 System.IO.File.ReadAllText(EffectLibraryBuilder.DefaultModulesJson));
             if (d != null && d.effects != null)
                 foreach (var me in d.effects)
-                    if (me != null && me.modules != null && inLib.Contains(me.name))
+                    if (me != null && me.modules != null && inLib.Contains((me.name ?? "").Trim()))
                     { expectEff++; expectMods += me.modules.Length; }
         }
         Check(withMods == expectEff, $"带模块的效果数 = 两个文件的交集（期望 {expectEff}，实测 {withMods}）");

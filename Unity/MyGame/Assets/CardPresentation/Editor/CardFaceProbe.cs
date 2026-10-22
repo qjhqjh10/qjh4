@@ -657,6 +657,25 @@ public static class CardFaceProbe
             }
         }
 
+        // ---------------------------------------------------------------- 新账-66 ②（外发光围的是**卡框**）
+        //  用户 2026-10-21 原话 ②：「外面的光芒边缘应该是**围绕着卡框**的，不是在卡框上面围绕插图」。
+        //  判据（原版一手）：那圈可打出/高亮的光 = SDF `_Outline`，画在
+        //  `Card2DController.frameHighlightAndShadow`（节点 `Card Highlight And Shadow`，**4.4281²**
+        //  —— 比卡体 2.0927×3.3313 大得多）；它的 sprite 就是 `CardFramesSO.GetClanFrame` 的**第二项**：
+        //  `stratagemHighlightFrame`（战术/防御卡，`CardTypeOptions.Tactic=20`）/
+        //  `troopHighlightFrame`（部队·督军，`Minion=0`/`Hero=10`）
+        //  （`CardTierUIController__SetTier.c` → `Card2DController` +0x40；
+        //    判据全文 = `资料/普查产出_0919/卡面SDF软光影_查证.md:16-25`）。
+        //  ⇒ 那圈**只能**落在卡框外沿（`_Outline` 由 `Card2DController.ChangeHighlightColor` 上色）。
+        //  量法 = **渲两张逐像素差**（描边关 / 描边开白 α=1）⇒ 差集包围盒 = 真上屏的发光区。
+        //  🧨 改坏法 ①：`OutlineMat` 退回立绘层（`_art` 的网格被 `ArtWindowMesh` 裁在开口里）
+        //     ⇒ 光带最外沿 = 插图画窗外沿 ⇒ **左右两条必红**；
+        //  🧨 改坏法 ②：`OutlineGlowScale` 调小到「等值带落回插图画窗」（用户报的那一档）⇒ 同样红。
+        {
+            CheckOutlineGlow("Armoured Offensive");   // UM75 —— 战术卡
+            CheckOutlineGlow("Alien Idol");           // GSC63 —— 防御卡
+        }
+
         // ---------------------------------------------------------------- W62/T2 卡面拉丁字号 = 原版 em
         //  🔴 2026-10-22（`W62/T2`）：卡面这几档渲的是 **Asar / Pragati**，字号却一直拿**汉字墨高**
         //  标定（`TmpFont.FontSizeForGlyphHeight` → `WorldGlyphPerFontSize`，量的是「国」）。
@@ -1111,14 +1130,18 @@ public static class CardFaceProbe
         finally { CardTween.Mode = prevMode; }   // 抛异常也别把全局补间模式留在 Manual
     }
 
-    /// <summary>把这张卡单独渲进一张图 —— 相机正交、正好框住整张卡（含卡框外沿）</summary>
-    static void Shot(CardView view, string path, bool quiet = false)
+    /// <summary>`Shot` 的正交半高 —— 相机把整张卡（含卡框外沿与那圈发光）框进来的唯一来源。
+    /// 🔴 **像素断言也读它**（`CheckOutlineGlow` 要把世界尺寸换成像素）⇒ 改这里等于同时改「图」和「量尺」。</summary>
+    const float OrthoHalfH = 3.5f * 0.5f * 1.06f;      // 视野比卡本体大一圈：卡框 2.2452×3.2572 且偏下 0.03
+
+    /// <summary>把当前场景里那张卡**渲成像素**（不落盘）—— `Shot` 与像素断言共用这一份。
+    /// <para>相机：正交、正好框住整张卡；中心 y = −0.03 = 卡框中心；背景深底。</para></summary>
+    static Color32[] RenderPixels()
     {
         var camGo = new GameObject("probeCam");
         var cam = camGo.AddComponent<Camera>();
         cam.orthographic = true;
-        // 视野比卡本体大一圈：卡框是 2.2452×3.2572 且偏下 0.03，别把它切了
-        cam.orthographicSize = 3.5f * 0.5f * 1.06f;
+        cam.orthographicSize = OrthoHalfH;
         cam.aspect = (float)W / H;
         cam.transform.position = new Vector3(0f, -0.03f, -20f);
         cam.clearFlags = CameraClearFlags.SolidColor;
@@ -1134,10 +1157,106 @@ public static class CardFaceProbe
         tex.Apply();
         RenderTexture.active = prev;
         cam.targetTexture = null;
-        File.WriteAllBytes(path, tex.EncodeToPNG());
+        var px = tex.GetPixels32();
         Object.DestroyImmediate(tex);
         RenderTexture.ReleaseTemporary(rt);
         Object.DestroyImmediate(camGo);
+        return px;
+    }
+
+    /// <summary>把这张卡单独渲进一张图 —— 相机正交、正好框住整张卡（含卡框外沿）</summary>
+    static void Shot(CardView view, string path, bool quiet = false)
+    {
+        var px = RenderPixels();
+        var tex = new Texture2D(W, H, TextureFormat.RGB24, false);
+        tex.SetPixels32(px);
+        tex.Apply();
+        File.WriteAllBytes(path, tex.EncodeToPNG());
+        Object.DestroyImmediate(tex);
         if (!quiet) { Debug.Log($"[cardface] 写出 {path}"); }
+    }
+
+    /// <summary>`新账-66 ②`：**外发光必须围卡框，不是围插图** —— 渲两张、逐像素取差。
+    ///
+    /// <para>**为什么非渲不可**：图层/材质/quad 的读数全对，也可能被上层不透明件遮死、
+    /// 或等值带落在插图画窗里 —— 只有渲染结果能回答「光带最后落在哪一圈像素上」。
+    /// 判据与阈值理由写在调用处那段注释里。</para>
+    ///
+    /// <para>⚠️ **批处理没有帧循环** ⇒ `SetOutline` 带 **0.2 s** 补间，必须
+    /// `CardTween.Mode = Manual` + `Advance` 推到头；否则拍到的是补间起点（α=0，一张空图）。</para>
+    ///
+    /// <para>🔴 **灭自证**：差值取的是**渲染结果**，⛔ 不是材质读数、也不是把算法再算一遍。
+    /// 把描边挂回立绘层（`_art` 的网格被 `ArtWindowMesh` 裁在开口里），或把 `OutlineGlowScale`
+    /// 调回「等值带落进插图画窗」那一档 ⇒ 下面左右两条立刻红。</para>
+    /// </summary>
+    static void CheckOutlineGlow(string cardName)
+    {
+        var pool = CardDatabase.Load();
+        var def = FindByName(pool, cardName);
+        if (def == null)
+        {
+            Debug.LogError($"[cardface-chk] 卡池里没有 `{cardName}` ⇒ 新账-66 ② 这张**没验到**（别读成通过）");
+            return;
+        }
+        var root = new GameObject("chk_glow_" + SafeName(cardName));
+        var view = CardView.Create(root.transform, BattleDriver.ToCardData(def, def.Faction), cardName + "_glow");
+        try
+        {
+            var prevMode = CardTween.Mode;
+            Color32[] off, on;
+            try
+            {
+                CardTween.Mode = DG.Tweening.UpdateType.Manual;   // 必须在 SetOutline 建补间之前切
+                view.SetOutline(new Color(0f, 0f, 0f, 0f));
+                CardTween.Advance(CardHighlight.OutlineAnimTime + 0.05f);
+                off = RenderPixels();                             // 描边关
+
+                view.SetOutline(Color.white);                     // 纯白 α=1 ⇒ 差集最干净
+                CardTween.Advance(CardHighlight.OutlineAnimTime + 0.05f);
+                Check(view.OutlineDebug.Contains("层=描边专用"),
+                      $"新账-66 ② 前提：`{cardName}` 的描边建在**专用 `outlineGlow` 层**上"
+                    + $"（实测 `_Outline`={view.OutlineColor} · {view.OutlineDebug}）");
+                on = RenderPixels();                              // 描边开
+            }
+            finally { CardTween.Mode = prevMode; }
+
+            // 差集：只认「**亮起来**」的像素（任一通道差 > 40/255）。
+            // 阈值取得高是**故意的**：软光/影那层底色很暗（黑 α 0.6 压在深底上），
+            // 噪声/时相在两张之间即使有抖动也远达不到 40 ⇒ 不会把整块 4.4281² 的 SDF quad 算成「发光」。
+            int x0 = int.MaxValue, x1 = int.MinValue, y0 = int.MaxValue, y1 = int.MinValue, n = 0;
+            for (int y = 0; y < H; y++)
+                for (int x = 0; x < W; x++)
+                {
+                    int i = y * W + x;
+                    int d = Mathf.Max(Mathf.Abs(on[i].r - off[i].r),
+                              Mathf.Max(Mathf.Abs(on[i].g - off[i].g), Mathf.Abs(on[i].b - off[i].b)));
+                    if (d <= 40) continue;
+                    n++;
+                    if (x < x0) x0 = x; if (x > x1) x1 = x;
+                    if (y < y0) y0 = y; if (y > y1) y1 = y;
+                }
+
+            // 卡框在**同一套相机像素坐标**里的包围盒：相机中心 y = −0.03 = 卡框中心（见 `Shot`/`RenderPixels`）
+            float ppu = H / (2f * OrthoHalfH);
+            float fw = view.FrameDrawSize.x * ppu, fh = view.FrameDrawSize.y * ppu;
+            float fL = W * 0.5f - fw * 0.5f, fR = W * 0.5f + fw * 0.5f;
+            float fB = H * 0.5f - fh * 0.5f, fT = H * 0.5f + fh * 0.5f;
+            // 判据（离线量过 5 张 `_strat` 卡框的开口并集）：插图画窗的**半宽 ≈ 卡框半宽的 0.68**
+            // ⇒ 取 0.10 卡框宽做容差 = 落在「围插图（≈0.68）」与「围卡框（外沿 ≥0.9）」两档之间。
+            float margin = fw * 0.10f;
+
+            Check(n > 200, $"新账-66 ② `{cardName}`：描边**真的画上屏了**（差集 {n} 点；0 ⇒ 那层被遮死 / 没建）");
+            if (n == 0) return;
+            Debug.Log($"[cardface-chk]   新账-66 ② `{cardName}` 实测：发光 bbox x[{x0},{x1}] y[{y0},{y1}]"
+                    + $"（{x1 - x0 + 1}×{y1 - y0 + 1} px / {n} 点）· 卡框 bbox x[{fL:F0},{fR:F0}] y[{fB:F0},{fT:F0}]"
+                    + $"（{fw:F0}×{fh:F0} px）· 立绘实绘 {view.ArtDrawSize.x * ppu:F0}×{view.ArtDrawSize.y * ppu:F0} px");
+            Check(x0 <= fL + margin,
+                  $"新账-66 ② `{cardName}`：发光**伸到卡框左外沿**（发光 x0={x0} ≤ 卡框左沿 {fL:F0}+{margin:F0}={fL + margin:F0}）"
+                + "｜🧨 光带若退到插图画窗（用户报的那一档）x0 ≈ 开口左边、比这条线还靠里 ~40 px ⇒ 红");
+            Check(x1 >= fR - margin,
+                  $"新账-66 ② `{cardName}`：发光**伸到卡框右外沿**（发光 x1={x1} ≥ 卡框右沿 {fR:F0}−{margin:F0}={fR - margin:F0}）"
+                + "｜🧨 描边挂回立绘层 ⇒ 光带被 `ArtWindowMesh` 裁在开口里 ⇒ 红");
+        }
+        finally { Object.DestroyImmediate(root); }
     }
 }

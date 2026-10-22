@@ -32,7 +32,16 @@
 //   · 筛选栏**在左**、与侧栏同一块 rect（由 Header 的 `Filters` 键开合）—— 权威坐标 R:174-176
 //
 // ============================ 仍然是我们挑的（原版查不到，如实标） ============================
-//   ① **卡池一屏 4 列 × 2 行** —— 原版是 `RecyclableScrollRect` 运行时算的，节点树给不出（`查证:166`）
+//   ① 🔴 **2026-10-22（`D1`）就地订正（铁律 5）：原来这里写「卡池一屏 4 列 × 2 行 —— 原版是
+//      `RecyclableScrollRect` 运行时算的，节点树给不出 ⇒【我们挑的】」—— 这一条【已过期】。**
+//      原版那两条式子本地都读得到，`A870`（2026-10-18）已经照它现算了：
+//        · **列数** = `floor(视口宽 ÷ (_cellWidth + _spacingX))`
+//          （`PolyAndCode.UI.VerticalRecyclingSystem__CreateCellPool.c:127-167`，用 `_cellWidth` **原值**）
+//          ⇒ 桌面 **6 列**（1589.8 ÷ 262.5）、小屏 **4 列**（1589.8 ÷ 393.75）；⛔ 不是写死的 4/6。
+//        · **行数** = 覆盖 **1.5 个视口高** 与「池格下限 20」两条阈值合成
+//          （同文件 `:186-193` / `:256-271`）⇒ 桌面 4 / 小屏 5。
+//      实现 = 本文件 `Pool` 属性 / `PoolRowsFor`（搜这两个名字；两档由同一条式子算，不是 if-else）。
+//      ⛔ 别再写回「4 列 × 2 行」——那是我们旧的猜测值，**不是**原版参数。
 //   ② 🔴 **2026-10-04（A41 ①）订正 —— 这一条已经不成立了，页签图标【照原版整格画】**：
 //      原来写的是「页签图标显示尺寸 100×100 —— 节点树里那三个 `Icon` 的 rect 是 **0×0**（VLG 撑的）」，
 //      **那个 0×0 是「VLG 布局跑之前的模板位」**（铁律 5·c：只量了一种情况）。布局跑完之后：
@@ -77,12 +86,26 @@ namespace CardPresentation
         const float HdrFltBtnX = 367.2f, HdrFltBtnY = 88.5f, HdrFltBtnS = 50f;
         const float HdrFltIconX = 377.2f, HdrFltIconY = 98.5f, HdrFltIconS = 30f;
         const float HdrFltLblX = 437.2f, HdrFltLblY = 88.5f, HdrFltLblW = 150f, HdrFltLblH = 50f;
-        // ⚠️ `Clear filters` 的 x **不能照抄 dump 的 1488.6** —— 它落在父容器 `Filters [592,71 876×85]`
-        //    的**外面**（容器右边界 1468.6），那是 **VLG 布局跑之前的模板位**（同 `查证:103` 那条）。
-        //    容器右边界 1468.6 与 `WIldcard Counter` 的左边界 1470 **正好相接** ⇒ 头部是一行：
-        //    [Filters 圆钮][容器：Clear filters **右对齐**][Wildcard Counter][Army Icon]。
-        //    ⇒ 取 `1468.6 − 250 = 1218.6`（右对齐）。照抄 1488.6 会**压在四个稀有度计数上**（自检抓过）。
-        const float HdrClearX = 1218.6f, HdrClearY = 83.5f, HdrClearW = 250f, HdrClearH = 60f;
+        // 🔴 **2026-10-22（`D1`）就地订正（铁律 5）：`Clear filters` = 原版布局组跑完的
+        //   `85×70 @ (592.2, 78.5)`；原来写的是 `250×60 @ 1218.6`。**
+        //   错因 = 拿 dump 的**模板位** `[1489,83] 250×60` 当尺寸，又拿容器右边界 1468.6 去反推 x
+        //   （「容器内右对齐」）。**两半都不是原版的布局结果** —— 模板位量的是「布局跑之前」那一格
+        //   （CLAUDE.md §三 末条那条：0×0 / 落在父容器外的 rect 是模板位），而右对齐是我们自己挑的排法。
+        //   判据（逐条可复查；`python 工具/menu_dump.py bundle_menus_assets_all "Deck Editing Menu"
+        //   --depth 8 --no-sprite` 现读）：
+        //     · 父容器 `Header/Filters` = **592.2,71.0 → 1468.6,156.0（876.41×85）**
+        //       · `GridLayoutGroup`：cellSize **85×70** · spacing (5,0) · pad (0,0,0,0) ·
+        //         **`align=3` = MiddleLeft** · **`constraint=2` = FixedRowCount**、count = 1
+        //         ⇒ **1 行 × N 列**（⚠️ 本文件旧注写「固定 1 列」是**读错了枚举**：Unity 里
+        //         `FixedColumnCount = 1` / `FixedRowCount = 2`）
+        //       · 唯一子件 = `Generic Simplified UI Button_updated`（dump 那行仍印 1488.6 / 250×60 ——
+        //         **Grid 系布局 `menu_dump` 不套算**（`grid?` 那一档，见该工具 `apply_layout_to_children`），
+        //         所以必须按 uGUI 算法自己算）
+        //     · uGUI 结果：1 行、横向左对齐 ⇒ `x = 592.2 + pad0 = 592.2`；
+        //       纵向 MiddleLeft ⇒ `y = 71 + (85 − 70) / 2 = 78.5` ⇒ **592.2,78.5 → 677.2,148.5**。
+        //   ⚠️ 与左边 `Filters` 文字（437.2..587.2）**横隔 5px**、与页头分隔线（y 151）**竖隔 2.5px** —— 不压。
+        //   ⛔ 别照抄 1488.6（模板位，落在容器外、压在四个稀有度计数上 —— 自检抓过）。
+        const float HdrClearX = 592.2f, HdrClearY = 78.5f, HdrClearW = 85f, HdrClearH = 70f;
         // 🔴🔴 **2026-10-20 —— `Clear filters` 的显隐：原来那段 `2026-10-17（D22）`「查不到、本轮【不改】」
         //   已经按事实就地换掉（铁律 5，不是另起一份）。**
         //   ⚠️ **同一个 prefab 字段还管着另一件**：本文件那个**左抽屉**的两棵**也**带
@@ -103,19 +126,20 @@ namespace CardPresentation
         //     而**那一帧没有任何筛选高亮** ⇒ **推断 = 「一个筛选都没设时隐藏」**。
         //     ⛔ **这是推断**（要坐实还得进原版 dump 三种状态下的 `anchoredPosition`，见下）。
         //   🔴 **我们改成 `SetActive`、没照 −550 平移**（**如实标注，这是我们的偏离**）：
-        //     我们这颗的 x（`HdrClearX = 1218.6`）是**按容器右边界推出来的绝对屏幕 px**
-        //     （见上一条注释），平移 −550 会落到 **668.6** —— 屏幕中段、压在 `Filters` 那一带，
-        //     **不会像原版那样「挪出容器」** ⇒ 平移量在我们这套坐标里**不复现「藏起来」**。
-        //     （原版那两个数是相对**它自己那个 85 宽的容器**的，搬不过来。）
+        //     `hiddenPosition` 是原版 prefab 里**相对它自己父容器**的 `anchoredPosition` 口径，
+        //     而我们的坐标一律是**绝对屏幕 px**、也没有那颗 85 宽的容器节点。
+        //     我们现在的 x（`HdrClearX = 592.2`）**就是原版布局后的绝对位置** ⇒ 照搬 −550 会落到 **42.2**：
+        //     仍在屏内、压在 `Back` 圆钮那一带（**不重现「挪出画面」**）⇒ 平移量在我们这套坐标里不复现「藏起来」。
         //   🔴 **显隐与「点得到」同一条判据**（`RefreshHeader` 里那两句 + `KeyLive` 里那一支）——
         //     藏起来却还能点到 = 静默失败（本仓红线）。
         //   ✅ **仍然成立的两条旧事实**（留着，别丢）：
         //     ① **prefab 里它是 active 的**：`Header/Filters/Generic Simplified UI Button_updated`
         //        的 `m_IsActive = True`（全包 11 个同名件逐个读过），图 `UI_Button_Mulligan`、`interactable=1`；
         //     ② 它的**父容器 `Header/Filters`**（`GridLayoutGroup` cellSize **85×70** · spacing (5,0) ·
-        //        pad 0 · `constraint=2(1)` 固定 1 列 · `align=3`(MiddleLeft) · `ContentSizeFitter h:MinSize`）
-        //        **跑完布局之后**那颗钮会被压成 **85×70 @ (592.2, 78.5)** —— 不是我们画的 250×60 @1218.6；
-        //        ⚠️ **这一笔账还开着**（我们的位置是按容器右边界推的、与布局后矩形不符），本轮不动它。
+        //        pad 0 · `constraint=2`(**FixedRowCount**) count 1 ⇒ **1 行** · `align=3`(MiddleLeft) ·
+        //        `ContentSizeFitter h:MinSize`）**跑完布局之后**那颗钮 = **85×70 @ (592.2, 78.5)**
+        //        —— 🔴 **2026-10-22（`D1`）起我们已经照这个值画**（原来画 250×60 @1218.6，
+        //        那一笔账**已收**；旧注那句「固定 1 列」也已按枚举订正，见 `HdrClearX` 那段）。
         //   📌 要收剩下的「触发条件」那一半，需要的是【实况】：进原版卡组编辑窗，看那颗钮的
         //     `anchoredPosition` 在「没筛 / 筛了 / 清空之后」三种状态下各是什么（SceneJumpShot 能 dump）。
         const float HdrSepY = 151f, HdrSepH = 10f;
@@ -1623,12 +1647,15 @@ namespace CardPresentation
             //   ⚠️ 折行 = `0` ⇒ 显式还原（同上）。
             if (hdrClearTx != null)
             {
-                // 🔴 **2026-10-17（`A1226` 表 B #37）：框宽改成【原版有效框】221.44（原来整颗钮 250，宽 +28.56）。**
+                // 🔴 **2026-10-17（`A1226` 表 B #37）：框宽改成【原版有效框】 = 父宽 × 锚跨度 − `m_SizeDelta.x`。**
                 //    判据 = 原版那颗 TMP 的 `RectTransform`（`m_AnchorMin.x→m_AnchorMax.x` 跨度 0.92575 ·
-                //    `m_SizeDelta.x = −10`）⇒ 父宽 250 × 0.92575 − 10 = **221.44**。
+                //    `m_SizeDelta.x = −10`）。
+                //    🔴 **2026-10-22（`D1`）就地订正（铁律 5）**：上一版拿**模板位**的父宽 250 算出
+                //    `250 × 0.92575 − 10 = 221.44` —— 可那颗钮布局完之后父宽是 **85**（见 `HdrClearX` 那段的
+                //    Grid 现算）⇒ 真值 = `85 × 0.92575 − 10 = ` **68.69**。221.44 会让字框宽出钮 2.6 倍。
                 // ⚠️ **框高【故意不跟】**（原版有效框高 57.69）：CJK 行盒 1.516em ⇒ 喂 57.69 会把 42px 压到
-                //    38.05px（原版渲 42）⇒ 暂留 `HdrClearH`，与 `A1024③` 一起改（同 `hdr_back_t` 那条）。
-                hdrClearTx.SetAutoFitBox(U(221.44f), U(HdrClearH), 10f, 42f, 12f);
+                //    38.05px（原版渲 42）⇒ 暂留 `HdrClearH`（= 钮高 70），与 `A1024③` 一起改（同 `hdr_back_t` 那条）。
+                hdrClearTx.SetAutoFitBox(U(68.69f), U(HdrClearH), 10f, 42f, 12f);
                 hdrClearTx.SetWrappingMode(0);
             }
             Btn_("hdr_clear", HdrClearX, HdrClearY, HdrClearW, HdrClearH);

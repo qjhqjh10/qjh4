@@ -56,7 +56,10 @@
 
 // ---- 没建的（出声，不静默）----
 //   · `GameModeText`（"Game mode: Multiplayer"）—— 原版**出厂 act=0** ⇒ 照纪律不建
-//   · `Character Image`（905×905）—— 原版 **`m_Enabled=0`** ⇒ 不建
+//   · `Character Image`（905×905）—— ✅ **2026-10-22（界面线 M2）已建**。
+//     🔴 **原来这一行写的是「原版 `m_Enabled=0` ⇒ 不建」—— 那条是错的**（铁律 5）：`m_Enabled=0` 只是
+//     prefab 出厂态，原版**运行时**由 `DeckGeneralInfoDemo.ConfigPanel` 打开并喂 `fullHeroSprite`
+//     （= `UI_Deck_Warlord_<督军名>` 整身立绘）。见 `BuildCharacterImage` 的 doc。
 //   ✅ **2026-10-03（§三第29条 A14）**：~~`Deck Information cost drawer` + `Deck Information Cost/balance text`
 //     —— **不建**（那套 `DeckEnergyCostDrawer` 费用曲线柱还没接）~~ ⇒ **两件都建了**：标题那条按原版
 //     `Card / Energy cost`（fs34），曲线 9 行走 **`Core/CostCurveDrawer`**（与 `Deck info Popup` 那扇**共用一份画法**；
@@ -100,7 +103,7 @@
 //
 //   `Deck info`（**自己没图**）
 //     ├ `Generic Window Red Background Big`  761.63,187.00→1831.93,869.00  `UI_Deck_Information_Back`
-//     ├ `Character Image`（m_Enabled=0，不建）
+//     ├ `Character Image`（905×905，原版出厂 `m_Enabled=0`、**运行时打开并喂整身立绘** —— ✅ 2026-10-22 已建）
 //     ├ `Background Info`（**【空容器】act=0**，照原版留空）
 //     ├ `Deck Name`（act=1）· `Warlord Name`（act=1）· `Army Image`（act=1）  ← 直挂，本来就该看得见
 //     ├ `General container`（act=1）→ lore · cardback · `Show Deck Content Button` · `Change Deck`
@@ -132,15 +135,49 @@ namespace CardPresentation
         //    `QArmyFeat`、3120 战役页、3130 `SearchingMatchPopup`）⇒ 挪完不与任何东西撞档。
         //    ⚠️ 外部只按**常量名**引用这两个号（`Editor/MainMenuScene.cs` / `Editor/CollectionScene.cs`
         //    的命中区助手）⇒ 值变了它们跟着变，不用改调用点（只有注释里的字面量要跟着订正）。
+        // 🔴 **2026-10-22（界面线 M2）就地订正（铁律 5）**：上一行那句「本窗 3101…3108 / 下一个是 3115」
+        //    **已过期** —— `Deck info ▸ Character Image` 要插一档，本窗现在是 **3101…3110**
+        //    （新增 `QPrChar`(3107) 立绘档 + `QPrFront`(3108) 本面板图档；`QPrText`/`QPrHit` 各上移两号到 3109/3110）。
+        //    逐档理由与「撞了谁」写在 `QPrChar` / `QPrFront` 那两条 doc 上。
         // 🔴 **2026-10-11（A218 顺手收 · A252）可见性收窄**：`QPr` / `QPrText` / `QPrHit` 留 `public`
         //    （自检宿主 `Editor/{MainMenuScene,CollectionScene}.cs` 真按**限定名**引用它们）；
         //    `QPrRow` 与下面那五个 item 档**全工程只有本文件用** —— 2026-10-11 现量
         //    `grep -rn "PracticeModePopup.QPr"` 命中的限定名只有上面三个；`QPrRow` / `QPrItem*` 在别的文件里
         //    只出现在**字符串字面量**（一条断言文案）里，**不是代码引用** ⇒ 收成 `const`（= 不写 `public`）。
         //    ⚠️ 收窄**只针对用不到的**（放宽本身是必要的：本仓 0 个 `.asmdef` ⇒ 跨程序集要用就得 public）。
-        public const int QPr = 3100, QPrText = 3107, QPrHit = 3108;
+        public const int QPr = 3100, QPrText = 3109, QPrHit = 3110;
         // ⚠️ 下面这些**只在本文件用**（A252 收窄前的读数 = 外部代码引用 0 处）：格底那一档
         const int QPrRow = 3101;
+        /// <summary>🆕 **2026-10-22（界面线 M2）**：`Deck info ▸ Character Image`（督军**整身立绘**，
+        /// 原版 prefab 里 `m_Enabled=0`、**运行时由 `DeckGeneralInfoDemo.ConfigPanel` 打开并喂图**）。
+        ///
+        /// <para>🔴 **为什么它必须独占一档**：原版那颗是 `Deck info` 的**第 2 个子件**（红底之后、
+        /// `Deck Name`/`Warlord Name`/`Army Image`/两个抽屉之前）⇒ 它要**盖住**左列与红底、
+        /// 又被右面板自己的内容盖住。而我们的队列是**按角色分档**、不是按子树（左列与本面板共用
+        /// `QPrRow`/`QPrItem*`）⇒ 只能在这条梯子上给它插一档。**本窗完整梯子**（从下到上）：
+        /// `QPr`(3100 压暗/面板底) < `QPrRow`(3101 窗框件/格底) < `QPrItemHL..TxBg`(3102–3106 两族 item 内景)
+        /// < **`QPrChar`(3107 立绘)** < `QPrFront`(3108 本面板的图 + 圆钮图标) < `QPrText`(3109) < `QPrHit`(3110)。
+        /// ⚠️ **插一档就必然撞到别人的档**（3100…3108 已被本窗与 `LiveOpsEventWindow`(3104–3116) 占满，
+        /// `3109` 是 `LiveOpsEventWindow.QDeck1`）—— 这是**已知代价**：`QPrText`/`QPrHit` 各上移两号，
+        /// `QPrHit`(3110) 落在 `CampaignRewardWindow` 的档里。那几扇窗与本窗**不同时可见**
+        /// （整页 vs 弹窗；本窗开时整页在最底下、被 `QPr` 的压暗层盖住），且**命中区那一档不渲染**。</para>
+        /// <para>🧨 改坏法：把这层并回 `QPrRow` ⇒ 立绘会按「到相机的距离」和 `Army Image`/费用曲线柱
+        /// 抢位置（2026-10-18 `DeckInfoPopup` 的同族先例：立绘被排到不透明红底**下面**，真机只剩一条）。
+        /// 判据 → `Editor/MainMenuScene.cs` 练习窗段「`Character Image` 队列严格夹在红底与本面板内容之间」。</para>
+        const int QPrChar = 3107;
+        /// <summary>🆕 **2026-10-22（界面线 M2）**：本窗**压在底图之上、文字之下**那一档图 ——
+        /// ① `Deck info` 自己那一组（`Army Image` / `Cardback` / `Show Deck Content` 两颗 / `Change Deck` 底 /
+        /// 费用曲线 9 行的柱）；② **圆钮上的图标**（`Back Icon` / `Show Icon` / `Show Info Icon`）。
+        /// <para>判据一（`Deck info` 那一组）= 原版兄弟序里它们**都排在 `Character Image` 之后** ⇒ 必须压在立绘之上
+        /// （实测：63 张 `UI_Deck_Warlord_*` 里有多张在 `Army Image`/费用曲线那一带的 alpha = **255**，
+        /// 同档硬碰会真的盖住它们）。</para>
+        /// <para>🔴 判据二（图标那一组，**2026-10-22 顺手查出的真缺陷**）：那几颗钮的底图
+        /// `UI_Button_Round_background` **中心是不透明纯黑**（直读 PNG：`(0,0,0,255)` 覆盖到 237² 全幅），
+        /// 而图标（`40k_UI_bt_back` / `40k_UI_bt_deck`）必须画在它**上面** —— 改前两者**同档（`QPrRow`）**
+        /// ⇒ 谁盖谁退化成渲染器排序 ⇒ 真机截图 `32_practice_again.png` 里**返回钮 / Show Deck Content 都是纯黑圆盘、
+        /// 看不到绿色图标**（原版参考图里那两颗都是「金属环 + 绿色图标」）。</para>
+        /// ⛔ 别把这两族改回 `QPrRow`。</summary>
+        const int QPrFront = 3108;
         /// <summary>卡组格**内景**那五层 —— 原版 `Deck Selector Menu Item` 的兄弟序（**从下到上**）：
         /// `Highlight` → `Button border` → `Main image` → `IsPlayerDeck` → `Text background`(其下 `Deck Name`)。
         /// 🔴 **一层一个队列**：同队列「谁盖谁」不可控（`ImageQuad` 全是透明队列、按到相机的 3D 距离排 ——
@@ -407,6 +444,20 @@ namespace CardPresentation
         /// 与 `_probe_deckinfo.py`（`Deck info` 的组件只有 RectTransform + DeckGeneralInfoDemo）。
         /// ⚠️ 正本 `阶段二_战斗入口_原版规格.md` §二 A 把这张图写在 `Deck info` 那一行 —— 与实读不符。</summary>
         public const float BgBigL = 761.63f, BgBigT = 187.00f, BgBigR = 1831.93f, BgBigB = 869.00f;
+        /// <summary>🆕 **2026-10-22（界面线 M2）**：`Deck info ▸ Character Image` 的矩形 —— **905 × 905**，
+        /// `586.88,-9.72 → 1491.88,895.28`（原版 prefab 实读：锚 `(0.5,0.5)-(0.5,0.5)` · **pivot `(0.5,0)`** ·
+        /// `posDelta (-201,-424)` · `sizeDelta (905,905)` · `Image`/`Simple` · **`m_Enabled = 0`**（出厂关））。
+        /// 判据命令 = `python -I -X utf8 工具/menu_dump.py bundle_menus_assets_all "Practice Mode Menu" --depth 4 --md`
+        /// （2026-10-22 现读，`Deck info` 的第 2 个子件那一行）。
+        /// <para>🔴 **出厂 `m_Enabled=0` 不是「原版不显示」**：原版运行时
+        /// `DeckGeneralInfoDemo.ConfigPanel` 里 `Behaviour.set_enabled(本件, 1)` + `Image.set_sprite(heroSprite)`
+        /// （反编译 `DeckGeneralInfoDemo__ConfigPanel.c` 中段：`+0x48` 那颗组件先 `set_enabled(1)` 再 `set_sprite`；
+        /// `+0x48` = 序列化字段 `characterImage`，由 `menu_dump` 的「字段: …characterImage…」那一列坐实）。
+        /// 喂的图 = `RawCardScript.fullHeroSprite`（玩家卡组那一支）/ `DemoDeckInfoSO.CharacterImage`
+        /// （= `PrebuiltDeck.DeckHero.fullHeroSpriteReference`，预组那一支）= 我们工程里的
+        /// `CardArt.DeckHero` 那一族 `UI_Deck_Warlord_&lt;督军名&gt;`（2048² 方形整身立绘）。
+        /// ⛔ **别用 `CardArt.Portrait`**（卡面插图 671×1024 紧裁）—— 那是「战将立绘残缺」那条用户报过的病。</para></summary>
+        public const float ChL = 586.88f, ChT = -9.72f, ChR = 1491.88f, ChB = 895.28f;
         public const float DlL = 1240.38f, DlT = 207.65f, DlR = 1810.17f, DlB = 827.18f;
         /// <summary>`Deck List Drawer/Content` 的矩形（原版 LayoutGroup 节点本身）。
         /// 🔴 我们原来把卡列表起在 `Deck List Drawer` 自己的左上角（1240.38, 207.65）——
@@ -543,6 +594,9 @@ namespace CardPresentation
         bool _loreWarnedNoData;
         Transform _info, _bgInfo, _general, _deckList;
         ImageQuad _armyIcon, _cardback;
+        /// <summary>🆕 **2026-10-22（界面线 M2）**：`Deck info ▸ Character Image`（督军整身立绘，905×905）。
+        /// 换卡组时要跟着换图（`RefreshCharacterImage`，判源 = <see cref="CurrentDeck"/>）。</summary>
+        ImageQuad _charImg;
 
         /// <summary>🔴 **两个抽屉是互斥的**（原版 `DeckGeneralInfoDemo.Toggle(bool)`：
         /// `generalInfoContainer.SetActive(opt)` + `cardsInDeckPanel.gameObject.SetActive(!opt)` —— 反编译
@@ -596,6 +650,10 @@ namespace CardPresentation
             //   ⛔ 别再照着旧注释把那一行删掉。
             MenuDraw.Absorb(root, "AbsorbHitDeckInfo", new PxRect(BgBigL, BgBigT, BgBigR, BgBigB), QPr, QPrHit);
 
+            // 🆕 **2026-10-22（界面线 M2）**：`Character Image`（督军整身立绘）—— 原版 `Deck info` 的**第 2 个子件**，
+            //    排在红底之后、`Background Info` 之前（兄弟序照抄；判据见 `ChL/T/R/B` 的 doc）。
+            BuildCharacterImage();
+
             // `Background Info` —— 原版实读：**【空容器】+ 出厂 act=0**（一条子件都没有）。
             // ⚠️ 它**不是** `Deck Name`/`Lore Text` 那几件的父（正本 §二 A 那么写是错的 —— 第 53 条）。
             //    照原版**留空**：建出来、关着，让别人一眼看得出「这里原版就是空的」。
@@ -613,6 +671,109 @@ namespace CardPresentation
             // ---- `Deck List Drawer`（原版 act=1，但出厂被 `SetContent` 关掉；内容见 `BuildCardRows`）----
             BuildCardRows(_info);
             Toggle(true);                       // 出厂 = 总览（`SetContent` 那两句）
+        }
+
+        // ============================================================ 🆕 2026-10-22（界面线 M2）：`Character Image`
+        /// <summary>`Deck info ▸ Character Image` —— 督军的**整身立绘**（905×905，rect 见 <see cref="ChL"/>）。
+        ///
+        /// <para>🔴 **原来这里记的是「原版 `m_Enabled=0` ⇒ 不建」（见文件头「没建的」那一行）—— 那条已作废**
+        /// （铁律 5）：`m_Enabled=0` 只是 **prefab 出厂态**，原版**运行时**会把它打开并喂图 ——
+        /// `DeckGeneralInfoDemo.ConfigPanel` 里对序列化字段 `characterImage` 先 `Behaviour.set_enabled(1)`
+        /// 再 `Image.set_sprite(heroSprite)`（`d:/2/tools/decomp_full/DeckGeneralInfoDemo__ConfigPanel.c` 中段）。
+        /// 参考图 `C:/Users/qjh36/Desktop/warpforge参考图/练习界面参考图.png` 右侧那块大立绘就是它
+        /// （Iconward Malak Vorenth 举旗站姿）。</para>
+        ///
+        /// <para>⚠️ **图只走 `CardArt.DeckHero`**（`UI_Deck_Warlord_&lt;督军名&gt;`，2048² 方形整身抠图）——
+        /// ⛔ 别用 `CardArt.Portrait`（卡面插图 671×1024 紧裁）：那是用户报过的「战将立绘残缺」
+        /// （同 `Shell/DeckInfoPopup.cs` 的 `Warlord Image`，2026-10-18 已在那里改对）。</para></summary>
+        void BuildCharacterImage()
+        {
+            var tex = CurrentWarlordArt();
+            if (tex == null) return;                 // 已经出声（`CurrentWarlordArt` 里）
+            _charImg = ImgTex(_info, tex, "Character Image（督军整身立绘）", ChL, ChT, ChR, ChB,
+                              "Character Image", QPrChar, KeepAspectFor(tex));
+        }
+
+        /// <summary>`CardArt.DeckHero` 那一族是 **2048² 方形** ⇒ 905² 框里「拉伸」与「等比内接」逐位同值
+        /// （= 原版那颗 `Image` 的 `m_PreserveAspect = 0`）；只有「取不到立绘、退回卡面插图（671×1024）」
+        /// 那条**我们自己的兜底**按非方形等比内接保形。判据与 `Shell/DeckInfoPopup.cs` 的 `Warlord Image`
+        /// **同一式**（那里写的是 `!(Mathf.Abs(w - h) &lt;= 1)`）—— ⛔ 别另立一套。</summary>
+        static bool KeepAspectFor(Texture2D t) => t == null || t.height <= 0 || Mathf.Abs(t.width - t.height) > 1;
+
+        /// <summary>当前卡组的督军整身立绘 —— **唯一判源 = <see cref="CurrentDeck"/>**
+        /// （预组那一支走 `PrebuiltDecks.ToPlayerDeck`，它的 `WarlordId` 就是 `Deck.heroId`）。
+        /// <para>🔴 **2026-10-22（界面线 M3）改走两档可判别的 `CardArt.TryDeckHero`**：
+        /// 旧写法拿**纹理名前缀** (`UI_Deck_Warlord_`) 去猜「是不是拿到了方形立绘」—— 那条判据
+        /// 在 `DA75` 那种资产名**没有** `_Warlord_` 前缀（`UI_Deck_Master Zacharial`）的档上会误判。
+        /// 现在：true ⇒ 方形立绘（905² 槽**铺满**）；false ⇒ 退回卡面插图（**等比内接** + 出声）。</para>
+        /// <para>取不到 / 只剩兜底卡面插图时**都出声**（⛔ 不静默）—— `TryDeckHero` 自己那条已经
+        /// 说清了「期望哪个资产名」，这里只补「本窗会怎么画」。</para></summary>
+        Texture2D CurrentWarlordArt()
+        {
+            var deck = CurrentDeck;
+            string wid = deck != null ? deck.WarlordId : null;
+            if (string.IsNullOrEmpty(wid))
+            {
+                Debug.LogWarning("[Practice] `Character Image` **不画**：当前卡组没有督军"
+                                 + (deck != null ? "（「" + deck.Name + "」）" : "（没有卡组）"));
+                return null;
+            }
+            Texture2D tex;
+            if (CardArt.TryDeckHero(wid, out tex) && tex != null) return tex;
+            // 兜底：`CardArt.DeckHero` 内部退回 `Portrait`（卡面插图）。
+            // **出声**（这是我们的兜底，不是原版做法 —— 原版喂的是 `RawCardScript.fullHeroSpriteReference`）。
+            tex = CardArt.Portrait(wid);
+            if (tex == null)
+            {
+                Debug.LogWarning("[Practice] `Character Image` **不画**：督军 " + wid + " 的整身立绘与卡面插图都取不到");
+                return null;
+            }
+            Debug.LogWarning("[Practice] `Character Image` 退回**卡面插图**（" + tex.name + "，"
+                             + tex.width + "×" + tex.height + "）并按竖构图**等比内接** —— "
+                             + "**不是原版做法**（原版喂 `RawHeroSpriteReference` = `UI_Deck_Warlord_*` 2048² 方形）");
+            return tex;
+        }
+
+        /// <summary>换卡组（`PickDeck` / `PickPrebuilt`）时换图 —— 与 `_txtDeckName` / `_armyIcon` / `_cardback`
+        /// 同一批刷新，判源也是同一个 <see cref="CurrentDeck"/>（⛔ 别按 `DeckIndex` 再判一次：预组档它恒为 −1）。
+        /// 🧨 改坏法：只在建窗时画一次 ⇒ 换卡组之后立绘停在上一次那副的督军（断言量两次纹理名，会红）。</summary>
+        public void RefreshCharacterImage()
+        {
+            if (_charImg == null)
+            {
+                // 建窗那一刻当前卡组没有督军（空卡组）⇒ 那一层当时没建。这里补建 —— 否则「先空后选」永远缺这一块。
+                if (_info != null && CurrentDeck != null && !string.IsNullOrEmpty(CurrentDeck.WarlordId))
+                    BuildCharacterImage();
+                return;
+            }
+            var tex = CurrentWarlordArt();
+            if (tex == null) { _charImg.gameObject.SetActive(false); return; }
+            if (!_charImg.gameObject.activeSelf) _charImg.gameObject.SetActive(true);
+            _charImg.SetTexture(tex, true);          // 只换图；比例由下一行**显式**给（keepAspect 不会改 `_aspect`）
+            FitQuadToRect(_charImg, tex, ChR - ChL, ChB - ChT);
+        }
+
+        /// <summary>把 quad 按贴图比例**内接**进 `w×h` 的框（居中）—— 与 `ImgTex` 里 `keepAspect` 那一支**同一式**：
+        /// `WorldH` 取框高、`WorldW = WorldH × 贴图比例`（宽的那一档反过来）。
+        /// <para>🔴 **2026-10-22（界面线 M3）**：**方形图（|w−h|≤1）直接铺满**，不走内接 ——
+        /// 原版那颗 `Character Image` 是 `m_PreserveAspect = 0`（拉满 905²），而方形图「拉满 ≡ 等比」，
+        /// 两种写法同解；写成显式的「铺满」是为了**别让将来某张近似方形（2048×2047 之类）被悄悄缩一圈**。
+        /// ⚠️ 只有「退回卡面插图（671×1024）」那条**我们自己的兜底**才等比内接保形。</para>
+        /// 换图后**必须**重算：方形立绘 ↔ 竖构图插图互换时，quad 不重算就会被横向拉宽（静默，只是「看着胖」）。</summary>
+        static void FitQuadToRect(ImageQuad q, Texture2D tex, float w, float h)
+        {
+            if (q == null || tex == null || tex.height <= 0) return;
+            if (System.Math.Abs(tex.width - tex.height) <= 1)
+            {
+                // 方形槽**铺满**（= 原版 `m_PreserveAspect = 0`）。
+                q.SetWorldHeight(LayoutSpace.Px(h));
+                q.SetAspect(w / Mathf.Max(1e-6f, h));
+                return;
+            }
+            float sa = tex.width / (float)tex.height, ra = w / Mathf.Max(1e-6f, h);
+            if (sa > ra) h = w / sa; else w = h * sa;
+            q.SetWorldHeight(LayoutSpace.Px(h));
+            q.SetAspect(w / h);
         }
 
         /// <summary>`Deck Name`(fs36 居中) / `Warlord Name`(fs35 **左对齐**) / `Army Image`(105.26×104)。
@@ -638,7 +799,7 @@ namespace CardPresentation
                               wrapPx: WnR - WnL, autoMinPx: 1f, autoMaxPx: 35f, autoBasePx: 24.3f,
                               face: TmpFont.Face.LatinCardBody);
             _armyIcon = Img(_info, DeckRuntime.FactionIcon(d.Faction), ArmImgL, ArmImgT, ArmImgR, ArmImgB,
-                            "Army Image", QPrRow, true);
+                            "Army Image", QPrFront, true);   // 🆕 2026-10-22（M2）：`QPrRow`→`QPrFront`（要压在立绘之上，见 `QPrFront` doc）
         }
 
         /// <summary>`General container` 里的几件：cardback · `Show Deck Content Button` · `Change Deck`。
@@ -688,12 +849,13 @@ namespace CardPresentation
             }
 
             _cardback = ImgTex(_general, CardArt.DeckCardback(d.CardbackId, d.Faction), "Cardback(这副牌的卡背)", CbL, CbT, CbR, CbB,
-                               "Cardback", QPrRow, true);
+                               "Cardback", QPrFront, true);   // 🆕 2026-10-22（M2）：同上（`Deck info` 自己的图整组上调）
 
             // ⚠️ 图标那层用**原版 `Icon` 子件自己的矩形**（1737.68,246.46→1785.07,293.12 = 47.39×46.66），
             //    不是父件的 64.24×63.24（用父的会把图标放大 1.36 倍、而且不居中）
             Img(_general, "UI_Button_Round_background", ShowBtnL, ShowBtnT, ShowBtnR, ShowBtnB, "Show Bg", QPrRow, true);
-            Img(_general, "40k_UI_bt_deck", 1737.68f, 246.46f, 1785.07f, 293.12f, "Show Icon", QPrRow, true);
+            // 🔴 图标在钮面之上（同 `Back Icon` 那条：钮底中心不透明纯黑）。
+            Img(_general, "40k_UI_bt_deck", 1737.68f, 246.46f, 1785.07f, 293.12f, "Show Icon", QPrFront, true);
             // ✅ **2026-09-24 订正**：原版这颗钮**不是**翻开卡列表抽屉 —— 它是
             //    `DeckGeneralInfoDemo.cardInDeckInfoButton`（pid 由序列化字段解出），
             //    点下去的 `CardInDeckInfoButtonOnClick` 走 `WindowsManager.OpenWindow(new DeckInfoContext(deck, 2, …))`
@@ -706,7 +868,7 @@ namespace CardPresentation
             //   在「我的卡组」下被 `SetContent` 打开（反编译字段 PPtr 现核：`changePlayerDeck` → 本颗）。
             //   ⚠️ 它与 `Lore Text` 的框**互相重叠**（lore 1280.27,647.41→1770.27,791.41 套着本钮
             //   1398.00,680.75→1652.54,764.08）—— 原版靠**两者不同时可见**避开；我们照抄这条显隐。
-            var chgBgQ = Img(_general, "UI_Button_Mulligan", ChgL, ChgT, ChgR, ChgB, "Change Deck Bg", QPrRow, true);
+            var chgBgQ = Img(_general, "UI_Button_Mulligan", ChgL, ChgT, ChgR, ChgB, "Change Deck Bg", QPrFront, true);
             _chgBg = chgBgQ != null ? chgBgQ.transform : null;
             // 🆕 **A1205 接上**（`R5` §2·H #50：原版 `General container ▸ Generic Simplified UI Button ▸
             //    Button Text` = `auto[10~45] · base 12 · **折行 0**`）—— 本方法 8 处里**唯一**折行 0 的一处
@@ -754,7 +916,10 @@ namespace CardPresentation
                 RewardsWindow.DestroySafe(ch.gameObject);
             }
             var counts = CostCurveDrawer.Counts(CurrentDeck, CollectionData.Card);
-            CostCurveDrawer.Build(_general, CostDrwCX, CostDrwCY, CostDrwScl, counts, QPrRow, QPrText, rowName);
+            // 🆕 2026-10-22（M2）：柱子的队列 `QPrRow`→`QPrFront` —— 费用曲线那 9 行**压在立绘之上**
+            //    （实测多张 `UI_Deck_Warlord_*` 在柱区 alpha=255；原版兄弟序里 `General container`
+            //     排在 `Character Image` 之后）。文字那一档照旧 `QPrText`（它已高于 `QPrFront`）。
+            CostCurveDrawer.Build(_general, CostDrwCX, CostDrwCY, CostDrwScl, counts, QPrFront, QPrText, rowName);
             CostRows.Clear();
             CostRows.AddRange(counts);
             Debug.Log("[Practice] 费用曲线画了 9 行（" + CostCurveDrawer.Dump(counts) + "）");
@@ -852,11 +1017,35 @@ namespace CardPresentation
         public bool ShowingGeneralInfo { get { return _general != null && _general.gameObject.activeSelf; } }
 
         /// <summary>当前选中的卡组（默认 = `DeckLibrary` 的当前那套）。
-        /// ⚠️ **只在「我的卡组」那一档有意义**：预组不在卡组库里 ⇒ `PickPrebuilt` 会把它显式写成 **−1**
+        /// ⚠️ **只在「我的卡组」那一档有意义**：左列现在列的是**练习对**（`PrebuiltDecks.Pairs`），
+        /// 选一对 ⇒ `PickPrebuilt` 会把它显式写成 **−1**；只有走 `Change Deck` 选了玩家自己的卡组才会 ≥ 0
         /// （⛔ 别拿它判「当前是哪副」，见 <see cref="CurrentDeck"/>）。</summary>
         public int DeckIndex;
+
+        /// <summary>🆕 **2026-10-22**：左列**当前选中的那一对**（`PrebuiltDecks.Pairs` 的下标；−1 = 没选 / 选的是「我的卡组」）。
+        /// 它只回答「**哪一格**亮着」；「当前是哪一副牌」仍然只有一个判源 <see cref="CurrentDeck"/>。</summary>
+        public int PairIndex = -1;
+
+        /// <summary>当前选中的那一对（自检用；`PairIndex` 越界 / −1 ⇒ null）。</summary>
+        public PrebuiltDecks.Pair PickedPair
+        {
+            get
+            {
+                var ps = PrebuiltDecks.Pairs;
+                return PairIndex >= 0 && PairIndex < ps.Count ? ps[PairIndex] : null;
+            }
+        }
+
+        /// <summary>🆕 **2026-10-22**：左列**逻辑上一共几格** = 当前（模式 + 阵营）筛选下能列出来的**对数**。
+        /// ⚠️ 与 <see cref="DeckRows"/>`.Count` **不是一回事**：后者只装**视口里那几格**
+        /// （`RebuildDeckRows` 里 `MenuDraw.VisibleAbove` 那道粗筛，78 对只建得出 8 格）；
+        /// 本属性 = 原版 `Content` 上 `ContentSizeFitter` 撑出来的那批子件数。</summary>
+        public int ListedDeckCount { get { return FilteredDeckCount(); } }
         /// <summary>在「预组卡组」那一页选中的那副（空 = 用的是「我的卡组」）。
-        /// ⚠️ **还不能拿去开战** —— 原因与出处见 `PrebuiltDecks.WarnNotPlayableYet`。</summary>
+        /// 🔴 **2026-10-22 就地订正（铁律 5）**：这里原来写「**还不能拿去开战** —— 见 `PrebuiltDecks.WarnNotPlayableYet`」——
+        /// **两句都已过期**：那个方法 2026-09-26 就删了（`PrebuiltDecks.cs` 里留着说明），开战通道
+        /// `PrebuiltDecks.SetPendingBattleDeck` / `TakePendingBattleDeck` 也已经接上了。
+        /// 它现在只回答「哪一副预组」，**「是哪一格」看 <see cref="PairIndex"/>**。</summary>
         public PrebuiltDecks.Deck PickedPrebuilt;
         /// <summary>🔴 **2026-10-21：本面板「当前是哪一副」的【唯一判源】。**
         ///
@@ -970,13 +1159,21 @@ namespace CardPresentation
             //   （`decomp_full/PracticeModePopup__Close.c` 三句实读）⇒「关窗/再开 = 选择归零」是原版行为；
             //   留着通道会出现「闸验自建、发牌发预组」（审查代理 #11 那条）。
             PickedPrebuilt = null;
+            PairIndex = -1;                  // 🆕 2026-10-22：左列那一格的选中态一并归零（同 `DeckIndex`）
             PrebuiltDecks.ClearPendingBattleDeck();
             DeckIndex = CollectionData.CurrentIndex();
             ArmyIndex = -1;
-            // 🆕 2026-10-17（U4-1）：`Game mode` 初值 = **当前选中卡组自己的模式**
-            //   （⚠️ 原版 ctor 默认 13 —— 这处偏离的理由逐条写在 `SelectedGameMode` 的 doc 里）。
+            // 🔴 **2026-10-22（`D1`）就地订正（铁律 5）：`Game mode` 出厂值 = 原版 `Skirmish(13)`。**
+            //   判据 = 原版 `PracticeModePopup__ctor.c` 的**首句** `*(undefined4 *)(param_1 + 0x110) = 0xd;`
+            //   （`d:/2/tools/decomp_full/PracticeModePopup__.ctor.c`，本批亲读）—— 与 prefab 那颗
+            //   `EverguildToggle.m_IsOn = 0`（false ⇒ 13，见 `GameModeValueChange`）自洽。
+            //   ⚠️ **原来这里写的是**「初值 = 当前选中卡组自己的模式」，并把它记成一处在 doc 里的
+            //   「主动偏离」—— **已按原版改掉**（理由与更正痕迹 → `SelectedGameMode` 的 doc）。
+            //   ⚠️ **这条只决定「没有外部指定」时的初值**，两条显式路径**不受影响**：
+            //     · `StartPracticeMatch(…)`（`Deck info ▸ Practice Deck`）= 在 `OpenWindow` **之后**写它；
+            //     · 玩家点开关 = `SetGameMode`（原版 `GameModeValueChange`）。
             //   必须在 `Build()` **之前**：`BuildGameModeToggle` 要按它画底图、`RebuildDeckRows` 要按它筛。
-            SelectedGameMode = ToggleModeOf(CollectionData.DeckAt(DeckIndex).GameMode);
+            SelectedGameMode = GameMode.Skirmish;
             Build();
         }
 
@@ -1008,6 +1205,7 @@ namespace CardPresentation
                               + PickedPrebuilt.deckId + "）—— 原版 `__Close → SaveSelectedDeck + ResetContent`；"
                               + "⚠️ 我们没做 `SaveSelectedDeck`/`LoadSavedDeck` 那两条口 ⇒ 重开窗不会恢复它");
                 PickedPrebuilt = null;
+                PairIndex = -1;          // 🆕 2026-10-22：左列那一格的选中态（同 `PickedPrebuilt` 一起作废）
                 PrebuiltDecks.ClearPendingBattleDeck();
             }
             base.Close();
@@ -1029,6 +1227,10 @@ namespace CardPresentation
             var root = transform;
             for (int i = root.childCount - 1; i >= 0; i--) RewardsWindow.DestroySafe(root.GetChild(i).gameObject);
             DeckRows.Clear(); ArmyCells.Clear(); CardRows.Clear();
+            // 🆕 2026-10-22（M2）：上面那圈把**旧子件**全撤了 —— `Character Image` 那一颗的引用也要一并作废。
+            //   ⚠️ 不置空的话，`RefreshCharacterImage` 在**同一帧**里（`StartPracticeMatch` = `OpenWindow`
+            //   紧接着 `PickDeck`）会拿到**已排进销毁队列、但还没真销毁**的旧 quad（`== null` 此刻仍为假）。
+            _charImg = null;
 
             // 1) 压暗整屏 + 点背景关（原版 `BackgroundCloseButton`）
             // 🔴 **2026-09-24 修**：原来传的是 `960,540,1920,1080` —— 那是**右下四分之一**的角色！
@@ -1044,7 +1246,9 @@ namespace CardPresentation
 
             // 2) `Back`（圆钮 + 箭头 + 文案）
             Img(root, "UI_Button_Round_background", BackL, BackT, BackR, BackB, "Back Bg", QPrRow, true);
-            var backIc = Img(root, "40k_UI_bt_back", BackIcL, BackIcT, BackIcR, BackIcB, "Back Icon", QPrRow, true);
+            // 🔴 **2026-10-22（M2）**：图标**必须在钮面之上** —— 钮底图 `UI_Button_Round_background` 中心是
+            //    **不透明纯黑**，同档会把它整个盖掉（真机截图里这颗就是纯黑圆盘）。见 `QPrFront` 的 doc。
+            var backIc = Img(root, "40k_UI_bt_back", BackIcL, BackIcT, BackIcR, BackIcB, "Back Icon", QPrFront, true);
             // 🆕 **A1205 接上**（`R5` §2·H #51：原版 `Back button ▸ Text` = `auto[1~45] · base 31.9 · 折行 1`）
             // 🔴 **2026-10-19（`A1501`）：文案改走 `Loc.T`** —— 原版那颗 TMP 上挂着一颗 I2 `Localize`，
             //    `mTerm = MainMenu/MainButtons/ButtonLabel/Back`（本轮现读：把 `Practice Mode Menu` 整棵
@@ -1120,13 +1324,20 @@ namespace CardPresentation
         //   · `PracticeModePopup__SetArmyButtons.c`：卡组列表按 `gameMode` 在**两套槽位**（`+0x18` / `+0x20`）里二选一
         //     ⇒ 我们的等价物 = 按 `PlayerDeck.GameMode` 过滤「我的卡组」列表。
 
-        /// <summary>本窗当前的赛制（原版 `PracticeModePopup.gameMode` @`+0x110`）。
-        /// <para>⚠️ **一处主动偏离（如实记，⛔ 别当原版语义）**：原版 ctor 默认 **Skirmish(13)**，本类
-        /// `Open()` 却按**当前选中卡组自己的模式**初始化。理由：我们这扇窗列的是**玩家自己的卡组**
-        /// （原版列的是预组 `Practice Deck`，每条带 Classic/Skirmish 两套槽位），而玩家卡组默认
-        /// `GameMode = Classic(0)` —— 照 13 开局的话绝大多数玩家的列表会是空的。
-        /// 开关出现条件也不同：原版 `Awake` 里只有 LiveOps 有对应活动才 `SetActive(true)`，
-        /// 我们没有服务器 ⇒ 常显（同 `ChatPanel` 那条老账）。</para></summary>
+        /// <summary>本窗当前的赛制（原版 `PracticeModePopup.gameMode` @`+0x110`，出厂 `0xd` = **Skirmish(13)**）。
+        /// <para>🔴 **2026-10-22（`D1`）就地订正（铁律 5）**：这里原来写着「**一处主动偏离**：原版 ctor 默认
+        /// Skirmish(13)，本类 `Open()` 却按**当前选中卡组自己的模式**初始化」——**那处偏离已经删掉**，
+        /// `Open()` 现在照原版给 **Skirmish**。
+        /// 🆕 **2026-10-22（同一批 · 练习窗数据源对齐）**：这里原来还写「我们这扇窗列的是**玩家自己的卡组**
+        /// （原版是预组 `Practice Deck`）」—— **数据源已经换成原版那 78 对 `DemoDeckInfoSO`**（`PrebuiltDecks.Pairs`），
+        /// 所以「默认 Skirmish 会列出空列表」那个下游症状**已经消失**（78 对两侧齐全，两种模式都列得出）。
+        /// 两个模式的差别只剩「同一对的哪一副」：`Classic → classicDeck(30 张)`、`Skirmish → skirmishDeck(12 张)`
+        /// （原版 `DemoDeckInfoSO.GetDeck`）。</para>
+        /// <para>开关的出现条件不同：原版 `Awake` 里只有 LiveOps 有对应活动才 `SetActive(true)`，
+        /// 我们没有服务器 ⇒ 常显（同 `ChatPanel` 那条老账）。</para>
+        /// <para>⚠️ **`Open()` 之后左列没有选中格**：原版 `__Open` 取的是 LiveOps 那个 `PracticeEvent` 的演示卡组
+        /// （`PracticeModePopup__Open.c` 中段；拿不到事件时它 `FUN_1803f47a0()` 抛异常）——我们没有服务器，
+        /// 照旧退化成「面板显示 `DeckLibrary.Current`、左列一格不亮」，⛔ 不假装有事件。</para></summary>
         public GameMode SelectedGameMode { get; private set; } = GameMode.Skirmish;
 
         /// <summary>`Background` 那一颗（开关底图，换态时换图用）。</summary>
@@ -1227,13 +1438,34 @@ namespace CardPresentation
 
         /// <summary>原版 `PracticeModePopup__ResetContent` + `SetArmyButtons` 那两步的等价物：
         /// **选择归零 → 按当前（模式 + 阵营）筛选重列**。
-        /// ⚠️ 我们的重列长在 `RebuildDeckRows` / `PickDeck` 里，所以这里只负责「选出第一副该模式的卡组」。</summary>
+        /// ⚠️ 我们的重列长在 `RebuildDeckRows` 里，所以这里只负责**选出该显示哪一对**（见方法体的更正注）。</summary>
         void ResetContent()
         {
-            int first = FirstDeckInMode(SelectedGameMode);
-            if (first >= 0) { PickDeck(first); return; }
+            // 🔴 **2026-10-22**：左列现在列的是 78 对 `DemoDeckInfoSO`（一格 = 一对）——
+            //    切模式之后仍然落回**同一对**（拿它的另一副），拿不到才退到该模式 + 该阵营下的第一对。
+            //    ⚠️ **与原版的差别如实记**：原版 `ResetContent` 只是把选择清空（`+0xf8 = 0`、`+0xe8 = 0`）
+            //       再销毁旧格，随后的 `SetArmyButtons(0)` 重建一列**谁都没选中**的格子
+            //       （`PracticeModePopup__ResetContent.c` + `__GameModeValueChange.c` 末句）。
+            //       我们这条「自动选中」是**沿用本窗改前既有行为**（原来也是选该模式第一副）——
+            //       理由：不开一局「空面板」也能看清这一对是哪副牌；⛔ 别把它当成原版行为。
+            //    🔴 **双卡组的关键不变式**（断言咬这一条）：`PickedPrebuilt` / `PendingSource` / `CurrentDeck`
+            //       永远 = **当前 `Game mode` 那一副** —— 它们只由下面这次 `PickPair` 写。
+            var pairs = PrebuiltDecks.Pairs;
+            if (PairIndex >= 0 && PairIndex < pairs.Count)
+            {
+                var keep = PrebuiltDecks.PairDeck(pairs[PairIndex], SelectedGameMode);
+                if (keep != null && (ArmyIndex < 0 || _facs == null || ArmyIndex >= _facs.Count
+                                     || keep.faction == _facs[ArmyIndex]))
+                {
+                    PickPair(PairIndex);
+                    return;
+                }
+            }
+            int first = FirstPairInMode(SelectedGameMode);
+            if (first >= 0) { PickPair(first); return; }
 
             // 该模式下一副都没有 ⇒ 空列表（原版这一次 `ResetContent` 也是空的；⛔ 不许静默）
+            PairIndex = -1;
             DeckIndex = -1;
             PickedPrebuilt = null;
             PrebuiltDecks.ClearPendingBattleDeck();
@@ -1242,6 +1474,8 @@ namespace CardPresentation
             // 🔴 **2026-10-21（审查代理 #1）**：一套都不剩 ⇒ 曲线也必须归零（判源 = `CurrentDeck` = null
             //   ⇒ `Counts` 全 0）。原来这一支不重画，面板上会**留着一副已经不存在的牌**的 9 行。
             RefreshCostRows();
+            // 🆕 2026-10-22（M2）：立绘一并撤掉 —— 同一句理由：⛔ 面板上不留上一副牌的东西。
+            RefreshCharacterImage();
             if (_txtDeckName != null) _txtDeckName.SetText("");
             if (_txtWarlord != null) _txtWarlord.SetText("");
             if (_txtArmy != null) _txtArmy.SetText(SelectedArmyName());
@@ -1250,16 +1484,17 @@ namespace CardPresentation
                              + "：当前筛选下**一套卡组都没有** ⇒ 列表为空（如实出声，不假装选到了）");
         }
 
-        /// <summary>当前（模式 + 阵营）筛选下**第一副**卡组的下标；一套都没有 ⇒ −1。</summary>
-        int FirstDeckInMode(GameMode mode)
+        /// <summary>当前（模式 + 阵营）筛选下**第一对**在 `PrebuiltDecks.Pairs` 里的下标；一套都没有 ⇒ −1。</summary>
+        int FirstPairInMode(GameMode mode)
         {
-            for (int i = 0; i < CollectionData.DeckCount(); i++)
+            var pairs = PrebuiltDecks.Pairs;
+            for (int pi = 0; pi < pairs.Count; pi++)
             {
-                var info = CollectionData.DeckAt(i);
-                if (ToggleModeOf(info.GameMode) != mode) continue;
+                var deck = PrebuiltDecks.PairDeck(pairs[pi], mode);
+                if (deck == null) continue;
                 if (ArmyIndex >= 0 && _facs != null && ArmyIndex < _facs.Count
-                    && info.Faction != _facs[ArmyIndex]) continue;
-                return i;
+                    && deck.faction != _facs[ArmyIndex]) continue;
+                return pi;
             }
             return -1;
         }
@@ -1461,7 +1696,7 @@ namespace CardPresentation
                                 "Has Player Deck", QPrItemSeal, false, null, null, ArmyClipSoft);
                 if (hlQ != null) hlQ.gameObject.SetActive(i == ArmyIndex);
                 // ⚠️ 阵营比较走 `DeckRules.SameFaction`（OrdinalIgnoreCase）—— 与同窗卡组列表那条筛选用的是
-                //    **同一种相等**（`RebuildDeckRows` 里那句 `info.Faction != _facs[ArmyIndex]` 是大小写敏感的裸比，
+                //    **同一种相等**（`RebuildDeckRows` 里那句 `deck.faction != _facs[ArmyIndex]` 是大小写敏感的裸比，
                 //    两处今天对同一批数据等价；真要收口是另一件，本轮**不动**、如实登记）。
                 if (sealQ != null) sealQ.gameObject.SetActive(deckFac.Length > 0
                                                               && RuleEngine.DeckRules.SameFaction(deckFac, facs[i]));
@@ -1535,16 +1770,23 @@ namespace CardPresentation
             //   **已删**：裁切状态现在长在 `BuildDeckRows` 建的那颗 `Decks Scroll view/Viewport` 节点上，
             //   下面的粗筛走 `VisibleAbove`、逐件的 `clip` 全部传 `null` ⇒ `MenuDraw.*` 沿父链解析到它。
             //   ⛔ 别在这里再留一个 `view` 局部量（见那一处的注释）。
-            int slot = 0;                                  // **格号**（筛掉的不占格）—— 与卡组下标 `i` 是两件事
-            int total = CollectionData.DeckCount();
-            for (int i = 0; i < total; i++)
+            int slot = 0;                                  // **格号**（筛掉的不占格）—— 与「第几对」`pi` 是两件事
+            // 🔴 **2026-10-22（练习窗数据源对齐原版）**：左列 = **原版那 78 对 `DemoDeckInfoSO`**
+            //    （`PrebuiltDecks.Pairs`，每个对 = `classicDeck` + `skirmishDeck` 两副），
+            //    **不是**玩家自己的卡组（改前那句 `CollectionData.DeckCount()` 那一版已删）。
+            //    判据 → `资料/普查产出_1022/D3_DemoDeckInfo成对表.md` §一·4（78 项 = `PracticeModePopup.decks`
+            //    数组逐项相等）+ `DemoDeckInfoSO__GetDeck.c`（`0 → classic`、否则 `→ skirmish`）。
+            var pairs = PrebuiltDecks.Pairs;
+            for (int pi = 0; pi < pairs.Count; pi++)
             {
-                var info = CollectionData.DeckAt(i);
-                if (ArmyIndex >= 0 && _facs != null && ArmyIndex < _facs.Count && info.Faction != _facs[ArmyIndex])
+                var pair = pairs[pi];
+                // 当前模式那一副（原版 `GetDeck(gameMode)`）。取不到 ⇒ `PairDeck` 已经 `LogWarning` 出声、这里跳过。
+                var deck = PrebuiltDecks.PairDeck(pair, SelectedGameMode);
+                if (deck == null) continue;
+                // ⚠️ 阵营筛选用**这副牌自己的 `faction`**（产物里那一列 = 原版 `decklists` 的 `faction`；
+                //    与 `FactionOf(heroId)` 同源 —— 别在这儿再推一次）。
+                if (ArmyIndex >= 0 && _facs != null && ArmyIndex < _facs.Count && deck.faction != _facs[ArmyIndex])
                     continue;
-                // 🆕 2026-10-17（U4-1）：**赛制筛选**（原版 `SetArmyButtons` 按 `gameMode` 在两套槽位里二选一；
-                //    我们每副卡组自己带 `GameMode` ⇒ 直接按它筛）。`ResetContent` 之后这一行就是「重列该模式的卡组」。
-                if (ToggleModeOf(info.GameMode) != SelectedGameMode) continue;
                 // 🔴 格位照原版 `GridLayoutGroup.SetCellsAlongAxis`：
                 //   横 = `Content.x1 + startOffset + 列 × (格宽 + spacing.x)`（`startOffset` = 8.02 ⇒ 第 1 列 270.08）
                 //   纵 = `Viewport.y1 + 行 × (格高 + spacing.y)`（**spacing.y 是 −21** ⇒ 行距 159）
@@ -1563,11 +1805,12 @@ namespace CardPresentation
                 //    判据 = 原版这一格的 item prefab `Deck Selector Menu Item` 的 rect（= `DeckCellW × DeckCellH`，
                 //    见常量段那条 `GridLayoutGroup` 推导）。改坏法：删掉 `SetPxSize` ⇒ `Editor/ShellScene.cs`
                 //    §A218「`DeckRow_<i>` 的 rect = 格矩形」红。
-                var cell = new GameObject("DeckRow_" + i, typeof(RectTransform));
+                var cell = new GameObject("DeckRow_" + pi, typeof(RectTransform));
                 cell.transform.SetParent(holder, false);
                 MenuDraw.SetPxSize(cell.transform, rr.W, rr.H);
                 cell.transform.localPosition = Local3(holder, rr.x1, rr.y1, rr.x2, rr.y2);
-                bool cur = i == DeckIndex;
+                // 「当前这套」标记 = 这一格就是选中的那一对（原版 `DeckSelectorMenuItemDemo.SelectItem`）。
+                bool cur = pi == PairIndex;
                 // 🔴 **2026-10-03 就地更正（A17 顺带查出的偏离）**：原来这里画的是**一块纯色**（我们自建），
                 // 而**原版 `Practice Deck` 的根就是一张 `UI_Button_Mulligan`**（实测：324.5×80.1 Simple、
                 // `trans=2` → HL `UI_Button_Mulligan_hover`；见普查 §块 5 第 22 行）。
@@ -1607,11 +1850,15 @@ namespace CardPresentation
                 Img(cell.transform, "UI_Button_Round_background",
                     ix + ItemBdL, iy + ItemBdT, ix + ItemBdR, iy + ItemBdB,
                     "Button border", QPrItemBd, true, null, null, DeckClipSoft);
-                // ③ `Main image` —— 原版**运行期喂** `ArmyUtilities.GetArmyIcon(army)`（我方卡组那一支）。
-                //    ⚠️ 本窗只列玩家自己的卡组 ⇒ 走那一支；没有督军（阵营空串）时 `DeckRuntime.FactionIcon`
-                //       落到它那个默认值（与 `Deck info/Army Image` 同一份映射，判据只那一处）。
-                ImgTex(cell.transform, CardArt.MenuUi(DeckRuntime.FactionIcon(info.Faction)),
-                       "`Deck Selector Menu Item/Main image` 的阵营图（" + DeckRuntime.FactionIcon(info.Faction) + "）",
+                // ③ `Main image` —— 原版**运行期喂** `ArmyUtilities.GetArmyIcon(army)`
+                //    （`DeckSelectorMenuItemDemo__InitializeWithPracticeDeck.c` 的 SO 那一支；
+                //     我方卡组那一支在 `InitializeWithPlayerDeck.c` 里也是同一句）。
+                //    🆕 **2026-10-22**：练习对那一支改用**产物里的 `armyIcon`**（`DemoDeckInfoSO.armyIcon`，
+                //    13 张 `40k_DeckSelection_icon_*`，与 `ArmyUtilities.GetArmyIcon` 逐阵营同一张）。
+                //    取不到 ⇒ 回落 `DeckRuntime.FactionIcon(faction)`（同一份映射，判据只那一处）。
+                ImgTex(cell.transform, ArmyIconOfPair(pair, deck),
+                       "`Deck Selector Menu Item/Main image` 的阵营图（`DemoDeckInfoSO.armyIcon` = "
+                       + (pair != null ? pair.armyIcon : "<无>") + "）",
                        ix, iy, ix + DeckCellW, iy + DeckCellH,
                        "Main image", QPrItemArt, false, null, null, DeckClipSoft);
                 // ④ `IsPlayerDeck`（`Purity Seal_02`）—— `highlightIsPlayerDeck`，同样只对玩家卡组开 ⇒ 恒开
@@ -1619,17 +1866,21 @@ namespace CardPresentation
                     ix + ItemSealL, iy + ItemSealT, ix + ItemSealR, iy + ItemSealB,
                     "IsPlayerDeck", QPrItemSeal, false, null, null, DeckClipSoft);
                 // ⑤ `Text background`（`40k_bt_underbutton`）+ 其下的 `Deck Name`。
-                //    🔴 **色取 `yourDeckColor`**（`DeckSelectorMenuItemDemo.yourDeckColor` 序列化值 = `(1, 0.7951523, 0, 1)`）
-                //       —— 我方卡组那一支运行期把这个色盖到 `textBackground` 上（`InitializeWithPlayerDeck`
-                //       把 `+0x50/+0x58` 那对折成 `Color` 传给 `+0x48` 的 setter）；
+                //    🔴 **2026-10-22：练习对那一支的色 = `DemoDeckInfoSO.armyColor`**（用 `armyColorRaw` 的
+                //       原样 4 个 float —— 原版存的是任意浮点、不是 8bit/255，`#RRGGBB` 只是便利值）。
+                //       判据 = `DeckSelectorMenuItemDemo__InitializeWithPracticeDeck.c` 末尾那段
+                //       `set_color(this+0x48, demoDeck.armyColor)`（`+0x48` = `Text background` 那颗 Image）；
+                //       对照：同一文件里**玩家自己的卡组**那一支（`InitializeWithPlayerDeck.c`）用的是
+                //       `yourDeckColor` —— 两支的色**不同源**，⛔ 别拿 `ItemYourDeckColor` 顶上。
                 //       prefab 里 Image 自带的 `m_Color=(0.408,0.811,0.279,1)` 是**模板默认**、会被盖掉。
                 Img(cell.transform, "40k_bt_underbutton",
                     ix + ItemNameBgL, iy + ItemNameBgT, ix + ItemNameBgR, iy + ItemNameBgB,
-                    "Text background", QPrItemTxBg, false, ItemYourDeckColor, null, DeckClipSoft);
+                    "Text background", QPrItemTxBg, false,
+                    pair != null ? pair.armyColorRaw.ToColor() : ItemYourDeckColor, null, DeckClipSoft);
                 // 文字与图**同一套**：原版 `RectMask2D` 对 TMP 一视同仁 ⇒ 走 `MenuDraw.ClipText` 同一个剖面
                 // 🔴 **㉒③**：名字条 = **172×30.6**（照原版锚点现算）+ **原版 `fs29 / auto[8,29]` / 居中 / 折行 1**
                 //    —— 原来是「顶 38px + 172 宽 + fs26 + **没有自适应**（我们挑的）」⇒ 长卡组名画到框外。
-                var nm = Txt(cell.transform, info.Name,
+                var nm = Txt(cell.transform, deck.DisplayName,
                              ix + ItemNameL, ix + ItemNameR, iy + ItemNameT, iy + ItemNameB,
                              ItemNameFontPx, Align.Center, "Deck Name", QPrText, null, DeckClipSoft,
                              // 🔴 **2026-10-17（`A1233`）**：原来这里是「先 `Txt`、再自己补
@@ -1651,11 +1902,11 @@ namespace CardPresentation
                     //    见 `RelayoutNow` 的注释：它重排一次（顺带在**挪到位之后**重裁）+ 再收一次尺寸。
                     RelayoutNow(nm);
                 }
-                int idx = i;
+                int pidx = pi;
                 // 🔴 **2026-10-13（A435 阶段 2 · 戊 / A754-b）**：`clip` 传 `null`（同 `RebuildArmyCells`）——
                 //   命中区要的【裸框 + pad】由那颗 `Viewport` 节点给（`HitOn` → `MenuDraw.ClipRectAbove`）；
                 //   软边**故意不传**（原版 `m_Softness` 只改渲染，射线那一面只看矩形）。
-                var rowHit = HitOn(cell.transform, cell.transform, "Hit", rr, () => PickDeck(idx), QPrHit, null);
+                var rowHit = HitOn(cell.transform, cell.transform, "Hit", rr, () => PickPair(pidx), QPrHit, null);
                 var rowWb = rowHit != null ? rowHit.GetComponent<WindowButton>() : null;
                 if (rowWb != null) rowWb.Bind(rowBg, "UI_Button_Mulligan");
                 // 🆕 **2026-10-18（音效线缺口 `AUD` §三 C2）**：原版
@@ -1745,14 +1996,15 @@ namespace CardPresentation
 
         int FilteredDeckCount()
         {
+            // 🔴 **2026-10-22**：与 `RebuildDeckRows` 同一套筛选（**对** + 当前模式那一副 + 阵营）——
+            //    两处必须同源，否则「内容高」按 A 算、列表按 B 建（滚到一半是空白）。
             int n = 0;
-            for (int i = 0; i < CollectionData.DeckCount(); i++)
+            var pairs = PrebuiltDecks.Pairs;
+            for (int pi = 0; pi < pairs.Count; pi++)
             {
-                var info = CollectionData.DeckAt(i);
-                // 🆕 2026-10-17（U4-1）：与 `RebuildDeckRows` 同一套筛选（模式 + 阵营）—— 两处必须同源，
-                //    否则「内容高」按 A 算、列表按 B 建（滚到一半是空白）。
-                if (ToggleModeOf(info.GameMode) != SelectedGameMode) continue;
-                if (ArmyIndex >= 0 && _facs != null && ArmyIndex < _facs.Count && info.Faction != _facs[ArmyIndex]) continue;
+                var deck = PrebuiltDecks.PairDeck(pairs[pi], SelectedGameMode);
+                if (deck == null) continue;
+                if (ArmyIndex >= 0 && _facs != null && ArmyIndex < _facs.Count && deck.faction != _facs[ArmyIndex]) continue;
                 n++;
             }
             return n;
@@ -1840,7 +2092,8 @@ namespace CardPresentation
             //   ⇒ 原版 `deckGeneralInfoButton → DeckGeneralInfoButtonOnClick`：`General container.SetActive(true)`
             //     + `Deck List Drawer.SetActive(false)`（**切回总览**）。
             Img(_cardHolder, "UI_Button_Round_background", ShowBtnL, ShowBtnT, ShowBtnR, ShowBtnB, "Show Info Bg", QPrRow, true);
-            Img(_cardHolder, "40k_UI_bt_back", 1737.68f, 246.46f, 1785.07f, 293.12f, "Show Info Icon", QPrRow, true);
+            // 🔴 图标在钮面之上（同 `Back Icon` 那条）。
+            Img(_cardHolder, "40k_UI_bt_back", 1737.68f, 246.46f, 1785.07f, 293.12f, "Show Info Icon", QPrFront, true);
             HitOn(_cardHolder, _cardHolder, "ShowInfoHit", new PxRect(ShowBtnL, ShowBtnT, ShowBtnR, ShowBtnB),
                   () => Toggle(true));
 
@@ -1996,6 +2249,7 @@ namespace CardPresentation
         {
             DeckIndex = i;
             PickedPrebuilt = null;      // 选了「我的卡组」⇒ 预组那次选中作废（两个是互斥的）
+            PairIndex = -1;             // …左列那一格的选中态也一起作废（「我的卡组」不在那一列里）
             PrebuiltDecks.ClearPendingBattleDeck();
             if (_deckHolder != null) RebuildDeckRows(_deckHolder);
             bool wasList = !ShowingGeneralInfo;             // 换卡组时**别把抽屉状态翻掉**
@@ -2012,6 +2266,8 @@ namespace CardPresentation
             if (_txtArmy != null) _txtArmy.SetText(SelectedArmyName());
             if (_armyIcon != null) _armyIcon.SetTexture(CardArt.MenuUi(DeckRuntime.FactionIcon(info.Faction)));
             if (_cardback != null) _cardback.SetTexture(CardArt.DeckCardback(info.CardbackId, info.Faction));
+            // 🆕 2026-10-22（M2）：督军整身立绘跟着换（判源 = `CurrentDeck`，与上面那几件同一批）。
+            RefreshCharacterImage();
             // 🆕 **2026-10-19（界面线 P05）**：玩家自己的卡组**没有 lore**（原版这份数据挂在
             //   `Demo DeckInfo` 上，只覆盖演示/预组卡组）⇒ 清空；`Change Deck` 照原版 `SetContent` 打开。
             if (_txtLore != null) _txtLore.SetText("");
@@ -2025,13 +2281,55 @@ namespace CardPresentation
             Debug.Log("[Practice] 选中卡组：「" + info.Name + "」");
         }
 
+        /// <summary>🆕 **2026-10-22**：点左列的一格 = 选中**一对**（原版 `PracticeModePopup.DeckSelected`
+        /// → 记下那个 `DemoDeckInfoSO`）。一格带两副 ⇒ 这里按**当前 `Game mode`** 取那一副
+        /// （原版 `DemoDeckInfoSO.GetDeck(gameMode)`），并把对下标记进 <see cref="PairIndex"/>。
+        ///
+        /// 🔴 **双卡组最容易错的一处**：切模式之后必须重取「**同一对的另一副**」——
+        /// 所以 `SetGameMode → ResetContent` 会**保住 `PairIndex`** 再走一次本方法（见 `ResetContent`），
+        /// 而开战读的 `CurrentDeck` / `PrebuiltDecks.PendingSource` **都由这一次 `PickPrebuilt` 写成同一副**。
+        /// 🧨 改坏法：`PickPair` 里写死用 `pair.classic` ⇒ 切到 Skirmish 之后开战仍是 30 张那副（断言红）。
+        /// </summary>
+        public void PickPair(int i)
+        {
+            var pairs = PrebuiltDecks.Pairs;
+            if (i < 0 || i >= pairs.Count)
+            {
+                Debug.LogWarning("[Practice] `PickPair(" + i + ")` 越界（共 " + pairs.Count + " 对）—— 忽略");
+                return;
+            }
+            var pair = pairs[i];
+            var deck = PrebuiltDecks.PairDeck(pair, SelectedGameMode);
+            if (deck == null) return;                 // `PairDeck` 已经出声（查不到那一副）
+            // `PairIndex` 必须在 `PickPrebuilt` **里面**写（它会立刻 `RebuildDeckRows` 重画选中态）
+            PickPrebuilt(deck, pair.loreKey, i);
+        }
+
+        /// <summary>左列那一格的 `Main image` 图（见 `RebuildDeckRows` ③ 的判据注释）。
+        /// 取不到配对图的 Sprite ⇒ 回落 `DeckRuntime.FactionIcon(faction)`（同一份映射，判据只那一处）。</summary>
+        static Texture2D ArmyIconOfPair(PrebuiltDecks.Pair p, PrebuiltDecks.Deck d)
+        {
+            if (p != null && !string.IsNullOrEmpty(p.armyIcon))
+            {
+                var tex = CardArt.MenuUi(p.armyIcon);
+                if (tex != null) return tex;
+                Debug.LogWarning("[Practice] 练习对「" + p.so + "」的 `armyIcon = " + p.armyIcon
+                                 + "` 在本工程 `Resources/Art/ui_*` 里取不到 ⇒ 回落该阵营的徽记");
+            }
+            return CardArt.MenuUi(DeckRuntime.FactionIcon(d != null ? d.faction : null));
+        }
+
         /// <summary>
         /// 选中一副**预组卡组**（原版这条是「登记」型：`DeckGeneralInfoDemo.DeckChanged` → 记下用哪副牌，不立刻开战）。
         ///
         /// 我们这边多做一件：把它写进 `PrebuiltDecks` 的**「本局用这副牌」**通道 —— 因为
         /// `StartBotBattle` 原先只认 `DeckLibrary.Current`，而**预组不在玩家的卡组库里**。
         /// </summary>
-        public void PickPrebuilt(PrebuiltDecks.Deck d)
+        /// <param name="loreKeyOverride">🆕 **2026-10-22**：练习对那一路传**对上的** `loreLocalizationKey`
+        /// （原版一个 SO 一条 lore、两副共用）；传 null = 用这副牌自己的 `Deck.loreKey`
+        /// （选卡组窗的「预组」页那条路 —— 它没有「对」这一层）。</param>
+        /// <param name="pairIndex">🆕 该副牌属于哪一对（`PrebuiltDecks.Pairs` 下标）；−1 = 不是从左列选的。</param>
+        public void PickPrebuilt(PrebuiltDecks.Deck d, string loreKeyOverride = null, int pairIndex = -1)
         {
             if (d == null) return;
             // 🔴 **2026-10-21 就地重写（真机缺陷）**：这一支原来只做**增量刷新**（卡组名 / 督军 / 阵营图 /
@@ -2042,9 +2340,11 @@ namespace CardPresentation
             //   <see cref="CurrentDeck"/>（⛔ 别再回到「四处各读一份状态」那版）。
             //   ⚠️ `PickDeck` 那条路的行为一个字没改（它只多用了同一个判源，owned 档两处逐位相同）。
             DeckIndex = -1;                  // 显式作废旧下标（预组不在 `DeckLibrary` 里；⛔ 别让旧下标留在面板上）
+            PairIndex = pairIndex;           // 🆕 左列那一格的选中态（−1 = 不是从左列选的 ⇒ 一格都不亮）
             PickedPrebuilt = d;
             PrebuiltDecks.SetPendingBattleDeck(d);
-            // ① 卡组那一列：重列（把「我的卡组」那一格的选中态清掉 —— 预组不在那一列里）
+            // ① 卡组那一列：重列（左列是 78 对 —— 这里靠 `PairIndex` 标出「哪一格的选中态」；
+            //    从选卡组窗选进来的预组没有「对」，`PairIndex = −1` ⇒ 一格都不亮）
             if (_deckHolder != null) RebuildDeckRows(_deckHolder);
             // ② 卡表 + 抽屉状态（换卡组时**别把抽屉状态翻掉** —— 同 `PickDeck`）
             bool wasList = !ShowingGeneralInfo;
@@ -2064,13 +2364,24 @@ namespace CardPresentation
             if (_txtArmy != null) _txtArmy.SetText(SelectedArmyName());
             if (_armyIcon != null) _armyIcon.SetTexture(CardArt.MenuUi(d.FactionIcon));
             if (_cardback != null) _cardback.SetTexture(d.Cardback);
+            // 🆕 2026-10-22（M2）：督军整身立绘跟着换 —— 预组那一副自己的督军（`d.heroId`）。
+            //   🧨 改坏法：漏这一句 ⇒ 从左列换一对之后，立绘停在上一次那副的督军（断言量两次纹理名会红）。
+            RefreshCharacterImage();
             // 🆕 **2026-10-19（界面线 P05）**：预组 = 原版的「演示卡组」⇒ 两件照 `ShowDemoDeckInfo` 办：
-            //   ① `Lore Text` ← `DemoDeckInfoSO.loreLocalizationKey` 的官方词条（`Deck.LoreText`）；
+            //   ① `Lore Text` ← `DemoDeckInfoSO.loreLocalizationKey` 的官方词条；
             //   ② `Change Deck`（原版 `changePlayerDeck`）**关掉** —— 演示卡组不能换。
             //   没有 lore 的 25 副（Demo DeckInfo 之后新增）⇒ 空 + 出声，⛔ 不编。
+            //   🆕 **2026-10-22**：从左列选的那一路传 `loreKeyOverride` —— 原版**一个 SO 一条 lore、两副共用**，
+            //   所以取「对上那条」比取「这副牌自己那条」更贴原版（两者今天同值，但来源只有一处是对的）；
+            //   从选卡组窗的「预组」页选的那一路没有「对」，仍读 `Deck.loreKey`。
             if (_txtLore != null)
             {
-                string lore = d.LoreText;
+                string lore;
+                if (loreKeyOverride != null)
+                {
+                    lore = string.IsNullOrEmpty(loreKeyOverride) ? null : Loc.T(loreKeyOverride);
+                }
+                else lore = d.LoreText;
                 _txtLore.SetText(lore ?? "");
                 if (lore == null)
                     Debug.LogWarning("[Practice] 预组「" + d.DisplayName + "」(" + d.deckId + ") **本地没有 lore**"

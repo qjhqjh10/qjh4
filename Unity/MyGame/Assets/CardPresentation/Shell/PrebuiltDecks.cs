@@ -9,6 +9,11 @@
 // 🔴 **教程那 12 副不在其中、也没被改过**：它们 `isPractice == 0`，生成器按这一条过滤 + 断言兜底。
 //    （教程牌的牌序就是教学脚本赖以成立的东西，见 `资料/教程线_原版规格与资源存量.md` §一。）
 //
+// 🆕 **2026-10-22：本类多了两份数据**（练习窗左列改成原版的「一对两副」之后）：
+//   · `Resources/demo_deck_pairs.json` —— 84 份 `DemoDeckInfoSO` 的成对表（`Pairs`；只取 `kind=="practice"` 那 78 对）；
+//   · `Resources/prebuilt_decks_extra.json` —— 那 78 对里**落不进上面 103 副池**的 78 副（`AllExtra`）。
+//   `ById(deckId)` **合并两个来源**查（键 = `deckId`）；`Tab`/`All` 仍然**只看池**（预组页不受影响）。
+//
 // ============================ 两种模式混在一页（照原版）============================
 // 那一池 103 副按 `gameMode` 分成两半：**Classic（30 张）49 副 + Skirmish（12 张）54 副**。
 // 原版**不按模式筛**（全链无 `PlayModes` 比较，见 `资料/预组卡组_原版规格.md` §七 第 3 条）⇒ 原版是混着列的。
@@ -35,6 +40,17 @@ namespace CardPresentation
     {
         /// <summary>`Assets/RuleEngine/Resources/prebuilt_decks.json`。</summary>
         public const string ResourcePath = "prebuilt_decks";
+
+        /// <summary>🆕 **2026-10-22**：**池外的 78 副**（练习窗那 78 对里落不进 103 副池的那些）。
+        /// 产物 = `工具/gen_practice_decks_extra.py` → `Resources/prebuilt_decks_extra.json`
+        /// （**与池那份并列、形状逐字段相同** —— 运行时按 `deckId` 合并查，见 <see cref="ById"/>）。
+        /// 🔴 **两份产物不许合并成一份**：池那份的 `git diff` 必须能要求「逐字节 0」（预组页那一列表就长在它上面）。</summary>
+        public const string ResourcePathExtra = "prebuilt_decks_extra";
+
+        /// <summary>🆕 **2026-10-22**：练习窗「一对两副」的成对表（原版 84 份 `DemoDeckInfoSO`）。
+        /// 产物 = `工具/gen_demo_deck_pairs.py` → `Resources/demo_deck_pairs.json`（D3）。
+        /// 本类只取 `kind == "practice"` 那 78 对（另外 6 份是教程，走 `TutorialModePopup` 那条路）。</summary>
+        public const string PairResourcePath = "demo_deck_pairs";
 
         /// <summary>一副预组卡组。字段名与产物 JSON 一一对应（`JsonUtility` 按名匹配）。</summary>
         [System.Serializable]
@@ -126,9 +142,67 @@ namespace CardPresentation
             public Deck[] decks;
         }
 
+        // ============================ 🆕 2026-10-22：练习窗的「一对两副」（原版 `DemoDeckInfoSO`）============================
+        //
+        // 判据（D3 现解，可复跑）→ `资料/普查产出_1022/D3_DemoDeckInfo成对表.md`：
+        //   · 原版 `PracticeModePopup.decks` 数组**恰好 78 项**（`menus_assets_all` 里那份 MB 的序列化值），
+        //     每项一个 `DemoDeckInfoSO`，每份 SO 带 **`classicDeck` + `skirmishDeck` 两副** + 一条 `loreLocalizationKey`
+        //     + `armyColor` / `armyIcon`；
+        //   · 原版 `DemoDeckInfoSO.GetDeck(mode)`（`decomp_full/DemoDeckInfoSO__GetDeck.c:5-9`）：
+        //     `mode == 0 (Classic)` → `+0x18`(classicDeck)、否则 → `+0x20`(skirmishDeck)；
+        //   · `PracticeModePopup` 出厂 `gameMode = 0xd (Skirmish)`（`__ctor.c` 首句）⇒ 默认列 Skirmish 那 78 副。
+        // ⇒ 左列**一格 = 一对**，格上画的是「**当前模式那一副**」的名字。
+
+        /// <summary>`DemoDeckInfoSO.armyColor` 的**原样 4 个 float**（原版存的是任意浮点、不是 8bit/255）。
+        /// 🔴 要精确复刻就用它 —— 产物里另有一个 `armyColor`（`#RRGGBB`）只是**四舍五入的便利值**，⛔ 别拿它画。</summary>
+        [System.Serializable]
+        public struct PairColor
+        {
+            public float r, g, b, a;
+            public Color ToColor() { return new Color(r, g, b, a); }
+        }
+
+        /// <summary>一对里的**一侧**（= 一个 `PrebuiltDeck` 引用 + 它在我们这边的落点）。</summary>
+        [System.Serializable]
+        public class PairSide
+        {
+            public string deckId;      // 原版 deckId —— **查表键**（`PrebuiltDecks.ById`）
+            public string deckName;    // 原版 deckName（英文）
+            public int gameMode;       // 0 = Classic · 13 = Skirmish（与所在一侧一致）
+            public int isPractice;     // 原版 `isPracticeDeck`（练习对里两半都可能是 0）
+            public int cardCount;      // 原版卡表张数（30 / 12）
+            public int difficulty;     // 原版难度
+            public string heroId;      // 原版督军 id（**原版 id**，不是我们池里的；只作诊断）
+        }
+
+        /// <summary>练习窗左列的一格 = 一个 `DemoDeckInfoSO`。</summary>
+        [System.Serializable]
+        public class Pair
+        {
+            public string so;          // 原版 SO 资产名（坐标，可复查）
+            public string kind;        // "practice" = 练习窗那 78 对 · "tutorial" = 教程 6 份（**不列**）
+            public int uiOrder;        // 原版 `PracticeModePopup.decks` 数组下标 = 左列真实顺序（0..77）
+            public string loreKey;     // 原版 `loreLocalizationKey`（一对两副**共用一条**）
+            public string armyIcon;    // 原版 `armyIcon` 的 Sprite 名（`40k_DeckSelection_icon_*`）
+            public PairColor armyColorRaw;   // 原版 `armyColor`（精确值）
+            public PairSide classic, skirmish;
+        }
+
+        [System.Serializable]
+        class PairDoc
+        {
+            public int format;
+            public Pair[] pairs;
+        }
+
         static Doc _doc;
         static bool _loaded;
         static List<Deck> _tab;
+        static Doc _extra;
+        static bool _extraLoaded;
+        static List<Pair> _pairs;
+        static PairDoc _pairDoc;
+        static bool _pairLoaded;
 
         /// <summary>产物读到了没有（自检用；读不到会**出声**，不静默）。</summary>
         public static bool Available { get { Load(); return _doc != null && _doc.decks != null; } }
@@ -159,6 +233,96 @@ namespace CardPresentation
         {
             get { Load(); return _doc != null && _doc.decks != null ? (IList<Deck>)_doc.decks : new Deck[0]; }
         }
+
+        // ------------------------------------------------------------ 🆕 池外那 78 副
+
+        static void LoadExtra()
+        {
+            if (_extraLoaded) return;
+            _extraLoaded = true;
+            var ta = Resources.Load<TextAsset>(ResourcePathExtra);
+            if (ta == null)
+            {
+                // ⚠️ 读不到**不拦窗**：池那 103 副仍然可用 ⇒ 这里 Error 一次、练习窗会给缺的那几对出声。
+                Debug.LogError("[Prebuilt] 读不到 `Resources/" + ResourcePathExtra + ".json` —— "
+                               + "请跑 `python 工具/gen_practice_decks_extra.py` 生成（练习窗会缺掉池外那 78 副）");
+                return;
+            }
+            try { _extra = JsonUtility.FromJson<Doc>(ta.text); }
+            catch (System.Exception e)
+            {
+                Debug.LogError("[Prebuilt] `" + ResourcePathExtra + ".json` 解析失败：" + e.Message);
+                return;
+            }
+        }
+
+        /// <summary>🆕 **2026-10-22**：池外那 78 副（= 练习窗 78 对里落不进 103 副池的那些）。
+        /// ⚠️ **它们不进预组页**（`Tab` 只看 <see cref="All"/>）—— 原版预组页只列 `isPractice == 1` 那一池。</summary>
+        public static IList<Deck> AllExtra
+        {
+            get { LoadExtra(); return _extra != null && _extra.decks != null ? (IList<Deck>)_extra.decks : new Deck[0]; }
+        }
+
+        // ------------------------------------------------------------ 🆕 练习窗的成对表
+
+        static void LoadPairs()
+        {
+            if (_pairLoaded) return;
+            _pairLoaded = true;
+            var ta = Resources.Load<TextAsset>(PairResourcePath);
+            if (ta == null)
+            {
+                Debug.LogError("[Prebuilt] 读不到 `Resources/" + PairResourcePath + ".json` —— "
+                               + "请跑 `python 工具/gen_demo_deck_pairs.py` 生成（练习窗左列会是空的）");
+                return;
+            }
+            try { _pairDoc = JsonUtility.FromJson<PairDoc>(ta.text); }
+            catch (System.Exception e)
+            {
+                Debug.LogError("[Prebuilt] `" + PairResourcePath + ".json` 解析失败：" + e.Message);
+                _pairDoc = null;
+            }
+        }
+
+        /// <summary>🆕 **2026-10-22**：练习窗左列的那 78 对（`kind == "practice"`，按原版 `uiOrder` 升序）。
+        /// 🔴 **顺序就是原版 `PracticeModePopup.decks` 数组的顺序**（D3 采到的 `uiOrder`）——
+        /// 它**不是**按阵营/难度排的，⛔ 别再排一次（原版 `SetArmyButtons` 只按阵营筛，不重排）。</summary>
+        public static IList<Pair> Pairs
+        {
+            get
+            {
+                if (_pairs != null) return _pairs;
+                LoadPairs();
+                _pairs = new List<Pair>();
+                if (_pairDoc == null || _pairDoc.pairs == null) return _pairs;
+                foreach (var p in _pairDoc.pairs)
+                    if (p != null && p.kind == "practice") _pairs.Add(p);
+                _pairs.Sort((a, b) => a.uiOrder.CompareTo(b.uiOrder));
+                if (_pairs.Count == 0)
+                    Debug.LogError("[Prebuilt] `demo_deck_pairs.json` 里一对 `kind == \"practice\"` 都没有 —— 重跑生成器");
+                return _pairs;
+            }
+        }
+
+        /// <summary>一对里**当前模式那一副**（原版 `DemoDeckInfoSO.GetDeck(mode)`：`0 → classic`、否则 `→ skirmish`）。
+        /// 取不到（产物缺这副 / 不在两个来源里）⇒ **`LogWarning` 出声一次**、返回 null —— ⛔ 不静默、⛔ 不按名字猜。</summary>
+        public static Deck PairDeck(Pair p, GameMode mode)
+        {
+            if (p == null) return null;
+            var side = mode == GameMode.Classic ? p.classic : p.skirmish;
+            if (side == null || string.IsNullOrEmpty(side.deckId))
+            {
+                Debug.LogWarning("[Prebuilt] 练习对「" + p.so + "」在 " + mode + " 侧**没有 deckId**（产物缺字段）");
+                return null;
+            }
+            var d = ById(side.deckId);
+            if (d == null && _warnedMissingPairDeck.Add(side.deckId))
+                Debug.LogWarning("[Prebuilt] 练习对「" + p.so + "」的 " + mode + " 侧 deckId = **" + side.deckId
+                                 + "** 在 `prebuilt_decks.json` 与 `prebuilt_decks_extra.json` 里**都查不到** ⇒ "
+                                 + "这一格跳过（如实出声，⛔ 不按名字猜一副顶替）");
+            return d;
+        }
+        static readonly HashSet<string> _warnedMissingPairDeck = new HashSet<string>();
 
         /// <summary>
         /// **预组页签显示的那一批** = `complete`（原版那句 `Where(!HasHiddenCards)` 就在这个位置），
@@ -215,10 +379,14 @@ namespace CardPresentation
             }
         }
 
+        /// <summary>🆕 **2026-10-22**：按 **`deckId`** 查一副 —— **两个来源合并**（池 103 副 + 池外 78 副）。
+        /// 🔴 **键必须是 `deckId`**：D3 实测「按名字兜底」不成立（30 条同名候选逐条比牌表，**30/30 内容不同**）。
+        /// 顺序 = 先池后补充；两份产物的 `deckId` 生成期已断言**无交集**，所以先后只影响速度。</summary>
         public static Deck ById(string deckId)
         {
             if (string.IsNullOrEmpty(deckId)) return null;
             foreach (var d in All) if (d != null && d.deckId == deckId) return d;
+            foreach (var d in AllExtra) if (d != null && d.deckId == deckId) return d;
             return null;
         }
 
@@ -301,6 +469,12 @@ namespace CardPresentation
         }
 
         /// <summary>自检用：把缓存丢掉，下次重新从 `Resources` 读。</summary>
-        public static void ResetForTest() { _doc = null; _loaded = false; _tab = null; _pending = null; _pendingSrc = null; }
+        public static void ResetForTest()
+        {
+            _doc = null; _loaded = false; _tab = null; _pending = null; _pendingSrc = null;
+            _extra = null; _extraLoaded = false;
+            _pairDoc = null; _pairLoaded = false; _pairs = null;
+            _warnedMissingPairDeck.Clear();
+        }
     }
 }

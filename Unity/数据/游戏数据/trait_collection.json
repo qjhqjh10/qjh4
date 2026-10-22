@@ -1,0 +1,2858 @@
+{
+  "source": {
+    "assetsFile": "d:/2/Warhammer 40k Warpforge/Warpforge_Data/sharedassets0.assets",
+    "assetsFileMd5": "3b87529c8a3bda945a00b8b2ddf82202",
+    "assetsFileSize": 8407132,
+    "monoScriptsFile": "d:/2/Warhammer 40k Warpforge/Warpforge_Data/globalgamemanagers.assets",
+    "animBundlesDir": "d:/2/Warhammer 40k Warpforge/Warpforge_Data/StreamingAssets/aa/StandaloneWindows64",
+    "animBundleCount": 14,
+    "monoScriptPathIds": {
+      "231": "CardTraitOath",
+      "1586": "CardTraitDuty",
+      "1795": "CardTrait",
+      "3039": "CardTraitFerocity",
+      "3671": "BoardTraitIcon",
+      "3970": "CardTraitCollection",
+      "4115": "TraitEffect",
+      "4371": "CardTraitData"
+    }
+  },
+  "generated": "2026-10-22",
+  "collection": {
+    "pathID": 531,
+    "m_Name": "TraitsCollection",
+    "traitPairCount": 77,
+    "cardTraitObjectCount": 73,
+    "nullTraitConfigPairs": [
+      "berzerk",
+      "dodge"
+    ],
+    "unresolvedCustomObjectGuids": [
+      "Ambush:2415b100e3152f045abcf4c815c93e91",
+      "BloodThirst:fb07f52246771d5489569abf9c95df92",
+      "Cruelty:564290f63a8850048864c34c05945934",
+      "Swarm:6fdb2cebf898a4d36bce5ab60cef8589"
+    ],
+    "bytesRead": 2416,
+    "byteSize": 2416
+  },
+  "traits": [
+    {
+      "name": "agenda",
+      "definedTrait": 1235,
+      "definedTraitName": "agenda",
+      "traitConfig": {
+        "fileID": 0,
+        "pathID": 458
+      },
+      "pathID": 458,
+      "m_Name": "Agenda",
+      "traitIcon": "Atlas_trait_icon_agenda",
+      "stackable": 10,
+      "stackableName": "add",
+      "aIScore": 0.0,
+      "inPlayAnim": true,
+      "hasIcon": true,
+      "isInPlayIcon": true,
+      "customObject": {
+        "guid": "",
+        "subObjectName": "",
+        "subObjectType": "",
+        "name": null
+      },
+      "traitEffects": [
+        {
+          "name": "TriggerOnPlay",
+          "triggerType": 6,
+          "triggerName": "TriggerOnPlay",
+          "playIfWarlord": true,
+          "effectAnimGuid": "a8c3f891601e9ca4c9e3b7c8cd0f37a3",
+          "effectAnim": "DutyAnim",
+          "overrideByArmies": []
+        }
+      ],
+      "traitIconPathID": 94
+    },
+    {
+      "name": "ambush",
+      "definedTrait": 1200,
+      "definedTraitName": "ambush",
+      "traitConfig": {
+        "fileID": 0,
+        "pathID": 459
+      },
+      "pathID": 459,
+      "m_Name": "Ambush",
+      "traitIcon": "Atlas_trait_icon_ambush",
+      "stackable": 10,
+      "stackableName": "add",
+      "aIScore": 0.0,
+      "inPlayAnim": false,
+      "hasIcon": false,
+      "isInPlayIcon": false,
+      "customObject": {
+        "guid": "2415b100e3152f045abcf4c815c93e91",
+        "subObjectName": "GenestealerCults_special_Ambush",
+        "subObjectType": "UnityEngine.Sprite, UnityEngine.CoreModule, Version=0.0.0.0, Culture=neutral, PublicKeyToken=null",
+        "name": null
+      },
+      "traitEffects": [
+        {
+          "name": "End",
+          "triggerType": 1,
+          "triggerName": "End",
+          "playIfWarlord": true,
+          "effectAnimGuid": "4ae02eb9e870e964db52a85ed290696a",
+          "effectAnim": "Ambush Effect",
+          "overrideByArmies": []
+        }
+      ],
+      "traitIconPathID": 303
+    },
+    {
+      "name": "armour",
+      "definedTrait": 1020,
+      "definedTraitName": "armour",
+      "traitConfig": {
+        "fileID": 0,
+        "pathID": 460
+      },
+      "pathID": 460,
+      "m_Name": "Armour",
+      "traitIcon": "Atlas_trait_icon_armour",
+      "stackable": 10,
+      "stackableName": "add",
+      "aIScore": 0.0,
+      "inPlayAnim": false,
+      "hasIcon": true,
+      "isInPlayIcon": false,
+      "customObject": {
+        "guid": "",
+        "subObjectName": "",
+        "subObjectType": "",
+        "name": null
+      },
+      "traitEffects": [
+        {
+          "name": "Start",
+          "triggerType": 0,
+          "triggerName": "Start",
+          "playIfWarlord": false,
+          "effectAnimGuid": "a4088dc3e336f124e9f555510b71d9c6",
+          "effectAnim": "ArmourTraitStart",
+          "overrideByArmies": []
+        }
+      ],
+      "traitIconPathID": 68
+    },
+    {
+      "name": "artifice",
+      "definedTrait": 1040,
+      "definedTraitName": "artifice",
+      "traitConfig": {
+        "fileID": 0,
+        "pathID": 461
+      },
+      "pathID": 461,
+      "m_Name": "Artifice",
+      "traitIcon": "Atlas_trait_icon_artifice",
+      "stackable": 10,
+      "stackableName": "add",
+      "aIScore": 0.0,
+      "inPlayAnim": true,
+      "hasIcon": true,
+      "isInPlayIcon": true,
+      "customObject": {
+        "guid": "",
+        "subObjectName": "",
+        "subObjectType": "",
+        "name": null
+      },
+      "traitEffects": [
+        {
+          "name": "Trigger",
+          "triggerType": 3,
+          "triggerName": "Trigger",
+          "playIfWarlord": true,
+          "effectAnimGuid": "13a7b7da1fdb9404fbe5ccbc57514c6e",
+          "effectAnim": "ArtificeTraitTrigger",
+          "overrideByArmies": []
+        }
+      ],
+      "traitIconPathID": 295
+    },
+    {
+      "name": "backlash",
+      "definedTrait": 120,
+      "definedTraitName": "backlash",
+      "traitConfig": {
+        "fileID": 0,
+        "pathID": 462
+      },
+      "pathID": 462,
+      "m_Name": "Backlash",
+      "traitIcon": "Atlas_trait_icon_backlash",
+      "stackable": 10,
+      "stackableName": "add",
+      "aIScore": 0.0,
+      "inPlayAnim": false,
+      "hasIcon": true,
+      "isInPlayIcon": true,
+      "customObject": {
+        "guid": "",
+        "subObjectName": "",
+        "subObjectType": "",
+        "name": null
+      },
+      "traitEffects": [
+        {
+          "name": "Trigger",
+          "triggerType": 3,
+          "triggerName": "Trigger",
+          "playIfWarlord": true,
+          "effectAnimGuid": "42d0bc7d68e0230499c668e9aab43e59",
+          "effectAnim": "BacklashTraitTrigger",
+          "overrideByArmies": []
+        }
+      ],
+      "traitIconPathID": 305
+    },
+    {
+      "name": "berzerk",
+      "definedTrait": 360,
+      "definedTraitName": "berzerk",
+      "traitConfig": null,
+      "pathID": null,
+      "m_Name": null,
+      "traitIcon": null,
+      "stackable": null,
+      "stackableName": null,
+      "aIScore": null,
+      "inPlayAnim": null,
+      "hasIcon": null,
+      "isInPlayIcon": null,
+      "customObject": null,
+      "traitEffects": null
+    },
+    {
+      "name": "blast",
+      "definedTrait": 350,
+      "definedTraitName": "blast",
+      "traitConfig": {
+        "fileID": 0,
+        "pathID": 463
+      },
+      "pathID": 463,
+      "m_Name": "Blast",
+      "traitIcon": "Atlas_trait_icon_blast",
+      "stackable": 10,
+      "stackableName": "add",
+      "aIScore": 0.0,
+      "inPlayAnim": false,
+      "hasIcon": true,
+      "isInPlayIcon": true,
+      "customObject": {
+        "guid": "",
+        "subObjectName": "",
+        "subObjectType": "",
+        "name": null
+      },
+      "traitEffects": [],
+      "traitIconPathID": 292
+    },
+    {
+      "name": "blind",
+      "definedTrait": 975,
+      "definedTraitName": "blind",
+      "traitConfig": {
+        "fileID": 0,
+        "pathID": 464
+      },
+      "pathID": 464,
+      "m_Name": "Blind",
+      "traitIcon": "Atlas_trait_icon_blind",
+      "stackable": 10,
+      "stackableName": "add",
+      "aIScore": 0.0,
+      "inPlayAnim": true,
+      "hasIcon": true,
+      "isInPlayIcon": true,
+      "customObject": {
+        "guid": "",
+        "subObjectName": "",
+        "subObjectType": "",
+        "name": null
+      },
+      "traitEffects": [
+        {
+          "name": "OnPlay",
+          "triggerType": 2,
+          "triggerName": "OnPlay",
+          "playIfWarlord": true,
+          "effectAnimGuid": "ddaaf29c84bb8f842b8422885348e0fd",
+          "effectAnim": "BlindTraitPlay",
+          "overrideByArmies": []
+        }
+      ],
+      "traitIconPathID": 291
+    },
+    {
+      "name": "bloodThirst",
+      "definedTrait": 220,
+      "definedTraitName": "bloodThirst",
+      "traitConfig": {
+        "fileID": 0,
+        "pathID": 465
+      },
+      "pathID": 465,
+      "m_Name": "BloodThirst",
+      "traitIcon": "Atlas_trait_icon_bloodThirst",
+      "stackable": 10,
+      "stackableName": "add",
+      "aIScore": 0.0,
+      "inPlayAnim": false,
+      "hasIcon": true,
+      "isInPlayIcon": true,
+      "customObject": {
+        "guid": "fb07f52246771d5489569abf9c95df92",
+        "subObjectName": "",
+        "subObjectType": "",
+        "name": null
+      },
+      "traitEffects": [
+        {
+          "name": "Trigger",
+          "triggerType": 3,
+          "triggerName": "Trigger",
+          "playIfWarlord": true,
+          "effectAnimGuid": "874dd68077c21cc4c86c5362b436d792",
+          "effectAnim": "BloodThirstGainAnim",
+          "overrideByArmies": []
+        },
+        {
+          "name": "TriggerOnPlay",
+          "triggerType": 6,
+          "triggerName": "TriggerOnPlay",
+          "playIfWarlord": true,
+          "effectAnimGuid": "5a60dbe6e84c80742bf4f9c74b0502ed",
+          "effectAnim": "BloodThirstIdleAnim",
+          "overrideByArmies": []
+        },
+        {
+          "name": "End",
+          "triggerType": 1,
+          "triggerName": "End",
+          "playIfWarlord": true,
+          "effectAnimGuid": "2b63fd560f1162e468349038c37ad642",
+          "effectAnim": "BloodThirstLoseAnim",
+          "overrideByArmies": []
+        }
+      ],
+      "traitIconPathID": 270
+    },
+    {
+      "name": "camouflage",
+      "definedTrait": 985,
+      "definedTraitName": "camouflage",
+      "traitConfig": {
+        "fileID": 0,
+        "pathID": 466
+      },
+      "pathID": 466,
+      "m_Name": "Camouflage",
+      "traitIcon": "Atlas_trait_icon_camouflage",
+      "stackable": 10,
+      "stackableName": "add",
+      "aIScore": 0.0,
+      "inPlayAnim": true,
+      "hasIcon": true,
+      "isInPlayIcon": true,
+      "customObject": {
+        "guid": "",
+        "subObjectName": "",
+        "subObjectType": "",
+        "name": null
+      },
+      "traitEffects": [
+        {
+          "name": "OnPlay",
+          "triggerType": 2,
+          "triggerName": "OnPlay",
+          "playIfWarlord": true,
+          "effectAnimGuid": "cd3972f02c5f6c945b70ac4e34e5c1e7",
+          "effectAnim": "CamouflageTraitPlay",
+          "overrideByArmies": []
+        }
+      ],
+      "traitIconPathID": 299
+    },
+    {
+      "name": "cantAttack",
+      "definedTrait": 150,
+      "definedTraitName": "cantAttack",
+      "traitConfig": {
+        "fileID": 0,
+        "pathID": 467
+      },
+      "pathID": 467,
+      "m_Name": "CantAttack",
+      "traitIcon": "Atlas_trait_icon_cantAttack",
+      "stackable": 10,
+      "stackableName": "add",
+      "aIScore": 0.0,
+      "inPlayAnim": true,
+      "hasIcon": true,
+      "isInPlayIcon": true,
+      "customObject": {
+        "guid": "",
+        "subObjectName": "",
+        "subObjectType": "",
+        "name": null
+      },
+      "traitEffects": [
+        {
+          "name": "Start",
+          "triggerType": 0,
+          "triggerName": "Start",
+          "playIfWarlord": true,
+          "effectAnimGuid": "31da34149fe75bb44a5acb577b0b0187",
+          "effectAnim": "CantAttackAnim",
+          "overrideByArmies": []
+        }
+      ],
+      "traitIconPathID": 300
+    },
+    {
+      "name": "codex",
+      "definedTrait": 1000,
+      "definedTraitName": "codex",
+      "traitConfig": {
+        "fileID": 0,
+        "pathID": 468
+      },
+      "pathID": 468,
+      "m_Name": "Codex",
+      "traitIcon": "Atlas_trait_icon_codex",
+      "stackable": 10,
+      "stackableName": "add",
+      "aIScore": 0.0,
+      "inPlayAnim": false,
+      "hasIcon": true,
+      "isInPlayIcon": true,
+      "customObject": {
+        "guid": "",
+        "subObjectName": "",
+        "subObjectType": "",
+        "name": null
+      },
+      "traitEffects": [
+        {
+          "name": "Trigger",
+          "triggerType": 3,
+          "triggerName": "Trigger",
+          "playIfWarlord": true,
+          "effectAnimGuid": "9869f9d036ce2854ab95004fec1a7598",
+          "effectAnim": "CodexTraitTrigger",
+          "overrideByArmies": []
+        }
+      ],
+      "traitIconPathID": 75
+    },
+    {
+      "name": "combo",
+      "definedTrait": 1130,
+      "definedTraitName": "combo",
+      "traitConfig": {
+        "fileID": 0,
+        "pathID": 469
+      },
+      "pathID": 469,
+      "m_Name": "Combo",
+      "traitIcon": null,
+      "stackable": 10,
+      "stackableName": "add",
+      "aIScore": 0.0,
+      "inPlayAnim": true,
+      "hasIcon": true,
+      "isInPlayIcon": true,
+      "customObject": {
+        "guid": "",
+        "subObjectName": "",
+        "subObjectType": "",
+        "name": null
+      },
+      "traitEffects": [
+        {
+          "name": "OnPlay",
+          "triggerType": 2,
+          "triggerName": "OnPlay",
+          "playIfWarlord": false,
+          "effectAnimGuid": "",
+          "effectAnim": null,
+          "overrideByArmies": []
+        }
+      ],
+      "traitIconPathID": null
+    },
+    {
+      "name": "companion",
+      "definedTrait": 1180,
+      "definedTraitName": "companion",
+      "traitConfig": {
+        "fileID": 0,
+        "pathID": 470
+      },
+      "pathID": 470,
+      "m_Name": "Companion",
+      "traitIcon": "Atlas_trait_icon_companion",
+      "stackable": 10,
+      "stackableName": "add",
+      "aIScore": 0.0,
+      "inPlayAnim": false,
+      "hasIcon": true,
+      "isInPlayIcon": false,
+      "customObject": {
+        "guid": "",
+        "subObjectName": "",
+        "subObjectType": "",
+        "name": null
+      },
+      "traitEffects": [
+        {
+          "name": "Start",
+          "triggerType": 0,
+          "triggerName": "Start",
+          "playIfWarlord": false,
+          "effectAnimGuid": "3fce8ddee18e6944d9fdeef1b2199bbd",
+          "effectAnim": "CompanionTraitStart",
+          "overrideByArmies": []
+        }
+      ],
+      "traitIconPathID": 88
+    },
+    {
+      "name": "concussive",
+      "definedTrait": 930,
+      "definedTraitName": "concussive",
+      "traitConfig": {
+        "fileID": 0,
+        "pathID": 471
+      },
+      "pathID": 471,
+      "m_Name": "Concussive",
+      "traitIcon": "Atlas_trait_icon_concussive",
+      "stackable": 10,
+      "stackableName": "add",
+      "aIScore": 0.0,
+      "inPlayAnim": false,
+      "hasIcon": true,
+      "isInPlayIcon": true,
+      "customObject": {
+        "guid": "",
+        "subObjectName": "",
+        "subObjectType": "",
+        "name": null
+      },
+      "traitEffects": [
+        {
+          "name": "Trigger",
+          "triggerType": 3,
+          "triggerName": "Trigger",
+          "playIfWarlord": true,
+          "effectAnimGuid": "20e1db36c752eb5409e67119f4433f1a",
+          "effectAnim": "ConcussiveTraitTrigger",
+          "overrideByArmies": []
+        }
+      ],
+      "traitIconPathID": 278
+    },
+    {
+      "name": "cruelty",
+      "definedTrait": 1255,
+      "definedTraitName": "cruelty",
+      "traitConfig": {
+        "fileID": 0,
+        "pathID": 472
+      },
+      "pathID": 472,
+      "m_Name": "Cruelty",
+      "traitIcon": "Atlas_trait_icon_Cruelty",
+      "stackable": 10,
+      "stackableName": "add",
+      "aIScore": 0.0,
+      "inPlayAnim": false,
+      "hasIcon": true,
+      "isInPlayIcon": true,
+      "customObject": {
+        "guid": "564290f63a8850048864c34c05945934",
+        "subObjectName": "",
+        "subObjectType": "",
+        "name": null
+      },
+      "traitEffects": [
+        {
+          "name": "Trigger",
+          "triggerType": 3,
+          "triggerName": "Trigger",
+          "playIfWarlord": true,
+          "effectAnimGuid": "9c0734f33ace0db44acabaf75e11f588",
+          "effectAnim": "CrueltyTraitTrigger",
+          "overrideByArmies": []
+        }
+      ],
+      "traitIconPathID": 283
+    },
+    {
+      "name": "daemonicAllegiance",
+      "definedTrait": 1100,
+      "definedTraitName": "daemonicAllegiance",
+      "traitConfig": {
+        "fileID": 0,
+        "pathID": 473
+      },
+      "pathID": 473,
+      "m_Name": "DaemonicAllegiance",
+      "traitIcon": null,
+      "stackable": 10,
+      "stackableName": "add",
+      "aIScore": 0.0,
+      "inPlayAnim": true,
+      "hasIcon": true,
+      "isInPlayIcon": true,
+      "customObject": {
+        "guid": "",
+        "subObjectName": "",
+        "subObjectType": "",
+        "name": null
+      },
+      "traitEffects": [
+        {
+          "name": "OnPlay",
+          "triggerType": 2,
+          "triggerName": "OnPlay",
+          "playIfWarlord": true,
+          "effectAnimGuid": "",
+          "effectAnim": null,
+          "overrideByArmies": []
+        }
+      ],
+      "traitIconPathID": null
+    },
+    {
+      "name": "dodge",
+      "definedTrait": 240,
+      "definedTraitName": "dodge",
+      "traitConfig": null,
+      "pathID": null,
+      "m_Name": null,
+      "traitIcon": null,
+      "stackable": null,
+      "stackableName": null,
+      "aIScore": null,
+      "inPlayAnim": null,
+      "hasIcon": null,
+      "isInPlayIcon": null,
+      "customObject": null,
+      "traitEffects": null
+    },
+    {
+      "name": "dontReturnFerocity",
+      "definedTrait": 1270,
+      "definedTraitName": "dontReturnFerocity",
+      "traitConfig": {
+        "fileID": 0,
+        "pathID": 496
+      },
+      "pathID": 496,
+      "m_Name": "NotFerocity",
+      "traitIcon": "Atlas_trait_icon_ferocity",
+      "stackable": 10,
+      "stackableName": "add",
+      "aIScore": 0.0,
+      "inPlayAnim": true,
+      "hasIcon": false,
+      "isInPlayIcon": false,
+      "customObject": {
+        "guid": "",
+        "subObjectName": "",
+        "subObjectType": "",
+        "name": null
+      },
+      "traitEffects": [],
+      "traitIconPathID": 269
+    },
+    {
+      "name": "duty",
+      "definedTrait": 1220,
+      "definedTraitName": "duty",
+      "traitConfig": {
+        "fileID": 0,
+        "pathID": 474
+      },
+      "pathID": 474,
+      "m_Name": "Duty",
+      "traitIcon": "Atlas_trait_icon_duty",
+      "stackable": 10,
+      "stackableName": "add",
+      "aIScore": 0.0,
+      "inPlayAnim": true,
+      "hasIcon": true,
+      "isInPlayIcon": true,
+      "customObject": {
+        "guid": "",
+        "subObjectName": "",
+        "subObjectType": "",
+        "name": null
+      },
+      "traitEffects": [
+        {
+          "name": "TriggerOnPlay",
+          "triggerType": 6,
+          "triggerName": "TriggerOnPlay",
+          "playIfWarlord": true,
+          "effectAnimGuid": "a8c3f891601e9ca4c9e3b7c8cd0f37a3",
+          "effectAnim": "DutyAnim",
+          "overrideByArmies": []
+        }
+      ],
+      "traitIconPathID": 276
+    },
+    {
+      "name": "ecstasy",
+      "definedTrait": 1250,
+      "definedTraitName": "ecstasy",
+      "traitConfig": {
+        "fileID": 0,
+        "pathID": 475
+      },
+      "pathID": 475,
+      "m_Name": "Ecstasy",
+      "traitIcon": "Atlas_trait_icon_Ecstasy",
+      "stackable": 10,
+      "stackableName": "add",
+      "aIScore": 0.0,
+      "inPlayAnim": false,
+      "hasIcon": true,
+      "isInPlayIcon": true,
+      "customObject": {
+        "guid": "42abf1e9d0e87d64b8e8e91ba150ad9b",
+        "subObjectName": "",
+        "subObjectType": "",
+        "name": "EcstasyTraitTrigger"
+      },
+      "traitEffects": [
+        {
+          "name": "TriggerOnPlay",
+          "triggerType": 6,
+          "triggerName": "TriggerOnPlay",
+          "playIfWarlord": false,
+          "effectAnimGuid": "42abf1e9d0e87d64b8e8e91ba150ad9b",
+          "effectAnim": "EcstasyTraitTrigger",
+          "overrideByArmies": []
+        }
+      ],
+      "traitIconPathID": 282
+    },
+    {
+      "name": "ephemeral",
+      "definedTrait": 5,
+      "definedTraitName": "ephemeral",
+      "traitConfig": {
+        "fileID": 0,
+        "pathID": 476
+      },
+      "pathID": 476,
+      "m_Name": "Ephemeral",
+      "traitIcon": "Atlas_trait_icon_ephemeral",
+      "stackable": 10,
+      "stackableName": "add",
+      "aIScore": 0.0,
+      "inPlayAnim": false,
+      "hasIcon": true,
+      "isInPlayIcon": false,
+      "customObject": {
+        "guid": "",
+        "subObjectName": "",
+        "subObjectType": "",
+        "name": null
+      },
+      "traitEffects": [],
+      "traitIconPathID": 83
+    },
+    {
+      "name": "fast",
+      "definedTrait": 40,
+      "definedTraitName": "fast",
+      "traitConfig": {
+        "fileID": 0,
+        "pathID": 477
+      },
+      "pathID": 477,
+      "m_Name": "Fast",
+      "traitIcon": "Atlas_trait_icon_fast",
+      "stackable": 10,
+      "stackableName": "add",
+      "aIScore": 0.0,
+      "inPlayAnim": true,
+      "hasIcon": true,
+      "isInPlayIcon": false,
+      "customObject": {
+        "guid": "",
+        "subObjectName": "",
+        "subObjectType": "",
+        "name": null
+      },
+      "traitEffects": [
+        {
+          "name": "Start",
+          "triggerType": 0,
+          "triggerName": "Start",
+          "playIfWarlord": true,
+          "effectAnimGuid": "6144c1d442cbb964a85e6501399f07f2",
+          "effectAnim": "FastTraitStart",
+          "overrideByArmies": []
+        }
+      ],
+      "traitIconPathID": 89
+    },
+    {
+      "name": "ferocity",
+      "definedTrait": 1265,
+      "definedTraitName": "ferocity",
+      "traitConfig": {
+        "fileID": 0,
+        "pathID": 478
+      },
+      "pathID": 478,
+      "m_Name": "Ferocity",
+      "traitIcon": "Atlas_trait_icon_ferocity",
+      "stackable": 10,
+      "stackableName": "add",
+      "aIScore": 0.0,
+      "inPlayAnim": true,
+      "hasIcon": true,
+      "isInPlayIcon": true,
+      "customObject": {
+        "guid": "",
+        "subObjectName": "",
+        "subObjectType": "",
+        "name": null
+      },
+      "traitEffects": [
+        {
+          "name": "Start",
+          "triggerType": 0,
+          "triggerName": "Start",
+          "playIfWarlord": false,
+          "effectAnimGuid": "0e5d56145ea269844837cb0bedeb24eb",
+          "effectAnim": "FerocityAnim",
+          "overrideByArmies": []
+        },
+        {
+          "name": "FromCode",
+          "triggerType": 5,
+          "triggerName": "FromCode",
+          "playIfWarlord": false,
+          "effectAnimGuid": "fa13471fa8de4d74e83822e2bd49f794",
+          "effectAnim": "Ferocity Recall to deck",
+          "overrideByArmies": []
+        }
+      ],
+      "traitIconPathID": 269
+    },
+    {
+      "name": "firstStrike",
+      "definedTrait": 630,
+      "definedTraitName": "firstStrike",
+      "traitConfig": {
+        "fileID": 0,
+        "pathID": 479
+      },
+      "pathID": 479,
+      "m_Name": "FirstStrike",
+      "traitIcon": null,
+      "stackable": 10,
+      "stackableName": "add",
+      "aIScore": 0.0,
+      "inPlayAnim": false,
+      "hasIcon": true,
+      "isInPlayIcon": true,
+      "customObject": {
+        "guid": "",
+        "subObjectName": "",
+        "subObjectType": "",
+        "name": null
+      },
+      "traitEffects": [
+        {
+          "name": "Start",
+          "triggerType": 0,
+          "triggerName": "Start",
+          "playIfWarlord": true,
+          "effectAnimGuid": "",
+          "effectAnim": null,
+          "overrideByArmies": []
+        }
+      ],
+      "traitIconPathID": null
+    },
+    {
+      "name": "flank",
+      "definedTrait": 460,
+      "definedTraitName": "flank",
+      "traitConfig": {
+        "fileID": 0,
+        "pathID": 480
+      },
+      "pathID": 480,
+      "m_Name": "Flank",
+      "traitIcon": "Atlas_trait_icon_flank",
+      "stackable": 10,
+      "stackableName": "add",
+      "aIScore": 0.0,
+      "inPlayAnim": false,
+      "hasIcon": true,
+      "isInPlayIcon": false,
+      "customObject": {
+        "guid": "",
+        "subObjectName": "",
+        "subObjectType": "",
+        "name": null
+      },
+      "traitEffects": [
+        {
+          "name": "Start",
+          "triggerType": 0,
+          "triggerName": "Start",
+          "playIfWarlord": true,
+          "effectAnimGuid": "8c379c5db12284b4b8d7353fa7f00006",
+          "effectAnim": "FlankTraitStart",
+          "overrideByArmies": []
+        }
+      ],
+      "traitIconPathID": 74
+    },
+    {
+      "name": "flying",
+      "definedTrait": 390,
+      "definedTraitName": "flying",
+      "traitConfig": {
+        "fileID": 0,
+        "pathID": 481
+      },
+      "pathID": 481,
+      "m_Name": "Flying",
+      "traitIcon": "Atlas_trait_icon_flying",
+      "stackable": 10,
+      "stackableName": "add",
+      "aIScore": 0.0,
+      "inPlayAnim": true,
+      "hasIcon": false,
+      "isInPlayIcon": false,
+      "customObject": {
+        "guid": "",
+        "subObjectName": "",
+        "subObjectType": "",
+        "name": null
+      },
+      "traitEffects": [
+        {
+          "name": "OnPlay",
+          "triggerType": 2,
+          "triggerName": "OnPlay",
+          "playIfWarlord": true,
+          "effectAnimGuid": "a81f347069299044481251a67e683037",
+          "effectAnim": "FlyingTraitPlay",
+          "overrideByArmies": []
+        }
+      ],
+      "traitIconPathID": 286
+    },
+    {
+      "name": "frenzied",
+      "definedTrait": 680,
+      "definedTraitName": "frenzied",
+      "traitConfig": {
+        "fileID": 0,
+        "pathID": 482
+      },
+      "pathID": 482,
+      "m_Name": "Frenzied",
+      "traitIcon": "Atlas_trait_icon_frenzied",
+      "stackable": 10,
+      "stackableName": "add",
+      "aIScore": 0.0,
+      "inPlayAnim": true,
+      "hasIcon": true,
+      "isInPlayIcon": true,
+      "customObject": {
+        "guid": "",
+        "subObjectName": "",
+        "subObjectType": "",
+        "name": null
+      },
+      "traitEffects": [
+        {
+          "name": "Trigger",
+          "triggerType": 3,
+          "triggerName": "Trigger",
+          "playIfWarlord": true,
+          "effectAnimGuid": "6a3ebaf28b9d7c74d9377de9ff5588fd",
+          "effectAnim": "FrenziedTraitTrigger",
+          "overrideByArmies": []
+        }
+      ],
+      "traitIconPathID": 76
+    },
+    {
+      "name": "huntMark",
+      "definedTrait": 1260,
+      "definedTraitName": "huntMark",
+      "traitConfig": {
+        "fileID": 0,
+        "pathID": 483
+      },
+      "pathID": 483,
+      "m_Name": "HuntMark",
+      "traitIcon": "Atlas_trait_icon_huntMark",
+      "stackable": 10,
+      "stackableName": "add",
+      "aIScore": 0.0,
+      "inPlayAnim": true,
+      "hasIcon": false,
+      "isInPlayIcon": false,
+      "customObject": {
+        "guid": "",
+        "subObjectName": "",
+        "subObjectType": "",
+        "name": null
+      },
+      "traitEffects": [
+        {
+          "name": "TriggerOnPlay",
+          "triggerType": 6,
+          "triggerName": "TriggerOnPlay",
+          "playIfWarlord": true,
+          "effectAnimGuid": "0a6f7af3797f19f459318feeabaf7a79",
+          "effectAnim": "HuntMark Start Anim",
+          "overrideByArmies": []
+        },
+        {
+          "name": "Start",
+          "triggerType": 0,
+          "triggerName": "Start",
+          "playIfWarlord": true,
+          "effectAnimGuid": "95778df2378ded94da0aafc793216540",
+          "effectAnim": "HuntMark Stack Anim",
+          "overrideByArmies": []
+        },
+        {
+          "name": "OnPlay",
+          "triggerType": 2,
+          "triggerName": "OnPlay",
+          "playIfWarlord": true,
+          "effectAnimGuid": "b664ea5d6484f83438a29fce3afdb989",
+          "effectAnim": "HuntMark Idle Anim",
+          "overrideByArmies": []
+        },
+        {
+          "name": "FromCode",
+          "triggerType": 5,
+          "triggerName": "FromCode",
+          "playIfWarlord": true,
+          "effectAnimGuid": "e8dd2159956272b488aefe1901a216d6",
+          "effectAnim": "HuntMark Damage Anim",
+          "overrideByArmies": []
+        },
+        {
+          "name": "End",
+          "triggerType": 1,
+          "triggerName": "End",
+          "playIfWarlord": true,
+          "effectAnimGuid": "8569ddf9cb908cd43a21b7d6d7f082c2",
+          "effectAnim": "HuntMark End Anim",
+          "overrideByArmies": []
+        }
+      ],
+      "traitIconPathID": 268
+    },
+    {
+      "name": "invulnerable",
+      "definedTrait": 310,
+      "definedTraitName": "invulnerable",
+      "traitConfig": {
+        "fileID": 0,
+        "pathID": 484
+      },
+      "pathID": 484,
+      "m_Name": "Invulnerable",
+      "traitIcon": "Atlas_trait_icon_invulnerable",
+      "stackable": 10,
+      "stackableName": "add",
+      "aIScore": 0.0,
+      "inPlayAnim": true,
+      "hasIcon": true,
+      "isInPlayIcon": true,
+      "customObject": {
+        "guid": "",
+        "subObjectName": "",
+        "subObjectType": "",
+        "name": null
+      },
+      "traitEffects": [
+        {
+          "name": "OnPlay",
+          "triggerType": 2,
+          "triggerName": "OnPlay",
+          "playIfWarlord": true,
+          "effectAnimGuid": "5d246ebfe1414934cbc3df1e1c940b44",
+          "effectAnim": "InvulnerableTraitPlay",
+          "overrideByArmies": [
+            {
+              "army": 50,
+              "armyName": "BlackLegion",
+              "effectAnimGuid": "ea9551018eef070429f258bf5da49f19",
+              "effectAnim": "InvulnerableBLTraitPlay"
+            },
+            {
+              "army": 70,
+              "armyName": "TauEmpire",
+              "effectAnimGuid": "e8e0e89495f211d4aae68ed1498feecb",
+              "effectAnim": "InvulnerableTAUTraitPlay"
+            },
+            {
+              "army": 60,
+              "armyName": "Leviathan",
+              "effectAnimGuid": "51fabe2a07ec80a4f9e60fd88f549f0e",
+              "effectAnim": "InvulnerableLeviathanTraitPlay"
+            },
+            {
+              "army": 90,
+              "armyName": "Genestealers",
+              "effectAnimGuid": "841e49ce1bb1ab6409d1b0ca2b10308c",
+              "effectAnim": "InvulnerableGSCTraitPlay"
+            },
+            {
+              "army": 100,
+              "armyName": "AstraMilitarum",
+              "effectAnimGuid": "08b76498400033843b155abb260f5427",
+              "effectAnim": "InvulnerableGuardTraitPlay"
+            },
+            {
+              "army": 130,
+              "armyName": "SpaceWolves",
+              "effectAnimGuid": "8249c79fec4d44c4ca41755045dc863d",
+              "effectAnim": "Invulnerable_SW_TraitPlay"
+            }
+          ]
+        }
+      ],
+      "traitIconPathID": 92
+    },
+    {
+      "name": "large",
+      "definedTrait": 940,
+      "definedTraitName": "large",
+      "traitConfig": {
+        "fileID": 0,
+        "pathID": 485
+      },
+      "pathID": 485,
+      "m_Name": "Large",
+      "traitIcon": null,
+      "stackable": 10,
+      "stackableName": "add",
+      "aIScore": 0.0,
+      "inPlayAnim": false,
+      "hasIcon": true,
+      "isInPlayIcon": true,
+      "customObject": {
+        "guid": "",
+        "subObjectName": "",
+        "subObjectType": "",
+        "name": null
+      },
+      "traitEffects": [
+        {
+          "name": "Trigger",
+          "triggerType": 3,
+          "triggerName": "Trigger",
+          "playIfWarlord": true,
+          "effectAnimGuid": "",
+          "effectAnim": null,
+          "overrideByArmies": []
+        }
+      ],
+      "traitIconPathID": null
+    },
+    {
+      "name": "longrange",
+      "definedTrait": 1160,
+      "definedTraitName": "longrange",
+      "traitConfig": {
+        "fileID": 0,
+        "pathID": 486
+      },
+      "pathID": 486,
+      "m_Name": "LongRange",
+      "traitIcon": "Atlas_trait_icon_longrange",
+      "stackable": 10,
+      "stackableName": "add",
+      "aIScore": 0.0,
+      "inPlayAnim": false,
+      "hasIcon": true,
+      "isInPlayIcon": true,
+      "customObject": {
+        "guid": "",
+        "subObjectName": "",
+        "subObjectType": "",
+        "name": null
+      },
+      "traitEffects": [
+        {
+          "name": "FromCode",
+          "triggerType": 5,
+          "triggerName": "FromCode",
+          "playIfWarlord": true,
+          "effectAnimGuid": "64178449148019f43b9980567056dcab",
+          "effectAnim": "LongRangeAnim",
+          "overrideByArmies": []
+        },
+        {
+          "name": "End",
+          "triggerType": 1,
+          "triggerName": "End",
+          "playIfWarlord": true,
+          "effectAnimGuid": "7e8ca71a32aa8e043af3748e0869c5ea",
+          "effectAnim": "LongRangeTraitEnd",
+          "overrideByArmies": []
+        }
+      ],
+      "traitIconPathID": 279
+    },
+    {
+      "name": "markOfChaos",
+      "definedTrait": 330,
+      "definedTraitName": "markOfChaos",
+      "traitConfig": {
+        "fileID": 0,
+        "pathID": 487
+      },
+      "pathID": 487,
+      "m_Name": "MarkOfChaos",
+      "traitIcon": "Atlas_trait_icon_markOfChaos",
+      "stackable": 20,
+      "stackableName": "count",
+      "aIScore": 0.0,
+      "inPlayAnim": false,
+      "hasIcon": true,
+      "isInPlayIcon": true,
+      "customObject": {
+        "guid": "",
+        "subObjectName": "",
+        "subObjectType": "",
+        "name": null
+      },
+      "traitEffects": [],
+      "traitIconPathID": 289
+    },
+    {
+      "name": "markOfKhorne",
+      "definedTrait": 1060,
+      "definedTraitName": "markOfKhorne",
+      "traitConfig": {
+        "fileID": 0,
+        "pathID": 488
+      },
+      "pathID": 488,
+      "m_Name": "MarkOfKhorne",
+      "traitIcon": "Atlas_trait_icon_markOfKhorne",
+      "stackable": 10,
+      "stackableName": "add",
+      "aIScore": 0.0,
+      "inPlayAnim": true,
+      "hasIcon": true,
+      "isInPlayIcon": true,
+      "customObject": {
+        "guid": "",
+        "subObjectName": "",
+        "subObjectType": "",
+        "name": null
+      },
+      "traitEffects": [
+        {
+          "name": "OnPlay",
+          "triggerType": 2,
+          "triggerName": "OnPlay",
+          "playIfWarlord": true,
+          "effectAnimGuid": "abe2e28b387aa9d418346dcae6475ce0",
+          "effectAnim": "MarkOfKhorneTraitPlay",
+          "overrideByArmies": []
+        }
+      ],
+      "traitIconPathID": 284
+    },
+    {
+      "name": "markOfNurgle",
+      "definedTrait": 1070,
+      "definedTraitName": "markOfNurgle",
+      "traitConfig": {
+        "fileID": 0,
+        "pathID": 489
+      },
+      "pathID": 489,
+      "m_Name": "MarkOfNurgle",
+      "traitIcon": "Atlas_trait_icon_markOfNurgle",
+      "stackable": 10,
+      "stackableName": "add",
+      "aIScore": 0.0,
+      "inPlayAnim": true,
+      "hasIcon": true,
+      "isInPlayIcon": true,
+      "customObject": {
+        "guid": "",
+        "subObjectName": "",
+        "subObjectType": "",
+        "name": null
+      },
+      "traitEffects": [
+        {
+          "name": "OnPlay",
+          "triggerType": 2,
+          "triggerName": "OnPlay",
+          "playIfWarlord": true,
+          "effectAnimGuid": "e3bd6529302157840aaa1f130fe125c3",
+          "effectAnim": "MarkOfNurgleTraitPlay",
+          "overrideByArmies": []
+        }
+      ],
+      "traitIconPathID": 91
+    },
+    {
+      "name": "markOfSlaanesh",
+      "definedTrait": 1080,
+      "definedTraitName": "markOfSlaanesh",
+      "traitConfig": {
+        "fileID": 0,
+        "pathID": 490
+      },
+      "pathID": 490,
+      "m_Name": "MarkOfSlaanesh",
+      "traitIcon": "Atlas_trait_icon_markOfSlaanesh",
+      "stackable": 10,
+      "stackableName": "add",
+      "aIScore": 0.0,
+      "inPlayAnim": true,
+      "hasIcon": true,
+      "isInPlayIcon": true,
+      "customObject": {
+        "guid": "",
+        "subObjectName": "",
+        "subObjectType": "",
+        "name": null
+      },
+      "traitEffects": [
+        {
+          "name": "OnPlay",
+          "triggerType": 2,
+          "triggerName": "OnPlay",
+          "playIfWarlord": true,
+          "effectAnimGuid": "1918dba5fd658384a91c9ed1610e9f8c",
+          "effectAnim": "MarkOfSlaaneshTraitPlay",
+          "overrideByArmies": []
+        }
+      ],
+      "traitIconPathID": 307
+    },
+    {
+      "name": "markOfTzeentch",
+      "definedTrait": 1090,
+      "definedTraitName": "markOfTzeentch",
+      "traitConfig": {
+        "fileID": 0,
+        "pathID": 491
+      },
+      "pathID": 491,
+      "m_Name": "MarkOfTzeentch",
+      "traitIcon": "Atlas_trait_icon_markOfTzeentch",
+      "stackable": 10,
+      "stackableName": "add",
+      "aIScore": 0.0,
+      "inPlayAnim": true,
+      "hasIcon": true,
+      "isInPlayIcon": true,
+      "customObject": {
+        "guid": "",
+        "subObjectName": "",
+        "subObjectType": "",
+        "name": null
+      },
+      "traitEffects": [
+        {
+          "name": "OnPlay",
+          "triggerType": 2,
+          "triggerName": "OnPlay",
+          "playIfWarlord": true,
+          "effectAnimGuid": "0e6be8dea74038b4dbbe54115b291aff",
+          "effectAnim": "MarkOfTzeenchTraitPlay",
+          "overrideByArmies": []
+        }
+      ],
+      "traitIconPathID": 288
+    },
+    {
+      "name": "markerlight",
+      "definedTrait": 1170,
+      "definedTraitName": "markerlight",
+      "traitConfig": {
+        "fileID": 0,
+        "pathID": 492
+      },
+      "pathID": 492,
+      "m_Name": "Markerlight",
+      "traitIcon": "Atlas_trait_icon_markerlight",
+      "stackable": 10,
+      "stackableName": "add",
+      "aIScore": 0.0,
+      "inPlayAnim": true,
+      "hasIcon": false,
+      "isInPlayIcon": false,
+      "customObject": {
+        "guid": "",
+        "subObjectName": "",
+        "subObjectType": "",
+        "name": null
+      },
+      "traitEffects": [
+        {
+          "name": "Start",
+          "triggerType": 0,
+          "triggerName": "Start",
+          "playIfWarlord": true,
+          "effectAnimGuid": "3bdfa049840f62644b563575bd42623b",
+          "effectAnim": "MarkerlightTraitStart",
+          "overrideByArmies": []
+        },
+        {
+          "name": "OnPlay",
+          "triggerType": 2,
+          "triggerName": "OnPlay",
+          "playIfWarlord": true,
+          "effectAnimGuid": "7ed23fc3db385bf4ba9621335bb0f266",
+          "effectAnim": "MarkerlightTraitPlay",
+          "overrideByArmies": []
+        },
+        {
+          "name": "FromCode",
+          "triggerType": 5,
+          "triggerName": "FromCode",
+          "playIfWarlord": true,
+          "effectAnimGuid": "047f05d1fc1185148b0efc43f02514d3",
+          "effectAnim": "MarkerlightTraitFromCode",
+          "overrideByArmies": []
+        },
+        {
+          "name": "End",
+          "triggerType": 1,
+          "triggerName": "End",
+          "playIfWarlord": true,
+          "effectAnimGuid": "e22d23a8ffdb4804eaab9370247c3fea",
+          "effectAnim": "MarkerlightTraitEnd",
+          "overrideByArmies": []
+        }
+      ],
+      "traitIconPathID": 72
+    },
+    {
+      "name": "mekaniak",
+      "definedTrait": 950,
+      "definedTraitName": "mekaniak",
+      "traitConfig": {
+        "fileID": 0,
+        "pathID": 493
+      },
+      "pathID": 493,
+      "m_Name": "Mekaniak",
+      "traitIcon": null,
+      "stackable": 10,
+      "stackableName": "add",
+      "aIScore": 0.0,
+      "inPlayAnim": false,
+      "hasIcon": true,
+      "isInPlayIcon": true,
+      "customObject": {
+        "guid": "",
+        "subObjectName": "",
+        "subObjectType": "",
+        "name": null
+      },
+      "traitEffects": [
+        {
+          "name": "Trigger",
+          "triggerType": 3,
+          "triggerName": "Trigger",
+          "playIfWarlord": true,
+          "effectAnimGuid": "",
+          "effectAnim": null,
+          "overrideByArmies": []
+        }
+      ],
+      "traitIconPathID": null
+    },
+    {
+      "name": "mob",
+      "definedTrait": 920,
+      "definedTraitName": "mob",
+      "traitConfig": {
+        "fileID": 0,
+        "pathID": 494
+      },
+      "pathID": 494,
+      "m_Name": "Mob",
+      "traitIcon": "Atlas_trait_icon_mob",
+      "stackable": 10,
+      "stackableName": "add",
+      "aIScore": 0.0,
+      "inPlayAnim": false,
+      "hasIcon": true,
+      "isInPlayIcon": true,
+      "customObject": {
+        "guid": "",
+        "subObjectName": "",
+        "subObjectType": "",
+        "name": null
+      },
+      "traitEffects": [
+        {
+          "name": "Trigger",
+          "triggerType": 3,
+          "triggerName": "Trigger",
+          "playIfWarlord": true,
+          "effectAnimGuid": "2a21bd1096e20a74ab579989ab5fafff",
+          "effectAnim": "MobTraitTrigger",
+          "overrideByArmies": []
+        }
+      ],
+      "traitIconPathID": 290
+    },
+    {
+      "name": "notDestroyRemnant",
+      "definedTrait": 1190,
+      "definedTraitName": "notDestroyRemnant",
+      "traitConfig": {
+        "fileID": 0,
+        "pathID": 495
+      },
+      "pathID": 495,
+      "m_Name": "NotDestroyRemnant",
+      "traitIcon": "Atlas_trait_icon_flying",
+      "stackable": 10,
+      "stackableName": "add",
+      "aIScore": 0.0,
+      "inPlayAnim": true,
+      "hasIcon": false,
+      "isInPlayIcon": false,
+      "customObject": {
+        "guid": "",
+        "subObjectName": "",
+        "subObjectType": "",
+        "name": null
+      },
+      "traitEffects": [],
+      "traitIconPathID": 286
+    },
+    {
+      "name": "oath",
+      "definedTrait": 1275,
+      "definedTraitName": "oath",
+      "traitConfig": {
+        "fileID": 0,
+        "pathID": 497
+      },
+      "pathID": 497,
+      "m_Name": "Oath",
+      "traitIcon": "Atlas_trait_icon_oath",
+      "stackable": 10,
+      "stackableName": "add",
+      "aIScore": 0.0,
+      "inPlayAnim": true,
+      "hasIcon": true,
+      "isInPlayIcon": true,
+      "customObject": {
+        "guid": "",
+        "subObjectName": "",
+        "subObjectType": "",
+        "name": null
+      },
+      "traitEffects": [
+        {
+          "name": "Trigger",
+          "triggerType": 3,
+          "triggerName": "Trigger",
+          "playIfWarlord": false,
+          "effectAnimGuid": "e88772cb08fb73243970183f0f1dff7a",
+          "effectAnim": "Oath_Effect",
+          "overrideByArmies": []
+        }
+      ],
+      "traitIconPathID": 73
+    },
+    {
+      "name": "oathDouble",
+      "definedTrait": 1277,
+      "definedTraitName": "oathDouble",
+      "traitConfig": {
+        "fileID": 0,
+        "pathID": 498
+      },
+      "pathID": 498,
+      "m_Name": "OathAdditionalEffect",
+      "traitIcon": "Atlas_trait_icon_oath",
+      "stackable": 10,
+      "stackableName": "add",
+      "aIScore": 0.0,
+      "inPlayAnim": false,
+      "hasIcon": false,
+      "isInPlayIcon": false,
+      "customObject": {
+        "guid": "",
+        "subObjectName": "",
+        "subObjectType": "",
+        "name": null
+      },
+      "traitEffects": [],
+      "traitIconPathID": 73
+    },
+    {
+      "name": "oathInAllTurns",
+      "definedTrait": 1276,
+      "definedTraitName": "oathInAllTurns",
+      "traitConfig": {
+        "fileID": 0,
+        "pathID": 498
+      },
+      "pathID": 498,
+      "m_Name": "OathAdditionalEffect",
+      "traitIcon": "Atlas_trait_icon_oath",
+      "stackable": 10,
+      "stackableName": "add",
+      "aIScore": 0.0,
+      "inPlayAnim": false,
+      "hasIcon": false,
+      "isInPlayIcon": false,
+      "customObject": {
+        "guid": "",
+        "subObjectName": "",
+        "subObjectType": "",
+        "name": null
+      },
+      "traitEffects": [],
+      "traitIconPathID": 73
+    },
+    {
+      "name": "oathTripleActivation",
+      "definedTrait": 1278,
+      "definedTraitName": "oathTripleActivation",
+      "traitConfig": {
+        "fileID": 0,
+        "pathID": 498
+      },
+      "pathID": 498,
+      "m_Name": "OathAdditionalEffect",
+      "traitIcon": "Atlas_trait_icon_oath",
+      "stackable": 10,
+      "stackableName": "add",
+      "aIScore": 0.0,
+      "inPlayAnim": false,
+      "hasIcon": false,
+      "isInPlayIcon": false,
+      "customObject": {
+        "guid": "",
+        "subObjectName": "",
+        "subObjectType": "",
+        "name": null
+      },
+      "traitEffects": [],
+      "traitIconPathID": 73
+    },
+    {
+      "name": "pack",
+      "definedTrait": 610,
+      "definedTraitName": "pack",
+      "traitConfig": {
+        "fileID": 0,
+        "pathID": 499
+      },
+      "pathID": 499,
+      "m_Name": "Pack",
+      "traitIcon": "Atlas_trait_icon_pack",
+      "stackable": 10,
+      "stackableName": "add",
+      "aIScore": 0.0,
+      "inPlayAnim": false,
+      "hasIcon": true,
+      "isInPlayIcon": false,
+      "customObject": {
+        "guid": "",
+        "subObjectName": "",
+        "subObjectType": "",
+        "name": null
+      },
+      "traitEffects": [
+        {
+          "name": "Start",
+          "triggerType": 0,
+          "triggerName": "Start",
+          "playIfWarlord": true,
+          "effectAnimGuid": "098d35eb98259de479dae6ccace2b777",
+          "effectAnim": "Pack OnPlay Anim",
+          "overrideByArmies": []
+        }
+      ],
+      "traitIconPathID": 287
+    },
+    {
+      "name": "piercing",
+      "definedTrait": 900,
+      "definedTraitName": "piercing",
+      "traitConfig": {
+        "fileID": 0,
+        "pathID": 500
+      },
+      "pathID": 500,
+      "m_Name": "Piercing",
+      "traitIcon": null,
+      "stackable": 10,
+      "stackableName": "add",
+      "aIScore": 0.0,
+      "inPlayAnim": false,
+      "hasIcon": true,
+      "isInPlayIcon": true,
+      "customObject": {
+        "guid": "",
+        "subObjectName": "",
+        "subObjectType": "",
+        "name": null
+      },
+      "traitEffects": [
+        {
+          "name": "Start",
+          "triggerType": 0,
+          "triggerName": "Start",
+          "playIfWarlord": true,
+          "effectAnimGuid": "",
+          "effectAnim": null,
+          "overrideByArmies": []
+        }
+      ],
+      "traitIconPathID": null
+    },
+    {
+      "name": "pindown",
+      "definedTrait": 970,
+      "definedTraitName": "pindown",
+      "traitConfig": {
+        "fileID": 0,
+        "pathID": 501
+      },
+      "pathID": 501,
+      "m_Name": "PinDown",
+      "traitIcon": "Atlas_trait_icon_pindown",
+      "stackable": 10,
+      "stackableName": "add",
+      "aIScore": 0.0,
+      "inPlayAnim": true,
+      "hasIcon": true,
+      "isInPlayIcon": true,
+      "customObject": {
+        "guid": "",
+        "subObjectName": "",
+        "subObjectType": "",
+        "name": null
+      },
+      "traitEffects": [
+        {
+          "name": "OnPlay",
+          "triggerType": 2,
+          "triggerName": "OnPlay",
+          "playIfWarlord": true,
+          "effectAnimGuid": "58c04a0188df8f7408469d58740ffb27",
+          "effectAnim": "PinDownTraitPlay",
+          "overrideByArmies": []
+        }
+      ],
+      "traitIconPathID": 301
+    },
+    {
+      "name": "pray",
+      "definedTrait": 1185,
+      "definedTraitName": "pray",
+      "traitConfig": {
+        "fileID": 0,
+        "pathID": 502
+      },
+      "pathID": 502,
+      "m_Name": "Pray",
+      "traitIcon": "Atlas_trait_icon_pray",
+      "stackable": 10,
+      "stackableName": "add",
+      "aIScore": 0.0,
+      "inPlayAnim": true,
+      "hasIcon": true,
+      "isInPlayIcon": true,
+      "customObject": {
+        "guid": "",
+        "subObjectName": "",
+        "subObjectType": "",
+        "name": null
+      },
+      "traitEffects": [
+        {
+          "name": "Trigger",
+          "triggerType": 3,
+          "triggerName": "Trigger",
+          "playIfWarlord": true,
+          "effectAnimGuid": "96ce731bac5181e4fa9516b352fb493f",
+          "effectAnim": "Pray_Start",
+          "overrideByArmies": []
+        },
+        {
+          "name": "TriggerOnPlay",
+          "triggerType": 6,
+          "triggerName": "TriggerOnPlay",
+          "playIfWarlord": true,
+          "effectAnimGuid": "3a47c27d3826b534a9014c70433e7b5e",
+          "effectAnim": "Pray_Idle",
+          "overrideByArmies": []
+        }
+      ],
+      "traitIconPathID": 285
+    },
+    {
+      "name": "rage",
+      "definedTrait": 280,
+      "definedTraitName": "rage",
+      "traitConfig": {
+        "fileID": 0,
+        "pathID": 503
+      },
+      "pathID": 503,
+      "m_Name": "Rage",
+      "traitIcon": "Atlas_trait_icon_rage",
+      "stackable": 10,
+      "stackableName": "add",
+      "aIScore": 0.0,
+      "inPlayAnim": false,
+      "hasIcon": true,
+      "isInPlayIcon": true,
+      "customObject": {
+        "guid": "",
+        "subObjectName": "",
+        "subObjectType": "",
+        "name": null
+      },
+      "traitEffects": [],
+      "traitIconPathID": 81
+    },
+    {
+      "name": "rally",
+      "definedTrait": 10,
+      "definedTraitName": "rally",
+      "traitConfig": {
+        "fileID": 0,
+        "pathID": 504
+      },
+      "pathID": 504,
+      "m_Name": "Rally",
+      "traitIcon": "Atlas_trait_icon_rally",
+      "stackable": 10,
+      "stackableName": "add",
+      "aIScore": 0.0,
+      "inPlayAnim": false,
+      "hasIcon": true,
+      "isInPlayIcon": false,
+      "customObject": {
+        "guid": "",
+        "subObjectName": "",
+        "subObjectType": "",
+        "name": null
+      },
+      "traitEffects": [
+        {
+          "name": "Start",
+          "triggerType": 0,
+          "triggerName": "Start",
+          "playIfWarlord": true,
+          "effectAnimGuid": "f21e512ab071d36479a4cbfda6edc6a9",
+          "effectAnim": "RallyTraitStart",
+          "overrideByArmies": []
+        }
+      ],
+      "traitIconPathID": 85
+    },
+    {
+      "name": "regeneration",
+      "definedTrait": 1030,
+      "definedTraitName": "regeneration",
+      "traitConfig": {
+        "fileID": 0,
+        "pathID": 505
+      },
+      "pathID": 505,
+      "m_Name": "Regeneration",
+      "traitIcon": "Atlas_trait_icon_regeneration",
+      "stackable": 10,
+      "stackableName": "add",
+      "aIScore": 0.0,
+      "inPlayAnim": false,
+      "hasIcon": true,
+      "isInPlayIcon": true,
+      "customObject": {
+        "guid": "",
+        "subObjectName": "",
+        "subObjectType": "",
+        "name": null
+      },
+      "traitEffects": [
+        {
+          "name": "Trigger",
+          "triggerType": 3,
+          "triggerName": "Trigger",
+          "playIfWarlord": true,
+          "effectAnimGuid": "3f3a5ba316ce0ab46baf23c3a1ea9049",
+          "effectAnim": "RegenerationTraitTrigger",
+          "overrideByArmies": []
+        }
+      ],
+      "traitIconPathID": 95
+    },
+    {
+      "name": "regiment",
+      "definedTrait": 1225,
+      "definedTraitName": "regiment",
+      "traitConfig": {
+        "fileID": 0,
+        "pathID": 506
+      },
+      "pathID": 506,
+      "m_Name": "Regiment",
+      "traitIcon": "Atlas_trait_icon_regiment",
+      "stackable": 10,
+      "stackableName": "add",
+      "aIScore": 0.0,
+      "inPlayAnim": false,
+      "hasIcon": true,
+      "isInPlayIcon": true,
+      "customObject": {
+        "guid": "",
+        "subObjectName": "",
+        "subObjectType": "",
+        "name": null
+      },
+      "traitEffects": [
+        {
+          "name": "Trigger",
+          "triggerType": 3,
+          "triggerName": "Trigger",
+          "playIfWarlord": true,
+          "effectAnimGuid": "d65e4c8cadde4b646a2815741bfdcf71",
+          "effectAnim": "RegimentAnim",
+          "overrideByArmies": []
+        }
+      ],
+      "traitIconPathID": 272
+    },
+    {
+      "name": "relentless",
+      "definedTrait": 450,
+      "definedTraitName": "relentless",
+      "traitConfig": {
+        "fileID": 0,
+        "pathID": 507
+      },
+      "pathID": 507,
+      "m_Name": "Relentless",
+      "traitIcon": "Atlas_trait_icon_relentless",
+      "stackable": 10,
+      "stackableName": "add",
+      "aIScore": 0.0,
+      "inPlayAnim": true,
+      "hasIcon": true,
+      "isInPlayIcon": true,
+      "customObject": {
+        "guid": "",
+        "subObjectName": "",
+        "subObjectType": "",
+        "name": null
+      },
+      "traitEffects": [
+        {
+          "name": "Trigger",
+          "triggerType": 3,
+          "triggerName": "Trigger",
+          "playIfWarlord": true,
+          "effectAnimGuid": "e162a1563a8acb94793b8a61be2a2bb6",
+          "effectAnim": "RelentlessTraitTrigger",
+          "overrideByArmies": []
+        }
+      ],
+      "traitIconPathID": 78
+    },
+    {
+      "name": "remnant",
+      "definedTrait": 1050,
+      "definedTraitName": "remnant",
+      "traitConfig": {
+        "fileID": 0,
+        "pathID": 508
+      },
+      "pathID": 508,
+      "m_Name": "Remnant",
+      "traitIcon": "Atlas_trait_icon_remnant",
+      "stackable": 10,
+      "stackableName": "add",
+      "aIScore": 0.0,
+      "inPlayAnim": true,
+      "hasIcon": true,
+      "isInPlayIcon": true,
+      "customObject": {
+        "guid": "",
+        "subObjectName": "",
+        "subObjectType": "",
+        "name": null
+      },
+      "traitEffects": [],
+      "traitIconPathID": 69
+    },
+    {
+      "name": "resolution",
+      "definedTrait": 840,
+      "definedTraitName": "resolution",
+      "traitConfig": {
+        "fileID": 0,
+        "pathID": 509
+      },
+      "pathID": 509,
+      "m_Name": "Resolution",
+      "traitIcon": "Atlas_trait_icon_resolution",
+      "stackable": 10,
+      "stackableName": "add",
+      "aIScore": 0.0,
+      "inPlayAnim": true,
+      "hasIcon": true,
+      "isInPlayIcon": true,
+      "customObject": {
+        "guid": "",
+        "subObjectName": "",
+        "subObjectType": "",
+        "name": null
+      },
+      "traitEffects": [
+        {
+          "name": "Trigger",
+          "triggerType": 3,
+          "triggerName": "Trigger",
+          "playIfWarlord": true,
+          "effectAnimGuid": "",
+          "effectAnim": null,
+          "overrideByArmies": []
+        }
+      ],
+      "traitIconPathID": 86
+    },
+    {
+      "name": "sentry",
+      "definedTrait": 1280,
+      "definedTraitName": "sentry",
+      "traitConfig": {
+        "fileID": 0,
+        "pathID": 510
+      },
+      "pathID": 510,
+      "m_Name": "Sentry",
+      "traitIcon": "Atlas_trait_icon_sentry",
+      "stackable": 10,
+      "stackableName": "add",
+      "aIScore": 0.0,
+      "inPlayAnim": true,
+      "hasIcon": true,
+      "isInPlayIcon": true,
+      "customObject": {
+        "guid": "50b0ea0f4948557479de1e3db6c3d27e",
+        "subObjectName": "",
+        "subObjectType": "",
+        "name": "Sentry_Effect"
+      },
+      "traitEffects": [],
+      "traitIconPathID": 79
+    },
+    {
+      "name": "shield",
+      "definedTrait": 80,
+      "definedTraitName": "shield",
+      "traitConfig": {
+        "fileID": 0,
+        "pathID": 511
+      },
+      "pathID": 511,
+      "m_Name": "Shield",
+      "traitIcon": "Atlas_trait_icon_shield",
+      "stackable": 10,
+      "stackableName": "add",
+      "aIScore": 0.0,
+      "inPlayAnim": true,
+      "hasIcon": true,
+      "isInPlayIcon": true,
+      "customObject": {
+        "guid": "",
+        "subObjectName": "",
+        "subObjectType": "",
+        "name": null
+      },
+      "traitEffects": [
+        {
+          "name": "OnPlay",
+          "triggerType": 2,
+          "triggerName": "OnPlay",
+          "playIfWarlord": true,
+          "effectAnimGuid": "66b7b2b312de4914f8f788ed19f62f3f",
+          "effectAnim": "ShieldTraitPlay",
+          "overrideByArmies": [
+            {
+              "army": 70,
+              "armyName": "TauEmpire",
+              "effectAnimGuid": "85b4a93db566e5b459c337cd5e04232a",
+              "effectAnim": "ShieldTraitTAUPlay"
+            },
+            {
+              "army": 40,
+              "armyName": "Sautekh",
+              "effectAnimGuid": "3fde447d811e17743b8adea2ee0fd763",
+              "effectAnim": "ShieldTraitNecronPlay"
+            },
+            {
+              "army": 80,
+              "armyName": "Sororitas",
+              "effectAnimGuid": "29f81690e299042488ae8032665f6f98",
+              "effectAnim": "ShieldTraitSororitasPlay"
+            },
+            {
+              "army": 120,
+              "armyName": "EmperorsChildren",
+              "effectAnimGuid": "bba49b40661864f4c9a214ff1d282abe",
+              "effectAnim": "ShieldTraitECPlay"
+            }
+          ]
+        }
+      ],
+      "traitIconPathID": 82
+    },
+    {
+      "name": "shuriken",
+      "definedTrait": 1120,
+      "definedTraitName": "shuriken",
+      "traitConfig": {
+        "fileID": 0,
+        "pathID": 512
+      },
+      "pathID": 512,
+      "m_Name": "Shuriken",
+      "traitIcon": "Atlas_trait_icon_shuriken",
+      "stackable": 10,
+      "stackableName": "add",
+      "aIScore": 0.0,
+      "inPlayAnim": false,
+      "hasIcon": true,
+      "isInPlayIcon": true,
+      "customObject": {
+        "guid": "cc61d807ec8234b3082ec764f07b4808",
+        "subObjectName": "",
+        "subObjectType": "",
+        "name": "Eldar_Shuriken_Short_Trait"
+      },
+      "traitEffects": [
+        {
+          "name": "FromCode",
+          "triggerType": 5,
+          "triggerName": "FromCode",
+          "playIfWarlord": false,
+          "effectAnimGuid": "7d2ab14978e66a242bfd8ed3d85b3f1c",
+          "effectAnim": "ShurikenTraitFromCode",
+          "overrideByArmies": []
+        }
+      ],
+      "traitIconPathID": 71
+    },
+    {
+      "name": "slay",
+      "definedTrait": 260,
+      "definedTraitName": "slay",
+      "traitConfig": {
+        "fileID": 0,
+        "pathID": 513
+      },
+      "pathID": 513,
+      "m_Name": "Slay",
+      "traitIcon": "Atlas_trait_icon_slay",
+      "stackable": 10,
+      "stackableName": "add",
+      "aIScore": 0.0,
+      "inPlayAnim": false,
+      "hasIcon": true,
+      "isInPlayIcon": true,
+      "customObject": {
+        "guid": "",
+        "subObjectName": "",
+        "subObjectType": "",
+        "name": null
+      },
+      "traitEffects": [
+        {
+          "name": "Trigger",
+          "triggerType": 3,
+          "triggerName": "Trigger",
+          "playIfWarlord": true,
+          "effectAnimGuid": "7dc58e5b008d8804f8fe911400c9bd53",
+          "effectAnim": "Slay_Effect_target",
+          "overrideByArmies": []
+        }
+      ],
+      "traitIconPathID": 271
+    },
+    {
+      "name": "sniper",
+      "definedTrait": 990,
+      "definedTraitName": "sniper",
+      "traitConfig": {
+        "fileID": 0,
+        "pathID": 514
+      },
+      "pathID": 514,
+      "m_Name": "Sniper",
+      "traitIcon": "Atlas_trait_icon_sniper",
+      "stackable": 10,
+      "stackableName": "add",
+      "aIScore": 0.0,
+      "inPlayAnim": false,
+      "hasIcon": true,
+      "isInPlayIcon": true,
+      "customObject": {
+        "guid": "",
+        "subObjectName": "",
+        "subObjectType": "",
+        "name": null
+      },
+      "traitEffects": [
+        {
+          "name": "FromCode",
+          "triggerType": 5,
+          "triggerName": "FromCode",
+          "playIfWarlord": true,
+          "effectAnimGuid": "254794f776f20c7438ffee13c81bc945",
+          "effectAnim": "SniperTraitFromCode",
+          "overrideByArmies": []
+        }
+      ],
+      "traitIconPathID": 84
+    },
+    {
+      "name": "stealth",
+      "definedTrait": 70,
+      "definedTraitName": "stealth",
+      "traitConfig": {
+        "fileID": 0,
+        "pathID": 515
+      },
+      "pathID": 515,
+      "m_Name": "Stealth",
+      "traitIcon": "Atlas_trait_icon_stealth",
+      "stackable": 10,
+      "stackableName": "add",
+      "aIScore": 0.0,
+      "inPlayAnim": true,
+      "hasIcon": true,
+      "isInPlayIcon": true,
+      "customObject": {
+        "guid": "",
+        "subObjectName": "",
+        "subObjectType": "",
+        "name": null
+      },
+      "traitEffects": [
+        {
+          "name": "OnPlay",
+          "triggerType": 2,
+          "triggerName": "OnPlay",
+          "playIfWarlord": true,
+          "effectAnimGuid": "beab83fd5c9157642993c8febd915121",
+          "effectAnim": "StealthTraitPlay",
+          "overrideByArmies": []
+        }
+      ],
+      "traitIconPathID": 80
+    },
+    {
+      "name": "stimulation",
+      "definedTrait": 1245,
+      "definedTraitName": "stimulation",
+      "traitConfig": {
+        "fileID": 0,
+        "pathID": 516
+      },
+      "pathID": 516,
+      "m_Name": "Stimulation",
+      "traitIcon": "Atlas_trait_icon_stimulation",
+      "stackable": 10,
+      "stackableName": "add",
+      "aIScore": 0.0,
+      "inPlayAnim": true,
+      "hasIcon": true,
+      "isInPlayIcon": true,
+      "customObject": {
+        "guid": "",
+        "subObjectName": "",
+        "subObjectType": "",
+        "name": null
+      },
+      "traitEffects": [
+        {
+          "name": "Trigger",
+          "triggerType": 3,
+          "triggerName": "Trigger",
+          "playIfWarlord": true,
+          "effectAnimGuid": "06c5534784474f440bfee6dcbf08360c",
+          "effectAnim": "StimulateTraitTrigger",
+          "overrideByArmies": []
+        }
+      ],
+      "traitIconPathID": 297
+    },
+    {
+      "name": "stomp",
+      "definedTrait": 1240,
+      "definedTraitName": "stomp",
+      "traitConfig": {
+        "fileID": 0,
+        "pathID": 517
+      },
+      "pathID": 517,
+      "m_Name": "Stomp",
+      "traitIcon": "Atlas_trait_icon_stomp",
+      "stackable": 10,
+      "stackableName": "add",
+      "aIScore": 0.0,
+      "inPlayAnim": false,
+      "hasIcon": true,
+      "isInPlayIcon": true,
+      "customObject": {
+        "guid": "",
+        "subObjectName": "",
+        "subObjectType": "",
+        "name": null
+      },
+      "traitEffects": [
+        {
+          "name": "FromCode",
+          "triggerType": 5,
+          "triggerName": "FromCode",
+          "playIfWarlord": true,
+          "effectAnimGuid": "f91c06ce089539140a767ae1c30f08fb",
+          "effectAnim": "BluntImpact_Stomp_Forward",
+          "overrideByArmies": []
+        },
+        {
+          "name": "Trigger",
+          "triggerType": 3,
+          "triggerName": "Trigger",
+          "playIfWarlord": true,
+          "effectAnimGuid": "04b0c6e3f3eeb4b409368ee67804bcb5",
+          "effectAnim": "BluntImpact_Stomp_Down",
+          "overrideByArmies": []
+        }
+      ],
+      "traitIconPathID": 293
+    },
+    {
+      "name": "strike",
+      "definedTrait": 1110,
+      "definedTraitName": "strike",
+      "traitConfig": {
+        "fileID": 0,
+        "pathID": 518
+      },
+      "pathID": 518,
+      "m_Name": "Strike",
+      "traitIcon": "Atlas_trait_icon_strike",
+      "stackable": 10,
+      "stackableName": "add",
+      "aIScore": 0.0,
+      "inPlayAnim": true,
+      "hasIcon": true,
+      "isInPlayIcon": true,
+      "customObject": {
+        "guid": "",
+        "subObjectName": "",
+        "subObjectType": "",
+        "name": null
+      },
+      "traitEffects": [
+        {
+          "name": "Trigger",
+          "triggerType": 3,
+          "triggerName": "Trigger",
+          "playIfWarlord": true,
+          "effectAnimGuid": "3d21ccdce390e1946a75a59167e6ba67",
+          "effectAnim": "StrikeTraitTrigger",
+          "overrideByArmies": []
+        }
+      ],
+      "traitIconPathID": 77
+    },
+    {
+      "name": "stun",
+      "definedTrait": 100,
+      "definedTraitName": "stun",
+      "traitConfig": {
+        "fileID": 0,
+        "pathID": 519
+      },
+      "pathID": 519,
+      "m_Name": "Stun",
+      "traitIcon": "Atlas_trait_icon_stun",
+      "stackable": 10,
+      "stackableName": "add",
+      "aIScore": 0.0,
+      "inPlayAnim": true,
+      "hasIcon": true,
+      "isInPlayIcon": true,
+      "customObject": {
+        "guid": "",
+        "subObjectName": "",
+        "subObjectType": "",
+        "name": null
+      },
+      "traitEffects": [
+        {
+          "name": "OnPlay",
+          "triggerType": 2,
+          "triggerName": "OnPlay",
+          "playIfWarlord": true,
+          "effectAnimGuid": "be723eb2aec4c5241a42fd4ae51a895a",
+          "effectAnim": "StunTraitPlay",
+          "overrideByArmies": []
+        }
+      ],
+      "traitIconPathID": 306
+    },
+    {
+      "name": "swarm",
+      "definedTrait": 650,
+      "definedTraitName": "swarm",
+      "traitConfig": {
+        "fileID": 0,
+        "pathID": 520
+      },
+      "pathID": 520,
+      "m_Name": "Swarm",
+      "traitIcon": "Atlas_trait_icon_swarm",
+      "stackable": 10,
+      "stackableName": "add",
+      "aIScore": 0.0,
+      "inPlayAnim": true,
+      "hasIcon": true,
+      "isInPlayIcon": true,
+      "customObject": {
+        "guid": "6fdb2cebf898a4d36bce5ab60cef8589",
+        "subObjectName": "",
+        "subObjectType": "",
+        "name": null
+      },
+      "traitEffects": [
+        {
+          "name": "FromCode",
+          "triggerType": 5,
+          "triggerName": "FromCode",
+          "playIfWarlord": true,
+          "effectAnimGuid": "f387e5894b071f14bb79a0a59c5f87d9",
+          "effectAnim": "SwarmTraitFromCode",
+          "overrideByArmies": []
+        }
+      ],
+      "traitIconPathID": 90
+    },
+    {
+      "name": "synapse",
+      "definedTrait": 1150,
+      "definedTraitName": "synapse",
+      "traitConfig": {
+        "fileID": 0,
+        "pathID": 521
+      },
+      "pathID": 521,
+      "m_Name": "Synapse",
+      "traitIcon": "Atlas_trait_icon_synapse",
+      "stackable": 10,
+      "stackableName": "add",
+      "aIScore": 0.0,
+      "inPlayAnim": true,
+      "hasIcon": true,
+      "isInPlayIcon": true,
+      "customObject": {
+        "guid": "",
+        "subObjectName": "",
+        "subObjectType": "",
+        "name": null
+      },
+      "traitEffects": [
+        {
+          "name": "FromCode",
+          "triggerType": 5,
+          "triggerName": "FromCode",
+          "playIfWarlord": false,
+          "effectAnimGuid": "f587b0eb3d6b66144b0363cd1a1d7e41",
+          "effectAnim": "SynapseTraitFromCode",
+          "overrideByArmies": []
+        }
+      ],
+      "traitIconPathID": 294
+    },
+    {
+      "name": "talent",
+      "definedTrait": 845,
+      "definedTraitName": "talent",
+      "traitConfig": {
+        "fileID": 0,
+        "pathID": 522
+      },
+      "pathID": 522,
+      "m_Name": "Talent",
+      "traitIcon": "Atlas_trait_icon_talent",
+      "stackable": 10,
+      "stackableName": "add",
+      "aIScore": 0.0,
+      "inPlayAnim": false,
+      "hasIcon": true,
+      "isInPlayIcon": false,
+      "customObject": {
+        "guid": "",
+        "subObjectName": "",
+        "subObjectType": "",
+        "name": null
+      },
+      "traitEffects": [
+        {
+          "name": "Trigger",
+          "triggerType": 3,
+          "triggerName": "Trigger",
+          "playIfWarlord": false,
+          "effectAnimGuid": "a36c3ce6d808dd84992bcf005a2fff22",
+          "effectAnim": "TalentTraitTrigger",
+          "overrideByArmies": []
+        }
+      ],
+      "traitIconPathID": 296
+    },
+    {
+      "name": "teleport",
+      "definedTrait": 1230,
+      "definedTraitName": "teleport",
+      "traitConfig": {
+        "fileID": 0,
+        "pathID": 523
+      },
+      "pathID": 523,
+      "m_Name": "Teleport",
+      "traitIcon": "Atlas_trait_icon_teleport",
+      "stackable": 10,
+      "stackableName": "add",
+      "aIScore": 0.0,
+      "inPlayAnim": false,
+      "hasIcon": true,
+      "isInPlayIcon": false,
+      "customObject": {
+        "guid": "",
+        "subObjectName": "",
+        "subObjectType": "",
+        "name": null
+      },
+      "traitEffects": [
+        {
+          "name": "FromCode",
+          "triggerType": 5,
+          "triggerName": "FromCode",
+          "playIfWarlord": false,
+          "effectAnimGuid": "50728df9730796d48aedea73047a2f1d",
+          "effectAnim": "TeleportCardAnim",
+          "overrideByArmies": []
+        }
+      ],
+      "traitIconPathID": 273
+    },
+    {
+      "name": "tide",
+      "definedTrait": 910,
+      "definedTraitName": "tide",
+      "traitConfig": {
+        "fileID": 0,
+        "pathID": 524
+      },
+      "pathID": 524,
+      "m_Name": "Tide",
+      "traitIcon": "Atlas_trait_icon_tide",
+      "stackable": 10,
+      "stackableName": "add",
+      "aIScore": 0.0,
+      "inPlayAnim": false,
+      "hasIcon": true,
+      "isInPlayIcon": false,
+      "customObject": {
+        "guid": "",
+        "subObjectName": "",
+        "subObjectType": "",
+        "name": null
+      },
+      "traitEffects": [
+        {
+          "name": "Start",
+          "triggerType": 0,
+          "triggerName": "Start",
+          "playIfWarlord": true,
+          "effectAnimGuid": "5af24b17bf73eff498d5d3807dd2994c",
+          "effectAnim": "TideTraitStart",
+          "overrideByArmies": []
+        }
+      ],
+      "traitIconPathID": 298
+    },
+    {
+      "name": "unstable",
+      "definedTrait": 1010,
+      "definedTraitName": "unstable",
+      "traitConfig": {
+        "fileID": 0,
+        "pathID": 525
+      },
+      "pathID": 525,
+      "m_Name": "Unstable",
+      "traitIcon": "Atlas_trait_icon_unstable",
+      "stackable": 10,
+      "stackableName": "add",
+      "aIScore": 0.0,
+      "inPlayAnim": false,
+      "hasIcon": true,
+      "isInPlayIcon": true,
+      "customObject": {
+        "guid": "",
+        "subObjectName": "",
+        "subObjectType": "",
+        "name": null
+      },
+      "traitEffects": [
+        {
+          "name": "End",
+          "triggerType": 1,
+          "triggerName": "End",
+          "playIfWarlord": false,
+          "effectAnimGuid": "5d7fa4738d00d154795eccdd93365c44",
+          "effectAnim": "UnstableTraitEnd",
+          "overrideByArmies": []
+        }
+      ],
+      "traitIconPathID": 280
+    },
+    {
+      "name": "unstoppable",
+      "definedTrait": 180,
+      "definedTraitName": "unstoppable",
+      "traitConfig": {
+        "fileID": 0,
+        "pathID": 526
+      },
+      "pathID": 526,
+      "m_Name": "Unstoppable",
+      "traitIcon": null,
+      "stackable": 10,
+      "stackableName": "add",
+      "aIScore": 0.0,
+      "inPlayAnim": true,
+      "hasIcon": true,
+      "isInPlayIcon": true,
+      "customObject": {
+        "guid": "",
+        "subObjectName": "",
+        "subObjectType": "",
+        "name": null
+      },
+      "traitEffects": [],
+      "traitIconPathID": null
+    },
+    {
+      "name": "uprising",
+      "definedTrait": 1210,
+      "definedTraitName": "uprising",
+      "traitConfig": {
+        "fileID": 0,
+        "pathID": 527
+      },
+      "pathID": 527,
+      "m_Name": "Uprising",
+      "traitIcon": "Atlas_trait_icon_uprising",
+      "stackable": 10,
+      "stackableName": "add",
+      "aIScore": 0.0,
+      "inPlayAnim": false,
+      "hasIcon": true,
+      "isInPlayIcon": false,
+      "customObject": {
+        "guid": "",
+        "subObjectName": "",
+        "subObjectType": "",
+        "name": null
+      },
+      "traitEffects": [
+        {
+          "name": "TriggerOnPlay",
+          "triggerType": 6,
+          "triggerName": "TriggerOnPlay",
+          "playIfWarlord": true,
+          "effectAnimGuid": "0c1819e921598dd4d80b9fb8c79310a7",
+          "effectAnim": "Uprising Effect",
+          "overrideByArmies": []
+        }
+      ],
+      "traitIconPathID": 281
+    },
+    {
+      "name": "vanguard",
+      "definedTrait": 980,
+      "definedTraitName": "vanguard",
+      "traitConfig": {
+        "fileID": 0,
+        "pathID": 528
+      },
+      "pathID": 528,
+      "m_Name": "Vanguard",
+      "traitIcon": "Atlas_trait_icon_vanguard",
+      "stackable": 10,
+      "stackableName": "add",
+      "aIScore": 0.0,
+      "inPlayAnim": true,
+      "hasIcon": true,
+      "isInPlayIcon": false,
+      "customObject": {
+        "guid": "",
+        "subObjectName": "",
+        "subObjectType": "",
+        "name": null
+      },
+      "traitEffects": [
+        {
+          "name": "OnPlay",
+          "triggerType": 2,
+          "triggerName": "OnPlay",
+          "playIfWarlord": true,
+          "effectAnimGuid": "45746aadb340e664b87453c64c0518c8",
+          "effectAnim": "VanguardIdleAnim",
+          "overrideByArmies": []
+        }
+      ],
+      "traitIconPathID": 304
+    },
+    {
+      "name": "vulnerable",
+      "definedTrait": 480,
+      "definedTraitName": "vulnerable",
+      "traitConfig": {
+        "fileID": 0,
+        "pathID": 529
+      },
+      "pathID": 529,
+      "m_Name": "Vulnerable",
+      "traitIcon": "Atlas_trait_icon_vulnerable",
+      "stackable": 10,
+      "stackableName": "add",
+      "aIScore": 0.0,
+      "inPlayAnim": true,
+      "hasIcon": true,
+      "isInPlayIcon": true,
+      "customObject": {
+        "guid": "",
+        "subObjectName": "",
+        "subObjectType": "",
+        "name": null
+      },
+      "traitEffects": [
+        {
+          "name": "OnPlay",
+          "triggerType": 2,
+          "triggerName": "OnPlay",
+          "playIfWarlord": true,
+          "effectAnimGuid": "9bb41fe7da6e6614dbdd1c5bd2e31e31",
+          "effectAnim": "VulnerableTraitPlay",
+          "overrideByArmies": []
+        }
+      ],
+      "traitIconPathID": 70
+    },
+    {
+      "name": "waystone",
+      "definedTrait": 1140,
+      "definedTraitName": "waystone",
+      "traitConfig": {
+        "fileID": 0,
+        "pathID": 530
+      },
+      "pathID": 530,
+      "m_Name": "Waystone",
+      "traitIcon": "Atlas_trait_icon_waystone",
+      "stackable": 10,
+      "stackableName": "add",
+      "aIScore": 0.0,
+      "inPlayAnim": true,
+      "hasIcon": true,
+      "isInPlayIcon": true,
+      "customObject": {
+        "guid": "",
+        "subObjectName": "",
+        "subObjectType": "",
+        "name": null
+      },
+      "traitEffects": [],
+      "traitIconPathID": 275
+    }
+  ],
+  "spriteIds": {
+    "sabotageSprite": {
+      "pathID": 87,
+      "name": "Atlas_trait_icon_sabotage"
+    },
+    "faithSprite": {
+      "pathID": 277,
+      "name": "Atlas_trait_icon_faith"
+    },
+    "ferocitySprite": {
+      "pathID": 269,
+      "name": "Atlas_trait_icon_ferocity"
+    },
+    "oathSprite": {
+      "pathID": 73,
+      "name": "Atlas_trait_icon_oath"
+    },
+    "questPointsSprite": {
+      "pathID": 274,
+      "name": "Atlas_trait_icon_questPoints"
+    },
+    "spiritStoneSprite": {
+      "pathID": 104,
+      "name": "SpiritStone_empty"
+    },
+    "meleeAttackSprite": {
+      "pathID": 302,
+      "name": "Atlas_trait_icon_Melee"
+    },
+    "rangeAttackSprite": {
+      "pathID": 93,
+      "name": "Atlas_trait_icon_Ranged"
+    }
+  }
+}

@@ -1,0 +1,1195 @@
+{
+ "schema": 1,
+ "note": "由 工具/gen_division_clips.py 生成。判据 = assets_full/bundle_menus_assets_all/Animation + AnimationClip（三条 legacy 曲线）。🔴 切线（si/so）必须逐键保留：`Division Image` 的 5 键缩放等段带非零 in/out 斜率，new Keyframe(t,v) 会变成 ease-in/out（端点断言抓不到）。路径一律相对 owner GO `Ranked Division Change Window`。",
+ "source": "d:/2/新解包资源/assets_full",
+ "owner": "Ranked Division Change Window",
+ "animation": {
+  "file": "Animation/Animation_8653451351532409166.json",
+  "pid": 8653451351532409166,
+  "playAutomatically": false,
+  "wrapMode": 0,
+  "defaultClip": "Division Config",
+  "order": [
+   "Division Up",
+   "Rank Up",
+   "Division Config"
+  ],
+  "clips": [
+   {
+    "name": "Division Up",
+    "pid": 6413171015603015678
+   },
+   {
+    "name": "Rank Up",
+    "pid": 4418588262184220504
+   },
+   {
+    "name": "Division Config",
+    "pid": -1275559956137425307
+   }
+  ]
+ },
+ "clips": [
+  {
+   "key": "divisionConfig",
+   "name": "Division Config",
+   "legacy": true,
+   "sampleRate": 60.0,
+   "wrapMode": "Default",
+   "loopTime": false,
+   "length": 0.21666666865348816,
+   "src": {
+    "pkg": "bundle_menus_assets_all",
+    "clip": "AnimationClip_-1275559956137425307.json",
+    "pid": -1275559956137425307
+   },
+   "events": [],
+   "curves": [
+    {
+     "path": "Division Image",
+     "type": "Transform",
+     "property": "localScale.x",
+     "channel": "scale",
+     "srcAttribute": "",
+     "classId": 4,
+     "keys": [
+      {
+       "t": 0.0,
+       "v": 0.800000011920929,
+       "si": 1.0268638134002686,
+       "so": 1.0268638134002686
+      }
+     ]
+    },
+    {
+     "path": "Division Image",
+     "type": "Transform",
+     "property": "localScale.y",
+     "channel": "scale",
+     "srcAttribute": "",
+     "classId": 4,
+     "keys": [
+      {
+       "t": 0.0,
+       "v": 0.800000011920929,
+       "si": 0.0,
+       "so": 0.0
+      }
+     ]
+    },
+    {
+     "path": "Division Image",
+     "type": "Transform",
+     "property": "localScale.z",
+     "channel": "scale",
+     "srcAttribute": "",
+     "classId": 4,
+     "keys": [
+      {
+       "t": 0.0,
+       "v": 0.800000011920929,
+       "si": 0.0,
+       "so": 0.0
+      }
+     ]
+    },
+    {
+     "path": "Division Image",
+     "type": "Image",
+     "property": "m_Color.a",
+     "channel": "alpha",
+     "srcAttribute": "m_Color.a",
+     "classId": 114,
+     "keys": [
+      {
+       "t": 0.0,
+       "v": 0.0,
+       "si": 0.0,
+       "so": 0.0
+      }
+     ]
+    },
+    {
+     "path": "Text Content",
+     "type": "CanvasGroup",
+     "property": "m_Alpha",
+     "channel": "groupAlpha",
+     "srcAttribute": "m_Alpha",
+     "classId": 225,
+     "keys": [
+      {
+       "t": 0.0,
+       "v": 0.0,
+       "si": 0.0,
+       "so": 0.0
+      }
+     ]
+    },
+    {
+     "path": "Title",
+     "type": "TMP_Text",
+     "property": "m_fontColor.a",
+     "channel": "textColorAlpha",
+     "srcAttribute": "m_fontColor.a",
+     "classId": 114,
+     "keys": [
+      {
+       "t": 0.0,
+       "v": 0.0,
+       "si": 0.0,
+       "so": 0.0
+      }
+     ]
+    },
+    {
+     "path": "Division Image/Rank Icon",
+     "type": "Image",
+     "property": "m_Color.a",
+     "channel": "alpha",
+     "srcAttribute": "m_Color.a",
+     "classId": 114,
+     "keys": [
+      {
+       "t": 0.0,
+       "v": 0.0,
+       "si": 0.0,
+       "so": 0.0
+      }
+     ]
+    },
+    {
+     "path": "Particles DivisionUp/Sparks Burn",
+     "type": "ParticleSystem",
+     "property": "ShapeModule.m_Scale.x",
+     "channel": "particleShapeScale",
+     "srcAttribute": "ShapeModule.m_Scale.x",
+     "classId": 198,
+     "keys": [
+      {
+       "t": 0.0,
+       "v": 0.30000001192092896,
+       "si": 0.0,
+       "so": 0.0
+      }
+     ]
+    },
+    {
+     "path": "Particles DivisionUp/Sparks Burn",
+     "type": "ParticleSystem",
+     "property": "ShapeModule.m_Scale.y",
+     "channel": "particleShapeScale",
+     "srcAttribute": "ShapeModule.m_Scale.y",
+     "classId": 198,
+     "keys": [
+      {
+       "t": 0.0,
+       "v": 0.30000001192092896,
+       "si": 0.0,
+       "so": 0.0
+      }
+     ]
+    },
+    {
+     "path": "Particles DivisionUp",
+     "type": "GameObject",
+     "property": "m_IsActive",
+     "channel": "active",
+     "srcAttribute": "m_IsActive",
+     "classId": 1,
+     "keys": [
+      {
+       "t": 0.0,
+       "v": 0.0,
+       "si": Infinity,
+       "so": Infinity
+      }
+     ]
+    },
+    {
+     "path": "Particles Rank Up",
+     "type": "GameObject",
+     "property": "m_IsActive",
+     "channel": "active",
+     "srcAttribute": "m_IsActive",
+     "classId": 1,
+     "keys": [
+      {
+       "t": 0.0,
+       "v": 0.0,
+       "si": Infinity,
+       "so": Infinity
+      }
+     ]
+    },
+    {
+     "path": "Division Image/Rank Icon/Rank Icon Glow",
+     "type": "Image",
+     "property": "m_Color.a",
+     "channel": "alpha",
+     "srcAttribute": "m_Color.a",
+     "classId": 114,
+     "keys": [
+      {
+       "t": 0.0,
+       "v": 0.0,
+       "si": 0.0,
+       "so": 0.0
+      }
+     ]
+    },
+    {
+     "path": "Mission Milestones Progress",
+     "type": "CanvasGroup",
+     "property": "m_Alpha",
+     "channel": "groupAlpha",
+     "srcAttribute": "m_Alpha",
+     "classId": 225,
+     "keys": [
+      {
+       "t": 0.0,
+       "v": 0.0,
+       "si": 0.0,
+       "so": 0.0
+      },
+      {
+       "t": 0.21666666865348816,
+       "v": 1.0,
+       "si": 0.0,
+       "so": 0.0
+      }
+     ]
+    },
+    {
+     "path": "Title",
+     "type": "CanvasGroup",
+     "property": "m_Alpha",
+     "channel": "groupAlpha",
+     "srcAttribute": "m_Alpha",
+     "classId": 225,
+     "keys": [
+      {
+       "t": 0.0,
+       "v": 0.0,
+       "si": 0.0,
+       "so": 0.0
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "key": "divisionUp",
+   "name": "Division Up",
+   "legacy": true,
+   "sampleRate": 60.0,
+   "wrapMode": "Default",
+   "loopTime": false,
+   "length": 3.8333332538604736,
+   "src": {
+    "pkg": "bundle_menus_assets_all",
+    "clip": "AnimationClip_6413171015603015678.json",
+    "pid": 6413171015603015678
+   },
+   "events": [
+    {
+     "t": 3.8333332538604736,
+     "function": "AnimationFinished"
+    }
+   ],
+   "curves": [
+    {
+     "path": "Division Image",
+     "type": "Transform",
+     "property": "localScale.x",
+     "channel": "scale",
+     "srcAttribute": "",
+     "classId": 4,
+     "keys": [
+      {
+       "t": 0.4166666567325592,
+       "v": 0.800000011920929,
+       "si": 1.0268638134002686,
+       "so": 1.0268638134002686
+      },
+      {
+       "t": 0.7833333611488342,
+       "v": 1.0,
+       "si": 0.16912750899791718,
+       "so": 0.06923077255487442
+      },
+      {
+       "t": 2.5166666507720947,
+       "v": 1.1200000047683716,
+       "si": 0.06923077255487442,
+       "so": 0.20354361832141876
+      },
+      {
+       "t": 2.566666603088379,
+       "v": 0.8979171514511108,
+       "si": 0.0,
+       "so": 0.0
+      },
+      {
+       "t": 2.7333333492279053,
+       "v": 1.0,
+       "si": -1.0750032663345337,
+       "so": -1.0750032663345337
+      }
+     ]
+    },
+    {
+     "path": "Division Image",
+     "type": "Transform",
+     "property": "localScale.y",
+     "channel": "scale",
+     "srcAttribute": "",
+     "classId": 4,
+     "keys": [
+      {
+       "t": 0.4166666567325592,
+       "v": 0.800000011920929,
+       "si": 1.0335570573806763,
+       "so": 1.0335570573806763
+      },
+      {
+       "t": 0.7833333611488342,
+       "v": 1.0,
+       "si": 0.15519124269485474,
+       "so": 0.06923077255487442
+      },
+      {
+       "t": 2.5166666507720947,
+       "v": 1.1200000047683716,
+       "si": 0.06923077255487442,
+       "so": 0.20354361832141876
+      },
+      {
+       "t": 2.566666603088379,
+       "v": 0.9020828008651733,
+       "si": 0.0,
+       "so": 0.0
+      },
+      {
+       "t": 2.7333333492279053,
+       "v": 1.0,
+       "si": -1.0405230522155762,
+       "so": -1.0405230522155762
+      }
+     ]
+    },
+    {
+     "path": "Division Image",
+     "type": "Transform",
+     "property": "localScale.z",
+     "channel": "scale",
+     "srcAttribute": "",
+     "classId": 4,
+     "keys": [
+      {
+       "t": 0.4166666567325592,
+       "v": 0.800000011920929,
+       "si": 1.0083256959915161,
+       "so": 1.0083256959915161
+      },
+      {
+       "t": 0.7833333611488342,
+       "v": 1.0,
+       "si": 0.12812036275863647,
+       "so": 0.06923077255487442
+      },
+      {
+       "t": 2.5166666507720947,
+       "v": 1.1200000047683716,
+       "si": 0.06923077255487442,
+       "so": 0.19554950296878815
+      },
+      {
+       "t": 2.566666603088379,
+       "v": 0.9020828008651733,
+       "si": 0.0,
+       "so": 0.0
+      },
+      {
+       "t": 2.7333333492279053,
+       "v": 1.0,
+       "si": -1.070217490196228,
+       "so": -1.070217490196228
+      }
+     ]
+    },
+    {
+     "path": "Division Image",
+     "type": "AnimateUIMaterialProperty",
+     "property": "floatProperty1.value",
+     "channel": "materialFloat",
+     "srcAttribute": "floatProperty1.value",
+     "classId": 114,
+     "keys": [
+      {
+       "t": 0.6000000238418579,
+       "v": 0.0,
+       "si": 0.2807959020137787,
+       "so": 0.2807959020137787
+      },
+      {
+       "t": 1.1166666746139526,
+       "v": 0.08673001080751419,
+       "si": 0.11265764385461807,
+       "so": 0.11265764385461807
+      },
+      {
+       "t": 1.9666666984558105,
+       "v": 0.2226536124944687,
+       "si": 0.2275269776582718,
+       "so": 0.2275269776582718
+      },
+      {
+       "t": 3.0999999046325684,
+       "v": 1.0486313104629517,
+       "si": 0.6017161011695862,
+       "so": 0.6017161011695862
+      }
+     ]
+    },
+    {
+     "path": "Division Image",
+     "type": "Image",
+     "property": "m_Color.a",
+     "channel": "alpha",
+     "srcAttribute": "m_Color.a",
+     "classId": 114,
+     "keys": [
+      {
+       "t": 0.4166666567325592,
+       "v": 0.0,
+       "si": 0.0,
+       "so": 0.0
+      },
+      {
+       "t": 0.7833333611488342,
+       "v": 1.0,
+       "si": 0.0,
+       "so": 0.0
+      }
+     ]
+    },
+    {
+     "path": "Text Content",
+     "type": "CanvasGroup",
+     "property": "m_Alpha",
+     "channel": "groupAlpha",
+     "srcAttribute": "m_Alpha",
+     "classId": 225,
+     "keys": [
+      {
+       "t": 0.4166666567325592,
+       "v": 0.0,
+       "si": 0.0,
+       "so": 0.0
+      },
+      {
+       "t": 3.0999999046325684,
+       "v": 0.0,
+       "si": 0.0,
+       "so": 0.0
+      },
+      {
+       "t": 3.8333332538604736,
+       "v": 1.0,
+       "si": 0.0,
+       "so": 0.0
+      }
+     ]
+    },
+    {
+     "path": "Division Image/Rank Icon",
+     "type": "Image",
+     "property": "m_Color.a",
+     "channel": "alpha",
+     "srcAttribute": "m_Color.a",
+     "classId": 114,
+     "keys": [
+      {
+       "t": 0.4166666567325592,
+       "v": 0.0,
+       "si": 0.0,
+       "so": 0.0
+      },
+      {
+       "t": 2.5166666507720947,
+       "v": 0.0,
+       "si": 0.0,
+       "so": 0.0
+      },
+      {
+       "t": 2.566666603088379,
+       "v": 1.0,
+       "si": 0.0,
+       "so": 0.0
+      }
+     ]
+    },
+    {
+     "path": "Particles DivisionUp/Sparks Burn",
+     "type": "ParticleSystem",
+     "property": "ShapeModule.m_Scale.x",
+     "channel": "particleShapeScale",
+     "srcAttribute": "ShapeModule.m_Scale.x",
+     "classId": 198,
+     "keys": [
+      {
+       "t": 0.4166666567325592,
+       "v": 0.30000001192092896,
+       "si": 0.0,
+       "so": 0.0
+      },
+      {
+       "t": 0.8833333253860474,
+       "v": 0.3799999952316284,
+       "si": 0.2742856442928314,
+       "so": 0.2742856442928314
+      },
+      {
+       "t": 1.5833333730697632,
+       "v": 1.149999976158142,
+       "si": 0.0,
+       "so": 0.0
+      }
+     ]
+    },
+    {
+     "path": "Particles DivisionUp/Sparks Burn",
+     "type": "ParticleSystem",
+     "property": "ShapeModule.m_Scale.y",
+     "channel": "particleShapeScale",
+     "srcAttribute": "ShapeModule.m_Scale.y",
+     "classId": 198,
+     "keys": [
+      {
+       "t": 0.4166666567325592,
+       "v": 0.30000001192092896,
+       "si": 0.0,
+       "so": 0.0
+      },
+      {
+       "t": 0.8833333253860474,
+       "v": 0.41999998688697815,
+       "si": 0.41142845153808594,
+       "so": 0.41142845153808594
+      },
+      {
+       "t": 1.5833333730697632,
+       "v": 1.149999976158142,
+       "si": 0.0,
+       "so": 0.0
+      }
+     ]
+    },
+    {
+     "path": "Particles DivisionUp",
+     "type": "GameObject",
+     "property": "m_IsActive",
+     "channel": "active",
+     "srcAttribute": "m_IsActive",
+     "classId": 1,
+     "keys": [
+      {
+       "t": 0.4166666567325592,
+       "v": 1.0,
+       "si": Infinity,
+       "so": Infinity
+      }
+     ]
+    },
+    {
+     "path": "Particles Rank Up",
+     "type": "GameObject",
+     "property": "m_IsActive",
+     "channel": "active",
+     "srcAttribute": "m_IsActive",
+     "classId": 1,
+     "keys": [
+      {
+       "t": 0.4166666567325592,
+       "v": 0.0,
+       "si": Infinity,
+       "so": Infinity
+      }
+     ]
+    },
+    {
+     "path": "Division Image/Rank Icon/Rank Icon Glow",
+     "type": "Image",
+     "property": "m_Color.a",
+     "channel": "alpha",
+     "srcAttribute": "m_Color.a",
+     "classId": 114,
+     "keys": [
+      {
+       "t": 0.4166666567325592,
+       "v": 0.0,
+       "si": 0.0,
+       "so": 0.0
+      },
+      {
+       "t": 2.5166666507720947,
+       "v": 0.0,
+       "si": 0.0,
+       "so": 0.0
+      },
+      {
+       "t": 2.566666603088379,
+       "v": 1.0,
+       "si": 0.0,
+       "so": 0.0
+      },
+      {
+       "t": 3.2833333015441895,
+       "v": 0.0,
+       "si": 0.0,
+       "so": 0.0
+      }
+     ]
+    },
+    {
+     "path": "Mission Milestones Progress",
+     "type": "CanvasGroup",
+     "property": "m_Alpha",
+     "channel": "groupAlpha",
+     "srcAttribute": "m_Alpha",
+     "classId": 225,
+     "keys": [
+      {
+       "t": 0.0,
+       "v": 1.0,
+       "si": 0.0,
+       "so": 0.0
+      },
+      {
+       "t": 0.5666666626930237,
+       "v": 0.0,
+       "si": 0.0,
+       "so": 0.0
+      }
+     ]
+    },
+    {
+     "path": "Title",
+     "type": "CanvasGroup",
+     "property": "m_Alpha",
+     "channel": "groupAlpha",
+     "srcAttribute": "m_Alpha",
+     "classId": 225,
+     "keys": [
+      {
+       "t": 0.0,
+       "v": 0.0,
+       "si": 0.0,
+       "so": 0.0
+      },
+      {
+       "t": 2.5166666507720947,
+       "v": 0.0,
+       "si": 0.0,
+       "so": 0.0
+      },
+      {
+       "t": 3.0999999046325684,
+       "v": 1.0,
+       "si": 0.0,
+       "so": 0.0
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "key": "rankUp",
+   "name": "Rank Up",
+   "legacy": true,
+   "sampleRate": 60.0,
+   "wrapMode": "Default",
+   "loopTime": false,
+   "length": 3.9166667461395264,
+   "src": {
+    "pkg": "bundle_menus_assets_all",
+    "clip": "AnimationClip_4418588262184220504.json",
+    "pid": 4418588262184220504
+   },
+   "events": [
+    {
+     "t": 3.9166667461395264,
+     "function": "AnimationFinished"
+    }
+   ],
+   "curves": [
+    {
+     "path": "Division Image",
+     "type": "Transform",
+     "property": "localScale.x",
+     "channel": "scale",
+     "srcAttribute": "",
+     "classId": 4,
+     "keys": [
+      {
+       "t": 0.38333332538604736,
+       "v": 0.800000011920929,
+       "si": 1.0268638134002686,
+       "so": 1.0268638134002686
+      },
+      {
+       "t": 0.75,
+       "v": 1.0,
+       "si": 0.16912750899791718,
+       "so": 0.0648648738861084
+      },
+      {
+       "t": 2.5999999046325684,
+       "v": 1.1200000047683716,
+       "si": 0.0648648738861084,
+       "so": 0.20354361832141876
+      },
+      {
+       "t": 2.6500000953674316,
+       "v": 0.8979171514511108,
+       "si": 0.0,
+       "so": 0.0
+      },
+      {
+       "t": 2.816666603088379,
+       "v": 1.0,
+       "si": -1.0750032663345337,
+       "so": -1.0750032663345337
+      }
+     ]
+    },
+    {
+     "path": "Division Image",
+     "type": "Transform",
+     "property": "localScale.y",
+     "channel": "scale",
+     "srcAttribute": "",
+     "classId": 4,
+     "keys": [
+      {
+       "t": 0.38333332538604736,
+       "v": 0.800000011920929,
+       "si": 1.0335570573806763,
+       "so": 1.0335570573806763
+      },
+      {
+       "t": 0.75,
+       "v": 1.0,
+       "si": 0.15519124269485474,
+       "so": 0.0648648738861084
+      },
+      {
+       "t": 2.5999999046325684,
+       "v": 1.1200000047683716,
+       "si": 0.0648648738861084,
+       "so": 0.20354361832141876
+      },
+      {
+       "t": 2.6500000953674316,
+       "v": 0.9020828008651733,
+       "si": 0.0,
+       "so": 0.0
+      },
+      {
+       "t": 2.816666603088379,
+       "v": 1.0,
+       "si": -1.0405230522155762,
+       "so": -1.0405230522155762
+      }
+     ]
+    },
+    {
+     "path": "Division Image",
+     "type": "Transform",
+     "property": "localScale.z",
+     "channel": "scale",
+     "srcAttribute": "",
+     "classId": 4,
+     "keys": [
+      {
+       "t": 0.38333332538604736,
+       "v": 0.800000011920929,
+       "si": 1.0083256959915161,
+       "so": 1.0083256959915161
+      },
+      {
+       "t": 0.75,
+       "v": 1.0,
+       "si": 0.12812036275863647,
+       "so": 0.0648648738861084
+      },
+      {
+       "t": 2.5999999046325684,
+       "v": 1.1200000047683716,
+       "si": 0.0648648738861084,
+       "so": 0.19554950296878815
+      },
+      {
+       "t": 2.6500000953674316,
+       "v": 0.9020828008651733,
+       "si": 0.0,
+       "so": 0.0
+      },
+      {
+       "t": 2.816666603088379,
+       "v": 1.0,
+       "si": -1.070217490196228,
+       "so": -1.070217490196228
+      }
+     ]
+    },
+    {
+     "path": "Division Image/Rank Icon",
+     "type": "Transform",
+     "property": "localScale.x",
+     "channel": "scale",
+     "srcAttribute": "",
+     "classId": 4,
+     "keys": [
+      {
+       "t": 0.38333332538604736,
+       "v": 1.0903291702270508,
+       "si": 0.0,
+       "so": 0.0
+      },
+      {
+       "t": 2.5999999046325684,
+       "v": 2.2275424003601074,
+       "si": 0.0,
+       "so": 0.0
+      },
+      {
+       "t": 2.6500000953674316,
+       "v": 0.772301971912384,
+       "si": 0.0,
+       "so": 0.0
+      },
+      {
+       "t": 2.866666555404663,
+       "v": 1.0903291702270508,
+       "si": 0.0,
+       "so": 0.0
+      }
+     ]
+    },
+    {
+     "path": "Division Image/Rank Icon",
+     "type": "Transform",
+     "property": "localScale.y",
+     "channel": "scale",
+     "srcAttribute": "",
+     "classId": 4,
+     "keys": [
+      {
+       "t": 0.38333332538604736,
+       "v": 1.0903291702270508,
+       "si": 0.0,
+       "so": 0.0
+      },
+      {
+       "t": 2.5999999046325684,
+       "v": 2.2275424003601074,
+       "si": 0.0,
+       "so": 0.0
+      },
+      {
+       "t": 2.6500000953674316,
+       "v": 0.772301971912384,
+       "si": 0.0,
+       "so": 0.0
+      },
+      {
+       "t": 2.866666555404663,
+       "v": 1.0903291702270508,
+       "si": 0.0,
+       "so": 0.0
+      }
+     ]
+    },
+    {
+     "path": "Division Image/Rank Icon",
+     "type": "Transform",
+     "property": "localScale.z",
+     "channel": "scale",
+     "srcAttribute": "",
+     "classId": 4,
+     "keys": [
+      {
+       "t": 0.38333332538604736,
+       "v": 1.0903291702270508,
+       "si": 0.0,
+       "so": 0.0
+      },
+      {
+       "t": 2.5999999046325684,
+       "v": 2.2275424003601074,
+       "si": 0.0,
+       "so": 0.0
+      },
+      {
+       "t": 2.6500000953674316,
+       "v": 0.772301971912384,
+       "si": 0.0,
+       "so": 0.0
+      },
+      {
+       "t": 2.866666555404663,
+       "v": 1.0903291702270508,
+       "si": 0.0,
+       "so": 0.0
+      }
+     ]
+    },
+    {
+     "path": "Division Image",
+     "type": "Image",
+     "property": "m_Color.a",
+     "channel": "alpha",
+     "srcAttribute": "m_Color.a",
+     "classId": 114,
+     "keys": [
+      {
+       "t": 0.38333332538604736,
+       "v": 0.0,
+       "si": 0.0,
+       "so": 0.0
+      },
+      {
+       "t": 0.75,
+       "v": 1.0,
+       "si": 0.0,
+       "so": 0.0
+      }
+     ]
+    },
+    {
+     "path": "Text Content",
+     "type": "CanvasGroup",
+     "property": "m_Alpha",
+     "channel": "groupAlpha",
+     "srcAttribute": "m_Alpha",
+     "classId": 225,
+     "keys": [
+      {
+       "t": 0.38333332538604736,
+       "v": 0.0,
+       "si": 0.0,
+       "so": 0.0
+      },
+      {
+       "t": 3.183333396911621,
+       "v": 0.0,
+       "si": 0.0,
+       "so": 0.0
+      },
+      {
+       "t": 3.9166667461395264,
+       "v": 1.0,
+       "si": 0.0,
+       "so": 0.0
+      }
+     ]
+    },
+    {
+     "path": "Title",
+     "type": "TMP_Text",
+     "property": "m_fontColor.a",
+     "channel": "textColorAlpha",
+     "srcAttribute": "m_fontColor.a",
+     "classId": 114,
+     "keys": [
+      {
+       "t": 0.38333332538604736,
+       "v": 0.0,
+       "si": 0.0,
+       "so": 0.0
+      },
+      {
+       "t": 2.5999999046325684,
+       "v": 0.0,
+       "si": 0.0,
+       "so": 0.0
+      },
+      {
+       "t": 3.183333396911621,
+       "v": 1.0,
+       "si": 0.0,
+       "so": 0.0
+      }
+     ]
+    },
+    {
+     "path": "Division Image/Rank Icon",
+     "type": "Image",
+     "property": "m_Color.a",
+     "channel": "alpha",
+     "srcAttribute": "m_Color.a",
+     "classId": 114,
+     "keys": [
+      {
+       "t": 0.38333332538604736,
+       "v": 0.0,
+       "si": 0.0,
+       "so": 0.0
+      },
+      {
+       "t": 0.75,
+       "v": 1.0,
+       "si": 0.0,
+       "so": 0.0
+      }
+     ]
+    },
+    {
+     "path": "Division Image/Rank Icon",
+     "type": "AnimateUIMaterialProperty",
+     "property": "floatProperty1.value",
+     "channel": "materialFloat",
+     "srcAttribute": "floatProperty1.value",
+     "classId": 114,
+     "keys": [
+      {
+       "t": 0.5666666626930237,
+       "v": 0.0,
+       "si": 0.2807959020137787,
+       "so": 0.2807959020137787
+      },
+      {
+       "t": 1.0833333730697632,
+       "v": 0.08673001080751419,
+       "si": 0.11265764385461807,
+       "so": 0.11265764385461807
+      },
+      {
+       "t": 1.9333332777023315,
+       "v": 0.2226536124944687,
+       "si": 0.2275269776582718,
+       "so": 0.2275269776582718
+      },
+      {
+       "t": 3.183333396911621,
+       "v": 1.0486313104629517,
+       "si": 0.6017161011695862,
+       "so": 0.6017161011695862
+      }
+     ]
+    },
+    {
+     "path": "Particles Rank Up",
+     "type": "GameObject",
+     "property": "m_IsActive",
+     "channel": "active",
+     "srcAttribute": "m_IsActive",
+     "classId": 1,
+     "keys": [
+      {
+       "t": 0.38333332538604736,
+       "v": 1.0,
+       "si": Infinity,
+       "so": Infinity
+      }
+     ]
+    },
+    {
+     "path": "Particles DivisionUp",
+     "type": "GameObject",
+     "property": "m_IsActive",
+     "channel": "active",
+     "srcAttribute": "m_IsActive",
+     "classId": 1,
+     "keys": [
+      {
+       "t": 0.38333332538604736,
+       "v": 0.0,
+       "si": Infinity,
+       "so": Infinity
+      }
+     ]
+    },
+    {
+     "path": "Division Image/Rank Icon/Rank Icon Glow",
+     "type": "Image",
+     "property": "m_Color.a",
+     "channel": "alpha",
+     "srcAttribute": "m_Color.a",
+     "classId": 114,
+     "keys": [
+      {
+       "t": 2.5999999046325684,
+       "v": 0.0,
+       "si": 0.0,
+       "so": 0.0
+      },
+      {
+       "t": 2.6500000953674316,
+       "v": 1.0,
+       "si": 0.0,
+       "so": 0.0
+      },
+      {
+       "t": 3.366666555404663,
+       "v": 0.0,
+       "si": 0.0,
+       "so": 0.0
+      }
+     ]
+    },
+    {
+     "path": "Mission Milestones Progress",
+     "type": "CanvasGroup",
+     "property": "m_Alpha",
+     "channel": "groupAlpha",
+     "srcAttribute": "m_Alpha",
+     "classId": 225,
+     "keys": [
+      {
+       "t": 0.0,
+       "v": 1.0,
+       "si": 0.0,
+       "so": 0.0
+      },
+      {
+       "t": 0.5833333134651184,
+       "v": 0.0,
+       "si": 0.0,
+       "so": 0.0
+      }
+     ]
+    },
+    {
+     "path": "Title",
+     "type": "CanvasGroup",
+     "property": "m_Alpha",
+     "channel": "groupAlpha",
+     "srcAttribute": "m_Alpha",
+     "classId": 225,
+     "keys": [
+      {
+       "t": 0.0,
+       "v": 0.0,
+       "si": 0.0,
+       "so": 0.0
+      },
+      {
+       "t": 2.5166666507720947,
+       "v": 0.0,
+       "si": 0.0,
+       "so": 0.0
+      },
+      {
+       "t": 3.0999999046325684,
+       "v": 1.0,
+       "si": 0.0,
+       "so": 0.0
+      }
+     ]
+    }
+   ]
+  }
+ ]
+}

@@ -173,9 +173,21 @@ namespace WarpforgeVFX
 
             // 路径第一段通常是 prefab 根（导出时 `inst.name = src.name`，名字应当对得上）；
             // 对不上就退一步，把整条路径当成「根之下」处理，别直接失败。
+            //
+            // 🆕 2026-10-22：**第一段按 `Trim()` 后比（只放宽这一段）**。模块数据里的 `__node` 记的是
+            // **原版 prefab 名** —— 例如 `"Orbital 5 repeat "` **带尾随空格**（原版 `m_Name` 就这么写的），
+            // 而工程里那件 prefab 叫 `"Orbital 5 repeat"`（Windows 文件名落不了尾随空格）⇒
+            // 逐字比会在这里就判「根对不上」，路径退化成「根之下」，整条解析不出来
+            // （打警告、模块 host 退回根 —— 屏震仍然会挂到根上，但位置/朝向就跟着根走了）。
+            // 判据 → `资料/普查产出_1022/P4_M5与audit工具.md`（同一处尾随空格在 join 那一层的实据
+            // 见 `EffectLibraryBuilder.JoinKey`）。
+            //
+            // ⚠️ **只放宽第一段**：后面各段是**子件名**，逐字比是**判据**（`Whip ` / `BulletImpact `
+            // 这类**名字带空格的子件**正是靠逐字比才命中）⇒ ⛔ 别把整条路径的语义也改成 Trim。
             var s0 = SplitIndex(segs[0]);
-            if (s0.name == root.name) start = 1;
-            else if (root.parent != null && s0.name == root.parent.name) { cur = root.parent; start = 1; }
+            var n0 = s0.name.Trim();
+            if (n0 == root.name.Trim()) start = 1;
+            else if (root.parent != null && n0 == root.parent.name.Trim()) { cur = root.parent; start = 1; }
 
             for (int i = start; i < segs.Length; i++)
             {

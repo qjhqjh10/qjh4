@@ -731,8 +731,12 @@ public static class DeckScene
             CheckA1212(r, "hdr_back_t", "Deck Editing Menu/Content Area/Header/Close/Button Text", 10f, 40f, 12f, 0,
                        boxW: 133.22f);                       // A1226 表 B #35（框宽已改）
             CheckA1212(r, "hdr_fltlbl", "…/Sidebar/Filters/Filters", 10f, 40f, 32f, 0);
+            // 🔴 **2026-10-22（`D1`）就地订正（铁律 5）**：`A1226` 表 B #37 的框宽**旧值 221.44 已改 68.69**。
+            //    221.44 是拿 dump 的**模板位父宽 250** 算的（250 × 0.92575 − `m_SizeDelta.x 10`）；
+            //    那颗钮布局完之后的父宽是 **85**（`Header/Filters` 的 `GridLayoutGroup` cellSize 85×70）
+            //    ⇒ 原版有效框 = 85 × 0.92575 − 10 = **68.69**。⛔ 别再按 250 算。
             CheckA1212(r, "hdr_clear_t", "…/Header/Filters/…/Button Text", 10f, 42f, 12f, 0,
-                       boxW: 221.44f);                       // A1226 表 B #37
+                       boxW: 68.69f);                       // A1226 表 B #37（框宽已按布局后父宽订正）
             for (int i = 0; i < 4; i++)
                 CheckA1212(r, "hdr_wct" + i, "…/Header/Wildcard Counter/Counter", 10f, 38f, 45f, 1);
             CheckA1212(r, "name_t", "…/Sidebar/Deck Details/Name (Text)", 10f, 28f, 28f, 3);
@@ -2854,9 +2858,14 @@ public static class DeckScene
             // 关键 rect **逐值**对权威表（`_deck_editing_godot_rects.txt`）——
             // 这几个数是「按原版复刻」的硬判据，抄错了这条会红
             CheckRect("hdr_fltbtn", 367.2f, 88.5f, 50f, 50f);
-            // ⚠️ `hdr_clear` 的 x **不是** dump 里的 1488.6（那是 VLG 布局前的模板位，落在父容器外）
-            //    —— 按「容器内右对齐」= 1468.6 − 250 = 1218.6，理由写在 `DeckRuntime` 那条常量上
-            CheckRect("hdr_clear", 1218.6f, 83.5f, 250f, 60f);
+            // 🔴 **2026-10-22（`D1`）就地订正（铁律 5）**：这里原来断的是 `1218.6, 83.5, 250×60`
+            //    （「容器内右对齐」= 1468.6 − 250）—— **两个数都不是原版布局结果**，已按原版改。
+            //    判据 = 父容器 `Header/Filters`（592.2,71.0→1468.6,156.0 · `GridLayoutGroup`
+            //    cell **85×70** · pad 0 · `align=3` MiddleLeft · `constraint=2` FixedRowCount 1 ⇒ 1 行）
+            //    ⇒ uGUI 跑完 = **85×70 @ (592.2, 78.5)**（x = 容器左沿 + 0；y = 71 + (85−70)/2）。
+            //    ⚠️ dump 那行仍印 1488.6 / 250×60 —— 那是**布局前的模板位**（Grid 系 `menu_dump` 不套算）。
+            //    ⛔ 别改回 1218.6（那会把钮摆到四个稀有度计数那一带）。
+            CheckRect("hdr_clear", 592.2f, 78.5f, 85f, 70f);
             CheckRect("hdr_sep", 167.2f, 151f, 1752.8f, 10f);
             // 🔴 **2026-10-04（A51 F10）：页头分隔线原版也是【九宫格】，我们原来是单块拉伸。**
             //   判据 = dump 那行 `Separator Line [167.2,151]–[1920,161] 1752.83×10 | 40k_main_line 171×6

@@ -363,6 +363,8 @@ namespace CardPresentation
         Transform _nameWin;      // `ChooseNameWindow`（出厂关）
         Label _nameField;        // 输入框里的字
         Label _playerName;       // `Player Name`（改名后要刷它）
+        Label _playerTitle;      // `Player Title`（without-Alliance 那一棵 = 出厂 ON 的那一棵）
+        Label _playerTitleWa;    // `Player Title`（with-Alliance 那一棵，出厂 F —— 一并刷，切到那份时才不是旧值）
         ImageQuad _avatarArt;    // `Player Info` 的立绘
         Label _avatarNameLabel;  // （出厂 F 的那行名；留引用备查）
 
@@ -380,7 +382,7 @@ namespace CardPresentation
         }
 
         /// <summary>每次切到本页时重读「我是谁」（原版 `OnOpen → Initialize`）：名字可能刚被改名窗改过、
-        /// 头像可能刚在 `Avatar` 页换过 ⇒ 两处都要重读。</summary>
+        /// 头像可能刚在 `Avatar` 页换过、**称号可能刚在 `Title` 页装备过** ⇒ 三处都要重读。</summary>
         public override void OnOpen() { RefreshIdentity(); }
 
         // ============================================================ 1) 顶部三件
@@ -505,10 +507,15 @@ namespace CardPresentation
             MenuDraw.SetVAlign(iwaNameLb, Label.VAlign.Midline, iwaNameR);
             // 🔴 **A406**：同树 `Player Title` 原版 `auto[20.0~35.0] 基准=35.0` ⇒ 上限 35（= 标称）· base 35.0。
             var iwaTitleR = new PxRect(PtL, PtT, PtR, PtB);
-            var iwaTitleLb = Text(nth, PlaceholderTitle, iwaTitleR, Color.white, "Player Title",
+            // 🆕 **2026-10-22（P1）**：这一格原来印的是 prefab 的**占位串 `'Player Title'`** ——
+            //   参考图（`账户-个人资料参考图.png`）那一行是**已装备的称号**（`复仇的兄弟`，与称号页「正在使用」同一条）。
+            //   判据 = `PlayerProfileUIController` 有 `titleText` 字段 + `SetProfileTitle`（空串 ⇒ 整块关）；
+            //   数据源 = `ProfileData.TitleName`（全工程唯一一份；称号页装备的就是它）。
+            var iwaTitleLb = Text(nth, ProfileData.TitleName, iwaTitleR, Color.white, "Player Title",
                                   PtPx, L_Text2, autoFit: true, autoMinPx: PtAutoMin, alignLeft: true, wrap: false,
                                   autoMaxPx: 35f, basePx: 35f, face: TmpFont.Face.LatinUi);
             if (iwaTitleLb != null) { iwaTitleLb.SetWrapping(false); MenuDraw.AlignLeft(iwaTitleLb, iwaTitleR); }
+            _playerTitleWa = iwaTitleLb;
 
             // `Alliance Info`（`ProfileAllianceDisplay`）—— 我们没有联盟 ⇒ 全部空态（ⓑ/ⓒ）
             var al = Node(sec, "Alliance Info", new PxRect(AlL, AlT, AlR, AlB));
@@ -560,10 +567,13 @@ namespace CardPresentation
             MenuDraw.SetVAlign(_playerName, Label.VAlign.Midline, woNameR);
             // 🔴 **A406**：同树 `Player Title` 原版 `auto[20.0~35.0] 基准=35.0` ⇒ 上限 35 · base 35.0。
             var woTitleR = new PxRect(PtL, PtT, PtR, PtB);
-            var woTitleLb = Text(nth, PlaceholderTitle, woTitleR, Color.white, "Player Title",
+            // 🆕 **2026-10-22（P1）**：同上面 with-Alliance 那一棵 —— 印**已装备的称号**（`ProfileData.TitleName`），
+            //   不再印 prefab 占位串 `'Player Title'`（参考图那一行就是称号）。
+            var woTitleLb = Text(nth, ProfileData.TitleName, woTitleR, Color.white, "Player Title",
                                  PtPx, L_Text2, autoFit: true, autoMinPx: PtAutoMin, alignLeft: true, wrap: false,
                                  autoMaxPx: 35f, basePx: 35f, face: TmpFont.Face.LatinUi);
             if (woTitleLb != null) { woTitleLb.SetWrapping(false); MenuDraw.AlignLeft(woTitleLb, woTitleR); }
+            _playerTitle = woTitleLb;
         }
 
         // ============================================================ 3) `Ranking`
@@ -1101,7 +1111,8 @@ namespace CardPresentation
             ProfileData.PlayerName = v;      // 🔴 唯一写点（联机层的显示名读的是同一个源）
             if (_playerName != null) _playerName.SetText(v);
             CloseNameWindow();
-            Debug.Log("[Profile] 玩家名改成「" + v + "」（⚠️ **只在本次会话里**：原版这一步会上传服务器 + 扣改名费）");
+            Debug.Log("[Profile] 玩家名改成「" + v + "」（🆕 2026-10-22 起**已落盘**："
+                    + "`persistentDataPath/WarpforgeProfile/profile.json`；原版这一步是上传服务器 + 扣改名费）");
         }
 
         /// <summary>关掉改名窗（提交与取消都走这里）。</summary>
@@ -1139,10 +1150,13 @@ namespace CardPresentation
             return ProfileData.AvatarArt;
         }
 
-        /// <summary>把「我是谁」刷一遍：玩家名 + 头像（原版 `Initialize` 每次 `OnOpen` 重跑一次）。</summary>
+        /// <summary>把「我是谁」刷一遍：玩家名 + **已装备的称号** + 头像（原版 `Initialize` 每次 `OnOpen` 重跑一次）。</summary>
         public void RefreshIdentity()
         {
             if (_playerName != null) _playerName.SetText(ProfileData.PlayerName);
+            // 🆕 2026-10-22（P1）：称号页装备完再切回本页要看到新值（`ChangeTab` 会调 `OnOpen`）
+            if (_playerTitle != null) _playerTitle.SetText(ProfileData.TitleName);
+            if (_playerTitleWa != null) _playerTitleWa.SetText(ProfileData.TitleName);
             string art = CurrentAvatarArt();
             if (_avatarArt != null)
             {

@@ -1656,20 +1656,33 @@ namespace CardPresentation
         ///
         /// 时间轴 / 每段的判据见上面那一段头注与 <see cref="DeathBeats"/>（原版是四拍协程，我们这里是一串 `Sequence`）。
         /// 取不到那件爆散体时**退回** <see cref="Dissolve"/>（旧表现）并出声。
+        /// 🆕 2026-10-22（P6 · M1）：`collectedWaystone`（收集灵魂石带出来的那条 `Death`）⇒ **回 `null`** ——
+        /// 调用方当场把视图收掉（原版 `CollectWaystoneEffect` 末尾就是 `Destroy(残骸体)`，没有 `UnitDeath` 时间轴；
+        /// 收集粒子由 `EvtKind.CollectWaystone` 那条事件自己放）。
         /// ⚠️ 收掉视图仍是**调用方**那件事（原版是 `CemeteryManager.AddCardToCemetery` 尾巴上的
         /// `SetActive(false)`，我们这边是 `onDone` → `Kill`）。
         /// </summary>
         public static Tween DeathExplosion(CardView card, float delay = 0f, System.Action onDone = null,
-                                           bool isWarlord = false)
+                                           bool isWarlord = false, RuleEngine.CardDef def = null,
+                                           bool collectedWaystone = false)
         {
             if (card == null) return null;
 
             // 🔴 2026-10-16：**先把「这一张该用哪件爆散体」定下来**，再排时间轴 ——
             //   原版那句话在第②拍（0.5 s 之后）才执行，而我们得**事先**决定走真件还是退回路
             //   （退回路是不一样的一条 `Dissolve` 时间轴）。挑件的判据全在 `PickDeathFx` 里。
-            string perCard;
-            string fx = PickDeathFx(card, out perCard);
-            if (fx == null)
+            // 🆕 2026-10-22（P6 · M2/M3）：`def` / `collectedWaystone` 两个形参把「残骸被打掉」
+            //   与「收集路标石带出来的消失」两条原版分支带进来（判据见 `PickDeathFx`）：
+            //     · `def` = 这一张的 `CardDef`（判「是不是残骸那一族」用 —— 与 `PlayRemnantSfx` 同一份判据）；
+            //     · `collectedWaystone` = 这条 `Death` 是 `CollectWaystone` 那一下带出来的 ⇒ **一件都不播**。
+            var pick = PickDeathFx(card, def, collectedWaystone);
+            // ① 🆕 2026-10-22（P6 · M1/M2）：**收集路标石带出来的残骸消失 ⇒ 当场收掉、一件不播。**
+            //   原版 `RemnantAeldari__CollectWaystoneEffect.c` 末尾就是 `Destroy(残骸体)` ——
+            //   它**根本不进** `CardScript.UnitDeath`（那 0.5 s 站桩 + 0.2 s + 墓地都不该有），
+            //   收集粒子由 `EvtKind.CollectWaystone` 那条事件自己放（见 `VfxMap.ByEvent` 那一行）。
+            //   回 `null` ⇒ 调用方 `PlayDeathFeel` 走 `tw == null` 那一支**当场 `Kill`** 这个视图。
+            if (pick.Suppressed) return null;
+            if (pick.Fx == null)
             {
                 // 取不到那件真爆散体 ⇒ 用**当初的替代品**顶上（`Explosion Fenrisian Monstrosities`）——
                 // 它原来挂在 `BattleDriver.PlaySignal` 的 `EvtKind.Death` 那一格上，2026-10-01 那件真件
@@ -1702,8 +1715,10 @@ namespace CardPresentation
             seq.AppendCallback(() =>
             {
                 card.SetBody3DVisible(false);
-                if (!SpawnDeathBody(card, perCard, fx))
-                    Debug.LogWarning($"[CardFeel] `{fx}` 这一刻放不出来（`WarpforgeEffectPlayer.Play` 返回空）"
+                bool ok = pick.Remnant ? SpawnRemnantDestroy(card, pick.Fx)
+                                       : SpawnDeathBody(card, pick.PerCard, pick.Fx);
+                if (!ok)
+                    Debug.LogWarning($"[CardFeel] `{pick.Fx}` 这一刻放不出来（`WarpforgeEffectPlayer.Play` 返回空）"
                                    + " ⇒ 这一张阵亡**没有爆散体**（原版 `UnitDeath` state 1 会 `Instantiate` 它）");
             });
             // ③ 再等 `minionDeathTime`（原版还有一句 `StopAnimsInPlay`，我们这套卡没有 Animation）
@@ -1752,8 +1767,88 @@ namespace CardPresentation
             CardTween.Use(tr.DOScale(Vector3.one * CemeteryCardScale, CemeteryGrowTime), Ease.OutCubic, tr);
         }
 
-        /// <summary>挑出这一张该用哪件爆散体（**出声**，不静默）。
-        /// 返回 null = 库里一件都没有 ⇒ 调用方走退回路。
+        // ------------------------------------------------------------------
+        //  🆕 2026-10-22（P6 · M2/M3）：**残骸被打掉**那一拍（原版 `RemnantBody.DoDestroy*`）
+        // ------------------------------------------------------------------
+        //  判据（第一权威，逐句读）：
+        //   · `RemnantBody__DoDestroyByAttack.c`：`deathSound.Play3D` → `Instantiate(particleDeath = +0x9,
+        //     GetDeathParticlePosition(), particleDeath.transform.rotation)` → `SetData(card)`
+        //     → **`inst.transform.localScale = 残骸体.transform.lossyScale`** → `Destroy(残骸体)`。
+        //     ⇒ 件是**残骸 prefab 自己序列化的 `particleDeath`**（⛔ 不是按阵营拼名字）；
+        //       位姿 = 位置走各阵营的 `GetDeathParticlePosition`、**旋转用 prefab 自身**、
+        //       尺度**赋值**成残骸体的 `lossyScale`。
+        //   · `RemnantAeldari__GetDeathParticlePosition.c`：`this + 0x68`（= `wayStoneIdle`）的 `position`
+        //     ⇒ 节点路径见 <see cref="CardView.RemnantIdleNodePath"/>。
+        //   · `RemnantNecrons__GetDeathParticlePosition.c`：残骸体**自己的** `transform.position`。
+        //   · `RemnantAeldari__DoDestroy.c`：`deathType == 50(collectWaystone)` ⇒ 走收集那条链，
+        //     **不**走 `DoDestroyByAttack`；`RemnantNecrons__DoDestroy` **恒走** `DoDestroyByAttack`。
+        //     ⇒ 收集那一下带出来的残骸消失**不播 Destroy 件**（<see cref="DeathFxPick.Suppressed"/>）。
+        //   · `CardScript._UnitDeath_d__446__MoveNext.c:196`：只有 `isRemnant(+0x65) == 0` 那一支才
+        //     `Instantiate(cardDestroyFX)` ⇒ **残骸阵亡不播普通阵亡件**（= 本支存在的理由）。
+        //  逐件的 `particleDeath` 真值（P5 实读 prefab 的 MB 字段，⛔ 不是照名字推）：
+        //   · `RemnantBody3D Aeldari` → `Remnant Aeldari Destroy particles`
+        //     （`资料/普查产出_1022/P5_四未查清.md:137`，pathID 6910315040393640781）
+        //   · `RemnantBody3D Necrons` → `Remnant Necrons Destroy particles`
+        //     （同上 `:154` / `W64_素材导出缺口.md:50`，pathID -4358118985528859315）
+
+        /// <summary>残骸体的 `particleDeath` 那一件 + 它的落点规则（判据见上面那一段注释）。</summary>
+        struct RemnantDestroySpec
+        {
+            /// <summary>效果库键（= prefab 名）。</summary>
+            public string Fx;
+            /// <summary>true = 落点取 `Idle/Spirit Stone Idle`（灵族）；false = 残骸体根（死灵）。</summary>
+            public bool IdleAnchor;
+        }
+
+        /// <summary>残骸体 prefab → 它被打掉时原版播的那一件。**显式表**（⛔ 别改成字符串拼接猜名字）。</summary>
+        static readonly System.Collections.Generic.Dictionary<string, RemnantDestroySpec> RemnantDestroyByBody =
+            new System.Collections.Generic.Dictionary<string, RemnantDestroySpec>
+        {
+            { "RemnantBody3D Aeldari", new RemnantDestroySpec { Fx = "Remnant Aeldari Destroy particles", IdleAnchor = true  } },
+            { "RemnantBody3D Necrons", new RemnantDestroySpec { Fx = "Remnant Necrons Destroy particles", IdleAnchor = false } },
+        };
+
+        /// <summary>查表（键 = <see cref="CardView.RemnantBodyPrefabName"/>）。查不到 ⇒ `false` —— 调用方**出声**。</summary>
+        static bool TryRemnantDestroySpec(string bodyPrefab, out RemnantDestroySpec spec)
+        {
+            spec = default(RemnantDestroySpec);
+            return !string.IsNullOrEmpty(bodyPrefab) && RemnantDestroyByBody.TryGetValue(bodyPrefab, out spec);
+        }
+
+        /// <summary>🔴 2026-10-22（P6 · M1–M3）：**这一张卡是不是「残骸那一族」** —— 判据只此一处。
+        ///
+        /// <para>原版判据 = `SupportMethods.HasToTransformIntoRemnant`（两条当前特质 `0x41a Remnant` /
+        /// `0x474 Waystone`）；落到我们这边就是卡 SO 的两个关键词位。
+        /// `BattleDriver.PlayRemnantSfx`（音效：出现/收集/被打掉）与 <see cref="PickDeathFx"/>
+        /// （粒子：Destroy 那件）**都调本函数** —— ⛔ 别在任一处再抄一份
+        /// `Has(Waystone) || Has(Remnant)`（那是同一条判据的第二份）。</para>
+        /// <param name="waystone">true = 灵族那一支（`Waystone`：收集灵魂石 / `RemnantBody3D Aeldari`）；
+        /// false = 死灵那一支（`Remnant`：`RemnantBody3D Necrons`）。</param></summary>
+        public static bool IsRemnantFamily(RuleEngine.CardDef card, out bool waystone)
+        {
+            waystone = card != null && card.Has(RuleEngine.KeywordTable.Waystone);
+            return waystone || (card != null && card.Has(RuleEngine.KeywordTable.Remnant));
+        }
+
+        /// <summary><see cref="PickDeathFx"/> 的结论 —— 一个结构体装齐「播哪件 / 走哪条生成路 / 这一拍该不该有件」。
+        /// <para>⚠️ 拆成结构体（而不是一堆 `out`）是为了**自检能一条断言比完**，见 `Editor/BattleScene.cs`。</para></summary>
+        public struct DeathFxPick
+        {
+            /// <summary>要播的那件（效果库键）。null = 一件都没有（`Suppressed == false` 时调用方走退回路）。</summary>
+            public string Fx;
+            /// <summary>逐卡覆盖件（原版 `customDeathParticles`）；没有 = null。只有**非残骸**那一路会填。</summary>
+            public string PerCard;
+            /// <summary>true = 走「残骸 Destroy」那一条（落点 / 尺度规则与普通爆散体不同，见 `SpawnRemnantDestroy`）。</summary>
+            public bool Remnant;
+            /// <summary>true = **这一拍本来就不该有件** —— 收集路标石带出来的残骸消失，原版 `DoDestroy` 的
+            /// `deathType == 50` 那一支只播**收集**粒子（`CollectWaystone` 那条事件），没有 Destroy 件、
+            /// 也没有普通阵亡件，而且 `Destroy(残骸体)` 是**当场**（不进 `UnitDeath` 那 0.7 s 时间轴）。
+            /// ⚠️ `DeathExplosion` 见到它**直接回 `null`** ⇒ 调用方当场收掉视图。</summary>
+            public bool Suppressed;
+        }
+
+        /// <summary>挑出这一张该用哪件（**出声**，不静默）。
+        /// 返回的 `Fx == null && !Suppressed` ⇒ 库里一件都没有 ⇒ 调用方走退回路。
         ///
         /// 🔴🔴 规则 = 原版 `_UnitDeath…:200-347` 的「**二选一**」，不是「叠加」——
         ///   整个函数**只有两处 `Instantiate`**：`:233` 逐卡 `customDeathParticles`、
@@ -1765,30 +1860,93 @@ namespace CardPresentation
         ///      而那件**已经在退回路里**了 ⇒ 算进来就是**原版没有的第二下**。
         ///   ⚠️ 逐卡的 66 张卡解出来**是同一件** `Necrons death explosion`
         ///      （判据 → 生成器 `gen_card_vfx_by_card.py` 的 `RT_SKIP_SOFIELDS` 那段）
-        ///      ⇒ **别指望它是「一卡一件」**，也别因为「都一样」就以为这一跳没意义。</summary>
-        static string PickDeathFx(CardView card, out string perCard)
+        ///      ⇒ **别指望它是「一卡一件」**，也别因为「都一样」就以为这一跳没意义。
+        ///
+        /// 🆕 2026-10-22（P6）：**残骸那一支排在最前**（判据见上面那一段注释）——
+        ///   死的是残骸 ⇒ 该具残骸自己的 `particleDeath`，**不**走上面那条二选一
+        ///   （原版 `CardScript._UnitDeath…:196` 对残骸根本不进 `Instantiate(cardDestroyFX)` 那一支）。
+        /// <para>🔴 **公开**是给自检直接验「选了哪一件」（不用跑一局、也不用推补间）。</para></summary>
+        public static DeathFxPick PickDeathFx(CardView card, RuleEngine.CardDef def, bool collectedWaystone = false)
         {
-            perCard = VfxMap.ResolvePerCard(VfxMap.Death, card.Data.faction, card.Data.id);
-            if (!string.IsNullOrEmpty(perCard) && !FxInLibrary(perCard))
+            var pick = new DeathFxPick();
+
+            // ① **收集路标石那一下**带出来的残骸消失 ⇒ 原版只播收集粒子、没有 Destroy 件
+            //    （`RemnantAeldari__DoDestroy.c` 的 `deathType == 50(collectWaystone)` 那一支）。
+            if (collectedWaystone)
+            {
+                pick.Suppressed = true;
+                return pick;
+            }
+
+            // 防御：没有视图就没有「这一张卡」可言 ⇒ 回一件都不播（调用方走退回路）。
+            // ⚠️ 正常路径到不了（`DeathExplosion` 开头就挡 null）；留着是为了让本函数**处处有定义**。
+            if (card == null)
+            {
+                Debug.LogWarning("[CardFeel] PickDeathFx：`card` 为 null ⇒ 这一拍没有阵亡件（调用方不该这么传）");
+                return pick;
+            }
+
+            // 防御：视图上盖着残骸体、调用方却没给 `CardDef` ⇒ 判不了「是不是残骸」。
+            //   ⛔ 不静默退回普通阵亡链 —— 那会播出一件原版没有的 `Card 3D Death Explosion`。
+            if (def == null && card.RemnantBodyVisible)
+                Debug.LogWarning($"[CardFeel] 卡 `{card.Data.id}` 正盖着残骸体（`{card.RemnantBodyPrefabName}`），"
+                               + "但调用方没给 `CardDef` ⇒ 判不出「是不是残骸那一族」⇒ 这一拍会退回普通阵亡链。"
+                               + "修法：调用方把这一张的 `CardDef` 传进 `DeathExplosion`（判据 = "
+                               + "`CardFeel.IsRemnantFamily`，与 `PlayRemnantSfx` 同一份）");
+
+            // ② **残骸阵亡** ⇒ 该具残骸自己的 `particleDeath`（`RemnantBody__DoDestroyByAttack.c` 的 `+0x9`）。
+            //    ⚠️ 判「是不是残骸」**只调 <see cref="IsRemnantFamily"/>**（与 `PlayRemnantSfx` 同一份判据）。
+            bool waystone;
+            if (IsRemnantFamily(def, out waystone))
+            {
+                RemnantDestroySpec spec;
+                if (!TryRemnantDestroySpec(card != null ? card.RemnantBodyPrefabName : null, out spec))
+                {
+                    // 出声：表里没有这具残骸体 ⇒ 不猜名字（猜出来的多半是同名不同物）
+                    Debug.LogWarning($"[CardFeel] 残骸阵亡：残骸体 `{(card != null ? card.RemnantBodyPrefabName : null) ?? "<null>"}`"
+                                   + $"（{(waystone ? "灵族 Waystone" : "死灵 Remnant")}）**不在 `RemnantDestroyByBody` 表里** "
+                                   + "⇒ 这一拍退回现有阵亡链（原版播的是该残骸 prefab 自己的 `particleDeath`，"
+                                   + "⛔ 不按阵营拼名字猜）。补它：把那一具的 `particleDeath` 解出来、加进那张表");
+                }
+                else if (!FxInLibrary(spec.Fx))
+                {
+                    Debug.LogWarning($"[CardFeel] 残骸阵亡粒子 `{spec.Fx}`（残骸体 `{(card != null ? card.RemnantBodyPrefabName : null)}` 的 "
+                                   + "`particleDeath`）**在效果库里没有** ⇒ 这一拍退回现有阵亡链。补它："
+                                   + "`python 工具/extract_missing_shaders.py --prefabs` → `EffectExporter.RunListed`"
+                                   + " → `EffectLibraryBuilder.Run`");
+                }
+                else
+                {
+                    pick.Fx = spec.Fx;
+                    pick.Remnant = true;
+                    return pick;
+                }
+                // 取不到 ⇒ 上面已出声，**退回下面的现有链**（不静默、也不硬凑一件）
+            }
+
+            // ③ 普通卡（或残骸那件取不到时的退路）：原版那条二选一
+            pick.PerCard = VfxMap.ResolvePerCard(VfxMap.Death, card.Data.faction, card.Data.id);
+            if (!string.IsNullOrEmpty(pick.PerCard) && !FxInLibrary(pick.PerCard))
             {
                 // 逐卡那件在库里没有 ⇒ **出声**，再退回默认件试一次。
                 // ⛔ 不静默吞掉、也不静默降级 —— 这两件事都违反了「不许静默失败」那条红线。
-                Debug.LogWarning($"[CardFeel] 逐卡阵亡粒子 `{perCard}`（卡 `{card.Data.id}` 的原版 "
+                Debug.LogWarning($"[CardFeel] 逐卡阵亡粒子 `{pick.PerCard}`（卡 `{card.Data.id}` 的原版 "
                                + "`customDeathParticles`）**在效果库里没有** ⇒ 退回默认件 "
                                + $"`{DeathBodyFx}`（原版这一步正是「逐卡取不到就用默认件」，"
                                + "见 `CardScript._UnitDeath_d__446__MoveNext.c:240`）。"
                                + "补它：`python 工具/extract_missing_shaders.py --prefabs` → "
                                + "`EffectExporter.RunListed` → `EffectLibraryBuilder.Run`");
-                perCard = null;
+                pick.PerCard = null;
             }
-            string fx = string.IsNullOrEmpty(perCard) ? DeathBodyFx : perCard;
-            if (FxInLibrary(fx)) return fx;
+            pick.Fx = string.IsNullOrEmpty(pick.PerCard) ? DeathBodyFx : pick.PerCard;
+            if (FxInLibrary(pick.Fx)) return pick;
             Debug.LogWarning($"[CardFeel] 效果库里没有 `{DeathBodyFx}` ⇒ 阵亡退回「淡出 + 上浮 + 缩」"
                            + "（原版是「关掉 3D 卡体 + 在卡位生成那个爆散体」）。补它两步（本机已跑过）："
                            + "`python 工具/extract_missing_shaders.py --prefabs` → `EffectExporter.RunListed`"
                            + " → `EffectLibraryBuilder.Run`；判据 → `资料/已知的坑.md` 的"
                            + "「`GetAllAssetNames()` 只吐容器里的资产」那条");
-            return null;
+            pick.Fx = null;
+            return pick;
         }
 
         /// <summary>效果库里有这一件吗（自检里判同一件事用的也是这一对）。</summary>
@@ -1866,6 +2024,61 @@ namespace CardPresentation
                 if (m.HasProperty("_ExplosionTextureOffsetModifier"))
                     m.SetFloat("_ExplosionTextureOffsetModifier", UnityEngine.Random.value);
             }
+            return true;
+        }
+
+        /// <summary>🆕 2026-10-22（P6 · M2/M3）：**在残骸体上生成「残骸 Destroy」粒子**。
+        /// 判据（第一权威，逐句读）= `RemnantBody__DoDestroyByAttack.c`：
+        /// `Instantiate(particleDeath = +0x9, GetDeathParticlePosition(), particleDeath.transform.rotation)`
+        /// → `SetData(card)` → **`inst.transform.localScale = 残骸体.transform.lossyScale`** → `Destroy(残骸体)`。
+        ///
+        /// <list type="bullet">
+        /// <item>**位置** = `GetDeathParticlePosition()`（两阵营各一份，见下面那两支）；
+        ///   ⛔ 不是卡心、不是格心 —— 那正是 `CardFeel.SpawnDeathBody`（普通爆散体）的规则。</item>
+        /// <item>**旋转** = prefab 自身（原版第三个参数是 `particleDeath.transform.rotation`，
+        ///   也就是 prefab 自己的朝向）⇒ 我们**不动**它（`WarpforgeEffectPlayer.Play` 默认就不动旋转）。</item>
+        /// <item>**尺度** = **赋值**成残骸体的 `lossyScale`（原版那句 `set_localScale`）——
+        ///   `Play(..., scale: 1f)` 不缩放 prefab、随后我们显式赋值一次。
+        ///   父节点是 null ⇒ local 就是 world，赋值即等价。</item>
+        /// </list>
+        /// <para>返回 `false` = 这一刻放不出来 / 取不到位姿（调用方**出声**）。</para></summary>
+        static bool SpawnRemnantDestroy(CardView card, string fx)
+        {
+            var root = card.RemnantBodyRoot;
+            if (root == null)
+            {
+                Debug.LogWarning($"[CardFeel] 残骸阵亡粒子 `{fx}`：这张卡上**没有残骸体**"
+                               + "（`CardView.RemnantBodyRoot` 为 null）⇒ 位姿取不到、这一拍不生成。"
+                               + "原版 `RemnantBody.DoDestroyByAttack` 取的就是残骸体自己的 transform");
+                return false;
+            }
+
+            RemnantDestroySpec spec;
+            if (!TryRemnantDestroySpec(card.RemnantBodyPrefabName, out spec))
+            {
+                // 理论上到不了（`PickDeathFx` 已经查过一次表并出声）—— 但这是**另一条出口**，
+                // 按铁律 10 第 5 条「多个入口要带齐状态」，这里也出声、并退回残骸体根。
+                Debug.LogWarning($"[CardFeel] 残骸阵亡粒子 `{fx}`：残骸体 `{card.RemnantBodyPrefabName}`"
+                               + " 不在 `RemnantDestroyByBody` 表里 ⇒ 落点退回残骸体根");
+            }
+
+            Vector3 pos = root.transform.position;
+            if (spec.IdleAnchor)
+            {
+                // 灵族：`RemnantAeldari.GetDeathParticlePosition` 取 `wayStoneIdle`（`+0x68`）的 position。
+                Transform node;
+                if (card.TryGetRemnantNode(CardView.RemnantIdleNodePath, out node) && node != null)
+                    pos = node.position;
+                else
+                    Debug.LogWarning($"[CardFeel] 残骸阵亡粒子 `{fx}`：灵族那具残骸体里取不到 "
+                                   + $"`{CardView.RemnantIdleNodePath}` ⇒ 落点退回残骸体根"
+                                   + "（原版取 `wayStoneIdle` 的 position，见 `RemnantAeldari__GetDeathParticlePosition.c`）");
+            }
+
+            var p = WarpforgeVFX.WarpforgeEffectPlayer.Play(fx, null, pos, 1f);
+            if (p == null) return false;
+            // 原版 `inst.transform.localScale = 残骸体.transform.lossyScale`（**赋值**，不是乘）
+            p.transform.localScale = root.transform.lossyScale;
             return true;
         }
 

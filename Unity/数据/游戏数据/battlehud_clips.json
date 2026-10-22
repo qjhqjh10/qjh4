@@ -1,0 +1,4521 @@
+{
+ "schema": 1,
+ "generated": "工具/gen_battlehud_clips.py（schema 1；无时间戳、幂等）",
+ "source": {
+  "clips": "d:/2/新解包资源/assets_full/bundle_battlesharedresources_assets_all/AnimationClip",
+  "arenas": "d:/2/新解包资源/assets_full/bundle_scenes_scenes_battlearena*"
+ },
+ "pathPrefix": "Canvas/BackCanvas/Safe area BackCanvas/",
+ "clipsHash": "9a4e484c3dba918b4c513da4e55fe125",
+ "clips": {
+  "BattleHudHidden": {
+   "pid": -1315085872149960500,
+   "name": "BattleHudHidden",
+   "legacy": true,
+   "muscleClipSize": 0,
+   "sampleRate": 60.0,
+   "wrapMode": "Once",
+   "length": 0.0,
+   "keysTotal": 16,
+   "curves": [
+    {
+     "node": "BottomAnchor/PlayerArea/HandArea",
+     "path": "Canvas/BackCanvas/Safe area BackCanvas/BottomAnchor/PlayerArea/HandArea",
+     "type": "Transform",
+     "property": "m_LocalPosition",
+     "keys": [
+      {
+       "t": 0.0,
+       "v": [
+        0.0,
+        -479.0,
+        0.0
+       ],
+       "is": [
+        0.0,
+        0.0,
+        0.0
+       ],
+       "os": [
+        0.0,
+        0.0,
+        0.0
+       ]
+      }
+     ]
+    },
+    {
+     "node": "LeftArea/EnemyInfo",
+     "path": "Canvas/BackCanvas/Safe area BackCanvas/LeftArea/EnemyInfo",
+     "type": "RectTransform",
+     "property": "m_AnchoredPosition.x",
+     "keys": [
+      {
+       "t": 0.0,
+       "v": [
+        -240.0
+       ],
+       "is": [
+        0.0
+       ],
+       "os": [
+        0.0
+       ]
+      }
+     ]
+    },
+    {
+     "node": "LeftArea/EnemyInfo",
+     "path": "Canvas/BackCanvas/Safe area BackCanvas/LeftArea/EnemyInfo",
+     "type": "RectTransform",
+     "property": "m_AnchoredPosition.y",
+     "keys": [
+      {
+       "t": 0.0,
+       "v": [
+        330.0
+       ],
+       "is": [
+        0.0
+       ],
+       "os": [
+        0.0
+       ]
+      }
+     ]
+    },
+    {
+     "node": "LeftArea/Left Anchor",
+     "path": "Canvas/BackCanvas/Safe area BackCanvas/LeftArea/Left Anchor",
+     "type": "RectTransform",
+     "property": "m_AnchoredPosition.x",
+     "keys": [
+      {
+       "t": 0.0,
+       "v": [
+        -449.0
+       ],
+       "is": [
+        0.0
+       ],
+       "os": [
+        0.0
+       ]
+      }
+     ]
+    },
+    {
+     "node": "LeftArea/Left Anchor",
+     "path": "Canvas/BackCanvas/Safe area BackCanvas/LeftArea/Left Anchor",
+     "type": "RectTransform",
+     "property": "m_AnchoredPosition.y",
+     "keys": [
+      {
+       "t": 0.0,
+       "v": [
+        0.0
+       ],
+       "is": [
+        0.0
+       ],
+       "os": [
+        0.0
+       ]
+      }
+     ]
+    },
+    {
+     "node": "LeftArea/PlayerInfo",
+     "path": "Canvas/BackCanvas/Safe area BackCanvas/LeftArea/PlayerInfo",
+     "type": "RectTransform",
+     "property": "m_AnchoredPosition.x",
+     "keys": [
+      {
+       "t": 0.0,
+       "v": [
+        -240.0
+       ],
+       "is": [
+        0.0
+       ],
+       "os": [
+        0.0
+       ]
+      }
+     ]
+    },
+    {
+     "node": "LeftArea/PlayerInfo",
+     "path": "Canvas/BackCanvas/Safe area BackCanvas/LeftArea/PlayerInfo",
+     "type": "RectTransform",
+     "property": "m_AnchoredPosition.y",
+     "keys": [
+      {
+       "t": 0.0,
+       "v": [
+        -330.0
+       ],
+       "is": [
+        0.0
+       ],
+       "os": [
+        0.0
+       ]
+      }
+     ]
+    },
+    {
+     "node": "RightArea/EnemyDeck",
+     "path": "Canvas/BackCanvas/Safe area BackCanvas/RightArea/EnemyDeck",
+     "type": "RectTransform",
+     "property": "m_AnchoredPosition.x",
+     "keys": [
+      {
+       "t": 0.0,
+       "v": [
+        -190.0
+       ],
+       "is": [
+        0.0
+       ],
+       "os": [
+        0.0
+       ]
+      }
+     ]
+    },
+    {
+     "node": "RightArea/EnemyDeck",
+     "path": "Canvas/BackCanvas/Safe area BackCanvas/RightArea/EnemyDeck",
+     "type": "RectTransform",
+     "property": "m_AnchoredPosition.y",
+     "keys": [
+      {
+       "t": 0.0,
+       "v": [
+        461.0
+       ],
+       "is": [
+        0.0
+       ],
+       "os": [
+        0.0
+       ]
+      }
+     ]
+    },
+    {
+     "node": "RightArea/PlayerDeck",
+     "path": "Canvas/BackCanvas/Safe area BackCanvas/RightArea/PlayerDeck",
+     "type": "RectTransform",
+     "property": "m_AnchoredPosition.x",
+     "keys": [
+      {
+       "t": 0.0,
+       "v": [
+        -190.0
+       ],
+       "is": [
+        0.0
+       ],
+       "os": [
+        0.0
+       ]
+      }
+     ]
+    },
+    {
+     "node": "RightArea/PlayerDeck",
+     "path": "Canvas/BackCanvas/Safe area BackCanvas/RightArea/PlayerDeck",
+     "type": "RectTransform",
+     "property": "m_AnchoredPosition.y",
+     "keys": [
+      {
+       "t": 0.0,
+       "v": [
+        -461.0
+       ],
+       "is": [
+        0.0
+       ],
+       "os": [
+        0.0
+       ]
+      }
+     ]
+    },
+    {
+     "node": "RightArea/Right Anchor",
+     "path": "Canvas/BackCanvas/Safe area BackCanvas/RightArea/Right Anchor",
+     "type": "RectTransform",
+     "property": "m_AnchoredPosition.x",
+     "keys": [
+      {
+       "t": 0.0,
+       "v": [
+        476.0
+       ],
+       "is": [
+        0.0
+       ],
+       "os": [
+        0.0
+       ]
+      }
+     ]
+    },
+    {
+     "node": "RightArea/Right Anchor",
+     "path": "Canvas/BackCanvas/Safe area BackCanvas/RightArea/Right Anchor",
+     "type": "RectTransform",
+     "property": "m_AnchoredPosition.y",
+     "keys": [
+      {
+       "t": 0.0,
+       "v": [
+        0.0
+       ],
+       "is": [
+        0.0
+       ],
+       "os": [
+        0.0
+       ]
+      }
+     ]
+    },
+    {
+     "node": "RightArea/SettingsBtn",
+     "path": "Canvas/BackCanvas/Safe area BackCanvas/RightArea/SettingsBtn",
+     "type": "RectTransform",
+     "property": "m_AnchoredPosition.x",
+     "keys": [
+      {
+       "t": 0.0,
+       "v": [
+        310.0
+       ],
+       "is": [
+        0.0
+       ],
+       "os": [
+        0.0
+       ]
+      }
+     ]
+    },
+    {
+     "node": "RightArea/SettingsBtn",
+     "path": "Canvas/BackCanvas/Safe area BackCanvas/RightArea/SettingsBtn",
+     "type": "RectTransform",
+     "property": "m_AnchoredPosition.y",
+     "keys": [
+      {
+       "t": 0.0,
+       "v": [
+        311.0
+       ],
+       "is": [
+        0.0
+       ],
+       "os": [
+        0.0
+       ]
+      }
+     ]
+    },
+    {
+     "node": "UpperAnchor/EnemyArea",
+     "path": "Canvas/BackCanvas/Safe area BackCanvas/UpperAnchor/EnemyArea",
+     "type": "RectTransform",
+     "property": "m_AnchoredPosition.y",
+     "keys": [
+      {
+       "t": 0.0,
+       "v": [
+        402.8299865722656
+       ],
+       "is": [
+        0.0
+       ],
+       "os": [
+        0.0
+       ]
+      }
+     ]
+    }
+   ]
+  },
+  "BattleHudHide": {
+   "pid": 1254995653877182794,
+   "name": "BattleHudHide",
+   "legacy": true,
+   "muscleClipSize": 0,
+   "sampleRate": 60.0,
+   "wrapMode": "Once",
+   "length": 1.0,
+   "keysTotal": 29,
+   "curves": [
+    {
+     "node": "BottomAnchor/PlayerArea/HandArea",
+     "path": "Canvas/BackCanvas/Safe area BackCanvas/BottomAnchor/PlayerArea/HandArea",
+     "type": "Transform",
+     "property": "m_LocalPosition",
+     "keys": [
+      {
+       "t": 0.0,
+       "v": [
+        0.0,
+        0.0,
+        0.0
+       ],
+       "is": [
+        0.0,
+        0.0,
+        0.0
+       ],
+       "os": [
+        0.0,
+        0.0,
+        0.0
+       ]
+      },
+      {
+       "t": 1.0,
+       "v": [
+        0.0,
+        -479.0,
+        0.0
+       ],
+       "is": [
+        0.0,
+        0.0,
+        0.0
+       ],
+       "os": [
+        0.0,
+        0.0,
+        0.0
+       ]
+      }
+     ]
+    },
+    {
+     "node": "LeftArea/EnemyInfo",
+     "path": "Canvas/BackCanvas/Safe area BackCanvas/LeftArea/EnemyInfo",
+     "type": "RectTransform",
+     "property": "m_AnchoredPosition.x",
+     "keys": [
+      {
+       "t": 0.0,
+       "v": [
+        50.0
+       ],
+       "is": [
+        0.0
+       ],
+       "os": [
+        0.0
+       ]
+      },
+      {
+       "t": 1.0,
+       "v": [
+        -240.0
+       ],
+       "is": [
+        0.0
+       ],
+       "os": [
+        0.0
+       ]
+      }
+     ]
+    },
+    {
+     "node": "LeftArea/EnemyInfo",
+     "path": "Canvas/BackCanvas/Safe area BackCanvas/LeftArea/EnemyInfo",
+     "type": "RectTransform",
+     "property": "m_AnchoredPosition.y",
+     "keys": [
+      {
+       "t": 0.0,
+       "v": [
+        -28.0
+       ],
+       "is": [
+        0.0
+       ],
+       "os": [
+        0.0
+       ]
+      },
+      {
+       "t": 1.0,
+       "v": [
+        330.0
+       ],
+       "is": [
+        0.0
+       ],
+       "os": [
+        0.0
+       ]
+      }
+     ]
+    },
+    {
+     "node": "LeftArea/Left Anchor",
+     "path": "Canvas/BackCanvas/Safe area BackCanvas/LeftArea/Left Anchor",
+     "type": "RectTransform",
+     "property": "m_AnchoredPosition.x",
+     "keys": [
+      {
+       "t": 0.0,
+       "v": [
+        0.0
+       ],
+       "is": [
+        0.0
+       ],
+       "os": [
+        0.0
+       ]
+      },
+      {
+       "t": 1.0,
+       "v": [
+        -449.0
+       ],
+       "is": [
+        0.0
+       ],
+       "os": [
+        0.0
+       ]
+      }
+     ]
+    },
+    {
+     "node": "LeftArea/Left Anchor",
+     "path": "Canvas/BackCanvas/Safe area BackCanvas/LeftArea/Left Anchor",
+     "type": "RectTransform",
+     "property": "m_AnchoredPosition.y",
+     "keys": [
+      {
+       "t": 1.0,
+       "v": [
+        0.0
+       ],
+       "is": [
+        0.0
+       ],
+       "os": [
+        0.0
+       ]
+      }
+     ]
+    },
+    {
+     "node": "LeftArea/PlayerInfo",
+     "path": "Canvas/BackCanvas/Safe area BackCanvas/LeftArea/PlayerInfo",
+     "type": "RectTransform",
+     "property": "m_AnchoredPosition.x",
+     "keys": [
+      {
+       "t": 0.0,
+       "v": [
+        50.0
+       ],
+       "is": [
+        0.0
+       ],
+       "os": [
+        0.0
+       ]
+      },
+      {
+       "t": 1.0,
+       "v": [
+        -240.0
+       ],
+       "is": [
+        0.0
+       ],
+       "os": [
+        0.0
+       ]
+      }
+     ]
+    },
+    {
+     "node": "LeftArea/PlayerInfo",
+     "path": "Canvas/BackCanvas/Safe area BackCanvas/LeftArea/PlayerInfo",
+     "type": "RectTransform",
+     "property": "m_AnchoredPosition.y",
+     "keys": [
+      {
+       "t": 0.0,
+       "v": [
+        28.0
+       ],
+       "is": [
+        0.0
+       ],
+       "os": [
+        0.0
+       ]
+      },
+      {
+       "t": 1.0,
+       "v": [
+        -330.0
+       ],
+       "is": [
+        0.0
+       ],
+       "os": [
+        0.0
+       ]
+      }
+     ]
+    },
+    {
+     "node": "RightArea/EnemyDeck",
+     "path": "Canvas/BackCanvas/Safe area BackCanvas/RightArea/EnemyDeck",
+     "type": "RectTransform",
+     "property": "m_AnchoredPosition.x",
+     "keys": [
+      {
+       "t": 0.0,
+       "v": [
+        -217.699951171875
+       ],
+       "is": [
+        0.0
+       ],
+       "os": [
+        0.0
+       ]
+      }
+     ]
+    },
+    {
+     "node": "RightArea/EnemyDeck",
+     "path": "Canvas/BackCanvas/Safe area BackCanvas/RightArea/EnemyDeck",
+     "type": "RectTransform",
+     "property": "m_AnchoredPosition.y",
+     "keys": [
+      {
+       "t": 0.0,
+       "v": [
+        0.0
+       ],
+       "is": [
+        0.0
+       ],
+       "os": [
+        0.0
+       ]
+      },
+      {
+       "t": 1.0,
+       "v": [
+        461.0
+       ],
+       "is": [
+        0.0
+       ],
+       "os": [
+        0.0
+       ]
+      }
+     ]
+    },
+    {
+     "node": "RightArea/PlayerDeck",
+     "path": "Canvas/BackCanvas/Safe area BackCanvas/RightArea/PlayerDeck",
+     "type": "RectTransform",
+     "property": "m_AnchoredPosition.x",
+     "keys": [
+      {
+       "t": 0.0,
+       "v": [
+        -190.0
+       ],
+       "is": [
+        0.0
+       ],
+       "os": [
+        0.0
+       ]
+      },
+      {
+       "t": 1.0,
+       "v": [
+        -190.0
+       ],
+       "is": [
+        0.0
+       ],
+       "os": [
+        0.0
+       ]
+      }
+     ]
+    },
+    {
+     "node": "RightArea/PlayerDeck",
+     "path": "Canvas/BackCanvas/Safe area BackCanvas/RightArea/PlayerDeck",
+     "type": "RectTransform",
+     "property": "m_AnchoredPosition.y",
+     "keys": [
+      {
+       "t": 0.0,
+       "v": [
+        0.0
+       ],
+       "is": [
+        0.0
+       ],
+       "os": [
+        0.0
+       ]
+      },
+      {
+       "t": 1.0,
+       "v": [
+        -461.0
+       ],
+       "is": [
+        0.0
+       ],
+       "os": [
+        0.0
+       ]
+      }
+     ]
+    },
+    {
+     "node": "RightArea/Right Anchor",
+     "path": "Canvas/BackCanvas/Safe area BackCanvas/RightArea/Right Anchor",
+     "type": "RectTransform",
+     "property": "m_AnchoredPosition.x",
+     "keys": [
+      {
+       "t": 0.0,
+       "v": [
+        0.0
+       ],
+       "is": [
+        0.0
+       ],
+       "os": [
+        0.0
+       ]
+      },
+      {
+       "t": 1.0,
+       "v": [
+        476.0
+       ],
+       "is": [
+        0.0
+       ],
+       "os": [
+        0.0
+       ]
+      }
+     ]
+    },
+    {
+     "node": "RightArea/Right Anchor",
+     "path": "Canvas/BackCanvas/Safe area BackCanvas/RightArea/Right Anchor",
+     "type": "RectTransform",
+     "property": "m_AnchoredPosition.y",
+     "keys": [
+      {
+       "t": 0.0,
+       "v": [
+        0.0
+       ],
+       "is": [
+        0.0
+       ],
+       "os": [
+        0.0
+       ]
+      }
+     ]
+    },
+    {
+     "node": "RightArea/SettingsBtn",
+     "path": "Canvas/BackCanvas/Safe area BackCanvas/RightArea/SettingsBtn",
+     "type": "RectTransform",
+     "property": "m_AnchoredPosition.x",
+     "keys": [
+      {
+       "t": 0.0,
+       "v": [
+        -54.0
+       ],
+       "is": [
+        0.0
+       ],
+       "os": [
+        0.0
+       ]
+      },
+      {
+       "t": 1.0,
+       "v": [
+        310.0
+       ],
+       "is": [
+        0.0
+       ],
+       "os": [
+        0.0
+       ]
+      }
+     ]
+    },
+    {
+     "node": "RightArea/SettingsBtn",
+     "path": "Canvas/BackCanvas/Safe area BackCanvas/RightArea/SettingsBtn",
+     "type": "RectTransform",
+     "property": "m_AnchoredPosition.y",
+     "keys": [
+      {
+       "t": 0.0,
+       "v": [
+        -9.199951171875
+       ],
+       "is": [
+        0.0
+       ],
+       "os": [
+        0.0
+       ]
+      },
+      {
+       "t": 1.0,
+       "v": [
+        311.0
+       ],
+       "is": [
+        0.0
+       ],
+       "os": [
+        0.0
+       ]
+      }
+     ]
+    },
+    {
+     "node": "UpperAnchor/EnemyArea",
+     "path": "Canvas/BackCanvas/Safe area BackCanvas/UpperAnchor/EnemyArea",
+     "type": "RectTransform",
+     "property": "m_AnchoredPosition.y",
+     "keys": [
+      {
+       "t": 0.0,
+       "v": [
+        0.0
+       ],
+       "is": [
+        0.0
+       ],
+       "os": [
+        0.0
+       ]
+      },
+      {
+       "t": 1.0,
+       "v": [
+        402.8299865722656
+       ],
+       "is": [
+        0.0
+       ],
+       "os": [
+        0.0
+       ]
+      }
+     ]
+    }
+   ]
+  },
+  "BattleHudShow": {
+   "pid": -6573478101177810173,
+   "name": "BattleHudShow",
+   "legacy": true,
+   "muscleClipSize": 0,
+   "sampleRate": 60.0,
+   "wrapMode": "Once",
+   "length": 1.0,
+   "keysTotal": 30,
+   "curves": [
+    {
+     "node": "BottomAnchor/PlayerArea/HandArea",
+     "path": "Canvas/BackCanvas/Safe area BackCanvas/BottomAnchor/PlayerArea/HandArea",
+     "type": "Transform",
+     "property": "m_LocalPosition",
+     "keys": [
+      {
+       "t": 0.0,
+       "v": [
+        0.0,
+        -479.0,
+        0.0
+       ],
+       "is": [
+        0.0,
+        0.0,
+        0.0
+       ],
+       "os": [
+        0.0,
+        0.0,
+        0.0
+       ]
+      },
+      {
+       "t": 1.0,
+       "v": [
+        0.0,
+        0.0,
+        0.0
+       ],
+       "is": [
+        0.0,
+        0.0,
+        0.0
+       ],
+       "os": [
+        0.0,
+        0.0,
+        0.0
+       ]
+      }
+     ]
+    },
+    {
+     "node": "LeftArea/EnemyInfo",
+     "path": "Canvas/BackCanvas/Safe area BackCanvas/LeftArea/EnemyInfo",
+     "type": "RectTransform",
+     "property": "m_AnchoredPosition.x",
+     "keys": [
+      {
+       "t": 0.0,
+       "v": [
+        -240.0
+       ],
+       "is": [
+        0.0
+       ],
+       "os": [
+        0.0
+       ]
+      },
+      {
+       "t": 1.0,
+       "v": [
+        50.0
+       ],
+       "is": [
+        0.0
+       ],
+       "os": [
+        0.0
+       ]
+      }
+     ]
+    },
+    {
+     "node": "LeftArea/EnemyInfo",
+     "path": "Canvas/BackCanvas/Safe area BackCanvas/LeftArea/EnemyInfo",
+     "type": "RectTransform",
+     "property": "m_AnchoredPosition.y",
+     "keys": [
+      {
+       "t": 0.0,
+       "v": [
+        330.0
+       ],
+       "is": [
+        0.0
+       ],
+       "os": [
+        0.0
+       ]
+      },
+      {
+       "t": 1.0,
+       "v": [
+        -28.0
+       ],
+       "is": [
+        0.0
+       ],
+       "os": [
+        0.0
+       ]
+      }
+     ]
+    },
+    {
+     "node": "LeftArea/Left Anchor",
+     "path": "Canvas/BackCanvas/Safe area BackCanvas/LeftArea/Left Anchor",
+     "type": "RectTransform",
+     "property": "m_AnchoredPosition.x",
+     "keys": [
+      {
+       "t": 0.0,
+       "v": [
+        -449.0
+       ],
+       "is": [
+        0.0
+       ],
+       "os": [
+        0.0
+       ]
+      },
+      {
+       "t": 1.0,
+       "v": [
+        0.0
+       ],
+       "is": [
+        0.0
+       ],
+       "os": [
+        0.0
+       ]
+      }
+     ]
+    },
+    {
+     "node": "LeftArea/Left Anchor",
+     "path": "Canvas/BackCanvas/Safe area BackCanvas/LeftArea/Left Anchor",
+     "type": "RectTransform",
+     "property": "m_AnchoredPosition.y",
+     "keys": [
+      {
+       "t": 0.0,
+       "v": [
+        0.0
+       ],
+       "is": [
+        0.0
+       ],
+       "os": [
+        0.0
+       ]
+      }
+     ]
+    },
+    {
+     "node": "LeftArea/PlayerInfo",
+     "path": "Canvas/BackCanvas/Safe area BackCanvas/LeftArea/PlayerInfo",
+     "type": "RectTransform",
+     "property": "m_AnchoredPosition.x",
+     "keys": [
+      {
+       "t": 0.0,
+       "v": [
+        -240.0
+       ],
+       "is": [
+        0.0
+       ],
+       "os": [
+        0.0
+       ]
+      },
+      {
+       "t": 1.0,
+       "v": [
+        50.0
+       ],
+       "is": [
+        0.0
+       ],
+       "os": [
+        0.0
+       ]
+      }
+     ]
+    },
+    {
+     "node": "LeftArea/PlayerInfo",
+     "path": "Canvas/BackCanvas/Safe area BackCanvas/LeftArea/PlayerInfo",
+     "type": "RectTransform",
+     "property": "m_AnchoredPosition.y",
+     "keys": [
+      {
+       "t": 0.0,
+       "v": [
+        -330.0
+       ],
+       "is": [
+        0.0
+       ],
+       "os": [
+        0.0
+       ]
+      },
+      {
+       "t": 1.0,
+       "v": [
+        28.0
+       ],
+       "is": [
+        0.0
+       ],
+       "os": [
+        0.0
+       ]
+      }
+     ]
+    },
+    {
+     "node": "RightArea/EnemyDeck",
+     "path": "Canvas/BackCanvas/Safe area BackCanvas/RightArea/EnemyDeck",
+     "type": "RectTransform",
+     "property": "m_AnchoredPosition.x",
+     "keys": [
+      {
+       "t": 1.0,
+       "v": [
+        -217.699951171875
+       ],
+       "is": [
+        0.0
+       ],
+       "os": [
+        0.0
+       ]
+      }
+     ]
+    },
+    {
+     "node": "RightArea/EnemyDeck",
+     "path": "Canvas/BackCanvas/Safe area BackCanvas/RightArea/EnemyDeck",
+     "type": "RectTransform",
+     "property": "m_AnchoredPosition.y",
+     "keys": [
+      {
+       "t": 0.0,
+       "v": [
+        461.0
+       ],
+       "is": [
+        0.0
+       ],
+       "os": [
+        0.0
+       ]
+      },
+      {
+       "t": 1.0,
+       "v": [
+        0.0
+       ],
+       "is": [
+        0.0
+       ],
+       "os": [
+        0.0
+       ]
+      }
+     ]
+    },
+    {
+     "node": "RightArea/PlayerDeck",
+     "path": "Canvas/BackCanvas/Safe area BackCanvas/RightArea/PlayerDeck",
+     "type": "RectTransform",
+     "property": "m_AnchoredPosition.x",
+     "keys": [
+      {
+       "t": 0.0,
+       "v": [
+        -190.0
+       ],
+       "is": [
+        0.0
+       ],
+       "os": [
+        0.0
+       ]
+      },
+      {
+       "t": 1.0,
+       "v": [
+        -190.0
+       ],
+       "is": [
+        0.0
+       ],
+       "os": [
+        0.0
+       ]
+      }
+     ]
+    },
+    {
+     "node": "RightArea/PlayerDeck",
+     "path": "Canvas/BackCanvas/Safe area BackCanvas/RightArea/PlayerDeck",
+     "type": "RectTransform",
+     "property": "m_AnchoredPosition.y",
+     "keys": [
+      {
+       "t": 0.0,
+       "v": [
+        -461.0
+       ],
+       "is": [
+        0.0
+       ],
+       "os": [
+        0.0
+       ]
+      },
+      {
+       "t": 1.0,
+       "v": [
+        0.0
+       ],
+       "is": [
+        0.0
+       ],
+       "os": [
+        0.0
+       ]
+      }
+     ]
+    },
+    {
+     "node": "RightArea/Right Anchor",
+     "path": "Canvas/BackCanvas/Safe area BackCanvas/RightArea/Right Anchor",
+     "type": "RectTransform",
+     "property": "m_AnchoredPosition.x",
+     "keys": [
+      {
+       "t": 0.0,
+       "v": [
+        476.0
+       ],
+       "is": [
+        0.0
+       ],
+       "os": [
+        0.0
+       ]
+      },
+      {
+       "t": 1.0,
+       "v": [
+        0.0
+       ],
+       "is": [
+        0.0
+       ],
+       "os": [
+        0.0
+       ]
+      }
+     ]
+    },
+    {
+     "node": "RightArea/Right Anchor",
+     "path": "Canvas/BackCanvas/Safe area BackCanvas/RightArea/Right Anchor",
+     "type": "RectTransform",
+     "property": "m_AnchoredPosition.y",
+     "keys": [
+      {
+       "t": 0.0,
+       "v": [
+        0.0
+       ],
+       "is": [
+        0.0
+       ],
+       "os": [
+        0.0
+       ]
+      },
+      {
+       "t": 1.0,
+       "v": [
+        0.0
+       ],
+       "is": [
+        0.0
+       ],
+       "os": [
+        0.0
+       ]
+      }
+     ]
+    },
+    {
+     "node": "RightArea/SettingsBtn",
+     "path": "Canvas/BackCanvas/Safe area BackCanvas/RightArea/SettingsBtn",
+     "type": "RectTransform",
+     "property": "m_AnchoredPosition.x",
+     "keys": [
+      {
+       "t": 0.0,
+       "v": [
+        310.0
+       ],
+       "is": [
+        0.0
+       ],
+       "os": [
+        0.0
+       ]
+      },
+      {
+       "t": 1.0,
+       "v": [
+        -54.0
+       ],
+       "is": [
+        0.0
+       ],
+       "os": [
+        0.0
+       ]
+      }
+     ]
+    },
+    {
+     "node": "RightArea/SettingsBtn",
+     "path": "Canvas/BackCanvas/Safe area BackCanvas/RightArea/SettingsBtn",
+     "type": "RectTransform",
+     "property": "m_AnchoredPosition.y",
+     "keys": [
+      {
+       "t": 0.0,
+       "v": [
+        311.0
+       ],
+       "is": [
+        0.0
+       ],
+       "os": [
+        0.0
+       ]
+      },
+      {
+       "t": 1.0,
+       "v": [
+        -9.199951171875
+       ],
+       "is": [
+        0.0
+       ],
+       "os": [
+        0.0
+       ]
+      }
+     ]
+    },
+    {
+     "node": "UpperAnchor/EnemyArea",
+     "path": "Canvas/BackCanvas/Safe area BackCanvas/UpperAnchor/EnemyArea",
+     "type": "RectTransform",
+     "property": "m_AnchoredPosition.y",
+     "keys": [
+      {
+       "t": 0.0,
+       "v": [
+        402.8299865722656
+       ],
+       "is": [
+        0.0
+       ],
+       "os": [
+        0.0
+       ]
+      },
+      {
+       "t": 1.0,
+       "v": [
+        0.0
+       ],
+       "is": [
+        0.0
+       ],
+       "os": [
+        0.0
+       ]
+      }
+     ]
+    }
+   ]
+  },
+  "BattleHudShowInstant": {
+   "pid": 3477083935848071261,
+   "name": "BattleHudShowInstant",
+   "legacy": true,
+   "muscleClipSize": 0,
+   "sampleRate": 60.0,
+   "wrapMode": "Once",
+   "length": 0.0,
+   "keysTotal": 14,
+   "curves": [
+    {
+     "node": "LeftArea/EnemyInfo",
+     "path": "Canvas/BackCanvas/Safe area BackCanvas/LeftArea/EnemyInfo",
+     "type": "RectTransform",
+     "property": "m_AnchoredPosition.x",
+     "keys": [
+      {
+       "t": 0.0,
+       "v": [
+        50.0
+       ],
+       "is": [
+        0.0
+       ],
+       "os": [
+        0.0
+       ]
+      }
+     ]
+    },
+    {
+     "node": "LeftArea/EnemyInfo",
+     "path": "Canvas/BackCanvas/Safe area BackCanvas/LeftArea/EnemyInfo",
+     "type": "RectTransform",
+     "property": "m_AnchoredPosition.y",
+     "keys": [
+      {
+       "t": 0.0,
+       "v": [
+        -28.0
+       ],
+       "is": [
+        0.0
+       ],
+       "os": [
+        0.0
+       ]
+      }
+     ]
+    },
+    {
+     "node": "LeftArea/Left Anchor",
+     "path": "Canvas/BackCanvas/Safe area BackCanvas/LeftArea/Left Anchor",
+     "type": "RectTransform",
+     "property": "m_AnchoredPosition.x",
+     "keys": [
+      {
+       "t": 0.0,
+       "v": [
+        0.0
+       ],
+       "is": [
+        0.0
+       ],
+       "os": [
+        0.0
+       ]
+      }
+     ]
+    },
+    {
+     "node": "LeftArea/PlayerInfo",
+     "path": "Canvas/BackCanvas/Safe area BackCanvas/LeftArea/PlayerInfo",
+     "type": "RectTransform",
+     "property": "m_AnchoredPosition.x",
+     "keys": [
+      {
+       "t": 0.0,
+       "v": [
+        50.0
+       ],
+       "is": [
+        0.0
+       ],
+       "os": [
+        0.0
+       ]
+      }
+     ]
+    },
+    {
+     "node": "LeftArea/PlayerInfo",
+     "path": "Canvas/BackCanvas/Safe area BackCanvas/LeftArea/PlayerInfo",
+     "type": "RectTransform",
+     "property": "m_AnchoredPosition.y",
+     "keys": [
+      {
+       "t": 0.0,
+       "v": [
+        28.0
+       ],
+       "is": [
+        0.0
+       ],
+       "os": [
+        0.0
+       ]
+      }
+     ]
+    },
+    {
+     "node": "RightArea/EnemyDeck",
+     "path": "Canvas/BackCanvas/Safe area BackCanvas/RightArea/EnemyDeck",
+     "type": "RectTransform",
+     "property": "m_AnchoredPosition.x",
+     "keys": [
+      {
+       "t": 0.0,
+       "v": [
+        -217.699951171875
+       ],
+       "is": [
+        0.0
+       ],
+       "os": [
+        0.0
+       ]
+      }
+     ]
+    },
+    {
+     "node": "RightArea/EnemyDeck",
+     "path": "Canvas/BackCanvas/Safe area BackCanvas/RightArea/EnemyDeck",
+     "type": "RectTransform",
+     "property": "m_AnchoredPosition.y",
+     "keys": [
+      {
+       "t": 0.0,
+       "v": [
+        0.0
+       ],
+       "is": [
+        0.0
+       ],
+       "os": [
+        0.0
+       ]
+      }
+     ]
+    },
+    {
+     "node": "RightArea/PlayerDeck",
+     "path": "Canvas/BackCanvas/Safe area BackCanvas/RightArea/PlayerDeck",
+     "type": "RectTransform",
+     "property": "m_AnchoredPosition.x",
+     "keys": [
+      {
+       "t": 0.0,
+       "v": [
+        -190.0
+       ],
+       "is": [
+        0.0
+       ],
+       "os": [
+        0.0
+       ]
+      }
+     ]
+    },
+    {
+     "node": "RightArea/PlayerDeck",
+     "path": "Canvas/BackCanvas/Safe area BackCanvas/RightArea/PlayerDeck",
+     "type": "RectTransform",
+     "property": "m_AnchoredPosition.y",
+     "keys": [
+      {
+       "t": 0.0,
+       "v": [
+        0.0
+       ],
+       "is": [
+        0.0
+       ],
+       "os": [
+        0.0
+       ]
+      }
+     ]
+    },
+    {
+     "node": "RightArea/Right Anchor",
+     "path": "Canvas/BackCanvas/Safe area BackCanvas/RightArea/Right Anchor",
+     "type": "RectTransform",
+     "property": "m_AnchoredPosition.x",
+     "keys": [
+      {
+       "t": 0.0,
+       "v": [
+        0.0
+       ],
+       "is": [
+        0.0
+       ],
+       "os": [
+        0.0
+       ]
+      }
+     ]
+    },
+    {
+     "node": "RightArea/Right Anchor",
+     "path": "Canvas/BackCanvas/Safe area BackCanvas/RightArea/Right Anchor",
+     "type": "RectTransform",
+     "property": "m_AnchoredPosition.y",
+     "keys": [
+      {
+       "t": 0.0,
+       "v": [
+        0.0
+       ],
+       "is": [
+        0.0
+       ],
+       "os": [
+        0.0
+       ]
+      }
+     ]
+    },
+    {
+     "node": "RightArea/SettingsBtn",
+     "path": "Canvas/BackCanvas/Safe area BackCanvas/RightArea/SettingsBtn",
+     "type": "RectTransform",
+     "property": "m_AnchoredPosition.x",
+     "keys": [
+      {
+       "t": 0.0,
+       "v": [
+        -54.0
+       ],
+       "is": [
+        0.0
+       ],
+       "os": [
+        0.0
+       ]
+      }
+     ]
+    },
+    {
+     "node": "RightArea/SettingsBtn",
+     "path": "Canvas/BackCanvas/Safe area BackCanvas/RightArea/SettingsBtn",
+     "type": "RectTransform",
+     "property": "m_AnchoredPosition.y",
+     "keys": [
+      {
+       "t": 0.0,
+       "v": [
+        -9.199951171875
+       ],
+       "is": [
+        0.0
+       ],
+       "os": [
+        0.0
+       ]
+      }
+     ]
+    },
+    {
+     "node": "UpperAnchor/EnemyArea",
+     "path": "Canvas/BackCanvas/Safe area BackCanvas/UpperAnchor/EnemyArea",
+     "type": "RectTransform",
+     "property": "m_AnchoredPosition.y",
+     "keys": [
+      {
+       "t": 0.0,
+       "v": [
+        0.0
+       ],
+       "is": [
+        0.0
+       ],
+       "os": [
+        0.0
+       ]
+      }
+     ]
+    }
+   ]
+  },
+  "BattleHudHiddenNoHand": {
+   "pid": 4247708151348801114,
+   "name": "BattleHudHiddenNoHand",
+   "legacy": true,
+   "muscleClipSize": 0,
+   "sampleRate": 60.0,
+   "wrapMode": "Once",
+   "length": 0.0,
+   "keysTotal": 14,
+   "curves": [
+    {
+     "node": "LeftArea/EnemyInfo",
+     "path": "Canvas/BackCanvas/Safe area BackCanvas/LeftArea/EnemyInfo",
+     "type": "RectTransform",
+     "property": "m_AnchoredPosition.x",
+     "keys": [
+      {
+       "t": 0.0,
+       "v": [
+        -240.0
+       ],
+       "is": [
+        0.0
+       ],
+       "os": [
+        0.0
+       ]
+      }
+     ]
+    },
+    {
+     "node": "LeftArea/EnemyInfo",
+     "path": "Canvas/BackCanvas/Safe area BackCanvas/LeftArea/EnemyInfo",
+     "type": "RectTransform",
+     "property": "m_AnchoredPosition.y",
+     "keys": [
+      {
+       "t": 0.0,
+       "v": [
+        330.0
+       ],
+       "is": [
+        0.0
+       ],
+       "os": [
+        0.0
+       ]
+      }
+     ]
+    },
+    {
+     "node": "LeftArea/Left Anchor",
+     "path": "Canvas/BackCanvas/Safe area BackCanvas/LeftArea/Left Anchor",
+     "type": "RectTransform",
+     "property": "m_AnchoredPosition.x",
+     "keys": [
+      {
+       "t": 0.0,
+       "v": [
+        -449.0
+       ],
+       "is": [
+        0.0
+       ],
+       "os": [
+        0.0
+       ]
+      }
+     ]
+    },
+    {
+     "node": "LeftArea/Left Anchor",
+     "path": "Canvas/BackCanvas/Safe area BackCanvas/LeftArea/Left Anchor",
+     "type": "RectTransform",
+     "property": "m_AnchoredPosition.y",
+     "keys": [
+      {
+       "t": 0.0,
+       "v": [
+        0.0
+       ],
+       "is": [
+        0.0
+       ],
+       "os": [
+        0.0
+       ]
+      }
+     ]
+    },
+    {
+     "node": "LeftArea/PlayerInfo",
+     "path": "Canvas/BackCanvas/Safe area BackCanvas/LeftArea/PlayerInfo",
+     "type": "RectTransform",
+     "property": "m_AnchoredPosition.x",
+     "keys": [
+      {
+       "t": 0.0,
+       "v": [
+        -240.0
+       ],
+       "is": [
+        0.0
+       ],
+       "os": [
+        0.0
+       ]
+      }
+     ]
+    },
+    {
+     "node": "LeftArea/PlayerInfo",
+     "path": "Canvas/BackCanvas/Safe area BackCanvas/LeftArea/PlayerInfo",
+     "type": "RectTransform",
+     "property": "m_AnchoredPosition.y",
+     "keys": [
+      {
+       "t": 0.0,
+       "v": [
+        -330.0
+       ],
+       "is": [
+        0.0
+       ],
+       "os": [
+        0.0
+       ]
+      }
+     ]
+    },
+    {
+     "node": "RightArea/EnemyDeck",
+     "path": "Canvas/BackCanvas/Safe area BackCanvas/RightArea/EnemyDeck",
+     "type": "RectTransform",
+     "property": "m_AnchoredPosition.x",
+     "keys": [
+      {
+       "t": 0.0,
+       "v": [
+        -190.0
+       ],
+       "is": [
+        0.0
+       ],
+       "os": [
+        0.0
+       ]
+      }
+     ]
+    },
+    {
+     "node": "RightArea/EnemyDeck",
+     "path": "Canvas/BackCanvas/Safe area BackCanvas/RightArea/EnemyDeck",
+     "type": "RectTransform",
+     "property": "m_AnchoredPosition.y",
+     "keys": [
+      {
+       "t": 0.0,
+       "v": [
+        461.0
+       ],
+       "is": [
+        0.0
+       ],
+       "os": [
+        0.0
+       ]
+      }
+     ]
+    },
+    {
+     "node": "RightArea/PlayerDeck",
+     "path": "Canvas/BackCanvas/Safe area BackCanvas/RightArea/PlayerDeck",
+     "type": "RectTransform",
+     "property": "m_AnchoredPosition.x",
+     "keys": [
+      {
+       "t": 0.0,
+       "v": [
+        -190.0
+       ],
+       "is": [
+        0.0
+       ],
+       "os": [
+        0.0
+       ]
+      }
+     ]
+    },
+    {
+     "node": "RightArea/PlayerDeck",
+     "path": "Canvas/BackCanvas/Safe area BackCanvas/RightArea/PlayerDeck",
+     "type": "RectTransform",
+     "property": "m_AnchoredPosition.y",
+     "keys": [
+      {
+       "t": 0.0,
+       "v": [
+        -461.0
+       ],
+       "is": [
+        0.0
+       ],
+       "os": [
+        0.0
+       ]
+      }
+     ]
+    },
+    {
+     "node": "RightArea/Right Anchor",
+     "path": "Canvas/BackCanvas/Safe area BackCanvas/RightArea/Right Anchor",
+     "type": "RectTransform",
+     "property": "m_AnchoredPosition.x",
+     "keys": [
+      {
+       "t": 0.0,
+       "v": [
+        476.0
+       ],
+       "is": [
+        0.0
+       ],
+       "os": [
+        0.0
+       ]
+      }
+     ]
+    },
+    {
+     "node": "RightArea/Right Anchor",
+     "path": "Canvas/BackCanvas/Safe area BackCanvas/RightArea/Right Anchor",
+     "type": "RectTransform",
+     "property": "m_AnchoredPosition.y",
+     "keys": [
+      {
+       "t": 0.0,
+       "v": [
+        0.0
+       ],
+       "is": [
+        0.0
+       ],
+       "os": [
+        0.0
+       ]
+      }
+     ]
+    },
+    {
+     "node": "RightArea/SettingsBtn",
+     "path": "Canvas/BackCanvas/Safe area BackCanvas/RightArea/SettingsBtn",
+     "type": "RectTransform",
+     "property": "m_AnchoredPosition.x",
+     "keys": [
+      {
+       "t": 0.0,
+       "v": [
+        310.0
+       ],
+       "is": [
+        0.0
+       ],
+       "os": [
+        0.0
+       ]
+      }
+     ]
+    },
+    {
+     "node": "RightArea/SettingsBtn",
+     "path": "Canvas/BackCanvas/Safe area BackCanvas/RightArea/SettingsBtn",
+     "type": "RectTransform",
+     "property": "m_AnchoredPosition.y",
+     "keys": [
+      {
+       "t": 0.0,
+       "v": [
+        311.0
+       ],
+       "is": [
+        0.0
+       ],
+       "os": [
+        0.0
+       ]
+      }
+     ]
+    }
+   ]
+  },
+  "BattleHudHideNoHand": {
+   "pid": 253699984150460926,
+   "name": "BattleHudHideNoHand",
+   "legacy": true,
+   "muscleClipSize": 0,
+   "sampleRate": 60.0,
+   "wrapMode": "Once",
+   "length": 1.0,
+   "keysTotal": 26,
+   "curves": [
+    {
+     "node": "LeftArea/EnemyInfo",
+     "path": "Canvas/BackCanvas/Safe area BackCanvas/LeftArea/EnemyInfo",
+     "type": "RectTransform",
+     "property": "m_AnchoredPosition.x",
+     "keys": [
+      {
+       "t": 0.0,
+       "v": [
+        50.0
+       ],
+       "is": [
+        0.0
+       ],
+       "os": [
+        0.0
+       ]
+      },
+      {
+       "t": 1.0,
+       "v": [
+        -240.0
+       ],
+       "is": [
+        0.0
+       ],
+       "os": [
+        0.0
+       ]
+      }
+     ]
+    },
+    {
+     "node": "LeftArea/EnemyInfo",
+     "path": "Canvas/BackCanvas/Safe area BackCanvas/LeftArea/EnemyInfo",
+     "type": "RectTransform",
+     "property": "m_AnchoredPosition.y",
+     "keys": [
+      {
+       "t": 0.0,
+       "v": [
+        -28.0
+       ],
+       "is": [
+        0.0
+       ],
+       "os": [
+        0.0
+       ]
+      },
+      {
+       "t": 1.0,
+       "v": [
+        330.0
+       ],
+       "is": [
+        0.0
+       ],
+       "os": [
+        0.0
+       ]
+      }
+     ]
+    },
+    {
+     "node": "LeftArea/Left Anchor",
+     "path": "Canvas/BackCanvas/Safe area BackCanvas/LeftArea/Left Anchor",
+     "type": "RectTransform",
+     "property": "m_AnchoredPosition.x",
+     "keys": [
+      {
+       "t": 0.0,
+       "v": [
+        0.0
+       ],
+       "is": [
+        0.0
+       ],
+       "os": [
+        0.0
+       ]
+      },
+      {
+       "t": 1.0,
+       "v": [
+        -449.0
+       ],
+       "is": [
+        0.0
+       ],
+       "os": [
+        0.0
+       ]
+      }
+     ]
+    },
+    {
+     "node": "LeftArea/Left Anchor",
+     "path": "Canvas/BackCanvas/Safe area BackCanvas/LeftArea/Left Anchor",
+     "type": "RectTransform",
+     "property": "m_AnchoredPosition.y",
+     "keys": [
+      {
+       "t": 1.0,
+       "v": [
+        0.0
+       ],
+       "is": [
+        0.0
+       ],
+       "os": [
+        0.0
+       ]
+      }
+     ]
+    },
+    {
+     "node": "LeftArea/PlayerInfo",
+     "path": "Canvas/BackCanvas/Safe area BackCanvas/LeftArea/PlayerInfo",
+     "type": "RectTransform",
+     "property": "m_AnchoredPosition.x",
+     "keys": [
+      {
+       "t": 0.0,
+       "v": [
+        50.0
+       ],
+       "is": [
+        0.0
+       ],
+       "os": [
+        0.0
+       ]
+      },
+      {
+       "t": 1.0,
+       "v": [
+        -240.0
+       ],
+       "is": [
+        0.0
+       ],
+       "os": [
+        0.0
+       ]
+      }
+     ]
+    },
+    {
+     "node": "LeftArea/PlayerInfo",
+     "path": "Canvas/BackCanvas/Safe area BackCanvas/LeftArea/PlayerInfo",
+     "type": "RectTransform",
+     "property": "m_AnchoredPosition.y",
+     "keys": [
+      {
+       "t": 0.0,
+       "v": [
+        28.0
+       ],
+       "is": [
+        0.0
+       ],
+       "os": [
+        0.0
+       ]
+      },
+      {
+       "t": 1.0,
+       "v": [
+        -330.0
+       ],
+       "is": [
+        0.0
+       ],
+       "os": [
+        0.0
+       ]
+      }
+     ]
+    },
+    {
+     "node": "RightArea/EnemyDeck",
+     "path": "Canvas/BackCanvas/Safe area BackCanvas/RightArea/EnemyDeck",
+     "type": "RectTransform",
+     "property": "m_AnchoredPosition.x",
+     "keys": [
+      {
+       "t": 0.0,
+       "v": [
+        -217.699951171875
+       ],
+       "is": [
+        0.0
+       ],
+       "os": [
+        0.0
+       ]
+      }
+     ]
+    },
+    {
+     "node": "RightArea/EnemyDeck",
+     "path": "Canvas/BackCanvas/Safe area BackCanvas/RightArea/EnemyDeck",
+     "type": "RectTransform",
+     "property": "m_AnchoredPosition.y",
+     "keys": [
+      {
+       "t": 0.0,
+       "v": [
+        0.0
+       ],
+       "is": [
+        0.0
+       ],
+       "os": [
+        0.0
+       ]
+      },
+      {
+       "t": 1.0,
+       "v": [
+        461.0
+       ],
+       "is": [
+        0.0
+       ],
+       "os": [
+        0.0
+       ]
+      }
+     ]
+    },
+    {
+     "node": "RightArea/PlayerDeck",
+     "path": "Canvas/BackCanvas/Safe area BackCanvas/RightArea/PlayerDeck",
+     "type": "RectTransform",
+     "property": "m_AnchoredPosition.x",
+     "keys": [
+      {
+       "t": 0.0,
+       "v": [
+        -190.0
+       ],
+       "is": [
+        0.0
+       ],
+       "os": [
+        0.0
+       ]
+      },
+      {
+       "t": 1.0,
+       "v": [
+        -190.0
+       ],
+       "is": [
+        0.0
+       ],
+       "os": [
+        0.0
+       ]
+      }
+     ]
+    },
+    {
+     "node": "RightArea/PlayerDeck",
+     "path": "Canvas/BackCanvas/Safe area BackCanvas/RightArea/PlayerDeck",
+     "type": "RectTransform",
+     "property": "m_AnchoredPosition.y",
+     "keys": [
+      {
+       "t": 0.0,
+       "v": [
+        0.0
+       ],
+       "is": [
+        0.0
+       ],
+       "os": [
+        0.0
+       ]
+      },
+      {
+       "t": 1.0,
+       "v": [
+        -461.0
+       ],
+       "is": [
+        0.0
+       ],
+       "os": [
+        0.0
+       ]
+      }
+     ]
+    },
+    {
+     "node": "RightArea/Right Anchor",
+     "path": "Canvas/BackCanvas/Safe area BackCanvas/RightArea/Right Anchor",
+     "type": "RectTransform",
+     "property": "m_AnchoredPosition.x",
+     "keys": [
+      {
+       "t": 0.0,
+       "v": [
+        0.0
+       ],
+       "is": [
+        0.0
+       ],
+       "os": [
+        0.0
+       ]
+      },
+      {
+       "t": 1.0,
+       "v": [
+        476.0
+       ],
+       "is": [
+        0.0
+       ],
+       "os": [
+        0.0
+       ]
+      }
+     ]
+    },
+    {
+     "node": "RightArea/Right Anchor",
+     "path": "Canvas/BackCanvas/Safe area BackCanvas/RightArea/Right Anchor",
+     "type": "RectTransform",
+     "property": "m_AnchoredPosition.y",
+     "keys": [
+      {
+       "t": 0.0,
+       "v": [
+        0.0
+       ],
+       "is": [
+        0.0
+       ],
+       "os": [
+        0.0
+       ]
+      },
+      {
+       "t": 1.0,
+       "v": [
+        0.0
+       ],
+       "is": [
+        0.0
+       ],
+       "os": [
+        0.0
+       ]
+      }
+     ]
+    },
+    {
+     "node": "RightArea/SettingsBtn",
+     "path": "Canvas/BackCanvas/Safe area BackCanvas/RightArea/SettingsBtn",
+     "type": "RectTransform",
+     "property": "m_AnchoredPosition.x",
+     "keys": [
+      {
+       "t": 0.0,
+       "v": [
+        -6.9000244140625
+       ],
+       "is": [
+        0.0
+       ],
+       "os": [
+        0.0
+       ]
+      },
+      {
+       "t": 1.0,
+       "v": [
+        310.0
+       ],
+       "is": [
+        0.0
+       ],
+       "os": [
+        0.0
+       ]
+      }
+     ]
+    },
+    {
+     "node": "RightArea/SettingsBtn",
+     "path": "Canvas/BackCanvas/Safe area BackCanvas/RightArea/SettingsBtn",
+     "type": "RectTransform",
+     "property": "m_AnchoredPosition.y",
+     "keys": [
+      {
+       "t": 0.0,
+       "v": [
+        -4.79998779296875
+       ],
+       "is": [
+        0.0
+       ],
+       "os": [
+        0.0
+       ]
+      },
+      {
+       "t": 1.0,
+       "v": [
+        311.0
+       ],
+       "is": [
+        0.0
+       ],
+       "os": [
+        0.0
+       ]
+      }
+     ]
+    }
+   ]
+  },
+  "BattleHudShowNoHand": {
+   "pid": 2365053043493243489,
+   "name": "BattleHudShowNoHand",
+   "legacy": true,
+   "muscleClipSize": 0,
+   "sampleRate": 60.0,
+   "wrapMode": "Once",
+   "length": 1.0,
+   "keysTotal": 26,
+   "curves": [
+    {
+     "node": "LeftArea/EnemyInfo",
+     "path": "Canvas/BackCanvas/Safe area BackCanvas/LeftArea/EnemyInfo",
+     "type": "RectTransform",
+     "property": "m_AnchoredPosition.x",
+     "keys": [
+      {
+       "t": 0.0,
+       "v": [
+        -240.0
+       ],
+       "is": [
+        0.0
+       ],
+       "os": [
+        0.0
+       ]
+      },
+      {
+       "t": 1.0,
+       "v": [
+        50.0
+       ],
+       "is": [
+        0.0
+       ],
+       "os": [
+        0.0
+       ]
+      }
+     ]
+    },
+    {
+     "node": "LeftArea/EnemyInfo",
+     "path": "Canvas/BackCanvas/Safe area BackCanvas/LeftArea/EnemyInfo",
+     "type": "RectTransform",
+     "property": "m_AnchoredPosition.y",
+     "keys": [
+      {
+       "t": 0.0,
+       "v": [
+        330.0
+       ],
+       "is": [
+        0.0
+       ],
+       "os": [
+        0.0
+       ]
+      },
+      {
+       "t": 1.0,
+       "v": [
+        -28.0
+       ],
+       "is": [
+        0.0
+       ],
+       "os": [
+        0.0
+       ]
+      }
+     ]
+    },
+    {
+     "node": "LeftArea/Left Anchor",
+     "path": "Canvas/BackCanvas/Safe area BackCanvas/LeftArea/Left Anchor",
+     "type": "RectTransform",
+     "property": "m_AnchoredPosition.x",
+     "keys": [
+      {
+       "t": 0.0,
+       "v": [
+        -449.0
+       ],
+       "is": [
+        0.0
+       ],
+       "os": [
+        0.0
+       ]
+      },
+      {
+       "t": 1.0,
+       "v": [
+        0.0
+       ],
+       "is": [
+        0.0
+       ],
+       "os": [
+        0.0
+       ]
+      }
+     ]
+    },
+    {
+     "node": "LeftArea/Left Anchor",
+     "path": "Canvas/BackCanvas/Safe area BackCanvas/LeftArea/Left Anchor",
+     "type": "RectTransform",
+     "property": "m_AnchoredPosition.y",
+     "keys": [
+      {
+       "t": 0.0,
+       "v": [
+        0.0
+       ],
+       "is": [
+        0.0
+       ],
+       "os": [
+        0.0
+       ]
+      }
+     ]
+    },
+    {
+     "node": "LeftArea/PlayerInfo",
+     "path": "Canvas/BackCanvas/Safe area BackCanvas/LeftArea/PlayerInfo",
+     "type": "RectTransform",
+     "property": "m_AnchoredPosition.x",
+     "keys": [
+      {
+       "t": 0.0,
+       "v": [
+        -240.0
+       ],
+       "is": [
+        0.0
+       ],
+       "os": [
+        0.0
+       ]
+      },
+      {
+       "t": 1.0,
+       "v": [
+        50.0
+       ],
+       "is": [
+        0.0
+       ],
+       "os": [
+        0.0
+       ]
+      }
+     ]
+    },
+    {
+     "node": "LeftArea/PlayerInfo",
+     "path": "Canvas/BackCanvas/Safe area BackCanvas/LeftArea/PlayerInfo",
+     "type": "RectTransform",
+     "property": "m_AnchoredPosition.y",
+     "keys": [
+      {
+       "t": 0.0,
+       "v": [
+        -330.0
+       ],
+       "is": [
+        0.0
+       ],
+       "os": [
+        0.0
+       ]
+      },
+      {
+       "t": 1.0,
+       "v": [
+        28.0
+       ],
+       "is": [
+        0.0
+       ],
+       "os": [
+        0.0
+       ]
+      }
+     ]
+    },
+    {
+     "node": "RightArea/EnemyDeck",
+     "path": "Canvas/BackCanvas/Safe area BackCanvas/RightArea/EnemyDeck",
+     "type": "RectTransform",
+     "property": "m_AnchoredPosition.x",
+     "keys": [
+      {
+       "t": 1.0,
+       "v": [
+        -217.699951171875
+       ],
+       "is": [
+        0.0
+       ],
+       "os": [
+        0.0
+       ]
+      }
+     ]
+    },
+    {
+     "node": "RightArea/EnemyDeck",
+     "path": "Canvas/BackCanvas/Safe area BackCanvas/RightArea/EnemyDeck",
+     "type": "RectTransform",
+     "property": "m_AnchoredPosition.y",
+     "keys": [
+      {
+       "t": 0.0,
+       "v": [
+        461.0
+       ],
+       "is": [
+        0.0
+       ],
+       "os": [
+        0.0
+       ]
+      },
+      {
+       "t": 1.0,
+       "v": [
+        0.0
+       ],
+       "is": [
+        0.0
+       ],
+       "os": [
+        0.0
+       ]
+      }
+     ]
+    },
+    {
+     "node": "RightArea/PlayerDeck",
+     "path": "Canvas/BackCanvas/Safe area BackCanvas/RightArea/PlayerDeck",
+     "type": "RectTransform",
+     "property": "m_AnchoredPosition.x",
+     "keys": [
+      {
+       "t": 0.0,
+       "v": [
+        -190.0
+       ],
+       "is": [
+        0.0
+       ],
+       "os": [
+        0.0
+       ]
+      },
+      {
+       "t": 1.0,
+       "v": [
+        -190.0
+       ],
+       "is": [
+        0.0
+       ],
+       "os": [
+        0.0
+       ]
+      }
+     ]
+    },
+    {
+     "node": "RightArea/PlayerDeck",
+     "path": "Canvas/BackCanvas/Safe area BackCanvas/RightArea/PlayerDeck",
+     "type": "RectTransform",
+     "property": "m_AnchoredPosition.y",
+     "keys": [
+      {
+       "t": 0.0,
+       "v": [
+        -461.0
+       ],
+       "is": [
+        0.0
+       ],
+       "os": [
+        0.0
+       ]
+      },
+      {
+       "t": 1.0,
+       "v": [
+        0.0
+       ],
+       "is": [
+        0.0
+       ],
+       "os": [
+        0.0
+       ]
+      }
+     ]
+    },
+    {
+     "node": "RightArea/Right Anchor",
+     "path": "Canvas/BackCanvas/Safe area BackCanvas/RightArea/Right Anchor",
+     "type": "RectTransform",
+     "property": "m_AnchoredPosition.x",
+     "keys": [
+      {
+       "t": 0.0,
+       "v": [
+        476.0
+       ],
+       "is": [
+        0.0
+       ],
+       "os": [
+        0.0
+       ]
+      },
+      {
+       "t": 1.0,
+       "v": [
+        0.0
+       ],
+       "is": [
+        0.0
+       ],
+       "os": [
+        0.0
+       ]
+      }
+     ]
+    },
+    {
+     "node": "RightArea/Right Anchor",
+     "path": "Canvas/BackCanvas/Safe area BackCanvas/RightArea/Right Anchor",
+     "type": "RectTransform",
+     "property": "m_AnchoredPosition.y",
+     "keys": [
+      {
+       "t": 0.0,
+       "v": [
+        0.0
+       ],
+       "is": [
+        0.0
+       ],
+       "os": [
+        0.0
+       ]
+      },
+      {
+       "t": 1.0,
+       "v": [
+        0.0
+       ],
+       "is": [
+        0.0
+       ],
+       "os": [
+        0.0
+       ]
+      }
+     ]
+    },
+    {
+     "node": "RightArea/SettingsBtn",
+     "path": "Canvas/BackCanvas/Safe area BackCanvas/RightArea/SettingsBtn",
+     "type": "RectTransform",
+     "property": "m_AnchoredPosition.x",
+     "keys": [
+      {
+       "t": 0.0,
+       "v": [
+        310.0
+       ],
+       "is": [
+        0.0
+       ],
+       "os": [
+        0.0
+       ]
+      },
+      {
+       "t": 1.0,
+       "v": [
+        -54.0
+       ],
+       "is": [
+        0.0
+       ],
+       "os": [
+        0.0
+       ]
+      }
+     ]
+    },
+    {
+     "node": "RightArea/SettingsBtn",
+     "path": "Canvas/BackCanvas/Safe area BackCanvas/RightArea/SettingsBtn",
+     "type": "RectTransform",
+     "property": "m_AnchoredPosition.y",
+     "keys": [
+      {
+       "t": 0.0,
+       "v": [
+        311.0
+       ],
+       "is": [
+        0.0
+       ],
+       "os": [
+        0.0
+       ]
+      },
+      {
+       "t": 1.0,
+       "v": [
+        -9.199951171875
+       ],
+       "is": [
+        0.0
+       ],
+       "os": [
+        0.0
+       ]
+      }
+     ]
+    }
+   ]
+  },
+  "BattleHudShowInstantNoHand": {
+   "pid": -997326231047120692,
+   "name": "BattleHudShowInstantNoHand",
+   "legacy": true,
+   "muscleClipSize": 0,
+   "sampleRate": 60.0,
+   "wrapMode": "Once",
+   "length": 0.0,
+   "keysTotal": 15,
+   "curves": [
+    {
+     "node": "LeftArea/EnemyInfo",
+     "path": "Canvas/BackCanvas/Safe area BackCanvas/LeftArea/EnemyInfo",
+     "type": "RectTransform",
+     "property": "m_AnchoredPosition.x",
+     "keys": [
+      {
+       "t": 0.0,
+       "v": [
+        50.0
+       ],
+       "is": [
+        0.0
+       ],
+       "os": [
+        0.0
+       ]
+      }
+     ]
+    },
+    {
+     "node": "LeftArea/EnemyInfo",
+     "path": "Canvas/BackCanvas/Safe area BackCanvas/LeftArea/EnemyInfo",
+     "type": "RectTransform",
+     "property": "m_AnchoredPosition.y",
+     "keys": [
+      {
+       "t": 0.0,
+       "v": [
+        -28.0
+       ],
+       "is": [
+        0.0
+       ],
+       "os": [
+        0.0
+       ]
+      }
+     ]
+    },
+    {
+     "node": "LeftArea/Left Anchor",
+     "path": "Canvas/BackCanvas/Safe area BackCanvas/LeftArea/Left Anchor",
+     "type": "RectTransform",
+     "property": "m_AnchoredPosition.x",
+     "keys": [
+      {
+       "t": 0.0,
+       "v": [
+        0.0
+       ],
+       "is": [
+        0.0
+       ],
+       "os": [
+        0.0
+       ]
+      }
+     ]
+    },
+    {
+     "node": "LeftArea/Left Anchor",
+     "path": "Canvas/BackCanvas/Safe area BackCanvas/LeftArea/Left Anchor",
+     "type": "RectTransform",
+     "property": "m_AnchoredPosition.y",
+     "keys": [
+      {
+       "t": 0.0,
+       "v": [
+        17.0
+       ],
+       "is": [
+        0.0
+       ],
+       "os": [
+        0.0
+       ]
+      }
+     ]
+    },
+    {
+     "node": "LeftArea/PlayerInfo",
+     "path": "Canvas/BackCanvas/Safe area BackCanvas/LeftArea/PlayerInfo",
+     "type": "RectTransform",
+     "property": "m_AnchoredPosition.x",
+     "keys": [
+      {
+       "t": 0.0,
+       "v": [
+        50.0
+       ],
+       "is": [
+        0.0
+       ],
+       "os": [
+        0.0
+       ]
+      }
+     ]
+    },
+    {
+     "node": "LeftArea/PlayerInfo",
+     "path": "Canvas/BackCanvas/Safe area BackCanvas/LeftArea/PlayerInfo",
+     "type": "RectTransform",
+     "property": "m_AnchoredPosition.y",
+     "keys": [
+      {
+       "t": 0.0,
+       "v": [
+        28.0
+       ],
+       "is": [
+        0.0
+       ],
+       "os": [
+        0.0
+       ]
+      }
+     ]
+    },
+    {
+     "node": "RightArea/EnemyDeck",
+     "path": "Canvas/BackCanvas/Safe area BackCanvas/RightArea/EnemyDeck",
+     "type": "RectTransform",
+     "property": "m_AnchoredPosition.x",
+     "keys": [
+      {
+       "t": 0.0,
+       "v": [
+        -217.699951171875
+       ],
+       "is": [
+        0.0
+       ],
+       "os": [
+        0.0
+       ]
+      }
+     ]
+    },
+    {
+     "node": "RightArea/EnemyDeck",
+     "path": "Canvas/BackCanvas/Safe area BackCanvas/RightArea/EnemyDeck",
+     "type": "RectTransform",
+     "property": "m_AnchoredPosition.y",
+     "keys": [
+      {
+       "t": 0.0,
+       "v": [
+        0.0
+       ],
+       "is": [
+        0.0
+       ],
+       "os": [
+        0.0
+       ]
+      }
+     ]
+    },
+    {
+     "node": "RightArea/PlayerDeck",
+     "path": "Canvas/BackCanvas/Safe area BackCanvas/RightArea/PlayerDeck",
+     "type": "RectTransform",
+     "property": "m_AnchoredPosition.x",
+     "keys": [
+      {
+       "t": 0.0,
+       "v": [
+        -190.0
+       ],
+       "is": [
+        0.0
+       ],
+       "os": [
+        0.0
+       ]
+      }
+     ]
+    },
+    {
+     "node": "RightArea/PlayerDeck",
+     "path": "Canvas/BackCanvas/Safe area BackCanvas/RightArea/PlayerDeck",
+     "type": "RectTransform",
+     "property": "m_AnchoredPosition.y",
+     "keys": [
+      {
+       "t": 0.0,
+       "v": [
+        0.0
+       ],
+       "is": [
+        0.0
+       ],
+       "os": [
+        0.0
+       ]
+      }
+     ]
+    },
+    {
+     "node": "RightArea/Right Anchor",
+     "path": "Canvas/BackCanvas/Safe area BackCanvas/RightArea/Right Anchor",
+     "type": "RectTransform",
+     "property": "m_AnchoredPosition.x",
+     "keys": [
+      {
+       "t": 0.0,
+       "v": [
+        0.0
+       ],
+       "is": [
+        0.0
+       ],
+       "os": [
+        0.0
+       ]
+      }
+     ]
+    },
+    {
+     "node": "RightArea/Right Anchor",
+     "path": "Canvas/BackCanvas/Safe area BackCanvas/RightArea/Right Anchor",
+     "type": "RectTransform",
+     "property": "m_AnchoredPosition.y",
+     "keys": [
+      {
+       "t": 0.0,
+       "v": [
+        0.0
+       ],
+       "is": [
+        0.0
+       ],
+       "os": [
+        0.0
+       ]
+      }
+     ]
+    },
+    {
+     "node": "RightArea/SettingsBtn",
+     "path": "Canvas/BackCanvas/Safe area BackCanvas/RightArea/SettingsBtn",
+     "type": "RectTransform",
+     "property": "m_AnchoredPosition.x",
+     "keys": [
+      {
+       "t": 0.0,
+       "v": [
+        -54.0
+       ],
+       "is": [
+        0.0
+       ],
+       "os": [
+        0.0
+       ]
+      }
+     ]
+    },
+    {
+     "node": "RightArea/SettingsBtn",
+     "path": "Canvas/BackCanvas/Safe area BackCanvas/RightArea/SettingsBtn",
+     "type": "RectTransform",
+     "property": "m_AnchoredPosition.y",
+     "keys": [
+      {
+       "t": 0.0,
+       "v": [
+        -9.199951171875
+       ],
+       "is": [
+        0.0
+       ],
+       "os": [
+        0.0
+       ]
+      }
+     ]
+    },
+    {
+     "node": "UpperAnchor/EnemyArea",
+     "path": "Canvas/BackCanvas/Safe area BackCanvas/UpperAnchor/EnemyArea",
+     "type": "RectTransform",
+     "property": "m_AnchoredPosition.y",
+     "keys": [
+      {
+       "t": 0.0,
+       "v": [
+        0.0
+       ],
+       "is": [
+        0.0
+       ],
+       "os": [
+        0.0
+       ]
+      }
+     ]
+    }
+   ]
+  }
+ },
+ "reference": {
+  "BottomAnchor/PlayerArea/HandArea|m_LocalPosition": {
+   "node": "BottomAnchor/PlayerArea/HandArea",
+   "property": "m_LocalPosition",
+   "type": "Transform",
+   "hidden": [
+    0.0,
+    -479.0,
+    0.0
+   ],
+   "hiddenSource": "BattleHudHidden",
+   "shown": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "shownSource": "BattleHudShow"
+  },
+  "LeftArea/EnemyInfo|m_AnchoredPosition.x": {
+   "node": "LeftArea/EnemyInfo",
+   "property": "m_AnchoredPosition.x",
+   "type": "RectTransform",
+   "hidden": [
+    -240.0
+   ],
+   "hiddenSource": "BattleHudHidden",
+   "shown": [
+    50.0
+   ],
+   "shownSource": "BattleHudShow"
+  },
+  "LeftArea/EnemyInfo|m_AnchoredPosition.y": {
+   "node": "LeftArea/EnemyInfo",
+   "property": "m_AnchoredPosition.y",
+   "type": "RectTransform",
+   "hidden": [
+    330.0
+   ],
+   "hiddenSource": "BattleHudHidden",
+   "shown": [
+    -28.0
+   ],
+   "shownSource": "BattleHudShow"
+  },
+  "LeftArea/Left Anchor|m_AnchoredPosition.x": {
+   "node": "LeftArea/Left Anchor",
+   "property": "m_AnchoredPosition.x",
+   "type": "RectTransform",
+   "hidden": [
+    -449.0
+   ],
+   "hiddenSource": "BattleHudHidden",
+   "shown": [
+    0.0
+   ],
+   "shownSource": "BattleHudShow"
+  },
+  "LeftArea/Left Anchor|m_AnchoredPosition.y": {
+   "node": "LeftArea/Left Anchor",
+   "property": "m_AnchoredPosition.y",
+   "type": "RectTransform",
+   "hidden": [
+    0.0
+   ],
+   "hiddenSource": "BattleHudHidden",
+   "shown": [
+    0.0
+   ],
+   "shownSource": "BattleHudShow"
+  },
+  "LeftArea/PlayerInfo|m_AnchoredPosition.x": {
+   "node": "LeftArea/PlayerInfo",
+   "property": "m_AnchoredPosition.x",
+   "type": "RectTransform",
+   "hidden": [
+    -240.0
+   ],
+   "hiddenSource": "BattleHudHidden",
+   "shown": [
+    50.0
+   ],
+   "shownSource": "BattleHudShow"
+  },
+  "LeftArea/PlayerInfo|m_AnchoredPosition.y": {
+   "node": "LeftArea/PlayerInfo",
+   "property": "m_AnchoredPosition.y",
+   "type": "RectTransform",
+   "hidden": [
+    -330.0
+   ],
+   "hiddenSource": "BattleHudHidden",
+   "shown": [
+    28.0
+   ],
+   "shownSource": "BattleHudShow"
+  },
+  "RightArea/EnemyDeck|m_AnchoredPosition.x": {
+   "node": "RightArea/EnemyDeck",
+   "property": "m_AnchoredPosition.x",
+   "type": "RectTransform",
+   "hidden": [
+    -190.0
+   ],
+   "hiddenSource": "BattleHudHidden",
+   "shown": [
+    -217.699951171875
+   ],
+   "shownSource": "BattleHudShow"
+  },
+  "RightArea/EnemyDeck|m_AnchoredPosition.y": {
+   "node": "RightArea/EnemyDeck",
+   "property": "m_AnchoredPosition.y",
+   "type": "RectTransform",
+   "hidden": [
+    461.0
+   ],
+   "hiddenSource": "BattleHudHidden",
+   "shown": [
+    0.0
+   ],
+   "shownSource": "BattleHudShow"
+  },
+  "RightArea/PlayerDeck|m_AnchoredPosition.x": {
+   "node": "RightArea/PlayerDeck",
+   "property": "m_AnchoredPosition.x",
+   "type": "RectTransform",
+   "hidden": [
+    -190.0
+   ],
+   "hiddenSource": "BattleHudHidden",
+   "shown": [
+    -190.0
+   ],
+   "shownSource": "BattleHudShow"
+  },
+  "RightArea/PlayerDeck|m_AnchoredPosition.y": {
+   "node": "RightArea/PlayerDeck",
+   "property": "m_AnchoredPosition.y",
+   "type": "RectTransform",
+   "hidden": [
+    -461.0
+   ],
+   "hiddenSource": "BattleHudHidden",
+   "shown": [
+    0.0
+   ],
+   "shownSource": "BattleHudShow"
+  },
+  "RightArea/Right Anchor|m_AnchoredPosition.x": {
+   "node": "RightArea/Right Anchor",
+   "property": "m_AnchoredPosition.x",
+   "type": "RectTransform",
+   "hidden": [
+    476.0
+   ],
+   "hiddenSource": "BattleHudHidden",
+   "shown": [
+    0.0
+   ],
+   "shownSource": "BattleHudShow"
+  },
+  "RightArea/Right Anchor|m_AnchoredPosition.y": {
+   "node": "RightArea/Right Anchor",
+   "property": "m_AnchoredPosition.y",
+   "type": "RectTransform",
+   "hidden": [
+    0.0
+   ],
+   "hiddenSource": "BattleHudHidden",
+   "shown": [
+    0.0
+   ],
+   "shownSource": "BattleHudShow"
+  },
+  "RightArea/SettingsBtn|m_AnchoredPosition.x": {
+   "node": "RightArea/SettingsBtn",
+   "property": "m_AnchoredPosition.x",
+   "type": "RectTransform",
+   "hidden": [
+    310.0
+   ],
+   "hiddenSource": "BattleHudHidden",
+   "shown": [
+    -54.0
+   ],
+   "shownSource": "BattleHudShow"
+  },
+  "RightArea/SettingsBtn|m_AnchoredPosition.y": {
+   "node": "RightArea/SettingsBtn",
+   "property": "m_AnchoredPosition.y",
+   "type": "RectTransform",
+   "hidden": [
+    311.0
+   ],
+   "hiddenSource": "BattleHudHidden",
+   "shown": [
+    -9.199951171875
+   ],
+   "shownSource": "BattleHudShow"
+  },
+  "UpperAnchor/EnemyArea|m_AnchoredPosition.y": {
+   "node": "UpperAnchor/EnemyArea",
+   "property": "m_AnchoredPosition.y",
+   "type": "RectTransform",
+   "hidden": [
+    402.8299865722656
+   ],
+   "hiddenSource": "BattleHudHidden",
+   "shown": [
+    0.0
+   ],
+   "shownSource": "BattleHudShow"
+  }
+ },
+ "perArena": {
+  "battlearena1": {
+   "animation": "Animation_1606.json",
+   "animationPid": 1606,
+   "gameObjectPid": 239,
+   "playAutomatically": true,
+   "defaultClip": "BattleHudHiddenNoHand",
+   "clipPids": [
+    -1315085872149960500,
+    1254995653877182794,
+    -6573478101177810173,
+    3477083935848071261,
+    4247708151348801114,
+    253699984150460926,
+    2365053043493243489,
+    -997326231047120692
+   ],
+   "clipNames": [
+    "BattleHudHidden",
+    "BattleHudHide",
+    "BattleHudShow",
+    "BattleHudShowInstant",
+    "BattleHudHiddenNoHand",
+    "BattleHudHideNoHand",
+    "BattleHudShowNoHand",
+    "BattleHudShowInstantNoHand"
+   ],
+   "externalFileIds": [
+    4
+   ],
+   "hash": "9a4e484c3dba918b4c513da4e55fe125"
+  },
+  "battlearena2": {
+   "animation": "Animation_1774.json",
+   "animationPid": 1774,
+   "gameObjectPid": 230,
+   "playAutomatically": true,
+   "defaultClip": "BattleHudHiddenNoHand",
+   "clipPids": [
+    -1315085872149960500,
+    1254995653877182794,
+    -6573478101177810173,
+    3477083935848071261,
+    4247708151348801114,
+    253699984150460926,
+    2365053043493243489,
+    -997326231047120692
+   ],
+   "clipNames": [
+    "BattleHudHidden",
+    "BattleHudHide",
+    "BattleHudShow",
+    "BattleHudShowInstant",
+    "BattleHudHiddenNoHand",
+    "BattleHudHideNoHand",
+    "BattleHudShowNoHand",
+    "BattleHudShowInstantNoHand"
+   ],
+   "externalFileIds": [
+    4
+   ],
+   "hash": "9a4e484c3dba918b4c513da4e55fe125"
+  },
+  "battlearena3": {
+   "animation": "Animation_1701.json",
+   "animationPid": 1701,
+   "gameObjectPid": 247,
+   "playAutomatically": true,
+   "defaultClip": "BattleHudHiddenNoHand",
+   "clipPids": [
+    -1315085872149960500,
+    1254995653877182794,
+    -6573478101177810173,
+    3477083935848071261,
+    4247708151348801114,
+    253699984150460926,
+    2365053043493243489,
+    -997326231047120692
+   ],
+   "clipNames": [
+    "BattleHudHidden",
+    "BattleHudHide",
+    "BattleHudShow",
+    "BattleHudShowInstant",
+    "BattleHudHiddenNoHand",
+    "BattleHudHideNoHand",
+    "BattleHudShowNoHand",
+    "BattleHudShowInstantNoHand"
+   ],
+   "externalFileIds": [
+    3
+   ],
+   "hash": "9a4e484c3dba918b4c513da4e55fe125"
+  },
+  "battlearenaaeldari": {
+   "animation": "Animation_1593.json",
+   "animationPid": 1593,
+   "gameObjectPid": 234,
+   "playAutomatically": true,
+   "defaultClip": "BattleHudHiddenNoHand",
+   "clipPids": [
+    -1315085872149960500,
+    1254995653877182794,
+    -6573478101177810173,
+    3477083935848071261,
+    4247708151348801114,
+    253699984150460926,
+    2365053043493243489,
+    -997326231047120692
+   ],
+   "clipNames": [
+    "BattleHudHidden",
+    "BattleHudHide",
+    "BattleHudShow",
+    "BattleHudShowInstant",
+    "BattleHudHiddenNoHand",
+    "BattleHudHideNoHand",
+    "BattleHudShowNoHand",
+    "BattleHudShowInstantNoHand"
+   ],
+   "externalFileIds": [
+    2
+   ],
+   "hash": "9a4e484c3dba918b4c513da4e55fe125"
+  },
+  "battlearenaastramilitarum": {
+   "animation": "Animation_1786.json",
+   "animationPid": 1786,
+   "gameObjectPid": 255,
+   "playAutomatically": true,
+   "defaultClip": "BattleHudHiddenNoHand",
+   "clipPids": [
+    -1315085872149960500,
+    1254995653877182794,
+    -6573478101177810173,
+    3477083935848071261,
+    4247708151348801114,
+    253699984150460926,
+    2365053043493243489,
+    -997326231047120692
+   ],
+   "clipNames": [
+    "BattleHudHidden",
+    "BattleHudHide",
+    "BattleHudShow",
+    "BattleHudShowInstant",
+    "BattleHudHiddenNoHand",
+    "BattleHudHideNoHand",
+    "BattleHudShowNoHand",
+    "BattleHudShowInstantNoHand"
+   ],
+   "externalFileIds": [
+    4
+   ],
+   "hash": "9a4e484c3dba918b4c513da4e55fe125"
+  },
+  "battlearenablacklegion": {
+   "animation": "Animation_1675.json",
+   "animationPid": 1675,
+   "gameObjectPid": 226,
+   "playAutomatically": true,
+   "defaultClip": "BattleHudHiddenNoHand",
+   "clipPids": [
+    -1315085872149960500,
+    1254995653877182794,
+    -6573478101177810173,
+    3477083935848071261,
+    4247708151348801114,
+    253699984150460926,
+    2365053043493243489,
+    -997326231047120692
+   ],
+   "clipNames": [
+    "BattleHudHidden",
+    "BattleHudHide",
+    "BattleHudShow",
+    "BattleHudShowInstant",
+    "BattleHudHiddenNoHand",
+    "BattleHudHideNoHand",
+    "BattleHudShowNoHand",
+    "BattleHudShowInstantNoHand"
+   ],
+   "externalFileIds": [
+    4
+   ],
+   "hash": "9a4e484c3dba918b4c513da4e55fe125"
+  },
+  "battlearenadarkangels": {
+   "animation": "Animation_1663.json",
+   "animationPid": 1663,
+   "gameObjectPid": 237,
+   "playAutomatically": true,
+   "defaultClip": "BattleHudHiddenNoHand",
+   "clipPids": [
+    -1315085872149960500,
+    1254995653877182794,
+    -6573478101177810173,
+    3477083935848071261,
+    4247708151348801114,
+    253699984150460926,
+    2365053043493243489,
+    -997326231047120692
+   ],
+   "clipNames": [
+    "BattleHudHidden",
+    "BattleHudHide",
+    "BattleHudShow",
+    "BattleHudShowInstant",
+    "BattleHudHiddenNoHand",
+    "BattleHudHideNoHand",
+    "BattleHudShowNoHand",
+    "BattleHudShowInstantNoHand"
+   ],
+   "externalFileIds": [
+    4
+   ],
+   "hash": "9a4e484c3dba918b4c513da4e55fe125"
+  },
+  "battlearenaemperorschildren": {
+   "animation": "Animation_1709.json",
+   "animationPid": 1709,
+   "gameObjectPid": 234,
+   "playAutomatically": true,
+   "defaultClip": "BattleHudHiddenNoHand",
+   "clipPids": [
+    -1315085872149960500,
+    1254995653877182794,
+    -6573478101177810173,
+    3477083935848071261,
+    4247708151348801114,
+    253699984150460926,
+    2365053043493243489,
+    -997326231047120692
+   ],
+   "clipNames": [
+    "BattleHudHidden",
+    "BattleHudHide",
+    "BattleHudShow",
+    "BattleHudShowInstant",
+    "BattleHudHiddenNoHand",
+    "BattleHudHideNoHand",
+    "BattleHudShowNoHand",
+    "BattleHudShowInstantNoHand"
+   ],
+   "externalFileIds": [
+    4
+   ],
+   "hash": "9a4e484c3dba918b4c513da4e55fe125"
+  },
+  "battlearenagenestealers": {
+   "animation": "Animation_1627.json",
+   "animationPid": 1627,
+   "gameObjectPid": 240,
+   "playAutomatically": true,
+   "defaultClip": "BattleHudHiddenNoHand",
+   "clipPids": [
+    -1315085872149960500,
+    1254995653877182794,
+    -6573478101177810173,
+    3477083935848071261,
+    4247708151348801114,
+    253699984150460926,
+    2365053043493243489,
+    -997326231047120692
+   ],
+   "clipNames": [
+    "BattleHudHidden",
+    "BattleHudHide",
+    "BattleHudShow",
+    "BattleHudShowInstant",
+    "BattleHudHiddenNoHand",
+    "BattleHudHideNoHand",
+    "BattleHudShowNoHand",
+    "BattleHudShowInstantNoHand"
+   ],
+   "externalFileIds": [
+    4
+   ],
+   "hash": "9a4e484c3dba918b4c513da4e55fe125"
+  },
+  "battlearenaleviathan": {
+   "animation": "Animation_1751.json",
+   "animationPid": 1751,
+   "gameObjectPid": 251,
+   "playAutomatically": true,
+   "defaultClip": "BattleHudHiddenNoHand",
+   "clipPids": [
+    -1315085872149960500,
+    1254995653877182794,
+    -6573478101177810173,
+    3477083935848071261,
+    4247708151348801114,
+    253699984150460926,
+    2365053043493243489,
+    -997326231047120692
+   ],
+   "clipNames": [
+    "BattleHudHidden",
+    "BattleHudHide",
+    "BattleHudShow",
+    "BattleHudShowInstant",
+    "BattleHudHiddenNoHand",
+    "BattleHudHideNoHand",
+    "BattleHudShowNoHand",
+    "BattleHudShowInstantNoHand"
+   ],
+   "externalFileIds": [
+    3
+   ],
+   "hash": "9a4e484c3dba918b4c513da4e55fe125"
+  },
+  "battlearenasororitas": {
+   "animation": "Animation_1800.json",
+   "animationPid": 1800,
+   "gameObjectPid": 269,
+   "playAutomatically": true,
+   "defaultClip": "BattleHudHiddenNoHand",
+   "clipPids": [
+    -1315085872149960500,
+    1254995653877182794,
+    -6573478101177810173,
+    3477083935848071261,
+    4247708151348801114,
+    253699984150460926,
+    2365053043493243489,
+    -997326231047120692
+   ],
+   "clipNames": [
+    "BattleHudHidden",
+    "BattleHudHide",
+    "BattleHudShow",
+    "BattleHudShowInstant",
+    "BattleHudHiddenNoHand",
+    "BattleHudHideNoHand",
+    "BattleHudShowNoHand",
+    "BattleHudShowInstantNoHand"
+   ],
+   "externalFileIds": [
+    2
+   ],
+   "hash": "9a4e484c3dba918b4c513da4e55fe125"
+  },
+  "battlearenaspacewolves": {
+   "animation": "Animation_1638.json",
+   "animationPid": 1638,
+   "gameObjectPid": 239,
+   "playAutomatically": true,
+   "defaultClip": "BattleHudHiddenNoHand",
+   "clipPids": [
+    -1315085872149960500,
+    1254995653877182794,
+    -6573478101177810173,
+    3477083935848071261,
+    4247708151348801114,
+    253699984150460926,
+    2365053043493243489,
+    -997326231047120692
+   ],
+   "clipNames": [
+    "BattleHudHidden",
+    "BattleHudHide",
+    "BattleHudShow",
+    "BattleHudShowInstant",
+    "BattleHudHiddenNoHand",
+    "BattleHudHideNoHand",
+    "BattleHudShowNoHand",
+    "BattleHudShowInstantNoHand"
+   ],
+   "externalFileIds": [
+    3
+   ],
+   "hash": "9a4e484c3dba918b4c513da4e55fe125"
+  },
+  "battlearenatauviorla": {
+   "animation": "Animation_1939.json",
+   "animationPid": 1939,
+   "gameObjectPid": 281,
+   "playAutomatically": true,
+   "defaultClip": "BattleHudHiddenNoHand",
+   "clipPids": [
+    -1315085872149960500,
+    1254995653877182794,
+    -6573478101177810173,
+    3477083935848071261,
+    4247708151348801114,
+    253699984150460926,
+    2365053043493243489,
+    -997326231047120692
+   ],
+   "clipNames": [
+    "BattleHudHidden",
+    "BattleHudHide",
+    "BattleHudShow",
+    "BattleHudShowInstant",
+    "BattleHudHiddenNoHand",
+    "BattleHudHideNoHand",
+    "BattleHudShowNoHand",
+    "BattleHudShowInstantNoHand"
+   ],
+   "externalFileIds": [
+    4
+   ],
+   "hash": "9a4e484c3dba918b4c513da4e55fe125"
+  }
+ },
+ "differences": [
+  {
+   "id": "enemy_deck_x_hidden_value_split",
+   "clips": [
+    "BattleHudHidden",
+    "BattleHudHiddenNoHand",
+    "BattleHudHide",
+    "BattleHudShow",
+    "BattleHudShowInstant",
+    "BattleHudShowInstantNoHand"
+   ],
+   "node": "RightArea/EnemyDeck",
+   "property": "m_AnchoredPosition.x",
+   "values": {
+    "BattleHudHidden": -190.0,
+    "BattleHudHiddenNoHand": -190.0,
+    "BattleHudHide": -217.699951171875,
+    "BattleHudShow": -217.699951171875,
+    "BattleHudShowInstant": -217.699951171875,
+    "BattleHudShowInstantNoHand": -217.699951171875
+   },
+   "note": "Hidden/HiddenNoHand 的隐藏 x = −190；Hide/Show/ShowInstant* 用 −217.7。场景里 EnemyDeck 的静态 rest x = −217.7002（13 场一致）⇒ −190 只出现在两条 Instant 的「隐藏」档。"
+  },
+  {
+   "id": "enemy_deck_x_single_key_in_animated",
+   "clips": [
+    "BattleHudShow",
+    "BattleHudShowNoHand",
+    "BattleHudHide",
+    "BattleHudHideNoHand"
+   ],
+   "node": "RightArea/EnemyDeck",
+   "property": "m_AnchoredPosition.x",
+   "values": {
+    "BattleHudShow": {
+     "keys": 1,
+     "t": [
+      1.0
+     ],
+     "v": [
+      -217.699951171875
+     ]
+    },
+    "BattleHudShowNoHand": {
+     "keys": 1,
+     "t": [
+      1.0
+     ],
+     "v": [
+      -217.699951171875
+     ]
+    },
+    "BattleHudHide": {
+     "keys": 1,
+     "t": [
+      0.0
+     ],
+     "v": [
+      -217.699951171875
+     ]
+    },
+    "BattleHudHideNoHand": {
+     "keys": 1,
+     "t": [
+      0.0
+     ],
+     "v": [
+      -217.699951171875
+     ]
+    }
+   },
+   "note": "Show/ShowNoHand 只有 t=1.0 一个键 ⇒ 从 t=0 起就一直是 −217.7（开局瞬跳）；Hide/HideNoHand 只有 t=0.0 一个键 ⇒ 全程 −217.7。这条 x **没有补间**。"
+  },
+  {
+   "id": "hide_nohand_settingsbtn_start_split",
+   "clips": [
+    "BattleHudHide",
+    "BattleHudHideNoHand"
+   ],
+   "node": "RightArea/SettingsBtn",
+   "property": "m_AnchoredPosition.x/y",
+   "values": {
+    "BattleHudHide": {
+     "x": -54.0,
+     "y": -9.199951171875
+    },
+    "BattleHudHideNoHand": {
+     "x": -6.9000244140625,
+     "y": -4.79998779296875
+    }
+   },
+   "note": "HideNoHand 的起点是 (−6.90002, −4.79999)，Hide 是 (−54, −9.19995)；而四个 Show* 的终点都是 (−54, −9.19995)。⇒ HideNoHand 的起点与其它 7 条不自洽。"
+  },
+  {
+   "id": "left_anchor_y_17_only_in_showinstantnohand",
+   "clips": [
+    "BattleHudHidden",
+    "BattleHudHide",
+    "BattleHudShow",
+    "BattleHudShowInstant",
+    "BattleHudHiddenNoHand",
+    "BattleHudHideNoHand",
+    "BattleHudShowNoHand",
+    "BattleHudShowInstantNoHand"
+   ],
+   "node": "LeftArea/Left Anchor",
+   "property": "m_AnchoredPosition.y",
+   "values": {
+    "BattleHudHidden": 0.0,
+    "BattleHudHide": 0.0,
+    "BattleHudShow": 0.0,
+    "BattleHudShowInstant": null,
+    "BattleHudHiddenNoHand": 0.0,
+    "BattleHudHideNoHand": 0.0,
+    "BattleHudShowNoHand": 0.0,
+    "BattleHudShowInstantNoHand": 17.0
+   },
+   "note": "只有 ShowInstantNoHand 写 17.0；其余 7 条写 0.0（ShowInstant 干脆没有这条曲线）。场景静态 rest y = 0.0（13 场一致）⇒ 17 是孤例。"
+  },
+  {
+   "id": "left_anchor_y_missing_in_showinstant",
+   "clips": [
+    "BattleHudHidden",
+    "BattleHudHide",
+    "BattleHudShow",
+    "BattleHudShowInstant",
+    "BattleHudHiddenNoHand",
+    "BattleHudHideNoHand",
+    "BattleHudShowNoHand",
+    "BattleHudShowInstantNoHand"
+   ],
+   "node": "LeftArea/Left Anchor",
+   "property": "m_AnchoredPosition.y",
+   "values": {
+    "BattleHudHidden": true,
+    "BattleHudHide": true,
+    "BattleHudShow": true,
+    "BattleHudShowInstant": false,
+    "BattleHudHiddenNoHand": true,
+    "BattleHudHideNoHand": true,
+    "BattleHudShowNoHand": true,
+    "BattleHudShowInstantNoHand": true
+   },
+   "note": "ShowInstant 的 float 曲线 14 条（其余 Show 类 15 条）：唯独缺 Left Anchor.y。"
+  },
+  {
+   "id": "nohand_enemyarea_presence",
+   "clips": [
+    "BattleHudHidden",
+    "BattleHudHide",
+    "BattleHudShow",
+    "BattleHudShowInstant",
+    "BattleHudHiddenNoHand",
+    "BattleHudHideNoHand",
+    "BattleHudShowNoHand",
+    "BattleHudShowInstantNoHand"
+   ],
+   "node": "UpperAnchor/EnemyArea",
+   "property": "m_AnchoredPosition.y",
+   "values": {
+    "BattleHudHidden": true,
+    "BattleHudHide": true,
+    "BattleHudShow": true,
+    "BattleHudShowInstant": true,
+    "BattleHudHiddenNoHand": false,
+    "BattleHudHideNoHand": false,
+    "BattleHudShowNoHand": false,
+    "BattleHudShowInstantNoHand": true
+   },
+   "note": "Hidden/Hide/Show 的 NoHand 变体都**去掉了** EnemyArea.y；但 ShowInstantNoHand **保留**了它。⇒「NoHand = 只去掉 HandArea」这条规则在 EnemyArea 上不成立（3/4 条按它、1 条不按）。"
+  },
+  {
+   "id": "show_playerdeck_x_constant",
+   "clips": [
+    "BattleHudShow"
+   ],
+   "node": "RightArea/PlayerDeck",
+   "property": "m_AnchoredPosition.x",
+   "values": {
+    "keys": 2,
+    "t": [
+     0.0,
+     1.0
+    ],
+    "v": [
+     -190.0,
+     -190.0
+    ]
+   },
+   "note": "Show 的 PlayerDeck.x 两个键都是 −190 ⇒ 这条曲线是空操作（x 从不移动）。"
+  },
+  {
+   "id": "single_key_curves",
+   "clips": [
+    "BattleHudHidden",
+    "BattleHudHiddenNoHand",
+    "BattleHudHide",
+    "BattleHudHideNoHand",
+    "BattleHudShow",
+    "BattleHudShowInstant",
+    "BattleHudShowInstantNoHand",
+    "BattleHudShowNoHand"
+   ],
+   "node": "-",
+   "property": "-",
+   "values": {
+    "BattleHudHidden": [
+     {
+      "node": "BottomAnchor/PlayerArea/HandArea",
+      "property": "m_LocalPosition",
+      "t": 0.0,
+      "v": [
+       0.0,
+       -479.0,
+       0.0
+      ]
+     },
+     {
+      "node": "LeftArea/EnemyInfo",
+      "property": "m_AnchoredPosition.x",
+      "t": 0.0,
+      "v": [
+       -240.0
+      ]
+     },
+     {
+      "node": "LeftArea/EnemyInfo",
+      "property": "m_AnchoredPosition.y",
+      "t": 0.0,
+      "v": [
+       330.0
+      ]
+     },
+     {
+      "node": "LeftArea/Left Anchor",
+      "property": "m_AnchoredPosition.x",
+      "t": 0.0,
+      "v": [
+       -449.0
+      ]
+     },
+     {
+      "node": "LeftArea/Left Anchor",
+      "property": "m_AnchoredPosition.y",
+      "t": 0.0,
+      "v": [
+       0.0
+      ]
+     },
+     {
+      "node": "LeftArea/PlayerInfo",
+      "property": "m_AnchoredPosition.x",
+      "t": 0.0,
+      "v": [
+       -240.0
+      ]
+     },
+     {
+      "node": "LeftArea/PlayerInfo",
+      "property": "m_AnchoredPosition.y",
+      "t": 0.0,
+      "v": [
+       -330.0
+      ]
+     },
+     {
+      "node": "RightArea/EnemyDeck",
+      "property": "m_AnchoredPosition.x",
+      "t": 0.0,
+      "v": [
+       -190.0
+      ]
+     },
+     {
+      "node": "RightArea/EnemyDeck",
+      "property": "m_AnchoredPosition.y",
+      "t": 0.0,
+      "v": [
+       461.0
+      ]
+     },
+     {
+      "node": "RightArea/PlayerDeck",
+      "property": "m_AnchoredPosition.x",
+      "t": 0.0,
+      "v": [
+       -190.0
+      ]
+     },
+     {
+      "node": "RightArea/PlayerDeck",
+      "property": "m_AnchoredPosition.y",
+      "t": 0.0,
+      "v": [
+       -461.0
+      ]
+     },
+     {
+      "node": "RightArea/Right Anchor",
+      "property": "m_AnchoredPosition.x",
+      "t": 0.0,
+      "v": [
+       476.0
+      ]
+     },
+     {
+      "node": "RightArea/Right Anchor",
+      "property": "m_AnchoredPosition.y",
+      "t": 0.0,
+      "v": [
+       0.0
+      ]
+     },
+     {
+      "node": "RightArea/SettingsBtn",
+      "property": "m_AnchoredPosition.x",
+      "t": 0.0,
+      "v": [
+       310.0
+      ]
+     },
+     {
+      "node": "RightArea/SettingsBtn",
+      "property": "m_AnchoredPosition.y",
+      "t": 0.0,
+      "v": [
+       311.0
+      ]
+     },
+     {
+      "node": "UpperAnchor/EnemyArea",
+      "property": "m_AnchoredPosition.y",
+      "t": 0.0,
+      "v": [
+       402.8299865722656
+      ]
+     }
+    ],
+    "BattleHudHide": [
+     {
+      "node": "LeftArea/Left Anchor",
+      "property": "m_AnchoredPosition.y",
+      "t": 1.0,
+      "v": [
+       0.0
+      ]
+     },
+     {
+      "node": "RightArea/EnemyDeck",
+      "property": "m_AnchoredPosition.x",
+      "t": 0.0,
+      "v": [
+       -217.699951171875
+      ]
+     },
+     {
+      "node": "RightArea/Right Anchor",
+      "property": "m_AnchoredPosition.y",
+      "t": 0.0,
+      "v": [
+       0.0
+      ]
+     }
+    ],
+    "BattleHudShow": [
+     {
+      "node": "LeftArea/Left Anchor",
+      "property": "m_AnchoredPosition.y",
+      "t": 0.0,
+      "v": [
+       0.0
+      ]
+     },
+     {
+      "node": "RightArea/EnemyDeck",
+      "property": "m_AnchoredPosition.x",
+      "t": 1.0,
+      "v": [
+       -217.699951171875
+      ]
+     }
+    ],
+    "BattleHudShowInstant": [
+     {
+      "node": "LeftArea/EnemyInfo",
+      "property": "m_AnchoredPosition.x",
+      "t": 0.0,
+      "v": [
+       50.0
+      ]
+     },
+     {
+      "node": "LeftArea/EnemyInfo",
+      "property": "m_AnchoredPosition.y",
+      "t": 0.0,
+      "v": [
+       -28.0
+      ]
+     },
+     {
+      "node": "LeftArea/Left Anchor",
+      "property": "m_AnchoredPosition.x",
+      "t": 0.0,
+      "v": [
+       0.0
+      ]
+     },
+     {
+      "node": "LeftArea/PlayerInfo",
+      "property": "m_AnchoredPosition.x",
+      "t": 0.0,
+      "v": [
+       50.0
+      ]
+     },
+     {
+      "node": "LeftArea/PlayerInfo",
+      "property": "m_AnchoredPosition.y",
+      "t": 0.0,
+      "v": [
+       28.0
+      ]
+     },
+     {
+      "node": "RightArea/EnemyDeck",
+      "property": "m_AnchoredPosition.x",
+      "t": 0.0,
+      "v": [
+       -217.699951171875
+      ]
+     },
+     {
+      "node": "RightArea/EnemyDeck",
+      "property": "m_AnchoredPosition.y",
+      "t": 0.0,
+      "v": [
+       0.0
+      ]
+     },
+     {
+      "node": "RightArea/PlayerDeck",
+      "property": "m_AnchoredPosition.x",
+      "t": 0.0,
+      "v": [
+       -190.0
+      ]
+     },
+     {
+      "node": "RightArea/PlayerDeck",
+      "property": "m_AnchoredPosition.y",
+      "t": 0.0,
+      "v": [
+       0.0
+      ]
+     },
+     {
+      "node": "RightArea/Right Anchor",
+      "property": "m_AnchoredPosition.x",
+      "t": 0.0,
+      "v": [
+       0.0
+      ]
+     },
+     {
+      "node": "RightArea/Right Anchor",
+      "property": "m_AnchoredPosition.y",
+      "t": 0.0,
+      "v": [
+       0.0
+      ]
+     },
+     {
+      "node": "RightArea/SettingsBtn",
+      "property": "m_AnchoredPosition.x",
+      "t": 0.0,
+      "v": [
+       -54.0
+      ]
+     },
+     {
+      "node": "RightArea/SettingsBtn",
+      "property": "m_AnchoredPosition.y",
+      "t": 0.0,
+      "v": [
+       -9.199951171875
+      ]
+     },
+     {
+      "node": "UpperAnchor/EnemyArea",
+      "property": "m_AnchoredPosition.y",
+      "t": 0.0,
+      "v": [
+       0.0
+      ]
+     }
+    ],
+    "BattleHudHiddenNoHand": [
+     {
+      "node": "LeftArea/EnemyInfo",
+      "property": "m_AnchoredPosition.x",
+      "t": 0.0,
+      "v": [
+       -240.0
+      ]
+     },
+     {
+      "node": "LeftArea/EnemyInfo",
+      "property": "m_AnchoredPosition.y",
+      "t": 0.0,
+      "v": [
+       330.0
+      ]
+     },
+     {
+      "node": "LeftArea/Left Anchor",
+      "property": "m_AnchoredPosition.x",
+      "t": 0.0,
+      "v": [
+       -449.0
+      ]
+     },
+     {
+      "node": "LeftArea/Left Anchor",
+      "property": "m_AnchoredPosition.y",
+      "t": 0.0,
+      "v": [
+       0.0
+      ]
+     },
+     {
+      "node": "LeftArea/PlayerInfo",
+      "property": "m_AnchoredPosition.x",
+      "t": 0.0,
+      "v": [
+       -240.0
+      ]
+     },
+     {
+      "node": "LeftArea/PlayerInfo",
+      "property": "m_AnchoredPosition.y",
+      "t": 0.0,
+      "v": [
+       -330.0
+      ]
+     },
+     {
+      "node": "RightArea/EnemyDeck",
+      "property": "m_AnchoredPosition.x",
+      "t": 0.0,
+      "v": [
+       -190.0
+      ]
+     },
+     {
+      "node": "RightArea/EnemyDeck",
+      "property": "m_AnchoredPosition.y",
+      "t": 0.0,
+      "v": [
+       461.0
+      ]
+     },
+     {
+      "node": "RightArea/PlayerDeck",
+      "property": "m_AnchoredPosition.x",
+      "t": 0.0,
+      "v": [
+       -190.0
+      ]
+     },
+     {
+      "node": "RightArea/PlayerDeck",
+      "property": "m_AnchoredPosition.y",
+      "t": 0.0,
+      "v": [
+       -461.0
+      ]
+     },
+     {
+      "node": "RightArea/Right Anchor",
+      "property": "m_AnchoredPosition.x",
+      "t": 0.0,
+      "v": [
+       476.0
+      ]
+     },
+     {
+      "node": "RightArea/Right Anchor",
+      "property": "m_AnchoredPosition.y",
+      "t": 0.0,
+      "v": [
+       0.0
+      ]
+     },
+     {
+      "node": "RightArea/SettingsBtn",
+      "property": "m_AnchoredPosition.x",
+      "t": 0.0,
+      "v": [
+       310.0
+      ]
+     },
+     {
+      "node": "RightArea/SettingsBtn",
+      "property": "m_AnchoredPosition.y",
+      "t": 0.0,
+      "v": [
+       311.0
+      ]
+     }
+    ],
+    "BattleHudHideNoHand": [
+     {
+      "node": "LeftArea/Left Anchor",
+      "property": "m_AnchoredPosition.y",
+      "t": 1.0,
+      "v": [
+       0.0
+      ]
+     },
+     {
+      "node": "RightArea/EnemyDeck",
+      "property": "m_AnchoredPosition.x",
+      "t": 0.0,
+      "v": [
+       -217.699951171875
+      ]
+     }
+    ],
+    "BattleHudShowNoHand": [
+     {
+      "node": "LeftArea/Left Anchor",
+      "property": "m_AnchoredPosition.y",
+      "t": 0.0,
+      "v": [
+       0.0
+      ]
+     },
+     {
+      "node": "RightArea/EnemyDeck",
+      "property": "m_AnchoredPosition.x",
+      "t": 1.0,
+      "v": [
+       -217.699951171875
+      ]
+     }
+    ],
+    "BattleHudShowInstantNoHand": [
+     {
+      "node": "LeftArea/EnemyInfo",
+      "property": "m_AnchoredPosition.x",
+      "t": 0.0,
+      "v": [
+       50.0
+      ]
+     },
+     {
+      "node": "LeftArea/EnemyInfo",
+      "property": "m_AnchoredPosition.y",
+      "t": 0.0,
+      "v": [
+       -28.0
+      ]
+     },
+     {
+      "node": "LeftArea/Left Anchor",
+      "property": "m_AnchoredPosition.x",
+      "t": 0.0,
+      "v": [
+       0.0
+      ]
+     },
+     {
+      "node": "LeftArea/Left Anchor",
+      "property": "m_AnchoredPosition.y",
+      "t": 0.0,
+      "v": [
+       17.0
+      ]
+     },
+     {
+      "node": "LeftArea/PlayerInfo",
+      "property": "m_AnchoredPosition.x",
+      "t": 0.0,
+      "v": [
+       50.0
+      ]
+     },
+     {
+      "node": "LeftArea/PlayerInfo",
+      "property": "m_AnchoredPosition.y",
+      "t": 0.0,
+      "v": [
+       28.0
+      ]
+     },
+     {
+      "node": "RightArea/EnemyDeck",
+      "property": "m_AnchoredPosition.x",
+      "t": 0.0,
+      "v": [
+       -217.699951171875
+      ]
+     },
+     {
+      "node": "RightArea/EnemyDeck",
+      "property": "m_AnchoredPosition.y",
+      "t": 0.0,
+      "v": [
+       0.0
+      ]
+     },
+     {
+      "node": "RightArea/PlayerDeck",
+      "property": "m_AnchoredPosition.x",
+      "t": 0.0,
+      "v": [
+       -190.0
+      ]
+     },
+     {
+      "node": "RightArea/PlayerDeck",
+      "property": "m_AnchoredPosition.y",
+      "t": 0.0,
+      "v": [
+       0.0
+      ]
+     },
+     {
+      "node": "RightArea/Right Anchor",
+      "property": "m_AnchoredPosition.x",
+      "t": 0.0,
+      "v": [
+       0.0
+      ]
+     },
+     {
+      "node": "RightArea/Right Anchor",
+      "property": "m_AnchoredPosition.y",
+      "t": 0.0,
+      "v": [
+       0.0
+      ]
+     },
+     {
+      "node": "RightArea/SettingsBtn",
+      "property": "m_AnchoredPosition.x",
+      "t": 0.0,
+      "v": [
+       -54.0
+      ]
+     },
+     {
+      "node": "RightArea/SettingsBtn",
+      "property": "m_AnchoredPosition.y",
+      "t": 0.0,
+      "v": [
+       -9.199951171875
+      ]
+     },
+     {
+      "node": "UpperAnchor/EnemyArea",
+      "property": "m_AnchoredPosition.y",
+      "t": 0.0,
+      "v": [
+       0.0
+      ]
+     }
+    ]
+   },
+   "note": "Instant 那 4 条整条都是单键（t=0，符合「瞬切」）；带补间的 4 条里也有零星单键曲线 —— 它们在整段时长内是常量，不是补间。"
+  }
+ ]
+}

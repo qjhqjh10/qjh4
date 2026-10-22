@@ -450,6 +450,10 @@ MENU_SRC = 'd:/2/Warpforge_tools/data/ui_extract'
 MENU_OUT = 'd:/4/Unity/MyGame/Assets/CardPresentation/Resources/Art/ui_menu'
 MENU_IMAGES = [
     # (切片名, 它落在哪个 bundle 目录下)
+    # 🆕 2026-10-22（P1 · 账户界面批次）：称号格的**石板底**（原版 `Title Drawer Horizontal Variant > Background`，
+    #   322×116；`Shell/TitleTab.cs` 的 `ArtPlate`）。判据 = `ui_extract/menus_assets_all_sprites/Sprite/
+    #   40k_Profile_display_title.json` 现核存在，落盘名同名（没有空格）。
+    ('40k_Profile_display_title',             'menus_assets_all_sprites'),
     ('UI_Main_Upper bar',                     'atlasindividual_assets_0_mainmenu'),   # 顶栏底
     ('40K_notification',                      'atlasindividual_assets_0_mainmenu'),   # 收件箱
     ('40K_notification_number',               'duplicateassetisolation_assets_all'),  # 红点底

@@ -374,6 +374,11 @@ namespace CardPresentation
         void UpdateHover(Vector3 world)
         {
             int hit = HitTest(world);
+            // 🔴 2026-10-22（`W63` · 判据见 `IsRightButtonOrTwoFingerTouch` 上面那一整段）：
+            //   原版 `OnTouchEnter` 第一句就是那道闸 ⇒ **右键按着 / 双指以上 ⇒ 不许「进入」新卡**。
+            //   ⚠️ **离开照旧**：`OnTouchExit` 通篇没有 `GetMouseButton(1)` ⇒ 指针真挪出手牌时 hover 照样清掉。
+            //   ⛔ 别把这两条「统一」成「右键期间整段冻结」—— 原版右键拖战场时手牌是会落下去的。
+            if (hit != _hovered && hit >= 0 && IsRightButtonOrTwoFingerTouch()) return;
             if (hit == _hovered) return;
             _hovered = hit;
             Relayout();
@@ -407,6 +412,10 @@ namespace CardPresentation
         /// <summary>候选态每帧推进：过两道阈值 ⇒ 真 `PickUp`（用**当前**指针位，见上面那条判据）。</summary>
         void TickPressCandidate(Vector3 world)
         {
+            // 🔴 2026-10-22（`W63`）：过阈值这一跳与原版 `TryDraggingFromHand` 在**同一道闸**内
+            //   （`CardScript__OnTouchDrag.c:19-21`，阈值那一段也在闸里）。
+            //   ⚠️ 早退**不清候选态** —— 原版 `pointerDownPosition` 也不清，闸一放开接着按原按下点判。
+            if (IsRightButtonOrTwoFingerTouch()) return;
             var card = _pressPendingCard;
             // 候选期间手牌列表可能被 `SyncHand` 换过（换掉的牌 / 打出的牌）—— 不在了就静默收工
             if (card == null || _cards.IndexOf(card) < 0)
@@ -460,6 +469,12 @@ namespace CardPresentation
 
         void PickUp(CardView card, Vector3 world, bool freshPress = true)
         {
+            // 🔴 2026-10-22（`W63`）：起拖也在那道闸内 —— 原版唯一能到 `StartMovingFromHand` 的路是
+            //   `CardCollider.OnDrag → CardScript.OnTouchDrag`，而后者第一句就早退（判据见
+            //   `IsRightButtonOrTwoFingerTouch` 上面那整段）。
+            //   ⚠️ `OnTouchDown`（按下）**没有**闸，但它对手牌（cardState 8）那一支直接 `return`
+            //   ⇒ 「右键按着时按下没有反应」两版落到同一个结果。
+            if (IsRightButtonOrTwoFingerTouch()) return;
             _dragging = card;
             _grabOffset = card.transform.position - world;
             _pressWorld = world;
@@ -491,6 +506,11 @@ namespace CardPresentation
 
         void UpdateDrag(Vector3 world, float dt)
         {
+            // 🔴 2026-10-22（`W63`）：跟手也在那道闸内 —— 原版 `OnTouchDrag` 第一句早退
+            //   ⇒ 右键按着拖战场时，手里这张牌**停在原地**（连 `_travel` 都不再累计）。
+            //   ⚠️ **松手仍然照常结算**：原版 `OnTouchUpAsButton` / `OnTouchExit` 都没有这道闸
+            //   ⇒ `Release` 那一侧不加闸（加了会让牌卡在手里，那是原版没有的行为）。
+            if (IsRightButtonOrTwoFingerTouch()) return;
             // 拖拽跟手：直接跟，但带一点平滑（完全硬跟会显得很生硬）。
             // ⚠️ 平滑系数要**按 dt 算**，不能用固定的 0.45 —— 那样帧率一变手感就变，
             //    而且批处理自检里手动喂 dt 时推不到位（踩过）。
@@ -970,6 +990,50 @@ namespace CardPresentation
             if (Mouse.current != null) return Mouse.current.position.ReadValue();
             if (Touchscreen.current != null) return Touchscreen.current.primaryTouch.position.ReadValue();
             return Vector2.zero;
+        }
+
+        // ==================================================================
+        //  🔴 2026-10-22（`W63·审查-右键hover`）：**右键 / 双指那一整道闸**
+        // ==================================================================
+        //  原版**自己有这个名字**（不是散在各调用点里的一句 `if`）：
+        //    `d:/2/tools/decomp_full/CardScript__IsRightButtonOrTwoFingerTouch.c:8-10`
+        //        bVar1 = Input.GetMouseButton(1);      // ← 右键**按着**（电平，不是按下沿）
+        //        iVar2 = Input.get_touchCount();
+        //        return 1 < iVar2 | bVar1;             // ← 双指以上 **或** 右键按着 ⇒ 真
+        //    （签名桩：`d:/2/Warpforge_code/Scripts/Assembly-CSharp/CardScript.cs:2008`
+        //      `private bool IsRightButtonOrTwoFingerTouch(PointerEventData eventData)`）
+        //  ⚠️ **不是** `PointerEventData.button == Right` —— 那个形参在**函数体里一次都没读**，
+        //     判据只读全局 `Input`。⇒ 与「这一下是哪个键按的」无关：右键按着时左键按在卡上照样被拦。
+        //  原版两个入口在函数体**第一句**就用它早退（闸内什么都不做）：
+        //    · `CardScript__OnTouchEnter.c:12-14` —— 悬停那条（`ShowCardInHand` / `TryCardHighlight` 都在闸内）
+        //    · `CardScript__OnTouchDrag.c:19-21`  —— 拖拽那条（`TryDraggingFromHand` / `TryDraggingFromBoard` 都在闸内）
+        //  ⚠️ **另三个入口原版【没有】这道闸**（全库 grep `GetMouseButton(1)` 只命中 5 个文件，
+        //     `CardScript` 这族只有上面两个 + 本方法）：`OnTouchDown` / `OnTouchExit` / `OnTouchUpAsButton`
+        //     ⇒ **按下登记、离开、松手成点击**照旧跑 —— ⛔ 别把闸「统一」到这三处（那是过度复刻）。
+        //  落地：本类三个等价入口**全部走下面这一个函数**（⛔ 别在调用点再写一遍判断）：
+        //    ① `UpdateHover` —— 进新卡不许；**离开照旧**（原版 `OnTouchExit` 无闸）
+        //    ② `PickUp` —— 起拖（原版唯一到 `StartMovingFromHand` 的路在 `OnTouchDrag` 闸内）
+        //    ③ `UpdateDrag` / `TickPressCandidate` —— 拖拽跟手与过阈值。
+
+        /// <summary>自检用：把这道闸直接拨过去（`null` = 回到读真机）。生产路径永远是 `null`。</summary>
+        bool? _rightHeldForTest;
+        public void SetRightButtonHeldForTest(bool? on) { _rightHeldForTest = on; }
+
+        /// <summary>原版 `CardScript.IsRightButtonOrTwoFingerTouch()`（`…c:8-10`）的等价物：
+        /// **右键按着 或 双指以上触摸** ⇒ `true`。
+        /// <para>🔴 **唯一判据** —— 悬停 / 起拖 / 拖拽三个入口都只问它。</para>
+        /// <para>⚠️ 触摸那半照 `TouchInputManager.ReadRaw` 的既有口径（`Battle/TouchInputManager.cs:397-420`）：
+        /// legacy `Input.touchCount` ≡ 新输入系统里数 `t.press.isPressed` 的活跃手指（`touches` 是定长 10 个）。
+        /// 桌面 `Touchscreen.current == null` ⇒ 恒 false —— 那一半是**移动端才有的闸**，本机验不到，如实记。</para></summary>
+        public bool IsRightButtonOrTwoFingerTouch()
+        {
+            if (_rightHeldForTest.HasValue) return _rightHeldForTest.Value;   // 自检口（生产恒为 null）
+            if (Mouse.current != null && Mouse.current.rightButton.isPressed) return true;
+            var ts = Touchscreen.current;
+            if (ts == null) return false;
+            int active = 0;
+            foreach (var t in ts.touches) if (t.press.isPressed) active++;
+            return active > 1;
         }
 
         static bool PressedThisFrame()

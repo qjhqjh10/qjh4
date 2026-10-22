@@ -309,3 +309,10 @@ CardPrefab
 4. ⚠️ 没读 clip 的 `m_ClipBindingConstant`（17 条 `m_FloatCurves` 已足够判定绑定形态）。
 5. ⚠️ `Energy` 的材质在 `m_FileID 4`（外部文件），**没有解析到具体名字**（我们 prefab 里是 `Wispy Smoke`，
    但那是我们导入时贴的名字，**未与原版字段逐项核**）。
+   🔴 **2026-10-22 就地订正（铁律 5 · P5 现核）**：**已闭合，不是缺口**。
+   - `m_FileID = externals 下标 + 1` 实证成立 ⇒ `m_FileID 4` = `externals[3]` = `CAB-6e07b2d1…`
+     = **`duplicateassetisolation_assets_all.bundle`**；目标材质 = **`Glow Additive`**
+     （shader `Universal Render Pipeline/Particles/Unlit`），我们 `WarpforgeVFX/Materials/Glow Additive.mat`
+     已正确挂在 prefab 的 `Energy` PSR（`:10227`）上，四条材质与原版逐条吻合。
+   - **错因**：上面说的「我们 prefab 里是 `Wispy Smoke`」是**看错了节点** —— 那是**根节点**的材质，
+     不是 `Energy` 那一格的。⇒ 不需要补做任何东西。判据 → `P5_四未查清.md` §⑤。

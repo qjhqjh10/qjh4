@@ -95,11 +95,27 @@ Unity 侧接着跑 `EffectExporter.RunListed`（它现在**同时扫源包目录
                                  **4 个开卡包粒子 prefab**（`Boosterpack Open Card Rarity 1..4`）+ 8 条开卡包 clip
   · `wf_boosters_extra.bundle` —— **卡包外观 prefab**（`Booster Pack Standard` + 15 阵营/扩展变体 +
                                  `Booster Pack All Armies Variant`）+ 2 条 clip（备着，我们的窗口还没用）
+🆕 2026-10-22：**第四包** `wf_mainmenu_extra.bundle` —— 主菜单那 8 个 `Wildcard_Use_*`（万能卡使用特效）。
+  源包是**流式场景包** `scenes_scenes_mainmenuwarpforge.bundle`（容器里只有场景自己 ⇒ 只加名字没用，必须重打）。
+  判据 → `资料/普查产出_1022/A2_素材未导出与未使用.md` §1·2 **X2**；组表 = `MAINMENU_GROUPS`。
 Unity 侧接 `BoosterPackExporter.Run`（→ `Assets/CardPresentation/Effects/`）再跟一次 `EffectLibraryBuilder`。
 判据 → `资料/阶段二_商店_原版规格.md` §五·三。
 🔴 **2026-10-03 实测更正**：那 4 个粒子 prefab **在 `menus_assets_all`、不在 `boosterpacks_assets_all`**
    —— 按包名猜归属会错（第一次实跑四连红）。逐条实据见 `BOOSTER_GROUPS` 上面的注释。
 ⚠️ 三件的 **CAB 基名必须互不相同**（Unity 按内层名认「同一个包」，撞名会被拒收）—— 已各自指定。
+
+--arena-anims 模式（2026-10-22 加 · 战场线）
+------------------------------------------
+**5 条 muscle AnimationClip + 5 个 AnimatorController → 3 个小包**（`ARENA_ANIM_GROUPS`）。
+这是战场线里**唯一非重打包不可**的一类：muscle clip 解不成 `.anim`（`CreateAsset` 出来是空壳、`length=1`），
+5 个 controller 又 0/5 不是 addressable。判据 → `资料/普查产出_1022/J-A_战场素材与材质诊断.md` §2·2 路线①②。
+⚠️ **不是** J-A 写的那一个 `wf_arena_anims.bundle`：`repack_tree` 一个产物只能有一个 `src`，
+而这 10 件分属 3 个源包（arena1 / arena2 / battleshared）⇒ 按源包切成
+`wf_arena_anims_arena1` / `_arena2` / `_shared` 三个小包（理由与 dry-run 实据 → `ARENA_ANIM_GROUPS` 上面那段）。
+
+用法：
+  python 工具/extract_missing_shaders.py --arena-anims --check   # 只体检（找根 + 走树 + 报外部引用），不写盘
+  python 工具/extract_missing_shaders.py --arena-anims           # 真写三个小包
 
 ⚠️ 抽出来的仍是**原版的编译字节码**，不是自建 shader。
    ✅ **2026-09-19 更正**：这里原写「要进发布版本必须换成自建替代（见交接文档的红线）」——
@@ -115,7 +131,7 @@ Unity 侧接 `BoosterPackExporter.Run`（→ `Assets/CardPresentation/Effects/`�
 | 模式（`main()` 分发 · 现读） | **唯一口** | 产物 | 内层 CAB 改名 | 别份 / 流怎么裁 |
 |---|---|---|---|---|
 | 默认（extra） · `--builtin` · `--arenas` | **`repack()`** | `wf_shaders_extra` · `wf_builtin` · `wf_arena_*` | ⛔ **不改**（沿用源包 CAB 名 —— ⚠️ **有条件的**，见 A801 那段） | 别份**照裁**（只留它的 Shader） |
-| `--prefabs` | **`repack_tree()`** | `wf_prefabs_extra` · `wf_menus_extra` · `wf_boosters_extra` · 卡包那几包 | ✅ **整组改名**（`new_base` / `new_base_1/2/…`） | 依赖树引用到的别份**整份留**（按需切流） |
+| `--prefabs` · 🆕 `--arena-anims` | **`repack_tree()`** | `wf_prefabs_extra` · `wf_menus_extra` · `wf_boosters_extra` · 卡包那几包 · 🆕 `wf_arena_anims_{arena1,arena2,shared}` | ✅ **整组改名**（`new_base` / `new_base_1/2/…`） | 依赖树引用到的别份**整份留**（按需切流） |
 
 · **两个口共用的只有一段**：`_write_bundle()` —— **唯一写盘口**（重写 `m_Container` + 决定留哪几个
   内层文件 + 丢流 + 落盘）。全库 `_write_bundle(` 的调用点**恰好 2 处**，就是上表那两行。
@@ -173,7 +189,22 @@ DEST_BUILTIN = os.path.join(DEST_DIR, "wf_builtin.bundle")
 # （判据 → `资料/已知的坑.md` 的「GetAllAssetNames() 只吐容器里的资产」那条）：
 #   · `Card 3D Death Explosion` —— 阵亡爆散体（挂 `CardScript.cardDestroyFX`）
 #   · `Vanguard Frame Animated VAT` —— `vanguardFrame` 那个状态框
-PREFAB_TARGETS = ["Card 3D Death Explosion", "Vanguard Frame Animated VAT"]
+PREFAB_TARGETS = ["Card 3D Death Explosion", "Vanguard Frame Animated VAT",
+                  # 🆕 **2026-10-22（W64 · M1/M2/M3）**：`RemnantBody3D` 的字段**直接引用**这三件粒子，
+                  #   但三件**都不在 addressables 容器里**（`数据/索引/anim_address_map.json` 的
+                  #   `guid_to_asset` 查不到对应 guid）⇒ `GetAllAssetNames()` / `LoadAllAssets<GameObject>()`
+                  #   都枚举不到、`LoadAsset` 也按名字取不到 ⇒ 必须当**根**重打进本包。
+                  #   · `Remnant Aeldari Collect particles`(pid -5927265983621035281)
+                  #     ← `RemnantBody3D Aeldari.waystoneCollectVFX`（MB_4264721938747747763）
+                  #   · `Remnant Aeldari Destroy particles`(pid 6910315040393640781)
+                  #     ← `RemnantBody3D Aeldari.particleDeath`
+                  #   · `Remnant Necrons Destroy particles`(pid -4358118985528859315)
+                  #     ← `RemnantBody3D Necrons.particleDeath`（MB_9217091644567071602）
+                  #   三件的 Transform `m_Father` 都是 None（= 独立根），可以直接当根收。
+                  #   判据 → `资料/普查产出_1022/W64_素材导出缺口.md` §一 M1–M3。
+                  "Remnant Aeldari Collect particles",
+                  "Remnant Aeldari Destroy particles",
+                  "Remnant Necrons Destroy particles"]
 # 🆕 2026-10-01：**只被 JSON 数据引用的材质**（没有任何 Unity 对象引用它们 ⇒ 依赖树走不到、
 #   容器里也没有）⇒ 必须当**根**收进来 + 登记容器项，否则 Unity 侧一条路都取不到。
 #   判据 → `资料/普查产出_1001/资产导入路三件_侦察.md` §①（含探针 `EffectExporter.ProbeModuleMaterials`）。
@@ -249,6 +280,104 @@ BOOSTER_GROUPS = [
                "Booster Pack Standard TauEmpire",
                "Booster Pack Standard Tyranids Leviathan"],
         clips=["Booster Open Standard", "Booster Open Sororitas"],
+    ),
+]
+
+# 🆕 2026-10-22（`A2` §1·2 **X2**）：**主菜单「用万能卡」那 8 个粒子 prefab**。
+#
+# 🔴 为什么**必须重打包**、而且**不能**像 `PREFAB_TARGETS` 那样只往那张表里加名字：
+#   · **源包就不同** —— 它们在 `scenes_scenes_mainmenuwarpforge.bundle`，不在 `battleprefabs_vfxandmisc`；
+#   · 那是个**流式场景包**（`m_IsStreamedSceneAssetBundle = True`）：`m_Container` **只有 1 条**
+#     （= `Assets/Data/Scenes/MainMenu Warpforge.unity` 场景自己）⇒ `GetAllAssetNames()` 只吐那一条；
+#     `LoadAllAssets()` 在这种包上**直接抛** `This method cannot be used on a streamed scene AssetBundle.`
+#     ⇒ Unity 侧三条取法**一条都到不了**它们；
+#   · `数据/索引/anim_address_map.json` 的 `guid_to_asset`（10,539 条）**8/8 都没有对应 guid**
+#     ⇒ 它们**不是 addressable**（A2 报「原版出处 = 主菜单场景」即此意）。
+# 实读（UnityPy 1.24.2，2026-10-22，**按 (CAB, PathID) 取键** —— 裸 pid 会在两份 CAB 之间撞号）：
+#   · 8 件**全是** `m_Father = 0` 的独立根（可以直接当根收）；
+#   · 子树 6~13 个节点、都有 `ParticleSystemRenderer`（子件叫 `Circling Particle`）
+#     ⇒ 它们**本来就是「效果根」**，`Run()` 筛不到只是因为 `Run()` 只看特效主包那一个 `vfx` 包的容器；
+#   · 8 件都落在 `CAB-32e46c0abb8a090277ce1cc411d6d532.sharedAssets`，而 `AssetBundle` 对象
+#     **也在这一份** ⇒ `repack_tree` 的 ⓪ 会挑它当「要写的那一份」、容器项 `m_FileID = 0`
+#     （A230 的跨 CAB 那条路**不用走**）；场景本体所在的主 CAB 会被 `_write_bundle` 的 [8] 丢掉。
+# ⚠️ `_write_bundle` 的 [7b] 会把 `m_IsStreamedSceneAssetBundle` 清成 False —— **必须清**，
+#    否则 Unity 对产物 `LoadAllAssets` 照样抛异常（那段的判据见 `_write_bundle` 头注）。
+# 判据 → `资料/普查产出_1022/A2_素材未导出与未使用.md` §1·2 **X2**。
+MAINMENU_SRC = os.path.join(BUNDLE_DIR, "scenes_scenes_mainmenuwarpforge.bundle")
+MAINMENU_GROUPS = [
+    dict(
+        src=MAINMENU_SRC,
+        out=os.path.join(DEST_DIR, "wf_mainmenu_extra.bundle"),
+        cab="CAB-wfmainmenuextra",
+        # ⚠️ **逐字**照 bundle `m_Name`（`repack_tree` 按逐字比；⛔ 别 Trim、别改空格）。
+        roots=["Wildcard_Use_Button 1 Common", "Wildcard_Use_Button 2 Rare",
+               "Wildcard_Use_Button 3 Epic", "Wildcard_Use_Button 4 Legendary",
+               "Wildcard_Use_Card 1 Common", "Wildcard_Use_Card 2 Rare",
+               "Wildcard_Use_Card 3 Epic", "Wildcard_Use_Card 4 Legendary"],
+        # 这 8 件身上**没有** legacy `Animation`（子树组件只有 MonoBehaviour / ParticleSystem /
+        # ParticleSystemRenderer，实读）⇒ 不带 clip。
+        clips=[],
+    ),
+]
+
+# 🆕 2026-10-22（战场线 · J-A §2·2 路线②）：**5 条 muscle clip + 5 个 AnimatorController**。
+#
+# 为什么必须重打包、而且 `.anim` 那条路走不通：
+#   · clip 是 **muscle/streamed**（`m_MuscleClipSize` 3308~30380、`m_Legacy=false`）⇒ `W64 A1` 已证
+#     `CreateAsset` 出来是**空壳**（`length=1`），只能让运行期从包里取原件；
+#   · 5 个 controller **0/5 不是 addressable** ⇒ `GetAllAssetNames()` / `LoadAllAssets` 两条都枚举不到。
+#   判据 → `资料/普查产出_1022/J-A_战场素材与材质诊断.md` §1·4 A1/A2 + §2·2 路线①②。
+#
+# 🔴 **为什么是 3 个产物包、不是 J-A 说的 1 个 `wf_arena_anims.bundle`**：
+#   `repack_tree` 一次只读**一个** `src`（一个产物包 = 一个源包）—— 而这 10 件分散在 3 个源包里
+#   （arena1 / arena2 / battleshared）。除非另开一个「多源合并」的口（= A523 禁止的第三口），
+#   否则只能按源包切成 3 个小包。逐个都是 2/6/2 个对象，体积极小。
+#
+# 🔴 **2026-10-22 dry-run 实测（`repack_tree(..., dry_run=True)`，只体检不写盘）—— 三条硬结论**：
+#   ① **没有跨 CAB 容器引用**：3 个源包里**装着 `AssetBundle` 对象的那份 CAB 恰好就是 clip/controller
+#      所在的那一份**（arena1/arena2 = `<hex>.sharedAssets`；battleshared = 唯一的 CAB）
+#      ⇒ A230 那条 `m_FileID ≠ 0` 的未验路**这一批一次都不走**（J-A 标的 R1 只属路线③的 `Scenario`）。
+#   ② **真外部引用 = 0 类、走资源流的对象 = 0 个**（`[P3]` 两行都没出现）⇒ 产物是自足的。
+#   ③ 依赖树 = **纯 clip + controller**（arena1 2 个 / arena2 6 个 / battleshared 2 个）——
+#      controller 的 `m_AnimationClips` 全都指在同一份 CAB 里。
+#
+# ⚠️ 名字逐字照 bundle 的 `m_Name`（`repack_tree` 按逐字比）。`roots` 留空 = 完全靠
+#   `extra_clips` / `extra_controllers` 收根（`repack_tree` 的两条 extra 路会把它们并进 `found`）。
+#
+# 🔴 **顺手查出的一处数据缺陷（2026-10-22，铁律 5·b · 本工具不修表，只记在这里 + 报告）**：
+#   `数据/游戏数据/animator_controllers.json` 里 `Cannon 1` 的 `clips` 写的是 **`Railgun Turret 1`**，
+#   但 arena1 包里那份 controller 的 `m_AnimationClips` 实读是 **`Cannon front Idle`**（PID 20，同包）。
+#   根因 = `gen_animator_controllers.py:350-352` 把**全部 84 个包**的 `AnimationClip` 名字并进**一个
+#   裸 PathID 字典**，而 tauviorla 的 PID 20 恰好是 `Railgun Turret 1`（按包名序在 arena1 之后）
+#   ⇒ **跨包同 pid 静默覆盖**（与 `A152/A173` 那条「裸 pid 会撞号」是同一个病）。
+#   影响：只有 `Cannon 1` 这一条（另 4 个战场 controller 的 clip 名实读都对）。
+ARENA_ANIM_GROUPS = [
+    # ① arena1：炮台（`Cannon 1` 控制器 + 它的 `Cannon front Idle`）
+    dict(
+        src=os.path.join(BUNDLE_DIR, "scenes_scenes_battlearena1.bundle"),
+        out=os.path.join(DEST_DIR, "wf_arena_anims_arena1.bundle"),
+        cab="CAB-wfarenaanims1",
+        roots=[],
+        clips=["Cannon front Idle"],
+        controllers=["Cannon 1"],
+    ),
+    # ② arena2：泵 / 动态骷髅 / 竞技场 2 三件套（3 clip + 3 控制器，全在同一份 `.sharedAssets`）
+    dict(
+        src=os.path.join(BUNDLE_DIR, "scenes_scenes_battlearena2.bundle"),
+        out=os.path.join(DEST_DIR, "wf_arena_anims_arena2.bundle"),
+        cab="CAB-wfarenaanims2",
+        roots=[],
+        clips=["Battle Arena 2 Animations", "Dynamic Skulls", "Pump Animation"],
+        controllers=["Pump 1", "Dynamic Skulls", "Battle Arena 2"],
+    ),
+    # ③ battleshared：雷尔贡孢子（muscle 30380，5 条里最大的一条）
+    dict(
+        src=os.path.join(BUNDLE_DIR, "battlesharedresources_assets_all.bundle"),
+        out=os.path.join(DEST_DIR, "wf_arena_anims_shared.bundle"),
+        cab="CAB-wfarenaanimssh",
+        roots=[],
+        clips=["SporeArmature|LeviathanBigSpore"],
+        controllers=["Battle Arena Leviathan"],
     ),
 ]
 
@@ -1502,11 +1631,14 @@ def run_prefabs(args):
     （只吐可加载的资产根）**都枚举不到**，按名字 `LoadAsset` 也拿不到。
     判据 → `资料/已知的坑.md` 的「`GetAllAssetNames()` 只吐容器里的资产」那条。
 
-    两批（2026-10-03 起）：
+    三批（2026-10-22 起）：
       ① **战场**那两件 → `wf_prefabs_extra.bundle`（本函数原来的那一段，行为一字未改）；
       ② **卡包两扇窗那批**（`BOOSTER_GROUPS`）→ `wf_boosters_extra.bundle` + `wf_menus_extra.bundle`
-         （判据 → `资料/阶段二_商店_原版规格.md` §五·三）。
-    ⚠️ `--out` 只作用于 ①；② 的目标名写在 `BOOSTER_GROUPS` 里（一个源包一个产物，不能合并）。
+         （判据 → `资料/阶段二_商店_原版规格.md` §五·三）；
+      ③ 🆕 **主菜单那 8 个 `Wildcard_Use_*`**（`MAINMENU_GROUPS`）→ `wf_mainmenu_extra.bundle`
+         （判据 → `资料/普查产出_1022/A2_素材未导出与未使用.md` §1·2 X2）。
+    ⚠️ `--out` 只作用于 ①；②③ 的目标名写在各自的组表里（一个源包一个产物，不能合并）。
+    ⚠️ `--skip-boosters` 把 ②③ 一起跳过（它们都属界面线），且**会打一行明示**（⛔ 不静默）。
     🆕 2026-10-07（A192）：① 里除了「控制器要用的 clip」，还收**只被环境 SO 按 GUID 引用**的两条
       （表里 `clipsByGuid` 那一节，见 `clips_by_guid`），并按 GUID 登记容器别名。
     """
@@ -1568,11 +1700,70 @@ def run_prefabs(args):
             return 1
         print(f"[P6] ✓ {os.path.basename(g['out'])} 打出 {len(k2)} 个对象（含整棵依赖树）")
 
+    # ---- 🆕 2026-10-22（`A2` §1·2 X2）：主菜单那 8 个 `Wildcard_Use_*`（`MAINMENU_GROUPS`）----
+    #  为什么单开一批、不并进 `BOOSTER_GROUPS`：那两组的源包是卡包/菜单包，这一组的源包是
+    #  **流式场景包** `scenes_scenes_mainmenuwarpforge.bundle`（判据与实读见 `MAINMENU_GROUPS` 上面那段）。
+    #  ⚠️ 跟 `--skip-boosters` 一起跳（同属界面线）；跳的时候**打一行**，⛔ 不静默。
+    if args.skip_boosters:
+        print("\n[P6] `--skip-boosters` ⇒ 同时跳过 `wf_mainmenu_extra.bundle`（`MAINMENU_GROUPS`，"
+              "那 8 个 `Wildcard_Use_*` 这一趟**不会**产出）")
+    for g in ([] if args.skip_boosters else MAINMENU_GROUPS):
+        if not os.path.isfile(g["src"]):
+            print(f"[P0] 🔴 源包不在，跳过这一组：{g['src']}")
+            continue
+        print(f"\n[P6] 主菜单组：源 {os.path.basename(g['src'])} → {os.path.basename(g['out'])}")
+        print(f"[P6] 根 GameObject {g['roots']} · 额外 AnimationClip {g['clips']}")
+        k3 = repack_tree(g["src"], g["out"], g["roots"], dry_run=args.check,
+                         extra_clips=g["clips"], cab_name=g["cab"])
+        if k3 is None:
+            print("[P6] 🔴 这一组没打出来（根一件都没找到？）—— 上面 [P1] 那几行会点名是哪一件")
+            return 1
+        print(f"[P6] ✓ {os.path.basename(g['out'])} 打出 {len(k3)} 个对象（含整棵依赖树）")
+
     if args.check:
         return 0
     print(f"\n[P5] 完成。Unity 侧：")
     print(f"     `EffectExporter.RunListed` / `BoosterPackExporter` 都会同时扫 "
           f"`{DEST_DIR}` 里的包，按名字取。")
+    return 0
+
+
+def run_arena_anims(args):
+    """`--arena-anims` 模式：**5 条 muscle clip + 5 个 AnimatorController** → 3 个小包。
+
+    🔴 **为什么单开一个模式、不并进 `--prefabs`**：
+      · 这批属**战场线**（不属界面线），跟 `--skip-boosters` 那套语义不搭；
+      · `--prefabs` 要顺带重打 74.6 MB 的 `battleprefabs` 源包（还带卡包/主菜单那几包），
+        只想要这 10 件时不该付那个代价。
+    判据与 dry-run 实据 → `ARENA_ANIM_GROUPS` 上面那段。
+
+    `--check` = 只走一遍 `repack_tree(..., dry_run=True)`（找根 + 走依赖树 + 报外部引用/流），**不写盘**。
+    """
+    print(f"[P7] `--arena-anims`：{len(ARENA_ANIM_GROUPS)} 组（一个源包一个产物）→ {DEST_DIR}")
+    for g in ARENA_ANIM_GROUPS:
+        if not os.path.isfile(g["src"]):
+            print(f"[P7] 🔴 源包不在，跳过这一组：{g['src']}")
+            continue
+        print(f"\n[P7] 组：源 {os.path.basename(g['src'])} → {os.path.basename(g['out'])}"
+              f"（内层 CAB 基名 `{g['cab']}`）")
+        print(f"[P7] 额外 AnimationClip {g['clips']} · 额外 AnimatorController {g['controllers']}")
+        kept = repack_tree(g["src"], g["out"], g["roots"], dry_run=args.check,
+                           extra_clips=g["clips"], extra_controllers=g["controllers"],
+                           cab_name=g["cab"])
+        if kept is None:
+            print(f"[P7] 🔴 这一组没打出来（上面 [P1] 那几行会点名是哪一件）")
+            return 1
+        print(f"[P7] ✓ {os.path.basename(g['out'])} "
+              f"{'体检' if args.check else '打出'} {len(kept)} 个对象（含整棵依赖树）")
+
+    if args.check:
+        print("\n[P7] --check：只体检，未写文件")
+        return 0
+    print("\n[P7] 完成。Unity 侧：`AssetBundle.LoadFromFile` 后按容器名取 —— "
+          "clip 用 `LoadAsset<AnimationClip>(名字)`、控制器用 "
+          "`LoadAsset<RuntimeAnimatorController>(名字)`（两者都登记了裸名 + `assets/<小写>.<ext>` 两条别名）。")
+    print("     ⚠️ 运行时接线（`WarpforgeAnimatorBridge.BundleRelPath` 目前只有 wf_prefabs_extra 一个包）"
+          "本轮**没改** `.cs` —— 三个新包要由主对话另派接线。")
     return 0
 
 
@@ -1589,6 +1780,10 @@ def main():
     ap.add_argument("--tmp", action="store_true",
                     help="🆕 2026-10-22：改打 **TMP shader 包**：源 fonts_assets_all.bundle "
                          "→ 目标 wf_tmp_shaders.bundle（4 个 TextMeshPro/* shader；W64 B11）")
+    ap.add_argument("--arena-anims", action="store_true",
+                    help="🆕 2026-10-22：改打**战场动画小包**（`ARENA_ANIM_GROUPS`）—— "
+                         "5 条 muscle AnimationClip + 5 个 AnimatorController → "
+                         "wf_arena_anims_{arena1,arena2,shared}.bundle（含整棵依赖树）")
     ap.add_argument("--out", default=None,
                     help="默认 extra 模式写 wf_shaders_extra.bundle；--builtin 模式写 wf_builtin.bundle")
     ap.add_argument("--skip-boosters", action="store_true",
@@ -1620,6 +1815,8 @@ def main():
             print("      ", n)
         return 0
 
+    if args.arena_anims:
+        return run_arena_anims(args)
     if args.arenas:
         return run_arenas(args)
     if args.builtin:

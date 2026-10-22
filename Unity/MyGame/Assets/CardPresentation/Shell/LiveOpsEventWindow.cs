@@ -500,15 +500,37 @@ namespace CardPresentation
             MenuDraw.Rect(col, Tex(DeckRuntime.FactionIcon(ShownFaction)),
                           new PxRect(FacIconL, FacIconT, FacIconR, FacIconB), "Faction Icon Image", QDeck, null, true);
 
-            // 督军立绘（原版同样是运行时喂；我们用督军卡自己的立绘 —— 同 `DeckInfoPopup` 那条路）
+            // 督军立绘（原版 `sprite=0` ⇒ 运行时喂；**槽是 1098.14² 的正方形**，原版喂的也是方形整身立绘）
+            // 🔴 **2026-10-22（M1 · 真机缺陷，用户原话「战将的立绘是残缺的，你是否使用正确的图片」）**：
+            //   原来这里走 `CardArt.Portrait`（**卡面插图，竖构图 ~671×1024**）塞进 1098.14² 的方框，
+            //   等比放到 1098 宽 ⇒ 高 ~1675，**上下各溢出 ~288px** ⇒ 人被截断、还把标题栏盖掉。
+            //   正解 = `CardArt.DeckHero`：`UI_Deck_Warlord_<督军名>`（**2048² 方形整身立绘**、
+            //   `bundle_uiwarlords_assets_all`）—— 与 `Shell/DeckInfoPopup.cs` 的 `Warlord Image` 同一条口径
+            //   （记忆 `warpforge-deck-warlord-art`：**方形立绘只给 UI 立绘位**；卡组格才用 `CardArt.Portrait`）。
+            // ⚠️ **2026-10-22（界面线 M3）**：这里原来按**纹理名前缀** `UI_Deck_Warlord_` 猜「是不是拿到了方形图」——
+            //   那条判据在 `DA75` 那种资产名**没有** `_Warlord_` 前缀（`UI_Deck_Master Zacharial`）的档上会误判。
+            //   ⇒ 改走 `CardArt.TryDeckHero`（**可判别**的两档：true = 真拿到方形立绘，false = 没有）。
+            //   退回时**出声**（⛔ 不静默），并说明那一路是「我们挑的兜底」。
             var wl = ShownWarlord;
             var wlRoot = MenuDraw.Node(col, "Warlod Image", new PxRect(WlL, WlT, WlR, WlB));
-            var wlTex = wl != null ? CardArt.Portrait(wl.Id) : null;
+            Texture2D wlTex = null;
+            bool squareHero = wl != null && CardArt.TryDeckHero(wl.Id, out wlTex) && wlTex != null;
+            if (wl != null && !squareHero)
+            {
+                // 兜底（**我们挑的**）：方形立绘没有 ⇒ 退回卡面插图，等比内接。
+                wlTex = CardArt.Portrait(wl.Id);
+                if (wlTex != null)
+                    Debug.LogWarning("[Event] 督军「" + wl.Name + "」**没有方形整身立绘**"
+                                     + "（`CardArt.TryDeckHero` = false）⇒ 退回卡面插图等比内接 —— "
+                                     + "**这一档是我们挑的兜底**，不是原版做法（原版喂的是 2048² 方形立绘）");
+            }
             if (wlTex != null)
-                // ⚠️ **原版那件 `m_PreserveAspect = 0`（直接拉满 1098.14²）**，而喂给它的是一张
-                //    **2048² 的方形立绘**；我们手上只有**卡面插图**（671×1024 竖构图）⇒ 拉满会把人拉变形，
-                //    这里 **`keepAspect`（等比放进框、居中）是我们挑的**，不是复刻。原版那张方形立绘本地没有。
+            {
+                // 原版那件 `m_PreserveAspect = 0`（直接拉满 1098.14²）。**方形图拉满 ≡ 等比**（2048²→1098²），
+                // 两种写法同解 ⇒ 统一 `keepAspect = true`：方形档零差异，退回的竖构图档才不会拉变形。
+                // （`squareHero` 只用于出声；两档的**画法**差异就由贴图自身的宽高比决定 = `keepAspect`。）
                 MenuDraw.Rect(wlRoot, wlTex, new PxRect(WlL, WlT, WlR, WlB), "Warlord", QDeck1, null, true);
+            }
             else
                 Debug.Log("[Event] 督军立绘取不到（" + (wl != null ? wl.Name : "这套卡组没有督军") + "）—— 那一层不画，出声");
             //    `Warlord Darkening`：压暗一层（`Smooth background square` Sliced · col(0,0,0,0.816)）
@@ -711,7 +733,10 @@ namespace CardPresentation
             var holder = MenuDraw.Node(root, "Ranked Army Selector",
                                        new PxRect(ArmSelL, ArmSelT, ArmSelR, ArmSelB));
             // 原版 hAlign = **Center** ⇒ 不调 `Align*`
-            MenuDraw.Text(holder, new PxRect(FacTitleL, FacTitleT, FacTitleR, FacTitleB), "Factions",
+            // 🔴 **2026-10-22（M1 · 文案）**：原来写死英文 `"Factions"`，而原版这颗 TMP 挂 `Localize`
+            //   （`mTerm = MainMenu/Factions`，`bundle_menus_assets_all/MonoBehaviour/MonoBehaviour_-2286559357550753872.json`
+            //   现读；官方表 en `Factions` / zh `派系`）⇒ 改走词条。⛔ 别写死英文（那是未翻译的原文）。
+            MenuDraw.Text(holder, new PxRect(FacTitleL, FacTitleT, FacTitleR, FacTitleB), Loc.T("MainMenu/Factions"),
                           Color.white, "Factions Title", 45.87f, QText, face: TmpFont.Face.LatinCardBody);
 
             // 层级照原版：`Army Selector`(ScrollRect) -> `Viewport`(RectMask2D) -> `Army Content`(GridLayoutGroup)
@@ -865,7 +890,15 @@ namespace CardPresentation
                 MenuDraw.Rect(cell, Tex(DeckRuntime.FactionIcon(facs[i])), InCell(rr, CellIcon),
                               "Army Icon", QArmyIcon, null, true, null, VpSoft);
                 // ⑤ `Featured Icon`（122.81×123.53 · `preserveAspect`）—— 显隐数据驱动（见 `ArmyProgress` 那段）
-                MenuDraw.Rect(cell, Tex(ArtArmyFeat), InCell(rr, CellFeat), "Featured Icon", QArmyFeat, null, true, null, VpSoft);
+                // 🔴 **2026-10-22（M1 · 真机对照）**：原来**照 prefab 出厂态把每一格都画出来**（= 12 格里 12 个金色
+                //   「+」角旗）。原版那件的显隐是 `SetActive(cell, (army.RankedV3ArmyState & 4 /*Featured*/) != 0)`
+                //   （`RankedArmySelectorContainer__Initialize.c`）—— **赛季数据在服务器**，我们一条都没有；
+                //   而参考图 `C:/Users/qjh36/Desktop/warpforge参考图/经典模式参考图.png` 的 12 格**一个角旗都没有**
+                //   ⇒ 与「进度取 0」同一条口径：**没有数据 = 不显示**。节点照建（结构与 prefab 一致、断言仍认得到），
+                //   只把它 **关掉**。⚠️ 这一条是我们按「无数据」推的，不是从原版运行期读到的值。
+                var featQ = MenuDraw.Rect(cell, Tex(ArtArmyFeat), InCell(rr, CellFeat), "Featured Icon",
+                                          QArmyFeat, null, true, null, VpSoft);
+                if (featQ != null) featQ.gameObject.SetActive(false);
 
                 // 四态（悬停 / 按下 / 常态**逐颗显式给**）：本颗的悬停图**不是** `<常态图>_hover` ——
                 // `WindowButton` 的后备规则会推成 `UI_Army_Selection_Back_hover`（**小写 h**），
@@ -895,8 +928,9 @@ namespace CardPresentation
                 Debug.Log("[Event] 阵营格：`ProgressBar` / `Featured Icon` 已按原版 item prefab"
                           + "（`Ranked Army Selector Container V2`）建出来，但**它们的数值与显隐在原版是赛季数据驱动的**"
                           + "（`RankedArmySelectorContainer.Initialize` 的 `wins/maxWins` · `showProgress` ·"
-                          + " `RankedV3ArmyState.Featured`，全在服务器）—— **我们没有那份数据** ⇒ 进度取 0、两件照 prefab"
-                          + " 出厂状态显示。**这一条是我们挑的**，不是原版的运行期值。");
+                          + " `RankedV3ArmyState.Featured`，全在服务器）—— **我们没有那份数据** ⇒ 进度取 0、"
+                          + "`Featured Icon` **关着**（2026-10-22 M1：参考图 12 格一个角旗都没有 ⇒ 无数据 = 不显示）。"
+                          + "**这一条是我们挑的**，不是原版的运行期值。");
             }
         }
 

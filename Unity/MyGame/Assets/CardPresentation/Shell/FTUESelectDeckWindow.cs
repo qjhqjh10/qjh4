@@ -53,16 +53,25 @@
 //   🔴 **2026-10-18 就地订正（铁律 5，N71）**：原文写「本机查不到（9,441 条零命中）⇒ 四格留空」——
 //   **已过期**：`official_loc_13lang.json` 现读 **10,862 键**，四条 `TutorialFTUEDeck/*` **都在**（zh/en 齐全）
 //   ⇒ 四格**有字**（取不到时才留空 + 出声一次）。
-// · **领取起始卡组**：原版走 PlayFab（`GrantStarterDeck`）。我们**没有后端 / 没有玩家卡库** ⇒
-//   `Continue` 只 **`Debug.LogWarning` 出声 + 关窗**（照原版成功后的那一跳），⛔ 不伪造「已发放」，
-//   也不写任何存档。**关窗**是必须的：原版 `closeOnESC = 0` + 暗底不关窗 ⇒ 不关就成了一扇死窗。
+// · **领取起始卡组**：原版走 PlayFab（`PlayfabWrapper.GrantStarterDeck(选中那副的 deckId, …)`，服务端发牌、
+//   客户端 `RewardService.Collect` 收进卡库）。我们**没有后端 / 没有玩家卡库** ⇒
+//   🔴 **2026-10-22（H-D）改口径：本地发放** —— `Continue` 把**选中的那一副**按原版 SO 的
+//   `cardLibraryIds / deckHero.targetId / gameMode / cardbackId` 写进 `DeckLibrary` 并落盘
+//   （用户 2026-09-17 边界「不做真实经济 · 全解锁」允许；牌表是真值，⛔ 不是伪造）。
+//   幂等（同督军+同牌表+同模式 ⇒ 不重复发）；失败则**出声且不关窗**（= 原版 `OnError`）。
+//   ⚠️ 仍没做的：`CampaignHandler.SetSelectedArmy/SaveSelectedArmy`、`AddTag(CollectedFirstDeck)`、
+//   服务端那份 `rewards/extraRewards`。逐句判据 → `OnContinueClicked` 的注释。
 // · **`openSound`**：原版 = `GameWindow.TryOpen` 在 `Closed ⇒ Open` 那一拍播 `openSound`（FX 组，见上）。
 //   我们这一侧 `GameWindow.openSound` 是 `AudioClip`（没有「cue 名」字段）⇒ 走 `WindowSounds` 的**唯一**
 //   音效表（`WindowSounds.FtueOpenCue` 常量），在 `Open()` 里 `PlayFx`（= 同一个 FX 组、同一条 cue 表；
 //   ⛔ 没在窗里另写一套 `Resources.Load`）。
-// · **入口**：原版是 FTUE onboarding 的一环（首启送卡组）。我们**没有菜单版教程状态机**
-//   （同 `TutorialMessagePopup` / `WelcomePopup` 的已知缺口）⇒ **建窗 + 注册**，`WindowsManager.OpenChooseArmyDeck`
-//   只提供「怎么开」，**不伪造入口**。
+// · **入口**：原版是 FTUE onboarding 的一环（首启送卡组）。
+//   ⚠️ **2026-10-22 就地订正（铁律 5 · 本文件 H-D 现核）**：本节原写「我们**没有菜单版教程状态机**
+//   （同 `TutorialMessagePopup` / `WelcomePopup` 的已知缺口）⇒ 只提供 `OpenChooseArmyDeck`、**不伪造入口**」
+//   —— **不成立**：菜单版教程状态机早就在（`Shell/MenuTutorialManager.cs`，由
+//   `Shell/MainMenuRuntime.cs:636` 的 `MenuTutorialManager.Attach(this)` 挂上；它的 `SelectArmy` 阶段
+//   自己就调 `WindowsManager.OpenChooseArmyDeck()` —— `Shell/MenuTutorialFlow.cs:248` / `MenuTutorialManager.cs:405`）。
+//   错因：这句话写在状态机落地之前，之后没回来改。⇒ 入口**不用伪造**，照那条链开。
 // · **`Rays`/`Glow (1)` 粒子**：`War ParticleSystemUI Left/Right` 在 prefab 里 `m_LocalScale = (0,0,0)`
 //   （dump 的 `ls=0,0` ⇒ 视觉 0×0）⇒ 原版这一刻**不画**；节点照建（树保真）、不加粒子。
 // · **tween / 淡入**：原版有 DOTween（1 s 的 glow 缩放/淡入、0.5 s 的 Continue 组淡入）。
@@ -74,8 +83,10 @@ namespace CardPresentation
 {
     /// <summary>原版 `FTUESelectDeckWindow`（`GameWindow` 子类）—— **选阵营送卡组**（「SELECT ARMY」整屏）。
     /// <para>🔴 层带：自成一档 **3392–3399**（`WelcomePopup` 3382–3390 之上、`DuelPopupWindow` 3400 之下）。</para>
-    /// <para>🔴 入口缺口：原版在 FTUE onboarding 链里，我们**没有那个状态机** ⇒ 只提供
-    /// <see cref="WindowsManager.OpenChooseArmyDeck"/>，⛔ 不伪造调用点（同 `TutorialMessagePopup` 口径）。</para></summary>
+    /// <para>🔴 入口：原版在 FTUE onboarding 链里 —— 我们的对位 = `Shell/MenuTutorialManager` 的 `SelectArmy` 阶段
+    /// （⚠️ **2026-10-22 就地订正（铁律 5）**：本行原写「我们**没有那个状态机** ⇒ 只提供
+    /// `OpenChooseArmyDeck`、⛔ 不伪造调用点」—— **不成立**，状态机早就在且自己会开这扇窗；
+    /// 判据 → 文件头「入口」那一条）。</para></summary>
     public class FTUESelectDeckWindow : GameWindow
     {
         // ============================================================ 队列档（自成一档 · 3392–3399）
@@ -151,20 +162,48 @@ namespace CardPresentation
             public string InfoTerm;
             /// <summary>原版 `glowColor`（MB 实读，四位小数以上的原值）。</summary>
             public Color Glow;
+
+            // ---- 下面四列 = 那副 `PrebuiltDeck` **自己的字段**（不在 prefab 上）----
+            // 判据（第一权威，可逐字段复查）：`素材/Warpforge原版/卡牌/卡组数据/MonoBehaviour/<deckId>.json`
+            //   （原版 SO 的 `deckName` / `cardLibraryIds` / `cardbackId` / `gameMode` 逐字实读，2026-10-22）；
+            //   交叉核对：`数据/游戏数据/decklists.json` 同名四行（`cardIds` / `heroId` / `gameMode` / `name`
+            //   与 SO **逐一相等** —— 四副 × 四列全部 True）。
+            /// <summary>原版 `PrebuiltDeck.deckName` —— 发放后这副卡组在存档里的名字。</summary>
+            public string DeckName;
+            /// <summary>原版 `PrebuiltDeck.cardLibraryIds`（12 张 · **原序**，⛔ 别重排）。</summary>
+            public string[] CardIds;
+            /// <summary>原版 `PrebuiltDeck.cardbackId` 解出来的卡背名（`Art/cardbacks/` 里的文件名）。
+            /// 四副的 GUID 都是 `025b325b599140545881b3552164e345` ⇒ `Cardback_All_Starter`（本工程有这张图）。</summary>
+            public string Cardback;
+            /// <summary>原版 `PrebuiltDeck.gameMode`（四副都是 **13 = Skirmish**，SO 实读）。</summary>
+            public int GameMode;
         }
 
         /// <summary>四副起始卡组 —— **顺序 = prefab `starterDecks` 数组序**（左→右）。
-        /// 🔴 逐列的判据见文件头那张表（`glowColor` 是 MB 里 32 位 float 的原值，⛔ 别四舍五入成「好看」的数）。</summary>
+        /// 🔴 逐列的判据见文件头那张表（`glowColor` 是 MB 里 32 位 float 的原值，⛔ 别四舍五入成「好看」的数）。
+        /// 🔴 后四列（牌表/卡背/模式/原名）的判据见 <see cref="StarterDeck"/> 上那段 —— 是**原版 SO** 的值。</summary>
         public static readonly StarterDeck[] Starters =
         {
             new StarterDeck { DeckId = "UM_SK_Starter",  HeroCardId = "UM47",  InfoTerm = "TutorialData/TutorialFTUEDeck/UltraMarines",
-                              Glow = new Color(0.3224012f, 0.6783406f, 0.9905660f, 1f) },
+                              Glow = new Color(0.3224012f, 0.6783406f, 0.9905660f, 1f),
+                              DeckName = "Master of the Fleet", Cardback = "Cardback_All_Starter", GameMode = 13,
+                              CardIds = new[] { "UM1", "UM6", "UM56", "UM14", "UM10", "UM15",
+                                                "UM24", "UM25", "UM30", "UM41", "UM42", "UM39" } },
             new StarterDeck { DeckId = "ORK_SK_Starter", HeroCardId = "GOF29", InfoTerm = "TutorialData/TutorialFTUEDeck/Orks",
-                              Glow = new Color(0.7169812f, 0.6966832f, 0.1454254f, 1f) },
+                              Glow = new Color(0.7169812f, 0.6966832f, 0.1454254f, 1f),
+                              DeckName = "Da Red Waaagh", Cardback = "Cardback_All_Starter", GameMode = 13,
+                              CardIds = new[] { "GOF1", "GOF55", "GOF8", "GOF9", "GOF14", "GOF13",
+                                                "GOF16", "GOF33", "GOF43", "GOF40", "GOF22", "GOF25" } },
             new StarterDeck { DeckId = "BL_SK_Starter",  HeroCardId = "BL35",  InfoTerm = "TutorialData/TutorialFTUEDeck/BlackLegion",
-                              Glow = new Color(0.7075472f, 0.0700872f, 0.0700872f, 1f) },
+                              Glow = new Color(0.7075472f, 0.0700872f, 0.0700872f, 1f),
+                              DeckName = "Helspear Assault", Cardback = "Cardback_All_Starter", GameMode = 13,
+                              CardIds = new[] { "BL4", "BL13", "BL63", "BL23", "BL24", "BL26",
+                                                "BL33", "BL37", "BL9", "BL30", "BL46", "BL50" } },
             new StarterDeck { DeckId = "SAU_SK_Starter", HeroCardId = "SAU36", InfoTerm = "TutorialData/TutorialFTUEDeck/Sutekh",
-                              Glow = new Color(0.0000000f, 0.7830189f, 0.2969818f, 1f) },
+                              Glow = new Color(0.0000000f, 0.7830189f, 0.2969818f, 1f),
+                              DeckName = "Relentless March", Cardback = "Cardback_All_Starter", GameMode = 13,
+                              CardIds = new[] { "SAU8", "SAU16", "SAU22", "SAU26", "SAU65", "SAU24",
+                                                "SAU28", "SAU31", "SAU41", "SAU40", "SAU56", "SAU19" } },
         };
 
         /// <summary>一张阵营卡**建出来之后**要的那一份内容（图与文案都已解析好；容器只负责画）。</summary>
@@ -461,21 +500,179 @@ namespace CardPresentation
             }
         }
 
-        /// <summary>= 原版 `OnContinueButtonClicked`。🔴 **本机没有 PlayFab / 玩家卡库**
-        /// ⇒ `GrantStarterDeck` 这一跳**做不到**：只出声（把要发的那一副报出来）+ 关窗。
-        /// <para>**为什么仍然关窗**：原版成功支的末句就是 `WindowsManager.CloseWindow(this)`；而这扇窗
-        /// `closeOnESC = 0` + 暗底不关窗 ⇒ 不关就成了一扇**死窗**。⛔ 不伪造「已发放」，也不写存档。</para></summary>
+        /// <summary>= 原版 `OnContinueButtonClicked`。
+        ///
+        /// <para>**原版这一跳**（第一权威 = 反编译，逐句实读）：
+        /// `PlayfabWrapper.GrantStarterDeck(deckId, campaign, OnSuccess, OnError)`
+        /// （`decomp_full/FTUESelectDeckWindow__OnContinueButtonClicked.c:56`）。第一个实参 =
+        /// **选中的那一副的 `PrebuiltDeck.deckId`**：`window+0xb0` 是 `OnDeckSelected` 存进去的
+        /// `container.CurrentDeck`（`FTUESelectDeckWindow__OnDeckSelected.c:52`），`+0x48` = `PrebuiltDeck.deckId`
+        /// （`PrebuiltDeck__get_LocalizedName.c:15` 读 `+0x48` 当 deckId 可交叉印证）；
+        /// stub 签名 `GrantStarterDeck(string deckId, Campaign, Action&lt;GrantStarterDeckResult&gt;, Action&lt;string&gt;)`
+        /// 逐字对上（`Assembly-CSharp/PlayfabWrapper.cs:144`）⇒ **原版发的就是玩家在窗里选的那一副**，
+        /// 不是一张固定表。服务端回 `GrantStarterDeckResult{rewards, army, deck, extraRewards}`，
+        /// `OnSuccess` 里 `RewardService.Collect(extraRewards.Append(deck))` 把**这副卡组**收进卡库
+        /// （`…OnContinueButtonClicked_g__OnSuccess_1.c:47-51`），末句 `WindowsManager.CloseWindow(this)`；
+        /// `OnError` = `CustomDebug.LogError` + 重新调一次发放、**不关窗**（`…g__OnError_2.c:20-33`）。</para>
+        ///
+        /// <para>🔴 **我们这一版（单机）**：没有 PlayFab / 没有玩家卡库 ⇒ 本地等价物 = 把**同一副**
+        /// （牌表/督军/模式/卡背全部来自原版 SO，见 <see cref="Starters"/> 后四列的判据）
+        /// **写进 `DeckLibrary` 并落盘**。用户 2026-09-17 定的边界「不做真实经济 · 卡池/卡组全解锁」
+        /// ⇒ 本地发放是允许的；发的是原版那副的**真牌表**，⛔ 不是伪造。
+        /// **没做的那一半（如实记）**：`CampaignHandler.SetSelectedArmy/SaveSelectedArmy`（我们没有“当前战役势力”）、
+        /// `AddTag(CollectedFirstDeck)`（没有 tag/成就存档）、服务端那份 `rewards/extraRewards`。</para></summary>
         void OnContinueClicked()
         {
             if (_selected == null) return;      // 原版也走不到（没选时 Continue 是关着的）
             var v = _selected.View;
-            Debug.LogWarning("[FTUE] `Continue` 被点了，但**本机没有发放起始卡组的后端**"
-                           + "（原版这一跳 = `PlayfabWrapper.GrantStarterDeck` + `RewardService.Collect` + "
-                           + "`CampaignHandler.SetSelectedArmy/SaveSelectedArmy` + `AddTag(CollectedFirstDeck)`）"
-                           + " ⇒ **什么卡组都没发**（⛔ 不伪造），只把窗关掉（= 原版成功支的末句）。"
-                           + " 这一副 = `" + v.DeckId + "`（督军 `" + v.HeroCardId + "` · 阵营 `" + v.Army + "`）");
-            Close();
+            int si = StarterIndex(v.DeckId);
+            if (si < 0 || _decks[si].CardIds == null || _decks[si].CardIds.Length == 0)
+            {
+                // 走到这里 = 调用方递了一份**不带牌表**的自定义 `StarterDeck[]`（`Create(mgr, decks)` 那个口）。
+                // 原版没有这一态（牌表在 SO 上）；⛔ 不编一副顶上 —— 出声，然后仍然关窗
+                // （`closeOnESC = 0` + 暗底不关窗 ⇒ 不关就是一扇死窗，见文件头）。
+                Debug.LogError("[FTUE] 起始卡组 `" + v.DeckId + "` **没有牌表**（`Starters` 之外的调用方？）"
+                             + " ⇒ 什么都没发；窗照常关掉（否则这扇窗没有出口）。");
+                Close();
+                return;
+            }
+
+            string why;
+            var r = GrantStarter(_decks[si], out why);
+            if (r == StarterGrant.Failed)
+            {
+                // = 原版 `OnError`：出声、**不关窗**。
+                // ⚠️ 原版那条会自动重发一次；我们这两类失败（校验 / 写盘）重发不会变 ⇒ 不自动重试，
+                //    由玩家再点一次 Continue（出口语义照旧：窗留着）。
+                Debug.LogError("[FTUE] 起始卡组 `" + v.DeckId + "` **没发出去**：" + why
+                             + " ⇒ 窗保持打开（= 原版 `OnError` 不关窗）。");
+                return;
+            }
+            Close();      // = 原版成功支末句 `WindowsManager.CloseWindow(this)`
         }
+
+        // ============================================================ 起始卡组发放（本地等价物）
+        enum StarterGrant { Granted, AlreadyGranted, Failed }
+
+        /// <summary>原版 `PlayfabWrapper.GrantStarterDeck` 的**本地等价物**：把这一副写进卡组库并落盘。
+        ///
+        /// <para>⚠️ **走 `DeckLibrary.Insert`（唯一的入库口）** —— 它内部就 `return Save();`
+        /// （`RuleEngine/Data/DeckLibrary.cs:206-212`），⛔ 别在调用点再 `Save()` 一次（那会把返回值吞掉，
+        /// 同 A398 那条口径）。</para>
+        ///
+        /// <para>⚠️ **幂等**：库里已有「督军 + 牌表（多重集）+ 模式」完全相同的一副 ⇒ 不重复插。
+        /// 判据**不看名字** —— 名字随语档变（中文档取到官方中文名，英文档取英文名）⇒ 拿名字当键会在切语言后
+        /// 重复发一副（同 `CollectionData.CreateDeck` 那条 A1037 的坑）。</para></summary>
+        StarterGrant GrantStarter(StarterDeck d, out string why)
+        {
+            why = null;
+            var pool = RuleEngine.CardDatabase.Load();
+
+            // 名字：官方词条 `PrebuiltDecks/<deckId>`（= 原版 `PrebuiltDeck.LocalizedName` 的前缀 + deckId；
+            //   判据 → `decomp_full/PrebuiltDeck__get_LocalizedName.c:15` + `dump.cs:22915-22916`）。
+            //   取法与 `MakeView` 取 `deckInfo` 同一套（`Loc.T` 手写表 → 官方 13 语言表）；
+            //   都取不到才回落原版 SO 的 `deckName`（那也是原版自己的字段，⛔ 不是我们编的串）。
+            string key = "PrebuiltDecks/" + d.DeckId;
+            string name = Loc.HasEntry(key) ? Loc.T(key) : null;
+            if (string.IsNullOrEmpty(name))
+                name = Loc.Lang13Of(key, Loc.Current == AvailableLanguages.Chinese ? "zh" : "en");
+            if (string.IsNullOrEmpty(name)) name = d.DeckName;
+
+            // 防御卡：原版 `PrebuiltDeck` **没有防御卡字段**（`cardLibraryIds` 只有 12 张；防御卡在运行期
+            //   `CardDeck.defensiveCard(+0x48)`）⇒ 我们**也不带**（`DeckRules.Validate` 2026-09-26 起允许 0 张，
+            //   兜底那张由 `DeckBuilder.FromDeck` 开局发 —— 与原版「带了用带的、不带就发一张」一致）。
+            //   ⛔ 别照 `prebuilt_decks.json` 那批「我们补一张」的做法（那是预组页的口径，判据在那边）。
+            var pd = new RuleEngine.PlayerDeck(name, d.HeroCardId, null, d.CardIds, d.GameMode);
+            pd.CardbackId = d.Cardback;
+
+            // 入库前先过一遍引擎自己的校验 —— 牌表是原版 SO 抄来的，**抄错/卡池换代**时在这里当场炸出来，
+            //   而不是写进玩家存档变成一副打不了的牌（红线：不许静默失败）。
+            var err = RuleEngine.DeckRules.Validate(
+                pd, id => RuleEngine.CardDatabase.FindById(pool, id),
+                d.GameMode == (int)RuleEngine.GameMode.Skirmish);
+            if (err != RuleEngine.DeckError.None)
+            {
+                why = "这副牌**过不了** `DeckRules.Validate`（" + err + "）—— 卡池 id 换代 / 表抄错？";
+                return StarterGrant.Failed;
+            }
+
+            var lib = RuleEngine.DeckLibrary.Load();          // 每次从磁盘重读（`Load()` 就是 `new` 一份）
+            int same = IndexOfSameDeck(lib, pd);
+            if (same >= 0)
+            {
+                LastGrantedDeckId = d.DeckId;
+                Debug.Log("[FTUE] 起始卡组 `" + d.DeckId + "` 已经在卡组库里（第 " + (same + 1) + " 套）"
+                        + " ⇒ **不重复发放**（幂等）。");
+                return StarterGrant.AlreadyGranted;
+            }
+            if (!lib.Insert(pd))          // 入库 + 落盘（成败从返回值读，⛔ 不吞）
+            {
+                why = "**写不进存档**：" + (string.IsNullOrEmpty(lib.LastError) ? "(没给原因)" : lib.LastError);
+                return StarterGrant.Failed;
+            }
+
+            // 收藏线有一份**进程级缓存**（`CollectionData.Lib`）—— 刚写盘的那一套要让它下次重读，
+            //   否则回收藏页画的还是发放前那份列表（作废口的理由 → `CollectionData.InvalidateLibrary` 的注释）。
+            CollectionData.InvalidateLibrary();
+            LastGrantedDeckId = d.DeckId;
+            Debug.Log("[FTUE] 起始卡组已发放：`" + d.DeckId + "` ⇒ 卡组「" + pd.Name + "」"
+                    + "（督军 " + pd.WarlordId + " · " + pd.CardIds.Count + " 张 · 模式 " + pd.GameMode + "）"
+                    + " 已写进 `" + RuleEngine.DeckStore.Path + "`");
+            return StarterGrant.Granted;
+        }
+
+        /// <summary>库里的下标 —— **督军 + 牌表（多重集）+ 模式** 全同才算同一副（⛔ 不看名字，理由见 `GrantStarter`）。</summary>
+        static int IndexOfSameDeck(RuleEngine.DeckLibrary lib, RuleEngine.PlayerDeck want)
+        {
+            for (int i = 0; i < lib.Count; i++)
+            {
+                var d = lib.Decks[i];
+                if (d == null) continue;
+                if (d.WarlordId != want.WarlordId) continue;
+                if (d.GameMode != want.GameMode) continue;
+                if (!SameCards(d.CardIds, want.CardIds)) continue;
+                return i;
+            }
+            return -1;
+        }
+
+        /// <summary>两份牌表是不是**同一多重集**（顺序无关；原版牌序对发牌没影响，但 ⛔ 我们在别处也不重排）。</summary>
+        static bool SameCards(System.Collections.Generic.IList<string> a, System.Collections.Generic.IList<string> b)
+        {
+            int na = a != null ? a.Count : 0, nb = b != null ? b.Count : 0;
+            if (na != nb) return false;
+            var left = new System.Collections.Generic.Dictionary<string, int>(System.StringComparer.Ordinal);
+            for (int i = 0; i < na; i++)
+            {
+                string id = a[i] ?? "";
+                int n; left.TryGetValue(id, out n); left[id] = n + 1;
+            }
+            for (int i = 0; i < nb; i++)
+            {
+                string id = b[i] ?? "";
+                int n;
+                if (!left.TryGetValue(id, out n) || n <= 0) return false;
+                left[id] = n - 1;
+            }
+            return true;
+        }
+
+        /// <summary>`_decks` 里 `deckId` 的下标（查不到 −1）。</summary>
+        int StarterIndex(string deckId)
+        {
+            for (int i = 0; i < _decks.Length; i++)
+                if (_decks[i].DeckId == deckId) return i;
+            return -1;
+        }
+
+        /// <summary>**自检 / 调用方口**：逐句等价于点 `Continue Button`（原版那个 `OnContinueButtonClicked`）。
+        /// ⚠️ 与 `SelectDeck(index)` 同形：**加出口、不改契约**（按钮回调仍是 `OnContinueClicked`）。</summary>
+        public void ContinueForTest() { OnContinueClicked(); }
+
+        /// <summary>最后一次**成功发放**（含「已经在库里 ⇒ 不重复发」）的 `deckId`；没发过 = null。
+        /// 判据 = `Starters` 里那一副的 `DeckId` —— `PlayerDeck` 没有 deckId 字段（那条老账见
+        /// `CollectionData` 文件头），所以这个读口是「发的是哪一副」的唯一直接证据。</summary>
+        public string LastGrantedDeckId { get; private set; }
 
         // ============================================================ 文案
         static readonly System.Collections.Generic.HashSet<string> _warnedDesc =

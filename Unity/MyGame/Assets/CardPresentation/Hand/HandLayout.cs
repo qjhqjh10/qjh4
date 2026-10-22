@@ -235,6 +235,16 @@ namespace CardPresentation
                + "⚠️ 它是**基准**不是卡心：卡心 = 基准 + 弧高（≤0，原版口径），外圈仍然下垂")]
         public float baselineY = DefaultBaselineY;
 
+        /// <summary>🔴 **2026-10-22（E-C · 换牌期 `BattleHud*` 动画）**：整排手牌**临时的 y 位移**
+        /// （归一化、从**下**算，与 <see cref="baselineY"/> 同尺）。
+        /// <para>判据 = 原版 `BottomAnchor/PlayerArea/HandArea`（**纯 `Transform`**）的 `m_LocalPosition.y`：
+        /// 换牌期 **−479 px**、换牌结束回 **0**（`BattleHudHidden` / `BattleHudShow` 的首末键）。
+        /// 敌方那份是 `UpperAnchor/EnemyArea` 的 `m_AnchoredPosition.y`：**+402.83 → 0**（从屏幕上方垂下来）。</para>
+        /// <para>⚠️ 它是**动画位移**、不是版面参数：⛔ 别拿它顶 <see cref="baselineY"/>（那个是原版
+        /// `HandAnchor` 的静止基线，序列化进场景）。默认 0 ⇒ 与加这个字段之前**逐位等价**。</para>
+        /// <para>写入方 = `BattleDriver.ApplyHudAnimHandOffsets()`（唯一写点；值来自 `BattleHudAnim`）。</para></summary>
+        public float areaOffsetY = 0f;
+
         /// <summary>手牌扇形的**水平中心**（归一化 x）。
         ///
         /// <para>判据（`T01` §四·2，2026-10-19 现核）：原版 `CardsHorizontalLayout.GetPosition` 的 **x 基准**
@@ -588,7 +598,9 @@ namespace CardPresentation
             int n = Mathf.Max(1, count);
             float t = n == 1 ? 0.5f : index / (float)(n - 1);
             float arc = ArcOffsetFromBase(t, n) / Mathf.Max(1e-6f, LayoutSpace.VisibleHeight);  // 世界 → 归一化
-            return LayoutSpace.ToWorld(NxOfSlot(index, n), baselineY + arc);
+            // 🔴 2026-10-22（E-C）：再叠一层**动画位移**（原版 `HandArea` / `EnemyArea` 组节点的滑入滑出）。
+            //    它默认 0 ⇒ 老行为逐位不变；只有换牌期那 8 条 `BattleHud*` 在播时才非 0。
+            return LayoutSpace.ToWorld(NxOfSlot(index, n), baselineY + areaOffsetY + arc);
         }
 
         /// <summary>

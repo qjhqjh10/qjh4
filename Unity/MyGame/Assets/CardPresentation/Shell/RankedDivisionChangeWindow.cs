@@ -42,6 +42,20 @@
 //   `SetSeals(current, total)` 口：给了才填、不给就是「未推进」。
 // · **`Tag To continue` / `Tap To continue` 的闪烁**：`BlinkGraphic`（出厂 `blinkSpeed 1.0` /
 //   `colorVariation 0.5`）—— 同 `TutorialMessagePopup` 的写法。
+//
+// ============================ 🆕 2026-10-22：动画（原来一个字都没做）============================
+// 出处：`工具/gen_division_clips.py` 文件头（判据链全文）+ `Resources/division_clips.json`。
+//   · 原版 `myAnimation` = `Animation_8653451351532409166`（挂在根 GO 上），
+//     `m_Animations = [Division Up, Rank Up, Division Config]`、`m_PlayAutomatically = false`。
+//   · `Open()`：`Play("Division Config")`（**布局/复位**，不是演出）→ 等
+//     `MilestonesStepDisplay.GetTotalAnimationTime() − 0.25` 秒 → `DoPromoteAnimations` 分叉：
+//     升段 → `Play("Rank Up")` · 分段变化 → `Play("Division Up")`。
+//   ⇒ 本文件按这份数据建三条 legacy clip、挂到 `Animation` 组件上，并按原版时机播。
+//   🔴 **两套驱动各管一半**：原生 `Animation` 只能绑 `Transform` / `GameObject.m_IsActive`；
+//     原版另外那些 `Image.m_Color.a` / `CanvasGroup.m_Alpha` / TMP `m_fontColor.a` /
+//     `ParticleSystem.ShapeModule.m_Scale` / `AnimateUIMaterialProperty.floatProperty1`
+//     **我们这套世界空间 UI 没有对应组件**（我们是 `ImageQuad` / `Label`）⇒ 逐帧手动求值写过去。
+using System;
 using System.Collections.Generic;
 using UnityEngine;
 
@@ -143,11 +157,19 @@ namespace CardPresentation
             public int? SealCurrent;
             /// <summary>印玺总颗数（原版服务端 `RankedDivisionV2.TotalSeals`）；null ⇒ 保持 prefab 的 4 颗、全空。</summary>
             public int? SealTotal;
+            /// <summary>🆕 2026-10-22：这一窗是「**分段变化**」还是「**升段**」——
+            /// = 原版 `RankedEventDivisionChangeWindowNewSystem.Context.IsDivisionChange`
+            /// （`dump.cs` 的 `get_IsDivisionChange`；`Open()` 里由 `previousDivision` 与当前段位号比较得出
+            /// `isDivisionChange = (rankId != prevRankId)`，判据 → `RankedEventDivisionChangeWindowNewSystem__Open.c:222`
+            /// 的 `*(bool *)(lVar6 + 0x30) = iVar1 != iVar5`）。
+            /// <para>`false`（出厂）= **升段** ⇒ 播 `Rank Up`；`true` = **分段变化** ⇒ 播 `Division Up`。</para></summary>
+            public bool IsDivisionChange;
         }
 
         public static Context DefContext()
         {
-            return new Context { DivisionLabel = null, Rating = null, SealCurrent = null, SealTotal = null };
+            return new Context { DivisionLabel = null, Rating = null, SealCurrent = null, SealTotal = null,
+                                 IsDivisionChange = false };
         }
         static Context FillDef(Context? src) { return src.HasValue ? src.Value : DefContext(); }
 
@@ -161,6 +183,8 @@ namespace CardPresentation
         Transform _dark, _title, _division, _rankIcon, _rankGlow, _textContent, _milestones, _tap;
         Label _titleLabel, _reached, _pointsTitle, _pointsQty, _tapLabel;        BlinkGraphic _blink;
         Transform _sealSteps;
+        // 🆕 2026-10-22：动画要按 **相对路径** 找这三颗（判据 = prefab 树 / clip 里的 path）
+        Transform _particlesDivision, _particlesRank, _sparksBurnDivision;
         readonly List<ImageQuad> _sealFills = new List<ImageQuad>();
         public bool DivisionArtBlank { get; private set; }
         public readonly List<string> MissingArt = new List<string>();
@@ -176,7 +200,8 @@ namespace CardPresentation
             win.updateNavPanel = false;                   // 实读 updateNavPanel = 0
             win.extraScaleSmallScreen = 1f;               // 实读 1.0（= 不覆盖）
             // `openSound` / `closeSound` 实读都是空 PPtr、`useDefaultCloseSoundIfNull = 1`
-            //   ⇒ 一个 clip 都不赋，关窗音走 `GameWindow.Close()` 的家族默认。
+            //   ⇒ **开/关窗音**一个 clip 都不赋，关窗音走 `GameWindow.Close()` 的家族默认。
+            //   （🆕 2026-10-22：**动画**的三条 clip 是另一码事 —— 见文件头与 `StartSequence()`。）
             // 🆕 **2026-10-18（音效线缺口 `AUD` §三 A2）**：本窗真正的那一声**不是** `openSound`，是
             //   **`soundOnOpen`** —— 原版 MB `-4938671765695524530`
             //   （`RankedEventDivisionChangeWindowNewSystem : GameWindow`，prefab `Ranked Division Change Window`）
@@ -195,21 +220,23 @@ namespace CardPresentation
         public override void Open()
         {
             LastOpened = this;
-            // 🆕 **2026-10-18（音效线缺口 `AUD` §三 A2）**：`soundOnOpen` = cue **`Division Change`**，
-            // **Jingles 组（MixerType 3）** —— 判据见 `Create()` 里那一段（原版 MB pid + 反编译
-            // `_DoPromoteAnimations` 的 `Play2D(cue, 3)`）。⛔ 别用 `PlayFx`（`WFSoundPlayer` 写死 FX 组）。
-            // ⚠️ **落点是我们的（如实标注）**：原版挂在 `DoPromoteAnimations` 那个协程的起点；
-            //   我们的升级动画**没建**（见本文件头）⇒ 落在 `Open()` —— 玩家开窗即听到，顺序上等价于
-            //   「动画一开始就响」。
-            WindowSounds.PlayJingles(WindowSounds.DivisionChangeCue, "[RankedDivChange] `soundOnOpen`");
+            // 🆕 **2026-10-22（补做动画 · 铁律 5 就地订正）**：`soundOnOpen` = cue **`Division Change`**
+            // （`soundOnOpen = PPtr(fileID 6, pid -2236843390636958589)`，ttp 0.01）**不再**在这里播。
+            // 原版真正的播放点是反编译 `RankedEventDivisionChangeWindowNewSystem._DoPromoteAnimations_d__22.MoveNext.c`：
+            //   `WaitForSeconds(delay)` → `AudioCue.Play2D(cue, 3)`（**MixerType 3 = Jingles**）→ 再 `Play("Rank Up"/"Division Up")`。
+            // ⇒ 现在改到 `PlayPromote()` 里、**紧挨着 promote clip 起播**（顺序与原版一致）。
+            // ⚠️ 原来这里写「我们的升级动画没建 ⇒ 落在 `Open()`」——**那条理由已经不存在了**（动画已接）。
             Build();
+            StartSequence();     // = 原版 `Open()` 尾：`Play("Division Config")` + 起 promote 计时
         }
 
-        /// <summary>换一份内容（复用同一扇窗时用；`GameWindow.TryOpen` 在 `Open` 态照原版早退 ⇒ 必须显式调本方法）。</summary>
+        /// <summary>换一份内容（复用同一扇窗时用；`GameWindow.TryOpen` 在 `Open` 态照原版早退 ⇒ 必须显式调本方法）。
+        /// ⚠️ 换内容**不重播**开场演出（原版没有这条入口）⇒ 只把动画停掉、停在 `Build()` 的出厂姿态。</summary>
         public void Show(Context? ctx = null)
         {
             _ctx = FillDef(ctx);
             Build();
+            StopAnimation();
         }
 
         // ============================================================ 建整棵树（顺序 = 原版兄弟序）
@@ -220,9 +247,14 @@ namespace CardPresentation
             MissingArt.Clear();
             _sealFills.Clear();
             _dark = _title = _division = _rankIcon = _rankGlow = _textContent = _milestones = _tap = null;
+            _particlesDivision = _particlesRank = _sparksBurnDivision = null;
             _reached = _pointsTitle = _pointsQty = _tapLabel = null;
             _titleLabel = null;
             DivisionArtBlank = false;
+            // 动画的「原色」缓存按节点实例记 —— 重建后旧的件全没了，必须清（否则表会一直长、且读到伪 null）
+            _baseLabel.Clear();
+            _baseQuad.Clear();
+            _nodeCache.Clear();
 
             // ---- 1) `Menu Dark Background`（`BackgroundCloseButton.window = 0` ⇒ 点暗底**不**关窗）----
             _dark = MenuDraw.Node(transform, "Menu Dark Background", DarkR);
@@ -298,11 +330,19 @@ namespace CardPresentation
                 b.Restart();
             }
 
-            // ---- 6) `Particles DivisionUp`（粒子归特效线；只建容器 + 出声一次）----
-            var particles = MenuDraw.Node(transform, "Particles DivisionUp", new PxRect(0f, 0f, 1920f, 1080f));
-            NoteNoArt("Particles DivisionUp", "原版是 5 个 `ParticleSystem`（Glow below / Sparks background / "
-                                            + "Sparks Burn / Glow Big / Promote Letter Effect / Sparks fast）；"
-                                            + "粒子属于特效线，本窗只建容器节点");
+            // ---- 6) `Particles DivisionUp` / `Particles Rank Up`（粒子归特效线；只建容器 + 出声一次）----
+            //   🆕 2026-10-22：**两条 clip 的 path 直接指向这两颗**（`m_IsActive`）以及
+            //   `Particles DivisionUp/Sparks Burn` 的 `ShapeModule.m_Scale` ⇒ 节点必须**照 prefab 名建出来**，
+            //   否则 `SampleAnimation` 对那几条曲线是**静默空转**（⛔ 不是「差不多就行」）。
+            //   判据（prefab 树现走）：`Particles Rank Up` 是**纯 `Transform`**（无 RectTransform）、
+            //   `localPosition (0, 88.9, −26.6)` · `localScale 164.237`；子件 `Sparks Burn` 是 RectTransform。
+            _particlesDivision = MenuDraw.Node(transform, "Particles DivisionUp", new PxRect(0f, 0f, 1920f, 1080f));
+            _sparksBurnDivision = MenuDraw.Node(_particlesDivision, "Sparks Burn", new PxRect(909f, 449f, 1009f, 549f));
+            _particlesRank = MenuDraw.Node(transform, "Particles Rank Up", new PxRect(0f, 0f, 1920f, 1080f));
+            NoteNoArt("Particles DivisionUp / Particles Rank Up", "原版是 5 个 `ParticleSystem`（Glow below / "
+                                            + "Sparks background / Sparks Burn / Glow Big / Promote Letter Effect / Sparks fast）；"
+                                            + "粒子属于特效线，本窗只建容器节点（动画的 `m_IsActive` / `ShapeModule.m_Scale` 曲线照建、"
+                                            + "取不到 `ParticleSystem` 时逐条出声一次）");
 
             // ---- 7) `Mission Milestones Progress`（prefab = 4 颗 `RankedSealStep`）----
             _milestones = MenuDraw.Node(transform, "Mission Milestones Progress", MilestonesR);
@@ -362,9 +402,17 @@ namespace CardPresentation
             }
         }
 
-        // ============================================================ 时钟（`BlinkGraphic`）
+        // ============================================================ 时钟
         void Update() { Tick(Time.deltaTime); }
-        public void Tick(float dt) { if (_blink != null) _blink.Tick(dt); }
+
+        /// <summary>一帧。⚠️ **顺序有意**：`BlinkGraphic` 先（它每帧都拿 `_base` 重写 `Tap To continue` 的 alpha），
+        /// 动画后 —— 这样 `Text Content` 的 `m_Alpha` 才压得住那一闪（原版两者本来就是同一个 `Graphic` 的
+        /// alpha 与父 `CanvasGroup` 的 alpha，谁后写谁算）。</summary>
+        public void Tick(float dt)
+        {
+            if (_blink != null) _blink.Tick(dt);
+            TickAnimation(dt);
+        }
 
         BlinkGraphic EnsureBlink()
         {
@@ -372,6 +420,620 @@ namespace CardPresentation
             if (_blink == null) _blink = gameObject.AddComponent<BlinkGraphic>();
             return _blink;
         }
+
+        // ============================================================ 动画（原版 `myAnimation` · 三条 legacy clip）
+        //
+        // 【判据链 · 全文 → `工具/gen_division_clips.py` 文件头】
+        //  · 组件 `Animation_8653451351532409166` 挂在根 GO 上，`m_Animations = [Division Up, Rank Up, Division Config]`，
+        //    `m_PlayAutomatically = false`；`m_Animation`（默认 clip）= `Division Config`。
+        //  · `Open()`：`Play("Division Config")`（**布局/复位**）→ `MilestonesStepDisplay.Show(...)` →
+        //    `delay = GetTotalAnimationTime() - 0.25` → `DoPromoteAnimations(delay, isDivisionChange, prev)`。
+        //  · `DoPromoteAnimations`：`WaitForSeconds(delay)` → cue `Division Change`（MixerType 3）→ 分叉：
+        //       升段（`isDivisionChange == false`）→ `Play("Rank Up")`
+        //       分段变化（`true`）              → `Play("Division Up")`
+        //  · 三条全是 legacy 曲线（`m_Legacy=true` · `m_MuscleClipSize=0`）⇒ 数据本地全有、运行期重建。
+        //
+        // 【🔴 为什么是「两套驱动」】
+        //   ① **原生 `Animation`**（`AddClip` + `Play(name)`）：这是原版那条路，`Animation.isPlaying` 可观测。
+        //      Unity 自己绑得上的只有 `Transform`（缩放）与 `GameObject.m_IsActive` 两族。
+        //   ② **手动通道**（`ApplyChannels`）：原版另外那些曲线绑在 `Image.m_Color.a` / `CanvasGroup.m_Alpha` /
+        //      TMP `m_fontColor.a` / `ParticleSystem.ShapeModule.m_Scale` /
+        //      `AnimateUIMaterialProperty.floatProperty1` 上 —— **我们这套世界空间 UI 一个这样的组件都没有**
+        //      （画图是 `ImageQuad`、画字是 `Label`）⇒ 逐帧 `AnimationCurve.Evaluate` 求值后写我们自己的件。
+        //      ⛔ 别把这一半删掉换成 `SetCurve`：那只会得到一条**静默空转**的曲线。
+        //   ③ **每帧仍然 `SampleAnimation` 一次**（两个模式都做）：万一原生 `Play` 没起来（`Open` 时还没激活等），
+        //      变换曲线照样被写到正确值；同时它也是批处理里唯一的变换驱动（批处理没有帧循环）。
+        //      ⛔ 别删掉那条 `if (!isPlaying) 出声` —— 「没起来」必须出声（红线：不许静默失败）。
+
+        public const string ClipsResourcePath = "division_clips";
+        public const string ClipKeyDivisionConfig = "divisionConfig";
+        public const string ClipKeyRankUp = "rankUp";
+        public const string ClipKeyDivisionUp = "divisionUp";
+
+        // `MilestoneStep` 的出厂值（`dump.cs` 字段表 + prefab MB `MonoBehaviour_-1734507135801913010.json` 实读）：
+        //   `animationStartDelay 0.25` · `animationTime 0.6` · `animationBetweenStepsDelay 0.2`
+        public const float MilestoneAnimStartDelay = 0.25f;
+        public const float MilestoneAnimTime = 0.6f;
+        public const float MilestoneAnimBetweenSteps = 0.2f;
+        /// <summary>`Open()` 里 `delay = GetTotalAnimationTime() - DAT_1834b2e7c`，那个常量按 **4 字节 float** 读 = **0.25**
+        /// （`工具/read_literal.py D:/2/unity_run_ref/GameAssembly.dll 0x1834b2e7c`；8 字节那档是 5.72e-06 = 噪声）。</summary>
+        public const float PromoteDelayTrim = 0.25f;
+
+        /// <summary>= 原版 `MilestonesStepDisplay.GetTotalAnimationTime() - 0.25`（秒）。
+        /// 公式逐句照 `MilestonesStepDisplay__GetTotalAnimationTime.c`：
+        /// `(count-1)*between + start + time + between`；再减 `PromoteDelayTrim`。
+        /// **4 颗印玺 ⇒ 1.40 s**（原版这个 count 来自服务端 `TotalSeals`，我们只有 prefab 的 4 颗）。</summary>
+        public static float PromoteDelay(int steps)
+        {
+            if (steps < 1) steps = 1;
+            return (steps - 1) * MilestoneAnimBetweenSteps
+                 + MilestoneAnimStartDelay + MilestoneAnimTime + MilestoneAnimBetweenSteps
+                 - PromoteDelayTrim;
+        }
+
+        // ---- 数据表（与 `工具/gen_division_clips.py` 的 schema 逐字对应；JSON 里多出来的 `src` 等字段 `JsonUtility` 会忽略）----
+        [Serializable] public class DivisionClipKey { public float t, v, si, so; }
+        [Serializable] public class DivisionClipCurve
+        {
+            public string path, type, property, channel, srcAttribute;
+            public int classId;
+            public DivisionClipKey[] keys;
+        }
+        [Serializable] public class DivisionClipEvent { public float t; public string function; }
+        [Serializable] public class DivisionClip
+        {
+            public string key, name, wrapMode;
+            public bool legacy, loopTime;
+            public float sampleRate, length;
+            public DivisionClipEvent[] events;
+            public DivisionClipCurve[] curves;
+        }
+        [Serializable] public class DivisionClipFile
+        {
+            public int schema;
+            public string note, source, owner;
+            public DivisionClip[] clips = new DivisionClip[0];
+        }
+
+        // ---- 表缓存（静态：整份表只读一次）----
+        static DivisionClip[] _clipData;
+        static Dictionary<string, DivisionClip> _clipByKey;
+        static string _clipsError;
+
+        /// <summary>表载进来了没有（没载 = 资源不在；<see cref="ClipsError"/> 有话说）。</summary>
+        public static bool ClipsLoaded { get { EnsureClips(); return _clipData != null && _clipData.Length > 0; } }
+        /// <summary>表里有几条 clip（预期 3）。</summary>
+        public static int ClipCount { get { EnsureClips(); return _clipData != null ? _clipData.Length : 0; } }
+        /// <summary>载表/解析失败的原因（无错 = null）。</summary>
+        public static string ClipsError { get { EnsureClips(); return _clipsError; } }
+
+        public static DivisionClip FindClipData(string key)
+        {
+            EnsureClips();
+            DivisionClip d;
+            return (key != null && _clipByKey != null && _clipByKey.TryGetValue(key, out d)) ? d : null;
+        }
+
+        static void EnsureClips()
+        {
+            if (_clipData != null) return;
+            var ta = Resources.Load<TextAsset>(ClipsResourcePath);
+            if (ta == null)
+            {
+                _clipsError = "`Resources/" + ClipsResourcePath + ".json` 载不到 —— 跑一次 "
+                            + "`python -I -X utf8 工具/gen_division_clips.py`";
+                _clipData = new DivisionClip[0];
+                _clipByKey = new Dictionary<string, DivisionClip>();
+                return;
+            }
+            DivisionClipFile f = null;
+            try { f = JsonUtility.FromJson<DivisionClipFile>(ta.text); }
+            catch (Exception e) { _clipsError = "`" + ClipsResourcePath + ".json` 解析失败：" + e.Message; }
+            var items = f != null && f.clips != null ? f.clips : new DivisionClip[0];
+            _clipData = items;
+            _clipByKey = new Dictionary<string, DivisionClip>(items.Length);
+            foreach (var c in items)
+            {
+                if (c == null || string.IsNullOrEmpty(c.key)) continue;
+                if (!_clipByKey.ContainsKey(c.key)) _clipByKey[c.key] = c;
+            }
+            if (_clipsError == null && items.Length == 0)
+                _clipsError = "`" + ClipsResourcePath + ".json` 里一条 clip 都没有";
+        }
+
+        // ---- 建 clip（= 原版 JSON 的曲线逐条重放）----
+        /// <summary>上一次 <see cref="BuildClip"/> 里**真正交给 `SetCurve`** 的曲线条数。</summary>
+        public static int LastNativeCurveCount { get; private set; }
+        /// <summary>上一次 <see cref="BuildClip"/> 里**走手动通道**（我们工程没有对应组件）的曲线条数。</summary>
+        public static int LastManualCurveCount { get; private set; }
+        /// <summary>`SetCurve` 抛异常的次数（正常 = 0；非 0 会逐条出声）。</summary>
+        public static int LastCurveErrors { get; private set; }
+
+        /// <summary>按表里一条 clip 建 `AnimationClip`。
+        /// 🔴 **只把 Unity 绑得上的两族交给 `SetCurve`**（`Transform` / `GameObject`），其余计入手动通道 ——
+        /// 两族条数之和必须等于 `data.curves.Length`（自检那条盯着它，改坏「少写一条曲线」就红）。</summary>
+        public static AnimationClip BuildClip(DivisionClip d)
+        {
+            LastNativeCurveCount = LastManualCurveCount = LastCurveErrors = 0;
+            if (d == null) return null;
+            var clip = new AnimationClip
+            {
+                name = d.name,
+                legacy = true,
+                frameRate = d.sampleRate > 0f ? d.sampleRate : 60f,
+                wrapMode = WrapMode.Default,     // 原版 `m_WrapMode = 0`（Default）
+            };
+            if (d.curves != null)
+                for (int i = 0; i < d.curves.Length; i++)
+                {
+                    var c = d.curves[i];
+                    if (c == null || !NativeBindable(c)) { LastManualCurveCount++; continue; }
+                    var ac = BuildCurve(c);
+                    if (ac == null) { LastManualCurveCount++; continue; }
+                    try
+                    {
+                        clip.SetCurve(c.path, c.type == "GameObject" ? typeof(GameObject) : typeof(Transform),
+                                      c.property, ac);
+                        LastNativeCurveCount++;
+                    }
+                    catch (Exception e)
+                    {
+                        LastCurveErrors++;
+                        Debug.LogWarning("[RankedDivChange] `SetCurve` 失败：path=`" + c.path + "` property=`"
+                                       + c.property + "` —— " + e.Message);
+                    }
+                }
+            return clip;
+        }
+
+        /// <summary>Unity 原生绑得上的两族（其余走手动通道，理由见上面那段）。</summary>
+        static bool NativeBindable(DivisionClipCurve c)
+        {
+            return c.type == "Transform" || c.type == "GameObject";
+        }
+
+        /// <summary>把一列关键帧（**含 inSlope/outSlope**）变成 `AnimationCurve`。
+        /// 🔴 切线必须逐键写回：`Division Image` 的 5 键缩放里 2.6→2.65 那一记回弹带非零斜率，
+        /// 用 `new Keyframe(t,v)` 会变成 ease-in/out（端点仍对得上 ⇒ 端点断言抓不到）。</summary>
+        static AnimationCurve BuildCurve(DivisionClipCurve c)
+        {
+            if (c == null || c.keys == null || c.keys.Length == 0) return null;
+            var ks = new Keyframe[c.keys.Length];
+            for (int i = 0; i < c.keys.Length; i++)
+            {
+                var k = c.keys[i];
+                ks[i] = new Keyframe(k.t, k.v, k.si, k.so);
+            }
+            return new AnimationCurve(ks);
+        }
+
+        // ---- 逐通道的轨道（按 path 归并；`AnimationCurve` 只建一次，静态缓存）----
+        sealed class RtClip
+        {
+            public DivisionClip data;
+            public AnimationClip clip;
+            public ScaleTrack[] scales;
+            public AlphaTrack[] alphas;
+            public GroupTrack[] groups;
+            public ActiveTrack[] actives;
+            public ParticleTrack[] particles;
+            public string[] materialPaths;
+        }
+        struct ScaleTrack { public string path; public AnimationCurve x, y, z; }
+        struct AlphaTrack { public string path; public AnimationCurve a; }
+        struct GroupTrack { public string path; public AnimationCurve group, text; }
+        struct ActiveTrack { public string path; public AnimationCurve a; }
+        struct ParticleTrack { public string path; public AnimationCurve x, y; }
+
+        static readonly Dictionary<string, RtClip> _rtCache = new Dictionary<string, RtClip>();
+
+        static RtClip RuntimeFor(string key)
+        {
+            EnsureClips();
+            RtClip rc;
+            if (_rtCache.TryGetValue(key ?? "", out rc)) return rc;
+            var d = FindClipData(key);
+            if (d == null) return null;
+            rc = new RtClip { data = d, clip = BuildClip(d) };
+            if (d.curves == null || d.curves.Length == 0)
+            {
+                WarnChannel("empty:" + key, "clip `" + key + "` 的 `curves` 是空的（JSON 坏了）⇒ 这一段只会空转。");
+                _rtCache[key] = rc;
+                return rc;
+            }
+
+            var scaleOrder = new List<string>();
+            var scaleMap = new Dictionary<string, AnimationCurve[]>();
+            var alphaList = new List<AlphaTrack>();
+            var groupOrder = new List<string>();
+            var groupMap = new Dictionary<string, AnimationCurve[]>();
+            var activeList = new List<ActiveTrack>();
+            var partOrder = new List<string>();
+            var partMap = new Dictionary<string, AnimationCurve[]>();
+            var matList = new List<string>();
+
+            for (int i = 0; i < d.curves.Length; i++)
+            {
+                var c = d.curves[i];
+                if (c == null) continue;
+                switch (c.channel)
+                {
+                    case "scale":
+                    {
+                        if (!scaleMap.ContainsKey(c.path)) { scaleMap[c.path] = new AnimationCurve[3]; scaleOrder.Add(c.path); }
+                        int idx = c.property != null && c.property.EndsWith(".y", StringComparison.Ordinal) ? 1
+                                : c.property != null && c.property.EndsWith(".z", StringComparison.Ordinal) ? 2 : 0;
+                        scaleMap[c.path][idx] = BuildCurve(c);
+                        break;
+                    }
+                    case "alpha":   alphaList.Add(new AlphaTrack { path = c.path, a = BuildCurve(c) }); break;
+                    case "groupAlpha":
+                    case "textColorAlpha":
+                    {
+                        if (!groupMap.ContainsKey(c.path)) { groupMap[c.path] = new AnimationCurve[2]; groupOrder.Add(c.path); }
+                        groupMap[c.path][c.channel == "groupAlpha" ? 0 : 1] = BuildCurve(c);
+                        break;
+                    }
+                    case "active":  activeList.Add(new ActiveTrack { path = c.path, a = BuildCurve(c) }); break;
+                    case "particleShapeScale":
+                    {
+                        if (!partMap.ContainsKey(c.path)) { partMap[c.path] = new AnimationCurve[2]; partOrder.Add(c.path); }
+                        partMap[c.path][c.property != null && c.property.EndsWith(".y", StringComparison.Ordinal) ? 1 : 0] = BuildCurve(c);
+                        break;
+                    }
+                    case "materialFloat": matList.Add(c.path); break;
+                    default:
+                        WarnChannel("chan:" + c.channel,
+                                    "未知通道 `" + c.channel + "`（path=`" + c.path + "` property=`" + c.property
+                                  + "`）⇒ 这一条**没接**（改坏法：生成器加了新通道而这里没跟着加）。");
+                        break;
+                }
+            }
+
+            rc.scales = new ScaleTrack[scaleOrder.Count];
+            for (int i = 0; i < scaleOrder.Count; i++)
+            {
+                var p = scaleOrder[i];
+                var a = scaleMap[p];
+                rc.scales[i] = new ScaleTrack { path = p, x = a[0], y = a[1], z = a[2] };
+            }
+            rc.alphas = alphaList.ToArray();
+            rc.groups = new GroupTrack[groupOrder.Count];
+            for (int i = 0; i < groupOrder.Count; i++)
+            {
+                var p = groupOrder[i];
+                var a = groupMap[p];
+                rc.groups[i] = new GroupTrack { path = p, group = a[0], text = a[1] };
+            }
+            rc.actives = activeList.ToArray();
+            rc.particles = new ParticleTrack[partOrder.Count];
+            for (int i = 0; i < partOrder.Count; i++)
+            {
+                var p = partOrder[i];
+                var a = partMap[p];
+                rc.particles[i] = new ParticleTrack { path = p, x = a[0], y = a[1] };
+            }
+            rc.materialPaths = matList.ToArray();
+            _rtCache[key] = rc;
+            return rc;
+        }
+
+        // ---- 播放 ----
+        Animation _anim;
+        bool _clipsReady;
+        bool _playing;
+        string _playingKey, _lastFinishedKey;
+        float _animT, _animLen;
+        float _promoteDelay = -1f;
+        int _playCount;
+        RtClip _rt;
+        AnimationClip _curClip;
+        readonly Dictionary<string, Transform> _nodeCache = new Dictionary<string, Transform>();
+        readonly Dictionary<Label, Color> _baseLabel = new Dictionary<Label, Color>();
+        readonly Dictionary<ImageQuad, Color> _baseQuad = new Dictionary<ImageQuad, Color>();
+        static readonly HashSet<string> _chanWarned = new HashSet<string>();
+
+        static void WarnChannel(string key, string msg)
+        {
+            if (_chanWarned.Count > 128 || !_chanWarned.Add(key)) return;
+            Debug.LogWarning("[RankedDivChange] " + msg);
+        }
+
+        /// <summary>= 原版 `Open()` 的收尾：`Play("Division Config")` + 起 promote 计时。
+        /// 🔴 **`Division Config` 不是演出**：它是「布局/复位」，只有单键（印玺那条 0.2167 s 淡入是唯一的动态）。</summary>
+        public void StartSequence()
+        {
+            StopAnimation();
+            PlayClip(ClipKeyDivisionConfig);
+            // 印玺颗数一律用 **prefab 的 4 颗**（`StepR.Length`），⛔ 不用 `_sealFills.Count` ——
+            //   后者在「图取不到」时会是 0（`MenuDraw.Rect` 对 `tex == null` 返回 null）⇒ 延迟会静默变短。
+            //   原版这个 count 来自服务端 `TotalSeals`，我们只有 prefab 这一档（如实标注）。
+            _promoteDelay = PromoteDelay(StepR.Length);
+        }
+
+        /// <summary>停播（换内容 / 重开时调）。**不还原节点姿态** —— 还原交给下一次 `Build()` 或下一次播放。</summary>
+        public void StopAnimation()
+        {
+            _playing = false;
+            _playingKey = null;
+            _promoteDelay = -1f;
+            _animT = 0f;
+            if (_anim != null) _anim.Stop();
+        }
+
+        /// <summary>播一条 clip（按 **key**，⛔ 不按名字）。表里没有 / 建不出来 ⇒ 出声 + 返回 false。</summary>
+        public bool PlayClip(string key)
+        {
+            var rc = RuntimeFor(key);
+            if (rc == null || rc.clip == null)
+            {
+                Debug.LogWarning("[RankedDivChange] 动画 clip `" + key + "` 取不到（表里 " + ClipCount + " 条"
+                               + (ClipsError != null ? "；载表错误：" + ClipsError : "") + "）⇒ 这一段**不播**。");
+                return false;
+            }
+            EnsureAnim();
+            _nodeCache.Clear();
+            _rt = rc;
+            _curClip = rc.clip;
+            _playingKey = key;
+            _animT = 0f;
+            _animLen = rc.data.length > 0f ? rc.data.length : rc.clip.length;
+            _playing = true;
+            _playCount++;
+            if (_anim != null)
+            {
+                _anim.Stop();
+                _anim.Play(rc.clip.name);
+                if (!Application.isBatchMode && !_anim.isPlaying)
+                    WarnChannel("native:" + key,
+                                "原生 `Animation.Play(\"" + rc.clip.name + "\")` 没起来（`isPlaying` 仍是 false）"
+                              + " ⇒ 只剩手动采样在驱动；先查窗口那一刻是不是还没激活。");
+            }
+            ApplyChannels(0f);
+            return true;
+        }
+
+        void EnsureAnim()
+        {
+            if (_anim == null) _anim = GetComponent<Animation>();
+            if (_anim == null) _anim = gameObject.AddComponent<Animation>();
+            _anim.playAutomatically = false;      // 原版 `m_PlayAutomatically = false`
+            _anim.wrapMode = WrapMode.Default;    // 原版 `m_WrapMode = 0`
+            if (_clipsReady) return;
+            EnsureClips();
+            if (_clipData != null)
+                for (int i = 0; i < _clipData.Length; i++)
+                {
+                    var rc = RuntimeFor(_clipData[i].key);
+                    if (rc != null && rc.clip != null) _anim.AddClip(rc.clip, rc.clip.name);
+                }
+            _clipsReady = true;
+        }
+
+        /// <summary>每帧推进（真机 `Update` / 自检 `TickForTest`）。</summary>
+        void TickAnimation(float dt)
+        {
+            if (dt < 0f) dt = 0f;
+            // ① 等 promote 那一拍（= 原版 `WaitForSeconds(delay)`）
+            if (_promoteDelay >= 0f)
+            {
+                _promoteDelay -= dt;
+                if (_promoteDelay <= 0f)
+                {
+                    _promoteDelay = -1f;
+                    // 原版这一拍先响 cue（`AudioCue.Play2D(cue, 3)` = Jingles），再 `Play(name)`。
+                    // `soundOnOpen` 指向的就是它（判据 → `Create()` 与文件头）。
+                    WindowSounds.PlayJingles(WindowSounds.DivisionChangeCue, "[RankedDivChange] `soundOnOpen`");
+                    PlayClip(_ctx.IsDivisionChange ? ClipKeyDivisionUp : ClipKeyRankUp);
+                }
+            }
+            // ② 推进当前 clip
+            if (!_playing || _rt == null) return;
+            _animT += dt;
+            bool done = _animT >= _animLen;
+            if (done) _animT = _animLen;
+            // 每帧显式采样：批处理没有帧循环（原生 `Animation` 推不动）⇒ 这里是唯一的变换驱动；
+            // 真机则与原生那份取同一组值（同一份曲线、同一个 dt）。
+            if (_curClip != null) _curClip.SampleAnimation(gameObject, _animT);
+            ApplyChannels(_animT);
+            if (done)
+            {
+                _playing = false;
+                if (_anim != null) _anim.Stop();
+                _lastFinishedKey = _playingKey;
+                // **播完就停在这一帧** —— clip 的末键就是原版的静态姿态（⛔ 别回退到 `Build()` 的出厂值）
+            }
+        }
+
+        /// <summary>把**手动通道**在当前时刻的值写到我们自己的件上（`Transform` / `m_IsActive` 那两族由
+        /// `SampleAnimation`/原生动画负责，这里不重复）。</summary>
+        void ApplyChannels(float t)
+        {
+            if (_rt == null) return;
+
+            // ① 缩放：逐 path 一次性写 x/y/z（分成三帧写会让父件先被拉一次）
+            if (_rt.scales != null)
+                for (int i = 0; i < _rt.scales.Length; i++)
+                {
+                    var g = _rt.scales[i];
+                    var n = NodeAt(g.path);
+                    if (n == null) continue;
+                    var s = n.localScale;
+                    n.localScale = new Vector3(g.x != null ? g.x.Evaluate(t) : s.x,
+                                               g.y != null ? g.y.Evaluate(t) : s.y,
+                                               g.z != null ? g.z.Evaluate(t) : s.z);
+                }
+
+            // ② 组 alpha（原版 `CanvasGroup.m_Alpha` + TMP `m_fontColor.a`）
+            if (_rt.groups != null)
+                for (int i = 0; i < _rt.groups.Length; i++)
+                {
+                    var g = _rt.groups[i];
+                    var n = NodeAt(g.path);
+                    if (n == null) continue;
+                    ApplyGroupAlpha(n, g.group != null ? g.group.Evaluate(t) : 1f,
+                                       g.text != null ? g.text.Evaluate(t) : 1f);
+                }
+
+            // ③ `Image.m_Color.a`：只作用于**该节点自己**的 `ImageQuad`
+            if (_rt.alphas != null)
+                for (int i = 0; i < _rt.alphas.Length; i++)
+                {
+                    var g = _rt.alphas[i];
+                    var n = NodeAt(g.path);
+                    if (n == null) continue;
+                    var q = n.GetComponent<ImageQuad>();
+                    if (q == null)
+                    {
+                        WarnChannel("alpha:" + g.path,
+                                    "`" + g.path + "` 这一颗没有 `ImageQuad` ⇒ 原版 `Image.m_Color.a` 那条曲线"
+                                  + "**画不出来**（那几颗的 `m_Sprite = 0`，图本来就来自服务端，见文件头「数据缺口」）。");
+                        continue;
+                    }
+                    var b = BaseQuad(q);
+                    q.SetTint(new Color(b.r, b.g, b.b, b.a * g.a.Evaluate(t)));
+                }
+
+            // ④ `GameObject.m_IsActive`
+            if (_rt.actives != null)
+                for (int i = 0; i < _rt.actives.Length; i++)
+                {
+                    var g = _rt.actives[i];
+                    var n = NodeAt(g.path);
+                    if (n == null) continue;
+                    bool on = g.a == null || g.a.Evaluate(t) > 0.5f;
+                    if (n.gameObject.activeSelf != on) n.gameObject.SetActive(on);
+                }
+
+            // ⑤ 粒子 `ShapeModule.m_Scale`（我们只建了容器 ⇒ 没有 `ParticleSystem`）
+            //
+            // 🔴 **关于原版「显式 Play()」这一拍（如实记）**：
+            //   `DoPromoteAnimations_d__22.MoveNext.c` 在 `Play(name)` 之后还有一句虚调用
+            //   `(**(code**)(*plVar5 + 0x348))(plVar5, 0, …)`，**看着像** `ParticleSystem.Play(withChildren)`，
+            //   但同级字段偏移实读到的是 `+0x90 = divisionIcon` / `+0x98 = rankIcon`（都是 `Image`，
+            //   判据 = `dump.cs` 的字段表 + `ChangeParticleEffectAndSpriteRank` 的调用实参）⇒ **判据不足、不定**。
+            //   本窗因此**不臆造**这一声：粒子的节拍**只用 clip 里的 `m_IsActive` 键**（`Rank Up` 0.3833 s /
+            //   `Division Up` 0.4167 s，见 `Resources/division_clips.json`），那是可复查的数据。
+            //   等粒子线把 `ParticleSystem` 建起来，`m_IsActive` 一开就会自己播（默认 `playOnAwake`）。
+            if (_rt.particles != null)
+                for (int i = 0; i < _rt.particles.Length; i++)
+                {
+                    var g = _rt.particles[i];
+                    var n = NodeAt(g.path);
+                    if (n == null) continue;
+                    var ps = n.GetComponent<ParticleSystem>();
+                    if (ps == null)
+                    {
+                        WarnChannel("ps:" + g.path,
+                                    "`" + g.path + "` 上没有 `ParticleSystem` ⇒ 原版 `ShapeModule.m_Scale` 那两条曲线"
+                                  + "**没接**（粒子归特效线：本窗只建容器，见 `Build()` 的注释）。");
+                        continue;
+                    }
+                    var sh = ps.shape;
+                    var sc = sh.scale;
+                    sh.scale = new Vector3(g.x != null ? g.x.Evaluate(t) : sc.x,
+                                           g.y != null ? g.y.Evaluate(t) : sc.y, sc.z);
+                }
+
+            // ⑥ `AnimateUIMaterialProperty.floatProperty1`（原版那是一个改材质 shader 浮点的组件）
+            if (_rt.materialPaths != null)
+                for (int i = 0; i < _rt.materialPaths.Length; i++)
+                {
+                    var p = _rt.materialPaths[i];
+                    if (NodeAt(p) == null) continue;
+                    WarnChannel("mat:" + p,
+                                "`" + p + "` 的 `AnimateUIMaterialProperty.floatProperty1` **没接** ——"
+                              + "那个组件我们工程里没有（`grep class AnimateUIMaterialProperty` 零命中），"
+                              + "而且它驱动的是服务端喂的那张段位图的材质。");
+                }
+        }
+
+        // ---- 组 alpha（原版 `CanvasGroup`：管整棵子树）----
+        void ApplyGroupAlpha(Transform node, float groupMul, float textMul)
+        {
+            var labels = node.GetComponentsInChildren<Label>(true);
+            for (int i = 0; i < labels.Length; i++)
+            {
+                var lb = labels[i];
+                if (lb == null) continue;
+                var b = BaseLabel(lb);
+                lb.SetColor(new Color(b.r, b.g, b.b, b.a * groupMul * textMul));
+            }
+            var quads = node.GetComponentsInChildren<ImageQuad>(true);
+            for (int i = 0; i < quads.Length; i++)
+            {
+                var q = quads[i];
+                if (q == null) continue;
+                var b = BaseQuad(q);
+                q.SetTint(new Color(b.r, b.g, b.b, b.a * groupMul));
+            }
+        }
+
+        Color BaseLabel(Label lb)
+        {
+            Color c;
+            if (!_baseLabel.TryGetValue(lb, out c)) { c = lb.color; _baseLabel[lb] = c; }
+            return c;
+        }
+        Color BaseQuad(ImageQuad q)
+        {
+            Color c;
+            if (!_baseQuad.TryGetValue(q, out c)) { c = q.Tint; _baseQuad[q] = c; }
+            return c;
+        }
+
+        /// <summary>按**相对 owner GO 的路径**取节点（clip 里的 `path` 就是这个口径）。
+        /// ⛔ 不用 `transform.Find(整条路径)` 之外的写法 —— 逐段 `Find` 更早暴露「中间某一段没了」。</summary>
+        Transform NodeAt(string relPath)
+        {
+            if (string.IsNullOrEmpty(relPath)) return transform;
+            Transform t;
+            if (_nodeCache.TryGetValue(relPath, out t) && t != null) return t;
+            t = transform;
+            var parts = relPath.Split('/');
+            for (int i = 0; i < parts.Length; i++)
+            {
+                if (t == null) break;
+                var next = t.Find(parts[i]);
+                if (next == null)
+                {
+                    WarnChannel("node:" + relPath,
+                                "动画路径 `" + relPath + "` 在窗里找不到（断在第 " + (i + 1) + " 段 `" + parts[i]
+                              + "`）⇒ 那几条曲线**画不出来**（原版 prefab 树里是有的）。");
+                    return null;
+                }
+                t = next;
+            }
+            if (t != null) _nodeCache[relPath] = t;
+            return t;
+        }
+
+        // ---- 自检读口（动画）----
+        public bool IsPlaying { get { return _playing; } }
+        public string PlayingClipKey { get { return _playingKey; } }
+        public string LastFinishedClipKey { get { return _lastFinishedKey; } }
+        public int PlayCount { get { return _playCount; } }
+        public float AnimationTime { get { return _animT; } }
+        public float AnimationLength { get { return _animLen; } }
+        /// <summary>还剩几秒到 promote 那一拍（< 0 = 没有排队的 promote）。</summary>
+        public float PromoteDelayRemaining { get { return _promoteDelay; } }
+        public Animation NativeAnimation { get { return _anim; } }
+        public AnimationClip ClipForTest(string key) { var rc = RuntimeFor(key); return rc != null ? rc.clip : null; }
+        public Transform NodeForTest(string relPath) { _nodeCache.Clear(); return NodeAt(relPath); }
+        public Vector3 NodeScaleForTest(string relPath) { var n = NodeForTest(relPath); return n != null ? n.localScale : Vector3.zero; }
+        public bool NodeActiveForTest(string relPath) { var n = NodeForTest(relPath); return n != null && n.gameObject.activeSelf; }
+        /// <summary>节点上第一条 `Label`（没有就看第一块 `ImageQuad`）的当前 alpha；都取不到 = −1。</summary>
+        public float NodeAlphaForTest(string relPath)
+        {
+            var n = NodeForTest(relPath);
+            if (n == null) return -1f;
+            var lb = n.GetComponentInChildren<Label>(true);
+            if (lb != null) return lb.color.a;
+            var q = n.GetComponentInChildren<ImageQuad>(true);
+            return q != null ? q.Tint.a : -1f;
+        }
+        /// <summary>自检：显式推一帧（= `Tick` 里动画那一半；不碰 `BlinkGraphic`）。</summary>
+        public void TickForTest(float dt) { TickAnimation(dt); }
 
         // ============================================================ 取图 / 出声（不静默）
         Texture2D Tex(string name, string what)

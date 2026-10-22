@@ -3434,7 +3434,11 @@ namespace CardPresentation
                 // ⚠️ **命中区照旧挂在窗口根上、本件不动它**：`CloseHit` 是**我们自己加的节点**（原版那颗钮
                 //   自己就是射线靶子，没有对应的原版节点/路径）⇒ 挪它不属于 A264 的范围；而且命中矩形的世界
                 //   坐标与父链无关（`MenuDraw.Hit` 内部走 `Local(parent, …)`）⇒ 换不换挂点在画面与手感上都一样。
-                AddHit(transform, "CloseHit", cr, QPanel, () => Close(), cq, "UI_Button_Mulligan",
+                // 🆕 **2026-10-22（W64 返回链 · D2）**：原来这里写死 `() => Close()` ——
+                //   原版这颗 Back 钮**不是无条件关窗**：`CollectionScreen.BackButtonClick` 先按「当前页签对象」
+                //   分派（Deck 页签 ⇒ 交给 `SelectDecksTab.BackButtonClicked`，其余三页走通用返回 = 关窗/上一层）。
+                //   ⇒ 改走 `OnBackClicked()`（分派逻辑与判据只在那一处）。
+                AddHit(transform, "CloseHit", cr, QPanel, OnBackClicked, cq, "UI_Button_Mulligan",
                        clickCue: WindowSounds.PositiveCue);
             }
 
@@ -4052,8 +4056,11 @@ namespace CardPresentation
 
         /// <summary>回到「还没选模式」那一档（`_deckModeFilter = -1` ⇒ 列表不按模式筛）。
         /// <para>这一档在原版 = `DeckCollectionTab.currentEvent == null`（§5·5·4 的第一个分支）；
-        /// 原版 UI 没有「清掉已选模式」的入口（`currentEvent` 一旦设上就留着）⇒ **本口给自检与将来的
-        /// 「返回」用**，⛔ 别在正常流程里随手调。</para></summary>
+        /// 原版 UI **不清 `currentEvent`**（它一旦设上就留着 —— `BackButtonClicked` 清的是**页签** `+0x60`，
+        /// 不是这个事件）⇒ **本口给自检用**，⛔ 别在正常流程里随手调。</para>
+        /// <para>🆕 **2026-10-22（W64 返回链 · D2）**：生产上的「返回模式页」走的是
+        /// <see cref="ShowDeckModePage"/>（= 清模式筛 **+ 把模式页显出来**），⛔ 不是本口
+        /// （本口只清筛、显隐留给 `SetDeckModeChrome` 的调用者）。</para></summary>
         public void ClearDeckModeFilter()
         {
             _deckModeFilter = -1;
@@ -4062,11 +4069,76 @@ namespace CardPresentation
 
         /// <summary>重新显示模式页（原版 `SelectDecksTab.BackButtonClicked` → 清 `currentTab` →
         /// `ChooseTabToOpen` → 事件 ≥2 ⇒ 又回模式页，§5·1 末段）。
-        /// ⚠️ 只切显隐、**不重建列表**（列表这会儿是藏着的 —— 在未激活树上重建量不出 TMP 尺寸）。</summary>
+        /// ⚠️ 只切显隐、**不重建列表**（列表这会儿是藏着的 —— 在未激活树上重建量不出 TMP 尺寸）。
+        /// <para>🆕 **2026-10-22（W64 返回链 · D2）：生产调用点已接上** —— 收藏窗那颗 `Back` 钮在
+        /// 「Deck 页签 + 已选模式」时走这里（判据 = <see cref="ShouldReturnToDeckModePage"/>）。
+        /// 改前它是**零生产调用点**（只有自检调）⇒ 选过一次模式后该窗实例永远只筛那个模式、回不到模式页。</para></summary>
         public void ShowDeckModePage()
         {
             _deckModeFilter = -1;
             SetDeckModeChrome(true);
+        }
+
+        // ============================================================ 🆕 2026-10-22（W64 返回链 · D2）
+        // 「收藏 → Deck 页 → 选择游戏模式页」的**返回**（原版两级分派，逐句读反编译定的）：
+        //   ① `CollectionScreen__BackButtonClick.c`：`param_1[0x12]`（= **窗口级** `currentTab`）非空 ⇒ 取它的
+        //      `GetType()`；类型 == `SelectDecksTab` ⇒ 交给 `SelectDecksTab.BackButtonClicked`；
+        //      **否则**落 vtable `+0x1e8`（= 关窗/上一层）。
+        //      ⇒ 我们这一级的等价物 = `CurrentTab == WindowTabType.CollectionDecks`（Deck 页签就是 `SelectDecksTab`）。
+        //   ② `SelectDecksTab__BackButtonClicked.c`：
+        //      `if (this[+0x60] != this[+0x58]) { this[+0x60] = null; ChooseTabToOpen(0); return; }`
+        //      然后才落 vtable `+0x1e8`。
+        //      · `+0x58` = **模式页那组件** —— `ToggleSelectGameModeDeck` 里
+        //        `SelectGameModeDeckTab__Initialize(*(this + 0x58), …)` + `SetActive(*(this + 0x58))` 实读。
+        //        ⇒ 我们的 `_deckModePage`。
+        //      · `+0x60` = **`SelectDecksTab` 自己的 `currentTab`**：`ToggleSelectGameModeDeck` 写
+        //        `this[+0x60] = this[+0x58]`（= 模式页），`ToggleSelectDeck` 写 `this[+0x60] = this[+0x50]`
+        //        （`+0x50` = 列表那组件 `DeckCollectionTab`）⇒ ⚠️ **我们【没有】与它同名的单一字段**。
+        //        可观测等价物 = 「当前开的是哪一半」：模式页开着 ⇔ `currentTab == 模式页`；
+        //        列表开着 ⇔ `currentTab == 列表`，而列表态在本工程里**恒等于 `_deckModeFilter >= 0`**
+        //        （`ChooseDeckMode` 是唯一进列表态的生产入口，`ShowDeckModePage`/`BuildDeckList` 收尾是唯一出口）。
+        //      · 那句 `this[+0x60] = null`（「忘掉已选页签」）**没有独立字段可清** —— 它在**这一支**里的可观测
+        //        效果 = 紧接着的 `ChooseTabToOpen(0)` 重新挑一次 ⇒ 又落回模式页；而模式页那一支不看
+        //        `DeckCollectionTab.currentEvent`（`ChooseTabToOpen` 的分支只数 liveops 事件个数）⇒
+        //        我们的等价组合 = **`_deckModeFilter = -1` + `SetDeckModeChrome(true)`** = `ShowDeckModePage()`。
+        //   ③ ⚠️ **对不上的那一处（如实记，⛔ 不编一个状态出来）**：原版这两级之间还有「`currentTab` 为 **null**」
+        //      这一档（`ChooseTabToOpen` 的 op_Implicit 分支会走「重新挑页」）。我们的 `_deckModeFilter`
+        //      只有 `-1`/`>=0` 两档，**表达不了「null 且模式页关着」** —— 该档在原版 UI 上要靠
+        //      `currentTab` 被清而窗口仍开着才会出现，本地没有可复现的入口（`ToggleSelect*` 两个写点都会立刻
+        //      设成非 null）⇒ 我们按「`_deckModeFilter < 0` 等同于模式页那一档」处理。未查清部分：该 null 档
+        //      在联网 liveops 场景下是否可达（本地零事件实例，§5·4）。
+
+        /// <summary>Back 钮**现在该回模式页，还是照旧关窗** —— **唯一判据**（Back 钮与自检都调它）。
+        /// <para>判据 = 原版两级分派（全文见上面那段注释）：① 窗口页签是 Deck（`SelectDecksTab`）；
+        /// ② 该页签的子页签**不是**模式页（⇒ 我们这边 = 已选模式、列表开着）。</para>
+        /// <para>⚠️ ① 的等价性：原版比的是**当前页签对象的类型**；我们只有 `CurrentTab` 这个枚举，
+        /// Deck 页签 ⇔ `CollectionDecks`。其余三页今天没有子页 ⇒ 谓词为假 ⇒ 关窗（与原版一致）。</para></summary>
+        public bool ShouldReturnToDeckModePage()
+        {
+            if (CurrentTab != WindowTabType.CollectionDecks) return false;   // 原版 ①：页签不是 `SelectDecksTab` ⇒ 走通用返回
+            // 原版 ②：`this[+0x60] != this[+0x58]` —— 等价于「**当前开着的是列表那一半**」。
+            // `_deckModeFilter >= 0` 是列表态的定义；`!DeckModePageShown` 再钉一次两半互斥
+            // （两者本该互补，这里要求**两条同时成立**才回模式页 ⇒ 万一将来哪个入口把状态写岔，
+            //  Back 退回落「关窗」那一支，⛔ 不会在模式页上再「回」一次模式页）。
+            return _deckModeFilter >= 0 && !DeckModePageShown;
+        }
+
+        /// <summary>收藏窗那颗 `Shared/Close Button`（文字是 **"Back"**）被点 —— 原版
+        /// `CollectionScreen.BackButtonClick` 的落点，本窗**唯一**的返回钮。
+        /// <para>🆕 **2026-10-22（W64 返回链 · D2）**：改前它写死 `Close()` ⇒ 选过一次模式后
+        /// **该窗实例永远只筛那个模式**、回不到模式页（窗被 `Hide` 后复用同一实例，`_deckModeFilter` 留着）。
+        /// 现在按 <see cref="ShouldReturnToDeckModePage"/> 分派；⛔ 别把判据抄成第二份。</para></summary>
+        void OnBackClicked()
+        {
+            if (ShouldReturnToDeckModePage())
+            {
+                ShowDeckModePage();
+                Debug.Log("[Collection] Back（Deck 页签 + 已选模式）⇒ **回「选择游戏模式」页**、模式筛清空"
+                          + "（原版 `SelectDecksTab.BackButtonClicked` 第一支：`currentTab` ≠ 模式页 ⇒ "
+                          + "`currentTab = null` + `ChooseTabToOpen(0)`）");
+                return;
+            }
+            Close();
         }
 
         /// <summary>模式号 → 屏上那个词（自检/日志用；走官方词条，随语档变）。</summary>

@@ -62,6 +62,17 @@ namespace CardPresentation
         TMP_Text _tmp;
         float _tmpW = 1e-4f, _tmpH = 1e-4f;
 
+        /// <summary>🔴 **2026-10-23（P7）**：`_tmpW/_tmpH` 是不是**真测量过**。
+        /// <para>**为什么必须有它**：`_tmpW` 的初值与下限都是 `1e-4f`（上面那行 + `RefreshBounds` 里的
+        /// `Mathf.Max(|size|, 1e-4f)`），而 `HasMeasuredWidth` 原来只挡 `w <= 0` ⇒ **一次都没量到**的标签
+        /// 被当成「宽 = 1e-4」的**有效测量** ⇒ `AlignLeftOn` 把字块**中心**钉到框左沿
+        /// （左缘 = 框左沿 − 字宽/2 ⇒ 头几个字压到左边的勋章/印章上）。判据 = 2026-10-23
+        /// `MainMenuScene.Run` 那三条红 + 实拍 `_tmp_view/menu/13_档案窗_成就页.png`。</para>
+        /// <para>⚠️ 只在 `RefreshBounds` **接受一次真测量**之后置 true（此后不回落：后续若再量不到，
+        /// `_tmpW` 停在**上一版真值**，那本来就是既有语义）。⇒ 既有调用点里「量到了」的那一档
+        /// **逐位不变**（`_measured` 恒 true ⇒ 下面那道守卫形同虚设）。</para></summary>
+        bool _measured;
+
         /// <summary>🔴 **2026-10-16（`T09` 面板族）：这个标签活在【哪个空间】。**
         /// <para>`false`（出厂档）= **世界空间** —— 单位是**世界单位**，`PxPerWorld` = 108。
         /// `true` = **uGUI 画布** —— 单位是**设计 px**（canvas 单位就是设计 px，见 `T09` §五·补③ 一），
@@ -635,14 +646,60 @@ namespace CardPresentation
         }
 
         /// <summary>测量口（`WorldW/WorldH`）的兑现：**未激活也兑现** —— 见 `WorldW` 的注释。
-        /// 与 <see cref="TryApplyPendingWrap"/> 的差别只有「不要求已激活」这一条，其余（先销账、
-        /// 只生成+重量、不回写）逐字相同。</summary>
+        /// 与 <see cref="TryApplyPendingWrap"/> 的差别是「不要求已激活」（先销账、只生成+重量、不回写
+        /// 这三条逐字相同）。🔴 **2026-10-23（P7）**：未激活那一档改走 <see cref="PushLayoutInactive"/>
+        /// （**不再是单跑一遍**）—— 自适应那一档单跑一遍排不出来，理由见那个方法的文件头。</summary>
         void EnsureMeasured()
         {
             if (_pendWrapW < 0f || _tmp == null) return;
             _pendWrapW = -1f;
-            TmpFont.GenerateLayout(_tmp);
+            // 🆕 **2026-10-23（P7）**：未激活时**单跑一遍** `GenerateLayout` 在「自适应」那一档排不出来
+            //   （超框 ⇒ 缩字号 ⇒ 在 Phase II 之前 early-return ⇒ `characterCount` 仍是 0 ⇒ `textBounds`
+            //   是哨兵）⇒ 走收敛循环；已激活那一档照旧只跑一遍（TMP 自己的那次 `ForceMeshUpdate` 会收敛）。
+            if (_tmp.isActiveAndEnabled) TmpFont.GenerateLayout(_tmp);
+            else PushLayoutInactive();
             RefreshBounds();
+        }
+
+        /// <summary>🔴 **2026-10-23（P7）**：**未激活**对象上把版面**真排出来**（含自适应收敛）——
+        /// 反复调 `GetTextInfo` 直到 `textBounds` 是一个**测量值**。
+        ///
+        /// <para>**为什么一遍不够**（判据 = TMP 源码现读，`Library/PackageCache/com.unity.ugui@…
+        /// /Runtime/TMP/TextMeshPro.cs`）：`GetTextInfo` 只调**一次** `GenerateTextMesh()`，而**自适应**的
+        /// 「超框 ⇒ 缩字号 ⇒ `return`」那一族 early-return（`:3268`（折词）/ `:3348`（超竖界）/
+        /// `:3542`（超横界）方圆）**全在 Phase II 之前** —— 而 `m_textInfo.characterCount` 是 **Phase II**
+        /// 才赋值的（`:5005`）⇒ 那一遍排完 `characterCount` 仍是 0 ⇒ `textBounds` 退化成
+        /// `GetTextBounds` 的空集哨兵（`k_LargePositive/NegativeVector2` = ±2.147e9 ⇒ 画布 px ≈ ±2.3e11）
+        /// ⇒ `RefreshBounds` 早退 ⇒ `_tmpW` 停在 `1e-4`。
+        /// **激活**对象由 TMP 自己 `OnPreRenderObject` 的 `while (m_IsAutoSizePointSizeSet == false)`
+        /// 收敛；**未激活**对象上那条路被 `IsActive()` 闸掉（`:2119`）⇒ 只能我们推。</para>
+        ///
+        /// <para>**为什么反复调能收敛**：每次 early-return 都会按 TMP 自己的二分把 `m_fontSize` 挪一步
+        /// （`m_maxFontSize`/`m_minFontSize` 是**类字段**、跨调用保留）；到 `fontSizeDelta ≤ 0.051`
+        /// 那一遍就走完整条 Phase I+II ⇒ 有真 `textBounds`（那一遍也会照常发 `ON_TEXT_CHANGED`，
+        /// 裁切守卫据此补那一刀）。上限 32（TMP 自己的 `m_AutoSizeMaxIterationCount` = 100，
+        /// 二分实测 ≤ ~15 步）——到不了就**如实返回 false**，由调用方按「没量到」处置
+        /// （⛔ 不拿哨兵去摆位）。</para>
+        ///
+        /// <para>⚠️ **只在「未激活」这一档被调用**（`ForceRelayout` / `EnsureMeasured` 的分支里）——
+        /// 已激活的路径一个字节都没动。⚠️ 它只算版面、**不碰渲染网格**（`GetTextInfo` 走 DontRender）。</para></summary>
+        bool PushLayoutInactive()
+        {
+            if (_tmp == null) return false;
+            // 空串没有东西可排：`GenerateTextMesh` 会在第一句就早退（`TextMeshPro.cs:2201`）而
+            // `GetTextBounds` 给全零 ⇒ 下面那个 `|size.x| > 1e-3` 永远过不了 ⇒ 会白跑满 32 遍
+            // （而且每一遍都发一次 `ON_TEXT_CHANGED`，裁切守卫会跟着重放）。直接如实答「没量到」。
+            if (string.IsNullOrEmpty(_text)) return false;
+            for (int i = 0; i < 32; i++)
+            {
+                TmpFont.GenerateLayout(_tmp);
+                var b = _tmp.textBounds;
+                // 真测量 = 有限、在画布尺度内、**且不是零宽**（空串给的是全零 `Bounds` ⇒ 没有东西可量，
+                // 继续推也没意义 —— 那一档由 `HasMeasuredWidth` 的 `_text` 守卫负责）。
+                if (UsableBounds(b.size) && UsableBounds(b.min) && Mathf.Abs(b.size.x) > 1e-3f) return true;
+                if (!_tmp.enableAutoSizing) return false;   // 没开自适应 ⇒ 再推多少遍都是同一版
+            }
+            return false;
         }
 
         /// <summary>
@@ -824,7 +881,13 @@ namespace CardPresentation
                                     "没生效（这个后端没有可推的那一版）");
                 return;
             }
-            SetFontSize(_tmp.fontSize);     // 值相同 ⇒ setter 早退，只要那一次 `ForceMeshUpdate`
+            // 🆕 **2026-10-23（P7）**：**未激活**时 `ForceMeshUpdate()` 早退（`TextMeshPro.cs:2119` 的
+            //    `IsActive()` 闸）⇒ 原来这一口在未激活对象上**什么都没排**（随后 `RefreshBounds` 也因拿到
+            //    哨兵而早退）⇒「先重排、再对齐」里的第一步是空的。这一档改走 `PushLayoutInactive()`
+            //    （`GetTextInfo` 那条**没有 `m_isAwake`/`IsActive` 闸**的路，同 `EnsureMeasured`）。
+            //    ⚠️ **已激活那一档逐字未变**（还是 `SetFontSize(现值)` + 那一次 `ForceMeshUpdate`）。
+            if (_tmp.isActiveAndEnabled) SetFontSize(_tmp.fontSize);   // 值相同 ⇒ setter 早退，只要那一次 `ForceMeshUpdate`
+            else PushLayoutInactive();
             RefreshBounds();                // 重排后的 `_tmpW/_tmpH` 要落回字段（否则 WorldW 还是旧版面的值）
             _defLayoutPushed = true;        // 🆕 A546②：本条是「定版面」那三条之一
         }
@@ -1564,6 +1627,7 @@ namespace CardPresentation
 
             _tmpW = Mathf.Max(Mathf.Abs(b.size.x), 1e-4f);
             _tmpH = Mathf.Max(Mathf.Abs(b.size.y), 1e-4f);
+            _measured = true;      // 🆕 2026-10-23（P7）：这一次是**真测量**（判据/后果 → `_measured` 的 doc）
 
             // 把整块摆进 [-anchor.x*W, (1-anchor.x)*W] × [-anchor.y*H, (1-anchor.y)*H] ——
             // 和点阵那条 `RebuildMesh` 里的 x0/y0 是**同一套规矩**，所以两条后端可以互换
@@ -1598,6 +1662,9 @@ namespace CardPresentation
             //    再把它置 true —— 见 `AlignAfterLayoutCount` 的 doc）。
             _defLayoutPushed = false;
             TryApplyPendingWrap();
+            // 🆕 **2026-10-23（P7）**：这一拍**量到了** ⇒ 把「量不出宽时欠下的那条对齐」兑现
+            //   （见 `_pendAlignX`）。⚠️ 只有本函数的**成功路径**会走到这儿（上面那道哨兵守卫会早退）。
+            TryApplyPendingAlign();
         }
 
         /// <summary>🔴 **2026-10-13（A804）**：**重裁那一刀的唯一一口** —— 被裁过的标签身上挂着
@@ -1650,7 +1717,20 @@ namespace CardPresentation
         {
             if (_tmp == null) { NoteDotBackendLacks("左对齐", worldLeftX); return; }
             RefreshBounds();
-            if (!HasMeasuredWidth()) return;      // 🔴 见 `HasMeasuredWidth` —— 量不出宽度时**不动位置**
+            // 🔴 见 `HasMeasuredWidth` —— 量不出宽度时**不动位置**。
+            // 🆕 **2026-10-23（P7）**：★不再直接丢掉★ —— 把这一次请求**记成待办**，由下一次真测量
+            //   落定的那一拍（`RefreshBounds` 尾句的 `TryApplyPendingAlign`）兑现。原来这一句是裸
+            //   `return`，而调用方**不会**再补一次对齐 ⇒ 那一次对齐静默消失（成就格 `title`/`rewards`
+            //   头几个字压在勋章/印章上就是这么来的 —— 中心 = 框左沿）。
+            if (!HasMeasuredWidth()) { _pendAlignX = worldLeftX; _pendAlignRight = false; return; }
+            _pendAlignX = float.NaN;          // 量到了 ⇒ 旧待办作废（本次就是最新一次请求）
+            PlaceLeftNow(worldLeftX);
+        }
+
+        /// <summary>🆕 **2026-10-23（P7）**：左对齐那一下**真挪** —— `AlignLeftOn` 与
+        /// `TryApplyPendingAlign` 共用这一份（⛔ 别在两处各写一次算式）。</summary>
+        void PlaceLeftNow(float worldLeftX)
+        {
             var p = transform.localPosition;
             transform.localPosition =
                 new Vector3(worldLeftX - ParentXInDesignSpace() + WorldW * 0.5f, p.y, p.z);
@@ -1661,11 +1741,40 @@ namespace CardPresentation
         {
             if (_tmp == null) { NoteDotBackendLacks("右对齐", worldRightX); return; }
             RefreshBounds();
-            if (!HasMeasuredWidth()) return;      // 🔴 同 `AlignLeftOn`
+            // 🔴 同 `AlignLeftOn`（含 🆕 P7 的「记成待办」那一档）
+            if (!HasMeasuredWidth()) { _pendAlignX = worldRightX; _pendAlignRight = true; return; }
+            _pendAlignX = float.NaN;
+            PlaceRightNow(worldRightX);
+        }
+
+        /// <summary>🆕 **2026-10-23（P7）**：右对齐那一下**真挪**（同 `PlaceLeftNow`）。</summary>
+        void PlaceRightNow(float worldRightX)
+        {
             var p = transform.localPosition;
             transform.localPosition =
                 new Vector3(worldRightX - ParentXInDesignSpace() - WorldW * 0.5f, p.y, p.z);
             ReclipNow();                          // 🔴 A804：同 `AlignLeftOn`
+        }
+
+        /// <summary>🆕 **2026-10-23（P7）**：量不出宽度时**欠下**的那条对齐请求（世界 x；`NaN` = 没有）。
+        /// <para>**为什么要有它**：`AlignLeftOn`/`AlignRightOn` 是「渲完之后量一次宽度再挪」，而
+        /// **批处理没有帧循环**、**未激活**的 TMP 又量不出宽（`textBounds` = 4.29e9 哨兵）⇒ 调用点
+        /// 那一刻拿不到真宽。原来这一档直接 `return`（对齐**静默丢失**，调用方以为已经贴好了）；现在
+        /// 记下来，由 <see cref="RefreshBounds"/> 在**第一次真测量落定**的那一拍兑现。</para>
+        /// <para>⚠️ 幂等：兑现时先清 `_pendAlignX` 再挪；**量得到宽的正常路径上它恒 `NaN`**
+        /// ⇒ 既有调用点**零行为变化**。</para></summary>
+        float _pendAlignX = float.NaN;
+        /// <summary>待办那条是右对齐吗（见 <see cref="_pendAlignX"/>）。</summary>
+        bool _pendAlignRight;
+
+        /// <summary><see cref="_pendAlignX"/> 的兑现口 —— **只由 `RefreshBounds` 的成功路径**调用
+        /// （那一刻 `_tmpW/_tmpH` 刚被写成真值，不必再跑一遍 `HasMeasuredWidth` 的兑现代理）。</summary>
+        void TryApplyPendingAlign()
+        {
+            if (float.IsNaN(_pendAlignX)) return;
+            float x = _pendAlignX;
+            _pendAlignX = float.NaN;
+            if (_pendAlignRight) PlaceRightNow(x); else PlaceLeftNow(x);
         }
 
         /// <summary>🔴 **2026-10-12（A476）**：点阵后端下「对齐这回事**根本不存在**」**必须出声**
@@ -1834,7 +1943,13 @@ namespace CardPresentation
         bool HasMeasuredWidth()
         {
             if (string.IsNullOrEmpty(_text)) return false;
+            // ⚠️ 次序有意：**先读 `WorldW`**（它的 getter 会**顺带兑现** `SetWrapWidth` 欠下的那次生成，
+            //    是既有行为 —— 见 `WorldW` 的 doc），**再**判 `_measured`。
             float w = WorldW;
+            // 🔴 **2026-10-23（P7）**：**一次都没量到** ⇒ 这不是测量值 —— `_tmpW` 的初值/下限 `1e-4`
+            //    不算数（判据/后果 → `_measured` 的 doc）。少了这一句，「量不到宽」会被当成
+            //    「宽 ≈ 0」⇒ 两个 `Align*On` 把字块**中心**钉到框左沿（成就格 `title`/`rewards` 的实拍病灶）。
+            if (!_measured) return false;
             if (float.IsNaN(w) || float.IsInfinity(w) || w <= 0f) return false;
             // 🔴 **2026-10-16（`T09`）：上限按模式取**（= `UsableBounds` 那一处，**唯一一份**）——
             //    写死 `100f` 时 uGUI 档会把**任何宽过 100 px 的正常标签**判成「没量到」⇒

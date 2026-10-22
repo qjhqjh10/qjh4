@@ -60,6 +60,22 @@ public static class EffectLibraryBuilder
     static readonly string[] NameFilter = { };
     const int Limit = 0;                                            // 0 = 不限
 
+    /// <summary>模块数据与索引**两侧共用的 join 键**：`Trim()` 之后逐字比。
+    ///
+    /// 🔴 **为什么必须 Trim**（2026-10-22 · P4 审计实据 `资料/普查产出_1022/P4_M5与audit工具.md`）：
+    /// 原版效果名 **`"Orbital 5 repeat "`（带尾随空格）** —— `animfx_modules.json` 那一侧的键是
+    /// 原版 prefab 的 `m_Name`，原版就这么写的；而 `effect_index.json` 那一侧的键是
+    /// **Windows 文件名**（文件系统落不了尾随空格）⇒ **逐字永远是两把钥匙**，
+    /// 那条效果落在库里成了 `modules: []`（它本该有 2 个模块：`AnimFXModuleScreenShake` +
+    /// `AnimFXController` 的 destroyTime 8 / exitDestroyTime 3 / 音 `Orbital Close`）。
+    /// 实据：`Assets/Resources/WarpforgeVFX/WarpforgeEffectLibrary.asset` 那条 `modules: []`。
+    ///
+    /// ⚠️ **只在「join 键」这一层 Trim**：`EffectExporter.ListedPrefabs` 与
+    /// `WFEffectModule.ResolvePath` 比的是**资产名 / 节点名**，那些地方的逐字语义**要保留**
+    /// （`ListedPrefabs` 里 `"Orbital 5 repeat "` 那一行的注释就写着「⛔ 别 Trim」）。
+    /// 两处必须用**同一个函数**取键（CLAUDE.md §三「两处写同一条规则 = 迟早不一致」）。</summary>
+    static string JoinKey(string name) { return (name ?? "").Trim(); }
+
     [MenuItem("Tools/Warpforge/生成效果库")]
     public static void Run()
     {
@@ -95,7 +111,7 @@ public static class EffectLibraryBuilder
             if (mdoc != null && mdoc.effects != null)
                 foreach (var me in mdoc.effects)
                     if (me != null && !string.IsNullOrEmpty(me.name))
-                        modsByEffect[me.name] = me.modules ?? new WFModuleDef[0];
+                        modsByEffect[JoinKey(me.name)] = me.modules ?? new WFModuleDef[0];
             Debug.Log(P + $"模块数据 {modsByEffect.Count} 个效果 / "
                         + $"{modsByEffect.Values.Sum(x => x.Length)} 个模块（生成于 {mdoc?.generated}）");
         }
@@ -145,7 +161,7 @@ public static class EffectLibraryBuilder
                 verdict = ShortVerdict(e.verdict),
                 confidence = e.confidence,
                 ratio = e.ratio,
-                modules = modsByEffect.TryGetValue(e.name, out var mm) ? mm : new WFModuleDef[0],
+                modules = modsByEffect.TryGetValue(JoinKey(e.name), out var mm) ? mm : new WFModuleDef[0],
             });
 
             sb.AppendLine(string.Join("\t", new[] {

@@ -95,6 +95,12 @@ def main():
     args = ap.parse_args()
 
     animfx = load_animfx()
+    # join 键**两侧 Trim**：原版有一个效果名带**尾随空格**（`"Orbital 5 repeat "`，见
+    # `EffectLibraryBuilder.JoinKey` 的注释），而这里的 `name` 来自 **Windows 文件名**
+    # （文件系统落不了尾随空格）⇒ 逐字 `animfx.get(name)` 会**静默 miss**：那条效果在索引里成了
+    # `hasController: false`，寿命退回 natural 兜底、`preventDestroy` 也丢了。
+    # ⚠️ 只用来**查**，⛔ 别原地改 `animfx` 的键 —— 下面 orphan 那一段要报**原始**名字。
+    animfx_by_key = {k.strip(): v for k, v in animfx.items()}
     ledger = load_ledger()
     prefabs = sorted(os.path.splitext(f)[0]
                      for f in os.listdir(PREFAB_DIR) if f.endswith(".prefab"))
@@ -103,7 +109,7 @@ def main():
     effects = []
     no_ctrl = no_ledger = 0
     for name in prefabs:
-        a = animfx.get(name)
+        a = animfx_by_key.get(name.strip())
         l = ledger.get(name, {})
         has_ctrl = a is not None and a.get("controllers", 0) > 0
         if not has_ctrl:
@@ -127,7 +133,18 @@ def main():
         })
 
     # ---- 对账：两边对不上的都要说出来，别静默吞掉 ----
-    orphan_animfx = sorted(set(animfx) - set(prefabs))
+    # ⚠️ 2026-10-22：判 orphan 也要用**同一个 Trim 键** —— 否则带尾随空格的那条（`Orbital 5 repeat `）
+    #    会被误报成「有 animfx 数据但没有导出 prefab」，其实它**有** prefab，只是文件名落不了空格。
+    #    报出来的是**原始名字**（`!r` 能把尾随空格显出来），方便回数据里查。
+    _prefab_keys = {n.strip() for n in prefabs}
+    ws_names = sorted(k for k in animfx if k != k.strip())
+    if ws_names:
+        print(f"ℹ️ 有 {len(ws_names)} 个原版效果名带首尾空白（join 时已两侧 Trim，"
+              f"文件名落不了空白 ⇒ 索引里用 prefab 文件名）：")
+        for n in ws_names:
+            print(f"    {n!r}")
+
+    orphan_animfx = sorted(n for n in animfx if n.strip() not in _prefab_keys)
     if orphan_animfx:
         print(f"\n⚠️ 有 animfx 数据但没有导出 prefab 的 {len(orphan_animfx)} 个（索引里不会有它们）：")
         for n in orphan_animfx[:10]:

@@ -1786,22 +1786,40 @@ namespace CardPresentation
         {
             if (!on)
             {
-                if (_remnantBody != null) _remnantBody.SetActive(false);
-                // 原卡卡身跟着回来。**两条路都要管**：
-                //  · 有 3D 卡体（正常情形）⇒ 按形态开关它（`SetFace` 里那条同一口径）；
-                //  · **没有 3D 卡体**（网格/shader 取不到，`BuildBody3D` 已报警告的那条退回路径）⇒
-                //    卡身就是 **2D 立绘层** —— 上面那句 `Show(_art, false)` 把它关了，
-                //    这里不恢复的话，那一格会**只剩残骸体、撤掉之后变成空白**（静默）。
-                //    ⚠️ 2026-09-25 复查时发现的。
-                //    🔴 **2026-10-15 更正**：这里原来把触发条件写成「`use3DBoard == false` 那种配置下才现形」
-                //       —— **不成立**。这一支的判据是 **`_body3D == null`**，而 `BuildBody3D` 在
-                //       `Build:1429` 与 `SetFace:640` **都是无条件调**的（不看 `use3DBoard`：那个开关只管
-                //       `PoseFor` 走哪套坐标 / 挂不挂 `ArenaLayer`）⇒ 把 3D 战场关掉**照样**会建出 3D 卡体，
-                //       这一支**不会**因此现形。错因 = 按「哪套坐标」猜了「哪套卡身」。
-                //       真触发它的是**网格或 shader 取不到**那一档（`BuildBody3D` 的三条 `return null`
-                //       之一，会被它自己那条 warning 报出来）；自检里借 `DebugNoBody3D` 造这一态。
-                if (_body3D != null) Show(_body3D, _faceMode == CardFace.Board);
-                else if (_faceMode == CardFace.Board && _art != null) Show(_art, true);
+                // 🔴 **2026-10-22（P5 §⑦ 缺口 1/2 收口）**：撤掉分两档 —— 判据 = 反编译逐行读的：
+                //   · **死灵**（`RemnantNecrons__Toggle.c`，`param_2 == 0` 且 `param_3 != 0` 那一支）：
+                //       `GameObject.SetActive(go, 1)`                        ← **保持可见**
+                //       `if (this+0x70 != 0) ParticleSystem.Stop(this+0x70)` ← 闲置粒子停（`remnantIdleParticleSystem`）
+                //       `Animation.Play(this.reanimateAnimationName)`        ← `From Remnant Necrons`
+                //     演完由片段里的动画事件 **`AnimationResurrectionEnd`**（**1.8 s**，实读
+                //     `WarpforgeVFX/Animations/From Remnant Necrons.anim` 的 `m_Events`）收尾：
+                //     `BodyVisibilityToggle(true)` + `Toggle(0, 0, 0)` → `SetActive(false)`
+                //     （`RemnantNecrons__AnimationResurrectionEnd.c`）。
+                //   · **灵族**（`RemnantAeldari$$Toggle` @ RVA `0x640200`，`withAnimation && !option` 那一支）：
+                //     `SetActive(go, 0)` + `BodyVisibilityToggle(true)` —— 它**没有 `From Remnant` 片段**
+                //     （字段表里只有 `toRemnantAnimationName`）⇒ **立即撤、不播动画**。
+                //
+                // ⚠️ `BattleDriver.SyncBoard` **每次刷新都会调一次** `SetRemnantBody(false, …)`
+                //    （判据是 `v.RemnantBodyVisible`，而演动画期间残骸体**故意还可见**）⇒ 这一支必须**幂等**。
+                if (_remnantHideAt >= 0f) return;
+
+                if (_remnantBody != null && _remnantBody.activeSelf)
+                {
+                    string fromClip = RemnantFromClipOf(RemnantBodyPrefabName);
+                    if (!string.IsNullOrEmpty(fromClip))
+                    {
+                        StopRemnantIdleParticles();
+                        float len = PlayRemnantClip(fromClip);
+                        if (len > 0f)
+                        {
+                            _remnantHideAt = len;          // 到点再藏（原版那条动画事件的时刻）
+                            _remnantHideClock = 0f;
+                            return;                        // ⛔ 卡身先不恢复：`From Remnant` 演完才恢复
+                        }
+                        // 播不出来 ⇒ `PlayRemnantClip` 已经出声，落回「立即撤」
+                    }
+                }
+                HideRemnantBodyNow();
                 return;
             }
 
@@ -1814,8 +1832,14 @@ namespace CardPresentation
                 if (Application.isPlaying) Object.Destroy(_remnantBody); else Object.DestroyImmediate(_remnantBody);
                 _remnantBody = null;
                 RemnantBodyPrefabName = null;
+                _remnantLight = null;      // 旧的 SpriteRenderer 随上一具一起没了 —— 别留悬空缓存
+                _remnantIdlePs = null;     // 同上（`Particles Death Idle`）
             }
 
+            // 「出生」= **这一拍残骸体才真的变得可见**（新建 / 从藏着打开 / 正在演撤场又变回残骸）。
+            // ⚠️ 判据**不能**是「调了这个方法」：`BattleDriver.SyncBoard` 每次刷新都会对残骸调一次
+            //    `SetRemnantBody(true, …)`，那样 `To Remnant` 会每帧重播（原版只在 `Toggle` 那一拍播）。
+            bool born = false;
             if (_remnantBody == null)
             {
                 var lib = WarpforgeVFX.WarpforgeEffectLibrary.Instance;
@@ -1844,8 +1868,16 @@ namespace CardPresentation
                 // 残骸体**不参与整卡着色**（`_layers` 是「整卡着色」名单：高亮/置灰/淡出都会
                 // 把每一层刷成同一个色）。残骸体有自己的材质与光照，进去会被刷坏。
                 // ⚠️ 别把它 `_layers.Add` —— 同族的坑见 `CLAUDE.md` 铁律 10 第 4 条。
+                born = true;
             }
-            else _remnantBody.SetActive(true);
+            else
+            {
+                if (!_remnantBody.activeSelf) { _remnantBody.SetActive(true); born = true; }
+                else if (_remnantHideAt >= 0f) born = true;     // 撤场演到一半又变回残骸 ⇒ 从头演「转成残骸」
+            }
+
+            // 只要这一拍是「盖残骸体」，就取消挂起的撤场（否则 `From Remnant` 到点会把刚盖上的藏掉）
+            CancelRemnantHide();
 
             // 关掉原卡卡身（原版 `ToggleBody3D(false)`）。2D 立绘此时一定已经是关的（场上是 3D 形态）
             if (_body3D != null) Show(_body3D, false);
@@ -1853,6 +1885,15 @@ namespace CardPresentation
             // 🆕 2026-09-29：原版 `CreateRemnantBody` **就在这一步**调 `SetRemnantHighlight` ⇒ 出生时先把
             // 当前那一档的状态色刷上去（不刷的话它会停在内建的 `(0,1,1,0)` 上 = 看着像「永远不亮」）。
             SetRemnantLight(CardHighlight.FrameColorOf(State));
+
+            if (born)
+            {
+                // ① 原版 `RemnantBody.Initialize` / `RemnantNecrons.Initialize` 那两次
+                //    `CardMaterialHelper.ConfigureMaterial(mat, card)` —— 只在**建出来那一拍**做一次。
+                ConfigureRemnantMaterials();
+                // ② 原版 `Toggle(..., withAnimation: true)` 末尾那句 `Animation.Play(toRemnantAnimationName)`。
+                PlayRemnantClip(RemnantToClipOf(prefabName));
+            }
         }
 
         /// <summary>残骸体现在显示着吗（没建过 / 已撤掉都是 false）。自检用它 ——
@@ -1861,6 +1902,275 @@ namespace CardPresentation
 
         /// <summary>残骸体根节点（没建过是 null）—— 自检量它的**渲染真值**（位置 / 缩放 / 材质）用。</summary>
         public GameObject RemnantBodyRoot { get { return _remnantBody; } }
+
+        // ==================================================================
+        //  残骸体的动画 / 闲置粒子 / 卡面材质
+        //  🆕 2026-10-22（P5 §⑦ 两条缺口的等价接线）—— 判据全是**反编译方法体**逐行读的
+        // ==================================================================
+
+        /// <summary>灵族那具的「转成残骸」片段名（= prefab 上 `toRemnantAnimationName` 的实读字符串）。</summary>
+        public const string RemnantToAeldariClip = "To Remnant Aeldari";
+        /// <summary>死灵那具的「转成残骸」片段名（`RemnantNecrons.toRemnantAnimationName`）。</summary>
+        public const string RemnantToNecronsClip = "To Remnant Necrons";
+        /// <summary>死灵那具的「从残骸变回来」片段名（`RemnantNecrons.reanimateAnimationName`）。
+        /// ⚠️ **灵族没有这一条**（`RemnantAeldari` 的字段表里只有 `toRemnantAnimationName`）⇒ 灵族撤场**不播**。</summary>
+        public const string RemnantFromNecronsClip = "From Remnant Necrons";
+
+        /// <summary>`RemnantNecrons.remnantIdleParticleSystem` 落到的节点名（P5 实读：GO `Particles Death Idle`）。</summary>
+        public const string RemnantIdleParticleNode = "Particles Death Idle";
+        /// <summary>`RemnantNecrons.remnant`（P5 实读：GO `Card Remnant`）—— 原版 `Initialize` 里配材质的那一颗。</summary>
+        public const string RemnantNecronsRemnantNode = "Card Remnant";
+        /// <summary>`RemnantNecrons.card3D`（P5 实读：GO `Card 3D`）—— 原版 `RemnantNecrons.Initialize` 额外配的那一颗。</summary>
+        public const string RemnantNecronsCard3DNode = "Card 3D";
+        /// <summary>`RemnantBody.remnant`（灵族那件：GO `To remnant`）。</summary>
+        public const string RemnantAeldariRemnantNode = "To remnant";
+        /// <summary>`CardMaterialHelper.ConfigureMaterial` 写的两个槽（原版属性表实读：`Necrons Base Death` 与灵族那件都有）。</summary>
+        public const string RemnantCardImageProp = "_CardImage";
+        /// <inheritdoc cref="RemnantCardImageProp"/>
+        public const string RemnantMatCapProp = "_MatCap";
+
+        /// <summary>这具残骸体「转成残骸」该播哪条片段（未知 prefab ⇒ `null`，`PlayRemnantClip` 会出声）。</summary>
+        static string RemnantToClipOf(string prefabName)
+        {
+            if (prefabName == "RemnantBody3D Aeldari") return RemnantToAeldariClip;
+            if (prefabName == "RemnantBody3D Necrons") return RemnantToNecronsClip;
+            return null;
+        }
+
+        /// <summary>「从残骸变回来」该播哪条片段。**只有死灵有**（灵族那件 prefab 里就没有 `From Remnant` 片段）
+        /// ⇒ 返回 `null` 的调用方必须走「立即撤」，⛔ 不是「播一条别的」。</summary>
+        static string RemnantFromClipOf(string prefabName)
+        {
+            if (prefabName == "RemnantBody3D Necrons") return RemnantFromNecronsClip;
+            return null;
+        }
+
+        /// <summary>自检口：`Animation.Play(...)` **真的被调过几次**。
+        /// 🔴 edit mode（批处理自检）里 `Animation.isPlaying` / 采样都不可靠 —— 与
+        /// `ParticleEmitOnEnable.PlayCalls` 同一条理由：调用计数是唯一与引擎状态无关的观察点
+        /// （片段没找到 / `Animation` 组件没挂 ⇒ 计数恒 0 ⇒ 断言照红，⛔ 不是放宽）。</summary>
+        public int RemnantAnimationPlayCalls { get; private set; }
+
+        /// <summary>自检口：最近一次真的调出去的片段名（`null` = 还没播过）。</summary>
+        public string RemnantLastAnimation { get; private set; }
+
+        /// <summary>自检口：撤场时 `ParticleSystem.Stop()` **真的被调过几次**。</summary>
+        public int RemnantIdleStopCalls { get; private set; }
+
+        /// <summary>自检口：残骸体内部渲染器被**写上卡面材质**的次数（`_CardImage` / `_MatCap` 至少写进一个算一次）。</summary>
+        public int RemnantMaterialWrites { get; private set; }
+
+        /// <summary>正在演「从残骸变回来」那段动画（演完之前残骸体**保持可见** —— 原版就是这么做的）。</summary>
+        public bool RemnantHiding { get { return _remnantHideAt >= 0f; } }
+
+        /// <summary>**手动推**撤场计时（批处理没有帧循环 ⇒ 自检用它；产品路径走 `Update`）。</summary>
+        public void TickRemnantHide(float dt)
+        {
+            if (_remnantHideAt < 0f) return;
+            if (dt > 0f) _remnantHideClock += dt;
+            if (_remnantHideClock + 1e-4f < _remnantHideAt) return;
+            HideRemnantBodyNow();       // 到点：藏掉残骸体 + 恢复原卡卡身（原版 `AnimationResurrectionEnd` 那三句）
+        }
+
+        void Update()
+        {
+            if (_remnantHideAt >= 0f) TickRemnantHide(Time.deltaTime);
+        }
+
+        /// <summary>立刻藏掉残骸体并恢复原卡卡身（原版 `Toggle(0, 0, 0)` 那一支 / 动画事件到点后的收尾）。
+        /// <para>原卡卡身**两条路都要管**：有 3D 卡体（正常情形）⇒ 按形态开关它（`SetFace` 里那条同一口径）；
+        /// **没有 3D 卡体**（网格/shader 取不到，`BuildBody3D` 已报警告的那条退回路径）⇒ 卡身就是 **2D 立绘层**
+        /// —— `SetRemnantBody(true, …)` 把它关了，这里不恢复的话，那一格会**只剩残骸体、撤掉之后变成空白**（静默）。</para>
+        void HideRemnantBodyNow()
+        {
+            _remnantHideAt = -1f;
+            _remnantHideClock = 0f;
+            if (_remnantBody != null) _remnantBody.SetActive(false);
+            if (_body3D != null) Show(_body3D, _faceMode == CardFace.Board);
+            else if (_faceMode == CardFace.Board && _art != null) Show(_art, true);
+        }
+
+        /// <summary>取消挂起的撤场计时（又变回残骸了 —— 别让 `From Remnant` 到点把刚盖上的那具藏掉）。</summary>
+        void CancelRemnantHide()
+        {
+            _remnantHideAt = -1f;
+            _remnantHideClock = 0f;
+        }
+
+        /// <summary>播残骸体上的一条 `Animation` 片段（原版 `Animation.Play(name)`）。
+        /// <para>返回**收尾时刻（秒）**；`&lt;= 0` = 播不出来（已经出声）。</para>
+        /// <para>⚠️ 按**名字**找组件、不缓存某个 `Animation`：灵族那具 prefab 上有**两份** `Animation`
+        /// （`To Remnant Aeldari` 挂在根上、另一份 `m_PlayAutomatically: 1` 的在内层节点），
+        /// 死灵那份把两条片段都挂在根上 —— 只有「谁认这个名字」是稳的。</para></summary>
+        float PlayRemnantClip(string clipName)
+        {
+            if (_remnantBody == null || string.IsNullOrEmpty(clipName)) return -1f;
+            Animation anim = null; AnimationClip clip = null;
+            foreach (var a in _remnantBody.GetComponentsInChildren<Animation>(true))
+            {
+                if (a == null) continue;
+                var c = a.GetClip(clipName);
+                if (c != null) { anim = a; clip = c; break; }
+            }
+            if (anim == null)
+            {
+                Debug.LogWarning($"[CardView] 残骸体 `{RemnantBodyPrefabName}` 上找不到含片段 `{clipName}` 的 "
+                               + "`Animation` 组件 ⇒ 这一拍**没有动画**（原版 `RemnantNecrons__Toggle.c` 末尾 / "
+                               + "`RemnantAeldari$$Toggle` 都调 `Animation.Play(...)`）。片段与 prefab 是同一条导入链"
+                               + "产出的 —— 重导过 prefab 就重跑 `工具/extract_missing_shaders.py --prefabs`。");
+                return -1f;
+            }
+            anim.Play(clipName);
+            RemnantAnimationPlayCalls++;
+            RemnantLastAnimation = clipName;
+            return RemnantAnimationEnd(clip);
+        }
+
+        /// <summary>这条片段「该收尾」的时刻 —— 优先用**动画事件**（原版就是靠事件收尾的），没有才退回 `clip.length`。
+        /// `From Remnant Necrons` 的事件 = `AnimationResurrectionEnd` @ **1.8 s**
+        /// （实读 `WarpforgeVFX/Animations/From Remnant Necrons.anim` 的 `m_Events`；收尾动作见
+        /// `RemnantNecrons__AnimationResurrectionEnd.c`：`BodyVisibilityToggle(true)` → `Toggle(0,0,0)`）。</summary>
+        static float RemnantAnimationEnd(AnimationClip clip)
+        {
+            if (clip == null) return 0f;
+            var evts = clip.events;
+            if (evts != null)
+                foreach (var e in evts)
+                    if (e != null && e.functionName == "AnimationResurrectionEnd") return e.time;
+            return clip.length;
+        }
+
+        /// <summary>原版 `RemnantNecrons__Toggle.c` 撤场那一支的 `ParticleSystem.Stop(this + 0x70)`。
+        /// ⚠️ 原版调的是**无参** `Stop()`（= `withChildren: true`、`StopEmitting`）—— ⛔ 别改成清空式。</summary>
+        void StopRemnantIdleParticles()
+        {
+            var ps = RemnantIdleParticle();
+            if (ps == null)
+            {
+                Debug.LogWarning($"[CardView] 残骸体 `{RemnantBodyPrefabName}` 上找不到 `{RemnantIdleParticleNode}` "
+                               + "的 ParticleSystem ⇒ 撤场时不会停闲置粒子（原版 `RemnantNecrons__Toggle.c` 里那句 "
+                               + "`ParticleSystem.Stop(this+0x70)`）");
+                return;
+            }
+            ps.Stop();
+            RemnantIdleStopCalls++;
+        }
+
+        ParticleSystem RemnantIdleParticle()
+        {
+            if (_remnantIdlePs != null) return _remnantIdlePs;
+            if (_remnantBody == null) return null;
+            foreach (var ps in _remnantBody.GetComponentsInChildren<ParticleSystem>(true))
+                if (ps != null && ps.gameObject.name == RemnantIdleParticleNode) { _remnantIdlePs = ps; break; }
+            return _remnantIdlePs;
+        }
+
+        /// <summary>原版 `RemnantBody.Initialize` / `RemnantNecrons.Initialize` 对残骸体内部渲染器调的那两次
+        /// `CardMaterialHelper.ConfigureMaterial(mat, card)`（两个方法体都逐行读过）。
+        ///
+        /// <para>它**全部的内容**只有两条 `SetTexture`：
+        /// ① `card.cardSprite != null` ⇒ `_CardImage = cardSprite.texture`（取不到 sprite 就跳过）；
+        /// ② `_MatCap = matcapTexturesByCardTier[clamp(CardTier)]`（越界夹到末位）。
+        /// ⇒ 我们的等价物（同一对槽、同一取数口，与 `CardFeel.SpawnDeathBody` 一字不差）：
+        /// `_CardImage = <see cref="BodyArtTexture"/>` ·
+        /// `_MatCap = CardArt.Card3DMatcap(CardProgress.Level(artId))`（`0` = tier1）。
+        /// **不是近似** —— 原版那两行能写的也就是这两个槽。</para>
+        ///
+        /// <para>节点：死灵 = `remnant`(`+0x40`) + `card3D`(`+0x68`)；灵族 = 只有 `remnant`。
+        /// 两件材质实读都有这两个属性（`Remnant Shatter` = 原版 `Everguild/Cards/Necrons Base Death`
+        /// `_CardImage` def=black / `_MatCap` def=white；灵族那件 `Card 3d WH40K Explosion Green` 同表）。</para></summary>
+        void ConfigureRemnantMaterials()
+        {
+            if (_remnantBody == null) return;
+            string[] nodes = RemnantMaterialNodesOf(RemnantBodyPrefabName);
+            if (nodes == null) return;
+            var art = BodyArtTexture;
+            int tierLevel = !string.IsNullOrEmpty(Data.artId) ? CardProgress.Level(Data.artId) : 0;
+            var matcap = CardArt.Card3DMatcap(tierLevel);
+            foreach (var path in nodes) ApplyRemnantCardMaterial(path, art, matcap);
+        }
+
+        /// <summary>原版 `Initialize` 里逐个 `Renderer` 调 `ConfigureMaterial` 的那份「哪几颗」。</summary>
+        static string[] RemnantMaterialNodesOf(string prefabName)
+        {
+            if (prefabName == "RemnantBody3D Necrons")
+                return new[] { RemnantNecronsRemnantNode, RemnantNecronsCard3DNode };
+            if (prefabName == "RemnantBody3D Aeldari")
+                return new[] { RemnantAeldariRemnantNode };
+            return null;
+        }
+
+        /// <summary>把卡面那两个槽写进残骸体内部的一颗 `MeshRenderer`（**复制一份材质**再写，见
+        /// `CardFeel.WritableMaterial` 那条 `A1967` 的理由；这里每具残骸体本来就各有一份实例）。</summary>
+        void ApplyRemnantCardMaterial(string childPath, Texture2D art, Texture2D matcap)
+        {
+            var t = _remnantBody != null ? _remnantBody.transform.Find(childPath) : null;
+            var mr = t != null ? t.GetComponent<MeshRenderer>() : null;
+            if (mr == null)
+            {
+                Debug.LogWarning($"[CardView] 残骸体 `{RemnantBodyPrefabName}` 里找不到 `{childPath}` 的 MeshRenderer "
+                               + "⇒ 原版 `CardMaterialHelper.ConfigureMaterial` 那一层**没接上**（prefab 结构变了？）");
+                return;
+            }
+            var src = mr.sharedMaterial;
+            if (src == null)
+            {
+                Debug.LogWarning($"[CardView] 残骸体 `{RemnantBodyPrefabName}/{childPath}` 没有材质 "
+                               + "⇒ 卡面贴图配不上去（`WarpforgeEffectBinder` 没跑？）");
+                return;
+            }
+            // ⚠️ 先问属性、再复制：属性一个都没有就不该留下那份废材质
+            bool canImage = art != null && src.HasProperty(RemnantCardImageProp);
+            bool canMatcap = matcap != null && src.HasProperty(RemnantMatCapProp);
+            if (!canImage && !canMatcap)
+            {
+                // ⛔ 不静默：属性不在 = 这一层配了也没用（原版那两个 shader 属性表里都有它俩）
+                Debug.LogWarning($"[CardView] 残骸体 `{RemnantBodyPrefabName}/{childPath}` 的 shader "
+                               + $"`{(src.shader != null ? src.shader.name : "<null>")}` 上既没有 "
+                               + $"`{RemnantCardImageProp}` 也没有 `{RemnantMatCapProp}` ⇒ 原版 `ConfigureMaterial` "
+                               + "那一层在这颗渲染器上**没有等价物**");
+                return;
+            }
+            var m = new Material(src) { name = src.name + " (remnant card)" };
+            if (canImage) m.SetTexture(RemnantCardImageProp, art);
+            if (canMatcap) m.SetTexture(RemnantMatCapProp, matcap);
+            mr.sharedMaterial = m;
+            RemnantMaterialWrites++;
+        }
+
+        /// <summary>自检口：残骸体内部某颗渲染器**现在**的贴图槽（真值回读 —— ⛔ 不用「调过几次」自证）。
+        /// `null` = 没那个节点 / 没那个属性 / 槽里是空的。</summary>
+        public Texture2D RemnantMaterialTexture(string childPath, string propName)
+        {
+            if (_remnantBody == null || string.IsNullOrEmpty(childPath) || string.IsNullOrEmpty(propName)) return null;
+            var t = _remnantBody.transform.Find(childPath);
+            var mr = t != null ? t.GetComponent<MeshRenderer>() : null;
+            if (mr == null || mr.sharedMaterial == null || !mr.sharedMaterial.HasProperty(propName)) return null;
+            return mr.sharedMaterial.GetTexture(propName) as Texture2D;
+        }
+
+        /// <summary>🆕 2026-10-22（P6 · M1/M2）：**残骸体里「灵石待机」那颗节点的相对路径**。
+        ///
+        /// <para>判据（第一权威，逐行读的）= `RemnantAeldari__GetDeathParticlePosition.c`：
+        /// 取 `this + 0x68` 那个 Transform 的 `position` 当**阵亡/收集粒子的出生点**；P5 实读那一位
+        /// = `wayStoneIdle`，落到 prefab 节点 **`RemnantBody3D Aeldari / Idle / Spirit Stone Idle`**
+        /// （localPosition `(0, 1.203, 0)`、scale 0.4431599）。判据全文 →
+        /// `资料/普查产出_1022/P5_四未查清.md:139` + `W64_素材导出缺口.md` §四⑦。</para>
+        /// <para>⚠️ 只有**灵族**那一具走这颗节点；死灵取的是残骸体**自己的** `transform.position`
+        /// （`RemnantNecrons__GetDeathParticlePosition.c`）⇒ 那条路**不要**用这个路径。</para></summary>
+        public const string RemnantIdleNodePath = "Idle/Spirit Stone Idle";
+
+        /// <summary>🆕 2026-10-22（P6 · M1/M2）：从**残骸体根**往下找一颗节点（只读口）。
+        /// ⛔ 不把 `_remnantBody` 本身交出去 —— 调用方只该「按路径取一颗 Transform」，
+        /// 别在外面改残骸体的层级 / 开关（那是 `SetRemnantBody` 的事）。
+        /// <para>没建过残骸体 / 路径不存在 / 路径为空 ⇒ `false`（调用方负责出声并走自己的兜底）。</para></summary>
+        public bool TryGetRemnantNode(string path, out Transform node)
+        {
+            node = null;
+            if (_remnantBody == null || string.IsNullOrEmpty(path)) return false;
+            node = _remnantBody.transform.Find(path);      // ⚠️ `Find` 只吃 `a/b` 形式的相对路径
+            return node != null;
+        }
 
         /// <summary>🆕 2026-10-22（`W64` · B16）**这一格用的是哪一件残骸体 prefab**（没建过是 null）。
         /// 自检用它区分「表里那件」与「按关键词猜那件」—— ⛔ 别只比 `RemnantBodyRoot.name`
@@ -1883,6 +2193,18 @@ namespace CardPresentation
         //    原版是资产里就挂好的）：那两个 prefab 在 `Assets/WarpforgeVFX/Prefabs/`，
         //    整个目录在 `.gitignore` 里（1.8 GB 大件）⇒ 手工改 prefab **重导一次就静默没了**；
         //    代码这条路可复现、可自检、取不到会出声。
+        //    ⚠️ **2026-10-22 更正（铁律 5）**：上面那句「原版是资产里就挂好的，我们运行时建」
+        //    **现在只剩一半对** —— 2026-10-22 重导之后，**两个 prefab 的
+        //    `RemnantLight → SpriteRenderer.m_Sprite` 已经挂上原版那颗真件了**
+        //    （实读 `Assets/WarpforgeVFX/Prefabs/RemnantBody3D Aeldari.prefab` /
+        //    `RemnantBody3D Necrons.prefab`：`m_Sprite` guid `d1d0e521e3fe489418b015ad0eb65622`
+        //    = `Assets/WarpforgeVFX/Textures/Glow UI W40K_sprite.png`，123×123 @PPU100，
+        //    且 `m_WasSpriteAssigned: 1`）。
+        //    ⇒ **运行期兜底（`RemnantGlowSprite()`）现在只在 `m_Sprite == null` 时才生效**
+        //      （即「prefab 里又没有 / 换了别的 prefab」那种情况），不再是常态路径。
+        //    ⇒ 自检那边（`Editor/BattleScene.cs` 那条「残骸体那圈的 sprite 挂上了」）已把判据
+        //      从「名字相等」升级成「**存在性 + 123×123 的尺寸**」：真件名是 `Glow UI W40K_sprite`，
+        //      `Glow UI W40K` 是「prefab 里没有时自建」那一档，两档都过。
         static Sprite _remnantGlowSprite;
         SpriteRenderer _remnantLight;
 
@@ -1915,7 +2237,8 @@ namespace CardPresentation
             sr.color = c;
         }
 
-        /// <summary>原版那颗 `Glow UI W40K`（123×123 @PPU100 · pivot .5/.5）。见上面「为什么运行时建」。</summary>
+        /// <summary>原版那颗 `Glow UI W40K`（123×123 @PPU100 · pivot .5/.5）。见上面「为什么运行时建」。
+        /// ⚠️ **2026-10-22 更正**：重导后 prefab 里已有真件 ⇒ 这是**兜底**（只在 `m_Sprite == null` 时用）。</summary>
         static Sprite RemnantGlowSprite()
         {
             if (_remnantGlowSprite != null) return _remnantGlowSprite;
@@ -1928,7 +2251,8 @@ namespace CardPresentation
                 return null;
             }
             var sp = Sprite.Create(tex, new Rect(0f, 0f, tex.width, tex.height), new Vector2(0.5f, 0.5f), 100f);
-            sp.name = "Glow UI W40K";                    // 自检按这个名比
+            sp.name = "Glow UI W40K";                    // 自检认这一档（=「prefab 里没有时自建」那档；
+                                                         // 真件名是 `Glow UI W40K_sprite`，两档都过）
             _remnantGlowSprite = sp;
             return sp;
         }
@@ -1940,6 +2264,20 @@ namespace CardPresentation
             {
                 var sr = RemnantLightRenderer();
                 return (sr != null && sr.sprite != null) ? sr.sprite.name : null;
+            }
+        }
+        /// <summary>自检用：残骸体那圈光那颗 sprite 的**像素矩形**（没建 / 没挂是 `default(Rect)` = 0×0）。
+        /// 🔴 2026-10-22：判据本体是**尺寸**（原版 `Glow UI W40K` = **123×123**）—— 挂上去的那颗
+        /// sprite 有**两个合法来源**：prefab 里的真件（`Glow UI W40K_sprite`，重导后已是常态）
+        /// 与运行期自建（`Glow UI W40K`，只在 `m_Sprite == null` 时的兜底）⇒ **名字只能用来分档**，
+        /// 「是不是原版那颗」要看尺寸。
+        /// ⛔ 别把尺寸塞进 `RemnantLightSpriteName` —— 那个的口径是「名字」，调用方按名分档。</summary>
+        public Rect RemnantLightSpriteRect
+        {
+            get
+            {
+                var sr = RemnantLightRenderer();
+                return (sr != null && sr.sprite != null) ? sr.sprite.rect : default(Rect);
             }
         }
         /// <summary>自检用：残骸体那圈光**现在的颜色**（应当 = 主状态环那一档的状态色）。</summary>
@@ -5096,6 +5434,20 @@ namespace CardPresentation
         /// 懒建、建好就留着（见 <see cref="SetRemnantBody"/>）。**不进 `_layers`**。</summary>
         GameObject _remnantBody;
 
+        // ---- 残骸体的动画 / 闲置粒子 / 卡面材质（🆕 2026-10-22 · P5 §⑦ 那两个缺口的等价接线）----
+        //  判据全是**反编译方法体**逐行读的（不是猜的）：
+        //   · 出生：`RemnantNecrons__Toggle.c` 末尾那句 `Animation.Play(this.toRemnantAnimationName)`；
+        //     灵族同一条在**它的 override** 里（`RemnantAeldari$$Toggle` @ RVA `0x640200`，
+        //     `withAnimation && option` 那一支：`BodyVisibilityToggle(false)` → `Animation.Play(+0x30)`）。
+        //     ⚠️ `decomp_full/RemnantAeldari__Toggle.c` 那个文件是**私有重载** `Toggle(bool)`（两份重载同名、
+        //        产物互相覆盖）—— 别拿它当「灵族不播动画」的证据。
+        //   · 撤场：死灵 `Toggle(false, withAnimation: true)` = **保持可见** + `ParticleSystem.Stop(+0x70)`
+        //     + `Animation.Play(reanimateAnimationName)`；演完由片段里的动画事件
+        //     `AnimationResurrectionEnd`（**1.8 s**）收尾。灵族**没有** `From Remnant` 片段 ⇒ 立即撤。
+        ParticleSystem _remnantIdlePs;          // 原版 `RemnantNecrons.remnantIdleParticleSystem`（GO `Particles Death Idle`）
+        float _remnantHideAt = -1f;             // >= 0 = 正在演 `From Remnant`，到这一刻藏（秒）
+        float _remnantHideClock;
+
         // ==================================================================
         //  「未行动」绿光（原版 `3DBody/CanActParticles` + 它的子节点 `RotatingRing`）
         //  —— 🆕 2026-09-26
@@ -6272,41 +6624,177 @@ namespace CardPresentation
         //    挂 `SwarmIconController`（`offAnimationTime = 0.3`、`myAnimation`、`toggleOnSound`）。
         //    `SwarmIconController.Toggle`（反编译实读）：on = 直接 SetActive + 开 Animation + 放声音；
         //    off = **DOFade 到 0 + DOLocalMove 回原位，时长 `offAnimationTime`（0.3s）**，完成后关掉。
-        //    ⚠️ **缺件**：那条 AnimationClip（外部 CAB，PathID 6836189287277267510）与 `toggleOnSound`
-        //    本批**没有**取到 / 播放 —— 现在只做「显示 + 0.3s 淡出」，动画与音效另立账。
         //    ⚠️ **触发链也没有接**（`CardScript.DisplaySwarm/RemoveSwarm` 的调用点在 `BattleDriver`，
         //    不在本批白名单里）：本类只提供 `SetSwarm(bool)`，接线由战斗线另行安排。
+        //
+        //  ✅ **2026-10-22（L-D）：上面那两条「缺件」已接上** —— 判据逐条：
+        //   · **clip 在运行时怎么拿**（三条候选里选**第 1 条**）：
+        //     `Swarm Battle Card Icon` 那份 prefab 的 `Animation` 组件**已经序列化**了片段引用 ——
+        //     `Assets/WarpforgeVFX/Prefabs/Swarm Battle Card Icon.prefab`：
+        //       `m_Animations: - {fileID: 7400000, guid: eca670d7134f9704aab1c6058384e579, type: 2}`
+        //       `m_PlayAutomatically: 0` · `m_CullingType: 0`(= AlwaysAnimate) · `m_WrapMode: 0`
+        //     该 guid = `Assets/WarpforgeVFX/Animations/SwarmIconOn.anim`（`m_Name = SwarmIconOn` ·
+        //     `m_Legacy: 1` · `m_SampleRate: 60`；原版 = `bundle_cardanimsgeneral_assets_all/
+        //     AnimationClip/AnimationClip_6836189287277267510.json`，**同名**）。
+        //     运行时那份 prefab 从效果库取（`WarpforgeEffectLibrary` 是 `Resources/` 下的 SO ⇒
+        //     prefab 与它的 clip 一起进 player）⇒ 见 `SwarmClip()`。
+        //     ⛔ **不用第 2 条**（`WarpforgeAnimatorBridge.TryGetClip`）：那条路只认 SimpleAnimation
+        //     的 `<效果名>|<状态名>` 容器别名（`gen_simple_animation_clips.py` 产的），这枚图标不是那族。
+        //     ⛔ **也就用不上第 3 条**（dump 成 JSON 自己插值）—— 真 `Animation` 组件能直接播原件。
+        //   · **音**：`SwarmIconController.toggleOnSound` = PPtr(**外部 CAB**, −4158225771113159080)
+        //     ⇒ `bundle_soundcollection_assets_all` 里 `m_Name = "Swarm Trait UI Enabled"` 的 `AudioCue`
+        //     （`clipList` 唯一一条 = `Tyranid_BulletHit` · pitch 0.9~1.1 · vol 1~1 · ttp 0.01）。
+        //     **原版只有「开」那一条**：`SwarmIconController` 上没有 toggleOffSound 字段，
+        //     反编译出来的 `Toggle(false)` 整支里**一个 `SoundManager` 调用都没有** ⇒ ⛔ 别自己补关音。
         GameObject _swarmIcon;
+        /// <summary>`SwarmIconOn` 的三条曲线 path 全是 **`Icon`**（位置 / 缩放 / `m_Color.a`）⇒
+        /// 必须有一层同名子件给 `Animation` 绑。原版 prefab 就是这么分的（根 = 控制器 + Animation）。
+        /// <para>⚠️ 我们的基准 scale 放**下一层 `Mesh`**（`SwarmLocalScale` 已经把 prefab 那层的
+        /// `1.016651` 乘进去了）⇒ 这一层的基准 = `Vector3.one`，别在这里再乘一次。</para></summary>
+        Transform _swarmIconNode;
         MeshRenderer _swarmIconMr;
+        Animation _swarmAnim;
         Tweener _swarmFade;
-        float _swarmAlpha = 1f;
+        float _swarmAlpha;
 
         /// <summary>原版 `SwarmIconController.offAnimationTime = 0.3`（预制体字段，秒）。</summary>
         public const float SwarmOffFadeTime = 0.3f;
+        /// <summary>效果库里那份 prefab 的名字（= 原版 Addressable 预制体名，`CardScript.swarmObject`）。</summary>
+        public const string SwarmPrefabName = "Swarm Battle Card Icon";
+        /// <summary>prefab 的 `Animation.m_Animations[0]`（`SwarmIconOn.anim`，`m_Name` 同名）。</summary>
+        public const string SwarmClipName = "SwarmIconOn";
+        /// <summary>原版 `toggleOnSound` 的 cue 名（判据见上面那一段）。**只有开音**。</summary>
+        public const string SwarmOnCue = "Swarm Trait UI Enabled";
+        /// <summary>clip 里 `m_Color.a` 那条曲线的时长：两个关键帧 t=0/0.35、value 0/1。
+        /// 实读 `WarpforgeVFX/Animations/SwarmIconOn.anim` 的 `m_FloatCurves[0]`。
+        /// ⚠️ 那条曲线绑的是 **SpriteRenderer**（classID 212）⇒ 我们的网格图标收不到，
+        /// 由 `_swarmFade` 照这三个数补一遍（不是近似：起点 / 终点 / 时长逐一相同）。</summary>
+        public const float SwarmFadeInTime = 0.35f;
         /// <summary>Swarm 图标中心（卡根 = 原版 3DBody 空间；y = 3.329 − 半卡高）。</summary>
         public static Vector3 SwarmLocalPos { get { return new Vector3(0f, 3.329f - CardUnitH * 0.5f, -0.05f); } }
         /// <summary>Swarm 图标尺寸 = `m_Size 3.06×4.45` × localScale 1.016651（卡单位；SpriteRenderer 是拉伸画）。</summary>
         public static Vector3 SwarmLocalScale { get { return new Vector3(3.06f * 1.016651f, 4.45f * 1.016651f, 1f); } }
 
         /// <summary>显示 / 收起「虫群合并」图标（原版 `CardScript.DisplaySwarm/RemoveSwarm` → `SwarmIconController.Toggle`）。
-        /// ⚠️ 判据缺口见上面那一段（动画 clip / 音效 / 触发接线）。</summary>
+        /// 三支逐句对齐 `SwarmIconController__Toggle.c`（判据见上面那一段）。</summary>
         public void SetSwarm(bool on)
         {
             if (on && _swarmIcon == null) BuildSwarm();
             if (_swarmIcon == null) return;
             if (_swarmFade != null && _swarmFade.IsActive()) _swarmFade.Kill();
+
             if (on)
             {
-                _swarmAlpha = 1f;
+                // 原版 `Toggle(true)`：`DOTween.KillAll(spriteRenderer.gameObject)` / `KillAll(transform.gameObject)`
+                //  → `transform.localPosition = originalPosition` → `gameObject.SetActive(true)`
+                //  → `myAnimation.enabled = true` → `SoundManager.Play2D(toggleOnSound)` → `myAnimation.Play()`。
+                _swarmIcon.transform.localPosition = SwarmLocalPos;      // 回原位（原版缓存下来的 originalPosition）
+                _swarmIcon.SetActive(true);                              // ⚠️ 必须在 Play 之前（见 BuildSwarm 注释）
+                PlaySwarmOnSound();                                      // 原版顺序：先 `Play2D` 再 `Play()`
+                PlaySwarmAnimation();
+                // 淡入：clip 的 `m_Color.a` 曲线（0 → 1 @ 0.35 s）绑不到 MeshRenderer ⇒ 自己补一遍。
+                // （原版 `Play()` 一调，那条曲线也是从 0 重新走 ⇒ 我们要的正是「开的那一拍 alpha 归 0」。）
+                _swarmAlpha = 0f;
                 ApplySwarmAlpha();
-                _swarmIcon.SetActive(true);
+                _swarmFade = DOTween.To(() => _swarmAlpha, v => { _swarmAlpha = v; ApplySwarmAlpha(); },
+                                        1f, SwarmFadeInTime).SetUpdate(CardTween.Mode);
                 return;
             }
+
             if (!_swarmIcon.activeSelf) return;
-            // 原版 off 那一支：淡出 + 位移动画，时长 `offAnimationTime`；这里只做淡出（见上面缺件说明）。
+            // 原版 `Toggle(false)`：`myAnimation.enabled = false` → `spriteRenderer.DOFade(0, offAnimationTime)`
+            //  → `transform.DOLocalMove(originalPosition, offAnimationTime).OnComplete(SetActive(false))`。
+            // ⚠️ 原版这一整支被 `if (myAnimation != null)` 包着（= clip 缺件时连淡出都不做）——
+            //    那是写法上的意外、不是设计 ⇒ 我们照旧淡出（真缺件时 `PlaySwarmAnimation` 那边会出声说明）。
+            // ⚠️ 原版那句 `DOLocalMove` 在我们这儿**是空操作**：根节点从建起就没被移动过，脚本里也没有
+            //    任何东西移动它（原版同理，它缓存的 originalPosition 就是出厂位）⇒ 不额外造一条同值补间
+            //    （那会多一个没 `SetLink` 的 Transform 补间，见 `CardTween.Use` 的注释）。
+            // ⚠️ 原版**关的时候不播声音**（见上面判据），⛔ 别补。
+            if (_swarmAnim != null) _swarmAnim.enabled = false;   // 关掉 = 让 Unity 把 `Icon` 那层弹回基准
+            ResetSwarmNode();                                     // 不指望引擎还原：显式再写一遍
             _swarmFade = DOTween.To(() => _swarmAlpha, v => { _swarmAlpha = v; ApplySwarmAlpha(); }, 0f, SwarmOffFadeTime)
                                 .SetUpdate(CardTween.Mode)
                                 .OnComplete(() => { if (_swarmIcon != null) _swarmIcon.SetActive(false); });
+        }
+
+        /// <summary>原版 `Toggle(true)` 末两句：`myAnimation.enabled = true; myAnimation.Play();`。
+        /// ⚠️ 原版调的是 **无参 `Play()`**（播 `m_Animation` 那个默认片段，prefab 上 = 同一条）；
+        /// 我们按**名字**播（`m_Animations[0]`，名字 = <see cref="SwarmClipName"/>）—— 同一条资产，
+        /// 但名字这条路在「以后有人往 prefab 上多挂一条」时不会静默播错。</summary>
+        void PlaySwarmAnimation()
+        {
+            if (_swarmAnim == null) return;                       // `BuildSwarm` 已经出过声（为什么没挂上）
+            var clip = _swarmAnim.GetClip(SwarmClipName);
+            if (clip == null) return;                             // 同上
+            _swarmAnim.enabled = true;
+            _swarmAnim.Play(SwarmClipName);
+            SwarmAnimationPlayCalls++;
+            SwarmLastAnimationClip = clip.name;
+        }
+
+        /// <summary>原版 `SoundManager.Play2D(toggleOnSound)`（**2D**，不衰减）—— 走工程既有的 cue 通道
+        /// （`WFSoundBank` / `WFSoundPlayer`，与 `DraggableController.PlayDragSound` 同一条），⛔ 不另造播放器。
+        /// 取不到 cue **必须出声**（只报一次，免得逐张卡刷屏）。</summary>
+        static readonly HashSet<string> _swarmCueWarned = new HashSet<string>();
+        void PlaySwarmOnSound()
+        {
+            WarpforgeVFX.WFSoundCue cue;
+            if (!WarpforgeVFX.WFSoundBank.TryGetCue(SwarmOnCue, out cue))
+            {
+                if (_swarmCueWarned.Add(SwarmOnCue))
+                    Debug.LogWarning("[CardView] 虫群图标开音 `" + SwarmOnCue + "` 在 `WFSoundBank` 里取不到 ⇒ 这一拍**不出声**"
+                                   + "（**不是静默**：原版 = `SwarmIconController.toggleOnSound`，cue 名与 clip 都已解出；"
+                                   + "缺的是 cue 表里那一行 —— 跑 `工具/import_original_sfx.py` 补）");
+                return;
+            }
+            WarpforgeVFX.WFSoundPlayer.Play(cue, Vector3.zero, true);   // is2d = true ⇒ 原版 `Play2D`
+            SwarmOnSoundCalls++;
+            SwarmLastSoundCue = cue.name;
+        }
+
+        /// <summary>把 clip 动过的那一层 `Icon` 弹回基准。原版靠 `Animation.enabled = false` 让 Unity 还原；
+        /// **批处理 / 自检里不能指望引擎帮你还原** ⇒ 显式写一遍（位置 0、scale 1，见字段注释）。</summary>
+        void ResetSwarmNode()
+        {
+            if (_swarmIconNode == null) return;
+            _swarmIconNode.localPosition = Vector3.zero;
+            _swarmIconNode.localScale = Vector3.one;
+        }
+
+        static AnimationClip _swarmClip;
+        static bool _swarmClipTried;              // 负缓存：取不到只报一次
+        /// <summary>从效果库那份 prefab 上取 `SwarmIconOn`（判据：prefab 的 `Animation.m_Animations[0]`
+        /// 已序列化 guid `eca670d7134f9704aab1c6058384e579` = `Assets/WarpforgeVFX/Animations/SwarmIconOn.anim`）。
+        /// 取不到返回 null **并出声**（不许静默失败）。</summary>
+        static AnimationClip SwarmClip()
+        {
+            if (_swarmClip != null) return _swarmClip;
+            if (_swarmClipTried) return null;
+            _swarmClipTried = true;
+
+            var lib = WarpforgeVFX.WarpforgeEffectLibrary.Instance;
+            WarpforgeVFX.WFEffectEntry entry;
+            if (lib == null || !lib.TryGet(SwarmPrefabName, out entry) || entry.prefab == null)
+            {
+                Debug.LogWarning($"[CardView] 效果库里取不到 `{SwarmPrefabName}` ⇒ 虫群图标**没有动画**"
+                               + "（开音不受影响：它走 cue 表，与效果库无关）。"
+                               + "**不是静默**；修法 = 重跑 `工具/extract_missing_shaders.py --prefabs` + "
+                               + "Tools > Warpforge > 生成效果库");
+                return null;
+            }
+            var src = entry.prefab.GetComponent<Animation>();
+            // 先按名字取（prefab 的 `m_Animations`），取不到再退 `m_Animation`（同一份资产的默认片段）——
+            // 两条都是 prefab 上**已序列化**的字段，不依赖任何运行时状态。
+            var clip = src != null ? (src.GetClip(SwarmClipName) ?? src.clip) : null;
+            if (clip == null)
+            {
+                Debug.LogWarning($"[CardView] `{SwarmPrefabName}` 的 `Animation` 组件上取不到片段 `{SwarmClipName}`"
+                               + "（prefab 的 `m_Animations` 应指向 `WarpforgeVFX/Animations/SwarmIconOn.anim`）"
+                               + " ⇒ 图标照旧显示，但**不播动画**");
+                return null;
+            }
+            _swarmClip = clip;
+            return clip;
         }
 
         void ApplySwarmAlpha()
@@ -6317,6 +6805,15 @@ namespace CardPresentation
             _swarmIconMr.sharedMaterial.color = c;
         }
 
+        /// <summary>层级照搬原版 prefab（只把 SpriteRenderer 换成网格画）：
+        /// <code>
+        ///   SwarmIcon   ← 根：挂 `Animation`（= 原版 prefab 根上的那份）；localPos = SwarmLocalPos
+        ///     Icon      ← clip 三条曲线的 path 都是它（放大 / 上浮 / 淡入）
+        ///       Mesh    ← Quad + 材质，localScale = SwarmLocalScale（**非等比** 3.06 × 4.45）
+        /// </code>
+        /// 为什么要多一层 `Mesh`：clip 的缩放曲线是 **uniform**（0.6123 → 1.385），直接作用在网格上会把
+        /// 原版那对非等比尺寸抹成正方形；而原版是「SpriteRenderer 的 `m_Size` 3.06×4.45 × 均匀变换缩放」
+        /// ⇒ 把尺寸放在固定的一层、缩放交给上面对应的一层，两边等价。</summary>
         void BuildSwarm()
         {
             var tex = CardArt.Trait("swarm");
@@ -6332,11 +6829,24 @@ namespace CardPresentation
             _swarmIcon.transform.SetParent(transform, false);
             _swarmIcon.transform.localPosition = SwarmLocalPos;
             _swarmIcon.transform.localRotation = Quaternion.identity;
+            _swarmIcon.transform.localScale = Vector3.one;   // 基准尺寸在 `Mesh` 那层（见方法注释）
+
+            var node = new GameObject("Icon");               // ⚠️ 名字不能改：clip 的 path 就是 `Icon`
+            node.transform.SetParent(_swarmIcon.transform, false);
+            node.transform.localPosition = Vector3.zero;
+            node.transform.localRotation = Quaternion.identity;
+            node.transform.localScale = Vector3.one;
+            _swarmIconNode = node.transform;
+
+            var mesh = new GameObject("Mesh");
+            mesh.transform.SetParent(node.transform, false);
+            mesh.transform.localPosition = Vector3.zero;
+            mesh.transform.localRotation = Quaternion.identity;
             // `QuadMesh()` 是 1×1 的 Quad ⇒ localScale 就是世界尺寸。原版 `m_Size` 是**非等比**的
             // （3.06 × 4.45），SpriteRenderer 照拉不误 ⇒ 这里也照拉，⛔ 别按贴图比例内接。
-            _swarmIcon.transform.localScale = SwarmLocalScale;
-            _swarmIcon.AddComponent<MeshFilter>().sharedMesh = QuadMesh();
-            _swarmIconMr = _swarmIcon.AddComponent<MeshRenderer>();
+            mesh.transform.localScale = SwarmLocalScale;
+            mesh.AddComponent<MeshFilter>().sharedMesh = QuadMesh();
+            _swarmIconMr = mesh.AddComponent<MeshRenderer>();
             var m = new Material(BaseMaterial()) { name = "SwarmIcon" };
             m.mainTexture = tex;
             m.color = Color.white;
@@ -6344,8 +6854,36 @@ namespace CardPresentation
             _swarmIconMr.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
             _swarmIconMr.receiveShadows = false;
             // ⚠️ **不进 `_layers`**：颜色/alpha 由本类按 `SetSwarm` 的补间说了算（同 `Minion Death Icon`）。
+
+            // `Animation` 挂在**根**上（与原版 prefab 同构）。三个字段照抄 prefab：
+            // `m_PlayAutomatically: 0` ⇒ 必须我们自己调 `Play()`；`m_CullingType: 0` = AlwaysAnimate；
+            // `m_WrapMode: 0` = Default（clip 自己的 `m_WrapMode` 也是 0 ⇒ Once）。
+            // ⚠️ 一条 clip 都没挂上时**不建组件**（免得留一个空 `Animation` 骗过「有没有接上」的判读）。
+            var clip = SwarmClip();
+            if (clip != null)
+            {
+                _swarmAnim = _swarmIcon.AddComponent<Animation>();
+                _swarmAnim.playAutomatically = false;
+                _swarmAnim.cullingType = AnimationCullingType.AlwaysAnimate;
+                _swarmAnim.AddClip(clip, SwarmClipName);
+            }
             _swarmIcon.SetActive(false);
         }
+
+        /// <summary>自检口：`Animation.Play(...)` **真的被调过几次**（同 `RemnantAnimationPlayCalls` ——
+        /// edit mode / 批处理里 `Animation.isPlaying` 与采样都不可靠，调用计数是唯一与引擎状态无关的观察点；
+        /// 没挂上组件 / 没播 ⇒ 恒 0 ⇒ 断言照红，⛔ 不是放宽）。</summary>
+        public int SwarmAnimationPlayCalls { get; private set; }
+        /// <summary>自检口：最近一次真的播出去的片段名（null = 还没播过）。</summary>
+        public string SwarmLastAnimationClip { get; private set; }
+        /// <summary>自检口：`toggleOnSound` 真的交给播放器几次。</summary>
+        public int SwarmOnSoundCalls { get; private set; }
+        /// <summary>自检口：最近一次交出去的 cue 名（= <see cref="SwarmOnCue"/>）。</summary>
+        public string SwarmLastSoundCue { get; private set; }
+        /// <summary>自检口：当前 alpha（淡入 0→1 / 淡出 1→0）。</summary>
+        public float SwarmAlphaNow { get { return _swarmAlpha; } }
+        /// <summary>自检口：`Icon` 那层当前的 localScale（批处理里验「曲线有没有真绑上」用它）。</summary>
+        public Vector3 SwarmNodeLocalScale { get { return _swarmIconNode != null ? _swarmIconNode.localScale : Vector3.zero; } }
 
         /// <summary>自检用：Swarm 图标现在显示着吗（没建过 = false）。</summary>
         public bool SwarmVisible { get { return _swarmIcon != null && _swarmIcon.activeSelf; } }

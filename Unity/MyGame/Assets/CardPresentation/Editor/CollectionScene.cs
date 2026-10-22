@@ -1634,6 +1634,99 @@ public static class CollectionScene
                           "（收尾）列表态：模式页关、`Decks Tab` 开 —— 下面那些列表断言的前提");
             }
 
+            // ============================================================ 🆕 **2026-10-22（W64 返回链 · D2）**
+            //   「选过模式之后回不去模式页」：改前 `ShowDeckModePage()` / `ClearDeckModeFilter()` **零生产调用点**
+            //   （只有自检调），而收藏窗被 `Hide` 之后**复用同一实例**（`_deckModeFilter` 留着）
+            //   ⇒ 选过一次模式，这扇窗就永远只筛那个模式。
+            //   判据（第一权威 · 逐句读反编译，⛔ 不是猜）：
+            //     · `CollectionScreen__BackButtonClick.c` —— 按**窗口页签对象的类型**分派：是 `SelectDecksTab`
+            //       ⇒ 交给 `SelectDecksTab.BackButtonClicked`；否则落 vtable `+0x1e8`（关窗/上一层）。
+            //     · `SelectDecksTab__BackButtonClicked.c` —— `if (this[+0x60] != this[+0x58])`
+            //       （子页签 ≠ 模式页）⇒ `this[+0x60] = null` + `ChooseTabToOpen(0)`（= 回模式页）；否则关窗。
+            //   🔴 本段用**真 Back 钮**（窗根 `CloseHit` 那颗 `WindowButton`）驱动，⛔ 不直调 `ShowDeckModePage()`
+            //   —— 直调只能证明「那个方法能跑」，证明不了「钮接上了」（本段要防的正是那个缺口）。
+            Section("Deck 页：Back 钮的返回链（W64 · 原版 `SelectDecksTab.BackButtonClicked`）");
+            {
+                // 直接子件：`Shell/CollectionWindow.cs` 里是 `AddHit(transform, "CloseHit", …)`
+                // （⚠️ 别用递归的 `FindChild` —— 后面几节开着的弹窗里也有同名的 `CloseHit`）。
+                var backHit = win.transform.Find("CloseHit");
+                var backWb = backHit != null ? backHit.GetComponent<WindowButton>() : null;
+                CheckTrue(backWb != null,
+                          "（前提）收藏窗那颗 Back 钮（窗根 `CloseHit` · `WindowButton`）取得到"
+                        + " —— 取不到 ⇒ 下面几条**没跑**，不是绿");
+                if (backWb != null)
+                {
+                    var pgB = win.PageRoot(0);
+                    var modePgB = pgB != null ? pgB.Find("Select Game Mode Deck Tab") : null;
+                    var decksNdB = pgB != null ? pgB.Find("Decks Tab") : null;
+                    var modeCardsB = modePgB != null ? modePgB.Find("Scroll View/Viewport/Content") : null;
+
+                    float savedOffB = win.DeckScroll != null ? win.DeckScroll.Offset : 0f;
+                    if (win.DeckScroll != null) win.DeckScroll.SetOffset(0f);
+                    int nAllB = CollectionData.DeckCount();
+                    int lastB = nAllB - 1;
+                    int lastSavedB = lastB >= 0 ? CollectionData.Raw(lastB).GameMode : 0;
+                    try
+                    {
+                        // 夹具：把最后一套临时改成「小冲突」（同一套手法见上面 W64 第 ⑤ 步；退出时还原）
+                        if (lastB >= 0) CollectionData.Raw(lastB).GameMode = (int)GameMode.Skirmish;
+
+                        // ---- ① 先选一个模式 ⇒ 列表态 ----
+                        win.ChooseDeckMode((int)GameMode.Skirmish);
+                        Check(win.DeckModeFilter, (int)GameMode.Skirmish, "★ W64-B ① 选「小冲突」⇒ 列表筛 13");
+                        Check(win.DeckCellCount, 1, "★ W64-B ① …只剩那一套（夹具里只有它 `GameMode=13`）");
+                        // 谓词（唯一判据）在这一档必须为真：原版 ① 页签是 `SelectDecksTab` ② 子页签 ≠ 模式页
+                        CheckTrue(win.ShouldReturnToDeckModePage(),
+                                  "★ W64-B ① 列表态 ⇒ `ShouldReturnToDeckModePage()` **为真**");
+
+                        // ---- ② 按**真 Back 钮** ⇒ 回模式页（原版第一支）----
+                        backWb.Click();
+                        Check(win.DeckModeFilter, -1,
+                              "★ W64-B ② Back ⇒ 模式筛清空（`-1` = 原版那句 `this[+0x60] = null` 的可观测等价物）"
+                            + "｜🧨 把 `OnBackClicked()` 里的 `ShowDeckModePage()` 删掉（或整段改回 `Close()`）⇒ 本格红");
+                        // 🔴 **灭自证**：只断「模式页可见」挡不住「两半都开着」⇒ 同时断列表**关着**；
+                        //   也⛔ 不能把「窗被关掉」当成通过 ⇒ 第三条单独钉「窗还开着」。
+                        CheckTrue(modePgB != null && modePgB.gameObject.activeSelf,
+                                  "★ W64-B ② …**模式页可见**（原版 `ChooseTabToOpen(0)` ⇒ `ToggleSelectGameModeDeck`）"
+                                + "｜🧨 `CloseHit` 的 onClick 改回 `() => Close()` ⇒ 窗被关、本格红");
+                        CheckTrue(decksNdB != null && !decksNdB.gameObject.activeSelf,
+                                  "★ W64-B ② …而卡组列表 `Decks Tab` **关着**（§5·3 显隐矩阵）：两半**互斥**");
+                        CheckTrue(win.gameObject.activeSelf,
+                                  "★ W64-B ② …窗本身**还开着**（这一支是「回上一层子页」，⛔ 不是关窗）");
+
+                        // ---- ③ 反例：已经在模式页 ⇒ 谓词为假（Back 该落「关窗」那一支）----
+                        //   ⛔ 这里**不真点**：点了就关窗，本文件后面的断言会全跑在一扇关着的窗上。
+                        CheckTrue(!win.ShouldReturnToDeckModePage(),
+                                  "★ W64-B ③ 反例：模式页上 ⇒ `ShouldReturnToDeckModePage()` **为假**"
+                                + "（原版 `this[+0x60] == this[+0x58]` ⇒ 落 vtable `+0x1e8`）"
+                                + "｜🧨 把谓词写成恒真 ⇒ 本格红（那样模式页上按 Back 永远关不了窗）");
+
+                        // ---- ④ 回模式页之后再点**另一张**模式卡 ⇒ 列表按**新模式**筛 ----
+                        //   这一条灭的是「模式页只是亮着、其实点不动」那种假修法。
+                        var c1B = modeCardsB != null && modeCardsB.childCount >= 2 ? modeCardsB.GetChild(1) : null;
+                        var c1Wb = c1B != null && c1B.Find("Hit") != null
+                                       ? c1B.Find("Hit").GetComponent<WindowButton>() : null;
+                        CheckTrue(c1Wb != null, "（前提）右卡（经典）的命中区 `Hit` 取得到");
+                        if (c1Wb != null) c1Wb.Click();      // 右卡 = `MainMenu/GameMode/Classic` ⇒ mode 0
+                        Check(win.DeckModeFilter, (int)GameMode.Classic,
+                              "★ W64-B ④ 回模式页后再点「经典」⇒ 筛 **0**（`ChooseDeckMode` 仍是唯一入口）");
+                        Check(win.DeckCellCount, nAllB - 1,
+                              "★ W64-B ④ …列表按**新模式**筛：经典 " + (nAllB - 1) + " 套（那套小冲突被筛掉）"
+                            + "｜🧨 若模式页回来后命中区还压着 / `ChooseDeckMode` 只改状态不重筛 ⇒ 本格红");
+                        CheckTrue(modePgB != null && !modePgB.gameObject.activeSelf,
+                                  "★ W64-B ④ …模式页又关掉（回到列表态）");
+                    }
+                    finally
+                    {
+                        if (lastB >= 0) CollectionData.Raw(lastB).GameMode = lastSavedB;   // 还原夹具
+                        win.ClearDeckModeFilter();
+                    }
+                    Check(win.DeckCellCount, nAllB, "★ W64-B（收尾）还原：清掉模式筛 ⇒ 列表回到全部 " + nAllB + " 套");
+                    // ⚠️ 滚动偏移**最后**还原（与上面 W64 段同一条纪律：先还原它会把「视口外的格不建」带回来）
+                    if (win.DeckScroll != null) win.DeckScroll.SetOffset(savedOffB);
+                }
+            }
+
             // ---------------- Deck 页：视口 / 格 / 6 列 ----------------
             Section("Deck 页：卡组列表的几何（正本 §三；A2 实测）");
             var listHolder = FindChild(tabsRoot, "Deck Scroll View");
@@ -9686,7 +9779,12 @@ public static class CollectionScene
                 //    （`PlayerProfileWindow.cs` 的 `Solid` —— 与 `Rect/Nine/Text` 不同，**这是一条真缺口**，已写进报告）。
                 //    ⇒ 这一处的可观测面是**压在带里的文字**：`MenuDraw.ClipText` 对带内顶点按同一剖面削 alpha。
                 var ttGrid = FindChild(FindChild(pp.transform, "Title Tab"), "Item Drawer");
-                var ttLb = FindChild(FindChild(ttGrid, "TitleDrawer_9"), "Name");
+                // 🔴 **2026-10-23 订正（铁律 5）**：格子里的文字子件从 `Name` 改名为 **`Title`** ——
+                //   代理 P1 按原版模板 `Title Drawer Horizontal Variant` 重画了格子
+                //   （`Content > Background(石板) + Title(黑字) + Image/Image Top(阵营徽记)`；
+                //    原版模板里的 `Label`/`Name`/`Army` 三件 **m_IsActive=0 ⇒ 我们不再建**）。
+                //   旧断言按 `Name` 找 ⇒ 恒 null ⇒ 本条会假红。
+                var ttLb = FindChild(FindChild(ttGrid, "TitleDrawer_9"), "Title");
                 var ttTmp = ttLb != null ? ttLb.GetComponentInChildren<TMPro.TextMeshPro>() : null;
                 CheckTrue(ttTmp != null,
                           "第 4 行第 1 格（`TitleDrawer_9`：y 790.70..920.70，**压着视口底 855.46**）的名字有 TMP 网格");

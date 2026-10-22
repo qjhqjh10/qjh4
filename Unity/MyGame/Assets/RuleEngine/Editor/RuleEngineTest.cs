@@ -841,6 +841,10 @@ public static partial class RuleEngineTest
         Step(TestT02OrConditionTargetDiesOrFriendly);   // `If the target dies or is a friendly unit`
         Step(TestT02SacrificeBodyLandsOnSelf);          // `Sacrifice:` 正文的 +1 落在被献祭那张自己身上
         Step(TestT02PlacementNoOverwriteFamily);        // 抢单位 / 控制到期归还 也走同一道不覆盖闸
+        Step(TestT02FirstFreeSlotHonoursAvailability);  // `FirstFreeSlot` 也不许返回被占格（`W63` 点名的最后残留）
+        Step(TestT02NextDeploySlotHonoursAvailability); // `NextDeploySlot` 的平衡支同理（`W63` 第二批）
+        Step(TestT02ReturnSideIsAvailableSlot);       // 归还侧判据 = 原版 `IsAvailableSlot`（`T02·P4`）
+        Step(TestT02ResolveWarlordSlotHonoursAvailability); // `Resolve` 的督军格退化路也不许指向被占格（`W63` 最后一笔）
 
         // ============================================================
         //  🔴 2026-10-21（引擎线 `T03·b`）：**回合流程残余的三块缺失机制**

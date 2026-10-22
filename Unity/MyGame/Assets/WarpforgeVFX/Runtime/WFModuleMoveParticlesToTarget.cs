@@ -55,7 +55,8 @@
 //     两个静态钩子给（`BattleDriver` 接 HUD 相机 + 棋盘相机）。见 `UpdateTargetPosition`。
 //     `desiredZPosition` 现在**参与计算**（= 原版那句里的深度项）。
 //     ⚠️ **若那个粒子系统是 Local 模拟空间，两者不在一个坐标系** —— 我们**查不到**这个实例的模拟空间
-//     （它的 prefab 没被导出，见下），先按世界坐标做。
+//     （~~它的 prefab 没被导出，见下~~ ⚠️ **2026-10-22 更正：prefab 已导出、已进库** —— 见下 ② 的更正；
+//      模拟空间这一条**本轮没重验**，仍按世界坐标做）。
 //   · **本模块在 `ModuleTick` 里跑**（我们框架只有这一个时机），而原版在 `LateUpdate`：
 //     原版是「粒子模拟完之后、渲染之前」改位置，我们在 `Update` 时机改 ⇒ 改动可能被同帧的模拟再推一次。
 //     要严格对齐得给播放器加一个 LateUpdate 时机（本次不许动播放器）。
@@ -75,6 +76,12 @@
 //   ② **`Remnant Aeldari Collect particles` 这个实例在我们工程里跑不起来** —— 2026-09-18 实测：
 //      `WarpforgeVFX/Prefabs/` 下**没有这个 prefab**、`Resources/WarpforgeVFX/WarpforgeEffectLibrary.asset`
 //      里**也没有这个效果**（导出侧没搬它）⇒ 本模块现在只能靠手挂 / 将来补导出才会真的跑。
+//      ⚠️ **2026-10-22 更正（铁律 5）：已导出并进库** —— 现读
+//      `Assets/WarpforgeVFX/Prefabs/Remnant Aeldari Collect particles.prefab` **在**（2026-10-22 18:23），
+//      `Resources/WarpforgeVFX/WarpforgeEffectLibrary.asset` 里 `entries` 也有这一条
+//      （现读共 **973** 条），于是本模块**有实例可跑了**。
+//      本条保留原判据的说明价值：它记的是「当年为什么只能靠手挂」这个前提，判据本身（去哪两处看）
+//      仍然有效 —— ⛔ 下次别因为这里写了「跑不起来」就不去接它。
 //   ③ 相机换算那一层（理由见上「我们定的」）。
 using System;
 using System.Collections.Generic;

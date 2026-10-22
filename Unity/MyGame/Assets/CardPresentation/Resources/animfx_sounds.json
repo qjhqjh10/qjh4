@@ -4146,6 +4146,17 @@
    "timeToPlayAgain": 0.1
   },
   {
+   "name": "Swarm Trait UI Enabled",
+   "clips": [
+    "Tyranid_BulletHit"
+   ],
+   "minPitch": 0.9,
+   "maxPitch": 1.1,
+   "minVolume": 1.0,
+   "maxVolume": 1.0,
+   "timeToPlayAgain": 0.01
+  },
+  {
    "name": "Swarm Trigger OnTarget",
    "clips": [
     "Swarm OnTarget"

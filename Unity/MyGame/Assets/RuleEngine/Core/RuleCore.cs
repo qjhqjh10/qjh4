@@ -2085,7 +2085,22 @@ namespace RuleEngine
             //       就判过同一条（接收方的棋盘要有位：`_ResolveStealMinion_d__551:35 MinionManager.IsAvailableSlot(mm,1)`
             //       → 假则 `:41 LogWarning` + `:107 FinishResolvingAction`，**整个转移不作数**）——
             //       我们**抢**的那一侧已有等价判据（`EffectResolver.DoTakeControl`：落点 −1 ⇒ 抢不过来 +
-            //       记 `unresolved`）；**归还**这一侧是不是同一条，原版那条链仍未追到（同上，判据不足）
+            //       记 `unresolved`）。
+            //       🔴 **2026-10-22（`T02·P4`）判据已查实，原来这里写的「原版那条链仍未追到（判据不足）」到此结案**：
+            //          **原版根本没有「归还」这一跳** —— 全库里翻转归属（`CardScript +0x40` isPlayer）的只有
+            //          `CardScript__ChangeOwner.c`（= `+0x40` 取反）与 `CardScript__SetAsPlayer.c`，而调用点只有
+            //          5 处：`_ResolveStealMinion_d__551:59`、`_ResolveExchangeMinion_d__552:154/:159`（场上单位）、
+            //          `_ResolveStealFromDeck_d__547:87` / `_ResolveStealFromHand_d__546:209`（手牌，不是棋盘单位）；
+            //          **没有任何路径把它翻回去**；`BuffType`（`BuffType.cs:1-31`）里没有「控制权」这一项，
+            //          `CardEffect.untilEndOfTurn`（`CardEffect.cs:25`）只挂在增益上（消费点 `CardScript__ClearEndOfTurnEffects.c`）。
+            //          ⇒ **「归还侧的 `IsAvailableSlot` 判据」在原版不存在（没有这一侧可判）**；
+            //          我们这一侧的闸 = **原版自己那条入口判据**的等价物：`NextFreeWithoutDisplacing < 0`
+            //          ⇔ `BoardSlots.IsAvailableSlot(ps, 1) == false`（`MinionManager__IsAvailableSlot.c:19-29`，
+            //          两侧容量−人数相加 >= n）。判据收在 `BoardSlots` 一处，⛔ 别在这里另写。
+            //          ⚠️ **只报不改（未实证）**：`GSC49 Telepathic Domination` 卡面写 `this turn`，而原版数字版
+            //          这条链**看起来**是**永久**取得控制权（无回跳）—— 但 GSC49 的原版 ability 数据本地取不到
+            //          （`cards_1195_2022时代.json` 里 GSC 一张都没有）⇒ **「原版把它实现成永久」是推断、不是实证**，
+            //          本笔不动行为（按卡面做成临时是本仓既有口径）。
             //       ⇒ 行为保持不动、如实出声。
             if (ctx.TempControls.Count > 0)
             {
@@ -2116,7 +2131,8 @@ namespace RuleEngine
                                   + $"该侧也没有空格 —— **{u.Name} 还不回去**，暂时留在抢它的人那儿");
                         else
                             ctx.Log($"⚠️ {ctx.Players[tc.Owner].Name} 的部署位也满了 —— **{u.Name} 还不回去**"
-                                  + "（转移要接收方有空位，原版 `MinionManager.IsAvailableSlot` 那一判）"
+                                  + "（两侧都没空位 = 原版 `MinionManager.IsAvailableSlot(mm,1)` 为假；"
+                                  + "原版在**抢**的入口就判这一条、没有归还这一跳）"
                                   + "，暂时留在抢它的人那儿（本版没做「放不下怎么办」）");
                         continue;
                     }

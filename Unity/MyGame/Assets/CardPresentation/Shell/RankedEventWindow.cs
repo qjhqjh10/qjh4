@@ -38,6 +38,22 @@ namespace CardPresentation
         const float TgUnrankedL = 12.30f, TgUnrankedT = 868.12f, TgUnrankedR = 268.70f, TgUnrankedB = 920.52f;
         const float TgKnobL = 296.30f, TgKnobT = 875.04f, TgKnobR = 385.30f, TgKnobB = 915.04f;
 
+        // ---- `Ranked Division Info/Content/Timer`（= `RankingDisplay.timerDisplay` 那一支）----
+        // 🔴 **2026-10-22（M1）：这一行原来【整支不建】**（`RankedDivisionInfo.cs` 判据⑥「赛季倒计时不做」），
+        //   而参考图 `C:/Users/qjh36/Desktop/warpforge参考图/经典模式参考图.png` 上它就在
+        //   「1600」与「未排名/排名」之间（`结束于：2天5小时`）⇒ 用户点名「排版混乱」的那一块。
+        // 判据 = **原版 prefab 跑过布局之后的真值**（`python 工具/menu_dump.py bundle_menus_assets_all
+        //   -5324570929900320848 --depth 6 --md` 的 `Ranked Division Info ▸ Content ▸ Timer` 那一行）：
+        //   `Timer`（HLG · spacing 0 · align 4 MiddleCenter · pad (0,0,5,0)）= **7.33,785.75 → 630.67,846.65**；
+        //   子件 `Timer Icon`（`WF_icon_clock` 64×64）= **172.83,796.75 → 216.73,840.65（43.91²）**；
+        //   子件 `Timer`（TMP · fs38 · auto[10~38] · base 38 · 折行 0 · Center/**Capline**）
+        //   = **216.73,790.75 → 465.17,846.65（248.44×55.90）**（出厂占位串 `Termina en: 23d 5h`）。
+        // ⚠️ 这两颗是 **HLG 排完之后的落点**，⛔ 别拿 `menu_rect` 的模板位（`-290.52…` / `-37.22…`）——
+        //   那是布局跑之前的值（`Content` 是 VLG）。
+        const float TmrL = 7.33f, TmrT = 785.75f, TmrR = 630.67f, TmrB = 846.65f;
+        const float TmrIcL = 172.83f, TmrIcT = 796.75f, TmrIcR = 216.73f, TmrIcB = 840.65f;
+        const float TmrTxL = 216.73f, TmrTxT = 790.75f, TmrTxR = 465.17f, TmrTxB = 846.65f;
+
         /// <summary>现在是「排位」还是「非排位」。**本地恒为 false（非排位）** —— 没有服务器、也没有排位赛数据；
         /// 点了**如实说明**，不静默切。</summary>
         public bool RankedMode { get; private set; }
@@ -99,7 +115,12 @@ namespace CardPresentation
         {
             var col = MenuDraw.Node(root, "Ranked Division Info", new PxRect(RDL, RDT, RDR, RDB));
             // 原版 hAlign = **Center** ⇒ 不调 `Align*`（原来右对齐了）
-            MenuDraw.Text(col, new PxRect(RankTitleL, RankTitleT, RankTitleR, RankTitleB), "Rank",
+            // 🔴 **2026-10-22（M1 · 文案）**：原来写死英文 `"Rank"`。原版这颗 TMP 挂 `Localize`
+            //   （`mTerm = PlayerProfile/Rank`，`MonoBehaviour_-2754111045383518288` 下的
+            //    `MonoBehaviour_5930028326761236400.json` 现读；官方表 en `Rank` / zh `排名`）
+            //   ⇒ 改走词条。参考图上这一格就是 **「排名」**。
+            MenuDraw.Text(col, new PxRect(RankTitleL, RankTitleT, RankTitleR, RankTitleB),
+                          Loc.T("PlayerProfile/Rank"),
                           Color.white, "Rank Title", 57.7f, QText, face: TmpFont.Face.LatinCardBody);
 
             // `info`（原版出厂 **act=0**）⇒ 照纪律**不建**
@@ -113,7 +134,11 @@ namespace CardPresentation
             var lbQ = MenuDraw.Rect(lbn, Tex(ArtMulligan), new PxRect(LeaderL, LeaderT, LeaderR, LeaderB),
                           "Bg", QArt);
             // 原版 Button Text hAlign = Center ⇒ 不调 `Align*`
-            MenuDraw.Text(lbn, new PxRect(LeaderTxL, LeaderTxT, LeaderTxR, LeaderTxB), "Leaderboard",
+            // 🔴 **2026-10-22（M1 · 文案）**：原版挂 `Localize`（`mTerm = MainMenu/RankedWindow/Leaderboard`，
+            //   `MonoBehaviour_8195088166858885040.json` 现读；官方表 en `Leaderboard` / zh `排行榜`，
+            //   `Core/Loc.cs` 手写表里已有同值一条）⇒ 改走词条；参考图上就是「排行榜」。
+            MenuDraw.Text(lbn, new PxRect(LeaderTxL, LeaderTxT, LeaderTxR, LeaderTxB),
+                          Loc.T("MainMenu/RankedWindow/Leaderboard"),
                           Color.white, "Button Text", 36f, QText, face: TmpFont.Face.LatinCardBody);
             // 🆕 A17：原版 `Ranked Division Info` 的 `LeaderboardButton` 是 SpriteSwap（普查 §块 5 第 24 行）
             MenuDraw.Hit(lbn, "Hit", new PxRect(LeaderL, LeaderT, LeaderR, LeaderB), QHit,
@@ -125,6 +150,12 @@ namespace CardPresentation
             //    节点名与 rect 全在 `RankedDivisionInfo` 那个文件里（**别在这儿再抄一份**）。
             RankedDivisionInfo.Build(col, Tex, QArt, QText, QArt1);
 
+            // 🆕 **2026-10-22（M1）**：`Content/Timer`（段位块里那行「结束于：…」）—— 见上面 `TmrL…` 那段判据。
+            // ⚠️ 它建在 `RankedDivisionInfo.Build` **之后**、挂到它建出来的 `Content` 底下（原版父链 =
+            //   `Ranked Division Info ▸ Content ▸ Timer`；`Content` 是那棵树里的 VLG 容器）。
+            //   ⛔ 别改成挂在 `col` 下 —— 原版 `RankingDisplay.timerDisplay` 指的就是 `Content/Timer`。
+            BuildRankTimer(col);
+
             // `ChangeRankedToggle`（排位 / 非排位）
             var tg = MenuDraw.Node(col, "ChangeRankedToggle", new PxRect(TgL, TgT, TgR, TgB));
             MenuDraw.Nine(tg, Tex("40k_menu_bt"), new PxRect(TgL, TgT, TgR, TgB),
@@ -133,11 +164,13 @@ namespace CardPresentation
             // 🆕 **2026-10-03 补上了字距**：原版这两行 TMP `charSpacing = -4`
             //    （原来写「`Label` 没有字距接口」—— 那只是**没加**，`Label.SetCharSpacing` 现在有了）。
             //    ⚠️ 字距会改文字宽度 ⇒ 放在 `Align*` **之前**（与 `SetAutoFitBox` 那条顺序纪律同源）。
-            var un = MenuDraw.Text(tg, new PxRect(TgUnrankedL, TgUnrankedT, TgUnrankedR, TgUnrankedB), "Unranked",
+            var un = MenuDraw.Text(tg, new PxRect(TgUnrankedL, TgUnrankedT, TgUnrankedR, TgUnrankedB),
+                                   Loc.T("MainMenu/RankedWindow/Unranked"),
                                    Color.white, "UnrankedText", 45f, QText, face: TmpFont.Face.LatinCardBody);
             if (un != null) un.SetCharSpacing(-4f);
             MenuDraw.AlignRight(un, new PxRect(TgUnrankedL, TgUnrankedT, TgUnrankedR, TgUnrankedB));
-            var rk = MenuDraw.Text(tg, new PxRect(TgRankedL, TgRankedT, TgRankedR, TgRankedB), "Ranked",
+            var rk = MenuDraw.Text(tg, new PxRect(TgRankedL, TgRankedT, TgRankedR, TgRankedB),
+                                   Loc.T("MainMenu/RankedWindow/Ranked"),
                                    Color.white, "RankedText", 45f, QText, face: TmpFont.Face.LatinCardBody);
             if (rk != null) rk.SetCharSpacing(-4f);
             MenuDraw.AlignLeft(rk, new PxRect(TgRankedL, TgRankedT, TgRankedR, TgRankedB));
@@ -158,6 +191,40 @@ namespace CardPresentation
                          QHit, ToggleRankedMode,
                          clickCue: WindowSounds.SelectToggleCue);
             ApplyToggleState(un, rk);
+        }
+
+        /// <summary>`Ranked Division Info/Content/Timer` —— 段位信息块里那行「结束于：…」（= `RankingDisplay.timerDisplay`）。
+        /// 几何/判据见上面 `TmrL…` 那三个常量的注释（原版 prefab **跑过布局之后的真值**）。
+        /// <para>⚠️ **文案**：原版那颗 TMP 自己**没有** `Localize`（出厂占位 = 西语 `Termina en: 23d 5h`），
+        /// 运行期由 `TimerDisplay` 覆盖；它的 `extraText` 词条 = `Event_Description/General/EndsInPlusOrangeTime`
+        /// （官方 en `Ends in:  <color=#E98A00FF>{0}</color>` / zh `结束于：<color=#E98A00FF>{0}</color>`）——
+        /// 与遭遇战窗那颗 `Timer` **同一个词条**（`Shell/SkirmishEventWindow.cs` 的 `BuildTimer`，
+        /// 那边已实读 `MonoBehaviour_-800057299095106190.json`）。⛔ 别自己拼「结束于：」四个字。
+        /// 截止时刻是**服务端活动数据**（本地没有）⇒ `Compose(前缀, "--")` + `Attach(null, …)` 出声一次，
+        /// ⛔ 不编日期（`TimerDisplay.Refresh` 对 `target == null` 就是印 `--`）。</para></summary>
+        void BuildRankTimer(Transform col)
+        {
+            var content = col.Find("Content");
+            if (content == null)
+            {
+                Debug.LogWarning("[Event] 段位块的 `Timer` **没建** —— 找不到 `Ranked Division Info/Content`"
+                                 + "（`RankedDivisionInfo.Build` 的产出变了？）；⛔ 不静默跳过");
+                return;
+            }
+            var tm = MenuDraw.Node(content, "Timer", new PxRect(TmrL, TmrT, TmrR, TmrB));
+            MenuDraw.Rect(tm, Tex("WF_icon_clock"), new PxRect(TmrIcL, TmrIcT, TmrIcR, TmrIcB), "Timer Icon", QArt);
+
+            string prefix = Loc.T("Event_Description/General/EndsInPlusOrangeTime");
+            var txR = new PxRect(TmrTxL, TmrTxT, TmrTxR, TmrTxB);
+            var tx = MenuDraw.Text(tm, txR, TimerDisplay.Compose(prefix, "--"), Color.white, "Timer", 38f, QText,
+                                   face: TmpFont.Face.LatinCardBody);
+            if (tx == null) return;    // 建不出来 ⇒ `Attach` 会自己出声，这里不再补一句
+            // 字号四格 = 原版 `38 / 10 / 38 / 38`（`menu_dump … --depth 6` 现读）。
+            // ⚠️ `SetAutoFitBox` 内部会 `SetWrapWidth` ⇒ 紧跟一句把**原版折行 0** 还原（同 `SkirmishEventWindow.BuildTimer`）。
+            tx.SetAutoFitBox(LayoutSpace.Px(txR.W), LayoutSpace.Px(txR.H), 10f, 38f, 38f);
+            tx.SetWrapping(false);
+            TimerDisplay.Attach(tx, null, prefix, "排位窗段位块 Timer",
+                                "赛季结束时刻由服务端 LiveOps 事件下发，本地没有");
         }
 
         /// <summary>`40k_menu_bt`：**47×47 · border (10,10,10,10)**（`Sprite/*.json` 实测）。</summary>
