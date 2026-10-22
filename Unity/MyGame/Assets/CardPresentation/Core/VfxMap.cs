@@ -6,9 +6,13 @@
 //   · `atk_vfx_map.json`    —— 攻击类型名 → 特效名（297 条）
 //   · `effect_index.json`   —— 958 个特效，**带还原质量判定**（`对得上`/`偏亮`/`只有原版有内容`…）
 //
-// ⚠️ 我们的卡是自研的（Scavenger / Bulwark…），原版的「卡 → guid」查不到，
-//    所以这里按**事件 + 阵营**兜底，先保证「有特效、且是还原得对的那个」。
-//    以后要逐卡配，把 `ByCard` 填起来即可（键用卡名）。
+// 🔴 **2026-10-22（`W64`）就地订正（铁律 5）**：本段原来写「我们的卡是自研的、原版的『卡 → guid』
+//    查不到，所以按**事件 + 阵营**兜底 … 以后要逐卡配，把 `ByCard` 填起来即可」—— **早就过期了**：
+//    ① 卡池现在是**原版那 1127 张**（`cards_engine.json`）；
+//    ② 逐卡那一档 2026-10-14 起就从 `Resources/card_vfx_by_card.json` **载进来了**（`EnsureLoaded`），
+//       而且它**排在兜底链最前面**（原版真值优先）；
+//    ③ `ByCard` ⛔ **不是手填的** —— 它由 `工具/gen_card_vfx_by_card.py` 生成（手改会被重跑覆盖）。
+//    ⇒ 「按事件 + 阵营」那几行只剩 `Hit` / `AttackRanged` / 三个资源 UI 件 / `Deploy` 还在用。
 //
 // **挑特效的依据是 `effect_index.json` 的判定列**，别凭名字挑 —— 名单里有一批
 // `只有原版有内容（导出整个丢了）` / `两边全程空（纯脚本驱动）`，播出来是**空的**。
@@ -22,7 +26,13 @@ namespace CardPresentation
     public static class VfxMap
     {
         // ---- 事件名 ----
-        public const string PlayCard     = "play";            // 出牌（手牌打出去的那一刻）
+        /// <summary>出牌（手牌打出去的那一刻）。
+        /// 🔴 **2026-10-22（`W64` §B1）：原版【没有 play 特效槽】** —— 共享 `CardPrefab` 的 `CardScript`
+        /// 字段表里只有 `normalSummon`/`legendarySummon`/`landOnGroundParticles`/`attackHit*`/
+        /// `cardDestroyFX`/`toBoardVFXAnchor`/`rangedAttackParticlesSO`，**没有 play**；
+        /// `_PlayPlayerCard` / `_PlayEnemyCard` 两个状态机 **0 处 `Instantiate`**。
+        /// ⇒ `ByEvent` 里那一行已删，`Resolve(PlayCard)` 回 null 是**正确结果**；**逐卡 `play` 那一档照旧**。</summary>
+        public const string PlayCard     = "play";
         public const string Deploy       = "deploy";          // 登场（落到格位上）
         public const string AttackMelee  = "attack_melee";    // 近战攻击
         public const string AttackRanged = "attack_ranged";   // 远程攻击
@@ -51,38 +61,51 @@ namespace CardPresentation
 
         /// <summary>🆕 2026-10-14（`A1816`）：**抽卡**（`EvtKind.Draw`）—— 「卡飞进手牌区那一下」。
         ///
-        /// **判据 = 原版那件东西真的叫这个名**：原版抽牌走 `PlayerHand._AddDrawnCardToHand`
-        /// （`d:/2/tools/decomp_full/PlayerHand._AddDrawnCardToHand_d__37__MoveNext.c:43-69`：
-        /// `BattleHud.GetCardDrawPosition` → `CardScript.DrawCard`），而**逐阵营**那件特效
-        /// 由旧台账 `d:/2/Warpforge_tools/data/vfx_wiring_j4.tsv:65` 记着：
-        /// `UM_CardDraw` 判 `UI`（「极限战士抽卡特效(**卡飞入手牌区闪光**)」）、挂点 =
-        /// 「`_fx_from_event` 抽卡事件(draw) UM 阵营处 / 手牌接收动画」，证据 = `anim SAU_CardDraw`。
+        /// 🔴🔴 **2026-10-22（`W64` §B5）就地改判（铁律 5，覆盖本段原来那一整版）：原版抽卡链【0 粒子】。**
+        /// 判据（第一权威，逐句读）：`CardScript__CardDrawn.c` · `BattleManager._ResolveDrawCard_d__432__MoveNext.c`
+        /// · `BattleManager__TurnStartCardDraw.c` · `CardScript._PlayPlayerCard…` —— **全部 0 处粒子 `Instantiate`**
+        /// （抽卡走 `AnimatorClipInfo` 的**动画**）。
+        /// 本段原来写的判据是 `d:/2/Warpforge_tools/data/vfx_wiring_j4.tsv:65` —— 那是**我们自己的 Godot 复刻台账**，
+        /// **不是原版判据**（审计 §判据来源末条点名）；而且那两件现读各属别的桶：
+        /// `UM_CardDraw` 落在 `UM45`/`UM53` 等 4 行的 **`play`** 桶（authoritative）、
+        /// `SAU_CardDraw` **本地没有任何 CardAnim 指向它**。
+        /// ⇒ `ByFaction` 里那两行**已删**，抽卡这一拍**留白**（`Resolve(Draw, …)` 恒 null）。
+        /// ⏭ 要复刻抽卡表现就去解 `AnimatorClipInfo` 那条**动画**链（审计 §三 U3），⛔ 别拿 play 件顶。
         ///
-        /// 🔴 **它走「按阵营」那一档，⛔ 不在 `ByEvent` 里** —— 本地**只有 2 个阵营**有这件
-        /// （`UM_CardDraw` / `SAU_CardDraw`，都在效果库里 ✓），其余 11 个阵营**留白**
-        /// （`Resolve` 回 null ⇒ 不播）。⚠️ **同「登场召唤法阵」那条的教训**（那一层 2026-10-21 已整层删掉）：
-        /// 宁可留白，⛔ 不硬凑一件。
-        /// 🔴 **2026-10-16（账 `A1731`）：留白不再静默** —— `Resolve` 走到底（= 这个事件只能按阵营配、
-        /// 而这个阵营没配）时会 `Debug.LogWarning` 一次（每种 (事件, 阵营) 只说一次，见 `WarnNoFactionVariant`）；
-        /// `Draw` 是本表里**唯一**会走到那个出口的事件。
-        /// ⇒ 「不带阵营」的默认口径解析出来是 null 是**预期的**，**而且不出声**（没传阵营 = 探测口径，不是播放）
-        /// （见 <see cref="ResolvesForSomeFaction"/>）。</summary>
+        /// 🔴 **2026-10-16（账 `A1731`）的那条机制仍然活着**：`Resolve` 走到底（这个 (事件, 阵营) 一行都没配）
+        /// 时会 `Debug.LogWarning` 一次（每种 (事件, 阵营) 只说一次，见 `WarnNoFactionVariant`）——
+        /// `Draw` 今天**仍然是那个出口唯一的见证件**（⛔ 别把它也加进 `IsOriginalNoGenericEvent`，
+        /// 那会让这条警告连一次都发不出来，`A1731` 那条断言就没东西可证了）。
+        /// ⇒ 「不带阵营」的默认口径解析出来是 null 是**预期的**，**而且不出声**（没传阵营 = 探测口径，不是播放）。</summary>
         public const string Draw = "draw";
 
         /// <summary>🆕 2026-10-14（`A1816`）：**伏击翻面**（`EvtKind.AmbushExit` —— `Ambush` 面朝下的
-        /// 单位翻开那一刻）。
+        /// 单位翻开那一刻）。🔴 **2026-10-22（`W64` §B7）：本事件的【通用件入口已撤】—— 见下。**
         ///
-        /// **判据 = 原版**：旧台账 `d:/2/Warpforge_tools/data/vfx_wiring_j1.tsv:3` 记着
-        /// `AmbushEffect` 判 `TRAIT`（「伏击单位翻开瞬间」）、挂点 = 「`_fx_from_event`
-        /// "flipped on damage (Ambush no effect)" 分支 + Ambush 翻开（at-turn 翻面）处」。
-        /// 这件 prefab **在我们工程里**（`Assets/WarpforgeVFX/Prefabs/AmbushEffect.prefab`，
-        /// `effect_index.json` 判定 **对得上 / 高 / ratio 0.89**），而且它自己把三层都带齐了：
-        ///   · 音效 —— `AnimFXController.sounds[0].sound` = cue **`Trait Ambush`**（→ clip `Ambush`）
+        /// **原版的取法**（第一权威，方法体都在）：`BattleManager.GetTraitEffect(trait, FromCode(5), army)`
+        /// → `CardTraitCollection.GetTraitEffectObject` → `CardTrait._traitEffects[]` 里按
+        /// `EffectTriggerType` 挑那一条、再按阵营取 override（`TraitEffect.GetEffect`）。
+        /// ⇒ 也就是说：**「伏击翻开播什么」写在 trait SO 里，不写在卡 SO 里**。
+        ///
+        /// 🔴 **那张 trait→effect 真值表本地没有**（2026-10-22 现读）：
+        /// `assets_full` 全库按 `traitEffects|TraitEffects|effectAnim` 搜 **0 命中**（那批 `CardTrait` SO 没导出）；
+        /// `card_vfx_by_card.json` 的 `byKeywordTrigger` 42 个关键词里**没有 ambush**
+        /// （它是按 `<关键词>Trait<Trigger>` 的**构词法**从 CardAnim 名推的，而 `Ambush Effect` 不守那个构词法）。
+        /// ⇒ 按「⛔ 不许保留孤儿」：`ByEvent` 里 `{ AmbushExit, "AmbushEffect" }` 那一行**已删**。
+        ///
+        /// ⚠️ **旁证（不足以当判据、但下一个人会想知道）**：`AmbushEffect`
+        /// （`Assets/WarpforgeVFX/Prefabs/AmbushEffect.prefab`，`effect_index.json` 判 **对得上/高/0.89**）
+        /// 自带的三层全都指向 Ambush 这个天赋 ——
+        ///   · 音效 —— `AnimFXController.sounds[0].sound` = cue **`Trait Ambush`**
         ///   · 动画 —— `AnimFXModuleChangeMaterial`：把**卡**的材质换成
         ///     `Card 3d Dissolve Blend Image Ambush`，`_Blend` 0→1（`delay 0.35 + duration 1.0`）
-        ///   · 粒子 —— 它自己的 ps（台账组件列写 `-`，即没有额外挂点，全靠 prefab 内部）
-        /// ⚠️ 逐字段实读（那条 1.35 s 补间的原件路径与 `RefIds`）→ `EventTiming.SourceOf(EvtKind.AmbushExit)`
-        ///    的文本 + `DurationOf` 里那个 case 的注释（**那里同时写了为什么它占 0**）。</summary>
+        ///   · 粒子 —— 它自己的 ps（台账组件列写 `-`，全靠 prefab 内部）
+        /// 且 `animinfo_lookup["AmbushEffect"]` 的 CardAnim 名就是 `Ambush Effect`（`tm 1.5`）。
+        /// 但「它是不是 `FromCode(5)` 那一槽」证不出来（U1）⇒ 先撤、⛔ 不拿它当通用件继续播。
+        /// ⏭ 补法：导出 `CardTraitCollection.TraitCollection[]`（`TraitPairs` → `CardTrait` SO），
+        ///    查到 `DefinedTrait.ambush = 1200` 的 `FromCode(5)` 条目再接回。
+        /// ⚠️ `EventTiming.SourceOf(EvtKind.AmbushExit)` 那段时序判据**仍然成立**（它写的是那件 prefab 自己
+        ///    的 1.35 s 补间）—— 只是今天没有件可播，**那条时长仍然是长度闸的上限**（没改它）。</summary>
         public const string AmbushExit = "ambush_exit";
 
         /// <summary>
@@ -101,12 +124,13 @@ namespace CardPresentation
         /// | 我们的事件 | 原版接的是 | 在我们导出索引里能用吗 |
         /// |---|---|---|
         /// | `deploy` | ~~`BlueSummonCircle`（+ 卡专属查名）~~ 🔴 **2026-10-21 作废**：那 4 个候选其实是**某些卡的技能动画**，不是登场法阵（原版没有这一层）⇒ 已删 | —— |
-        /// | `death` | `Card 3D Death Explosion` | ❌ **不在导出索引**（脚本驱动的 3D 效果） |
+        /// | `death` | `Card 3D Death Explosion`（逐卡 `customDeathParticles` 优先） | ✅ 2026-10-01 已进库；**播放口 = `CardFeel.PickDeathFx`**（原版二选一），⛔ 不进 `ByEvent` |
         /// | `attack_melee` | 按阵营查 `SLASH_VFX`：`Whip Attack EC Normal` / `Cut Axe SW` / `Sword Slash` / `Slash Repeating 2x` / `Rapacious Claw Slash` | 只有 `Cut Axe SW` 干净（对得上/中/1.01）；`Sword Slash`·`Rapacious Claw Slash` **不在索引**，另两个一个「全程空」一个「偏暗 0.19」 |
         /// | `attack_ranged` | 按阵营查 `RANGED_VFX`（`BulletImpact_1shot_trail` 等 ~11 键） | ❌ `BulletImpact_1shot_trail` 判「**两边全程空（完全脚本驱动）**」 |
         /// | `hit` | 攻击结算处的 `AttackHitSmall` / `Actual_Explosion` | ❌ 前者「全程空」、后者**不在索引** |
-        /// | `play` / `ability` / `trigger` | 台账里没有对应行 | — |
-        /// | `return` / 三个资源事件 | 见下面 `ByEvent` 里那四行的注释 | ✅ 三件 UI 特效 + 一件 MECH 都能用 |
+        /// | `play` / `ability` | 台账里没有对应行 ⇒ 🔴 **2026-10-22 查实：原版也没有这一档**（见 B1/B2） | —— |
+        /// | `trigger` | 原版 `ActivateTriggerTraitAnim` 只做徽标/状态框（`Trigger` 那一行是**死条目**） | —— |
+        /// | `return` / 三个资源事件 | 见下面 `ByEvent` 里那几行的注释 | ✅ 三件 UI 特效（`return` 已删，B4） |
         ///
         /// 🔴 **2026-10-22（`W63` §B）就地订正（铁律 5）**：上面 `attack_melee` 那一行是 **0824 台账**的
         ///    口径（`SLASH_VFX`）—— **原版代码里没有「通用近战粒子」这一档**：
@@ -114,11 +138,12 @@ namespace CardPresentation
         ///    ⇒ 我们的 `ByEvent[AttackMelee]` **整行已删**（见下表），`Resolve(AttackMelee)` 回 null 是**正确结果**。
         ///    判据 → `资料/普查产出_1022/W63_飞行与卡ID演出_调查.md` §B。
         ///
-        /// ⇒ **原版那条链在我们管线里大部分跑不通**（脚本驱动 / 没导出 / 偏亮），
-        ///    所以下面用替代品是**有理由的**、不是随手挑的。**但替代品必须是同一语义族** ——
-        ///    2026-09-15 查出台账把这两件判成了别的东西、和我们的用法**对不上**：
-        ///      · `Tap Firepit` 台账判 **`TAP_SKIP`** = 3D 战场火盆的**点击反馈**（不是「挨打」）
-        ///      · `Explosion_Possession` 台账判 **`ATK_EVENT`** = BL 战术卡 `Rites of Possession` 的**命中**（不是「通用阵亡」）
+        /// 🔴🔴 **2026-10-22（`W64` B1–B8）再订正（铁律 5）：上面「用替代品是有理由的」那句【只对 `Hit`/`AttackRanged` 还成立】。**
+        ///    本批把 6 条「我们挑的 / 同名不同物 / 判据只有我们自己的 Godot 台账」的通用件全撤了：
+        ///    `play`（B1）· `ability`（B2）· `death`（B3）· `return`（B4）· `draw` 两行（B5）· `ambush_exit`（B7）·
+        ///    `collect_waystone`（B8）。逐条原版出处写在 `ByEvent` 那张表对应那一段注释里。
+        ///    ⇒ **剩下还挂替代品的只有 `Hit` / `AttackRanged` 两件**（A4 那件其实是原版 SO 第一条，不是发明）。
+        ///    ⛔ 别再把「反正是替代品、有总比没有强」当理由 —— 本仓口径是「**原版没有的就不播**」。
         ///
         /// ⚠️ **②「照原版传参数」被 ① 卡住**（2026-09-15 查实）：原版的参数在 `card_anim_map.json`
         ///    （每条带 `startPosOption`/`endPosOption`/`vfxDelayTime`/`timeMoving`/`shouldMoveVFX`/`ease_points` 等 10 个），
@@ -126,15 +151,73 @@ namespace CardPresentation
         ///    而**我们现役这 8 个名字在 `card_anim_map` / `atk_vfx_map` / 台账里一个都查不到**
         ///    ⇒ 想传参数，**得先把特效换成那三张表里有的**。
         /// </summary>
+        // ================== 🆕 2026-10-22（`W64`）：原版「登场淡入」的**两档** ==================
+        /// <summary>原版 `CardScript.normalSummon` 的 prefab（= 普通档登场淡入）。
+        /// 出处：`数据/游戏数据/card_vfx_by_card.json` 的 `generic.byEvent.deploy`（`conf: exact`，4 条之一）。</summary>
+        public const string DeployDefault = "Invoke Minion Card Fade Default";
+        /// <summary>原版 `CardScript.legendarySummon` 的 prefab（= **传说档**登场淡入）。
+        /// 出处：同上（`generic.byEvent.deploy` 的第 2 条 `conf: exact`）。
+        /// 🔴 **2026-10-22（`W64` §B9）之前 `VfxMap` 这一条链【没有这一档】** —— 所有卡（含传说）
+        /// 都走普通档。⚠️ 就地订正（铁律 5）：审计 §B9 写「整个工程 0 处引用」**已过期** ——
+        /// `BattleDriver.MountSpawnParticlesUnderToBoardFx`（`:10128` 的 `SummonVfxLegendary`）已经在用它，
+        /// 但那挂的是**卡身上**那一层（原版 `CardSetup.c:305-333` 的 `Spawn Particles`），
+        /// 与这里「竞技场空间里那一次根实例化」**是两件不同的事** ⇒ 那条路补不上这一档。</summary>
+        public const string DeployLegendary = "Invoke Minion Card Fade Legendary";
+
+        // ============ 🆕 2026-10-22（`W64`）：**`ByEvent` 里该留空的两族** ============
+        // 这一格是**判据**，不是备注：`ResolveFallback` 与自检的白名单都读它（⛔ 别在两处各写一份）。
+        // 两种**不同**的空，别混：
+        //   ① <see cref="IsOriginalNoGenericEvent"/> —— **不该由本表兜底**（静默回 null；
+        //      其中 `death` 是「原版有真件、但播放口在 `CardFeel`」，不是「原版没有」）；
+        //   ② <see cref="IsKnownGapEvent"/>          —— **有真件、我们还没接上**（回 null 但**出声**）。
+        /// <summary>① 这些事件**不该由 `ByEvent` 兜底**（`ResolveFallback` 对它们**静默**回 `null`）。
+        /// 两种都算：**原版没有这一档**（`play` / `ability` / `return` / `attack_melee`），
+        /// 以及**原版有、但播放口不在本表**（`death`：真件由 `CardFeel.PickDeathFx` 那条二选一放）。
+        /// ⚠️ 所以这个名字说的是「`ByEvent` 里留空是对的」，⛔ **不是**「原版没有这件东西」。</summary>
+        public static bool IsOriginalNoGenericEvent(string evt)
+        {
+            return evt == PlayCard     // B1：`CardScript` 没有 play 特效槽 + `_Play*Card` 0 处 Instantiate
+                || evt == Ability      // B2：技能动画一律来自逐卡 `abilityLogic[].cardAnimations[]`
+                || evt == Death        // B3：真件 = `Card 3D Death Explosion`，播放口在 `CardFeel`（不进 ByEvent）
+                || evt == Return       // B4：`_ResolveRecallToHand` 0 处 Instantiate（回手是 Animation、不是粒子）
+                || evt == AttackMelee; // A2：1,195 张卡只有 2 张有 attackAnim、且都是空引用
+        }
+
+        /// <summary>② **有真件、但本机还接不上**的事件（回 `null` **且出声一次**，⛔ 绝不拿替代品顶）。
+        /// <para>`CollectWaystone`（B8）：真件 = `Remnant Aeldari Collect particles`，**还没导进效果库**。</para>
+        /// <para>`AmbushExit`（B7）：真件在 `CardTrait._traitEffects[]` 的 `FromCode(5)` 槽里，
+        /// 而**那张 trait→effect 真值表本地没有导出**（见 `ByEvent` 里那段注释）。</para></summary>
+        public static bool IsKnownGapEvent(string evt)
+        {
+            return evt == CollectWaystone || evt == AmbushExit;
+        }
+
         static readonly Dictionary<string, string> ByEvent = new Dictionary<string, string>
         {
-            { PlayCard,     "Tap Blue Glow" },              // 手牌打出去的一下（轻）
+            // 🔴 **2026-10-22（`W64` §B1）：`play` 这一行【已删】—— 原版【没有 play 特效槽】。**
+            //   判据（第一权威）= 共享 `CardPrefab` 的 `CardScript` 字段表
+            //   （`assets_full/bundle_battleprefabs_vfxandmisc_assets_all/MonoBehaviour/
+            //     MonoBehaviour_1744609728290659264.json`）里**根本没有 play 那一格**：只有
+            //   `normalSummon` / `legendarySummon` / `landOnGroundParticles(+Legendary)` /
+            //   `attackHitSmall/BigParticles` / `cardDestroyFX` / `toBoardVFXAnchor` /
+            //   `rangedAttackParticlesSO`；且 `CardScript._PlayPlayerCard_d__259__MoveNext.c` 与
+            //   `_PlayEnemyCard_d__258__MoveNext.c` **0 处 `Instantiate`/粒子**。
+            //   原来挂的 `Tap Blue Glow` 是 2026-09-12 **我们挑的「轻一下」**（`decomp_full` 全文 0 命中、
+            //   `anim_address_map` 无任何 CardAnim 指向它）⇒ 原版没有的第二下，**已删**。
+            //   ⚠️ 删了以后 `Resolve(PlayCard)` 回 `null` 是**正确结果**（不是漏配）——
+            //     `ResolveFallback` 里 `IsOriginalNoGenericEvent` 对它有显式分支、**不出声**。
+            //   ⚠️ **逐卡 `play` 那一档照旧**（现读 534 行，原版 `cardAbilities[].abilityLogic[].
+            //     cardAnimations[]` 解出来的）—— 删的只是「通用件」。
             // 🆕 2026-09-29 **换成原版那件**（判据齐）：原版每张卡登场走的是 `CardScript.normalSummon`
             //   （共享 `CardPrefab` 上的 CardAnim），它的 `animInfo.animAdressable` →
             //   prefab **`Invoke Minion Card Fade Default`**（传说档是 `… Legendary`）。
             //   出处：`数据/游戏数据/card_vfx_by_card.json` 的 `generic.byEvent.deploy`（`conf: exact`）。
             //   ⚠️ 原来那件 `Sororitas Summon Basic` 是**我们挑的替代品**（2026-09-12 挑的）。
-            { Deploy,       "Invoke Minion Card Fade Default" },
+            //   🆕 **2026-10-22（`W64` §B9）：稀有度分档** —— 传说档是同一份 `CardPrefab` 上的
+            //   `legendarySummon`（`generic.byEvent.deploy` 的**第 2 条 `conf: exact`**，
+            //   → prefab <see cref="DeployLegendary"/>）。挑档走 <see cref="DeployTierFor"/>
+            //   （判据 = 原版 `cardRarity == 4`，与 `BattleDriver.GetInvokeCue(cardRarity)` 同一套规则）。
+            { Deploy,       DeployDefault },
             // 🔴 **2026-10-22（`W63` §B）：`attack_melee` 这一行【已删】—— 原版【没有】通用近战件。**
             //   原版近战只在**命中帧**播 `AttackHitSmall`（`CardScript.ResolveAttackAnimationEffects`），
             //   没有「通用近战粒子」这一档（`decomp_full` 里没有；逐卡 `AlternateArtCard.attackAnim`
@@ -159,26 +242,37 @@ namespace CardPresentation
             //    **现在 `Hit` 已经改成原版那件**（见下），这一行留着是为了说明当时的取舍。
             // ⚠️ 2026-09-15 实拍复核过（`_tmp_view/pick_hit.png`）：五个候选里这件最好看。
             { Hit,          "AttackHitSmall" },
-            // 🔴 **这件是替代品**：原版的通用死亡爆散是 **`Card 3D Death Explosion`**。
-            //    ✅ **2026-10-01：那件真件已经进库了**（原来它**不是 addressable**，`GetAllAssetNames` /
-            //    `LoadAllAssets` 两条路都拿不到 ⇒ 另开了一条导入路：`工具/extract_missing_shaders.py --prefabs`
-            //    重打包 → `EffectExporter.RunListed` → `EffectLibraryBuilder.Run`；判据 → `资料/已知的坑.md`）。
-            //    ⇒ 阵亡现在由 `CardFeel.DeathExplosion` 在**卡位生成那件真件**；
-            //      这个名字**只在「效果库里真没有那件」的退回路**上才被播一次
-            //      （见 `CardFeel.DeathExplosion`；`BattleDriver.PlaySignal` 里 `EvtKind.Death` 已经不再挂它了）。
-            { Death,        "Explosion Fenrisian Monstrosities" },
+            // 🔴 **2026-10-22（`W64` §B3）：`death` 这一行【已删】—— 阵亡那件**不走本表**。**
+            //   判据（第一权威）= `CardScript._UnitDeath_d__446__MoveNext.c`：整个协程**只有两处
+            //   `Instantiate`** —— `:233` 逐卡 `customDeathParticles`、`:262` 默认 `cardDestroyFX`
+            //   （= GameObject **`Card 3D Death Explosion`**，`generic.byEvent.death` 里也是它、`conf: exact`），
+            //   判别式在 `:240`「逐卡取不到才用默认件」。
+            //   ⚠️ **就地订正（铁律 5）**：本段初稿写「原版没有通用阵亡件」—— **不准确**：真件就是
+            //   `Card 3D Death Explosion`；错的只是**入口** —— 原版走 `CardFeel.PickDeathFx` 那条二选一
+            //   （我们早就实现了），而不是「一张通用表」。所以本表留空、由那条路播。
+            //   原来这里挂的 `Explosion Fenrisian Monstrosities` 现读是 **`SW54` 的 `play` 逐卡件**
+            //   （`card_vfx_by_card.json`，`conf: authoritative`）—— 拿一张卡的出场动画当「通用阵亡」，
+            //   那是 2026-09-12 的替代品 ⇒ **已删**。
+            //   ⇒ 真件取不到时**出声、不播替代品**（`CardFeel.PickDeathFx` 已经出过声）。
+            //   🔴 **下游待改（不在本文件）**：`CardFeel.DeathExplosion` 的退回路原来在这里取替代品名字
+            //      （`VfxMap.Resolve(VfxMap.Death)`）⇒ 现在会拿到 null，`WarpforgeEffectPlayer.Play(null, …)`
+            //      会在 `Dictionary.TryGetValue(null)` 上**抛异常**。那条路必须改成「只出声、不播」。
+            //      判据 → `资料/普查产出_1022/W64_兜底审计_特效.md` §一 B3。
             // 🆕 2026-09-29 **新增 `Heal`**（判据齐）：原版 `BattleAnims.heal` → prefab **`Healing_Circles`**
             //   （那张表其余 12 个槽在本地**全是空引用**）。
             // 🔴 **2026-10-20（`W58`）就地订正（铁律 5）**：这里原来写「我们这边『治疗』= `EvtKind.Hit`
             //   且 `Amount < 0`」—— **已过期**。现在 = <see cref="RuleEngine.EvtKind.Heal"/>；
             //   **Syphon 那一档在 `GenericVfxFor` 里直接回 `null`**（原版只在 `HealType.Normal` 播治疗圈）。
             { Heal,         "Healing_Circles" },
-            // 🆕 2026-09-12 挑的（这两类以前**引擎里没有对应事件，压根播不出来**，
-            //    所以从来没被挑过 —— 之前填的两个是占位）：
-            //      · `Tap Webway Portal` 试片时几乎看不见（只有几点蓝星）
-            //      · `Tap Fire Eldar`    试片时是个**硬边绿方块**
-            //    换成下面这两个，都是「对得上 + 高置信」且试片里干净可读的：
-            { Ability,      "Buff_Blue_SW" },               // 发动技能：单位身上升起蓝色光柱
+            // 🔴 **2026-10-22（`W64` §B2）：`ability` 这一行【已删】—— 原版【没有通用技能粒子】。**
+            //   判据：技能动画一律来自该卡自己的 `cardAbilities[].abilityLogic[].cardAnimations[]`
+            //   （逐卡表里 `ability` 现读 **440 张 / 612 条权威**，没覆盖的卡原版就是没有）；
+            //   而 `Buff_Blue_SW` 现读是**太空野狼逐卡件** —— `card_vfx_by_card.json` 里 `SW11/18/27/29/
+            //   32/34/36/37/40/43/47/54/57/61` 共 **17 条 `conf=authoritative`** 的 `play`/`ability`/
+            //   `trigger` 行；`anim_address_map` 里它是 `Buff_Blue_SW_self/_target/_warlord` 三条
+            //   CardAnim 的 target（`cardanimsgeneral`）。⇒ 通用那一条（2026-09-12 挑的「蓝色光柱」）**已删**。
+            //   ⚠️ `Resolve(Ability)` 回 `null` 是**正确结果**（`IsOriginalNoGenericEvent` 静默挡掉）。
+            //   判据 → `资料/普查产出_1022/W64_兜底审计_特效.md` §一 B2。
             // 🔴 **2026-10-19（B2 · 偏差 7 落地后 · 本行现在是【死条目】）**：
             //   `BattleDriver.GenericVfxFor(Trigger)` 自 2026-10-19 起回 **`null`** —— 原版
             //   `CardScript.ActivateTriggerTraitAnim` 只做徽标脉冲 + 状态框，**没有**通用特效
@@ -210,36 +304,49 @@ namespace CardPresentation
             { GainFaith,    "Faith UI Gain" },
             { GainSpirit,   "Waystone UI Gain" },
             { GainQuest,    "Quest UI Gain" },
-            // ⚠️ `Return` 这件**比上面三件弱**，如实写明：
-            //    台账里 `GSC RecallToHand` 判 **`MECH`（机制类）**、接 `_fx_from_event` 的
-            //    「事件词 returned to hand / recalled」分支，但 `effect_index` 的置信度只有**中**（ratio 0.99）。
-            //    另外两个候选 `Ferocity_RecallToDeck`（对得上/高/1.00）与 `OrkBuff_Recall`（对得上/高/1.32）
-            //    都带**阵营专有**语义（前者是回**牌库**、后者是兽人的「回手增益标记」），
-            //    而我们的 `EvtKind.Return` **不区分回手还是回牌库** ⇒ 先用 GSC 这件通用性最好的。
-            //    ⚠️ **实拍还没做**（本工程规矩：挑特效要看 `Editor/VfxPicker.cs` 试片）—— 换了别忘了补。
-            { Return,       "GSC RecallToHand" },
-            // 🆕 2026-09-25 **收集灵魂石**（灵族）。**这件是按名字对的、不是拍脑袋挑的**：
-            //    原版那一下是 `RemnantAeldari.CollectWaystoneEffect()` → 在残骸原位 `Instantiate`
-            //    它自己那个 `collectParticles` 字段指的 prefab（`RemnantAeldari__CollectWaystoneEffect.c`，
-            //    逐行读过）；而**原版 bundle 里那件就叫 `WaystoneCollect`**
-            //    （`assets_full/bundle_battleprefabs_vfxandmisc_assets_all/GameObject/WaystoneCollect.json`），
-            //    我们导出里也有同名的一份 ⇒ 同名直取，没有猜。
-            //    ⚠️ **实拍还没看**（本工程规矩：挑特效要看 `Editor/VfxPicker.cs` 的试片）——
-            //      `BattleScene` 的 `29_残骸体…` 那张只演了残骸体本身、没演收集。
-            { CollectWaystone, "WaystoneCollect" },
-            // 🆕 2026-10-14（`A1816`）**伏击翻面** —— 判据与「它自己带齐三层」见 <see cref="AmbushExit"/> 的 doc。
-            //    ⚠️ 🔴 **2026-10-20（`W58` · 铁律 5 就地订正）**：本段原写「原版**两条翻面出口**
-            //    （`EvtKind.AmbushExit.Effect` = `"damage"` / `"window"`）……`"window"` 那一档是我们模型的形状、
-            //    原版没有 —— 见 `RuleCore.RevealAmbush` 的注释」—— **已作废**：`RuleCore.RevealAmbush` **已删除**，
-            //    今天实际发的是 **`"damage"`（`ApplyDamage`）/ `"attack"`（`DeclareAttack`，取消这一记）**；
-            //    `"window"` 是**历史值、今天不可达**（详见 `EvtKind.AmbushExit` 的 doc）。
-            //    两档用的是**同一件**：本事件的语义 = 「这个单位不再面朝下」这个状态迁移，两档都是它。
-            //    ⇒ 两档都播；要严格照原版就只认 `Effect == "damage"` / `"attack"`，但**那一条是消费端的事**，
-            //      本表没有「同一事件按 `Effect` 分特效」这一层（今天也没有第二件可用）。
-            { AmbushExit,   "AmbushEffect" },
+            // 🔴 **2026-10-22（`W64` §B4）：`return` 这一行【已删】—— 原版回手链【0 粒子】。**
+            //   判据（第一权威）= `BattleManager._ResolveRecallToHand_d__542__MoveNext.c` 逐句读：
+            //   **0 处 `Instantiate` / 粒子**；`BattleCardUI__PlayBackToHandAnimation.c` 只 `Animation.Play`
+            //   （那是一段**动画**，不是粒子）。原来挂的 `GSC RecallToHand` 现读是 **`GSC39` 的 `play`
+            //   逐卡件**（`card_vfx_by_card.json`，`authoritative`），且该名在 `decomp_full` 全文 0 命中。
+            //   ⇒ **已删**（2026-09-12 那次「三选一挑通用性最好的」本身就不是判据问题、是**事件有没有粒子**的问题）。
+            //   ⚠️ 真要复刻回手表现，去解 `PlayBackToHandAnimation` 播的那条 clip（不是粒子）—— 那是另一笔账。
+            //   判据 → `资料/普查产出_1022/W64_兜底审计_特效.md` §一 B4。
+            // 🔴 **2026-10-22（`W64` §B8）：`collect_waystone` 这一行【暂时为空】—— 真件没导入。**
+            //   判据（第一权威）= `RemnantAeldari__CollectWaystoneEffect.c` 逐句读：先 `AudioCue.Play3D`，
+            //   再 `Instantiate(param_1[0xf])` —— `+0xf` 是**残骸 prefab 自己序列化的 `collectParticles`**，
+            //   位置 = 残骸 `transform.position`。同族件就是 **`Remnant Aeldari Collect particles`**
+            //   （`assets_full/bundle_battleprefabs_vfxandmisc_assets_all/GameObject/` 现读存在，
+            //      自带 `AnimFXModuleMoveParticlesToTarget`＝「灵魂飞向目标」，语义对得上）。
+            //   🔴 **但这一件【不在我们的效果库】里**（`WarpforgeVFX/Prefabs/` 只有 `RemnantBody3D Aeldari/
+            //   Necrons` 两件；`效果库报告.tsv` 同）⇒ 换名字就会让「名字在库里都找得到」那条断言红。
+            //   ⇒ 按铁律 11 / 「⛔ 不硬凑一件替代品」：**先留白 + 出声**，不拿 `WaystoneCollect` 顶。
+            //   ⚠️ 原来挂的 `WaystoneCollect`（`assets_full` 里同名那件）**不是** collectParticles：
+            //      `anim_address_map` 里它的 CardAnim 是 `WaystoneCollectAnim`（`cardanimsgeneral`），
+            //      而**全池没有任何卡 SO 引用它**（`card_vfx_by_card.json` 0 命中）⇒ 同名不同物。
+            //   ⏭ 补法：把 `Remnant Aeldari Collect particles` 走 `工具/extract_missing_shaders.py --prefabs`
+            //      → `EffectExporter` → `EffectLibraryBuilder` 导进来（**需要 Unity 批处理**，本批没做），
+            //      再把这一行写成那件名字。
+            // 🆕 2026-10-14（`A1816`）**伏击翻面**（`ambush_exit`）—— 🔴 **2026-10-22（`W64` §B7）也留空**：
+            //   原版 trait 特效的取法 = `BattleManager.GetTraitEffect(trait, FromCode(5), army)`
+            //   （`CardTraitCollection__GetTraitEffectObject.c` → `CardTrait._traitEffects[]` 里按
+            //   `EffectTriggerType` 挑，再按阵营取 override）；而**那张 trait→effect 真值表本地没有**：
+            //   `assets_full` 全库按 `traitEffects|TraitEffects|effectAnim` 搜 **0 命中**；
+            //   `card_vfx_by_card.json` 的 `byKeywordTrigger` 42 个关键词里**没有 ambush**
+            //   （它是由 `<关键词>Trait<Trigger>` 的**构词法**推的，而 `Ambush Effect` 不守那个构词法）。
+            //   ⇒ 按「⛔ 不许保留孤儿」：**入口撤掉**（原来那件 `AmbushEffect` 的 GUID 在本机**找不到任何
+            //   引用方**：卡 SO / CardAnim 的消费者 / trait SO 都判不了，见报告 U1）。
+            //   ⚠️ **旁证（不足以当判据，但下一个人会想知道）**：`AmbushEffect` 的 AnimFX 音效 cue 是
+            //   **`Trait Ambush`**、它换的材质是 **`Card 3d Dissolve Blend Image Ambush`**、
+            //   `animinfo_lookup["AmbushEffect"]` 的 CardAnim 名就是 `Ambush Effect`（`tm 1.5`）——
+            //   它**很可能就是** ambush 天赋那件，只是「哪一个 `EffectTriggerType` 槽」证不出来。
+            //   ⏭ 补法：把 `CardTraitCollection.TraitCollection[]`（`TraitPairs` → `CardTrait` SO）导出来，
+            //   查到 `DefinedTrait.ambush = 1200` 的 `FromCode(5)` 条目再接回（**需要那批 SO，本地没有**）。
+            //   判据 → `资料/普查产出_1022/W64_兜底审计_特效.md` §一 B7/B8 + §三 U1。
         };
 
-        /// <summary>阵营覆盖：**远程攻击**与**抽卡**按阵营换。
+        /// <summary>阵营覆盖：**只剩远程攻击**按阵营换（🔴 2026-10-22 `W64` §B5：抽卡那两行已删 ——
+        ///   原版抽卡链 0 粒子，见下面表里那段注释）。
         /// 🔴 **2026-10-21（W61 第 2 批 · 第 2 条）：登场那条【没有】按阵营的第二件了** ——
         ///   我们原来在登场拍另补一发「阵营召唤法阵」（`SummonCircleByFaction` 4 个候选：
         ///   Ember/Tide 是**我们挑的**、SaimHann/TauEmpire 是**按名字前缀推断的**），
@@ -252,7 +359,13 @@ namespace CardPresentation
         /// 留白不再静默** —— `Resolve` 走到底回 null 之前会 `Debug.LogWarning` 一次
         /// （每种 (事件, 阵营) 只说一次，见 `WarnNoFactionVariant`）。
         /// ⚠️ `AttackRanged` **不属于这一档**：它在 `ByEvent` 里有一件通用替代品 ⇒ 没配专属粒子的阵营走它，
-        /// 不构成留白（`Resolve` 只在「`ByEvent` 里根本没有这个事件」时才出声）。</summary>
+        /// 不构成留白（`Resolve` 只在「`ByEvent` 里根本没有这个事件」时才出声）。
+        /// 🆕 **2026-10-22（`W64`）现读：这张表里唯一还在用的事件是 `AttackRanged`** ——
+        ///   `Draw` 两行已删（B5）。「按阵营配、这个阵营没有 ⇒ 出声」那条机制**仍然活着**，
+        ///   自检的见证件由 `Draw` 换成…… **没有换**：直接拿一个**合成阵营**去问 `AttackRanged` 也行，
+        ///   但 `AttackRanged` 在 `ByEvent` 里有通用件 ⇒ **它永远走不到那个出口**。
+        ///   ⇒ `WarnNoFactionVariant` 今天**只剩 `Draw` 这一个可达见证**（`ByEvent` 里没有 `draw`、
+        ///   `ByFaction` 里也没有）—— 见 `ResolveFallback` 的注释，⛔ 别把 `Draw` 也加进「原版无此槽」那张表。</summary>
         static readonly Dictionary<string, Dictionary<string, string>> ByFaction =
             new Dictionary<string, Dictionary<string, string>>
         {
@@ -263,15 +376,24 @@ namespace CardPresentation
             //   10 Ultramarines / 20 Goff / 40 Sautekh / 50 BlackLegion）。
             //   出处：`数据/游戏数据/card_vfx_by_card.json` 的 `generic.attackRangedByArmy`（`conf: exact`），
             //   四件的 prefab 都在效果库里 ✓。
-            //   🆕 2026-10-14（`A1816`）**抽卡**也挂这两家的行 —— `UM_CardDraw` / `SAU_CardDraw`
-            //   （判据 = `vfx_wiring_j4.tsv:65` 那条台账 + 两件都在 `effect_index.json` 与效果库里的实证，
-            //    见 <see cref="Draw"/> 的 doc）。⚠️ **只加有判据的那两个阵营**，别顺手给别家配一件。
+            //   🔴 **2026-10-22（`W64` §B5）：`draw` 这两行【已删】—— 原版抽卡链【0 粒子】。**
+            //   判据（第一权威）＝`CardScript__CardDrawn.c` / `BattleManager._ResolveDrawCard_d__432__MoveNext.c`
+            //   / `BattleManager__TurnStartCardDraw.c` / `CardScript._PlayPlayerCard…` 逐句读：
+            //   **0 处粒子 `Instantiate`**（抽卡走 `AnimatorClipInfo` 的**动画**，不是粒子）。
+            //   原来那两件 `UM_CardDraw` / `SAU_CardDraw` 的判据只有 **`vfx_wiring_j4.tsv:65`**
+            //   —— 那是**我们自己的 Godot 复刻台账**，不是原版判据（见审计 §判据来源末条）。
+            //   而且 `card_vfx_by_card.json` 现读：`UM_CardDraw` 落在 `UM45`/`UM53` 等 4 行的 **`play`** 桶
+            //   （authoritative）、`SAU_CardDraw` **本地没有任何 CardAnim 指向它** ⇒ 两件各属别的桶。
+            //   ⇒ 抽卡这一拍**留白**（`Resolve(Draw, …)` 恒 null；`ResolveFallback` 走 `WarnNoFactionVariant`
+            //   出声 —— 那条 `A1731` 的机制没动，仍然由 `Draw` 当见证）。
+            //   ⏭ 要复刻抽卡表现就去解 `AnimatorClipInfo` 那条**动画**链（U3），别拿 play 件顶。
+            //   判据 → `资料/普查产出_1022/W64_兜底审计_特效.md` §一 B5。
             { "Ultramarines", new Dictionary<string, string> {
-                  { AttackRanged, "BulletImpact_2shot_trail" }, { Draw, "UM_CardDraw" } } },
+                  { AttackRanged, "BulletImpact_2shot_trail" } } },
             { "Goff",         new Dictionary<string, string> {
                   { AttackRanged, "BulletImpact_2shot_trail_ork_NEW" } } },
             { "Sautekh",      new Dictionary<string, string> {
-                  { AttackRanged, "NecronGauss" }, { Draw, "SAU_CardDraw" } } },
+                  { AttackRanged, "NecronGauss" } } },
             { "BlackLegion",  new Dictionary<string, string> {
                   { AttackRanged, "BulletImpact_2shot_trail_chaos" } } },
         };
@@ -587,6 +709,47 @@ namespace CardPresentation
             return new CardPick { N = e.n, A = e.a, rc = e.rc, ai = e.ai, gj = e.gj, gn = e.gn };
         }
 
+        // ================== 🆕 2026-10-22（`W64` §B9）：登场淡入的**稀有度分档** ==================
+        // 判据（原版）：`CardPrefab` 上 `normalSummon` / `legendarySummon` **成对存在**
+        //   （`数据/游戏数据/card_vfx_by_card.json` 的 `generic.byEvent.deploy`：4 条 `conf: exact`，
+        //    前两条就是这两个 prefab）；挑选规则 = **传说档（`cardRarity == 4`）** —— 与
+        //   `BattleDriver.GetInvokeCue(cardRarity)`（`invokeCUE` / `invokeCUELegendary` 那一对）**同一套规则**，
+        //   也与 `BattleDriver.MountSpawnParticlesUnderToBoardFx` 同一个形状（`def.rarity == "legendary"`）。
+        // ⚠️ 原版那一支的**完整**条件是 `HasCurrentTrait(0x4b0) || cardRarity == 4`
+        //   （`CardSetup.c:286/290`；`0x4b0` = `DefinedTrait.ambush = 1200`，见 `d:/2/tools/il2cpp_out/dump.cs`）
+        //   —— **伏击那半个条件本节【没接】**：审计 §三 U4 明说「`CardScript.CardToMinionAnim` 那个 switch
+        //   的方法体没逐句跟到」⇒ ⛔ 不猜，只按**稀有度**分档（传说以外的卡行为一个字没变）。
+        // ⚠️ 稀有度从哪来：`cardIdOrName` 就是 `BattleEvent.CardId`（= **卡名**）⇒ 用
+        //   `RuleEngine.CardDatabase`（进程级缓存；战斗开局 `BattleDriver._pool` 已经载过那一份 ⇒ 现成）
+        //   查 `CardDef.Rarity`。查不到那张卡 ⇒ **不缓存、也不猜**，直接走普通档。
+        static readonly Dictionary<string, bool> _legendaryOfCard =
+            new Dictionary<string, bool>(System.StringComparer.Ordinal);
+
+        /// <summary>这张卡是不是**传说档**（`CardDef.Rarity == "legendary"`，忽略大小写）。
+        /// 查不到这张卡 ⇒ `false`（= 普通档；⛔ 不猜、也**不缓存**，补上卡表之后还能再查）。</summary>
+        static bool IsLegendaryCard(string cardIdOrName, string faction)
+        {
+            if (string.IsNullOrEmpty(cardIdOrName)) return false;
+            string key = cardIdOrName + "|" + (faction ?? "");
+            bool legendary;
+            if (_legendaryOfCard.TryGetValue(key, out legendary)) return legendary;
+            var pool = CardDatabase.Load();
+            var card = CardDatabase.Find(pool, cardIdOrName, faction);
+            if (card == null) card = CardDatabase.FindById(pool, cardIdOrName);   // 也收 id（自检会按 id 调）
+            if (card == null) return false;
+            legendary = string.Equals(card.Rarity, "legendary", System.StringComparison.OrdinalIgnoreCase);
+            _legendaryOfCard[key] = legendary;
+            return legendary;
+        }
+
+        /// <summary>登场淡入按稀有度挑档：**传说 ⇒ <see cref="DeployLegendary"/>**；其余 / 判不出 ⇒ `null`
+        /// （= 交回 `ByEvent` 的普通档 <see cref="DeployDefault"/>，行为不变）。⛔ 只对 `Deploy` 生效。</summary>
+        static string DeployTierFor(string evt, string faction, string cardIdOrName)
+        {
+            if (evt != Deploy) return null;
+            return IsLegendaryCard(cardIdOrName, faction) ? DeployLegendary : null;
+        }
+
         /// <summary>查一个事件该播什么。查不到返回 null（调用处会跳过）。
         ///
         /// <para>🔴 <b>2026-10-15（账 `A2082`）：`cardId` 这个参数<b>两把键都收</b> —— 卡 id <b>或</b> 卡名。</b>
@@ -614,6 +777,11 @@ namespace CardPresentation
             //      ⛔ 别在这儿再抄一遍那个「id 或卡名」的换算。）
             string perCard;
             if (TryResolvePerCard(evt, faction, cardId, out perCard)) return perCard;
+            // 🆕 2026-10-22（`W64` §B9）：`Deploy` 还要问一次**稀有度档**（传说 ⇒ `… Legendary`）。
+            //   ⚠️ 排在兜底链**之前**、逐卡那一档**之后**：逐卡的 `summonAnimDelayed` 是**另一件**
+            //      （原版是叠加的第二件），不能在它命中时抢走它。
+            string tier = DeployTierFor(evt, faction, cardId);
+            if (tier != null) return tier;
             // 🆕 2026-10-19（B3）：兜底那一段拆成 `ResolveFallback` —— `ResolveAll` 也要用它，
             //   ⛔ 别在两处各写一遍「ByFaction → ByEvent → 留白出声」。
             return ResolveFallback(evt, faction);
@@ -650,6 +818,9 @@ namespace CardPresentation
                 for (int i = 0; i < picks.Count; i++) names[i] = picks[i].N;
                 return names;
             }
+            // 🆕 2026-10-22（`W64` §B9）：与 `Resolve` 同一处判据（稀有度档）—— ⛔ 别只改一个口。
+            string tier = DeployTierFor(evt, faction, cardIdOrName);
+            if (tier != null) return new[] { tier };
             string one = ResolveFallback(evt, faction);
             return string.IsNullOrEmpty(one) ? NoEffectNames : new[] { one };
         }
@@ -784,6 +955,11 @@ namespace CardPresentation
                 //   `Trigger` 用途必须这样：`ByEvent` 里那条 `Faith_trigger_unit` 是**死条目**
                 //   （原版触发没有通用特效，B2 · 偏差 7）—— 掉兜底会把它当通用特效播出来。
                 if (perCardOnly) return NoEffectTimes;
+                // 🆕 2026-10-22（`W64` §B9）：**生产路径就是这里**（`BattleDriver.FireEventAll` →
+                //   `ResolveAllTimed`）—— 登场那一拍按稀有度挑档，判据与 `Resolve` / `ResolveAll` 同源
+                //   （<see cref="DeployTierFor"/>）。⛔ 别只改那两处、漏了这一处（那才是真正在播的口）。
+                string tier = DeployTierFor(evt, faction, cardIdOrName);
+                if (tier != null) return new[] { new ResolvedVfx { Name = tier, T = 0f } };
                 // 兜底那一档（按阵营 / 按事件）永远只有**一件** ⇒ `T = 0`（与 `ResolveAll` 同源）。
                 string one = ResolveFallback(evt, faction);
                 return string.IsNullOrEmpty(one)
@@ -955,6 +1131,46 @@ namespace CardPresentation
         //  （「回归口径」，B6 §三·2 —— 队尾由事件自己负责），而**逐卡攻击动画恰好几乎都是单候选**
         //  ⇒ 直接读会拿到 0（那就等于退回写死常数了）。这里在同一次钉行结果上补一次真值。
         // ------------------------------------------------------------------
+
+        /// <summary>🆕 **2026-10-22（`W64`）：远程攻击件那条【原版三层链】的唯一一个口**
+        /// （普通攻击与**反击**共用；两者在原版是**同一个协程**）。</summary>
+        ///
+        /// <para>**判据（第一权威）= `CardScript._ResolveAttackRangedAnim_d__360__MoveNext.c:142-163`**：</para>
+        /// <code>
+        /// if (RawCardScript__HasCustomRangedAttackParticles(自) == 0) {
+        ///     lVar7 = RangedAttackParticlesByClanSO__GetRangedClanParticles(自.clanSO, 自.clan);  // :155
+        ///     uVar5 = *(long8 *)(lVar7 + 0x18);                                                   // 取那一条
+        /// } else uVar5 = RawCardScript__GetRangedAttackParticles(自);                              // :162
+        /// </code>
+        /// <para>三层，**一层都不许省、也不许再加一层**：</para>
+        /// <list type="number">
+        /// <item>**逐卡** `customRangedAttackParticles`（卡 SO 顶层字段）—— 命中就用它；</item>
+        /// <item>**阵营** `RangedAttackParticlesByClan`（原版 SO 里只有 **4 家**有专属件：
+        ///   Ultramarines / Goff / Sautekh / BlackLegion）—— 我们对应 <see cref="ByFaction"/> 的
+        ///   `attackRanged` 那 4 行（`card_vfx_by_card.json` 的 `generic.attackRangedByArmy`，`conf: exact`）；</item>
+        /// <item>**SO 第一条** —— 原版 `GetRangedClanParticles` **查不到 clan 就返回 SO 第一条**
+        ///   （= Ultra 的 `BulletImpact_2shot_trail`，判据 → `资料/普查产出_1022/W63_飞行与卡ID演出_调查.md` §B）
+        ///   ⇒ 我们对应 <see cref="ByEvent"/> 的 `attackRanged` 那一行（2026-10-22 `W63` 已把它的值
+        ///   从 `BulletImpact_2shot` 换成 `BulletImpact_2shot_trail` = 同一件）。
+        ///   ⚠️ **这一层【不是】「我们挑的通用兜底」**，它就是原版那条链的最后一档；
+        ///   ⛔ 别再新造一件替代品、也⛔ 别把这一档删掉让结果变成「空」。</item>
+        /// </list>
+        ///
+        /// <para>⚠️ 实现走 <see cref="ResolveAllTimed"/> 的 **`perCardOnly: false`** 那一档 ——
+        /// 它的兜底顺序 = 逐卡 → `ByFaction[evt][faction]` → `ByEvent`，与本方法 doc 的三层**逐字对应**
+        /// （`ResolveFallback`）。⛔ 别在这里另写一份 join。</para>
+        /// <param name="faction">**施法者**的阵营（攻击 = 攻方、反击 = **守方**）——
+        /// 原版读的是「施法者自己的 clan」（`:156` 的 `自.clan`）。`null` = 判不出 ⇒ 只用
+        /// `ByEvent` 那条（探针口径，⛔ 不是生产值）。</param>
+        /// <param name="cardIdOrName">施法者那张卡（卡 id 或卡名；重名才靠 `faction` 钉）。</param>
+        /// <param name="times">那张卡的 `CardDef.AnimTimes`（`null` = 没有逐候选时长 ⇒ 全 `T=0`）。</param>
+        /// <param name="rng">`randomAbilityChoice` 的随机源（与 `ResolveAllTimed` 同一个形参；`null` = 按序全播）。</param>
+        public static ResolvedVfx[] ResolveRangedAttackPieces(string faction, string cardIdOrName,
+                                                             IReadOnlyList<CardDef.CardAnimTime> times,
+                                                             System.Random rng = null)
+        {
+            return ResolveAllTimed(AttackRanged, faction, cardIdOrName, times, rng, perCardOnly: false);
+        }
 
         /// <summary>🆕 2026-10-21（W61 · 第 2 条）：**这条事件演多久**（秒，相对事件起播）。
         /// 逐卡候选有 `CardAnimTime` 真值时 = 「最后收尾那一条的 `起点 + 时长`」；
@@ -1203,9 +1419,12 @@ namespace CardPresentation
         }
 
         /// <summary>`Resolve` / `ResolveAll` 共用的**兜底链**（逐卡那一档没有命中之后）：
-        /// `ByFaction` → `ByEvent` → 留白出声。
-        /// 🔴 **2026-10-22（`W63` §B）例外**：`AttackMelee` 在 `ByEvent` 之前**显式回 null 且不出声**
-        /// —— 原版没有「通用近战件」，那是原版的形状、不是漏配（见方法体里那一段注释）。⛔ 判据只此一处。</summary>
+        /// `ByFaction` → （原版无此槽？）→ （已知缺口？）→ `ByEvent` → 留白出声。
+        /// 🔴 **2026-10-22（`W64`，判据只在 <see cref="IsOriginalNoGenericEvent"/> / <see cref="IsKnownGapEvent"/> 两处）**：
+        /// `play` / `ability` / `death` / `return` / `attack_melee` **回 null 且不出声**
+        /// （原版没有这一档；`death` 是**真件另有播放口**，见 <see cref="IsOriginalNoGenericEvent"/>）；
+        /// `collect_waystone` / `ambush_exit` **回 null 且出声**（有真件、本机接不上）。
+        /// ⛔ 别为了「让它有件」往 `ByEvent` 里塞替代品 —— 那正是 `W64` 销掉的那批账。</summary>
         static string ResolveFallback(string evt, string faction)
         {
             Dictionary<string, string> m;
@@ -1215,35 +1434,51 @@ namespace CardPresentation
                 if (m.TryGetValue(evt, out s)) return s;
             }
             string fallback;
-            // 🔴 **2026-10-22（`W63` §B）：近战没有「通用兜底件」—— 这是【原版的形状】，不是漏配。**
-            //   原版近战只在命中帧播 `AttackHitSmall`（`CardScript.ResolveAttackAnimationEffects`），
-            //   没有「通用近战粒子」这一档；`ByEvent` 里原来那件 `BulletImpactBurst_crowd` 是我们挑的
-            //   替代品（= 原版没有的第二下）⇒ 已删（见 `ByEvent` 那张表的注释）。
-            //   ⇒ **回 null 就是正确结果**，所以这里**不出声**：下面 `WarnNoFactionVariant` 那条警告是给
-            //     「按阵营配、这个阵营漏配」的**缺陷**用的；近战这一档不是缺陷，喊出来只会变成假信号。
-            //   ⚠️ `ByFaction` 的查询在**上面**（真有阵营想给近战配专属件时仍然生效），别把这条挪到它前面。
-            //   ⚠️ 调用方拿到的空数组 / null 一律是「这一拍没有粒子」——`CardEffects.Fire` 的第一行就
-            //     挡掉空名字（不是静默失败：`Describe()` 里会如实打成 `attack_melee=—`）。
-            //   判据 → `资料/普查产出_1022/W63_飞行与卡ID演出_调查.md` §B。
-            if (evt == AttackMelee) return null;
+            // 🔴 **2026-10-22（`W64`）：两张「空表」在这里分开处理（判据见方法 <see cref="IsOriginalNoGenericEvent"/>）。**
+            //   原来这里只有一条 `if (evt == AttackMelee) return null;`（`W63` §B）—— 现在推广成两族：
+            //   ① **原版的形状**（`play` / `ability` / `death` / `return` / `attack_melee`）⇒ 回 null、
+            //      **不出声**：下面 `WarnNoFactionVariant` 那条警告是给「按阵营配、这个阵营漏配」的
+            //      **缺陷**用的；这几档不是缺陷，喊出来只会变成假信号（`Describe()` 里会如实打成 `xx=—`）。
+            //   ② **有真件、本机接不上**（`collect_waystone` / `ambush_exit`）⇒ 回 null、**出声一次**：
+            //      这是已知缺口，⛔ 不拿替代品顶、也⛔ 不静默。
+            //   ⚠️ `ByFaction` 的查询在**上面**（真有阵营想给这些事件配专属件时仍然生效），
+            //      别把这两条挪到它前面。
+            //   判据 → `资料/普查产出_1022/W64_兜底审计_特效.md` §一 B1–B8（逐条原版出处）
+            //        + `资料/普查产出_1022/W63_飞行与卡ID演出_调查.md` §B（近战那一条）。
+            if (IsOriginalNoGenericEvent(evt)) return null;
+            if (IsKnownGapEvent(evt))
+            {
+                // ⚠️ 只在**播放口径**出声：`faction` 为空 = `Unmapped()` / `Describe()` 那种**枚举探针**，
+                //    与 `WarnNoFactionVariant` 自己的口径一致（它也挡空 faction），别在枚举时刷日志。
+                WarnNoFactionVariant(evt, faction,
+                    "这一档**有原版真件、但本机还没接上**（`VfxMap.IsKnownGapEvent`）⇒ 这一拍留白。"
+                    + "真件与缺的那张表写在 `ByEvent` 那张表对应那一段注释里。");
+                return null;
+            }
             if (ByEvent.TryGetValue(evt, out fallback)) return fallback;
-            // 🔴 2026-10-16（账 `A1731`）：**走到这里 = 这个事件只能按阵营配**（`ByEvent` 里没有它 ——
-            //    现读只有 `Draw` 是这种），而这个阵营没有那一条 ⇒ **出声**再回 null。
+            // 🔴 2026-10-16（账 `A1731`）：**走到这里 = 这个 (事件, 阵营) 一行都没配** ⇒ **出声**再回 null。
             //    原来这里是静默 `return null`：玩家看到「抽卡这一拍什么都没发生」，日志里却一个字都没有
             //    （本仓红线：不许静默失败）。
+            //    🔴 **2026-10-22（`W64` §B5）就地订正（铁律 5）**：本段原来写「走到这里 = 这个事件只能按阵营配 …
+            //      现读只有 `Draw` 是这种，配过的见 `ByFaction` 那张表」—— **前半句不再成立**：`ByFaction`
+            //      里 `Draw` 那两行已删（原版抽卡 0 粒子）⇒ 今天走到这里的**只有 `Draw`**、而它
+            //      **两边都没配**。这条警告的**语义没变**（留白要出声），只是「配过的」不再存在。
             //    ⚠️ `faction` 为空（`Unmapped()` 那种探测口径，`Draw` 不带阵营本来就该是 null）由
             //       `WarnNoFactionVariant` 自己挡掉；枚举探针由 `_probeDepth` 挡。
             WarnNoFactionVariant(evt, faction,
-                "这一件**只按阵营配**（`ByEvent` 里没有它）⇒ 没配到的阵营一律留白，配过的见 `ByFaction` 那张表。");
+                "这个事件在 `ByEvent` / `ByFaction` 里都**没有这个阵营的候选** ⇒ 这一拍留白。");
             return null;
         }
 
         /// <summary>🆕 2026-10-15（账 `A2083`）：**只查逐卡那一档**，⛔ 不回落到按阵营 / 按事件。
         ///
-        /// 为什么单开一个口：<see cref="Resolve"/> 的兜底链会把 `death` 解析成 `ByEvent[death]`
-        /// （= 我们自己挑的替代品 `Explosion Fenrisian Monstrosities`），而**阵亡那一拍已经有原版真件**
-        /// （`CardFeel.DeathExplosion` 播的 `Card 3D Death Explosion`）⇒ 把兜底也算进来就是**原版没有的第二下**。
-        /// ⇒ 调用方真正要问的是「**这张卡自己**有没有逐卡覆盖」，没有就必须是 null。
+        /// 为什么单开一个口：<see cref="Resolve"/> 的兜底链会把同族事件解析成**按阵营 / 按事件**那件，
+        /// 而**阵亡那一拍已经有原版真件**（`CardFeel.DeathExplosion` 播的 `Card 3D Death Explosion`）
+        /// ⇒ 把兜底也算进来就是**原版没有的第二下**。
+        /// 🔴 **2026-10-22（`W64` §B3）就地订正（铁律 5）**：本段原来举例「`ByEvent[death]` = 我们挑的替代品
+        /// `Explosion Fenrisian Monstrosities`」—— **那一行已删**，`Resolve(Death)` 现在也回 null。
+        /// 但这道口**仍然必要**：它问的是「**这张卡自己**有没有逐卡覆盖」，而 `Resolve` 还带着
+        /// 按阵营 / 按事件两档（别的族仍在用）⇒ 两者语义不同，⛔ 别合并。
         /// ⚠️ 首个消费者 = `CardFeel.SpawnDeathBody`（原版 `CardScript.UnitDeath` 的「二选一」判别式）。
         ///
         /// 与 <see cref="Resolve"/> **共用同一套键解析**（id 或卡名 + 重名靠阵营钉，见 <see cref="ResolveCardIdOf"/>）。</summary>
@@ -1568,17 +1803,23 @@ namespace CardPresentation
             //    现在是 `RuleCore.DeclareAttack` 的攻击取消路），
             //    **就是没进这张表**，而且 `BattleDriver.PlaySignal` 的 switch 里也没有它们的 case
             //    ⇒ 掉 `default: return`（**连 `PlayFeel` 都不进**）。同一形状第三次了（`CollectWaystone` 那次是第二次）。
-            //    ⚠️ `Draw` 是**按阵营**配的（见它的 doc）⇒ 默认口径解析不出是预期的，
-            //       `Unmapped()` 会把它列出来，判断时要配 <see cref="ResolvesForSomeFaction"/>。
+            //    ⚠️ 🔴 **2026-10-22（`W64` §B5）**：本段原来写「`Draw` 是**按阵营**配的 ⇒ 默认口径解析不出
+            //       是预期的，判断时要配 `ResolvesForSomeFaction`」—— **已过期**：`ByFaction` 里
+            //       `Draw` 那两行已删（原版抽卡 0 粒子）⇒ 今天**任何一个阵营都解析不出**。
+            //       `Unmapped()` 里 `Draw` / `AmbushExit` / `CollectWaystone` 会一直出现，那是**预期的**
+            //       （由 `IsOriginalNoGenericEvent` / `IsKnownGapEvent` 解释，不是漏配）。
             Draw, AmbushExit,
         };
 
         /// <summary>自检用：这个事件**至少有一个已注册阵营**配得上 —— <see cref="Unmapped"/> 的搭档。
         ///
-        /// **为什么要有它**：`Draw` 这类**按阵营**配的事件（本地只有 2 个阵营有那件 prefab）在
-        /// 「不带阵营」的默认口径下**必然**解析成 null，而那不是「结构上永远不播」——
+        /// **为什么要有它**：**按阵营**配的事件（`ByFaction` 那 4 个 `AttackRanged`）在
+        /// 「不带阵营」的默认口径下**必然**解析成 null，但**那不是「结构上永远不播」** ——
         /// 对配了的阵营它是播的。⛔ **别拿它放宽判据**：它只在 `ByFaction` 里找，
         /// 「一个阵营都没有」仍然算没配。
+        /// <para>🔴 **2026-10-22（`W64` §B5）就地订正（铁律 5）**：本段原来拿 `Draw` 当例子
+        /// （「本地只有 2 个阵营有那件 prefab」）—— **那两行已删**，`Draw` 今天**一个阵营都没有**
+        /// ⇒ `ResolvesForSomeFaction(Draw)` 现在**恒 false**（这是正确结果，⛔ 别拿它判「漏配」）。</para>
         /// ⚠️ 它是**只读**的（不碰 `ByCard`、不触发 `EnsureLoaded`）—— 逐卡那一档
         /// 按设计就**不该**救一个事件名（逐卡表是「这张卡的这个动作」的覆盖，不是「事件有没有配」的兜底）。</summary>
         public static bool ResolvesForSomeFaction(string evt)
@@ -1596,11 +1837,16 @@ namespace CardPresentation
             return false;
         }
 
-        /// <summary>自检用：**解析不出特效名**的事件（正常应当为空）。见 <see cref="Events"/>。
-        /// <para>🔴 **2026-10-22（`W63` §B）**：`AttackMelee` 现在**必然**出现在这个列表里 —— 原版**没有**
-        /// 通用近战件（`ByEvent` 那一行已删，回 null 是**正确结果**，见 `ResolveFallback` 的注释）。
-        /// ⇒ 断言批改时这一条要把它**显式排除**（⛔ 别为了让它绿而往表里塞一件替代品）。
-        /// 判据 → `资料/普查产出_1022/W63_飞行与卡ID演出_调查.md` §B。</para></summary>
+        /// <summary>自检用：**解析不出特效名**的事件。见 <see cref="Events"/>。
+        /// <para>🔴 **2026-10-22（`W63` §B + `W64` B1–B8）就地订正（铁律 5）**：原来这里写「正常应当为空」——
+        /// **不再成立**。今天**必然**出现在这个列表里的有三族，而且「回 null」都是**正确结果**：
+        ///   ① 原版本来就没有通用件 ⇒ <see cref="IsOriginalNoGenericEvent"/>
+        ///      （`play` / `ability` / `death` / `return` / `attack_melee`）；
+        ///   ② 有真件、本机接不上 ⇒ <see cref="IsKnownGapEvent"/>
+        ///      （`collect_waystone` / `ambush_exit`）；
+        ///   ③ 只能按阵营配、而今天一个阵营都没配（`draw` —— 🔴 2026-10-22 B5 之后连 `ByFaction` 也没了）。
+        /// ⇒ 断言批改时这三族要**显式排除**（⛔ 别为了让它绿而往表里塞一件替代品 —— 那正是本批销掉的账）。
+        /// 判据 → `资料/普查产出_1022/W63_飞行与卡ID演出_调查.md` §B + `W64_兜底审计_特效.md` §一。</para></summary>
         public static IEnumerable<string> Unmapped()
         {
             foreach (var e in Events)

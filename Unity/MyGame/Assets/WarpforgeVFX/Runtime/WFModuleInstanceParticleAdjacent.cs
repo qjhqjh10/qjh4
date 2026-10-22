@@ -30,16 +30,33 @@
 //     `BattleManager.CreateAnimFromAnimFxController(asset.animInfo,
 //        controller.actingCard.transform, unit.transform, unit.transform,
 //        controller.actingCard, unit, null, false)`
-//     ⇒ **起点 = 出手卡，终点/朝向 = 那个相邻单位**，逐个单位各来一份
+//     逐个单位各来一份。
+//     🔴 **2026-10-22（`W64` · B18）就地订正 —— 起点/终点【不是】「出手卡 / 那个相邻单位」**：
+//     那串实参里两个 `Transform` 只是给「别的 option」用的；本效果的
+//     `startPosOption = endPosOption = 1`，而 `GetAnimTransform` 的 **case 1/2** 取的是
+//     **第二个 CardScript 的 `CardUI.effectsAnchor`**：
+//       · `BattleManager__GetAnimTransform.c:64-67,137-138` —— `case 1/2` → `*(param_4 + 0x290)` → `*(… + 0x1a0)`；
+//       · `CardScript.CardUI`（`<CardUI>k__BackingField`）= **+0x290**（`dump.cs:35486`）；
+//       · `BattleCardUI.effectsAnchor` = **+0x1A0**（`dump.cs:26190`）；
+//       ⇒ **起点 = 终点 = 那个相邻单位的 `effectsAnchor`**。
+//     · 相邻单位取的是 **`controller.targetCard`** 的（`AnimFXController.targetCard` = +0x58，`dump.cs:47988`；
+//       调用 `AnimFXInstanceParticleAdjacent__ExecuteEffect.c:43-44`）—— **不是出手卡的邻居**。
+//     · `AnimInfo`（`Deathspinner Slice Card Target.json`）逐字段：`timeAtStartPos = 0.5` ·
+//       `timeMoving = 0` · `timeAtEndPos = 0` · `shouldMoveVFX = 0` ⇒ **不飞**：
+//       **在锚点上停 0.5 s**，然后结束。
 //   · 「延时中」的**时序**：原版是协程，**`Exit` 不停它**（协程只在对象销毁时断）
 //     ⇒ 我们在 `ModuleTick` 里计时，`Exit` 之后**继续**计（照原版）。
+//     ✅ **2026-10-22 坐实**（不再是我方的推断）：`AnimFXInstanceParticleAdjacent._DelayActivation_d__4__MoveNext.c`
+//     的状态机读出来了 —— `new WaitForSeconds(this.delay(+0x40))` → 让出 → 下一拍 `ExecuteEffect()`
+//     ⇒ **`delay` 的语义 = `WaitForSeconds(delay)`**（先前提的「按字段名推」已可撤）。
 //
 // 🔴 我们自己定的（**原版不是这样**）
 // ----------------------------------------------------------------
-//   1. **延时的实现**：原版 `StartCoroutine(DelayActivation())`。⚠️ 那个状态机的 `MoveNext`
-//      **没被反编译**（块2 §6 记着：RVA `6796352` 有名字、方法体没有）⇒
-//      「等的是不是 `WaitForSeconds(delay)`」**没读到**，我们**按 `delay` 字段推**成
-//      `delay` 秒后触发。**这是推断，不是方法体。**
+//   1. **延时的实现**：原版 `StartCoroutine(DelayActivation())`。
+//      ✅ **2026-10-22 已坐实**：那块状态机的 `MoveNext` 现在**反编译出来了**
+//      （`AnimFXInstanceParticleAdjacent._DelayActivation_d__4__MoveNext.c`：`WaitForSeconds(this.delay)` →
+//      让出 → `ExecuteEffect()`）⇒ 我们「`delay` 秒后触发」**与方法体一致**，不再是推断。
+//      ⚠️ 旧记录（保留痕迹）：「那个 `MoveNext` 没被反编译（RVA 6796352 有名字、方法体没有）」—— 已过期。
 //   2. 「资产引用有效」的判据在我们这边是 `cardAnimGuid` / `prefabName` 非空
 //      （原版是 `AssetReferenceTyped<CardAnim>` 的虚调用，方法名未核实，块2 §6 ②）。
 //   3. **播什么、在谁身上播 = 交给下游**（`OnExecute` 钩子）。两条原因，**都不是我们偷懒**：
@@ -74,11 +91,17 @@
 //
 // 🔴 没还原的
 // ----------------------------------------------------------------
-//   ① **起点/终点**：原版是「出手卡 → 那个单位」（见上面逐字记的 8 个实参）；
-//      我们这边只有 `WarpforgeEffectPlayer.Play(name, parent, localPosition)`，
-//      **表达不了「从 A 到 B」**（那趟位移在 CardAnim 资产内部）⇒ 由 `OnExecute` 全权决定。
+//   ① **起点/终点**：🔴 **2026-10-22 订正** —— 原版**不是**「出手卡 → 那个单位」，而是
+//      **那个相邻单位的 `BattleCardUI.effectsAnchor`（+0x1A0）上、原地停 0.5 s**（判据见上）。
+//      这反而**简化**了：不需要「从 A 到 B」那趟位移（`timeMoving = 0` / `shouldMoveVFX = 0`）。
+//      我们这边现在只差**一个「锚点在哪」的输入**：`WarpforgeEffectPlayer.Play(name, parent, localPosition)`
+//      能表达「挂在某个 transform 的某个 localPos」⇒ 接的时候应该传
+//      **那张相邻单位卡的 `CardView` 的锚点**（我们侧对应物 = 卡节点本身 / `AnimAnchors` 那一族），
+//      `localPosition = Vector3.zero`。
 //   ② 「谁何时播这份特效」的上层接线（`VfxMap` 目前只支持「一个事件 → 一个特效」，
-//      这条要的是「一个事件 → 对每个相邻单位各播一份」）—— 见块2 §6「Unity 侧重写」。
+//      这条要的是「一个事件 → **对目标卡的每个相邻单位**各播一份」）—— 见块2 §6「Unity 侧重写」。
+//      ⛔ 注意主语：是**目标卡**的相邻单位（`controller.targetCard` = +0x58），不是出手卡的。
+//   ⚠️ 本批（`W64` · B18）**只订正了注释**，运行时接线**没做**（差什么见上 ① ② + Doomweaver shader）。
 using System;
 using UnityEngine;
 
@@ -114,8 +137,9 @@ namespace WarpforgeVFX
         // ---- 🔑 下游钩子 ----
         /// <summary>
         /// **延时到点后，由表现层「逐个相邻单位各播一份」。** 参数 = (播放器, 本模块)。
-        /// 实现时照原版那 8 个实参来（见文件头）：`GetAdjacentUnits(目标卡)` →
-        /// `foreach (unit)` → **起点 = 出手卡、终点/朝向 = unit**。
+        /// 实现时照原版来（见文件头）：`GetAdjacentUnits(controller.targetCard)` →
+        /// `foreach (unit)` → **在 `unit` 的 `BattleCardUI.effectsAnchor` 上原地播**（`0.5 s`、不飞；
+        /// 🔴 2026-10-22 订正：**不是**「出手卡 → 那个单位」）。
         /// 卡上下文见 `WFEffectCards`（`WFModuleTransformModifier.cs` 头注释里有挂法）。
         /// 没挂 = 每次都会 `LogWarning` 并计数（**不静默**）。
         /// </summary>
@@ -211,7 +235,7 @@ namespace WarpforgeVFX
                                    + "原版那一步是 `BattleManager.GetAdjacentUnits(targetCard)` + "
                                    + "`CreateAnimFromAnimFxController(animInfo, actingCard.transform, "
                                    + "unit.transform, unit.transform, actingCard, unit, null, false)`"
-                                   + "（起点=出手卡、终点/朝向=那个单位）。"
+                                   + "（起点=终点=`unit` 的 `BattleCardUI.effectsAnchor`(+0x1A0)，原地停 0.5 s、不飞）。"
                                    + $"该效果同时挂着 ScreenShake / Tween / TransformModifier 等模块，"
                                    + "少了这一份是**看得见的差别**。这条警告只报前 5 次。");
                 }

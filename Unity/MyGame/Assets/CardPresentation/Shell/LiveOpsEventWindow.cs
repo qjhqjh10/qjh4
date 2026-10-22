@@ -385,7 +385,12 @@ namespace CardPresentation
             ArmyIndex = -1;
             Build();
             // ⚠️ **每次开窗都要重建它** —— `Build()` 会把根下的子件全清掉（含上一次那个搜索弹窗）。
-            _search = SearchingMatchPopup.Attach(transform, "Searching Oponent Popup (1)");
+            // 🔴 **2026-10-22（W64）：`hostDrivesItself: false`** —— 本族宿主**可能被全屏窗整棵藏起来**
+            //    （排位那条：`SearchingOpponentWindow` 是 `type=0 Fullscreen` ⇒ `OpenWindow` 的全屏支
+            //     `HideAllWindows()` ⇒ `GameWindow.Hide()` ⇒ `SetActive(false)` ⇒ Unity 不再派 `Update`）
+            //    ⇒ 推进交给常驻 `SearchOpponentManager`（判据 = 原版 `SearchingOpponentWindow` 没有 `Update`，
+            //    倒计时在 `SearchOpponentManager._WaitForHumanOpponent` 的协程上）。
+            _search = SearchingMatchPopup.Attach(transform, "Searching Oponent Popup (1)", false);
             _search.OnCancel = CancelSearch;
         }
 
@@ -1201,15 +1206,23 @@ namespace CardPresentation
         /// <summary>匹配等满时先收掉子类多开的东西（排位那扇全屏搜索窗），再开战。</summary>
         protected virtual void OnSearchFinished() { }
 
-        /// <summary>推进匹配（`Update` 与自检都走它 —— 批处理没有帧循环）。</summary>
+        /// <summary>推进匹配。🔴 **2026-10-22（W64）起生产路径不经过它** —— 每帧由常驻
+        /// <see cref="SearchOpponentManager"/> 直接推 `_search`（判据 = 原版 `SearchingOpponentWindow` 没有 `Update`，
+        /// 等待在 `SearchOpponentManager` 的协程上）。**本方法只留给自检直调**（批处理没有帧循环）。
+        /// ⛔ 别再把 `void Update() { TickSearch(Time.deltaTime); }` 加回来：这一族宿主会被全屏窗 `SetActive(false)`
+        /// （真机上 12 秒就冻在那儿），而且会和常驻 ticker **一帧推两次**。</summary>
         public void TickSearch(float dt) { if (_search != null) _search.Tick(dt); }
-
-        void Update() { TickSearch(Time.deltaTime); }
 
         /// <summary>取消匹配后宿主窗口要复位的东西（窗口本身**留着**，玩家还站在这里）。</summary>
         public virtual void CancelSearch()
         {
             Debug.Log("[Event] 取消匹配（原版 `SearchingOpponentWindow__CancelMatchMatchmaking → MatchMakerManager.CancelSearch`）");
+            // 🔴 **2026-10-22（W64）：取消 ⇒ 清状态 + 从常驻 ticker 注销**（= 原版 `CancelBattleSearch → StopCoroutine`）。
+            //    原来这一句**没有**：单机那一支下面第一行就 `return` 了，`Searching`/`SecondsLeft` 原样留着 ——
+            //    以前靠「关全屏窗必重建宿主 ⇒ 旧 popup 随销毁丢掉」侥幸没露，但那是**脆的**：
+            //    只要宿主那一扇走 `Background` 支（不重建），常驻 ticker 会接着推 ⇒ **取消之后 12 秒又开一局**。
+            //    ⚠️ 用 `AbortSearch()`（**不**回调 `OnCancel`）—— `Cancel()` 会经 `OnCancel` 再回到本方法，绕成一圈。
+            if (_search != null) _search.AbortSearch();
             // 🆕 **2026-10-03（A1）：联机那一支要【真拆局】**。
             //    原来只关窗 ⇒ 配对已经成了，对面照样开局，`MsgStart` 一到还是会被拉进战场。
             //    ⚠️ **这条链是我们设计的、不是复刻**（原版那是服务端撤单）—— 判据 → `NetMatchmaking.Cancel`。

@@ -1093,6 +1093,17 @@ namespace CardPresentation
             for (int i = 0; i < _timeline.Count; i++)
             {
                 var e = _timeline[i].evt;
+                // 🔴 **2026-10-22（`W64` 真机抓到的空引用）：cue 不是事件、`evt` 恒 null。**
+                //   `_timeline` **合法地**混着非事件 cue（`cueVfx` / `cueAction`），它们的 `evt` 是 null
+                //   （`PendingSignal` 是 struct、`BattleEvent` 是 class）；两个 null 构造点 =
+                //   `ScheduleVfxCue` 与 `ScheduleAction`。这里原来直接读 `e.Player` ⇒
+                //   `NullReferenceException`（真机日志 `_tmp_view/w64_battle.log:378-386` 复现，
+                //   栈 = `PendingExitFor ← SyncBoard ← RefreshAll ← AfterAiAction`，它**中断了 `SyncBoard`**，
+                //   刚打出的 Dire Avenger 停在 `face=Hand`）。
+                //   判据 / 备选方案取舍 → `资料/普查产出_1022/W64_PendingExitFor空引用诊断.md` §①/§⑤。
+                //   ⚠️ `null` 的 cue **永远不可能** `Kind == Death || Return` ⇒ 跳过它
+                //   对判定结果**逐位不变**（不是「行为变了」，是把「抛异常」变成「本来该有的答案」）。
+                if (e == null) continue;
                 if (e.Player == owner && e.Slot == slot
                     && (e.Kind == EvtKind.Death || e.Kind == EvtKind.Return)) return true;
             }
@@ -1877,7 +1888,41 @@ namespace CardPresentation
         /// （原版 `ClockManager` 的锁存格 `+0xb0`，由 `StartTimer` 复位）—— 由 `ResetClock()` 复位。
         /// **每回合只播一次**（原版也是锁存 —— 那格在 `SetNoActionsUi` 里置 1）。</summary>
         bool _noActionsUiShown;
-        Label _clockLabel;
+        // 🔴 **2026-10-22（`W63` P1）**：`Label _clockLabel`（自建的 `TurnClock` 那颗**常显**秒数）
+        //   和它的节点**已整颗删除** —— 原版整个 `ClockManager` 只有 **一颗** TMP 会 `set_text`
+        //   （`TurnBtn/TurnText` = 那一格 `+0x30`：`ClockManager__SetEndTurnText.c:102-104` 与
+        //   `ClockManager__Update.c:120-127` 写的是**同一个字段**）⇒ 秒数只在超时后的 15 s 倒计时里
+        //   出现在这颗上。三种文案现在共用 `_endTurnLabel`（见 `UpdateClockLabel`）。
+
+        /// <summary>无行动时回合计时的加速量（原版 `ClockManager__Update.c:56-60`：锁存 `+0xb0` 置位后
+        /// 每帧 `elapsed += dt * DAT_1834b2e8c`；常量**实读 = 3.0** —— `RVA = 0x1834b2e8c − ImageBase(0x180000000)`）。
+        /// ⇒ 表按 **4×** 走（`dt + dt×3`），到点仍进 15 s 倒计时、由 `EndCountdown.c:47-49` 自然结束回合。</summary>
+        const float NoActionsClockSpeedUp = 3f;
+
+        /// <summary>🆕 **2026-10-22（`W64` · 兜底审计 `B-27` 就地订正 · 铁律 5）**：
+        /// 结束回合钮**不可点**时底图的颜色 = **原样不动（纯白）** —— 原版就是这么显示的。
+        ///
+        /// <para>**判据（逐字现读 `bundle_scenes_scenes_battlearena1/MonoBehaviour/MonoBehaviour_4895.json`）**：
+        /// `m_Transition = **2**` —— Unity `Selectable.Transition` 枚举 **2 = `SpriteSwap`**
+        /// （0 None / 1 ColorTint / **2 SpriteSwap** / 3 Animation）。
+        /// `SpriteSwap` 只切 `m_SpriteState` 那四张精灵，**`m_Colors` 整组不参与**
+        /// ⇒ `m_Colors.m_DisabledColor`（α = 0）在这颗钮上是**死值**；
+        /// `EverguildButton` 的两个自定义字段 `customColorTintTransitions = 0` /
+        /// `colorTintGreyOnDisable = 1` + `colorTintGreyOnDisableAlpha = 0.0` 同样只在
+        /// `m_Transition == 1` 时由 `SetUpButtonColors` 采（`…SetUpButtonColors.c:24`）⇒ 也不生效。</para>
+        ///
+        /// <para>而 `m_SpriteState`：`m_HighlightedSprite` / `m_PressedSprite` 有值，
+        /// **`m_DisabledSprite = { m_FileID: 0, m_PathID: 0 }` = null**
+        /// ⇒ 原版「不可点」时**保持普通精灵**（`Selectable.DoStateTransition` 遇到 null 不替换）。</para>
+        ///
+        /// <para>🔴 **上一版错在哪**：把 `m_Transition = 2` 读成 `ColorTint`，于是照 `m_DisabledColor` 的
+        /// α = 0 把底图**整块弄透明**（敌回合只剩一行字）。⇒ 现在**⛔ 不许**自造透明 / 压暗 / 换色：
+        /// 这一格就是 `Color.white`（= 不改变任何东西），保留常量只为「有出处地写死这件事」。</para>
+        ///
+        /// <para>⚠️ 「不可点」的**行为**那一半照旧：我们这颗不是 uGUI `Selectable`（`BattleHudButton` 是裸
+        /// `IPointerClickHandler`）⇒ 闸落在 `ClickEndTurnHud` 的 `Ctx.Active != _me`（原版
+        /// `SetEnemyTurnUI.c:5-8` / `StopClock.c:33-35` 的 `interactable = false` 的等价物）。</para></summary>
+        static readonly Color EndTurnBgTint = Color.white;
 
         /// <summary>把自己的手牌索引找出来（落点校验要用）</summary>
         /// <summary>
@@ -2357,7 +2402,10 @@ namespace CardPresentation
                 actingCard = AnimFxCardViewAt(e.Player, e.Slot),
             };
             // 攻击：被打的那张才是 target；其余事件原版两者同源（就是那张卡自己）
-            ctx.targetCard = e.Kind == EvtKind.Attack
+            // 🆕 2026-10-22（`W64` · 反击演出）：`Retaliation` 与 `Attack` **同形**（两方不同）——
+            //   原版 `ResolveAttackRangedAnim(守方, 攻方)` 也是「施法者 + 目标」这一对，
+            //   所以这里跟 `Attack` 走同一支（`actingCard` = 守方、`targetCard` = 攻方）。
+            ctx.targetCard = (e.Kind == EvtKind.Attack || e.Kind == EvtKind.Retaliation)
                 ? AnimFxCardViewAt(e.TargetPlayer, e.TargetSlot)
                 : ctx.actingCard;
             return ctx;
@@ -2496,6 +2544,19 @@ namespace CardPresentation
             // 0/1/2 档的「卡状态」判据：原版读 `card + 0x228`（`CardStateOptions`）二选一；
             //   我们的视图不存卡状态 ⇒ 退一步用「**这张视图现在在不在棋盘上**」判断。
             AnimAnchors.OnBoardOf = IsViewOnBoard;
+        }
+
+        /// <summary>🆕 **2026-10-22（`W64` · 反击演出）：给 `EventTiming` 挂「座位 → 阵营」与
+        /// 「卡名 → `CardDef.AnimTimes`」两个取数口** —— `EventTiming.DurationOf(Retaliation)` 要用它们
+        /// 算「守方那件逐卡件的链时长」，而这两样**只有驱动有**（本局阵营 / 卡池）。
+        /// <para>模式与 `HookAnimAnchors` / `HookUnitTweenResolvers` 相同：静态钩子、**幂等覆盖**、
+        /// 每次 `Begin` 重挂（`_me` 每局可能不同 ⇒ 闭包里读的是本实例的字段）。</para>
+        /// <para>⚠️ 没挂（例如纯 `RuleEngine` 自检）⇒ `EventTiming` 按「拿不到逐卡数据」处理：
+        /// 用 `RangedVfxFallback` 并**出声**（见 `EventTiming.RetaliationHoldOf`）。</para></summary>
+        void HookEventTimingCardSource()
+        {
+            EventTiming.FactionOfSeat = seat => seat == _me ? _myFaction : _foeFaction;
+            EventTiming.AnimTimesOf = (cardId, faction) => AnimTimesOf(cardId, faction);
         }
 
         /// <summary>某座位的**手牌容器**。判据只此一处（`HandRow01` 也走它）——
@@ -2863,6 +2924,14 @@ namespace CardPresentation
             //   `ResolveDeploySlot` = 脚本出牌的落点（原版取鼠标位置，我们退化成 AI 那套，见 `TutorialScript`）。
             visit(TutorialScript.Executed, () => TutorialScript.Executed = null);
             visit(TutorialScript.ResolveDeploySlot, () => TutorialScript.ResolveDeploySlot = null);
+            // ---- ⑦ 🆕 2026-10-22（`W64`）：`EventTiming` 的两个取数口（反击时长要用）----
+            //   它们闭包着**本实例**（`Begin` 里挂的），必须跟着本场一起摘 —— 否则卸载之后
+            //   静态字段还攥着一个**已销毁**的 driver（`DurationOf(Retaliation)` 一调就
+            //   `MissingReferenceException`，正是真机抓到的那一族）。
+            //   ⚠️ 同时把 `StaticHookCount` 的口径补齐：`A388(b)` 那条「卸之后钩子一条不剩」的
+            //   真 Play 档因此**仍然成立**（不会因为这两条漏网而恒 > 0）。
+            visit(EventTiming.FactionOfSeat, () => EventTiming.FactionOfSeat = null);
+            visit(EventTiming.AnimTimesOf,   () => EventTiming.AnimTimesOf = null);
         }
 
         /// <summary>
@@ -3551,6 +3620,11 @@ namespace CardPresentation
             //   ⚠️ 与 `HookUnitTweenResolvers` 一样是**幂等覆盖**，每次 `Begin` 都要重挂。
             HookAnimAnchors();
 
+            // 🆕 **2026-10-22（`W64` · 反击演出）**：`EventTiming` 算「反击那一拍占多久」要的两样东西
+            //   （座位 → 阵营、卡名 → `CardDef.AnimTimes`）**只有驱动知道** ⇒ 同一条挂钩模式、幂等覆盖。
+            //   没挂钩时 `EventTiming` 按「拿不到逐卡数据」处理（走 `RangedVfxFallback` 并出声）。
+            HookEventTimingCardSource();
+
             // 🆕 **2026-10-18（A985⑦）**：`Battle/Tips/HandFull` 那三张「见过没有」的表**每局清一次**
             //    （不清的话上一局见过的实例会让这一局「首次判据」恒假 —— 静默）。
             ResetHandFullWatch();
@@ -3738,6 +3812,11 @@ namespace CardPresentation
             // 🆕 2026-09-29：**正在回手的那几张**同理（`PlayReturnFeel` 也把它们摘出了字典）
             for (int i = 0; i < _returning.Count; i++) if (_returning[i] != null) Kill(_returning[i].gameObject);
             _returning.Clear();
+            // 🆕 2026-10-22（`W64` · 反击演出）：**本局的记账也要清** —— `RetaliationPlanCount` 的语义是
+            //   「**本局**排过几次反击」（自检读它），跨局留着就是上一局的数（本仓「跨局泄漏」同族）。
+            _retaliationPlans.Clear();
+            _retaliationNoViewWarned.Clear();
+
             // 🆕 2026-10-01：**「已经把键让出去了、等演出」的那几张**同理（`DetachStaleView` 摘的）
             foreach (var kv in _myFading) if (kv.Value != null) Kill(kv.Value.gameObject);
             foreach (var kv in _foeFading) if (kv.Value != null) Kill(kv.Value.gameObject);
@@ -4282,6 +4361,14 @@ namespace CardPresentation
         {
             if (HudClickBlocked) return;
             if (_replayPaused) return;
+            // 🔴 **2026-10-22（`W63` P1）**：`Ctx.Active != _me` 这一句就是原版
+            //   `Selectable.set_interactable(false)` 的等价物 —— `ClockManager__SetEnemyTurnUI.c:5-8` 与
+            //   `StopClock.c:33-35`/`StopClockUi.c:25-27` 在那两态都把那颗钮**点不动**。
+            //   ⚠️ 我们这颗不是 uGUI `Selectable`（是 `BattleHudButton` = 裸 `IPointerClickHandler`）
+            //   ⇒ 「不可点」只能落在这一道闸上。**视觉不动**：原版那颗钮是 `m_Transition = 2`
+            //   （`SpriteSwap`）且 `m_SpriteState.m_DisabledSprite = null` ⇒ 不可点时**保持普通精灵**
+            //   （`m_Colors.m_DisabledColor` 的 α = 0 是**死值**，⛔ 别照它把底图弄透明）——
+            //   判据全文 → `EndTurnBgTint` 的 doc。
             if (Ctx.Active != _me) return;
             EndPlayerTurn(fromUi: true);
             UpdateHud();
@@ -9992,12 +10079,53 @@ namespace CardPresentation
         void StartHandToBoardClip(CardView card)
         {
             if (card == null) return;
+            // 🆕 2026-10-22（W64 · `B04` 尾巴②）：**先挂 `Spawn Particles`，再起播 clip**
+            //   （原版 `CardSetup.c:305-333` 在「卡建好」时就把 `normalSummon` 的实例挂到
+            //    `toBoardVFXAnchor` 下、改名 `"Spawn Particles"`、`SetActive(false)`；
+            //    clip 的 0.0167 / 0.55 两条曲线再把它和 `Trail` 拨开）。
+            //   挂得晚于 0.0167 ⇒ 那一拍会是空的（**静默**）⇒ 必须先挂。
+            MountSpawnParticlesUnderToBoardFx(card);
             // ⚠️ 先入位再起播：`HandToBoard` 里 0.7 的形态切换要能看见 `_handToBoardCard`；
             //   **取不到补间**（卡已经是场上形态 / DOTween 不可用）⇒ 立刻退票，走老的硬切。
             _handToBoardCard = card;
             var tw = CardFeel.HandToBoard(card, () => { if (_handToBoardCard == card) _handToBoardCard = null; });
             if (tw == null && _handToBoardCard == card) _handToBoardCard = null;
         }
+
+        /// <summary>🆕 2026-10-22（`B04` 尾巴②）：把 `normalSummon`（传说档 `legendarySummon`）的实例
+        /// **挂到这张卡的 `ToBoardFX` 下、改名 `Spawn Particles`、先关掉**（原版 `CardSetup.c:305-333`）。
+        /// <para>判据全链 → `资料/普查产出_1022/W64_B04_ToBoardFX与粒子.md` §四 / §八。
+        /// 挂的那件就是部署那一拍的 `Invoke Minion Card Fade Default`（`LandDust*` 同族的挑选规则：
+        /// 稀有度 legendary 且不带 ambush ⇒ `… Legendary`）。</para>
+        /// <para>⚠️ **与 `FireDeployVfxInArenaSpace` 的根实例化是两件不同的事**：那件是竞技场空间里
+        /// 一次性播的根特效；这件是**卡身上**那一层（跟着卡的父链/缩放），只由 clip 拨开关。</para>
+        void MountSpawnParticlesUnderToBoardFx(CardView card)
+        {
+            if (card == null || card.SpawnParticlesMounted) return;
+            var def = card.Data;                       // `CardData` 是结构体，直接取
+            // 原版那一支的分叉条件（`CardSetup.c:286/290`）= `HasCurrentTrait(0x4b0) || cardRarity == 4`，
+            // 报告把它读作「传说档」；`0x4b0` 的具体 trait 语义**未核**，这里只按**稀有度**分档
+            // （与 `LandDustFieldFor` 同一个形状，但**不抄它的 ambush 那一条** —— 那是 LandOnGround 的条件）。
+            string name = def.rarity == "legendary" ? SummonVfxLegendary : SummonVfxMinion;
+            var lib = WarpforgeVFX.WarpforgeEffectLibrary.Instance;
+            WarpforgeVFX.WFEffectEntry entry = null;
+            if (lib == null || !lib.TryGet(name, out entry) || entry == null || entry.prefab == null)
+            {
+                Debug.LogWarning($"[BattleDriver] 登场 `Spawn Particles` 取不到特效 `{name}` ⇒ "
+                               + "clip 那两条粒子曲线会在一个**没挂上来的**节点上空拨（不静默）");
+                return;
+            }
+            // 原版 `set_localPosition(prefab 自身)` —— prefab 自己那个 localPos 就是判据。
+            var lp = entry.prefab.transform.localPosition;
+            var fx = WarpforgeVFX.WarpforgeEffectPlayer.Play(entry, card.ToBoardFxAnchor, lp, 1f, -1f);
+            if (fx == null) return;
+            card.MountSpawnParticles(fx.gameObject);   // 改名 + 关掉 + 给 `Trail` 补 `ParticleEmitOnEnable`
+        }
+
+        /// <summary>原版 `CardScript.normalSummon` 的 prefab 名（= 部署那一件）。</summary>
+        public const string SummonVfxMinion = "Invoke Minion Card Fade Default";
+        /// <summary>原版 `CardScript.legendarySummon` 的 prefab 名。</summary>
+        public const string SummonVfxLegendary = "Invoke Minion Card Fade Legendary";
 
         /// <summary>出牌飞行已经响过「起飞」那一对 cue 的时刻（`< 0` = 没响过）。
         /// `PlayBattleSfx(Deploy)` 用它决定要不要跳过前两条 —— ⛔ 别拿「有没有事件」另推一遍。</summary>
@@ -10522,7 +10650,13 @@ namespace CardPresentation
             if (NetClockPaused) return;
             if (_clockLeft <= 0f) return;
 
-            _clockLeft -= dt;
+            // 🔴 **2026-10-22（`W63` P1）：无行动锁存 ⇒ 表按 4× 走。**
+            //   判据 = `ClockManager__Update.c:53-60` —— 那一整段被 `if (*(char*)(param_1+0x87) == '\0')`
+            //   包着（= **还没进倒计时**），里面拿 `+0xb0`（`SetNoActionsUi` 锁存的那一格）当闸：
+            //   `elapsed += dt * 3.0` ⇒ 有效速度 = `dt + dt×3` = **4×**。
+            //   ⚠️ 进了倒计时（`_clockInCountdown`）之后**不再加速** —— 原版那 15 s 是
+            //   `countdownSeconds − (elapsed − total)`，走的是真实时间（`Update.c:107-135`）。
+            _clockLeft -= dt * ((_noActionsUiShown && !_clockInCountdown) ? (1f + NoActionsClockSpeedUp) : 1f);
             // 🆕 2026-09-21：**本回合剩不到 35 秒 → 我方督军说一句 `hurry`**（每回合一次）。
             //    判据链与闸门见 `VoiceLines.ForHurry`；`Ctx.Active != _me` 上面已经挡过 ⇒ 天然只对我方。
             if (!_hurrySaidThisTurn && _clockLeft <= hurryUpSeconds)
@@ -10560,18 +10694,46 @@ namespace CardPresentation
             UpdateClockLabel();
         }
 
-        /// <summary>把秒数写到 END TURN 按钮里那行字上。
-        /// ⚠️ 位置是**我们挑的**（原版 `ClockManager.clockText` 是 `Clock/TurnBtn` 子树里的一个 TMP，
-        /// dump 里只列到 `TurnText` 和那个空节点，取不到它的 rect）；写法 m:ss / 倒计时直接写秒数。</summary>
+        /// <summary>🔴 **2026-10-22（`W63` P1）**：结束回合钮上那行字的**唯一出口**（三种文案共用一颗 TMP）。
+        ///
+        /// <para>**判据（逐条）**：
+        /// ① 己方回合 = `Battle/HUD/EndTurn`（`ClockManager__SetStartUi.c:15` → `SetEndTurnText(1)`）；
+        /// ② 敌方回合 = `Battle/HUD/EnemyTurn`（`ClockManager__SetEnemyTurnUI.c:5` → `SetEndTurnText(0)`；
+        ///    字面量 `DAT_184288768` 见 `ClockManager__SetEndTurnText.c:88-93`）；
+        /// ③ 两种都过 **`System.String.ToUpper`**（`SetEndTurnText.c:103`，我们的 EN 表值是 `End Turn` / `Enemy turn`，
+        ///    ⛔ 不 `ToUpper` 就与原版大小写不符）；
+        /// ④ **只有**超时后的 15 s 倒计时才把这一颗换成纯秒数（`ClockManager__Update.c:120-135`：
+        ///    在那条 `if (countdown)` 支里 `SetText(Int32.ToString(剩余秒))`）。
+        ///    平时**不写** `m:ss` —— 那是我们以前的偏离（自建的 `TurnClock`，已删）。
+        /// ⑤ 敌方回合 / 对局结束后那颗钮是**不可点**的（`SetEnemyTurnUI.c:5-8` 与
+        ///    `StopClock.c:33-35`/`StopClockUi.c:25-27` 都 `Selectable.set_interactable(false)`）——
+        ///    我们这颗不是 uGUI `Selectable` ⇒ 「点不动」落在 `ClickEndTurnHud` 的 `Ctx.Active != _me` 闸上；
+        ///    **视觉一个字节都不改**（原版 `m_Transition = 2` SpriteSwap + `m_DisabledSprite = null`，
+        ///    见 `EndTurnBgTint` 的 doc）。
+        /// ⑥ 🔴 **2026-10-22（`W64` · 兜底审计 `B-27`）：这一行字【恒纯白】，三档都一样。**
+        ///    判据（逐字现读 `battlearena1/MonoBehaviour/MonoBehaviour_3971.json` = `TurnText` 那颗 TMP，
+        ///    以及 `…_3856.json` = 另一份 `You go second` 的 TMP）：
+        ///    `m_fontColor = (1, 1, 1, 1)`·`m_overrideHtmlColors = 0`；而 `ClockManager.SetEndTurnText`
+        ///    （`:88-104`）与倒计时那一段（`ClockManager__Update.c:120-135`）**都只改文本、不 `set_color`**
+        ///    ⇒ 己方 / 敌方 / 倒计时三档**同色**。
+        ///    🔴 **上一版的黄 / 灰 / 红三档是我们自造的**（那条注释自己写着「原版换色值未取到」）——
+        ///    按「原版没有的设计不要」整组删掉（铁律 11：这不是「暂缓」，是**照原版**）。</para></summary>
         void UpdateClockLabel()
         {
-            if (_clockLabel == null) return;
-            int sec = Mathf.CeilToInt(Mathf.Max(0f, _clockLeft));
-            _clockLabel.SetText(_clockInCountdown ? sec.ToString()
-                                                  : $"{sec / 60}:{sec % 60:00}");
-            _clockLabel.SetColor(_clockInCountdown ? new Color(1f, 0.35f, 0.30f)
-                               : sec <= hurryUpSeconds ? new Color(1f, 0.72f, 0.30f)
-                               : new Color(0.85f, 0.88f, 0.95f));
+            if (_endTurnLabel == null) return;
+            // ④ 倒计时那一段：这颗 TMP 换成秒数（**颜色不动** —— 见 ⑥）
+            if (_clockInCountdown)
+            {
+                _endTurnLabel.SetText(Mathf.CeilToInt(Mathf.Max(0f, _clockLeft)).ToString());
+                _endTurnLabel.SetColor(Color.white);
+                return;
+            }
+            // ① / ②：`myTurn` 的判法与 `UpdateHud` 那一处**同一份**（`Ctx.Active == _me && !IsOver`）
+            bool myTurn = Ctx != null && !Ctx.IsOver && Ctx.Active == _me;
+            // ③ `ToUpper`：中文档下是 no-op（「结束回合」/「敌方回合」），英文档下才看得出来
+            _endTurnLabel.SetText((myTurn ? CardText.Phrase("END TURN") : CardText.Phrase("ENEMY TURN")).ToUpper());
+            // ⑥ **纯白**（原版 `TurnText.m_fontColor` 就是 (1,1,1,1)）—— ⛔ 别再按回合/状态换色
+            _endTurnLabel.SetColor(Color.white);
         }
 
         // ---- 玩家回合 ----
@@ -13125,32 +13287,38 @@ namespace CardPresentation
         /// 2026-10-18 A991 起 —— 钮在设置面板里）。</summary>
         public void ApplyTutorialSkipForTest() { ApplyTutorialSkip(); }
 
-        /// <summary>没牌可出、也没技能可放、也没人能攻击了 → 别让玩家干等，自动结束回合</summary>
+        /// <summary>没牌可出、也没技能可放、也没人能攻击了 → **锁存「无行动」**，让回合计时按 4× 快进。
+        ///
+        /// <para>🔴 **2026-10-22（`W63` P1）改行为**：原来这里**立刻 `EndPlayerTurn()`** —— 原版**不这么做**。
+        /// 判据 = `BattleManager__FinishResolvingAction.c:143-150`：那条路只叫 `ClockManager.SetNoActionsUi()`，
+        /// 它只做两件事 —— 播一次 `OutOfActions`（`SetNoActionsUi.c:53`）+ **锁存 `+0xb0`**（`:54`），
+        /// **没有任何 `EndTurn`**。回合由 `ClockManager__Update.c:53-63` 的 `elapsed += dt*3`（常量实读 3.0）
+        /// 加速走完，到点进 15 s 倒计时、再由 `EndCountdown.c:47-49` 的 `EndTurnClick(1)` 自然结束
+        /// —— 那 15 s 仍然还给玩家（可以反悔、可以继续出牌）。
+        /// ⚠️ `_noActionsUiShown` 现在**同时是**「cue 只喊一次」和「表按 4× 走」的那一格
+        /// （原版就是同一格 `+0xb0`）⇒ `ResetClock()` 一复位，两件事一起回默认。</para></summary>
         void AutoEndTurnIfStuck()
         {
-            if (Ctx.IsOver || Ctx.Active != _me) return;
+            if (Ctx == null || Ctx.IsOver || Ctx.Active != _me) return;
             // ⚠️ 用 `HasAnyAction`（**不掷骰、不吃难度旋钮**）—— 难度那套会「随机砍掉最低分的动作」，
             //    拿它判「玩家卡住了」会**误判**（玩家明明还能出牌，却被砍成只剩 endTurn）。
             if (SimpleAI.HasAnyAction(Ctx)) return;
             // 🔴 2026-10-18（A938）**教程局除外**：脚本没跑完就替玩家收回合 = **整条脚本链当场跑偏**
             //    （原版也不会 —— 等玩家的那一条在 `_ExecuteScriptedTurn` 里是把协程**停住**，
-            //     没有「替他做」这一档）。脚本跑完了照常自动收（否则玩家真卡住时出不去）。
+            //     没有「替他做」这一档）。脚本跑完了照常（否则玩家真卡住时出不去）。
             var tut = Ctx.Tutorial;
             if (tut != null && tut.CurrentTurn != null && !tut.FinishedScriptedActionsInTurn) return;
+            // 🔴 **2026-10-22（`W63` P1）**：原版 `ClockManager__SetNoActionsUi.c:19-24` 的三道早退 ——
+            //   ① 回放局（`matchType == 0xa0`）· ② 已经锁存过（`+0xb0`）· ③ 已经在倒计时里（`+0x87`）。
+            //   三道命中就 `return`（既不喊 cue、也不加速）。
+            if (_replaySession) return;
+            if (_noActionsUiShown || _clockInCountdown) return;
             // 🆕 2026-10-15（`T06` · 战斗音响）：**没行动可用了**那一拍（原版 `OutOfActions` cue）。
-            //   判据 = `BattleManager__FinishResolvingAction.c:135-149` —— 每条动作解析完之后那句：
-            //     `GetAvailableActions()` 的计数 **< 2**（= 只剩「结束回合」那一项）
-            //     ⇒ `ClockManager.SetNoActionsUi()` → 播 `OutOfActions`（`SetNoActionsUi.c:53`）。
-            //   ⚠️ **我们这条闸与它同义**：上面 `!SimpleAI.HasAnyAction` 正是「除 `EndTurn` 外一个动作都没有」
-            //      （`SimpleAI.HasAnyAction` 的实现就是遍历动作、跳过 `EndTurn`）。
-            //   ⚠️ 原版那一格是**锁存**的（`ClockManager+0xb0`，`StartTimer` 复位）⇒ 这里同样**每个回合只喊一次**。
-            if (!_noActionsUiShown)
-            {
-                _noActionsUiShown = true;
-                BattleSfx.Play(BattleSfx.OutOfActions);
-            }
-            Debug.Log("[Battle] 没牌可出、没技能可放也没人能打 —— 自动结束回合");
-            EndPlayerTurn();
+            //   ⚠️ 原版那一格是**锁存**的（`+0xb0`，`StartTimer` 复位）⇒ 每回合只喊一次。
+            _noActionsUiShown = true;
+            BattleSfx.Play(BattleSfx.OutOfActions);
+            // ⛔ **这里不许再 `EndPlayerTurn()`**（原版这条路一次都不叫它，见上面判据）。
+            Debug.Log("[Battle] 没牌可出、没技能可放也没人能打 —— 锁存「无行动」，回合计时按 4× 快进");
         }
 
         // ==================================================================
@@ -14384,6 +14552,8 @@ namespace CardPresentation
                 //   🆕 2026-10-21（战斗线四笔静态项 · 笔 1）：这一拍**搬进 `EventTiming.DurationOf`**
                 //   （`case EvtKind.Heal` 引的就是那个常量本身，所以仍然只有一张表），
                 //   `PlaySignals` 这里不再分叉。
+                // 🆕 2026-10-22（`W64` · 反击演出）：反击这一档**已经在 `EventTiming` 里**了
+                //   （`DurationOf(BattleEvent)` → `RetaliationHoldOf`，判据 `_ResolveAttack…:1114-1152`）。
                 t += EventTiming.DurationOf(e);
                 _timelineTailAt = Mathf.Max(_timelineTailAt, t);   // 🆕 偏差 3：队尾跟着走
                 prev = e;
@@ -14939,6 +15109,16 @@ namespace CardPresentation
             return AnimTimesOf(cardId, faction);
         }
 
+        /// <summary>🆕 2026-10-22（`W64`）：**在时间线上排一条「非事件 cue」**（自检专用）。
+        /// <para>用途 = 复现「`_timeline` 里合法地混着 `evt == null` 的 cue」这个前提 ——
+        /// 真机上它是 `ScheduleVfxCue`（多候选错开）/ `ScheduleAction`（命中帧、反击、抬手音）
+        /// 自己排出来的，自检没有那种多候选卡时用它造同一个形状。
+        /// 判据（为什么要这一条）：`资料/普查产出_1022/W64_PendingExitFor空引用诊断.md` §①/§⑤。</para></summary>
+        public void ScheduleCueForTest(float delay, System.Action act)
+        {
+            ScheduleAction(delay, act);
+        }
+
         // ---- 🆕 2026-10-19（战斗线 B2 · 偏差 8）自检口 ----------------------------------------
 
         /// <summary>自检用：塞一张「AI 刚打出手牌第 <paramref name="handIdx"/> 张、它叫
@@ -15010,9 +15190,22 @@ namespace CardPresentation
             for (int i = 0; i < _timeline.Count && i < 24; i++)
             {
                 var e = _timeline[i].evt;
+                // 🔴 **2026-10-22（`W64`）**：同族的空守卫（自检口）。cue 的 `evt` 恒 null，
+                //   原来这里会抛 `NullReferenceException` —— 而它正是**排查真机问题时**要用的口，
+                //   在最需要它的时候炸掉。空的那一条改印它自己的 cue 名（有的话）。
+                //   判据 → `资料/普查产出_1022/W64_PendingExitFor空引用诊断.md` §①/§⑤。
+                if (e == null)
+                {
+                    sb.Append("      @").Append(_timeline[i].at.ToString("F2")).Append(" cue");
+                    if (!string.IsNullOrEmpty(_timeline[i].cueVfx)) sb.Append(' ').Append(_timeline[i].cueVfx);
+                    sb.Append('\n');
+                    continue;
+                }
                 sb.Append("      @").Append(_timeline[i].at.ToString("F2")).Append(' ').Append(e.Kind)
                   .Append(" P").Append(e.Player + 1).Append('@').Append(e.Slot);
                 if (e.Kind == EvtKind.Attack) sb.Append(" →P").Append(e.TargetPlayer + 1).Append('@').Append(e.TargetSlot);
+                if (e.Kind == EvtKind.Retaliation) sb.Append(" 反击→P").Append(e.TargetPlayer + 1).Append('@').Append(e.TargetSlot)
+                                                    .Append(e.Ranged ? " 远程" : " 近战");
                 if (!string.IsNullOrEmpty(e.CardId)) sb.Append(' ').Append(e.CardId);
                 sb.Append('\n');
             }
@@ -16082,7 +16275,9 @@ namespace CardPresentation
         ///      · `Death` 且这一格**空了**、而死的那张卡带 `Waystone` / `Remnant` ⇒ 它本来就是残骸、这回真没了 ⇒ **被打掉**
         ///        （同上一段：`IsRemnant` 为真时走 `else` 分支，格子清空、进弃牌堆）
         ///      · `CollectWaystone` ⇒ **收集**（`Slot` = 石头原来那一格）
-        /// ⚠️ 阵营判据与 `RemnantPrefabOf` **同一套**（**看关键词，不看阵营** —— 池子里两者等价，但关键词更抗以后加卡）。
+        /// ⚠️ 阵营判据与 `RemnantPrefabOf` 的关系：🔴 **2026-10-22（B16）起两者不再同一套** ——
+        ///    残骸**体**（画哪件 prefab）走逐卡表 `RemnantBodyTable`；这里判「是不是残骸那一族」
+        ///    仍按**关键词**（`Waystone` / `Remnant`），因为音效是按族分的，而原版没有逐卡音效表。
         /// ⚠️ **两处都缺一行就是静默少一件**（红线） ⇒ 取不到 clip 时 `RemnantSfx.Play` 会出声。
         /// </summary>
         public void PlayRemnantSfx(BattleEvent e)
@@ -16439,6 +16634,173 @@ namespace CardPresentation
             }
         }
 
+        // ==================================================================
+        //  🆕 2026-10-22（`W64` · 反击演出）：**守方自己那一发**
+        // ==================================================================
+        //  判据（第一权威）= `BattleManager._ResolveAttack_d__438__MoveNext.c:1114-1152`：
+        //   · 只在**本次打法 = 远程**（`+0x58 == 2`）时守方才 `ResolveAttackRangedAnim(守方, 攻方, 0, 0)`
+        //     （`:1119-1131`）；近战打法直接跳到伤害（`:1132-1150`，守方**没有**攻击动画）；
+        //   · 那个协程与攻方那一发**完全同一个**（`CardScript._ResolveAttackRangedAnim_d__360__MoveNext.c`）：
+        //     回正三条 tween（0.1）+ 等 0.1 + 从**施法者自己的** `effectsAnchor`（`sp = 0 self`）发出、
+        //     朝 `abilityTarget`（`ep = 2`）、件 = **施法者自己的** `customRangedAttackParticles`
+        //     （`:142-163`；守方就是施法者 ⇒ 用的是守方的卡）。
+        //   · 🔴 那一段里**没有** `Play2D` / `AttackHitSmall`（对比同文件哨戒 `:1054`、践踏 `:1112`
+        //     都有 `Play2D(ActivateBlast)`）⇒ 反击这一拍**不补**命中音、不补通用命中粒子。
+        //   · ⚠️ **「飞行体动画层」今天不存在**（我们没有 `Card3DAnimationController`，
+        //     见 `资料/普查产出_1022/W63_飞行与卡ID演出_调查.md` §A）⇒ 这里能做的只有
+        //     **卡体回正/抬手那一档**（`CardFeel.AttackRecover`，与攻方远程那一支同一个口）
+        //     + **守方的逐卡远程件**。3D 体自己的攻击 clip（原版 `DoAnim`/`AnimFinished`）**缺层**。
+        // ------------------------------------------------------------------
+
+        /// <summary>反击那一发的**排期计划**（自检口；字段语义见 <see cref="ScheduleRetaliationPresentation"/>）。</summary>
+        public struct RetaliationPlan
+        {
+            /// <summary>守方（播件的那一方）= 事件里的 `Player` / `Slot`。</summary>
+            public int Owner, Slot;
+            /// <summary>守方卡名 / 阵营（解析逐卡件的键）。</summary>
+            public string CardId, Faction;
+            /// <summary>攻方（件的朝向目标）= 事件里的 `Target*`。</summary>
+            public int TargetOwner, TargetSlot;
+            /// <summary>是否远程档（= **本次打法**，判据见 `EvtKind.Retaliation` 的 doc）。</summary>
+            public bool Ranged;
+            /// <summary>排期时**真正取到的**锚点属于谁（`-1` = 没取到 / 不是守方的 ⇒ 那就是错的）。</summary>
+            public int AnchorOwner, AnchorSlot;
+            /// <summary>解出来的件名（= `VfxMap.ResolveRangedAttackPieces` 那**三层链**的结果：
+            /// 逐卡 → `RangedAttackParticlesByClan`（守方 clan）→ SO 第一条）。**空**理论上不会出现
+            /// （最后一层恒有件）；真为空只可能是表被改坏了 —— 那时这一发不播、并已在别处如实登记。</summary>
+            public string[] Vfx;
+            /// <summary>相对事件起播的时刻（秒）。</summary>
+            public float At;
+            /// <summary>这一发占多久（秒，含 `AttackStepRanged` 前摇）。</summary>
+            public float Duration;
+        }
+
+        readonly List<RetaliationPlan> _retaliationPlans = new List<RetaliationPlan>();
+        /// <summary>「守方那一刻没有视图」的出声去重（按 (座位,格号)；⛔ 不刷屏，也⛔ 不静默）。</summary>
+        readonly HashSet<int> _retaliationNoViewWarned = new HashSet<int>();
+        /// <summary>自检用：本局排过几次「反击演出」（生产路径 = 每条 <see cref="EvtKind.Retaliation"/> 一次）。</summary>
+        public int RetaliationPlanCount { get { return _retaliationPlans.Count; } }
+        /// <summary>自检用：第 <paramref name="i"/> 条反击计划（见 <see cref="RetaliationPlan"/>）。</summary>
+        public RetaliationPlan RetaliationPlanAt(int i) { return _retaliationPlans[i]; }
+        /// <summary>自检用：清空记录（每段用例前调，避免跨用例串账）。</summary>
+        public void ClearRetaliationPlansForTest() { _retaliationPlans.Clear(); }
+
+        /// <summary>算一条反击计划（**纯函数**：不排 cue、不动时间线）—— 唯一入口 = 排期那一段，
+        /// ⛔ 别在别处再算一份（那会变成两张表）。</summary>
+        /// <param name="e">那条 `EvtKind.Retaliation`（守方 = `Player/Slot`、攻方 = `Target*`）。</param>
+        /// <param name="items">解出来的候选（`T` = 组内起点偏移）—— 走 `VfxMap.ResolveRangedAttackPieces`
+        /// 那条**三层链**（逐卡 → clan → SO 第一条）；近战档恒空。</param>
+        RetaliationPlan PlanRetaliation(BattleEvent e, out VfxMap.ResolvedVfx[] items)
+        {
+            var plan = new RetaliationPlan
+            {
+                Owner = e.Player, Slot = e.Slot, CardId = e.CardId,
+                TargetOwner = e.TargetPlayer, TargetSlot = e.TargetSlot,
+                Ranged = e.Ranged, AnchorOwner = -1, AnchorSlot = -1,
+                Vfx = new string[0],
+            };
+            items = new VfxMap.ResolvedVfx[0];
+            if (e.Player == _me) plan.Faction = _myFaction; else plan.Faction = _foeFaction;
+
+            // 近战档：原版守方**没有**攻击动画、也没有粒子（`:1132-1150`）⇒ 计划是空的、
+            // 但**照记一条**（自检要能区分「近战档本来就没有」与「漏接了」）。
+            if (!e.Ranged) return plan;
+
+            // 件 = **原版那条三层链**（`_ResolveAttackRangedAnim…:142-163`）：
+            //   ①**守方自己的** `customRangedAttackParticles` → ②`RangedAttackParticlesByClan`（守方 clan）
+            //   → ③**SO 第一条**（= `BulletImpact_2shot_trail`，我们 `ByEvent[AttackRanged]` 就是它）。
+            // 🔴 **2026-10-22（`W64` 补做，铁律 11）：上一版这里是 `perCardOnly: true`（只用逐卡件）** ——
+            //   **错**：原版 `:151-163` 明写 `HasCustomRangedAttackParticles == 0` 就退到 clan 件
+            //   （`RangedAttackParticlesByClanSO__GetRangedClanParticles`，查不到再回 SO 第一条）——
+            //   「没有就空着」**不是原版**。判据全文与三层对照 → `VfxMap.ResolveRangedAttackPieces` 的 doc。
+            //   ⚠️ 普通攻击那条路走的是 `ResolveAllTimed(..., perCardOnly:false)`（`ScheduleAttackPresentation`），
+            //   **早就是同一条链** ⇒ 反击与攻击这一档从此同源；⛔ 别把任何一边改成 `perCardOnly:true`。
+            var times = AnimTimesOf(e.CardId, plan.Faction);
+            items = VfxMap.ResolveRangedAttackPieces(plan.Faction, e.CardId, times, _vfxOffsetRng);
+            var names = new string[items.Length];
+            for (int i = 0; i < items.Length; i++) names[i] = items[i].Name;
+            plan.Vfx = names;
+
+            // 锚点归属（结构判据，自检用）：`self` 档解析出来的 transform 必须挂在**守方那张卡**下面。
+            // ⚠️ 守方视图不在时**不去探**（`AnimAnchors` 那条 `Missing` 会出声 —— 那个案子的声音
+            //    已经由 `ScheduleRetaliationPresentation` 发一次，别在这儿再刷一遍）。
+            var defView = ViewAt(e.Player, e.Slot);
+            if (items.Length > 0 && defView != null)
+            {
+                var atkView = ViewAt(e.TargetPlayer, e.TargetSlot);
+                var actx = new AnimAnchors.Ctx { self = defView, target = atkView, actorSeat = e.Player, mySeat = _me };
+                var anchor = AnimAnchors.Resolve(PositionOption.self, actx);
+                if (anchor != null
+                    && (anchor == defView.transform || anchor.IsChildOf(defView.transform)))
+                {
+                    plan.AnchorOwner = e.Player;
+                    plan.AnchorSlot = e.Slot;
+                }
+            }
+
+            plan.At = EventTiming.AttackStepRanged;
+            // 时长**只此一处** = `EventTiming.DurationOf(BattleEvent)` → `RetaliationHoldOf`
+            // （它用挂钩的「座位→阵营 / 卡名→AnimTimes」现算；⛔ 别在这里再算一份）。
+            if (items.Length > 0) plan.Duration = EventTiming.DurationOf(e);
+            return plan;
+        }
+
+        /// <summary>排一条反击的演出：**守方锚点 + 守方那件件**（唯一入口 = `PlaySignal` 的
+        /// `EvtKind.Retaliation` 那一段）。判据见本节头注。
+        /// <para>"那件件" = 原版那条三层链（逐卡 → clan → SO 第一条），见 `VfxMap.ResolveRangedAttackPieces`。</para>
+        /// <para>⚠️ 近战档**什么都不排**（原版守方不播；攻方挨那一下的反应用它自己的 `Hit`）。
+        /// 但两种档都记一条 <see cref="RetaliationPlan"/>，自检才能证明「近战档是有意不播」。</para></summary>
+        void ScheduleRetaliationPresentation(BattleEvent e)
+        {
+            VfxMap.ResolvedVfx[] items;
+            var plan = PlanRetaliation(e, out items);
+            _retaliationPlans.Add(plan);
+            if (!e.Ranged || items.Length == 0) return;
+
+            var defView = ViewAt(e.Player, e.Slot);
+            var atkView = ViewAt(e.TargetPlayer, e.TargetSlot);
+            // 🔴 **守方那张卡已经没有视图 ⇒ 这一发不排**（不许喂 `Vector3.zero` 把特效打在原点）。
+            //   什么时候会发生：守方在同一批里先被别的伤害打死、且它那条 `Death` 排得更早
+            //   （原版那一刻卡对象还在、只是要消散；我们这边视图已被摘走）。**出声、⛔ 不静默**。
+            //   ⚠️ 常见局面**不会**走到这里：主伤害 `Hit` 只掉血，死亡演出排在时间线更晚（见 `DetachStaleView`）。
+            if (defView == null)
+            {
+                if (_retaliationNoViewWarned.Add(e.Slot + 16 * e.Player))
+                    Debug.Log($"[BattleDriver] 反击：守方 P{e.Player + 1}@槽{e.Slot} 这一刻**没有视图**"
+                            + "（多半是它已被打死、阵亡演出排在更早）⇒ 这一发不播（原版是从那张卡发出的）");
+                return;
+            }
+            var actx = new AnimAnchors.Ctx { self = defView, target = atkView, actorSeat = e.Player, mySeat = _me };
+            Transform start = AnimAnchors.Resolve(PositionOption.self, actx);
+            Transform end = AnimAnchors.Resolve(PositionOption.abilityTarget, actx);
+            Vector3 startPos = start != null ? start.position
+                             : (defView != null ? defView.transform.position : Vector3.zero);
+            Vector3 endPos = end != null ? end.position
+                           : (atkView != null ? atkView.transform.position : startPos);
+
+            // ① **守方卡自己的远程攻击动画**：原版那个协程的 state 0 是「回正三条 tween」
+            //    （`DOLocalMove(handHomePos)` + `DORotateQuaternion(identity)` + `DOScale(DefaultScale)`，
+            //    时长 `attackStepTime` = 0.1）⇒ 与攻方远程那一支**复用同一个口**
+            //    （`PlayAttackFeel` 的 `e.Ranged` 分支调的就是它）。
+            //    ⚠️ 只做这一档：3D 体自己的攻击 clip（原版 `Card3DAnimationController.DoAnim`）**缺层**。
+            if (animateFeel && defView != null)
+                CardFeel.AttackRecover(defView.transform, defView.transform.localPosition,
+                                       defView.transform.localScale.x);
+
+            // ② 件：**从守方 `effectsAnchor` 发出、朝攻方**（`FireAtAttackAnchor` = `CreateAnim` 的
+            //    最小等价物：挂载点 + 世界朝向 + 继承卡尺度）。⚠️ 复用攻方那条实现，⛔ 别另写一份。
+            var capCtx = _animfxCtx;
+            var capEvt = _animfxLastEvent;
+            for (int i = 0; i < items.Length; i++)
+            {
+                string nm = items[i].Name;
+                float at = plan.At + Mathf.Max(0f, items[i].T);
+                ScheduleAction(at, () => FireAttackVfxWithCtx(nm, start, startPos, endPos, capCtx, capEvt));
+            }
+            // 队尾 = **绝对时刻**（`_clock` 口径）：这一发演完之前别让下一批事件插到它前面开场。
+            ExtendTimelineTail(_clock + plan.Duration);
+        }
+
         /// <summary>🆕 2026-10-21（W61 第 1 批）：**带卡上下文**播一件攻击特效。
         /// <para>为什么需要：`WarpforgeVFX.WFEffectCards.Resolver` 是**全局静态**、读的是特效
         /// **创建那一刻**的 `_animfxCtx`（见 `Begin` 里 `HookAnimAnchors` 那一带的挂钩），
@@ -16629,10 +16991,15 @@ namespace CardPresentation
             // 触发（🔴 2026-10-19 B2 · 偏差 7：原版只有徽标/状态框/词条粒子，没有通用特效）、
             // 🆕 2026-10-20（`W58`）**Syphon 治疗**（`GenericVfxFor` 回 null —— 原版只有 Normal 档有
             //   治疗圈；可是那一拍的**飘字/音效必须照播** ⇒ 这一档要继续走到 `PlayFeel`）、
+            // 🔴🆕 2026-10-22（`W64` · 自检 7 条红查实）**反击**（`GenericVfxFor` 也回 null ——
+            //   原版那一发**只按「施法者自己的件」解**，没有「通用事件特效」这一档）；
             // 以及**未知/不归这一族**的事件（原本 `default: return;` 那一档）——
-            // 前三档要继续走到下面的 `PlayFeel` / `PlayTraitParticles`，第三档直接收工。
+            // 前四档要继续走到下面的 `PlayFeel` / `PlayTraitParticles`（反击自己那一支在**再下面**，
+            // ⚠️ 见紧跟着这条 return 的那句注释：**这一道闸漏了它，反击整条永远到不了**
+            // —— 2026-10-22 一次自检就是这么红的：`RetaliationPlanCount == 0`、件一次没播），
+            // 第三档直接收工。
             if (evt == null && e.Kind != EvtKind.Death && e.Kind != EvtKind.Trigger
-                && e.Kind != EvtKind.Heal) return;
+                && e.Kind != EvtKind.Heal && e.Kind != EvtKind.Retaliation) return;
 
             // **手感补间**（和特效同一时刻起，参数在 `CardFeel` 里、逐条有出处）。
             // ⚠️ 必须赶在 `SyncBoard` 之前 —— 阵亡那一格马上就要空了，视图还在的只有现在。
@@ -16643,6 +17010,33 @@ namespace CardPresentation
             // 🆕 2026-10-01：**trait 的 FromCode 粒子**（见 `PlayTraitParticles` 的头注释）。
             // ⚠️ 必须放在下面 `evt == null` 那道 early-return **之前** —— 阵亡那一条也会走这里。
             PlayTraitParticles(e);
+
+            // 🔴🔴 **2026-10-22（`W64` · 反击演出）：`EvtKind.Retaliation` 走自己的那一发，
+            //    而且**必须赶在下面 `evt == null` 的 early-return 之前** ——
+            //    `GenericVfxFor` 对它回 null（原版的守方那一发**只查逐卡表**，没有通用件），
+            //    放在 early-return 之后 = 这一支**永远到不了**（静默不播）。
+            //  判据（第一权威）= `BattleManager._ResolveAttack_d__438__MoveNext.c:1114-1152`：
+            //    远程打法那一支是 `CardScript__ResolveAttackRangedAnim(守方, 攻方, 0, 0)`（`:1121`），
+            //    与攻方那一发**同一个协程** —— 从**施法者自己的** `effectsAnchor` 发出、朝 `abilityTarget`、
+            //    件 = **施法者自己的** `customRangedAttackParticles`。施法者 = **守方**
+            //    ⇒ ⛔ 不用攻方的件、⛔ 不在目标格播。近战打法那一支（`:1132-1150`）守方**什么都不播**。
+            if (e.Kind == EvtKind.Retaliation)
+            {
+                // 后面紧跟的那条 `Hit`（**攻方**挨反击）要按「攻方 = 守方」算后坐幅度/震屏档 ——
+                // 见 `PlayHitFeel` 的 `melee` 判据（不更新的话两边同侧 ⇒ 判成「没有攻击方」）。
+                if (animateFeel && Ctx != null && e.Player >= 0 && e.Player < Ctx.Players.Length
+                    && e.Slot >= 0 && e.Slot < Ctx.Players[e.Player].Board.Length)
+                {
+                    var def = Ctx.Players[e.Player].Board[e.Slot];
+                    _lastAttackerMelee = def != null ? def.Attack : -1;
+                    _lastAttackerSide = e.Player;
+                }
+                _animfxLastEvent = e;
+                _animfxCtx = BuildCardContext(e);      // AnimFX 模块要用「为哪两张卡播的」
+                ScheduleRetaliationPresentation(e);
+                _animfxCtx = default;
+                return;
+            }
 
             // 这一条事件**只有手感补间、没有通用特效**（目前只有阵亡，见上面那个 case）。
             // ⚠️ 必须在 `PlayFeel` **之后**返回 —— 阵亡的消散/爆散体就是 `PlayFeel` 里起的。
@@ -16772,8 +17166,10 @@ namespace CardPresentation
                 //     没有那一条，挂上去的扬尘会停在层 0 被 HUD 正交相机画成乱飘。
                 //   ⚠️ `LandDustOffsetY` 是**竞技场世界单位**，而 `localPosition` 活在**卡的空间**里
                 //     ⇒ 除以卡的缩放，落地的世界偏移才逐值等于原版那 0.015。
-                //   ⚠️ **仍差一点点（已记账）**：原版那个 `localScale = one × desiredScale` 是**赋值**，
-                //     我们的播放器是**乘**（`WarpforgeEffectPlayer.cs:202`）⇒ 传说那件自带 0.9913 的根缩放时大 **0.9%**。
+                //   ✅ **2026-10-22（W64 · `B17`）这一档已经补齐**：播放器新增 `assignScale` 口，
+                //     钩子对这两件扬尘按**赋值**设根缩放（`WarpforgeEffectPlayer.Play(... assignScale: true)`），
+                //     判据 = 原版 `CardScript__LandOnGround.c:87-106` 那句 `localScale = Vector3.one × desiredScale`。
+                //     ⚠️ 原来这里记的「我们乘、自带 0.9913 的那件大 0.9%」**已不再成立**（铁律 5：就地订正）。
                 // 🆕 2026-10-19（B2 · 偏差 8）：**AI 飞行**时这一拍是「起飞」、不是落地 ——
                 //   扬尘/震镜头押到飞行终点（见 `StartAiDeployFlight` 的完成回调）。
                 if (!_aiDeployFlights.ContainsKey(HpKey(e.Player, e.Slot)))
@@ -17797,6 +18193,11 @@ namespace CardPresentation
             for (int i = 0; i < _timeline.Count; i++)
             {
                 var e = _timeline[i].evt;
+                // 🔴 **2026-10-22（`W64`）**：同一族的空守卫 —— cue（`cueVfx` / `cueAction`）的
+                //   `evt` 恒 null（见 `PendingExitFor` 里那条注释与
+                //   `资料/普查产出_1022/W64_PendingExitFor空引用诊断.md` §①/§⑤）。
+                //   `null` 不可能 `Kind == Death` ⇒ 跳过它判定结果逐位不变。
+                if (e == null) continue;
                 if (e.Kind == EvtKind.Death && e.Player == owner && e.Slot == slot) return true;
             }
             return false;
@@ -18950,30 +19351,321 @@ namespace CardPresentation
         }
 
         /// <summary>
-        /// 这一格该盖哪一具残骸体（不是残骸 ⇒ `null`）。
-        /// **判据是卡上的关键词，不是阵营** —— `Waystone.` → 灵族那具（漂浮的灵魂石）、
-        /// `Remnant.` → 死灵那具（碎裂的卡）。
-        /// 全卡池里 `Waystone` 只出现在 SaimHann（**25** 张）、`Remnant`/`Remnant.` 只出现在 Sautekh（**27** 张）
-        /// ⇒ 与「查 `CardArmy`」等价，但**写关键词更抗以后加卡**。
-        /// 🔴 **2026-10-16 就地订正（铁律 5）**：本行原来写「`Waystone.` SaimHann **24** 张 / `Remnant.` Sautekh **36** 张
-        ///   （2026-09-25 实测）」—— **两个数都过期了**：现读 `RuleEngine/Resources/cards_engine.json`
-        ///   （`count 1127`）逐卡数 `keywords` 得 **25 / 27**。
-        ///   ⚠️ **卡池里存的关键词【不带】那个尾点**（是 `Waystone` / `Remnant`，只有 1 张写成 `Remnant.`）
-        ///   ⇒ 拿带点的串去匹配会**一张都命中不到**（本仓踩过同型：那 1 张 `Remnant.` 是特例）。
+        /// 这一格该盖哪一具残骸体（不是残骸 / 原版不建 ⇒ `null`）。
+        ///
+        /// 🔴 **2026-10-22（`W64` · B16）判据换人了**：现在是**逐卡查原版字段**
+        /// （`RemnantBodyTable`，表 = `Resources/remnant_body_by_card.json`），
+        /// 不再是「按关键词猜」——
+        ///   · 原版 `BattleCardUI__SetRawCardData.c:45`：只有 `SupportMethods.HasToTransformIntoRemnant(rawCard)`
+        ///     为真才 `CreateRemnantBody()`（判据 = 两条当前特质 `0x41a Remnant` / `0x474 Waystone`）；
+        ///   · `BattleCardUI__CreateRemnantBody.c:36-65`：实例化的是**这张卡自己的**
+        ///     `RawCardScript.remnantBodyPrefab`（`rawCard + 0xe0`）。
+        /// ⇒ **哪一具是卡自己的 SO 说了算**，不是关键词（两者在本卡池里恰好 0 处分歧，但口径不同）。
+        /// 旧关键词链**只保留给「表根本没载进来」那一档**（缺文件 / 解析失败），并在 `RemnantBodySource` 里标出。
+        ///
+        /// ~~旧口径（保留痕迹）：「判据是卡上的关键词，不是阵营 —— `Waystone` → 灵族那具、`Remnant` → 死灵那具」~~
+        ///   —— 值恰好对（52 张能变残骸的卡逐张核过：逐卡字段 vs 关键词规则 **0 处不同**），
+        ///   但**判据来源错了**（那是推论，不是原版字段）。现读 `cards_engine.json` 关键词计数 25 / 27 仍然成立。
         /// 出处（原版那两具叫什么、长什么样）→ `资料/查证_useWaystone_语义.md` §五 的资产表。
         /// </summary>
         static string RemnantPrefabOf(UnitState u)
         {
-            if (u == null || !u.IsRemnant) return null;
-            if (u.Has(KeywordTable.Waystone)) return RemnantBodyAeldari;
-            if (u.Has(KeywordTable.Remnant)) return RemnantBodyNecrons;
+            if (u == null) return null;
+            string id = u.Card != null ? u.Card.Id : null;
+            return RemnantBodyPrefabFor(id, u.Name, u.IsRemnant,
+                                        u.Has(KeywordTable.Waystone), u.Has(KeywordTable.Remnant),
+                                        out RemnantBodySource _);
+        }
+
+        /// <summary>残骸体该从哪儿来（自检用；`RemnantPrefabOf` 的判定理由）。</summary>
+        public enum RemnantBodySource
+        {
+            /// <summary>这一格不是残骸（`UnitState.IsRemnant == false`）⇒ 不建。</summary>
+            NotRemnant = 0,
+            /// <summary>表里有这张卡、`canTransform == true` ⇒ 用**表里那件** prefab（原版那条路）。</summary>
+            Table = 1,
+            /// <summary>表里有这张卡、`canTransform == false` ⇒ 原版 `HasToTransformIntoRemnant` 也是假 ⇒ **不建**。</summary>
+            TableCannotTransform = 2,
+            /// <summary>表**载进来了**但没有这张卡（= 原版该卡 `remnantBodyPrefab` 字段为空）⇒ **不建 + 出声**。
+            /// ⛔ 这一档**不许**退回关键词猜。</summary>
+            NoTableEntry = 3,
+            /// <summary>表**没载进来**（缺文件 / 解析失败 / schema 不对）⇒ 旧关键词链兜着，**明确标记**。</summary>
+            KeywordFallback = 4,
+        }
+
+        /// <summary>
+        /// 纯函数版（不碰 `UnitState`，自检能直接调）：给定身份 + 两个关键词位，返回该盖哪件 prefab。
+        /// 判据与四档含义见 <see cref="RemnantBodySource"/> 的注释 + `RemnantBodyTable` 文件头。
+        /// </summary>
+        public static string RemnantBodyPrefabFor(string id, string name, bool isRemnant,
+                                                  bool hasWaystone, bool hasRemnant,
+                                                  out RemnantBodySource why)
+        {
+            why = RemnantBodySource.NotRemnant;
+            if (!isRemnant) return null;
+
+            string prefab;
+            bool canTransform;
+            if (RemnantBodyTable.TryGet(id, name, out prefab, out canTransform))
+            {
+                if (!canTransform)
+                {
+                    why = RemnantBodySource.TableCannotTransform;
+                    RemnantBodyTable.NoteCannotTransform(id, name);
+                    return null;
+                }
+                if (string.IsNullOrEmpty(prefab))
+                {
+                    // 字段在、值却是空 ⇒ 原版也实例化不了任何东西（`CreateRemnantBody` 拿到空 AssetReference）
+                    why = RemnantBodySource.NoTableEntry;
+                    RemnantBodyTable.NoteMissing(id, name);
+                    return null;
+                }
+                why = RemnantBodySource.Table;
+                RemnantBodyTable.TableHits++;
+                return prefab;
+            }
+
+            if (RemnantBodyTable.Loaded)
+            {
+                why = RemnantBodySource.NoTableEntry;
+                RemnantBodyTable.NoteMissing(id, name);
+                return null;
+            }
+
+            // 表没载进来 ⇒ 旧关键词链（**只在这一档**，并记标记；⛔ 别把它当常态）
+            why = RemnantBodySource.KeywordFallback;
+            RemnantBodyTable.KeywordFallbacks++;
+            if (hasWaystone) return RemnantBodyAeldari;
+            if (hasRemnant) return RemnantBodyNecrons;
             return null;
         }
 
-        /// <summary>残骸体 prefab 名（= `WarpforgeVFX/Prefabs/` 下的文件名 = 效果库的键）。</summary>
+        /// <summary>残骸体 prefab 名（= `WarpforgeVFX/Prefabs/` 下的文件名 = 效果库的键）。
+        /// ⚠️ **2026-10-22 起只在「表没载进来」的退路上用到**（见 `RemnantBodyPrefabFor`）。</summary>
         const string RemnantBodyAeldari = "RemnantBody3D Aeldari";
         /// <summary>见 <see cref="RemnantBodyAeldari"/>。</summary>
         const string RemnantBodyNecrons = "RemnantBody3D Necrons";
+
+        // ==================================================================
+        //  逐卡残骸体表（`W64` · B16）
+        // ==================================================================
+        //
+        // 数据：`Assets/CardPresentation/Resources/remnant_body_by_card.json`
+        //   （**全量件** = `数据/游戏数据/remnant_body_by_card.json`，生成器 `工具/gen_remnant_body_table.py`，
+        //     ⛔ 别手改那个 json；Resources 那份是它的**运行时投影**：`byCard` 字典 → `cards[]` 数组，
+        //     因为 `JsonUtility` 不支持字典 —— 与 `Resources/related_cards.json` 同套做法）。
+        // 形状：`schema / source / count / cards[{id,name,prefab,canTransform,inPool}]`。
+        // 投影规则（**只有这一条**，逐字节可复现）：把全量件的 `byCard` **按 id 排序**，每条的
+        //   `id/name/prefab/canTransform/inPool` 五个字段**原样**搬进 `cards[]`，`count = cards.Length`
+        //   —— 别加字段、别改值（`--check` 幂等：同一份全量件重跑两遍字节相同）。
+        //
+        // 判据链（逐跳可复核 → 全量件的 `_judges`）：
+        //   ① `BattleCardUI__SetRawCardData.c:45` —— 只有 `HasToTransformIntoRemnant` 才建；
+        //   ② `SupportMethods__HasToTransformIntoRemnant.c` —— 判据 = 特质 `0x41a Remnant` / `0x474 Waystone`；
+        //   ③ `BattleCardUI__CreateRemnantBody.c:36-65` —— 实例化**这张卡自己的** `remnantBodyPrefab`
+        //      （父节点 = 卡、位置 = 卡的位置）。
+        // 现读规模（2026-10-22）：池内 **71 张**带该字段 → **2 件** prefab
+        //   （`RemnantBody3D Aeldari` ×29 / `RemnantBody3D Necrons` ×42）；其中**能真变残骸**的 **52 张**，
+        //   另 **19 张**有字段但拿不到那两条特质 ⇒ 原版也不建（`canTransform=false`）。
+        //
+        // 🔴 四条纪律：
+        //   · **表载不进来要出声**（缺文件 / schema 不对 / 解析失败）—— 不许静默退回关键词；
+        //   · **表里没有这张卡 ⇒ 不建 + 出声**（⛔ 不猜）；
+        //   · `canTransform == false` ⇒ 不建（原版判据），**出声**只在第一次（19 张卡会正常走到这一档）；
+        //   · 自检夹具走 `SetForTest` / `ResetForTest`，键前缀 `Fixture`（不与真卡撞）。
+        /// <summary>原版逐卡残骸体字段的运行时查表（判据 / 纪律见上面整段注释）。</summary>
+        public static class RemnantBodyTable
+        {
+            public const string ResourcePath = "remnant_body_by_card";
+            /// <summary>schema 前缀（带版本号；`+rt` = 运行时投影）。</summary>
+            public const string SchemaPrefix = "remnant_body_by_card/";
+
+            [System.Serializable]
+            public class EntryDto
+            {
+                public string id;
+                public string name;
+                public string prefab;
+                public bool canTransform;
+                public bool inPool;
+            }
+
+            [System.Serializable]
+            public class FileDto
+            {
+                public string schema;
+                public string source;
+                public int count;
+                public EntryDto[] cards;
+            }
+
+            /// <summary>表**载进来了**（false ⇒ 只有旧关键词链可用，`LastError` 有话说）。</summary>
+            public static bool Loaded { get { EnsureLoaded(); return _loaded; } }
+            /// <summary>表里几条（池内 + 3 张池外 tutorial）。</summary>
+            public static int Cards { get { EnsureLoaded(); return _byId != null ? _byId.Count : 0; } }
+            public static string LastError { get; private set; }
+
+            /// <summary>查表命中次数（自检：&gt; 0 = 生产路径真的走表）。</summary>
+            public static int TableHits;
+            /// <summary>命中但 `canTransform == false` 的次数。</summary>
+            public static int CannotTransformHits;
+            /// <summary>表在、但没有这张卡的次数。</summary>
+            public static int MissingEntries;
+            /// <summary>表没载进来、退回关键词链的次数（**应恒 0**，非 0 = 缺表）。</summary>
+            public static int KeywordFallbacks;
+
+            public static void ResetDiagnostics()
+            {
+                TableHits = 0; CannotTransformHits = 0; MissingEntries = 0; KeywordFallbacks = 0;
+                _warnedMissing.Clear(); _warnedCannot.Clear();
+            }
+
+            static readonly HashSet<string> _warnedMissing = new HashSet<string>();
+            static readonly HashSet<string> _warnedCannot = new HashSet<string>();
+
+            static bool _tried;
+            static bool _loaded;
+            static Dictionary<string, EntryDto> _byId;
+            static Dictionary<string, EntryDto> _byName;
+
+            /// <summary>按 **卡 id** 查，查不到再按**卡名**（表里 74 条卡名无重名；id 是主键）。
+            /// 返回 `false` = 表里没有这张卡（或表没载进来）。</summary>
+            public static bool TryGet(string id, string name, out string prefab, out bool canTransform)
+            {
+                EnsureLoaded();
+                prefab = null; canTransform = false;
+                if (!_loaded) return false;
+                EntryDto e;
+                if (!string.IsNullOrEmpty(id) && _byId != null && _byId.TryGetValue(id, out e) && e != null)
+                { prefab = e.prefab; canTransform = e.canTransform; return true; }
+                if (!string.IsNullOrEmpty(name) && _byName != null && _byName.TryGetValue(name, out e) && e != null)
+                { prefab = e.prefab; canTransform = e.canTransform; return true; }
+                return false;
+            }
+
+            /// <summary>表里有没有这个键（自检用：区分「表里没有」与「表没载进来」）。</summary>
+            public static bool Has(string id, string name)
+            {
+                EnsureLoaded();
+                if (!_loaded) return false;
+                return (!string.IsNullOrEmpty(id) && _byId.ContainsKey(id))
+                    || (!string.IsNullOrEmpty(name) && _byName.ContainsKey(name));
+            }
+
+            internal static void NoteMissing(string id, string name)
+            {
+                MissingEntries++;
+                string k = !string.IsNullOrEmpty(id) ? id : name;
+                if (MissingEntries <= 8 && _warnedMissing.Add(k ?? ""))
+                    Debug.LogWarning($"[残骸体] `{k}`（{name}）**不在** `Resources/{ResourcePath}.json` 里 ⇒ "
+                                   + "这一格**不建残骸体**。原版判据是这张卡自己的 `RawCardScript.remnantBodyPrefab`"
+                                   + "（`BattleCardUI__CreateRemnantBody.c:36-65`）—— 表里没有 = 原版这个字段是空，"
+                                   + "⛔ 我们**不按关键词猜**。要补：重跑 `工具/gen_remnant_body_table.py` 看它是否 `unresolved`。");
+            }
+
+            internal static void NoteCannotTransform(string id, string name)
+            {
+                CannotTransformHits++;
+                string k = !string.IsNullOrEmpty(id) ? id : name;
+                if (CannotTransformHits <= 4 && _warnedCannot.Add(k ?? ""))
+                    Debug.LogWarning($"[残骸体] `{k}`（{name}）的 SO **有** `remnantBodyPrefab` 字段，但它拿不到 "
+                                   + "`Remnant`/`Waystone` 特质 ⇒ 原版 `HasToTransformIntoRemnant` 为假、**不会建残骸体**"
+                                   + "（`BattleCardUI__SetRawCardData.c:45`）⇒ 这一格不建（照原版）。");
+            }
+
+            /// <summary>自检夹具：往表里插/改一条（键请用 `Fixture…` 前缀，别撞真卡）。</summary>
+            public static void SetForTest(string id, string name, string prefab, bool canTransform)
+            {
+                EnsureLoaded();
+                if (_byId == null) _byId = new Dictionary<string, EntryDto>(System.StringComparer.Ordinal);
+                if (_byName == null) _byName = new Dictionary<string, EntryDto>(System.StringComparer.Ordinal);
+                var e = new EntryDto { id = id, name = name, prefab = prefab, canTransform = canTransform, inPool = false };
+                if (!string.IsNullOrEmpty(id)) _byId[id] = e;
+                if (!string.IsNullOrEmpty(name)) _byName[name] = e;
+            }
+
+            /// <summary>清掉夹具并让下一次 `TryGet` 重新从 `Resources` 载（自检收尾用）。</summary>
+            public static void ResetForTest()
+            {
+                _tried = false; _loaded = false;
+                _byId = null; _byName = null;
+            }
+
+            /// <summary>自检用：**假装表载不进来**（验「旧关键词链只在这一档生效，并且有标记」）。
+            /// 传 `false` 收尾（= `ResetForTest`，下一次 `TryGet` 会重新从 `Resources` 载）。</summary>
+            public static void SetUnavailableForTest(bool unavailable)
+            {
+                _unavailableForTest = unavailable;
+                ResetForTest();
+            }
+            static bool _unavailableForTest;
+
+            static void EnsureLoaded()
+            {
+                if (_tried) return;
+                _tried = true;
+                if (_unavailableForTest)
+                {
+                    LastError = "自检：`RemnantBodyTable.SetUnavailableForTest(true)` —— 表被强制当成没载进来";
+                    return;
+                }
+                var asset = Resources.Load<TextAsset>(ResourcePath);
+                if (asset == null)
+                {
+                    LastError = "`Resources/" + ResourcePath + ".json` **没载到** ⇒ 残骸体退回旧关键词链"
+                              + "（`Remnant`→Necrons / `Waystone`→Aeldari）并计数。补法：跑一次 "
+                              + "`python -I -X utf8 d:/4/Unity/工具/gen_remnant_body_table.py`";
+                    Debug.LogWarning("[残骸体] " + LastError);
+                    return;
+                }
+                FileDto dto;
+                try { dto = JsonUtility.FromJson<FileDto>(asset.text); }
+                catch (System.Exception e)
+                {
+                    LastError = "`Resources/" + ResourcePath + ".json` 解析失败：" + e.Message
+                              + " ⇒ 残骸体退回旧关键词链";
+                    Debug.LogError("[残骸体] " + LastError);
+                    return;
+                }
+                // 版本守卫：schema 必须带前缀（`remnant_body_by_card/v1+rt`）。不认就**不当它是这张表**。
+                if (dto == null || string.IsNullOrEmpty(dto.schema)
+                    || !dto.schema.StartsWith(SchemaPrefix, System.StringComparison.Ordinal))
+                {
+                    LastError = "`Resources/" + ResourcePath + ".json` 的 schema 不对（期望 `"
+                              + SchemaPrefix + "…`，实得 `" + (dto != null ? dto.schema : "null")
+                              + "`）⇒ 残骸体退回旧关键词链";
+                    Debug.LogError("[残骸体] " + LastError);
+                    return;
+                }
+                var cards = dto.cards ?? new EntryDto[0];
+                if (cards.Length == 0)
+                {
+                    LastError = "`Resources/" + ResourcePath + ".json` 里 `cards[]` 是空的 ⇒ 残骸体退回旧关键词链";
+                    Debug.LogError("[残骸体] " + LastError);
+                    return;
+                }
+                // 字段守卫：`count` 与数组长度不一致只**出声**（表还能用），逐条缺 `id`/`name`/`prefab` 的跳过。
+                if (dto.count > 0 && dto.count != cards.Length)
+                    Debug.LogWarning($"[残骸体] `Resources/{ResourcePath}.json` 的 `count`={dto.count} 与 "
+                                   + $"`cards.Length`={cards.Length} 不一致（表照用，但请重跑生成器看一眼）");
+                _byId = new Dictionary<string, EntryDto>(cards.Length, System.StringComparer.Ordinal);
+                _byName = new Dictionary<string, EntryDto>(cards.Length, System.StringComparer.Ordinal);
+                int skipped = 0;
+                foreach (var c in cards)
+                {
+                    if (c == null || (string.IsNullOrEmpty(c.id) && string.IsNullOrEmpty(c.name))) { skipped++; continue; }
+                    if (!string.IsNullOrEmpty(c.id)) _byId[c.id] = c;
+                    if (!string.IsNullOrEmpty(c.name)) _byName[c.name] = c;
+                }
+                if (skipped > 0)
+                    Debug.LogWarning($"[残骸体] `Resources/{ResourcePath}.json` 有 {skipped} 条缺 `id`/`name`，已跳过");
+                _loaded = true;
+                LastError = null;                 // 载成功就把上次那条「没载到」清掉（自检可能先故意造过一次）
+                Debug.Log($"[残骸体] `Resources/{ResourcePath}.json` 载进来了：**{_byId.Count} 张卡**"
+                        + $"（schema `{dto.schema}`，source `{dto.source}`）");
+            }
+        }
 
         /// <summary>
         /// 手牌同步：**引擎的手牌顺序是权威**，视图跟着走。
@@ -20348,11 +21040,11 @@ namespace CardPresentation
             _endTurnLabel = Hud(root, CardText.Phrase("END TURN"), EndTurnX01, EndTurnY01, 3,
                                 new Color(1f, 1f, 1f), new Vector2(0.5f, 0.5f), "EndTurnButton",
                                 119.08f, 80.43f, 8f, 31f, 36f, face: TmpFont.Face.LatinUi);
-            // 回合时钟：写在按钮**下半部分**（原版 `ClockManager.clockText` 也在 `Clock/TurnBtn` 子树里）。
-            // 按钮 80.4 px 高 = 0.744 世界单位，往下让 0.021 ≈ 23 px，正好落在按钮下半。
-            _clockLabel = Hud(root, "", EndTurnX01, EndTurnY01 + 0.021f, 2,
-                              new Color(0.85f, 0.88f, 0.95f), new Vector2(0.5f, 0.5f), "TurnClock");
-            // A1024③ 判不出（原版 `Clock/TurnBtn` 下只有 `TurnText`，倒计时那颗没有 TMP）⇒ 保持 `Face.Cjk`
+            // 🔴 **2026-10-22（`W63` P1）**：这里原来还有一颗自建的 `TurnClock`（按钮下方的**常显** `m:ss`）
+            //   —— **已整颗删除**。原版 `Clock/TurnBtn` 下只有 `TurnText` 一颗 TMP
+            //   （`SetEndTurnText.c:102-104` 与 `Update.c:120-127` 写的是同一格 `+0x30`），
+            //   秒数只在超时后的 15 s 倒计时里出现在**那一颗**上 ⇒ 三种文案共用 `_endTurnLabel`。
+            // ⚠️ `TurnText` 的字体档（`Face.LatinUi`）沿用原判：原版那颗在 `TurnBtn` 子树里、只有它一颗。
 
             // ---- 牌堆：照原版 `PlayerDeck` 那一套摆 ----
             //
@@ -22380,12 +23072,14 @@ namespace CardPresentation
         {
             get { return (_energyAccumFoe != null && _energyAccumFoe.Texture != null) ? _energyAccumFoe.Texture.name : "<无>"; }
         }
-        /// <summary>自检读：回合时钟那行字（`1:00`；进了倒计时那段是纯秒数）</summary>
-        public string ClockText { get { return _clockLabel != null ? _clockLabel.Text : null; } }
         /// <summary>自检读：还剩多少秒</summary>
         public float ClockLeft { get { return _clockLeft; } }
         /// <summary>自检读：是不是已经进了「超时后的倒计时」那一段</summary>
         public bool ClockCountingDown { get { return _clockInCountdown; } }
+        /// <summary>🆕 **2026-10-22（`W63` P1）**：自检读 —— 「无行动」锁存置位了吗
+        /// （原版 `ClockManager+0xb0`，`SetNoActionsUi` 置 1、`StartTimer` 复位）。
+        /// 它同时是「`OutOfActions` cue 只喊一次」和「回合计时按 4× 走」的那一格。</summary>
+        public bool NoActionsLatched { get { return _noActionsUiShown; } }
         /// <summary>自检用：把表按秒推（批处理下没有真实帧循环）</summary>
         public void TickClockForTest(float dt) { TickClock(dt); }
 
@@ -22416,10 +23110,20 @@ namespace CardPresentation
         public string MyHandText { get { return _handLabel != null ? _handLabel.Text : null; } }
         /// <summary>🆕 2026-09-27：敌方牌堆/弃牌那行字。</summary>
         public string FoePileText { get { return _foePileLabel != null ? _foePileLabel.Text : null; } }
-        /// <summary>🆕 **2026-10-18（第十三轮 · G2b）**：`END TURN` 那颗钮上现在印的字。
-        /// 权威 = 原版词条 `Battle/HUD/EndTurn`（`CardText.Phrase("END TURN")` → `Loc.T`）。
+        /// <summary>🆕 **2026-10-18（第十三轮 · G2b）**：结束回合钮上现在印的字。
+        /// 权威 = 原版词条 —— **己方回合** `Battle/HUD/EndTurn`、**敌方回合** `Battle/HUD/EnemyTurn`
+        /// （`ClockManager__SetEndTurnText.c:88-103`，两种都 `ToUpper`）、**倒计时那一段**是纯秒数。
+        /// 三档的**唯一出口** = `UpdateClockLabel`。
         /// ⚠️ 它**每次 `UpdateHud` 都重取**（换语言之后要变）⇒ 自检可以切语档后 `RefreshAll()` 再读它。</summary>
         public string EndTurnText { get { return _endTurnLabel != null ? _endTurnLabel.Text : null; } }
+        /// <summary>🆕 **2026-10-22（`W64` · 兜底审计 `B-27`）**：结束回合钮那行字**当前的颜色**
+        /// （自检口）。原版真值 = **纯白** (1,1,1,1)（`TurnText` 的 TMP `m_fontColor`，三档同色 ——
+        /// 判据 → `UpdateClockLabel` 的 doc ⑥）；⛔ 我们**不许**再按压暗/黄/红自造。</summary>
+        public Color EndTurnLabelColor { get { return _endTurnLabel != null ? _endTurnLabel.color : Color.clear; } }
+        /// <summary>🆕 **2026-10-22（`W64` · 兜底审计 `B-27`）**：结束回合钮**底图**当前的 tint（自检口）。
+        /// 原版真值 = **原样**（`m_Transition = 2` SpriteSwap + `m_DisabledSprite = null` ⇒ 不可点也不换）
+        /// —— 判据 → `EndTurnBgTint` 的 doc；⛔ 不许按 `m_DisabledColor` 的 α = 0 弄透明。</summary>
+        public Color EndTurnBgColorForTest { get { return _endTurnBg != null ? _endTurnBg.Tint : Color.clear; } }
         /// <summary>🆕 2026-09-27：名牌那一行（**名字**；原版那两格是 `PlayerNameText`/`EnemyNameText`）
         /// —— 我方那份。</summary>
         public string MyPlateText { get { return _myText != null ? _myText.Text : null; } }
@@ -23201,10 +23905,16 @@ namespace CardPresentation
             //   ⚠️ `Label.SetText` 对**同一串**是早退（`Label.SetText`）⇒ 每帧调不产生任何重排/重建。
             //   📌 原版也是**每次回合切换时重设**（`ClockManager.SetEndTurnText` 自己就调
             //      `GetTranslation`），不是出厂写死 —— 行为同族。
-            _endTurnLabel.SetText(CardText.Phrase("END TURN"));
-            _endTurnLabel.SetColor(myTurn ? new Color(1f, 0.85f, 0.35f) : new Color(0.35f, 0.35f, 0.40f));
+            // 🔴 **2026-10-22（`W63` P1）**：字与色都收口到 `UpdateClockLabel()`（**唯一出口**）——
+            //   它按「倒计时 / 己方回合 / 敌方回合」三档取字（`Battle/HUD/{EndTurn,EnemyTurn}` + `ToUpper`），
+            //   ⛔ 这里别再单独 `SetText(CardText.Phrase("END TURN"))`（那样敌方回合会印错、倒计时会被盖掉）。
+            UpdateClockLabel();
             if (_endTurnBg != null)
-                _endTurnBg.SetTint(myTurn ? Color.white : new Color(0.42f, 0.44f, 0.50f));
+                // 🔴 **2026-10-22（`W64` · 兜底审计 `B-27`）**：底图**恒为原样**（`EndTurnBgTint` = 纯白）。
+                //   原版那颗钮 `m_Transition = 2`（SpriteSwap）+ `m_SpriteState.m_DisabledSprite = null`
+                //   ⇒ 不可点（敌回合 / 对局结束）时**保持普通精灵**，`m_Colors.m_DisabledColor` 整组不生效
+                //   （上一版照它的 α = 0 把底图弄透明是**读错了 `m_Transition`**，判据 → `EndTurnBgTint` 的 doc）。
+                _endTurnBg.SetTint(EndTurnBgTint);
 
             // 牌堆的回合灯：轮到自己亮绿、否则红（原版两张图 `40k_DeckHolder_light_green/_red`）
             SetDeckLight(_myDeckLight, myTurn);
@@ -24075,6 +24785,12 @@ namespace CardPresentation
         /// <summary>自检用：准星现在开着吗（`reticle` 为空也算 false）</summary>
         public bool ReticleVisible { get { return reticle != null && reticle.Visible; } }
         public void SimulateEndTurn() { EndPlayerTurn(); }
+
+        /// <summary>🆕 **2026-10-22（`W63` P1）**：自检口 —— 走一遍「没行动可用」那条判定
+        /// （`AutoEndTurnIfStuck` = 原版 `ClockManager.SetNoActionsUi` 的等价物）。
+        /// ⚠️ 它**不再结束回合**：只锁存 + 播一次 `OutOfActions`，之后由 `TickClock` 按 4× 快进。
+        /// 夹具要先把玩家弄成「真没动作」（清手牌 / 把场上单位都耗掉），否则本方法第一道闸就早退。</summary>
+        public void AutoEndTurnIfStuckForTest() { AutoEndTurnIfStuck(); }
         /// <summary>🆕 2026-10-19（战斗线 W 第 2 条）：**走玩家那条路**的结束回合（过
         /// `WaitingForBlockingAction` 闸）。自检用它验「闸真的挡得住 / 放得行」——
         /// 与 <see cref="SimulateEndTurn"/> 的差别**只有这一道闸**（`fromUi`），别把它当成另一个语义。</summary>

@@ -155,6 +155,13 @@ SRC_BUNDLE = os.path.join(BUNDLE_DIR, "battleprefabs_vfxandmisc_assets_all.bundl
 DEST_DIR = r"d:/4/Unity/MyGame/Assets/StreamingAssets/WarpforgeVFX"
 EXISTING_BUNDLE = os.path.join(DEST_DIR, "wf_shaders.bundle")
 DEST_BUNDLE = os.path.join(DEST_DIR, "wf_shaders_extra.bundle")
+
+# 🆕 2026-10-22（W64 · 兜底审计 **B11**）：TMP 那 4 个 shader 在**字体包**里。
+#   为什么单开一个产物、不并进 `wf_shaders_extra.bundle`：那个包由**默认模式**整份重写
+#   （`repack(SRC_BUNDLE, DEST_BUNDLE)`），并进来会在下一次重跑默认模式时**被静默带走**。
+#   ⇒ 单独一个包 + `WarpforgeShaderLoader.TmpBundleRelPath` 显式加载（与 `wf_builtin` 同一个形状）。
+SRC_TMP = os.path.join(BUNDLE_DIR, "fonts_assets_all.bundle")
+DEST_TMP = os.path.join(DEST_DIR, "wf_tmp_shaders.bundle")
 REPORT = r"d:/4/Unity/MyGame/Assets/WarpforgeVFX/导出报告.tsv"
 
 # `--builtin` 模式的源/目标（2026-09-19 加）
@@ -1579,6 +1586,9 @@ def main():
     ap.add_argument("--prefabs", action="store_true",
                     help="改打**非 addressable 的 prefab 包**：源 battleprefabs_vfxandmisc_assets_all.bundle "
                          "→ 目标 wf_prefabs_extra.bundle（含整棵依赖树）")
+    ap.add_argument("--tmp", action="store_true",
+                    help="🆕 2026-10-22：改打 **TMP shader 包**：源 fonts_assets_all.bundle "
+                         "→ 目标 wf_tmp_shaders.bundle（4 个 TextMeshPro/* shader；W64 B11）")
     ap.add_argument("--out", default=None,
                     help="默认 extra 模式写 wf_shaders_extra.bundle；--builtin 模式写 wf_builtin.bundle")
     ap.add_argument("--skip-boosters", action="store_true",
@@ -1588,7 +1598,27 @@ def main():
     if args.out is None:
         args.out = (DEST_ARENA if args.arenas
                     else (DEST_BUILTIN if args.builtin
-                          else (DEST_PREFABS if args.prefabs else DEST_BUNDLE)))
+                          else (DEST_PREFABS if args.prefabs
+                                else (DEST_TMP if args.tmp else DEST_BUNDLE))))
+
+    if args.tmp:
+        # 只做一件事：把字体包里那 4 个 `TextMeshPro/*` shader 重打成小包。
+        # 判据与消费者 → `WarpforgeShaderMap.UseOriginal` 的 `TextMeshPro/Distance Field Offset` 那条
+        # ＋ `WarpforgeShaderLoader.TmpBundleRelPath`。
+        print(f"[tmp] 源 {os.path.basename(SRC_TMP)} → 目标 {os.path.basename(args.out)}")
+        if args.check:
+            env = UnityPy.load(SRC_TMP)
+            names = sorted(n for n in collect_shader_names(SRC_TMP))
+            print("[tmp] --check：源包里 %d 个 shader：%s" % (len(names), names))
+            print("[tmp] --check：只体检，未写文件")
+            return 0
+        kept = repack(SRC_TMP, args.out)
+        if not kept:
+            return 1
+        print("[tmp] 产物里的 shader：")
+        for n in sorted(set(kept.values())):
+            print("      ", n)
+        return 0
 
     if args.arenas:
         return run_arenas(args)

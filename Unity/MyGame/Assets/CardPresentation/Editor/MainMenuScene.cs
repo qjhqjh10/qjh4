@@ -7801,6 +7801,9 @@ public static class MainMenuScene
                         }
                         Shoot("06_找对手窗.png");
                         // 取消 ⇒ 那扇窗自己关掉，**排位窗还在**（它是弹窗，不在 `currentWindow` 那个位上）
+                        // ⚠️ **2026-10-22（W64）**：「取消残留」那组（④）**不在这里** —— 本段上面 `so.Close()`（hold 测试收尾）
+                        //    已经把全屏窗关掉、`ShowPreviousWindow` 又把排位窗整棵重建过（新 popup、没在搜）
+                        //    ⇒ 这一刻场上**没有**在等的那份（第一版夹具放这儿，同步点自检实测 1 红）。④ 挪到下面第二遍。
                         var ch = FindChild(so.transform, "CancelHit");
                         var cb = ch != null ? ch.GetComponent<WindowButton>() : null;
                         CheckTrue(cb != null, "`Cancel` 有点击区");
@@ -7817,8 +7820,11 @@ public static class MainMenuScene
                     //      （`Shell/LiveOpsEventWindow.cs:333-344` / `CardPresentation/Shell/LiveOpsEventWindow.cs` + `Shell/MenuWindowBase.cs:170-176`）
                     //    ⇒ 本文件 `本文件` 抓的 `hb` 已经成了**死引用**（Unity 假 null）⇒ 旧写法 `if (hb != null)` 判假、
                     //      **一下都没点**（`WindowButton.Click` 不出声：`Shell/WindowButton.cs` 的 `Click()`（`:1095-1109` 是拆文件前 `PromptPopup.cs` 的旧行号，⚠️ 2026-10-19 订正：原写 `Shell/PromptPopup.cs:1095-1109`）三个出口里另两个都被日志排除）
-                    //    ⇒ 下面 `TickSearch(12f)` 推的是**重建时新建的那个** `_search`（从没 `BeginSearch` ⇒ `Tick` 在 `Searching==false` 早退）
+                    //    ⇒ 下面推的是**重建时新建的那个** `_search`（从没 `BeginSearch` ⇒ `Tick` 在 `Searching==false` 早退）
                     //    ⇒ `StartedBattle` 永远是 false ⇒ **假红**。
+                    //    🆕 **2026-10-22（W64）**：下面那几句 `TickSearch(12f)` 已换成**走生产 ticker**
+                    //    （`SearchOpponentManager.Advance`）—— 道理同前：重抓的 `hb2.Click()` 才会 `BeginSearch`，
+                    //    而推进现在归常驻 manager（判据 → 紧跟着那一段的头注释）。
                     //    ⚠️ 这是「关一扇全屏窗 ⇒ 底下那扇（当时 `Closed`）被重建」的**正常行为，不是缺陷** ⇒ **只改夹具、不改实现**。
                     //    改坏法：把下面四行退回 `if (hb != null) hb.Click();`（沿用旧句柄）⇒ 这条红立刻回来。
                     Debug.Log("[MainMenu 自检] 重抓 `Battle!` 之前：旧句柄 hb == null ？" + (hb == null)
@@ -7827,7 +7833,103 @@ public static class MainMenuScene
                     var hb2 = hit2 != null ? hit2.GetComponent<WindowButton>() : null;
                     CheckTrue(hb2 != null, "（前提）重建之后 `Battle!` 仍有点击区 —— 抓不到 ⇒ 下面那条等于空断");
                     if (hb2 != null) hb2.Click();
-                    rk.TickSearch(12f);
+
+                    // ================================================================
+                    //  🆕 **2026-10-22（W64）：真机「排位匹配 12 秒冻住」的回归**
+                    //
+                    //  **现场**（真机，诊断 → `资料/普查产出_1022/W64_排位匹配卡死诊断.md`）：
+                    //    排位窗点 `Battle!` ⇒ 开全屏 `SearchingOpponentWindow` ⇒ `OpenWindow` 的全屏支
+                    //    `HideAllWindows()` 把**排位窗整棵 `SetActive(false)`**（含它根下这份
+                    //    `Searching Oponent Popup (1)`）⇒ 原来那句 `LiveOpsEventWindow.Update → TickSearch`
+                    //    跟着停 ⇒ `SecondsLeft` 冻在 12，等 30s+ 也不开打。
+                    //  🔴 **原版判据**：`SearchingOpponentWindow__*.c` **没有 `Update`**；等待/超时在**常驻**
+                    //    `SearchOpponentManager` 的协程上（`_WaitForHumanOpponent_d__35__MoveNext.c:159/219`；
+                    //    取消 = `CancelBattleSearch.c:12` `StopCoroutine`）⇒ **窗只显示，推进在 manager 上**。
+                    //  ⇒ 下面断的**全是这条结构**（⛔ 不断我们自己的常量）：宿主被藏起来也照推、
+                    //    **一次 tick 只扣一个 dt**、**摘掉注册就一条都不推**。
+                    // ================================================================
+                    {
+                        var popR = FindChild(rk.transform, "Searching Oponent Popup (1)");
+                        var pr = popR != null ? popR.GetComponent<SearchingMatchPopup>() : null;
+                        CheckTrue(!rk.gameObject.activeSelf,
+                                  "★（W64 现场）全屏搜索窗开着 ⇒ **排位宿主整棵 `SetActive(false)`**"
+                                + "（= 真机那一帧：Unity 不再给它派 `Update`）");
+                        CheckTrue(pr != null && pr.Searching,
+                                  "★ 12 秒搜索**已经起起来**（`Searching == true`）—— 拿不到 ⇒ 下面几条等于空断");
+                        CheckTrue(pr != null && !pr.HostDrivesItself,
+                                  "★ 这一份的推进归属 = **常驻 manager**（`hostDrivesItself: false`；"
+                                + "宿主可能被全屏窗藏起来的那一族都必须是它）");
+                        CheckTrue(SearchOpponentManager.IsDriving(pr),
+                                  "★ **它确实注册在常驻 ticker 上**（= 原版 `SearchOpponentManager` 手里那一局）"
+                                + "｜🧨 改坏法：摘掉 `SearchingMatchPopup.BeginSearch` 里那句 `SyncTicker()` ⇒ 红");
+                        // ③ 单一驱动：**一次 tick 只扣一个 dt**（宿主 inactive ⇒ 场上只有 ticker 在推）
+                        float s0 = pr != null ? pr.SecondsLeft : -1f;
+                        SearchOpponentManager.Advance(1f);
+                        CheckNear(pr != null ? pr.SecondsLeft : -1f, s0 - 1f, 0.001f,
+                                  "★（单驱动）常驻 ticker **一次推进只扣 1 秒**（一帧推两次会扣 2 秒 ⇒ 12 秒变 6 秒）"
+                                + "｜🧨 改坏法：把 `LiveOpsEventWindow.Update → TickSearch` 加回来 ⇒ 真机上两处同时推 ⇒ 红");
+                        CheckTrue(!rk.StartedBattle, "…1 秒后**还不该开打**（没抢跑）");
+                        // ② 反例（灭自证）：**摘掉注册 ⇒ 一条都不推** —— 这正是旧实现的形状
+                        //    （原来推它的那一句挂在宿主的 `Update` 上；宿主 `SetActive(false)` 就没人推）。
+                        SearchOpponentManager.End(pr);
+                        float s1 = pr != null ? pr.SecondsLeft : -1f;
+                        SearchOpponentManager.Advance(1f);
+                        CheckNear(pr != null ? pr.SecondsLeft : -1f, s1, 0.0001f,
+                                  "★（反例·灭自证）**摘掉注册 ⇒ ticker 不再推它**（秒数一动不动）"
+                                + " —— 旧实现（只靠宿主 `Update`）在这条路上就是这个样子：永远冻在 12");
+                        CheckTrue(!rk.StartedBattle, "…摘掉注册之后推 1 秒当然也不开打");
+                        CheckTrue(SearchOpponentManager.Begin(pr), "（夹具）把注册接回去");
+
+                        // ---- ④ 取消残留（**必须放在这一刻**：搜索还活着。上面第一遍那句 ⚠️ 说了为什么不能放那儿）----
+                        // 判据 → `资料/普查产出_1022/W64_排位匹配卡死诊断.md` §⑤（那条「取消之后还留着 12 秒」的链）。
+                        var so2 = SearchingOpponentWindow.LastOpened;
+                        CheckTrue(so2 != null && so2.CurrentState == WindowState.Open,
+                                  "（W64·④ 夹具）第二遍开出来的全屏搜索窗**还开着** —— 拿不到 ⇒ 下面四条等于空断");
+                        var ch2 = so2 != null ? FindChild(so2.transform, "CancelHit") : null;
+                        var cb2 = ch2 != null ? ch2.GetComponent<WindowButton>() : null;
+                        CheckTrue(cb2 != null, "（W64·④ 夹具）全屏窗那颗 `Cancel` 有点击区");
+                        if (cb2 != null) cb2.Click();      // = 真机上那条「Cancel 能正常取消」的**同一条**链
+                        // ⚠️ 这一跳会把宿主重建（`NotifyClosed → ShowPreviousWindow → TryOpen(Closed) → Open()`）⇒
+                        //    旧 popup 已销毁。用 `ReferenceEquals` 判「C# 对象还在」（Unity 的 `==` 会把已销毁的
+                        //    非 null 对象判成 null），读的是**托管字段**（auto-property）—— 那正是要断的「最后状态」。
+                        bool prAlive = !object.ReferenceEquals(pr, null);
+                        CheckTrue(prAlive && !pr.Searching && pr.SecondsLeft <= 0f,
+                                  "★（W64·④）`Cancel` ⇒ **清 `Searching` 与 `SecondsLeft`**"
+                                + "｜🧨 改坏法：删掉 `LiveOpsEventWindow.CancelSearch` 里那句 `_search.AbortSearch()` ⇒ 红");
+                        CheckTrue(!SearchOpponentManager.HasActive,
+                                  "★（W64·④）`Cancel` ⇒ **常驻 ticker 里没有残留**（= 原版 `CancelBattleSearch → StopCoroutine`）");
+                        SearchOpponentManager.Advance(12f);
+                        CheckTrue(!rk.StartedBattle,
+                                  "★（W64·④）取消之后再推满 12 秒**也不会开打**"
+                                + "（残留会把玩家在没有任何窗口的情况下拉进战场 —— 诊断 §⑤ 那条脆弱链）");
+                    }
+
+                    // ---- ① 复现真机：**宿主 inactive、只走生产 ticker** 推满 12 秒 ⇒ 开战 ----
+                    // 第三遍：上面取消那一下又把宿主重建了一次 ⇒ `Battle!` 的句柄又得重抓（同本段开头 A516 那条）。
+                    {
+                        var hit3 = FindChild(rk.transform, "BattleHit");
+                        var hb3 = hit3 != null ? hit3.GetComponent<WindowButton>() : null;
+                        CheckTrue(hb3 != null, "（W64 夹具）第三遍：重建之后 `Battle!` 仍有点击区");
+                        if (hb3 != null) hb3.Click();
+                        var pop3 = FindChild(rk.transform, "Searching Oponent Popup (1)");
+                        var pr3 = pop3 != null ? pop3.GetComponent<SearchingMatchPopup>() : null;
+                        CheckTrue(!rk.gameObject.activeSelf && pr3 != null && pr3.Searching
+                                  && SearchOpponentManager.IsDriving(pr3),
+                                  "（W64 夹具）第三遍：宿主又被藏起来，而那一份**在等且已注册**");
+                        for (int i = 0; i < 12; i++) SearchOpponentManager.Advance(1f);   // 逐帧推（比一次 12 秒更像真机）
+                        CheckTrue(rk.StartedBattle,
+                                  "★ **走生产 ticker 推满 12 秒 ⇒ 开战**（真机上原来就冻在 12）"
+                                + "｜🧨 改坏法：把推进退回「只靠宿主 `Update`」⇒ 宿主 inactive、一条都不推 ⇒ 这条红");
+                        // ③ 结构那半边：**这一族宿主自己不许再有 `Update`**（有 = 与 ticker 一帧推两次）
+                        CheckTrue(typeof(LiveOpsEventWindow).GetMethod(
+                                      "Update",
+                                      System.Reflection.BindingFlags.Instance
+                                    | System.Reflection.BindingFlags.Public
+                                    | System.Reflection.BindingFlags.NonPublic
+                                    | System.Reflection.BindingFlags.DeclaredOnly) == null,
+                                  "★（单驱动·结构）`LiveOpsEventWindow` **自己不声明 `Update`** ⇒ 推进只有常驻 ticker 一处"
+                                + "｜🧨 改坏法：把 `void Update() { TickSearch(Time.deltaTime); }` 加回去 ⇒ 红");
+                    }
                     CheckTrue(rk.StartedBattle, "排位窗的 `Battle!` 走**同一条**开战链（等满 12 秒 ⇒ 开战）");
                 }
                 // 🔴 **2026-10-17（F3 · D3 红⑪）**：排位开战也往 `SetPendingPlayMode` 写了一个模式号

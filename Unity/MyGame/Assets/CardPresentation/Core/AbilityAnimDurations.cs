@@ -29,18 +29,29 @@
 //    是**别的时机**播的 ⇒ 归 `EvtKind.Trigger` / `Play`，**不进这张表**（全量件里备查）。
 //
 // 数据：`工具/gen_ability_anim_durations.py` → `Resources/ability_anim_durations.json`
-//       （🔴 **2026-10-15 现读 = 62 张卡 / 99 条 CardAnim**，min 0.2 / 中位 1.0 / max 4.0；`--check` 幂等已验。
-//        ⚠️ **这行原来写「56 张卡 / 89 条 CardAnim」—— 已过期**（账 `A2095`，铁律 5）。
+//       （🔴 **2026-10-22（`W64`）现读 = 93 张卡 / 160 条 CardAnim**，min 0.2 / 中位 1.0 / max 4.0。
+//        ⚠️ 这行历史上的三个数**全部过期**：「56 张卡 / 89 条」（账 `A2095`）→「62 张卡 / 99 条」（`A1767`）
+//        → **93 / 160**（本行；`W64` 重出后的现读数）。
 //        ⛔ 别再手抄这两个数：读 `Resources/ability_anim_durations.json` 的 `count`／全量件的 `_headline`）。
 //       全量件（含逐条 CardAnim、未覆盖名单、判据长文）= `数据/游戏数据/ability_anim_durations.json`。
 //
-// 🔴 **三处如实标注（铁律 3 / 11）**：
-//   ① **只覆盖 2022 快照里有的卡**：真值源 `cards_1195_2022时代.json` 是 2022 年代
-//      （12 个阵营），池子里 **UM / SW 那两批一张都没有** ⇒ 那批**判据为空**
-//      （`uncovered` 里逐张点名；其中 21 张 UM 誓约 / 7 张 SW 凶暴正是**今天真的会发
-//      `EvtKind.Ability` 的那一族**）；
-//   ② **tween 那一段没算**（见上）；
-//   ③ 命中不了时**退回 `1.0` 并出声**（不静默）—— 那是本表的**中位数**，与旧常数恰好相等。
+// 🔴 **三处如实标注（铁律 3 / 11）—— 2026-10-22（`W64`）全部订正（铁律 5，原来三条都过期）**：
+//   ① ✅ **不再「只覆盖 2022 快照」**：真值源已是**当前 build 的卡 SO**
+//      （`资料/普查产出_1018/allcards_1350/cards_raw.json` 的
+//      `activeAbility.activeAbilityLogic[*].cardAnimations[*]`）；第二条链 `cards_engine.json` 的
+//      `animTimes`（`tg == -1` 行）与它**逐卡一致 93 / 不一致 0**（全量件 `_crossCheck`）
+//      ⇒ UM / SW 那两批**不再是「判据为空」**；
+//   ② **3 张例外**（全量件 `uncovered`，都是「会发 `EvtKind.Ability`、但判据不足以定值」）：
+//      `SOR30 Celestian Sacresant` · `SOR65 Celestian Sacresant Aveline` · `SW9` ——
+//      它们的 `activeAbility` **一条非空 CardAnim 引用都没有**（`m_AssetGUID` 全空）⇒ 原版这条路
+//      不放任何动画 ⇒ 我们退回兜底并**出声**（不是「表里漏了」）；
+//   ③ **`SW21 Wulfen Pack Leader` 是条件分支**（铁律 5·c：同一张卡、不同棋盘状态 = 不同时长）：
+//      **普通 `activeAbility` = 0.4**（表里存的就是这支）· **替代能力（`Cut Wulfen`）= 0.2**
+//      （`hasAlternativeAbility=1` 且 `MeetsCriteria(selectCriteria)` 满足时原版走这支）。
+//      ⛔ 表只记普通那一支；运行时**要不要按棋盘切到 0.2 还没接**（判据 = 原版
+//      `RawCardScript.GetActiveAbility`，逐条见全量件 `conditional`）。
+//   ④ **tween 那一段仍没算**（见上「播多久」那一条）。
+//   ⑤ 命中不了时**退回 `1.0` 并出声**（不静默）—— 那是本表的**中位数**，与旧常数恰好相等。
 using System;
 using System.Collections.Generic;
 using UnityEngine;

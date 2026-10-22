@@ -245,9 +245,18 @@ namespace CardPresentation
         //    入口同一个原因）。按 §五 那条口径：**入口由我们定并如实标出来** —— 挂在**排位窗**的 `Battle!` 上
         //    （排位本来就是「等真人」那个模式）；另外三扇窗继续用窗口内的 `Searching Oponent Popup`。
         //    **这一条映射不是复刻。**
-        // ⚠️ 它是 `type=0 Fullscreen`：`WindowsManager.OpenWindow` 对全屏窗会**关掉 `currentWindow`** ——
-        //    而本窗是**弹窗**（`popUpWindow`），**不在** `currentWindow` 那个位上 ⇒ **本窗不会被关**，
-        //    倒计时照走（`Update` 还在跑）。这条实测过（2026-09-24）。
+        // 🔴 **2026-10-22（W64）就地订正（铁律 5）**：本行原来写「本窗是弹窗、不在 `currentWindow` 那个位上
+        //    ⇒ **本窗不会被关**，倒计时照走（`Update` 还在跑）。这条实测过（2026-09-24）」—— **三段全错**，
+        //    而且**正是那处真机缺陷的成因**：
+        //      ① `WindowsManager.OpenWindow` 的全屏支不是「关 `currentWindow`」，是 `HideAllWindows()`
+        //         （逐句照 `WindowsManager__OpenWindowCO.c:32-37`；`Shell/WindowsManager.cs` 的 `OpenWindow`）；
+        //      ② 那个 predicate 只排除 `state == Closed` ⇒ 本窗（弹窗）**也在被藏的名单里**；
+        //      ③ `Hide()` 是 `SetActive(false)` ⇒ Unity **不再给本窗派 `Update`** ⇒ 原来那句
+        //         `LiveOpsEventWindow.Update → TickSearch` 一停，`SecondsLeft` 就冻在 12（真机 30s+ 不动）。
+        //    ⇒ 修法不是「让本窗别被藏」（改 `OpenWindow` 与反编译相反），而是**把推进搬到常驻 manager**：
+        //      `Shell/SearchOpponentManager.cs`（判据 = 原版 `SearchingOpponentWindow` 没有 `Update`，
+        //      倒计时在 `SearchOpponentManager._WaitForHumanOpponent` 的协程上）。
+        //      诊断全文 → `资料/普查产出_1022/W64_排位匹配卡死诊断.md`。
         SearchingOpponentWindow _searchWin;
 
         /// <summary>排位走全屏那扇 ⇒ **不显示**窗口内的弹窗（两扇叠在一起过，实拍抓到的）。</summary>
@@ -264,8 +273,10 @@ namespace CardPresentation
         }
 
         /// <summary>🆕 2026-10-03（A2）：排位窗走**全屏**那扇 `SearchingOpponentWindow`。
-        /// ⚠️ 它是 `type=0 Fullscreen`：`OpenWindow` 对全屏窗会**关掉 `currentWindow`** ——
-        ///    而本窗是**弹窗**（`popUpWindow`）、**不在** `currentWindow` 那个位上 ⇒ **本窗不会被关**。本条实测过。</summary>
+        /// 🔴 **2026-10-22（W64）就地订正（铁律 5）**：原来这里写「本窗是弹窗 ⇒ **本窗不会被关**」——
+        /// **不成立**：`OpenWindow` 的全屏支是 `HideAllWindows()`，它把**所有** `state != Closed` 的窗
+        /// （含弹窗）都 `Hide()` 成 `SetActive(false)`；那正是「12 秒冻住」的成因与修法见上面 `_searchWin` 的注释。
+        /// 现在 12 秒由常驻 `SearchOpponentManager` 推 ⇒ **本窗被藏着也照跑**。</summary>
         protected override void OnNetSearchStarted() { OpenSearchWindow(true); }
 
         /// <summary>`netWatch = true` ⇒ 这扇窗盯着联机配对结果（配到人时把敌方那格翻成 `Found`，

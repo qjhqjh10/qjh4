@@ -253,6 +253,53 @@ def _child(path, key):
     return path + "." + key if path else key
 
 
+# ---- `AnimationCurve`：按结构逐键导出（W64 · B13）--------------------------------
+#
+# 🔴 2026-10-22（`W64_兜底审计_特效.md` **B13**）：
+#   原来 `AnimationCurve` 落到 `short()` 最后那行 `{"__repr__": repr(v)[:120]}` ——
+#   **被截断的文本**，只读得到第一个键 ⇒ 曲线上半段（含 `t=1, v=6` 那个端点）整块丢失，
+#   运行时只能退成常值（`WFModuleMoveParticlesToTarget` 里那段 `ParseCurveRepr` + 警告）。
+#   原版真值 = bundle 里**完整的 `AnimationCurve`**（UnityPy 1.24 把它读成 attrs 类：
+#   `vars()` 不可用，但**字段可逐个取**：`m_Curve` 是 `Keyframe` 列表，
+#   每个 `Keyframe` 有 `time/value/inSlope/outSlope/inWeight/outWeight/weightedMode`）。
+#   ⇒ 这里按**字段**导出：浮点原样（UnityPy 给的是 float32 的精确 double，`json` 往返不丢），
+#   **键序固定 = Unity `Keyframe` 的序列化顺序**（⛔ 不按字典序，别让下游以为顺序有意义）。
+#
+# ⚠️ **同时保留 `__repr__`（完整、不截断）**：既有消费者 `WFModuleMoveParticlesToTarget.Configure()`
+#   读的是 `def.GetString("attractSpeedByLifetime.__repr__")`，删掉它会把曲线**静默**退成常值。
+#   两路都写 = 老消费者零改动、结构化数据（`…m_Curve[i].time` 等键）随时可切。
+#   📌 待办（不在本批文件所有权内）：那个 C# 改成读结构化键，然后把 `__repr__` 这半删掉。
+CURVE_KEYFRAME_ATTRS = ("time", "value", "inSlope", "outSlope", "inWeight", "outWeight",
+                        "weightedMode")
+
+
+def _int_like(x):
+    """`m_PreInfinity` / `m_RotationOrder` 这类枚举值：UnityPy 有时给 int 有时给枚举包装。"""
+    try:
+        return int(x)
+    except (TypeError, ValueError):
+        return x
+
+
+def curve_to_dict(v):
+    """`AnimationCurve` → 结构化字典（完整键 + 三档外插/旋转序）。键序固定。"""
+    rows = []
+    for kf in getattr(v, "m_Curve", None) or []:
+        row = {}
+        for a in CURVE_KEYFRAME_ATTRS:
+            val = getattr(kf, a, None)
+            row[a] = float(val) if isinstance(val, float) else _int_like(val)
+        rows.append(row)
+    return {
+        "m_Curve": rows,
+        "m_PostInfinity": _int_like(getattr(v, "m_PostInfinity", None)),
+        "m_PreInfinity": _int_like(getattr(v, "m_PreInfinity", None)),
+        "m_RotationOrder": _int_like(getattr(v, "m_RotationOrder", None)),
+        # ⚠️ 完整 repr（**不截断**），逐字给上面那个既有消费者用 —— 见本条注释
+        "__repr__": repr(v),
+    }
+
+
 def short(v, depth=0, path=None):
     """把字段值压成 JSON 友好的短表示；PPtr 解析成**可定位的引用**（见 ptr_ref）。
 
@@ -266,6 +313,10 @@ def short(v, depth=0, path=None):
         return None
     if t == "PPtr":
         return ptr_ref(v)
+    # 🔴 2026-10-22（W64 · B13）：`AnimationCurve` **按结构导出**（完整曲线 + 完整 repr）——
+    #   见 `curve_to_dict` 那段注释。放在 `vars()` 兜底**之前**：它没有 `__dict__`。
+    if t == "AnimationCurve":
+        return curve_to_dict(v)
     if t in ("list", "tuple"):
         return [short(x, depth + 1, path) for x in v[:64]]
     if t == "dict":

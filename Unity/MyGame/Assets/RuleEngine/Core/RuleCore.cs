@@ -5768,7 +5768,15 @@ namespace RuleEngine
                                            // 🔴🆕 2026-10-21（审查 `W61b` 第 3 条）：**不判「施放者还在场」** ——
                                            //   这 6 张卡的 `abilityContext` = 40 `InPlayOrDying`
                                            //   （判据写在上面 D28 那一段）：哨戒反杀攻击者之后**仍然要结算**。
-                                           actor: _atk, requireActorInPlay: false);
+                                           // 🔴🆕 2026-10-22（`W63` · C4）：这一格**由数据取**，不再手写 `false` ——
+                                           //   载体卡这条 ability 是 `UnitAttack(50)`，现读 9 条全是 40
+                                           //   （`cards_engine.json` v14）⇒ `false`，与改前逐字相同。
+                                           //   数据没落这一行时 `-1` 回退旧关键词表，`attacked` 不在其中 ⇒ 仍是 `false`。
+                                           //   判据 → `W63_abilityContext_施工简报.md` §4·C4 · `CardAbility__IsRightContext.c:52-55`
+                                           //   （40 = `IsInPlayOrDying`，状态 5「待死」也算在场）。
+                                           actor: _atk,
+                                           requireActorInPlay: ActorMustBeInPlayForTrigger(
+                                               _atk.Card, "UnitAttack", "attacked"));
                         }
                     }
                 }
@@ -6021,6 +6029,23 @@ namespace RuleEngine
                 bool sniperKill = ranged && attacker.Has("sniper") && targetDied;
                 if (!noCounter && !sniperKill && counterAtk > 0)
                 {
+                    // 🆕 **2026-10-22（`W64` · 反击演出）**：**发一条独立的反击事件** —— 表现层要在
+                    //   **守方锚点**播**守方自己的**逐卡远程件（守方 `ResolveAttackRangedAnim` 那一发）。
+                    //   判据（第一权威）= `BattleManager._ResolveAttack_d__438__MoveNext.c:1114-1152`：
+                    //   那一段**先** `ResolveAttackRangedAnim(守方, 攻方)`（远程打法才播，`:1119-1131`）、
+                    //   协程跑完**才** `ResolveAttackDamage` + `ReceiveDamage(攻方, 10, …)`（`:1136-1147`）
+                    //   ⇒ 所以在 `Hurt(...)` **之前**发（顺序 = 先演出、后落伤害），与原版同形。
+                    //   ⚠️ **纯信号**：不改结算顺序、不改数值、不进动作流（`LocalAct` / `SimpleAI.Executed`
+                    //   一个字没碰）。字段归属（**与 `Attack` 相反**）与两档判据写在
+                    //   `EvtKind.Retaliation` 的 doc 里；`Ranged` = **本次打法**（原版 `attackType == 2`），
+                    //   ⛔ 不是「守方有没有远程攻击力」（那一条只决定 `counterAtk`）。
+                    ctx.Emit(EvtKind.Retaliation, tgtP, tgtSlot, target.Name,
+                             ranged: ranged,
+                             targetPlayer: p, targetSlot: atkSlot,
+                             targetCardId: attacker.Name,
+                             instanceId: target.InstanceId,
+                             targetInstanceId: attacker.InstanceId);
+
                     // 🔴 **`ignoreBastion: true`** —— 原版这一下是**唯一**带
                     //    `UnitDeathType.combatAttacker(10)` 的伤害（`:1142` 那一跳，
                     //    打的是 `param_1 + 0x28` = **攻击方**；对比 `:999` 打防御方的是
@@ -8475,7 +8500,14 @@ namespace RuleEngine
                 EnqueueAbility(ctx, ActionPriority.Instant, "death-signal:" + (_du.Name ?? "?"),
                                () => ctx.Emit(EvtKind.Death, _dp, _ds, _du.Name,
                                               instanceId: _du.InstanceId),
-                               actor: _du, requireActorInPlay: false);
+                               // 🔴🆕 2026-10-22（`W63` · C4）：这一格**由数据口径取**，不再手写 `false` ——
+                               //   它是死讯本身（原版 `ThisUnitDeath(80)` 那一族），在原版 skip 表里
+                               //   **整段不判** `abilityContext`（`CardAbility__CanTriggerAbility.c:69-95`）
+                               //   ⇒ 恒 `false`；而且它只是**表现层信号**（消费者全在 `CardPresentation/`、
+                               //   原版没有对应物，见下面 `A962` 那段）⇒ 本来也没有「载体区域」可言。
+                               actor: _du,
+                               requireActorInPlay: ActorMustBeInPlayForTrigger(
+                                   _du.Card, "ThisUnitDeath", null));
             }
             // 🔴 **2026-10-18（`A962` ③ · 调度台裁定）：这一跳是【我们表现层的】，原位不动。**
             //    ⚠️ **原版没有对应物** —— 原版的「死亡广播」是
@@ -8574,7 +8606,13 @@ namespace RuleEngine
                                () => UnstableBlastDeferred(ctx, _bu),
                                // 🔴🆕 2026-10-21（审查 `W61b` 第 3 条）：**不判在场** ——
                                //   这条的施放者**就是刚死的那个单位**（原版 context 40 `InPlayOrDying`）。
-                               actor: _bu, requireActorInPlay: false);
+                               // 🔴🆕 2026-10-22（`W63` · C4）：**由数据取**，不再手写 `false` ——
+                               //   `Unstable(81)` 现读 18 条全是 40（`cards_engine.json` v14）⇒ `false`。
+                               //   `-1` 回退旧关键词表（`unstable` 不在那张表里 ⇒ 仍 `false`）。
+                               //   判据 → `W63_abilityContext_施工简报.md` §4·C4 · `CardAbility__IsRightContext.c:52-55`。
+                               actor: _bu,
+                               requireActorInPlay: ActorMustBeInPlayForTrigger(
+                                   _bu.Card, "Unstable", KeywordTable.Unstable));
             }
 
             // ---- 观察者（原版 **90** `OtherUnitDeath`）：
@@ -8657,7 +8695,12 @@ namespace RuleEngine
                                // 🔴🆕 2026-10-21（审查 `W61b` 第 3 条）：**不判在场** ——
                                //   「进弃牌堆 + 阵亡登记」是**给死者本人**记账（原版 `GoToCemetery`
                                //   在死亡协程最后一跳，那时它当然已经离场）。
-                               actor: _bu, requireActorInPlay: false);
+                               // 🔴🆕 2026-10-22（`W63` · C4）：这一格**不是 ability**（是死亡协程的记账），
+                               //   归 `ThisUnitDeath(80)` 那一族 ⇒ 原版 skip 表整段不判
+                               //   （`CardAbility__CanTriggerAbility.c:69-95`）⇒ 恒 `false`，与改前相同。
+                               actor: _bu,
+                               requireActorInPlay: ActorMustBeInPlayForTrigger(
+                                   _bu.Card, "ThisUnitDeath", null));
             }
 
             // ---- 🆕 2026-10-20（`W58-REVIEWFIX-B1` · P2-1）：嵌套死亡什么时候结算 ----
@@ -8851,7 +8894,15 @@ namespace RuleEngine
                     //   `requireActorInPlay` 把正文取消）。判据见 `FireTriggerAt` 调用点那段。
                     EnqueueAbility(ctx, ActionPriority.Instant, "slay-credit:" + (_cv.Name ?? "?"),
                                    () => TryCreditKill(ctx, _ck, _cp, _cv, inlineSlay: true),
-                                   actor: _ck, requireActorInPlay: false);
+                                   // 🔴🆕 2026-10-22（`W63` · C4）：这一格由 **trigger 名**取数据，
+                                   //   **故意不给关键词** —— 见下面两行。
+                                   //   `Slay(120)` 现读**没有**非 0 的 context 行（全 Play(0)，v14 只落非 0
+                                   //   ⇒ 访问器恒 `-1`）⇒ 落到 `-1` 的旧表回退；若把 `slay` 关键词也传进去，
+                                   //   旧表会判成 `true`，而我们的闸在**出队时**判（原版在入队前判，
+                                   //   简报 §6.7）⇒ 会把 `inlineSlay` 刚要就地结算的正文再次取消
+                                   //   （= `W63` #2 的回归）。`-1` + 无关键词 ⇒ `false`，与改前逐字相同。
+                                   actor: _ck,
+                                   requireActorInPlay: ActorMustBeInPlayForTrigger(_ck.Card, "Slay", null));
                 }
                 // ---- 把本死者触发段里新死的人接到队尾（原版 `AddAutoActionToQueue`）----
                 var nested = ctx.TakePendingDeaths();
@@ -9440,7 +9491,13 @@ namespace RuleEngine
                                () => DeathWatchDeferred(ctx, _w),
                                // 🔴🆕 2026-10-21（审查 `W61b` 第 3 条）：**不判在场** ——
                                //   这条效果是「它本回合内死了，就转给另一个」，施放者**就是死者**。
-                               actor: _w.Target, requireActorInPlay: false);
+                               // 🔴🆕 2026-10-22（`W63` · C4）：**这里拿不到载体卡** —— `DeathWatch` 那张表
+                               //   （`BattleContext.DeathWatch`）只存 `Source` **名字**，没有 `CardDef`
+                               //   ⇒ context 未知 ⇒ 与改前同口径（不判）。⛔ 别拿 `_w.Target.Card` 顶替：
+                               //   那是**死者**的卡，不是这条效果的来源卡。载荷将来带上 `CardDef` 时，
+                               //   这里要改成一参卡的重载（走 `AbilityContextOfTrigger/Keyword`）。
+                               actor: _w.Target,
+                               requireActorInPlay: ActorMustBeInPlayForTrigger(null, null, null));
             }
         }
 
@@ -10444,10 +10501,23 @@ namespace RuleEngine
             //   出队时 `requireActorInPlay` 把整条正文取消（观测：督军一点都不掉）。
             //   判据见 `TryCreditKill` 的 `inlineSlay` 形参 doc。
             if (inlineTrigger) { body(); return true; }
+            // 🔴🆕 2026-10-22（`W63` · C5）：**唯一的关键词入队口** —— 判据从「关键词族猜」
+            //   换成 **数据**：载体卡 + 关键词 → `CardDef.AbilityContextOfKeyword`（`-1` = 未知）。
+            //   · **skip 表**（原版 `CardAbility__CanTriggerAbility.c:69-95`：`ThisCardPlayed` /
+            //     `ThisUnitDeath` / `Codex` / `Sacrifice` / `TriggerEnchantment` 整段不判）
+            //     由 `ActorMustBeInPlayForTrigger` 内部那一份统一执行（⛔ 别在这儿另写一份）；
+            //   · **`-1` 回退旧关键词表**（`LegacyActorMustBeInPlayForKeyword`）——
+            //     `cards_engine.json` v14 **只落非 0 行** ⇒ 卡面 context 是 0 的那些本来就是 `-1`
+            //     ⇒ 回退后与改前**逐字相同**。现读带 `keyword` 的非 0 行只有 6 族
+            //     （strike 40 / regiment 40·50 / ambush 40 / ecstasy 40 / spiritstone 50 / codex 50）：
+            //     前五族**不在旧表**（旧表也判 `false`）、`codex` 在 skip 表（同样 `false`）⇒ 零行为变化。
+            //   载体卡 = 附魔那几条能力时是**附魔卡**、否则是单位自己（与上面 `TriggerLaneOfCard` 同口径）。
+            //   判据 → `W63_abilityContext_施工简报.md` §4·C5 · §1·2（skip 表）。
+            var _carrierCard = only != null ? only.Card : (u != null ? u.Card : null);
             bool queued = EnqueueAbility(ctx, lane,
                 (u != null ? u.Name : "?") + "·" + keyword,
                 body,
-                actor: u, requireActorInPlay: ActorMustBeInPlayForTrigger(keyword),
+                actor: u, requireActorInPlay: ActorMustBeInPlayForTrigger(_carrierCard, null, keyword),
                 extraTrigger: extraTrigger);
             return queued;
         }
@@ -10534,7 +10604,14 @@ namespace RuleEngine
                     var _mobAtk = u; int _mobP = owner, _mobSlot = slot;
                     EnqueueAbility(ctx, ListenerLane(u.Card), (u.Name ?? "?") + "·mob-extra",
                                    () => MobExtraTriggerDeferred(ctx, _mobP, _mobSlot, _mobAtk),
-                                   actor: _mobAtk, requireActorInPlay: false);
+                                   // 🔴🆕 2026-10-22（`W63` · C4）：由 **trigger 名**取数据，
+                                   //   **故意不给关键词**（理由同 `slay-credit` 那一处）——
+                                   //   `Mob(300)` 现读没有非 0 的 context 行（全 Play(0)，v14 只落非 0
+                                   //   ⇒ 访问器恒 `-1`）；给 `mob` 关键词会让旧表判成 `true`，而额度是在
+                                   //   监听器动作里挂的、这条要等出队才跑（简报 §6.7 时机偏差）⇒ 会凭空取消。
+                                   //   `-1` + 无关键词 ⇒ `false`，与改前逐字相同。
+                                   actor: _mobAtk,
+                                   requireActorInPlay: ActorMustBeInPlayForTrigger(_mobAtk.Card, "Mob", null));
                 }
             }
 

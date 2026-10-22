@@ -27,9 +27,10 @@
 //  · 「先飞到槽位正上方、再垂直落下」　→ **原版形状**（我们 2026-10-16 之前是「抬一点再对角滑过去」，
 //    那两句常量 `LiftHeight 0.35` / `LiftFraction 0.35` 是**我们挑的**，已删除）
 //  · 旋转补间跨度 = `MoveTime`　→ 原版（同一条 `DOLocalRotate` 吃 `minionToConversionPointTime`）
-//  · 缩放补间跨度 = `MoveTime`　→ **我们的**：原版是在起飞**之前**就把 `localScale` 设成
-//    `GetUnitSizeInPlay`（瞬时，没有补间，`MoveMinionToConversionPoint.c:74-83`）；
-//    我们保留了「0.3 s 收到落位尺寸」的观感（本件不动它）
+//  · ✅ 缩放 = **瞬时赋值**（2026-10-22 `W64/B07` 改，原来是我们自己加的 0.3 s 补间）：
+//    原版在起飞**之前**就把 `localScale` 设成 `GetUnitSizeInPlay`，**没有补间**
+//    （`decomp_full/MinionManager__MoveMinionToConversionPoint.c:74-83`）⇒ 现在照它，`Play` /
+//    `PlayQuad` 两处在建序列**之前**直接 `localScale = Vector3.one × slotScale`。
 //  · 缓动 `OutQuad`　→ 原版那两条 `DOLocalMove` **没有 `SetEase`** ⇒ 吃 DOTween 的
 //    `defaultEaseType` = `OutQuad`（本工程 `Assets/Resources/DOTweenSettings.asset` 实读 `defaultEaseType: 6`）
 //
@@ -174,6 +175,9 @@ namespace CardPresentation
                                      float endScale, Handoff handoff, Action onDone = null)
         {
             if (tr == null) return null;
+            // 🔴 `B07`：**起飞之前**就把缩放设成落位尺寸（原版 `MoveMinionToConversionPoint.c:74-83`
+            //   是**赋值**、没有补间）。⛔ 别加回 `DOScale`。
+            tr.localScale = Vector3.one * Mathf.Max(1e-4f, endScale);
             var seq = DOTween.Sequence();
             seq.Append(tr.DOMove(abovePos, MoveTime).SetEase(Ease.OutQuad));
             // 🆕 (d)：原版 state 0 末尾的 `WaitForSeconds(timeToScaleIntoMoving)` —— 纯等待
@@ -191,9 +195,8 @@ namespace CardPresentation
                 seq.AppendInterval(HoldTime);
                 seq.Append(tr.DOMove(landPos, LandTime).SetEase(Ease.OutQuad));
             }
-            // 同 <see cref="Play"/>：旋转/缩放用 `Insert(0f, …)`（⛔ 不是 `Join`，那会从 0.3 s 才起算）
+            // 同 <see cref="Play"/>：旋转用 `Insert(0f, …)`（⛔ 不是 `Join`，那会从 0.3 s 才起算）
             seq.Insert(0f, tr.DORotate(Vector3.zero, MoveTime).SetEase(Ease.OutCubic));
-            seq.Insert(0f, tr.DOScale(Vector3.one * Mathf.Max(1e-4f, endScale), MoveTime).SetEase(Ease.OutQuad));
             CardTween.Use(seq, Ease.Linear, tr);
             if (onDone != null) seq.OnComplete(() => onDone());
             return seq;
@@ -245,6 +248,9 @@ namespace CardPresentation
             }
 
             var tr = card.transform;
+            // 🔴 `B07`：**起飞之前**就把缩放设成落位尺寸（原版 `MoveMinionToConversionPoint.c:74-83`
+            //   是**赋值**、没有补间；原来那句 `DOScale(…, MoveTime)` 是**我们自己加的**观感，已删）。
+            tr.localScale = Vector3.one * Mathf.Max(1e-4f, slotScale);
 
             var seq = DOTween.Sequence();
             // ② 飞到「槽位 + up × minionConversionHeight」—— 时长 = 原版 `minionToConversionPointTime`
@@ -269,14 +275,14 @@ namespace CardPresentation
                 //    所以这一段在屏幕/HUD 平面上**逐位就是一条竖线**（战场相机俯仰是单位四元数 ⇒ up 就是屏幕竖直）
                 seq.Append(tr.DOMove(landPos, LandTime).SetEase(Ease.OutQuad));
             }
-            // ⚠️ **旋转/缩放要用 `Insert(0f, …)`，不能用 `Join`**：`Join` 是接在**当前游标**上的
-            //    （= 上一次 `Append` 的结束处），那样这两条补间会从 0.3s 起算、到 0.6s 才结束。
+            // ⚠️ **旋转要用 `Insert(0f, …)`，不能用 `Join`**：`Join` 是接在**当前游标**上的
+            //    （= 上一次 `Append` 的结束处），那样这条补间会从 0.3s 起算、到 0.6s 才结束。
             //    2026-09-13 就是靠「落位 0.43s ≠ 0.30s」这条断言抓出来的
             //    （旧版更离谱：0.92s 的那两条从 0.18s 起算 → 实际 1.10s）。
             //    ⚠️ 跨度仍是 `MoveTime`（0.3）—— 原版的旋转补间吃 `minionToConversionPointTime`，
             //    即**只覆盖飞行那一段**，落下那 0.2s 里它已经归位。
+            //    🔴 缩放**不在这里**：`B07` 起改成**起飞前瞬时赋值**（见上面那一句 + 原版判据）。
             seq.Insert(0f, tr.DORotate(Vector3.zero, MoveTime).SetEase(Ease.OutCubic));
-            seq.Insert(0f, tr.DOScale(Vector3.one * slotScale, MoveTime).SetEase(Ease.OutQuad));
             CardTween.Use(seq, Ease.Linear, tr);  // 各段自己带了缓动，序列层用线性串起来
 
             // 🔴 **这一段就是「引擎真正出牌」那一拍**（`onDone` → `BattleDriver.OnCardDeployed` → `DoPlay`

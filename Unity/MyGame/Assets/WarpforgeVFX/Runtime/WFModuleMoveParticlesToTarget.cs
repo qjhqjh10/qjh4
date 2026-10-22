@@ -2,7 +2,8 @@
 //   ⚠️ **原版类名就是小写的 `AnimFx…`**（不是 `AnimFX…`）—— 我们的 `[WFModuleKind]` 必须与
 //      数据里的 kind 逐字一致，`数据/游戏数据/animfx_modules.json` 里就是 `AnimFxModuleMoveParticlesToTarget`。
 //   **1 实例**（`Remnant Aeldari Collect particles`：`delay 0.65` / `attractSpeed 2.0` /
-//   `attractSpeedByLifetime` 首键 `(t=0, v=1.0)` / `guaranteeFinalPosition 0` / `desiredZPosition -8.0`）
+//   `attractSpeedByLifetime` = **两个键**`(t=0, v=1.0, 斜率 −3.36e−6)` → `(t=1, v=6.0, 斜率 8.32765)`
+//   / `guaranteeFinalPosition 0` / `desiredZPosition -8.0`）
 //
 // 语义出处：`资料/AnimFX_18类方法体_块2.md` **§5**（6 个方法体：`.ctor` / `Initialize` / `LateUpdate` /
 //   `GetTarget` / `SetTarget` / `UpdateTargetPosition`，被两两内联）
@@ -62,10 +63,15 @@
 //     不看 `enabled`（见 `WFEffectModule` 文件头），没有目标就吸等于把粒子吸到 (0,0,0)。
 //
 // 🔴 未还原（三条）：
-//   ① **曲线本体**：数据里 `attractSpeedByLifetime` 只有一段**被截断的 repr 文本**
-//      （`工具/dump_animfx.py:250` 写死 `repr(v)[:120]`）⇒ 我们只读得到第 1 个键 `(t=0, v=1.0)`，
-//      「加速随寿命怎么变」**查不到**。我们的做法：能读几个键就建几个键的曲线，读不全时退成那个常值
-//      并**打一次性警告**（绝不假装曲线是对的）。
+//   ① ~~**曲线本体**：数据里只有一段被截断的 repr 文本~~ ⇒ 🔴 **2026-10-22（`W64` · B13）已解决**：
+//      `工具/dump_animfx.py` 不再只导 `repr(v)[:120]`，`数据/游戏数据/animfx_modules.json` 现在带
+//      **结构化键** `attractSpeedByLifetime.m_Curve[i].{time,value,inSlope,outSlope,inWeight,outWeight,weightedMode}`
+//      （外加 `m_PreInfinity` / `m_PostInfinity`）⇒ 本模块 `Configure` 先读这七个字段逐条建 `Keyframe`
+//      （切线/权重都在），**`__repr__` 只作既有数据的兼容退路**（`ParseCurve` / `ParseCurveRepr`）。
+//      `truncated` 判据改成「**结构化键在不在**」—— 在 = 曲线完整、**不许**再拿 repr 的末尾去猜。
+//      ⚠️ **旧文本已过期**（保留痕迹）：「`工具/dump_animfx.py:250` 写死 `repr(v)[:120]`」——
+//      现读那行是 **`:322`**；旧代码 `truncated = !repr.EndsWith("])")` 对完整 repr（结尾是
+//      `m_RotationOrder=4)`）**恒为 true** ⇒ 会假报「被截断」并累加 `ApproximatedCurves`。
 //   ② **`Remnant Aeldari Collect particles` 这个实例在我们工程里跑不起来** —— 2026-09-18 实测：
 //      `WarpforgeVFX/Prefabs/` 下**没有这个 prefab**、`Resources/WarpforgeVFX/WarpforgeEffectLibrary.asset`
 //      里**也没有这个效果**（导出侧没搬它）⇒ 本模块现在只能靠手挂 / 将来补导出才会真的跑。
@@ -86,7 +92,8 @@ namespace WarpforgeVFX
         [Tooltip("原版 `attractSpeed`（默认 2.0）")]
         public float attractSpeed = 2f;
 
-        [Tooltip("原版 `attractSpeedByLifetime`：横轴 = 粒子寿命进度 1 − remaining/start。⚠️ 数据里被截断，见文件头")]
+        [Tooltip("原版 `attractSpeedByLifetime`：横轴 = 粒子寿命进度 1 − remaining/start。" +
+                 "数据走结构化键（七字段逐键），切线/权重都读得到；见文件头 B13")]
         public AnimationCurve attractSpeedByLifetime = AnimationCurve.Constant(0f, 1f, 1f);
 
         [Tooltip("原版 `guaranteeFinalPosition`：为真时改用「按剩余寿命插值、保证落在目标上」（推断分支，见文件头）")]
@@ -111,6 +118,12 @@ namespace WarpforgeVFX
 
         /// <summary>有没有目标（= 原版 `enabled = true` 那条门控的等价物，见文件头）。</summary>
         public bool HasTarget { get { return _hasTarget; } }
+
+        /// <summary>曲线读全了没有（`true` = 只剩 `__repr__` 旧退路且文本被截断；结构化键在时**恒 false**）。
+        /// 自检用它 + `ApproximatedCurves` 一起判「B13 真的接上了」。</summary>
+        public bool CurveTruncated { get { return _curveTruncated; } }
+        /// <summary>`Configure` 实际读到了几个曲线键（本实例应为 **2**）。</summary>
+        public int CurveKeys { get { return _curveKeys; } }
 
         /// <summary>🔴 我们定的钩子：原版走 `BattleManager → PlayerManager.GetSpiritStoneManaTransform()`。
         /// 返回 null = 这一侧没有灵石锚点（会退成「没有目标」，并打一次警告）。
@@ -153,12 +166,14 @@ namespace WarpforgeVFX
             guaranteeFinalPosition       = def.GetBool("guaranteeFinalPosition", guaranteeFinalPosition);
             desiredZPosition             = def.GetFloat("desiredZPosition", desiredZPosition);
 
-            string repr = def.GetString("attractSpeedByLifetime.__repr__");
-            if (!string.IsNullOrEmpty(repr))
+            // 🆕 2026-10-22（`W64` · B13）：**先读结构化字段**（七个字段逐条建 `Keyframe`），
+            //   读不到才退回 `.__repr__`（既有数据 / 手挂的兼容退路）。判据 → `ParseCurve` 的注释。
+            int keys;
+            bool trunc;
+            var curve = ParseCurve(def, out keys, out trunc);
+            if (curve != null)
             {
-                int keys;
-                bool trunc;
-                attractSpeedByLifetime = ParseCurveRepr(repr, out keys, out trunc);
+                attractSpeedByLifetime = curve;
                 _curveKeys = keys;
                 _curveTruncated = trunc;
             }
@@ -184,10 +199,10 @@ namespace WarpforgeVFX
             if (_curveTruncated)
             {
                 ApproximatedCurves++;
-                WarnOnce($"🔴 未还原：《{EffectName}》的 `attractSpeedByLifetime` 在数据里**被截断**" +
-                         $"（`工具/dump_animfx.py:250` 写死 `repr(v)[:120]`）⇒ 只读到 {_curveKeys} 个键，" +
-                         "整条曲线被当成那个常值。原版的加速随寿命怎么变**查不到** —— " +
-                         "要准得重导这一个字段（别截断）或进原版实拍。");
+                WarnOnce($"🔴 未还原：《{EffectName}》的 `attractSpeedByLifetime` 从 **`__repr__` 旧退路**读到了" +
+                         $"一段**被截断**的文本（只读到 {_curveKeys} 个键）⇒ 这条曲线是近似值。" +
+                         "修法：重跑 `工具/gen_animfx_modules.py`（`dump_animfx.py` 现在会导出结构化键 " +
+                         "`attractSpeedByLifetime.m_Curve[i].*`，本模块优先读那一组）。");
             }
         }
 
@@ -376,14 +391,93 @@ namespace WarpforgeVFX
             Debug.LogWarning(msg);
         }
 
-        // ---- 曲线：从被截断的 repr 文本里尽力还原 ----
+        // ---- 曲线：先读结构化字段，读不到才退回 repr 文本 ----
+        //
+        // 🔴 **2026-10-22（`W64` · B13）判据**：
+        //   原版 `attractSpeedByLifetime` 是完整的 `AnimationCurve`，序列化后就是 `m_Curve[]` 的七元组
+        //   （`time/value/inSlope/outSlope/inWeight/outWeight/weightedMode`）+ `m_PreInfinity/m_PostInfinity`。
+        //   数据现在按这套逐键导出（`数据/游戏数据/animfx_modules.json`，实例
+        //   `Remnant Aeldari Collect particles`：两个键 `(0, 1.0, inSlope −3.359e−06, outWeight 0.07097)`
+        //   → `(1.0, 6.0, inSlope/outSlope 8.32765, inWeight 0.02966)`）⇒ **切线/权重一个都不许丢**。
+        //   ⚠️ 只读 `time/value` 会把切线填 0 ⇒ 曲线形状变成「折线」，静默错。
 
         /// <summary>
-        /// 把 `AnimationCurve(m_Curve=[Keyframe(inSlope=…, outSlope=…, time=0.0, value=1.0, …), …])`
-        /// 这种 **repr 文本**拆成曲线。
-        /// ⚠️ 这段文本是**截断的**（`工具/dump_animfx.py:250` = `repr(v)[:120]`）：
+        /// 从 `WFModuleDef` 取 `attractSpeedByLifetime`。
+        /// **先读结构化键**（`attractSpeedByLifetime.m_Curve[i].*` 七个字段逐条建 `Keyframe`）；
+        /// 一个结构化键都没有时才退回 `attractSpeedByLifetime.__repr__`（既有数据 / 手挂的兼容退路）。
+        /// 返回 `null` = 数据里两样都没有（调用方保持字段上的默认曲线）。
+        /// </summary>
+        public static AnimationCurve ParseCurve(WFModuleDef def, out int keysRead, out bool truncated)
+        {
+            keysRead = 0;
+            truncated = false;
+            if (def == null) return null;
+
+            const string P = "attractSpeedByLifetime.m_Curve";
+            int n = def.CountList(P);                     // ⚠️ 用 CountList/点号键，别问 `Has("…[0]")`（见 WFModuleDef 的注释）
+            if (n > 0)
+            {
+                var ks = new List<Keyframe>(n);
+                for (int i = 0; i < n; i++)
+                {
+                    string b = P + "[" + i + "].";
+                    float t = def.GetFloat(b + "time", float.NaN);
+                    float v = def.GetFloat(b + "value", float.NaN);
+                    if (float.IsNaN(t) || float.IsNaN(v)) continue;      // 键不完整 ⇒ 跳过这一条（不猜）
+                    var k = new Keyframe(t, v,
+                                         def.GetFloat(b + "inSlope", 0f),
+                                         def.GetFloat(b + "outSlope", 0f),
+                                         def.GetFloat(b + "inWeight", 0f),
+                                         def.GetFloat(b + "outWeight", 0f));
+                    int wm = def.GetInt(b + "weightedMode", 0);
+                    // 🔴 **2026-10-22（`W64` · B13 红）**：**无条件**按数据覆盖 ——
+                    //   `Keyframe(t, v, in, out, inW, outW)` 这个 **6 参构造**在 Unity 源码里会把
+                    //   `weightedMode` 设成 **`WeightedMode.Both`**（不是默认的 `None`）⇒
+                    //   原版数据 `weightedMode = 0` 会被读成 `Both`（`BattleScene` 那条断言当场抓到）。
+                    //   ⛔ 别改回 `if (wm != 0)`。
+                    k.weightedMode = (WeightedMode)wm;
+                    ks.Add(k);
+                }
+                if (ks.Count > 0)
+                {
+                    ks.Sort((a, c) => a.time.CompareTo(c.time));
+                    var curve = new AnimationCurve(ks.ToArray());
+                    ApplyWrap(curve, def);
+                    keysRead = ks.Count;
+                    // 🔴 `truncated` 的判据 = **结构化键在不在**（在 = 完整）。
+                    //    ⛔ 别再用「repr 末尾是不是 `])`」—— 完整 repr 的结尾是 `m_RotationOrder=4)`，
+                    //    那条判据对完整数据**恒为 true**（假报「被截断」+ 累加 `ApproximatedCurves`）。
+                    truncated = false;
+                    return curve;
+                }
+            }
+
+            string repr = def.GetString("attractSpeedByLifetime.__repr__");
+            if (string.IsNullOrEmpty(repr)) return null;
+            return ParseCurveRepr(repr, out keysRead, out truncated);
+        }
+
+        /// <summary>`m_PreInfinity` / `m_PostInfinity` → `AnimationCurve` 的 wrap。
+        /// 序列化值就是 `WrapMode`（`Default 0 / Once 1 / Loop 2 / PingPong 4 / ClampForever 8`）——
+        /// 本实例两个都是 **2（Loop）**。值不在那档里就不动（`AnimationCurve` 缺省 wrap）。</summary>
+        static void ApplyWrap(AnimationCurve curve, WFModuleDef def)
+        {
+            int pre = def.GetInt("attractSpeedByLifetime.m_PreInfinity", -1);
+            int post = def.GetInt("attractSpeedByLifetime.m_PostInfinity", -1);
+            if (IsWrapMode(pre)) curve.preWrapMode = (WrapMode)pre;
+            if (IsWrapMode(post)) curve.postWrapMode = (WrapMode)post;
+        }
+
+        static bool IsWrapMode(int v) { return v == 0 || v == 1 || v == 2 || v == 4 || v == 8; }
+
+        /// <summary>
+        /// **兼容退路**：把 `AnimationCurve(m_Curve=[Keyframe(inSlope=…, outSlope=…, time=0.0, value=1.0, …), …])`
+        /// 这种 **repr 文本**拆成曲线（旧数据 / 手挂用；结构化键存在时根本不会走到这里）。
+        /// ⚠️ 文本可能是**截断的**（旧版 `工具/dump_animfx.py` 写死 `repr(v)[:120]`，现读 `:322` 已不截断）：
         ///    完整的 `Keyframe(...)` 能读几个算几个；一个都不完整时，尽力读第一个键的 `time=` / `value=`
         ///    当成常值曲线，并置 `truncated = true`（调用方必须报警，不许当成真曲线用）。
+        /// 🔴 这里只还原 **time/value**（repr 里的斜率是文本，精度不可靠）—— 所以这条路**一定**比
+        ///    结构化字段差；`truncated` 也在这里才有意义。
         /// </summary>
         public static AnimationCurve ParseCurveRepr(string repr, out int keysRead, out bool truncated)
         {
@@ -401,11 +495,14 @@ namespace WarpforgeVFX
                 keys.Add(new Keyframe(t, v));
             }
 
-            truncated = !repr.TrimEnd().EndsWith("])", StringComparison.Ordinal);
+            // 完整的 repr 一定带 `m_PostInfinity=` 并以 `)` 收尾（实测 `…, m_RotationOrder=4)`）。
+            // ⛔ 旧判据 `!EndsWith("])")` 对**完整** repr 恒为 true（结尾是 `4)`，不是 `])`）。
+            truncated = !(repr.IndexOf("m_PostInfinity=", StringComparison.Ordinal) >= 0
+                          && repr.TrimEnd().EndsWith(")", StringComparison.Ordinal));
 
             if (keys.Count == 0)
             {
-                // 第一个 Keyframe 也被截断了（实测就是这种情况）⇒ 尽力读它的 time/value
+                // 第一个 Keyframe 也被截断了 ⇒ 尽力读它的 time/value
                 float t, v;
                 if (GrabFloat(repr, "time=", out t) && GrabFloat(repr, "value=", out v))
                 {

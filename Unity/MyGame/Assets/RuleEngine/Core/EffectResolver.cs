@@ -91,7 +91,10 @@ namespace RuleEngine
         ///   · 条件判不了 / 要数 `for each` 时**仍让位**（两条各走正规流程，如实记）。
         /// </summary>
         static bool[] InsteadSkips(BattleContext ctx, int owner, IReadOnlyList<EffectOp> ops,
-                                   UnitState chosen, bool pairConditional, UnitState source = null)
+                                   UnitState chosen, bool pairConditional, UnitState source = null,
+                                   // 🆕 2026-10-22（`W64` · `B-16`）：这条 ability 所属的卡（喂结构化条件）。
+                                   //   `null` = 不知道 ⇒ 条件退回旧正文口径（行为不变）。
+                                   CardDef card = null)
         {
             var skip = new bool[ops.Count];
 
@@ -135,7 +138,7 @@ namespace RuleEngine
                 else if (pairConditional)
                 {
                     // 出牌 / 战术卡那条路：`chosen` 是玩家选定的目标，条件在结算前就判得准。
-                    judgeable = ConditionHolds(ctx, owner, ops[i], chosen, out holds);
+                    judgeable = ConditionHolds(ctx, owner, ops[i], chosen, out holds, card);
                 }
                 else
                 {
@@ -143,14 +146,15 @@ namespace RuleEngine
                     //   入口种下的**施放者**（`prime`）⇒ 直接判会「判施放者自己」（`ASH31` 那个陷阱）。
                     //   正解 = **先把被替换那条的目标解出来**（`ResolveTargets`，只算目标、不结算），
                     //   用它当 referent 判条件；判完把槽原样还原。
-                    var bt = ResolveTargets(ctx, owner, ops[baseIdx].Target, source, null);
+                    var bt = ResolveTargets(ctx, owner, ops[baseIdx].Target, source, null,
+                                            ops[baseIdx].TargetCondition);
                     var savedTargets = new List<UnitState>(ctx.LastTargets);
                     var savedLast = ctx.LastTarget;
                     ctx.LastTargets.Clear();
                     ctx.LastTargets.AddRange(bt);
                     ctx.LastTarget = bt.Count > 0 ? bt[0] : null;
                     judgeable = ConditionHolds(ctx, owner, ops[i],
-                                               bt.Count == 1 ? bt[0] : null, out holds);
+                                               bt.Count == 1 ? bt[0] : null, out holds, card);
                     ctx.LastTargets.Clear();
                     ctx.LastTargets.AddRange(savedTargets);
                     ctx.LastTarget = savedLast;
@@ -326,7 +330,7 @@ namespace RuleEngine
             // ⚠️ 这里**只配对、不决定跳谁** —— 决定放到主循环里做。
             //    因为「跳谁」取决于条件，而条件可能要数 `for each`、要用**这次选好的目标**
             //    （`chosen` 在这一步才拿得到），在这里判会读到上一张卡留下的 `ctx.LastTarget`。
-            var skip = InsteadSkips(ctx, owner, ops, chosen, pairConditional: true);
+            var skip = InsteadSkips(ctx, owner, ops, chosen, pairConditional: true, card: sourceCard);
 
             // ---- `instead`：成对决定谁跳谁（**必须在主循环之前**）----
             // 因为跳的可能是**前面**那条（`baseIdx < i`），主循环走到 `i` 时它早就结算完了。
@@ -435,7 +439,7 @@ namespace RuleEngine
                 {
                     // ⚠️ `n == 0` 照常递下去 —— `Deal 0 damage` / `Refill 0` 是「生效了但数值是 0」，
                     //    不是「这条没生效」（报错了玩家会以为卡坏了）。
-                    if (ResolveOne(ctx, owner, source, by, Prepaid(amtOp), chosen, unresolved)) done++;
+                    if (ResolveOne(ctx, owner, source, by, Prepaid(amtOp), chosen, unresolved, card: sourceCard)) done++;
                     continue;
                 }
 
@@ -470,7 +474,7 @@ namespace RuleEngine
                     //    没契约时（eff = 0 + 0）`Daemonic Frenzy` 变成 +0。
                     if (eff != 0 && (op.Verb == "give" || op.Verb == "gain" || op.Verb == "lose"))
                         effOp.Payload = ScalePayload(op.Payload, eff);
-                    if (ResolveOne(ctx, owner, source, by, Prepaid(effOp), chosen, unresolved)) done++;
+                    if (ResolveOne(ctx, owner, source, by, Prepaid(effOp), chosen, unresolved, card: sourceCard)) done++;
                     continue;
                 }
 
@@ -528,7 +532,7 @@ namespace RuleEngine
                 var firstOp = Prepaid(op);
                 bool ok = false;
                 for (int k = 0; k < repeats; k++)
-                    if (ResolveOne(ctx, owner, source, by, firstOp, chosen, unresolved)) ok = true;
+                    if (ResolveOne(ctx, owner, source, by, firstOp, chosen, unresolved, card: sourceCard)) ok = true;
                 if (ok) done++;
             }
             // 摧毁/伤害可能把督军打死 —— 结算完统一判一次胜负
@@ -674,22 +678,30 @@ namespace RuleEngine
         /// （`A1412` 起；判据与早退那两支见 `ResolveOneCore` 里 `if (payOnly)` 那一段的注释）。</param>
         static bool ResolveOne(BattleContext ctx, int owner, UnitState source, string by,
                                EffectOp op, UnitState chosen, List<string> unresolved,
-                               bool payOnly = false)
+                               bool payOnly = false,
+                               // 🆕 2026-10-22（`W64` · `B-16`）：这条 op 所属的卡 → 结构化条件。
+                               //   `null` = 不知道 ⇒ 条件退回旧正文口径（既有调用点行为不变）。
+                               CardDef card = null)
         {
             // 「相邻」的 `Self` 锚点要知道**是谁在施放**（见 `ResolveAdjacentAnchor`）。
             // 它收在**上下文**里而不是给结算函数加参数：结算函数是一张**统一签名的表**
             // （`EffectDispatch`，28 个 handler），为一个字段去改 28 个签名 + 整张表，改动面不成比例。
             // 保存/恢复是必须的：效果会**嵌套**（`Repeat this effect` / `Choose one` 里再调 `ResolveOps`），
             // 不恢复的话外层后半段会拿到内层的施放者。
+            // 🆕 2026-10-22（`W64` · `B-16`）：**有结构化目标条件行、却归不到这条 op** ⇒ 出声一次
+            //   （同一 (卡, 原因) 只喊一次，见 `NoteTargetConditionGap`）。⛔ 不静默、⛔ 也不按卡硬套。
+            if (card != null && op != null && op.Target != null && op.TargetCondition == null
+                && !string.IsNullOrEmpty(op.TargetConditionGap))
+                NoteTargetConditionGap(ctx, card, op);
             var prevActing = ctx.ActingUnit;
             ctx.ActingUnit = source;
-            try { return ResolveOneCore(ctx, owner, source, by, op, chosen, unresolved, payOnly); }
+            try { return ResolveOneCore(ctx, owner, source, by, op, chosen, unresolved, payOnly, card); }
             finally { ctx.ActingUnit = prevActing; }
         }
 
         static bool ResolveOneCore(BattleContext ctx, int owner, UnitState source, string by,
                                    EffectOp op, UnitState chosen, List<string> unresolved,
-                                   bool payOnly = false)
+                                   bool payOnly = false, CardDef card = null)
         {
             // ---- 付费激活：付不起就**整段不结算**（我们自己的 `rule_core.gd:2529`（旁证、非权威））----
             // ⚠️ **2026-09-13 第三十三轮修了一条真 bug**：这里原来**只扣能量、完全不看 `CostKind`**。
@@ -876,7 +888,7 @@ namespace RuleEngine
             if (!string.IsNullOrEmpty(op.Condition))
             {
                 bool ok;
-                if (!ConditionHolds(ctx, owner, op, chosen, out ok))
+                if (!ConditionHolds(ctx, owner, op, chosen, out ok, card))
                 {
                     ctx.Log($"{by}：「{op.Source}」的条件「{op.Condition}」本版判不了 —— "
                           + "**整条效果没有生效**（不是「条件不成立」）");
@@ -1135,7 +1147,14 @@ namespace RuleEngine
         /// </summary>
         public static List<UnitState> ResolveTargets(BattleContext ctx, int owner,
                                                      EffectTargetSpec spec, UnitState source,
-                                                     UnitState chosen)
+                                                     UnitState chosen,
+                                                     // 🆕 2026-10-22（`W64` · `B-16`）：这一格的结构化条件行
+                                                     //   （原版 `TargetCriteria.conditionsFilter`）。
+                                                     //   `null` = 不按结构化条件筛。
+                                                     //   生产调用点传的是 **`op.TargetCondition`**（逐 op 归位，
+                                                     //   见 `EffectText.AssignAbilityIndices`）；`IsLegalPick`
+                                                     //   传的是**同一条**行 ⇒ 高亮与结算不会分叉。
+                                                     CardDef.ConditionSpec structuredCondition = null)
         {
             var list = new List<UnitState>();
             if (spec == null) return list;
@@ -1333,7 +1352,7 @@ namespace RuleEngine
             //    两边口径不一致 ⇒ **拖拽时高亮说能选、松手打出去却空过**
             //    （`CanPlayTactic` 的注释点名过这个毛病：「另写一份会出现…」）。
             //    ⇒ 两处现在都读这一份。
-            ApplyTargetFilters(ctx, pool, spec);
+            ApplyTargetFilters(ctx, pool, spec, structuredCondition: structuredCondition);
 
             // ---- 「相邻」：目标集 = **锚点那一圈**（过同一套筛选）----
             // 🔴 2026-09-13 候选 F。在此之前 `EffectTargetSpec.Adjacent` **全仓没有消费者** ——
@@ -1518,6 +1537,13 @@ namespace RuleEngine
             // 「这一格能不能选」用**结算时那一份判据**（`IsLegalPick` → `AddSide`）——
             // 另写一份会出现「拖拽高亮说能选、打出去却空过」。
             var spec = EffectText.PickTarget(ops);
+            // 🆕 2026-10-22（`W64` · `B-16`）：**选目标那条 op** 自己带的结构化条件行 ——
+            //   和 `DoDeal` / `DoHeal` 等 handler 传给 `ResolveTargets` 的是**同一格**
+            //   （`op.TargetCondition`）⇒ 高亮与结算同口径。
+            CardDef.ConditionSpec pickCond = null;
+            if (spec != null)
+                for (int i = 0; i < ops.Count; i++)
+                    if (ops[i] != null && ReferenceEquals(ops[i].Target, spec)) { pickCond = ops[i].TargetCondition; break; }
             if (spec != null)
             {
                 // 🔴 **2026-10-18（第三会话 · `A985⑧` 第二步「拆码」）：这两句原来返回 `ErrSlot`。**
@@ -1530,13 +1556,16 @@ namespace RuleEngine
                 //    ⚠️ 别和 `ErrTarget` 混：那是**攻击**那一侧「目标不合法（Vanguard/Stealth/Flying）」。
                 if (targetSlot < 0 || !BoardSpec.IsValid(targetSlot)) return RuleCodes.ErrNoTargetAvailable;
                 var u = ctx.Players[spec.Side == "enemy" ? 1 - p : p].Board[targetSlot];
-                if (u == null || !IsLegalPick(ctx, p, spec, u)) return RuleCodes.ErrNoTargetAvailable;
+                if (u == null || !IsLegalPick(ctx, p, spec, u, pickCond)) return RuleCodes.ErrNoTargetAvailable;
             }
             return RuleCodes.OK;
         }
 
         /// <summary>这一格在不在**候选目标列表**里（`troop` 类不含督军、敌方隐身单位不可选）</summary>
-        static bool IsLegalPick(BattleContext ctx, int owner, EffectTargetSpec spec, UnitState u)
+        static bool IsLegalPick(BattleContext ctx, int owner, EffectTargetSpec spec, UnitState u,
+                                // 🆕 2026-10-22（`W64` · `B-16`）：**和结算那一侧同一行**结构化条件 ——
+                                //   不传就是「高亮说能选、打出去空过」（`CanPlayTactic` 注释点名的老毛病）。
+                                CardDef.ConditionSpec structuredCondition = null)
         {
             var pool = new List<UnitState>();
             bool troopOnly = spec.Kind == "troop";
@@ -1548,7 +1577,7 @@ namespace RuleEngine
             //    以前只筛阵营 + 「排不排除督军」，兵种 / 已受伤 / 正在祈祷 三道筛漏在这儿
             //    ⇒ **拖拽时高亮说能选、松手打出去却空过**（那正是 `CanPlayTactic` 注释点名的毛病）。
             //    现在两边都调 `ApplyTargetFilters`，**只此一处**。
-            ApplyTargetFilters(ctx, pool, spec, quiet: true);
+            ApplyTargetFilters(ctx, pool, spec, quiet: true, structuredCondition: structuredCondition);
             return pool.Contains(u);
         }
 
@@ -1565,7 +1594,9 @@ namespace RuleEngine
         /// </summary>
         /// <param name="quiet">true = 不打日志（表现层拖拽时会疯狂调用，刷屏没意义）</param>
         static void ApplyTargetFilters(BattleContext ctx, List<UnitState> pool, EffectTargetSpec spec,
-                                       bool quiet = false)
+                                       bool quiet = false,
+                                       // 🆕 2026-10-22（`W64` · `B-16`）：结构化条件行（见 `ApplyStructuredConditionFilter`）
+                                       CardDef.ConditionSpec structuredCondition = null)
         {
             if (spec == null) return;
 
@@ -1650,6 +1681,122 @@ namespace RuleEngine
                 pool.RemoveAll(u => u == null || !u.Prayed);
                 if (!quiet) ctx.Log($"（按「正在祈祷」筛：{before} → {pool.Count}）");
             }
+
+            // ---- 🆕 2026-10-22（`W64` · `B-16`）：原版 `TargetCriteria.conditionsFilter` ----
+            ApplyStructuredConditionFilter(ctx, pool, structuredCondition, quiet);
+        }
+
+        /// <summary>
+        /// 🆕 2026-10-22（`W64` · `B-16` 目标过滤那一档）：按**原版结构化条件**筛目标池
+        /// —— `MeetsConditionCriteria(candidate, cond, excludeCondition)`，取反在
+        /// <see cref="MeetsUnitCondition"/> 里做（判据 → 那里）。
+        ///
+        /// <para><b>谁传进来</b>：**逐 op 的那一格** `EffectOp.TargetCondition`（由
+        /// `EffectText.AssignAbilityIndices` 归位、四道闸门；生产调用点 = `ResolveTargets` 的
+        /// `structuredCondition` 形参，`DoDeal` / `DoHeal` / … 传 `op.TargetCondition`，
+        /// `IsLegalPick` 传**同一格**）。`null` = 这条 op 没有/读不到 ⇒ **不筛**。</para>
+        ///
+        /// <para>🔴 **为什么绝不许「按卡」套**（那会把整张卡的行贴到每一条 op 上）—— 三条反例，
+        /// 2026-10-22 现读卡池，也正是 `TestW64OpAbilityTargetConditions` 钉住的东西：</para>
+        /// <list type="bullet">
+        /// <item>`TL46 Rapacious Hunger`（`Deal 3 damage to all enemies. For each one that dies,
+        ///   heal 2 to a random friendly unit`）：`40 damaged` 那一行属于**后半句的治疗目标**；
+        ///   按卡应用会把「全体敌人」的伤害池也筛成「已受伤」⇒ 少打一批敌人。</item>
+        /// <item>`ASH73 Whirling Death`（`Deal 5 damage to a troop. If the target dies, deal 2 …`）：
+        ///   `220/ex=0`（将死）那一行属于**后半句**；按卡应用会把 5 点伤害的目标筛成「血 ≤ 0」
+        ///   ⇒ 我们的同步模型里**一个目标都没有**（卡直接不打）。</item>
+        /// <item>`SW14 Wolf Priest`（两条治疗 ability，只有第一条带 `40`）：按卡应用会把第二条
+        ///   （`Rally: Heal …`，原文没要求「已受伤」）也筛掉。</item>
+        /// </list>
+        ///
+        /// <para>⚠️ 行里带的 `count`/`multi` 那几档**不是单个单位**的形状 ⇒ 由调用方别传进来；
+        /// `MeetsUnitCondition` 判不了的值返回 `null` ⇒ 这里**不筛**（⛔ 不猜）并**出声**。</para>
+        ///
+        /// <para>⚠️ 行里带的 `count`/`multi` 那几档**不是单个单位**的形状 ⇒ 由调用方别传进来；
+        /// `MeetsUnitCondition` 判不了的值返回 `null` ⇒ 这里**不筛**（⛔ 不猜）。</para>
+        /// </summary>
+        static void ApplyStructuredConditionFilter(BattleContext ctx, List<UnitState> pool,
+                                                   CardDef.ConditionSpec row, bool quiet)
+        {
+            if (row == null || pool == null || pool.Count == 0) return;
+            if (!RoleTakesUnitSubject(row.Role)) return;      // 不是「一个单位」的形状 ⇒ 不接
+            int before = pool.Count;
+            var kept = new List<UnitState>(pool.Count);
+            foreach (var u in pool)
+            {
+                bool? ok = MeetsUnitCondition(ctx, u, row.Condition, row.Exclude);
+                if (ok == null)
+                {
+                    // 判不了 ⇒ **整条不筛**（⛔ 不猜、⛔ 不空池）——但**必须出声**：
+                    //   静默不筛 = 玩家看不出「这条条件本版没生效」（本工程红线）。
+                    StructuredConditionNotice("unjudgeable-target|" + row.Condition,
+                        $"结构化**目标**条件 `cond={row.Condition}`（ex={(row.Exclude ? 1 : 0)}）"
+                      + "本波判不了 ⇒ 这一条**不筛目标池**（⛔ 没有当成「不成立」、也没有筛空）。"
+                      + "能判的值见 `MeetsUnitCondition`（40 / 220 / 243 / 244 / 50）。");
+                    return;
+                }
+                if (ok.Value) kept.Add(u);
+            }
+            pool.Clear();
+            pool.AddRange(kept);
+            if (!quiet && pool.Count != before)
+                ctx.Log($"（按原版结构化条件筛 `cond={row.Condition}`（ex={row.Exclude}）："
+                      + $"{before} → {pool.Count}）");
+        }
+
+        /// <summary>
+        /// 🆕 2026-10-22（`W64` · `B-16`）：**「这张卡有 `role=target` 的结构化条件行，却归不到
+        /// 这条 op」⇒ 出声一次**。同一 `(卡, 原因)` 只喊一次（`StructuredConditionNotice` 去重）。
+        ///
+        /// <para>⛔ **不筛**的理由：条件是**逐 ability** 的（`cardAbilities[i].targetCriteria` /
+        /// `abilityLogic[j].targetCriteria`）。归不到位时按**卡**套 = **打错人**，三条反例：
+        /// `TL46`（`40` 属于后半句的治疗 ⇒ 会把「全体敌人」的伤害池也筛成已受伤）·
+        /// `ASH73`（`220 = 将死` 属于「如果它死了」那一半 ⇒ 会让 5 点伤害**一个目标都没有**）·
+        /// `SW14`（两条治疗 ability 只有第一条带 `40` ⇒ 会把第二条也筛掉）。
+        /// 归位判据与四道闸门 → `EffectText.AssignAbilityIndices`。</para>
+        ///
+        /// <para>原因码（`EffectOp.TargetConditionGap`）：`blocks&lt;ab` = `desc` 的能力块比行引用的
+        /// ability 少 · `fragment-multi-ability` / `fragment-multi-block` = 这是**触发正文片段**
+        /// （`CardDef.AddTriggerOp` 逐条触发解析）而整卡不止一条 ability · `logic-gate` = `lg &gt;= 0`
+        /// 但那个能力块里不止一条 op（「第几条 logic」与「第几条 op」对不上）· `ambiguous` = 同一
+        /// `(ab,lg)` 匹配到多条行（⛔ 不挑一条）· `postcheck` = `220 + ex=0`（「将死」，**结算后**判定，
+        /// 不是选目标的筛）· `row-unused` = 行挂的那条 ability 在 `desc` 里一句都没印。</para>
+        /// </summary>
+        static void NoteTargetConditionGap(BattleContext ctx, CardDef card, EffectOp op)
+        {
+            string why;
+            switch (op.TargetConditionGap)
+            {
+                case "blocks<ab":
+                    why = "`desc` 里的能力块比条件行引用的 ability 少（文字顺序不能当 ability 下标）";
+                    break;
+                case "fragment-multi-ability":
+                    why = "这是**触发正文片段**，而卡上有多条 ability（片段属于哪一条读不到）";
+                    break;
+                case "fragment-multi-block":
+                    why = "这是**触发正文片段**，而整张卡的 `desc` 不止一个能力块";
+                    break;
+                case "logic-gate":
+                    why = "条件挂在某条 `abilityLogic` 上，而那个能力块里不止一条 op（对不上第几条 logic）";
+                    break;
+                case "ambiguous":
+                    why = "同一个 `(ab, lg)` 匹配到多条条件行（不挑一条）";
+                    break;
+                case "postcheck":
+                    why = "那一行是 `220 + ex=0`（「将死」）—— 它是**结算后**的判定（卡面「If the target dies」），"
+                        + "不是选目标的筛（本仓由 `ConditionHolds` 的 `targetdies` 判）";
+                    break;
+                case "row-unused":
+                    why = "条件行挂的那条 ability 在 `desc` 里一句都没印（或印出来的那几句解不出 op）";
+                    break;
+                default:
+                    why = "原因码不认识（" + op.TargetConditionGap + "）";
+                    break;
+            }
+            StructuredConditionNotice("targetgap|" + card.Id + "|" + op.TargetConditionGap,
+                $"卡「{card.Name}」（{card.Id}）的 `role=target` 结构化条件行**归不到具体 op** —— "
+              + why + $" ⇒ 「{op.Source}」这一条的目标池**不按结构化条件筛**（⛔ 不按卡套：那会打错人）。"
+              + "要接这一档，需要生成器落「每条 ability 的正文区间 / effect 类型」（v16 之外的新列）。");
         }
 
         /// <summary>
@@ -2064,7 +2211,8 @@ namespace RuleEngine
         static bool DoDeal(BattleContext ctx, int owner, string by, EffectOp op,
                            UnitState chosen, List<string> unresolved)
         {
-            var targets = ResolveTargets(ctx, owner, op.Target, null, chosen);
+            // 🆕 2026-10-22（`W64`·`B-16`）：按**这条 op** 的结构化目标条件行筛（`null` = 没有/读不到 ⇒ 不筛）。
+            var targets = ResolveTargets(ctx, owner, op.Target, null, chosen, op.TargetCondition);
             if (targets.Count == 0)
             {
                 ctx.Log($"{by}：「{op.Source}」没有合法目标，空过");
@@ -2215,7 +2363,7 @@ namespace RuleEngine
             }
             else
             {
-                attackers.AddRange(ResolveTargets(ctx, owner, op.Target, null, chosen));
+                attackers.AddRange(ResolveTargets(ctx, owner, op.Target, null, chosen, op.TargetCondition));
                 attackers.RemoveAll(u => u == null || !u.IsAlive);
             }
             if (attackers.Count == 0)
@@ -2542,7 +2690,8 @@ namespace RuleEngine
                 ctx.Log($"{by}：「{op.Source}」治疗己方督军 {heal}（实际 {healed}，现 {w?.Health}）");
                 return true;
             }
-            var targets = ResolveTargets(ctx, owner, op.Target, null, chosen);
+            // 🆕 2026-10-22（`W64`·`B-16`）：按**这条 op** 的结构化目标条件行筛（`null` = 没有/读不到 ⇒ 不筛）。
+            var targets = ResolveTargets(ctx, owner, op.Target, null, chosen, op.TargetCondition);
             int total = 0;
             foreach (var t in targets)
                 total += HealUnit(ctx, t, heal, false);
@@ -3048,7 +3197,8 @@ namespace RuleEngine
         static bool DoDestroy(BattleContext ctx, int owner, string by, EffectOp op,
                               UnitState chosen, List<string> unresolved)
         {
-            var targets = ResolveTargets(ctx, owner, op.Target, null, chosen);
+            // 🆕 2026-10-22（`W64`·`B-16`）：按**这条 op** 的结构化目标条件行筛（`null` = 没有/读不到 ⇒ 不筛）。
+            var targets = ResolveTargets(ctx, owner, op.Target, null, chosen, op.TargetCondition);
             foreach (var t in targets)
             {
                 if (t == null || !t.IsAlive) continue;
@@ -4093,7 +4243,8 @@ namespace RuleEngine
                     }
                     int done = 0;
                     foreach (var o in ops)
-                        if (ResolveOne(ctx, owner, null, by, o, chosen, unresolved)) done++;
+                        // 🆕 2026-10-22（`W64` · `B-16`）：这些 op 来自**被选中的那张卡**（`cd`）⇒ 结构化条件按它判。
+                        if (ResolveOne(ctx, owner, null, by, o, chosen, unresolved, card: cd)) done++;
                     return done > 0;
                 }
 
@@ -5676,7 +5827,8 @@ namespace RuleEngine
             //     ⛔ 别再用「判的是施放者」那个理由把条件档排除（那会回到 `3 + 6` 双结算）。
             //  ⚠️ **位置**：必须排在下面 `ChargePaidGroups` **之前**（同出牌那条路：先配对裁决、
             //     再收钱 —— 收费会改 `Energy`，而已有卡的 `instead` 条件会读余额，如 `SOR6`）。
-            var skip = InsteadSkips(ctx, owner, ops, null, pairConditional: false, source: source);
+            var skip = InsteadSkips(ctx, owner, ops, null, pairConditional: false, source: source,
+                                    card: source != null ? source.Card : null);
 
             var paidOk = ChargePaidGroups(ctx, owner, source, by, ops, null, unresolved);
             // 🆕 2026-10-20（`FACTION-DOUBLE605`）：把「哪几个付费组收到钱」回填给调用方 ——
@@ -5700,7 +5852,9 @@ namespace RuleEngine
                 //   改前这条路没有这一跳 ⇒ 所有触发里的 `equal to your Faith / 敌方手牌数` 都按 0 结算。
                 EffectOp amtOp;
                 if (!TryApplyAmountRef(ctx, owner, by, ops[i], unresolved, out amtOp)) continue;
-                ResolveOne(ctx, owner, source, by, Prepaid(amtOp), null, unresolved);
+                // 🆕 2026-10-22（`W64` · `B-16`）：触发路的卡 = `source.Card`（`source` = 触发的那张）。
+                ResolveOne(ctx, owner, source, by, Prepaid(amtOp), null, unresolved,
+                           card: source != null ? source.Card : null);
             }
 
             // 🔴 **2026-09-16：这里原来「建了、传了、从来没读」。**
@@ -6224,6 +6378,18 @@ namespace RuleEngine
                                // 🔴🆕 2026-10-21（审查 `W61b` 第 3 条）：施放者 = 那个 at-turn 单位。
                                //   原版 `CardScript.OnTurnStart/OnTurnEnd` 的入口闸就是 `IsInPlay`
                                //   （见上面 ① 那段注释）⇒ 出队时它若已离场，这条作废。
+                               // 🔴 **2026-10-22（`W63` · C6）：保持 `requireActorInPlay: true`，本轮【不】改数据驱动。**
+                               //   原因 = 「回合起止从句 → 原版 `AbilityTrigger` 数值」这条映射**数据确认不了**：
+                               //   `EffectText.AtTurnClauses` 只给出 `Phase`（`turn_start` / `turn_end`）与
+                               //   `View`（`you` / `each`），而池内**同一措辞落在不同 trigger 号**上 ——
+                               //   `start + your` 命中了 `TurnStartPlayer(31)`（`GSC5`/`TL8`/`TL37`/`GOF80`）
+                               //   也命中了 `TurnStart(30)`（`TAU6`/`TAU7`/`TAU13`/`SOR66`），
+                               //   `end + your` 命中了 `TurnEnd(40)`（`AM18`/`GOF82`/`SOR70`/`TL6`）也命中了
+                               //   `TurnBeforeEnd(41)`（`SAU20`）⇒ 按措辞挑一个 = **替原版编口径**。
+                               //   ⚠️ 影响面很小但真实：池内 at-turn 牌的 context 只有 `GOF90 Wurrboy` 是 40
+                               //   （其余全是 0 = 与今天的 `require:true` 同档），而它的 `TurnEnd(40)` 与
+                               //   `Unstable(81)` 两条能力**同卡同值**，分不清哪条对应 desc 那句。
+                               //   判据未闭合 ⇒ 按简报 §4·C6「数据确认不了就保持现状」处置，账记进报告。
                                actor: _uj.Unit, requireActorInPlay: true);
             }
             foreach (var j in persistJobs)
@@ -6252,7 +6418,7 @@ namespace RuleEngine
             ctx.FactionSourceCard = j.Card;
             try
             {
-                foreach (var o in j.Ops) ResolveOne(ctx, active, null, label, o, null, mine);
+                foreach (var o in j.Ops) ResolveOne(ctx, active, null, label, o, null, mine, card: j.Card);
             }
             finally { ctx.FactionSourceCard = prevFactionSrc; }
             ReportUnresolved(ctx, label + "段（" + (j.Card != null ? j.Card.Name : "?") + "）", mine);
@@ -6285,7 +6451,7 @@ namespace RuleEngine
             ctx.FactionSourceCard = j.Card;
             try
             {
-                foreach (var o in j.Ops) ResolveOne(ctx, active, null, label, o, null, mine);
+                foreach (var o in j.Ops) ResolveOne(ctx, active, null, label, o, null, mine, card: j.Card);
             }
             finally { ctx.FactionSourceCard = prevFactionSrc; }
             ReportUnresolved(ctx, label + "段（" + (j.Card != null ? j.Card.Name : "?") + "）", mine);
@@ -6366,14 +6532,18 @@ namespace RuleEngine
             //   （原版 `RawScript.TriggerAbility` 的 600 支 → `PlayAbility` → `Add*Action`
             //    → `AddAutoActionToQueue`；道 = 数据列 `triggerPriority["spiritstone"]`，默认 1）。
             //   ⚠️ `activated` 的消费者（`EmitAbilityUseTrigger`）一起搬进队列体。
+            // 🆕 **2026-10-22（`W63` · C3）**：`UseSpiritStone(600)` 的 `abilityContext` **逐卡判**
+            //   （池内现读 `{0:16, 50:13}`，`cards_raw.json`）——
+            //   `0 Play` = 必须活着在场 · `50` = 在场或墓地（**不含待死**）· `-1` 未知 ⇒ 回退旧口径。
+            //   判据 → `CardAbility__IsRightContext.c`；取值口 → `AbilityContextOfAbilityV14` 的 doc。
+            int actx = AbilityContextOfAbilityV14(unit.Card, "UseSpiritStone");
             EnqueueAbility(ctx, TriggerLane(unit, "spiritstone"), "灵魂石:" + unit.Name,
                            () => SpiritAbilityDeferred(ctx, owner, unit, ops),
-                           // 🔴🆕 2026-10-21（审查 `W61b` 第 3 条）：**带施放者、但【不】判「必须在场」** ——
-                           //   原版 `UseSpiritStone(600)` 这一族的 `abilityContext` 现读
-                           //   `{0:16, 50:**13**}`（`cards_raw.json`），而 `50` = `IsInCemetery || IsInPlay`
-                           //   ⇒ 有一半的卡**死者在墓地也照跑**。本层判不出是哪一种 ⇒ **不取消**
-                           //   （取消 = 把那 13 条静默掐死）。见 `ActorMustBeInPlayForTrigger` 的 doc。
-                           actor: unit, requireActorInPlay: false);
+                           // 🔴🆕 2026-10-21（审查 `W61b` 第 3 条）就地订正（2026-10-22 `W63` · C3）：
+                           //   `requireActorInPlay: false` 现在**只当 `-1` 的回退档**（= 改前的「不判」）——
+                           //   已知 context 时由泵点按 `QueuedAction.AbilityContext` 判（context 更准，
+                           //   见 `EnqueueAbility` 的 `abilityContext` 参数 doc）。
+                           actor: unit, requireActorInPlay: false, abilityContext: actx);
             return;
         }
 
@@ -6540,12 +6710,16 @@ namespace RuleEngine
             // 🔴 2026-10-21（`T03·c` 批 B 接线）：**信仰能力 = 一条队列动作**（判据同灵魂石）。
             //   ⚠️ `activated` / `faithGroups` 的消费者（`EmitFaithAbilityUseTriggers`）一起搬进队列体。
             var _ops = ops;
+            // 🆕 **2026-10-22（`W63` · C3）**：`UseFaith(605)` 的 `abilityContext` **逐卡判**
+            //   （池内现读 `{0:14, 50:15}`）—— `0 Play` = 必须活着在场 · `50` = 在场或墓地
+            //   （**不含待死**）· `-1` 未知 ⇒ 回退旧口径。取值口 → `AbilityContextOfAbilityV14` 的 doc。
+            int fctx = AbilityContextOfAbilityV14(unit.Card, "UseFaith");
             EnqueueAbility(ctx, ListenerLane(unit.Card), "信仰:" + unit.Name,
                            () => FaithAbilityDeferred(ctx, owner, unit, _ops),
-                           // 🔴🆕 2026-10-21（审查 `W61b` 第 3 条）：**带施放者、但【不】判「必须在场」** ——
-                           //   `UseFaith(605)` 的 `abilityContext` 现读 `{0:14, 50:**15**}`，
-                           //   而 `50` = `IsInCemetery || IsInPlay` ⇒ 一半的卡在墓地也照跑 ⇒ 不取消。
-                           actor: unit, requireActorInPlay: false);
+                           // 🔴🆕 2026-10-21（审查 `W61b` 第 3 条）就地订正（2026-10-22 `W63` · C3）：
+                           //   `requireActorInPlay: false` 现在**只当 `-1` 的回退档**（= 改前的「不判」）——
+                           //   已知 context 时由泵点按 `QueuedAction.AbilityContext` 判。
+                           actor: unit, requireActorInPlay: false, abilityContext: fctx);
             return;
         }
 
@@ -6599,7 +6773,8 @@ namespace RuleEngine
                 unresolved.Add(op.Source + "（extratrigger 没有机制名）");
                 return false;
             }
-            var targets = ResolveTargets(ctx, owner, op.Target, null, chosen);
+            // 🆕 2026-10-22（`W64`·`B-16`）：按**这条 op** 的结构化目标条件行筛（`null` = 没有/读不到 ⇒ 不筛）。
+            var targets = ResolveTargets(ctx, owner, op.Target, null, chosen, op.TargetCondition);
             int n = 0;
             foreach (var t in targets)
             {
@@ -6661,7 +6836,8 @@ namespace RuleEngine
         static bool DoTakeControl(BattleContext ctx, int owner, string by, EffectOp op,
                                   UnitState chosen, List<string> unresolved)
         {
-            var targets = ResolveTargets(ctx, owner, op.Target, null, chosen);
+            // 🆕 2026-10-22（`W64`·`B-16`）：按**这条 op** 的结构化目标条件行筛（`null` = 没有/读不到 ⇒ 不筛）。
+            var targets = ResolveTargets(ctx, owner, op.Target, null, chosen, op.TargetCondition);
             if (targets.Count == 0)
             {
                 ctx.Log($"{by}：「{op.Source}」没有合法目标，空过");
@@ -6901,7 +7077,7 @@ namespace RuleEngine
             try
             {
                 foreach (var o in pe.Ops)
-                    ResolveOne(ctx, owner, unit, "部署触发", o, null, mine);
+                    ResolveOne(ctx, owner, unit, "部署触发", o, null, mine, card: pe.Source);
             }
             finally
             {
@@ -7382,21 +7558,31 @@ namespace RuleEngine
         /// ⚠️ **只给「预调」那一跳用，而且本轮只有【攻击者】那一下传 `true`**：
         ///   · 棋盘循环那一跳必须继续挡待死单位（原版那里有 `IsInPlay`）；
         ///   · 被打者那一下（`:22`）原版同样无条件，但被打者侧的 ctx 是**混合**的
-        ///     （`SAU31 Doomstalker` / `UM70 Invictor Warsuit` = 40、`TL24 Harpy` = 0）⇒ 判据不闭合，先留原样。
+        ///     （`SAU31 Doomstalker` / `UM70 Invictor Warsuit` = 40、`TL24 Harpy` = 0）
+        ///     ⇒ 2026-10-22 起**改由 `abilityContext` 逐卡判**（见下一条）。
         ///
-        /// ⚠️ **如实标着（残余）**：我们这一层**没有** `abilityContext` 字段 ⇒ `Play(0)` 的同族卡
-        /// （`UM83 Valtus` / `GSC12 Neophyte Iconbearer` / `DA22 Techmarine`）**自己正待死**时也会跟着响，
-        /// 原版不响（它们的 `abilityContext` = 0）。要精确收口得把 `abilityContext` 带进卡数据。
+        /// 🔴🆕 **2026-10-22（`W63` · C2）就地订正（铁律 5）**：本节原来写着
+        /// 「我们这一层**没有** `abilityContext` 字段 ⇒ `Play(0)` 的同族卡（`UM83 Valtus` /
+        /// `GSC12 Neophyte Iconbearer` / `DA22 Techmarine`）自己正待死时也会跟着响 …… 要精确收口
+        /// 得把 `abilityContext` 带进卡数据」—— **这条已做完**：卡表 v14 已有 `abilityContext` 列
+        /// （B1/B2 落地，池内 170 条真值），本函数现在把它交给 `PendingDeathAllowsListener`：
+        ///   · **预调 + `Attack`** ⇒ 按 context：`40` 放开（待死算在场）· `0/10/20/30/50` 挡 ·
+        ///     `-1`（旧表 / 认不出）回退**本参数**（= 改前口径）；
+        ///   · **棋盘循环**（以及非 `Attack` 的预调）⇒ **不按 context**，仍只看本参数（简报 §6.6）。
+        /// ⇒ `UM83/GSC12/DA22`（context 0）不再多响 · `SAU31/UM70`（context 40）不再少响。
+        /// 判据逐句 → `PendingDeathAllowsListener` 的 doc。
         /// </param>
         static void FireBoardWhenListener(BattleContext ctx, UnitState u, string kind, int who,
                                           CardDef card, UnitState subject, UnitState actor,
                                           UnitState target, int targetWho,
                                           bool selfOnlyOnly = false, bool allowPendingDeath = false,
-                                          int pinnedOwner = -1)
+                                          int pinnedOwner = -1, bool preCall = false)
         {
-            // ⚠️ 快照之后世界可能已经变了（前一个监听器把人打死了）——再判一次
-            // 🔴 但「预调」那一跳（`allowPendingDeath`）照原版**不挡**待死单位（判据见 param 块）。
-            if (!allowPendingDeath && ctx.IsPendingDeath(u)) return;
+            // ⚠️ 快照之后世界可能已经变了（前一个监听器把人打死了）——再判一次。
+            // 🔴🆕 2026-10-22（`W63` · C2）：预调那一跳改成**按 `abilityContext` 判**（判据 →
+            //   `PendingDeathAllowsListener` 的 doc）；棋盘循环仍走改前的状态闸 ——
+            //   `!allowPendingDeath` ⇒ 待死就挡，⛔ 别整体放开（简报 §6.6）。
+            if (!PendingDeathAllowsListener(ctx, u, kind, preCall, allowPendingDeath)) return;
 
             // 🆕 **2026-10-22（`W63` #9 · `A1562-③`）**：**`pinnedOwner >= 0` ⇒ 用快照那一刻的归属，
             //   ⛔ 不再用 `OwnerOf` 现查。**
@@ -7485,6 +7671,82 @@ namespace RuleEngine
         }
 
         /// <summary>
+        /// 🆕 **2026-10-22（引擎线 `W63` · `T03·c/d` · C2/C3）：这张卡【这条 ability】的原版
+        /// `abilityContext`** —— `EffectResolver` 侧的唯一取值口（带 v14 卡表「缺行 = `Play(0)`」的落值口径）。
+        ///
+        /// <para>**为什么需要「缺行 = 0」这一跳**：生成器 `ability_contexts_of` **只落 `context != 0` 的行**
+        /// （`工具/gen_cards_engine.py:1329-1330`：`0` = `Play` 是默认值、省略不落）⇒
+        /// 「表是 v14」＋「这张卡确实有这条 ability」⇒ **缺行 = `Play(0)`**。
+        /// `CardDef.AbilityContextsVersioned` 正是那个「表是 v14」的正面信号
+        /// （`CardDatabase.cs:613` 按 `dto.version >= 14` 置）—— 旧表 / 手搓卡（自检夹具）一律 `false`
+        /// ⇒ 返回 `-1`（未知），由调用方回退今天的口径。</para>
+        ///
+        /// <para>⚠️ **调用前提**：调用点必须已经确认「这张卡有这条 ability」
+        /// （C2 = 它正因为这个事件被唤醒；C3 = 它有 `SpiritOps` / `FaithOps` —— 2026-10-22 拿
+        /// 「卡面付费前缀」近似核对：池内 28 张 `N [Spirit Stone]:` / 25 张 `N ☀:` 的卡
+        /// **全部**都能在 `cards_raw.json` 里找到对应的 `trigger 600 / 605` ability；
+        /// 反向的两张 `ASH52` / `SOR71` 是「有 ability 而正文形态不同」⇒ 走到这一支也仍是真 ability）。
+        /// 否则缺行会被当成 `Play(0)`，等于给一条**不存在**的 ability 编口径。</para>
+        ///
+        /// <para>🔴 `-1` = 未知（旧表 / 认不出 trigger 名）⇒ 调用方**回退今天的口径**，
+        /// ⛔ 不是 `Play(0)`（`0` 是合法取值「必须活着在场」）。</para>
+        /// </summary>
+        static int AbilityContextOfAbilityV14(CardDef card, string triggerName)
+        {
+            if (card == null) return CardDef.AbilityContextUnknown;
+            // ⛔ 认不出 trigger 名 ⇒ **未知**，不许套「缺行 = 0」那一条 ——
+            //   「查不到这一列」与「这条 ability 的 context 是 0」是两件事（`TriggerNameOfWhenKind`
+            //   对认不出的 kind 返回 null，见它的 doc：认不出就别猜）。
+            if (string.IsNullOrEmpty(triggerName)) return CardDef.AbilityContextUnknown;
+            // 取法**转调** `RuleCore.AbilityContextOfAbility`（trigger 名优先 → 关键词兜底；
+            //   它物理上在 `Core/ActionPump.cs` 那个 partial 文件里）——
+            //   本方法只补「v14 只落非 0」这一条落值口径，⛔ 不另写一份查法。
+            int c = RuleCore.AbilityContextOfAbility(card, triggerName, null);
+            if (c != CardDef.AbilityContextUnknown) return c;
+            return card.AbilityContextsVersioned
+                 ? CardDef.AbilityContextPlay
+                 : CardDef.AbilityContextUnknown;
+        }
+
+        /// <summary>
+        /// 🆕 **2026-10-22（引擎线 `W63` · C2）：棋盘监听者的【待死闸】** —— `u` 这一跳能不能被唤醒。
+        ///
+        /// <para>**改前**（2026-10-21 `P2-2` 副产物）：`!allowPendingDeath &amp;&amp; ctx.IsPendingDeath(u)`
+        /// ⇒ **预调无条件放开、棋盘循环无条件挡**，逐卡精度拿不到。
+        /// **改后**：只有**预调**（`preCall`）那一跳、且事件是 `WhenEventKind.Attack` 时，
+        /// 按 **`abilityContext`** 判；其余一律**维持改前口径**。</para>
+        ///
+        /// <para>**判据**（`Attack` 广播器的预调两跳）：
+        /// `BattleManagerSupport__BroadcastUnitAttacked.c:22`（被打者）/ `:29`（攻击者）**只判非 null**；
+        /// 棋盘循环 `:48` 才 `CardScript__IsInPlay(...)` ⇒ **预调没有状态闸**，唯一的能力闸是
+        /// `CardAbility.IsRightContext`（`d:/2/tools/decomp_full/CardAbility__IsRightContext.c`）：
+        /// `Play(0)` = `IsInPlay &amp;&amp; !EnoughPendingDamageToDie`（**待死不算在场**）·
+        /// `InPlayOrDying(40)` = 状态含 **5 待死** · `InPlayOrCemetery(50)` = **不含待死**。</para>
+        ///
+        /// <para>🔴 **棋盘循环（`preCall == false`）不许按 context 放开**：那里对应的是
+        /// `CardScript__IsInPlay` 这道**卡状态闸**（不是 ability 层的），待死单位在原版那一趟里
+        /// 同样被跳过（简报 §6.6）⇒ 这一档永远返回 `allowPendingDeath`（= 改前口径）。</para>
+        ///
+        /// <para>🔴 `-1`（未知 / 旧卡表）⇒ 返回 `allowPendingDeath` = **改前口径**
+        /// （攻击者预调照放、被打者与其余预调照挡）—— 「今天不传 = 行为逐字不变」。</para>
+        ///
+        /// ⚠️ 本轮**只对 `Attack` 放开 context**：`Damaged` 的预调（`RuleCore.EmitHit` 那一跳）
+        /// 原版同样没有状态闸（`BattleManagerSupport__BroadcastUnitDamaged.c:19`），但简报把范围
+        /// 限定在「预调两跳」⇒ 它**保持改前口径**，记进报告当残余。
+        /// </summary>
+        static bool PendingDeathAllowsListener(BattleContext ctx, UnitState u, string kind,
+                                               bool preCall, bool allowPendingDeath)
+        {
+            if (ctx == null || u == null) return true;
+            if (!ctx.IsPendingDeath(u)) return true;            // 不在待死队列 ⇒ 这道闸不关它
+            if (!preCall || kind != WhenEventKind.Attack) return allowPendingDeath;   // 见 doc：不改
+            int actx = AbilityContextOfAbilityV14(u.Card, TriggerNameOfWhenKind(kind));
+            if (actx == CardDef.AbilityContextInPlayOrDying) return true;    // 40 = 含待死 ⇒ 放
+            if (actx != CardDef.AbilityContextUnknown) return false;         // 0/10/20/30/50 都不含待死
+            return allowPendingDeath;                                        // `-1` 契约：回退改前口径
+        }
+
+        /// <summary>
         /// <see cref="FireBoardWhenListener"/> 的**队列体** —— 泵点取到这一条时才跑
         /// （2026-10-21 引擎线 `T03·c` 批 B 接线抽出）。
         ///
@@ -7541,6 +7803,12 @@ namespace RuleEngine
         /// 🆕 **`allowPendingDeath`**：照原版，**预调那一跳不判 `IsInPlay`** ⇒ 主体已经在待死队列里也照跑
         /// （本轮**只有 `Attack` 的【攻击者】那一下**传 `true`；判据全文 → `FireBoardWhenListener` 的 param 块）。
         ///     ⚠️ 棋盘循环那一跳**不许**传它 —— 原版那里逐张判 `IsInPlay`。
+        ///
+        /// 🔴🆕 **2026-10-22（`W63` · C2）**：本函数内层那一跳现在传 **`preCall: true`** ——
+        ///     这是「预调」的**唯一标记**（`FireBoardWhenListener` 的待死闸靠它区分「预调」与
+        ///     「棋盘循环」，见 `PendingDeathAllowsListener` 的 doc）。
+        ///     ⚠️ 判别本身仍**只认 `kind == Attack`**（本轮只放开原版那两跳）；其余预调
+        ///     （`Deploy` / `Damaged` / `GetsHuntMark` …）行为与改前逐字相同。
         /// </summary>
         static void PreCallBoardListener(BattleContext ctx, UnitState u, string kind, int who,
                                          CardDef card, UnitState subject, UnitState actor,
@@ -7551,7 +7819,7 @@ namespace RuleEngine
             if (ctx.IsOver || ctx.EffectChain >= BattleContext.MaxEffectChain) return;
             using (EventSlotsScope.TargetAndCard(ctx, target, card))
                 FireBoardWhenListener(ctx, u, kind, who, card, subject, actor, target, targetWho,
-                                      selfOnlyOnly, allowPendingDeath);
+                                      selfOnlyOnly, allowPendingDeath, preCall: true);
         }
 
         /// <summary>
@@ -8897,6 +9165,11 @@ namespace RuleEngine
                 EnqueueAbility(ctx, ListenerLane(card), (u.Name ?? "?") + "·darkpact-self",
                                () => DarkPactReactDeferred(ctx, owner, u, selfFx, "收到黑暗契约后"),
                                // 施放者 = 拿到契约的那个单位（原版 context `Play(0)`）
+                               // 🔴 **2026-10-22（`W63` · C6）：保持 `requireActorInPlay: true`，不传 `abilityContext`。**
+                               //   这一支只覆盖 `FromOriginalPool == false` 的旧 `EffectSpec` 卡（见上面那段注释）
+                               //   ⇒ 它们**不在原版卡池里、没有 `abilityContext` 行**（`AbilityContextsVersioned`
+                               //   也不会是 true 的那一路）⇒ 「原版 `Play(0)`」只是注释里的推断，
+                               //   数据确认不了 ⇒ 按简报 §4·C6 保持现状。
                                actor: u, requireActorInPlay: true);
             }
 
@@ -8915,6 +9188,8 @@ namespace RuleEngine
                 var _hv = hv;
                 EnqueueAbility(ctx, ListenerLane(_hv.Card), (_hv.Name ?? "?") + "·darkpact-ally",
                                () => DarkPactReactDeferred(ctx, owner, _hv, fx, "友方收到黑暗契约时"),
+                               // 🔴 2026-10-22（`W63` · C6）：同上（`EffectSpec` 旧路、无 `abilityContext` 数据）
+                               //   ⇒ 保持 `requireActorInPlay: true`，不传 `abilityContext`。
                                actor: _hv, requireActorInPlay: true);
                 break;
             }
@@ -9659,6 +9934,280 @@ namespace RuleEngine
             return !string.IsNullOrEmpty(kind) && !UnjudgeableConditions.Contains(kind);
         }
 
+        // ==================================================================
+        //  🆕 2026-10-22（引擎线 `W64` · 战斗审计 `B-16` 消费端）：**结构化条件**
+        //  `TargetCriteria.conditionsFilter`（卡池 v15 的 `unitConditions` 列，见 `CardDef.ConditionOf`）
+        // ==================================================================
+        //
+        // **为什么要有这一段**：原版的条件是**数据**（`UnitConditions` 枚举），我们此前整层靠
+        //   正文正则猜（`EffectText` 的 `ConditionKind`）。本段把「正文猜出来的条件种类」与
+        //   「卡上的结构化条件行」对上，**能对上就用原版语义判**；对不上/判不了**一律退回正文**
+        //   （⛔ 不静默改变既有行为）。
+        //
+        // 🔴 **能对上的只有四类（这是数据决定的，不是我收窄的）** —— 2026-10-22 全池实测：
+        //   池内 167 张卡有 `unitConditions` 行，其中**只有 9 张**同时有正文解析出来的条件从句，
+        //   而这 9 张里 5 张是 `Codex:`（`energyzero`）配一行**目标筛选**（"打带护甲/不会死的目标"）——
+        //   两者**不是同一句话**（那不是 `conditionsFilter` 的语义）⇒ ⛔ 绝对不能拿那一行去判 `energyzero`。
+        //   其余 158 张的结构化条件**根本没有对应的正文从句**（它们是**目标筛选**：`random enemy with
+        //   Armour` / `non Flying` / `not about to die`），要接的是 `ResolveTargets` 那一层，
+        //   **不是** `ConditionHolds`。
+        //   ✅ **2026-10-22（同一波的后半）那一层已经接上了**：`EffectOp` 现在**有**
+        //   `AbilityIndex` / `LogicIndex`（`EffectText.AssignAbilityIndices` 归位，四道闸门），
+        //   生产调用点传 `op.TargetCondition`（`ResolveTargets` 与 `IsLegalPick` 同一格）。
+        //   ⚠️ 归不了位的卡**不筛 + 出声**（`NoteTargetConditionGap`）—— 原因码见那里。
+        //   ⇒ 本段的映射表**只收「正文那一句 = 原版同一格 `conditionsFilter`」的**四类：
+        //     · `targetsurvives` → `220` + `excludeCondition=1`（"没死"）
+        //     · `targetdies`     → `220` + `excludeCondition=0`
+        //     · `targethasarmour`→ `244` + `0`
+        //     · `damaged`        → `40`  + `0`
+        //   判据（原版求值器）：`d:/2/tools/decomp_full/FilterMethods__MeetsConditionCriteria.c`
+        //     · 220 = `:253-257` → `CardScript__EnoughPendingDamageToDie(card)`（语义 = 「将死」；
+        //       ⚠️ 枚举名 `dealtKillDmg` **名字 ≠ 语义**，同一条已在 `RuleCore.cs:11103` 订正过）；
+        //     · 244 = `:298-311`（读护甲那组值 `0 <` ⇒ 真）；
+        //     · 40  = `:87-98`（`GetCurrentDamage >= 1 && !EnoughPendingHealingToFull`；
+        //       我们**没有「待处理治疗」**这一档 ⇒ 等价于 `Health < MaxHealth`，与 `AiTargets.MeetsCondition` 同口径）；
+        //     · `exclude` = 末段 `:384-389`：`exclude ? !match : match`。
+        //
+        // 🔴 **`ConditionUnknown`（旧表）⇒ 保留旧正则 + 出声一次**；`ConditionNone`（列是新的、
+        //   这一格确实没有条件）⇒ **没有条件、不再解析正文**。两种都走 `TryStructuredCondition`。
+        //
+        // ⚠️ **已知缺口（本波不猜、留账）**：
+        //   ① `deaths`（`EC58`）/ `anypraying`（`SOR70`）对应的是 `role="count"` 的行 —— 但 v15 的列里
+        //      **只落了比较三参数（`opt/op/refValue`）**，**没落被数的那个集合**
+        //      （`countCriteria.friendlyUnits/includeHero/includeMinions/targetsAffected`）⇒
+        //      「数谁」读不到 ⇒ **本波不接**（接了就是猜）。
+        //   ② ~~`EffectOp` 上没有 ability/logic 下标~~ ⇒ 🆕 **2026-10-22 已补**（`EffectOp.AbilityIndex` /
+        //      `LogicIndex`）。**条件这一层仍然不用它**：本段要的是「正文那一句 = 原版同一格」，而
+        //      ability 下标解决的是**目标筛选**那一层（`ResolveTargets`）。EC58 的两条 `count` 行仍不接
+        //      （缺口①：被数集合 v15 没落，v16 落的是 `countSet`，消费端下一波才切）。
+        //   ③ `SW22`（`the target is a troop and survives`）被判成 `targethaskw`（混合从句），
+        //      结构化行只有 `220/ex=1` 那一半 ⇒ 用结构化会**丢掉 "is a troop"** ⇒ 本波不动。
+
+        /// <summary>正文条件种类 → (原版 `UnitConditions` 数值, `excludeCondition`)。**只收四类**，
+        /// 理由见上面那段（⛔ 别往里加「看起来像」的：`energyzero` 那 5 张配的是**目标筛选**，不是同一句话）。</summary>
+        static readonly Dictionary<string, (int Cond, int Exclude)> ConditionKindToUnitCondition =
+            new Dictionary<string, (int Cond, int Exclude)>(System.StringComparer.Ordinal)
+        {
+            { "targetsurvives",  (220, 1) },
+            { "targetdies",      (220, 0) },
+            { "targethasarmour", (244, 0) },
+            { "damaged",         (40,  0) },
+        };
+
+        /// <summary>结构化条件行里，哪些 `role` 的**主语**是「一个单位」、本段能判
+        /// （`target` = 选定的/上一条的目标，`acting` = 施放者自己）。
+        /// `count` / `multi` / `mult` / 卡级计分那几档**不是这个形状** ⇒ 不接（见本节「已知缺口」）。</summary>
+        static bool RoleTakesUnitSubject(string role)
+        {
+            return role == "target" || role == "acting";
+        }
+
+        static readonly HashSet<string> _structuredConditionNotices =
+            new HashSet<string>(System.StringComparer.Ordinal);
+
+        /// <summary>结构化条件这条线上**每一次**「本波不接 / 退回正文」的原因 —— 同一 (卡, 种类, 原因)
+        /// **只喊一次**（否则每张卡每回合刷屏；本工程红线是「不许静默」，不是「必须刷屏」）。</summary>
+        static void StructuredConditionNotice(string key, string msg)
+        {
+            if (!_structuredConditionNotices.Add(key)) return;
+            UnityEngine.Debug.LogWarning("[RuleEngine] 结构化条件（W64·B-16）：" + msg);
+        }
+
+        /// <summary>
+        /// **原版 `FilterMethods.MeetsConditionCriteria` 的等价求值**（单个单位）。
+        /// 返回 `null` = **本波判不了这个枚举值**（⛔ 不是「不成立」）。
+        ///
+        /// <para>只实现四个值，每个都对着反编译逐句核过（判据 → 本节开头那段）：
+        /// `40 damaged` · `220`（将死）· `243 isPraying` · `244 hasArmour`。
+        /// ⚠️ `243` 现在**没有消费者**（`anypraying` 对应的是 `count` 行，见「已知缺口①」）
+        /// —— 留着是因为求值本身是确定的，别为「今天没用到」把判据删掉再重写一遍。</para>
+        ///
+        /// <para>`exclude` 的取反在**这里**做（原版 `MeetsConditionCriteria.c:384-389`）——
+        /// ⛔ 调用方**不要**再取反一次。</para>
+        /// </summary>
+        public static bool? MeetsUnitCondition(BattleContext ctx, UnitState u, int cond, bool exclude)
+        {
+            bool match;
+            switch (cond)
+            {
+                case 40:
+                    // 原版 `:87-98`：`GetCurrentDamage >= 1` 且**没有**「够回满的待处理治疗」。
+                    if (u == null) return null;
+                    match = u.Health < u.MaxHealth;
+                    break;
+                case 220:
+                    // 原版 `:253-257` → `CardScript__EnoughPendingDamageToDie`：
+                    // 已进「将死」队列 **或** 血量 ≤0 且没有幸存者（`RuleCore.EnoughPendingDamageToDie`
+                    // 就是后一条，全仓唯一判死闸）。
+                    if (u == null) return null;
+                    match = (ctx != null && ctx.IsPendingDeath(u)) || RuleCore.EnoughPendingDamageToDie(u);
+                    break;
+                case 243:
+                    // 原版 `:294-297`（`case 0xf3`）：读 `card+0x67` = `isPraying`。
+                    if (u == null) return null;
+                    match = u.Prayed;
+                    break;
+                case 50:
+                    // 原版 `:38-44`（`case 0x32`）：`(MeetsTraitCriteria(180) || MeetsTraitCriteria(390))
+                    // && !MeetsTraitCriteria(980)` —— 三个都是 `DefinedTrait` 的数值。
+                    // 我们这边「飞行」的**唯一表达**是关键词 `flying`（`KeywordTable.Flying`），
+                    // 口径与 `Data/AiTargets.MeetsCondition` 的 `case 50` **逐字相同**（那边已审过）。
+                    // ⚠️ 那三个 trait 数值与 `flying` 的对应关系**没有逐号核过**（trait 表随 build 漂）；
+                    // 这里用的是**我们已有的一等表达**，不是从 trait 号反推的。
+                    if (u == null) return null;
+                    match = u.Has(KeywordTable.Flying);
+                    break;
+                case 244:
+                    // 原版 `:298-311`（`case 0xf4`）：护甲那组值 `0 <` ⇒ 真。
+                    if (u == null) return null;
+                    match = u.Armor > 0;
+                    break;
+                default:
+                    return null;              // 判不了（⛔ 不猜）
+            }
+            return exclude ? !match : match;
+        }
+
+        /// <summary>结构化条件行 → 被判的那个单位（`null` = 这一行没有可判的主语 ⇒ 退回正文）。</summary>
+        static UnitState StructuredConditionSubject(BattleContext ctx, CardDef.ConditionSpec row, UnitState chosen)
+        {
+            if (row == null) return null;
+            switch (row.Role)
+            {
+                case "acting": return ctx != null ? ctx.ActingUnit : null;
+                case "target": return chosen ?? (ctx != null ? ctx.LastTarget : null);
+                default: return null;
+            }
+        }
+
+        /// <summary>
+        /// 试着用**结构化条件**判这条 op 的条件。返回 `true` = 已判（`holds` 有效）；
+        /// `false` = 本波不接 / 缺数据 / 判不了 ⇒ **调用方退回正文正则**（旧行为）。
+        ///
+        /// <para>判定次序：</para>
+        /// <list type="number">
+        /// <item>种类不在 <see cref="ConditionKindToUnitCondition"/> ⇒ 不归这一层（正文）。</item>
+        /// <item>`card.ConditionsVersioned == false`（旧表）⇒ 出声一次 + 正文。</item>
+        /// <item>候选 = 同 `cond` + 同 `exclude` 且 `role` 能吃单位主语的行：
+        ///   · **恰好一条** ⇒ 按原版语义判；
+        ///   · **多于一条** ⇒ 归不了位（没有 ability 下标）⇒ 出声 + 正文；
+        ///   · **零条**：若同 `cond` 的**反侧**存在 ⇒ 数据与正文互相矛盾 ⇒ 出声 + 正文；
+        ///     否则 ⇒ **原版数据里没有这一格条件 = 没有条件** ⇒ `holds = true`（⛔ 不再解析正文）。</item>
+        /// </list>
+        /// </summary>
+        static bool TryStructuredCondition(BattleContext ctx, int owner, EffectOp op, UnitState chosen,
+                                           CardDef card, out bool holds)
+        {
+            holds = false;
+            if (card == null || op == null) return false;
+            string kind = op.ConditionKind ?? "";
+            (int Cond, int Exclude) want;
+            if (!ConditionKindToUnitCondition.TryGetValue(kind, out want)) return false;   // 不归这一层
+
+            if (!card.ConditionsVersioned)
+            {
+                // 旧表（< v15）：整列没有 ⇒ 未知。保留旧正则（这是**过渡守卫**，生产是 v15）。
+                StructuredConditionNotice("oldtable|" + card.Id + "|" + kind,
+                    $"卡「{card.Name}」（{card.Id}）的卡表**没有 `unitConditions` 列**（version < 15）⇒ "
+                  + $"条件「{op.Condition}」退回**旧正文口径**（等价于「未知」，⛔ 不是「没有条件」）。"
+                  + "重跑 工具/gen_cards_engine.py 生成 v15 卡表。");
+                return false;
+            }
+
+            CardDef.ConditionSpec hit = null;
+            int n = 0;
+            bool oppositeSide = false;
+            bool otherRole = false;
+            foreach (var row in card.Conditions)
+            {
+                if (row == null || row.Condition != want.Cond) continue;
+                if (row.Exclude != (want.Exclude != 0)) { oppositeSide = true; continue; }
+                if (!RoleTakesUnitSubject(row.Role)) { otherRole = true; continue; }
+                hit = row; n++;
+            }
+
+            if (n > 1)
+            {
+                StructuredConditionNotice("ambig|" + card.Id + "|" + kind,
+                    $"卡「{card.Name}」（{card.Id}）有 **{n} 条** `cond={want.Cond}`/ex={want.Exclude} 的条件行"
+                  + $"（正文「{op.Condition}」）—— 没有 ability 下标、归不了位 ⇒ 退回**旧正文口径**。"
+                  + "（要接这一档，得先把 `unitConditions` 行与 ability 对上号。）");
+                return false;
+            }
+            if (n == 0)
+            {
+                if (oppositeSide)
+                {
+                    StructuredConditionNotice("opposite|" + card.Id + "|" + kind,
+                        $"卡「{card.Name}」（{card.Id}）的数据里只有 `cond={want.Cond}` 的**反侧**条件"
+                      + $"（正文「{op.Condition}」判的是 ex={want.Exclude}）—— 正文与数据矛盾 ⇒ 退回**旧正文口径**。");
+                    return false;
+                }
+                if (otherRole)
+                {
+                    // 同 `cond` 的行挂在 `count` / `multi` / `mult` / 卡级计分上 —— 那些形状**不是**
+                    // 「一个单位满不满足」，本波不接（`count` 的被数集合、`multi` 的配套参数都还没落列）。
+                    StructuredConditionNotice("otherrole|" + card.Id + "|" + kind,
+                        $"卡「{card.Name}」（{card.Id}）的 `cond={want.Cond}` 条件挂在 "
+                      + "`count` / `multi` / `mult` / 卡级计分 上（不是「一个单位」的形状）—— 本波**不接**"
+                      + $"（正文「{op.Condition}」照旧走正文；⛔ 不拿别的位置硬凑）。");
+                    return false;
+                }
+                // 原版数据里没有这一格条件 ⇒ **没有条件**。按铁律「原版是数据」，不再拿正文猜。
+                // ⚠️ 这一步成立的前提是「这张卡**在真值快照里**」—— 2026-10-22 现读：
+                //   池内 **1127/1127** 张都在 `cards_raw.json`（1,351 张 SO）里 ⇒「没有行」只能读成
+                //   「原版这张卡真的没有条件行」，而不是「快照没这张卡」。将来若出现池外新卡，
+                //   **先拿到 per-card 的「在不在快照」信号**再谈这条，否则这里会把它误判成无条件。
+                StructuredConditionNotice("none|" + card.Id + "|" + kind,
+                    $"卡「{card.Name}」（{card.Id}）**没有** `cond={want.Cond}`/ex={want.Exclude} 的条件行 ⇒ "
+                  + $"按结构化数据判为「**没有条件**」（正文「{op.Condition}」不再解析；v15 卡表）。");
+                holds = true;
+                return true;
+            }
+
+            var t = StructuredConditionSubject(ctx, hit, chosen);
+            if (t == null)
+            {
+                StructuredConditionNotice("nosubject|" + card.Id + "|" + kind,
+                    $"卡「{card.Name}」（{card.Id}）的条件行（role={hit.Role}）**没有可判的主语**"
+                  + $"（正文「{op.Condition}」）⇒ 退回旧正文口径。");
+                return false;
+            }
+            bool? v = MeetsUnitCondition(ctx, t, hit.Condition, hit.Exclude);
+            if (v == null)
+            {
+                StructuredConditionNotice("unjudgeable|" + card.Id + "|" + hit.Condition,
+                    $"卡「{card.Name}」（{card.Id}）的结构化条件 `cond={hit.Condition}` **本波判不了** ⇒ 退回旧正文口径。");
+                return false;
+            }
+            holds = v.Value;
+            return true;
+        }
+
+        /// <summary>
+        /// 🆕 2026-10-22（`W64` · `B-16`）：**判一条 op 的条件**的统一入口（结算层走的就是它）。
+        /// 返回 `false` = **本版判不了**（`holds` 无效）；`true` ⇒ `holds` 有效。
+        /// <paramref name="structured"/> = 这一次用的是**原版结构化数据**（`true`）
+        /// 还是**旧正文正则**（`false`）—— 自检靠它分辨「到底走没走到新路」，生产不读。
+        ///
+        /// <para>⚠️ 结构化那一档**只吃「正文那一句 = 原版同一格 `conditionsFilter`」的四类**
+        /// （见 <see cref="ConditionKindToUnitCondition"/> 上面那段）；其余一律正文。</para>
+        ///
+        /// <para>🔴 **调用方注意**：`role = acting` 的条件行读 <see cref="BattleContext.ActingUnit"/> ——
+        /// 结算层是由 `ResolveOne` 临时设好再调的（它包了 save/restore）；
+        /// **绕过 `ResolveOne` 直接调本 API 的地方**（自检 / 探针）要自己把它摆上，否则那一档会
+        /// 因为「没有主语」而退回正文。</para>
+        /// </summary>
+        public static bool TryEvaluateCondition(BattleContext ctx, int owner, EffectOp op, UnitState chosen,
+                                                CardDef card, out bool holds, out bool structured)
+        {
+            holds = false;
+            structured = TryStructuredCondition(ctx, owner, op, chosen, card, out holds);
+            if (structured) return true;
+            // 正文那一档：**故意不再传 card**（结构化已经试过/不适用，别再来一遍）。
+            return ConditionHolds(ctx, owner, op, chosen, out holds, null);
+        }
+
         /// <summary>
         /// 条件成不成立。**返回 false = 「本版判不了」**（不是「不成立」）—— 调用方必须区别对待。
         /// 出处：**判据查不到**（🔴 `D26`，2026-10-19）—— `ConditionKind` 这一族是**从卡面正文
@@ -9666,11 +10215,17 @@ namespace RuleEngine
         /// 原版的条件是**结构化 ability 数据**里的字段，逐卡没解出 ⇒
         /// 下面那些判据目前只有 **gd 旁证**（原写「出处：`rule_core.gd:2635` / `:2652` / `:2737`」——
         /// 那份 `.gd` 是**我们自己的上一版复刻**，**旁证、非权威**）。
+        ///
+        /// <para>🆕 2026-10-22（`W64` · `B-16`）：入口先问**结构化条件**（<see cref="TryStructuredCondition"/>）——
+        /// 它是原版数据；只有「不归这一层 / 旧表 / 归不了位 / 判不了」才落到下面这段正文正则。</para>
         /// </summary>
+        /// <param name="card">这条 op **所属的卡**（`null` = 不知道 ⇒ 只能走正文）。
+        /// ⚠️ 别拿 `ctx.PlayingCard` 顶替 —— 那个字段在事件触发路径里是**陈旧值**（见 `BattleContext.PlayingCard` 的 doc）。</param>
         static bool ConditionHolds(BattleContext ctx, int owner, EffectOp op,
-                                   UnitState chosen, out bool holds)
+                                   UnitState chosen, out bool holds, CardDef card = null)
         {
             holds = false;
+            if (TryStructuredCondition(ctx, owner, op, chosen, card, out holds)) return true;
             switch (op.ConditionKind)
             {
                 case "targetdiesorfriendly":
@@ -10206,7 +10761,8 @@ namespace RuleEngine
                 return false;
             }
 
-            var targets = ResolveTargets(ctx, owner, op.Target, null, chosen);
+            // 🆕 2026-10-22（`W64`·`B-16`）：按**这条 op** 的结构化目标条件行筛（`null` = 没有/读不到 ⇒ 不筛）。
+            var targets = ResolveTargets(ctx, owner, op.Target, null, chosen, op.TargetCondition);
             int n = 0;
             foreach (var t in targets)
             {
@@ -10245,7 +10801,8 @@ namespace RuleEngine
         static bool DoFerocityStay(BattleContext ctx, int owner, string by, EffectOp op,
                                    UnitState chosen, List<string> unresolved)
         {
-            var targets = ResolveTargets(ctx, owner, op.Target, null, chosen);
+            // 🆕 2026-10-22（`W64`·`B-16`）：按**这条 op** 的结构化目标条件行筛（`null` = 没有/读不到 ⇒ 不筛）。
+            var targets = ResolveTargets(ctx, owner, op.Target, null, chosen, op.TargetCondition);
             int n = 0;
             foreach (var t in targets)
             {
@@ -10295,7 +10852,8 @@ namespace RuleEngine
                 return false;
             }
 
-            var targets = ResolveTargets(ctx, owner, op.Target, null, chosen);
+            // 🆕 2026-10-22（`W64`·`B-16`）：按**这条 op** 的结构化目标条件行筛（`null` = 没有/读不到 ⇒ 不筛）。
+            var targets = ResolveTargets(ctx, owner, op.Target, null, chosen, op.TargetCondition);
             if (targets.Count == 0)
             {
                 ctx.Log($"{by}：「{op.Source}」要强行触发 `{op.Payload}`，"

@@ -310,6 +310,7 @@ public static class CardBaseDemo
         AssertRarityGem(cam);             // 🔴 2026-10-18（A1492）：稀有度宝石 —— 结构 + 渲图灭自证
         AssertCostTierRefresh();          // 🆕 2026-10-18（A1549 尾巴）：运行时切档 → 已建好的卡跟上
         AssertFaithCostIcon();            // 🆕 2026-10-19（A2140）：信仰费裸词 `4 Energy:` → `4〔金太阳〕:`（desc 不动）
+        AssertCardAnimOriginal();         // 🆕 2026-10-22（W64）：动画/材质里的近似 → 原版真值（B02/B04/B05/B06/B07/B08）
 
         // ---- 4c. 🆕 2026-10-12（`A1658` / `A1659` / `A1665`）：**卡面层级三项**的断言 ----
         //   为什么挂这儿：那三条全是「**层与层之间的关系**」（用户 2026-10-12 真机上报的三件），
@@ -1157,8 +1158,11 @@ public static class CardBaseDemo
                 //      （上面那条 `pxUp` 的声明一并去掉）。
                 //
                 // ✅ **新判据（照原版、且灭自证）**：**把这一层单独留出来**，开 / 关各渲一帧，
-                //    读数换到**线性**空间求**透过率** = `mean(lin 开) / mean(lin 关)`，
-                //    它应当等于 `1 − 原版 m_Color.a × 这块 quad 上贴图的平均 alpha`：
+                //    读数换到**线性**空间求**透过率**，它应当等于
+                //    `1 − 原版 m_Color.a × 这块 quad 上贴图的平均 alpha`：
+                //    🔴 **2026-10-22（`A1934` 收口）：估计量 = `mean-of-ratios`（逐像素 `on_i/off_i`
+                //    再平均），⛔ **不是** `mean(lin 开) / mean(lin 关)`（= `Σon/Σoff`，ratio-of-means）。
+                //    后者在**背景不均匀**时会偏 —— 判据 → `资料/普查产出_1021/W61_卡牌线_T07尾巴.md` §3·2。
                 //      · `0.647` 来自**原版 Image 的 `m_Color`**（`bundle_battleprefabs_vfxandmisc_assets_all`
                 //        的 `MonoBehaviour_-2228335281872200768.json`，Big / Small 两块同款）；
                 //      · 贴图 `Card_Text_smooth_background` = 32×32 · RGB 全 255 ·
@@ -1179,16 +1183,54 @@ public static class CardBaseDemo
                 const float Tol = 0.06f;
 
                 // 「只留这一层」：把同卡其余**所有** `MeshRenderer` 关掉（与下面 `ProbeTextBg` 同一套做法）
+                // 🔴 **2026-10-22（`W64` 同步点修正）：关的是【整个沙盒】的 renderer，⛔ 不是只关 `vBig` 这一棵。**
+                //   **为什么**：本方法的沙盒 `root` 里还有 **`vSmall`（:956）与 `vTac`（:1011）** 两张卡，
+                //   它们**从未 `SetPose`**（只有 `vBig` 在 :1131 被摆到 `(0,1.6,0)`）⇒ 一直待在沙盒原点，
+                //   而这三张卡 z 相同、队列相同 ⇒ 按到相机的距离排序 ⇒ 原点的两张**画在 `vBig` 前面**。
+                //   原来只关 `vBig.transform` 的 renderer ⇒ 这两张**留在帧里、盖住待测矩形的一部分**；
+                //   那部分像素「开/关底板」当然一个像素都不变 ⇒ 逐像素比值 = 1.0 ⇒ 把均值往上拖。
+                //   **实测证据**（`_tmp_view/w64_sync_cardbase.log:3283`）：同一块矩形
+                //   `mean-of-ratios` = **0.610**、`Σon/Σoff` = 0.912，而干净的探针帧（自己的 `root` 里只有一张卡）
+                //   同矩形 = **0.461** ⇔ 原版字段 0.463。⇒ **是帧不合格，不是估计量、更不是画面。**
                 var others = new List<MeshRenderer>();
-                foreach (var rr in vBig.transform.GetComponentsInChildren<MeshRenderer>(true))
+                foreach (var rr in root.transform.GetComponentsInChildren<MeshRenderer>(true))
                     if (rr != rBig && rr.enabled) { rr.enabled = false; others.Add(rr); }
-                float linOn = MeanLumLinear(RenderPixels(cam, PW, PH, pxIn));
+                var pxOn = RenderPixels(cam, PW, PH, pxIn);
                 rBig.gameObject.SetActive(false);
-                float linOff = MeanLumLinear(RenderPixels(cam, PW, PH, pxIn));
+                var pxOff = RenderPixels(cam, PW, PH, pxIn);
                 rBig.gameObject.SetActive(true);
                 foreach (var rr in others) if (rr != null) rr.enabled = true;
 
-                float thru = linOff > 1e-6f ? linOn / linOff : -1f;
+                float linOn = MeanLumLinear(pxOn);
+                float linOff = MeanLumLinear(pxOff);
+                // ==================================================================
+                // 🔴 **2026-10-22（`A1934` 收口）：估计量换成 `mean-of-ratios`** —— 判据 →
+                //    `资料/普查产出_1021/W61_卡牌线_T07尾巴.md` §3·2 / §3·4③。
+                //
+                //  **旧估计量（`Σon/Σoff`，ratio-of-means）为什么是假象**：文字底板是 **Sliced 九宫格**，
+                //  上缘 9px（含 7 行羽化带）落在 quad 高 **39.5%** 里（上面 ③·b 那条断言量的就是它）。
+                //  羽化带 alpha 低（透过率高），可它**正好压在更暗的背景上**（实测 off 帧线性亮度：
+                //  顶部 0.026 / 羽化段 0.041 / 核心段 0.181）⇒ 亮度加权的 `Σon/Σoff` 把羽化段
+                //  系统性压低权重，读数被核心段（alpha ≈ 0.996）拖到 **0.380**；
+                //  同一帧、同一矩形、同一份 `Color32[]`，**逐像素求比值再平均 = 0.4609**，
+                //  而原版字段推出 **0.463**（差 0.002）⇒ **底板画得对**。
+                //  ⇒ 用户 2026-10-22 裁定：**卡面数值一个都不动、只修仪器的估计量**。
+                //  ⛔ 所以这里换的**只是量法**，`TextBgAlpha` / 贴图 alpha / `m_Color` 一个字节都没动。
+                // ==================================================================
+                int nRat = 0, nRatSkip = 0;
+                float thru = MeanThruLinear(pxOn, pxOff, out nRat, out nRatSkip);   // ★ 唯一使用的估计量
+                // 旧估计量：**只留作日志对照**（W61 §3·2 那张表要两个数并排才看得出是谁在骗人）
+                float thruRom = linOff > 1e-6f ? linOn / linOff : -1f;
+                // 🔴 **核心段（下 55%）单独再量一次** —— 这一条查的是**帧合不合格**，不是画面：
+                //  文字底板是 Sliced：**上缘 9px**（含 7 行羽化带）落在 quad 高 39.5% 里，**下缘 border = 0**
+                //  ⇒ **下 55% 是拉伸的核心段、贴图 alpha ≈ 1**。核心段的透过率必须 = `1 − 0.647 × 1.0`
+                //  （≈0.353）。若这一帧里有东西（别的卡 / 遮挡物）盖住它的一部分，那些像素读 1.0
+                //  ⇒ 核心段读数被抬高、下面的 `④·核心` 红 —— 这正是 2026-10-22 那次 0.610 的病根。
+                int rwPx = Mathf.RoundToInt(pxIn.width);
+                int rhPx = rwPx > 0 ? pxOn.Length / rwPx : 0;
+                int coreRows = Mathf.Max(1, Mathf.RoundToInt(rhPx * 0.55f));
+                float thruCore = MeanThruLinearRows(pxOn, pxOff, rwPx, 0, coreRows, out _, out _);
+                const float ThruCore = 1f - ColA * 1f;          // 0.353 —— 核心段贴图 alpha = 1
                 string band = $"原版字段推出的带宽 [{ThruSliced - Tol:F3}, {ThruSliced + Tol:F3}]"
                             + $"（现在是 Sliced 映射 {ThruSliced:F3}；**改前**那份整张拉伸是 {ThruStretch:F3}，"
                             + $"容差 ±{Tol:F2}）";
@@ -1201,12 +1243,49 @@ public static class CardBaseDemo
                 //     而存图证据说我们画够了。**先把矛盾查清，再收窄判据**（账 `A1934`）。
                 //   ⛔ 不许反过来「把带宽放宽到 0.95 就算过」—— 那正是把未确认的东西盖成绿；
                 //     这里只是把**能确证的那半**（画没画）立成断言，量级那半**明写成待查**。
-                Check(linOff > 1e-6f && thru > 0f && thru <= 0.95f,
+                // ✅ **2026-10-22：量级那半收回原版带** —— 0.378 那个读数已查清 = **估计量的偏差**
+                //   （W61 §3·2：同一帧 `Σon/Σoff` 0.380 ↔ 逐像素比值 0.461 ↔ 原版字段 0.463）。
+                // ✅ **2026-10-22（`W64` 同步点）：W61 §3·3 那条「只压暗 7–9%，最后一环没钉死」也查清了** ——
+                //   **是本帧里有东西盖住了这一层的一部分**，不是合成失败：
+                //   同一块矩形 32,064 px 里，被**沙盒里另外两张卡**（`vSmall` / `vTac`，未摆位）盖住的那部分
+                //   「开/关底板」一个像素都不变 ⇒ 逐像素比值 = 1.0。换估计量之后读数从 0.912 变 0.610
+                //   （`_tmp_view/w64_sync_cardbase.log:3283`），仍偏 —— 正说明**估计量已对、帧不合格**。
+                //   ⇒ 修法 = 上面那段：关**整个沙盒**的 renderer（`root`），⛔ 不是放宽带宽。
+                Check(linOff > 1e-6f && !float.IsNaN(thru) && thru > 0f && thru <= 0.95f,
                       $"④ ★ **底板真的画出了像素**：只留这一层，开/关各渲一帧，**线性**空间透过率 = {thru:F3}"
-                    + "（要 ≤ 0.95 —— 透过率 1.000 就是「这一层一个像素都没画」）"
+                    + "（估计量 = `mean-of-ratios`；要 ≤ 0.95 —— 透过率 1.000 就是「这一层一个像素都没画」）"
                     + $"｜线性读数 开 {linOn:F5} / 关 {linOff:F5}"
-                    + $"｜🔴 **本条不断量级**：实测 {thru:F3} 与 {band} 不符 ⇒ 账 `A1934`（两条测量路矛盾）"
+                    + $"｜⛔ 旧估计量 ratio-of-means = {thruRom:F3}（**已废**，只留对照）"
+                    + $"｜参与平均 {nRat} px · 分母 0 跳过 {nRatSkip} px"
+                    + $"｜同沙盒关掉 {others.Count} 个 renderer（含 `vSmall` / `vTac` —— `W64` 修的就是这里）"
                     + "｜🔴 2026-10-14 前的旧读法（全卡净掉幅 ≥25%）**已废** —— 它的期望值来路错了两处，见上面那段订正痕");
+
+                // ---- ④·量级：**用原版字段推出的带**（2026-10-22 收回，⛔ 不是我们自己的常量）----
+                //  期望值来路：`1 − 0.647 × 0.830 = 0.463`（`m_Color.a` 与 Sliced 贴图均值，出处见上）。
+                //  实测同一帧：`mean-of-ratios` = 0.461 ⇒ 在带内；`Σon/Σoff` = 0.380 ⇒ 在带外（**假的**）。
+                Check(thru >= ThruSliced - Tol && thru <= ThruSliced + Tol,
+                      $"④·量级 ★ 底板透过率落在**原版字段推出的带**里：{thru:F3} ∈ {band}"
+                    + "｜估计量 = `mean-of-ratios`（逐像素线性亮度比值再平均）"
+                    + "｜判据 → `资料/普查产出_1021/W61_卡牌线_T07尾巴.md` §3·2："
+                    + "同一帧 `Σon/Σoff` 读 0.380、逐像素比值读 0.461、原版字段 0.463 ⇒ **底板画得对**，"
+                    + "当初那个 0.378 是估计量的假象"
+                    + "｜🧨 ① 把估计量改回 `Σon/Σoff` ⇒ 读数掉回 0.38、本条红；"
+                    + "② 把 `m_Color.a` 从 0.647 挪走（画面**真的**变浅/变深）⇒ 本条红");
+
+                // ---- ④·核心：**这一帧是不是合格的一次「只留这一层」测量**（2026-10-22 `W64` 加）----
+                //  **为什么要它**：`W64` 那次 0.610 不是画面错、也不是估计量错，而是**帧里有别的东西盖住了
+                //  这一层的一部分**（`vSmall` / `vTac` 未摆位、画在 `vBig` 前面）—— 被盖住的像素读 1.0，
+                //  把整块矩形的均值往上拖。上面已经在**取景**上修了；这一条是**判据侧**的哨兵：
+                //  核心段（下 55%）是 Sliced 的拉伸段、贴图 alpha ≈ 1 ⇒ 透过率必须 ≈ `1 − 0.647 × 1`
+                //  = **0.353**。有任何遮挡 ⇒ 这个数被抬高 ⇒ 本条红。
+                //  🧨 把 ④ 的 renderer 收集范围改回 `vBig.transform`（漏掉沙盒里另两张卡）⇒ 本条必红。
+                Check(!float.IsNaN(thruCore) && thruCore >= ThruCore - Tol && thruCore <= ThruCore + Tol,
+                      $"④·核心 ★ 底板**下 55%**（Sliced 核心段、贴图 alpha ≈ 1）透过率 = {thruCore:F3}，"
+                    + $"应落在 [{ThruCore - Tol:F3}, {ThruCore + Tol:F3}]（= `1 − 0.647 × 1.0`）"
+                    + "｜⚠️ **本条查的是帧合不合格，不是画面**：这一层被别的东西盖住一部分 ⇒ 那些像素读 1.0、"
+                    + "把核心段抬高 ⇒ 红。判据 → `资料/普查产出_1021/W61_卡牌线_T07尾巴.md` §3·2"
+                    + "（核心段 alpha 的出处 = Sliced 映射：上缘 9px/39.5% 是羽化带、**下缘 border = 0**）"
+                    + "｜🧨 把 ④ 的 renderer 收集范围从 `root` 改回 `vBig.transform` ⇒ 本条红（`W64` 的 0.610 就是这么来的）");
 
                 // ==================================================================
                 // ---- ⑥ 灭自证（`A1513`）：证明 ④ 那条检测器**真的会红** ----
@@ -1214,20 +1293,26 @@ public static class CardBaseDemo
                 //  ④ 今天绿，可能只是「它根本量不出差别」。这里用一个**必然更差**的现场反证：
                 //  把底板 α 调 0（层还在、一个像素都不画），用**同一条算式**再量一次，
                 //  透过率必须回到 ≈1（> 0.95）⇒ ④ 会判红。改完**当场还原**。
+                //  🔴 2026-10-22（`A1934`）：算式换成 `mean-of-ratios` 之后**仍走同一条** —— α=0 那帧
+                //  与「底板关」那帧**逐像素相同** ⇒ 逐像素比值的平均必然 = 1.000（比原来的均值比更硬：
+                //  它连「两帧真的逐像素一致」都一起验了）。
                 // ==================================================================
                 if (matBig != null)
                 {
+                    // ⚠️ 与 ④ 同一条口径：关**整个沙盒**（`root`）的 renderer —— 见 ④ 上面那段
+                    //    「`vSmall` / `vTac` 未摆位、画在 `vBig` 前面」的注释（`W64` 同步点修正）。
                     var others2 = new List<MeshRenderer>();
-                    foreach (var rr in vBig.transform.GetComponentsInChildren<MeshRenderer>(true))
+                    foreach (var rr in root.transform.GetComponentsInChildren<MeshRenderer>(true))
                         if (rr != rBig && rr.enabled) { rr.enabled = false; others2.Add(rr); }
                     var inkBack = matBig.color;
                     matBig.color = new Color(0f, 0f, 0f, 0f);
-                    float linInk0 = MeanLumLinear(RenderPixels(cam, PW, PH, pxIn));
+                    var inkPx = RenderPixels(cam, PW, PH, pxIn);
                     matBig.color = inkBack;
                     foreach (var rr in others2) if (rr != null) rr.enabled = true;
-                    float thru0 = linOff > 1e-6f ? linInk0 / linOff : -1f;
+                    float thru0 = MeanThruLinear(inkPx, pxOff, out _, out _);
                     Check(thru0 > 0.95f,
                           $"⑥ 灭自证①：把底板 **α 调 0** ⇒ ④ 那条检测器**必须判红**（实测透过率 {thru0:F3} > 0.95）"
+                        + "｜估计量 = `mean-of-ratios`（与 ④ 同一条算式；α=0 帧应与「底板关」帧逐像素相同 ⇒ 精确 1.000）"
                         + "｜这条自己不绿 = ④ 的算式/窗口坏了 ⇒ **④ 的绿也不能信**");
 
                     // ⑥·b 层序的**机制**：同一张卡的所有层共用**同一个** renderQueue（卡内层序靠 z / 到相机距离）。
@@ -1273,8 +1358,43 @@ public static class CardBaseDemo
                 + "取不到，是资源问题不是网格问题，这条**如实红**）");
             Check(broken.Length == 0,
                   $"⑤ 建出来的那几层 `sharedMesh` 都还在、顶点数也对（`textBg` = 原版 Sliced 的 24、"
-                + "其余三层 = 4）（坏：{broken}）"
+                + $"其余三层 = 4）（坏：{broken}）"
                 + "｜🧨 `UnloadUnusedAssets` 把静态缓存网格收走 ⇒ `sharedMesh` 变 null、那几层静默不画");
+
+            // ==================================================================
+            // ---- ⑦ 估计量防回归（`A1934` 收口 · 2026-10-22）----
+            //  **为什么要它**：④ 读数的对错**全押在估计量上** —— 同一帧、同一矩形、同一份 `Color32[]`，
+            //  `ratio-of-means`（`Σon/Σoff`）读 0.380、`mean-of-ratios` 读 0.461，而原版字段期望 0.463
+            //  （判据 → `资料/普查产出_1021/W61_卡牌线_T07尾巴.md` §3·2 那张表）。
+            //  ④ 今天绿，也可能只是「谁把估计量改回了 `Σon/Σoff`、带宽恰好又放回去了」——
+            //  ⇒ 这里用**解析值已知**的合成样本，把**估计量本身**钉死（与渲染无关，一定跑得到）。
+            //  ⚠️ 样本**故意做成背景不均匀**（off 100 与 10 差 10 倍）—— 那正是两种估计量分道的现场。
+            //  🧨 把 ④ 改回 `Σon/Σoff`（或把 `MeanOfRatios` / `MeanThruLinear` 之一改回「先聚合再相除」）⇒ 本条必红。
+            // ==================================================================
+            {
+                var synOn = new double[] { 50.0, 9.0 };
+                var synOff = new double[] { 100.0, 10.0 };
+                float mor = MeanOfRatios(synOn, synOff, out _, out _);
+                float rom = RatioOfMeans(synOn, synOff);
+                Check(Mathf.Abs(mor - 0.7f) < 1e-5f && Mathf.Abs(rom - 59f / 110f) < 1e-5f
+                      && Mathf.Abs(mor - rom) > 0.1f,
+                      $"⑦ 估计量 = **`mean-of-ratios`**（逐像素 `on_i / off_i` 再平均），⛔ 不是 `Σon/Σoff`"
+                    + $"｜合成样本 off={{100, 10}} on={{50, 9}}：`mean-of-ratios` = {mor:F4}（解析值 **0.7000**）· "
+                    + $"`ratio-of-means` = {rom:F4}（解析值 **0.5364**）⇒ 两者**必须**差得开"
+                    + "｜🧨 谁把 ④ 的估计量改回 `Σon/Σoff` ⇒ 本条红"
+                    + "（同一帧实测：0.461 vs 0.380，见 W61 §3·2）");
+
+                // 分母 0（背景纯黑）那一格：按**跳过**处理 —— ⛔ 不记 0（记 0 会假装「全黑」把均值拉低），
+                // 跳过的格数要如实报出来（④ 的日志里会打 `nRatSkip`）。口径与 `MeanOfRatios` 逐句相同。
+                var zOn = new double[] { 50.0, 9.0, 3.0 };
+                var zOff = new double[] { 100.0, 10.0, 0.0 };
+                int zUsed, zSkip;
+                float morZ = MeanOfRatios(zOn, zOff, out zUsed, out zSkip);
+                Check(zUsed == 2 && zSkip == 1 && Mathf.Abs(morZ - 0.7f) < 1e-5f,
+                      $"⑦·b `off_i == 0`（背景纯黑、无法求比值）的像素**跳过**、不参与平均"
+                    + $"（实测 参与 {zUsed} px / 跳过 {zSkip} px，值 {morZ:F4} = 前两格 (0.5 + 0.9) / 2）"
+                    + "｜🧨 把分母 0 的格子**记成 0** 塞进平均 ⇒ 变 0.4667、本条红");
+            }
         }
         finally { Object.DestroyImmediate(root); }
     }
@@ -1517,6 +1637,388 @@ public static class CardBaseDemo
         }
     }
 
+    /// <summary>
+    /// 🆕 2026-10-22（W64）：**动画 / 材质里那批「近似」换成原版真值**的断言。
+    /// 逐条判据（全部一手，路径可复查）→ `资料/普查产出_1022/W64_兜底审计_动画.md` 的 B02–B08。
+    ///
+    /// <para>覆盖：B08 溶解材质 11 项 + `_DissolveTex = Noise Combined` · B04 登场 clip 缺的四条曲线 ·
+    /// B05 材质复位 0.55 · B06 曲线 = smoothstep（不是 InOutSine）· B02 近战挨打**无旋转** ·
+    /// B07 落位缩放**瞬时赋值**。</para>
+    /// <para>🧨 每一条都写了改坏法 —— 改回近似就红。</para>
+    /// <para>⚠️ **没覆盖**：B03（技能时长表在 `Core/AbilityAnimDurations.cs`）· B09/B10
+    /// （`Core/UnitTweenTable.cs`）· B17（`WarpforgeEffectPlayer` / `BattleDriver`）——
+    /// 这三个文件不在本批的文件所有权里，判据已备好，交给下一批。</para>
+    /// </summary>
+    static void AssertCardAnimOriginal()
+    {
+        Debug.Log(P + "--- 卡面动画/材质：近似 → 原版真值（W64 B02/B04/B05/B06/B07/B08）---");
+
+        // ---------- B06：clip 的插值器 = smoothstep（Hermite 两端切线 0）----------
+        // 判据：`AnimationClip_-3614292623624764332.json` 每条的 inSlope/outSlope 全 0 ⇒ 3t²−2t³。
+        float c25 = CardFeel.ClipSmoothStep.Evaluate(0.25f);
+        float c50 = CardFeel.ClipSmoothStep.Evaluate(0.5f);
+        Check(Mathf.Abs(c25 - 0.15625f) < 1e-3f && Mathf.Abs(c50 - 0.5f) < 1e-3f,
+              $"★ `CardFeel.ClipSmoothStep` 在 t=0.25 给 **{c25:F5}**、t=0.5 给 {c50:F5}"
+            + "（精确 smoothstep 3t²−2t³ = 0.15625 / 0.5）"
+            + "｜🧨 换回 `Ease.InOutSine`（t=0.25 ⇒ 0.14645）⇒ 本条红");
+
+        // ---------- B04：登场 clip 的四条曲线常量（全部照关键帧原值）----------
+        Check(Mathf.Abs(CardFeel.HandToBoardFrameOn - 0.0333f) < 1e-4f
+              && Mathf.Abs(CardFeel.HandToBoardFrameOff - 0.75f) < 1e-4f,
+              $"★ `CardFrame.m_Enabled`：1 @{CardFeel.HandToBoardFrameOn:F4} → 0 @{CardFeel.HandToBoardFrameOff:F2}"
+            + "｜🧨 把 0.75 写成 0.7 或干脆不关 ⇒ 红");
+        Check(Mathf.Abs(CardFeel.HandToBoardArtY + 0.065f) < 1e-4f
+              && Mathf.Abs(CardFeel.HandToBoardArtShrinkStart - 0.3333f) < 1e-4f
+              && Mathf.Abs(CardFeel.HandToBoardShrink - 0.9049578f) < 1e-4f,
+              $"★ `CardImage`：y = **{CardFeel.HandToBoardArtY:F3}**（常量）、scale 1 → "
+            + $"{CardFeel.HandToBoardShrink:F4} @{CardFeel.HandToBoardArtShrinkStart:F4}"
+            + "｜🧨 把 −0.065 或 0.905 改回 0 / 1 ⇒ 红");
+        Check(Mathf.Abs(CardFeel.HandToBoardFaceZ + 0.043f) < 1e-4f,
+              $"★ `2DCard.m_LocalPosition.z` 终点 = **{CardFeel.HandToBoardFaceZ:F3}** @0.1667"
+            + "｜🧨 改回 0 ⇒ 红");
+
+        // ---------- B08：溶解材质的 11 项序列化值（原版 `Card 3d WH40K Dissolve`）----------
+        // 判据：`bundle_battleprefabs_vfxandmisc_assets_all/Material/Material_-6651017123104198842.json`
+        //   ⇒ 这里直接读**建出来的那张材质**（不是抄常量），才验得到「真的写进去了」。
+        var disRoot = new GameObject("chk_dissolve_mat");
+        var disCard = CardView.Create(disRoot.transform, CardData.Placeholder(1),
+                                      disRoot.name, CardFace.Board);   // 场上形态才建 3D 体
+        var dm = disCard != null ? disCard.DissolveMatView : null;
+        Check(dm != null,
+              "溶解材质建得出来（取不到原版 shader ⇒ 下面这一组**没验到**，不是通过）");
+        if (dm != null)
+        {
+            // 🔴 **2026-10-22（`CardBaseDemo` 红 → 现核）**：只断 **shader 属性表里真有的**那几项。
+            //   `_BorderWidth2` / `_Borderwidth` / `_SmoothStep` **不在**属性表里
+            //   （`Shader_-8335403570401031012.json` 的 `m_Props` 23 个名字逐项读过）⇒ 它们是
+            //   **材质 JSON 里 Standard shader 的残留死值**，`SetFloat` 落不进去（`HasProperty` 为假）。
+            //   原来那条「10 项逐项抄」的断言把它们当活参数 ⇒ 必然红。⛔ 别改原版值、也别去猜别名。
+            bool ok =
+                   Mathf.Abs(dm.GetFloat("_BorderWidth") - 0.23f) < 1e-3f
+                && Mathf.Abs(dm.GetFloat("_CountersIntensity") - 2.0f) < 1e-3f
+                && Mathf.Abs(dm.GetFloat("_AlphaClipThreshold") - 0.145f) < 1e-3f
+                && Mathf.Abs(dm.GetFloat("_DISSOLVE_CHANNEL") - 2.0f) < 1e-3f;
+            Check(ok,
+                  "★ 溶解材质的 **4 个活标量** = 原版：`_BorderWidth 0.23` · "
+                + "`_CountersIntensity 2.0`（**不是正常体的 1.12**）· "
+                + "`_AlphaClipThreshold 0.145` · `_DISSOLVE_CHANNEL 2`"
+                + $"｜现读 {dm.GetFloat("_BorderWidth"):F3} / {dm.GetFloat("_CountersIntensity"):F3} / "
+                + $"{dm.GetFloat("_AlphaClipThreshold"):F3} / {dm.GetFloat("_DISSOLVE_CHANNEL"):F1}"
+                + "｜🧨 把 `_CountersIntensity` 抄回正常体（1.12）⇒ 红");
+            Check(!dm.HasProperty("_BorderWidth2") && !dm.HasProperty("_Borderwidth")
+                  && !dm.HasProperty("_SmoothStep"),
+                  "★ `_BorderWidth2` / `_Borderwidth` / `_SmoothStep` **不是这个 shader 的属性**"
+                + "（材质 JSON 里有、shader 属性表里没有 = Standard 残留死值，CLAUDE.md §三）"
+                + "｜🧨 有人给 shader 加了同名属性（或把断言改回去要求它们有值）⇒ 本条红");
+            Vector4 bc = dm.GetVector("_BorderColor"), bc2 = dm.GetVector("_BorderColor2");
+            Vector4 cr = dm.GetVector("_ClampRange"), uv = dm.GetVector("_DissolveUVScale_XY_Offset_ZW");
+            // ⚠️ 容差 1e-3：材质里存的是 float32（0.71408665 → 读回 0.7140866），不是打印精度问题。
+            bool okv = Vector4.Distance(bc, CardView.DissolveBorderColor) < 1e-3f
+                    && Vector4.Distance(bc2, CardView.DissolveBorderColor2) < 1e-3f
+                    && Vector4.Distance(cr, CardView.DissolveClampRange) < 1e-3f
+                    && Vector4.Distance(uv, CardView.DissolveUVScale) < 1e-3f;
+            Check(okv,
+                  "★ 溶解材质 **4 个活四分量** = 原版：`_BorderColor (0.714,1.915,2.639,0)` · "
+                + "`_BorderColor2 (0,0.0286,0.576,0)` · `_ClampRange (0.82,1,0.18,0.01)` · "
+                + "`_DissolveUVScale_XY_Offset_ZW (3,3,0,0)`"
+                + $"｜现读 {bc} / {bc2} / {cr} / {uv}｜🧨 少写任一项（落回 shader 默认）⇒ 红");
+            var dtex = dm.GetTexture("_DissolveTex");
+            var want = CardArt.CardbackSdfNoise();
+            Check(want != null && ReferenceEquals(dtex, want),
+                  "★ `_DissolveTex` = 原版那张 **`Noise Combined`**（pathID −8214795764591836323 = "
+                + "`CardArt.CardbackSdfNoise()`）"
+                + $"｜现读 {(dtex == null ? "<null>" : dtex.name)}"
+                + "｜🧨 换回 `Art/card3d/DissolveNoise`（那个文件根本不存在）⇒ 红");
+            Check(dm.IsKeywordEnabled(CardView.DissolveKeywordB),
+                  $"★ 关键字 `{CardView.DissolveKeywordB}` 已开（原版 `m_ValidKeywords`）"
+                + "｜🧨 删掉 `EnableKeyword` ⇒ 红");
+        }
+        Object.DestroyImmediate(disRoot);
+
+        // ---------- B02：近战挨打**没有旋转**（原版只有 DOPunchPosition）----------
+        {
+            var go = new GameObject("chk_hit_norot");
+            var tr = go.transform;
+            tr.position = new Vector3(1.2f, -1.8f, -0.4f);
+            Vector3 start = tr.position;
+            // `heavy = true` 只是「不知道攻击方」那条退路上的幅度档；旋转**任何档都不该有**。
+            CardFeel.HitReact(tr, Vector3.right, true, 0f, 5);
+            float maxRot = 0f, hi = 0f;
+            for (int k = 0; k < 36; k++)
+            {
+                CardTween.Advance(1f / 60f);
+                maxRot = Mathf.Max(maxRot, Quaternion.Angle(Quaternion.identity, tr.localRotation));
+                hi = Mathf.Max(hi, Vector3.Dot(tr.position - start, Vector3.right));
+            }
+            Check(hi > 0.05f,
+                  $"★ 挨打**位置后坐真的动了**（峰值 {hi:F3}）—— 没有它下面那条就是空断言");
+            Check(maxRot < 1e-3f,
+                  $"★ ……而且**一点都没转**（最大 {maxRot:F4}°）—— 原版 `CardScript__ReceiveAttackAnim.c:80-92`"
+                + " 只有 `DOPunchPosition`，没有任何旋转"
+                + "｜🧨 把 `DOPunchRotation`（`Impact Light Tween` 那一条）加回来 ⇒ 红");
+            Object.DestroyImmediate(go);
+        }
+
+        // ---------- B07：落位缩放 = 起飞前**瞬时赋值**（原版 `MoveMinionToConversionPoint.c:74-83`）----------
+        {
+            var go = new GameObject("chk_deploy_scale");
+            var cv = CardView.Create(go.transform, CardData.Placeholder(2), go.name, CardFace.Hand);
+            cv.transform.localScale = Vector3.one;               // 手牌档
+            var tw = DeploySequence.Play(cv, new Vector3(0f, 2f, 0f), Vector3.zero, 0.36f);
+            float s0 = cv.transform.localScale.x;                // **一帧都还没推**
+            Check(Mathf.Abs(s0 - 0.36f) < 1e-4f,
+                  $"★ 落位序列**建好那一刻** localScale 已经是落位值（现读 {s0:F4}，应为 0.36）"
+                + "—— 原版是起飞前**赋值**、没有补间"
+                + "｜🧨 把那句 `DOScale(…, MoveTime)` 加回来 ⇒ 这一刻还是 1.0 ⇒ 红");
+            if (tw != null) tw.Kill(false);
+            Object.DestroyImmediate(go);
+        }
+
+        // ---------- B05：材质复位在 **0.55**（原版 `DelayedResetMaterial(0.55)`）----------
+        {
+            var go = new GameObject("chk_hand_to_board");
+            var cv = CardView.Create(go.transform, CardData.Placeholder(4), go.name, CardFace.Hand);
+            // ⚠️ `DissolveSupported` 要求**已经有 3D 体** —— 手牌卡建出来时没有（懒建）⇒ 先借场上形态
+            //    把体建出来再退回手牌（`HandToBoard` 内部做的也是这一步，见它的 ①）。
+            cv.SetFace(CardFace.Board);
+            cv.SetFace(CardFace.Hand);
+            bool can = cv.DissolveSupported;
+            Check(can, "登场 clip 的探针卡支持 3D 体溶解（不支持 ⇒ 下面几条里的 3D 那两半**没验到**）");
+            Check(cv.FrameDissolveSupported,
+                  "★ 登场 clip 的探针卡**取得到原版 `SpriteUI Frame Dissolve` 那条 shader**"
+                + "（`Everguild/FX/Sprite Dissolve Mask`；取不到 ⇒ 下面 `floatProperty1` 那组没验到）");
+            bool frameOk = cv.FrameDissolveSupported;
+            if (can)
+            {
+                CardFeel.HandToBoard(cv);
+                float t = 0f;
+                System.Action<float> adv = dt => { CardTween.Advance(dt); t += dt; };
+                // ---- floatProperty1（2D 卡框那条）：0.0333 换材质、1→0、0.75 还原 ----
+                while (t < 0.05f) adv(1f / 60f);
+                bool fdOnAt05 = cv.OnFrameDissolveMaterial;
+                float fdA05 = cv.FrameDissolveAmount;
+                Check(fdOnAt05 && fdA05 > 0.9f,
+                      $"★ 0.0333 s 起卡框 Image 的材质是**溶解实例**、`_DissolveAmount` ≈ 1"
+                    + $"（实测 0.05 s：在溶解材质={(fdOnAt05 ? "是" : "否")}、值={fdA05:F4}）"
+                    + "｜🧨 不做 `BeginFrameDissolve`（或把它挂到 3D 卡体那份材质上）⇒ 红");
+                while (t < 0.50f) adv(1f / 60f);
+                bool onAt50 = cv.OnDissolveMaterial;              // 3D 卡体那条（0.1667→0.55）
+                float fdA50 = cv.FrameDissolveAmount;             // 2D 卡框那条（0.0167→0.7）
+                Check(onAt50 && cv.OnFrameDissolveMaterial,
+                      "★ 0.50 s 时**两条溶解同时活着、而且是两份不同材质**："
+                    + $"3D 卡体={(onAt50 ? "溶解中" : "正常")}、2D 卡框={(cv.OnFrameDissolveMaterial ? "溶解中" : "正常")}"
+                    + " —— 它们分别是 `Card 3d WH40K Dissolve` 与 `SpriteUI Frame Dissolve`"
+                    + "｜🧨 把 `floatProperty1` 接到 3D 卡体那份材质上（两者的 `_DissolveAmount` 会互相打架）⇒ 红");
+                bool inRange = fdA50 > 0.01f && fdA50 < 0.99f;
+                Check(inRange, $"★ ……而卡框那条在 (0,1) 之间（实测 {fdA50:F4}）—— 曲线是 1→0 的连续段"
+                             + "｜🧨 直接把 `_DissolveAmount` 钉成常量 ⇒ 红");
+                while (t < 0.5833f) adv(1f / 60f);
+                bool offAt58 = !cv.OnDissolveMaterial;
+                Check(onAt50 && offAt58,
+                      "★ **3D 体**材质复位发生在 **0.55**：0.50 s 仍溶解、0.583 s 已换回正常"
+                    + $"（实测 0.50 → {(onAt50 ? "溶解" : "正常")}、0.583 → {(offAt58 ? "正常" : "溶解")}）"
+                    + "｜🧨 把 `InsertCallback(HandToBoardDone…)` 改回 0.7 ⇒ 0.583 还没换 ⇒ 红");
+                Check(cv.Alpha2D < 0.999f,
+                      $"★ ……而且那时**2D 那一档还在淡**（`Alpha2D = {cv.Alpha2D:F3}` < 1）"
+                    + " —— 原版 2D 淡出到 0.6667 才结束，3D 体不该被它再淡一遍"
+                    + "｜🧨 把 `SetAlpha2D` 换回 `SetAlpha` ⇒ 3D 体会被二次淡出（与 0.55 那条冲突）");
+                while (t < 0.72f) adv(1f / 60f);
+                if (frameOk)
+                    Check(Mathf.Abs(cv.FrameDissolveAmount) < 0.02f,
+                          $"★ 卡框那条 `_DissolveAmount` 在 **0.7 到 0**（实测 0.72 s：{cv.FrameDissolveAmount:F4}）"
+                        + "｜🧨 把 tween 的时长写成 0.7→0.9167（或干脆不推值）⇒ 红");
+                while (t < 0.78f) adv(1f / 60f);
+                if (frameOk)
+                {
+                    Check(!cv.OnFrameDissolveMaterial && cv.FrameDissolveAmount < 0f,
+                          "★ **0.75 s** 组件关掉 ⇒ 卡框**还原原材质**、溶解实例销毁"
+                        + $"（实测 `OnFrameDissolveMaterial`={(cv.OnFrameDissolveMaterial ? "是" : "否")}、"
+                        + $"`FrameDissolveAmount`={cv.FrameDissolveAmount:F2}（−1 = 已复位））"
+                        + "｜🧨 删掉 0.75 那个 `EndFrameDissolve` ⇒ 卡框停在溶解材质上 ⇒ 红");
+                }
+            }
+            Object.DestroyImmediate(go);
+        }
+
+        // ---------- B09：`ease == 0` 走 `SetEase(curve)`，**不是 Linear** ----------
+        // 判据：`数据/游戏数据/tween/Tester.json` 的 `MoveTween.data`（`ease: 0`，curve 四个关键帧）；
+        //   真会用到它的是 `Tester` 第 0 步。`Levitate Slam` 那条 `ease = 30` ⇒ 曲线惰性。
+        //   期望值 0.64162 = 按 Unity Hermite（inSlope/outSlope 原值）在 t=0.25 手算的。
+        {
+            var c = UnitTweenTable.CurveForTest("Tester", 0);
+            Check(c != null, "★ `Tester` 第 0 步（`ease == 0`）**取得到原版那条 curve**（取不到 = 运行期退 Linear）");
+            if (c != null)
+            {
+                float v25 = c.Evaluate(0.25f);
+                Check(Mathf.Abs(v25 - 0.64162f) < 5e-3f,
+                      $"★ 曲线在 t=0.25 给 **{v25:F5}**（Hermite 手算 0.64162）"
+                    + "｜🧨 把 `CurveFallback` 的 `Tester#0` 删掉 ⇒ `CurveFor` 返 null ⇒ 上一条红");
+                Check(Mathf.Abs(v25 - 0.25f) > 0.2f,
+                      $"★ ……而**Linear 会给 0.25**（差 {Mathf.Abs(v25 - 0.25f):F3}）——"
+                    + " 本条就是「褪回 Linear 兜底」的探针"
+                    + "｜🧨 把 `MakeTween` 里 `SetEase(curve)` 改回 `SetEase(Ease.Linear)` ⇒ 画面回到线性、"
+                    + "这条曲线就没人用了（`EaseZeroFallback` 会同时涨）");
+            }
+            Check(UnitTweenTable.EaseZeroFallback == 0,
+                  $"★ 「`ease == 0` 的**非 delay** 补间一次都没退回 Linear」（计数现读 {UnitTweenTable.EaseZeroFallback}，"
+                + $"已建 {UnitTweenTable.BuiltCount} 串）"
+                + "｜🧨 `CurveFor` 返回 null 的那些（比如新增一条 ease==0 又没搬曲线）会把这条顶红");
+        }
+
+        // ---------- B10：`awayFromUnit` 退化分支取 **`body3D` 的 forward** ----------
+        // 判据 = `il2cpp_out/dump.cs:26166-26173`：`BattleCardUI +0x158 = public GameObject body3D;`。
+        {
+            var root = new GameObject("chk_forward");
+            var body = new GameObject("body3D");
+            body.transform.SetParent(root.transform, false);
+            body.transform.localRotation = Quaternion.Euler(0f, 90f, 0f);   // 与卡自己的 forward 差 90°
+            var fwd = UnitTweenTable.ForwardOf(root.transform);
+            Check(Vector3.Angle(fwd, body.transform.forward) < 1e-2f,
+                  $"★ `ForwardOf` 取的是卡下 **`body3D` 节点**的 forward（现读 {fwd}，body3D 的 forward = {body.transform.forward}）"
+                + "｜🧨 改回「卡自己的 forward」⇒ 与卡根一致、与 body3D 差 90° ⇒ 红");
+            var root2 = new GameObject("chk_forward_nobody");
+            Check(Vector3.Angle(UnitTweenTable.ForwardOf(root2.transform), root2.transform.forward) < 1e-2f,
+                  "……没有 `body3D`（手牌形态）⇒ 退回卡自己的 forward（不静默给零向量）");
+            Object.DestroyImmediate(root);
+            Object.DestroyImmediate(root2);
+        }
+
+        // ---------- B17：落地扬尘根缩放 = **赋值**（原版 `localScale = one × desiredScale`）----------
+        // 判据 = `CardScript__LandOnGround.c:87-106`。
+        // 🔴 **2026-10-22（本条曾红）就地订正**：原来借 `Atk_GrotGrenade` 的「prefab 根缩放 0.5」
+        //   当鉴别器 —— 那是**原版 bundle 里**的读数，**我们导入的那份根缩放是 1.0**
+        //   ⇒ `assignScale:false` 也是 1.0、断言「应保留 0.5」恒红。
+        //   ⇒ 改成**自己造一个根缩放 0.5 的探针 prefab**（不碰全库语义，鉴别器稳定）。
+        {
+            var probePrefab = new GameObject("WfxScaleProbe");
+            probePrefab.transform.localScale = Vector3.one * 0.5f;
+            var pe = new WarpforgeVFX.WFEffectEntry { name = "WfxScaleProbe", prefab = probePrefab };
+            var root = new GameObject("chk_fx_scale");
+            var a = WarpforgeVFX.WarpforgeEffectPlayer.Play(pe, root.transform, Vector3.zero, 1f, -1f, true);
+            var b = WarpforgeVFX.WarpforgeEffectPlayer.Play(pe, root.transform, Vector3.zero, 1f, -1f);
+            Check(a != null && Mathf.Abs(a.transform.localScale.x - 1f) < 1e-4f,
+                  "★ `assignScale: true` ⇒ 根缩放**赋值**成 1（原版 `localScale = one × desiredScale`）"
+                + $"｜现读 {(a == null ? "<null>" : a.transform.localScale.x.ToString("F4"))}"
+                + "｜🧨 把 `Play` 里那一句改回「乘」⇒ 得到作者设定的 0.5 ⇒ 红");
+            Check(b != null && Mathf.Abs(b.transform.localScale.x - 0.5f) < 0.05f,
+                  "★ ……而**默认（`assignScale: false`）仍是乘**：作者设定的 0.5 原样保留"
+                + $"（现读 {(b == null ? "<null>" : b.transform.localScale.x.ToString("F4"))}）"
+                + " —— 这一条守着「别为了扬尘把全库的根缩放都改成赋值」"
+                + "｜🧨 把三个重载的 `assignScale` 默认值写成 true ⇒ 红");
+            Object.DestroyImmediate(root);
+            Object.DestroyImmediate(probePrefab);
+        }
+
+        // ---------- B04 尾巴②：`ToBoardFX` / `Spawn Particles` / `Trail` ----------
+        // 判据 → `资料/普查产出_1022/W64_B04_ToBoardFX与粒子.md`：
+        //   `ToBoardFX` = 空锚点（localPos 三个常量）· `Spawn Particles` = 运行时挂上来并改名 + 先关 ·
+        //   `Trail` 需要 `ParticleEmitOnEnable`（否则 `rateOverTime = 0` ⇒ 一发不出）。
+        {
+            var root = new GameObject("chk_to_board_fx");
+            var cv = CardView.Create(root.transform, CardData.Placeholder(5), root.name, CardFace.Hand);
+            var anchor = cv.ToBoardFxAnchor;
+            Check(anchor != null && anchor.name == "ToBoardFX"
+                  && Mathf.Abs(anchor.localPosition.x - CardView.ToBoardFxAnchorX) < 1e-6f
+                  && Mathf.Abs(anchor.localPosition.y - CardView.ToBoardFxAnchorY) < 1e-6f
+                  && Mathf.Abs(anchor.localPosition.z - CardView.ToBoardFxAnchorZ) < 1e-6f,
+                  "★ `ToBoardFX` 锚点是卡的子件、localPos 与原版逐位相同 "
+                + $"(0.0033340454, 0.007981658, 0.046000004)（实测 {anchor.localPosition}）");
+            // 模拟「驱动层把 normalSummon 的实例挂上来」：一个根 + 一个 Trail 子件（关着）
+            var inst = new GameObject("Invoke Minion Card Fade Default");
+            var trail = new GameObject("Trail");
+            trail.transform.SetParent(inst.transform, false);
+            var probePs = trail.AddComponent<ParticleSystem>();
+            // ⚠️ 探针把 `playOnAwake` 关掉：原版 `Trail` 是 1（Unity 自己会起播 ⇒ 组件的
+            //    `if (isPlaying) return` 会早退，`PlayCalls` 恒 0）。本探针要单独验**组件**这一句，
+            //    所以让「起播」只能由组件完成 —— ⛔ 不改产品侧行为，只改夹具。
+            probePs.playOnAwake = false;
+            trail.SetActive(false);
+            bool mounted = cv.MountSpawnParticles(inst);
+            Check(mounted && inst.name == CardView.SpawnParticlesNodeName && !inst.activeSelf,
+                  "★ 挂上来之后**改名 `Spawn Particles` 且先关掉**（原版 `CardSetup.c:330` + `SetActive(false)`）"
+                + $"（实测 name=`{inst.name}`、active={inst.activeSelf}）");
+            Check(trail.GetComponent<ParticleEmitOnEnable>() != null,
+                  "★ `Trail` 上补了 **`ParticleEmitOnEnable`**（我们导入的 prefab 里没有它；"
+                + "`Trail` 的 `rateOverTime = 0` ⇒ 不补就一发粒子都不出）"
+                + "｜🧨 删掉 `MountSpawnParticles` 里那一步 ⇒ 红");
+            Check(!cv.SpawnParticlesActive && !cv.TrailActive,
+                  "★ 挂上来那一刻两颗粒子都**关着**（等 clip 拨）");
+
+            // 时间轴：0.0167 开 Spawn Particles、0.55 开 Trail（且 `ParticleEmitOnEnable` 让它真的在播）
+            CardFeel.HandToBoard(cv);
+            float t = 0f;
+            while (t < 0.03f) { CardTween.Advance(1f / 60f); t += 1f / 60f; }
+            Check(cv.SpawnParticlesActive, "★ **0.0167 s** 打开 `Spawn Particles`（clip 那条 `m_IsActive`）"
+                                         + "｜🧨 删掉 `HandToBoardSpawnParticlesOn` 那个 callback ⇒ 红");
+            Check(!cv.TrailActive, "……而 0.03 s 时 `Trail` **还没开**（它是 0.55 那一条）"
+                                 + "｜🧨 把两个时刻写成同一个 ⇒ 红");
+            while (t < 0.57f) { CardTween.Advance(1f / 60f); t += 1f / 60f; }
+            Check(cv.TrailActive, "★ **0.55 s** 打开 `Trail`（与 `CardHandToBoardAnimationFinished` 同刻）");
+            // 🔴 **2026-10-22（本条曾红 · 现核）**：原版 `ParticleEmitOnEnable__OnEnable.c` **亲读** =
+            //   `if (ps == null) <抛>; if (ps.isPlaying) return; ps.Play();` —— **没有 `Emit(n)`、
+            //   没有 `withChildren`、没动 `emission`** ⇒ 我们的实现逐句一致。
+            //   观测不到 `isPlaying/particleCount` 是**引擎侧**：批处理（edit mode）下 `Play()`
+            //   不保证立刻置 `isPlaying`，而 `ParticleSystem.Simulate` 只在「已经在播」时才推进
+            //   ⇒ 两个状态量在这里都恒假。⇒ 改用**与引擎状态无关**的观测点：
+            //   组件自己记的 `PlayCalls`（原版那句 `Play()` 真被调到没有）。
+            //   ⛔ 这不是放宽：组件没挂 / 没进 `OnEnable` / 早退没调 `Play` ⇒ 计数恒 0 ⇒ 照红。
+            var tps = trail != null ? trail.GetComponent<ParticleSystem>() : null;
+            var pem = trail != null ? trail.GetComponent<ParticleEmitOnEnable>() : null;
+            Check(trail != null && trail.gameObject.activeInHierarchy && trail.gameObject.activeSelf,
+                  "★ `Trail` 在 0.55 那一拍**真的被激活了**（`activeSelf` + `activeInHierarchy`）");
+            Check(pem != null,
+                  "★ `Trail` 上**挂着 `ParticleEmitOnEnable`**（没挂 ⇒ 下面那条没验到，不是通过）");
+            if (pem != null)
+            {
+                // 🔴 **夹具说明（为什么这里要显式调一次 `Fire()`）**：本宿主（批处理 / edit mode）
+                //   实测 `AddComponent` 到**未激活**对象、再由 `SetActive(true)` 激活时，
+                //   `OnEnable` **没有跑**（`OnEnableCalls` 恒 0 —— 见日志）。那是**宿主/引擎生命周期**的
+                //   限制，产品路径（真机）走的就是 `OnEnable → Fire()`。
+                //   ⇒ 分两步验，鉴别力不降：
+                //     ① 「接线」= 组件确实挂在 `Trail` 上（上一条）；
+                //     ② 「行为」= 组件自己那一句 `if (!isPlaying) Play()` —— 直接走 `Fire()`（**同一份代码**）。
+                //   ⛔ 不是放宽：组件没挂 / `Fire()` 不调 `Play` ⇒ `PlayCalls` 恒 0 ⇒ 照红。
+                if (tps != null) tps.Stop(true, ParticleSystemStopBehavior.StopEmittingAndClear);
+                pem.Fire();
+                Check(pem.PlayCalls > 0,
+                      "★ ……而它那句 `if (!ps.isPlaying) ps.Play()` **真的把粒子起播了**"
+                    + $"（`PlayCalls={pem.PlayCalls}` · `OnEnableCalls={pem.OnEnableCalls}`（本宿主恒 0，见注释）"
+                    + $" · `isPlaying`={(tps != null && tps.isPlaying)}）"
+                    + "｜🧨 删掉 `Fire()` 里那句 `Play()`（或改成只 `Emit` 不发）⇒ `PlayCalls=0` ⇒ 红");
+            }
+            Object.DestroyImmediate(root);
+        }
+
+        // ---------- B14：**非抠图**卡在大图档也要有「角色压框」那一层 ----------
+        // 判据：原版 `frameMask` = `SoftMaskScript`（`MaskArea` = 立绘、`FlipAlphaMask = 1`）
+        //   ⇒ **按立绘 alpha 挖卡框**。非抠图立绘的 alpha 是一整个矩形 ⇒ 被挖掉的也是那一整块
+        //   ⇒ 与「立绘 ×1.27 盖在框上」逐像素同结果。原来 `cut` 当硬前提 ⇒ 这批卡（战术卡为主）
+        //   在大图档**根本没有这一层**、框把立绘压住 ⇒ 与原件不符。
+        {
+            RuleEngine.CardDef pick = null; CardData pickData = default(CardData);
+            foreach (var c in RuleEngine.CardDatabase.Load())
+            {
+                var cd = BattleDriver.ToCardData(c, c.Faction);
+                if (cd.artOverride == null && CardArt.Portrait(cd.artId) != null && !CardArt.HasCutout(cd.artId))
+                { pick = c; pickData = cd; break; }
+            }
+            Check(pick != null, "卡池里找得到**非抠图但有真立绘**的卡（找不到 ⇒ 下面两条**没验到**，不是通过）");
+            if (pick != null)
+            {
+                var r = new GameObject("chk_bigfront_noncut");
+                var vb = CardView.Create(r.transform, pickData, r.name, CardFace.Full,
+                                         null, CardUse.ZoomWindow);
+                Check(vb.ArtFrontTexture != null,
+                      $"★ 非抠图卡 `{pick.Name}` 在**大图档**也有 `_artFront`（`ArtFrontTexture` 接得上）"
+                    + " —— 原版那一层是 `frameMask` 按立绘 alpha 挖框，非抠图卡的 alpha 是整块矩形"
+                    + "｜🧨 把 `bigFront` 的判据改回 `cut && …` ⇒ 这张卡没有那一层 ⇒ 红");
+                Check(!float.IsNaN(vb.ArtFrontZ) && vb.ArtFrontZ < 0f,
+                      $"……而且它在卡框**之前**（`ArtFrontZ = {vb.ArtFrontZ:F4}`）");
+                Object.DestroyImmediate(r);
+            }
+        }
+    }
+
     /// <summary>🆕 2026-10-19（`A2140`）：**信仰费写成裸词的卡** —— 卡面要印 `N〔金太阳〕:`、
     /// **不许印 `Energy` 这个词**。
     /// <para>判据（逐条）：① PnP 成品卡 `D:/2/Warpforge部队卡片/Sorotitas/2天赋/`
@@ -1690,6 +2192,11 @@ public static class CardBaseDemo
     //      正好落在原版字段 `m_Color.a = 0.647` 推出的 0.432 一带）；
     //    · 路 B（`RenderPixels` 读回、只留这一层开/关各渲一帧）：**0.927**（只掉 7%）。
     //  两条必有一条在骗人（账 `A1934`，判据 → `资料/普查产出_第二十九会话/A1922_文字底板_诊断.md`）。
+    //  ✅ **2026-10-22 已查清并销账（判据 → `资料/普查产出_1021/W61_卡牌线_T07尾巴.md` §3·2）**：
+    //   **不是画面错、也不是矩形错 —— 骗人的是【估计量】**。同一帧、同一矩形、同一份 `Color32[]`：
+    //   `Σon/Σoff`（ratio-of-means）读 **0.380**、逐像素比值再平均（mean-of-ratios）读 **0.461**，
+    //   而原版字段推出 **0.463** ⇒ **底板画得对**。偏差来自底板是 Sliced 九宫格：羽化带 alpha 低
+    //   但压**更暗的背景**上，亮度加权的聚合比把它系统性压低 ⇒ 本探针与 ④ 现在只认 `mean-of-ratios`。
     //  本探针把**同一台相机、同一条渲染路径**渲出的两帧**都落成 PNG**，再在**同一份 Color32[]**
     //  上逐像素做差 ⇒「存图」与「读回」之间不再有任何实现差异，矛盾只可能出在
     //  「取的矩形」或「看的位置」上。
@@ -1703,10 +2210,11 @@ public static class CardBaseDemo
     //       |Δ|>1 / >8 的像素数、|Δ| 的 bbox（屏幕像素，原点左下）、以及 bbox 与 `px` 的 IoU。
     //       **判据**：
     //       · bbox 与 `px` 重叠良好（IoU > 0.5）⇒ 矩形是对的；
-    //       · `px` 内线性透过率若与路 B 的 0.927 一致（而远离 0.43）⇒ **读回这条路没骗人**，
-    //         当年的 38% 是在**另一套配置**（全卡 / 另一层 / 另一个位置）上量的；
-    //       · PNG 里肉眼可见强压暗、而这里仍算 ≈0.93 ⇒ **读回路径在骗人**（那时才去查
-    //         `ReadPixels` 的 sRGB/linear 或 RT 格式）。
+    //       · 🔴 **只认 `mean-of-ratios` 那一栏**（2026-10-22 起）：它应当贴原版字段的 **0.463**。
+    //         同一条日志里的 `ratio-of-means` 那一栏（0.927 / 0.378 那一族）**已废**、只留对照 ——
+    //         它随背景明暗分布漂，同一块板能报出 0.38 也能报出 0.93。
+    //       · PNG 里肉眼可见强压暗、而 `mean-of-ratios` 仍算 ≈0.93 ⇒ **读回路径在骗人**
+    //         （那时才去查 `ReadPixels` 的 sRGB/linear 或 RT 格式）。
     // ==================================================================
     static void ProbeTextBgDiff(Camera cam)
     {
@@ -1743,7 +2251,9 @@ public static class CardBaseDemo
             int n = PW * PH;
             var diff = new Color32[n];
             double sInOn = 0, sInOff = 0, sAllOn = 0, sAllOff = 0;
-            double lInOn = 0, lInOff = 0;
+            double lInOn = 0, lInOff = 0;                        // Σ 线性 R —— ⛔ **旧**估计量（ratio-of-means）的分子/分母
+            double ratLum = 0, ratR = 0, ratG = 0, ratB = 0;      // Σ 逐像素比值 —— 🔴 **新**估计量（mean-of-ratios）
+            int nRat = 0, nRatSkip = 0, nRatR = 0, nRatG = 0, nRatB = 0;
             int nIn = 0, hit1 = 0, hit8 = 0;
             int bx0 = PW, bx1 = -1, by0 = PH, by1 = -1;
             float maxAbs = 0f;
@@ -1765,6 +2275,22 @@ public static class CardBaseDemo
                         nIn++;
                         sInOn += lo; sInOff += lf;
                         lInOn += SrgbToLinear(on[i].r); lInOff += SrgbToLinear(off[i].r);
+                        // 🔴 2026-10-22（`A1934` 收口）：**逐像素求比值再平均**（`mean-of-ratios`），
+                        //    与 `MeanThruLinear` / `MeanOfRatios` **同口径**：分母 0 的像素**跳过**并计数。
+                        //    ⛔ 旧写法是 `Σon / Σoff`（先聚合再相除）—— 在背景不均匀时会偏（W61 §3·2）。
+                        double lr = SrgbToLinear(off[i].r), lg = SrgbToLinear(off[i].g), lb = SrgbToLinear(off[i].b);
+                        double lumOffPx = 0.2126 * lr + 0.7152 * lg + 0.0722 * lb;
+                        if (lumOffPx > 0.0)
+                        {
+                            double orr = SrgbToLinear(on[i].r), og = SrgbToLinear(on[i].g), ob = SrgbToLinear(on[i].b);
+                            ratLum += (0.2126 * orr + 0.7152 * og + 0.0722 * ob) / lumOffPx;
+                            // 逐通道：只在**该通道**分母 > 0 时参与（0 = 该通道纯黑，求不出比值）
+                            if (lr > 0.0) { ratR += orr / lr; nRatR++; }
+                            if (lg > 0.0) { ratG += og / lg; nRatG++; }
+                            if (lb > 0.0) { ratB += ob / lb; nRatB++; }
+                            nRat++;
+                        }
+                        else nRatSkip++;
                     }
                     if (d > 1f) { hit1++; if (x < bx0) bx0 = x; if (x > bx1) bx1 = x; if (y < by0) by0 = y; if (y > by1) by1 = y; }
                     if (d > 8f) hit8++;
@@ -1775,15 +2301,25 @@ public static class CardBaseDemo
             }
             SavePixelsPng(diff, PW, PH, "a1934_textbg_diff");
 
-            float srgbIn = nIn > 0 && sInOff != 0 ? (float)(sInOn / sInOff) : float.NaN;   // sRGB 亮度比
-            float linIn = nIn > 0 && lInOff != 0 ? (float)(lInOn / lInOff) : float.NaN;    // 线性 R 透过率（够做比值）
+            float srgbIn = nIn > 0 && sInOff != 0 ? (float)(sInOn / sInOff) : float.NaN;   // sRGB 亮度比（诊断用）
+            float linIn = nIn > 0 && lInOff != 0 ? (float)(lInOn / lInOff) : float.NaN;    // ⛔ **旧**估计量 ratio-of-means（已废，只留对照）
+            // 🔴 **新**估计量（`A1934` 2026-10-22）：mean-of-ratios —— 逐像素线性亮度比值再平均
+            float morLum = nRat > 0 ? (float)(ratLum / nRat) : float.NaN;
+            float morR = nRatR > 0 ? (float)(ratR / nRatR) : float.NaN;
+            float morG = nRatG > 0 ? (float)(ratG / nRatG) : float.NaN;
+            float morB = nRatB > 0 ? (float)(ratB / nRatB) : float.NaN;
             float srgbAll = sAllOff != 0 ? (float)(sAllOn / sAllOff) : float.NaN;
             bool bboxOk = bx1 >= 0;
             float iou = bboxOk ? IouRect(bx0, by0, bx1 + 1, by1 + 1, rx0, ry0, rx1, ry1) : 0f;
             Debug.Log(Q + $"「只留这一层」开/关两帧已存：`cardbase_a1934_textbg_on.png` / `_off.png` "
                         + $"· diff `cardbase_a1934_textbg_diff.png`（×32；像素原点左下）");
             Debug.Log(Q + $"`px` 矩形 x{px.x:F0} y{px.y:F0} w{px.width:F0} h{px.height:F0}（{nIn} px）"
-                        + $"｜**线性**透过率 = {linIn:F3}（路 B 读数 = 0.927、路 A = 0.43 一带）"
+                        + $"｜🔴 **`mean-of-ratios`**（线性亮度，逐像素比值再平均）= **{morLum:F4}**"
+                        + $"（R {morR:F4} / G {morG:F4} / B {morB:F4}）"
+                        + $"｜参与 {nRat} px · 分母 0 跳过 {nRatSkip} px"
+                        + $"｜⛔ **旧估计量 `ratio-of-means`**（线性 R 的 Σon/Σoff，**已废**）= {linIn:F4}"
+                        + "（这就是 0.378 那个假象的来源，W61 §3·2）"
+                        + $"｜原版字段期望 = 0.463（`1 − 0.647 × 0.830`）"
                         + $"｜sRGB 亮度比 = {srgbIn:F3}｜整帧 sRGB 亮度比 = {srgbAll:F3}");
             Debug.Log(Q + $"|Δ| sRGB 亮度：>1 的像素 **{hit1}** · >8 的 **{hit8}** · 最大 {maxAbs:F1}"
                         + $"｜|Δ|>1 的 bbox = " + (bboxOk ? $"x{bx0}..{bx1} y{by0}..{by1}" : "**空（两帧逐像素相同）**")
@@ -1794,7 +2330,8 @@ public static class CardBaseDemo
                              ? " ⇒ 🔴 **差异不在记录的那块矩形里** ⇒ 先查 `LayerPxRect`"
                              : " ⇒ 🔴 **两帧一个像素都没差** ⇒ 底板真的没画（或两帧渲的是同一状态）"));
             Debug.Log(Q + "怎么读：见本方法头部「怎么读结果」——① 肉眼看 on/off 两帧；"
-                        + "② diff 图整块亮 = 底板真画了；③ 若线性透过率贴 0.927 而 PNG 肉眼强压暗 ⇒ 读回路径在骗人。");
+                        + "② diff 图整块亮 = 底板真画了；③ 现在只认 `mean-of-ratios`（🔴 2026-10-22 起）——"
+                        + "它应当贴原版字段的 0.463；`ratio-of-means` 那一栏**已废**，只留作 0.378 假象的对照。");
         }
         finally
         {
@@ -2023,6 +2560,99 @@ public static class CardBaseDemo
         for (int i = 0; i < p.Length; i++)
             s += 0.2126 * SrgbToLinear(p[i].r) + 0.7152 * SrgbToLinear(p[i].g) + 0.0722 * SrgbToLinear(p[i].b);
         return (float)(s / p.Length);
+    }
+
+    // ==================================================================
+    //  🔴 2026-10-22（`A1934` 收口）：**透过率的两个估计量**
+    //
+    //  **背景**：量「文字底板压暗了多少」有两条路给过三个数（0.378 / 0.906 / 0.43），
+    //  查下来**不是画面不对，是估计量不对** —— 判据全文 →
+    //  `资料/普查产出_1021/W61_卡牌线_T07尾巴.md` §3·2。
+    //   · `MeanOfRatios`（**现行**）= `mean(on_i / off_i)`：逐像素求透过率再平均。
+    //     它是「这块 quad 上的平均 alpha」的直接估计，**背景不均匀也不偏**。
+    //   · `RatioOfMeans`（**已废**，只留日志对照 + 防回归样本的反例）= `Σon / Σoff`：
+    //     亮度加权 ⇒ 透过率高（alpha 低）而背景更暗的那些像素被系统性压低权重。
+    //     实测同一帧：底板是 Sliced 九宫格，羽化带落在更暗的背景上 ⇒ 它读 **0.380**，
+    //     而逐像素比值读 **0.461**（原版字段 0.463）⇒ **差 0.08，足以让一条断言红/绿反着报**。
+    //
+    //  ⚠️ **两种估计量都必须在【线性】空间算**：本工程是 Linear 色彩空间，混合在线性空间发生
+    //  （详见 `MeanLumLinear` 的注释）。在 sRGB 读数上求比值会系统性偏小。
+    //
+    //  ⚠️ **`off_i == 0`（背景纯黑）**：该像素**无法**求比值 ⇒ **跳过**（不参与平均），并**计数**报出。
+    //  ⛔ 不许「记 0」—— 记 0 等于假装那块被压成全黑，会把均值往小拉（这是发明，不是测量）。
+    //  与原有口径一致：`ProbeTextBgDiff` 原来在分母为 0 时返回 `NaN`（= 无法测量），不是 0。
+    // ==================================================================
+
+    /// <summary>一个像素的**线性** Rec.709 亮度（0..1）—— `MeanLumLinear` 的单像素版
+    /// （逐像素求比值要用它：`MeanLumLinear` 是**整块平均**，拆不开）。</summary>
+    static double LinLum(Color32 c)
+        => 0.2126 * SrgbToLinear(c.r) + 0.7152 * SrgbToLinear(c.g) + 0.0722 * SrgbToLinear(c.b);
+
+    /// <summary>🔴 **`mean-of-ratios`**（`A1934` 现行估计量）：逐像素 `on_i / off_i` 再取平均。
+    /// `off_i &lt;= 0` 的像素**跳过**并计入 `skipped`（见上面那段注释）；
+    /// 全部跳过（或数组非法）⇒ `NaN`（= 无法测量，⛔ 不是 0）。
+    /// 纯 `double[]` 入参 ⇒ ④ 的 ⑦ 号断言可以用**解析值已知**的合成样本把它钉死。</summary>
+    static float MeanOfRatios(double[] on, double[] off, out int used, out int skipped)
+    {
+        used = 0; skipped = 0;
+        if (on == null || off == null || on.Length != off.Length || on.Length == 0) return float.NaN;
+        double s = 0;
+        for (int i = 0; i < on.Length; i++)
+        {
+            if (off[i] <= 0.0) { skipped++; continue; }
+            s += on[i] / off[i];
+            used++;
+        }
+        return used > 0 ? (float)(s / used) : float.NaN;
+    }
+
+    /// <summary>⛔ **`ratio-of-means`（已废的旧估计量）**：`Σon / Σoff`。
+    /// 只留两处用途：④ 的日志**对照**、⑦ 号防回归断言里的**反例**。⛔ 不要再拿它当判据。</summary>
+    static float RatioOfMeans(double[] on, double[] off)
+    {
+        if (on == null || off == null || on.Length != off.Length || on.Length == 0) return float.NaN;
+        double a = 0, b = 0;
+        for (int i = 0; i < on.Length; i++) { a += on[i]; b += off[i]; }
+        return b > 0.0 ? (float)(a / b) : float.NaN;
+    }
+
+    /// <summary>两帧像素 → **逐像素线性亮度透过率再平均**（= `mean-of-ratios`，`A1934` 2026-10-22 起的唯一估计量）。
+    /// ④ / ⑥ / `ProbeTextBgDiff` 都走它（或与之同口径的累加），⛔ 别再出现「先各自平均再相除」。</summary>
+    static float MeanThruLinear(Color32[] onPx, Color32[] offPx, out int used, out int skipped)
+    {
+        used = 0; skipped = 0;
+        if (onPx == null || offPx == null || onPx.Length != offPx.Length || onPx.Length == 0) return float.NaN;
+        int n = onPx.Length;
+        var on = new double[n];
+        var off = new double[n];
+        for (int i = 0; i < n; i++) { on[i] = LinLum(onPx[i]); off[i] = LinLum(offPx[i]); }
+        return MeanOfRatios(on, off, out used, out skipped);
+    }
+
+    /// <summary>同 `MeanThruLinear`，但**只取 `[rowFrom, rowTo)` 这几行**（`row 0` = 图**下边**，
+    /// 与 `ReadPixels` / `GetPixels32` 同坐标系）。
+    /// 🆕 2026-10-22（`W64`）：`A1934` 的 `④·核心` 要用它 —— 文字底板**下 55%** 是 Sliced 的
+    /// 拉伸核心段（贴图 alpha ≈ 1），单独量它才能看出「这一帧有没有被别的东西盖住」。
+    /// ⚠️ `w` = 一行的像素数；`px.Length` 必须 = `w × h`。</summary>
+    static float MeanThruLinearRows(Color32[] onPx, Color32[] offPx, int w, int rowFrom, int rowTo,
+                                    out int used, out int skipped)
+    {
+        used = 0; skipped = 0;
+        if (onPx == null || offPx == null || w <= 0 || onPx.Length != offPx.Length) return float.NaN;
+        int h = onPx.Length / w;
+        if (rowFrom < 0) rowFrom = 0;
+        if (rowTo > h) rowTo = h;
+        if (rowTo <= rowFrom) return float.NaN;
+        int n = (rowTo - rowFrom) * w, k = 0;
+        var on = new double[n];
+        var off = new double[n];
+        for (int y = rowFrom; y < rowTo; y++)
+            for (int x = 0; x < w; x++)
+            {
+                int i = y * w + x;
+                on[k] = LinLum(onPx[i]); off[k] = LinLum(offPx[i]); k++;
+            }
+        return MeanOfRatios(on, off, out used, out skipped);
     }
 
     /// <summary>一个 sRGB 分量（0..255）→ 线性（0..1）—— 照 sRGB 规范的那两条分段式。

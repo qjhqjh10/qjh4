@@ -65,11 +65,39 @@ def names_in(data):
     return [s for s in ss if s.startswith("_") or "Texture" in s or "Camera" in s]
 
 
+def grabpass_report(sh):
+    """🆕 2026-10-22（W64 · 兜底审计 **B14**）：逐 pass 打 `m_GrabPass`。
+
+    **为什么要有这个口**：B14 原来记着「原版是 Built-in GrabPass、每个物体画到那一刻抓一次」——
+    那条**是错的**（铁律 5）。本函数让人**一行命令**就能复核：原版那个抓屏 shader 的每个 pass
+    `m_GrabPass` 都是 `None`，真正灌 `_GrabPassTransparent` 的是原版自己的 URP Feature
+    `GrabScreenFeature`（方法体 `d:/2/tools/decomp_full/GrabScreenFeature*.c`：
+    GrabPass `renderPassEvent=500` 整帧一次 Blit + 紧跟一个 `RenderPass`（event **501**）重画抓屏层）。
+    ⇒ 判据不靠注释、靠这个输出。
+    """
+    pf = getattr(sh, "m_ParsedForm", None)
+    if pf is None:
+        print("    （没有 m_ParsedForm）")
+        return
+    shaders = getattr(pf, "m_SubShaders", None) or []
+    print(f"    SubShader {len(shaders)} 个：")
+    for si, sub in enumerate(shaders):
+        tags = getattr(sub, "m_Tags", None)
+        taglist = getattr(tags, "tags", None)
+        print(f"      [{si}] tags={taglist}")
+        for pi, ps in enumerate(getattr(sub, "m_Passes", None) or []):
+            g = getattr(ps, "m_GrabPass", None)
+            gname = getattr(g, "m_GrabPassName", None) if g is not None else None
+            print(f"        pass{pi} name={getattr(ps, 'm_Name', None)!r} "
+                  f"m_GrabPass={gname!r} {'🔴 有 GrabPass' if gname else '（无）'}")
+
+
 def main():
     needle = sys.argv[1] if len(sys.argv) > 1 else "Distortion"
     grep = None
     if "--grep" in sys.argv:
         grep = sys.argv[sys.argv.index("--grep") + 1]
+    want_passes = "--passes" in sys.argv
 
     found = 0
     for path in BUNDLES:
@@ -90,6 +118,8 @@ def main():
             found += 1
             data = blob_of(sh)
             print(f"\n=== {name}   （{os.path.basename(path)}）")
+            if want_passes:
+                grabpass_report(sh)
             print(f"    字节码 {len(data)} 字节；魔数 {data[:4]!r}")
             ns = names_in(data)
             print(f"    纹理/常量名（{len(ns)}）:")

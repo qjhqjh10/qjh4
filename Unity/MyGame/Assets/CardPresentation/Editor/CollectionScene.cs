@@ -1335,7 +1335,8 @@ public static class CollectionScene
                               "★ A1642：`Header` 的**高 = 85.00**（原版字面量 = 155.9 − 70.9）");
                     Check(hdr.GetSiblingIndex(), page0.childCount - 1,
                           "★ A1642：`Header` 是 `Select Deck Tab` 的**【最后一个】孩子**"
-                        + "（原版 `m_Children` 序 = `Decks Tab` → `Select Game Mode Deck Tab`（本窗不建）→ `Header`）"
+                        + "（原版 `m_Children` 序 = `Decks Tab` → `Select Game Mode Deck Tab` → `Header`；"
+                        + "🆕 2026-10-22（W64）中间那一项**已建**，见下面「选择游戏模式」那一节）"
                         + "｜🧨 删掉 `BuildDeckList` 末尾那句 `SetAsLastSibling()` ⇒ 它停在**第一个** ⇒ 本格红");
                 }
             }
@@ -1366,6 +1367,271 @@ public static class CollectionScene
                     Check(bad, 0, "★ A1644：底图每一块的渲染队列都 ∈ (2910, 3000)"
                                 + "（> 外壳 `Navigation Panel/Panel Shadow` 的 2910、< `CardView` 的 3000）");
                 }
+            }
+
+            // ============================================================ 🆕 **2026-10-22（W64 · 卡组双模式）**
+            //   「选择游戏模式」子页（原版 `Select Game Mode Deck Tab`）。
+            //   判据 = `资料/普查产出_1022/W64_卡组双模式_原版规格.md`（下文 §x = 那一份的节号）＋
+            //          `…/W64_卡组双模式_资产落点.md`（「落点 §x」）。
+            //   ⛔ 期望值一律**原版字面量**（prefab 字段 / 参考图 / 官方词条）—— 不读本窗常量（否则自证）。
+            //   ⚠️ 本段跑完把状态**还原**（滚动偏移、夹具里临时改过的 `GameMode`、`PendingNewDeck` / `PendingReturn`），
+            //      ⛔ 别把后面的断言带进「筛选着」的状态。
+            Section("Deck 页：「选择游戏模式」页（W64 · 505.93×802.67 两张卡 · 原版预制体）");
+            {
+                var page0m = win.PageRoot(0);
+                var decksTabNode = page0m != null ? page0m.Find("Decks Tab") : null;
+                var modePage = page0m != null ? page0m.Find("Select Game Mode Deck Tab") : null;
+                CheckTrue(modePage != null,
+                          "★ W64：`Select Game Mode Deck Tab` 是 `Select Deck Tab` 的直接孩子（原版第二子页，§1·2）");
+                Check(modePage != null ? modePage.GetSiblingIndex() : -1, 1,
+                      "★ …且排在**第 2 位**（原版 `m_Children` 序 = `Decks Tab` → 模式页 → `Header`，§1·2）"
+                    + "｜🧨 删掉 `BuildDeckList` 里那句 `SetSiblingIndex(1)` ⇒ 它停在 `Header` 之后 ⇒ 本格红");
+
+                // ---- ① 进 Deck 页**先出模式页**（§5·1：事件数 ≥2 那一支；离线等价物）----
+                CheckTrue(win.DeckModePageShown,
+                          "★ ① 进 Deck 页**先显示模式页**（原版 `ChooseTabToOpen`：`IOwnDeckPlayEvent` ≥2 ⇒ 先出这一页）"
+                        + "｜🧨 把 `BuildDeckList` 末尾那句 `SetDeckModeChrome(_deckModeFilter < 0)` 换成 `(false)` ⇒ 本格红");
+                CheckTrue(decksTabNode != null && !decksTabNode.gameObject.activeSelf,
+                          "★ …而卡组列表 `Decks Tab` **整颗关着**（§5·3 `ToggleSelectGameModeDeck` 第一句 `CloseTab`）");
+
+                // ---- ② 标题：rect / 字号 / 颜色（§2·2）----
+                var ttlNode = modePage != null ? modePage.Find("Title Header") : null;
+                CheckAt(ttlNode, 426.07f, 1824.73f, 155.94f, 243.50f,
+                        "`Title Header` 摆在原版矩形（426.07,155.94 → 1824.73,243.50，§1·3）");
+                // 🔴 **2026-10-22（W64 修）：`Label` 的节点是裸 `Transform`（不是 `RectTransform`）**
+                //   ⇒ `as RectTransform` 恒 null（首轮实测读到 **-1.00**）。框尺寸只能从 **TMP 自己的
+                //   `rectTransform`** 读（`SetWrapWidth` / `SetAutoFitBox` 写的就是它）。
+                var ttlTmp = ttlNode != null ? ttlNode.GetComponentInChildren<TMPro.TMP_Text>(true) : null;
+                CheckNear(ttlTmp != null ? ttlTmp.rectTransform.sizeDelta.x * 108f : -1f, 1398.65f, 0.5f,
+                          "★ 标题宽 = **1398.65**（原版字面量，§1·3；⚠️ 不是按锚点算的，是手填值 §八·12）");
+                CheckNear(ttlTmp != null ? ttlTmp.rectTransform.sizeDelta.y * 108f : -1f, 87.56f, 0.5f,
+                          "★ 标题高 = **87.56**");
+                var ttlLb = ttlNode != null ? ttlNode.GetComponent<Label>() : null;
+                CheckTrue(ttlLb != null, "（前提）标题是一颗 `Label`（TMP 后端）");
+                if (ttlLb != null)
+                {
+                    CheckText(ttlLb.Text, Loc.T("MenuDeck/SelectDeckGameMode"),
+                              "★ 文案 = 官方词条 **`MenuDeck/SelectDeckGameMode`**（中「选择游戏模式」/ 英 `SELECT GAME MODE`）"
+                            + "｜🧨 照 prefab 的占位串 `SELECT GAME MODE DECK` 写死 ⇒ 本格红");
+                    CheckNear(ttlLb.color.r * 255f, 254f, 1f, "★ 标题 R = **254**（`#FE9900` = preset `Pragati Regular Orange`，§2·2）");
+                    CheckNear(ttlLb.color.g * 255f, 153f, 1f, "★ 标题 G = **153**");
+                    CheckNear(ttlLb.color.b * 255f, 0f, 1f,
+                              "★ 标题 B = **0**（🧨 照 TMP 自己的白色 `m_fontColor` 写 ⇒ 三条颜色全红）");
+                }
+                // 四格 = `m_enableAutoSizing 1` / `min 18` / `max 72` / `base 36`（§4·1）＋ 折行 `1`
+                CheckA1212(modePage, "Title Header", "Select Game Mode Deck Tab ▸ Title Header",
+                           18f, 72f, 36f, 1, 1398.65f, 87.56f);
+
+                // ---- ③ Scroll View / 两张卡（§1·3 / §3·4）----
+                var sv = modePage != null ? modePage.Find("Scroll View") : null;
+                CheckAt(sv, 330.79f, 1920.01f, 260.90f, 1063.20f,
+                        "`Scroll View` 摆在原版矩形（1589.21 × 802.30，§1·3）");
+                var vpN = sv != null ? sv.Find("Viewport") : null;
+                CheckTrue(vpN != null && vpN.GetComponent<ViewportClip>() != null,
+                          "★ `Viewport` 挂的是 **`RectMask2D` 的等价物**（`ViewportClip`）—— 原版这一颗**没有 Image**、"
+                        + "不是 Mask+sprite（§1·5 / §4）");
+                var contentN = vpN != null ? vpN.Find("Content") : null;
+                Check(contentN != null ? contentN.childCount : -1, 2,
+                      "★ ③ `Content` 底下**两张**模式卡（原版张数 = liveops 事件数，§3·1 ⇒ 离线等价固定 2）");
+                if (contentN != null && contentN.childCount >= 2)
+                {
+                    var c0 = contentN.GetChild(0);
+                    var c1 = contentN.GetChild(1);
+                    CheckText(c0.name, "Game mode deck selector", "卡节点名照原版 `Game mode deck selector`");
+                    var r0 = c0 as RectTransform;
+                    var r1 = c1 as RectTransform;
+                    CheckNear(r0 != null ? r0.sizeDelta.x * 108f : -1f, 505.9268f, 0.4f,
+                              "★ 卡宽 = **505.9268**（`Game mode deck selector` prefab 原值，§3·2）");
+                    CheckNear(r0 != null ? r0.sizeDelta.y * 108f : -1f, 802.6741f, 0.4f, "★ 卡高 = **802.6741**");
+                    CheckNear(r1 != null ? r1.sizeDelta.x * 108f : -1f, 505.9268f, 0.4f, "右卡宽 = 505.9268");
+                    CheckNear(r1 != null ? r1.sizeDelta.y * 108f : -1f, 802.6741f, 0.4f, "右卡高 = 802.6741");
+                    float cx0 = MenuCheck.DesignPx(c0).x, cx1 = MenuCheck.DesignPx(c1).x;
+                    CheckNear(cx0, 594.4732f + 505.9268f * 0.5f, 0.6f,
+                              "左卡中心 x = **847.44**（左沿 594.47 + 卡宽/2，§3·4）");
+                    CheckNear(cx1, 1150.40f + 505.9268f * 0.5f, 0.6f,
+                              "右卡中心 x = **1403.36**（右卡左沿 1150.40，§3·4）");
+                    CheckNear(cx1 - cx0, 505.9268f + 50f, 0.5f,
+                              "★ HLG `m_Spacing` = **50**（两卡中心距 = 卡宽 505.93 + 50；§3·4）"
+                            + "｜🧨 改成 0 ⇒ 两卡贴在一起、本格红");
+                    CheckNear((cx0 - 505.9268f * 0.5f + cx1 + 505.9268f * 0.5f) * 0.5f, 1125.40f, 0.6f,
+                              "★ 两卡**整体居中**在视口里（内容宽 1061.86 = 2×505.93+50；§3·4）"
+                            + "｜🧨 从 Content 左边起排 ⇒ 中心变 941.15 ⇒ 本格红");
+                    CheckNear(MenuCheck.DesignPx(c0).y, 662.05f, 0.6f,
+                              "卡中心 y = **662.05**（Content 802 高的中腰：261.05 + 401，§1·3）");
+
+                    // ---- ④ `Border`：九宫 13 / ppuMul 5 / fillCenter 0 / 灰 0.33962（§3·3）----
+                    var bd = c0.Find("Border");
+                    CheckTrue(bd != null, "左卡上有 `Border`");
+                    if (bd != null)
+                    {
+                        CheckArt(bd, "40k_square_border", "★ `Border` 的图 = **`40k_square_border`**（§3·3）");
+                        var bq = bd.GetComponentsInChildren<ImageQuad>(true);
+                        Check(bq.Length, 8,
+                              "★ `m_FillCenter = 0` ⇒ 只画 **8 块**（中间那块不画）"
+                            + "｜🧨 改 `fillCenter: true` ⇒ 9 块（那张图中心不透明 = 整卡变灰板）");
+                        float minW = 1e9f, minH = 1e9f;
+                        foreach (var q in bq)
+                        {
+                            if (q == null) continue;
+                            minW = Mathf.Min(minW, q.WorldW * 108f);
+                            minH = Mathf.Min(minH, q.WorldH * 108f);
+                        }
+                        CheckNear(minW, 2.6f, 0.3f,
+                                  "★ 角块宽 = **2.6px** = `m_Border` 13 ÷ `m_PixelsPerUnitMultiplier` **5**（§3·3）"
+                                + "｜🧨 把 ppuMul 当**乘**（13×5 = 65）⇒ 一圈 65px 灰边，本格红（主菜单 2026-10-11 踩过）");
+                        CheckNear(minH, 2.6f, 0.3f, "★ 角块高 = 2.6px");
+                        CheckTint(bd, new Color(0.33962262f, 0.33962262f, 0.33962262f, 1f),
+                                  "★ 边框色 = **0.33962262** 灰（§3·3）");
+                    }
+
+                    // ---- 卡图 / 暗带 / 卡名（落点 §1·1 · §4·2 · §3·3）----
+                    var art0 = c0.Find("Background Image");
+                    CheckArt(art0, "40k_main_GameMode_Skirmish",
+                             "★ 左卡卡图 = **`40k_main_GameMode_Skirmish`**（小冲突；落点 §1·1 与参考图逐像素一致）");
+                    CheckArt(c1.Find("Background Image"), "Container_Image_Ranked",
+                             "★ 右卡卡图 = **`Container_Image_Ranked`**（经典；⚠️ 我们文件名是下划线）");
+                    var aq = art0 != null ? art0.GetComponent<ImageQuad>() : null;
+                    if (aq != null)
+                    {
+                        CheckNear(aq.WorldW * 108f, 505.9268f, 1f,
+                                  "卡图**铺满卡面**（803 方图被卡根的 `RectMask2D` 裁到卡宽，§3·2）");
+                        CheckNear(aq.UvRect.width, 505.9268f / 803.084f, 0.01f,
+                                  "★ 卡图 UV 窗宽 = 卡宽 ÷ 803.08 方图 = **0.630**（= 取中间那条竖带；我们没有"
+                                + "像素级掩码 ⇒ 用 UV 裁等价复现，落点 §六）");
+                        CheckNear(aq.UvRect.x, (1f - aq.UvRect.width) * 0.5f, 0.01f,
+                                  "…且**居中**（u 两边各切 ≈0.185）｜🧨 拉满 (0,0,1,1) 会把 1024² 压扁成 505×802 ⇒ 本格红");
+                    }
+                    var bandN = c0.Find("TextDarkening");
+                    CheckTrue(bandN != null, "左卡上有 `TextDarkening`");
+                    if (bandN != null)
+                    {
+                        CheckTint(bandN, new Color(0f, 0f, 0f, 0.6117647f),
+                                  "★ 暗带 = 纯黑 **a = 0.6117647**（§3·3）");
+                        var bandQ = bandN.GetComponentInChildren<ImageQuad>(true);
+                        CheckNear(bandQ != null ? bandQ.WorldH * 108f : -1f, 105.8657f, 0.5f,
+                                  "★ 暗带高 = **105.8657**（贴底，§3·2）");
+                    }
+                    // `Event Title`：fs 58.8 · auto 18–72 · base 36 · 折行 1 · 框高 55.708（§3·3 / 落点 §4·2）
+                    CheckA1212(c0, "Event Title", "Game mode deck selector ▸ TextDarkening ▸ Event Title",
+                               18f, 72f, 36f, 1, -1f, 55.708f);
+                    var etN = FindDeep(c0, "Event Title");
+                    var etLb = etN != null ? etN.GetComponent<Label>() : null;
+                    CheckTrue(etLb != null, "（前提）卡名是一颗 `Label`");
+                    if (etLb != null)
+                    {
+                        CheckText(etLb.Text, Loc.T("MainMenu/GameMode/Skirmish"),
+                                  "★ 左卡卡名 = 官方词条 `MainMenu/GameMode/Skirmish`（小冲突）");
+                        CheckNear(etLb.color.r * 255f, 255f, 1f,
+                                  "★ 卡名是**白字**（preset `Pragati Thick Outline White`，落点 §4·2）");
+                    }
+                    var et1Lb = c1 != null && FindDeep(c1, "Event Title") != null
+                                    ? FindDeep(c1, "Event Title").GetComponent<Label>() : null;
+                    CheckText(et1Lb != null ? et1Lb.Text : null, Loc.T("MainMenu/GameMode/Classic"),
+                              "★ 右卡卡名 = `MainMenu/GameMode/Classic`（经典）");
+
+                    // ---- ⑦ 显隐矩阵（§5·3）：模式页时 **Import 在**、Create/Unlock/Filter Toggle/Filters **不在** ----
+                    var hdrM = page0m != null ? page0m.Find("Header") : null;
+                    var ctrlM = hdrM != null ? hdrM.Find("Control Buttons") : null;
+                    var createM = ctrlM != null ? ctrlM.Find("Create") : null;
+                    var importM = ctrlM != null ? ctrlM.Find("Import") : null;
+                    var unlockM = ctrlM != null ? ctrlM.Find("Unlock") : null;
+                    var fltTglM = hdrM != null ? hdrM.Find("Filter Toggle") : null;
+                    var fltGrpM = hdrM != null ? hdrM.Find("Filters") : null;
+                    CheckTrue(importM != null && importM.gameObject.activeSelf,
+                              "★ ⑦ 模式页上 **`Import` 显示着**（§5·3；参考图右上角「导入卡组」就是它）"
+                            + "｜🧨 把它一起关掉 ⇒ 本格红（§七 订正过的那一格）");
+                    CheckTrue(createM != null && !createM.gameObject.activeSelf, "★ ⑦ …而 `Create` 藏着（§5·3）");
+                    CheckTrue(unlockM != null && !unlockM.gameObject.activeSelf, "★ ⑦ …`Unlock` 藏着");
+                    CheckTrue(fltTglM != null && !fltTglM.gameObject.activeSelf, "★ ⑦ …页头 `Filter Toggle` 藏着");
+                    CheckTrue(fltGrpM != null && !fltGrpM.gameObject.activeSelf, "★ ⑦ …`Filters` 筛选格藏着");
+                    CheckTrue(hdrM != null && hdrM.gameObject.activeSelf, "…`Header` 本身**不动**（仍显示）");
+                    CheckTrue(hdrM != null && hdrM.Find("Separator Line") != null
+                              && hdrM.Find("Separator Line").gameObject.activeSelf,
+                              "…`Separator Line` 也**不动**（§5·3 最后一行）");
+                }
+
+                // ---- ⑤ 点模式卡 ⇒ 列表按 `GameMode` 筛（§5·5）；用夹具里**临时改过的一副**做正例 ----
+                float savedOffM = win.DeckScroll != null ? win.DeckScroll.Offset : 0f;
+                if (win.DeckScroll != null) win.DeckScroll.SetOffset(0f);
+                int nDecks = CollectionData.DeckCount();
+                int flipIdx = nDecks - 1;
+                int flipSaved = flipIdx >= 0 ? CollectionData.Raw(flipIdx).GameMode : 0;
+                string flipName = flipIdx >= 0 ? CollectionData.DeckAt(flipIdx).Name : null;
+                var keepNewM = CollectionData.PendingNewDeck;
+                var keepRetM = CollectionData.PendingReturn;
+                try
+                {
+                    if (flipIdx >= 0) CollectionData.Raw(flipIdx).GameMode = (int)GameMode.Skirmish;
+
+                    win.ChooseDeckMode((int)GameMode.Skirmish);
+                    Check(win.DeckModeFilter, (int)GameMode.Skirmish,
+                          "★ ⑤ 点「小冲突」⇒ `_deckModeFilter` = **13**（原版 `PlayModes.Skirmish`）");
+                    CheckTrue(!win.DeckModePageShown, "★ …模式页关掉");
+                    CheckTrue(decksTabNode != null && decksTabNode.gameObject.activeSelf, "★ …卡组列表打开");
+                    Check(win.DeckCellCount, 1,
+                          "★ ⑤ 列表**只剩这一模式**（夹具里只有 1 套 `GameMode=13`）"
+                        + "｜🧨 把 `FilteredDeckIndices` 里那句模式筛删掉 ⇒ 变成 " + nDecks + " ⇒ 本格红");
+                    CheckText(win.DeckCellCount == 1 ? TextOf(FindChild(win.DeckCells[0], "Deck Name")) : null,
+                              flipName, "★ …剩下的正是那一套（`" + flipName + "`）");
+
+                    win.ChooseDeckMode((int)GameMode.Classic);
+                    Check(win.DeckModeFilter, (int)GameMode.Classic,
+                          "★ ⑤ 点「经典」⇒ `_deckModeFilter` = **0**（原版 `PlayModes.Classic`）");
+                    Check(win.DeckCellCount, nDecks - 1,
+                          "★ …列表只剩经典的 " + (nDecks - 1) + " 套（那一套小冲突被筛掉）");
+
+                    // 列表态下页头件要**回来**（§5·3 第二列）
+                    var ctrlM2 = page0m != null ? page0m.Find("Header") : null;
+                    var createM2 = ctrlM2 != null ? ctrlM2.Find("Control Buttons") : null;
+                    CheckTrue(createM2 != null && createM2.Find("Create") != null
+                              && createM2.Find("Create").gameObject.activeSelf, "★ 回列表 ⇒ `Create` 回来了");
+                    CheckTrue(ctrlM2 != null && ctrlM2.Find("Filter Toggle") != null
+                              && ctrlM2.Find("Filter Toggle").gameObject.activeSelf,
+                              "★ …`Filter Toggle` 回来了");
+                    CheckTrue(ctrlM2 != null && ctrlM2.Find("Import") == null
+                              && createM2 != null && createM2.Find("Import") != null
+                              && createM2.Find("Import").gameObject.activeSelf,
+                              "★ …`Import` 一直显示（两态都在）");
+
+                    // ---- ⑥ 新建卡组**继承当前模式**（§5·5·6：`deck.gameMode = (PlayModes)currentEvent`）----
+                    win.ChooseDeckMode((int)GameMode.Skirmish);
+                    int beforeM = CollectionData.DeckCount();
+                    win.CreateDeck();
+                    var pend = CollectionData.PendingNewDeck;
+                    CheckTrue(pend != null, "（前提）`CreateDeck` 交出了一份 `PendingNewDeck`");
+                    Check(pend != null ? pend.GameMode : -99, (int)GameMode.Skirmish,
+                          "★ ⑥ 新建的卡组**继承当前模式 13**（原版 `SelectDecksTab.CreateDeck` 打 `currentEvent` 的模式）"
+                        + "｜🧨 退回 `CollectionData.CreateDeck()` 不传模式 ⇒ 恒 0 ⇒ 本格红");
+                    Check(CollectionData.DeckCount(), beforeM,
+                          "★ …且**不入库**（原版 `GetEmptyDeck` → 直接开编辑窗；入库在编辑器 `Done` 那一刻，§5·5·6）");
+
+                    // 反例：还没选模式（`-1`）时退回经典 —— 与上面成对（灭「恒 13」那半边）
+                    win.ClearDeckModeFilter();
+                    Check(win.DeckModeFilter, -1, "★ ⑥ 反例：`ClearDeckModeFilter` ⇒ 不筛（`-1` = 原版 `currentEvent == null`）");
+                    win.CreateDeck();
+                    Check(CollectionData.PendingNewDeck != null ? CollectionData.PendingNewDeck.GameMode : -99,
+                          (int)GameMode.Classic,
+                          "★ ⑥ 反例：没选模式时新建 ⇒ 经典 0（`-1` 的兜底；🧨 把兜底写成 13 ⇒ 本格红）");
+                }
+                finally
+                {
+                    if (flipIdx >= 0) CollectionData.Raw(flipIdx).GameMode = flipSaved;   // 还原夹具
+                    win.ClearDeckModeFilter();                                            // 还原成「不筛」
+                    CollectionData.PendingNewDeck = keepNewM;
+                    CollectionData.PendingReturn = keepRetM;
+                }
+                Check(win.DeckCellCount, nDecks,
+                      "★ 还原：清掉模式筛后列表回到全部 " + nDecks + " 套（本段后面的断言不吃这段的状态）");
+                // ⚠️ 滚动偏移**最后**还原（先还原它会把「视口外的格不建」那一条带回来 ⇒ 上面那格的读数就跟着偏移走）
+                if (win.DeckScroll != null) win.DeckScroll.SetOffset(savedOffM);
+
+                // 🔴 **本段之后的所有「卡组列表」断言都要求 `Decks Tab` 是开着的** ——
+                //   原版里列表**只能在点过一张模式卡之后**出现（`ChooseTabToOpen` 的两条分支，§5·1）
+                //   ⇒ 收尾显式保证一次（幂等：第 ⑤ 步已经打开过，这里不会改任何可见状态）。
+                win.ChooseDeckMode((int)GameMode.Classic);
+                win.ClearDeckModeFilter();
+                CheckTrue(!win.DeckModePageShown && decksTabNode != null && decksTabNode.gameObject.activeSelf,
+                          "（收尾）列表态：模式页关、`Decks Tab` 开 —— 下面那些列表断言的前提");
             }
 
             // ---------------- Deck 页：视口 / 格 / 6 列 ----------------
@@ -4756,7 +5022,11 @@ public static class CollectionScene
             // ---------------- Cards 页：卡池网格（正本 §四；A3 实测）----------------
             Section("Cards 页：卡池网格（6 列 · 262.5×384 · **贴左但整体居中**）");
             win.tabButtons.Click(1);                       // 切到 Cards
-            var cardsHolder = FindChild(tabsRoot, "Scroll View");
+            // 🔴 **2026-10-22（W64 修）：从 `Tabs` 递归找 `"Scroll View"` 会**先命中新模式页那一颗**
+            //   （`Tabs ▸ Select Deck Tab ▸ Select Game Mode Deck Tab ▸ Scroll View` 排在 `CardsTab` 之前）
+            //   —— 首轮实测中心差 **44.15px**（= 模式页视口中腰 662.05 − 卡池 617.90）。按**页**取（同下面
+            //   卡背页 `FindChild(cpage, …)` / 异画页 `FindChild(spage, …)` 的写法，重名一律走路径/页根）。
+            var cardsHolder = FindChild(win.PageRoot(1), "Scroll View");
             CheckAt(cardsHolder, 330.2f, 1919.9f, 155.9f, 1079.9f,
                     "`Scroll View`（卡池视口；⚠️ 与 Deck 页的视口**差 0.7/0.1**，两份实测都记着）");
             // 🔴 **2026-10-18（卡池排序与显隐 · 收口补丁）**：这条原来写 `CardsVisibleCount > 1000`。

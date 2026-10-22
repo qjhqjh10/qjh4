@@ -1700,6 +1700,9 @@ namespace CardPresentation
             //   ⚠️ 出生入口（`Build`，按 `CardFace.Board` 建）那边不用写 —— 调用方每次同步都会调
             //      `SetCanAct` 把请求落下去（两个入口各显式设一次，铁律 10 第 5 条）。
             ApplyCanAct();
+            // 🆕 2026-10-22（`B04`）：换形态也会重建/开关 `_art` 那一层（`Build` 走 `AddLayer` 会把
+            //   局部位姿设回出厂值）⇒ 立绘的局部 y/缩放要重贴一次（判据 → `SetArtLocalY` 的 doc）。
+            ApplyArtTransform();
         }
 
         /// <summary>**场上要不要把四个数值拆成独立图层** —— 判据只有这一处（`Build` 与 `SetFace`
@@ -1802,6 +1805,17 @@ namespace CardPresentation
                 return;
             }
 
+            // 🔴 **2026-10-22（`W64` · B16）**：残骸体现在**逐卡不同**（原版 `RawCardScript.remnantBodyPrefab`，
+            //   判据链 → `BattleDriver.RemnantBodyTable`）⇒ 同一张视图**换了一件**时必须**重建**。
+            //   ⚠️ 原来这里只判 `_remnantBody == null`：换了 prefab 名会**静默**沿用旧那一具
+            //   （过去两件是按阵营分的、一张卡一辈子不会换，所以没现形；接真值表后就现形了）。
+            if (_remnantBody != null && RemnantBodyPrefabName != prefabName)
+            {
+                if (Application.isPlaying) Object.Destroy(_remnantBody); else Object.DestroyImmediate(_remnantBody);
+                _remnantBody = null;
+                RemnantBodyPrefabName = null;
+            }
+
             if (_remnantBody == null)
             {
                 var lib = WarpforgeVFX.WarpforgeEffectLibrary.Instance;
@@ -1822,6 +1836,7 @@ namespace CardPresentation
                     entry, transform, Vector3.zero, 1f, float.PositiveInfinity);
                 if (player == null) return;
                 _remnantBody = player.gameObject;
+                RemnantBodyPrefabName = prefabName;      // ⬅ 自检用它验「用的是哪一件」
                 // 缩放照抄原版：**卡身那个节点的 localScale**（见上面注释里的出处）。
                 _remnantBody.transform.localScale = _body3D != null
                     ? _body3D.transform.localScale
@@ -1846,6 +1861,11 @@ namespace CardPresentation
 
         /// <summary>残骸体根节点（没建过是 null）—— 自检量它的**渲染真值**（位置 / 缩放 / 材质）用。</summary>
         public GameObject RemnantBodyRoot { get { return _remnantBody; } }
+
+        /// <summary>🆕 2026-10-22（`W64` · B16）**这一格用的是哪一件残骸体 prefab**（没建过是 null）。
+        /// 自检用它区分「表里那件」与「按关键词猜那件」—— ⛔ 别只比 `RemnantBodyRoot.name`
+        /// （那是 `…(Clone)`，而且两件同族名字前缀一样时不好判）。</summary>
+        public string RemnantBodyPrefabName { get; private set; }
 
         // ==================================================================
         //  残骸体那圈光（原版 `FrameHighlightRemnant` = `RemnantBody3D <阵营>/RemnantLight`）
@@ -2185,6 +2205,9 @@ namespace CardPresentation
             // 🔴 2026-10-21：每一次刷新都可能**新建层**（徽标/数值/文字）⇒ 场上的层号补一次
             //   （同队列内定序；非场上形态直接 return，零影响）。
             ApplyBoardSortingOrders();
+            // 🆕 2026-10-22（`B04`）：`SetData` 可能**重建** `_art` 层（`Build` 里 `AddLayer` 会把
+            //   局部位姿设回出厂值）⇒ 立绘的局部 y/缩放要重贴一次。判据 → `SetArtLocalY` 的 doc。
+            ApplyArtTransform();
         }
 
         /// <summary>原版 `CardTextCountersController.DoColorChange(old, new)` 那两下：
@@ -3054,9 +3077,17 @@ namespace CardPresentation
                 //    小卡档（手牌/卡池/收藏/卡组格）原版仍是「立绘在框下、由框的 alpha 剪出来」⇒ 不越出。
                 //    ⇒ 两条并存的判据都收在 `BigCardOverdraw`（大图档，默认开）与 `UseFrontLayer`（小卡档，
                 //      默认关、只为「将来按 `card_cutouts.json` 做每卡实参」留的口子）。
-                //    ⚠️ **`cut` 是硬前提**：非抠图立绘（战术卡那种满幅方图）在框上重画会把整块框盖死
-                //      ⇒ 那种卡**不建**前景层（原版对非抠图卡也有 `frameMask`，我们这条近似做不到，如实标注）。
-                bool bigFront = !board && cut && _bigImage && BigCardOverdraw;
+                //    🔴 **2026-10-22（W64 · `B14`）订正**：本行原来写「**`cut` 是硬前提**：非抠图立绘
+                //      （战术卡那种满幅方图）在框上重画会把整块框盖死 ⇒ 那种卡不建前景层」—— **错的**，
+                //      而且与它上面刚写的 mask 语义自相矛盾：
+                //      原版 `frameMask` 是「**按立绘 alpha 挖卡框**」⇒ 非抠图立绘的 alpha 是**整个立绘矩形**
+                //      （2.7484² 的方图，比卡框 2.2452 × 3.2572 **宽**）⇒ 框上被挖掉的正好也是那一整块
+                //      ⇒ **等价于「立绘 ×1.27 盖在框上」**（alpha=1 的像素上，两条路逐像素同结果；
+                //      框的上下两条边保留，因为方图够不到）。所以「盖死」不是画错、**就是原版的画法**。
+                //      ⚠️ 唯一保留的门是「**这张卡有没有真立绘**」—— 占位图（`ArtTexture` 现画的渐变）
+                //      不是原版的东西，盖上去只会把框糊掉。
+                bool hasRealArt = d.artOverride != null || CardArt.Portrait(d.artId) != null;
+                bool bigFront = !board && hasRealArt && _bigImage && BigCardOverdraw;
                 if (bigFront || (!board && cut && UseFrontLayer))
                     _artFront = AddLayer("artFront", frameTex, -0.008f, artTex, artFrontMesh);
                 if (!board) _frame = AddLayer("frame", frameTex, 0f, null);
@@ -4357,6 +4388,302 @@ namespace CardPresentation
         /// <summary>2D 立绘层现在的不透明度（自检断言用）。</summary>
         public float ArtAlpha { get { return _artAlpha; } }
 
+        // ── 只作用于「2D 卡面那一套」的不透明度（原版 `2DCard` 那个 CanvasGroup）──────────────
+        //  🔴 2026-10-22（W64 · `B05`）：原版登场 clip 的 `2DCard.m_Alpha` 是**一个 CanvasGroup**，
+        //  只淡 `2DCard` 那棵子树 —— 3D 卡体（`Board Elements/3DBody`）**不在里面**。
+        //  我们原来只有整卡 `SetAlpha`（连 3D 卡体一起淡）⇒ 材质复位只能拖到 0.7（原版是 **0.55**，
+        //  `DelayedResetMaterial(0.55)`）。有了这一档，0.55 换回正常材质之后剩下的 2D 淡出
+        //  **不会再把 3D 体淡一遍**，与 `CardScript._MinionPlayedIntoField_d__314` 的时序一致。
+        float _alpha2D = 1f;
+
+        /// <summary>只给 2D 卡面那一套乘的不透明度（1 = 不动）。**3D 卡体不受影响**。</summary>
+        public void SetAlpha2D(float a) { _alpha2D = Mathf.Clamp01(a); ApplyTint(); }
+
+        /// <summary>2D 卡面那一档的不透明度（自检断言用）。</summary>
+        public float Alpha2D { get { return _alpha2D; } }
+
+        // ==================================================================
+        //  🆕 2026-10-22（W64 · `B04`）登场 clip 缺的**三条曲线**要用的口
+        // ==================================================================
+        //  判据（一手）：`bundle_battleprefabs_vfxandmisc_assets_all/AnimationClip/
+        //    AnimationClip_-3614292623624764332.json`（`Card Hand To Board`）：
+        //    · `2DCard/Front/CardFrame` 的 `m_Enabled`：0 → **1 @0.0333** → **0 @0.75**
+        //    · `2DCard/Front/CardImage` 的 `m_LocalPosition.y` = **−0.065**（整条曲线只有一个关键帧 = 常量）
+        //    · `2DCard/Front/CardImage` 的 ScaleCurves：1 → 1 @0.3333 → **0.9049578 @0.55**
+        //    · `2DCard` 自己的 `m_LocalPosition.z`：0 → **−0.043 @0.1667**
+        //  ⚠️ 这些值都是**卡局部单位**，与 `CardFeel.HandToBoardBodyY*` 用 clip 原值的方式一致。
+
+        // 🔴 **2026-10-22（`B04` 尾巴）订正**：这里原来有个 `SetFrameVisible(bool)`，是照
+        //   `2DCard/Front/CardFrame.m_Enabled` 那条曲线写的 —— **读错了目标**：那条曲线的
+        //   `classID = 114`（MonoBehaviour）、`script` 与 `floatProperty1` **完全相同** ⇒
+        //   它开关的是 **`AnimateUIMaterialProperty` 这个组件**，**不是卡框的显隐**。
+        //   卡框整段都在（跟着 `2DCard` 的 α 淡出、0.7 随 `SetFace(Board)` 一起关）。
+        //   ⇒ 该 API 已删，`m_Enabled` 那两个时刻改接到**材质置换的窗口**（见下）。
+
+        // ==================================================================
+        //  🆕 2026-10-22（`B04` 尾巴）：**2D 卡框的溶解**
+        //    = 原版 `AnimateUIMaterialProperty`（在 `2DCard/Front/CardFrame` 上）
+        //    ＋ 材质 `SpriteUI Frame Dissolve`（shader `Everguild/FX/Sprite Dissolve Mask`）
+        // ==================================================================
+        //  判据（一手，逐条带出处 → `资料/普查产出_1022/W64_B04_floatProperty1材质.md`）：
+        //   · clip `Card Hand To Board` 的 `floatProperty1.value`：`(0,1)(0.0167,1)(0.7,0)`、
+        //     `materialProperty = "_DissolveAmount"`；**同一个组件的** `m_Enabled`：`(0,0)(0.0333,1)(0.75,0)`。
+        //   · 运行时（`decomp_full/AnimateUIMaterialProperty__*.c`）：`OnEnable` → 存原材质、以
+        //     `changeMaterialOnAnimation` 为底 `new Material` 换给 Image；`Update` 每帧
+        //     `SetFloat("_DissolveAmount", value)`；`OnDisable` → 还原原材质；`OnDestroy` → 销毁实例。
+        //   · 原版那份材质（`Material_-1050090670530995784.json`，全库**只有这一个组件引用它**）的
+        //     序列化值见下面几个常量。⚠️ `_SrcBlend/_DstBlend/_ZWrite/_Surface/_Cull/_Cutoff` 在
+        //     shader 属性表里**没有** ⇒ 全是死值，⛔ 一个都不设（CLAUDE.md §三 那条坑）。
+        //   · 🔴 我们不是 UGUI ⇒ `_MainTex` 要**自己绑**（原版由 CanvasRenderer 喂 sprite）：
+        //     绑的就是卡框那层当前那张图（`_frame.sharedMaterial.mainTexture`）。
+        public const string FrameDissolveShader = "Everguild/FX/Sprite Dissolve Mask";
+        /// <summary>`Visual1_2780b5644c1e463480f9eca2dba65f9a` = 0.07（shader 里叫 **`Dissolve Borded Width`**，
+        /// 原版拼写如此；默认 0.04、这份材质改成 0.07）。</summary>
+        public const float FrameDissolveBorderWidth = 0.07f;
+        /// <summary>`Vector4_d8c31f3b5dd04c76a4cc43d5d7873e6d` = (1.2, 1.2, 0, 0)（DissolveUVScale XY / Offset ZW）。</summary>
+        public static readonly Vector4 FrameDissolveUVScale = new Vector4(1.2f, 1.2f, 0f, 0f);
+        /// <summary>`_Color` = Border Color（HDR 蓝）= (0.0588235, 0.3289232, 0.9058824, 1)。</summary>
+        public static readonly Vector4 FrameDissolveColor = new Vector4(0.0588235f, 0.3289232f, 0.9058824f, 1f);
+        /// <summary>`_DISSOLVE_CHANNEL` = 2 + 关键字 `_DISSOLVE_CHANNEL_B`</summary>
+        public const float FrameDissolveChannel = 2f;
+
+        public const string FrameDissolveBorderWidthProp = "Vector1_2780b5644c1e463480f9eca2dba65f9a";
+        public const string FrameDissolveUVProp = "Vector4_d8c31f3b5dd04c76a4cc43d5d7873e6d";
+        public const string FrameDissolveMultiplyEdgeProp = "BOOLEAN_D80F51B627624648A0B3B2D563AA7541";
+
+        Material _frameDissolveMat;
+        Material _frameMatBeforeDissolve;
+        bool _frameDissolveTried;
+        float _frameDissolveAmount = -1f;
+
+        // ==================================================================
+        //  🆕 2026-10-22（`B04` 尾巴②）：**`ToBoardFX` / `Spawn Particles` / `Trail`**
+        // ==================================================================
+        //  判据（一手，全文 → `资料/普查产出_1022/W64_B04_ToBoardFX与粒子.md`）：
+        //   · `ToBoardFX` = 原版 `CardScript.toBoardVFXAnchor`（**空锚点**，`m_Children: []`、
+        //     `m_IsActive = 1` 常开），localPos = **(0.0033340454, 0.007981658, 0.046000004)**
+        //     （`AssetRipper …/CardPrefab.prefab` 的 Transform 逐位实读）。
+        //   · `ToBoardFX/Spawn Particles` **不在预制体里**：它是 `CardSetup.c:305-333` 在运行时把
+        //     `normalSummon`（传说档 `legendarySummon`）实例**挂到锚点下、改名 `"Spawn Particles"`、
+        //     再 `SetActive(false)`** 的产物；`Trail` 是那件 prefab 自带的第三颗粒子。
+        //   · clip 的三条 `m_IsActive` 曲线：`ToBoardFX` 恒 1 · `Spawn Particles` 0→1 @**0.0167** ·
+        //     `…/Trail` 0→1 @**0.55**。
+        public const float ToBoardFxAnchorX = 0.0033340454f;
+        public const float ToBoardFxAnchorY = 0.007981658f;
+        public const float ToBoardFxAnchorZ = 0.046000004f;
+        /// <summary>原版 `CardSetup.c:330` 改名用的字面量（`va_map.txt:6254` 解出 = `'Spawn Particles'`）。</summary>
+        public const string SpawnParticlesNodeName = "Spawn Particles";
+
+        Transform _toBoardFx;
+        GameObject _spawnParticles;
+        Transform _trail;
+
+        /// <summary>`ToBoardFX` 空锚点（懒建；原版是卡预制体的直接子件，localPos 见上面三个常量）。
+        /// 没有它 ⇒ 建出来（我们这套卡是程序化建的，原版那个节点来自 `CardPrefab`）。</summary>
+        public Transform ToBoardFxAnchor
+        {
+            get
+            {
+                if (_toBoardFx == null)
+                {
+                    var go = new GameObject("ToBoardFX");
+                    go.transform.SetParent(transform, false);
+                    go.transform.localPosition = new Vector3(ToBoardFxAnchorX, ToBoardFxAnchorY, ToBoardFxAnchorZ);
+                    _toBoardFx = go.transform;
+                }
+                return _toBoardFx;
+            }
+        }
+
+        /// <summary>`Spawn Particles` 挂上了没有（自检用）。</summary>
+        public bool SpawnParticlesMounted { get { return _spawnParticles != null; } }
+        /// <summary>`Spawn Particles` 现在开着没有（自检用）。</summary>
+        public bool SpawnParticlesActive { get { return _spawnParticles != null && _spawnParticles.activeSelf; } }
+        /// <summary>`Trail` 那颗粒子现在开着没有（自检用）。没有那个节点 ⇒ false。</summary>
+        public bool TrailActive { get { return _trail != null && _trail.gameObject.activeSelf; } }
+        /// <summary>`Trail` 上的 `ParticleSystem` 在播没有（自检用；没有节点 ⇒ false）。</summary>
+        public bool TrailPlaying
+        {
+            get
+            {
+                var ps = _trail != null ? _trail.GetComponent<ParticleSystem>() : null;
+                return ps != null && ps.isPlaying;
+            }
+        }
+
+        /// <summary>原版 `CardSetup.c:305-333`：把 `normalSummon` 的实例**挂到 `ToBoardFX` 下、
+        /// 改名 `Spawn Particles`、先关掉**。
+        /// <para>`instance` = 由调用方实例化好的那件（`WarpforgeEffectPlayer.Play` 的产物）——
+        /// `localPosition` 由调用方传 **prefab 自己的值**（原版 `set_localPosition(prefab 自身)`）。
+        /// 同时给 `Trail` 补上 <see cref="ParticleEmitOnEnable"/>（我们导入的 prefab 里没有那个组件）。</para>
+        /// <returns>挂上了没有。</returns></summary>
+        public bool MountSpawnParticles(GameObject instance)
+        {
+            if (instance == null) return false;
+            var anchor = ToBoardFxAnchor;
+            instance.transform.SetParent(anchor, false);
+            instance.name = SpawnParticlesNodeName;
+            instance.SetActive(false);                 // 原版 `SetActive(false)`，等 clip 在 0.0167 打开
+            _spawnParticles = instance;
+            var trail = instance.transform.Find("Trail");
+            _trail = trail;
+            if (trail != null && trail.GetComponent<ParticleEmitOnEnable>() == null)
+                trail.gameObject.AddComponent<ParticleEmitOnEnable>();
+            return true;
+        }
+
+        /// <summary>clip 的 `ToBoardFX/Spawn Particles.m_IsActive`（0→1 @0.0167）。</summary>
+        public void SetSpawnParticlesActive(bool on)
+        {
+            if (_spawnParticles != null) _spawnParticles.SetActive(on);
+        }
+
+        /// <summary>clip 的 `ToBoardFX/Spawn Particles/Trail.m_IsActive`（0→1 @0.55）。</summary>
+        public void SetTrailActive(bool on)
+        {
+            if (_trail != null) _trail.gameObject.SetActive(on);
+        }
+
+
+        static Material _frameDissolveProto;
+        /// <summary>卡框溶解材质的**模板**（原版 shader 原件；取不到 ⇒ null，调用方如实退回并出声）。</summary>
+        public static Material FrameDissolveMaterialProto()
+        {
+            if (_frameDissolveProto != null) return _frameDissolveProto;
+            if (!WarpforgeVFX.WarpforgeShaderMap.TryResolve(FrameDissolveShader, out var sh, out var src) || sh == null)
+            {
+                Debug.LogWarning($"[CardView] 解析不到原版 shader `{FrameDissolveShader}` ⇒ **2D 卡框溶解不可用**"
+                               + "（登场 clip 的 `floatProperty1` 那一段不演，卡框照常显示）。见 `WarpforgeShaderMap`");
+                return null;
+            }
+            var m = new Material(sh) { name = "CardFrameDissolve" };
+            SetMatF(m, "_DISSOLVE_CHANNEL", FrameDissolveChannel);
+            if (m.HasProperty(DissolveKeywordB)) m.EnableKeyword(DissolveKeywordB);
+            SetMatF(m, FrameDissolveBorderWidthProp, FrameDissolveBorderWidth);
+            SetMatV(m, FrameDissolveUVProp, FrameDissolveUVScale);
+            SetMatV(m, "_Color", FrameDissolveColor);
+            SetMatF(m, FrameDissolveMultiplyEdgeProp, 0f);
+            SetMatF(m, "_DissolveAmount", 1f);
+            _frameDissolveProto = m;
+            Debug.Log($"[CardView] 卡框溶解材质：`{FrameDissolveShader}` ← {src}");
+            return _frameDissolveProto;
+        }
+
+        /// <summary>这张卡自己的卡框溶解材质（每张一份 —— `_MainTex` 是逐卡的卡框图）。取不到 ⇒ null。</summary>
+        Material FrameDissolveMaterial()
+        {
+            if (_frameDissolveTried) return _frameDissolveMat;
+            _frameDissolveTried = true;
+            if (_frame == null || _frame.sharedMaterial == null) return null;
+            var proto = FrameDissolveMaterialProto();
+            if (proto == null) return null;
+            _frameDissolveMat = new Material(proto) { name = "CardFrameDissolve" };
+            var tex = _frame.sharedMaterial.mainTexture;
+            if (tex != null && _frameDissolveMat.HasProperty("_MainTex")) _frameDissolveMat.SetTexture("_MainTex", tex);
+            var noise = CardArt.CardbackSdfNoise();
+            if (noise != null && _frameDissolveMat.HasProperty("_Disolve")) _frameDissolveMat.SetTexture("_Disolve", noise);
+            _frameDissolveAmount = 1f;
+            _frameDissolveMat.SetFloat("_DissolveAmount", 1f);
+            return _frameDissolveMat;
+        }
+
+        /// <summary>卡框能不能做溶解（有卡框层 + 取到原版 shader）。</summary>
+        public bool FrameDissolveSupported { get { return _frame != null && FrameDissolveMaterial() != null; } }
+
+        /// <summary>现在的卡框材质是不是**溶解那份**（自检断言用）。</summary>
+        public bool OnFrameDissolveMaterial
+        {
+            get { return _frameDissolveMat != null && _frame != null && _frame.sharedMaterial == _frameDissolveMat; }
+        }
+        /// <summary>当前 `_DissolveAmount`（没上过溶解材质时 **−1**）。</summary>
+        public float FrameDissolveAmount { get { return _frameDissolveAmount; } }
+        /// <summary>这张卡的卡框溶解材质（自检断言用；没建过 = null）。</summary>
+        public Material FrameDissolveMatView { get { return FrameDissolveMaterial(); } }
+        /// <summary>卡框层现在挂的材质（自检断言用）。</summary>
+        public Material FrameMatView { get { return _frame != null ? _frame.sharedMaterial : null; } }
+
+        /// <summary>原版 `AnimateUIMaterialProperty.OnEnable`：**记住原材质**，把卡框换成溶解实例。
+        /// 返回 false = 做不了（没有卡框层 / 取不到 shader）—— 调用方出声，别静默当成功。</summary>
+        public bool BeginFrameDissolve()
+        {
+            var m = FrameDissolveMaterial();
+            if (_frame == null || m == null) return false;
+            if (_frame.sharedMaterial != m)
+            {
+                _frameMatBeforeDissolve = _frame.sharedMaterial;
+                _frame.sharedMaterial = m;
+            }
+            SetFrameDissolveAmount(1f);
+            return true;
+        }
+
+        /// <summary>喂 `_DissolveAmount`（0 = 框还在 · 1 = 框溶没了）。没上溶解材质时空操作。</summary>
+        public void SetFrameDissolveAmount(float a)
+        {
+            if (_frameDissolveMat == null) return;
+            _frameDissolveAmount = Mathf.Clamp01(a);
+            _frameDissolveMat.SetFloat("_DissolveAmount", _frameDissolveAmount);
+        }
+
+        /// <summary>原版 `OnDisable` + `OnDestroy`：**还原原材质**，再销毁实例。
+        /// ⚠️ 与「灰度控制器」那条路各管各的：我们这条只还原**自己换上去的那一份**，
+        /// 不碰别人（同族坑见报告 §⑦4）。</summary>
+        public void EndFrameDissolve()
+        {
+            if (_frame != null && _frameDissolveMat != null && _frame.sharedMaterial == _frameDissolveMat)
+                _frame.sharedMaterial = _frameMatBeforeDissolve != null ? _frameMatBeforeDissolve : _frame.sharedMaterial;
+            _frameDissolveAmount = -1f;
+            if (_frameDissolveMat != null)
+            {
+                if (Application.isPlaying) Object.Destroy(_frameDissolveMat); else Object.DestroyImmediate(_frameDissolveMat);
+                _frameDissolveMat = null;
+                _frameDissolveTried = false;      // 还能再建（同一张卡可以多次登场/回手）
+            }
+        }
+
+        /// <summary>**立绘层**的局部 y 偏移（原版 `CardImage.m_LocalPosition.y = −0.065`）。
+        /// 只动 `_art`（底层完整插图）；`_artFront` 是大图档专用、不进本动作。</summary>
+        public void SetArtLocalY(float y)
+        {
+            _artLocalY = y;
+            ApplyArtTransform();
+        }
+
+        /// <summary>**立绘层**的局部缩放（原版 `CardImage` 的 ScaleCurves 终点 `0.9049578 @0.55`）。</summary>
+        public void SetArtLocalScale(float s)
+        {
+            _artLocalScale = Mathf.Max(1e-4f, s);
+            ApplyArtTransform();
+        }
+
+        /// <summary>立绘层现在记着的局部 y / 缩放（自检断言用）。</summary>
+        public float ArtLocalY { get { return _artLocalY; } }
+        public float ArtLocalScale { get { return _artLocalScale; } }
+
+        /// <summary>`2DCard` 那一级（我们的 `FaceRoot`）的局部 z —— 原版 clip 的 `2DCard.m_LocalPosition.z`
+        /// 从 0 走到 **−0.043 @0.1667**。⚠️ 只动 z，不动 x/y。</summary>
+        public void SetFaceRootLocalZ(float z)
+        {
+            if (FaceRoot == null) return;
+            var p = FaceRoot.localPosition;
+            p.z = z;
+            FaceRoot.localPosition = p;
+        }
+
+        /// <summary>`2DCard` 那一级现在的局部 z（自检断言用）。</summary>
+        public float FaceRootLocalZ { get { return FaceRoot != null ? FaceRoot.localPosition.z : float.NaN; } }
+
+        float _artLocalY;
+        float _artLocalScale = 1f;
+        void ApplyArtTransform()
+        {
+            if (_art == null) return;
+            var p = _art.transform.localPosition;
+            p.y = _artLocalY;
+            _art.transform.localPosition = p;
+            _art.transform.localScale = Vector3.one * _artLocalScale;
+        }
+
         /// <summary>原版溶解 shader = **`Everguild/Cards/3D Card Dissolve`**（随包 `wf_shaders_extra.bundle`
         /// 里的**原件**，不是自建替代；拿到的 `src` 会打日志）。取不到返回 null。
         /// 常量表（`工具/dump_shader_blob.py "3D Card Dissolve"`）里有 `_DissolveTex` / `_DissolveAmount` /
@@ -4377,7 +4704,52 @@ namespace CardPresentation
             return _dissolveProto;
         }
 
-        /// <summary>这张卡自己的溶解材质（**每张一份** —— `_CardImage` 是逐卡的立绘）。
+        // ==================================================================
+        //  🔴 2026-10-22（W64 · `B08`）原版溶解材质的**序列化值**（逐项实读，一个都不许再"近似"）
+        // ==================================================================
+        //  出处（一手）：`d:/2/新解包资源/assets_full/bundle_battleprefabs_vfxandmisc_assets_all/
+        //    Material/Material_-6651017123104198842.json`
+        //    （`m_Name = "Card 3d WH40K Dissolve"` · `m_Shader.m_PathID = -8335403570401031012` ·
+        //      `m_ValidKeywords = ["_DISSOLVE_CHANNEL_B"]` · `m_InvalidKeywords = ["_EMISSION"]`）。
+        //  ⚠️ 它和**正常体**那份材质（`Card 3d Lvl1`）**不是同一批数**：
+        //    `_BorderWidth` 这里是 **0.23**、正常体是 **0.03**；`_CountersIntensity` 这里是 **2.0**、
+        //    正常体是 **1.12** ⇒ ⛔ 别拿"从当前材质抄过来"当原版（那正是本轮改掉的那个近似）。
+        //  两份**相同**的只有 `_MatCap_Intensity 1.69` / `_MatCapPower 1.24`（抄不抄都一样，仍照抄）。
+        public const float DissolveBorderWidth = 0.23f;        // `_BorderWidth`
+        public const float DissolveCountersIntensity = 2.0f;   // `_CountersIntensity`
+        public const float DissolveAlphaClipThreshold = 0.145f;// `_AlphaClipThreshold`
+        public const float DissolveChannel = 2f;               // `_DISSOLVE_CHANNEL`
+        public const string DissolveKeywordB = "_DISSOLVE_CHANNEL_B";
+        /// <summary>`_BorderColor` = (0.71408665, 1.91458, 2.6390157, 0) —— 原版序列化原值（HDR 过 1）。</summary>
+        public static readonly Vector4 DissolveBorderColor = new Vector4(0.71408665f, 1.91457999f, 2.63901567f, 0f);
+        /// <summary>`_BorderColor2` = (0, 0.02859164, 0.57647061, 0)</summary>
+        public static readonly Vector4 DissolveBorderColor2 = new Vector4(0f, 0.02859164f, 0.57647061f, 0f);
+        /// <summary>`_ClampRange` = (0.82, 1, 0.18, 0.01)</summary>
+        public static readonly Vector4 DissolveClampRange = new Vector4(0.82f, 1f, 0.18f, 0.01f);
+        /// <summary>`_DissolveUVScale_XY_Offset_ZW` = (3, 3, 0, 0)</summary>
+        public static readonly Vector4 DissolveUVScale = new Vector4(3f, 3f, 0f, 0f);
+
+        // 🔴 **2026-10-22（`CardBootDemo` 三条红之一 → 现核）：下面三个是【死值】，⛔ 不设、也别加回来。**
+        //   判据 = **shader 属性表**（`bundle_battleprefabs_vfxandmisc_assets_all/Shader/
+        //   Shader_-8335403570401031012.json` 的 `m_ParsedForm.m_PropInfo.m_Props`，23 个名字逐项读过）：
+        //   `_BaseMap _CardImage _ClampRange _CountersIntensity _EnvironmentColor _MatCap _MatCap_Intensity
+        //    _MatCapPower _SCREENSPACEUV _AlphaClipThreshold _DissolveTex _DissolveAmount _BorderColor
+        //    _BorderColor2 _DissolveUVScale_XY_Offset_ZW _BorderWidth _var3DCardColor_*（两条）_QueueOffset
+        //    _QueueControl unity_Lightmaps unity_LightmapsInd unity_ShadowMasks _USE_BLEND _DISSOLVE_CHANNEL`
+        //   —— **没有** `_BorderWidth2` / `_Borderwidth` / `_SmoothStep`。
+        //   它们在**材质 JSON 的 `m_SavedProperties` 里**（属 Standard shader 的残留），但 shader 不认
+        //   ⇒ 与 `_SrcBlend/_DstBlend/_ZWrite/_Surface/_Cull/_Cutoff` 同一族 = **死值**（CLAUDE.md §三）。
+        //   原来那条断言要求它们等于 0.11/0.12/(0.32,0.24) —— 那是**拿材质序列化冒充 shader 参数**，已改。
+
+        /// <summary>原版**材质**里 `_BorderWidth2` 的序列化值 —— ⚠️ **死值**（shader 属性表里没有这个名），
+        /// 只作与材质 JSON 逐项对照用，⛔ 别拿它设材质。</summary>
+        public const float DissolveBorderWidth2SerializedDead = 0.11f;
+        /// <summary>同上，`_Borderwidth`（原版**大小写两个都在材质里**，但 shader 只认 `_BorderWidth`）。</summary>
+        public const float DissolveBorderwidthSerializedDead = 0.12f;
+        /// <summary>同上，`_SmoothStep` = (0.32, 0.24, 0, 0) —— **死值**（shader 属性表里没有）。</summary>
+        public static readonly Vector4 DissolveSmoothStepSerializedDead = new Vector4(0.32f, 0.24f, 0f, 0f);
+
+        /// <summary>这张卡的溶解材质（**每张一份** —— `_CardImage` 是逐卡的立绘）。
         /// 取不到就返回 null（调用方如实退回）。</summary>
         Material DissolveMaterial()
         {
@@ -4387,9 +4759,9 @@ namespace CardPresentation
             var proto = DissolveMaterialProto();
             if (proto == null) return null;
 
-            _dissolveMat = new Material(proto);
-            // 把正常态那份材质上的贴图/强度抄过来（原版两份材质本来就共用同一批图，
-            // 只有溶解那几项不一样）——逐项 `HasProperty` 判，别假设两边字段一样多。
+            _dissolveMat = new Material(proto) { name = "Card3DDissolve" };
+            // ① 逐卡那几张图 / 两份材质同值的强度：从正常体材质抄（`_BaseMap` / `_MatCap` / `_CardImage` /
+            //    `_MatCap_Intensity 1.69` / `_MatCapPower 1.24`）。
             var cur = _body3D.sharedMaterial;
             if (cur != null)
             {
@@ -4398,16 +4770,50 @@ namespace CardPresentation
                 CopyTex(cur, _dissolveMat, "_CardImage");
                 CopyF(cur, _dissolveMat, "_MatCap_Intensity");
                 CopyF(cur, _dissolveMat, "_MatCapPower");
-                CopyF(cur, _dissolveMat, "_CountersIntensity");
             }
-            // `_DissolveTex`：原版那张噪声图**不在我们工程里**（本仓 0 命中）⇒ 用工程里已有的一张
-            // 噪声图顶上，**这是我们的选择，不是原版的做法**（原版材质指向哪张，判据见文件尾那条注释）。
-            var noise = CardArt.DissolveNoiseTex();
-            if (noise != null && _dissolveMat.HasProperty("_DissolveTex"))
-                _dissolveMat.SetTexture("_DissolveTex", noise);
+            // ② 🔴 原版**溶解材质自己那几项**（判据 = 上面那串常量）。**必须放在抄之后** ——
+            //    `_CountersIntensity` 两份材质不同值，先抄后盖正是为了让它落回原版的 **2.0**。
+            SetMatF(_dissolveMat, "_BorderWidth", DissolveBorderWidth);
+            // ⛔ `_BorderWidth2` / `_Borderwidth` **不设** —— shader 属性表里没有这两个名字（死值）。
+            SetMatF(_dissolveMat, "_CountersIntensity", DissolveCountersIntensity);
+            SetMatF(_dissolveMat, "_AlphaClipThreshold", DissolveAlphaClipThreshold);
+            SetMatF(_dissolveMat, "_DISSOLVE_CHANNEL", DissolveChannel);
+            SetMatV(_dissolveMat, "_BorderColor", DissolveBorderColor);
+            SetMatV(_dissolveMat, "_BorderColor2", DissolveBorderColor2);
+            SetMatV(_dissolveMat, "_ClampRange", DissolveClampRange);
+            SetMatV(_dissolveMat, "_DissolveUVScale_XY_Offset_ZW", DissolveUVScale);
+            // ⛔ `_SmoothStep` **不设** —— 同上，shader 属性表里没有（死值）。
+            if (_dissolveMat.HasProperty(DissolveKeywordB)) _dissolveMat.EnableKeyword(DissolveKeywordB);
+            // ③ `_DissolveTex` = 原版那张 **`Noise Combined`**（pathID `−8214795764591836323`，在
+            //    `bundle_duplicateassetisolation_assets_all`）。🔴 **2026-10-22（`B08`/`D6`）订正铁律 5**：
+            //    本行原来写「原版那张噪声图**不在我们工程里**（本仓 0 命中）」—— **错的**，它就是
+            //    `CardArt.CardbackSdfNoise()`（卡背 SDF 的 `_Noise`，同一个 pathID，早就导入并在用）。
+            //    错因：当年按文件名 `DissolveNoise` 找 ⇒ 那张图在工程里叫 `card_sdf/cardback_noise`。
+            var noise = CardArt.CardbackSdfNoise();
+            if (noise != null)
+            {
+                if (_dissolveMat.HasProperty("_DissolveTex")) _dissolveMat.SetTexture("_DissolveTex", noise);
+            }
+            else
+            {
+                Debug.LogWarning("[CardView] 取不到原版 `Noise Combined`（`Art/card_sdf/cardback_noise`）"
+                               + " ⇒ `_DissolveTex` 落回 shader 默认值（**与原版不同**，不静默）");
+            }
             _dissolveMat.SetFloat("_DissolveAmount", 0f);
             _dissolveAmount = 0f;
             return _dissolveMat;
+        }
+
+        /// <summary>写四分量/标量材质属性（`HasProperty` 判过才写，缺了就跳过 —— 不同 shader 变体的属性表不一样）。</summary>
+        static void SetMatF(Material m, string prop, float v)
+        {
+            if (m != null && m.HasProperty(prop)) m.SetFloat(prop, v);
+        }
+        /// <summary>同上，四分量。⚠️ 用 `SetVector` 而不是 `SetColor`：原版序列化值里有 >1 的分量
+        /// （`_BorderColor` 的 1.91 / 2.63），要**逐位**写进去、不能被任何颜色处理改。.</summary>
+        static void SetMatV(Material m, string prop, Vector4 v)
+        {
+            if (m != null && m.HasProperty(prop)) m.SetVector(prop, v);
         }
 
         static void CopyTex(Material from, Material to, string prop)
@@ -4424,6 +4830,10 @@ namespace CardPresentation
 
         /// <summary>当前 `_DissolveAmount`（自检断言用）。没上过溶解材质时返回 **−1**。</summary>
         public float DissolveAmount { get { return _dissolveAmount; } }
+
+        /// <summary>🆕 2026-10-22（`B08`）**这张卡的溶解材质本身**（自检断言用 —— 那 10 项序列化值
+        /// 与 `_DissolveTex` 只有从这里读得到）。没建过/建不出来 ⇒ `null`。</summary>
+        public Material DissolveMatView { get { return DissolveMaterial(); } }
 
         /// <summary>现在的 3D 卡体材质是不是**溶解那份**（自检断言用 —— 截图上看不出用的是哪份材质）。</summary>
         public bool OnDissolveMaterial
@@ -5268,12 +5678,28 @@ namespace CardPresentation
                 //    「Material doesn't have a color property '_Color'」并且**那一层整个被跳过**。
                 //    判一下再写（正常态那份 `Card3D.shader` 有 `_Color`，行为不变）。
                 if (!r.sharedMaterial.HasProperty("_Color")) continue;
-                r.sharedMaterial.color = c;
+                // 🔴 2026-10-22（`B04` 尾巴）：**卡框溶解材质不吃整卡着色** —— 它的 `_Color` 是
+                //   原版材质里那个 **Border Color（HDR 蓝 0.0588/0.3289/0.9059）**，被整卡着色刷成
+                //   白/状态色就不是原版了（`AnimateUIMaterialProperty` 那份实例材质在原版也不受着色管）。
+                if (r.sharedMaterial == _frameDissolveMat)
+                {
+                    // 颜色保持原版那个 Border Color（HDR 蓝），**只**让它跟着整卡 α 与 2D 那一档淡 ——
+                    // 原版它是 UGUI Image、CanvasGroup 的 α 一样会乘上去。
+                    var bc = FrameDissolveColor;
+                    r.sharedMaterial.color = new Color(bc.x, bc.y, bc.z, bc.w * _alpha * _alpha2D);
+                    continue;
+                }
+                // 🔴 2026-10-22（`B05`）：3D 卡体**不在** `2DCard` 那棵子树里（原版 `m_Alpha` 是
+                //   `2DCard` 的 CanvasGroup）⇒ 它不吃 2D 那一档；其余层各乘一份 `_alpha2D`。
+                r.sharedMaterial.color = (r == _body3D)
+                    ? c
+                    : new Color(c.r, c.g, c.b, c.a * _alpha2D);
             }
             // 🆕 2026-09-29：**2D 立绘那一层再乘上它自己的不透明度**（回手那一幕的「卡面淡回来」，
             //    见 `SetArtAlpha`）。放在整卡循环之后覆盖，理由同下面 `_textBg` 那两段。
             if (_art != null && _art.sharedMaterial != null && _art.sharedMaterial.HasProperty("_Color"))
-                _art.sharedMaterial.color = new Color(_tint.r, _tint.g, _tint.b, _tint.a * _alpha * _artAlpha);
+                _art.sharedMaterial.color = new Color(_tint.r, _tint.g, _tint.b,
+                                                      _tint.a * _alpha * _artAlpha * _alpha2D);
 
             // 🆕 2026-10-16：**卡背那一层【只跟 alpha】、不跟状态色**（整卡着色是给卡面用的）。
             //    它不在 `_layers` 里 ⇒ 上面那个 foreach 刷不到它 ⇒ 在这里单独补一档；
@@ -5288,7 +5714,7 @@ namespace CardPresentation
             //    原版这块底板的颜色是**写死的** `m_Color = (0,0,0,0.647)`，**不跟着卡的状态变**。
             //    ⇒ 刷完统一色之后**单独把它刷回去**（只乘卡的整体淡出 `_alpha`，不乘 tint 的 RGB）。
             if (_textBg != null && _textBg.sharedMaterial != null)
-                _textBg.sharedMaterial.color = new Color(0f, 0f, 0f, TextBgAlpha * _alpha);
+                _textBg.sharedMaterial.color = new Color(0f, 0f, 0f, TextBgAlpha * _alpha * _alpha2D);
 
             // 🔴 **徽标底板同理（2026-10-12 · `A1661`）**：原版 `IconBackground.m_Color` 是**写死的深灰**
             //    （见 `BadgePlateInk`），上面那个 foreach 会把它刷成 `_tint`（平时 = **白**）——

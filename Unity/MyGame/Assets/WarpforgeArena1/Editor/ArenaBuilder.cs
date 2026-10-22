@@ -5123,7 +5123,11 @@ public static class ArenaBuilder
             if (WarpforgeVFX.ArenaOriginalMaterial.ShouldInferParticleBlend(p.matProps, p.matShader))
             {
                 int sb, db; float zw; bool tr;
-                WarpforgeVFX.ArenaOriginalMaterial.InferBlendFromShaderName(p.matShader, out sb, out db, out zw, out tr);
+                // 🆕 2026-10-22（W64 B15）：把**目标 shader 名**一起传下去 —— 原版 pass 真值表只对
+                // 「目标 = 原件 或 逐条重写件」采信（判据 → `InferBlendFromShaderName` 的重载注释）。
+                WarpforgeVFX.ArenaOriginalMaterial.InferBlendFromShaderName(
+                    p.matShader, reused.shader != null ? reused.shader.name : null,
+                    out sb, out db, out zw, out tr);
                 WarpforgeVFX.ArenaOriginalMaterial.SetBlend(reused, sb, db, zw);
                 Debug.Log($"[Arena/PM] {sceneName}/{p.go}：材质 `{p.matName}`（原版 shader `{p.matShader}`）"
                         + "⇒ 混合**不从 props 取**（legacy 内置粒子 shader 把混合写在 pass 里 / props 是内置 Standard 的残留值），"

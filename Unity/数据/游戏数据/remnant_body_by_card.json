@@ -1,0 +1,2598 @@
+{
+ "_conventions": {
+  "notRuntimeYet": "本表是**数据侧**。`CardView`/`BattleDriver` 的接线不在本批文件所有权内 —— 接法见《W64》B16 的「建议动作」",
+  "prefabIsNotTheUnitCard": "残骸体是**盖在卡上的 3D 体**（`CardView.SetRemnantBody`），不是残骸单位本身；残骸单位仍是同一张卡翻面（`RuleCore` 那三行）",
+  "prefer": "运行时取法：先查本表 `byCard[id].prefab`；查不到（不在表里 = 原版字段为空）才回现在的关键词规则（`Remnant` → Necrons / `Waystone` → Aeldari）",
+  "whoBuildsIt": "② `HasToTransformIntoRemnant` 为真时，建**这张卡自己的** `remnantBodyPrefab`；为假 ⇒ 原版一个都不建（`SetRawCardData.c:45`）"
+ },
+ "_headline": "🔴 `W64 · B16`：原版**逐卡**残骸体 `RawCardScript.remnantBodyPrefab` 的真值表。判据 = `BattleCardUI__SetRawCardData.c:45`（只有 `HasToTransformIntoRemnant` 才建） + `SupportMethods__HasToTransformIntoRemnant.c`（= 两条当前特质 `0x41a Remnant` / `0x474 Waystone`） + `BattleCardUI__CreateRemnantBody.c:36-65`（实例化的是**这张卡自己的** AssetReference，父节点 = 卡、位置 = 卡的位置）。现读我们卡池里 **71 张卡**带这个字段（另有 3 张**不在池里**的 tutorial 卡也带），池内只指向 **2 件** prefab（RemnantBody3D Aeldari×29 / RemnantBody3D Necrons×42）；两条链（SO 的 GUID→GUID 表 · vfx 表）**逐条一致**（冲突 0）。其中**能真的变残骸**（带 Remnant/Waystone 特质）的 **52 张**，这 52 张的逐卡字段与我们现在「按关键词挑」的答案 **0 处不同**；其余 **19 张**带 prefab 但拿不到那两条特质 ⇒ 原版也不会建残骸体（⛔ 别照字段无脑建，会**多出**残骸）。",
+ "_judges": {
+  "fieldTruth": "cards_raw.json → full_raw.remnantBodyPrefab.m_AssetGUID",
+  "instantiateWhat": "BattleCardUI__CreateRemnantBody.c:36-65（rawCard + 0xe0）",
+  "onlyIfHasTrait": "BattleCardUI__SetRawCardData.c:45",
+  "traitJudge": "SupportMethods__HasToTransformIntoRemnant.c（0x41a / 0x474）"
+ },
+ "_sources": {
+  "cardSoTruth": "d:/4/Unity/资料/普查产出_1018/allcards_1350/cards_raw.json",
+  "cardsEngine": "d:/4/Unity/MyGame/Assets/RuleEngine/Resources/cards_engine.json",
+  "decomp": "d:/2/tools/decomp_full/",
+  "guidMap": "d:/4/Unity/资料/普查产出_1018/cardanim_guid_map/guid_map_bundles.tsv",
+  "vfxTable": "d:/4/Unity/数据/游戏数据/card_vfx_by_card.json"
+ },
+ "byCard": {
+  "7a02359776e89f243b8cf41642dc44c9": {
+   "agreesWithKeywordRule": null,
+   "assetBundle": "battleprefabs_vfxandmisc_assets_all",
+   "canTransform": true,
+   "cardArmy": 30,
+   "cardType": 0,
+   "faction": "",
+   "guid": "399ff148003f640959eb87ba52717556",
+   "guidResolvedBy": "guidMap",
+   "id": "7a02359776e89f243b8cf41642dc44c9",
+   "inLibrary": true,
+   "inPool": false,
+   "keywordRulePrefab": null,
+   "keywords": [],
+   "keywordsAgreeWithTraits": null,
+   "name": "Witchblade Warlock (tutorial)",
+   "prefab": "RemnantBody3D Aeldari",
+   "traits": [
+    {
+     "id": 1140,
+     "name": "waystone"
+    },
+    {
+     "id": 845,
+     "name": "talent"
+    }
+   ],
+   "type": "",
+   "vfxTableAgrees": null
+  },
+  "847acecf682cb0748bc4445b52125cb4": {
+   "agreesWithKeywordRule": null,
+   "assetBundle": "battleprefabs_vfxandmisc_assets_all",
+   "canTransform": true,
+   "cardArmy": 40,
+   "cardType": 0,
+   "faction": "",
+   "guid": "5041a12423b67164abf8bb6aedf69097",
+   "guidResolvedBy": "guidMap",
+   "id": "847acecf682cb0748bc4445b52125cb4",
+   "inLibrary": true,
+   "inPool": false,
+   "keywordRulePrefab": null,
+   "keywords": [],
+   "keywordsAgreeWithTraits": null,
+   "name": "Gauss Warrior (tutorial)",
+   "prefab": "RemnantBody3D Necrons",
+   "traits": [
+    {
+     "id": 1050,
+     "name": "remnant"
+    }
+   ],
+   "type": "",
+   "vfxTableAgrees": null
+  },
+  "ASH11": {
+   "agreesWithKeywordRule": true,
+   "assetBundle": "battleprefabs_vfxandmisc_assets_all",
+   "canTransform": true,
+   "cardArmy": 30,
+   "cardType": 0,
+   "faction": "SaimHann",
+   "guid": "399ff148003f640959eb87ba52717556",
+   "guidResolvedBy": "guidMap",
+   "id": "ASH11",
+   "inLibrary": true,
+   "inPool": true,
+   "keywordRulePrefab": "RemnantBody3D Aeldari",
+   "keywords": [
+    "Waystone",
+    "Stealth",
+    "Shuriken 2"
+   ],
+   "keywordsAgreeWithTraits": true,
+   "name": "Striking Scorpion",
+   "prefab": "RemnantBody3D Aeldari",
+   "traits": [
+    {
+     "id": 1140,
+     "name": "waystone"
+    },
+    {
+     "id": 1120,
+     "name": "shuriken"
+    },
+    {
+     "id": 70,
+     "name": "stealth"
+    }
+   ],
+   "type": "unit",
+   "vfxTableAgrees": true
+  },
+  "ASH12": {
+   "agreesWithKeywordRule": true,
+   "assetBundle": "battleprefabs_vfxandmisc_assets_all",
+   "canTransform": true,
+   "cardArmy": 30,
+   "cardType": 0,
+   "faction": "SaimHann",
+   "guid": "399ff148003f640959eb87ba52717556",
+   "guidResolvedBy": "guidMap",
+   "id": "ASH12",
+   "inLibrary": true,
+   "inPool": true,
+   "keywordRulePrefab": "RemnantBody3D Aeldari",
+   "keywords": [
+    "Waystone",
+    "Flying"
+   ],
+   "keywordsAgreeWithTraits": true,
+   "name": "Swooping Hawk",
+   "prefab": "RemnantBody3D Aeldari",
+   "traits": [
+    {
+     "id": 1140,
+     "name": "waystone"
+    },
+    {
+     "id": 390,
+     "name": "flying"
+    }
+   ],
+   "type": "unit",
+   "vfxTableAgrees": true
+  },
+  "ASH13": {
+   "agreesWithKeywordRule": true,
+   "assetBundle": "battleprefabs_vfxandmisc_assets_all",
+   "canTransform": true,
+   "cardArmy": 30,
+   "cardType": 0,
+   "faction": "SaimHann",
+   "guid": "399ff148003f640959eb87ba52717556",
+   "guidResolvedBy": "guidMap",
+   "id": "ASH13",
+   "inLibrary": true,
+   "inPool": true,
+   "keywordRulePrefab": "RemnantBody3D Aeldari",
+   "keywords": [
+    "Waystone",
+    "Stealth",
+    "Strike"
+   ],
+   "keywordsAgreeWithTraits": true,
+   "name": "Warp Spider",
+   "prefab": "RemnantBody3D Aeldari",
+   "traits": [
+    {
+     "id": 1140,
+     "name": "waystone"
+    },
+    {
+     "id": 70,
+     "name": "stealth"
+    },
+    {
+     "id": 1110,
+     "name": "strike"
+    }
+   ],
+   "type": "unit",
+   "vfxTableAgrees": true
+  },
+  "ASH15": {
+   "agreesWithKeywordRule": true,
+   "assetBundle": "battleprefabs_vfxandmisc_assets_all",
+   "canTransform": true,
+   "cardArmy": 30,
+   "cardType": 0,
+   "faction": "SaimHann",
+   "guid": "399ff148003f640959eb87ba52717556",
+   "guidResolvedBy": "guidMap",
+   "id": "ASH15",
+   "inLibrary": true,
+   "inPool": true,
+   "keywordRulePrefab": "RemnantBody3D Aeldari",
+   "keywords": [
+    "Waystone",
+    "Flank",
+    "Rally"
+   ],
+   "keywordsAgreeWithTraits": true,
+   "name": "Howling Banshee",
+   "prefab": "RemnantBody3D Aeldari",
+   "traits": [
+    {
+     "id": 1140,
+     "name": "waystone"
+    },
+    {
+     "id": 460,
+     "name": "flank"
+    },
+    {
+     "id": 10,
+     "name": "rally"
+    }
+   ],
+   "type": "unit",
+   "vfxTableAgrees": true
+  },
+  "ASH17": {
+   "agreesWithKeywordRule": true,
+   "assetBundle": "battleprefabs_vfxandmisc_assets_all",
+   "canTransform": true,
+   "cardArmy": 30,
+   "cardType": 0,
+   "faction": "SaimHann",
+   "guid": "399ff148003f640959eb87ba52717556",
+   "guidResolvedBy": "guidMap",
+   "id": "ASH17",
+   "inLibrary": true,
+   "inPool": true,
+   "keywordRulePrefab": "RemnantBody3D Aeldari",
+   "keywords": [
+    "Waystone"
+   ],
+   "keywordsAgreeWithTraits": true,
+   "name": "Spiritseer",
+   "prefab": "RemnantBody3D Aeldari",
+   "traits": [
+    {
+     "id": 1140,
+     "name": "waystone"
+    }
+   ],
+   "type": "unit",
+   "vfxTableAgrees": true
+  },
+  "ASH19": {
+   "agreesWithKeywordRule": true,
+   "assetBundle": "battleprefabs_vfxandmisc_assets_all",
+   "canTransform": true,
+   "cardArmy": 30,
+   "cardType": 0,
+   "faction": "SaimHann",
+   "guid": "399ff148003f640959eb87ba52717556",
+   "guidResolvedBy": "guidMap",
+   "id": "ASH19",
+   "inLibrary": true,
+   "inPool": true,
+   "keywordRulePrefab": "RemnantBody3D Aeldari",
+   "keywords": [
+    "Waystone",
+    "Talent: Witchfire"
+   ],
+   "keywordsAgreeWithTraits": true,
+   "name": "Witchblade Warlock",
+   "prefab": "RemnantBody3D Aeldari",
+   "traits": [
+    {
+     "id": 1140,
+     "name": "waystone"
+    },
+    {
+     "id": 845,
+     "name": "talent"
+    }
+   ],
+   "type": "unit",
+   "vfxTableAgrees": true
+  },
+  "ASH22": {
+   "agreesWithKeywordRule": true,
+   "assetBundle": "battleprefabs_vfxandmisc_assets_all",
+   "canTransform": true,
+   "cardArmy": 30,
+   "cardType": 0,
+   "faction": "SaimHann",
+   "guid": "399ff148003f640959eb87ba52717556",
+   "guidResolvedBy": "guidMap",
+   "id": "ASH22",
+   "inLibrary": true,
+   "inPool": true,
+   "keywordRulePrefab": "RemnantBody3D Aeldari",
+   "keywords": [
+    "Waystone",
+    "Blast 4"
+   ],
+   "keywordsAgreeWithTraits": true,
+   "name": "Fire Dragon",
+   "prefab": "RemnantBody3D Aeldari",
+   "traits": [
+    {
+     "id": 1140,
+     "name": "waystone"
+    },
+    {
+     "id": 350,
+     "name": "blast"
+    }
+   ],
+   "type": "unit",
+   "vfxTableAgrees": true
+  },
+  "ASH23": {
+   "agreesWithKeywordRule": true,
+   "assetBundle": "battleprefabs_vfxandmisc_assets_all",
+   "canTransform": true,
+   "cardArmy": 30,
+   "cardType": 0,
+   "faction": "SaimHann",
+   "guid": "399ff148003f640959eb87ba52717556",
+   "guidResolvedBy": "guidMap",
+   "id": "ASH23",
+   "inLibrary": true,
+   "inPool": true,
+   "keywordRulePrefab": "RemnantBody3D Aeldari",
+   "keywords": [
+    "Waystone",
+    "Stealth",
+    "Shuriken 4"
+   ],
+   "keywordsAgreeWithTraits": true,
+   "name": "Striking Scorpion Exarch",
+   "prefab": "RemnantBody3D Aeldari",
+   "traits": [
+    {
+     "id": 1140,
+     "name": "waystone"
+    },
+    {
+     "id": 1120,
+     "name": "shuriken"
+    },
+    {
+     "id": 70,
+     "name": "stealth"
+    }
+   ],
+   "type": "unit",
+   "vfxTableAgrees": true
+  },
+  "ASH26": {
+   "agreesWithKeywordRule": false,
+   "assetBundle": "battleprefabs_vfxandmisc_assets_all",
+   "canTransform": false,
+   "cardArmy": 30,
+   "cardType": 0,
+   "faction": "SaimHann",
+   "guid": "399ff148003f640959eb87ba52717556",
+   "guidResolvedBy": "guidMap",
+   "id": "ASH26",
+   "inLibrary": true,
+   "inPool": true,
+   "keywordRulePrefab": null,
+   "keywords": [
+    "Armour 1",
+    "Blast 2"
+   ],
+   "keywordsAgreeWithTraits": true,
+   "name": "War Walker",
+   "prefab": "RemnantBody3D Aeldari",
+   "traits": [
+    {
+     "id": 350,
+     "name": "blast"
+    }
+   ],
+   "type": "unit",
+   "vfxTableAgrees": true
+  },
+  "ASH28": {
+   "agreesWithKeywordRule": true,
+   "assetBundle": "battleprefabs_vfxandmisc_assets_all",
+   "canTransform": true,
+   "cardArmy": 30,
+   "cardType": 0,
+   "faction": "SaimHann",
+   "guid": "399ff148003f640959eb87ba52717556",
+   "guidResolvedBy": "guidMap",
+   "id": "ASH28",
+   "inLibrary": true,
+   "inPool": true,
+   "keywordRulePrefab": "RemnantBody3D Aeldari",
+   "keywords": [
+    "Waystone"
+   ],
+   "keywordsAgreeWithTraits": true,
+   "name": "Spiritseer Qelenaris",
+   "prefab": "RemnantBody3D Aeldari",
+   "traits": [
+    {
+     "id": 1140,
+     "name": "waystone"
+    }
+   ],
+   "type": "unit",
+   "vfxTableAgrees": true
+  },
+  "ASH31": {
+   "agreesWithKeywordRule": true,
+   "assetBundle": "battleprefabs_vfxandmisc_assets_all",
+   "canTransform": true,
+   "cardArmy": 30,
+   "cardType": 0,
+   "faction": "SaimHann",
+   "guid": "399ff148003f640959eb87ba52717556",
+   "guidResolvedBy": "guidMap",
+   "id": "ASH31",
+   "inLibrary": true,
+   "inPool": true,
+   "keywordRulePrefab": "RemnantBody3D Aeldari",
+   "keywords": [
+    "Waystone",
+    "Flying"
+   ],
+   "keywordsAgreeWithTraits": true,
+   "name": "Winged Autarch",
+   "prefab": "RemnantBody3D Aeldari",
+   "traits": [
+    {
+     "id": 1140,
+     "name": "waystone"
+    },
+    {
+     "id": 390,
+     "name": "flying"
+    }
+   ],
+   "type": "unit",
+   "vfxTableAgrees": true
+  },
+  "ASH4": {
+   "agreesWithKeywordRule": true,
+   "assetBundle": "battleprefabs_vfxandmisc_assets_all",
+   "canTransform": true,
+   "cardArmy": 30,
+   "cardType": 0,
+   "faction": "SaimHann",
+   "guid": "399ff148003f640959eb87ba52717556",
+   "guidResolvedBy": "guidMap",
+   "id": "ASH4",
+   "inLibrary": true,
+   "inPool": true,
+   "keywordRulePrefab": "RemnantBody3D Aeldari",
+   "keywords": [
+    "Waystone",
+    "Shuriken 2"
+   ],
+   "keywordsAgreeWithTraits": true,
+   "name": "Guardian Defender",
+   "prefab": "RemnantBody3D Aeldari",
+   "traits": [
+    {
+     "id": 1140,
+     "name": "waystone"
+    },
+    {
+     "id": 1120,
+     "name": "shuriken"
+    }
+   ],
+   "type": "unit",
+   "vfxTableAgrees": true
+  },
+  "ASH5": {
+   "agreesWithKeywordRule": true,
+   "assetBundle": "battleprefabs_vfxandmisc_assets_all",
+   "canTransform": true,
+   "cardArmy": 30,
+   "cardType": 0,
+   "faction": "SaimHann",
+   "guid": "399ff148003f640959eb87ba52717556",
+   "guidResolvedBy": "guidMap",
+   "id": "ASH5",
+   "inLibrary": true,
+   "inPool": true,
+   "keywordRulePrefab": "RemnantBody3D Aeldari",
+   "keywords": [
+    "Waystone",
+    "Shuriken 1"
+   ],
+   "keywordsAgreeWithTraits": true,
+   "name": "Storm Guardian",
+   "prefab": "RemnantBody3D Aeldari",
+   "traits": [
+    {
+     "id": 1140,
+     "name": "waystone"
+    },
+    {
+     "id": 1120,
+     "name": "shuriken"
+    }
+   ],
+   "type": "unit",
+   "vfxTableAgrees": true
+  },
+  "ASH6": {
+   "agreesWithKeywordRule": true,
+   "assetBundle": "battleprefabs_vfxandmisc_assets_all",
+   "canTransform": true,
+   "cardArmy": 30,
+   "cardType": 0,
+   "faction": "SaimHann",
+   "guid": "399ff148003f640959eb87ba52717556",
+   "guidResolvedBy": "guidMap",
+   "id": "ASH6",
+   "inLibrary": true,
+   "inPool": true,
+   "keywordRulePrefab": "RemnantBody3D Aeldari",
+   "keywords": [
+    "Waystone",
+    "Stealth",
+    "Sniper"
+   ],
+   "keywordsAgreeWithTraits": true,
+   "name": "Ranger",
+   "prefab": "RemnantBody3D Aeldari",
+   "traits": [
+    {
+     "id": 1140,
+     "name": "waystone"
+    },
+    {
+     "id": 70,
+     "name": "stealth"
+    },
+    {
+     "id": 990,
+     "name": "sniper"
+    }
+   ],
+   "type": "unit",
+   "vfxTableAgrees": true
+  },
+  "ASH61": {
+   "agreesWithKeywordRule": false,
+   "assetBundle": "battleprefabs_vfxandmisc_assets_all",
+   "canTransform": false,
+   "cardArmy": 30,
+   "cardType": 0,
+   "faction": "SaimHann",
+   "guid": "399ff148003f640959eb87ba52717556",
+   "guidResolvedBy": "guidMap",
+   "id": "ASH61",
+   "inLibrary": true,
+   "inPool": true,
+   "keywordRulePrefab": null,
+   "keywords": [],
+   "keywordsAgreeWithTraits": true,
+   "name": "Weapons Platform",
+   "prefab": "RemnantBody3D Aeldari",
+   "traits": [],
+   "type": "unit",
+   "vfxTableAgrees": true
+  },
+  "ASH62": {
+   "agreesWithKeywordRule": true,
+   "assetBundle": "battleprefabs_vfxandmisc_assets_all",
+   "canTransform": true,
+   "cardArmy": 30,
+   "cardType": 0,
+   "faction": "SaimHann",
+   "guid": "399ff148003f640959eb87ba52717556",
+   "guidResolvedBy": "guidMap",
+   "id": "ASH62",
+   "inLibrary": true,
+   "inPool": true,
+   "keywordRulePrefab": "RemnantBody3D Aeldari",
+   "keywords": [
+    "Waystone",
+    "Shuriken 2"
+   ],
+   "keywordsAgreeWithTraits": true,
+   "name": "Dire Avenger",
+   "prefab": "RemnantBody3D Aeldari",
+   "traits": [
+    {
+     "id": 1140,
+     "name": "waystone"
+    },
+    {
+     "id": 1120,
+     "name": "shuriken"
+    }
+   ],
+   "type": "unit",
+   "vfxTableAgrees": true
+  },
+  "ASH63": {
+   "agreesWithKeywordRule": true,
+   "assetBundle": "battleprefabs_vfxandmisc_assets_all",
+   "canTransform": true,
+   "cardArmy": 30,
+   "cardType": 0,
+   "faction": "SaimHann",
+   "guid": "399ff148003f640959eb87ba52717556",
+   "guidResolvedBy": "guidMap",
+   "id": "ASH63",
+   "inLibrary": true,
+   "inPool": true,
+   "keywordRulePrefab": "RemnantBody3D Aeldari",
+   "keywords": [
+    "Waystone",
+    "Shuriken 3",
+    "Rally: All enemies lose Stealth and Camouflage"
+   ],
+   "keywordsAgreeWithTraits": true,
+   "name": "Dire Avenger Exarch",
+   "prefab": "RemnantBody3D Aeldari",
+   "traits": [
+    {
+     "id": 1140,
+     "name": "waystone"
+    },
+    {
+     "id": 1120,
+     "name": "shuriken"
+    },
+    {
+     "id": 10,
+     "name": "rally"
+    }
+   ],
+   "type": "unit",
+   "vfxTableAgrees": true
+  },
+  "ASH69": {
+   "agreesWithKeywordRule": true,
+   "assetBundle": "battleprefabs_vfxandmisc_assets_all",
+   "canTransform": true,
+   "cardArmy": 30,
+   "cardType": 0,
+   "faction": "SaimHann",
+   "guid": "399ff148003f640959eb87ba52717556",
+   "guidResolvedBy": "guidMap",
+   "id": "ASH69",
+   "inLibrary": true,
+   "inPool": true,
+   "keywordRulePrefab": "RemnantBody3D Aeldari",
+   "keywords": [
+    "Waystone",
+    "Camouflage",
+    "Strike: Give +1 [Attack] to your units"
+   ],
+   "keywordsAgreeWithTraits": true,
+   "name": "Howling Banshee Exarch",
+   "prefab": "RemnantBody3D Aeldari",
+   "traits": [
+    {
+     "id": 1140,
+     "name": "waystone"
+    },
+    {
+     "id": 985,
+     "name": "camouflage"
+    },
+    {
+     "id": 1110,
+     "name": "strike"
+    }
+   ],
+   "type": "unit",
+   "vfxTableAgrees": true
+  },
+  "ASH7": {
+   "agreesWithKeywordRule": true,
+   "assetBundle": "battleprefabs_vfxandmisc_assets_all",
+   "canTransform": true,
+   "cardArmy": 30,
+   "cardType": 0,
+   "faction": "SaimHann",
+   "guid": "399ff148003f640959eb87ba52717556",
+   "guidResolvedBy": "guidMap",
+   "id": "ASH7",
+   "inLibrary": true,
+   "inPool": true,
+   "keywordRulePrefab": "RemnantBody3D Aeldari",
+   "keywords": [
+    "Waystone",
+    "Shuriken 1"
+   ],
+   "keywordsAgreeWithTraits": true,
+   "name": "Veteran Guardian",
+   "prefab": "RemnantBody3D Aeldari",
+   "traits": [
+    {
+     "id": 1140,
+     "name": "waystone"
+    },
+    {
+     "id": 1120,
+     "name": "shuriken"
+    }
+   ],
+   "type": "unit",
+   "vfxTableAgrees": true
+  },
+  "ASH70": {
+   "agreesWithKeywordRule": true,
+   "assetBundle": "battleprefabs_vfxandmisc_assets_all",
+   "canTransform": true,
+   "cardArmy": 30,
+   "cardType": 0,
+   "faction": "SaimHann",
+   "guid": "399ff148003f640959eb87ba52717556",
+   "guidResolvedBy": "guidMap",
+   "id": "ASH70",
+   "inLibrary": true,
+   "inPool": true,
+   "keywordRulePrefab": "RemnantBody3D Aeldari",
+   "keywords": [
+    "Waystone",
+    "Flying",
+    "Rally"
+   ],
+   "keywordsAgreeWithTraits": true,
+   "name": "Swooping Hawk Exarch",
+   "prefab": "RemnantBody3D Aeldari",
+   "traits": [
+    {
+     "id": 1140,
+     "name": "waystone"
+    },
+    {
+     "id": 390,
+     "name": "flying"
+    },
+    {
+     "id": 10,
+     "name": "rally"
+    }
+   ],
+   "type": "unit",
+   "vfxTableAgrees": true
+  },
+  "ASH75": {
+   "agreesWithKeywordRule": true,
+   "assetBundle": "battleprefabs_vfxandmisc_assets_all",
+   "canTransform": true,
+   "cardArmy": 30,
+   "cardType": 0,
+   "faction": "SaimHann",
+   "guid": "399ff148003f640959eb87ba52717556",
+   "guidResolvedBy": "guidMap",
+   "id": "ASH75",
+   "inLibrary": true,
+   "inPool": true,
+   "keywordRulePrefab": "RemnantBody3D Aeldari",
+   "keywords": [
+    "Waystone",
+    "Flying",
+    "Concussive"
+   ],
+   "keywordsAgreeWithTraits": true,
+   "name": "Yrlla the Huntress",
+   "prefab": "RemnantBody3D Aeldari",
+   "traits": [
+    {
+     "id": 1140,
+     "name": "waystone"
+    },
+    {
+     "id": 390,
+     "name": "flying"
+    },
+    {
+     "id": 930,
+     "name": "concussive"
+    }
+   ],
+   "type": "unit",
+   "vfxTableAgrees": true
+  },
+  "ASH77": {
+   "agreesWithKeywordRule": true,
+   "assetBundle": "battleprefabs_vfxandmisc_assets_all",
+   "canTransform": true,
+   "cardArmy": 30,
+   "cardType": 0,
+   "faction": "SaimHann",
+   "guid": "399ff148003f640959eb87ba52717556",
+   "guidResolvedBy": "guidMap",
+   "id": "ASH77",
+   "inLibrary": true,
+   "inPool": true,
+   "keywordRulePrefab": "RemnantBody3D Aeldari",
+   "keywords": [
+    "Waystone",
+    "Stealth"
+   ],
+   "keywordsAgreeWithTraits": true,
+   "name": "Death Spinner Warp Spider",
+   "prefab": "RemnantBody3D Aeldari",
+   "traits": [
+    {
+     "id": 1140,
+     "name": "waystone"
+    },
+    {
+     "id": 70,
+     "name": "stealth"
+    }
+   ],
+   "type": "unit",
+   "vfxTableAgrees": true
+  },
+  "ASH78": {
+   "agreesWithKeywordRule": true,
+   "assetBundle": "battleprefabs_vfxandmisc_assets_all",
+   "canTransform": true,
+   "cardArmy": 30,
+   "cardType": 0,
+   "faction": "SaimHann",
+   "guid": "399ff148003f640959eb87ba52717556",
+   "guidResolvedBy": "guidMap",
+   "id": "ASH78",
+   "inLibrary": true,
+   "inPool": true,
+   "keywordRulePrefab": "RemnantBody3D Aeldari",
+   "keywords": [
+    "Waystone",
+    "Stealth"
+   ],
+   "keywordsAgreeWithTraits": true,
+   "name": "Warp Spider Exarch",
+   "prefab": "RemnantBody3D Aeldari",
+   "traits": [
+    {
+     "id": 1140,
+     "name": "waystone"
+    },
+    {
+     "id": 70,
+     "name": "stealth"
+    }
+   ],
+   "type": "unit",
+   "vfxTableAgrees": true
+  },
+  "ASH79": {
+   "agreesWithKeywordRule": true,
+   "assetBundle": "battleprefabs_vfxandmisc_assets_all",
+   "canTransform": true,
+   "cardArmy": 30,
+   "cardType": 0,
+   "faction": "SaimHann",
+   "guid": "399ff148003f640959eb87ba52717556",
+   "guidResolvedBy": "guidMap",
+   "id": "ASH79",
+   "inLibrary": true,
+   "inPool": true,
+   "keywordRulePrefab": "RemnantBody3D Aeldari",
+   "keywords": [
+    "Waystone",
+    "Stealth",
+    "Talent"
+   ],
+   "keywordsAgreeWithTraits": true,
+   "name": "Orian Laratharjos",
+   "prefab": "RemnantBody3D Aeldari",
+   "traits": [
+    {
+     "id": 1140,
+     "name": "waystone"
+    },
+    {
+     "id": 70,
+     "name": "stealth"
+    },
+    {
+     "id": 845,
+     "name": "talent"
+    }
+   ],
+   "type": "unit",
+   "vfxTableAgrees": true
+  },
+  "ASH8": {
+   "agreesWithKeywordRule": true,
+   "assetBundle": "battleprefabs_vfxandmisc_assets_all",
+   "canTransform": true,
+   "cardArmy": 30,
+   "cardType": 0,
+   "faction": "SaimHann",
+   "guid": "399ff148003f640959eb87ba52717556",
+   "guidResolvedBy": "guidMap",
+   "id": "ASH8",
+   "inLibrary": true,
+   "inPool": true,
+   "keywordRulePrefab": "RemnantBody3D Aeldari",
+   "keywords": [
+    "Waystone"
+   ],
+   "keywordsAgreeWithTraits": true,
+   "name": "Warlock",
+   "prefab": "RemnantBody3D Aeldari",
+   "traits": [
+    {
+     "id": 1140,
+     "name": "waystone"
+    }
+   ],
+   "type": "unit",
+   "vfxTableAgrees": true
+  },
+  "ASH80": {
+   "agreesWithKeywordRule": true,
+   "assetBundle": "battleprefabs_vfxandmisc_assets_all",
+   "canTransform": true,
+   "cardArmy": 30,
+   "cardType": 0,
+   "faction": "SaimHann",
+   "guid": "399ff148003f640959eb87ba52717556",
+   "guidResolvedBy": "guidMap",
+   "id": "ASH80",
+   "inLibrary": true,
+   "inPool": true,
+   "keywordRulePrefab": "RemnantBody3D Aeldari",
+   "keywords": [
+    "Waystone"
+   ],
+   "keywordsAgreeWithTraits": true,
+   "name": "Farseer",
+   "prefab": "RemnantBody3D Aeldari",
+   "traits": [
+    {
+     "id": 1140,
+     "name": "waystone"
+    }
+   ],
+   "type": "unit",
+   "vfxTableAgrees": true
+  },
+  "ASH81": {
+   "agreesWithKeywordRule": false,
+   "assetBundle": "battleprefabs_vfxandmisc_assets_all",
+   "canTransform": false,
+   "cardArmy": 30,
+   "cardType": 0,
+   "faction": "SaimHann",
+   "guid": "399ff148003f640959eb87ba52717556",
+   "guidResolvedBy": "guidMap",
+   "id": "ASH81",
+   "inLibrary": true,
+   "inPool": true,
+   "keywordRulePrefab": null,
+   "keywords": [
+    "Flying"
+   ],
+   "keywordsAgreeWithTraits": true,
+   "name": "Bright Lance Vyper",
+   "prefab": "RemnantBody3D Aeldari",
+   "traits": [
+    {
+     "id": 390,
+     "name": "flying"
+    }
+   ],
+   "type": "unit",
+   "vfxTableAgrees": true
+  },
+  "ASH82": {
+   "agreesWithKeywordRule": false,
+   "assetBundle": "battleprefabs_vfxandmisc_assets_all",
+   "canTransform": false,
+   "cardArmy": 30,
+   "cardType": 0,
+   "faction": "SaimHann",
+   "guid": "399ff148003f640959eb87ba52717556",
+   "guidResolvedBy": "guidMap",
+   "id": "ASH82",
+   "inLibrary": true,
+   "inPool": true,
+   "keywordRulePrefab": null,
+   "keywords": [
+    "Flying"
+   ],
+   "keywordsAgreeWithTraits": true,
+   "name": "Farseer Skyrunner",
+   "prefab": "RemnantBody3D Aeldari",
+   "traits": [
+    {
+     "id": 390,
+     "name": "flying"
+    }
+   ],
+   "type": "unit",
+   "vfxTableAgrees": true
+  },
+  "ASH83": {
+   "agreesWithKeywordRule": true,
+   "assetBundle": "battleprefabs_vfxandmisc_assets_all",
+   "canTransform": true,
+   "cardArmy": 30,
+   "cardType": 0,
+   "faction": "SaimHann",
+   "guid": "399ff148003f640959eb87ba52717556",
+   "guidResolvedBy": "guidMap",
+   "id": "ASH83",
+   "inLibrary": true,
+   "inPool": true,
+   "keywordRulePrefab": "RemnantBody3D Aeldari",
+   "keywords": [
+    "Waystone"
+   ],
+   "keywordsAgreeWithTraits": true,
+   "name": "Autarch",
+   "prefab": "RemnantBody3D Aeldari",
+   "traits": [
+    {
+     "id": 1140,
+     "name": "waystone"
+    }
+   ],
+   "type": "unit",
+   "vfxTableAgrees": true
+  },
+  "SAU1": {
+   "agreesWithKeywordRule": false,
+   "assetBundle": "battleprefabs_vfxandmisc_assets_all",
+   "canTransform": false,
+   "cardArmy": 40,
+   "cardType": 0,
+   "faction": "Sautekh",
+   "guid": "5041a12423b67164abf8bb6aedf69097",
+   "guidResolvedBy": "guidMap",
+   "id": "SAU1",
+   "inLibrary": true,
+   "inPool": true,
+   "keywordRulePrefab": null,
+   "keywords": [
+    "Artifice"
+   ],
+   "keywordsAgreeWithTraits": true,
+   "name": "Canoptek Scarab",
+   "prefab": "RemnantBody3D Necrons",
+   "traits": [
+    {
+     "id": 1040,
+     "name": "artifice"
+    }
+   ],
+   "type": "unit",
+   "vfxTableAgrees": true
+  },
+  "SAU10": {
+   "agreesWithKeywordRule": true,
+   "assetBundle": "battleprefabs_vfxandmisc_assets_all",
+   "canTransform": true,
+   "cardArmy": 40,
+   "cardType": 0,
+   "faction": "Sautekh",
+   "guid": "5041a12423b67164abf8bb6aedf69097",
+   "guidResolvedBy": "guidMap",
+   "id": "SAU10",
+   "inLibrary": true,
+   "inPool": true,
+   "keywordRulePrefab": "RemnantBody3D Necrons",
+   "keywords": [
+    "Remnant",
+    "Vanguard"
+   ],
+   "keywordsAgreeWithTraits": true,
+   "name": "Triarch Praetorian",
+   "prefab": "RemnantBody3D Necrons",
+   "traits": [
+    {
+     "id": 1050,
+     "name": "remnant"
+    },
+    {
+     "id": 980,
+     "name": "vanguard"
+    }
+   ],
+   "type": "unit",
+   "vfxTableAgrees": true
+  },
+  "SAU11": {
+   "agreesWithKeywordRule": false,
+   "assetBundle": "battleprefabs_vfxandmisc_assets_all",
+   "canTransform": false,
+   "cardArmy": 40,
+   "cardType": 0,
+   "faction": "Sautekh",
+   "guid": "5041a12423b67164abf8bb6aedf69097",
+   "guidResolvedBy": "guidMap",
+   "id": "SAU11",
+   "inLibrary": true,
+   "inPool": true,
+   "keywordRulePrefab": null,
+   "keywords": [
+    "Artifice: Reanimate a random friendly Remnant"
+   ],
+   "keywordsAgreeWithTraits": true,
+   "name": "Technomancer",
+   "prefab": "RemnantBody3D Necrons",
+   "traits": [
+    {
+     "id": 1040,
+     "name": "artifice"
+    }
+   ],
+   "type": "unit",
+   "vfxTableAgrees": true
+  },
+  "SAU12": {
+   "agreesWithKeywordRule": true,
+   "assetBundle": "battleprefabs_vfxandmisc_assets_all",
+   "canTransform": true,
+   "cardArmy": 40,
+   "cardType": 0,
+   "faction": "Sautekh",
+   "guid": "5041a12423b67164abf8bb6aedf69097",
+   "guidResolvedBy": "guidMap",
+   "id": "SAU12",
+   "inLibrary": true,
+   "inPool": true,
+   "keywordRulePrefab": "RemnantBody3D Necrons",
+   "keywords": [
+    "Remnant",
+    "Flying",
+    "Flank"
+   ],
+   "keywordsAgreeWithTraits": true,
+   "name": "Tomb Blade",
+   "prefab": "RemnantBody3D Necrons",
+   "traits": [
+    {
+     "id": 1050,
+     "name": "remnant"
+    },
+    {
+     "id": 390,
+     "name": "flying"
+    },
+    {
+     "id": 460,
+     "name": "flank"
+    }
+   ],
+   "type": "unit",
+   "vfxTableAgrees": true
+  },
+  "SAU13": {
+   "agreesWithKeywordRule": false,
+   "assetBundle": "battleprefabs_vfxandmisc_assets_all",
+   "canTransform": false,
+   "cardArmy": 40,
+   "cardType": 0,
+   "faction": "Sautekh",
+   "guid": "5041a12423b67164abf8bb6aedf69097",
+   "guidResolvedBy": "guidMap",
+   "id": "SAU13",
+   "inLibrary": true,
+   "inPool": true,
+   "keywordRulePrefab": null,
+   "keywords": [
+    "Regeneration 1",
+    "Artifice"
+   ],
+   "keywordsAgreeWithTraits": true,
+   "name": "Canoptek Spyder",
+   "prefab": "RemnantBody3D Necrons",
+   "traits": [
+    {
+     "id": 1030,
+     "name": "regeneration"
+    },
+    {
+     "id": 1040,
+     "name": "artifice"
+    }
+   ],
+   "type": "unit",
+   "vfxTableAgrees": true
+  },
+  "SAU14": {
+   "agreesWithKeywordRule": true,
+   "assetBundle": "battleprefabs_vfxandmisc_assets_all",
+   "canTransform": true,
+   "cardArmy": 40,
+   "cardType": 0,
+   "faction": "Sautekh",
+   "guid": "5041a12423b67164abf8bb6aedf69097",
+   "guidResolvedBy": "guidMap",
+   "id": "SAU14",
+   "inLibrary": true,
+   "inPool": true,
+   "keywordRulePrefab": "RemnantBody3D Necrons",
+   "keywords": [
+    "Remnant",
+    "Vanguard"
+   ],
+   "keywordsAgreeWithTraits": true,
+   "name": "Cryptothrall",
+   "prefab": "RemnantBody3D Necrons",
+   "traits": [
+    {
+     "id": 1050,
+     "name": "remnant"
+    },
+    {
+     "id": 980,
+     "name": "vanguard"
+    }
+   ],
+   "type": "unit",
+   "vfxTableAgrees": true
+  },
+  "SAU15": {
+   "agreesWithKeywordRule": true,
+   "assetBundle": "battleprefabs_vfxandmisc_assets_all",
+   "canTransform": true,
+   "cardArmy": 40,
+   "cardType": 0,
+   "faction": "Sautekh",
+   "guid": "5041a12423b67164abf8bb6aedf69097",
+   "guidResolvedBy": "guidMap",
+   "id": "SAU15",
+   "inLibrary": true,
+   "inPool": true,
+   "keywordRulePrefab": "RemnantBody3D Necrons",
+   "keywords": [
+    "Remnant",
+    "Sniper",
+    "Rally"
+   ],
+   "keywordsAgreeWithTraits": true,
+   "name": "Deathmark",
+   "prefab": "RemnantBody3D Necrons",
+   "traits": [
+    {
+     "id": 1050,
+     "name": "remnant"
+    },
+    {
+     "id": 990,
+     "name": "sniper"
+    },
+    {
+     "id": 10,
+     "name": "rally"
+    }
+   ],
+   "type": "unit",
+   "vfxTableAgrees": true
+  },
+  "SAU16": {
+   "agreesWithKeywordRule": false,
+   "assetBundle": "battleprefabs_vfxandmisc_assets_all",
+   "canTransform": false,
+   "cardArmy": 40,
+   "cardType": 0,
+   "faction": "Sautekh",
+   "guid": "5041a12423b67164abf8bb6aedf69097",
+   "guidResolvedBy": "guidMap",
+   "id": "SAU16",
+   "inLibrary": true,
+   "inPool": true,
+   "keywordRulePrefab": null,
+   "keywords": [
+    "Flying",
+    "Rally"
+   ],
+   "keywordsAgreeWithTraits": true,
+   "name": "Night Scythe",
+   "prefab": "RemnantBody3D Necrons",
+   "traits": [
+    {
+     "id": 390,
+     "name": "flying"
+    },
+    {
+     "id": 10,
+     "name": "rally"
+    }
+   ],
+   "type": "unit",
+   "vfxTableAgrees": true
+  },
+  "SAU17": {
+   "agreesWithKeywordRule": true,
+   "assetBundle": "battleprefabs_vfxandmisc_assets_all",
+   "canTransform": true,
+   "cardArmy": 40,
+   "cardType": 0,
+   "faction": "Sautekh",
+   "guid": "5041a12423b67164abf8bb6aedf69097",
+   "guidResolvedBy": "guidMap",
+   "id": "SAU17",
+   "inLibrary": true,
+   "inPool": true,
+   "keywordRulePrefab": "RemnantBody3D Necrons",
+   "keywords": [
+    "Remnant",
+    "Rally"
+   ],
+   "keywordsAgreeWithTraits": true,
+   "name": "Psychomancer",
+   "prefab": "RemnantBody3D Necrons",
+   "traits": [
+    {
+     "id": 10,
+     "name": "rally"
+    },
+    {
+     "id": 1050,
+     "name": "remnant"
+    }
+   ],
+   "type": "unit",
+   "vfxTableAgrees": true
+  },
+  "SAU18": {
+   "agreesWithKeywordRule": true,
+   "assetBundle": "battleprefabs_vfxandmisc_assets_all",
+   "canTransform": true,
+   "cardArmy": 40,
+   "cardType": 0,
+   "faction": "Sautekh",
+   "guid": "5041a12423b67164abf8bb6aedf69097",
+   "guidResolvedBy": "guidMap",
+   "id": "SAU18",
+   "inLibrary": true,
+   "inPool": true,
+   "keywordRulePrefab": "RemnantBody3D Necrons",
+   "keywords": [
+    "Remnant",
+    "Destroyer",
+    "Flank"
+   ],
+   "keywordsAgreeWithTraits": true,
+   "name": "Skorpekh Destroyer",
+   "prefab": "RemnantBody3D Necrons",
+   "traits": [
+    {
+     "id": 1050,
+     "name": "remnant"
+    },
+    {
+     "id": 680,
+     "name": "frenzied"
+    },
+    {
+     "id": 460,
+     "name": "flank"
+    }
+   ],
+   "type": "unit",
+   "vfxTableAgrees": true
+  },
+  "SAU19": {
+   "agreesWithKeywordRule": false,
+   "assetBundle": "battleprefabs_vfxandmisc_assets_all",
+   "canTransform": false,
+   "cardArmy": 40,
+   "cardType": 0,
+   "faction": "Sautekh",
+   "guid": "5041a12423b67164abf8bb6aedf69097",
+   "guidResolvedBy": "guidMap",
+   "id": "SAU19",
+   "inLibrary": true,
+   "inPool": true,
+   "keywordRulePrefab": null,
+   "keywords": [
+    "Talent",
+    "Rally"
+   ],
+   "keywordsAgreeWithTraits": true,
+   "name": "Canoptek Reanimator",
+   "prefab": "RemnantBody3D Necrons",
+   "traits": [
+    {
+     "id": 845,
+     "name": "talent"
+    },
+    {
+     "id": 10,
+     "name": "rally"
+    }
+   ],
+   "type": "unit",
+   "vfxTableAgrees": true
+  },
+  "SAU2": {
+   "agreesWithKeywordRule": true,
+   "assetBundle": "battleprefabs_vfxandmisc_assets_all",
+   "canTransform": true,
+   "cardArmy": 40,
+   "cardType": 0,
+   "faction": "Sautekh",
+   "guid": "5041a12423b67164abf8bb6aedf69097",
+   "guidResolvedBy": "guidMap",
+   "id": "SAU2",
+   "inLibrary": true,
+   "inPool": true,
+   "keywordRulePrefab": "RemnantBody3D Necrons",
+   "keywords": [
+    "Flying",
+    "Remnant",
+    "Stealth"
+   ],
+   "keywordsAgreeWithTraits": true,
+   "name": "Canoptek Plasmacyte",
+   "prefab": "RemnantBody3D Necrons",
+   "traits": [
+    {
+     "id": 390,
+     "name": "flying"
+    },
+    {
+     "id": 1050,
+     "name": "remnant"
+    },
+    {
+     "id": 70,
+     "name": "stealth"
+    }
+   ],
+   "type": "unit",
+   "vfxTableAgrees": true
+  },
+  "SAU20": {
+   "agreesWithKeywordRule": true,
+   "assetBundle": "battleprefabs_vfxandmisc_assets_all",
+   "canTransform": true,
+   "cardArmy": 40,
+   "cardType": 0,
+   "faction": "Sautekh",
+   "guid": "5041a12423b67164abf8bb6aedf69097",
+   "guidResolvedBy": "guidMap",
+   "id": "SAU20",
+   "inLibrary": true,
+   "inPool": true,
+   "keywordRulePrefab": "RemnantBody3D Necrons",
+   "keywords": [
+    "Remnant",
+    "Talent"
+   ],
+   "keywordsAgreeWithTraits": true,
+   "name": "Chronomancer",
+   "prefab": "RemnantBody3D Necrons",
+   "traits": [
+    {
+     "id": 1050,
+     "name": "remnant"
+    },
+    {
+     "id": 845,
+     "name": "talent"
+    }
+   ],
+   "type": "unit",
+   "vfxTableAgrees": true
+  },
+  "SAU21": {
+   "agreesWithKeywordRule": false,
+   "assetBundle": "battleprefabs_vfxandmisc_assets_all",
+   "canTransform": false,
+   "cardArmy": 40,
+   "cardType": 0,
+   "faction": "Sautekh",
+   "guid": "5041a12423b67164abf8bb6aedf69097",
+   "guidResolvedBy": "guidMap",
+   "id": "SAU21",
+   "inLibrary": true,
+   "inPool": true,
+   "keywordRulePrefab": null,
+   "keywords": [
+    "Flying",
+    "Flank"
+   ],
+   "keywordsAgreeWithTraits": true,
+   "name": "Doom Scythe",
+   "prefab": "RemnantBody3D Necrons",
+   "traits": [
+    {
+     "id": 390,
+     "name": "flying"
+    },
+    {
+     "id": 460,
+     "name": "flank"
+    }
+   ],
+   "type": "unit",
+   "vfxTableAgrees": true
+  },
+  "SAU22": {
+   "agreesWithKeywordRule": true,
+   "assetBundle": "battleprefabs_vfxandmisc_assets_all",
+   "canTransform": true,
+   "cardArmy": 40,
+   "cardType": 0,
+   "faction": "Sautekh",
+   "guid": "5041a12423b67164abf8bb6aedf69097",
+   "guidResolvedBy": "guidMap",
+   "id": "SAU22",
+   "inLibrary": true,
+   "inPool": true,
+   "keywordRulePrefab": "RemnantBody3D Necrons",
+   "keywords": [
+    "Remnant",
+    "Destroyer"
+   ],
+   "keywordsAgreeWithTraits": true,
+   "name": "Lokhust Heavy Destroyer",
+   "prefab": "RemnantBody3D Necrons",
+   "traits": [
+    {
+     "id": 1050,
+     "name": "remnant"
+    },
+    {
+     "id": 680,
+     "name": "frenzied"
+    }
+   ],
+   "type": "unit",
+   "vfxTableAgrees": true
+  },
+  "SAU23": {
+   "agreesWithKeywordRule": true,
+   "assetBundle": "battleprefabs_vfxandmisc_assets_all",
+   "canTransform": true,
+   "cardArmy": 40,
+   "cardType": 0,
+   "faction": "Sautekh",
+   "guid": "5041a12423b67164abf8bb6aedf69097",
+   "guidResolvedBy": "guidMap",
+   "id": "SAU23",
+   "inLibrary": true,
+   "inPool": true,
+   "keywordRulePrefab": "RemnantBody3D Necrons",
+   "keywords": [
+    "Remnant",
+    "Armour 2",
+    "Vanguard"
+   ],
+   "keywordsAgreeWithTraits": true,
+   "name": "Lychguard",
+   "prefab": "RemnantBody3D Necrons",
+   "traits": [
+    {
+     "id": 1050,
+     "name": "remnant"
+    },
+    {
+     "id": 980,
+     "name": "vanguard"
+    }
+   ],
+   "type": "unit",
+   "vfxTableAgrees": true
+  },
+  "SAU24": {
+   "agreesWithKeywordRule": false,
+   "assetBundle": "battleprefabs_vfxandmisc_assets_all",
+   "canTransform": false,
+   "cardArmy": 40,
+   "cardType": 0,
+   "faction": "Sautekh",
+   "guid": "5041a12423b67164abf8bb6aedf69097",
+   "guidResolvedBy": "guidMap",
+   "id": "SAU24",
+   "inLibrary": true,
+   "inPool": true,
+   "keywordRulePrefab": null,
+   "keywords": [
+    "Flying",
+    "Talent: Reanimate"
+   ],
+   "keywordsAgreeWithTraits": true,
+   "name": "Command Barge",
+   "prefab": "RemnantBody3D Necrons",
+   "traits": [
+    {
+     "id": 845,
+     "name": "talent"
+    },
+    {
+     "id": 390,
+     "name": "flying"
+    }
+   ],
+   "type": "unit",
+   "vfxTableAgrees": true
+  },
+  "SAU25": {
+   "agreesWithKeywordRule": true,
+   "assetBundle": "battleprefabs_vfxandmisc_assets_all",
+   "canTransform": true,
+   "cardArmy": 40,
+   "cardType": 0,
+   "faction": "Sautekh",
+   "guid": "5041a12423b67164abf8bb6aedf69097",
+   "guidResolvedBy": "guidMap",
+   "id": "SAU25",
+   "inLibrary": true,
+   "inPool": true,
+   "keywordRulePrefab": "RemnantBody3D Necrons",
+   "keywords": [
+    "Remnant",
+    "Destroyer",
+    "Artifice"
+   ],
+   "keywordsAgreeWithTraits": true,
+   "name": "Hexmark Destroyer",
+   "prefab": "RemnantBody3D Necrons",
+   "traits": [
+    {
+     "id": 1050,
+     "name": "remnant"
+    },
+    {
+     "id": 680,
+     "name": "frenzied"
+    },
+    {
+     "id": 1040,
+     "name": "artifice"
+    }
+   ],
+   "type": "unit",
+   "vfxTableAgrees": true
+  },
+  "SAU26": {
+   "agreesWithKeywordRule": false,
+   "assetBundle": "battleprefabs_vfxandmisc_assets_all",
+   "canTransform": false,
+   "cardArmy": 40,
+   "cardType": 0,
+   "faction": "Sautekh",
+   "guid": "5041a12423b67164abf8bb6aedf69097",
+   "guidResolvedBy": "guidMap",
+   "id": "SAU26",
+   "inLibrary": true,
+   "inPool": true,
+   "keywordRulePrefab": null,
+   "keywords": [
+    "Artifice"
+   ],
+   "keywordsAgreeWithTraits": true,
+   "name": "Plasmancer",
+   "prefab": "RemnantBody3D Necrons",
+   "traits": [
+    {
+     "id": 1040,
+     "name": "artifice"
+    }
+   ],
+   "type": "unit",
+   "vfxTableAgrees": true
+  },
+  "SAU27": {
+   "agreesWithKeywordRule": false,
+   "assetBundle": "battleprefabs_vfxandmisc_assets_all",
+   "canTransform": false,
+   "cardArmy": 40,
+   "cardType": 0,
+   "faction": "Sautekh",
+   "guid": "5041a12423b67164abf8bb6aedf69097",
+   "guidResolvedBy": "guidMap",
+   "id": "SAU27",
+   "inLibrary": true,
+   "inPool": true,
+   "keywordRulePrefab": null,
+   "keywords": [
+    "Regeneration 3"
+   ],
+   "keywordsAgreeWithTraits": true,
+   "name": "Scarab Swarm",
+   "prefab": "RemnantBody3D Necrons",
+   "traits": [
+    {
+     "id": 1030,
+     "name": "regeneration"
+    }
+   ],
+   "type": "unit",
+   "vfxTableAgrees": true
+  },
+  "SAU28": {
+   "agreesWithKeywordRule": false,
+   "assetBundle": "battleprefabs_vfxandmisc_assets_all",
+   "canTransform": false,
+   "cardArmy": 40,
+   "cardType": 0,
+   "faction": "Sautekh",
+   "guid": "5041a12423b67164abf8bb6aedf69097",
+   "guidResolvedBy": "guidMap",
+   "id": "SAU28",
+   "inLibrary": true,
+   "inPool": true,
+   "keywordRulePrefab": null,
+   "keywords": [
+    "Flying",
+    "Talent",
+    "Artifice"
+   ],
+   "keywordsAgreeWithTraits": true,
+   "name": "Ghost Ark",
+   "prefab": "RemnantBody3D Necrons",
+   "traits": [
+    {
+     "id": 390,
+     "name": "flying"
+    },
+    {
+     "id": 1040,
+     "name": "artifice"
+    },
+    {
+     "id": 845,
+     "name": "talent"
+    }
+   ],
+   "type": "unit",
+   "vfxTableAgrees": true
+  },
+  "SAU29": {
+   "agreesWithKeywordRule": true,
+   "assetBundle": "battleprefabs_vfxandmisc_assets_all",
+   "canTransform": true,
+   "cardArmy": 40,
+   "cardType": 0,
+   "faction": "Sautekh",
+   "guid": "5041a12423b67164abf8bb6aedf69097",
+   "guidResolvedBy": "guidMap",
+   "id": "SAU29",
+   "inLibrary": true,
+   "inPool": true,
+   "keywordRulePrefab": "RemnantBody3D Necrons",
+   "keywords": [
+    "Remnant",
+    "Regeneration 2",
+    "Talent: Indomitable Will"
+   ],
+   "keywordsAgreeWithTraits": true,
+   "name": "Necron Lord",
+   "prefab": "RemnantBody3D Necrons",
+   "traits": [
+    {
+     "id": 1030,
+     "name": "regeneration"
+    },
+    {
+     "id": 845,
+     "name": "talent"
+    },
+    {
+     "id": 1050,
+     "name": "remnant"
+    }
+   ],
+   "type": "unit",
+   "vfxTableAgrees": true
+  },
+  "SAU3": {
+   "agreesWithKeywordRule": true,
+   "assetBundle": "battleprefabs_vfxandmisc_assets_all",
+   "canTransform": true,
+   "cardArmy": 40,
+   "cardType": 0,
+   "faction": "Sautekh",
+   "guid": "5041a12423b67164abf8bb6aedf69097",
+   "guidResolvedBy": "guidMap",
+   "id": "SAU3",
+   "inLibrary": true,
+   "inPool": true,
+   "keywordRulePrefab": "RemnantBody3D Necrons",
+   "keywords": [
+    "Destroyer",
+    "Remnant"
+   ],
+   "keywordsAgreeWithTraits": true,
+   "name": "Flayed One",
+   "prefab": "RemnantBody3D Necrons",
+   "traits": [
+    {
+     "id": 680,
+     "name": "frenzied"
+    },
+    {
+     "id": 1050,
+     "name": "remnant"
+    }
+   ],
+   "type": "unit",
+   "vfxTableAgrees": true
+  },
+  "SAU30": {
+   "agreesWithKeywordRule": false,
+   "assetBundle": "battleprefabs_vfxandmisc_assets_all",
+   "canTransform": false,
+   "cardArmy": 40,
+   "cardType": 0,
+   "faction": "Sautekh",
+   "guid": "5041a12423b67164abf8bb6aedf69097",
+   "guidResolvedBy": "guidMap",
+   "id": "SAU30",
+   "inLibrary": true,
+   "inPool": true,
+   "keywordRulePrefab": null,
+   "keywords": [
+    "Regeneration 1"
+   ],
+   "keywordsAgreeWithTraits": true,
+   "name": "Triarch Stalker",
+   "prefab": "RemnantBody3D Necrons",
+   "traits": [
+    {
+     "id": 1030,
+     "name": "regeneration"
+    }
+   ],
+   "type": "unit",
+   "vfxTableAgrees": true
+  },
+  "SAU31": {
+   "agreesWithKeywordRule": false,
+   "assetBundle": "battleprefabs_vfxandmisc_assets_all",
+   "canTransform": false,
+   "cardArmy": 40,
+   "cardType": 0,
+   "faction": "Sautekh",
+   "guid": "5041a12423b67164abf8bb6aedf69097",
+   "guidResolvedBy": "guidMap",
+   "id": "SAU31",
+   "inLibrary": true,
+   "inPool": true,
+   "keywordRulePrefab": null,
+   "keywords": [],
+   "keywordsAgreeWithTraits": true,
+   "name": "Doomstalker",
+   "prefab": "RemnantBody3D Necrons",
+   "traits": [],
+   "type": "unit",
+   "vfxTableAgrees": true
+  },
+  "SAU32": {
+   "agreesWithKeywordRule": true,
+   "assetBundle": "battleprefabs_vfxandmisc_assets_all",
+   "canTransform": true,
+   "cardArmy": 40,
+   "cardType": 0,
+   "faction": "Sautekh",
+   "guid": "5041a12423b67164abf8bb6aedf69097",
+   "guidResolvedBy": "guidMap",
+   "id": "SAU32",
+   "inLibrary": true,
+   "inPool": true,
+   "keywordRulePrefab": "RemnantBody3D Necrons",
+   "keywords": [
+    "Remnant",
+    "Destroyer"
+   ],
+   "keywordsAgreeWithTraits": true,
+   "name": "Skorpekh Lord",
+   "prefab": "RemnantBody3D Necrons",
+   "traits": [
+    {
+     "id": 1050,
+     "name": "remnant"
+    },
+    {
+     "id": 680,
+     "name": "frenzied"
+    }
+   ],
+   "type": "unit",
+   "vfxTableAgrees": true
+  },
+  "SAU33": {
+   "agreesWithKeywordRule": false,
+   "assetBundle": "battleprefabs_vfxandmisc_assets_all",
+   "canTransform": false,
+   "cardArmy": 40,
+   "cardType": 0,
+   "faction": "Sautekh",
+   "guid": "5041a12423b67164abf8bb6aedf69097",
+   "guidResolvedBy": "guidMap",
+   "id": "SAU33",
+   "inLibrary": true,
+   "inPool": true,
+   "keywordRulePrefab": null,
+   "keywords": [
+    "Armour 2"
+   ],
+   "keywordsAgreeWithTraits": true,
+   "name": "Vargard Obyron",
+   "prefab": "RemnantBody3D Necrons",
+   "traits": [],
+   "type": "unit",
+   "vfxTableAgrees": true
+  },
+  "SAU34": {
+   "agreesWithKeywordRule": false,
+   "assetBundle": "battleprefabs_vfxandmisc_assets_all",
+   "canTransform": false,
+   "cardArmy": 40,
+   "cardType": 0,
+   "faction": "Sautekh",
+   "guid": "5041a12423b67164abf8bb6aedf69097",
+   "guidResolvedBy": "guidMap",
+   "id": "SAU34",
+   "inLibrary": true,
+   "inPool": true,
+   "keywordRulePrefab": null,
+   "keywords": [
+    "Armour 3",
+    "Talent: Particle Whip",
+    "Artifice: Deploy a Necron Warrior"
+   ],
+   "keywordsAgreeWithTraits": true,
+   "name": "Monolith",
+   "prefab": "RemnantBody3D Necrons",
+   "traits": [
+    {
+     "id": 845,
+     "name": "talent"
+    },
+    {
+     "id": 1040,
+     "name": "artifice"
+    }
+   ],
+   "type": "unit",
+   "vfxTableAgrees": true
+  },
+  "SAU4": {
+   "agreesWithKeywordRule": true,
+   "assetBundle": "battleprefabs_vfxandmisc_assets_all",
+   "canTransform": true,
+   "cardArmy": 40,
+   "cardType": 0,
+   "faction": "Sautekh",
+   "guid": "5041a12423b67164abf8bb6aedf69097",
+   "guidResolvedBy": "guidMap",
+   "id": "SAU4",
+   "inLibrary": true,
+   "inPool": true,
+   "keywordRulePrefab": "RemnantBody3D Necrons",
+   "keywords": [
+    "Remnant"
+   ],
+   "keywordsAgreeWithTraits": true,
+   "name": "Gauss Warrior",
+   "prefab": "RemnantBody3D Necrons",
+   "traits": [
+    {
+     "id": 1050,
+     "name": "remnant"
+    }
+   ],
+   "type": "unit",
+   "vfxTableAgrees": true
+  },
+  "SAU5": {
+   "agreesWithKeywordRule": true,
+   "assetBundle": "battleprefabs_vfxandmisc_assets_all",
+   "canTransform": true,
+   "cardArmy": 40,
+   "cardType": 0,
+   "faction": "Sautekh",
+   "guid": "5041a12423b67164abf8bb6aedf69097",
+   "guidResolvedBy": "guidMap",
+   "id": "SAU5",
+   "inLibrary": true,
+   "inPool": true,
+   "keywordRulePrefab": "RemnantBody3D Necrons",
+   "keywords": [
+    "Remnant",
+    "Vanguard"
+   ],
+   "keywordsAgreeWithTraits": true,
+   "name": "Necron Warrior",
+   "prefab": "RemnantBody3D Necrons",
+   "traits": [
+    {
+     "id": 1050,
+     "name": "remnant"
+    },
+    {
+     "id": 980,
+     "name": "vanguard"
+    }
+   ],
+   "type": "unit",
+   "vfxTableAgrees": true
+  },
+  "SAU6": {
+   "agreesWithKeywordRule": true,
+   "assetBundle": "battleprefabs_vfxandmisc_assets_all",
+   "canTransform": true,
+   "cardArmy": 40,
+   "cardType": 0,
+   "faction": "Sautekh",
+   "guid": "5041a12423b67164abf8bb6aedf69097",
+   "guidResolvedBy": "guidMap",
+   "id": "SAU6",
+   "inLibrary": true,
+   "inPool": true,
+   "keywordRulePrefab": "RemnantBody3D Necrons",
+   "keywords": [
+    "Remnant",
+    "Blast 2",
+    "Artifice"
+   ],
+   "keywordsAgreeWithTraits": true,
+   "name": "Tesla Immortal",
+   "prefab": "RemnantBody3D Necrons",
+   "traits": [
+    {
+     "id": 1050,
+     "name": "remnant"
+    },
+    {
+     "id": 350,
+     "name": "blast"
+    },
+    {
+     "id": 1040,
+     "name": "artifice"
+    }
+   ],
+   "type": "unit",
+   "vfxTableAgrees": true
+  },
+  "SAU65": {
+   "agreesWithKeywordRule": true,
+   "assetBundle": "battleprefabs_vfxandmisc_assets_all",
+   "canTransform": true,
+   "cardArmy": 40,
+   "cardType": 0,
+   "faction": "Sautekh",
+   "guid": "5041a12423b67164abf8bb6aedf69097",
+   "guidResolvedBy": "guidMap",
+   "id": "SAU65",
+   "inLibrary": true,
+   "inPool": true,
+   "keywordRulePrefab": "RemnantBody3D Necrons",
+   "keywords": [
+    "Remnant",
+    "Rally"
+   ],
+   "keywordsAgreeWithTraits": true,
+   "name": "Royal Warden",
+   "prefab": "RemnantBody3D Necrons",
+   "traits": [
+    {
+     "id": 10,
+     "name": "rally"
+    },
+    {
+     "id": 1050,
+     "name": "remnant"
+    }
+   ],
+   "type": "unit",
+   "vfxTableAgrees": true
+  },
+  "SAU67": {
+   "agreesWithKeywordRule": true,
+   "assetBundle": "battleprefabs_vfxandmisc_assets_all",
+   "canTransform": true,
+   "cardArmy": 40,
+   "cardType": 0,
+   "faction": "Sautekh",
+   "guid": "5041a12423b67164abf8bb6aedf69097",
+   "guidResolvedBy": "guidMap",
+   "id": "SAU67",
+   "inLibrary": true,
+   "inPool": true,
+   "keywordRulePrefab": "RemnantBody3D Necrons",
+   "keywords": [
+    "Remnant",
+    "Flying"
+   ],
+   "keywordsAgreeWithTraits": true,
+   "name": "Damaged Plasmacyte",
+   "prefab": "RemnantBody3D Necrons",
+   "traits": [
+    {
+     "id": 1050,
+     "name": "remnant"
+    },
+    {
+     "id": 390,
+     "name": "flying"
+    }
+   ],
+   "type": "unit",
+   "vfxTableAgrees": true
+  },
+  "SAU68": {
+   "agreesWithKeywordRule": true,
+   "assetBundle": "battleprefabs_vfxandmisc_assets_all",
+   "canTransform": true,
+   "cardArmy": 40,
+   "cardType": 0,
+   "faction": "Sautekh",
+   "guid": "5041a12423b67164abf8bb6aedf69097",
+   "guidResolvedBy": "guidMap",
+   "id": "SAU68",
+   "inLibrary": true,
+   "inPool": true,
+   "keywordRulePrefab": "RemnantBody3D Necrons",
+   "keywords": [
+    "Remnant.",
+    "Destroyer."
+   ],
+   "keywordsAgreeWithTraits": true,
+   "name": "Lokhust Destroyer",
+   "prefab": "RemnantBody3D Necrons",
+   "traits": [
+    {
+     "id": 1050,
+     "name": "remnant"
+    },
+    {
+     "id": 680,
+     "name": "frenzied"
+    }
+   ],
+   "type": "unit",
+   "vfxTableAgrees": true
+  },
+  "SAU69": {
+   "agreesWithKeywordRule": true,
+   "assetBundle": "battleprefabs_vfxandmisc_assets_all",
+   "canTransform": true,
+   "cardArmy": 40,
+   "cardType": 0,
+   "faction": "Sautekh",
+   "guid": "5041a12423b67164abf8bb6aedf69097",
+   "guidResolvedBy": "guidMap",
+   "id": "SAU69",
+   "inLibrary": true,
+   "inPool": true,
+   "keywordRulePrefab": "RemnantBody3D Necrons",
+   "keywords": [
+    "Remnant",
+    "Artifice"
+   ],
+   "keywordsAgreeWithTraits": true,
+   "name": "Flayed Ones Pack",
+   "prefab": "RemnantBody3D Necrons",
+   "traits": [
+    {
+     "id": 1050,
+     "name": "remnant"
+    },
+    {
+     "id": 1040,
+     "name": "artifice"
+    }
+   ],
+   "type": "unit",
+   "vfxTableAgrees": true
+  },
+  "SAU7": {
+   "agreesWithKeywordRule": true,
+   "assetBundle": "battleprefabs_vfxandmisc_assets_all",
+   "canTransform": true,
+   "cardArmy": 40,
+   "cardType": 0,
+   "faction": "Sautekh",
+   "guid": "5041a12423b67164abf8bb6aedf69097",
+   "guidResolvedBy": "guidMap",
+   "id": "SAU7",
+   "inLibrary": true,
+   "inPool": true,
+   "keywordRulePrefab": "RemnantBody3D Necrons",
+   "keywords": [
+    "Remnant"
+   ],
+   "keywordsAgreeWithTraits": true,
+   "name": "Canoptek Wraith",
+   "prefab": "RemnantBody3D Necrons",
+   "traits": [
+    {
+     "id": 180,
+     "name": "unstoppable"
+    },
+    {
+     "id": 1050,
+     "name": "remnant"
+    }
+   ],
+   "type": "unit",
+   "vfxTableAgrees": true
+  },
+  "SAU70": {
+   "agreesWithKeywordRule": true,
+   "assetBundle": "battleprefabs_vfxandmisc_assets_all",
+   "canTransform": true,
+   "cardArmy": 40,
+   "cardType": 0,
+   "faction": "Sautekh",
+   "guid": "5041a12423b67164abf8bb6aedf69097",
+   "guidResolvedBy": "guidMap",
+   "id": "SAU70",
+   "inLibrary": true,
+   "inPool": true,
+   "keywordRulePrefab": "RemnantBody3D Necrons",
+   "keywords": [
+    "Remnant",
+    "Destroyer",
+    "Artifice"
+   ],
+   "keywordsAgreeWithTraits": true,
+   "name": "Damaged Hexmark",
+   "prefab": "RemnantBody3D Necrons",
+   "traits": [
+    {
+     "id": 1050,
+     "name": "remnant"
+    },
+    {
+     "id": 680,
+     "name": "frenzied"
+    },
+    {
+     "id": 1040,
+     "name": "artifice"
+    }
+   ],
+   "type": "unit",
+   "vfxTableAgrees": true
+  },
+  "SAU71": {
+   "agreesWithKeywordRule": true,
+   "assetBundle": "battleprefabs_vfxandmisc_assets_all",
+   "canTransform": true,
+   "cardArmy": 40,
+   "cardType": 0,
+   "faction": "Sautekh",
+   "guid": "5041a12423b67164abf8bb6aedf69097",
+   "guidResolvedBy": "guidMap",
+   "id": "SAU71",
+   "inLibrary": true,
+   "inPool": true,
+   "keywordRulePrefab": "RemnantBody3D Necrons",
+   "keywords": [
+    "Remnant",
+    "Regeneration 1"
+   ],
+   "keywordsAgreeWithTraits": true,
+   "name": "Immortals Phalanx",
+   "prefab": "RemnantBody3D Necrons",
+   "traits": [
+    {
+     "id": 1050,
+     "name": "remnant"
+    },
+    {
+     "id": 1030,
+     "name": "regeneration"
+    }
+   ],
+   "type": "unit",
+   "vfxTableAgrees": true
+  },
+  "SAU72": {
+   "agreesWithKeywordRule": true,
+   "assetBundle": "battleprefabs_vfxandmisc_assets_all",
+   "canTransform": true,
+   "cardArmy": 40,
+   "cardType": 0,
+   "faction": "Sautekh",
+   "guid": "5041a12423b67164abf8bb6aedf69097",
+   "guidResolvedBy": "guidMap",
+   "id": "SAU72",
+   "inLibrary": true,
+   "inPool": true,
+   "keywordRulePrefab": "RemnantBody3D Necrons",
+   "keywords": [
+    "Remnant",
+    "Destroyer",
+    "Regeneration 2",
+    "Backlash: Create a Resurrection Orb in your hand"
+   ],
+   "keywordsAgreeWithTraits": true,
+   "name": "Lokhust Lord",
+   "prefab": "RemnantBody3D Necrons",
+   "traits": [
+    {
+     "id": 1050,
+     "name": "remnant"
+    },
+    {
+     "id": 1030,
+     "name": "regeneration"
+    },
+    {
+     "id": 120,
+     "name": "backlash"
+    },
+    {
+     "id": 680,
+     "name": "frenzied"
+    }
+   ],
+   "type": "unit",
+   "vfxTableAgrees": true
+  },
+  "SAU73": {
+   "agreesWithKeywordRule": false,
+   "assetBundle": "battleprefabs_vfxandmisc_assets_all",
+   "canTransform": false,
+   "cardArmy": 40,
+   "cardType": 0,
+   "faction": "Sautekh",
+   "guid": "5041a12423b67164abf8bb6aedf69097",
+   "guidResolvedBy": "guidMap",
+   "id": "SAU73",
+   "inLibrary": true,
+   "inPool": true,
+   "keywordRulePrefab": null,
+   "keywords": [
+    "Flying",
+    "Blast 3",
+    "Artifice"
+   ],
+   "keywordsAgreeWithTraits": true,
+   "name": "Annihilation Barge",
+   "prefab": "RemnantBody3D Necrons",
+   "traits": [
+    {
+     "id": 390,
+     "name": "flying"
+    },
+    {
+     "id": 350,
+     "name": "blast"
+    },
+    {
+     "id": 1040,
+     "name": "artifice"
+    }
+   ],
+   "type": "unit",
+   "vfxTableAgrees": true
+  },
+  "SAU8": {
+   "agreesWithKeywordRule": true,
+   "assetBundle": "battleprefabs_vfxandmisc_assets_all",
+   "canTransform": true,
+   "cardArmy": 40,
+   "cardType": 0,
+   "faction": "Sautekh",
+   "guid": "5041a12423b67164abf8bb6aedf69097",
+   "guidResolvedBy": "guidMap",
+   "id": "SAU8",
+   "inLibrary": true,
+   "inPool": true,
+   "keywordRulePrefab": "RemnantBody3D Necrons",
+   "keywords": [
+    "Remnant",
+    "Regeneration 2"
+   ],
+   "keywordsAgreeWithTraits": true,
+   "name": "Gauss Immortal",
+   "prefab": "RemnantBody3D Necrons",
+   "traits": [
+    {
+     "id": 1050,
+     "name": "remnant"
+    },
+    {
+     "id": 1030,
+     "name": "regeneration"
+    }
+   ],
+   "type": "unit",
+   "vfxTableAgrees": true
+  },
+  "SAU9": {
+   "agreesWithKeywordRule": true,
+   "assetBundle": "battleprefabs_vfxandmisc_assets_all",
+   "canTransform": true,
+   "cardArmy": 40,
+   "cardType": 0,
+   "faction": "Sautekh",
+   "guid": "5041a12423b67164abf8bb6aedf69097",
+   "guidResolvedBy": "guidMap",
+   "id": "SAU9",
+   "inLibrary": true,
+   "inPool": true,
+   "keywordRulePrefab": "RemnantBody3D Necrons",
+   "keywords": [
+    "Remnant",
+    "Destroyer",
+    "Regeneration 2",
+    "Artifice: Gain Stealth"
+   ],
+   "keywordsAgreeWithTraits": true,
+   "name": "Ophydian Destroyer",
+   "prefab": "RemnantBody3D Necrons",
+   "traits": [
+    {
+     "id": 680,
+     "name": "frenzied"
+    },
+    {
+     "id": 1050,
+     "name": "remnant"
+    },
+    {
+     "id": 1040,
+     "name": "artifice"
+    },
+    {
+     "id": 1030,
+     "name": "regeneration"
+    }
+   ],
+   "type": "unit",
+   "vfxTableAgrees": true
+  },
+  "b888bfd3849c4da48973f8217e41129c": {
+   "agreesWithKeywordRule": null,
+   "assetBundle": "battleprefabs_vfxandmisc_assets_all",
+   "canTransform": true,
+   "cardArmy": 30,
+   "cardType": 0,
+   "faction": "",
+   "guid": "399ff148003f640959eb87ba52717556",
+   "guidResolvedBy": "guidMap",
+   "id": "b888bfd3849c4da48973f8217e41129c",
+   "inLibrary": true,
+   "inPool": false,
+   "keywordRulePrefab": null,
+   "keywords": [],
+   "keywordsAgreeWithTraits": null,
+   "name": "Swooping Hawk (tutorial)",
+   "prefab": "RemnantBody3D Aeldari",
+   "traits": [
+    {
+     "id": 1140,
+     "name": "waystone"
+    },
+    {
+     "id": 390,
+     "name": "flying"
+    }
+   ],
+   "type": "",
+   "vfxTableAgrees": null
+  }
+ },
+ "byPrefab": {
+  "RemnantBody3D Aeldari": [
+   "ASH11",
+   "ASH12",
+   "ASH13",
+   "ASH15",
+   "ASH17",
+   "ASH19",
+   "ASH22",
+   "ASH23",
+   "ASH26",
+   "ASH28",
+   "ASH31",
+   "ASH4",
+   "ASH5",
+   "ASH6",
+   "ASH61",
+   "ASH62",
+   "ASH63",
+   "ASH69",
+   "ASH7",
+   "ASH70",
+   "ASH75",
+   "ASH77",
+   "ASH78",
+   "ASH79",
+   "ASH8",
+   "ASH80",
+   "ASH81",
+   "ASH82",
+   "ASH83"
+  ],
+  "RemnantBody3D Necrons": [
+   "SAU1",
+   "SAU10",
+   "SAU11",
+   "SAU12",
+   "SAU13",
+   "SAU14",
+   "SAU15",
+   "SAU16",
+   "SAU17",
+   "SAU18",
+   "SAU19",
+   "SAU2",
+   "SAU20",
+   "SAU21",
+   "SAU22",
+   "SAU23",
+   "SAU24",
+   "SAU25",
+   "SAU26",
+   "SAU27",
+   "SAU28",
+   "SAU29",
+   "SAU3",
+   "SAU30",
+   "SAU31",
+   "SAU32",
+   "SAU33",
+   "SAU34",
+   "SAU4",
+   "SAU5",
+   "SAU6",
+   "SAU65",
+   "SAU67",
+   "SAU68",
+   "SAU69",
+   "SAU7",
+   "SAU70",
+   "SAU71",
+   "SAU72",
+   "SAU73",
+   "SAU8",
+   "SAU9"
+  ]
+ },
+ "disagreeWithKeywordRule": [],
+ "generatedBy": "d:/4/Unity/工具/gen_remnant_body_table.py",
+ "guidMapConflicts": [],
+ "keywordsDisagreeWithTraits": [],
+ "outsidePool": [
+  "7a02359776e89f243b8cf41642dc44c9",
+  "847acecf682cb0748bc4445b52125cb4",
+  "b888bfd3849c4da48973f8217e41129c"
+ ],
+ "prefabButCannotTransform": [
+  "ASH26",
+  "ASH61",
+  "ASH81",
+  "ASH82",
+  "SAU1",
+  "SAU11",
+  "SAU13",
+  "SAU16",
+  "SAU19",
+  "SAU21",
+  "SAU24",
+  "SAU26",
+  "SAU27",
+  "SAU28",
+  "SAU30",
+  "SAU31",
+  "SAU33",
+  "SAU34",
+  "SAU73"
+ ],
+ "schema": "remnant_body_by_card/v1",
+ "stats": {
+  "cardsCanTransform": 52,
+  "cardsCanTransformAllSo": 55,
+  "cardsOutsidePool": 3,
+  "cardsPrefabButCannotTransform": 19,
+  "cardsWithRemnantPrefab": 71,
+  "cardsWithRemnantPrefabAllSo": 74,
+  "disagreeWithKeywordRule": 0,
+  "guidMapConflicts": 0,
+  "keywordsDisagreeWithTraits": 0,
+  "notInVfxLibrary": 0,
+  "perPrefab": {
+   "RemnantBody3D Aeldari": 29,
+   "RemnantBody3D Necrons": 42
+  },
+  "uniquePrefabs": 2,
+  "unresolved": 0
+ },
+ "unresolved": []
+}

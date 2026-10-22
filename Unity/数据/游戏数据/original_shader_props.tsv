@@ -1,0 +1,1842 @@
+shader	prop	type	def0	def1	def2	def3
+Custom/EditorIcon	_Color	0	1	1	1	1
+Custom/EditorIcon	_MainTex	4	0	0	0	0
+Custom/SuperSampled Texture	_AAScale	3	1.25	0.75	10	0
+Custom/SuperSampled Texture	_MainTex	4	0	0	0	0
+Everguild/Card ImageUI	_Clamp_Range	1	0.81	1	0.18	0
+Everguild/Card ImageUI	_Color	0	1	1	1	1
+Everguild/Card ImageUI	_ColorMask	2	15	0	0	0
+Everguild/Card ImageUI	_MainTex	4	0	0	0	0
+Everguild/Card ImageUI	_Stencil	2	0	0	0	0
+Everguild/Card ImageUI	_StencilComp	2	8	0	0	0
+Everguild/Card ImageUI	_StencilOp	2	0	0	0	0
+Everguild/Card ImageUI	_StencilReadMask	2	255	0	0	0
+Everguild/Card ImageUI	_StencilWriteMask	2	255	0	0	0
+Everguild/Card ImageUI	_UseUIAlphaClip	2	0	0	0	0
+Everguild/Cards/3D Card	_BaseMap	4	0	0	0	0
+Everguild/Cards/3D Card	_CardImage	4	0	0	0	0
+Everguild/Cards/3D Card	_CountersIntensity	2	2	0	0	0
+Everguild/Cards/3D Card	_MatCap	4	0	0	0	0
+Everguild/Cards/3D Card	_MatCapPower	2	1.24	0	0	0
+Everguild/Cards/3D Card	_MatCap_Intensity	2	1.69	0	0	0
+Everguild/Cards/3D Card	_QueueControl	2	-1	0	0	0
+Everguild/Cards/3D Card	_QueueOffset	2	0	0	0	0
+Everguild/Cards/3D Card	_USE_BLEND	2	0	0	0	0
+Everguild/Cards/3D Card	_var3DCardColor_5016ed2ee9af478d982cd1ba9da52701_Noise_768840626_Texture2D	4	0	0	0	0
+Everguild/Cards/3D Card	_var3DCardColor_5016ed2ee9af478d982cd1ba9da52701_TargetCard_2954523001_Texture2D	4	0	0	0	0
+Everguild/Cards/3D Card	unity_Lightmaps	4	0	0	0	0
+Everguild/Cards/3D Card	unity_LightmapsInd	4	0	0	0	0
+Everguild/Cards/3D Card	unity_ShadowMasks	4	0	0	0	0
+Everguild/Cards/3D Card Blend Image	_BaseMap	4	0	0	0	0
+Everguild/Cards/3D Card Blend Image	_Blend	3	0	0	1	0
+Everguild/Cards/3D Card Blend Image	_BorderWidth	2	0.56	0	0	0
+Everguild/Cards/3D Card Blend Image	_CardImage	4	0	0	0	0
+Everguild/Cards/3D Card Blend Image	_ColorBorderWidth	2	-0.02	0	0	0
+Everguild/Cards/3D Card Blend Image	_CountersIntensity	2	2	0	0	0
+Everguild/Cards/3D Card Blend Image	_DissolveAmount	3	0	0	1	0
+Everguild/Cards/3D Card Blend Image	_DissolveColor	0	1	0	0	1
+Everguild/Cards/3D Card Blend Image	_DissolveColorSecondary	0	1	0.983102	0	1
+Everguild/Cards/3D Card Blend Image	_DistortAmount	3	0.04	0	1	0
+Everguild/Cards/3D Card Blend Image	_DistortCenter	1	0.5	0.5	0.5	0.5
+Everguild/Cards/3D Card Blend Image	_MatCap	4	0	0	0	0
+Everguild/Cards/3D Card Blend Image	_MatCapPower	2	1.24	0	0	0
+Everguild/Cards/3D Card Blend Image	_MatCap_Intensity	2	1.69	0	0	0
+Everguild/Cards/3D Card Blend Image	_Noise	4	0	0	0	0
+Everguild/Cards/3D Card Blend Image	_QueueControl	2	-1	0	0	0
+Everguild/Cards/3D Card Blend Image	_QueueOffset	2	0	0	0	0
+Everguild/Cards/3D Card Blend Image	_TargetImage	4	0	0	0	0
+Everguild/Cards/3D Card Blend Image	_USE_BLEND	2	0	0	0	0
+Everguild/Cards/3D Card Blend Image	unity_Lightmaps	4	0	0	0	0
+Everguild/Cards/3D Card Blend Image	unity_LightmapsInd	4	0	0	0	0
+Everguild/Cards/3D Card Blend Image	unity_ShadowMasks	4	0	0	0	0
+Everguild/Cards/3D Card Dissolve	_AlphaClipThreshold	3	0.5	0	1	0
+Everguild/Cards/3D Card Dissolve	_BaseMap	4	0	0	0	0
+Everguild/Cards/3D Card Dissolve	_BorderColor	0	1	0	0.681133	0
+Everguild/Cards/3D Card Dissolve	_BorderColor2	0	1	1	1	0
+Everguild/Cards/3D Card Dissolve	_BorderWidth	2	0.23	0	0	0
+Everguild/Cards/3D Card Dissolve	_CardImage	4	0	0	0	0
+Everguild/Cards/3D Card Dissolve	_ClampRange	1	0.9	1	0.1	0
+Everguild/Cards/3D Card Dissolve	_CountersIntensity	2	2	0	0	0
+Everguild/Cards/3D Card Dissolve	_DISSOLVE_CHANNEL	2	2	0	0	0
+Everguild/Cards/3D Card Dissolve	_DissolveAmount	3	0.2	0	1	0
+Everguild/Cards/3D Card Dissolve	_DissolveTex	4	0	0	0	0
+Everguild/Cards/3D Card Dissolve	_DissolveUVScale_XY_Offset_ZW	1	1	1	0	0
+Everguild/Cards/3D Card Dissolve	_EnvironmentColor	0	1	1	1	0
+Everguild/Cards/3D Card Dissolve	_MatCap	4	0	0	0	0
+Everguild/Cards/3D Card Dissolve	_MatCapPower	2	1.24	0	0	0
+Everguild/Cards/3D Card Dissolve	_MatCap_Intensity	2	1.69	0	0	0
+Everguild/Cards/3D Card Dissolve	_QueueControl	2	-1	0	0	0
+Everguild/Cards/3D Card Dissolve	_QueueOffset	2	0	0	0	0
+Everguild/Cards/3D Card Dissolve	_SCREENSPACEUV	2	0	0	0	0
+Everguild/Cards/3D Card Dissolve	_USE_BLEND	2	0	0	0	0
+Everguild/Cards/3D Card Dissolve	_var3DCardColor_5016ed2ee9af478d982cd1ba9da52701_Noise_768840626_Texture2D	4	0	0	0	0
+Everguild/Cards/3D Card Dissolve	_var3DCardColor_5016ed2ee9af478d982cd1ba9da52701_TargetCard_2954523001_Texture2D	4	0	0	0	0
+Everguild/Cards/3D Card Dissolve	unity_Lightmaps	4	0	0	0	0
+Everguild/Cards/3D Card Dissolve	unity_LightmapsInd	4	0	0	0	0
+Everguild/Cards/3D Card Dissolve	unity_ShadowMasks	4	0	0	0	0
+Everguild/Cards/3D Card Explosion	_AlphaClipThreshold	3	0.5	0	1	0
+Everguild/Cards/3D Card Explosion	_BaseMap	4	0	0	0	0
+Everguild/Cards/3D Card Explosion	_BorderColor	0	1	0	0.681133	0
+Everguild/Cards/3D Card Explosion	_BorderColor2	0	1	1	1	0
+Everguild/Cards/3D Card Explosion	_BorderWidth	2	0.23	0	0	0
+Everguild/Cards/3D Card Explosion	_CardImage	4	0	0	0	0
+Everguild/Cards/3D Card Explosion	_ClampRange	1	0.9	1	0.1	0
+Everguild/Cards/3D Card Explosion	_CountersIntensity	2	2	0	0	0
+Everguild/Cards/3D Card Explosion	_DISSOLVE_CHANNEL	2	2	0	0	0
+Everguild/Cards/3D Card Explosion	_DissolveAmount	3	0.2	0	1	0
+Everguild/Cards/3D Card Explosion	_DissolveTex	4	0	0	0	0
+Everguild/Cards/3D Card Explosion	_DissolveUVScale_XY_Offset_ZW	1	1	1	0	0
+Everguild/Cards/3D Card Explosion	_Distance	2	0	0	0	0
+Everguild/Cards/3D Card Explosion	_MatCap	4	0	0	0	0
+Everguild/Cards/3D Card Explosion	_MatCapPower	2	1.24	0	0	0
+Everguild/Cards/3D Card Explosion	_MatCap_Intensity	2	1.69	0	0	0
+Everguild/Cards/3D Card Explosion	_NoiseContribution	2	1	0	0	0
+Everguild/Cards/3D Card Explosion	_NormalContribution	2	1	0	0	0
+Everguild/Cards/3D Card Explosion	_QueueControl	2	-1	0	0	0
+Everguild/Cards/3D Card Explosion	_QueueOffset	2	0	0	0	0
+Everguild/Cards/3D Card Explosion	_RandomOffsetForVariation	2	0	0	0	0
+Everguild/Cards/3D Card Explosion	_SCREENSPACEUV	2	0	0	0	0
+Everguild/Cards/3D Card Explosion	_TextureOffsetModifier	2	1	0	0	0
+Everguild/Cards/3D Card Explosion	_USE_BLEND	2	0	0	0	0
+Everguild/Cards/3D Card Explosion	_var3DCardColor_5016ed2ee9af478d982cd1ba9da52701_Noise_768840626_Texture2D	4	0	0	0	0
+Everguild/Cards/3D Card Explosion	_var3DCardColor_5016ed2ee9af478d982cd1ba9da52701_TargetCard_2954523001_Texture2D	4	0	0	0	0
+Everguild/Cards/3D Card Explosion	unity_Lightmaps	4	0	0	0	0
+Everguild/Cards/3D Card Explosion	unity_LightmapsInd	4	0	0	0	0
+Everguild/Cards/3D Card Explosion	unity_ShadowMasks	4	0	0	0	0
+Everguild/Cards/3D Card Stealth	_BaseMap	4	0	0	0	0
+Everguild/Cards/3D Card Stealth	_CardImage	4	0	0	0	0
+Everguild/Cards/3D Card Stealth	_Color	0	1	1	1	0
+Everguild/Cards/3D Card Stealth	_CountersIntensity	2	2	0	0	0
+Everguild/Cards/3D Card Stealth	_HeightFade	1	0	0	0	0
+Everguild/Cards/3D Card Stealth	_InteriorAlphaIntensity	2	1	0	0	0
+Everguild/Cards/3D Card Stealth	_InteriorAlphaMaskPosition	1	0	0	0	0
+Everguild/Cards/3D Card Stealth	_InteriorAlphaSpread	2	0	0	0	0
+Everguild/Cards/3D Card Stealth	_MatCap	4	0	0	0	0
+Everguild/Cards/3D Card Stealth	_MatCapPower	2	1.24	0	0	0
+Everguild/Cards/3D Card Stealth	_MatCap_Intensity	2	1.69	0	0	0
+Everguild/Cards/3D Card Stealth	_Noise1_Scale_XY_Speed_ZW	1	0.5	0.5	0	-0.1
+Everguild/Cards/3D Card Stealth	_Noise2_Scale_XY_Speed_ZW	1	0.5	0.5	-0.5	-0.5
+Everguild/Cards/3D Card Stealth	_NoiseDistortion	2	0.05	0	0	0
+Everguild/Cards/3D Card Stealth	_NoiseSmoothStep	1	0.09	0.48	0	0
+Everguild/Cards/3D Card Stealth	_NoiseTex	4	0	0	0	0
+Everguild/Cards/3D Card Stealth	_QueueControl	2	-1	0	0	0
+Everguild/Cards/3D Card Stealth	_QueueOffset	2	0	0	0	0
+Everguild/Cards/3D Card Stealth	_USE_BLEND	2	0	0	0	0
+Everguild/Cards/3D Card Stealth	_var3DCardColor_5016ed2ee9af478d982cd1ba9da52701_Noise_768840626_Texture2D	4	0	0	0	0
+Everguild/Cards/3D Card Stealth	_var3DCardColor_5016ed2ee9af478d982cd1ba9da52701_TargetCard_2954523001_Texture2D	4	0	0	0	0
+Everguild/Cards/3D Card Stealth	unity_Lightmaps	4	0	0	0	0
+Everguild/Cards/3D Card Stealth	unity_LightmapsInd	4	0	0	0	0
+Everguild/Cards/3D Card Stealth	unity_ShadowMasks	4	0	0	0	0
+Everguild/Cards/BlobShadow	_MainTex	4	0	0	0	0
+Everguild/Cards/Card Swarm Effect	_BaseMap	4	0	0	0	0
+Everguild/Cards/Card Swarm Effect	_CardImage	4	0	0	0	0
+Everguild/Cards/Card Swarm Effect	_ClampRange	1	0.9	1	0.1	0
+Everguild/Cards/Card Swarm Effect	_ColorDistanceRemap	1	-4	8	0	0
+Everguild/Cards/Card Swarm Effect	_CountersIntensity	2	2	0	0	0
+Everguild/Cards/Card Swarm Effect	_DisplacementController	3	0	0	1	0
+Everguild/Cards/Card Swarm Effect	_DisplacementNoise	4	0	0	0	0
+Everguild/Cards/Card Swarm Effect	_LateralMaskSharpness	1	0	1	0	0
+Everguild/Cards/Card Swarm Effect	_MaskDisplacement	2	0	0	0	0
+Everguild/Cards/Card Swarm Effect	_MatCap	4	0	0	0	0
+Everguild/Cards/Card Swarm Effect	_MatCapPower	2	1.24	0	0	0
+Everguild/Cards/Card Swarm Effect	_MatCap_Intensity	2	1.69	0	0	0
+Everguild/Cards/Card Swarm Effect	_MaxOffset	1	1	0	0	0
+Everguild/Cards/Card Swarm Effect	_NoiseMaskIntensity	2	1	0	0	0
+Everguild/Cards/Card Swarm Effect	_QueueControl	2	-1	0	0	0
+Everguild/Cards/Card Swarm Effect	_QueueOffset	2	0	0	0	0
+Everguild/Cards/Card Swarm Effect	_USE_BLEND	2	0	0	0	0
+Everguild/Cards/Card Swarm Effect	_WarpColor	0	1	0.023585	0.782529	0
+Everguild/Cards/Card Swarm Effect	_WorldUvAnimationMultiplier	2	1	0	0	0
+Everguild/Cards/Card Swarm Effect	_WorldUvsTiling	1	1	1	0	0
+Everguild/Cards/Card Swarm Effect	_var3DCardColor_5016ed2ee9af478d982cd1ba9da52701_Noise_768840626_Texture2D	4	0	0	0	0
+Everguild/Cards/Card Swarm Effect	_var3DCardColor_5016ed2ee9af478d982cd1ba9da52701_TargetCard_2954523001_Texture2D	4	0	0	0	0
+Everguild/Cards/Card Swarm Effect	unity_Lightmaps	4	0	0	0	0
+Everguild/Cards/Card Swarm Effect	unity_LightmapsInd	4	0	0	0	0
+Everguild/Cards/Card Swarm Effect	unity_ShadowMasks	4	0	0	0	0
+Everguild/Cards/Gem Crystal Glitter	_FresnelColor	0	0.277545	0.622659	0.933962	0
+Everguild/Cards/Gem Crystal Glitter	_FresnelPower	2	2	0	0	0
+Everguild/Cards/Gem Crystal Glitter	_InnerColor	0	1	0	0	0
+Everguild/Cards/Gem Crystal Glitter	_MatCap	4	0	0	0	0
+Everguild/Cards/Gem Crystal Glitter	_NoiseTex	4	0	0	0	0
+Everguild/Cards/Gem Crystal Glitter	_Noise_1_Add_x_Pow_y	1	0.2	20	0	0
+Everguild/Cards/Gem Crystal Glitter	_Noise_2_Add_x_Pow_y	1	0.2	20	0	0
+Everguild/Cards/Gem Crystal Glitter	_Noise_Scale	2	150	0	0	0
+Everguild/Cards/Gem Crystal Glitter	_QueueControl	2	-1	0	0	0
+Everguild/Cards/Gem Crystal Glitter	_QueueOffset	2	0	0	0	0
+Everguild/Cards/Gem Crystal Glitter	_ScrollSpeed	2	1	0	0	0
+Everguild/Cards/Gem Crystal Glitter	unity_Lightmaps	4	0	0	0	0
+Everguild/Cards/Gem Crystal Glitter	unity_LightmapsInd	4	0	0	0	0
+Everguild/Cards/Gem Crystal Glitter	unity_ShadowMasks	4	0	0	0	0
+Everguild/Cards/Gem Crystal Glitter Explosion	_FresnelColor	0	0.277545	0.622659	0.933962	0
+Everguild/Cards/Gem Crystal Glitter Explosion	_FresnelPower	2	2	0	0	0
+Everguild/Cards/Gem Crystal Glitter Explosion	_InnerColor	0	1	0	0	0
+Everguild/Cards/Gem Crystal Glitter Explosion	_MatCap	4	0	0	0	0
+Everguild/Cards/Gem Crystal Glitter Explosion	_NoiseTex	4	0	0	0	0
+Everguild/Cards/Gem Crystal Glitter Explosion	_Noise_1_Add_x_Pow_y	1	0.2	20	0	0
+Everguild/Cards/Gem Crystal Glitter Explosion	_Noise_2_Add_x_Pow_y	1	0.2	20	0	0
+Everguild/Cards/Gem Crystal Glitter Explosion	_Noise_Scale	2	150	0	0	0
+Everguild/Cards/Gem Crystal Glitter Explosion	_QueueControl	2	-1	0	0	0
+Everguild/Cards/Gem Crystal Glitter Explosion	_QueueOffset	2	0	0	0	0
+Everguild/Cards/Gem Crystal Glitter Explosion	_RemapDistance	1	0	0	0	0
+Everguild/Cards/Gem Crystal Glitter Explosion	_ScrollSpeed	2	1	0	0	0
+Everguild/Cards/Gem Crystal Glitter Explosion	_VertexOffset	2	0	0	0	0
+Everguild/Cards/Gem Crystal Glitter Explosion	unity_Lightmaps	4	0	0	0	0
+Everguild/Cards/Gem Crystal Glitter Explosion	unity_LightmapsInd	4	0	0	0	0
+Everguild/Cards/Gem Crystal Glitter Explosion	unity_ShadowMasks	4	0	0	0	0
+Everguild/Cards/Necrons Base Death	_BaseMap	4	0	0	0	0
+Everguild/Cards/Necrons Base Death	_CardImage	4	0	0	0	0
+Everguild/Cards/Necrons Base Death	_ClampRange	1	0.9	1	0.1	0
+Everguild/Cards/Necrons Base Death	_CountersIntensity	2	2	0	0	0
+Everguild/Cards/Necrons Base Death	_EnvironmentColor	0	1	1	1	0
+Everguild/Cards/Necrons Base Death	_MatCap	4	0	0	0	0
+Everguild/Cards/Necrons Base Death	_MatCapPower	2	1.24	0	0	0
+Everguild/Cards/Necrons Base Death	_MatCap_Intensity	2	1.69	0	0	0
+Everguild/Cards/Necrons Base Death	_QueueControl	2	-1	0	0	0
+Everguild/Cards/Necrons Base Death	_QueueOffset	2	0	0	0	0
+Everguild/Cards/Necrons Base Death	_Shatter_Color	0	1.20726	2.297397	0.468489	1
+Everguild/Cards/Necrons Base Death	_Shatter_Smooth_Step	1	0	1	0	0
+Everguild/Cards/Necrons Base Death	_Shatter_Texture	4	0	0	0	0
+Everguild/Cards/Necrons Base Death	_USE_BLEND	2	0	0	0	0
+Everguild/Cards/Necrons Base Death	_VerticalFade	3	1.05	0	2	0
+Everguild/Cards/Necrons Base Death	_var3DCardColor_5016ed2ee9af478d982cd1ba9da52701_Noise_768840626_Texture2D	4	0	0	0	0
+Everguild/Cards/Necrons Base Death	_var3DCardColor_5016ed2ee9af478d982cd1ba9da52701_TargetCard_2954523001_Texture2D	4	0	0	0	0
+Everguild/Cards/Necrons Base Death	unity_Lightmaps	4	0	0	0	0
+Everguild/Cards/Necrons Base Death	unity_LightmapsInd	4	0	0	0	0
+Everguild/Cards/Necrons Base Death	unity_ShadowMasks	4	0	0	0	0
+Everguild/Cards/Shatter Inner Pieces	_BaseMap	4	0	0	0	0
+Everguild/Cards/Shatter Inner Pieces	_Color	0	0.288711	0.896226	0.257876	1
+Everguild/Cards/Shatter Inner Pieces	_EnvironmentColor	0	1	1	1	0
+Everguild/Cards/Shatter Inner Pieces	_MatCap	4	0	0	0	0
+Everguild/Cards/Shatter Inner Pieces	_MatCapPower	2	1.24	0	0	0
+Everguild/Cards/Shatter Inner Pieces	_MatCap_Intensity	2	1.69	0	0	0
+Everguild/Cards/Shatter Inner Pieces	_QueueControl	2	-1	0	0	0
+Everguild/Cards/Shatter Inner Pieces	_QueueOffset	2	0	0	0	0
+Everguild/Cards/Shatter Inner Pieces	_SmoothStep	1	0	1	0	0
+Everguild/Cards/Shatter Inner Pieces	_USEVAT	2	1	0	0	0
+Everguild/Cards/Shatter Inner Pieces	unity_Lightmaps	4	0	0	0	0
+Everguild/Cards/Shatter Inner Pieces	unity_LightmapsInd	4	0	0	0	0
+Everguild/Cards/Shatter Inner Pieces	unity_ShadowMasks	4	0	0	0	0
+Everguild/FX/Alpha Mask One Layer	_AlphaClip	2	0	0	0	0
+Everguild/FX/Alpha Mask One Layer	_AlphaToMask	2	0	0	0	0
+Everguild/FX/Alpha Mask One Layer	_Alpha_Modifier	3	1	0.01	2	0
+Everguild/FX/Alpha Mask One Layer	_Alpha_Modifier_Multiply	2	2	0	0	0
+Everguild/FX/Alpha Mask One Layer	_Blend	2	0	0	0	0
+Everguild/FX/Alpha Mask One Layer	_CastShadows	2	1	0	0	0
+Everguild/FX/Alpha Mask One Layer	_Color_Mutliplier	2	1	0	0	0
+Everguild/FX/Alpha Mask One Layer	_Cull	2	2	0	0	0
+Everguild/FX/Alpha Mask One Layer	_DstBlend	2	0	0	0	0
+Everguild/FX/Alpha Mask One Layer	_DstBlendAlpha	2	0	0	0	0
+Everguild/FX/Alpha Mask One Layer	_MainTex	4	0	0	0	0
+Everguild/FX/Alpha Mask One Layer	_PrimaryTex_Scale_XY_Speed_ZW	1	1	1	0	0
+Everguild/FX/Alpha Mask One Layer	_QueueControl	2	-1	0	0	0
+Everguild/FX/Alpha Mask One Layer	_QueueOffset	2	0	0	0	0
+Everguild/FX/Alpha Mask One Layer	_SecondaryTex	4	0	0	0	0
+Everguild/FX/Alpha Mask One Layer	_SecondaryTex_Scale_XY_Speed_ZW	1	0.5	0.5	1	1
+Everguild/FX/Alpha Mask One Layer	_SrcBlend	2	1	0	0	0
+Everguild/FX/Alpha Mask One Layer	_SrcBlendAlpha	2	1	0	0	0
+Everguild/FX/Alpha Mask One Layer	_Surface	2	1	0	0	0
+Everguild/FX/Alpha Mask One Layer	_ZTest	2	4	0	0	0
+Everguild/FX/Alpha Mask One Layer	_ZWrite	2	0	0	0	0
+Everguild/FX/Alpha Mask One Layer	_ZWriteControl	2	0	0	0	0
+Everguild/FX/Alpha Mask One Layer	unity_Lightmaps	4	0	0	0	0
+Everguild/FX/Alpha Mask One Layer	unity_LightmapsInd	4	0	0	0	0
+Everguild/FX/Alpha Mask One Layer	unity_ShadowMasks	4	0	0	0	0
+Everguild/FX/Alpha Masks Two Layer	_AlphaClip	2	0	0	0	0
+Everguild/FX/Alpha Masks Two Layer	_AlphaMultiplier	3	0.5	0.01	2	0
+Everguild/FX/Alpha Masks Two Layer	_AlphaToMask	2	0	0	0	0
+Everguild/FX/Alpha Masks Two Layer	_Alpha_Multiplier_2	2	1	0	0	0
+Everguild/FX/Alpha Masks Two Layer	_Blend	2	0	0	0	0
+Everguild/FX/Alpha Masks Two Layer	_Blend_Color	0	0	0	0	0
+Everguild/FX/Alpha Masks Two Layer	_Blend_Color_Opacity	3	0	0	1	0
+Everguild/FX/Alpha Masks Two Layer	_CHANNELSELECTOR	2	0	0	0	0
+Everguild/FX/Alpha Masks Two Layer	_CastShadows	2	1	0	0	0
+Everguild/FX/Alpha Masks Two Layer	_Color_Multiplier	2	1	0	0	0
+Everguild/FX/Alpha Masks Two Layer	_Cull	2	2	0	0	0
+Everguild/FX/Alpha Masks Two Layer	_DstBlend	2	0	0	0	0
+Everguild/FX/Alpha Masks Two Layer	_DstBlendAlpha	2	0	0	0	0
+Everguild/FX/Alpha Masks Two Layer	_MainTex	4	0	0	0	0
+Everguild/FX/Alpha Masks Two Layer	_NOISE1CHANNEL	2	0	0	0	0
+Everguild/FX/Alpha Masks Two Layer	_NOISE2CHANNEL	2	0	0	0	0
+Everguild/FX/Alpha Masks Two Layer	_Noise1ScaleAndOffset	1	1	1	1	0
+Everguild/FX/Alpha Masks Two Layer	_Noise2ScaleAndOffset	1	1	1	0	0
+Everguild/FX/Alpha Masks Two Layer	_NoiseTex1	4	0	0	0	0
+Everguild/FX/Alpha Masks Two Layer	_NoiseTex2	4	0	0	0	0
+Everguild/FX/Alpha Masks Two Layer	_QueueControl	2	-1	0	0	0
+Everguild/FX/Alpha Masks Two Layer	_QueueOffset	2	0	0	0	0
+Everguild/FX/Alpha Masks Two Layer	_SrcBlend	2	1	0	0	0
+Everguild/FX/Alpha Masks Two Layer	_SrcBlendAlpha	2	1	0	0	0
+Everguild/FX/Alpha Masks Two Layer	_Surface	2	1	0	0	0
+Everguild/FX/Alpha Masks Two Layer	_ZTest	2	4	0	0	0
+Everguild/FX/Alpha Masks Two Layer	_ZWrite	2	0	0	0	0
+Everguild/FX/Alpha Masks Two Layer	_ZWriteControl	2	0	0	0	0
+Everguild/FX/Alpha Masks Two Layer	unity_Lightmaps	4	0	0	0	0
+Everguild/FX/Alpha Masks Two Layer	unity_LightmapsInd	4	0	0	0	0
+Everguild/FX/Alpha Masks Two Layer	unity_ShadowMasks	4	0	0	0	0
+Everguild/FX/Burning	_BaseMap	4	0	0	0	0
+Everguild/FX/Burning	_Color	0	1	1	1	0
+Everguild/FX/Burning	_DistortMask_Smooth_step_XY_Intensity_Z	1	0	1	0.01	0
+Everguild/FX/Burning	_FireNoise	4	0	0	0	0
+Everguild/FX/Burning	_Hot	0	2.963286	2.840384	0.040967	1
+Everguild/FX/Burning	_Noise_Multiplier_X_smooth_step_YZ	1	1	0	1	0
+Everguild/FX/Burning	_Noise_Speed_Scale	1	0.1	0	1	0
+Everguild/FX/Burning	_Noise_Speed_Scale_2	1	-0.1	0	1	0
+Everguild/FX/Burning	_QueueControl	2	-1	0	0	0
+Everguild/FX/Burning	_QueueOffset	2	0	0	0	0
+Everguild/FX/Burning	_Warm	0	0.85098	0.098278	0.011765	1
+Everguild/FX/Burning	unity_Lightmaps	4	0	0	0	0
+Everguild/FX/Burning	unity_LightmapsInd	4	0	0	0	0
+Everguild/FX/Burning	unity_ShadowMasks	4	0	0	0	0
+Everguild/FX/Burning Dissolve	_BaseMap	4	0	0	0	0
+Everguild/FX/Burning Dissolve	_BorderWidth	2	0.4	0	0	0
+Everguild/FX/Burning Dissolve	_Color	0	1	1	1	0
+Everguild/FX/Burning Dissolve	_DissolveAmmount	3	0.33	0	1	0
+Everguild/FX/Burning Dissolve	_Dissolve_Border_Color	0	0.505565	0.962264	0	0
+Everguild/FX/Burning Dissolve	_Dissolve_Inner_Color	0	0	0.495357	1	0
+Everguild/FX/Burning Dissolve	_DistortMask_Smooth_step_XY_Intensity_Z	1	0	1	0.01	0
+Everguild/FX/Burning Dissolve	_FireNoise	4	0	0	0	0
+Everguild/FX/Burning Dissolve	_Hot	0	2.963286	2.840384	0.040967	1
+Everguild/FX/Burning Dissolve	_Noise_Multiplier_X_smooth_step_YZ	1	1	0	1	0
+Everguild/FX/Burning Dissolve	_Noise_Speed_Scale	1	0.1	0	1	0
+Everguild/FX/Burning Dissolve	_Noise_Speed_Scale_2	1	-0.1	0	1	0
+Everguild/FX/Burning Dissolve	_QueueControl	2	-1	0	0	0
+Everguild/FX/Burning Dissolve	_QueueOffset	2	0	0	0	0
+Everguild/FX/Burning Dissolve	_Warm	0	0.85098	0.098278	0.011765	1
+Everguild/FX/Burning Dissolve	unity_Lightmaps	4	0	0	0	0
+Everguild/FX/Burning Dissolve	unity_LightmapsInd	4	0	0	0	0
+Everguild/FX/Burning Dissolve	unity_ShadowMasks	4	0	0	0	0
+Everguild/FX/Card Highlight And Shadow	_ALPHACHANNEL	2	0	0	0	0
+Everguild/FX/Card Highlight And Shadow	_Inner_Edge	3	1	0	1	0
+Everguild/FX/Card Highlight And Shadow	_Inner_Fallof	3	1	0	1	0
+Everguild/FX/Card Highlight And Shadow	_MainTex	4	0	0	0	0
+Everguild/FX/Card Highlight And Shadow	_NOISE_CHANNEL	2	2	0	0	0
+Everguild/FX/Card Highlight And Shadow	_Noise	4	0	0	0	0
+Everguild/FX/Card Highlight And Shadow	_NoiseIntensity	2	1	0	0	0
+Everguild/FX/Card Highlight And Shadow	_NoiseMaskScale	2	1	0	0	0
+Everguild/FX/Card Highlight And Shadow	_Noise_Speed_Scale_StepLow_StepHigh	1	1	0.8	0	0.37
+Everguild/FX/Card Highlight And Shadow	_Offset_Outline	1	0	0	0	0
+Everguild/FX/Card Highlight And Shadow	_Offset_Shadow	1	0	0	0	0
+Everguild/FX/Card Highlight And Shadow	_Outer_Edge	3	1	0	1	0
+Everguild/FX/Card Highlight And Shadow	_Outer_Fallof	3	1	0	2	0
+Everguild/FX/Card Highlight And Shadow	_Outline	0	1	1	1	1
+Everguild/FX/Card Highlight And Shadow	_Scale	1	1	1	0	0
+Everguild/FX/Card Highlight And Shadow	_ShadowColor	0	1	0.051887	0.051887	1
+Everguild/FX/Card Highlight And Shadow	_SpriteAlphaEdge_Inner	3	0.5	0	1	0
+Everguild/FX/Card Highlight And Shadow	_SpriteAlphaEdge_Outer	3	0.5	0	1	0
+Everguild/FX/Card Highlight And Shadow	unity_Lightmaps	4	0	0	0	0
+Everguild/FX/Card Highlight And Shadow	unity_LightmapsInd	4	0	0	0	0
+Everguild/FX/Card Highlight And Shadow	unity_ShadowMasks	4	0	0	0	0
+Everguild/FX/Card Remnant Death Icon	_AlphaClip	2	0	0	0	0
+Everguild/FX/Card Remnant Death Icon	_AlphaToMask	2	0	0	0	0
+Everguild/FX/Card Remnant Death Icon	_Blend	2	2	0	0	0
+Everguild/FX/Card Remnant Death Icon	_CastShadows	2	1	0	0	0
+Everguild/FX/Card Remnant Death Icon	_Color	0	1	1	1	0
+Everguild/FX/Card Remnant Death Icon	_Color_2	0	1	1	1	0
+Everguild/FX/Card Remnant Death Icon	_Cull	2	0	0	0	0
+Everguild/FX/Card Remnant Death Icon	_DistortStrenght	3	0.09	0	1	0
+Everguild/FX/Card Remnant Death Icon	_DstBlend	2	0	0	0	0
+Everguild/FX/Card Remnant Death Icon	_DstBlendAlpha	2	0	0	0	0
+Everguild/FX/Card Remnant Death Icon	_Floating_Displacement	1	0	0	0	0
+Everguild/FX/Card Remnant Death Icon	_Floatting_Speed	2	0	0	0	0
+Everguild/FX/Card Remnant Death Icon	_MainTex	4	0	0	0	0
+Everguild/FX/Card Remnant Death Icon	_Noise	4	0	0	0	0
+Everguild/FX/Card Remnant Death Icon	_QueueControl	2	-1	0	0	0
+Everguild/FX/Card Remnant Death Icon	_QueueOffset	2	0	0	0	0
+Everguild/FX/Card Remnant Death Icon	_Scale	2	1	0	0	0
+Everguild/FX/Card Remnant Death Icon	_Speed	1	0	0.1	0	0
+Everguild/FX/Card Remnant Death Icon	_SrcBlend	2	1	0	0	0
+Everguild/FX/Card Remnant Death Icon	_SrcBlendAlpha	2	1	0	0	0
+Everguild/FX/Card Remnant Death Icon	_Surface	2	1	0	0	0
+Everguild/FX/Card Remnant Death Icon	_ZTest	2	4	0	0	0
+Everguild/FX/Card Remnant Death Icon	_ZWrite	2	0	0	0	0
+Everguild/FX/Card Remnant Death Icon	_ZWriteControl	2	0	0	0	0
+Everguild/FX/Card Remnant Death Icon	unity_Lightmaps	4	0	0	0	0
+Everguild/FX/Card Remnant Death Icon	unity_LightmapsInd	4	0	0	0	0
+Everguild/FX/Card Remnant Death Icon	unity_ShadowMasks	4	0	0	0	0
+Everguild/FX/Color Gradient	_AlphaClip	2	0	0	0	0
+Everguild/FX/Color Gradient	_AlphaToMask	2	0	0	0	0
+Everguild/FX/Color Gradient	_Base_Gradient	4	0	0	0	0
+Everguild/FX/Color Gradient	_Blend	2	0	0	0	0
+Everguild/FX/Color Gradient	_Brightness	3	0	-2	2	0
+Everguild/FX/Color Gradient	_CastShadows	2	0	0	0	0
+Everguild/FX/Color Gradient	_Contrast	3	0	-10	10	0
+Everguild/FX/Color Gradient	_Cull	2	2	0	0	0
+Everguild/FX/Color Gradient	_DstBlend	2	0	0	0	0
+Everguild/FX/Color Gradient	_DstBlendAlpha	2	0	0	0	0
+Everguild/FX/Color Gradient	_Mask	4	0	0	0	0
+Everguild/FX/Color Gradient	_Mask_Sharpness	3	0.5	0	1	0
+Everguild/FX/Color Gradient	_QueueControl	2	-1	0	0	0
+Everguild/FX/Color Gradient	_QueueOffset	2	0	0	0	0
+Everguild/FX/Color Gradient	_Range_1	3	0.13	0	1	0
+Everguild/FX/Color Gradient	_Range_2	3	0.4	0	1	0
+Everguild/FX/Color Gradient	_Replace_Black	0	0	0.234033	1	0
+Everguild/FX/Color Gradient	_Replace_White	0	1	0	0	0
+Everguild/FX/Color Gradient	_SrcBlend	2	1	0	0	0
+Everguild/FX/Color Gradient	_SrcBlendAlpha	2	1	0	0	0
+Everguild/FX/Color Gradient	_Surface	2	1	0	0	0
+Everguild/FX/Color Gradient	_ZTest	2	4	0	0	0
+Everguild/FX/Color Gradient	_ZWrite	2	0	0	0	0
+Everguild/FX/Color Gradient	_ZWriteControl	2	0	0	0	0
+Everguild/FX/Color Gradient	unity_Lightmaps	4	0	0	0	0
+Everguild/FX/Color Gradient	unity_LightmapsInd	4	0	0	0	0
+Everguild/FX/Color Gradient	unity_ShadowMasks	4	0	0	0	0
+Everguild/FX/Extra Color	_AlphaClip	2	0	0	0	0
+Everguild/FX/Extra Color	_AlphaToMask	2	0	0	0	0
+Everguild/FX/Extra Color	_Blend	2	2	0	0	0
+Everguild/FX/Extra Color	_CastShadows	2	0	0	0	0
+Everguild/FX/Extra Color	_Color	0	1	1	1	0
+Everguild/FX/Extra Color	_Cull	2	0	0	0	0
+Everguild/FX/Extra Color	_DstBlend	2	0	0	0	0
+Everguild/FX/Extra Color	_DstBlendAlpha	2	0	0	0	0
+Everguild/FX/Extra Color	_MainTex	4	0	0	0	0
+Everguild/FX/Extra Color	_QueueControl	2	-1	0	0	0
+Everguild/FX/Extra Color	_QueueOffset	2	0	0	0	0
+Everguild/FX/Extra Color	_SOFTPARTICLES	2	0	0	0	0
+Everguild/FX/Extra Color	_SrcBlend	2	1	0	0	0
+Everguild/FX/Extra Color	_SrcBlendAlpha	2	1	0	0	0
+Everguild/FX/Extra Color	_Surface	2	1	0	0	0
+Everguild/FX/Extra Color	_ZTest	2	4	0	0	0
+Everguild/FX/Extra Color	_ZWrite	2	0	0	0	0
+Everguild/FX/Extra Color	_ZWriteControl	2	0	0	0	0
+Everguild/FX/Extra Color	unity_Lightmaps	4	0	0	0	0
+Everguild/FX/Extra Color	unity_LightmapsInd	4	0	0	0	0
+Everguild/FX/Extra Color	unity_ShadowMasks	4	0	0	0	0
+Everguild/FX/FX Shine For Animation	Color_a142b0353b4945a49e1990789c04ea35	0	1	1	1	0
+Everguild/FX/FX Shine For Animation	Texture2D_0bfdc50de139497fa85c0cd08848879a	4	0	0	0	0
+Everguild/FX/FX Shine For Animation	Vector1_c76b369469204ddeb1ee5d707098307c	2	0.93	0	0	0
+Everguild/FX/FX Shine For Animation	_AutoSpeed	1	1	1	0	0
+Everguild/FX/FX Shine For Animation	_MainTex	4	0	0	0	0
+Everguild/FX/FX Shine For Animation	_Mask_Size	1	1.26	0.49	0	0
+Everguild/FX/FX Shine For Animation	_Shine_Movement	1	0	0	0	0
+Everguild/FX/FX Shine For Animation	_Shine_Scale	1	1	2.45	0	0
+Everguild/FX/FX Shine For Animation	_USESCREENSPACE	2	0	0	0	0
+Everguild/FX/FX Shine For Animation	_USETILEMASK	2	0	0	0	0
+Everguild/FX/FX Shine For Animation	unity_Lightmaps	4	0	0	0	0
+Everguild/FX/FX Shine For Animation	unity_LightmapsInd	4	0	0	0	0
+Everguild/FX/FX Shine For Animation	unity_ShadowMasks	4	0	0	0	0
+Everguild/FX/Floor Planar Reflections Grainny	_BaseMap	4	0	0	0	0
+Everguild/FX/Floor Planar Reflections Grainny	_BlurRadius	3	0.01	0	0.1	0
+Everguild/FX/Floor Planar Reflections Grainny	_ColorCompensation	2	1	0	0	0
+Everguild/FX/Floor Planar Reflections Grainny	_ExtraAmbientColor	0	1	1	1	1
+Everguild/FX/Floor Planar Reflections Grainny	_Iterations	3	5	1	20	0
+Everguild/FX/Floor Planar Reflections Grainny	_ReflectionColorMultiplier	0	1	1	1	1
+Everguild/FX/Floor Planar Reflections Grainny	_ReflectionStrength	3	1	0	1	0
+Everguild/FX/Floor Planar Reflections Grainny	_ShadowColor	0	0.35	0.4	0.45	1
+Everguild/FX/Glow Shader	_Alpha_Strength	3	1	0	1	0
+Everguild/FX/Glow Shader	_Alpha_Texture	4	0	0	0	0
+Everguild/FX/Glow Shader	_Base_color	0	1	1	1	0
+Everguild/FX/Glow Shader	_EmissionStrength	2	1	0	0	0
+Everguild/FX/Glow Shader	_Emission_Color	0	0	0	0	0
+Everguild/FX/Glow Shader	_QueueControl	2	-1	0	0	0
+Everguild/FX/Glow Shader	_QueueOffset	2	0	0	0	0
+Everguild/FX/Glow Shader	_Time_multiplier	2	1	0	0	0
+Everguild/FX/Glow Shader	unity_Lightmaps	4	0	0	0	0
+Everguild/FX/Glow Shader	unity_LightmapsInd	4	0	0	0	0
+Everguild/FX/Glow Shader	unity_ShadowMasks	4	0	0	0	0
+Everguild/FX/Halo UV scroll	Vector3_65160a41016e4bb0ad3f5043d258b214	1	1	0	1	0
+Everguild/FX/Halo UV scroll	Vector4_62056e41ff4042358d02be808b0352f9	1	1	1	0.2	0
+Everguild/FX/Halo UV scroll	_AlphaClip	2	0	0	0	0
+Everguild/FX/Halo UV scroll	_AlphaToMask	2	0	0	0	0
+Everguild/FX/Halo UV scroll	_Blend	2	0	0	0	0
+Everguild/FX/Halo UV scroll	_CastShadows	2	1	0	0	0
+Everguild/FX/Halo UV scroll	_Color	0	1	1	1	0
+Everguild/FX/Halo UV scroll	_Cull	2	0	0	0	0
+Everguild/FX/Halo UV scroll	_DstBlend	2	0	0	0	0
+Everguild/FX/Halo UV scroll	_DstBlendAlpha	2	0	0	0	0
+Everguild/FX/Halo UV scroll	_MainTex	4	0	0	0	0
+Everguild/FX/Halo UV scroll	_QueueControl	2	-1	0	0	0
+Everguild/FX/Halo UV scroll	_QueueOffset	2	0	0	0	0
+Everguild/FX/Halo UV scroll	_SrcBlend	2	1	0	0	0
+Everguild/FX/Halo UV scroll	_SrcBlendAlpha	2	1	0	0	0
+Everguild/FX/Halo UV scroll	_Surface	2	1	0	0	0
+Everguild/FX/Halo UV scroll	_ZTest	2	4	0	0	0
+Everguild/FX/Halo UV scroll	_ZWrite	2	0	0	0	0
+Everguild/FX/Halo UV scroll	_ZWriteControl	2	0	0	0	0
+Everguild/FX/Halo UV scroll	unity_Lightmaps	4	0	0	0	0
+Everguild/FX/Halo UV scroll	unity_LightmapsInd	4	0	0	0	0
+Everguild/FX/Halo UV scroll	unity_ShadowMasks	4	0	0	0	0
+Everguild/FX/MarkerLight	_AXIS	2	1	0	0	0
+Everguild/FX/MarkerLight	_AlphaClip	2	0	0	0	0
+Everguild/FX/MarkerLight	_AlphaToMask	2	0	0	0	0
+Everguild/FX/MarkerLight	_Alpha_Modifier	3	1	0.01	2	0
+Everguild/FX/MarkerLight	_Alpha_Modifier_Multiply	2	2	0	0	0
+Everguild/FX/MarkerLight	_Blend	2	0	0	0	0
+Everguild/FX/MarkerLight	_CastShadows	2	1	0	0	0
+Everguild/FX/MarkerLight	_Color	0	1	1	1	1
+Everguild/FX/MarkerLight	_Color_Mutliplier	2	1	0	0	0
+Everguild/FX/MarkerLight	_Cull	2	2	0	0	0
+Everguild/FX/MarkerLight	_DistortMap	4	0	0	0	0
+Everguild/FX/MarkerLight	_Distort_Speed	2	1	0	0	0
+Everguild/FX/MarkerLight	_Distort_Strenght	2	-0.2	0	0	0
+Everguild/FX/MarkerLight	_DstBlend	2	0	0	0	0
+Everguild/FX/MarkerLight	_DstBlendAlpha	2	0	0	0	0
+Everguild/FX/MarkerLight	_MainTex	4	0	0	0	0
+Everguild/FX/MarkerLight	_PrimaryTex_Scale_XY_Speed_ZW	1	5	5	0	0
+Everguild/FX/MarkerLight	_QueueControl	2	-1	0	0	0
+Everguild/FX/MarkerLight	_QueueOffset	2	0	0	0	0
+Everguild/FX/MarkerLight	_Ring_Color	0	0	1.832368	4.594794	0
+Everguild/FX/MarkerLight	_RippleScale	2	1	0	0	0
+Everguild/FX/MarkerLight	_RippleSmoothstep	1	0	1	0	0
+Everguild/FX/MarkerLight	_RippleStrenght	2	1	0	0	0
+Everguild/FX/MarkerLight	_RipplesCount	3	1	0	10	0
+Everguild/FX/MarkerLight	_SecondaryTex	4	0	0	0	0
+Everguild/FX/MarkerLight	_SecondaryTex_Scale_XY_Speed_ZW	1	0.5	0.5	1	1
+Everguild/FX/MarkerLight	_SrcBlend	2	1	0	0	0
+Everguild/FX/MarkerLight	_SrcBlendAlpha	2	1	0	0	0
+Everguild/FX/MarkerLight	_Surface	2	1	0	0	0
+Everguild/FX/MarkerLight	_ZTest	2	4	0	0	0
+Everguild/FX/MarkerLight	_ZWrite	2	0	0	0	0
+Everguild/FX/MarkerLight	_ZWriteControl	2	0	0	0	0
+Everguild/FX/MarkerLight	unity_Lightmaps	4	0	0	0	0
+Everguild/FX/MarkerLight	unity_LightmapsInd	4	0	0	0	0
+Everguild/FX/MarkerLight	unity_ShadowMasks	4	0	0	0	0
+Everguild/FX/Multi Ray	_AlphaClip	2	0	0	0	0
+Everguild/FX/Multi Ray	_AlphaToMask	2	0	0	0	0
+Everguild/FX/Multi Ray	_Blend	2	0	0	0	0
+Everguild/FX/Multi Ray	_BorderFadeMultiplier	2	1	0	0	0
+Everguild/FX/Multi Ray	_Border_Fade_XminXmax_YminYmax	1	0	1	0.45	1.1
+Everguild/FX/Multi Ray	_CastShadows	2	1	0	0	0
+Everguild/FX/Multi Ray	_Color1	0	1	1	1	1
+Everguild/FX/Multi Ray	_Color2	0	1	1	1	1
+Everguild/FX/Multi Ray	_Color3	0	1	1	1	1
+Everguild/FX/Multi Ray	_Color4	0	1	1	1	1
+Everguild/FX/Multi Ray	_Cull	2	2	0	0	0
+Everguild/FX/Multi Ray	_DstBlend	2	0	0	0	0
+Everguild/FX/Multi Ray	_DstBlendAlpha	2	0	0	0	0
+Everguild/FX/Multi Ray	_General_Speed_Modifier	2	1	0	0	0
+Everguild/FX/Multi Ray	_MainTex	4	0	0	0	0
+Everguild/FX/Multi Ray	_QueueControl	2	-1	0	0	0
+Everguild/FX/Multi Ray	_QueueOffset	2	0	0	0	0
+Everguild/FX/Multi Ray	_Remap_Color_Min_XY_Max_ZW	1	0	10	0	100
+Everguild/FX/Multi Ray	_Scale_1_XY_Speed_ZW	1	1	1	0	0
+Everguild/FX/Multi Ray	_Scale_2_XY_Speed_ZW	1	1	1	0	0
+Everguild/FX/Multi Ray	_Scale_3_XY_Speed_ZW	1	1	1	0	0
+Everguild/FX/Multi Ray	_Scale_4_XY_Speed_ZW	1	1	1	0	0
+Everguild/FX/Multi Ray	_SrcBlend	2	1	0	0	0
+Everguild/FX/Multi Ray	_SrcBlendAlpha	2	1	0	0	0
+Everguild/FX/Multi Ray	_Surface	2	1	0	0	0
+Everguild/FX/Multi Ray	_USEBORDERFADE	2	0	0	0	0
+Everguild/FX/Multi Ray	_ZTest	2	4	0	0	0
+Everguild/FX/Multi Ray	_ZWrite	2	0	0	0	0
+Everguild/FX/Multi Ray	_ZWriteControl	2	0	0	0	0
+Everguild/FX/Multi Ray	unity_Lightmaps	4	0	0	0	0
+Everguild/FX/Multi Ray	unity_LightmapsInd	4	0	0	0	0
+Everguild/FX/Multi Ray	unity_ShadowMasks	4	0	0	0	0
+Everguild/FX/Particle Dissolve Mask	BOOLEAN_D80F51B627624648A0B3B2D563AA7541	2	1	0	0	0
+Everguild/FX/Particle Dissolve Mask	BOOLEAN_F96BE1E681E64E0E98322A14BDBD35A3	2	0	0	0	0
+Everguild/FX/Particle Dissolve Mask	Vector1_2780b5644c1e463480f9eca2dba65f9a	2	0.04	0	0	0
+Everguild/FX/Particle Dissolve Mask	Vector1_4e2dbe7bff184ada93bb896e70f4c06d	3	0.43	0	1	0
+Everguild/FX/Particle Dissolve Mask	Vector4_d8c31f3b5dd04c76a4cc43d5d7873e6d	1	1	1	0	0
+Everguild/FX/Particle Dissolve Mask	_Add_Color	0	0	0	0	0
+Everguild/FX/Particle Dissolve Mask	_AlphaClip	2	0	0	0	0
+Everguild/FX/Particle Dissolve Mask	_AlphaToMask	2	0	0	0	0
+Everguild/FX/Particle Dissolve Mask	_Blend	2	0	0	0	0
+Everguild/FX/Particle Dissolve Mask	_CastShadows	2	0	0	0	0
+Everguild/FX/Particle Dissolve Mask	_Color	0	3.222744	0	0	0
+Everguild/FX/Particle Dissolve Mask	_Cull	2	2	0	0	0
+Everguild/FX/Particle Dissolve Mask	_DISSOLVE_CHANNEL	2	2	0	0	0
+Everguild/FX/Particle Dissolve Mask	_Disolve	4	0	0	0	0
+Everguild/FX/Particle Dissolve Mask	_DstBlend	2	0	0	0	0
+Everguild/FX/Particle Dissolve Mask	_DstBlendAlpha	2	0	0	0	0
+Everguild/FX/Particle Dissolve Mask	_MainTex	4	0	0	0	0
+Everguild/FX/Particle Dissolve Mask	_QueueControl	2	-1	0	0	0
+Everguild/FX/Particle Dissolve Mask	_QueueOffset	2	0	0	0	0
+Everguild/FX/Particle Dissolve Mask	_SrcBlend	2	1	0	0	0
+Everguild/FX/Particle Dissolve Mask	_SrcBlendAlpha	2	1	0	0	0
+Everguild/FX/Particle Dissolve Mask	_Surface	2	1	0	0	0
+Everguild/FX/Particle Dissolve Mask	_ZTest	2	4	0	0	0
+Everguild/FX/Particle Dissolve Mask	_ZWrite	2	0	0	0	0
+Everguild/FX/Particle Dissolve Mask	_ZWriteControl	2	0	0	0	0
+Everguild/FX/Particle Dissolve Mask	unity_Lightmaps	4	0	0	0	0
+Everguild/FX/Particle Dissolve Mask	unity_LightmapsInd	4	0	0	0	0
+Everguild/FX/Particle Dissolve Mask	unity_ShadowMasks	4	0	0	0	0
+Everguild/FX/Particle Dissolve Premultiply	_AlphaClip	2	0	0	0	0
+Everguild/FX/Particle Dissolve Premultiply	_AlphaToMask	2	0	0	0	0
+Everguild/FX/Particle Dissolve Premultiply	_BaseMap	4	0	0	0	0
+Everguild/FX/Particle Dissolve Premultiply	_Blend	2	0	0	0	0
+Everguild/FX/Particle Dissolve Premultiply	_CastShadows	2	0	0	0	0
+Everguild/FX/Particle Dissolve Premultiply	_Cull	2	2	0	0	0
+Everguild/FX/Particle Dissolve Premultiply	_DstBlend	2	0	0	0	0
+Everguild/FX/Particle Dissolve Premultiply	_DstBlendAlpha	2	0	0	0	0
+Everguild/FX/Particle Dissolve Premultiply	_EmissiveColor	0	1	1	1	0
+Everguild/FX/Particle Dissolve Premultiply	_QueueControl	2	-1	0	0	0
+Everguild/FX/Particle Dissolve Premultiply	_QueueOffset	2	0	0	0	0
+Everguild/FX/Particle Dissolve Premultiply	_SrcBlend	2	1	0	0	0
+Everguild/FX/Particle Dissolve Premultiply	_SrcBlendAlpha	2	1	0	0	0
+Everguild/FX/Particle Dissolve Premultiply	_Surface	2	1	0	0	0
+Everguild/FX/Particle Dissolve Premultiply	_ZTest	2	4	0	0	0
+Everguild/FX/Particle Dissolve Premultiply	_ZWrite	2	0	0	0	0
+Everguild/FX/Particle Dissolve Premultiply	_ZWriteControl	2	0	0	0	0
+Everguild/FX/Particle Dissolve Premultiply	unity_Lightmaps	4	0	0	0	0
+Everguild/FX/Particle Dissolve Premultiply	unity_LightmapsInd	4	0	0	0	0
+Everguild/FX/Particle Dissolve Premultiply	unity_ShadowMasks	4	0	0	0	0
+Everguild/FX/Particle Distortion Affect Transparents	_ANIMUVS	2	0	0	0	0
+Everguild/FX/Particle Distortion Affect Transparents	_Depth_And_Fallof	1	1	0.1	0	0
+Everguild/FX/Particle Distortion Affect Transparents	_DistortTex	4	0	0	0	0
+Everguild/FX/Particle Distortion Affect Transparents	_DistortionStrength	2	1	0	0	0
+Everguild/FX/Particle Distortion Affect Transparents	_Mask	4	0	0	0	0
+Everguild/FX/Particle Distortion Affect Transparents	_QueueControl	2	-1	0	0	0
+Everguild/FX/Particle Distortion Affect Transparents	_QueueOffset	2	0	0	0	0
+Everguild/FX/Particle Distortion Affect Transparents	_SOFTPARTICLES	2	0	0	0	0
+Everguild/FX/Particle Distortion Affect Transparents	_USEMASK	2	0	0	0	0
+Everguild/FX/Particle Distortion Affect Transparents	_UVScale	1	1	1	0	0
+Everguild/FX/Particle Distortion Affect Transparents	_UVSpeed	1	1	1	0	0
+Everguild/FX/Particle Distortion Affect Transparents	unity_Lightmaps	4	0	0	0	0
+Everguild/FX/Particle Distortion Affect Transparents	unity_LightmapsInd	4	0	0	0	0
+Everguild/FX/Particle Distortion Affect Transparents	unity_ShadowMasks	4	0	0	0	0
+Everguild/FX/Particle Premultiply	_Color	0	1	1	1	0
+Everguild/FX/Particle Premultiply	_Depth_And_Offset	1	0.3	1	0	0
+Everguild/FX/Particle Premultiply	_ENABLEVERTEXSTREAMS	2	0	0	0	0
+Everguild/FX/Particle Premultiply	_MainTex	4	0	0	0	0
+Everguild/FX/Particle Premultiply	_QueueControl	2	-1	0	0	0
+Everguild/FX/Particle Premultiply	_QueueOffset	2	0	0	0	0
+Everguild/FX/Particle Premultiply	_SOFTPARTICLES	2	0	0	0	0
+Everguild/FX/Particle Premultiply	unity_Lightmaps	4	0	0	0	0
+Everguild/FX/Particle Premultiply	unity_LightmapsInd	4	0	0	0	0
+Everguild/FX/Particle Premultiply	unity_ShadowMasks	4	0	0	0	0
+Everguild/FX/Particle Premultiply Greyscale Coloring	_AlphaClip	2	0	0	0	0
+Everguild/FX/Particle Premultiply Greyscale Coloring	_AlphaToMask	2	0	0	0	0
+Everguild/FX/Particle Premultiply Greyscale Coloring	_Blend	2	0	0	0	0
+Everguild/FX/Particle Premultiply Greyscale Coloring	_CastShadows	2	1	0	0	0
+Everguild/FX/Particle Premultiply Greyscale Coloring	_Color	0	1	1	1	0
+Everguild/FX/Particle Premultiply Greyscale Coloring	_Color2	0	1	0	0	1
+Everguild/FX/Particle Premultiply Greyscale Coloring	_Cull	2	2	0	0	0
+Everguild/FX/Particle Premultiply Greyscale Coloring	_Depth_And_Offset	1	0.3	1	0	0
+Everguild/FX/Particle Premultiply Greyscale Coloring	_DstBlend	2	0	0	0	0
+Everguild/FX/Particle Premultiply Greyscale Coloring	_DstBlendAlpha	2	0	0	0	0
+Everguild/FX/Particle Premultiply Greyscale Coloring	_ENABLEVERTEXSTREAMS	2	0	0	0	0
+Everguild/FX/Particle Premultiply Greyscale Coloring	_MainTex	4	0	0	0	0
+Everguild/FX/Particle Premultiply Greyscale Coloring	_QueueControl	2	-1	0	0	0
+Everguild/FX/Particle Premultiply Greyscale Coloring	_QueueOffset	2	0	0	0	0
+Everguild/FX/Particle Premultiply Greyscale Coloring	_SOFTPARTICLES	2	0	0	0	0
+Everguild/FX/Particle Premultiply Greyscale Coloring	_SrcBlend	2	1	0	0	0
+Everguild/FX/Particle Premultiply Greyscale Coloring	_SrcBlendAlpha	2	1	0	0	0
+Everguild/FX/Particle Premultiply Greyscale Coloring	_Surface	2	1	0	0	0
+Everguild/FX/Particle Premultiply Greyscale Coloring	_ZTest	2	4	0	0	0
+Everguild/FX/Particle Premultiply Greyscale Coloring	_ZWrite	2	0	0	0	0
+Everguild/FX/Particle Premultiply Greyscale Coloring	_ZWriteControl	2	0	0	0	0
+Everguild/FX/Particle Premultiply Greyscale Coloring	unity_Lightmaps	4	0	0	0	0
+Everguild/FX/Particle Premultiply Greyscale Coloring	unity_LightmapsInd	4	0	0	0	0
+Everguild/FX/Particle Premultiply Greyscale Coloring	unity_ShadowMasks	4	0	0	0	0
+Everguild/FX/Particle Shine Custom Vertex Streams	BOOLEAN_7733627BA3A1447E9D9F28A82CD0E4D4	2	1	0	0	0
+Everguild/FX/Particle Shine Custom Vertex Streams	Color_a142b0353b4945a49e1990789c04ea35	0	1	1	1	0
+Everguild/FX/Particle Shine Custom Vertex Streams	Shine_Width	1	0	1	0	0
+Everguild/FX/Particle Shine Custom Vertex Streams	Texture2D_0bfdc50de139497fa85c0cd08848879a	4	0	0	0	0
+Everguild/FX/Particle Shine Custom Vertex Streams	Vector1_90576362d340403fa7a5cc36416fb824	2	0.5	0	0	0
+Everguild/FX/Particle Shine Custom Vertex Streams	Vector1_a48438ecc6b346ab85bcbad930c537e2	3	1	0	1	0
+Everguild/FX/Particle Shine Custom Vertex Streams	Vector1_c76b369469204ddeb1ee5d707098307c	2	0.93	0	0	0
+Everguild/FX/Particle Shine Custom Vertex Streams	_MainTex	4	0	0	0	0
+Everguild/FX/Particle Shine Custom Vertex Streams	_ShineScale	1	1	1	1	1
+Everguild/FX/Particle Shine Custom Vertex Streams	unity_Lightmaps	4	0	0	0	0
+Everguild/FX/Particle Shine Custom Vertex Streams	unity_LightmapsInd	4	0	0	0	0
+Everguild/FX/Particle Shine Custom Vertex Streams	unity_ShadowMasks	4	0	0	0	0
+Everguild/FX/Rays For Trail	_AlphaClip	2	0	0	0	0
+Everguild/FX/Rays For Trail	_AlphaToMask	2	0	0	0	0
+Everguild/FX/Rays For Trail	_Blend	2	0	0	0	0
+Everguild/FX/Rays For Trail	_CastShadows	2	1	0	0	0
+Everguild/FX/Rays For Trail	_Color1	0	0.981132	0	0	1
+Everguild/FX/Rays For Trail	_Color2	0	0	1	0	1
+Everguild/FX/Rays For Trail	_Cull	2	2	0	0	0
+Everguild/FX/Rays For Trail	_DstBlend	2	0	0	0	0
+Everguild/FX/Rays For Trail	_DstBlendAlpha	2	0	0	0	0
+Everguild/FX/Rays For Trail	_MainTex	4	0	0	0	0
+Everguild/FX/Rays For Trail	_MainTextScale	1	1	2.11	0	0
+Everguild/FX/Rays For Trail	_NOISECHANNEL	2	0	0	0	0
+Everguild/FX/Rays For Trail	_Noise	4	0	0	0	0
+Everguild/FX/Rays For Trail	_NoiseStrenght	3	0.14	0	1	0
+Everguild/FX/Rays For Trail	_QueueControl	2	-1	0	0	0
+Everguild/FX/Rays For Trail	_QueueOffset	2	0	0	0	0
+Everguild/FX/Rays For Trail	_Scale_X_And_Speed_YZ	1	1	0.2	0.2	0
+Everguild/FX/Rays For Trail	_SmoothStep	1	0	1	0	0
+Everguild/FX/Rays For Trail	_SrcBlend	2	1	0	0	0
+Everguild/FX/Rays For Trail	_SrcBlendAlpha	2	1	0	0	0
+Everguild/FX/Rays For Trail	_Surface	2	1	0	0	0
+Everguild/FX/Rays For Trail	_ZTest	2	4	0	0	0
+Everguild/FX/Rays For Trail	_ZWrite	2	0	0	0	0
+Everguild/FX/Rays For Trail	_ZWriteControl	2	0	0	0	0
+Everguild/FX/Rays For Trail	unity_Lightmaps	4	0	0	0	0
+Everguild/FX/Rays For Trail	unity_LightmapsInd	4	0	0	0	0
+Everguild/FX/Rays For Trail	unity_ShadowMasks	4	0	0	0	0
+Everguild/FX/ShieldVfx	_Disolve	3	0.42	-0.2	1.2	0
+Everguild/FX/ShieldVfx	_DisolveBorderColor	0	0.089623	0.634617	1	0
+Everguild/FX/ShieldVfx	_DissolveEdgeThickness	2	0.1	0	0	0
+Everguild/FX/ShieldVfx	_Dissolve_Noise_Mutliplier	2	0.2	0	0	0
+Everguild/FX/ShieldVfx	_ExtraSine	4	0	0	0	0
+Everguild/FX/ShieldVfx	_ExtraSineIntensity	2	1	0	0	0
+Everguild/FX/ShieldVfx	_GreenChanelVertexColorMultiplier	2	1	0	0	0
+Everguild/FX/ShieldVfx	_InteriorSpreadPosition	1	0	0	0	0
+Everguild/FX/ShieldVfx	_Interior_Spread	2	0	0	0	0
+Everguild/FX/ShieldVfx	_Interior_SpreadColor	0	1	0	0	1
+Everguild/FX/ShieldVfx	_NOISECHANNEL	2	2	0	0	0
+Everguild/FX/ShieldVfx	_Noise	4	0	0	0	0
+Everguild/FX/ShieldVfx	_Noise1_Scale_XY_Speed_ZW	1	1	1	0.1	0
+Everguild/FX/ShieldVfx	_Noise2_Scale_XY_Speed_ZW	1	2	2	-0.2	0.24
+Everguild/FX/ShieldVfx	_Noise_Color1	0	0	0	0	0
+Everguild/FX/ShieldVfx	_Noise_Color2	0	1	1	1	1
+Everguild/FX/ShieldVfx	_NormalDistance	2	0	0	0	0
+Everguild/FX/ShieldVfx	_QueueControl	2	-1	0	0	0
+Everguild/FX/ShieldVfx	_QueueOffset	2	0	0	0	0
+Everguild/FX/ShieldVfx	_RimColor	0	1.498039	1.498039	1.498039	1
+Everguild/FX/ShieldVfx	_RimPower	2	2	0	0	0
+Everguild/FX/ShieldVfx	_ShinePulsatingSpeed	2	1	0	0	0
+Everguild/FX/ShieldVfx	_Shine_Scale_XY_Speed_ZW	1	1	1	0.5	0.5
+Everguild/FX/ShieldVfx	_Twirl_Center_XY_Offset_ZW	1	0.5	0.5	0	0
+Everguild/FX/ShieldVfx	_Twirld_Strenght	2	0	0	0	0
+Everguild/FX/ShieldVfx	_VertexNoise_Scale_XY_Speed_ZW	1	1	1	0.2	0.2
+Everguild/FX/ShieldVfx	unity_Lightmaps	4	0	0	0	0
+Everguild/FX/ShieldVfx	unity_LightmapsInd	4	0	0	0	0
+Everguild/FX/ShieldVfx	unity_ShadowMasks	4	0	0	0	0
+Everguild/FX/Specific/Necrons Rays	_Bottom_Color	0	0.980392	0.861992	0.513726	1
+Everguild/FX/Specific/Necrons Rays	_DistortAmountBottom	3	0.36	0	1	0
+Everguild/FX/Specific/Necrons Rays	_DistortAmountTop	3	0.14	0	1	0
+Everguild/FX/Specific/Necrons Rays	_ExtraNoiseMultiplierBottom	2	2	0	0	0
+Everguild/FX/Specific/Necrons Rays	_ExtraNoiseMultiplierTop	2	2	0	0	0
+Everguild/FX/Specific/Necrons Rays	_MinTex	4	0	0	0	0
+Everguild/FX/Specific/Necrons Rays	_Noise_Bottom_Scale_And_Speed	1	1	1	0.1	0.2
+Everguild/FX/Specific/Necrons Rays	_Noise_Top_Scale_And_Speed	1	1	1	0.2	0
+Everguild/FX/Specific/Necrons Rays	_QueueControl	2	-1	0	0	0
+Everguild/FX/Specific/Necrons Rays	_QueueOffset	2	0	0	0	0
+Everguild/FX/Specific/Necrons Rays	_Ray_Botom_Width	2	0.1	0	0	0
+Everguild/FX/Specific/Necrons Rays	_Ray_Top_Width	2	0.06	0	0	0
+Everguild/FX/Specific/Necrons Rays	_RaysHorizontalOffset	3	0	-0.5	0.5	0
+Everguild/FX/Specific/Necrons Rays	_RaysVerticalOffset	3	0	-1	1	0
+Everguild/FX/Specific/Necrons Rays	_SweepRaySpeed	2	0.5	0	0	0
+Everguild/FX/Specific/Necrons Rays	_TopColor	0	0.561455	0.981132	0.513706	0
+Everguild/FX/Specific/Necrons Rays	_USEVERTEXSTREAMS	2	0	0	0	0
+Everguild/FX/Specific/Necrons Rays	unity_Lightmaps	4	0	0	0	0
+Everguild/FX/Specific/Necrons Rays	unity_LightmapsInd	4	0	0	0	0
+Everguild/FX/Specific/Necrons Rays	unity_ShadowMasks	4	0	0	0	0
+Everguild/FX/Specific/Pray Glow	_Bottom_Color	0	0.980392	0.861992	0.513726	1
+Everguild/FX/Specific/Pray Glow	_DistortAmountBottom	3	0.36	0	1	0
+Everguild/FX/Specific/Pray Glow	_DistortAmountTop	3	0.14	0	1	0
+Everguild/FX/Specific/Pray Glow	_ExtraNoiseMultiplierBottom	2	2	0	0	0
+Everguild/FX/Specific/Pray Glow	_ExtraNoiseMultiplierTop	2	2	0	0	0
+Everguild/FX/Specific/Pray Glow	_MinTex	4	0	0	0	0
+Everguild/FX/Specific/Pray Glow	_Noise_Bottom_Scale_And_Speed	1	1	1	0.1	0.2
+Everguild/FX/Specific/Pray Glow	_Noise_Top_Scale_And_Speed	1	1	1	0.2	0
+Everguild/FX/Specific/Pray Glow	_QueueControl	2	-1	0	0	0
+Everguild/FX/Specific/Pray Glow	_QueueOffset	2	0	0	0	0
+Everguild/FX/Specific/Pray Glow	_Ray_Botom_Width	2	0.1	0	0	0
+Everguild/FX/Specific/Pray Glow	_Ray_Top_Width	2	0.06	0	0	0
+Everguild/FX/Specific/Pray Glow	_TopColor	0	0.561455	0.981132	0.513706	0
+Everguild/FX/Specific/Pray Glow	_USEVERTEXSTREAMS	2	0	0	0	0
+Everguild/FX/Specific/Pray Glow	_VerticalFade	1	0	0.4	0	0
+Everguild/FX/Specific/Pray Glow	_VerticalFadeOffset	2	0	0	0	0
+Everguild/FX/Specific/Pray Glow	unity_Lightmaps	4	0	0	0	0
+Everguild/FX/Specific/Pray Glow	unity_LightmapsInd	4	0	0	0	0
+Everguild/FX/Specific/Pray Glow	unity_ShadowMasks	4	0	0	0	0
+Everguild/FX/Spiral Trail FX	_Color1	0	0.981132	0	0	1
+Everguild/FX/Spiral Trail FX	_Color2	0	0	1	0	1
+Everguild/FX/Spiral Trail FX	_Displacement	2	0	0	0	0
+Everguild/FX/Spiral Trail FX	_FXForce	3	0	0	1	0
+Everguild/FX/Spiral Trail FX	_Loops	2	2	0	0	0
+Everguild/FX/Spiral Trail FX	_MainTex	4	0	0	0	0
+Everguild/FX/Spiral Trail FX	_MainTextScale	1	1	2.11	0	0
+Everguild/FX/Spiral Trail FX	_NOISECHANNEL	2	0	0	0	0
+Everguild/FX/Spiral Trail FX	_Noise	4	0	0	0	0
+Everguild/FX/Spiral Trail FX	_NoiseStrenght	3	0.14	0	1	0
+Everguild/FX/Spiral Trail FX	_QueueControl	2	-1	0	0	0
+Everguild/FX/Spiral Trail FX	_QueueOffset	2	0	0	0	0
+Everguild/FX/Spiral Trail FX	_Radius	2	0	0	0	0
+Everguild/FX/Spiral Trail FX	_Scale_XY_Speed_ZW	1	1	1	0	0
+Everguild/FX/Spiral Trail FX	_SmoothStep	1	0	1	0	0
+Everguild/FX/Spiral Trail FX	unity_Lightmaps	4	0	0	0	0
+Everguild/FX/Spiral Trail FX	unity_LightmapsInd	4	0	0	0	0
+Everguild/FX/Spiral Trail FX	unity_ShadowMasks	4	0	0	0	0
+Everguild/FX/Sprite Dissolve Mask	BOOLEAN_D80F51B627624648A0B3B2D563AA7541	2	1	0	0	0
+Everguild/FX/Sprite Dissolve Mask	Vector1_2780b5644c1e463480f9eca2dba65f9a	2	0.04	0	0	0
+Everguild/FX/Sprite Dissolve Mask	Vector4_d8c31f3b5dd04c76a4cc43d5d7873e6d	1	1	1	0	0
+Everguild/FX/Sprite Dissolve Mask	_Color	0	3.222744	0	0	0
+Everguild/FX/Sprite Dissolve Mask	_DISSOLVE_CHANNEL	2	2	0	0	0
+Everguild/FX/Sprite Dissolve Mask	_Disolve	4	0	0	0	0
+Everguild/FX/Sprite Dissolve Mask	_DissolveAmount	3	0.43	0	1	0
+Everguild/FX/Sprite Dissolve Mask	_MainTex	4	0	0	0	0
+Everguild/FX/Sprite Dissolve Mask	unity_Lightmaps	4	0	0	0	0
+Everguild/FX/Sprite Dissolve Mask	unity_LightmapsInd	4	0	0	0	0
+Everguild/FX/Sprite Dissolve Mask	unity_ShadowMasks	4	0	0	0	0
+Everguild/FX/Sprite Greyscale	_GreyScale	3	1	0	1	0
+Everguild/FX/Sprite Greyscale	_MainTex	4	0	0	0	0
+Everguild/FX/Sprite Greyscale	_QueueControl	2	-1	0	0	0
+Everguild/FX/Sprite Greyscale	_QueueOffset	2	0	0	0	0
+Everguild/FX/Sprite Greyscale	unity_Lightmaps	4	0	0	0	0
+Everguild/FX/Sprite Greyscale	unity_LightmapsInd	4	0	0	0	0
+Everguild/FX/Sprite Greyscale	unity_ShadowMasks	4	0	0	0	0
+Everguild/FX/Sprite Scan Lines	_AntialiasScale	3	1.25	0.75	3	0
+Everguild/FX/Sprite Scan Lines	_GlitchPercentaje	3	0.5	0	1	0
+Everguild/FX/Sprite Scan Lines	_MainColorIntensityFix	2	1	0	0	0
+Everguild/FX/Sprite Scan Lines	_MainTex	4	0	0	0	0
+Everguild/FX/Sprite Scan Lines	_Noise	4	0	0	0	0
+Everguild/FX/Sprite Scan Lines	_NoiseColor	0	1	1	1	0
+Everguild/FX/Sprite Scan Lines	_NoiseIntensity	3	0.1	0	1	0
+Everguild/FX/Sprite Scan Lines	_NoiseScaleAndSpeed	1	1	1	1	1
+Everguild/FX/Sprite Scan Lines	_ScanLinesIntensity	3	1	0	1	0
+Everguild/FX/Sprite Scan Lines	unity_Lightmaps	4	0	0	0	0
+Everguild/FX/Sprite Scan Lines	unity_LightmapsInd	4	0	0	0	0
+Everguild/FX/Sprite Scan Lines	unity_ShadowMasks	4	0	0	0	0
+Everguild/FX/TrailShader_1	_Color01	0	0	1	0.047269	0
+Everguild/FX/TrailShader_1	_Color02	0	0	1	0.801372	0
+Everguild/FX/TrailShader_1	_DissolveScale	2	1	0	0	0
+Everguild/FX/TrailShader_1	_DissolveSpeed	1	-0.5	0	0	0
+Everguild/FX/TrailShader_1	_MainTexture	4	0	0	0	0
+Everguild/FX/TrailShader_1	_MainTextureSpeed	1	-0.1	0	0	0
+Everguild/FX/TrailShader_1	_Noise_Combined	4	0	0	0	0
+Everguild/FX/TrailShader_1	_QueueControl	2	-1	0	0	0
+Everguild/FX/TrailShader_1	_QueueOffset	2	0	0	0	0
+Everguild/FX/TrailShader_1	_TRAILALPHACUTOFF	2	0	0	0	0
+Everguild/FX/TrailShader_1	_TrailLenght	2	0	0	0	0
+Everguild/FX/TrailShader_1	unity_Lightmaps	4	0	0	0	0
+Everguild/FX/TrailShader_1	unity_LightmapsInd	4	0	0	0	0
+Everguild/FX/TrailShader_1	unity_ShadowMasks	4	0	0	0	0
+Everguild/FX/TrailShader_Fading	_Color01	0	0	1	0.047269	0
+Everguild/FX/TrailShader_Fading	_Color02	0	0	1	0.801372	0
+Everguild/FX/TrailShader_Fading	_DissolveScale	2	1	0	0	0
+Everguild/FX/TrailShader_Fading	_DissolveSpeed	1	-0.5	0	0	0
+Everguild/FX/TrailShader_Fading	_MainTexture	4	0	0	0	0
+Everguild/FX/TrailShader_Fading	_MainTextureSpeed	1	-0.1	0	0	0
+Everguild/FX/TrailShader_Fading	_Noise_Combined	4	0	0	0	0
+Everguild/FX/TrailShader_Fading	_QueueControl	2	-1	0	0	0
+Everguild/FX/TrailShader_Fading	_QueueOffset	2	0	0	0	0
+Everguild/FX/TrailShader_Fading	_TailLength	2	0.5	0	0	0
+Everguild/FX/TrailShader_Fading	unity_Lightmaps	4	0	0	0	0
+Everguild/FX/TrailShader_Fading	unity_LightmapsInd	4	0	0	0	0
+Everguild/FX/TrailShader_Fading	unity_ShadowMasks	4	0	0	0	0
+Everguild/FX/Tutorial Highlight	_UVScale	1	2	2	0	0
+Everguild/FX/Tutorial Highlight	_ViewportPoint	1	0.5	0.5	0	0
+Everguild/FX/Tutorial Highlight	unity_Lightmaps	4	0	0	0	0
+Everguild/FX/Tutorial Highlight	unity_LightmapsInd	4	0	0	0	0
+Everguild/FX/Tutorial Highlight	unity_ShadowMasks	4	0	0	0	0
+Everguild/FX/Tyranids/Pulsating Mesh	_APPLYAMBIENTCOLOR	2	1	0	0	0
+Everguild/FX/Tyranids/Pulsating Mesh	_AlphaClip	2	0	0	0	0
+Everguild/FX/Tyranids/Pulsating Mesh	_AlphaToMask	2	0	0	0	0
+Everguild/FX/Tyranids/Pulsating Mesh	_Blend	2	0	0	0	0
+Everguild/FX/Tyranids/Pulsating Mesh	_CastShadows	2	1	0	0	0
+Everguild/FX/Tyranids/Pulsating Mesh	_Cull	2	2	0	0	0
+Everguild/FX/Tyranids/Pulsating Mesh	_DeformStrength	2	1	0	0	0
+Everguild/FX/Tyranids/Pulsating Mesh	_DstBlend	2	0	0	0	0
+Everguild/FX/Tyranids/Pulsating Mesh	_DstBlendAlpha	2	0	0	0	0
+Everguild/FX/Tyranids/Pulsating Mesh	_ExtraAmbientColor	0	1	1	1	0
+Everguild/FX/Tyranids/Pulsating Mesh	_FogContribution	3	1	0	1	0
+Everguild/FX/Tyranids/Pulsating Mesh	_HeartBeatMinMaxRemap	1	0	1	0	0
+Everguild/FX/Tyranids/Pulsating Mesh	_HeartBeatSpeed	2	1	0	0	0
+Everguild/FX/Tyranids/Pulsating Mesh	_MainTex	4	0	0	0	0
+Everguild/FX/Tyranids/Pulsating Mesh	_NoiseSize	2	2	0	0	0
+Everguild/FX/Tyranids/Pulsating Mesh	_NoiseSpeed	2	0.1	0	0	0
+Everguild/FX/Tyranids/Pulsating Mesh	_NoiseTex	4	0	0	0	0
+Everguild/FX/Tyranids/Pulsating Mesh	_QueueControl	2	-1	0	0	0
+Everguild/FX/Tyranids/Pulsating Mesh	_QueueOffset	2	0	0	0	0
+Everguild/FX/Tyranids/Pulsating Mesh	_SrcBlend	2	1	0	0	0
+Everguild/FX/Tyranids/Pulsating Mesh	_SrcBlendAlpha	2	1	0	0	0
+Everguild/FX/Tyranids/Pulsating Mesh	_Surface	2	1	0	0	0
+Everguild/FX/Tyranids/Pulsating Mesh	_ZTest	2	4	0	0	0
+Everguild/FX/Tyranids/Pulsating Mesh	_ZWrite	2	0	0	0	0
+Everguild/FX/Tyranids/Pulsating Mesh	_ZWriteControl	2	1	0	0	0
+Everguild/FX/Tyranids/Pulsating Mesh	unity_Lightmaps	4	0	0	0	0
+Everguild/FX/Tyranids/Pulsating Mesh	unity_LightmapsInd	4	0	0	0	0
+Everguild/FX/Tyranids/Pulsating Mesh	unity_ShadowMasks	4	0	0	0	0
+Everguild/FX/Tyranids/Tyranid Tentacle	_APPLYAMBIENTCOLOR	2	1	0	0	0
+Everguild/FX/Tyranids/Tyranid Tentacle	_Color	0	1	1	1	0
+Everguild/FX/Tyranids/Tyranid Tentacle	_Displacement	2	0	0	0	0
+Everguild/FX/Tyranids/Tyranid Tentacle	_ExtraAmbientColor	0	1	1	1	0
+Everguild/FX/Tyranids/Tyranid Tentacle	_FogContribution	3	1	0	1	0
+Everguild/FX/Tyranids/Tyranid Tentacle	_ForceMask	2	1	0	0	0
+Everguild/FX/Tyranids/Tyranid Tentacle	_MOVEMENTXAXIS	2	0	0	0	0
+Everguild/FX/Tyranids/Tyranid Tentacle	_MainTex	4	0	0	0	0
+Everguild/FX/Tyranids/Tyranid Tentacle	_QueueControl	2	-1	0	0	0
+Everguild/FX/Tyranids/Tyranid Tentacle	_QueueOffset	2	0	0	0	0
+Everguild/FX/Tyranids/Tyranid Tentacle	_Riple_Size	2	23.120001	0	0	0
+Everguild/FX/Tyranids/Tyranid Tentacle	_Speed	2	1	0	0	0
+Everguild/FX/Tyranids/Tyranid Tentacle	_YMaskMinMax	1	0	1	0	0
+Everguild/FX/Tyranids/Tyranid Tentacle	unity_Lightmaps	4	0	0	0	0
+Everguild/FX/Tyranids/Tyranid Tentacle	unity_LightmapsInd	4	0	0	0	0
+Everguild/FX/Tyranids/Tyranid Tentacle	unity_ShadowMasks	4	0	0	0	0
+Everguild/FX/Unlit UV scroll	Vector4_1	1	1	1	0.4	0
+Everguild/FX/Unlit UV scroll	Vector4_62056e41ff4042358d02be808b0352f9	1	1	1	0.2	0
+Everguild/FX/Unlit UV scroll	_AlphaClip	2	0	0	0	0
+Everguild/FX/Unlit UV scroll	_AlphaToMask	2	0	0	0	0
+Everguild/FX/Unlit UV scroll	_Blend	2	0	0	0	0
+Everguild/FX/Unlit UV scroll	_CastShadows	2	1	0	0	0
+Everguild/FX/Unlit UV scroll	_Color	0	1	1	1	1
+Everguild/FX/Unlit UV scroll	_Cull	2	0	0	0	0
+Everguild/FX/Unlit UV scroll	_Depth_X_Falloff_Y	1	0.5	0.5	0	0
+Everguild/FX/Unlit UV scroll	_DstBlend	2	0	0	0	0
+Everguild/FX/Unlit UV scroll	_DstBlendAlpha	2	0	0	0	0
+Everguild/FX/Unlit UV scroll	_FinalAlphaMultiplier	2	1	0	0	0
+Everguild/FX/Unlit UV scroll	_Layers_Blend_Opacity	2	0.5	0	0	0
+Everguild/FX/Unlit UV scroll	_MainTex	4	0	0	0	0
+Everguild/FX/Unlit UV scroll	_PREMULTIPLY	2	0	0	0	0
+Everguild/FX/Unlit UV scroll	_QueueControl	2	-1	0	0	0
+Everguild/FX/Unlit UV scroll	_QueueOffset	2	0	0	0	0
+Everguild/FX/Unlit UV scroll	_SOFT	2	0	0	0	0
+Everguild/FX/Unlit UV scroll	_SecondaryTex	4	0	0	0	0
+Everguild/FX/Unlit UV scroll	_SrcBlend	2	1	0	0	0
+Everguild/FX/Unlit UV scroll	_SrcBlendAlpha	2	1	0	0	0
+Everguild/FX/Unlit UV scroll	_Surface	2	1	0	0	0
+Everguild/FX/Unlit UV scroll	_ZTest	2	4	0	0	0
+Everguild/FX/Unlit UV scroll	_ZWrite	2	0	0	0	0
+Everguild/FX/Unlit UV scroll	_ZWriteControl	2	0	0	0	0
+Everguild/FX/Unlit UV scroll	unity_Lightmaps	4	0	0	0	0
+Everguild/FX/Unlit UV scroll	unity_LightmapsInd	4	0	0	0	0
+Everguild/FX/Unlit UV scroll	unity_ShadowMasks	4	0	0	0	0
+Everguild/FX/Vortex	_ClampRange	1	-0.2	0.2	-0.2	0.2
+Everguild/FX/Vortex	_MainTex	4	0	0	0	0
+Everguild/FX/Vortex	_Main_Color	0	1	0	0	0
+Everguild/FX/Vortex	_NoiseScale	2	2.5	0	0	0
+Everguild/FX/Vortex	_Offset	1	0	0	0	0
+Everguild/FX/Vortex	_QueueControl	2	-1	0	0	0
+Everguild/FX/Vortex	_QueueOffset	2	0	0	0	0
+Everguild/FX/Vortex	_Reflected_Image	4	0	0	0	0
+Everguild/FX/Vortex	_Reflection_Color	0	1	1	1	0
+Everguild/FX/Vortex	_RotationSpeed	2	1	0	0	0
+Everguild/FX/Vortex	_Secondary_Color	0	0	0	0	0
+Everguild/FX/Vortex	_TwirReflectionStrength	3	0.2	0	1	0
+Everguild/FX/Vortex	_Twirl_Strength	2	8.74	0	0	0
+Everguild/FX/Vortex	_Zoom	3	0.9	0	1	0
+Everguild/FX/Vortex	unity_Lightmaps	4	0	0	0	0
+Everguild/FX/Vortex	unity_LightmapsInd	4	0	0	0	0
+Everguild/FX/Vortex	unity_ShadowMasks	4	0	0	0	0
+Everguild/Matcap/Matcap Full Options	_AlphaClip	2	0	0	0	0
+Everguild/Matcap/Matcap Full Options	_AlphaClipThreshold	3	0.5	0	1	0
+Everguild/Matcap/Matcap Full Options	_AlphaToMask	2	0	0	0	0
+Everguild/Matcap/Matcap Full Options	_Blend	2	0	0	0	0
+Everguild/Matcap/Matcap Full Options	_BorderColor1	0	1	0	0	1
+Everguild/Matcap/Matcap Full Options	_BorderColor2	0	1	0.908256	0	1
+Everguild/Matcap/Matcap Full Options	_BorderWidth	2	0.1	0	0	0
+Everguild/Matcap/Matcap Full Options	_CastShadows	2	0	0	0	0
+Everguild/Matcap/Matcap Full Options	_Color	0	1	1	1	0
+Everguild/Matcap/Matcap Full Options	_Cull	2	2	0	0	0
+Everguild/Matcap/Matcap Full Options	_DissolveAmount	3	0	0	1	0
+Everguild/Matcap/Matcap Full Options	_DstBlend	2	0	0	0	0
+Everguild/Matcap/Matcap Full Options	_DstBlendAlpha	2	0	0	0	0
+Everguild/Matcap/Matcap Full Options	_EmissionColor	0	1	1	1	0
+Everguild/Matcap/Matcap Full Options	_EmissionTex	4	0	0	0	0
+Everguild/Matcap/Matcap Full Options	_Intensity	2	1	0	0	0
+Everguild/Matcap/Matcap Full Options	_MainTex	4	0	0	0	0
+Everguild/Matcap/Matcap Full Options	_MatCap	4	0	0	0	0
+Everguild/Matcap/Matcap Full Options	_NOISECHANNEL	2	0	0	0	0
+Everguild/Matcap/Matcap Full Options	_Noise	4	0	0	0	0
+Everguild/Matcap/Matcap Full Options	_Normal	4	0	0	0	0
+Everguild/Matcap/Matcap Full Options	_QueueControl	2	-1	0	0	0
+Everguild/Matcap/Matcap Full Options	_QueueOffset	2	0	0	0	0
+Everguild/Matcap/Matcap Full Options	_SrcBlend	2	1	0	0	0
+Everguild/Matcap/Matcap Full Options	_SrcBlendAlpha	2	1	0	0	0
+Everguild/Matcap/Matcap Full Options	_Surface	2	0	0	0	0
+Everguild/Matcap/Matcap Full Options	_USEEMISSION	2	0	0	0	0
+Everguild/Matcap/Matcap Full Options	_USENOISE	2	0	0	0	0
+Everguild/Matcap/Matcap Full Options	_USENORMAL	2	0	0	0	0
+Everguild/Matcap/Matcap Full Options	_ZTest	2	4	0	0	0
+Everguild/Matcap/Matcap Full Options	_ZWrite	2	1	0	0	0
+Everguild/Matcap/Matcap Full Options	_ZWriteControl	2	0	0	0	0
+Everguild/Matcap/Matcap Full Options	unity_Lightmaps	4	0	0	0	0
+Everguild/Matcap/Matcap Full Options	unity_LightmapsInd	4	0	0	0	0
+Everguild/Matcap/Matcap Full Options	unity_ShadowMasks	4	0	0	0	0
+Everguild/Matcap/Matcap Full Options VAT	_AlphaClip	2	0	0	0	0
+Everguild/Matcap/Matcap Full Options VAT	_AlphaClipThreshold	3	0.5	0	1	0
+Everguild/Matcap/Matcap Full Options VAT	_AlphaToMask	2	0	0	0	0
+Everguild/Matcap/Matcap Full Options VAT	_Blend	2	0	0	0	0
+Everguild/Matcap/Matcap Full Options VAT	_BorderColor1	0	1	0	0	1
+Everguild/Matcap/Matcap Full Options VAT	_BorderColor2	0	1	0.908256	0	1
+Everguild/Matcap/Matcap Full Options VAT	_BorderWidth	2	0.1	0	0	0
+Everguild/Matcap/Matcap Full Options VAT	_CastShadows	2	0	0	0	0
+Everguild/Matcap/Matcap Full Options VAT	_Color	0	1	1	1	0
+Everguild/Matcap/Matcap Full Options VAT	_Cull	2	2	0	0	0
+Everguild/Matcap/Matcap Full Options VAT	_DissolveAmount	3	0	0	1	0
+Everguild/Matcap/Matcap Full Options VAT	_DstBlend	2	0	0	0	0
+Everguild/Matcap/Matcap Full Options VAT	_DstBlendAlpha	2	0	0	0	0
+Everguild/Matcap/Matcap Full Options VAT	_EmissionColor	0	1	1	1	0
+Everguild/Matcap/Matcap Full Options VAT	_EmissionTex	4	0	0	0	0
+Everguild/Matcap/Matcap Full Options VAT	_Intensity	2	1	0	0	0
+Everguild/Matcap/Matcap Full Options VAT	_MainTex	4	0	0	0	0
+Everguild/Matcap/Matcap Full Options VAT	_MatCap	4	0	0	0	0
+Everguild/Matcap/Matcap Full Options VAT	_NOISECHANNEL	2	0	0	0	0
+Everguild/Matcap/Matcap Full Options VAT	_Noise	4	0	0	0	0
+Everguild/Matcap/Matcap Full Options VAT	_Normal	4	0	0	0	0
+Everguild/Matcap/Matcap Full Options VAT	_QueueControl	2	-1	0	0	0
+Everguild/Matcap/Matcap Full Options VAT	_QueueOffset	2	0	0	0	0
+Everguild/Matcap/Matcap Full Options VAT	_SrcBlend	2	1	0	0	0
+Everguild/Matcap/Matcap Full Options VAT	_SrcBlendAlpha	2	1	0	0	0
+Everguild/Matcap/Matcap Full Options VAT	_Surface	2	0	0	0	0
+Everguild/Matcap/Matcap Full Options VAT	_USEEMISSION	2	0	0	0	0
+Everguild/Matcap/Matcap Full Options VAT	_USENOISE	2	0	0	0	0
+Everguild/Matcap/Matcap Full Options VAT	_USENORMAL	2	0	0	0	0
+Everguild/Matcap/Matcap Full Options VAT	_ZTest	2	4	0	0	0
+Everguild/Matcap/Matcap Full Options VAT	_ZWrite	2	1	0	0	0
+Everguild/Matcap/Matcap Full Options VAT	_ZWriteControl	2	0	0	0	0
+Everguild/Matcap/Matcap Full Options VAT	unity_Lightmaps	4	0	0	0	0
+Everguild/Matcap/Matcap Full Options VAT	unity_LightmapsInd	4	0	0	0	0
+Everguild/Matcap/Matcap Full Options VAT	unity_ShadowMasks	4	0	0	0	0
+Everguild/Matcap/Matcap With Texture	_APPLYAMBIENTCOLOR	2	1	0	0	0
+Everguild/Matcap/Matcap With Texture	_AlphaClip	2	0	0	0	0
+Everguild/Matcap/Matcap With Texture	_AlphaToMask	2	0	0	0	0
+Everguild/Matcap/Matcap With Texture	_Blend	2	0	0	0	0
+Everguild/Matcap/Matcap With Texture	_CastShadows	2	1	0	0	0
+Everguild/Matcap/Matcap With Texture	_Color	0	1	1	1	0
+Everguild/Matcap/Matcap With Texture	_Cull	2	2	0	0	0
+Everguild/Matcap/Matcap With Texture	_DstBlend	2	0	0	0	0
+Everguild/Matcap/Matcap With Texture	_DstBlendAlpha	2	0	0	0	0
+Everguild/Matcap/Matcap With Texture	_ExtraAmbientColor	0	1	1	1	0
+Everguild/Matcap/Matcap With Texture	_FogContribution	3	1	0	1	0
+Everguild/Matcap/Matcap With Texture	_Intensity	2	1	0	0	0
+Everguild/Matcap/Matcap With Texture	_MainTex	4	0	0	0	0
+Everguild/Matcap/Matcap With Texture	_MatCap	4	0	0	0	0
+Everguild/Matcap/Matcap With Texture	_QueueControl	2	-1	0	0	0
+Everguild/Matcap/Matcap With Texture	_QueueOffset	2	0	0	0	0
+Everguild/Matcap/Matcap With Texture	_SrcBlend	2	1	0	0	0
+Everguild/Matcap/Matcap With Texture	_SrcBlendAlpha	2	1	0	0	0
+Everguild/Matcap/Matcap With Texture	_Surface	2	0	0	0	0
+Everguild/Matcap/Matcap With Texture	_ZTest	2	4	0	0	0
+Everguild/Matcap/Matcap With Texture	_ZWrite	2	1	0	0	0
+Everguild/Matcap/Matcap With Texture	_ZWriteControl	2	0	0	0	0
+Everguild/Matcap/Matcap With Texture	unity_Lightmaps	4	0	0	0	0
+Everguild/Matcap/Matcap With Texture	unity_LightmapsInd	4	0	0	0	0
+Everguild/Matcap/Matcap With Texture	unity_ShadowMasks	4	0	0	0	0
+Everguild/Misc/Unlit shadows receiver	_BaseMap	4	0	0	0	0
+Everguild/Misc/Unlit shadows receiver	_ExtraAmbientColor	0	1	1	1	1
+Everguild/Misc/Unlit shadows receiver	_ShadowColor	0	0.35	0.4	0.45	1
+Everguild/Sprites/Sprite Additive	PixelSnap	2	0	0	0	0
+Everguild/Sprites/Sprite Additive	_AlphaTex	4	0	0	0	0
+Everguild/Sprites/Sprite Additive	_Color	0	1	1	1	1
+Everguild/Sprites/Sprite Additive	_EnableExternalAlpha	2	0	0	0	0
+Everguild/Sprites/Sprite Additive	_Flip	1	1	1	1	1
+Everguild/Sprites/Sprite Additive	_MainTex	4	0	0	0	0
+Everguild/Sprites/Sprite Additive	_RendererColor	0	1	1	1	1
+Everguild/UI/Campaign Points	_AlphaClip	2	0	0	0	0
+Everguild/UI/Campaign Points	_AlphaToMask	2	0	0	0	0
+Everguild/UI/Campaign Points	_Blend	2	0	0	0	0
+Everguild/UI/Campaign Points	_CastShadows	2	1	0	0	0
+Everguild/UI/Campaign Points	_Center_rotation	1	0	0	0	0
+Everguild/UI/Campaign Points	_Color1	0	0.532663	0.739766	0.849057	0
+Everguild/UI/Campaign Points	_Color2	0	0	0.608814	0.783019	0
+Everguild/UI/Campaign Points	_Cull	2	2	0	0	0
+Everguild/UI/Campaign Points	_DstBlend	2	0	0	0	0
+Everguild/UI/Campaign Points	_DstBlendAlpha	2	0	0	0	0
+Everguild/UI/Campaign Points	_MainTex	4	0	0	0	0
+Everguild/UI/Campaign Points	_NoiseTex	4	0	0	0	0
+Everguild/UI/Campaign Points	_Noise_Scale_XY_Speed_ZW	1	0.5	0.5	2	2
+Everguild/UI/Campaign Points	_QueueControl	2	-1	0	0	0
+Everguild/UI/Campaign Points	_QueueOffset	2	0	0	0	0
+Everguild/UI/Campaign Points	_Rotation_Speed	2	1	0	0	0
+Everguild/UI/Campaign Points	_Rotation_Speed_2	2	0	0	0	0
+Everguild/UI/Campaign Points	_Rotation_Speed_Noise	2	0	0	0	0
+Everguild/UI/Campaign Points	_SrcBlend	2	1	0	0	0
+Everguild/UI/Campaign Points	_SrcBlendAlpha	2	1	0	0	0
+Everguild/UI/Campaign Points	_Surface	2	1	0	0	0
+Everguild/UI/Campaign Points	_ZTest	2	4	0	0	0
+Everguild/UI/Campaign Points	_ZWrite	2	0	0	0	0
+Everguild/UI/Campaign Points	_ZWriteControl	2	0	0	0	0
+Everguild/UI/Campaign Points	unity_Lightmaps	4	0	0	0	0
+Everguild/UI/Campaign Points	unity_LightmapsInd	4	0	0	0	0
+Everguild/UI/Campaign Points	unity_ShadowMasks	4	0	0	0	0
+Everguild/UI/Card ImageUI Simple	_Color	0	1	1	1	1
+Everguild/UI/Card ImageUI Simple	_ColorMask	2	15	0	0	0
+Everguild/UI/Card ImageUI Simple	_MainTex	4	0	0	0	0
+Everguild/UI/Card ImageUI Simple	_Stencil	2	0	0	0	0
+Everguild/UI/Card ImageUI Simple	_StencilComp	2	8	0	0	0
+Everguild/UI/Card ImageUI Simple	_StencilOp	2	0	0	0	0
+Everguild/UI/Card ImageUI Simple	_StencilReadMask	2	255	0	0	0
+Everguild/UI/Card ImageUI Simple	_StencilWriteMask	2	255	0	0	0
+Everguild/UI/Card ImageUI Simple	_UseUIAlphaClip	2	0	0	0	0
+Everguild/UI/Card ImageUI Simple GreyScale	_Color	0	1	1	1	1
+Everguild/UI/Card ImageUI Simple GreyScale	_ColorMask	2	15	0	0	0
+Everguild/UI/Card ImageUI Simple GreyScale	_GreyScale	3	1	0	1	0
+Everguild/UI/Card ImageUI Simple GreyScale	_MainTex	4	0	0	0	0
+Everguild/UI/Card ImageUI Simple GreyScale	_Stencil	2	0	0	0	0
+Everguild/UI/Card ImageUI Simple GreyScale	_StencilComp	2	8	0	0	0
+Everguild/UI/Card ImageUI Simple GreyScale	_StencilOp	2	0	0	0	0
+Everguild/UI/Card ImageUI Simple GreyScale	_StencilReadMask	2	255	0	0	0
+Everguild/UI/Card ImageUI Simple GreyScale	_StencilWriteMask	2	255	0	0	0
+Everguild/UI/Card ImageUI Simple GreyScale	_UseUIAlphaClip	2	0	0	0	0
+Everguild/UI/Card Ready for level up	_BottomFade	1	0	1	0	0
+Everguild/UI/Card Ready for level up	_Color	0	1	1	1	1
+Everguild/UI/Card Ready for level up	_ColorA	0	0	1	1	1
+Everguild/UI/Card Ready for level up	_ColorB	0	0	0	1	1
+Everguild/UI/Card Ready for level up	_ColorG	0	0	1	0	1
+Everguild/UI/Card Ready for level up	_ColorMask	2	15	0	0	0
+Everguild/UI/Card Ready for level up	_ColorR	0	1	0	0	1
+Everguild/UI/Card Ready for level up	_MainTex	4	0	0	0	0
+Everguild/UI/Card Ready for level up	_SpeedScaleLayerA	1	1	1	1	1
+Everguild/UI/Card Ready for level up	_SpeedScaleLayerB	1	1	1	1	1
+Everguild/UI/Card Ready for level up	_SpeedScaleLayerG	1	1	1	1	1
+Everguild/UI/Card Ready for level up	_SpeedScaleLayerR	1	1	1	1	1
+Everguild/UI/Card Ready for level up	_Stencil	2	0	0	0	0
+Everguild/UI/Card Ready for level up	_StencilComp	2	8	0	0	0
+Everguild/UI/Card Ready for level up	_StencilOp	2	0	0	0	0
+Everguild/UI/Card Ready for level up	_StencilReadMask	2	255	0	0	0
+Everguild/UI/Card Ready for level up	_StencilWriteMask	2	255	0	0	0
+Everguild/UI/Card Ready for level up	_UseUIAlphaClip	2	0	0	0	0
+Everguild/UI/Card Ready for level up	_VerticalFadeBlueAlpha	1	0	1	0	0
+Everguild/UI/Card Ready for level up	_VerticalFadeRedGreen	1	0	1	0	1
+Everguild/UI/Color Change	_Brightness	2	0	0	0	0
+Everguild/UI/Color Change	_Color	0	1	1	1	1
+Everguild/UI/Color Change	_ColorMask	2	15	0	0	0
+Everguild/UI/Color Change	_Contrast	2	1	0	0	0
+Everguild/UI/Color Change	_HUE	3	1	0	1	0
+Everguild/UI/Color Change	_MainTex	4	0	0	0	0
+Everguild/UI/Color Change	_Saturation	2	1	0	0	0
+Everguild/UI/Color Change	_Stencil	2	0	0	0	0
+Everguild/UI/Color Change	_StencilComp	2	8	0	0	0
+Everguild/UI/Color Change	_StencilOp	2	0	0	0	0
+Everguild/UI/Color Change	_StencilReadMask	2	255	0	0	0
+Everguild/UI/Color Change	_StencilWriteMask	2	255	0	0	0
+Everguild/UI/Color Change	_UseUIAlphaClip	2	0	0	0	0
+Everguild/UI/Greyscale	_Color	0	1	1	1	1
+Everguild/UI/Greyscale	_ColorMask	2	15	0	0	0
+Everguild/UI/Greyscale	_GreyScale	3	1	0	1	0
+Everguild/UI/Greyscale	_MainTex	4	0	0	0	0
+Everguild/UI/Greyscale	_Stencil	2	0	0	0	0
+Everguild/UI/Greyscale	_StencilComp	2	8	0	0	0
+Everguild/UI/Greyscale	_StencilOp	2	0	0	0	0
+Everguild/UI/Greyscale	_StencilReadMask	2	255	0	0	0
+Everguild/UI/Greyscale	_StencilWriteMask	2	255	0	0	0
+Everguild/UI/Greyscale	_UseUIAlphaClip	2	0	0	0	0
+Everguild/UI/UI Border Highlight Appear	_AUTOROTATION	2	0	0	0	0
+Everguild/UI/UI Border Highlight Appear	_AutoRotationSpeed	2	1	0	0	0
+Everguild/UI/UI Border Highlight Appear	_ColorMain	0	1	0.887489	0	1
+Everguild/UI/UI Border Highlight Appear	_ColorSecondary	0	1	0	0	1
+Everguild/UI/UI Border Highlight Appear	_Color_offsets	1	0.66	1	0	0
+Everguild/UI/UI Border Highlight Appear	_DEBUG	2	1	0	0	0
+Everguild/UI/UI Border Highlight Appear	_FLIPDIRECTION	2	0	0	0	0
+Everguild/UI/UI Border Highlight Appear	_Noise_R	4	0	0	0	0
+Everguild/UI/UI Border Highlight Appear	_Noise_Strength_X_Speed_Y_Scale_Z	1	0.01	1	1	0
+Everguild/UI/UI Border Highlight Appear	_QueueControl	2	-1	0	0	0
+Everguild/UI/UI Border Highlight Appear	_QueueOffset	2	0	0	0	0
+Everguild/UI/UI Border Highlight Appear	_Reveal	3	0	-0.5	1	0
+Everguild/UI/UI Border Highlight Appear	_Rotation	2	0	0	0	0
+Everguild/UI/UI Border Highlight Appear	_SMOOTHGRADIENT	2	1	0	0	0
+Everguild/UI/UI Border Highlight Appear	_ScaleFromCenter	1	1	1	0	0
+Everguild/UI/UI Border Highlight Appear	_Smoothness	3	0.05	0	1	0
+Everguild/UI/UI Border Highlight Appear	_StartOffset	3	0	0	360	0
+Everguild/UI/UI Border Highlight Appear	unity_Lightmaps	4	0	0	0	0
+Everguild/UI/UI Border Highlight Appear	unity_LightmapsInd	4	0	0	0	0
+Everguild/UI/UI Border Highlight Appear	unity_ShadowMasks	4	0	0	0	0
+Everguild/UI/UI Border Highlight Appear Pulsating Scale	_AUTOROTATION	2	0	0	0	0
+Everguild/UI/UI Border Highlight Appear Pulsating Scale	_AutoRotationSpeed	2	1	0	0	0
+Everguild/UI/UI Border Highlight Appear Pulsating Scale	_ColorMain	0	1	0.887489	0	1
+Everguild/UI/UI Border Highlight Appear Pulsating Scale	_ColorSecondary	0	1	0	0	1
+Everguild/UI/UI Border Highlight Appear Pulsating Scale	_Color_offsets	1	0.66	1	0	0
+Everguild/UI/UI Border Highlight Appear Pulsating Scale	_DEBUG	2	1	0	0	0
+Everguild/UI/UI Border Highlight Appear Pulsating Scale	_FLIPDIRECTION	2	0	0	0	0
+Everguild/UI/UI Border Highlight Appear Pulsating Scale	_Noise_R	4	0	0	0	0
+Everguild/UI/UI Border Highlight Appear Pulsating Scale	_Noise_Strength_X_Speed_Y_Scale_Z	1	0.01	1	1	0
+Everguild/UI/UI Border Highlight Appear Pulsating Scale	_QueueControl	2	-1	0	0	0
+Everguild/UI/UI Border Highlight Appear Pulsating Scale	_QueueOffset	2	0	0	0	0
+Everguild/UI/UI Border Highlight Appear Pulsating Scale	_Reveal	3	1	-0.5	1	0
+Everguild/UI/UI Border Highlight Appear Pulsating Scale	_Rotation	2	0	0	0	0
+Everguild/UI/UI Border Highlight Appear Pulsating Scale	_Scale_X_Speed_Y	1	0.9	3	0	0
+Everguild/UI/UI Border Highlight Appear Pulsating Scale	_Smoothness	3	0.05	0	1	0
+Everguild/UI/UI Border Highlight Appear Pulsating Scale	_StartOffset	3	0	0	360	0
+Everguild/UI/UI Border Highlight Appear Pulsating Scale	unity_Lightmaps	4	0	0	0	0
+Everguild/UI/UI Border Highlight Appear Pulsating Scale	unity_LightmapsInd	4	0	0	0	0
+Everguild/UI/UI Border Highlight Appear Pulsating Scale	unity_ShadowMasks	4	0	0	0	0
+Everguild/UI/UI Border Mask	_Color	0	1	1	1	1
+Everguild/UI/UI Border Mask	_ColorMask	2	15	0	0	0
+Everguild/UI/UI Border Mask	_MainTex	4	0	0	0	0
+Everguild/UI/UI Border Mask	_Stencil	2	0	0	0	0
+Everguild/UI/UI Border Mask	_StencilComp	2	8	0	0	0
+Everguild/UI/UI Border Mask	_StencilOp	2	0	0	0	0
+Everguild/UI/UI Border Mask	_StencilReadMask	2	255	0	0	0
+Everguild/UI/UI Border Mask	_StencilWriteMask	2	255	0	0	0
+Everguild/UI/UI Border Mask	_UseUIAlphaClip	2	0	0	0	0
+Everguild/UI/UI Border Mask	_maskData	1	0	1	0	1
+Everguild/UI/UI Border Mask	_maskMultiplier	2	1	0	0	0
+Everguild/UI/UI Distort Color Change	_Brightness	2	0	0	0	0
+Everguild/UI/UI Distort Color Change	_Color	0	1	1	1	1
+Everguild/UI/UI Distort Color Change	_ColorMask	2	15	0	0	0
+Everguild/UI/UI Distort Color Change	_Contrast	2	1	0	0	0
+Everguild/UI/UI Distort Color Change	_DistortionAmount	3	0.05	0	1	0
+Everguild/UI/UI Distort Color Change	_DistortionSpeedAndScale	1	1	1	1	1
+Everguild/UI/UI Distort Color Change	_HUE	3	1	0	1	0
+Everguild/UI/UI Distort Color Change	_MainTex	4	0	0	0	0
+Everguild/UI/UI Distort Color Change	_NoiseTex	4	0	0	0	0
+Everguild/UI/UI Distort Color Change	_Saturation	2	1	0	0	0
+Everguild/UI/UI Distort Color Change	_Stencil	2	0	0	0	0
+Everguild/UI/UI Distort Color Change	_StencilComp	2	8	0	0	0
+Everguild/UI/UI Distort Color Change	_StencilOp	2	0	0	0	0
+Everguild/UI/UI Distort Color Change	_StencilReadMask	2	255	0	0	0
+Everguild/UI/UI Distort Color Change	_StencilWriteMask	2	255	0	0	0
+Everguild/UI/UI Distort Color Change	_UseUIAlphaClip	2	0	0	0	0
+Everguild/Unlit Wind	Vector1_d24785e7c76f4f12925b2f74dd719668	2	1	0	0	0
+Everguild/Unlit Wind	Vector1_e2a1250f285e4e4c8b276ed6b053e097	2	1	0	0	0
+Everguild/Unlit Wind	Vector1_fbd31611b0de4f50ba79632772d9ba9f	2	1	0	0	0
+Everguild/Unlit Wind	_APPLYAMBIENTCOLOR	2	1	0	0	0
+Everguild/Unlit Wind	_AlphaClip	2	1	0	0	0
+Everguild/Unlit Wind	_AlphaToMask	2	1	0	0	0
+Everguild/Unlit Wind	_Blend	2	0	0	0	0
+Everguild/Unlit Wind	_CastShadows	2	1	0	0	0
+Everguild/Unlit Wind	_ClipThreshold	3	0.5	0	1	0
+Everguild/Unlit Wind	_Color	0	1	1	1	1
+Everguild/Unlit Wind	_Cull	2	0	0	0	0
+Everguild/Unlit Wind	_DstBlend	2	0	0	0	0
+Everguild/Unlit Wind	_DstBlendAlpha	2	0	0	0	0
+Everguild/Unlit Wind	_ExtraAmbientColor	0	1	1	1	0
+Everguild/Unlit Wind	_FogContribution	3	1	0	1	0
+Everguild/Unlit Wind	_FogContribution_2	3	1	0	1	0
+Everguild/Unlit Wind	_MainTex	4	0	0	0	0
+Everguild/Unlit Wind	_QueueControl	2	-1	0	0	0
+Everguild/Unlit Wind	_QueueOffset	2	0	0	0	0
+Everguild/Unlit Wind	_SrcBlend	2	1	0	0	0
+Everguild/Unlit Wind	_SrcBlendAlpha	2	1	0	0	0
+Everguild/Unlit Wind	_Surface	2	0	0	0	0
+Everguild/Unlit Wind	_ZTest	2	4	0	0	0
+Everguild/Unlit Wind	_ZWrite	2	1	0	0	0
+Everguild/Unlit Wind	_ZWriteControl	2	0	0	0	0
+Everguild/Unlit Wind	unity_Lightmaps	4	0	0	0	0
+Everguild/Unlit Wind	unity_LightmapsInd	4	0	0	0	0
+Everguild/Unlit Wind	unity_ShadowMasks	4	0	0	0	0
+Everguild/UnlitAmbient	_APPLYAMBIENTCOLOR	2	1	0	0	0
+Everguild/UnlitAmbient	_AlphaClip	2	0	0	0	0
+Everguild/UnlitAmbient	_AlphaToMask	2	0	0	0	0
+Everguild/UnlitAmbient	_BaseMap	4	0	0	0	0
+Everguild/UnlitAmbient	_Blend	2	0	0	0	0
+Everguild/UnlitAmbient	_CastShadows	2	0	0	0	0
+Everguild/UnlitAmbient	_ClipThreshold	3	0.5	0	1	0
+Everguild/UnlitAmbient	_Color	0	1	1	1	1
+Everguild/UnlitAmbient	_Cull	2	2	0	0	0
+Everguild/UnlitAmbient	_DistortSpeed_XY_Scale_ZW	1	1	1	1	1
+Everguild/UnlitAmbient	_DistortStrength	2	0.01	0	0	0
+Everguild/UnlitAmbient	_DistortTex	4	0	0	0	0
+Everguild/UnlitAmbient	_DistortionStrength	2	1	0	0	0
+Everguild/UnlitAmbient	_DistortionStrength_1	2	1	0	0	0
+Everguild/UnlitAmbient	_DstBlend	2	0	0	0	0
+Everguild/UnlitAmbient	_DstBlendAlpha	2	0	0	0	0
+Everguild/UnlitAmbient	_ENABLEMATCAP	2	0	0	0	0
+Everguild/UnlitAmbient	_ExtraAmbientColor	0	1	1	1	0
+Everguild/UnlitAmbient	_FogContribution	3	1	0	1	0
+Everguild/UnlitAmbient	_Matacap	4	0	0	0	0
+Everguild/UnlitAmbient	_MatcapIntensity	2	1	0	0	0
+Everguild/UnlitAmbient	_QueueControl	2	-1	0	0	0
+Everguild/UnlitAmbient	_QueueOffset	2	0	0	0	0
+Everguild/UnlitAmbient	_ROTATEUVS	2	0	0	0	0
+Everguild/UnlitAmbient	_RotationSpeed	2	1	0	0	0
+Everguild/UnlitAmbient	_SrcBlend	2	1	0	0	0
+Everguild/UnlitAmbient	_SrcBlendAlpha	2	1	0	0	0
+Everguild/UnlitAmbient	_Surface	2	0	0	0	0
+Everguild/UnlitAmbient	_USEDISTORT	2	0	0	0	0
+Everguild/UnlitAmbient	_UVSpeed	1	1	1	0	0
+Everguild/UnlitAmbient	_ZTest	2	4	0	0	0
+Everguild/UnlitAmbient	_ZWrite	2	1	0	0	0
+Everguild/UnlitAmbient	_ZWriteControl	2	0	0	0	0
+Everguild/UnlitAmbient	unity_Lightmaps	4	0	0	0	0
+Everguild/UnlitAmbient	unity_LightmapsInd	4	0	0	0	0
+Everguild/UnlitAmbient	unity_ShadowMasks	4	0	0	0	0
+Everguild/UnlitAmbient Emissive Flickker	_APPLYAMBIENTCOLOR	2	1	0	0	0
+Everguild/UnlitAmbient Emissive Flickker	_AlphaClip	2	0	0	0	0
+Everguild/UnlitAmbient Emissive Flickker	_AlphaToMask	2	0	0	0	0
+Everguild/UnlitAmbient Emissive Flickker	_BaseMap	4	0	0	0	0
+Everguild/UnlitAmbient Emissive Flickker	_Blend	2	0	0	0	0
+Everguild/UnlitAmbient Emissive Flickker	_CastShadows	2	0	0	0	0
+Everguild/UnlitAmbient Emissive Flickker	_ClipThreshold	3	0.5	0	1	0
+Everguild/UnlitAmbient Emissive Flickker	_Color	0	1	1	1	1
+Everguild/UnlitAmbient Emissive Flickker	_Cull	2	2	0	0	0
+Everguild/UnlitAmbient Emissive Flickker	_DstBlend	2	0	0	0	0
+Everguild/UnlitAmbient Emissive Flickker	_DstBlendAlpha	2	0	0	0	0
+Everguild/UnlitAmbient Emissive Flickker	_EmissiveColor	0	2.113019	2.297397	0	0
+Everguild/UnlitAmbient Emissive Flickker	_ExtraAmbientColor	0	1	1	1	0
+Everguild/UnlitAmbient Emissive Flickker	_FlickerMinMaxRange	1	0	1	0	0
+Everguild/UnlitAmbient Emissive Flickker	_FlickerSpeed	2	5	0	0	0
+Everguild/UnlitAmbient Emissive Flickker	_FogContribution	3	1	0	1	0
+Everguild/UnlitAmbient Emissive Flickker	_QueueControl	2	-1	0	0	0
+Everguild/UnlitAmbient Emissive Flickker	_QueueOffset	2	0	0	0	0
+Everguild/UnlitAmbient Emissive Flickker	_RECEIVESHADOWS	2	0	0	0	0
+Everguild/UnlitAmbient Emissive Flickker	_SampleTexture2D_56151bd863ba4ebfae5e17e92f13cf49_Texture_1_Texture2D	4	0	0	0	0
+Everguild/UnlitAmbient Emissive Flickker	_SrcBlend	2	1	0	0	0
+Everguild/UnlitAmbient Emissive Flickker	_SrcBlendAlpha	2	1	0	0	0
+Everguild/UnlitAmbient Emissive Flickker	_Surface	2	0	0	0	0
+Everguild/UnlitAmbient Emissive Flickker	_ZTest	2	4	0	0	0
+Everguild/UnlitAmbient Emissive Flickker	_ZWrite	2	1	0	0	0
+Everguild/UnlitAmbient Emissive Flickker	_ZWriteControl	2	0	0	0	0
+Everguild/UnlitAmbient Emissive Flickker	unity_Lightmaps	4	0	0	0	0
+Everguild/UnlitAmbient Emissive Flickker	unity_LightmapsInd	4	0	0	0	0
+Everguild/UnlitAmbient Emissive Flickker	unity_ShadowMasks	4	0	0	0	0
+Everguild/Wind Matcap	Vector1_d24785e7c76f4f12925b2f74dd719668	2	1	0	0	0
+Everguild/Wind Matcap	Vector1_e2a1250f285e4e4c8b276ed6b053e097	2	1	0	0	0
+Everguild/Wind Matcap	Vector1_fbd31611b0de4f50ba79632772d9ba9f	2	1	0	0	0
+Everguild/Wind Matcap	_AlphaClip	2	1	0	0	0
+Everguild/Wind Matcap	_AlphaToMask	2	1	0	0	0
+Everguild/Wind Matcap	_Blend	2	0	0	0	0
+Everguild/Wind Matcap	_CastShadows	2	1	0	0	0
+Everguild/Wind Matcap	_ClipThreshold	3	0.5	0	1	0
+Everguild/Wind Matcap	_Color	0	1	1	1	1
+Everguild/Wind Matcap	_Cull	2	0	0	0	0
+Everguild/Wind Matcap	_DstBlend	2	0	0	0	0
+Everguild/Wind Matcap	_DstBlendAlpha	2	0	0	0	0
+Everguild/Wind Matcap	_MainTex	4	0	0	0	0
+Everguild/Wind Matcap	_Matcap	4	0	0	0	0
+Everguild/Wind Matcap	_MatcapIntensity	2	2	0	0	0
+Everguild/Wind Matcap	_QueueControl	2	-1	0	0	0
+Everguild/Wind Matcap	_QueueOffset	2	0	0	0	0
+Everguild/Wind Matcap	_SrcBlend	2	1	0	0	0
+Everguild/Wind Matcap	_SrcBlendAlpha	2	1	0	0	0
+Everguild/Wind Matcap	_Surface	2	0	0	0	0
+Everguild/Wind Matcap	_ZTest	2	4	0	0	0
+Everguild/Wind Matcap	_ZWrite	2	1	0	0	0
+Everguild/Wind Matcap	_ZWriteControl	2	0	0	0	0
+Everguild/Wind Matcap	unity_Lightmaps	4	0	0	0	0
+Everguild/Wind Matcap	unity_LightmapsInd	4	0	0	0	0
+Everguild/Wind Matcap	unity_ShadowMasks	4	0	0	0	0
+GlassRefraction	_AlphaCutoff	3	0.5	0	1	0
+GlassRefraction	_Color0	0	0	0	0	0
+GlassRefraction	_EmissionColor	0	1	1	1	1
+GlassRefraction	_Normals	4	0	0	0	0
+GlassRefraction	_Scale	2	0.01	0	0	0
+GlassRefraction	_texcoord	4	0	0	0	0
+Hidden/VideoComposite	_MainTex	4	0	0	0	0
+Hidden/VideoDecode	_MainTex	4	0	0	0	0
+Hidden/VideoDecode	_SecondTex	4	0	0	0	0
+Hidden/VideoDecode	_ThirdTex	4	0	0	0	0
+Legacy Shaders/Particles/Additive	_InvFade	3	1	0.01	3	0
+Legacy Shaders/Particles/Additive	_MainTex	4	0	0	0	0
+Legacy Shaders/Particles/Additive	_TintColor	0	0.5	0.5	0.5	0.5
+Legacy Shaders/Particles/Alpha Blended	_InvFade	3	1	0.01	3	0
+Legacy Shaders/Particles/Alpha Blended	_MainTex	4	0	0	0	0
+Legacy Shaders/Particles/Alpha Blended	_TintColor	0	0.5	0.5	0.5	0.5
+Legacy Shaders/Particles/Alpha Blended Premultiply	_InvFade	3	1	0.01	3	0
+Legacy Shaders/Particles/Alpha Blended Premultiply	_MainTex	4	0	0	0	0
+Legacy Shaders/Particles/Anim Alpha Blended	_InvFade	3	1	0.01	3	0
+Legacy Shaders/Particles/Anim Alpha Blended	_MainTex	4	0	0	0	0
+Legacy Shaders/Particles/Anim Alpha Blended	_TintColor	0	0.5	0.5	0.5	0.5
+Legacy Shaders/VertexLit	_Color	0	1	1	1	1
+Legacy Shaders/VertexLit	_Emission	0	0	0	0	0
+Legacy Shaders/VertexLit	_MainTex	4	0	0	0	0
+Legacy Shaders/VertexLit	_Shininess	3	0.7	0.01	1	0
+Legacy Shaders/VertexLit	_SpecColor	0	1	1	1	1
+Mobile/Particles/Additive	_MainTex	4	0	0	0	0
+Mobile/Particles/Alpha Blended	_MainTex	4	0	0	0	0
+Mobile/Particles/Multiply	_MainTex	4	0	0	0	0
+Particles/Standard Unlit	_BlendOp	2	0	0	0	0
+Particles/Standard Unlit	_BumpMap	4	0	0	0	0
+Particles/Standard Unlit	_BumpScale	2	1	0	0	0
+Particles/Standard Unlit	_CameraFadeParams	1	0	0	0	0
+Particles/Standard Unlit	_CameraFadingEnabled	2	0	0	0	0
+Particles/Standard Unlit	_CameraFarFadeDistance	2	2	0	0	0
+Particles/Standard Unlit	_CameraNearFadeDistance	2	1	0	0	0
+Particles/Standard Unlit	_Color	0	1	1	1	1
+Particles/Standard Unlit	_ColorAddSubDiff	1	0	0	0	0
+Particles/Standard Unlit	_ColorMode	2	0	0	0	0
+Particles/Standard Unlit	_Cull	2	2	0	0	0
+Particles/Standard Unlit	_Cutoff	3	0.5	0	1	0
+Particles/Standard Unlit	_DistortionBlend	3	0.5	0	1	0
+Particles/Standard Unlit	_DistortionEnabled	2	0	0	0	0
+Particles/Standard Unlit	_DistortionStrength	2	1	0	0	0
+Particles/Standard Unlit	_DistortionStrengthScaled	2	0	0	0	0
+Particles/Standard Unlit	_DstBlend	2	0	0	0	0
+Particles/Standard Unlit	_EmissionColor	0	0	0	0	1
+Particles/Standard Unlit	_EmissionEnabled	2	0	0	0	0
+Particles/Standard Unlit	_EmissionMap	4	0	0	0	0
+Particles/Standard Unlit	_FlipbookMode	2	0	0	0	0
+Particles/Standard Unlit	_LightingEnabled	2	0	0	0	0
+Particles/Standard Unlit	_MainTex	4	0	0	0	0
+Particles/Standard Unlit	_Mode	2	0	0	0	0
+Particles/Standard Unlit	_SoftParticleFadeParams	1	0	0	0	0
+Particles/Standard Unlit	_SoftParticlesEnabled	2	0	0	0	0
+Particles/Standard Unlit	_SoftParticlesFarFadeDistance	2	1	0	0	0
+Particles/Standard Unlit	_SoftParticlesNearFadeDistance	2	0	0	0	0
+Particles/Standard Unlit	_SrcBlend	2	1	0	0	0
+Particles/Standard Unlit	_ZWrite	2	1	0	0	0
+Shader Graphs/Doomweaver effect	_AlphaClip	2	0	0	0	0
+Shader Graphs/Doomweaver effect	_AlphaToMask	2	0	0	0	0
+Shader Graphs/Doomweaver effect	_Blend	2	0	0	0	0
+Shader Graphs/Doomweaver effect	_BorderSharpness	1	0.75	1	0	0
+Shader Graphs/Doomweaver effect	_CastShadows	2	1	0	0	0
+Shader Graphs/Doomweaver effect	_Cull	2	2	0	0	0
+Shader Graphs/Doomweaver effect	_DstBlend	2	0	0	0	0
+Shader Graphs/Doomweaver effect	_DstBlendAlpha	2	0	0	0	0
+Shader Graphs/Doomweaver effect	_ExtraBorderColorMultiplier	2	2	0	0	0
+Shader Graphs/Doomweaver effect	_ExtraColorMultiplier	2	1	0	0	0
+Shader Graphs/Doomweaver effect	_FadeInBorderColor	0	0.054184	1.682742	2.297397	0
+Shader Graphs/Doomweaver effect	_FadeInBorderWidth	2	0.1	0	0	0
+Shader Graphs/Doomweaver effect	_Float	3	0	0	1	0
+Shader Graphs/Doomweaver effect	_MainTex	4	0	0	0	0
+Shader Graphs/Doomweaver effect	_QueueControl	2	-1	0	0	0
+Shader Graphs/Doomweaver effect	_QueueOffset	2	0	0	0	0
+Shader Graphs/Doomweaver effect	_SrcBlend	2	1	0	0	0
+Shader Graphs/Doomweaver effect	_SrcBlendAlpha	2	1	0	0	0
+Shader Graphs/Doomweaver effect	_Surface	2	1	0	0	0
+Shader Graphs/Doomweaver effect	_ZTest	2	4	0	0	0
+Shader Graphs/Doomweaver effect	_ZWrite	2	0	0	0	0
+Shader Graphs/Doomweaver effect	_ZWriteControl	2	0	0	0	0
+Shader Graphs/Doomweaver effect	unity_Lightmaps	4	0	0	0	0
+Shader Graphs/Doomweaver effect	unity_LightmapsInd	4	0	0	0	0
+Shader Graphs/Doomweaver effect	unity_ShadowMasks	4	0	0	0	0
+Shader Graphs/Eclipse Tau	_APPLYAMBIENTCOLOR	2	1	0	0	0
+Shader Graphs/Eclipse Tau	_EclipseColor	0	1	0	0	0
+Shader Graphs/Eclipse Tau	_EclipseColorBorder	0	1	0	0.808957	0
+Shader Graphs/Eclipse Tau	_EclipseRange	3	-0.55	-1	0	0
+Shader Graphs/Eclipse Tau	_ExtraAmbientColor	0	1	1	1	0
+Shader Graphs/Eclipse Tau	_FogContribution	3	1	0	1	0
+Shader Graphs/Eclipse Tau	_MainColor	0	1	0.925806	0.306604	0
+Shader Graphs/Eclipse Tau	_MainTex	4	0	0	0	0
+Shader Graphs/Eclipse Tau	_Scale	1	1	1	0	0
+Shader Graphs/Eclipse Tau	unity_Lightmaps	4	0	0	0	0
+Shader Graphs/Eclipse Tau	unity_LightmapsInd	4	0	0	0	0
+Shader Graphs/Eclipse Tau	unity_ShadowMasks	4	0	0	0	0
+Shader Graphs/Equalizer	_MainTex	4	0	0	0	0
+Shader Graphs/Equalizer	_MovementRange	3	1	0	1	0
+Shader Graphs/Equalizer	_Noise	4	0	0	0	0
+Shader Graphs/Equalizer	_Noise1ScaleAndSpeed	1	0.05	0.05	0	0.3
+Shader Graphs/Equalizer	_Noise2ScaleAndSpeed	1	0.05	0.05	0	0.2
+Shader Graphs/Equalizer	_WaveScaleRemap	1	0	10	0	0
+Shader Graphs/Equalizer	_XOffsets	1	0	0.33	0	0
+Shader Graphs/Equalizer	unity_Lightmaps	4	0	0	0	0
+Shader Graphs/Equalizer	unity_LightmapsInd	4	0	0	0	0
+Shader Graphs/Equalizer	unity_ShadowMasks	4	0	0	0	0
+Shader Graphs/Fx_ParticleDissolve_apb	Boolean_52F3CBA5	2	0	0	0	0
+Shader Graphs/Fx_ParticleDissolve_apb	Texture2D_F593E37E	4	0	0	0	0
+Shader Graphs/Fx_ParticleDissolve_apb	_QueueControl	2	-1	0	0	0
+Shader Graphs/Fx_ParticleDissolve_apb	_QueueOffset	2	0	0	0	0
+Shader Graphs/Fx_ParticleDissolve_apb	unity_Lightmaps	4	0	0	0	0
+Shader Graphs/Fx_ParticleDissolve_apb	unity_LightmapsInd	4	0	0	0	0
+Shader Graphs/Fx_ParticleDissolve_apb	unity_ShadowMasks	4	0	0	0	0
+Shader Graphs/Fx_RockDissolve	Texture2D_EDA87E5	4	0	0	0	0
+Shader Graphs/Fx_RockDissolve	_QueueControl	2	-1	0	0	0
+Shader Graphs/Fx_RockDissolve	_QueueOffset	2	0	0	0	0
+Shader Graphs/Fx_RockDissolve	unity_Lightmaps	4	0	0	0	0
+Shader Graphs/Fx_RockDissolve	unity_LightmapsInd	4	0	0	0	0
+Shader Graphs/Fx_RockDissolve	unity_ShadowMasks	4	0	0	0	0
+Shader Graphs/Sprite HUE Color change	_Brightness	2	0	0	0	0
+Shader Graphs/Sprite HUE Color change	_Contrast	2	1	0	0	0
+Shader Graphs/Sprite HUE Color change	_Hue_Offset	3	0	0	1	0
+Shader Graphs/Sprite HUE Color change	_MainTex	4	0	0	0	0
+Shader Graphs/Sprite HUE Color change	_Saturation	2	1	0	0	0
+Shader Graphs/Sprite HUE Color change	unity_Lightmaps	4	0	0	0	0
+Shader Graphs/Sprite HUE Color change	unity_LightmapsInd	4	0	0	0	0
+Shader Graphs/Sprite HUE Color change	unity_ShadowMasks	4	0	0	0	0
+Shader Graphs/UI Vignete Shader	_AFFECTSALPHA	2	1	0	0	0
+Shader Graphs/UI Vignete Shader	_AffectColor	3	0	0	1	0
+Shader Graphs/UI Vignete Shader	_FinalAlpha	2	1	0	0	0
+Shader Graphs/UI Vignete Shader	_Hardness	2	0.12	0	0	0
+Shader Graphs/UI Vignete Shader	_INVERTALPHA	2	0	0	0	0
+Shader Graphs/UI Vignete Shader	_Noise	3	1	0	1	0
+Shader Graphs/UI Vignete Shader	_NoiseSize	2	50000	0	0	0
+Shader Graphs/UI Vignete Shader	_Offset	1	0	0	0	0
+Shader Graphs/UI Vignete Shader	_QueueControl	2	-1	0	0	0
+Shader Graphs/UI Vignete Shader	_QueueOffset	2	0	0	0	0
+Shader Graphs/UI Vignete Shader	_Radius	2	0.28	0	0	0
+Shader Graphs/UI Vignete Shader	_SmoothStep	1	0	1	0	0
+Shader Graphs/UI Vignete Shader	_USEMAINTEX	2	0	0	0	0
+Shader Graphs/UI Vignete Shader	_UVScale	1	1	1	0	0
+Shader Graphs/UI Vignete Shader	unity_Lightmaps	4	0	0	0	0
+Shader Graphs/UI Vignete Shader	unity_LightmapsInd	4	0	0	0	0
+Shader Graphs/UI Vignete Shader	unity_ShadowMasks	4	0	0	0	0
+Skybox/Cubemap	_Exposure	3	1	0	8	0
+Skybox/Cubemap	_Rotation	3	0	0	360	0
+Skybox/Cubemap	_Tex	4	0	0	0	0
+Skybox/Cubemap	_Tint	0	0.5	0.5	0.5	0.5
+Sprites/Default	PixelSnap	2	0	0	0	0
+Sprites/Default	_AlphaTex	4	0	0	0	0
+Sprites/Default	_Color	0	1	1	1	1
+Sprites/Default	_EnableExternalAlpha	2	0	0	0	0
+Sprites/Default	_Flip	1	1	1	1	1
+Sprites/Default	_MainTex	4	0	0	0	0
+Sprites/Default	_RendererColor	0	1	1	1	1
+Sprites/Mask	PixelSnap	2	0	0	0	0
+Sprites/Mask	_AlphaTex	4	0	0	0	0
+Sprites/Mask	_Color	0	1	1	1	0.2
+Sprites/Mask	_Cutoff	3	0	0	1	0
+Sprites/Mask	_EnableExternalAlpha	2	0	0	0	0
+Sprites/Mask	_MainTex	4	0	0	0	0
+TextMeshPro/Distance Field	_Ambient	3	0.5	1	0	0
+TextMeshPro/Distance Field	_Bevel	3	0.5	0	1	0
+TextMeshPro/Distance Field	_BevelClamp	3	0	0	1	0
+TextMeshPro/Distance Field	_BevelOffset	3	0	-0.5	0.5	0
+TextMeshPro/Distance Field	_BevelRoundness	3	0	0	1	0
+TextMeshPro/Distance Field	_BevelWidth	3	0	-0.5	0.5	0
+TextMeshPro/Distance Field	_BumpFace	3	0	0	1	0
+TextMeshPro/Distance Field	_BumpMap	4	0	0	0	0
+TextMeshPro/Distance Field	_BumpOutline	3	0	0	1	0
+TextMeshPro/Distance Field	_ClipRect	1	-32767	-32767	32767	32767
+TextMeshPro/Distance Field	_ColorMask	2	15	0	0	0
+TextMeshPro/Distance Field	_Cube	4	0	0	0	0
+TextMeshPro/Distance Field	_CullMode	2	0	0	0	0
+TextMeshPro/Distance Field	_Diffuse	3	0.5	0	1	0
+TextMeshPro/Distance Field	_EnvMatrixRotation	1	0	0	0	0
+TextMeshPro/Distance Field	_FaceColor	0	1	1	1	1
+TextMeshPro/Distance Field	_FaceDilate	3	0	-1	1	0
+TextMeshPro/Distance Field	_FaceTex	4	0	0	0	0
+TextMeshPro/Distance Field	_FaceUVSpeedX	3	0	-5	5	0
+TextMeshPro/Distance Field	_FaceUVSpeedY	3	0	-5	5	0
+TextMeshPro/Distance Field	_GlowColor	0	0	1	0	0.5
+TextMeshPro/Distance Field	_GlowInner	3	0.05	0	1	0
+TextMeshPro/Distance Field	_GlowOffset	3	0	-1	1	0
+TextMeshPro/Distance Field	_GlowOuter	3	0.05	0	1	0
+TextMeshPro/Distance Field	_GlowPower	3	0.75	1	0	0
+TextMeshPro/Distance Field	_GradientScale	2	5	0	0	0
+TextMeshPro/Distance Field	_LightAngle	3	3.1416	0	6.283185	0
+TextMeshPro/Distance Field	_MainTex	4	0	0	0	0
+TextMeshPro/Distance Field	_MaskCoord	1	0	0	32767	32767
+TextMeshPro/Distance Field	_MaskSoftnessX	2	0	0	0	0
+TextMeshPro/Distance Field	_MaskSoftnessY	2	0	0	0	0
+TextMeshPro/Distance Field	_OutlineColor	0	0	0	0	1
+TextMeshPro/Distance Field	_OutlineSoftness	3	0	0	1	0
+TextMeshPro/Distance Field	_OutlineTex	4	0	0	0	0
+TextMeshPro/Distance Field	_OutlineUVSpeedX	3	0	-5	5	0
+TextMeshPro/Distance Field	_OutlineUVSpeedY	3	0	-5	5	0
+TextMeshPro/Distance Field	_OutlineWidth	3	0	0	1	0
+TextMeshPro/Distance Field	_PerspectiveFilter	3	0.875	0	1	0
+TextMeshPro/Distance Field	_ReflectFaceColor	0	0	0	0	1
+TextMeshPro/Distance Field	_ReflectOutlineColor	0	0	0	0	1
+TextMeshPro/Distance Field	_Reflectivity	3	10	5	15	0
+TextMeshPro/Distance Field	_ScaleRatioA	2	1	0	0	0
+TextMeshPro/Distance Field	_ScaleRatioB	2	1	0	0	0
+TextMeshPro/Distance Field	_ScaleRatioC	2	1	0	0	0
+TextMeshPro/Distance Field	_ScaleX	2	1	0	0	0
+TextMeshPro/Distance Field	_ScaleY	2	1	0	0	0
+TextMeshPro/Distance Field	_ShaderFlags	2	0	0	0	0
+TextMeshPro/Distance Field	_Sharpness	3	0	-1	1	0
+TextMeshPro/Distance Field	_SpecularColor	0	1	1	1	1
+TextMeshPro/Distance Field	_SpecularPower	3	2	0	4	0
+TextMeshPro/Distance Field	_Stencil	2	0	0	0	0
+TextMeshPro/Distance Field	_StencilComp	2	8	0	0	0
+TextMeshPro/Distance Field	_StencilOp	2	0	0	0	0
+TextMeshPro/Distance Field	_StencilReadMask	2	255	0	0	0
+TextMeshPro/Distance Field	_StencilWriteMask	2	255	0	0	0
+TextMeshPro/Distance Field	_TextureHeight	2	512	0	0	0
+TextMeshPro/Distance Field	_TextureWidth	2	512	0	0	0
+TextMeshPro/Distance Field	_UnderlayColor	0	0	0	0	0.5
+TextMeshPro/Distance Field	_UnderlayDilate	3	0	-1	1	0
+TextMeshPro/Distance Field	_UnderlayOffsetX	3	0	-1	1	0
+TextMeshPro/Distance Field	_UnderlayOffsetY	3	0	-1	1	0
+TextMeshPro/Distance Field	_UnderlaySoftness	3	0	0	1	0
+TextMeshPro/Distance Field	_VertexOffsetX	2	0	0	0	0
+TextMeshPro/Distance Field	_VertexOffsetY	2	0	0	0	0
+TextMeshPro/Distance Field	_WeightBold	2	0.5	0	0	0
+TextMeshPro/Distance Field	_WeightNormal	2	0	0	0	0
+TextMeshPro/Distance Field Offset	_Ambient	3	0.5	1	0	0
+TextMeshPro/Distance Field Offset	_Bevel	3	0.5	0	1	0
+TextMeshPro/Distance Field Offset	_BevelClamp	3	0	0	1	0
+TextMeshPro/Distance Field Offset	_BevelOffset	3	0	-0.5	0.5	0
+TextMeshPro/Distance Field Offset	_BevelRoundness	3	0	0	1	0
+TextMeshPro/Distance Field Offset	_BevelWidth	3	0	-0.5	0.5	0
+TextMeshPro/Distance Field Offset	_BumpFace	3	0	0	1	0
+TextMeshPro/Distance Field Offset	_BumpMap	4	0	0	0	0
+TextMeshPro/Distance Field Offset	_BumpOutline	3	0	0	1	0
+TextMeshPro/Distance Field Offset	_ClipRect	1	-32767	-32767	32767	32767
+TextMeshPro/Distance Field Offset	_ColorMask	2	15	0	0	0
+TextMeshPro/Distance Field Offset	_Cube	4	0	0	0	0
+TextMeshPro/Distance Field Offset	_CullMode	2	0	0	0	0
+TextMeshPro/Distance Field Offset	_Diffuse	3	0.5	0	1	0
+TextMeshPro/Distance Field Offset	_EnvMatrixRotation	1	0	0	0	0
+TextMeshPro/Distance Field Offset	_FaceColor	0	1	1	1	1
+TextMeshPro/Distance Field Offset	_FaceDilate	3	0	-1	1	0
+TextMeshPro/Distance Field Offset	_FaceTex	4	0	0	0	0
+TextMeshPro/Distance Field Offset	_FaceUVSpeedX	3	0	-5	5	0
+TextMeshPro/Distance Field Offset	_FaceUVSpeedY	3	0	-5	5	0
+TextMeshPro/Distance Field Offset	_GlowColor	0	0	1	0	0.5
+TextMeshPro/Distance Field Offset	_GlowInner	3	0.05	0	1	0
+TextMeshPro/Distance Field Offset	_GlowOffset	3	0	-1	1	0
+TextMeshPro/Distance Field Offset	_GlowOuter	3	0.05	0	1	0
+TextMeshPro/Distance Field Offset	_GlowPower	3	0.75	1	0	0
+TextMeshPro/Distance Field Offset	_GradientScale	2	5	0	0	0
+TextMeshPro/Distance Field Offset	_LightAngle	3	3.1416	0	6.283185	0
+TextMeshPro/Distance Field Offset	_MainTex	4	0	0	0	0
+TextMeshPro/Distance Field Offset	_MaskCoord	1	0	0	32767	32767
+TextMeshPro/Distance Field Offset	_MaskSoftnessX	2	0	0	0	0
+TextMeshPro/Distance Field Offset	_MaskSoftnessY	2	0	0	0	0
+TextMeshPro/Distance Field Offset	_OutlineColor	0	0	0	0	1
+TextMeshPro/Distance Field Offset	_OutlineSoftness	3	0	0	1	0
+TextMeshPro/Distance Field Offset	_OutlineTex	4	0	0	0	0
+TextMeshPro/Distance Field Offset	_OutlineUVSpeedX	3	0	-5	5	0
+TextMeshPro/Distance Field Offset	_OutlineUVSpeedY	3	0	-5	5	0
+TextMeshPro/Distance Field Offset	_OutlineWidth	3	0	0	1	0
+TextMeshPro/Distance Field Offset	_PerspectiveFilter	3	0.875	0	1	0
+TextMeshPro/Distance Field Offset	_ReflectFaceColor	0	0	0	0	1
+TextMeshPro/Distance Field Offset	_ReflectOutlineColor	0	0	0	0	1
+TextMeshPro/Distance Field Offset	_Reflectivity	3	10	5	15	0
+TextMeshPro/Distance Field Offset	_ScaleRatioA	2	1	0	0	0
+TextMeshPro/Distance Field Offset	_ScaleRatioB	2	1	0	0	0
+TextMeshPro/Distance Field Offset	_ScaleRatioC	2	1	0	0	0
+TextMeshPro/Distance Field Offset	_ScaleX	2	1	0	0	0
+TextMeshPro/Distance Field Offset	_ScaleY	2	1	0	0	0
+TextMeshPro/Distance Field Offset	_ShaderFlags	2	0	0	0	0
+TextMeshPro/Distance Field Offset	_Sharpness	3	0	-1	1	0
+TextMeshPro/Distance Field Offset	_SpecularColor	0	1	1	1	1
+TextMeshPro/Distance Field Offset	_SpecularPower	3	2	0	4	0
+TextMeshPro/Distance Field Offset	_Stencil	2	0	0	0	0
+TextMeshPro/Distance Field Offset	_StencilComp	2	8	0	0	0
+TextMeshPro/Distance Field Offset	_StencilOp	2	0	0	0	0
+TextMeshPro/Distance Field Offset	_StencilReadMask	2	255	0	0	0
+TextMeshPro/Distance Field Offset	_StencilWriteMask	2	255	0	0	0
+TextMeshPro/Distance Field Offset	_TextureHeight	2	512	0	0	0
+TextMeshPro/Distance Field Offset	_TextureWidth	2	512	0	0	0
+TextMeshPro/Distance Field Offset	_UnderlayColor	0	0	0	0	0.5
+TextMeshPro/Distance Field Offset	_UnderlayDilate	3	0	-1	1	0
+TextMeshPro/Distance Field Offset	_UnderlayOffsetX	3	0	-1	1	0
+TextMeshPro/Distance Field Offset	_UnderlayOffsetY	3	0	-1	1	0
+TextMeshPro/Distance Field Offset	_UnderlaySoftness	3	0	0	1	0
+TextMeshPro/Distance Field Offset	_VertexOffsetX	2	0	0	0	0
+TextMeshPro/Distance Field Offset	_VertexOffsetY	2	0	0	0	0
+TextMeshPro/Distance Field Offset	_WeightBold	2	0.5	0	0	0
+TextMeshPro/Distance Field Offset	_WeightNormal	2	0	0	0	0
+TextMeshPro/Mobile/Distance Field	_ClipRect	1	-32767	-32767	32767	32767
+TextMeshPro/Mobile/Distance Field	_ColorMask	2	15	0	0	0
+TextMeshPro/Mobile/Distance Field	_CullMode	2	0	0	0	0
+TextMeshPro/Mobile/Distance Field	_FaceColor	0	1	1	1	1
+TextMeshPro/Mobile/Distance Field	_FaceDilate	3	0	-1	1	0
+TextMeshPro/Mobile/Distance Field	_GradientScale	2	5	0	0	0
+TextMeshPro/Mobile/Distance Field	_MainTex	4	0	0	0	0
+TextMeshPro/Mobile/Distance Field	_MaskSoftnessX	2	0	0	0	0
+TextMeshPro/Mobile/Distance Field	_MaskSoftnessY	2	0	0	0	0
+TextMeshPro/Mobile/Distance Field	_OutlineColor	0	0	0	0	1
+TextMeshPro/Mobile/Distance Field	_OutlineSoftness	3	0	0	1	0
+TextMeshPro/Mobile/Distance Field	_OutlineWidth	3	0	0	1	0
+TextMeshPro/Mobile/Distance Field	_PerspectiveFilter	3	0.875	0	1	0
+TextMeshPro/Mobile/Distance Field	_ScaleRatioA	2	1	0	0	0
+TextMeshPro/Mobile/Distance Field	_ScaleRatioB	2	1	0	0	0
+TextMeshPro/Mobile/Distance Field	_ScaleRatioC	2	1	0	0	0
+TextMeshPro/Mobile/Distance Field	_ScaleX	2	1	0	0	0
+TextMeshPro/Mobile/Distance Field	_ScaleY	2	1	0	0	0
+TextMeshPro/Mobile/Distance Field	_ShaderFlags	2	0	0	0	0
+TextMeshPro/Mobile/Distance Field	_Sharpness	3	0	-1	1	0
+TextMeshPro/Mobile/Distance Field	_Stencil	2	0	0	0	0
+TextMeshPro/Mobile/Distance Field	_StencilComp	2	8	0	0	0
+TextMeshPro/Mobile/Distance Field	_StencilOp	2	0	0	0	0
+TextMeshPro/Mobile/Distance Field	_StencilReadMask	2	255	0	0	0
+TextMeshPro/Mobile/Distance Field	_StencilWriteMask	2	255	0	0	0
+TextMeshPro/Mobile/Distance Field	_TextureHeight	2	512	0	0	0
+TextMeshPro/Mobile/Distance Field	_TextureWidth	2	512	0	0	0
+TextMeshPro/Mobile/Distance Field	_UnderlayColor	0	0	0	0	0.5
+TextMeshPro/Mobile/Distance Field	_UnderlayDilate	3	0	-1	1	0
+TextMeshPro/Mobile/Distance Field	_UnderlayOffsetX	3	0	-1	1	0
+TextMeshPro/Mobile/Distance Field	_UnderlayOffsetY	3	0	-1	1	0
+TextMeshPro/Mobile/Distance Field	_UnderlaySoftness	3	0	0	1	0
+TextMeshPro/Mobile/Distance Field	_VertexOffsetX	2	0	0	0	0
+TextMeshPro/Mobile/Distance Field	_VertexOffsetY	2	0	0	0	0
+TextMeshPro/Mobile/Distance Field	_WeightBold	2	0.5	0	0	0
+TextMeshPro/Mobile/Distance Field	_WeightNormal	2	0	0	0	0
+TextMeshPro/Sprite	_ClipRect	1	-32767	-32767	32767	32767
+TextMeshPro/Sprite	_Color	0	1	1	1	1
+TextMeshPro/Sprite	_ColorMask	2	15	0	0	0
+TextMeshPro/Sprite	_CullMode	2	0	0	0	0
+TextMeshPro/Sprite	_MainTex	4	0	0	0	0
+TextMeshPro/Sprite	_Stencil	2	0	0	0	0
+TextMeshPro/Sprite	_StencilComp	2	8	0	0	0
+TextMeshPro/Sprite	_StencilOp	2	0	0	0	0
+TextMeshPro/Sprite	_StencilReadMask	2	255	0	0	0
+TextMeshPro/Sprite	_StencilWriteMask	2	255	0	0	0
+TextMeshPro/Sprite	_UseUIAlphaClip	2	0	0	0	0
+UI/Additive	_Color	0	1	1	1	1
+UI/Additive	_ColorMask	2	15	0	0	0
+UI/Additive	_MainTex	4	0	0	0	0
+UI/Additive	_Stencil	2	0	0	0	0
+UI/Additive	_StencilComp	2	8	0	0	0
+UI/Additive	_StencilOp	2	0	0	0	0
+UI/Additive	_StencilReadMask	2	255	0	0	0
+UI/Additive	_StencilWriteMask	2	255	0	0	0
+UI/Additive	_UseUIAlphaClip	2	0	0	0	0
+UI/Default	_Color	0	1	1	1	1
+UI/Default	_ColorMask	2	15	0	0	0
+UI/Default	_MainTex	4	0	0	0	0
+UI/Default	_Stencil	2	0	0	0	0
+UI/Default	_StencilComp	2	8	0	0	0
+UI/Default	_StencilOp	2	0	0	0	0
+UI/Default	_StencilReadMask	2	255	0	0	0
+UI/Default	_StencilWriteMask	2	255	0	0	0
+UI/Default	_UseUIAlphaClip	2	0	0	0	0
+Universal Render Pipeline/Lit	_AddPrecomputedVelocity	2	0	0	0	0
+Universal Render Pipeline/Lit	_AlphaClip	2	0	0	0	0
+Universal Render Pipeline/Lit	_AlphaToMask	2	0	0	0	0
+Universal Render Pipeline/Lit	_BaseColor	0	1	1	1	1
+Universal Render Pipeline/Lit	_BaseMap	4	0	0	0	0
+Universal Render Pipeline/Lit	_Blend	2	0	0	0	0
+Universal Render Pipeline/Lit	_BlendModePreserveSpecular	2	1	0	0	0
+Universal Render Pipeline/Lit	_BumpMap	4	0	0	0	0
+Universal Render Pipeline/Lit	_BumpScale	2	1	0	0	0
+Universal Render Pipeline/Lit	_ClearCoatMask	2	0	0	0	0
+Universal Render Pipeline/Lit	_ClearCoatSmoothness	2	0	0	0	0
+Universal Render Pipeline/Lit	_Color	0	1	1	1	1
+Universal Render Pipeline/Lit	_Cull	2	2	0	0	0
+Universal Render Pipeline/Lit	_Cutoff	3	0.5	0	1	0
+Universal Render Pipeline/Lit	_DetailAlbedoMap	4	0	0	0	0
+Universal Render Pipeline/Lit	_DetailAlbedoMapScale	3	1	0	2	0
+Universal Render Pipeline/Lit	_DetailMask	4	0	0	0	0
+Universal Render Pipeline/Lit	_DetailNormalMap	4	0	0	0	0
+Universal Render Pipeline/Lit	_DetailNormalMapScale	3	1	0	2	0
+Universal Render Pipeline/Lit	_DstBlend	2	0	0	0	0
+Universal Render Pipeline/Lit	_DstBlendAlpha	2	0	0	0	0
+Universal Render Pipeline/Lit	_EmissionColor	0	0	0	0	1
+Universal Render Pipeline/Lit	_EmissionMap	4	0	0	0	0
+Universal Render Pipeline/Lit	_EnvironmentReflections	2	1	0	0	0
+Universal Render Pipeline/Lit	_GlossMapScale	2	0	0	0	0
+Universal Render Pipeline/Lit	_Glossiness	2	0	0	0	0
+Universal Render Pipeline/Lit	_GlossyReflections	2	0	0	0	0
+Universal Render Pipeline/Lit	_MainTex	4	0	0	0	0
+Universal Render Pipeline/Lit	_Metallic	3	0	0	1	0
+Universal Render Pipeline/Lit	_MetallicGlossMap	4	0	0	0	0
+Universal Render Pipeline/Lit	_OcclusionMap	4	0	0	0	0
+Universal Render Pipeline/Lit	_OcclusionStrength	3	1	0	1	0
+Universal Render Pipeline/Lit	_Parallax	3	0.005	0.005	0.08	0
+Universal Render Pipeline/Lit	_ParallaxMap	4	0	0	0	0
+Universal Render Pipeline/Lit	_QueueOffset	2	0	0	0	0
+Universal Render Pipeline/Lit	_ReceiveShadows	2	1	0	0	0
+Universal Render Pipeline/Lit	_Smoothness	3	0.5	0	1	0
+Universal Render Pipeline/Lit	_SmoothnessTextureChannel	2	0	0	0	0
+Universal Render Pipeline/Lit	_SpecColor	0	0.2	0.2	0.2	1
+Universal Render Pipeline/Lit	_SpecGlossMap	4	0	0	0	0
+Universal Render Pipeline/Lit	_SpecularHighlights	2	1	0	0	0
+Universal Render Pipeline/Lit	_SrcBlend	2	1	0	0	0
+Universal Render Pipeline/Lit	_SrcBlendAlpha	2	1	0	0	0
+Universal Render Pipeline/Lit	_Surface	2	0	0	0	0
+Universal Render Pipeline/Lit	_WorkflowMode	2	1	0	0	0
+Universal Render Pipeline/Lit	_XRMotionVectorsPass	2	1	0	0	0
+Universal Render Pipeline/Lit	_ZWrite	2	1	0	0	0
+Universal Render Pipeline/Lit	unity_Lightmaps	4	0	0	0	0
+Universal Render Pipeline/Lit	unity_LightmapsInd	4	0	0	0	0
+Universal Render Pipeline/Lit	unity_ShadowMasks	4	0	0	0	0
+Universal Render Pipeline/Particles/Lit	_AlphaClip	2	0	0	0	0
+Universal Render Pipeline/Particles/Lit	_AlphaToMask	2	0	0	0	0
+Universal Render Pipeline/Particles/Lit	_BaseColor	0	1	1	1	1
+Universal Render Pipeline/Particles/Lit	_BaseColorAddSubDiff	1	0	0	0	0
+Universal Render Pipeline/Particles/Lit	_BaseMap	4	0	0	0	0
+Universal Render Pipeline/Particles/Lit	_Blend	2	0	0	0	0
+Universal Render Pipeline/Particles/Lit	_BlendModePreserveSpecular	2	1	0	0	0
+Universal Render Pipeline/Particles/Lit	_BlendOp	2	0	0	0	0
+Universal Render Pipeline/Particles/Lit	_BumpMap	4	0	0	0	0
+Universal Render Pipeline/Particles/Lit	_BumpScale	2	1	0	0	0
+Universal Render Pipeline/Particles/Lit	_CameraFadeParams	1	0	0	0	0
+Universal Render Pipeline/Particles/Lit	_CameraFadingEnabled	2	0	0	0	0
+Universal Render Pipeline/Particles/Lit	_CameraFarFadeDistance	2	2	0	0	0
+Universal Render Pipeline/Particles/Lit	_CameraNearFadeDistance	2	1	0	0	0
+Universal Render Pipeline/Particles/Lit	_Color	0	1	1	1	1
+Universal Render Pipeline/Particles/Lit	_ColorMode	2	0	0	0	0
+Universal Render Pipeline/Particles/Lit	_Cull	2	2	0	0	0
+Universal Render Pipeline/Particles/Lit	_Cutoff	3	0.5	0	1	0
+Universal Render Pipeline/Particles/Lit	_DistortionBlend	3	0.5	0	1	0
+Universal Render Pipeline/Particles/Lit	_DistortionEnabled	2	0	0	0	0
+Universal Render Pipeline/Particles/Lit	_DistortionStrength	2	1	0	0	0
+Universal Render Pipeline/Particles/Lit	_DistortionStrengthScaled	2	0.1	0	0	0
+Universal Render Pipeline/Particles/Lit	_DstBlend	2	0	0	0	0
+Universal Render Pipeline/Particles/Lit	_DstBlendAlpha	2	0	0	0	0
+Universal Render Pipeline/Particles/Lit	_EmissionColor	0	0	0	0	1
+Universal Render Pipeline/Particles/Lit	_EmissionMap	4	0	0	0	0
+Universal Render Pipeline/Particles/Lit	_FlipbookBlending	2	0	0	0	0
+Universal Render Pipeline/Particles/Lit	_FlipbookMode	2	0	0	0	0
+Universal Render Pipeline/Particles/Lit	_Glossiness	2	0	0	0	0
+Universal Render Pipeline/Particles/Lit	_Metallic	3	0	0	1	0
+Universal Render Pipeline/Particles/Lit	_MetallicGlossMap	4	0	0	0	0
+Universal Render Pipeline/Particles/Lit	_Mode	2	0	0	0	0
+Universal Render Pipeline/Particles/Lit	_QueueOffset	2	0	0	0	0
+Universal Render Pipeline/Particles/Lit	_ReceiveShadows	2	1	0	0	0
+Universal Render Pipeline/Particles/Lit	_Smoothness	3	0.5	0	1	0
+Universal Render Pipeline/Particles/Lit	_SoftParticleFadeParams	1	0	0	0	0
+Universal Render Pipeline/Particles/Lit	_SoftParticlesEnabled	2	0	0	0	0
+Universal Render Pipeline/Particles/Lit	_SoftParticlesFarFadeDistance	2	1	0	0	0
+Universal Render Pipeline/Particles/Lit	_SoftParticlesNearFadeDistance	2	0	0	0	0
+Universal Render Pipeline/Particles/Lit	_SrcBlend	2	1	0	0	0
+Universal Render Pipeline/Particles/Lit	_SrcBlendAlpha	2	1	0	0	0
+Universal Render Pipeline/Particles/Lit	_Surface	2	0	0	0	0
+Universal Render Pipeline/Particles/Lit	_ZWrite	2	1	0	0	0
+Universal Render Pipeline/Particles/Simple Lit	_AlphaClip	2	0	0	0	0
+Universal Render Pipeline/Particles/Simple Lit	_AlphaToMask	2	0	0	0	0
+Universal Render Pipeline/Particles/Simple Lit	_BaseColor	0	1	1	1	1
+Universal Render Pipeline/Particles/Simple Lit	_BaseColorAddSubDiff	1	0	0	0	0
+Universal Render Pipeline/Particles/Simple Lit	_BaseMap	4	0	0	0	0
+Universal Render Pipeline/Particles/Simple Lit	_Blend	2	0	0	0	0
+Universal Render Pipeline/Particles/Simple Lit	_BlendOp	2	0	0	0	0
+Universal Render Pipeline/Particles/Simple Lit	_BumpMap	4	0	0	0	0
+Universal Render Pipeline/Particles/Simple Lit	_BumpScale	2	1	0	0	0
+Universal Render Pipeline/Particles/Simple Lit	_CameraFadeParams	1	0	0	0	0
+Universal Render Pipeline/Particles/Simple Lit	_CameraFadingEnabled	2	0	0	0	0
+Universal Render Pipeline/Particles/Simple Lit	_CameraFarFadeDistance	2	2	0	0	0
+Universal Render Pipeline/Particles/Simple Lit	_CameraNearFadeDistance	2	1	0	0	0
+Universal Render Pipeline/Particles/Simple Lit	_Color	0	1	1	1	1
+Universal Render Pipeline/Particles/Simple Lit	_ColorMode	2	0	0	0	0
+Universal Render Pipeline/Particles/Simple Lit	_Cull	2	2	0	0	0
+Universal Render Pipeline/Particles/Simple Lit	_Cutoff	3	0.5	0	1	0
+Universal Render Pipeline/Particles/Simple Lit	_DistortionBlend	3	0.5	0	1	0
+Universal Render Pipeline/Particles/Simple Lit	_DistortionEnabled	2	0	0	0	0
+Universal Render Pipeline/Particles/Simple Lit	_DistortionStrength	2	1	0	0	0
+Universal Render Pipeline/Particles/Simple Lit	_DistortionStrengthScaled	2	0.1	0	0	0
+Universal Render Pipeline/Particles/Simple Lit	_DstBlend	2	0	0	0	0
+Universal Render Pipeline/Particles/Simple Lit	_DstBlendAlpha	2	0	0	0	0
+Universal Render Pipeline/Particles/Simple Lit	_EmissionColor	0	0	0	0	1
+Universal Render Pipeline/Particles/Simple Lit	_EmissionMap	4	0	0	0	0
+Universal Render Pipeline/Particles/Simple Lit	_FlipbookBlending	2	0	0	0	0
+Universal Render Pipeline/Particles/Simple Lit	_FlipbookMode	2	0	0	0	0
+Universal Render Pipeline/Particles/Simple Lit	_Glossiness	2	0	0	0	0
+Universal Render Pipeline/Particles/Simple Lit	_Mode	2	0	0	0	0
+Universal Render Pipeline/Particles/Simple Lit	_QueueOffset	2	0	0	0	0
+Universal Render Pipeline/Particles/Simple Lit	_ReceiveShadows	2	1	0	0	0
+Universal Render Pipeline/Particles/Simple Lit	_Smoothness	3	0.5	0	1	0
+Universal Render Pipeline/Particles/Simple Lit	_SmoothnessSource	2	0	0	0	0
+Universal Render Pipeline/Particles/Simple Lit	_SoftParticleFadeParams	1	0	0	0	0
+Universal Render Pipeline/Particles/Simple Lit	_SoftParticlesEnabled	2	0	0	0	0
+Universal Render Pipeline/Particles/Simple Lit	_SoftParticlesFarFadeDistance	2	1	0	0	0
+Universal Render Pipeline/Particles/Simple Lit	_SoftParticlesNearFadeDistance	2	0	0	0	0
+Universal Render Pipeline/Particles/Simple Lit	_SpecColor	0	1	1	1	1
+Universal Render Pipeline/Particles/Simple Lit	_SpecGlossMap	4	0	0	0	0
+Universal Render Pipeline/Particles/Simple Lit	_SpecularHighlights	2	1	0	0	0
+Universal Render Pipeline/Particles/Simple Lit	_SrcBlend	2	1	0	0	0
+Universal Render Pipeline/Particles/Simple Lit	_SrcBlendAlpha	2	1	0	0	0
+Universal Render Pipeline/Particles/Simple Lit	_Surface	2	0	0	0	0
+Universal Render Pipeline/Particles/Simple Lit	_ZWrite	2	1	0	0	0
+Universal Render Pipeline/Particles/Unlit	_AlphaClip	2	0	0	0	0
+Universal Render Pipeline/Particles/Unlit	_AlphaToMask	2	0	0	0	0
+Universal Render Pipeline/Particles/Unlit	_BaseColor	0	1	1	1	1
+Universal Render Pipeline/Particles/Unlit	_BaseColorAddSubDiff	1	0	0	0	0
+Universal Render Pipeline/Particles/Unlit	_BaseMap	4	0	0	0	0
+Universal Render Pipeline/Particles/Unlit	_Blend	2	0	0	0	0
+Universal Render Pipeline/Particles/Unlit	_BlendOp	2	0	0	0	0
+Universal Render Pipeline/Particles/Unlit	_BumpMap	4	0	0	0	0
+Universal Render Pipeline/Particles/Unlit	_CameraFadeParams	1	0	0	0	0
+Universal Render Pipeline/Particles/Unlit	_CameraFadingEnabled	2	0	0	0	0
+Universal Render Pipeline/Particles/Unlit	_CameraFarFadeDistance	2	2	0	0	0
+Universal Render Pipeline/Particles/Unlit	_CameraNearFadeDistance	2	1	0	0	0
+Universal Render Pipeline/Particles/Unlit	_Color	0	1	1	1	1
+Universal Render Pipeline/Particles/Unlit	_ColorMode	2	0	0	0	0
+Universal Render Pipeline/Particles/Unlit	_Cull	2	2	0	0	0
+Universal Render Pipeline/Particles/Unlit	_Cutoff	3	0.5	0	1	0
+Universal Render Pipeline/Particles/Unlit	_DistortionBlend	3	0.5	0	1	0
+Universal Render Pipeline/Particles/Unlit	_DistortionEnabled	2	0	0	0	0
+Universal Render Pipeline/Particles/Unlit	_DistortionStrength	2	1	0	0	0
+Universal Render Pipeline/Particles/Unlit	_DistortionStrengthScaled	2	0.1	0	0	0
+Universal Render Pipeline/Particles/Unlit	_DstBlend	2	0	0	0	0
+Universal Render Pipeline/Particles/Unlit	_DstBlendAlpha	2	0	0	0	0
+Universal Render Pipeline/Particles/Unlit	_EmissionColor	0	0	0	0	1
+Universal Render Pipeline/Particles/Unlit	_EmissionMap	4	0	0	0	0
+Universal Render Pipeline/Particles/Unlit	_FlipbookBlending	2	0	0	0	0
+Universal Render Pipeline/Particles/Unlit	_FlipbookMode	2	0	0	0	0
+Universal Render Pipeline/Particles/Unlit	_Mode	2	0	0	0	0
+Universal Render Pipeline/Particles/Unlit	_QueueOffset	2	0	0	0	0
+Universal Render Pipeline/Particles/Unlit	_SoftParticleFadeParams	1	0	0	0	0
+Universal Render Pipeline/Particles/Unlit	_SoftParticlesEnabled	2	0	0	0	0
+Universal Render Pipeline/Particles/Unlit	_SoftParticlesFarFadeDistance	2	1	0	0	0
+Universal Render Pipeline/Particles/Unlit	_SoftParticlesNearFadeDistance	2	0	0	0	0
+Universal Render Pipeline/Particles/Unlit	_SrcBlend	2	1	0	0	0
+Universal Render Pipeline/Particles/Unlit	_SrcBlendAlpha	2	1	0	0	0
+Universal Render Pipeline/Particles/Unlit	_Surface	2	0	0	0	0
+Universal Render Pipeline/Particles/Unlit	_ZWrite	2	1	0	0	0
+Universal Render Pipeline/Unlit	_AddPrecomputedVelocity	2	0	0	0	0
+Universal Render Pipeline/Unlit	_AlphaClip	2	0	0	0	0
+Universal Render Pipeline/Unlit	_AlphaToMask	2	0	0	0	0
+Universal Render Pipeline/Unlit	_BaseColor	0	1	1	1	1
+Universal Render Pipeline/Unlit	_BaseMap	4	0	0	0	0
+Universal Render Pipeline/Unlit	_Blend	2	0	0	0	0
+Universal Render Pipeline/Unlit	_BlendOp	2	0	0	0	0
+Universal Render Pipeline/Unlit	_Color	0	0.5	0.5	0.5	1
+Universal Render Pipeline/Unlit	_Cull	2	2	0	0	0
+Universal Render Pipeline/Unlit	_Cutoff	3	0.5	0	1	0
+Universal Render Pipeline/Unlit	_DstBlend	2	0	0	0	0
+Universal Render Pipeline/Unlit	_DstBlendAlpha	2	0	0	0	0
+Universal Render Pipeline/Unlit	_MainTex	4	0	0	0	0
+Universal Render Pipeline/Unlit	_QueueOffset	2	0	0	0	0
+Universal Render Pipeline/Unlit	_SampleGI	2	0	0	0	0
+Universal Render Pipeline/Unlit	_SrcBlend	2	1	0	0	0
+Universal Render Pipeline/Unlit	_SrcBlendAlpha	2	1	0	0	0
+Universal Render Pipeline/Unlit	_Surface	2	0	0	0	0
+Universal Render Pipeline/Unlit	_XRMotionVectorsPass	2	1	0	0	0
+Universal Render Pipeline/Unlit	_ZWrite	2	1	0	0	0
+Unlit/ScrollingTextures	_Color	0	1	1	1	1
+Unlit/ScrollingTextures	_CullMode	2	2	0	0	0
+Unlit/ScrollingTextures	_DstBlend	2	0	0	0	0
+Unlit/ScrollingTextures	_Gradient	4	0	0	0	0
+Unlit/ScrollingTextures	_MainTex	4	0	0	0	0
+Unlit/ScrollingTextures	_MainTex2	4	0	0	0	0
+Unlit/ScrollingTextures	_Mask	4	0	0	0	0
+Unlit/ScrollingTextures	_NoiseMask	4	0	0	0	0
+Unlit/ScrollingTextures	_Outline	2	0	0	0	0
+Unlit/ScrollingTextures	_OutlineColor	0	1	1	1	1
+Unlit/ScrollingTextures	_Speed	1	0	0	0	0
+Unlit/ScrollingTextures	_Speed2	1	0	0	0	0
+Unlit/ScrollingTextures	_SrcBlend	2	1	0	0	0
+Unlit/ScrollingTextures	_UpColor	0	1	1	1	1
+Unlit/ScrollingTextures	_Width	2	1	0	0	0
+Unlit/ScrollingTextures	_ZTest	2	2	0	0	0
+Unlit/ScrollingTextures	_ZWrite	2	1	0	0	0

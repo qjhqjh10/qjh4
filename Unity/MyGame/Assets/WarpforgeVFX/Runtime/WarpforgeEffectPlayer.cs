@@ -131,7 +131,8 @@ namespace WarpforgeVFX
             Transform parent = null,
             Vector3 localPosition = default(Vector3),
             float scale = 1f,
-            float autoDestroySeconds = -1f)
+            float autoDestroySeconds = -1f,
+            bool assignScale = false)
         {
             var lib = WarpforgeEffectLibrary.Instance;
             if (lib == null)
@@ -145,13 +146,13 @@ namespace WarpforgeVFX
                 Debug.LogWarning($"[WarpforgeVFX] 效果库里没有 '{effectName}'");
                 return null;
             }
-            return Play(entry, parent, localPosition, scale, autoDestroySeconds);
+            return Play(entry, parent, localPosition, scale, autoDestroySeconds, assignScale);
         }
 
         /// <summary>照着台账判定的名字播 —— 找不到精确名时退化成模糊匹配，并把命中的名字打出来。</summary>
         public static WarpforgeEffectPlayer PlayFuzzy(
             string keyword, Transform parent = null, Vector3 localPosition = default(Vector3),
-            float scale = 1f, float autoDestroySeconds = -1f)
+            float scale = 1f, float autoDestroySeconds = -1f, bool assignScale = false)
         {
             var lib = WarpforgeEffectLibrary.Instance;
             if (lib == null) { Debug.LogWarning("[WarpforgeVFX] 没有效果库"); return null; }
@@ -159,7 +160,7 @@ namespace WarpforgeVFX
             if (hit.Count == 0) { Debug.LogWarning($"[WarpforgeVFX] 没有名字含 '{keyword}' 的效果"); return null; }
             if (hit.Count > 1)
                 Debug.Log($"[WarpforgeVFX] '{keyword}' 命中 {hit.Count} 个，取最短的 '{hit[0].name}'");
-            return Play(hit[0], parent, localPosition, scale, autoDestroySeconds);
+            return Play(hit[0], parent, localPosition, scale, autoDestroySeconds, assignScale);
         }
 
         public static WarpforgeEffectPlayer Play(
@@ -167,7 +168,8 @@ namespace WarpforgeVFX
             Transform parent = null,
             Vector3 localPosition = default(Vector3),
             float scale = 1f,
-            float autoDestroySeconds = -1f)
+            float autoDestroySeconds = -1f,
+            bool assignScale = false)
         {
             if (entry == null)
             {
@@ -196,10 +198,16 @@ namespace WarpforgeVFX
             //     不归位的话，这些效果直接播在场景外面 —— 看起来就像「什么都没渲染」。
             //   · localRotation：**是效果作者定的一部分**，不是噪音。实测 Antimatter Explosion
             //     根节点是 X=-90°。归零会把一批效果整体转 90°。
-            //   · localScale：同理（Atk_GrotGrenade 是 0.5）。调用方传的 scale 是**乘数**，
+            //   · localScale：同理（Atk_GrotGrenade 是 0.5）。调用方传的 scale 默认是**乘数**，
             //     乘在作者设定的缩放之上；传 1（默认）就原样不动。
+            // 🔴 **2026-10-22（W64 · `B17`）新增 `assignScale`**：原版有几件是**赋值**而不是乘 ——
+            //   落地扬尘 `CardScript__LandOnGround.c:87-106`：`SetParent(MinionManager)` 之后
+            //   `localScale = Vector3.one × desiredScale`。我们的等价物是「挂在卡视图上（父节点已经带
+            //   desiredScale）」⇒ 根缩放必须是 **1**，⛔ 不能是「作者设定的 0.9913 × 1」。
+            //   传 `assignScale: true` ⇒ **忽略 prefab 自带根缩放**、直接 `= one × scale`。
             t.localPosition = localPosition;
-            if (!Mathf.Approximately(scale, 1f)) t.localScale = t.localScale * scale;
+            if (assignScale) t.localScale = Vector3.one * scale;
+            else if (!Mathf.Approximately(scale, 1f)) t.localScale = t.localScale * scale;
 
             var p = go.GetComponent<WarpforgeEffectPlayer>();
             if (p == null) p = go.AddComponent<WarpforgeEffectPlayer>();

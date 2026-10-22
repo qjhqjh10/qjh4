@@ -255,12 +255,28 @@ public static class TmpSetup
         // ⑧ 字号换算的基准值 —— 卡面上的字大不大全靠它。
         //    量错（量成**行盒**而不是**字形四边形**）字就会小 ~30%，
         //    而截图上看不出来「本来该多大」，所以把数直接报出来。
+        //
+        // 🔴 **2026-10-22（`W64`）就地修读数口径 —— 原来这里【混量纲】、读数偏小 14.7%**：
+        //    卡名 / 关键词那两条字号自 2026-10-22（`W62/T2`）起已经是**按面的 em 字号**
+        //    （`CardView.cs:3798` = `FontSizeForEm(Face.LatinUi, …)`、
+        //     `CardView.cs:3826` = `FontSizeForEm(Face.LatinCardBody, …)`），
+        //    而这里原来把它们乘上 **CJK 面**的 `WorldGlyphPerFontSize`（`TmpFont.cs:333`，
+        //    随 `m_Scale=0.9` ≈ **0.0853**）⇒ 拿拉丁面的字号 × CJK 的墨高比，
+        //    打印出来的「卡高 %」比真值小 0.853 倍（= **14.7%**）。
+        //    ⇒ 改成乘 **拉丁面 em ÷ 字号** `TmpFont.EmPerFontSize(面)`（`TmpFont.cs:273`，= **0.1**）：
+        //    卡名那层渲 **Asar**（`Face.LatinUi`）、效果文字那层渲 **Pragati**（`Face.LatinCardBody`）。
+        //    判据 → `资料/普查产出_1022/W64_卡牌线_剩余与预判.md` §6·1（= §④）。
+        //    ⚠️ `wg` 本身**仍然量 CJK 链**（HUD / 汉字那一路走 CJK 面）⇒ `wgOk` 的通过域**不动**。
         float wg = CardPresentation.TmpFont.WorldGlyphPerFontSize;
-        float titleH = CardPresentation.CardView.TitleFontSize * wg;
-        float kwH = CardPresentation.CardView.KeywordFontSize * wg;
+        float emUi = CardPresentation.TmpFont.EmPerFontSize(CardPresentation.TmpFont.Face.LatinUi);
+        float emBody = CardPresentation.TmpFont.EmPerFontSize(CardPresentation.TmpFont.Face.LatinCardBody);
+        float titleH = CardPresentation.CardView.TitleFontSize * emUi;
+        float kwH = CardPresentation.CardView.KeywordFontSize * emBody;
         bool wgOk = wg > 0.002f && wg < 0.2f;
         Report(wgOk,
-               "⑧ 汉字「字形高度 ÷ 字号」= " + wg.ToString("F4") +
+               "⑧ CJK「字形高度 ÷ 字号」= " + wg.ToString("F4") + "（CJK 链 / HUD 用）" +
+               "　｜　**拉丁面 em ÷ 字号** = " + emUi.ToString("F3") + "（卡名 Asar）/ " +
+               emBody.ToString("F3") + "（效果 Pragati）" +
                "　→ 卡名字号 " + CardPresentation.CardView.TitleFontSize.ToString("F1") +
                "、字高 " + titleH.ToString("F3") + " 世界单位 = **卡高的 " +
                (titleH / CardPresentation.CardView.Height * 100f).ToString("F1") + "%**" +

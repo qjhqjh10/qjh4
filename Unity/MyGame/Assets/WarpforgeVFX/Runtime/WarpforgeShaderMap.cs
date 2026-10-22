@@ -214,6 +214,16 @@ namespace WarpforgeVFX
             // ⚠️ **仍未跑的验证**（本轮不起 Unity）：`ShaderFallbackProbe` 的「不品红」与 `EffectCompare` 的 A/B
             //    —— 命令写在 `资料/普查产出_1018/W_特效线_ExtraColor与UnlitAmbient.md` §三。
             "Everguild/FX/Extra Color",                                // 741
+            // ---- 🆕 2026-10-22（W64 · 兜底审计 **B11** 第 5 条）：**TMP 的 `Distance Field Offset`** ----
+            // 🔴 **来由**：它原来只有一条 `Replacements` 近似（→ 标准 `TextMeshPro/Distance Field`），
+            //    注释自承「拿不到原版那张 shader 的属性表，按名字挑最接近的」。
+            //    现核：原版**编译好了的那一份就在字体包** `fonts_assets_all.bundle` 里
+            //    （4 个 `TextMeshPro/*` 之一，`m_ParsedForm.m_Name` 逐名实读），只是**不在任何我们有加载的包里**
+            //    ⇒ 走 `extract_missing_shaders.py --tmp` 重打成 `wf_tmp_shaders.bundle`，由
+            //    `WarpforgeShaderLoader.TmpBundleRelPath` 加载。**走原件 = 零猜测**。
+            //    ⚠️ 与上面那些 Everguild 名字不同：这一件是 **Unity 包 shader**，走原件的唯一顾虑是
+            //      「URP 下能不能渲」—— 原版自己就是 URP 6000.2.6f2 的工程，用的就是这一份，**不需要我们再判断**。
+            "TextMeshPro/Distance Field Offset",                       //   1（`CardPrefab.prefab` 的 4 条描边材质）
             // ⏸ **暂缓的大头（仅剩这一个）**（改它会一次性动 233 条效果，要单独一批 + 一次全量 sweep 量过再动）：
             //   `Everguild/FX/Particle Distortion Affect Transparents`（233）
             //   （另一件 `Everguild/FX/Extra Color` 741 **已于 2026-10-19 改走原件**，见上一段。）
@@ -285,12 +295,17 @@ namespace WarpforgeVFX
             //    「导出那趟加载源包会把补充包顶掉」。
             //    ⚠️ 顺带一条**还没做的改进**：既然原版 shader 就在我们随包的补充包里，
             //    这一条（以及同类「近似替代」）其实可以试着改走**原版 shader 本体**。
-            //    ⚠️ **近似**：拿不到属性表，按名字挑最接近的自建 shader（预乘 alpha 那套
-            //    在 `WarpforgeVFX/Particles/Extra Color` 里有 `_ALPHAPREMULTIPLY_ON` 支）。
-            { "Everguild/FX/Particle Premultiply",                    "WarpforgeVFX/Particles/Extra Color" },
+            // 🔴 **2026-10-22（W64 · 兜底审计 B11）：这三条「近似」已销账** —— 原版编译字节码已被
+            //    Ruri 反编译出来（`资料/普查产出_1020/W58_工具线_Ruri实测.md`），按字节码**逐条重写**成：
+            //      `Particle Premultiply` → `WarpforgeVFX/FX/ParticlePremultiply`
+            //      `TrailShader_Fading`   → `WarpforgeVFX/FX/TrailShaderFading`
+            //      `Doomweaver effect`    → `WarpforgeVFX/FX/DoomweaverEffect`
+            //    判据与逐条指令 → 各自 `.shader` 的文件头（`Assets/WarpforgeVFX/Shaders/WF*.shader`）。
+            //    ⇒ 这一族**不再有「按名字挑最接近的」那种近似**。
+            { "Everguild/FX/Particle Premultiply",                    "WarpforgeVFX/FX/ParticlePremultiply" },
             { "Everguild/FX/Unlit UV scroll",                         "WarpforgeVFX/FX/UnlitUVScroll" },
-            { "Everguild/FX/TrailShader_Fading",                      "WarpforgeVFX/Particles/Extra Color" },
-            { "Shader Graphs/Doomweaver effect",                      "WarpforgeVFX/Particles/Extra Color" },
+            { "Everguild/FX/TrailShader_Fading",                      "WarpforgeVFX/FX/TrailShaderFading" },
+            { "Shader Graphs/Doomweaver effect",                      "WarpforgeVFX/FX/DoomweaverEffect" },
             // 🆕 2026-09-15：**同一条根因的另外三个**（`Explosion_Ground` 那次只补了上面一行）。
             //    这三张 ShaderGraph 原版是**自定义 shader 图**，既不在我们随包的 shader 包里、
             //    也没有映射表条目 ⇒ `Shader.Find` 返回 null ⇒ 材质槽保留占位材质 ⇒ **整块渲不出来**。
@@ -298,14 +313,19 @@ namespace WarpforgeVFX
             //      · `Fx_ParticleDissolve_apb` —— **13 个 prefab**，含 C 组剩下的 `BlastEffect`
             //      · `Fx_RockDissolve`         —— **4 个 prefab**，含 C 组剩下的 `BlastEffect`
             //      · `Eclipse Tau`             —— 3 个 Tau 环境效果
-            //    ⚠️ **近似**（和上面那条一样）：拿不到 ShaderGraph 的属性表，按名字挑最接近的自建 shader。
+            //    ✅ **2026-10-22 起这一族没有「近似」了**（铁律 5：原来这里写着「⚠️ 近似：拿不到 ShaderGraph
+            //    属性表，按名字挑最接近的自建 shader」—— 三件都已按 Ruri 反编译的字节码逐条重写：
+            //    `Fx_ParticleDissolve_apb` → `…/ParticleDissolveAPB`、`Fx_RockDissolve` → `…/RockDissolve`、
+            //    `Eclipse Tau` → `…/EclipseTau`）。
             //    补完要**重跑全量扫描重出台账**看 C 组是不是清零（别只看这三个效果）。
             // 🆕 2026-10-02（兜底路第 2 族）：`Fx_ParticleDissolve_apb` 原来也指到 `Extra Color`（只乘的通用版），
             //    而原版是**深度的软粒子淡出 + 双次采样遮罩**（逐条指令 → 新 shader 的文件头）
             //    ⇒ 兜底路上 `BlastEffect` ×7.65 · `Invoke Minion *` ×4.4~4.5。判据 → `资料/比对基线/兜底路审计_1002.tsv`。
             { "Shader Graphs/Fx_ParticleDissolve_apb",                "WarpforgeVFX/FX/ParticleDissolveAPB" },
             { "Shader Graphs/Fx_RockDissolve",                        "WarpforgeVFX/FX/RockDissolve" },
-            { "Shader Graphs/Eclipse Tau",                            "WarpforgeVFX/Particles/Extra Color" },
+            // 🔴 2026-10-22（W64 B11）：这条也**不再是近似** —— 原版字节码（Ruri 反编译）逐条重写成
+            //    `WarpforgeVFX/FX/EclipseTau`（判据 → 那个 shader 的文件头）。
+            { "Shader Graphs/Eclipse Tau",                            "WarpforgeVFX/FX/EclipseTau" },
             // 非粒子的 Everguild shader —— 必须指到 URP/Unlit。
             // 让它们掉进默认的 URP **Particles**/Unlit 会连粒子专用逻辑一起套上（实测过曝 4 倍）
             { "Everguild/UnlitAmbient",                   "WarpforgeVFX/UnlitAmbient" },
@@ -339,8 +359,15 @@ namespace WarpforgeVFX
             // **不存在**（本地 13 张 TMP shader 里没有这个名字，只有原版 `CardPrefab.prefab` 引用它）。
             // 不映射的话运行时报「找不到 shader」⇒ 那个材质槽保留占位材质 ⇒ **整块渲成洋红**
             //（实测：白板 `CardPrefab` 那一格是一大块洋红）。
-            // ⚠️ **近似**：拿不到原版那张 shader 的属性表，按名字挑最接近的（就是标准的 Distance Field）。
-            { "TextMeshPro/Distance Field Offset",    "TextMeshPro/Distance Field" },
+            // 🔴 **2026-10-22（W64 · 兜底审计 B11 第 5 条）：这条近似已销账 —— 改走原件。**
+            //    原版那份编译 shader 在**字体包** `fonts_assets_all.bundle` 里（`m_ParsedForm.m_Name`
+            //    逐条实读 = `TextMeshPro/Distance Field Offset`，9 KB blob），
+            //    已由 `工具/extract_missing_shaders.py --tmp` 重打进 `wf_tmp_shaders.bundle`
+            //    （工厂幂等：两次产物 sha256 相同）⇒ 列进 `UseOriginal` 后**正常态与兜底路都解析到原件**。
+            //    ⇒ 这里**故意不再留 Replacements 条目**：留着就等于「原件不在场时用标准 Distance Field
+            //      顶」，而那正是 B11 要销掉的那条近似（⛔ 不许拿近似当兜底成品）。
+            //    ⚠️ 导出期占位材质仍然用 `TextMeshPro/Distance Field`（`EffectExporter.ShaderMap`，标 `*`）
+            //       —— 那条只管编辑器里占位，运行时会被 binder 换成原件。
         };
 
         /// <summary>有些原版 shader 把混合写死在 shader 里，材质上没有 _SrcBlend。

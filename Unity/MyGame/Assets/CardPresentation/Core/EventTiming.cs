@@ -17,16 +17,89 @@
 //
 // 🆕 2026-10-14（`A1767`）：**「发动能力」这一格不再是常数** —— 它按**卡**取值，
 //   判据 = 该卡 `activeAbility` 各 CardAnim 的 `AnimInfo.GetAnimDuration()` 之和。
-//   表在 `Resources/ability_anim_durations.json`（🔴 **现读 62 张卡**；⚠️ 这里原写「56 张卡」已过期，
-//   账 `A2095`，⛔ 别手抄这个数），入口 `Core/AbilityAnimDurations.cs`，
+//   表在 `Resources/ability_anim_durations.json`（🔴 **现读 93 张卡 / 160 条 CardAnim**，2026-10-22
+//   `W64` 重出后的数；⚠️ 这里原写「56 张卡」「62 张卡」**都已过期**，账 `A2095` ——
+//   ⛔ 别手抄这个数，读表里的 `count`），入口 `Core/AbilityAnimDurations.cs`，
 //   消费点 = 本文件的 `DurationOf(BattleEvent)`（⚠️ **只按 `EvtKind` 的那条重载给兜底**）。
-//   ⛔ 改这一格之前先读那两个文件的文件头（含「只覆盖 2022 快照」等三处如实标注）。
+//   ⛔ 改这一格之前先读那两个文件的文件头。
+//
+// 🔴 **2026-10-22（`W64` · B17）就地订正三条（铁律 5）**：
+//   ① **真值源不是「2022 快照」** —— 现读是**当前 build 的卡 SO**
+//      （`资料/普查产出_1018/allcards_1350/cards_raw.json` 的
+//      `activeAbility.activeAbilityLogic[*].cardAnimations[*]`，时长 = `AnimInfo.GetAnimDuration()`）。
+//      所以 UM / SW 那两批**不再是「判据为空」**；第二条链 `cards_engine.json` 的 `animTimes`（`tg == -1` 行）
+//      与它**逐卡一致 93 / 不一致 0**（全量件 `_crossCheck`）。
+//   ② **3 张例外**（全量件 `uncovered`，都是「会发 Ability 事件、但判据不足以定值」）：
+//      `SOR30 Celestian Sacresant` · `SOR65 Celestian Sacresant Aveline` · `SW9` ——
+//      它们的 `activeAbility` **一条非空 CardAnim 引用都没有**（`m_AssetGUID` 全空）
+//      ⇒ 原版这条路上**不放任何动画** ⇒ 我们退回兜底并**出声**（不是「表里漏了」）。
+//   ③ **`SW21 Wulfen Pack Leader` 是条件分支**（铁律 5·c：同一张卡、不同棋盘状态 = 不同时长）：
+//      **普通 `activeAbility` = 0.4**（表里存的就是这支）· **替代能力 = 0.2**（`Cut Wulfen`；
+//      `hasAlternativeAbility=1` 且 `MeetsCriteria(selectCriteria)` = 己方 ≥1 个单位时原版走这支）。
+//      ⛔ 表只记普通那一支；运行时**要不要按棋盘切到 0.2 还没接**（判据 = 原版 `RawCardScript.GetActiveAbility`，
+//      逐条见全量件 `conditional`）。
+//   ⚠️ `Core/AbilityAnimDurations.cs` 的文件头**仍写着旧口径**（「只覆盖 2022 快照」/「62 张」）——
+//      那一份不在本批文件所有权内，**已记进报告待改**（⛔ 别以为两份说法可以并存）。
 using RuleEngine;
 
 namespace CardPresentation
 {
     public static class EventTiming
     {
+        // ==================================================================
+        //  🆕 2026-10-22（`W64` · 反击演出）：**两个取数口（由 `BattleDriver` 挂钩）**
+        // ==================================================================
+        //  为什么需要：`DurationOf(Retaliation)` 要算「守方那件**逐卡**件自己演多久」，
+        //  它需要 **① 该座位的阵营**（原版读「施法者自己的 clan」）与 **② 那张卡的
+        //  `CardDef.AnimTimes`**（逐候选时长真值）—— 这两样只有驱动有（本局阵营 / 卡池）。
+        //  模式与 `AnimAnchors.*Of` 完全一样：静态钩子 + 幂等覆盖；**没挂钩 = 拿不到逐卡数据**
+        //  ⇒ 走 `RangedVfxFallback` 并出声（`RetaliationHoldOf`）。
+        //  ⛔ 别在 `EventTiming` 里自己去载卡池（那是第二份数据源，且拿不到「本局座位 ↔ 阵营」）。
+
+        /// <summary>座位（0/1）→ 阵营名。`null` = 没挂钩 / 判不出。</summary>
+        public static System.Func<int, string> FactionOfSeat;
+
+        /// <summary>(卡名, 阵营) → 那张卡的 `CardDef.AnimTimes`（`null` = 这张卡没有逐候选时长）。</summary>
+        public static System.Func<string, string, System.Collections.Generic.IReadOnlyList<CardDef.CardAnimTime>>
+            AnimTimesOf;
+
+        /// <summary>🆕 **2026-10-22（`W64`）反击那一拍占多久**（秒，相对事件起播）。
+        ///
+        /// <para>**判据（第一权威）= `BattleManager._ResolveAttack_d__438__MoveNext.c:1114-1152`**：
+        /// 远程打法那一支 `:1119-1131` 起 `CardScript.ResolveAttackRangedAnim(守方, 攻方, 0, 0)`
+        /// （`CardScript._ResolveAttackRangedAnim_d__360__MoveNext.c`：回正三条 tween `AttackStepTime` +
+        /// `WaitForSeconds(AttackStepTime)` → `DelayedVFXPlay` → `WaitForSeconds(GetAnimDuration())`），
+        /// **协程跑完才**落伤害（`:1136-1147`）⇒ 这一拍 = **前摇 `AttackStepRanged` + 那件件自己的链时长**。
+        /// 近战打法那一支（`:1132-1150`）守方**什么都不播** ⇒ **0**。</para>
+        ///
+        /// <para>⚠️ 件本身走 `VfxMap.ChainDuration(AttackRanged, 守方阵营, 守方卡, AnimTimes)` ——
+        /// 与**攻方**那一发同一个口；查不到（本工程常态：`customRangedAttackParticles` 是卡 SO 的
+        /// 顶层字段，不进 `AnimTimes`）⇒ `RangedVfxFallback` 并**出声**（每张卡一次）。</para></summary>
+        public static float RetaliationHoldOf(BattleEvent retaliation)
+        {
+            if (retaliation == null || !retaliation.Ranged) return 0f;
+            string faction = FactionOfSeat != null ? FactionOfSeat(retaliation.Player) : null;
+            var times = (AnimTimesOf != null && !string.IsNullOrEmpty(retaliation.CardId))
+                      ? AnimTimesOf(retaliation.CardId, faction) : null;
+            float chain = VfxMap.ChainDuration(VfxMap.AttackRanged, faction, retaliation.CardId, times);
+            if (chain > 0f) return AttackStepRanged + chain;
+            WarnRetaliationFallback(retaliation.CardId);
+            return AttackStepRanged + RangedVfxFallback;
+        }
+
+        static readonly System.Collections.Generic.HashSet<string> _retaliationFallbackWarned =
+            new System.Collections.Generic.HashSet<string>();
+
+        /// <summary>「反击这件的逐卡时长查不到 ⇒ 用 `RangedVfxFallback`」的出声（每张卡一次、有上限；
+        /// ⛔ 不静默）。⚠️ 与**攻方**那一档同一条口径（它也走 `RangedVfxFallback`）。</summary>
+        static void WarnRetaliationFallback(string cardId)
+        {
+            string key = string.IsNullOrEmpty(cardId) ? "(没卡名)" : cardId;
+            if (_retaliationFallbackWarned.Count >= 64 || !_retaliationFallbackWarned.Add(key)) return;
+            UnityEngine.Debug.Log($"[EventTiming] 反击 `{key}`：解开的那件**没有** `AnimInfo` 时长（`ChainDuration` = 0）"
+                    + $" ⇒ 这一拍按 `RangedVfxFallback` {RangedVfxFallback:F2}s 排（与攻方远程那一档同一条兜底）");
+        }
+
         /// <summary>
         /// 上一条事件播完到这一条开始，隔多久（秒）。
         /// `prev == null` = 这一串里的第一条。
@@ -95,6 +168,11 @@ namespace CardPresentation
                 //     那是实打实的**新偏离**。那件特效自己多长是**它自己的事**（见 `SourceOf`），
                 //     `WarpforgeEffectPlayer` 会照 prefab 的 `destroyTime` 播完 —— **不进时间线**。
                 case EvtKind.AmbushExit: return 0f;
+
+                // 🆕 2026-10-22（`W64`）：**反击与上一条之间不加额外间隔** —— 原版那一跳是
+                //   `if (0 < GetCombatDamage) { … }` 直接接上（`_ResolveAttack…:1114-1152`），
+                //   没有 `WaitForSeconds`；这一拍**自己演多久**由 `DurationOf` 负责（⛔ 别两处都排）。
+                case EvtKind.Retaliation: return 0f;
 
                 default: return 0f;
             }
@@ -167,6 +245,12 @@ namespace CardPresentation
                 //      这里引的是**那个常量本身**，所以仍然只有一张表）。
                 case EvtKind.Heal: return CardView.HealTextHoldSeconds;
 
+                // 🆕 2026-10-22（`W64` · 反击演出）：**只覆盖远程档**（原版 `_ResolveAttack…:1119-1131` ——
+                //   远程打法守方才 `ResolveAttackRangedAnim`；近战那一支 `:1132-1150` 守方什么都不播 ⇒ 0）。
+                //   本重载**拿不到 `Ranged` / 卡** ⇒ 回「远程档的兜底」（前摇 + `RangedVfxFallback`），
+                //   ⛔ 别把它当成生产值：生产走 `DurationOf(BattleEvent)` → `RetaliationHoldOf`。
+                case EvtKind.Retaliation: return AttackStepRanged + RangedVfxFallback;
+
                 default: return 0f;
             }
         }
@@ -181,6 +265,11 @@ namespace CardPresentation
         public static float DurationOf(BattleEvent e)
         {
             if (e == null) return 0f;
+            // 🆕 2026-10-22（`W64` · 反击演出）：**反击**这一拍的长度。
+            //   近战档 = 0（原版守方**什么都不播**，`:1132-1150`）；远程档 = 前摇 + 守方那件件自己的链时长。
+            //   ⚠️ 这条**必须**在带事件的重载里判（`Ranged` 只有事件知道），
+            //      只按 `EvtKind` 的那条重载给的是**远程档兜底**（见那里的注释）。
+            if (e.Kind == EvtKind.Retaliation) return RetaliationHoldOf(e);
             if (e.Kind == EvtKind.Attack)
                 return e.Ranged ? AttackStepRanged : AttackStepMelee;
             // 🔴 **2026-10-21（W61 第 2 批 · 第 3 条）**：`Deploy` **按「怎么进来的」分档** ——
@@ -362,7 +451,8 @@ namespace CardPresentation
         ///
         /// 这个 `1.0` 的来历（**旧口径，保留痕迹**）：本地 506 条【有名字】的 `AnimInfo` 时长之和的**中位数**
         /// （表 = `数据/游戏数据/card_anim_map.json`：908 条总条目 = 506 有名 + 402 光 GUID）。
-        /// 新的逐卡表（`Resources/ability_anim_durations.json`，56 张卡）**中位也恰好是 1.0**
+        /// 新的逐卡表（`Resources/ability_anim_durations.json`，🔴 **现读 93 张卡 / 160 条 CardAnim**；
+        /// 真值源 = **当前 build 的卡 SO**，见文件头「2026-10-22 就地订正」）**中位也恰好是 1.0**
         /// ⇒ 两代口径在这一格上偶然相等 —— 所以「兜底取 1.0」不是拍脑袋，**但也不能当成原版值**。
         /// ⚠️ `AbilityAnimDurations.FallbackSeconds`（表里现读的那个数）**必须等于本常量** ——
         ///    自检会逐字比（`BattleScene.Run` 那条「兜底值与表一致」）。
@@ -371,8 +461,13 @@ namespace CardPresentation
         /// （`AnimInfo.GetAnimDuration` = `vfxDelayTime + timeAtStartPos + timeMoving + timeAtEndPos`），
         /// 而「哪条技能」只存在于**事件**里（`BattleEvent.CardId`）。`DurationOf(EvtKind)` 的签名里没有卡
         /// ⇒ 它只能给兜底值。**两条路都要跑到才算接完**，缺一条就会「看着接上了、其实一半还是常数」。
-        /// 判据链全文 → `Core/AbilityAnimDurations.cs` 文件头（含三处如实标注：只覆盖 2022 快照、
-        /// tween 那一段没算、`cardAbilities` 那一族不进本表）。</summary>
+        /// 判据链全文 → `Core/AbilityAnimDurations.cs` 文件头。**三条例外 + 一条条件分支**（2026-10-22 现读，
+        /// 逐条见全量件 `uncovered` / `conditional`）：
+        ///   · `SOR30` / `SOR65` / `SW9` —— 卡 SO 里 `hasActiveAbility=1`，但 `activeAbility` 一条非空 CardAnim
+        ///     引用都没有（`m_AssetGUID` 全空）⇒ 原版这条路上不放动画 ⇒ 退回兜底并**出声**；
+        ///   · `SW21 Wulfen Pack Leader` —— 普通支 **0.4**（表里存这支）/ 替代能力支 **0.2**；
+        ///     运行时按棋盘切支**还没接**（判据 = 原版 `RawCardScript.GetActiveAbility`）。
+        /// 另：`tweenAnim`（UnitTweenSO）那一段没算 · `cardAbilities` 那一族不进本表。</summary>
         public const float AbilityFallbackSeconds = 1.0f;
 
         /// <summary>🆕 2026-10-14（`A1816`）**抽卡**这一条事件占多久 = **0.3 s**。
@@ -412,7 +507,7 @@ namespace CardPresentation
                 case EvtKind.Hit: return "`Impact Light Tween`：Punch 0.5 + ResetBody 0.25（`appendType=After`）";
                 case EvtKind.Ability: return "🆕 2026-10-14（`A1767`）**逐卡真值**：该卡 `activeAbility` 各 CardAnim 的 "
                                              + "`AnimInfo.GetAnimDuration()`（`vfxDelayTime + timeAtStartPos + timeMoving "
-                                             + "+ timeAtEndPos`）之和 → `AbilityAnimDurations`（56 张卡）；"
+                                             + "+ timeAtEndPos`）之和 → `AbilityAnimDurations`（**现读 93 张卡**）；"
                                              + "**只按 `EvtKind` 的这条重载拿不到卡** ⇒ 返回兜底 "
                                              + $"{AbilityFallbackSeconds}（= 真值表中位数，与旧常数恰好相等）";
                 case EvtKind.Trigger: return "`BattleManager.twoFractDelay`(**+0x4C8**) = 0.2 —— `_ResolveTriggerTraitAnim` 那条链的等待";
@@ -427,6 +522,13 @@ namespace CardPresentation
                                               + "`AmbushEffect` 的 `MaterialTweenFloat(_Blend)` delay 0.35 + duration 1.0 = 1.35"
                                               + "（**不进时间线**；原件 = `新解包资源/assets_full/bundle_battleprefabs_vfxandmisc_assets_all/"
                                               + "MonoBehaviour/MonoBehaviour_6849782588473963486.json` 的 `references.RefIds[0].data`）";
+                // 🆕 2026-10-22（`W64` · 反击演出）
+                case EvtKind.Retaliation: return "`BattleManager._ResolveAttack_d__438__MoveNext.c:1114-1152`"
+                                              + "（`:1119-1131` 远程打法才 `ResolveAttackRangedAnim(守方, 攻方, 0, 0)`，"
+                                              + "`CardScript._ResolveAttackRangedAnim_d__360__MoveNext.c`：回正 0.1 + 等 0.1 → 发件 → "
+                                              + "`WaitForSeconds(GetAnimDuration())`；**协程跑完才**落伤害 `:1136-1147`）"
+                                              + " ⇒ 前摇 `AttackStepRanged` 0.2 + **守方那件**的 `ChainDuration`"
+                                              + "（拿不到 ⇒ `RangedVfxFallback` 0.75，出声）；⚠️ 只覆盖**远程档**，近战档守方不播 = 0";
                 default: return "（无）";
             }
         }

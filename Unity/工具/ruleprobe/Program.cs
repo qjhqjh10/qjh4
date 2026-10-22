@@ -193,7 +193,13 @@ class Program
     //   🔴 **2026-10-22（第六十三会话 · `W63` · `abilityContext` v14）有意重钉** —— 卡表新增 `abilityContext` 列 ⇒
     //   卡池 md5 变（`99d4f87e…`）。**解析输出逐字节没动**（`check` 解析差异 0 行 · ⑦ 输出指纹 `c9f6c642…` 仍一致）
     //   ⇒ **只重钉 PinnedPoolMd5**，`PinnedBaselineMd5` / `PinnedParseMd5` 原样不动。
-    public const string PinnedPoolMd5 = "99d4f87ec2972b26b15f068006721bfa";
+    // 🔴 **2026-10-22（第六十四会话 · B-16 条件结构化）有意重钉**：`cards_engine.json` v14→v15，
+    //   新列 `unitConditions`（池内 167 张 / 218 条）⇒ 卡池 md5 变（`99d4f87e…` → `0dd76354…`）。
+    //   解析输出逐字节没动（`check` 解析差异 0 行 · ⑦ 输出指纹 `c9f6c642…` 仍一致）⇒ 只重钉这一颗。
+    // 🔴 **2026-10-22（第六十四会话 · B-16 count 被数集合）有意重钉**：`cards_engine.json` v15→v16，
+    //    `role=="count"` 行新增 `countSet`（池内 4 张 / 6 条；37 格）⇒ 卡池 md5 变
+    //    （`0dd76354…` → `b7b19efd…`）。解析输出逐字节没动（`check` 解析差异 0 行 · 输出指纹 `c9f6c642…`）。
+    public const string PinnedPoolMd5 = "b7b19efddfce342a6e2eb01137091dcc";
 
     /// <summary>钉住的基线内容指纹（`工具/ruleprobe/基线/out_baseline.txt` 的 md5，**按字节**）。
     /// 与上面那个配对使用 —— 判据见上面那段长注释。</summary>
@@ -548,6 +554,16 @@ class Program
         //   `nBadAc` = 被四道闸丢弃的条数；`nAcOnOldTable` = 「表 version<14 却带着这一列」的卡数
         //   （正常应为 0 —— 非 0 就是在说「探针与引擎会分叉」，见下面读数那一段）。
         int nAcRows = 0, nAcCards = 0, nBadAc = 0, nAcOnOldTable = 0;
+        // 🆕 2026-10-22（引擎线 `W64` · 战斗审计 `B-16`）：`unitConditions` 的读数列（v15）。
+        //   `nUcRows` / `nUcCards` 只数**收下来**的行；`nBadUc` = 被四道闸丢弃的条数；
+        //   `nUcOnOldTable` = 「表 version<15 却带着这一列」的卡数（正常应为 0 —— 非 0 就是在说
+        //   「探针与引擎会分叉」，见下面读数那一段）。
+        int nUcRows = 0, nUcCards = 0, nBadUc = 0, nUcOnOldTable = 0;
+        // 🆕 2026-10-22（引擎线 `W64` · 战斗审计 `B-16` 的明确缺口 · v16）：`count` 行的**被数集合**。
+        //   `nUcSetRows` = 收下来的 `countSet` 条数；`nBadUcSet` = 缺 `countSet` / 单格坏值（缺键、
+        //   非 0/1 的布尔、`playerTurn` 不在 0/10/20、引用列表不是数组或含空串）。
+        //   🔴 口径与 `CardDatabase.MapCountSet` **一致**：坏值**不丢整行**，只把那一格落 `-1`。
+        int nUcSetRows = 0, nBadUcSet = 0;
         foreach (var c in doc.RootElement.GetProperty("cards").EnumerateArray())
         {
             string S(string k) => c.TryGetProperty(k, out var v) && v.ValueKind == JsonValueKind.String ? v.GetString() : null;
@@ -670,6 +686,89 @@ class Program
                 }
                 if (ablCtx.Any(x => x.Context != 0)) nAcCards++;
             }
+            // 🆕 2026-10-22（引擎线 `W64` · 战斗审计 `B-16`）：**v15 的 `unitConditions` 也要传**。
+            //   不传的后果与 `A1911` / `A1959` / v13 `triggerPriority` / v14 `abilityContext` **逐字同族**：
+            //   **探针与引擎口径不同**。引擎侧 `Data/CardDatabase.cs` 经 `MapUnitConditions` 把这一列
+            //   传进 `CardDef`；探针不传 ⇒ `CardDef.ConditionOf` 在探针里**恒 -1（未知）**，
+            //   任何靠探针量「这一格有没有条件 / 条件是什么」的读数都被静默钉成旧口径。
+            //
+            //   🔴 **`-1` 契约（⛔ 绝不退回 `0`）**：`cond = 0` 是 `UnitConditions.none` = **没有条件**；
+            //     `0` 也是 `ab` / `lg` 的**合法位置** ⇒ 缺键一律 `-99`（`MissingIndex`）并出声丢弃。
+            //   🔴 **四道闸与 `CardDatabase.MapUnitConditions` 同口径**（role / ab·lg 缺键 /
+            //     cond 缺键或非法 / 同 key 重复），全部「计数 + 丢弃该条」，⛔ 不静默、⛔ 不默认。
+            bool hasUc = c.TryGetProperty("unitConditions", out var ucEl) && ucEl.ValueKind == JsonValueKind.Array;
+            var unitConds = new List<CardDef.ConditionSpec>();
+            if (hasUc && poolVersion < 15)
+            {
+                // 🔴 `version < 15` 的表**整列不采**（= 全 `-1` 未知，见下面那声 `⚠️`）。
+                //   但「旧表却带着新列」必须**单独计数**：引擎侧 `CardDatabase.Parse` 只按 `version`
+                //   出声、列**照样映射** ⇒ 两边会分叉，得看得见。
+                nUcOnOldTable++;
+            }
+            else if (hasUc)
+            {
+                HashSet<string> ucKeys = null;
+                foreach (var e in ucEl.EnumerateArray())
+                {
+                    if (e.ValueKind != JsonValueKind.Object) { nBadUc++; continue; }
+                    // ① `role` 必须是那十个之一。
+                    string ucRole = e.TryGetProperty("role", out var urEl) && urEl.ValueKind == JsonValueKind.String
+                                    ? urEl.GetString() : null;
+                    if (!CardDef.IsLegalConditionRole(ucRole)) { nBadUc++; continue; }
+                    // ② `ab` / `lg` 缺键（`-99` 哨兵；`0` 是合法位置，⛔ 不能拿缺省 0 顶）。
+                    bool hasAb = e.TryGetProperty("ab", out var ucAbEl) && ucAbEl.ValueKind == JsonValueKind.Number;
+                    bool hasLg = e.TryGetProperty("lg", out var ucLgEl) && ucLgEl.ValueKind == JsonValueKind.Number;
+                    if (!hasAb || !hasLg) { nBadUc++; continue; }
+                    int ucAb = ucAbEl.GetInt32(), ucLg = ucLgEl.GetInt32();
+                    if (ucAb == CardDef.ConditionSpec.MissingIndex
+                        || ucLg == CardDef.ConditionSpec.MissingIndex) { nBadUc++; continue; }
+                    // ③ `cond` 缺键 / none(0) / 不在枚举里。
+                    bool hasCond = e.TryGetProperty("cond", out var ucCvEl) && ucCvEl.ValueKind == JsonValueKind.Number;
+                    if (!hasCond) { nBadUc++; continue; }
+                    int ucCond = ucCvEl.GetInt32();
+                    if (ucCond == CardDef.ConditionNone || !CardDef.IsLegalUnitCondition(ucCond)) { nBadUc++; continue; }
+                    // ④ 同 `(ab, lg, role)` 重复 ⇒ 丢弃后出现的那条（先到的保留）。
+                    string ucKey = ucAb + ":" + ucLg + ":" + ucRole;
+                    if (ucKeys == null) ucKeys = new HashSet<string>(StringComparer.Ordinal);
+                    if (!ucKeys.Add(ucKey)) { nBadUc++; continue; }
+                    int ucEx = e.TryGetProperty("ex", out var ucExEl) && ucExEl.ValueKind == JsonValueKind.Number
+                               ? ucExEl.GetInt32() : 0;
+                    // 🆕 v16（`B-16` 缺口）：`count` 行的**被数集合**。
+                    //   🔴 口径同 `CardDatabase.MapCountSet`：坏值**不丢整行**（丢行 = 「没有条件」=
+                    //   静默放行），只把那一格落 `-1`；`countSet` 整个缺 ⇒ `CountSet = null`（未知）。
+                    CardDef.CountSetSpec ucSet = null;
+                    if (ucRole == "count")
+                    {
+                        if (e.TryGetProperty("countSet", out var ucSetEl))
+                        {
+                            ucSet = ParseCountSet(ucSetEl, out int ucSetBad);
+                            nBadUcSet += ucSetBad;
+                            if (ucSet != null) nUcSetRows++;
+                        }
+                        else nBadUcSet++;          // `count` 行缺 `countSet`（v16+ 表上是坏数据）
+                    }
+                    else if (e.TryGetProperty("countSet", out _)) nBadUcSet++;   // 非 count 行带它 = 坏数据
+                    unitConds.Add(new CardDef.ConditionSpec
+                    {
+                        Ability = ucAb,
+                        Logic = ucLg,
+                        Role = ucRole,
+                        Condition = ucCond,
+                        Name = e.TryGetProperty("name", out var ucNmEl) && ucNmEl.ValueKind == JsonValueKind.String
+                               ? ucNmEl.GetString() : null,
+                        Exclude = ucEx != 0,
+                        CountOption = e.TryGetProperty("opt", out var ucOptEl) && ucOptEl.ValueKind == JsonValueKind.Number
+                                      ? ucOptEl.GetInt32() : -1,
+                        StatOption = e.TryGetProperty("op", out var ucOpEl) && ucOpEl.ValueKind == JsonValueKind.Number
+                                     ? ucOpEl.GetInt32() : -1,
+                        ReferenceValue = e.TryGetProperty("refValue", out var ucRefEl) && ucRefEl.ValueKind == JsonValueKind.Number
+                                         ? ucRefEl.GetInt32() : -1,
+                        CountSet = ucSet,
+                    });
+                    nUcRows++;
+                }
+                if (unitConds.Count > 0) nUcCards++;
+            }
             list.Add(new CardDef(S("id"), S("name"), S("type"), S("desc"), S("rarity"), S("faction"),
                                  I("cost"), I("attack"), I("health"), I("ranged"), kws,
                                  S("nameZh"), S("descZh"), true, S("subtype"), S("goesSecond"),
@@ -691,7 +790,17 @@ class Program
                                  //   表 `< 14` 时 `ablCtx` 恒空 ⇒ 整列不传（= 全 -1 未知），
                                  //   与引擎 `Parse` 的 `< 14` 守卫同口径。
                                  abilityContext: ablCtx.Count > 0 ? ablCtx : null,
-                                 abilityContextsVersioned: poolVersion >= 14));
+                                 abilityContextsVersioned: poolVersion >= 14,
+                                 // 🆕 2026-10-22（引擎线 `W64` · 战斗审计 `B-16`）：v15 的逐卡
+                                 //   结构化条件（原版 `TargetCriteria.conditionsFilter`）。
+                                 //   四道闸 / `-1` 契约 → 上面读数那一段注释（⛔ 别在这里抄第二份）。
+                                 //   表 `< 15` 时 `unitConds` 恒空 ⇒ 整列不传（= 全 -1 未知），
+                                 //   与引擎 `Parse` 的 `< 15` 守卫同口径。
+                                 abilityConditions: unitConds.Count > 0 ? unitConds : null,
+                                 conditionsVersioned: poolVersion >= 15,
+                                 // 🆕 v16（`B-16` 缺口）：`count` 行的被数集合来自 v16 卡表的正面信号
+                                 //   （口径同引擎 `CardDatabase.Parse` 的 `conditionsCountSetVersioned`）。
+                                 conditionsCountSetVersioned: poolVersion >= 16));
         rawKw.Add(kws);
         }
         // 🔴 **缺列一律出声**（铁律「不许静默失败」）：缺了就是缺了，⛔ 不让它静默变成「某张卡的值是 X」。
@@ -749,6 +858,34 @@ class Program
         Console.WriteLine("  abilityContext: 带非 0 context 的卡 = " + nAcCards + " · 条 = " + nAcRows
                           + "（收下来的行；对账期望 = **170 条 / 157 张**"
                           + " —— 判据 → 资料/普查产出_1022/W63_abilityContext_施工简报.md §2）");
+        // 🆕 2026-10-22（引擎线 `W64` · 战斗审计 `B-16`）：`unitConditions` 的读数（旧表 / 形状不对**都出声**）。
+        //   判据 → 资料/普查产出_1022/W64_兜底审计_战斗.md 的 B-16（原版结构化条件 = `conditionsFilter`）。
+        if (poolVersion < 15)
+            Console.WriteLine("⚠️ 卡池 `version`=" + poolVersion + " < 15 —— 这一版没有 `unitConditions` 一列"
+                              + "（原版 `TargetCriteria.conditionsFilter` + `excludeCondition`）⇒ "
+                              + "探针把 `CardDef.ConditionOf` 一律读成 **-1（未知）**，"
+                              + "⛔ 不是 0（`none` = 「没有条件」）—— 两个哨兵必须分开（引擎侧 `CardDatabase.cs` 的 `< 15` 守卫同口径）。");
+        if (nUcOnOldTable > 0)
+            Console.WriteLine("⚠️ 卡池 `version`=" + poolVersion + " < 15 **却带着 `unitConditions` 列**："
+                              + nUcOnOldTable + " 张卡 —— 探针按 version 整列不采，"
+                              + "⚠️ 引擎侧 `CardDatabase.Parse` 只按 `version` 出声、列**照样映射** ⇒ 两边会分叉。");
+        if (nBadUc > 0)
+            Console.WriteLine("⚠️ 卡池 `unitConditions` 有 " + nBadUc + " 条被丢弃（`role` 不认识 / 缺 `ab`·`lg` 键 / "
+                              + "`cond` 缺键·为 none·不在枚举里 / 同 (ab,lg,role) 重复）—— 口径同 `CardDatabase.MapUnitConditions`。");
+        Console.WriteLine("  unitConditions: 带条件的卡 = " + nUcCards + " · 条 = " + nUcRows
+                          + "（原版 `TargetCriteria.conditionsFilter`，**none(0) 省略**"
+                          + " —— 判据 → 资料/普查产出_1022/W64_兜底审计_战斗.md B-16）");
+        // 🆕 v16（`B-16` 的明确缺口）：`count` 行的**被数集合**（原版 `BoardCriteria.countCriteria` ＋ `playerTurn`）。
+        if (poolVersion < 16)
+            Console.WriteLine("⚠️ 卡池 `version`=" + poolVersion + " < 16 —— `count` 行没有 `countSet`（被数集合）"
+                              + " ⇒ 探针把 `CardDef.ConditionSpec.CountSet` 一律读成 **null = 未知**"
+                              + "（⛔ 不是「默认集合」：全 0 是一个具体的集合选择）。");
+        if (nBadUcSet > 0)
+            Console.WriteLine("⚠️ 卡池 `unitConditions[count]` 有 " + nBadUcSet + " 处 `countSet` 缺键/坏值"
+                              + "（缺格 / 布尔非 0-1 / `playerTurn` 不在 0·10·20 / 引用列表不是数组或含空串）"
+                              + " —— 口径同 `CardDatabase.MapCountSet`：**那一格落 -1**，⛔ 不丢整行、不 clamp。");
+        Console.WriteLine("  unitConditions[count]: 带被数集合的行 = " + nUcSetRows + " · 坏值格数 = " + nBadUcSet
+                          + "（原版 `BoardCriteria.countCriteria` ＋ `playerTurn`；判据 → 同上 B-16）");
 
         Pool = list;
         // 🆕 **同序留一份 `keywords` 原文**（见 `PoolRawKeywords` 的说明）——
@@ -790,6 +927,95 @@ class Program
             || ctx == CardDef.AbilityContextCemetery
             || ctx == CardDef.AbilityContextInPlayOrDying
             || ctx == CardDef.AbilityContextInPlayOrCemetery;
+    }
+
+    /// <summary>🆕 v16（2026-10-22 · 引擎线 `W64` · `B-16` 缺口）：`unitConditions[].countSet` →
+    /// <see cref="CardDef.CountSetSpec"/>。**口径与 `CardDatabase.MapCountSet` 一致**：
+    /// 缺键 / 类型不对 / 布尔非 0-1 / `playerTurn` 不在 0-10-20 ⇒ **那一格落 `-1` 并计一条 bad**，
+    /// ⛔ 不丢整行、不 clamp、不默认。`countSet` 不是对象 ⇒ 返回 null（未知）并计一条 bad。
+    /// ⚠️ 语义校验（各枚举的成员表）**不在这里做** —— 与引擎侧同口径，只查类型/缺键/域。
+    /// 返回的 `badCount` = 坏值/缺键的**格数**（不是行数）。
+    /// </summary>
+    static CardDef.CountSetSpec ParseCountSet(JsonElement el, out int badCount)
+    {
+        int bad = 0;
+        if (el.ValueKind != JsonValueKind.Object) { badCount = 1; return null; }
+        var s = new CardDef.CountSetSpec();
+
+        int Int(string name)
+        {
+            if (!el.TryGetProperty(name, out var v) || v.ValueKind != JsonValueKind.Number)
+            { bad++; return CardDef.CountSetSpec.Unknown; }
+            return v.GetInt32();
+        }
+        int Flag(string name)
+        {
+            int v = Int(name);
+            if (v == CardDef.CountSetSpec.Unknown) return v;
+            if (v != 0 && v != 1) { bad++; return CardDef.CountSetSpec.Unknown; }
+            return v;
+        }
+        string[] Ids(string name)
+        {
+            if (!el.TryGetProperty(name, out var v) || v.ValueKind != JsonValueKind.Array)
+            { bad++; return null; }
+            var l = new List<string>();
+            foreach (var it in v.EnumerateArray())
+            {
+                if (it.ValueKind != JsonValueKind.String) { bad++; continue; }
+                string x = it.GetString();
+                if (string.IsNullOrEmpty(x)) { bad++; continue; }
+                l.Add(x);
+            }
+            return l.ToArray();
+        }
+
+        int pv = Int("playerTurn");
+        if (pv != CardDef.CountSetSpec.Unknown && pv != 0 && pv != 10 && pv != 20)
+        { bad++; pv = CardDef.CountSetSpec.Unknown; }
+        s.PlayerTurn = pv;
+
+        s.TargetsAffected = Int("targetsAffected");
+        s.ChosenArmy = Int("chosenArmy");
+        s.ArmyFilter = Int("armyFilter");
+        s.KeywordFilter = Int("keywordFilter");
+        s.TraitsFilter = Int("traitsFilter");
+        s.MaxTargets = Int("maxTargets");
+        s.TargetSelectMethod = Int("targetSelectMethod");
+        s.AttackFilter = Int("attackFilter");
+        s.AttackFilterOption = Int("attackFilterOption");
+        s.CurrentHealthFilter = Int("currentHealthFilter");
+        s.CurrentHealthFilterOption = Int("currentHealthFilterOption");
+        s.ManaCostFilter = Int("manaCostFilter");
+        s.ManaCostFilterOption = Int("manaCostFilterOption");
+        s.RarityFilter = Int("rarityFilter");
+        s.RarityFilterOption = Int("rarityFilterOption");
+        s.SpellType = Int("spellType");
+
+        s.FriendlyUnits = Flag("friendlyUnits");
+        s.EnemyUnits = Flag("enemyUnits");
+        s.IncludeHero = Flag("includeHero");
+        s.IncludeMinions = Flag("includeMinions");
+        s.IncludeSpells = Flag("includeSpells");
+        s.IncludeWhispers = Flag("includeWhispers");
+        s.IncludeWeapons = Flag("includeWeapons");
+        s.IncludeRemnants = Flag("includeRemnants");
+        s.IncludeHeroParts = Flag("includeHeroParts");
+        s.IncludeSelf = Flag("includeSelf");
+        s.ExcludeNotSelf = Flag("excludeNotSelf");
+        s.ExcludeSimilarCards = Flag("excludeSimilarCards");
+        s.ExcludeTargetted = Flag("excludeTargetted");
+        s.ExcludeFriendlyHero = Flag("excludeFriendlyHero");
+        s.ExcludeEnemyHero = Flag("excludeEnemyHero");
+        s.ExcludeRace = Flag("excludeRace");
+        s.ExcludeTrait = Flag("excludeTrait");
+        s.SelectFromChooseResolution = Flag("selectFromChooseResolution");
+
+        s.FilterSpecificCardIds = Ids("filterSpecificCards");
+        s.ExcludeEnchantmentIds = Ids("excludeEnchantments");
+
+        badCount = bad;
+        return s;
     }
 
     static void Dump(string line, string tag = "SEG", CardDef card = null)

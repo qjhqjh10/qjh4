@@ -298,6 +298,7 @@ public static partial class RuleEngineTest
         Step(TestArmorMinimumOne);
         Step(TestShieldBlocks);
         Step(TestRangedEatsCounter);
+        Step(TestRetaliationEvent);      // 🆕 2026-10-22（`W64`）：反击的**独立事件**（近战/远程各一条）
         Step(TestLongRangeNoCounter);
 
         Section("目标合法性");
@@ -854,6 +855,24 @@ public static partial class RuleEngineTest
         Step(TestW61bSpendInsufficientDrainsToZero); // 付不起 ⇒ 原版把余额**清零**（不是「不扣」）
         Step(TestW61bInitialModifiers);              // initialHand/Mana/SpiritStoneModifier
         Step(TestW61bSkipCardDrawProducer);          // skipCardDraw 的生产 → 消费 → 摘除
+
+        // ============================================================
+        //  🔴 2026-10-22（引擎线 `W64` · 战斗审计 `B-16` 根因条）：**结构化条件层**
+        //  `TargetCriteria.conditionsFilter`（`UnitConditions` 枚举）的数据侧。
+        //  判据 → `资料/普查产出_1022/W64_兜底审计_战斗.md` 的 `B-16`（`B-05` `foreach` / `B-06` `istype`
+        //  的根因同源）；求值器 `d:/2/tools/decomp_full/FilterMethods__MeetsConditionCriteria.c`。
+        //  ⚠️ 本波**只落数据 + 数据模型 + 探针**，消费端（`EffectResolver` / `RuleCore`）下一波才切；
+        //     旧文本正则**不删** ⇒ 行为零变化。测试体全在本文件（`TestW64UnitConditions`）。
+        Section("🆕 `W64`：结构化条件 `unitConditions`（167 张逐张对真值 / 未知 vs 无条件 / 语义 220·244）");
+        Step(TestW64UnitConditions);
+        // 消费端：结算层真的吃结构化条件（`ConditionHolds` 的入口第一跳）。
+        Section("🆕 `W64`：结构化条件**消费端**（求值器 / 接线判别式 / 旧表守卫 / 不劫持 Codex）");
+        Step(TestW64StructuredConditions);
+        Section("🆕 `W64`：结构化条件 → **目标筛选**那一档（机制 + TL46/ASH73/SW14 反例守卫 + 不双判）");
+        Step(TestW64StructuredTargetFilters);
+        Section("🆕 `W64`：结构化条件**逐 ability 归位**（TL46/ASH73/SW14 三条反例 + 正向 AM61 + "
+              + "`IsLegalPick` ↔ `ResolveTargets` 同口径）");
+        Step(TestW64OpAbilityTargetConditions);
 
         // 🔴 **`Run()` 自己的「静默少跑」闸**（`A1591`）—— 必须在【汇总】之前跑，
         //    否则它的 `Check` 不计进 `_pass/_fail`（汇总行会漏掉它）。
@@ -15285,12 +15304,12 @@ public static partial class RuleEngineTest
         {
             var kinds = new List<string>();
             foreach (EvtKind k in System.Enum.GetValues(typeof(EvtKind))) kinds.Add(k.ToString());
-            Check(kinds.Count, 16, "`EvtKind` 现在 **16** 种（原有 15 + `Heal`（W58 治疗表现））"
+            Check(kinds.Count, 17, "`EvtKind` 现在 **17** 种（16 + `Retaliation`（`W64` 反击演出））"
                                  + " —— 🔴 **加新事件时同步改这一条**：它是「事件表」的护栏"
                                  + "（`BattleEvent.cs` 头写着「少而稳定」）");
             CheckTrue(kinds.Contains("Draw") && kinds.Contains("AmbushExit") && kinds.Contains("SecretOrder")
-                      && kinds.Contains("Heal"),
-                      "★ 新事件都在表里（`Draw` / `AmbushExit` / `SecretOrder` / `Heal`）");
+                      && kinds.Contains("Heal") && kinds.Contains("Retaliation"),
+                      "★ 新事件都在表里（`Draw` / `AmbushExit` / `SecretOrder` / `Heal` / `Retaliation`）");
 
             // 「今天没有任何一处会发它」—— 跑几个回合问一遍。
             // ⚠️ **这一条不是行为断言、是记账**：🔴 **2026-10-19 第五十五会话 `E3` 订正（铁律 5）**：
@@ -24127,6 +24146,92 @@ public static partial class RuleEngineTest
         Check(Board(ctx, 0, 3).Health, 1, "**远程未击杀 → 照样吃目标反击 1 伤**（2→1）");
         // ⚠️⚠️ 这条最容易写反。直觉是「远程不受反击」，我们上一版复刻 rule_core.gd（旁证，非原版判据）有明确修正记录：
         //     「2026-08-21 修正：此前远程完全不吃反击，Long Range/Sniper 成死代码」
+    }
+
+    /// <summary>
+    /// 🆕 **2026-10-22（`W64` · 反击演出）：反击要发一条【独立事件】**（远程 / 近战各一条）。
+    ///
+    /// <para>**判据（第一权威）= `BattleManager._ResolveAttack_d__438__MoveNext.c:1114-1152`** ——
+    /// 那一段是「守方还手」的**唯一**时机；表现层要拿它去播**守方自己**那一发
+    /// （`:1121 CardScript__ResolveAttackRangedAnim(守方 /* +0x130 */, 攻方 /* +0x28 */, 0, 0)`，
+    /// 远程打法才播、近战打法守方不播）。载荷（字段归属）的判据同样在这一段：
+    /// 守方 = `+0x130`、攻方 = `+0x28`、远近 = `*(int*)(攻击上下文 + 0x58) == 2`。</para>
+    ///
+    /// <para>🔴 **灭自证**：把 `RuleCore` 里那条 `ctx.Emit(EvtKind.Retaliation, …)` 删掉
+    /// （= 「对攻方造成伤害但**不发事件**」）⇒ ① 的 `n = 1` 与 ② 的 `n2 = 1` 同时红
+    /// （③ 那一档本来就期望 0，所以它是**配对**的那一半：证明事件不是「无条件发」）；
+    /// 把 `ranged:` 写成常量 `false`（或 `true`）⇒ 远程/近战两条**必有一条**红
+    /// （两种改法不可能同时绿）。</para>
+    ///
+    /// <para>⚠️ **顺序**也要钉：原版是「先播守方的远程动画（协程跑完）→ 才落伤害 `:1136-1147`」
+    /// ⇒ 事件必须排在**攻方挨反击那条 `Hit` 之前**（表现层的时间线据此先弹道后掉血）。</para>
+    /// </summary>
+    static void TestRetaliationEvent()
+    {
+        // ---- ① 远程：守方用**它自己的**远程件还手（原版 `:1119-1131`）----
+        {
+            UnitState atk, def;
+            var ctx = Duel(Ranged("Shooter", 1, 2, 20, 3), Ranged("Gunner", 1, 1, 20, 6), out atk, out def);
+            ctx.ClearSignals();                     // 摆位/换回合的残留信号不混进来
+            CheckCode(RuleCore.DeclareAttack(ctx, 0, 3, 1, 3, ranged: true), RuleCodes.OK, "远程攻击打出去");
+
+            int n = 0, idx = -1, hitOnAttackerAt = -1;
+            BattleEvent ret = null;
+            for (int i = 0; i < ctx.Signals.Count; i++)
+            {
+                var e = ctx.Signals[i];
+                if (e.Kind == EvtKind.Retaliation) { n++; ret = e; idx = i; }
+                if (e.Kind == EvtKind.Hit && e.Player == 0 && hitOnAttackerAt < 0) hitOnAttackerAt = i;
+            }
+            Check(n, 1, "★ 一次反击 = **恰好一条** `Retaliation` 事件（`EvtKind.Retaliation`）"
+                      + " —— 🧨 只 `Hurt` 不发事件 ⇒ 0 条，本条红");
+            CheckTrue(ret != null, "（前提）拿得到那条事件");
+            if (ret != null)
+            {
+                Check(ret.Player, 1, "★ 事件主语 = **守方**（P2 / 座位 1）—— 原版那个协程的施法者是 `+0x130`");
+                Check(ret.Slot, 3, "★ 守方格号 = 3");
+                Check(ret.CardId, "Gunner", "★ 事件带的是**守方卡名**（表现层按它解析逐卡件）");
+                Check(ret.TargetPlayer, 0, "★ `Target*` = **攻方**（P1 / 座位 0）—— 与 `Attack` 的归属**相反**");
+                Check(ret.TargetSlot, 3, "★ 攻方格号 = 3");
+                Check(ret.TargetCardId, "Shooter", "★ 攻方卡名（件的朝向目标）");
+                CheckTrue(ret.Ranged, "★ 远程打法 ⇒ `Ranged = true`（守方用远程件还手；原版 `+0x58 == 2` 那一支）");
+                Check(ret.Amount, 0, "★ `Amount` 恒 0 —— 伤害量走紧跟其后的那条 `Hit`（⛔ 别在这条上再记一份）");
+            }
+            CheckTrue(hitOnAttackerAt >= 0, "（前提）攻方真的挨了反击那一条 `Hit`");
+            CheckTrue(idx >= 0 && hitOnAttackerAt >= 0 && idx < hitOnAttackerAt,
+                      $"★ 反击事件排在**攻方挨打那条 `Hit` 之前**（事件 #{idx} < Hit #{hitOnAttackerAt}）"
+                    + " —— 原版是先播守方的远程动画、协程跑完才落伤害（`:1121` → `:1136-1147`）");
+        }
+
+        // ---- ② 近战：**同一条事件**、但 `Ranged = false`（原版 `:1132-1150` 守方不播攻击动画）----
+        {
+            UnitState atk2, def2;
+            var ctx2 = Duel(Ranged("Brawler", 1, 2, 20, 3), Ranged("Guard", 1, 1, 20, 6), out atk2, out def2);
+            ctx2.ClearSignals();
+            RuleCore.DeclareAttack(ctx2, 0, 3, 1, 3, ranged: false);
+
+            int n2 = 0; BattleEvent ret2 = null;
+            foreach (var e in ctx2.Signals)
+                if (e.Kind == EvtKind.Retaliation) { n2++; ret2 = e; }
+            Check(n2, 1, "★ 近战攻击**也**发一条反击事件（守方照样还手）—— 🧨 只在远程档发 ⇒ 0 条，本条红");
+            CheckTrue(ret2 != null && !ret2.Ranged,
+                      "★ 近战打法 ⇒ `Ranged = false`（表现层**不播**守方的攻击件 —— 原版 `:1132-1150` 守方没有动画）"
+                    + " —— 🧨 恒定写成 `ranged: true` ⇒ 本条红（远程那条的期望是 true，两种改法不可能同时绿）");
+            Check(ret2 != null ? ret2.CardId : null, "Guard", "★ 主语仍是**守方**（近战档也一样）");
+            CheckTrue(def2.Health == 20 - 2, "（前提）守方挨了 2 点主伤害");
+        }
+
+        // ---- ③ 不反击的那一档：**一条事件都不许发**（Long Range 远程不承受反击，规则书 :191）----
+        {
+            UnitState lr, rat;
+            var ctx3 = Duel(Ranged("LR2", 2, 0, 20, 2, "Long Range"), Ranged("Rat2", 1, 1, 20, 9), out lr, out rat);
+            ctx3.ClearSignals();
+            RuleCore.DeclareAttack(ctx3, 0, 3, 1, 3, ranged: true);
+            int n3 = 0;
+            foreach (var e in ctx3.Signals) if (e.Kind == EvtKind.Retaliation) n3++;
+            Check(n3, 0, "★ Long Range 远程 ⇒ **没有反击** ⇒ **一条 `Retaliation` 都不发**"
+                       + " —— 🧨 把事件挪到 `if (!noCounter && …)` 外面 ⇒ 本条红");
+        }
     }
 
     static void TestLongRangeNoCounter()
@@ -33661,5 +33766,1045 @@ public static partial class RuleEngineTest
         //    （`TargetCriteria.includeHero`，`FilterMethods__CheckIfMeetsCriteria.c:285-287`），
         //    而每张卡那一格本地取不到；我们「恒含」只是个近似（`E4` 报告 §`A1468`② 判据不足）
         //    ⇒ 断言钉住它会把一个**未定案的口径**锁死（铁律：自检绿 ≠ 口径对）。
+    }
+
+    // ==================================================================
+    //  🆕 2026-10-22（引擎线 `W64` · 战斗审计 `B-16` 根因条）：**结构化条件** `unitConditions`
+    // ==================================================================
+    //  判据（第一权威 = 全量反编译 `d:/2/tools/decomp_full/`）：
+    //   · 字段 = `TargetCriteria.conditionsFilter`（`Assembly-CSharp/TargetCriteria.cs:53`）
+    //     ＋ `excludeCondition`（`:58`）；求值 = `FilterMethods__MeetsConditionCriteria.c`（390 行），
+    //     末段 `:384-389` = `exclude ? !match : match`。
+    //   · 十个位置 / `ab`·`lg` 编码 / `-1` 契约 → `Core/CardDef.cs` 的 `ConditionOf` 那一节注释。
+    //   · 数据源 = `cards_raw.json`（真值 SO 快照）的十处 `TargetCriteria`。
+    //  ⚠️ 下面那张**真值表**是从 `cards_raw.json` **独立**走了一遍（⛔ 不跑生成器、不读
+    //     `cards_engine.json`）—— 「独立走一遍」正是它不当自证的理由：生成器的 Python 走法与
+    //     这张表的走法是两份实现，两边不一致就红。
+    //     重算方法（改卡池 / 改生成器之后照这个跑一遍即可）：读 `cards_raw.json` 每张卡的
+    //     `full_raw`，按十个位置取 `conditionsFilter != 0` 的行，行格式
+    //     `ab,lg,role,cond,ex[,opt,op,refValue]`（`count` 才带后三格），卡内**按字符串序**排、`;` 连接。
+    //     ⚠️ 表只收**在池内**的卡（真值快照 1,351 张里 186 张有条件，其中 167 张在现池）。
+
+    /// <summary>🆕 `W64`：`unitConditions` 的逐卡真值（`id|` + 上面那种行串）。</summary>
+    static readonly string[] W64ConditionsTruth =
+    {
+"09bcb1b3b8794c4429d82d4b2e68fa1f|-3,0,nontarget,10,0",   // Path of the Seer
+"1bfe0893592c9dd40bed8d68d5d2b516|-3,-1,cardtarget,275,0",   // Path of the Warrior
+"1ff4815a506d2f34e94ec2f50900d352|1,-1,target,220,0",   // Efficiency and Excellence
+"27a4b748a7bf358499f038aa09895ead|-3,-1,cardtarget,340,0",   // Reanimate
+"33eabec155f628440a426a4ba480ec24|-3,0,nontarget,10,0",   // Wrath of Khaine
+"3a52026b99bb56f40aa9dc130fc66f34|-3,0,nontarget,341,1",   // Cadian Honour
+"468db99b4b10d0745bab346df37d3fb2|-3,-1,cardtarget,40,0",   // Feeding Frenzy
+"4cdc1b5f965f99945b685bca7660e9fa|1,-1,target,220,1",   // Exemplar of Hate
+"507f79fa60945d04e93fe806aca912b7|-3,-1,cardtarget,276,0",   // Deploy Anchors
+"61046837c330b48978b4af5201230b6e|-3,0,nontarget,10,0",   // Helspear Assault
+"64a657fc5ed5bbb4fa7b585cf29c1e95|1,-1,target,220,1",   // Da Bigger Dey Iz...
+"67adbc7f7bce2bd4c8f6937fab3134e5|-3,0,nontarget,10,0",   // Flickerjump
+"70199b6f183ec364082ca16e62f3d0cb|-3,0,targetscore,10,0",   // Heliotrophos
+"708c0306e73fd494eb0f718ddaeea48a|1,0,target,40,0",   // Smothering Decree
+"7bf8ce67fb6be4744ae44345a5b465fd|-3,0,nontarget,10,0",   // Diabolic Strength
+"8425b809e9e64e24f9035f709f5aaee4|-3,0,nontarget,10,0",   // Worst Temper
+"851f73daf747eb642934a16429b391db|1,0,target,220,1",   // Storm of Silence
+"8f2da557fe484ee4bbf427c13eccd4cb|-3,-1,cardtarget,40,0",   // Alpha Warrior
+"9c3562ffa183ede41b1626d9c9dc1e2f|-3,0,nontarget,10,0",   // Path of Command
+"AM18|0,0,target,220,1",   // Master of Ordnance
+"AM21|0,0,target,40,0;1,0,target,40,0",   // Tech-Priest Enginseer
+"AM32|0,0,target,220,1",   // Leman Russ Tank
+"AM43|0,-1,count,331,0,0,2,1;1,-1,count,331,0,0,1,0",   // Recon Operation
+"AM44|0,0,target,220,1",   // Shock Troops
+"AM47|-3,0,nontarget,341,1",   // Press the Attack
+"AM53|0,0,target,220,1",   // Artillery Strike
+"AM6|0,0,target,220,1",   // Ratling
+"AM61|0,0,target,220,1",   // Defence Batteries
+"AM67|0,0,target,220,1",   // Aquilon Servo-Sentry
+"AM69|0,0,target,220,1",   // Tempestor Sergeant
+"AM75|1,-1,target,220,0",   // Valkyrie Drop
+"AM8|0,0,target,40,0;1,0,target,40,0",   // Cadian Medic
+"AM9|0,0,target,220,1",   // Kasrkin
+"ASH30|0,-1,target,244,1;1,-1,target,244,0;1,0,target,244,0",   // Fire Prism
+"ASH46|0,0,target,220,1",   // Aerial Dominion
+"ASH47|-3,0,nontarget,10,0",   // Bladestorm
+"ASH48|0,0,target,241,0;1,0,target,241,0",   // Cosmic Serpent
+"ASH73|0,1,target,220,0",   // Whirling Death
+"BL28|0,0,target,220,1",   // Helbrute
+"BL3|0,0,target,220,1",   // Chaos Legionary
+"BL50|-3,-1,cardtarget,40,0;0,0,target,40,0",   // Execution
+"BL63|0,0,target,220,1",   // Havoc
+"BL64|-3,-1,cardtarget,40,0;0,0,target,341,1",   // Murderous Desires
+"BL69|0,0,target,220,1",   // Meltagun Legionary
+"DA15|1,0,target,220,1",   // Ravenwing Champion
+"DA17|0,0,target,220,1",   // Deathwing Terminator
+"DA22|1,-1,acting,220,1",   // Techmarine
+"DA24|0,0,target,220,1",   // Company Champion
+"DA34|0,0,target,220,1",   // Unforgiven Redemptor
+"DA38|1,-1,target,220,0",   // Repulsor
+"DA43|1,-1,target,220,0",   // Grim Resolve
+"DA60|0,0,target,220,1",   // Defensive Turrets
+"EC2|0,0,target,244,0",   // Blastmaster Noise Marine
+"EC3|0,0,target,245,0",   // Disharmonist
+"EC39|-3,-1,avail,222,0;-3,-1,choice,222,0;0,0,target,222,0",   // Eternal Servitude
+"EC40|0,1,target,220,1;1,-1,target,220,1",   // Embrace the Pain
+"EC5|0,0,target,220,1",   // Tormentor
+"EC50|1,-1,target,220,0",   // Rapid Evisceration
+"EC55|1,0,target,220,1",   // Lucius the Eternal
+"EC58|0,-1,count,221,0,0,1,0;1,-1,count,221,0,0,2,1",   // Vengeful Surge
+"GOF10|0,0,target,220,1",   // Grot Tank
+"GOF104|0,-1,target,220,0;2,-1,target,220,0",   // Drag it Down
+"GOF12|0,0,target,220,1",   // Spanner
+"GOF13|0,0,target,220,1",   // Deffgun Loota
+"GOF16|0,0,target,220,1",   // Big Krumpaz
+"GOF17|0,0,target,220,1",   // Killa Kan
+"GOF22|0,0,target,220,1;1,0,target,220,1",   // Deff Dread
+"GOF24|0,0,target,220,1",   // Battlewagon
+"GOF25|0,0,target,220,1",   // Gorkanaut
+"GOF26|0,0,target,220,1;1,0,target,220,1",   // Stompa
+"GOF3|1,0,target,220,1",   // Bomb Squig
+"GOF38|-3,0,nontarget,10,0",   // Proper Killy
+"GOF41|0,0,target,220,1",   // Unbridled Carnage
+"GOF56|0,0,target,220,1",   // Deffkopta
+"GOF58|0,0,target,220,1",   // Boomdakka Snazzwagon
+"GOF59|0,0,target,220,0;1,0,target,220,1",   // Big Shoota Boy
+"GOF61|1,0,target,220,1",   // Rukkatrukk Squigbuggy
+"GOF63|0,0,target,220,1",   // Gunwagon
+"GOF66|0,0,target,220,1",   // Rokkit Boy
+"GOF69|0,0,target,220,1",   // Mega Blasta Deffkopta
+"GOF70|1,0,target,220,1",   // Krumpaklaw
+"GOF74|-3,0,nontarget,40,0;0,1,mult,40,0",   // Grizzled Skarboy
+"GOF80|-3,0,targetscore,40,0",   // Grot Orderly
+"GOF86|0,0,target,220,1",   // Unleashed Tramplasquig
+"GOF9|0,0,target,220,1",   // Shoota Boy
+"GOF90|0,0,target,220,1;1,0,target,220,1",   // Wurrboy
+"GOF92|0,0,target,220,1",   // Weirdboy
+"GOF95|0,0,target,220,1;1,0,target,244,1;1,1,target,244,0",   // Kill Rig
+"GOF96|0,0,target,220,1",   // Snakebite Battlewagon
+"GSC11|0,0,target,220,1",   // Neophyte Heavy
+"GSC17|1,0,target,220,1",   // Locus
+"GSC22|0,0,target,220,1",   // Cult Sentinel
+"GSC25|0,0,target,220,1",   // Sanctus
+"GSC28|0,1,target,220,1",   // Hulking Aberrant
+"GSC34|0,0,target,220,1",   // Kelermorph
+"GSC38|0,0,target,220,1",   // Cult Leman Russ
+"GSC46|0,-1,target,244,1;1,-1,target,244,0;1,0,target,244,0",   // Bore Through
+"GSC56|0,0,target,220,1;1,0,target,220,1",   // A Trap Sprung
+"GSC6|0,0,target,220,1",   // Neophyte Initiate
+"GSC68|0,0,target,220,1",   // Atalan Jackal
+"GSC75|0,0,target,220,1;1,0,target,220,1",   // Roaming Outriders
+"SAU11|-3,-1,avail,340,0;0,0,target,340,0;1,0,target,340,0",   // Technomancer
+"SAU17|0,0,target,220,1",   // Psychomancer
+"SAU19|-3,-1,cardtarget,340,0",   // Canoptek Reanimator
+"SAU20|1,0,target,340,0",   // Chronomancer
+"SAU22|0,0,target,220,1",   // Lokhust Heavy Destroyer
+"SAU25|0,0,target,220,1",   // Hexmark Destroyer
+"SAU26|0,0,target,220,1",   // Plasmancer
+"SAU36|1,0,target,340,0",   // Nemesor Zahndrekh
+"SAU40|1,-1,target,340,0",   // Protection Protocol
+"SAU41|-3,-1,cardtarget,340,0",   // Reanimation Protocol
+"SAU42|0,0,target,40,0",   // Relentless Advance
+"SAU49|-3,0,nontarget,340,0;0,0,target,340,0",   // Resurrection Orb
+"SAU59|1,-1,target,220,0",   // Awakened Obelisk
+"SAU6|0,0,target,220,1",   // Tesla Immortal
+"SAU61|-3,-1,cardtarget,340,0",   // Resurrection Vault
+"SAU68|0,0,target,220,1",   // Lokhust Destroyer
+"SAU71|0,0,target,220,1",   // Immortals Phalanx
+"SOR21|0,0,target,220,1",   // Death Cult Assassin
+"SOR31|1,-1,target,220,1;2,-1,target,220,0",   // Dogmata
+"SOR39|-3,0,targetscore,243,0",   // Prayer
+"SOR42|-3,-1,avail,222,0;-3,-1,choice,222,0;-3,0,nontarget,221,0;0,-1,count,222,0,0,2,1;0,0,target,222,0",   // Rite of Restoration
+"SOR46|-3,0,targetscore,40,0;0,1,target,40,0",   // Furious Reprisal
+"SOR54|-3,0,nontarget,10,0",   // Fiery Conviction
+"SOR70|0,-1,count,243,0,0,2,1",   // Sororitas Rhino
+"SOR72|0,0,target,220,1",   // Castigator
+"SOR75|0,1,target,243,0",   // Devout Serenity
+"SW14|0,0,target,40,0",   // Wolf Priest
+"SW22|0,-1,target,220,1",   // Blackmane Inceptor
+"SW42|1,-1,target,220,0",   // Savage Legacy
+"SW44|0,0,target,221,0;0,1,target,221,0",   // Death Shun
+"SW7|0,0,target,220,1",   // Deathwolf Scout
+"SW9|-1,-1,target,50,1",   // Fenrisian Wolf
+"TAU18|0,-1,target,220,1",   // Fire Warrior Marksman
+"TAU58|1,-1,target,220,1",   // Coordinated Engagement
+"TAU6|0,0,target,220,1",   // Gun Drone
+"TAU7|0,0,target,220,1",   // Marker Drone
+"TAU75|-3,0,nontarget,40,0;0,0,mult,40,0",   // Hunter's Instincts
+"TL17|0,0,target,220,1",   // Deathleaper
+"TL30|0,0,target,220,1;0,1,target,220,1;0,2,target,220,1;0,3,target,220,1;0,4,target,220,1;0,5,target,220,1;0,6,target,220,1;0,7,target,220,1",   // Tyrannofex
+"TL37|0,0,target,220,1",   // Spore Mine
+"TL45|-3,0,targetscore,10,0",   // Apex Predator
+"TL46|1,0,target,40,0",   // Rapacious Hunger
+"TL62|0,0,target,220,1;0,1,target,220,1",   // Ravener
+"TL68|1,0,mult,40,0",   // Psychophage
+"TL71|0,0,target,220,1;0,1,target,220,1",   // Toxic Entanglement
+"TL75|0,0,target,220,1",   // Termagant Brood
+"UM116|2,0,target,40,0",   // No Mercy
+"UM15|0,0,target,40,0;0,1,target,40,0",   // Apothecary Polixis
+"UM2|-3,-1,cardtarget,40,0",   // Octavio Infiltrator
+"UM21|0,0,target,220,1",   // Primaris Judiciar
+"UM3|0,0,target,220,1",   // Firstborn
+"UM42|-3,0,targetscore,341,0",   // Forward Deployment
+"UM43|-3,0,nontarget,10,0",   // Knights of Macragge
+"UM55|0,0,target,220,1",   // Sternguard Sergeant
+"UM56|0,0,target,220,1",   // Intercessor Sergeant
+"UM59|0,0,target,220,1",   // Stormtalon
+"UM72|0,0,target,220,1",   // Predator Annihilator
+"UM77|0,0,target,220,1;1,-1,multi,222,0;1,0,mult,222,0;1,0,target,220,1",   // Chairon
+"UM79|0,0,target,244,0",   // Primaris Eradicator
+"a84a5b49f0ca9144585058db6987c2a0|1,-1,target,220,0",   // Master Interromancer
+"b4d6d186eb95a3f468013c5be649ee3b|1,-1,target,220,1",   // Sawbonez
+"b9665eadf1207ff49bcf0a730b0b7f9d|1,-1,target,220,0",   // Euphoric Strike
+"d19e8b68aaa9a884781d06697ad237a6|-3,-1,cardtarget,277,0",   // Special Dose
+"dc7e575c0a328f446be1521c23ec850b|-3,0,nontarget,10,0;1,-1,target,220,0;1,0,target,220,1",   // Empyric Ambush
+"e59ac9e46f4ea804784e954c3b820e77|-3,-1,cardtarget,275,0;-3,0,nontarget,10,0",   // Path of the Warrior
+"f104d4c21abe84546abc9365d9eda8dd|-3,0,nontarget,10,0",   // Righteous Repugnance
+    };
+
+    /// <summary>把一张卡的 `Conditions` 归一成真值表那一种行串（**按字符串序**，与表同口径）。</summary>
+    static string W64FormatConditions(CardDef c)
+    {
+        var rows = new List<string>();
+        foreach (var s in c.Conditions)
+        {
+            string r = s.Ability.ToString(System.Globalization.CultureInfo.InvariantCulture) + ","
+                     + s.Logic.ToString(System.Globalization.CultureInfo.InvariantCulture) + ","
+                     + s.Role + ","
+                     + s.Condition.ToString(System.Globalization.CultureInfo.InvariantCulture) + ","
+                     + (s.Exclude ? 1 : 0);
+            if (s.Role == "count")
+                r += "," + s.CountOption.ToString(System.Globalization.CultureInfo.InvariantCulture)
+                   + "," + s.StatOption.ToString(System.Globalization.CultureInfo.InvariantCulture)
+                   + "," + s.ReferenceValue.ToString(System.Globalization.CultureInfo.InvariantCulture);
+            rows.Add(r);
+        }
+        rows.Sort(StringComparer.Ordinal);
+        return string.Join(";", rows.ToArray());
+    }
+
+    /// <summary>
+    /// 🆕 `W64` 夹具：**照原版方法体**判一条条件（⛔ 不读我们任何实现常量）。
+    ///
+    /// <para>只覆盖本测试点名的两条（判据逐句写在下面）；其它 `cond` 一律 `false` ——
+    /// 那些行**不在本夹具的断言范围**里（本波只落数据，消费端下一波才做）。</para>
+    ///
+    /// <para>· **244 `hasArmour`** ← `FilterMethods__MeetsConditionCriteria.c:298-311`（`case 0xf4`）：
+    /// 读 `card+0xb8..+0xc8` 那一组值，`0 &lt; 值` ⇒ 真。同一组值在
+    /// `CardScript__EnoughPendingDamageToDieWithDamageValues.c:130-150` 就是**护甲减伤**用的那份
+    /// ⇒ 语义 = 「当前护甲 &gt; 0」。</para>
+    ///
+    /// <para>· **220**（枚举名 `dealtKillDmg`，⚠️ **名字 ≠ 语义**：
+    /// `RuleCore.cs:11103` 已订正过同一条）← `:253-257` → `CardScript__EnoughPendingDamageToDie(card)`：
+    /// 状态 5（待死）⇒ 真；否则 `血量 + 堡垒 &lt;= 待处理伤害` 且**没有幸存者** ⇒ 真
+    /// （`…WithDamageValues.c:238-245`）。⇒ 语义 = 「这条命已经救不回来了」。</para>
+    /// </summary>
+    static bool W64Apply(CardDef.ConditionSpec s, int armour, int health, int pending, int survivor)
+    {
+        bool match;
+        switch (s.Condition)
+        {
+            case 244: match = armour > 0; break;
+            case 220: match = survivor <= 0 && health <= pending; break;
+            default:  match = false; break;
+        }
+        return s.Exclude ? !match : match;      // 原版 `MeetsConditionCriteria.c:384-389`
+    }
+
+    /// <summary>🆕 2026-10-22（`W64` · 战斗审计 `B-16`）：结构化条件的数据层自检。
+    ///
+    /// <para>五组断言：① 版本正面信号 + 覆盖数；② **167 张逐张**对真值表（含「表里的 id 必须都在池内」）；
+    /// ③ 0 条件的卡 ⇒ `ConditionNone`（**不是** `ConditionUnknown`）；④ 旧版表 ⇒ 出声 + 未知
+    /// （**且不是** `ConditionNone` —— 灭自证那一半）；⑤ 抽 220 / 244 两条语义的期望真假。</para>
+    ///
+    /// <para>🧨 反证：把 `CardDef.ConditionOf` 在旧表上改成返回 `ConditionNone` ⇒ ④ 红；
+    /// 把生成器的 `ex` 取反 ⇒ ②⑤ 红；把 `role` 写成十个位置之外的名字 ⇒ ② 红。</para>
+    /// </summary>
+    static void TestW64UnitConditions()
+    {
+        var pool = CardDatabase.Load();
+        CheckTrue(pool.Count >= 1000, $"(前提) 卡池 {pool.Count} 张");
+
+        // ---- ① 版本正面信号 + 覆盖数（全空也会「逐张相等」⇒ 先把它钉住）----
+        int versioned = 0, withRows = 0, rowTotal = 0;
+        foreach (var c in pool)
+        {
+            if (c.ConditionsVersioned) versioned++;
+            if (c.Conditions.Count > 0) { withRows++; rowTotal += c.Conditions.Count; }
+        }
+        Check(versioned, pool.Count,
+              "★ 全池卡都来自 v15+ 卡表（`ConditionsVersioned` 全真 —— 否则 `ConditionOf` 全是 -1 未知）"
+            + "｜🧨 `CardDatabase.Parse` 的 `conditionsVersioned: dto.version >= 15` 写错 ⇒ 红");
+        Check(withRows, 167,
+              "★ `unitConditions` 落值 **167** 张（真值快照 186 张有条件、其中 167 张在现池）"
+            + "｜🧨 生成器漏一个位置（十个 role 少一个）⇒ 掉下去");
+        Check(rowTotal, 218,
+              "★ 条件行合计 **218** 条（同上：`cards_raw.json` 十处 `conditionsFilter != 0`，池内部分）"
+            + "｜🧨 漏 role / 漏 ab·lg 的行才会掉；`count` 参数漏落不影响这个数");
+
+        // ---- ② 逐张真值（167 张；独立走法，见本节头顶）----
+        var truth = new Dictionary<string, string>(StringComparer.Ordinal);
+        foreach (var line in W64ConditionsTruth)
+        {
+            int bar = line.IndexOf('|');
+            if (bar <= 0) continue;
+            truth[line.Substring(0, bar)] = line.Substring(bar + 1);
+        }
+        Check(truth.Count, 167, "★ 真值表自身 167 行（少一行 = 表被误删）");
+        var mismatched = new List<string>();
+        int compared = 0;
+        foreach (var c in pool)
+        {
+            string want;
+            truth.TryGetValue(c.Id, out want);
+            string got = W64FormatConditions(c);
+            if (!string.Equals(got, want ?? "", StringComparison.Ordinal))
+                mismatched.Add($"{c.Id}（{c.Name}）我们=[{got}] 真值=[{want}]");
+            if (!string.IsNullOrEmpty(want)) compared++;
+        }
+        Check(compared, truth.Count,
+              "★ 真值表里的每张卡都在池内被比到（⛔ 表里的 id 与池对不上会静默少比）"
+            + "｜🧨 卡池 id 改名 / 表里写了池外卡 ⇒ 红");
+        Check(mismatched.Count, 0,
+              "★ **167 张逐张**：`unitConditions` 与 `cards_raw.json` 真值**逐条相等**"
+            + "（ab/lg/role/cond/ex + count 的三个参数）"
+            + (mismatched.Count > 0 ? " —— 差异：" + string.Join(" / ", mismatched.ToArray()) : "")
+            + "｜🧨 生成器少落/多落一个位置、`ex` 取反、`count` 参数读错字段 ⇒ 红");
+
+        // ---- ③ 0 条件的卡 ⇒ **无条件**（`ConditionNone`），⛔ 不是未知 ----
+        int noneOk = 0;
+        var noneBad = new List<string>();
+        foreach (var c in pool)
+        {
+            if (truth.ContainsKey(c.Id)) continue;
+            int v = c.ConditionOf(0, -1, "target");
+            if (v == CardDef.ConditionNone && !c.ConditionExcluded(0, -1, "target")) noneOk++;
+            else noneBad.Add($"{c.Id}（{c.Name}）= {v}");
+        }
+        Check(noneBad.Count, 0,
+              "★ **没有条件的卡**解析成 `ConditionNone`（0）而不是 `ConditionUnknown`（-1）"
+            + (noneBad.Count > 0 ? " —— 不对：" + string.Join(" / ", noneBad.ToArray()) : "")
+            + "｜🧨 把「查不到」和「无条件」并成一个哨兵 ⇒ 红");
+        CheckTrue(noneOk >= 900,
+                  $"★ 无条件的卡 {noneOk} 张（现池 1127 - 167 = 960）—— 数量级对才说明整列没漏读");
+
+        // ---- ④ 旧版表（version 14）⇒ **出声 + 未知**（且不是「无条件」）----
+        //   `unitConditions` 加列在 v15；v14 的表整列没有 ⇒ 必须出声，⛔ 不许静默当「全池都没条件」。
+        const string oldTable =
+            "{\"version\":14,\"count\":1,\"cards\":[{\"id\":\"W64X\",\"name\":\"W64 旧表探针\","
+          + "\"type\":\"unit\",\"desc\":\"\",\"rarity\":\"Common\",\"faction\":\"Ultramarines\","
+          + "\"cost\":1,\"attack\":1,\"health\":1,\"ranged\":0,\"subtype\":\"Infantry\"}]}";
+        {
+            int warns = 0;
+            Application.LogCallback onWarn = (text, stack, type) =>
+            {
+                // ⚠️ 只数**这一列**那条守卫：v14 的表会让 `<6/<8/<9/<10/<11/<12/<13/<14/<15` 九条
+                //   守卫**同时**出声，它们文案里都带 `version=14` ⇒ 不能按版本号筛。
+                if (type == LogType.Warning && text != null && text.Contains("unitConditions"))
+                    warns++;
+            };
+            List<CardDef> oldPool;
+            Application.logMessageReceived += onWarn;
+            try { oldPool = CardDatabase.Parse(oldTable); }
+            finally { Application.logMessageReceived -= onWarn; }
+            // ⚠️ `Parse` 会把这张假卡的卡名并进 `CreatePool` 的名字索引 ⇒ 用真池重建一次，别污染后面的用例。
+            CreatePool.BuildNameIndex(pool);
+
+            Check(oldPool.Count, 1, "(前提) 旧表探针卡被解析出来");
+            if (oldPool.Count == 1)
+            {
+                Check(oldPool[0].ConditionsVersioned, false,
+                      "★ v14 的表 ⇒ `ConditionsVersioned = false`（正面信号不许说谎）"
+                    + "｜🧨 把守卫写成 `>= 14` ⇒ 红");
+                Check(oldPool[0].ConditionOf(0, -1, "target"), CardDef.ConditionUnknown,
+                      "★ v14 的表 ⇒ `ConditionOf` = **-1 未知**（⛔ 不是 0 = 「没有条件」）"
+                    + "｜🧨 把旧表读成 none ⇒ 红");
+                CheckTrue(oldPool[0].ConditionOf(0, -1, "target") != CardDef.ConditionNone,
+                          "★ **灭自证**：旧表的「未知」与真表的「无条件」是**两个不同值**"
+                        + "（把两个哨兵并回一个，本条与上一条不可能同时绿）");
+                Check(warns, 1, "★ 旧表装载**出声**（`version < 15` 的 LogWarning 恰好一条）"
+                    + "｜🧨 删掉那条守卫 ⇒ 红");
+            }
+        }
+
+        // ---- ⑤ 语义（220 / 244）：抽两张卡，按**原版方法体**的期望真假断 ----
+        //   ASH30：`Deal 3 damage. If the target has Armour, deal 8 damage instead`
+        //          ⇒ ability0（3 点那半边）打的是**没有**护甲的目标（ex=1）、
+        //             ability1（8 点那半边）打的是**有**护甲的目标（ex=0）。
+        //   TAU18：`Strike: If the target survives, give it Markerlight 2` ⇒ 220 + ex=1。
+        //   GOF104：`… If target dies, give +1 Health to all friendly troops in hand` ⇒ 220 + ex=0。
+        var firePrism = CardDatabase.FindById(pool, "ASH30");
+        CheckTrue(firePrism != null, "(前提) ASH30 Fire Prism 在池内");
+        if (firePrism != null)
+        {
+            CardDef.ConditionSpec spec;
+            CheckTrue(firePrism.TryGetCondition(0, -1, "target", out spec),
+                      "ASH30 ability0 的结构化条件在 `target` 那一格");
+            if (spec != null)
+            {
+                Check(spec.Condition, 244,
+                      "★ ASH30 ability0 的 `cond` = **244**（`hasArmour`；原版 `+0x38` 的值）");
+                Check(spec.Exclude, true,
+                      "★ ASH30 ability0 的 `excludeCondition` = 1（3 点那半边 = 「**没有**护甲」）");
+                Check(W64Apply(spec, armour: 1, health: 5, pending: 0, survivor: 0), false,
+                      "★ 语义：**有护甲**的单位**不**落进 3 点那半边（原版 `exclude` 取反）"
+                    + "｜🧨 把 `ex` 读反 ⇒ 红");
+                Check(W64Apply(spec, armour: 0, health: 5, pending: 0, survivor: 0), true,
+                      "★ 语义：**没护甲**的单位落进 3 点那半边");
+            }
+            CheckTrue(firePrism.TryGetCondition(1, -1, "target", out spec),
+                      "ASH30 ability1 的结构化条件在 `target` 那一格");
+            if (spec != null)
+            {
+                Check(spec.Condition, 244, "★ ASH30 ability1 的 `cond` = 244（8 点那半边）");
+                Check(spec.Exclude, false, "★ ASH30 ability1 的 `excludeCondition` = 0（要的就是**有**护甲）");
+                Check(W64Apply(spec, armour: 1, health: 5, pending: 0, survivor: 0), true,
+                      "★ 语义：**有护甲**的单位落进 8 点那半边");
+                Check(W64Apply(spec, armour: 0, health: 5, pending: 0, survivor: 0), false,
+                      "★ 语义：**没护甲**的单位不落进 8 点那半边");
+            }
+        }
+
+        // 220：`If the target dies`（ex=0）vs `If the target survives`（ex=1）—— 同一枚举、相反结论。
+        var dieCard = CardDatabase.FindById(pool, "GOF104");     // Drag it Down
+        var surviveCard = CardDatabase.FindById(pool, "TAU18");  // Fire Warrior Marksman
+        CheckTrue(dieCard != null && surviveCard != null, "(前提) GOF104 / TAU18 都在池内");
+        if (dieCard != null && surviveCard != null)
+        {
+            CardDef.ConditionSpec dies, survives;
+            CheckTrue(dieCard.TryGetCondition(0, -1, "target", out dies), "GOF104 的 `If target dies` 有条件行");
+            CheckTrue(surviveCard.TryGetCondition(0, -1, "target", out survives), "TAU18 的 `If target survives` 有条件行");
+            if (dies != null && survives != null)
+            {
+                Check(dies.Condition, 220, "★ GOF104 的 `cond` = **220**（「这条命救不回来了」）");
+                Check(dies.Exclude, false, "★ GOF104 的 `excludeCondition` = 0（要的就是**会死**）");
+                Check(survives.Condition, 220, "★ TAU18 的 `cond` = 220（同一个枚举值）");
+                Check(survives.Exclude, true, "★ TAU18 的 `excludeCondition` = 1（要的是**没死**）");
+                // 夹具：3 点待处理伤害打在 3 血 / 4 血上（无护甲、无幸存者、非待死状态）
+                Check(W64Apply(dies, 0, health: 3, pending: 3, survivor: 0), true,
+                      "★ 语义：3 伤害打 3 血 ⇒ **会死** ⇒ 落进 `If target dies`");
+                Check(W64Apply(dies, 0, health: 4, pending: 3, survivor: 0), false,
+                      "★ 语义：3 伤害打 4 血 ⇒ 不会死 ⇒ 不落进 `If target dies`");
+                Check(W64Apply(survives, 0, health: 3, pending: 3, survivor: 0), false,
+                      "★ 语义：会死的**不**落进 `If target survives`（同一个 220，靠 `ex` 分家）");
+                Check(W64Apply(survives, 0, health: 4, pending: 3, survivor: 0), true,
+                      "★ 语义：活下来的落进 `If target survives`"
+                    + "｜🧨 把 ex 一律读成 0 ⇒ 上一条与这一条必有一条红");
+            }
+        }
+
+        // ---- ⑥ `count` 那三个参数（`BoardCriteria` 上的真实值，不是默认）----
+        //   EC58 Vengeful Surge：`If a friendly troop died this turn` ⇒ 数「本回合死掉的友方部队」，
+        //   比较是 `>= 1`（`triggerIf = EqualOrHigher(2)`、`referenceValue = 1`）。两条 ability 的
+        //   比较档不同（`== 0` / `>= 1`），正好证明参数是**逐 ability** 落的、不是抄了一个默认。
+        var surge = CardDatabase.FindById(pool, "EC58");
+        CheckTrue(surge != null, "(前提) EC58 Vengeful Surge 在池内");
+        if (surge != null)
+        {
+            CardDef.ConditionSpec a0, a1;
+            CheckTrue(surge.TryGetCondition(0, -1, "count", out a0), "EC58 ability0 的 `count` 行");
+            CheckTrue(surge.TryGetCondition(1, -1, "count", out a1), "EC58 ability1 的 `count` 行");
+            if (a0 != null && a1 != null)
+            {
+                Check(a0.Condition, 221, "★ EC58 ability0 的 count 条件 = 221（`diedThisTurn`）");
+                Check(a0.CountOption, 0, "★ EC58 ability0 的 `countOptions` = 0（AllTargets）");
+                Check(a0.StatOption, 1, "★ EC58 ability0 的 `triggerIf` = 1（EqualTo）");
+                Check(a0.ReferenceValue, 0, "★ EC58 ability0 的 `referenceValue` = 0（「本回合没有友军死」）");
+                Check(a1.StatOption, 2, "★ EC58 ability1 的 `triggerIf` = 2（EqualOrHigher）");
+                Check(a1.ReferenceValue, 1, "★ EC58 ability1 的 `referenceValue` = 1（「至少一个」）"
+                    + "｜🧨 把参数写成恒 0（缺键）⇒ 这三条红");
+            }
+            // 反例：没有条件的那一格 `TryGetCondition` 必须是 false（不是「返回一个全 0 的 spec」）
+            CardDef.ConditionSpec none;
+            CheckTrue(!surge.TryGetCondition(0, 0, "target", out none),
+                      "★ EC58 ability0 的 `abilityLogic[0]` 没有 `target` 条件 ⇒ `TryGetCondition` = false"
+                    + "（⛔ 不许伪造一个 nil spec）");
+        }
+    }
+
+    // ==================================================================
+    //  🆕 2026-10-22（引擎线 `W64` · 战斗审计 `B-16` **消费端**）：结算层真的吃结构化条件
+    // ==================================================================
+    //  判据（第一权威 = 全量反编译 `d:/2/tools/decomp_full/`）：
+    //   · 求值 = `FilterMethods__MeetsConditionCriteria.c`（`40` `:87-98` · `220` `:253-257` ·
+    //     `243` `:294-297` · `244` `:298-311`）；取反 = 末段 `:384-389`。
+    //   · 数据 = 卡池 v15 的 `unitConditions`（`CardDef.ConditionOf` / `Conditions`）。
+    //   · 接线 = `EffectResolver.TryStructuredCondition`（`ConditionHolds` 的**入口第一跳**）。
+    //  ⚠️ 这一节钉的是「**哪一档判的**」（`structured` 那一位），不是「值恰好相等」——
+    //     值相等有可能是正文碰巧判对，那证明不了接线。
+
+    /// <summary>🆕 2026-10-22（`W64` · `B-16` 消费端）：结构化条件的求值 + 接线 + 三条守卫。</summary>
+    static void TestW64StructuredConditions()
+    {
+        var pool = CardDatabase.Load();
+
+        // ---- ① 求值器：原版四个枚举值的真假 + `excludeCondition` 取反 ----
+        //   判据逐条 → `RuleCore.MeetsUnitCondition` 的 doc（⛔ 别在这儿另写一份口径）。
+        {
+            var ctx = ProbeBattle(new CardDef[0], new CardDef[0]);
+
+            var armour = Place(ctx, 0, 0, Unit("W64_armour", 1, 1, 5));
+            armour.Armor = 0;
+            CheckTrue(RuleCore.MeetsUnitCondition(ctx, armour, 244, false) == false,
+                      "★ 244 `hasArmour`：护甲 0 ⇒ 假（原版 `:298-311` 读护甲那组值 `0 <`）");
+            armour.Armor = 2;
+            CheckTrue(RuleCore.MeetsUnitCondition(ctx, armour, 244, false) == true,
+                      "★ 244 `hasArmour`：护甲 2 ⇒ 真");
+            CheckTrue(RuleCore.MeetsUnitCondition(ctx, armour, 244, true) == false,
+                      "★ 244 + `excludeCondition=1` ⇒ **取反**（原版 `:384-389`）"
+                    + "｜🧨 把取反挪到调用方 / 删掉 ⇒ 上一条与本条不可能同时绿");
+
+            var dying = Place(ctx, 0, 1, Unit("W64_dying", 1, 1, 5));
+            dying.Health = 0;
+            CheckTrue(RuleCore.MeetsUnitCondition(ctx, dying, 220, false) == true,
+                      "★ 220：血 0、没有幸存者 ⇒ **将死 = 真**（`CardScript__EnoughPendingDamageToDie`）");
+            CheckTrue(RuleCore.MeetsUnitCondition(ctx, dying, 220, true) == false,
+                      "★ 220 + `excludeCondition=1` ⇒ 假（「没死」不成立）");
+
+            var survival = Place(ctx, 0, 2, Unit("W64_surv", 1, 1, 5, "Survivor 3"));
+            survival.Health = 0;
+            CheckTrue(RuleCore.MeetsUnitCondition(ctx, survival, 220, false) == false,
+                      "★ 220：血 0 但**带 Survivor** ⇒ 原版**不算死** ⇒ 假"
+                    + "（`RuleCore.EnoughPendingDamageToDie` = `Health<=0 && Survivor<=0`）");
+            CheckTrue(RuleCore.MeetsUnitCondition(ctx, survival, 220, true) == true,
+                      "★ 220 + `excludeCondition=1`：带 Survivor ⇒ 「还活着」= 真"
+                    + "｜🧨 把 220 判据换成 `Health <= 0` ⇒ 上一条与本条必有一条红");
+
+            var hurt = Place(ctx, 0, 3, Unit("W64_hurt", 1, 1, 5));
+            hurt.Health = 3;
+            CheckTrue(RuleCore.MeetsUnitCondition(ctx, hurt, 40, false) == true,
+                      "★ 40 `damaged`：3/5 ⇒ 真（原版 `:87-98`；我们没有「待处理治疗」这一档 ⇒ 等价于 `Health < MaxHealth`）");
+            hurt.Health = 5;
+            CheckTrue(RuleCore.MeetsUnitCondition(ctx, hurt, 40, false) == false,
+                      "★ 40 `damaged`：满血 ⇒ 假");
+            hurt.Prayed = true;
+            CheckTrue(RuleCore.MeetsUnitCondition(ctx, hurt, 243, false) == true,
+                      "★ 243 `isPraying` ⇒ 真（原版 `:294-297` 读 `+0x67`）");
+            CheckTrue(RuleCore.MeetsUnitCondition(ctx, hurt, 221, false) == null,
+                      "★ 221（`diedThisTurn`，**count 那一档**）本波**判不了 ⇒ `null`**（⛔ 不猜）"
+                    + "｜🧨 给它编一个「大概」的判据 ⇒ 本行红");
+            CheckTrue(RuleCore.MeetsUnitCondition(ctx, hurt, 277, false) == null,
+                      "★ 277（`isInfrantryOrBeast`，`B-06` 那一族）本波**判不了 ⇒ `null`**（没有消费者，也⛔ 不猜）");
+        }
+
+        // ---- ② 接线：DA22 的 `If it survives`（原版 `acting` 行 220/ex=1）**真的走结构化** ----
+        //   `DA22 Techmarine`：`When a friendly Vehicle attacks, gain 1 Quest Point. If it survives, heal 3 to it`
+        //   —— 「it」= **攻击的那台载具 = actingCard** ⇒ 原版把这一句落成 `actingCardCriteria.conditionsFilter = 220`
+        //   + `excludeCondition = 1`（真值行：`ab=1, role=acting, cond=220, ex=1`）。
+        var da22 = CardDatabase.FindById(pool, "DA22");
+        CheckTrue(da22 != null, "(前提) DA22 Techmarine 在池内");
+        var survivesOp = new EffectOp
+        {
+            Verb = "gain", Payload = "flank",
+            Condition = "it survives", ConditionKind = "targetsurvives",
+            Source = "W64 夹具（DA22 的 `If it survives`）",
+        };
+        if (da22 != null)
+        {
+            var ctx = ProbeBattle(new CardDef[0], new CardDef[0]);
+            var src = Place(ctx, 0, 5, da22);
+            ctx.LastTarget = null;                       // 正文那一档会判「没有目标 ⇒ 不成立」
+            // `role = acting` 的行读 `ctx.ActingUnit` —— 结算层由 `ResolveOne` 设好（本 API 的 doc 已注明）；
+            // 这里是直接调，所以自己摆上（= 「这条能力是这台载具触发的」）。
+            ctx.ActingUnit = src;
+
+            bool holds, structured;
+            CheckTrue(RuleCore.TryEvaluateCondition(ctx, 0, survivesOp, null, da22, out holds, out structured),
+                      "（前提）DA22 的 `If it survives` 判得了");
+            CheckTrue(structured,
+                      "★ **用的是原版结构化条件**（`role=acting` + `cond=220` + `ex=1`）"
+                    + "｜🧨 把 `ConditionKindToUnitCondition` 里的 `targetsurvives` 删掉、或把 `card` 传参摘掉 ⇒ 红");
+            CheckTrue(holds,
+                      "★ 施放者活着 ⇒ `excludeCondition=1` 的 220 判真 ⇒ 条件成立");
+
+            // 灭自证对照：**同一夹具、同一个 op，不喂卡** ⇒ 只能走旧正文（`LastTarget=null` ⇒ 不成立）。
+            // 两条一条绿在「成立」、一条绿在「不成立」⇒ **不可能是同一档判据给出的**。
+            bool holds2, structured2;
+            CheckTrue(RuleCore.TryEvaluateCondition(ctx, 0, survivesOp, null, null, out holds2, out structured2),
+                      "（对照）旧正文口径也判得了");
+            CheckTrue(!structured2 && !holds2,
+                      "★ **灭自证对照**：不喂卡 ⇒ 走旧正文，`LastTarget=null` ⇒ 不成立"
+                    + "｜🧨 把 `ConditionHolds` 改回只用正文 ⇒ **上面那条**红；把 `card` 参数吞掉 ⇒ 也红");
+        }
+
+        // ---- ③ `ConditionNone`（v15 且这一格没有条件）⇒ **没有条件**，⛔ 不再解析正文 ----
+        //   合成卡：`conditionsVersioned = true` + **一条条件行都没有**。
+        var bare = new CardDef("W64_bare", "W64 无条件探针", "unit", "", "common", "Test",
+                               1, 1, 3, 0, null, conditionsVersioned: true);
+        {
+            var ctx = ProbeBattle(new CardDef[0], new CardDef[0]);
+            Place(ctx, 0, 5, bare);
+            ctx.LastTarget = null;
+            bool holds, structured;
+            CheckTrue(RuleCore.TryEvaluateCondition(ctx, 0, survivesOp, null, bare, out holds, out structured),
+                      "（前提）合成卡判得了");
+            CheckTrue(structured && holds,
+                      "★ **`ConditionNone` ⇒ 「没有条件」**：直接成立，⛔ 不再解析正文"
+                    + "｜🧨 把「零候选 ⇒ 没有条件」改回「退回正文」⇒ 本行红（正文在 `LastTarget=null` 时判不成立）");
+        }
+
+        // ---- ④ 旧表（`ConditionsVersioned=false`）⇒ **退回正文 + 出声**（过渡守卫，不是生产兜底）----
+        {
+            var oldRows = new List<CardDef.ConditionSpec>
+            {
+                new CardDef.ConditionSpec { Ability = 0, Logic = -1, Role = "acting",
+                                            Condition = 220, Name = "dealtKillDmg", Exclude = true },
+            };
+            var oldCard = new CardDef("W64_old", "W64 旧表探针", "unit", "", "common", "Test",
+                                      1, 1, 3, 0, null,
+                                      abilityConditions: oldRows, conditionsVersioned: false);
+            var ctx = ProbeBattle(new CardDef[0], new CardDef[0]);
+            Place(ctx, 0, 5, oldCard);
+            ctx.LastTarget = null;
+
+            int warns = 0;
+            Application.LogCallback cb = (text, stack, type) =>
+            {
+                if (type == LogType.Warning && text != null
+                    && text.Contains("结构化条件（W64·B-16）") && text.Contains("W64_old")) warns++;
+            };
+            bool holds, structured;
+            bool judgeable;
+            Application.logMessageReceived += cb;
+            try
+            {
+                judgeable = RuleCore.TryEvaluateCondition(ctx, 0, survivesOp, null, oldCard,
+                                                               out holds, out structured);
+            }
+            finally { Application.logMessageReceived -= cb; }
+
+            CheckTrue(judgeable && !structured && !holds,
+                      "★ 旧表（`ConditionsVersioned=false`）⇒ **不走结构化**（未知），退回正文"
+                    + "（`LastTarget=null` ⇒ 不成立）｜🧨 把旧表当成 `ConditionNone` ⇒ 本行红");
+            CheckTrue(warns >= 1,
+                      "★ 旧表要**出声**（`结构化条件（W64·B-16）… version < 15`；⛔ 静默退化 = 红线）"
+                    + "｜🧨 删掉 `TryStructuredCondition` 里旧表那条 `StructuredConditionNotice` ⇒ 红");
+        }
+
+        // ---- ⑤ 同一格多条候选 ⇒ **归不了位** ⇒ 退回正文 + 出声（⛔ 不挑一条）----
+        {
+            var ambRows = new List<CardDef.ConditionSpec>
+            {
+                new CardDef.ConditionSpec { Ability = 0, Logic = 0, Role = "target",
+                                            Condition = 220, Name = "dealtKillDmg", Exclude = true },
+                new CardDef.ConditionSpec { Ability = 1, Logic = 0, Role = "target",
+                                            Condition = 220, Name = "dealtKillDmg", Exclude = true },
+            };
+            var ambCard = new CardDef("W64_amb", "W64 两条候选探针", "unit", "", "common", "Test",
+                                      1, 1, 3, 0, null,
+                                      abilityConditions: ambRows, conditionsVersioned: true);
+            var ctx = ProbeBattle(new CardDef[0], new CardDef[0]);
+            var tgt = Place(ctx, 1, 0, Unit("W64_amb_tgt", 1, 1, 5));
+            bool holds, structured;
+            RuleCore.TryEvaluateCondition(ctx, 0, survivesOp, tgt, ambCard, out holds, out structured);
+            CheckTrue(!structured,
+                      "★ 同 `cond`/`ex` 的候选行 **2 条** ⇒ `EffectOp` 上没有 ability 下标、归不了位 ⇒ "
+                    + "退回正文（⛔ 不挑一条：EC58 的两条 `count` 行就是这么表达不出的）"
+                    + "｜🧨 改成「取第一条」⇒ 本行红");
+        }
+
+        // ---- ⑥ **不归这一层的种类不许被结构化劫持**：`energyzero`（Codex）配的是**目标筛选** ----
+        //   `UM79 Primaris Eradicator`：`Codex: Deal 4 damage to a random enemy **with Armour**`
+        //   ⇒ 它的 244 行说的是「**目标要有护甲**」，**不是**「你的能量为 0」。
+        //   ⇒ `energyzero` **必须**继续走正文（`ctx.Players[owner].Energy == 0`）。
+        var um79 = CardDatabase.FindById(pool, "UM79");
+        CheckTrue(um79 != null, "(前提) UM79 Primaris Eradicator 在池内");
+        if (um79 != null)
+        {
+            var ctx = ProbeBattle(new CardDef[0], new CardDef[0]);
+            ctx.Players[0].Energy = 0;
+            var energyOp = new EffectOp
+            {
+                Verb = "gain", Payload = "flank",
+                Condition = "your energy is 0", ConditionKind = "energyzero",
+                Source = "W64 夹具（Codex）",
+            };
+            bool holds, structured;
+            RuleCore.TryEvaluateCondition(ctx, 0, energyOp, null, um79, out holds, out structured);
+            CheckTrue(!structured && holds,
+                      "★ `energyzero` **不走结构化**（能量 0 ⇒ 正文判成立；UM79 那一行 244 是目标筛选）"
+                    + "｜🧨 把 `energyzero` 也塞进 `ConditionKindToUnitCondition` ⇒ 本行红"
+                    + "（那是把「打带护甲的目标」读成「能量为 0」）");
+        }
+
+        // ---- ⑦ `deaths`（count 那一档）：**数据有行、但被数的集合没落列** ⇒ 本波不接 ----
+        //   `EC58 Vengeful Surge`：`If a friendly troop died this turn, give them Flank`
+        //   ⇒ 数据是两条 `count` 行（`op=1/ref=0` 与 `op=2/ref=1`）。v15 的列只落了**比较三参数**，
+        //   没落 `countCriteria.friendlyUnits / includeHero / includeMinions / targetsAffected`
+        //   ⇒ 「数谁」读不到 ⇒ **保持正文**（接了就是猜），并且**结构化的 `MeetsUnitCondition(221)` 返回 null**。
+        var ec58 = CardDatabase.FindById(pool, "EC58");
+        CheckTrue(ec58 != null, "(前提) EC58 Vengeful Surge 在池内");
+        if (ec58 != null)
+        {
+            var ctx = ProbeBattle(new CardDef[0], new CardDef[0]);
+            var deathOp = new EffectOp
+            {
+                Verb = "give", Payload = "flank",
+                Condition = "a friendly troop died this turn", ConditionKind = "deaths",
+                Source = "W64 夹具（EC58）",
+            };
+            bool holds, structured;
+            RuleCore.TryEvaluateCondition(ctx, 0, deathOp, null, ec58, out holds, out structured);
+            CheckTrue(!structured,
+                      "★ `deaths` **没有结构化映射** ⇒ 保持正文（⛔ 不拿 `count` 行硬凑：被数的集合没落列）"
+                    + "｜🧨 把 `deaths` 加进 `ConditionKindToUnitCondition` ⇒ 本行红（那会是猜）");
+            CheckTrue(!holds,
+                      "★ （前提）本局没有友军阵亡 ⇒ 正文判不成立（同旧行为）");
+            CheckTrue(ec58.Conditions.Count == 2
+                      && ec58.Conditions[0].Role == "count"
+                      && ec58.Conditions[0].CountOption == 0
+                      && ec58.Conditions[0].StatOption == 1
+                      && ec58.Conditions[0].ReferenceValue == 0,
+                      "★ （数据）EC58 的两条 `count` 行仍在（`opt/op/refValue` 已落列）—— "
+                    + "本波**读不到被数的集合**，所以不接；行本身没丢");
+        }
+    }
+    // ==================================================================
+    //  🆕 2026-10-22（引擎线 `W64` · 战斗审计 `B-16` · **目标筛选那一档**）
+    // ==================================================================
+    //  判据：原版 `FilterMethods__MeetsConditionCriteria.c` —— `TargetCriteria.conditionsFilter`
+    //  是**逐候选**判的（`FilterMethods__CheckIfMeetsCriteria.c:298-300`）⇒ 它是一个**目标筛**。
+    //  🔴 **本波没有把它接进生产路径**，理由与三条反例写在 `EffectResolver.ApplyStructuredConditionFilter`
+    //     的 doc 里（TL46 / ASH73 / SW14）：`EffectOp` 没有 ability/logic 下标，按卡应用会打错人。
+    //  ⇒ 本节钉两件事：① 机制本身按原版语义真的筛得对（opt-in 传行）；
+    //     ② **生产路径不按卡应用**（三条反例钉死，谁把卡级筛选接上去就红）。
+
+    /// <summary>🆕 2026-10-22（`W64` · `B-16`）：目标筛选那一档的机制 + 反例守卫。</summary>
+    static void TestW64StructuredTargetFilters()
+    {
+        var pool = CardDatabase.Load();
+        // ⚠️ `Kind = "troop"`：`AddSide` 的 `troopOnly` 会排掉督军 ⇒ 池子就是本节摆的那几个单位，
+        //    不把 `ProbeBattle` 自带的 FixtureWarlord 算进来（`Kind = "any"` 会把它也算上 ⇒ 计数全偏 1）。
+        var enemySpec = new EffectTargetSpec
+        {
+            Raw = "(夹具：全体敌人)", Side = "enemy", Kind = "troop", Count = 0, Auto = true,
+        };
+
+        // ---- ① 机制：`ResolveTargets(..., structuredCondition: 行)` 按原版语义筛 ----
+        {
+            var ctx = ProbeBattle(new CardDef[0], new CardDef[0]);
+            var plain = Place(ctx, 1, 0, Unit("W64_e_plain", 1, 1, 5));            // 无护甲 / 不飞 / 满血
+            var armour = Place(ctx, 1, 1, Unit("W64_e_armour", 1, 1, 5));          // 有护甲
+            armour.Armor = 2;
+            var hurt = Place(ctx, 1, 2, Unit("W64_e_hurt", 1, 1, 5));              // 已受伤
+            hurt.Health = 2;
+            var fly = Place(ctx, 1, 3, Unit("W64_e_fly", 1, 1, 5, "Flying"));      // 飞行
+
+            // ①-a 默认（= **今天的全部生产调用点**）⇒ 不筛。
+            var all = RuleCore.ResolveTargets(ctx, 0, enemySpec, null, null);
+            Check(all.Count, 4,
+                  "★ 不传结构化行 ⇒ **完全不筛**（4 个敌人都在 = 生产现状；⛔ 不是漏做，见"
+                + " `ApplyStructuredConditionFilter` 的 doc）"
+                + "｜🧨 在 `ApplyTargetFilters` 里按卡自动取条件 ⇒ 本行红");
+
+            // ①-b 244 `hasArmour`
+            var armourOnly = RuleCore.ResolveTargets(ctx, 0, enemySpec, null, null,
+                new CardDef.ConditionSpec { Role = "target", Condition = 244, Exclude = false });
+            Check(armourOnly.Count, 1, "★ 结构化 244 `hasArmour` ⇒ 只剩**带护甲**那一个（原版 `:298-311`）");
+            CheckTrue(armourOnly.Contains(armour), "★ …而且正是那个有护甲的");
+            CheckTrue(!armourOnly.Contains(plain), "★ 无护甲的被筛掉｜🧨 把 244 的判据取反 ⇒ 红");
+
+            // ①-c 50 + `excludeCondition=1`（「非飞行」）
+            var nonFly = RuleCore.ResolveTargets(ctx, 0, enemySpec, null, null,
+                new CardDef.ConditionSpec { Role = "target", Condition = 50, Exclude = true });
+            Check(nonFly.Count, 3, "★ 结构化 50 + `excludeCondition=1` ⇒ **排除飞行**（剩 3 个）");
+            CheckTrue(!nonFly.Contains(fly), "★ 飞行那个不在里面｜🧨 把 `Exclude` 读反 ⇒ 只剩它一个");
+
+            // ①-d 40 `damaged`
+            var damagedOnly = RuleCore.ResolveTargets(ctx, 0, enemySpec, null, null,
+                new CardDef.ConditionSpec { Role = "target", Condition = 40, Exclude = false });
+            Check(damagedOnly.Count, 1, "★ 结构化 40 `damaged` ⇒ 只剩已受伤那一个");
+            CheckTrue(damagedOnly.Contains(hurt), "★ …而且正是它");
+
+            // ①-e 220 两半边（将死 vs 存活）—— 用待死队列造「将死」
+            ctx.AddPendingDeath(1, 2, 0);              // `hurt` 进将死队列
+            CheckTrue(ctx.IsPendingDeath(hurt), "（前提）`hurt` 现在是「将死」");
+            var dyingOnly = RuleCore.ResolveTargets(ctx, 0, enemySpec, null, null,
+                new CardDef.ConditionSpec { Role = "target", Condition = 220, Exclude = false });
+            Check(dyingOnly.Count, 1, "★ 结构化 220（ex=0）= 「将死」⇒ 只剩待死那个（原版 `:253-257`）");
+            CheckTrue(dyingOnly.Contains(hurt), "★ …而且正是它");
+            var surviveOnly = RuleCore.ResolveTargets(ctx, 0, enemySpec, null, null,
+                new CardDef.ConditionSpec { Role = "target", Condition = 220, Exclude = true });
+            Check(surviveOnly.Count, 3, "★ 同一个 220 + `excludeCondition=1` = 「没死」⇒ 其余 3 个");
+            CheckTrue(!surviveOnly.Contains(hurt),
+                      "★ 将死的那个被排除 —— **同一条条件、靠 `ex` 分成两半边**"
+                    + "｜🧨 两边都用 `ex=0` 判 ⇒ 上一条与本条必有一条红");
+
+            // ①-f 判不了的值 ⇒ **整条不筛**（⛔ 不空池、不猜）
+            var unjudgeable = RuleCore.ResolveTargets(ctx, 0, enemySpec, null, null,
+                new CardDef.ConditionSpec { Role = "target", Condition = 277, Exclude = false });
+            Check(unjudgeable.Count, 4,
+                  "★ `cond=277`（`isInfrantryOrBeast`，`B-06` 那一族）本波**判不了 ⇒ 不筛**"
+                + "（⛔ 不把池子筛空）｜🧨 判不了时改成「全排除」⇒ 本行红");
+        }
+
+        // ---- ② 反例守卫：**生产路径不许按卡应用**（否则这三张会打错）----
+        //   TL46：`Deal 3 damage to all enemies. For each one that dies, heal 2 …`
+        //   它的 `40 damaged` 行属于**后半句的治疗目标**；按卡应用会把「全体敌人」也筛成「已受伤」。
+        var tl46 = CardDatabase.FindById(pool, "TL46");
+        CheckTrue(tl46 != null, "(前提) TL46 Rapacious Hunger 在池内");
+        if (tl46 != null)
+        {
+            var ctx = ProbeBattle(new CardDef[0], new CardDef[0]);
+            var full = Place(ctx, 1, 0, Unit("W64_t_full", 1, 1, 5));      // 满血
+            var hurt = Place(ctx, 1, 1, Unit("W64_t_hurt", 1, 1, 5));
+            hurt.Health = 2;                                               // 已受伤
+            var ops = EffectText.Parse(tl46.Desc, out _, out _);
+            List<string> un;
+            RuleCore.ResolveOps(ctx, 0, null, ops, null, out un, sourceCard: tl46);
+            Check(full.Health, 2,
+                  "★ **反例守卫**：`Deal 3 damage to all enemies` 对**满血**的敌人也照打（5 → 2）"
+                + "—— 它的 `40` 行属于后半句，⛔ 不能按卡应用到伤害池"
+                + "｜🧨 在 `ApplyTargetFilters` 里按卡自动取条件 ⇒ 本行红（满血的会被筛掉）");
+            // 🔴 **2026-10-22 就地订正（铁律 5 · 主机 5 红之一 · α = 断言错）**：期望原来写 `0`
+            //   —— **本仓的既有口径是「不夹 0」**：`RuleCore.cs:7703`（致死伤害照减），
+            //   `Hurt` 也不会把 `Health` 抬回 0 ⇒ 2 点生命的单位吃 3 点伤害 = **`-1`**。
+            //   同一条口径的先例：`RuleEngineTest.cs:23005`（`Check(a.Health, -1, …)`）。
+            //   ⛔ 别为了这条去改引擎夹 0、也别把伤害改小（那会改掉「一击致死」的语义）。
+            Check(hurt.Health, -1,
+                  "★ 已受伤的那个也照打（2 → −1，**本仓不夹 0**；判据 `RuleCore.cs:7703` ＋ 先例 `:23005`）"
+                + " —— 与上一条一起证明「全员都打」");
+            CheckTrue(tl46.Conditions.Count > 0 && tl46.Conditions[0].Condition == 40,
+                      "（前提）TL46 的卡上**确实有** `40` 那条结构化行 ⇒ 上面两条不是「没数据」的假绿");
+        }
+
+        // ③ **同一条条件只判一次**：TAU18 的 `targetsurvives` 由 `ConditionHolds` 那一跳判
+        //    （`TestW64StructuredConditions` ② 已断 `structured=true`），而目标池**不额外筛**。
+        var tau18 = CardDatabase.FindById(pool, "TAU18");
+        CheckTrue(tau18 != null, "(前提) TAU18 在池内");
+        if (tau18 != null)
+        {
+            var ctx = ProbeBattle(new CardDef[0], new CardDef[0]);
+            var a = Place(ctx, 1, 0, Unit("W64_dup_a", 1, 1, 5));
+            var b = Place(ctx, 1, 1, Unit("W64_dup_b", 1, 1, 5));
+            b.Armor = 1;
+            var both = RuleCore.ResolveTargets(ctx, 0, enemySpec, null, null);
+            Check(both.Count, 2,
+                  "★ **不双判**：TAU18 的条件（`target` 行 220/ex=1）已由 `ConditionHolds` 判过一次，"
+                + "目标池**不再**按卡筛（两个敌人都还在）"
+                + "｜🧨 两处同时生效 ⇒ 条件被结算两次（而且目标池被额外收窄）");
+        }
+    }
+
+    // ==================================================================
+    //  🆕 2026-10-22（引擎线 `W64` · 战斗审计 `B-16` · **逐 ability 归位**那一档）
+    // ==================================================================
+    //  上一节（`TestW64StructuredTargetFilters`）钉的是「机制筛得对 + 生产路径不许**按卡**应用」；
+    //  本节钉**正确的那一半**：`role=target` 的行是**逐 ability / 逐 abilityLogic** 的
+    //  （`cardAbilities[i].targetCriteria` / `abilityLogic[j].targetCriteria` 的 `conditionsFilter`），
+    //  归位判据在 `EffectText.AssignAbilityIndices`（四道闸门 G1~G4，判据写在那一节开头），
+    //  两个消费点读的是**同一格** `op.TargetCondition`：
+    //    · 结算 = `ResolveTargets(..., structuredCondition: op.TargetCondition)`（`DoDeal` / `DoHeal` / …）；
+    //    · 点选高亮 = `IsLegalPick(..., op.TargetCondition)`（`CanPlayTactic` 里按 `PickTarget` 找回那条 op）。
+    //  三条反例的**实测结论**（跑出来的，不是「应该」）：
+    //    · TL46：`desc` 只切出 **1** 个能力块、而行引用的 `ab=1` ⇒ **整卡读不到**（`blocks<ab`）⇒
+    //      伤害池照旧不筛 = **要的就是这半边**（按卡套会漏打满血敌人）；
+    //    · ASH73：(0,1) 是 `220/ex=0`（将死）⇒ **G5** 先拦（它是**结算后**的判定、不是选目标的筛；
+    //      G3「一个块里两条 op」还会再拦一次）⇒ 5 点伤害的目标池不筛
+    //      （按卡套会让它**一个目标都没有**）；
+    //    · SW14：`desc` 切出 2 块（第二块以 `Rally:` 开头 = 另一条 ability），行只落在第 1 块上；第 2 块
+    //      **没有行** ⇒ Rally 那条治疗照打（按卡套会把第二条也筛掉）。
+    //  ⚠️ **SW14 的另一半如实写在这儿**：「第一条治疗被筛」本波**没做到** —— 第 1 块解析出来的是
+    //     `whenclause` 容器（真正那条 `heal` 由 `CardDef.FinishWhenSentence` 从**片段**里再解析一次，
+    //     而片段拿不到 ability 下标）。要做成，得先有「每条 ability 的正文区间」这一列（生成器侧）。
+    static void TestW64OpAbilityTargetConditions()
+    {
+        var pool = CardDatabase.Load();
+
+        // ---- ① ASH73：一条 ability、两条 logic ⇒ `lg=1` 的行**必须**落到 logic 1，而它落不下 ----
+        var ash73 = CardDatabase.FindById(pool, "ASH73");
+        CheckTrue(ash73 != null, "(前提) ASH73 Whirling Death 在池内");
+        if (ash73 != null)
+        {
+            List<string> un, pt;
+            var ops = EffectText.Parse(ash73.Desc, out un, out pt, card: ash73);
+            Check(ops.Count, 2, "★ ASH73 解出两条 op（`Deal 5 damage to a troop` / `… deal 2 … adjacent units`）");
+            if (ops.Count == 2)
+            {
+                CheckTrue(ops[0].AbilityIndex == 0 && ops[1].AbilityIndex == 0,
+                          "★ 两句同属 **ability 0**（第二句以 `If …` 开头，**不是**触发头 ⇒ 不切块）"
+                        + "｜🧨 把「句子 = ability」当成切块判据 ⇒ 本行红（而那是**错的**：ASH73 的第 2 条"
+                        + " ability 是 `FollowUpResolution`，卡面根本没印它）");
+                Check(ops[0].LogicIndex, 0, "★ 第一条 = logic 0");
+                Check(ops[1].LogicIndex, 1, "★ 第二条 = logic 1");
+                CheckTrue(ops[0].TargetCondition == null,
+                          "★ `(ab=0, lg=1, 220/ex=0)` 那一行**没有**落到「5 点伤害」那条上"
+                        + "（⛔ 按卡套会让它筛成「将死」⇒ 一个目标都没有）"
+                        + "｜🧨 去掉 G3/G5（照卡套）⇒ 本行红");
+                CheckTrue(ops[1].TargetCondition == null,
+                          "★ **也不许落到「相邻」那一条上**（`lg=1` 与块里第 2 条 op 只是**数字巧合**，"
+                        + "不是同一条 logic 的证据）｜🧨 拿 op 序号当 logic 下标 ⇒ 本行红");
+                CheckTrue(ops[1].TargetConditionGap == "postcheck",
+                          "★ 归不了位的原因如实记在 op 上（`postcheck` = 「`220/ex=0` 是**结算后**判定、"
+                        + "不是选目标的筛」，判据 `MeetsConditionCriteria.c:253-257` + 全池 15 行里 14 行"
+                        + "卡面就写着 `If the target dies`）⇒ 消费端会**出声**（⛔ 不静默）"
+                        + "｜🧨 在 `AssignAbilityIndices` 里删掉 G5 ⇒ 本行变 `logic-gate` 或直接落到"
+                        + "「相邻」那条上（后者会**打错人**）");
+            }
+            // 结算侧：目标池**不筛** —— 满血与将死的敌人都还在池子里
+            // 🔴 探针 spec 用 **`Count = 0`（整池）**：`a troop` 原文是 `Count = 1`，`ResolveTargets`
+            //   会**截断成单选**（本仓既有口径）⇒ 数「池里还有谁」必须自己给一个 `Count = 0` 的规格，
+            //   ⛔ 不是引擎的毛病（主机 5 红之二/三 · α = 断言与「池 vs 单选」混淆）。
+            //   `Kind = "troop"` 排掉督军（`ProbeBattle` 4 号格恒放敌方督军），池子就只剩本节点的那几个。
+            var ctx = ProbeBattle(new CardDef[0], new CardDef[0]);
+            var full = Place(ctx, 1, 0, Unit("W64_ash_full", 1, 1, 5));
+            var dying = Place(ctx, 1, 1, Unit("W64_ash_dying", 1, 1, 5));
+            ctx.AddPendingDeath(1, 1, 0);
+            CheckTrue(ctx.IsPendingDeath(dying), "（前提）第二个敌人是「将死」");
+            var poolSpec = new EffectTargetSpec
+            {
+                Raw = "(夹具：敌方全体部队)", Side = "enemy", Kind = "troop", Count = 0, Auto = true,
+            };
+            var got = RuleCore.ResolveTargets(ctx, 0, poolSpec, null, null, ops[0].TargetCondition);
+            Check(got.Count, 2, "★ 5 点伤害的目标池**两个都在**（条件行没有落到这条 op 上 ⇒ 不筛）"
+                              + "｜🧨 按卡应用 ⇒ 只剩将死那一个（甚至**一个都没有**）");
+            CheckTrue(got.Contains(full) && got.Contains(dying), "★ 满血的也在 ⇒ 不是「筛成将死」");
+        }
+
+        // ---- ② TL46：`40` 属于后半句（`ab=1`），而 desc 只切出 1 块 ⇒ 整卡读不到 ----
+        var tl46 = CardDatabase.FindById(pool, "TL46");
+        CheckTrue(tl46 != null, "(前提) TL46 Rapacious Hunger 在池内");
+        if (tl46 != null)
+        {
+            var ops = EffectText.Parse(tl46.Desc, out _, out _, card: tl46);
+            Check(ops.Count, 2, "★ TL46 解出两条 op（3 点伤害全体 / 治疗 2）");
+            CheckTrue(ops[0].TargetCondition == null && ops[1].TargetCondition == null,
+                      "★ 两条 op **都不带**结构化条件（`ab=1` 的行归不到任何 op）");
+            CheckTrue(ops[0].TargetConditionGap == "blocks<ab",
+                      "★ 原因是 `blocks<ab`（`desc` 的能力块 1 < `ab+1`=2）—— 消费端出声，⛔ 不按卡套");
+            var ctx = ProbeBattle(new CardDef[0], new CardDef[0]);
+            var full = Place(ctx, 1, 0, Unit("W64_tl_full", 1, 1, 5));
+            var hurt = Place(ctx, 1, 1, Unit("W64_tl_hurt", 1, 1, 5));
+            hurt.Health = 2;
+            // 🔴 主机 5 红之四（α）：「全体敌人」= `Count = 0` 但 `Kind = "any"` ⇒ 池里**还有敌方督军**
+            //   （`ProbeBattle` 4 号格恒放）。用 `Kind = "troop"` 的探针 spec 数本节点的那两个，
+            //   ⛔ **不是**去改引擎的「督军包含」（那是原版语义：`all enemies` 含督军）。
+            var poolSpec = new EffectTargetSpec
+            {
+                Raw = "(夹具：敌方全体部队)", Side = "enemy", Kind = "troop", Count = 0, Auto = true,
+            };
+            var got = RuleCore.ResolveTargets(ctx, 0, poolSpec, null, null, ops[0].TargetCondition);
+            Check(got.Count, 2, "★ 「全体敌人」的伤害池**两个都在**（满血的也被打）—— 按卡套会把满血的筛掉"
+                              + "｜🧨 按卡应用 ⇒ 本行实得 1");
+        }
+
+        // ---- ③ SW14：两条治疗 ability，只有第一条带 `40` ⇒ 第二条（Rally）照打 ----
+        var sw14 = CardDatabase.FindById(pool, "SW14");
+        CheckTrue(sw14 != null, "(前提) SW14 Wolf Priest 在池内");
+        if (sw14 != null)
+        {
+            var ops = EffectText.Parse(sw14.Desc, out _, out _, card: sw14);
+            CheckTrue(ops.Count >= 2, "★ SW14 解出 ≥2 条 op（`whenclause` 容器 + Rally 那条治疗）");
+            int healIdx = -1;
+            for (int i = 0; i < ops.Count; i++) if (ops[i].Verb == "heal") healIdx = i;
+            CheckTrue(healIdx >= 0, "(前提) 里面有一条 `heal`（Rally 那一半）");
+            if (healIdx >= 0)
+            {
+                CheckTrue(ops[healIdx].TargetCondition == null,
+                          "★ **Rally 那条治疗不带条件**（行只属于第 1 条 ability）⇒ 满血单位也照治"
+                        + "｜🧨 按卡应用 ⇒ 本行红（第二条会被一并筛掉）");
+                CheckTrue(ops[healIdx].AbilityIndex >= 1,
+                          "★ 它排在第 2 个能力块（`Rally:` 是触发头 ⇒ 切块）");
+            }
+            // 结算：**满血**与已受伤的友军都在池子里（`40` 没有落到这条 op 上）
+            var ctx = ProbeBattle(new CardDef[0], new CardDef[0]);
+            var sound = Place(ctx, 0, 0, Unit("W64_sw_sound", 1, 1, 5));        // 满血
+            var wounded = Place(ctx, 0, 1, Unit("W64_sw_wounded", 1, 1, 5));
+            wounded.Health = 2;
+            var healOp = ops[healIdx];
+            healOp.Target = new EffectTargetSpec
+            {
+                // 「己方全体」—— 只为把整批摆出来看池子里有谁（不掷骰、不看 `Count`）
+                Raw = "(夹具：己方全体)", Side = "own", Kind = "any", Count = 0, Auto = true,
+            };
+            var got = RuleCore.ResolveTargets(ctx, 0, healOp.Target, null, null, healOp.TargetCondition);
+            CheckTrue(got.Contains(sound) && got.Contains(wounded),
+                      "★ 满血的那个**也在池子里** ⇒ 这条 op 没有吃到 `40`"
+                    + "｜🧨 按卡应用 ⇒ 满血的会被筛掉、本行红");
+        }
+
+        // ---- ④ 正向：整卡一条 ability、块里一条 op ⇒ 行**真的落到 op 上**（AM61 `220/ex=1` 非将死）----
+        var am61 = CardDatabase.FindById(pool, "AM61");
+        CheckTrue(am61 != null, "(前提) AM61 Defence Batteries 在池内");
+        if (am61 != null)
+        {
+            var ops = EffectText.Parse(am61.Desc, out _, out _, card: am61);
+            Check(ops.Count, 1, "★ AM61 只有一条 op（`Deal 1 damage to three random enemies`）");
+            var row = ops[0].TargetCondition;
+            CheckTrue(row != null, "★ **归位成功**：整卡 1 个能力块、块里 1 条 op ⇒ 那一行落到它身上"
+                                 + "｜🧨 把 `AssignAbilityIndices` 的调用删掉 ⇒ 本行红（整层变死码）");
+            if (row != null)
+            {
+                Check(row.Condition, 220, "★ 落的是 `220`（`dealtKillDmg`，语义 = 「将死」）");
+                CheckTrue(row.Exclude, "★ 而且 `ex=1`（取反 = 「**不会**死」）");
+            }
+            var ctx = ProbeBattle(new CardDef[0], new CardDef[0]);
+            var a = Place(ctx, 1, 0, Unit("W64_am_a", 1, 1, 5));
+            var b = Place(ctx, 1, 1, Unit("W64_am_b", 1, 1, 5));
+            var c = Place(ctx, 1, 2, Unit("W64_am_c", 1, 1, 5));
+            var dying = Place(ctx, 1, 3, Unit("W64_am_dying", 1, 1, 5));
+            ctx.AddPendingDeath(1, 3, 0);
+            var got = RuleCore.ResolveTargets(ctx, 0, ops[0].Target, null, null, ops[0].TargetCondition);
+            Check(got.Count, 3, "★ 「随机 3 个」照旧选出 3 个（`Count = 3` 是**单选截断**不是池子大小；"
+                              + "池子 = 3 个部队 + 敌方督军，将死的那个已被结构化条件筛掉 ⇒ 4 选 3）");
+            CheckTrue(!got.Contains(dying),
+                      "★ 将死的那个**不在池里**（原版 `MeetsConditionCriteria.c:253-257` + `:384-389`）"
+                    + "｜🧨 不传 `op.TargetCondition` ⇒ 本行红（池子 4 个）");
+        }
+
+        // ---- ⑤ `IsLegalPick` ↔ `ResolveTargets` **同口径**（同一格 `op.TargetCondition`）----
+        //   夹具：`Destroy an enemy troop`（正文**不说**「已受伤」⇒ 只有结构化行能筛）
+        //   ＋ 一条 `role=target, ab=0, lg=0, cond=40` 的行。
+        var pick = new CardDef("W64_PickFix", "W64_PickFix", "tactic", "Destroy an enemy troop",
+                               "common", "Test", 0, 0, 0, 0, null,
+                               abilityConditions: new[]
+                               {
+                                   new CardDef.ConditionSpec
+                                   {
+                                       Role = "target", Ability = 0, Logic = 0,
+                                       Condition = 40, Name = "damaged", Exclude = false,
+                                   },
+                               });
+        {
+            var ops = EffectText.Parse(pick.Desc, out _, out _, card: pick);
+            Check(ops.Count, 1, "★ 夹具 `Destroy an enemy troop` 解出 1 条 op");
+            CheckTrue(ops[0].TargetCondition != null && ops[0].TargetCondition.Condition == 40,
+                      "★ 夹具上那一行落到了这条 op 上（G1~G4 全过）");
+
+            var ctx = ProbeBattle(new[] { pick }, new CardDef[0]);
+            ToP1Turn(ctx, 2);
+            var full = Place(ctx, 1, 5, Unit("W64_pk_full", 1, 1, 5));       // 满血
+            var hurt = Place(ctx, 1, 6, Unit("W64_pk_hurt", 1, 1, 5));       // 已受伤
+            hurt.Health = 2;
+            int h = HandIdx(ctx, 0, "W64_PickFix");
+            CheckTrue(h >= 0, "(前提) 夹具在手里");
+
+            CheckCode(RuleCore.CanPlayTactic(ctx, 0, h, 6), RuleCodes.OK,
+                      "★ 【高亮/点选】已受伤的那个**可以**选"
+                    + "｜🧨 把 `IsLegalPick` 的 `structuredCondition` 参数去掉 ⇒ 这条仍绿（正对照不能少）");
+            CheckCode(RuleCore.CanPlayTactic(ctx, 0, h, 5), RuleCodes.ErrNoTargetAvailable,
+                      "★ 【高亮/点选】**满血的那个不能选**（结构化 `40` 把它筛掉）"
+                    + "｜🧨 只给结算传、不给 `IsLegalPick` 传 ⇒ 本行实得 `OK(0)`（=「高亮能选、打出去空过」）");
+
+            var got = RuleCore.ResolveTargets(ctx, 0, ops[0].Target, null, null, ops[0].TargetCondition);
+            Check(got.Count, 1, "★ 【结算】同一条行的池子 = **只有已受伤那一个**（与上面两句同口径）");
+            CheckTrue(got.Contains(hurt) && !got.Contains(full),
+                      "★ …而且正是 `IsLegalPick` 放行的那一个"
+                    + "｜🧨 两处读不同的行 / 少传一处 ⇒ 本行或上面那句红");
+        }
+
+        // ---- ⑥ 无结构化条件的卡：目标池**完全不变**（新旧行为零差异）----
+        {
+            var plain = Tactic("W64_NoCond", 0, "Deal 3 damage to an enemy");
+            var ops = EffectText.Parse(plain.Desc, out _, out _, card: plain);
+            CheckTrue(ops.Count == 1 && ops[0].AbilityIndex == -1 && ops[0].TargetCondition == null,
+                      "★ 卡上没有 `unitConditions` ⇒ 不归位、不带条件（`AbilityIndex = -1` = 读不到）");
+            var ctx = ProbeBattle(new CardDef[0], new CardDef[0]);
+            Place(ctx, 1, 0, Unit("W64_nc_a", 1, 1, 5));
+            Place(ctx, 1, 1, Unit("W64_nc_b", 1, 1, 5));
+            // 🔴 主机 5 红之五（α）：`Deal 3 damage to an enemy` 是 `Count = 1` ⇒ `ResolveTargets`
+            //   只回**单选**那一个（既有口径）。要数「池没变」得用 `Count = 0` 的探针 spec。
+            var poolSpec = new EffectTargetSpec
+            {
+                Raw = "(夹具：敌方全体部队)", Side = "enemy", Kind = "troop", Count = 0, Auto = true,
+            };
+            var got = RuleCore.ResolveTargets(ctx, 0, poolSpec, null, null, ops[0].TargetCondition);
+            Check(got.Count, 2, "★ 目标池**完全不变**（两个敌人都在）—— 没条件的卡一个字节都不受影响");
+        }
     }
 }

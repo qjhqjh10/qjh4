@@ -239,6 +239,57 @@ namespace RuleEngine
         /// **不飘治疗字**（`CardScript__UseSurvivor.c:36-40` 直接写血），所以表现层**不显示**它。</para>
         /// </summary>
         Heal,
+
+        // ==================================================================
+        //  🆕 2026-10-22（`W64` · 战斗线「反击演出」）：**反击（retaliation）**
+        //  ⚠️ **加在这张表的【末尾】**（枚举值只许追加，见上面 `Draw` 那段：插队会让
+        //     别处存下来的整数值错位）。
+        // ==================================================================
+
+        /// <summary>
+        /// 🆕 **守方还手了（反击）** —— 表现层要播的**唯一**时机：**守方自己**那一发远程攻击
+        /// （守方自己的远程攻击动画 + 守方自己那张卡的 `customRangedAttackParticles`）。
+        ///
+        /// <para>🔴 **判据（第一权威）= 原版 `BattleManager._ResolveAttack_d__438__MoveNext.c:1114-1152`**
+        /// —— 这一整段在**主伤害 / 爆裂 / 践踏之后**（`:999` / `:1030` / `:1089`），条件 = 那个
+        /// 「允许反击」位 `+0x138`（`:616` 置 1，`:921/935/949/968` 被 LongRange / Sniper / Terror 那几支清 0）：</para>
+        /// <code>
+        /// iVar14 = EntityScript__GetCombatDamage(守方 /* +0x130 */, 本次打法 /* +0x58 */, 0);   // :1116
+        /// if (0 &lt; iVar14) {
+        ///   if (本次打法 == 2 /* 远程 */) {
+        ///     CardScript__ResolveAttackRangedAnim(守方, 攻方, 0, 0);   // :1121 —— 守方播【自己的】远程攻击
+        ///     yield return …;                                          // 协程跑完才继续
+        ///   }
+        ///   damages = BattleManager__ResolveAttackDamage(守方, 攻方, …); // :1136（近战直接到这里）
+        ///   CardScript__ReceiveDamage(攻方, 10 /* combatAttacker */, damages); // :1142
+        /// }
+        /// </code>
+        /// <para>⇒ **只有「本次打法是远程」时守方才播攻击动画 + 攻击粒子**；近战档守方**什么动画都不播**
+        /// （原版那一支只做「结算伤害 + 攻方 `ReceiveDamage`」）⇒ 见 `BattleEvent.Ranged`。</para>
+        ///
+        /// <para>🔴 **字段的归属（与 `Attack` **相反**，别串了）**：</para>
+        /// <list type="bullet">
+        /// <item>`Player` / `Slot` / `CardId` / `InstanceId`
+        ///   = **守方**（= 还手的那一方，原版 `param_1 + 0x130`）；</item>
+        /// <item>`TargetPlayer` / `TargetSlot` / `TargetCardId` /
+        ///   `TargetInstanceId` = **攻方**（= 被反击的那一方，原版 `param_1 + 0x28`）；</item>
+        /// <item>`Ranged` = **这一发反击走远程件吗** —— 原版判的是 **`本次打法 == 2`**
+        ///   （`ResolveAttackRangedAnim` 那一支），**不是**「守方自己有没有远程攻击力」
+        ///   （`GetCombatDamage` 那一句只决定伤害量、决定不了播不播）；</item>
+        /// <item>`Amount` 恒 `0`（伤害量走紧跟其后那条 `Hit`，⛔ 别在这里再记一份）。</item>
+        /// </list>
+        ///
+        /// <para>⚠️ **它只是信号**：发出点 = `RuleCore.DeclareAttack` 里反击那一句 `Hurt` **之前**
+        /// （原版也是「先播守方的远程动画、协程跑完才落伤害」）—— 结算顺序与数值**一个字节都没变**，
+        /// 既有 `Hit` / 死亡链照旧。⚠️ 也**不进动作流**（不是 `LocalAct` / 不是 `SimpleAI.Executed`），
+        /// 录像/联机不受影响（本地录像存的是「起始条件 + 动作流」，`BattleEvent` 不进 `.json`）。</para>
+        ///
+        /// <para>⚠️ 原版那一段里**没有**任何 `Play2D` / `AttackHitSmall`（对比同文件哨戒 `:1054`、
+        /// 践踏 `:1112` 那两处都有 `SoundManager.Play2D(ActivateBlast)`）⇒ 我们这边**不许**给它补
+        /// 命中音或通用命中粒子（那两样属于近战命中回调 `ResolveAttackAnimationEffects`，
+        /// 反击的远程那一支**不经过**它）。</para>
+        /// </summary>
+        Retaliation,
     }
 
     /// <summary>
@@ -308,9 +359,11 @@ namespace RuleEngine
         /// <summary>**被指向**的那一方 0/1（没目标 = `-1`）。
         ///
         /// 🔴 **2026-10-18（`A985⑥①`）就地订正（铁律 5）**：这一行原来写的是
-        /// 「**只有 `Attack` 用**」—— **已过期**。现在**三种都填**：
+        /// 「**只有 `Attack` 用**」—— **已过期**。现在**四种都填**：
         /// `Attack`（跨半场，**必填**）· `Play`（**卡面要求选目标**的战术卡才填）·
-        /// `Ability`（`EffectTargets.NeedsPick` 的技能才填）。
+        /// `Ability`（`EffectTargets.NeedsPick` 的技能才填）·
+        /// 🆕 `Retaliation`（**语义与 `Attack` 相反**：`Player/Slot` = **守方**、`Target*` = **攻方**，
+        /// 见 <see cref="EvtKind.Retaliation"/> 的 doc）。
         /// 判据 = 原版 `CemeteryManager.GetActionText` 的 **case `0xF`**（`Ability`）与
         /// **case `10`**（`Play`），两处的判别式**同一条** —— 记录里那个目标引用
         /// （**字节 `0x28`**）是不是 `null`：
@@ -498,6 +551,11 @@ namespace RuleEngine
             {
                 case EvtKind.Attack:
                     sb.Append(Ranged ? " 远程→" : " 近战→")
+                      .Append('P').Append(TargetPlayer + 1).Append('@').Append(TargetSlot);
+                    break;
+                case EvtKind.Retaliation:
+                    // 🆕 2026-10-22（`W64`）：主语 = **守方**、`Target*` = 攻方（见 `Retaliation` 的 doc）
+                    sb.Append(Ranged ? " 远程反击→" : " 近战反击→")
                       .Append('P').Append(TargetPlayer + 1).Append('@').Append(TargetSlot);
                     break;
                 case EvtKind.Hit:

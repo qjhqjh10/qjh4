@@ -27,9 +27,12 @@
 //     `PunchTween` / `ShakeTween` / `ResetBodyTween`（`DelayTween` 只有 `duration`）。
 //
 // 🔴 **两处如实标注（铁律 3）**：
-//   ① `awayFromUnit` 那条支里 `get_TargetDirection` 的**退化分支**（取不到那个单位时）原版读的是
-//      `cardUI → 一个子 transform 的 forward`（`+0x290 → +0x158`）。**那个子节点是什么我们没坐实**
-//      ⇒ 我们**取卡自己的 `forward`**，并在这里写明「这是我们的替身」。
+//   ① ✅ **2026-10-22（W64 · `B10`）坐实了**：`awayFromUnit` 那条支里 `get_TargetDirection` 的
+//      **退化分支**读的是 `CardScript +0x290`（= `CardUI`）的 `+0x158` 子节点，而
+//      `il2cpp_out/dump.cs:26166-26173`（`public class BattleCardUI : BasicCardUI`）实读：
+//      **`+0x158 = public GameObject body3D;`** ⇒ 原版取的是**场上那个 3D 卡体节点的 forward**。
+//      我们照它：`DefaultForward` 先找卡下的 `body3D` 子节点、取它的 forward，没有才退回卡自己的
+//      forward（手牌卡没有 3D 体，这一档在原版也取不到 —— 原版那条路只对场上单位有意义）。
 //   ② 原版 `GetTween` 的 `from`（`.From()`）**在数据里 111 条全是 0** ⇒ 我们照样实现，但它在当前
 //      数据下**一次都不会走到**（不是没做）。
 using System;
@@ -51,6 +54,13 @@ namespace CardPresentation
         public int loops;
         public int loopType;         // 0 = Restart（DOTween LoopType）
         public int ease;             // DOTween `Ease` 枚举值；0 ⇒ 用 curve
+        // 🆕 2026-10-22（W64 · `B09`）：原版 `ease == 0` 时 `SetEase(AnimationCurve)` 的那条曲线。
+        // 四条平行数组（`JsonUtility` 认不了 `Keyframe` 这种结构）。**生成器搬过来之前是空的**
+        // ⇒ 运行期退回 `UnitTweenTable.CurveFallback`（见那边的注释）。
+        public float[] curveTimes;
+        public float[] curveValues;
+        public float[] curveInSlopes;
+        public float[] curveOutSlopes;
         public int relative;
         public int from;
         public int targetUnit;       // 10/20/30/40/50，见文件头
@@ -103,9 +113,21 @@ namespace CardPresentation
         /// ⚠️ **没挂时**用到 40/50 的那几条补间会被**跳过并出声**（当前数据里共 8 条）。</summary>
         public static Func<Transform, bool, Transform> HeroOf;
 
-        /// <summary>🆕 **「取朝向」替身**（见文件头 ①）。默认取卡自己的 `forward`；
-        /// 表现层若知道更准的朝向（原版那个 `cardUI` 子节点的 forward）可以换掉。</summary>
-        public static Func<Transform, Vector3> ForwardOf = t => t != null ? t.forward : Vector3.forward;
+        /// <summary>**「取朝向」口**（原版 `get_TargetDirection` 的退化分支，见文件头 ①）。
+        /// 🔴 2026-10-22（`B10`）：默认值 = <see cref="DefaultForward"/>（**卡下 `body3D` 节点的 forward**，
+        /// 判据 = `BattleCardUI +0x158 = body3D`）。原来默认取卡自己的 forward —— 那是**替身**，已换。
+        /// 表现层若要换实现仍可赋值。</summary>
+        public static Func<Transform, Vector3> ForwardOf = DefaultForward;
+
+        /// <summary>原版 `cardUI(+0x290) → body3D(+0x158)` 的 forward。
+        /// `body3D` 是我们 `CardView.BuildBody3D` 建的**直接子节点**（名字就是 `body3D`）。
+        /// 没有它（手牌/非场上形态）⇒ 退回卡自己的 forward（原版那条路也只对场上单位有意义）。</summary>
+        static Vector3 DefaultForward(Transform card)
+        {
+            if (card == null) return Vector3.forward;
+            var body = card.Find("body3D");
+            return body != null ? body.forward : card.forward;
+        }
 
         static void EnsureLoaded()
         {
@@ -155,10 +177,11 @@ namespace CardPresentation
             // 原版那两个状态位（`bVar2` / `bVar12`）：**跳过 muted 之后，下一条要不要强制 Append**
             bool skipped = false, skippedWasAppend = false;
 
-            foreach (var s in e.tweens)
+            for (int si = 0; si < e.tweens.Length; si++)
             {
+                var s = e.tweens[si];
                 if (s == null) continue;
-                var tw = MakeTween(s, source, target, why);
+                var tw = MakeTween(s, source, target, why, e.name, si);
                 if (tw == null) continue;                 // 原版：`GetTween` 返回 null 就 `continue`
                 built++;
 
@@ -192,7 +215,8 @@ namespace CardPresentation
 
         /// <summary>一条补间。返回 null = **这条做不出来**（原版也是 null ⇒ 跳过）。
         /// 判据 = 各子类的 `GetTween` 方法体，逐个见下面的注释。</summary>
-        static Tween MakeTween(UnitTweenStep s, Transform source, Transform target, string why)
+        static Tween MakeTween(UnitTweenStep s, Transform source, Transform target, string why,
+                               string entryName = null, int stepIndex = -1)
         {
             var t = Target(s.targetUnit, source, target);
             if (t == null) return null;                   // 原版取不到目标单位就抛/跳过
@@ -216,15 +240,84 @@ namespace CardPresentation
             tw = tw.SetDelay(s.delay);
             tw = tw.SetLoops(s.loops, (LoopType)s.loopType);
             if (s.ease != 0) tw = tw.SetEase((Ease)s.ease);
-            // ⚠️ `ease == 0` 时原版走 `SetEase(curve)`；当前数据里只有 1 条 ease==0，
-            //    而它的 curve **非空**（`工具/_verify_unit_tweens.py` ⑤ 会盯）。
-            //    我们没搬 curve（74 份里只有 2 条非空、共 6 个关键帧）⇒ 那一条**用 Linear 兜**并出声。
-            else { tw = tw.SetEase(Ease.Linear); EaseZeroFallback++; }
+            else
+            {
+                // 🔴 **2026-10-22（W64 · `B09`）**：原版 `TweenInfoAnimationBase.GetTween` 在
+                //   `ease == 0` 时走的是 **`SetEase(curve)`**（`AnimationCurve`），**不是 Linear**。
+                //   74 份 SO 里 `curve` 非空的只有 2 条（`Tester` / `Levitate Slam`，共 6 个关键帧），
+                //   而真正会用它的是 **`Tester` 第 0 步**（`MoveTween`、`ease = 0`；
+                //   `Levitate Slam` 那条 `ease = 30` ⇒ 曲线是惰性的）。判据 =
+                //   `数据/游戏数据/tween/Tester.json` 的 `MoveTween.data.curve.m_Curve`（4 个关键帧，实读）。
+                var curve = CurveFor(s, entryName, stepIndex);
+                if (curve != null) tw = tw.SetEase(curve);
+                else
+                {
+                    tw = tw.SetEase(Ease.Linear);
+                    // `delay` 那两步也是 `ease == 0`、而且没有曲线 ⇒ 计入就会把「真的退回 Linear」淹没。
+                    // 它们本来就是个空转的等待补间（`DOTween.To(_ => {})`），缓动对画面零影响 ⇒ 不计数。
+                    if (s.kind != "delay") EaseZeroFallback++;
+                }
+            }
             return tw;
         }
 
-        /// <summary>`ease == 0` 但我们没搬 curve 的次数（诊断；当前数据下应为 0~1）。</summary>
+        /// <summary>`ease == 0` 但**连曲线都取不到**、只能退 Linear 的次数（诊断）。
+        /// ⚠️ 在当前数据下应为 **0** —— `Tester#0` 有曲线（见 `CurveFallback`）；
+        /// 另外两条 `ease == 0` 的步骤是 `delay` 类（纯等待，缓动本来就不影响画面）。
+        /// 🧨 这个数 > 0 就说明「有 ease==0 的补间又退回 Linear 了」= B09 那个近似回来了。</summary>
         public static int EaseZeroFallback { get; private set; }
+
+        /// <summary>🆕 2026-10-22（`B09`）：`ease == 0` 那条曲线的**运行期兜底表**（键 = `资产名#步骤序号`）。
+        /// 为什么在代码里而不是 JSON：`工具/gen_unit_tweens.py` **不搬 `curve` 字段**，
+        /// 而那个生成器不在本批的文件白名单里 ⇒ 先把原版关键帧逐位抄在这里，
+        /// 等生成器补上 `curveTimes/Values/InSlopes/OutSlopes` 之后 **以 JSON 为准**（`CurveFor` 先读 JSON）。
+        /// 🔴 判据（一手，逐位实读）：`数据/游戏数据/tween/Tester.json`
+        ///   的 `MoveTween.data`——`ease: 0`、`duration: 1.0`、`curve.m_Curve` 四个关键帧。
+        /// ⛔ 别「照手感」改这些数。</summary>
+        static readonly Dictionary<string, (float t, float v, float inS, float outS)[]> CurveFallback =
+            new Dictionary<string, (float t, float v, float inS, float outS)[]>
+        {
+            {
+                "Tester#0", new (float, float, float, float)[]
+                {
+                    (0.0f,                  0.0f,                  3.5101411f,   3.5101411f),
+                    (0.64677107f,           0.98289812f,           0.26425928f,  0.26425928f),
+                    (0.86642885f,           0.91523606f,          -0.010785313f, -0.010785313f),
+                    (1.0f,                  1.0f,                  0.019904172f, 0.019904172f),
+                }
+            },
+        };
+
+        /// <summary>取 `ease == 0` 那条曲线：**先读数据**（生成器搬过来之后就走这条），再退回
+        /// <see cref="CurveFallback"/>。两处都没有 ⇒ null（调用方退 Linear 并计数）。</summary>
+        static AnimationCurve CurveFor(UnitTweenStep s, string entryName, int stepIndex)
+        {
+            var c = new AnimationCurve();
+            if (s.curveTimes != null && s.curveTimes.Length > 0
+                && s.curveValues != null && s.curveValues.Length == s.curveTimes.Length)
+            {
+                for (int i = 0; i < s.curveTimes.Length; i++)
+                    c.AddKey(new Keyframe(s.curveTimes[i], s.curveValues[i],
+                                          At(s.curveInSlopes, i), At(s.curveOutSlopes, i)));
+                return c;
+            }
+            if (string.IsNullOrEmpty(entryName) || stepIndex < 0) return null;
+            (float t, float v, float inS, float outS)[] kfs;
+            if (!CurveFallback.TryGetValue(entryName + "#" + stepIndex, out kfs)) return null;
+            foreach (var k in kfs) c.AddKey(new Keyframe(k.t, k.v, k.inS, k.outS));
+            return c;
+        }
+
+        static float At(float[] a, int i) { return (a != null && i < a.Length) ? a[i] : 0f; }
+
+        /// <summary>🆕 2026-10-22（`B09`）**自检口**：按「资产名 + 步骤序号」取那条 `ease == 0` 的曲线。
+        /// 取不到 ⇒ `null`（= 运行期会退 Linear）。判据与数据 → <see cref="CurveFallback"/>。</summary>
+        public static AnimationCurve CurveForTest(string entryName, int stepIndex)
+        {
+            var e = Get(entryName);
+            if (e == null || e.tweens == null || stepIndex < 0 || stepIndex >= e.tweens.Length) return null;
+            return CurveFor(e.tweens[stepIndex], entryName, stepIndex);
+        }
 
         // ---- `BattleManagerSupport.GetTargetUnit`（实读的枚举）----
         static Transform Target(int unit, Transform source, Transform target)
@@ -247,7 +340,8 @@ namespace CardPresentation
 
         /// <summary>`TweenInfoAnimationBase.get_TargetDirection`（`awayFromUnit` 那条支要它）。
         /// 原版：取 `awayFromUnit` 那个单位，方向 = normalize(目标位 − 它的位置)；
-        /// **取不到时**退回「目标卡的 forward」（⚠️ 原版读的是 `cardUI` 下一个子节点 —— 见文件头 ①）。</summary>
+        /// **取不到时**退回「目标卡 `body3D` 节点的 forward」（✅ `B10` 已坐实，见文件头 ① 与
+        /// <see cref="DefaultForward"/>）。</summary>
         static Vector3 TargetDirection(UnitTweenStep s, Transform source, Transform target)
         {
             var tgt = Target(s.targetUnit, source, target);

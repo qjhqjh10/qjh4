@@ -4,9 +4,20 @@
   "fallback": "表里没有这张卡 ⇒ 退回 1.0（= 本表中位数；**能力事件那条路会出声**，见 `AbilityAnimDurations`）",
   "formula": "AnimInfo.GetAnimDuration() = vfxDelayTime + timeAtStartPos + timeMoving + timeAtEndPos（不含 startDelay）",
   "notComputed": "`animInfo.tweenAnim`（UnitTweenSO）的长度；`waitAnimToApplyEffect` 只如实带出不参与求和",
-  "scope": "只取 `activeAbility.activeAbilityLogic[*].cardAnimations[*]`（原版「单位主动发动能力」那一条路）；`cardAbilities[*]` 归 `EvtKind.Trigger`/`Play`，不在本表"
+  "scope": "只取 `activeAbility.activeAbilityLogic[*].cardAnimations[*]`（原版「单位主动发动能力」那一条路）；`cardAbilities[*]` 归 `EvtKind.Trigger`/`Play`，不在本表",
+  "secondChain": "`cards_engine.json` 的 `animTimes` 里 `tg == -1` 的行 = 同一份 `activeAbility.activeAbilityLogic[*].cardAnimations[*]`；那条链走的是 `guid_map_bundles.tsv`（与本表的 `card_vfx_by_card.json` 不同一条）⇒ 逐卡比一遍",
+  "soAnimCount": "`uncovered[*].soActiveAnims` 数的是**非空 GUID** 的条数 —— 现读有 34 张卡的 `cardAnimations` 里是空引用（`m_AssetGUID: \"\"`），数 `len()` 会得出假数（2026-10-22 修）",
+  "whoEmitsAbility": "`EvtKind.Ability` 在引擎里只有三条产生点：`RuleCore.UseAbility`（`Ability:` 正文，原版卡恒 false）· `UseOathAbility`（`Oath N:`）· `UseAlternative`（`Duty/Pray/Ferocity/Agenda`）。前两条要 `Board[slot]` ⇒ **战术卡不可能发**"
  },
- "_headline": "🔴 `A1767`：`EventTiming.DurationOf(EvtKind.Ability)` 的那条常数 **1.0** 换成**逐卡真值**。判据 = 该卡 `activeAbility` 各 `cardAnimations` 的 `AnimInfo.GetAnimDuration()` 之和（`vfxDelayTime + timeAtStartPos + timeMoving + timeAtEndPos`；原版 `AnimInfo__GetAnimDuration.c`）。覆盖 **93 张卡 / 160 条 CardAnim**，min 0.2 / 中位 **1.0** / max 4.0。⚠️ **三处如实标注**：① 仍有 13 张「会发 Ability 事件」的卡没有真值 —— **不是快照年代**（2026-10-18 起真值 = 当前 build 的卡 SO），而是它们的卡 SO `activeAbility` 本身一条 CardAnim 都没有** ⇒ 判据为空（铁律 11 例外①）；② 原版 `_ResolveAnim` 里 tween 那一段（`animInfo.tweenAnim != null && waitAnimation != 0` 时 `WaitForCompletion(BuildSequence)`）**本表没算**（`UnitTweenSO` 的长度本地没接）；③ `cardAbilities[*]`（`ThisCardPlayed` / `Slay` / … 那一族）是**别的时机**播的，**不进这张表**（留在 `cards[*].otherAbilityAnims` 备查）。",
+ "_crossCheck": {
+  "agree": 93,
+  "allAgree": true,
+  "animTimesCards": 93,
+  "mismatch": [],
+  "onlyInAnimTimes": [],
+  "onlyInTable": []
+ },
+ "_headline": "🔴 `A1767`：`EventTiming.DurationOf(EvtKind.Ability)` 的那条常数 **1.0** 换成**逐卡真值**。判据 = 该卡 `activeAbility` 各 `cardAnimations` 的 `AnimInfo.GetAnimDuration()` 之和（`vfxDelayTime + timeAtStartPos + timeMoving + timeAtEndPos`；原版 `AnimInfo__GetAnimDuration.c`）。覆盖 **93 张卡 / 160 条 CardAnim**，min 0.2 / 中位 **1.0** / max 4.0。**第二条链交叉校验**（`cards_engine.json` 的 `animTimes`，`tg == -1` 行；那是一条独立的 GUID→CardAnim 链）：93 张卡，与本表**逐卡一致 93**、不一致 0 · 只在 animTimes 有 0 · 只在本表有 0（**两链全同**）。**「会发 Ability 事件」那一族 = 86 张**（`type ∈ unit/hero` 且卡面有 `Duty/Pray/Ferocity/Agenda` 正文或 `Oath N:` —— 引擎那三条产生点的代理判据），其中 **3 张没有真值**（逐张见 `uncovered`，理由逐条写明）。**同一张卡、不同棋盘状态 = 不同时长**的那一族：**1 张**（见 `conditional`）—— 原版 `RawCardScript.GetActiveAbility` 在 `activeAbility` / `alternativeAbility` 之间按 `normalAbilityBoardCriteria` **二选一**；本表 `active` 只记**普通那一支**。⚠️ **三处如实标注**：① 那 3 张没有真值 —— **不是快照年代**（2026-10-18 起真值 = 当前 build 的卡 SO），而是它们的卡 SO `activeAbility` 里**一条非空 CardAnim 引用都没有**（`m_AssetGUID` 全空）⇒ 原版这条路上不放动画、「该等 0 还是等一拍」判据不足（铁律 11 例外①）；② 原版 `_ResolveAnim` 里 tween 那一段（`animInfo.tweenAnim != null && waitAnimation != 0` 时 `WaitForCompletion(BuildSequence)`）**本表没算**（`UnitTweenSO` 的长度本地没接）；③ `cardAbilities[*]`（`ThisCardPlayed` / `Slay` / … 那一族）是**别的时机**播的，**不进这张表**（留在 `cards[*].otherAbilityAnims` 备查）。",
  "_sources": {
   "cardAnimDumps": "d:/2/新解包资源/assets_full/bundle_*cardanims*/MonoBehaviour/*.json",
   "cardSoTruth": "d:/4/Unity/资料/普查产出_1018/allcards_1350/cards_raw.json",
@@ -20,6 +31,7 @@
   {
    "active": null,
    "activeAnims": [],
+   "alternative": null,
    "id": "1dfc9bc738bfc4f4d93d48f165aee510",
    "name": "Dark Pact of Resilience",
    "otherAbilityAnims": [
@@ -37,6 +49,7 @@
   {
    "active": null,
    "activeAnims": [],
+   "alternative": null,
    "id": "30007162b68992e41a422f2061705b65",
    "name": "Lord of the Storm",
    "otherAbilityAnims": [
@@ -54,6 +67,7 @@
   {
    "active": null,
    "activeAnims": [],
+   "alternative": null,
    "id": "33eabec155f628440a426a4ba480ec24",
    "name": "Wrath of Khaine",
    "otherAbilityAnims": [
@@ -89,6 +103,7 @@
   {
    "active": null,
    "activeAnims": [],
+   "alternative": null,
    "id": "3ebb159036778d14ebd1c48451aa6ca0",
    "name": "Greatest Warboss",
    "otherAbilityAnims": [
@@ -124,6 +139,7 @@
   {
    "active": null,
    "activeAnims": [],
+   "alternative": null,
    "id": "468db99b4b10d0745bab346df37d3fb2",
    "name": "Feeding Frenzy",
    "otherAbilityAnims": [
@@ -144,6 +160,7 @@
   {
    "active": null,
    "activeAnims": [],
+   "alternative": null,
    "id": "4a48457c24877f345be2e96f867c1e94",
    "name": "Dark Pact of Fate",
    "otherAbilityAnims": [
@@ -161,6 +178,7 @@
   {
    "active": null,
    "activeAnims": [],
+   "alternative": null,
    "id": "65cfec7d2bc719040b3b4b88622931b2",
    "name": "Lead the Righteous",
    "otherAbilityAnims": [
@@ -178,6 +196,7 @@
   {
    "active": null,
    "activeAnims": [],
+   "alternative": null,
    "id": "68909cf02f472734ea391665e0d28e15",
    "name": "Jammed Communications",
    "otherAbilityAnims": [
@@ -204,6 +223,7 @@
   {
    "active": null,
    "activeAnims": [],
+   "alternative": null,
    "id": "7c666a04c1b9e8b4e9a96247e9fe115a",
    "name": "Cult Propaganda",
    "otherAbilityAnims": [
@@ -230,6 +250,7 @@
   {
    "active": null,
    "activeAnims": [],
+   "alternative": null,
    "id": "851f73daf747eb642934a16429b391db",
    "name": "Storm of Silence",
    "otherAbilityAnims": [
@@ -256,6 +277,7 @@
   {
    "active": null,
    "activeAnims": [],
+   "alternative": null,
    "id": "8901e35c5de30eb48804da6651cfb132",
    "name": "Fury of the Righteous",
    "otherAbilityAnims": [
@@ -285,6 +307,7 @@
   {
    "active": null,
    "activeAnims": [],
+   "alternative": null,
    "id": "9a2cadc64c80a6b42912441105bb1cee",
    "name": "Dark Pact of Blood",
    "otherAbilityAnims": [
@@ -321,6 +344,7 @@
      "waitAnimToApplyEffect": 0
     }
    ],
+   "alternative": null,
    "id": "AM1",
    "name": "Lord Solar Leontus",
    "otherAbilityAnims": []
@@ -356,6 +380,7 @@
      "waitAnimToApplyEffect": 1
     }
    ],
+   "alternative": null,
    "id": "AM10",
    "name": "Cadian Standard Bearer",
    "otherAbilityAnims": []
@@ -382,8 +407,9 @@
      "waitAnimToApplyEffect": 1
     }
    ],
+   "alternative": null,
    "id": "AM11",
-   "name": "Shock Trooper Sgt",
+   "name": "Shock Trooper Sgt.",
    "otherAbilityAnims": []
   },
   {
@@ -408,6 +434,7 @@
      "waitAnimToApplyEffect": 1
     }
    ],
+   "alternative": null,
    "id": "AM12",
    "name": "Flamer Trooper",
    "otherAbilityAnims": []
@@ -415,6 +442,7 @@
   {
    "active": null,
    "activeAnims": [],
+   "alternative": null,
    "id": "AM14",
    "name": "Autocannon Squad",
    "otherAbilityAnims": [
@@ -451,6 +479,7 @@
      "waitAnimToApplyEffect": 1
     }
    ],
+   "alternative": null,
    "id": "AM16",
    "name": "Scout Sentinel",
    "otherAbilityAnims": []
@@ -458,6 +487,7 @@
   {
    "active": null,
    "activeAnims": [],
+   "alternative": null,
    "id": "AM17",
    "name": "Commissar",
    "otherAbilityAnims": [
@@ -484,6 +514,7 @@
   {
    "active": null,
    "activeAnims": [],
+   "alternative": null,
    "id": "AM18",
    "name": "Master of Ordnance",
    "otherAbilityAnims": [
@@ -529,6 +560,7 @@
      "waitAnimToApplyEffect": 1
     }
    ],
+   "alternative": null,
    "id": "AM2",
    "name": "Ursula Creed",
    "otherAbilityAnims": []
@@ -555,6 +587,7 @@
      "waitAnimToApplyEffect": 1
     }
    ],
+   "alternative": null,
    "id": "AM21",
    "name": "Tech-Priest Enginseer",
    "otherAbilityAnims": [
@@ -594,6 +627,7 @@
      "waitAnimToApplyEffect": 1
     }
    ],
+   "alternative": null,
    "id": "AM22",
    "name": "Primaris Psyker",
    "otherAbilityAnims": []
@@ -623,6 +657,7 @@
      "waitAnimToApplyEffect": 1
     }
    ],
+   "alternative": null,
    "id": "AM23",
    "name": "Bombast Field Gun",
    "otherAbilityAnims": []
@@ -630,6 +665,7 @@
   {
    "active": null,
    "activeAnims": [],
+   "alternative": null,
    "id": "AM25",
    "name": "Armoured Sentinel",
    "otherAbilityAnims": [
@@ -656,6 +692,7 @@
   {
    "active": null,
    "activeAnims": [],
+   "alternative": null,
    "id": "AM26",
    "name": "Taurox",
    "otherAbilityAnims": [
@@ -701,6 +738,7 @@
      "waitAnimToApplyEffect": 1
     }
    ],
+   "alternative": null,
    "id": "AM28",
    "name": "Chimera",
    "otherAbilityAnims": []
@@ -708,6 +746,7 @@
   {
    "active": null,
    "activeAnims": [],
+   "alternative": null,
    "id": "AM29",
    "name": "Hydra",
    "otherAbilityAnims": [
@@ -753,6 +792,7 @@
      "waitAnimToApplyEffect": 0
     }
    ],
+   "alternative": null,
    "id": "AM3",
    "name": "Commissar Denkler",
    "otherAbilityAnims": []
@@ -788,6 +828,7 @@
      "waitAnimToApplyEffect": 1
     }
    ],
+   "alternative": null,
    "id": "AM30",
    "name": "Manticore",
    "otherAbilityAnims": []
@@ -795,6 +836,7 @@
   {
    "active": null,
    "activeAnims": [],
+   "alternative": null,
    "id": "AM31",
    "name": "Cadian Castellan",
    "otherAbilityAnims": [
@@ -812,8 +854,9 @@
   {
    "active": null,
    "activeAnims": [],
+   "alternative": null,
    "id": "AM32",
-   "name": "Leman Russ",
+   "name": "Leman Russ Tank",
    "otherAbilityAnims": [
     {
      "cardanim": "Atk_TankShot_big",
@@ -854,6 +897,7 @@
      "waitAnimToApplyEffect": 1
     }
    ],
+   "alternative": null,
    "id": "AM34",
    "name": "Valkyrie",
    "otherAbilityAnims": []
@@ -889,6 +933,7 @@
      "waitAnimToApplyEffect": 1
     }
    ],
+   "alternative": null,
    "id": "AM35",
    "name": "Leman Russ Vanquisher",
    "otherAbilityAnims": []
@@ -924,6 +969,7 @@
      "waitAnimToApplyEffect": 1
     }
    ],
+   "alternative": null,
    "id": "AM36",
    "name": "Maelon Dhrost",
    "otherAbilityAnims": []
@@ -931,6 +977,7 @@
   {
    "active": null,
    "activeAnims": [],
+   "alternative": null,
    "id": "AM37",
    "name": "Rogal Dorn Tank",
    "otherAbilityAnims": [
@@ -979,6 +1026,7 @@
      "waitAnimToApplyEffect": 1
     }
    ],
+   "alternative": null,
    "id": "AM38",
    "name": "Baneblade Tank",
    "otherAbilityAnims": []
@@ -1008,6 +1056,7 @@
      "waitAnimToApplyEffect": 1
     }
    ],
+   "alternative": null,
    "id": "AM5",
    "name": "Shock Trooper",
    "otherAbilityAnims": []
@@ -1015,6 +1064,7 @@
   {
    "active": null,
    "activeAnims": [],
+   "alternative": null,
    "id": "AM54",
    "name": "At All Costs",
    "otherAbilityAnims": [
@@ -1041,6 +1091,7 @@
   {
    "active": null,
    "activeAnims": [],
+   "alternative": null,
    "id": "AM56",
    "name": "Vengeance for Cadia",
    "otherAbilityAnims": [
@@ -1058,6 +1109,7 @@
   {
    "active": null,
    "activeAnims": [],
+   "alternative": null,
    "id": "AM58",
    "name": "Siege Warfare",
    "otherAbilityAnims": [
@@ -1085,6 +1137,7 @@
      "waitAnimToApplyEffect": 1
     }
    ],
+   "alternative": null,
    "id": "AM59",
    "name": "Astropath",
    "otherAbilityAnims": []
@@ -1092,6 +1145,7 @@
   {
    "active": null,
    "activeAnims": [],
+   "alternative": null,
    "id": "AM6",
    "name": "Ratling",
    "otherAbilityAnims": [
@@ -1143,6 +1197,7 @@
      "waitAnimToApplyEffect": 1
     }
    ],
+   "alternative": null,
    "id": "AM66",
    "name": "Hektor Thenmann",
    "otherAbilityAnims": []
@@ -1150,6 +1205,7 @@
   {
    "active": null,
    "activeAnims": [],
+   "alternative": null,
    "id": "AM67",
    "name": "Aquilon Servo-Sentry",
    "otherAbilityAnims": [
@@ -1183,6 +1239,7 @@
      "waitAnimToApplyEffect": 1
     }
    ],
+   "alternative": null,
    "id": "AM68",
    "name": "Tempestus Scion",
    "otherAbilityAnims": []
@@ -1209,6 +1266,7 @@
      "waitAnimToApplyEffect": 1
     }
    ],
+   "alternative": null,
    "id": "AM69",
    "name": "Tempestor Sergeant",
    "otherAbilityAnims": [
@@ -1235,6 +1293,7 @@
   {
    "active": null,
    "activeAnims": [],
+   "alternative": null,
    "id": "AM7",
    "name": "Vox Operator",
    "otherAbilityAnims": [
@@ -1271,8 +1330,9 @@
      "waitAnimToApplyEffect": 1
     }
    ],
+   "alternative": null,
    "id": "AM70",
-   "name": "Medic Scion",
+   "name": "Scion Medic",
    "otherAbilityAnims": []
   },
   {
@@ -1297,6 +1357,7 @@
      "waitAnimToApplyEffect": 1
     }
    ],
+   "alternative": null,
    "id": "AM73",
    "name": "Taurox Prime",
    "otherAbilityAnims": []
@@ -1304,6 +1365,7 @@
   {
    "active": null,
    "activeAnims": [],
+   "alternative": null,
    "id": "AM8",
    "name": "Cadian Medic",
    "otherAbilityAnims": [
@@ -1321,6 +1383,7 @@
   {
    "active": null,
    "activeAnims": [],
+   "alternative": null,
    "id": "AM9",
    "name": "Kasrkin",
    "otherAbilityAnims": [
@@ -1341,6 +1404,7 @@
   {
    "active": null,
    "activeAnims": [],
+   "alternative": null,
    "id": "ASH12",
    "name": "Swooping Hawk",
    "otherAbilityAnims": [
@@ -1376,6 +1440,7 @@
   {
    "active": null,
    "activeAnims": [],
+   "alternative": null,
    "id": "ASH14",
    "name": "Wraithblade",
    "otherAbilityAnims": [
@@ -1411,6 +1476,7 @@
   {
    "active": null,
    "activeAnims": [],
+   "alternative": null,
    "id": "ASH17",
    "name": "Spiritseer",
    "otherAbilityAnims": [
@@ -1446,6 +1512,7 @@
   {
    "active": null,
    "activeAnims": [],
+   "alternative": null,
    "id": "ASH20",
    "name": "Wraithguard",
    "otherAbilityAnims": [
@@ -1481,6 +1548,7 @@
   {
    "active": null,
    "activeAnims": [],
+   "alternative": null,
    "id": "ASH24",
    "name": "Vengeful Wraithblade",
    "otherAbilityAnims": [
@@ -1516,6 +1584,7 @@
   {
    "active": null,
    "activeAnims": [],
+   "alternative": null,
    "id": "ASH25",
    "name": "Warlock Skyrunner",
    "otherAbilityAnims": [
@@ -1536,6 +1605,7 @@
   {
    "active": null,
    "activeAnims": [],
+   "alternative": null,
    "id": "ASH28",
    "name": "Spiritseer Qelenaris",
    "otherAbilityAnims": [
@@ -1553,6 +1623,7 @@
   {
    "active": null,
    "activeAnims": [],
+   "alternative": null,
    "id": "ASH32",
    "name": "Wraithlord",
    "otherAbilityAnims": [
@@ -1588,6 +1659,7 @@
   {
    "active": null,
    "activeAnims": [],
+   "alternative": null,
    "id": "ASH33",
    "name": "Hemlock Wraithfighter",
    "otherAbilityAnims": [
@@ -1623,6 +1695,7 @@
   {
    "active": null,
    "activeAnims": [],
+   "alternative": null,
    "id": "ASH34",
    "name": "Avatar of Khaine",
    "otherAbilityAnims": [
@@ -1658,6 +1731,7 @@
   {
    "active": null,
    "activeAnims": [],
+   "alternative": null,
    "id": "ASH35",
    "name": "Wraithknight",
    "otherAbilityAnims": [
@@ -1684,6 +1758,7 @@
   {
    "active": null,
    "activeAnims": [],
+   "alternative": null,
    "id": "ASH38",
    "name": "Will of Asuryan",
    "otherAbilityAnims": [
@@ -1710,6 +1785,7 @@
   {
    "active": null,
    "activeAnims": [],
+   "alternative": null,
    "id": "ASH41",
    "name": "Webway Gate",
    "otherAbilityAnims": [
@@ -1736,6 +1812,7 @@
   {
    "active": null,
    "activeAnims": [],
+   "alternative": null,
    "id": "ASH48",
    "name": "Cosmic Serpent",
    "otherAbilityAnims": [
@@ -1753,6 +1830,7 @@
   {
    "active": null,
    "activeAnims": [],
+   "alternative": null,
    "id": "ASH49",
    "name": "Eldritch Storm",
    "otherAbilityAnims": [
@@ -1791,6 +1869,7 @@
   {
    "active": null,
    "activeAnims": [],
+   "alternative": null,
    "id": "ASH52",
    "name": "Hosts of the Dead",
    "otherAbilityAnims": [
@@ -1808,6 +1887,7 @@
   {
    "active": null,
    "activeAnims": [],
+   "alternative": null,
    "id": "ASH53",
    "name": "Reclaim the Stars",
    "otherAbilityAnims": [
@@ -1834,6 +1914,7 @@
   {
    "active": null,
    "activeAnims": [],
+   "alternative": null,
    "id": "ASH54",
    "name": "Wailing Doom",
    "otherAbilityAnims": [
@@ -1851,6 +1932,7 @@
   {
    "active": null,
    "activeAnims": [],
+   "alternative": null,
    "id": "ASH64",
    "name": "Devoted of Khaine",
    "otherAbilityAnims": [
@@ -1886,6 +1968,7 @@
   {
    "active": null,
    "activeAnims": [],
+   "alternative": null,
    "id": "ASH65",
    "name": "Shining Spear",
    "otherAbilityAnims": [
@@ -1921,6 +2004,7 @@
   {
    "active": null,
    "activeAnims": [],
+   "alternative": null,
    "id": "ASH66",
    "name": "Shining Spear Exarch",
    "otherAbilityAnims": [
@@ -1938,6 +2022,7 @@
   {
    "active": null,
    "activeAnims": [],
+   "alternative": null,
    "id": "ASH67",
    "name": "Hornet",
    "otherAbilityAnims": [
@@ -1973,6 +2058,7 @@
   {
    "active": null,
    "activeAnims": [],
+   "alternative": null,
    "id": "ASH73",
    "name": "Whirling Death",
    "otherAbilityAnims": [
@@ -1990,6 +2076,7 @@
   {
    "active": null,
    "activeAnims": [],
+   "alternative": null,
    "id": "ASH74",
    "name": "Jain Zar",
    "otherAbilityAnims": [
@@ -2007,6 +2094,7 @@
   {
    "active": null,
    "activeAnims": [],
+   "alternative": null,
    "id": "ASH77",
    "name": "Death Spinner Warp Spider",
    "otherAbilityAnims": [
@@ -2042,6 +2130,7 @@
   {
    "active": null,
    "activeAnims": [],
+   "alternative": null,
    "id": "ASH78",
    "name": "Warp Spider Exarch",
    "otherAbilityAnims": [
@@ -2068,6 +2157,7 @@
   {
    "active": null,
    "activeAnims": [],
+   "alternative": null,
    "id": "ASH79",
    "name": "Orian Laratharjos",
    "otherAbilityAnims": [
@@ -2085,6 +2175,7 @@
   {
    "active": null,
    "activeAnims": [],
+   "alternative": null,
    "id": "ASH8",
    "name": "Warlock",
    "otherAbilityAnims": [
@@ -2120,6 +2211,7 @@
   {
    "active": null,
    "activeAnims": [],
+   "alternative": null,
    "id": "ASH80",
    "name": "Farseer",
    "otherAbilityAnims": [
@@ -2155,6 +2247,7 @@
   {
    "active": null,
    "activeAnims": [],
+   "alternative": null,
    "id": "ASH81",
    "name": "Bright Lance Vyper",
    "otherAbilityAnims": [
@@ -2172,6 +2265,7 @@
   {
    "active": null,
    "activeAnims": [],
+   "alternative": null,
    "id": "ASH82",
    "name": "Farseer Skyrunner",
    "otherAbilityAnims": [
@@ -2207,6 +2301,7 @@
   {
    "active": null,
    "activeAnims": [],
+   "alternative": null,
    "id": "ASH83",
    "name": "Autarch",
    "otherAbilityAnims": [
@@ -2242,6 +2337,7 @@
   {
    "active": null,
    "activeAnims": [],
+   "alternative": null,
    "id": "ASH84",
    "name": "Ahnakh-Yth Shrine",
    "otherAbilityAnims": [
@@ -2268,6 +2364,7 @@
   {
    "active": null,
    "activeAnims": [],
+   "alternative": null,
    "id": "ASH86",
    "name": "Forewarned",
    "otherAbilityAnims": [
@@ -2303,6 +2400,7 @@
   {
    "active": null,
    "activeAnims": [],
+   "alternative": null,
    "id": "BL12",
    "name": "Aspiring Champion",
    "otherAbilityAnims": [
@@ -2320,6 +2418,7 @@
   {
    "active": null,
    "activeAnims": [],
+   "alternative": null,
    "id": "BL28",
    "name": "Helbrute",
    "otherAbilityAnims": [
@@ -2340,6 +2439,7 @@
   {
    "active": null,
    "activeAnims": [],
+   "alternative": null,
    "id": "BL3",
    "name": "Chaos Legionary",
    "otherAbilityAnims": [
@@ -2360,6 +2460,7 @@
   {
    "active": null,
    "activeAnims": [],
+   "alternative": null,
    "id": "BL32",
    "name": "Iskandar Khayon",
    "otherAbilityAnims": [
@@ -2377,6 +2478,7 @@
   {
    "active": null,
    "activeAnims": [],
+   "alternative": null,
    "id": "BL63",
    "name": "Havoc",
    "otherAbilityAnims": [
@@ -2397,6 +2499,7 @@
   {
    "active": null,
    "activeAnims": [],
+   "alternative": null,
    "id": "BL67",
    "name": "Ghallaron's Champion",
    "otherAbilityAnims": [
@@ -2414,6 +2517,7 @@
   {
    "active": null,
    "activeAnims": [],
+   "alternative": null,
    "id": "BL69",
    "name": "Meltagun Legionary",
    "otherAbilityAnims": [
@@ -2453,6 +2557,7 @@
      "waitAnimToApplyEffect": 1
     }
    ],
+   "alternative": null,
    "id": "DA1",
    "name": "Azrael",
    "otherAbilityAnims": []
@@ -2470,6 +2575,7 @@
      "waitAnimToApplyEffect": 1
     }
    ],
+   "alternative": null,
    "id": "DA13",
    "name": "Librarian",
    "otherAbilityAnims": []
@@ -2490,6 +2596,7 @@
      "waitAnimToApplyEffect": 1
     }
    ],
+   "alternative": null,
    "id": "DA14",
    "name": "Ravenwing Speeder",
    "otherAbilityAnims": [
@@ -2507,6 +2614,7 @@
   {
    "active": null,
    "activeAnims": [],
+   "alternative": null,
    "id": "DA15",
    "name": "Ravenwing Champion",
    "otherAbilityAnims": [
@@ -2533,6 +2641,7 @@
   {
    "active": null,
    "activeAnims": [],
+   "alternative": null,
    "id": "DA17",
    "name": "Deathwing Terminator",
    "otherAbilityAnims": [
@@ -2569,6 +2678,7 @@
      "waitAnimToApplyEffect": 1
     }
    ],
+   "alternative": null,
    "id": "DA18",
    "name": "Inner Circle Companion",
    "otherAbilityAnims": []
@@ -2576,6 +2686,7 @@
   {
    "active": null,
    "activeAnims": [],
+   "alternative": null,
    "id": "DA19",
    "name": "Interrogator Chaplain",
    "otherAbilityAnims": [
@@ -2612,6 +2723,7 @@
      "waitAnimToApplyEffect": 0
     }
    ],
+   "alternative": null,
    "id": "DA20",
    "name": "Master Lazarus",
    "otherAbilityAnims": []
@@ -2638,6 +2750,7 @@
      "waitAnimToApplyEffect": 0
     }
    ],
+   "alternative": null,
    "id": "DA23",
    "name": "Bladeguard Veteran",
    "otherAbilityAnims": []
@@ -2655,6 +2768,7 @@
      "waitAnimToApplyEffect": 1
     }
    ],
+   "alternative": null,
    "id": "DA27",
    "name": "Ravenwing Talonmaster",
    "otherAbilityAnims": []
@@ -2662,6 +2776,7 @@
   {
    "active": null,
    "activeAnims": [],
+   "alternative": null,
    "id": "DA28",
    "name": "Company Master",
    "otherAbilityAnims": [
@@ -2698,6 +2813,7 @@
      "waitAnimToApplyEffect": 0
     }
    ],
+   "alternative": null,
    "id": "DA29",
    "name": "Darkshroud",
    "otherAbilityAnims": [
@@ -2725,6 +2841,7 @@
      "waitAnimToApplyEffect": 1
     }
    ],
+   "alternative": null,
    "id": "DA3",
    "name": "Asmodai",
    "otherAbilityAnims": []
@@ -2732,6 +2849,7 @@
   {
    "active": null,
    "activeAnims": [],
+   "alternative": null,
    "id": "DA30",
    "name": "Deathwing Strikemaster",
    "otherAbilityAnims": [
@@ -2749,6 +2867,7 @@
   {
    "active": null,
    "activeAnims": [],
+   "alternative": null,
    "id": "DA32",
    "name": "Deathwing Champion",
    "otherAbilityAnims": [
@@ -2766,6 +2885,7 @@
   {
    "active": null,
    "activeAnims": [],
+   "alternative": null,
    "id": "DA34",
    "name": "Unforgiven Redemptor",
    "otherAbilityAnims": [
@@ -2783,6 +2903,7 @@
   {
    "active": null,
    "activeAnims": [],
+   "alternative": null,
    "id": "DA37",
    "name": "Deathwing Knight Master",
    "otherAbilityAnims": [
@@ -2827,6 +2948,7 @@
   {
    "active": null,
    "activeAnims": [],
+   "alternative": null,
    "id": "DA5",
    "name": "Apothecary",
    "otherAbilityAnims": [
@@ -2863,6 +2985,7 @@
      "waitAnimToApplyEffect": 1
     }
    ],
+   "alternative": null,
    "id": "DA65",
    "name": "Chaplain Gabutheron",
    "otherAbilityAnims": [
@@ -2880,8 +3003,9 @@
   {
    "active": null,
    "activeAnims": [],
+   "alternative": null,
    "id": "DA66",
-   "name": "Ravenwing Ballistus Dreadnought",
+   "name": "Ballistus Dreadnought",
    "otherAbilityAnims": [
     {
      "cardanim": "Atk_BulletImpact_DA_Ballistus_Missile_Volley",
@@ -2912,6 +3036,7 @@
   {
    "active": null,
    "activeAnims": [],
+   "alternative": null,
    "id": "DA67",
    "name": "Assault Terminator",
    "otherAbilityAnims": [
@@ -2929,6 +3054,7 @@
   {
    "active": null,
    "activeAnims": [],
+   "alternative": null,
    "id": "DA68",
    "name": "Vengeful Brethren Bladeguard",
    "otherAbilityAnims": [
@@ -2946,6 +3072,7 @@
   {
    "active": null,
    "activeAnims": [],
+   "alternative": null,
    "id": "DA69",
    "name": "Vengeful Brethren Hellblaster",
    "otherAbilityAnims": [
@@ -2991,6 +3118,7 @@
      "waitAnimToApplyEffect": 1
     }
    ],
+   "alternative": null,
    "id": "DA7",
    "name": "Ravenwing Bikes",
    "otherAbilityAnims": []
@@ -2998,6 +3126,7 @@
   {
    "active": null,
    "activeAnims": [],
+   "alternative": null,
    "id": "DA70",
    "name": "Vengeful Brethren Intercessor",
    "otherAbilityAnims": [
@@ -3043,6 +3172,7 @@
      "waitAnimToApplyEffect": 1
     }
    ],
+   "alternative": null,
    "id": "DA71",
    "name": "Watcher in the Dark",
    "otherAbilityAnims": []
@@ -3069,6 +3199,7 @@
      "waitAnimToApplyEffect": 1
     }
    ],
+   "alternative": null,
    "id": "DA75",
    "name": "Master Zacharial",
    "otherAbilityAnims": []
@@ -3076,6 +3207,7 @@
   {
    "active": null,
    "activeAnims": [],
+   "alternative": null,
    "id": "EC10",
    "name": "Infractor Obsessionist",
    "otherAbilityAnims": [
@@ -3093,6 +3225,7 @@
   {
    "active": null,
    "activeAnims": [],
+   "alternative": null,
    "id": "EC13",
    "name": "Lord Exultant",
    "otherAbilityAnims": [
@@ -3110,8 +3243,9 @@
   {
    "active": null,
    "activeAnims": [],
+   "alternative": null,
    "id": "EC14",
-   "name": "Lord Kakophonist",
+   "name": "Varius, Lord Kakophonist",
    "otherAbilityAnims": [
     {
      "cardanim": "Debuff EC Lower Stats",
@@ -3127,6 +3261,7 @@
   {
    "active": null,
    "activeAnims": [],
+   "alternative": null,
    "id": "EC17",
    "name": "Konstrictus Tormentor",
    "otherAbilityAnims": [
@@ -3144,6 +3279,7 @@
   {
    "active": null,
    "activeAnims": [],
+   "alternative": null,
    "id": "EC18",
    "name": "Glittering Myriad Infractor",
    "otherAbilityAnims": [
@@ -3161,6 +3297,7 @@
   {
    "active": null,
    "activeAnims": [],
+   "alternative": null,
    "id": "EC20",
    "name": "Turyan Ghauze",
    "otherAbilityAnims": [
@@ -3178,6 +3315,7 @@
   {
    "active": null,
    "activeAnims": [],
+   "alternative": null,
    "id": "EC21",
    "name": "Malgarash the Adamant",
    "otherAbilityAnims": [
@@ -3195,6 +3333,7 @@
   {
    "active": null,
    "activeAnims": [],
+   "alternative": null,
    "id": "EC22",
    "name": "Veldras the Sublime",
    "otherAbilityAnims": [
@@ -3221,6 +3360,7 @@
   {
    "active": null,
    "activeAnims": [],
+   "alternative": null,
    "id": "EC23",
    "name": "Slaanesh Sorcerer",
    "otherAbilityAnims": [
@@ -3247,6 +3387,7 @@
   {
    "active": null,
    "activeAnims": [],
+   "alternative": null,
    "id": "EC24",
    "name": "Slaanesh's Spawn",
    "otherAbilityAnims": [
@@ -3264,6 +3405,7 @@
   {
    "active": null,
    "activeAnims": [],
+   "alternative": null,
    "id": "EC25",
    "name": "Terminator",
    "otherAbilityAnims": [
@@ -3281,6 +3423,7 @@
   {
    "active": null,
    "activeAnims": [],
+   "alternative": null,
    "id": "EC26",
    "name": "Terminator Champion",
    "otherAbilityAnims": [
@@ -3307,6 +3450,7 @@
   {
    "active": null,
    "activeAnims": [],
+   "alternative": null,
    "id": "EC28",
    "name": "Chaos Land Raider",
    "otherAbilityAnims": [
@@ -3324,6 +3468,7 @@
   {
    "active": null,
    "activeAnims": [],
+   "alternative": null,
    "id": "EC3",
    "name": "Disharmonist",
    "otherAbilityAnims": [
@@ -3341,6 +3486,7 @@
   {
    "active": null,
    "activeAnims": [],
+   "alternative": null,
    "id": "EC30",
    "name": "Maulerfiend",
    "otherAbilityAnims": [
@@ -3361,6 +3507,7 @@
   {
    "active": null,
    "activeAnims": [],
+   "alternative": null,
    "id": "EC31",
    "name": "Chaos Rhino",
    "otherAbilityAnims": [
@@ -3378,6 +3525,7 @@
   {
    "active": null,
    "activeAnims": [],
+   "alternative": null,
    "id": "EC35",
    "name": "Blissbringer",
    "otherAbilityAnims": [
@@ -3395,6 +3543,7 @@
   {
    "active": null,
    "activeAnims": [],
+   "alternative": null,
    "id": "EC47",
    "name": "Exquisite Swordsmanship",
    "otherAbilityAnims": [
@@ -3421,6 +3570,7 @@
   {
    "active": null,
    "activeAnims": [],
+   "alternative": null,
    "id": "EC49",
    "name": "Terrifying Crescendo",
    "otherAbilityAnims": [
@@ -3438,6 +3588,7 @@
   {
    "active": null,
    "activeAnims": [],
+   "alternative": null,
    "id": "EC5",
    "name": "Tormentor",
    "otherAbilityAnims": [
@@ -3458,6 +3609,7 @@
   {
    "active": null,
    "activeAnims": [],
+   "alternative": null,
    "id": "EC55",
    "name": "Lucius The Eternal",
    "otherAbilityAnims": [
@@ -3475,6 +3627,7 @@
   {
    "active": null,
    "activeAnims": [],
+   "alternative": null,
    "id": "EC56",
    "name": "Lord Kaphrael",
    "otherAbilityAnims": [
@@ -3492,8 +3645,9 @@
   {
    "active": null,
    "activeAnims": [],
+   "alternative": null,
    "id": "EC57",
-   "name": "Xarahan Daemon Prince",
+   "name": "Xarahan, Daemon Prince",
    "otherAbilityAnims": [
     {
      "cardanim": "Buff EC Pink Intense",
@@ -3509,6 +3663,7 @@
   {
    "active": null,
    "activeAnims": [],
+   "alternative": null,
    "id": "EC6",
    "name": "Plasma Gun Tormentor",
    "otherAbilityAnims": [
@@ -3526,6 +3681,7 @@
   {
    "active": null,
    "activeAnims": [],
+   "alternative": null,
    "id": "EC7",
    "name": "Tormentor Obsessionist",
    "otherAbilityAnims": [
@@ -3543,6 +3699,7 @@
   {
    "active": null,
    "activeAnims": [],
+   "alternative": null,
    "id": "EC8",
    "name": "Infractor",
    "otherAbilityAnims": [
@@ -3560,8 +3717,9 @@
   {
    "active": null,
    "activeAnims": [],
+   "alternative": null,
    "id": "EC9",
-   "name": "Icon of Excess Infractor",
+   "name": "Icon of Excess",
    "otherAbilityAnims": [
     {
      "cardanim": "Buff_MarkOfSlaanesh_enchantment_target",
@@ -3577,6 +3735,7 @@
   {
    "active": null,
    "activeAnims": [],
+   "alternative": null,
    "id": "GOF10",
    "name": "Grot Tank",
    "otherAbilityAnims": [
@@ -3603,6 +3762,7 @@
   {
    "active": null,
    "activeAnims": [],
+   "alternative": null,
    "id": "GOF102",
    "name": "Thundering Stampede",
    "otherAbilityAnims": [
@@ -3620,6 +3780,7 @@
   {
    "active": null,
    "activeAnims": [],
+   "alternative": null,
    "id": "GOF104",
    "name": "Drag it Down",
    "otherAbilityAnims": [
@@ -3637,8 +3798,9 @@
   {
    "active": null,
    "activeAnims": [],
+   "alternative": null,
    "id": "GOF12",
-   "name": "Ork Spanner",
+   "name": "Spanner",
    "otherAbilityAnims": [
     {
      "cardanim": "Buff_Ork_Mek",
@@ -3690,6 +3852,7 @@
   {
    "active": null,
    "activeAnims": [],
+   "alternative": null,
    "id": "GOF13",
    "name": "Deffgun Loota",
    "otherAbilityAnims": [
@@ -3710,6 +3873,7 @@
   {
    "active": null,
    "activeAnims": [],
+   "alternative": null,
    "id": "GOF17",
    "name": "Killa Kan",
    "otherAbilityAnims": [
@@ -3745,6 +3909,7 @@
   {
    "active": null,
    "activeAnims": [],
+   "alternative": null,
    "id": "GOF22",
    "name": "Deff Dread",
    "otherAbilityAnims": [
@@ -3783,6 +3948,7 @@
   {
    "active": null,
    "activeAnims": [],
+   "alternative": null,
    "id": "GOF24",
    "name": "Battlewagon",
    "otherAbilityAnims": [
@@ -3809,6 +3975,7 @@
   {
    "active": null,
    "activeAnims": [],
+   "alternative": null,
    "id": "GOF25",
    "name": "Gorkanaut",
    "otherAbilityAnims": [
@@ -3835,6 +4002,7 @@
   {
    "active": null,
    "activeAnims": [],
+   "alternative": null,
    "id": "GOF26",
    "name": "Stompa",
    "otherAbilityAnims": [
@@ -3861,6 +4029,7 @@
   {
    "active": null,
    "activeAnims": [],
+   "alternative": null,
    "id": "GOF3",
    "name": "Bomb Squig",
    "otherAbilityAnims": [
@@ -3887,6 +4056,7 @@
   {
    "active": null,
    "activeAnims": [],
+   "alternative": null,
    "id": "GOF56",
    "name": "Deffkopta",
    "otherAbilityAnims": [
@@ -3913,6 +4083,7 @@
   {
    "active": null,
    "activeAnims": [],
+   "alternative": null,
    "id": "GOF57",
    "name": "Ork Nob",
    "otherAbilityAnims": [
@@ -3930,6 +4101,7 @@
   {
    "active": null,
    "activeAnims": [],
+   "alternative": null,
    "id": "GOF58",
    "name": "Boomdakka Snazzwagon",
    "otherAbilityAnims": [
@@ -3956,6 +4128,7 @@
   {
    "active": null,
    "activeAnims": [],
+   "alternative": null,
    "id": "GOF59",
    "name": "Big Shoota Boy",
    "otherAbilityAnims": [
@@ -3976,6 +4149,7 @@
   {
    "active": null,
    "activeAnims": [],
+   "alternative": null,
    "id": "GOF61",
    "name": "Rukkatrukk Squigbuggy",
    "otherAbilityAnims": [
@@ -4002,6 +4176,7 @@
   {
    "active": null,
    "activeAnims": [],
+   "alternative": null,
    "id": "GOF63",
    "name": "Gunwagon",
    "otherAbilityAnims": [
@@ -4028,6 +4203,7 @@
   {
    "active": null,
    "activeAnims": [],
+   "alternative": null,
    "id": "GOF66",
    "name": "Rokkit Boy",
    "otherAbilityAnims": [
@@ -4054,6 +4230,7 @@
   {
    "active": null,
    "activeAnims": [],
+   "alternative": null,
    "id": "GOF67",
    "name": "Boss Nob",
    "otherAbilityAnims": [
@@ -4071,8 +4248,9 @@
   {
    "active": null,
    "activeAnims": [],
+   "alternative": null,
    "id": "GOF69",
-   "name": "Mega Blasta Deffkopta",
+   "name": "Mega-Blasta Deffkopta",
    "otherAbilityAnims": [
     {
      "cardanim": "UnstableExplosion_self",
@@ -4097,6 +4275,7 @@
   {
    "active": null,
    "activeAnims": [],
+   "alternative": null,
    "id": "GOF70",
    "name": "Krumpaklaw",
    "otherAbilityAnims": [
@@ -4132,6 +4311,7 @@
   {
    "active": null,
    "activeAnims": [],
+   "alternative": null,
    "id": "GOF77",
    "name": "Beastboss Morgrim",
    "otherAbilityAnims": [
@@ -4149,6 +4329,7 @@
   {
    "active": null,
    "activeAnims": [],
+   "alternative": null,
    "id": "GOF80",
    "name": "Grot Orderly",
    "otherAbilityAnims": [
@@ -4166,6 +4347,7 @@
   {
    "active": null,
    "activeAnims": [],
+   "alternative": null,
    "id": "GOF81",
    "name": "Thump Gun Beast Snagga",
    "otherAbilityAnims": [
@@ -4183,6 +4365,7 @@
   {
    "active": null,
    "activeAnims": [],
+   "alternative": null,
    "id": "GOF82",
    "name": "Beast Snagga Nob",
    "otherAbilityAnims": [
@@ -4209,6 +4392,7 @@
   {
    "active": null,
    "activeAnims": [],
+   "alternative": null,
    "id": "GOF84",
    "name": "Runtherd",
    "otherAbilityAnims": [
@@ -4226,6 +4410,7 @@
   {
    "active": null,
    "activeAnims": [],
+   "alternative": null,
    "id": "GOF87",
    "name": "Zodgrod Wortsnagga",
    "otherAbilityAnims": [
@@ -4243,6 +4428,7 @@
   {
    "active": null,
    "activeAnims": [],
+   "alternative": null,
    "id": "GOF9",
    "name": "Shoota Boy",
    "otherAbilityAnims": [
@@ -4263,6 +4449,7 @@
   {
    "active": null,
    "activeAnims": [],
+   "alternative": null,
    "id": "GOF90",
    "name": "Wurrboy",
    "otherAbilityAnims": [
@@ -4298,6 +4485,7 @@
   {
    "active": null,
    "activeAnims": [],
+   "alternative": null,
    "id": "GOF92",
    "name": "Weirdboy",
    "otherAbilityAnims": [
@@ -4324,6 +4512,7 @@
   {
    "active": null,
    "activeAnims": [],
+   "alternative": null,
    "id": "GOF95",
    "name": "Kill Rig",
    "otherAbilityAnims": [
@@ -4350,6 +4539,7 @@
   {
    "active": null,
    "activeAnims": [],
+   "alternative": null,
    "id": "GOF96",
    "name": "Snakebite Battlewagon",
    "otherAbilityAnims": [
@@ -4385,6 +4575,7 @@
   {
    "active": null,
    "activeAnims": [],
+   "alternative": null,
    "id": "GOF97",
    "name": "Gargantuan Squiggoth",
    "otherAbilityAnims": [
@@ -4415,6 +4606,7 @@
      "waitAnimToApplyEffect": 1
     }
    ],
+   "alternative": null,
    "id": "GSC1",
    "name": "Primus Saffa Rhiannor",
    "otherAbilityAnims": []
@@ -4422,6 +4614,7 @@
   {
    "active": null,
    "activeAnims": [],
+   "alternative": null,
    "id": "GSC11",
    "name": "Neophyte Heavy",
    "otherAbilityAnims": [
@@ -4442,6 +4635,7 @@
   {
    "active": null,
    "activeAnims": [],
+   "alternative": null,
    "id": "GSC14",
    "name": "Acolyte Leader",
    "otherAbilityAnims": [
@@ -4477,6 +4671,7 @@
   {
    "active": null,
    "activeAnims": [],
+   "alternative": null,
    "id": "GSC15",
    "name": "Acolyte Specialist",
    "otherAbilityAnims": [
@@ -4494,6 +4689,7 @@
   {
    "active": null,
    "activeAnims": [],
+   "alternative": null,
    "id": "GSC16",
    "name": "Acolyte Heavy",
    "otherAbilityAnims": [
@@ -4520,6 +4716,7 @@
   {
    "active": null,
    "activeAnims": [],
+   "alternative": null,
    "id": "GSC17",
    "name": "Locus",
    "otherAbilityAnims": [
@@ -4540,6 +4737,7 @@
   {
    "active": null,
    "activeAnims": [],
+   "alternative": null,
    "id": "GSC18",
    "name": "Neophyte Leader",
    "otherAbilityAnims": [
@@ -4576,6 +4774,7 @@
      "waitAnimToApplyEffect": 1
     }
    ],
+   "alternative": null,
    "id": "GSC2",
    "name": "Magus Uthrel Naas",
    "otherAbilityAnims": []
@@ -4583,6 +4782,7 @@
   {
    "active": null,
    "activeAnims": [],
+   "alternative": null,
    "id": "GSC22",
    "name": "Cult Sentinel",
    "otherAbilityAnims": [
@@ -4603,6 +4803,7 @@
   {
    "active": null,
    "activeAnims": [],
+   "alternative": null,
    "id": "GSC23",
    "name": "Hybrid Metamorph",
    "otherAbilityAnims": [
@@ -4629,6 +4830,7 @@
   {
    "active": null,
    "activeAnims": [],
+   "alternative": null,
    "id": "GSC24",
    "name": "Nexos",
    "otherAbilityAnims": [
@@ -4664,6 +4866,7 @@
   {
    "active": null,
    "activeAnims": [],
+   "alternative": null,
    "id": "GSC25",
    "name": "Sanctus",
    "otherAbilityAnims": [
@@ -4681,6 +4884,7 @@
   {
    "active": null,
    "activeAnims": [],
+   "alternative": null,
    "id": "GSC28",
    "name": "Hulking Aberrant",
    "otherAbilityAnims": [
@@ -4717,13 +4921,15 @@
      "waitAnimToApplyEffect": 1
     }
    ],
+   "alternative": null,
    "id": "GSC3",
-   "name": "Acolyte Iconward",
+   "name": "Iconward Malak Vorenth",
    "otherAbilityAnims": []
   },
   {
    "active": null,
    "activeAnims": [],
+   "alternative": null,
    "id": "GSC31",
    "name": "Reductus Saboteur",
    "otherAbilityAnims": [
@@ -4750,6 +4956,7 @@
   {
    "active": null,
    "activeAnims": [],
+   "alternative": null,
    "id": "GSC32",
    "name": "Abominant",
    "otherAbilityAnims": [
@@ -4776,6 +4983,7 @@
   {
    "active": null,
    "activeAnims": [],
+   "alternative": null,
    "id": "GSC34",
    "name": "Kelermorph",
    "otherAbilityAnims": [
@@ -4796,6 +5004,7 @@
   {
    "active": null,
    "activeAnims": [],
+   "alternative": null,
    "id": "GSC37",
    "name": "Patriarch",
    "otherAbilityAnims": [
@@ -4822,6 +5031,7 @@
   {
    "active": null,
    "activeAnims": [],
+   "alternative": null,
    "id": "GSC38",
    "name": "Cult Leman Russ",
    "otherAbilityAnims": [
@@ -4842,6 +5052,7 @@
   {
    "active": null,
    "activeAnims": [],
+   "alternative": null,
    "id": "GSC5",
    "name": "Concealed Explosives",
    "otherAbilityAnims": [
@@ -4859,6 +5070,7 @@
   {
    "active": null,
    "activeAnims": [],
+   "alternative": null,
    "id": "GSC6",
    "name": "Neophyte Initiate",
    "otherAbilityAnims": [
@@ -4892,6 +5104,7 @@
      "waitAnimToApplyEffect": 1
     }
    ],
+   "alternative": null,
    "id": "GSC66",
    "name": "Lhaska Szenari",
    "otherAbilityAnims": []
@@ -4899,6 +5112,7 @@
   {
    "active": null,
    "activeAnims": [],
+   "alternative": null,
    "id": "GSC68",
    "name": "Atalan Jackal",
    "otherAbilityAnims": [
@@ -4919,6 +5133,7 @@
   {
    "active": null,
    "activeAnims": [],
+   "alternative": null,
    "id": "GSC69",
    "name": "Jackal Outrider",
    "otherAbilityAnims": [
@@ -4936,6 +5151,7 @@
   {
    "active": null,
    "activeAnims": [],
+   "alternative": null,
    "id": "GSC7",
    "name": "Neophyte Hybrid",
    "otherAbilityAnims": [
@@ -4953,6 +5169,7 @@
   {
    "active": null,
    "activeAnims": [],
+   "alternative": null,
    "id": "GSC70",
    "name": "Jackal Specialist",
    "otherAbilityAnims": [
@@ -4970,6 +5187,7 @@
   {
    "active": null,
    "activeAnims": [],
+   "alternative": null,
    "id": "GSC73",
    "name": "Spotter Ridgerunner",
    "otherAbilityAnims": [
@@ -5008,6 +5226,7 @@
   {
    "active": null,
    "activeAnims": [],
+   "alternative": null,
    "id": "GSC8",
    "name": "Neophyte Trooper",
    "otherAbilityAnims": [
@@ -5034,6 +5253,7 @@
   {
    "active": null,
    "activeAnims": [],
+   "alternative": null,
    "id": "GSC9",
    "name": "Acolyte Hybrid",
    "otherAbilityAnims": [
@@ -5060,6 +5280,7 @@
   {
    "active": null,
    "activeAnims": [],
+   "alternative": null,
    "id": "SAU11",
    "name": "Technomancer",
    "otherAbilityAnims": [
@@ -5077,6 +5298,7 @@
   {
    "active": null,
    "activeAnims": [],
+   "alternative": null,
    "id": "SAU2",
    "name": "Canoptek Plasmacyte",
    "otherAbilityAnims": [
@@ -5094,6 +5316,7 @@
   {
    "active": null,
    "activeAnims": [],
+   "alternative": null,
    "id": "SAU20",
    "name": "Chronomancer",
    "otherAbilityAnims": [
@@ -5111,6 +5334,7 @@
   {
    "active": null,
    "activeAnims": [],
+   "alternative": null,
    "id": "SAU22",
    "name": "Lokhust Heavy Destroyer",
    "otherAbilityAnims": [
@@ -5128,6 +5352,7 @@
   {
    "active": null,
    "activeAnims": [],
+   "alternative": null,
    "id": "SAU25",
    "name": "Hexmark Destroyer",
    "otherAbilityAnims": [
@@ -5145,6 +5370,7 @@
   {
    "active": null,
    "activeAnims": [],
+   "alternative": null,
    "id": "SAU26",
    "name": "Plasmancer",
    "otherAbilityAnims": [
@@ -5162,6 +5388,7 @@
   {
    "active": null,
    "activeAnims": [],
+   "alternative": null,
    "id": "SAU3",
    "name": "Flayed One",
    "otherAbilityAnims": [
@@ -5179,6 +5406,7 @@
   {
    "active": null,
    "activeAnims": [],
+   "alternative": null,
    "id": "SAU32",
    "name": "Skorpekh Lord",
    "otherAbilityAnims": [
@@ -5196,8 +5424,9 @@
   {
    "active": null,
    "activeAnims": [],
+   "alternative": null,
    "id": "SAU4",
-   "name": "Gauss Reaper Warrior",
+   "name": "Gauss Warrior",
    "otherAbilityAnims": [
     {
      "cardanim": "Damage_Protocol_target",
@@ -5222,8 +5451,9 @@
   {
    "active": null,
    "activeAnims": [],
+   "alternative": null,
    "id": "SAU6",
-   "name": "Tesla Carbine Immortal",
+   "name": "Tesla Immortal",
    "otherAbilityAnims": [
     {
      "cardanim": "Atk_Gauss_Tesla",
@@ -5239,6 +5469,7 @@
   {
    "active": null,
    "activeAnims": [],
+   "alternative": null,
    "id": "SAU61",
    "name": "Resurrection Vault",
    "otherAbilityAnims": [
@@ -5256,6 +5487,7 @@
   {
    "active": null,
    "activeAnims": [],
+   "alternative": null,
    "id": "SAU68",
    "name": "Lokhust Destroyer",
    "otherAbilityAnims": [
@@ -5273,6 +5505,7 @@
   {
    "active": null,
    "activeAnims": [],
+   "alternative": null,
    "id": "SAU69",
    "name": "Flayed Ones Pack",
    "otherAbilityAnims": [
@@ -5290,6 +5523,7 @@
   {
    "active": null,
    "activeAnims": [],
+   "alternative": null,
    "id": "SAU70",
    "name": "Damaged Hexmark",
    "otherAbilityAnims": [
@@ -5307,6 +5541,7 @@
   {
    "active": null,
    "activeAnims": [],
+   "alternative": null,
    "id": "SAU71",
    "name": "Immortals Phalanx",
    "otherAbilityAnims": [
@@ -5324,6 +5559,7 @@
   {
    "active": null,
    "activeAnims": [],
+   "alternative": null,
    "id": "SAU73",
    "name": "Annihilation Barge",
    "otherAbilityAnims": [
@@ -5351,6 +5587,7 @@
      "waitAnimToApplyEffect": 1
     }
    ],
+   "alternative": null,
    "id": "SOR1",
    "name": "Erika Luminas",
    "otherAbilityAnims": []
@@ -5358,6 +5595,7 @@
   {
    "active": null,
    "activeAnims": [],
+   "alternative": null,
    "id": "SOR10",
    "name": "Sister Repentia",
    "otherAbilityAnims": [
@@ -5375,6 +5613,7 @@
   {
    "active": null,
    "activeAnims": [],
+   "alternative": null,
    "id": "SOR12",
    "name": "Retributor",
    "otherAbilityAnims": [
@@ -5441,6 +5680,7 @@
      "waitAnimToApplyEffect": 1
     }
    ],
+   "alternative": null,
    "id": "SOR13",
    "name": "Simulacrum Bearer",
    "otherAbilityAnims": []
@@ -5458,6 +5698,7 @@
      "waitAnimToApplyEffect": 1
     }
    ],
+   "alternative": null,
    "id": "SOR15",
    "name": "Celestian",
    "otherAbilityAnims": []
@@ -5475,6 +5716,7 @@
      "waitAnimToApplyEffect": 1
     }
    ],
+   "alternative": null,
    "id": "SOR17",
    "name": "Sister Superior",
    "otherAbilityAnims": []
@@ -5492,6 +5734,7 @@
      "waitAnimToApplyEffect": 1
     }
    ],
+   "alternative": null,
    "id": "SOR18",
    "name": "Dialogus",
    "otherAbilityAnims": []
@@ -5499,6 +5742,7 @@
   {
    "active": null,
    "activeAnims": [],
+   "alternative": null,
    "id": "SOR19",
    "name": "Seraphim",
    "otherAbilityAnims": [
@@ -5535,6 +5779,7 @@
      "waitAnimToApplyEffect": 1
     }
    ],
+   "alternative": null,
    "id": "SOR2",
    "name": "Junith Eruita",
    "otherAbilityAnims": []
@@ -5552,6 +5797,7 @@
      "waitAnimToApplyEffect": 1
     }
    ],
+   "alternative": null,
    "id": "SOR20",
    "name": "Hospitaller",
    "otherAbilityAnims": []
@@ -5559,6 +5805,7 @@
   {
    "active": null,
    "activeAnims": [],
+   "alternative": null,
    "id": "SOR21",
    "name": "Death Cult Assassin",
    "otherAbilityAnims": [
@@ -5594,6 +5841,7 @@
   {
    "active": null,
    "activeAnims": [],
+   "alternative": null,
    "id": "SOR22",
    "name": "Dominion Superior",
    "otherAbilityAnims": [
@@ -5620,6 +5868,7 @@
   {
    "active": null,
    "activeAnims": [],
+   "alternative": null,
    "id": "SOR23",
    "name": "Canoness",
    "otherAbilityAnims": [
@@ -5665,8 +5914,9 @@
      "waitAnimToApplyEffect": 1
     }
    ],
+   "alternative": null,
    "id": "SOR24",
-   "name": "Simulacrum Imperialis",
+   "name": "Simulacrum Celestian",
    "otherAbilityAnims": []
   },
   {
@@ -5691,6 +5941,7 @@
      "waitAnimToApplyEffect": 0
     }
    ],
+   "alternative": null,
    "id": "SOR25",
    "name": "Imagifier",
    "otherAbilityAnims": []
@@ -5708,6 +5959,7 @@
      "waitAnimToApplyEffect": 1
     }
    ],
+   "alternative": null,
    "id": "SOR26",
    "name": "Aestred-Thurga",
    "otherAbilityAnims": [
@@ -5725,6 +5977,7 @@
   {
    "active": null,
    "activeAnims": [],
+   "alternative": null,
    "id": "SOR27",
    "name": "Penitent Engine",
    "otherAbilityAnims": [
@@ -5752,6 +6005,7 @@
      "waitAnimToApplyEffect": 1
     }
    ],
+   "alternative": null,
    "id": "SOR29",
    "name": "Ephrael Stern",
    "otherAbilityAnims": []
@@ -5772,6 +6026,7 @@
      "waitAnimToApplyEffect": 1
     }
    ],
+   "alternative": null,
    "id": "SOR3",
    "name": "Morvenn Vahl",
    "otherAbilityAnims": []
@@ -5779,6 +6034,7 @@
   {
    "active": null,
    "activeAnims": [],
+   "alternative": null,
    "id": "SOR32",
    "name": "Mortifier",
    "otherAbilityAnims": [
@@ -5818,6 +6074,7 @@
      "waitAnimToApplyEffect": 1
     }
    ],
+   "alternative": null,
    "id": "SOR34",
    "name": "Celestian Superior",
    "otherAbilityAnims": [
@@ -5845,6 +6102,7 @@
      "waitAnimToApplyEffect": 1
     }
    ],
+   "alternative": null,
    "id": "SOR35",
    "name": "Immolator",
    "otherAbilityAnims": []
@@ -5852,6 +6110,7 @@
   {
    "active": null,
    "activeAnims": [],
+   "alternative": null,
    "id": "SOR36",
    "name": "Exorcist",
    "otherAbilityAnims": [
@@ -5906,8 +6165,9 @@
      "waitAnimToApplyEffect": 1
     }
    ],
+   "alternative": null,
    "id": "SOR37",
-   "name": "Triumph of Saint Katherine",
+   "name": "Triumph of St. Katherine",
    "otherAbilityAnims": [
     {
      "cardanim": "Buff_Sororitas_quick_self",
@@ -5932,6 +6192,7 @@
   {
    "active": null,
    "activeAnims": [],
+   "alternative": null,
    "id": "SOR38",
    "name": "Paragon Warsuit",
    "otherAbilityAnims": [
@@ -5980,6 +6241,7 @@
      "waitAnimToApplyEffect": 1
     }
    ],
+   "alternative": null,
    "id": "SOR4",
    "name": "Sister Novitiate",
    "otherAbilityAnims": [
@@ -5997,6 +6259,7 @@
   {
    "active": null,
    "activeAnims": [],
+   "alternative": null,
    "id": "SOR44",
    "name": "Moment of Grace",
    "otherAbilityAnims": [
@@ -6014,6 +6277,7 @@
   {
    "active": null,
    "activeAnims": [],
+   "alternative": null,
    "id": "SOR47",
    "name": "Miraculous Feat",
    "otherAbilityAnims": [
@@ -6031,6 +6295,7 @@
   {
    "active": null,
    "activeAnims": [],
+   "alternative": null,
    "id": "SOR48",
    "name": "Imperial Creed",
    "otherAbilityAnims": [
@@ -6067,6 +6332,7 @@
      "waitAnimToApplyEffect": 1
     }
    ],
+   "alternative": null,
    "id": "SOR5",
    "name": "Battle Sister",
    "otherAbilityAnims": []
@@ -6074,8 +6340,9 @@
   {
    "active": null,
    "activeAnims": [],
+   "alternative": null,
    "id": "SOR50",
-   "name": "Relics of Saint Katherine",
+   "name": "Relics of St. Katherine",
    "otherAbilityAnims": [
     {
      "cardanim": "Faith_trigger_warlord",
@@ -6091,6 +6358,7 @@
   {
    "active": null,
    "activeAnims": [],
+   "alternative": null,
    "id": "SOR51",
    "name": "Divine Intervention",
    "otherAbilityAnims": [
@@ -6126,6 +6394,7 @@
   {
    "active": null,
    "activeAnims": [],
+   "alternative": null,
    "id": "SOR52",
    "name": "Spirit of the Martyr",
    "otherAbilityAnims": [
@@ -6143,6 +6412,7 @@
   {
    "active": null,
    "activeAnims": [],
+   "alternative": null,
    "id": "SOR53",
    "name": "Blade of Faith",
    "otherAbilityAnims": [
@@ -6172,6 +6442,7 @@
   {
    "active": null,
    "activeAnims": [],
+   "alternative": null,
    "id": "SOR54",
    "name": "Fiery Conviction",
    "otherAbilityAnims": [
@@ -6198,6 +6469,7 @@
   {
    "active": null,
    "activeAnims": [],
+   "alternative": null,
    "id": "SOR55",
    "name": "Trial of Suffering",
    "otherAbilityAnims": [
@@ -6224,6 +6496,7 @@
   {
    "active": null,
    "activeAnims": [],
+   "alternative": null,
    "id": "SOR56",
    "name": "Beacon of Faith",
    "otherAbilityAnims": [
@@ -6268,6 +6541,7 @@
   {
    "active": null,
    "activeAnims": [],
+   "alternative": null,
    "id": "SOR58",
    "name": "Devout Warriors",
    "otherAbilityAnims": [
@@ -6298,6 +6572,7 @@
      "waitAnimToApplyEffect": 1
     }
    ],
+   "alternative": null,
    "id": "SOR6",
    "name": "Battle Sister Gunner",
    "otherAbilityAnims": []
@@ -6324,6 +6599,7 @@
      "waitAnimToApplyEffect": 1
     }
    ],
+   "alternative": null,
    "id": "SOR66",
    "name": "Armorium Cherub",
    "otherAbilityAnims": []
@@ -6341,6 +6617,7 @@
      "waitAnimToApplyEffect": 1
     }
    ],
+   "alternative": null,
    "id": "SOR67",
    "name": "Sacred Rose Sister",
    "otherAbilityAnims": [
@@ -6386,6 +6663,7 @@
      "waitAnimToApplyEffect": 1
     }
    ],
+   "alternative": null,
    "id": "SOR68",
    "name": "Ministorum Priest",
    "otherAbilityAnims": []
@@ -6403,6 +6681,7 @@
      "waitAnimToApplyEffect": 1
     }
    ],
+   "alternative": null,
    "id": "SOR69",
    "name": "Zephyrim Superior",
    "otherAbilityAnims": []
@@ -6410,6 +6689,7 @@
   {
    "active": null,
    "activeAnims": [],
+   "alternative": null,
    "id": "SOR7",
    "name": "Crusader",
    "otherAbilityAnims": [
@@ -6446,6 +6726,7 @@
      "waitAnimToApplyEffect": 1
     }
    ],
+   "alternative": null,
    "id": "SOR70",
    "name": "Sororitas Rhino",
    "otherAbilityAnims": [
@@ -6482,6 +6763,7 @@
      "waitAnimToApplyEffect": 1
     }
    ],
+   "alternative": null,
    "id": "SOR71",
    "name": "Adelaide the Serene",
    "otherAbilityAnims": [
@@ -6518,6 +6800,7 @@
      "waitAnimToApplyEffect": 1
     }
    ],
+   "alternative": null,
    "id": "SOR72",
    "name": "Castigator",
    "otherAbilityAnims": [
@@ -6538,8 +6821,9 @@
   {
    "active": null,
    "activeAnims": [],
+   "alternative": null,
    "id": "SOR8",
-   "name": "Arco-Flagellant",
+   "name": "Arco-flagellant",
    "otherAbilityAnims": [
     {
      "cardanim": "PenitenceTraitTrigger",
@@ -6564,6 +6848,7 @@
   {
    "active": null,
    "activeAnims": [],
+   "alternative": null,
    "id": "SOR9",
    "name": "Preacher",
    "otherAbilityAnims": [
@@ -6600,6 +6885,7 @@
      "waitAnimToApplyEffect": 1
     }
    ],
+   "alternative": null,
    "id": "SW1",
    "name": "Logan Grimnar",
    "otherAbilityAnims": []
@@ -6607,6 +6893,7 @@
   {
    "active": null,
    "activeAnims": [],
+   "alternative": null,
    "id": "SW10",
    "name": "Grey Hunter",
    "otherAbilityAnims": [
@@ -6634,6 +6921,7 @@
      "waitAnimToApplyEffect": 1
     }
    ],
+   "alternative": null,
    "id": "SW11",
    "name": "Grey Hunter Pack Leader",
    "otherAbilityAnims": []
@@ -6641,6 +6929,7 @@
   {
    "active": null,
    "activeAnims": [],
+   "alternative": null,
    "id": "SW14",
    "name": "Wolf Priest",
    "otherAbilityAnims": [
@@ -6658,6 +6947,7 @@
   {
    "active": null,
    "activeAnims": [],
+   "alternative": null,
    "id": "SW18",
    "name": "Hrolf the Ironhowl",
    "otherAbilityAnims": [
@@ -6684,6 +6974,7 @@
   {
    "active": null,
    "activeAnims": [],
+   "alternative": null,
    "id": "SW2",
    "name": "Njal Stormcaller",
    "otherAbilityAnims": [
@@ -6701,6 +6992,7 @@
   {
    "active": null,
    "activeAnims": [],
+   "alternative": null,
    "id": "SW20",
    "name": "Thunderwolf Cavalry Pack Leader",
    "otherAbilityAnims": [
@@ -6746,6 +7038,65 @@
      "waitAnimToApplyEffect": 1
     }
    ],
+   "alternative": {
+    "anims": [
+     {
+      "cardanim": "Cut Wulfen",
+      "guid": "945014349c7e3cd4b93922bafe782387",
+      "seconds": 0.2
+     }
+    ],
+    "hasAlternativeAbility": 1,
+    "missing": [],
+    "seconds": 0.2,
+    "selectCriteria": {
+     "countCriteria": {
+      "armyFilter": 0,
+      "attackFilter": 0,
+      "attackFilterOption": 0,
+      "chosenArmy": 0,
+      "conditionsFilter": 0,
+      "currentHealthFilter": 0,
+      "currentHealthFilterOption": 0,
+      "enemyUnits": 0,
+      "excludeCondition": 0,
+      "excludeEnchantments": [],
+      "excludeEnemyHero": 0,
+      "excludeFriendlyHero": 0,
+      "excludeNotSelf": 0,
+      "excludeRace": 0,
+      "excludeSimilarCards": 0,
+      "excludeTargetted": 0,
+      "excludeTrait": 0,
+      "filterSpecificCards": [],
+      "friendlyUnits": 1,
+      "includeHero": 0,
+      "includeHeroParts": 0,
+      "includeMinions": 1,
+      "includeRemnants": 0,
+      "includeSelf": 0,
+      "includeSpells": 0,
+      "includeWeapons": 0,
+      "includeWhispers": 0,
+      "keywordFilter": 0,
+      "manaCostFilter": 0,
+      "manaCostFilterOption": 0,
+      "maxTargets": 0,
+      "rarityFilter": 0,
+      "rarityFilterOption": 0,
+      "selectFromChooseResolution": 0,
+      "spellType": 0,
+      "targetSelectMethod": 0,
+      "targetsAffected": 10,
+      "traitsFilter": 0
+     },
+     "countOptions": 0,
+     "playerTurn": 10,
+     "referenceValue": 0,
+     "triggerIf": 1
+    },
+    "why": "原版 `GetActiveAbility`：`hasAlternativeAbility && MeetsCriteria(normalAbilityBoardCriteria)` ⇒ 播**替代能力**；否则播普通 `activeAbility`。⛔ 本表 `active` 只记普通那一支"
+   },
    "id": "SW21",
    "name": "Wulfen Pack Leader",
    "otherAbilityAnims": []
@@ -6772,6 +7123,7 @@
      "waitAnimToApplyEffect": 1
     }
    ],
+   "alternative": null,
    "id": "SW23",
    "name": "Fenrisian Drop Pod",
    "otherAbilityAnims": []
@@ -6789,8 +7141,9 @@
      "waitAnimToApplyEffect": 1
     }
    ],
+   "alternative": null,
    "id": "SW29",
-   "name": "Morkai Eliminator",
+   "name": "Sons of Morkai Eliminator",
    "otherAbilityAnims": []
   },
   {
@@ -6806,6 +7159,7 @@
      "waitAnimToApplyEffect": 1
     }
    ],
+   "alternative": null,
    "id": "SW3",
    "name": "Ragnar Blackmane",
    "otherAbilityAnims": []
@@ -6813,6 +7167,7 @@
   {
    "active": null,
    "activeAnims": [],
+   "alternative": null,
    "id": "SW32",
    "name": "Stormwolf",
    "otherAbilityAnims": [
@@ -6839,6 +7194,7 @@
   {
    "active": null,
    "activeAnims": [],
+   "alternative": null,
    "id": "SW35",
    "name": "Venerable Dreadnought",
    "otherAbilityAnims": [
@@ -6896,6 +7252,7 @@
      "waitAnimToApplyEffect": 1
     }
    ],
+   "alternative": null,
    "id": "SW36",
    "name": "Bjorn the Fell-Handed",
    "otherAbilityAnims": []
@@ -6916,6 +7273,7 @@
      "waitAnimToApplyEffect": 1
     }
    ],
+   "alternative": null,
    "id": "SW4",
    "name": "Blood Claw",
    "otherAbilityAnims": []
@@ -6933,6 +7291,7 @@
      "waitAnimToApplyEffect": 1
     }
    ],
+   "alternative": null,
    "id": "SW5",
    "name": "Hunting Wolf",
    "otherAbilityAnims": []
@@ -6940,6 +7299,7 @@
   {
    "active": null,
    "activeAnims": [],
+   "alternative": null,
    "id": "SW56",
    "name": "Let Loose",
    "otherAbilityAnims": [
@@ -6957,6 +7317,7 @@
   {
    "active": null,
    "activeAnims": [],
+   "alternative": null,
    "id": "SW6",
    "name": "Blood Claw Pack Leader",
    "otherAbilityAnims": [
@@ -6974,6 +7335,7 @@
   {
    "active": null,
    "activeAnims": [],
+   "alternative": null,
    "id": "SW7",
    "name": "Deathwolf Scout",
    "otherAbilityAnims": [
@@ -7013,6 +7375,7 @@
      "waitAnimToApplyEffect": 1
     }
    ],
+   "alternative": null,
    "id": "SW8",
    "name": "Blackmane Reiver",
    "otherAbilityAnims": []
@@ -7020,6 +7383,7 @@
   {
    "active": null,
    "activeAnims": [],
+   "alternative": null,
    "id": "SW9",
    "name": "Fenrisian Wolf",
    "otherAbilityAnims": [
@@ -7046,6 +7410,7 @@
   {
    "active": null,
    "activeAnims": [],
+   "alternative": null,
    "id": "TAU10",
    "name": "Stealth Drone",
    "otherAbilityAnims": [
@@ -7072,6 +7437,7 @@
   {
    "active": null,
    "activeAnims": [],
+   "alternative": null,
    "id": "TAU13",
    "name": "DS8 Support Turret",
    "otherAbilityAnims": [
@@ -7089,6 +7455,7 @@
   {
    "active": null,
    "activeAnims": [],
+   "alternative": null,
    "id": "TAU25",
    "name": "Firesight Marksman",
    "otherAbilityAnims": [
@@ -7115,6 +7482,7 @@
   {
    "active": null,
    "activeAnims": [],
+   "alternative": null,
    "id": "TAU34",
    "name": "Coldstar Battlesuit",
    "otherAbilityAnims": [
@@ -7141,6 +7509,7 @@
   {
    "active": null,
    "activeAnims": [],
+   "alternative": null,
    "id": "TAU40",
    "name": "Technological Supremacy",
    "otherAbilityAnims": [
@@ -7167,6 +7536,7 @@
   {
    "active": null,
    "activeAnims": [],
+   "alternative": null,
    "id": "TAU6",
    "name": "Gun Drone",
    "otherAbilityAnims": [
@@ -7184,6 +7554,7 @@
   {
    "active": null,
    "activeAnims": [],
+   "alternative": null,
    "id": "TAU7",
    "name": "Marker Drone",
    "otherAbilityAnims": [
@@ -7201,6 +7572,7 @@
   {
    "active": null,
    "activeAnims": [],
+   "alternative": null,
    "id": "TAU70",
    "name": "Flesh Shaper",
    "otherAbilityAnims": [
@@ -7227,6 +7599,7 @@
   {
    "active": null,
    "activeAnims": [],
+   "alternative": null,
    "id": "TL14",
    "name": "Sporocyst",
    "otherAbilityAnims": [
@@ -7244,6 +7617,7 @@
   {
    "active": null,
    "activeAnims": [],
+   "alternative": null,
    "id": "TL15",
    "name": "Tyranid Prime",
    "otherAbilityAnims": [
@@ -7273,6 +7647,7 @@
   {
    "active": null,
    "activeAnims": [],
+   "alternative": null,
    "id": "TL18",
    "name": "Zoanthrope",
    "otherAbilityAnims": [
@@ -7293,6 +7668,7 @@
   {
    "active": null,
    "activeAnims": [],
+   "alternative": null,
    "id": "TL37",
    "name": "Spore Mine",
    "otherAbilityAnims": [
@@ -7310,6 +7686,7 @@
   {
    "active": null,
    "activeAnims": [],
+   "alternative": null,
    "id": "TL6",
    "name": "Biovore",
    "otherAbilityAnims": [
@@ -7327,6 +7704,7 @@
   {
    "active": null,
    "activeAnims": [],
+   "alternative": null,
    "id": "TL69",
    "name": "Neurotyrant",
    "otherAbilityAnims": [
@@ -7344,6 +7722,7 @@
   {
    "active": null,
    "activeAnims": [],
+   "alternative": null,
    "id": "TL75",
    "name": "Termagant Brood",
    "otherAbilityAnims": [
@@ -7364,6 +7743,7 @@
   {
    "active": null,
    "activeAnims": [],
+   "alternative": null,
    "id": "TL8",
    "name": "Genestealer",
    "otherAbilityAnims": [
@@ -7403,8 +7783,9 @@
      "waitAnimToApplyEffect": 1
     }
    ],
+   "alternative": null,
    "id": "UM101",
-   "name": "2nd Company Terminator",
+   "name": "1st Company Terminator",
    "otherAbilityAnims": []
   },
   {
@@ -7420,6 +7801,7 @@
      "waitAnimToApplyEffect": 1
     }
    ],
+   "alternative": null,
    "id": "UM102",
    "name": "Terminator Captain",
    "otherAbilityAnims": []
@@ -7446,6 +7828,7 @@
      "waitAnimToApplyEffect": 0
     }
    ],
+   "alternative": null,
    "id": "UM103",
    "name": "Terminator",
    "otherAbilityAnims": []
@@ -7472,6 +7855,7 @@
      "waitAnimToApplyEffect": 0
     }
    ],
+   "alternative": null,
    "id": "UM104",
    "name": "Bladeguard Ancient",
    "otherAbilityAnims": []
@@ -7507,6 +7891,7 @@
      "waitAnimToApplyEffect": 1
     }
    ],
+   "alternative": null,
    "id": "UM105",
    "name": "Dreadnought",
    "otherAbilityAnims": []
@@ -7536,6 +7921,7 @@
      "waitAnimToApplyEffect": 1
     }
    ],
+   "alternative": null,
    "id": "UM106",
    "name": "Ferren Areios",
    "otherAbilityAnims": []
@@ -7565,6 +7951,7 @@
      "waitAnimToApplyEffect": 1
     }
    ],
+   "alternative": null,
    "id": "UM108",
    "name": "Brutalis Dreadnought",
    "otherAbilityAnims": []
@@ -7572,6 +7959,7 @@
   {
    "active": null,
    "activeAnims": [],
+   "alternative": null,
    "id": "UM116",
    "name": "No Mercy",
    "otherAbilityAnims": [
@@ -7598,6 +7986,7 @@
   {
    "active": null,
    "activeAnims": [],
+   "alternative": null,
    "id": "UM118",
    "name": "Indomitus Crusade",
    "otherAbilityAnims": [
@@ -7624,6 +8013,7 @@
   {
    "active": null,
    "activeAnims": [],
+   "alternative": null,
    "id": "UM12",
    "name": "Antaro Chronus",
    "otherAbilityAnims": [
@@ -7650,6 +8040,7 @@
   {
    "active": null,
    "activeAnims": [],
+   "alternative": null,
    "id": "UM13",
    "name": "Primaris Chaplain",
    "otherAbilityAnims": [
@@ -7676,6 +8067,7 @@
   {
    "active": null,
    "activeAnims": [],
+   "alternative": null,
    "id": "UM15",
    "name": "Apothecary Polixis",
    "otherAbilityAnims": [
@@ -7693,6 +8085,7 @@
   {
    "active": null,
    "activeAnims": [],
+   "alternative": null,
    "id": "UM16",
    "name": "Sergeant Allectius",
    "otherAbilityAnims": [
@@ -7722,6 +8115,7 @@
   {
    "active": null,
    "activeAnims": [],
+   "alternative": null,
    "id": "UM20",
    "name": "Sergeant Telion",
    "otherAbilityAnims": [
@@ -7739,6 +8133,7 @@
   {
    "active": null,
    "activeAnims": [],
+   "alternative": null,
    "id": "UM24",
    "name": "Lieutenant Calsius",
    "otherAbilityAnims": [
@@ -7768,6 +8163,7 @@
   {
    "active": null,
    "activeAnims": [],
+   "alternative": null,
    "id": "UM25",
    "name": "Devastator Centurion",
    "otherAbilityAnims": [
@@ -7785,6 +8181,7 @@
   {
    "active": null,
    "activeAnims": [],
+   "alternative": null,
    "id": "UM28",
    "name": "Redemptor Dreadnought",
    "otherAbilityAnims": [
@@ -7814,6 +8211,7 @@
   {
    "active": null,
    "activeAnims": [],
+   "alternative": null,
    "id": "UM3",
    "name": "Firstborn",
    "otherAbilityAnims": [
@@ -7831,6 +8229,7 @@
   {
    "active": null,
    "activeAnims": [],
+   "alternative": null,
    "id": "UM37",
    "name": "Death from Above",
    "otherAbilityAnims": [
@@ -7848,6 +8247,7 @@
   {
    "active": null,
    "activeAnims": [],
+   "alternative": null,
    "id": "UM39",
    "name": "Inspired Retribution",
    "otherAbilityAnims": [
@@ -7865,6 +8265,7 @@
   {
    "active": null,
    "activeAnims": [],
+   "alternative": null,
    "id": "UM40",
    "name": "Avenging Zeal",
    "otherAbilityAnims": [
@@ -7882,6 +8283,7 @@
   {
    "active": null,
    "activeAnims": [],
+   "alternative": null,
    "id": "UM55",
    "name": "Sternguard Sergeant",
    "otherAbilityAnims": [
@@ -7911,6 +8313,7 @@
   {
    "active": null,
    "activeAnims": [],
+   "alternative": null,
    "id": "UM56",
    "name": "Intercessor Sergeant",
    "otherAbilityAnims": [
@@ -7931,6 +8334,7 @@
   {
    "active": null,
    "activeAnims": [],
+   "alternative": null,
    "id": "UM57",
    "name": "Primaris Invader",
    "otherAbilityAnims": [
@@ -7957,6 +8361,7 @@
   {
    "active": null,
    "activeAnims": [],
+   "alternative": null,
    "id": "UM59",
    "name": "Stormtalon",
    "otherAbilityAnims": [
@@ -7974,8 +8379,9 @@
   {
    "active": null,
    "activeAnims": [],
+   "alternative": null,
    "id": "UM66",
-   "name": "Scout bike",
+   "name": "Scout Bike",
    "otherAbilityAnims": [
     {
      "cardanim": "Atk_BulletImpact_2shot",
@@ -7994,6 +8400,7 @@
   {
    "active": null,
    "activeAnims": [],
+   "alternative": null,
    "id": "UM67",
    "name": "Outrider",
    "otherAbilityAnims": [
@@ -8011,6 +8418,7 @@
   {
    "active": null,
    "activeAnims": [],
+   "alternative": null,
    "id": "UM68",
    "name": "Primaris Techmarine",
    "otherAbilityAnims": [
@@ -8037,6 +8445,7 @@
   {
    "active": null,
    "activeAnims": [],
+   "alternative": null,
    "id": "UM71",
    "name": "Storm Speeder Hailstrike",
    "otherAbilityAnims": [
@@ -8057,6 +8466,7 @@
   {
    "active": null,
    "activeAnims": [],
+   "alternative": null,
    "id": "UM72",
    "name": "Predator Annihilator",
    "otherAbilityAnims": [
@@ -8077,6 +8487,7 @@
   {
    "active": null,
    "activeAnims": [],
+   "alternative": null,
    "id": "UM78",
    "name": "Heavy Intercessor",
    "otherAbilityAnims": [
@@ -8094,6 +8505,7 @@
   {
    "active": null,
    "activeAnims": [],
+   "alternative": null,
    "id": "UM79",
    "name": "Primaris Eradicator",
    "otherAbilityAnims": [
@@ -8114,6 +8526,7 @@
   {
    "active": null,
    "activeAnims": [],
+   "alternative": null,
    "id": "UM81",
    "name": "Eliminator Sergeant",
    "otherAbilityAnims": [
@@ -8131,6 +8544,7 @@
   {
    "active": null,
    "activeAnims": [],
+   "alternative": null,
    "id": "UM84",
    "name": "Devastator Doctrine",
    "otherAbilityAnims": [
@@ -8157,6 +8571,7 @@
   {
    "active": null,
    "activeAnims": [],
+   "alternative": null,
    "id": "UM85",
    "name": "Tactical Doctrine",
    "otherAbilityAnims": [
@@ -8183,6 +8598,7 @@
   {
    "active": null,
    "activeAnims": [],
+   "alternative": null,
    "id": "UM86",
    "name": "Assault Doctrine",
    "otherAbilityAnims": [
@@ -8246,6 +8662,7 @@
      "waitAnimToApplyEffect": 1
     }
    ],
+   "alternative": null,
    "id": "UM89",
    "name": "Incursor",
    "otherAbilityAnims": []
@@ -8272,6 +8689,7 @@
      "waitAnimToApplyEffect": 0
     }
    ],
+   "alternative": null,
    "id": "UM90",
    "name": "Phobos Lieutenant",
    "otherAbilityAnims": []
@@ -8298,6 +8716,7 @@
      "waitAnimToApplyEffect": 1
     }
    ],
+   "alternative": null,
    "id": "UM91",
    "name": "Tactical Marine",
    "otherAbilityAnims": []
@@ -8315,8 +8734,9 @@
      "waitAnimToApplyEffect": 1
     }
    ],
+   "alternative": null,
    "id": "UM92",
-   "name": "Firestrike Servo Turret",
+   "name": "Firestrike Servo-Turret",
    "otherAbilityAnims": []
   },
   {
@@ -8341,6 +8761,7 @@
      "waitAnimToApplyEffect": 0
     }
    ],
+   "alternative": null,
    "id": "UM93",
    "name": "Vico Therbeus",
    "otherAbilityAnims": []
@@ -8370,6 +8791,7 @@
      "waitAnimToApplyEffect": 1
     }
    ],
+   "alternative": null,
    "id": "UM94",
    "name": "Scout Sniper",
    "otherAbilityAnims": []
@@ -8396,6 +8818,7 @@
      "waitAnimToApplyEffect": 0
     }
    ],
+   "alternative": null,
    "id": "UM95",
    "name": "Attack Bike",
    "otherAbilityAnims": []
@@ -8422,6 +8845,7 @@
      "waitAnimToApplyEffect": 0
     }
    ],
+   "alternative": null,
    "id": "UM96",
    "name": "Chapter Champion",
    "otherAbilityAnims": [
@@ -8458,6 +8882,7 @@
      "waitAnimToApplyEffect": 1
     }
    ],
+   "alternative": null,
    "id": "UM97",
    "name": "Suppressor",
    "otherAbilityAnims": []
@@ -8487,6 +8912,7 @@
      "waitAnimToApplyEffect": 1
     }
    ],
+   "alternative": null,
    "id": "UM98",
    "name": "Devastator Marine",
    "otherAbilityAnims": []
@@ -8516,6 +8942,7 @@
      "waitAnimToApplyEffect": 1
     }
    ],
+   "alternative": null,
    "id": "UM99",
    "name": "Phobos Librarian",
    "otherAbilityAnims": []
@@ -8523,6 +8950,7 @@
   {
    "active": null,
    "activeAnims": [],
+   "alternative": null,
    "id": "a7bb23355a30d344e9d2decf976d91e1",
    "name": "Poisoned Supplies",
    "otherAbilityAnims": [
@@ -8549,6 +8977,7 @@
   {
    "active": null,
    "activeAnims": [],
+   "alternative": null,
    "id": "a84a5b49f0ca9144585058db6987c2a0",
    "name": "Master Interromancer",
    "otherAbilityAnims": [
@@ -8566,6 +8995,7 @@
   {
    "active": null,
    "activeAnims": [],
+   "alternative": null,
    "id": "b8e81b2fe85cda747a68c4d6326b669c",
    "name": "Dark Pact of Excess",
    "otherAbilityAnims": [
@@ -8583,6 +9013,7 @@
   {
    "active": null,
    "activeAnims": [],
+   "alternative": null,
    "id": "d3e99cb18b8cbba4081486f57f510f75",
    "name": "Witchfire",
    "otherAbilityAnims": [
@@ -8621,6 +9052,7 @@
   {
    "active": null,
    "activeAnims": [],
+   "alternative": null,
    "id": "e01f4d54e8a474d96b5a1167cc28eebf",
    "name": "Daemonbreaker",
    "otherAbilityAnims": [
@@ -8647,6 +9079,7 @@
   {
    "active": null,
    "activeAnims": [],
+   "alternative": null,
    "id": "f104d4c21abe84546abc9365d9eda8dd",
    "name": "Righteous Repugnance",
    "otherAbilityAnims": [
@@ -8662,124 +9095,61 @@
    ]
   }
  ],
+ "conditional": [
+  {
+   "alternative": 0.2,
+   "id": "SW21",
+   "name": "Wulfen Pack Leader",
+   "normal": 0.4,
+   "note": "同一张卡、不同棋盘状态 ⇒ 两个不同的时长（铁律 5·c）"
+  }
+ ],
  "generatedBy": "d:/4/Unity/工具/gen_ability_anim_durations.py",
  "schema": "ability_anim_durations/v1",
  "stats": {
   "activeAnims": 160,
+  "animTimesAgree": 93,
+  "animTimesCards": 93,
+  "animTimesMismatch": 0,
+  "animTimesOnly": 0,
   "cardsMatchedButNoActiveAnim": 271,
   "cardsWithTruth": 93,
   "max": 4.0,
   "median": 1.0,
   "min": 0.2,
   "otherAbilityAnims": 453,
-  "uncoveredCards": 13,
+  "tableOnly": 0,
+  "uncoveredCards": 3,
   "unresolved": 0,
-  "wantedCards": 93
+  "wantedCards": 86
  },
  "uncovered": [
   {
+   "canEmitAbility": true,
    "faction": "Sororitas",
    "id": "SOR30",
    "inTruthSnapshot": true,
    "name": "Celestian Sacresant",
    "soActiveAnims": 0,
-   "why": "卡 SO 里有这张卡，但它的 `activeAbility` **一条 CardAnim 都没有**（原版这条路不放东西；`hasActiveAbility = 1`）—— 判据不足以定「该等 0 还是等一拍」 ⇒ 退回兜底值并**出声**"
+   "why": "卡 SO 里有这张卡、`hasActiveAbility = 1`，但它的 `activeAbility` **一条非空的 CardAnim 引用都没有**（`m_AssetGUID` 全空）⇒ 原版这条路上**不放任何动画** ⇒ 判据不足以定「该等 0 还是等一拍」，暂退回兜底值并**出声**"
   },
   {
+   "canEmitAbility": true,
    "faction": "Sororitas",
    "id": "SOR65",
    "inTruthSnapshot": true,
    "name": "Celestian Sacresant Aveline",
    "soActiveAnims": 0,
-   "why": "卡 SO 里有这张卡，但它的 `activeAbility` **一条 CardAnim 都没有**（原版这条路不放东西；`hasActiveAbility = 1`）—— 判据不足以定「该等 0 还是等一拍」 ⇒ 退回兜底值并**出声**"
+   "why": "卡 SO 里有这张卡、`hasActiveAbility = 1`，但它的 `activeAbility` **一条非空的 CardAnim 引用都没有**（`m_AssetGUID` 全空）⇒ 原版这条路上**不放任何动画** ⇒ 判据不足以定「该等 0 还是等一拍」，暂退回兜底值并**出声**"
   },
   {
+   "canEmitAbility": true,
    "faction": "SpaceWolves",
    "id": "SW9",
    "inTruthSnapshot": true,
    "name": "Fenrisian Wolf",
    "soActiveAnims": 0,
-   "why": "卡 SO 里有这张卡，但它的 `activeAbility` **一条 CardAnim 都没有**（原版这条路不放东西；`hasActiveAbility = 1`）—— 判据不足以定「该等 0 还是等一拍」 ⇒ 退回兜底值并**出声**"
-  },
-  {
-   "faction": "Ultramarines",
-   "id": "UM109",
-   "inTruthSnapshot": true,
-   "name": "Adaptive Strategy",
-   "soActiveAnims": 0,
-   "why": "卡 SO 里有这张卡，但它的 `activeAbility` **一条 CardAnim 都没有**（原版这条路不放东西；`hasActiveAbility = 0`）—— 判据不足以定「该等 0 还是等一拍」 ⇒ 退回兜底值并**出声**"
-  },
-  {
-   "faction": "Ultramarines",
-   "id": "4de4fcfb5d7e0554a88b9f419a2cd7c2",
-   "inTruthSnapshot": true,
-   "name": "Angel's Wrath",
-   "soActiveAnims": 0,
-   "why": "卡 SO 里有这张卡，但它的 `activeAbility` **一条 CardAnim 都没有**（原版这条路不放东西；`hasActiveAbility = 0`）—— 判据不足以定「该等 0 还是等一拍」 ⇒ 退回兜底值并**出声**"
-  },
-  {
-   "faction": "Ultramarines",
-   "id": "8482077f309b08943b190f18b5874871",
-   "inTruthSnapshot": true,
-   "name": "Catechism of Death",
-   "soActiveAnims": 0,
-   "why": "卡 SO 里有这张卡，但它的 `activeAbility` **一条 CardAnim 都没有**（原版这条路不放东西；`hasActiveAbility = 0`）—— 判据不足以定「该等 0 还是等一拍」 ⇒ 退回兜底值并**出声**"
-  },
-  {
-   "faction": "Ultramarines",
-   "id": "UM112",
-   "inTruthSnapshot": true,
-   "name": "Champions of Humanity",
-   "soActiveAnims": 0,
-   "why": "卡 SO 里有这张卡，但它的 `activeAbility` **一条 CardAnim 都没有**（原版这条路不放东西；`hasActiveAbility = 0`）—— 判据不足以定「该等 0 还是等一拍」 ⇒ 退回兜底值并**出声**"
-  },
-  {
-   "faction": "Ultramarines",
-   "id": "UM110",
-   "inTruthSnapshot": true,
-   "name": "Fall Back",
-   "soActiveAnims": 0,
-   "why": "卡 SO 里有这张卡，但它的 `activeAbility` **一条 CardAnim 都没有**（原版这条路不放东西；`hasActiveAbility = 0`）—— 判据不足以定「该等 0 还是等一拍」 ⇒ 退回兜底值并**出声**"
-  },
-  {
-   "faction": "Ultramarines",
-   "id": "UM118",
-   "inTruthSnapshot": true,
-   "name": "Indomitus Crusade",
-   "soActiveAnims": 0,
-   "why": "卡 SO 里有这张卡，但它的 `activeAbility` **一条 CardAnim 都没有**（原版这条路不放东西；`hasActiveAbility = 0`）—— 判据不足以定「该等 0 还是等一拍」 ⇒ 退回兜底值并**出声**"
-  },
-  {
-   "faction": "Ultramarines",
-   "id": "UM116",
-   "inTruthSnapshot": true,
-   "name": "No Mercy",
-   "soActiveAnims": 0,
-   "why": "卡 SO 里有这张卡，但它的 `activeAbility` **一条 CardAnim 都没有**（原版这条路不放东西；`hasActiveAbility = 0`）—— 判据不足以定「该等 0 还是等一拍」 ⇒ 退回兜底值并**出声**"
-  },
-  {
-   "faction": "Ultramarines",
-   "id": "UM117",
-   "inTruthSnapshot": true,
-   "name": "No Respite",
-   "soActiveAnims": 0,
-   "why": "卡 SO 里有这张卡，但它的 `activeAbility` **一条 CardAnim 都没有**（原版这条路不放东西；`hasActiveAbility = 0`）—— 判据不足以定「该等 0 还是等一拍」 ⇒ 退回兜底值并**出声**"
-  },
-  {
-   "faction": "Ultramarines",
-   "id": "UM111",
-   "inTruthSnapshot": true,
-   "name": "Shall Know No Fear",
-   "soActiveAnims": 0,
-   "why": "卡 SO 里有这张卡，但它的 `activeAbility` **一条 CardAnim 都没有**（原版这条路不放东西；`hasActiveAbility = 0`）—— 判据不足以定「该等 0 还是等一拍」 ⇒ 退回兜底值并**出声**"
-  },
-  {
-   "faction": "Ultramarines",
-   "id": "UM115",
-   "inTruthSnapshot": true,
-   "name": "Stormhawk Interception",
-   "soActiveAnims": 0,
-   "why": "卡 SO 里有这张卡，但它的 `activeAbility` **一条 CardAnim 都没有**（原版这条路不放东西；`hasActiveAbility = 0`）—— 判据不足以定「该等 0 还是等一拍」 ⇒ 退回兜底值并**出声**"
+   "why": "卡 SO 里有这张卡、`hasActiveAbility = 1`，但它的 `activeAbility` **一条非空的 CardAnim 引用都没有**（`m_AssetGUID` 全空）⇒ 原版这条路上**不放任何动画** ⇒ 判据不足以定「该等 0 还是等一拍」，暂退回兜底值并**出声**"
   }
  ],
  "unknownCardIds": [],

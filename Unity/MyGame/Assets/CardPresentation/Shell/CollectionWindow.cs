@@ -3599,12 +3599,21 @@ namespace CardPresentation
                 impLab.SetRenderQueue(QPageText);
                 impLab.SetWrappingMode(0);      // 原版 `m_TextWrappingMode = 0`
             }
-            BuildUnlockPlaceholder(ctrl);           // 组内**最左**那一格（原版画不出东西，只建结构）
+            _deckCreateBtn = newQ != null ? newQ.transform : null;
+            _deckImportBtn = impQ != null ? impQ.transform : null;
+            _deckUnlock = BuildUnlockPlaceholder(ctrl);   // 组内**最左**那一格（原版画不出东西，只建结构）
+            // 🆕 **2026-10-22（W64 · 卡组双模式）**：模式页的显隐矩阵里有 `Filter Toggle` 与 `Filters` 两颗
+            //   （§5·3：模式页把它们 `SetActive(0)`，列表页 `SetActive(1)`；`Header` / `Control Buttons` /
+            //   `Separator Line` **不动**）⇒ 存引用。两颗都是 `header` 的**直接孩子**（`BuildFilterHeader` 建）。
+            _deckFilterToggle = header.Find("Filter Toggle");
+            _deckFiltersGrp = header.Find("Filters");
 
             // 🆕 A17：这三颗原版都是 SpriteSwap，高亮图都 = `<常态图>_hover`（普查 §块 3 第 1～3 行）
-            AddHit(ctrl, "ImportHit", new PxRect(ImportX, HdrBtnY, ImportX + HdrBtnW, HdrBtnY + HdrBtnH), QPageRow,
+            //   🆕 2026-10-22（W64）：**返回值存下来** —— 模式页要按原版 `SetActive(0)` 掉 `Create`
+            //   （`Import` 那一颗**保持显示**，§5·3）。
+            _deckImportHit = AddHit(ctrl, "ImportHit", new PxRect(ImportX, HdrBtnY, ImportX + HdrBtnW, HdrBtnY + HdrBtnH), QPageRow,
                    () => OpenImportPopup(), impQ, "UI_Button_Mulligan", clickCue: WindowSounds.PositiveCue);
-            AddHit(ctrl, "CreateHit", new PxRect(CreateX, HdrBtnY, CreateX + HdrBtnW, HdrBtnY + HdrBtnH), QPageRow,
+            _deckCreateHit = AddHit(ctrl, "CreateHit", new PxRect(CreateX, HdrBtnY, CreateX + HdrBtnW, HdrBtnY + HdrBtnH), QPageRow,
                    () => CreateDeck(), newQ, "UI_Button_Mulligan", clickCue: WindowSounds.PositiveCue);
             // ⚠️ `Filters` / `Clear filters` 两处命中区（原来在本方法里各建过一颗）现在随 `BuildFilterHeader`
             //    一起在场 —— **别在这里再建第二颗**：同名节点会长出两个，`FindChild` 只拿得到先建的那颗。
@@ -3630,7 +3639,7 @@ namespace CardPresentation
         /// （1180.00 + 186.01 + spacing 25 = 1391.01）—— 少了它，组节点的几何就对不上。
         /// ⛔ **别顺手给它加图 / 加字**：原版一个像素都没有（`Editor/CollectionScene.cs` 有一条断言钉着
         /// 「`Unlock` 底下没有任何 `ImageQuad` / `Label`」）。</para></summary>
-        void BuildUnlockPlaceholder(Transform ctrl)
+        Transform BuildUnlockPlaceholder(Transform ctrl)
         {
             var un = Node(ctrl, "Unlock", new PxRect(CtrlGrpL, CtrlGrpT, CtrlGrpL + UnlockW, CtrlGrpB));
             // 两个子件的 rect 在原版是**相对 `Unlock` 左上角**的（见上面 ②③）⇒ 这里加上 `Unlock` 的左上角
@@ -3641,6 +3650,7 @@ namespace CardPresentation
             // ⚠️ 子件名**照原版**（`Button Outline` / `Text`）。注意 `Text` 是个**通用名**：
             //    本窗此前没有别的节点叫它，但**将来谁要按 `FindChild(随便一个宽范围的根, "Text")` 找字**，
             //    会遇到这一颗（它**没有 `Label`**）⇒ 找字请**从具体的父节点往下**找（本仓库既有写法就是那样）。
+            return un;    // 🆕 2026-10-22（W64）：模式页要按原版把它 `SetActive(0)`（§5·3）
         }
 
         /// <summary>卡组列表（**纵向滚**）：6 列 × 225×364.5、spacing (20,0)、pad L10。</summary>
@@ -3659,6 +3669,7 @@ namespace CardPresentation
             //   这里直接复用 `TabsRect`（**与页节点 `Node(tabHolder, PageNode(p), TabsRect)` 同一条表达式**）——
             //   ⛔ 别再抄一份 `167.2/70.9/1920/1080` 的数（铁律：同一条规则只留一处）。
             var decksTab = Node(page, "Decks Tab", TabsRect);
+            _decksTabNode = decksTab;      // 🆕 2026-10-22（W64）：模式页显示时要把它整颗关掉（§5·3 第一行）
             var disp = Node(decksTab, "Collection Display", TabsRect);
             var holder = Node(disp, "Deck Scroll View", DeckViewport);
             // 🔴 **2026-10-13（A435 阶段 2 · 乙 · A19）**：裁切状态长在这颗视口节点上
@@ -3707,14 +3718,363 @@ namespace CardPresentation
             // 🆕 2026-10-17（`A1642`）：`Deck Filters` 挂在 **`Collection Display`** 之下（原版父链逐级现读）
             BuildDeckFilterDrawer(disp);
 
+            // 🆕 **2026-10-22（W64 · 卡组双模式）**：第二子页 = 「选择游戏模式」页。
+            //   原版 `m_Children` 序 = `Decks Tab` → **`Select Game Mode Deck Tab`** → `Header`
+            //   （W64_原版规格 §1·2 / §1·5 逐级现读）⇒ 先建，排位在下面 `Header` 挪到最后之后再做。
+            BuildDeckModePage(page);
+
             // 🔴 **`Header` 必须是 `Select Deck Tab` 的【最后一个孩子】**（原版 `m_Children` 序 =
-            //   `Decks Tab` → `Select Game Mode Deck Tab` → **`Header`**；本窗不建中间那一项）。
+            //   `Decks Tab` → `Select Game Mode Deck Tab` → **`Header`**）。
             //   ⚠️ **不能靠「调整 `CollectionTabPage.Setup()` 里的调用次序」** —— `BuildDeckHeader` 必须排在
             //   `BuildDeckList` **之前**（页头要先把 `_hdrFltBtn[0]` 等引用建出来，`RefreshFilterToggle`
             //   那条兜底才读得到；见 `CollectionWindow.Build()` 里「①c 收尾刷」那段注释），
             //   而且那个文件**不在本批白名单**里 ⇒ 在这里显式挪序。
             var hdr = page.Find("Header");
             if (hdr != null) hdr.SetAsLastSibling();
+            // 🔴 **2026-10-22（W64 修）：模式页紧跟 `Decks Tab`** —— 序是「`Header` 先建（`BuildDeckHeader`）、
+            //   `Decks Tab` 后建」，所以**不能写死 index 1**（那时 `Header` 还占着 0 ⇒ 挪完再 `SetAsLastSibling`
+            //   会把模式页挤到 index **0**，实测自检期望 [1] 实得 [0]）。按 `Decks Tab` 的实际下标 +1 取。
+            if (_deckModePage != null && _decksTabNode != null)
+                _deckModePage.SetSiblingIndex(_decksTabNode.GetSiblingIndex() + 1);
+
+            // 🆕 2026-10-22（W64）：**进 Deck 页先出模式页**（原版 `ChooseTabToOpen` 在
+            //   `IOwnDeckPlayEvent` 数 ≥2 时走 `ToggleSelectGameModeDeck`，§5·1）。
+            //   离线等价：本地零 liveops 事件 ⇒ 固定两张卡（见 `DeckModeCards`），**这一步就是那个等价物**。
+            //   ⚠️ 重建（切语档 → `Build()`）时按 `_deckModeFilter` 还原：选过模式就停在列表，
+            //     没选过才重新停在模式页（原版靠 `SelectDecksTab.currentTab` 记住，§5·1 首段）。
+            SetDeckModeChrome(_deckModeFilter < 0);
+        }
+
+        // ============================================================ 🆕 2026-10-22（W64）：「选择游戏模式」子页
+        //
+        // 出处（唯一判据）：`资料/普查产出_1022/W64_卡组双模式_原版规格.md`（下称 §x —— 逐条带 bundle 字段 / PID）
+        //   ＋ `资料/普查产出_1022/W64_卡组双模式_资产落点.md`（下称「落点 §x」）。
+        //   原版节点 = `bundle_menus_assets_all ▸ Collection Menu Variant ▸ Content Area ▸ Tabs ▸
+        //   Select Deck Tab ▸ Select Game Mode Deck Tab`（组件 `SelectGameModeDeckTab`）。
+        //
+        // 🔴 **这一页在原版是「事件清单渲染器」**：出厂 `Content` 0 子，卡由
+        //   `SelectGameModeDeckTab.Initialize()` 按 liveops 事件逐颗 `Instantiate` 出来（§3·1），
+        //   张数 = 事件数。本地**零事件实例**（§5·4）⇒ 卡的内容是**离线等价物**，逐条：
+        //   · **两张 / 左右顺序（左小冲突 · 右经典）= 用户参考图**
+        //     `C:/Users/qjh36/Desktop/warpforge参考图/卡组-选择游戏模式的参考图.png`
+        //     （落点 §1·3 明写：顺序在原版由服务端事件列表决定，这里按参考图取）；
+        //   · **卡名** = 官方词条 `MainMenu/GameMode/{Skirmish,Classic}` = 小冲突 / 经典（落点 §4·2）；
+        //   · **卡图** = `40k_main_GameMode_Skirmish` / `Container_Image_Ranked`（落点 §1·1：与参考图逐像素一致）。
+        //   ⛔ 其余**一律照预制体**：几何 / 字号 / 颜色 / 九宫 / 滚动 / 显隐（铁律 3：截图只用来验收）。
+
+        /// <summary>这一页的根（原版 `Select Game Mode Deck Tab`）——
+        /// **330.79,155.94 → 1920.01,1080**（§1·3 `menu_rect.py` 现读，1589.21 × 924.06）。</summary>
+        public static readonly PxRect DeckModePageRect = new PxRect(330.79f, 155.94f, 1920.01f, 1080f);
+
+        /// <summary>标题 `Title Header`：**426.07,155.94 → 1824.73,243.50**（1398.6526 × 87.5574，§1·3 / §2·2）。
+        /// ⚠️ 那个 1398.65 **不是**按锚点算出来的（父件宽 1752.84 的 79.8%）—— 原版就是手填的数（§八·12）。
+        /// 锚点 = 顶部居中 · pivot (0.5,1) ⇒ 与父件同顶。</summary>
+        public static readonly PxRect DeckModeTitleRect = new PxRect(426.07f, 155.94f, 1824.73f, 243.50f);
+
+        /// <summary>`Scroll View`：**330.79,260.90 → 1920.01,1063.20**（1589.21 × 802.30，§1·3 / §4）。
+        /// ⚠️ 纵向锚点不是 0/1 —— 原版 `aMin.y = 0.0181810` / `aMax.y = 0.8864095`（§1·4）⇒ **按解算后的矩形**建。</summary>
+        public static readonly PxRect DeckModeScrollRect = new PxRect(330.79f, 260.90f, 1920.01f, 1063.20f);
+
+        /// <summary>`Content` 解算矩形（§1·3）：**y 261.05 → 1063.05（高 802.00）**；
+        /// 宽 = `ContentSizeFitter(Horizontal=PreferredSize)` 跑完的 **1061.86**
+        /// （= 2 × 505.9268 + 50，§3·4）⇒ 中心 anchor ⇒ 两张卡整体居中在视口里。</summary>
+        const float DeckModeContentT = 261.05f, DeckModeContentB = 1063.05f;
+
+        /// <summary>模式卡 `Game mode deck selector`：**505.9268 × 802.6741**（§3·2 prefab 原值）；
+        /// `HorizontalLayoutGroup.m_Spacing = 50` · `MiddleLeft` · padding 0 · `childControl W/H = 0`
+        /// ⇒ 子件用它自己的 `sizeDelta`（§3·4）。</summary>
+        public const float DeckModeCardW = 505.9268f, DeckModeCardH = 802.6741f, DeckModeCardGap = 50f;
+
+        /// <summary>`Background/Foreground Image` 的 `sizeDelta.y` —— `AspectRatioFitter(HeightControlsWidth, 1)`
+        /// 把它撑成 **卡高 + 0.41 = 803.08** 的方图（§3·2 解析值；落点 §1·2 几何自洽那一段）。</summary>
+        const float DeckModeArtSidePad = 0.40997f;
+
+        /// <summary>卡片根上的**层队列**（原版兄弟序 `Background → Foreground → TextDarkening → Border`，§3·2）。
+        /// ⚠️ 分层只能靠**渲染队列**（`ImageQuad` 全透明队列、同队列 + 同 z 谁盖谁不可控 —— CLAUDE.md §三）；
+        /// 四层各占一档 ⇒ 从 `QPageRow` 起 3032..3035（仍在 `QFlt`(3040) 之下、`QPageText`(3033) 那一带）。</summary>
+        const int QModeArt = QPageRow, QModeBand = QPageRow + 1, QModeTitle = QPageRow + 2,
+                  QModeBorder = QPageRow + 3, QModeHit = QPageRow + 4;
+
+        /// <summary>标题字色 **rgb(254,153,0) = #FE9900**（§2·2：真值来自 `fontPreset = Pragati Regular Orange`
+        /// 的 `fontColor.rgba = 4278229502`；⚠️ TMP 自己的 `m_fontColor` 是**白色**，那是出厂默认、被 preset 覆盖）。</summary>
+        public static readonly Color DeckModeTitleInk = new Color(254f / 255f, 153f / 255f, 0f, 1f);
+
+        /// <summary>一张模式卡 = 一个模式（`RuleEngine.GameMode` 的数值：经典 0 / 小冲突 13）。
+        /// 🔴 **顺序 = 用户参考图**（左小冲突 / 右经典；原版顺序由服务端事件列表决定，落点 §1·3）。
+        /// `Term` = 官方词条（落点 §4·2「文本来源 = 事件 label」的离线等价物）。</summary>
+        public struct DeckModeCard
+        {
+            public int Mode;
+            public string Art, Term;
+        }
+        public static readonly DeckModeCard[] DeckModeCards =
+        {
+            new DeckModeCard { Mode = (int)GameMode.Skirmish, Art = "40k_main_GameMode_Skirmish",
+                               Term = "MainMenu/GameMode/Skirmish" },
+            new DeckModeCard { Mode = (int)GameMode.Classic,  Art = "Container_Image_Ranked",
+                               Term = "MainMenu/GameMode/Classic"  },
+        };
+
+        // ---- 运行时状态 ----
+        /// <summary>模式页那一棵（`Select Game Mode Deck Tab`）。null = 这一页还没建（懒建）。</summary>
+        Transform _deckModePage;
+        /// <summary>`Decks Tab`（列表那一棵）—— 模式页显示时整颗 `SetActive(0)`（§5·3）。</summary>
+        Transform _decksTabNode;
+        /// <summary>页头里按 §5·3 要跟着模式页开合的几颗。</summary>
+        Transform _deckCreateBtn, _deckCreateHit, _deckImportBtn, _deckImportHit,
+                  _deckUnlock, _deckFilterToggle, _deckFiltersGrp;
+        /// <summary>模式页那个**横向**滚动区（§4：H1/V0 · Elastic · inertia · deceleration 0.135 · sensitivity 1.0 · 无滚动条）。
+        /// 今天两张卡宽 1061.86 &lt; 视口 1589.21 ⇒ `AdjustBounds` 语义下**滚不动**（与原版一致）。</summary>
+        public MenuScroll DeckModeScroll;
+
+        /// <summary>当前筛的卡组模式（`-1` = 不筛 —— 原版 `DeckCollectionTab.currentEvent == null` 那一档，§5·5·4）。</summary>
+        int _deckModeFilter = -1;
+
+        /// <summary>模式页现在显示着吗（自检/诊断口）。</summary>
+        public bool DeckModePageShown { get { return _deckModePage != null && _deckModePage.gameObject.activeSelf; } }
+        /// <summary>当前筛的模式（`-1` = 不筛）。</summary>
+        public int DeckModeFilter { get { return _deckModeFilter; } }
+        /// <summary>模式页那棵树（自检按路径取节点用；未建 ⇒ null）。</summary>
+        public Transform DeckModePageRoot { get { return _deckModePage; } }
+
+        /// <summary>建「选择游戏模式」子页（节点树 = §1·3 那四层 + 两张卡）。
+        /// <para>树（逐层照原版）：`Select Game Mode Deck Tab` ▸ `Title Header` ·
+        /// `Scroll View` ▸ `Viewport`(RectMask2D) ▸ `Content`(HLG 50) ▸ `Game mode deck selector` ×2；
+        /// 每张卡四层 `Background Image → Foreground Image → TextDarkening(▸ Event Title) → Border`（§3·2）。</para>
+        /// <para>⚠️ 本工程**没有 uGUI**（没有 Canvas / LayoutGroup，见 `BuildDeckHeader` 那段等价性论证）
+        /// ⇒ HLG / CSF / AspectRatioFitter 一律**按解算后的结果摆**，⛔ 不挂组件（挂了永远不跑）。</para></summary>
+        void BuildDeckModePage(Transform page)
+        {
+            var root = Node(page, "Select Game Mode Deck Tab", DeckModePageRect);
+            _deckModePage = root;
+
+            // ---- ① `Title Header`：fs 72（auto 18–72）· Center/Capline · #FE9900 · raycast=0（§2·2）----
+            //   本地化键 `MenuDeck/SelectDeckGameMode`（官方表 = `SELECT GAME MODE` / 「选择游戏模式」）；
+            //   ⚠️ prefab 的 `m_text` 是 `SELECT GAME MODE DECK`（占位串）—— ⛔ 别把它写进代码（§2·2 末段）。
+            //   ⚠️ 字体：原版 `Pragati-Regular SDF` + 一层**全局 CJK 回退**（那份回退表本地没查到，落点 §4·3）
+            //      ⇒ 我们传拉丁面，`Label.ActualFace` 在文本含汉字时自动回 CJK（它自己的口径，见 `Core/TmpFont`）。
+            var title = Text(root, Loc.T("MenuDeck/SelectDeckGameMode"),
+                             DeckModeTitleRect.x1, DeckModeTitleRect.x2, DeckModeTitleRect.y1, DeckModeTitleRect.y2,
+                             5, DeckModeTitleInk, "Title Header", 72f,
+                             // 四格 = 原版 `m_enableAutoSizing 1` / `min 18` / `max 72` / `base 36`（§4·1）
+                             wrapPx: DeckModeTitleRect.W, autoMinPx: 18f, autoMaxPx: 72f, autoBasePx: 36f,
+                             face: TmpFont.Face.LatinCardBody);
+            if (title != null)
+            {
+                title.SetRenderQueue(QPageText);
+                // 原版 `m_VerticalAlignment = 8192`（Capline）· `m_HorizontalAlignment = 2`（Center，本类默认就是居中）
+                title.SetVAlign(Label.VAlign.Capline, LayoutSpace.Px(DeckModeTitleRect.H));
+                // 原版 `m_RaycastTarget = 0` —— 我们没有「TMP 吃射线」这回事（`Label` 不是 `Graphic`）⇒ 天然等价。
+            }
+
+            // ---- ② `Scroll View ▸ Viewport ▸ Content`（§1·3 / §4）----
+            var scrollNode = Node(root, "Scroll View", DeckModeScrollRect);
+            // Viewport 上原版挂 **`RectMask2D`**（padding 0 / softness 0），**没有 Image**（§1·5 / §4）
+            // ⇒ 用本仓的等价物 `ViewportClip.Hang`（= `RectMask2D` 的渲染 + 射线两面的实现）。
+            var vp = ViewportClip.Hang(scrollNode, "Viewport", DeckModeScrollRect, Vector4.zero, Vector2Int.zero);
+
+            float contentW = DeckModeCards.Length * DeckModeCardW + (DeckModeCards.Length - 1) * DeckModeCardGap;
+            var contentRect = new PxRect(DeckModeScrollRect.CX - contentW * 0.5f, DeckModeContentT,
+                                         DeckModeScrollRect.CX + contentW * 0.5f, DeckModeContentB);
+            var content = Node(vp.transform, "Content", contentRect);
+            // 横向滚动（原版 H1/V0 · Elastic · elasticity 0.1 · inertia 1 · deceleration 0.135 ·
+            //   scrollSensitivity **1.0** · **无滚动条**，§4）。`notchPx` 就是 `m_ScrollSensitivity`。
+            DeckModeScroll = new MenuScroll(DeckModeScrollRect, contentRect.x1, contentRect.x2, 1f);
+            DeckModeScroll.Elastic = true;                 // `m_MovementType = 1`
+            DeckModeScroll.Inertia = true;                 // `m_Inertia = 1`
+            DeckModeScroll.ClipNode = vp;
+            // 🔴 `Owner` = **模式页那一颗**（不是窗口根）：`PointerLayer` 跳过 `!Owner.activeInHierarchy`
+            //   的滚动区 ⇒ 模式页藏起来时这个区自动失效，不会去抢卡组列表的滚轮。
+            DeckModeScroll.Owner = root.gameObject;
+            PointerLayer.RegisterScroll(DeckModeScroll);
+
+            // ---- ③ 两张模式卡 ----
+            float cy = (DeckModeContentT + DeckModeContentB) * 0.5f;    // 662.05
+            for (int i = 0; i < DeckModeCards.Length; i++)
+            {
+                var spec = DeckModeCards[i];
+                float x1 = contentRect.x1 + i * (DeckModeCardW + DeckModeCardGap);
+                var cr = new PxRect(x1, cy - DeckModeCardH * 0.5f, x1 + DeckModeCardW, cy + DeckModeCardH * 0.5f);
+                BuildDeckModeCard(content, spec, cr);
+            }
+        }
+
+        /// <summary>一张模式卡（原版 prefab **`Game mode deck selector`**，§3·2 的完整节点树）。
+        /// <para>四层逐层：`Background Image`（卡图 · 方图裁中竖条）· `Foreground Image`（原版 `m_Sprite = null`
+        /// ⇒ **空节点**，落点 §五 末行）· `TextDarkening`（纯黑 a=0.6117647，▸ `Event Title`）· `Border`
+        /// （`40k_square_border` Sliced · fillCenter 0 · ppuMul 5 · 灰 0.33962）。</para>
+        /// <para>命中区 = **整张卡 505.93 × 802.67**（§3·5：卡内三颗 Image 的 `m_RaycastTarget` 全 1、
+        /// padding 全 0、且都被根上的 `RectMask2D` 裁在卡内 ⇒ 并集 = 整卡）。**没有选中态**（`m_SpriteState` 四张全 null），
+        /// 只有 ColorTint 0.9608/0.7843 + FadeDuration 0.1 ⇒ 走 `WindowButton` 的色偏（`TintOn` 指到卡图那颗）。</para></summary>
+        void BuildDeckModeCard(Transform content, DeckModeCard spec, PxRect cr)
+        {
+            // ⚠️ 节点名**照原版**（两颗同名 —— 原版 `Instantiate` 出来的两个实例也叫这个名字）。
+            //    自检按 `Content` 的孩子序取（`Transform.Find` 认不出重名）。
+            var card = Node(content, "Game mode deck selector", cr);
+
+            // ---- ① `Background Image` ----
+            //   原版：`m_Sprite` = **null**（运行时由 liveop 数据灌，落点 §1·2）· `AspectRatioFitter(2, 1)` ·
+            //   anchor (−0.294,0)-(1.294,1) ⇒ 解算 **803.08² 方图**，再被卡根上的 `RectMask2D` 裁回卡面。
+            //   我们**没有 RectMask2D 的像素级掩码**（`ViewportClip` 是矩形裁切，裁不出「方图取中间竖条」）
+            //   ⇒ 用 **UV 裁中间竖条**等价复现（同 `MainMenuRuntime.BuildModeCard` 的做法，落点 §六 指定）。
+            var artTex = Art(spec.Art);
+            ImageQuad artQ = null;
+            if (artTex != null)
+            {
+                artQ = Rect(card, spec.Art, cr, "Background Image", QModeArt);
+                if (artQ != null)
+                {
+                    float side = DeckModeCardH + DeckModeArtSidePad;        // 803.08
+                    float u0 = (side - DeckModeCardW) * 0.5f / side;
+                    float v0 = (side - DeckModeCardH) * 0.5f / side;
+                    artQ.SetUvRect(new Rect(u0, v0, 1f - 2f * u0, 1f - 2f * v0));
+                }
+            }
+
+            // ---- ② `Foreground Image`：原版 `m_Sprite = null` + `m_Material = null` ⇒ 参考图上是空的
+            //   （落点 §五「可建空节点或直接不建」）⇒ **建节点、不画**（树形照原版，纯结构）。
+            float sideF = DeckModeCardH + DeckModeArtSidePad;
+            Node(card, "Foreground Image", new PxRect(cr.CX - sideF * 0.5f, cr.CY - sideF * 0.5f,
+                                                      cr.CX + sideF * 0.5f, cr.CY + sideF * 0.5f));
+
+            // ---- ③ `TextDarkening`：贴底的纯黑带（§3·2 / §3·3）----
+            //   `Image(no sprite)` · 色 **(0,0,0, 0.6117647)** · `sizeDelta (−1.18030, 105.8657)` ·
+            //   anchor **(0.0036542062,0)-(0.9963457584,0)** · `anchoredPosition (0.03729248, 55.462372)` ·
+            //   pivot 居中 ⇒ 解算 **501.05 × 105.87**，带心距卡底 55.46（Unity y 向上）。
+            float bandW = (0.9963457584f - 0.0036542062f) * DeckModeCardW - 1.18030f;
+            float bandH = 105.8657f;
+            float bandCx = cr.CX + 0.03729248f;
+            float bandCy = cr.y2 - 55.462372f;                          // 屏幕 y 向下 ⇒ 从卡底往上减
+            var bandRect = new PxRect(bandCx - bandW * 0.5f, bandCy - bandH * 0.5f,
+                                      bandCx + bandW * 0.5f, bandCy + bandH * 0.5f);
+            var band = Rect(card, null, bandRect, "TextDarkening", QModeBand, new Color(0f, 0f, 0f, 0.6117647f));
+
+            // ---- ③′ `Event Title`（在 `TextDarkening` 之下，§3·3）----
+            //   fs **58.8**（auto 18–72 · base 36）· Center/Geometry · sizeDelta 493.05 × 55.708 ·
+            //   preset **`Pragati Thick Outline White`** ⇒ 白字 + 黑粗描边（`_OutlineWidth .097` /
+            //   `_FaceDilate .105` / `_OutlineColor` 黑 a=.788，落点 §4·2）。
+            //   ⚠️ 父级 `VerticalLayoutGroup`：padLeft **4** · MiddleLeft · spacing −4.2 · forceExpand 1/1 ·
+            //   controlW/H 0（§3·3）⇒ `forceExpandWidth` 把它**撑到暗带整宽 − 4**（落点 §4·2 末段），
+            //   高度仍是自己的 55.708、在带内**垂直居中**。
+            float etW = bandW - 4f;
+            var etRect = new PxRect(bandRect.x1 + 4f, bandCy - 55.708f * 0.5f,
+                                    bandRect.x1 + 4f + etW, bandCy + 55.708f * 0.5f);
+            var et = Text(band != null ? band.transform : card, Loc.T(spec.Term),
+                          etRect.x1, etRect.x2, etRect.y1, etRect.y2, 5, Color.white, "Event Title", 58.8f,
+                          // 四格 = 原版 `m_enableAutoSizing 1` / `min 18` / `max 72` / `base 36`
+                          wrapPx: etW, autoMinPx: 18f, autoMaxPx: 72f, autoBasePx: 36f,
+                          face: TmpFont.Face.LatinCardBody);
+            if (et != null)
+            {
+                ApplyThickOutline(et, QModeTitle);                     // 白字 + 黑描边（材质四项照抄）
+                // 原版 `m_VerticalAlignment = 4096`（TMP 的 `Geometry` = 本仓 `Label.VAlign.Midline`，同值 0x1000）
+                et.SetVAlign(Label.VAlign.Midline, LayoutSpace.Px(55.708f));
+            }
+
+            // ---- ④ `Border`：`40k_square_border` · Sliced · **fillCenter 0** · **ppuMul 5** · 灰 0.33962262 · maskable 0（§3·3）----
+            //   `m_Border = (13,13,13,13)`、图 64²、`m_PixelsToUnits 100`
+            //   ⇒ 角块 = `13 ÷ ppuMul 5 = 2.6 px`（`m_PixelsPerUnitMultiplier` 是**除** —— 与主菜单那颗同一条口径，
+            //     先例见 `MainMenuRuntime.BuildModeCard` ④ 那段订正）。
+            Nine(card, "40k_square_border", cr, new Vector4(13f, 13f, 13f, 13f), QModeBorder,
+                 new Color(0.33962262f, 0.33962262f, 0.33962262f, 1f), false, "Border",
+                 new Vector4(13f / 5f, 13f / 5f, 13f / 5f, 13f / 5f), 64f, 64f);
+
+            // ---- ⑤ 命中区 = 整张卡（§3·5）· 点 = 直接跳走（没有选中态）----
+            var hit = AddHit(card, "Hit", cr, QModeHit, () => ChooseDeckMode(spec.Mode));
+            var wb = hit != null ? hit.GetComponent<WindowButton>() : null;
+            // 原版 `m_TargetGraphic` = **`Background Image` 那颗** ⇒ 色偏打在卡图上（另建的透明命中区自己看不见）。
+            // ⚠️ 用 `TintOn` 而**不是** `Bind(...)`：本卡**没有任何 hover 专用 sprite**
+            //   （`m_SpriteState` 四张全 null，落点 §五）⇒ `Bind` 会把它按「换图那一档」处理并关掉色偏。
+            if (wb != null && artQ != null) wb.TintOn(artQ);
+        }
+
+        /// <summary>白字 + 黑粗描边（原版材质 `Pragati-Regular Atlas Material Thick Outline`，
+        /// 落点 §4·2 的四个字段原文：`_OutlineWidth .097` · `_FaceDilate .105` ·
+        /// `_OutlineColor` = 黑 **a=.7882** · 无 underlay）。
+        /// <para>⚠️ 走 **`fontMaterial`（实例材质）** —— 改共享材质会让全工程所有标签一起变
+        /// （同 `CardView.ApplyBadgeCounterStyle` 那条口径）。</para>
+        /// <para>⚠️ 次序：换/改材质之后**必须重放渲染队列** —— `Label` 的队列写在材质上，
+        /// 材质一换就静默回 3000（`Label.ApplyQueue` 的注释记着这条坑）。</para></summary>
+        static void ApplyThickOutline(Label lb, int q)
+        {
+            if (lb == null) return;
+            var tmp = lb.GetComponentInChildren<TMPro.TMP_Text>(true);
+            if (tmp == null) { Debug.LogWarning("[Collection] 模式卡 `Event Title` 没有 TMP 后端 ⇒ 描边没上"); return; }
+            var mat = tmp.fontMaterial;              // 实例材质（`ApplyQueue` 已经实例过一份，不会碰工程资产）
+            if (mat == null) return;
+            mat.EnableKeyword("OUTLINE_ON");
+            mat.SetColor(TMPro.ShaderUtilities.ID_OutlineColor, new Color(0f, 0f, 0f, 0.788f));
+            mat.SetFloat(TMPro.ShaderUtilities.ID_OutlineWidth, 0.097f);
+            mat.SetFloat(TMPro.ShaderUtilities.ID_FaceDilate, 0.105f);
+            tmp.UpdateMeshPadding();                 // 描边会画到原 quad 之外 ⇒ 重算留白（同 CardView 那一句）
+            lb.SetRenderQueue(q);                    // 材质换过 ⇒ 队列重放
+        }
+
+        /// <summary>模式页 / 卡组列表的**显隐矩阵**（逐行照 §5·3 的 `ToggleSelect*` 反编译表）：
+        /// <list type="bullet">
+        /// <item>模式页：**关** `Decks Tab` · `Unlock` · `Create` · `Filter Toggle` · `Filters`（含 `Clear filters`）；
+        /// **开** `Import`；`Header` / `Control Buttons` / `Separator Line` **不动**。</item>
+        /// <item>列表页：逐颗反过来（`Unlock` 打开 —— 原版 `Setup()` 先无条件关它、`ToggleSelectDeck` 再打开）。</item>
+        /// </list>
+        /// ⚠️ `Import` 在**两态都显示**（§5·3；参考图右上角「导入卡组」就是它）—— 这是 §七 里被订正过的那一格。</summary>
+        void SetDeckModeChrome(bool modePage)
+        {
+            if (_decksTabNode != null) _decksTabNode.gameObject.SetActive(!modePage);
+            if (_deckModePage != null) _deckModePage.gameObject.SetActive(modePage);
+            SetActiveIf(_deckCreateBtn, !modePage);
+            SetActiveIf(_deckCreateHit, !modePage);
+            SetActiveIf(_deckUnlock, !modePage);
+            SetActiveIf(_deckFilterToggle, !modePage);
+            SetActiveIf(_deckFiltersGrp, !modePage);
+            SetActiveIf(_deckImportBtn, true);
+            SetActiveIf(_deckImportHit, true);
+        }
+        static void SetActiveIf(Transform t, bool on)
+        {
+            if (t != null && t.gameObject.activeSelf != on) t.gameObject.SetActive(on);
+        }
+
+        /// <summary>点一张模式卡（原版 `SelectGameModeDeckTab.DeckContainerClicked` → `ToggleSelectDeck`，§5·5）：
+        /// 记下这一张的模式 → 关模式页 / 开列表 → 按模式重筛列表。
+        /// <para>原版第 2 步写的是 `deckCollectionTab.currentEvent = 事件`，筛法是
+        /// `deck.CustomGameModeEvent == currentEvent`，语义等价于 **`deck.GameMode == 事件的 EventPlayMode`**
+        /// （§5·5·4 + §5·4 第 1 行）⇒ 我们直接存 `EventPlayMode`（= `RuleEngine.GameMode` 的数值）。</para>
+        /// <para>⚠️ **次序**：先开列表（`SetDeckModeChrome(false)`）再 `ApplyDeckFilterChanged()` ——
+        /// 重建卡组格要在**激活**的树上做（TMP 在未激活对象里量不出尺寸，见 CLAUDE.md §三「面板画出来了字不在」）。</para></summary>
+        public void ChooseDeckMode(int mode)
+        {
+            _deckModeFilter = mode;
+            SetDeckModeChrome(false);
+            ApplyDeckFilterChanged();
+            Debug.Log("[Collection] 选中模式 " + ModeName(mode) + "（`GameMode=" + mode + "`）"
+                      + " ⇒ 卡组列表只列这一模式（原版 `DeckCollectionTab.GetCollection` 的谓词）");
+        }
+
+        /// <summary>回到「还没选模式」那一档（`_deckModeFilter = -1` ⇒ 列表不按模式筛）。
+        /// <para>这一档在原版 = `DeckCollectionTab.currentEvent == null`（§5·5·4 的第一个分支）；
+        /// 原版 UI 没有「清掉已选模式」的入口（`currentEvent` 一旦设上就留着）⇒ **本口给自检与将来的
+        /// 「返回」用**，⛔ 别在正常流程里随手调。</para></summary>
+        public void ClearDeckModeFilter()
+        {
+            _deckModeFilter = -1;
+            ApplyDeckFilterChanged();
+        }
+
+        /// <summary>重新显示模式页（原版 `SelectDecksTab.BackButtonClicked` → 清 `currentTab` →
+        /// `ChooseTabToOpen` → 事件 ≥2 ⇒ 又回模式页，§5·1 末段）。
+        /// ⚠️ 只切显隐、**不重建列表**（列表这会儿是藏着的 —— 在未激活树上重建量不出 TMP 尺寸）。</summary>
+        public void ShowDeckModePage()
+        {
+            _deckModeFilter = -1;
+            SetDeckModeChrome(true);
+        }
+
+        /// <summary>模式号 → 屏上那个词（自检/日志用；走官方词条，随语档变）。</summary>
+        public static string ModeName(int mode)
+        {
+            for (int i = 0; i < DeckModeCards.Length; i++)
+                if (DeckModeCards[i].Mode == mode) return Loc.T(DeckModeCards[i].Term);
+            return mode.ToString();
         }
 
         // ============================================================ Deck 页的左抽屉 `Deck Filters`（2026-09-24）
@@ -3953,7 +4313,11 @@ namespace CardPresentation
             }
         }
 
-        /// <summary>Deck 页的卡组在当前筛选下要显示哪些（**原始下标**）。</summary>
+        /// <summary>Deck 页的卡组在当前筛选下要显示哪些（**原始下标**）。
+        /// <para>🆕 **2026-10-22（W64）**：多一道**模式**筛 —— 原版 `DeckCollectionTab.GetCollection`
+        /// （§5·5·4）在 `currentEvent != null` 时只留 `deck.CustomGameModeEvent == currentEvent` 的卡组，
+        /// 语义等价于 **`deck.GameMode == 当前事件的 EventPlayMode`**（§5·5·4 + §5·4 第 1 行）。
+        /// `_deckModeFilter < 0` = `currentEvent == null` 那一支（不筛）。</para></summary>
         List<int> FilteredDeckIndices()
         {
             var list = new List<int>();
@@ -3961,6 +4325,7 @@ namespace CardPresentation
             for (int i = 0; i < n; i++)
             {
                 var d = CollectionData.DeckAt(i);
+                if (_deckModeFilter >= 0 && d.GameMode != _deckModeFilter) continue;   // 🆕 W64
                 if (!string.IsNullOrEmpty(_deckFacFilter)
                     && !string.Equals(d.Faction, _deckFacFilter, System.StringComparison.OrdinalIgnoreCase)) continue;
                 if (!string.IsNullOrEmpty(_deckNameFilter)
@@ -4491,7 +4856,12 @@ namespace CardPresentation
         /// 作废库缓存后重开本窗来做（A855 那条链）。</para></summary>
         public void CreateDeck()
         {
-            string name = CollectionData.CreateDeck();
+            // 🆕 **2026-10-22（W64）**：**新建的卡组继承当前模式** —— 原版 `SelectDecksTab.CreateDeck`（§5·5·6）：
+            //   `deck = CardDeck.GetEmptyDeck(); deck.gameMode = (PlayModes)currentEvent; …`
+            //   ⇒ 「新建的卡组一定落在当前模式上」。我们原来恒传 0（= 经典）⇒ 永远建经典（W63 §二 记的那条偏离）。
+            //   `_deckModeFilter < 0`（还没选模式 —— 正常流程走不到：`Create` 在模式页是藏着的）⇒ 退回经典 0。
+            int mode = _deckModeFilter >= 0 ? _deckModeFilter : (int)GameMode.Classic;
+            string name = CollectionData.CreateDeck(mode);
             if (string.IsNullOrEmpty(name))
             {
                 Debug.LogWarning("[Collection] 新建卡组**没造出来**（⛔ 库里一套都没多、也没进编辑器）"

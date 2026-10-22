@@ -167,11 +167,25 @@ namespace CardPresentation
         Label _msg;
         float _typed;
 
+        /// <summary>这一份正在「等对手」（`BeginSearch` / `BeginNetWait` → `Cancel` / 等满 / `AbortSearch`）。
+        /// 🔴 **只由 <see cref="SyncTicker"/> 读** —— 它是「要不要注册到常驻 ticker」的唯一判据。</summary>
+        bool _waiting;
+
         public bool IsShowing { get { return _root != null && _root.gameObject.activeSelf; } }
         /// <summary>正在匹配中（自检用）。</summary>
         public bool Searching { get; private set; }
+        /// <summary>这一份**还在等**（含联机等待那一档 —— 那一档 `Searching == false` 但仍在等）。
+        /// 🔴 与 `Searching` 不是一回事：`Searching` 只管那 12 秒 bot 倒计时。自检 / ticker 用这个判「还在不在跑」。</summary>
+        public bool IsWaiting { get { return _waiting; } }
         /// <summary>还剩几秒（自检用）。</summary>
         public float SecondsLeft { get; private set; }
+
+        /// <summary>🔴 **宿主窗口自己每帧推进这一份**（`PracticeModePopup` 那种：它 `Update → TickSearch`）
+        /// ⇒ **不注册**到常驻 <see cref="SearchOpponentManager"/>（否则一帧推两次，12 秒会变成 6 秒）。
+        /// `false` = 交给常驻 ticker（排位 / 遭遇战那种：宿主可能被全屏窗的 `HideAllWindows()` 整棵藏起来，
+        /// Unity 就不再给它派 `Update` —— 那正是 2026-10-22 真机「冻在 12 秒」的根因）。
+        /// 由 <see cref="Attach"/> 的第三个实参定（默认 `true` = 老行为，不动练习窗）。</summary>
+        public bool HostDrivesItself { get; private set; }
         /// <summary>🔴 **原版是 `maxVisibleCharacters` 的【循环】，不是「打一遍就停」**：
         /// `_TypeWriteEffect_d__14__MoveNext.c` —— 起手 `cur = len-3`，每 0.5s `cur++`，
         /// `cur > len` 就绕回 `len-3`，**无限循环**（4 档、周期 2.0s）。我们靠**改文字**等价复现
@@ -187,13 +201,23 @@ namespace CardPresentation
         }
 
         /// <summary>在宿主窗口根下建一个（出厂关着 —— 照原版 `act=0`）。`nodeName` 用原版的节点名。</summary>
-        public static SearchingMatchPopup Attach(Transform hostRoot, string nodeName)
+        /// <param name="hostDrivesItself">宿主窗口**自己每帧推进**它（`PracticeModePopup.Update → TickSearch`）⇒ 传 `true`
+        /// （**默认值**，老调用点行为不变）—— 这一份**不注册**到常驻 ticker。
+        /// 宿主可能被全屏窗藏起来（排位 / 遭遇战）⇒ 传 `false`，由常驻 `SearchOpponentManager` 推。
+        /// 🔴 传错方向的后果：`true` 而宿主会被藏 ⇒ 12 秒冻住（2026-10-22 真机）；
+        /// `false` 而宿主自己也推 ⇒ 一帧推两次、12 秒变 6 秒。下面那行日志把每一份的归属说出来（不静默）。</param>
+        public static SearchingMatchPopup Attach(Transform hostRoot, string nodeName, bool hostDrivesItself = true)
         {
             var go = new GameObject(nodeName);
             go.transform.SetParent(hostRoot, false);
             var p = go.AddComponent<SearchingMatchPopup>();
+            p.HostDrivesItself = hostDrivesItself;
             p.Build();
             go.SetActive(false);
+            Debug.Log("[Searching] `" + nodeName + "` 的推进归属 = "
+                    + (hostDrivesItself
+                       ? "**宿主窗口自己**（`Update → TickSearch`；不注册常驻 ticker）"
+                       : "**常驻 `SearchOpponentManager`**（窗只显示 —— 照原版：`SearchingOpponentWindow` 没有 `Update`）"));
             return p;
         }
 
@@ -301,6 +325,8 @@ namespace CardPresentation
             if (_cog != null) _cog.localRotation = Quaternion.Euler(0f, 0f, CogAngleAt(0f));
             // 原版**不清空文字**：起手把可见字数设成 `len-3`（我们是把文字截到那一截）
             if (_msg != null) _msg.SetText(SearchingText.Substring(0, Mathf.Max(0, SearchingText.Length - 3)));
+            // 重新显示 ⇒ 这一份还在等的话，把注册补回来（`Hide()` 会摘掉；见 `SyncTicker`）
+            SyncTicker();
             Debug.Log("[Searching] 开始搜索对手（`maxVisibleCharacters` 循环 · 每 " + LetterInterval + "s 进一格；"
                       + "原版 `OnEnable` → `_TypeWriteEffect`）");
         }
@@ -308,16 +334,41 @@ namespace CardPresentation
         public void Hide()
         {
             gameObject.SetActive(false);
+            // 藏起来 ⇒ 不再推它（原版没有「藏着的窗还在跑协程」这回事；`Show()` 会把注册补回来）。
+            // ⚠️ 这里**不看 `_waiting`** —— `Hide` 就是「现在别推」，与「还在不在等」是两件事。
+            if (!HostDrivesItself) SearchOpponentManager.End(this);
         }
 
         /// <summary>点 `Cancel` / 点背板 —— 原版走 `MatchMakerManager.CancelSearch`（我们本地没有那个管理器）。</summary>
         public void Cancel()
         {
             Debug.Log("[Searching] 取消搜索（原版 `CancelSearchButtonOnClick → MatchMakerManager.CancelSearch`）");
+            AbortSearch();
+            if (OnCancel != null) OnCancel();
+        }
+
+        /// <summary>**停掉这一次搜索**：清 `Searching` / `SecondsLeft` + 收起 + 从常驻 ticker 注销，
+        /// **不**回调 `OnCancel`。
+        /// 🔴 **为什么要有它**：宿主在「取消」那条链上收尾时**不能**调 `Cancel()` ——
+        /// 那会经 `OnCancel` 回调回宿主、宿主再转回来（`LiveOpsEventWindow.CancelSearch` → `AbortSearch`）
+        /// ⇒ 绕成一圈。`Cancel()` 本身就是「`AbortSearch()` + 回调」。
+        /// 🔴 不清状态 = 常驻 ticker 会接着推 ⇒ **12 秒后「取消之后又开一局」**（原来靠「关全屏窗必重建宿主」
+        /// 侥幸没露，那是脆的）。</summary>
+        public void AbortSearch()
+        {
+            _waiting = false;
             Searching = false;
             SecondsLeft = 0f;
-            Hide();
-            if (OnCancel != null) OnCancel();
+            Hide();                       // 内含 `SearchOpponentManager.End`
+        }
+
+        /// <summary>把「要不要由常驻 ticker 推」与当前状态对齐 —— **单一驱动**的唯一一处判据。
+        /// 生产调用点：`BeginSearch` / `BeginNetWait` / `Show`。⛔ 别在别处再注册一次（两份注册 = 一帧推两次）。</summary>
+        void SyncTicker()
+        {
+            if (HostDrivesItself) return;     // 宿主自己 `Update → TickSearch` 推（练习窗）⇒ 绝不注册
+            if (_waiting) SearchOpponentManager.Begin(this);
+            else SearchOpponentManager.End(this);
         }
 
         /// <summary>**开始匹配** —— 照原版 `MatchMakerManager.StartMatch`：显示这扇窗、起打字机、等 12 秒。
@@ -331,8 +382,13 @@ namespace CardPresentation
             if (show) Show();
             Searching = true;
             SecondsLeft = WaitForOpponentSeconds;
+            _waiting = true;
+            // 🔴 **注册**（= 原版 `StartCoroutine(WaitForHumanOpponent)`）。⚠️ `show == false`（排位那条：
+            //    画面由全屏窗负责）也**必须**注册 —— 否则这一份没有 `Update` 可依，12 秒一条都不推。
+            SyncTicker();
             Debug.Log("[Searching] 匹配开始：最多等 " + WaitForOpponentSeconds + "s（原版 `GetTimeToWaitForOpponent` 的"
-                      + "「不能匹配真人」分支 = 12）；轮询间隔原版 1s");
+                      + "「不能匹配真人」分支 = 12）；轮询间隔原版 1s；推进方 = "
+                      + (HostDrivesItself ? "宿主窗口自己 (`Update`)" : "常驻 `SearchOpponentManager`"));
         }
 
         /// <summary>🆕 **2026-10-03：联机等待态** —— 只显示这扇窗（含打字机），**不跑那 12 秒 bot 倒计时**
@@ -344,7 +400,10 @@ namespace CardPresentation
             if (show) Show();
             Searching = false;                    // ⚠️ false ⇒ `Tick` 那一支不跑倒计时
             SecondsLeft = 0f;
-            Debug.Log("[Searching] **联机等待对手**：不跑 12 秒 bot 链（那一支只给单机）—— 一直等到对面也点 `Battle!`");
+            _waiting = true;                      // 但**仍在等** ⇒ 常驻 ticker 照推（打字机 / Cog 要动）
+            SyncTicker();
+            Debug.Log("[Searching] **联机等待对手**：不跑 12 秒 bot 链（那一支只给单机）—— 一直等到对面也点 `Battle!`"
+                      + "（推进方 = " + (HostDrivesItself ? "宿主窗口自己 (`Update`)" : "常驻 `SearchOpponentManager`") + "）");
         }
 
         /// <summary>打字机 + 匹配倒计时。**`dt` 由调用方给**（批处理下没有帧循环 ⇒ 自检可以一次推进）。
@@ -358,17 +417,28 @@ namespace CardPresentation
         /// 错因 = 只保留了「没实现」那一版记录、实现落地后没回来改这一行。⛔ 别再按它去补一个旋转。</summary>
         public void Tick(float dt)
         {
-            // 🆕 2026-10-03：**`Cog` 自转**（原版 `Skull` 上那条 legacy `Animation` + clip `SearchingOpponentCog`
-            //   —— `m_PlayAutomatically = 1`、循环）。⚠️ 它**独立于打字机与倒计时**（那两条各有各的 `if`）。
-            _cogTime += dt;
-            if (_cog != null) _cog.localRotation = Quaternion.Euler(0f, 0f, CogAngleAt(_cogTime));
-
-            if (_msg != null && _hint == null)
+            // 🔴 **2026-10-22（W64）：看不见就不做「画面」那两件**（`Cog` 自转 / 打字机）——
+            //    排位那条路这一份**从头到尾没 `Show()` 过**（画面由全屏 `SearchingOpponentWindow` 负责），
+            //    而 TMP 在**从未激活**的对象上 `ForceMeshUpdate` 量出来的尺寸不可信（本工程踩过：
+            //    `textBounds` 垃圾，见 `Label.ForceRelayout` / `TryApplyPendingWrap` 那一族的注释）。
+            //    那 24 次/12 秒的「算完就丢」没意义，还可能把这一份的版面写成垃圾。
+            //    ⚠️ **倒计时不受这条闸影响**（它在下面、与可见性无关）—— 它才是这条链的命脉。
+            //    ⚠️ `Show()` 会把 `_typed` / `_cogTime` 归零 ⇒ 藏起来这段时间「没往前走」不会在重新显示时跳格。
+            bool visible = gameObject.activeInHierarchy;
+            if (visible)
             {
-                int before = TypedChars;
-                _typed += dt;                       // ⚠️ 不封顶：原版是**无限循环**，不是打完就停
-                int now = TypedChars;
-                if (now != before) _msg.SetText(SearchingText.Substring(0, now));
+                // 🆕 2026-10-03：**`Cog` 自转**（原版 `Skull` 上那条 legacy `Animation` + clip `SearchingOpponentCog`
+                //   —— `m_PlayAutomatically = 1`、循环）。⚠️ 它**独立于打字机与倒计时**（那两条各有各的 `if`）。
+                _cogTime += dt;
+                if (_cog != null) _cog.localRotation = Quaternion.Euler(0f, 0f, CogAngleAt(_cogTime));
+
+                if (_msg != null && _hint == null)
+                {
+                    int before = TypedChars;
+                    _typed += dt;                   // ⚠️ 不封顶：原版是**无限循环**，不是打完就停
+                    int now = TypedChars;
+                    if (now != before) _msg.SetText(SearchingText.Substring(0, now));
+                }
             }
             // 🆕 2026-10-17（B27·A925）：**提示还在那行字上 ⇒ 打字机歇着**
             //   （不然每 0.5 秒就把玩家正要读的那句话顶回「Sear…」—— 见 `ShowHint` 那一节）。
@@ -378,6 +448,10 @@ namespace CardPresentation
             if (!Searching) return;
             SecondsLeft -= dt;
             if (SecondsLeft > 0f) return;
+            // 🔴 先清 `_waiting` 再 `Hide()`：`Hide()` 里的注销是**无条件**的，而这一支之后
+            //    `OnSearchDone` 会重入宿主（排位 ⇒ `OnSearchFinished` 关全屏窗 ⇒ `ShowPreviousWindow` ⇒ 重建宿主窗），
+            //    重建时旧的本份被销毁 ⇒ `OnDestroy` 里那句 `End` 撞上「已经不是它」不会误伤新的那一份。
+            _waiting = false;
             Searching = false;
             SecondsLeft = 0f;
             Debug.Log("[Searching] 等满了 " + WaitForOpponentSeconds + "s，没等到真人 ⇒ 转 bot 对局"
@@ -594,6 +668,14 @@ namespace CardPresentation
         //     ⛔ `OnDestroy` 也必须摘（不摘的话，窗销毁之后提示一来就 `MissingReferenceException`）。
         void OnEnable() { NetMatchmaking.OnHint += ShowHint; }
         void OnDisable() { NetMatchmaking.OnHint -= ShowHint; }
-        void OnDestroy() { NetMatchmaking.OnHint -= ShowHint; }
+        void OnDestroy()
+        {
+            // 🔴 销毁 ⇒ **必须**从常驻 ticker 摘掉：`LiveOpsEventWindow.Build()` 每次开窗都把根下子件整棵销毁重建
+            //    （⇒ 每一次「关全屏窗 / 重开排位窗」都会换一份新的本份）。不摘的话 ticker 会指着一份死对象
+            //    （虽有 Unity 假 null 兜底，但那是一帧之后的事），而且「注册表里到底是谁」说不清。
+            _waiting = false;
+            SearchOpponentManager.End(this);      // 「不是它就不动」 ⇒ 不会误伤重建出来的那份新的
+            NetMatchmaking.OnHint -= ShowHint;
+        }
     }
 }

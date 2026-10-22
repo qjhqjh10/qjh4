@@ -118,7 +118,16 @@ namespace CardPresentation
         public const float HitPunchUnitsLight = 0.1f;
         public const float HitPunchUnitsHeavy = 0.3f;
 
-        /// <summary>命中旋转 punch 的度数 —— **两处一律取 punch 向量的「模长」**（原版那两条 punch
+        /// <summary>🔴🔴 **2026-10-22（W64 · `B02`）：这五个常量【已不再被 `HitReact` 使用】** ——
+        /// 原版**近战挨打没有旋转**（`CardScript__ReceiveAttackAnim.c:80-92` 只有一句
+        /// `DOPunchPosition`），那两条旋转 punch 属于 `Impact Light/Heavy Tween` = **远程弹着特效的
+        /// AnimFX 模块**（90 件 `BulletImpact_*` 引用它），把它当近战挨打是机制错位。
+        /// ⚠️ **`HitRotDuration` 仍有一个消费者**：`EventTiming.cs:191`
+        /// （`DurationOf(EvtKind.Hit) = HitRotDuration + ResetDuration`）—— 那一拍的总时长口径不变，
+        /// 但**它现在不代表"转了 0.5 秒"**，只是那一拍的长度。⛔ 别因为「没人用」把它删掉。
+        /// 下面这两段旧注释保留，它们记的是那两条 punch **本身的**读数（将来做远程弹着要用）。
+        ///
+        /// 命中旋转 punch 的度数 —— **两处一律取 punch 向量的「模长」**（原版那两条 punch
         /// 是 3D 的 x/y 两个轴，我们的 2D 只有一个 z 轴 ⇒ 取模长当度数）。
         /// 🔴 **2026-10-18 之后 · 第五会话（§26 ⑨）：用户拍板 = 甲「统一到模长」** ——
         ///   `HitRotLightDeg` 的旧值 `3f` 是**「最大分量」**那个读法，而旧注释却写着「模长」
@@ -489,9 +498,9 @@ namespace CardPresentation
             // ---- 命中：幅度借 Impact，旋转借 Impact ----
             P("HitPunchUnitsLight", HitPunchUnitsLight, Src.Ours, "`Impact *` 是**另一套机制**（AnimFX 的 UnitTweenSO）；原版的挨打幅度走 `GetUnitSize × GetPushBackFactor`，**那两个方法体没被反编译** → 借它的 0.1 顶替"),
             P("HitPunchUnitsHeavy", HitPunchUnitsHeavy, Src.Ours, "同上（`Impact Heavy Tween` 的 0.3）"),
-            P("HitRotLightDeg", HitRotLightDeg, Src.Derived, "`Impact Light Tween` 的 3D 旋转 punch `(-3,-3,0)` → **取模长当 2D 的 z 度数**（原版是 x/y 两个轴）"),
-            P("HitRotHeavyDeg", HitRotHeavyDeg, Src.Derived, "`Impact Heavy Tween` 的 `(-15,4,0)` 模长"),
-            P("HitRotDuration", HitRotDuration, Src.Field, "`Impact Light Tween` 旋转 punch 的 `duration=0.5`"),
+            P("HitRotLightDeg", HitRotLightDeg, Src.Derived, "`Impact Light Tween` 的 3D 旋转 punch `(-3,-3,0)` → **取模长当 2D 的 z 度数**（原版是 x/y 两个轴）。⚠️ **2026-10-22（`B02`）起 `HitReact` 不再用它**（近战挨打没有旋转），只为「远程弹着」那一族留着"),
+            P("HitRotHeavyDeg", HitRotHeavyDeg, Src.Derived, "`Impact Heavy Tween` 的 `(-15,4,0)` 模长（同上，已不参与近战挨打）"),
+            P("HitRotDuration", HitRotDuration, Src.Field, "`Impact Light Tween` 旋转 punch 的 `duration=0.5`。⚠️ 现在**唯一的消费者是 `EventTiming.DurationOf(Hit)` 的时长口径**，不代表「转了 0.5 秒」"),
             P("HitRotVibrato", HitRotVibrato, Src.Field, "同上 `vibratto=7`"),
             P("HitRotElasticity", HitRotElasticity, Src.Field, "同上 `elasticity=1.0`"),
             P("ResetDuration", ResetDuration, Src.Field, "`Impact Light Tween` 的 `ResetBodyTween duration=0.25`"),
@@ -562,6 +571,17 @@ namespace CardPresentation
             // ---- 手牌 → 战场 / 溶解窗：Card Hand To Board clip ----
             P("HandToBoardLand", HandToBoardLand, Src.Field, "clip 的 `Board Elements` 曲线关键帧"),
             P("HandToBoardFrameOn", HandToBoardFrameOn, Src.Field, "clip 的 `CardFrame.m_Enabled` 关键帧"),
+            P("HandToBoardFrameOff", HandToBoardFrameOff, Src.Field, "同上第二条关键帧（0.75 关掉卡框）"),
+            P("HandToBoardArtY", HandToBoardArtY, Src.Field, "clip 的 `CardImage.m_LocalPosition.y`（只有 0 s 一个关键帧）"),
+            P("HandToBoardFaceZ", HandToBoardFaceZ, Src.Field, "clip 的 `2DCard.m_LocalPosition.z` 终点（0.1667）"),
+            P("HandToBoardArtShrinkStart", HandToBoardArtShrinkStart, Src.Field, "clip 的 `CardImage` ScaleCurves 第二条关键帧时刻"),
+            P("HandToBoardFrameDissolveStart", HandToBoardFrameDissolveStart, Src.Field,
+              "clip 的 `floatProperty1.value`（`_DissolveAmount`）第一条关键帧 = 0.0167（0→0.0167 恒 1）"),
+            P("HandToBoardSpawnParticlesOn", HandToBoardSpawnParticlesOn, Src.Field,
+              "clip 的 `ToBoardFX/Spawn Particles.m_IsActive` 0→1 关键帧 = 0.0167"),
+            P("HandToBoardTrailOn", HandToBoardTrailOn, Src.Field,
+              "clip 的 `ToBoardFX/Spawn Particles/Trail.m_IsActive` 0→1 关键帧 = **0.55**"
+              + "（与 AnimationEvent `CardHandToBoardAnimationFinished` 同刻）"),
             P("HandToBoardFadeStart", HandToBoardFadeStart, Src.Field, "clip 的 `2DCard.m_Alpha` 关键帧"),
             P("HandToBoardFadeEnd", HandToBoardFadeEnd, Src.Field, "同上"),
             P("HandToBoardDone", HandToBoardDone, Src.Field, "clip 的 AnimationEvent `CardHandToBoardAnimationFinished` 时刻"),
@@ -765,44 +785,49 @@ namespace CardPresentation
                   .SetDelay(delay), Ease.OutQuad, tr);
         }
 
-        /// <summary>挨打：位置弹一下 + 转一下。        ///
-        /// ⚠️ **这两截来自两套不同的原版机制，别混着说**：
-        /// · **位置那一截 = 原版挨打真正走的路**：`BattleManager._ResolveAttack` 里
-        ///   `CardScript.ReceiveAttackAnim(target, pushDir, …)` → `CardScript.DoPushBack`。
-        ///   形状照抄 `CardScript__DoPushBack.c` 的 `DOPunchPosition(dir × mult, 0.4, 8, 0.3)`
-        ///   （0.4 / 0.3 是从 `GameAssembly.dll` 读出的两个 `_DAT_`，8 在调用里硬编码）。
-        ///   **幅度原版是 `SupportMethods.GetUnitSize × GetPushBackFactor` —— 那两个方法体都没被反编译，
-        ///   查不到**（按单位体型分档的表不在数据里）。这里用 `Impact Light Tween` 的 punch 0.1 顶替，
-        ///   而那是**另一套机制**（UnitTweenSO，走 AnimFX）—— **这一步是我们挑的**。
-        /// · **旋转那一截来自 `Impact Light Tween`**：3D 的 `punch=(-3,-3,0)`。
-        ///   我们是 2D 卡、只有 z 一个转轴 → **取它的模长 3 当度数**（这一步也是我们的换算）。
-        /// 重击档：`Impact Heavy Tween` 的位置 −0.3 / 旋转 `(-15,4,0)`（模长 15.5）。
+        /// <summary>挨打：**只有位置弹一下**（原版近战挨打就是这一条）。
+        ///
+        /// 🔴 **2026-10-22（W64 · `B02`）就地订正（铁律 5 + 用户「不要兜底」口径）**：
+        /// 这里原来还有**第二条补间：旋转 punch**，取自 `Impact Light Tween` 的 `punch(-3,-3,0)`。
+        /// **那是机制错位、已删**：
+        /// · 原版**近战**挨打只有位置 —— `decomp_full/CardScript__ReceiveAttackAnim.c:27-28,80-92`：
+        ///   整条方法体里只有一句 `DOPunchPosition(dir × GetPushBackFactor(GetUnitSize(攻击方)),
+        ///   **0.4**, **8**, **0.3**)`，**没有任何旋转**；同形的第二处入口
+        ///   `BattleManager._ResolveUnitShake_d__472__MoveNext.c:139-147` 也只有位置（互为佐证）。
+        /// · 被错当成「重击旋转」的 `Impact Light/Heavy Tween` 是 **AnimFX 的远程弹着模块**
+        ///   （`animfx_modules.json`：引用 `Impact Light Tween` 的有 **90 件**效果，全是
+        ///   `BulletImpact_*` / `Atk_*` 这类弹着；而近战那件 `AttackHitSmall` 的模块里**没有** tween 模块）
+        ///   ⇒ 它是**命中特效**那一侧的东西，不是近战挨打。
+        ///
+        /// 形状（位置那一条，全部照原版）：
+        /// · 方向 = `normalize(受击方.pos − 攻击方.pos)`（压到屏幕平面，见 `Flat`）；
+        /// · **幅度** = `GetPushBackFactor(GetUnitSize(攻击方))` = 0.5 / 1.0 / 1.5（<see cref="PushBackMagnitude"/>，
+        ///   判据 = `SupportMethods__GetUnitSize.c:11-16` / `__GetPushBackFactor.c:5-11`，两个方法体本地都在）；
+        /// · 时长 **0.4** / vibrato **8** / 弹性 **0.3**（上引 `.c` 的调用点，前两个是 `.rdata` 常量）。
+        /// ⚠️ 原版**没有 `SetEase`** ⇒ 吃 DOTween 全局默认；本工程 `DOTweenSettings.asset:31`
+        ///   `defaultEaseType = 6`（OutQuad）⇒ 保留 `Ease.OutQuad`（这一句与原来一致）。
         /// </summary>
         public static void HitReact(Transform tr, Vector3 away, bool heavy = false, float delay = 0f)
             => HitReact(tr, away, heavy, delay, -1);
 
         /// <param name="attackerMeleeAttack">**攻击方**的当前近战攻击（`UnitState.Attack`）。
-        /// **传 -1 = 不知道攻击方是谁**（疲劳、反伤那类没有攻击方的伤害）⇒ 退回 `Impact *` 那套顶替值。
+        /// **传 -1 = 不知道攻击方是谁**（疲劳、反伤那类没有攻击方的伤害）⇒ 退回 `Impact *` 那套顶替值
+        /// （= 审计 A06 那一条合法例外：原版这条输入不存在）。
         /// 判据与出处见 <see cref="PushBackMagnitude"/>：原版的幅度**只由攻击方的近战档决定**。</param>
         public static void HitReact(Transform tr, Vector3 away, bool heavy, float delay, int attackerMeleeAttack)
         {
             if (tr == null) return;
             Vector3 d = Flat(away);
+            // 🔴 `B02`：档位轴 = **攻击方的近战档**（不是伤害值）。`heavy` 只剩「不知道攻击方」那条退路，
+            //   `HeavyHitDamage` 也只在那条退路上当分档门槛（见 `BattleDriver` 的两处调用）。
             float mag = attackerMeleeAttack >= 0
                 ? PushBackMagnitude(attackerMeleeAttack)                 // 原版口径（0.5 / 1.0 / 1.5）
-                : (heavy ? HitPunchUnitsHeavy : HitPunchUnitsLight);     // 兜底：`Impact *` 顶替值
-            float rot = heavy ? HitRotHeavyDeg : HitRotLightDeg;
+                : (heavy ? HitPunchUnitsHeavy : HitPunchUnitsLight);     // 退路：`Impact *` 顶替值（A06）
 
-            // 位置：DoPushBack 的**形状**（0.4 / vib 8 / 弹性 0.3）+ 顶替来的幅度
+            // 位置：DoPushBack 的**形状**（0.4 / vib 8 / 弹性 0.3）+ 上面的幅度。**近战只有这一条。**
             CardTween.Use(
                 tr.DOPunchPosition(d * ToOurs(mag), PushBackDuration, PushBackVibrato, PushBackElasticity)
                   .SetDelay(delay), Ease.OutQuad, tr);
-
-            // 旋转：`Impact Light Tween` 的第二条 punch（0.5s / vib 7 / 弹性 1 / InQuad）
-            // ⚠️ 原版那条打的是 `abilityTarget`，位置那条打的是 `self` —— 这里都作用在挨打这张卡上
-            CardTween.Use(
-                tr.DOPunchRotation(new Vector3(0f, 0f, Sign(d) * rot), HitRotDuration,
-                                   HitRotVibrato, HitRotElasticity), Ease.InQuad, tr);
         }
 
         /// <summary>最近一次震镜头。**自检要拿它核对「有没有把相机放回去」** ——
@@ -1252,8 +1277,52 @@ namespace CardPresentation
         /// <summary>同上的低点（0.1667 / 0.7 两个关键帧都是它）= −1.347（卡单位）。</summary>
         public const float HandToBoardBodyY1 = -1.347f;
 
+        // ---- 🔴 2026-10-22（W64 · `B04`）：补上的四条曲线（全部照 clip 关键帧原值）---------------
+        // 判据（一手）：`bundle_battleprefabs_vfxandmisc_assets_all/AnimationClip/
+        //   AnimationClip_-3614292623624764332.json`（`Card Hand To Board`，17 条曲线）。
+        /// <summary>`2DCard/Front/CardFrame.m_Enabled` 关掉的时刻 = **0.75**（1 → 0）。
+        /// ⚠️ 打开那一端用的是既有的 <see cref="HandToBoardFrameOn"/>（0.0333，上面那一组常量里已定义）。
+        /// 🔴 **这条曲线的目标不是卡框的显隐**，而是挂在 `CardFrame` 上的 **`AnimateUIMaterialProperty`
+        /// 组件**（`classID = 114`、`script` 与 `floatProperty1` 同一条 PPtr）⇒ 它开/关的是
+        /// **卡框材质置换的窗口**（判据 → `资料/普查产出_1022/W64_B04_floatProperty1材质.md`）。</summary>
+        public const float HandToBoardFrameOff = 0.75f;
+        /// <summary>卡框 `_DissolveAmount` 那条曲线的**起点** = **0.0167**（0 → 0.0167 恒为 1）。
+        /// ⚠️ 别和 `HandToBoardFrameOn`（0.0333，组件打开）混：曲线从 0.0167 起，但组件 0.0333 才醒
+        /// ⇒ 真正开始动的值 = 曲线在 0.0333 处的值 ≈ **0.998**（差 0.18%，肉眼无差）。</summary>
+        public const float HandToBoardFrameDissolveStart = 0.0167f;
+        /// <summary>`ToBoardFX/Spawn Particles.m_IsActive` 0 → 1 的时刻 = **0.0167**（= 同一个数，
+        /// 但语义是「粒子节点打开」；⛔ 别写成「卡框溶解起点」）。</summary>
+        public const float HandToBoardSpawnParticlesOn = 0.0167f;
+        /// <summary>`ToBoardFX/Spawn Particles/Trail.m_IsActive` 0 → 1 的时刻 = **0.55**
+        /// （与 AnimationEvent `CardHandToBoardAnimationFinished` 同刻）。</summary>
+        public const float HandToBoardTrailOn = 0.55f;
+        /// <summary>`2DCard/Front/CardImage.m_LocalPosition.y` = **−0.065**（整条曲线只有一个关键帧 ⇒ 常量）。</summary>
+        public const float HandToBoardArtY = -0.065f;
+        /// <summary>`2DCard.m_LocalPosition.z` 的终点 = **−0.043**，在 **0.1667** 到位（0 → −0.043）。</summary>
+        public const float HandToBoardFaceZ = -0.043f;
+        /// <summary>`2DCard/Front/CardImage` 的 ScaleCurves：1 → 1 @**0.3333** → **0.9049578 @0.55**
+        /// （= 上面 `HandToBoardShrink` 那个数的动作）。</summary>
+        public const float HandToBoardArtShrinkStart = 0.3333f;
+
+        /// <summary>🆕 2026-10-22（`B06`）：clip 那几条曲线**精确**的插值器。
+        /// 每一条的 `inSlope` / `outSlope` 全 0、`weightedMode = 0` ⇒ Hermite 插值**精确等于
+        /// smoothstep `3t² − 2t³`**（不是正弦、也不是任何别的缓动）。这里用一条
+        /// **两端切线为 0 的 `AnimationCurve`** 表示它 —— `SetEase(curve)` 会逐点求值，
+        /// 与 `AnimationClip` 采样**逐位同形**。⛔ 别改回 `Ease.InOutSine`（那是近似）。
+        /// ⚠️ 曲线对象共享（DOTween 只读它），只在静态构造里建一次。</summary>
+        public static readonly AnimationCurve ClipSmoothStep = BuildClipSmoothStep();
+        static AnimationCurve BuildClipSmoothStep()
+        {
+            var c = new AnimationCurve();
+            c.AddKey(new Keyframe(0f, 0f, 0f, 0f));   // inTangent = outTangent = 0 ⇒ Hermite 退化成 smoothstep
+            c.AddKey(new Keyframe(1f, 1f, 0f, 0f));
+            return c;
+        }
+
         /// <summary>「登场溶解不可用」只出声一次（别每张登场都刷一行）。</summary>
         static bool _warnedHandToBoardDissolve;
+        /// <summary>「2D 卡框溶解不可用」只出声一次（同上）。</summary>
+        static bool _warnedFrameDissolve;
 
         /// <summary>**登场正向 `Card Hand To Board`**（原版 0.3 s 起播、全长 **0.9167 s**）。
         ///
@@ -1270,17 +1339,18 @@ namespace CardPresentation
         /// <para>🔴 **我们这一侧的差异（如实记，⛔ 别当成原版）**：
         /// · 我们的卡没有 `Animation` 组件 ⇒ 按同一条时间轴**用代码喂值**（同 <see cref="ReturnToHand"/>）；
         /// · 原版 `2DCard` 是一个 `CanvasGroup`（一处 α 管整组），我们的 2D 层是**逐层材质** ⇒
-        ///   这里用 `CardView.SetAlpha`（整卡 α）。它在 3D 体已换成**溶解材质**时**跳过 3D 体**
-        ///   （溶解材质没有 `_Color`，见 `CardView.ApplyTint`）⇒ 这一段里淡的正好只有 2D 那一套，
-        ///   与 `2DCard.m_Alpha` 同义；到 0.7 才 `SetFace(Board)` + α 复位。
-        /// · **材质复位放在 0.7（原版 0.55）**：0.55 就换回正常材质的话，它带 `_Color`
-        ///   ⇒ 剩下的 2D 淡出会把 3D 体**一起再淡一遍**（原版那时 3D 体已经实了）。
-        ///   要做到 0.55 需要 `CardView` 给「按层 alpha」的口 —— 见报告。
-        /// · **没做的曲线（判据在，但缺 API / 缺节点）**：
-        ///   `CardFrame.m_Enabled` 0→1@0.0333→0@0.75 与 `floatProperty1` 1→0（没有「只开关卡框」的口）·
-        ///   `CardImage` 的 y −0.065 与 scale→**0.905** @0.55（立绘层局部变换不公开）·
-        ///   `2DCard` 的 z −0.043 · `ToBoardFX` / `Spawn Particles` / `Trail`（原版是**卡预制体自带的
-        ///   粒子节点**，我们这套卡没有；它与 `normalSummon` 是不是同一件**判据未闭合**，见对账 §四#2）。
+        ///   用 `CardView.SetAlpha2D`（2026-10-22 新加：**只乘 2D 那一套、跳过 3D 卡体**，
+        ///   与 `2DCard` 的 CanvasGroup 同义）。
+        /// · ✅ **2026-10-22（`B05`/`B06`/`B04`）这几条近似已换成原版真值**：
+        ///   ① 材质复位 **0.7 → 0.55**（原版 AnimationEvent `CardHandToBoardAnimationFinished`
+        ///      @0.55 → `DelayedResetMaterial(0.55)`）；② 三处缓动 `InOutSine` → `ClipSmoothStep`
+        ///      （clip 切线全 0 ⇒ Hermite 精确 = smoothstep）；③ 补上 `CardFrame.m_Enabled` /
+        ///      `CardImage` 的 y 与 scale / `2DCard.z` 四条曲线；④ **`floatProperty1` 已实现**：
+        ///      0.0333 把卡框换成 `SpriteUI Frame Dissolve` 实例（`CardView.BeginFrameDissolve`）、
+        ///      `_DissolveAmount` 1→0 over [0.0167, 0.7]、0.75 还原并销毁（判据 →
+        ///      `资料/普查产出_1022/W64_B04_floatProperty1材质.md`）。
+        /// · **仍然没做的曲线**：`ToBoardFX` / `Spawn Particles` / `Trail`
+        ///   （原版是**卡预制体自带的粒子节点**，我们这套卡没有 ⇒ 另账）。
         /// </para>
         ///
         /// <para>⚠️ **3D 体是懒建的**（`SetFace(Board)` 才建）⇒ 这里先借它把体建出来、再立刻退回原形态：
@@ -1309,7 +1379,52 @@ namespace CardPresentation
             var seq = DOTween.Sequence();
             seq.AppendInterval(HandToBoardEnd);     // 先把总长定成 0.9167；下面全是 Insert（不受游标影响）
 
-            // ② 0.1667：3D 体出现 + 开始溶解（`m_IsActive 0→1` 与 `_DissolveAmount 1→0` 同刻起）
+            // ① 🆕 `B04`：`CardImage.m_LocalPosition.y = −0.065` 是**常量曲线** ⇒ 开场就摆好；
+            //    它的缩放从 1 起（scale 曲线 0 → 1，第一段是常量）。
+            card.SetArtLocalY(HandToBoardArtY);
+            card.SetArtLocalScale(1f);
+            // ② 🆕 `B04`：`CardFrame.m_Enabled`（= 那个 `AnimateUIMaterialProperty` **组件**）
+            //    0 → 1 **@0.0333** ⇒ 把卡框换成**溶解材质实例**（原版 `OnEnable` → `CreateInstanceMaterial`）。
+            seq.InsertCallback(HandToBoardFrameOn, () =>
+            {
+                bool ok = card.BeginFrameDissolve();
+                if (!ok && !_warnedFrameDissolve)
+                {
+                    _warnedFrameDissolve = true;
+                    Debug.LogWarning("[CardFeel] 登场 clip：2D 卡框溶解不可用（取不到原版 shader "
+                                   + "`Everguild/FX/Sprite Dissolve Mask`，或这张卡没有卡框层）"
+                                   + " ⇒ 卡框**不溶**、照常显示；与原版不一致（不静默）");
+                }
+            });
+            // ②' 🆕 `B04`：`floatProperty1.value`（`_DissolveAmount`）1 → 0 over **[0.0167, 0.7]**。
+            //     ⚠️ 起止用的是**曲线**的关键帧（0.0167 / 0.7），不是组件开关那两个时刻。
+            seq.Insert(HandToBoardFrameDissolveStart,
+                       DOTween.To(() => 1f, v => card.SetFrameDissolveAmount(v), 0f,
+                                  HandToBoardDissolveEnd - HandToBoardFrameDissolveStart)
+                              .SetEase(ClipSmoothStep));
+            // ②'' 🆕 `B04`：`CardFrame.m_Enabled` 1 → 0 **@0.75** ⇒ 还原原材质 + 销毁实例
+            //      （原版 `OnDisable` → `ResetToOriginalMaterial`，`OnDestroy` → `Destroy(instancedMaterial)`）。
+            seq.InsertCallback(HandToBoardFrameOff, () => card.EndFrameDissolve());
+
+            // ②''' 🆕 `B04`：`ToBoardFX` 那两颗粒子的开关（clip 的三条 `m_IsActive`）。
+            //   · `ToBoardFX` 自己**恒 1**（原版曲线只有 t=0 → 1 一个键）⇒ 不动；
+            //   · `ToBoardFX/Spawn Particles` 0 → 1 **@0.0167**；
+            //   · `ToBoardFX/Spawn Particles/Trail` 0 → 1 **@0.55**（与 `CardHandToBoardAnimationFinished` 同刻）。
+            //   实例由驱动层在登场那一刻挂上来（原版 `CardSetup`），这里只拨开关。
+            seq.InsertCallback(HandToBoardSpawnParticlesOn, () => card.SetSpawnParticlesActive(true));
+            seq.InsertCallback(HandToBoardTrailOn, () => card.SetTrailActive(true));
+
+            // ②'' 🆕 `B04`：`CardImage` ScaleCurves 1 → 1 @0.3333 → 0.9049578 @0.55
+            seq.Insert(HandToBoardArtShrinkStart,
+                       DOTween.To(() => 1f, v => card.SetArtLocalScale(v), HandToBoardShrink,
+                                  HandToBoardDone - HandToBoardArtShrinkStart)
+                              .SetEase(ClipSmoothStep));
+
+            // ②''' 🆕 `B04`：`2DCard.m_LocalPosition.z` 0 → −0.043 @0.1667
+            seq.Insert(0f, DOTween.To(() => 0f, v => card.SetFaceRootLocalZ(v), HandToBoardFaceZ,
+                                      HandToBoardLand).SetEase(ClipSmoothStep));
+
+            // ③ 0.1667：3D 体出现 + 开始溶解（`m_IsActive 0→1` 与 `_DissolveAmount 1→0` 同刻起）
             seq.InsertCallback(HandToBoardLand, () =>
             {
                 card.SetBody3DVisible(true);
@@ -1329,9 +1444,9 @@ namespace CardPresentation
             float dissolveFrom = 1f;
             seq.Insert(HandToBoardLand,
                 DOTween.To(() => dissolveFrom, v => { dissolveFrom = v; card.SetDissolveAmount(v); }, 0f,
-                           HandToBoardDissolveEnd - HandToBoardLand).SetEase(Ease.InOutSine));
+                           HandToBoardDissolveEnd - HandToBoardLand).SetEase(ClipSmoothStep));
 
-            // ③ `Board Elements` 的 y：−0.43 → −1.347 →（停）→ 0
+            // ④ `Board Elements` 的 y：−0.43 → −1.347 →（停）→ 0
             if (body != null)
             {
                 seq.Insert(0f, BodyYTo(body, bodyBase.y + HandToBoardBodyY0,
@@ -1341,30 +1456,43 @@ namespace CardPresentation
                                    HandToBoardEnd - HandToBoardDissolveEnd));
             }
 
-            // ④ `2DCard.m_Alpha` 1 → 0（[0.3333, 0.6667]）—— 起点同样是**捕获量**（原版那条曲线从 1 起）
+            // ⑤ `2DCard.m_Alpha` 1 → 0（[0.3333, 0.6667]）—— 起点同样是**捕获量**（原版那条曲线从 1 起）
             float alphaFrom = 1f;
             seq.Insert(HandToBoardFadeStart,
-                DOTween.To(() => alphaFrom, v => { alphaFrom = v; card.SetAlpha(v); }, 0f,
-                           HandToBoardFadeEnd - HandToBoardFadeStart).SetEase(Ease.InOutSine));
+                DOTween.To(() => alphaFrom, v => { alphaFrom = v; card.SetAlpha2D(v); }, 0f,
+                           HandToBoardFadeEnd - HandToBoardFadeStart).SetEase(ClipSmoothStep));
 
-            // ⑤ 0.7：`2DCard.m_IsActive` 关 + 计数器 α→1（= 换到场上形态）+ 换回正常材质 + 整卡 α 复位
+            // ⑥ 🔴 `B05`：**0.55** 换回正常材质 —— 原版 AnimationEvent `CardHandToBoardAnimationFinished`
+            //    在 0.55 → `DelayedResetMaterial(0.55)`。原来放在 0.7 是因为整卡 `SetAlpha` 会把 3D 体
+            //    也再淡一遍；现在 2D 那一档走 `SetAlpha2D`（跳过 3D 体）⇒ 可以照原版 0.55 换。
+            seq.InsertCallback(HandToBoardDone, () =>
+            {
+                card.SetDissolveAmount(0f);
+                card.RestoreOriginalMaterial();
+            });
+
+            // ⑦ 0.7：`2DCard.m_IsActive` 关 + 计数器 α→1（= 换到场上形态）+ 两档 α 复位
             seq.InsertCallback(HandToBoardDissolveEnd, () =>
             {
                 card.SetFace(CardFace.Board);
                 card.SetDissolveAmount(0f);
                 card.RestoreOriginalMaterial();
+                card.SetAlpha2D(1f);
                 card.SetAlpha(1f);
             });
 
             var t = CardTween.Use(seq, Ease.Linear, tr);
+            // ⚠️ 被打断时**两档 α 都要复位**（同 `DealIn` 那条注释）：2D 那一档跑到一半被 kill 的话
+            //    这张卡会**永久半透明**（静默）。复位成 1 是安全的一侧 —— 正常跑完时它本来就是 1。
+            t.OnKill(() => { if (card != null) { card.SetAlpha2D(1f); } });
             if (onDone != null) t.OnComplete(() => onDone());
             return t;
         }
 
         /// <summary>把 <paramref name="body"/> 的**局部 y** 从 <paramref name="from"/> 补到
         /// <paramref name="to"/>（秒）。clip 里那两条位置曲线的两端切线都是 0
-        /// （`inSlope`/`outSlope` 全 0、`weightedMode = 0`）⇒ Hermite 插值等价于 smoothstep，
-        /// 这里用 `InOutSine` 近似（⚠️ 近似，不是逐帧逐值）。</summary>
+        /// （`inSlope`/`outSlope` 全 0、`weightedMode = 0`）⇒ Hermite 插值**精确等于 smoothstep**，
+        /// 这里用 <see cref="ClipSmoothStep"/>（2026-10-22 `B06`：原来的 `InOutSine` 是近似）。</summary>
         static Tween BodyYTo(Transform body, float from, float to, float dur)
         {
             if (body == null || dur <= 0f) return null;
@@ -1373,7 +1501,7 @@ namespace CardPresentation
             float y = from;
             return DOTween.To(() => y,
                               v => { y = v; var p = body.localPosition; p.y = v; body.localPosition = p; },
-                              to, dur).SetEase(Ease.InOutSine);
+                              to, dur).SetEase(ClipSmoothStep);
         }
 
         /// <summary>**远程攻击的「回正」段**（0.1 s）—— 原版 `CardScript._ResolveAttackRangedAnim_d__360__MoveNext.c:80-104`：
@@ -1553,7 +1681,7 @@ namespace CardPresentation
                 //    「效果库里没有 'death'」（实机日志实测 13 条）。
                 //    ⇒ 按注释里写的本意改成走**兜底链**（`Resolve` → 我们自己挑的替代品
                 //    `Explosion Fenrisian Monstrosities`，见 `PickDeathFx` 的 doc）。
-                WarpforgeVFX.WarpforgeEffectPlayer.Play(VfxMap.Resolve(VfxMap.Death), card.transform);
+                PlayDeathFallbackFx(card.transform);
                 return Dissolve(card, delay, onDone, isWarlord);      // 旧表现：淡出 + 上浮 + 缩
             }
 
@@ -1851,6 +1979,38 @@ namespace CardPresentation
         }
 #endif
 
+        /// <summary>「取不到兜底爆散体」只出声一次（别每张阵亡刷一行）。</summary>
+        static bool _warnedDeathFxNull;
+
+        /// <summary>阵亡**退回路**的那个根特效（`PickDeathFx` 返回 null 时走这里）。
+        /// <para>🔴 **2026-10-22（`W61` 收口）：取到 null 就【只出声、不调 `Play`】**。
+        /// 原因：`VfxMap.Resolve(VfxMap.Death)` 现在**返回 null**（自造件已在 B3 删掉），而
+        /// `WarpforgeEffectLibrary.TryGet(null, …)` 里是 `Dictionary.TryGetValue(null)` ⇒
+        /// **`ArgumentNullException`**。本机有效果库时跑不到这条（prefab 是 gitignore 产物，
+        /// 换台机器就会崩），所以必须在这一跳挡住。</para>
+        /// <para>⛔ 删掉这个守卫 = 把「没件」变成「崩」；也**别**改成静默返回（不静默是红线）。</para></summary>
+        public static void PlayDeathFallbackFx(Transform card)
+        {
+            var name = VfxMap.Resolve(VfxMap.Death);
+            if (string.IsNullOrEmpty(name))
+            {
+                if (!_warnedDeathFxNull)
+                {
+                    _warnedDeathFxNull = true;
+                    Debug.LogWarning("[CardFeel] 阵亡退回路取不到兜底爆散体"
+                                   + "（`VfxMap.Resolve(\"death\")` = null —— 那件自造品已在 B3 删掉）"
+                                   + " ⇒ 这一档**不播任何根特效**，只走「淡出 + 上浮 + 缩」"
+                                   + "（本条只出声一次；⛔ 不把 null 递给特效库）");
+                }
+                return;
+            }
+            if (card == null) return;
+            WarpforgeVFX.WarpforgeEffectPlayer.Play(name, card);
+        }
+
+        /// <summary>自检口：把「已出过声」那一位清零（让「恰好一条警告」可重复断言）。</summary>
+        public static void ResetDeathFxNullWarnForTest() { _warnedDeathFxNull = false; }
+
         /// <summary>阵亡消散（**旧表现 —— 只在取不到原版那件爆散体时用**）。原版是**材质 `_DissolveAmount`** 从 1 溶到 0
         /// （见 `Card Hand To Board` clip 里 `Card 3D` 那条曲线）。
         /// ⚠️ **我们没有溶解 shader**，退而用「透明度 + 轻微上浮/缩小」—— 表现形式是我们的。
@@ -1937,11 +2097,14 @@ namespace CardPresentation
         //        照抄了这个猜测 —— **以实读的 90 为准**（铁律 5）。
         //   ⚠️ 我们这套卡是【正交平面上的两维片】，不是三维卡体：绕 Y 转 90° = 卡**侧立成一条线**
         //      （在原版那里就是「看不见的那一帧」）⇒ 视觉上就是「翻出去再翻回来」。
-        //   🔴 **「前半段显示卡背」这一半【没做】，也不该在本件里做**：原版靠 90° 那一帧
-        //      `SetObjectVisibility(卡, 手牌态)` 把**在牌堆里的那套子件**换成手牌那套（= 卡背换卡面），
-        //      而我们的 `CardView` **没有卡背层**（`Core/CardView.cs` 全文 grep 不到 flip/faceDown，
-        //      `ShowCardBack` 只给敌方手牌那个 `ImageQuad` 用）⇒ 要做得先在 `CardView` 加一层，
-        //      那不在本件白名单里（`Core/CardView.cs` 不可碰）。
+        //   ✅ 🔴 **2026-10-22（W64 · `B13` ①）就地订正（铁律 5）**：本行原来写「**「前半段显示卡背」
+        //      这一半【没做】**，`CardView` 没有卡背层」—— **已过期**。`CardView` 2026-10-16 就加了卡背层
+        //      （`CardView.SetBackVisible`：`_backLayer` / `CardBackZ = −0.20`、网格取**卡身** `Width × Height`），
+        //      消费点就是 `DealInPose`：**0 s 亮卡背 → `DealDuration × TurnCardAroundFrac`（= 侧立那一帧、
+        //      卡宽收到 0）换回卡面 → `OnKill` 补收**。原版机制 = 90° 那一帧
+        //      `SetObjectVisibility(卡, 手牌态)` 换子件，我们的等价物就是那两条 `InsertCallback`。
+        //      ⚠️ 敌方那一支**不翻**（`DrawCard.c:52-59` 判 `isPlayer`），它补的是
+        //      `DealInQuad` 里那条 `DORotate(zero)`（2026-10-22 补）。
 
         /// <summary>抽牌翻转的**单段**角度 = **90°** —— `.rdata 0x1834b2e04` 用 `工具/read_literal.py`
         /// 实读 **90.0**（同一地址也是 `AttackTurnDeg` / `DeathShakeRandomness` 的出处）。
@@ -2100,6 +2263,15 @@ namespace CardPresentation
 
             var seq = DOTween.Sequence();
             seq.Append(tr.DOMove(to, d).SetEase(Ease.OutCubic));
+            // 🆕 2026-10-22（W64 · `B13` ②）：**敌方那一支的 `DORotate(zero)`**（原来漏了）。
+            //   判据 = `decomp_full/CardScript__DrawCard.c:65-75`：`if (isPlayer == 0)` 那一支里
+            //   `DORotate(transform, Vector3.zero, 时长)` —— 它**只有敌方走**（我方那一支归
+            //   `TurnCardAround` 管，见 `TurnCardAround` 上面那段头注）。
+            //   ⚠️ 原版这一句**没有 `SetEase`** ⇒ 吃 DOTween 的全局默认缓动。本工程
+            //   `Assets/Resources/DOTweenSettings.asset:31` 实读 `defaultEaseType: 6`（= `OutQuad`）
+            //   ⇒ 这里写 `Ease.OutQuad`（审计文里那句「OutCubic＝DOTween 默认」与 .asset 实读不符，
+            //   按 .asset）。
+            seq.Join(tr.DORotate(Vector3.zero, d).SetEase(Ease.OutQuad));
             seq.Join(tr.DOScale(Vector3.one, d).SetEase(Ease.OutCubic));
             seq.Join(DOTween.To(() => 0f, a => q.SetTint(new Color(1f, 1f, 1f, a)), 1f, d * 0.5f));
             var t = CardTween.Use(seq, Ease.Linear, tr).SetDelay(delay);
@@ -2118,8 +2290,8 @@ namespace CardPresentation
             return f.sqrMagnitude < 1e-8f ? Vector3.up : f.normalized;
         }
 
-        /// <summary>方向在屏幕上的「左右」符号 —— 旋转 punch 用它决定往哪边歪</summary>
-        static float Sign(Vector3 flatDir) { return flatDir.x >= 0f ? 1f : -1f; }
+        // ⚠️ 原来的 `Sign(flatDir)`（旋转 punch 的左右符号）**已随 `B02` 删除** —— 近战挨打没有旋转了，
+        //    它没有任何消费者。⛔ 别因为「看起来还会用到」把它加回来（那就等于把自造旋转又接上了）。
 
         // ==================================================================
         //  查到了、但还没接上的原版参数（**别以为用上了**）

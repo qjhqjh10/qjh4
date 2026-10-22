@@ -14,6 +14,7 @@
 //    （`_Color` vs `_MainTex_ST`）—— **建场时就把类型定死成 `"c"`/`"v"`**
 //    （编辑器里能问 `ShaderUtil`，运行时问不了），运行时只管照 `t` 设，不再猜。
 using System;
+using System.Collections.Generic;   // `Dictionary`（B15 的「逐条重写件」对照表）
 using UnityEngine;
 using UnityEngine.Rendering;   // `RenderQueue`（透明那一档要显式设 renderQueue）
 
@@ -301,23 +302,43 @@ namespace WarpforgeVFX
         public static void InferBlendFromShaderName(string shaderName,
             out int srcBlend, out int dstBlend, out float zwrite, out bool transparent)
         {
-            // ⚠️ **2026-10-01：试过「先查原版 pass 真值表」（`OriginalShaderBlendTable`，58 个 shader），
-            //    当天按 sweep 回退了。** 事实经过（别再走一遍）：
-            //      · 表本身**是对的**（`工具/gen_shader_blend.py` 从 bundle 的序列化数据读的，
-            //        `Everguild/Cards/Gem Crystal Glitter Explosion` 的 P0 确实是 `SrcAlpha→OneMinusSrcAlpha`）；
-            //      · 用它覆盖之后，**43 个材质**改了混合（41 个从「不透明」变「SrcAlpha/OneMinusSrcAlpha」）；
-            //      · 全量 sweep（两趟）结果：`RemnantBody3D Aeldari` **Z(1.05) → E(16.39)**（亮 16 倍）·
-            //        `Environmental Condition Emperor's Children 2 F` **Z(1.16) → E(0.61)** ⇒ **净变差**；
-            //      · 台账总数 E 23→24 · Z 710→709（在噪声底 ±1 内，但那两条是**真信号**、不是漂）。
-            //    **为什么「照抄原版 pass」反而不对**（还没坐实，两个候选）：
-            //      ① 这些材质的**目标 shader 是兜底的 `URP/Unlit`**（源 shader 不在 `ShaderMap` 里 ⇒
-            //         `ImportMaterial` 走了「不像粒子就用 URP/Unlit」那条）⇒ 我们的着色器本来就与原件不同，
-            //         **混合模式照抄原件不等于画面就对了**；
-            //      ② 那份「材质自己写的 `_SrcBlend/_DstBlend`」（本工程常见为 Standard 残留死值）
-            //         在**这一族**上恰好给出与实测一致的答案 ⇒ **不能用「是不是残留」一刀切**。
-            //    ⇒ **要接着查**：拿 `EffectIso`/`EffectCompare` 对 `RemnantBody3D Aeldari` 单效果 A/B
-            //      （只改这一个材质的混合、别的都不动），看 16× 到底出在混合上还是出在**我们的兜底 shader** 上。
-            //      表与工具留着（`OriginalShaderBlendTable` + `工具/gen_shader_blend.py`）—— 它们是数据，不是结论。
+            InferBlendFromShaderName(shaderName, null, out srcBlend, out dstBlend, out zwrite, out transparent);
+        }
+
+        /// <summary>🆕 2026-10-22（W64 · 兜底审计 **B15**）：**先查原版 pass 真值表**，但只在
+        /// 「目标 shader 与原件同语义」时采信 —— 这就是 2026-10-01 那次回退的**根因闸门**。
+        ///
+        /// 事实经过（⛔ 别再走一遍）：
+        ///   · 表本身**是对的**（`工具/gen_shader_blend.py` 从 bundle 的 pass 状态实读）；
+        ///   · 但那天**无差别**用它覆盖之后，**43 个材质**改了混合（41 个从「不透明」变「SrcAlpha/OneMinusSrcAlpha」），
+        ///     全量 sweep 两趟净变差：`RemnantBody3D Aeldari` **Z(1.05) → E(16.39)** ·
+        ///     `Environmental Condition Emperor's Children 2 F` **Z(1.16) → E(0.61)**。
+        ///   · 根因（候选①，**现在变成硬闸门**）：那批材质的**目标 shader 是兜底的
+        ///     `URP/Unlit` / `Extra Color`**（源 shader 不在替换表里 ⇒ 占位/兜底走那条）
+        ///     —— 我们的着色器本来就与原件**算法不同**，**照抄原件的混合 ≠ 画面对**。
+        ///     ⇒ 只有「目标 shader = 原件本身，或按原件字节码**逐条重写**的那一份」时，原版 pass 的混合才是
+        ///       同一个语义下的真值；否则退回按名字判（并按上面那条注释**如实**说明它是兜底，不是原版）。
+        ///
+        /// ⚠️ **仍需 EffectIso A/B**（`W64_兜底审计_特效.md` U6 的另一半）：本闸门只挡掉已知变差的那一类，
+        ///    并不等于「剩下那些照抄表值的组合已经量过」。要坐实得对 `RemnantBody3D Aeldari` 单效果 A/B。
+        /// </summary>
+        /// <param name="targetShaderName">**最终会被渲染的那份工程 shader 名**（`dst.shader.name`）。
+        /// 传 null = 调用方不提供 ⇒ 一律走按名字判（安全默认：不拿原版值往不认识的 shader 上灌）。</param>
+        public static void InferBlendFromShaderName(string shaderName, string targetShaderName,
+            out int srcBlend, out int dstBlend, out float zwrite, out bool transparent)
+        {
+            // ---- ① 原版 pass 真值（`OriginalShaderBlendTable.Map`：只收「混合烘死在 pass 里」的那些）----
+            if (SameBlendSemanticsAsOriginal(shaderName, targetShaderName))
+            {
+                int ts, td; float tz;
+                if (OriginalShaderBlendTable.TryGet(shaderName, out ts, out td, out tz))
+                {
+                    srcBlend = ts; dstBlend = td; zwrite = tz; transparent = tz < 0.5f;
+                    return;
+                }
+            }
+
+            // ---- ② 按名字判（只有「目标 shader 与原件不同语义」或「表里没有」才走到这里）----
             string n = (shaderName ?? "").ToLowerInvariant();
             if (n.Contains("additive") || n.Contains("/add") || n.Contains(" add "))
             { srcBlend = 5; dstBlend = 1;  zwrite = 0f; transparent = true; return; }
@@ -329,6 +350,53 @@ namespace WarpforgeVFX
             { srcBlend = 5; dstBlend = 10; zwrite = 0f; transparent = true; return; }
             srcBlend = 1; dstBlend = 0; zwrite = 1f; transparent = false;   // 不明就按不透明
         }
+
+        /// <summary>🆕 2026-10-22（B15）：**目标 shader 与原件是不是同一个混合语义**。
+        ///
+        /// 两种算「是」：
+        ///   ① `targetShaderName == shaderName` —— 直接渲染**原件**（bundle 里那份编译 shader）；
+        ///   ② 目标是我们**按原件字节码逐条重写**的那份（见 <see cref="FaithfulRebuilds"/>）。
+        /// 其余（URP/Unlit、Particles/Unlit、`Extra Color` 这类通用兜底/近似）**不算** ——
+        /// 它们的光照/颜色算式与原件不同，把原件的混合照抄过去会得到另一个画面
+        /// （2026-10-01 sweep 的 43 个材质净变差就是这么来的，判据见上面那个重载的注释）。
+        ///
+        /// ⚠️ **加一份新的「逐条重写」shader 时，这里要跟着加一条** —— 否则它会掉回按名字判。
+        ///    每条都指向该 shader 文件头里的判据（⛔ 别在这里再抄一遍算法）。
+        /// </summary>
+        static bool SameBlendSemanticsAsOriginal(string originalName, string targetShaderName)
+        {
+            if (string.IsNullOrEmpty(originalName) || string.IsNullOrEmpty(targetShaderName)) return false;
+            if (string.Equals(originalName, targetShaderName, StringComparison.Ordinal)) return true;
+            string faithful;
+            return FaithfulRebuilds.TryGetValue(originalName, out faithful)
+                && string.Equals(faithful, targetShaderName, StringComparison.Ordinal);
+        }
+
+        /// <summary>原版 shader → **按原版编译字节码逐条重写**的工程 shader（混合语义与原件同一）。
+        /// 判据一律在各自 `.shader` 的文件头；加新条目 = 那份 shader 真的**逐条**照抄了原件。</summary>
+        static readonly Dictionary<string, string> FaithfulRebuilds =
+            new Dictionary<string, string>
+        {
+            { "Everguild/FX/Particle Dissolve Mask",                    "WarpforgeVFX/FX/ParticleDissolveMask" },
+            { "Everguild/FX/Alpha Mask One Layer",                      "WarpforgeVFX/FX/AlphaMaskOneLayer" },
+            { "Everguild/FX/Alpha Masks Two Layer",                     "WarpforgeVFX/FX/AlphaMasksTwoLayer" },
+            { "Everguild/FX/Multi Ray",                                 "WarpforgeVFX/FX/MultiRay" },
+            { "Everguild/FX/TrailShader_1",                             "WarpforgeVFX/FX/TrailShader1" },
+            { "Everguild/FX/Particle Shine Custom Vertex Streams",      "WarpforgeVFX/FX/ParticleShineCVS" },
+            { "Everguild/FX/Particle Premultiply Greyscale Coloring",   "WarpforgeVFX/FX/ParticlePremultiplyGreyscale" },
+            { "Everguild/FX/Unlit UV scroll",                           "WarpforgeVFX/FX/UnlitUVScroll" },
+            { "Shader Graphs/Fx_ParticleDissolve_apb",                 "WarpforgeVFX/FX/ParticleDissolveAPB" },
+            { "Shader Graphs/Fx_RockDissolve",                          "WarpforgeVFX/FX/RockDissolve" },
+            { "Mobile/Particles/Multiply",                              "WarpforgeVFX/Particles/Multiply" },
+            { "Legacy Shaders/Particles/Additive",                      "WarpforgeVFX/Particles/LegacyAdditive" },
+            { "Legacy Shaders/Particles/Alpha Blended",                 "WarpforgeVFX/Particles/LegacyAlphaBlended" },
+            { "Hidden/LUTBlender",                                      "WarpforgeVFX/LUTBlender" },
+            // 🆕 2026-10-22（W64 B11）：这四条原来是「按名字挑最接近」的近似，现按 Ruri 反编译的字节码重写。
+            { "Everguild/FX/Particle Premultiply",                      "WarpforgeVFX/FX/ParticlePremultiply" },
+            { "Everguild/FX/TrailShader_Fading",                        "WarpforgeVFX/FX/TrailShaderFading" },
+            { "Shader Graphs/Doomweaver effect",                        "WarpforgeVFX/FX/DoomweaverEffect" },
+            { "Shader Graphs/Eclipse Tau",                              "WarpforgeVFX/FX/EclipseTau" },
+        };
 
         /// <summary>`props` 里的混合三件套是不是**内置 Standard 的残留值**。
         ///

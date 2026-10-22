@@ -19,7 +19,7 @@
   {
    "id": "AM11",
    "n": 2,
-   "name": "Shock Trooper Sgt",
+   "name": "Shock Trooper Sgt.",
    "s": 0.2
   },
   {
@@ -133,7 +133,7 @@
   {
    "id": "AM70",
    "n": 1,
-   "name": "Medic Scion",
+   "name": "Scion Medic",
    "s": 0.2
   },
   {
@@ -235,7 +235,7 @@
   {
    "id": "GSC3",
    "n": 1,
-   "name": "Acolyte Iconward",
+   "name": "Iconward Malak Vorenth",
    "s": 1.0
   },
   {
@@ -289,7 +289,7 @@
   {
    "id": "SOR24",
    "n": 1,
-   "name": "Simulacrum Imperialis",
+   "name": "Simulacrum Celestian",
    "s": 1.0
   },
   {
@@ -331,7 +331,7 @@
   {
    "id": "SOR37",
    "n": 2,
-   "name": "Triumph of Saint Katherine",
+   "name": "Triumph of St. Katherine",
    "s": 4.0
   },
   {
@@ -421,7 +421,7 @@
   {
    "id": "SW29",
    "n": 1,
-   "name": "Morkai Eliminator",
+   "name": "Sons of Morkai Eliminator",
    "s": 0.5
   },
   {
@@ -457,7 +457,7 @@
   {
    "id": "UM101",
    "n": 2,
-   "name": "2nd Company Terminator",
+   "name": "1st Company Terminator",
    "s": 0.95
   },
   {
@@ -517,7 +517,7 @@
   {
    "id": "UM92",
    "n": 1,
-   "name": "Firestrike Servo Turret",
+   "name": "Firestrike Servo-Turret",
    "s": 0.2
   },
   {

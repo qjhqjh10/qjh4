@@ -60,6 +60,28 @@ namespace WarpforgeVFX
 
         static readonly Dictionary<string, Material> Cache = new Dictionary<string, Material>();
 
+        /// <summary>🔴 2026-10-22（W64 · 兜底审计 **B12**）：**解析失败的计数**。
+        ///
+        /// 原来那一支是 `arr[i] = r.sharedMaterials[i]; // 保持占位` —— **静默**：逐槽、无计数、无警告。
+        /// 于是「958 个效果里到底有几个材质槽没换成原版 shader」在日志上**看不出来**
+        /// （本仓红线：⛔ 不许静默失败）。现在三条：
+        ///   ① 每个失败的槽**一行**告警（按 prefab+渲染器+槽号去重，避免每次实例化刷屏）；
+        ///   ② `Apply()` 收尾**一行汇总**（这个 prefab 有几个槽没换）；
+        ///   ③ 全工程累计计数，自检/探针可以直接读。
+        /// ⚠️ 根因是 shader 解析不到 —— 见 <see cref="ShaderResolveFailures"/> 与 `WarpforgeShaderMap.TryResolve`。</summary>
+        public static int PlaceholderSlotTotal { get; private set; }
+        /// <summary>`WarpforgeShaderMap.TryResolve` / `Shader.Find` 失败、导致 `Build` 返回 null 的次数（去重前）。</summary>
+        public static int ShaderResolveFailures { get; private set; }
+        static readonly HashSet<string> PlaceholderReported = new HashSet<string>();
+        static readonly HashSet<string> ShaderFailReported = new HashSet<string>();
+
+        /// <summary>自检/探针用：把两个累计数打出来（⛔ 不做成「静默的静态字段」）。</summary>
+        public static string DescribeFailures()
+        {
+            return $"材质槽保留占位 {PlaceholderSlotTotal} 次 · shader 解析失败 {ShaderResolveFailures} 次"
+                 + $"（去重后：占位 {PlaceholderReported.Count} 处 / 解析 {ShaderFailReported.Count} 个 shader）";
+        }
+
         /// <summary>调试用：把每个原版 shader 解析到了哪里打出来</summary>
         public static bool LogResolve = true;
 
@@ -145,6 +167,9 @@ namespace WarpforgeVFX
             var builtVc = new Material[materials.Length];
             var builtVcEm = new Material[materials.Length];
             int slot = 0, ri = 0;
+            // 🔴 B12：这个 prefab 这一趟有几个槽**没换成原版 shader**（收尾一行汇总，别静默）。
+            int placeholderSlots = 0;
+            string firstFailReason = null;
             foreach (var r in rends)
             {
                 // 🔴 `_EMISSION` **逐渲染器判**，别无条件开、也别一律剔掉。
@@ -186,7 +211,21 @@ namespace WarpforgeVFX
                                     : (built[idx] ?? (built[idx] = Build(materials[idx], false))));
                             if (m != null) { arr[i] = m; continue; }
                         }
-                        arr[i] = r.sharedMaterials[i];     // 保持占位
+                        arr[i] = r.sharedMaterials[i];     // 保持原样
+                        // ⚠️ `rendererSlots` 里的 **`-1` 是约定值**（= 这个槽本来就留空，导出器这么写的）
+                        //    ⇒ 不是失败、**不计数、不出声**（否则每个正常 prefab 都会刷一堆假告警）。
+                        if (idx < 0) continue;
+
+                        // 🔴 B12：`idx >= 0` 却拿不到材质 = **这个槽本该换成原版 shader 却没换** ⇒ 出声 + 计数。
+                        placeholderSlots++;
+                        string why;
+                        if (idx >= materials.Length) why = $"材质槽下标 {idx} 越界（rendererSlots={rendererSlots.Length} · materials={materials.Length}）";
+                        else if (materials[idx] == null) why = "材质定义是 null";
+                        else why = $"原版 shader `{materials[idx].shader}` 解析不到（材质 `{materials[idx].name}`）";
+                        if (firstFailReason == null) firstFailReason = why;
+                        if (PlaceholderReported.Add(name + "|" + r.name + "|" + i))
+                            Debug.LogWarning($"[WarpforgeVFX] `{name}` / 渲染器 `{r.name}` 槽 {i}：**保留占位材质** —— {why}"
+                                           + "（这个槽画的是占位/空，不是原版 shader）");
                     }
                     r.sharedMaterials = arr;
                 }
@@ -202,9 +241,28 @@ namespace WarpforgeVFX
                             ? (builtEm[idx] ?? (builtEm[idx] = Build(materials[idx], true)))
                             : (built[idx] ?? (built[idx] = Build(materials[idx], false)));
                         if (m != null) psr.trailMaterial = m;
+                        else
+                        {
+                            // 🔴 B12：拖尾槽同样**不许静默**（原来这里连计数都没有）。
+                            placeholderSlots++;
+                            if (firstFailReason == null)
+                                firstFailReason = $"拖尾材质 `{(materials[idx] != null ? materials[idx].shader : "<null>")}` 解析不到";
+                            if (PlaceholderReported.Add(name + "|trail|" + r.name))
+                                Debug.LogWarning($"[WarpforgeVFX] `{name}` / 渲染器 `{r.name}` 的**拖尾材质**保留占位 —— "
+                                               + $"{firstFailReason}");
+                        }
                     }
                 }
                 ri++;
+            }
+
+            // 🔴 B12：收尾**一行汇总**（⛔ 不许静默失败）。
+            if (placeholderSlots > 0)
+            {
+                PlaceholderSlotTotal += placeholderSlots;
+                Debug.LogWarning($"[WarpforgeVFX] `{name}`：{placeholderSlots}/{slot} 个材质槽**保留占位材质**"
+                               + $"（首个原因：{firstFailReason}）· 全工程累计 {PlaceholderSlotTotal} · "
+                               + $"shader 解析失败 {ShaderResolveFailures} 次");
             }
 
             // 🆕 2026-10-19（V2 / T10）：**重建材质之后必须让 VAT 驱动换一份缓存**。
@@ -318,7 +376,13 @@ namespace WarpforgeVFX
             string src;
             if (!WarpforgeShaderMap.TryResolve(d.shader, out sh, out src))
             {
-                Debug.LogWarning($"[WarpforgeVFX] 找不到 shader '{d.shader}'（材质 {d.name}）");
+                // 🔴 B12：计数 + 去重出声。**去重**是因为同一个 shader 会被上百个材质槽反复解析，
+                //   逐次打会把日志淹掉 —— 但「有没有失败、失败几个 shader」必须留下证据。
+                ShaderResolveFailures++;
+                if (ShaderFailReported.Add(d.shader ?? "<null>"))
+                    Debug.LogWarning($"[WarpforgeVFX] 找不到 shader '{d.shader}'（材质 {d.name}）"
+                                   + " ⇒ 该材质槽保留占位。首见按 shader 名各报一次；累计数见 "
+                                   + "`WarpforgeEffectBinder.DescribeFailures()`");
                 return null;
             }
             if (LogResolve && !LoggedShaders.Contains(d.shader))
@@ -458,7 +522,7 @@ namespace WarpforgeVFX
             return m;
         }
 
-        /// <summary>补上 URP 粒子 shader 的「派生属性」。
+        /// <summary>补上粒子 shader 的「派生属性」。
         ///
         /// 这几个属性原版材质里根本没序列化 —— 它们是 ParticleSystemRenderer 每次渲染时
         /// 按粒子的 Soft Particles / Camera Fading 模块现算、临时塞给材质的。
@@ -470,7 +534,13 @@ namespace WarpforgeVFX
         /// `_SoftParticleFadeParams.y` 默认 0 → 除法饱和成 0 → **整个发射器渲染成全黑**。
         /// 实测：Back Glow 原版 7420 亮像素、导出 0，就是这条。
         ///
-        /// 这里的取值对齐 URP 的默认状态：软粒子关、相机淡出关。
+        /// 🔴 **取值判据（2026-10-22 · W64 兜底审计 B10 改口径）**：**先查原版 shader 自己的属性表** ——
+        ///   `OriginalShaderDefaults.TryGet(原版 shader 名, 属性名)`（由 `工具/gen_shader_defaults.py`
+        ///   从 bundle 的 `m_ParsedForm.m_PropInfo.m_Props[].m_DefValue` 实读生成）。
+        ///   查得到 ⇒ 写**原版默认值**（这就是原版真值）。
+        ///   查不到 ⇒ **原版这个 shader 根本没声明这一格**（不是「默认 0」！）⇒ 写一支**中性值**，
+        ///   并在注释里逐条说明为什么是那个数（见下面 `SetF`/`SetV` 的 `neutral` 参数）。
+        ///   ⚠️ 原来这里写「取值对齐 URP 的默认状态」—— 那是**我们挑的**，已经在 B10 里销账。
         /// 注意不要把 _EMISSION 一起处理 —— 那是全局关键字，不属于这一组。</summary>
         public static void ApplyDerivedParticleDefaults(Material m) => ApplyDerivedParticleDefaults(m, null, null, null);
 
@@ -508,32 +578,82 @@ namespace WarpforgeVFX
             //    而这里**无条件**把它们改写成 0 → 原本正常的导出集体变亮。
             //    实测：偏亮从 101 涨到 130、比值 >2.5 的极端簇从 36 涨到 53，
             //    总达标数反而从 500 掉到 464。兜底逻辑只该在「真缺」的时候生效。
-            void SetF(string n, float v)
+            //
+            // 🔴 **2026-10-22（B10）**：`neutral` 只在**原版根本没声明这一格**时才用 ——
+            //    它不是「原版默认值」，是「这支借来的算式在功能关闭时必须得到的中性值」。
+            //    每一格为什么是那个数都写在调用点上。
+            int fromOriginal = 0, noOriginal = 0;
+            void SetF(string n, float neutral)
             {
                 if (recordedFloats != null && recordedFloats.Contains(n)) return;
-                if (m.HasProperty(n)) m.SetFloat(n, v);
+                if (!m.HasProperty(n)) return;
+                float v;
+                if (OriginalShaderDefaults.TryGetFloat(originalShaderName, n, out v))
+                {
+                    m.SetFloat(n, v);                 // 原版真值（`m_DefValue`）
+                    fromOriginal++;
+                }
+                else
+                {
+                    m.SetFloat(n, neutral);           // 原版没有这一格 ⇒ 中性值
+                    noOriginal++;
+                }
             }
-            void SetV(string n, Vector4 v)
+            void SetV(string n, Vector4 neutral, string alias = null)
             {
                 if (recordedColors != null && recordedColors.Contains(n)) return;
-                if (m.HasProperty(n)) m.SetVector(n, v);
+                if (!m.HasProperty(n)) return;
+                Vector4 v;
+                if (OriginalShaderDefaults.TryGet(originalShaderName, n, out v))
+                {
+                    m.SetVector(n, v);                // 原版真值（同名属性）
+                    fromOriginal++;
+                    return;
+                }
+                // URP 改过名的同一格：`_BaseColorAddSubDiff`（URP）↔ `_ColorAddSubDiff`（内置/原版）。
+                // 原版在**别名上**声明过 ⇒ 用它的默认值（这就是原版真值，不是猜）。
+                if (!string.IsNullOrEmpty(alias) && OriginalShaderDefaults.TryGet(originalShaderName, alias, out v))
+                {
+                    m.SetVector(n, v);
+                    fromOriginal++;
+                    return;
+                }
+                m.SetVector(n, neutral);              // 原版没有这一格 ⇒ 中性值
+                noOriginal++;
             }
 
-            // 软粒子：关掉，并把淡出距离设成有效值（万一材质上还挂着 _SOFTPARTICLES_ON）
+            // 软粒子：关掉，并把淡出距离设成有效值（万一材质上还挂着 `_SOFTPARTICLES_ON`）。
+            //   · `_SoftParticleFadeParams` = (0,**1**,1,0)：`.y` 是上面那条 `saturate(d / .y)` 的**分母** ——
+            //     0 会把整个发射器乘黑（Back Glow 实测）。原版 `Everguild/*` 那 4 个 shader 只声明了
+            //     `_SOFTPARTICLES`（默认 **0** = 软粒子关，见 `OriginalShaderDefaults`），没有这一格
+            //     ⇒ 这里给的是「关掉且不吞 alpha」的中性分母，**不是原版数值**。
             SetF("_SoftParticlesEnabled", 0f);
             SetV("_SoftParticleFadeParams", new Vector4(0f, 1f, 1f, 0f));
             SetF("_SoftParticlesNearFadeDistance", 0f);
             SetF("_SoftParticlesFarFadeDistance", 1f);
 
-            // 相机淡出：关掉，远端设成「无穷远」
+            // 相机淡出：关掉，远端设成「无穷远」（同上：`_CameraFadeParams.w` 是分母）
             SetF("_CameraFadingEnabled", 0f);
             SetV("_CameraFadeParams", new Vector4(0f, 2000f, 1f, 0f));
             SetF("_CameraNearFadeDistance", 1f);
             SetF("_CameraFarFadeDistance", 2f);
 
-            // 顶点色模式：默认 0 = 相乘，和原版一致
+            // 顶点色模式：0 = 相乘（`_ColorMode` 原版 `Particles/Standard Unlit` 就是 0，
+            //   其它原版 shader 没声明 ⇒ 0 即「相乘」这支）。
+            //   `_BaseColorAddSubDiff` 只在 `_ColorMode != 0` 时才被采 ⇒ 中性值 x=1（URP 的加法支是 `tex + color*1`）。
+            //   原版在 `_ColorAddSubDiff` 上声明过的话（`Particles/Standard Unlit`，默认 0）就以它为准。
             SetF("_ColorMode", 0f);
-            SetV("_BaseColorAddSubDiff", new Vector4(1f, 0f, 0f, 0f));
+            SetV("_BaseColorAddSubDiff", new Vector4(1f, 0f, 0f, 0f), "_ColorAddSubDiff");
+
+            // 🔬 出声（每支原版 shader 只报一次）：哪几格用了原版默认、哪几格原版根本没有。
+            //    为什么不一格一条：这一组每次重建材质都会跑，逐格打会把日志淹掉；而「有几格不是原版值」
+            //    正是 B10 要盯的那个数，汇总一行足够定位。
+            if (LogResolve && (fromOriginal + noOriginal) > 0 && DerivedDefaultsReported.Add(originalShaderName ?? "<null>"))
+                Debug.Log($"[WarpforgeVFX] 派生默认值 `{originalShaderName}`：原版声明 {fromOriginal} 格（用 `m_DefValue`）"
+                        + $" · 原版没有 {noOriginal} 格（用中性值，见 `ApplyDerivedParticleDefaults` 的注释）");
         }
+
+        /// <summary>已经打过「派生默认值」汇总的原版 shader（只影响日志，不影响取值）。</summary>
+        static readonly HashSet<string> DerivedDefaultsReported = new HashSet<string>();
     }
 }

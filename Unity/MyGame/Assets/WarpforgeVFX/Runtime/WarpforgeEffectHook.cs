@@ -23,7 +23,14 @@ namespace WarpforgeVFX
                     Debug.LogWarning($"[WarpforgeVFX] 没有特效库，'{name}' 播不了");
                     return;
                 }
-                var fx = WarpforgeEffectPlayer.Play(name, parent, pos, 1f, -1f);
+                // 🔴 **2026-10-22（W64 · `B17`）**：**落地扬尘**那一族在原版是
+                //   `localScale = Vector3.one × desiredScale`（**赋值**，`CardScript__LandOnGround.c:87-106`）——
+                //   不是「乘在 prefab 自带根缩放之上」。我们挂在卡视图上（父节点已经带 desiredScale）
+                //   ⇒ 根缩放必须是 **1**；照「乘」写会让自带 0.9913 的那件大 0.9%。
+                //   名字从 `BattleDriver` 那两枚常量取（判据只留一处，⛔ 别在这儿抄字面量）。
+                bool assignScale = name == CardPresentation.BattleDriver.LandDustMinion
+                                || name == CardPresentation.BattleDriver.LandDustLegendary;
+                var fx = WarpforgeEffectPlayer.Play(name, parent, pos, 1f, -1f, assignScale);
                 if (fx == null) { Debug.Log($"[WarpforgeVFX] 特效没播出来：{name} @ {pos}"); return; }
 
                 // 🆕 2026-10-16：**实例跟随父节点的层**（`parent != null` 时才管）。

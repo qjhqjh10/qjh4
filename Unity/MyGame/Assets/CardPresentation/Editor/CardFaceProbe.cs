@@ -43,7 +43,10 @@ public static class CardFaceProbe
         "Pariah Vanguard",       // 用户点名要看的那张
         "Canoptek Scarab",       // Sautekh common 单位（小费用、有护甲？）
         "Lychguard",             // Sautekh epic 单位
-        "stormlord",             // Sautekh legendary 督军「风暴王」（用户点名问的）
+        // 🔴 **2026-10-22（`W64`）订正一条过期项**：这里原来写 `"stormlord"` —— 它**匹配不到任何卡**
+        //    （卡池里现名 = `Lord of the Storm`，**上面第 48 行已经列了那一张**；`FindByName` 是逐字比较）。
+        //    留着它只会每次跑都报一条假 `LogError`，还会让下一个读的人以为渲过这张 ⇒ 撤掉这条旧名。
+        //    （⛔ 没有删掉任何**渲得出来的**卡：那张卡的图一直走的是 `Lord of the Storm` 那一条。）
         "Awakened Dynasty",      // Sautekh common 战术卡
         "Lord of the Storm",     // Sautekh legendary 战术卡
         "Da Old Ways",           // Goff rare 战术卡
@@ -111,6 +114,14 @@ public static class CardFaceProbe
         "Sister Novitiate",      // `SOR4`  —— `((Faith_cost_x,3)) 获得 +1 生命值。[[pray]]：((Deploy_x,$$SOR4$$))`
         "Avatar of Khaine",      // `ASH34` —— `护甲 2。<br>②：…<br>天赋：…`（两处 `<br>`）
         "Rukkatrukk Squigbuggy", // `GOF61` —— `[[armour]] 1。[[unstable]]。[[strike]]：((Deploy_x,$$GOF3$$))` —— 修前卡面效果区**整片空白**；修后应画出 `Tide 2`
+        // ── 🆕 2026-10-22（`W64` · 卡牌线离线预判）：**拱顶最差三档**的补拍样本 ──
+        //    判据 → `资料/普查产出_1022/W64_卡牌线_剩余与预判.md` §4·1（P1–P4）。
+        //    `Armoured Offensive`（UM75）与 `Alien Idol`（GSC63）**本来就列在上面那两段里** ⇒ 不重复加；
+        //    这三张是「离线量网格 missPct 最差的三档」，而现有渲图只覆盖 ultramarines。
+        //    ⚠️ 名字必须与 `cards_engine.json` 的 `name` **逐字一致**（`FindByName` 是 `==` 比较）。
+        "A Trap Sprung",         // `GSC56` —— genestealers **tier4** 矩形方案漏 **16.65%**（全场最差）
+        "Armoured Lightning",    // `AM76` —— astramilitarum **tier4** 漏 **14.84%**（第二差）
+        "Daemonic Frenzy",       // `BL43` —— blacklegion **tier3**（哥特拱）漏 **8.27%**
     };
 
     // ==================================================================
@@ -796,7 +807,27 @@ public static class CardFaceProbe
             // 选中态：描边**该**出现（羽化后应该是软光，不是硬方框）
             view.SetHighlight(CardHighlightState.Selected);
             Shot(view, Path.Combine(OutDir, SafeName(name) + "_selected.png"));
-            view.SetHighlight(CardHighlightState.Normal);
+            // 🔴 **2026-10-22（`W64`）：回常规态必须把手动补间推到头**。
+            //   `_selected` 那圈状态环（`_rim`）是**瞬切**亮的（`CardHighlight.TweenTimeOf(Selected)` = 0），
+            //   而回 `Normal` 是 **0.1 s 淡出**（`CardHighlight.AnimTime`）；批处理没有帧循环
+            //   （CLAUDE.md §三）⇒ 不推的话环会**停在白色**、跟着拍进下面那张 `_playable`
+            //   —— 那样就分不清图里那圈白光是 `_rim` 还是 `_Outline`（正是 `W64` §2·3(b) 要判的那件事）。
+            //   ⚠️ `CardTween.Mode` 必须在**建补间之前**切 `Manual`（`CardTween.Use` 是在建的时候读这个值）。
+            {
+                var prevMode = CardTween.Mode;
+                try
+                {
+                    CardTween.Mode = DG.Tweening.UpdateType.Manual;
+                    view.SetHighlight(CardHighlightState.Normal);
+                    CardTween.Advance(CardHighlight.AnimTime + 0.05f);   // 环淡到 alpha 0 ⇒ 那层自己关掉
+                }
+                finally { CardTween.Mode = prevMode; }   // 抛异常也别把全局补间模式留在 Manual
+            }
+
+            // 🆕 2026-10-22（`W64` §4·2(1)）：**可打出描边**（`outlineGlow`）那一张 ——
+            //   本探针原来一次都没调过 `SetOutline`（grep 命中 0），那层从没被渲染过
+            //   （现有 `_selected.png` 里那圈白光是 `_rim`，不是它）。判据 → `W64` §2·3(b) / §4·2(1)。
+            ShotPlayableOutline(view, def, Path.Combine(OutDir, SafeName(name) + "_playable.png"));
 
             var uv = view.FrameUvRect;
             Debug.Log($"[cardface] {name} 卡本体 {CardView.Width:F4}×{CardView.Height:F4}  "
@@ -879,6 +910,10 @@ public static class CardFaceProbe
                     var rArch = new GameObject("probe_strat_tier" + tier);
                     var vArch = CardView.Create(rArch.transform, data, name + "_tier" + tier);
                     Shot(vArch, Path.Combine(OutDir, SafeName(name) + "_tier" + tier + ".png"));
+                    // 🆕 2026-10-22（`W64` §4·2(2)）：tier3/4 **也拍一张可打出描边** ——
+                    //   原来每个 tier 只 `Shot` 一张常规态 ⇒「高 tier 的光带是不是也贴外沿」没有图可看。
+                    ShotPlayableOutline(vArch, def,
+                        Path.Combine(OutDir, SafeName(name) + "_tier" + tier + "_playable.png"));
                     Object.DestroyImmediate(rArch);
                 }
                 CardView.DebugFrameTier = prevTier;
@@ -1028,6 +1063,52 @@ public static class CardFaceProbe
         if (l > h) return false;   // 一个可见字都没有（空串 / 全不可见）
         lo = l; hi = h;
         return true;
+    }
+
+    /// <summary>拍一张「**可打出描边**」（`outlineGlow` 那层）的图 —— 🆕 2026-10-22（`W64`）。
+    ///
+    /// **为什么要它**：`_selected.png` 里那圈白光**是状态环 `_rim`**（`SetHighlight` 只写 tint + `_rim`），
+    /// 而原版「打得出去」这一档走的是 **SDF `_Outline`**（入口 = `CardView.SetOutline`，
+    /// 颜色判据 = `CardHighlight.OutlineOf`）。本探针原来**一次都没调过 `SetOutline`**
+    /// （`W64` §2·3(b) 实测 grep 命中 0）⇒ `outlineGlow` 那层从来没被 Editor 侧渲染过。
+    /// 判据 → `资料/普查产出_1022/W64_卡牌线_剩余与预判.md` §4·2(1) / §4·2(2)。
+    ///
+    /// 🔴 **批处理没有帧循环**（CLAUDE.md §三）：`SetOutline` 带 **0.2 s** 补间
+    /// （`CardHighlight.OutlineAnimTime`）⇒ 不推的话拍到的是**补间起点 = alpha 0**（图上一片空，
+    /// 看起来像「描边没做」，实际是没推）。做法 = 临时把 `CardTween.Mode` 切 `Manual`
+    /// （`CardTween.Use` 在**建补间时**读它）→ `CardTween.Advance(时长 + 余量)` 推到头 → 还原。
+    /// ⚠️ 推完**出声核对**「专用描边层在不在、alpha &gt; 0」—— ⛔ 不许静默渲一张空图当证据。
+    /// </summary>
+    static void ShotPlayableOutline(CardView view, CardDef def, string path)
+    {
+        var prevMode = CardTween.Mode;
+        try
+        {
+            CardTween.Mode = DG.Tweening.UpdateType.Manual;      // 必须在 SetOutline 建补间之前切
+            var want = CardHighlight.OutlineOf(def, canBePlayed: true);
+            view.SetOutline(want);
+            CardTween.Advance(CardHighlight.OutlineAnimTime + 0.05f);   // 0.2 s 补间推到终点
+
+            var got = view.OutlineColor;
+            var dbg = view.OutlineDebug;
+            bool dedicated = dbg.Contains("层=描边专用");        // 判据串来自 `CardView.OutlineDebug`
+            if (got.a > 0.01f && dedicated)
+            {
+                Debug.Log($"[cardface] 可打出描边 → {path}：目标 {want} · 实测 {got} · {dbg}");
+            }
+            else
+            {
+                // 「不许静默失败」：渲出来没有描边，必须大声说，别让这张图被当成「原版就是这样」
+                Debug.LogError($"[cardface] 可打出描边**没建出来 / 没亮**（{path}）："
+                             + $"实测 alpha={got.a:F3}、专用层={(dedicated ? "在" : "**不在（退回 SDF/软光层）**")} · {dbg}");
+            }
+            Shot(view, path);
+
+            // 关掉描边（同一套手动推进）—— 免得同一张卡后面还要拍的图带着这一圈
+            view.SetOutline(new Color(0f, 0f, 0f, 0f));
+            CardTween.Advance(CardHighlight.OutlineAnimTime + 0.05f);
+        }
+        finally { CardTween.Mode = prevMode; }   // 抛异常也别把全局补间模式留在 Manual
     }
 
     /// <summary>把这张卡单独渲进一张图 —— 相机正交、正好框住整张卡（含卡框外沿）</summary>

@@ -39,6 +39,17 @@ namespace WarpforgeVFX
         /// 拉进工程的命令见 `资料/特效还原_进度与交接.md` §三（与 `wf_shaders.bundle` 同一节）。</summary>
         public const string BuiltinBundleRelPath = "WarpforgeVFX/wf_builtin.bundle";
 
+        /// <summary>🆕 2026-10-22（W64 · 兜底审计 **B11**）：**TMP 的 4 个 shader 包**。
+        ///
+        /// 为什么单开一个包：原版 `TextMeshPro/Distance Field Offset` 在**字体包**
+        /// （`fonts_assets_all.bundle`）里、且与本包默认模式的源包无关 —— 并进
+        /// `wf_shaders_extra.bundle` 会在下一次重跑默认模式时被整份重写带走。
+        /// 产物由 `工具/extract_missing_shaders.py --tmp` 生成（幂等：两次产物 sha256 相同）。
+        /// 消费者 = `WarpforgeShaderMap.UseOriginal` 的 `TextMeshPro/Distance Field Offset` 那条。
+        /// ⚠️ 这台 shader 也是「导不出来就退回 `TextMeshPro/Distance Field`」那条近似
+        /// （W64 B11 第 5 条）的**真值来源**。</summary>
+        public const string TmpBundleRelPath = "WarpforgeVFX/wf_tmp_shaders.bundle";
+
         /// <summary>战场 shader 包的**文件名通配**（**2026-09-21 加**）。
         ///
         /// **为什么是一组、不是一个固定文件名**：13 个**战场网格**的材质用到、而主包里没有的 shader
@@ -95,6 +106,8 @@ namespace WarpforgeVFX
                 LoadOne(ExtraBundleRelPath, out _);
                 // 🆕 2026-09-19：第三个包 —— Unity 内置管线那批（见 BuiltinBundleRelPath）。
                 bool builtinOk = LoadOne(BuiltinBundleRelPath, out bool builtinCollided);
+                // 🆕 2026-10-22（W64 B11）：第五个包 —— TMP 那 4 个（见 `TmpBundleRelPath`）。
+                LoadOne(TmpBundleRelPath, out _);
                 // 🆕 2026-09-21：第四组 —— **战场**要用的那批，按 **`wf_arena_*.bundle` 通配**加载
                 //    （见 ArenaBundleRelPath 的说明）。⚠️ **必须是通配**：这批 shader 散在好几个源包里
                 //    （`battlesharedresources` + **各战场自己的场景包**），而

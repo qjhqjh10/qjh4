@@ -110,6 +110,10 @@ public static class EffectExporter
         //    逐条指令与槽位判据 → `Assets/WarpforgeVFX/Shaders/WFParticleDissolveAPB.shader` 文件头。
         { "Shader Graphs/Fx_ParticleDissolve_apb",                "WarpforgeVFX/FX/ParticleDissolveAPB" },
         { "Shader Graphs/Fx_RockDissolve",                        "WarpforgeVFX/FX/RockDissolve" },
+        // 🔴 2026-10-22（W64 B11）：补上这条 —— 运行时表里一直有它（原来指 `Extra Color`，是近似），
+        //    而**导出期这张表里根本没有** ⇒ 占位材质掉到默认分支。现在两边都指到按字节码重写的
+        //    `WarpforgeVFX/FX/EclipseTau`（判据 → 那个 shader 的文件头）。
+        { "Shader Graphs/Eclipse Tau",                            "WarpforgeVFX/FX/EclipseTau" },
 
         // ---- 🆕 2026-09-13 第三十三轮补的 10 个（原来全掉到兜底的 `URP/Particles/Unlit`）----
         // 出处：派子代理按技术构成定根因时查出「**这一类有 16 条效果**，症状是那个材质槽
@@ -133,11 +137,14 @@ public static class EffectExporter
         //    —— 普查表把它记成「原版补充包兜底」是**记错了**。影响 **12 条效果**
         //    （`资料/普查产出_0913/效果_shader_对账.md:77,196`，原来在这张表和
         //    `WarpforgeShaderMap.Replacements` 里**都没有**）。
-        { "Everguild/FX/Particle Premultiply",                      "WarpforgeVFX/Particles/Extra Color*" },
+        // 🔴 **2026-10-22（W64 · 兜底审计 B11）：这三条去掉 `*`（不再是近似）** —— 原版编译字节码
+        //    （Ruri 反编译）逐条重写成专用自建 shader，判据在各自 `.shader` 的文件头。
+        //    与运行时表 `WarpforgeShaderMap.Replacements` **同步**（两张表必须一致）。
+        { "Everguild/FX/Particle Premultiply",                      "WarpforgeVFX/FX/ParticlePremultiply" },
         { "Everguild/FX/Unlit UV scroll",                           "WarpforgeVFX/FX/UnlitUVScroll" },
         { "Everguild/FX/TrailShader_1",                             "WarpforgeVFX/FX/TrailShader1" },
-        { "Everguild/FX/TrailShader_Fading",                        "WarpforgeVFX/Particles/Extra Color*" },
-        { "Shader Graphs/Doomweaver effect",                        "WarpforgeVFX/Particles/Extra Color*" },
+        { "Everguild/FX/TrailShader_Fading",                        "WarpforgeVFX/FX/TrailShaderFading" },
+        { "Shader Graphs/Doomweaver effect",                        "WarpforgeVFX/FX/DoomweaverEffect" },
 
         // ⚠️ **2026-09-19 起，下面这 8 个内置管线名在运行时走「原件」了**（`WarpforgeShaderMap.UseOriginal`
         //    21 → 29，原件在 `StreamingAssets/WarpforgeVFX/wf_builtin.bundle`；642 处效果引用）。
@@ -161,12 +168,15 @@ public static class EffectExporter
         // （`Assets/TextMesh Pro/Shaders/TMP_SDF.shader:1`）⇒ 照旧 `approx = false`。
         // 显式写出来是为了让「TMP 族」在表里可见 —— 与下面那条近似档放在一起才看得出区别。
         { "TextMeshPro/Distance Field",                     "TextMeshPro/Distance Field" },
-        // ⚠️ **近似**：原版 `CardPrefab` 里 `Pragati-Regular White_thick Offset for 3D`（4 条）用的就是它，
-        //    而本地 TMP Essentials 的 13 张 shader 里**没有这个名字**（只有 `Distance Field`，没有 `Offset`）。
-        //    判据与运行时表**同一条** → `WarpforgeVFX/Runtime/WarpforgeShaderMap.cs:338-343`
-        //    （那里也写了「不映射的话运行时报找不到 shader ⇒ 那个材质槽保留占位 ⇒ 整块渲成洋红」）。
+        // ⚠️ **导出期占位仍是近似**（`*`）：原版 `CardPrefab` 里 `Pragati-Regular White_thick Offset for 3D`
+        //    （4 条）用的就是它，而本地 TMP Essentials 的 13 张 shader 里**没有这个名字**
+        //    （只有 `Distance Field`，没有 `Offset`）。占位材质**不能**是 bundle 里的 shader
+        //    （`Shader.Find` 拿不到非工程资产）⇒ 这里只能指到标准的 `Distance Field`。
         //    ⛔ 别把它漏给下面的兜底：它不含 `Particles`/`FX/` ⇒ 会掉进 `Universal Render Pipeline/Unlit`，
         //    那是**文字**材质，套 Unlit 等于这一格画不出来。
+        // 🔴 **2026-10-22（W64 B11）：运行时那条近似已销账** —— 原版那份编译 shader 已从字体包重打进
+        //    `wf_tmp_shaders.bundle` 并进 `WarpforgeShaderMap.UseOriginal` ⇒ 进游戏时 binder 会把它换成**原件**。
+        //    这张表里的 `*` 现在只描述**导出期占位**（与上面那 8 个内置管线名同一条分工）。
         { "TextMeshPro/Distance Field Offset",              "TextMeshPro/Distance Field*" },
     };
 
@@ -3210,10 +3220,13 @@ public static class EffectExporter
     /// <remarks>🔴 **2026-09-25 判据已搬到 `WarpforgeVFX.ArenaOriginalMaterial.InferBlendFromShaderName`**
     /// —— 粒子那条路（`ArenaBuilder.GetOrCreateParticleMaterial`）也要用**同一份**才不会再分成两套。
     /// 这里只转发，一个字都不改。</remarks>
-    static (BlendMode sb, BlendMode db, float zwrite, bool transparent) InferFromShader(string shaderName)
+    static (BlendMode sb, BlendMode db, float zwrite, bool transparent) InferFromShader(
+        string shaderName, string targetShaderName = null)
     {
         int sb, db; float zw; bool tr;
-        ArenaOriginalMaterial.InferBlendFromShaderName(shaderName, out sb, out db, out zw, out tr);
+        // 🆕 2026-10-22（W64 B15）：把**目标 shader 名**一起传下去 —— 原版 pass 真值表只对
+        // 「目标 = 原件 或 逐条重写件」采信（判据 → `ArenaOriginalMaterial.InferBlendFromShaderName` 的重载注释）。
+        ArenaOriginalMaterial.InferBlendFromShaderName(shaderName, targetShaderName, out sb, out db, out zw, out tr);
         return ((BlendMode)sb, (BlendMode)db, zw, tr);
     }
 
@@ -3261,8 +3274,8 @@ public static class EffectExporter
         }
         else
         {
-            // 没有混合属性 → 从 shader 名推断
-            var (sb, db, zw, _) = InferFromShader(sn);
+            // 没有混合属性 → 先查原版 pass 真值表（只在目标 shader 与原件同语义时），再退按名字判
+            var (sb, db, zw, _) = InferFromShader(sn, dst != null && dst.shader != null ? dst.shader.name : null);
             SetBlend(dst, sb, db, zw);
         }
 

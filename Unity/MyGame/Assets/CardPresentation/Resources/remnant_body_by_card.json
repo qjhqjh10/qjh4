@@ -1,0 +1,528 @@
+{
+ "_headline": "`W64` B16 runtime projection: per-card `RawCardScript.remnantBodyPrefab`. 74 entries (in pool 71) -> 2 prefabs (RemnantBody3D Aeldari x31 / RemnantBody3D Necrons x43); 55 of them can really become a remnant (Remnant/Waystone traits). Judges: BattleCardUI__SetRawCardData.c:45 + SupportMethods__HasToTransformIntoRemnant.c + BattleCardUI__CreateRemnantBody.c:36-65.",
+ "_note": "Runtime projection of `数据/游戏数据/remnant_body_by_card.json`: `byCard` (dict) -> `cards[]` (array) because Unity's `JsonUtility` cannot deserialize dictionaries. Fields id/name/prefab/canTransform/inPool are copied verbatim from the full table (which also has byPrefab / stats / unresolved / judge prose). DO NOT hand-edit: change the generator `工具/gen_remnant_body_table.py`, re-run it, then re-project.",
+ "schema": "remnant_body_by_card/v1+rt",
+ "source": "数据/游戏数据/remnant_body_by_card.json",
+ "generator": "d:/4/Unity/工具/gen_remnant_body_table.py",
+ "count": 74,
+ "cards": [
+  {
+   "id": "7a02359776e89f243b8cf41642dc44c9",
+   "name": "Witchblade Warlock (tutorial)",
+   "prefab": "RemnantBody3D Aeldari",
+   "canTransform": true,
+   "inPool": false
+  },
+  {
+   "id": "847acecf682cb0748bc4445b52125cb4",
+   "name": "Gauss Warrior (tutorial)",
+   "prefab": "RemnantBody3D Necrons",
+   "canTransform": true,
+   "inPool": false
+  },
+  {
+   "id": "ASH11",
+   "name": "Striking Scorpion",
+   "prefab": "RemnantBody3D Aeldari",
+   "canTransform": true,
+   "inPool": true
+  },
+  {
+   "id": "ASH12",
+   "name": "Swooping Hawk",
+   "prefab": "RemnantBody3D Aeldari",
+   "canTransform": true,
+   "inPool": true
+  },
+  {
+   "id": "ASH13",
+   "name": "Warp Spider",
+   "prefab": "RemnantBody3D Aeldari",
+   "canTransform": true,
+   "inPool": true
+  },
+  {
+   "id": "ASH15",
+   "name": "Howling Banshee",
+   "prefab": "RemnantBody3D Aeldari",
+   "canTransform": true,
+   "inPool": true
+  },
+  {
+   "id": "ASH17",
+   "name": "Spiritseer",
+   "prefab": "RemnantBody3D Aeldari",
+   "canTransform": true,
+   "inPool": true
+  },
+  {
+   "id": "ASH19",
+   "name": "Witchblade Warlock",
+   "prefab": "RemnantBody3D Aeldari",
+   "canTransform": true,
+   "inPool": true
+  },
+  {
+   "id": "ASH22",
+   "name": "Fire Dragon",
+   "prefab": "RemnantBody3D Aeldari",
+   "canTransform": true,
+   "inPool": true
+  },
+  {
+   "id": "ASH23",
+   "name": "Striking Scorpion Exarch",
+   "prefab": "RemnantBody3D Aeldari",
+   "canTransform": true,
+   "inPool": true
+  },
+  {
+   "id": "ASH26",
+   "name": "War Walker",
+   "prefab": "RemnantBody3D Aeldari",
+   "canTransform": false,
+   "inPool": true
+  },
+  {
+   "id": "ASH28",
+   "name": "Spiritseer Qelenaris",
+   "prefab": "RemnantBody3D Aeldari",
+   "canTransform": true,
+   "inPool": true
+  },
+  {
+   "id": "ASH31",
+   "name": "Winged Autarch",
+   "prefab": "RemnantBody3D Aeldari",
+   "canTransform": true,
+   "inPool": true
+  },
+  {
+   "id": "ASH4",
+   "name": "Guardian Defender",
+   "prefab": "RemnantBody3D Aeldari",
+   "canTransform": true,
+   "inPool": true
+  },
+  {
+   "id": "ASH5",
+   "name": "Storm Guardian",
+   "prefab": "RemnantBody3D Aeldari",
+   "canTransform": true,
+   "inPool": true
+  },
+  {
+   "id": "ASH6",
+   "name": "Ranger",
+   "prefab": "RemnantBody3D Aeldari",
+   "canTransform": true,
+   "inPool": true
+  },
+  {
+   "id": "ASH61",
+   "name": "Weapons Platform",
+   "prefab": "RemnantBody3D Aeldari",
+   "canTransform": false,
+   "inPool": true
+  },
+  {
+   "id": "ASH62",
+   "name": "Dire Avenger",
+   "prefab": "RemnantBody3D Aeldari",
+   "canTransform": true,
+   "inPool": true
+  },
+  {
+   "id": "ASH63",
+   "name": "Dire Avenger Exarch",
+   "prefab": "RemnantBody3D Aeldari",
+   "canTransform": true,
+   "inPool": true
+  },
+  {
+   "id": "ASH69",
+   "name": "Howling Banshee Exarch",
+   "prefab": "RemnantBody3D Aeldari",
+   "canTransform": true,
+   "inPool": true
+  },
+  {
+   "id": "ASH7",
+   "name": "Veteran Guardian",
+   "prefab": "RemnantBody3D Aeldari",
+   "canTransform": true,
+   "inPool": true
+  },
+  {
+   "id": "ASH70",
+   "name": "Swooping Hawk Exarch",
+   "prefab": "RemnantBody3D Aeldari",
+   "canTransform": true,
+   "inPool": true
+  },
+  {
+   "id": "ASH75",
+   "name": "Yrlla the Huntress",
+   "prefab": "RemnantBody3D Aeldari",
+   "canTransform": true,
+   "inPool": true
+  },
+  {
+   "id": "ASH77",
+   "name": "Death Spinner Warp Spider",
+   "prefab": "RemnantBody3D Aeldari",
+   "canTransform": true,
+   "inPool": true
+  },
+  {
+   "id": "ASH78",
+   "name": "Warp Spider Exarch",
+   "prefab": "RemnantBody3D Aeldari",
+   "canTransform": true,
+   "inPool": true
+  },
+  {
+   "id": "ASH79",
+   "name": "Orian Laratharjos",
+   "prefab": "RemnantBody3D Aeldari",
+   "canTransform": true,
+   "inPool": true
+  },
+  {
+   "id": "ASH8",
+   "name": "Warlock",
+   "prefab": "RemnantBody3D Aeldari",
+   "canTransform": true,
+   "inPool": true
+  },
+  {
+   "id": "ASH80",
+   "name": "Farseer",
+   "prefab": "RemnantBody3D Aeldari",
+   "canTransform": true,
+   "inPool": true
+  },
+  {
+   "id": "ASH81",
+   "name": "Bright Lance Vyper",
+   "prefab": "RemnantBody3D Aeldari",
+   "canTransform": false,
+   "inPool": true
+  },
+  {
+   "id": "ASH82",
+   "name": "Farseer Skyrunner",
+   "prefab": "RemnantBody3D Aeldari",
+   "canTransform": false,
+   "inPool": true
+  },
+  {
+   "id": "ASH83",
+   "name": "Autarch",
+   "prefab": "RemnantBody3D Aeldari",
+   "canTransform": true,
+   "inPool": true
+  },
+  {
+   "id": "SAU1",
+   "name": "Canoptek Scarab",
+   "prefab": "RemnantBody3D Necrons",
+   "canTransform": false,
+   "inPool": true
+  },
+  {
+   "id": "SAU10",
+   "name": "Triarch Praetorian",
+   "prefab": "RemnantBody3D Necrons",
+   "canTransform": true,
+   "inPool": true
+  },
+  {
+   "id": "SAU11",
+   "name": "Technomancer",
+   "prefab": "RemnantBody3D Necrons",
+   "canTransform": false,
+   "inPool": true
+  },
+  {
+   "id": "SAU12",
+   "name": "Tomb Blade",
+   "prefab": "RemnantBody3D Necrons",
+   "canTransform": true,
+   "inPool": true
+  },
+  {
+   "id": "SAU13",
+   "name": "Canoptek Spyder",
+   "prefab": "RemnantBody3D Necrons",
+   "canTransform": false,
+   "inPool": true
+  },
+  {
+   "id": "SAU14",
+   "name": "Cryptothrall",
+   "prefab": "RemnantBody3D Necrons",
+   "canTransform": true,
+   "inPool": true
+  },
+  {
+   "id": "SAU15",
+   "name": "Deathmark",
+   "prefab": "RemnantBody3D Necrons",
+   "canTransform": true,
+   "inPool": true
+  },
+  {
+   "id": "SAU16",
+   "name": "Night Scythe",
+   "prefab": "RemnantBody3D Necrons",
+   "canTransform": false,
+   "inPool": true
+  },
+  {
+   "id": "SAU17",
+   "name": "Psychomancer",
+   "prefab": "RemnantBody3D Necrons",
+   "canTransform": true,
+   "inPool": true
+  },
+  {
+   "id": "SAU18",
+   "name": "Skorpekh Destroyer",
+   "prefab": "RemnantBody3D Necrons",
+   "canTransform": true,
+   "inPool": true
+  },
+  {
+   "id": "SAU19",
+   "name": "Canoptek Reanimator",
+   "prefab": "RemnantBody3D Necrons",
+   "canTransform": false,
+   "inPool": true
+  },
+  {
+   "id": "SAU2",
+   "name": "Canoptek Plasmacyte",
+   "prefab": "RemnantBody3D Necrons",
+   "canTransform": true,
+   "inPool": true
+  },
+  {
+   "id": "SAU20",
+   "name": "Chronomancer",
+   "prefab": "RemnantBody3D Necrons",
+   "canTransform": true,
+   "inPool": true
+  },
+  {
+   "id": "SAU21",
+   "name": "Doom Scythe",
+   "prefab": "RemnantBody3D Necrons",
+   "canTransform": false,
+   "inPool": true
+  },
+  {
+   "id": "SAU22",
+   "name": "Lokhust Heavy Destroyer",
+   "prefab": "RemnantBody3D Necrons",
+   "canTransform": true,
+   "inPool": true
+  },
+  {
+   "id": "SAU23",
+   "name": "Lychguard",
+   "prefab": "RemnantBody3D Necrons",
+   "canTransform": true,
+   "inPool": true
+  },
+  {
+   "id": "SAU24",
+   "name": "Command Barge",
+   "prefab": "RemnantBody3D Necrons",
+   "canTransform": false,
+   "inPool": true
+  },
+  {
+   "id": "SAU25",
+   "name": "Hexmark Destroyer",
+   "prefab": "RemnantBody3D Necrons",
+   "canTransform": true,
+   "inPool": true
+  },
+  {
+   "id": "SAU26",
+   "name": "Plasmancer",
+   "prefab": "RemnantBody3D Necrons",
+   "canTransform": false,
+   "inPool": true
+  },
+  {
+   "id": "SAU27",
+   "name": "Scarab Swarm",
+   "prefab": "RemnantBody3D Necrons",
+   "canTransform": false,
+   "inPool": true
+  },
+  {
+   "id": "SAU28",
+   "name": "Ghost Ark",
+   "prefab": "RemnantBody3D Necrons",
+   "canTransform": false,
+   "inPool": true
+  },
+  {
+   "id": "SAU29",
+   "name": "Necron Lord",
+   "prefab": "RemnantBody3D Necrons",
+   "canTransform": true,
+   "inPool": true
+  },
+  {
+   "id": "SAU3",
+   "name": "Flayed One",
+   "prefab": "RemnantBody3D Necrons",
+   "canTransform": true,
+   "inPool": true
+  },
+  {
+   "id": "SAU30",
+   "name": "Triarch Stalker",
+   "prefab": "RemnantBody3D Necrons",
+   "canTransform": false,
+   "inPool": true
+  },
+  {
+   "id": "SAU31",
+   "name": "Doomstalker",
+   "prefab": "RemnantBody3D Necrons",
+   "canTransform": false,
+   "inPool": true
+  },
+  {
+   "id": "SAU32",
+   "name": "Skorpekh Lord",
+   "prefab": "RemnantBody3D Necrons",
+   "canTransform": true,
+   "inPool": true
+  },
+  {
+   "id": "SAU33",
+   "name": "Vargard Obyron",
+   "prefab": "RemnantBody3D Necrons",
+   "canTransform": false,
+   "inPool": true
+  },
+  {
+   "id": "SAU34",
+   "name": "Monolith",
+   "prefab": "RemnantBody3D Necrons",
+   "canTransform": false,
+   "inPool": true
+  },
+  {
+   "id": "SAU4",
+   "name": "Gauss Warrior",
+   "prefab": "RemnantBody3D Necrons",
+   "canTransform": true,
+   "inPool": true
+  },
+  {
+   "id": "SAU5",
+   "name": "Necron Warrior",
+   "prefab": "RemnantBody3D Necrons",
+   "canTransform": true,
+   "inPool": true
+  },
+  {
+   "id": "SAU6",
+   "name": "Tesla Immortal",
+   "prefab": "RemnantBody3D Necrons",
+   "canTransform": true,
+   "inPool": true
+  },
+  {
+   "id": "SAU65",
+   "name": "Royal Warden",
+   "prefab": "RemnantBody3D Necrons",
+   "canTransform": true,
+   "inPool": true
+  },
+  {
+   "id": "SAU67",
+   "name": "Damaged Plasmacyte",
+   "prefab": "RemnantBody3D Necrons",
+   "canTransform": true,
+   "inPool": true
+  },
+  {
+   "id": "SAU68",
+   "name": "Lokhust Destroyer",
+   "prefab": "RemnantBody3D Necrons",
+   "canTransform": true,
+   "inPool": true
+  },
+  {
+   "id": "SAU69",
+   "name": "Flayed Ones Pack",
+   "prefab": "RemnantBody3D Necrons",
+   "canTransform": true,
+   "inPool": true
+  },
+  {
+   "id": "SAU7",
+   "name": "Canoptek Wraith",
+   "prefab": "RemnantBody3D Necrons",
+   "canTransform": true,
+   "inPool": true
+  },
+  {
+   "id": "SAU70",
+   "name": "Damaged Hexmark",
+   "prefab": "RemnantBody3D Necrons",
+   "canTransform": true,
+   "inPool": true
+  },
+  {
+   "id": "SAU71",
+   "name": "Immortals Phalanx",
+   "prefab": "RemnantBody3D Necrons",
+   "canTransform": true,
+   "inPool": true
+  },
+  {
+   "id": "SAU72",
+   "name": "Lokhust Lord",
+   "prefab": "RemnantBody3D Necrons",
+   "canTransform": true,
+   "inPool": true
+  },
+  {
+   "id": "SAU73",
+   "name": "Annihilation Barge",
+   "prefab": "RemnantBody3D Necrons",
+   "canTransform": false,
+   "inPool": true
+  },
+  {
+   "id": "SAU8",
+   "name": "Gauss Immortal",
+   "prefab": "RemnantBody3D Necrons",
+   "canTransform": true,
+   "inPool": true
+  },
+  {
+   "id": "SAU9",
+   "name": "Ophydian Destroyer",
+   "prefab": "RemnantBody3D Necrons",
+   "canTransform": true,
+   "inPool": true
+  },
+  {
+   "id": "b888bfd3849c4da48973f8217e41129c",
+   "name": "Swooping Hawk (tutorial)",
+   "prefab": "RemnantBody3D Aeldari",
+   "canTransform": true,
+   "inPool": false
+  }
+ ]
+}

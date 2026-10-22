@@ -180,6 +180,53 @@ namespace RuleEngine
         /// 调用方据此报「这条卡有条件、但我们判不了」，别静默当成立。</summary>
         public string ConditionKind;
 
+        // ==================================================================
+        //  🆕 2026-10-22（引擎线 `W64` · 战斗审计 `B-16` · **目标筛选那一档**）：
+        //  **这条 op 来自哪一条 ability / 哪一条 logic**（= 原版 `cardAbilities[i]` /
+        //  `abilityLogic[j]`），以及落到它上面的**结构化目标条件行**。
+        //
+        //  为什么必须逐 op 记：`unitConditions` 的 `role = "target"` 行是
+        //  **逐 ability / 逐 abilityLogic** 的（`cardAbilities[i].targetCriteria` /
+        //  `abilityLogic[j].targetCriteria` 的 `conditionsFilter`，生成器 → `CardDef.ConditionSpec`）。
+        //  按**卡**应用会打错人，三条实测反例（2026-10-22 现读卡池）：
+        //    · `TL46 Rapacious Hunger`：`40 damaged` 属于后半句的治疗目标 ⇒ 按卡应用会把
+        //      「全体敌人」的伤害池也筛成「已受伤」；
+        //    · `ASH73 Whirling Death`：`220/ex=0`（将死）属于「如果它死了」那一半 ⇒ 按卡应用会让
+        //      5 点伤害**一个目标都没有**；
+        //    · `SW14 Wolf Priest`：两条治疗 ability 只有**第一条**带 `40` ⇒ 按卡应用会把第二条也筛掉。
+        //
+        //  🔴 **归位判据（`AssignAbilityIndices`）能读到的只有一半**：`cards_engine.json` 里
+        //  **没有**「每条 ability 的正文 / 每条 ability 的 effect 类型」，原版也没有这层文本对应
+        //  （`desc` 是本地化表里手写的展示串 ⇒ **文字顺序 = ability 顺序没有数据保证**）。
+        //  能读到的只有 `unitConditions` 行自带的 `ab` / `lg` **数值**与 `desc` 的**结构标记**
+        //  （`Split` 分句 + `SegResult.HasTriggerHead` / `PaidCost`；`HasTriggerHead` 的语义原文
+        //   就写着「触发头 = **另一条 ability 的开头**」，见 `SegResult.HasTriggerHead` 的 doc）。
+        //  ⇒ 本层只做**带闸门的结构推断**：闸门不过就**留 -1（读不到）**，由消费端
+        //    `EffectResolver` 出声并**不筛**（⛔ 不猜、⛔ 不挑一条）。
+        // ==================================================================
+
+        /// <summary>`cardAbilities` 下标（原版 `ab`）。**`-1` = 读不到 / 不属于任何一条 ability**。</summary>
+        public int AbilityIndex = -1;
+        /// <summary>该 ability 的 `abilityLogic` 下标（原版 `lg`）。**`-1` = 读不到**。</summary>
+        public int LogicIndex = -1;
+        /// <summary>这条 op 所在的「ability 块」里有几条 op（`-1` = 没归位）。
+        /// 消费端拿它做 `lg &gt;= 0` 那一档的闸门（块里只有一条 op 时，「第 lg 条 logic」才可能与它对得上）。</summary>
+        public int AbilityBlockSize = -1;
+        /// <summary>`AbilityIndex` 是怎么来的：`block` = 整条 `desc` 的能力块下标；
+        /// `fragment-single` = 触发正文片段，且整张卡**只有一条 ability**；`""` = 读不到。</summary>
+        public string AbilityMap = "";
+
+        /// <summary>落到**这条 op** 上的 `role = "target"` 结构化条件行（`null` = 这一格没有 / 读不到）。
+        /// 消费端（`EffectResolver.ResolveTargets` / `IsLegalPick`）照原版
+        /// `FilterMethods.MeetsConditionCriteria` 拿它筛**这一条 op 的目标池**。</summary>
+        public CardDef.ConditionSpec TargetCondition;
+        /// <summary>「这张卡有 `role=target` 行，但**归不到这条 op**」的原因（空串 = 没这回事）。
+        /// 消费端据此**出声**（`EffectResolver` 的 `NoteTargetConditionGap`）——⛔ 不许静默。
+        /// 取值：`blocks&lt;ab`（desc 的能力块比行引用的 ability 少）·`fragment-multi-ability`
+        /// （触发正文片段 ∧ 卡上有 `ab&gt;0` 的行）·`fragment-multi-block`（片段 ∧ 整卡不止一个能力块）
+        /// ·`logic-gate`（`lg&gt;=0` 但块里不止一条 op）·`ambiguous`（同一个 `(ab,lg)` 匹配到多条行）。</summary>
+        public string TargetConditionGap = "";
+
         /// <summary>
         /// 这一条是**替换**型的（原文结尾的 `instead`）。
         ///
@@ -1214,6 +1261,11 @@ namespace RuleEngine
             var segOps = new List<List<EffectOp>>();
             var segText = new List<string>();
             var segKind = new List<SegKind>();
+            // 🆕 2026-10-22（`W64` · `B-16`）：**能力块的切点** —— 与 `Parse` 里付费前缀
+            //   carry 的「触发头 = 另一条 ability 的开头」**同一份判据**（`SegResult.HasTriggerHead`
+            //   的 doc 原文就是这句话），外加「本段自带付费前缀」（一个 ability = 一个 `manaCost`）。
+            var segHead = new List<bool>();
+            var segPaid = new List<int>();
 
             // ---- 🔴 2026-10-11（第十三会话 · `A1346` ①甲）**付费前缀的跨句承接** ----
             //
@@ -1247,6 +1299,8 @@ namespace RuleEngine
                 segText.Add(seg);
                 segOps.Add(r.Ops);
                 segKind.Add(r.Kind);
+                segHead.Add(r.HasTriggerHead);
+                segPaid.Add(r.PaidCost);
                 if (r.Ops != null) ops.AddRange(r.Ops);
                 if (r.Kind == SegKind.Unknown) unparsed.Add(seg);
                 else if (r.Kind == SegKind.Partial) partial.Add(seg);
@@ -1392,12 +1446,248 @@ namespace RuleEngine
             //   所以和上面 `repeat` / `paidmod` 同一个道理：**整条 desc 拼完再统一回填**。
             //   判据与用途见 <see cref="EffectTargetSpec.PrevAntecedent"/>。
             LinkPrevAntecedent(ops);
+            // 🆕 2026-10-22（`W64` · `B-16` 目标筛选那一档）：**op → (ability, logic) 的归位**
+            //   ＋ 把 `role = "target"` 的结构化条件行落到**具体那条 op** 上。
+            //   闸门不过 ⇒ 留 `-1` + `TargetConditionGap`（消费端出声、**不筛**）。
+            //   ⚠️ 必须在 `InjectChoicesDefinitionOp` **之前**：注入的 `choosecard` 没有正文出处，
+            //   不该被算进任何一条 ability 的块（它也不选单位目标）。
+            AssignAbilityIndices(ops, segOps, segHead, segPaid, card, desc);
             // 🆕 2026-10-19（`A1960`）：原版 `choicesDefinition` 要求选牌、而**正文没写 choose** 的卡
             //   —— 补一条 `choosecard`（候选域 = `specific`）。判据与闸门见那个函数。
             //   ⚠️ **必须在上面那几轮回填之后插**：`repeat` / `paidmod` 的 `BaseOps` 已按原 op 排好，
             //   插在最前面不会把它们卷进来（`Repeat this effect` 不该重放「选哪份契约」）。
             InjectChoicesDefinitionOp(ops, card);
             return ops;
+        }
+
+        // ==================================================================
+        //  🆕 2026-10-22（引擎线 `W64` · 战斗审计 `B-16` · 目标筛选那一档）：
+        //  **op → `cardAbilities[ab]` / `abilityLogic[lg]` 归位**
+        // ==================================================================
+        //
+        // 判据（能读到的只有这些，⛔ 一条都不多）：
+        //   · `ab` / `lg` 的**数值**来自卡池的 `unitConditions` 行
+        //     （`CardDef.ConditionSpec.Ability` / `.Logic`；生成器 `工具/gen_cards_engine.py`
+        //      的 `CONDITION_ROLES` / `scan_ability`：`ab` = `cardAbilities` 下标，`lg` =
+        //       `abilityLogic` 下标、`-1` = 直接挂在 ability 对象上）；
+        //   · **能力块（= 一条 ability 在 `desc` 里占的那几段）** 的切点只有两个：
+        //     ① `SegResult.HasTriggerHead` —— 它的 doc 原文：「触发头 = **另一条 ability 的开头**」
+        //        （`Rally:` / `Slay:` / `Talent:` … 判据 `IsRoutableTrigger`）；
+        //     ② `SegResult.PaidCost > 0` —— 原版一条 ability = **一个 `manaCost`**
+        //        （`CardAbility.cs` / `ActiveAbility.cs`；同一条口径 `Parse` 的付费 carry
+        //        靠「触发头清零」也是这个理由）。
+        //   🔴 **读不到的那一半**：卡池里**没有**「每条 ability 的正文 / effect 类型」，
+        //      也没有**ability 条数**。原版 `desc` 是本地化表里**手写**的展示串
+        //      （`RawCardScript__GetLocalizedCardDesc` 只查一个键、不遍历 `cardAbilities`）
+        //      ⇒ **文字顺序 = ability 顺序没有数据保证**。
+        //      所以本层只能做**带闸门的结构推断**，闸门有四道（任一不过 ⇒ 整卡「读不到」）：
+        //        G1 这一趟解析的是**整条 `desc`**（片段解析的块下标是相对的，不能当 ability 下标）；
+        //        G2 块数 **> max(ab)**（否则 desc 里的能力块比行引用的 ability 还少 —— 归不了位）；
+        //        G3 `lg >= 0` 的行只落到**块里恰好一条 op** 的那一格（多 op 时「第几条 logic」
+        //           与「第几条 op」对不上：`ASH73` 的 `(0,1)` 也是这一档）；
+        //        G4 同一 `(ab,lg)` 只匹配到一条行（多条 ⇒ 不挑一条）；
+        //        G5 `220 + ex=0`（「将死」）**不接**（见下面那一段：它是**结算后**的判定）。
+        //      另有兜底：卡片有行、却一条 op 都没落上 ⇒ 标 `row-unused`（⛔ 不许静默）。
+        //     片段解析（单位卡的触发正文：`CardDef.AddTriggerOp` → `Parse(body, card: this)`）
+        //     只在**整张卡只有一条 ability** 时归位（`CountAbilityBlocks(card.Desc) == 1`
+        //     且所有 `role=target` 行的 `ab` 都是 0）—— 那时「这条正文属于 ability 0」是数据决定的，
+        //     不是猜的。其余片段一律读不到。
+        //
+        // ⚠️ **闸门不过时不筛、只出声**（消费端 `EffectResolver.NoteTargetConditionGap`）——
+        //    本工程红线：宁可少筛，也不许按卡猜（按卡猜的代价是**打错人**，三条反例见
+        //    `EffectOp.AbilityIndex` 上面那段）。
+        static void AssignAbilityIndices(List<EffectOp> ops, List<List<EffectOp>> segOps,
+                                         List<bool> segHead, List<int> segPaid,
+                                         CardDef card, string desc)
+        {
+            if (ops == null || ops.Count == 0 || card == null) return;
+            if (card.Conditions == null || card.Conditions.Count == 0) return;
+
+            // ---- 候选行 = `role = "target"` ∧ `ab >= 0`（`ab < 0` 是 active/alternative/卡级，
+            //      不是 `cardAbilities` 的下标 ⇒ 本层不接；它们各有各的落点）----
+            var rows = new List<CardDef.ConditionSpec>();
+            for (int i = 0; i < card.Conditions.Count; i++)
+            {
+                var row = card.Conditions[i];
+                if (row == null || row.Role != "target") continue;
+                if (row.Ability < 0) continue;
+                rows.Add(row);
+            }
+            if (rows.Count == 0) return;
+
+            int maxAb = 0;
+            for (int i = 0; i < rows.Count; i++) if (rows[i].Ability > maxAb) maxAb = rows[i].Ability;
+
+            bool full = IsWholeDesc(desc, card.Desc);
+            string gap = "";
+
+            if (full)
+            {
+                // ---- 整条 desc：按段切能力块 ----
+                var blocks = new List<List<EffectOp>>();
+                if (segOps != null && segOps.Count > 0)
+                {
+                    for (int i = 0; i < segOps.Count; i++)
+                    {
+                        bool newBlock = i == 0
+                                     || (segHead != null && i < segHead.Count && segHead[i])
+                                     || (segPaid != null && i < segPaid.Count && segPaid[i] > 0);
+                        if (newBlock || blocks.Count == 0) blocks.Add(new List<EffectOp>());
+                        var segList = segOps[i];
+                        if (segList == null) continue;
+                        for (int k = 0; k < segList.Count; k++)
+                            if (segList[k] != null) blocks[blocks.Count - 1].Add(segList[k]);
+                    }
+                }
+                if (blocks.Count == 0) return;
+                // G2
+                if (blocks.Count <= maxAb)
+                {
+                    gap = "blocks<ab";
+                    for (int i = 0; i < ops.Count; i++) if (ops[i] != null) ops[i].TargetConditionGap = gap;
+                    return;
+                }
+                for (int b = 0; b < blocks.Count; b++)
+                {
+                    var blk = blocks[b];
+                    for (int j = 0; j < blk.Count; j++)
+                    {
+                        blk[j].AbilityIndex = b;
+                        blk[j].LogicIndex = j;
+                        blk[j].AbilityBlockSize = blk.Count;
+                        blk[j].AbilityMap = "block";
+                    }
+                }
+            }
+            else
+            {
+                // ---- 触发正文片段：只有「整卡一条 ability」才归位 ----
+                if (maxAb > 0)
+                {
+                    gap = "fragment-multi-ability";
+                    for (int i = 0; i < ops.Count; i++) if (ops[i] != null) ops[i].TargetConditionGap = gap;
+                    return;
+                }
+                if (CountAbilityBlocks(card.Desc) != 1)
+                {
+                    gap = "fragment-multi-block";
+                    for (int i = 0; i < ops.Count; i++) if (ops[i] != null) ops[i].TargetConditionGap = gap;
+                    return;
+                }
+                int n = 0;
+                for (int i = 0; i < ops.Count; i++)
+                {
+                    if (ops[i] == null) continue;
+                    ops[i].AbilityIndex = 0;
+                    ops[i].LogicIndex = n++;
+                    ops[i].AbilityMap = "fragment-single";
+                }
+                for (int i = 0; i < ops.Count; i++)
+                    if (ops[i] != null) ops[i].AbilityBlockSize = n;
+            }
+
+            // ---- 行 → op（G3 / G4 / G5）----
+            //  🔴 **G5：`220 + ex=0`（「将死」）不是【选目标】的筛，是【结算后】的判定** ⇒ 不接。
+            //     判据：`UnitConditions.dealtKillDmg = 220` → `FilterMethods__MeetsConditionCriteria.c:253-257`
+            //     = `CardScript__EnoughPendingDamageToDie`。它作为**预选**筛只会留下「已经被别的效果
+            //     判死」的单位 ⇒ 对一条 `Deal N damage` 来说等于**一个目标都没有**。
+            //     实测（2026-10-22 全池现读）：`role=target` 里 `(220, ex=0)` 一共 **15 行**，其中 **14 行**
+            //     的卡面原文就是「**If the target dies**, …」（`ASH73` / `AM75` / `DA38` / `SAU59` …），
+            //     另 1 行 `GOF59` 的 `abilityLogic[0].chosenAbility = 320`（同一条「死了才走」的分支）。
+            //     ⇒ 这一档**已经**由 `ConditionHolds` 的 `targetdies`（`ConditionKindToUnitCondition`
+            //     里 `targetdies → (220, 0)`）在**条件**那一层判 —— 两处都接 = 判两次且预选把人筛空。
+            const int WillDieCheck = 220;
+            for (int i = 0; i < ops.Count; i++)
+            {
+                var op = ops[i];
+                if (op == null || op.AbilityIndex < 0) continue;
+                CardDef.ConditionSpec hit = null;
+                int nHit = 0;
+                bool gateBlocked = false, postCheck = false;
+                for (int r = 0; r < rows.Count; r++)
+                {
+                    var row = rows[r];
+                    if (row.Ability != op.AbilityIndex) continue;
+                    if (row.Condition == WillDieCheck && !row.Exclude) { postCheck = true; continue; }   // G5
+                    if (row.Logic >= 0)
+                    {
+                        // G3：`lg >= 0` 只有在「这一块里恰好一条 op」时才敢把它当成那条 logic
+                        if (op.AbilityBlockSize != 1 || row.Logic != op.LogicIndex) { gateBlocked = true; continue; }
+                    }
+                    hit = row; nHit++;
+                }
+                if (nHit == 1) { op.TargetCondition = hit; op.TargetConditionGap = ""; }
+                else if (nHit > 1) op.TargetConditionGap = "ambiguous";
+                else if (gateBlocked) op.TargetConditionGap = "logic-gate";
+                else if (postCheck) op.TargetConditionGap = "postcheck";
+            }
+
+            // 🔴 **兜底出声**：这张卡**有** `role=target` 行，却既没落到任何 op、也没留下任何 gap
+            //   （例如行挂在 `ab=1` 而那条 ability 在 `desc` 里**一句都没印**——`DA17` 就是）⇒
+            //   整卡标 `row-unused`。⛔ 不许「什么都没发生」地过去（那是静默）。
+            bool anyCond = false, anyGap = false;
+            for (int i = 0; i < ops.Count; i++)
+            {
+                if (ops[i] == null) continue;
+                if (ops[i].TargetCondition != null) anyCond = true;
+                if (!string.IsNullOrEmpty(ops[i].TargetConditionGap)) anyGap = true;
+            }
+            if (!anyCond && !anyGap)
+                for (int i = 0; i < ops.Count; i++)
+                    if (ops[i] != null && ops[i].AbilityIndex >= 0) ops[i].TargetConditionGap = "row-unused";
+        }
+
+        /// <summary>这一趟解析的是不是**整条 `desc`**（只有整条 desc 的段下标才等于 ability 下标）。
+        /// 比较口径：两边 `Trim()` 后逐字相等（`CardDef.BareBodyText` 那种截断过的正文会被判成片段）。</summary>
+        static bool IsWholeDesc(string desc, string cardDesc)
+        {
+            if (string.IsNullOrEmpty(desc) || string.IsNullOrEmpty(cardDesc)) return false;
+            return string.Equals(desc.Trim(), cardDesc.Trim(), System.StringComparison.Ordinal);
+        }
+
+        /// <summary>整条 `desc` 里有几个**能力块**（切点 = 触发头 / 付费前缀，与本文件
+        /// `AssignAbilityIndices` 同一份判据）。缓存按 `desc` 字符串 —— 同一段文字切出来永远一样。</summary>
+        public static int CountAbilityBlocks(string desc)
+        {
+            if (string.IsNullOrEmpty(desc)) return 0;
+            int cached;
+            if (_abilityBlockCounts.TryGetValue(desc, out cached)) return cached;
+            int blocks = 0;
+            var segs = Split(desc);
+            for (int i = 0; i < segs.Count; i++)
+            {
+                if (i == 0) { blocks = 1; continue; }
+                if (SegmentStartsAnotherAbility(segs[i])) blocks++;
+            }
+            _abilityBlockCounts[desc] = blocks;
+            return blocks;
+        }
+
+        static readonly Dictionary<string, int> _abilityBlockCounts =
+            new Dictionary<string, int>(System.StringComparer.Ordinal);
+
+        /// <summary>
+        /// 这一段是不是**另一条 ability 的开头**（`Rally:` / `Slay:` … 触发头，或 `N [Energy]:` 付费前缀）。
+        ///
+        /// ⚠️ 这里用**正则近似** `ParseSegment` 的 `HasTriggerHead` / `PaidCost`（那两格属于
+        ///    `SegResult`、要跑完整段解析才拿得到）。近似方向取**保守**：多认出一个切点只会让块数变大
+        ///    ⇒ `CountAbilityBlocks(...) != 1` 更容易成立 ⇒ 更容易「读不到」（⛔ 不会因此多筛）。
+        /// </summary>
+        static bool SegmentStartsAnotherAbility(string seg)
+        {
+            if (string.IsNullOrEmpty(seg)) return false;
+            string low = seg.Trim().ToLowerInvariant();
+            if (low.Length == 0) return false;
+            if (low.StartsWith("talent", System.StringComparison.Ordinal) && low.Contains(":")) return true;
+            // 付费前缀（带冒号 / 括号数字那两种）—— 与 `RePaid` / `RePaidBare` 同形状的宽匹配。
+            if (Regex.IsMatch(low, @"^(?:\(\d+\)|\d+)\s*(?:\[[^\]]{1,16}\]|[a-z☀⚔🛡🔫\s]{0,16})?\s*:")) return true;
+            // 触发头：`Rally: …` / `Ecstasy 2: …`（带参数后缀的只在 `IsParamTrigger` 时认 —— 与
+            // `ParseSegment` 同一条闸）。
+            var m = Regex.Match(low, @"^([a-z]+)(?:\s+\d+)?\s*:\s*(.+)$");
+            if (!m.Success) return false;
+            if (Regex.IsMatch(low, @"^[a-z]+\s+\d+\s*:") && !CardDef.IsParamTrigger(m.Groups[1].Value))
+                return false;
+            return IsRoutableTrigger(m.Groups[1].Value);
         }
 
         /// <summary>

@@ -79820,7 +79820,30 @@
      },
      "attractSpeed": 2.0,
      "attractSpeedByLifetime": {
-      "__repr__": "AnimationCurve(m_Curve=[Keyframe(inSlope=-3.359211177667021e-06, outSlope=-3.359211177667021e-06, time=0.0, value=1.0, i"
+      "m_Curve": [
+       {
+        "time": 0.0,
+        "value": 1.0,
+        "inSlope": -3.359211177667021e-06,
+        "outSlope": -3.359211177667021e-06,
+        "inWeight": 0.0,
+        "outWeight": 0.07097457349300385,
+        "weightedMode": 0
+       },
+       {
+        "time": 1.0,
+        "value": 6.0,
+        "inSlope": 8.32765007019043,
+        "outSlope": 8.32765007019043,
+        "inWeight": 0.02966099977493286,
+        "outWeight": 0.0,
+        "weightedMode": 0
+       }
+      ],
+      "m_PostInfinity": 2,
+      "m_PreInfinity": 2,
+      "m_RotationOrder": 4,
+      "__repr__": "AnimationCurve(m_Curve=[Keyframe(inSlope=-3.359211177667021e-06, outSlope=-3.359211177667021e-06, time=0.0, value=1.0, inWeight=0.0, outWeight=0.07097457349300385, weightedMode=0), Keyframe(inSlope=8.32765007019043, outSlope=8.32765007019043, time=1.0, value=6.0, inWeight=0.02966099977493286, outWeight=0.0, weightedMode=0)], m_PostInfinity=2, m_PreInfinity=2, m_RotationOrder=4)"
      },
      "guaranteeFinalPosition": 0,
      "desiredZPosition": -8.0

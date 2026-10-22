@@ -634,7 +634,23 @@ namespace RuleEngine
                        //   同样**追加在参数表末尾**（理由同上一条：全仓有位置传参的老调用点）。
                        //   🔴 **缺省 `1`（允许溢出）**，⛔ 不是 `0` —— 见 `UseOverDraw` 属性的 doc：
                        //     「没数据」不许静默变成「这张卡不溢出」；同时保证所有老调用点行为不变。
-                       int useOverDraw = 1)
+                       int useOverDraw = 1,
+                       // 🆕 2026-10-22（引擎线 `W64` · 战斗审计 `B-16`）：原版**结构化条件**
+                       //   `TargetCriteria.conditionsFilter`（v15 的 `unitConditions` 列）。
+                       //   语义 / 位置编码 / `-1` 契约 → <see cref="ConditionOf"/> 那一节的长注释。
+                       //   ⚠️ **追加在参数表末尾**（理由同上：全仓有多处位置传参的老调用点）。
+                       IEnumerable<ConditionSpec> abilityConditions = null,
+                       // 「这一列**来自 v15 卡表**」的正面信号（只有 `CardDatabase.Parse` 知道；
+                       //   缺省 `false` = 未知来源）。🔴 它只在**这一格没有行**时参与判定 ——
+                       //   有行以数据为准；没行 + 本标志 = 「没有条件」，没行 + 无本标志 = 「未知」。
+                       bool conditionsVersioned = false,
+                       // 🆕 v16（2026-10-22 · 引擎线 `W64` · `B-16` 缺口）：`unitConditions` 的
+                       //   `count` 行**带不带被数集合**（`countSet`）。只有 `CardDatabase.Parse` 知道
+                       //   （按表 `version >= 16`）；缺省 `false` = 未知来源。
+                       //   🔴 它**不参与** `ConditionOf` / `TryGetCondition` 的判定 —— 那些看 `countSet`
+                       //   本身在不在（<see cref="ConditionSpec.CountSet"/> 非 null）。本标志只给
+                       //   自检/探针一个「表够不够新」的判据，⛔ 别拿它当「被数集合是默认值」。
+                       bool conditionsCountSetVersioned = false)
         {
             Id = id; Name = name; Type = type ?? ""; Desc = desc ?? ""; Rarity = rarity; Faction = faction;
             NameZh = nameZh ?? ""; DescZh = descZh ?? "";
@@ -706,6 +722,22 @@ namespace RuleEngine
                         _abilityContextByKeyword[_ac.Keyword] = _ac.Context;
                 }
             AbilityContextsVersioned = abilityContextsVersioned;
+            // 🆕 2026-10-22（引擎线 `W64` · 战斗审计 `B-16`）：原版**结构化条件**（`conditionsFilter`）——
+            //   原样收下（`cards_engine.json` v15 的 `unitConditions` 列，**只落非 none(0) 的行**）。
+            //   🔴 合法性闸（`role` 不认识 / `ab`/`lg` 缺键 / `cond` 不在 `UnitConditions` 枚举里 /
+            //   同 key 重复）**在 `CardDatabase.MapUnitConditions` 那一层就出声丢弃** —— 与
+            //   `triggerPriority` / `abilityContext` 的分工一致（数据入口做一次，⛔ 别在这里再写第二份）。
+            if (abilityConditions != null)
+                foreach (var _cs in abilityConditions)
+                {
+                    if (_cs == null || string.IsNullOrEmpty(_cs.Role)) continue;
+                    _conditions.Add(_cs);
+                    // 同 key 后写覆盖 —— 与 `_triggerPriority` 同口径；重复本当已在数据入口被丢弃。
+                    _conditionIndex[ConditionKey(_cs.Ability, _cs.Logic, _cs.Role)] = _cs;
+                }
+            ConditionsVersioned = conditionsVersioned;
+            // 🆕 v16：`count` 行的被数集合**来自 v16 卡表**的正面信号（见上面形参那一段）。
+            ConditionsCountSetVersioned = conditionsCountSetVersioned;
             // 督军后手那张防御卡：这里只收**数据里的 id**；对象引用由 `CardDatabase.Parse`
             // 建完卡表之后按 id 反查置上（见 `GoesSecondCard` 的说明）。
             GoesSecondId = goesSecondId ?? "";
@@ -1393,6 +1425,376 @@ namespace RuleEngine
             if (string.IsNullOrEmpty(kw)) return AbilityContextUnknown;
             int v;
             return _abilityContextByKeyword.TryGetValue(kw, out v) ? v : AbilityContextUnknown;
+        }
+
+
+        // ==================================================================
+        //  🆕 2026-10-22（引擎线 `W64` · 战斗审计 `B-16` 根因条）：原版**结构化条件**
+        //  `TargetCriteria.conditionsFilter`（`UnitConditions` 枚举）
+        // ==================================================================
+        //
+        // **它是什么**：原版「这一条能力的**条件从句**」不是文本，而是数据 ——
+        //   `TargetCriteria.conditionsFilter`（`d:/2/Warpforge_code/Scripts/Assembly-CSharp/
+        //   TargetCriteria.cs:53`）＋ `excludeCondition`（同文件 `:58`）。
+        //   求值器 `d:/2/tools/decomp_full/FilterMethods__MeetsConditionCriteria.c`（390 行，逐值 switch），
+        //   末段 `:384-389` 的语义是 **`exclude ? !match : match`**（唯一的取反处）。
+        //   ⚠️ **桩里的形参名叫 `excludeTrait`，那是错的** —— 调用点
+        //   `FilterMethods__CheckIfMeetsCriteria.c:298-300` 传的是 `TargetCriteria.excludeCondition`
+        //   （`excludeTrait` 在 `+0x3c`，它给的是 `MeetsTraitCriteria`）。
+        //
+        // 🔴 **为什么要有这一列**：审计 `资料/普查产出_1022/W64_兜底审计_战斗.md` 的 `B-16` ——
+        //   我们的条件判定整层走**文本正则**（`EffectText.ClassifyCondition`），`istype` / `foreach`
+        //   直接判不了（`EffectResolver.cs:9768-9772` 那段 `return false`，`B-05` / `B-06`）。
+        //   原版是数据，就按数据做。**本波只落数据 + 数据模型 + 探针**，消费端下一波才切；
+        //   旧的正则这一波**不删**（行为零变化）。
+        //
+        // **数据形状**（`cards_engine.json` v15，每卡一列数组，**只落 `cond != 0` 的行**）：
+        //   `[{"ab":0,"lg":-1,"role":"target","cond":220,"name":"dealtKillDmg","ex":1}]`
+        //   `[{"ab":0,"lg":-1,"role":"count","cond":221,"name":"diedThisTurn","ex":0,
+        //      "opt":0,"op":2,"refValue":1}]`
+        //   · `ab` = `cardAbilities` 下标；`-1` = `activeAbility`；`-2` = `alternativeAbility`；
+        //     **`-3` = 卡级**（`choicesDefinition` / `cardTargetCriteria` / `targetsAvailableCounter` /
+        //     `nonTargetScoringCriteria[]` / `cardTargetScoringCriteria[]`）；
+        //   · `lg` = 所在子数组下标（`abilityLogic` / 计分 criteria 数组）；`-1` = 直接挂在对象上；
+        //   · `role` = 十个位置之一：`target` / `acting` / `count` / `multi` / `mult` /
+        //     `avail` / `choice` / `cardtarget` / `nontarget` / `targetscore`
+        //     （映射 → `工具/gen_cards_engine.py` 的 `CONDITION_ROLES`，⛔ 别在这里抄第二份）；
+        //   · `cond` = `UnitConditions` **数值**（消费端按它判）；`name` = 枚举名（**只给人看**）；
+        //   · `ex` = `excludeCondition`（`0/1`），语义是**取反**；
+        //   · `count` 那一种另带 `opt`（`CountOptions`）`op`（`StatFilterOptions`）`refValue`（`referenceValue`）
+        //     —— 没有这三格，「数出 N 个」在消费端读不出来。`multi` 那一种**没有查清**配套参数 ⇒ 不落。
+        //   · 🆕 **v16**：`count` 行再带 **`countSet`**（被数集合 = 原版 `BoardCriteria.countCriteria`
+        //     的 36 格 ＋ `BoardCriteria.playerTurn`）—— 没有它，「**数谁**」在消费端读不出来
+        //     （`EC58` 的两条 `count` 行就是这么归不了位的）。逐字段语义 → <see cref="CountSetSpec"/>。
+        //
+        // 🔴 **`-1` = 未知**（旧表 / 生成器还没落这一列）—— **⛔ 不是「没有条件」**：
+        //   「没有条件」是 <see cref="ConditionNone"/>（`0` = `UnitConditions.none`）。
+        //   两者必须分开：把「未知」读成「没有条件」⇒ 条件从句被静默跳过（正是 `B-16` 的错法）。
+        //   消费端拿到 `-1` 时**回退旧文本口径并出声**，⛔ 不许自己挑一档。
+        //
+        // ⚠️ **枚举名 ≠ 语义**（踩过的坑，判据 `d:/2/tools/decomp_full/`）：
+        //   `cond = 220` 的枚举名是 `dealtKillDmg`，但实现是
+        //   `FilterMethods__MeetsConditionCriteria.c:253-257` → `CardScript__EnoughPendingDamageToDie(card)`
+        //   ⇒ 语义 = **「这条命已经救不回来了」**（不是「本回合造成过击杀伤害」）。
+        //   同族语义已有实现可参照：`Data/AiTargets.cs` 的 `MeetsCondition`（**AI 评分那一路**，
+        //   ⛔ 不是本列的消费者，别把两者混成一个入口）。
+
+        /// <summary>原版 `UnitConditions.none` = `0`：**这一格没有条件**（无条件的哨兵）。
+        /// ⚠️ 与 <see cref="ConditionUnknown"/>（`-1`，缺列/旧表）**不是一回事**。</summary>
+        public const int ConditionNone = 0;
+
+        /// <summary>**未知**（`-1`）：旧卡表（&lt; v15）/ 这张卡没有对应 ability / 生成器还没落这一列。
+        /// 🔴 **⛔ 别当成 <see cref="ConditionNone"/>** —— 「未知」读成「没有条件」= 条件从句静默失效。</summary>
+        public const int ConditionUnknown = -1;
+
+        /// <summary>🆕 v15（2026-10-22 · 引擎线 `W64`）：**一条结构化条件**
+        /// （原版 `TargetCriteria.conditionsFilter` ＋ `excludeCondition`）。
+        /// 形状 / 十个位置 / `-1` 契约 → 本节开头那段注释（⛔ 别在这里抄第二份）。
+        /// ⚠️ 字段名与 `cards_engine.json` 的列名**逐字一致**（生成器 → DTO → 本类三段同名）。</summary>
+        public sealed class ConditionSpec
+        {
+            /// <summary>「JSON 里没有 `ab` / `lg` 这个键」的哨兵值（**唯一的定义处** ——
+            /// `CardDatabase.UnitConditionDto.MissingIndex` 与探针 `ruleprobe` 都引它）。
+            /// 🔴 取 `-99` 而不是 `-1`：`-1 / -2 / -3` **都是合法位置**（active / alternative / 卡级），
+            /// `-1` 还同时是 `lg` 的「不在子数组里」⇒ 拿它们当缺值 = 静默挂到错的位置上。</summary>
+            public const int MissingIndex = -99;
+
+            /// <summary>`cardAbilities` 下标；`-1` = `activeAbility`；`-2` = `alternativeAbility`；
+            /// `-3` = 卡级（计分 / 选牌）。</summary>
+            public int Ability = -1;
+            /// <summary>所在子数组下标（`abilityLogic` / 计分 criteria 数组）；
+            /// `-1` = 直接挂在 ability / 卡对象上。</summary>
+            public int Logic = -1;
+            /// <summary>位置（十个之一，见本节开头）。</summary>
+            public string Role;
+            /// <summary>原版 `UnitConditions` **数值**（消费端按它判）。`0` = none（本列不落这种行）。</summary>
+            public int Condition = ConditionUnknown;
+            /// <summary>`UnitConditions` **枚举名**（**只给人看**；⚠️ 名字 ≠ 语义，见本节开头）。</summary>
+            public string Name;
+            /// <summary>原版 `TargetCriteria.excludeCondition`：真 = **取反**（`MeetsConditionCriteria.c:384-389`）。</summary>
+            public bool Exclude;
+            /// <summary>原版 `BoardCriteria.countOptions`（`0 AllTargets` / `10 EnemiesMinusAllies`）；
+            /// **只有 `role == "count"` 有**；`-1` = 没落（⛔ 不是 0 —— 0 是合法取值）。</summary>
+            public int CountOption = -1;
+            /// <summary>原版 `BoardCriteria.triggerIf`（`StatFilterOptions`：1 EqualTo / 2 EqualOrHigher / …）；
+            /// **只有 `role == "count"` 有**；`-1` = 没落。</summary>
+            public int StatOption = -1;
+            /// <summary>原版 `BoardCriteria.referenceValue`（拿来比的那个数）；
+            /// **只有 `role == "count"` 有**；`-1` = 没落。</summary>
+            public int ReferenceValue = -1;
+            /// <summary>🆕 v16：**被数集合**（原版 `BoardCriteria.countCriteria` ＋ `playerTurn`）——
+            /// 即「这条 `count` 条件数的是**谁**」。**只有 `role == "count"` 且数据是 v16** 才非 null；
+            /// `null` = **没落/未知**（旧表 &lt; v16 / 生成器没落 / 这一格不是 `count`），
+            /// ⛔ **不是「默认集合」** —— 消费端拿到 null 必须回退旧口径并出声，⛔ 不许拿全 0 顶
+            /// （全 0 的 `TargetsAffected = any` 是一个**具体的**集合选择，不是「不知道」）。
+            /// 语义 → <see cref="CountSetSpec"/> 的 doc。</summary>
+            public CountSetSpec CountSet;
+        }
+
+        /// <summary>🆕 v16（2026-10-22 · 引擎线 `W64` · 战斗审计 `B-16` 的明确缺口）：
+        /// **被数集合** —— 原版 `BoardCriteria.countCriteria`（一个完整 `TargetCriteria`）
+        /// ＋ `BoardCriteria.playerTurn`。
+        /// <para>**为什么要有它**：v15 的 `count` 行只落了「条件是什么」（`Condition`）＋
+        /// 「数出几个跟谁比」（`CountOption`/`StatOption`/`ReferenceValue`），
+        /// **没落「数谁」** ⇒ 消费端读不出这条 `count` 到底遍历哪个集合
+        /// （`EC58` 的两条 `count` 行就是这么归不了位的）。</para>
+        /// <para>**字段口径**（与 `cards_engine.json` 的 `countSet` 键名**逐字一致**；
+        /// 键名 = 原版字段名）：
+        /// · `PlayerTurn` ← `BoardCriteria.playerTurn`（`PlayersAffected`：0 Both / 10 Self / 20 Enemy）；
+        /// · 其余全部 ← `countCriteria`（`TargetCriteria`）同名字段；
+        /// · `ConditionsFilter` / `ExcludeCondition` **不在这一层** —— 它们是这一行的
+        ///   <see cref="Condition"/> / <see cref="Exclude"/>。</para>
+        /// <para>🔴 **`-1` = 未知/没落**（与 <see cref="ConditionUnknown"/> 同一口径）：
+        /// 这些字段全是**非负**的原版枚举/计数，`-1` 不在任何一档的取值域里。
+        /// 布尔字段在这一层也落 **0/1 整数**（不是 `bool`）—— 就是为了给「未知」留一个 `-1`；
+        /// ⛔ 别把它读成 `false`。两个引用列表 `null` = 未知、`空数组` = 明确的「没有」。</para>
+        /// <para>⚠️ 本类**只存值**，不解释语义：哪个字段怎么筛，看
+        /// `d:/2/tools/decomp_full/FilterMethods__CheckIfMeetsCriteria.c` 的对应偏移
+        /// （判据索引 → 生成器 `工具/gen_cards_engine.py` 的 `COUNT_SET_*` 上面那一段）。</para></summary>
+        public sealed class CountSetSpec
+        {
+            /// <summary>「未知/没落」哨兵（= <see cref="ConditionUnknown"/>，两处必须是同一个数）。</summary>
+            public const int Unknown = ConditionUnknown;
+
+            /// <summary>原版 `BoardCriteria.playerTurn`（`PlayersAffected`：0 Both / 10 Self / 20 Enemy）。</summary>
+            public int PlayerTurn = Unknown;
+            /// <summary>原版 `TargetCriteria.targetsAffected`（`TargetsAffected` 枚举，0 any / 10 allFiltered / …）。</summary>
+            public int TargetsAffected = Unknown;
+            /// <summary>原版 `TargetCriteria.chosenArmy`（`CardArmy`）。</summary>
+            public int ChosenArmy = Unknown;
+            /// <summary>原版 `TargetCriteria.armyFilter`（`ArmyFilterOptions`）。</summary>
+            public int ArmyFilter = Unknown;
+            /// <summary>原版 `TargetCriteria.keywordFilter`（`Keyword`）。</summary>
+            public int KeywordFilter = Unknown;
+            /// <summary>原版 `TargetCriteria.traitsFilter`（`DefinedTrait`）。</summary>
+            public int TraitsFilter = Unknown;
+            /// <summary>原版 `TargetCriteria.maxTargets`（`<= 0` = 不限）。</summary>
+            public int MaxTargets = Unknown;
+            /// <summary>原版 `TargetCriteria.targetSelectMethod`（`TargetSelectMethod`）。</summary>
+            public int TargetSelectMethod = Unknown;
+            /// <summary>原版 `TargetCriteria.attackFilter` / `attackFilterOption`。</summary>
+            public int AttackFilter = Unknown;
+            /// <summary>见 <see cref="AttackFilter"/>。</summary>
+            public int AttackFilterOption = Unknown;
+            /// <summary>原版 `TargetCriteria.currentHealthFilter` / `currentHealthFilterOption`。</summary>
+            public int CurrentHealthFilter = Unknown;
+            /// <summary>见 <see cref="CurrentHealthFilter"/>。</summary>
+            public int CurrentHealthFilterOption = Unknown;
+            /// <summary>原版 `TargetCriteria.manaCostFilter` / `manaCostFilterOption`。</summary>
+            public int ManaCostFilter = Unknown;
+            /// <summary>见 <see cref="ManaCostFilter"/>。</summary>
+            public int ManaCostFilterOption = Unknown;
+            /// <summary>原版 `TargetCriteria.rarityFilter` / `rarityFilterOption`。</summary>
+            public int RarityFilter = Unknown;
+            /// <summary>见 <see cref="RarityFilter"/>。</summary>
+            public int RarityFilterOption = Unknown;
+            /// <summary>原版 `TargetCriteria.spellType`（`SpellType`）。</summary>
+            public int SpellType = Unknown;
+
+            /// <summary>原版 `TargetCriteria.friendlyUnits`（0/1；`-1` = 未知）。</summary>
+            public int FriendlyUnits = Unknown;
+            /// <summary>原版 `TargetCriteria.enemyUnits`（0/1）。</summary>
+            public int EnemyUnits = Unknown;
+            /// <summary>原版 `TargetCriteria.includeHero`（0/1）。</summary>
+            public int IncludeHero = Unknown;
+            /// <summary>原版 `TargetCriteria.includeMinions`（0/1）。</summary>
+            public int IncludeMinions = Unknown;
+            /// <summary>原版 `TargetCriteria.includeSpells`（0/1）。</summary>
+            public int IncludeSpells = Unknown;
+            /// <summary>原版 `TargetCriteria.includeWhispers`（0/1）。</summary>
+            public int IncludeWhispers = Unknown;
+            /// <summary>原版 `TargetCriteria.includeWeapons`（0/1）。</summary>
+            public int IncludeWeapons = Unknown;
+            /// <summary>原版 `TargetCriteria.includeRemnants`（0/1）。</summary>
+            public int IncludeRemnants = Unknown;
+            /// <summary>原版 `TargetCriteria.includeHeroParts`（0/1）。</summary>
+            public int IncludeHeroParts = Unknown;
+            /// <summary>原版 `TargetCriteria.includeSelf`（0/1）。</summary>
+            public int IncludeSelf = Unknown;
+            /// <summary>原版 `TargetCriteria.excludeNotSelf`（0/1）。</summary>
+            public int ExcludeNotSelf = Unknown;
+            /// <summary>原版 `TargetCriteria.excludeSimilarCards`（0/1）。</summary>
+            public int ExcludeSimilarCards = Unknown;
+            /// <summary>原版 `TargetCriteria.excludeTargetted`（0/1）。</summary>
+            public int ExcludeTargetted = Unknown;
+            /// <summary>原版 `TargetCriteria.excludeFriendlyHero`（0/1）。</summary>
+            public int ExcludeFriendlyHero = Unknown;
+            /// <summary>原版 `TargetCriteria.excludeEnemyHero`（0/1）。</summary>
+            public int ExcludeEnemyHero = Unknown;
+            /// <summary>原版 `TargetCriteria.excludeRace`（0/1）。</summary>
+            public int ExcludeRace = Unknown;
+            /// <summary>原版 `TargetCriteria.excludeTrait`（0/1）。</summary>
+            public int ExcludeTrait = Unknown;
+            /// <summary>原版 `TargetCriteria.selectFromChooseResolution`（0/1）。</summary>
+            public int SelectFromChooseResolution = Unknown;
+
+            /// <summary>原版 `TargetCriteria.filterSpecificCards`（`List&lt;RawCardScript&gt;`）按
+            /// `m_PathID → uniqueId` 解出来的卡 id；`null` = **未知/没落**，空数组 = **明确为空**。
+            /// ⚠️ 与 `CardDef.ChoicesSpecificCardIds` 同一张解引用表；池外的卡**照实落**。</summary>
+            public string[] FilterSpecificCardIds;
+            /// <summary>原版 `TargetCriteria.excludeEnchantments`（同上）。</summary>
+            public string[] ExcludeEnchantmentIds;
+
+            /// <summary>这一份被数集合**是不是完整已知**（没有任何一格是 `-1` / `null`）。
+            /// ⚠️ 只是给自检/消费端的一个便利判据 —— **不替代**逐字段检查
+            /// （某个字段未知 ≠ 整份不可用，怎么降级由消费端那一波决定）。</summary>
+            public bool IsFullyKnown
+            {
+                get
+                {
+                    return PlayerTurn != Unknown && TargetsAffected != Unknown && ChosenArmy != Unknown
+                        && ArmyFilter != Unknown && KeywordFilter != Unknown && TraitsFilter != Unknown
+                        && MaxTargets != Unknown && TargetSelectMethod != Unknown
+                        && AttackFilter != Unknown && AttackFilterOption != Unknown
+                        && CurrentHealthFilter != Unknown && CurrentHealthFilterOption != Unknown
+                        && ManaCostFilter != Unknown && ManaCostFilterOption != Unknown
+                        && RarityFilter != Unknown && RarityFilterOption != Unknown
+                        && SpellType != Unknown
+                        && FriendlyUnits != Unknown && EnemyUnits != Unknown
+                        && IncludeHero != Unknown && IncludeMinions != Unknown
+                        && IncludeSpells != Unknown && IncludeWhispers != Unknown
+                        && IncludeWeapons != Unknown && IncludeRemnants != Unknown
+                        && IncludeHeroParts != Unknown && IncludeSelf != Unknown
+                        && ExcludeNotSelf != Unknown && ExcludeSimilarCards != Unknown
+                        && ExcludeTargetted != Unknown && ExcludeFriendlyHero != Unknown
+                        && ExcludeEnemyHero != Unknown && ExcludeRace != Unknown
+                        && ExcludeTrait != Unknown && SelectFromChooseResolution != Unknown
+                        && FilterSpecificCardIds != null && ExcludeEnchantmentIds != null;
+                }
+            }
+        }
+
+        /// <summary>这张卡全部**非 none** 的结构化条件行（原版位置顺序，同位置按 `cond` 排）。
+        /// 空表 = 这张卡没有任何条件，**或者**生成器还没落这一列（见 <see cref="ConditionsVersioned"/>）
+        /// —— 两者在**本属性**上分不开，要区分就读 <see cref="ConditionsVersioned"/> 或走
+        /// <see cref="ConditionOf"/>（那个会返回 <see cref="ConditionUnknown"/>）。</summary>
+        public IReadOnlyList<ConditionSpec> Conditions { get { return _conditions; } }
+
+        /// <summary>🆕 v15：这张卡的 `unitConditions` 列**是不是来自 v15 卡表** ——
+        /// `CardDatabase.Parse` 按表 `version` 置的**正面信号**。`false` = 旧表（&lt; v15）/
+        /// 解析路径没接这一列。
+        /// ⚠️ 它只在 **「这一格没有行」** 时参与判定（决定 `ConditionNone` 还是 `ConditionUnknown`；
+        /// 有行时 <see cref="ConditionOf"/> 一律以数据为准）—— 见那个属性的判定次序。
+        /// ⛔ 别把 `false` 读成「全池都没有条件」—— 那正是 `CardDatabase.Parse` 的 `&lt; 15`
+        /// 守卫**必须出声**的原因。</summary>
+        public bool ConditionsVersioned { get; private set; }
+
+        /// <summary>🆕 v16：这张卡的 `unitConditions` **来自 v16 卡表**（`count` 行带 `countSet`）——
+        /// `CardDatabase.Parse` 按表 `version` 置的**正面信号**。`false` = 旧表（&lt; v16）。
+        /// ⚠️ 它**不替代** <see cref="ConditionSpec.CountSet"/> 的 null 判定：
+        /// `true` + `CountSet == null` = **表够新但这张卡的这一格坏了/没落**（数据入口已经出声）。
+        /// ⛔ 别把 `false` 读成「被数集合 = 默认集合」。</summary>
+        public bool ConditionsCountSetVersioned { get; private set; }
+
+        readonly List<ConditionSpec> _conditions = new List<ConditionSpec>();
+
+        /// <summary>`(ability, logic, role)` → 条件行（同 key 后写覆盖；重复本当在数据入口被丢弃）。</summary>
+        readonly Dictionary<string, ConditionSpec> _conditionIndex =
+            new Dictionary<string, ConditionSpec>(System.StringComparer.Ordinal);
+
+        /// <summary>🆕 v15：条件可以挂在的**十个位置**（与生成器 `CONDITION_ROLES` **逐字同名**）。
+        /// ⚠️ 这是**校验名单**（数据入口用它挡坏值），⛔ 不是消费端的路由表 ——
+        /// 哪个位置在结算时算哪一步，由消费端那一波决定。</summary>
+        public static readonly string[] ConditionRoleNames =
+        {
+            "target", "acting", "count", "multi", "mult",
+            "avail", "choice", "cardtarget", "nontarget", "targetscore",
+        };
+
+        /// <summary>🆕 v15：`UnitConditions` 的**合法数值**（原版
+        /// `d:/2/Warpforge_code/Scripts/Assembly-CSharp/UnitConditions.cs` 的 **35** 个成员，含 `none = 0`）。
+        /// ⚠️ **这是数据入口的校验名单**，⛔ 不是语义表 —— 每个值到底怎么判，看
+        /// `d:/2/tools/decomp_full/FilterMethods__MeetsConditionCriteria.c` 对应 case
+        /// （⚠️ **枚举名 ≠ 语义**，见本节开头 `220` 那条）。
+        /// 生成器用**同一个枚举桩**（`load_unit_conditions_names`）校验，两边同一份来源。</summary>
+        public static readonly int[] UnitConditionValues =
+        {
+            0, 10, 20, 40, 50, 100, 110, 120, 190, 220, 221, 222, 230, 240, 241, 242, 243, 244,
+            245, 250, 260, 270, 275, 276, 277, 280, 290, 300, 310, 320, 330, 331, 340, 341, 342,
+        };
+
+        /// <summary>这个数值是不是 `UnitConditions` 的成员。</summary>
+        public static bool IsLegalUnitCondition(int v)
+        {
+            for (int i = 0; i < UnitConditionValues.Length; i++)
+                if (UnitConditionValues[i] == v) return true;
+            return false;
+        }
+
+        /// <summary>这个 `role` 是不是上面那十个之一（**大小写敏感** —— 与生成器逐字对齐）。</summary>
+        public static bool IsLegalConditionRole(string role)
+        {
+            if (string.IsNullOrEmpty(role)) return false;
+            for (int i = 0; i < ConditionRoleNames.Length; i++)
+                if (string.Equals(ConditionRoleNames[i], role, System.StringComparison.Ordinal)) return true;
+            return false;
+        }
+
+        /// <summary>索引键 —— **只此一处**拼（`ab:lg:role`）。</summary>
+        static string ConditionKey(int ability, int logic, string role)
+        {
+            return ability.ToString(System.Globalization.CultureInfo.InvariantCulture) + ":"
+                 + logic.ToString(System.Globalization.CultureInfo.InvariantCulture) + ":"
+                 + (role ?? "");
+        }
+
+        /// <summary>
+        /// 查某一格的**结构化条件**。
+        /// 返回 <see cref="ConditionNone"/>（`0`）= **这一格没有条件**（列是新的、这一格确实没有）；
+        /// 返回 <see cref="ConditionUnknown"/>（`-1`）= **未知**（旧表 / 没这一格的数据）；
+        /// 其余 = 原版 `UnitConditions` 数值（取反看 <see cref="TryGetCondition"/> 拿到的 `Exclude`）。
+        /// <para>🔴 **`-1` 与 `0` 必须分开处置**：`-1` ⇒ 回退旧文本口径并出声；`0` ⇒ 无条件、直接放行。</para>
+        /// <para>判定次序（**别调换**）：① 这一格**真有行** ⇒ 返回它的数值（有数据就以数据为准，
+        /// 不看版本位）；② 没有行 + <see cref="ConditionsVersioned"/> ⇒ <see cref="ConditionNone"/>；
+        /// ③ 没有行 + 旧表 ⇒ <see cref="ConditionUnknown"/>。</para>
+        /// </summary>
+        /// <param name="abilityIndex">`cardAbilities` 下标；`-1` activeAbility；`-2` alternativeAbility；`-3` 卡级。</param>
+        /// <param name="logicIndex">`abilityLogic` / 计分 criteria 数组下标；`-1` = 直接挂在对象上。</param>
+        /// <param name="role">十个位置之一（见本节开头）。</param>
+        public int ConditionOf(int abilityIndex, int logicIndex, string role)
+        {
+            ConditionSpec spec;
+            if (_conditionIndex.TryGetValue(ConditionKey(abilityIndex, logicIndex, role), out spec))
+                return spec.Condition;                              // ① 有行 ⇒ 以数据为准
+            return ConditionsVersioned ? ConditionNone : ConditionUnknown;   // ② / ③
+        }
+
+        /// <summary>同 <see cref="ConditionOf"/>，但要拿到整行（含 <see cref="ConditionSpec.Exclude"/> 与
+        /// `count` 那三个参数）。**只有真有这一行时才为 true** —— 旧表 / 无条件都返回 false，
+        /// 两者的区分仍走 <see cref="ConditionsVersioned"/> / <see cref="ConditionOf"/>。</summary>
+        public bool TryGetCondition(int abilityIndex, int logicIndex, string role, out ConditionSpec spec)
+        {
+            spec = null;
+            return _conditionIndex.TryGetValue(ConditionKey(abilityIndex, logicIndex, role), out spec);
+        }
+
+        /// <summary>🆕 v15：某一格的条件**要不要取反**（原版 `excludeCondition`）。
+        /// 没有这一行 / 旧表 ⇒ `false`（配合 <see cref="ConditionOf"/> 的 `0`/`-1` 一起用）。</summary>
+        public bool ConditionExcluded(int abilityIndex, int logicIndex, string role)
+        {
+            ConditionSpec spec;
+            return TryGetCondition(abilityIndex, logicIndex, role, out spec) && spec.Exclude;
+        }
+
+        /// <summary>🆕 v16：取某一格的**被数集合**（`role == "count"` 那一行的
+        /// <see cref="ConditionSpec.CountSet"/>，原版 `BoardCriteria.countCriteria` ＋ `playerTurn`）。
+        /// 返回 `true` = 这一格**真有**一份被数集合；`false` = 没有这一行 / 这一行是旧表落的
+        /// （`CountSet == null`）—— 后者**不是**「默认集合」，消费端必须回退旧口径并出声。
+        /// <para>⚠️ 判定次序：先查 `count` 行在不在（不在 ⇒ false），再看它带没带 `CountSet`。
+        /// 两者的区分若对消费端重要，走 <see cref="TryGetCondition"/> 拿整行 +
+        /// <see cref="ConditionsCountSetVersioned"/>。</para>
+        /// </summary>
+        /// <param name="abilityIndex">`cardAbilities` 下标；`-1` activeAbility；`-2` alternativeAbility。</param>
+        /// <param name="logicIndex">`abilityLogic` 下标；`-1` = 直接挂在 ability 对象上。</param>
+        /// <param name="set">这一格的被数集合（**可能是 null** 的那一份 `ConditionSpec.CountSet`）。</param>
+        public bool TryGetCountSet(int abilityIndex, int logicIndex, out CountSetSpec set)
+        {
+            set = null;
+            ConditionSpec spec;
+            if (!_conditionIndex.TryGetValue(ConditionKey(abilityIndex, logicIndex, "count"), out spec))
+                return false;
+            set = spec.CountSet;
+            return set != null;
         }
 
 

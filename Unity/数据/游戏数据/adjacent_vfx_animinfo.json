@@ -1,0 +1,118 @@
+{
+ "_conventions": {
+  "delay": "`delay` 秒（`WaitForSeconds`，方法体已坐实）之后才 `ExecuteEffect`；`playOnRetaliation == false` 时**反击不算**（`__Initialize.c` 的放行条件）",
+  "next": "**运行时还欠的接线**（都不在本批文件所有权内，只报告）：① 需要一个能把一份 CardAnim「贴到某个 Transform 上播」的载体（我们只有 `WarpforgeEffectPlayer.Play(name,parent,localPos)`）② 需要「相邻单位」那份棋盘信息（在 `BattleDriver`，VFX 层不认识局面）③ 需要上层「谁在什么时候播」（`VfxMap` 现在是「一个事件→一个特效」）",
+  "wherePlays": "锚点由 `animInfo.startPosOption/endPosOption` 决定（表见 `_judges`）；本实例两个都是 `unit.BattleCardUI.effectsAnchor`（`dump.cs:26166` → `effectsAnchor // 0x1A0`）",
+  "whoPlaysIt": "原版：`AnimFXInstanceParticleAdjacent.ExecuteEffect` —— 目标集合是**控制器 `targetCard` 的相邻单位**（不是出手卡的相邻单位；判据 `__ExecuteEffect.c:45` 读 `controller+0x28 → +0x58`）"
+ },
+ "_headline": "🔴 `W64 · B18`：`AnimFXInstanceParticleAdjacent`（全库 **1 个实例**）的播放真值。原版语义（逐方法体）：目标集合 = `GetAdjacentUnits(controller.targetCard)`；每个相邻单位各 `CreateAnimFromAnimFxController(animInfo, actingCard.t, unit.t, unit.t, …)`；而该方法**只用** `animInfo.startPosOption/endPosOption` 取锚点 ⇒ 本实例 **start/end 都是那个相邻单位的 `BattleCardUI.effectsAnchor`**、`shouldMoveVFX = 0` ⇒ **不飞**，只停 `timeAtStartPos` 秒。⛔ 所以 `WFModuleInstanceParticleAdjacent.cs` 文件头那句「起点 = 出手卡、终点 = 相邻单位」**要改**（那是没读 `CreateAnimFromAnimFxController` 时的推断）。shader `Shader Graphs/Doomweaver effect` **我们已有重写件**（`WarpforgeVFX/FX/DoomweaverEffect` + `UseOriginal` 白名单）⇒ B18 ① 已不欠。",
+ "_judges": {
+  "animFromTo": "BattleManager__CreateAnimFromAnimFxController.c（from/to 实参不用；只看两个 option）",
+  "animTransformOptions": {
+   "0": "actingCard（第 6 个实参）的 `BattleCardUI.effectsAnchor`（`CardScript+0x290` → `+0x1A0`）",
+   "1": "unit（第 7 个实参）的 `BattleCardUI.effectsAnchor`（同一跳）",
+   "14": "鼠标点击处 → `MinionManager.GetNextSlotPos` 造一个临时 Transform",
+   "18": "`actingCard.isPlayer ? playerHand(0xD0) : enemyHand(0xD8)` → 那张卡 → `GetEffectAnchor()`",
+   "19": "`actingCard.isPlayer ? enemyHand(0xD8) : playerHand(0xD0)` 的 transform",
+   "2": "同 1（`unit` 的 `effectsAnchor`）",
+   "3": "`BattleManager.playerManager(0xC0)` → 那张卡 → `CardScript.GetEffectAnchor()`",
+   "4": "`BattleManager.enemyManager(0xC8)` → 同上",
+   "5": "`BattleManager.battleCenterAnchor(0x1D0)`",
+   "50": "`actingCard.isPlayer ? playerDeck(0xF0) : enemyDeck(0x108)` 的 transform",
+   "55": "`actingCard.isPlayer ? enemyDeck(0x108) : playerDeck(0xF0)` 的 transform"
+  },
+  "delay": "AnimFXInstanceParticleAdjacent._DelayActivation_d__4__MoveNext.c（WaitForSeconds → ExecuteEffect）",
+  "execute": "AnimFXInstanceParticleAdjacent__ExecuteEffect.c（GetAdjacentUnits(targetCard) → 逐单位）",
+  "initialize": "AnimFXInstanceParticleAdjacent__Initialize.c（+0x38 cardAnim · +0x44 playOnRetaliation · +0x40 delay · +0x30 isRetaliation）",
+  "shader": "Material_-357286667203166072.json → Shader_3612509111447358907.json（`Shader Graphs/Doomweaver effect`）；我们的重写件 `Assets/WarpforgeVFX/Shaders/WFDoomweaverEffect.shader`"
+ },
+ "_sources": {
+  "animAddressMap": "d:/4/Unity/数据/索引/anim_address_map.json",
+  "animfxComponents": "d:/4/Unity/数据/游戏数据/animfx_components.json",
+  "assetsFull": "d:/2/新解包资源/assets_full",
+  "decomp": "d:/2/tools/decomp_full/",
+  "offsets": "d:/2/tools/il2cpp_out/dump.cs"
+ },
+ "generatedBy": "d:/4/Unity/工具/gen_adjacent_vfx_animinfo.py",
+ "instances": [
+  {
+   "animDurationSeconds": 0.5,
+   "animInfo": {
+    "applyMovementOffsets": 0,
+    "endPosOption": 1,
+    "orientToVelocity": 0,
+    "pointTowardsOption": 0,
+    "shouldMoveVFX": 0,
+    "startDelay": 0.0,
+    "startPosOption": 1,
+    "timeAtEndPos": 0.0,
+    "timeAtStartPos": 0.5,
+    "timeMoving": 0.0,
+    "vfxDelayTime": 0.0,
+    "waitAnimToApplyEffect": 1
+   },
+   "animInfoEaseCurve": {
+    "m_Curve": [
+     {
+      "inSlope": 0.0,
+      "inWeight": 0.0,
+      "outSlope": 1.0,
+      "outWeight": 0.0,
+      "time": 0.0,
+      "value": 0.0,
+      "weightedMode": 0
+     },
+     {
+      "inSlope": 1.0,
+      "inWeight": 0.0,
+      "outSlope": 0.0,
+      "outWeight": 0.0,
+      "time": 1.0,
+      "value": 1.0,
+      "weightedMode": 0
+     }
+    ],
+    "m_PostInfinity": 2,
+    "m_PreInfinity": 2,
+    "m_RotationOrder": 4
+   },
+   "cardAnim": "Deathspinner Slice Card Target",
+   "cardAnimDump": "d:/2/新解包资源/assets_full\\bundle_aeldarisaimhanncardanims_assets_all\\MonoBehaviour\\Deathspinner Slice Card Target.json",
+   "cardAnimGuid": "df138b834086ffe43a025ca6ec25d46f",
+   "delay": 1.600000023841858,
+   "effect": "BulletImpact_deathspinner_arc_alt",
+   "inEffectLibrary": true,
+   "nodePath": "BulletImpact_deathspinner_arc_alt",
+   "playOnRetaliation": false,
+   "positions": {
+    "endMeans": "unit（第 7 个实参）的 `BattleCardUI.effectsAnchor`（同一跳）",
+    "endPosOption": 1,
+    "note": "`CreateAnimFromAnimFxController` 收的 `from`/`to` 两个 Transform **没用** —— 它只用 `animInfo.startPosOption/endPosOption` 去 `GetAnimTransform` 取锚点（判据 → `BattleManager__CreateAnimFromAnimFxController.c`）。",
+    "sameAnchor": true,
+    "startMeans": "unit（第 7 个实参）的 `BattleCardUI.effectsAnchor`（同一跳）",
+    "startPosOption": 1
+   },
+   "prefab": "Deathspinner Cut Effect",
+   "prefabBundle": "bundle_battleprefabs_vfxandmisc_assets_all",
+   "prefabInProject": true,
+   "shader": {
+    "inUseOriginalWhitelist": true,
+    "materialAsset": "d:/2/新解包资源/assets_full\\bundle_battleprefabs_vfxandmisc_assets_all/Material\\Material_-357286667203166072.json",
+    "materialName": "Doomweaver effect",
+    "originalShader": "Shader Graphs/Doomweaver effect",
+    "originalShaderAsset": "d:/2/新解包资源/assets_full\\bundle_battleprefabs_vfxandmisc_assets_all/Shader\\Shader_3612509111447358907.json",
+    "prefabToMaterialHop": "不在本表：prefab 是纯模块控制器（无渲染器），材质挂在模块引用的子物体上",
+    "rewrittenShader": "WarpforgeVFX/FX/DoomweaverEffect",
+    "rewrittenShaderFile": "MyGame/Assets/WarpforgeVFX/Shaders/WFDoomweaverEffect.shader"
+   }
+  }
+ ],
+ "schema": "adjacent_vfx_animinfo/v1",
+ "stats": {
+  "inEffectLibrary": 1,
+  "instances": 1,
+  "prefabInProject": 1,
+  "sameStartEndAnchor": 1,
+  "unresolvedCardAnim": 0
+ }
+}

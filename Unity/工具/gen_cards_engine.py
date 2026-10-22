@@ -880,6 +880,9 @@ TRUTH_CARDS_SRC = r"d:/4/Unity/资料/普查产出_1018/allcards_1350/cards_raw.
 ANIM_GUID_MAP_TSV = r"d:/4/Unity/资料/普查产出_1018/cardanim_guid_map/guid_map_bundles.tsv"
 ANIM_ASSETS_DIR = r"d:/2/新解包资源/assets_full"
 ABILITY_TRIGGER_STUB = r"d:/2/Warpforge_code/Scripts/Assembly-CSharp/AbilityTrigger.cs"
+# 🆕 2026-10-22（引擎线 `W64` · 战斗审计 `B-16`）：`UnitConditions` 枚举桩 ——
+#   本列 `unitConditions` 的 `name` 字段从它反查（⛔ 不在脚本里抄一份枚举表：两份迟早不一致）。
+UNIT_CONDITIONS_STUB = r"d:/2/Warpforge_code/Scripts/Assembly-CSharp/UnitConditions.cs"
 
 # id 前缀 → 我们卡表里的阵营名。**来源是 decklists.json 的实测统计**（见上面那张表）。
 # 别的阵营名一律不许出现在这里 —— 加阵营要连证据一起补。
@@ -1159,6 +1162,30 @@ def load_ability_trigger_names():
 
 
 # ==========================================================================================
+#  🆕 2026-10-22（引擎线 `W64` · 战斗审计 `B-16`）：`UnitConditions` 枚举名
+# ==========================================================================================
+def load_unit_conditions_names():
+    """`UnitConditions.cs` 签名桩 → `{枚举数: 名字}`。读不到返回 `{}`（**不猜**）。
+
+    判据：`d:/2/Warpforge_code/Scripts/Assembly-CSharp/UnitConditions.cs`
+    （与 `d:/2/tools/il2cpp_out/dump.cs:20735-20819` 的同名枚举逐值一致）。
+    ⚠️ **枚举名不等于语义**：`220 = dealtKillDmg` 这个名字会读成「造成过击杀伤害」，**那是错的**
+    —— 真身是 `FilterMethods__MeetsConditionCriteria.c:253-257` 的
+    `CardScript__EnoughPendingDamageToDie(card)`（语义 = 「这条命已经救不回来了」）。
+    本脚本**只用来落 `name` 字段**（消费端按 `cond` 数值判），⛔ 别拿名字猜语义。
+    """
+    if not os.path.isfile(UNIT_CONDITIONS_STUB):
+        return {}
+    body = re.search(r"\benum\s+UnitConditions\s*\{(.*?)\n\}",
+                     open(UNIT_CONDITIONS_STUB, encoding="utf-8", errors="replace").read(), re.S)
+    if not body:
+        return {}
+    return {int(m.group(2)): m.group(1)
+            for m in re.finditer(r"^\s*([A-Za-z_][A-Za-z0-9_]*)\s*=\s*(-?\d+)\s*,?",
+                                 body.group(1), re.M)}
+
+
+# ==========================================================================================
 #  🆕 2026-10-21（引擎线 `T03·c` 批 B · 第 0 步 · 数据层）：`CardAbility.priority` → 逐卡 `triggerPriority`
 # ==========================================================================================
 # 判据：`资料/普查产出_1021/W61_引擎线_T03c批B判据.md` §2.1 / §2.2 / §2.6（第一权威 = 全量反编译
@@ -1359,6 +1386,248 @@ def ability_contexts_of(cid, name, trow, trig_names, report):
     for r in rows:
         report["by_trigger"][r["trigger"]] = report["by_trigger"].get(r["trigger"], 0) + 1
         report["by_context"][r["context"]] = report["by_context"].get(r["context"], 0) + 1
+    if rows:
+        report["cards"] += 1
+        report["rows"] += len(rows)
+    return rows
+
+
+# ==========================================================================================
+#  🆕 2026-10-22（引擎线 `W64` · 战斗审计 `B-16` 根因条）：原版**结构化条件** `conditionsFilter`
+#    → 逐卡 `unitConditions` 列（B-05 `foreach` / B-06 `istype` 的数据侧同源）
+# ==========================================================================================
+# 判据（第一权威 = 全量反编译 `d:/2/tools/decomp_full/`）：
+#   · 字段：`TargetCriteria.conditionsFilter`（`d:/2/Warpforge_code/Scripts/Assembly-CSharp/
+#     TargetCriteria.cs:53`；同结构还有 `excludeCondition:58`）——
+#     它挂在 **10 个位置**：`cardAbilities[].targetCriteria / actingCardCriteria /
+#     boardCriteria.countCriteria / multiCountCriteria`、`cardAbilities[].abilityLogic[].targetCriteria /
+#     .multiplier`、`activeAbility` / `alternativeAbility` 的同名槽位，以及**卡级**
+#     `choicesDefinition / cardTargetCriteria / targetsAvailableCounter /
+#     nonTargetScoringCriteria[] / cardTargetScoringCriteria[]`。
+#   · 求值器：`FilterMethods__MeetsConditionCriteria.c`（390 行，逐值 switch）。
+#     参数 `(card, UnitConditions conditionsFilter, bool exclude, CardScript thisCard)`，
+#     末段 `:384-389`：`exclude ? !match : match`。
+#     ⚠️ 桩里那个形参名叫 `excludeTrait`，**是错的** —— 调用点
+#     `FilterMethods__CheckIfMeetsCriteria.c:298-300` 传的是 `*(undefined1 *)(param_4 + 0x3d)`
+#     = `TargetCriteria.excludeCondition`（`+0x3c` 才是 `excludeTrait`，它给 `MeetsTraitCriteria`）。
+#   · 枚举：`UnitConditions`（`d:/2/tools/il2cpp_out/dump.cs:20735-20819`）0/10/20/40/50/100/…/342。
+#   · 我们这边为什么现在才做：审计 `资料/普查产出_1022/W64_兜底审计_战斗.md` 的 `B-16` ——
+#     条件判定整层走文本正则（`EffectText.ClassifyCondition`），`istype` / `foreach` 判不了
+#     （`EffectResolver.cs:9768-9772` 直接 `return false`）。**原版是数据，就按数据做**。
+#
+# 落值口径：
+#   · **只落 `conditionsFilter != 0` 的行**（`none(0)` = 本列默认值、省略）。缺行 = 这一格**没有条件**。
+#   · `ab` = `cardAbilities` 下标；`-1` = `activeAbility`；`-2` = `alternativeAbility`；`-3` = 卡级。
+#   · `lg` = 所在子数组的下标（`abilityLogic` / 计分 criteria 数组）；`-1` = 直接挂在 ability/卡对象上。
+#   · `role` = 上面那 10 个位置之一（见 `CONDITION_ROLES`）。
+#   · `cond` = `UnitConditions` 数值（消费端按它判）；`name` = 枚举名（只给人看，⛔ 别拿名字猜语义）。
+#   · `ex` = `excludeCondition`（`0/1`）—— 原版语义是**取反**（`:384-389`）。
+#   · `count` 那一种**另带参数**：`opt` = `BoardCriteria.countOptions`（0 AllTargets / 10 EnemiesMinusAllies）、
+#     `op` = `BoardCriteria.triggerIf`（`StatFilterOptions`，1 EqualTo / 2 EqualOrHigher / …）、
+#     `ref` = `BoardCriteria.referenceValue`。没有这三个，「数出 N 个」这条条件在消费端**读不出来**。
+#     ⚠️ `multi`（`multiCountCriteria`）**没有**查清配套参数 ⇒ 不落参数、⛔ 不猜（现读全池 1 条：`UM77`）。
+#   · 🆕 **v16**：`count` 行再带一个 **`countSet`** = 「**数谁**」（被数集合），见下面 `COUNT_SET_*` 那一段。
+#
+# ⚠️ **本列只落数据、零行为变化**：消费端（`EffectResolver` / `RuleCore`）下一波才切；
+#    旧的正则解析这一波**不删**（切换时再删，避免行为变化混在一起）。
+CONDITION_ROLES = (
+    "target",      # TargetCriteria（ability 级）
+    "acting",      # actingCardCriteria
+    "count",       # boardCriteria.countCriteria（另带 opt/op/ref）
+    "multi",       # multiCountCriteria
+    "mult",        # abilityLogic[].multiplier（TargetCriteria）
+    "avail",       # targetsAvailableCounter（卡级）
+    "choice",      # choicesDefinition（卡级）
+    "cardtarget",  # cardTargetCriteria（卡级 · AI 评分）
+    "nontarget",   # nonTargetScoringCriteria[]（卡级 · AI 评分）
+    "targetscore", # cardTargetScoringCriteria[]（卡级 · AI 评分）
+)
+CONDITION_ROLE_ORDER = {r: i for i, r in enumerate(CONDITION_ROLES)}
+# `UnitConditions.none` = 0 ⇒ 本列省略（见上面「落值口径」第一条）。
+CONDITION_NONE = 0
+
+# ------------------------------------------------------------------------------------------
+#  🆕 v16（2026-10-22 · 引擎线 `W64` · 战斗审计 `B-16` 的**明确缺口**）：`count` 行的「被数集合」
+# ------------------------------------------------------------------------------------------
+#  v15 的 `count` 行只落了「条件是什么」（`cond`）＋「数出几个跟谁比」（`opt/op/refValue`），
+#  **没落「数谁」** ⇒ 消费端读不出这条 `count` 到底遍历哪个集合（`EC58` 的两条行归不了位）。
+#  原版的「数谁」= `BoardCriteria.countCriteria`（一个完整 `TargetCriteria`）＋ `BoardCriteria.playerTurn`：
+#    · 字段表 → `d:/2/Warpforge_code/Scripts/Assembly-CSharp/{TargetCriteria,BoardCriteria}.cs`
+#      （偏移 → `d:/2/tools/il2cpp_out/dump.cs:23823-23881` / `BoardCriteria` 同段）；
+#    · 求值 → `d:/2/tools/decomp_full/FilterMethods__CheckIfMeetsCriteria.c`（逐字段判：
+#      `+0x10` targetsAffected · `+0x14` friendlyUnits · `+0x15` enemyUnits · `+0x16` includeHero ·
+#      `+0x17` includeMinions · `+0x18` includeSpells · `+0x19` includeWhispers · `+0x1b` includeRemnants ·
+#      `+0x1d` includeSelf · `+0x1e` excludeNotSelf · `+0x21` excludeFriendlyHero ·
+#      `+0x22` excludeEnemyHero · `+0x2c` keywordFilter · `+0x34` traitsFilter · `+0x3c` excludeTrait ·
+#      `+0x70` filterSpecificCards · `+0x78` excludeEnchantments …）。
+#  ⇒ 每条 `count` 行加一个 **`countSet` 对象**，把那 36 格**逐格落值**。
+#    🔴 **⛔ 不省略默认值**：「缺席」与「值 = 默认」在消费端必须分得开（本工程的 `-1` 契约，
+#       见 `Core/CardDef.cs` 的 `ConditionUnknown`）—— 缺省/坏值一律 `-1`，不是 `0`/`false`。
+#    · 键名 = 原版字段名（逐字）；`playerTurn` 来自 `BoardCriteria`，其余来自 `countCriteria`；
+#    · 布尔字段落 **0/1 整数**（`-1` = 缺省/坏值）；
+#    · `filterSpecificCards` / `excludeEnchantments` 是 `List<RawCardScript>` ⇒ 按 `m_PathID → uniqueId`
+#      解引用（与 `choicesDefinition.filterSpecificCards` 用同一张 `truth_by_path`）；解不出的**逐条出声**，
+#      **不落**那一条（⛔ 不拿 path_id 当 id）。
+#    · `conditionsFilter` / `excludeCondition` **不进 `countSet`** —— 它们已经是这一行的 `cond` / `ex`。
+#    ⚠️ `multi`（`multiCountCriteria`）不是 `boardCriteria` 的子件、没有「被数集合」这一说 ⇒ 不落。
+COUNT_SET_BOOL_FIELDS = (
+    "friendlyUnits", "enemyUnits",
+    "includeHero", "includeMinions", "includeSpells", "includeWhispers",
+    "includeWeapons", "includeRemnants", "includeHeroParts", "includeSelf",
+    "excludeNotSelf", "excludeSimilarCards", "excludeTargetted",
+    "excludeFriendlyHero", "excludeEnemyHero",
+    "excludeRace", "excludeTrait", "selectFromChooseResolution",
+)
+COUNT_SET_INT_FIELDS = (
+    "targetsAffected",
+    "chosenArmy", "armyFilter", "keywordFilter", "traitsFilter",
+    "maxTargets", "targetSelectMethod",
+    "attackFilter", "attackFilterOption",
+    "currentHealthFilter", "currentHealthFilterOption",
+    "manaCostFilter", "manaCostFilterOption",
+    "rarityFilter", "rarityFilterOption",
+    "spellType",
+)
+COUNT_SET_REF_FIELDS = ("filterSpecificCards", "excludeEnchantments")
+# 原版 `PlayersAffected`（`BoardCriteria.playerTurn`）：0 Both / 10 Self / 20 Enemy。
+# 域只有三档 ⇒ 本层**校验**（不是猜）：别的值只能是坏数据。
+PLAYERS_AFFECTED_VALUES = (0, 10, 20)
+
+
+def count_set_of(cid, name, cr, board, truth_by_path, report):
+    """`count` 行的「被数集合」→ `{"playerTurn":…, "targetsAffected":…, …, "filterSpecificCards":[…]}`。
+
+    键的**插入顺序固定**（`playerTurn` → 16 个整数字段 → 18 个布尔字段 → 两个引用列表）
+    —— 字节稳定靠它（两次 `--write` 必须逐字节相同）。
+    缺省/坏值一律 `-1`（引用列表是 `None`）并进 `report["set_bad"]`/`["set_unresolved"]`（**出声**）。
+    """
+    out = {}
+
+    pv = board.get("playerTurn") if isinstance(board, dict) else None
+    if isinstance(pv, bool) or not isinstance(pv, int) or pv not in PLAYERS_AFFECTED_VALUES:
+        report["set_bad"].append((cid, name, "playerTurn", pv,
+                                  "不在 PlayersAffected（0 Both / 10 Self / 20 Enemy）"))
+        pv = -1
+    out["playerTurn"] = pv
+
+    for f in COUNT_SET_INT_FIELDS:
+        v = cr.get(f)
+        if isinstance(v, bool) or not isinstance(v, int):
+            report["set_bad"].append((cid, name, f, v, "不是整数"))
+            v = -1
+        out[f] = v
+
+    for f in COUNT_SET_BOOL_FIELDS:
+        v = cr.get(f)
+        if isinstance(v, bool):
+            v = 1 if v else 0
+        elif not (isinstance(v, int) and v in (0, 1)):
+            report["set_bad"].append((cid, name, f, v, "布尔字段不是 0/1/bool"))
+            v = -1
+        out[f] = v
+
+    for f in COUNT_SET_REF_FIELDS:
+        lst = cr.get(f)
+        if not isinstance(lst, list):
+            report["set_bad"].append((cid, name, f, lst, "不是数组"))
+            out[f] = None
+            continue
+        ids = []
+        for ref in lst:
+            pid = ref.get("m_PathID") if isinstance(ref, dict) else None
+            uid = truth_by_path.get(pid)
+            if uid is None:
+                report["set_unresolved"].append((cid, name, f, pid))
+            else:
+                ids.append(uid)
+        out[f] = ids
+
+    report["set_rows"] += 1
+    return out
+
+
+def condition_rows_of(cid, name, trow, cond_names, report, truth_by_path):
+    """一张卡 → `[{"ab", "lg", "role", "cond", "name", "ex", ["opt","op","refValue"], ["countSet"]}, …]`。
+
+    顺序 = `(ab, lg, role, cond)`（**字节稳定**靠它：两次 `--write` 必须逐字节相同）。
+    真值快照里没有这张卡 ⇒ `report["no_truth"]`（≠「没有条件」）；
+    枚举桩读不到 / 值不在枚举里 ⇒ `report["bad"]`（**丢弃**，⛔ 不落一个猜出来的名字）；
+    `role == "count"` 的行另带 `countSet`（被数集合，v16；见 `count_set_of`）——
+    坏值不丢整行（丢行 = 这一格变成「没有条件」= 静默放行），只把那一格落成 `-1` 并出声。
+    """
+    if trow is None:
+        report["no_truth"] += 1
+        return []
+    rows = []
+
+    def add(ab, lg, role, cr, board=None):
+        if not isinstance(cr, dict):
+            return
+        v = cr.get("conditionsFilter", CONDITION_NONE)
+        if isinstance(v, bool) or not isinstance(v, int):
+            report["bad"].append((cid, name, ab, lg, role, v, "非整数"))
+            return
+        if v == CONDITION_NONE:
+            return                      # none = 本列省略（缺行 = 这一格没有条件）
+        nm = cond_names.get(v)
+        if not nm:
+            # 枚举桩缺失 / 出现枚举里没有的数值 ⇒ **不落**（`cond` 是消费端主键，编不出来）。
+            report["bad"].append((cid, name, ab, lg, role, v, "不在 UnitConditions 枚举里"))
+            return
+        ex = cr.get("excludeCondition", 0)
+        if isinstance(ex, bool):
+            ex = 1 if ex else 0
+        if ex not in (0, 1):
+            report["bad"].append((cid, name, ab, lg, role, v, f"excludeCondition={ex!r}"))
+            ex = 1 if ex else 0
+        row = {"ab": ab, "lg": lg, "role": role, "cond": v, "name": nm, "ex": ex}
+        if role == "count":
+            if isinstance(board, dict):
+                # 参数：`BoardCriteria` 上的三格（缺键一律 `-1`，⛔ 不拿 `0` 顶 —— `0` 是合法取值）。
+                # ⚠️ JSON 键叫 `refValue`（不是 `ref`）—— `ref` 是 C# 关键字，DTO 那边落不了同名字段。
+                for col, key in (("opt", "countOptions"), ("op", "triggerIf"), ("refValue", "referenceValue")):
+                    val = board.get(key)
+                    row[col] = val if isinstance(val, int) and not isinstance(val, bool) else -1
+            else:
+                # 结构上 countCriteria 只挂在 boardCriteria 下 ⇒ 这条不该发生；发生就是坏真值行。
+                report["set_bad"].append((cid, name, "boardCriteria", board,
+                                          "count 行没有 boardCriteria（被数集合无处可取）"))
+            # 🆕 v16：被数集合（`countCriteria` 那 36 格 + `BoardCriteria.playerTurn`）。
+            row["countSet"] = count_set_of(cid, name, cr, board if isinstance(board, dict) else {},
+                                           truth_by_path, report)
+        rows.append(row)
+
+    def scan_ability(ab, obj):
+        if not isinstance(obj, dict):
+            return
+        add(ab, -1, "target", obj.get("targetCriteria"))
+        add(ab, -1, "acting", obj.get("actingCardCriteria"))
+        add(ab, -1, "multi", obj.get("multiCountCriteria"))
+        board = obj.get("boardCriteria")
+        add(ab, -1, "count", (board or {}).get("countCriteria"), board)
+        for j, lg in enumerate(obj.get("abilityLogic") or []):
+            if not isinstance(lg, dict):
+                continue
+            add(ab, j, "target", lg.get("targetCriteria"))
+            add(ab, j, "mult", lg.get("multiplier"))
+
+    for i, ab in enumerate(trow.get("cardAbilities") or []):
+        scan_ability(i, ab)
+    scan_ability(-1, trow.get("activeAbility"))
+    scan_ability(-2, trow.get("alternativeAbility"))
+    # ---- 卡级（只有真值 `full_raw` 里才有这几格；规范化顶层没提上来）----
+    add(-3, -1, "choice", trow.get("choicesDefinition"))
+    add(-3, -1, "cardtarget", trow.get("cardTargetCriteria"))
+    add(-3, -1, "avail", trow.get("targetsAvailableCounter"))
+    for k, cr in enumerate(trow.get("nonTargetScoringCriteria") or []):
+        add(-3, k, "nontarget", (cr or {}).get("targetCriteria"))
+    for k, cr in enumerate(trow.get("cardTargetScoringCriteria") or []):
+        add(-3, k, "targetscore", (cr or {}).get("targetCriteria"))
+
+    rows.sort(key=lambda r: (r["ab"], r["lg"], CONDITION_ROLE_ORDER[r["role"]], r["cond"]))
+    for r in rows:
+        report["by_cond"][r["cond"]] = report["by_cond"].get(r["cond"], 0) + 1
+        report["by_role"][r["role"]] = report["by_role"].get(r["role"], 0) + 1
     if rows:
         report["cards"] += 1
         report["rows"] += len(rows)
@@ -2397,6 +2666,19 @@ def build():
     #   后两个是分布读数（「非 0 条数」与「按 trigger 分布」的唯一凭据）。
     ability_context_report = {"cards": 0, "rows": 0, "no_truth": 0, "bad": [], "no_name": [],
                               "dup_same": [], "conflict": [], "by_trigger": {}, "by_context": {}}
+    # 🆕 2026-10-22（引擎线 `W64` · 战斗审计 `B-16`）：`unitConditions` 的跑完读数 ——
+    #   `cards`/`rows` = 落值的卡数/条数；`no_truth` = 真值快照里没有这张卡（≠「没有条件」）；
+    #   `bad` = 值不在 `UnitConditions` 枚举里 / `excludeCondition` 非 0-1 / 非整数（**丢弃该条**）；
+    #   `by_cond` / `by_role` = 分布读数（审计那条「28 张非 0」的唯一凭据）。
+    unit_conditions_report = {"cards": 0, "rows": 0, "no_truth": 0, "bad": [],
+                              "by_cond": {}, "by_role": {},
+                              # 🆕 v16（`B-16` 缺口）：`count` 行的「被数集合」
+                              "set_rows": 0, "set_bad": [], "set_unresolved": []}
+    # 🆕 2026-10-22：`UnitConditions` 枚举名（`name` 字段的唯一来源；读不到就一条都不落）
+    unit_cond_names = load_unit_conditions_names()
+    if not unit_cond_names:
+        print(f"⚠️ 读不到 `UnitConditions` 枚举桩 {UNIT_CONDITIONS_STUB} ⇒ `unitConditions` 一列"
+              f"**整列不落**（⛔ 不猜名字；数值 `cond` 也得靠这张表校验）")
     # 🆕 2026-10-21（引擎线 `T03·b`）：开局加成三列 / `skipCardDraw` 生产列的跑完读数。
     initial_modifier_report = {c: {"cards": 0} for c in INITIAL_MODIFIER_COLS}
     skip_draw_report = {"cards": 0, "rows": 0, "no_truth": 0, "unmapped": [], "bad_uses": []}
@@ -2886,6 +3168,16 @@ def build():
         _acx = ability_contexts_of(cid, name, trow, anim_trig_names, ability_context_report)
         if _acx:
             entry["abilityContext"] = _acx
+        # ---- 🆕 2026-10-22（引擎线 `W64` · 战斗审计 `B-16`）：原版结构化条件 `conditionsFilter` ----
+        # 判据 / 落值口径 / 10 个位置 / `exclude` 取反语义 → `CONDITION_ROLES` 上面那段长注释。
+        # 形状 = `[{"ab":…, "lg":…, "role":…, "cond":…, "name":…, "ex":…, ["opt","op","refValue"], ["countSet"]}, …]`
+        # （`JsonUtility` 不支持字典，与 `triggerPriority` / `abilityContext` 同一条口径）。
+        # 🆕 v16：`role == "count"` 的行另带 `countSet`（被数集合）见 `COUNT_SET_*` 那一段。
+        # ⚠️ **本列只落数据、零行为变化**（消费端下一波才切；旧文本正则这一波不删）。
+        _uc = condition_rows_of(cid, name, trow, unit_cond_names, unit_conditions_report,
+                                truth_by_path)
+        if _uc:
+            entry["unitConditions"] = _uc
         # ---- 🆕 2026-10-21（引擎线 `T03·b`）：开局加成三列 --------------------------------------
         # 判据 / 为什么「只在非 0 时落列」→ `INITIAL_MODIFIER_COLS` 上面那一段。
         for _col in INITIAL_MODIFIER_COLS:
@@ -3350,7 +3642,7 @@ def build():
     talent_name_ids = build_talent_name_ids(truth_cards, truth_by_path, cards, talent_name_report)
 
     return {
-        "version": 14,         # v6: 每张卡带稳定 id（🔴 2026-10-18 `W25` 起按原版 `uniqueId` 直取，
+        "version": 16,         # v6: 每张卡带稳定 id（🔴 2026-10-18 `W25` 起按原版 `uniqueId` 直取，
                                #    名级联降为交叉校验；自造 = 生成期自检硬失败）
                                # v7（2026-10-14 `A1798`）：加 `inventoryOptions` / `showInCollectionOptions` 两列
                                # v8（2026-10-14 `A1775`）：加 `initiative` 一列（先后手；原版真值）
@@ -3390,6 +3682,29 @@ def build():
                                #    `资料/普查产出_1022/W63_abilityContext_施工简报.md` §1/§2/§3。
                                #    形状 `[{"trigger":…, "name":<AbilityTrigger 名>, ["keyword":…,] "context":…}]`
                                #    （`name` 必须落：只按 keyword 会漏掉 trigger 50 `UnitAttack`）。
+                               #    ⚠️ 加列【必须】bump（`CardDatabase.cs` 的 version 守卫靠它出声）。
+                               # v15（2026-10-22 · 引擎线 `W64` · 战斗审计 `B-16` 根因条）：
+                               #    加逐卡 **`unitConditions`**（原版 `TargetCriteria.conditionsFilter`
+                               #    ＋ `excludeCondition`；**只落非 none(0) 的行**，缺列 = 未知，
+                               #    ⛔ 不是「没有条件」）—— 判据
+                               #    `资料/普查产出_1022/W64_兜底审计_战斗.md` 的 `B-16`；
+                               #    求值器 `d:/2/tools/decomp_full/FilterMethods__MeetsConditionCriteria.c`
+                               #    （末段 `:384-389` = `exclude ? !match : match`）；枚举桩
+                               #    `d:/2/Warpforge_code/Scripts/Assembly-CSharp/UnitConditions.cs`。
+                               #    形状 `[{"ab":…,"lg":…,"role":…,"cond":…,"name":…,"ex":…[,"opt","op","refValue"]}]`
+                               #    （`ab`/`lg` 的位置编码与 `count` 那三个参数 → `CONDITION_ROLES` 上面那段）。
+                               #    🔴 本列**只落数据、零行为变化**：消费端（`EffectResolver` /
+                               #    `RuleCore`）下一波才切，旧文本正则这一波**不删**。
+                               #    ⚠️ 加列【必须】bump（`CardDatabase.cs` 的 version 守卫靠它出声）。
+                               # v16（2026-10-22 · 引擎线 `W64` · 战斗审计 `B-16` 的**明确缺口**）：
+                               #    `unitConditions` 的 `count` 行加 **`countSet`（被数集合）** ——
+                               #    原版 `BoardCriteria.countCriteria`（36 格 `TargetCriteria` 字段）
+                               #    ＋ `BoardCriteria.playerTurn`；`filterSpecificCards` /
+                               #    `excludeEnchantments` 按 `m_PathID → uniqueId` 解引用。
+                               #    判据 → 本文件 `COUNT_SET_BOOL_FIELDS` 上面那一段
+                               #    （`FilterMethods__CheckIfMeetsCriteria.c` 逐字段）。
+                               #    🔴 缺省/坏值 = `-1`（引用列表 `null`），⛔ **不是 0/false**
+                               #    —— 「不知道」与「是默认值」必须分得开（同 `cond` 的 `-1` 契约）。
                                #    ⚠️ 加列【必须】bump（`CardDatabase.cs` 的 version 守卫靠它出声）。
         "source": "Unity/数据/游戏数据/card_stats.json（稀有度另取 资料/卡牌数据表/卡牌宝石稀有度_0824.md；"
                   "英文名 / 中文名都以**原版官方表** 数据/游戏数据/官方本地化_en+zh-CN.json 的 `Card_Name/*` 为准"
@@ -3495,7 +3810,8 @@ def build():
         orphan_rarity_key), \
        (offname_hit, offname_same, offname_miss, off_names_stats), \
        choices_report, anim_report, talent_name_report, trigger_priority_report, \
-       ability_context_report, initial_modifier_report, skip_draw_report
+       ability_context_report, initial_modifier_report, skip_draw_report, \
+       unit_conditions_report
 
 
 def fix_own_armour(entry):
@@ -3560,7 +3876,7 @@ def main():
      inv, init, truth, rarity_guard, offname, choices_report, anim_report,
      talent_name_report, trigger_priority_report,
      ability_context_report,
-     initial_modifier_report, skip_draw_report) = build()
+     initial_modifier_report, skip_draw_report, unit_conditions_report) = build()
     offname_hit, offname_same, offname_miss, off_names_stats = offname
     id_direct, id_cascade, id_cross_mismatch, direct_ambiguous = id_new
     def_report, _gs_n, _gs_hero, _gs_missing_fac = goes_second
@@ -4266,6 +4582,33 @@ def main():
     for _cid, _nm, _tg, _cs in _acr["conflict"]:
         print(f"  🔴 同 trigger 两个不同 abilityContext：{_cid} {_nm} · trigger={_tg} = {_cs}"
               " ⇒ **两行都落**（数据是真的），由消费端按它的规则裁")
+
+    # 🆕 2026-10-22（引擎线 `W64` · 战斗审计 `B-16`）：`unitConditions` 的覆盖率 + 按 cond / role 的分布。
+    #   审计原话「28 张卡 conditionsFilter != 0」＝ 只在**ability 级**（不含 `abilityLogic`）数出来的口径，
+    #   本脚本按**全量位置**落（含 `abilityLogic` 与卡级计分），条数会更多 —— 读数里两个口径都看得到。
+    _ucr = unit_conditions_report
+    _uc_bc = " · ".join(f"{_c}:{_n}" for _c, _n in sorted(_ucr["by_cond"].items())) or "（无）"
+    _uc_br = " · ".join(f"{_r}:{_n}" for _r, _n in sorted(_ucr["by_role"].items(),
+                                                          key=lambda kv: CONDITION_ROLE_ORDER[kv[0]])) or "（无）"
+    print(f"结构化条件   `unitConditions` 落值 **{_ucr['cards']}/{doc['count']}** 张 · {_ucr['rows']} 条"
+          f"（原版 `TargetCriteria.conditionsFilter`，**none(0) 省略** —— 判据 `W64_兜底审计_战斗.md` B-16）")
+    print(f"             按 cond：{_uc_bc}")
+    print(f"             按 role：{_uc_br}")
+    if _ucr["no_truth"]:
+        print(f"  ⚠️ 真值快照里没有的卡 {_ucr['no_truth']} 张 —— 它们有没有条件**未知**"
+              "（≠「没有条件」；快照比现池旧，见 `TRUTH_CARDS_SRC`）")
+    for _cid, _nm, _ab, _lg, _role, _v, _why in _ucr["bad"]:
+        print(f"  🔴 非法 conditionsFilter：{_cid} {_nm} · ab={_ab} lg={_lg} role={_role} "
+              f"值={_v!r}（{_why}）⇒ **丢弃该条**（⛔ 不猜枚举名、不默认成 none）")
+    # 🆕 v16（`B-16` 缺口）：`count` 行的**被数集合**覆盖 + 坏值/解不出的引用（都是「出声」）。
+    print(f"             `count` 行的被数集合 `countSet` 落值 {_ucr['set_rows']} 条"
+          "（原版 `BoardCriteria.countCriteria` ＋ `playerTurn`；缺省/坏值 = -1，⛔ 不是 0/false）")
+    for _cid, _nm, _f, _v, _why in _ucr["set_bad"]:
+        print(f"  🔴 被数集合坏值：{_cid} {_nm} · `{_f}` = {_v!r}（{_why}）⇒ 该格落 **-1**"
+              "（⛔ 不丢整行：丢行 = 这一格变成「没有条件」= 静默放行）")
+    for _cid, _nm, _f, _pid in _ucr["set_unresolved"]:
+        print(f"  ⚠️ 被数集合引用解不出：{_cid} {_nm} · `{_f}` 的 `m_PathID`={_pid!r}"
+              " ⇒ **不落那一条**（⛔ 不拿 path_id 当 id）")
 
     # 🆕 2026-10-21（引擎线 `T03·b`）：开局加成三列 + `skipCardDraw` 生产列的读数。
     #   三列/一列都**只在有值时才落** ⇒ 这条摘要就是「今天有没有卡走到」的唯一凭据。

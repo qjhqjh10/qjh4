@@ -277,6 +277,159 @@ namespace RuleEngine
             /// 访问器一律 `-1`（未知）。
             /// 数据源 = 真值 SO 快照 `cardAbilities[].abilityContext`。</summary>
             public AbilityContextDto[] abilityContext;
+
+            /// <summary>🆕 v15（2026-10-22 · 引擎线 `W64` · 战斗审计 `B-16`）：原版**结构化条件**
+            /// `TargetCriteria.conditionsFilter` ＋ `excludeCondition`，喂
+            /// <see cref="CardDef.ConditionOf"/> / <see cref="CardDef.TryGetCondition"/>。
+            ///
+            /// 🔴 **只落 `cond != 0` 的行**（`0` = `UnitConditions.none` = 没有条件；缺行也是这样）。
+            /// 十个位置（`role`）/ `ab`/`lg` 位置编码 / `count` 那三个参数 / `-1` 契约 →
+            /// <see cref="CardDef.ConditionOf"/> 那一节的长注释（⛔ 别在这里抄第二份）。
+            /// ⚠️ 旧表（&lt; v15）**整列没有** ⇒ 下面的 version 守卫出声，
+            /// `CardDef.ConditionOf` 一律 `-1`（**未知**，⛔ 不是「没有条件」）。
+            /// 数据源 = 真值 SO 快照 `full_raw` 的十处 `TargetCriteria`。</summary>
+            public UnitConditionDto[] unitConditions;
+        }
+
+        /// <summary>🆕 v15（2026-10-22 · 引擎线 `W64`）：`unitConditions` 的一行
+        /// （**字段名故意与 JSON 列名逐字一致**，`JsonUtility` 直读）。
+        /// 语义 → <see cref="CardDef.ConditionSpec"/>。
+        ///
+        /// 🔴🆕 **`ab` / `lg` / `cond` 都用 `-1` 以外的哨兵，⛔ 别退回 `0`。**
+        /// 为什么：**这三个字段的 `-1` 都是合法取值** ——
+        ///   · `ab = -1` = `activeAbility`（`-2` = `alternativeAbility`、`-3` = 卡级）；
+        ///   · `lg = -1` = 「直接挂在 ability / 卡对象上、不在 `abilityLogic` 里」；
+        ///   · `cond = -1` 本身是 `ConditionUnknown`（但这一列只落非 0 行 ⇒ 缺键必须能被认出来）。
+        /// 缺键若静默读成 `0`：`ab` 会落到**第 0 条 ability**（错卡错位）、`lg` 会落到**第 0 条 logic**、
+        /// `cond` 会落成 `none`（= 「没有条件」）—— 三种都是**静默错**。
+        /// 做法与 `TriggerPriorityDto` / `AbilityContextDto` 同款 —— 字段初值取 `Missing*` 哨兵：
+        /// `JsonUtility.FromJson` 用默认构造造对象、**只覆盖 JSON 里出现的字段**
+        /// ⇒ `MapUnitConditions` 能认出「缺键」并**出声 + 丢弃**。
+        /// ⚠️ `MissingIndex` 取 `-99`（不是 `-1`）—— 因为 `-1/-2/-3` 都是合法位置。
+        /// </summary>
+        [System.Serializable]
+        public class UnitConditionDto
+        {
+            /// <summary>「JSON 里没有 `ab` / `lg` 这个键」的哨兵值（`-1/-2/-3` 都是合法位置 ⇒ 不能拿它们当缺值）。
+            /// ⚠️ 唯一来源 = <see cref="CardDef.ConditionSpec.MissingIndex"/>（探针只编 `Core/`，也引它）。</summary>
+            public const int MissingIndex = CardDef.ConditionSpec.MissingIndex;
+            /// <summary>「JSON 里没有 `cond` 这个键」的哨兵值（`0` 是合法值 `none`，⛔ 不能拿它当缺值）。</summary>
+            public const int MissingCondition = -1;
+            /// <summary>`cardAbilities` 下标 / `-1` active / `-2` alternative / `-3` 卡级。</summary>
+            public int ab = MissingIndex;
+            /// <summary>子数组下标；`-1` = 直接挂在对象上。</summary>
+            public int lg = MissingIndex;
+            /// <summary>十个位置之一（`CardDef.ConditionRoleNames`）。</summary>
+            public string role;
+            /// <summary>原版 `UnitConditions` 数值（非 0）。</summary>
+            public int cond = MissingCondition;
+            /// <summary>`UnitConditions` 枚举名（**只给人看**；⚠️ 名字 ≠ 语义）。</summary>
+            public string name;
+            /// <summary>原版 `excludeCondition`（`0/1`；语义 = 取反）。</summary>
+            public int ex;
+            /// <summary>`BoardCriteria.countOptions`（只有 `role == "count"` 有）。</summary>
+            public int opt = MissingCondition;
+            /// <summary>`BoardCriteria.triggerIf`（`StatFilterOptions`；只有 `role == "count"`）。</summary>
+            public int op = MissingCondition;
+            /// <summary>`BoardCriteria.referenceValue`（只有 `role == "count"`；
+            /// JSON 键叫 `refValue` —— `ref` 是 C# 关键字，落不了同名字段）。</summary>
+            public int refValue = MissingCondition;
+            /// <summary>🆕 v16（2026-10-22 · 引擎线 `W64` · 战斗审计 `B-16` 缺口）：**被数集合**
+            /// （原版 `BoardCriteria.countCriteria` ＋ `playerTurn`）—— **只有 `role == "count"` 的行有**。
+            /// `null` = 没落/旧表（&lt; v16）⇒ <see cref="CardDef.ConditionSpec.CountSet"/> 也是 null
+            /// （**未知**，⛔ 不是「默认集合」）。
+            /// 逐字段语义 → <see cref="CardDef.CountSetSpec"/> 的 doc（⛔ 别在这里抄第二份）。</summary>
+            public CountSetDto countSet;
+        }
+
+        /// <summary>🆕 v16：`unitConditions[].countSet` 的传输形状（**字段名与 JSON 键名逐字一致**，
+        /// `JsonUtility` 直读；语义 → <see cref="CardDef.CountSetSpec"/>）。
+        ///
+        /// 🔴 **缺键哨兵 = `MissingIndex`（-99）**，⛔ 不是 `-1` / `0`：
+        /// 这些字段的取值域里 `0` 到处都是合法值（`TargetsAffected.any` / `false` / `countOptions` …），
+        /// 而 `-1` 是 `CardDef` 那一层「未知」的哨兵。用 `-99` 才能把「JSON 里没这个键」与
+        /// 「值是 0」分开（同 `ab`/`lg` 的理由）。
+        /// ⚠️ 两个引用列表 `null` = 缺键/未知；`[]` = 明确的空表。
+        /// </summary>
+        [System.Serializable]
+        public class CountSetDto
+        {
+            /// <summary>缺键哨兵 —— **唯一来源**是 <see cref="UnitConditionDto.MissingIndex"/>（`-99`）。</summary>
+            const int MissingIndex = UnitConditionDto.MissingIndex;
+            /// <summary>原版 `BoardCriteria.playerTurn`（`PlayersAffected`：0 Both / 10 Self / 20 Enemy）。</summary>
+            public int playerTurn = MissingIndex;
+            /// <summary>原版 `TargetCriteria.targetsAffected`（`TargetsAffected`）。</summary>
+            public int targetsAffected = MissingIndex;
+            /// <summary>原版 `TargetCriteria.chosenArmy`（`CardArmy`）。</summary>
+            public int chosenArmy = MissingIndex;
+            /// <summary>原版 `TargetCriteria.armyFilter`（`ArmyFilterOptions`）。</summary>
+            public int armyFilter = MissingIndex;
+            /// <summary>原版 `TargetCriteria.keywordFilter`（`Keyword`）。</summary>
+            public int keywordFilter = MissingIndex;
+            /// <summary>原版 `TargetCriteria.traitsFilter`（`DefinedTrait`）。</summary>
+            public int traitsFilter = MissingIndex;
+            /// <summary>原版 `TargetCriteria.maxTargets`。</summary>
+            public int maxTargets = MissingIndex;
+            /// <summary>原版 `TargetCriteria.targetSelectMethod`（`TargetSelectMethod`）。</summary>
+            public int targetSelectMethod = MissingIndex;
+            /// <summary>原版 `TargetCriteria.attackFilter`。</summary>
+            public int attackFilter = MissingIndex;
+            /// <summary>原版 `TargetCriteria.attackFilterOption`（`StatFilterOptions`）。</summary>
+            public int attackFilterOption = MissingIndex;
+            /// <summary>原版 `TargetCriteria.currentHealthFilter`。</summary>
+            public int currentHealthFilter = MissingIndex;
+            /// <summary>原版 `TargetCriteria.currentHealthFilterOption`。</summary>
+            public int currentHealthFilterOption = MissingIndex;
+            /// <summary>原版 `TargetCriteria.manaCostFilter`。</summary>
+            public int manaCostFilter = MissingIndex;
+            /// <summary>原版 `TargetCriteria.manaCostFilterOption`。</summary>
+            public int manaCostFilterOption = MissingIndex;
+            /// <summary>原版 `TargetCriteria.rarityFilter`。</summary>
+            public int rarityFilter = MissingIndex;
+            /// <summary>原版 `TargetCriteria.rarityFilterOption`。</summary>
+            public int rarityFilterOption = MissingIndex;
+            /// <summary>原版 `TargetCriteria.spellType`（`SpellType`）。</summary>
+            public int spellType = MissingIndex;
+            /// <summary>原版 `TargetCriteria.friendlyUnits`（0/1）。</summary>
+            public int friendlyUnits = MissingIndex;
+            /// <summary>原版 `TargetCriteria.enemyUnits`（0/1）。</summary>
+            public int enemyUnits = MissingIndex;
+            /// <summary>原版 `TargetCriteria.includeHero`（0/1）。</summary>
+            public int includeHero = MissingIndex;
+            /// <summary>原版 `TargetCriteria.includeMinions`（0/1）。</summary>
+            public int includeMinions = MissingIndex;
+            /// <summary>原版 `TargetCriteria.includeSpells`（0/1）。</summary>
+            public int includeSpells = MissingIndex;
+            /// <summary>原版 `TargetCriteria.includeWhispers`（0/1）。</summary>
+            public int includeWhispers = MissingIndex;
+            /// <summary>原版 `TargetCriteria.includeWeapons`（0/1）。</summary>
+            public int includeWeapons = MissingIndex;
+            /// <summary>原版 `TargetCriteria.includeRemnants`（0/1）。</summary>
+            public int includeRemnants = MissingIndex;
+            /// <summary>原版 `TargetCriteria.includeHeroParts`（0/1）。</summary>
+            public int includeHeroParts = MissingIndex;
+            /// <summary>原版 `TargetCriteria.includeSelf`（0/1）。</summary>
+            public int includeSelf = MissingIndex;
+            /// <summary>原版 `TargetCriteria.excludeNotSelf`（0/1）。</summary>
+            public int excludeNotSelf = MissingIndex;
+            /// <summary>原版 `TargetCriteria.excludeSimilarCards`（0/1）。</summary>
+            public int excludeSimilarCards = MissingIndex;
+            /// <summary>原版 `TargetCriteria.excludeTargetted`（0/1）。</summary>
+            public int excludeTargetted = MissingIndex;
+            /// <summary>原版 `TargetCriteria.excludeFriendlyHero`（0/1）。</summary>
+            public int excludeFriendlyHero = MissingIndex;
+            /// <summary>原版 `TargetCriteria.excludeEnemyHero`（0/1）。</summary>
+            public int excludeEnemyHero = MissingIndex;
+            /// <summary>原版 `TargetCriteria.excludeRace`（0/1）。</summary>
+            public int excludeRace = MissingIndex;
+            /// <summary>原版 `TargetCriteria.excludeTrait`（0/1）。</summary>
+            public int excludeTrait = MissingIndex;
+            /// <summary>原版 `TargetCriteria.selectFromChooseResolution`（0/1）。</summary>
+            public int selectFromChooseResolution = MissingIndex;
+            /// <summary>原版 `TargetCriteria.filterSpecificCards` 解出来的卡 id（`null` = 缺键）。</summary>
+            public string[] filterSpecificCards;
+            /// <summary>原版 `TargetCriteria.excludeEnchantments` 解出来的卡 id（`null` = 缺键）。</summary>
+            public string[] excludeEnchantments;
         }
 
         /// <summary>🆕 v11：`animTimes` 的传输形状（字段名**故意与 JSON 列名一致**，JsonUtility 直读）。
@@ -504,6 +657,37 @@ namespace RuleEngine
                                + "`CardDef.AbilityContextOfTrigger/OfKeyword` 会一律返回 **-1 = 未知**"
                                + "（⛔ 不是 Play(0)：那会把死亡族/墓地族触发掐死）⇒ 消费端按「未知」回退旧口径。"
                                + "跑一下 gen_cards_engine.py 重生成（`W63`）。");
+            // 🆕 2026-10-22（引擎线 `W64` · 战斗审计 `B-16`）：v15 起才有逐卡 `unitConditions`
+            //   （原版 `TargetCriteria.conditionsFilter` ＋ `excludeCondition`）。
+            //   **旧表整列没有** ⇒ `CardDef.ConditionOf` 一律 **`-1`（未知）**。
+            //   🔴 **必须出声，而且必须说清回退到哪一档**：`0` 是**合法取值**
+            //   （`UnitConditions.none` = 「这一格没有条件」）⇒ 「缺列」若被读成 0，
+            //   条件从句会被**静默当成无条件放行**（正是 `B-16` 的错法）；反过来也⛔ 不能把
+            //   「缺列」当「全池都有条件」。未知的处置 = 消费端**回退旧的文本口径**并出声。
+            if (dto.version < 15)
+                Debug.LogWarning($"[RuleEngine] 卡表 version={dto.version} < 15 —— 没有 `unitConditions` 一列"
+                               + "（原版 `TargetCriteria.conditionsFilter` ＋ `excludeCondition`：`UnitConditions` "
+                               + "0 none / 40 damaged / 220 EnoughPendingDamageToDie / 244 hasArmour …）；"
+                               + "`CardDef.ConditionOf` 会一律返回 **-1 = 未知**"
+                               + "（⛔ 不是 0 = 「没有条件」：那会让条件从句被静默跳过）⇒ 消费端按「未知」"
+                               + "回退旧的文本口径并出声。跑一下 gen_cards_engine.py 重生成（`W64`）。");
+            // 🆕 v16（2026-10-22 · 引擎线 `W64` · `B-16` 的明确缺口）：`count` 行的**被数集合**
+            //   （原版 `BoardCriteria.countCriteria` ＋ `playerTurn`，字段 `countSet`）。
+            //   **旧表整列没有** ⇒ `CardDef.ConditionSpec.CountSet` 一律 **null（未知）**。
+            //   🔴 **必须出声**：这些字段全是**非负**的原版枚举/计数 —— 「缺列」若被读成「全 0」，
+            //   就等于说「数全部单位（`TargetsAffected=any`）、友方 + 敌方、含督军含小兵 …」，
+            //   那是一个**具体的集合选择**，不是「不知道」。消费端拿到 null 必须回退旧口径并出声。
+            //   ⚠️ **只对 `15 <= version < 16` 出声**：`< 15` 的表**连 `unitConditions` 整列都没有**
+            //      ⇒ 上面那条 `< 15` 的守卫已经说清「全未知」，再来一条只是重复（而且会让
+            //      「旧表装载恰好一条 `unitConditions` 警告」的自检变红 —— `RuleEngineTest` ④）。
+            if (dto.version >= 15 && dto.version < 16)
+                Debug.LogWarning($"[RuleEngine] 卡表 version={dto.version} < 16 —— `unitConditions` 的 `count` 行"
+                               + " **没有 `countSet`（被数集合）**（原版 `BoardCriteria.countCriteria`："
+                               + "`targetsAffected` / `friendlyUnits` / `enemyUnits` / `includeHero` / "
+                               + "`includeMinions` / `includeRemnants` / `filterSpecificCards` … ＋ "
+                               + "`BoardCriteria.playerTurn`）；`CardDef.ConditionSpec.CountSet` 会一律 **null = 未知**"
+                               + "（⛔ 不是「默认集合」：全 0 是一个具体的集合选择）⇒ 消费端按「未知」"
+                               + "回退旧口径并出声。跑一下 gen_cards_engine.py 重生成（`W64`）。");
 
             int noId = 0;
 
@@ -610,7 +794,21 @@ namespace RuleEngine
                     //    ⚠️ 缺值口径 = 空表 + `AbilityContextsVersioned = false`（旧表整列没有
                     //    ⇒ 上面的 `< 14` 守卫已经出过声）；访问器一律 `-1`（未知），⛔ 不是 Play(0)。
                     abilityContext: MapAbilityContext(c),
-                    abilityContextsVersioned: dto.version >= 14));
+                    abilityContextsVersioned: dto.version >= 14,
+                    // 🆕 v15（2026-10-22 · 引擎线 `W64` · 战斗审计 `B-16`）：原版结构化条件
+                    //    （`TargetCriteria.conditionsFilter`）—— **只落数据**（消费点 = `EffectResolver` /
+                    //    `RuleCore` 的条件层，另批接线）。四道闸（缺 `role` / 缺 `ab`·`lg` /
+                    //    非法 `cond` / 同 key 重复）在 `MapUnitConditions` 里**出声丢弃**，
+                    //    ⛔ 不在这里另判一遍。
+                    //    ⚠️ 缺值口径 = 空表 + `ConditionsVersioned = false`（旧表整列没有
+                    //    ⇒ 上面的 `< 15` 守卫已经出过声）；访问器一律 `-1`（未知），⛔ 不是 `none(0)`。
+                    abilityConditions: MapUnitConditions(c),
+                    conditionsVersioned: dto.version >= 15,
+                    // 🆕 v16（2026-10-22 · 引擎线 `W64` · `B-16` 缺口）：`count` 行的**被数集合**
+                    //    来自 v16 卡表的**正面信号**。⚠️ 它**不参与**访问器判定（看 `CountSet` 本身
+                    //    在不在）；缺值口径 = `CountSet == null`（未知），旧表整列没有 ⇒ 上面
+                    //    `< 16` 的守卫已经出声。⛔ 不是「默认集合」。
+                    conditionsCountSetVersioned: dto.version >= 16));
             }
             // 🔴 🆕 2026-10-15（接线批）：**护甲两套口径一旦分叉就出声** ——
             //   引擎读的那一份（`CardDef` 构造里定下来的 `_keywords[armour]`）由
@@ -823,6 +1021,262 @@ namespace RuleEngine
                     Name = ac.name,
                     Keyword = string.IsNullOrEmpty(ac.keyword) ? null : ac.keyword,
                     Context = ac.context,
+                });
+            }
+            return list;
+        }
+
+        /// <summary>🆕 v16（2026-10-22 · 引擎线 `W64` · 战斗审计 `B-16` 的**明确缺口**）：
+        /// `count` 行的**被数集合**（原版 `BoardCriteria.countCriteria` ＋ `playerTurn`）→
+        /// <see cref="CardDef.CountSetSpec"/>。
+        ///
+        /// 🔴 **这里的口径与那四道闸不同：坏值落 `-1`，⛔ 不丢整行。**
+        /// 为什么：丢一行 ⇒ `CardDef.ConditionOf` 对 v15+ 的表会返回 `ConditionNone`（**没有条件**）
+        /// ⇒ 条件从句被**静默放行** —— 那正是 `B-16` 要治的错法。所以：
+        ///   · `countSet` 整个缺 → 出声 + `ConditionSpec.CountSet = null`（**未知**，消费端回退旧口径）；
+        ///   · 单格缺键/非法 → 出声 + **那一格**落 `-1`（其余格照落，数据仍然可用）。
+        /// 三道值域检查：
+        ///   ① 每个整数字段不能是 `MissingIndex`（缺键）；
+        ///   ② 18 个布尔字段只能是 `0/1`（JSON 侧就是整数）；
+        ///   ③ `playerTurn` 只能是 `PlayersAffected` 的三档 `0/10/20`。
+        /// ⚠️ 其余枚举字段（`TargetsAffected` / `CardArmy` / `DefinedTrait` …）**只做类型与缺键检查**，
+        ///   不做成员校验 —— 那需要把 8 张原版枚举表抄进来（⛔ 两处枚举迟早不一致）；
+        ///   语义判定由消费端下一波按 `d:/2/tools/decomp_full/` 做。
+        /// ⚠️ 两个引用列表里**有空串** ⇒ 出声 + 丢掉那一条（保留其余）。
+        /// </summary>
+        static CardDef.CountSetSpec MapCountSet(CardDto c, UnitConditionDto uc)
+        {
+            var d = uc.countSet;
+            if (d == null)
+            {
+                Debug.LogError($"[RuleEngine] 卡「{c.name}」（{c.id}）的 `unitConditions` 里有一条 `count` 行"
+                             + " **没有 `countSet`（被数集合）** —— 该行的 `CountSet` 落 **null = 未知**"
+                             + "（⛔ 不是「默认集合」：`TargetsAffected=any` 是一个具体选择）。"
+                             + "表 version ≥ 16 时这是坏数据。重跑工具/gen_cards_engine.py。");
+                return null;
+            }
+            var s = new CardDef.CountSetSpec();
+
+            // ③ `playerTurn` = `PlayersAffected` 三档（0 Both / 10 Self / 20 Enemy）。
+            if (d.playerTurn == UnitConditionDto.MissingIndex)
+            {
+                Debug.LogError($"[RuleEngine] 卡「{c.name}」（{c.id}）的 `count` 行 `countSet` 缺 `playerTurn` 键"
+                             + " —— 落 -1（未知）。重跑工具/gen_cards_engine.py。");
+            }
+            else if (d.playerTurn != 0 && d.playerTurn != 10 && d.playerTurn != 20)
+            {
+                Debug.LogError($"[RuleEngine] 卡「{c.name}」（{c.id}）的 `count` 行 `countSet.playerTurn = "
+                             + $"{d.playerTurn}` **不在 `PlayersAffected`（0/10/20）里** —— 落 -1（未知；"
+                             + "⛔ 不 clamp、不默认）。重跑工具/gen_cards_engine.py。");
+            }
+            else
+            {
+                s.PlayerTurn = d.playerTurn;
+            }
+
+            s.TargetsAffected            = CountSetInt(c, "targetsAffected", d.targetsAffected);
+            s.ChosenArmy                 = CountSetInt(c, "chosenArmy", d.chosenArmy);
+            s.ArmyFilter                 = CountSetInt(c, "armyFilter", d.armyFilter);
+            s.KeywordFilter              = CountSetInt(c, "keywordFilter", d.keywordFilter);
+            s.TraitsFilter               = CountSetInt(c, "traitsFilter", d.traitsFilter);
+            s.MaxTargets                 = CountSetInt(c, "maxTargets", d.maxTargets);
+            s.TargetSelectMethod         = CountSetInt(c, "targetSelectMethod", d.targetSelectMethod);
+            s.AttackFilter               = CountSetInt(c, "attackFilter", d.attackFilter);
+            s.AttackFilterOption         = CountSetInt(c, "attackFilterOption", d.attackFilterOption);
+            s.CurrentHealthFilter        = CountSetInt(c, "currentHealthFilter", d.currentHealthFilter);
+            s.CurrentHealthFilterOption  = CountSetInt(c, "currentHealthFilterOption", d.currentHealthFilterOption);
+            s.ManaCostFilter             = CountSetInt(c, "manaCostFilter", d.manaCostFilter);
+            s.ManaCostFilterOption       = CountSetInt(c, "manaCostFilterOption", d.manaCostFilterOption);
+            s.RarityFilter               = CountSetInt(c, "rarityFilter", d.rarityFilter);
+            s.RarityFilterOption         = CountSetInt(c, "rarityFilterOption", d.rarityFilterOption);
+            s.SpellType                  = CountSetInt(c, "spellType", d.spellType);
+
+            s.FriendlyUnits              = CountSetFlag(c, "friendlyUnits", d.friendlyUnits);
+            s.EnemyUnits                 = CountSetFlag(c, "enemyUnits", d.enemyUnits);
+            s.IncludeHero                = CountSetFlag(c, "includeHero", d.includeHero);
+            s.IncludeMinions             = CountSetFlag(c, "includeMinions", d.includeMinions);
+            s.IncludeSpells              = CountSetFlag(c, "includeSpells", d.includeSpells);
+            s.IncludeWhispers            = CountSetFlag(c, "includeWhispers", d.includeWhispers);
+            s.IncludeWeapons             = CountSetFlag(c, "includeWeapons", d.includeWeapons);
+            s.IncludeRemnants            = CountSetFlag(c, "includeRemnants", d.includeRemnants);
+            s.IncludeHeroParts           = CountSetFlag(c, "includeHeroParts", d.includeHeroParts);
+            s.IncludeSelf                = CountSetFlag(c, "includeSelf", d.includeSelf);
+            s.ExcludeNotSelf             = CountSetFlag(c, "excludeNotSelf", d.excludeNotSelf);
+            s.ExcludeSimilarCards        = CountSetFlag(c, "excludeSimilarCards", d.excludeSimilarCards);
+            s.ExcludeTargetted           = CountSetFlag(c, "excludeTargetted", d.excludeTargetted);
+            s.ExcludeFriendlyHero        = CountSetFlag(c, "excludeFriendlyHero", d.excludeFriendlyHero);
+            s.ExcludeEnemyHero           = CountSetFlag(c, "excludeEnemyHero", d.excludeEnemyHero);
+            s.ExcludeRace                = CountSetFlag(c, "excludeRace", d.excludeRace);
+            s.ExcludeTrait               = CountSetFlag(c, "excludeTrait", d.excludeTrait);
+            s.SelectFromChooseResolution = CountSetFlag(c, "selectFromChooseResolution", d.selectFromChooseResolution);
+
+            s.FilterSpecificCardIds  = CountSetIds(c, "filterSpecificCards", d.filterSpecificCards);
+            s.ExcludeEnchantmentIds  = CountSetIds(c, "excludeEnchantments", d.excludeEnchantments);
+            return s;
+        }
+
+        /// <summary>被数集合的一个整数字段：缺键 ⇒ 出声 + `-1`（未知）。</summary>
+        static int CountSetInt(CardDto c, string field, int raw)
+        {
+            if (raw == UnitConditionDto.MissingIndex)
+            {
+                Debug.LogError($"[RuleEngine] 卡「{c.name}」（{c.id}）的 `count` 行 `countSet` 缺 "
+                             + $"`{field}` 键 —— 该格落 -1（未知；⛔ 不默认成 0）。重跑工具/gen_cards_engine.py。");
+                return CardDef.CountSetSpec.Unknown;
+            }
+            return raw;
+        }
+
+        /// <summary>被数集合的一个布尔字段（JSON 侧是 0/1）：缺键 / 非 0-1 ⇒ 出声 + `-1`（未知）。</summary>
+        static int CountSetFlag(CardDto c, string field, int raw)
+        {
+            if (raw == UnitConditionDto.MissingIndex)
+            {
+                Debug.LogError($"[RuleEngine] 卡「{c.name}」（{c.id}）的 `count` 行 `countSet` 缺 "
+                             + $"`{field}` 键 —— 该格落 -1（未知；⛔ 不当成 false）。重跑工具/gen_cards_engine.py。");
+                return CardDef.CountSetSpec.Unknown;
+            }
+            if (raw != 0 && raw != 1)
+            {
+                Debug.LogError($"[RuleEngine] 卡「{c.name}」（{c.id}）的 `count` 行 `countSet.{field} = {raw}`"
+                             + " **不是 0/1** —— 该格落 -1（未知；⛔ 不 clamp、不当成 true/false）。"
+                             + "重跑工具/gen_cards_engine.py。");
+                return CardDef.CountSetSpec.Unknown;
+            }
+            return raw;
+        }
+
+        /// <summary>被数集合的一个卡引用列表：缺键 ⇒ 出声 + `null`（未知）；
+        /// 空串条目 ⇒ 出声 + 丢掉那一条（保留其余 —— 与「整份未知」区分开）。</summary>
+        static string[] CountSetIds(CardDto c, string field, string[] raw)
+        {
+            if (raw == null)
+            {
+                Debug.LogError($"[RuleEngine] 卡「{c.name}」（{c.id}）的 `count` 行 `countSet` 缺 "
+                             + $"`{field}` 键 —— 落 null（未知；⛔ 不当成空表）。重跑工具/gen_cards_engine.py。");
+                return null;
+            }
+            var list = new List<string>(raw.Length);
+            for (int i = 0; i < raw.Length; i++)
+            {
+                if (string.IsNullOrEmpty(raw[i]))
+                {
+                    Debug.LogError($"[RuleEngine] 卡「{c.name}」（{c.id}）的 `count` 行 `countSet.{field}` 第 {i} 条"
+                                 + " 是空串 —— **丢掉那一条**（保留其余）。重跑工具/gen_cards_engine.py。");
+                    continue;
+                }
+                list.Add(raw[i]);
+            }
+            return list.ToArray();
+        }
+
+        /// <summary>🆕 v15（2026-10-22 · 引擎线 `W64` · 战斗审计 `B-16`）：`unitConditions` 列 →
+        /// `CardDef.ConditionSpec`。`null` / 空 ⇒ 空表（`Parse` 那边一律传非 null 的 `IEnumerable`）。
+        ///
+        /// 🔴 **四道闸，全部「出声 + 丢弃该条」**（与 `MapAbilityContext` / `MapTriggerPriority` 同口径：
+        /// 坏数据挡在 `CardDef` 之前 —— 到了那边只会「后写覆盖」，也就是**静默**）：
+        ///   ① `role` 不在 `CardDef.ConditionRoleNames`（十个位置）⇒ 丢弃。
+        ///   ② `ab` / `lg` **缺键**（= `UnitConditionDto.MissingIndex`）⇒ 丢弃。
+        ///      ⛔ 别让它静默落成 0：`0` 是**合法** `ab`（第 0 条 ability）与**合法** `lg`
+        ///      （第 0 条 logic）⇒ 缺键读成 0 会把条件挂到**错的位置**上。
+        ///   ③ `cond` **缺键**（`-1`）/ `0`（`none`，本列按约定不落）/ 不在 `UnitConditions` 枚举里
+        ///      ⇒ 丢弃。`0` 在这里是**「没有条件」**，而本列的每一行都表示**有一个条件** ⇒
+        ///      落成 0 的行是坏数据（⛔ 不静默当成「无条件」）。
+        ///   ④ 同 `(ab, lg, role)` 重复 ⇒ **丢弃后出现的那条**（先到的保留）＋出声。
+        ///      生成器每一格只落一行（同一格天然唯一）；这里是**第二道闸**，且**必须**丢：
+        ///      `CardDef` 的索引是「后写覆盖」⇒ 不丢就是静默取最后一条。
+        /// ⚠️ 位置语义（十个 role 分别是什么、`count` 的三个参数）**只在 `CardDef` 那一段注释里有一份**，
+        /// ⛔ 别在这里抄第二份。
+        /// </summary>
+        static List<CardDef.ConditionSpec> MapUnitConditions(CardDto c)
+        {
+            var list = new List<CardDef.ConditionSpec>();
+            if (c == null || c.unitConditions == null) return list;
+            HashSet<string> seen = null;
+            foreach (var uc in c.unitConditions)
+            {
+                if (uc == null) continue;
+                // ① 位置（`role`）必须是那十个之一。
+                if (!CardDef.IsLegalConditionRole(uc.role))
+                {
+                    Debug.LogError($"[RuleEngine] 卡「{c.name}」（{c.id}）的 `unitConditions` 有一条 `role` "
+                                 + $"不认识（{uc.role ?? "null"}）—— 已丢弃该条（合法位置 = "
+                                 + string.Join(" / ", CardDef.ConditionRoleNames)
+                                 + "；`CardDef` 那边也会静默丢）。重跑工具/gen_cards_engine.py。");
+                    continue;
+                }
+                // ② `ab` / `lg` 缺键（⛔ 不许静默落成 0 = 第 0 条 ability / 第 0 条 logic）。
+                if (uc.ab == UnitConditionDto.MissingIndex || uc.lg == UnitConditionDto.MissingIndex)
+                {
+                    Debug.LogError($"[RuleEngine] 卡「{c.name}」（{c.id}）的 `unitConditions` 有一条 "
+                                 + $"`{uc.role}` **缺 `ab`/`lg` 键**（ab={uc.ab}, lg={uc.lg}）—— 已丢弃该条"
+                                 + "（⛔ 没当成 0：`0` 是合法位置，缺键与「明确写 0」在数据上必须分开）。"
+                                 + "重跑工具/gen_cards_engine.py。");
+                    continue;
+                }
+                // ③ `cond` 缺键 / none(0) / 不在枚举里。
+                if (uc.cond == UnitConditionDto.MissingCondition)
+                {
+                    Debug.LogError($"[RuleEngine] 卡「{c.name}」（{c.id}）的 `unitConditions` 有一条 "
+                                 + $"`{uc.role}` **没有 `cond` 键** —— 已丢弃该条（⛔ 没当成 0 = none："
+                                 + "`0` 是合法取值「没有条件」，缺键与「明确写 0」在数据上必须分开）。"
+                                 + "重跑工具/gen_cards_engine.py。");
+                    continue;
+                }
+                if (uc.cond == CardDef.ConditionNone)
+                {
+                    Debug.LogError($"[RuleEngine] 卡「{c.name}」（{c.id}）的 `unitConditions` 有一条 "
+                                 + $"`{uc.role}` 的 `cond = 0`（`UnitConditions.none`）—— 已丢弃该条"
+                                 + "（本列按约定**只落非 none 的行**；落 0 的行是坏数据，"
+                                 + "⛔ 不静默当成「无条件」）。重跑工具/gen_cards_engine.py。");
+                    continue;
+                }
+                if (!CardDef.IsLegalUnitCondition(uc.cond))
+                {
+                    Debug.LogError($"[RuleEngine] 卡「{c.name}」（{c.id}）的 `unitConditions` 有一条 "
+                                 + $"`{uc.role}` 的 `cond = {uc.cond}` **不在 `UnitConditions` 枚举里**"
+                                 + " —— 已丢弃该条（⛔ 不猜、不 clamp）。重跑工具/gen_cards_engine.py。");
+                    continue;
+                }
+                // ④ 同 (ab, lg, role) 重复 ⇒ 丢弃后出现的那条（先到的保留）。
+                //    键的拼法与 `CardDef.ConditionKey` 同口径（整数走 invariant）。
+                string key = uc.ab.ToString(System.Globalization.CultureInfo.InvariantCulture) + ":"
+                           + uc.lg.ToString(System.Globalization.CultureInfo.InvariantCulture) + ":"
+                           + uc.role;
+                if (seen == null) seen = new HashSet<string>(StringComparer.Ordinal);
+                if (!seen.Add(key))
+                {
+                    Debug.LogError($"[RuleEngine] 卡「{c.name}」（{c.id}）的 `unitConditions` 里 "
+                                 + $"`ab={uc.ab}, lg={uc.lg}, role={uc.role}` **出现了不止一次** —— "
+                                 + "已丢弃**后出现**的那条（先到的保留；`CardDef` 的索引是「后写覆盖」，"
+                                 + "不丢就是静默取最后一条）。重跑工具/gen_cards_engine.py。");
+                    continue;
+                }
+                // ⑤ 🆕 v16：`countSet` 只属于 `count` 行 —— 别的 role 带着它是坏数据（出声、忽略）。
+                //    `count` 行的 `countSet` 缺/坏**不丢行**，只落 `null`/`-1`（理由见 `MapCountSet`）。
+                CardDef.CountSetSpec countSet = null;
+                if (uc.role == "count")
+                {
+                    countSet = MapCountSet(c, uc);
+                }
+                else if (uc.countSet != null)
+                {
+                    Debug.LogError($"[RuleEngine] 卡「{c.name}」（{c.id}）的 `unitConditions` 里 `role = "
+                                 + $"`{uc.role}` 的行**带着 `countSet`** —— 被数集合只属于 `count` 行，"
+                                 + "已**忽略**该字段（行本身照收）。重跑工具/gen_cards_engine.py。");
+                }
+                list.Add(new CardDef.ConditionSpec
+                {
+                    Ability = uc.ab,
+                    Logic = uc.lg,
+                    Role = uc.role,
+                    Condition = uc.cond,
+                    Name = string.IsNullOrEmpty(uc.name) ? null : uc.name,
+                    Exclude = uc.ex != 0,
+                    CountOption = uc.opt,
+                    StatOption = uc.op,
+                    ReferenceValue = uc.refValue,
+                    CountSet = countSet,
                 });
             }
             return list;

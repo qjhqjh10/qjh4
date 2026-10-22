@@ -5,29 +5,45 @@
 //  为什么需要它
 // ==================================================================
 // 原版 `Everguild/FX/Particle Distortion Affect Transparents` 读的是**全局纹理
-// `_GrabPassTransparent`** —— 这是 Built-in RP 的 GrabPass 留下的东西，**URP 没有**。
+// `_GrabPassTransparent`**，**URP 没有这一张**。
 // 证据：原版 HLSL 源码确实被剥了，但 `Shader.compressedBlob` 解出来是 DXBC、资源名是明文
 // （`工具/dump_shader_blob.py`）。名字里的 *Affect Transparents* 也说明它拷的是
 // **含透明物**的颜色缓冲。
 //
-// 我们现在的替代品是 URP 的 `_CameraOpaqueTexture`，但它**不含透明物**，而且
-// `PC_RPAsset.asset` 里 `m_OpaqueDownsampling: 1` ⇒ 它还是**半分辨率**的。
-// ⇒ 所有抓屏扭曲类效果（子代理按技术构成统计 **41 条**）的扭曲分量都不对：
-//   隔壁的透明特效扭曲不到、而且扭曲本身是糊的。
+// 🔴🔴 **2026-10-22（W64 · 兜底审计 B14）就地订正（铁律 5）—— 原来这里写着
+//    「这是 Built-in RP 的 GrabPass 留下的东西」「原版 GrabPass 抓的是画到那个物体那一刻的内容」
+//    【两条都不成立】**：
+//    · 原版那个 shader **根本没有 GrabPass** —— 它的 3 个 pass 里 `m_GrabPass = None`（逐 pass 实读
+//      `Shader.m_ParsedForm.m_SubShaders[0].m_Passes[*].m_GrabPass`）；
+//    · 真正灌这张全局纹理的是**原版自己的 URP Feature** `GrabScreenFeature`（三个版本：
+//      `GrabScreenFeature` / `GrabScreenFeatureU6` / `GrabScreenFeatureRenderGraphAPI`），
+//      方法体在 `d:/2/tools/decomp_full/GrabScreenFeature*.c`。
+//    逐条实读（`GrabScreenFeatureRenderGraphAPI__Create.c` / `…RenderPass__.ctor.c`）：
+//      ① `GrabPass`（拷屏）：`renderPassEvent = **500**`（= `RenderPassEvent.AfterRenderingTransparents`）；
+//         在 `OnCameraSetup` 里按 `cameraTargetDescriptor × textureSizeMultiplier` 分配一张 RT，
+//         `Shader.SetGlobalTexture(settings.TextureName, rt)`；`Execute` 就一次
+//         `ScriptableRenderPass.Blit(cmd, 源, 目标)` —— **整帧一次拷贝**。
+//      ② `RenderPass`（重画）：`renderPassEvent = **0x1f5 = 501**`（刚好在拷屏之后一格），
+//         用 `FilteringSettings(RenderQueueRange.all(), settings.LayerMask)` +
+//         `RenderStateBlock{ depthState = (ZWrite off, ZTest LEqual) }` 把**抓屏那一层的物体再画一遍**。
+//    ⇒ **原版 = 「透明物画完 → 整帧拷一次 → 再把扭曲物画一遍」**，不是逐物体抓屏。
+//      这也解释了为什么它要 `LayerMask`：那些物体**不在**默认透明 pass 里画（否则会画两遍）。
 //
-// ==================================================================
-//  这个 Feature 做什么
-// ==================================================================
-// 在**透明物画完之后**把相机的颜色缓冲整份拷进一张纹理，挂成全局 `_GrabPassTransparent`，
-// 并把 `_GrabPassAvailable` 置 1（着色器靠它决定用哪一张 —— 没跑这个 Feature 的场景
-// 会**自动退回** `_CameraOpaqueTexture`，不会变黑）。
-//
-// ⚠️ **时序**：拷的是「本帧透明物画完之后」的缓冲，而扭曲物自己也是透明物 ⇒
-//    它这一帧采样到的是**上一帧**的拷贝（一帧延迟）。抓屏扭曲本来就有这个性质
-//    （Built-in 的 GrabPass 也是在画到它那一刻抓当时已有的内容），可接受。
-//
-// ⚠️ **这是近似，不是等价**：原版 GrabPass 抓的是「画到那个物体那一刻」的内容，
-//    我们只能抓一个**统一的时刻**。对一帧内多个扭曲物叠加的场景会有差异。
+// ⇒ **本 Feature 的现状与差口**（⛔ 这不是「近似可以接受」，是**没做完**的第二半，写清楚缺什么）：
+//    ✅ 已经对上的：**拷屏时机 = 500**（`PC_Renderer.asset` 里 `passEvent: 500`，与原版逐字相同）、
+//       整帧一次拷贝、全局纹理名、`_GrabPassAvailable` 兜底。
+//    ❌ **缺的那一步 = `RenderPass`（在 501 把扭曲物重画一遍）**。我们现在的扭曲物是在
+//       **默认透明 pass 里**画的 ⇒ 它采样到的是**上一帧**的拷贝（一帧延迟），而原版这一帧就是对的。
+//       要等价需要两件（都还没做）：
+//         ① `WFDistortion.shader` 的前向 pass 换一个**自定义 LightMode**（例如 `WarpforgeGrab`），
+//            让 URP 默认 pass 不再画它；
+//         ② 本 Feature 加**第二个** `ScriptableRenderPass`（event 501），用
+//            `ShaderTagId("WarpforgeGrab") + RenderQueueRange.all() + layerMask=everything` 把它画一遍。
+//       ⚠️ 为什么这次没直接做：那会**同时**改 233 个材质的绘制时机与顺序（41 条效果），
+//          而矩阵/RT 绑定的写法**只能在 Unity 里 A/B 才算数**（本轮红线不跑 Unity）。
+//          ⛔ 无验证地改 = 有可能让这些效果整个不画（自定义 LightMode 没被任何 pass 认领就是不可见）；
+//          按铁律 11 例外清单之外的「做不到」——**如实留在这里，不拿现在的行为当成品**。
+//       📌 落地时的判据就是上面 ①②两条行号，外加 `PC_Renderer.asset` 已有的 `passEvent: 500`。
 using UnityEngine;
 using UnityEngine.Rendering;
 using UnityEngine.Rendering.RenderGraphModule;
