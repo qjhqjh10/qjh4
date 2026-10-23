@@ -152,6 +152,13 @@ namespace RuleEngine
         /// </summary>
         public const int SpellTypeSecretOrder = 0x3C;
 
+        /// <summary>🆕 2026-10-23（引擎线 `新账-97` ⑤）：`SpellType.quest = 0x78(120)` ——
+        /// 判据 = `EntityScript__HasQuests.c`（`+0x110` 里 `enchantmentCard.spellType(+0x90) == 0x78`，
+        /// 返回的是**件数**）。与 <see cref="SpellTypeSecretOrder"/> 同形。
+        /// <para>⚠️ **当前快照 `spellType == 120` 的卡 0 张**（`cards_raw.json` 1,351 张全表扫过；
+        /// 生成器 v19 的摘要会打出来）⇒ 这一格今天恒为 0，⛔ 不是「原版没有这条」。</para></summary>
+        public const int SpellTypeQuest = 0x78;
+
         /// <summary>`CardEffect__IsEnchantment.c:9-12`：`buffType ∈ {12, 15, 16}`。</summary>
         public static bool IsEnchantmentBuffType(int buffType)
         {
@@ -211,7 +218,13 @@ namespace RuleEngine
             int id = ctx != null ? ctx.EnchantmentsUsed : 0;
             if (ctx != null) ctx.EnchantmentsUsed = id + 1;
 
-            var ench = new ActiveEnchantment { Card = enchantmentCard, EnchantmentCardId = id, SpellType = spellType };
+            // 🆕 2026-10-23（v19 · `新账-97` ⑤）：调用方**没给** `spellType` 时，用**附魔卡自己的**
+            //   `CardDef.SpellType` —— 原版读的就是 `enchantmentCard.spellType(+0x90)`
+            //   （`EntityScript__HasSecretOrders.c:31` / `HasQuests.c`），我们以前只有调用方手传这一条路
+            //   ⇒ 绝大多数附魔的 `SpellType` 停在 `-1`，密令/任务两条判定永远「未知」。
+            //   ⚠️ 卡表还是 `< v19`（没这一列）时 `CardDef.SpellType == -1` ⇒ 原样保持未知（⛔ 不猜 0）。
+            int _st = spellType >= 0 ? spellType : enchantmentCard.SpellType;
+            var ench = new ActiveEnchantment { Card = enchantmentCard, EnchantmentCardId = id, SpellType = _st };
             var eff = new ActiveCardEffect
             {
                 EnchantmentCard = enchantmentCard,
@@ -230,13 +243,15 @@ namespace RuleEngine
                 string carrierName = carrier.Card != null ? carrier.Card.Name : "?";
                 ctx.Log($"附魔层：把「{enchantmentCard.Name}」挂到「{carrierName}」身上"
                       + $"（#id {id}，buffType {buffType}"
-                      + (spellType >= 0 ? $"，spellType {spellType}" : "，spellType 未知")
+                      + (_st >= 0 ? $"，spellType {_st}" : "，spellType 未知")
                       + (source != null ? $"，来源 {source}" : "") + "）");
-                if (spellType < 0)
+                if (_st < 0)
                 {
-                    // 红线：不许静默。密令判定只认 spellType ⇒ 未知时**当场说清后果**。
-                    ctx.Log("  ⚠️ spellType 未知 ⇒ **密令（SecretOrder）检测看不到这一件**"
-                          + "（我们的卡表还没有 `spellType` 列，见 `Enchantment.cs` 文件末尾）");
+                    // 红线：不许静默。密令/任务判定只认 spellType ⇒ 未知时**当场说清后果**。
+                    // 🆕 2026-10-23：v19 卡表起 `spellType` 已有这一列（`CardDef.SpellType`），
+                    //   再走到这里只剩「这张附魔卡不在真值快照里」或「卡表还是旧的」两种原因。
+                    ctx.Log("  ⚠️ spellType 未知 ⇒ **密令（SecretOrder）/ 任务（Quest）检测看不到这一件**"
+                          + "（`CardDef.SpellType == -1`：卡表 < v19，或这张附魔卡不在真值快照里）");
                 }
             }
             return eff;
@@ -424,6 +439,19 @@ namespace RuleEngine
             if (carrier == null) return 0;
             foreach (var e in carrier.ActiveEnchantments)
                 if (e != null && e.SpellType == SpellTypeSecretOrder) n++;
+            return n;
+        }
+
+        /// <summary>🆕 2026-10-23（`新账-97` ⑤）：原版 `EntityScript__HasQuests.c` —— 数 `+0x110` 里
+        /// **`enchantmentCard.spellType(+0x90) == 0x78(120)`** 的件数（返回件数，不是 bool）。
+        /// ⚠️ `SpellType == -1`（未知）不计入（⛔ 不猜）—— 那种件数用
+        /// <see cref="CountUnknownSpellType"/> 单独查（`ConditionEval` 的 250 靠它决定「判不了」）。</summary>
+        public static int CountQuests(CardInstance carrier)
+        {
+            int n = 0;
+            if (carrier == null) return 0;
+            foreach (var e in carrier.ActiveEnchantments)
+                if (e != null && e.SpellType == SpellTypeQuest) n++;
             return n;
         }
 

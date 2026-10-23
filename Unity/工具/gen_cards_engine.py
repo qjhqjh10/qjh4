@@ -2102,6 +2102,12 @@ TRAIT_DISPLAY = {
 #        （`SOR8`/`SOR21`/`SOR10`/`SOR27`；`SOR32` 本来就有）、`Unstoppable` 1 张（`SAU7`）。
 #        引擎行为**不变**（那几张卡的效果是从 `Desc` 收的 —— `CardDef.CollectTriggerOps` ①，
 #        ⛔ 不靠 `Has()`），变的是 `Has(penitence)` 1→5 · `Has(unstoppable)` 0→1 与卡面关键词行。
+#        🔴 **2026-10-23 就地订正（引擎线 `新账-95` · 铁律 5）**：最后那半句
+#        「`Has(unstoppable)` 0→1」**不成立** —— 上面那笔放行的**最终**结果被**人工层**盖掉了：
+#        `数据/游戏数据/cardface_fixes.json` 的 `_manual_keywords["Canoptek Wraith"] = ["Remnant"]`
+#        （236 条人工关键词里的一条；`P` 优先级最高）⇒ `SAU7` 的 `keywords` 现读 **`["Remnant"]`**、
+#        `Has(unstoppable)` **恒为 0**；`Unstoppable` 只留在 `cardTraits`（**纯落值列、不喂引擎**）。
+#        ⇒ 「真值合并会不会追加」与「最终 `keywords` 是什么」是**两层**，别把这行当最终读数。
 #   🆕 **2026-10-18（卡牌线数据侧第二波 · `A2073` 全池对账）补一条**：`oathdouble` ——
 #     真值 `CardTraits` 里有 `oathDouble`（`DefinedTrait.cs` = 1277，全池 1 张 = `UM100 Chaplain Cassius`），
 #     而 `CardDef.Prefixes` **只登记了 `oath`、没有 `oathdouble`** ⇒ 写进 `keywords` 会被 `Normalize` 丢。
@@ -3270,6 +3276,20 @@ def build():
             #   （`ArmourFromPool = armour > 0 ? armour : 0`，非 0 时写回 `_keywords[Armour]`）⇒ **本列非 0 就赢**。
             "armour":   _armour_pnp,
             "cardTraits": _traits,
+            # ---- 🆕 2026-10-23（v19 · 引擎线 `新账-97` ③/⑤）：`spellType` ---------------------------------
+            # 原版 `RawCardScript.spellType`（`dump.cs` 的 `SpellType` 枚举：0 Normal / 60 SecretOrder /
+            #   120 Quest / 150 Secret / 230 Sabotage / …）。**真值直搬**，`-1` = 快照里没这张卡（未知）。
+            # 为什么现在要它：
+            #   ① `CardCriteria` 的 `spellType` 维度（`FilterMethods__CheckIfMeetsCriteria.c:300-303`
+            #      `cardType` 那几个 include* 之外，`spellType` 是**独立一格**）：`DA66` 的
+            #      `actingCardCriteria.spellType = 150`（"When you create or play a **Secret**"）
+            #      —— 正文侧只能把它当卡名猜，认不出就永远不匹配（静默）。
+            #   ② `UnitConditions` 的 240 `hasSecretOrders` / 250 `hasQuests`：原版读的是**附魔卡的**
+            #      `spellType == 60 / 120`（`EntityScript__HasSecretOrders.c:31` / `HasQuests.c`）。
+            #      🔴 现状：当前快照里 **spellType 60 / 120 的卡 0 张**（分布见 main() 的摘要）——
+            #      那两类附魔卡不在 `cards_raw.json` 里 ⇒ 这两条条件**仍然判不了**（`ConditionEval`
+            #      返回 `null`），本列只是把「附魔卡是什么类型」这一层补上，⛔ 不是凭空造 60/120。
+            "spellType": (truth_int(trow, "spellType", -1) if trow is not None else -1),
         }
         # ---- 卡能不能进卡组（原版 `inventoryOptions` / `showInCollectionOptions`，`A1798` 2026-10-14）----
         # 🔴 **原版真值直搬**（`工具/gen_card_inventory_options.py` 四级定位出来的），本处**一个字不推**。
@@ -3843,7 +3863,7 @@ def build():
     talent_name_ids = build_talent_name_ids(truth_cards, truth_by_path, cards, talent_name_report)
 
     return {
-        "version": 18,         # v6: 每张卡带稳定 id（🔴 2026-10-18 `W25` 起按原版 `uniqueId` 直取，
+        "version": 19,         # v6: 每张卡带稳定 id（🔴 2026-10-18 `W25` 起按原版 `uniqueId` 直取，
                                #    名级联降为交叉校验；自造 = 生成期自检硬失败）
                                # v7（2026-10-14 `A1798`）：加 `inventoryOptions` / `showInCollectionOptions` 两列
                                # v8（2026-10-14 `A1775`）：加 `initiative` 一列（先后手；原版真值）
@@ -3930,6 +3950,15 @@ def build():
                                #      所以 v13 的 `triggerPriority`（键 = 引擎关键词）**不合并**）。
                                #    消费端 = `CardDef.AbilityTriggerPriority(name)` → `ActionPump.ListenerLane`。
                                #    判据 → 资料/普查产出_1023c/引擎深审A_规则语义.md P1·1。
+                               #    ⚠️ 加列【必须】bump（`CardDatabase.cs` 的 version 守卫靠它出声）。
+                               # v19（2026-10-23 · 引擎线 `新账-97` ③/⑤）：
+                               #    加逐卡 **`spellType`**（原版 `RawCardScript.spellType`，`SpellType` 枚举；
+                               #    **真值直搬**，快照里没这张卡 = `-1` 未知）—— 消费端两处：
+                               #    ① `CardCriteria.SpellType`（`WhenEvent` 的主语筛，`DA66` 的 Secret=150）；
+                               #    ② `Enchantments` 的附魔 `SpellType` 兜底（240 `hasSecretOrders` /
+                               #       250 `hasQuests` 读的 `EntityScript__HasSecretOrders.c:31`）。
+                               #    🔴 本列**只落数据、零行为变化**：当前快照 `spellType == 60 / 120` 的卡 **0 张**
+                               #    （分布见 `main()` 的摘要）⇒ 那两条条件**照旧返回 null（判不了）**。
                                #    ⚠️ 加列【必须】bump（`CardDatabase.cs` 的 version 守卫靠它出声）。
         "source": "Unity/数据/游戏数据/card_stats.json（稀有度另取 资料/卡牌数据表/卡牌宝石稀有度_0824.md；"
                   "英文名 / 中文名都以**原版官方表** 数据/游戏数据/官方本地化_en+zh-CN.json 的 `Card_Name/*` 为准"
@@ -4896,8 +4925,27 @@ def main():
         print(f"  🔴 `targetsAffected` 非整数：{_cid} {_nm} 第 {_i} 条 ability 的 `{_f}` → {_v!r}"
               " ⇒ 该格落 **-1**（⛔ 不猜成 0 = `any`）")
 
-    # 🆕 2026-10-21（引擎线 `T03·b`）：开局加成三列 + `skipCardDraw` 生产列的读数。
-    #   三列/一列都**只在有值时才落** ⇒ 这条摘要就是「今天有没有卡走到」的唯一凭据。
+    # 🆕 2026-10-23（v19 · 引擎线 `新账-97` ③/⑤）：`spellType` 列的读数。
+    #   🔴 消费端要的两档是 **60 SecretOrder** 与 **120 Quest**（附魔层那两条条件）——
+    #   它们**不在当前快照里**的话必须当面说清（那样 240/250 只能继续返回 null）。
+    _st_cnt = {}
+    _st_unknown = 0
+    for _c in doc["cards"]:
+        _v = _c.get("spellType", -1)
+        if _v is None or _v < 0:
+            _st_unknown += 1
+            continue
+        _st_cnt[_v] = _st_cnt.get(_v, 0) + 1
+    _st_top = " · ".join(f"{_v}:{_n}" for _v, _n in sorted(_st_cnt.items()) if _v != 0)
+    print(f"卡牌类型     `spellType` 落值 **{doc['count'] - _st_unknown}/{doc['count']}** 张 · "
+          f"未知 {_st_unknown} 张（原版 `RawCardScript.spellType`；0 = Normal）")
+    print(f"             非 0 的取值：{_st_top or '（无）'}")
+    for _need, _nm in ((60, "SecretOrder"), (120, "Quest")):
+        if _st_cnt.get(_need, 0) == 0:
+            print(f"  ⚠️ `spellType == {_need}`（{_nm}）**池内 0 张** ⇒ `UnitConditions` 的 "
+                  f"{240 if _need == 60 else 250} 仍判不了（`ConditionEval` 返回 null，⛔ 不拿 false 顶）")
+
+    # 🆕 2026-10-21（引擎线 `T03·b`）：开局加成三列 + `skipCardDraw` 生产列的读数。    #   三列/一列都**只在有值时才落** ⇒ 这条摘要就是「今天有没有卡走到」的唯一凭据。
     _im = initial_modifier_report
     print("开局加成     "
           + " · ".join(f"`{c}` {_im[c]['cards']} 张" for c in INITIAL_MODIFIER_COLS)

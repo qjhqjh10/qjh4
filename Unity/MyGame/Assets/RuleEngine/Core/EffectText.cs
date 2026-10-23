@@ -7754,11 +7754,13 @@ namespace RuleEngine
             var evs = WhenEvents.ParseAll(tail);
             if (evs.Count == 0) return false;    // ③ 事件短语要解析得出（原记账点）
             // 🔴 **2026-10-19（`A1690`）**：这是**后缀形**的 `When` 正文（`<效果> when <事件>`）——
-            //   事件**带宾语**时裸 `adjacent` 要锚 **110**（`TargetIfMeetsCriteria`）⇒ 必须重解析一份。
-            //   事件**不带宾语**时旧那一份已经落在 `Self`（正文不带 `when ` 前缀 ⇒ 走 ④）⇒ 不重解析。
+            //   事件**带宾语**时裸 `adjacent` 要锚 **110**（`TargetIfMeetsCriteria`）。
             //   ⚠️ `AnyHasTarget` 与 `CardDef.FinishWhenSentence` / `CollectHandTrapWhens` **共用一处**。
-            if (WhenEvents.AnyHasTarget(evs))
-                headOps = Parse(head, out _, out _, true, whenBody: true);
+            // 🆕 **2026-10-23（本批）**：**不论带不带宾语都按 `whenBody: true` 重解析一份** ——
+            //   不带宾语时两种解析今天结果相同（正文不带 `when ` 前缀 ⇒ 都落 ④ `Self`），
+            //   但「这一半走 `whenBody`、那一半不走」正是 `A1690` 要消灭的**两份口径**：
+            //   哪天后缀形的正文里出现 `when ` / `whenclause` 标记 op，两条路的结论就会分叉。
+            headOps = Parse(head, out _, out _, WhenEvents.AnyHasTarget(evs), whenBody: true);
 
             evPhrase = tail; body = head; ops = headOps;
             return true;

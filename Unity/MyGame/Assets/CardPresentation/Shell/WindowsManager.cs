@@ -983,8 +983,9 @@ namespace CardPresentation
         /// <para><paramref name="page"/> = 开在哪一页（默认 `ChooseSide` —— 原版 `CheckAndOpenTab` 按
         /// 「玩家是否已选阵营」决定，那份数据在远端 LiveOps ⇒ 本地只能挑一个并出声；
         /// 判据 → `Shell/ParentEventWindow.cs` 文件头 ④）。</para>
-        /// <para>⚠️ **本地没有生产入口**（原版由 `ParentEventHandler` / liveops 事件链开）⇒ 只提供「怎么开」，
-        /// ⛔ 不伪造调用点。⚠️ 活动数据全在远端 ⇒ 本窗照 prefab 出厂原文画 + 出声一次
+        /// <para>✅ **2026-10-23 起有生产入口了**：左竖导航第 6 颗 `Event Navigation Button` → `OnNavClick(5)`
+        /// → <see cref="OpenEventHub"/>（默认 `Parent`）→ 本方法；另外三扇活动窗左栏的「事件钮」也走它。
+        /// ⚠️ 活动数据全在远端 ⇒ 本窗照 prefab 出厂原文画 + 出声一次
         /// （数据缺口清单 → 同文件「数据缺口」那一节）。</para></summary>
         public static ParentEventWindow OpenParentEvent(ParentEventWindow.Page page = ParentEventWindow.Page.ChooseSide)
         {
@@ -997,8 +998,9 @@ namespace CardPresentation
         /// <para>⚠️ **原版没有独立窗口**：Gacha 是 `BaseParentEventWindow` 里由 liveops 事件列表动态建的
         /// 一个 tab（判据 → <see cref="PrefabRefGachaEvent"/> 的注释与 `Shell/GachaEventWindow.cs` 文件头）。
         /// 本地没有 liveops 事件列表 ⇒ 本方法开的是「**承载窗外壳 + 恰好一个 Gacha 页**」。</para>
-        /// <para>⚠️ **本地没有生产入口**：原版由 `BaseParentEventWindow.CreateEventTab` 在 `SetupTabs` 里
-        /// 按事件列表建出来 ⇒ 只提供「怎么开」，⛔ 不伪造调用点。活动数据全在远端 LiveOps
+        /// <para>✅ **2026-10-23 起有生产入口了**：① 左竖导航第 6 颗 `Event Navigation Button` →
+        /// <see cref="OpenEventHub"/>；② **任何一扇活动窗左栏的「事件钮」**（`ParentEventWindow.SetupEventTabs`
+        /// 建的四扇窗共用那一份）→ 同一个 `OpenEventHub`。活动数据全在远端 LiveOps
         /// ⇒ 页面建满、数值 `--` + 出声（⛔ 不编；数据缺口清单 → `Shell/GachaEventWindow.cs` 文件头）。</para></summary>
         public static GachaEventWindow OpenGachaEvent()
         {
@@ -1011,8 +1013,9 @@ namespace CardPresentation
         /// <para>⚠️ **原版没有独立窗口**：Raid 是 `BaseParentEventWindow` 里由 liveops 事件列表动态建的
         /// 一个 tab（判据 → <see cref="PrefabRefRaidEvent"/> 的注释与 `Shell/RaidEventWindow.cs` 文件头）。
         /// 本地没有 liveops 事件列表 ⇒ 本方法开的是「**承载窗外壳 + 恰好一个 Raid 页**」。</para>
-        /// <para>⚠️ **本地没有生产入口**：原版由 `BaseParentEventWindow.CreateEventTab` 在 `SetupTabs` 里
-        /// 按事件列表建出来 ⇒ 只提供「怎么开」，⛔ 不伪造调用点。活动数据全在远端 LiveOps
+        /// <para>✅ **2026-10-23 起有生产入口了**：① 左竖导航第 6 颗 `Event Navigation Button` →
+        /// <see cref="OpenEventHub"/>；② **任何一扇活动窗左栏的「事件钮」**（`ParentEventWindow.SetupEventTabs`
+        /// 建的四扇窗共用那一份）→ 同一个 `OpenEventHub`。活动数据全在远端 LiveOps
         /// （里程碑 / 社区分 / 个人分 / 奖励 / 起止时刻 / 背景图 / 阵营图）
         /// ⇒ 页面建满、数值 `--` + 出声（⛔ 不编；数据缺口清单 → `Shell/RaidEventWindow.cs` 文件头）。</para></summary>
         public static RaidEventWindow OpenRaidEvent()
@@ -1027,8 +1030,9 @@ namespace CardPresentation
         /// 一个 tab（判据 → <see cref="PrefabRefExpansionPassEvent"/> 的注释与
         /// `Shell/ExpansionPassEventWindow.cs` 文件头）。本地没有 liveops 事件列表
         /// ⇒ 本方法开的是「**承载窗外壳 + Pass / Missions 两页**」。</para>
-        /// <para>⚠️ **本地没有生产入口**：原版由 `BaseParentEventWindow.CreateEventTab` 在 `SetupTabs` 里
-        /// 按事件列表建出来 ⇒ 只提供「怎么开」，⛔ 不伪造调用点。活动数据全在远端 LiveOps
+        /// <para>✅ **2026-10-23 起有生产入口了**：① 左竖导航第 6 颗 `Event Navigation Button` →
+        /// <see cref="OpenEventHub"/>；② **任何一扇活动窗左栏的「事件钮」**（`ParentEventWindow.SetupEventTabs`
+        /// 建的四扇窗共用那一份）→ 同一个 `OpenEventHub`。活动数据全在远端 LiveOps
         /// （里程碑奖励轨道 / 等级与分数 / `HasPremium` / 付费档报价 / 起止时刻 / 背景图 / 阵营图）
         /// ⇒ 页面建满、数值 `--` + 出声（⛔ 不编；数据缺口清单 → `Shell/ExpansionPassEventWindow.cs` 文件头）。</para></summary>
         public static ExpansionPassEventWindow OpenExpansionPassEvent()
@@ -1058,11 +1062,12 @@ namespace CardPresentation
         /// 直接开对应那扇窗（原版是「事件实例 → 它的 `MainWindow`」；我们没有实例 ⇒ **这一层映射是等价物、如实标**）。
         /// 活动数据仍全在远端：窗照样建满、数值 `--` + 出声（数据缺口 → 各窗文件头）。</para>
         ///
-        /// <para>⚠️ **还差最后一跳**：原版那颗「事件钮」在左竖导航（`BuildEventButtons`），本仓的
-        /// `Shell/MainMenuRuntime.BuildNavigationPanel` **只建了前 5 颗**（`Event = 5` 那颗没建，见
-        /// `MainMenuRuntime.NavigationPanelToggleType` 的注释）⇒ 那颗钮**还没接**（2026-10-23 本批的白名单
-        /// 不含 `MainMenuRuntime.cs`）。补法 = 在 `BuildNavigationPanel` 里加第 6 颗 `NavButton(..., Event, ...)`、
-        /// 回调转调本方法；在那之前活动窗只能从这里打开（⛔ 不静默：本方法每开一次都 `Debug.Log` 一行）。</para></summary>
+        /// <para>✅ **2026-10-23：最后一跳【已接】** —— 原版那颗「事件钮」在左竖导航（`BuildEventButtons`），
+        /// 本仓 `Shell/MainMenuRuntime.BuildNavigationPanel` 末尾建出第 6 颗 **`Event Navigation Button`**
+        /// （原版 prefab 真名，`NavigationPanelToggle.toggleType = 5`），`OnNavClick(5)` → **本方法**
+        /// （`EventWindowKind.Parent`）；`SetNavToggle(Event)` 现在真的点亮它（值序与
+        /// `NavigationPanelToggleType.Event = 5` 逐值相同）。⚠️ 原版是「每个 live 事件一颗钮」，
+        /// 本机没有事件列表 ⇒ 本仓建**一颗**总入口钮（如实标）。</para></summary>
         public static GameWindow OpenEventHub(ParentEventWindow.EventWindowKind kind = ParentEventWindow.EventWindowKind.Parent)
         {
             GameWindow w;
@@ -1075,7 +1080,7 @@ namespace CardPresentation
             }
             Debug.Log("[Win] `OpenEventHub(" + kind + ")` ⇒ 开 `" + (w != null ? w.name : "(null)")
                     + "`（原版那一跳 = `OpenEventButton.OpenWindow` → `WindowsManager.OpenWindow(MainWindow)`；"
-                    + "那颗钮在本仓左竖导航里还没接，见本方法的 doc）");
+                    + "入口 = 左竖导航第 6 颗 `Event Navigation Button`，见本方法的 doc）");
             return w;
         }
 

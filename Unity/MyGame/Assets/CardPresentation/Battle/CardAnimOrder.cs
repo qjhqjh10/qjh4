@@ -124,9 +124,13 @@ namespace CardPresentation
         //       —— 原版用 `UnityEngine.Random`；我们按铁律「确定性只用 `System.Random(seed)`」改用
         //       开局种子派生的独立 `System.Random`（见 `BattleDriver` 的 `_vfxOffsetRng`）。
         //     · `useNonModifiedAnimTime(0x10)`：真 = 用**原始** `t01=(t−ts)/tm` 求值；假 = 用**缓动后**的 `e`。
-        //   ⚠️ **数据侧还没烘**（`Resources/card_anim_order.json` 的生成器 = `工具/gen_card_anim_order.py`，
-        //   本轮白名单外）：下面这些字段今天**全部是默认 0** ⇒ `OffsetAt` 恒返回 `Vector3.zero`，
-        //   行为与改前逐位相同。生成器补上同名字段后**立刻生效**（消费端已就绪）。
+        //   ⚠️ 🔴 **2026-10-23 就地订正（铁律 5）**：这里原来写「**数据侧还没烘**（生成器白名单外）……
+        //   下面这些字段今天**全部是默认 0**」—— **不成立**：`工具/gen_card_anim_order.py` 早已烘这 11 个字段
+        //   （现读 `Resources/card_anim_order.json`：99 拍里 `ao=1` **3 拍**、`mv=1` 7 拍）。
+        //   **错因**：写这段的时候生成器确实还没补，补上之后没回来改这句。行为本身早已生效（消费端就绪）。
+        //   ⚠️ 另一条**仍然成立**的：「`orientToVelocity` 我们卡池当前 **0 条**为 1」（99 拍现读）。
+        //   攻击路径（`CardAnimClips` / `cardanim_clips.json`）那一份是 2026-10-23（`新账-83`）才烘的，
+        //   两份表**各自独立**（`CardAnimBeat` vs `CardAnimPlacement`），字段名相同、**别互相顶替**。
         /// <summary>`xAxis/yAxis/zAxis` 的扁平关键帧（同 <see cref="ease"/> 的 `[t0,v0,…]` 约定）。
         /// 空 = 原版默认曲线 `(0,0)→(1,0)`（= 不偏移）。</summary>
         public float[] ofx, ofy, ofz;
@@ -140,17 +144,11 @@ namespace CardPresentation
 
         /// <summary>这一拍在进度 <paramref name="pEased"/> / <paramref name="t01"/> 处的偏移量
         /// （= 曲线值 × 随机幅度；见上面 `offsetMovementAxis` 那段注释）。没有数据 ⇒ 零。
-        /// 判据 → `CardAnimController__Update.c:60-97`（`fVar7 = ont ? t01 : e`）。</summary>
+        /// 判据 → `CardAnimController__Update.c:60-97`（`fVar7 = ont ? t01 : e`）。
+        /// ⚠️ **求值实现只此一处** = <see cref="CardAnimOrder.OffsetAt"/>（`CardAnimPlacement.OffsetAt` 也走它）。</summary>
         public Vector3 OffsetAt(float t01, float pEased, Vector3 randomAmp)
         {
-            if (ao == 0) return Vector3.zero;
-            float x = ont != 0 ? t01 : pEased;
-            float cx = CardAnimOrder.EaseAtRaw(ofx, x);
-            float cy = CardAnimOrder.EaseAtRaw(ofy, x);
-            float cz = CardAnimOrder.EaseAtRaw(ofz, x);
-            // ⚠️ 曲线的**默认值**是 0（原版 `AnimationCurve.Linear(0,0,1,0)` 一类的默认），
-            //   所以「没有曲线」⇒ 0 ⇒ 不偏移；这里 `EaseAtRaw` 对空数组返回 0（不是 `ease` 那样的线性恒等）。
-            return new Vector3(cx * randomAmp.x, cy * randomAmp.y, cz * randomAmp.z);
+            return CardAnimOrder.OffsetAt(ao, ont, ofx, ofy, ofz, t01, pEased, randomAmp);
         }
 
         /// <summary>这拍的位移进度曲线（`p` = 归一化时间 0~1，返回 0~1）。
@@ -232,6 +230,27 @@ namespace CardPresentation
                 }
             }
             return curve[curve.Length - 1];
+        }
+
+        /// <summary>🆕 2026-10-23（`新账-83`）：**逐轴偏移**的求值口 —— `applyMovementOffsets` 那一位
+        /// 在 `CardAnimController.Update` 里的三句（`CardAnimController__Update.c:60-97`）：
+        /// <code>
+        /// fVar7 = ont ? t01 : e;                                  // useNonModifiedAnimTime
+        /// x += xAxis.Evaluate(fVar7) * randomAmp.x;  // 三轴各一次（曲线输出**不** clamp）
+        /// </code>
+        /// <para>**判据只此一处**：`CardAnimBeat.OffsetAt` 与 `CardAnimPlacement.OffsetAt`
+        /// 都转发到这里（两张表的字段名相同 ⇒ 同一份求值）。</para>
+        /// <para>⚠️ 曲线为空 ⇒ 该轴 0（原版默认偏移曲线 `(0,0)→(1,0)` = 不偏移）——
+        /// 与 <see cref="EaseAt"/> 的空曲线「线性恒等」是**两条不同的默认**，⛔ 别混。</para></summary>
+        public static Vector3 OffsetAt(int ao, int ont, float[] ofx, float[] ofy, float[] ofz,
+                                       float t01, float pEased, Vector3 randomAmp)
+        {
+            if (ao == 0) return Vector3.zero;
+            float x = ont != 0 ? t01 : pEased;
+            float cx = EaseAtRaw(ofx, x);
+            float cy = EaseAtRaw(ofy, x);
+            float cz = EaseAtRaw(ofz, x);
+            return new Vector3(cx * randomAmp.x, cy * randomAmp.y, cz * randomAmp.z);
         }
 
         public const string ResourcePath = "card_anim_order";

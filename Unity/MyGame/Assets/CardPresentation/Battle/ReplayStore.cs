@@ -59,8 +59,9 @@
 // 📏 **实测一局多大**见 `ReplayStore.LastSavedBytes`（自检每次打印），别拍脑袋估。
 //
 // ---- 版本（`ReplayRecord.version`）----
-// 🔴 **2026-10-20（`W58`）：2 → 3。本批改的是【结算语义】，不是文件结构 —— 旧录像照样必须拒绝。**
+// **规矩**：改结构【或改结算/对账语义】就 +1，读到不认识的版本**出声跳过**、⛔ 别硬解。
 //
+// 🔴 **2026-10-20（`W58`）：2 → 3** —— 本批改的是【结算语义】，不是文件结构：
 //   · **为什么不兼容**：录像只存「起始条件 + 动作流」，**同一串动作在新引擎里会算出另一种局面**
 //     ⇒ 旧档放出来是**另一局**。而旧的闸只在**终局 `StateHash` 不一致**时才出声 ——
 //     那时整局已经演完了（正是审查 `P2-4` 那条）。⇒ 只能靠版本号在**入口处**拦。
@@ -71,11 +72,22 @@
 //     ④ **`Gain N Energy` 的语义**（只结算一次、改的是 `MaxEnergy`，不随目标数翻倍）；
 //     ⑤ **受伤 / 攻击 / 部署 / 猎杀标记广播的「预调主体 + 排除」次序**；
 //     ⑥ **伏击揭示**（删掉「回合开始自动揭示」⇒ 只在原版那 7 个 `SetAmbush(false)` 调用点翻面）。
-//   · **旧版本怎么处理（现有逻辑，一字未改）**：`Load` 拿 `rec.version` 比
-//     `new ReplayRecord().version`，不等就 `Debug.LogWarning("[Replay] 版本 N 不认识（本代码只认 M）⇒ 不播：<完整路径>")`
-//     并返回 **null**；`BattleDriver.PlayReplay(fileName)` 拿到 null 直接 `return false`，
-//     列表那几处 `continue` ⇒ **不硬解、不会演成另一局**。⚠️ 这不是静默失败：警告带完整路径与两头的版本号。
-//   · ⚠️ **`JsonUtility` 读不到 `version` 键时给 `0`**（`int` 的 CLR 默认值）⇒ 比 3 不等 ⇒ 同样走拒绝路。
+//
+// 🔴 **2026-10-23（引擎线「新账-88」）：3 → 4** —— 本批改的是【对账的尺子】，局面不变：
+//   · `trace`（逐条 `BattleDriver.DeepHash`）与 `finalHash`（`NetProtocol.StateHash`）**换了** ——
+//     `DeepHash` 的卡 id 从 `string.GetHashCode()`（进程随机化）换成 `NetProtocol.Hash`（跨进程稳定）；
+//     `StateHash` 补了一批维度（信仰/灵魂石/任务点/疲劳/费用修正/抢来的单位/手牌记录/隐秘/附魔/
+//     环境卡选择/牌库与弃牌**全量**…，清单在 `NetProtocol.PlayerHash` 的 doc 上）。
+//   · ⇒ 旧档放出来会在**第 0 条**就报分叉（`rec.trace[i]` 跟新算法算出来的数永远不等）、末尾再报
+//     「不是同一局」—— 那不是「演错了」，是**尺子换了**。按上面的规矩：**入口处拦掉**、如实说版本不认识。
+//   · ⚠️ **这不是结算语义变化**：同一串动作在新引擎里算出的**局面**与 3 版相同。但**不升版本**的话，
+//     玩家看到的是「回放第 0 条就 break + 一堆红字」而不是一句「版本不认」⇒ 升版本是更诚实的那一档。
+//
+// **旧版本怎么处理（现有逻辑，一字未改）**：`Load` 拿 `rec.version` 比 `new ReplayRecord().version`，
+// 不等就 `Debug.LogWarning("[Replay] 版本 N 不认识（本代码只认 M）⇒ 不播：<完整路径>")`
+// 并返回 **null**；`BattleDriver.PlayReplay(fileName)` 拿到 null 直接 `return false`，
+// 列表那几处 `continue` ⇒ **不硬解、不会演成另一局**。⚠️ 这不是静默失败：警告带完整路径与两头的版本号。
+// ⚠️ **`JsonUtility` 读不到 `version` 键时给 `0`**（`int` 的 CLR 默认值）⇒ 比当前值不等 ⇒ 同样走拒绝路。
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -97,8 +109,10 @@ namespace CardPresentation
         /// （旧档里「打到 0 号格」现在会夹到最里那一格）⇒ 旧档放出来是**另一局**，必须拒绝而不是硬解。
         /// 🔴 **2026-10-20（`W58`）：2 → 3** —— 本批改了一整串**结算语义**（加时触发点 · 死亡/触发次序 ·
         /// 手牌上限时机 · `Gain N Energy` · 广播预调 · 删掉回合开始自动揭示伏击）⇒ 旧档同样会演成另一局。
+        /// 🔴 **2026-10-23（引擎线「新账-88」）：3 → 4** —— **对账的尺子换了**（`DeepHash` 改稳定哈希 +
+        /// `StateHash` 补维度）⇒ 旧档会在第 0 条报分叉、末了报「不是同一局」。**不代表旧档演错了**。
         /// 完整清单与「旧版怎么被拒」→ **本文件头部「版本」那一节**（判据只写一份，⛔ 别在这里抄第二份）。</summary>
-        public int version = 3;
+        public int version = 4;
         /// <summary>存盘时刻（`yyyy-MM-dd HH:mm:ss`，**本地时间**，只给人看）。</summary>
         public string savedAt = "";
         /// <summary>本机那局的座位（**绝对编号**）—— 放的时候要 `FromStart(start, isHost: mySeat == 0)`。</summary>

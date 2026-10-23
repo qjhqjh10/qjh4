@@ -48,20 +48,23 @@ namespace CardPresentation
 
         /// <summary>🆕 **2026-10-23（W62 · 界面线）**：左栏 `Shadow` 的 tint（原版那颗 `Image.m_Color`）。
         /// `null` = **不上色**（= 图本色 —— 这张 `40k_main_tab_shadow` 是**纯白 + alpha 渐变**，不上色屏上就是一条**白带**）。
-        /// <para>🔴 **原版值是 `(0,0,0,0.475)`** —— **逐窗实读到的有这三扇**：
-        /// 收藏窗 `…/Tab Buttons/Shadow` = `(0,0,0,.475)`（`资料/普查产出_0923/A1_外壳与弹窗.md:23` ·
-        /// `资料/普查产出_1022/W62_换牌压暗与收藏白条修复.md` §②）· 社交窗同一行同一色
-        /// （`资料/普查产出_0927/社交_联盟与好友页.md:45`，但它**高 0、静态看不见**）·
-        /// 收藏窗另有一颗 `Content Area/Shadow (1)` 也是 `(0,0,0,.475)`（A1 同表末行）。
-        /// ⚠️ **奖励窗 / 商店的 `Tab Buttons/Shadow` 只读到矩形与锚点、没读到色**
-        /// （`资料/日常_原版规格.md:118` 那一行没有色列；同文件 `:102` 那个 `#000 a=0.4745` 是
-        /// **`Content Area/Shadow (1)` 那颗**，⛔ 别当成这一颗）⇒ 按同族两扇推断「多半也是 0.475」，**但未逐窗验证**。</para>
-        /// <para>⚠️ **本批口径（主对话 2026-10-23）**：判据收进基类这一处，但**只有收藏窗显式覆写**
-        /// （`CollectionWindow.BarShadowTint` = `(0,0,0,0.475)`）—— 奖励 / 商店两扇**用户 2026-10-22 已挂起**，
-        /// 不在它们的真机复验之前改观感 ⇒ 基类默认仍 `null`（= 今天的样子）。
-        /// 🔴 **将来把默认值改成 `(0,0,0,0.475)` 时**：那两扇就与原版一致了 —— 但那要跟它们的真机复验同批做，
-        /// 并把 `Editor/ShellScene.cs` 里「奖励窗本批**不带** tint」那条断言一起改（期望值是按本批口径钉的）。</para></summary>
-        protected virtual Color? BarShadowTint { get { return null; } }
+        /// <para>🔴 **原版值 = `(0,0,0,0.4745098)`**（`a = 121/255`；原版 MB 的 float32 现读
+        /// `0.4745098054409027`）。**逐窗现读**（`工具/menu_dump.py bundle_menus_assets_all "<窗>" --depth 5
+        /// --relative --no-sprite` 的 tint 列 + `MonoBehaviour/*.json` 的 `m_Color`）：
+        /// <list type="bullet">
+        /// <item>奖励窗 `Rewards Base Submenu Variant/Tab Buttons/Shadow` = `(0,0,0,0.475)`</item>
+        /// <item>商店 `Shop Menu Variant/Tab Buttons/Shadow` = **同一个值**（`(0,0,0,0.475)`；
+        ///   两扇同壳，连 `Shadow (1)` 那颗未激活件也是这个色）</item>
+        /// <item>收藏窗 `Collection Menu Variant/…/Shadow` = `(0,0,0,.475)`
+        ///   （`资料/普查产出_0923/A1_外壳与弹窗.md:23` · `资料/普查产出_1022/W62_换牌压暗与收藏白条修复.md` §②）</item>
+        /// <item>社交窗同一行同一色（`资料/普查产出_0927/社交_联盟与好友页.md:45`，但它**高 0、静态看不见**）</item>
+        /// </list>
+        /// ⇒ **四扇窗同一个值** ⇒ 判据就放在基类这一处（⛔ 别再给某一扇子窗单独打补丁 = 第二份判据）。</para>
+        /// <para>🔴 **2026-10-23（本件）：基类默认值从 `null` 改成原版值。** 改之前只有收藏窗显式覆写
+        /// （`CollectionWindow.BarShadowTint` = `(0,0,0,0.475)`，与基类现值**等价**、可择机删掉那行转发），
+        /// 奖励 / 商店两扇吃 `null` ⇒ 左栏是一条**白带**（与原版不符）。奖励窗 / 商店的判据是**本轮现读的**，
+        /// ⛔ 不是「按同族推断」（旧注释写「只读到矩形、没读到色」，现已被上面那两行读数取代）。</para></summary>
+        protected virtual Color? BarShadowTint { get { return new Color(0f, 0f, 0f, 0.4745098f); } }
 
         /// <summary>页签页容器的实测矩形（`Tabs` 与 `Content Area` 同矩形）。</summary>
         public const float TabL = 166.69f, TabT = 69.20f, TabR = 1920f, TabB = 1080f;
@@ -539,6 +542,8 @@ namespace CardPresentation
             // 🔴 **2026-10-23（W62）**：顶边与 tint 改成**基类这一处的两个可覆写判据**（`BarShadowTop` / `BarShadowTint`）——
             //    此前这两样都写死在这里（顶边 = `ContentT`、tint 缺省 = 白）⇒ 收藏窗只能在**子类里删掉重建**一份
             //    （那段临时补丁已随本次改动删除）。⛔ 别再在子类里画第二份 `Shadow`。
+            // 🔴 **2026-10-23（W62②）**：`BarShadowTint` 的**基类默认值已并成原版色**（`(0,0,0,0.4745098)`）——
+            //    奖励 / 商店两扇不覆写也拿到同一个色（原版 `Tab Buttons/Shadow` 的 `m_Color`，本轮现读）。
             if (BarShadowW > 0f)
                 Rect(bar, ArtBarShadow, ContentL, ContentL + BarShadowW, BarShadowTop, ContentB, "Shadow", QPanel,
                      BarShadowTint);

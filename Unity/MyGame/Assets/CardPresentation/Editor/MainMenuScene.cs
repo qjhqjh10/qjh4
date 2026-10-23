@@ -809,6 +809,52 @@ public static class MainMenuScene
         CheckAt(FindChild(menu.Find("Main Menu Navigation Button - Home"), "Selected highlight"),
                 -0.3f, 164.0f, 143.4f, 313.1f, "**选中态高亮**在 `Home` 的整按钮矩形上（原版 5 个出厂都 active）");
 
+        // ============================================================ 🆕 **2026-10-23（活动线 `L01`/`L03` 收尾）：
+        // **左竖导航第 6 颗 = 「事件钮」**（原版 prefab 真名 `Event Navigation Button`）
+        //
+        // 判据（`python -I -X utf8 工具/menu_dump.py bundle_menus_assets_all --rt -7272436173638493259 --relative` 现读）：
+        //   · 根 **164.31 × 169.68**（与五颗 `Main Menu Navigation Button - *` **逐值相同**）
+        //   · `Text Background` 9.6..156.6 / 118.3..157.6 · `Badge Highlight` 118.1..153.1 / 91.7..126.7
+        //     （与五颗同一套；**我们**五颗都是按 9.3/156.2 · 117.8/152.8 取的整 ⇒ 第 6 颗沿用同一套）
+        //   · `Image` 13.1..153.1 / 1.7..141.7 = **140×140**，`m_Sprite` **空**（运行期灌 liveops 图标）
+        //   · 位置 = `Buttons Container` 那条 VLG 的第 6 个孩子 ⇒ 顶 = 143.41 + 5×153.33 = **910.06**
+        //     ⇒ `NavButton` 那一套取整 = **910.0**（步进与前五颗同一条 153.33）
+        // ⛔ 期望值**全部来自 prefab dump**，不读 `MainMenuRuntime` 的常量（读了 = 自证）。
+        Section("★ 左竖导航第 6 颗「事件钮」（原版 `Event Navigation Button`：liveop 事件入口）");
+        {
+            var evNav = menu.Find("Event Navigation Button");
+            CheckTrue(evNav != null,
+                      "★ 左竖导航第 6 颗 **`Event Navigation Button`** 建了（原版 prefab 真名；"
+                    + "⛔ 不是 `Main Menu Navigation Button - Event` —— 那是**另一份** prefab，五颗那份里没有第 6 个）");
+            if (evNav != null)
+            {
+                CheckAt(FindChild(evNav, "Text Background"), 9.3f, 156.2f, 910.0f + 118.3f, 910.0f + 157.7f,
+                        "第 6 颗的文案条（原版 9.6..156.6 / 118.3..157.6；与五颗共用同一套取整）");
+                CheckAt(FindChild(evNav, "Badge Highlight"), 117.8f, 152.8f, 910.0f + 91.7f, 910.0f + 126.7f,
+                        "第 6 颗的红点（原版 118.1..153.1 / 91.7..126.7）");
+                var evImg = FindChild(evNav, "Image");
+                CheckTrue(evImg != null,
+                          "第 6 颗的 `Image` 节点**建着**（原版那颗是**空槽**：`m_Sprite` 为空、运行期由 "
+                        + "`OpenEventButton.SetButtonInfo` 的 `LoadAsset(ev,0)` 灌 liveops 图标）"
+                        + " —— ⛔ 不是「把节点删掉」，也不是「拿别的图冒充」");
+                if (evImg != null)
+                    CheckAt(evImg, 12.8f, 152.8f, 911.7f, 1051.7f,
+                            "第 6 颗图标那一格 **140×140**（原版 `Image` 13.1..153.1 / 1.7..141.7 = 钮顶 + 1.7）");
+                var evHit = FindChild(evNav, "Hit");
+                CheckTrue(evHit != null && evHit.GetComponentInChildren<WindowButton>(true) != null,
+                          "第 6 颗有命中区 `Hit` + `WindowButton`（否则**真鼠标点不动** —— 只有「节点在」不算数）");
+            }
+            // 统计口径：导航钮一共 **6** 颗（5 颗 `Main Menu Navigation Button - *` + 1 颗 `Event Navigation Button`）
+            int navCount = 0;
+            var navHolder = FindChild(nav, "Buttons Container");
+            if (navHolder != null)
+                foreach (Transform c in navHolder)
+                    if (c.name.StartsWith("Main Menu Navigation Button - ") || c.name == "Event Navigation Button")
+                        navCount++;
+            Check(navCount, 6, "`Buttons Container` 下**一共 6 颗**导航钮（5 + 第 6 颗事件钮；"
+                             + "🧨 漏建 / 多建一颗 ⇒ 本条红）");
+        }
+
         // ============================================================ 🔴 **2026-10-11（A1521⑥）· 灭自证那一条**
         // ① **选中态高亮那一档的渲染队列必须【严格夹在】底板与图标之间**（`hl > bg && hl < icon`）。
         //    **三个数全部当场量**（⛔ 不读 `MainMenuRuntime` 的队列常量 —— 读了就是「实现与检测器同一个口」= 自证）。
@@ -840,20 +886,24 @@ public static class MainMenuScene
                         + "实拍就是「高亮整块没画出来」");
             }
             // 当前页 = `Home`（出厂 `SelectedNav = 0`，本行之前没有任何点击改过它）
-            var navOrder = new[] { "Home", "Collection", "Shop", "Rewards", "Social" };
+            // 🆕 2026-10-23：第 6 颗（`Event Navigation Button`）也一起数 —— 出厂它**不该亮**。
+            var navOrder = new[] { "Home", "Collection", "Shop", "Rewards", "Social", "事件钮" };
+            var navNodes = new[] { "Main Menu Navigation Button - Home", "Main Menu Navigation Button - Collection",
+                                   "Main Menu Navigation Button - Shop", "Main Menu Navigation Button - Rewards",
+                                   "Main Menu Navigation Button - Social", "Event Navigation Button" };
             int litN = 0;
             for (int i = 0; i < navOrder.Length; i++)
             {
-                var hlI = FindChild(menu.Find("Main Menu Navigation Button - " + navOrder[i]), "Selected highlight");
+                var hlI = FindChild(menu.Find(navNodes[i]), "Selected highlight");
                 bool lit = hlI != null && hlI.gameObject.activeSelf;
                 if (lit) litN++;
                 CheckTrue(lit == (i == 0),
                           $"★ 导航 `{navOrder[i]}` 的选中高亮 `activeSelf` = **{(i == 0 ? "true" : "false")}**"
                         + $"（当前页 = `Home`；实测「{(hlI == null ? "节点没建" : (lit ? "亮着" : "关着"))}」）"
-                        + " —— 原版实拍：选中那颗整块亮红、其余四颗暗底");
+                        + " —— 原版实拍：选中那颗整块亮红、其余暗底");
             }
-            Check(litN, 1, "★ 五颗里**恰好一颗**的选中高亮是亮的"
-                         + "（⛔ 不是零颗、也不是五颗一起亮 —— 五颗全亮是原版的【出厂】态，不是运行期该有的样子）");
+            Check(litN, 1, "★ 六颗里**恰好一颗**的选中高亮是亮的"
+                         + "（⛔ 不是零颗、也不是六颗一起亮 —— 全亮是原版的【出厂】态，不是运行期该有的样子）");
         }
 
         // ============================================================ 🆕 **2026-10-12：用户真机点名的三件**
@@ -879,32 +929,43 @@ public static class MainMenuScene
                     + "（`InstanceOrFind()`：编辑模式下 `Instance` 是 null、靠 `FindFirstObjectByType` 兜底）"
                     + " —— 否则下面 `SetNavToggle` 那一族等于没查（实测解析到 " 
                     + (MainMenuRuntime.InstanceOrFind() == null ? "null" : MainMenuRuntime.InstanceOrFind().name) + "）");
-            var navOrder2 = new[] { "Home", "Collection", "Shop", "Rewards", "Social" };
+            // 🆕 **2026-10-23（活动线 `L01`/`L03` 收尾）：第 6 颗 `Event` 已经建出来了** ⇒ 这张表从 5 条扩到 6 条，
+            //    且第 6 颗的节点名**不是** `Main Menu Navigation Button - *`（原版那一颗是**另一份 prefab**
+            //    `Event Navigation Button`，由 `NavigationPanelController.BuildEventButtons` 运行期 Instantiate）。
+            var navOrder2 = new[] { "Home", "Collection", "Shop", "Rewards", "Social", "Event" };
+            var navNodes2 = new[] { "Main Menu Navigation Button - Home", "Main Menu Navigation Button - Collection",
+                                    "Main Menu Navigation Button - Shop", "Main Menu Navigation Button - Rewards",
+                                    "Main Menu Navigation Button - Social", "Event Navigation Button" };
             for (int i = 0; i < navOrder2.Length; i++)
             {
                 MainMenuRuntime.SetNavToggle((MainMenuRuntime.NavigationPanelToggleType)i);
                 int litI = 0;
-                for (int j = 0; j < navOrder2.Length; j++)
+                for (int j = 0; j < navNodes2.Length; j++)
                 {
-                    var hj = FindChild(menu.Find("Main Menu Navigation Button - " + navOrder2[j]), "Selected highlight");
+                    var hj = FindChild(menu.Find(navNodes2[j]), "Selected highlight");
                     if (hj != null && hj.gameObject.activeSelf) litI++;
                 }
-                var wantHl = FindChild(menu.Find("Main Menu Navigation Button - " + navOrder2[i]), "Selected highlight");
+                var wantHl = FindChild(menu.Find(navNodes2[i]), "Selected highlight");
                 CheckTrue(litI == 1 && wantHl != null && wantHl.gameObject.activeSelf,
                           $"★ `SetNavToggle({(MainMenuRuntime.NavigationPanelToggleType)i})` ⇒ "
                         + $"**恰好 `{navOrder2[i]}` 那一颗亮**（实测亮 {litI} 颗）"
-                        + " —— 判据 = 原版 `SetToggle`（收藏 1 / 商店 2 / 奖励 3 三条入口用的就是它）；"
+                        + " —— 判据 = 原版 `SetToggle`（收藏 1 / 商店 2 / 奖励 3 / 活动 5 四条入口用的就是它）；"
                         + "🧨 把某个入口写回裸魔数、或漏掉一颗 ⇒ 这里立刻红");
             }
             // 摆回基线：最后停在 `Main`（这一格之后还有别的段要读导航状态）
             MainMenuRuntime.SetNavToggle(MainMenuRuntime.NavigationPanelToggleType.Main);
-            // 原版第 6 颗（`Event`）本仓没有 ⇒ 那一下**不许静默**、也不许乱点别的颗
+            // 🆕 2026-10-23：第 6 颗 `Event` **现在真的建出来了** ⇒ `SetNavToggle(Event)` 必须点亮它。
+            //   🔴 **就地订正（铁律 5）**：本行原来断的是「本仓没建那颗钮 ⇒ 高亮停在 `Home` 不动」——
+            //   那条随 `BuildNavigationPanel` 末尾那颗 `Event Navigation Button` 落地而**不再成立**。
             MainMenuRuntime.SetNavToggle(MainMenuRuntime.NavigationPanelToggleType.Event);
+            var hlEvent = FindChild(menu.Find("Event Navigation Button"), "Selected highlight");
             var hlHome = FindChild(menu.Find("Main Menu Navigation Button - Home"), "Selected highlight");
-            CheckTrue(hlHome != null && hlHome.gameObject.activeSelf,
-                      "★ `SetNavToggle(Event)`（原版第 6 颗 = liveop 事件钮）⇒ 本仓**没建那颗钮** ⇒ "
-                    + "高亮**停在 `Main` 不动**（且日志里必须有一行 `[Menu] SetNavToggle(Event)…` 说明原因）"
-                    + " —— ⛔ 不许静默失败、也不许「越界就点第 0 颗」");
+            CheckTrue(hlEvent != null && hlEvent.gameObject.activeSelf
+                   && (hlHome == null || !hlHome.gameObject.activeSelf),
+                      "★ `SetNavToggle(Event)`（原版 `BaseParentEventWindow__Open.c` 那句 `SetToggle(nav, 5)`）"
+                    + " ⇒ **第 6 颗 `Event Navigation Button` 点亮、`Home` 灭**"
+                    + " —— ⛔ 不许静默失败（`LightNavToggle` 现在是真·越界才出声，不是「第 6 颗没有」）");
+            MainMenuRuntime.SetNavToggle(MainMenuRuntime.NavigationPanelToggleType.Main);
 
             // ---- ② A1637：`Player Level` 那颗徽章画的是【圆环】，不是金砖 ------------------
             // 判据（三条独立，见 `Shell/TopBar.cs` 建它那一句上面的长注释）：
@@ -16247,8 +16308,14 @@ public static class MainMenuScene
                 // ---- ① 窗参 = 根 MB `MonoBehaviour_-1838579764277826042.json` 逐字段实读 ----
                 Check(pw.type, WindowType.Fullscreen, "活动承载窗 `type` = **0**（Fullscreen）");
                 Check(pw.placement, WindowsPlacement.Popup, "活动承载窗 `windowsPlacement` = **15**（Popup）");
-                CheckTrue(!pw.closeOnEsc, "活动承载窗 `closeOnESC` = **0**");
-                CheckTrue(!pw.updateNavPanel, "活动承载窗 `updateNavPanel` = **0**");
+                CheckTrue(!pw.closeOnEsc, "活动承载窗 `closeOnESC` = **0**（Two Sides 那份 MB `-1838579764277826042`）");
+                // 🔴 **2026-10-23（W62②）就地改口径（铁律 5）**：本行原来是 `CheckTrue(!pw.updateNavPanel, … = 0)`。
+                //   现在按调度台裁定取**基座 `Parent Event Window`** 那份 MB（`6349037533193994564`）的 **`1`**
+                //   —— Two Sides 那份是 `0`，但它只是「两页内容」的来源、不是本窗外壳的窗参来源。
+                //   行为断言（ESC ⇒ 灯回 `Main` + 灭自证）在 `Run` 末尾「第 6 颗事件钮」那一节。
+                CheckTrue(pw.updateNavPanel,
+                          "活动承载窗 `updateNavPanel` = **1**（基座 `Parent Event Window` MB 实读；"
+                        + "ESC 关窗 ⇒ `SetMainToggle(Main)` ⇒ 左竖导航灯回 `Main`）");
                 CheckNear(pw.extraScaleSmallScreen, 1f, 1e-6f, "活动承载窗 `extraScaleSmallScreen` = **1.0**");
                 CheckTrue(pw.useDefaultCloseSoundIfNull, "活动承载窗 `useDefaultCloseSoundIfNull` = **1**（关窗音走家族默认）");
                 CheckTrue(pw.openSound == null && pw.closeSound == null,
@@ -16645,6 +16712,118 @@ public static class MainMenuScene
             {
                 if (ap01 != null) Object.DestroyImmediate(ap01.gameObject);
                 Object.DestroyImmediate(cvGo);
+            }
+        }
+
+        // ============================================================ 🆕 **2026-10-23（活动线 `L01`/`L03` 收尾）：
+        // **第 6 颗导航钮的【行为】** —— 点它必须**真的把活动承载窗开出来**（⛔ 不断「回调非空」那种弱断言）。
+        //
+        // 判据：`OpenEventButton__ButtonClick.c` → `OpenEventButton__OpenWindow.c` →
+        //   `WindowsManager.OpenWindow(GetComponentReference(ev, 10 /*MainWindow*/), ev)`；
+        //   原版 `Parent` 事件的 `MainWindow` 已核 = `Parent Event Window`（判据 →
+        //   `Shell/WindowsManager.cs` 的 `OpenEventHub` doc）。
+        // ⚠️ 放在**最后一段**：开/关全屏窗会走 `HideAllWindows` / `ShowPreviousWindow`（原版那条），
+        //   前面那些读 `activeSelf` 的段不该被它影响。
+        Section("★ 第 6 颗「事件钮」的行为：点了 ⇒ `OpenEventHub(Parent)` ⇒ 活动承载窗真的开");
+        {
+            var evNav = menu.Find("Event Navigation Button");
+            var evText = evNav != null ? FindChild(evNav, "Text") : null;
+            var evLb = evText != null ? evText.GetComponent<Label>() : null;
+            CheckTrue(evLb != null && !string.IsNullOrEmpty(evLb.Text),
+                      "第 6 颗的文字**非空**（原版是活动标题 `TryGetLabel(ev,4) ?? (0)`；本机没有事件实例 ⇒ "
+                    + "`EVENT` 兜底 —— 空字钮在原版是「没有 label」那一支，⛔ 不是我们该有的样子）");
+            var evHit = evNav != null ? FindChild(evNav, "Hit") : null;
+            var evWb = evHit != null ? evHit.GetComponentInChildren<WindowButton>(true) : null;
+            CheckTrue(evWb != null && evWb.onClick != null, "（前提）第 6 颗的事件钮**接了点击**");
+            if (evWb != null && evWb.onClick != null)
+            {
+                // ⚠️ **不拿「`LastOpened` 换没换」当判据**：`OpenByRef` 对「还在 `openWindows` 里」的那扇走
+                //   **复用、不重建**（照原版 `automaticallyLoadedWindows`），且 `HideAllWindows` 藏起来的窗
+                //   **本来就不摘表**（`GameWindow.Close` 首句 `if (!gameObject.activeSelf) return;`）⇒
+                //   `LastOpened` 可能**不换** —— 那是判据本身的形状，不是缺陷。**窗的状态 + 顶窗是谁**才是判据。
+                var beforeGacha = GachaEventWindow.LastOpened;
+                var beforeRaid = RaidEventWindow.LastOpened;
+                var beforePass = ExpansionPassEventWindow.LastOpened;
+
+                evWb.onClick();
+
+                var evt = ParentEventWindow.LastOpened;
+                var wm = WindowsManager.Instance;
+                CheckTrue(evt != null && evt.CurrentState == WindowState.Open,
+                          "★ 点第 6 颗 ⇒ **活动承载窗真的开了**（`ParentEventWindow.LastOpened` 非空 + 状态 = Open）"
+                        + " —— ⛔ 不是「回调非空」那种弱断言");
+                CheckTrue(evt != null && evt.name == ParentEventWindow.RootName,
+                          "…开出来的根名 = `" + ParentEventWindow.RootName + "`（prefab 根名，两处同源）");
+                CheckTrue(wm != null && evt != null && wm.openWindows.Contains(evt),
+                          "…它进了 `WindowsManager.openWindows`（窗口管理器认账，不是只建了个物体）");
+                CheckTrue(wm != null && wm.TopWindow is ParentEventWindow,
+                          "★★ 灭自证：**最上面那扇 = 活动承载窗**"
+                        + "（把那颗钮接回 `OpenCollection` / 接成 `OpenEventHub(Gacha)` 的实现在这条上红）");
+                // 灭自证（同一件事的另一面）：三扇兄弟活动窗**一个都没被开**（`LastOpened` 全没动）
+                CheckTrue(GachaEventWindow.LastOpened == beforeGacha
+                       && RaidEventWindow.LastOpened == beforeRaid
+                       && ExpansionPassEventWindow.LastOpened == beforePass,
+                          "★★ 灭自证：三扇**兄弟**活动窗的 `LastOpened` 一个都没换（第 6 颗开的是承载窗那扇）");
+                CheckTrue(menu.SelectedNav == 5,
+                          "…同时左竖导航选中态移到**第 6 颗**（`OnNavClick` 末尾那句 `SetNavToggle` "
+                        + "= 原版 `BaseParentEventWindow__Open.c` 的 `SetToggle(nav,5)`）");
+
+                // ---------------- 🆕 2026-10-23（界面线 W62②）：ESC 关活动窗 ⇒ 左竖导航灯回 `Main` ----------------
+                // 判据（原版 MB 现读）：基座 **`Parent Event Window`**（GO `-3290546486736551612`）的
+                //   `MonoBehaviour_6349037533193994564.json` = `closeOnESC = 1` · **`updateNavPanel = 1`**；
+                //   行为 = `GameWindow__ESCPressed.c` 末段：ESC 真的关掉窗之后，`updateNavPanel` 为真 ⇒
+                //   `SetMainToggle(Main)` ⇒ **左竖导航灯回 `Main`**（不改 ⇒ 灯停在 `Event`）。
+                // 本仓这一扇 = 「基座外壳 + Two Sides 两页」的组合（见 `ParentEventWindow` 文件头）⇒
+                //   `updateNavPanel` 按 2026-10-23 裁定取**基座那份**（`ParentEventWindow.ParamsUpdateNavPanel = true`）。
+                // ⚠️ **夹具**：本窗的 `closeOnEsc` 仍取 Two Sides 那份（`0`）⇒ 本条显式把**前两道门槛**备好
+                //   （`PointerLayer.InputEnabled` + `evt.closeOnEsc = true`），**只让 `updateNavPanel` 这一个变量动**。
+                //   （`closeOnEsc = 0` 本身是另一条口径、不在本条射程内 —— 见 `ParentEventWindow.cs` 那条注释。）
+                if (evt != null)
+                {
+                    CheckTrue(ParentEventWindow.ParamsUpdateNavPanel,
+                              "★ W62②：`ParentEventWindow.ParamsUpdateNavPanel` = **true**（原版基座 `Parent Event Window` "
+                            + "MB `6349037533193994564` 实读 `updateNavPanel = 1`；⛔ 不是 Two Sides 那份的 0）"
+                            + "｜🧨 改回 `false` ⇒ 本条 + 下面那条一起红");
+                    CheckTrue(evt.updateNavPanel,
+                              "…`Create()` 把它写进了窗实例（`win.updateNavPanel = ParamsUpdateNavPanel`）");
+                    CheckTrue(PointerLayer.InputEnabled,
+                              "（前提）输入层启用 —— `GameWindow.ESCPressed` 的第一道门槛");
+                    evt.closeOnEsc = true;           // 夹具（本条只验第三道门槛；见上面那段）
+                    bool escClosed = evt.ESCPressed();
+                    CheckTrue(escClosed, "（前提）ESC 真的关掉了活动窗（第三道门槛 `updateNavPanel` 不拦关窗）");
+                    Check(menu.SelectedNav, 0,
+                          "★★ W62②：**从活动窗按 ESC 关回主菜单 ⇒ 左竖导航灯回到 `Main`**"
+                        + "（`GameWindow__ESCPressed` 末段 `updateNavPanel` ⇒ `SetMainToggle(Main)`；"
+                        + "原版 `Parent Event Window` 的 `updateNavPanel = 1`）"
+                        + "｜🧨 把 `ParamsUpdateNavPanel` 改回 `false` ⇒ 灯停在 5（`Event`）⇒ 本条红");
+                }
+
+                // ---- ★★ 灭自证：**同一扇窗、只翻 `updateNavPanel` 这一格** ⇒ 灯不回 `Main` ----
+                // 这一条绿 = 上一条的牙**真的长在 `updateNavPanel` 上**（不是「`Close()` 无条件拨灯」那种假绿）：
+                //   把 `SetNavToggle(Main)` 无条件塞进 `Close()` ⇒ 本条红。
+                {
+                    var evt2 = WindowsManager.OpenParentEvent();
+                    CheckTrue(evt2 != null, "（前提）灭自证：另开一扇活动窗（上一扇已关，`OpenByRef` 不复用）");
+                    if (evt2 != null)
+                    {
+                        evt2.closeOnEsc = true;        // 夹具（同上）
+                        evt2.updateNavPanel = false;   // 👈 只翻这一格（= 今天之前那个值）
+                        menu.SelectNav(5);             // 先把灯放到第 6 颗（`Event`）
+                        Check(menu.SelectedNav, 5, "（前提）灭自证：灯在 `Event`（第 6 颗）");
+                        bool esc2 = evt2.ESCPressed();
+                        CheckTrue(esc2, "（前提）灭自证：ESC 照样关得掉（前两道门槛备好了）");
+                        Check(menu.SelectedNav, 5,
+                              "★★ 灭自证：`updateNavPanel = false` ⇒ 灯**停在 `Event`**（不回 `Main`）—— "
+                            + "本条绿 = 上一条断的是这一格，不是「关窗总会拨灯」");
+                        evt2.Close();
+                    }
+                    menu.SelectNav(0);                 // 收尾：灯回 `Main`（本段是最后一段，仍还原干净）
+                }
+
+                if (evt != null) evt.Close();
+                CheckTrue(ParentEventWindow.LastOpened == null
+                       || ParentEventWindow.LastOpened.CurrentState != WindowState.Open,
+                          "…关掉之后回到 Closed（本段是最后一段；这里只自证「关得掉」，不影响别的断言）");
             }
         }
 

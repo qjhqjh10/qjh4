@@ -41,12 +41,22 @@ namespace RuleEngine
         // 这两个 trait 在原版是 `DefinedTrait` 数值（`0x136` = 310 invulnerable · `0x3d9` = 985
         // camouflage），在我们引擎里**登记在 `CardDef.KeywordTable.Prefixes`**（`CardDef.cs:5416-5418`）
         // 但**没有同名的常量** ⇒ 这里各给一个（⛔ 别在判断里散写裸字面量）。
-        // ⚠️ `ward`(140) / `tainted`(160) 两个 trait **我们整条都没有**（Prefixes 没登记、机制也没有）
-        //    ⇒ 依赖它们的 `330` 判不了（见下面的 `Kind.ModelGap`）。
+        // 🔴 **2026-10-23 就地订正（`新账-97` ⑤ · 铁律 5）**：这一段原来写「`ward`(140) / `tainted`(160)
+        // 两个 trait 我们整条都没有（Prefixes 没登记、机制也没有）⇒ 依赖它们的 330 判不了」——
+        // **「整条都没有」只对「机制/数据」成立，对 `UnitState.Has` 不成立**：`Has` 是通用的关键词表，
+        // 任何词都能查（效果也能运行时 `AddKeyword("ward")`）。而当前池与真值快照里
+        // **ward / tainted / wardWb 三处 0 命中**（keywords · cardTraits · desc 全扫）⇒
+        // 330 在池内**等价于 `stealth`**，可以判（见 `case 330`）。下面三个常量就位，等它们进数据。
         /// <summary>`invulnerable`（原版 `DefinedTrait.invulnerable = 310`；读点 `RuleCore.cs:6472/6610`）。</summary>
         public const string Invulnerable = "invulnerable";
         /// <summary>`camouflage`（原版 `DefinedTrait.camouflage = 985`；读点 `RuleCore.cs:5619`）。</summary>
         public const string Camouflage = "camouflage";
+        /// <summary>`ward`（原版 `DefinedTrait.ward = 140`；`UnitConditions` 330 的第二个析取项）。</summary>
+        public const string Ward = "ward";
+        /// <summary>`wardWb`（原版 `DefinedTrait.wardWb = 145` —— ward 的第二个变体，同族同判）。</summary>
+        public const string WardWb = "wardwb";
+        /// <summary>`tainted`（原版 `DefinedTrait.tainted = 160`；330 的第三项，且要 `!vanguard`）。</summary>
+        public const string Tainted = "tainted";
 
         /// <summary>这一格的「本版判得了吗」——给自检/报告用（⛔ 不参与求值）。</summary>
         public enum Kind
@@ -73,12 +83,17 @@ namespace RuleEngine
                 case 243: case 244: case 245:
                 case 260: case 270: case 275: case 276: case 277:
                 case 331: case 340: case 341: case 342:
+                // 🆕 2026-10-23（`新账-97` ⑤）：240 / 250 / 330 判得了了 ——
+                //   240/250 走附魔层（`Enchantments.CountSecretOrders` / `CountQuests`，
+                //   v19 卡表的 `spellType` 一列把「附魔卡是什么类型」补上了）；
+                //   330 = `stealth || ward || (tainted && !vanguard)`，四个词都是 `UnitState.Has` 的一等关键词
+                //   （⚠️ 当前池 `ward` / `tainted` **0 张** —— 全表普查见那一支的注释）。
+                case 240: case 250: case 330:
                 // 🆕 2026-10-23（`B-16` 残余）：241/242 判得了了 —— 数据侧是 v17 的
                 //   `abilityTriggers` 列（`cardAbilities[].trigger` 全量集合）。
                 case 241: case 242:
                     return Kind.Ok;
-                case 240: case 250:
-                case 280: case 320: case 330:
+                case 280: case 320:
                     return Kind.ModelGap;
                 case 290: case 300: case 310:
                     // 原版 switch 里**没有**这三格 ⇒ 落到 `:354-361` 的 LogError + `bVar3 = 0`。
@@ -96,26 +111,21 @@ namespace RuleEngine
             if (KindOf(cond) == Kind.Ok) return null;
             switch (cond)
             {
-                case 240:
-                    return "240 hasSecretOrder：原版 `:281-285` → `EntityScript__HasSecretOrders`"
-                         + "（数 `card+0x110` 的 activeEnchantments 里 `enchantmentCard.spellType == 60 SecretOrder`）。"
-                         + "我们没建「附魔实例 → 卡 spellType」这一层。";
-                // 241 / 242 **已判得了**（2026-10-23 · `B-16` 残余）：上面 `KindOf` 归 `Ok`，
-                //   本方法对 `Ok` 一律返回 null ⇒ 这两格不再需要缺口说明（⛔ 别加回来）。
-                case 250:
-                    return "250 hasQuests：原版 `:323-327` → `EntityScript__HasQuests`"
-                         + "（activeEnchantments 里 `spellType == 120 Quest`）。同 240：缺附魔 spellType 账。";
+                // 240 / 250 / 330 **已判得了**（2026-10-23 · `新账-97` ⑤）：上面 `KindOf` 归 `Ok`，
+                //   本方法对 `Ok` 一律返回 null ⇒ 这三格**不再需要缺口说明**（⛔ 别加回来）。
                 case 280:
                     return "280 siege：原版 `:220-225` → `CardScript__DoesAbilityRequireLoading`"
-                         + "（`hasActiveAbility(+0x220)` ∧ `HasRemovedTrait(490 reload)` ∧ `ActiveAbility` 的加载位）。"
-                         + "我们没有「主动技能是否需装填」这一层。";
+                         + "（`hasActiveAbility(+0x220)` ∧ `HasRemovedTrait(490 reload)` ∧ `ActiveAbility` 的加载位 `+0x22`）。"
+                         + "🔴 2026-10-23 现核：`hasActiveAbility == false` 的卡**原版直接假**（`:14-16`），"
+                         + "而「加载位 `+0x22`」**我们整条没有** ⇒ 有主动技能的 87 张判不了（返回 null），"
+                         + "其余 1040 张可判假——但那要**逐卡**判，本档只能整体报「判不了」。"
+                         + "数据缺口：`cardAbilities[].abilityLogic[].requiresLoading`（本地反编译里没有这个字段名）。";
                 case 320:
                     return "320 hasQuestCompleted：原版 `:227-248` = `!HasCurrentTrait(130 jam)` ∧ `raw._quest(+0x240)`"
-                         + " ∧ `HasQuests(card) <= 0`。我们没有 `_quest` 列、也没有任务附魔那一层。";
-                case 330:
-                    return "330 stealthOrWardOrDuplicitous：原版 `:124-145` = `stealth(70) || ward(140)"
-                         + " || (tainted(160) && !vanguard(980))`。`ward` / `tainted` 两个 trait 我们**整条都没有**"
-                         + "（`CardDef.Prefixes` 没登记、也没有机制）⇒ 判成 true/false 都会静默错一半。";
+                         + " ∧ `HasQuests(card) <= 0`。🔴 2026-10-23 现核：`_quest` 在真值快照 `full_raw` 里"
+                         + "**1,351 张全是 0**（所以这一条今天只会是假）—— 但我们的卡表**没有这一列**"
+                         + "（`cards_engine.json` 无 `quest`），⛔ 不拿「快照里都是 0」当恒定假："
+                         + "要判得先加 `quest` 列（生成器读 `full_raw._quest`）+ `questTimes` 一并落。";
                 case 290: case 300: case 310:
                     return $"原版 `MeetsConditionCriteria.c` **没有** {cond} 这一格 ⇒ 它落到 `:354-361` 的"
                          + " `CustomDebug.LogError` ＋ `bVar3 = 0`。本版**照抄 false**（同样出声）。";
@@ -145,9 +155,10 @@ namespace RuleEngine
         /// <summary>判**一张不在场的卡**（阵亡/弃牌堆里的那一份）满不满足这一格条件。
         /// 只对「卡本身」那一族（`220/221/222/270/275/276/277/340` 等）有意义；
         /// 依赖运行时状态的格子返回 `null`（⛔ 不拿卡面上的静态数字冒充当前状态）。</summary>
-        public static bool? MeetsCard(BattleContext ctx, CardDef card, int owner, int cond, bool exclude = false)
+        public static bool? MeetsCard(BattleContext ctx, CardDef card, int owner, int cond, bool exclude = false,
+                                      int instanceId = 0)
         {
-            return Meets(ctx, null, card, owner, cond, exclude, null);
+            return Meets(ctx, null, card, owner, cond, exclude, null, instanceId);
         }
 
         /// <summary>核心入口。返回**未取反**的 match（`exclude` 在这里统一取反一次 —— 原版 `:384-389`）。</summary>
@@ -156,9 +167,9 @@ namespace RuleEngine
         /// <param name="owner">主语属于哪一方（`-1` = 不知道；只有 `260` 需要，不知道时现扫棋盘）。</param>
         /// <param name="thisUnit">原版形参 `thisCard`（只有 `110` 用）。</param>
         public static bool? Meets(BattleContext ctx, UnitState subject, CardDef card, int owner,
-                                  int cond, bool exclude, UnitState thisUnit = null)
+                                  int cond, bool exclude, UnitState thisUnit = null, int instanceId = 0)
         {
-            bool? match = Match(ctx, subject, card, owner, cond, thisUnit);
+            bool? match = Match(ctx, subject, card, owner, cond, thisUnit, instanceId);
             if (match == null) return null;
             return exclude ? !match.Value : match.Value;      // 原版 `:384-389`
         }
@@ -167,7 +178,8 @@ namespace RuleEngine
         //  逐值判定（顺序照原版 switch；行号 = `FilterMethods__MeetsConditionCriteria.c`）
         // ==================================================================
 
-        static bool? Match(BattleContext ctx, UnitState u, CardDef card, int owner, int cond, UnitState thisUnit)
+        static bool? Match(BattleContext ctx, UnitState u, CardDef card, int owner, int cond, UnitState thisUnit,
+                           int instanceId = 0)
         {
             switch (cond)
             {
@@ -303,14 +315,14 @@ namespace RuleEngine
                 //    「死后又复活」那种边界同样表达不了。
                 case 221:
                     if (u != null) return false;                       // 活着的单位：`turnDied` 不等于当前回合
-                    return DiedInTurn(ctx, card, owner, 0);
+                    return DiedInTurn(ctx, card, owner, 0, instanceId);
 
                 // ---------------------------------------------------------------- 222 diedSinceLastTurn
                 // 原版 `:263-267` → `CardScript__HasDiedSinceLastTurn.c:26-47`：
                 //   `turnDied == turnCounter` **或** `turnDied + 1 == turnCounter`（本回合或上一回合死的）。
                 case 222:
                     if (u != null) return false;
-                    return DiedInTurn(ctx, card, owner, 0) || DiedInTurn(ctx, card, owner, 1);
+                    return DiedInTurn(ctx, card, owner, 0, instanceId) || DiedInTurn(ctx, card, owner, 1, instanceId);
 
                 // ---------------------------------------------------------------- 230 stealthAndNotDealtKillDmg
                 // 原版 `:268-277`：`MeetsTraitCriteria(70 stealth)` ∧ `!EnoughPendingDamageToDie(card)`
@@ -319,13 +331,28 @@ namespace RuleEngine
                     if (u == null) return null;
                     return u.Has(KeywordTable.Stealth) && !RuleCore.EnoughPendingDamageToDie(u);
 
-                // ---------------------------------------------------------------- 240/250（附魔账，缺）
-                // 240 `:281-285` → `EntityScript__HasSecretOrders`（activeEnchantments 里 spellType == 60）；
-                // 250 `:323-327` → `EntityScript__HasQuests`（同表 spellType == 120）。
-                // 我们没建「附魔实例 → 卡的 spellType」这一层 ⇒ 判不了（⛔ 不猜）。
+                // ---------------------------------------------------------------- 240/250（附魔账）
+                // 240 `:281-285` → `EntityScript__HasSecretOrders.c`：数 `+0x110 activeEnchantments` 里
+                //   `enchantmentCard.spellType(+0x90) == 0x3c(60)` 的件数。
+                // 250 `:323-327` → `EntityScript__HasQuests.c`：同一张表上 `spellType == 0x78(120)`。
+                // 🆕 2026-10-23（`新账-97` ⑤）：**判得了**了 —— 两件缺的东西都补齐了：
+                //   ① v19 卡表的 `spellType` 列（`CardDef.SpellType`，真值直搬）；
+                //   ② `Enchantments.Attach` 在用不到调用方实参时**回落到附魔卡自己的** `SpellType`。
+                // 🔴 判不了的那一半：载体身上还有 `spellType == -1` 的附魔（卡表旧 / 附魔卡不在快照里）
+                //   ⇒ 那些**可能**是密令/任务 ⇒ 返回 `null`（⛔ 不拿 false 顶）。
+                // ⚠️ `u == null`（不在场）⇒ 没有 `+0x110` 这张表 ⇒ `null`（原版对 air 卡也是 LogWarning + 0，
+                //   但那是**调用方不该问**的情形，按本类契约给 `null` 更安全）。
                 case 240:
                 case 250:
-                    return null;
+                {
+                    if (u == null || u.Instance == null) return null;
+                    int want = cond == 240 ? Enchantments.SpellTypeSecretOrder : Enchantments.SpellTypeQuest;
+                    int n = cond == 240 ? Enchantments.CountSecretOrders(u.Instance)
+                                        : Enchantments.CountQuests(u.Instance);
+                    if (n > 0) return true;
+                    if (Enchantments.CountUnknownSpellType(u.Instance) > 0) return null;
+                    return false;
+                }
 
                 // ---------------------------------------------------------------- 241/242（逐 ability 的 trigger）
                 // 241 `:286-289` → `RawCardScript__HasAbilityType(raw, 600 UseSpiritStone)`；
@@ -403,10 +430,17 @@ namespace RuleEngine
                     if (card == null) return null;
                     return SubtypeIs(card, "Infantry") || SubtypeIs(card, "Beast");
 
-                // ---------------------------------------------------------------- 280 siege（缺）
+                // ---------------------------------------------------------------- 280 siege（缺加载位）
                 // 原版 `:220-225` → `CardScript__DoesAbilityRequireLoading.c`：
-                //   无 `hasActiveAbility` ⇒ 假；否则查 `HasRemovedTrait(0x1ea = 490 reload)`，
-                //   再取主动技能卡的加载位（`+0x22`）。我们没有「主动技能是否需装填」这一层。
+                //   `+0x220 hasActiveAbility == false` ⇒ **假**（`:14-16` 早退）；
+                //   否则遍历 `+0x108`：任一效果带 `HasRemovedTrait(0x1ea = 490 reload)` ⇒ 假；
+                //   最后取 `GetActiveAbilityCard → raw.GetActiveAbility(...)` 的 **`+0x22`（需要装填位）**。
+                // 🔴 2026-10-23 现核（`新账-97` ⑤）：**加载位 `+0x22` 我们整条没有数据**
+                //   （`cardAbilities` / `abilityLogic` / `full_raw` 里都没有 loading/reload 字段名；
+                //    池内 `reload` 关键词 0 张）⇒ 判不了、返回 `null`。
+                // ⚠️ **不能拿 `CardDef.Ability != null` 顶 `hasActiveAbility`**：2026-10-23 现读 ——
+                //   池内 1,127 张的 `desc` **一条 `Ability:` 都没有**（那个语法是另一族卡面的写法），
+                //   而真值 `hasActiveAbility == 1` 的有 **87 张** ⇒ 拿它判会把那 87 张静默判成假。
                 case 280:
                     return null;
 
@@ -425,12 +459,23 @@ namespace RuleEngine
                 case 320:
                     return null;
 
-                // ---------------------------------------------------------------- 330 stealthOrWardOrDuplicitous（缺）
-                // 原版 `:124-145`：`MeetsTraitCriteriaFromList({stealth(70), ward(140)})`
-                //   或 `MeetsTraitCriteria(160 tainted) && !MeetsTraitCriteria(980 vanguard)`。
-                // `ward` / `tainted` 我们**整条都没有** ⇒ 判 true/false 都会静默错一半（⛔ 不猜）。
+                // ---------------------------------------------------------------- 330 stealthOrWardOrDuplicitous
+                // 原版 `:124-145`（`FilterMethods__MeetsConditionCriteria.c` 的 0x14a 那一支）：
+                //   `MeetsTraitCriteriaFromList({stealth(70), ward(140)})` **或**
+                //   (`MeetsTraitCriteria(160 tainted)` ∧ !`MeetsTraitCriteria(980 vanguard)`).
+                // 🆕 2026-10-23（`新账-97` ⑤）：**判得了** —— 四个词都走 `UnitState.Has`
+                //   （`DefinedTrait` 里 `stealth=70 / ward=140 / tainted=160 / vanguard=980`）。
+                // 🔴 **`ward` / `tainted` 当前池 0 张**（2026-10-23 全表普查：`cards_engine.json` 的
+                //   `keywords` / `cardTraits` / `desc` 三处都 0 命中；真值 `cards_raw.json` 的
+                //   `CardTraits` 里也没有这两个词）⇒ 今天这一档在池内**等价于 `stealth`**，
+                //   而那正是原版对这些卡给出的同一个答案。它们一旦进数据，这一支自动就对了。
+                // ⚠️ `wardWb = 145` 是原版的**另一个** ward 变体，同一族，一起收。
                 case 330:
-                    return null;
+                {
+                    if (u == null) return null;
+                    if (u.Has(KeywordTable.Stealth) || u.Has(Ward) || u.Has(WardWb)) return true;
+                    return u.Has(Tainted) && !u.Has(KeywordTable.Vanguard);
+                }
 
                 // ---------------------------------------------------------------- 331 stealthOrCamouflage
                 // 原版 `:146-156`：`MeetsTraitCriteriaFromList({stealth(70), camouflage(985)})`。
@@ -499,8 +544,10 @@ namespace RuleEngine
             return -1;
         }
 
-        /// <summary>`DeadUnits` 里有没有「这张卡、这一方、死在 `turnsAgo` 个回合之前（0 = 本回合）」的一条。</summary>
-        static bool DiedInTurn(BattleContext ctx, CardDef card, int owner, int turnsAgo)
+        /// <summary>`DeadUnits` 里有没有「这张卡、这一方、死在 `turnsAgo` 个回合之前（0 = 本回合）」的一条。
+        /// 🆕 2026-10-23（引擎线 `新账-97`）：`instanceId != 0` 时按**实例**匹配（同名两份分得清）；
+        /// 0 = 老口径（按卡模板）。调用方知道是哪一份时**必须传实例号**。</summary>
+        static bool DiedInTurn(BattleContext ctx, CardDef card, int owner, int turnsAgo, int instanceId = 0)
         {
             if (ctx == null || card == null) return false;
             for (int i = 0; i < ctx.DeadUnits.Count; i++)
@@ -508,6 +555,7 @@ namespace RuleEngine
                 var d = ctx.DeadUnits[i];
                 if (d == null || !ReferenceEquals(d.Card, card)) continue;
                 if (owner >= 0 && d.Owner != owner) continue;
+                if (instanceId != 0 && d.InstanceId != instanceId) continue;
                 if (d.DeathTurn == ctx.Turn - turnsAgo) return true;
             }
             return false;

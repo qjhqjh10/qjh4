@@ -895,6 +895,10 @@ public static partial class RuleEngineTest
         Step(TestB16ConditionEval);
         Step(TestB17SubjectlessTargets);
 
+        // 🆕 2026-10-23（引擎线批量）：反击四道 / 手牌上限按本局 / 阵亡按实例 / count 求值。
+        Section("🆕 2026-10-23 引擎批量：反击豁免四道 · `HandMaxFor` · 阵亡实例 · `CountEval`");
+        Step(TestEngineBatch1023);
+
         // 🔴 **`Run()` 自己的「静默少跑」闸**（`A1591`）—— 必须在【汇总】之前跑，
         //    否则它的 `Check` 不计进 `_pass/_fail`（汇总行会漏掉它）。
         // ⚠️ **故意缩进深一层**：`工具/gen_diag_runner.py` 只把「**8 空格缩进的顶层语句**」当用例
@@ -34799,16 +34803,13 @@ public static partial class RuleEngineTest
                     + "（那是把「打带护甲的目标」读成「能量为 0」）");
         }
 
-        // ---- ⑦ `deaths`（count 那一档）：**行在、被数集合也落了，但 `count` 的消费层还没接** ----
+        // ---- ⑦ `deaths`（count 那一档）：**行在、被数集合也落了、消费层 2026-10-23 已接** ----
         //   `EC58 Vengeful Surge`：`If a friendly troop died this turn, give them Flank`
         //   ⇒ 数据是两条 `count` 行（`op=1/ref=0` 与 `op=2/ref=1`）。
-        //   🔴 **2026-10-23 订正（`B-16` 整件）**：本节原写「v15 只落了比较三参数、没落被数集合
-        //     ⇒ 『数谁』读不到」—— **v16 起已不成立**：`countSet`（原版 `BoardCriteria.countCriteria`
-        //     那 36 格 ＋ `playerTurn`）已经落列，`CardDef.ConditionSpec.CountSet` 读得到。
-        //   仍然不接的是**另一层**：`countOptions / triggerIf / referenceValue` 的**比较** ＋ 对那个集合的
-        //     遍历（= `FilterMethods__CheckIfMeetsCriteria` 那一圈），本版**没有消费点** ⇒ `deaths` 保持正文。
-        //   ⚠️ 同句原来还写「结构化 `MeetsUnitCondition(221)` 返回 null」—— 现在 221 **判得了**
-        //      （本类只回答「**这一个**单位死没死」；`count` 要的是「有几个」，两件事别混）。
+        //   🔴 **2026-10-23 订正（`B-16` 整件 + `新账-97 ④`）**：
+        //     · v16 起 `countSet` 已落列（原版 `BoardCriteria.countCriteria` + `playerTurn`）；
+        //     · `新账-97 ④` 起 `Core/CountEval.cs` 是它的消费者（`EffectResolver.TryCountCondition`），
+        //       所以 `deaths` **现在走结构化**、不再退回正文。正文只作「没有 countSet / 判不了」的兜底。
         var ec58 = CardDatabase.FindById(pool, "EC58");
         CheckTrue(ec58 != null, "(前提) EC58 Vengeful Surge 在池内");
         if (ec58 != null)
@@ -34822,11 +34823,11 @@ public static partial class RuleEngineTest
             };
             bool holds, structured;
             RuleCore.TryEvaluateCondition(ctx, 0, deathOp, null, ec58, out holds, out structured);
-            CheckTrue(!structured,
-                      "★ `deaths` **没有结构化映射** ⇒ 保持正文（⛔ 不拿 `count` 行硬凑：被数的集合没落列）"
-                    + "｜🧨 把 `deaths` 加进 `ConditionKindToUnitCondition` ⇒ 本行红（那会是猜）");
+            CheckTrue(structured,
+                      "★ `deaths` 现在走**结构化 count**（`countSet` 已落 + `CountEval` 消费）"
+                    + "｜🧨 删掉 `TryCountCondition` 的 `deaths` 映射 ⇒ 退回正文 ⇒ 本行红");
             CheckTrue(!holds,
-                      "★ （前提）本局没有友军阵亡 ⇒ 正文判不成立（同旧行为）");
+                      "★ （前提）本局没有友军阵亡 ⇒ 结构化 count(≥1) 判不成立（同旧行为）");
             CheckTrue(ec58.Conditions.Count == 2
                       && ec58.Conditions[0].Role == "count"
                       && ec58.Conditions[0].CountOption == 0
@@ -34908,15 +34909,14 @@ public static partial class RuleEngineTest
                     + "｜🧨 两边都用 `ex=0` 判 ⇒ 上一条与本条必有一条红");
 
             // ①-f 判不了的值 ⇒ **整条不筛**（⛔ 不空池、不猜）
-            //   ⚠️ 2026-10-23（铁律 5）：样本原来是 **277**，但 277 在 `ConditionEval` 接上之后
-            //   **已经判得了**（`ConditionEval.cs` 的 `case 277`；单位 subtype 的数据是齐的）——
-            //   对本格这几个夹具（`Unit(...)` 建的单位 = subtype 空串）它会判**假**、把池子筛成 0。
-            //   换 **240 `hasSecretOrder`**：仍是 `Kind.ModelGap`（`ConditionEval.cs` 的 `case 240`
-            //   返回 `null` —— 缺「附魔实例 → spellType」那一层），才测得到「判不了 ⇒ 不筛」这条不变量。
+            //   ⚠️ 2026-10-23（铁律 5）：这里换过两次样本 —— 277 在 `ConditionEval` 接上后已判得了；
+            //   240 在 2026-10-23 的 `新账-97 ⑤` 里也接上了（附魔 `spellType` 列）⇒ 现在会返回
+            //   **false**、把池子筛成 0。改用 **280 `DoesAbilityRequireLoading`**：仍 `ModelGap`
+            //   （缺「加载位 +0x22」）⇒ 才测得到「判不了 ⇒ 不筛」这条不变量。
             var unjudgeable = RuleCore.ResolveTargets(ctx, 0, enemySpec, null, null,
-                new CardDef.ConditionSpec { Role = "target", Condition = 240, Exclude = false });
+                new CardDef.ConditionSpec { Role = "target", Condition = 280, Exclude = false });
             Check(unjudgeable.Count, 4,
-                  "★ `cond=240`（`hasSecretOrder`）本波**判不了 ⇒ 不筛**"
+                  "★ `cond=280`（`DoesAbilityRequireLoading`）本波**判不了 ⇒ 不筛**"
                 + "（⛔ 不把池子筛空）｜🧨 判不了时改成「全排除」⇒ 本行红");
         }
 
@@ -35459,12 +35459,13 @@ public static partial class RuleEngineTest
             CheckTrue(ConditionEval.MeetsUnit(ctx, u, 342) == true, "★ B-16 · 342：召唤病 ⇒ 真（原版读 `+0x58`）");
         }
 
-        // ---- 模型缺数据那五档：**必须是 null + 有原因**（⛔ 不猜）------------------
-        //   🆕 2026-10-23（`B-16` 残余）：241 / 242 **已经判得了**（v17 `abilityTriggers` 列），
-        //   从这一档移出去 —— 它们的正/反例见下一块。
+        // ---- 模型缺数据那两档：**必须是 null + 有原因**（⛔ 不猜）------------------
+        //   🆕 2026-10-23（`B-16` 残余）：241 / 242 已判得（v17 `abilityTriggers`）；
+        //   🆕 2026-10-23（`新账-97 ⑤`）：240 / 250 / 330 也已判得（spellType 列 + ward/tainted 词表）
+        //   ⇒ 这一档只剩 **280 / 320**。
         {
             var u = Place(ctx, 0, 0, Unit("B16_gap", 1, 1, 5));
-            int[] gaps = { 240, 250, 280, 320, 330 };
+            int[] gaps = { 280, 320 };
             for (int i = 0; i < gaps.Length; i++)
             {
                 int v = gaps[i];
@@ -35640,6 +35641,111 @@ public static partial class RuleEngineTest
             var tNone = RuleCore.ResolveTargets(ctx, 0, opNone.Target, null, null, null, opNone);
             CheckTrue(tNone.Count == 3,
                       "★ 读不到（`-1`）⇒ 照旧己方全体（同 `B-17` 之前的全部行为，零回归）");
+        }
+    }
+
+    // ==================================================================
+    //  🆕 2026-10-23（引擎线批量）：反击豁免四道 / 手牌上限按本局 /
+    //  阵亡按实例 / `count` 求值。
+    //
+    //  判据（不读自己的实现）：
+    //   · 反击四道 = `BattleManager._ResolveAttack_d__438__MoveNext.c:871-895` +
+    //     `EntityScript__ActivatesTerror.c` / `__ActivatesNoReturnSniperAttack.c` /
+    //     `__ActivatesNoReturnLongRangeAttack.c`；
+    //   · 手牌上限 = `GameplayVariables.SkirmishHandLimit = 8`；
+    //   · 阵亡 = `CardScript__HasDiedThisTurn.c`（每实例 `turnDied(+0x250)`）；
+    //   · count = `BoardCriteria.countCriteria` + `StatFilterOptions`（`dump.cs`）。
+    // ==================================================================
+    static void TestEngineBatch1023()
+    {
+        // ---- ① 反击豁免四道（唯一判据 `CounterAttack.NoCounter`）----
+        {
+            var ctx = ProbeBattle(new CardDef[0], new CardDef[0]);
+            var target = Place(ctx, 1, 3, Unit("FixtureTarget", 1, 2, 10));
+            var sneak = Place(ctx, 0, 3, Unit("FixtureSneak", 1, 5, 5, "sneak attack"));
+            var terror = Place(ctx, 0, 4, Unit("FixtureTerror", 1, 5, 5, "terror"));
+            var lr = Place(ctx, 0, 5, Unit("FixtureLR", 1, 5, 5, "long range"));
+            var sn = Place(ctx, 0, 6, Unit("FixtureSniper", 1, 5, 5, "sniper"));
+
+            CheckTrue(CounterAttack.NoCounter(ctx, 0, sneak, 1, target, false, false),
+                      "★ sneakAttack(20)：**无条件**免反击（近战也免）"
+                    + "｜🧨 删掉第一道 ⇒ 本行红");
+            CheckTrue(CounterAttack.NoCounter(ctx, 0, terror, 1, target, false, false),
+                      "★ terror(520)：守方 currentCombatAttack 2 < 攻方 5 ⇒ 免反击"
+                    + "｜🧨 删掉第二道 ⇒ 本行红");
+            CheckTrue(CounterAttack.NoCounter(ctx, 0, lr, 1, target, true, false),
+                      "★ LongRange：**远程**打法免反击");
+            CheckTrue(!CounterAttack.NoCounter(ctx, 0, lr, 1, target, false, false),
+                      "★ LongRange 反例：**近战**打法不免（⛔ 别退回「远程武器近战也免」）");
+            CheckTrue(CounterAttack.NoCounter(ctx, 0, sn, 1, target, true, true),
+                      "★ Sniper：远程 + 会击杀 + 守方未受保护 ⇒ 免反击");
+            var shielded = Place(ctx, 1, 4, Unit("FixtureShield", 1, 2, 10, "shield"));
+            CheckTrue(!CounterAttack.NoCounter(ctx, 0, sn, 1, shielded, true, true),
+                      "★ Sniper 反例：守方有 Shield（`IsProtectedFromDamageOrSurvivor`）⇒ **不**免反击");
+            var terrorBig = Place(ctx, 1, 5, Unit("FixtureTerrorBig", 1, 9, 10));
+            CheckTrue(!CounterAttack.NoCounter(ctx, 0, terror, 1, terrorBig, false, false),
+                      "★ terror 反例：守方 currentCombatAttack 9 **不小于**攻方 5 ⇒ 不免");
+        }
+
+        // ---- ② 手牌上限按【本局】参数（遭遇局 8，不是经典 10）----
+        {
+            var classic = RuleCore.NewBattle(Deck(), Deck(), seed: 0, shuffle: false);
+            CheckTrue(RuleCore.HandMaxFor(classic) == 10, "★ 经典局：手牌上限 = 10");
+            var skirmish = RuleCore.NewBattle(Deck(), Deck(), seed: 0, shuffle: false,
+                                              vars: GameplayVariables.Skirmish);
+            CheckTrue(RuleCore.HandMaxFor(skirmish) == 8,
+                      "★ 遭遇局：手牌上限 = 8（`ctx.Vars.handLimit`）"
+                    + "｜🧨 退回 `RuleCore.HandMax`（经典常量）⇒ 本行红");
+        }
+
+        // ---- ③ 阵亡按【实例】分得清（同名两份，一份本回合死、一份上回合死）----
+        {
+            var ctx = ProbeBattle(new CardDef[0], new CardDef[0]);
+            var twins = Unit("FixtureTwins", 1, 1, 5);
+            var a = Place(ctx, 0, 3, twins);
+            var b = Place(ctx, 0, 4, twins);
+            ctx.DeadUnits.Add(new DeadUnit { Card = twins, Instance = a.Instance, Owner = 0, DeathTurn = ctx.Turn });
+            ctx.DeadUnits.Add(new DeadUnit { Card = twins, Instance = b.Instance, Owner = 0, DeathTurn = ctx.Turn - 1 });
+            CheckTrue(ConditionEval.MeetsCard(ctx, twins, 0, 221, false, a.InstanceId) == true,
+                      "★ `diedThisTurn` 按**实例**：本回合死的那一份 ⇒ 真");
+            CheckTrue(ConditionEval.MeetsCard(ctx, twins, 0, 221, false, b.InstanceId) == false,
+                      "★ `diedThisTurn` 按**实例**：上一回合死的那一份 ⇒ 假"
+                    + "｜🧨 退回模板匹配 ⇒ 两份都真");
+        }
+
+        // ---- ④ `count` 求值：`if any friendly unit is Praying`（SOR70 的数据形状）----
+        {
+            var ctx = ProbeBattle(new CardDef[0], new CardDef[0]);
+            var praying = Place(ctx, 0, 3, Unit("FixturePraying", 1, 1, 5));
+            praying.Prayed = true;
+            var spec = new CardDef.ConditionSpec
+            {
+                Role = "count", Condition = 243, StatOption = 2, ReferenceValue = 1, CountOption = 0,
+                CountSet = new CardDef.CountSetSpec
+                {
+                    TargetsAffected = 10, PlayerTurn = 10, FriendlyUnits = 1, EnemyUnits = 0,
+                    IncludeHero = 1, IncludeMinions = 1,
+                    // `CountSetSpec` 的未落字段默认 `Unknown(-1)` ⇒ `CountEval.SetGap` 会判「本版判不了」。
+                    // 夹具必须显式把「不适用」写成 0（这正是数据侧 v16 的形状）。
+                    ChosenArmy = 0, ArmyFilter = 0, KeywordFilter = 0, TraitsFilter = 0,
+                    MaxTargets = 0, TargetSelectMethod = 0,
+                    AttackFilter = 0, AttackFilterOption = 0,
+                    CurrentHealthFilter = 0, CurrentHealthFilterOption = 0,
+                    ManaCostFilter = 0, ManaCostFilterOption = 0,
+                    RarityFilter = 0, RarityFilterOption = 0, SpellType = 0,
+                    IncludeSpells = 0, IncludeWhispers = 0, IncludeWeapons = 0,
+                    IncludeRemnants = 0, IncludeHeroParts = 0, IncludeSelf = 0,
+                    ExcludeNotSelf = 0, ExcludeSimilarCards = 0, ExcludeTargetted = 0,
+                    ExcludeFriendlyHero = 0, ExcludeEnemyHero = 0, ExcludeRace = 0,
+                    ExcludeTrait = 0, SelectFromChooseResolution = 0,
+                },
+            };
+            CheckTrue(CountEval.Meets(ctx, 0, spec) == true,
+                      "★ count(243 isPraying, op=2 ref=1)：己方 1 个祈祷单位 ⇒ 真");
+            praying.Prayed = false;
+            CheckTrue(CountEval.Meets(ctx, 0, spec) == false,
+                      "★ count 反例：没有祈祷单位 ⇒ 假"
+                    + "｜🧨 把 `MeetsUnit` 的 243 改回恒假 ⇒ 正例红");
         }
     }
 }

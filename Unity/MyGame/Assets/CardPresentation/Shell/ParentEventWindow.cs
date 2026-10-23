@@ -7,6 +7,9 @@
 // ② **根组件**（逐字段实读）：`bundle_menus_assets_all/MonoBehaviour/MonoBehaviour_-1838579764277826042.json`
 //      （脚本 = `TwoSidesEventWindow`，见 `bundle_Waprforge_monoscripts/MonoScript/MonoScript_5025015628206364007.json`）
 //      · `type = 0`(Fullscreen) · `windowsPlacement = 15`(Popup) · `closeOnESC = 0` · `updateNavPanel = 0`
+//      🔴 **2026-10-23 注：`updateNavPanel` 我们**不取**这份（0），改为取基座 `Parent Event Window` 那份的 `1`
+//         （MB `6349037533193994564`）—— 裁定与理由 → `ParamsUpdateNavPanel` 那段注释。
+//         `closeOnEsc` 仍取本份（0），如实记（基座那份是 1）。
 //      · `extraScaleSmallScreen = 1.0` · `useDefaultCloseSoundIfNull = 1` · `openSound/closeSound = {0,0}`
 //      · `tabs` = **2 个 PPtr**：`5874186985141415430`(`TwoSidesEvent_ChooseSideTab`) ·
 //        `-7528133727782064634`(`TwoSidesEvent_OnGoingTab`) · `backgroundCloseButton = 2610068799221640710`
@@ -71,8 +74,10 @@
 //       `Scoring` 事件 `Tab` = `e6914cbdd45814f5f9bd40a854c12218` → PathID `-555883983194387681`
 //         = **`Expansion Pass Tab`**（= `ExpansionPassEventWindow`）。
 //   ⇒ 我们的等价物 = `WindowsManager.OpenEventHub(EventWindowKind)`（那一跳的唯一共用口）。
-//   ⚠️ **还差最后一跳**：左竖导航那颗钮在 `Shell/MainMenuRuntime.cs` 的 `BuildNavigationPanel`
-//     （**不在本代理的白名单里**）⇒ 本批**没接**，补法写进了报告；在那之前只能从 `WindowsManager.OpenEventHub` 打开。
+//   ✅ **2026-10-23：最后一跳【已接】** —— `Shell/MainMenuRuntime.cs` 的 `BuildNavigationPanel` 末尾建出第 6 颗
+//     **`Event Navigation Button`**（原版 prefab 真名；`Main Menu Navigation Button` 那份里**没有**第 6 个），
+//     `OnNavClick(5)` → `OpenEventHub(Parent)`；`SetNavToggle(Event)` 现在**真的点亮它**
+//     （值序 = `NavigationPanelToggleType.Event = 5`，与原版 `SetToggle(nav,5)` 逐值相同）。
 //
 // ============================ 🔴 两个 prefab 的事实（照实记录，⛔ 别把它们混成一份）============================
 // 本包里有**两份**：
@@ -169,10 +174,20 @@ namespace CardPresentation
         public const string RootName = "Parent Event Window";
 
         // ============================================================ 窗参（MB `-1838579764277826042` 实读）
-        // ⚠️ 见文件头「两个 prefab」：这一组是 **Two Sides 那份**的值（任务简报指定）；
-        //    基座 `Parent Event Window` 自己那一份是 `placement=5 / closeOnESC=1 / updateNavPanel=1 / tabs=[]`。
-        public const bool ParamsCloseOnEsc = false;        // `closeOnESC = 0`
-        public const bool ParamsUpdateNavPanel = false;    // `updateNavPanel = 0`
+        // ⚠️ 见文件头「两个 prefab」：这一组里 `closeOnEsc` / `extraScaleSmallScreen` / `useDefaultCloseSound`
+        //    是 **Two Sides 那份**的值（任务简报指定）；基座 `Parent Event Window` 自己那一份是
+        //    `placement=5 / closeOnESC=1 / updateNavPanel=1 / tabs=[]`。
+        // 🔴 **2026-10-23（界面线 W62② · 调度台裁定）：`updateNavPanel` 照【基座 `Parent Event Window`】对齐成 `1`。**
+        //    判据（原版 MB 现读）：基座那份 = `MonoBehaviour_6349037533193994564.json`
+        //    （GO `-3290546486736551612` = `Parent Event Window`）`updateNavPanel = 1`；
+        //    Two Sides 那份 = `MonoBehaviour_-1838579764277826042.json`（GO `-2798723332429074938`）
+        //    `updateNavPanel = 0`。语义 = `GameWindow__ESCPressed.c` 末段：ESC 真的关掉窗之后
+        //    `updateNavPanel` 为真 ⇒ `SetMainToggle(Main)` ⇒ **左竖导航灯回 `Main`**
+        //    （不改 ⇒ 从活动窗 ESC 关回主菜单后灯**停在 `Event`**）。
+        //    ⚠️ **`closeOnEsc` 仍是 Two Sides 的 `0`**（本件外壳 + 两页是两份 prefab 的组合，见文件头）——
+        //      那是**另一条口径**、不在本条裁定射程内（如实记：基座那份是 `1`）。
+        public const bool ParamsCloseOnEsc = false;        // `closeOnESC = 0`（Two Sides 那份）
+        public const bool ParamsUpdateNavPanel = true;     // `updateNavPanel = 1`（基座 `Parent Event Window` 那份）
         public const float ParamsExtraScale = 1f;          // `extraScaleSmallScreen = 1.0`
         public const bool ParamsUseDefaultCloseSound = true; // `useDefaultCloseSoundIfNull = 1`
 
@@ -528,8 +543,8 @@ namespace CardPresentation
             var win = go.AddComponent<ParentEventWindow>();
             win.type = WindowType.Fullscreen;                        // MB 实读 `type = 0`
             win.placement = WindowsPlacement.Popup;                  // MB 实读 `windowsPlacement = 15`
-            win.closeOnEsc = ParamsCloseOnEsc;                       // MB 实读 `closeOnESC = 0`
-            win.updateNavPanel = ParamsUpdateNavPanel;               // MB 实读 `updateNavPanel = 0`
+            win.closeOnEsc = ParamsCloseOnEsc;                       // MB 实读 `closeOnESC = 0`（Two Sides 那份）
+            win.updateNavPanel = ParamsUpdateNavPanel;               // MB 实读 `updateNavPanel = 1`（基座 `Parent Event Window` 那份；见 `ParamsUpdateNavPanel` 的注释）
             win.extraScaleSmallScreen = ParamsExtraScale;            // MB 实读 1.0（= 不覆盖）
             win.useDefaultCloseSoundIfNull = ParamsUseDefaultCloseSound;
             // `openSound` / `closeSound` 实读都是空 PPtr ⇒ 一个 clip 都不赋，关窗音走家族默认。
@@ -758,26 +773,132 @@ namespace CardPresentation
         /// <returns>建出几颗（0 = 名单空）。</returns>
         public int SetupTabs(IList<EventTab> tabs)
         {
-            ClearEventTabs();
+            string note;
+            int n = SetupEventTabs(tabs, PageCount,
+                                   (name, top, label) => BuildTabButton(name, top, label, false),
+                                   _eventTabs, _eventHi, _eventLabels, _tabHi, _tabLabels,
+                                   QTabIcon, QHit, ref _tabOverflowWarned, out note);
+            EventTabNote = note;
+            return n;
+        }
+
+        // ============================================================ 🆕 2026-10-23：`SetupTabs` 的**共用实现**（四扇活动窗同一份）
+        // 🔴 **为什么要共用**：原版 `BaseParentEventWindow.SetupTabs` 是**基类**方法 —— Gacha / Raid /
+        //    Expansion Pass 三扇窗**任何一扇**的左栏都列全部 live 事件（`HasComponent(ev,13)` 那一支）。
+        //    我们这四扇是**四个独立类**（不硬继承，理由见文件头「我们侧的对位」）⇒ 若各抄一份
+        //    `SetupTabs`，**同一条规则就有四处实现**（迟早不一致，铁律）。⇒ 判据只留这一份：
+        //    各窗只提供①自己的 `BuildTabButton`（版式本来就同源）②自己的渲染队列档 ③自己的内容页占几颗。
+
+        /// <summary>**建左栏的「事件钮」**（原版 `BaseParentEventWindow.SetupTabs` + `TabButtons.AddTabButton` 的等价物）。
+        /// <para>兄弟序 = **内容页在前、事件钮在后**（原版 `AddTabButton` 里那句 `SetAsLastSibling()`）。</para>
+        /// <para>⚠️ **内容页那几张表不被污染**：`buildTabButton` 会把 `Highlight` / `Label` 记进**内容页**的表
+        /// （那是各窗自己的 `BuildTabButton` 的行为）⇒ 本方法把它们**搬进事件钮自己的表**。</para>
+        /// <para>**幂等**：再调一次会把上一轮的事件钮全拆掉重建（内容页签一颗都不动）。</para></summary>
+        /// <param name="firstSlot">内容页占了前几颗（Gacha/Raid = 1 · ExpansionPass/Parent = 2）——
+        /// 事件钮从 `TabTop + TabH * firstSlot` 往下排（原版是同一个 VLG）。</param>
+        /// <param name="buildTabButton">各窗自己的 `BuildTabButton(name, top, label, isMaster:false)`。</param>
+        /// <param name="eventTabs">事件钮的表（**与内容页那张分家**）。</param>
+        /// <param name="contentHi">该窗的**内容页**高亮表（`buildTabButton` 会往里塞，本方法负责搬出来）。</param>
+        /// <param name="iconQueue">该窗的页签图标渲染档（四扇窗的队列带**各不相同**，⛔ 不能取本类的）。</param>
+        /// <param name="hitQueue">该窗的命中区档（= 该窗的 `QHit`）。</param>
+        /// <param name="overflowWarned">「页签溢出左栏」那条告警的**一次性**开关（各窗自己的字段）。</param>
+        /// <param name="note">出声原文（自检读口；各窗存进自己的 `EventTabNote`）。</param>
+        /// <returns>建出几颗（0 = 名单空）。</returns>
+        public static int SetupEventTabs(
+            IList<EventTab> tabs,
+            int firstSlot,
+            System.Func<string, float, string, Transform> buildTabButton,
+            List<Transform> eventTabs, List<Transform> eventHi, List<Label> eventLabels,
+            List<Transform> contentHi, List<Label> contentLabels,
+            int iconQueue, int hitQueue,
+            ref bool overflowWarned,
+            out string note)
+        {
+            ClearEventTabs(eventTabs, eventHi, eventLabels);
             if (tabs == null || tabs.Count == 0)
             {
-                EventTabNote = "`SetupTabs` 名单为空 ⇒ 左栏只有内容页签（原版 `GameWindowWithTabs.SetupTabs(0)` 那一支）。";
-                Debug.Log("[ParentEvent] " + EventTabNote);
+                note = "`SetupTabs` 名单为空 ⇒ 左栏只有内容页签（原版 `GameWindowWithTabs.SetupTabs(0)` 那一支）。";
+                Debug.Log("[ParentEvent] " + note);
                 return 0;
             }
 
             var notes = new List<string>();
             for (int i = 0; i < tabs.Count; i++)
             {
-                var t = AddTabButton(tabs[i]);
+                var t = AddEventTabButton(tabs[i], firstSlot + eventTabs.Count, buildTabButton,
+                                          eventTabs, eventHi, eventLabels, contentHi, contentLabels,
+                                          iconQueue, hitQueue, ref overflowWarned);
                 if (t == null) continue;
                 notes.Add(t.name + "（" + (string.IsNullOrEmpty(tabs[i].Note) ? "—" : tabs[i].Note) + "）");
             }
-            EventTabNote = "`SetupTabs` 建出 " + _eventTabs.Count + " 颗事件钮：" + string.Join(" · ", notes.ToArray())
-                         + "。⚠️ 名单 = 四扇活动窗里除本窗以外的那几扇（原版读 `LiveOpsManager.GetAllEvents` 的"
-                         + "远端列表，本机没有那条链）；在期活动实例参与页签名，过期的一律不用。";
-            Debug.Log("[ParentEvent] " + EventTabNote);
-            return _eventTabs.Count;
+            note = "`SetupTabs` 建出 " + eventTabs.Count + " 颗事件钮：" + string.Join(" · ", notes.ToArray())
+                 + "。⚠️ 名单 = 四扇活动窗里除本窗以外的那几扇（原版读 `LiveOpsManager.GetAllEvents` 的"
+                 + "远端列表，本机没有那条链）；在期活动实例参与页签名，过期的一律不用。";
+            Debug.Log("[ParentEvent] " + note);
+            // 🔴 **图标那一格如实出声**（⛔ 不许静默留空）：原版每颗钮的 `Image.sprite = LoadAsset(ev, 0)`，
+            //   是 **liveops 资产**（`LiveOpsAssetRef.Icon`）—— 本机只有 GUID / 子件名，**没有可加载的 Sprite**
+            //   ⇒ 四扇窗的事件钮**全部留空**。全库唯一一张和它同名的图是 **`40k_main_bt_event`**（135×135，
+            //   `bundle_liveopsicons_assets_all`；切好的 PNG 在
+            //   `d:/2/Warpforge_tools/data/ui_extract/liveopsicons_assets_all/Sprite/40k_main_bt_event.png`），
+            //   但**没导进 `Resources/`** ⇒ 补法 = 进 `工具/import_original_art.py` 的 `MENU_IMAGES` 后跑一次同步。
+            //   ⛔ 在到位之前**不拿母版的 `40K_shop_bt_boosters` 或别的图冒充**。
+            bool anyIcon = false;
+            for (int i = 0; i < tabs.Count; i++) if (tabs[i] != null && tabs[i].Icon != null) anyIcon = true;
+            if (!anyIcon)
+                Debug.LogWarning("[ParentEvent] 事件钮**图标留空**（" + eventTabs.Count + " 颗）：原版是 "
+                               + "`LoadAsset(ev, 0)` 的 liveops Sprite，本机没有可加载的那一份"
+                               + "（同名的 `40k_main_bt_event` 尚未导入 `Resources/`）⇒ **这些钮没有图标**，"
+                               + "⛔ 不用别的图冒充。");
+            return eventTabs.Count;
+        }
+
+        /// <summary>四扇窗共用：**建一颗**事件钮（原版 `TabButtons__AddTabButton` 那一跳）。
+        /// <para>⚠️ `buildTabButton` 会把高亮/文字记进**内容页**的表 ⇒ 这里按「调用前后多出来的那几条」
+        /// 精确搬进事件钮的表（⛔ 不用「取最后一条」那种写法 —— 那颗文字没建出来时会**偷走内容页的**）。</para></summary>
+        static Transform AddEventTabButton(
+            EventTab tab, int slot,
+            System.Func<string, float, string, Transform> buildTabButton,
+            List<Transform> eventTabs, List<Transform> eventHi, List<Label> eventLabels,
+            List<Transform> contentHi, List<Label> contentLabels,
+            int iconQueue, int hitQueue,
+            ref bool overflowWarned)
+        {
+            if (tab == null || buildTabButton == null) return null;
+            float top = TabTop + TabH * slot;
+            if (!overflowWarned && top + TabH > ContentAreaR.y2 + 0.5f)
+            {
+                overflowWarned = true;
+                Debug.LogWarning("[ParentEvent] ⚠️ 第 " + (slot + 1) + " 颗页签的按钮矩形下沿 = "
+                               + (top + TabH).ToString("F1") + "px，超出左栏底 " + ContentAreaR.y2.ToString("F1")
+                               + "px（原版 `Tab Buttons` 是上对齐 VLG、**没有滚动** ⇒ 事件多的时候同样溢出）。"
+                               + "**可见件（图标 / 名牌 / 红点）仍在上沿 +24.6~+162.2 之内**，探出去的只是按钮矩形底部那截空白。");
+            }
+
+            int hiBefore = contentHi.Count, lbBefore = contentLabels.Count;
+            // 原版 `set_name(label)` ⇒ 节点名 = 页签文字（⛔ 别改成内部代号：自检与出声都按它认）
+            var t = buildTabButton(tab.Label, top, tab.Label);
+            if (t == null) return null;
+            while (contentHi.Count > hiBefore) { eventHi.Add(contentHi[hiBefore]); contentHi.RemoveAt(hiBefore); }
+            while (contentLabels.Count > lbBefore) { eventLabels.Add(contentLabels[lbBefore]); contentLabels.RemoveAt(lbBefore); }
+
+            // 图标（原版 `Image.sprite = LoadAsset(ev, 0)`）：`Icon == null` ⇒ 留空（⛔ 不拿母版图冒充）
+            if (tab.Icon != null)
+            {
+                var icon = t.Find("Icon");                     // 直接子件（`transform.Find` 只找直接子件）
+                if (icon != null)
+                    MenuDraw.Rect(icon, tab.Icon, new PxRect(TabButtonsR.x1, top, TabButtonsR.x2, top + TabH),
+                                  "Image", iconQueue, Color.white, true);
+            }
+
+            eventTabs.Add(t);
+            // 点它 = 原版那个 `b__2` 回调（开**另一扇**活动窗）。`allowClickWhenAlreadySelected = 0` 照
+            // `EverguildToggle` 的口径；`isOn` 恒 false ⇒ 每一下都派发（事件钮没有「已选中」这一态）
+            var hit = MenuDraw.Hit(t, "Hit", new PxRect(TabButtonsR.x1, top, TabButtonsR.x2, top + TabH), hitQueue,
+                                   () => { if (tab.Open != null) tab.Open(); },
+                                   null, null, null, null, null, clickCue: WindowSounds.DefaultButtonCue);
+            var wb = hit != null ? hit.GetComponent<WindowButton>() : null;
+            if (wb != null) { wb.allowClickWhenAlreadySelected = false; wb.isOn = () => false; }
+            return t;
         }
 
         /// <summary>一颗事件钮（原版 `TabButtons__AddTabButton` 那一跳：`Instantiate` → `SetActive(true)` →
@@ -787,52 +908,28 @@ namespace CardPresentation
         /// ⇒ 选中态只给内容页，事件钮的 `Highlight` 建着但**恒关**（如实标，⛔ 别当成漏做）。</para></summary>
         public Transform AddTabButton(EventTab tab)
         {
-            if (tab == null) return null;
-            int slot = PageCount + _eventTabs.Count;          // 内容页占 0..PageCount-1
-            float top = TabTop + TabH * slot;
-            if (!_tabOverflowWarned && top + TabH > ContentAreaR.y2 + 0.5f)
-            {
-                _tabOverflowWarned = true;
-                Debug.LogWarning("[ParentEvent] ⚠️ 第 " + (slot + 1) + " 颗页签的按钮矩形下沿 = "
-                               + (top + TabH).ToString("F1") + "px，超出左栏底 " + ContentAreaR.y2.ToString("F1")
-                               + "px（原版 `Tab Buttons` 是上对齐 VLG、**没有滚动** ⇒ 事件多的时候同样溢出）。"
-                               + "**可见件（图标 / 名牌 / 红点）仍在上沿 +24.6~+162.2 之内**，探出去的只是按钮矩形底部那截空白。");
-            }
-
-            // 原版 `add_name`/`set_name(label)` ⇒ 节点名 = 页签文字（⛔ 别改成内部代号：自检与出声都按它认）
-            var t = BuildTabButton(tab.Label, top, tab.Label, false);
-            // `BuildTabButton` 会把 `Highlight` / `Label` 记进**内容页**那两张表 ⇒ 事件钮要搬出来
-            //（否则 `SwitchPage` 会按页号去点事件钮的灯）
-            if (_tabHi.Count > 0) { _eventHi.Add(_tabHi[_tabHi.Count - 1]); _tabHi.RemoveAt(_tabHi.Count - 1); }
-            if (_tabLabels.Count > 0) { _eventLabels.Add(_tabLabels[_tabLabels.Count - 1]); _tabLabels.RemoveAt(_tabLabels.Count - 1); }
-
-            // 图标（原版 `Image.sprite = LoadAsset(ev, 0)`）：`Icon == null` ⇒ 留空（⛔ 不拿母版图冒充）
-            if (tab.Icon != null)
-            {
-                var icon = t.Find("Icon");                     // 直接子件（`transform.Find` 只找直接子件）
-                if (icon != null)
-                    MenuDraw.Rect(icon, tab.Icon, new PxRect(TabButtonsR.x1, top, TabButtonsR.x2, top + TabH),
-                                  "Image", QTabIcon, Color.white, true);
-            }
-
-            _eventTabs.Add(t);
-            // 点它 = 原版那个 `b__2` 回调（开**另一扇**活动窗）。`allowClickWhenAlreadySelected = 0` 照
-            // `EverguildToggle` 的口径；`isOn` 恒 false ⇒ 每一下都派发（事件钮没有「已选中」这一态）
-            var hit = MenuDraw.Hit(t, "Hit", new PxRect(TabButtonsR.x1, top, TabButtonsR.x2, top + TabH), QHit,
-                                   () => { if (tab.Open != null) tab.Open(); },
-                                   null, null, null, null, null, clickCue: WindowSounds.DefaultButtonCue);
-            var wb = hit != null ? hit.GetComponent<WindowButton>() : null;
-            if (wb != null) { wb.allowClickWhenAlreadySelected = false; wb.isOn = () => false; }
-            return t;
+            return AddEventTabButton(tab, PageCount + _eventTabs.Count,   // 内容页占 0..PageCount-1
+                                     (name, top, label) => BuildTabButton(name, top, label, false),
+                                     _eventTabs, _eventHi, _eventLabels, _tabHi, _tabLabels,
+                                     QTabIcon, QHit, ref _tabOverflowWarned);
         }
 
         /// <summary>拆掉上一轮建的事件钮（`SetupTabs` 的第一句）。</summary>
         void ClearEventTabs()
         {
-            for (int i = 0; i < _eventTabs.Count; i++)
-                if (_eventTabs[i] != null) Kill(_eventTabs[i].gameObject);
-            _eventTabs.Clear(); _eventHi.Clear(); _eventLabels.Clear();
+            ClearEventTabs(_eventTabs, _eventHi, _eventLabels);
             EventTabNote = null;
+        }
+
+        /// <summary>四扇窗共用：拆事件钮。
+        /// ⚠️ **先过一遍 Unity 假 null** —— `Build()` 第一句就是 `MenuDraw.ClearChildren(transform)`，
+        /// 上一轮那些节点**已经没了**，直接读 `.gameObject` 会抛 `MissingReferenceException`
+        /// （第二次 `Open()` 才会现形，静默难度高）。</summary>
+        static void ClearEventTabs(List<Transform> nodes, List<Transform> hi, List<Label> labels)
+        {
+            for (int i = 0; i < nodes.Count; i++)
+                if (nodes[i] != null) Kill(nodes[i].gameObject);
+            nodes.Clear(); hi.Clear(); labels.Clear();
         }
 
         /// <summary>批处理下必须 `DestroyImmediate`（没有帧循环；同 `MenuDraw.ClearChildren` 那条）。</summary>

@@ -773,7 +773,11 @@ public static class AnimFXCheck
                 + "（或把 `VfxMap.EnsureLoaded` 的第二道闸删掉）⇒ 17 条 `inferred-name` + 5 条 `unknown` 回来、本条红");
         }
 
-        // ---------- ② 5 条 `penitence`：不播 + 出声；但 `ability` 那档的权威行**仍在** ----------
+        // ---------- ② 5 条 `penitence`：数据侧已从事件桶移出（`notPlayed[]` 带 `why`）；----------
+        //  `ability` 那档的权威行**仍在**，**播放**由 ⑤ 的 trigger 归口负责（⛔ 不再靠事件桶）。
+        //  ⚠️ 2026-10-23（新账-86）订正：本段的 `viaTrigger` 一律传 `times = null` —— 那一档
+        //     分不出 trigger 组，走的是「只回 `trigger` 桶」的旧口径（`VfxMap.cs` 的 ② 那一支）；
+        //     **生产路径带 `times` + `keyword`**，见下面 ⑤（`SOR8/10/21/27/32` 真的播得出来）。
         {
             Check(CardPresentation.VfxMap.CardTableNonAuthoritativeRows == 0,
                   $"② 第二道闸：载入时被挡掉的**非权威行** = "
@@ -812,7 +816,8 @@ public static class AnimFXCheck
                   $"② `penitence` 那 5 张（{string.Join("/", pen)}）的 `trigger` 档**都在 `notPlayed` 里**"
                 + $"（实得 {inNotPlayed}/5）—— 🧨 把它们塞回事件桶或者干脆不记账 ⇒ 本条红");
             Check(playedViaTrigger == 0,
-                  $"② 这 5 张**没有任何一条** `PenitenceEffect` 从 `trigger` 档播出去（实得 {playedViaTrigger} 条）"
+                  $"② 这 5 张在 **`times = null`** 那一档**没有任何一条** `PenitenceEffect` 从 `trigger` 粗桶播出去"
+                + $"（实得 {playedViaTrigger} 条；生产路径带 `times` ⇒ 见 ⑤）"
                 + " —— 🧨 把 `strip_unbacked_inference` 里那步「删重复」去掉 ⇒ 5 条回来、本条红");
             Check(stillInAbility == 5,
                   $"② **灭自证**：同一件 `PenitenceEffect` 在卡 SO 的 `ability` 档**仍然拿得到**"
@@ -980,6 +985,97 @@ public static class AnimFXCheck
                 + $"（实得「{CardPresentation.TraitParticles.PrefabFor("ferocity")}」）"
                 + " —— ⛔ `FerocityEffect` 是它 **Start(0)** 那条的 prefab，不是这一档的");
         }
+
+        // ---------- ⑤ 🆕 2026-10-23（特效线「新账-86」）：`penitence` 那一拍**播对件** ----------
+        //  背景（判据 → `资料/普查产出_1023c/Trait_pentitence与静音桶溯源.md` §A/§D）：
+        //   `penitence` 是 `rage`（`DefinedTrait 280`）的**官方显示名**，而候选侧的原版 trigger 名
+        //   是 `AbilityTrigger.Rage = 130`（`CardAnimTime.TriggerName = "Rage"`）⇒ 引擎事件里的
+        //   `keyword="penitence"` 与候选名**永不相交**。改前：`SOR8` 在忏悔那一拍播 `FlankEffect`
+        //   （`trigger` 粗桶，**错件**）、`SOR10/21/27/32` 什么都不播（连 prefab 自带的
+        //   `Trait Penitence` 音效也没有 —— 音效挂在 `PenitenceEffect` 的 AnimFX 模块上）。
+        //  修法 = `VfxMap.CanonicalTriggerName` 把 `penitence` 归一成 `Rage`（**判据只那一处**）。
+        //  ⚠️ 期望值**一律从卡池数据（`CardDef.AnimTimes`）独立推**，⛔ 不从被测实现读回（那是自证）。
+        {
+            var pool = RuleEngine.CardDatabase.Load();
+            var c8 = RuleEngine.CardDatabase.FindById(pool, "SOR8");
+            var c10 = RuleEngine.CardDatabase.FindById(pool, "SOR10");
+            Check(c8 != null && c10 != null, "⑤（前提）：卡池里拿得到 `SOR8` / `SOR10`");
+            if (c8 != null && c10 != null)
+            {
+                bool rageRow = false;
+                for (int i = 0; i < c10.AnimTimes.Count; i++)
+                {
+                    var t = c10.AnimTimes[i];
+                    if (t != null && t.Prefab == "PenitenceEffect"
+                        && string.Equals(t.TriggerName, "Rage", System.StringComparison.OrdinalIgnoreCase))
+                        rageRow = true;
+                }
+                Check(rageRow, "⑤（前提）：`SOR10` 的 `AnimTimes` 里 `PenitenceEffect` 标到原版 trigger `Rage`"
+                             + "（= `AbilityTrigger.Rage` 130；`penitence` 只是它的显示名）");
+
+                var pen10 = CardPresentation.VfxMap.ResolveAllTimed(
+                    CardPresentation.VfxMap.Trigger, "Sororitas", "SOR10", c10.AnimTimes,
+                    perCardOnly: true, keyword: "penitence");
+                Check(HasVfx(pen10, "PenitenceEffect"),
+                      "⑤ 正例：`keyword=\"penitence\"` 那一拍**播得出 `PenitenceEffect`**"
+                    + $"（实得 {VfxNames(pen10)}）"
+                    + " —— 🧨 把 `VfxMap.CanonicalTriggerName` 的 `penitence → Rage` 删掉 ⇒ 本条红");
+
+                var pen8 = CardPresentation.VfxMap.ResolveAllTimed(
+                    CardPresentation.VfxMap.Trigger, "Sororitas", "SOR8", c8.AnimTimes,
+                    perCardOnly: true, keyword: "penitence");
+                Check(HasVfx(pen8, "PenitenceEffect") && !HasVfx(pen8, "FlankEffect"),
+                      "⑤ 反例：`SOR8` 那一拍播 `PenitenceEffect`、**不再播 `FlankEffect`**"
+                    + $"（实得 {VfxNames(pen8)}）"
+                    + " —— 🧨 删掉归一 ⇒ 退回 `trigger` 粗桶 = `FlankEffect`（错件），本条红");
+
+                // 🔑 **灭自证（结构上不可能同时满足的一对）**：同一个入口、同一张卡、同一份 `times`，
+                //    **换一个未归口的 keyword** 必须换回**另一组**结果 ——
+                //      · `keyword="Flank"` ⇒ 走原来的 `trigger` 粗桶 ⇒ **必须只有** `FlankEffect`；
+                //      · `keyword="penitence"` ⇒ 按 trigger 名筛 ⇒ **必须没有** `FlankEffect`。
+                //    两条一起才钉死「真的按名字分流」：⛔ 退回粗桶 ⇒ 上面那条红；
+                //    ⛔ 把归口写成「只要 keyword 非空 / 已归口就整桶播」⇒ 这一条红（Flank 会变成 PenitenceEffect）。
+                var flank8 = CardPresentation.VfxMap.ResolveAllTimed(
+                    CardPresentation.VfxMap.Trigger, "Sororitas", "SOR8", c8.AnimTimes,
+                    perCardOnly: true, keyword: "Flank");
+                Check(HasVfx(flank8, "FlankEffect") && !HasVfx(flank8, "PenitenceEffect"),
+                      "⑤ 灭自证：未归口的 `keyword=\"Flank\"` 仍然走原来的 `trigger` 桶 ⇒ 只有 `FlankEffect`"
+                    + $"（实得 {VfxNames(flank8)}）"
+                    + " —— 🧨 把归口改成「keyword 非空就回 ability 桶」⇒ 本条红");
+
+                // 再补一刀（防「万金油」）：归口取的是 keyword **本身**，不是「任取一个已归口名字」。
+                var amb10 = CardPresentation.VfxMap.ResolveAllTimed(
+                    CardPresentation.VfxMap.Trigger, "Sororitas", "SOR10", c10.AnimTimes,
+                    perCardOnly: true, keyword: "Ambush");
+                Check(amb10.Length == 0,
+                      "⑤ 反例（不是万金油）：`keyword=\"Ambush\"` 在 `SOR10` 上**什么都不播**"
+                    + $"（实得 {VfxNames(amb10)}）"
+                    + " —— 🧨 把「按名字筛」写成「已归口就整桶播」⇒ 本条红");
+            }
+        }
+    }
+
+    /// <summary>`⑤` 用：结果里有没有这个特效名（大小写逐字比 —— prefab 名是精确 join 键）。</summary>
+    static bool HasVfx(CardPresentation.VfxMap.ResolvedVfx[] arr, string name)
+    {
+        if (arr == null) return false;
+        for (int i = 0; i < arr.Length; i++)
+            if (string.Equals(arr[i].Name, name, System.StringComparison.Ordinal)) return true;
+        return false;
+    }
+
+    /// <summary>`⑤` 用：把结果里的特效名拼成一行（断言失败时要看得见「实得什么」）。</summary>
+    static string VfxNames(CardPresentation.VfxMap.ResolvedVfx[] arr)
+    {
+        if (arr == null) return "(null)";
+        if (arr.Length == 0) return "(空)";
+        var s = new System.Text.StringBuilder();
+        for (int i = 0; i < arr.Length; i++)
+        {
+            if (i > 0) s.Append(" / ");
+            s.Append(arr[i].Name);
+        }
+        return s.ToString();
     }
 
     static string Describe(Dictionary<string, int> d)

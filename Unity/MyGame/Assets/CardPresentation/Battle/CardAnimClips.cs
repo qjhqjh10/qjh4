@@ -46,7 +46,11 @@ namespace CardPresentation
         public int PointTowards;
         /// <summary>`shouldMoveVFX` —— 起→终位移的总开关（⛔ 别用 `sp != ep` 当替身）。</summary>
         public bool Move;
-        /// <summary>`vfxDelayTime`（秒）。</summary>
+        /// <summary>`vfxDelayTime`（秒）。
+        /// 🔴 **2026-10-23（P2 · `新账-75④`）**：它**只**用于 `GetAnimDuration()`（= `vd+ts+tm+te`）与
+        /// 自检复算 —— ⛔ **别再加进「起播时刻」**：`VfxMap.ResolvedVfx.T` 里已经折算过同一次延迟
+        /// （`T = Offset + CardAnimTime.Delay`），两处都加 = 等两次（原版 `_DelayedVFXPlay:17-27` 只等一次）。
+        /// 消费点原来那处已删（`BattleDriver.PlayUnitSkillAnim`）。</summary>
         public float VfxDelay;
         /// <summary>`timeAtStartPos`（秒）—— `PlayAbilityBeat` 的 `ts`。</summary>
         public float Ts;
@@ -55,6 +59,40 @@ namespace CardPresentation
         /// <summary>`timeAtEndPos`（秒）—— **播放不用**它；只给 `GetAnimDuration()`（= `vd+ts+tm+te`）复核用
         /// （`CardAnimClips.DurationOf`；自检拿它核 `VfxMap.SharedRangedVfxDuration` 那几条「同 prefab 名多 CardAnim」）。</summary>
         public float Te;
+
+        // ── 🆕 2026-10-23（`新账-83` · 弹道三列）：`AnimInfo` 的「VFX movement」那几位 ──
+        //   判据 = `CardAnimController__Update.c:36-97` + `CardAnimController__Initialize.c:60-90`
+        //   （字段偏移 `d:/2/tools/il2cpp_out/dump.cs:25219-25234`）。短名与
+        //   `Resources/card_anim_order.json` 的 `CardAnimBeat` **逐字相同**（同一套运行期读取口径）。
+
+        /// <summary>`easeCurve`(0x40) 的扁平关键帧 `[t0,v0,t1,v1,…]`（升序）。空 / null = 线性
+        /// （原版默认曲线 `(0,0)→(1,1)`）。⚠️ **不飞的件（`Move == false`）这一列不写**（读它没意义）。
+        /// 唯一非线性的是 `Jain Zar / Atk_JainasMor_Throw_Return`（飞出去再飞回来）。</summary>
+        public float[] Ease;
+
+        /// <summary>`orientToVelocity`(0x48) —— 移动期间**每帧**把特效转向速度方向
+        /// （`Update` 里 `if (otv &amp;&amp; shouldMoveVFX)` 那个门）。现读 33 个攻击 movers 里 **22** 件为真。</summary>
+        public bool OrientToVelocity;
+
+        /// <summary>`applyMovementOffsets`(0x49) —— 位移 lerp **之后**要不要叠逐轴偏移曲线。
+        /// 现读 33 个攻击 movers 里 **26** 件为真（其中 22 件带非零弧线 = **手雷/炮弹的抛物线**）。</summary>
+        public bool OffsetAo;
+        /// <summary>`offsetMovementAxis.useNonModifiedAnimTime`(0x10)：真 = 用**原始** `t01` 求值、
+        /// 假 = 用**缓动后**的 `e`（`Update` 里 `fVar7 = ont ? t01 : e`）。</summary>
+        public bool OffsetOnt;
+        /// <summary>三轴偏移曲线（同 <see cref="Ease"/> 的扁平约定；空 = 0 = 该轴不偏移）。</summary>
+        public float[] Ofx, Ofy, Ofz;
+        /// <summary>三轴随机幅度区间 `[min,max]`（`minMax{X,Y,Z}Offset`；每拍初始化时抽一次）。</summary>
+        public float Mnx, Mxx, Mny, Mxy, Mnz, Mxz;
+
+        /// <summary>这一拍在进度 <paramref name="t01"/> / <paramref name="pEased"/> 处的偏移量
+        /// （= 曲线值 × 随机幅度）。**判据只此一处** = `CardAnimOrder.OffsetAt`
+        /// （`CardAnimBeat.OffsetAt` 也转发到那儿）。`OffsetAo == false` ⇒ 零。</summary>
+        public Vector3 OffsetAt(float t01, float pEased, Vector3 randomAmp)
+        {
+            return CardAnimOrder.OffsetAt(OffsetAo ? 1 : 0, OffsetOnt ? 1 : 0,
+                                          Ofx, Ofy, Ofz, t01, pEased, randomAmp);
+        }
     }
 
     /// <summary>一拍要播的技能动画（= <see cref="CardAnimPlacement"/> + `VfxMap` 解出来的名字/时长）。</summary>
@@ -85,6 +123,12 @@ namespace CardPresentation
             public string n;      // prefab 名（诊断用）
             public int sp, ep, pt, mv;
             public float vd, ts, tm, te;
+            // 🆕 2026-10-23（`新账-83`）：`AnimInfo` 的「VFX movement」那几位（短名同 `CardAnimBeat`）
+            public int otv;                       // orientToVelocity
+            public float[] ease;                  // easeCurve（扁平 [t,v,…]；只对 mv==1 的行写）
+            public int ao, ont;                   // applyMovementOffsets / useNonModifiedAnimTime
+            public float[] ofx, ofy, ofz;         // 三轴偏移曲线
+            public float mnx, mxx, mny, mxy, mnz, mxz;   // 三轴随机幅度区间
         }
         [Serializable] public class RtFile
         {
@@ -136,6 +180,11 @@ namespace CardPresentation
                 {
                     StartPos = r.sp, EndPos = r.ep, PointTowards = r.pt,
                     Move = r.mv != 0, VfxDelay = r.vd, Ts = r.ts, Tm = r.tm, Te = r.te,
+                    // 🆕 2026-10-23（`新账-83`）：「VFX movement」三列（判据见 `CardAnimPlacement` 那段）
+                    Ease = r.ease, OrientToVelocity = r.otv != 0,
+                    OffsetAo = r.ao != 0, OffsetOnt = r.ont != 0,
+                    Ofx = r.ofx, Ofy = r.ofy, Ofz = r.ofz,
+                    Mnx = r.mnx, Mxx = r.mxx, Mny = r.mny, Mxy = r.mxy, Mnz = r.mnz, Mxz = r.mxz,
                 };
             }
             Loaded = true;

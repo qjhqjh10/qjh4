@@ -595,10 +595,13 @@ namespace RuleEngine
             // 反击：取守方**本次打法那一档**的攻击力（原版 `GetCombatDamage(守方, 本次打法)`；
             //   引擎侧同一口径 = `RuleCore.DeclareAttack` 的
             //   `counterAtk = FieldAttack(ctx, tgtP, target, ranged)`）
-            bool noCounter = ranged && u.Has(KeywordTable.LongRange);
-            bool sniperKill = ranged && u.Has("sniper") && RuleCore.WouldKill(target, atk);
+            // 🔴 2026-10-23（引擎线 `新账-97` ①）：四道豁免的判据**只剩一处** ——
+            //   `CounterAttack.NoCounter`（sneakAttack / terror / LongRange / Sniper）。
+            //   这里原来自己写 `ranged && Has(LongRange)` + `sniper && WouldKill`，是第三份；
+            //   ⛔ 别再写回来（改一处漏两处的先例就在本行上方那段订正里）。
+            bool noCounter = CounterAttack.NoCounter(ctx, side, u, foe, target, ranged, RuleCore.WouldKill(target, atk));
             int counter = RuleCore.FieldAttack(ctx, foe, target, ranged);
-            if (!noCounter && !sniperKill && counter > 0)
+            if (!noCounter && counter > 0)
             {
                 s -= ScoreDamaging(u, counter);
                 if (RuleCore.DamageAfterReduction(u, counter) < u.Health) s += SurvivalBonus;

@@ -28,7 +28,13 @@ CardAnim 名 → prefab 名（GUID → 资产名）这一跳**不在本脚本里
 
 形状（`JsonUtility` 只吃**数组**，不吃字典）：
     { "schema": 1, "count": N, "rows": [ {"n": prefab 名, "a": CardAnim 名,
-                                          "sp":0,"ep":0,"pt":0,"mv":0,"vd":0,"ts":0,"tm":0,"te":0}, … ] }
+                                          "sp":0,"ep":0,"pt":0,"mv":0,"vd":0,"ts":0,"tm":0,"te":0,
+                                          "otv":0, "ease":[t,v,…],
+                                          "ao":0/1,"ont":0/1,"ofx":[…],"ofy":[…],"ofz":[…],
+                                          "mnx":0,"mxx":0,"mny":0,"mxy":0,"mnz":0,"mxz":0}, … ] }
+  🆕 2026-10-23（`新账-83`）：`otv` 每行都有；`ease` 只写 `mv==1` 的行；
+  `ao/ont/ofx/ofy/ofz/mn*/mx*` 只写 `ao==1` 的行（其余行缺省 = 0 / 空）—— 与
+  `Resources/card_anim_order.json` 的 `CardAnimBeat` 同一套短名与同一份曲线格式。
 · 🔴 **键 = `CardAnim` 资产名（`a`），⛔ 不是 prefab 名**：同一个 prefab 名会被多张 `CardAnim`
   共用、参数却不同（2026-10-23 现读 **215 组**，例：`Trait_GainQuest` 被
   `Trait_GainQuest_self`(sp=0) 与 `Trait_GainQuest_enemywarlord`(sp=4) 共用）⇒ 按 prefab 名查必错。
@@ -61,6 +67,22 @@ OUT_FULL = r"d:/4/Unity/数据/游戏数据/cardanim_clips.json"
 OUT_RUNTIME = r"d:/4/Unity/MyGame/Assets/CardPresentation/Resources/cardanim_clips.json"
 
 
+def _curve_flat(curve):
+    """`AnimationCurve`（全量件里的序列化形状）→ 扁平 `[t0,v0,t1,v1,…]`（按 time 升序、4 位小数）。
+
+    🆕 2026-10-23（`新账-83`）：与 `gen_card_anim_order.py` 的 `_curve_flat` **同一个格式约定**
+    （运行期 `CardAnimOrder.EaseAt` / `EaseAtRaw` 按分段线性读它）。两处是**同一个数据格式**，
+    不是同一条业务规则 —— 但**改约定要两边一起改**（C# 只有一份读取实现）。
+    没有键 / 曲线是 null ⇒ 空列表。
+    """
+    cur = ((curve or {}).get("m_Curve") or [])
+    out = []
+    for k in sorted(cur, key=lambda x: x.get("time", 0.0)):
+        out.append(round(float(k.get("time") or 0.0), 4))
+        out.append(round(float(k.get("value") or 0.0), 4))
+    return out
+
+
 def build():
     am = json.load(io.open(ADDR_MAP, encoding="utf-8"))
     c2a = am["cardanim_to_asset"]
@@ -87,13 +109,14 @@ def build():
             missing.append((ca, "json error: %s" % e))
             continue
         ai = j.get("animInfo") or {}
+        mv = 1 if ai.get("shouldMoveVFX") else 0
         row = {
             "n": n,
             "a": ca,
             "sp": int(ai.get("startPosOption") or 0),
             "ep": int(ai.get("endPosOption") or 0),
             "pt": int(ai.get("pointTowardsOption") or 0),
-            "mv": 1 if ai.get("shouldMoveVFX") else 0,
+            "mv": mv,
             "vd": round(float(ai.get("vfxDelayTime") or 0.0), 6),
             "ts": round(float(ai.get("timeAtStartPos") or 0.0), 6),
             "tm": round(float(ai.get("timeMoving") or 0.0), 6),
@@ -101,6 +124,32 @@ def build():
             # （自检拿它复核 `VfxMap.SharedRangedVfxDuration` 那些「同 prefab 名多 CardAnim」该取哪一条）
             "te": round(float(ai.get("timeAtEndPos") or 0.0), 6),
         }
+        # ── 🆕 2026-10-23（`新账-83` · 弹道三列）：`AnimInfo` 的「VFX movement」那几位 ──
+        #   判据（`d:/2/tools/il2cpp_out/dump.cs:25219-25234` + `CardAnimController__Update.c:36-97`）：
+        #     · `easeCurve`(0x40)        —— 位移进度曲线（`Evaluate((t−ts)/tm)` 再 clamp 到 [0,1]）；
+        #     · `applyMovementOffsets`(0x49) + `offsetMovementAxis`(0x50)
+        #                                —— lerp **之后**逐轴叠 `curve(t) × Random.Range(min,max)`；
+        #     · `orientToVelocity`(0x48) —— 移动期间每帧把实例转向**速度方向**。
+        #   短名与 `Resources/card_anim_order.json` 的 `CardAnimBeat` **逐字相同**（同一套运行期读取口径）。
+        #   ⚠️ `ease` 只在 `mv==1` 时写（不飞的件不读它）；`ao/ont/ofx/ofy/ofz/mn*/mx*` 只在 `ao==1` 时写 ——
+        #      其余行缺省（`JsonUtility` 给默认 0 / 空数组）。
+        row["otv"] = 1 if ai.get("orientToVelocity") else 0
+        if mv:
+            row["ease"] = _curve_flat(ai.get("easeCurve"))
+        ao = 1 if ai.get("applyMovementOffsets") else 0
+        if ao:
+            om = ai.get("offsetMovementAxis") or {}
+            row["ao"] = 1
+            row["ont"] = 1 if om.get("useNonModifiedAnimTime") else 0
+            row["ofx"] = _curve_flat(om.get("xAxis"))
+            row["ofy"] = _curve_flat(om.get("yAxis"))
+            row["ofz"] = _curve_flat(om.get("zAxis"))
+            for mn_key, mx_key, range_key in (("mnx", "mxx", "minMaxXOffset"),
+                                              ("mny", "mxy", "minMaxYOffset"),
+                                              ("mnz", "mxz", "minMaxZOffset")):
+                r = om.get(range_key) or {}
+                row[mn_key] = round(float(r.get("x") or 0.0), 6)
+                row[mx_key] = round(float(r.get("y") or 0.0), 6)
         # 🔴 键 = **CardAnim 名**（`a`）。同一 prefab 名可以有多张 CardAnim、参数不同 ⇒ 各存各的。
         if ca in rows:                       # 理论上 c2a 的键唯一（现读 1,099/1,099）
             conflicts.append((ca, rows[ca]["n"], n))

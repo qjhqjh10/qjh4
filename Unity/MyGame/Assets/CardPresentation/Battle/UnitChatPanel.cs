@@ -541,15 +541,16 @@ namespace CardPresentation
             //    给它换 `CardPresentation/VoiceWave`（UV 位移），幅度由 `Advance` 按频谱写（0 = 直线）。
             if (b.wave != null)
             {
-                var waveSh = Shader.Find("CardPresentation/VoiceWave");
-                if (waveSh != null)
-                {
-                    b.waveMat = new Material(waveSh);
-                    b.waveMat.mainTexture = waveTex;
-                    b.waveMat.SetColor("_Color", Color.white);
-                    b.wave.SetMaterial(b.waveMat);
-                }
-                else Debug.LogWarning("[UnitChat] 找不到 `CardPresentation/VoiceWave` shader ⇒ 音波仍是直线");
+                // 🆕 **2026-10-23（特效线「UI·音波线」）**：换成原版 `Equalizer_0` 材质那 6 个属性 +
+                //   **线性噪声图**（`VoiceWaveMaterial.Create`）。shader = 原版 ps_4_0 37 条逐条复刻
+                //   （`Resources/VoiceWave.shader`，名字保留 ⇒ `Shader.Find` 不变）。
+                //   ⚠️ **tint 传 null**：原版 `m_Color` 已经是 `WaveTint`（0.6988/0.9811/0.9265），
+                //   而原版 shader 把**顶点色乘两次**；上面 `SetTint(WaveTint)` 已经给了顶点色
+                //   ⇒ `_Color` 必须保持白，否则会变成 tint³（偏暗）。
+                b.waveMat = CardPresentation.VoiceWaveMaterial.Create(waveTex, null);
+                if (b.waveMat != null) b.wave.SetMaterial(b.waveMat);
+                else Debug.LogWarning("[UnitChat] `VoiceWaveMaterial.Create` 失败 ⇒ 音波仍是直线"
+                                    + "（Shader.Find(`CardPresentation/VoiceWave`) 或噪声图缺失，见上一条 Log）");
             }
             // 🔴 2026-10-20（W58 · `T09-C3` 生产修复）：**三片的「宽 = 高 × 原版比例」在建件处就写一次**。
             //   uGUI 档的 `Quad`（`HudCanvas.MakeImageInParent`）只按**贴图比例**给宽度

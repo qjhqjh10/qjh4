@@ -230,11 +230,16 @@ namespace CardPresentation
                 //    规格·出处见 `资料/普查产出_0918/第18行_UI三小条_规格.md` §③。
                 case EvtKind.Attack: return AttackStepMelee;
 
-                // `Impact Light Tween`：Punch 0.3(After) + Punch 0.5(Same，与上一条重叠)
-                // + ResetBody 0.25(After) → **0.3 与 0.5 取长的 0.5，再接 0.25 的复位 = 0.75**。
-                // ⚠️ 2026-09-13 更正：这里原来返回 **0.5**，但上一行的注释自己就写着还有一条
-                //    `ResetBodyTween`。`appendType` 在数据里是 `After(0)`/`Same(5)` ——
-                //    复位那一条是 `After`，所以它**是串在后面**的，不是重叠。
+                // 🔴 **2026-10-23（P2 · 演出时序 · `新账-78②`）：这个数的【出处已经倒了】，但值暂时不动**
+                //   （判据不齐 ⇒ ⛔ 别猜着改）。原出处写的是 `Impact Light Tween` 的 Punch 0.5 + ResetBody 0.25
+                //   （`appendType=After`），而 `CardFeel` 的 `B02`（2026-10-22）已判定
+                //   **`Impact Light/Heavy Tween` 是【远程弹着 AnimFX 模块】**（90 件 `BulletImpact_*` 引用它），
+                //   **不是近战挨打** ⇒ 拿它当 `Hit` 拍的长度=**机制错位**，这条出处**自相矛盾**。
+                //   候选真值 = `CardScript._ReceiveDamage_d__381__MoveNext.c:342` 末尾那句
+                //   `WaitForSeconds(DAT_1834b2bb8)`（`.rdata` 4 字节实读 = **1.0**），但它被构造参数
+                //   `+0x34` 这个 bool 把着（`_ResolveAttack:993` 的调用点传 `ReceiveDamage(dmg, 0, 0)` = 双 false
+                //   ⇒ 会走到那句），**那个 bool 的语义还没查清** ⇒ 0.75 → 1.0 这一步**判据未闭合**。
+                //   ⚠️ 改这个数会动**整条事件节奏基线**（要重跑 `BattleScene.Run` 重定基线）⇒ 与查清语义一起做。
                 case EvtKind.Hit: return CardFeel.HitRotDuration + CardFeel.ResetDuration;
 
                 // **拍的**：原版没有通用阵亡 tween（只有 `EC Heldrake Dissapear UP`、
@@ -645,7 +650,16 @@ namespace CardPresentation
                                           + "`Summon Troop Tween` 的 DelayTween **1.0**；"
                                           + "无来源（Unknown）退回老口径 1.3";
                 case EvtKind.Attack: return "`CardScript.attackStepTime`=0.1（位移完成即命中帧；远程 0.2）";
-                case EvtKind.Hit: return "`Impact Light Tween`：Punch 0.5 + ResetBody 0.25（`appendType=After`）";
+                // 🔴 **2026-10-23（P2 · `新账-78②`）就地订正（铁律 5）**：原文 = 「`Impact Light Tween`：
+                //   Punch 0.5 + ResetBody 0.25」—— **那个出处已经不成立**（`Impact Light/Heavy Tween` 是
+                //   **远程弹着** AnimFX 模块，`CardFeel` `B02` 判的；近战挨打只有 `DOPunchPosition` 一句）。
+                //   现行值 0.75 **仍是我们自己的**（= `HitRotDuration + ResetDuration`，**出处待补**）。
+                //   候选 = `_ReceiveDamage:342` 的 `WaitForSeconds(1.0)`（被 `+0x34` bool 把着，语义未查）。
+                case EvtKind.Hit: return "⚠️ **出处待补**（旧出处 `Impact Light Tween` 已被 `CardFeel` `B02` 证伪"
+                                       + "：那是远程弹着模块）—— 现值 = `CardFeel.HitRotDuration` 0.5 + "
+                                       + "`CardFeel.ResetDuration` 0.25 = 0.75；候选真值 = "
+                                       + "`CardScript._ReceiveDamage_d__381:342` 的 `WaitForSeconds(1.0)`"
+                                       + "（被 `+0x34` 的 bool 把着，**语义未查清** ⇒ 判据未闭合，⛔ 别猜）";
                 case EvtKind.Ability: return "🆕 2026-10-14（`A1767`）**逐卡真值**：该卡 `activeAbility` 各 CardAnim 的 "
                                              + "`AnimInfo.GetAnimDuration()`（`vfxDelayTime + timeAtStartPos + timeMoving "
                                              + "+ timeAtEndPos`）之和 → `AbilityAnimDurations`（**现读 93 张卡**）；"

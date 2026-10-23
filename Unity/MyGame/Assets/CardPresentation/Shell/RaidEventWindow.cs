@@ -121,8 +121,9 @@ namespace CardPresentation
 {
     /// <summary>Raid 团队活动页（原版 `RaidEventTab`）—— **承载窗外壳照 `Parent Event Window`、内容照 `Raid Progress Tab` prefab**。
     /// <para>🔴 活动数据全在远端 LiveOps ⇒ 结构照建、数值 `--` + 出声（⛔ 不编；判据 → 文件头「数据缺口」）。</para>
-    /// <para>⚠️ 本地**没有生产入口**：原版由 liveops 事件链 `BaseParentEventWindow.CreateEventTab` 建出来
-    /// ⇒ 只提供 `WindowsManager.OpenRaidEvent()`，⛔ 不伪造调用点。</para></summary>
+    /// <para>✅ **2026-10-23 起有生产入口了**：左竖导航第 6 颗 `Event Navigation Button` →
+    /// `WindowsManager.OpenEventHub(...)`；本窗左栏的「事件钮」（<see cref="ParentEventWindow.SetupEventTabs"/>
+    /// 建的）也走同一个口。直接调用 = `WindowsManager.OpenRaidEvent()`。</para></summary>
     public class RaidEventWindow : GameWindow
     {
         // ============================================================ 渲染队列档（3660–3689 · 全工程现读空档）
@@ -331,6 +332,13 @@ namespace CardPresentation
         readonly List<Transform> _tabButtonsList = new List<Transform>();
         readonly List<Transform> _tabHi = new List<Transform>();
         readonly List<Label> _tabLabels = new List<Label>();
+        // 🆕 2026-10-23（活动线 `L02`）：**事件钮**（原版 `BaseParentEventWindow.SetupTabs` 在任何一扇
+        //   活动窗的左栏都列全部 live 事件 ⇒ Raid 这扇也要有）。**与内容页那三张表分家**
+        //   （理由 → `Shell/ParentEventWindow.cs` 的 `SetupEventTabs`）。
+        readonly List<Transform> _eventTabs = new List<Transform>();
+        readonly List<Transform> _eventHi = new List<Transform>();
+        readonly List<Label> _eventLabels = new List<Label>();
+        bool _tabOverflowWarned;
         bool _warned;
         readonly List<string> _missArt = new List<string>();
         readonly List<string> _artNotes = new List<string>();
@@ -365,6 +373,12 @@ namespace CardPresentation
         public List<Transform> TabButtonNodes { get { return _tabButtonsList; } }
         public List<Transform> TabHighlights { get { return _tabHi; } }
         public List<Label> TabLabels { get { return _tabLabels; } }
+        /// <summary>🆕 2026-10-23：**事件钮**（`SetupTabs` 建的那几颗；**不含**内容页签，兄弟序 = 事件名单序）。</summary>
+        public List<Transform> EventTabNodes { get { return _eventTabs; } }
+        public List<Transform> EventTabHighlights { get { return _eventHi; } }
+        public List<Label> EventTabLabels { get { return _eventLabels; } }
+        /// <summary>`SetupTabs` 那一声出声的原文（自检读口）。</summary>
+        public string EventTabNote { get; private set; }
         public Label TitleLabel { get { return _title; } }
         public Label InstructionsCommunityLabel { get { return _instructionsCommunity; } }
         public Label InstructionsPlayerLabel { get { return _instructionsPlayer; } }
@@ -443,6 +457,7 @@ namespace CardPresentation
             MissingArt.Clear();
             ArtNotes.Clear();
             _tabButtonsList.Clear(); _tabHi.Clear(); _tabLabels.Clear();
+            _tabOverflowWarned = false;                      // 🆕 事件钮的「溢出左栏」告警一次一建（同 `ParentEventWindow`）
             _shade = _contentArea = _background = _tabButtons = _tabShadow = _tabs = _tabMaster = null;
             _page = _pageBg = _pageBgImage = _scroll = _viewport = _content = _header = _footer = _debug = null;
             _container = _collectHighlight = _communityBar = _personalBar = _armyIcon = null;
@@ -452,6 +467,10 @@ namespace CardPresentation
             BuildTabBar();
             BuildPage();
             BuildShellTail();
+            // 🆕 2026-10-23（活动线 `L02`）：左栏的「事件钮」（原版 `BaseParentEventWindow.SetupTabs` 在
+            //   **每一扇**活动窗的左栏都列全部 live 事件）。兄弟序 = 内容页在前、事件钮在后。
+            SetupTabs(ParentEventWindow.BuildEventTabs(ParentEventWindow.EventWindowKind.Raid,
+                                                       LiveOpsLocalCatalog.NowUtc));
 
             if (MissingArt.Count > 0)
                 Debug.LogWarning("[Raid] ⚠️ 有 " + MissingArt.Count + " 张图取不到（**这些件没画**）："
@@ -529,6 +548,22 @@ namespace CardPresentation
                 wb.isOn = () => true;
             }
             if (_tabHi.Count > 0) _tabHi[0].gameObject.SetActive(true);   // 唯一页 = 恒选中
+        }
+
+        /// <summary>🆕 2026-10-23（活动线 `L02`）：**建左栏的「事件钮」** —— 与 `ParentEventWindow`
+        /// **走同一份判据**（`ParentEventWindow.SetupEventTabs` / `BuildEventTabs`；本类只提供自己的
+        /// `BuildTabButton` 与自己的渲染队列档，⛔ 不在这里再抄一份 `SetupTabs` 的实现）。
+        /// <para>内容页占 1 颗 ⇒ 事件钮从第 2 格（`TabTop + TabH`）往下排。</para></summary>
+        public int SetupTabs(IList<ParentEventWindow.EventTab> tabs)
+        {
+            string note;
+            int n = ParentEventWindow.SetupEventTabs(
+                tabs, 1,
+                (name, top, label) => BuildTabButton(name, top, label, false),
+                _eventTabs, _eventHi, _eventLabels, _tabHi, _tabLabels,
+                QTabIcon, QHit, ref _tabOverflowWarned, out note);
+            EventTabNote = note;
+            return n;
         }
 
         Transform BuildTabButton(string name, float top, string label, bool isMaster)

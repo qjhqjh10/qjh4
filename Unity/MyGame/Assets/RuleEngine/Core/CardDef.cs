@@ -111,6 +111,15 @@ namespace RuleEngine
         /// </summary>
         public string Subtype { get; }
 
+        /// <summary>🆕 v19（2026-10-23 · 引擎线 `新账-97` ③/⑤）：原版 `RawCardScript.spellType`
+        /// （`d:/2/tools/il2cpp_out/dump.cs` 的 `SpellType` 枚举：`0 Normal` / `60 SecretOrder` /
+        /// `120 Quest` / `150 Secret` / `230 Sabotage` / `260 CombatElixir` …）。
+        /// <para>`-1` = **未知**（快照里没有这张卡 / 旧表 &lt; v19）—— ⛔ 别当成 `Normal(0)`。</para>
+        /// <para>消费端两处：① <see cref="CardCriteria.SpellType"/>（事件主语筛，`DA66` 的 Secret=150）；
+        /// ② <see cref="Enchantments"/> 的附魔 `SpellType` 兜底
+        /// （原版 `EntityScript__HasSecretOrders.c:31` 读的就是附魔卡这一格 = 60）。</para></summary>
+        public int SpellType { get; private set; } = -1;
+
         /// <summary>这张卡是不是来自**原版卡池**（`cards_engine.json`，由
         /// <see cref="CardDatabase.Parse"/> 置 true）。我们自己设计的那 26 张是 false。
         /// <para>用处：卡面文字怎么取。原版卡的卡面写的是**它自己的效果原文**
@@ -199,8 +208,12 @@ namespace RuleEngine
         ///
         /// <para>⚠️ **`-1` = 真值里查不到这张卡**（快照 2025-07-30 比现池旧）—— ⛔ **别当成
         /// `0`(Undefined)**：判先后手时 `-1` **不比**（退回原版最后一步），拿默认值顶上去
-        /// 会把「没数据」静默变成「有数据」。现读实测：**955/1126 有值、全是 `20`(Medium)**，
-        /// 另 171 张是 `-1`（整个 SpaceWolves 阵营等）。</para>
+        /// 会把「没数据」静默变成「有数据」。
+        /// 🔴 **2026-10-23 现读（`新账-95` · 铁律 5 订正）**：原来这里写「955/1126 有值、另 171 张是 -1」
+        /// —— **已过期**：当前池 **1,127/1,127 全有值、且全是 `20`(Medium)**（`-1` 已归零）。
+        /// 数据侧那 2 张 `30` 的**教程专用督军**不在池里（见下一段）⇒ `ByInitiative` 的
+        /// `>` / `<` 两个分支**今天一次都进不去**，「按先攻定先后手」这条机制**等价于没接**
+        /// （口径没错，是数据事实 —— `资料/普查产出_1023c/引擎深审C_数据吻合.md` §四·7）。</para>
         ///
         /// <para>⚠️ 原版真值里只有**两张** ≠ 20（`Marneus Calgar (tutorial)` /
         /// `Uriel Ventris (tutorial)` = `30`），那是**教程装订的督军**、走的是原版
@@ -675,11 +688,17 @@ namespace RuleEngine
                        //   ⚠️ **追加在参数表末尾**（同前几条：全仓有位置传参的老调用点）。
                        IEnumerable<AbilityTriggerPrioritySpec> abilityTriggerPriority = null,
                        // 「这一列**来自 v18 卡表**」的正面信号（只有 `CardDatabase.Parse` 知道）。
-                       bool abilityTriggerPrioritiesVersioned = false)
+                       bool abilityTriggerPrioritiesVersioned = false,
+                       // 🆕 v19（2026-10-23 · 引擎线 `新账-97` ③/⑤）：原版 `RawCardScript.spellType`
+                       //   （`SpellType` 枚举）。`-1` = 未知（快照里没这张卡）—— ⛔ 别当成 Normal(0)。
+                       //   ⚠️ **追加在参数表末尾**（同前几条：全仓有位置传参的老调用点）。
+                       int spellType = -1)
         {
             Id = id; Name = name; Type = type ?? ""; Desc = desc ?? ""; Rarity = rarity; Faction = faction;
             NameZh = nameZh ?? ""; DescZh = descZh ?? "";
             Subtype = subtype ?? "";
+            // 🆕 v19（2026-10-23 · `新账-97`）：原版 `spellType` 原样收下（`-1` = 未知，⛔ 不是 Normal）。
+            SpellType = spellType;
             // 🆕 2026-10-14（`A1798`）：原版那两个字段**原样收下**（`-1` = 真值里没有这张卡，别当 0）。
             InventoryOptions = inventoryOptions;
             ShowInCollectionOptions = showInCollectionOptions;
@@ -4845,6 +4864,29 @@ namespace RuleEngine
         /// 别合并成一条。
         /// </summary>
         public const string LongRange = "longrange";
+
+        /// <summary>
+        /// 🆕 **2026-10-23（引擎线 `新账-97` ①）**：**潜行攻击**（原版 `DefinedTrait.sneakAttack = 20`）
+        /// —— **无条件免反击**（`BattleManager._ResolveAttack_d__438__MoveNext.c:871`：
+        /// `!HasCurrentTrait(攻方, 0x14)` 是四道豁免里的**第一道**）。
+        /// 卡面写法 = `Sneak Attack`（官方本地化 `Card_Trait/sneak` = ["Sneak Attack","潜行攻击"]）。
+        /// ⚠️ 判据只写在 `CounterAttack.NoCounter` 一处；⛔ 别在 `RuleCore`/`SimpleAI` 再写一份。
+        /// </summary>
+        public const string SneakAttack = "sneakattack";
+
+        /// <summary>
+        /// 🆕 **2026-10-23（引擎线 `新账-97` ①）**：**恐惧**（原版 `DefinedTrait.terror = 520`）——
+        /// 攻方带它、且**守方**（Minion，不含 Hero）的 `currentCombatAttack` 严格小于攻方 ⇒ 免反击
+        /// （`EntityScript__ActivatesTerror.c` 全文）。官方本地化 `Card_Trait/terror` **0 条**
+        /// （它是隐藏 trait，不印在卡面）⇒ 这个词只可能来自数据侧/效果挂载，不是卡面解析的主力。
+        /// 判据只写在 `CounterAttack.NoCounter` 一处。
+        /// </summary>
+        public const string Terror = "terror";
+
+        /// <summary>🆕 2026-10-23：**狙击手**（原版 `DefinedTrait.sniper = 990`）—— 远程击杀且守方
+        /// **未被保护/无 survivor** 时免反击（`EntityScript__ActivatesNoReturnSniperAttack.c`）。
+        /// 原先代码里用字面量 `"sniper"`；本批收成常量，判据仍只在 `CounterAttack.NoCounter` 一处。</summary>
+        public const string Sniper = "sniper";
         /// <summary>黑暗契约：可带变体（`of blood` / `of excess` / `of fate` / `of resilience`），
         /// 四种效果不同 —— 变体记在载荷里，见 <see cref="GivePayload"/> 的 `Variant`</summary>
         public const string DarkPact = "darkpact";
@@ -5757,6 +5799,11 @@ namespace RuleEngine
         {
             new[] { "can't attack", CantAttack }, new[] { "cant attack", CantAttack },
             new[] { "blood thirst", "bloodthirst" }, new[] { "long range", LongRange },
+            // 🆕 2026-10-23（`新账-97` ①）：反击豁免的另外两道。卡面写法 = `Sneak Attack`；
+            //   `Terror` 是隐藏 trait（官方 `Card_Trait/terror` 0 条），池内现读 0 张 ——
+            //   登记它是为了「卡面/数据一出现就自动生效」，⛔ 不是今天有卡在用。
+            new[] { "sneak attack", SneakAttack }, new[] { "sneakattack", SneakAttack },
+            new[] { "terror", Terror },
             new[] { "hunt mark", "huntmark" }, new[] { "dark pact", "darkpact" },
             new[] { "vanguard", Vanguard }, new[] { "stealth", Stealth }, new[] { "flying", Flying },
             new[] { "rally", Rally }, new[] { "backlash", Backlash }, new[] { "slay", Slay },

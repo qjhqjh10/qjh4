@@ -455,7 +455,18 @@ namespace CardPresentation
         /// <summary>🔴 **录像专用**的强哈希：`NetProtocol.StateHash` 只数**张数**（牌库几张、手牌几张），
         /// **不数牌的身份** —— 洗牌结果不同、或手牌换了一批，它照样相等（2026-09-27 实测：分叉了却报「一致」）。
         /// 这把把「手牌 / 牌库前几张 / 场上单位 / 督军血 / 能量」的身份都算进去，
-        /// **只给录像的对账用**（联机那边用 `Fingerprint`，别动它）。</summary>
+        /// **只给录像的对账用**（联机那边用 `Fingerprint`，别动它）。
+        ///
+        /// <para>🔴 **2026-10-23（引擎线「新账-88」· 深审 B 的 `D1`）：卡 id 一律走
+        /// `NetProtocol.Hash`（跨进程稳定），⛔ 不再用 `string.GetHashCode()`。**
+        /// 这条不是洁癖：.NET 的字符串哈希**按进程随机化**（本项目自己的红字写在 `EffectResolver` 里），
+        /// 而录像的轨迹只适合**跨进程**比 —— 今天 Unity Mono 下字符串哈希稳定、自检全绿，
+        /// 换运行时 / 换进程就**从第 0 条报分叉并 `break` 掉整条动作流**（`PlayReplay` 的分叉那一支）。
+        /// 🧨 **改坏法**：把任意一处 `NetProtocol.Hash(...)` 换回 `.GetHashCode()` ⇒
+        /// `Editor/BattleScene.cs` 第 21·1 节那条**字面量锚点**当场红（那个数只有稳定哈希算得出来）。</para>
+        ///
+        /// <para>⚠️ `CardInstance.Id`（实例号）**进这一把**（与 `StateHash` 的口径不同）：
+        /// 轨迹要的是「逐位相同」，而实例号**跟着 `ctx` 走、同种子必然同序号**（`BattleContext` 的注）。</para></summary>
         static int DeepHash(BattleContext ctx)
         {
             if (ctx == null) return 0;
@@ -473,23 +484,27 @@ namespace CardPresentation
                     for (int i = 0; i < ps.Hand.Count; i++)
                     {
                         h = h * 31 + (ps.Hand[i] != null && ps.Hand[i].Card != null
-                                      ? ps.Hand[i].Card.Id.GetHashCode() : 0);
+                                      ? NetProtocol.Hash(ps.Hand[i].Card.Id) : 0);
                         h = h * 31 + (ps.Hand[i] != null ? ps.Hand[i].Id * 211 : 0);   // ⚠️ 实例号也要对
                     }
                     for (int i = 0; i < Mathf.Min(5, ps.Deck.Count); i++)
                         h = h * 31 + (ps.Deck[i] != null && ps.Deck[i].Card != null
-                                      ? ps.Deck[i].Card.Id.GetHashCode() : 0);
+                                      ? NetProtocol.Hash(ps.Deck[i].Card.Id) : 0);
                     if (ps.Warlord != null) h = h * 31 + ps.Warlord.Health * 101;
                     for (int sl = 0; sl < RuleEngine.BoardSpec.Size; sl++)
                     {
                         var u = ps.Board[sl];
-                        h = h * 31 + (u != null && u.Card != null ? u.Card.Id.GetHashCode() : 0);
+                        h = h * 31 + (u != null && u.Card != null ? NetProtocol.Hash(u.Card.Id) : 0);
                         if (u != null) { h = h * 31 + u.Health * 103; h = h * 31 + u.Instance.Id * 223; }   // ⚠️ 实例号
                     }
                 }
                 return h;
             }
         }
+
+        /// <summary>自检用：`DeepHash` 的读口（跨进程锚点断言在 `Editor/BattleScene.cs` 第 21·1 节）。
+        /// ⚠️ 只读 —— ⛔ 别拿它当产品路径用。</summary>
+        public static int DeepHashForTest(BattleContext ctx) { return DeepHash(ctx); }
 
         /// <summary>引擎事件流（`ActionLog`）最后一条的一句话 —— 录像对账用（诊断分叉）。</summary>
         static string EvtTail(BattleContext ctx) { var l = ctx != null ? ctx.ActionLog : null; return l == null || l.Count == 0 ? "<空>" : EvtText(l[l.Count - 1]); }
@@ -683,7 +698,12 @@ namespace CardPresentation
             ReplayStore.WriteResultTail(_rec, resultCode, resultSeat);
             LastReplayFile = ReplayStore.Save(_rec);
             var keep = _rec; _rec = null;
-            Debug.Log($"[Replay] 这一局录了 {keep.actions.Count} 条动作 · 终局指纹 {keep.finalHash}");
+            // 🆕 **2026-10-23（引擎线「新账-88」· 深审 B 的 `D1`）**：多打了**轨迹摘要** ——
+            //   跨进程验证就靠它：同一份录像（同种子 + 同一串动作）在两个**独立进程**里录出来，
+            //   这个数必须**逐位相同**。`DeepHash` 里任何一处退回 `string.GetHashCode()`
+            //   都会让它随进程变（.NET 的字符串哈希按进程随机化）⇒ 这条日志本身就是那个判据的读数。
+            Debug.Log($"[Replay] 这一局录了 {keep.actions.Count} 条动作 · 终局指纹 {keep.finalHash}"
+                    + $" · 轨迹摘要 {NetProtocol.HashOfInts(keep.trace)}");
 
             // 顺手把录像挂到对局历史那条记录上（对局历史那一行点「回放」就是播它）
             BattleLogData.AttachReplay(LastReplayFile);
@@ -779,6 +799,9 @@ namespace CardPresentation
                 // 🆕 2026-10-11（A985⑬ / A1295）：这一局的结束理由码从**录像尾**那条【只落盘】记录里读。
                 //   ⚠️ 老录像没有那两条记录 ⇒ 读出 `Undefined` ⇒ 行为**逐字不变**。
                 var replayResultCode = ReplayStore.ReadResultCode(rec);
+                // 🆕 **2026-10-23（新账-88 / D1）**：回放侧也攒一份轨迹 —— 末了打**摘要**，
+                //   与 `RecFinish` 那句同一个形状（跨进程对账用：两个独立进程必须逐位相同）。
+                var replayTrace = new List<int>();
                 for (int i = 0; i < rec.actions.Count; i++)
                 {
                     var m = rec.actions[i];
@@ -806,6 +829,7 @@ namespace CardPresentation
                     if (rec.trace != null && i < rec.trace.Count)
                     {
                         int fin = DeepHash(Ctx);
+                        replayTrace.Add(fin);
                         if (fin != rec.trace[i])
                         {
                             // 🆕 2026-10-18（审查 · 交件 §9·3）：**置失败位**（第一次分叉处）。
@@ -846,6 +870,8 @@ namespace CardPresentation
                 int got = NetProtocol.StateHash(Ctx);
                 bool same = got == rec.finalHash;
                 Debug.Log($"[Replay] 演完了：{Ctx.Turn} 回合 · 终局指纹 {got}"
+                        + $" · 轨迹摘要 {NetProtocol.HashOfInts(replayTrace)}"
+                        + $"（录制时 {NetProtocol.HashOfInts(rec.trace)}）"
                         + (same ? " = 录制时的 ⇒ **同一局**" : $" ≠ 录制时的 {rec.finalHash} ⇒ **不是同一局**")
                         + (same ? "" : "（说明有动作没录全 —— 如实报出来，别当演对了）"));
                 return same;
@@ -4051,6 +4077,9 @@ namespace CardPresentation
             //   「**本局**排过几次反击」（自检读它），跨局留着就是上一局的数（本仓「跨局泄漏」同族）。
             _retaliationPlans.Clear();
             _retaliationNoViewWarned.Clear();
+            // 🆕 2026-10-23（`新账-84`）：攻击锚点记账同理（「本局排过哪些件的锚点」，自检读它）。
+            _attackAnchorPlans.Clear();
+            _lastAttackEventAt = -1f;
 
             // 🆕 2026-10-01：**「已经把键让出去了、等演出」的那几张**同理（`DetachStaleView` 摘的）
             foreach (var kv in _myFading) if (kv.Value != null) Kill(kv.Value.gameObject);
@@ -6003,8 +6032,8 @@ namespace CardPresentation
             //   会**直接 NRE**（`PlaySignal` 没有空事件守卫）—— 这里按 `AdvanceTimeline` 同一个口径处理。
             if (!string.IsNullOrEmpty(p.cueVfx))
             {
-                if (p.cuePoints != null) CardEffects.Fire(p.cueVfx, p.cuePoints, p.cueParent);
-                else                     CardEffects.Fire(p.cueVfx, p.cuePos, p.cueParent);
+                // 🆕 2026-10-23（`新账-82④`）：走共用口（到点把**排期时**的 AnimFX 卡上下文换回去）
+                FireCueVfx(p);
                 return true;
             }
             // 🆕 2026-10-21（W61 第 1 批）：回调 cue 在**单步**这条出口上同样要跑
@@ -6962,13 +6991,36 @@ namespace CardPresentation
         /// 🔴 **2026-10-13（`A1743`）：这一条【故意不挂】那道 `forgeLevel` 闸** —— 原版
         ///   `ClickChosenCardDone.c:59`（AI 那张 → `AI.GetAiEnvEffectCard`）传的是 `justOwnedCards = 0`
         ///   （**不筛**）⇒ 走未筛的 `OffensiveCards.Choices`（与 `PickDefensiveForAi` 同一条口径）。
-        ///   ⛔ 别「顺手统一」成 `OffensiveChoicesOwned` —— 那是**原版没有的行为**，而且是静默的。</summary>
+        ///   ⛔ 别「顺手统一」成 `OffensiveChoicesOwned` —— 那是**原版没有的行为**，而且是静默的。
+        ///
+        /// <para>🔴🔴 **2026-10-23（引擎线「新账-88」· 深审 B 的 `E1`）：随机源是
+        /// `ctx.AiRng`、**不是 `ctx.Rng`** —— 这一格是回放契约的一部分，⛔ 别改回去。**
+        ///
+        /// **为什么**（选的是任务里的「方案 A：录制端把抽取结果记进动作流，回放端直接用（不再掷）」）：
+        /// 抽出来的**结果**本来就已记进动作流（`LogAndSendEnvPick` → `MsgAction.envSlot` / `envSO`；
+        /// 防御卡那边还带 `defId`）⇒ 回放走 `NetApply` 照它落、**一次骰子都不掷**。
+        /// 于是「录制端也**不许**动 `ctx.Rng`」——否则整条 `ctx.Rng` 流从这一格起错位。
+        ///
+        /// **为什么不是「回放端补掷一次」**（方案 B，考过、否决）：位置对不上。
+        /// 录制时的次序是 `Mulligan → EndMulligan → [这一格掷 Rng] → BeginTurn`，
+        /// 而回放的次序是 `Mulligan → MulliganDone(EndMulligan + BeginTurn) → OffensivePick` ——
+        /// `BeginTurn` 自己也吃 `ctx.Rng`（`RuleCore.BeginTurn` 那条链）⇒ 即便补掷，**取到的也是另一段值**。
+        /// 要走 B 就得让 `NetApply` 把环境卡那两条挪到 `BeginTurn` 之前（改结算次序），爆炸半径大得多。
+        /// ⇒ **A 才是与本项目「动作流 = 起始条件 + 动作」这条契约同形的那一个**。
+        ///
+        /// **为什么派生流选 `AiRng` 而不是新开一路**：`BattleContext` 上已有的派生流只有
+        /// `ShowRng`（表现）与 `AiRng`（AI 决策），而 `AiRng` **只在 AI 挑动作时用**
+        /// （`SimpleAI.TweakAvailableActions`），**回放时 AI 根本不跑** ⇒ 它花掉多少个数都不影响回放。
+        /// 新开第三路要改 `BattleContext`（本笔的文件白名单之外），而收益是零。
+        /// ⚠️ 副作用仅限「开关打开的单机局里，AI 之后的动作选择换了个随机序列」—— 两条都是乱数，
+        /// 不影响规则正确性；联机局**根本走不到这里**（`_net == null` 那道闸，见 `BeginOffensivePhaseIfAny`）。
+        /// </para></summary>
         void PickOffensiveForAi(int seat)
         {
             string f = FactionOf(Ctx.SecondSeat);
             var list = OffensiveCards.Choices(f);
             if (list.Count == 0) return;
-            int i = Ctx.Rng.Next(list.Count);
+            int i = Ctx.AiRng.Next(list.Count);          // 🔴 新账-88（E1）：⛔ 不是 `Ctx.Rng`
             var c = list[i];
             RuleCore.ChooseOffensiveCard(Ctx, seat, c.idx, EnvSOFor(c, f));
             LogAndSendEnvPick(NetActionKind.OffensivePick, seat, c.idx, EnvSOFor(c, f), null);
@@ -6977,7 +7029,11 @@ namespace CardPresentation
         /// <summary>AI 那一侧的防御卡：**均匀随机取一张**（原版 `AI.GetAiEnvEffectCard` 那条随机路；
         /// `GetEnvEffectCards` 的 arm 就是后手方阵营 ⇒ AI 是后手时就是它自己的阵营）。
         /// ✅ 2026-10-01：原来这里只记「未选」并出声（那时我们**没有防御卡的数据**）；
-        ///   现在数据齐了（= 卡池里该阵营的 `defence` 卡，见 `DefensiveChoices`）⇒ 照原版随机取一张。</summary>
+        ///   现在数据齐了（= 卡池里该阵营的 `defence` 卡，见 `DefensiveChoices`）⇒ 照原版随机取一张。
+        /// 🔴 **2026-10-23（引擎线「新账-88」· 深审 B 的 `E1`）：随机源是 `ctx.AiRng`、不是 `ctx.Rng`**
+        ///   —— 判据全文（为什么选方案 A、为什么不是「回放端补掷」、为什么用 `AiRng`）
+        ///   在 `PickOffensiveForAi` 的 doc 上，**只写一份**，⛔ 别在这儿抄第二份。
+        ///   结果同样已经记进动作流（`MsgAction.envSlot` + `defId`）⇒ 回放端不掷。</summary>
         void PickDefensiveForAi(int seat)
         {
             // 🔴 **2026-10-13（`A1088`）：这一条【故意不挂】那道 `forgeLevel` 闸** ——
@@ -6992,7 +7048,7 @@ namespace CardPresentation
                 LogAndSendEnvPick(NetActionKind.DefensivePick, seat, -1, null, null);
                 return;
             }
-            int i = Ctx.Rng.Next(defs.Count);
+            int i = Ctx.AiRng.Next(defs.Count);          // 🔴 新账-88（E1）：⛔ 不是 `Ctx.Rng`
             RuleCore.ChooseDefensiveCard(Ctx, seat, i);
             RuleCore.SetDefensiveCard(Ctx, seat, defs[i]);
             LogAndSendEnvPick(NetActionKind.DefensivePick, seat, i, null, defs[i].Id);
@@ -15598,6 +15654,15 @@ namespace CardPresentation
             public Vector3[] cuePoints;
             /// <summary>父节点（与事件那一拍同一个口径；目前生产调用都是 null）。</summary>
             public Transform cueParent;
+            /// <summary>🆕 2026-10-23（`新账-82④`）：**排期那一刻**的 AnimFX 卡上下文。
+            /// `WFEffectCards.Resolver` / `WFModuleScaleByTarget.CardResolver` 等全局静态读的是
+            /// 「特效**创建那一刻**」的 `_animfxCtx`，而延迟件到点时那个值早就被清成 `default` ⇒
+            /// `WFModuleScaleByTarget.Initialize` 拿不到 `actingCard/targetCard`、每条打一行
+            /// `[ERROR] Can't find target or acting card in an AnimFXModule of prefab …`。
+            /// `null` = 排期时本来就没有上下文（旧行为）。</summary>
+            public WarpforgeVFX.WFEffectCardContext? cueCtx;
+            /// <summary>🆕 同上：排期那一刻的事件（`WFModuleCollisions` 的 `targetIsWarlord` 读它）。</summary>
+            public BattleEvent cueEvt;
         }
         readonly List<PendingSignal> _timeline = new List<PendingSignal>();
         float _clock;
@@ -15820,6 +15885,52 @@ namespace CardPresentation
             FireAtAttackAnchor(prefab, cardAnim, anchor, anchorPos, targetPos);
         }
 
+        /// <summary>自检用（`新账-84`）：这一件在一条攻击里会用的**起 / 终锚点**——
+        /// 走**生产那条** <see cref="ResolveAttackPieceAnchors"/>（⛔ 不是替身），并把「锚点挂在谁的卡下」
+        /// 一起报出来（断言要能区分「攻方 `effectsAnchor`」与「目标卡 `effectsAnchor`」）。
+        /// <para>`StartOwner/Slot` / `EndOwner/Slot` = `-1` ⇒ 这个锚点不是这两张卡之一（例如 `boardCenter`）。</para></summary>
+        public struct AttackAnchorProbe
+        {
+            public int StartOpt, EndOpt;
+            public int StartOwner, StartSlot, EndOwner, EndSlot;
+            public bool FromTable;
+            public Vector3 StartPos, EndPos;
+        }
+
+        /// <summary>自检用（`新账-84`）：见 <see cref="AttackAnchorProbe"/>。参数 = 攻方/目标各一格 + 这一件的 `CardAnim` 名。</summary>
+        public AttackAnchorProbe AttackAnchorsForTest(int atkSeat, int atkSlot, int tgtSeat, int tgtSlot, string cardAnim)
+        {
+            var atk = ViewAt(atkSeat, atkSlot);
+            var tgt = ViewAt(tgtSeat, tgtSlot);
+            var actx = new AnimAnchors.Ctx { self = atk, target = tgt, actorSeat = atkSeat, mySeat = _me };
+            var ds = AnimAnchors.Resolve(PositionOption.self, actx);
+            var de = AnimAnchors.Resolve(PositionOption.abilityTarget, actx);
+            Vector3 dsp = ds != null ? ds.position : (atk != null ? atk.transform.position : Vector3.zero);
+            Vector3 dep = de != null ? de.position : (tgt != null ? tgt.transform.position : dsp);
+            var ap = ResolveAttackPieceAnchors(cardAnim, actx, ds, dsp, de, dep);
+            var r = new AttackAnchorProbe
+            {
+                StartOpt = ap.StartOpt, EndOpt = ap.EndOpt, FromTable = ap.FromTable,
+                StartPos = ap.StartPos, EndPos = ap.EndPos,
+                StartOwner = -1, StartSlot = -1, EndOwner = -1, EndSlot = -1,
+            };
+            if (ap.Start != null)
+            {
+                if (atk != null && (ap.Start == atk.transform || ap.Start.IsChildOf(atk.transform)))
+                { r.StartOwner = atkSeat; r.StartSlot = atkSlot; }
+                else if (tgt != null && (ap.Start == tgt.transform || ap.Start.IsChildOf(tgt.transform)))
+                { r.StartOwner = tgtSeat; r.StartSlot = tgtSlot; }
+            }
+            if (ap.End != null)
+            {
+                if (atk != null && (ap.End == atk.transform || ap.End.IsChildOf(atk.transform)))
+                { r.EndOwner = atkSeat; r.EndSlot = atkSlot; }
+                else if (tgt != null && (ap.End == tgt.transform || ap.End.IsChildOf(tgt.transform)))
+                { r.EndOwner = tgtSeat; r.EndSlot = tgtSlot; }
+            }
+            return r;
+        }
+
         /// <summary>🆕 自检用（P1 · 演出时序 ⑤）：推一次位移泵（**不动** `_clock` / 时间线）。
         /// ⚠️ 位移泵的推进在**两个入口**都要成立：生产是 `AdvanceTimeline`，这里是为了断言能定点看。</summary>
         public void TickAbilityMovesForTest(float dt) { TickAbilityVfxMoves(dt); }
@@ -15831,6 +15942,15 @@ namespace CardPresentation
             if (i < 0 || i >= _abilityVfxMoves.Count) return null;
             var m = _abilityVfxMoves[i];
             return (m == null || m.carrier == null) ? (Vector3?)null : m.carrier.position;
+        }
+
+        /// <summary>🆕 自检用（`新账-83`）：第 <paramref name="i"/> 条在飞载体的**朝向（forward）**
+        /// —— `orientToVelocity` 那条断言的读口（越界 / 载体没了 ⇒ `null`）。</summary>
+        public Vector3? AbilityMoveForwardForTest(int i)
+        {
+            if (i < 0 || i >= _abilityVfxMoves.Count) return null;
+            var m = _abilityVfxMoves[i];
+            return (m == null || m.carrier == null) ? (Vector3?)null : m.carrier.forward;
         }
 
         /// <summary>自检用（偏差 6）：直接播一拍（走生产那条 `PlayAbilityBeat`）——
@@ -16136,8 +16256,8 @@ namespace CardPresentation
                 //   （它们已经在事件那一拍跑过了）。见 `PendingSignal.cueVfx` 的 doc。
                 if (!string.IsNullOrEmpty(p.cueVfx))
                 {
-                    if (p.cuePoints != null) CardEffects.Fire(p.cueVfx, p.cuePoints, p.cueParent);
-                    else                     CardEffects.Fire(p.cueVfx, p.cuePos, p.cueParent);
+                    // 🆕 2026-10-23（`新账-82④`）：走共用口（到点把**排期时**的 AnimFX 卡上下文换回去）
+                    FireCueVfx(p);
                     continue;
                 }
                 // 🆕 2026-10-21（W61 第 1 批）：**到点跑一次的回调 cue**（命中帧那一拍 / 攻击 VFX 的延迟实例化）。
@@ -17435,10 +17555,38 @@ namespace CardPresentation
             _timeline.Add(new PendingSignal
             {
                 at = at, cueVfx = name, cuePos = pos, cuePoints = points, cueParent = parent,
+                // 🆕 2026-10-23（`新账-82④`）：把**排期那一刻**的卡上下文一起带下去（见字段 doc）
+                cueCtx = _animfxCtx, cueEvt = _animfxLastEvent,
             });
             // 队尾 / 演出闸都要知道「后面还有一拍没演完」—— 否则下一批事件可能插到它前面、闸也可能提前放行。
             _timelineTailAt = Mathf.Max(_timelineTailAt, end);
             if (_blocking) _blockingQuietAt = Mathf.Max(_blockingQuietAt, end);
+        }
+
+        /// <summary>🆕 2026-10-23（`新账-82④`）：**播一条延迟 cue 特效**，并在播放期间把
+        /// **排期那一刻**的 AnimFX 卡上下文换回去。
+        ///
+        /// <para>为什么需要：`WFEffectCards.Resolver` / `WFModuleScaleByTarget.CardResolver` /
+        /// `WFModuleTween.CardResolver` / `WFModuleCollisions.ContextResolver` 都是**全局静态**、
+        /// 读的是「特效**创建那一刻**」的 `_animfxCtx`（见 `HookAnimFxCards` 的 doc）。
+        /// 延迟件到点时那个值早就被清成 `default` ⇒ `WFModuleScaleByTarget.Initialize` 拿不到
+        /// `actingCard/targetCard`、每条打一行
+        /// `[ERROR] Can't find target or acting card in an AnimFXModule of prefab …`
+        /// （2026-10-23 真机日志抓到 `BulletImpact_Gordrang`）。</para>
+        ///
+        /// <para>⚠️ **两个入口共用这一个口**（`AdvanceTimeline` 与单步 `StepOne`）——
+        /// 铁律 10 第 5 条：一个对象有多个入口时，状态要在每个入口都带上。</para></summary>
+        void FireCueVfx(PendingSignal p)
+        {
+            var sCtx = _animfxCtx;
+            var sEvt = _animfxLastEvent;
+            if (p.cueCtx.HasValue) { _animfxCtx = p.cueCtx.Value; _animfxLastEvent = p.cueEvt; }
+            try
+            {
+                if (p.cuePoints != null) CardEffects.Fire(p.cueVfx, p.cuePoints, p.cueParent);
+                else                     CardEffects.Fire(p.cueVfx, p.cuePos, p.cueParent);
+            }
+            finally { _animfxCtx = sCtx; _animfxLastEvent = sEvt; }
         }
 
         /// <summary>🆕 2026-10-21（W61 第 1 批）：把一记**回调**排进 `_timeline`（与 <see cref="ScheduleVfxCue"/>
@@ -17486,6 +17634,93 @@ namespace CardPresentation
         /// <summary>上一记攻击是不是**远程**（给 `PlayHitFeel` 判「后坐要不要在这一拍再做一次」）。</summary>
         bool _lastAttackRanged;
 
+        /// <summary>🆕 2026-10-23（`新账-78①`）：最近一条 `EvtKind.Attack` **在时间线上落到的时刻**
+        /// （= 那条信号被 `PlaySignal` 弹出来时的 `_clock`）。自检拿它当「`Attack + 0.2` 是几点」的锚。
+        /// `-1` = 本局还没播过攻击。</summary>
+        public float LastAttackEventAtForTest { get { return _lastAttackEventAt; } }
+        /// <summary>🆕 2026-10-23（`新账-78①`）：受方 `UnitDamaged` 排期回调被调用的次数
+        /// （自检用 —— 只数**排期时刻**，不受 `CardAnimClips` 是否解析出件影响）。</summary>
+        public int DefenderDamagedScheduledForTest { get; private set; }
+        public void ResetDefenderDamagedScheduledForTest() { DefenderDamagedScheduledForTest = 0; }
+        /// <summary>自检用：把上面那个锚清回 `-1`（每段用例前调）。</summary>
+        public void ResetLastAttackEventAtForTest() { _lastAttackEventAt = -1f; }
+        float _lastAttackEventAt = -1f;
+
+        /// <summary>🆕 2026-10-23（`新账-84`）：**一件攻击特效的起/终锚点**（自检口 + 生产唯一算法）。</summary>
+        public struct AttackAnchorPair
+        {
+            /// <summary>这一件自己的档号（`AnimInfo.startPosOption` / `endPosOption`）。</summary>
+            public int StartOpt, EndOpt;
+            /// <summary>解析出来的锚点（**载体父节点 = <see cref="Start"/>**）。</summary>
+            public Transform Start, End;
+            public Vector3 StartPos, EndPos;
+            /// <summary>`true` = 这一件的锚点**按它自己那一行**取的；`false` = 缺行 ⇒ 改前的
+            /// `self → abilityTarget` 兜底（`Hit` 桶那件通用粒子走这一档）。</summary>
+            public bool FromTable;
+        }
+
+        /// <summary>🆕 2026-10-23（`新账-84`）：**一件攻击特效的起/终锚点** —— 按【这一件自己】的
+        /// `AnimInfo.startPosOption` / `endPosOption` 解析。
+        ///
+        /// <para>**判据（第一权威）** = `BattleManager._DelayedVFXPlay_d__469__MoveNext.c:46-77`：
+        /// 远程攻击那一条对 `startPos` / `endPos` 各调一次
+        /// `BattleManager.GetAnimTransform(mgr, animInfo+0x18 / animInfo+0x1c, 攻方卡, 目标卡)` ——
+        /// **逐件取**，不是「整条攻击一个锚点」。`CreateAnim.c:62-72` 再把
+        /// `Instantiate(prefab, startPos.position, …, **startPos** parent)` 挂上去
+        /// ⇒ **载体父节点 = 这一件的 start 锚点**。</para>
+        ///
+        /// <para>**档号语义**（`BattleManager__GetAnimTransform.c` 现读，只 10 档、其余档 `CustomDebug.LogError`
+        /// 后退回行动方督军锚）：`0` = 攻方卡 → `1` / `2` = 目标卡 · `3`/`4` = 双方督军 · `5` = `boardCenter` ·
+        /// `14` 空位 · `18` · `19` · `50` / `55` 牌堆。锚点解析统一走 `AnimAnchors.Resolve`
+        /// （本仓「判据只此一处」那条口径；`0/1/2` 三档与 `GetAnimTransform` 同义 = self / 目标卡）。</para>
+        ///
+        /// <para>🔴 **`pointTowardsOption` 在这一条路上【不用】**：`_DelayedVFXPlay:60-65` 把
+        /// pointTowards 实参（`+0x50`）直接赋成 **`endPos`** ⇒ 攻击特效的朝向永远是
+        /// `LookRotation(endPos − startPos)`（= 我们原来的写法，本条**不动**）。
+        /// ⚠️ 技能拍那条路（`PlayAbilityBeat`）走的是 `GetPos(pointTowardsOption)`，**两条路不同**，别互相照搬。</para>
+        ///
+        /// <para>**缺行怎么办**：`cardAnim` 为空（`Hit` 桶那件通用命中粒子 / 共享兜底件）或表里没这一行
+        /// ⇒ **退回改前的 `self → abilityTarget`**（`FromTable = false`；⛔ 不拿别的件的档号顶）。</para>
+        ///
+        /// <para>现读：`attack_ranged` 的 518 个（卡,件）里 **9 个**不是 `(0,2)`；`attack_melee` 的 12 个里
+        /// **8 个**不是（近战这一档原来也被写死成 `self → abilityTarget`）。</para></summary>
+        AttackAnchorPair ResolveAttackPieceAnchors(string cardAnim, AnimAnchors.Ctx actx,
+                                                   Transform defStart, Vector3 defStartPos,
+                                                   Transform defEnd, Vector3 defEndPos)
+        {
+            var r = new AttackAnchorPair
+            {
+                StartOpt = (int)PositionOption.self, EndOpt = (int)PositionOption.abilityTarget,
+                Start = defStart, StartPos = defStartPos, End = defEnd, EndPos = defEndPos,
+                FromTable = false,
+            };
+            var place = CardAnimClips.PlacementOf(cardAnim);   // null / 空名 ⇒ 回 null 且**不出声**
+            if (!place.HasValue) return r;
+
+            r.FromTable = true;
+            r.StartOpt = place.Value.StartPos;
+            r.EndOpt = place.Value.EndPos;
+            var s = AnimAnchors.Resolve((PositionOption)r.StartOpt, actx);
+            var t = AnimAnchors.Resolve((PositionOption)r.EndOpt, actx);
+            // 取不到那一档（`AnimAnchors` 已经出过声）⇒ 保留调用方给的兜底锚点/坐标
+            if (s != null) { r.Start = s; r.StartPos = s.position; }
+            if (t != null) { r.End = t; r.EndPos = t.position; }
+            return r;
+        }
+
+        /// <summary>🆕 2026-10-23（`新账-84`）：**本局每一件攻击特效排期时用的锚点**（自检读它；
+        /// 与 `_retaliationPlans` 同一个记账口径 —— 生产也记，只有自检会读）。上限 64 条，
+        /// 超过就丢（一局里攻击件不会上百；⛔ 不是行为开关、只是防无界增长）。</summary>
+        readonly List<AttackAnchorPair> _attackAnchorPlans = new List<AttackAnchorPair>();
+        public int AttackAnchorPlanCount { get { return _attackAnchorPlans.Count; } }
+        public AttackAnchorPair AttackAnchorPlanAt(int i) { return _attackAnchorPlans[i]; }
+        public void ClearAttackAnchorPlansForTest() { _attackAnchorPlans.Clear(); }
+        void RecordAttackAnchorPlan(AttackAnchorPair ap)
+        {
+            if (_attackAnchorPlans.Count >= 64) return;
+            _attackAnchorPlans.Add(ap);
+        }
+
         /// <summary>排一条攻击的演出（近战：命中帧 + 收尾的逐卡特效；远程：VFX 发出那一刻）。
         /// 调用点 = `PlaySignal` 的 `EvtKind.Attack` 那一段（唯一入口）。</summary>
         void ScheduleAttackPresentation(BattleEvent e, string evt, string faction,
@@ -17494,8 +17729,11 @@ namespace CardPresentation
             var atkView = ViewAt(e.Player, e.Slot);
             var tgtView = ViewAt(e.TargetPlayer, e.TargetSlot);
 
-            // **锚点**：原版 `AbilityLogic.GetPos` 的 `0 self` / `2 abilityTarget` 两档
-            // （逐卡 `Atk_*` 的 `AnimInfo` 现读 `sp = 0 / ep = 2`，`数据/游戏数据/animinfo_lookup.json`）。
+            // **锚点**（🔴 2026-10-23 · `新账-84` 就地订正：原来这里写「逐卡 `Atk_*` 的 `AnimInfo` 现读
+            //   `sp = 0 / ep = 2`」并把两个档号**写死** —— 那句话只对 518 个远程件里的 509 个成立，
+            //   另有 **9 个**不是 `(0,2)`、`attack_melee` 的 12 个里也有 **8 个**不是。
+            //   现在：**下面这两个只当兜底**（缺行 / 没有 CardAnim 的件用），逐件真值由
+            //   `ResolveAttackPieceAnchors` 按该件自己的 `sp/ep` 解析（判据见它的 doc）。
             // ⛔ 判据只此一处 = `AnimAnchors.Resolve`（别在这里自己 switch / 自己取 transform）。
             var actx = new AnimAnchors.Ctx { self = atkView, target = tgtView, actorSeat = e.Player, mySeat = _me };
             Transform start = AnimAnchors.Resolve(PositionOption.self, actx);
@@ -17517,16 +17755,32 @@ namespace CardPresentation
             float vfxAt = e.Ranged ? EventTiming.AttackStepRanged : EventTiming.MeleeDamageLag;
             // `WFEffectCards.Resolver` 是**全局静态**、读的是特效**创建那一刻**的 `_animfxCtx`
             // ⇒ 延迟 cue 到点时那个值早就被 `default` 掉了 ⇒ 这里把**排期时**那份上下文带下去。
-            var capCtx = _animfxCtx;
-            var capEvt = _animfxLastEvent;
+            // 🔴 **2026-10-23（`新账-82④`）就地修复（铁律 5）**：原来这里抓的是 `_animfxCtx` 字段
+            //   —— **抓到的是 `default`**：`_animfxCtx` 只在「播那一刻」被填、播完立刻清成 `default`
+            //   （见 `PlayAbilityBeat` / `FireEventAll` 那几处），而**排期这一刻**根本没人填它。
+            //   后果 = 所有**延迟到点**的攻击件都拿着一张空上下文去建 AnimFX 模块 ⇒
+            //   `WFModuleScaleByTarget.Initialize` 拿不到 `actingCard/targetCard` ⇒ 每次一条
+            //   `[ERROR] Can't find target or acting card in an AnimFXModule of prefab …`
+            //   （真机日志 2026-10-23 抓到 `BulletImpact_Gordrang`，`Warboss Gordrang` 的远程那一件）。
+            //   ⇒ 现在按**这条事件**现建（`BuildCardContext` —— 与 `PlayAbilityBeat` 同一个口；
+            //     `Attack` 那一支 = acting 攻方 / target 受方）。
+            var capCtx = BuildCardContext(e);
+            var capEvt = e;
             for (int i = 0; i < items.Length; i++)
             {
                 string nm = items[i].Name;
                 // 🆕 2026-10-23（P1 · 演出时序 ⑤）：`CardAnim` 名一起带下去（弹道位移的查表键）。
                 // ⚠️ 必须**先拷到局部**再进 lambda —— `for` 的 `i` 不是每轮一份（`foreach` 才是）。
                 string an = items[i].Anim;
+                // 🆕 2026-10-23（`新账-84`）：**这一件自己的** sp/ep（原版逐件 `GetAnimTransform`）。
+                //   缺行 / 没有 CardAnim ⇒ 兜底那对（`self → abilityTarget`，与改前一致）。
+                var ap = ResolveAttackPieceAnchors(an, actx, start, startPos, end, endPos);
+                RecordAttackAnchorPlan(ap);
+                Transform st = ap.Start;
+                Vector3 stPos = ap.StartPos;
+                Vector3 enPos = ap.EndPos;
                 ScheduleAction(vfxAt + Mathf.Max(0f, items[i].T),
-                               () => FireAttackVfxWithCtx(nm, an, start, startPos, endPos, capCtx, capEvt));
+                               () => FireAttackVfxWithCtx(nm, an, st, stPos, enPos, capCtx, capEvt));
             }
             // 队尾：整条链按原版**演完**才算完（`CardAnimClips.RangedChainDuration` 用逐件
             // `AnimInfo.GetAnimDuration()` 真值 —— 逐卡 `AnimTimes` → 共享件表 → **按 CardAnim 名查表**；
@@ -17575,6 +17829,47 @@ namespace CardPresentation
                       CardAnimClips.RangedChainDuration(evt, faction, e.CardId, times))
                 : EventTiming.MeleeDamageLag;
             PlayUnitSkillAnim(e, VfxMap.UnitAttack, atkEnd);
+
+            // ④ 🆕 2026-10-23（P2 · 演出时序 · `新账-78①`）：**受方的 `UnitDamaged(60)`** 排在
+            //    `Attack + AttackWindUp`（0.2）—— 原版 `BattleManager._ResolveAttack_d__438:866`
+            //    的 `ResolveAttackDamage` → `BroadcastUnitDamaged` → `CardScript.ResolveDamageDealt:161`
+            //    的 `0x3c`，**早于**同 state 里 `:899` 的 `AttackMeleeAnim` / `ResolveAttackRangedAnim`。
+            //    我们原来排在 `Hit` 那一拍（= Attack+0.4）⇒ **晚 0.2 s**。
+            if (e.TargetPlayer >= 0 && e.TargetSlot >= 0 && !string.IsNullOrEmpty(e.TargetCardId))
+            {
+                int dSeat = e.TargetPlayer, dSlot = e.TargetSlot;
+                string dCard = e.TargetCardId;
+                ScheduleAction(EventTiming.AttackWindUp, () => PlayDefenderDamagedAnim(dSeat, dSlot, dCard));
+            }
+        }
+
+        /// <summary>🆕 2026-10-23（P2 · 演出时序 · `新账-78①`）：**受方的 `UnitDamaged(60)` 技能动画**。
+        ///
+        /// <para>**判据** = 原版 `BattleManager._ResolveAttack_d__438__MoveNext.c:866`（`ResolveAttackDamage`
+        /// 排在 `AttackMeleeAnim` / `ResolveAttackRangedAnim` 起播 `:899` **之前**）→
+        /// `BattleManager__ResolveAttackDamage.c:24-31`（`BroadcastUnitDamaged`）→
+        /// `CardScript__ResolveDamageDealt.c:161`（`0x3c` = `UnitDamaged`）。⇒ 时刻 = **`Attack + 0.2`**。</para>
+        ///
+        /// <para>**为什么造一条合成事件**：`PlayUnitSkillAnim` 的入参是「谁挨打」的那条事件
+        /// （`Player/Slot/CardId`）。原版这一刻伤害还没结算、`EvtKind.Hit` 还没发 ⇒ 只有攻击事件可用
+        /// （它的 `Target*` 正是受方）。`Target*` 留 `-1`：与原来那条 `Hit` 的字段形状**逐位一致**
+        /// （`Hit` 不带目标 ⇒ `PlayOneUnitAnim` 走 `MapSelf` 的「这 4 条 `UnitDamaged` 都是自己的效果」那一档），
+        /// ⛔ 别把攻击方塞进去（那会改这几条件的锚点）。</para>
+        ///
+        /// <para>⚠️ **`Amount &lt; 0`（幸存者广播）那一档判不到这里**：攻击事件在伤害之前就发了
+        /// （`RuleCore.cs:6042`）、拿不到 amount；而负数 `Hit` 是**另一条**事件（`__UseSurvivor` 直接写血、
+        /// 不进 `ReceiveDamage`）⇒ 与攻击不同源。如实记：这一位判据在「攻击」这条路上是空的。</para>
+        ///
+        /// <para>⚠️ 受方那一刻**没有视图**（已被移走 / 还没建）⇒ `PlayUnitSkillAnim` 直接跳过（不是错）。</para></summary>
+        void PlayDefenderDamagedAnim(int seat, int slot, string cardId)
+        {
+            DefenderDamagedScheduledForTest++;      // 🆕 2026-10-23：自检观察口（排期时刻，不依赖件解析）
+            var de = new BattleEvent
+            {
+                Kind = EvtKind.Hit, Player = seat, Slot = slot, CardId = cardId, Amount = 0,
+                // TargetPlayer / TargetSlot 保持默认 -1（见 doc：与原来那条 Hit 同形）
+            };
+            PlayUnitSkillAnim(de, VfxMap.UnitDamaged, 0f);
         }
 
         // ==================================================================
@@ -17740,16 +18035,25 @@ namespace CardPresentation
 
             // ② 件：**从守方 `effectsAnchor` 发出、朝攻方**（`FireAtAttackAnchor` = `CreateAnim` 的
             //    最小等价物：挂载点 + 世界朝向 + 继承卡尺度）。⚠️ 复用攻方那条实现，⛔ 别另写一份。
-            var capCtx = _animfxCtx;
-            var capEvt = _animfxLastEvent;
+            // 🔴 2026-10-23（`新账-82④`）：与攻方那一处**同一个缺陷**（原来抓的是 `default` 上下文）⇒
+            //   现在按这条 `Retaliation` 事件现建（`BuildCardContext` 对 `Retaliation` 走 Attack 同一支：
+            //   acting = 守方、target = 攻方）。
+            var capCtx = BuildCardContext(e);
+            var capEvt = e;
             for (int i = 0; i < items.Length; i++)
             {
                 string nm = items[i].Name;
                 // 🆕 2026-10-23（P1 · 演出时序 ⑤）：守方那一发与攻方**同一个协程** ⇒ 同样带 `CardAnim`
                 // （弹道位移的查表键；`for` 的 `i` 不是每轮一份 ⇒ 先拷局部）。
                 string an = items[i].Anim;
+                // 🆕 2026-10-23（`新账-84`）：逐件 sp/ep —— 与攻方那一发**同一个口**
+                // （原版守方走的就是 `_ResolveAttackRangedAnim` → 同一条 `DelayedVFXPlay`）。
+                var ap = ResolveAttackPieceAnchors(an, actx, start, startPos, end, endPos);
+                Transform st = ap.Start;
+                Vector3 stPos = ap.StartPos;
+                Vector3 enPos = ap.EndPos;
                 float at = plan.At + Mathf.Max(0f, items[i].T);
-                ScheduleAction(at, () => FireAttackVfxWithCtx(nm, an, start, startPos, endPos, capCtx, capEvt));
+                ScheduleAction(at, () => FireAttackVfxWithCtx(nm, an, st, stPos, enPos, capCtx, capEvt));
             }
             // 队尾 = **绝对时刻**（`_clock` 口径）：这一发演完之前别让下一批事件插到它前面开场。
             ExtendTimelineTail(_clock + plan.Duration);
@@ -17824,20 +18128,16 @@ namespace CardPresentation
         /// `attack_ranged` 的 **518** 个（卡,件）组合里 **32 个**带 `mv=1 &amp;&amp; tm &gt; 0`
         /// （`Manticore` / `Night Spinner` / Grot 家族 / `Rokkit Boy` / `Whirlwind` / `Exorcist` /
         /// `Sun Shark Bomber` …），另加 `attack_melee` 的 **1 个**（`Techmarine` 的
-        /// `Healing_Volley_Effect`，`sp 0 → ep 2`）。这 33 件的 `sp/ep` **全是 `0/2`**
-        /// = 本方法拿到的 `anchorPos(攻方 self) → targetPos(abilityTarget)`，锚点口径**一致**。</para>
+        /// `Healing_Volley_Effect`，`sp 0 → ep 2`）。</para>
         ///
-        /// <para>**⚠️ 如实记（本批没做的那一半，判据已在 `AnimInfo` 里、但没进我们的运行期数据）**：
-        /// ① `easeCurve` —— 32/33 是**线性**（两键 `(0,0)→(1,1)`），所以走 `ease = null`（= 线性）**恰好对**；
-        /// 唯一例外 `Jain Zar / Atk_JainasMor_Throw_Return` 是「飞出去再飞回来」（`0→1`@0.4 · 持到 0.6 · `→0`@1.0）
-        /// ⇒ 我们这条会**直线飞过去停住**（原版会回来）。
-        /// ② `applyMovementOffsets` + `offsetMovementAxis` —— 33 件里 **26 件为 1**，其中 **23 件带非零弧线**
-        /// （22 件是 y 轴抛物线、1 件 x 轴：`Jain Zar`；例 `Atk_GrotGrenade` 的 y 弧幅度 **2.5**、
-        /// `Atk_BulletImpact_Ork Missile Big` **3.0** —— 那就是**手雷的抛物线**）
-        /// ⇒ 我们走**直线**（`beatData = null`）。这两样都在 `AnimInfo` 里，但 `cardanim_clips.json`
-        /// **没有这两列**（生成器 `工具/gen_cardanim_clips.py` 只烘 `sp/ep/pt/mv/vd/ts/tm/te`）
-        /// ⇒ 要补得改生成器 + 数据表（**不在本件白名单**），已如实记进报告。
-        /// ③ `orientToVelocity`（22/33 为 1）—— 原版每帧把特效转向**速度方向**；我们只有起播那一次的固定朝向。</para>
+        /// <para>🆕 **2026-10-23（`新账-83`）已补齐 `AnimInfo` 的三列**（原来这里写着「本批没做」）：
+        /// ① `easeCurve` —— 32/33 线性，唯一例外 `Jain Zar / Atk_JainasMor_Throw_Return`
+        ///   （`0→1`@0.4 · 持到 0.6 · `→0`@1.0 = **飞出去再飞回来**）；
+        /// ② `applyMovementOffsets` + `offsetMovementAxis` —— 33 件里 **26 件为 1**、其中 **22 件带非零弧线**
+        ///   （21 件 y 轴抛物线 + `Jain Zar` 的 x 轴；例 `Atk_GrotGrenade` y 弧 **2.5**、
+        ///   `Atk_BulletImpact_Ork Missile Big` **3.0** = **手雷/导弹的抛物线**）；
+        /// ③ `orientToVelocity` —— **22/33 为 1**，原版移动期间每帧转向速度方向。
+        ///   三者现读都已在 `cardanim_clips.json`（生成器 `工具/gen_cardanim_clips.py` 2026-10-23 起烘）。</para>
         ///
         /// <returns>`true` = 已排进位移泵（载体由泵在终点释放）；`false` = 这一件不飞（调用方当场释放载体）。</returns>
         bool ArmAttackVfxMove(Transform carrier, string cardAnim, Vector3 start, Vector3 end)
@@ -17853,10 +18153,13 @@ namespace CardPresentation
             _abilityVfxMoves.Add(new AbilityVfxMove
             {
                 carrier = carrier, start = start, end = end, ts = p.Ts, tm = p.Tm,
-                // `ease` = 位移进度曲线：运行期数据里没有（见上面 ⚠️①）；32/33 件原版就是线性。
-                ease = null, t = 0f,
-                // `beatData` = `applyMovementOffsets` 的三轴弧线：攻击件没有对应的 `CardAnimBeat`（⚠️②）。
-                beatData = null, randomAmp = Vector3.zero,
+                ease = p.Ease, t = 0f,
+                // `applyMovementOffsets` 的三轴弧线（`CardAnimPlacement` → 摊平进载体，与技能拍同一个泵）
+                ao = p.OffsetAo ? 1 : 0, ont = p.OffsetOnt ? 1 : 0,
+                ofx = p.Ofx, ofy = p.Ofy, ofz = p.Ofz,
+                randomAmp = RandomOffsetAmp(p.OffsetAo ? 1 : 0, p.Mnx, p.Mxx, p.Mny, p.Mxy, p.Mnz, p.Mxz),
+                otv = p.OrientToVelocity,
+                lastPos = start,
             });
             return true;
         }
@@ -17998,17 +18301,13 @@ namespace CardPresentation
             PlayRemnantSfx(e, collectDeath);    // 🆕 2026-09-29：残骸体那三条原版音效（出现 / 收集 / 被打掉）
             PlayBattleSfx(e);     // 🆕 2026-10-15（`T06`）：战斗「时机 → cue」那一族（原版 `SoundAssetCollection`）
 
-            // 🆕 2026-10-23（`W63` 收口）：**受击方自己的 `UnitDamaged(60)` 技能动画**。
-            //   判据 = 原版 `AbilityTrigger.UnitDamaged(60)` 由「扣血」触发（`CardScript.ReceiveDamage` →
-            //   `TriggerAbilities(UnitDamaged)`）⇒ 和 `Hit` 同一拍，⛔ 不在攻击那一侧。
-            //   ⚠️ 这 4 条原来躺在 `hit` 桶里，被当成「受击粒子」那一档；而受击那一拍原版
-            //   **一件粒子都不播**（见下面 `e.Kind != EvtKind.Hit` 那一段）。现在它们走自己的口：
-            //   逐卡技能动画（prefab + 卡体动画层，见 `PlayUnitSkillAnim`）。
-            //   ⚠️ **排在 `PlayFeel` 之前**：这一拍的手感（后坐/飘字/震屏）在 `PlayFeel` 里起，
-            //      而技能动画自己的 prefab 是挂在**卡锚点**上的独立实例，两者互不相干。
-            //   ⚠️ `Amount < 0` **不算挨打**：那是「幸存者广播」的治疗标记（见 `PlayHitFeel` 开头那段），
-            //      原版 `__UseSurvivor` 直接写血、**不进** `ReceiveDamage` ⇒ 不会触发 `UnitDamaged`。
-            if (e.Kind == EvtKind.Hit && e.Amount >= 0) PlayUnitSkillAnim(e, VfxMap.UnitDamaged, 0f);
+            // 🆕 2026-10-23（`W63` 收口；🔴 **2026-10-23（P2 · `新账-78①`）就地搬到 `Attack + 0.2`**）：
+            //   **受击方自己的 `UnitDamaged(60)` 技能动画** —— 原来排在 `Hit` 这一拍（= Attack+0.4），
+            //   **晚 0.2 s**。现在由 `ScheduleAttackPresentation` 的 ④ 排到 `Attack + AttackWindUp`，
+            //   调用口 = `PlayDefenderDamagedAnim`（判据与整段说明在那儿）。⛔ 别在这里再加回来
+            //   （那会变成**同一发播两次**）。
+            //   ⚠️ 这 4 条原来躺在 `hit` 桶里、被当成「受击粒子」那一档；而受击那一拍原版
+            //   **一件粒子都不播**（见下面 `e.Kind != EvtKind.Hit` 那一段）⇒ 它们只走技能动画那个口。
 
             string evt = GenericVfxFor(e);
             // 🆕 2026-10-19（W · 触发逐卡）：`Trigger` **没有通用特效**（B2 · 偏差 7：`GenericVfxFor`
@@ -18142,6 +18441,7 @@ namespace CardPresentation
                 //  `AnimTimesOf(cardId, faction)` 用错阵营查不到**攻方**那张卡 ⇒ 逐卡时长整块丢掉
                 //  （名字仍能解出来，因为重名只是 3 组）。这一条在本批修掉。
                 string atkFaction = e.Player == _me ? _myFaction : _foeFaction;
+                _lastAttackEventAt = _clock;         // 🆕 2026-10-23（`新账-78①`）：自检锚点
                 ScheduleAttackPresentation(e, evt, atkFaction, perCardOnly, triggerKeyword, cueMeleeHit, hitAmount);
                 _animfxCtx = default;
                 return;
@@ -18443,16 +18743,26 @@ namespace CardPresentation
 
             if (move)
             {
+                // 🆕 W（偏差 6 第 1 条）：`applyMovementOffsets` 的三轴曲线 + **每拍随机一次**的幅度。
+                //   原版 `CardAnimController__Initialize.c` 在控制器初始化时调一次
+                //   `OffsetMovementCurvesByAxis.GetRandomOffsetValues()`（`Random.Range(min,max)` × 3 轴），
+                //   之后 `Update` 每帧把 `curve(t) × 幅度` 加到 lerp 后的坐标上。
+                //   我们的随机源 = `_vfxOffsetRng`（开局种子派生，⛔ 不动引擎的 `Ctx.Rng`）。
+                // 🆕 2026-10-23（`新账-83`）：载体上存的是**摊平的曲线 + 幅度**（不再存 `CardAnimBeat` 对象），
+                //   这样攻击弹道那条路（数据在 `CardAnimPlacement` 上、没有 Beat）与技能拍共用同一个泵。
+                var amp = RandomOffsetAmp(beatData);
                 _abilityVfxMoves.Add(new AbilityVfxMove
                 {
                     carrier = carrier, start = pos, end = end, ts = ts, tm = tm, ease = ease, t = 0f,
-                    // 🆕 W（偏差 6 第 1 条）：`applyMovementOffsets` 的三轴曲线 + **每拍随机一次**的幅度。
-                    //   原版 `CardAnimController__Initialize.c` 在控制器初始化时调一次
-                    //   `OffsetMovementCurvesByAxis.GetRandomOffsetValues()`（`Random.Range(min,max)` × 3 轴），
-                    //   之后 `Update` 每帧把 `curve(t) × 幅度` 加到 lerp 后的坐标上。
-                    //   我们的随机源 = `_vfxOffsetRng`（开局种子派生，⛔ 不动引擎的 `Ctx.Rng`）。
-                    beatData = beatData,
-                    randomAmp = RandomOffsetAmp(beatData),
+                    ao = beatData != null ? beatData.ao : 0,
+                    ont = beatData != null ? beatData.ont : 0,
+                    ofx = beatData != null ? beatData.ofx : null,
+                    ofy = beatData != null ? beatData.ofy : null,
+                    ofz = beatData != null ? beatData.ofz : null,
+                    randomAmp = amp,
+                    // `orientToVelocity` —— 初始朝向由上面那个 `orient` 门管；**逐帧**转向由泵管。
+                    otv = otv,
+                    lastPos = pos,
                 });
             }
             else
@@ -18467,13 +18777,14 @@ namespace CardPresentation
         // ==================================================================
         //  判据 = `CardAnimController__Update.c`（逐句读，见 `PlayAbilityBeat` 的 doc 那一串）。
         //  ⚠️ 挂在 `AdvanceTimeline` 上（批处理没有帧循环 —— 挂 `Update` 就成了「只在一种环境下活」的实现）。
-        //  ⚠️ **没做的那一半（如实记）**：`applyMovementOffsets`(0x49) 的逐轴随机偏移曲线
-        //     （`offsetMovementAxis`，0x50）没进 `CardAnimBeat` ⇒ 我们走的是**直线**。
+        //  🔴 **2026-10-23 就地订正（铁律 5 · `新账-83`）**：这里原来写「**没做的那一半**：`applyMovementOffsets`
+        //     没进 `CardAnimBeat` ⇒ 我们走的是**直线**」—— **两句都不成立**：
+        //     ① `CardAnimBeat` 早就有 `ao/ont/ofx/ofy/ofz/mn*/mx*` 且生成器已烘（99 拍里 `ao=1` 3 拍）；
+        //     ② 今天连**攻击弹道**那条路（数据在 `CardAnimClips`）也补齐了 ⇒ 两条路同一个泵、同一个求值口。
         //     现读 `Resources/card_anim_order.json`：`mv=1` 的 7 拍里 **7 拍都带 `applyMovementOffsets=1`**，
         //     但其中 4 拍 `sp == ep`（`ArmourEffect` / `FlankEffect` / `BlindEffect`）—— 原版
         //     `CardAnimController__Initialize.c` 对 `start == end` **整个 `enabled = 0`**（不飞）⇒
-        //     **这 4 拍我们原地播是对的**。真正差的是另外 3 拍（`BulletImpact_MissileToTarget` 3→2）：
-        //     原版会在 lerp 上叠一条随机偏移曲线，我们是**直线**。
+        //     **这 4 拍我们原地播是对的**。真正有弧线的是另外 3 拍（`BulletImpact_MissileToTarget` 3→2）。
         // ------------------------------------------------------------------
 
         /// <summary>一个「还在飞的」技能拍特效。</summary>
@@ -18482,11 +18793,20 @@ namespace CardPresentation
             public Transform carrier;
             public Vector3 start, end;
             public float ts, tm, t;
+            /// <summary>位移进度曲线（`easeCurve`，扁平关键帧）。null = 线性（原版默认曲线）。</summary>
             public float[] ease;
-            /// <summary>🆕 W（偏差 6 第 1 条）：这一拍的偏移曲线（`offsetMovementAxis`）。null = 不偏移。</summary>
-            public CardAnimBeat beatData;
+            // ── 🆕 2026-10-23（`新账-83`）：`applyMovementOffsets` 的逐轴曲线 ──
+            //   原来这里存的是 **`CardAnimBeat` 对象**（只有技能拍那条路有），攻击路径没有 `Beat` ⇒ 拿不到。
+            //   现在摊平成「三个曲线 + 一位开关 + 一位时间基准 + 随机幅度」——
+            //   **两条路（技能拍 / 攻击弹道）共用同一组字段、同一个求值口**（`CardAnimOrder.OffsetAt`）。
+            public int ao, ont;
+            public float[] ofx, ofy, ofz;
             /// <summary>三轴的随机幅度（原版每拍初始化时抽一次；见 `RandomOffsetAmp`）。</summary>
             public Vector3 randomAmp;
+            /// <summary>🆕 `orientToVelocity`(0x48) —— 移动期间**每帧**转向速度方向（判据见 `TickAbilityVfxMoves`）。</summary>
+            public bool otv;
+            /// <summary>上一帧写下去的位置（速度 = 本帧 − 它）。初始 = `start`（原版 `Initialize` 存的就是实例初始位）。</summary>
+            public Vector3 lastPos;
         }
         readonly List<AbilityVfxMove> _abilityVfxMoves = new List<AbilityVfxMove>();
 
@@ -18498,13 +18818,19 @@ namespace CardPresentation
         System.Random _vfxOffsetRng = new System.Random(20260911);
 
         /// <summary>三轴幅度：`Random.Range(min, max)` 逐轴（`OffsetMovementCurvesByAxis__GetRandomOffsetValues.c:20-30`）。
-        /// `beatData == null` / `ao == 0` ⇒ 零。</summary>
+        /// ⚠️ **只在 `ao != 0` 时抽** —— 抽一次的副作用是推随机流，不偏移的件不许碰它（否则轨迹会串）。
+        /// 两条路（`CardAnimBeat` 技能拍 / `CardAnimPlacement` 攻击弹道）都走这一个口。</summary>
         Vector3 RandomOffsetAmp(CardAnimBeat beatData)
         {
-            if (beatData == null || beatData.ao == 0) return Vector3.zero;
-            return new Vector3(VfxRange(beatData.mnx, beatData.mxx),
-                               VfxRange(beatData.mny, beatData.mxy),
-                               VfxRange(beatData.mnz, beatData.mxz));
+            if (beatData == null) return Vector3.zero;
+            return RandomOffsetAmp(beatData.ao, beatData.mnx, beatData.mxx,
+                                   beatData.mny, beatData.mxy, beatData.mnz, beatData.mxz);
+        }
+
+        Vector3 RandomOffsetAmp(int ao, float mnx, float mxx, float mny, float mxy, float mnz, float mxz)
+        {
+            if (ao == 0) return Vector3.zero;
+            return new Vector3(VfxRange(mnx, mxx), VfxRange(mny, mxy), VfxRange(mnz, mxz));
         }
 
         float VfxRange(float lo, float hi)
@@ -18513,7 +18839,23 @@ namespace CardPresentation
             return lo + (float)_vfxOffsetRng.NextDouble() * (hi - lo);
         }
 
-        /// <summary>每一帧（`AdvanceTimeline` 末尾附近）推一次位移。</summary>
+        /// <summary>每一帧（`AdvanceTimeline` 末尾附近）推一次位移。
+        ///
+        /// <para>🔴 **2026-10-23（`新账-83`）补齐 `AnimInfo` 那三列**（判据 = `CardAnimController__Update.c:36-97`
+        /// 逐句读）：</para>
+        /// <list type="bullet">
+        /// <item>位置 = `lerp(start, end, easeCurve(t01))`（`ease` 空 = 线性，原版默认曲线）；</item>
+        /// <item>`applyMovementOffsets` 开着 ⇒ lerp **之后**逐轴叠 `curve(ont ? t01 : e) × randomAmp`
+        ///   （`ont` 真用原始进度、假用缓动后进度）；</item>
+        /// <item>`orientToVelocity` 且 `shouldMoveVFX` 开着 ⇒ 每帧 `rotation = LookRotation(速度)`，
+        ///   速度 = 本帧位置 − **上一帧写下去的位置**；`|v|² &lt; 1e-10` 时**不转**（保持上一帧朝向）。
+        ///   ⚠️ 原版这一句在比较前还减了一个**静态 `Vector3`**（`DAT_1842da2a8 + 0xb8` 那块静态区、
+        ///   类名未定）—— 按「每个值都要有判据」的口径如实记：**这一项没解出来**；
+        ///   最可能是 `Vector3.zero`（那就与本实现逐值相同），但我**没证实**，所以这里不减。</item>
+        /// <item>`t01 ≥ 1` ⇒ 按 **`ease(1)`** 把最终位姿写一次再释放载体（原版是「停止写」，
+        ///   最后一帧的值就是 `ease(1⁻)` 的极限）⇒ **`Jain Zar` 那种「飞出去再飞回来」的件会回到起点**，
+        ///   ⛔ 别写死 `carrier.position = end`（那会让它停在目标格）。线性档 `ease(1) = 1` ⇒ 仍等于 `end`。</item>
+        /// </list></summary>
         void TickAbilityVfxMoves(float dt)
         {
             for (int i = _abilityVfxMoves.Count - 1; i >= 0; i--)
@@ -18524,7 +18866,13 @@ namespace CardPresentation
                 float t01 = m.tm <= 0f ? 1f : (m.t - m.ts) / m.tm;
                 if (t01 >= 1f)
                 {
-                    m.carrier.position = m.end;
+                    // `ease(1)` 的极限位置（线性 = `end`；Jain Zar = 起点）
+                    float e1 = CardAnimOrder.EaseAt(m.ease, 1f);
+                    Vector3 pend = Vector3.Lerp(m.start, m.end, e1);
+                    if (m.ao != 0)
+                        pend += CardAnimOrder.OffsetAt(m.ao, m.ont, m.ofx, m.ofy, m.ofz, 1f, e1, m.randomAmp);
+                    m.carrier.position = pend;
+                    ApplyVelocityOrientation(m, pend);
                     ReleaseAbilityCarrier(m.carrier);
                     _abilityVfxMoves.RemoveAt(i);
                     continue;
@@ -18535,10 +18883,31 @@ namespace CardPresentation
                     Vector3 p = Vector3.Lerp(m.start, m.end, e01);
                     // 🆕 W（偏差 6 第 1 条）：`applyMovementOffsets` —— `Update` 在 lerp **之后**叠
                     //   `curve(ont ? t01 : e01) × randomAmp`（逐轴；判据 `CardAnimController__Update.c:60-97`）。
-                    if (m.beatData != null) p += m.beatData.OffsetAt(t01, e01, m.randomAmp);
+                    //   🆕 2026-10-23（`新账-83`）：求值口收口到 `CardAnimOrder.OffsetAt`（技能拍 / 攻击弹道共用）。
+                    if (m.ao != 0) p += CardAnimOrder.OffsetAt(m.ao, m.ont, m.ofx, m.ofy, m.ofz, t01, e01, m.randomAmp);
                     m.carrier.position = p;
+                    ApplyVelocityOrientation(m, p);
                 }
             }
+        }
+
+        /// <summary>🆕 2026-10-23（`新账-83`）：`orientToVelocity` —— 把载体转向**本帧速度方向**。
+        /// 判据 = `CardAnimController__Update.c:80-120`：`if (orientToVelocity &amp;&amp; shouldMoveVFX)`
+        /// → `v = pos(本帧) − pos(上一帧)`；`if (v.sqrMagnitude &gt;= 1e-10) transform.rotation = LookRotation(v)`。
+        /// <para>⚠️ 复杂度如实记：原版比较的是 `v − 静态Vector3`（来源类名未定，见 `TickAbilityVfxMoves` 的 doc），
+        /// 这里不减那个静态量；阈值 `DAT_1834b2ba8` 现读 `.rdata` 4 字节 float = **1e-10**（读值工具）。</para>
+        /// <para>⚠️ 我们转的是**载体**（特效实例的父节点），原版转的是实例自己 —— 与
+        /// `PlayAbilityBeat` 的初始朝向同一个近似口径（prefab 作者朝向会叠上去；`FlattenNewEffectRotation`
+        /// 只在技能拍那条路的初始朝向上归零过）。</para></summary>
+        static void ApplyVelocityOrientation(AbilityVfxMove m, Vector3 pos)
+        {
+            if (m.otv)
+            {
+                Vector3 v = pos - m.lastPos;
+                if (v.sqrMagnitude >= 1e-10f)
+                    m.carrier.rotation = Quaternion.LookRotation(v.normalized, Vector3.up);
+            }
+            m.lastPos = pos;
         }
 
         /// <summary>把载体上的特效**原样留在世界里**，再销毁载体（特效自己的生命周期照旧由播放器管）。
@@ -18781,7 +19150,15 @@ namespace CardPresentation
                 // `SkillBeatDuration`（单候选时 `clip.Duration` 被 `VfxMap` 的回归口径压成 0，
                 // 那里会去 `AnimInfo` 补真值 —— 判据见那个方法的 doc）。
                 float dur = SkillBeatDuration(clip);
-                float at = Mathf.Max(0f, t0) + Mathf.Max(0f, clip.T) + Mathf.Max(0f, clip.Place.VfxDelay);
+                // 🔴 **2026-10-23（P2 · 演出时序 · `新账-75④` / `新账-78③`）就地修复（铁律 5）**：
+                //   这里原来还有 `+ Mathf.Max(0f, clip.Place.VfxDelay)` —— **`vfxDelayTime` 被加了两次**：
+                //   `clip.T` 里**已经含**同一次延迟（`VfxMap.cs:1197-1228`：`T = t + delay`，
+                //   `delay = times[idx].Delay`，即 `CardAnimTime.Delay` = 原版 `vfxDelayTime`）。
+                //   判据 = `BattleManager._DelayedVFXPlay_d__469:17-27`：原版**只等一次** `vfxDelayTime`。
+                //   ⇒ 现在只信 `clip.T`（**唯一一处**折算延迟）。⛔ 别在 `CardAnimClips.VfxDelay` 那一侧再加回来。
+                //   ⚠️ 今天零可见差（现读 `UnitAttack`/`UnitDamaged` 两桶 `vd` 全 0），但它是**结构**上的双计：
+                //   将来某张卡 `d>0` 且 `vd>0` ⇒ 会等 `2×` 才起播。
+                float at = Mathf.Max(0f, t0) + Mathf.Max(0f, clip.T);
                 ScheduleAction(at, () => PlayOneUnitAnim(e, clip, dur));
                 ExtendTimelineTail(_clock + at + Mathf.Max(0.05f, dur));
             }
@@ -19110,13 +19487,16 @@ namespace CardPresentation
         //    · `EvtKind.Ability` ← `UsedActiveAbility`（trait id `0x4f1` = ferocity）
         //    · `EvtKind.Attack`  ← `_ResolveAttack` 里连调的四个（sniper / markerlight / longrange / stomp）
         //    · `EvtKind.Trigger` ← 关键词真的触发（`swarm` / `synapse` 走这一格）
-        //  ⚠️ **两个已知的覆盖缺口**（如实记，别当「做完了」）：
-        //    ① `swarm` 合并那一下**不发 `EvtKind.Trigger`**（`RuleCore.TrySwarmMerge` 走的是
-        //       `BroadcastKeywordEvent` —— 那是发给「写有效果的监听者」的，不会给自己发）⇒
-        //       **卡面没有触发正文的 swarm 单位**现在拿不到这一格；
-        //    ② `huntMark` 那条是 `…InTarget`，prefab **判据不足**（映射表里没有 `…InTarget` 结尾的 CardAnim）
-        //       ⇒ 整条没接（按铁律 3：宁可留白，不猜）。
-        //    两条都记在判据文件里（铁律 11：**记着**，不是不做）。
+        //  🔴 **2026-10-23（`新账-79`）就地订正（铁律 5）**：原来这里还有第二条缺口
+        //    「② `huntMark` 那条是 `…InTarget`，prefab **判据不足**（映射表里没有 `…InTarget` 结尾的
+        //      CardAnim）⇒ 整条没接（按铁律 3：宁可留白，不猜）」—— **那句已被数据推翻**：
+        //    原版 `HuntMark.asset` **确实有一条 FromCode(5)**：`HuntMark Damage Anim` → `HuntMark_DamageEffect`；
+        //    现在由 `TraitParticles` 那张**数据驱动**的表绑上（`Resources/trait_effect_bindings.json`，
+        //    判据与「为什么原来错」→ `Core/TraitParticles.cs` 文件头的 2026-10-23 那段）。
+        //    **错因**：当年是「按 CardAnim 名字反推绑定」，而这条的名字不叫 `…InTarget` ⇒ 反推不到。
+        //  ⚠️ **仍然成立的那一条**：① `swarm` 合并那一下**不发 `EvtKind.Trigger`**
+        //    （`RuleCore.TrySwarmMerge` 走 `BroadcastKeywordEvent` —— 发给「写有效果的监听者」，不给自己发）
+        //    ⇒ **卡面没有触发正文的 swarm 单位**拿不到这一格（引擎侧，记在判据文件里）。
         void PlayTraitParticles(BattleEvent e)
         {
             string[] want = null;
@@ -19459,7 +19839,9 @@ namespace CardPresentation
             CardView occupied;
             if (views.TryGetValue(e.Slot, out occupied) && occupied == v) views.Remove(e.Slot);
             _dying.Add(v);
-            // 督军格的阵亡**慢一倍多**（原版 `deathTimeWarlordDuration 0.5` vs 小兵 0.2，见 `CardFeel.DeathDissolve`）
+            // 督军格的**抖动**更长（原版 `deathTimeWarlordDuration 0.5` vs 小兵 0.2，见 `CardFeel.DeathDissolve`）
+            // ⚠️ **2026-10-23（`新账-79`）就地订正（铁律 5）**：这一行原来写「督军格的阵亡**慢一倍多**」——
+            //   **总寿命两档相同**（都是 `DeathTotal` 0.7，见下面那段），慢的只有**抖动**那一段。
             // 🆕 2026-09-29：表现**照原版重做**了 —— 不是溶解，是「关掉 3D 体 + 在卡位生成死亡爆散体 + 抖一下」
             //   （判据与被卡住的那一环 → `CardFeel.DeathExplosion`）。
             // 🆕 2026-10-16：**那一串的四拍顺序照原版补齐了**（抖 → 站 0.5 s → 这时才爆散 + 关 3D 体 →

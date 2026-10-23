@@ -2783,9 +2783,11 @@ namespace RuleEngine
         ///   · `deck`      —— 自己牌库（`Deploy 4 random troops from your deck`），**部署后从牌库移走**
         ///   · `graveyard` —— 自己弃牌堆（`Deploy up to 5 friendly Infantry troops that died this game`），同样移走
         ///
-        /// ⚠️ **弃牌堆那条是近似**：我们**没有「本局阵亡」的账**，只能拿 `Discard` 里 `type == "unit"`
-        ///    的充数 —— 手牌超上限打进弃牌堆的单位卡也会被算进去。原版有完整的阵亡流水，我们没有。
-        ///    如实写在这儿，别当它是精确的。
+        /// ✅ **弃牌堆那条（2026-10-23 起精确）**：候选取 `BattleContext.DeadUnits`（本局阵亡流水，
+        ///    带 `Owner` / `DeathTurn` / `Instance`），⛔ 不再拿 `Discard` 里 `type == "unit"` 充数
+        ///    —— 手牌超上限打进弃牌堆的单位卡不会被算进来；同名两份也分得清。
+        ///    ⚠️ **改前这里写的是**「我们**没有「本局阵亡」的账**，只能拿 `Discard` 充数」——
+        ///    **已过期**（铁律 5 就地订正；`BattleContext.DeadUnit` 早就在，`TakeFromGraveyard` 一直在用）。
         /// ⚠️ **只部署单位卡**（`unitsOnly`）—— 部署一张战术卡是没有意义的事。
         /// </summary>
         /// <summary>
@@ -2816,7 +2818,24 @@ namespace RuleEngine
             List<CardInstance> source = null;
             string srcName = "卡池";
             if (op.DeployFrom == "deck") { source = ps.Deck; srcName = "牌库"; }
-            else if (op.DeployFrom == "graveyard") { source = ps.Discard; srcName = "弃牌堆"; }
+            else if (op.DeployFrom == "graveyard")
+            {
+                // 🔴 **2026-10-23（引擎线 `新账-97` ③/⑧）：候选取 `DeadUnits`（本局阵亡流水），
+                //    不再拿 `Discard` 充数。** 判据：
+                //      · 卡面这类写法 = `… that died this game`（`GSC55 Eve of the Uprising`）；
+                //      · `DeadUnits` 记着 `Owner` / `DeathTurn` / 现在还有 **`Instance`**，
+                //        同名两份、以及「手牌超上限打进弃牌堆的单位卡」都能分开；
+                //      · 顺序 = 死亡先后（表是追加的）。
+                //    ⚠️ 取走时走 `TakeFromGraveyard(owner, instance)`（`Discard` 与 `DeadUnits`
+                //    两条一起摘 —— 那条规则只写在 `BattleContext` 一处）。
+                source = new List<CardInstance>();
+                foreach (var d in ctx.DeadUnits)
+                {
+                    if (d == null || d.Owner != owner || d.Instance == null || d.Card == null) continue;
+                    if (!source.Contains(d.Instance)) source.Add(d.Instance);
+                }
+                srcName = "本局阵亡的部队";
+            }
 
             // ==========================================================================================
             //  🆕 2026-10-19（第五十五会话 · 引擎线 `E12`）：**`deploy them / it` = 上一条效果刚落进手牌的那几份**
@@ -3032,7 +3051,13 @@ namespace RuleEngine
                 else
                 {
                     if (!DeployFree(ctx, owner, inst, out slot)) break;   // 满场 → 后面的也放不下，停
-                    if (src != null) source.Remove(src);                  // 牌库/弃牌堆里那份要移走（按实例摘）
+                    if (src != null)
+                    {
+                        // 牌库：从那份列表里按实例摘；墓地：`Discard` 与 `DeadUnits` 两条一起摘
+                        // （唯一口在 `BattleContext.TakeFromGraveyard`，⛔ 别在这儿手写第二份）
+                        if (op.DeployFrom == "graveyard") ctx.TakeFromGraveyard(owner, src);
+                        else source.Remove(src);
+                    }
                 }
                 var deployed = ctx.Players[owner].Board[slot];
                 if (deployed != null) ctx.LastTargets.Add(deployed);
@@ -5268,7 +5293,20 @@ namespace RuleEngine
                 case "deck":      zone = ps.Deck; break;
                 case "hand":      zone = ps.Hand; break;
                 case "enemyhand": zone = ctx.Players[1 - owner].Hand; break;
-                case "dead":      zone = ps.Discard; break;
+                case "dead":
+                {
+                    // 🆕 2026-10-23（引擎线 `新账-97` ③/⑧）：先按**阵亡流水**找最近那一份实例
+                    //    （同名两份不再拿弃牌堆里最后一张凑）；找不到才退回按模板。
+                    for (int i = ctx.DeadUnits.Count - 1; i >= 0; i--)
+                    {
+                        var d = ctx.DeadUnits[i];
+                        if (d == null || d.Owner != owner || d.Instance == null) continue;
+                        if (!ReferenceEquals(d.Card, card)) continue;
+                        if (ContainsInst(ps.Discard, d.Instance)) return d.Instance;
+                    }
+                    zone = ps.Discard;
+                    break;
+                }
                 // 🆕 2026-10-17（B19）：`played` 域 —— **认的是表里那一份实例**（`FindPlayed` 唯一判据）。
                 // ⚠️ **只认「确实躺在能摘的那三个区里」的那一份**，这一条与 `RemoveFromSource`
                 //    的 `case "played"` **必须同口径**：那边摘不走、这边却把它交出去，调用方的
@@ -9339,6 +9377,11 @@ namespace RuleEngine
         /// </summary>
         static readonly Dictionary<UnitState, string> _keywordsPact = new Dictionary<UnitState, string>();
 
+        /// <summary>🆕 2026-10-23（引擎线 `新账-89` ③）：清掉**跨局静态旁表**。
+        /// 唯一调用点 = `RuleCore.NewBattle`（每局开头）；本表只记「这个单位拿到的是哪一种黑暗契约」，
+        /// 键是 `UnitState`（每局新对象）⇒ 跨局没有意义，留着只会让长会话里的旧单位引用泄漏。</summary>
+        public static void ResetTransientForNewBattle() { _keywordsPact.Clear(); }
+
         /// <summary>
         /// 🆕 2026-10-21（审查 `W61b` 第 2 条）：**黑暗契约的「自触发 / 同伴触发」两条队列体**
         /// —— 原同步段那两句 `ResolveEffect(...)` 逐字搬进来（⛔ 别在这里改次序/语义）。
@@ -10322,6 +10365,10 @@ namespace RuleEngine
             holds = false;
             structured = TryStructuredCondition(ctx, owner, op, chosen, card, out holds);
             if (structured) return true;
+            // 🆕 2026-10-23（引擎线 `新账-97` ④）：`role == "count"` 那一层（`deaths` / `anypraying` /
+            //   `noeffect` 等正文种类）—— 有 `countSet` 就按原版数据数，判不了再退回正文。
+            //   判据 → `Core/CountEval.cs` 文件头；⛔ 别把「数几个」写进下面那段正文正则。
+            if (TryCountCondition(ctx, owner, op, card, out holds)) { structured = true; return true; }
             // 正文那一档：**故意不再传 card**（结构化已经试过/不适用，别再来一遍）。
             return ConditionHolds(ctx, owner, op, chosen, out holds, null);
         }
@@ -10339,11 +10386,109 @@ namespace RuleEngine
         /// </summary>
         /// <param name="card">这条 op **所属的卡**（`null` = 不知道 ⇒ 只能走正文）。
         /// ⚠️ 别拿 `ctx.PlayingCard` 顶替 —— 那个字段在事件触发路径里是**陈旧值**（见 `BattleContext.PlayingCard` 的 doc）。</param>
+        /// <summary>
+        /// 🆕 2026-10-23（引擎线 `新账-97` ④）：**`role == "count"` 的求值入口**。
+        /// 先用这条 op 自己的 `AbilityIndex/LogicIndex` 找那一行；找不到才按正文种类
+        /// （`deaths` / `anypraying` / `noeffect`）在卡上唯一地认一行。
+        /// 返回 `false` = 本版判不了（没有 `count` 行 / 没有 `countSet` / 集合或比较档未实现）
+        /// ⇒ 调用方退回正文口径（**不许**拿 false 当「不成立」）。
+        /// </summary>
+        static bool TryCountCondition(BattleContext ctx, int owner, EffectOp op, CardDef card, out bool holds)
+        {
+            holds = false;
+            if (ctx == null || op == null || card == null) return false;
+            CardDef.ConditionSpec spec = null;
+            bool byIndex = op.AbilityIndex >= 0
+                        && card.TryGetCondition(op.AbilityIndex, op.LogicIndex, "count", out spec)
+                        && spec != null && spec.CountSet != null;
+            if (!byIndex) spec = FindCountRow(card, op.ConditionKind);
+            if (spec == null || spec.CountSet == null)
+            {
+                // 「这张卡有 count 行、但归不到这条 op」也要出声一次（否则看起来像「本版没接」）。
+                if (FindCountRowCount(card, op.ConditionKind) > 1)
+                    StructuredConditionNotice("count-ambig|" + card.Id + "|" + op.ConditionKind,
+                        $"卡「{card.Name}」（{card.Id}）的 `count` 行**多于一条**且没有可用的 ability 下标"
+                      + $"（正文「{op.Condition}」）⇒ 退回**正文口径**（⛔ 不猜是哪一条）。");
+                return false;
+            }
+
+            string gap;
+            var r = CountEval.Meets(ctx, owner, spec, ctx.ActingUnit, out gap);
+            if (r == null)
+            {
+                StructuredConditionNotice("count-gap|" + card.Id + "|" + (gap ?? "?"),
+                    $"卡「{card.Name}」（{card.Id}）的 `count` 条件（cond={spec.Condition}，正文「{op.Condition}」）"
+                  + $"**本版判不了**：{gap} ⇒ 退回**正文口径**。");
+                return false;
+            }
+            holds = r.Value;
+            return true;
+        }
+
+        /// <summary>`TryCountCondition` 的第二档：正文种类 → 卡上**唯一**一条 `count` 行。
+        /// 多于一条时按**比较档**收窄一次（`noeffect` = 「数出 0 个」/ `deaths` = 「至少 1 个」）——
+        /// 收窄后必须**恰好剩一条**才用，否则 `null`（归不了位，⛔ 不猜是哪一条）。</summary>
+        static CardDef.ConditionSpec FindCountRow(CardDef card, string kind)
+        {
+            var rows = FindCountRows(card, kind);
+            if (rows.Count == 1) return rows[0];
+            if (rows.Count == 0) return null;
+            // 🔴 **多条**：卡面那一句的意思能唯一对上一条比较档时才收窄 ——
+            //   · `noeffect`（"if **no** enemy is affected"）= 数出 **0** 个 ⇒ `EqualTo / 0`；
+            //   · `deaths`（"if a friendly troop **died**"）= 至少 **1** 个 ⇒ `EqualOrHigher / ≥1`；
+            //   · `anypraying` 同上（"if **any** friendly unit is Praying"）。
+            //   这是**拿数据自己的比较档去对正文的意思**，不是按卡猜；对不上/收窄后仍多条 ⇒ null。
+            int wantOp = 0, wantRef = -1;
+            switch (kind)
+            {
+                case "noeffect": wantOp = 1; wantRef = 0; break;
+                case "deaths": case "anypraying": wantOp = 2; wantRef = 1; break;
+                default: return null;
+            }
+            CardDef.ConditionSpec hit = null;
+            int n = 0;
+            foreach (var row in rows)
+            {
+                if (row.StatOption != wantOp || row.ReferenceValue < wantRef) continue;
+                hit = row; n++;
+            }
+            return n == 1 ? hit : null;
+        }
+
+        /// <summary>卡上所有能对上这个正文种类的 `count` 行（`deaths` 收 221/222 两档）。</summary>
+        static List<CardDef.ConditionSpec> FindCountRows(CardDef card, string kind)
+        {
+            var list = new List<CardDef.ConditionSpec>();
+            if (card == null || string.IsNullOrEmpty(kind)) return list;
+            int a, b;
+            switch (kind)
+            {
+                case "deaths":     a = 221; b = 222; break;   // diedThisTurn / diedSinceLastTurn
+                case "anypraying": a = 243; b = -1;  break;   // isPraying
+                case "noeffect":   a = 331; b = -1;  break;   // `stealthOrCamouflage`（AM43 的「没有敌人被影响」）
+                default: return list;
+            }
+            foreach (var row in card.Conditions)
+            {
+                if (row == null || row.Role != "count" || row.CountSet == null) continue;
+                if (row.Condition != a && row.Condition != b) continue;
+                list.Add(row);
+            }
+            return list;
+        }
+
+        static int FindCountRowCount(CardDef card, string kind)
+        {
+            return FindCountRows(card, kind).Count;
+        }
+
         static bool ConditionHolds(BattleContext ctx, int owner, EffectOp op,
                                    UnitState chosen, out bool holds, CardDef card = null)
         {
             holds = false;
             if (TryStructuredCondition(ctx, owner, op, chosen, card, out holds)) return true;
+            // 🆕 2026-10-23（`新账-97` ④）：直接调用本方法（带 card）的路径也要吃到 `count` 那一层。
+            if (TryCountCondition(ctx, owner, op, card, out holds)) return true;
             switch (op.ConditionKind)
             {
                 case "targetdiesorfriendly":

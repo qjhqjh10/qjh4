@@ -4242,7 +4242,7 @@ namespace CardPresentation
                 StampTmpQueue(t);      // 🆕 A1665：TMP 也是这张卡的一层（含它的 sprite 子网格）
             }
 
-            t.text = text;
+            t.text = CardIcons.PinSpriteFace(text);   // 🔴 2026-10-23（新账-100）：`<sprite>` 的面钉在**本层字体**上（`<font=Default>` 零宽作用域）—— TMP 默认让它继承「前一个字符」的 faceInfo，中文里差 1.406 倍；判据与改法见 `CardIcons.PinSpriteFace` 的 doc
             t.fontSize = fontSize;                   // `FitToWidth` 会改字号，每次得先重置回基准
             t.color = (Color)baseColor * _tint;      // 高亮/置灰的状态色要跟着走，不然刷新一次就白了
             t.textWrappingMode = wrap ? TextWrappingModes.Normal : TextWrappingModes.NoWrap;

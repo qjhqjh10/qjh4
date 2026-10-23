@@ -365,6 +365,62 @@ public static class ShellScene
         return null;
     }
 
+    /// <summary>🆕 **2026-10-23（活动线 `L01`/`L02`/`L03` 收尾）**：**一扇活动窗左栏的「事件钮」那一组**。
+    /// <para>判据：原版 `BaseParentEventWindow.SetupTabs` + `TabButtons.AddTabButton`（**四扇活动窗同一份**；
+    /// 我们收在 `ParentEventWindow.SetupEventTabs` 一处）· `TabButtons__AddTabButton.c` 的 `set_name(label)` ·
+    /// `TabButtons.Initialize` 的「高亮恒关」（事件钮点下去是**换窗**不是换页）·
+    /// 兄弟序 `SetSiblingIndex(0)` + `SetAsLastSibling()` ⇒ **内容页在前、事件钮在后**。</para>
+    /// <para>⛔ 期望值由调用方写死（`wantLabels`），**不读** `BuildEventTabs` 的结果 —— 否则是自证。</para></summary>
+    static void CheckEventTabBar(IList<Transform> nodes, IList<Label> labels, IList<Transform> contentTabs,
+                                 string winName, string[] wantLabels)
+    {
+        int n = nodes != null ? nodes.Count : -1;
+        Check(n, wantLabels.Length,
+              $"★★ 灭自证：{winName} 左栏**真的建出 {wantLabels.Length} 颗事件钮**"
+            + $"（实测 {n}；⛔ 删掉 `Build()` 里那句 `SetupTabs(...)` ⇒ 0 颗 ⇒ 本条红）");
+        Check(labels != null ? labels.Count : -1, wantLabels.Length,
+              $"{winName}：事件钮文字与按钮**一一对应**（{wantLabels.Length} 条）");
+        if (n != wantLabels.Length) return;      // 数目不对 ⇒ 下面按下标读会越界，先收
+
+        for (int i = 0; i < n; i++)
+        {
+            var lb = labels != null && i < labels.Count ? labels[i] : null;
+            string got = lb != null ? lb.Text : "<无文字组件>";
+            Check(got, wantLabels[i],
+                  $"{winName}：第 {i + 1} 颗事件钮的文字 = `{wantLabels[i]}`（顺序 = `EventWindowKind` 值序、跳过自己）");
+            Check(nodes[i] != null ? nodes[i].name : "<节点没了>", wantLabels[i],
+                      $"{winName}：第 {i + 1} 颗事件钮的**节点名 = 页签文字**（判据 = `AddTabButton` 的 `set_name(label)`）");
+            var wb = nodes[i] != null ? nodes[i].GetComponentInChildren<WindowButton>(true) : null;
+            CheckTrue(wb != null && wb.onClick != null && !wb.allowClickWhenAlreadySelected,
+                      $"{winName}：第 {i + 1} 颗事件钮**点得动**（`WindowButton.onClick` 非空 + 不吞重复点 —— "
+                    + "原版 `EverguildToggle.allowClickWhenAlreadySelected = 0`）");
+            var hi = nodes[i] != null ? nodes[i].Find("Highlight") : null;
+            CheckTrue(hi != null && !hi.gameObject.activeSelf,
+                      $"{winName}：第 {i + 1} 颗事件钮的 `Highlight` **建着但关着**"
+                    + "（事件钮没有「已选中」这一态 —— 点它是**换窗**，⛔ 别和内容页签的选中灯混成一条）");
+            int sibE = nodes[i] != null ? nodes[i].GetSiblingIndex() : -1;
+            int sibLastContent = -1;
+            if (contentTabs != null) for (int k = 0; k < contentTabs.Count; k++)
+                if (contentTabs[k] != null) sibLastContent = Mathf.Max(sibLastContent, contentTabs[k].GetSiblingIndex());
+            CheckTrue(sibE > sibLastContent,
+                      $"{winName}：第 {i + 1} 颗事件钮在**内容页签之后**（兄弟序 = 原版 `SetAsLastSibling`；"
+                    + $"实测事件钮 {sibE} > 末颗内容页 {sibLastContent}）");
+        }
+    }
+
+    /// <summary>把一组页签名拼成一串（灭自证「三扇窗名单两两不同」用）。</summary>
+    static string JoinTabLabels(IList<Label> labels)
+    {
+        if (labels == null || labels.Count == 0) return "";
+        var sb = new System.Text.StringBuilder();
+        for (int i = 0; i < labels.Count; i++)
+        {
+            if (i > 0) sb.Append(" | ");
+            sb.Append(labels[i] != null ? labels[i].Text : "?");
+        }
+        return sb.ToString();
+    }
+
     /// <summary>🆕 **2026-10-18（A1126 · `A1` 档）**：一个 `Label` **渲出来**的像素宽高（画布 px · `Vector2(w, h)`）。
     /// <para>🔴 **为什么不能用 `Label.WorldW/H`**：那两个是**被测实现自己写的字段缓存**（`_tmpW/_tmpH`，只有
     /// `RefreshBounds()` 写）—— `SetFontSize` / `SetCharSpacing` 这一族**只重排 mesh、不刷缓存**
@@ -7578,6 +7634,27 @@ public static class ShellScene
                               && Mathf.Abs(h0 - (12f + 89.8638f + textH0 + 7f)) < 0.05f,
                               $"★ N23：单行根高 = `12 + 89.8638 + 文本首选高 + 7`（现读 根 {h0:F2} / 文本 {textH0:F2}px）"
                             + "｜🧨 把 `ToastRootHeight` 里的任一 padding 或 icon 高改掉 ⇒ 本条红");
+
+                    // ---- ⑤ 🆕 2026-10-23（T16 · `D10`）：Toast **根高探针** —— 只出声、不断言、⛔ 不猜数 ----
+                    // 判据缺口：**原版 player** 的 `Toast` 根 `RectTransform` 运行时 `rect.height`（= `sizeDelta.y`，
+                    //   本表那一列）本地没有读数；静态推导有两条互相打架的口径（`N23`：常量 108.8638 vs 文本驱动高）。
+                    // 🔴 本段**只做探针**：
+                    //   ① 把**我们这一侧**的根高读数打出来（`[D10PROBE]` 前缀 ⇒ 批处理 / 真机日志直接可收）；
+                    //   ② **原版读数留空**（`origRootH = 0f` = 未采集）并**出声**；
+                    //   ③ ⛔ 不写断言、不填「大概是」的数字 —— 原版值没回来之前 `D10` 只能是 `◐`。
+                    // 探针方案（原版侧，主对话执行）：`d:/2/unity_run_ref` + SceneJumpShot → 进主菜单触发一条 `Toast`
+                    //   ⇒ dump `Toast Notification Controller/Holder` 下 `Toast` 根的 `RectTransform.sizeDelta.y`；
+                    //   **一行 / 多行两种文案各一次**（出处 → `资料/普查产出_1023c/界面线_清点报告.md:85`）。
+                    {
+                        const string D10 = "[D10PROBE]";
+                        float origRootH = 0f;      // 🔴 原版真机读数：**留空**（0 = 未采集）。⛔ 别填猜的数。
+                        Debug.Log(D10 + $" 我们这一侧：一行 {h0:F3} px ／ 多行 {h1:F3} px"
+                                      + "（`Toast` 根 `RectTransform.sizeDelta.y` × 108）");
+                        if (origRootH <= 0f)
+                            Debug.LogWarning(D10 + " **原版真机 `rect.height` 未采集（读数留空）** ⇒ 本次只报我们这一侧；"
+                                           + "⛔ 不据此改常量、不猜数字。`D10` 仍为 `◐`；"
+                                           + "采集 = 原版 player + SceneJumpShot，一行 / 多行两种文案各一次。");
+                    }
                 }
 
                 // ---- ④ `N20②`：完成态 ⇒ 三件 info display 全关（`displayRule = 1`） ----
@@ -8920,21 +8997,20 @@ public static class ShellScene
             }
 
             // ---------------- 🆕 2026-10-23（W62 · 界面线）：左栏 `Shadow` 的 tint / 顶边收进基类 ----------------
-            //  **判据（原版 prefab 现读）**：
+            //  **判据（原版 prefab 现读，2026-10-23 逐窗重读）**：
             //   · 收藏窗 `Collection Menu Variant`：`Tab Buttons/Shadow` = 167.2,158.6→214.8,1080 ·
             //     `40k_main_tab_shadow` · **Simple (0,0,0,0.475)**
             //     （`资料/普查产出_1022/W62_换牌压暗与收藏白条修复.md` §②）；
             //   · 社交窗同族同一行：`(0,0,0,0.475)`（`普查产出_0927/社交_联盟与好友页.md:45`，但它**高 0**）；
-            //   · 奖励窗 `Rewards Base Submenu Variant`：**只读到矩形/锚点、没读到色**
-            //     （`资料/日常_原版规格.md:118`；⚠️ 同文件 `:102` 那个 `#000 a=0.4745` 是**另一颗**
-            //     `Content Area/Shadow (1)`，⛔ 别当成左栏这颗）· 矩形随 `Tab Buttons` 铺满 `Content Area`（70.94 起）；
-            //     商店与它**同一套壳**（`资料/阶段二_商店_原版规格.md` §一·二）。
-            //  ⇒ 两样（顶边 / 色）都**逐窗不同** ⇒ 收进基类当**一处可覆写判据**（`BarShadowTop` / `BarShadowTint`），
-            //    子类只覆写值、**画只有基类那一处**（收藏窗原来「删掉基类那件再重建一份」的临时补丁已删）。
-            //  ⚠️ **本批口径（主对话 2026-10-23）**：只有收藏窗显式传 0.475；奖励 / 商店两扇**用户 2026-10-22 挂起**
-            //     ⇒ 基类默认仍 `null`（= 今天那条白带原样）。**将来把默认值改成 `(0,0,0,0.475)` 时，本段第 ③ 条要一起改**
-            //     —— 它钉的就是这个「先不动」的口径（⛔ 它不是对原版的断言）。
-            Section("W62：左栏 `Shadow` 的 tint / 顶边收进基类（一处判据 · 收藏窗显式 0.475 · 奖励窗本批不动）");
+            //   · 🔴 **奖励窗 / 商店（本轮补读，原来只读到矩形）**：
+            //     `python -I -X utf8 工具/menu_dump.py bundle_menus_assets_all "Rewards Base Submenu Variant"
+            //      --depth 5 --relative --no-sprite` ⇒ `Shadow … Simple (0,0,0,0.475)`；
+            //     `"Shop Menu Variant"` 同一行**逐值相同**（连未激活的 `Shadow (1)` 也是这个色）。
+            //     精确 float32 = `0.4745098054409027`（= 121/255），即 `(0,0,0,0.4745098)`。
+            //  ⇒ 四扇窗**同一个色** ⇒ 判据收在基类一处（`BarShadowTint` / `BarShadowTop` 两个 virtual）。
+            //  🔴 **2026-10-23（W62②）：基类默认值已并成原版那个色** —— 奖励 / 商店不覆写也拿到 `(0,0,0,0.4745)`；
+            //     收藏窗的显式覆写与它等价（`0.475` vs `0.4745098`，差 0.0005 ⇒ 亚像素级，同一原版字段）。
+            Section("W62：左栏 `Shadow` 的 tint / 顶边收进基类（一处判据 · 四扇窗同一个原版色）");
             {
                 const System.Reflection.BindingFlags Flags =
                     System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.Public
@@ -8955,7 +9031,7 @@ public static class ShellScene
 
                 if (gTint != null && gTop != null)
                 {
-                    // ② 值：**收藏窗**显式覆写 = 原版字面量（⛔ 不从被测类里读常量）
+                    // ② 值：**收藏窗**（显式覆写）＝ 原版字面量（⛔ 不从被测类里读常量）
                     var cw = CollectionWindow.Create(shell.Windows);
                     var cTint = (Color?)gTint.Invoke(cw, null);
                     float cTop = (float)gTop.Invoke(cw, null);
@@ -8968,17 +9044,33 @@ public static class ShellScene
                               $"★ 收藏窗的 `Shadow` 顶边 = 原版 **158.64**（本窗 `Tab Buttons` 自己的顶边；实测 {cTop:F2}）");
                     MainMenuSubmenuWindow.DestroySafe(cw.gameObject);
 
-                    // ③ 成对：**不覆写**的奖励窗维持本批口径（tint 仍 `null` / 顶边仍是 `ContentT` 70.94）
+                    // ③ 🔴 **2026-10-23（W62②）：不覆写的两扇（奖励 / 商店）也吃到了原版色** ——
+                    //    判据是**本轮现读的原版 `Image.m_Color`**（不是「按同族推断」）：
+                    //    奖励 `Rewards Base Submenu Variant/Tab Buttons/Shadow` = `(0,0,0,0.475)` ·
+                    //    商店 `Shop Menu Variant/Tab Buttons/Shadow` = 同值。
                     var rw = RewardsWindow.Create(shell.Windows);
                     var rTint = (Color?)gTint.Invoke(rw, null);
                     float rTop = (float)gTop.Invoke(rw, null);
-                    CheckTrue(!rTint.HasValue,
-                              "★（本批口径）奖励窗**不覆写** ⇒ tint 仍 `null`（今天那条白带原样）—— ⚠️ 这一条是"
-                            + "**排期口径、不是对原版的断言**（奖励/商店用户 2026-10-22 挂起）；原版这颗的色**没逐窗读过**"
-                            + "（同族收藏/社交两扇都是 `(0,0,0,0.475)`，多半也是它）⇒ 将来并进基类默认值时**把这条一起改**");
+                    CheckTrue(rTint.HasValue
+                              && Mathf.Abs(rTint.Value.r) < 2f / 255f && Mathf.Abs(rTint.Value.g) < 2f / 255f
+                              && Mathf.Abs(rTint.Value.b) < 2f / 255f && Mathf.Abs(rTint.Value.a - 0.4745098f) < 2f / 255f,
+                              "★★ 奖励窗（**不覆写**）⇒ 基类默认 tint = 原版 **`(0,0,0,0.4745098)`**（= 121/255；"
+                            + "本轮 `menu_dump.py` 现读奖励窗 `Tab Buttons/Shadow` 的 `m_Color`）"
+                            + "｜🧨 把基类默认改回 `null` ⇒ 左栏又成一条白带 ⇒ 本条红（这正是 W62 真机报的那条白带）");
                     CheckTrue(Mathf.Abs(rTop - 70.94f) < 0.01f,
                               $"★ 奖励窗的 `Shadow` 顶边 = 原版 **70.94**（= `ContentT`，随 `Tab Buttons` 铺满 `Content Area`；实测 {rTop:F2}）");
                     MainMenuSubmenuWindow.DestroySafe(rw.gameObject);
+
+                    // ③-b 商店：同一套壳、同一个色（只断色；矩形那一条在 `ShopScene` 里）
+                    var sw = ShopWindow.Create(shell.Windows);
+                    var sTint = (Color?)gTint.Invoke(sw, null);
+                    CheckTrue(sTint.HasValue
+                              && Mathf.Abs(sTint.Value.r) < 2f / 255f && Mathf.Abs(sTint.Value.g) < 2f / 255f
+                              && Mathf.Abs(sTint.Value.b) < 2f / 255f && Mathf.Abs(sTint.Value.a - 0.4745098f) < 2f / 255f,
+                              "★★ 商店窗（**不覆写**）⇒ 同一个基类判据 = 原版 **`(0,0,0,0.4745098)`**"
+                            + "（`Shop Menu Variant/Tab Buttons/Shadow` 现读 `(0,0,0,0.475)`）"
+                            + "｜🧨 只在收藏窗那一族给 tint（= 子类打补丁）⇒ 本条红");
+                    MainMenuSubmenuWindow.DestroySafe(sw.gameObject);
                 }
             }
 
@@ -9266,6 +9358,68 @@ public static class ShellScene
                 CheckTrue(ep.PageNode != null && ep.PageNode.gameObject.activeSelf
                        && ep.MissionsPageNode != null && !ep.MissionsPageNode.gameObject.activeSelf,
                           "Pass 页开着、Missions 页关着（两页互斥）");
+            }
+
+            // ---- ⑧ 🆕 2026-10-23：**三扇兄弟窗各自也有左栏事件钮**（原版 `BaseParentEventWindow.SetupTabs`
+            //      是**基类**方法 ⇒ Gacha / Raid / Expansion Pass 任何一扇的左栏都列全部 live 事件）----
+            // 判据：`BaseParentEventWindow__SetupTabs.c` 的 `HasComponent(ev,13 /*TabButton*/)` 那一支
+            //   ＋ `TabButtons__AddTabButton.c`；四扇窗共用 `ParentEventWindow.SetupEventTabs` **一份实现**
+            //   （⛔ 谁要是各抄一份，这里还看不出差别 —— 但「名单跳过自己」那两条会先红）。
+            // ⛔ 名单与文字**写死在这**（不读 `BuildEventTabs` 的返回 —— 读了就是自证）。
+            if (gw2 != null)
+            {
+                var wantGacha = new[] { ParentEventWindow.P1TitleText,
+                                        Loc.T(RaidEventWindow.TermTabTitle),
+                                        Loc.T(ExpansionPassEventWindow.TermTabTitle) };
+                var wantRaid  = new[] { ParentEventWindow.P1TitleText,
+                                        Loc.T(GachaEventWindow.TermTitle),
+                                        Loc.T(ExpansionPassEventWindow.TermTabTitle) };
+                var wantPass  = new[] { ParentEventWindow.P1TitleText,
+                                        Loc.T(GachaEventWindow.TermTitle),
+                                        Loc.T(RaidEventWindow.TermTabTitle) };
+
+                CheckEventTabBar(gw2.EventTabNodes, gw2.EventTabLabels, gw2.TabButtonNodes, "Gacha 抽卡窗", wantGacha);
+                CheckEventTabBar(rd.EventTabNodes,  rd.EventTabLabels,  rd.TabButtonNodes,  "Raid 团队窗", wantRaid);
+                CheckEventTabBar(ep.EventTabNodes,  ep.EventTabLabels,  ep.TabButtonNodes,  "Expansion Pass 战令窗", wantPass);
+
+                // 内容页那一张表**没被事件钮污染**（否则 `ShowPage` / `SwitchPage` 会按页号去点事件钮的灯）
+                Check(gw2.TabButtonNodes.Count, 1, "Gacha：内容页签仍 **1** 颗（事件钮不许混进这张表）");
+                Check(rd.TabButtonNodes.Count, 1, "Raid：内容页签仍 **1** 颗（同上）");
+                Check(ep.TabButtonNodes.Count, 2, "Expansion Pass：内容页签仍 **2** 颗（Pass / Missions）");
+
+                // ★★ 灭自证 A：三扇窗的名单**两两不同**（每扇都跳过自己那一种）。
+                //   谁把三处都写成 `BuildEventTabs(Parent)`、或写死同一份名单 ⇒ 三张表一模一样 ⇒ 本条红。
+                string jG = JoinTabLabels(gw2.EventTabLabels);
+                string jR = JoinTabLabels(rd.EventTabLabels);
+                string jP = JoinTabLabels(ep.EventTabLabels);
+                CheckTrue(jG != jR && jR != jP && jG != jP,
+                          "★★ 灭自证：三扇窗的事件名单**两两不同**（每扇都排除自己那一种）"
+                        + "\n    Gacha=[" + jG + "]\n    Raid=[" + jR + "]\n    Pass=[" + jP + "]");
+
+                // ★★ 灭自证 B：**点的是别的窗** —— 在 Gacha 窗里点它那颗 Raid 事件钮 ⇒ 最上面那扇变成 Raid 窗。
+                //   把 `Open` 接成「开自己」/接错窗 ⇒ 本条红。
+                //   ⚠️ **不拿「`LastOpened` 换没换」当判据**：`OpenByRef` 对「还在 `openWindows` 里」的那扇走
+                //      **复用、不重建**（照原版 `automaticallyLoadedWindows`），而 `HideAllWindows` 藏起来的窗
+                //      **本来就不摘表**（`GameWindow.Close` 首句 `if (!gameObject.activeSelf) return;` 也关不掉它）
+                //      ⇒ `LastOpened` 可能**不换** —— 那是判据本身的形状、不是缺陷。**顶窗是谁**才是判据。
+                Transform raidTabInGacha = null;
+                for (int i = 0; i < gw2.EventTabNodes.Count && i < gw2.EventTabLabels.Count; i++)
+                    if (gw2.EventTabLabels[i] != null
+                        && gw2.EventTabLabels[i].Text == Loc.T(RaidEventWindow.TermTabTitle))
+                        raidTabInGacha = gw2.EventTabNodes[i];
+                CheckTrue(raidTabInGacha != null, "（前提）Gacha 窗左栏里找得到 Raid 那颗事件钮");
+                if (raidTabInGacha != null)
+                {
+                    var wbRaid = raidTabInGacha.GetComponentInChildren<WindowButton>(true);
+                    CheckTrue(wbRaid != null && wbRaid.onClick != null, "（前提）那颗钮有回调");
+                    if (wbRaid != null) wbRaid.Click();
+                    var wmTop = WindowsManager.Instance != null ? WindowsManager.Instance.TopWindow : null;
+                    CheckTrue(wmTop is RaidEventWindow,
+                              "★ 在 Gacha 窗里点 Raid 事件钮 ⇒ **Raid 窗真的开到了最上面**"
+                            + "（实测顶窗 = " + (wmTop != null ? wmTop.name : "(null)") + "）");
+                    CheckTrue(wmTop != null && wmTop != gw2,
+                              "★★ 灭自证：开出来的是**别的窗**，不是它自己（事件钮接成开自己 ⇒ 本条红）");
+                }
             }
 
             // 收尾：把本段开的四扇活动窗拆掉（本段是 RunCore 的最后一段，拆完只余「合计」那一行）

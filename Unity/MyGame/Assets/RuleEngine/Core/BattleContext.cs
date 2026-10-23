@@ -90,8 +90,16 @@ namespace RuleEngine
         /// ⚠️ **这里仍然是卡模板、不是 `CardInstance`**（2026-09-18 定的边界）：待办第 7 行要的是
         /// 「**手牌/牌库/弃牌堆**存实例」，而这张表要回答的是「哪些部队死过、死于第几回合」，
         /// 它的消歧走 `TakeFromGraveyard`（已改成**只取走一张**，见那里）。
-        /// 真要做「精确到某一次的死亡」，再说。</summary>
+        /// 🆕 **2026-10-23（引擎线 `新账-97`）**：旁边加了 <see cref="Instance"/> ——
+        /// 「精确到某一次的死亡」不再只靠模板；`ConditionEval` 的 221/222 与墓地取件都可用它。
+        /// `Card` 保留给只认模板的老路径（不删）。</summary>
         public CardDef Card;
+        /// <summary>🆕 2026-10-23：死掉的那一份**实例**（= `u.Instance`，与 `Discard` 里那一份同引用）。
+        /// 同一张卡死了两次是两条不同的记录，各带自己的实例号。旧数据/手搓夹具可能为 `null`
+        /// ⇒ 所有读点必须回退到模板匹配（见 <see cref="InstanceId"/>）。</summary>
+        public CardInstance Instance;
+        /// <summary>实例号（`Instance.Id`；没有实例 = 0）。匹配「是哪一份」时优先用它。</summary>
+        public int InstanceId { get { return Instance != null ? Instance.Id : 0; } }
         /// <summary>它属于哪一方（`Choose a **friendly** troop that died …` 只在自己这边挑）</summary>
         public int Owner;
         /// <summary>死在第几回合（全局 `ctx.Turn`）。与 <see cref="PlayerState.LastTurnStartMark"/> 比出窗口</summary>
@@ -1615,15 +1623,30 @@ namespace RuleEngine
             //    **同一件事两份实现，一份漏了**，这次收口。
             // 🔴 **2026-09-18 第 7 行第 2 步**：弃牌堆现在存**实例**了 ——
             //    所以「取走哪一份」终于是真的按份取（返回摘下来的那一份给调用方沿用）。
-            //    ⚠️ `DeadUnits` 那一栏仍按**卡模板**匹配（那张表还只存 `CardDef`，
-            //       见 `DeadUnit` 的注释；要精确到「某一次的死亡」得再动那张表）。
+            // 🆕 **2026-10-23（引擎线 `新账-97`）**：`DeadUnits` 现在也存 `Instance` ——
+            //    这里先按**实例**在 `Discard` 里找那一份（同名两份不再摘错），
+            //    找不到才退回旧的「按卡模板、从末尾找」那条路（老夹具/老记录 `Instance == null`）。
+            int deadIdx = -1;
+            CardInstance deadInst = null;
             for (int i = DeadUnits.Count - 1; i >= 0; i--)
-                if (DeadUnits[i].Owner == owner && ReferenceEquals(DeadUnits[i].Card, card))
-                {
-                    DeadUnits.RemoveAt(i);
-                    break;
-                }
+            {
+                var d = DeadUnits[i];
+                if (d == null || d.Owner != owner || !ReferenceEquals(d.Card, card)) continue;
+                deadIdx = i; deadInst = d.Instance; break;   // 最近一条死亡
+            }
             var disc = Players[owner].Discard;
+            if (deadInst != null)
+            {
+                for (int i = disc.Count - 1; i >= 0; i--)
+                    if (ReferenceEquals(disc[i], deadInst))
+                    {
+                        disc.RemoveAt(i);
+                        if (deadIdx >= 0) DeadUnits.RemoveAt(deadIdx);
+                        return deadInst;
+                    }
+            }
+            // 老路：按模板摘（`Instance == null` 的记录、或实例已不在弃牌堆里）
+            if (deadIdx >= 0) DeadUnits.RemoveAt(deadIdx);
             for (int i = disc.Count - 1; i >= 0; i--)
                 if (ReferenceEquals(disc[i].Card, card))
                 {
@@ -1646,10 +1669,16 @@ namespace RuleEngine
                 if (ReferenceEquals(disc[i], inst))
                 {
                     disc.RemoveAt(i);
-                    // `DeadUnits` 里按**卡模板**找一条同主人的（那张表只存模板）
+                    // 🆕 2026-10-23（引擎线 `新账-97`）：先按**实例**匹配；老记录（`Instance == null`）
+                    //    才退回模板匹配 —— 同名两份时不再删错那一条。
                     for (int j = DeadUnits.Count - 1; j >= 0; j--)
-                        if (DeadUnits[j].Owner == owner && ReferenceEquals(DeadUnits[j].Card, inst.Card))
+                    {
+                        var d = DeadUnits[j];
+                        if (d == null || d.Owner != owner) continue;
+                        if (ReferenceEquals(d.Instance, inst)
+                            || (d.Instance == null && ReferenceEquals(d.Card, inst.Card)))
                         { DeadUnits.RemoveAt(j); break; }
+                    }
                     return inst;
                 }
             return null;

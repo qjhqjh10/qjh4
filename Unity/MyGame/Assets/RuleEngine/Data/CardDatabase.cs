@@ -51,6 +51,11 @@ namespace RuleEngine
             /// <summary>兵种（`Infantry` / `Vehicle` / `Drone` / `Elixir` / `Secret` …）。
             /// 空串 = 原版数据里就没有。见 `CardDef.Subtype` 的说明。</summary>
             public string subtype;
+            /// <summary>🆕 v19（2026-10-23 · 引擎线 `新账-97` ③/⑤）：原版 `RawCardScript.spellType`
+            /// （`SpellType` 枚举：0 Normal / 60 SecretOrder / 120 Quest / 150 Secret / 230 Sabotage …）。
+            /// 🔴 **缺省 `-1` = 未知**（旧表 &lt; v19 整列没有）—— ⛔ 不是 `Normal(0)`；
+            /// 旧表由上面那条 `version &lt; 19` 守卫出声。语义 → `CardDef.SpellType` 的 doc。</summary>
+            public int spellType = -1;
             /// <summary>中文名（可选 —— 没翻译的卡没有这两个字段）。来自 `数据/卡牌翻译/zh_cards.json`</summary>
             public string nameZh;
             public string descZh;
@@ -154,7 +159,10 @@ namespace RuleEngine
             /// ⚠️ `cardTraits` 与 `keywords` 的关系 = **权威序第 1 层**（主对话已裁③）：
             /// 真值 `CardTraits` **只补空**（OCR 那格为空时才填、⛔ 不覆盖已有值），
             /// 上面还压着 OCR 源表 / `cardface_fixes.json` / `fix_own_armour` / `_manual_keywords`。
-            /// 生成器跑完会打出「填了多少 / 被更高层换掉多少 / 因引擎不认跳过多少」三个数。</summary>
+            /// 生成器跑完会打出「填了多少 / 被更高层换掉多少 / 因引擎不认跳过多少」三个数。
+            /// 🆕 **2026-10-23（`新账-95`）**：**全仓唯一的读点 = `Editor/RuleEngineTest.cs`** 那条
+            /// 「`cardTraits` 里不许出现 `Frenzied` / `Rage`」的断言（它读的是**原始 DTO**）。
+            /// 运行期引擎**一个读点都没有** ⇒ 它**不算死列**（有消费者），但也别拿它当引擎输入。</summary>
             public string[] cardTraits;
 
             // ================================================================================
@@ -165,6 +173,14 @@ namespace RuleEngine
             //                `资料/普查产出_第三十一会话/Q_A1770与A1799判据.md`「A1799」那张表。
             //     `attackDamageType` 尤其要点名：它是**补机制不是换数据**
             //     （我们引擎**整条没有伤害类型概念** —— `RuleCore.cs` 自己写着）。
+            //
+            //  🆕 **2026-10-23（引擎线 `新账-95`）：死列的【读取守卫】** ——
+            //     审计 `资料/普查产出_1023c/引擎深审C_数据吻合.md` §二 现读：这一族 **0 个运行期消费者**。
+            //     `cardTraits` / `useOverDraw` / `fullHeroSpriteReference` **不在死列里**
+            //     （前者被 `RuleEngineTest` 的「不许出现 Frenzied/Rage」那条读、后两者已接线/生成期用）。
+            //     其余 9 列**加了 `[Obsolete]`**：谁在 C# 里读它 → **编译期就出声**（一句点名原因的警告），
+            //     ⛔ 不再「看着像有值、其实没人用」。⚠️ `[Obsolete]` **不影响** `JsonUtility` 反序列化
+            //     （那是反射），表里的值照旧读得进来 —— 它只是**读点守卫**，不是把列删掉。
             //
             //  🔴 **缺值 = `-1`（整数）/ `""`（字符串）** —— 与 `inventoryOptions` / `initiative`
             //     同一条口径：真值快照是 2025-07-30 的、比现池旧，现池 **118 张**新卡快照里根本没有。
@@ -178,12 +194,15 @@ namespace RuleEngine
             /// <summary>`DamageType` 枚举（`Assembly-CSharp/DamageType.cs`）：`0 Normal` / `4 Attack`。
             /// 🔴 我们引擎**没有伤害类型概念** ⇒ 本列只落值。原版消费点 =
             /// `GameStaticData__IsVulnerableDamage`（`(uint)(t - 7) < 2`）+ `CardScript._ReceiveDamage:189-197`。</summary>
+            [System.Obsolete("死列（新账-95）：attackDamageType 没有运行期消费者 —— 引擎整条没有伤害类型概念。"
+                           + "读它之前先立机制（原版读点见本字段 doc），否则就是把「有值」当「在用」。")]
             public int attackDamageType;
 
             /// <summary>原版 `RawCardScript.cardShortId`（1…914、860 种、294 张为 0）。
             /// 🔴 **⛔ 不许拿它当卡 id 换** —— `Q_A1770与A1799判据.md` 现核：它与 `A970` 那套
             /// （= PnP 图文件名编号）**0/763 重合**，按名引用在 `decomp_full` 全库 **0 处**。
             /// 实测形状 = 「标的是**哪张卡**、不是哪个卡 SO」（本体与 `(tutorial)` 副本同号）。</summary>
+            [System.Obsolete("死列（新账-95）：cardShortId 没有运行期消费者，且 ⛔ 不许当卡 id 用（与 A970 那套 0/763 重合）。")]
             public int cardShortId;
 
             /// <summary>立绘**溢出卡框**的逐卡 opt-in（0/1，缺值 `-1`）。原版消费点 =
@@ -195,18 +214,24 @@ namespace RuleEngine
 
             /// <summary>「不能被随机生成」（0/1）。⚠️ **读取点没找到**（`allcards_未挖字段盘点.md` §四）
             /// ⇒ 它是不是 `CreatePool` 该用的闸门**未证** ⇒ 本列只落值、⛔ 不接。</summary>
+            [System.Obsolete("死列（新账-95）：cantBeRandomlyCreated 没有运行期消费者 —— 原版读取点未找到（判据不足），"
+                           + "⛔ 别自己编语义（比如拿它当 CreatePool 的闸）。")]
             public int cantBeRandomlyCreated;
 
             /// <summary>`CardExpansionType`（10 LevaithanDrop1 … 80 DarkAngelsDrop1）；`0` = 基础。
             /// 用途（商店 / 卡包 / 收藏筛选）另接。</summary>
+            [System.Obsolete("死列（新账-95）：expansionPack 没有运行期消费者（商店/卡包/收藏筛选还没接这一列）。")]
             public int expansionPack;
 
             /// <summary>卡名的 **I2 键后缀**（`Card_Name/<值>`）⇒ 这 70 张的**显示名 ≠ `cardName`**。
             /// ⚠️ **本列在现池全空** —— 那 70 条**全在 GUID 卡上**，而它们在 P1 相没进我们池（Q 现核）。</summary>
+            [System.Obsolete("死列（新账-95）：refNameId 没有运行期消费者；而且本列在现池全空（那 70 条全在 GUID 卡上、没进池）。")]
             public string refNameId;
 
             /// <summary>卡面「说明行」的 I2 键。现读只有两种：`Item_Description/OffenceCardExplanation`
             /// （进攻卡）与 `…/DefenceCardExplanation`（防御卡）——**中文已在官方表里**。</summary>
+            [System.Obsolete("死列（新账-95）：itemDescriptionKey 在**卡表这一层**没有消费者 —— 卡背/卡包文案走的是"
+                           + "cosmetic item SO 上的同名字段（`CardPresentation/**` 那几处说的是那个，不是本列）。")]
             public string itemDescriptionKey;
 
             /// <summary>督军**整幅立绘**引用。有 `m_SubObjectName` 时写它（实测是
@@ -215,11 +240,20 @@ namespace RuleEngine
             public string fullHeroSpriteReference;
 
             /// <summary>督军「事件」立绘的 sprite 名。⚠️ 实测 **44 张值全同** =
-            /// `Warlord_events_Loken` ⇒ 多半是**图集名**、单图按 id 取（语义**未查清**）⇒ 只落值。</summary>
+            /// `Warlord_events_Loken` ⇒ 多半是**图集名**、单图按 id 取（语义**未查清**）⇒ 只落值。
+            /// 🔴 **2026-10-23 就地订正（引擎线 `新账-95` · 铁律 5）**：上面那个「44 张」是**旧快照**口径 ——
+            /// 旧快照 `d:/2/远端缓存_旧profile_1013/导出/cards_1195_2022时代.json` 现读是 **54 张**
+            /// （值仍全同 `Warlord_events_Loken`）；而**当前 build 快照**
+            /// （`资料/普查产出_1018/allcards_1350/cards_raw.json`，1,351 张）**这一列全空**，
+            /// 我们卡池现读 **0 / 1,127**（`资料/普查产出_1023c/引擎深审C_数据吻合.md` P2·8）。
+            /// ⇒ 本列今天**没有任何真值**，语义更无从查起；⛔ 别拿「44 张」当现读数。</summary>
+            [System.Obsolete("死列（新账-95）：eventSpriteName 没有运行期消费者，且当前快照这一列全空（0/1127）。")]
             public string eventSpriteName;
 
             /// <summary>这张牌**要选目标**（0/1）。⚠️ 我们**从效果解析推**（`SimpleAI` 引
             /// `EntityScript__get_targeted`）—— 两者是否等价**未核** ⇒ 只落值、⛔ 不替换现有推断。</summary>
+            [System.Obsolete("死列（新账-95）：targeted 没有运行期消费者 —— 引擎从效果解析推「要不要选目标」"
+                           + "（`EffectText.PickTarget`），本列只落值。")]
             public int targeted;
 
             // ================================================================================
@@ -791,6 +825,18 @@ namespace RuleEngine
                                + "（现读 3 张：`DA12`/`BL72`/`DA14`）仍会排在 Instant 道上。"
                                + "跑一下 gen_cards_engine.py 重生成（引擎线 `P1·①`）。");
 
+            // 🆕 v19（2026-10-23 · 引擎线 `新账-97` ③/⑤）：`spellType` 一列。
+            //   缺列 ⇒ `CardDef.SpellType = -1`（未知）—— 消费端只在**这一格非 -1** 时才敢按
+            //   `Secret(150)` / `SecretOrder(60)` / `Quest(120)` 筛；⛔ 不拿 `Normal(0)` 顶
+            //   （那会让「是不是密令」永远判成「不是」）。
+            if (dto.version < 19)
+                Debug.LogWarning($"[RuleEngine] 卡表 version={dto.version} < 19 —— 没有 `spellType` 一列"
+                               + "（原版 `RawCardScript.spellType`：`CardCriteria.SpellType` 的主语筛，"
+                               + "以及附魔层 `HasSecretOrders` / `HasQuests` 的判据）。"
+                               + "`CardDef.SpellType` 会一律是 **-1 = 未知**（⛔ 不是 Normal(0)）"
+                               + "⇒ 按 `spellType` 筛的维度退回正文口径。"
+                               + "跑一下 gen_cards_engine.py 重生成（引擎线 `新账-97`）。");
+
             int noId = 0;
 
             // 🆕 2026-10-22（卡牌线 `T04`）：`useOverDraw` 一列的**缺列兜底** —— v9 才有这一列，
@@ -906,6 +952,10 @@ namespace RuleEngine
                     //    ⇒ 上面的 `< 15` 守卫已经出过声）；访问器一律 `-1`（未知），⛔ 不是 `none(0)`。
                     abilityConditions: MapUnitConditions(c),
                     conditionsVersioned: dto.version >= 15,
+                    // 🆕 v19（2026-10-23 · 引擎线 `新账-97`）：原版 `spellType` —— 原样透传；
+                    //   缺列（< v19）时 `CardDto.spellType` 的字段初值就是 `-1`（未知），
+                    //   ⛔ 不要在这里补 0（0 是合法的 `Normal`）。
+                    spellType: c.spellType,
                     // 🆕 v16（2026-10-22 · 引擎线 `W64` · `B-16` 缺口）：`count` 行的**被数集合**
                     //    来自 v16 卡表的**正面信号**。⚠️ 它**不参与**访问器判定（看 `CountSet` 本身
                     //    在不在）；缺值口径 = `CountSet == null`（未知），旧表整列没有 ⇒ 上面

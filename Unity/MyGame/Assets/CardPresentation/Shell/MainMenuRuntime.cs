@@ -799,12 +799,11 @@ namespace CardPresentation
 
         /// <summary>原版 `NavigationPanelToggleType`（`d:/2/Warpforge_code/Scripts/Assembly-CSharp/NavigationPanelToggleType.cs`，
         /// **值逐条照抄**：`Main=0 · Collection=1 · Shop=2 · Rewards=3 · Social=4 · Event=5`）。
-        /// 🔴 **本仓只建了前 5 颗**（`BuildNavigationPanel` 里那五个 `NavButton(...)`）；
-        /// **`Event`（第 6 颗）本仓没有** —— 原版那是 liveop 事件钮，由
-        /// `NavigationPanelController.BuildEventButtons` 在**运行期按服务端事件**实例化
-        /// （`__BuildEventButtons.c`；我们**没有事件数据源**，见 `Shell/MainMenuRuntime.cs` 里 A855 那一段
-        /// 对 `LiveOpsEvent` 的三条理由）⇒ 枚举值**照原版留着**（将来接事件时只补一颗钮），
-        /// 今天 `SetNavToggle(Event)` 会**出声**并什么都不点（⛔ 不静默）。</summary>
+        /// <para>🆕 **2026-10-23（活动线 `L01`/`L03` 收尾）：第 6 颗 `Event` 已经建出来了** ——
+        /// `BuildNavigationPanel` 末尾那颗 **`Event Navigation Button`**（原版 prefab 真名）⇒
+        /// `SetNavToggle(Event)` 现在真的会点亮它；点它 ⇒ `OnNavClick(5)` → `WindowsManager.OpenEventHub(Parent)`。
+        /// ⚠️ **原版那一颗是「每个 live 事件一颗」**（`NavigationPanelController.BuildEventButtons` 按服务端
+        /// 事件 `Instantiate`）；本机**没有事件列表** ⇒ 本仓建**一颗**总入口钮（如实标，⛔ 不是原版的一对一映射）。</para></summary>
         public enum NavigationPanelToggleType { Main = 0, Collection = 1, Shop = 2, Rewards = 3, Social = 4, Event = 5 }
 
         /// <summary>**点亮左竖导航第 i 颗** —— 本仓的 `NavigationPanelController.SetToggle`（判据见上面那一段）。
@@ -832,12 +831,12 @@ namespace CardPresentation
             int idx = (int)type;
             if (idx < 0 || idx >= _navBtns.Count)
             {
-                // ⛔ 不许静默失败：原版 `SetToggle(nav,5)` 那条（`BaseParentEventWindow__Open.c`）在本仓
-                //    落不了地 —— 本仓左竖导航只有 5 颗（没有 liveop 事件钮）⇒ **说清楚是哪一颗、为什么**。
-                Debug.LogWarning("[Menu] `SetNavToggle(" + type + ")`（= 原版的第 " + (idx + 1) + " 颗）"
-                                 + " —— 本仓左竖导航只有 " + _navBtns.Count + " 颗（`Main/Collection/Shop/Rewards/Social`）"
-                                 + "：原版第 6 颗是 **liveop 事件钮**（`NavigationPanelController.BuildEventButtons`"
-                                 + " 运行期按服务端事件建），本仓**没有事件数据源** ⇒ **这一下不点任何一颗**");
+                // ⛔ 不许静默失败：调用点写错 / 面板还没建全时**说清楚是哪一颗、实际有几颗**。
+                // 🆕 2026-10-23：**第 6 颗（`Event`）已经建出来了**（`BuildNavigationPanel` 末尾那颗
+                //   `Event Navigation Button`）⇒ 这一段现在是**真·越界**的诊断，不再承担「第 6 颗没有」的解释。
+                Debug.LogWarning("[Menu] `SetNavToggle(" + type + ")`（= 第 " + (idx + 1) + " 颗）"
+                                 + " —— 左竖导航现在只有 " + _navBtns.Count + " 颗"
+                                 + "（`Main/Collection/Shop/Rewards/Social/Event`）⇒ **这一下不点任何一颗**");
                 return;
             }
             SelectNav(idx);
@@ -852,6 +851,13 @@ namespace CardPresentation
         //   面板一被销毁，那些断言全变成「节点不在」。⇒ 本方法**只重建高亮那一颗**。
         readonly List<Transform> _navBtns = new List<Transform>();
         readonly List<Vector2> _navBands = new List<Vector2>();
+        /// <summary>导航钮「选中态高亮」的**默认**色 —— 原版 `Main Menu Navigation Button` prefab 的
+        /// `Selected highlight/Image.m_Color` 实读 = (1, 0.0805, 0, 1)（正红）。
+        /// 🆕 **2026-10-23（活动线收尾）**：**第 6 颗不是这个色** —— 它自己那份 prefab
+        /// （`Event Navigation Button`）实读 = **(0.67, 0.132, 0.0853, 1)**（暗红）⇒ 逐颗记在
+        /// <see cref="_navHiTints"/>，⛔ 别拿默认色一刀切（那会把原版两套色抹成一套）。</summary>
+        static readonly Color NavHiTintDefault = new Color(1f, 0.08054f, 0f, 1f);
+        readonly List<Color> _navHiTints = new List<Color>();
 
         // ============================================================ 🆕 2026-10-19（N117）左栏命中区的模态闸
         //
@@ -963,15 +969,16 @@ namespace CardPresentation
             var b = _navBtns[idx];
             if (b == null) return;                       // 面板还没建（`BuildNavigationPanel` 没跑过）
             var band = _navBands[idx];                   // 这一颗的 (顶, 底) —— 建树时记下来的
+            var tint = (idx >= 0 && idx < _navHiTints.Count) ? _navHiTints[idx] : NavHiTintDefault;
             Rect(b, "40k_main_bt_selected_BW", -0.3f, 164.0f, band.x, band.y, "Selected highlight",
-                 QNavHighlight, new Color(1f, 0.08054f, 0f, 1f));
+                 QNavHighlight, tint);
         }
 
         void BuildNavigationPanel(Transform root)
         {
             // 🆕 2026-10-11（`A1522④`）：面板要重建时（重新进主菜单）把「换高亮」那张表也清掉 ——
             //    它就是 `SelectNav` / `RepaintNavHighlight` 的取件口（见 `_navBtns` 那段）。
-            _navBtns.Clear(); _navBands.Clear();
+            _navBtns.Clear(); _navBands.Clear(); _navHiTints.Clear();
             _navHitQuads.Clear();                 // 🆕 N117：旧面板的命中区随重建一起作废（见 RefreshNavHitQueue）
             // A332：原版 `Navigation Panel` = 191 × 1080（`anchor (0,0)-(0,1)` + `sizeDelta.x 191` ⇒ 整高）
             // 🔴 **2026-10-11（FX6）修**：第二实参原来写 `LayoutSpace.DesignHeight`（**世界单位** 10，不是 px 1080）
@@ -1036,7 +1043,51 @@ namespace CardPresentation
             // ⚠️ 第五颗：**键名是 `…/Friends`**（原版 `mTerm` 原文，⛔ 不是 `…/Social`）—— 屏上英文才是 `SOCIAL`。
             NavButton(holder, 4, "Social",     "40k_main_bt_friends",    756.7f, 926.4f, "MainMenu/NavigationPanel/Friends",    140.0f, 12.8f, 152.8f, 758.4f, 33f);
 
-            // 🆕 **2026-10-19（N117）**：五颗命中区建完，按「当前最上面那扇窗」落一次档
+            // ============================================================ 🆕 **2026-10-23（活动线 `L01`/`L03` 收尾）：
+            // **第 6 颗 = 「事件钮」**（原版 `NavigationPanelController.BuildEventButtons` 运行期
+            //   `Instantiate(eventButtonPrefab)` 建的那一颗；`NavigationPanelToggle.toggleType = 5`）。
+            //
+            // 🔴 **判据（全部现读，⛔ 不是「按五颗的样子猜」）**：
+            //   ① **prefab 真名 = `Event Navigation Button`** —— 不是 `Main Menu Navigation Button - Event`
+            //      （`bundle_menus_assets_all/GameObject/Event Navigation Button`，GO pid `1412792127474277301`；
+            //      反查链：`NavigationPanelController.eventButtonReference.m_AssetGUID =
+            //      ae2560f5eb7d1634d8fc917de4f80369` → `AssetBundle_1.json` 的 `m_Container` → 该 pid）⇒ 节点名照它。
+            //   ② **几何逐值同五颗**（`menu_dump bundle_menus_assets_all --rt -7272436173638493259` 现读）：
+            //      根 **164.31 × 169.68** · `Selected highlight` 0..164.31 / 0..169.68 ·
+            //      `Image` **13.1..153.1 / 1.7..141.7（140×140）** · `Text Background` 9.6..156.6 / 118.3..157.6 ·
+            //      `Badge Highlight` 118.1..153.1 / 91.7..126.7。⇒ 位置由 `Buttons Container` 的同一条 VLG
+            //      （spacing −16.35 · padTop −5 · 钮高 169.68）决定：**第 6 颗顶 = 143.41 + 5×153.33 = 910.06**
+            //      ⇒ 本行取 **910.0 / 1079.7**（与前五颗同一套取整）；图标顶 = 钮顶 + 1.70 = **911.7**。
+            //   ③ **`Selected highlight` 的色与五颗不同**（⚠️ 别一刀切）：这份 prefab 实读
+            //      `m_Color = (0.67, 0.132, 0.0853, 1)`（暗红），而 `Main Menu Navigation Button` 是
+            //      `(1, 0.0805, 0, 1)`（正红）⇒ 走 `hiTint` 逐颗传。
+            //   ④ **图标 = liveops 资产**（`OpenEventButton.SetButtonInfo`：`Image.sprite = LoadAsset(ev, 0)`，
+            //      事件 `Icon`）⇒ 本机**没有可加载的 sprite**（真名 `40k_main_bt_event` 只在
+            //      `bundle_liveopsicons_assets_all` 里、没导进 `Resources/`）⇒ **照原版「无事件」空态留空**，
+            //      ⛔ 不拿别的图冒充（缺图与取法见下面那条 `LogWarning`）。
+            //   ⑤ **`OpenEventButton.closeOtherMenus = 0`**（MB 实读）⇒ 点它**不关**别的窗
+            //      （我们的 `OpenEventHub` 也没传 `closeAll`，两边一致）。
+            //   ⑥ **文字**：原版由 `TryGetLabel(ev,4) ?? TryGetLabel(ev,0)`（= 活动标题）填，本机没有事件实例
+            //      ⇒ 用 **`EVENT`** 兜底（**我们挑的**，⛔ 不是原版文案；与其它五颗同样全大写）。
+            //      `MainMenu/NavigationPanel/*` 本地官方词条表只有 5 条（`HomeButton/Collection/Shop/Rewards/Friends`），
+            //      **没有 `…/Event`** ⇒ 不能走 `Loc.T`（缺键会印一整串键名到界面上）。
+            //   ⑦ ⚠️ **一处有意偏离**：原版没有在期事件时 `ParentEventHandler.BeforeRefresh` 会把这一颗
+            //      `SetActive(false)`；本机没有 liveops 事件源、而验收口径是「**入口必须点得开**」
+            //      ⇒ **恒显示**（与 `ParentEventWindow` 「没有在期事件也建事件钮」那条同口径）。
+            NavButton(holder, 5, "Event", null,
+                      910.0f, 1079.7f, null,
+                      140.0f, 12.8f, 152.8f, 911.7f, 24f,
+                      nodeName: "Event Navigation Button",
+                      label: "EVENT",
+                      hiTint: new Color(0.67f, 0.132f, 0.0853f, 1f));
+            Debug.LogWarning("[Menu] 第 6 颗「事件钮」的**图标留空**：原版这颗的 `Image` 是空槽、运行期灌 liveops 图标"
+                           + "（`OpenEventButton.SetButtonInfo` → `LoadAsset(ev, 0)`）。本机那张图真名 = "
+                           + "**`40k_main_bt_event`**（135×135，`bundle_liveopsicons_assets_all`，"
+                           + "切好的 PNG 在 `d:/2/Warpforge_tools/data/ui_extract/liveopsicons_assets_all/Sprite/40k_main_bt_event.png`），"
+                           + "但**没导进 `Resources/`** ⇒ 本件不画。补法 = 进 `工具/import_original_art.py` 的 "
+                           + "`MENU_IMAGES` 后跑一次同步。⛔ 不拿 `40K_shop_bt_boosters` 之类别的图冒充。");
+
+            // 🆕 **2026-10-19（N117）**：六颗命中区建完，按「当前最上面那扇窗」落一次档
             //   （重建左栏之后旧 quad 已经销毁 ⇒ 上面那几句 `_navHitQuads.Clear()` 把它们丢了，
             //    不在这里补一次的话会停在**新建时的默认档** = `QNavHit` —— 模态窗开着时就是错的）。
             RefreshNavHitQueue();
@@ -1055,20 +1106,26 @@ namespace CardPresentation
         /// 而那份表把 `Shop`/`Rewards`/`Social` 三颗**各写高 10** ⇒ 已改成照 RT 现推，别再回头引那张表）。</param>
         /// <param name="fontPx">原版 TMP 的 `m_fontSize`（画布像素）。</param>
         void NavButton(Transform parent, int idx, string name, string art, float y1, float y2, string locKey,
-                       float ih, float ix1, float ix2, float iy1, float fontPx)
+                       float ih, float ix1, float ix2, float iy1, float fontPx,
+                       string nodeName = null, string label = null, Color? hiTint = null)
         {
-            var b = New(parent, "Main Menu Navigation Button - " + name, NavBtnW, NavBtnH);
+            var b = New(parent, nodeName ?? ("Main Menu Navigation Button - " + name), NavBtnW, NavBtnH);
             // 🆕 **2026-10-11（`A1522④`）：把「这一颗 + 它的 (顶,底)」记进表** —— `SelectNav` 换高亮时
             //    只撤旧的那一颗、在新选中的这一颗底下重建（⛔ 面板本体不重建，理由见 `SelectNav` 的注释）。
-            while (_navBtns.Count <= idx) { _navBtns.Add(null); _navBands.Add(Vector2.zero); }
+            while (_navBtns.Count <= idx) { _navBtns.Add(null); _navBands.Add(Vector2.zero); _navHiTints.Add(NavHiTintDefault); }
             _navBtns[idx] = b; _navBands[idx] = new Vector2(y1, y2);
+            _navHiTints[idx] = hiTint ?? NavHiTintDefault;    // 🆕 2026-10-23：逐颗色（第 6 颗 = 0.67/0.132/0.0853）
             // 选中态高亮：亮底图 × `m_Color (1,0.0805,0,1)` = **正红**（只有选中的那个画）
             // 🔴 **2026-10-11（A1521⑥）**：档位由 `QPanel` 改成 `QNavHighlight`（= `QPanel + 1`）——
             //   原来与导航底板**同队列**（2910）⇒ 谁盖谁不确定，**实测高亮没画出来**。判据与实测读数
             //   全在 `QNavHighlight` 那段注释里（原版兄弟序 + 两张图逐点量的对照 + `DeckRuntime` 的先例）。
             if (idx == SelectedNav) RepaintNavHighlight(idx);
 
-            var icon = Art(art);        // 先确认图在不在（不在就别画一个空按钮）
+            // 🆕 **2026-10-23（活动线收尾）**：`art` 传**空** = 「这颗 prefab 的 `Image` 槽本来就是空的」——
+            //   原版第 6 颗 `Event Navigation Button` 的 `Image` 实读 `<无图>`（运行期由
+            //   `OpenEventButton.SetButtonInfo` 用 `LoadAsset(ev,0)` 灌 liveops 图标）⇒ 那是**原版的空态**，
+            //   ⛔ **不是「图取不到」**（所以**不记账**进 `MissingArt`）。空态的出声在 `BuildNavigationPanel` 那一处。
+            var icon = string.IsNullOrEmpty(art) ? null : Art(art);   // 先确认图在不在（不在就别画一个空按钮）
             ImageQuad iconQ = null;     // 🆕 A222：这颗**可见**的图形要交给 `WindowButton` 当色偏目标（见下）
             if (icon != null)
             {
@@ -1076,7 +1133,14 @@ namespace CardPresentation
                                          new Vector2(0.5f, 0.5f), "Image");
                 if (iconQ != null) { iconQ.SetAspect((ix2 - ix1) / ih); iconQ.SetRenderQueue(QContent); }
             }
-            else MissingArt.Add(art);
+            else if (!string.IsNullOrEmpty(art)) MissingArt.Add(art);
+            else
+            {
+                // 原版那颗 `Image` 是**空槽**（`m_Sprite` 为空，运行期由 `LoadAsset(ev,0)` 灌 liveops 图标）
+                // ⇒ **节点照建、不出图**（⛔ 不是「把节点删掉」，也不是「拿别处的图冒充」）。
+                var img = New(b, "Image", ix2 - ix1, ih);
+                img.localPosition = Center(ix1, ix2, iy1, iy1 + ih);
+            }
 
             // `Text Background`(nametag) 的 y 偏移实证 = **+118.3**、`Badge` = **+91.7**（§五 C 表，五个按钮一致）
             // ⚠️ 这两块矩形**同时**是命中区并集的组成部分（下面 `hitR`）⇒ 只写一份、两处共用，
@@ -1094,7 +1158,7 @@ namespace CardPresentation
             //    `ChatPreview/text`、模式卡 `Event Title` / `Timer Description` / `Timer Text`、
             //    `Position #` / `Position Value` / `Individual rating value` 全是 **Pragati**）⇒ 本文件全走 `LatinCardBody`。
             //    ⚠️ 场景里确有 Asar 的 `Title`/`Player Name` 等，但那些是**别的窗**（卡牌详情/顶栏）的件，不属本文件。
-            Text(b, Loc.T(locKey), textBgR.x1, textBgR.x2, textBgR.y1, textBgR.y2, 6,
+            Text(b, label ?? Loc.T(locKey), textBgR.x1, textBgR.x2, textBgR.y1, textBgR.y2, 6,
                                new Color(0.9961f, 0.9294f, 0.7098f), "Text", fontPx,
                                // 🔴 **2026-10-17（`A1233`）**：原来这里是「先 `Text`、再自己补
                                //    `navText.SetAutoFitBox(146.92/108, 39.39/108, 18, 33, 24)`」——
@@ -1219,6 +1283,17 @@ namespace CardPresentation
                     // `OpenWindowButton.windowsToOpenPrefab` → Addressables 容器 → GO pid `354927014922018979`
                     // → 根组件 `SocialMenuWindow`）：判据全文 → `资料/普查产出_0927/多人界面_入口与调用.md` §①。
                     OpenSocial();
+                    break;
+                case 5:   // EVENT —— 🆕 2026-10-23（活动线 L01/L03 收尾）：原版第 6 颗 = liveop 事件钮
+                    // 判据：`OpenEventButton__ButtonClick.c` → `OpenEventButton__OpenWindow.c` →
+                    //   `WindowsManager.OpenWindow(GetComponentReference(ev, 10 /*MainWindow*/), ev)`
+                    //   ＋ `BaseParentEventWindow__Open.c` 自己那句 `SetToggle(nav, 5)`（本仓 = 下面那句
+                    //   `SetNavToggle(5)`，值序与 `NavigationPanelToggleType.Event = 5` 逐值相同）。
+                    // 🔴 **`ev → 哪扇窗`**：本机没有 liveops 事件实例 ⇒ 走唯一共用口 `OpenEventHub`，
+                    //   按 `EventWindowKind` 开对应那扇窗；那颗钮 ↔ **`ParentEventWindow`**（= 原版
+                    //   `Parent` 事件的 `MainWindow`，映射已核，见 `WindowsManager.OpenEventHub` 的 doc）。
+                    // ⚠️ `closeOtherMenus = 0`（MB 实读）⇒ **不关**别的窗（`OpenEventHub` 也没传 `closeAll`）。
+                    WindowsManager.OpenEventHub(ParentEventWindow.EventWindowKind.Parent);
                     break;
                 default:
                     Debug.Log($"[Menu] 左竖导航第 {idx + 1} 个钮（{NavName(idx)}）**还没接** —— " +
@@ -1373,7 +1448,9 @@ namespace CardPresentation
         static string NavName(int idx)
         {
             switch (idx) { case 0: return "PLAY"; case 1: return "COLLECTION"; case 2: return "SHOP";
-                           case 3: return "REWARDS"; default: return "SOCIAL"; }
+                           case 3: return "REWARDS"; case 4: return "SOCIAL";
+                           case 5: return "EVENT";       // 🆕 2026-10-23：第 6 颗（`Event Navigation Button`）
+                           default: return "?"; }
         }
 
         // ============================================================ 开窗入口（**按引用复用**）

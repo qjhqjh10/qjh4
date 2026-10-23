@@ -96,6 +96,16 @@ namespace RuleEngine
         public static int StartHand { get { return GameplayVariables.Classic.startingHand; } }
         /// <summary>见 <see cref="StartHand"/>（经典 = 10）。</summary>
         public static int HandMax { get { return GameplayVariables.Classic.handLimit; } }
+
+        /// <summary>🆕 2026-10-23（引擎线 `新账-89` ①）：**这一局**的手牌上限。
+        /// 经典 10 / 遭遇局 8（`GameplayVariables.SkirmishHandLimit`）/ 教程 10 ——
+        /// 一律读 `ctx.Vars.handLimit`（`NewBattle` 已 `Clone()`，跨局不会串）。
+        /// ⚠️ `HandMax` 保留给「经典局」的老调用点；AI 评分要按**本局**算（审计 E-B ①）。
+        /// </summary>
+        public static int HandMaxFor(BattleContext ctx)
+        {
+            return ctx != null && ctx.Vars != null ? ctx.Vars.handLimit : HandMax;
+        }
         public const int DefaultWarlordHealth = 30;
         public const int DefaultWarlordAttack = 2;
 
@@ -145,6 +155,11 @@ namespace RuleEngine
                                               TutorialScript tutorial = null,
                                               int botSeat = -1)
         {
+            // 🔴 **2026-10-23（引擎线 `新账-89` ③）**：`EffectResolver` 的静态旁表
+            //    `_keywordsPact`（键 = `UnitState`）**只在本局内有意义**；不清的话，长会话里
+            //    每局都会把上一局的单位引用留在字典里（GC 也带不走）。唯一清点放在这里
+            //    （⛔ 别在别处再清一次 —— 会打断本局正在生效的黑暗契约种类）。
+            ResetTransientForNewBattle();
             var ctx = new BattleContext(seed);
             // 🆕 教程局：执行器（关卡数据 + 本局指针）**在这里落位**（唯一写点）。
             //    ⛔ 别塞进 `BattleContext` 的字段初始化里 —— 那会变成「每个 ctx 都有教程」。
@@ -5883,10 +5898,9 @@ namespace RuleEngine
                 //  与 `Hurt` 共用同一份）**预测**反击那一下。
                 //  ⚠️ `DamageAfterReduction` 判「会打死」是保守的（见它的注释）⇒ 最多少触发一次
                 //  Strike；⛔ 不会多触发 —— 这一条正好保住移块之前的行为（那时用「打完还活着」当闸门）。
-                bool noCounterEarly = ranged && attacker.Has(KeywordTable.LongRange);
-                bool sniperKillEarly = ranged && attacker.Has("sniper")
-                                       && (targetDied || DamageAfterReduction(target, atk) >= target.Health);
-                bool attackerDiesFromPending = !noCounterEarly && !sniperKillEarly && counterAtk > 0
+                bool targetWillDieFromThis = targetDied || DamageAfterReduction(target, atk) >= target.Health;
+                bool noCounterEarly = CounterAttack.NoCounter(ctx, p, attacker, tgtP, target, ranged, targetWillDieFromThis);
+                bool attackerDiesFromPending = !noCounterEarly && counterAtk > 0
                                                && DamageAfterReduction(attacker, counterAtk) >= attacker.Health;
 
                 // ---- **「被这一下打到的那个」**（2026-09-14 A5 批 3）----
@@ -6205,8 +6219,12 @@ namespace RuleEngine
                 //    + Sniper 成死代码」—— 所以反击**不**因目标死亡而跳过，只能靠这两个关键词免。
                 // ⚠️ 而规则书 `:145` 那个例子正是「被打死的初生者**照样反击** 1 点」——
                 //    这条改动和它一致，别退回。
-                bool noCounter = ranged && attacker.Has(KeywordTable.LongRange);
-                bool sniperKill = ranged && attacker.Has("sniper") && targetDied;
+                // 🔴 **2026-10-23（引擎线 `新账-97` ①）：四道豁免的唯一判据 = `CounterAttack.NoCounter`**
+                //    （sneakAttack 无条件 / terror 按 currentCombatAttack / LongRange / Sniper）。
+                //    改前这里只做了后两道 ⇒ `sneakAttack`/`terror` 一旦进池就会吃反击（池内现读 0 张，
+                //    但按铁律 11 补齐）。⛔ 别再在这里写 `ranged && Has(LongRange)` 那一份。
+                bool noCounter = CounterAttack.NoCounter(ctx, p, attacker, tgtP, target, ranged, targetDied);
+                bool sniperKill = ranged && attacker.Has(KeywordTable.Sniper) && targetDied;
                 if (!noCounter && !sniperKill && counterAtk > 0)
                 {
                     // 🆕 **2026-10-22（`W64` · 反击演出）**：**发一条独立的反击事件** —— 表现层要在
@@ -8548,7 +8566,7 @@ namespace RuleEngine
                 //    外侧的单位整体内移一格（原版 `List.Remove` + `RefreshOccupationSlots`）。
                 BoardSlots.RemoveAt(ps, slot);
                 ps.Discard.Add(u.Instance);      // 第 7 行第 2 步：进弃牌堆的是**那一份**（残骸本来就是它）
-                ctx.DeadUnits.Add(new DeadUnit { Card = u.Card, Owner = p, DeathTurn = ctx.Turn });
+                ctx.DeadUnits.Add(new DeadUnit { Card = u.Card, Instance = u.Instance, Owner = p, DeathTurn = ctx.Turn });
                 ctx.Emit(EvtKind.Death, p, slot, u.Name, instanceId: u.InstanceId);
                 ctx.Log($"残骸 {u.Name} 被摧毁，那张卡进弃牌堆");
                 // 🔴 **A7 光环重算 —— 这里必须自己调一次**（2026-09-19 补，由
@@ -8938,7 +8956,7 @@ namespace RuleEngine
                 // 的候选来源）—— 与 `Discard` **同时**写，取走时也**同时**移除
                 // （`BattleContext.TakeFromGraveyard`，一条规则只写一处）。
                 // 督军在上面那条 `if (u.IsWarlord) … return` 里已经返回了，**不会**进这张表。
-                ctx.DeadUnits.Add(new DeadUnit { Card = u.Card, Owner = p, DeathTurn = ctx.Turn });
+                ctx.DeadUnits.Add(new DeadUnit { Card = u.Card, Instance = u.Instance, Owner = p, DeathTurn = ctx.Turn });
                 ctx.Log($"{ps.Name} 的 {u.Name} 阵亡，进弃牌堆");
             }
             else if (leftPlay)

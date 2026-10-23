@@ -105,6 +105,39 @@ public static class IconSetup
     ///     **x-height 当大写**、**CJK 面当正文面**、**名义值当卡面值**三处；字号按面分档（2026-10-18 `N55`）之后
     ///     连「正文字体不是同一份」这个前提也没了 ⇒ 本次按上面的实测重标。
     ///
+    /// 🔴🔴 **2026-10-23（`新账-89` 执行代理现核）—— 上面那条 0.842 只对得上【PnP】，对不上【数字客户端】。**
+    ///   本节把两把尺子的**适用边界**写死，⛔ 下一个人别再混用：
+    ///
+    ///   · **尺子 A（PnP 印刷品）**：`Warpforge_12_Aggressor.png` 图标 51 px ÷ 拉丁大写 31 px = **1.65**。
+    ///     ⇒ 反推 `CalibScale = 0.842`（本轮没动它）。
+    ///     ⚠️ **铁律 10 第 3 条**：PnP 是**印刷品**，量它可以、拿它当**数字版**的版式规格不行。
+    ///   · **尺子 B（数字客户端实拍 · 中文）**：`桌面/warpforge参考图/点击卡片查看详情的参考.png`
+    ///     —— `获得 ①` 那个 `Atlas_SpiritStone_1` 的**绿环墨高 31 px**（绿色掩码阈值 6~10 稳定）
+    ///     ÷ 同行汉字 `获得` 墨高 **24 px**（亮度阈值 70~90 稳定）= **1.292**；
+    ///     同行 em 由两条独立路给到 **≈26 px**（① 汉字墨高 ÷ 0.93；② 行距 40 px ÷ CJK 的 1.537 em）
+    ///     ⇒ 绿环 = **1.19 em**。
+    ///   🔴 **两把尺子不同向**：`1.65` 是「图标 ÷ **拉丁大写**」，`1.29` 是「图标 ÷ **汉字**」——
+    ///     **分母不是同一个东西**（汉字 ≈0.93 em，拉丁大写 ≈0.63 em）。⛔ 别互相折算、也别拿一个去推翻另一个。
+    ///
+    ///   🔑 **一个决定性的原件读数（本轮用 UnityPy 解开 bundle 现核，⛔ 不是推断）**：
+    ///     原版卡预制体 `DescTextUnit` / `DescTextTactic` 的 TMP 组件 `m_fontAsset` = PPtr(FileID 11,
+    ///     PathID **3485036404935369831**) → 落到 `bundle_fonts_assets_all` 里就是 **`Pragati-Regular SDF`**
+    ///     （同一次现核：`NameTextUnit*` → `Asar-Regular SDF` ✔ 与我们的 `Face.LatinUi` 一致 ·
+    ///      `ArmyText*` / `RaceText` → Pragati ✔）。
+    ///     ⇒ **原版卡面正文的主字体就是 Pragati，中文那侧走的是兜底**，
+    ///       「中文卡面要把主面切成 CJK」这个说法**不成立**（`TMP_Text.cs:4024-4036`：`<sprite>` 走
+    ///       `ValidateHtmlTag` 那一支、**不更新** `m_currentFontAsset` ⇒ 图标用的是**前一个字符**的 faceInfo；
+    ///       中文卡里图标前面通常是一个空格/数字（Pragati 画的）⇒ 图标按 **Pragati** 的 `ascentLine 70` 算）。
+    ///   📐 **按尺子 B 反推（量纲写死，可复查）**：
+    ///     图标 quad = `ascentLine(Pragati 70) × 字号/95 × 0.1 × 1.0(字符 scale) × 1.65(字形 m_Scale) × C`
+    ///     汉字 quad = `TmpFont.WorldGlyphPerFontSize × 字号`（2026-10-21 起 ≈0.08532 = 0.948 em × 0.9）
+    ///     实拍两者之比 = 图标绿环 31/0.90(墨占) ÷ 汉字 24/0.981(墨占) = **1.404**
+    ///     ⇒ `C = 1.404 ÷ (70×0.1/95×1.65 ÷ 0.08532) = 1.404 ÷ 1.4255 = **0.985**`
+    ///     —— 与「**原版根本不做标定（C ≡ 1.0，直接用字形表的 `m_Scale`）」**只差 **1.5%**。
+    ///     🔴 **本条只是【读数 + 推算】，本轮【没有】改这个常数**：改成 ≈1.0 会让**拉丁卡面的图标同步放大 19%**
+    ///     （违反 `新账-89` 简报里「拉丁卡面一字不动」那条），而且会把 ⑨ 那条 PnP 锚点顶红 ——
+    ///     那是**换尺子**级别的决定，要调度台裁。⑪（`Verify` 末尾）现在会把两个面的实测读数都打出来，供裁断。
+    ///
     /// ⚠️ **改这条必须重跑 `IconSetup.Run`** 重建资产 —— `Build()` 才把 `glyph.scale × CalibScale` 写进
     ///   `Warpforge Trait TextSprites.asset`；**只跑 `Verify` 量到的还是旧资产**（⑨ 会红，文案里提示这一点）。
     /// ⚠️ 和 `CardIcons.FontScaleFor`（字号那一侧）是**两个不同的东西**：那条是「字号该乘多少」（今天恒 1），
@@ -1245,7 +1278,481 @@ public static class IconSetup
                   "⚠️ 判别力 ≈ ±10%：抓的是结构性漂移（换面 / 资产没重建 / 常数改了 10% 以上），不是小数级调参。", ref bad);
         }
 
+        // ═════════════ ⑪ 【**只读数、不断言**】图标 ÷ 汉字 —— 两个「面前」各量一遍（`新账-89` / 2026-10-23）═════════════
+        //
+        // 🔴 **为什么这里【没有 Check】**：本条的目标值（数字客户端实拍的 **1.404**，见 `CalibScale` doc 里
+        //   「尺子 B」那一段）与 ⑨ 的目标值（PnP 的 **1.65**）是**两把不同的尺子**，而且
+        //   「图标按哪一面的 `ascentLine` 缩放」取决于 TMP 的 `<sprite>` 继承规则
+        //   （`TMP_Text.cs:4024-4036`：`<sprite>` 不更新 `m_currentFontAsset` ⇒ 用**前一个字符**的 faceInfo）。
+        //   这两个口径**要调度台裁**，在此之前把读数打出来（读数不会「假绿」）；
+        //   ⛔ 等裁完再把它改成 `Check` —— 那时判据只有一个，改坏法也写得出来。
+        //
+        // 📐 **量的是什么**（两条都量**渲染出来的网格 quad**，⛔ 不读常数）：
+        //   · 分子 = 末尾那个 `<sprite name="SpiritStone_1">` 的 quad 高（= 它的 80×80 字形框）；
+        //   · 分母 = **同一个 TMP 里**那个汉字 `获` 的 quad 高（字典里的 `WorldGlyphPerFontSize` 是同一个量，
+        //     这里走网格以确保「数字口径」一致）；
+        //   · 两次唯一的差别 = **图标前一个字符是拉丁 `H` 还是汉字 `获`** ⇒ 读数差的就是「面」的那一跳。
+        // 🎯 **目标（数字客户端）**：实拍绿环 31 px ÷ 汉字 24 px = 1.292（都是**墨高**）；
+        //   换成 **quad/quad** 要各除自己的墨占：图标 0.90（图集里绿环 72/80）· 汉字 0.981（0.93 em ÷ 0.948 em）
+        //   ⇒ **目标 quad 比 = 31/0.90 ÷ 24/0.981 = 34.44 ÷ 24.46 = 1.404**。
+        //   现读 `CalibScale = 0.842` 下：`H` 那条应给 ≈ **1.20**、`获` 那条应给 ≈ **1.69**
+        //   （= 1.4255 × 0.842 与 2.003 × 0.842）—— 两条**一低一高把 1.404 夹在中间**，
+        //   这正是「同一个常数配两个面」的必然结果；要落到 1.404（或反过来锚 PnP 的 1.65），只能二选一。
+        {
+            const float TargetQuadRatio = 1.404f;      // 数字客户端实拍推出来的 quad/quad（推导见上）
+
+            float qLatin = -1f, qCjk = -1f, cjkQuad = -1f, rLatin = -1f, rCjk = -1f;
+            string cjkCharFont = "?";      // `获` 实际解析到哪一份资产 —— 兜底没挂上时会在这里露出来（.notdef 方框）
+            try
+            {
+                // ── ① 图标跟在【拉丁】后面（= 原版中文卡里最常见的形状：`获得 + 空格 + 图标`）
+                var goL = new GameObject("iconcjk_probe_latin");
+                try
+                {
+                    var tL = goL.AddComponent<TextMeshPro>();
+                    tL.font = CardPresentation.TmpFont.FaceAsset(CardPresentation.TmpFont.Face.LatinCardBody);
+                    tL.spriteAsset = sa;
+                    tL.fontSize = CardPresentation.CardView.KeywordFontSize;
+                    tL.textWrappingMode = TextWrappingModes.NoWrap;
+                    tL.text = "H<sprite name=\"SpiritStone_1\">";
+                    tL.ForceMeshUpdate();
+                    int si = tL.textInfo.characterCount - 1;
+                    if (si >= 1 && tL.textInfo.characterInfo[si].elementType == TMP_TextElementType.Sprite)
+                        qLatin = InkQuadH(tL.textInfo, si) * Mathf.Abs(tL.transform.lossyScale.y);
+                }
+                finally { Object.DestroyImmediate(goL); }
+
+                // ── ② 图标跟在【汉字】后面（中文卡里紧贴写法就是这一种；TMP 会拿 CJK 兜底面的 faceInfo）
+                var goC = new GameObject("iconcjk_probe_cjk");
+                try
+                {
+                    var tC = goC.AddComponent<TextMeshPro>();
+                    tC.font = CardPresentation.TmpFont.FaceAsset(CardPresentation.TmpFont.Face.LatinCardBody);
+                    tC.spriteAsset = sa;
+                    tC.fontSize = CardPresentation.CardView.KeywordFontSize;
+                    tC.textWrappingMode = TextWrappingModes.NoWrap;
+                    tC.text = "获<sprite name=\"SpiritStone_1\">";
+                    tC.ForceMeshUpdate();
+                    float s = Mathf.Abs(tC.transform.lossyScale.y);
+                    int si = tC.textInfo.characterCount - 1;
+                    if (tC.textInfo.characterCount >= 2)
+                    {
+                        cjkQuad = InkQuadH(tC.textInfo, 0) * s;      // `获` 的字形框（同一个 TMP、同一个字号）
+                        var cf = tC.textInfo.characterInfo[0].fontAsset;
+                        cjkCharFont = cf != null ? cf.name : "null";
+                    }
+                    if (si >= 1 && tC.textInfo.characterInfo[si].elementType == TMP_TextElementType.Sprite)
+                        qCjk = InkQuadH(tC.textInfo, si) * s;
+                }
+                finally { Object.DestroyImmediate(goC); }
+
+                if (cjkQuad > 0f && qLatin > 0f) rLatin = qLatin / cjkQuad;
+                if (cjkQuad > 0f && qCjk > 0f) rCjk = qCjk / cjkQuad;
+                float curC = CalibScale;
+                Log("⑪ 读数（**只读、不断言**）：`CalibScale` 现读 " + curC.ToString("F3") +
+                    " · 汉字 `获`（解析到 `" + cjkCharFont + "`）的字形框 " + cjkQuad.ToString("F5") +
+                    " · 图标 quad：跟拉丁后 **" + qLatin.ToString("F5") + "**（比 " + rLatin.ToString("F3") + "）·" +
+                    " 跟汉字后 **" + qCjk.ToString("F5") + "**（比 " + rCjk.ToString("F3") + "）" +
+                    " —— 目标（数字客户端实拍 `获得①` 换算成 quad 比）= **" + TargetQuadRatio.ToString("F3") + "**" +
+                    "；要落到目标上，`CalibScale` 应各为 " +
+                    (rLatin > 0f ? (curC * TargetQuadRatio / rLatin).ToString("F3") : "?") + "（拉丁面） / " +
+                    (rCjk > 0f ? (curC * TargetQuadRatio / rCjk).ToString("F3") : "?") + "（CJK 面）");
+                Log("⑪ 判读：两条读数**差 1.41 倍**（= Pragati `ascentLine×0.1/95 = 0.07368` ÷ CJK `57.55×0.9×0.1/50 = 0.10359`）" +
+                    " ⇒ 原版到底是哪一面，看实拍对不上的那一条就知道；⛔ 在这个数被裁清楚之前别动 `CalibScale`。");
+            }
+            catch (System.Exception e)
+            {
+                Log("⑪ 读数失败（不影响其它断言）：" + e.GetType().Name + ": " + e.Message);
+            }
+        }
+
+        // ═════════════ ⑫ 本批（`新账-90`）修掉的三条：各自的「**改回去 ⇒ 红**」判别式（2026-10-23）═════════════════
+        //
+        // 🔴 **为什么要单开这一段**：`IconSetup.Run` 那 5 条既有红在 2026-10-23 修完之后，
+        //   主断言（`②i` / `④a` / `④b`）**只证明了「今天是绿的」**；「改回去会不会红」原来只写在注释里
+        //   （`🧨 改坏哪里会让它红`）—— **注释挡不住回归**。
+        //   而且有一条**结构上的盲区**：`④a` / `④b` **两侧读的都是计划表** ⇒
+        //   「**卡池原文改了、计划表没重跑**」这一格它们**看不见**（那一格正是 `ASH83` 修法的形状）。
+        // ⇒ 本段给三条各配一条**结构上不可能同时满足**的断言：一半断「今天对」、另一半断
+        //   「**把坏态喂回同一个谓词，必须给出另一个读数**」—— 谓词恒真 / 恒假都过不了。
+        // ⛔ 别把本段并进 `②i` / `④a`（那两条是判据本体、本段是它们的哨兵）· ⛔ 别动 ⑨ / ⑪（尺子未裁 / 只读数）。
+        // 📌 「抽掉计划表里那一枚 ⇒ ④a 必须认出来」那一半**已经由 ④b 覆盖**（`faith` / `waystone` 都在它的控制集里）
+        //    —— 本段补的是**它看不见的那一格**（计划表 vs 原文）与**运行时文本**那一段。
+        {
+            // ───── ⑫a `②i` 的检测器（`D1` 修法）：**两档 sprite 名，各用在哪一侧** ─────
+            //   今天的形状（`r14` 实测）：`desc` 走计划表 ⇒ **短名** `<sprite name="oath">`；
+            //   `descZh` 走官方 `[[oath]]` ⇒ **全名** `<sprite name="Atlas_trait_icon_oath">`
+            //   （`RewriteMarkTraits`，判据 = `Core/CardIcons.cs` 那一支；两档名字在 `Build()` 里注册成**同一个字形**）。
+            //   🧨 **两半结构上不可能同时满足**：
+            //     · 把 `CountSprite` 改回「只数短名」⇒ `②i` 那侧的 `nZ` 归 0 ⇒ **②i 红**（2026-10-23 修之前就是 `0/1`·`0/2`·`0/2`）；
+            //     · 把中文那侧改成写短名（或把 Oath 的别名从 `Build()` 里删掉）⇒ **本条的「哪一侧为 0」红**。
+            {
+                int cShort = CountSprite("<sprite name=\"oath\">x", "oath");
+                int cLong = CountSprite("<sprite name=\"Atlas_trait_icon_oath\">x", "oath");
+                int cBleed = CountSprite("<sprite name=\"oathless\">x", "oath");
+                int iLong = IndexOfSprite("<sprite name=\"Atlas_trait_icon_oath\">", "oath");
+                Check(cShort == 1 && cLong == 1 && cBleed == 0 && iLong == 0,
+                      "★ ⑫a【灭自证】`CountSprite` / `IndexOfSprite` 必须**两档名字都数、且不按前缀误吃**：" +
+                      "短名=1 / 全名=1 / `oathless`=0 / 全名的下标=0 —— 实得 " + cShort + " / " + cLong +
+                      " / " + cBleed + " / " + iLong + "。🧨 改坏法：把 `CountSprite` 只留短名那一项 ⇒ 全名=0 ⇒ 红。", ref bad);
+
+                string[] oathIds = { "UM100", "UM106", "UM93" };
+                int enShort = 0, enLong = 0, zhShort = 0, zhLong = 0, seen = 0;
+                foreach (var oid in oathIds)
+                {
+                    var ocd = PoolCard(oid);
+                    if (ocd == null || string.IsNullOrEmpty(ocd.Desc) || string.IsNullOrEmpty(ocd.DescZh)) continue;
+                    seen++;
+                    string od = CardPresentation.CardIcons.Rewrite(oid, "desc", ocd.Desc);
+                    string oz = CardPresentation.CardIcons.Rewrite(oid, "descZh", ocd.DescZh);
+                    enShort += CountOf(od, "<sprite name=\"oath\">");
+                    enLong += CountOf(od, "<sprite name=\"Atlas_trait_icon_oath\">");
+                    zhShort += CountOf(oz, "<sprite name=\"oath\">");
+                    zhLong += CountOf(oz, "<sprite name=\"Atlas_trait_icon_oath\">");
+                }
+                Check(seen == oathIds.Length && enShort > 0 && zhLong > 0 && enLong == 0 && zhShort == 0
+                      && enShort == zhLong,
+                      "★ ⑫a【灭自证】`②i` 那三张的**两档名字各在哪一侧**：英文侧只该有**短名**（短 " + enShort +
+                      " / 全 " + enLong + "）、中文侧只该有**全名**（短 " + zhShort + " / 全 " + zhLong +
+                      "），且两侧枚数必须相等（" + enShort + " == " + zhLong + "，夹具 " + seen + "/" + oathIds.Length + " 张）。" +
+                      "🧨 只数一档 ⇒ 另一侧恒 0 ⇒ 上面 `②i` 必红；把中文侧改成写短名 ⇒ 本条红。", ref bad);
+            }
+
+            // ───── ⑫b 计划表 ↔ **今天的卡池原文**：每条 token 都还得在原文里找得到 ─────
+            //   🔴 **这是 `④a` / `④b` 结构上的盲区**：它们两侧读的都是计划表 ⇒「**数据改了、计划表没重跑**」
+            //      那一格它们看不见（计划表自己跟自己比仍然自洽）。而 `ASH83` 的修法正是
+            //      「改 `cardface_fixes.json` → **必须**重跑 `gen_cards_engine.py` + `gen_icon_plan.py`」——
+            //      少跑最后一步，`④a` 照样绿，而计划表里那条 token **已经不在正文里**（= 空转条目、卡面画不出来）。
+            //   🧨 改坏法：改任何一张卡的 `desc` / `descZh` 却不重跑生成器 ⇒「找不到」的条数 > 0 ⇒ 红。
+            //   灭自证：同一条谓词喂一份**只塞一条假 token** 的合成计划表 ⇒ 必须**正好报 1 条**
+            //      （谓词恒绿 ⇒ 这里 0 条 ⇒ 红；谓词恒红 ⇒ 真表那半先红，两处不可能同时满足）。
+            {
+                var planDoc = LoadPlanDoc();
+                List<string> missingCards;
+                var missTok = PlanTokensMissingInPool(planDoc, out missingCards);
+                int scanned = CountPlanTokens(planDoc);
+                // 合成表：真卡 + **绝不可能出现在任何卡面里的串** ⇒ 谓词必须认出来
+                var fakeDoc = new PlanDoc
+                {
+                    version = 1,
+                    cards = new[]
+                    {
+                        new PlanCard
+                        {
+                            id = "ASH83",
+                            fields = new[]
+                            {
+                                new PlanField
+                                {
+                                    name = "descZh",
+                                    items = new[] { new PlanItem { token = ProbeAbsentToken, sprite = "faith" } }
+                                }
+                            }
+                        }
+                    }
+                };
+                List<string> fakeMissingCards;
+                var fakeMiss = PlanTokensMissingInPool(fakeDoc, out fakeMissingCards);
+                string missTxt = missTok.Count == 0 ? "" : ("；例：" + string.Join(" / ",
+                    missTok.GetRange(0, System.Math.Min(6, missTok.Count)).ToArray()));
+                Check(scanned > 100 && missTok.Count == 0 && missingCards.Count == 0
+                      && fakeMiss.Count == 1 && fakeMissingCards.Count == 0,
+                      "★ ⑫b【灭自证】计划表里**每一条 token 都还得在今天的卡池原文里**：扫了 " + scanned +
+                      " 条 · 找不到 **" + missTok.Count + "** 条 · 计划表里有而卡池里没有的卡 " + missingCards.Count +
+                      " 张" + missTxt + "。这条补的是 `④a` / `④b` 的盲区（它们两侧都读计划表 ⇒「数据改了、计划表没重跑」看不见）。" +
+                      "🧨 改坏法：改 `cardface_fixes.json` 的 `descZh` 却不重跑 `gen_cards_engine.py` + `gen_icon_plan.py` ⇒ 红。" +
+                      "灭自证：同一谓词喂「一条假 token」的合成表 ⇒ 必须正好 1 条（实得 " + fakeMiss.Count + " 条）。", ref bad);
+            }
+
+            // ───── ⑫c 数据侧那一条（`ASH83|waystone`）：**端到端**（中文正文 + 计划表 + 替换链）─────
+            //   ①今天：`Rewrite("ASH83","descZh", 卡池真值)` 必须画得出 `waystone`；
+            //   ②灭自证：把**修之前那一版中文**（2026-10-23 的原值，见 `ASH83DescZhBeforeFix`）喂给同一个 `Rewrite`
+            //     ⇒ 必须 **0 枚**。两半结构上不可能同时满足 ⇒「谓词恒真」与「恒假」都过不了。
+            //   📌 这一条也把「计划表有那一枚、正文里却没有」的**空转**挡在外面（`ASH83` 那枚 token = `路标石。`）。
+            {
+                var acd = PoolCard("ASH83");
+                string aNow = acd == null || string.IsNullOrEmpty(acd.DescZh)
+                    ? null : CardPresentation.CardIcons.Rewrite("ASH83", "descZh", acd.DescZh);
+                string aOld = CardPresentation.CardIcons.Rewrite("ASH83", "descZh", Ash83DescZhBeforeFix);
+                int nNow = aNow == null ? -1 : CountSprite(aNow, "waystone");
+                int nOld = CountSprite(aOld, "waystone");
+                Check(nNow >= 1 && nOld == 0,
+                      "★ ⑫c【灭自证】`ASH83` 的 `waystone` 徽记**来自中文正文那一句**：今天的 `descZh` 换出 **" + nNow +
+                      "** 枚；把 `路标石。` 那一句去掉（= 2026-10-23 修之前的原值）⇒ 必须 **0** 枚（实得 " + nOld +
+                      "）。🧨 改坏法：删掉 `cardface_fixes.json` 里 `descZh | Autarch` 的 `路标石。` ⇒ 重跑生成器后 `④a` 红；" +
+                      "**没重跑生成器**时由本条红（计划表那一枚变空转）。实测：" + (aNow ?? "(卡池里取不到 ASH83)"), ref bad);
+            }
+
+            // ───── ⑫d 生成器那一条（`f104…|faith`）：**端到端**（运行时 `RewriteFaithCost`）─────
+            //   ①今天：`Rewrite("f104…","descZh", 卡池真值)` 必须有 `faith` —— 那一枚是**运行时按句法画的**
+            //     （`Core/CardIcons.cs` 的 `RewriteFaithCost`，在计划表之前跑），计划表那条 `4 能量` **恒空转**；
+            //   ②灭自证：把那句里的 `能量` 去掉（`4 能量：` → `4 ：`）⇒ 同一支必须画 **0 枚**。
+            //   ⇒「恒真」过不了 ②、「恒假」过不了 ①。
+            {
+                const string faithCardId = "f104d4c21abe84546abc9365d9eda8dd";
+                var fcd = PoolCard(faithCardId);
+                string fNow = fcd == null || string.IsNullOrEmpty(fcd.DescZh)
+                    ? null : CardPresentation.CardIcons.Rewrite(faithCardId, "descZh", fcd.DescZh);
+                string fNoWord = fcd == null || string.IsNullOrEmpty(fcd.DescZh) ? null : fcd.DescZh.Replace("能量", "");
+                string fOld = fNoWord == null ? null : CardPresentation.CardIcons.Rewrite(faithCardId, "descZh", fNoWord);
+                int fN = fNow == null ? -1 : CountSprite(fNow, "faith");
+                int fO = fOld == null ? -1 : CountSprite(fOld, "faith");
+                Check(fN >= 1 && fO == 0,
+                      "★ ⑫d【灭自证】`" + faithCardId + "` 的 `faith` 徽记**来自运行时的「数字 + 能量 + 冒号」句法**：" +
+                      "今天的 `descZh` 换出 **" + fN + "** 枚；把那句里的 `能量` 去掉（`4 能量：` → `4 ：`）⇒ 必须 **0** 枚（实得 " +
+                      fO + "）。🧨 改坏法：① 让生成器不再镜像这条句法（`gen_icon_plan.py` 的 `FAITH_COST`）⇒ `④a` 红；" +
+                      "② 把计划表 token 缩成光秃秃的 `能量` ⇒ 运行时会在「获得 1 能量」那类资源动作上凭空插图标 ⇒ 本条核不到、" +
+                      "但 `gen_icon_plan.py --check` 会红（那条判据在生成器自己那边）。实测：" + (fNow ?? "(卡池里取不到那张卡)"), ref bad);
+            }
+        }
+
+        // ═════════════ ⑬ `<sprite>` 的「面」不随前一个字符变（卡牌线 `新账-100` · 2026-10-23）═════════════════
+        //
+        // 🔴 **钉什么**：**同一个图标，前面是汉字 / 中文标点 / 拉丁 / 空格，渲染出来的 quad 必须一样大**。
+        //   这不是尺寸调参 —— 它钉的是 `Core/CardIcons.PinSpriteFace` 那条**结构性**约束
+        //   （⛔ 不动 `CalibScale`：尺子那一笔在别处；本条只让尺寸与「前一个字符」无关）。
+        //   病灶（TMP 的 sprite 那一支：sprite asset 的 `faceInfo.pointSize == 0` 时用 `m_currentFontAsset`
+        //   的 faceInfo 算缩放，而 `<sprite>` 不更新 `m_currentFontAsset`）→ 判据全文写在
+        //   `CardIcons.PinSpriteFace` 的 doc 里，⛔ 别在这儿抄第二份。
+        //
+        // 📐 **量的是渲染出来的网格 quad**（`InkQuadH`），⛔ 不读常数：
+        //   · **夹具**：卡池里**真卡**的中文正文（走卡面唯一那条组字路 `BattleDriver.FaceTextFull`），
+        //     取**第一枚「紧跟在汉字/中文标点后面」的有效图标**，同一字号下量四份：
+        //       ① 不钉面（= 今天之前的形状） ② 钉面（= `CardView.Fill` 今天的形状）
+        //       ③ 钉面 + 那枚图标前插一个普通空格 ④ 同一枚图标跟在拉丁 `H` 后面（= Pragati 面的参照）
+        //     ⇒ ② ÷ ③ 必须 ≈ 1.000（**图标大小与前面的空格无关**）· ② ÷ ④ 必须 ≈ 1.000（**钉的是拉丁面**）
+        //   · **灭自证**：① ÷ ② 必须 **> 1.20**（不钉面时继承 CJK 面 ⇒ 明显更大；理论 1.406）。
+        //     把 `CardView.Fill` 里那句 `PinSpriteFace` 删掉 ⇒ ② 读成 ①、第一条读到 **1.406** ⇒ 红。
+        //     ⚠️ 若哪天 sprite asset 自己带上 faceInfo（`pointSize > 0`，那是**尺子 / `CalibScale` 那一笔**），
+        //        「继承」这件事从根本上不成立 ⇒ 本条**自动跳过那半条**（打印理由），⛔ 那不是放宽。
+        //   · **端到端**（wiring）：真建一个 `CardView`，它的关键词层文本里必须**真的有** `<font=Default><sprite`；
+        //     那一层够 2 枚时再顺带断言「同一层所有 sprite 的 quad 相差 ≤ 2%」——
+        //     防「探针量的和卡面用的不是同一条路」。
+        {
+            const float Tol13 = 0.02f;            // ±2%（简报要的）
+            var pinFace = CardPresentation.TmpFont.FaceAsset(CardPresentation.TmpFont.Face.LatinCardBody);
+            Check(pinFace != null, "⑬ 前提：卡面正文面（`Face.LatinCardBody` = Pragati）取得到", ref bad);
+
+            // ① 挑夹具：卡池里第一张「中文正文里有一枚**有效**图标紧跟在汉字/中文标点后面」的卡。
+            //    两遍：**先要 ≥2 枚有效图标**（端到端那条能顺带量「同一层里大小一致」），
+            //    没有就退到 ≥1 枚（端到端改断 wiring；读数那三条一条都不少）。
+            string fid = null, fraw = null, fname = null;
+            int ford = -1, fvalid = 0;
+            if (pinFace != null)
+            {
+                for (int pass = 0; pass < 2 && fid == null; pass++)
+                {
+                    int need = pass == 0 ? 2 : 1;
+                    foreach (var c in RuleEngine.CardDatabase.Load())
+                    {
+                        if (c == null || string.IsNullOrEmpty(c.Id)) continue;
+                        string t = CardPresentation.BattleDriver.FaceTextFull(c).body;
+                        if (string.IsNullOrEmpty(t)) continue;
+                        int valid = 0, hitOrd = -1; string hitName = null;
+                        for (int at = t.IndexOf("<sprite", System.StringComparison.Ordinal); at >= 0;
+                             at = t.IndexOf("<sprite", at + 1, System.StringComparison.Ordinal))
+                        {
+                            string nm = SpriteNameAt(t, at);
+                            if (string.IsNullOrEmpty(nm) || sa.GetSpriteIndexFromName(nm) < 0) continue;  // TMP 生成不出字形的那种
+                            if (hitOrd < 0 && IsCjkChar(PrevVisibleChar(t, at))) { hitOrd = valid; hitName = nm; }
+                            valid++;
+                        }
+                        if (hitOrd >= 0 && valid >= need)
+                        { fid = c.Id; fraw = t; fname = hitName; ford = hitOrd; fvalid = valid; break; }
+                    }
+                }
+            }
+            Check(fid != null,
+                  "⑬ 前提：卡池里找得到一张「中文正文里图标**紧跟在汉字后面**」的卡（夹具）" +
+                  "—— ⛔ 换数据后这里红了 = 要**重新挑一张**（挑法见上一行注释），**不是把判据放宽**", ref bad);
+            if (fid != null)
+                Log("⑬ 夹具：`" + fid + "` · 全文有 " + fvalid + " 枚有效图标（≥2 才能量「同一层大小一致」那一半）");
+
+            // ② 四种排法各量一次
+            float qRaw = -1f, qPin = -1f, qSpace = -1f, qLatin = -1f;
+            if (fid != null && pinFace != null)
+            {
+                string pinned = CardPresentation.CardIcons.PinSpriteFace(fraw);
+                const string open = "<font=Default>";
+                int at2 = FindNthSprite(pinned, ford, sa);
+                string spaced = null;
+                if (at2 >= 0)
+                    spaced = (at2 >= open.Length &&
+                              string.CompareOrdinal(pinned, at2 - open.Length, open, 0, open.Length) == 0)
+                           ? pinned.Insert(at2 - open.Length, " ")     // 插在 `<font=…>` 之前 = 那枚图标「前面有个空格」
+                           : pinned.Insert(at2, " ");
+                qRaw = MeasureSpriteQuad(fraw, pinFace, sa, ford);
+                qPin = MeasureSpriteQuad(pinned, pinFace, sa, ford);
+                qSpace = spaced == null ? -1f : MeasureSpriteQuad(spaced, pinFace, sa, ford);
+                qLatin = MeasureSpriteQuad("H<sprite name=\"" + fname + "\">", pinFace, sa, 0);
+                Log("⑬ 读数：夹具 `" + fid + "` · 图标 `" + fname + "`（正文第 " + ford + " 枚有效图标）· quad " +
+                    "不钉面 " + qRaw.ToString("F5") + " · 钉面 " + qPin.ToString("F5") +
+                    " · 钉面+空格 " + qSpace.ToString("F5") + " · 拉丁 `H` 后 " + qLatin.ToString("F5"));
+            }
+
+            Check(qPin > 0f && qSpace > 0f && Mathf.Abs(qPin / qSpace - 1f) <= Tol13,
+                  "★ ⑬ **图标大小与它前面有没有空格无关**（`" + fid + "` · `" + fname + "`）：钉面后 **无空格 " +
+                  qPin.ToString("F5") + " ÷ 有空格 " + qSpace.ToString("F5") + " = " +
+                  (qSpace > 0f ? (qPin / qSpace).ToString("F3") : "?") + "**（目标 1.000 ±2%）" +
+                  "。🧨 改坏法：删掉 `CardView.Fill` 里那句 `PinSpriteFace` ⇒ 两枚回到「CJK 面 vs Pragati 面」= **1.406** ⇒ 红", ref bad);
+            Check(qPin > 0f && qLatin > 0f && Mathf.Abs(qPin / qLatin - 1f) <= Tol13,
+                  "★ ⑬ 钉的是**拉丁正文面**（不是「两边都钉成 CJK」那种假绿）：跟汉字后 " + qPin.ToString("F5") +
+                  " ÷ 跟拉丁 `H` 后 " + qLatin.ToString("F5") + " = " +
+                  (qLatin > 0f ? (qPin / qLatin).ToString("F3") : "?") + "（目标 1.000 ±2%）", ref bad);
+            if (sa.faceInfo.pointSize <= 0f)
+                Check(qRaw > 0f && qPin > 0f && qRaw > qPin * 1.20f,
+                      "★ ⑬【灭自证】**不钉面**时那枚图标明显更大（继承 CJK 面）：不钉 " + qRaw.ToString("F5") +
+                      " ÷ 钉住 " + qPin.ToString("F5") + " = " + (qPin > 0f ? (qRaw / qPin).ToString("F3") : "?") +
+                      "（**必须 > 1.20**，理论 1.406）。⇒ 把 `CardView.Fill` 那句 `PinSpriteFace` 删掉，上面第一条读到 1.406 ⇒ 红", ref bad);
+            else
+                Log("⑬ 跳过「灭自证」那半条：sprite asset 自带 faceInfo（pointSize=" + sa.faceInfo.pointSize +
+                    "）⇒ 面继承这件事本来就不成立（那是尺子 / `CalibScale` 那一笔账）");
+
+            // ③ 端到端（wiring）：真建一个 `CardView`，量它的关键词层
+            if (fid != null && pinFace != null)
+            {
+                var root = new GameObject("pinface_cardview_probe");
+                try
+                {
+                    var cd = PoolCard(fid);
+                    var view = cd == null ? null : CardPresentation.CardView.Create(
+                        root.transform, CardPresentation.BattleDriver.ToCardData(cd, cd.Faction), "PinFaceProbe");
+                    TextMeshPro kt = null;
+                    if (view != null)
+                        foreach (var tt in view.GetComponentsInChildren<TextMeshPro>(true))
+                            if (tt.text != null && tt.text.IndexOf("<sprite", System.StringComparison.Ordinal) >= 0)
+                            { kt = tt; break; }
+                    bool wired = kt != null &&
+                                 kt.text.IndexOf("<font=Default><sprite", System.StringComparison.Ordinal) >= 0;
+                    int n = 0; float mn = float.MaxValue, mx = 0f;
+                    if (kt != null)
+                    {
+                        var ti = kt.textInfo;
+                        float sc = Mathf.Abs(kt.transform.lossyScale.y);
+                        for (int i = 0; ti != null && i < ti.characterCount; i++)
+                        {
+                            if (ti.characterInfo[i].elementType != TMP_TextElementType.Sprite) continue;
+                            float h = InkQuadH(ti, i) * sc;
+                            if (h <= 0f) continue;
+                            n++; if (h < mn) mn = h; if (h > mx) mx = h;
+                        }
+                    }
+                    Check(wired,
+                          "★ ⑬【端到端】真 `CardView` 的关键词层文本里**图标都钉住了**（含 `<font=Default><sprite`）" +
+                          "。🧨 改坏法：`CardView.Fill` 不再调 `PinSpriteFace` ⇒ 卡面文本里**没有** `<font=Default>` ⇒ 红", ref bad);
+                    if (n >= 2)
+                        Check(mx / mn <= 1f + Tol13,
+                              "★ ⑬【端到端】同一张卡的关键词层里 **" + n + "** 枚图标**一样大**（最大 " +
+                              mx.ToString("F5") + " ÷ 最小 " + mn.ToString("F5") + " = " +
+                              (mn > 0f ? (mx / mn).ToString("F3") : "?") + "，目标 ≤ 1.02）" +
+                              "。🧨 改坏法：不钉面时被中文 `。` 隔开的那几枚回到 1.406 ⇒ 红", ref bad);
+                    else
+                        Log("⑬ 端到端「同一层大小一致」那半条今天量不到：这张卡的关键词层只有 " + n +
+                            " 枚图标（夹具走的是「≥1 枚」那一档 —— 读数那三条不受影响）");
+                }
+                catch (System.Exception e)
+                {
+                    Err("⑬ 端到端量不了 `CardView`：" + e.GetType().Name + ": " + e.Message);
+                }
+                finally { Object.DestroyImmediate(root); }
+            }
+        }
+
         Finish(bad);
+    }
+
+    /// <summary>`text[at..]` 那个 `&lt;sprite …&gt;` 的**图名**（带引号 / 不带引号两种写法都认）；认不出 ⇒ null。
+    /// 判据：原版标签写作不带引号的 `&lt;sprite name=Atlas_trait_icon_x&gt;`，我们的两口都补成带引号，
+    /// 两条路并存 ⇒ 这里两种都得认（⑬ 拿它判「这枚图 TMP 生成得出来吗」）。</summary>
+    static string SpriteNameAt(string text, int at)
+    {
+        if (string.IsNullOrEmpty(text) || at < 0 || at + 7 > text.Length) return null;
+        if (string.CompareOrdinal(text, at, "<sprite", 0, 7) != 0) return null;
+        int gt = text.IndexOf('>', at + 7);
+        if (gt < 0) return null;
+        int ni = text.IndexOf("name=", at + 7, System.StringComparison.OrdinalIgnoreCase);
+        if (ni < 0 || ni > gt) return null;
+        int v = ni + 5;
+        if (v >= gt) return null;
+        if (text[v] == '"')
+        {
+            int e = text.IndexOf('"', v + 1);
+            return e > v && e < gt ? text.Substring(v + 1, e - v - 1) : null;
+        }
+        int sp = text.IndexOfAny(new[] { ' ', '>', '\t' }, v);
+        if (sp < 0 || sp > gt) sp = gt;
+        return sp > v ? text.Substring(v, sp - v) : null;
+    }
+
+    /// <summary>`text` 里第 `k` 枚**有效**（图名在 `sa` 里、TMP 真生成得出字形）`&lt;sprite …&gt;` 的下标；没有 ⇒ -1。
+    /// ⚠️ 必须按「有效」数：图名认不出的 `<sprite>` 会被 TMP 当**普通文字**印出来（不产生 sprite 元素），
+    /// 拿它数序号会让「字符串里第 k 枚」与「网格里第 k 枚」错位。</summary>
+    static int FindNthSprite(string text, int k, TMP_SpriteAsset sa)
+    {
+        if (string.IsNullOrEmpty(text) || k < 0) return -1;
+        int n = 0;
+        for (int at = text.IndexOf("<sprite", System.StringComparison.Ordinal); at >= 0;
+             at = text.IndexOf("<sprite", at + 1, System.StringComparison.Ordinal))
+        {
+            string nm = SpriteNameAt(text, at);
+            if (string.IsNullOrEmpty(nm) || sa == null || sa.GetSpriteIndexFromName(nm) < 0) continue;
+            if (n++ == k) return at;
+        }
+        return -1;
+    }
+
+    /// <summary>`at` 之前**最后一个真正的字符**（跳过紧贴着的 `&lt;…&gt;` 标签）；没有 ⇒ `'\0'`。
+    /// ⚠️ 判「面」要的是**字符**不是标签：`&lt;sprite&gt;` 继承的是 `m_currentFontAsset`，而一堆标签
+    /// （`&lt;link=…&gt;` / `&lt;nobr&gt;` / `&lt;b&gt;`）不改它 ⇒ 得跳过它们往前找一个真字符。</summary>
+    static char PrevVisibleChar(string text, int at)
+    {
+        int i = at - 1;
+        while (i >= 0)
+        {
+            if (text[i] == '>')
+            {
+                int lt = text.LastIndexOf('<', i);
+                if (lt >= 0) { i = lt - 1; continue; }
+            }
+            return text[i];
+        }
+        return '\0';
+    }
+
+    /// <summary>汉字 / 中文标点（拉丁那三份面都没有这些字形 ⇒ TMP 会落到 CJK 兜底）。</summary>
+    static bool IsCjkChar(char c)
+    {
+        return (c >= 0x2E80 && c <= 0x9FFF) || (c >= 0xF900 && c <= 0xFAFF) || (c >= 0xFF00 && c <= 0xFFEF);
+    }
+
+    /// <summary>拿 `text` 建一个**卡面正文口径**的 TMP（同一面 / 同一字号 / 不折行），量第 `k` 枚 sprite 的
+    /// 网格 quad 高（× `lossyScale`）。量不到 ⇒ -1。</summary>
+    static float MeasureSpriteQuad(string text, TMP_FontAsset face, TMP_SpriteAsset sa, int k)
+    {
+        if (string.IsNullOrEmpty(text) || face == null) return -1f;
+        var go = new GameObject("pinface_probe");
+        try
+        {
+            var t = go.AddComponent<TextMeshPro>();
+            t.font = face;
+            t.spriteAsset = sa;
+            t.fontSize = CardPresentation.CardView.KeywordFontSize;
+            t.textWrappingMode = TextWrappingModes.NoWrap;
+            t.text = text;
+            t.ForceMeshUpdate();
+            var ti = t.textInfo;
+            if (ti == null) return -1f;
+            float sc = Mathf.Abs(t.transform.lossyScale.y);
+            int n = 0;
+            for (int i = 0; i < ti.characterCount; i++)
+            {
+                if (ti.characterInfo[i].elementType != TMP_TextElementType.Sprite) continue;
+                if (n++ != k) continue;
+                return InkQuadH(ti, i) * sc;
+            }
+            return -1f;
+        }
+        finally { Object.DestroyImmediate(go); }
     }
 
     /// <summary>
@@ -1431,10 +1938,12 @@ public static class IconSetup
     static int ZhGapsDarkPactSkipped;
 
     static Dictionary<string, RuleEngine.CardDef> _poolById;
-    /// <summary>`c.id` 那张卡是不是「提到 Dark Pact / 黑暗契约」（判据只此一处 = `CreatePool.MentionsDarkPact`）。</summary>
-    static bool MentionsDarkPactCard(string id)
+
+    /// <summary>卡池里按 `id` 取一张卡（只建一次表；`MentionsDarkPactCard` 与 `⑫` 共用）。
+    /// ⚠️ 取不到 = `null`，**别在调用方写"猜一个"**（铁律 2）。</summary>
+    static RuleEngine.CardDef PoolCard(string id)
     {
-        if (string.IsNullOrEmpty(id)) return false;
+        if (string.IsNullOrEmpty(id)) return null;
         if (_poolById == null)
         {
             _poolById = new Dictionary<string, RuleEngine.CardDef>();
@@ -1442,9 +1951,74 @@ public static class IconSetup
                 if (c != null && !string.IsNullOrEmpty(c.Id)) _poolById[c.Id] = c;
         }
         RuleEngine.CardDef def;
-        return _poolById.TryGetValue(id, out def) && def != null
-            && RuleEngine.CreatePool.MentionsDarkPact(def);
+        return _poolById.TryGetValue(id, out def) ? def : null;
     }
+
+    /// <summary>`c.id` 那张卡是不是「提到 Dark Pact / 黑暗契约」（判据只此一处 = `CreatePool.MentionsDarkPact`）。</summary>
+    static bool MentionsDarkPactCard(string id)
+    {
+        if (string.IsNullOrEmpty(id)) return false;
+        var def = PoolCard(id);
+        return def != null && RuleEngine.CreatePool.MentionsDarkPact(def);
+    }
+
+    /// <summary>⑫b 的灭自证用的**绝不可能出现在任何卡面里的串**（不是 token、不是任何一张卡的正文子串）。</summary>
+    const string ProbeAbsentToken = "◤⑫b-probe-never-in-any-card◢";
+
+    /// <summary>⑫c 的**坏态夹具**：`ASH83` 在 2026-10-23 修**之前**的 `descZh` 原值（`路标石。` 那一句还没有）。
+    /// 出处 = `资料/普查产出_1023c/卡牌线_三条收尾_执行报告.md` §一·2（`r12` 现读）＋ `cardface_fixes.json` 的
+    /// `descZh | Autarch` 当轮 diff。⚠️ 它是**夹具**（证明谓词看得见坏态），⛔ 不是读数、别跟着数据更新。</summary>
+    const string Ash83DescZhBeforeFix = "①：给予你的所有部队 +1 [攻击]、+1 [远程]和 +1 生命";
+
+    /// <summary>⑫b 的谓词本体：计划表里**今天的卡池原文中已经找不到**的 token（`"卡id|字段|token"`）。
+    /// 纯函数（只读传入的 `doc` 与卡池）⇒ ⑫b 的灭自证拿「只塞一条假 token」的合成表跑**同一个函数**。
+    /// ⚠️ 「计划表里有这张卡、卡池里没有」是**另一类**（走 `missingCards`）—— 别混进 token 那一列
+    /// （混进去会让合成表的读数变成 2 条、把「谓词能不能看见坏态」这件事搅浑）。</summary>
+    static List<string> PlanTokensMissingInPool(PlanDoc doc, out List<string> missingCards)
+    {
+        var pairs = new List<string>();
+        missingCards = new List<string>();
+        if (doc == null || doc.cards == null) return pairs;
+        foreach (var pc in doc.cards)
+        {
+            if (pc == null) continue;
+            var cd = PoolCard(pc.id);
+            if (cd == null) { missingCards.Add(pc.id); continue; }
+            if (pc.fields == null) continue;
+            foreach (var f in pc.fields)
+            {
+                if (f == null || f.items == null) continue;
+                string text = f.name == "desc" ? cd.Desc
+                            : (f.name == CardPresentation.CardIcons.DescZhField ? cd.DescZh : null);
+                if (text == null) continue;
+                foreach (var it in f.items)
+                {
+                    if (it == null || string.IsNullOrEmpty(it.token)) continue;
+                    if (text.IndexOf(it.token, System.StringComparison.Ordinal) < 0)
+                        pairs.Add(pc.id + "|" + f.name + "|" + it.token);
+                }
+            }
+        }
+        pairs.Sort(System.StringComparer.Ordinal);
+        missingCards.Sort(System.StringComparer.Ordinal);
+        return pairs;
+    }
+
+    /// <summary>⑫b 的**前提检查**用：计划表里一共多少条 token（`0` = 计划表没读到 / 结构变了）。
+    /// ⚠️ 只用来判「这一格今天在测东西」，⛔ 别拿它当基线读数（`A1451`）。</summary>
+    static int CountPlanTokens(PlanDoc doc)
+    {
+        if (doc == null || doc.cards == null) return 0;
+        int n = 0;
+        foreach (var pc in doc.cards)
+        {
+            if (pc == null || pc.fields == null) continue;
+            foreach (var f in pc.fields)
+                if (f != null && f.items != null) n += f.items.Length;
+        }
+        return n;
+    }
+
 
     /// <summary>
     /// 🔴 **已知的「英文画了、中文没画」缺口**（`A1409` 的 ④a 用它把「已查出的」和「新冒出来的」分开）。

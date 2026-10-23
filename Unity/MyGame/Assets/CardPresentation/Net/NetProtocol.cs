@@ -468,13 +468,44 @@ namespace CardPresentation.Net
                 h = h * 31 + ctx.Turn;
                 h = h * 31 + ctx.Active;
                 h = h * 31 + ctx.Winner;
+                // 🆕 **2026-10-23（引擎线「新账-88」· 深审 B 的 `D2`）**：对局级那几格状态。
+                //  · 进攻卡（环境效果）那一次选择 —— 它是**引擎状态**（`ApplyEnvEffect` 按它切环境），
+                //    只在「换牌之后、开打之前」发生一次；两端 / 两次跑必然相同。
+                h = h * 31 + (ctx.OffensiveChosen ? 1 : 0);
+                h = h * 31 + ctx.OffensiveSlotIdx;
+                h = h * 31 + Hash(ctx.OffensiveEnvSO);
+                //  · 附魔计数（原版 `BattleManager.enchatmentsUsed // +0x4e4`，每挂一件 +1）
+                h = h * 31 + ctx.EnchantmentsUsed;
                 h = h * 31 + PlayerHash(ctx, 0);      // ⚠️ 与 `Fingerprint` 的差别就在这里：
                 h = h * 31 + PlayerHash(ctx, 1);      //    **没有** `ctx.Events.Count` 这一项
                 return h;
             }
         }
 
-        /// <summary>某一个玩家的状态子哈希（**内容是双方真该一致的东西**）。</summary>
+        /// <summary>某一个玩家的状态子哈希（**内容是双方真该一致的东西**）。
+        ///
+        /// <para>🔴 **2026-10-23（引擎线「新账-88」· 深审 B 的 `D2`）：维度补全。**
+        /// 原来只数「张数 / 能量 / 督军四围 / 手牌 ≤12 张 / 牌库**每 7 张取 1** + 棋盘每格四围」——
+        /// 于是**明明演错了也可能判「同一局」**（牌库里第 1 张和第 2 张对调、弃牌堆里换了一批牌、
+        /// 信仰/灵魂石/任务点/疲劳/费用修正/抢来的单位/手牌记录/隐秘计数/附魔 全看不见）。
+        /// 现在补上的是**引擎状态**，进这一格的唯一判据 = **它只由动作流决定**
+        /// （两端 / 两次跑必然相同）⇒ ⛔ 表现层的东西（`ctx.Events` 那一类）一个都不进。</para>
+        ///
+        /// <para>⚠️ **刻意【不】进的**（逐条给理由，⛔ 别当漏了）：
+        /// ① `CardInstance.Id`（实例号）—— 与 <see cref="Fingerprint"/> 的既有口径一致：号码本身不承载语义，
+        ///    进指纹只会让「换一张同名牌」这种真差异被号码盖掉（`Fingerprint` 的注）。
+        ///    ⚠️ **唯一例外** = `HandEffect.OnlyInstanceId`：它**不是**牌的序号，而是「这条记录只补给哪一份」
+        ///    的**语义字段**（`CardInstance.HandEffect` 的注），而且号跟着 `ctx` 走、两端必然相同 ⇒ 进；
+        /// ② `ctx.Events` / `ActionLog` —— 表现层随时抽干（`StateHash` 的注）；
+        /// ③ `CostMod.Criteria` 的**整对象 / 引用身份** —— 它是卡池里的共享筛选器对象，
+        ///    没有规范化序列化 ⇒ 只取它那几个**字符串判据**（`KindWord`/`Keyword`/`Name`）+ `WarlordOnly`；
+        /// ④ `TempControls[i].Unit` 的**对象引用** —— 只取它的归属/回合/原格号（引用身份跨进程不可比）；
+        /// ⑤ `PlayerState.Name` / 玩家名 / `ProfileData` —— 那是**档案**，不是对局状态。</para>
+        ///
+        /// <para>🧨 **改坏法（灭自证）**：把下面任意一维删掉 ⇒ `Editor/BattleScene.cs` 第 21·2 节
+        /// 对应的那条「只改那一格 ⇒ 哈希必须不同」当场红（13 维各一条）；
+        /// 其中 `QuestMilestone` / `TurnCount` / `ManaCarry` 三条**没有单独立断言**
+        /// （它们是同一族的派生量，由「改一格 ⇒ 哈希变」那一族间接覆盖 —— 如实标注，别当已经逐条验过）。</para></summary>
         static int PlayerHash(BattleContext ctx, int p)
         {
             var ps = ctx.Players[p];
@@ -487,6 +518,15 @@ namespace CardPresentation.Net
                 h = h * 31 + ps.Discard.Count;
                 h = h * 31 + ps.Energy;
                 h = h * 31 + ps.MaxEnergy;
+                // —— 🆕 2026-10-23（`D2`）：阵营资源 / 疲劳 / 计数类 ——
+                h = h * 31 + ps.Faith;
+                h = h * 31 + ps.SpiritStones;
+                h = h * 31 + ps.QuestPoints;
+                h = h * 31 + ps.QuestMilestone;
+                h = h * 31 + ps.Fatigue;
+                h = h * 31 + ps.SecretsPlayed;
+                h = h * 31 + ps.TurnCount;
+                h = h * 31 + ps.ManaCarry;
                 if (ps.Warlord != null)
                 {
                     h = h * 31 + Hash(ps.Warlord.Card != null ? ps.Warlord.Card.Id : null);
@@ -495,10 +535,33 @@ namespace CardPresentation.Net
                     h = h * 31 + ps.Warlord.RangedAttack;
                     h = h * 31 + ps.Warlord.Armor;
                 }
-                for (int i = 0; i < ps.Hand.Count && i < 12; i++)
-                    h = h * 31 + Hash(ps.Hand[i] != null && ps.Hand[i].Card != null ? ps.Hand[i].Card.Id : null);
-                for (int i = 0; i < ps.Deck.Count; i += 7)
+                // 手牌：**身份 + 这一份自己的降/加费**（`CostDelta`；同名两张可以不一样）
+                for (int i = 0; i < ps.Hand.Count; i++)
+                {
+                    var c = ps.Hand[i];
+                    h = h * 31 + Hash(c != null && c.Card != null ? c.Card.Id : null);
+                    h = h * 31 + (c != null ? c.CostDelta : 0);
+                }
+                // 牌库：**全量**滚动（原来是「每 7 张取 1」⇒ 中间那些被换掉了也看不出来）
+                for (int i = 0; i < ps.Deck.Count; i++)
                     h = h * 31 + Hash(ps.Deck[i] != null && ps.Deck[i].Card != null ? ps.Deck[i].Card.Id : null);
+                // 弃牌堆：原来**一张都没进**（只数了张数）
+                for (int i = 0; i < ps.Discard.Count; i++)
+                    h = h * 31 + Hash(ps.Discard[i] != null && ps.Discard[i].Card != null ? ps.Discard[i].Card.Id : null);
+                // 手牌效果记录表（原版 `PlayerHand.activeEffects // +0x48`）—— 它**不跟着手牌走**
+                //（载体离手之后记录还在，后来进手牌的牌照样吃得上）⇒ 必须单独进指纹。
+                h = h * 31 + ps.HandEffectRecords.Count;
+                for (int i = 0; i < ps.HandEffectRecords.Count; i++)
+                {
+                    var e = ps.HandEffectRecords[i];
+                    if (e == null) { h = h * 31 + 0; continue; }
+                    h = h * 31 + e.RecordId;
+                    h = h * 31 + Hash(e.Source);
+                    h = h * 31 + (int)e.Expire;
+                    h = h * 31 + e.ExpireTurn;
+                    h = h * 31 + e.OnlyInstanceId;
+                    if (e.Uses != null) { h = h * 31 + e.Uses.Left; h = h * 31 + (e.Uses.Limited ? 1 : 0); }
+                }
                 for (int s = 0; s < ps.Board.Length; s++)
                 {
                     var u = ps.Board[s];
@@ -509,19 +572,103 @@ namespace CardPresentation.Net
                     h = h * 31 + u.RangedAttack;
                     h = h * 31 + u.Armor;
                     h = h * 31 + (u.Exhausted ? 1 : 0);
+                    // 🆕 附魔层（原版 `EntityScript.activeEnchantments // +0x110`）
+                    var ench = u.Instance != null ? u.Instance.ActiveEnchantments : null;
+                    h = h * 31 + (ench != null ? ench.Count : 0);
+                    if (ench != null)
+                        for (int k = 0; k < ench.Count; k++)
+                        {
+                            var a = ench[k];
+                            h = h * 31 + (a != null ? a.EnchantmentCardId : 0);
+                            h = h * 31 + Hash(a != null && a.Card != null ? a.Card.Id : null);
+                        }
                 }
+                // 🆕 费用修正（`ctx.CostMods` 是**对局级**列表，按 `Player` 归属本玩家）
+                int cm = 0;
+                for (int i = 0; i < ctx.CostMods.Count; i++)
+                {
+                    var m = ctx.CostMods[i];
+                    if (m == null || m.Player != p) continue;
+                    cm++;
+                    h = h * 31 + Hash(m.Key);
+                    h = h * 31 + m.Delta;
+                    h = h * 31 + m.ExpireTurn;
+                    h = h * 31 + m.HandOf;
+                    h = h * 31 + m.HandInstanceId;
+                    h = h * 31 + (m.Once ? 1 : 0);
+                    h = h * 31 + Hash(m.Tag);
+                    var cr = m.Criteria;
+                    h = h * 31 + (cr == null ? 0 : 1);
+                    if (cr != null)
+                    {
+                        h = h * 31 + Hash(cr.KindWord);
+                        h = h * 31 + Hash(cr.Keyword);
+                        h = h * 31 + Hash(cr.Name);
+                        h = h * 31 + (cr.WarlordOnly ? 1 : 0);
+                    }
+                }
+                h = h * 31 + cm;
+                // 🆕 「抢来的单位」（`TempControls` 同样是**对局级**；归属 = 原主 `Owner`）
+                int tc = 0;
+                for (int i = 0; i < ctx.TempControls.Count; i++)
+                {
+                    var t = ctx.TempControls[i];
+                    if (t == null || t.Owner != p) continue;
+                    tc++;
+                    h = h * 31 + t.Turn;
+                    h = h * 31 + t.Slot;
+                }
+                h = h * 31 + tc;
+                // 🆕 阵亡表（「自你上个回合之后死的」那个窗口全靠它）
+                int du = 0;
+                for (int i = 0; i < ctx.DeadUnits.Count; i++)
+                {
+                    var d = ctx.DeadUnits[i];
+                    if (d == null || d.Owner != p) continue;
+                    du++;
+                    h = h * 31 + Hash(d.Card != null ? d.Card.Id : null);
+                    h = h * 31 + d.DeathTurn;
+                }
+                h = h * 31 + du;
                 return h;
             }
         }
 
-        /// <summary>字符串 → 稳定整数（`string.GetHashCode` **不保证跨进程一致** ⇒ 自己算一个）。</summary>
-        static int Hash(string s)
+        /// <summary>字符串 → **跨进程稳定**的整数（`string.GetHashCode` **不保证跨进程一致** ⇒ 自己算一个）。
+        ///
+        /// <para>🔴 **2026-10-23（引擎线「新账-88」· 深审 B 的 `D1`）：这是全工程【唯一】那份稳定哈希，
+        /// ⛔ 不许在别处再写第二份**。判据 = 本项目自己的红字（`EffectResolver.cs` 里那句
+        /// 「**不能用 `string.GetHashCode`** —— .NET 里按进程随机化，同一局面两次跑会不同」）：
+        /// 那份随机化会让**换一个进程放同一份录像**从第 0 条就报分叉。</para>
+        /// <para>调用点（现读）：`PlayerHash`（本文件）· `BattleDriver.DeepHash`（录像轨迹）。
+        /// 算法 = 31 进制滚动（`h = 23; h = h*31 + c`），**只由字符内容决定** ⇒ 跨运行时/跨进程可复现。
+        /// ⚠️ 它**不是** FNV —— 任务口径里那句「`NetProtocol.Hash()` 的 FNV」是笔误（有一条
+        /// `资料/普查产出_1023d/引擎_新账88_回放自证_执行报告.md` 的「顺手发现」指出来了）；
+        /// 稳定性的判据是「有没有读运行时随机化的东西」，不是具体哪一套折叠。</para>
+        /// <para>⛔ **别改成 `string.GetHashCode()` 的转发**：那会把 `D1` 原样放回来，而且
+        /// **同进程自检照样全绿**（见 `Editor/BattleScene.cs` 那两条字面量锚点）。
+        /// 空串 / `null` 都返回 `0`。</para></summary>
+        public static int Hash(string s)
         {
             if (string.IsNullOrEmpty(s)) return 0;
             unchecked
             {
                 int h = 23;
                 for (int i = 0; i < s.Length; i++) h = h * 31 + s[i];
+                return h;
+            }
+        }
+
+        /// <summary>把一串整数折成一个数 —— **录像轨迹的跨进程对账**用
+        /// （`ReplayRecord.trace` 逐条哈希 → 一个摘要，两个独立进程必须逐位相同）。
+        /// ⚠️ 折叠式与 <see cref="Hash"/> 同一族（`h*31 + v`），⛔ 别换成 `GetHashCode`。</summary>
+        public static int HashOfInts(IList<int> values)
+        {
+            if (values == null) return 0;
+            unchecked
+            {
+                int h = 29;
+                for (int i = 0; i < values.Count; i++) h = h * 31 + values[i];
                 return h;
             }
         }

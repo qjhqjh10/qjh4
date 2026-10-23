@@ -123,9 +123,13 @@ namespace CardPresentation
         /// 原版**近战挨打没有旋转**（`CardScript__ReceiveAttackAnim.c:80-92` 只有一句
         /// `DOPunchPosition`），那两条旋转 punch 属于 `Impact Light/Heavy Tween` = **远程弹着特效的
         /// AnimFX 模块**（90 件 `BulletImpact_*` 引用它），把它当近战挨打是机制错位。
-        /// ⚠️ **`HitRotDuration` 仍有一个消费者**：`EventTiming.cs:191`
-        /// （`DurationOf(EvtKind.Hit) = HitRotDuration + ResetDuration`）—— 那一拍的总时长口径不变，
+        /// ⚠️ **`HitRotDuration` 仍有一个消费者**：`EventTiming.cs` 的
+        /// `DurationOf(EvtKind.Hit) = HitRotDuration + ResetDuration` —— 那一拍的总时长口径不变，
         /// 但**它现在不代表"转了 0.5 秒"**，只是那一拍的长度。⛔ 别因为「没人用」把它删掉。
+        /// 🔴 **2026-10-23（P2 · `新账-78②`）**：既然这两条 punch 是**远程弹着**的，「`Hit` 拍 = 0.5 + 0.25」
+        /// 这个**出处也就不成立了** —— 值仍是 0.75（我们的），但**出处待补**；
+        /// 候选真值 = `CardScript._ReceiveDamage_d__381:342` 的 `WaitForSeconds(1.0)`
+        /// （被 `+0x34` bool 把着、**语义未查清**）⇒ 判据未闭合，⛔ 别猜着改（改它会动整条节奏基线）。
         /// 下面这两段旧注释保留，它们记的是那两条 punch **本身的**读数（将来做远程弹着要用）。
         ///
         /// 命中旋转 punch 的度数 —— **两处一律取 punch 向量的「模长」**（原版那两条 punch

@@ -259,7 +259,7 @@ namespace RuleEngine
                     //    我们是按「AI 自己出牌」调用的 ⇒ 恒取 multiplyByFriend（报告 §三 已记）。
                     int p = thisSide;
                     int hand = ctx.Players[p].Hand.Count;
-                    float v = RuleCore.HandMax - hand - 1;
+                    float v = RuleCore.HandMaxFor(ctx) - hand - 1;
                     if (ctx.Players[p].Deck.Count == 0)
                         v = -2f - ctx.Players[p].Fatigue;      // ⚠️ A2144 原写「手牌数」= 误读，见文件头
                     return baseValue + e.multiplyByFriend * mult * v;
@@ -372,7 +372,7 @@ namespace RuleEngine
             if (ctx == null || p < 0 || p > 1) return 0f;
             int hand = ctx.Players[p].Hand.Count;
             if (ctx.Players[p].Deck.Count == 0) return -2f - ctx.Players[p].Fatigue;
-            return RuleCore.HandMax - hand - 1;
+            return RuleCore.HandMaxFor(ctx) - hand - 1;
         }
 
         /// <summary>

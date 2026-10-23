@@ -26,8 +26,10 @@
 /Unity/MyGame/Assets/WarpforgeVFX/*
 !/Unity/MyGame/Assets/WarpforgeVFX/Runtime/
 !/Unity/MyGame/Assets/WarpforgeVFX/Shaders/
+!/Unity/MyGame/Assets/WarpforgeVFX/Editor/
 !/Unity/MyGame/Assets/WarpforgeVFX/Runtime.meta
 !/Unity/MyGame/Assets/WarpforgeVFX/Shaders.meta
+!/Unity/MyGame/Assets/WarpforgeVFX/Editor.meta
 
 # ---------- 原版 shader 编译字节码（不是我们写的，不能分发）----------
 /Unity/MyGame/Assets/StreamingAssets/WarpforgeVFX/

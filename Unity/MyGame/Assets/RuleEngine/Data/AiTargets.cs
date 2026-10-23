@@ -509,88 +509,20 @@ namespace RuleEngine
         static bool MeetsCondition(BattleContext ctx, AiTargetRef t, int cond, bool exclude)
         {
             if (cond == 0) return true;
-            bool ok;
-            var u = t.Unit;
-            var card = t.Card;
-            switch (cond)
-            {
-                case 10: // canAttack —— 原版读 `+0x230` canAct（我们的 `Exhausted` 就是那一位）
-                    ok = u != null && !u.Exhausted;
-                    break;
-                case 20: // mightAttack
-                    ok = u != null && !u.Exhausted;
-                    break;
-                case 40: // damaged —— `GetCurrentDamage >= 1 && !EnoughPendingHealingToFull`
-                    ok = u != null && u.Health < u.MaxHealth;
-                    break;
-                case 50: // flying
-                    ok = HasTrait(t, "flying");
-                    break;
-                case 100: // protectedFromDamage（dodge / invulnerable）
-                    ok = HasTrait(t, "dodge") || HasTrait(t, "invulnerable");
-                    break;
-                case 110: // protectedFromAttackDamage（dodge）
-                    ok = HasTrait(t, "dodge");
-                    break;
-                case 120: // protectedFromDamageOrSurvivor
-                    ok = HasTrait(t, "dodge") || HasTrait(t, "invulnerable")
-                      || (u != null && u.Survivor > 0);
-                    break;
-                case 190: // hasAbility
-                    ok = u != null ? u.HasAbility : card != null && card.Ability != null;
-                    break;
-                case 221: // diedThisTurn —— 原版 `CardScript.HasDiedThisTurn` = `card.turnDied == bm.turnCounter`
-                {
-                    // 我们的逐卡账 = `ctx.DeadUnits`（`{Card, Owner, DeathTurn}`，`BattleContext.cs:85-101`）
-                    // `DeathTurn` 与 `ctx.Turn` 比。⚠️ 它按**卡模板**存 ⇒ 同名牌两张死在不同回合时
-                    // 这一条分不清是哪一份（`DeadUnit` 的注释已记这个边界）。
-                    ok = false;
-                    if (ctx != null && card != null)
-                    {
-                        for (int i = 0; i < ctx.DeadUnits.Count; i++)
-                        {
-                            var d = ctx.DeadUnits[i];
-                            if (d != null && d.Owner == t.Side
-                                && ReferenceEquals(d.Card, card) && d.DeathTurn == ctx.Turn)
-                            { ok = true; break; }
-                        }
-                    }
-                    break;
-                }
-                case 243: // isPraying（`EntityScript.isPraying` = 我们的 `UnitState.Prayed`）
-                    ok = u != null && u.Prayed;
-                    break;
-                case 244: // hasArmour
-                    ok = (u != null && u.Armor > 0) || (card != null && card.ArmourFromPool > 0);
-                    break;
-                case 245: // hasAttackValues
-                    ok = u != null ? (u.Attack > 0 || u.RangedAttack > 0)
-                                   : card != null && (card.Attack > 0 || card.RangedAttack > 0);
-                    break;
-                case 270: // isWarlordEquivalent
-                    ok = u != null && u.IsWarlord;
-                    break;
-                case 330: // stealthOrWardOrDuplicitous
-                    ok = HasTrait(t, "stealth") || HasTrait(t, "ward") || HasTrait(t, "duplicitous");
-                    break;
-                case 331: // stealthOrCamouflage
-                    ok = HasTrait(t, "stealth") || HasTrait(t, "camouflage");
-                    break;
-                case 340: // onlyRemnants
-                    ok = u != null && u.IsRemnant;
-                    break;
-                case 341: // canUseDuty
-                    ok = u != null && u.Card != null && !u.DutyUsed
-                      && u.Card.TriggerOps("duty") != null;
-                    break;
-                case 342: // summonSickness
-                    ok = u != null && u.SummonSickness;
-                    break;
-                default:
-                    // 未实现的条件 ⇒ **不成立**（原版：没有单位满足 ⇒ 空表）。⛔ 不猜。
-                    return false;
-            }
-            return exclude ? !ok : ok;
+
+            // 🔴 2026-10-23（引擎线 · `AiTargets 两份判据`）裁定：**只转发到 `ConditionEval`**。
+            //    原版只有一张 `FilterMethods.MeetsConditionCriteria` 表；本方法此前是第二份实现，
+            //    「两处写同一条规则 = 迟早不一致」（`CLAUDE.md` §三）⇒ 收口到引擎侧唯一判据
+            //    `Core/ConditionEval.cs`（`MeetsUnit` / `MeetsCard`）。
+            //    ⚠️ `ConditionEval` 判不了时返回 `null`，这里仍返回 `false` —— 那是 AI 侧的保守口径
+            //    （原版没有单位满足 ⇒ 空表），不是第二份判据。AI 评分现用的 6 格
+            //    （10 / 40 / 243 / 340 / 341 / 221）在 `ConditionEval.KindOf` 里全是 `Kind.Ok`。
+            bool? r = t.Unit != null
+                ? ConditionEval.MeetsUnit(ctx, t.Unit, cond, exclude)
+                : (t.Card != null
+                    ? ConditionEval.MeetsCard(ctx, t.Card, t.Side, cond, exclude)
+                    : (bool?)null);
+            return r ?? false;
         }
 
         /// <summary>原版 `FilterMethods.MeetsTraitCriteria`：`trait == 0` ⇒ 不筛；

@@ -560,6 +560,39 @@ namespace CardPresentation
         /// ⚠️ 只增不减（没有 reset）—— 自检要断的是「报了没有」，不是「报了几次」。</summary>
         public static int NoFactionVariantWarns { get { return _warnedNoFaction.Count; } }
 
+        // ============================ 🆕 2026-10-23（P2 · `新账-75③`）：**多播里钉不上 `AnimTimes` 的候选** ============================
+        //   `ResolveAllTimed` 的多播桶里，天赋动画那一批（`ShieldTraitEffect_Idle` / `FlyingEffect` /
+        //   `StealthEffect` / `CamouflageEffect` …）在卡的 `animTimes` 里**没有行** ⇒ `T = 0`（只有自身
+        //   `vfxDelayTime`，现读全 0）⇒ 与主件**同一瞬间**起播。原版是每件各等**自己的** `vfxDelayTime`
+        //   （`BattleManager__ResolveTraitAnim` 起手 `WaitForSeconds`）。
+        //   ⇒ 今天**行为等价**，但原来**一个字都不说**；将来某件天赋动画的 `vd > 0` 就会静默错。
+        //   ⚠️ 只对**多播桶**（`n > 1`）计数/出声（单候选钉不上是常态，见 `ResolveAllTimed` 里那一句）。
+        static readonly HashSet<string> _warnedUnpinned = new HashSet<string>();
+        const int UnpinnedWarnCap = 16;
+
+        /// <summary>🆕 自检用：累计「多播桶里有 CardAnim 名却钉不上 `AnimTimes` 行」的候选数
+        /// （每次解析都累加；扫全池前先调 <see cref="ResetUnpinnedForTest"/>）。</summary>
+        public static int UnpinnedPicks { get; private set; }
+        /// <summary>🆕 自检用：已经**出声过**的 (事件, 卡, 件) 种数（去重；上限 `UnpinnedWarnCap`）。</summary>
+        public static int UnpinnedWarnCount { get { return _warnedUnpinned.Count; } }
+        /// <summary>🆕 自检用：清零（不改变已载的表）。</summary>
+        public static void ResetUnpinnedForTest() { UnpinnedPicks = 0; _warnedUnpinned.Clear(); }
+
+        /// <summary>🆕 2026-10-23：多播桶里某条候选钉不上 `CardAnimTime` ⇒ 出声一次（去重 + 上限）。
+        /// ⚠️ **只出声、不改变任何播放**（判据见上面那一段）。</summary>
+        static void NoteUnpinnedPick(string evt, string card, CardPick p, int total)
+        {
+            UnpinnedPicks++;
+            if (_warnedUnpinned.Count >= UnpinnedWarnCap) return;
+            string key = evt + "|" + card + "|" + (p.A ?? p.N);
+            if (!_warnedUnpinned.Add(key)) return;
+            Debug.LogWarning($"[VfxMap] `{card}` 的 `{evt}` 有 {total} 个候选，其中 `{p.A ?? p.N}` **钉不上** "
+                           + "`AnimTimes` 行（这张卡的 `animTimes` 里没有这一件的记录）⇒ 它的起点 `T` 只有自身 "
+                           + "`vfxDelayTime`（现读天赋件全为 0 ⇒ **与主件同一瞬间起播**）。原版每件各等自己的 "
+                           + "`vfxDelayTime`（`BattleManager__ResolveTraitAnim`）。⛔ 这不是「不播」，是**时刻未知**；"
+                           + $"上限 {UnpinnedWarnCap} 条，其余只计数（`VfxMap.UnpinnedPicks`）。");
+        }
+
         /// <summary>某件**按阵营**配的东西，这个阵营没有候选 ⇒ 出声（⛔ 不静默留白，也不硬凑一件替代品）。
         /// `what` = 那件东西的名字（事件名 / `阵营召唤法阵（deploy）`），同时做去重键与日志里的主语。</summary>
         static void WarnNoFactionVariant(string what, string faction, string detail)
@@ -1241,7 +1274,18 @@ namespace CardPresentation
             {
                 pin[i] = -1;
                 int idx = FindAnimTimeIndex(times, cursor, picks[i]);
-                if (idx < 0) continue;              // 钉不上 ⇒ 该条 T 只有自身 `vfxDelayTime`
+                if (idx < 0)
+                {
+                    // 🆕 2026-10-23（P2 · `新账-75③`）：**多播桶里钉不上的候选要出声一次**。
+                    //   行为**一个字不变**（照旧 `T` 只有自身 `vfxDelayTime`）—— 原来这条**彻底静默**：
+                    //   现读 `ability` 桶里这类候选 **68** 个（天赋动画 `ShieldTraitEffect_Idle` /
+                    //   `FlyingEffect` / `StealthEffect` … 它们不在卡的 `animTimes` 里）；
+                    //   今天等价只是因为**天赋动画的 `vfxDelayTime` 全为 0**，将来数据一变就会静默错。
+                    //   ⚠️ 只对 `n > 1`（多播）出声：单候选钉不上是**常态**（逐卡攻击件大多没有 `animTimes` 行），
+                    //      对它出声会把真正的告警淹没。
+                    if (n > 1) NoteUnpinnedPick(evt, cardIdOrName, picks[i], n);
+                    continue;              // 钉不上 ⇒ 该条 T 只有自身 `vfxDelayTime`
+                }
                 pin[i] = idx;
                 cursor = idx + 1;                   // ③ 游标只前进：同名重复按顺序逐次消费
             }
@@ -1852,8 +1896,52 @@ namespace CardPresentation
                 case "UseFaith":
                 case "UseSpiritStone":
                     return true;
+                // ---- 🆕 2026-10-23（引擎线 `codex 能力触发`）：`Codex` ----
+                //   发射口是真的：`RuleCore.CheckCodex` → `FireTriggerAt(..., KeywordTable.Codex)`
+                //   → `EvtKind.Trigger`（`FireTriggerAt` 头部那句 `ctx.Emit`，keyword = `codex`）。
+                //   放行的理由：候选侧原版名 = `CardAnimTime.TriggerName = "Codex"`（现读 31 张
+                //   带 `Codex` 的卡里 **21 张有 Codex 动画行**；旧账写「0 张」已过期 —— 铁律 5）。
+                //   不放行 ⇒ `target` 恒 null ⇒ 整张 `trigger` 桶乱播（UM15 只有 `CodexEffect`
+                //   看着没事，多 trigger 行时会多播）。`NameIs` 大小写不敏感 ⇒ `codex` ↔ `Codex` 直接对上。
+                case "Codex":
+                // ---- 🆕 2026-10-23（特效线「新账-86」）：`Rage`（= `penitence` 的**原版枚举名**）----
+                //   判据三条（全文 → `资料/普查产出_1023c/Trait_pentitence与静音桶溯源.md` §A / §D）：
+                //     · `penitence` = `DefinedTrait.rage = 280` 的**官方显示名**：
+                //       `Unity/工具/gen_cards_engine.py:2002` 的 `TRAIT_DISPLAY["rage"] = "Penitence"`；
+                //       官方本地化 `Card_Trait/rage` = [「Penitence」,「忏悔」]，而
+                //       **`Card_Trait/penitence` 官方 0 条** ⇒ 它**不是**另一个 trait。
+                //     · 引擎按**规范键**发事件：`RuleCore.HurtCore` → `FireTriggerOnBoard(..., KeywordTable.Penitence)`
+                //       （`RuleCore.cs:7952`；`doubleRage` 那一路 `:7994` 同），事件载荷里的 `keyword`
+                //       就是小写的 `"penitence"`（`KeywordTable.Penitence`，`CardDef.cs:4882`）。
+                //     · 候选那一侧的原版名 = `AbilityTrigger.Rage = 130`
+                //       ⇒ 五张卡（`SOR8/10/21/27/32`）的 `CardAnimTime.TriggerName` 全是 **`"Rage"`**
+                //       （`cards_engine.json` 现读，5 张全一样）。
+                //   ⇒ 两边**永不相交**：不放行的话 `target` 恒为 null ⇒ 这一拍要么播 `trigger` 粗桶
+                //      （`SOR8` = `FlankEffect`，**错件**）、要么什么都不播（`SOR10/21/27/32`）。
+                //   ⚠️ **只有 `Rage` 这一条**：原版 `rage` 的 `traitEffects` 是**空数组**
+                //      （`数据/游戏数据/trait_collection.json`）⇒ ⛔ `trait_effect_bindings.json`
+                //      **不该**加 `penitence` 行（缺的不是数据、是这一处归口）。
+                case "Rage":
+                    return true;
             }
             return false;
+        }
+
+        /// <summary>🆕 2026-10-23（特效线「新账-86」）：**引擎关键词 → 原版 trigger 名**的别名归一。
+        ///
+        /// <para>目前只有一条：**`penitence` → `Rage`**（判据三条 → <see cref="IsRoutedTriggerName"/>
+        /// 里 `case "Rage"` 那一整段注释）。为什么必须有它：`penitence` 是显示名、`Rage` 是原版
+        /// `AbilityTrigger` 枚举名，`NameIs` 是**逐字比较**（大小写不敏感）⇒ 不归一就永远筛不出候选。</para>
+        ///
+        /// <para>🔑 **判据收口在这里**：调用点只认本方法的返回值，⛔ 别在别处再写一份映射。
+        /// 大小写口径与 <see cref="IsRoutedTriggerName"/> 开头两条一致（`OrdinalIgnoreCase`）——
+        /// 引擎发的是小写常量、原版名是 PascalCase。空输入原样回空（调用方先判空）。</para></summary>
+        static string CanonicalTriggerName(string triggerName)
+        {
+            if (string.IsNullOrEmpty(triggerName)) return null;
+            if (string.Equals(triggerName, KeywordTable.Penitence, System.StringComparison.OrdinalIgnoreCase))
+                return "Rage";          // `DefinedTrait.rage = 280` 的枚举名（`AbilityTrigger.Rage = 130`）
+            return triggerName;
         }
 
         /// <summary>🆕 2026-10-19（W · `T21`）：一条候选**自己那条** `CardAnimTime` 的原版 trigger 名
@@ -1896,7 +1984,9 @@ namespace CardPresentation
         /// ④ 定不出来（同一张卡混着多种 trigger 动画，典型 = `GSC16` 的 `Ambush` + `Strike`）⇒
         ///    **原样回 `trigger` 桶**（= 今天的行为）并如实留白 —— ⛔ 不猜（多播比不播更糟）。</para>
         ///
-        /// <para>**目标怎么定**：`keyword` 非空且是 <see cref="IsRoutedTriggerName"/> 认的那一批 ⇒ 用它；
+        /// <para>**目标怎么定**：`keyword` 非空 ⇒ **先经 <see cref="CanonicalTriggerName"/> 归一**
+        /// （🆕 2026-10-23「新账-86」：`penitence` → `Rage`），归一名是
+        /// <see cref="IsRoutedTriggerName"/> 认的那一批 ⇒ 用它；
         /// 否则**只在「整张卡只标出一种 trigger 名、且它是那一批之一」时**推断。
         /// ✅ **2026-10-19（战斗线 `T21`）就地更新**：`keyword` **生产路径已经传得进来了**
         /// （`BattleDriver.PlaySignal` → `FireEventAll(keyword:)`）。保守推断档只剩给
@@ -1947,10 +2037,18 @@ namespace CardPresentation
             if (hasAbil) foreach (var p in abil) AddTriggerName(names, TriggerNameOf(times, p));
 
             // ② 定目标
+            //   🆕 2026-10-23（特效线「新账-86」）：**先归一成原版 trigger 名再判白名单**
+            //   （`penitence` → `Rage`，映射只在 `CanonicalTriggerName` 一处）。不归一的话
+            //   `target = "penitence"` 与候选侧的 `"Rage"` 永远 `NameIs` 不上 ⇒ 这一拍照样播不出来。
             string target = null;
-            if (!string.IsNullOrEmpty(keyword) && IsRoutedTriggerName(keyword)) target = keyword;
-            else if (string.IsNullOrEmpty(keyword) && names.Count == 1 && IsRoutedTriggerName(names[0]))
-                target = names[0];
+            string targetSrc = !string.IsNullOrEmpty(keyword)
+                             ? keyword
+                             : (names.Count == 1 ? names[0] : null);   // 保守推断档（旧事件 / 自检直调）
+            if (targetSrc != null)
+            {
+                string canonical = CanonicalTriggerName(targetSrc);
+                if (IsRoutedTriggerName(canonical)) target = canonical;
+            }
             if (target == null)
             {
                 // 🆕 2026-10-20（`FACTION-DOUBLE605`）：带能力序号的拍**判不出目标 trigger 就留白**

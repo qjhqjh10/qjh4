@@ -26754,6 +26754,275 @@ public static class BattleScene
                     + " —— 闩是 `_settled`、不是面板可见性");
             }
 
+            // ============================================================
+            //  21. 🆕 2026-10-23（引擎线「新账-88」· 深审 B 的 `D1`/`D2`/`E1`）：**回放自证那三条**
+            //  ------------------------------------------------------------
+            //  判据 → `资料/普查产出_1023c/引擎深审B_可用性.md` §1·2（D1 / D2）、§4·2（E1）；
+            //         执行报告 → `资料/普查产出_1023d/引擎_新账88_回放自证_执行报告.md`。
+            //  三格各一条：
+            //    21·1 `DeepHash` 的卡 id 必须走**跨进程稳定**的哈希（⛔ `string.GetHashCode()`）；
+            //    21·2 `StateHash` 必须**演错了就判得出不同**（每一维一条「只改那一格 ⇒ 哈希必须变」）；
+            //    21·3 AI 替先手/后手选环境卡**不许挪动 `ctx.Rng`**（开关打开时整条随机流不错位）。
+            //  ⚠️ 期望值纪律：21·1 用**字面量**（⛔ 不从被测代码算）；21·2 / 21·3 断的是
+            //     「两次读数**不相等**」这个**结构**（每一维同时就是它自己那条的灭自证）。
+            // ============================================================
+            {
+                // ---- 21·1：`DeepHash` 的**跨进程锚点** ----
+                // 两个数都只由字符内容决定 —— 换任何运行时 / 换一个进程都该复现；
+                // `string.GetHashCode()` 给不出它们（.NET 的字符串哈希**按进程随机化**）。
+                Check(NetProtocol.Hash("A") == 778 && NetProtocol.Hash("AB") == 24184,
+                      $"★ 新账-88①：稳定哈希的字面量锚点（`Hash(\"A\")` = {NetProtocol.Hash("A")}、"
+                    + $"`Hash(\"AB\")` = {NetProtocol.Hash("AB")}；期望 **778 / 24184** = 23*31+65 / 778*31+66）"
+                    + "｜🧨 实现退回 `string.GetHashCode()` ⇒ 这两个数随进程变 ⇒ 红");
+                {
+                    // 一个**完全由字面量拼出来**的局面（空棋盘 · 一张手牌 `Id = "A"` · 实例号 7 · 能量 3）。
+                    // 期望数 = 按 `DeepHash` 的算式**逐字节**手算出来的（不是跑被测代码得到的读数）。
+                    var dhCtx = new RuleEngine.BattleContext(1);
+                    dhCtx.Players[0] = new RuleEngine.PlayerState();
+                    dhCtx.Players[1] = new RuleEngine.PlayerState();
+                    dhCtx.Players[0].Energy = 3;
+                    dhCtx.Players[0].Hand.Add(new RuleEngine.CardInstance(
+                        new RuleEngine.CardDef("A", "Alpha", "unit", "", "common", "Ultramarines",
+                                               1, 1, 1, 0), 7));
+                    int dhGot = BattleDriver.DeepHashForTest(dhCtx);
+                    Check(dhGot == -96317188,
+                          $"★ 新账-88①：**跨进程锚点** —— 全字面量的局面 `DeepHash` = {dhGot}（期望 **-96317188**）"
+                        + " —— 这个数只有「与运行时无关」的哈希算得出来；"
+                        + "今天 Unity Mono 下 `GetHashCode()` 恰好稳定，所以**同进程自检本来是绿的**"
+                        + "｜🧨 卡 id 那一格退回 `string.GetHashCode()` ⇒ 随进程变 ⇒ 红"
+                        + "（换 CoreCLR / 换运行时的那一天，这条是唯一先红的东西）");
+                }
+
+                // ---- 21·2：`StateHash` 的**每一维都要能判出不同** ----
+                // 手法：同一局面 → **只改一格** ⇒ 哈希必须变；改回来 ⇒ 必须变回去。
+                // ⛔ 期望值不是从被测代码算的：判据是「两次读数不相等 / 相等」这个结构。
+                // 🧨 每一维都是它自己的灭自证：把那一维从 `NetProtocol.PlayerHash` 删掉 ⇒ 那一条红。
+                {
+                    bool svPhase2 = driver.offensivePhaseEnabled, svMul2 = driver.mulliganEnabled;
+                    driver.offensivePhaseEnabled = false;   // 这一格不验环境卡那一段（21·3 才验）
+                    driver.mulliganEnabled = false;
+                    driver.Begin(BattleDriver.DefaultFactionA, BattleDriver.DefaultFactionB, 20260923);
+                    driver.offensivePhaseEnabled = svPhase2;
+                    driver.mulliganEnabled = svMul2;
+                    var hc = driver.Ctx;
+                    Check(hc != null && hc.Players[0].Deck.Count >= 8,
+                          $"（21·2 夹具）局面够用（牌库 {hc?.Players[0].Deck.Count ?? -1} 张，至少要 8 张）");
+                    if (hc != null && hc.Players[0].Deck.Count >= 8)
+                    {
+                        // 找一对**不同名、且下标都不是 7 的倍数**的牌 —— 后半个条件是要**正对**
+                        // 「牌库每 7 张取 1」那个旧口径的洞（换成任意一对也能红，但不精确）。
+                        int di = -1, dj = -1;
+                        var deck2 = hc.Players[0].Deck;
+                        for (int i = 1; i < deck2.Count && di < 0; i++)
+                            for (int j = i + 1; j < deck2.Count; j++)
+                            {
+                                if (i % 7 == 0 || j % 7 == 0) continue;
+                                if (deck2[i]?.Card?.Id != deck2[j]?.Card?.Id) { di = i; dj = j; break; }
+                            }
+                        Check(di >= 0, "（21·2 夹具）牌库里找得到一对「不同名、下标都不是 7 的倍数」的牌");
+
+                        System.Func<int> H2 = () => NetProtocol.StateHash(driver.Ctx);
+                        int hb = 0, ha = 0, hr = 0;
+                        System.Func<System.Action, System.Action, bool> mut = (apply, undo) =>
+                        {
+                            hb = H2(); apply(); ha = H2(); undo(); hr = H2();
+                            return ha != hb && hr == hb;
+                        };
+                        var p0 = hc.Players[0];
+                        var p1 = hc.Players[1];
+                        int f0;
+
+                        f0 = p1.Faith;  Check(mut(() => p1.Faith = f0 + 3, () => p1.Faith = f0),
+                            $"★ 新账-88②：**信仰 `Faith`** 进了 `StateHash`（{hb} → {ha} → 复原 {hr}）"
+                          + "｜🧨 删掉 `ps.Faith` 那一维 ⇒ 两次读数相等 ⇒ 红");
+                        f0 = p1.SpiritStones; Check(mut(() => p1.SpiritStones = f0 + 2, () => p1.SpiritStones = f0),
+                            $"★ 新账-88②：**灵魂石 `SpiritStones`**（{hb} → {ha} → 复原 {hr}）"
+                          + "｜🧨 删掉那一维 ⇒ 红");
+                        f0 = p1.QuestPoints; Check(mut(() => p1.QuestPoints = f0 + 1, () => p1.QuestPoints = f0),
+                            $"★ 新账-88②：**任务点 `QuestPoints`**（{hb} → {ha} → 复原 {hr}）"
+                          + "｜🧨 删掉那一维 ⇒ 红");
+                        f0 = p1.Fatigue; Check(mut(() => p1.Fatigue = f0 + 1, () => p1.Fatigue = f0),
+                            $"★ 新账-88②：**疲劳 `Fatigue`**（{hb} → {ha} → 复原 {hr}）"
+                          + "｜🧨 删掉那一维 ⇒ 红");
+                        f0 = p0.SecretsPlayed; Check(mut(() => p0.SecretsPlayed = f0 + 1, () => p0.SecretsPlayed = f0),
+                            $"★ 新账-88②：**本局隐秘张数 `SecretsPlayed`**（{hb} → {ha} → 复原 {hr}）"
+                          + "｜🧨 删掉那一维 ⇒ 红");
+                        // 牌库：**中间那两张对调**（张数与首尾都不变；旧口径「每 7 张取 1」看不见）
+                        if (di >= 0)
+                        {
+                            var ci = deck2[di]; var cj = deck2[dj];
+                            Check(mut(() => { deck2[di] = cj; deck2[dj] = ci; },
+                                      () => { deck2[di] = ci; deck2[dj] = cj; }),
+                                  $"★ 新账-88②：**牌库全量**（把第 {di} 张与第 {dj} 张对调、张数不变；"
+                                + $"{hb} → {ha} → 复原 {hr}）"
+                                + "｜🧨 换回「每 7 张取 1」⇒ 这两个下标都不是 7 的倍数 ⇒ 两次读数相等 ⇒ 红");
+                        }
+                        // 弃牌堆：**张数不变、内容换一张**（旧口径只数张数 ⇒ 看不见）
+                        {
+                            var dc = p0.Discard;
+                            int nDc = dc.Count;
+                            int hBeforeDc = H2();
+                            var addC = deck2[di >= 0 ? di : 0];
+                            var otherC = deck2[dj >= 0 ? dj : 1];
+                            bool diffC = addC != null && otherC != null
+                                      && addC.Card != null && otherC.Card != null
+                                      && addC.Card.Id != otherC.Card.Id;
+                            Check(diffC, "（21·2 夹具）弃牌堆那两档用的确实是**两张不同名**的牌");
+                            if (diffC)
+                            {
+                                dc.Add(addC);
+                                int hA = H2();
+                                dc[dc.Count - 1] = otherC;          // 仍张数 +1，**只换内容**
+                                int hB = H2();
+                                dc.RemoveAt(dc.Count - 1);
+                                int hR = H2();
+                                Check(hA != hB && hR == hBeforeDc && dc.Count == nDc,
+                                      $"★ 新账-88②：**弃牌堆内容**（同张数、换一张 ⇒ {hA} → {hB}；清掉 ⇒ {hR}，"
+                                    + $"期望回到 {hBeforeDc}）"
+                                    + "｜🧨 删掉 `Discard` 那一段（旧口径只数张数）⇒ 两次读数相等 ⇒ 红");
+                            }
+                        }
+                        Check(mut(() => p0.HandEffectRecords.Add(new RuleEngine.CardInstance.HandEffect
+                                      { RecordId = 987654, Source = "probe", ExpireTurn = 3 }),
+                                  () => p0.HandEffectRecords.RemoveAt(p0.HandEffectRecords.Count - 1)),
+                              $"★ 新账-88②：**手牌效果记录表 `HandEffectRecords`**（{hb} → {ha} → 复原 {hr}）"
+                            + "｜🧨 删掉那一段 ⇒ 红");
+                        Check(mut(() => hc.CostMods.Add(new RuleEngine.CostMod
+                                      { Player = 1, Key = "*", Delta = -2, HandOf = 0 }),
+                                  () => hc.CostMods.RemoveAt(hc.CostMods.Count - 1)),
+                              $"★ 新账-88②：**费用修正 `CostMods`**（{hb} → {ha} → 复原 {hr}）"
+                            + "｜🧨 删掉那一段 ⇒ 红");
+                        Check(mut(() => hc.TempControls.Add(new RuleEngine.BattleContext.TempControl
+                                      { Owner = 1, Turn = hc.Turn, Slot = 0 }),
+                                  () => hc.TempControls.RemoveAt(hc.TempControls.Count - 1)),
+                              $"★ 新账-88②：**抢来的单位 `TempControls`**（{hb} → {ha} → 复原 {hr}）"
+                            + "｜🧨 删掉那一段 ⇒ 红");
+                        f0 = hc.EnchantmentsUsed;
+                        Check(mut(() => hc.EnchantmentsUsed = f0 + 1, () => hc.EnchantmentsUsed = f0),
+                              $"★ 新账-88②：**附魔计数 `EnchantmentsUsed`**（{hb} → {ha} → 复原 {hr}）"
+                            + "｜🧨 删掉 `StateHash` 里那一格 ⇒ 红");
+                        // 附魔（挂在单位身上那一条）—— 用督军这一份当载体（它一定在场、一定有 `Instance`）
+                        var wu = p0.Warlord;
+                        Check(wu != null && wu.Instance != null,
+                              "（21·2 夹具）督军那一份有 `CardInstance`（附魔挂载点）");
+                        if (wu != null && wu.Instance != null)
+                        {
+                            Check(mut(() => wu.Instance.ActiveEnchantments.Add(
+                                              new RuleEngine.ActiveEnchantment
+                                              { Card = wu.Card, EnchantmentCardId = 424242 }),
+                                      () => wu.Instance.ActiveEnchantments.RemoveAt(
+                                              wu.Instance.ActiveEnchantments.Count - 1)),
+                                  $"★ 新账-88②：**附魔 `ActiveEnchantments`**（{hb} → {ha} → 复原 {hr}）"
+                                + "｜🧨 删掉棋盘那一格里的附魔循环 ⇒ 红");
+                        }
+                        // 环境卡（进攻卡）那一次选择 —— 只在 `StateHash` 里
+                        Check(mut(() => hc.OffensiveChosen = true, () => hc.OffensiveChosen = false),
+                              $"★ 新账-88②：**进攻卡选择 `OffensiveChosen`**（{hb} → {ha} → 复原 {hr}）"
+                            + "｜🧨 删掉 `StateHash` 里那三格 ⇒ 红");
+                    }
+                }
+
+                // ---- 21·3：AI 选环境卡**不许挪动 `ctx.Rng`** ----
+                // 判据（为什么选「方案 A」、为什么不是「回放端补掷」）→ `BattleDriver.PickOffensiveForAi` 的 doc。
+                // 做法：同一颗种子跑两趟，唯一差别是「AI 要不要挑环境卡」；
+                //      挑完之后从 `ctx.Rng` **连取 8 个数**，两趟必须**逐位相同**。
+                //      （8 个数同时相同的偶然概率 ~1e-48 ⇒ 结构上不可能靠撞上。）
+                // 🧨 改坏法：`PickOffensiveForAi` / `PickDefensiveForAi` 里 `Ctx.AiRng` 改回 `Ctx.Rng`
+                //    ⇒ 挑卡那一趟多掷一次 ⇒ 8 个数整体错位 ⇒ 红。
+                {
+                    bool svP3 = driver.offensivePhaseEnabled, svC3 = driver.offensiveCardEnabled;
+                    bool svD3 = driver.defensiveCardPanelEnabled, svM3 = driver.mulliganEnabled;
+                    try
+                    {
+                        System.Func<bool, bool, int?, int[]> probe = (offOn, defOn, firstSeat) =>
+                        {
+                            driver.offensivePhaseEnabled = true;
+                            driver.offensiveCardEnabled = offOn;
+                            driver.defensiveCardPanelEnabled = defOn;
+                            driver.mulliganEnabled = true;
+                            driver.Begin("Ultramarines", "Goff", 20261024, firstSeatOverride: firstSeat);
+                            if (driver.InMulligan) driver.SimulateMulliganDone();
+                            var a = new int[8];
+                            for (int i = 0; i < a.Length; i++) a[i] = driver.Ctx.Rng.Next(1000000);
+                            return a;
+                        };
+                        string Join8(int[] a) { return string.Join(",", a); }
+
+                        // ① 进攻卡：AI 是**先手** ⇒ 它替先手方挑
+                        int[] offCtl = probe(false, false, 1 - driver.MyIndex);
+                        int[] offRun = probe(true, false, 1 - driver.MyIndex);
+                        bool offPicked = driver.Ctx.OffensiveChosen
+                                      && driver.Ctx.OffensiveSeat == driver.Ctx.FirstSeat;
+                        Check(offPicked,
+                              "★ 新账-88③（前提）：AI **真的**替先手选了进攻卡"
+                            + $"（`OffensiveChosen` = {driver.Ctx.OffensiveChosen}、`OffensiveSeat` = {driver.Ctx.OffensiveSeat}、"
+                            + $"`FirstSeat` = {driver.Ctx.FirstSeat}）—— 没挑的话下面那条是**恒真**");
+                        Check(Join8(offCtl) == Join8(offRun),
+                              "★ 新账-88③：AI 挑**进攻卡**之后，`ctx.Rng` 的下 8 个数**逐位相同**"
+                            + $"（关：{Join8(offCtl)}｜开：{Join8(offRun)}）—— 挑卡不挪动对局随机流"
+                            + "｜🧨 `PickOffensiveForAi` 里改回 `Ctx.Rng.Next` ⇒ 开的那趟整体错一位 ⇒ 红");
+
+                        // ② 防御卡：本机先手 ⇒ AI 是**后手**，替后手方挑
+                        int[] defCtl = probe(false, false, driver.MyIndex);
+                        int[] defRun = probe(false, true, driver.MyIndex);
+                        bool defPicked = driver.Ctx.DefensiveSlotIdx >= 0;
+                        Check(defPicked,
+                              $"★ 新账-88③（前提）：AI **真的**替后手挑了防御卡（`DefensiveSlotIdx` = {driver.Ctx.DefensiveSlotIdx}，"
+                            + "期望 ≥ 0）—— -1 = 走了「卡池里没有这一阵营防御卡」那一支，那下面那条等于没验");
+                        Check(Join8(defCtl) == Join8(defRun),
+                              "★ 新账-88③：AI 挑**防御卡**之后，`ctx.Rng` 的下 8 个数**逐位相同**"
+                            + $"（关：{Join8(defCtl)}｜开：{Join8(defRun)}）"
+                            + "｜🧨 `PickDefensiveForAi` 里改回 `Ctx.Rng.Next` ⇒ 红");
+
+                        // ③ 端到端：**开关打开**录一整局 → 原样放一遍 → 终局指纹必须相等。
+                        //    ⚠️ **故意清掉 `trace`**：`MulliganDone` / 环境卡那几格的轨迹在录制侧取在
+                        //    `BeginTurn` **之前**、回放侧（`NetApply` 把 `EndMulligan`+`BeginTurn` 合成一拍）
+                        //    取在**之后** ⇒ 带 trace 会在那里**假报分叉**（那是**另一条账**，见执行报告
+                        //    「顺手发现」）。这里验的是**随机流**：RNG 一错位，局面必然不同 ⇒ `finalHash` 不等。
+                        //    ⇒ 所以本格**不**拿 `ReplayDivergenceForTest` 当证据（清掉 trace 之后它恒 -1）。
+                        driver.offensivePhaseEnabled = true;
+                        driver.offensiveCardEnabled = true;
+                        driver.defensiveCardPanelEnabled = false;
+                        driver.mulliganEnabled = true;
+                        driver.Begin("Ultramarines", "Goff", 20260927, firstSeatOverride: 1 - driver.MyIndex);
+                        if (driver.InMulligan) driver.SimulateMulliganDone();
+                        var recE = driver.Recording;
+                        bool hasPickE = false;
+                        if (recE != null)
+                            for (int i = 0; i < recE.actions.Count; i++)
+                                if (recE.actions[i] != null && recE.actions[i].kind == NetActionKind.OffensivePick)
+                                    hasPickE = true;
+                        Check(hasPickE,
+                              "★ 新账-88③（前提）：这一局的动作流里**真的**有一条 AI 进攻卡（kind=102）"
+                            + " —— 否则下面那条端到端是恒真的");
+                        int rgE = 0;
+                        while (driver.Ctx != null && !driver.Ctx.IsOver && rgE++ < 400) driver.SimulateAiTurn();
+                        Check(driver.Ctx != null && driver.Ctx.IsOver,
+                              $"★ 新账-88③（夹具）这一局在 {rgE} 次推进内打完了（不然没有录像可放）");
+                        string fE = driver.LastReplayFile;
+                        var recPlayE = string.IsNullOrEmpty(fE) ? null : ReplayStore.Load(fE);
+                        Check(recPlayE != null, $"★ 新账-88③（夹具）这一局的录像读得回来（`{fE}`）");
+                        if (recPlayE != null)
+                        {
+                            recPlayE.trace = new List<int>();     // 理由见上面那段（另一条账）
+                            bool sameE = driver.PlayReplay(recPlayE);
+                            Check(sameE,
+                                  "★ 新账-88③：**开关打开**（AI 替先手挑进攻卡、吃 `AiRng`）录的一整局，"
+                                + "放回来**终局指纹与录制时相等**（= 整条 `ctx.Rng` 流没有错位）"
+                                + "｜🧨 `PickOffensiveForAi` 改回 `Ctx.Rng.Next` ⇒ 录制端多掷一次、回放端不掷"
+                                + " ⇒ 后面的抽牌/洗牌/AI 决策全部错位 ⇒ `finalHash` 不等 ⇒ 红");
+                        }
+                    }
+                    finally
+                    {
+                        driver.offensivePhaseEnabled = svP3;
+                        driver.offensiveCardEnabled = svC3;
+                        driver.defensiveCardPanelEnabled = svD3;
+                        driver.mulliganEnabled = svM3;
+                    }
+                }
+            }
+
             // 上限修剪：多存几份 ⇒ 只留最新的，旧的自动删
             int before = ReplayStore.Count;
             for (int i = 0; i < 3; i++)
@@ -33364,6 +33633,366 @@ public static class BattleScene
                         {
                             driver.ClearAbilityMovesForTest();
                             Object.DestroyImmediate(anchorGoA);
+                        }
+
+                        // ==================================================================
+                        //  🆕 2026-10-23（`新账-83`）：`AnimInfo` 的**弹道三列**
+                        //  ==================================================================
+                        //  【判据（第一权威）】`CardAnimController__Update.c:36-97` + `__Initialize.c:60-90`：
+                        //    · `easeCurve`(0x40)        —— `lerp(start,end,ease((t−ts)/tm))`，clamp 到 [0,1]；
+                        //    · `applyMovementOffsets`(0x49) + `offsetMovementAxis`(0x50)
+                        //                               —— lerp **之后**逐轴叠 `curve(ont?t01:e) × Random.Range(min,max)`；
+                        //    · `orientToVelocity`(0x48) —— 移动期间**每帧** `rotation = LookRotation(速度)`。
+                        //  【症状】三列在 `AnimInfo` 里、`cardanim_clips.json` 原来只烘 `sp/ep/pt/mv/vd/ts/tm/te`
+                        //    ⇒ 手雷 / 炮弹**走直线**（原版是抛物线）、`Jain Zar` 飞出去**不回来**、特效不随速度转向。
+                        {
+                            // ---- ① 数据侧：三列真的进了运行期表 ----
+                            var plG = CardAnimClips.PlacementOf("Atk_GrotGrenade");
+                            Check(plG.HasValue && plG.Value.OffsetAo && plG.Value.OrientToVelocity
+                                  && Mathf.Abs(plG.Value.Mny - 2.5f) < 1e-3f && Mathf.Abs(plG.Value.Mxy - 2.5f) < 1e-3f
+                                  && plG.Value.Ofy != null && plG.Value.Ofy.Length >= 6,
+                                  $"★ 新账-83（数据）：`Atk_GrotGrenade` 带 `ao=1` · `otv=1` · y 弧幅度 [{plG.Value.Mny:F2},{plG.Value.Mxy:F2}]"
+                                + $" · `ofy` {(plG.Value.Ofy == null ? 0 : plG.Value.Ofy.Length / 2)} 个关键帧（原版 y 抛物线 2.5）"
+                                + "｜🧨 生成器不烘 `applyMovementOffsets`/`offsetMovementAxis` ⇒ 本条红");
+                            var plJZ = CardAnimClips.PlacementOf("Atk_JainasMor_Throw_Return");
+                            Check(plJZ.HasValue && plJZ.Value.Ease != null && plJZ.Value.Ease.Length >= 8
+                                  && Mathf.Abs(CardAnimOrder.EaseAt(plJZ.Value.Ease, 1f)) < 1e-3f
+                                  && Mathf.Abs(CardAnimOrder.EaseAt(null, 1f) - 1f) < 1e-3f,
+                                  "★ 新账-83（数据·**唯一非线性**）：`Jain Zar / Atk_JainasMor_Throw_Return` 的 `ease(1) = 0`"
+                                + "（= **飞出去再飞回来**）；🪞 对照组：没有曲线的线性档 `ease(1) = 1`（停在终点）"
+                                + "｜🧨 把 `ease` 当空（线性）⇒ 这一件会停在目标格");
+                            // 普查：33 个攻击 movers 里 `ao=1` / `otv=1` 各多少（判据值从表里现算）
+                            {
+                                var pool83 = RuleEngine.CardDatabase.Load();
+                                int movers83 = 0, ao83 = 0, otv83 = 0, nonlin83 = 0, arc83 = 0;
+                                foreach (var c83 in pool83)
+                                {
+                                    if (c83 == null || string.IsNullOrEmpty(c83.Name)) continue;
+                                    for (int k83 = 0; k83 < 2; k83++)
+                                    {
+                                        string ev83 = k83 == 0 ? VfxMap.AttackRanged : VfxMap.AttackMelee;
+                                        var its83 = VfxMap.ResolveAllTimed(ev83, c83.Faction, c83.Name, c83.AnimTimes);
+                                        if (its83 == null) continue;
+                                        for (int i83 = 0; i83 < its83.Length; i83++)
+                                        {
+                                            if (string.IsNullOrEmpty(its83[i83].Anim)) continue;
+                                            var q83 = CardAnimClips.PlacementOf(its83[i83].Anim);
+                                            if (!q83.HasValue) continue;
+                                            var v83 = q83.Value;
+                                            if (!v83.Move || v83.Tm <= 0f) continue;
+                                            movers83++;
+                                            if (v83.OffsetAo) ao83++;
+                                            if (v83.OrientToVelocity) otv83++;
+                                            if (v83.Ease != null && v83.Ease.Length >= 4
+                                                && Mathf.Abs(CardAnimOrder.EaseAt(v83.Ease, 0.5f) - 0.5f) > 1e-3f) nonlin83++;
+                                            if (v83.OffsetAo
+                                                && (CardAnimOrder.EaseAtRaw(v83.Ofx, 0.5f) != 0f
+                                                    || CardAnimOrder.EaseAtRaw(v83.Ofy, 0.5f) != 0f
+                                                    || CardAnimOrder.EaseAtRaw(v83.Ofz, 0.5f) != 0f)) arc83++;
+                                        }
+                                    }
+                                }
+                                Check(movers83 >= 30 && movers83 <= 40,
+                                      $"★ 新账-83（普查）：全池攻击件里**会飞**的（卡,件）= {movers83}（现读 33）");
+                                Check(ao83 >= 20 && ao83 <= 32 && arc83 >= 15,
+                                      $"★ 新账-83（普查）：其中 `applyMovementOffsets=1` **{ao83}** 件、带非零弧线 **{arc83}** 件"
+                                    + "（现读 26 / 22）—— 手雷与炮弹的抛物线就在这一档"
+                                    + "｜🧨 只烘 `mv`、不烘 `ao` ⇒ 0 ⇒ 红");
+                                Check(otv83 >= 15 && otv83 <= 28,
+                                      $"★ 新账-83（普查）：`orientToVelocity=1` **{otv83}** 件（现读 22）"
+                                    + "｜🧨 不烘 `otv` ⇒ 0 ⇒ 红");
+                                Check(nonlin83 >= 1 && nonlin83 <= 3,
+                                      $"★ 新账-83（**灭自证**）：非线性 `easeCurve` **{nonlin83}** 件（现读 1 = `Jain Zar`）"
+                                    + " —— ⛔ 不是「所有曲线都被当成非线性」；也⛔ 不是「一条都没有」（一条都没有 = 表里没烘 `ease`）");
+                            }
+
+                            // ---- ② 驱动级：抛物线真的叠上去了（`Grot` 手雷 y 弧 2.5）----
+                            var anchor83 = new GameObject("Ballistic83Anchor");
+                            anchor83.transform.position = Vector3.zero;
+                            var tgt83 = new Vector3(10f, 0f, 0f);
+                            try
+                            {
+                                driver.ClearAbilityMovesForTest();
+                                driver.FireAttackVfxForTest("Atk_GrotGrenade", "Atk_GrotGrenade",
+                                                            anchor83.transform, Vector3.zero, tgt83);
+                                driver.TickAbilityMovesForTest(0.4f);              // tm=0.8 ⇒ t01=0.5
+                                var p83 = driver.AbilityMovePosForTest(0);
+                                var f83 = driver.AbilityMoveForwardForTest(0);
+                                driver.ClearAbilityMovesForTest();
+                                Check(p83.HasValue && Mathf.Abs(p83.Value.x - 5f) < 0.3f
+                                      && Mathf.Abs(p83.Value.y - 2.5f) < 0.3f,
+                                      $"★ 新账-83（驱动·**抛物线**）：`Atk_GrotGrenade` 半程在 ({p83?.x:F2}, {p83?.y:F2})"
+                                    + "（期望 x≈5、**y≈2.5** = `ofy(0.5)=1 × 幅度 2.5`）"
+                                    + "｜🧨 不叠 `applyMovementOffsets` ⇒ y 恒 0（走直线）⇒ 本条红");
+                                Check(f83.HasValue && f83.Value.y > 0.2f,
+                                      $"★ 新账-83（驱动·**转向速度**）：`otv=1` 的件半程 forward.y = {f83?.y:F3} > 0.2"
+                                    + "（速度 = (5, 2.5, 0) ⇒ 朝斜上方）"
+                                    + "｜🧨 不做逐帧 `orientToVelocity` ⇒ forward 仍是起播那条 (1,0,0) ⇒ y≈0 ⇒ 红");
+
+                                // ---- ③ `Jain Zar`：飞出去再飞回来（`ease` 曲线 + `t01≥1` 的收尾位姿）----
+                                driver.ClearAbilityMovesForTest();
+                                driver.FireAttackVfxForTest("Atk_JainasMor", "Atk_JainasMor_Throw_Return",
+                                                            anchor83.transform, Vector3.zero, tgt83);
+                                driver.TickAbilityMovesForTest(1.05f);             // tm=1.5 ⇒ t01=0.7
+                                var pOut = driver.AbilityMovePosForTest(0);
+                                driver.TickAbilityMovesForTest(0.435f);            // t01=0.99
+                                var pBack = driver.AbilityMovePosForTest(0);
+                                driver.TickAbilityMovesForTest(0.05f);             // t01>1 ⇒ 收尾 + 释放
+                                int jzDone = driver.AbilityMovesActiveForTest;
+                                var fJz = driver.AbilityMoveForwardForTest(0);
+                                driver.ClearAbilityMovesForTest();
+                                Check(pOut.HasValue && pOut.Value.x > 5f && pBack.HasValue && pBack.Value.x < 2f,
+                                      $"★ 新账-83（**飞出去再飞回来**）：`Jain Zar` t01=0.7 在 x={pOut?.x:F2}（外飞）、"
+                                    + $"t01=0.99 回到 x={pBack?.x:F2}（<2 = 已飞回起点附近）"
+                                    + "｜🧨 忽略 `easeCurve`（走线性）⇒ 0.99 时还在 x≈9.9 ⇒ 红");
+                                Check(jzDone == 0,
+                                      $"★ 新账-83：那一件到点后**释放载体**（在飞账 {jzDone}）—— 收尾位姿按 `ease(1)` 写，⛔ 不是写死 `end`");
+                                // `otv=0` 的对照（`Jain Zar` 就是 0）：转向那条对它不生效
+                                driver.ClearAbilityMovesForTest();
+                                driver.FireAttackVfxForTest("Atk_JainasMor", "Atk_JainasMor_Throw_Return",
+                                                            anchor83.transform, Vector3.zero, tgt83);
+                                driver.TickAbilityMovesForTest(0.3f);
+                                var fJzOff = driver.AbilityMoveForwardForTest(0);
+                                driver.ClearAbilityMovesForTest();
+                                Check(fJzOff.HasValue && Mathf.Abs(fJzOff.Value.y) < 0.2f && fJzOff.Value.x > 0.9f,
+                                      $"★ 新账-83（**成对**）：`otv=0` 的 `Jain Zar` 半程 forward = ({fJzOff?.x:F3},{fJzOff?.y:F3})"
+                                    + " —— 仍是起播那条 (1,0,0) ⇒ 逐帧转向**只对 `otv=1` 生效**"
+                                    + "｜🧨 写成「凡移动就转向」⇒ 本条红");
+                            }
+                            finally
+                            {
+                                driver.ClearAbilityMovesForTest();
+                                Object.DestroyImmediate(anchor83);
+                            }
+                        }
+
+                        // ==================================================================
+                        //  🆕 2026-10-23（`新账-84`）：攻击路径的**逐件锚点**（`sp`/`ep`）
+                        // ==================================================================
+                        //  【判据（第一权威）】`BattleManager._DelayedVFXPlay_d__469__MoveNext.c:46-77`：
+                        //    对每件各调一次 `GetAnimTransform(mgr, animInfo+0x18 / +0x1c, 攻方卡, 目标卡)`
+                        //    ⇒ 起/终锚点**逐件**取；`CreateAnim.c:62-72` 的父节点 = 那件的 `startPos`。
+                        //  【症状】我们原来把 `self → abilityTarget` **写死**在 `ScheduleAttackPresentation`
+                        //    ⇒ 9 个 `attack_ranged`（+8 个 `attack_melee`）件的锚点是错的。
+                        {
+                            // ---- ① 数据侧：不是 (0,2) 的件数（从表里现算，⛔ 不抄任务书）----
+                            {
+                                var pool84 = RuleEngine.CardDatabase.Load();
+                                int oddR = 0, oddM = 0;
+                                foreach (var c84 in pool84)
+                                {
+                                    if (c84 == null || string.IsNullOrEmpty(c84.Name)) continue;
+                                    for (int k84 = 0; k84 < 2; k84++)
+                                    {
+                                        string ev84 = k84 == 0 ? VfxMap.AttackRanged : VfxMap.AttackMelee;
+                                        var its84 = VfxMap.ResolveAllTimed(ev84, c84.Faction, c84.Name, c84.AnimTimes);
+                                        if (its84 == null) continue;
+                                        for (int i84 = 0; i84 < its84.Length; i84++)
+                                        {
+                                            if (string.IsNullOrEmpty(its84[i84].Anim)) continue;
+                                            var q84 = CardAnimClips.PlacementOf(its84[i84].Anim);
+                                            if (!q84.HasValue) continue;
+                                            if (q84.Value.StartPos == 0 && q84.Value.EndPos == 2) continue;
+                                            if (k84 == 0) oddR++; else oddM++;
+                                        }
+                                    }
+                                }
+                                Check(oddR == 9,
+                                      $"★ 新账-84（数据）：`VfxMap` 解析出的攻击件里不是 `(sp,ep)=(0,2)` 的 —— 远程 **{oddR}**（现读 9）· "
+                                    + $"近战 **{oddM}**（raw `cardanim_clips` 另有 8 件，但 `VfxMap` 的 `attack_melee` 桶不解析它们；"
+                                    + "锚点回归见下面 ② 的 `AttackAnchorsForTest`）"
+                                    + "｜🧨 远程数据侧变了要重核");
+                            }
+
+                            // ---- ② 锚点归属：走**生产那条** `ResolveAttackPieceAnchors` ----
+                            int foeSeat84 = 1 - bme;
+                            var pvAtk84 = driver.AttackAnchorsForTest(bme, bws, foeSeat84, bws, "Atk_Artillery_1shot");
+                            var pvKhaine = driver.AttackAnchorsForTest(bme, bws, foeSeat84, bws, "Atk_BulletImpact_Eldar_Khaine");
+                            var pvHeldrake = driver.AttackAnchorsForTest(bme, bws, foeSeat84, bws, "EC Heldrake Attack");
+                            var pvWulfen = driver.AttackAnchorsForTest(bme, bws, foeSeat84, bws, "Atk_Cut Wulfen");
+                            var pvNull = driver.AttackAnchorsForTest(bme, bws, foeSeat84, bws, null);
+                            Check(pvAtk84.FromTable && pvAtk84.StartOpt == 0 && pvAtk84.EndOpt == 2
+                                  && pvAtk84.StartOwner == bme && pvAtk84.EndOwner == foeSeat84,
+                                  $"★ 新账-84（**回归**）：509 个 `(0,2)` 那批 —— `Atk_Artillery_1shot` 起 = 攻方卡"
+                                + $"（seat {pvAtk84.StartOwner}）、终 = 目标卡（seat {pvAtk84.EndOwner}），与改前**逐位相同**");
+                            Check(pvKhaine.FromTable && pvKhaine.StartOpt == 2 && pvKhaine.EndOpt == 2
+                                  && pvKhaine.StartOwner == foeSeat84 && pvKhaine.EndOwner == foeSeat84,
+                                  $"★ 新账-84（**判别式**）：`Avatar of Khaine / Atk_BulletImpact_Eldar_Khaine` 是 `2/2` ⇒ "
+                                + $"起**和**终都挂在**目标卡**下（实得 起 seat {pvKhaine.StartOwner} / 终 seat {pvKhaine.EndOwner}）"
+                                + "｜🧨 把锚点写死回 `self → abilityTarget` ⇒ 起变成攻方卡（seat "
+                                + $"{bme}）⇒ 本条红");
+                            Check(pvHeldrake.FromTable && pvHeldrake.StartOpt == 0 && pvHeldrake.EndOpt == 1
+                                  && pvHeldrake.StartOwner == bme && pvHeldrake.EndOwner == foeSeat84,
+                                  $"★ 新账-84：`Heldrake / EC Heldrake Attack` 是 `0/1` ⇒ 起 = 攻方卡、终 = 目标卡"
+                                + $"（实得 {pvHeldrake.StartOwner} / {pvHeldrake.EndOwner}）—— 档号 `1` 与 `2` 都解析到目标卡（`GetAnimTransform` 同义）");
+                            Check(pvWulfen.FromTable && pvWulfen.StartOpt == 2 && pvWulfen.EndOpt == 2
+                                  && pvWulfen.StartOwner == foeSeat84,
+                                  $"★ 新账-84：`Wulfen / Atk_Cut Wulfen` 是 `2/2` ⇒ 起锚点在**目标卡**下（实得 seat {pvWulfen.StartOwner}）");
+                            Check(!pvNull.FromTable && pvNull.StartOwner == bme && pvNull.EndOwner == foeSeat84,
+                                  $"★ 新账-84（**兜底成对**）：没有 `CardAnim` 名（`Hit` 桶那件通用粒子）⇒ `FromTable=false`、"
+                                + "仍走 `self → abilityTarget`（" + $"{pvNull.StartOwner} / {pvNull.EndOwner}）"
+                                + "｜🧨 为了「都用表」把兜底也改掉 ⇒ 命中粒子会挂到目标卡上（静默错）");
+
+                            // ---- ③ 接线：**生产循环**里那两处真的用了 `ap`（源码普查，⛔ 不看行号）----
+                            {
+                                string drv84Path = System.IO.Path.Combine(Application.dataPath,
+                                                                          "CardPresentation/Battle/BattleDriver.cs");
+                                Check(System.IO.File.Exists(drv84Path),
+                                      $"★ 新账-84（前提）：读得到 `{drv84Path}` —— 读不到下面这条就是空跑");
+                                if (System.IO.File.Exists(drv84Path))
+                                {
+                                    string src84 = System.IO.File.ReadAllText(drv84Path);
+                                    // 出现次数（⛔ 不看行号：行号会漂；也⛔ 数注释里的 `see cref` ——
+                                    // 下面两个 needle 都带实参片段，注释与签名都匹配不上）
+                                    System.Func<string, int> countOcc = (needle) =>
+                                    {
+                                        int n = 0, idx = 0;
+                                        while ((idx = src84.IndexOf(needle, idx, System.StringComparison.Ordinal)) >= 0)
+                                        { n++; idx += needle.Length; }
+                                        return n;
+                                    };
+                                    int resolveCalls = countOcc("ResolveAttackPieceAnchors(an, actx");
+                                    int fireCalls = countOcc("FireAttackVfxWithCtx(nm, an, st, stPos, enPos");
+                                    Check(resolveCalls == 2 && fireCalls == 2,
+                                          $"★ 新账-84（接线）：生产里**两处**（攻方 + 反击）都按逐件锚点排期 —— "
+                                        + $"`ResolveAttackPieceAnchors(an, actx` {resolveCalls} 处、"
+                                        + $"`FireAttackVfxWithCtx(nm, an, st, stPos, enPos` {fireCalls} 处（都该是 2）"
+                                        + "｜🧨 把任一处的 `st/stPos/enPos` 改回写死的 `start/startPos/endPos` ⇒ 本条红"
+                                        + "（行为断言抓不到：那一件的坐标只是悄悄打错地方）");
+                                }
+                            }
+                        }
+
+                        // ==================================================================
+                        //  🆕 2026-10-23（P2 · `新账-75③`）：多播里**钉不上 `AnimTimes`** 的候选要出声
+                        // ==================================================================
+                        //  【判据】原版每件各等**自己的** `vfxDelayTime`（`BattleManager__ResolveTraitAnim`
+                        //    起手 `WaitForSeconds(AnimInfo.vfxDelayTime)`）；我们的天赋候选
+                        //    （`ShieldTraitEffect_Idle` / `FlyingEffect` / `StealthEffect` …）在卡的
+                        //    `animTimes` 里**没有行** ⇒ `T = 0`（与主件同一瞬间起播）。今天等价
+                        //    （这些件的 `vd` 全是 0），但原来**一个字都不说** ⇒ 数据一变就静默错。
+                        //  【修法】`VfxMap.NoteUnpinnedPick`（只出声、不改播放）。
+                        {
+                            VfxMap.ResetUnpinnedForTest();
+                            var pool75 = RuleEngine.CardDatabase.Load();
+                            string[] evs75 = { VfxMap.PlayCard, VfxMap.Deploy, VfxMap.AttackMelee,
+                                               VfxMap.AttackRanged, VfxMap.Hit, VfxMap.Ability,
+                                               VfxMap.Trigger, VfxMap.Death };
+                            int multi75 = 0;
+                            foreach (var c75 in pool75)
+                            {
+                                if (c75 == null || string.IsNullOrEmpty(c75.Name)) continue;
+                                for (int e75 = 0; e75 < evs75.Length; e75++)
+                                {
+                                    var its75 = VfxMap.ResolveAllTimed(evs75[e75], c75.Faction, c75.Name, c75.AnimTimes);
+                                    if (its75 != null && its75.Length > 1) multi75++;
+                                }
+                            }
+                            int unp75 = VfxMap.UnpinnedPicks;
+                            int warn75 = VfxMap.UnpinnedWarnCount;
+                            // ⚠️ 精确数**必须在 Unity 里现读**（数据侧复算与生产口径在 rc 抽组 / trigger 归口上
+                            //    有差别）⇒ 这里断**区间 + 出声了**，并把实测值打进消息；⛔ 不写死一个数糊成恒绿。
+                            Check(multi75 > 300 && unp75 > 20 && unp75 < 400,
+                                  $"★ 新账-75③：全池多播桶 {multi75} 个，其中**钉不上** `AnimTimes` 的候选 **{unp75}** 个"
+                                + "（判据区间 20–400；数据侧按同形贪心复算 ≈238，其中 `ability` 桶 ≈68 —— 与审查报告的 59"
+                                + " 不同源：那份只数了新增的 50 桶，之后 Trait 权威化又改过表）"
+                                + "｜🧨 把 `NoteUnpinnedPick` 那行删掉 ⇒ 计数恒 0 ⇒ 本条红");
+                            Check(warn75 > 0,
+                                  $"★ 新账-75③（**出声**）：已经报过 {warn75} 种 (事件, 卡, 件)（上限 16）"
+                                + " —— 日志里能搜到 `[VfxMap]` 的「钉不上 `AnimTimes` 行」"
+                                + "｜🧨 只计数不出声 ⇒ 本条红（账照样静默）");
+                            VfxMap.ResetUnpinnedForTest();
+                        }
+
+                        // ==================================================================
+                        //  🆕 2026-10-23（P2 · `新账-78①`）：受方 `UnitDamaged(60)` 在 **Attack + 0.2**
+                        // ==================================================================
+                        //  【判据】`BattleManager._ResolveAttack_d__438:866` 的 `ResolveAttackDamage` →
+                        //    `BroadcastUnitDamaged` → `CardScript.ResolveDamageDealt:161`（`0x3c`），
+                        //    **早于**同 state 里 `:899` 的 `AttackMeleeAnim`/`ResolveAttackRangedAnim`。
+                        //  【症状】我们原来挂在 `Hit` 那一拍（Attack+0.4）⇒ **晚 0.2 s**。
+                        {
+                            var pool78 = RuleEngine.CardDatabase.Load();
+                            RuleEngine.CardDef blDef78 = null;
+                            foreach (var c78 in pool78)
+                                if (c78 != null && c78.Name == "Child of Torment") { blDef78 = c78; break; }
+                            int foeSlot78 = FreeSlot(bctx, 1 - bme);
+                            Check(blDef78 != null && foeSlot78 >= 0,
+                                  $"★ 新账-78①（前提）：找得到 `Child of Torment`（池内 4 条 `UnitDamaged` 之一）"
+                                + $"且对面有空格（槽 {foeSlot78}）—— 读不到下面两条就是空跑");
+                            if (blDef78 != null && foeSlot78 >= 0)
+                            {
+                                bctx.Players[1 - bme].Board[foeSlot78] =
+                                    new RuleEngine.UnitState(blDef78, false) { Health = 20 };
+                                driver.RefreshAll();
+                                DrainQueue(driver);
+                                driver.ResetLastAttackEventAtForTest();
+                                driver.ResetDefenderDamagedScheduledForTest();
+                                bctx.Signals.Add(new BattleEvent
+                                {
+                                    Kind = EvtKind.Attack, Player = bme, Slot = bws, Ranged = true,
+                                    TargetPlayer = 1 - bme, TargetSlot = foeSlot78,
+                                    CardId = bUnit.Name, TargetCardId = blDef78.Name,
+                                });
+                                driver.RefreshAll();
+                                { int g78 = 0; while (driver.LastAttackEventAtForTest < 0f && g78++ < 300) Step(0.02f); }
+                                float atkAt78 = driver.LastAttackEventAtForTest;
+                                int d078 = driver.DefenderDamagedScheduledForTest;
+                                { int g78 = 0; while (driver.Clock < atkAt78 + 0.17f && g78++ < 300) Step(0.02f); }
+                                int d178 = driver.DefenderDamagedScheduledForTest;
+                                { int g78 = 0; while (driver.Clock < atkAt78 + 0.26f && g78++ < 300) Step(0.02f); }
+                                int d278 = driver.DefenderDamagedScheduledForTest;
+                                Check(d178 == d078,
+                                      $"★ 新账-78①：`Attack+0.17` 时**还没排**受方的技能动画（{d078} → {d178}）"
+                                    + " —— 抬手那 0.2 s 里不放");
+                                Check(d278 > d178,
+                                      $"★ 新账-78①（**判别式**）：`Attack+0.2` 一到，受方的 `UnitDamaged(60)` **已排**"
+                                    + $"（{d178} → {d278}；锚 = `Attack` 落在 {atkAt78:F2}s）"
+                                    + "｜🧨 把它挪回 `Hit` 那一拍（Attack+0.4）⇒ 本条红（0.26 时还是 0）");
+                                StepThrough(driver);
+                                // 收尾：把夹具摆回去（后面的用例不该看到这个多出来的单位）
+                                bctx.Players[1 - bme].Board[foeSlot78] = null;
+                                driver.RefreshAll();
+                                DrainQueue(driver);
+                            }
+                        }
+
+                        // ==================================================================
+                        //  🆕 2026-10-23（`新账-82④`）：延迟 cue 要带上**排期那一刻**的 AnimFX 卡上下文
+                        // ==================================================================
+                        //  【症状】真机日志 `[ERROR] Can't find target or acting card in an AnimFXModule of
+                        //    prefab BulletImpact_Gordrang`（2026-10-23 自动对局）。根因 = `capCtx = _animfxCtx`
+                        //    在**排期那一刻**抓到的是 `default`（那个字段只在「播」时被填、播完立刻清）。
+                        //  【修法】两处改 `BuildCardContext(e)`；`ScheduleVfxCue` 也把上下文带下去。
+                        //  【为什么用源码普查】批处理里 `CardEffects.Play` 是假钩子（不建子节点 ⇒ 模块
+                        //    `Initialize` 根本不跑）⇒ 行为断言在这里**抓不到**。
+                        {
+                            string drv82Path = System.IO.Path.Combine(Application.dataPath,
+                                                                      "CardPresentation/Battle/BattleDriver.cs");
+                            Check(System.IO.File.Exists(drv82Path),
+                                  $"★ 新账-82④（前提）：读得到 `{drv82Path}` —— 读不到就是空跑");
+                            if (System.IO.File.Exists(drv82Path))
+                            {
+                                string src82 = System.IO.File.ReadAllText(drv82Path);
+                                System.Func<string, int> occ82 = (needle) =>
+                                {
+                                    int nn = 0, ii = 0;
+                                    while ((ii = src82.IndexOf(needle, ii, System.StringComparison.Ordinal)) >= 0)
+                                    { nn++; ii += needle.Length; }
+                                    return nn;
+                                };
+                                int built82 = occ82("var capCtx = BuildCardContext(e);");
+                                int stale82 = occ82("var capCtx = _animfxCtx;");
+                                int cueCtx82 = occ82("cueCtx = _animfxCtx, cueEvt = _animfxLastEvent");
+                                Check(built82 == 2 && stale82 == 0,
+                                      $"★ 新账-82④：两处延迟排期（攻击 / 反击）都按事件**现建**上下文 —— "
+                                    + $"`capCtx = BuildCardContext(e)` {built82} 处（该 2）、`capCtx = _animfxCtx` {stale82} 处（该 0）"
+                                    + "｜🧨 任一处改回抓 `_animfxCtx` ⇒ 那一路每个延迟件都会打 "
+                                    + "`[ERROR] Can't find target or acting card in an AnimFXModule of prefab …`");
+                                Check(cueCtx82 == 1,
+                                      $"★ 新账-82④：`ScheduleVfxCue` 也把排期时的卡上下文一起排下去（{cueCtx82} 处，该 1）"
+                                    + "｜🧨 删掉 ⇒ 多候选的延迟件同样报那条 ERROR（`FireCueVfx` 那条路）");
+                            }
                         }
                     }
 

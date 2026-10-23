@@ -85,7 +85,7 @@ public static partial class RuleEngineTest
         "TestW61ActionQueue", "TestEngineP1", "TestT02OrConditionTargetDiesOrFriendly", "TestT02SacrificeBodyLandsOnSelf", "TestT02PlacementNoOverwriteFamily", "TestT02FirstFreeSlotHonoursAvailability",
         "TestT02NextDeploySlotHonoursAvailability", "TestT02ReturnSideIsAvailableSlot", "TestT02ResolveWarlordSlotHonoursAvailability", "TestT02ResolveSideBranchHonoursAvailability", "TestT02OrFamilyBuckets", "TestT02DuplicateTriggerBodyDedup",
         "TestW61bSpentAllMana", "TestW61bSpendInsufficientDrainsToZero", "TestW61bInitialModifiers", "TestW61bSkipCardDrawProducer", "TestW64UnitConditions", "TestW64StructuredConditions",
-        "TestW64StructuredTargetFilters", "TestW64OpAbilityTargetConditions", "TestB16ConditionEval", "TestB17SubjectlessTargets",
+        "TestW64StructuredTargetFilters", "TestW64OpAbilityTargetConditions", "TestB16ConditionEval", "TestB17SubjectlessTargets", "TestEngineBatch1023",
     };
 
     // 本次诊断真正跑过的用例（顺序同 `RunCaseNames`）—— 只给对账用
@@ -528,6 +528,7 @@ public static partial class RuleEngineTest
         Safe("TestW64OpAbilityTargetConditions", () => TestW64OpAbilityTargetConditions());
         Safe("TestB16ConditionEval", () => TestB16ConditionEval());
         Safe("TestB17SubjectlessTargets", () => TestB17SubjectlessTargets());
+        Safe("TestEngineBatch1023", () => TestEngineBatch1023());
 
         VerifyDiagCoverage();
 

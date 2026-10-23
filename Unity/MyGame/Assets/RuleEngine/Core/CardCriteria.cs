@@ -90,6 +90,41 @@ namespace RuleEngine
         /// </summary>
         public bool WarlordOnly;
 
+        /// <summary>
+        /// 🆕 2026-10-23（引擎线 `新账-97` ⑥）：原版 `TargetCriteria.spellType`（`SpellType` 枚举）。
+        /// **`-1` = 不筛**（注意：`0 = Normal` 是**合法筛选值**，不能拿 0 当「不筛」）。
+        ///
+        /// <para>判据 = `FilterMethods__CheckIfMeetsCriteria.c:286-300` 那一段之后，
+        /// `spellType` 是**独立一格**（`:305-308`：`spellType != 0` 且与候选的 `+0x90` 不等 ⇒ 淘汰）。
+        /// 数据列 → `CardDef.SpellType`（v19 卡表的 `spellType`，真值直搬）。</para>
+        ///
+        /// <para>⚠️ **今天没有生产者**：`cards_engine.json` 里**没有** `targetCriteria` 列
+        /// （只把 `conditionsFilter` 那几格摊成了 `unitConditions`）⇒ 这一维**结构性就位、零行为变化**。
+        /// 全池普查（2026-10-23）里唯一用到 `spellType` 的两处
+        /// （`DA66` 的 `actingCardCriteria.spellType = 150`）**已由正文的 `a Secret` 覆盖** ——
+        /// `CreatePool.KindWords` 的 `secret → subtype Secret`，与 `spellType == 150` 的 5 张**一一对应**。
+        /// 数据侧真要接这一维时，把 `targetCriteria.spellType` 落进卡表、在构造处赋值即可，
+        /// 判据已在 <see cref="Matches(CardDef)"/> / <see cref="Matches(UnitState, BattleContext)"/> 里。</para>
+        /// </summary>
+        public int SpellType = -1;
+
+        /// <summary>
+        /// 🆕 2026-10-23（`新账-97` ⑥）：原版 `TargetCriteria.conditionsFilter`（`UnitConditions` 数值）。
+        /// **`-1` = 不筛**；`0`（`none`）= 恒真（与 `ConditionEval` 的口径一致）。
+        /// 语义 = `FilterMethods__MeetsConditionCriteria`（唯一求值器 = <see cref="ConditionEval"/>）。
+        ///
+        /// <para>⚠️ **今天没有生产者**（同 <see cref="SpellType"/>）。全池那一条用得上的
+        /// （`DA22` 的 `actingCardCriteria.conditionsFilter = 220` ＋ `excludeCondition = 1`）
+        /// **已由正文覆盖**：卡面写的是 `If it survives, heal 3 to it` ⇒ `targetsurvives` 条件
+        /// （`EffectResolver.ConditionHolds` 那条走 `ConditionEval` 的 220）。
+        /// 它在这里的价值是**结构**：以后 `targetCriteria` 落列时，筛目标池这一层不用再改模型。</para>
+        /// </summary>
+        public int Condition = -1;
+
+        /// <summary>原版 `TargetCriteria.excludeCondition`：真 = 把 <see cref="Condition"/> **取反**
+        /// （`MeetsConditionCriteria.c:384-389` 的唯一取反处，与 `ConditionEval` 同一口径）。</summary>
+        public bool ExcludeCondition;
+
         /// <summary>三个维度都没写 = 不筛（任何卡都算符合）</summary>
         public bool IsEmpty
         {
@@ -99,7 +134,9 @@ namespace RuleEngine
                     && (KindAnyOf == null || KindAnyOf.Count == 0)
                     && string.IsNullOrEmpty(Keyword)
                     && string.IsNullOrEmpty(Name)
-                    && !WarlordOnly;
+                    && !WarlordOnly
+                    && SpellType < 0
+                    && Condition < 0;
             }
         }
 
@@ -173,6 +210,14 @@ namespace RuleEngine
             if (!KindMatches(c)) return false;
             if (!string.IsNullOrEmpty(Keyword) && !c.Has(NormKeyword(Keyword))) return false;
             if (!string.IsNullOrEmpty(Name) && CreatePool.Norm(c.Name) != CreatePool.Norm(Name)) return false;
+            if (SpellType >= 0)
+            {
+                // 🆕 v19（`新账-97` ⑥）：原版 `TargetCriteria.spellType`（`+0x90`）。
+                // ⚠️ 卡表没这一列（旧表）时 `CardDef.SpellType = -1` = **判不了** ⇒ 保守判不匹配
+                //    （⛔ 别把「不知道」当 `Normal(0)` —— 那会让筛 Secret 的条件把普通卡也放进来）。
+                if (c.SpellType < 0 || c.SpellType != SpellType) return false;
+            }
+            if (Condition >= 0 && !ConditionOk(null, c, null)) return false;
             return true;
         }
 
@@ -193,12 +238,33 @@ namespace RuleEngine
         /// </summary>
         public bool Matches(UnitState u)
         {
+            return Matches(u, null);
+        }
+
+        /// <summary>同上，外加 `ctx`（🆕 2026-10-23 `新账-97` ⑥：`Condition` 那一维里
+        /// `220` / `221` / `222` / `260` 要上下文才判得准；<paramref name="ctx"/> 为 null 时
+        /// 那些格子会判不了 ⇒ **本方法判不匹配**，与 `Matches(CardDef)` 同一条保守口径）。</summary>
+        public bool Matches(UnitState u, BattleContext ctx)
+        {
             if (u == null || u.Card == null) return false;
             if (WarlordOnly && !u.IsWarlord) return false;
             if (!KindMatches(u.Card)) return false;
             if (!string.IsNullOrEmpty(Keyword) && !u.Has(NormKeyword(Keyword))) return false;
             if (!string.IsNullOrEmpty(Name) && CreatePool.Norm(u.Card.Name) != CreatePool.Norm(Name)) return false;
+            if (SpellType >= 0 && (u.Card.SpellType < 0 || u.Card.SpellType != SpellType)) return false;
+            if (Condition >= 0 && !ConditionOk(ctx, u.Card, u)) return false;
             return true;
+        }
+
+        /// <summary>`TargetCriteria.conditionsFilter` 那一维 —— **求值器只此一处**
+        /// （<see cref="ConditionEval.MeetsUnit"/> / <see cref="ConditionEval.MeetsCard"/>）。
+        /// 返回 `false` = 不匹配 **或** 本版判不了（`null`）—— 保守方向 = 不把候选放进来。</summary>
+        bool ConditionOk(BattleContext ctx, CardDef card, UnitState u)
+        {
+            bool? v = u != null
+                ? ConditionEval.MeetsUnit(ctx, u, Condition, ExcludeCondition)
+                : ConditionEval.MeetsCard(ctx, card, -1, Condition, ExcludeCondition);
+            return v == true;
         }
 
         /// <summary>日志要打人话（`所有 drone` / `带 destroyer 的` / `名为 stormboy 的`）</summary>
@@ -211,6 +277,8 @@ namespace RuleEngine
                 foreach (string k in KindAnyOf) parts.Add(k);
             if (!string.IsNullOrEmpty(Keyword)) parts.Add("带 " + Keyword);
             if (!string.IsNullOrEmpty(Name)) parts.Add("名为 " + Name);
+            if (SpellType >= 0) parts.Add("spellType=" + SpellType);
+            if (Condition >= 0) parts.Add((ExcludeCondition ? "不满足 " : "满足 ") + "cond=" + Condition);
             if (parts.Count == 0) return "（不限）";
             return string.Join(" + ", parts.ToArray());
         }

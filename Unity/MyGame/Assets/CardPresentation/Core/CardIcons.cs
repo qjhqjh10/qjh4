@@ -168,6 +168,89 @@ namespace CardPresentation
             return System.Text.RegularExpressions.Regex.Replace(text, "</?[a-zA-Z][^>]*>", "");
         }
 
+        // ── 🆕 2026-10-23（卡牌线 `新账-100`）：**把 `<sprite>` 的「面」钉死** ─────────────────────
+        //
+        // **病灶（静默，只有中文卡现形）**：TMP 画 `<sprite>` 时，若 sprite asset **自己没有 faceInfo**，
+        //   它拿 **`m_currentFontAsset`** 的 faceInfo 去算缩放 ——
+        //      `spriteScale = fontSize / fontFace.pointSize * fontFace.scale * orthographicMultiplier`
+        //      `currentElementScale = fontFace.ascentLine / glyph.metrics.height * … * spriteScale`
+        //   （判据 = TMP 运行时那一段 sprite 元素：`spriteFace.pointSize > 0` 才走「图集自己的度量」，
+        //    否则走上面这条 —— `Library/PackageCache/com.unity.ugui@*/Runtime/TMP/TMP_Text.cs`。
+        //    我们的 `Warpforge Trait TextSprites.asset` 现读 `m_FaceInfo.m_PointSize: 0`，
+        //    而那是 `Editor/IconSetup.cs` 的 `Build()` **照原版故意留 0** 的，⛔ 别在这一笔里改它。）
+        //   而 **`<sprite>` 不会更新 `m_currentFontAsset`** ⇒ 图标继承**前一个字符**解析到的字体资产：
+        //     · 前一个字符是**拉丁/空格** ⇒ `Pragati`（`ascentLine 70 / pointSize 95 / scale 1`）⇒ A = 0.073684
+        //     · 前一个字符是**汉字 / 中文标点**（拉丁面没有那些字形 ⇒ 落到 CJK 兜底）⇒ `NotoSerifCJK`
+        //       （`57.55 / 50 / 0.9`）⇒ A = 0.103590
+        //   ⇒ **同一个图标，前面有没有空格、是不是汉字，渲染出来差 1.406 倍**（= A(CJK) ÷ A(Pragati)；
+        //     与小节号、`CalibScale` 都无关 —— 两条读数乘的是同一个常数）。
+        //
+        // **这不是理论上的边角**（现读，2026-10-23）：
+        //   · 官方中文表里 `((…))` / `[[…]]` **紧贴汉字**的 **965 处 / 2370 处开口**（`Card_Description/*` 的 zh 列，
+        //     `数据/游戏数据/官方本地化_en+zh-CN.json`）—— 例 `UM57`：`…使你的所有载具获得((Ranged_attack_icon_x,+1))`；
+        //   · `Core/CardText.cs` 的 `KeywordSegment` 在中文档把关键词各项**用 `。` 直接拼起来**（`string.Join("", …)`）
+        //     ⇒ 同一行里**第 1 项**的图标继承 Pragati、**第 2 项起**继承 CJK（`。` 是中文标点）——
+        //     **一张卡上两枚图标不一样大**。
+        //
+        // **修法**：把每个 `<sprite …>` 包进一个 **`<font=Default>` … `</font>`** 作用域。作用域里**只有标签、
+        //   没有字符** ⇒ **零宽、一个像素的排版都不改**，但 TMP 解析到 `<sprite>` 时 `m_currentFontAsset`
+        //   已经是**这个 TMP 自己的字体**（`<font=Default>` 那一支 = `m_materialReferences[0].fontAsset`，
+        //   由**本对象自己**的 `SetArraySizes` 登记；`</font>` 再弹回原值）—— 对卡面正文层就是 Pragati。
+        //
+        // 🔴 **为什么用 `<font=Default>` 而不用 `<font="Pragati-Regular SDF">`**（两者都能钉住面）：
+        //   按**名字**那一支会 `AddMaterialReference(tempFont.material, …)`，而卡面文字层的 `m_sharedMaterial`
+        //   是 `ApplyOutline` 之后的**实例材质**（`TmpFont.ApplyOutline` 用的是 `t.fontMaterial`）⇒ 字体资产那份
+        //   **共享**材质会被登记成一个**新**材质引用 ⇒ `m_textInfo.materialCount` 多一格 ⇒ TMP 给这条文字
+        //   **多造一个空子网格**（`TextMeshPro.cs:1915` 的 `materialCount = m_materialReferenceIndexLookup.Count`），
+        //   而 `CardView.StampTmpQueue` / `SubtreeQueues` 会把它一起盖章、克隆材质。`<font=Default>` 只换
+        //   `m_currentFontAsset` / `m_currentMaterial` 指针、**不登记任何新材质** ⇒ 开销为零。
+        //   ⚠️ 「`<font=Default>` 读的是 static 数组，会不会拿到**别的对象**的字体」——**不会**：
+        //     `TMP_Text.m_materialReferences` / `m_materialReferenceIndexLookup` 确实是 static
+        //     （`TMP_Text.cs:195-196`），但**每一条会解析标签的路都先过** `ParseInputText()` → `SetArraySizes()`
+        //     （`TMP_Text.cs:2016-2044`；`GetPreferredWidth/Height` 那几个口也都先调 `ParseInputText`），
+        //     而 `SetArraySizes` 开头就 `m_materialReferenceIndexLookup.Clear()` + 把**本对象**的
+        //     `m_sharedMaterial` / `m_fontAsset` 登记成 index 0（`TextMeshPro.cs:1457-1460` ·
+        //     `TextMeshProUGUI.cs:1757-1761`）⇒ 解析到本串时 index 0 恒是本对象的字体。
+        // ⛔ **为什么不是「在图标前插一个占位字符」**（简报里的另一个候选）：
+        //   · `U+200B`（零宽空格）**不在 Pragati 的字表里** —— 现读 `Resources/Fonts/Pragati-Regular SDF.asset`：
+        //     250 个字符、码位 32..382 + 8211..8482，**没有 8203** ⇒ 插了会落到 CJK 兜底（白插）或画出 `.notdef`；
+        //   · 普通空格 / `U+00A0` 会**改排版宽度**（简报明令禁止）。
+        // ⛔ **为什么不去给 sprite asset 补 faceInfo**：那会改**绝对尺寸**（= 尺子 / `CalibScale` 那一笔账），
+        //   本函数**只让尺寸与「前一个字符」无关**，不动它有多大。
+        //
+        // **幂等**：已经紧跟在 `<font=Default>` 后面的 `<sprite>` 原样保留（`SetData` 会把同一段文本再喂一遍）。
+        // **文本里没有 `<sprite`** ⇒ **原样返回**（零拷贝；调用方不必判空）。
+        // **点阵那条兜底路**不受影响：`StripTags` 会把 `<font …>` 一起剥掉。
+        public static string PinSpriteFace(string text)
+        {
+            if (string.IsNullOrEmpty(text)) return text;
+            if (text.IndexOf("<sprite", System.StringComparison.Ordinal) < 0) return text;
+
+            const string open = "<font=Default>";
+            System.Text.StringBuilder sb = null;      // 真的需要包的时候才建（没有 `<sprite>` 时零分配）
+            int copied = 0;                           // **已经写进 `sb` 的位置**（没建 `sb` 时不动 ——
+                                                      // 这一条是必须的：混着「已钉 / 未钉」两枚时，
+                                                      // 不能越过「已钉」的那一枚把 `copied` 往前推，否则前缀会被吞掉）
+            for (int at = text.IndexOf("<sprite", System.StringComparison.Ordinal); at >= 0;
+                 at = text.IndexOf("<sprite", at + 1, System.StringComparison.Ordinal))
+            {
+                int gt = text.IndexOf('>', at + 7);
+                if (gt < 0) break;                    // 残缺标签：原样留着，不猜
+                bool already = at >= open.Length &&
+                               string.CompareOrdinal(text, at - open.Length, open, 0, open.Length) == 0;
+                if (already) continue;                // 已在 `<font=Default>` 后面 ⇒ 不重复包（它会被整段拷贝带出去）
+                if (sb == null) sb = new System.Text.StringBuilder(text.Length + 32);
+                sb.Append(text, copied, at - copied);
+                sb.Append(open);
+                sb.Append(text, at, gt + 1 - at);
+                sb.Append("</font>");
+                copied = gt + 1;
+            }
+            if (sb == null) return text;
+            sb.Append(text, copied, text.Length - copied);
+            return sb.ToString();
+        }
+
         /// <summary>
         /// 图标墨迹高 ÷ 拉丁大写墨迹高（**照成品卡图量的**）。
         /// 尺子 = `D:/2/Warpforge部队卡片/Dark Angels/3部队/Warpforge_12_Aggressor.png`
