@@ -1,5 +1,9 @@
 # -*- coding: utf-8 -*-
-"""_check_table_pipes.py -- 查 markdown 表格行的竖线数分布（判据：本仓铁律「改表别拿行首当锚点」那条）。
+r"""_check_table_pipes.py -- 查 markdown 表格行的竖线数分布（判据：本仓铁律「改表别拿行首当锚点」那条）。
+
+## A25 2026-10-24: 本 docstring 首行加上 raw 前缀（字母 r + 三引号）—— 原文里的 `\|` 是无效转义，Python 3.12+ 每次运行都会
+## 往 stderr 吐一条 SyntaxWarning（`--help` 也带）。raw 之后字面量一字不改（`__doc__` 内容逐字节相同），
+## 只是不再触发转义解析。⛔ 不要改回普通 docstring，也不要把 `\|` 改成 `\\|`（那会让 docstring 里多一个反斜杠）。
 
 用法:
   python -I -X utf8 d:/4/Unity/工具/_check_table_pipes.py <文件> [起始行 [结束行]] [--only 正则]
@@ -7,6 +11,16 @@
 ⚠️ 数竖线时排除 GFM 转义的 \|（`` `a\|b` `` 不分列）。
 """
 import io, re, sys, collections
+
+## A17 2026-10-24: -h/--help early exit (print usage only, exit 0; never run the real work).
+import sys as _wf_help_sys
+if any(_wf_help_sys.argv[_i] in ("-h", "--help") for _i in range(1, len(_wf_help_sys.argv))):
+    try:
+        _wf_help_sys.stdout.reconfigure(encoding="utf-8")
+    except Exception:
+        pass
+    print('用法:\n  python -I -X utf8 d:/4/Unity/工具/_check_table_pipes.py <文件> [起始行 [结束行]] [--only 正则]\n  -h, --help  只打印本用法并退出（退出码 0），不执行任何真活。')
+    _wf_help_sys.exit(0)
 
 BAR = re.compile(r'(?<!\\)\|')
 

@@ -19,6 +19,16 @@ import os
 import re
 import sys
 
+## A17 2026-10-24: -h/--help early exit (print usage only, exit 0; never run the real work).
+import sys as _wf_help_sys
+if any(_wf_help_sys.argv[_i] in ("-h", "--help") for _i in range(1, len(_wf_help_sys.argv))):
+    try:
+        _wf_help_sys.stdout.reconfigure(encoding="utf-8")
+    except Exception:
+        pass
+    print('用法：\n  PYTHONIOENCODING=utf-8 python 工具/_apply_kw_misextract.py            # 干跑，只打印差异\n  PYTHONIOENCODING=utf-8 python 工具/_apply_kw_misextract.py --write    # 落盘\n  -h, --help  只打印本用法并退出（退出码 0），不执行任何真活。')
+    _wf_help_sys.exit(0)
+
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))      # d:/4/Unity
 POOL = os.path.join(ROOT, "MyGame/Assets/RuleEngine/Resources/cards_engine.json")
 FIXES = os.path.join(ROOT, "数据/游戏数据/cardface_fixes.json")

@@ -71,7 +71,18 @@ namespace CardPresentation
             return t;
         }
 
-        /// <summary>把一张卡补间到「位置 + 倾角 + 缩放」。</summary>
+        /// <summary>把一张卡补间到「位置 + 倾角 + 缩放」。
+        ///
+        /// <para>🔴 **`ease` 只对「整条 Sequence」生效，而它一定是二次弯曲**（2026-10-24 · A22 审计）。
+        /// 本方法把三条**没有各自 `SetEase`** 的子补间 `Join` 进一个 `DOTween.Sequence()`，再把 <paramref name="ease"/>
+        /// 挂到 **Sequence 上**（`DOTween.XML`：`SetEase` "If applied to Sequences eases the whole sequence animation"）。
+        /// 反编译 `DOTween.dll` 实读：`Tweener.Setup` 给子补间 `DOTween.defaultEaseType`（本工程 = 6 OutQuad），
+        /// 而 `Sequence.Setup` 把序列自己的 `easeType` 硬编码成 `Ease.Linear`；`Sequence.DoApplyTween` 在
+        /// `easeType == Linear` 时**整段跳过**缓动 ⇒ **原版不写 `SetEase` 的 Sequence 是「不弯曲」的**。
+        /// ⇒ **传 `Linear`** = 三条子补间各自 OutQuad（= 原版的形状）；**传任何别的 ease** = 在其上再弯一次。
+        /// ⛔ 所以调用方「想要 OutQuad」时**必须**传 `Ease.Linear`，别把 `OutQuad` 传进来。</para>
+        /// <para>⚠️ 判据不是「本工程的约定」，是原版方法体：`CardDisplayWindow__ChangeCardPosition.c`
+        /// 全文一个 `DOTween.Sequence()` + 六条 `Join`、**没有** `SetEase`。</para></summary>
         public static Tween ToPose(Transform tr, Vector3 pos, float rotZ, float scale,
                                    float duration, Ease ease)
         {

@@ -33,6 +33,16 @@ import os
 import sys
 from collections import defaultdict
 
+## A17 2026-10-24: -h/--help early exit (print usage only, exit 0; never run the real work).
+import sys as _wf_help_sys
+if any(_wf_help_sys.argv[_i] in ("-h", "--help") for _i in range(1, len(_wf_help_sys.argv))):
+    try:
+        _wf_help_sys.stdout.reconfigure(encoding="utf-8")
+    except Exception:
+        pass
+    print('用法：\n    PYTHONIOENCODING=utf-8 D:/2/Warpforge_tools/py312/python.exe 工具/gen_arena_meshkeywords.py [--arena <场>] [--check]\n    （缺省 = 全 13 场；`--check` 只扫不写）\n  -h, --help  只打印本用法并退出（退出码 0），不执行任何真活。')
+    _wf_help_sys.exit(0)
+
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import gen_arena_texslots as T          # 复用它的 build_index（判据只留一处）
 

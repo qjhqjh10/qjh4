@@ -62,6 +62,16 @@ import sys
 from collections import Counter, defaultdict
 
 # 🔴 `--dry` = 只跑计算、打印读数、**零写盘**。默认（不带它）行为与以前完全一样。
+## A17 2026-10-24: -h/--help early exit (print usage only, exit 0; never run the real work).
+import sys as _wf_help_sys
+if any(_wf_help_sys.argv[_i] in ("-h", "--help") for _i in range(1, len(_wf_help_sys.argv))):
+    try:
+        _wf_help_sys.stdout.reconfigure(encoding="utf-8")
+    except Exception:
+        pass
+    print('用法：python 工具/gen_tutorial_stages.py [参数...] [--dry] [--check]\n  说明：教程 6 关的【关卡脚本】→ 运行时纯数据产物（B9 · 2026-10-17）。\n  选项：--dry / --check（脚本内按字符串匹配；一个都不带 = 默认模式）\n  位置参数：sys.argv[1:] 全收（数量以脚本自身判断为准）')
+    _wf_help_sys.exit(0)
+
 DRY = "--dry" in sys.argv[1:]
 # 🔴 `--check` = 只做 `A1856` 教程语音的**三面对账**（盘上 / 源包 / 产物引用）。
 #    不写盘、不跑生成、不需要 UnityPy（main 一进来就 return）。

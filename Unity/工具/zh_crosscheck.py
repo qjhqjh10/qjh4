@@ -50,6 +50,16 @@ import os
 import re
 import sys
 
+## A17 2026-10-24: -h/--help early exit (print usage only, exit 0; never run the real work).
+import sys as _wf_help_sys
+if any(_wf_help_sys.argv[_i] in ("-h", "--help") for _i in range(1, len(_wf_help_sys.argv))):
+    try:
+        _wf_help_sys.stdout.reconfigure(encoding="utf-8")
+    except Exception:
+        pass
+    print('用法：python 工具/zh_crosscheck.py [--legacy]\n  说明：zh_crosscheck.py —— 用**中文卡面文字**当尺子，核**英文解析结果**有没有读错句子。\n  选项：--legacy（脚本内按字符串匹配；一个都不带 = 默认模式）')
+    _wf_help_sys.exit(0)
+
 PROBE = "d:/4/_tmp_view/probe_out.txt"
 CARDS = "d:/4/Unity/MyGame/Assets/RuleEngine/Resources/cards_engine.json"
 D2C = "d:/4/_tmp_view/desc_to_cards.tsv"      # **子句 → 卡** 的映射（探针输入是**子句级**的）

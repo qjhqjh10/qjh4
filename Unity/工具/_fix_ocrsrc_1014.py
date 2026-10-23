@@ -34,6 +34,16 @@ import collections
 import hashlib
 import re
 
+## A17 2026-10-24: -h/--help early exit (print usage only, exit 0; never run the real work).
+import sys as _wf_help_sys
+if any(_wf_help_sys.argv[_i] in ("-h", "--help") for _i in range(1, len(_wf_help_sys.argv))):
+    try:
+        _wf_help_sys.stdout.reconfigure(encoding="utf-8")
+    except Exception:
+        pass
+    print('用法（本仓一律 `python -I -X utf8`）：\n    python -I -X utf8 工具/_fix_ocrsrc_1014.py            # 干跑：只打印，不落盘\n    python -I -X utf8 工具/_fix_ocrsrc_1014.py --apply    # 真改（只改 ocrSrc 一列）\n    python -I -X utf8 工具/_fix_ocrsrc_1014.py --check    # 只做体检：每条非空 ocrSrc 是否真能打开；坏一条就退出码 1\n  -h, --help  只打印本用法并退出（退出码 0），不执行任何真活。')
+    _wf_help_sys.exit(0)
+
 HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT4 = os.path.dirname(HERE)                                   # d:/4/Unity
 STATS = os.path.join(ROOT4, '数据', '游戏数据', 'card_stats.json')

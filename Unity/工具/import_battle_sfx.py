@@ -28,6 +28,9 @@
 
   ① **音频**：`MyGame/Assets/CardPresentation/Resources/Art/audio/sfx/<clip 名>.ogg|wav`
      （`Resources/Art/` 整个被 `.gitignore` 排除 —— 与美术/语音同一条规矩）
+     🆕 **2026-10-24（G4）**：拷完**顺手补 `<clip 名>.<ext>.meta`** —— 共用实现 =
+     `工具/_sfx_meta.py`（模板 = 同目录同扩展名的众数，只换 guid；**已存在的 meta 一个字节都不碰**）。
+     没有这步的话新补进来的音频会被 Unity 用内置默认导入（`loadType: 0`），与同目录既有 510 条不一致。
   ② **表**：`MyGame/Assets/CardPresentation/Resources/battle_sounds.json`
      —— 进仓库；形状与 `animfx_sounds.json` 逐字段相同（`WFSoundBank` 用同一个解析器读它），
      但 **`name` 那一列是「字段名」（如 `startTurn`），不是 cue 资产名** —— 见下面「键用哪个」。
@@ -63,6 +66,11 @@ import shutil
 import sys
 
 sys.stdout.reconfigure(encoding="utf-8")
+
+# 🔴 **2026-10-24（G4）：补 `.meta` 的共用实现**（`工具/_sfx_meta.py`，三个导入脚本共用一份）。
+#   `python -I` 不会把脚本目录放进 `sys.path` ⇒ 这里显式插一下。
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+import _sfx_meta                                  # noqa: E402
 
 import UnityPy
 
@@ -305,18 +313,22 @@ def main():
     print(f"\n要用到 {len(need_files)} 个音频文件；其中本地已有 {sum(1 for c in need_files if c in have)} 个"
           f" ⇒ 要拷 {sum(1 for c in need_files if c not in have)} 个")
 
-    copied = skipped = 0
+    copied = skipped = n_meta = 0
     if not args.check:
         os.makedirs(DST_AUDIO, exist_ok=True)
+        guids = _sfx_meta.known_guids()      # 2026-10-24（G4）：全工程扫一次，别每条都扫
         for cl in need_files:
             src = files[cl]
             ext = os.path.splitext(src)[1].lower()
             dst = os.path.join(DST_AUDIO, cl + ext)
             if os.path.exists(dst) and os.path.getsize(dst) == os.path.getsize(src):
                 skipped += 1
-                continue
-            shutil.copy2(src, dst)
-            copied += 1
+            else:
+                shutil.copy2(src, dst)
+                copied += 1
+            # 🔴 已存在的 meta 一个字节都不碰 ⇒ 重跑幂等；上次漏了 meta 的这次补上。
+            if _sfx_meta.ensure_meta(dst, guids=guids) == "created":
+                n_meta += 1
 
     out = {
         "version": 1,
@@ -346,7 +358,7 @@ def main():
     if not args.check:
         io.open(DST_JSON, "w", encoding="utf-8", newline="\n").write(
             json.dumps(out, ensure_ascii=False, indent=1))
-        print(f"已拷 {copied} 条 · 已存在跳过 {skipped} 条 → {DST_AUDIO}")
+        print(f"已拷 {copied} 条 · 已存在跳过 {skipped} 条 · 补 meta {n_meta} 条 → {DST_AUDIO}")
         print(f"表已写：{DST_JSON}")
     else:
         print("（--check：没有写盘）")

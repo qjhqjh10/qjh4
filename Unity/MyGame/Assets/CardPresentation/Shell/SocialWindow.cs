@@ -15,8 +15,13 @@
 //    `a=(0,1)-(0,1) p=(.5,.5) pos=(82.5,−480) sz=(165,0)`（§A·1 第 45 行 / §B·15）。
 //    基类默认那条 47.64 宽是**奖励窗/商店**的实测值 ⇒ 这里覆写成 **0**（`BarShadowW`），否则**凭空多一条线**。
 //    ⚠️ 这是铁律 5·c 的活例子：**一个值 ≠ 全部情况**。
-// ③ **`Content Area` 的第 4 个孩子 `Shadow (1)` 出厂 act=F** ⇒ **不建**（基类 `BuildShell` 本来就不建，
-//    照 `MainMenuRuntime` 那条纪律③）。
+// ③ **`Content Area` 的第 4 个孩子 `Shadow (1)` 出厂 act=F** ⇒ ✅ **照建、但出厂 `SetActive(false)`**
+//    （基类 `BuildShell` 统一建，2026-10-23 · A9）。
+//    🔴 **就地订正（铁律 5）**：这一条原来写「⇒ **不建**（照 `MainMenuRuntime` 那条纪律③）」——
+//    那条纪律已被推翻（`Shell/MainMenuRuntime.cs` 文件头 ③ 的 2026-10-11 订正 · `Shell/TopBar.cs:52`），
+//    同族先例 = `Shell/ParentEventWindow.cs:668-671` + `Editor/MainMenuScene.cs:16364` 的「建了、且关着」。
+//    ✅ **本扇也现读到了这一件**（`工具/menu_rect.py bundle_menus_assets_all "Social Submenu Variant" --depth 3`
+//    ⇒ `Shadow (1)` 330.37,70.94→379.81,1080.00 · `menu_dump` 那行 `INACT` · 色 `(0,0,0,0.475)` · sprite `40k_main_tab_shadow`）。
 // ④ **窗口字段**（直读 MB `4523486740489232547`）：`type=0`(Fullscreen) · `windowsPlacement=5`(Canvas) ·
 //    `closeOnESC=1` · `updateNavPanel=1` · `useDefaultCloseSoundIfNull=1` · `extraScaleSmallScreen=1.0` ·
 //    `tabs[]` 两个（`AlliancesTab` → `FriendsTab`，顺序 = 左栏视觉顺序）。

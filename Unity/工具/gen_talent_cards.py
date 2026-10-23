@@ -45,6 +45,16 @@
 import io, json, os, re, sys
 
 # 🔴 `--dry` = 只跑计算、打印读数、**零写盘**。默认（不带它）行为与以前完全一样。
+## A17 2026-10-24: -h/--help early exit (print usage only, exit 0; never run the real work).
+import sys as _wf_help_sys
+if any(_wf_help_sys.argv[_i] in ("-h", "--help") for _i in range(1, len(_wf_help_sys.argv))):
+    try:
+        _wf_help_sys.stdout.reconfigure(encoding="utf-8")
+    except Exception:
+        pass
+    print('用法：python 工具/gen_talent_cards.py [参数...] [--dry]\n  说明：gen_talent_cards.py —— **原版「天赋造哪一张」真值表 → 运行时件**（账 `A1873`）\n  选项：--dry（脚本内按字符串匹配；一个都不带 = 默认模式）\n  位置参数：sys.argv[1:] 全收（数量以脚本自身判断为准）')
+    _wf_help_sys.exit(0)
+
 DRY = "--dry" in sys.argv[1:]
 
 # 🔴 **真值源 = 当前 build 的 allcards 卡 SO 语料**（2026-10-18 换）。

@@ -47,6 +47,16 @@
 """
 import sys, os, io, json, base64, struct, collections
 
+## A17 2026-10-24: -h/--help early exit (print usage only, exit 0; never run the real work).
+import sys as _wf_help_sys
+if any(_wf_help_sys.argv[_i] in ("-h", "--help") for _i in range(1, len(_wf_help_sys.argv))):
+    try:
+        _wf_help_sys.stdout.reconfigure(encoding="utf-8")
+    except Exception:
+        pass
+    print('用法:\n  python -I -X utf8 _guid_resolve_probe.py survey      # 目录结构 + 各字段覆盖率\n  python -I -X utf8 _guid_resolve_probe.py card EC29   # 一张卡的全部 GUID 解析\n  python -I -X utf8 _guid_resolve_probe.py g <guid>    # 单个 GUID\n  python -I -X utf8 _guid_resolve_probe.py map         # 产出 guid_map.tsv（唯一产物）\n  -h, --help  只打印本用法并退出（退出码 0），不执行任何真活。')
+    _wf_help_sys.exit(0)
+
 CAT_JSON = r'C:/Users/qjh36/AppData/LocalLow/Everguild/Warpforge/com.unity.addressables/catalog_main.json'
 # 🔴 **2026-10-20（W58-CARDFIX2 · 账 `A2037②`）：catalog 必须与本地束同 build。**
 #   判据（`资料/普查产出_1020/W58_卡牌线_剩余收口.md` §三）：安装版 `aa/catalog.bin`

@@ -276,11 +276,11 @@ public static partial class RuleEngineTest
         CheckTrue(Board(ctx, 1, 3) != null && !Board(ctx, 1, 3).Has("flying"),
                   "（前提）这一侧摆的那个**没有** `Flying`");
         Check(hpC0 - S23RSumHealth(ctx, 1), 3,
-                  "★★ **有条件**的 `instead` 在能力层**不在结算前配对**：条件在结算闸上判 —— "
-                + "那时前一条 op 已经结算、`ctx.LastTargets` 正是**它打中的那个目标** ⇒ 判「它没有 Flying」⇒ "
-                + "只结算基数 3"
-                + "｜🧨 把 `InsteadSkips(…, pairConditional: false)` 改成 `true` ⇒ 本行实得 **6**"
-                + "（条件拿**施放者**去判、恒成立 —— 那是【把对的改错】）" + logs);
+                  "★★ **有条件**的 `instead` 在能力层也**在结算前配对**：`InsteadSkips` 先把被替换那条的目标解出来、"
+                + "用**它**判条件（目标没有 Flying ⇒ 不成立）⇒ 只结算基数 3"
+                + "｜🧨 把 `InsteadSkips(…, pairConditional: false)` 改成 `true` ⇒ 条件退化成「拿 `chosen` 判」，"
+                + "而能力层 `chosen` 是 null ⇒ 回落到入口种下的**施放者**（带 Flying）⇒ 恒成立 ⇒ 本行实得 **6**"
+                + "（那是【把对的改错】）" + logs);
 
         // ---- ② 🔴 **2026-10-18（T02）新增：条件【成立】那一支** ——
         //   原来能力层不配有条件的 instead ⇒ 基数 3 先结算、instead 那道条件闸在**后面**才判
@@ -308,6 +308,144 @@ public static partial class RuleEngineTest
                 + "｜🧨 改回「不配对」⇒ 本行实得 **9**（`3 + 6` 两条都结算）" + logs2);
             CheckTrue(!HasLog(ctx2, "对 1 个目标造成 3 点伤害"),
                       "★★ 判别式：基数那 3 点那一条根本没结算（日志里没有它）" + logs2);
+        }
+
+        // ==================================================================
+        //  🔴 **2026-10-23（`A1688` 残余）：替换句的【跨动词】与【多 op 段】**
+        //   上面 ①② 钉的是同动词、单 op 的形状。真卡还有两种：
+        //    · `SW53 Embers of Prospero` / `TAU58 Coordinated Engagement`：
+        //      `Give Hunt Mark to an enemy troop. If it already had Hunt Mark, **destroy it instead**`
+        //      —— 基句 `give` / 替换句 `destroy`，**动词不同**。
+        //    · `DA33 Nephilim Jetfighter`：`… deal 5 damage **and gain 1 Quest Point** instead`
+        //      —— 替换句是**两条 op**，整段一起跳/一起留。
+        // ==================================================================
+
+        // ---- ③ 跨动词：条件成立 ⇒ **只摧毁**，基句「给标记」不许再给一次 ----
+        //  判别式 = **猎杀标记的层数**：多给一层，死者主人的督军就多掉 1 血
+        //  （`W58HuntMarkNoKillerGate` 的口径：标记几层 = 掉几血 / 对面回几血）。
+        //  ⇒ 旧行为（配不上 ⇒ 两条都跑）实得 -2；正确实得 -1。
+        {
+            var sw53 = Tactic("S23R_SW53", 1,
+                              "Give Hunt Mark to an enemy troop. If it already had Hunt Mark, destroy it instead");
+            var ctx3 = ProbeBattle(new[] { sw53 }, new CardDef[0]);
+            ToP1Turn(ctx3, 2);
+            ctx3.Players[0].Energy = 20;
+            var prey = Place(ctx3, 1, 3, Unit("S23R_Marked", 1, 0, 9, "Hunt Mark 1"), exhausted: true);
+            int foe0 = ctx3.Players[1].Warlord.Health;
+            int mine0 = ctx3.Players[0].Warlord.Health;
+            int log3 = ctx3.Events.Count;
+            CheckCode(RuleCore.PlayTactic(ctx3, 0, HandIdx(ctx3, 0, "S23R_SW53"), 3), RuleCodes.OK,
+                      "③ 打出「Give Hunt Mark …，若已有则摧毁」");
+            CheckTrue(!prey.IsAlive,
+                      "★（前提）它本来就有猎杀标记 ⇒ 替换句摧毁了它" + S23RTail(ctx3, log3));
+            Check(ctx3.Players[1].Warlord.Health, foe0 - 1,
+                  "★★ 跨动词替换：基句「给标记」**被跳掉** ⇒ 只有 1 层标记 ⇒ 死者主人的督军只掉 1"
+                + "｜🧨 配对要求同动词（旧行为：先给标记再摧毁 = 2 层）⇒ 本行实得 -2" + S23RTail(ctx3, log3));
+            Check(ctx3.Players[0].Warlord.Health, mine0 + 1,
+                  "★ 对面督军 +1（同一份标记结算，两边一起验 ⇒ 不是「两边都没算」）" + S23RTail(ctx3, log3));
+        }
+
+        // ---- ③b 跨动词 · **反面**：目标本来**没有**标记 ⇒ 只给标记、**不许摧毁** ----
+        //  这一支是「条件在**动手之前**判」的判别式：基句 `give` 一落地，目标身上就有标记了，
+        //  若条件是在那之后才判（= 主循环那道闸），`already had` 会变成真 ⇒ **平白摧毁一个单位**。
+        {
+            var sw53b = Tactic("S23R_SW53B", 1,
+                               "Give Hunt Mark to an enemy troop. If it already had Hunt Mark, destroy it instead");
+            var ctx3b = ProbeBattle(new[] { sw53b }, new CardDef[0]);
+            ToP1Turn(ctx3b, 2);
+            ctx3b.Players[0].Energy = 20;
+            var fresh = Place(ctx3b, 1, 3, Unit("S23R_Fresh", 1, 0, 9), exhausted: true);
+            int foe0b = ctx3b.Players[1].Warlord.Health;
+            int log3b = ctx3b.Events.Count;
+            CheckCode(RuleCore.PlayTactic(ctx3b, 0, HandIdx(ctx3b, 0, "S23R_SW53B"), 3), RuleCodes.OK,
+                      "③b 打出同一条（目标本来**没有**猎杀标记）");
+            CheckTrue(fresh.IsAlive,
+                      "★★ 条件按**动手之前**的状态判（本来没有标记 ⇒ 替换句不成立）⇒ 目标**活着**"
+                    + "｜🧨 在基句结算之后才判 ⇒ 「已经有标记了」变真 ⇒ 目标被摧毁（本行红）"
+                    + S23RTail(ctx3b, log3b));
+            CheckTrue(fresh.IsAlive && fresh.Has("huntmark"),
+                      "★ 且它拿到了那一层标记（基句确实结算了）" + S23RTail(ctx3b, log3b));
+            Check(ctx3b.Players[1].Warlord.Health, foe0b,
+                  "★ 没人死 ⇒ 对面督军血量不变" + S23RTail(ctx3b, log3b));
+        }
+
+        // ---- ④ 多 op 段：条件【不成立】时整段都不结算（`gain 1 Quest Point` 不许白拿）----
+        //  夹具 = `DA33 Nephilim Jetfighter` 的卡面原文。
+        //  目标**没有** Flying ⇒ 基数 3 点照打、**替换段（5 点 + 1 任务点）整段不结算**。
+        {
+            var da33 = new CardDef("S23R_DA33", "S23R DA33-ish", "unit",
+                                   "Rally: Deal 3 damage to an enemy. If it has Flying, deal 5 damage and gain 1 Quest Point instead",
+                                   "common", "Test", 1, 1, 5, 0, new[] { "Rally" });
+            var ctx4 = ProbeBattle(new[] { da33 }, new CardDef[0]);
+            ToP1Turn(ctx4, 2);
+            ctx4.Players[0].Energy = 20;
+            Place(ctx4, 1, 3, Unit("S23R_NoFly", 1, 0, 30), exhausted: true);
+            int qp0 = ctx4.Players[0].QuestPoints;
+            int hp0 = S23RSumHealth(ctx4, 1);
+            int log4 = ctx4.Events.Count;
+            CheckCode(RuleCore.PlayCard(ctx4, 0, HandIdx(ctx4, 0, "S23R DA33-ish"), 2), RuleCodes.OK,
+                      "④ 打出「3 点；若带 Flying 则 5 点 + 1 任务点 instead」（目标不带 Flying）");
+            Check(hp0 - S23RSumHealth(ctx4, 1), 3,
+                  "★★ 基数 3 点照打（敌方总血量 -3）" + S23RTail(ctx4, log4));
+            Check(ctx4.Players[0].QuestPoints, qp0,
+                  "★★ 多 op 段：条件**不成立** ⇒ **整段**都不结算 —— `gain 1 Quest Point` 不许白拿"
+                + "｜🧨 只跳段首那一条（旧行为）⇒ 实得 +1" + S23RTail(ctx4, log4));
+        }
+
+        // ---- ⑤ 多 op 段：条件【成立】时只走替换段（5 点 + 1 任务点），基数 3 点不结算 ----
+        {
+            var da33b = new CardDef("S23R_DA33B", "S23R DA33-ish B", "unit",
+                                    "Rally: Deal 3 damage to an enemy. If it has Flying, deal 5 damage and gain 1 Quest Point instead",
+                                    "common", "Test", 1, 1, 5, 0, new[] { "Rally" });
+            var ctx5 = ProbeBattle(new[] { da33b }, new CardDef[0]);
+            ToP1Turn(ctx5, 2);
+            ctx5.Players[0].Energy = 20;
+            Place(ctx5, 1, 3, Unit("S23R_Flyer2", 1, 0, 30, "Flying"), exhausted: true);
+            int qp0 = ctx5.Players[0].QuestPoints;
+            int hp0 = S23RSumHealth(ctx5, 1);
+            int log5 = ctx5.Events.Count;
+            CheckCode(RuleCore.PlayCard(ctx5, 0, HandIdx(ctx5, 0, "S23R DA33-ish B"), 2), RuleCodes.OK,
+                      "⑤ 打出同一条（目标**带** Flying）");
+            Check(hp0 - S23RSumHealth(ctx5, 1), 5,
+                  "★★ 只结算替换段的 5 点（敌方总血量 -5；**不是 3+5=8**）" + S23RTail(ctx5, log5));
+            Check(ctx5.Players[0].QuestPoints, qp0 + 1,
+                  "★★ 替换段的**第二条 op** 也结算（+1 任务点）—— 整段一起走" + S23RTail(ctx5, log5));
+        }
+
+        // ---- ⑥ 🔴 **2026-10-23（`A12`）：条件判两次 = 效果整个丢失（`Judged[]` 的存在理由）----
+        //  根因（`A1688` 的**根**，上一轮只按结果修、没查这一条）：
+        //   `InsteadSkips` 在**动手之前**用「被替换那条的目标」判了条件、决定跳基句；
+        //   但主循环的 `ResolveOneCore` 还有一道 `if (!string.IsNullOrEmpty(op.Condition)) ConditionHolds(...)`
+        //   ⇒ **再判一次**。而那时：
+        //     · 参考目标回到了**入口种下的施放者**（`chosen == null` ⇒ `chosen ?? ctx.LastTarget`）；
+        //     · 基句已经被跳掉，棋盘状态没变，可「谁在被判」换了人。
+        //   ⇒ 施放者不带 Flying、目标带 Flying 时：第一次判 **真**（跳基句），第二次判 **假**
+        //     （拿施放者判）⇒ 替换句也不结算 ⇒ **这一条 ability 一点效果都没有**。
+        //   ⇒ 本格用**池内真卡形状**（`DA33` Rally）钉住「只判一次」：
+        //     目标带 Flying ⇒ 恰好 **5**（不是 0，也不是 3+5=8）。
+        //   ⚠️ 与 ⑤ 的区别：⑤ 只说「只结算替换段」，本格把**施放者**也做成「不带 Flying」并显式断言它，
+        //     让「拿施放者去判」这条错路**有判别力**（⑤ 的施放者也恰好不带，但没断它）。
+        {
+            var da33c = new CardDef("S23R_DA33C", "S23R DA33-ish C", "unit",
+                                    "Rally: Deal 3 damage to an enemy. If it has Flying, deal 5 damage and gain 1 Quest Point instead",
+                                    "common", "Test", 1, 1, 5, 0, new[] { "Rally" });
+            var ctx6 = ProbeBattle(new[] { da33c }, new CardDef[0]);
+            ToP1Turn(ctx6, 2);
+            ctx6.Players[0].Energy = 20;
+            Place(ctx6, 1, 3, Unit("S23R_Flyer3", 1, 0, 30, "Flying"), exhausted: true);
+            int hp0 = S23RSumHealth(ctx6, 1);
+            int qp0 = ctx6.Players[0].QuestPoints;
+            int log6 = ctx6.Events.Count;
+            CheckCode(RuleCore.PlayCard(ctx6, 0, HandIdx(ctx6, 0, "S23R DA33-ish C"), 2), RuleCodes.OK,
+                      "⑥ 打出「3 点；若带 Flying 则 5 点 + 1 任务点 instead」");
+            CheckTrue(Board(ctx6, 0, 3) != null && !Board(ctx6, 0, 3).Has("flying"),
+                      "（前提）**施放者不带 `Flying`** —— 主循环再判一次时拿它当参考目标就会判成假");
+            Check(hp0 - S23RSumHealth(ctx6, 1), 5,
+                  "★★ 条件只判一次：替换段照常结算（敌方总血量 -5）"
+                + "｜🧨 主循环再判一次（`InsteadSkips` 之后不递 `WithoutCondition`）⇒ 拿施放者判 ⇒ 实得 **0**"
+                + "（这一条 ability 一点效果都没有）" + S23RTail(ctx6, log6));
+            Check(ctx6.Players[0].QuestPoints, qp0 + 1,
+                  "★★ 同上：替换段的第二条 op 也结算" + S23RTail(ctx6, log6));
         }
     }
 
@@ -639,5 +777,100 @@ public static partial class RuleEngineTest
         for (int i = System.Math.Max(0, from); i < ctx.Events.Count; i++)
             sb.Append("「").Append(ctx.Events[i]).Append("」");
         return sb.ToString();
+    }
+
+    // ==================================================================
+    //  `新账-104`：`EC58 Vengeful Surge` —— `Deploy an Infractor and a Tormentor`
+    // ==================================================================
+    /// <summary>
+    /// **一次部署两种不同的具名卡**，且后面那句 `If a friendly troop died this turn, give them Flank`
+    /// 的 `them` = **刚部署的这两张**。（2026-10-24 · 引擎线第四批 `A24`）
+    ///
+    /// <para>**判据（第一权威 = 原版卡数据字段；`资料/普查产出_1018/allcards_1350/cards_raw.json`
+    /// 的 `EC58` 亲读）**：
+    /// · `cardAbilities[0].abilityLogic[0]` = `chosenAbility 70`（summonUnit）·
+    ///   `summonCriteria.unitsToSummon` **两条** PPtr（解出 = `EC8 Infractor` / `EC5 Tormentor`）·
+    ///   `summonAllTargets = 1` ⇒ **两张都召**（⛔ 不是随机二选一）；
+    /// · 后半句在原版是 `cardAbilities[1]` 的 `summonBuffedUnit(75)` + `buffEffect{trait 460 (Flank)}`，
+    ///   `unitsToSummon` **还是这两条** ⇒ `them` = 这一批两张。
+    /// 卡面（`d:/2/Warpforge部队卡片/Emperor_s Children/4计策/Warpforge_57_Vengeful-Surge.png` 亲读）同文。</para>
+    ///
+    /// <para>🧨 **改坏法**：退回「整段当一个载荷」⇒ 两张都不上场（改前实测就是这个读数）⇒ ①② 红 ·
+    /// 拆成两条独立 deploy op ⇒ 第二条把 `LastTargets` 清成只剩它自己 ⇒ 只有一张拿到 Flank ⇒ ④ 红 ·
+    /// 把条件那半句整段忽略（永远给 Flank）⇒ ②（灭自证）红。</para>
+    /// </summary>
+    static void TestA24EC58DeployPairAndFlank()
+    {
+        var pool = CardDatabase.Load();
+        var ec58 = CardDatabase.FindById(pool, "EC58");
+        var infra = CardDatabase.FindById(pool, "EC8");     // Infractor
+        var torm = CardDatabase.FindById(pool, "EC5");      // Tormentor
+        CheckTrue(ec58 != null && infra != null && torm != null,
+                  "🧪 A24 夹具：`EC58` / `EC8 Infractor` / `EC5 Tormentor` 都在池里");
+        if (ec58 == null || infra == null || torm == null) return;
+
+        var kill = Tactic("A24Kill", 0, "Deal 99 damage to a friendly unit");
+
+        // ---- ① 有「友方部队本回合阵亡」⇒ 两张都上场、且**都**拿到 Flank ----
+        {
+            var ctx = BattlePool(new[] { ec58, kill }, new CardDef[0], pool);
+            ToP1Turn(ctx, 1);
+            ctx.Players[0].Energy = 20;
+            Place(ctx, 0, 3, Unit("A24Victim", 1, 0, 1), exhausted: true);
+            int hiKill = HandIdx(ctx, 0, "A24Kill");
+            CheckTrue(hiKill >= 0, "🧪 A24①（前提）手里有那张「打死自己人」的战术" + LogTail(ctx));
+            if (hiKill < 0) return;
+            CheckCode(RuleCore.PlayTactic(ctx, 0, hiKill, 3), RuleCodes.OK, "A24① 先打死一个友方部队");
+            CheckTrue(ctx.DeadUnits.Exists(d => d != null && d.Owner == 0 && d.DeathTurn == ctx.Turn
+                                                && d.Card != null && CreatePool.MatchesKind(d.Card, "troop")),
+                      "🧪 A24①（前提）那个友方部队**本回合**真的进了 `DeadUnits`"
+                    + "（条件 `deaths` 读的就是它）" + LogTail(ctx));
+
+            int hi = HandIdx(ctx, 0, "Vengeful Surge");
+            CheckTrue(hi >= 0, "🧪 A24①（前提）手里有 `Vengeful Surge`" + LogTail(ctx));
+            if (hi < 0) return;
+            CheckCode(RuleCore.PlayTactic(ctx, 0, hi, -1), RuleCodes.OK, "A24① 打出 `Vengeful Surge`");
+
+            UnitState gotInfra = null, gotTorm = null;
+            for (int s = 0; s < BoardSpec.Size; s++)
+            {
+                var u = Board(ctx, 0, s);
+                if (u == null || u.Card == null) continue;
+                if (u.Card.Name == infra.Name) gotInfra = u;
+                else if (u.Card.Name == torm.Name) gotTorm = u;
+            }
+            CheckTrue(gotInfra != null, "★★ A24① `Infractor` **上场了** —— 改前整段当一个载荷 ⇒ "
+                      + "「infractor and a tormentor」既不是卡名也不是兵种词 ⇒ 一张都不上场" + LogTail(ctx));
+            CheckTrue(gotTorm != null, "★★ A24① `Tormentor` **也上场了** —— 原版 `summonAllTargets = 1`："
+                      + "`unitsToSummon` 两条**都召**" + LogTail(ctx));
+            CheckTrue(gotInfra != null && gotInfra.Has("flank"),
+                      "★★ A24① `Infractor` **拿到 Flank**（`give them Flank` 的 `them` = 这两张）");
+            CheckTrue(gotTorm != null && gotTorm.Has("flank"),
+                      "★★ A24① `Tormentor` **也拿到 Flank** —— 🧨 拆成两条独立 deploy op ⇒ "
+                    + "`LastTargets` 只剩后一条 ⇒ 本行红（另一张仍绿 = 那种半错的样子）");
+        }
+
+        // ---- ② 灭自证：本回合**没有**友方部队阵亡 ⇒ 两张照上，但**都不该**有 Flank ----
+        {
+            var ctx = BattlePool(new[] { ec58 }, new CardDef[0], pool);
+            ToP1Turn(ctx, 1);
+            ctx.Players[0].Energy = 20;
+            int hi = HandIdx(ctx, 0, "Vengeful Surge");
+            CheckTrue(hi >= 0, "🧪 A24②（前提）手里有 `Vengeful Surge`" + LogTail(ctx));
+            if (hi < 0) return;
+            CheckCode(RuleCore.PlayTactic(ctx, 0, hi, -1), RuleCodes.OK, "A24② 打出 `Vengeful Surge`（无阵亡）");
+            int got = 0, flanked = 0;
+            for (int s = 0; s < BoardSpec.Size; s++)
+            {
+                var u = Board(ctx, 0, s);
+                if (u == null || u.Card == null) continue;
+                if (u.Card.Name != infra.Name && u.Card.Name != torm.Name) continue;
+                got++;
+                if (u.Has("flank")) flanked++;
+            }
+            Check(got, 2, "★ A24② 没有阵亡时**也照部署两张**（部署那半句是无条件的）" + LogTail(ctx));
+            Check(flanked, 0, "★ A24② **灭自证**：条件不成立 ⇒ **一张都没有 Flank** —— "
+                      + "🧨 把条件那半句忽略（永远给 Flank）⇒ 本行红");
+        }
     }
 }

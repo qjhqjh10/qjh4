@@ -394,6 +394,70 @@ namespace RuleEngine
         }
 
         /// <summary>
+        /// 🆕 **2026-10-24（引擎线 `G2`）：`questTimes` 的**消费点** —— 原版
+        /// `EntityScript__ReachedQuestCounter.c` 的等价物（逐句照抄，全文 15 行）。
+        ///
+        /// <para>**语义（原版原文）**：`(cardType == 0x28 Whispers) ∧ (spellType == 0x78 Quest)
+        /// ∧ (1 &lt; questTimes)` 那一档 —— 每次这条附魔的 ability 要触发时：
+        /// `carrier.questCounter(+0x270) += 1`；若仍 `< questTimes` ⇒ **`return 0`（不放行）**
+        /// 并 `UpdateFigures`；否则 `return 1`（放行）。**计数器不复位** ⇒ 达到之后**每次照常放行**。
+        /// ⚠️ 计数位在**载体**上（`param_3`），不在附魔条目上 ⇒ 同一张牌的两条任务附魔共用一个计数器。</para>
+        ///
+        /// <para>**本仓的取舍**：
+        /// · 原版那个 `cardType == 40` 在 `CardDef` 里**没有对应字段**（`Type` 只有
+        ///   `unit/tactic/hero/defence` 四档，Whispers 卡**不进卡池**）。但**能挂到附魔层的卡片
+        ///   按定义就是原版的 Whispers**（`CardScript.AddEnchantment` 只由 `buffType 12/15/16` 触发，
+        ///   见本文件头）⇒ 这里只用 `SpellType == 120` 判，不加一个永远为假的 `Type` 串判断。
+        /// · `questTimes ∈ {-1, 0, 1}` ⇒ **原版那条闸不适用**（`1 < questTimes` 为假）⇒ 原样放行。
+        ///   ⚠️ `-1` = 未知（旧表）⇒ **不猜**，按「不加闸」处理，并在日志里出声一次（下面那句）。</para>
+        ///
+        /// <para>**今天不可达**：`cards_raw.json` 1,351 张 `spellType == 120` **0 张**、
+        /// `questTimes` 全 0 ⇒ 本方法在现池里**一次都不会改变行为**（那是数据事实，⛔ 不是省略）。</para>
+        ///
+        /// <param name="matched">已经按关键词筛过的附魔条目（<see cref="Matching"/> 的产出）。
+        /// 返回**新 list**（不放行的被摘掉）；全部放行时原样返回实参。</param>
+        /// </summary>
+        public static List<ActiveEnchantment> FilterByQuestCounter(
+                BattleContext ctx, UnitState carrier, List<ActiveEnchantment> matched, string keyword)
+        {
+            if (carrier == null || carrier.Instance == null || matched == null || matched.Count == 0)
+                return matched;
+            List<ActiveEnchantment> kept = null;
+            for (int i = 0; i < matched.Count; i++)
+            {
+                var e = matched[i];
+                int times = (e != null && e.Card != null) ? e.Card.QuestTimes : -1;
+                int st = e != null && e.Card != null ? e.Card.SpellType : -1;
+                // 只认「任务」那一种附魔 + `questTimes > 1`（原版那三条判据；未知一律不加闸）。
+                if (st != SpellTypeQuest || times <= 1)
+                {
+                    if (kept != null) kept.Add(e);
+                    continue;
+                }
+                carrier.Instance.QuestCounter = carrier.Instance.QuestCounter + 1;
+                int counter = carrier.Instance.QuestCounter;
+                if (counter < times)
+                {
+                    if (ctx != null)
+                        ctx.Log($"附魔层：「{e.Card.Name}」的 `questTimes` 还没到 —— 计数 {counter} / {times}"
+                              + $" ⇒ 这一拍（`{keyword}`）**不结算**"
+                              + "（原版 `EntityScript__ReachedQuestCounter.c:11-14` 返回 0）");
+                    if (kept == null)
+                    {
+                        kept = new List<ActiveEnchantment>(matched.Count);
+                        for (int j = 0; j < i; j++) kept.Add(matched[j]);
+                    }
+                    continue;
+                }
+                if (counter == times && ctx != null)
+                    ctx.Log($"附魔层：「{e.Card.Name}」的 `questTimes` 达成（{times} 次）"
+                          + " ⇒ 从此每一拍都照常结算（原版计数器不复位）");
+                if (kept != null) kept.Add(e);
+            }
+            return kept ?? matched;
+        }
+
+        /// <summary>
         /// 这个载体**身上有没有任何附魔** —— `FireTriggerAt` / `FireTriggerAlways` 的**廉价前置**
         /// （今天 0 张卡有附魔 ⇒ 这一句挡住后面那次 list 分配与逐件扫）。
         /// </summary>

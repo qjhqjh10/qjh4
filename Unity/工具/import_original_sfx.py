@@ -11,6 +11,10 @@
 
   ① **音频**：`MyGame/Assets/CardPresentation/Resources/Art/audio/sfx/<clip 名>.wav|ogg`
      —— `Resources/Art/` 整个被 `.gitignore` 排除（原版资产不进仓库，和美术/语音同一条规矩）。
+     🆕 **2026-10-24（G4）**：拷完**顺手补 `<clip 名>.wav.meta`** —— 共用实现 =
+     `工具/_sfx_meta.py`（模板 = 同目录同扩展名的众数，只换 guid；**已存在的 meta 一个字节都不碰**）。
+     没有这步的话，新补进来的音频会被 Unity 用**内置默认**导入（`loadType: 0`），
+     与同目录既有 510 条的 `loadType: 1 · compressionFormat: 2 · preloadAudioData: 0` 不一致。
   ② **表**：`MyGame/Assets/CardPresentation/Resources/animfx_sounds.json`
      —— **我们的分析产物，进仓库**（和 `voice_lines.json` 同一位置、同一形状）。
      键 = cue 名；值是 `clipList` + 音高/音量随机区间 + `timeToPlayAgain`。
@@ -42,6 +46,12 @@ import shutil
 import sys
 
 sys.stdout.reconfigure(encoding="utf-8")
+
+# 🔴 **2026-10-24（G4）：补 `.meta` 的共用实现** —— 三个导入脚本（本脚本 ·
+#   `import_battle_sfx.py` · `import_remnant_sfx.py`）**共用这一份**，⛔ 别在各自文件里再写一遍
+#   模板/guid 逻辑。`python -I` 不会把脚本目录放进 `sys.path` ⇒ 这里显式插一下。
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+import _sfx_meta                                  # noqa: E402
 
 import UnityPy
 
@@ -142,7 +152,18 @@ EXTRA_CUES = ["Reward open item by item", "CardStartDrag",
               # 消费点 = `CardView.PlaySwarmOnSound`（原版 `SoundManager.Play2D` ⇒ 2D）。
               # ⚠️ 原版**只有开音**：`SwarmIconController` 没有 toggleOffSound 字段，
               #   `Toggle(false)` 的方法体里也没有任何 `SoundManager` 调用。
-              "Swarm Trait UI Enabled"]
+              "Swarm Trait UI Enabled",
+              # —— 特效线（2026-10-24 · `G3`）：虫群合并那一拍的 **3D 音** ——
+              # 判据 = `资料/普查产出_1023e/A31_特效接线.md` §四·3 / §六 ②（原版引用者 =
+              #   `SwarmVFXController.sound`；反编译 `CardScript__ExecuteSwarm.c:79` 之后
+              #   `SwarmVFXController.Initialize` 里那一跳 `SoundManager.Play3D(cue)`）。
+              #   cue 资产 = `bundle_soundcollection_assets_all/MonoBehaviour/Trait Swarm Tyranid.json`：
+              #   clipList 唯一一条 PathID `-3423403551600047926` → `AudioClip/Trait Swarm Tyranid.wav`
+              #   （44.1 kHz / 16 bit / 3.642 s）· pitch 0.8–1.24 · vol 1–1 · ttp 0.1。
+              # ⚠️ 它**推不出来**：`Swarm Card Merge VFX` 不是 AnimFX 模块（没有 `AnimFXController`），
+              #   音效挂在那份 prefab 的 `SwarmVFXController` 序列化字段上 ⇒ 只能声明在这里。
+              #   反向查漏也独立指到了它（`WarpforgeUiFxProbe.cs:245`）。
+              "Trait Swarm Tyranid"]
 
 # 🔴 **2026-10-16（A828）第三来源 —— `collisionEvent` 上的 `PlaySound`。**
 #   `AnimFXModuleCollisions` 的 `collisionAndParticles[i].particleSystemsDefinition[j].collisionEvent`
@@ -494,20 +515,28 @@ def main():
     if missing_clip:
         print(f"⚠️ clip 名对不上解包文件（{len(missing_clip)}）：{sorted(missing_clip)}")
 
-    # ---- ② 拷音频 ----
-    copied = skipped = 0
+    # ---- ② 拷音频 + 补 .meta ----
+    # 🔴 2026-10-24（G4）：**每条音频（这次新拷的 + 上次已拷过的）都过一遍 `ensure_meta`**。
+    #    `ensure_meta` 对已存在的 meta **一个字节都不碰** ⇒ 重跑幂等；而「上次拷了 wav 但没 meta」
+    #    的这一次会补上 —— 也就是「只补 meta、不重拷 wav」那条路（不跑本脚本的话走
+    #    `python -I -X utf8 工具/_sfx_meta.py --backfill`，同一份实现、同一套模板）。
+    copied = skipped = n_meta = 0
     exts = {}
     if not args.check:
         os.makedirs(DST_AUDIO, exist_ok=True)
+        guids = _sfx_meta.known_guids()      # 全工程 meta 扫一次（实测 ~1.8 s），别每条都扫
         for cl in need_files:
             src, dst = files[cl], os.path.join(DST_AUDIO, cl)
             ext = os.path.splitext(src)[1].lower()
             exts[ext] = exts.get(ext, 0) + 1
-            if os.path.exists(dst + ext) and os.path.getsize(dst + ext) == os.path.getsize(src):
+            path = dst + ext
+            if os.path.exists(path) and os.path.getsize(path) == os.path.getsize(src):
                 skipped += 1
-                continue
-            shutil.copy2(src, dst + ext)
-            copied += 1
+            else:
+                shutil.copy2(src, path)
+                copied += 1
+            if _sfx_meta.ensure_meta(path, guids=guids) == "created":
+                n_meta += 1
 
     # ---- ③ 写表 ----
     out = {
@@ -533,7 +562,8 @@ def main():
     if args.check:
         print("（--check：没有写盘）")
     else:
-        print(f"已拷 {copied} 条 · 已存在跳过 {skipped} 条 → {DST_AUDIO}（扩展名分布 {exts}）")
+        print(f"已拷 {copied} 条 · 已存在跳过 {skipped} 条 · 补 meta {n_meta} 条 → {DST_AUDIO}"
+              f"（扩展名分布 {exts}）")
         print(f"表已写：{DST_JSON}")
 
 

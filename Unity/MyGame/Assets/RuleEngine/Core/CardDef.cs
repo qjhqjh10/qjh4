@@ -120,6 +120,120 @@ namespace RuleEngine
         /// （原版 `EntityScript__HasSecretOrders.c:31` 读的就是附魔卡这一格 = 60）。</para></summary>
         public int SpellType { get; private set; } = -1;
 
+        // ==================================================================
+        //  🆕 v21（2026-10-24 · 引擎线 `A20` · 第三批 ①/②）：
+        //  主动能力的**分支闸 / 装填位 / 任务位**
+        // ==================================================================
+        //  判据（第一权威 = 全量反编译；逐条行号 → `工具/gen_cards_engine.py` 的 `ABILITY_GATE_REPORT`）：
+        //    · `hasActiveAbility` `+0x220`（由卡数据 `+0x2A9` 灌）—— `CardScript.DoesAbilityRequireLoading:13`；
+        //    · `ActiveAbility.needsLoading` **`ActiveAbility` 对象内部 `+0x22`**（⚠️ 不是 `CardScript` 的
+        //      `+0x22`：那一带是 `k__BackingField` 打包区，见 `dump.cs:35444-35449`）；
+        //    · `hasAlternativeAbility` `+0x2AA` ＋ `normalAbilityBoardCriteria` `+0x2B0`
+        //      → `RawCardScript__GetActiveAbility.c` 全文 17 行；
+        //    · `_quest` `+0x240` / `questTimes` `+0x7C`。
+        //
+        //  🔴 **`-1` = 未知**（旧表 < v21 / 真值里没这张卡），⛔ 别当成 `0`（= 假）。
+        //     缺列的旧表由 `CardDatabase.Parse` 的 `< 21` 守卫出声。
+        //  🔴 **⛔ 别拿 `Ability != null` 顶 `HasActiveAbility`**：池内 `desc` 含 `Ability:` 的卡 **0 张**，
+        //     而真值 `hasActiveAbility == 1` 有 **87 张** —— 拿它顶会把 87 张静默判成假
+        //     （`资料/普查产出_1023e/C2_引擎线判据_卡表加载位与字段.md` F-01 明写）。
+
+        /// <summary>`-1` 的**唯一来源**（= `ConditionUnknown`；两处必须是同一个数）。</summary>
+        public const int GateUnknown = -1;
+
+        /// <summary>🆕 v21：原版 `CardScript.hasActiveAbility`（`+0x220`）。`0` = 没有主动能力；
+        /// `1` = 有；`-1` = 未知。读点 = `ConditionEval` 的 280 `siege` / 190 `hasAbility`。</summary>
+        public int HasActiveAbility { get; private set; } = GateUnknown;
+
+        /// <summary>🆕 v21：原版 `ActiveAbility.needsLoading`（`ActiveAbility` 对象内 `+0x22`）。
+        /// `0` = 不需要装填位；`-1` = 未知。现读 1,351 张**全是 0**（⇒ 280 今天恒假）。</summary>
+        public int ActiveAbilityNeedsLoading { get; private set; } = GateUnknown;
+
+        /// <inheritdoc cref="ActiveAbilityNeedsLoading"/>
+        public int AlternativeAbilityNeedsLoading { get; private set; } = GateUnknown;
+
+        /// <summary>🆕 v21：原版 `RawCardScript.hasAlternativeAbility`（`+0x2AA`）。
+        /// 只有 `1` 才可能走替代支；`-1` = 未知。现读池内只有 `SW21` 一张。</summary>
+        public int HasAlternativeAbility { get; private set; } = GateUnknown;
+
+        /// <summary>🆕 v21：原版 `RawCardScript._quest`（`bool @+0x240`）。`0` = 不是任务卡；
+        /// `-1` = 未知。现读 1,351 张全是 0。读点 = `ConditionEval` 的 320 `hasQuestCompleted`。</summary>
+        public int Quest { get; private set; } = GateUnknown;
+
+        /// <summary>🆕 v21：原版 `RawCardScript.questTimes`（`int @+0x7C`）——
+        /// **不在 320 的求值链里**（另一条链：`EntityScript__ReachedQuestCounter.c:5-14`）。
+        /// 只落数据，今天没有消费点。</summary>
+        public int QuestTimes { get; private set; } = GateUnknown;
+
+        /// <summary>🆕 v21：原版 `RawCardScript.normalAbilityBoardCriteria`（`BoardCriteria @+0x2B0`）。
+        /// **`null` = 原版那个恒真的默认 criteria**（缺席这一列），⛔ 不是「判不了」。
+        /// 语义 → <see cref="BoardGateSpec"/>；求值 → <see cref="CountEval.MeetsBoardCriteria"/>。</summary>
+        public BoardGateSpec NormalAbilityBoardCriteria { get; private set; }
+
+        /// <summary>🆕 v21：原版 `BoardCriteria`（`+0x2B0`）在引擎里的形状 ——
+        /// `{countOptions, triggerIf, referenceValue, countSet}`。
+        /// <para>🔴 `CountSet` 与 <see cref="ConditionSpec.CountSet"/> **同一个类**（原版都是
+        /// `TargetCriteria` ＋ `BoardCriteria.playerTurn`，逐字同形）⇒ ⛔ 别另开一份字段表。</para>
+        /// <para>`-1` = 未知/没落（同 <see cref="CountSetSpec.Unknown"/>）。</para></summary>
+        public sealed class BoardGateSpec
+        {
+            /// <summary>原版 `BoardCriteria.countOptions`（`0 AllTargets` / `10 EnemiesMinusAllies`）。</summary>
+            public int CountOption = GateUnknown;
+            /// <summary>原版 `BoardCriteria.triggerIf`（`StatFilterOptions`：1 EqualTo / 2 EqualOrHigher /
+            /// 3 EqualOrLower / 8 RandomChance）。</summary>
+            public int StatOption = GateUnknown;
+            /// <summary>原版 `BoardCriteria.referenceValue`（拿来比的那个数）。</summary>
+            public int ReferenceValue = GateUnknown;
+            /// <summary>原版 `BoardCriteria.countCriteria` ＋ `playerTurn`。`null` = 未知。</summary>
+            public CountSetSpec CountSet;
+        }
+
+        /// <summary>
+        /// 🆕 v21：**这次该走「替代」那一支吗** —— 原版 `RawCardScript.GetActiveAbility` 的
+        /// `hasAlternativeAbility &amp;&amp; !MeetsCriteria(...)` 那两行（全文 17 行）。
+        ///
+        /// <para>🔴 **方向**：`true` = **替代支**（`alternativeAbility`）；`false` = **普通支**（`activeAbility`）。
+        /// 满足 criteria ⇒ 走普通支。⛔ 别把这个取反（`A11` 报告的 `alternative.why` 就写反过一次）。</para>
+        ///
+        /// <para>`null` = **判不了**（`hasAlternativeAbility` 未知 / criteria 里有本版没实现的筛）。
+        /// 调用方拿到 `null` 时**不许自己挑一档** —— 按 `ConditionEval` 的同一契约返回 `null` 并出声。</para>
+        ///
+        /// <para>`hasAlternativeAbility == 0` ⇒ **原版连 `MeetsCriteria` 都不调**，直接普通支
+        /// ⇒ 返回 `false`（不是「条件满足」，是「这条闸根本不看」——两者对本方法的结果相同）。</para>
+        /// </summary>
+        /// <param name="owner">这张卡的拥有者（`playerTurn` 那一格要拿它比 `ctx.Active`）。</param>
+        /// <param name="actor">这张卡在场上的那个单位（`includeSelf` / `excludeNotSelf` 两格要它）。</param>
+        public bool? UsesAlternativeAbility(BattleContext ctx, int owner, UnitState actor = null)
+        {
+            int alt = HasAlternativeAbility;
+            if (alt < 0) return null;                     // 未知 ⇒ 不许猜
+            if (alt == 0) return false;                   // 原版不调 MeetsCriteria ⇒ 普通支
+            bool? met = CountEval.MeetsBoardCriteria(ctx, owner, NormalAbilityBoardCriteria, actor);
+            if (met == null) return null;
+            return !met.Value;
+        }
+
+        /// <summary>🔴🆕 **2026-10-23（引擎线 `新账-95` #2）：原版 `RawCardScript.targeted`（`+0x268`）**
+        /// —— 「这张卡打出时**要在棋盘上点一个目标**」。
+        ///
+        /// <para>**判据**（第一权威 = 全量反编译）：`RawCardScript__IsValidTarget.c:8-44` 是
+        /// `cardTargetCriteria`（`+0x280`）的唯一消费者 —— 它先要求目标 `IsInPlay`、再过
+        /// ward / camouflage / `HasCurrentTrait(0x46)` 三道附加闸，最后
+        /// `FilterMethods.CheckIfMeetsCriteria(…, cardTargetCriteria, …)`。而
+        /// `cardTargetCriteria` **只对 targeted 卡有意义**：`targeted = 0` 的卡全池 3 张
+        /// （`Path of the Warrior` / `Skyborne Deployment` / `Alpha Warrior`）也带这一格，
+        /// 但它们**从不选目标**（例：`Give Shuriken 1 to your units` 的池子绝不是 `isWarlordOrVehicle`）
+        /// ⇒ **没有这一位当闸就会把目标池筛错**。</para>
+        ///
+        /// <para>`-1` = **未知**（旧表 / 真值里没这张卡）—— ⛔ 别当成 `false`：未知时
+        /// **不接** `cardtarget` 那一档（宁可退回正文）。今天卡表 **1127/1127** 都有这一列
+        /// （`0` = 881 张 / `1` = 246 张，2026-10-23 现读）。</para>
+        ///
+        /// <para>**消费点**：`EffectText.AssignCardTargetFallback` —— 对 `Targeted == 1` 的卡，
+        /// 把卡级 `role="cardtarget"` 那一条条件行落成 op 的 `TargetCondition`
+        /// （= 原版 `IsValidTarget` 的 `cardTargetCriteria` 那一道）。</para></summary>
+        public int Targeted { get; private set; } = -1;
+
         /// <summary>这张卡是不是来自**原版卡池**（`cards_engine.json`，由
         /// <see cref="CardDatabase.Parse"/> 置 true）。我们自己设计的那 26 张是 false。
         /// <para>用处：卡面文字怎么取。原版卡的卡面写的是**它自己的效果原文**
@@ -692,13 +806,48 @@ namespace RuleEngine
                        // 🆕 v19（2026-10-23 · 引擎线 `新账-97` ③/⑤）：原版 `RawCardScript.spellType`
                        //   （`SpellType` 枚举）。`-1` = 未知（快照里没这张卡）—— ⛔ 别当成 Normal(0)。
                        //   ⚠️ **追加在参数表末尾**（同前几条：全仓有位置传参的老调用点）。
-                       int spellType = -1)
+                       int spellType = -1,
+                       // 🔴🆕 2026-10-23（引擎线 `新账-95` #2）：原版 `RawCardScript.targeted`（`+0x268`）
+                       //   —— 「这张卡打出时**要在棋盘上点一个目标**」。判据/消费点 → <see cref="Targeted"/>。
+                       //   `-1` = 未知（旧表/没这一格）—— ⛔ 别当成 `false`。
+                       //   ⚠️ **追加在参数表末尾**（同前几条：全仓有位置传参的老调用点）。
+                       int targeted = -1,
+                       // 🆕 v20（2026-10-24 · 引擎线 `A12`）：**逐 `abilityLogic` 的 `furtherMultiplier`**
+                       //   （`cards_engine.json` 的 `abilityMultipliers` 列；原版 `AbilityLogic.furtherMultiplier`）。
+                       //   ⚠️ 形状 = 与 `abilityTargets` **逐条对齐的同一批** `AbilityTargetSpec`
+                       //   （`FurtherMultiplier` 那一格），这里只收**这一格**、按 `[i]` 并进 `_abilityTargets`
+                       //   （下标即语义，⛔ 不压缩）。判据 / 消费端 → <see cref="AbilityTargetSpec.FurtherMultiplier"/>。
+                       //   ⚠️ **追加在参数表末尾**（同前几条：全仓有位置传参的老调用点）。
+                       IEnumerable<int[]> abilityMultipliers = null,
+                       // 「这一列**来自 v20 卡表**」的正面信号（只有 `CardDatabase.Parse` 知道）。
+                       bool abilityMultipliersVersioned = false,
+                       // 🆕 v21（2026-10-24 · 引擎线 `A20` · 第三批 ①/②）：主动能力闸六列。
+                       //   语义 / 判据 / `-1` 契约 → 上面那一段 property 的 doc（⛔ 别在这里抄第二份）。
+                       //   ⚠️ **追加在参数表末尾**（同前几条：全仓有位置传参的老调用点）。
+                       int hasActiveAbility = GateUnknown,
+                       int activeNeedsLoading = GateUnknown,
+                       int alternativeNeedsLoading = GateUnknown,
+                       int hasAlternativeAbility = GateUnknown,
+                       int quest = GateUnknown,
+                       int questTimes = GateUnknown,
+                       BoardGateSpec normalAbilityBoardCriteria = null)
         {
             Id = id; Name = name; Type = type ?? ""; Desc = desc ?? ""; Rarity = rarity; Faction = faction;
             NameZh = nameZh ?? ""; DescZh = descZh ?? "";
             Subtype = subtype ?? "";
             // 🆕 v19（2026-10-23 · `新账-97`）：原版 `spellType` 原样收下（`-1` = 未知，⛔ 不是 Normal）。
             SpellType = spellType;
+            // 🆕 v21（2026-10-24 · 引擎线 `A20`）：主动能力闸六列 —— **原样收下**
+            //   （`-1` = 未知；`0` 是合法取值「假 / 无」，⛔ 别在这里把未知补成 0）。
+            HasActiveAbility = hasActiveAbility;
+            ActiveAbilityNeedsLoading = activeNeedsLoading;
+            AlternativeAbilityNeedsLoading = alternativeNeedsLoading;
+            HasAlternativeAbility = hasAlternativeAbility;
+            Quest = quest;
+            QuestTimes = questTimes;
+            NormalAbilityBoardCriteria = normalAbilityBoardCriteria;    // `null` = 恒真默认 criteria
+            // 🔴🆕 2026-10-23（`新账-95` #2）：`targeted` 同样**原样收下、缺了就是 -1**（三态，⛔ 不是 bool）。
+            Targeted = targeted;
             // 🆕 2026-10-14（`A1798`）：原版那两个字段**原样收下**（`-1` = 真值里没有这张卡，别当 0）。
             InventoryOptions = inventoryOptions;
             ShowInCollectionOptions = showInCollectionOptions;
@@ -792,6 +941,31 @@ namespace RuleEngine
             if (abilityTargets != null)
                 foreach (var _at in abilityTargets) _abilityTargets.Add(_at);
             AbilityTargetsVersioned = abilityTriggersVersioned;   // 同一列版本位（v17 一次加的）
+            // 🆕 v20（2026-10-24 · `A12`）：逐 `abilityLogic` 的 `furtherMultiplier` ——
+            //   **并进同一批 `AbilityTargetSpec`**（`abilityMultipliers[i].Length == logic 数`，与 `ta` 同形）。
+            //   ⚠️ 长度对不上 = 那条 ability 的 fm 读不到（保留 null ⇒ 消费端当**未知**，⛔ 不当 0），
+            //      并出声（错位会静默把某一格的倍数挂到别的 op 上）。
+            if (abilityMultipliers != null)
+            {
+                int _i = 0;
+                foreach (var _fm in abilityMultipliers)
+                {
+                    if (_fm != null && _i < _abilityTargets.Count && _abilityTargets[_i] != null)
+                    {
+                        var _spec = _abilityTargets[_i];
+                        if (_spec.TargetsAffected == null || _spec.TargetsAffected.Length == _fm.Length)
+                            _spec.FurtherMultiplier = _fm;
+                        else
+                            UnityEngine.Debug.LogWarning(
+                                $"[RuleEngine] 卡「{Name}」（{Id}）第 {_i} 条 ability 的 "
+                              + $"`abilityMultipliers.fm` 长度 {_fm.Length} 与 `abilityTargets.ta` 长度 "
+                              + $"{_spec.TargetsAffected.Length} 不一致 —— **这一格的 `furtherMultiplier` 按未知(-1)处理**"
+                              + "（⛔ 不压缩、不错位）。重跑 工具/gen_cards_engine.py。");
+                    }
+                    _i++;
+                }
+            }
+            AbilityMultipliersVersioned = abilityMultipliersVersioned;
             // 🔴🆕 v18（`P1·①`）：原版 `AbilityTrigger` 名 → priority —— 原样收下
             //   （`cards_engine.json` 的 `abilityTriggerPriority` 列，**只落 != 1 的行**）。
             //   🔴 合法性闸（缺 `name` / 缺 `trigger` / `priority` 不在 0..3 / 同 key 重复）
@@ -1720,6 +1894,47 @@ namespace RuleEngine
             /// （全 0 的 `TargetsAffected = any` 是一个**具体的**集合选择，不是「不知道」）。
             /// 语义 → <see cref="CountSetSpec"/> 的 doc。</summary>
             public CountSetSpec CountSet;
+
+            // ------------------------------------------------------------------
+            //  🆕 v22（2026-10-24 · 引擎线 `新账-95` #2 的残余 8 个 role）
+            //  `mult` / `multi` / `avail` / `choice` 四格**各自那条 criteria 的全文**
+            //  （一个完整 `TargetCriteria` —— 36 格，与 `CountSet` 同一套字段，⛔ 别各写一份）。
+            // ------------------------------------------------------------------
+            //  为什么必须落：`Condition` 只回答「条件是什么」，**回答不了「数谁 / 候选池是谁」**。
+            //  原版位置 / 判据（第一权威 = 全量反编译）：
+            //    · `mult`   = `abilityLogic[].multiplier`（`AbilityLogic__PlayAbility.c:181-236`：
+            //                 `GetTargets(multiplier)` 的个数 = `local_178`；`any(0)` ⇒ 1；
+            //                 `210/220` ⇒ 累加 `traitsFilter` 的值；最后 `× furtherMultiplier`）；
+            //    · `multi`  = `CardAbility.multiCountCriteria`（`+0x40`；`RawCardScript__TriggerAbilities.c:230-250`：
+            //                 `targetsAffected != 0` ⇒ **整条 ability 触发 N 遍**，`0` ⇒ 只触发一次）；
+            //    · `avail`  = `RawCardScript.targetsAvailableCounter`（`+0x298`；**原版只服务 UI**：
+            //                 `BattleCardUI__ShowAvailableTargets.c:42` → `CardScript.GetTargetsAvailable`）；
+            //    · `choice` = `RawCardScript.choicesDefinition`（`+0x2A0`；
+            //                 `BattleManager__GetChoiceFullPool.c:28-35` 的选牌候选池）。
+            //  🔴 **`null` = 没落/未知**（旧表 &lt; v22 / 生成器没落 / 这一格不是那个 role），
+            //     ⛔ **不是「默认 criteria」**（全 0 的 `targetsAffected = any` 是一个**具体的**选择）。
+            //  ⚠️ 四格都**没有 `BoardCriteria.playerTurn`**（那是 `BoardCriteria` 独有的）⇒
+            //     `PlayerTurn` 恒 `-1`，消费端**不许**拿它当闸 —— 所以这四格 ⛔ 不要直接喂
+            //     `CountEval.Meets`（它会因 `playerTurn == -1` 返回 null）。用 `CountEval.CountTargets`。
+
+            /// <summary>🆕 v22：`role == "mult"` 行 —— 原版 `abilityLogic[].multiplier` 整条 criteria。
+            /// `null` = 没落/未知（⛔ 不是「没有乘数」）。消费端 → `EffectResolver` 的 `repeats` 那一格。</summary>
+            public CountSetSpec MultiplierSet;
+
+            /// <summary>🆕 v22：`role == "multi"` 行 —— 原版 `CardAbility.multiCountCriteria` 整条 criteria。
+            /// `null` = 没落/未知。语义 = **`targetsAffected != 0` 时整条 ability 触发 N 遍**
+            /// （`RawCardScript__TriggerAbilities.c:230-250`）。</summary>
+            public CountSetSpec MultiSet;
+
+            /// <summary>🆕 v22：`role == "avail"` 行 —— 原版 `RawCardScript.targetsAvailableCounter` 整条 criteria。
+            /// `null` = 没落/未知。**原版唯一消费者是 UI**（`BattleCardUI__ShowAvailableTargets.c:42`）
+            /// ⇒ 引擎侧**没有**规则消费点。</summary>
+            public CountSetSpec AvailSet;
+
+            /// <summary>🆕 v22：`role == "choice"` 行 —— 原版 `RawCardScript.choicesDefinition` 整条 criteria。
+            /// `null` = 没落/未知。原版消费者 = `BattleManager__GetChoiceFullPool.c:28-35`
+            /// （`GetTargets(choicesDefinition)` = 选牌候选池）。</summary>
+            public CountSetSpec ChoiceSet;
         }
 
         /// <summary>🆕 v16（2026-10-22 · 引擎线 `W64` · 战斗审计 `B-16` 的明确缺口）：
@@ -1929,6 +2144,19 @@ namespace RuleEngine
             public int Trigger = -1;
             /// <summary>逐 `abilityLogic` 的 `targetsAffected`（`TargetsAffected` 枚举数值）。</summary>
             public int[] TargetsAffected;
+
+            /// <summary>🆕 v20（2026-10-24 · 引擎线 `A12`）：逐 `abilityLogic` 的
+            /// **`furtherMultiplier`**（原版 `AbilityLogic.furtherMultiplier`，`+0x38`）。
+            /// `-1` = 该格坏值/缺键（⛔ 不是 0 —— `0` 是原版**明确「不乘」**）。
+            /// <para>**判据**：`AbilityLogic__PlayAbility.c:235-236`
+            /// `if (0 < *(int *)(param_1 + 0x38)) local_178 = local_178 * *(int *)(param_1 + 0x38);`
+            /// —— `local_178` 是那条 logic 的**次数 / 倍数**（召唤循环上界 / `local_178 * damage` /
+            /// `AdjustCardEffect(…, local_178, …)`）。</para>
+            /// <para>**消费端**：`EffectText.AssignAbilityTargets`（与 `TargetsAffected` **同一趟**、
+            /// 同一道 G1/G2 闸）→ `EffectOp.AbilityFurtherMultiplier` → `EffectResolver` 的 `repeats`。
+            /// ⚠️ `null` = **这一列没落 / 旧表** ⇒ 未知。</para>
+            /// </summary>
+            public int[] FurtherMultiplier;
         }
 
         readonly List<AbilityTargetSpec> _abilityTargets = new List<AbilityTargetSpec>();
@@ -1942,6 +2170,11 @@ namespace RuleEngine
         /// <summary>🆕 v17：`abilityTargets` 列**来自 v17 卡表**的正面信号（与
         /// <see cref="AbilityTriggersVersioned"/> 同源 —— v17 一次加的两列）。</summary>
         public bool AbilityTargetsVersioned { get; private set; }
+
+        /// <summary>🆕 v20（2026-10-24 · 引擎线 `A12`）：`abilityMultipliers` 列**来自 v20 卡表**的正面信号。
+        /// `false` = 旧表（&lt; v20）/ 解析路径没接这一列 ⇒ <see cref="AbilityTargetSpec.FurtherMultiplier"/>
+        /// 一律 `null`（未知），消费端**不乘**、⛔ 不拿 1 顶（1 也是「乘了但没变」，读不出区别）。</summary>
+        public bool AbilityMultipliersVersioned { get; private set; }
 
         readonly List<ConditionSpec> _conditions = new List<ConditionSpec>();
 
@@ -4516,6 +4749,31 @@ namespace RuleEngine
         public const string Vanguard = "vanguard";
 
         /// <summary>
+        /// 🆕 **2026-10-24（引擎线 `N1` · `AttackGiantKiller` 的 trait 建模）**：
+        /// **巨人杀手** —— 原版 `DefinedTrait.giantKiller = **340**`（反编译里写作 `0x154`）。
+        ///
+        /// <para>**语义（判据 = 第一权威，逐支现读）**：
+        /// `BattleManager__IsValidAttackTarget.c:182-190` +
+        /// `CardScript__IsDefender.c` —— 带这个词的**攻击者只能打「督军」或「前线单位」**
+        /// （`IsDefender` = 在场 ∧ 非隐身 ∧ `HasVanguardTrait` = 非隐身 ∧ 带 `vanguard`）。
+        /// 官方本地化把这条规则印成一句人话：
+        /// `Battle/Tips/AttackGiantKiller` = `You must attack the Warlord or a Front Line unit` /
+        /// **`你必须攻击战将或前线单位`**（`数据/游戏数据/官方本地化_en+zh-CN.json`；
+        /// 我们 `CardPresentation/Core/Loc.cs` 同键同值）。</para>
+        ///
+        /// <para>**落点只有一个**：<see cref="RuleCore.IsValidTarget"/>（
+        /// 拒码 = `RuleCodes.ErrAttackGiantKiller`，排在 Flying 那一段之后、召唤病之前 ——
+        /// 与原版 `:182` 相对 `:177-181` 的位置逐字对齐）。</para>
+        ///
+        /// <para>⚠️ **为什么现在才建它**：trait 名与文案早就有了，缺的是**引擎建模**；
+        ///   `RuleCodes` 里原来把这一支列在「没建码的三支」里（判据已闭合、成因没建模）。
+        /// ⚠️ **池内 0 张卡带它**（`cards_engine.json` 1127 张现扫 `giantkiller` / `giant killer`
+        ///   各 0 命中；`cards_raw.json` 1,351 张的 `CardTraits` 也 0 张）
+        ///   ⇒ **零行为变化**，补的是「将来写得出」这一层（铁律 11）。</para>
+        /// </summary>
+        public const string GiantKiller = "giantkiller";
+
+        /// <summary>
         /// **隐身**。三条机制，**判据都在 `RuleCore`，别在别处另写一份**：
         ///   ① **不可被攻击**（攻击校验里直接拒 `ErrAttackBlockStealth` —— 🆕 2026-10-23 `B-31` 拆码，
         ///      此前是笼统的 `ErrTarget`；给单位选目标的主动技能走另一条路、仍拒 `ErrTarget`）；
@@ -5468,6 +5726,11 @@ namespace RuleEngine
         public static readonly HashSet<string> Implemented = new HashSet<string>
         {
             Vanguard, Stealth, Flying, Armour, Shield, Dodge,
+            // 🆕 2026-10-24（引擎线 `N1`）：**`giantkiller`（`DefinedTrait.giantKiller = 340`）**
+            //   —— 机制本笔建（落点 = `RuleCore.IsValidTarget`，拒码 = `ErrAttackGiantKiller`；
+            //   语义/判据/池内 0 张 → `GiantKiller` 常量的 doc，⛔ 别在这里抄第二份）。
+            //   进这一栏的判据 = 「那个时机**真的有人读它**」（同 `unstoppable` / `noncombatant`）。
+            GiantKiller,
             // 🆕 2026-10-08（`A1077`）：**`Dodge` 也进了这一栏** —— 结算侧真读了它
             //   （`RuleCore.DamageAfterReduction` + `RuleCore.ApplyDamage`，与 `Shield` 同形）。
             //   语义、判据、全池张数见 <see cref="KeywordTable.Dodge"/> 的注释，别在这里抄第二份。
@@ -5950,6 +6213,13 @@ namespace RuleEngine
             //      那就是同一个 trait 两份表示（本工程点名的红线）。
             new[] { "rage", Penitence },
             new[] { "frenzied", Destroyer },
+            // 🆕 2026-10-24（引擎线 `N1`）：**`giantkiller`（trait 340）** —— 两种拼法都要登记
+            //   （同 `drop pod` / `droppod` 那一档：`Normalize` 是**前缀匹配**，带空格那种吃不到连写）。
+            //   ⚠️ **前缀撞车已现核**：`Prefixes` 里以 `g` 开头的条目**一条都没有**（现读 `grep 'new[] { "g'` = 0）
+            //   ⇒ 加这两条**不改动任何现有解析结果**；反向也不成立（既有输入里没有以 `giant` 开头的）。
+            //   ⚠️ 全池今天 **0 张卡**带它 ⇒ 零行为变化（判据与语义 → `GiantKiller` 常量的 doc）。
+            new[] { "giant killer", GiantKiller },
+            new[] { "giantkiller", GiantKiller },
             // 🔴 `unstoppable`（`DefinedTrait.unstoppable = 180`，`DefinedTrait.cs:18`）**与前两个不同**：
             //    它是**独立 trait**，而且**卡面上没有字** —— 亲开 `SAU7 Canoptek Wraith` 的 PnP 图，
             //    关键词行只有 `Remnant. This troop can ignore enemy units with Vanguard when attacking`；

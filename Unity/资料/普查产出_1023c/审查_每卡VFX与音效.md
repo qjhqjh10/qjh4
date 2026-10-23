@@ -281,7 +281,7 @@
 
 3. **`vfxDelay` 双加**（§二·⑤）：删 `BattleDriver` 里多加的那一项（**只留一处**），并把
    `CardAnimClips.VfxDelay` 的注释改成「只给 `DurationOf` 用」。今天 0 影响，但**改起来三行**。
-4. **`WFModuleChangeMaterial.MaterialResolver` 从未赋值**（§二·⑦）：补一个转发到
+4. **`WFModuleChangeMaterial.MaterialResolver` 从未赋值**（§二·⑦）：⚠️ **2026-10-24 订正 —— 本报告此条建议方向错**：原版 `AnimFXModuleChangeMaterial.material` 是 `[SerializeField] private Material`（`dump.cs:48214`），随效果序列化、**全量反编译 0 个赋值点、没有「按名字全局查表」这一层** ⇒ `MaterialResolver` 是**我们自造的兜底钩子**，正确处置是**删除**（A10 已于 2026-10-23 删除），**不是**补一个转发到
    `WFModuleChangeMaterial` 的材质查找（原版判据在 `BattleCardUI__SetCardMaterial` 那一族，已在本仓注释里），
    或**明确记为「不做」并写理由**（当前 3 个模块都用具体 `material`）。顺手把
    `资料/AnimFX_实现与接线.md:167` 的「四个全做完」就地订正（铁律 5）。

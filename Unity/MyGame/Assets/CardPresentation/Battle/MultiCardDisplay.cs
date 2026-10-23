@@ -60,19 +60,35 @@
 //      × 卡体 `3.3313` = **743.35 px**。⚠️ **它属于【多卡展示窗】这棵树**，
 //      与「卡片详情窗」（`CardDisplayWindow`，卡体 **832.825 px**）**不是同一个尺寸**
 //      —— 2026-09-28 订正，判据 → `资料/阶段二_卡片详情窗_原版规格.md` §十·4。
-//   ③ **滚动**：原版是 uGUI `ScrollRect` + `RectMask2D` 裁剪；我们这套 HUD 是**世界空间四边形**、
-//      没有 uGUI 遮罩 ⇒ 卡放不下时**先把卡等比缩到装得下**（缩到 45% 仍装不下才让它溢出去）。
-//      ⚠️ 迁到画布之后**仍没做**（卡片那一支还是世界空间）——「继续不缩、改成横向滚动」是**另开一件**的活。
-//   ④ **「继续」文字右对齐**：我们这块 `Label` 只有居中 ⇒ 用「中心点右移」近似。
-//      🔴 **2026-10-16（修波 `FB` · 账 `F11`）就地订正：右移的【基准】原来是错的** ——
-//      旧写法 `BarCx + BarW*0.5 − 60` 把基准取成了**条的右沿**，而原版那个 `Text` **框**的右沿
-//      离条的右沿还有 **227.77 px**（框 `287.33 × 44.856`；TMP `m_HorizontalAlignment = 4(Right)` +
-//      `m_margin = 0` ⇒ **字形右沿 = 框右沿**）⇒ 我们那个字一直**压在圆钮上**（`R1` ②-1 与 `A11` §⑥·b
-//      量到的那 ≈168 px 就是这处，它量的是另一个参照点）。
-//      ✅ 现在基准 = **原版 `Text` 框的右沿**（判据 = `RT_3020` 五元组现算，见 `BtnTextCx`）。
-//      ⚠️ **仍留的误差** = 「真实半字宽 − 60 px」（真值要真机量 TMP 字宽 —— 那一笔仍开着，见本件报告 §⑤）。
-//   ⑤ **入口**：原版从 `BattleManager.ResolveAction` 里调（环境卡 / 战绩卡组），我们没有那两个流程
-//      ⇒ 接到**点我方牌堆**（摊开牌库）—— **入口是我们挑的**。
+//   ③ **滚动**：🔴 **2026-10-24（`W64·B-25`）已照原版做横向滚动**（原来是「装不下就等比缩到 45%」）。
+//      原版判据 → `C1_战斗线判据_布置与层级.md` **C1-B05**：`Generic Multi Card Display Combat` 根上
+//      uGUI `ScrollRect` —— `m_Horizontal=1` · `m_Vertical=0` · **`m_MovementType=1 (Clamped)`** ·
+//      `m_Elasticity=0.1` · `m_Inertia=1` · **`m_DecelerationRate=0.135`** · `m_ScrollSensitivity=1.0` ·
+//      无滚动条；`Content` = `HorizontalLayoutGroup(m_Spacing 500, MiddleCenter)` + `ContentSizeFitter`
+//      （宽运行时算）。⚠️ **我们这套 HUD 的卡是世界空间 `MeshRenderer`（不是 uGUI），
+//      所以「滚动」= 自己记一个横向偏移、逐帧重摆卡的位置**，视口裁切走 `CardView.SetPose(..., PxRect)`
+//      （= `RectMask2D` 的等效物，`Core/CardView.cs` 的「视口裁切」那一节）。
+//      ⚠️ **如实标的偏离**：原版 `Clamped` 档还带 `m_Elasticity=0.1` 的**越界回弹**，我们**硬夹**（不回弹）；
+//      滚动条原版就没有 ⇒ 一致。
+//   ④ **「继续」文字右对齐**：✅ **2026-10-24（`W64·B-24`）已按原版量真字宽**（原来是「中心点右移 60 px」的近似）。
+//      原版 `Text`（`RT_3020`）框 `287.33 × 44.856`、TMP **`m_HorizontalAlignment = 4 (Right)`** ·
+//      `m_margin = 0` ⇒ **字形右沿 = 框右沿**；框右沿由五元组现算 = 组内 **−223.362**
+//      （判据 → `BtnTextFrameRx` 的 doc）。⇒ 我们这块 `Label` 是居中锚 ⇒ **`cx = 框右沿 − 实测字宽/2`**
+//      （实测 = `Label.WorldW`，uGUI 档单位就是设计 px）。见 <see cref="LayoutContinueText"/>。
+//   ⑤ **入口**：🔴 **2026-10-24（`W64·B-30`）就地订正（铁律 5）**：本行原写「原版从
+//      `BattleManager.ResolveAction` 里调（**环境卡 / 战绩卡组**）」—— **那两条不成立**
+//      （`C1_战斗线判据_卡牌与Tips消费点.md` **C1-A08**：全池 1,351 张里用 `AbilityEffect.showCardsWindow(470)`
+//      的**只有 GSC55「Eve of the Uprising」一张**，没有环境卡/战绩卡组用它）。
+//      **原版唯一入口** = 效果 470 → 动作 86 → `ResolveAction` case 86 → `DisplayMultiCardView`
+//      （且只在 `IsPlayerTurn` 时显示）。
+//      🔴 **2026-10-24 第二处订正（铁律 5）**：本行原来还写「⛔ **我们引擎还不发这条事件** ⇒ 那一半**没接**」
+//      —— **已过期**：引擎已发 `EvtKind.ShowCardsWindow`（`RuleEngine/Core/BattleEvent.cs` 那个枚举项的 doc，
+//      判据 → `资料/普查产出_1023e/J2_引擎结构自检.md` §二），表现层由 `BattleDriver.OpenShowCardsWindow` 消费
+//      （`IsPlayerTurn` 那道闸 + 「卡名 → `CardData`」都在那边）。
+//      ⚠️ **两条入口【分开看】**（⛔ 别混为一谈）：
+//        · **原版那一条** = `EvtKind.ShowCardsWindow`（效果 470，全池只有 `GSC55`）；
+//        · **我们挑的那一条** = **点我方牌堆** → `BattleDriver.ShowMyDeck`（原版没有这个入口；
+//          自检 `Editor/BattleScene.cs` 那一节靠它，⛔ **别删**）。
 //
 // ⚠️ 遮罩与标题**建一次就留着**，开关只切 `activeSelf`（照 `CardDisplayWindow` 的教训：
 //    每次重建、`Hide` 又销毁的话，第二次打开只剩一张光卡）。
@@ -204,10 +220,22 @@ namespace CardPresentation
         /// · 圆钮心 = 组心 + `BtnCircleDx` = **−156.5413** ⇒ 16:9 下 = **1763.459**（原版 1763.46 ✓）
         /// · 字心 = **框右沿** − 60 = **−307.588** —— 那个 60 是「半字宽」的**近似**（见文件头 ④）；
         ///   ⚠️ 旧值是「条的右沿 − 60」= **−79.81** ⇒ 比原版**偏右 227.77 px**（`R1` ②-1 / `A11` §⑥·b）。
-        ///     若将来把字宽量出来了，**只改 `BtnTextCx` 这一处**（`−60` → 真实半宽）即可。</summary>
+        ///     若将来把字宽量出来了，**只改 `BtnTextCx` 这一处**（`−60` → 真实半宽）即可。
+        ///     ✅ **2026-10-24（`W64·B-24`）已完成**：字宽真的量了（`Label.WorldW`），产品路径走
+        ///     <see cref="LayoutContinueText"/>；上面那个 `BtnTextCx` 现在叫 `BtnTextCxFallback`（只作兜底）。</summary>
         const float BtnBarCx = BtnGroupCx + BtnBarDx;          // −308.5608
         const float BtnCircleCx = BtnGroupCx + BtnCircleDx;    // −156.5413
-        const float BtnTextCx = BtnApX + (BtnTextFrameRx - 60f);   // −307.588
+        /// <summary>「继续」两个字的角偏移（**兜底值**）—— 🔴 **2026-10-24（`W64·B-24`）起
+        /// 【产品路径不再用它】**：真值 = 「框右沿 − 实测字宽/2」，由 <see cref="LayoutContinueText"/>
+        /// 在字号定下来之后现算。这一格只在**量不到字宽**（TMP 没生成 / 空串）时兜底，
+        /// 值的来历 = 老写法「框右沿 − 60」（那 60 是「半字宽」的**近似**，已被实测取代）。
+        /// ⛔ 别把产品路径改回读它。</summary>
+        const float BtnTextCxFallback = BtnApX + (BtnTextFrameRx - 60f);   // −307.588
+        /// <summary>🔴 **2026-10-24（`W64·B-24`）**：原版 `Text` 框右沿**相对父件右下角**的 x
+        /// （= `BtnApX + BtnTextFrameRx` = **−247.588**）。**字形右沿必须落在这条线上**
+        /// （TMP `m_HorizontalAlignment = 4 (Right)` · `m_margin = 0`）。
+        /// ⚠️ 自检那边**独立写死 −223.362 / −247.588 这两个数**（⛔ 不读本常量，否则就是自证）。</summary>
+        const float BtnTextRightEdgeX = BtnApX + BtnTextFrameRx;            // −247.588
         /// <summary>条 / 圆钮的角偏移 y（与**组心**同 y —— 原版两件的 `ap.y` 都是 0）。</summary>
         const float BtnChromeCy = BtnGroupCy;                  //  −28.08
         /// <summary>「继续」两字的角偏移 y = `Text` **框心**的 y（`aMin.y = 0`、`aMax.y = 0.9`
@@ -235,12 +263,41 @@ namespace CardPresentation
         /// 改成真值之后**同屏能放下的张数会变多**，那是**应有的**（原版就是这样）——
         /// ⛔ 别为了保住旧张数再把它改回去。</summary>
         public const float CardHeightPx = 520.3f;
-        /// <summary>卡间距（px）。**我们挑的**（见文件头 ①）</summary>
-        public const float SpacingPx = 24f;
-        /// <summary>两侧留白（px）—— 判断「装不装得下」时按它算可用宽度</summary>
+        /// <summary>卡间距（px）—— 🔴 **2026-10-24（`B-25`）改成原版真值 350**（原来是自选的 24）。
+        ///
+        /// <para>**判据链（全是现读，逐条给字段）**：原版 `Generic Multi Card Display Combat` 那棵树里 ——
+        /// ① `Content`（GO `Content_783`）挂 **`HorizontalOrVerticalLayoutGroup`**：
+        ///    `MonoBehaviour_5034.json` 的 **`m_Spacing = 500`** · `m_ChildAlignment = 4 (MiddleCenter)` ·
+        ///    padding 全 0 · `ChildForceExpand/ChildControl 全 0`；
+        /// ② 它的上一级 **`Viewport`（`RectTransform_3371`）`m_LocalScale = 0.7`**
+        ///    ⇒ 布局算出来的 500 是**父（Viewport 之前）的单位**，落到屏幕上要 **× 0.7**
+        ///    ⇒ **卡间距真值 = 500 × 0.7 = 350 屏幕 px**。</para>
+        ///
+        /// <para>⚠️ **为什么本文件的工作量纲也是「屏幕 px」**：`CardHeightPx = 520.3` 已经把那个 0.7 折进去了
+        /// （= `3.3313 × 223.14 × 0.7`，见它自己的注释）⇒ 这里填 350 才和它同一个尺子。
+        /// ⛔ **别填 500**（那是 Viewport **之前**的单位，填错 = 间距大 43%）。</para>
+        ///
+        /// <para>🔴 **2026-10-24（`W64·B-25`）就地订正（铁律 5）**：本段原写「我们是『居中 + 装不下就等比缩到
+        /// 45% 地板』，**不是滚动**（见文件头 ③）」—— **已过期**：文件头 ③ 那一档已按原版改成
+        /// **横向滚动**（`CardView` 视口裁切 + 自己记横向偏移），**不再缩卡**。</para>
+        /// 🧨 改坏法：改回 24 ⇒ `Editor/BattleScene.cs` 的 `B-25` 断言（按**卡心距 ÷ 卡宽**量的）红。</summary>
+        public const float SpacingPx = 350f;
+        /// <summary>两侧留白（px）—— 🔴 **2026-10-24（`W64·B-25`）起【产品路径不再用它】**
+        /// （原来它参与「装不装得下」的可用宽计算）。现在视口 = 整条窗口带（宽 1920、原版
+        /// `Content` 的 padding 是 0），滚动范围按整宽算。留着只为**旧断言/旧记录可读**。</summary>
         const float SideMarginPx = 60f;
-        /// <summary>缩放下限：再小就不缩了（溢出去也比糊成一团好认）</summary>
-        const float MinShrink = 0.45f;
+
+        // ---- 🔴 2026-10-24（`W64·B-25`）：横向滚动（原版 `ScrollRect` 的等价物）------------------
+        //  判据 = `C1-B05`（`bundle_scenes_scenes_battlearena2/MonoBehaviour/MonoBehaviour_5036.json`）：
+        //    `m_Horizontal=1` · `m_Vertical=0` · `m_MovementType = 1 (Clamped)` · `m_Elasticity = 0.1` ·
+        //    `m_Inertia = 1` · `m_DecelerationRate = 0.135` · `m_ScrollSensitivity = 1.0` · 无滚动条。
+        /// <summary>松手后速度的衰减率（原版 `m_DecelerationRate` = **0.135**；UGUI 每帧
+        /// `velocity *= Mathf.Pow(rate, deltaTime × 60)`）。</summary>
+        public const float ScrollDecelerationRate = 0.135f;
+        /// <summary>拖拽阈值（px）：按下后横向移动超过它才当「拖拽」——
+        /// ⚠️ **这是我们加的**（原版靠 `ScrollRect` 自己分派；我们那颗全屏背景关闭件会吃掉抬手
+        /// ⇒ 必须自己分开「点一下（关窗）」与「拖一下（滚动）」）。判据缺失，如实标着。</summary>
+        const float DragSlopPx = 6f;
 
         const float ZMask = -2.2f, ZContent = -2.3f;   // 比放大窗（−2.0/−2.1）还靠前一点
         /// <summary>画布本体那个节点在**子画布**里的 z 档（它是子画布的**独子** ⇒ 只用于登记兄弟序）。</summary>
@@ -297,10 +354,29 @@ namespace CardPresentation
         Label _header, _barText;
         readonly List<CardView> _cards = new List<CardView>();
 
+        // ---- 🔴 2026-10-24（`W64·B-25`）：横向滚动的状态（原版 `ScrollRect` 的等价物）----
+        /// <summary>当前横向偏移（px，**内容相对视口左沿**；0 = 内容左沿贴视口左沿，只在这一排比视口宽时才非零）。</summary>
+        float _scrollPx;
+        /// <summary>可滚动上限（px）= `max(0, 一排自然宽 − 视口宽)`。</summary>
+        float _maxScrollPx;
+        /// <summary>松手后的残余速度（px/s，正 = 内容继续往左走）。衰减 = 原版 `m_DecelerationRate`。</summary>
+        float _scrollVelPx;
+        /// <summary>这一次按下是不是已经在拖（超过 <see cref="DragSlopPx"/>）—— 抬手时用来**压掉关窗**。</summary>
+        bool _dragActive;
+        /// <summary>按下那一刻的指针 x（设计 px）；`float.NaN` = 没有按下。</summary>
+        float _dragLastPx = float.NaN;
+        /// <summary>这一次按下累计横向走了多远（px）—— 只在用于判「点 vs 拖」。</summary>
+        float _dragTravelPx;
+        /// <summary>这一排的**自然**卡宽 / 间距（px）—— `Show()` 里定，<see cref="ApplyCardLayout"/> 每次重摆都用它。</summary>
+        float _cardWNat, _gapPx;
+
         /// <summary>窗是不是开着（自检用）</summary>
         public bool Visible { get; private set; }
         /// <summary>摊开了几张（自检用）</summary>
         public int CardCount { get { return _cards.Count; } }
+        /// <summary>🔴 **自检用（`B-25`）**：摊开的第 `i` 张卡（越界 ⇒ `null`）。
+        /// 量「卡心距」用 —— ⛔ 别拿 `FirstCardXpx` 与常量推（那读的是被测实现自己的摆位算式）。</summary>
+        public CardView CardForTest(int i) { return i >= 0 && i < _cards.Count ? _cards[i] : null; }
         /// <summary>标题那行字（自检用）</summary>
         public string HeaderShown { get; private set; }
         /// <summary>这一排的实际宽度（px；自检用 —— 用来验「装得下 / 缩过」）</summary>
@@ -512,6 +588,8 @@ namespace CardPresentation
             //    （`BarCx + BarW*0.5 − 60`），而原版 `Text` **框**的右沿在条的右沿往左 **227.77 px** 处
             //    （框 `287.33 × 44.856`、右对齐）⇒ 我们的字一直**压在圆钮上**（`R1` ②-1 / `A11` §⑥·b）。
             //    ✅ 现在基准 = **框的右沿**（`BtnTextCx` 那一串由原版五元组现算）。
+            //    🔴 **2026-10-24（`W64·B-24`）**：那 60 px 的近似也没了 —— 改成实测字宽
+            //    （`LayoutContinueText`，产品路径不再读 `BtnTextCxFallback`）。
             // 🔴 **2026-10-18（第十二轮 · W6）**：那颗钮上的字走**原版词条** `Battle/Mulligan/ButtonDone`
             //    （原版 `Generic Multi Card Display Combat < BattleContinueButton < Text` 挂的就是它，
             //     TMP 原文 `Continue`）—— 原来写死的是中文 `"继续"`（与换牌面板那条是**同一条**词条）。
@@ -527,8 +605,8 @@ namespace CardPresentation
             //        `_tmp.rectTransform.localPosition`）⇒ 顺序无妨，但把改锚放最后更稳。
             AnchorBottomRight(_bar != null ? _bar.Rect : null, BtnBarCx, BtnChromeCy);
             AnchorBottomRight(_circle != null ? _circle.Rect : null, BtnCircleCx, BtnChromeCy);
-            AnchorBottomRight(_barText != null ? (RectTransform)_barText.transform : null,
-                              BtnTextCx, BtnTextCy);
+            // 🔴 **2026-10-24（`W64·B-24`）**：「继续」两个字**按实测字宽右对齐**（原来是「框右沿 − 60」的近似）
+            LayoutContinueText();
 
             // 🆕 2026-10-20（A3-e2）：`_bar` = 原版 `UIMultiCardDisplay.closeButton`（`EverguildButton` `MB_5115`，
             //   `m_TargetGraphic` = `MB_4202` 那颗 `40k_bt_underbutton`）—— `Open()` 时把 `CloseButtonOnClick`
@@ -618,6 +696,36 @@ namespace CardPresentation
             rt.anchoredPosition = new Vector2(dx, dy);
         }
 
+        /// <summary>🔴 **2026-10-24（`W64·B-24`）**：「继续」两个字按**实测字宽**右对齐到原版那个 `Text` 框的右沿。
+        ///
+        /// <para>**判据**（`C1-A07` · `资料/普查产出_1016并行/T09_MultiCardDisplay_锚点补正_报告.md:158`）：
+        /// 原版 `Text`(`RT_3020`) 框 `287.33 × 44.856`、TMP **`m_HorizontalAlignment = 4 (Right)`** ·
+        /// **`m_margin = 0`** ⇒ **字形右沿 = 框右沿**；框右沿在组内 = **−223.362**（= <see cref="BtnTextFrameRx"/>），
+        /// 换成「相对父件右下角」= **−247.588**（= <see cref="BtnTextRightEdgeX"/>）。
+        /// ⛔ **不需要猜「半字宽」** —— 那个 60 是旧写法的近似，已删。</para>
+        ///
+        /// <para>**做法**：本类这块 `Label` 只有居中锚 ⇒ `cx = 框右沿 − 字宽/2`，
+        /// 字宽 = `Label.WorldW`（uGUI 档单位**就是设计 px**，见 `Label.PxPerUnit` 的 doc）。
+        /// 量不到（未生成 / 空串 / 天文数字）⇒ 退回 <see cref="BtnTextCxFallback"/> **并出声**（不静默）。</para>
+        ///
+        /// <para>⚠️ **调用时机**：必须在 `SetScriptHeight`（字号定下来）**之后** —— 字宽随字号变。
+        /// 今天唯一的调用点是 `Build` 里三件改锚之后（那一句紧跟 `SetScriptHeight`）。</para></summary>
+        void LayoutContinueText()
+        {
+            if (_barText == null) return;                     // 没建起来时建件处已出声
+            float w = 0f;
+            try { w = _barText.WorldW; } catch { w = 0f; }
+            bool ok = !float.IsNaN(w) && !float.IsInfinity(w) && w > 1f && w < 4000f;
+            if (!ok)
+            {
+                Debug.LogWarning($"[多卡展示窗] 「继续」量不到字宽（`Label.WorldW` = {w}）⇒ 退回旧的"
+                               + "「框右沿 − 60」近似（**如实出声**；原版是 `m_HorizontalAlignment=Right`，"
+                               + "真值一旦量得到这条就不该走到）");
+            }
+            float cx = ok ? (BtnTextRightEdgeX - w * 0.5f) : BtnTextCxFallback;
+            AnchorBottomRight((RectTransform)_barText.transform, cx, BtnTextCy);
+        }
+
         /// <summary>开/关一次（和放大窗一个形状）。</summary>
         public void Toggle(IList<CardData> cards, string header)
         {
@@ -639,38 +747,35 @@ namespace CardPresentation
             //    `Hide()` ⇒ 到这里 chrome 整排是关着的。
             HeaderShown = header ?? "";
 
-            // 卡宽（px）：和放大窗同源 —— 卡本体按「高 743 px」反算缩放
+            // 卡宽（px）：和放大窗同源 —— 卡本体按「高 520.3 px」反算缩放
             float baseScale = CardHeightPx / EndPanel.PxPerUnit / CardView.Height;
             float cardWpx = CardHeightPx * (CardView.Width / CardView.Height);
             float gapPx = SpacingPx;
             float scale = baseScale;
 
+            // 🔴🔴 **2026-10-24（`W64·B-25`）**：这一段原来是「装不下就等比缩到 45% 地板」。
+            //   原版**不缩**：`ScrollRect(horizontal, Clamped)` + `RectMask2D`，卡一直按自然尺寸画、
+            //   装不下就**横向滚**（判据 → 文件头 ③ / `C1-B05`）。⇒ 现在：
+            //   · `UsedScale` 恒 = 自然 `baseScale`（`k` 恒 1）；
+            //   · 一排的自然总宽照实记进 `ContentWidthPx`（**可能远大于视口**，那是正常的）；
+            //   · 超出的部分由 `_scrollPx` + 视口裁切消化。
+            //   ⚠️ 顺带修掉的旧量纲坑：原来 `availPx` 用世界单位减 px（恒判装不下）—— 已经不复存在。
             float totalPx = cards.Count * cardWpx + (cards.Count - 1) * gapPx;
-            // 🔴🔴 **2026-10-16（`T09` 批 3 · 写手 C 现核、主对话裁定并就地修）：这里原来是【量纲错】。**
-            //   原式 `LayoutSpace.VisibleWidth - SideMarginPx * 2f` 拿**世界单位**（16:9 下 17.78）去减 **px**（120）
-            //   ⇒ `availPx = −102.2` ⇒ **永远判「装不下」**、`k` 永远被 `Max` 夹到 `MinShrink`
-            //   ⇒ **无论几张卡都缩到 45%**（卡高 520.3 → 234 px），与张数无关。
-            //   ✅ 正解 = 用**同一量纲的屏宽**：`LayoutSpace.DesignPxW`（1920 px）。
-            //   ⚠️ 这条与迁 uGUI **无关**（老代码就有），是写手 C 顺手查出来的 ⇒ 按铁律 11「与原版不符的全部要做」。
-            //   ⚠️ **它盖住了真实行为**：`:8151` 那条断言的第三支 `UsedScale > 0` **恒真** ⇒ 旧的绿不是判据。
-            float availPx = LayoutSpace.DesignPxW - SideMarginPx * 2f;
-            if (totalPx > availPx && cards.Count > 1)
-            {
-                // 装不下 ⇒ **等比缩**（原版这里是横向滚动，见文件头 ③）
-                float k = Mathf.Max(MinShrink, availPx / totalPx);
-                scale = baseScale * k;
-                cardWpx *= k;
-                gapPx *= k;
-                totalPx = cards.Count * cardWpx + (cards.Count - 1) * gapPx;
-            }
+            // 视口 = 整条窗口带（宽 1920 = 原版 `Generic Multi Card Display Combat` 横向 stretch 的父宽；
+            //   `Content` 的 padding 是 0 ⇒ 不内缩）。
+            float availPx = LayoutSpace.DesignPxW;
             UsedScale = scale;
             ContentWidthPx = totalPx;
+            _cardWNat = cardWpx;
+            _gapPx = gapPx;
+            _maxScrollPx = Mathf.Max(0f, totalPx - availPx);
+            _scrollPx = 0f;                 // 每次开窗从最左开始（`ScrollRect` 的初始位置）
+            _scrollVelPx = 0f;
+            _dragActive = false; _dragLastPx = float.NaN; _dragTravelPx = 0f;
 
-            // 竖：标题下面那一条的中点；横：整排居中（原版是 ScrollRect，我们居中 —— 见文件头 ③）
+            // 竖：标题下面那一条的中点；横：装得下 ⇒ 居中（`MiddleCenter`）/ 装不下 ⇒ 从视口左沿起（滚动）
             float cy = (BandTopPx + HeaderH + BandBottomPx) * 0.5f;
-            float x0 = 960f - totalPx * 0.5f + cardWpx * 0.5f;
             CardCypx = cy;
-            FirstCardXpx = x0;
             for (int i = 0; i < cards.Count; i++)
             {
                 // 🔴 **2026-10-16（`T09` 批 3）**：这一段**一个字没改** —— 卡是**世界物件**（`CardView` 是
@@ -681,10 +786,10 @@ namespace CardPresentation
                 //    （这条随第 6 步「手牌/场上卡迁过去」一起消失）。
                 var v = CardView.Create(_root, cards[i], "mcd_card" + i);
                 if (v == null) continue;
-                v.SetPose(Pos(x0 + i * (cardWpx + gapPx), cy, ZContent), 0f, scale);
                 v.SetHighlight(CardHighlightState.Normal);   // 展示窗里的卡不吃「可出牌」那套状态色
                 _cards.Add(v);
             }
+            ApplyCardLayout();              // 位置 + 视口裁切一次算齐（滚动/换分辨率的唯一入口）
 
             SetChrome(true);
             Visible = true;
@@ -707,11 +812,115 @@ namespace CardPresentation
         {
             Visible = false;
             HeaderShown = null;
+            _dragActive = false; _dragLastPx = float.NaN; _dragTravelPx = 0f; _scrollVelPx = 0f;
             for (int i = 0; i < _cards.Count; i++)
                 if (_cards[i] != null) Kill(_cards[i].gameObject);
             _cards.Clear();
             SetChrome(false);
         }
+
+        // ═══════════════════════════════════════════════════════════════════════════════════════════
+        //  🔴 2026-10-24（`W64·B-25`）：横向滚动 —— 原版 `ScrollRect(horizontal, Clamped)` 的等价物
+        //
+        //  原版（`C1-B05` 逐字段）：`m_MovementType = 1 (Clamped)` · `m_Inertia = 1` ·
+        //    `m_DecelerationRate = 0.135` · `m_ScrollSensitivity = 1.0` · `m_Elasticity = 0.1` · 无滚动条。
+        //  我们：卡是世界空间 `MeshRenderer`（不是 uGUI 元素）⇒ **自己记一个横向偏移 `_scrollPx`**，
+        //    每帧重摆一次（<see cref="ApplyCardLayout"/>），裁切交给 `CardView.SetPose(..., PxRect)`。
+        //  ⚠️ 如实标的偏离：
+        //    ① **`m_Elasticity` 的越界回弹没做** —— 我们硬夹在 `[0, MaxScroll]`（原版 Clamped 档越界时
+        //       会回弹一下再夹）。原版那条曲线本地没有逐值判据 ⇒ 不猜。
+        //    ② **拖拽阈值 6 px 是我们加的**（<see cref="DragSlopPx"/>）：原版由 `ScrollRect` 自己分派
+        //       「点 / 拖」，而我们抬手那一下会被全屏背景关闭件吃掉 ⇒ 必须自己分开两种手势。
+        //    ③ 原版 `CardCollider.sendEventsToScrollRect` 把**卡片上的拖拽**转给 `ScrollRect`；
+        //       我们的指针是驱动层世界坐标轮询 ⇒ 「在卡上拖」与「在空处拖」都能滚（覆盖面更大）。
+        // ═══════════════════════════════════════════════════════════════════════════════════════════
+
+        /// <summary>视口矩形（设计 px · **左上原点**）= 整条窗口带：`x[0,1920] y[BandTop,BandBottom]`。
+        /// 判据 = 原版根 `Generic Multi Card Display Combat` 横向 stretch（拿父宽 1920）+ `sizeDelta.y 818.04`
+        /// 的那条带（`RT_3369/3370` 那一族；`Content` 的 padding 是 0）⇒ **裁切边界就是这条带**。</summary>
+        public static PxRect ViewportClipPx
+        {
+            get { return new PxRect(0f, BandTopPx, LayoutSpace.DesignPxW, BandBottomPx); }
+        }
+
+        /// <summary>按当前 `_scrollPx` 把这一排**重摆 + 重裁**（滚动 / 换分辨率 / 开窗的唯一入口）。
+        /// <para>横：一排装得下 ⇒ **居中**（原版布局组 `m_ChildAlignment = 4 = MiddleCenter`）；
+        /// 装不下 ⇒ 从**视口左沿**起（`ScrollRect` 的初始位置 0）、再减 `_scrollPx`。</para></summary>
+        void ApplyCardLayout()
+        {
+            if (_cards.Count == 0) return;
+            float totalPx = _cards.Count * _cardWNat + (_cards.Count - 1) * _gapPx;
+            bool fits = totalPx <= LayoutSpace.DesignPxW;
+            if (fits) { _scrollPx = 0f; _scrollVelPx = 0f; _maxScrollPx = 0f; }
+            float x0 = fits ? (960f - totalPx * 0.5f + _cardWNat * 0.5f)
+                            : (_cardWNat * 0.5f - _scrollPx);
+            FirstCardXpx = x0;
+            var clip = ViewportClipPx;
+            for (int i = 0; i < _cards.Count; i++)
+            {
+                var v = _cards[i];
+                if (v == null) continue;
+                v.SetPose(Pos(x0 + i * (_cardWNat + _gapPx), CardCypx, ZContent), 0f, UsedScale, clip);
+            }
+        }
+
+        /// <summary>每帧喂一次指针（驱动层 `TickMultiCards` 里、紧跟 `TickFeedback` 调）。
+        /// <paramref name="world"/> = 世界指针（同 `TickFeedback`）；<paramref name="held"/> = 这一帧按着没有；
+        /// <paramref name="dt"/> = 帧时长（批处理里没有帧循环 ⇒ 自检显式传，产品传 `Time.deltaTime`）。
+        /// <para>行为：按下且不在「继续」条上 ⇒ 起拖；拖动距离超过 <see cref="DragSlopPx"/> ⇒ 记为拖拽
+        /// （抬手时**不关窗**）；松手后按 `m_DecelerationRate` 惯性滑一段并夹在 `[0, MaxScroll]`。</para></summary>
+        public void TickScroll(Vector3 world, bool held, float dt)
+        {
+            if (!Visible) { _dragActive = false; _dragLastPx = float.NaN; _dragTravelPx = 0f; return; }
+            float xNow = world.x * EndPanel.PxPerUnit;       // 世界 → 设计 px（与 `HitContinue` 的兜底支同口径）
+
+            if (held)
+            {
+                if (float.IsNaN(_dragLastPx))
+                {
+                    _dragLastPx = xNow;
+                    _dragTravelPx = 0f;
+                    // 按在「继续」条上 ⇒ 这一下归按钮，不许起拖（否则拖按钮会顺手滚一排）
+                    _dragActive = !HitContinue(world);
+                }
+                else if (_dragActive)
+                {
+                    float dxPx = xNow - _dragLastPx;
+                    if (Mathf.Abs(dxPx) > 0f)
+                    {
+                        // 手指往左 ⇒ 内容往左走 ⇒ `_scrollPx` 增
+                        _scrollPx = Mathf.Clamp(_scrollPx - dxPx, 0f, _maxScrollPx);
+                        _dragTravelPx += Mathf.Abs(dxPx);
+                        _scrollVelPx = dt > 1e-5f ? (-dxPx / dt) : 0f;   // 松手时的初速（px/s）
+                        ApplyCardLayout();
+                    }
+                }
+                _dragLastPx = xNow;
+                return;
+            }
+
+            // ---- 松手：清拖拽状态；有惯性就滑一段（原版 `m_Inertia = 1`）----
+            _dragActive = false; _dragLastPx = float.NaN;
+            if (dt <= 1e-5f || _maxScrollPx <= 0f || Mathf.Abs(_scrollVelPx) < 1f) { _scrollVelPx = 0f; return; }
+            float next = _scrollPx + _scrollVelPx * dt;
+            float clamped = Mathf.Clamp(next, 0f, _maxScrollPx);
+            if (!Mathf.Approximately(clamped, next)) _scrollVelPx = 0f;      // 撞到边界 ⇒ 停（原版 Clamped 也是停）
+            _scrollPx = clamped;
+            _scrollVelPx *= Mathf.Pow(ScrollDecelerationRate, dt * 60f);     // UGUI 的衰减式
+            ApplyCardLayout();
+        }
+
+        /// <summary>这一次按下**已经是一段拖拽**了吗（抬手时用来**压掉关窗**）。
+        /// 判据 = <see cref="DragSlopPx"/>（我们加的阈值，原版由 `ScrollRect` 分派）。</summary>
+        bool DraggedSincePress { get { return _dragTravelPx > DragSlopPx; } }
+
+        /// <summary>自检用：当前横向偏移（px）。</summary>
+        public float ScrollPxForTest { get { return _scrollPx; } }
+        /// <summary>自检用：可滚动上限（px）。</summary>
+        public float MaxScrollPxForTest { get { return _maxScrollPx; } }
+        /// <summary>自检用：这一次按下累计横向走了多远（px）。</summary>
+        public float DragTravelPxForTest { get { return _dragTravelPx; } }
+
 
         // ═══════════════════════════════════════════════════════════════════════════════════════════
         //  🔴 2026-10-20（W57 · 战斗线 `T09-FIX3` · P1-3）：uGUI 关闭**挂起到 `LateUpdate`**
@@ -730,10 +939,19 @@ namespace CardPresentation
         /// ⛔ 订阅方**别**在这里 `Hide()`（那正是本窗 `_closePending` 要挡的「与驱动抢同一帧」）。</summary>
         public event Action CloseRequested;
 
-        /// <summary>uGUI（`Continue` 条 / 全屏背景关闭件）被点 —— **只记「待关」**，⛔ 不当场 `Hide()`。</summary>
+        /// <summary>uGUI（`Continue` 条 / 全屏背景关闭件）被点 —— **只记「待关」**，⛔ 不当场 `Hide()`。
+        /// <para>🔴 **2026-10-24（`W64·B-25`）**：这一次按下如果**已经横向拖过**（<see cref="DragSlopPx"/>），
+        /// 那它是一次**滚动拖拽**、⛔ 不是点击 ⇒ **不关窗**（原版 `ScrollRect` 会吃掉这段拖拽，
+        /// 背景关闭件收不到点击）。</para></summary>
         void RequestCloseByUgui()
         {
             if (!Visible) return;              // 窗关着 ⇒ 这一下不算（件本来也收不到射线，双保险）
+            if (DraggedSincePress)
+            {
+                // 拖完抬手：吃掉这一下（⛔ 不记待关、⛔ 不报 `CloseRequested`）
+                _dragTravelPx = 0f;
+                return;
+            }
             _uguiCloseClicks++;
             _closePending = true;
             var cb = CloseRequested;
@@ -912,6 +1130,33 @@ namespace CardPresentation
         public int UguiCloseClickCountForTest { get { return _uguiCloseClicks; } }
         /// <summary>挂起的关闭**真落账**了几次（灭自证：点一次 = 1，⛔ 不是「点了就关」）。</summary>
         public int UguiCloseAppliedCountForTest { get { return _uguiCloseApplied; } }
+
+        // ---- 🔴 2026-10-24（`W64·B-24` / `B-25`）自检只读口 -------------------------------
+        /// <summary>`B-24`：「继续」两个字**实测字宽**（设计 px；量不到 = 0）。
+        /// ⚠️ **实时读**（`Label.WorldW`），⛔ 不读 `LayoutContinueText` 记下的那份 —— 否则就是拿实现证明实现。</summary>
+        public float ContinueTextWidthForTest { get { return _barText != null ? _barText.WorldW : 0f; } }
+        /// <summary>`B-24`：字心 x 相对**父件右下角** —— **实时读那颗 `RectTransform` 的 `anchoredPosition.x`**
+        /// （⛔ 不读 `LayoutContinueText` 记账的那一格：那样「事后被谁重新锚过」就验不出来）。</summary>
+        public float ContinueTextCxForTest
+        {
+            get
+            {
+                var rt = _barText != null ? _barText.transform as RectTransform : null;
+                return rt != null ? rt.anchoredPosition.x : 0f;
+            }
+        }
+        /// <summary>`B-24`：**字形右沿**相对父件右下角 = 字心 + 实测字宽/2。
+        /// 断言要求它 = 原版 `Text` 框右沿 `−247.588`（`BtnApX + BtnTextFrameRx`）。</summary>
+        public float ContinueTextRightEdgePxForTest
+        {
+            get { return ContinueTextCxForTest + ContinueTextWidthForTest * 0.5f; }
+        }
+        /// <summary>`B-25`：第 `i` 张卡**当前的裁切矩形**（`null` = 没裁 / 卡不存在）。</summary>
+        public PxRect? CardClipForTest(int i)
+        {
+            var v = CardForTest(i);
+            return v != null ? v.Clip : (PxRect?)null;
+        }
         /// <summary>🆕 `T09-FIX3` P1-3：**批处理**落账口（那里没有帧循环 ⇒ `LateUpdate` 不跑）。</summary>
         public bool ApplyPendingCloseForTest() { return ApplyPendingClose(); }
 

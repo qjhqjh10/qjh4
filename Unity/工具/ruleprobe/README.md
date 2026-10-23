@@ -25,6 +25,7 @@ bash d:/4/Unity/工具/ruleprobe.sh play check                    # 🆕 结算�
 bash d:/4/Unity/工具/ruleprobe.sh faith      # 🆕 信仰付费段的【两把尺子】对账 + 真打（见下节）
 bash d:/4/Unity/工具/ruleprobe.sh nonkw      # 🆕 `non <关键词>` 的目标筛选专用探针（见下节）
 bash d:/4/Unity/工具/ruleprobe.sh layers /tmp/layers.jsonl   # 🆕 光环/关键词/执行层 ops 的 JSONL dump（见下节）
+bash d:/4/Unity/工具/ruleprobe.sh a24        # 🆕 （2026-10-24）`T21④` 回合末发射序 + `新账-104` `EC58` 双子部署的离线真跑
 ```
 
 ## `layers` —— `AuraSpecs` / `keywords` / 执行层 ops（🆕 `A1877①`，2026-10-14 · 写手 `W16`）

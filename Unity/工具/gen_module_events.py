@@ -45,6 +45,16 @@ import os
 import re
 import sys
 
+## A17 2026-10-24: -h/--help early exit (print usage only, exit 0; never run the real work).
+import sys as _wf_help_sys
+if any(_wf_help_sys.argv[_i] in ("-h", "--help") for _i in range(1, len(_wf_help_sys.argv))):
+    try:
+        _wf_help_sys.stdout.reconfigure(encoding="utf-8")
+    except Exception:
+        pass
+    print('用法：python 工具/gen_module_events.py [参数...] [--dump] [--check] [--print-cs]\n  说明：gen_module_events.py — 把原版 `AnimFXModuleEvent.eventsToFire[i].eventToFire` 的\n  选项：--dump / --check / --print-cs（脚本内按字符串匹配；一个都不带 = 默认模式）\n  位置参数：sys.argv[1:] 全收（数量以脚本自身判断为准）')
+    _wf_help_sys.exit(0)
+
 HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.dirname(HERE)                       # d:/4/Unity
 ASSETS = "D:/2/新解包资源/assets_full"

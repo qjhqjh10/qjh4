@@ -48,6 +48,26 @@ namespace CardPresentation
         public const string Death        = "death";           // 阵亡
         public const string Ability      = "ability";         // 部队卡在场上发动技能
         public const string Trigger      = "trigger";         // 触发效果
+        /// <summary>🔴🆕 **2026-10-24（执行代理 `J1` · `C5` D14）：关键词天赋的 `OnPlay(2)` 帧**。
+        ///
+        /// <para>⚠️ **它不是一个「事件」**（⛔ 不在 <see cref="Events"/> 里、也没有 `EvtKind`）——
+        /// 它是**原版 `CardTrait.EffectTriggerType.OnPlay(2)`** 那一族动画的**归置桶**。
+        /// 判据（全量反编译，逐句读）：`CardScript__ActivateTraitsOnSummonOrEnchantment.c` 在
+        /// **召唤 / 附魔那一刻**逐条 trait 调 `BattleCardUI__DisplayStatusAnim`，
+        /// 后者只处理 `EffectTriggerType == Start(0)`（播放）与 `== OnPlay(2)`（挂上持久状态框）；
+        /// 而 `BattleCardUI__DisplayTriggerAnim`（触发那一拍）**只认 `Trigger(3)` / `TriggerOnPlay(6)`**。
+        /// ⇒ **`OnPlay(2)` 永远不在「发动技能」那一拍播**。</para>
+        ///
+        /// <para>我们这一侧它的播放口是 `Core/TraitFrames.cs`（`_playBook` ←
+        /// `Resources/trait_effect_bindings.json` 的 `TriggerType == 2`），发生在**登场**那一拍。
+        /// 生成器原来把同样的行也塞进 `ability` 桶（`TRAIT_TRIGGER_EVENT[2] = EV_ABILITY`），
+        /// 而 `ability` 桶是**整桶全播**的 ⇒ 21 张卡（本批 5 张）**每发动一次主动技能都会顺带播一遍
+        /// 登场框**（`FlyingEffect` / `StealthEffect` / `CamouflageEffect` / `ShieldTraitEffect_Idle*`）。
+        /// ⇒ 2026-10-24 `J1` 起生成器把它们写进本桶，`ability` 桶**只留真·技能动画**。</para>
+        ///
+        /// <para>⛔ **别把它加进 <see cref="Events"/>**：`Events` 的语义是「引擎真的会发的事件名」，
+        /// 而本桶**没有任何一拍**（`Unmapped()` / `Describe()` 会因此凭空多一条永远 null 的项）。</para></summary>
+        public const string TraitOnPlay  = "trait_onplay";
         // 🆕 2026-09-15 补的四个 —— 它们原来**结构上就播不出来**（`PlaySignal` 的 switch
         //    没有它们的 case ⇒ 直接 `default: return`；而且三个资源事件的 `Slot` 本来就是 -1，
         //    就算加了 case 也会被 `if (slot < 0) return;` 挡掉）。见 `BattleDriver.PlaySignal`。
@@ -80,32 +100,29 @@ namespace CardPresentation
         public const string Draw = "draw";
 
         /// <summary>🆕 2026-10-14（`A1816`）：**伏击翻面**（`EvtKind.AmbushExit` —— `Ambush` 面朝下的
-        /// 单位翻开那一刻）。🔴 **2026-10-22（`W64` §B7）：本事件的【通用件入口已撤】—— 见下。**
+        /// 单位翻开那一刻）。🔴 **2026-10-22（`W64` §B7）通用件入口已撤；2026-10-23（`W65`）复核后仍然撤** ——
+        /// 但「为什么」已经换成确凿判据（原文那版「trait 真值表本地没有」**已过期**）。
         ///
         /// **原版的取法**（第一权威，方法体都在）：`BattleManager.GetTraitEffect(trait, FromCode(5), army)`
         /// → `CardTraitCollection.GetTraitEffectObject` → `CardTrait._traitEffects[]` 里按
         /// `EffectTriggerType` 挑那一条、再按阵营取 override（`TraitEffect.GetEffect`）。
-        /// ⇒ 也就是说：**「伏击翻开播什么」写在 trait SO 里，不写在卡 SO 里**。
+        /// ⇒ **「伏击翻开播什么」写在 trait SO 里，不写在卡 SO 里**。
         ///
-        /// 🔴 **那张 trait→effect 真值表本地没有**（2026-10-22 现读）：
-        /// `assets_full` 全库按 `traitEffects|TraitEffects|effectAnim` 搜 **0 命中**（那批 `CardTrait` SO 没导出）；
-        /// `card_vfx_by_card.json` 的 `byKeywordTrigger` 42 个关键词里**没有 ambush**
-        /// （它是按 `<关键词>Trait<Trigger>` 的**构词法**从 CardAnim 名推的，而 `Ambush Effect` 不守那个构词法）。
-        /// ⇒ 按「⛔ 不许保留孤儿」：`ByEvent` 里 `{ AmbushExit, "AmbushEffect" }` 那一行**已删**。
+        /// ✅ **那张真值表现在本地有了**（2026-10-19 `K12` 解出、10-23 交叉验证）：
+        /// `Unity/数据/游戏数据/trait_collection.json`（源 = `sharedassets0.assets` 的 `TraitsCollection`
+        /// + 73 个 `CardTrait`；安卓 1.35.0 逐字段 0 差异）。
+        /// 读出来的事实：**`Ambush`（DefinedTrait 1200）只有一条 `TraitEffect` = End(1)** →
+        /// `Ambush Effect` → prefab **`AmbushEffect`**；**没有 `FromCode(5)`**。
+        /// ⇒ 原版那条「从代码播」的链（两个 `ActivateTraitParticlesFromCode*` 都硬编码 `5`）对 ambush
+        /// **本来就不播任何东西**（铁律 11 例外①：原版本身没有，不是缺口）。
+        /// 而 End(1) 这一档在反编译里**没有调用点**（`DisplayStatusAnim` 0/2 · `DisplayTriggerAnim` 3/6 ·
+        /// `ActivateTraitParticles*` 5 · `CardScript__RemoveTrait` 只调 `RemoveStatusAnim`）
+        /// ⇒ **原版哪一刻播 End(1) 证不出来**，照铁律 3 ⛔ 不猜 ⇒ 本入口继续留空（`IsKnownGapEvent` 出声）。
         ///
-        /// ⚠️ **旁证（不足以当判据、但下一个人会想知道）**：`AmbushEffect`
-        /// （`Assets/WarpforgeVFX/Prefabs/AmbushEffect.prefab`，`effect_index.json` 判 **对得上/高/0.89**）
-        /// 自带的三层全都指向 Ambush 这个天赋 ——
-        ///   · 音效 —— `AnimFXController.sounds[0].sound` = cue **`Trait Ambush`**
-        ///   · 动画 —— `AnimFXModuleChangeMaterial`：把**卡**的材质换成
-        ///     `Card 3d Dissolve Blend Image Ambush`，`_Blend` 0→1（`delay 0.35 + duration 1.0`）
-        ///   · 粒子 —— 它自己的 ps（台账组件列写 `-`，全靠 prefab 内部）
-        /// 且 `animinfo_lookup["AmbushEffect"]` 的 CardAnim 名就是 `Ambush Effect`（`tm 1.5`）。
-        /// 但「它是不是 `FromCode(5)` 那一槽」证不出来（U1）⇒ 先撤、⛔ 不拿它当通用件继续播。
-        /// ⏭ 补法：导出 `CardTraitCollection.TraitCollection[]`（`TraitPairs` → `CardTrait` SO），
-        ///    查到 `DefinedTrait.ambush = 1200` 的 `FromCode(5)` 条目再接回。
-        /// ⚠️ `EventTiming.SourceOf(EvtKind.AmbushExit)` 那段时序判据**仍然成立**（它写的是那件 prefab 自己
-        ///    的 1.35 s 补间）—— 只是今天没有件可播，**那条时长仍然是长度闸的上限**（没改它）。</summary>
+        /// ✅ **U1「`AmbushEffect` 是孤儿」已结案**：trait SO 经 CardAnim `Ambush Effect` 明确引用它 ——
+        /// 它**确实是 ambush 的那件**，只是槽位是 **End(1)**、不是 `FromCode(5)`。
+        /// ⚠️ `EventTiming.SourceOf(EvtKind.AmbushExit)` 那段时序判据**仍然成立**（它写的是那件 prefab 自己的
+        /// 1.35 s 补间）—— 只是今天没有件可播，**那条时长仍然是长度闸的上限**（没改它）。</summary>
         public const string AmbushExit = "ambush_exit";
 
         // ================== 🆕 2026-10-23（`W63` 收口）：**逐卡「技能动画」两桶** ==================
@@ -140,6 +157,28 @@ namespace CardPresentation
         //   cardAnimations[]`），没有「通用技能动画」这种东西 ⇒ 没配的卡就是没有
         //   ⇒ 已列进 <see cref="IsOriginalNoGenericEvent"/>（`ResolveFallback` 静默回 null，⛔ 不喊假警告）。
         //   消费端 = `CardAnimClips`（数据）+ `BattleDriver.PlayUnitSkillAnim`（播放）。
+        //
+        // 🔴 **2026-10-24（`A21` · `C3` 审查 D3）：这一桶的【消费时机】与【播在谁身上】还不符原版 ——
+        //   已知缺陷，本文件里改不了（要动 `BattleDriver` 的 `ScheduleAttackPresentation` + `RuleEngine`）。**
+        //   原版判据（逐句读过）：
+        //     · `BattleManager._ResolveAttack_d__438__MoveNext.c:987-990` → `BroadcastUnitAttacked(...)`，
+        //       **近战与远程两条路都会走到**（`case 0xb/0xe/0x11/0x14` → `:1622`）。
+        //     · `BroadcastUnitAttacked.c:22/29/45` → 对**被打者**、**攻方自己**、**场上每一张卡**各调
+        //       `CardScript__ResolveUnitAttacked`。
+        //     · `CardScript__ResolveUnitAttacked.c:28-30` → `RawCardScript__OnTrigger(0x32 = 50)`，**无条件**。
+        //   ⇒ 原版：**任何一张带 `UnitAttack(50)` 能力的卡，在「任何单位攻击」（近战或远程）时都会播
+        //     它自己那条技能动画，锚点 = 它自己那张卡**。
+        //   我们：`BattleDriver.ScheduleAttackPresentation` 只在 `EvtKind.Attack && !e.Ranged` 时查本桶，
+        //     且 `CardId` = **攻方** ⇒ 两个后果：
+        //       ① **远程攻击时不播** —— 全池 11 张 `attack_melee` 卡 `ranged` 全部 > 0；其中
+        //          `EC1/EC2/SW16/TL24/SAU31/UM70` 是**判据取远程**（`ranged > attack`）⇒
+        //          `UM70 Invictor Warsuit` 那条 `BulletImpact_2shot_autocannon` **100% 永不播**。
+        //       ② **「监听别人的攻击」那三条不播** —— `DA22 Techmarine`（我方载具攻击时）/
+        //          `UM70`（敌方单位攻击时）/ `UM83 Valtus`（友方单位攻击时）。
+        //   ⇒ 修法（下一批执行，⛔ 别在表现层「再补一次」了事）：不要在 `ScheduleAttackPresentation`
+        //     里按 `e.Ranged` 查本桶，改挂在**引擎的 `UnitAttack` 触发事件**上（广播时每张卡各播自己
+        //     那条、锚点 = 自己）—— 这需要 `RuleEngine` 的广播事件带上「触发者卡」。
+        //   全量方案（逐步骤 / 断言 / 11 张卡清单）→ `资料/普查产出_1023e/A21_VfxMap白名单.md` §D3。
         /// <summary>原版 `AbilityTrigger.UnitAttack(50)` 触发的**技能动画**（逐卡；原版 13 行 / 运行期有件 12 条）。
         /// ⛔ **不是**「近战攻击特效」——`ByEvent[AttackMelee]` 已于 2026-10-22（`W63` §B）整行删除。</summary>
         public const string UnitAttack  = "unit_attack_anim";
@@ -232,8 +271,9 @@ namespace CardPresentation
         }
 
         /// <summary>② **有真件、但本机还接不上**的事件（回 `null` **且出声一次**，⛔ 绝不拿替代品顶）。
-        /// <para>`AmbushExit`（B7）：真件在 `CardTrait._traitEffects[]` 的 `FromCode(5)` 槽里，
-        /// 而**那张 trait→effect 真值表本地没有导出**（见 `ByEvent` 里那段注释）。</para>
+        /// <para>`AmbushExit`（B7）：真值表**已解出** —— `Ambush` 只有一条 **End(1)** → `AmbushEffect`，
+        /// **没有 `FromCode(5)`**；而反编译里**没有消费 End(1) 的调用点** ⇒ 原版哪一刻播它证不出来，
+        /// 照铁律 3 留空 + 出声（详见 `AmbushExit` 的注释）。</para>
         /// <para>🔴 **2026-10-22（P6 · `W64` B8 收口）：`CollectWaystone` 已从这里【移出】** ——
         /// 真件 `Remnant Aeldari Collect particles` 当天已导进效果库、映射见 `ByEvent` 那一行
         /// ⇒ 它现在**解析得出**，不再是缺口。⚠️ 把它留在这个名单里会**劫持** `ResolveFallback`：
@@ -384,21 +424,22 @@ namespace CardPresentation
             //      `工具/extract_missing_shaders.py --prefabs` → `EffectExporter` → `EffectLibraryBuilder`
             //      导进来之后**本行才接上**。判据 → `资料/普查产出_1022/W64_兜底审计_特效.md` §一 B8。
             { CollectWaystone,  "Remnant Aeldari Collect particles" },
-            // 🆕 2026-10-14（`A1816`）**伏击翻面**（`ambush_exit`）—— 🔴 **2026-10-22（`W64` §B7）也留空**：
-            //   原版 trait 特效的取法 = `BattleManager.GetTraitEffect(trait, FromCode(5), army)`
-            //   （`CardTraitCollection__GetTraitEffectObject.c` → `CardTrait._traitEffects[]` 里按
-            //   `EffectTriggerType` 挑，再按阵营取 override）；而**那张 trait→effect 真值表本地没有**：
-            //   `assets_full` 全库按 `traitEffects|TraitEffects|effectAnim` 搜 **0 命中**；
-            //   `card_vfx_by_card.json` 的 `byKeywordTrigger` 42 个关键词里**没有 ambush**
-            //   （它是由 `<关键词>Trait<Trigger>` 的**构词法**推的，而 `Ambush Effect` 不守那个构词法）。
-            //   ⇒ 按「⛔ 不许保留孤儿」：**入口撤掉**（原来那件 `AmbushEffect` 的 GUID 在本机**找不到任何
-            //   引用方**：卡 SO / CardAnim 的消费者 / trait SO 都判不了，见报告 U1）。
-            //   ⚠️ **旁证（不足以当判据，但下一个人会想知道）**：`AmbushEffect` 的 AnimFX 音效 cue 是
-            //   **`Trait Ambush`**、它换的材质是 **`Card 3d Dissolve Blend Image Ambush`**、
-            //   `animinfo_lookup["AmbushEffect"]` 的 CardAnim 名就是 `Ambush Effect`（`tm 1.5`）——
-            //   它**很可能就是** ambush 天赋那件，只是「哪一个 `EffectTriggerType` 槽」证不出来。
-            //   ⏭ 补法：把 `CardTraitCollection.TraitCollection[]`（`TraitPairs` → `CardTrait` SO）导出来，
-            //   查到 `DefinedTrait.ambush = 1200` 的 `FromCode(5)` 条目再接回（**需要那批 SO，本地没有**）。
+            // 🆕 2026-10-14（`A1816`）**伏击翻面**（`ambush_exit`）—— 🔴 **2026-10-22（`W64` §B7）留空；
+            //   🆕 2026-10-23（`W65`）**真值表已解出，本条仍然留空 —— 但理由换了（不再是「判不了」）**：
+            //   `CardTrait` SO 已逐字节解出（`数据/游戏数据/trait_collection.json`），`Ambush`（id 1200）
+            //   **只有一条 `TraitEffect`：End(1)** → `Ambush Effect` → prefab **`AmbushEffect`**。
+            //   它**没有 `FromCode(5)` 条目** ⇒ 原版那条「从代码播」的链（`ActivateTraitParticlesFromCode`
+            //   硬编码 5）对 ambush **本来就什么都不播**（= 铁律 11 例外①，不是缺口）。
+            //   而 End(1) 这一档：`d:/2/tools/decomp_full/` 里**没有任何调用点消费它**
+            //   （`DisplayStatusAnim` 只认 0/2、`DisplayTriggerAnim` 只认 3/6、两个 `ActivateTraitParticles*`
+            //   只认 5；`CardScript__RemoveTrait.c:62` 调的是 `RemoveStatusAnim`，不取 End effect）
+            //   ⇒ **原版哪一刻播 End(1) 证不出来**，照铁律 3 ⛔ 不猜 ⇒ 入口继续撤（`IsKnownGapEvent` 仍出声）。
+            //   ✅ **U1 里「`AmbushEffect` 是孤儿」这一半已结案**：trait SO 明确引用它（经 CardAnim
+            //   `Ambush Effect`）—— 它**确实属于 ambush**，只是槽位是 **End(1) 而不是 FromCode(5)**。
+            //   判据 → `资料/普查产出_1023e/A4_特效三件.md` · `数据/游戏数据/trait_collection.json`（ambush 段）。
+            //   历史旁证（仍成立、仍不是判据）：`AmbushEffect` 的 AnimFX 音效 cue 是 `Trait Ambush`、
+            //   换的材质是 `Card 3d Dissolve Blend Image Ambush`、`animinfo_lookup["AmbushEffect"]`
+            //   的 CardAnim 名就是 `Ambush Effect`（`tm 1.5`）。
             //   判据 → `资料/普查产出_1022/W64_兜底审计_特效.md` §一 B7/B8 + §三 U1。
         };
 
@@ -801,6 +842,13 @@ namespace CardPresentation
         {
             if (_triedCardTable) return;
             _triedCardTable = true;                       // 失败也只试一次（别每帧重试）
+            // 🆕 2026-10-24（`A21`）：**白名单常驻反向闸** —— 名字级那一段不需要卡表，载表时跑一次，
+            //   白名单被改错就**当场出声**（件级那一段要卡池 ⇒ `SelfCheckRoutedTriggers`，自检宿主显式调）。
+            {
+                var badNames = SelfCheckRoutedTriggerNames();
+                for (int i = 0; i < badNames.Length; i++)
+                    Debug.LogError("[Vfx][ASSERT] " + badNames[i]);
+            }
             var asset = Resources.Load<TextAsset>(CardTableResourcePath);
             if (asset == null)
             {
@@ -1793,6 +1841,63 @@ namespace CardPresentation
             return ok && hit != null;
         }
 
+        /// <summary>🔴🆕 **2026-10-24（执行代理 `J1` · `C5` D13）：阵亡那一拍该播的那件** ——
+        /// **只认原版 `customDeathParticles` 那一族**，⛔ 不拿 `death` 桶里的第一条。
+        ///
+        /// <para>**为什么需要另开一个口**（判据 = 全量反编译，逐句读）：
+        /// 原版 `CardScript._UnitDeath_d__446__MoveNext.c` 的阵亡粒子是**二选一** ——
+        /// `:233` 逐卡 `customDeathParticles`、`:240` 判空 ⇒ `:262` 默认 `cardDestroyFX`
+        /// （= `Card 3D Death Explosion`）。`death` 桶里**没有**第二种东西。</para>
+        ///
+        /// <para>🔴 **我们运行期表的 `death` 桶里混着第二种**：生成器把
+        /// `cardAbilities[].abilityLogic[].cardAnimations[]` 里 `AbilityTrigger = ThisUnitDeath(80)` /
+        /// `UnitDeathByAbility(180)` 的动画也归到 `death`（`工具/gen_card_vfx_by_card.py` 的
+        /// `TRIGGER_EVENT`）—— 那两族是「**死于能力**那一拍的能力动画」，**不是**阵亡爆散体
+        /// （原版由 `TriggerAbilities(80/180)` 派发，不是 `UnitDeath` 的 `Instantiate`）。
+        /// ⇒ `CardFeel.PickDeathFx` 原来调 `ResolvePerCard(Death, …)` 取 `picks[0]`，
+        /// 现读 **6 行 / 6 张卡**的阵亡爆散体会播成**别的能力的特效**：
+        /// `AM34`→`GuardSummon` · `BL62`→`Buff_MarkOfTzeentch` · `BL66`→`Buff_Chaos_Star` ·
+        /// `GOF83`→`BeastSnagga_Summon` · `GOF3`→`Squig_Explosion`（`SAU72` 两条里第一条恰好是对的）。
+        /// （全表由 `资料/普查产出_1023e/C5_动画特效审查_索引.md` §四 D13 现读）。</para>
+        ///
+        /// <para>**判据（运行期表里唯一分得出来的那一格）= `CardPick.A`（`CardAnim` 名）空**：
+        /// `customDeathParticles` 在原版是 `AssetReferenceGameObject` ⇒ 解出来**没有 `CardAnim`**
+        /// （`工具/gen_card_vfx_by_card.py` 的 `resolve_so_ref`：`type == 'GameObject'` ⇒ 只填 `prefab`）；
+        /// 而 `cardAbilities[..].cardAnimations[]` 那一族**必带** `CardAnim`（它就是 CardAnim 引用）。
+        /// 现读全池逐条核过：`death` 桶 **72 行 = 66 行 `A` 空（`customDeathParticles`）**
+        /// `+ 6 行 `A` 非空（`cardAbilities` 那 6 条）` —— 没有第三种形状。</para>
+        ///
+        /// <para>⚠️ **不改数据侧的理由**（如实记）：按原版分桶最彻底的做法是让生成器把这两族
+        /// 另立一个桶（`C5` §四 D13 修法 ①），但本批白名单不允许改数据产物 ⇒ 在**消费口**把
+        /// 「不是爆散体」的那一族挡掉。⛔ 别把这里改成「按 A 猜名字」或「取最后一条」——
+        /// 判据只有「这一行是不是卡 SO 的阵亡字段」。</para>
+        ///
+        /// <para>返回 `null` = 这张卡**没有**逐卡 `customDeathParticles` ⇒ 调用方用默认件
+        /// （原版 `_UnitDeath…:240` 那个二选一）。⚠️ 与 <see cref="ResolvePerCard"/> 并存：
+        /// 后者仍是「`death` 桶第一条」的**原始**查询（保留给需要看整桶的地方 / 自检对照）。</para></summary>
+        public static string ResolveDeathParticle(string faction, string cardIdOrName)
+        {
+            List<CardPick> picks;
+            if (!TryResolvePerCardPicks(Death, faction, cardIdOrName, out picks) || picks == null) return null;
+            for (int i = 0; i < picks.Count; i++)
+                if (string.IsNullOrEmpty(picks[i].A)) return picks[i].N;
+            return null;
+        }
+
+        /// <summary>🆕 2026-10-24（执行代理 `J1` · `C5` D13 自检用）：`death` 桶里**不属于
+        /// `customDeathParticles`** 的那几行（= `CardAnim` 非空的「死于能力」动画）。
+        /// 只给断言用（证明我们**没有删数据**，只是不再拿它们当阵亡爆散体）。</summary>
+        public static string[] DeathBucketAbilityRows(string faction, string cardIdOrName)
+        {
+            List<CardPick> picks;
+            if (!TryResolvePerCardPicks(Death, faction, cardIdOrName, out picks) || picks == null)
+                return new string[0];
+            var bad = new List<string>();
+            for (int i = 0; i < picks.Count; i++)
+                if (!string.IsNullOrEmpty(picks[i].A)) bad.Add(picks[i].N);
+            return bad.ToArray();
+        }
+
         /// <summary>🆕 2026-10-19（B3 · `T13`）：<see cref="TryResolvePerCard"/> 的**全剂量**版本 ——
         /// 交出该 (卡,事件) 下**最优档的全部候选**（按原版 `abilityLogic` 顺序，见 `ByCard`）。
         /// 🆕 B6：元素是 <see cref="CardPick"/>（`N` = prefab 名 · `A` = CardAnim 名，逐候选时间的 join 键）。
@@ -1833,6 +1938,18 @@ namespace CardPresentation
         //    · 唯一能分清「这一条候选属于哪个原版 trigger」的键 = `CardDef.CardAnimTime.TriggerName`
         //      （E12 落的 `tn`，逐候选、来自 `cardAnimations[]` 的 outer `CardAbility.trigger`）。
         //  ==================================================================
+        //
+        //  🔴 **2026-10-24（`A21` · `C3` D5）常驻说明：`Wait_*` 纯计时拍在运行期表里被折叠【是对的】——
+        //     ⛔ 别当缺陷去修，修了会丢延迟。**
+        //     原版 `cardAnimations[]` 每一条各当一拍入队，`Wait_1s` / `Wait_1,5s` / `Wait_300ms` / `Wait_2s`
+        //     这种拍**不出件、只占时长**（它们的 `animAdressable` 是**空 GUID** ⇒ 原版本来就没有 prefab；
+        //     `数据/索引/anim_address_map.json` 的 `unresolved.cardAnimBlankGuid` 逐条列着）。
+        //     生成器写运行期表时把 `Prefab == 空` 的拍剔掉，但**延迟没有丢** —— 它烙在
+        //     `cards_engine.json` 的 `animTimes[].t`（组偏移 = 起点）里。逐卡四例的实测对照（`t` 值）见
+        //     `资料/普查产出_1023e/C3_动画特效审查_索引.md` §三·4（`GOF30` 0.0→0.3 · `GOF3` 0.0→1.0 …）。
+        //     ⛔ 两种「修法」都是错：补回一条 `Wait_*` 占位 = **延迟再算一遍**（特效晚到）；
+        //        把 `t` 清零 = **特效提前到**。
+        //  ==================================================================
 
         /// <summary>🆕 2026-10-19（W · `T21`）：**允许归口的原版 trigger 名**。
         ///
@@ -1854,38 +1971,66 @@ namespace CardPresentation
         ///     发射口 `EffectResolver.EmitListenerTrigger`。
         ///   · F：`TurnStart`(30) · `TurnStartPlayer`(31) · `TurnEnd`(40) · `TurnBeforeEnd`(41)
         ///     —— 发射口 `EffectResolver.EmitTurnTrigger`。
-        /// ⚠️ **只放行「引擎按名字发出来的那一批」**；`Strike` / `Slay` / `Mob` / `Regiment` 这些
+        /// ⚠️ **只放行「引擎按名字发出来的那一批」**；`Strike` / `Slay` / `Regiment` 这些
         /// 走旧路的**一律不动**（它们今天怎么播就怎么播）—— 报告 §五·6 的「多播」正是
-        /// 「把引擎已会发的 trigger 全塞进同一个桶」造成的。新增一条必须**有一个真正的发射口**。</para></summary>
+        /// 「把引擎已会发的 trigger 全塞进同一个桶」造成的。新增一条必须**有一个真正的发射口**。
+        /// 🔴 **2026-10-24（`A21`）就地订正（铁律 5）**：这一段原来把 **`Mob`** 也写进「一律不动」——
+        /// 它**有真发射口**（`RuleCore.cs:6008`），2026-10-24 已放行（见下面 `case "mob"` 那一段）。
+        /// 同批还放行了 `Teleport` / `Uprising` / `Artifice`，并修好了 `Codex` 的**大小写**（C3 D6）。
+        /// 🆕 **2026-10-24（`A27` · `C4` D6(C4)）**：再放行 `Cruelty` / `Stimulation` / `Ecstasy`
+        /// （27 行 / 24 张，全在 EmperorsChildren；发射口逐处现核，见下面那一段 `case`）。
+        /// 🆕 **2026-10-24（`A30` · `C4` D7 第二批）**：再放行 `UnitReceivesHuntMark`(520) /
+        /// `OnCollectFaith`(665) —— 这两个的发射口是**监听者那一拍**（`EffectResolver.EmitListenerTrigger`），
+        /// 映射补在 `TriggerNameOfWhenKind` 的 `GetsHuntMark` / `GainFaith` 两支
+        /// ⇒ 发出来的 `BattleEvent.Keyword` 是**原版枚举名（PascalCase）**，不是引擎关键词（见下面那一段 `case`）。
+        /// 🆕 **2026-10-24（引擎线 `G2` · `C4` D8/D9）**：再放行 `ThisUnitSummoned`(195)（`SW10` 的**自部署**，
+        /// 映射按 `WhenEvent.SelfOnly` 分流）与 `WhileInPlay`(20)（`SW18` 的常驻重算，
+        /// 发射口 = `RuleCore.EmitWhileInPlayPass`，挂在**动作队列排空**那一刻）。</para>
+        /// <para>🆕 **2026-10-24（执行代理 `J1` · `C5` D11/D12）**：再放行两个 ——
+        /// `Regiment`(301)（引擎正在发：`RuleCore.cs:6030` 远程攻击尾部，14 行 / 10 张 AM）与
+        /// `TriggeredSynapse`(630)（映射同批补在 `EffectResolver.TriggerNameOfWhenKind` 的
+        /// `TriggersPrefix` 分支，1 行 / 1 张 `TL18`）。判据见下面各自那一段 `case` 的注释。</para></summary>
         static bool IsRoutedTriggerName(string triggerName)
         {
             if (string.IsNullOrEmpty(triggerName)) return false;
+            // 🔴🔴 **2026-10-24（`A21` · `C3` D6）：大小写必须在【这里】归一 —— 这是踩过的坑，别再犯。**
+            //   引擎发出来的 keyword 是 `KeywordTable.*` 的**小写常量**（`codex` / `mob` / `uprising` /
+            //   `teleport` / `artifice` / `penitence` …：`CardDef.cs:5361/5412/5424/5070/5314`），
+            //   `FireTriggerAt` 的 `emitSignal` **原样**写进 `BattleEvent.Keyword`（`RuleCore.cs:10706`）。
+            //   而原版枚举名 / 这里历史的 `case` 标签是 **PascalCase**。
+            //   C# 的 `switch (string)` 是 **Ordinal（大小写敏感）** ⇒ 原来的 `case "Codex"` 对 `"codex"`
+            //   **恒 false** ⇒ **23 张 Ultramarines / 32 条 Codex 逐卡动画一直没按 Codex 播**（整桶播）。
+            //   ⇒ 统一 `ToLowerInvariant()` 再比；`CanonicalTriggerName` 仍在外面先把 `penitence` 换成 `Rage`。
+            //   ⚠️ 用 `ToLowerInvariant` 而不是 `ToLower`：后者按当前 culture（土耳其语下 `I` 会变 `ı`）。
+            //   ⚠️ 归一**不会撞名**：原版 `AbilityTrigger` 枚举（`dump.cs:20235-20335`）里
+            //      **没有任何两个名字只差大小写**（2026-10-24 逐个核过）⇒ 小写化不产生歧义。
+            //   ⚠️ 与下面两条 `OrdinalIgnoreCase` 的 `Ambush` / `TriggerEnchantment` 判断**同口径**。
             if (string.Equals(triggerName, KeywordTable.Ambush, System.StringComparison.OrdinalIgnoreCase)
                 || string.Equals(triggerName, KeywordTable.TriggerEnchantment, System.StringComparison.OrdinalIgnoreCase))
                 return true;
-            switch (triggerName)
+            switch (triggerName.ToLowerInvariant())
             {
                 // ---- A · followAfterResolution ----
-                case "FollowUpResolution":
+                case "followupresolution":
                 // ---- E · 监听者 / 自发反应 ----
-                case "OtherCardPlayed":
-                case "OtherCardDrawn":
-                case "OtherCardSpiritStone":
-                case "OtherUnitSummoned":
-                case "OtherUnitDeath":
-                case "UnitAttack":
-                case "UnitDamaged":
-                case "UnitReceivesMarkOfChaos":
-                case "Reanimated":
-                case "TriggeredFerocity":
-                case "TriggeredPray":
-                case "TriggeredDuty":
-                case "TriggeredSwarm":
+                case "othercardplayed":
+                case "othercarddrawn":
+                case "othercardspiritstone":
+                case "otherunitsummoned":
+                case "otherunitdeath":
+                case "unitattack":
+                case "unitdamaged":
+                case "unitreceivesmarkofchaos":
+                case "reanimated":
+                case "triggeredferocity":
+                case "triggeredpray":
+                case "triggeredduty":
+                case "triggeredswarm":
                 // ---- F · 回合起止 ----
-                case "TurnStart":
-                case "TurnStartPlayer":
-                case "TurnEnd":
-                case "TurnBeforeEnd":
+                case "turnstart":
+                case "turnstartplayer":
+                case "turnend":
+                case "turnbeforeend":
                 // ---- 🆕 2026-10-19（第五十七会话 `W57` · T21 C/D）：阵营能力自己那一拍 ----
                 //   `AbilityTrigger.UseFaith = 605` / `UseSpiritStone = 600`。
                 //   发射口 = `EffectResolver.ResolveFaithAbility` / `ResolveSpiritAbility`
@@ -1893,17 +2038,19 @@ namespace CardPresentation
                 //   ⚠️ 这一族以前**没有引擎事件**，`card_vfx_by_card.json` 的
                 //   `abilityEventWhy` 逐行写着「未归口（保持 `ability`）」—— 加进来之后
                 //   `TryResolveTriggerPicks` 就能按名字从两张桶里挑出这三条候选。
-                case "UseFaith":
-                case "UseSpiritStone":
+                case "usefaith":
+                case "usespiritstone":
                     return true;
                 // ---- 🆕 2026-10-23（引擎线 `codex 能力触发`）：`Codex` ----
                 //   发射口是真的：`RuleCore.CheckCodex` → `FireTriggerAt(..., KeywordTable.Codex)`
-                //   → `EvtKind.Trigger`（`FireTriggerAt` 头部那句 `ctx.Emit`，keyword = `codex`）。
-                //   放行的理由：候选侧原版名 = `CardAnimTime.TriggerName = "Codex"`（现读 31 张
-                //   带 `Codex` 的卡里 **21 张有 Codex 动画行**；旧账写「0 张」已过期 —— 铁律 5）。
-                //   不放行 ⇒ `target` 恒 null ⇒ 整张 `trigger` 桶乱播（UM15 只有 `CodexEffect`
-                //   看着没事，多 trigger 行时会多播）。`NameIs` 大小写不敏感 ⇒ `codex` ↔ `Codex` 直接对上。
-                case "Codex":
+                //   （`RuleCore.cs:11233`；keyword = `KeywordTable.Codex` = **`"codex"`**，`CardDef.cs:5412`）
+                //   → `EvtKind.Trigger`。
+                //   候选侧原版名 = `CardAnimTime.TriggerName = "Codex"`；现读（2026-10-24）
+                //   **23 张卡 / 33 行**，其中 **32 行有件**（`UM28` 的那条 `Wait_1s` 是纯计时拍 = D5）。
+                //   🔴 **2026-10-24（`A21` · `C3` D6）就地修正**：原来这一条写成 `case "Codex"`，
+                //   **对引擎发的 `"codex"` 恒 false** ⇒ 这一条等于没写（整桶播）。现在靠方法头那句
+                //   `ToLowerInvariant()` 修好；⛔ 别把标签再改回 PascalCase（那会静默复发）。
+                case "codex":
                 // ---- 🆕 2026-10-23（特效线「新账-86」）：`Rage`（= `penitence` 的**原版枚举名**）----
                 //   判据三条（全文 → `资料/普查产出_1023c/Trait_pentitence与静音桶溯源.md` §A / §D）：
                 //     · `penitence` = `DefinedTrait.rage = 280` 的**官方显示名**：
@@ -1921,7 +2068,200 @@ namespace CardPresentation
                 //   ⚠️ **只有 `Rage` 这一条**：原版 `rage` 的 `traitEffects` 是**空数组**
                 //      （`数据/游戏数据/trait_collection.json`）⇒ ⛔ `trait_effect_bindings.json`
                 //      **不该**加 `penitence` 行（缺的不是数据、是这一处归口）。
-                case "Rage":
+                case "rage":
+                    return true;
+                // ---- 🆕 2026-10-24（`A21` · `C3` 审查 D1-a / D1-b）：`Mob`(300) / `Teleport`(690) ----
+                //   **判据 = 引擎真的带着这两个关键词发过 `EvtKind.Trigger`**（不是推断的）：
+                //     · `Mob`(300)：`RuleCore.cs:6008` `FireTriggerAt(ctx, attacker, KeywordTable.Mob, p, atkSlot)`
+                //       （近战攻击结算尾部那条「群体」；keyword = `KeywordTable.Mob` = **`"mob"`**，
+                //       `CardDef.cs:5070`）。候选侧原版名 = `CardAnimTime.TriggerName = "Mob"`
+                //       （`cards_engine.json` 现读 **11 张卡 / 15 行**：`GOF9/12/17/22/67/70/81/84/87/96/97`）。
+                //     · `Teleport`(690)：`RuleCore.cs:3674` `FireTriggerAt(ctx, unit, KeywordTable.Teleport, p, slot)`
+                //       （「当回合从牌库抽到即打出」那一支；keyword = **`"teleport"`**，`CardDef.cs:5314`）。
+                //       候选 6 张 / 9 行（`DA17/30/32/37/65/67`）。
+                //     ⚠️ 引擎发的是**小写**、候选是 PascalCase：**白名单这一步**靠方法头的
+                //       `ToLowerInvariant()` 对上；候选匹配那一步靠 `NameIs` 的 `OrdinalIgnoreCase`。
+                //       两处都要，少一处就是「加了白名单还是不播」（Codex 就是这么坏的 —— D6）。
+                //   **不放行的后果（`C3` 实测）**：这两个 trigger 的那一拍 `target` 恒 null ⇒
+                //     `TryResolveTriggerPicks` 走「④ 判不出 ⇒ 原样回 `trigger` 桶」⇒ **整桶播**：
+                //     · `Teleport` 那 6 张的 `trigger` 桶里**全部**是 `ArmourEffect`
+                //       （`ArmourTraitStart`、`EffectTriggerType.Start(0)`）⇒ 传送时播**护甲起效件** = 错件；
+                //     · `Mob` 那 11 张的桶里混着 `TideEffect` / `RallyEffect` / `TalentEffect`（Start(0)）
+                //       以及 `MobEffect`（Trigger(3)）⇒ 整桶一起播 = 错件 + 多播。
+                //   ⚠️ **放行后如实的取舍（⛔ 别当回归去「修」）**：`MobEffect` / `ArmourEffect` 这类
+                //     **trait 件在 `CardDef.AnimTimes` 里没有行** ⇒ `TriggerNameOf` 回 null ⇒ 被
+                //     「未标名的一律丢」那条规则丢掉 ⇒ 这一拍只播**卡自己那条技能动画**。
+                //     原版两件都播（trait 的 `DisplayTriggerAnim` + `PlayAbility` 各一趟）。
+                //     ⇒ 补齐属于 **D4 / `P7`（`trigger` 桶按 `traitTriggerType` 分档）**：要先把
+                //     `keyword` / `traitTriggerType` 落进运行期表，才能把「**属于这个 trigger 的** trait 件」
+                //     与 Start(0) 那批分开。⛔ 别为了让 `MobEffect` 回来而放宽「未标名一律丢」——
+                //     那会把 `TideEffect` / `RallyEffect` 一起放回来（错件 + 多播）。
+                case "mob":
+                case "teleport":
+                // ---- 🆕 2026-10-24（`A21` · `C3` 第二批 D7-a / D7-b）：`Uprising`(680) / `Artifice`(560) ----
+                //   两个都**只差白名单**（引擎已在发，2026-10-24 现核）：
+                //     · `Uprising`(680)：`RuleCore.cs:3604` `FireTriggerOnSide(ctx, p, KeywordTable.Uprising, unit)`
+                //       （「之后每部署一个部队时」；keyword = **`"uprising"`**，`CardDef.cs:5424`）
+                //       → `FireTriggerAt` → `EvtKind.Trigger`。候选现读 **8 张 / 13 行**（Genestealers）。
+                //     · `Artifice`(560)：`EffectResolver.cs:2187` `FireTriggerOnSide(ctx, p, KeywordTable.Artifice)`
+                //       （「每次你打出战术时」；keyword = **`"artifice"`**，`CardDef.cs:5361`）。
+                //       候选现读 **11 张 / 14 行**（`BL32` + `GSC24/31` + **Sautekh 8 张**——
+                //       C3 第二批只覆盖新三阵营，所以它记的是「3 张 / 6 条」；⛔ 断言里别写死 3）。
+                //   ⛔ **下面这四个名字【不许】跟着加**（引擎没有发射口）：`OnCollectSpiritStone`(610) /
+                //     `UnitLoseStealth`(647) / `UnitStunned`(291) / `OnSabotageCreated`(701)
+                //     —— 见 `NoEmitTriggerNames` 那条常驻反向闸（`SelfCheckRoutedTriggerNames`）。
+                //   ⛔ 同理 `Unstable` / `OnSecretCreated` / `OnCollectQuestPoints` / `TriggeredCodex` 也不许加。
+                case "uprising":
+                case "artifice":
+                    return true;
+                // ---- 🆕 2026-10-24（`A27` · `C4` D6(C4)）：`Cruelty`(720) / `Stimulation`(710) / `Ecstasy`(715) ----
+                //   三个都**只差白名单**（引擎已经在发；2026-10-24 `A27` 逐个现核，发的都是
+                //   `KeywordTable.*` 的**小写常量**）：
+                //     · `Cruelty`(720)：`RuleCore.cs:8076` `FireTriggerOnSide(ctx, ctx.Active, KeywordTable.Cruelty)`
+                //       —— `HurtCore` 尾部的「**你的回合**、**敌方**单位受伤**未死**时，**己方**带该词的牌各响一次」；
+                //       keyword = `KeywordTable.Cruelty` = **`"cruelty"`**（`CardDef.cs:5321`）。
+                //       `FireTriggerOnSide` 逐单位走 `FireTriggerAt` → `EvtKind.Trigger`。
+                //       候选现读（`cards_engine.json`，判据 = `animTimes[].tn == "Cruelty"`）
+                //       **8 张卡 / 10 行，全部 EmperorsChildren**：`EC8/20/22/23/24/26/28/35`
+                //       （`EC23`/`EC26` 各 2 行）。逐行都有 prefab（0 行 `n` 为空）。
+                //     · `Stimulation`(710)：`EffectResolver.cs:2080` `FireTriggerAt(ctx, st, KeywordTable.Stimulation, sp, sslot)`
+                //       —— `PlayTactic` 的「**被战术选中时、结算前**」；keyword = **`"stimulation"`**（`CardDef.cs:5428`）。
+                //       候选 **10 张 / 10 行**（`EC3/6/10/13/14/18/21/22/55/56`），逐行都有 prefab。
+                //     · `Ecstasy`(715)：`RuleCore.cs:8065` `FireTriggerOnBoard(ctx, u, KeywordTable.Ecstasy)`
+                //       —— `HurtCore` 尾部的「生命降到阈值 X 及以下**未死**」；keyword = **`"ecstasy"`**（`CardDef.cs:5241`）。
+                //       候选 **7 张 / 7 行**（`EC5/7/9/25/30/31/57`），逐行都有 prefab。
+                //   **不放行的后果（`C4` 实测，2026-10-24）**：这三族那一拍 `target` 恒 null ⇒
+                //     `TryResolveTriggerPicks` 走「④ 判不出 ⇒ 原样回 `trigger` 粗桶」⇒ 播的是
+                //     **trait 状态框那几件**（`EC35` 播 `FlankEffect` + `CrueltyEffect`、`EC9` 播
+                //     `EcstasyEffect`），**不是这张卡自己那条技能动画**；而 `EC20/EC22/EC23/EC24/
+                //     EC28/EC31/EC35` 等**没有 `trigger` 桶**的卡 ⇒ 这一拍**什么都不播**。
+                //   ⚠️ 大小写：引擎发**小写**、候选是 PascalCase —— 白名单这一半靠方法头的
+                //     `ToLowerInvariant()`、候选那一半靠 `NameIs` 的 `OrdinalIgnoreCase`，**两处都要**
+                //     （`Codex` 当年就是只对了一半 = D6）⇒ 断言里那两条 `lo`/`up` 也覆盖这三个名字。
+                //   ⚠️ **发射侧的闸仍然生效**：`FireTriggerAt` 的「没正文就不发信号」
+                //     （`RuleCore.cs:10708`：`ops == null && spec == null && skipDraw == null && 附魔空` ⇒ return false）。
+                //     这三个词的正文靠 `Cruelty:` / `Stimulation:` / `Ecstasy N:` 前缀、或裸写正文那条路收
+                //     （三个词都在 `CardDef.RoutableTriggers` 与 `CardDef.BodyKeywords` 里，现读确认）。
+                //     ⚠️ 正文**解析器本批没跑**（不跑 Unity）—— 见 `A27_VfxMap第三批.md` 的「没查清」。
+                //   ⛔ **下面这两个名字【不许】跟着加**（`EvtKind.Trigger` 根本发不出来，加了 = 永远等不到）：
+                //     `ThisUnitSummoned`(195) —— 引擎部署那一拍发的是 `rally`（`RuleCore.cs:3658/4300`）
+                //     / 听者的 `OtherUnitSummoned`（`EffectResolver.cs:6147`）；
+                //     `WhileInPlay`(20) —— 原版是**每次重算都重演**的常驻能力，引擎里**没有这一拍**。
+                //     （🔴 **2026-10-24 `A30` 就地订正**：这一段原来还列着 `UnitReceivesHuntMark`(520) /
+                //       `OnCollectFaith`(665) —— 那两条的映射**同批补上了**，见下面那一段 `case`。）
+                //     —— 这两个都在 `NoEmitTriggerNames` 那条常驻反向闸里（`SelfCheckRoutedTriggerNames`）：
+                //        要放行必须**先补发射口/映射**，再从那张表里删掉（删 = 「我核过」的签名）。
+                case "cruelty":
+                case "stimulation":
+                case "ecstasy":
+                    return true;
+                // ---- 🆕 2026-10-24（`A30` · `C4` D7 第二批）：`UnitReceivesHuntMark`(520) / `OnCollectFaith`(665) ----
+                //   这两个**不是引擎关键词**（`KeywordTable` 里没有、也不该新造），而是**监听事件那一拍**
+                //   的原版 `AbilityTrigger` 枚举名。发射口 = `EffectResolver.EmitListenerTrigger`
+                //   （`EmitCardTrigger` 把 `KeywordWithAbility(triggerName, -1)` 原样写进
+                //   `BattleEvent.Keyword` ⇒ **大小写是 PascalCase**，不是小写常量）：
+                //     · `UnitReceivesHuntMark`：`TriggerNameOfWhenKind(WhenEventKind.GetsHuntMark)`
+                //       （`EffectResolver.cs` 的常量 + `case`，2026-10-24 `A30` 补）。
+                //       判据 = `CardScript__ReactToUnitHuntMarked.c:7`（`OnTrigger(0x208)` = 520）；
+                //       事件源 = `BroadcastKeywordEvent(GetsHuntMark)`（`RuleCore` 加 huntmark 时调，
+                //       我们这侧在 `EffectResolver.cs` 的 `ApplyOneGain` 尾）。
+                //       候选现读 **5 行 / 2 张**（`cards_engine.json`，判据 = `animTimes[].tn`）：
+                //       `SW20` 2 行（`Buff_Blue_SW_Wolf` + `Buff_Red`）· `SW35` 3 行
+                //       （`Axe_Slash_User_SW` + `Cut Axe SW` **×2** —— 同名两行，⛔ 别按名字去重）。
+                //     · `OnCollectFaith`：`TriggerNameOfWhenKind(WhenEventKind.GainFaith)`（同批补）。
+                //       判据 = `CardScript__ReactToCollectFaith.c:7`（`OnTrigger(0x299)` = 665）；
+                //       事件源 = `BroadcastWhen(WhenEventKind.GainFaith, …)`（`EffectResolver.cs`）。
+                //       候选现读 **2 行 / 1 张**（`SOR38 Paragon Warsuit`）：
+                //       `Faith_trigger_unit`（`n` 名相同、`a` 两个不同）+ `BulletImpact_Sororitas_MultiMelta`。
+                //   **不放行的后果（`C4` 判断 + 2026-10-24 `A30` 现核）**：那一拍 `target` 恒 null ⇒
+                //     `TryResolveTriggerPicks` 走「④ 判不出 ⇒ 原样回 `trigger` 粗桶」⇒ 播的是 trait 状态件
+                //     （`SW20` = `RallyEffect`、`SW35` = `ArmourEffect`、`SOR38` = `ArmourEffect`），**错件**；
+                //     而这三张卡自己那条监听动画（`Buff_Blue_SW_Wolf` / `Cut Axe SW` / `MultiMelta`）**一件不播**。
+                //   ⚠️ 与上面几个「引擎小写关键词」不同：这里靠 `ToLowerInvariant()` 归一后与 PascalCase
+                //     候选对上（`NameIs` 是 `OrdinalIgnoreCase`）⇒ **两处都要**，⛔ 别写成 `"gethuntmark"` /
+                //     `"gainfaith"`（那是 `WhenEventKind` 的键，不是事件里发的名字）。
+                //   ⚠️ 表现层已知代价（如实记，⛔ 别当新缺陷）：`SOR38` 的 `Faith_trigger_unit` 同时挂在
+                //     `OnCollectFaith` 与 `UseFaith` 下（`animTimes` 两行、`a` 不同），两拍会各按自己的
+                //     `a` 播；若将来分类键改成「只按 `n`」，它会掉进 ambiguous 那一档（见 A27 §七·4）。
+                case "unitreceiveshuntmark":
+                case "oncollectfaith":
+                    return true;
+                // ---- 🆕 2026-10-24（引擎线 `G2` · `C4` D8）：`ThisUnitSummoned`(195) ----
+                //   **只差白名单 + 一条映射分流**（两条本批同批上）：
+                //     · 映射：`EffectResolver.TriggerNameOfWhenKind(kind, selfOnly)` —— `Deploy` 的
+                //       `selfOnly == true` 那一支回 `ThisUnitSummoned`（改前恒回 `OtherUnitSummoned`）。
+                //       判据 = `CardScript__ResolveUnitSummoned.c`：`op_Equality(param_2, param_1)`
+                //       ⇒ `OnTrigger(195)`；`op_Inequality` ⇒ `OnTrigger(190)`。
+                //       调用点 = `FireBoardWhenListener`（`selfOnlyOnly`，只由 `RuleCore` 两条部署入口的
+                //       预调传 `true`：`RuleCore.cs` 的 `PlayCard` 与 `DeployFree` 各一处）
+                //       → `EmitListenerTrigger(..., selfOnlyOnly)`。
+                //     · 候选现读（`cards_engine.json`，2026-10-24 现算）：**1 张 / 1 行** ——
+                //       `SW10 Grey Hunter`（`{a/n: HuntMark_User, tg: 195, tn: "ThisUnitSummoned"}`，
+                //       有 prefab）。同一张卡也是全池**唯一** `abilityTriggers` 含 195 的。
+                //   **不放行的后果（`A30` 实测）**：部署那一拍 `target` 恒 null ⇒ 走 ④「原样回
+                //     `trigger` 粗桶」；而 `SW10` 的 `trigger` 桶里没有这件 ⇒ **什么都不播**。
+                //   ⚠️ 与 `OtherUnitSummoned`(190) **不是同一个名字**：190 那一族（`AM7` / `UM12` …）
+                //     是「**你部署了一个部队**」；本名字是「**它自己**被部署」。⛔ 别把两者合并。
+                //   ⚠️ 大小写：发射体是 `EmitCardTrigger` ⇒ `Keyword = KeywordWithAbility(原版 trigger 名, -1)`
+                //     ⇒ 生产路径发的是 **PascalCase**（与上面 520/665 同形）⇒
+                //     `MustRouteTriggerKeywords` 那一格也写 PascalCase。
+                case "thisunitsummoned":
+                    return true;
+                // ---- 🆕 2026-10-24（引擎线 `G2` · `C4` D9）：`WhileInPlay`(20) ----
+                //   引擎口 = `RuleCore.EmitWhileInPlayPass`，**在动作队列排空时**调
+                //   （`ActionPump.PumpActionQueues` 尾部；= 原版 `BattleManager__FinishResolvingAction.c:91`
+                //   那一跳，闸 = `ActionsLeftInQueue() < 1`）。
+                //   判据 = `CardScript__UpdateWhileInPlay.c:19-20` → `RawCardScript__UpdateWhileInPlay.c:14`
+                //   的 `RawCardScript__TriggerAbilities(0x14 = 20)`（**在缓存闸之前** ⇒ 每次都发）。
+                //   候选现读（`cards_engine.json`，2026-10-24 现算）：**1 张 / 2 行** —— `SW18 Hrolf the Ironhowl`
+                //   （`Buff_Blue_SW` + `Card_Buff_Hand_SW`）。全池 13 张卡 `abilityTriggers` 含 20，
+                //   但另外 12 张**没有这一拍的动画行** ⇒ 发射口按 `HasAnimTrigger` 收窄（见那个方法的 doc）。
+                //   ⚠️ **已知歧义（如实记，⛔ 别当通过）**：`Card_Buff_Hand_SW` 这条 `CardAnim`
+                //   同时挂在 `WhileInPlay`(20) 与 `ThisCardPlayed`(0) 下（同一个 `a` 键、两个 `tn`）
+                //   ⇒ `TriggerNameOf` 只取第一条（= `WhileInPlay`）⇒ 件级自检用 `AmbiguousTriggerLabel`
+                //   **跳过它**（`SelfCheckRoutedTriggers` 只验到 `Buff_Blue_SW` 那 1 行）。
+                //   🔴 这是真歧义、不是断言失败：要收口得让分类键带上 `Order`（数据/引擎侧另案）。
+                //   ⚠️ 大小写：`EmitCardTrigger` ⇒ `Keyword = KeywordWithAbility(原版 trigger 名, -1)`
+                //   ⇒ 生产路径发 **PascalCase**（与 520/665/195 同形）。
+                case "whileinplay":
+                    return true;
+                // ---- 🆕 2026-10-24（执行代理 `J1` · `C5` D11）：`Regiment`(301) ----
+                //   **只差白名单一条**（引擎已经在发，2026-10-24 `J1` 现核）：
+                //     · 发射口：`RuleCore.cs:6030` `FireTriggerAt(ctx, attacker, KeywordTable.Regiment, p, atkSlot)`
+                //       —— 在**远程**攻击结算尾部，与 `Mob`（`:6008`，近战）**成对**、差别只在「远程」；
+                //       keyword = `KeywordTable.Regiment` = **`"regiment"`**（`CardDef.cs:5197`）
+                //       → `FireTriggerAt` 的 `emitSignal`（`RuleCore.cs` 的 `ctx.Emit(EvtKind.Trigger, …)`）。
+                //     · 候选现读（`cards_engine.json`，判据 = `animTimes[].tn == "Regiment"`）
+                //       **14 行 / 10 张，全部 AstraMilitarum**：`AM6/9/14/25/26/29/31/32/37/69`
+                //       （`AM6`/`AM37`/`AM69` 各 2 行）。逐行都有 prefab（0 行空件）。
+                //   **不放行的后果（`C5` D11 实测）**：那一拍 `target` 恒 null ⇒
+                //     `TryResolveTriggerPicks` 走「④ 判不出 ⇒ 原样回 `trigger` 粗桶」⇒
+                //     `AM25`/`AM32`/`AM37`（有 `trigger` 桶、里面只有 `ArmourEffect`）
+                //     **每次远程攻击都播护甲起效件**（错件 + 多播）；其余 7 张没有 `trigger` 桶 ⇒ **什么都不播**。
+                //   ⚠️ 两张卡在基础数值下永远走不到远程（`AM26` 4/4 · `AM31` 6/6，
+                //     `ChooseAttackTypeAutomatically` 平手取近战，原版同算式）⇒ 放行不改变它们。
+                //   ⚠️ 放行后**如实留白**（与 `Mob`/`Teleport` 同一取舍）：trait 件在 `CardDef.AnimTimes`
+                //     里没有行 ⇒ `TriggerNameOf` 回 null ⇒ 被「未标名一律丢」丢掉 ⇒ 这一拍只播卡自己那条
+                //     技能动画。补齐属于 D4 / `P7`。
+                case "regiment":
+                    return true;
+                // ---- 🆕 2026-10-24（执行代理 `J1` · `C5` D12）：`TriggeredSynapse`(630) ----
+                //   **事件已经在发、只差「名字 → 原版枚举名」那一条映射 + 白名单**（同批上）：
+                //     · 映射：`EffectResolver.TriggerNameOfWhenKind` 的 `TriggersPrefix` 分支
+                //       补 `case KeywordTable.Synapse: return "TriggeredSynapse";`。
+                //       事件源 = `EffectResolver.cs:2270` `BroadcastKeywordEvent(ctx,
+                //       WhenEventKind.Triggers(KeywordTable.Synapse), anchor)`（突触重复那一拍之后）；
+                //       发射体 = `EmitListenerTrigger` → `EmitCardTrigger` ⇒ `BattleEvent.Keyword`
+                //       = **PascalCase 的原版枚举名**（不是小写关键词）。
+                //     · 候选现读（`cards_engine.json`）**1 行 / 1 张**：`TL18 Zoanthrope`
+                //       （`Psychic_Lightning_Tyranid` / `Atk_SmiteLightning_Tyranid`，有 prefab）。
+                //   **不放行的后果**：`TriggerNameOfWhenKind` 回 null ⇒ `EmitListenerTrigger`
+                //     直接 return ⇒ `EvtKind.Trigger` **从不发** ⇒ `TL18` 的技能动画一条都不播。
+                //   ⚠️ 补映射是安全的：`EmitCardTrigger` 的闸 `HasTriggerSource` 会先问
+                //     「这张卡有没有这条动画行 / 这条 ability」—— 现读 `abilityTriggers` 含 630 的
+                //     只有 `TL18`/`TL19`/`TL70`，其中**只有 `TL18` 有动画行** ⇒ 不会给别的卡凭空发事件
+                //     （`TL19`/`TL70` 会走「有 ability、没动画行」那支：照发事件 + 出声，表现层无件）。
+                case "triggeredsynapse":
                     return true;
             }
             return false;
@@ -2084,6 +2424,308 @@ namespace CardPresentation
         static bool NameIs(string a, string b)
         {
             return !string.IsNullOrEmpty(a) && string.Equals(a, b, System.StringComparison.OrdinalIgnoreCase);
+        }
+
+        // ==================================================================
+        //  🆕 2026-10-24（`A21`）：**`IsRoutedTriggerName` 白名单的两条常驻断言**
+        //
+        //  判据 → `资料/普查产出_1023e/C3_动画特效审查_索引.md` §四 D1 / D6 / D7
+        //  为什么必须**双向**：只断「加进来的对」不够 —— 以后有人照着「原版 trigger 名字表」补齐时，
+        //  会把**引擎根本没有发射口**的那几个也塞进来 ⇒ 要么永远等不到那一拍，要么更糟：在**别的一拍**
+        //  上把这条 trigger 的候选播出去（错件 / 多播）。⇒ 两边各一条闸：
+        //    · <see cref="NoEmitTriggerNames"/>   —— **反向**：没有发射口的**不许**进白名单；
+        //    · <see cref="MustRouteTriggerNames"/> —— **正向锁**：有发射口的**必须**在（防误删）。
+        //  另加**第三条闸：大小写三态** —— 引擎发的是小写常量、原版枚举是 PascalCase，
+        //  而 C# `switch (string)` 是 Ordinal ⇒ `case "Codex"` 对 `"codex"` 恒 false（C3 D6 就是这么坏的）。
+        //  真正的证明是件级那一段（在真实卡表上跑 `ResolveAllTimed`，看取到的是卡自己那条、不是整桶）。
+        // ==================================================================
+
+        /// <summary>🆕 2026-10-24（`A21` · `C3` D1-c / D1-d / D7-c）：**引擎里【没有】发射口的原版 trigger 名**
+        /// —— ⛔ **不许进 <see cref="IsRoutedTriggerName"/>**。
+        ///
+        /// <para>「没有发射口」的判据（2026-10-24 现核）：全仓 `Core/` 里**没有任何一处**带着这个
+        /// **原版 trigger 名**发 `EvtKind.Trigger`（`FireTriggerOnSide` / `FireTriggerAt` /
+        /// `EmitListenerTrigger` 的调用点逐个 grep 过）。两种成因都要按这张表挡：
+        ///   ① **事件根本不存在**（只在 `CardDef` 的枚举表 / 注释里出现）；
+        ///   ② **事件有、但名字到不了 `EvtKind.Trigger`**（`TriggerNameOfWhenKind` 没映射 ⇒
+        ///      `EmitListenerTrigger` 直接 return），或**引擎发的是另一个名字**。
+        /// 要放行某个名字，**必须先补发射口 / 映射**，再把它从本表删掉 ——
+        /// 删这一行本身就是「我核过发射口了」的签名。</para>
+        /// <list type="bullet">
+        /// <item>`Unstable`(81)：`RuleCore.cs:8829-8844` 只 `EnqueueAbility`（`UnstableBlastDeferred`），
+        ///   **不 `Emit(EvtKind.Trigger)`**（2026-10-24 `A21` 现核；C3 原文写的 `:8807-8822` 是那段注释的
+        ///   起点，不是代码）⇒ Goff 18 张卡 / 36 条动画今天**永远不播**（C3 D1-c：要先补引擎那一跳）。</item>
+        /// <item>`OnSecretCreated`(700)：全仓 `Core/` 只有 `CardDef` 的枚举表（DA 2 张 / 3 条）。</item>
+        /// <item>`OnCollectQuestPoints`(695)：同上（DA 2 张 / 2 条）。</item>
+        /// <item>`TriggeredCodex`(650)：只出现在注释里（UM 1 张 / 1 条）。⚠️ 与已在白名单里的 `Codex`
+        ///   **不是同一个名字** —— `Codex` 有真发射口（`RuleCore.CheckCodex` → `FireTriggerAt`），它没有。</item>
+        /// <item>🆕 `OnCollectSpiritStone`(610)：SaimHann 5 条 / 4 张。**没有**独立触发口 ——
+        ///   `VfxMap.CrossTriggerDrops` 只是把 610 那条从 `ability` 桶里**丢掉**（C3 D8）；
+        ///   要补得走「收集」那条事件（`EvtKind.GainSpirit` / 残骸收集），⛔ 别接成技能。</item>
+        /// <item>🆕 `UnitLoseStealth`(647)：SaimHann 1 条 / 1 张，没有发射口。</item>
+        /// <item>🆕 `UnitStunned`(291)：SaimHann 1 条 / 1 张，没有发射口。</item>
+        /// <item>🆕 `OnSabotageCreated`(701)：Genestealers 1 条 / 1 张，没有发射口。</item>
+        /// <item>🆕 **2026-10-24（`A27` · `C4` D7(C4)）：`UnitReceivesHuntMark`(520) / `OnCollectFaith`(665)**
+        ///   —— ⚠️ **曾在这一张表里，2026-10-24（`A30`）已放行并从数组里删掉**，留痕说明它们为什么当初在这：
+        ///   它们**不是**「没有事件」，而是「**事件到了映射这一层断了**」—— 监听事件**有**
+        ///   （`WhenEventKind.GetsHuntMark` / `GainFaith`），但 `EffectResolver.TriggerNameOfWhenKind`
+        ///   当时**没有这两个分支** ⇒ `EmitListenerTrigger` 在 `tn == null` 时直接 return
+        ///   ⇒ `EvtKind.Trigger` **从不发**（连「播错件」都没有）。`A30` 同批补了映射
+        ///   （`CardScript__ReactToUnitHuntMarked.c:7` = `0x208` / `CardScript__ReactToCollectFaith.c:7` = `0x299`）
+        ///   ⇒ 现在它们是**正向锁**里的一员（见 <see cref="MustRouteTriggerNames"/>）。</item>
+        /// <item>✅ **2026-10-24（引擎线 `G2` · `C4` D8）：`ThisUnitSummoned`(195) 已放行，不在本表。**
+        ///   留痕说明它当初为什么在：部署那一拍引擎一侧只有两条出口 —— `rally`（`RuleCore` 部署入口的
+        ///   `FireTriggerOnBoard`）与监听者的 `OtherUnitSummoned(190)`（`TriggerNameOfWhenKind` 的
+        ///   `Deploy` 支，改前**不分自/他**）⇒ 与候选名 `ThisUnitSummoned` 永不相交。
+        ///   本批把 `SelfOnly` 那一支分流成 195（判据 → `IsRoutedTriggerName` 里那个 `case`），
+        ///   它现在是**正向锁**里的一员（见 <see cref="MustRouteTriggerNames"/>）。</item>
+        /// <item>✅ **2026-10-24（引擎线 `G2` · `C4` D9）：`WhileInPlay`(20) 已放行，不在本表。**
+        ///   留痕说明它当初为什么在：这一族是**常驻重算**能力，本仓的效果走光环层
+        ///   （`Aura.Recompose`），**从来不 `Emit(EvtKind.Trigger)`** ⇒ 没有「一拍」。
+        ///   本批补了表现口 `RuleCore.EmitWhileInPlayPass`（挂在**动作队列排空**那一刻，
+        ///   判据 = `BattleManager__FinishResolvingAction.c:91`）⇒ 它现在是**正向锁**里的一员。
+        ///   ⚠️ 已知歧义：`SW18` 的 `Card_Buff_Hand_SW` 同时挂在 `WhileInPlay` 与 `ThisCardPlayed`
+        ///   下 ⇒ 件级自检**跳过**那一行（如实记，⛔ 不是通过）。</item>
+        /// </list></summary>
+        static readonly string[] NoEmitTriggerNames =
+        {
+            "Unstable", "OnSecretCreated", "OnCollectQuestPoints", "TriggeredCodex",
+            "OnCollectSpiritStone", "UnitLoseStealth", "UnitStunned", "OnSabotageCreated",
+            // 🆕 2026-10-24（`A27` · `C4` D8(C4) / D9(C4)）：**名字不对 / 没有那一拍**
+            //   （`UnitReceivesHuntMark` / `OnCollectFaith` 已于 2026-10-24 `A30` 补好映射并移出本表 ·
+            //    `ThisUnitSummoned` / `WhileInPlay` 已于 2026-10-24 `G2` 补好发射口并移出本表
+            //    ⇒ 它们现在都在 `MustRouteTriggerNames` 里）
+        };
+
+        /// <summary>🆕 2026-10-24（`A21`）：**必须**在白名单里的那批（**引擎已在发**，只差一条白名单）。
+        /// 判据 = <see cref="IsRoutedTriggerName"/> 里各自 `case` 的整段注释。
+        /// ⚠️ 这一条只是**锁**（防误删）；真正的证明见 <see cref="SelfCheckRoutedTriggers"/> 的件级那一段。
+        /// ⚠️ 顺序与 <see cref="MustRouteTriggerKeywords"/> **逐个对应**（两张表必须同长、同序）。</summary>
+        static readonly string[] MustRouteTriggerNames =
+        {
+            "Mob", "Teleport", "Codex", "Uprising", "Artifice",
+            // 🆕 2026-10-24（`A27` · `C4` D6(C4)）：27 行 / 24 张，全在 EmperorsChildren
+            "Cruelty", "Stimulation", "Ecstasy",
+            // 🆕 2026-10-24（`A30` · `C4` D7 第二批）：监听者那一拍（映射在 `TriggerNameOfWhenKind`）
+            //   5 行 / 2 张（SW20 / SW35）· 2 行 / 1 张（SOR38）
+            "UnitReceivesHuntMark", "OnCollectFaith",
+            // 🆕 2026-10-24（引擎线 `G2` · `C4` D8）：`Deploy` 的 **`SelfOnly`** 那一支
+            //   1 行 / 1 张（`SW10 Grey Hunter`）—— 映射分流 + 白名单同批上。
+            "ThisUnitSummoned",
+            // 🆕 2026-10-24（引擎线 `G2` · `C4` D9）：常驻重算那一拍
+            //   2 行 / 1 张（`SW18 Hrolf the Ironhowl`；其中 1 行是歧义行，件级会跳过）。
+            "WhileInPlay",
+            // 🆕 2026-10-24（执行代理 `J1` · `C5` D11/D12）：14 行 / 10 张（AM）· 1 行 / 1 张（TL18）
+            "Regiment", "TriggeredSynapse",
+        };
+
+        /// <summary>🆕 2026-10-24（`A21`）：上面那些名字**引擎实际发出来的 keyword 字面量**
+        /// —— 件级自检拿它当 `ResolveAllTimed(..., keyword:)` 的实参，与生产路径逐参一致。
+        /// ⚠️ 与 <see cref="MustRouteTriggerNames"/> **逐个对应**（同长、同序）。
+        /// <para>🔴 **2026-10-24（`A30`）就地补注**：原来这里写「全是**小写** `KeywordTable.*` 常量」——
+        /// 那只覆盖「关键词族」（`FireTriggerAt` 原样把小写关键词写进 `BattleEvent.Keyword`）。
+        /// **监听者那一族（`UnitReceivesHuntMark` / `OnCollectFaith`）不同**：发射体是
+        /// `EffectResolver.EmitCardTrigger` ⇒ `BattleEvent.Keyword = KeywordWithAbility(原版 trigger 名, -1)`
+        /// ⇒ 生产路径发的是 **PascalCase 的原版枚举名**，不是小写关键词。
+        /// 自检要**逐参一致** ⇒ 这两格必须写 PascalCase（⛔ 写成 `"gethuntmark"` / `"gainfaith"` 会让
+        /// `IsRoutedTriggerName` 判不中 ⇒ 掉回 `trigger` 粗桶 ⇒ 自检报「漏播」）。</para></summary>
+        static readonly string[] MustRouteTriggerKeywords =
+        {
+            KeywordTable.Mob, KeywordTable.Teleport, KeywordTable.Codex,
+            KeywordTable.Uprising, KeywordTable.Artifice,
+            KeywordTable.Cruelty, KeywordTable.Stimulation, KeywordTable.Ecstasy,
+            // 🆕 2026-10-24（`A30`）：监听者那一族发的是原版枚举名本身（见上面那段补注）。
+            //   与 `MustRouteTriggerNames` 同长同序 ⇒ 这两格与上表最后两项逐字相同。
+            "UnitReceivesHuntMark", "OnCollectFaith",
+            // 🆕 2026-10-24（`G2` · D8）：同上 —— `EmitCardTrigger` 发的是 PascalCase 原版枚举名。
+            "ThisUnitSummoned",
+            // 🆕 2026-10-24（`G2` · D9）：同上（`EmitWhileInPlayPass` → `EmitCardTrigger`）。
+            "WhileInPlay",
+            // 🆕 2026-10-24（执行代理 `J1` · `C5` D11/D12）：
+            //   `Regiment` 发的是 `KeywordTable.Regiment` 的**小写常量**（`FireTriggerAt` 原样写进
+            //   `BattleEvent.Keyword`）；`TriggeredSynapse` 走 `EmitCardTrigger` ⇒ **PascalCase 原版枚举名**
+            //   （与上面 520/665/195/20 同形）。两格都必须与 `MustRouteTriggerNames` **逐个对应**。
+            KeywordTable.Regiment, "TriggeredSynapse",
+        };
+
+        /// <summary>🆕 2026-10-24（`A21`）：白名单自检的**名字级**那一半（**不需要卡池**）。
+        /// <see cref="EnsureLoaded"/> 载表时跑一次 ⇒ 白名单被改错**当场出声**，不必等自检宿主。
+        /// 返回违规描述；空数组 = 通过。</summary>
+        public static string[] SelfCheckRoutedTriggerNames()
+        {
+            var bad = new List<string>();
+            for (int i = 0; i < NoEmitTriggerNames.Length; i++)
+            {
+                string n = NoEmitTriggerNames[i];
+                if (IsRoutedTriggerName(n))
+                    bad.Add($"`{n}` **引擎没有发射口**（判据见 `NoEmitTriggerNames` 的逐条注释）却进了 "
+                          + "`IsRoutedTriggerName` 白名单 ⇒ 这条 trigger 的候选会在**别的一拍**上被播出去"
+                          + "（错件 / 多播）。要放行必须先补 `EvtKind.Trigger` 发射口，再从 "
+                          + "`NoEmitTriggerNames` 里删掉它。");
+            }
+            for (int i = 0; i < MustRouteTriggerNames.Length; i++)
+            {
+                string n = MustRouteTriggerNames[i];
+                if (!IsRoutedTriggerName(n))
+                    bad.Add($"`{n}` **不在**白名单里 ⇒ 这一拍 `target` 恒 null ⇒ `TryResolveTriggerPicks` "
+                          + "走「判不出 ⇒ 原样回 `trigger` 粗桶」= 整桶播（错件）。发射口已存在"
+                          + "（见 `IsRoutedTriggerName` 里那个 `case` 的注释）⇒ 它必须在白名单里。");
+                // 🔴 **大小写三态（C3 D6）**：引擎发**小写**、原版枚举/候选是 PascalCase。
+                //   今天 `IsRoutedTriggerName` 统一 `ToLowerInvariant()` ⇒ 三态**都必须 true**：
+                //     · `codex`（引擎发的形态）—— 这一条正是 D6 那个 bug 的靶子；
+                //     · `CODEX`（全大写）—— 归一若被改回 Ordinal `switch`，这条会先红。
+                //   ⛔ 别把这条删掉当「重复」：`case "Codex"` 那种写法对 `"codex"` 恒 false，而
+                //   第一条断言 `IsRoutedTriggerName(n)`（PascalCase）**照样是绿的** —— 只断前者抓不到 D6。
+                string lo = n.ToLowerInvariant();
+                string up = n.ToUpperInvariant();
+                if (!IsRoutedTriggerName(lo))
+                    bad.Add($"`{n}` 的**引擎小写形态** `{lo}` 不在白名单 ⇒ 正是 C3 D6 那个 bug"
+                          + "（C# `switch (string)` 是 Ordinal；`case \"Codex\"` 对 `\"codex\"` 恒 false）。"
+                          + "修法 = 让 `IsRoutedTriggerName` 先 `ToLowerInvariant()` 再比。");
+                if (!IsRoutedTriggerName(up))
+                    bad.Add($"`{n}` 的**全大写形态** `{up}` 不在白名单 ⇒ 大小写归一没生效"
+                          + "（`switch (triggerName.ToLowerInvariant())` 那一句被改回去了？）。");
+            }
+            return bad.ToArray();
+        }
+
+        /// <summary>🆕 2026-10-24（`A21` · `C3` D1 / D6 / D7）：白名单自检的**完整版**（名字级 + **件级**）。
+        /// 返回违规描述；**空数组 = 通过**（⛔ 别把「卡池没载到」当通过 —— 那会单列一条）。
+        ///
+        /// <para>件级那一段做什么：对**每一张**有 `CardAnimTime.TriggerName == <白名单名>` 行的卡，
+        /// 按**生产路径逐参**（`perCardOnly: true` + 引擎关键词常量，见 `BattleDriver.PlaySignal` 的
+        /// Trigger 支）调一次 `ResolveAllTimed`，逐件比：
+        ///   · 取到的每一件都必须是**这张卡标着这个 trigger 名**的那批候选（多一件 = 整桶播了）；
+        ///   · 那批候选一件都不能少（少一件 = 归口把它丢了）。
+        /// 现读口径（2026-10-24，逐张现算 —— ⛔ 断言里别写死这些数）：
+        /// `Mob` 11 张/15 行 · `Teleport` 6 张/9 行 · `Codex` 23 张/33 行
+        /// （**32 行有件**：`UM28` 那条 `Wait_1s` 是纯计时拍 = D5；其中 **2 行**是「一个 `CardAnim`
+        /// 挂两个 trigger」分不出来的档 —— `UM37` / `UM84`，见 <see cref="AmbiguousTriggerLabel"/>，
+        /// 自检**跳过** ⇒ 实际验到 **22 张 / 30 行**）· `Uprising` 8 张/13 行 · `Artifice` 11 张/14 行
+        /// （C3 第二批只覆盖新三阵营 ⇒ 它记的 `Artifice`「3 张/6 条」不含 Sautekh 那 8 张）·
+        /// 🆕 `Cruelty` **8 张/10 行** · `Stimulation` **10 张/10 行** · `Ecstasy` **7 张/7 行**
+        /// （三个全在 EmperorsChildren；2026-10-24 `A27` 现算：**0 行无件、0 行歧义**）·
+        /// 🆕 **2026-10-24（`A30`）** `UnitReceivesHuntMark` **2 张/5 行**（`SW20` 2 · `SW35` 3）·
+        /// `OnCollectFaith` **1 张/2 行**（`SOR38`）—— 三条都逐行有 prefab（现读 `cards_engine.json`）·
+        /// 🆕 **2026-10-24（`G2` · D8）** `ThisUnitSummoned` **1 张/1 行**（`SW10 Grey Hunter`）·
+        /// 🆕 **2026-10-24（`G2` · D9）** `WhileInPlay` **1 张/2 行**（`SW18 Hrolf the Ironhowl`，
+        /// 其中 `Card_Buff_Hand_SW` 是真歧义行 ⇒ 只验到 `Buff_Blue_SW` 那 1 行；见 `AmbiguousTriggerLabel`）·
+        /// 🆕 **2026-10-24（执行代理 `J1` · `C5` D11/D12）** `Regiment` **10 张/14 行**
+        /// （全 AstraMilitarum；`AM6`/`AM37`/`AM69` 各 2 行；**0 行无件、0 行歧义**）·
+        /// `TriggeredSynapse` **1 张/1 行**（`TL18 Zoanthrope`）。</para>
+        /// <para>⚠️ 本方法走的是**生产解释路径**（`ResolveAllTimed`）⇒ 理论上会给 `UnpinnedPicks` 那类计数器加数
+        /// （现读**增量 0**：候选全部来自 `cardAnimations[]`、都能钉上 `AnimTimes`）。若宿主对那个计数敏感，
+        /// 断言前先 `ResetUnpinnedForTest()`。</para></summary>
+        public static string[] SelfCheckRoutedTriggers()
+        {
+            var bad = new List<string>(SelfCheckRoutedTriggerNames());
+            EnsureLoaded();
+            var pool = CardDatabase.Load();
+            if (pool == null || pool.Count == 0)
+            {
+                bad.Add("**没验**：卡池没载到（`CardDatabase.Load()` 回空）⇒ 件级那一段跑不了。"
+                      + "这不是通过 —— 见 `SelfCheckRoutedTriggers` 的 doc。");
+                return bad.ToArray();
+            }
+            // 引擎实际发出来的关键词（小写常量；白名单靠 `ToLowerInvariant` 对上、候选靠 `NameIs` 对上）
+            string[] kws = MustRouteTriggerKeywords;
+            if (kws.Length != MustRouteTriggerNames.Length)
+                bad.Add("`MustRouteTriggerNames` 与 `MustRouteTriggerKeywords` **长度不等** ⇒ 两张表错位了"
+                      + "（它们是逐个对应的，改成同一个长度）。");
+            for (int k = 0; k < MustRouteTriggerNames.Length && k < kws.Length; k++)
+            {
+                string name = MustRouteTriggerNames[k];
+                string kw = kws[k];
+                int cards = 0, rows = 0, ambiguous = 0;
+                foreach (var kv in ByCard)
+                {
+                    var card = CardDatabase.FindById(pool, kv.Key);
+                    if (card == null || card.AnimTimes == null || card.AnimTimes.Count == 0) continue;
+                    List<string> want = null;
+                    List<string> ambig = null;
+                    for (int i = 0; i < card.AnimTimes.Count; i++)
+                    {
+                        var t = card.AnimTimes[i];
+                        if (t == null || !NameIs(t.TriggerName, name)) continue;
+                        // `Wait_*` 纯计时拍没有 prefab（原版 `animAdressable` 就是空 GUID）⇒ 本来就没件
+                        if (string.IsNullOrEmpty(t.Prefab)) continue;
+                        // ⚠️ **同一个 `CardAnim` 在同一条卡里被两个不同 trigger 各引一次** ⇒ 运行期的分类键
+                        //    `TriggerNameOf`（先 `A` 后 `N`、**只取第一条**，见它自己的 doc）**分不出来**：
+                        //    这种行会被判成**先出现**的那个 trigger。现读 **2 行**：`UM37` 的
+                        //    `BulletTrail_Stormraven_SingleTarget` 与 `UM84` 的 `Buff_Purple_target`
+                        //    （两条都同时挂在 `ThisCardPlayed` 与 `Codex` 下）⇒ 它们的 Codex 那一拍**今天播不出来**
+                        //    （视觉上由 `play` 那条同 prefab 的行盖住）。本自检**跳过**它们并如实记账 ——
+                        //    ⛔ 别把它改成「通过」：要收口得让分类键带上 `Order`（引擎/数据侧的另案）。
+                        if (AmbiguousTriggerLabel(card.AnimTimes, t))
+                        {
+                            // 🆕 2026-10-24（`G2` · D9）：**歧义行的件名** —— `got` 那边也要按同一档跳过。
+                            //   为什么两边都要跳：`want` 只决定「必交清单」，而生产路径 `TriggerNameOf`
+                            //   （只取第一条 `Anim`）**照样会把它播出来** ⇒ 只跳一边 = 每张这样的卡
+                            //   恒定报「多播」（自检永远红 ⇒ 这条闸报废）。
+                            //   现读唯一命中 = `SW18` 的 `Card_Buff_Hand_SW`（`WhileInPlay` / `ThisCardPlayed`）。
+                            //   ⛔ 别为了让它变绿而删掉 `want` 那侧的跳过 —— 那是「如实记账」的口。
+                            ambiguous++;
+                            if (ambig == null) ambig = new List<string>();
+                            ambig.Add(t.Prefab);
+                            continue;
+                        }
+                        if (want == null) want = new List<string>();
+                        want.Add(t.Prefab);
+                    }
+                    if (want == null) continue;
+                    cards++; rows += want.Count;
+                    string faction;
+                    _factionOfId.TryGetValue(kv.Key, out faction);
+                    // 传 **id**（不是卡名）：重名 3 组的解析与本件无关，这里要验的是**归口**
+                    var got = ResolveAllTimed(Trigger, faction, kv.Key, card.AnimTimes,
+                                              null, true, kw);
+                    var left = new List<string>(want);
+                    for (int i = 0; i < got.Length; i++)
+                    {
+                        // 🆕 2026-10-24（`G2` · D9）：歧义行（见上面 `ambig` 的理由）—— 生产路径会播它
+                        //   ⇒ 这一档不计入「多播」（`Remove` 逐次消费，与 `left` 同一手法）。
+                        if (ambig != null && ambig.Remove(got[i].Name)) continue;
+                        if (!left.Remove(got[i].Name))
+                            bad.Add($"`{card.Name}`（{kv.Key}）的 `{name}` 那一拍**多播**了 `{got[i].Name}`"
+                                  + "（不属于这个 trigger 的候选）⇒ 归口没生效 / 整桶播了。");
+                    }
+                    for (int i = 0; i < left.Count; i++)
+                        bad.Add($"`{card.Name}`（{kv.Key}）的 `{name}` 那一拍**漏播** `{left[i]}`"
+                              + "（原版这一行的 outer trigger 标的就是它）");
+                }
+                if (cards == 0)
+                    bad.Add(ambiguous > 0
+                        ? $"全表 `TriggerName == {name}` 的行**全落在「一个 `CardAnim` 挂两个 trigger」那一档**"
+                        + $"（{ambiguous} 行）⇒ 本自检**一条也验不了**（⛔ 这不是通过）。"
+                        : $"全表**一张卡**都没有 `TriggerName == {name}` 的候选 ⇒ 白名单这一条是空放"
+                        + "（数据侧变了？⛔ 别把白名单留在那儿当装饰）");
+            }
+            return bad.ToArray();
+        }
+
+        /// <summary>🆕 2026-10-24（`A21`）：**这条 `CardAnimTime` 的运行期分类键分得出来吗** ——
+        /// 同一个 `Anim`（`Anim` 为空时退到 `Prefab`，与 <see cref="TriggerNameOf"/> 同口径）
+        /// 在 `times` 里出现了**两个不同的 `TriggerName`** ⇒ `TriggerNameOf`（**只取第一条**）分不出来，
+        /// 这种行归口时会被判成先出现的那个 trigger。自检用它**如实跳过**（⛔ 不是判它通过）。
+        /// <para>现读命中 3 行：`UM37` 的 `BulletTrail_Stormraven_SingleTarget` · `UM84` 的
+        /// `Buff_Purple_target`（两条都同时挂在 `ThisCardPlayed` 与 `Codex` 下）·
+        /// 🆕 `SW18` 的 `Card_Buff_Hand_SW`（同时挂在 `WhileInPlay` 与 `ThisCardPlayed` 下）。</para></summary>
+        static bool AmbiguousTriggerLabel(IReadOnlyList<CardDef.CardAnimTime> times, CardDef.CardAnimTime t)
+        {
+            if (times == null || t == null) return false;
+            string key = !string.IsNullOrEmpty(t.Anim) ? t.Anim : t.Prefab;
+            if (string.IsNullOrEmpty(key)) return false;
+            string first = null;
+            for (int i = 0; i < times.Count; i++)
+            {
+                var o = times[i];
+                if (o == null) continue;
+                string k = !string.IsNullOrEmpty(o.Anim) ? o.Anim : o.Prefab;
+                if (!string.Equals(k, key, System.StringComparison.Ordinal)) continue;
+                if (first == null) { first = o.TriggerName ?? ""; continue; }
+                if (!NameIs(o.TriggerName, first)) return true;
+            }
+            return false;
         }
 
         /// <summary>🆕 2026-10-15（账 `A2082`）：**把一个「卡名」钉到唯一那张卡的 id 上**。

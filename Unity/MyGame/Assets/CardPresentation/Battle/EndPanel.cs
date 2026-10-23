@@ -8,14 +8,18 @@
 //   AllRewardsHolder  100×100    @ (0, -260)
 //   SkullsHolder      648.1×52.4   图 `40k_main_bt_nametag`
 //   skull1/2/3        64.3×71.2    图 `40k_battle_Win Skull`
-//   RewardsHolder     495.2×49.0   图 `40k_main_bt_nametag`
+//   RewardsHolder     495.2×49.0   图 `40k_main_bt_nametag`（🔴 布局后 = 面板中心 **−316.88**，见文件末 `Build()` 那段）
 //   RewardHolder      140×50 → DrawerHolder 65×50 @ (5,0) → Quantity 文字 0×45
 //   HolderRating      187×45 → Trophy 60.1×60（图 `40k_UI_icon_ranked_Skirmish`）、
 //                              RatingText 65.3×46.9、ArmyIcon 64.8×60（dump 里 activeSelf=False）
 //
-// ⚠️ **两处是我们排的，不是原版**（dump 里拿不到，别当原版抄）：
-//   1. **纵向叠放顺序**：dump 里 `SkullsHolder` 和 `RewardsHolder` 的 anchoredPosition **都是 (0,0)** ——
-//      说明位置是运行时 LayoutGroup 算出来的，静态 dump 只有建之前的初值。这里改成上下两行排。
+// ⚠️ **原来这里记了「两处是我们排的」—— 第 1 条已于 2026-10-24（`A28`）由判据取代：**
+//   1. **纵向叠放顺序**：dump 里 `SkullsHolder` / `RewardsHolder` 的 anchoredPosition **都是 (0,0)**，
+//      但那是 `BattleDoors` **未激活**时的序列化值 —— 面板一激活，`AllRewardsHolder` 上的
+//      **`VerticalLayoutGroup`**（`MB_4902`：spacing 30 · LowerCenter · 全部 Control/ForceExpand 0）
+//      就会重算（内容 131.38 > 容器 100 ⇒ 溢出、第一颗顶边贴顶、横向居中）。
+//      **骷髅行的结果 = 面板中心 (0, −236.19)** —— 推导与出处写在 `Build()` 里 `SkullsHolder` 那段。
+//      ⛔ 别再照静态 dump 的 `(0,0)` / 取整全树表的「−309.5」摆。
 //   2. ~~**未点亮的骷髅用半透明表示**~~ —— ✅ **2026-09-27 已照原版改掉**：
 //      原版就是 `SetActive(false)`（**根本不显示**），而且 0 个时**整行连底板一起藏**
 //      （`EndBattleDoors__ShowRewards.c:55` + `:58-68`；⚠️ 这条与「10/0x14/0x1e 是 `BattleWinner` 枚举」
@@ -32,11 +36,14 @@
 //
 // 🔴🔴 **2026-10-16（`T09` 整层换 uGUI · 第 2 批 `PopUps` 组）：本件 + `BattleDoors.cs` 已从
 //     【世界空间 quad】迁到【uGUI 子画布】。** 口径与配方 → `资料/任务线/战斗线/任务/T09_整层换uGUI.md` §五·补⑩。
-//   · **宿主** = 与 `BattleDoors` **共用**的那块子画布（`BattleDoors.PairCanvas()`）= 原版 `BattleDoors/Canvas`
+//   · **宿主** = 与 `BattleDoors` **共用**的那块子画布（`BattleDoors.CanvasTransform`）= 原版 `BattleDoors/Canvas`
 //     （**`PopUps` 层 / order 0**；判据 → `资料/普查产出_1016战斗判据/T09c_面板到原版宿主映射.md` §一）。
-//     原版 `EndBattlePanel` 就挂在它下面 —— 本件的根节点照此挂上去。
-//   · ⚠️ **一处已知差异、本次有意不翻**：原版是 `EndBattlePanel` 挂在 `BattleDoors/Canvas` **下**；
-//     我们反过来（`BattleDoors` 挂在 `EndPanel` 下，见 `Build()` 最后那句）。**如实记着**，⛔ 别顺手倒过来（那是另一笔账）。
+//     ⇒ 整棵树的形状 = 原版 **`BattleHud/Canvas/BattleDoors/Canvas/EndBattlePanel`**
+//     （出处 `资料/说明书/01_战斗_对战/2D层_battlearena2全树.md:1195-1200`）。
+//   · ✅ **2026-10-24（`B-26`）父子颠倒已翻正（原文写「本次有意不翻、那是另一笔账」= 已过期）**：
+//     改之前是 `EndPanel` 在外、`BattleDoors` 挂在它下面；现在 `BattleDoors`（外骨架，带 `localScale 1.06647`）
+//     → `BattleDoors Canvas`（子画布）→ `EndBattlePanel`（本件），视频那两颗（原版 `Video Image`）在**本件**下。
+//     连带修好的一处：面板本体 / 骷髅 / 奖励锚现在也吃到那 1.06647 的父链缩放（原版就是如此）。
 //   · 🔴 **单位换了**：旧那一套是**世界单位**（`MenuDraw.SetPxSize` / `LayoutSpace.Px` 内部都是 **÷108**）；
 //     uGUI 档的 `sizeDelta` / 字 / 位置要的是**真 px**（canvas 单位就是设计 px）。
 //     ⇒ 一律走 `HudCanvas` 那几个助手（`SetPxSize` / `FillParent` / `PosPx` / `MakeText` / `MakeImagePiece`）。
@@ -56,6 +63,34 @@ namespace CardPresentation
     {
         /// <summary>原版界面按 1920×1080 设计；这套布局可见高 10 单位 → 108 px/单位</summary>
         public const float PxPerUnit = 1080f / LayoutSpace.DesignHeight;
+
+        // ── 🔴 2026-10-24（`A32`）：本面板那两行的【布局组重算之后】坐标（设计 px，相对父件中心）──
+        //    ⛔ **别抄解包里的 `m_AnchoredPosition`**：`SkullsHolder` / `RewardsHolder` 在场景里序列化的
+        //    都是 **(0,0)**；运行时由 `AllRewardsHolder` 身上的 `VerticalLayoutGroup`
+        //    （`bundle_scenes_scenes_battlearena1` 的 `MonoBehaviour_4902.json`：spacing 30 ·
+        //     alignment 7 = LowerCenter · padding 全 0 · ChildControl / ForceExpand 全 0）重算。
+        //    推导与「状态 → 值」表 → `Build()` 里 `SkullsHolder` 那一段长注释；
+        //    算法判据 → 本机 uGUI `HorizontalOrVerticalLayoutGroup.cs:182-192` + `LayoutGroup.cs:261-265`。
+
+        /// <summary>`SkullsHolder` 的**行心**（相对 `AllRewardsHolder` 中心，y 向上）。
+        /// = 容器半高 50 − 52.38×0.5（= 布局组写出的 `ap.y −26.19`，锚点在容器顶边）⇒ **+23.81**。
+        /// `Build()` 就用它摆这一行；判据见上面那段。</summary>
+        public const float SkullRowLocalY = 23.81f;
+
+        /// <summary>`SkullsHolder` 行心在**面板中心**坐标下 = −260 + 23.81 = **−236.19**。
+        /// 自检用它（读真几何比这一格）；⛔ 不是序列化值、也不是全树表取整出来的 −309.5。</summary>
+        public const float SkullRowPanelY = -236.19f;
+
+        /// <summary>🔴 **原版 `RewardsHolder` 的布局后位置**（我们**不建**这一行 —— 用户 2026-09-17 口径；
+        /// 这里只把「将来要做时」的真值落地，⛔ 别改用序列化 `(0,0)` / 全树表的 −309.5，那两个是**布局前**的）。
+        /// <para>`ap.y` = 布局组写出的 `anchoredPosition`（锚点在容器**顶边**）
+        /// = −(52.38 + 30) − 49×0.5 = **−106.88**；相对容器中心 = 50 − 106.88 = −56.88；
+        /// 相对面板中心 = −260 − 56.88 = **−316.88**。</para>
+        /// <para>⚠️ 行内两级还有各自的小结（`RewardsHolder` 的 spacing 33 / `HolderRating` 的
+        /// `ChildForceExpandHeight 1`）—— 逐颗坐标写在 `Build()` 末尾「奖励行」那段，本批**只落地不建**。</para></summary>
+        public const float RewardRowAnchorY = -106.88f;      // 相对容器顶边（= 布局组写出的 ap.y）
+        /// <summary>`RewardsHolder` 行心 = **面板中心 −316.88**（同上，见 <see cref="RewardRowAnchorY"/>）。</summary>
+        public const float RewardRowPanelY = -316.88f;
 
         /// <summary>像素坐标（左上原点）→ **世界坐标**（屏心为原点、÷108）。z 越小越靠近相机。
         /// ⚠️ 加上开门视频之后面板分了**三层**，三个 z 的含义见 `BattleDoors`。
@@ -162,29 +197,52 @@ namespace CardPresentation
         readonly HudPiece[] _skulls = new HudPiece[DeckRules.SkullThresholds.Length];
         HudPiece _skullPlate;
         /// <summary>骷髅那一行的**容器**（原版 `SkullsHolder`）—— 三个骷髅是它的子节点，
-        /// 整行的显隐靠它一个开关（原版 `skullHolderObj.SetActive(0 &lt; skullsObtained)`）。</summary>
+        /// 整行的显隐靠它一个开关（原版 `skullHolderObj.SetActive(0 &lt; skullsObtained)`）。
+        /// 🔴 **2026-10-24（`B-26`）**：它的父件换成原版的 **`AllRewardsHolder`**（100×100 的空锚点容器）。</summary>
         Transform _skullRow;
+        /// <summary>🔴 **2026-10-24（`B-26`）**：原版 `EndBattlePanel/AllRewardsHolder` 那一级
+        /// （`[-50,1295 100x100]` = 面板中心下方 259.5 px 的 100×100 锚点）。
+        /// 原版它装 `SkullsHolder` + `RewardsHolder`；我们只做骷髅 ⇒ 里面只有骷髅行。</summary>
+        Transform _rewardsHolder;
 
         public static EndPanel Create(Transform parent)
         {
             // 🔴 **2026-10-16（`T09` 批 2）**：根节点由「写 `sizeDelta` 的世界空间矩形」改成
             //    **挂在子画布上的 `RectTransform` + `FillParent`**。
             //    · **判据没变**：原版 `EndBattlePanel` 实读 = `RectTransform` · `anchor (0,0)-(1,1)` ·
-            //      `sizeDelta (0,0)` ⇒ **绝对矩形 (0,0)-(1920,1080)**（`bundle_scenes_scenes_battlearena1`，
-            //      2026-10-11 现读；父链 `BattleHud/Canvas/BattleDoors/Canvas/EndBattlePanel`）。
-            //      ⇒ `FillParent`（锚点 0..1 + `sizeDelta 0`）**正是**那一对值（比原来写死 1920×1080 更贴判据：
-            //      `Expand` 档下屏比画布宽时（21:9）画布 rect 比 1920 宽，写死的矩形会盖不满两边）。
+            //      `sizeDelta (0,0)` ⇒ **绝对矩形 = 父 canvas 的 rect**
+            //      （`bundle_scenes_scenes_battlearena1`；父链 `BattleHud/Canvas/BattleDoors/Canvas/EndBattlePanel`）。
+            //      ⇒ `FillParent`（锚点 0..1 + `sizeDelta 0`）正是那一对值。
             //    · ⛔ **`parent` 参数本件不再用**（先例 = `BattleDriver.BuildLoadingCover`）：面板**必须**挂在
-            //      画布根 canvas 下才拿得到 `CanvasScaler`；⛔ **不挂 `hudRoot`** —— 那是**反向补震**用的，
+            //      画布下才拿得到 `CanvasScaler`；⛔ **不挂 `hudRoot`** —— 那是**反向补震**用的，
             //      挂它下面会被补偿两次（口径 → `T09` §五·补⑨ 一·2）。
             //    · 改坏法：把 `FillParent` 换回 `MenuDraw.SetPxSize` ⇒ 整块面板缩成 **1/108**（画面「小得看不见」、
             //      **不报错**）；⛔ 这是本批的**头号静默坑**（`T09` §五·补⑩ 一）。
-            var cv = BattleDoors.PairCanvas();
-            if (cv == null) return null;      // `PairCanvas` 已出声；⛔ 不退回世界空间 quad（半迁移态更坏）
-            var go = new GameObject("EndPanel", typeof(RectTransform));
+            //
+            // 🔴🔴 **2026-10-24（`B-26`）**：整棵树照原版翻正 ——
+            //    **`BattleHud/Canvas/BattleDoors/Canvas/EndBattlePanel`**
+            //    （出处 `资料/说明书/01_战斗_对战/2D层_battlearena2全树.md:1195-1200`）。
+            //    改之前是 `EndPanel` 在外、`BattleDoors` 作为它的子件（父子颠倒，`C1-B06` 查出的那条）。
+            //    · 外骨架（`BattleDoors` + 它下面的子画布）由 `BattleDoors.CreateEnvelope()` 建；
+            //    · 面板挂到那个**子画布**下，名字用原版的 **`EndBattlePanel`**（原来叫 `EndPanel`）；
+            //    · 视频那两颗节点（原版 `Video Image`）由 `Build()` 末尾的 `_doors.BuildVideo(_root)` 建
+            //      —— 它们在**面板**下面（原版就是 `EndBattlePanel/Video Image`）。
+            //    ⇒ 副作用（**是修好的，不是回归**）：原版 `EndBattlePanel`/`SkullsHolder`/`AllRewardsHolder`
+            //      的 lossyScale 都是 **1.06647**（父件 `BattleDoors` 带缩放）—— 改之前只有视频那一支被放大，
+            //      面板本体没有；现在整块一起放大，与原版一致（`C2` 逐格对账那条）。
+            var doors = BattleDoors.CreateEnvelope();
+            if (doors == null) return null;              // `CreateEnvelope` 已出声
+            var cv = doors.CanvasTransform;
+            if (cv == null)
+            {
+                Debug.LogError("[EndPanel] `BattleDoors.CanvasTransform` 是空的 ⇒ 结算面板建不出来（静默半迁移更坏）");
+                return null;
+            }
+            var go = new GameObject("EndBattlePanel", typeof(RectTransform));
             go.transform.SetParent(cv, false);
             HudCanvas.FillParent((RectTransform)go.transform);
             var p = go.AddComponent<EndPanel>();
+            p._doors = doors;      // ⚠️ 必须在 `Build()` 之前 —— `Build()` 末尾要用它建 `Video Image`
             p.Build();
             p.Hide();
             return p;
@@ -207,15 +265,31 @@ namespace CardPresentation
             //    · **旧那套「按可见区宽高比现造一张纯色贴图」（`SolidTex`）退场** —— 那是为了绕过
             //      `ImageQuad` 的宽**只能由贴图比例推**；uGUI 的 `sizeDelta` 是显式写的
             //      （同一个做法见 `BattleDriver.BuildLoadingCover` 的 `LoadingMenuPanel`）。
-            //    · **铺满用 `FillParent`**（⛔ 别写死 1920×1080，见 `Create` 那段）。
+            //    · ~~**铺满用 `FillParent`**~~ —— 🔴 **2026-10-24（`B-26`）已改**：照原版写成
+            //      **3840×2160 的居中矩形**（原版 `Background` 就是两倍屏大小）。理由见下面那段
+            //      （面板不再铺满画布 ⇒ 拿 `FillParent` 会在宽屏两侧露边）。
             //    · z 值一个没动 —— `MakeImagePiece` 先按默认 z（`HudCanvas.DefaultZ`）登记兄弟序，
             //      这里 `Reorder` 挪到压暗层（新那套 z = **兄弟序键**、大的画在底下，见 `BattleDoors` 头部）。
-            _dim = HudCanvas.MakeImagePiece(_root, CardArt.Solid(), "dim", 0f, 0f,
-                                            LayoutSpace.DesignPxW, LayoutSpace.DesignPxH,
+            _dim = HudCanvas.MakeImagePiece(_root, CardArt.Solid(), "Background", 0f, 0f,
+                                            3840f, 2160f,                       // 原版 `Background` 的 rect
                                             new Color(0f, 0f, 0f, 0.97f));
             if (_dim != null)
             {
-                HudCanvas.FillParent(_dim.Rect);
+                // 🔴🔴 **2026-10-24（`B-26`）**：节点名改成原版的 **`Background`**，矩形也照原版
+                //    **3840 × 2160**（`2D层_battlearena2全树.md:1197`：`Background [-1920,5 3840x2160]`
+                //    —— 正中 = 面板中心，所以 `anchoredPosition = (0,0)`），⛔ 不再 `FillParent`。
+                //    · **为什么要改**：`FillParent` 的矩形 = **父面板的 rect**，而面板现在的大小是
+                //      原版的 **1920.1199 × 1118.981**（不再是「画布 rect」）⇒ 21:9 那种比 1920 宽的屏
+                //      两边会露出来、压不暗（原来面板铺满画布时看不出来）。原版自己就是**两倍屏大小**的整屏图。
+                //    · 判据：原版那一格 `Background` = 3840×2160（同文件 `:1197`）。
+                //    · 贴图仍是我们的**纯色黑**（原版那张原图本地没有 ⇒ 这是**如实标注的替代**，见上面那段）。
+                var bgRt = _dim.Rect;
+                if (bgRt != null)
+                {
+                    bgRt.anchorMin = bgRt.anchorMax = bgRt.pivot = new Vector2(0.5f, 0.5f);
+                    bgRt.anchoredPosition = Vector2.zero;
+                    bgRt.sizeDelta = new Vector2(3840f, 2160f);
+                }
                 HudCanvas.Reorder(_dim.Rect, BattleDoors.ZDim);
                 // 🔴 **2026-10-20（W57 · 战斗侧 `T09` 步骤 A3-d）：压暗层 = 全屏射线靶（模态闸）。**
                 //   判据（**原版 prefab 现读**，`bundle_scenes_scenes_battlearena1` 与 `…battlearena2`
@@ -291,8 +365,27 @@ namespace CardPresentation
                                       new Vector2(0.5f, 0.5f), BattleDoors.ZContent, "end_sub");
             // A1024③ 判不出（同上）⇒ 保持 `Face.Cjk`
 
-            // 骷髅行：底板 648.1×52.4，三个 64.3×71.2 的骷髅（尺寸是原版 dump 的）
-            // ⚠️ 纵向位置按 `AllRewardsHolder` 的锚点 (0,-260) 排（见上面那段）
+            // 🔴 **2026-10-24（`B-26`）新增原版那一级：`EndBattlePanel/AllRewardsHolder`**
+            //    · **序列化真值 = `ap (0, −260)` · `sd 100×100` · 中心锚/枢轴**
+            //      （`bundle_scenes_scenes_battlearena1/RectTransform/RectTransform_2854.json`；
+            //       运行时 dump `runtime_ui_dump_Battle_Arena_1.tsv:1152` **同一对值** ⇒ 两处互证）。
+            //      ⇒ 容器中心 = 面板中心**下方 260 px**。
+            //      ⚠️ **2026-10-24（`A28`）就地订正（铁律 5）**：原来这里写 **−259.5** —— 那是拿
+            //      `2D层_battlearena2全树.md:1199` 那张**取整到整数**的 rect 反算出来的
+            //      （1345 − 1085.5），比字段值差 0.5 px。**以字段/运行时 dump 为准 = −260**。
+            //    · 原版它装 `SkullsHolder` + `RewardsHolder` 两颗（而且它身上挂着 **`VerticalLayoutGroup`**
+            //      —— 位置由布局组重算，见下面 `SkullsHolder` 那一段的长注释）；我们只建骷髅
+            //      （奖励/评分按用户 2026-09-17 口径不做）⇒ 它是**只装骷髅行的容器**。
+            _rewardsHolder = new GameObject("AllRewardsHolder", typeof(RectTransform)).transform;
+            _rewardsHolder.SetParent(_root, false);
+            {
+                var rhRt = (RectTransform)_rewardsHolder;
+                HudCanvas.SetPxSize(rhRt, 100f, 100f);
+                rhRt.anchoredPosition = new Vector2(0f, -260f);
+                HudCanvas.Add(rhRt, BattleDoors.ZContent);
+            }
+
+            // 骷髅行：底板 648.1×52.4，三个 64.33×71.205 的骷髅（尺寸是原版 RT 的）
             // 🔴 **2026-09-27 照原版结构改**：三个骷髅是**那块底板的子节点**，整行一起开关 ——
             //    原版运行期 dump：`…/EndBattlePanel/AllRewardsHolder/SkullsHolder`（648.1×52.4 ·
             //    `40k_main_bt_nametag`）→ `skull1/2/3`（64.3×71.2 · `40k_battle_Win Skull`）
@@ -303,14 +396,59 @@ namespace CardPresentation
             //    （与上面那段 dump 记的「648.1×52.4」同源；末位差异 0.02px 取本文件一直在用的 52.4，
             //     因为它跟着显示尺寸走，⛔ 别在别处再立一个）。
             //    🔴 **2026-10-16（`T09` 批 2）**：改走 `HudCanvas.SetPxSize`（**真 px**，⛔ 不是 `MenuDraw` 那个 ÷108 的）
-            //    + `PosPx` 定位置（`Content(960, 790)` ⇒ 屏心上方 250 px ⇒ `anchoredPosition = (0, −250)`）；
-            //    `Add(…, ZContent)` 让它跟内容层同层。
+            //    + 写 `anchoredPosition`；`Add(…, ZContent)` 让它跟内容层同层。
+            //
+            // 🔴🔴 **2026-10-24（`A28`）：行心 = 面板中心 (0, **−236.19**) —— 这是【布局组重算之后】的位置。**
+            //    判据不是那张取整的全树表，而是**解包字段 + 本工程 uGUI 布局组源码**：
+            //     · `AllRewardsHolder` 身上挂着 **`VerticalLayoutGroup`**（`MonoBehaviour_4902.json`：
+            //       `m_Spacing 30` · `m_ChildAlignment 7 = LowerCenter` · padding 全 0 ·
+            //       `ChildControl / ForceExpand 全 0` · **`m_Enabled 1`**）；
+            //       它的子件 = `SkullsHolder`（高 52.38）+ `RewardsHolder`（高 49）⇒ 内容总高 **131.38 > 容器 100**
+            //       ⇒ **溢出** ⇒ 起点 `pos` 停在 `padding.top = 0`
+            //       （`HorizontalOrVerticalLayoutGroup.cs:182-192`：**只有** `surplusSpace > 0` 才按 alignment 挪起点）
+            //       ⇒ **第一颗子件的顶边贴容器顶边**，`ap.y = −(52.38 × 0.5) = **−26.19**`
+            //       （`LayoutGroup.cs:249-267` 竖轴那句 `ap.y = −pos − size×(1−pivot.y)`）。
+            //       ⇒ 行心 y = 容器中心(−260) + 容器半高(50) − 26.19 = **−236.19**。
+            //     · 横向是布局组的**交叉轴**（`HorizontalOrVerticalLayoutGroup.cs:139-178`）：
+            //       `childAlignment 7` 的横轴分量 = (7 % 3) × 0.5 = **居中** ⇒ 行心 x = 容器中心 = **0**
+            //       （`SkullsHolder` 的宽 648.1 > 容器 100 ⇒ `requiredSpace` 夹到 648.1、
+            //        起点 (100−648.1)/2 ⇒ `ap.x = 50`；锚点被布局组写成 (0,1) ⇒ 中心 x = 0）。
+            //    🔴 **原来写的是「面板中心 −250」（= 容器中心 +9.5）** —— 那个数**哪一档都不是**：
+            //       既不是布局前的静态值（行心贴容器**左下角** ⇒ −310），也不是布局后的值。
+            //    ⚠️ **`A23` 报告 §五·1 那条「原版面板中心 −309.5」作废**（铁律 5 就地订正）：
+            //       它用的是**布局前**的序列化值 —— 全树表/运行时 dump 都是 `BattleDoors` **未激活**时抓的，
+            //       布局组一次都没跑过。同族先例（「模板值 ≠ 运行值」的算法与判据）→
+            //       `资料/战斗规格/战斗重建_0827/战斗界面JSON权威表_0827.md:302-306`。
+            //    ⚠️ **这一条是「状态 → 值」的**（铁律 5·c：一个值 ≠ 全部情况）—— 布局组的子件里
+            //       `RewardsHolder` 会按「有没有拿到奖励」被 `EndBattleDoors__ShowRewards` `SetActive`
+            //       （反编译 `:55` / `:66-70`：奖励列表空且计数 0 ⇒ 整行藏），而布局组**只排 active 子件**
+            //       （`LayoutGroup.CalculateLayoutInputHorizontal` 那句 `!activeInHierarchy ⇒ continue`）：
+            //        · **有奖励**（正常对局）：内容 52.38 + 30 + 49 = 131.38 > 100 ⇒ 溢出 ⇒ **−236.19**；
+            //        · **无奖励**（奖励行为空）：内容只有 52.38 ⇒ `surplus > 0` ⇒ LowerCenter 下推
+            //          (100−52.38)×1.0 ⇒ `ap.y = −73.81` ⇒ 行心 = **−283.81**。
+            //       ⇒ **我们取「有奖励」那一档（−236.19）**：那一档才是这一屏**画满时的排法**，奖励行只是
+            //       我们按用户 2026-09-17 口径**没做**、位置仍按原版占着（⛔ 不是「原版没有」）。
+            //    ⚠️ 我们**不挂**布局组，理由：① 批处理下布局组不保证重算（自检会读到旧值）；
+            //       ② 我们的容器里只有骷髅行 ⇒ 挂上去会落进「无奖励」那一档（−283.81），与原版画满时**差 47.6 px**。
+            //       ⇒ 把**布局后的结果**直接写成 `anchoredPosition`，画面与「照抄机制」等价。
+            //    ⚠️⚠️ **2026-10-24（`A32`）就地订正（铁律 5）**：`A28` §五·3 那条「`SkullsHolder` 的布局组会把
+            //       三颗骷髅的锚点写成 `(0,1)`、`ap.y = −26.19`，**今天画面逐位相同、改行高才会露**
+            //       （原版是骷髅**顶边贴行顶**）」—— **后半句不成立**。判据（现读 uGUI 源码 + `MB_4654`）：
+            //       · 那颗布局组的交叉轴是 `m_ChildAlignment 4 = MiddleCenter` + `m_ChildControlHeight 0`
+            //         ⇒ `GetChildSizes` 给 `min = preferred = 71.205`；`HorizontalOrVerticalLayoutGroup.cs:156-176`
+            //         里 `requiredSpace = Clamp(行高, 71.205, 71.205) = 71.205`、
+            //         `startOffset = (行高 − 71.205) × 0.5` ⇒ `ap.y = −行高/2`（锚点在顶边）
+            //         ⇒ **骷髅中心永远 = 行中心，与行高无关**。
+            //       ⇒ 我们「中心锚 + y = 0」在**任意行高**下都与原版逐位相同（今天 52.4 vs 52.38 的末位差
+            //         只有 0.0025 px）。⛔ **别**为了「贴顶」把 y 改成 +9.40 —— 那才是错的。
+            //       （真正会因行高变的是**上一级** `AllRewardsHolder`：内容溢出时贴容器顶、不溢出时按
+            //         LowerCenter 下推 —— 那一段的两种状态见上面。）
             _skullRow = new GameObject("SkullsHolder", typeof(RectTransform)).transform;
-            _skullRow.SetParent(_content, false);
+            _skullRow.SetParent(_rewardsHolder, false);
             {
                 var rowRt = (RectTransform)_skullRow;
                 HudCanvas.SetPxSize(rowRt, 648.1f, 52.4f);
-                rowRt.anchoredPosition = HudCanvas.PosPx(960f, 790f);
+                rowRt.anchoredPosition = new Vector2(0f, SkullRowLocalY);   // = 容器中心 +23.81 ⇒ 面板中心 −236.19
                 HudCanvas.Add(rowRt, BattleDoors.ZContent);
             }
             // 🔴 **2026-09-27 修（PA 普查抓的）**：原版那块底板 `m_PreserveAspect = 0`（`m_Type=0` Simple）
@@ -325,22 +463,64 @@ namespace CardPresentation
             _skullPlate = ImageInParent(_skullRow, CardArt.Ui("40k_main_bt_nametag"), "skull_plate",
                                         0f, 0f, 648.1f, 52.4f, BattleDoors.ZContent);
             var skullTex = CardArt.Ui("40k_battle_Win_Skull");
-            // 旧那套是「给**高** 71.2 px、宽由贴图比例来」（`ImageQuad.Create` 的第 4 参是 worldHeight）——
-            // uGUI 的 `Image.preserveAspect = false`（原版 `PA=0`）会**拉满**给它的矩形 ⇒
-            // ⛔ 这里必须**自己**把宽按贴图比例算出来，否则画出来的是个被拉扁的方块。
-            float skullW = 71.2f * ((skullTex != null && skullTex.height > 0)
-                                    ? skullTex.width / (float)skullTex.height : 1f);
-            float step = 64.3f + 12f;
+            // 🔴🔴 **2026-10-24（`A28`）就地订正（铁律 5）**：这一段原来两条都不对 ——
+            //   ① 宽按**贴图比例**算（`71.2 × 66/73 = 64.373`）；② 间距 `12` 是**我们自己挑的**（原版没有 12）。
+            //   判据（解包字段，三颗同值）：
+            //    · 节点 rect = **64.33 × 71.205**、`Image.m_PreserveAspect = 0` · `m_Type 0`（拉满）
+            //      —— `RT_3279 / RT_2875 / RT_3435`（GO 219 / 989 / 517）+ `MB_4980 / 5296 / 5250`；
+            //    · 三颗由 `SkullsHolder` 上的 **`HorizontalLayoutGroup`** 排
+            //      （`MonoBehaviour_4654.json`：`m_Spacing **6.1999998**` · `m_ChildAlignment 4 = MiddleCenter` ·
+            //       `ChildControl / ForceExpand 全 0` · `m_Enabled 1`）⇒ **步距 = 64.33 + 6.2 = 70.53**
+            //      （原来 76.3，每档多 5.8 px）；横向居中（内容宽 205.39 &lt; 648.1 ⇒ `surplus &gt; 0`
+            //      ⇒ `pos` 按 MiddleCenter 取 `(648.1−205.39)/2`）⇒ 三颗的 x 恰是 `−70.53 / 0 / +70.53`。
+            //    🔴 **纵向那一档不用改**：布局组的交叉轴（`HorizontalOrVerticalLayoutGroup.cs:139-178`）
+            //      把骷髅（高 71.205）在 52.4 高的行里**居中**（`requiredSpace = clamp(52.4, 71.205, 71.205)`
+            //      ⇒ `startOffset = (52.4−71.205)/2 = −9.40` ⇒ `ap.y = −26.20` = 行心）⇒ **y = 0 是对的**。
+            const float SkullW = 64.33f, SkullH = 71.205f;
+            const float SkullStep = SkullW + 6.2f;      // = 70.53（原版 HorizontalLayoutGroup 的 spacing）
             for (int i = 0; i < _skulls.Length; i++)
             {
-                // `Content(960 + (i−1)·step, 790)` ⇒ 相对骷髅行中心（它自己就在 960 上）的 x 偏移 = 同一个数。
-                float dx = (i - (_skulls.Length - 1) * 0.5f) * step;
+                float dx = (i - (_skulls.Length - 1) * 0.5f) * SkullStep;   // 相对骷髅行中心（行自己就在 x=0 上）
                 _skulls[i] = ImageInParent(_skullRow, skullTex, "skull_" + i,
-                                           dx, 0f, skullW, 71.2f, BattleDoors.ZContent);
+                                           dx, 0f, SkullW, SkullH, BattleDoors.ZContent);
             }
 
             // 奖励行（原版 `RewardsHolder` 495.2×49.0 + `HolderRating` 187×45 / Trophy 60.1×60 / RatingText）
             // 🔴 **2026-09-17 用户拍板：不建** —— 奖励与评分都在服务器，单机版不做（见文件头）。只留上面的骷髅行。
+            //
+            // 🔴🔴 **2026-10-24（`A32`）：这一行的【布局后】真值算清了**（`RewardRowAnchorY` / `RewardRowPanelY`
+            //    那两个常量就是它）。将来真要做奖励行**照这里摆**，⛔ 别抄静态 dump（序列化是 `(0,0)`）
+            //    或全树表（−309.5，同样**布局前**）。三级推导（全部 = 解包字段 + 本机 uGUI 源码）：
+            //    §1 `RewardsHolder` 由 `AllRewardsHolder` 的 `VerticalLayoutGroup` 排（`MB_4902`，判据同上）：
+            //       第一颗 `SkullsHolder` 高 52.38 + spacing 30 ⇒ 第二颗起点 82.38 ⇒
+            //       `ap.y = −82.38 − 49×0.5 = **−106.88**`（锚点在容器顶边）⇒ 面板中心 = −260 + 50 − 106.88 = **−316.88**。
+            //    §2 `RewardsHolder` 身上的 `HorizontalLayoutGroup`（`MB_4113`：**spacing 33** · alignment 4 MiddleCenter ·
+            //       ChildControl 全 0 · **`m_ChildScaleWidth = 1`**（今天两颗 `localScale.x` 都是 1 ⇒ 无影响，
+            //       换缩放才起作用））⇒ 里面两颗（坐标相对 `RewardsHolder` 中心）：
+            //        · `RewardHolder`（140×50）    中心 x = **−109.987**
+            //        · `HolderRating`（186.9742×45）中心 x = **+86.5**
+            //       推导：内容宽 140 + 33 + 186.9742 = 359.9742 < 495.2（`surplus > 0` ⇒ 才按 alignment 挪起点）
+            //       ⇒ `pos = (495.2 − 359.9742)×0.5 = 67.6129`（MiddleCenter）⇒ `ap.x = pos + 半宽`，
+            //       再减容器半宽 247.6。交叉轴两颗都是行心（y = 0）。
+            //    §3 `HolderRating` 也有 `HorizontalLayoutGroup`（`MB_4922`：spacing 0 · alignment 4 ·
+            //       **`m_ChildForceExpandHeight = 1`** · ChildControl 全 0）。⚠️ **状态 → 值**（铁律 5·c）：
+            //       运行时 `ArmyIcon` 是关着的（`EndBattleDoors__ShowRewards.c` 里只有**取军队图标**那一支
+            //       —— `ArmyUtilities.GetArmyIcon(…)` 前后 —— 才 `SetActive(armyIcon, 1)`；
+            //       运行时 dump `runtime_ui_dump_Battle_Arena_1.tsv:1162` 也是 `False`），
+            //       而布局组**只排 active 子件**（uGUI `LayoutGroup.cs:59`）⇒ 今天实际是**两颗**：
+            //        · `Trophy`（60.0588×60）     中心 x = **−32.651**
+            //        · `RatingText`（65.302×46.865）中心 x = **+30.029**
+            //       推导：内容宽 125.3608 < 186.9742 ⇒ `surplus > 0` ⇒ `pos = GetStartOffset = (186.9742−125.3608)×0.5 = 30.8067`。
+            //       🔴 **三颗全开那一档（排位局）不一样**：内容宽 190.2007 > 186.9742 ⇒ `surplus ≤ 0`
+            //       ⇒ **`pos` 停在 0、不做对齐**（`HorizontalOrVerticalLayoutGroup.cs:182-192` 那条「只有 surplus > 0 才挪起点」
+            //       在**主轴**上也成立）⇒ Trophy −63.458 / ArmyIcon −1.008 / RatingText +64.063。
+            //       （`ChildForceExpandHeight 1` 只把**交叉轴**的 `requiredSpace` 夹成行高，`offsetInCell`
+            //        又把差值补回来 ⇒ 纵向仍是行心，与上面 §2 同一个结论。）
+            //       ✅ **序列化字段正好反证了这条公式**：`ArmyIcon` 的 `ap (92.4787, −22.5)` = **三颗全开 + 溢出**
+            //       那一档（`pos = 0`）的布局结果 —— 0 + 60.0588 + 64.8399/2 = **92.4787**（逐位吻合）、
+            //       `ap.y = −45/2 = −22.5`。⇒ 它是**布局前那个状态**（`m_IsActive = 1`）的值，
+            //       ⛔ 别拿它当运行时判据（运行时 `ArmyIcon` 是关着的 ⇒ 上面两颗那一档）。
+            //    · 交叉轴一律行心（`HorizontalOrVerticalLayoutGroup.cs:156-176`）—— 与行高无关，同上一条更正。
 
             // 🔴 **2026-10-16（W22）：原来这里有一行「按 R 再来一局」的提示 —— 已删。**
             //    两条独立错处（判据 → `资料/普查产出_1016/判据_结算后出口.md` §2.3 / §2.6）：
@@ -357,15 +537,15 @@ namespace CardPresentation
             //       那里写明「这是我们自己的键」。
 
             // 开门视频（原版 `EndBattleDoors`）。资产不在时它自己退回「没视频」。
-            // 🔴 **2026-10-16（`T09` 批 2）**：`BattleDoors` 这一层挂在哪**没变**（还是 `_root` 下）——
-            //    它自己保证「父件已在画布上就照旧挂下面」（见 `BattleDoors.Create`）。
-            //    ⚠️ **父子关系与原版相反**（原版 `EndBattlePanel` 在 `BattleDoors/Canvas` **下**）——
-            //    已知差异、**本次不翻**（文件头那条）。
-            //    这里补一句 **z 记账**：它是 `_root` 的第三个子件，必须落在
-            //    压暗(−0.50) 之后、内容(−0.60) 之前 ⇒ 兄弟序 [dim, doors, content] ⇒ 画出来
-            //    **压暗在底、视频居中、内容在最上**（旧那套靠世界 z 排序，值一个没动）。
-            _doors = BattleDoors.Create(_root);
-            if (_doors != null) HudCanvas.Add((RectTransform)_doors.transform, BattleDoors.ZVideo);
+            // 🔴🔴 **2026-10-24（`B-26`）就地翻正（原来这里写着「父子关系与原版相反、本次不翻」= 已过期）**：
+            //    原版是 **`BattleDoors/Canvas/EndBattlePanel/Video Image`** ⇒ 视频那一件是**本面板的子件**，
+            //    `BattleDoors` 那一级是**本面板的祖先**（由 `Create` 建的 `CreateEnvelope`，不再挂在这里）。
+            //    ⇒ 这里只把 `Video Image`（+ 它下面的显示层）建到 `_root` 下。
+            //    兄弟序：`Background`(−0.50) → `Video Image`(−0.55) → `AllRewardsHolder`(−0.60)
+            //    ⇒ 画出来 **压暗在底、视频居中、内容在最上**（`BuildVideo` 里自己登记 ZVideo）。
+            if (_doors == null) _doors = BattleDoors.CreateEnvelope();   // 兜底：正常由 `Create` 注入
+            if (_doors != null) _doors.BuildVideo(_root);
+            else Debug.LogError("[EndPanel] 没有 `BattleDoors`（外骨架建不出来）⇒ 结算时没有开门视频");
         }
 
         /// <summary>显示结算。

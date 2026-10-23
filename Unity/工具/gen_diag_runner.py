@@ -34,6 +34,16 @@ import sys
 # ⚠️ 本机的 python stdout/stderr 默认是 **GBK** —— 本脚本的提示里带 🔴 / ✅ 这类字符，
 #    GBK 编不出来会**直接抛 `UnicodeEncodeError`**（= 又一个「脚本一跑就挂 ⇒ 没人再跑」的形状）。
 #    这里显式改成 UTF-8（并容错），就不必依赖调用方记得设 `PYTHONIOENCODING=utf-8` 了。
+## A17 2026-10-24: -h/--help early exit (print usage only, exit 0; never run the real work).
+import sys as _wf_help_sys
+if any(_wf_help_sys.argv[_i] in ("-h", "--help") for _i in range(1, len(_wf_help_sys.argv))):
+    try:
+        _wf_help_sys.stdout.reconfigure(encoding="utf-8")
+    except Exception:
+        pass
+    print('用法：python 工具/gen_diag_runner.py [参数...] [--check]\n  选项：--check（脚本内按字符串匹配；一个都不带 = 默认模式）\n  位置参数：sys.argv[1:] 全收（数量以脚本自身判断为准）')
+    _wf_help_sys.exit(0)
+
 for _s in (sys.stdout, sys.stderr):
     try:
         _s.reconfigure(encoding="utf-8", errors="backslashreplace")

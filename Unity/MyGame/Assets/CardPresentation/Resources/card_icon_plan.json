@@ -7804,16 +7804,6 @@
        "why": "卡面 `Sabotage` **前面**那枚「基因窃取者齿轮」（= `Resources/Art/traits/sabotage.png`）—— 逐张判据：`资料/卡表核对_卡图提取/_还原效果文字.md:495`（`Warpforge_67_Pilfered-Supplies.png`）。"
       }
      ]
-    },
-    {
-     "name": "descZh",
-     "items": [
-      {
-       "token": "Sabotage",
-       "sprite": "sabotage",
-       "why": "卡面 `Sabotage` **前面**那枚「基因窃取者齿轮」（= `Resources/Art/traits/sabotage.png`）—— 逐张判据：`资料/卡表核对_卡图提取/_还原效果文字.md:495`（`Warpforge_67_Pilfered-Supplies.png`）。"
-      }
-     ]
     }
    ]
   },
@@ -8624,16 +8614,6 @@
        "why": "卡面 `Sabotage` **前面**那枚「基因窃取者齿轮」（= `Resources/Art/traits/sabotage.png`）—— 逐张判据：`资料/卡表核对_卡图提取/_还原效果文字.md:489`（`Warpforge_61_A-Trap-Sprung.png`）。"
       }
      ]
-    },
-    {
-     "name": "descZh",
-     "items": [
-      {
-       "token": "Sabotage",
-       "sprite": "sabotage",
-       "why": "卡面 `Sabotage` **前面**那枚「基因窃取者齿轮」（= `Resources/Art/traits/sabotage.png`）—— 逐张判据：`资料/卡表核对_卡图提取/_还原效果文字.md:489`（`Warpforge_61_A-Trap-Sprung.png`）。"
-      }
-     ]
     }
    ]
   },
@@ -8959,16 +8939,6 @@
        "why": "卡面 `Sabotage` **前面**那枚「基因窃取者齿轮」（= `Resources/Art/traits/sabotage.png`）—— 逐张判据：`资料/卡表核对_卡图提取/_还原效果文字.md:488`（`Warpforge_60_Underground-Network.png`）。"
       }
      ]
-    },
-    {
-     "name": "descZh",
-     "items": [
-      {
-       "token": "Sabotage",
-       "sprite": "sabotage",
-       "why": "卡面 `Sabotage` **前面**那枚「基因窃取者齿轮」（= `Resources/Art/traits/sabotage.png`）—— 逐张判据：`资料/卡表核对_卡图提取/_还原效果文字.md:488`（`Warpforge_60_Underground-Network.png`）。"
-      }
-     ]
     }
    ]
   },
@@ -8982,16 +8952,6 @@
        "token": "Sabotage",
        "sprite": "sabotage",
        "why": "卡面 `Sabotage` **前面**那枚「基因窃取者齿轮」（= `Resources/Art/traits/sabotage.png`）—— 逐张判据：`资料/卡表核对_卡图提取/_还原效果文字.md:454`（`Warpforge_29_Vox-Hacker.png`）。"
-      }
-     ]
-    },
-    {
-     "name": "descZh",
-     "items": [
-      {
-       "token": "破坏",
-       "sprite": "sabotage",
-       "why": "卡面 `Sabotage` **前面**那枚「基因窃取者齿轮」（= `Resources/Art/traits/sabotage.png`）—— 逐张判据：`资料/卡表核对_卡图提取/_还原效果文字.md:454`（`Warpforge_29_Vox-Hacker.png`）。中文侧同一条（`descZh` 里写「破坏」，位置与英文那枚一一对应）。"
       }
      ]
     }

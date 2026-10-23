@@ -1040,8 +1040,87 @@ public static class CollectionScene
             CheckAt(area, 167.17f, 1920.01f, 70.94f, 1080f, "`Content Area`");
             CheckRectPx(area, 167.17f, 1920.01f, 70.94f, 1080f, "`Content Area`");
 
+            // ---------------- `Content Area/Shadow (1)`（🆕 2026-10-23 · A13 · 界面线第四批）----------------
+            //  判据 = **解包资源逐窗现读**（⛔ 不是我们的常量）：
+            //    `python -I -X utf8 工具/menu_rect.py bundle_menus_assets_all "Collection Menu Variant" --depth 3`
+            //      ⇒ `Content Area/Shadow (1)  330.37  70.94  379.81  1080.00  INACT`（宽 49.43）
+            //    `python -I -X utf8 工具/menu_dump.py bundle_menus_assets_all "Collection Menu Variant" --depth 3 --no-sprite`
+            //      ⇒ 组件 `Image,LayoutElement` · 色 `(0,0,0,.475)` · sprite `40k_main_tab_shadow` 51×4 Simple
+            //        （与左栏那颗 `Tab Buttons/Shadow` **同一张图、同一个色**）。
+            //  ⚠️ **竖向照旧从 70.94 起**（不跟本窗 `BarTop = 158.64` 走 —— 实测如此；
+            //     算式与出处 → `Shell/MainMenuSubmenuWindow.Shadow1W` 的 doc · 精确宽 **49.432861328125**）。
+            //  ⚠️ 这一件**出厂关着** ⇒ 量它必须带 `true`（`RectOf` / `CheckRectPx` 那一路只找激活链上的块）。
+            //  🧨 改坏法：删掉 `MainMenuSubmenuWindow.BuildShell` 末尾那三行 ⇒ 第 1 条红；
+            //             去掉 `SetActive(false)` ⇒ 第 2 条红（半透明压暗件，开出来会把右边一片压黑）；
+            //             把 `Shadow1R` 跟着 `BarTop` 改成 158.64 ⇒ 第 3 条红。
+            Section("`Content Area/Shadow (1)`（原版也有、**出厂 INACT**）");
+            {
+                var s1 = FindChild(area, "Shadow (1)");
+                CheckTrue(s1 != null, "★ `Content Area/Shadow (1)` **建出来了**（原版有、我们原来整件不建）");
+                CheckTrue(s1 != null && !s1.gameObject.activeSelf, "★ …而且**出厂关着**（原版 `m_IsActive = 0`）");
+                CheckAt(s1, 330.374878f, 379.807739f, 70.94f, 1080f,
+                        "★ `Shadow (1)` 在 **[330.3749,70.94]–[379.8077,1080.00]**（竖向**不**跟 `BarTop` 跑）");
+                var s1rt = s1 as RectTransform;
+                CheckNear(s1rt != null ? s1rt.rect.width : -1f, LayoutSpace.Px(MainMenuSubmenuWindow.Shadow1W), 0.001f,
+                          "★ `Shadow (1)` 宽 = **49.4329**（⛔ 与左栏那颗 47.64 的 `Tab Buttons/Shadow` **不是同一件**）");
+                var s1quads = s1 != null ? s1.GetComponentsInChildren<ImageQuad>(true) : new ImageQuad[0];
+                Check(s1quads.Length, 1, "★ `Shadow (1)` 底下**恰好 1 块** `ImageQuad`（原版只挂一个 `Image`）");
+                if (s1quads.Length > 0 && s1quads[0] != null && s1quads[0].Texture != null)
+                {
+                    CheckTrue(s1quads[0].Texture.name == MainMenuSubmenuWindow.ArtBarShadow,
+                              $"★ …贴图 = **`{MainMenuSubmenuWindow.ArtBarShadow}`**（与左栏那颗同源；"
+                            + $"现读「{s1quads[0].Texture.name}」）");
+                    var s1t = s1quads[0].Tint;
+                    CheckTrue(Mathf.Abs(s1t.r) < 0.002f && Mathf.Abs(s1t.g) < 0.002f && Mathf.Abs(s1t.b) < 0.002f
+                              && Mathf.Abs(s1t.a - 0.4745098f) < 0.002f,
+                              "★ …色 = **(0,0,0,0.4745)**（原版 `Image.m_Color` 实读）"
+                            + $"（实得 {s1t.r:F4},{s1t.g:F4},{s1t.b:F4},{s1t.a:F4}）");
+                }
+                else
+                {
+                    CheckTrue(false, "★ `Shadow (1)` 底下那块 `ImageQuad`（或它的贴图）取不到"
+                                   + " ⇒ 上面「贴图」「色」两条**等于没查**（如实红，不假装）");
+                }
+            }
+
             var bar = FindChild(root, "Tab Buttons");
-            CheckAt(bar, 167.17f, 332.17f, 70.94f, 1080f, "`Tab Buttons`（左栏）");
+            // 🔴 **2026-10-23（W62 · 底板）就地订正（铁律 5）**：本条原来断的是 **70.94..1080**（= `Content Area` 顶边）
+            //    —— 那是**照着我们的实现**断的（自证：实现写 `ContentT`、断言也写 `ContentT`）。
+            //    原版 `Collection Menu Variant` 的 `Tab Buttons` 是 **158.64..1080**（165 × **921.36**）；
+            //    同族另三扇（奖励 / 商店 / 社交）才是 70.94..1080（逐窗现读 → `Shell/MainMenuSubmenuWindow.BarTop` 的 doc）。
+            //    我们原来比原版**高 88 px**（底板渐变 1009.06 vs 921.36）。
+            //    🧨 改坏法：`CollectionWindow.BarTop` 去掉覆写 ⇒ 退回 70.94 ⇒ 本条红。
+            CheckAt(bar, 167.17f, 332.17f, 158.64f, 1080f,
+                    "`Tab Buttons`（左栏 · 原版 **158.64..1080** —— ⛔ 不是 `Content Area` 的 70.94）");
+            // ⚠️ **别在这里加 `CheckRectPx(bar, …)`** —— 它量的是子树里**第一个** `ImageQuad`，
+            //    而 `Tab Buttons` 的第一个是 `Background/Band 0`（只是整块按色标切出来的一段）。
+            //    「底板多高」那把尺在下面那条**三条带高之和**里（样板 = `Editor/RewardsScene.cs` 同一组三条）。
+
+            // ---- 左栏底板：`40k_main_tab_background` + 原版 `Gradient2`（4 色标 ⇒ 3 条横带）----
+            //  判据 = `工具/menu_dump.py bundle_menus_assets_all "Collection Menu Variant" --depth 3 --no-sprite`
+            //    ⇒ `Tab Buttons | 167.2 158.6 332.2 1080.0 | 165.00 921.36 | Image,…,Gradient2`。
+            //  ⚠️ 三条带的**高之和**才是「底板多高」这把尺（单条带只是整块按色标切出来的一段）；
+            //     样板 = `Editor/RewardsScene.cs` 的同一组三条（那边断 1009.06，本窗断 921.36）。
+            if (bar != null)
+            {
+                var barBg = FindChild(bar, "Background");
+                CheckTrue(barBg != null, "`Tab Buttons/Background`（左栏底板）建了");
+                var barBands = barBg != null ? barBg.GetComponentsInChildren<ImageQuad>() : new ImageQuad[0];
+                Check(barBands.Length, 3,
+                      "左栏底图 = **3 条横带**（原版 `40k_main_tab_background` + `Gradient2` 4 色标）");
+                float bandSum = 0f, bandW = 0f;
+                for (int i = 0; i < barBands.Length; i++)
+                    if (barBands[i] != null)
+                    {
+                        bandSum += barBands[i].WorldH * 108f;
+                        bandW = Mathf.Max(bandW, barBands[i].WorldW * 108f);
+                    }
+                CheckNear(bandSum, 921.36f, 2.0f,
+                          "★ W62·底板：左栏底图 3 条带**高之和** = 原版 **921.36**"
+                        + "（158.64..1080）｜🧨 底板从 `ContentT` 起 ⇒ 1009.06 ⇒ 本条红");
+                CheckNear(bandW, 165f, 2.0f, "左栏底图带**宽** = 165");
+            }
+
             var keys = new List<Transform>();
             foreach (var t in root.GetComponentsInChildren<Transform>(true))
                 if (t.name.StartsWith("CollectionTabButton_")) keys.Add(t);
@@ -1059,7 +1138,7 @@ public static class CollectionScene
                 float d = Vector3.Distance(keys[0].position, want);
                 CheckTrue(d <= 0.01f,
                           $"**第一个键的矩形** = 167.17,188.64→332.17,368.64（原版；差 {d * 108f:F2}px）"
-                          + " —— 本条是「`BarPadTop` 覆写成 117.7」的判据");
+                          + " —— 本条是「`BarTop` 覆写成 158.64 + `BarPadTop` = 原版 VLG `padTop 30`」的判据");
             }
 
             // ============================================================ 左栏 `Shadow`（W62 · 界面线）
@@ -5837,8 +5916,22 @@ public static class CollectionScene
                     cs774.SetOffset(0f);                                       // 与 A181 那一段同一个起手（第一排压在上沿）
                     var r774 = cs774.Shift(CollectionWindow.CardsCellRect(0));
                     float sc774 = CollectionWindow.CardsCellH / (CardView.Height * 108f);
-                    var pos774 = MainMenuSubmenuWindow.Local(vpNode774, r774.x1, r774.y1, r774.x2, r774.y2);
-                    cv774.SetPose(pos774, 0f, sc774);                          // ← 生产那两行的形状
+                    // 🔴 **2026-10-24（F3）就地修（铁律 5）**：`Local(...)` 的第一个实参**必须是卡自己的父节点**，
+                    //   以前这里写死 `vpNode774`（`Scroll View/Viewport`）—— **A14 之后不成立**：A14 给每格加了
+                    //   一层容器 `Content <i>`（卡体 + 张数条都挂进去，判据 → `A14_界面第五批.md` §三），
+                    //   卡不再是 `Viewport` 的直接孩子。拿 `Viewport` 当父去算局部坐标 = **把容器那一段偏移
+                    //   当成了卡的偏移**：`Content 0` 的 `localPosition` ≈ (−656.3, −270)，同一个数被算两遍
+                    //   ⇒ 卡被推到视口**左外侧 ≈1312 px** ⇒ `CardView.CropLayer` 的 ① 分支（整层在视口外）
+                    //   把**每一层 `enabled = false`** ⇒ `RenderExtentPx` 量到 **0 个顶点**。
+                    //   （本段那 4 条红就是这么来的：**不是裁切被 A14/A18 弄坏了**，而是探针没跟上结构。）
+                    //   ⚠️ 别改回写死 `vpNode774`：本段断的是「**边界跟节点**」，而「卡挂在哪一级」是 A14 定下的
+                    //   生产结构 —— 两件事各归各，探针只负责**按生产结构摆位**再量真几何。
+                    var cellT774 = card774.parent != null ? card774.parent : vpNode774;
+                    CheckTrue(card774.parent != null && cellT774.name.StartsWith("Content "),
+                              $"（A774 前提）第 1 张卡挂在**格容器** `Content <i>` 里（实测「{cellT774.name}」）"
+                            + " —— A14 起卡不再直挂 `Viewport`；父节点取错 ⇒ 卡会被摆到视口外、量到 0 个顶点（假红）");
+                    var pos774 = MainMenuSubmenuWindow.Local(cellT774, r774.x1, r774.y1, r774.x2, r774.y2);
+                    cv774.SetPose(pos774, 0f, sc774);                          // ← 生产那两行的形状（父 = 容器）
 
                     float a1, b1, c1, d1; int n1;
                     CheckTrue(RenderExtentPx(card774, out a1, out b1, out c1, out d1, out n1) && n1 >= 20,
@@ -5861,10 +5954,17 @@ public static class CollectionScene
                     vc774.padding = savedPad774;                               // 还原节点
                     cv774.SetPose(pos774, 0f, sc774);
                     float a3, b3, c3, d3; int n3;
-                    if (RenderExtentPx(card774, out a3, out b3, out c3, out d3, out n3))
-                        CheckTrue(b3 >= vp774.y1 - 0.5f && b3 <= vp774.y1 + 2.5f,
-                                  $"★ A774 态③：还原 `padding` ⇒ 边界**回到**节点框 {vp774.y1:F1}（{b3:F1}）"
-                                  + " —— 读数随状态动、不是恒值（这一条挡「态② 那个 60 是碰巧量的」）");
+                    // 🔴 **2026-10-24（F3）**：原来这条写成 `if (RenderExtentPx(...)) CheckTrue(...)` ——
+                    //   **量不到几何就整条静默跳过**（既不红也不出声）。2026-10-24 那次 4 红就是这样漏掉的：
+                    //   态② 量到 0 个顶点，态③ 本该跟着红，结果**默默消失**（2211 条里少一条）。
+                    //   ⇒ 把「量得到几何」并进**同一条**断言（不新增条数、也不降低强度）：
+                    //   `RenderExtentPx` 的 out 形参在入口就赋了值（`float.MaxValue` / `n3 = 0`）⇒ `&&` 短路后
+                    //   消息里读到的数不会未定义。⛔ 别改回 `if`。
+                    CheckTrue(RenderExtentPx(card774, out a3, out b3, out c3, out d3, out n3) && n3 >= 20
+                              && b3 >= vp774.y1 - 0.5f && b3 <= vp774.y1 + 2.5f,
+                              $"★ A774 态③：还原 `padding` ⇒ 边界**回到**节点框 {vp774.y1:F1}（{b3:F1}；{n3} 个顶点；"
+                              + "量到 0 个顶点也算红，⛔ 不许静默跳过）"
+                              + " —— 读数随状态动、不是恒值（这一条挡「态② 那个 60 是碰巧量的」）");
                     cs774.SetOffset(savedOff774);
                     cv774.SetPose(savedPos774, 0f, sc774);                     // 还原（下一段还会重建整页）
                 }
@@ -5987,6 +6087,54 @@ public static class CollectionScene
                           "★ …而且 `uv` 跟着同一段比例截（0.3 = 600/2000）—— 只缩几何不截 uv 会把图压扁");
                 CheckNear(onB.W, 600f, 0.5f, "★ …夹完的矩形宽 = 露出来的那一段");
                 Object.DestroyImmediate(fx775.gameObject);
+            }
+
+            // ---------- ★ C1-B08：滚轮**没有阈值**（原版 uGUI `ScrollRect.OnScroll` 任何非零 delta 都位移）----------
+            //  判据 → `资料/普查产出_1023e/C1_战斗线判据_布置与层级.md` 的 **C1-B08**
+            //         + 本地真 uGUI 源码 `Library/PackageCache/com.unity.ugui@…/Runtime/UGUI/UI/Core/ScrollRect.cs:665-676`
+            //           （`position += delta × m_ScrollSensitivity`；零 delta 只经 `data.IsScrolling()` 影响
+            //            `m_Scrolling`，**不产生位移**）。
+            //  ⚠️ 这道自造闸原来有**两道**：`MenuScroll.Wheel`（下游）与 `PointerLayer.WheelAt(Vector2)`（上游）。
+            //     只删下游 = 没改（上游先丢）。两条都断，改哪一条都红。
+            //  🧨 改坏法：`MenuScroll.Wheel` 的 `if (dy == 0f) return;` 写回 `Mathf.Abs(dy) < 1f` ⇒ ①红；
+            //            `PointerLayer.WheelAt` 的 `if (f == 0f) return false;` 写回 `Mathf.Abs(f) < 1f` ⇒ ③红。
+            //  ⚠️ ② / ②b 钉的是**行为契约**（零 delta 不许动），不是某一行：今天 `Apply` 里那条
+            //     `Mathf.Abs(v - Offset) < 0.01f` 的浮点噪声闸也会兜住它 ⇒ 就算把 `Wheel` 的
+            //     `dy == 0` 早退删掉，这两条也仍绿。留着是防「有人把 `Wheel` 改成无条件 `Apply`
+            //     并把噪声闸一起拿掉」那一版（那会让一次零 delta 的滚轮事件也起一次重建）。
+            {
+                // ① / ② 直接打 `MenuScroll.Wheel`：半格必须位移、零 delta 必须不动。
+                var scB08 = new MenuScroll(new PxRect(0f, 0f, 1000f, 500f), 0f, 3000f, notchPx: 120f);
+                int firedB08 = 0;
+                scB08.OnChanged = () => firedB08++;
+                scB08.Wheel(-0.5f);                       // 半格（本机一格 = ±1，见 `ScrollUnitsPerNotch`）
+                CheckNear(scB08.Offset, 60f, 0.01f,
+                          "★ C1-B08 ① **半格滚轮就位移**：dy=−0.5 × 120 px/格 ⇒ **60 px**（原版没有任何阈值）"
+                        + $"｜实测 {scB08.Offset:F2}；🧨 写回 `Mathf.Abs(dy) < 1f` ⇒ 0 ⇒ 红");
+                CheckTrue(firedB08 == 1, $"★ ①b …而且 `OnChanged` 真通知了一次（实测 {firedB08}）");
+                float keepB08 = scB08.Offset;
+                firedB08 = 0;
+                scB08.Wheel(0f);
+                CheckNear(scB08.Offset, keepB08, 1e-4f,
+                          $"★ C1-B08 ② **零 delta 不位移**（实测 {scB08.Offset:F4} vs {keepB08:F4}）");
+                CheckTrue(firedB08 == 0, $"★ ②b …也不通知 `OnChanged`（实测 {firedB08}）");
+
+                // ③ 走**真入口** `PointerLayer.WheelAt(Vector2)`（`Update` 里取 `Mouse.current.scroll` 那一个）
+                //    —— 上游那道闸也删了。`Owner` 挂在**无父**的空节点上 ⇒ `ScrollScale` = (1,1)
+                //    ⇒ `DesignToPtrPx` 是恒等 ⇒ 指针 px 就是设计 px（视口 0..1000 × 0..500，取中心 (500,250)）。
+                var goB08 = new GameObject("C1-B08 滚动探针");
+                var scHit = new MenuScroll(new PxRect(0f, 0f, 1000f, 500f), 0f, 3000f, notchPx: 120f)
+                            { Owner = goB08 };
+                PointerLayer.RegisterScroll(scHit);
+                var plB08 = PointerLayer.Instance;
+                bool hitB08 = plB08 != null && plB08.WheelAt(500f, 250f, new Vector2(0f, -0.5f));
+                CheckTrue(hitB08, "（前提）`PointerLayer.WheelAt` 在视口中心命中这个滚动区"
+                            + "（不命中 ⇒ ③ 会在假绿上过；先看 `InputBlocked` / `RegisterScroll`）");
+                CheckNear(scHit.Offset, 60f, 0.01f,
+                          "★ C1-B08 ③ **真入口**（`PointerLayer.WheelAt(Vector2)`）传半格 ⇒ 也位移 60 px"
+                        + $"｜实测 {scHit.Offset:F2}；🧨 把上游 `if (f == 0f)` 写回 `Mathf.Abs(f) < 1f` ⇒ 0 ⇒ 红");
+                PointerLayer.UnregisterOwnedBy(goB08);
+                Object.DestroyImmediate(goB08);
             }
 
             // 🆕 2026-10-08（A212）：`Shared/Close Button` 那颗钮的字（**"Back"**）——原版 **`折行=0`**
@@ -7734,10 +7882,32 @@ public static class CollectionScene
                         CheckNear(mc.a, 1f, 0.004f,
                                   $"★ alpha 目标 = **1.0**、**不乘** `RimAlphaScale`（原版菜单档 `ToggleHighlight` 写的就是 1）"
                                 + $"—— 实测 {mc.a:F4}；若变成 {CardHighlight.RimAlphaScale:F3} 说明走错了层（战斗那圈）");
-                        // ③ 尺寸 = 原版 4.4281²（= 那层 quad 的渲染尺寸；原来是卡的 1.09×1.06 = 2.281×3.531）
+                        // ③ 尺寸 = 原版 4.4281²（= 那层 quad 的**设计**尺寸；原来是卡的 1.09×1.06 = 2.281×3.531）
                         var ms = view0.OutlineQuadSize;
                         CheckNear(ms.x, 4.4281f, 0.02f, $"★ 悬停光 quad 宽 = **4.4281**（原版 `m_SizeDelta.x`；实测 {ms.x:F4}）");
                         CheckNear(ms.y, 4.4281f, 0.02f, $"★ … 高 = **4.4281**（实测 {ms.y:F4}；原来只有卡的 1.09×1.06）");
+                        // 🧨 **灭自证（2026-10-24 · `P2`）**：`OutlineQuadSize` 量的必须是**设计网格**，不是渲染包围盒。
+                        //   背景：收藏页的卡是**带视口裁切**的（`CardView.CropLayer` 会把软光/影那层的 `sharedMesh`
+                        //   换成「按视口裁过的副本」）⇒ 量 `mr.bounds` 会量成「视口里还剩多少」：
+                        //   实测第一排那张 = **3.5495 × 3.8923**（上沿被裁 61.7px = 0.535 卡单位 ⇒ 高 4.4281−0.535）。
+                        //   ⇒ 这里**故意再裁一刀**（40×40 px、只留卡心那一块）：
+                        //     · 量设计网格 ⇒ 仍是 4.4281²（下面两条绿）；
+                        //     · 写回 `mr.bounds` ⇒ 只剩 40 / 115.3 ≈ 0.35 ⇒ **这两条立刻红**。
+                        {
+                            // 卡心 → 设计 px：用 `ToDesignPixel`（= `ApplyClip` 里 `FromPixel` 的**逆**，
+                            // ⛔ 不是 `ToPixel` 那一份 108 px/单位；两者只在 16:9 重合）。
+                            var cpix = LayoutSpace.ToDesignPixel(view0.transform.position);
+                            view0.SetClip(new PxRect(cpix.x - 20f, cpix.y - 20f, cpix.x + 20f, cpix.y + 20f));
+                            CheckTrue(view0.Clipped, "（前提）那一刀真的落下去了（卡被裁成 40×40 px）");
+                            var qc = view0.OutlineQuadSize;
+                            CheckNear(qc.x, 4.4281f, 0.02f,
+                                      $"★ **裁成 40×40 px 之后** quad 宽仍是 **4.4281**（实测 {qc.x:F4}）"
+                                    + " —— 量的是**设计网格**；量 `mr.bounds` 的话这里只剩 ≈0.35");
+                            CheckNear(qc.y, 4.4281f, 0.02f,
+                                      $"★ … 高仍是 **4.4281**（实测 {qc.y:F4}）—— `CropLayer` 换掉了网格，但设计尺寸不跟着变");
+                            view0.SetClipFromTree();      // 还原成收藏页的生产口径（沿父链解析视口节点）
+                            CheckTrue(view0.Clipped, "（还原）裁切回到视口节点那一档（卡仍是裁着的）");
+                        }
                         // ④ 材质档 = `Card Frame SDF`（与战斗 `Card board Frame SDF` **只差这三项**）
                         CheckNear(view0.OutlineFloatForTest("_Inner_Edge"), 0.333f, 0.004f,
                                   $"★ 材质 `_Inner_Edge` = **0.333**（原版 `Card Frame SDF`；实测 {view0.OutlineFloatForTest("_Inner_Edge"):F4}）");
@@ -7812,6 +7982,131 @@ public static class CollectionScene
                     hb0.Click();
                     CheckTrue(CollectionWindow.CardPunchCountForTest == punchCnt + 1,
                               "★ 真点卡格这一下**也走同一条 punch**（`CardHit_0.onClick` 里调的不是另一份实现）");
+                    // 🆕 **2026-10-24（A14）**：punch **打哪一级** —— 原版 `CollectionCard.SelectedHighlight(true)`
+                    //   打的是 `CollectionCard.canvas`(CanvasGroup，`+0x60`) 的 transform，那个 GameObject
+                    //   **名字就叫 `Content`**（prefab `Collection Card/Content`），底下是
+                    //   **`Counter`（张数条）+ `CardUI`（卡体）** ⇒ **整格一起弹**（判据 / PPtr 落点见
+                    //   `CollectionWindow.PunchCardCell` 那段）。我们对应的那一级 = 每格 `Content <i>` 容器。
+                    //   🧨 改坏法：把 `RebuildCardsCells` / `RebuildStyleCells` 的点击回调改回
+                    //   `PunchCardCell(v.transform)` ⇒ 第 1、2 条红（打到了卡根）；把张数条挪到 `Content` 外面
+                    //   ⇒ 第 3 条红；把 punch 抬到视口/窗根 ⇒ 第 4 条红。
+                    var punchT = CollectionWindow.LastPunchTargetForTest;
+                    var cardRoot0 = cp != null ? FindChild(cp, "CollectionCard_0") : null;
+                    CheckTrue(punchT != null && cardRoot0 != null,
+                              "（前提）拿得到 punch 作用节点 + 第 1 格的卡根");
+                    if (punchT != null && cardRoot0 != null)
+                    {
+                        CheckTrue(punchT.name == "Content 0",
+                                  $"★ punch 打在**格容器**上（实测 `{punchT.name}`；原版 = `Collection Card/Content`）");
+                        CheckTrue(punchT != cardRoot0,
+                                  "★ …**不是** `CardView` 的根（原版卡体是 `Content` 的孩子 `CardUI`；⛔ 别打岔到卡根）");
+                        CheckTrue(FindChild(punchT, "Counter 0") != null,
+                                  "★ …那一级底下**同时挂着张数条 `Counter 0`**（原版 `Content` = `{Counter, CardUI}` ⇒ 整格一起弹）");
+                        CheckTrue(punchT.parent != null && punchT.parent.name == "Viewport",
+                                  "★ …它是**格内**那一级（父 = `Viewport`），⛔ 不是视口 / 窗根");
+                    }
+                    // 🆕 **2026-10-24（A18）入场动画**（原版 `CollectionCard.AnimateIn`；判据 / 四个参数
+                    //   → `CollectionWindow` 的「入场动画」那一节头部：`0.1` 步长 · `0.7` 时长 · `alpha 1` ·
+                    //   `From(y + 200)`，全部从 `GameAssembly.dll` `.rdata` 现读）。三件事分开验：
+                    //   ① 结构：格容器 `Content <i>` 上挂着 `CanvasGroup`（原版 `CollectionCard.canvas`，`+0x60`）
+                    //   ② `CellFade` 真能淡到**三套后端**（卡面 / 张数条底 / 张数条字 ——
+                    //      `CanvasGroup` 只乘得到 `CanvasRenderer`，我们那两套是世界空间 `MeshRenderer`）
+                    //   ③ 补间本身：起手 = `alpha 0` + `y+200`、`Duration = 延迟 + 0.7`、走完回终值
+                    //   🧨 改坏法：删掉容器上那颗 `CanvasGroup` ⇒ ① 红；`CellFade.SetAlpha` 里删掉
+                    //   `card.SetAlpha` / `bars[].SetTint` / `labels[].SetColor` 任一条 ⇒ ② 对应那条红；
+                    //   把 `CardAnimateRise` 改成 0、或把 `order` 写死 0 ⇒ ③ 第一 / 第四条红。
+                    if (punchT != null)
+                    {
+                        var cg0 = punchT.GetComponent<CanvasGroup>();
+                        CheckTrue(cg0 != null,
+                                  "★ 入场动画 · 格容器 `Content 0` 上挂着 `CanvasGroup`"
+                                + "（原版 `CollectionCard.canvas`，字段 `+0x60` —— `AnimateIn` 的 `set_alpha`/`DOFade` 打的就是它）");
+                        var view0b = cardRoot0 != null ? cardRoot0.GetComponent<CardView>() : null;
+                        var fade0 = view0b != null ? CollectionWindow.MakeCellFadeForTest(punchT, view0b) : null;
+                        CheckTrue(fade0 != null, "（前提）拿得到第 1 格的 `CellFade`（下面四条都靠它）");
+                        if (fade0 != null && view0b != null)
+                        {
+                            fade0.SetAlpha(0.5f);
+                            CheckNear(view0b.Alpha, 0.5f, 0.001f,
+                                      "★ 淡入作用到**卡面**（`CardView.SetAlpha`；`CanvasGroup` 传不到自建网格）");
+                            CheckTrue(cg0 != null && Mathf.Abs(cg0.alpha - 0.5f) < 0.001f,
+                                      "★ …以及原版那颗 `CanvasGroup`（`Content` 上）");
+                            var ctr0 = FindChild(punchT, "Counter 0");
+                            var bar0 = ctr0 != null ? ctr0.GetComponent<ImageQuad>() : null;
+                            CheckTrue(bar0 != null && Mathf.Abs(bar0.Tint.a - 0.5f) < 0.001f,
+                                      "★ …以及**张数条底图**（世界空间 `ImageQuad`，`CanvasGroup` 管不到）");
+                            var lb0 = ctr0 != null ? ctr0.GetComponentInChildren<Label>(true) : null;
+                            CheckTrue(lb0 != null && Mathf.Abs(lb0.color.a - 0.5f) < 0.001f,
+                                      "★ …以及**张数条那行字**（`Label` 走 TMP 顶点色，不吃材质 `_Color`）");
+                            fade0.SetAlpha(1f);
+                            CheckNear(view0b.Alpha, 1f, 0.001f,
+                                      "…复位到 1（本段不改窗的真状态：后面所有截图 / 版面断言都靠它）");
+                        }
+                    }
+                    // ③ 补间本身 —— **独立探针**（同上面 punch 那条的做法：批处理要 `CardTween.Advance`
+                    //   手动推；⛔ 别拿窗里真格子推，推完会改它的位置/透明度，后面版面断言全乱）。
+                    {
+                        var prevMode = CardTween.Mode;
+                        CardTween.Mode = DG.Tweening.UpdateType.Manual;
+                        var probeGo = new GameObject("CardAnimateInProbe", typeof(RectTransform));
+                        var t0 = probeGo.transform;
+                        const float endY = -123f;          // 终值取个非 0 的数：「+200 没生效」也能被判出来
+                        t0.localPosition = new Vector3(0f, endY, 0f);
+                        probeGo.AddComponent<CanvasGroup>();
+                        var fd = CollectionWindow.MakeCellFadeForTest(t0, null);
+                        CheckTrue(fd != null, "（前提）探针拿到了 `CellFade`");
+                        var tw0 = CollectionWindow.BuildCardAnimateInTween(t0, fd, 0);
+                        CheckTrue(tw0 != null, "（前提）建出了入场补间");
+                        if (tw0 != null && fd != null)
+                        {
+                            float dur0 = DG.Tweening.TweenExtensions.Duration(tw0);   // ⚠️ 先记下来：走完之后 DOTween 会把这条回收，`Duration()` 不可靠
+                            CheckNear(t0.localPosition.y, endY + CollectionWindow.CardAnimateRise, 0.01f,
+                                      "★ 起手位置 = **终值 y + 200**（原版 `DOLocalMoveY(y)` `.From(y + 200)`；"
+                                    + "`0x1834B3258` 实读 = 200）—— 与终值不同");
+                            CheckTrue(Mathf.Abs(fd.Alpha) < 0.001f,
+                                      "★ 起手 alpha = **0**（原版 `CanvasGroup.set_alpha(0)`）—— 与终值 1 不同");
+                            CheckNear(dur0, CollectionWindow.CardAnimateDuration, 0.001f,
+                                      "★ order 0 ⇒ 总时长 = **0.7 s**（没有延迟 + 0.7 那条补间）");
+                            CardTween.Advance(0.35f);
+                            CheckTrue(fd.Alpha > 0.05f && fd.Alpha < 0.95f,
+                                      $"★ 半程真的在淡（t = 0.35 s 时 alpha = {fd.Alpha:F3}）");
+                            CardTween.Advance(1.0f);
+                            CheckNear(fd.Alpha, 1f, 0.001f,
+                                      $"★ 动画走完 ⇒ alpha 回到终值 1（实测 {fd.Alpha:F4}）");
+                            CheckNear(t0.localPosition.y, endY, 0.01f,
+                                      $"★ …位置也回到终值（实测 {t0.localPosition.y:F2}）");
+
+                            // ④ **格子顺序决定延迟**：order 2 比 order 0 多等 2 × 0.1 s
+                            var t2Go = new GameObject("CardAnimateInProbe2", typeof(RectTransform));
+                            var t2 = t2Go.transform;
+                            t2.localPosition = new Vector3(0f, endY, 0f);
+                            var fd2 = CollectionWindow.MakeCellFadeForTest(t2, null);
+                            var tw2 = CollectionWindow.BuildCardAnimateInTween(t2, fd2, 2);
+                            if (tw2 != null)
+                            {
+                                float dur2 = DG.Tweening.TweenExtensions.Duration(tw2);
+                                CheckNear(dur2 - dur0, 2f * CollectionWindow.CardAnimateDelayStep, 0.001f,
+                                          "★ 第 3 格比第 1 格**多等 2 × 0.1 s**"
+                                        + "（原版 `AppendInterval(GetSiblingIndex() * 0.1)`）");
+                                CardTween.Advance(0.15f);      // 还在 0.2 s 的延迟里
+                                CheckTrue(fd2 != null && fd2.Alpha < 0.001f,
+                                          "★ …而且它**真的在等**（t = 0.15 s 时 alpha 还是 0）");
+                                CardTween.Advance(1.0f);       // 推完 —— ⛔ 别留一条活的 Manual 补间给后面的段
+                                DG.Tweening.TweenExtensions.Kill(tw2);
+                            }
+                            Object.DestroyImmediate(t2Go);
+                        }
+                        Object.DestroyImmediate(probeGo);
+                        CardTween.Mode = prevMode;
+                    }
+                    // ⑤ **批处理不播**（`CollectionWindow.PlayCardAnimateIn` 里那道 `Application.isPlaying` 闸）：
+                    //   没有帧循环 ⇒ 播了整页卡会停在 `alpha 0 / y+200`。⛔ 删那道闸 ⇒ 本页卡变半透明、位置也错。
+                    Check(CollectionWindow.CardAnimateInCountForTest, 0,
+                          "★ 批处理（`Application.isPlaying == false`）⇒ **一次入场动画都不起**"
+                        + "（起了 = 没有帧循环推进 ⇒ 卡停在 alpha 0）");
+                    var cell0View = win.CardsCells.Count > 0 ? win.CardsCells[0].GetComponent<CardView>() : null;
+                    CheckTrue(cell0View != null && Mathf.Abs(cell0View.Alpha - 1f) < 0.001f,
+                              "★ …因此第 1 格的卡是**实心**的（`Alpha == 1`，不是停在 0）");
                     var cd = CollectionWindow.LastCardDetail;
                     CheckTrue(cd != null, "点第 1 格 ⇒ **开出了卡片详情窗**");
                     if (cd != null)
@@ -8952,11 +9247,51 @@ public static class CollectionScene
                           $"格里的立绘贴图 = **{altTex ?? "(一个 alt_* 都没有)"}**（**必须出现 `alt_*`** —— "
                           + "异画页画的就是它；一个都没有就说明 `CardData.artOverride` 没接上、退回了普通立绘）");
             }
+            // 🆕 **2026-10-24（A18）**：**异画页的 punch 作用节点** —— A14 只给卡池页补了那几条，
+            //   异画页的点击回调上一轮也一起改成了 `PunchCardCell(cellT)`，但当时**没有用例**钉住它
+            //   （A14 报告 §四·2 自己列成「没做完」）。原版两页的格子是同一个 `CollectionCard`
+            //   ⇒ `SelectedHighlight` 打的是同一级 = `Collection Card/Content`（判据 → `PunchCardCell` 那段）。
+            //   🧨 改坏法：把异画页那处回调改回 `PunchCardCell(v.transform)` ⇒ 第 2、3 条红；
+            //   把 punch 抬到视口/窗根 ⇒ 第 4 条红；把容器改成复用上一趟那个（不新建）⇒ 第 5 条红。
+            if (win.StyleCells.Count > 0 && win.StyleCells[0] != null)
+            {
+                var sCell0 = win.StyleCells[0];                       // = `CardView` 根（`CollectionAltArt_<卡 id>`）
+                var sContent0 = sCell0.parent;                        // = 本趟的 `Content <i>` 容器
+                string sId = sCell0.name.StartsWith("CollectionAltArt_")
+                           ? sCell0.name.Substring("CollectionAltArt_".Length) : null;
+                var sHit0 = (sContent0 != null && sContent0.parent != null && sId != null)
+                          ? FindChild(sContent0.parent, "AltArtHit_" + sId) : null;
+                var sBtn = sHit0 != null ? sHit0.GetComponent<WindowButton>() : null;
+                CheckTrue(sBtn != null,
+                          $"（前提）异画第 1 格有点击区 `AltArtHit_<卡 id>`（与 `Content` **同级** —— 原版射线件在上一层）");
+                if (sBtn != null)
+                {
+                    int altPunch = CollectionWindow.CardPunchCountForTest;
+                    sBtn.Click();
+                    CheckTrue(CollectionWindow.CardPunchCountForTest == altPunch + 1,
+                              "★ 真点异画格 ⇒ 起**一次**选中 punch（与卡池格**同一条实现** `PunchCardCell`）");
+                    var pt2 = CollectionWindow.LastPunchTargetForTest;
+                    CheckTrue(pt2 != null && sContent0 != null, "（前提）拿得到 punch 作用节点 + 该格容器");
+                    if (pt2 != null && sContent0 != null)
+                    {
+                        CheckTrue(pt2.name.StartsWith("Content "),
+                                  $"★ 异画页 punch 也打在**格容器**上（实测 `{pt2.name}`；原版 = `Collection Card/Content`）");
+                        CheckTrue(pt2 != sCell0,
+                                  "★ …**不是** `CardView` 的根（`CollectionAltArt_*`）—— A14 之前打岔的就是这一级");
+                        CheckTrue(pt2.parent != null && pt2.parent.name == "Viewport",
+                                  "★ …它是**格内**那一级（父 = `Viewport`），⛔ 不是视口 / 窗根");
+                        CheckTrue(object.ReferenceEquals(pt2, sContent0),
+                                  "★ …而且就是**这一格**的容器（⛔ 不是别格 / 上一趟重建残留的那个）");
+                    }
+                    // 点格子会顺带开卡片详情窗（`OpenCardDetail`）—— 本段自己收尾，别给后面的段留一扇开着的窗
+                    if (CollectionWindow.LastCardDetail != null) CollectionWindow.LastCardDetail.Close();
+                }
+            }
             // 🆕 **2026-10-18（T09 / `A1813`）：异画页也池化了** —— 本页**滚不动**
             //   （7 张 = 2 行 × 384 = **768 < 视口 792.33**，`MaxOffset` 恒 0），所以直接调
             //   **滚动回调那一趟的同一个函数**（`RebuildStyleCellsForTest`）验「池命中」。
-            //   改坏法：把 `RebuildStyleCells` 首句「只清 `AltArtHit_*`」改回「清 `parent` 下全部孩子」
-            //   （并走 `CardView.Create`）⇒ ①② 当场红（7 张）。
+            //   改坏法：把 `RebuildStyleCells` 首句「只清每趟重建的件（`AltArtHit_*` + `Content *` 容器，
+            //   先把池里的 `CardView` 摘出来）」改回「清 `parent` 下全部孩子」（并走 `CardView.Create`）⇒ ①② 当场红（7 张）。
             if (win.StyleCells.Count > 0)
             {
                 int styleBuiltFirst = win.StyleCellCreatedLastRefresh;

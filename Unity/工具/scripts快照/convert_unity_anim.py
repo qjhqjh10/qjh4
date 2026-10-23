@@ -7,6 +7,16 @@
 """
 import json, glob, os, sys
 
+## A17 2026-10-24: -h/--help early exit (print usage only, exit 0; never run the real work).
+import sys as _wf_help_sys
+if any(_wf_help_sys.argv[_i] in ("-h", "--help") for _i in range(1, len(_wf_help_sys.argv))):
+    try:
+        _wf_help_sys.stdout.reconfigure(encoding="utf-8")
+    except Exception:
+        pass
+    print('用法: python convert_unity_anim.py <AnimationClip目录> [输出目录]\n输出: data/ui_anim/<动画名>.tres (Godot 可直接 load 的 Animation 资源)\n支持: m_FloatCurves (m_Color.a 等标量属性) / m_PositionCurves (Vector3) /\n      m_ScaleCurves / m_EulerCurves (四元数→欧拉近似)\n  -h, --help  只打印本用法并退出（退出码 0），不执行任何真活。')
+    _wf_help_sys.exit(0)
+
 sys.stdout.reconfigure(encoding='utf-8')
 
 SRC = sys.argv[1] if len(sys.argv) > 1 else 'D:/2/解包整理/03_界面UI/菜单/AnimationClip'

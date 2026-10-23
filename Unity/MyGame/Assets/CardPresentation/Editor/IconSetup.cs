@@ -430,7 +430,10 @@ public static class IconSetup
         //   换成**走计划表那一代**的卡：`SAU41|descZh = '复生一个友方残骸。'`
         //   （计划表现读 `descZh:[('残骸','remnant')]`，token 是**裸词**、不带方括号）。
         //   ⚠️ 判据里的 `残骸。` 跟着放宽成 `残骸`（token 本身不带句号）。
-        string ly = CardPresentation.CardIcons.Rewrite("SAU41", "descZh", "复生一个友方残骸。");
+        // 🔴 2026-10-24（`F7`）：夹具串提成常量 —— ②e 与重建后的 ②h 的**灭自证臂**共用**同一份**原文
+        //   （铁律 6「清单/字符串只留一处」：两处各抄一份，将来改一处就劈叉）。
+        const string lyRaw = "复生一个友方残骸。";
+        string ly = CardPresentation.CardIcons.Rewrite("SAU41", "descZh", lyRaw);
         Check(CountOf(ly, "<sprite name=\"remnant\">") == 1
               && CountOf(ly, "<link=remnant>") == 1
               && ly.IndexOf("<sprite name=\"remnant\">", System.StringComparison.Ordinal)
@@ -491,20 +494,90 @@ public static class IconSetup
         //   换成**该卡 `desc` 那一半**（现读 = 下面这一串；计划表现读
         //   `desc:[('[Stomp]','stomp'),('[Stomp]','stomp'),('[Attack]','Melee')]`
         //   ⇒ 与下面「stomp ×2 + Melee ×1」的判据逐字对得上）。
-        string g1 = CardPresentation.CardIcons.Rewrite("GOF101", "desc",
-                     "Give [Stomp] Stomp to a friendly unit. If it already has [Stomp] Stomp, "
-                     + "give it +2 [Attack] this turn instead");
+        string gRaw = "Give [Stomp] Stomp to a friendly unit. If it already has [Stomp] Stomp, "
+                    + "give it +2 [Attack] this turn instead";
+        string g1 = CardPresentation.CardIcons.Rewrite("GOF101", "desc", gRaw);
         string g2 = CardPresentation.CardIcons.Rewrite("GOF101", "desc", g1);
         // ⚠️ 这张卡的原文用的是**方括号**写法（`[Stomp]`）⇒ 卡面上本来就**没有** `Stomp` 这个词，
         //    换完只剩图标才是对的（别指望这里能查到 `Stomp`）。
-        Check(g1 == g2 && CountOf(g1, "<sprite name=\"stomp\">") == 2
-                       && CountOf(g1, "<sprite name=\"Melee\">") == 1,
-              "②g 换两遍和一遍结果相同（幂等）：" + g2, ref bad);
-        // ⚠️ 跟着 ②e 换了卡 —— 原来 ②e 的 `ly` **根本没被换过**（那条恒真 = 空转），本条也就没在测。
-        //    换过之后 `ly` 里含 `<link=remnant><nobr><sprite …>残骸</nobr></link>`，
-        //    **这一条才真的在测幂等**（判据 = `CardIcons.cs` 那句 `if (s.IndexOf(bare) >= 0) continue;`）。
-        Check(ly == CardPresentation.CardIcons.Rewrite("SAU41", "descZh", ly),
-              "②h 裸关键词那条也幂等", ref bad);
+        //
+        // 🔴 **2026-10-24（`F7` · 铁律 5 留痕）：这一条原来【结构恒真】，就地重建判别式。**
+        //   **旧写法** = `g1 == g2 && 枚数`。**恒真证据**（逐句可复核）：
+        //     · `g1` 由 `Rewrite` 的**计划表那一支**产出 ⇒ 必然含 `<sprite name="stomp">` / `<link=…>`
+        //       （`Core/CardIcons.cs:405-409` 拼的就是这两个形状）；
+        //     · 第二遍 `Rewrite(…, g1)` 在**开头那道闸**（`Core/CardIcons.cs:326`
+        //       `if (HasOfficialMarks(text) || HasRenderedMarkup(text)) return RewriteMarks(…)`；
+        //       `HasRenderedMarkup` 只认 `<sprite` / `<link=`，见 `:628-633`）就被整串分去 `RewriteMarks`
+        //       ⇒ **按卡计划表根本不会再跑** ⇒ 那句幂等守卫（`CardIcons.cs:495`
+        //       `if (s.IndexOf(bare) >= 0) continue;`）**这条断言永远走不到**；
+        //     · `gRaw` / `g1` 里没有 `((` / `$$` / `[[` / `(N)` ⇒ `RewriteMarks` 四支（`CardIcons.cs:647-655`）
+        //       **逐字节恒等** ⇒ `g2` **必然** == `g1`。
+        //   ⇒ **新判别式 = 主判据（第一遍真的换了）+ 两臂**（两臂的期望值**不同**，所以「输出恒等」本身不能当判据）：
+        //     · **主判据**：`g1` 必须 **≠ `gRaw`**（证明幂等那一半不是「函数恒等」造成的假绿），
+        //       且 stomp ×2 / Melee ×1、换两遍 == 一遍（原判据全留）。
+        //     · **臂① 预塞【成品渲染标签】** `<sprite name="stomp">` ⇒ 闸整串跳过计划表 ⇒ **逐字节恒等**
+        //       （stomp 仍 2、`[Stomp]` 残留 2、`[Attack]` 残留 1、Melee 0）。
+        //       🧨 **拆掉 `HasRenderedMarkup` 的 `<sprite` 半闸** ⇒ 计划表再跑一遍 ⇒ stomp **4**、
+        //       `[Stomp]` / `[Attack]` 残留 **0** ⇒ 红。
+        //     · **臂② 预塞【只有 `<link=` 的半形】**（没有 `<sprite`）⇒ 同样必须**逐字节恒等**
+        //       （stomp **0**、`[Stomp]` 残留 2、`[Attack]` 残留 1、Melee 0）。
+        //       🧨 **只拆 `<link=` 那半闸** ⇒ 计划表跑 ⇒ stomp 2、残留 0、Melee 1 ⇒ 红
+        //       （`<sprite` 那半闸发现不了这个突变，所以两半各钉一臂）。
+        string gTagIn = gRaw.Replace("[Stomp]", "<sprite name=\"stomp\">[Stomp]");
+        string gTagOut = CardPresentation.CardIcons.Rewrite("GOF101", "desc", gTagIn);
+        string gLinkIn = gRaw.Replace("[Stomp]", "<link=stomp>[Stomp]</link>");
+        string gLinkOut = CardPresentation.CardIcons.Rewrite("GOF101", "desc", gLinkIn);
+        Check(g1 == g2 && !string.Equals(g1, gRaw, System.StringComparison.Ordinal)
+                       && CountOf(g1, "<sprite name=\"stomp\">") == 2
+                       && CountOf(g1, "<sprite name=\"Melee\">") == 1
+                       && string.Equals(gTagOut, gTagIn, System.StringComparison.Ordinal)
+                       && CountOf(gTagOut, "<sprite name=\"stomp\">") == 2
+                       && CountOf(gTagOut, "[Stomp]") == 2
+                       && CountOf(gTagOut, "[Attack]") == 1
+                       && CountOf(gTagOut, "<sprite name=\"Melee\">") == 0
+                       && string.Equals(gLinkOut, gLinkIn, System.StringComparison.Ordinal)
+                       && CountOf(gLinkOut, "<sprite") == 0
+                       && CountOf(gLinkOut, "[Stomp]") == 2
+                       && CountOf(gLinkOut, "[Attack]") == 1,
+              "②g 换两遍和一遍结果相同（幂等；判别式 = 第一遍真的换了 + 两臂对照）：" + g2
+            + "｜【灭自证】① 预塞**渲染标签** ⇒ 闸整串跳过 ⇒ stomp 必须 = 2 / `[Stomp]` 残留 2（实得 "
+            + CountOf(gTagOut, "<sprite name=\"stomp\">") + " / " + CountOf(gTagOut, "[Stomp]")
+            + "；拆 `<sprite` 半闸 ⇒ 4 / 0 ⇒ 红）"
+            + "｜② 预塞**只有 `<link=`** ⇒ 同样逐字节恒等 ⇒ `[Stomp]` 残留 2 / `[Attack]` 残留 1（实得 "
+            + CountOf(gLinkOut, "[Stomp]") + " / " + CountOf(gLinkOut, "[Attack]")
+            + "、`<sprite` " + CountOf(gLinkOut, "<sprite") + " 个；只拆 `<link=` 半闸 ⇒ 0 / 0 ⇒ 红）", ref bad);
+        // 🔴 **2026-10-24（`F7` · 铁律 5 留痕）：②h 原来也是【结构恒真】，就地重建判别式。**
+        //   （旧注释写「这一条才真的在测幂等（判据 = `CardIcons.cs` 那句 `if (s.IndexOf(bare) >= 0) continue;`）」
+        //     —— 那句 **在 `A8` 的闸之后已经不成立**，见下面。）
+        //   **旧写法** = `ly == Rewrite("SAU41","descZh", ly)`，**恒真证据**：`ly` 由计划表的**裸词那一支**
+        //   产出 ⇒ 必含 `<link=remnant>` + `<sprite name="remnant">`（`Core/CardIcons.cs:484-486`）
+        //   ⇒ 第二遍在 `CardIcons.cs:326` 的闸（`HasRenderedMarkup`）就被分去 `RewriteMarks`
+        //   ⇒ **计划表不再跑**（`:495` 那句 `if (s.IndexOf(bare) >= 0) continue;` 走不到）；
+        //   而 `ly` 里没有 `((` / `$$` / `[[` / `(N)` ⇒ `RewriteMarks` 四支恒等 ⇒ 必然相等。
+        //   ⚠️ 顺带钉清一件事（本轮现核）：计划表那两句幂等守卫（`CardIcons.cs:415` / `:495`）在 `A8` 的闸
+        //      之后**已无活输入** —— 任何含 `bare` 的串必带 `<sprite` ⇒ 必被闸拦下（全池 876 张计划卡 × 两字段
+        //      逐条模拟：删掉任一句守卫，**单遍输出变化 0 处**）。⇒ 今天「换两遍 == 换一遍」是**闸**在保证，
+        //      所以判别式必须钉闸，⛔ 不能再写「判据 = 那句守卫」。
+        //   **新判别式 = 主判据（第一遍真的换了）+ 灭自证臂（已渲染的半成品必须逐字节原样返回）**：
+        //     · 主判据：`ly != lyRaw`、remnant **1** 枚、`残骸` 仍在。
+        //     · 臂：把 `<sprite name="remnant">` 预塞到词前（**不**是完整的 `bare` 形状 —— 少了
+        //       `<link>` / `<nobr>`，所以 `s.IndexOf(bare)` 那条守卫**挡不住**它）⇒ 闸必须整串跳过
+        //       ⇒ **逐字节恒等**、remnant 仍 1 枚、`<nobr>` **0** 个。
+        //       🧨 **拆掉 `HasRenderedMarkup` 那半闸** ⇒ 计划表跑 ⇒ remnant **2** 枚、`<nobr>` 1 个 ⇒ 红。
+        string ly2 = CardPresentation.CardIcons.Rewrite("SAU41", "descZh", ly);
+        string lyTagIn = lyRaw.Replace("残骸", "<sprite name=\"remnant\">残骸");
+        string lyTagOut = CardPresentation.CardIcons.Rewrite("SAU41", "descZh", lyTagIn);
+        Check(ly == ly2 && !string.Equals(ly, lyRaw, System.StringComparison.Ordinal)
+                       && CountOf(ly, "<sprite name=\"remnant\">") == 1
+                       && ly.IndexOf("残骸", System.StringComparison.Ordinal) >= 0
+                       && string.Equals(lyTagOut, lyTagIn, System.StringComparison.Ordinal)
+                       && CountOf(lyTagOut, "<sprite name=\"remnant\">") == 1
+                       && CountOf(lyTagOut, "<nobr>") == 0,
+              "②h 裸关键词那条也幂等（判别式 = 第一遍真的换了 + 已渲染的半成品不再插图标）：" + ly2
+            + "｜【灭自证】预塞一枚 `<sprite name=\"remnant\">`（**不带** `<link>`/`<nobr>` ⇒ 那条 bare 守卫挡不住它）"
+            + "再渲染 ⇒ 必须逐字节原样（实得 remnant " + CountOf(lyTagOut, "<sprite name=\"remnant\">")
+            + " 枚 / `<nobr>` " + CountOf(lyTagOut, "<nobr>")
+            + " 个；拆掉 `HasRenderedMarkup` 那半闸 ⇒ 2 / 1 ⇒ 红）", ref bad);
 
         // ②i / ②j 🔴 **Oath 徽记 = 「徽记 + 词」**（2026-10-18，`资料/普查产出_1018/V-OATH_Oath徽记与记号.md` 候选 A）。
         //
@@ -567,9 +640,39 @@ public static class IconSetup
                       + "且徽记在词**前面**、词也留着 —— " + d.Replace("\n", "\\n"), ref bad);
                 Check(nZ == want && CardPresentation.CardIcons.StripTags(z).Contains(zhWord),
                       "★ ②i " + id + " [descZh]：Oath 徽记 **" + nZ + "/" + want + "** 枚，且词也留着 —— " + z, ref bad);
+                // 🔴 **2026-10-24（`F7` · 铁律 5 留痕）：这一条原来也是【结构恒真】，就地重建判别式。**
+                //   **恒真证据**：上一句刚要求 `nD == want`、`nZ == want`（`want ≥ 1`）⇒ `d` / `z` **必然**含
+                //   `oath` 图标（`<sprite …>` / `<link=…>` 这两种形状）⇒ 第二遍在 `Core/CardIcons.cs:326`
+                //   的闸（`HasRenderedMarkup`）就被整串分去 `RewriteMarks` ⇒ **计划表不再跑**
+                //   （`:495` 那句 `if (s.IndexOf(bare) >= 0) continue;` 走不到）；而 `d` / `z` 里没有
+                //   `((` / `$$` / `[[` / `(N)` ⇒ `RewriteMarks` 四支恒等 ⇒ 必然相等。
+                //   **新判别式 = 主判据（第一遍真的换了）+ 灭自证臂（已带成品图标的半成品必须逐字节原样返回）**：
+                //     · 主判据：`d != cd.Desc`、`z != cd.DescZh`（不是函数恒等造成的假绿）。
+                //     · 臂：把 `<sprite name="oath">` 预塞到英文那个词前（**不**是完整的 `bare` 形状 ⇒
+                //       `s.IndexOf(bare)` 那条守卫挡不住它）⇒ 闸必须整串跳过 ⇒ **逐字节恒等**、
+                //       oath 枚数 == 预塞数、那个词仍在。
+                //       🧨 **拆掉 `HasRenderedMarkup` 那半闸** ⇒ 计划表跑 ⇒ oath 枚数 = 预塞 + 计划表 ⇒ 红
+                //       （UM100：1 → 2；UM106 / UM93：1 → 3）。
+                //     ⚠️ 臂的前提是 `cd.Desc` **不带官方记号**（带了就该走 `RewriteMarks`，臂的期望值不成立）——
+                //        数据换成那样 ⇒ 本条红，按提示**重新挑一张**，⛔ 不是把期望值放宽。
+                string dRaw = cd.Desc, zRaw = cd.DescZh;
+                string dTagIn = dRaw.Replace(enWord, "<sprite name=\"oath\">" + enWord);
+                string dTagOut = CardPresentation.CardIcons.Rewrite(id, "desc", dTagIn);
+                int dTagPre = CountOf(dTagIn, "<sprite name=\"oath\">");
                 Check(d == CardPresentation.CardIcons.Rewrite(id, "desc", d)
-                      && z == CardPresentation.CardIcons.Rewrite(id, "descZh", z),
-                      "★ ②i " + id + "：这两条也**幂等**（卡面同一条文字会被换两遍）", ref bad);
+                      && z == CardPresentation.CardIcons.Rewrite(id, "descZh", z)
+                      && !string.Equals(d, dRaw, System.StringComparison.Ordinal)
+                      && !string.Equals(z, zRaw, System.StringComparison.Ordinal)
+                      && !CardPresentation.CardIcons.HasOfficialMarks(dTagIn)
+                      && dTagPre > 0
+                      && string.Equals(dTagOut, dTagIn, System.StringComparison.Ordinal)
+                      && CountOf(dTagOut, "<sprite name=\"oath\">") == dTagPre
+                      && CountOf(dTagOut, enWord) == CountOf(dTagIn, enWord),
+                      "★ ②i " + id + "：这两条也**幂等**（卡面同一条文字会被换两遍）；"
+                    + "判别式 = 第一遍真的换了 + 【灭自证】预塞 " + dTagPre + " 枚成品 `oath` 图标 ⇒ 闸整串跳过"
+                    + " ⇒ 必须逐字节原样（实得 " + CountOf(dTagOut, "<sprite name=\"oath\">") + " 枚 / 词 "
+                    + CountOf(dTagOut, enWord) + " 处；拆 `<sprite` 半闸 ⇒ " + (dTagPre + want) + " 枚 ⇒ 红）"
+                    + "；实测 = " + d.Replace("\n", "\\n"), ref bad);
             }
 
             // `UM84` 的第二句：`[Talent]: …` 与 `[Oath]` **同根因**（OCR 把「图标 + 词」压成了一个 token
@@ -1159,20 +1262,62 @@ public static class IconSetup
             RuleEngine.CardDef fire = null;
             foreach (var c in cards8)
                 if (c != null && c.Id == "SOR60") { fire = c; break; }
-            Check(fire != null && !string.IsNullOrEmpty(fire.Desc),
-                  "⑧e·前提 从卡池取得到 `SOR60` 的真 `desc`（夹具不自己抄）", ref bad);
+            Check(fire != null && !string.IsNullOrEmpty(fire.Desc)
+                  && CountOf(fire.Desc, "[Attack]") == 2
+                  && !CardPresentation.CardIcons.HasRenderedMarkup(fire.Desc),
+                  "⑧e·前提 从卡池取得到 `SOR60` 的真 `desc`（夹具不自己抄），且它**正好 2 处** `[Attack]`、" +
+                  "**不带**渲染标签（换数据后这里红了 = 要**重新挑一张**，⛔ 不是把期望值放宽）", ref bad);
+            // 臂②用的是官方记号 `((Melee_attack_icon_x,+1))` —— 它的展开依赖这条数据面词条。
+            //   它没了 = 换一条**能展开的官方记号**，⛔ 不是删掉这一臂（那会让「见标签就 return text」那个坏态失去覆盖）。
+            Check(CardPresentation.Loc.HasBulk("Modular_Description/Melee_attack_icon_x"),
+                  "⑧e·前提（灭自证臂②）官方词条 `Modular_Description/Melee_attack_icon_x` 在数据面表里", ref bad);
             string fire1 = fire == null ? "" : CardPresentation.CardIcons.Rewrite("SOR60", "desc", fire.Desc);
             string fire2 = CardPresentation.CardIcons.Rewrite("SOR60", "desc", fire1);
-            // ⑧e【灭自证】：先给每一处 `[Attack]` **预塞**一枚 Melee 图标再跑（模拟「不幂等」的坏态）
-            //   ⇒ 枚数必须变成 4（每处多画一枚）⇒ 与判据要求的「正好 2」不等。
-            string fireBroken = fire == null ? "" : fire.Desc.Replace("[Attack]", "<sprite name=\"Melee\">[Attack]");
-            int fireBrokenN = CountOf(CardPresentation.CardIcons.Rewrite("SOR60", "desc", fireBroken),
-                                      "<sprite name=\"Melee\">");
-            Check(fire != null && CountOf(fire1, "<sprite name=\"Melee\">") == 2 && fire1 == fire2
-                  && fireBrokenN != 2,
+            // ⑧e【灭自证】🔴 **2026-10-24 重建（`F4` · 铁律 5 留痕：旧写法在 `A8` 闸之后失去了区分力）**。
+            //   **旧写法**：「给每一处 `[Attack]` 预塞一枚 `<sprite name="Melee">` 再跑 ⇒ 枚数必须 ≠ 2」
+            //   —— 实跑**实得 2 枚 ⇒ 红**。**为什么失效**：`A8`（`新账-102`）把 `Rewrite` 开头那道闸扩成
+            //   `HasOfficialMarks || HasRenderedMarkup`（`Core/CardIcons.cs:326`）⇒ 预塞的 `<sprite>` 让闸成立、
+            //   **整串转去 `RewriteMarks`**，按卡计划表根本不再跑 ⇒ 剩下的正好是预塞那 2 枚。
+            //   ⛔ **不是闸的缺陷**（全池现算：带渲染标签、且计划表有能落实 token 的字段 = 12 个，
+            //   token **12/12 全部落在已渲染的 `<link=…>…</link>` 里**、落在纯文本上的 0 个 ⇒ 闸只挡重复、没挡该换的；
+            //   判据 → `资料/普查产出_1023e/A2_卡牌三件.md` §2·5 与 `A8_卡牌第二批.md` §3）。
+            //   ⇒ **新灭自证 = 两臂对照**（两种「已经是成品 / 模板」的预塞必须给出**不同**结果）：
+            //     臂① **预塞渲染标签** `<sprite name="Melee">` ⇒ 闸把整串交给 `RewriteMarks`，而这里**没有记号**
+            //           ⇒ **恒等**：仍是 **2** 枚 Melee + `[Attack]` **原样 2 处**。
+            //           🧨 **拆掉 / 放宽那道闸** ⇒ 计划表再跑一遍 ⇒ 枚数 **4**、`[Attack]` 消失（残留 0）⇒ 红。
+            //              （= 旧写法抓的那个坏态，改成「把两侧的期望值都钉死」比「≠ 2」更强。）
+            //     臂② **预塞官方记号** `((Melee_attack_icon_x,+1))` ⇒ 同样**不进**计划表，但 `RewriteMarks` **会展开**
+            //           ⇒ 输出必须 **≠ 输入**、多出 **2** 枚 `Atlas_trait_icon_Melee`，而 `[Attack]` 仍原样 2 处。
+            //           🧨 若有人把闸改成「见渲染标签就 `return text`」（短路掉 `RewriteMarks` 那一半）
+            //           ⇒ 官表里那 10 个「既有渲染标签又有官方记号」的字段会停止展开 ⇒ 本臂红。
+            //     两臂为什么**必须不同**：臂①的串里**没有可展开的记号**（恒等是对的），臂②的串里**有**（不展开才是 bug）
+            //     —— 所以「输出恒等」这件事本身不能当判据，必须**分代**各钉各的。
+            string fireTagIn = fire == null ? "" : fire.Desc.Replace("[Attack]", "<sprite name=\"Melee\">[Attack]");
+            string fireTagOut = CardPresentation.CardIcons.Rewrite("SOR60", "desc", fireTagIn);
+            string fireMarkIn = fire == null ? "" : fire.Desc.Replace("[Attack]", "((Melee_attack_icon_x,+1))[Attack]");
+            string fireMarkOut = CardPresentation.CardIcons.Rewrite("SOR60", "desc", fireMarkIn);
+            int fireMelee = CountOf(fire1, "<sprite name=\"Melee\">");
+            int fireTagMelee = CountOf(fireTagOut, "<sprite name=\"Melee\">");
+            int fireTagLeft = CountOf(CardPresentation.CardIcons.StripTags(fireTagOut), "[Attack]");
+            int fireMarkMelee = CountOf(fireMarkOut, "Atlas_trait_icon_Melee");
+            int fireMarkLeft = CountOf(CardPresentation.CardIcons.StripTags(fireMarkOut), "[Attack]");
+            Check(fire != null && fireMelee == 2 && fire1 == fire2
+                  // 「第一遍真的换了」= 幂等那一半不是「函数恒等」造成的假绿
+                  && !string.Equals(fire1, fire.Desc, System.StringComparison.Ordinal)
+                  && CardPresentation.CardIcons.StripTags(fire1).IndexOf("[Attack]", System.StringComparison.Ordinal) < 0
+                  // 臂① 渲染标签代：整串跳过计划表 ⇒ 逐字节恒等 + 预塞的 2 枚还在 + `[Attack]` 原样 2 处
+                  && string.Equals(fireTagOut, fireTagIn, System.StringComparison.Ordinal)
+                  && fireTagMelee == 2 && fireTagLeft == 2
+                  // 臂② 官方记号代：工具面必须展开（≠ 输入、多 2 枚官方 Melee），但计划表同样不许跑
+                  && !string.Equals(fireMarkOut, fireMarkIn, System.StringComparison.Ordinal)
+                  && fireMarkMelee == 2 && fireMarkLeft == 2,
                   "★ ⑧e 幂等（`[Attack]` 走官方规则那一支）：`SOR60` **正好 2 处** `[Attack]` 都换成 Melee" +
-                  "（实得 " + CountOf(fire1, "<sprite name=\"Melee\">") + " 枚）、且换两遍 == 换一遍；" +
-                  "【灭自证】预塞一枚图标再跑 ⇒ 枚数必须 ≠ 2（实得 " + fireBrokenN + " 枚）。" +
+                  "（实得 " + fireMelee + " 枚、残留 " +
+                  CountOf(CardPresentation.CardIcons.StripTags(fire1), "[Attack]") + " 处）、且换两遍 == 换一遍；" +
+                  "【灭自证·两臂】① 预塞**渲染标签** ⇒ 闸整串跳过 ⇒ Melee **必须 = 2** 且 `[Attack]` **残留 2**" +
+                  "（实得 " + fireTagMelee + " / 残留 " + fireTagLeft + "；拆掉 `HasRenderedMarkup` 那半闸 ⇒ 4 / 0 ⇒ 红）；" +
+                  "② 预塞**官方记号** ⇒ `RewriteMarks` 必须展开 ⇒ `Atlas_trait_icon_Melee` **= 2** 且 `[Attack]` **残留 2**" +
+                  "（实得 " + fireMarkMelee + " / 残留 " + fireMarkLeft + "；闸改成「见标签就 return text」⇒ 不展开 ⇒ 红）。" +
                   "改坏法：让规则条目在已替换的串上再命中一次 ⇒ 枚数翻倍 / 串不等 ⇒ 红。实测 = `" + fire1 + "`", ref bad);
         }
 
@@ -1656,6 +1801,281 @@ public static class IconSetup
                 }
                 finally { Object.DestroyImmediate(root); }
             }
+        }
+
+        // ═════════════ ⑭ tooltip 的两档版式（基础版 / 原版关键词**两栏**）+ 正文钉面（卡牌线 `A8` · 2026-10-23）════════════
+        //
+        // 🔴 **2026-10-23（`A8`）就地改写（铁律 5）**：这一段原来只断「trait 文案里的 `<sprite>` 被
+        //   `PinSpriteFace` 钉住了面」，前提是「**trait tooltip 就是那一串行内图标文案**」。
+        //   那个前提**已经不成立** —— 现读原版 prefab（判据全文 → `Core/Tooltip.cs` 那组 `Trait*` 常量的注释）
+        //   ⇒ 关键词 tooltip 是**两栏**：独立 `Image` 节点 `TraitImage`（**75×75**·Simple·PreserveAspect=1）
+        //   + `Title`（**32pt**，框 398.10×34）+ `Description`（**30pt**，框 397.39×89.71），面板 494.98×141.60。
+        //   所以这一节现在断三件（**每一件都能单独改坏**）：
+        //     ① **形状**：trait 档 = `TraitModeForTest`；面板 494.98×141.60；图标 75×75 且**在左栏**；
+        //        标题 / 正文在**右栏**、标题在上（偏移逐条对 prefab 的 `m_AnchoredPosition`）；
+        //     ② **文案没被版式改动**：标题那颗**不再含 `<sprite>`**（图标是独立件），正文那颗
+        //        **逐字节等于** `TipText.Trait` 那一串里 `\n` 之后那半（去掉钉面标签后）；
+        //     ③ **钉面那条链还在**（`新账-101` 不因为换版式而丢）：正文里真有 `<sprite>` 的那条
+        //        （`concussion` 的 `[[stun]]`）`BodyTextForTest` 里每枚图标前都跟着 `<font=Default>`。
+        //   **灭自证**：基础档（`TipText.Melee`）必须**不进** trait 档、没有图标、没有标题 —— 否则
+        //   「凡是 tooltip 都建成两栏」也会让 ①② 全绿；再切回 trait **必须重新建起来**（证明是真重建，
+        //   而不是「第一次建完就一直挂着」）。
+        {
+            var tipLangWas = CardPresentation.Loc.Current;
+            CardPresentation.Loc.RestoreForTest(CardPresentation.AvailableLanguages.Chinese);
+            GameObject tgo = null;
+            try
+            {
+                string rawTip = CardPresentation.TipText.Trait("armour");   // 标题行必带图标（`Badges.SpriteOf`）
+                int nRaw = rawTip == null ? 0 : CountOf(rawTip, "<sprite");
+                Check(nRaw >= 1 && rawTip.IndexOf("<font=Default>", System.StringComparison.Ordinal) < 0,
+                      "⑭ 前提：`TipText.Trait(\"armour\")` 里带 **" + nRaw + "** 枚 `<sprite>`（那一串的形状**不许变** —— " +
+                      "`BattleScene` §15c 那族断言与 `ShownBody` 比对都钉着它），且**入参原文里没有** " +
+                      "`<font=Default>`（灭自证的前提 —— 有的话「有钉」恒真）", ref bad);
+
+                if (nRaw >= 1)
+                {
+                    CardPresentation.Tooltip.Show(rawTip, Vector3.zero);
+                    tgo = CardPresentation.Tooltip.InstanceForTest;
+
+                    // ── ① 形状 ────────────────────────────────────────────────
+                    Check(CardPresentation.Tooltip.TraitModeForTest,
+                          "★ ⑭① 关键词 tooltip 走**原版两栏版式**（`TraitModeForTest`）。🧨 改坏法：" +
+                          "把 `Core/Tooltip.cs` 的 `Show` 里 `TryTraitShape` 那一支去掉（一律走 `Layout`）⇒ 红", ref bad);
+                    Vector2 panel = CardPresentation.Tooltip.PanelSizePx;
+                    Check(Mathf.Abs(panel.x - 494.98f) <= 0.05f && Mathf.Abs(panel.y - 141.60f) <= 0.05f,
+                          "★ ⑭① 面板 = 原版 `Background` 的 **494.98 × 141.60**（实得 " + panel.x.ToString("F2") +
+                          " × " + panel.y.ToString("F2") + "）。判据 = `Trait Tooltip.json` 的 `Background.m_SizeDelta`", ref bad);
+                    string iconName = CardPresentation.Tooltip.TraitIconForTest;
+                    Vector2 iconPx = CardPresentation.Tooltip.TraitIconSizePxForTest;
+                    Check(iconName == "armour" && Mathf.Abs(iconPx.x - 75f) <= 1f && Mathf.Abs(iconPx.y - 75f) <= 1f,
+                          "★ ⑭① 图标是**独立 Image 节点**、贴 `armour`、画出来 **75 × 75**（实得「" + iconName + "」 " +
+                          iconPx.x.ToString("F1") + " × " + iconPx.y.ToString("F1") + "）。判据 = 原版 `TraitImage` 节点", ref bad);
+                    Vector2 oi = CardPresentation.Tooltip.TraitOffsetPxForTest(0);
+                    Vector2 ot = CardPresentation.Tooltip.TraitOffsetPxForTest(1);
+                    Vector2 od = CardPresentation.Tooltip.TraitOffsetPxForTest(2);
+                    bool offOk = Mathf.Abs(oi.x - (-208.87f)) <= 0.5f && Mathf.Abs(oi.y - 1.74f) <= 0.5f
+                              && Mathf.Abs(ot.x - 26.97f) <= 0.5f && Mathf.Abs(ot.y - 43.10f) <= 0.5f
+                              && Mathf.Abs(od.x - 27.33f) <= 0.5f && Mathf.Abs(od.y - (-16.60f)) <= 0.5f;
+                    Check(offOk,
+                          "★ ⑭① 三个件的偏移**逐条**等于原版 `m_AnchoredPosition`（相对 `Background` 中心）：" +
+                          "图标 (−208.87, 1.74) · 标题 (26.97, 43.10) · 正文 (27.33, −16.60)。实得 " +
+                          "图标 (" + oi.x.ToString("F2") + ", " + oi.y.ToString("F2") + ") · 标题 (" +
+                          ot.x.ToString("F2") + ", " + ot.y.ToString("F2") + ") · 正文 (" +
+                          od.x.ToString("F2") + ", " + od.y.ToString("F2") + ")", ref bad);
+                    Check(oi.x < ot.x && oi.x < od.x && ot.y > od.y,
+                          "★ ⑭① **两栏**：图标在**左**、标题/正文在**右**，标题在正文**上** —— 实得 图标x=" +
+                          oi.x.ToString("F1") + " 标题(" + ot.x.ToString("F1") + "," + ot.y.ToString("F1") +
+                          ") 正文(" + od.x.ToString("F1") + "," + od.y.ToString("F1") + ")", ref bad);
+
+                    // ── ② 文案没被版式改动 ──────────────────────────────────────
+                    string title = CardPresentation.Tooltip.TitleTextForTest;
+                    Check(title != null && title.Contains("盔甲") && title.Contains("Armour")
+                          && title.IndexOf("<sprite", System.StringComparison.Ordinal) < 0,
+                          "★ ⑭② 标题那颗 = **纯标题**（`盔甲（Armour）` 那一型）、**不再含 `<sprite>`**（图标已经搬到独立件）" +
+                          " —— 实得「" + title + "」", ref bad);
+                    int nl = rawTip.IndexOf('\n');
+                    string rawBody = nl < 0 ? "" : rawTip.Substring(nl + 1);
+                    string gotDesc = CardPresentation.Tooltip.DescTextForTest;
+                    string strippedDesc = gotDesc == null ? null
+                        : gotDesc.Replace("<font=Default>", "").Replace("</font>", "");
+                    Check(strippedDesc != null && strippedDesc == rawBody,
+                          "★ ⑭②【灭自证】正文那颗去掉钉面标签后**逐字节等于** `TipText.Trait` 那一串 `\\n` 之后的那半" +
+                          "（证明换版式**没有**吃字 / 重复 / 顺手改文案）—— 实得 " +
+                          (strippedDesc == null ? "(取不到)" : strippedDesc.Length + " 字 vs 原文 " + rawBody.Length + " 字" +
+                           (strippedDesc == rawBody ? "（相等）" : "（**不等**）")), ref bad);
+
+                    // ── ③ 钉面那条链还在（正文里真有 `<sprite>` 的那一条）──────────
+                    string rawConc = CardPresentation.TipText.Trait("concussion");
+                    // ⚠️ 只数**正文那半**：`Trait()` 的标题行自己也带一枚图标（那是独立件要画的那枚），
+                    //    而 `BodyTextForTest` 这一档读的是**正文那颗标签** ⇒ 两边必须同口径。
+                    int nlC = rawConc == null ? -1 : rawConc.IndexOf('\n');
+                    string rawConcBody = nlC < 0 ? (rawConc ?? "") : rawConc.Substring(nlC + 1);
+                    int nConc = CountOf(rawConcBody, "<sprite");
+                    Check(nConc >= 1,
+                          "⑭③ 前提：`TipText.Trait(\"concussion\")` 的正文里**真有** `<sprite>`（官方 `[[stun]]` 渲出来的那枚）" +
+                          " —— 实得 " + nConc + " 枚（若为 0，本条要换一条**正文带图标**的关键词，⛔ 不是删掉）", ref bad);
+                    if (nConc >= 1)
+                    {
+                        CardPresentation.Tooltip.Show(rawConc, Vector3.zero);
+                        string got2 = CardPresentation.Tooltip.BodyTextForTest;
+                        int nPin = got2 == null ? -1 : CountOf(got2, "<font=Default>");
+                        Check(got2 != null && got2.IndexOf("<font=Default><sprite", System.StringComparison.Ordinal) >= 0
+                              && nPin == nConc,
+                              "★ ⑭③ 关键词正文里的 `<sprite>` **每一枚都钉了面**（`concussion` 正文 " + nConc +
+                              " 枚 ⇒ 期望 " + nConc + " 个 `<font=Default>`，实得 " + nPin + "）。🧨 改坏法：" +
+                              "把 `LayoutTrait` 里 `CardIcons.PinSpriteFace` 去掉 ⇒ 红。实测渲染源：" +
+                              (got2 == null ? "(取不到)" : "「" + got2.Replace("\n", "⏎") + "」"), ref bad);
+                    }
+
+                    // ── 灭自证：基础档**不进**这一档，且切回来必须真重建 ──────────
+                    CardPresentation.Tooltip.Show(CardPresentation.TipText.Melee, Vector3.zero);
+                    Check(!CardPresentation.Tooltip.TraitModeForTest
+                          && CardPresentation.Tooltip.TraitIconForTest == null
+                          && CardPresentation.Tooltip.TitleTextForTest == null,
+                          "★ ⑭【灭自证】**基础档不受影响**：`TipText.Melee` 那条进不了 trait 版式、" +
+                          "没有图标、没有标题（否则「凡 tooltip 都建两栏」也会让 ①② 全绿）—— 实得 traitMode=" +
+                          CardPresentation.Tooltip.TraitModeForTest + " icon=" +
+                          (CardPresentation.Tooltip.TraitIconForTest ?? "null") + " title=" +
+                          (CardPresentation.Tooltip.TitleTextForTest ?? "null"), ref bad);
+                    CardPresentation.Tooltip.Show(rawTip, Vector3.zero);
+                    Check(CardPresentation.Tooltip.TraitModeForTest
+                          && CardPresentation.Tooltip.TraitIconForTest == "armour",
+                          "★ ⑭ 切回关键词 ⇒ **重新建起**两栏（证明是重建、不是「第一次建完就挂着」）—— 实得 traitMode=" +
+                          CardPresentation.Tooltip.TraitModeForTest + " icon=" +
+                          (CardPresentation.Tooltip.TraitIconForTest ?? "null"), ref bad);
+                }
+            }
+            catch (System.Exception e)
+            {
+                Err("⑭ 量不了 `Tooltip` 那条链：" + e.GetType().Name + ": " + e.Message);
+            }
+            finally
+            {
+                if (tgo != null) Object.DestroyImmediate(tgo);
+                CardPresentation.Loc.RestoreForTest(tipLangWas);
+            }
+        }
+
+        // ═════════════ ⑮ **已经带渲染标签的正文不再进按卡计划表**（卡牌线 `新账-102` · 2026-10-23）══════════════
+        //
+        // 🔴 **钉什么**：官方 `Card_Description/*` 的中文列里**本来就带** `<link=…>` / `<sprite …>`（全池 14 个字段）；
+        //   其中 `GSC65` / `GSC56` / `GSC45` / `e9952f5…` 四张在 `card_icon_plan.json` 里**同时**有一条
+        //   指向同一枚图标的裸词 token（`Sabotage` / `破坏`）⇒ 老闸（只认 `[[`/`((`/`$$`）漏它们进计划表
+        //   ⇒ 卡面同一处**两枚图标**（官方那枚 + 计划表再插一枚）。
+        //   修法 = `Core/CardIcons.cs` 的 `Rewrite` 开头加 `HasRenderedMarkup` 那道闸（判据全文在那条注释里）。
+        //
+        // 📐 **断的形状**：这类字段（带渲染标签、且**不带**任何待展开的官方记号）的 `Rewrite` 必须是**恒等**
+        //   —— 没有东西要换、也没有东西该再画。恒等被破坏 = 有东西被插进去了。
+        //   **灭自证**：① 扫到的字段数必须 ≥1（不然恒真）；② 必须至少有一个字段的计划表里**真有**能落实的
+        //   token（证明「拆掉闸就会变」不是假想 —— 拆掉那道闸时那几个字段会变成非恒等 ⇒ 上面那条红）。
+        {
+            var planDoc = LoadPlanDoc();
+            var planById = new Dictionary<string, PlanField[]>();
+            if (planDoc != null && planDoc.cards != null)
+                foreach (var planCard in planDoc.cards)
+                    if (planCard != null && !string.IsNullOrEmpty(planCard.id)) planById[planCard.id] = planCard.fields;
+
+            int checkedFields = 0, hazardFields = 0, officialFields = 0;
+            var changed = new List<string>();
+            var hazards = new List<string>();
+            var seenText = new HashSet<string>();
+            foreach (var cd in RuleEngine.CardDatabase.Load())
+            {
+                if (cd == null || string.IsNullOrEmpty(cd.Id)) continue;
+                // 🔴 **两个来源都要扫**（2026-10-23 `A2` 现核）：
+                //   ① 卡池那两列 `desc` / `descZh` —— **没有官方条目**时它就是渲染源；
+                //   ② 官方 `Card_Description/*` 的两列 —— `A1945`（2026-10-19）起**这才是渲染源**
+                //      （`BattleDriver.FaceTextFull` 优先取它）。⛔ 只扫 ① 会漏掉真出问题的那 13 个字段
+                //      （现读：带渲染标签且无官方记号的官方正文 = EN 38 张 / ZH 36 张里那一批无记号子集）。
+                string offZh = CardPresentation.Loc.OfficialCurrent("Card_Description/" + cd.Id);
+                string offEn = CardPresentation.Loc.OfficialEnglish("Card_Description/" + cd.Id);
+                for (int si = 0; si < 4; si++)
+                {
+                    string fld = (si == 0 || si == 2) ? "desc" : "descZh";
+                    string t = si == 0 ? cd.Desc : si == 1 ? cd.DescZh : si == 2 ? offEn : offZh;
+                    bool fromOfficial = si >= 2;
+                    if (string.IsNullOrEmpty(t)) continue;
+                    if (!seenText.Add(cd.Id + "|" + fld + "|" + t)) continue;        // 两列常常逐字相同（官方值就是我们那份）
+                    if (!CardPresentation.CardIcons.HasRenderedMarkup(t)) continue;   // 只扫「已经渲染过」的那一批
+                    if (CardPresentation.CardIcons.HasOfficialMarks(t)) continue;     // 那一档本来就走 `RewriteMarks`
+                    checkedFields++;
+                    if (fromOfficial) officialFields++;
+                    string outp = CardPresentation.CardIcons.Rewrite(cd.Id, fld, t);
+                    if (!string.Equals(outp, t, System.StringComparison.Ordinal))
+                        changed.Add(cd.Id + "/" + fld + (fromOfficial ? "（官方列）" : "（卡池列）"));
+
+                    // 计划表里**有没有**一条会在拆掉闸之后被落实的 token（= 这条断言的判别力从哪来）
+                    PlanField[] fs;
+                    if (planById.TryGetValue(cd.Id, out fs) && fs != null)
+                        foreach (var pf in fs)
+                        {
+                            if (pf == null || pf.name != fld || pf.items == null) continue;
+                            foreach (var it in pf.items)
+                                if (it != null && !string.IsNullOrEmpty(it.token) && !string.IsNullOrEmpty(it.sprite)
+                                    && t.IndexOf(it.token, System.StringComparison.Ordinal) >= 0)
+                                { hazardFields++; hazards.Add(cd.Id + "/" + fld + "←`" + it.token + "`"); break; }
+                        }
+                }
+            }
+            Check(checkedFields >= 1 && officialFields >= 1,
+                  "⑮ 前提：卡池里找得到「正文已带 `<sprite>`/`<link=>` 渲染标签、且没有待展开官方记号」的字段" +
+                  "（今天 = **" + checkedFields + "** 个，其中 **" + officialFields + "** 个来自官方 `Card_Description`" +
+                  " —— 那一批才是**真渲染源**）—— ⛔ 任一为 0 = 本条恒真/只扫到作废的那一列", ref bad);
+            Check(changed.Count == 0,
+                  "★ ⑮ **已经渲染过的正文过 `Rewrite` 必须逐字节不变**（不许再插图标）：扫了 **" + checkedFields +
+                  "** 个字段，变了 **" + changed.Count + "** 个" +
+                  (changed.Count == 0 ? "" : "（" + string.Join(" · ", changed.GetRange(0, Mathf.Min(5, changed.Count)).ToArray()) + "）") +
+                  "。🧨 改坏法：删掉 `CardIcons.Rewrite` 开头 `|| HasRenderedMarkup(text)` 那半条件 ⇒ " +
+                  "`GSC65`/`GSC56`/`GSC45`/`e9952f5…` 那几张的官方图标旁边会再插一枚（中英两列都会）⇒ 红", ref bad);
+            Check(hazardFields >= 1,
+                  "⑮【灭自证】扫到的字段里**至少有一个**在计划表里有能落实的 token（今天 = **" + hazardFields + "**：" +
+                  (hazards.Count == 0 ? "（无）" : string.Join(" · ", hazards.GetRange(0, Mathf.Min(6, hazards.Count)).ToArray())) +
+                  "）—— 有它们，上面那条才不是恒真；⛔ 变成 0 就说明这批 token 已被生成器清掉，本条要**重新挑判据**", ref bad);
+            if (checkedFields > 0) Log("⑮ 已扫 " + checkedFields + " 个「已渲染」字段 · 其中 " + hazardFields + " 个带计划表 token");
+        }
+
+        // ═════════════ ⑰ 卡面**不印**的关键词不补印（卡牌线 `A8` · 2026-10-23）════════════
+        //
+        // 🔴 **判据 = PnP 成品卡图**（铁律 7），逐张亲读的清单与理由 → `Core/CardText.cs` 的
+        //   `NeverSupplement` 那段注释（4 张 `Ephemeral` 卡面不印；`Reanimate` 印，是反例）。
+        //   **断的形状**：
+        //     ① **全域**：全池带 `Ephemeral` 的卡，`KeywordSegment` 的产物里**一枚都不许有**那个词
+        //        （=「补印」这条路对 `Ephemeral` 彻底关掉）；
+        //     ② **正面对照**：`stomp` / `talent` 的补印**必须仍然发生**（至少各 ≥1 张卡补得出来）——
+        //        否则「凡是没声明就都不补」也会让 ① 变绿（这就是本条灭自证的那一半）。
+        //   🧨 改坏法：把 `NeverSupplement` 里的 `"ephemeral"` 删掉 ⇒ ① 里那 4 张立刻有词 ⇒ 红。
+        {
+            var cards = RuleEngine.CardDatabase.Load();
+            var ephWords = new[] { "短暂的", "Ephemeral" };
+            var hits = new List<string>();
+            int ephCards = 0, stompSupp = 0, talentSupp = 0;
+            foreach (var cd in cards)
+            {
+                if (cd == null || string.IsNullOrEmpty(cd.Id)) continue;
+                bool hasEph = false, hasStomp = false, hasTalent = false;
+                if (cd.Keywords != null)
+                    foreach (var kv in cd.Keywords)
+                    {
+                        string k = CardPresentation.Badges.KeyOf(kv.Key);
+                        if (k == "ephemeral") hasEph = true;
+                        else if (k == "stomp") hasStomp = true;
+                        else if (k == "talent") hasTalent = true;
+                    }
+                if (!hasEph && !hasStomp && !hasTalent) continue;
+                string offZh = CardPresentation.Loc.OfficialCurrent("Card_Description/" + cd.Id);
+                string offEn = CardPresentation.Loc.OfficialEnglish("Card_Description/" + cd.Id);
+                string bodyZh = !string.IsNullOrEmpty(offZh) ? offZh : cd.DescZh;
+                string bodyEn = !string.IsNullOrEmpty(offEn) ? offEn : cd.Desc;
+                if (hasEph)
+                {
+                    ephCards++;
+                    string segZh = CardPresentation.CardText.KeywordSegment(cd.Keywords, true, bodyZh, cd.NumericKeywords);
+                    string segEn = CardPresentation.CardText.KeywordSegment(cd.Keywords, false, bodyEn, cd.NumericKeywords);
+                    foreach (var w in ephWords)
+                        if ((segZh != null && segZh.IndexOf(w, System.StringComparison.OrdinalIgnoreCase) >= 0)
+                            || (segEn != null && segEn.IndexOf(w, System.StringComparison.OrdinalIgnoreCase) >= 0))
+                        { hits.Add(cd.Id + "(" + w + ")"); break; }
+                }
+                if (hasStomp && !string.IsNullOrEmpty(CardPresentation.CardText.KeywordSegment(cd.Keywords, true, bodyZh, cd.NumericKeywords)))
+                    stompSupp++;
+                if (hasTalent && !string.IsNullOrEmpty(CardPresentation.CardText.KeywordSegment(cd.Keywords, true, bodyZh, cd.NumericKeywords)))
+                    talentSupp++;
+            }
+            Check(ephCards >= 4,
+                  "⑰ 前提：全池带 `Ephemeral` 的卡 **≥4** 张（实得 " + ephCards + "）—— 小于 4 说明卡池没加载全，本条会变成恒真", ref bad);
+            Check(hits.Count == 0,
+                  "★ ⑰ **卡面不印的关键词不许补印**：全池 " + ephCards + " 张带 `Ephemeral` 的卡里，" +
+                  "`KeywordSegment` 产物含那个词的 **" + hits.Count + "** 张" +
+                  (hits.Count == 0 ? "（正确：`Ephemeral` 只在正文自己声明过时才出现）" : "（" + string.Join(" · ", hits.GetRange(0, Mathf.Min(6, hits.Count)).ToArray()) + "）") +
+                  "。🧨 改坏法：删掉 `Core/CardText.cs` 的 `NeverSupplement` 里 `\"ephemeral\"` ⇒ `Deadliest Killer` / " +
+                  "`Experimental Bio-Horrors` / `Vox-Hacker` / `Hardwired Destruction` 四张卡面又会多印「短暂的。」" +
+                  "（PnP 卡图都没有那一句）⇒ 红", ref bad);
+            Check(stompSupp >= 1 && talentSupp >= 1,
+                  "⑰【灭自证】**压制是按词分的、不是一刀切**：`stomp` 补印 " + stompSupp + " 张、`talent` 补印 " +
+                  talentSupp + " 张（两张都 ≥1 —— 因为 PnP 卡面容得下它们：`Mozrog Skragbad` 印 `Stomp`、" +
+                  "`Boss Zagstruk` 印 `Talent: Worst Temper`）。⛔ 任一为 0 说明有人把「没声明就都不补」写进去了", ref bad);
+            if (ephCards > 0) Log("⑰ 扫过 " + ephCards + " 张带 Ephemeral 的卡 · 补印 0 张 · stomp/talent 补印 " + stompSupp + "/" + talentSupp);
         }
 
         Finish(bad);

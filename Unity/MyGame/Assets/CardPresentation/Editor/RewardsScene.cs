@@ -1042,6 +1042,52 @@ public static class RewardsScene
         CheckNear(bandW, 165f, 2.0f, "左栏底图带**宽**(px)");
         CheckAt(FindChild(bar, "Shadow"), 167.18f, 214.81f, 70.94f, 1080f, "`Tab Buttons/Shadow`（窄 47.64）");
 
+        // ---------------- `Content Area/Shadow (1)`（🆕 2026-10-23 · A13 · 界面线第四批）----------------
+        //  判据 = **解包资源逐窗现读**（⛔ 不是我们的常量）：
+        //    `python -I -X utf8 工具/menu_rect.py bundle_menus_assets_all "Rewards Base Submenu Variant" --depth 3`
+        //      ⇒ `Content Area/Shadow (1)  330.37  70.94  379.81  1080.00  INACT`（宽 49.43）
+        //    `python -I -X utf8 工具/menu_dump.py bundle_menus_assets_all "Rewards Base Submenu Variant" --depth 3 --no-sprite`
+        //      ⇒ 组件 `Image,LayoutElement` · 色 `(0,0,0,0.475)` · sprite `40k_main_tab_shadow` 51×4 Simple
+        //        （与左栏那颗 `Tab Buttons/Shadow` **同一张图、同一个色**）。
+        //  精确值由 prefab 序列化字段算（`m_SizeDelta.x = −1703.397216796875` + 父 `−167.169921875`）
+        //  ⇒ 宽 **49.432861328125**（算式与出处 → `Shell/MainMenuSubmenuWindow.Shadow1W` 的 doc）。
+        //  ⚠️ 这一件**出厂关着** ⇒ 量它必须带 `true`（`RectOf` / `CheckRectPx` 那一路只找激活链上的块）。
+        //  ⚠️ **四扇窗同值**（商店 / 社交 / 收藏 / 奖励，`menu_rect` 逐窗现读），建树在**共用件** `BuildShell` 里 ⇒
+        //     本宿主与 `Editor/ShopScene.cs` 那一组是**同一件事的两个宿主**（社交那扇在 `Editor/MainMenuScene.cs`，属别人的批）。
+        //  🧨 改坏法：删掉 `MainMenuSubmenuWindow.BuildShell` 末尾那三行 ⇒ 第 1 条红；
+        //             去掉 `SetActive(false)` ⇒ 第 2 条红（它是半透明压暗件，开出来会把右边一片压黑）。
+        Section("`Content Area/Shadow (1)`（原版也有、**出厂 INACT**）");
+        {
+            var s1 = FindChild(area, "Shadow (1)");
+            CheckTrue(s1 != null, "★ `Content Area/Shadow (1)` **建出来了**（原版有、我们原来整件不建）");
+            CheckTrue(s1 != null && !s1.gameObject.activeSelf, "★ …而且**出厂关着**（原版 `m_IsActive = 0`）");
+            CheckAt(s1, 330.374878f, 379.807739f, 70.94f, 1080f,
+                    "★ `Shadow (1)` 在 **[330.3749,70.94]–[379.8077,1080.00]**"
+                  + "（原版 prefab 字段算：中心 = `(960+83.5899658203125) − 688.4986572265625`、"
+                  + "宽 = `(1920−167.169921875) − 1703.397216796875`）");
+            var s1rt = s1 as RectTransform;
+            CheckNear(s1rt != null ? s1rt.rect.width : -1f, LayoutSpace.Px(MainMenuSubmenuWindow.Shadow1W), 0.001f,
+                      "★ `Shadow (1)` 宽 = **49.4329**（⛔ 与左栏那颗 47.64 的 `Tab Buttons/Shadow` **不是同一件**）");
+            var s1quads = s1 != null ? s1.GetComponentsInChildren<ImageQuad>(true) : new ImageQuad[0];
+            Check(s1quads.Length, 1, "★ `Shadow (1)` 底下**恰好 1 块** `ImageQuad`（原版只挂一个 `Image`）");
+            if (s1quads.Length > 0 && s1quads[0] != null && s1quads[0].Texture != null)
+            {
+                CheckTrue(s1quads[0].Texture.name == MainMenuSubmenuWindow.ArtBarShadow,
+                          $"★ …贴图 = **`{MainMenuSubmenuWindow.ArtBarShadow}`**（与左栏那颗同源；"
+                        + $"现读「{s1quads[0].Texture.name}」）");
+                var s1t = s1quads[0].Tint;
+                CheckTrue(Mathf.Abs(s1t.r) < 0.002f && Mathf.Abs(s1t.g) < 0.002f && Mathf.Abs(s1t.b) < 0.002f
+                          && Mathf.Abs(s1t.a - 0.4745098f) < 0.002f,
+                          "★ …色 = **(0,0,0,0.4745)**（原版 `Image.m_Color` 实读）"
+                        + $"（实得 {s1t.r:F4},{s1t.g:F4},{s1t.b:F4},{s1t.a:F4}）");
+            }
+            else
+            {
+                CheckTrue(false, "★ `Shadow (1)` 底下那块 `ImageQuad`（或它的贴图）取不到"
+                               + " ⇒ 上面「贴图」「色」两条**等于没查**（如实红，不假装）");
+            }
+        }
+
         Section("五个键（§二·2：VLG padTop 120 ⇒ 绝对 y 190.94 / 370.94 / 550.94 / 730.94 / 910.94）");
         // 🔴 **2026-10-16（A815）就地改口径（铁律 5）**：本节原来叫「四个键」、`tops` 四格 —— 当时键表
         //    （`RewardsWindow.Buttons`）**4 项**、其中第 4 项是**原版母版按钮**（`Booster Packs`，运行期关着）。

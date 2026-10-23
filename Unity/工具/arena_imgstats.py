@@ -26,6 +26,16 @@ import sys
 from PIL import Image
 
 
+## A17 2026-10-24: -h/--help early exit (print usage only, exit 0; never run the real work).
+import sys as _wf_help_sys
+if any(_wf_help_sys.argv[_i] in ("-h", "--help") for _i in range(1, len(_wf_help_sys.argv))):
+    try:
+        _wf_help_sys.stdout.reconfigure(encoding="utf-8")
+    except Exception:
+        pass
+    print('用法：\n    python 工具/arena_imgstats.py <图1.png> [图2.png ...]        # 每张一组指标\n    python 工具/arena_imgstats.py --pair <我们.png> <原版.png>    # 再加一列比值 + 分区表\n  -h, --help  只打印本用法并退出（退出码 0），不执行任何真活。')
+    _wf_help_sys.exit(0)
+
 def stats(img):
     img = img.convert("RGB")
     w, h = img.size

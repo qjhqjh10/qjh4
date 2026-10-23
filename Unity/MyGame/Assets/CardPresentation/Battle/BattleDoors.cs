@@ -105,11 +105,18 @@ namespace CardPresentation
 
         VideoPlayer _player;
         RenderTexture _rt;
+        /// <summary>🔴 **2026-10-24（`B-26`）**：原版 `BattleDoors/Canvas`（GO `Canvas_1091`）那一级
+        /// —— 本件 + `EndPanel` 共用的**子画布**（由 <see cref="CreateEnvelope"/> 建在
+        /// `BattleDoors` 节点**下面**，照原版的树）。</summary>
+        RectTransform _canvas;
+        /// <summary>共用的子画布（原版 `BattleDoors/Canvas`）。`null` = 没建起来（已出声）。</summary>
+        public RectTransform CanvasTransform { get { return _canvas; } }
         /// <summary>显示层。🔴 **2026-10-16（`T09` 批 2）起是 uGUI 的 `RawImage`**（不再是世界空间 quad）——
         /// 两条判据：① **原版那一件本身就是 `RawImage`**（见文件头「它为什么是播视频」那段）；
         /// ② **`Image` 这条路 API 上根本走不通**：`Image` 要的是 `Sprite`，而 `Sprite.Create` 只吃
         /// **`Texture2D`** —— 我们的图源是 `RenderTexture`（⛔ 不是「没试」，是不能）。
-        /// ⚠️ 节点挂在 `BattleDoors` 那一级下 ⇒ 跟着 `localScale 1.06647`（`A2105②`：画出来 2048×1152）。</summary>
+        /// ⚠️ 节点挂在原版 `Video Image` 下面（`B-26` 起；它自己就是原版那一颗的「显示」半边）
+        /// ⇒ 跟着父链的 `localScale 1.06647`（`A2105②`：画出来 2048×1152）。</summary>
         RectTransform _screenRt;
         RawImage _screen;
         Material _mat;
@@ -167,11 +174,22 @@ namespace CardPresentation
         /// <summary>🔴 **原版 `BattleDoors` 节点自己的 `RectTransform` 尺寸**（2026-10-11 · A218 现读）：
         /// `bundle_scenes_scenes_battlearena1` 的 `GameObject «BattleDoors»`（go_pid 60）→ `RectTransform`
         /// `anchor (0.5,0.5) 重合` · `pivot (0.5,0.5)` · **`m_SizeDelta = (1920.1199, 1118.9810)`** ·
-        /// `m_AnchoredPosition = (−0.064, −5.276)` · **`m_LocalScale = 1.0665`**（⇒ 视觉 2048×1193，
+        /// **`m_AnchoredPosition = (−0.064, −5.276)`** · **`m_LocalScale = 1.0665`**（⇒ 视觉 2048×1193，
         /// 比屏大一圈 —— 开门视频要盖过屏幕边缘，**原版如此**）。
-        /// ⚠️ 我们这一层不渲染任何东西（真正的显示是 `_screen` 那颗 quad）⇒ 矩形**照抄原版那一对数值**，
-        /// 缩放不复刻（我们的节点 `localScale` 恒 1）。</summary>
+        /// ⚠️ 我们这一层不渲染任何东西（真正的显示是 `_screen` 那颗 quad）⇒ 矩形**照抄原版那一对数值**。
+        /// <para>🔴 **2026-10-24（`A28`）就地订正（铁律 5）**：本段原文最后一句写着「缩放**不复刻**」
+        /// —— **已过期**（`A2105②` 已把 `localScale` 补上，见 `DoorsScale`）；而 **`m_AnchoredPosition`
+        /// 那一对当时确实没抄**（`CreateEnvelope` 只写了 `sizeDelta` ⇒ 落在 (0,0)，整块面板/视频偏高 5.28 px）。
+        /// 现在补上 → **`DoorsApX/Y`**（同一份 `RT` = `RectTransform_2717.json`，逐位照抄）。</para></summary>
         const float DoorsBoxW = 1920.1199f, DoorsBoxH = 1118.9810f;
+
+        /// <summary>🔴 **2026-10-24（`A28`）：`BattleDoors` 自己的 `m_AnchoredPosition`**（原版
+        /// `bundle_scenes_scenes_battlearena1/RectTransform/RectTransform_2717.json`，m_GameObject = GO 60
+        /// = «BattleDoors»；`m_AnchorMin/Max = m_Pivot = (0.5, 0.5)`）。
+        /// 📌 同一对值在 `2D层_battlearena2全树.md:1195` 那棵树里表现为「整块比屏心低 5.28 px」
+        /// （`[-960,526 1920x1119]` 的中心 y = 1085.28 vs 画布中心 1080）。
+        /// 🧨 漏抄（= 我们改之前的 (0,0)）⇒ `Editor/BattleScene.cs` 的 `A28·Doors` 那条红。</summary>
+        const float DoorsApX = -0.0640869140625f, DoorsApY = -5.276123046875f;
 
         /// <summary>🔴 **2026-10-15（账 `A2105②`）**：原版 `BattleDoors` 自己的 `m_LocalScale`（实测 lossyScale
         /// **1.06647**；序列化字段读出来是 **1.0665**，两者差 0.003%、可忽略）。
@@ -208,59 +226,102 @@ namespace CardPresentation
                                "⇒ 结算面板与开门**这一对都建不出来**");
                 return null;
             }
-            // 🔴 **2026-10-16（修波 `FD` · 账 `F10`）**：这里原来是三行包装
-            //   `var found = HudCanvas.SubCanvas(CanvasName); if (found != null) return …;`
-            //   ＋ `return HudCanvas.EnsureSubCanvas(…)`（配套那句「`EnsureSubCanvas` 每调一次就新建」）——
-            //   **已删**：它现在自己就按名字幂等（复用路径还会对齐层/order + 重排次）。
-            // ⚠️ 上面那两条**保留**：① `Ensure(LayoutSpace.Cam)` 是 `W8`/`W43` 那族
-            //   「`EnsureSubCanvas` 之前先 `Ensure`」的必需项；② 根为空的 guard 给出的是**本对专用**的
-            //   错误文案（`EnsureSubCanvas` 自己那句更通用）。
-            return HudCanvas.EnsureSubCanvas(null, CanvasName, HudCanvas.SortingLayer.PopUps, 0);
+            // 🔴 **2026-10-24（`B-26`）**：这块画布现在**挂在 `BattleDoors` 节点下面**（照原版的树
+            //   `BattleHud/Canvas/BattleDoors/Canvas`）⇒ 先按名字找（`SubCanvas` 已含嵌套），
+            //   找不到才建**外骨架**（外骨架会把它建在自己的 `CanvasTransform` 上）。
+            //   ⛔ 别再像改之前那样直接在根 canvas 下平铺一块同名的 —— 那会与 `BattleDoors` 分家。
+            var found = HudCanvas.SubCanvas(CanvasName);
+            if (found != null) return (RectTransform)found.transform;
+            var d = CreateEnvelope();
+            return d != null ? d.CanvasTransform : null;
         }
 
-        public static BattleDoors Create(Transform parent)
+        /// <summary>
+        /// 🔴🔴 **2026-10-24（`B-26`）**：建**外骨架** —— 原版那棵树是
+        /// **`BattleHud/Canvas/BattleDoors/Canvas/EndBattlePanel`**
+        /// （出处 `资料/说明书/01_战斗_对战/2D层_battlearena2全树.md:1195-1200`）。
+        /// <para>本函数只建上面那**两级**：`BattleDoors`（RT · `m_SizeDelta (1920.1199, 1118.981)` ·
+        /// `localScale 1.06647`）+ 它下面的 `Canvas`（我们沿用自己的名字 `BattleDoors Canvas`）。
+        /// 返回的组件的 `gameObject` **就是原版那颗 `BattleDoors`**（`EndBattleDoors` 脚本也挂在它身上）。</para>
+        /// <para>⛔ **视频那两颗节点不在这里建**：原版 `Video Image` 是 `EndBattlePanel` 的**子件**
+        /// ⇒ 由 <see cref="BuildVideo"/> 按「面板根」建（`EndPanel.Build` 调它）。
+        /// 改坏法：把面板再挂回根 canvas（= 我们改之前那棵 `EndPanel → BattleDoors` 的倒置树）
+        /// ⇒ `Editor/BattleScene.cs` 的 `B-26` 那条「父子链」断言红。</para>
+        /// </summary>
+        public static BattleDoors CreateEnvelope()
         {
-            // 🔴 **2026-10-16（`T09` 批 2 · `PopUps` 组）：本件已迁到 uGUI。**
-            //    · **宿主**：父件**已经在画布上**（生产路 = `EndPanel.Build` 传进来的 `EndPanel` 根）⇒
-            //      **照旧挂在它下面**；否则（独立建，例如探针）⇒ 挂到这一对共用的子画布下。
-            //      🔴 **我们与原版唯一一处已知的父子颠倒**：原版 `EndBattlePanel` 是 `BattleDoors/Canvas`
-            //      **的子件**、我们反过来（`BattleDoors` 是 `EndPanel` 的子件）—— **本次有意不翻**（另一笔账），
-            //      如实记在 `EndPanel` 文件头那一段。
-            //    · 根矩形 = **原版 `BattleDoors` 自己的 `m_SizeDelta`**（见 `DoorsBoxW/H` 的注释）—— 判据没变，
-            //      变的只是**单位**：`HudCanvas.SetPxSize` 写**真 px**（⛔ `MenuDraw.SetPxSize` 是 ÷108）。
-            //    · 改坏法：删掉 `SetPxSize` 那句 ⇒ `Editor/BattleScene.cs` §A218「`BattleDoors` 的 rect = 原版矩形」红。
-            var host = parent != null && parent.GetComponentInParent<Canvas>() != null
-                     ? parent : (Transform)PairCanvas();
-            if (host == null) return null;       // `PairCanvas` 已出声（⛔ 不退回世界空间 quad）
+            HudCanvas.Ensure(LayoutSpace.Cam);              // 幂等（根 canvas 要 `LayoutSpace.Apply` 之后才立得起来）
+            if (HudCanvas.RootRect == null)
+            {
+                Debug.LogError("[BattleDoors] 根 canvas 没建起来（`LayoutSpace.Cam` 为空？）"
+                             + "⇒ 结算面板与开门**这一对都建不出来**");
+                return null;
+            }
             var go = new GameObject("BattleDoors", typeof(RectTransform));
-            go.transform.SetParent(host, false);
-            HudCanvas.SetPxSize((RectTransform)go.transform, DoorsBoxW, DoorsBoxH);
-            // 🔴🔴 **2026-10-15（账 `A2105②` · `C2` 查出）就地补上：原版这一颗的 `m_LocalScale = 1.0665`
-            //   （实测 lossyScale **1.06647**），**我们原来把它写成「不复刻」** —— 那不是「原版查不到」，
-            //   数值就在父链上（铁律 11 ⇒ 要做）。不乘的后果：**整个结算转场比原版小 6.65%** ——
-            //   开门视频 1920×1080（应 **2048×1152**）· 骷髅底板 648.1×52.4（应 **691.2×55.9**）。
-            //   ⚠️ 加在这一颗上、**不是**逐件改尺寸：原版就是「父件带缩放、子件照自己的 sizeDelta」，
-            //     子件（`video_player` 1920×1080 · `_screen` · 奖励面板）跟着一起放大才是对的。
-            //   ⚠️ 若将来把奖励面板挂到**别处**（不在此节点下），它要**自己**补同一个缩放 ——
-            //     `C2` 实测原版 `EndBattlePanel`/`SkullsHolder`/`AllRewardsHolder` 的 lossyScale 都是 1.06647。</summary>
+            go.transform.SetParent(HudCanvas.RootRect, false);
+            // 根矩形 = **原版 `BattleDoors` 自己的 `m_SizeDelta`**（见 `DoorsBoxW/H` 的注释）。
+            var goRt = (RectTransform)go.transform;
+            HudCanvas.SetPxSize(goRt, DoorsBoxW, DoorsBoxH);
+            // 🔴 **2026-10-24（`A28`）**：`m_AnchoredPosition = (−0.064, −5.276)` —— 与 `sizeDelta` **同一份 RT**
+            //   （`RectTransform_2717.json`）。`SetPxSize` 只写 `sizeDelta`（锚点/枢轴居中），**不碰位置**
+            //   ⇒ 不补这一句就落在 (0,0)：整块面板 / 视频 / 骷髅**比原版高 5.28 px**（16:9 下也看得出来，
+            //   只是没有对照物时不容易发现）。判据见 `DoorsApX/Y`。
+            goRt.anchoredPosition = new Vector2(DoorsApX, DoorsApY);
+            // 🔴 **2026-10-15（账 `A2105②`）**：原版这一颗的 `m_LocalScale = 1.0665`（实测 lossyScale 1.06647）。
+            //   加在这一颗上、**不是**逐件改尺寸：原版就是「父件带缩放、子件照自己的 sizeDelta」，
+            //   子件（`EndBattlePanel` / `Video Image` / 骷髅底板）跟着一起放大才对。
             go.transform.localScale = Vector3.one * DoorsScale;
             var d = go.AddComponent<BattleDoors>();
-            d.Build();
+            // 原版 `BattleDoors/Canvas`（GO `Canvas_1091`）= 这一对共用的**子画布**（PopUps / order 0）。
+            d._canvas = HudCanvas.EnsureSubCanvas((Transform)go.transform, CanvasName,
+                                                  HudCanvas.SortingLayer.PopUps, 0);
+            return d;
+        }
+
+        /// <summary>
+        /// 建一颗**独立的** `BattleDoors`（外骨架 + 视频节点），给探针用（先例 `A218`）。
+        /// <paramref name="panelRoot"/> = 原版 `EndBattlePanel` 那一级
+        /// （`Video Image` 挂在它下面）；传 `null` ⇒ 退到共用的子画布下（探针自己没建面板时）。
+        /// ⚠️ 生产路**不**走这里 —— `EndPanel.Create` 自己调 <see cref="CreateEnvelope"/> 再
+        /// 用 `CanvasTransform` 建面板，然后 `EndPanel.Build` 调 <see cref="BuildVideo(_root)"/>。
+        /// </summary>
+        public static BattleDoors Create(Transform panelRoot)
+        {
+            var d = CreateEnvelope();
+            if (d == null) return null;
+            // 🔴 **2026-10-24（`B-26`）**：探针常把「裸节点」当面板根传进来（不在任何画布上）——
+            //   那时退到**共用的子画布**下（与改之前的选宿主口径同义）。两个理由：
+            //   ① uGUI 件不在画布父链上**根本不渲染**；② 自检那把「画布子件按**设计 px** 读 `rect`」
+            //      的尺子只在画布父链下成立（否则 `sizeDelta` 会被当成世界单位、差 108 倍）。
+            var host = panelRoot != null && panelRoot.GetComponentInParent<Canvas>() != null
+                     ? panelRoot : (Transform)d._canvas;
+            d.BuildVideo(host);
             d.Hide();
             return d;
         }
 
-        void Build()
+        /// <summary>🔴 **2026-10-24（`B-26`）**：建视频那两颗节点 —— 原版
+        /// **`EndBattlePanel/Video Image`**（`[-966,481 1920x1080]`，`VideoPlayer` 的宿主）。
+        /// <para>⚠️ **如实记一处「一拆二」**：原版 `Video Image` 一颗节点上同时挂着 `VideoPlayer` 与
+        /// `RawImage`；我们拆成 **`Video Image`（`VideoPlayer` 宿主）+ 它的子件 `video_screen`（`RawImage`）**
+        /// —— 因为 `DropFrame()` 只关显示层、不关解码器那一颗（合成一颗会让「丢帧」顺手把解码器停掉）。
+        /// 两层的位置/尺寸**逐值照旧**（`Video Image` 1920×1080 居中；`video_screen` 中心偏移 (−6, +64)）。</para>
+        /// </summary>
+        public void BuildVideo(Transform panelRoot)
         {
-            // 🔴 **2026-10-11（A218）**：本节点是**原版那一颗 `Video Image`**（照 `Create` 上面那段注释：
-            //    原版 `Video Image` 的 `Image` 上传着视频；`VideoPlayer` 组件的宿主**就是它** ——
-            //    `bundle_scenes_scenes_battlearena1` 的 `VideoPlayer/VideoPlayer_3593` → 宿主 «Video Image» 实读）。
-            //    ⇒ 矩形照它：**1920×1080**（RT · `sizeDelta (1920,1080)` · `anchor (0.5,0.5) 重合`）。
-            //    ⚠️ 我们把它拆成两半：**组件宿主**（本节点）与**显示 quad**（`_screen`，1920×1080 那颗）；
-            //    原版是同一颗节点。改坏法：删掉 `SetPxSize` ⇒ `Editor/BattleScene.cs` §A218 那条红。
-            var go = new GameObject("video_player", typeof(RectTransform));
-            go.transform.SetParent(transform, false);
+            if (panelRoot == null)
+            {
+                Debug.LogError("[BattleDoors] `BuildVideo` 没有面板根 ⇒ `Video Image` 建不出来（结算时没有开门视频）");
+                return;
+            }
+            // 原版 `Video Image`：`VideoPlayer` 组件的宿主就是它（`bundle_scenes_scenes_battlearena1` 的
+            // `VideoPlayer_3593` → GO «Video Image» 实读）。矩形 = **1920×1080**（`RT sizeDelta`、中心锚）。
+            var go = new GameObject("Video Image", typeof(RectTransform));
+            go.transform.SetParent(panelRoot, false);
             HudCanvas.SetPxSize((RectTransform)go.transform, ScreenWidthPx, ScreenHeightPx);
+            // 兄弟序：压暗(Background, −0.50) → 视频(−0.55) → 奖励/内容(−0.60) ⇒ 画出来
+            // 「压暗在底、视频居中、内容在最上」（与改之前那三层同值，见 `ZDim/ZVideo/ZContent`）。
+            HudCanvas.Add((RectTransform)go.transform, ZVideo);
             _player = go.AddComponent<VideoPlayer>();
             _player.playOnAwake = false;
             _player.isLooping = false;
@@ -269,7 +330,8 @@ namespace CardPresentation
             _player.skipOnDrop = true;
             _player.gameObject.SetActive(false);
 
-            // 🆕 开门音效那条路（**与视频无关的另一支** —— 原版那三条 .mp4 没有音轨）
+            // 🆕 开门音效那条路（**与视频无关的另一支** —— 原版那三条 .mp4 没有音轨）。
+            //    宿主挂在 `BattleDoors` 外节点上（它是「一次开门」的那颗脚本节点，和原版同构）。
             _sfx = gameObject.AddComponent<AudioSource>();
             _sfx.playOnAwake = false;
             _sfx.loop = false;
@@ -319,7 +381,10 @@ namespace CardPresentation
             const float cxPx = ScreenWidthPx * 0.5f - 6f;    // 954（dump：`Video Image` @ x = −6）
             const float cyPx = 540f - 64f;                   // 476（dump：@ y = +64）
             var sgo = new GameObject("video_screen", typeof(RectTransform));
-            sgo.transform.SetParent(transform, false);
+            // 🔴 **2026-10-24（`B-26`）**：挂到原版 `Video Image` 那一颗下面（它 = `VideoPlayer` 宿主）。
+            //   位置是「相对**父中心**的 (−6, +64) px」，父件本身就是中心锚、1920×1080 ⇒ 与挂在
+            //   `EndBattlePanel` 上**逐位同址**（父件的中心就是面板中心），画面不动。
+            sgo.transform.SetParent(_player != null ? _player.transform : transform, false);
             _screenRt = (RectTransform)sgo.transform;
             // 🔴 **2026-10-16（修波 `FD` · `G5` 报的）：原来这里内联了这个式子的【中心锚特化形】**
             //   `new Vector2(cxPx − 960f, 540f − cyPx)`（`0.5 × 1920` 与 `1080 × 0.5` 都**精确可表示**

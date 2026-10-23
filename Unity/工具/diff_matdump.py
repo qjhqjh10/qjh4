@@ -22,6 +22,16 @@ import re
 import sys
 from collections import OrderedDict
 
+## A17 2026-10-24: -h/--help early exit (print usage only, exit 0; never run the real work).
+import sys as _wf_help_sys
+if any(_wf_help_sys.argv[_i] in ("-h", "--help") for _i in range(1, len(_wf_help_sys.argv))):
+    try:
+        _wf_help_sys.stdout.reconfigure(encoding="utf-8")
+    except Exception:
+        pass
+    print('用法：\n    unset ELECTRON_RUN_AS_NODE && WFCMP_MATDUMP=1 WFCMP_SIMT=0.4       "$UNITY" -batchmode -quit -projectPath "D:\\4\\Unity\\MyGame"       -executeMethod EffectCompare.Run -logFile "d:/4/_tmp_view/matdump.log"\n    python 工具/diff_matdump.py d:/4/_tmp_view/matdump.log\n  -h, --help  只打印本用法并退出（退出码 0），不执行任何真活。')
+    _wf_help_sys.exit(0)
+
 MD = re.compile(r"^MD (.*?) \| mat=(.*?) \| shader=(.*?) \| queue=(-?\d+) \| keys=\[(.*?)\](.*)$")
 KV = re.compile(r"([A-Za-z_][A-Za-z0-9_]*)=(\S+)")
 

@@ -87,6 +87,16 @@ import sys
 # 🔴 **UTF-8 stdout 兜底**（2026-10-07 · A200）：默认编码是 GBK（cp936）时，打印 `🔴` / `⚠️`
 #    会 `UnicodeEncodeError` **整个脚本崩掉**，中文还会全变乱码（终端、`> log.txt` 一样）。
 #    （同族先例：`extract_missing_shaders.py` · `_verify_prefab_bundle.py` 顶上那两段。）
+## A17 2026-10-24: -h/--help early exit (print usage only, exit 0; never run the real work).
+import sys as _wf_help_sys
+if any(_wf_help_sys.argv[_i] in ("-h", "--help") for _i in range(1, len(_wf_help_sys.argv))):
+    try:
+        _wf_help_sys.stdout.reconfigure(encoding="utf-8")
+    except Exception:
+        pass
+    print('用法：\n    "D:/2/Warpforge_tools/py312/python.exe" d:/4/Unity/工具/gen_animator_controllers.py\n加 `--check` = 只体检、不写文件（体检项同样含上面那节 `clipsByGuid`）。\n退出码 1 = 有控制器的 clip 没解出来，**或** `clipsByGuid` 那一节核对不过 / 读不到。\n  -h, --help  只打印本用法并退出（退出码 0），不执行任何真活。')
+    _wf_help_sys.exit(0)
+
 try:
     sys.stdout.reconfigure(encoding="utf-8")
 except Exception:

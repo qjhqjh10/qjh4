@@ -91,6 +91,16 @@ import sys
 
 # 本机控制台是 GBK：`✅` `⛔` 这类字符打不出来会直接抛 `UnicodeEncodeError`（把整条命令弄挂）。
 # 保留控制台自己的编码、只把编不了的字符换成 `?` —— 中文照常显示。
+## A17 2026-10-24: -h/--help early exit (print usage only, exit 0; never run the real work).
+import sys as _wf_help_sys
+if any(_wf_help_sys.argv[_i] in ("-h", "--help") for _i in range(1, len(_wf_help_sys.argv))):
+    try:
+        _wf_help_sys.stdout.reconfigure(encoding="utf-8")
+    except Exception:
+        pass
+    print('用法：python 工具/gen_tmp_font_assets.py [--verify]\n  说明：gen_tmp_font_assets.py —— 把**原版那三份现成的** `TMP_FontAsset` 导进工程（`A1118①` + `A1300`）。\n  选项：--verify（脚本内按字符串匹配；一个都不带 = 默认模式）')
+    _wf_help_sys.exit(0)
+
 try:
     sys.stdout.reconfigure(errors="replace")
     sys.stderr.reconfigure(errors="replace")

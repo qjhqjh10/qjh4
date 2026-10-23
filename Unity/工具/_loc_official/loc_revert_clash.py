@@ -15,6 +15,16 @@ import io
 import re
 import sys
 
+## A17 2026-10-24: -h/--help early exit (print usage only, exit 0; never run the real work).
+import sys as _wf_help_sys
+if any(_wf_help_sys.argv[_i] in ("-h", "--help") for _i in range(1, len(_wf_help_sys.argv))):
+    try:
+        _wf_help_sys.stdout.reconfigure(encoding="utf-8")
+    except Exception:
+        pass
+    print('用法：python 工具/_loc_official/loc_revert_clash.py [--apply]\n  说明：把【与卡面正文冲突】的那一族中文**暂缓换**回我们的旧值（只改这些键的 ZH 那一格）。\n  选项：--apply（脚本内按字符串匹配；一个都不带 = 默认模式）')
+    _wf_help_sys.exit(0)
+
 OLD = r"d:/4/Unity/工具/_loc_official/Loc_换官方前.cs.bak"
 NEW = r"d:/4/Unity/MyGame/Assets/CardPresentation/Core/Loc.cs"
 POOL = r"d:/4/Unity/MyGame/Assets/RuleEngine/Resources/cards_engine.json"

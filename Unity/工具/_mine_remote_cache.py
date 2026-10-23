@@ -19,6 +19,16 @@ import sys, os, io, json, struct, base64, re
 # 8 → 4 字节（Int32）；9 → 8 字节（Int64）。即 BinaryFormatter 走 InternalPrimitiveTypeE：
 # 1 Boolean · 2 Byte · 3 Char · 5 Decimal · 6 Double · 7 Int16 · 8 Int32 · 9 Int64
 # 10 SByte · 11 Single · 12 TimeSpan · 13 DateTime · 14 UInt16 · 15 UInt32 · 16 UInt64
+## A17 2026-10-24: -h/--help early exit (print usage only, exit 0; never run the real work).
+import sys as _wf_help_sys
+if any(_wf_help_sys.argv[_i] in ("-h", "--help") for _i in range(1, len(_wf_help_sys.argv))):
+    try:
+        _wf_help_sys.stdout.reconfigure(encoding="utf-8")
+    except Exception:
+        pass
+    print('用法:\n  python -I -X utf8 d:/4/Unity/工具/_mine_remote_cache.py <子命令> [参数]\n  -h, --help  只打印本用法并退出（退出码 0），不执行任何真活。')
+    _wf_help_sys.exit(0)
+
 PRIM = {1: ('B', 1, 'Boolean'), 2: ('B', 1, 'Byte'), 3: (None, 2, 'Char'),
         5: (None, 16, 'Decimal'), 6: ('d', 8, 'Double'), 7: ('h', 2, 'Int16'),
         8: ('i', 4, 'Int32'), 9: ('q', 8, 'Int64'), 10: ('b', 1, 'SByte'),

@@ -297,6 +297,7 @@ public static class CardBaseDemo
         Debug.Log(P + "--- 卡面：整卡倾摆 + 立绘不超出卡框（A112）+ 阵营行分档 ---");
         AssertCardTilt(cards[0]);
         AssertFrameCutout(cam);
+        AssertArtAlphaThroughFrame();     // 🆕 2026-10-24（K1 · `新账-66`）：立绘透框 = `1−α`（一次乘法，不是平方）
         AssertArmyLine();
 
         // ---- 4b. 卡面第四件：兵种行中文化（D5，2026-10-17）----
@@ -329,6 +330,10 @@ public static class CardBaseDemo
         // ---- 4e. 🆕 2026-10-23（D4 · F1 Step 2/3）：**3D 卡体 = 不透明档 + Depth/Shadow pass** ----
         Debug.Log(P + "--- 3D 卡体：不透明（Geometry 2000）+ DepthOnly/DepthNormalsOnly/ShadowCaster ---");
         AssertBodyOpaque();
+
+        // ---- 4g. 🆕 2026-10-24（L1 · `C1-B03`）：**描边与软光/影并层**（原版只有 1 颗 `Card Highlight And Shadow`）----
+        Debug.Log(P + "--- 描边并层（C1-B03）：绿光走软光/影那份 `Card Frame SDF`，不再有 `outlineGlow` 层 ---");
+        AssertOutlineMerged();
 
         // ---- 4f. 🆕 2026-10-23（D · `W63·层级审查` F4/F6）：**卡上特效随卡排队** + **手牌活动中那一段** ----
         Debug.Log(P + "--- 卡上特效随卡排队（F4）+ 手牌「活动中」档（F6）---");
@@ -617,6 +622,57 @@ public static class CardBaseDemo
         Object.DestroyImmediate(r2);
     }
 
+    /// <summary>🆕 **2026-10-24（K1 · `新账-66` alpha 口径收口）**：立绘透过卡框半透明处的份额 =
+    /// **`1 − α框`（一次乘法）**，⛔ 不是 `(1−α)²`。
+    ///
+    /// <para>判据（一手 · 反编译 + 解包 + 层序，全文 → `CardView.ArtVisibleThroughFrame` 的 doc）：
+    /// ① 原版 `Front` 子序 = `CardImage(2) → Textbackgrounds(3) → CardFrame(4)` ⇒ **立绘在下、卡框在上**；
+    /// ② 卡框用标准 alpha-over（`Everguild/Card ImageUI` / UI 默认材质 = `SrcAlpha OneMinusSrcAlpha`）；
+    /// ③ 全 prefab 唯一那颗 `SoftMaskScript` 的 `AlphaMask` 序列化值 = **null**（默认白 ⇒ α_mask=1 ⇒ 输出 0），
+    ///    它只把**自己那颗 Graphic**（CardFrame / textBackground）整层淡没，**不碰立绘**；
+    /// ④ `CardImage` 与 `CardFrame` 是**兄弟**（不是父子）⇒「立绘被乘两次」的前提不存在。</para>
+    ///
+    /// <para>🧨 **改坏法（三条都要能红）**：
+    /// · 把 `CardView.ArtVisibleThroughFrame` 改成平方 ⇒ 第 ① 组数字红（0.5 → 0.25、0.9 → 0.01）；
+    /// · 把立绘层挪到卡框**上面**（`ArtZ` 不再大于 `FrameZ`）⇒ 第 ② 条红；
+    /// · 给立绘换成吃贴图 alpha 的材质（「立绘逐顶点 alpha」那条平方改法）⇒ 第 ③ 条红。</para>
+    /// </summary>
+    static void AssertArtAlphaThroughFrame()
+    {
+        // ---- ① 公式：期望值直接来自「立绘在下、框在上」的标准 alpha-over 合成式 ----
+        //   框 α=0.5 ⇒ 立绘露 0.5 · α=0.9 ⇒ 0.1 · α=0 ⇒ 1 · α=1 ⇒ 0 · α=0.1 ⇒ 0.9。
+        //   ⚠️ 期望值是**常数**（不是把实现再算一遍）；非对称点 0.9 专挡「0.5 处恰好也对」的凑数改法。
+        var cases = new[]
+        {
+            new Vector2(0.5f, 0.5f), new Vector2(0.9f, 0.1f), new Vector2(0.1f, 0.9f),
+            new Vector2(0f, 1f),     new Vector2(1f, 0f),
+        };
+        foreach (var c in cases)
+        {
+            float got = CardView.ArtVisibleThroughFrame(c.x);
+            Check(Mathf.Abs(got - c.y) < 1e-4f,
+                  $"alpha 口径：框 α={c.x:0.###} ⇒ 立绘露 **{c.y:0.###}**（实测 {got:0.####}）"
+                + " —— 平方/反相/取 β 都会在这一组红（判据 → `CardView.ArtVisibleThroughFrame`）");
+        }
+
+        // ---- ② 层序：立绘必须在卡框**后面**（本仓 z 越小越靠前）----
+        // ---- ③ 立绘层必须**不吃贴图 alpha**（`ArtOpaque`：α 当 1）—— 这是上式退化成 `1−a_框` 的前提 ----
+        RuleEngine.CardDef def = null;
+        foreach (var c in RuleEngine.CardDatabase.Load())
+            if (c.Name == "Howling Banshee Exarch") { def = c; break; }
+        if (def == null) { Check(false, "卡池里找不到 `Howling Banshee Exarch` ⇒ ②③ 两条**没验到**（不是通过）"); return; }
+        var data = BattleDriver.ToCardData(def, def.Faction);
+        var root = new GameObject("art_alpha_probe");
+        var v = CardView.Create(root.transform, data, "art_alpha_probe");
+        Check(!float.IsNaN(v.ArtZ) && !float.IsNaN(v.FrameZ) && v.ArtZ > v.FrameZ,
+              $"立绘层在卡框**后面**（ArtZ={v.ArtZ:0.###} · FrameZ={v.FrameZ:0.###}）—— 反了就不是「按 `1−α` 透出」，"
+            + "而是整块盖住卡框");
+        Check(v.ArtShaderName == "CardPresentation/ArtOpaque",
+              $"立绘层走 `CardPresentation/ArtOpaque`（**忽略贴图 alpha**，实测 `{v.ArtShaderName}`）"
+            + " —— 换成吃 alpha 的材质就是「立绘逐顶点 alpha」那条平方改法");
+        Object.DestroyImmediate(root);
+    }
+
     /// <summary>
     /// 🆕 **2026-10-23（D2 · `W63·层级审查` 的 F2）**：**场上档特效锚点**的节点与位置。
     ///
@@ -800,6 +856,113 @@ public static class CardBaseDemo
             }
             else Check(true, "（⑥⑦ 跳过：取不到原版溶解 shader `Everguild/Cards/3D Card Dissolve`）");
         }
+        Object.DestroyImmediate(root);
+    }
+
+    /// <summary>
+    /// **描边与软光/影是同一颗件、同一份材质**（`C1-B03` 并层，2026-10-24）。
+    ///
+    /// 判据（铁律 10 第 1 条：先查原版）：原版 `2DCard.prefab` 全文件**只有 1 颗**
+    /// `Card Highlight And Shadow`（`2DCard.prefab:59-78`；`grep -c "m_Name: Card Highlight And Shadow"` = 1），
+    /// 它的 Image 材质 `Card Frame SDF` **同时**带 `_Outline*`（绿光）与 `_ShadowColor`（阴影）
+    /// ⇒ 绿光与阴影是**同一个 Image 的两个材质属性**，没有第二层。
+    /// 我们原来另建过一层 `outlineGlow`（2026-10-21 `W61` `新账-66`），2026-10-22 把 quad 的
+    /// `OutlineGlowScale` 降回 1.0 之后两层**几何完全相同、只差 z 0.005** = 纯冗余过绘制。
+    /// 判据全文 → `资料/普查产出_1023e/C1_战斗线判据_布置与层级.md` 的 `C1-B03`（裁定 = **并层**）。
+    ///
+    /// 断四条：
+    ///   · ② **结构**：卡面子树里「`Card Frame SDF` 签名」的 `MeshRenderer` **恰好 1 个**、
+    ///     且没有叫 `outlineGlow` 的节点（几何与 z 只留一份）；
+    ///   · ① **删了那层绿光仍能亮**：`SetOutline` + 推完 0.2 s 补间后材质 `_Outline` 真亮；
+    ///   · ③ **场上不亮**：并层之后不能靠「藏那一层」灭描边，`SetFace(Board)` 必须把 `_Outline`
+    ///     **连同 `_outlineTarget` 一起**归零（否则回手时 `SetOutline` 会因目标没变早退 ⇒ 永不重亮）；
+    ///   · ④ **出生就在场上的卡**默认 α=0（模板值，不需要谁去灭）。
+    ///
+    /// 🧨 改坏法：
+    ///   · 把 `outlineGlow` 那一层建回来 ⇒ ②/②b 红；
+    ///   · `OutlineMat` 取不到材质（描边没并到软光/影那一层）⇒ ① 红；
+    ///   · 删掉 `SetFace` 里的 `if (board) ClearOutline();` ⇒ ③ 红；
+    ///   · `ClearOutline()` 不重置 `_outlineTarget` ⇒ ③ 的「目标 = 0」那半红。
+    /// </summary>
+    static void AssertOutlineMerged()
+    {
+        // ⚠️ `CardData.Placeholder` 给的是 **Ember / Tide**（我们自设计的阵营）—— `Resources/Art/card_sdf/`
+        //    里**没有**它们的 SDF ⇒ 软光/影那一层根本建不出来 ⇒ 下面全在**假绿**上过。换一个有 SDF 的真阵营。
+        var d = CardData.Placeholder(0);
+        d.faction = "DarkAngels";
+
+        var root = new GameObject("outline_merged_probe");
+        var v = CardView.Create(root.transform, d, "outline_merged");
+
+        // ---- ② 结构：只有一颗 `Card Frame SDF` ----
+        //  分辨卡面那份与**战斗状态环**那份（`Card board Frame SDF`）：两边的 `_Outline` / `_ShadowColor` /
+        //  `_NoiseIntensity` 都一样，只有 `_Inner_Edge` / `_Inner_Fallof` / `_SpriteAlphaEdge_Inner` 不同 ⇒
+        //  用 `_Inner_Fallof = 0.224`（环那份是 1.0）当签名。
+        int sdfCount = 0;
+        foreach (var mr in v.GetComponentsInChildren<MeshRenderer>(true))
+        {
+            var m = mr.sharedMaterial;
+            if (m == null || !m.HasProperty("_Outline") || !m.HasProperty("_ShadowColor")
+                || !m.HasProperty("_Inner_Fallof")) continue;
+            if (Mathf.Abs(m.GetFloat("_Inner_Fallof") - 0.224f) < 0.004f) sdfCount++;
+        }
+        Check(sdfCount == 1,
+              "★ C1-B03 ② 卡面子树里 `Card Frame SDF`（`_Inner_Fallof = 0.224`）的 MeshRenderer **恰好 1 个**"
+            + $"（原版 `2DCard.prefab` 全文件只有 1 颗 `Card Highlight And Shadow`）｜实测 {sdfCount}"
+            + "；🧨 把 `outlineGlow` 专用层建回来 ⇒ 2 ⇒ 红");
+        Transform stray = null;
+        foreach (var t in v.GetComponentsInChildren<Transform>(true))
+            if (t.name == "outlineGlow") { stray = t; break; }
+        Check(stray == null,
+              "★ ②b 卡面子树里**没有** `outlineGlow` 节点（几何与 z 只留一份）"
+            + $"｜实测 {(stray == null ? "无" : "**有一个**")}；🧨 建回那一层 ⇒ 红");
+
+        var prevMode = CardTween.Mode;
+        try
+        {
+            CardTween.Mode = DG.Tweening.UpdateType.Manual;      // 必须在 `SetOutline` 建补间之前切
+
+            // ---- ① 删了专用层，绿光仍能亮 ----
+            //  颜色 = 原版 `cardPlayableColor` **#1C7101**（(28,113,1)/255，预制体字段实读；
+            //  判据 → `资料/普查产出_1022/W63_换牌倾斜与绿光判据_调查.md` §2）。
+            var want = new Color(28f / 255f, 113f / 255f, 1f / 255f, 1f);
+            v.SetOutline(want);
+            CardTween.Advance(CardHighlight.OutlineAnimTime + 0.05f);
+            var got = v.OutlineColor;
+            Check(got.a > 0.9f && Mathf.Abs(got.g - want.g) < 0.02f,
+                  "★ C1-B03 ① **删掉专用层之后绿光仍能亮**：`SetOutline(#1C7101)` 推完 0.2 s ⇒ "
+                + $"材质 `_Outline` = ({got.r:F3},{got.g:F3},{got.b:F3},a={got.a:F3})"
+                + $"｜{v.OutlineDebug}"
+                + "；🧨 描边没并到软光/影那份材质上（`OutlineMat` 取不到）⇒ α 恒 0 ⇒ 红");
+            Check(Mathf.Abs(v.OutlineFloatForTest("_Inner_Edge") - 0.333f) < 0.004f,
+                  "★ ①b 亮描边那份材质就是 `Card Frame SDF`（`_Inner_Edge = 0.333`）"
+                + $"｜实测 {v.OutlineFloatForTest("_Inner_Edge"):F4}；🧨 落到别的材质上 ⇒ 红");
+
+            // ---- ③ 换到场上 ⇒ 描边必须归零（并层后不能再靠「藏那一层」）----
+            v.SetFace(CardFace.Board);
+            Check(v.OutlineTargetForTest.a <= 1e-4f && v.OutlineColor.a <= 0.02f,
+                  "★ C1-B03 ③ `SetFace(Board)` ⇒ `_Outline` α 归 **0**、`_outlineTarget` 也清 0"
+                + $"（实测 目标 {v.OutlineTargetForTest.a:F4} / 材质 {v.OutlineColor.a:F4}）"
+                + "；🧨 删掉 `SetFace` 里 `if (board) ClearOutline();` ⇒ 上一步点亮的 α=1 留在场上 ⇒ 红"
+                + "；🧨 `ClearOutline` 不重置 `_outlineTarget` ⇒ 回手时 `SetOutline` 早退、永不重亮 ⇒ 目标那半红");
+
+            // ---- ③b 回手 ⇒ 同一个颜色能**重新点亮**（那条早退的真回归）----
+            v.SetFace(CardFace.Full);
+            v.SetOutline(want);                                   // 目标此刻是 0 ⇒ 必须重新补间
+            CardTween.Advance(CardHighlight.OutlineAnimTime + 0.05f);
+            Check(v.OutlineColor.a > 0.9f,
+                  "★ ③b 从场上回手后再 `SetOutline(同一个颜色)` ⇒ 描边**重新亮**（α ≈ 1）"
+                + $"｜实测 {v.OutlineColor.a:F3}；🧨 `ClearOutline` 只把材质写成 0、不清目标 ⇒ 这里恒 0 ⇒ 红");
+        }
+        finally { CardTween.Mode = prevMode; }   // 抛异常也别把全局补间模式留在 Manual
+
+        // ---- ④ 出生就在场上的卡：模板 `_Outline` α = 0，不需要谁去灭 ----
+        var rootB = new GameObject("outline_board_birth_probe");
+        var vb = CardView.Create(rootB.transform, d, "outline_board_birth", CardFace.Board);
+        Check(vb.OutlineColor.a <= 0.02f,
+              $"★ ④ 场上**出生**的卡描边默认不亮（模板 `_Outline` α=0；实测 {vb.OutlineColor.a:F4}）"
+            + "；🧨 并层后把模板 `_Outline` 写成不透明（shader 默认就是不透明白）⇒ 每张场卡一圈白框 ⇒ 红");
+        Object.DestroyImmediate(rootB);
         Object.DestroyImmediate(root);
     }
 
@@ -2229,8 +2392,15 @@ public static class CardBaseDemo
     /// `Warpforge_06_Righteous-Repugnance.png` 亲读 = `4 〔金太阳〕: …`（词不在）；② 官方
     /// `Card_Description/f104…` = `… ((Faith_cost_x,4)): …`、`Modular_Description/Faith_cost_x`
     /// 展开 = `{0}` + 信仰图标 ⇒ 数字 + 图、无词。见 `Core/CardIcons.RewriteFaithCost` 的 doc。</para>
-    /// <para>🧨 改坏法：删掉 `Rewrite` 里那句 `RewriteFaithCost(...)` ⇒ ①②红；
-    /// 把规则放宽成「任何 `N Energy`」（去掉冒号守卫）⇒ ④红（`Refill/Gain N Energy` 会被吃掉）。</para>
+    /// <para>🧨 改坏法：把规则放宽成「任何 `N Energy`」（去掉冒号守卫）⇒ ④红
+    /// （`Refill/Gain N Energy` 会被吃掉）。</para>
+    /// <para>🔴 **2026-10-24（`F7`）就地订正（铁律 5）**：原写「删掉 `Rewrite` 里那句 `RewriteFaithCost(...)`
+    /// ⇒ **①②红**」—— **只有 ③ 会红**（中文 `descZh` 的 `4 能量：` 失去本支后只剩计划表
+    /// `('4 能量','faith')` 的**裸词兜底** ⇒ 词 `能量` 还在 ⇒ ③ 红）。**② 不会红**：英文 `desc` 现读是
+    /// `… 4 ☀: …`（**不是** `Energy`）⇒ 走计划表的 `('☀','faith')`、**根本不经过 `RewriteFaithCost`**。
+    /// ⚠️ 连带发现：紧跟着那条 `Check(!en.Contains("Energy"), …)` 因此是**结构恒真**（输入里没有
+    /// `Energy`，而 `Rewrite` 只会把 token 换成标签、**不会新增** `Energy`）—— 见
+    /// `资料/普查产出_1023e/F7_恒真断言.md` §顺手发现（本轮不改它，⛔ 别以为它在测本支）。</para>
     /// </summary>
     static void AssertFaithCostIcon()
     {
@@ -2261,8 +2431,32 @@ public static class CardBaseDemo
             + "｜🧨 删掉 `Rewrite` 里的 `RewriteFaithCost(...)` ⇒ 本条红");
         Check(CountOf(en, "4 ") >= 1 && en.IndexOf(FaithTag, System.StringComparison.Ordinal) > 0,
               "② 数字 `4` 留在图标前面（原版 `Faith_cost_x` = `{0}` + 图标，数字不烘在图里）");
-        Check(en == CardIcons.Rewrite(card.Id, "desc", en),
-              "② 幂等：同一段文字渲染两遍 == 一遍（不叠第二枚图标）");
+        // 🔴 **2026-10-24（`F7` · 铁律 5 留痕）：这一条原来【结构恒真】，就地重建判别式。**
+        //   **旧写法** = `en == Rewrite(card.Id, "desc", en)`。**恒真证据**：
+        //     · `en` 由**计划表那一支**产出（`f104…` 的 `desc` 现读是 `… 4 ☀: …` ⇒ 计划表有 `('☀','faith')`）
+        //       ⇒ 必然含 `<link=faith>` + `<sprite name="faith">`（`Core/CardIcons.cs:405-409` 拼的形状）；
+        //     · 第二遍 `Rewrite` 在**开头那道闸**（`Core/CardIcons.cs:326`
+        //       `if (HasOfficialMarks(text) || HasRenderedMarkup(text)) return RewriteMarks(…)`；
+        //       `HasRenderedMarkup` 只认 `<sprite` / `<link=`，见 `:628-633`）就被整串转去 `RewriteMarks`
+        //       ⇒ **计划表与 `RewriteFaithCost` 都不再跑**（`:495` 那句 `if (s.IndexOf(bare) >= 0) continue;` 走不到）；
+        //     · `en` 里没有 `((` / `$$` / `[[` / `(N)` ⇒ `RewriteMarks` 四支恒等 ⇒ 必然相等。
+        //   **新判别式 = 主判据（第一遍真的换了）+ 灭自证臂**：
+        //     · 主判据：`en != card.Desc`（证明不是函数恒等造成的假绿）。
+        //     · 臂：把信仰图标**预塞**进原文（`4 <sprite name="faith">☀:` —— **不**是成品那一项
+        //       `<link=faith><sprite …></link>`）⇒ 闸必须整串跳过 ⇒ **逐字节原样返回**、faith 仍 1 枚、`☀` 仍在。
+        //       🧨 **拆掉 `HasRenderedMarkup` 那半闸** ⇒ 计划表跑 ⇒ faith **2** 枚、`☀` 被吃掉 ⇒ 红。
+        string enTagIn = card.Desc.Replace("☀", FaithTag + "☀");
+        string enTagOut = CardIcons.Rewrite(card.Id, "desc", enTagIn);
+        Check(en == CardIcons.Rewrite(card.Id, "desc", en)
+              && !string.Equals(en, card.Desc, System.StringComparison.Ordinal)
+              && CountOf(enTagIn, FaithTag) == 1
+              && string.Equals(enTagOut, enTagIn, System.StringComparison.Ordinal)
+              && CountOf(enTagOut, FaithTag) == 1
+              && enTagOut.IndexOf('☀') >= 0,
+              "② 幂等（判别式 = 第一遍真的换了 + 反面对照）：同一段文字渲染两遍 == 一遍（不叠第二枚图标）"
+            + "｜【灭自证】把一枚信仰图标预塞进原文再渲染 ⇒ 必须逐字节原样返回（实得 "
+            + CountOf(enTagOut, FaithTag) + " 枚、" + (enTagOut.IndexOf('☀') >= 0 ? "`☀` 仍在" : "`☀` 被吃掉")
+            + "；拆掉 `HasRenderedMarkup` 那半闸 ⇒ 2 枚 / `☀` 没了 ⇒ 红）");
 
         string zh = CardIcons.Rewrite(card.Id, "descZh", card.DescZh);
         Check(CountOf(zh, FaithTag) == 1 && !zh.Contains("能量"),

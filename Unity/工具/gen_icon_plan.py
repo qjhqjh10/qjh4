@@ -46,6 +46,8 @@
   PYTHONIOENCODING=utf-8 python 工具/gen_icon_plan.py --check    # 🆕 2026-10-21（A2003）：只读核对
                                                                  #   盘上两份产物 == 现在会写出来的内容（⛔ 不写盘）
   PYTHONIOENCODING=utf-8 python 工具/gen_icon_plan.py --write    # 落盘（**但有任何未解决问题就不落盘**）
+  PYTHONIOENCODING=utf-8 python 工具/gen_icon_plan.py --help     # 🆕 2026-10-24（A16）：只打用法并退出 0
+                                                                 #   （改前 `--help` 会被忽略、**静默跑一次完整干跑**）
   PYTHONIOENCODING=utf-8 python 工具/gen_icon_doc.py             # 再铺一遍人看的文档
 
 🔴 **`A1626`（2026-10-12）**：退出码非 0 时**一个字节都不写** —— 「非 0」必须等于「没产物」。
@@ -63,6 +65,25 @@ import hashlib
 import collections
 
 sys.stdout.reconfigure(encoding="utf-8")
+# 🆕 **2026-10-24（`A16`）：`-h` / `--help` 早退。**
+#   改前：`--help` 被下面 `CHECK`/`WRITE` 那两行当普通参数忽略 ⇒ **静默跑一次完整干跑**，
+#   打出来的东西**看着像帮助、实际是干跑结果**（`资料/普查产出_1023e/A15_界面第六批.md` §四·1）。
+#   ⚠️ **只加这一条早退，既有参数语义一个都没动**（裸跑 / `--check` / `--write` 三条一字不变）。
+if "-h" in sys.argv or "--help" in sys.argv:
+    print(
+        "用法：python 工具/gen_icon_plan.py [--check | --write]\n"
+        "\n"
+        "  （不带参数） 只报告：打出计划表并报缺口，**不写盘**\n"
+        "  --check     只读核对：盘上两份产物 == 现在会写出来的内容（⛔ 不写盘）\n"
+        "              退出码 0 = 一致；1 = 有差异 / 缺产物 / 本就有未解决问题\n"
+        "  --write     落盘两份 json（有任何未解决问题就不落盘，退出码非 0）\n"
+        "  -h, --help  只打这段用法并退出（0）\n"
+        "\n"
+        "产物：数据/游戏数据/card_icon_plan.json\n"
+        "      MyGame/Assets/CardPresentation/Resources/card_icon_plan.json\n"
+        "人看的表另跑：python 工具/gen_icon_doc.py"
+    )
+    sys.exit(0)
 # 🆕 **2026-10-21（`A2003`）：`--check` = 只读核对「盘上两份产物 == 本脚本现在会写出来的内容」。**
 #   为什么需要：这条账的原始症状是「**脚本 mtime 比产物新** ⇒ 判不出产物是不是过期」——
 #   比 mtime 判不出来（脚本改注释也会动 mtime；反过来 `--write` 又会直接改 `Assets/`）。
@@ -2749,6 +2770,29 @@ def has_official_marks(text):
     return ("[[" in text) or ("((" in text) or ("$$" in text)
 
 
+# ── 🆕 2026-10-23（卡牌线 `A8`）：**已经渲染过的正文**（`<sprite …>` / `<link=…>`）⇒ 同样整字段跳过 ──
+# 判据 = `Core/CardIcons.HasRenderedMarkup`（`Core/CardIcons.cs`，2026-10-23 `A2` 加的）：
+#   `CardIcons.Rewrite` 开头的分流是
+#       `if (HasOfficialMarks(text) || HasRenderedMarkup(text)) return RewriteMarks(...);`
+#   ⇒ 带这两种形状的字段**根本不查本计划表**。
+#
+# **为什么以前漏了**：`HasOfficialMarks` 只认 `[[` / `((` / `$$` 三个前缀，而官方 `Card_Description/*`
+#   里有一批**直接写着** `<sprite name=Atlas_trait_icon_…>` / `<link=…>`（现读：卡池 14 个字段逐字节
+#   等于官方那串）。它们没有官方记号 ⇒ 老闸放行 ⇒ `TOK` 会把正文里的裸词（`Sabotage` / `破坏`）
+#   也排进计划表 ⇒ 运行时本表被跳过了、这条**永远空转**，纯属噪声；一旦哪天分流口径变了就是
+#   **同一处两枚图标**。⇒ 与 `has_official_marks` **同一条口径**：整字段跳过 + 自检侧「载体不适用」。
+def has_rendered_markup(text):
+    """`CardIcons.HasRenderedMarkup` 的 python 对家：只认**只有渲染层才会产出**的那两种形状。"""
+    return ("<sprite" in text) or ("<link=" in text)
+
+
+def carrier_na(text):
+    """这个字段是不是「**载体不适用**」（由 `CardIcons` 的另一支画、本计划表根本不被查）。
+    ⚠️ 自检侧凡「拿本表去数某字段画了几枚」的判据都用它 —— 那是**第三种状态**，
+    ⛔ 不是「红」、更不是「改期望值 / 换张卡」。"""
+    return has_official_marks(text) or has_rendered_markup(text)
+
+
 # ── 🆕 2026-10-19（`A1771`）：**官方 `Card_Description` EN 对账** ──────────────────────────────
 #
 # **为什么有这一段**：`[Attack]` 画拳还是枪，原来是「卡图 OCR + 还原表逐张猜」的证据层
@@ -2894,16 +2938,16 @@ def _a1703_lock_check(tokens, texts):
     返回差异清单（`[]` = 全过）。**纯函数**（灭自证那一半要拿**合成表**跑它）。
     ⚠️ **先判「载体还在不在」**：卡被改名 / 那个字段被清空时，锁会**静默失效**
     （「不许出现」那一类尤其明显 —— 字段空了什么都不会出现）⇒ 载体不在 = 红，不是绿。
-    🆕 2026-10-15：**再判「载体适不适用」** —— 字段带**官方记号**时，这一份字段由
-    `CardIcons.RewriteMarks` 画、**本计划表根本不被查**（见 `has_official_marks` 那段）
-    ⇒ 这条锁对该字段**不适用**，**整行跳过**（⛔ 不是「红」「绿」两种，是第三种「不适用」）。
+    🆕 2026-10-15：**再判「载体适不适用」** —— 字段带**官方记号**（或 2026-10-23 起：**已渲染标签**
+    `<sprite …>` / `<link=…>`）时，这一份字段由 `CardIcons.RewriteMarks` 画、**本计划表根本不被查**
+    （见 `carrier_na`）⇒ 这条锁对该字段**不适用**，**整行跳过**（⛔ 不是「红」「绿」两种，是第三种「不适用」）。
     """
     diffs = []
     for c_, f_, t_, why in A1703_POSITION_LOCK:
         if not (texts.get(c_, {}).get(f_)):
             diffs.append(f"锁的载体不在：{c_} 没有字段 {f_} 的原文（卡被改名 / 字段被清空？）")
             continue
-        if has_official_marks(texts.get(c_, {}).get(f_)):
+        if carrier_na(texts.get(c_, {}).get(f_)):
             continue
         if t_ in tokens.get(c_, {}).get(f_, []):
             diffs.append(f"🔴 {c_} [{f_}] 画了裸词 {t_!r} —— 卡面那一处**没印徽记**：{why}")
@@ -2911,7 +2955,7 @@ def _a1703_lock_check(tokens, texts):
         if not (texts.get(c_, {}).get(f_)):
             diffs.append(f"必须画的锁载体不在：{c_} 没有字段 {f_} 的原文")
             continue
-        if has_official_marks(texts.get(c_, {}).get(f_)):
+        if carrier_na(texts.get(c_, {}).get(f_)):
             continue
         if t_ not in tokens.get(c_, {}).get(f_, []):
             diffs.append(f"🔴 {c_} [{f_}] 少了裸词 {t_!r} —— 卡面那一处**印着徽记**：{why}")
@@ -2979,8 +3023,13 @@ def main():
             # ── 🆕 2026-10-15：**官方记号那一代 ⇒ 整字段跳过**（判据见 `has_official_marks` 上面那一段）──
             #   `CardIcons.cs:227` 在 `HasOfficialMarks` 就分流到 `RewriteMarks`、**不查本表**；
             #   不跳的话 `TOK` 会把 `[[waystone]]` 读成 token `waystone`（位置 1 匹配）⇒ 整族炸。
+            # 🆕 2026-10-23（`A8`）：**已经渲染过的正文**（`<sprite …>` / `<link=…>`）同一条口径
+            #   —— 见 `has_rendered_markup` 上面那一段（同样整字段跳过）。
             if has_official_marks(text):
                 stat["跳过的字段（官方记号）"] += 1
+                continue
+            if has_rendered_markup(text):
+                stat["跳过的字段（已渲染标签）"] += 1
                 continue
             toks = list(TOK.finditer(text))
             syms = [ch for ch in text if ch in SYMBOLS]
@@ -3398,10 +3447,10 @@ def main():
         _txt = _texts.get(_c, {}).get(_f, "")
         # 🆕 2026-10-15：本字段带**官方记号** ⇒ 它由 `CardIcons.RewriteMarks` 画、**本表不被查**
         #   ⇒ 这一行是**载体不适用**（第三种状态，⛔ 不是「改期望值」、更不是换张卡）。
-        if has_official_marks(_txt):
+        if carrier_na(_txt):
             _face_na.append((_c, _f))
-            print(f"  ⚪ {_c} [{_f}] **跳过**（本字段带官方记号 ⇒ 载体不适用，"
-                  f"见 `CardIcons.cs:227`）—— 期望值 {_want} 枚是给 `RewriteMarks` 那一支的")
+            print(f"  ⚪ {_c} [{_f}] **跳过**（本字段带官方记号 / 已渲染标签 ⇒ 载体不适用，"
+                  f"见 `CardIcons.Rewrite` 开头那道分流）—— 期望值 {_want} 枚是给 `RewriteMarks` 那一支的")
             continue
         _got = plan.get(_c, {}).get(_f, {})
         _n = sum(_txt.count(_t) for _t in _got)
@@ -3569,8 +3618,8 @@ def main():
         #   画、本计划表根本不被查 ⇒ 拿本表去数它**恒为 0**，与卡面印几枚无关）。判据同 `has_official_marks`。
         #   ⚠️ **按字段判、不按行判** ⇒ `desc` 那一半照样被核（今天 37 行的 `desc` 侧全干净、29 行
         #   的 `descZh` 是这一代写法 ⇒ 这 29 行改前恒红、与「改坏没改坏」无关）。
-        _e_na = has_official_marks(_et)
-        _z_na = has_official_marks(_zt)
+        _e_na = carrier_na(_et)
+        _z_na = carrier_na(_zt)
         if _z_na:
             _dp_na.append(_c)
         _ge = darkpact_marks(plan.get(_c, {}).get("desc", {}), _et)
@@ -3588,8 +3637,8 @@ def main():
               f"（`desc`/`descZh`） —— 卡图 `{_png}`"
               + ("　⚪ `descZh` 载体不适用（官方记号）" if _z_na else ""))
     _dp_ctrl_rows = [r[0] for r in DARKPACT_FACE_COUNT
-                     if not (has_official_marks(_texts.get(r[0], {}).get("desc", ""))
-                             and has_official_marks(_texts.get(r[0], {}).get("descZh", "")))]
+                     if not (carrier_na(_texts.get(r[0], {}).get("desc", ""))
+                             and carrier_na(_texts.get(r[0], {}).get("descZh", "")))]
     if _dp_na:
         print(f"  ⚪ 其中 {len(_dp_na)} 行的 `descZh` **载体不适用**（带官方记号、由 `RewriteMarks` 画）"
               f"⇒ 这几行只核 `desc` 那一半")
@@ -3662,7 +3711,7 @@ def main():
     # 🆕 2026-10-15：**载体不适用**的那几行（字段带官方记号 ⇒ 本计划表不被查）—— 与 `_a1703_lock_check`
     #   里那条 `continue` 用**同一个** `has_official_marks`，这里只是为了把它**打出来**（⛔ 不是第二份判据）。
     _a1703_lock_na = [(c_, f_) for c_, f_, *_ in (A1703_POSITION_LOCK + A1703_MUST_PAINT)
-                      if has_official_marks(_texts.get(c_, {}).get(f_, ""))]
+                      if carrier_na(_texts.get(c_, {}).get(f_, ""))]
     _a1703_lock_mut = {_c: {_f: list(_t) for _f, _t in _fs.items()}
                        for _c, _fs in _a1703_tokens.items()}
     _a1703_lock_c, _a1703_lock_f, _a1703_lock_t, _ = A1703_POSITION_LOCK[0]

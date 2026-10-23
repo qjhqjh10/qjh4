@@ -874,8 +874,15 @@ namespace CardPresentation
         // ---- 立绘：原版怎么装的，我们怎么跟 ----
         // 原版的立绘矩形（预制体 JSON `RectTransform_2364194910465924032`，战斗预制体）：
         //   2.7484 × 2.7484 @ (0, −0.065)，Image `m_PreserveAspect=0`
-        //   —— **比卡本体大**，是**故意**要外溢的；由卡框上的 SoftMask（`MaskArea`=立绘的 RT、
-        //   `FlipAlphaMask=1`）拿**卡框的 alpha** 把它切掉。
+        //   —— **比卡本体大**，是**故意**要外溢的。可见形状由**卡框贴图自己的 alpha** 决定：立绘画在
+        //   框**下面**、框按标准 alpha-over 盖上来 ⇒ 开口（α=0）处全透、半透明斜面处露 `1−α`
+        //   （**一次乘法**，⛔ 不是 `(1−α)²`）。
+        //   🔴 **2026-10-24 订正（`新账-66` alpha 口径 · 反编译现核）**：这里原写「由卡框上的 SoftMask
+        //   （`MaskArea`=立绘的 RT、`FlipAlphaMask=1`）拿**卡框的 alpha** 把它切掉」—— **两处都不对**：
+        //   ① 那颗 `SoftMaskScript` 的 `AlphaMask` 序列化值是 **null**（151/153 实例；默认白 ⇒ α_mask=1
+        //      ⇒ 被它管的那颗 Graphic 直接变 0），它只会把**承载它的 Graphic**（CardFrame / textBackground）
+        //      整层淡没，**不碰立绘**；② 立绘的可见范围来自卡框贴图 alpha + 它自己的硬矩形 `_Clamp_Range`。
+        //   判据全文 / 出处 → `ArtVisibleThroughFrame` 的 doc。
         //   出处：`子代理读报_2dcard_0827.md:310`「卡图 2.7484² 外溢…外溢部分被框贴图 Alpha 掩掉」
         //   + `CardImage_-4679357769477678144.json` / `CardFrame_7138976253573503936.json` 的组件字段。
         // 立绘图本身：纹理 1024²、sprite `textureRect = 670.5 × 1024`（宽高比 0.6548，卡本体 0.628，
@@ -1777,10 +1784,14 @@ namespace CardPresentation
                                + "（`SetFace` 只用于「手牌 → 场上」），出现了就是有新的入口，要补层。");
 
             Show(_frame, !board);
-            // 🆕 2026-10-21（`W61`）：描边专用层跟 `_frame` 同一条口径 —— 场上（3D 卡体）不画描边
-            //   （原版场上把整张 `2DCard` 关掉，SDF 那层只剩影子）。⚠️ 出生入口在建层处已按默认开着，
-            //   这里是**换形态入口**（铁律 10 第 5 条），两处都要显式设一次。
-            if (_outlineLayer != null) Show(_outlineLayer, !board);
+            // 🔴 **2026-10-24（L1 · `C1-B03` 并层）：描边不再是独立 GameObject** —— 它与落地阴影
+            //    同层同材质（原版 `2DCard.prefab` 只有 1 颗 `Card Highlight And Shadow`）。
+            //    ⇒ 场上「不画描边」**不能再靠藏那一层**（藏了连阴影也没了，那是落地感的来源），
+            //      必须显式把 `_Outline` 归零；**并且要连 `_outlineTarget` 一起清**——
+            //      否则回手时 `SetOutline(同一颜色)` 会因 `SameColor` 早退 ⇒ **描边永不重亮**
+            //      （与 `_canActWanted` 那次是同一族「请求被丢掉」的坑，见 `SetCanAct` 注释）。
+            //    铁律 10 第 5 条：换形态入口**只有这一处**（出生那一档默认就是 α0）。
+            if (board) ClearOutline();
             // 🆕 2026-10-22（卡牌线 `T04` 第二笔）：这一层比 `!board` 多一个门 —— **大图档里只有前台那张
             //   允许角色压框**（原版 `CardDisplayWindow__ChangeCardPosition.c:75-79`）。判据收在
             //   `ArtFrontVisible` 一处，⛔ 别在这儿再拼一遍 `_bigImage / _artOverdraw`。
@@ -2578,8 +2589,8 @@ namespace CardPresentation
         }
 
         /// <summary>那圈高亮描边现在的颜色（自检用；场上恒为透明 —— 场上是 3D 卡体，原版那层 SDF 关着）。
-        /// 🔴 2026-10-21（`W61`）：读的是 <see cref="OutlineMat"/> —— 正常那张卡上是**描边专用层**
-        /// （`outlineGlow`）的 `_Outline`；建不出那一层时退回 `_shadowLayer`（= 改前的行为）。
+        /// 🔴 2026-10-24（`C1-B03` 并层）：读的是 <see cref="OutlineMat"/> —— 它恒指**软光/影那一层**的
+        /// `_Outline`（原版只有一颗 `Card Highlight And Shadow`；原来的 `outlineGlow` 专用层已删）。
         /// 自检 `BattleScene` ⑦ 就是读这个（「打不打得出去」那一条），**别改语义**。</summary>
         public Color OutlineColor
         {
@@ -2596,19 +2607,42 @@ namespace CardPresentation
         public Color OutlineTargetForTest { get { return _outlineTarget; } }
 
         /// <summary>🆕 **2026-10-23（`C3`）自检用：描边那层 quad 的**设计尺寸**（卡单位；原版 = 4.4281²）。
-        /// 优先量 `outlineGlow` 层，没建就量 `_shadowLayer` —— 与 <see cref="OutlineMat"/> 同一条次序。
-        /// ⚠️ 量的是 `MeshRenderer.bounds`（网格轴对齐、网格自身 `localScale = 1`），**再除掉卡根的 `lossyScale`**
-        /// —— 收藏页的卡是按格缩放的（实测 ×0.9609），不除的话 4.4281 会量成 4.2551（🔴 2026-10-23 自检抓到）。</summary>
+        /// 🔴 2026-10-24（`C1-B03` 并层）：描边画在**软光/影那一层**（原版只有一颗
+        /// `Card Highlight And Shadow`）⇒ 量 `_shadowLayer` 就是量描边层。
+        /// 🔴 **2026-10-24（`P2` · 并层把量法带出来的坑）**：⛔ **不能量 `mr.bounds`**。
+        /// 收藏页 / 卡池的卡是**带视口裁切**的（`SetClipFromTree` → `CropLayer` 会把这一层的
+        /// `sharedMesh` 换成**按视口裁过的副本**）⇒ `bounds` 量到的是「**视口里还剩多少**」，
+        /// 不是原版节点自己的 `m_SizeDelta`（`2DCard.prefab:1527` = `4.4281 × 4.4281`）。
+        /// **实测坐实**：第一排那张影子上沿被视口裁掉 **61.7 px = 0.535 卡单位**
+        /// （`CollectionScene.cs:5845-5857` 那一段自己就写着「影子本来就压在视口上沿之上 ≈62px」）
+        /// ⇒ 高量成 `4.4281 − 0.535 = 3.8923`（那次实得就是 **3.8923**）；横向左沿也被裁 ⇒ 宽 **3.5495**。
+        /// **几何本身一个字节都没变**，变的是量法。
+        /// ⚠️ 并层**之前**那条断言是绿的，**不是因为那一层没被裁** —— 而是 `outlineGlow` 专用层是
+        /// **懒建**的（第一次要亮才建），建的时候 `ApplyClip` 早跑完了 ⇒ 它**从没被裁过**。
+        /// 那是它的 **bug**（那圈光会画到视口外），不是它的正确性；并层顺手把这个 bug 也消掉了。
+        /// ⇒ 现在量**设计网格**（`_crops` 里记着裁前那份原件）+ 这一层相对卡根的缩放。</summary>
         public Vector2 OutlineQuadSize
         {
             get
             {
-                var mr = _outlineLayer != null ? _outlineLayer : _shadowLayer;
+                var mr = _shadowLayer;
                 if (mr == null) return Vector2.zero;
-                var s = transform.lossyScale;
-                float sx = Mathf.Abs(s.x) > 1e-6f ? Mathf.Abs(s.x) : 1f;
-                float sy = Mathf.Abs(s.y) > 1e-6f ? Mathf.Abs(s.y) : 1f;
-                return new Vector2(mr.bounds.size.x / sx, mr.bounds.size.y / sy);
+                // ① **设计网格**：被裁过的层，`sharedMesh` 是裁剪后的副本 ⇒ 回到 `_crops` 里那份原件。
+                //    （整层被裁到视口外那一档 `_crops` 只记 `mr`/`wasEnabled`、没有 `original` ⇒
+                //      `sharedMesh` 仍是原件，照样对。）
+                var mf = mr.GetComponent<MeshFilter>();
+                var mesh = mf != null ? mf.sharedMesh : null;
+                for (int i = 0; i < _crops.Count; i++)
+                    if (_crops[i].mr == mr && _crops[i].original != null) { mesh = _crops[i].original; break; }
+                if (mesh == null) return Vector2.zero;
+                // ② 网格 bounds 是**层自己的局部系**（卡单位）⇒ 乘「层 → 卡根」的缩放。
+                //    用两边的 `lossyScale` 之比，**不用渲染包围盒** ⇒ 转过 90° 也不会被外接盒撑大。
+                var bs = mesh.bounds.size;
+                var ls = mr.transform.lossyScale;
+                var rs = transform.lossyScale;
+                float kx = Mathf.Abs(rs.x) > 1e-6f ? Mathf.Abs(ls.x) / Mathf.Abs(rs.x) : Mathf.Abs(ls.x);
+                float ky = Mathf.Abs(rs.y) > 1e-6f ? Mathf.Abs(ls.y) / Mathf.Abs(rs.y) : Mathf.Abs(ls.y);
+                return new Vector2(bs.x * kx, bs.y * ky);
             }
         }
 
@@ -2627,7 +2661,7 @@ namespace CardPresentation
                 string tw = _outlineTween == null ? "无补间"
                           : (_outlineTween.IsActive() ? $"补间跑着 {_outlineTween.Elapsed():F3}s" : "补间已停");
                 return $"{tw}·目标={_outlineTarget}·现在={OutlineColor}·alpha={_alpha:F2}"
-                     + $"·层={(_outlineLayer != null ? "描边专用" : "退回SDF")}（软光/影={(_shadowLayer != null)}）";
+                     + $"·层=SDF软光/影(并层·C1-B03)（软光/影={(_shadowLayer != null)}）";
             }
         }
 
@@ -3554,8 +3588,10 @@ namespace CardPresentation
                 //      垫在卡框下面 —— 卡框拱窗自己也是透明的（实测 alpha=0），窗里的背景就靠这一层。
                 //   🔴 **2026-10-18 订正**：本行原来写「⛔ 没有 ②：原版**不**在框上再重画一层角色」——
                 //      **对【小卡档】成立，对【大图档】不成立**：原版大图态（`CardImageController` 状态 1）
-                //      会用立绘 alpha 给卡框挖洞（`SoftMaskScript` + `FlipAlphaMask=1`）+ 立绘 ×1.27，
-                //      效果就是「角色压在金属框上」。我们用 ②（`_artFront`）近似它，**只在大图档建**（见下）。
+                //      会打开那颗 `SoftMaskScript`（+ 立绘 ×1.27）。⚠️ **2026-10-24 订正**：那颗 mask 的
+                //      `AlphaMask` 序列化值是 null ⇒ 它只是把**框与文字底板整层淡没**，并**不是**
+                //      「用立绘 alpha 给卡框挖洞」（判据 → `ArtVisibleThroughFrame`）。我们用 ②（`_artFront`）
+                //      近似大图态「角色压在金属框上」这件事，**只在大图档建**（见下；与原版那一步不完全等价）。
                 //   判据是**清单**（`card_cutouts.json`，张数看该文件的 `count` —— ⚠️ 2026-10-06 更正：原写 665 张，实际 **668 张**）：单位卡基本都有、战术卡基本都没有；
                 //   ⚠️ 这张清单现在决定「要不要给这张卡建前景层（抠图）」——
                 //      对底层立绘与卡框那两层没有任何影响（那两层每张卡都照画）。
@@ -3577,13 +3613,12 @@ namespace CardPresentation
                     // 🔴 **建完立刻按本档刷一次** —— 基材质上那份是「材质默认 0.604」，
                     //    而放大窗那一档原版运行时显式设成 0.8（`A2111` 表三·2，判据见 `ShadowAlpha`）。
                     ApplyShadowColor();
-                    // 🆕 2026-10-21（`W61` · `新账-66`）：**描边单独一层**（quad 由 `OutlineGlowScale` 定，
-                    //    ⚠️ 2026-10-22 起 = **1.0 = 原版** —— 原版那个节点 `localScale` 就是 1），
-                    //    ⇒ 那圈光沿着**整张卡框**走，而不是沿插图画窗走。理由/判据/那个可调数
-                    //    全在 `OutlineGlowScale` 那一段注释里（⛔ 别在这里再抄一遍）。
-                    //    ⚠️ **这一层是懒建的**（`EnsureOutlineLayer`，第一次真的要亮描边时才建）——
-                    //       收藏/卡池那些只看的卡永远不亮描边 ⇒ 不为它们多付一块 6² 的 SDF 过绘制。
-                    _outlineSdfTex = sdfTex;
+                    // 🔴 **2026-10-24（L1 · `C1-B03` 并层）：描边与阴影是【同一颗件、同一份材质】**
+                    //    —— 原版 `2DCard.prefab` 全文件只有 **1 颗** `Card Highlight And Shadow`，材质
+                    //    `Card Frame SDF` **同时**带 `_Outline*`（绿光）与 `_ShadowColor`（阴影）
+                    //    ⇒ 这里建的那一层**就是**描边层（`OutlineMat` = 它）。⛔ 别再另建 `outlineGlow`。
+                    //    判据 → `资料/普查产出_1023e/C1_战斗线判据_布置与层级.md` 的 `C1-B03`
+                    //    （证据：`2DCard.prefab:59-78` + 材质 `Material_-3316280387615011577.json`）。
                 }
                 // ---- 场上：换**原版那张 3D 卡体**（`3DBody` → `Card 3D`）----
                 // 原版在 inPlay 类状态把整张 `2DCard` 关掉、换成 3D 体（`BattleCardUI.ChangeCardToMinion`），
@@ -3611,7 +3646,8 @@ namespace CardPresentation
                 //    这一层就是「插图超出卡框」的真因：它在框上**重画同一张立绘、带真 alpha**
                 //    ⇒ 整条角色轮廓盖住卡框（剑尖/肩甲出拱顶），再叠一层 `ArtCoverMargin`(1.04)。
                 //    ⚠️ 2026-10-18 订正上面那句「原版默认不这么画」：**原版确实会**，只是**只在大图档**
-                //    （`CardImageController` 状态 1：`frameMask` 用立绘 alpha 给卡框挖洞 + 立绘 ×1.27）。
+                //    （`CardImageController` 状态 1：`frameMask` 把卡框整层淡没 + 立绘 ×1.27；⚠️ 2026-10-24 订正：
+                //     原写「用立绘 alpha 给卡框挖洞」—— `AlphaMask` = null ⇒ 整层淡出，见 `ArtVisibleThroughFrame`）。
                 //    小卡档（手牌/卡池/收藏/卡组格）原版仍是「立绘在框下、由框的 alpha 剪出来」⇒ 不越出。
                 //    ⇒ 两条并存的判据都收在 `BigCardOverdraw`（大图档，默认开）与 `UseFrontLayer`（小卡档，
                 //      默认关、只为「将来按 `card_cutouts.json` 做每卡实参」留的口子）。
@@ -3660,8 +3696,9 @@ namespace CardPresentation
                 }
                 // ⛔ **2026-10-10 删掉了一条路**：原来这里还有 `!UseFrontLayer` 那一支 —— 把卡框换成
                 //    `CardPresentation/FrameCutout` shader、按立绘 alpha 给框挖洞。它是**我们自造的近似**
-                //    （原版没有这个机制：原版是 `SoftMask` + `FlipAlphaMask`，而我们已经用「立绘在框下、
-                //    框自己当遮罩」等价实现了它），而且**至今没人渲图看过** ⇒ 连同 `FrameCutoutMaterial` /
+                //    （原版没有这个机制：原版就是「立绘在框下、框自己按 alpha 盖上去」；⚠️ 2026-10-24 订正：
+                //     原来把判据写成 `SoftMask` + `FlipAlphaMask` 是错的 —— 那颗 SoftMask 不碰立绘，
+                //     判据见 `ArtVisibleThroughFrame`），而且**至今没人渲图看过** ⇒ 连同 `FrameCutoutMaterial` /
                 //    `CheckCutoutWiring` 一并不要了。要复活它：先渲一张并排图，⛔ 别只凭静态读字段。
                 // UV 裁到卡外框；**uv2 = 立绘的 UV**（破框 shader 靠它采立绘的 alpha —— 现在没有 shader
                 // 采了，但 `CheckCutoutUvAlignment` 仍在守这条对齐判据，**留着**，见那一段注释）
@@ -4619,107 +4656,52 @@ namespace CardPresentation
         }
 
         // ==================================================================
-        //  描边发光层（只负责 `_Outline`）—— 🆕 2026-10-21（`W61` 卡牌线 `新账-66`）
+        //  描边（`_Outline`）—— **与软光/影同一颗件、同一份材质**（2026-10-24 `C1-B03` 并层）
         // ==================================================================
         //
-        // **要解决的问题（用户 2026-10-21 原话）**：「外面的光芒边缘应该是**围绕着卡框**的，
-        //   不是在卡框上面**围绕插图**」。
-        //   现状：`_Outline` 画在 `_shadowLayer`（4.4281² 的 SDF quad）上，而那条等值带**实测**
-        //   落在卡半宽的 **≈72%** 处（x ±0.755 / 卡半宽 1.046，见 `hand_tactic2.png` 逐像素量法：
-        //   卡左缘 122px、卡心 358px、光带 178..197px）—— 正好压在**战术卡那扇画窗的内沿**上，
-        //   框的金属边把带子的外侧挡住 ⇒ 只有窗里那一小段看得见 ⇒ 看起来像「围插图」。
-        //   **实拍判据（铁律 4：实况 > 字段）**：`C:/Users/qjh36/Desktop/warpforge参考图/战斗截图参考.png`
-        //   里两张绿色可打出战术卡 + 一张紫色「短暂」卡，光带**围着整张卡框**（含拱顶与外沿）。
-        //   ⚠️ 原版字段（`CardFramesByArmy.json` 的 `stratagemHighlightFrame` / `troopHighlightFrame`
-        //   → 那两张 SDF）与实拍**矛盾**（两张 SDF 逐像素几乎相同、都是「实心卡形」，等值带在卡内
-        //   72%，不是外沿）—— 矛盾如实留在 `资料/普查产出_1021/W61_卡牌线_战术卡插图与描边.md`。
-        //   ⇒ 这里**另开一层**：同一套 shader + 同一张 SDF，但把 quad 放大 `OutlineGlowScale`，
-        //   让那条等值带落到**卡框外沿**；`_ShadowColor.a = 0` ⇒ 这一层**只出描边**，
-        //   不参与落地阴影（阴影仍由 `_shadowLayer` 原样负责，观感零影响）。
+        // 🔴 **判据（铁律 10 第 1 条：先查原版，别自己发明结构）**：原版 `2DCard.prefab` 全文件
+        //   **只有 1 颗** `Card Highlight And Shadow`（`2DCard.prefab:59-78`，`Front` 的第一个子件；
+        //   `grep -c "m_Name: Card Highlight And Shadow"` = **1**）。它的 Image 材质 `Card Frame SDF`
+        //   **同一份材质同时带** `_Outline*`（绿光）与 `_ShadowColor`（阴影）
+        //   （`bundle_duplicateassetisolation_assets_all/Material/Material_-3316280387615011577.json`）
+        //   ⇒ 阴影与描边是**同一个 Image 的两个材质属性**，**没有第二层**。
+        //   ⇒ 我们这里只建**一层**（`_shadowLayer`）：`_ShadowColor` 出落地阴影、`_Outline` 出那圈光。
+        //   判据全文 → `资料/普查产出_1023e/C1_战斗线判据_布置与层级.md` 的 `C1-B03`（裁定 = **并层**）。
         //
-        //   🔴🔴 **2026-10-22 订正（铁律 5）：`OutlineGlowScale` 回 1.0 = 原版**。
-        //   原版那个节点（`RT_6990339727227853760`，4.4281×4.4281 @ y −0.01265）**`localScale = 1`**
-        //   —— 「光带落在卡框外沿」本来就是 SDF 自己的等值线位置，**不需要放大 quad**。
-        //   ⚠️ 本段原文写「1.35 是从实拍反推的可调数（1.046 / 0.755 ≈ 1.39）」—— **那个反推掩盖了真因**：
-        //   原版是 **Gamma 色彩空间**、我们是 **Linear**，同一张 SDF 被 sRGB→linear 解码
-        //   （R 0.565→0.278）⇒ 等值带从卡半宽 0.84..0.99 内移到 0.69..0.83；1.35 只是把带子推回去的补偿
-        //   （0.75×1.35≈1.01），**顺带把带宽与噪声一起放大了 35%**。
-        //   ✅ 根治 = `card_sdf/*.png.meta` 的 `sRGBTexture: 0`（Linear 工程下按原始值采 = 等效原版 Gamma）
-        //   ⇒ 这里回 **1.0**。判据全文 = `资料/普查产出_1022/W63_换牌倾斜与绿光判据_调查.md` §2。
-        //   ⚠️ 若并排渲图后带子仍偏内/偏外：**先查贴图的 sRGB 导入设置**，再考虑动这个数（并同步改本注释）。
-        const float OutlineGlowScale = 1.0f;
-        /// <summary>描边那层的 z：比软光/影（`ShadowZ`）近、比立绘（0.03）远 —— 仍然在卡的**后面**，
-        /// 只有露到卡框外沿以外的那半圈才看得见（= 实拍里「光在框外」）。</summary>
-        const float OutlineZ = 0.055f;
+        // ⚠️ **历史上曾经另开过一层**（2026-10-21 `W61` 卡牌线 `新账-66` 的 `outlineGlow` 专用层，
+        //   quad = `4.4281² × OutlineGlowScale`、`_ShadowColor.a=0`、z 0.055）。它 2026-10-22 就把
+        //   `OutlineGlowScale` 降回 **1.0**（= 原版节点的 `localScale`），于是两层**几何完全相同、只差 z 0.005**
+        //   ⇒ 纯冗余过绘制。那段历史（以及「1.35 是在给 Linear/Gamma 差做补偿」的成因）
+        //   留在 `资料/普查产出_1022/W63_换牌倾斜与绿光判据_调查.md` §2，⛔ 别在这里重开一层。
+        //   ⚠️ 若并排渲图后光带偏内/偏外：**先查 `card_sdf/*.png.meta` 的 `sRGBTexture`（应为 0）**，
+        //   再考虑改 `ShadowSize`/几何 —— 那是全局量，别为描边单独调。
 
-        static Mesh _outlineMesh;
-        /// <summary>描边那层的 quad：与 `ShadowMesh` 同形 × `OutlineGlowScale`。
-        /// UV 仍是 0..1（整张 SDF 铺满这层 quad）⇒ **放大 quad = 等值带整体外移**。</summary>
-        static Mesh OutlineMesh()
-        {
-            if (_outlineMesh != null) return _outlineMesh;
-            float w = ShadowSize * 0.5f * OutlineGlowScale;
-            float oy = ShadowY * OutlineGlowScale;
-            var m = new Mesh { name = "CardOutlineGlowQuad" };
-            m.vertices = new[]
-            {
-                new Vector3(-w, -w + oy, 0f), new Vector3(w, -w + oy, 0f),
-                new Vector3(w,  w + oy, 0f),  new Vector3(-w, w + oy, 0f),
-            };
-            m.uv = new[] { new Vector2(0, 0), new Vector2(1, 0), new Vector2(1, 1), new Vector2(0, 1) };
-            m.triangles = new[] { 0, 2, 1, 0, 3, 2 };
-            m.RecalculateBounds();
-            _outlineMesh = m;
-            return m;
-        }
-
-        /// <summary>描边层的材质模板 = `SdfMaterial()` 再克隆一份 + `_ShadowColor.a = 0`
-        /// （这一层只出 `_Outline`）。`AddLayer` 会在它上面再 `new Material(...)` 一次（每张卡一份）。
-        /// ⚠️ 模板本身**只建一次**（静态缓存）—— 每张卡都克隆一次模板 = 每张卡多一份永远不用的材质。</summary>
-        static Material _outlineGlowTemplate;
-        static Material OutlineGlowMaterialTemplate()
-        {
-            if (_outlineGlowTemplate != null) return _outlineGlowTemplate;
-            var baseMat = SdfMaterial();
-            if (baseMat == null) return null;
-            var m = new Material(baseMat) { name = "CardOutlineGlow" };
-            if (m.HasProperty("_ShadowColor")) m.SetColor("_ShadowColor", new Color(0f, 0f, 0f, 0f));
-            if (m.HasProperty("_Outline"))     m.SetColor("_Outline", new Color(1f, 1f, 1f, 0f));
-            _outlineGlowTemplate = m;
-            return m;
-        }
-
-        MeshRenderer _outlineLayer;
-        /// <summary>`Build` 里记下的那张 SDF 贴图 —— 描边层懒建时要用（见 `EnsureOutlineLayer`）。</summary>
-        Texture2D _outlineSdfTex;
-
-        /// <summary>🔴 **懒建**描边专用层（`Build` **不**建它）。
-        /// 为什么懒：这一层的 quad 是 `4.4281 × OutlineGlowScale`（现 = 1.0 ⇒ 4.4281）见方、shader 还是那张带噪声的 SDF，
-        /// 收藏/卡池那种「只看的卡」永远不会亮描边 ⇒ 给它们各挂一块 6² 的过绘制是白花。
-        /// 一次性代价：一张卡第一次要亮描边时建一个 GameObject + mesh + 材质（很便宜）。
-        /// ⚠️ 建不出（shader / SDF 取不到）⇒ 什么都不做，`OutlineMat` 自动退回 `_shadowLayer`。</summary>
-        void EnsureOutlineLayer()
-        {
-            if (_outlineLayer != null) return;
-            if (_faceMode == CardFace.Board) return;                 // 场上不画描边（原版整张 2DCard 关着）
-            var glowMat = OutlineGlowMaterialTemplate();
-            if (glowMat == null) return;
-            var tex = _outlineSdfTex != null ? _outlineSdfTex
-                     : (_shadowLayer != null && _shadowLayer.sharedMaterial != null
-                        ? _shadowLayer.sharedMaterial.mainTexture as Texture2D : null);
-            _outlineLayer = AddLayer("outlineGlow", tex, OutlineZ, tex, OutlineMesh(), mat: glowMat);
-        }
-
-        /// <summary>描边现在画在哪份材质上 —— **判据只此一处**（`SetOutline` / `OutlineColor` / `ApplyTint` 都读它）。
-        /// 建不出独立层（shader/SDF 取不到）时退回 `_shadowLayer`（= 改前的行为，不静默失败）。</summary>
+        /// <summary>描边现在画在哪份材质上 —— **判据只此一处**（`SetOutline` / `OutlineColor` /
+        /// `ApplyTint` / `ClearOutline` 都读它）。
+        /// 并层之后它恒等于软光/影那一层的材质；那一层建不出来（原版 shader / SDF 取不到）时返回 null
+        /// ⇒ 描边随阴影一起没有（原版本来就是同一颗件，缺件就是缺件，⛔ 不另建替身）。</summary>
         Material OutlineMat
         {
-            get
-            {
-                if (_outlineLayer != null && _outlineLayer.sharedMaterial != null)
-                    return _outlineLayer.sharedMaterial;
-                return _shadowLayer != null ? _shadowLayer.sharedMaterial : null;
-            }
+            get { return _shadowLayer != null ? _shadowLayer.sharedMaterial : null; }
+        }
+
+        /// <summary>把描边灭掉（材质 `_Outline` 的 α → 0，**并且清掉 `_outlineTarget` + 杀掉补间**）。
+        ///
+        /// <para>🔴 **为什么必须清 `_outlineTarget`**：`SetOutline` 开头有一条 `SameColor(_outlineTarget, c)` 早退
+        /// （那是 2026-09-19 为了治「补间永远推不动」加的，**不能删**）。只把材质 α 写成 0、目标留着旧色的话，
+        /// 下次 `SetOutline(同一个颜色)` 会**直接返回** ⇒ 描边**永不重亮**（静默，画面只是「不亮」）。
+        /// 这与 `_canActWanted` 那一族「请求被丢掉」是同一个坑（见 `SetCanAct` / `ApplyCanAct`）。</para>
+        ///
+        /// <para>⚠️ **谁调**：`SetFace(Board)` —— 并层之后「场上不画描边」不能再靠藏那一层
+        /// （藏了连落地阴影也没了）。场上**出生**那一档不用调：模板的 `_Outline` α 本来就是 0。</para></summary>
+        void ClearOutline()
+        {
+            if (_outlineTween != null && _outlineTween.IsActive()) _outlineTween.Kill();
+            _outlineTarget = new Color(0f, 0f, 0f, 0f);
+            var m = OutlineMat;
+            if (m == null || !m.HasProperty("_Outline")) return;
+            var c = m.GetColor("_Outline");
+            m.SetColor("_Outline", new Color(c.r, c.g, c.b, 0f));
         }
 
         // ==================================================================
@@ -6309,9 +6291,10 @@ namespace CardPresentation
             }
             // 描边（`_Outline`）同理要跟着淡 —— 但它可能是**正在补间**的（`SetOutline`），
             // 那种时候别插手：补间的每一帧自己会乘 `_alpha`。
-            // 🔴 2026-10-21（`W61`）：描边现在画在**专用层**上（见 `OutlineMat`），
-            //    所以这条写口也跟着换、并**移出**上面那个软光/影的判空 —— 否则
-            //    「卡淡出、描边不淡」会回来。
+            // 🔴 2026-10-21（`W61`）/ 2026-10-24（`C1-B03` 并层）：描边走 `OutlineMat`
+            //    （现在恒指**软光/影那一层**的材质）。这一块仍然**单独**写 `_Outline` ——
+            //    与上面那句 `ApplyShadowColor()` 写的是同一份材质的**另一个属性**，互不覆盖；
+            //    留在外面是为了「补间跑着就别动」这条闸不被软光/影那段吞掉。
             {
                 bool outlineBusy = _outlineTween != null && _outlineTween.IsActive();
                 var om = OutlineMat;
@@ -6605,9 +6588,9 @@ namespace CardPresentation
         ///    材质 `Card board Frame SDF`（0.242 / 1.0 / 0.339）· alpha 还要 × `RimAlphaScale 0.447`。
         /// ⇒ 我们这棵树里，菜单那一层**本来就已经有了** —— `SdfMaterial()`（值 = `Card Frame SDF` 逐项）
         ///   + `ShadowMesh()`（4.4281² @ −0.0126）+ 每卡各自的 SDF 贴图，就是原版那个节点。
-        ///   所以本方法只写 `OutlineMat`（= 那层材质的 `_Outline`；懒建的 `outlineGlow` 优先、没有就退回
-        ///   `_shadowLayer`），**`_rim` 一个字都不碰** —— 这就是「菜单档 / 战斗档分离」的落地方式
-        ///   （物理上就是两层不同的东西，⛔ 不是靠一个 bool 档位开关）。</para>
+        ///   所以本方法只写 `OutlineMat`（= 那一层材质的 `_Outline`；2026-10-24 `C1-B03` 并层后
+        ///   它恒指 `_shadowLayer`，原 `outlineGlow` 专用层已删），**`_rim` 一个字都不碰** —— 这就是
+        ///   「菜单档 / 战斗档分离」的落地方式（物理上就是两层不同的东西，⛔ 不是靠一个 bool 档位开关）。</para>
         /// <para>⚠️ 只在**常规态**用（收藏窗每格建完都 `SetHighlight(Normal)`）；置灰不点亮
         /// —— 原版那颗 `ToggleHighlight` 也是挂在菜单卡格上、与战斗状态机无关。</para></summary>
         public void SetHoverHighlight(bool on)
@@ -8370,11 +8353,11 @@ namespace CardPresentation
             //    （表现：描边一直不亮，而判据、颜色、材质全都是对的）。
             if (SameColor(_outlineTarget, c)) return;
             _outlineTarget = c;
-            // 🔴 2026-10-21（`W61` · `新账-66`）：描边**改画在专用的 `outlineGlow` 层**上
-            //    （quad = 原版 4.4281² × `OutlineGlowScale`，2026-10-22 起 1.0 ⇒ 光带按 SDF 等值线落在卡框外沿）；建不出那层时 `OutlineMat`
-            //    自动退回 `_shadowLayer`（= 改前的行为）。判据只此一处。
-            //    ⚠️ 那一层是**懒建**的（`EnsureOutlineLayer`）—— 走到这儿 = 真的要亮，才付这块过绘制。
-            if (_faceMode != CardFace.Board) EnsureOutlineLayer();
+            // 🔴 2026-10-24（L1 · `C1-B03` 并层）：描边画在**软光/影那一层**上
+            //    （原版 `2DCard.prefab` 只有 1 颗 `Card Highlight And Shadow`，`_Outline*` 与 `_ShadowColor`
+            //    是同一份 `Card Frame SDF` 的两个属性）⇒ 没有「懒建的专用层」这回事了，
+            //    `OutlineMat` 恒指那一层（判据只此一处，见它的注释）。
+            //    ⚠️ 原来的「懒建专用层」`EnsureOutlineLayer` **已删**（2026-10-24 并层），⛔ 别再建回来。
             var m = (_faceMode != CardFace.Board) ? OutlineMat : null;
             if (m == null || !m.HasProperty("_Outline")) return;
 
@@ -8602,7 +8585,9 @@ namespace CardPresentation
         ///
         /// <para>为什么需要：战术/防御卡的卡框**只有上半留出透明画窗**，下半是实心框面 + 文字底板；
         /// 而我们把立绘裁到**整个卡体矩形** ⇒ 立绘从框的透明侧边/下沿漏出来（用户报的
-        /// 「战术卡插图跑到下面」）。原版用 `SoftMaskScript`（拿卡框 alpha 给立绘挖洞），
+        /// 「战术卡插图跑到下面」）。原版的立绘同样画在**框下面**、由**卡框贴图自己的 alpha** 决定可见
+        /// 形状（⚠️ 2026-10-24 订正：原写「用 `SoftMaskScript` 拿卡框 alpha 给立绘挖洞」—— 那颗 SoftMask
+        /// 的 `AlphaMask` 序列化值是 null、只淡没它自己那颗 Graphic，**不碰立绘**，见 `ArtVisibleThroughFrame`）；
         /// 我们没那层 ⇒ 退一步：**把非单位卡的立绘直接裁进这个矩形**。</para>
         /// <para>算法：只在不透明块（`FrameUv`）内，沿中列自上而下找**最长的透明带**（= 画窗），
         /// 在该带中线再向左右找透明带边界 ⇒ 一个保守的内接矩形。取不到（不可读 / 没有透明带）
@@ -8698,12 +8683,17 @@ namespace CardPresentation
         /// <summary>🔴 **2026-10-21（`W61b` · `新账-66` 残余）**：卡框 alpha ≥ 这个值就算「不透明」
         /// —— 立绘在它底下露不出来（合成式 `frame·α + art·(1−α)` 里贡献不足 3%）。
         ///
-        /// <para>**原版口径**：`SoftMaskScript` + **`FlipAlphaMask = 1`** —— 立绘**铺开**、由卡框 alpha
-        /// **反相遮罩**，卡框半透明处立绘按 `1−α` 透出来。
-        /// 判据（逐字段）：`bundle_staticgeneralassets_assets_all/MonoBehaviour/
-        /// MonoBehaviour_5590396362908354958.json` —— `FlipAlphaMask=1` · `AlphaMask=null` · `CutOff=0` ·
-        /// `HardBlend=0` · `DontClipMaskScalingRect=1`；`MaskArea` 指向 **2.7484²** 的那一级
-        /// （= `CardImage` 立绘板，与 `ArtUnitSquare` 同一个数）。</para>
+        /// <para>**原版口径**（🔴 2026-10-24 重写 · `新账-66` alpha 口径）：立绘画在**框下面**，框按标准
+        /// alpha-over 盖上来 ⇒ 卡框半透明处立绘按 **`1−α`（一次乘法）** 透出来，⛔ 不是 `(1−α)²`。
+        /// 判据（一手）：① 层序 `Front` = `Card Highlight And Shadow → CardImage → Textbackgrounds →
+        /// CardFrame → Card Info`（`bundle_staticgeneralassets_assets_all/RectTransform_-8145770350504326770.json`
+        /// 的 `m_Children`）⇒ **框在立绘之上**；② 框的混合 = `SrcAlpha OneMinusSrcAlpha`
+        /// （`Everguild/Card ImageUI` 的反编译体 / UI 默认材质；我们那层 `CardPresentation/CardSprite` 是等价的
+        /// 预乘写法 `Blend One OneMinusSrcAlpha` + `c.rgb *= c.a`）；③ **立绘不是被遮罩图层的子节点**
+        /// （`CardImage` 与 `CardFrame` 是**兄弟**，`m_Children` 索引 2 vs 4）⇒「乘两次」的前提不存在。
+        /// ⚠️ 那颗 `SoftMaskScript`（`MonoBehaviour_5590396362908354958.json`，`AlphaMask=null` ·
+        /// `FlipAlphaMask=1` · `CutOff=0` · `HardBlend=0`）只作用于**它自己那颗 Graphic**（CardFrame）与
+        /// `textBackground`，**与立绘无关** —— 详见 `ArtVisibleThroughFrame` 的 doc。</para>
         ///
         /// <para>⚠️ 我们没做真 mask（那要原版那只 mask shader + Unity 里试），等价物 = **让立绘铺到
         /// 卡框半透明的那一圈下面**：合成后它的贡献就是 `1−α`（实测见
@@ -9082,7 +9072,9 @@ namespace CardPresentation
                 // 🔴 **2026-10-21（第六十会话 · 用户报「战术卡插图跑到下面」）**：战术/防御卡框的
                 //    **下半块是空心的**（框只在上半留出插图画窗，下半靠文字底板遮），而我们把立绘
                 //    裁到**整个卡体矩形** ⇒ 立绘从框的透明侧边/下沿漏出来（大图档一眼可见）。
-                //    原版靠 SoftMask（卡框 alpha 给立绘挖洞）；我们没那层 ⇒ **把非单位卡的立绘
+                //    原版的可见形状同样由**卡框自己的 alpha** 决定（⚠️ 2026-10-24 订正：原写「靠 SoftMask
+                //    给立绘挖洞」—— 那颗 SoftMask 的 `AlphaMask` 是 null、只淡没它自己那颗 Graphic，
+                //    见 `ArtVisibleThroughFrame`）；我们没有卡框贴图以外的东西 ⇒ **把非单位卡的立绘
                 //    直接裁到「卡框的透明开口」**。
                 //    单位卡**不裁**：角色立绘本来就要铺到框下、由框的 alpha 轮廓剪（大图档另有 opt-in 越框）。
                 if (clipWindow && frameTex != null)
@@ -9150,10 +9142,13 @@ namespace CardPresentation
         /// 判据 = `资料/普查产出_1022/W62_卡面红诊断.md` §1·2：三张 tier4 开口漏 0 个、斜面漏 0 个）。
         /// 逐行那套还顺带把**立绘板之上**的几行（gene y≈1.398–1.408 &gt; 板顶 1.385）算进基线，原版那里也没有图。</para>
         ///
-        /// <para>判据（原版口径）= `SoftMaskScript` + **`FlipAlphaMask = 1`** + `CutOff = 0` + `HardBlend = 0`
-        /// （`bundle_staticgeneralassets_assets_all/MonoBehaviour/MonoBehaviour_5590396362908354958.json`）：
-        /// 立绘**铺开、由卡框 alpha 反相遮罩** ⇒ 透明处（开口）必须有图、半透明处按 `1−α` 透出；
-        /// **不透明金属底下有没有图看不出来** ⇒ 基线**不该含金属**。这就是「改断言口径、不改渲染」的原版依据。</para>
+        /// <para>判据（原版口径 · 🔴 2026-10-24 重写）= **层序 + 标准 alpha-over**：立绘在框**下面**
+        /// （兄弟序 2 vs 4）、框按 `SrcAlpha OneMinusSrcAlpha` 盖上来 ⇒ 透明处（开口）必须有图、
+        /// 半透明处按 **`1−α`（一次乘法，⛔ 不是平方）** 透出；**不透明金属底下有没有图看不出来**
+        /// ⇒ 基线**不该含金属**。这就是「改断言口径、不改渲染」的原版依据。
+        /// ⚠️ 原写「判据 = `SoftMaskScript` + `FlipAlphaMask = 1`」—— **不成立**：那颗 SoftMask 的
+        /// `AlphaMask` 序列化值是 null（默认白 ⇒ α_mask=1 ⇒ 输出 0），它只淡没**自己那颗 Graphic**，
+        /// 不参与立绘的可见性。逐条判据 → `ArtVisibleThroughFrame` 的 doc。</para>
         ///
         /// <para>🔴 **灭自证**：`stripMissPct` 量的是 `ArtMeshInFrame` **真交给渲染器的那块网格**（把它的三角形
         /// 逐行投影回来），⛔ 不是把条带算法再算一遍 —— 谁把 `ArtMeshInFrame` 改回矩形，
@@ -9243,8 +9238,41 @@ namespace CardPresentation
             return true;
         }
 
+        /// <summary>立绘在「卡框半透明处」的**可见份额** = **`1 − α框`（一次乘法；⛔ 不是 `(1−α)²`）**。
+        ///
+        /// <para>🔴 **判据（一手 · 2026-10-24 现查，`新账-66` alpha 口径收口）**：
+        /// ① **层序**：原版 prefab `Front` 的 `m_Children` = `Card Highlight And Shadow → CardImage →
+        ///    Textbackgrounds → CardFrame → Card Info`（`bundle_staticgeneralassets_assets_all/
+        ///    RectTransform_-8145770350504326770.json`，逐个按 `m_GameObject` 反查名字）⇒ **立绘在下、
+        ///    卡框在上**（`CardImage` 索引 2 · `CardFrame` 索引 4）。
+        /// ② **卡框的混合 = 标准 alpha-over**：`Everguild/Card ImageUI` 反编译体与 UI 默认材质都是
+        ///    `Blend SrcAlpha OneMinusSrcAlpha`；我们那层 `CardPresentation/CardSprite` 是等价的预乘写法
+        ///    （`Blend One OneMinusSrcAlpha` + `c.rgb *= c.a`，两者合成结果逐像素相同）。
+        ///    ⇒ 立绘透出来的份额 = `a_立绘 × (1 − a_框)`，**只乘一次**。
+        /// ③ **没有第二层遮罩**。全 prefab 只有一颗 `SoftMaskScript`（`MonoBehaviour_5590396362908354958.json`，
+        ///    挂在 **CardFrame**、`MaskArea` = `CardImage` 的 RectTransform），它的片元（反编译体
+        ///    `D:/2/tools/ruri_out_1020_rootshaders/ExportedProject/Assets/Shader/UI Extensions_SoftMaskShader.shader`）
+        ///    是 `a_out = M·((1−α_mask)·a_obj − a_obj) + a_obj` = **`a_obj·(1 − M·α_mask)`（一次乘法）**；
+        ///    而它的 `AlphaMask` 序列化值是 **null**（151/153 个实例如此；默认白 ⇒ `α_mask = 1` ⇒
+        ///    `a_out = 0`）⇒ 它的实际作用是**把它挂到的那颗 Graphic 整层淡没**（`CardImageController__ChangeState.c`
+        ///    的 `+0x50` 那一路 = `textBackground`；`SoftMaskScript.ToggleMask` 自己那颗 = CardFrame），
+        ///    **不作用于立绘**。
+        /// ④ **立绘不是被遮罩图层的子节点**（`CardImage` 与 `CardFrame` 是**兄弟**）⇒ 那条
+        ///    「立绘会被乘两次 ⇒ `(1−α)²`」的担心 **不成立**。
+        /// ⑤ 立绘另有一道**硬矩形**裁切（`Everguild/Card ImageUI` 的 `_Clamp_Range`：UV 不在
+        ///    `(z, x] × (w, y]` 内 ⇒ α=0），与这条公式无关。</para>
+        ///
+        /// <para>⚠️ 我们这层立绘用 `CardPresentation/ArtOpaque`（**忽略贴图 alpha，α 当 1**，见 `OpaqueMaterial`）
+        /// ⇒ 上式在本工程退化成 `1 − a_框`。`FrameArtBevelCoverage` 的期望值就走这里（**只此一处**）。</para>
+        /// </summary>
+        public static float ArtVisibleThroughFrame(float frameAlpha01)
+        {
+            return 1f - Mathf.Clamp01(frameAlpha01);
+        }
+
         /// <summary>自检用（`新账-66` 残余 · **半透明内斜面**）：量两件事 ——
-        /// ① 「立绘在该点的贡献 = `1 − 卡框α`」（原版 `FlipAlphaMask=1` 的等价物）；
+        /// ① 「立绘在该点的贡献 = `1 − 卡框α`」（**标准 alpha-over**：立绘在框下、框在上，一次乘法；
+        ///    ⛔ 不是 SoftMask、也不是 `(1−α)²` —— 判据全文见 `ArtVisibleThroughFrame`）；
         /// ② 「立绘有没有画到卡框外面」（本轮那条「按框外面夹取」的**灭自证**）。
         ///
         /// <para>`ringPx` = **立绘板 ∩ 卡体之内**、与开口 4 连通、alpha 在 9..247 的像素数（= 斜面面积）；
@@ -9324,7 +9352,8 @@ namespace CardPresentation
                     }
                     ringA += 1.0;                        // ① 斜面像素
                     if (cov) continue;                   // 盖住 ⇒ 贡献正好是 `1−α`（误差 0）
-                    float exp = 1f - alpha[idx] / 255f;  // 没盖住 ⇒ 那一点该有的 `1−α` 全丢了
+                    // 没盖住 ⇒ 那一点该有的 `1−α` 全丢了（**一次乘法**，判据见 `ArtVisibleThroughFrame`）
+                    float exp = ArtVisibleThroughFrame(alpha[idx] / 255f);
                     missA += 1.0;
                     errSum += exp;
                     if (exp > worst) worst = exp;
@@ -9689,7 +9718,8 @@ namespace CardPresentation
         //     那样：头冠/剑/闪电压在金属框上）。
         //    判据（现核，整份读）→ `资料/普查产出_1018/R_卡片详情大图三问.md` §二（Q1 证据）· §五 第 1 条：
         //      · 原版卡图 rect **2.7484 × 2.7484 @ y=−0.044**、卡框 **2.2452 × 3.2572 @ y=−0.030**；
-        //        卡框上挂 `SoftMaskScript`（`MaskArea` = 卡图、`FlipAlphaMask=1`）⇒ **用立绘 alpha 给卡框挖洞**
+        //        卡框上挂 `SoftMaskScript`（`MaskArea` = 卡图、`FlipAlphaMask=1`；⚠️ 2026-10-24 订正：
+        //        `AlphaMask` = null ⇒ 它做的是**整层淡没卡框**，不是「按立绘 alpha 挖洞」，见 `ArtVisibleThroughFrame`）
         //        ⇒ 角色从框下透出（立绘比框宽 **1.31×**）。
         //      · 大图态 `CardImageController.ChangeState`（状态 1）还会把立绘**放大 ×1.27**
         //        （`bigSizeMultiplier`）—— 框不动。

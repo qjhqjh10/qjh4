@@ -9,6 +9,16 @@ import io
 import sys
 
 
+## A17 2026-10-24: -h/--help early exit (print usage only, exit 0; never run the real work).
+import sys as _wf_help_sys
+if any(_wf_help_sys.argv[_i] in ("-h", "--help") for _i in range(1, len(_wf_help_sys.argv))):
+    try:
+        _wf_help_sys.stdout.reconfigure(encoding="utf-8")
+    except Exception:
+        pass
+    print('用法：python 工具/cmp_ledger.py <旧台账.tsv> <新台账.tsv>\n  -h, --help  只打印本用法并退出（退出码 0），不执行任何真活。')
+    _wf_help_sys.exit(0)
+
 def load(p):
     return {r["效果名"]: r for r in csv.DictReader(io.open(p, encoding="utf-8-sig"), delimiter="\t")}
 

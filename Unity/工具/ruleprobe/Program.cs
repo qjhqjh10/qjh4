@@ -213,7 +213,7 @@ class Program
     //   本轮 `gen_cards_engine.py` 重生成卡表：version 18→19 + 新增 `spellType` 列（`cards_raw.json` 真值直搬），
     //   逐张语义 diff 只有这两处、其余 0 漂移（判据 → `普查产出_1023d/引擎批量_A1690_97_95_执行报告.md` §4）。
     //   基线文件 / 输出指纹**没动** ⇒ 只重钉这一条。
-    public const string PinnedPoolMd5 = "3d0434d51f5fdacfcaf6733df003ec9b";
+    public const string PinnedPoolMd5 = "fafc0f562db54f139b29891b119b8c7e";
 
     /// <summary>钉住的基线内容指纹（`工具/ruleprobe/基线/out_baseline.txt` 的 md5，**按字节**）。
     /// 与上面那个配对使用 —— 判据见上面那段长注释。</summary>
@@ -247,7 +247,7 @@ class Program
     //   的**后半句**原来被静默吃掉）。判据 → `资料/任务线/引擎线/任务总表.md` `T02` 行 ＋ 卡面中文
     //   「如果目标死亡或为友方单位」＋ `cards_1195_2022时代.json` 的 `targetCriteria(friendlyUnits=1/enemyUnits=1)`。
     //   ⇒ 按「先修好解析器，再跑 `scan` 定为新基线」重生成，⛔ 不是把红抹平。
-    public const string PinnedBaselineMd5 = "691dd3ebbdf40969a1f1eb29706f79d0";
+    public const string PinnedBaselineMd5 = "61ccfb36e70694ae24c5a7e46195e41c";
 
     /// <summary>🆕 **解析输出指纹**（`A1382` **一般情形**的堵法，2026-10-12 第二十一会话 · 写手 `E5`）
     /// —— 「`check` 的判据是『与**基线文件**比』，而**基线文件同一个工具就能重写**」这条洞的机器级补丁。
@@ -312,7 +312,7 @@ class Program
     //   🔴 **2026-10-21（第五十九会话 · 引擎线 `T02`）重钉** —— 唯一变化 = `SOR31|Dogmata` 的条件种类
     //   （`targetdies` → `targetdiesorfriendly`）。行为侧另有三条新断言（友方活着 +1 / 敌方活着 +0 /
     //   敌方被打死 +1）钉住它，见 `Assets/RuleEngine/Editor/RuleEngineTest_T02.cs`。
-    public const string PinnedParseMd5 = "c9f6c6429c12a918bcfbd8f0df6850db";
+    public const string PinnedParseMd5 = "31d298eb7d6394e3861e2c82d1d17095";
 
     /// <summary>一个文件的 md5（按字节；读不到返回 `null` —— ⛔ 不静默当成空串）。</summary>
     public static string Md5File(string path)
@@ -445,6 +445,19 @@ class Program
                         Environment.Exit(FaithProbe.Run(PoolList, PoolRawKeywords, fDump));
                     }
                     break;
+                // 🆕 **`a24`**（引擎线第四批 · 2026-10-24）：`T21④` 回合末发射序 +
+                //    `新账-104` `EC58` 双子部署/`them` 的**离线真跑**（见 `A24Probe.cs` 头注）。
+                //    ⚠️ 它只验「夹具与期望值」，正式验收仍是 `RuleEngineTest.Run`（Unity）。
+                case "a24": LoadPool(); Environment.Exit(A24Probe.Run(Pool)); break;
+                // 🆕 **`g2`**（引擎线剩余三件 · 2026-10-24）：`D8` `ThisUnitSummoned` ·
+                //    `D9` `WhileInPlay` · `questTimes` 消费点的**离线真跑**（见 `G2Probe.cs` 头注）。
+                //    ⚠️ 同 `a24`：它验行为/夹具，正式验收仍是 `RuleEngineTest.Run` / `BattleScene.Run`。
+                case "g2": LoadPool(); Environment.Exit(G2Probe.Run(Pool)); break;
+                // 🆕 **`n2`**（引擎线 `新账-95` #2 的红灯诊断 · 2026-10-24）：`role=mult` 的**结构化乘数**
+                //    在 `RuleEngineTest_UnitRoles.N2RoleMult()` 里两条断言红（实得 3 / 1，期望 2 / 0）。
+                //    本子命令把中间每一跳（归位下标 → `TryGetCondition` → `CountTargets` → `repeats`）摆出来。
+                //    ⚠️ 同 `a24`/`g2`：读数而已，正式验收仍是 `RuleEngineTest.Run`。
+                case "n2": LoadPool(); Environment.Exit(N2Probe.Run(Pool)); break;
                 // 🆕 **`play`**（`A1431`，2026-10-11）：**逐卡真打** —— 「这张卡打出去，数字对不对」。
                 //    在本子命令之前，本仓 **9 类**检查手段**全部只回答「这句英文今天解析成什么样」**，
                 //    没有一条回答「这张卡打出去数字对不对」⇒「**解析过、结算错**」这一整类
@@ -578,6 +591,9 @@ class Program
         //   非 0/1 的布尔、`playerTurn` 不在 0/10/20、引用列表不是数组或含空串）。
         //   🔴 口径与 `CardDatabase.MapCountSet` **一致**：坏值**不丢整行**，只把那一格落 `-1`。
         int nUcSetRows = 0, nBadUcSet = 0;
+        // 🆕 v22（2026-10-24 · 引擎线 `新账-95` #2）：`mult`/`multi`/`avail`/`choice` 四格
+        //   **落了整条 criteria** 的行数（对账期望 = 10：4 + 1 + 3 + 2）。错位也计进 `nBadUcSet`。
+        int nUcRoleSetRows = 0;
         // 🆕 v17（2026-10-23 · 引擎线 · `B-16` 残余 241/242 ＋ `B-17`）：`abilityTriggers` /
         //   `abilityTargets` 两列的读数。
         //   · `nMissTrig` / `nMissTgt` = **缺这一列**的卡数（探针按 `null` = **未知**收下，⛔ 不是 `[]`）；
@@ -586,6 +602,11 @@ class Program
         //     口径同 `CardDatabase.MapAbilityTargets`：**那一格落 -1，⛔ 不丢整条 ability**
         //     （下标即语义 ⇒ 丢一条会让后面每一条 ability 整体错位）。
         int nMissTrig = 0, nMissTgt = 0, nBadTrig = 0, nBadTaCell = 0;
+        // 🆕 v20（2026-10-24 · 引擎线 `A12`）：`abilityMultipliers` 的读数列。
+        //   `nMissMul` = 缺这一列的卡数（按 `null` = **未知**收下，⛔ 不是 `[]`）；
+        //   `nBadFmCell` = `fm` 非数组 / 单格 `< -1`；`nFmGt1` = 取值 > 1 的格子数
+        //   （**这些才是真的会被乘的** —— 全 0/1 就等于这条消费端没在干活）。
+        int nMissMul = 0, nBadFmCell = 0, nMulCards = 0, nMulLogics = 0, nFmGt1 = 0;
         int nTrigCards = 0, nTrigValues = 0, nTgtCards = 0, nTgtAbilities = 0, nTgtLogics = 0;
         foreach (var c in doc.RootElement.GetProperty("cards").EnumerateArray())
         {
@@ -771,6 +792,20 @@ class Program
                         else nBadUcSet++;          // `count` 行缺 `countSet`（v16+ 表上是坏数据）
                     }
                     else if (e.TryGetProperty("countSet", out _)) nBadUcSet++;   // 非 count 行带它 = 坏数据
+                    // 🆕 v22（2026-10-24 · 引擎线 `新账-95` #2）：`mult` / `multi` / `avail` / `choice`
+                    //   四格的**整条 criteria**。口径同 `CardDatabase.RoleSet`：
+                    //   · 缺这一格 ⇒ 对应属性 `null`（**未知**，⛔ 不是「默认 criteria」）**且不出声**；
+                    //   · **错位**（别的 role 带着它）⇒ 计一条 bad 并忽略（⛔ 不静默挂到别的 role 上）。
+                    //   ⚠️ 探针不传 = 「引擎有、探针看不见」⇒ 结构化乘数在 `play` 里恒不生效，
+                    //      而 `play` 正是验收工具 ⇒ 这一格是**必须**传的（同 `A1911`/`A1959` 那一族）。
+                    CardDef.CountSetSpec ucMultSet  = ParseRoleSet(e, ucRole, "mult",   "multiplierSet", ref nBadUcSet);
+                    CardDef.CountSetSpec ucMultiSet = ParseRoleSet(e, ucRole, "multi",  "multiSet",      ref nBadUcSet);
+                    CardDef.CountSetSpec ucAvailSet = ParseRoleSet(e, ucRole, "avail",  "availSet",      ref nBadUcSet);
+                    CardDef.CountSetSpec ucChoSet   = ParseRoleSet(e, ucRole, "choice", "choiceSet",     ref nBadUcSet);
+                    if (ucMultSet != null) nUcRoleSetRows++;
+                    if (ucMultiSet != null) nUcRoleSetRows++;
+                    if (ucAvailSet != null) nUcRoleSetRows++;
+                    if (ucChoSet != null) nUcRoleSetRows++;
                     unitConds.Add(new CardDef.ConditionSpec
                     {
                         Ability = ucAb,
@@ -787,6 +822,11 @@ class Program
                         ReferenceValue = e.TryGetProperty("refValue", out var ucRefEl) && ucRefEl.ValueKind == JsonValueKind.Number
                                          ? ucRefEl.GetInt32() : -1,
                         CountSet = ucSet,
+                        // 🆕 v22（2026-10-24 · `新账-95` #2）：`mult`/`multi`/`avail`/`choice` 四格。
+                        MultiplierSet = ucMultSet,
+                        MultiSet = ucMultiSet,
+                        AvailSet = ucAvailSet,
+                        ChoiceSet = ucChoSet,
                     });
                     nUcRows++;
                 }
@@ -850,6 +890,65 @@ class Program
                 }
             else nMissTgt++;
             if (a17HasTgt) nTgtCards++;
+            // 🆕 v20（2026-10-24 · 引擎线 `A12`）：**`abilityMultipliers` 也要传** ——
+            //   不传 ⇒ `CardDef.AbilityTargetSpec.FurtherMultiplier` 恒 `null` ⇒
+            //   `EffectText.AssignAbilityTargets` 挂不上 `EffectOp.AbilityFurtherMultiplier`
+            //   ⇒ `EffectResolver` 那一步**永远不乘** ⇒ 拿 `play` 量这一列全是**假阴性**
+            //   （与 `A1911` / `A1959` / `A17` 那条「探针与引擎口径不同」是同一族坑）。
+            //   🔴 **下标即语义**（与 `abilityTargets` 逐条同行）：非对象行 → `null` 占位；
+            //      `fm` 不是数组 → `null`（= 这一条 ability 读不到，⛔ 不是空表）；
+            //      单格 `< -1` → 落 `-1` 并计数（口径同 `CardDatabase.MapAbilityMultipliers`）。
+            //   ⚠️ `0` 是合法取值（原版「不乘」），⛔ 别拿它当缺值。
+            bool a20HasFm = c.TryGetProperty("abilityMultipliers", out var a20FmEl) && a20FmEl.ValueKind == JsonValueKind.Array;
+            var a20FmRows = new List<int[]>();
+            if (a20HasFm)
+                foreach (var a20Row in a20FmEl.EnumerateArray())
+                {
+                    if (a20Row.ValueKind != JsonValueKind.Object) { a20FmRows.Add(null); continue; }
+                    if (!a20Row.TryGetProperty("fm", out var a20Cell) || a20Cell.ValueKind != JsonValueKind.Array)
+                    { a20FmRows.Add(null); nBadFmCell++; continue; }
+                    var a20Fm = new List<int>();
+                    foreach (var a20v in a20Cell.EnumerateArray())
+                    {
+                        if (a20v.ValueKind != JsonValueKind.Number) { nBadFmCell++; a20Fm.Add(-1); continue; }
+                        int a20n = a20v.GetInt32();
+                        if (a20n < -1) { nBadFmCell++; a20n = -1; }   // 只允许 `>= 0` 或 `-1`
+                        if (a20n > 1) nFmGt1++;
+                        a20Fm.Add(a20n);
+                    }
+                    a20FmRows.Add(a20Fm.ToArray());
+                    nMulLogics += a20Fm.Count;
+                }
+            else nMissMul++;
+            if (a20HasFm) nMulCards++;
+            // 🆕 **2026-10-24（引擎线 `G2` · `C4` D8/D9）：`animTimes`（v11）也要传进 `CardDef`。**
+            //   为何现在补：本探针的 `LoadPool` 是**手读 JSON**、不走 `Data/CardDatabase.cs`
+            //   ⇒ 在这一行之前 `CardDef.AnimTimes` **恒空**，而引擎那边（`CardDatabase.Parse` →
+            //   `MapAnimTimes`，`Data/CardDatabase.cs:1047`）**是传的**。
+            //   后果（与 `A1911` / `A1959` / `A17`「探针与引擎口径不同」是同一族坑）：
+            //   `CardDef.HasAnimTrigger(...)` 在探针里**恒假** ⇒ `D9` 的 `WhileInPlay` 发射口
+            //   （按 `HasAnimTrigger` 收窄）在探针里**永远看不见**，读数会是**假阴性**。
+            //   ⚠️ 只搬值、不排序不做取舍（口径与 `CardDatabase.MapAnimTimes` 逐字相同）；
+            //      缺列 ⇒ 空表（= 这张卡没有 `cardAnimations`，⛔ 不是「解析失败」）。
+            bool hasAnim = c.TryGetProperty("animTimes", out var animEl) && animEl.ValueKind == JsonValueKind.Array;
+            var animRows = new List<CardDef.CardAnimTime>();
+            if (hasAnim)
+                foreach (var ar in animEl.EnumerateArray())
+                {
+                    if (ar.ValueKind != JsonValueKind.Object) continue;
+                    string AS(string k) => ar.TryGetProperty(k, out var av) && av.ValueKind == JsonValueKind.String ? av.GetString() : null;
+                    int AI(string k) => ar.TryGetProperty(k, out var av) && av.ValueKind == JsonValueKind.Number ? av.GetInt32() : 0;
+                    float AF(string k) => ar.TryGetProperty(k, out var av) && av.ValueKind == JsonValueKind.Number ? (float)av.GetDouble() : 0f;
+                    animRows.Add(new CardDef.CardAnimTime
+                    {
+                        Anim = AS("a"), Prefab = AS("n"),
+                        Trigger = AI("tg"), TriggerName = AS("tn"),
+                        RandomChoice = AI("rc") != 0, Order = AS("o"),
+                        Delay = AF("d"), StartDelay = AF("sd"),
+                        TimeAtStartPos = AF("s"), TimeMoving = AF("m"),
+                        TimeAtEndPos = AF("e"), Duration = AF("u"), Offset = AF("t"),
+                    });
+                }
             list.Add(new CardDef(S("id"), S("name"), S("type"), S("desc"), S("rarity"), S("faction"),
                                  I("cost"), I("attack"), I("health"), I("ranged"), kws,
                                  S("nameZh"), S("descZh"), true, S("subtype"), S("goesSecond"),
@@ -889,7 +988,14 @@ class Program
                                  //    v17 一次加的两列，`CardDef` 构造函数末尾就是这么绑的）。
                                  abilityTriggers: a17HasTrig ? a17TrigVals : null,
                                  abilityTriggersVersioned: poolVersion >= 17,
-                                 abilityTargets: a17HasTgt ? a17TgtRows : null));
+                                 abilityTargets: a17HasTgt ? a17TgtRows : null,
+                                 // 🆕 v20（2026-10-24 · 引擎线 `A12`）：逐 `abilityLogic` 的
+                                 //   `furtherMultiplier` —— 与 `abilityTargets` **逐条同下标**；
+                                 //   缺列 / 版本位口径同引擎 `CardDatabase.Parse`（`dto.version >= 20`）。
+                                 abilityMultipliers: a20HasFm ? a20FmRows : null,
+                                 abilityMultipliersVersioned: poolVersion >= 20,
+                                 // 🆕 2026-10-24（`G2`）：v11 的逐候选动画时间（见上面那一段注释）。
+                                 animTimes: animRows.Count > 0 ? animRows : null));
         rawKw.Add(kws);
         }
         // 🔴 **缺列一律出声**（铁律「不许静默失败」）：缺了就是缺了，⛔ 不让它静默变成「某张卡的值是 X」。
@@ -975,6 +1081,20 @@ class Program
                               + " —— 口径同 `CardDatabase.MapCountSet`：**那一格落 -1**，⛔ 不丢整行、不 clamp。");
         Console.WriteLine("  unitConditions[count]: 带被数集合的行 = " + nUcSetRows + " · 坏值格数 = " + nBadUcSet
                           + "（原版 `BoardCriteria.countCriteria` ＋ `playerTurn`；判据 → 同上 B-16）");
+        // 🆕 v22（2026-10-24 · 引擎线 `新账-95` #2）：`mult` / `multi` / `avail` / `choice` 四格的
+        //   **整条 criteria**（原版 `abilityLogic.multiplier` / `CardAbility.multiCountCriteria` /
+        //   `RawCardScript.targetsAvailableCounter` / `.choicesDefinition`）。
+        //   `nMultSetRows > 0` 是 `EffectResolver` 的结构化乘数**真的在干活**的前提。
+        if (poolVersion < 22)
+            Console.WriteLine("⚠️ 卡池 `version`=" + poolVersion + " < 22 —— 这一版 `unitConditions` 的 "
+                              + "`mult` / `multi` / `avail` / `choice` 四行**没有**整条 criteria"
+                              + "（`multiplierSet` / `multiSet` / `availSet` / `choiceSet`）⇒ 探针把"
+                              + " `CardDef.ConditionSpec` 那四格一律读成 **null = 未知**"
+                              + "（⛔ 不是「默认 criteria」）。引擎侧 `CardDatabase.cs` 的 `< 22` 守卫同口径。"
+                              + "跑 `工具/gen_cards_engine.py` 重生成。");
+        if (nUcRoleSetRows > 0 || nBadUcSet > 0)
+            Console.WriteLine("  unitConditions[roleSet]: `mult`/`multi`/`avail`/`choice` 四格落整条 criteria 的行 = "
+                              + nUcRoleSetRows + "（对账期望：mult 4 · multi 1 · avail 3 · choice 2 = **10**）");
         // 🆕 v17（2026-10-23 · 引擎线 · `B-16` 残余 241/242 ＋ `B-17`）：两列的读数（旧表 / 缺列 / 形状坏**都出声**）。
         //   判据 → `资料/普查产出_1023b/引擎线_尾巴_执行报告.md` §2·3（abilityTriggers）与 §3·2（abilityTargets）。
         if (poolVersion < 17)
@@ -996,6 +1116,20 @@ class Program
                           + " · ability = " + nTgtAbilities + " · logic = " + nTgtLogics
                           + "（对账期望：1127 张 / 1193 值 / 1127 张 / 1270 条 / 1616 个"
                           + " —— 判据 → 资料/普查产出_1023b/引擎线_尾巴_执行报告.md §2·3/§3·2）");
+        // 🆕 v20（2026-10-24 · 引擎线 `A12`）：`abilityMultipliers`（原版 `AbilityLogic.furtherMultiplier`）读数。
+        //   `nFmGt1 > 0` 是这个消费端**真的在干活**的前提（全 0/1 ⇒ 乘不乘都一样）。
+        if (poolVersion < 20)
+            Console.WriteLine("⚠️ 卡池 `version`=" + poolVersion + " < 20 —— 这一版没有 `abilityMultipliers` 一列"
+                              + " ⇒ `CardDef.AbilityTargetSpec.FurtherMultiplier` 一律 **null（未知）**、"
+                              + "`EffectResolver` 那一步不乘（= 改前行为，⛔ 不是「数据说 fM 全是 0」）。"
+                              + "引擎侧 `CardDatabase.cs` 的 `< 20` 守卫同口径。跑 `工具/gen_cards_engine.py` 重生成。");
+        if (nMissMul > 0 || nBadFmCell > 0)
+            Console.WriteLine("⚠️ 卡池 v20 那列：缺 " + nMissMul + " 行 · 坏格 " + nBadFmCell + " 个"
+                              + "（`fm` 非数组 / 单格 < -1）—— 口径同 `CardDatabase.MapAbilityMultipliers`："
+                              + "**那一格落 -1**，⛔ 不丢整条 ability。先跑 `工具/gen_cards_engine.py`。");
+        Console.WriteLine("  abilityMultipliers: 带这一列的卡 = " + nMulCards + " · logic = " + nMulLogics
+                          + " · **取值 > 1 的格子 = " + nFmGt1 + "**"
+                          + "（原版 `AbilityLogic.furtherMultiplier`；0 = 不乘、-1 = 缺键）");
 
         Pool = list;
         // 🆕 **同序留一份 `keywords` 原文**（见 `PoolRawKeywords` 的说明）——
@@ -1046,6 +1180,23 @@ class Program
     /// ⚠️ 语义校验（各枚举的成员表）**不在这里做** —— 与引擎侧同口径，只查类型/缺键/域。
     /// 返回的 `badCount` = 坏值/缺键的**格数**（不是行数）。
     /// </summary>
+    /// <summary>🆕 v22（2026-10-24 · 引擎线 `新账-95` #2）：`unitConditions` 里**某一 role 的整条 criteria**
+    /// （`multiplierSet` / `multiSet` / `availSet` / `choiceSet`）→ <see cref="CardDef.CountSetSpec"/>。
+    /// **口径与 `CardDatabase.RoleSet` 一致**：
+    /// · 缺这一格 ⇒ `null`（**未知**，⛔ 不是「默认 criteria」）**且不计 bad**；
+    /// · **错位**（`ucRole != role` 却带着这一格）⇒ 计一条 bad 并忽略（⛔ 不静默挂到别的 role 上）；
+    /// · 有这一格就交给 <see cref="ParseCountSet"/>（坏格落 `-1` 并计 bad，**不丢整行**）。
+    /// </summary>
+    static CardDef.CountSetSpec ParseRoleSet(JsonElement e, string ucRole, string role,
+                                             string field, ref int badCount)
+    {
+        if (!e.TryGetProperty(field, out var el)) return null;      // 缺 = 未知，⛔ 不出声
+        if (ucRole != role) { badCount++; return null; }            // 错位 = 坏数据
+        var r = ParseCountSet(el, out int bad);
+        badCount += bad;
+        return r;
+    }
+
     static CardDef.CountSetSpec ParseCountSet(JsonElement el, out int badCount)
     {
         int bad = 0;
@@ -1281,6 +1432,14 @@ class Program
         // —— for each / repeat ——
         N("perCount", op.PerCount);
         N("repeatTimes", op.RepeatTimes);
+        // 🆕 2026-10-24（引擎线 `A12`）：原版 `AbilityLogic.furtherMultiplier`（`PlayAbility.c:235-236`）。
+        //   判据同本方法 doc ① ：「由解析器写入、且结算层会读」⇒ 必须在 `Dump` 里可见。
+        //   `-1` = **未知**（没挂上/旧表），`0` = 原版明确「不乘」。
+        N("fm", op.AbilityFurtherMultiplier);
+        // 🆕 2026-10-24（引擎线 `A12` 顺手发现）：`SubjectTargetsAffected`（`B-17` 的 `targetsAffected`）
+        //   到本轮为止 **`Dump` / `scan` 两个入口都不打** —— 而它是「由解析器写入、结算层会读」的字段
+        //   （判据同本方法 doc ①）⇒ 补上，否则「归位有没有生效」在探针里**没有任何仪器可看**。
+        N("subjTa", op.SubjectTargetsAffected);
 
         return " ext={" + string.Join("|", parts) + "}";
     }

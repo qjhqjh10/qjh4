@@ -86,6 +86,18 @@ namespace CardPresentation
         public float Duration;
         /// <summary>出声用：这一拍是谁的（`卡名/事件名`），⛔ 别拿它当逻辑判据。</summary>
         public string Label;
+        /// <summary>🆕 2026-10-23（账 `新账-76②`·原版 `MinionScaleByPositionSO` 的**第三处调用点**）：
+        /// **这一拍演的期间，每帧按棋盘深度重算卡自己 `localScale`**。
+        /// <para>判据 = `CardScript.__c__DisplayClass358_0___MoveAndDisappearAnim_b__1.c` / `_b__4.c`
+        /// （两条逐字同形）：`card.transform.localScale = GetScale(isPlayer, card.localPosition, 卡的 DefaultScale)`
+        /// 挂在「技能动画位移」那条序列的 `OnUpdate` 上。原版这两个回调只从
+        /// `BattleManager._ResolveAnim_d__466` / `_ResolveTraitAnim_d__465` 被调 ⇒ **只有真的会移动的那一拍**才有。</para>
+        /// <para>⇒ 调用方按 `CardAnimPlacement.Move`（原版 `AnimInfo` 那位 `move`）置位，⛔ 别对所有技能拍都开。</para></summary>
+        public bool DepthScaleByBoardPosition;
+        /// <summary>🆕 这张卡是不是玩家自己的（原版 `CardScript+0x40`，`GetScale` 第一个实参）。
+        /// `null` = 按静止位离哪一行近来判（`CardFeel.IsPlayerRow`，结构上不会误判）。
+        /// ⚠️ 调用点知道得准就显式传（`BattleDriver.PlayOneUnitAnim` 传 `e.Player == _me`）。</summary>
+        public bool? DepthScaleIsPlayer;
 
         public bool IsEmpty { get { return Clip == null && string.IsNullOrEmpty(Prefab); } }
     }
@@ -132,6 +144,16 @@ namespace CardPresentation
         Vector3 _originalScale;
         // 原版 `safeResetOnEnd`（+0x80）
         bool _safeResetOnEnd;
+        // ── 🆕 2026-10-23（`新账-76②`）：技能动画位移期间的「按深度重算缩放」（原版 `MoveAndDisappearAnim` 的
+        //    `b__1` / `b__4` 两个 `OnUpdate`）。曲线口 = `CardFeel.DepthScaleFactor`（共用静态口）。
+        bool _depthScale;        // 这一拍要不要逐帧写
+        bool _depthIsPlayer;     // 原版 `GetScale` 第一个实参
+        float _depthBase;        // 「这一侧静止该多大」—— `DoAnim` 时抓一次（⛔ 别每帧读 `CardView.BaseScale`）
+        bool _depthWrote;        // 写过没有（收尾只在写过时才复位，免得平白覆盖别人的补间）
+        CardView _depthCard;     // 卡视图（取一次；null ⇒ 退回直写 `localScale`）
+        bool _depthOnArena;      // 这张卡在不在 **3D 战场**上（2D 兜底布局一律不算深度）
+        /// <summary>🆕 本控制器**真按深度写过几次**缩放（自检用：证明「接线了」而不只是「有字段」）。</summary>
+        public int DepthScaleWrites { get; private set; }
 
         /// <summary>造一个控制器（= 原版 `Start()`：**先关掉自己**，再缓存变换）。</summary>
         /// <param name="t">卡根（原版这个组件与 `Animation` 都挂在卡 prefab 根上）。</param>
@@ -197,6 +219,20 @@ namespace CardPresentation
             }
 
             _safeResetOnEnd = safeResetOnEnd;       // 原版 `*(undefined1 *)(param_1 + 0x80) = param_5`
+            // 🆕 2026-10-23（`新账-76②`）：技能动画**位移**期间的逐帧深度缩放（原版 `MoveAndDisappearAnim`
+            //   的 `b__1` / `b__4`）。底数在这里抓一次 —— 与本拍起播时的静止缩放同值；⛔ 别每帧读
+            //   `CardView.BaseScale`（它每帧被本类改写 ⇒ 会复利）。
+            _depthScale = anim.DepthScaleByBoardPosition && _t != null;
+            _depthWrote = false;
+            _depthCard = null;
+            if (_depthScale)
+            {
+                _depthIsPlayer = anim.DepthScaleIsPlayer ?? CardFeel.IsPlayerRow(_t.position.z);
+                _depthCard = _t.GetComponent<CardView>();
+                _depthBase = _depthCard != null ? _depthCard.BaseScale : _t.localScale.x;
+                _depthOnArena = _depthCard != null ? CardFeel.IsArenaCard(_depthCard)
+                                                   : _t.gameObject.layer == ArenaSlots.ArenaLayer;
+            }
             Toggle(false);                          // 原版 `set_enabled(this, 0)` + `myAnimation.enabled = 0`
             AddClipIfNecessary(anim.Clip);
             _onAnimationEnd = onAnimationEnd;
@@ -274,6 +310,17 @@ namespace CardPresentation
             ClearClips();
             Toggle(false);
 
+            // 🆕 2026-10-23（`新账-76②`）：把逐帧深度缩放写回**静止值**。
+            //   原版那条序列跑完就「停止写」，最后一帧的值一直留着；我们的卡随后还会被
+            //   `SetPose` / 换位补间搬，停在半途的缩放会静默放大 —— 所以显式复位。
+            //   ⚠️ 顺序在 `safeResetOnEnd` **之前**：那一位是「整条复位到 Start() 那一刻」，优先级更高。
+            if (_depthScale && _depthWrote && _t != null)
+            {
+                if (_depthCard != null) _depthCard.SetBaseScale(_depthBase);
+                else _t.localScale = Vector3.one * _depthBase;
+            }
+            _depthScale = false; _depthWrote = false; _depthCard = null;
+
             if (_safeResetOnEnd && _t != null)
             {
                 // 原版 `set_position` / `set_rotation` / `set_localScale` 三连。
@@ -321,10 +368,31 @@ namespace CardPresentation
             else StartAnim();
         }
 
+        /// <summary>🆕 2026-10-23（`新账-76②`）：一帧深度缩放。
+        /// <para>原版 `MoveAndDisappearAnim` 的 `b__1`/`b__4`：`card.localScale = GetScale(isPlayer, card.localPosition,
+        /// 卡默认缩放)`；`localPosition` 是「相对自己那一行」，我们卡父节点恒在原点 ⇒ 用**世界 z** 喂
+        /// `CardFeel.DepthScaleFactor`（换算与 `CardFeel` 那两处完全同一个口，⛔ 别在这里写第二份曲线）。</para></summary>
+        void ApplyDepthScaleTick()
+        {
+            if (_t == null) return;
+            // 🔴 只有活在 **3D 战场**上的卡才吃这条（与 `CardFeel.HookDepthScale` 同一个门）：
+            //   2D 兜底布局的卡全在 HUD 正交平面（z = 0），套曲线恒得 1.75× = 纯错。
+            if (!_depthOnArena) return;
+            float f = CardFeel.DepthScaleFactor(_t.position.z, _depthIsPlayer);
+            if (_depthCard != null) _depthCard.SetBaseScale(_depthBase * f);
+            else _t.localScale = Vector3.one * (_depthBase * f);
+            _depthWrote = true;
+            DepthScaleWrites++;
+        }
+
         /// <summary>原版 `Update`。由 `BattleDriver.AdvanceTimeline` 推（见文件头「我们改的三处 ①」）。</summary>
         public void Update(float dt)
         {
             if (!Enabled) return;
+            // 🆕 2026-10-23（`新账-76②`）：**逐帧按战场深度重算卡自己的缩放**（原版 `MoveAndDisappearAnim`
+            //   那两个 `b__1`/`b__4` 的 `OnUpdate`）。`CardFeel.DepthScaleFactor` 在**自己那一行**上恒 = 1
+            //   （原版 `GetScale` 也如此：曲线值 × `默认值 ÷ 该端键值` 正好约掉）⇒ 卡不动时写的是同一个值。
+            if (_depthScale) ApplyDepthScaleTick();
             _currentAnimationTime -= dt;
             // 🔴 **2026-10-23（第六十六会话实跑红的）**：原式 = `OneFrameSlack / Application.targetFrameRate`。
             //   ⚠️ **批处理里 `Application.targetFrameRate` 是 `-1`（= 「不覆盖平台默认」）** ——

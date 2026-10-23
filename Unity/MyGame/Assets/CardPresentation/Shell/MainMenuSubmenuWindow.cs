@@ -20,11 +20,55 @@ namespace CardPresentation
         /// <summary>`VerticalLayoutGroup`：padTop **120** · spacing **0** · UpperCenter · 子高 180。</summary>
         public const float TabBtnH = 180f;
 
-        /// <summary>左栏**第一个键距 `Content Area` 顶边**的距离 —— 原版**逐窗不同**：
-        /// 奖励窗 / 商店 = **120** · 🆕 **收藏窗（`Collection Menu Variant`）= 30**
-        /// （它的 `Tab Buttons` 是 `VerticalLayoutGroup` align=1 UpperCenter · `padTop=30`、每键 165×180）。
-        /// ⇒ 做成可覆写：子类只改这一个数，**别再写一套左栏**。</summary>
-        protected virtual float BarPadTop { get { return 120f; } }
+        /// <summary>🆕 **2026-10-23（W62 · 界面线）**：左栏 `Tab Buttons` **自己的顶边**（设计 px）—— 原版**逐窗不同**。
+        /// <para>我们原来四扇窗**一律**从 `ContentT`(70.94) 起 ⇒ 收藏窗的左栏底板（`40k_main_tab_background` 的
+        /// `Gradient2` 三条横带，即 `Tab Buttons/Background`）**比原版高 88 px**（真机页头那一条亮带；
+        /// 账面 1009.06 − 921.36 = **87.7**）。本轮只对齐了 `Shadow` 的顶边，底板没跟上。</para>
+        /// <para>判据（`工具/menu_dump.py bundle_menus_assets_all "<窗>" --depth 3 --no-sprite` **本轮逐窗现读**）：
+        /// <list type="bullet">
+        /// <item>`Rewards Base Submenu Variant` / `Shop Menu Variant` / `Social Submenu Variant`：
+        ///   `Tab Buttons` = **167.2,70.9 → 332.2,1080**（165×1009.06）⇒ 顶边 = `ContentT`(70.94)。</item>
+        /// <item>`Collection Menu Variant`：`Tab Buttons` = **167.2,158.6 → 332.2,1080**（165×921.36）
+        ///   ⇒ 顶边 **158.64**（子类 `CollectionWindow.BarTop`；同一条实测在
+        ///   `资料/普查产出_1022/W62_换牌压暗与收藏白条修复.md` §②「顺手发现」第 2 条）。</item>
+        /// </list>
+        /// ⚠️ 铁律 5·c：一个值 ≠ 全部情况 —— ⛔ 别把收藏窗那个数搬进基类默认值。</para></summary>
+        protected virtual float BarTop { get { return ContentT; } }
+
+        /// <summary>左栏**第一个键距【左栏条自己的顶边】**（<see cref="BarTop"/>）的距离
+        /// = 原版那颗 `VerticalLayoutGroup` 的 **`m_Padding.m_Top`** —— 原版**逐窗不同**：
+        /// 奖励窗 / 社交窗 = **120** · **商店 = 20** · 收藏窗 = **30**（每键都是 165×180）。
+        /// ⇒ 做成可覆写：子类只改这一个数，**别再写一套左栏**。
+        /// 🔴 **2026-10-23（W62）就地订正（铁律 5）**：原文写「距 `Content Area` 顶边」—— **错**：原版这个 padTop
+        /// 是**条内布局组**的，量的是条自己的顶边。收藏窗因此曾用 `117.7`（= 188.64 − `ContentT`）把
+        /// 「条从 158.64 起」这件事**折进 padTop**；现在 `BarTop` 把条顶边单独表达出来，本窗回到原版的 **30**。
+        /// 🔴 **2026-10-23（A6 · 界面线第二批）就地订正（铁律 5）**：本行原文写「奖励窗 / **商店** = 120」——
+        /// **商店那一半是错的**。原版 `Shop Menu Variant/Tab Buttons` 的 VLG 是
+        /// **`pad=0,0,20,0` · `spacing=-20`**（`工具/menu_dump.py bundle_menus_assets_all "Shop Menu Variant"
+        /// --depth 3 --no-sprite` 现读；同一条也见于它排出来的 `Shop Icon` = **90.9..270.9**）
+        /// ⇒ 商店第一个键 = 70.94 + **20** = **90.94**（我们原来吃 120 ⇒ 190.94，低 100 px、步长也大 20）。
+        /// ⇒ 商店走 `ShopWindow.BarPadTop`(20) / `BarSpacing`(−20) 两个覆写，**基类缺省不动**（奖励 / 社交仍 120 / 0）。</summary>
+        protected virtual float BarPadTop { get { return BarPadTopBase; } }
+
+        /// <summary>基类缺省 `padTop`（= 原版 `Rewards Base Submenu Variant` / `Social Submenu Variant` 的 VLG
+        /// `padTop` = **120**，两扇 2026-10-23 现读：`spacing=0.0 align=1 pad=0,0,120,0`，第一个键 190.9..370.9、步长 180）。
+        /// ⛔ 这是**奖励窗 / 社交窗**那一档的判据 —— 商店覆写成 20、收藏覆写成 30，**别往这里塞**（那会把那两扇一起改坏）。
+        /// <para>做成 `public const` 是给自检用的：`Editor/ShopScene.cs` 的反向断言行要证明「商店的覆写没波及同族」。</para></summary>
+        public const float BarPadTopBase = 120f;
+
+        /// <summary>🆕 **2026-10-23（A6 · 界面线第二批）**：左栏 VLG 的 **`m_Spacing`**（键与键之间的**有符号**间距）——
+        /// 与 <see cref="BarPadTop"/> 同族，原版**逐窗不同**：
+        /// 奖励窗 / 社交窗 / 收藏窗 = **0**（`spacing=0.0`，步长 = 键高 180）·
+        /// **商店 = −20**（`Shop Menu Variant/Tab Buttons`：`spacing=-20.0`，键 180 高 ⇒ **步长 160**，相邻两个键**重叠 20 px**）。
+        /// <para>判据 = `工具/menu_dump.py bundle_menus_assets_all "Shop Menu Variant" --depth 3 --no-sprite`
+        /// 现读那一行 `spacing=-20.0 align=1 pad=0,0,20,0` ＋ 它排出来的第一个键 `Shop Icon` **90.9..270.9**
+        /// （= 70.94 + padTop 20，高 180）。⚠️ 原版商店 `Tab Buttons` 下**只序列化了一个键**（母版 `Shop Icon`）
+        /// ⇒ **第二个键的坐标读不到**，步长只能由 `spacing` 这一条字段给（180 + (−20) = 160），别把算出来的键位写成读数。
+        /// ⚠️ 铁律 5·c：一个值 ≠ 全部情况 —— 另外三扇是 0，⛔ 别把这个 −20 搬进基类缺省。</para></summary>
+        protected virtual float BarSpacing { get { return BarSpacingBase; } }
+
+        /// <summary>基类缺省 `spacing` = **0**（原版奖励窗 / 社交窗 / 收藏窗都是 0）。见 <see cref="BarSpacing"/>。</summary>
+        public const float BarSpacingBase = 0f;
 
         /// <summary>`Tab Buttons/Shadow`：奖励窗/商店实测 `sz=(-117.4,0)` ⇒ 宽 **47.64**、贴左栏左边（实测 x 167.18..214.81）。
         /// 🔴 **2026-09-27 改成可覆写**（原来是个 `const`）：社交窗那条 `Shadow` 实测 `sz=(165,0)` +
@@ -43,8 +87,11 @@ namespace CardPresentation
         /// <item>收藏窗：`Tab Buttons` 自己只有 **158.64..1080** ⇒ `Shadow` 也从 **158.64** 起
         ///   （47.64 × 921.36；实读 `资料/普查产出_1022/W62_换牌压暗与收藏白条修复.md` §②）。</item>
         /// </list>
-        /// ⇒ 基类给**本窗自己的** `Tab Buttons` 顶边当默认值；子类要改只覆写这一个数（⛔ 别在子类里再画一份 `Shadow`）。</summary>
-        protected virtual float BarShadowTop { get { return ContentT; } }
+        /// ⇒ 基类给**本窗自己的** `Tab Buttons` 顶边（<see cref="BarTop"/>）当默认值；子类要改只覆写那一个数
+        /// （⛔ 别在子类里再画一份 `Shadow`）。
+        /// 🔴 **2026-10-23（W62 · 底板那一半同步）**：默认值从写死的 `ContentT` 改成 **`BarTop`** —— 否则收藏窗
+        /// 改了条顶边、`Shadow` 还从 70.94 起（页头那 88 px 上多压一条黑影）。子类**不再需要**单独覆写本项。</summary>
+        protected virtual float BarShadowTop { get { return BarTop; } }
 
         /// <summary>🆕 **2026-10-23（W62 · 界面线）**：左栏 `Shadow` 的 tint（原版那颗 `Image.m_Color`）。
         /// `null` = **不上色**（= 图本色 —— 这张 `40k_main_tab_shadow` 是**纯白 + alpha 渐变**，不上色屏上就是一条**白带**）。
@@ -61,12 +108,44 @@ namespace CardPresentation
         /// </list>
         /// ⇒ **四扇窗同一个值** ⇒ 判据就放在基类这一处（⛔ 别再给某一扇子窗单独打补丁 = 第二份判据）。</para>
         /// <para>🔴 **2026-10-23（本件）：基类默认值从 `null` 改成原版值。** 改之前只有收藏窗显式覆写
-        /// （`CollectionWindow.BarShadowTint` = `(0,0,0,0.475)`，与基类现值**等价**、可择机删掉那行转发），
-        /// 奖励 / 商店两扇吃 `null` ⇒ 左栏是一条**白带**（与原版不符）。奖励窗 / 商店的判据是**本轮现读的**，
+        /// （`CollectionWindow.BarShadowTint` = `(0,0,0,0.475)`）—— 那行转发**已于同日删除**（与基类现值等价 ⇒
+        /// 只留基类这一处判据）；奖励 / 商店两扇此前吃 `null` ⇒ 左栏是一条**白带**（与原版不符）。
+        /// 奖励窗 / 商店的判据是**本轮现读的**，
         /// ⛔ 不是「按同族推断」（旧注释写「只读到矩形、没读到色」，现已被上面那两行读数取代）。</para></summary>
         protected virtual Color? BarShadowTint { get { return new Color(0f, 0f, 0f, 0.4745098f); } }
 
-        /// <summary>页签页容器的实测矩形（`Tabs` 与 `Content Area` 同矩形）。</summary>
+        /// <summary>🆕 **2026-10-23（A9 · 界面线第三批）**：`Content Area/Shadow (1)` 的矩形 ——
+        /// 原版**四扇窗逐值相同**：**330.3749, 70.94 → 379.8077, 1080.00**（**49.4329 × 1009.06**）。
+        /// <para>判据（⛔ 不是我们的常量）：</para>
+        /// <para>① `工具/menu_rect.py bundle_menus_assets_all "&lt;窗&gt;" --depth 3` 四扇现读 ——
+        /// `Shop Menu Variant` / `Rewards Base Submenu Variant` / `Social Submenu Variant` /
+        /// `Collection Menu Variant` 的 `Content Area/Shadow (1)` **同一组 2 位小数**：`330.37 … 379.81`（宽 `49.43`）。</para>
+        /// <para>② **精确值由 prefab 字段算**（四扇的 `RectTransform` **逐字段相同**，见
+        /// `assets_full/bundle_menus_assets_all/RectTransform/` —— 6 份 `Shadow (1)` 全是
+        /// `m_AnchorMin (0,0)` · `m_AnchorMax (1,1)` · `m_Pivot (.5,.5)` ·
+        /// `m_AnchoredPosition (-688.4986572265625, 0)` · `m_SizeDelta (-1703.397216796875, 0)`，
+        /// 父 `Content Area` 的 `m_SizeDelta.x = -167.169921875`）⇒
+        /// 宽 `= (1920 − 167.169921875) − 1703.397216796875 = 49.432861328125`、
+        /// 中心 x `= (960 + 83.5899658203125) − 688.4986572265625 = 355.09130859375`
+        /// ⇒ x1 **330.3749** · x2 **379.8077**。竖向 `m_SizeDelta.y = 0` + 拉满锚 ⇒ 与 `Content Area` **同高**。</para>
+        /// <para>⚠️ 它与左栏那颗 `Tab Buttons/Shadow`（**47.64** 宽、贴条的**左**边）**不是同一件**：
+        /// 这一颗贴在条**右**边、宽 **49.43**，**出厂 `m_IsActive = 0`**（`menu_dump` 那行打 `INACT`）。
+        /// ⚠️ 收藏窗的条从 **158.64** 起，这颗**仍从 70.94 起**（实测如此）⇒ ⛔ 别跟着 `BarTop` 改。</para>
+        /// <para>⚠️ 铁律 5·c 已核：**四扇窗一个值**（这就是它敢放基类的原因；与 `BarPadTop` 那类逐窗不同的项相反）。</para></summary>
+        public const float Shadow1L = 330.374878f;      // = 355.09130859375 − 49.432861328125/2
+        public const float Shadow1W = 49.432861f;       // = (1920 − 167.169921875) − 1703.397216796875
+        public static readonly PxRect Shadow1R =
+            new PxRect(Shadow1L, ContentT, Shadow1L + Shadow1W, ContentB);
+
+        /// <summary>原版 **`Tabs/Missions Tab`** 的矩形（⛔ **不是**页签容器 `Tabs` 本身）。
+        /// <para>🔴 **2026-10-24（A14 · 界面线第五批）就地订正（铁律 5）**：原文写的是
+        /// 「页签页容器的实测矩形（`Tabs` 与 `Content Area` 同矩形）」—— **两处都错**：
+        /// ① `Tabs` 容器自己是 **`167.17 / 70.94 / 1920.01 / 1080.00`**
+        ///    （`python -I -X utf8 工具/menu_rect.py bundle_menus_assets_all "Rewards Base Submenu Variant" --depth 4` 现读）；
+        /// ② 这一组四个数（`166.69 / 69.20 / 1920.00 / 1080.00`）量的是 `Tabs` 的**孩子 `Missions Tab`**
+        ///    （同一份现读；`A13_界面第四批.md` §2.3 也逐值核过）。
+        /// 调用点 `Shell/RewardsWindow.cs:271` 正是拿它建 `Missions Tab` ⇒ **常量值是对的、doc 错了**。
+        /// ⚠️ 正是这句错 doc 让 A9 以为「这对常量在本类里已无调用点」（见 `A13_界面第四批.md` §六·1）。</para></summary>
         public const float TabL = 166.69f, TabT = 69.20f, TabR = 1920f, TabB = 1080f;
 
         /// <summary>左栏底图 `40k_main_tab_background` 原版是 **Simple**（不是 Sliced），色白、ppuMul 1。</summary>
@@ -208,6 +287,9 @@ namespace CardPresentation
             /// 只把其中**一个** `SetActive(false)` 会留下另外 8 块（原来的 `highlight[i].gameObject` 就是那个坑）。
             /// **切亮哪一个键，一律用这个根节点。**</summary>
             public GameObject[] highlightRoot;
+            /// <summary>🆕 **2026-10-23（A9 · 界面线第三批）**：`Content Area/Shadow (1)` 的节点
+            /// （原版四扇窗都有、**一律出厂关着**，见 <see cref="Shadow1R"/>）。自检要断言「建了、且关着」。</summary>
+            public Transform shadow1;
         }
 
         // ⚠️ `tabButtons` / `tabHolder` **不在这里声明** —— `GameWindowWithTabs` 已经有了；
@@ -497,7 +579,27 @@ namespace CardPresentation
             tabHolder = res.tabs;
             res.tabs.name = contentTag;
 
-            // ---- `Shadow (1)`：出厂 active=false ⇒ **不建**（照 `MainMenuRuntime` 那条纪律③）----
+            // ---- `Content Area/Shadow (1)`（原版四扇窗**都有**；出厂 `m_IsActive = 0`）----
+            // 🔴 **2026-10-23（A9 · 界面线第三批）就地翻案（铁律 5 留痕）**：这一行原来写的是
+            //    「`Shadow (1)`：出厂 active=false ⇒ **不建**（照 `MainMenuRuntime` 那条纪律③）」。
+            //    🔴 **2026-10-24（A14 · 界面线第五批）就地订正措辞（铁律 5）**：原文接着写「**那条纪律已经被推翻**」
+            //    —— **措辞过头**：纪律③ 是**收窄**、不是作废（`Shell/MainMenuRuntime.cs:19-29` 现文：
+            //    顶栏**那两颗**是例外 ⇒「建、但出厂 `SetActive(false)`」；同段紧接着写
+            //    **「⚠️ 其余那些出厂 `False` 的件（`Profile border` / `Tutorial highlight` 等）照旧不建」**）⇒
+            //    **每一件都要照它自己的原版实况去判**（铁律 5·c），⛔ 别把这里读成「凡 inactive 件都该建」
+            //    （反例 `TrophyInfoPopup.Category`：出厂恒关、全库没代码开它 ⇒ 建出来反而制造回归，
+            //     判据 → `资料/普查产出_1023e/A13_界面第四批.md` §三）。
+            //    两处原文出处：`Shell/MainMenuRuntime.cs` 文件头 ③ 的 **2026-10-11（`A1522①`/`A1523①`）** 订正 ·
+            //      `Shell/TopBar.cs:52` 同一条订正的落地处。
+            //    同族判据（结构照原版留全）：`Shell/ParentEventWindow.cs:668-671` 早就照「**建出来 + `SetActive(false)`**」做，
+            //    并且 `Editor/MainMenuScene.cs:16364` 对它有一条「`Shadow (1)` 建出来、且**出厂关着**」的断言。
+            //    ⇒ 删掉它 = 「原版有、我们没有」；建出来并关着 = 结构 / 名字 / 队列照原版，画面上与原版**逐像素无差**。
+            // ⚠️ 图与色**与左栏那颗同源**（`40k_main_tab_shadow` · `(0,0,0,0.475)`），队列也同档（`QPanel`）。
+            // ⚠️ 兄弟序放在 `Tabs` **之后**（= 原版 `Content Area` 的最后一个孩子）。
+            res.shadow1 = Node(area, "Shadow (1)", Shadow1R);
+            Rect(res.shadow1, ArtBarShadow, Shadow1R, "Image", QPanel, BarShadowTint);
+            res.shadow1.gameObject.SetActive(false);
+
             return res;
         }
 
@@ -531,7 +633,9 @@ namespace CardPresentation
         Transform BuildBar(Transform area, TabBtnSpec[] specs, BarResult res, string btnPrefix,
                            bool lastIsMaster)
         {
-            var barRect = new PxRect(ContentL, ContentT, ContentL + BarW, ContentB);
+            // 🔴 **2026-10-23（W62 · 底板）**：顶边走 `BarTop`（默认 `ContentT`；收藏窗覆写成 **158.64**）——
+            //    底图渐变与 `Shadow` 都从这一行起。原来写死 `ContentT` ⇒ 收藏窗底板比原版高 88 px。
+            var barRect = new PxRect(ContentL, BarTop, ContentL + BarW, ContentB);
             var bar = Node(area, "Tab Buttons", barRect);
             // 底板：`40k_main_tab_background` + 原版那颗 `Gradient2`（竖 · 4 色标 · Override）。
             // 🔴 **2026-10-18（T29 · D2）**：原来只画底图（单块 `Rect`）⇒ 一条均匀红带；实拍是「中段全亮 /
@@ -560,8 +664,12 @@ namespace CardPresentation
             res.holder = holder;
             for (int i = 0; i < specs.Length; i++)
             {
-                // `VerticalLayoutGroup`：padTop 120 从**栏顶**起排 ⇒ 第 i 键顶边 = 70.94 + 120 + 180i
-                float top = ContentT + BarPadTop + TabBtnH * i, bot = top + TabBtnH;
+                // `VerticalLayoutGroup`：padTop 从**栏顶**（`BarTop`）起排 ⇒ 第 i 键顶边 = `BarTop` + padTop + (键高 + spacing)·i
+                // 🔴 **2026-10-23（W62）**：这里原来写死 `ContentT` —— 收藏窗的条从 158.64 起，
+                //    用 `ContentT` 就把「条低 87.7」折进了 `BarPadTop`（旧值 117.7）。现在各自归位。
+                // 🔴 **2026-10-23（A6）**：原来写死 `TabBtnH * i`（= spacing 恒 0）—— 商店原版是 **`spacing = -20`**
+                //    （键 180 高、步长 160、相邻两键重叠 20）⇒ 步长改走 `BarSpacing`（基类缺省 0 = 原来那条路逐位不变）。
+                float top = BarTop + BarPadTop + (TabBtnH + BarSpacing) * i, bot = top + TabBtnH;
                 res.roots[i] = BuildTabButton(holder, i, specs[i], top, bot, res, btnPrefix);
                 tb.options.Add(new TabButtons.Option
                 {

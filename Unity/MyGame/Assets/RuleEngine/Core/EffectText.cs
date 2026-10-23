@@ -77,6 +77,21 @@ namespace RuleEngine
         /// <summary>`give` / `gain` / `lose` 的**载荷原文**（`armour 2` / `+1 attack` / `flank`）。
         /// 由 <see cref="GivePayload"/> 再解释成属性增减益或关键词。</summary>
         public string Payload;
+        /// <summary>🆕 **2026-10-24（引擎线 `A24` · `新账-104`）**：一次 `deploy` 要放的**第二种**卡
+        /// —— 卡面 `Deploy an X and a Y` 那一式（全池唯一一句 = `EC58 Vengeful Surge`：
+        /// `Deploy an Infractor and a Tormentor`）。
+        ///
+        /// <para>**判据（第一权威 = 原版卡数据字段，`资料/普查产出_1018/allcards_1350/cards_raw.json`
+        /// 的 `EC58` 亲读）**：`cardAbilities[0].abilityLogic[0].chosenAbility = 70`（summonUnit）·
+        /// `summonCriteria.unitsToSummon` 是**两条** PPtr（→ `EC8 Infractor` / `EC5 Tormentor`）·
+        /// `summonAllTargets = 1` ⇒ **两张都召**（⛔ 不是随机二选一）。卡面同文
+        /// （`d:/2/Warpforge部队卡片/Emperor_s Children/4计策/Warpforge_57_Vengeful-Surge.png` 亲读）。</para>
+        ///
+        /// <para>⚠️ **它是一条 op 的第二个载荷，不是第二条 op** —— 后面那句 `give them Flank` 的
+        /// `them` 在数据里（`abilityLogic[1]` 的 `summonBuffedUnit(75)` + `buffEffect.trait 460`）
+        /// 指的还是 `unitsToSummon` 这两条 ⇒ 拆成两条 op 会让 `LastTargets` 只剩后一条，
+        /// `them` **少给一张**（静默半错）。</para>
+        public string Payload2;
         /// <summary>解析出来的目标。`give`/`gain` 之外的动作才有意义</summary>
         public EffectTargetSpec Target;
         /// <summary>`""` 永久 / `turn` 本回合 / `nextturn` 到你下个回合开始
@@ -233,6 +248,24 @@ namespace RuleEngine
         /// （我们模型里「self」对战术卡是**卡自己**、不是场上单位 —— 猜一个就是静默错打）。</para>
         /// </summary>
         public int SubjectTargetsAffected = -1;
+
+        /// <summary>🆕 v20（2026-10-24 · 引擎线 `A12`）：这条 op 所属 `abilityLogic` 的
+        /// **`furtherMultiplier`**（原版 `AbilityLogic.furtherMultiplier`，`+0x38`）。
+        /// **`-1` = 读不到**（⛔ 不是 0 —— `0` 是原版**明确「不乘」**，`if (0 < fM)` 才乘）。
+        ///
+        /// <para>**判据** → `d:/2/tools/decomp_full/AbilityLogic__PlayAbility.c:235-236`：
+        /// `if (0 < *(int *)(param_1 + 0x38)) local_178 = local_178 * *(int *)(param_1 + 0x38);`
+        /// —— `local_178` 是那条 logic 的**次数 / 倍数**（召唤族 `do{…}while(iVar8<local_178)`、
+        /// 伤害族 `local_178 * damageCriteria.damage`、`AdjustCardEffect(…, local_178, …)`）。</para>
+        ///
+        /// <para>**归位判据** → 与 <see cref="SubjectTargetsAffected"/> **同一趟**
+        /// （<see cref="AssignAbilityTargets"/> 的两道闸门 G1/G2）。</para>
+        ///
+        /// <para>**消费端**：`EffectResolver.ResolveOps` 的「重复次数」那一格
+        /// （`repeats`）—— 只在**正文自己没给次数**时用（见那里的长注释：正文给了就照正文，
+        /// 因为卡面那个数就是原版 `local_178` 本身，再乘一次就是平方）。</para>
+        /// </summary>
+        public int AbilityFurtherMultiplier = -1;
 
         /// <summary>落到**这条 op** 上的 `role = "target"` 结构化条件行（`null` = 这一格没有 / 读不到）。
         /// 消费端（`EffectResolver.ResolveTargets` / `IsLegalPick`）照原版
@@ -511,6 +544,47 @@ namespace RuleEngine
         /// <summary>条件成立时用来替换 <see cref="Payload"/> 的那份载荷（只用来换**开头那个数**）。
         /// `null`/空 = 这条 op 的替换值不在载荷里。</summary>
         public string AltPayload;
+
+        /// <summary>
+        /// 🔴🆕 **2026-10-23（`A1688` 残余）：`instead` 段的【唯一】配对判据** ——
+        /// 解析层（`EffectText.Parse` 的「目标承接」那一趟）与结算层
+        /// （`EffectResolver.InsteadSkips`）**都调它**，⛔ 别在任一处另写一套。
+        ///
+        /// <para>**规则**（三条，逐条有真卡出处）：</para>
+        /// <list type="number">
+        /// <item><b>段内成员不单独配对</b>：相邻的 `Instead` op 是**同一句替换**
+        ///   （`Deal 3 … If it has Flying, deal 5 damage **and gain 1 Quest Point** instead`
+        ///   —— `DA33 Nephilim Jetfighter` 解析出 [deal3, deal5(instead), gainquest(instead)]）
+        ///   ⇒ 只有**段首**返回基句，`segEnd` 给出段的最后一个下标（调用方据此整段跳/整段留）。</item>
+        /// <item><b>不跨过另一条 `Instead`、只替换无条件的 op**：替换句永远替换「前面那条无条件的」；
+        ///   带条件的 op 不是基准（它自己也要判）。</item>
+        /// <item><b>⛔ 不再要求「同动词」</b>（2026-10-23 就地去掉 · 铁律 5）：真卡替换句**本来就换动词**——
+        ///   `Give Hunt Mark to an enemy troop. If it already had Hunt Mark, **destroy it instead**`
+        ///   （`SW53 Embers of Prospero` / `TAU58 Coordinated Engagement`）。
+        ///   旧闸要求 `Verb` 相同 ⇒ 配不上 ⇒ 条件成立时**两条都结算**（先白给一次标记、再摧毁）。</item>
+        /// </list>
+        /// <returns>基句下标；`-1` = 配不上（调用方：两条都照常走）。</returns>
+        public static int FindInsteadBaseIndex(IReadOnlyList<EffectOp> ops, int i, out int segEnd)
+        {
+            segEnd = i;
+            if (ops == null || i <= 0 || i >= ops.Count) return -1;
+            var op = ops[i];
+            if (op == null || !op.Instead) return -1;
+            // ① 段内成员 ⇒ 不单独配对（段首负责）
+            if (ops[i - 1] != null && ops[i - 1].Instead) return -1;
+            // 段尾
+            while (segEnd + 1 < ops.Count && ops[segEnd + 1] != null && ops[segEnd + 1].Instead) segEnd++;
+            // ② 往前找「无条件的、非 Instead」那一条
+            for (int j = i - 1; j >= 0; j--)
+            {
+                var b = ops[j];
+                if (b == null) continue;
+                if (b.Instead) break;                              // 不跨过另一条替换段
+                if (!string.IsNullOrEmpty(b.Condition)) continue;   // 只替换无条件的
+                return j;                                          // ③ 不要求同动词（判据见上）
+            }
+            return -1;
+        }
 
         // ==================================================================
         //  常驻效果 / 手牌陷阱（**回合起止触发**）
@@ -1370,10 +1444,13 @@ namespace RuleEngine
             //   （结算层不新增模式：`EffectTargetSpec.Subjectless` 那条兜底**原样不动**，
             //    所以**没有施放者的卡不会再被这一笔改到**）。
             //
-            // **配对判据与 `EffectResolver.ResolveOps` 的那一段【同一份】**（`Core/EffectResolver.cs` 的
-            //   `insteadBase` 循环）—— 四条逐字相同：① 从 `i-1` 往前找 ② **碰到另一条 `Instead` 就停**
-            //   ③ **跳过得带 `Condition` 的** ④ **动词要相同**。⛔ **别在这儿另立一套配对**。
-            //   （那一份在**运行时**还会按「条件判不判得了 / 要不要数 `for each`」放弃配对；
+            // **配对判据与 `EffectResolver.ResolveOps` 的那一段【同一份】** —— 两边**都调**
+            //   `EffectOp.FindInsteadBaseIndex`（判据本体在那个方法的 doc 里，⛔ 别在这儿另立一套）。
+            //   🔴 **2026-10-23（`A1688` 残余）就地订正（铁律 5）**：原来这里写着「四条逐字相同 …
+            //   ④ **动词要相同**」—— **那一条已删**：真卡替换句本来就换动词
+            //   （`SW53` / `TAU58` 的 `give … destroy it instead`），同动词闸让它们配不上、
+            //   条件成立时两条都结算。现在的判据 = 段首配对 + 整段、**不看动词**。
+            //   （运行时还会按「条件判不判得了 / 要不要数 `for each`」放弃配对；
             //     本趟**只看结构**、不做那两档判断 —— 放弃配对时两条都会结算，
             //     而「同一效果的两种数值」本来就该打同一批目标，所以两种情形下这里都对。）
             //
@@ -1394,15 +1471,10 @@ namespace RuleEngine
                 var op = ops[i];
                 if (op == null || !op.Instead || op.Target == null || !op.Target.Subjectless) continue;
 
-                int baseIdx = -1;
-                for (int j = i - 1; j >= 0; j--)
+                int baseIdx;
                 {
-                    var b = ops[j];
-                    if (b == null) continue;
-                    if (b.Instead) break;                              // 不跨过另一条替换
-                    if (!string.IsNullOrEmpty(b.Condition)) continue;  // 只替换无条件的
-                    if (b.Verb != op.Verb) continue;                   // 同动词
-                    baseIdx = j; break;
+                    int segEnd;
+                    baseIdx = EffectOp.FindInsteadBaseIndex(ops, i, out segEnd);
                 }
                 if (baseIdx < 0) continue;
 
@@ -1473,6 +1545,11 @@ namespace RuleEngine
             //   与下面那套 `role=target` 归位互不影响）—— 放在同一位置，两者共用同一个块切法。
             AssignAbilityTargets(ops, segOps, segHead, segPaid, card, desc);
             AssignAbilityIndices(ops, segOps, segHead, segPaid, card, desc);
+            // 🔴🆕 2026-10-23（引擎线 `新账-95` #2）：**卡级 `role="cardtarget"` 的落点**
+            //   （原版 `RawCardScript.cardTargetCriteria`，唯一消费者 `RawCardScript__IsValidTarget.c:8-44`）
+            //   —— 只对 `targeted == 1` 的卡生效；它挂在**卡**上、没有 ability 下标
+            //   ⇒ 与上面那趟「逐 ability 归位」分开，且**只补没归位的 op**（不许覆盖）。
+            AssignCardTargetFallback(ops, card);
             // 🆕 2026-10-19（`A1960`）：原版 `choicesDefinition` 要求选牌、而**正文没写 choose** 的卡
             //   —— 补一条 `choosecard`（候选域 = `specific`）。判据与闸门见那个函数。
             //   ⚠️ **必须在上面那几轮回填之后插**：`repeat` / `paidmod` 的 `BaseOps` 已按原 op 排好，
@@ -1534,7 +1611,33 @@ namespace RuleEngine
                 if (row.Ability < 0) continue;
                 rows.Add(row);
             }
-            if (rows.Count == 0) return;
+            if (rows.Count == 0)
+            {
+                // 🆕 v22（2026-10-24 · 引擎线 `新账-95` #2）：**没有 `role=target` 行的卡也要下标**。
+                //
+                // 为什么：`mult` / `count` / `multi` 三格的结构化消费端都按 `(ab, lg)` 取行
+                // （`EffectResolver.TryStructuredMultiplier` / `TryCountCondition`）——
+                // 而本函数原来在「一条 `target` 行都没有」时**直接 return**，那些卡的
+                // `EffectOp.AbilityIndex` 永远是 `-1` ⇒ **结构化数据一条都取不到**（静默）。
+                // 实测受影响（2026-10-24 现读 6 张）：`GOF74` / `TAU75` / `TL68`（`mult`）、
+                // `AM43` / `EC58` / `SOR70`（`count`）。
+                //
+                // 🔴 **只做「块下标」这一半**：下面那段「行 → op」（G3 / G5 / `row-unused` 兜底）
+                //    是 `role=target` **专用**的语义（它写的是 `op.TargetCondition`）⇒ 这里**不跑**。
+                //    ⛔ 别把这段并进 `rows`（那会让 `maxAb` 变大、G2 闸变严，动了别的卡的归位）。
+                int maxAbOther = -1;
+                for (int i = 0; i < card.Conditions.Count; i++)
+                {
+                    var row = card.Conditions[i];
+                    if (row == null || row.Ability < 0) continue;
+                    if (row.Role != "mult" && row.Role != "count" && row.Role != "multi"
+                        && row.Role != "acting") continue;
+                    if (row.Ability > maxAbOther) maxAbOther = row.Ability;
+                }
+                if (maxAbOther < 0) return;
+                AssignBlockIndicesOnly(ops, segOps, segHead, segPaid, card, desc, maxAbOther);
+                return;
+            }
 
             int maxAb = 0;
             for (int i = 0; i < rows.Count; i++) if (rows[i].Ability > maxAb) maxAb = rows[i].Ability;
@@ -1554,17 +1657,7 @@ namespace RuleEngine
                     for (int i = 0; i < ops.Count; i++) if (ops[i] != null) ops[i].TargetConditionGap = gap;
                     return;
                 }
-                for (int b = 0; b < blocks.Count; b++)
-                {
-                    var blk = blocks[b];
-                    for (int j = 0; j < blk.Count; j++)
-                    {
-                        blk[j].AbilityIndex = b;
-                        blk[j].LogicIndex = j;
-                        blk[j].AbilityBlockSize = blk.Count;
-                        blk[j].AbilityMap = "block";
-                    }
-                }
+                AssignBlockIndices(blocks);
             }
             else
             {
@@ -1644,6 +1737,152 @@ namespace RuleEngine
                     if (ops[i] != null && ops[i].AbilityIndex >= 0) ops[i].TargetConditionGap = "row-unused";
         }
 
+        /// <summary>🆕 v22（2026-10-24 · 引擎线 `新账-95` #2）：**给一整块 op 标上 (ab, lg)**。
+        /// `AssignAbilityIndices` 与 <see cref="AssignBlockIndicesOnly"/> **共用这一份**（⛔ 别各写一遍）。
+        /// `LogicIndex` = **块内序号**（原版 `abilityLogic` 下标；`AbilityBlockSize` 记块大小，
+        /// 消费端靠它判「`lg` 能不能直接当 logic 下标」，见 `AssignAbilityIndices` 的 G3）。</summary>
+        static void AssignBlockIndices(List<List<EffectOp>> blocks)
+        {
+            if (blocks == null) return;
+            for (int b = 0; b < blocks.Count; b++)
+            {
+                var blk = blocks[b];
+                if (blk == null) continue;
+                for (int j = 0; j < blk.Count; j++)
+                {
+                    blk[j].AbilityIndex = b;
+                    blk[j].LogicIndex = j;
+                    blk[j].AbilityBlockSize = blk.Count;
+                    blk[j].AbilityMap = "block";
+                }
+            }
+        }
+
+        /// <summary>🆕 v22（2026-10-24 · 引擎线 `新账-95` #2）：**只标块下标、不碰 `TargetCondition`**。
+        ///
+        /// <para>**谁用**：卡上**一条 `role=target` 行都没有**、但带 `mult` / `count` / `multi` / `acting`
+        /// 行的那些卡（判据与实测清单见 `AssignAbilityIndices` 里 `rows.Count == 0` 那一段）。
+        /// 那三类消费端按 `(ab, lg)` 取行，没有下标就**一条都取不到**（静默）。</para>
+        ///
+        /// <para>闸门照抄 `AssignAbilityIndices` 的两支（**同一套判据**）：
+        /// · 整条 desc ⇒ 按能力块切，块数必须 `&gt; maxAb`（G2；不过就**什么都不标**，与那边一致）；
+        /// · 触发正文片段 ⇒ 只有「整卡一条 ability」（`maxAb == 0`）且 `card.Desc` 正好一块才标成 `(0, i)`。</para>
+        /// </summary>
+        static void AssignBlockIndicesOnly(List<EffectOp> ops, List<List<EffectOp>> segOps,
+                                           List<bool> segHead, List<int> segPaid,
+                                           CardDef card, string desc, int maxAb)
+        {
+            if (ops == null || ops.Count == 0) return;
+            if (IsWholeDesc(desc, card.Desc))
+            {
+                var blocks = BuildAbilityBlocks(segOps, segHead, segPaid);
+                if (blocks.Count == 0 || blocks.Count <= maxAb) return;      // 同 G2
+                AssignBlockIndices(blocks);
+                return;
+            }
+            if (maxAb > 0) return;                                          // 片段 + 多 ability ⇒ 读不到
+            if (CountAbilityBlocks(card.Desc) != 1) return;                 // 片段 + 多块 ⇒ 读不到
+            int n = 0;
+            for (int i = 0; i < ops.Count; i++)
+            {
+                if (ops[i] == null) continue;
+                ops[i].AbilityIndex = 0;
+                ops[i].LogicIndex = n++;
+                ops[i].AbilityMap = "fragment-single";
+            }
+            for (int i = 0; i < ops.Count; i++)
+                if (ops[i] != null) ops[i].AbilityBlockSize = n;
+        }
+
+        // ==================================================================
+        //  🔴🆕 2026-10-23（引擎线 `新账-95` #2）：**卡级 `role="cardtarget"` 的落点**
+        // ==================================================================
+        //  **它是什么**：原版 `RawCardScript.cardTargetCriteria`（`+0x280`，类型 `TargetCriteria`）
+        //  —— 一张**打出时要先在棋盘上点一个目标**的卡的「合法目标」条件。
+        //
+        //  **判据（第一权威，现读反编译）**
+        //    · 唯一消费者 = `RawCardScript__IsValidTarget.c:8-44`：
+        //        `:13` `cardTargetCriteria == null` ⇒ 报错并返回假；
+        //        `:26` `CardScript.IsInPlay(目标)`；`:30/:36/:42` 三道附加闸
+        //              （`isCurrentlyWarded` / `isCurrentlyCamouflaged` / `HasCurrentTrait(0x46)`）；
+        //        `:44` `FilterMethods.CheckIfMeetsCriteria(…, cardTargetCriteria, …)`。
+        //    · ⇒ 语义 = **这一格是「选目标」的筛**，与 `role="target"`（ability 级
+        //      `cardAbilities[].targetCriteria`）**不是同一个落点**：一个管「这张卡点谁」、
+        //      一个管「这条 ability 打谁」。⛔ 别把两者混成一个来源。
+        //
+        //  **为什么必须过 `Targeted == 1` 这道闸**（这一位原来是一条**死列**，本笔给它第一个消费者）：
+        //    全池有 3 张 `targeted = 0` 的卡也带着 `cardTargetCriteria`
+        //    （`Path of the Warrior` / `Skyborne Deployment` / `Alpha Warrior`），而它们的正文
+        //    **根本不选目标**（`Give Shuriken 1 to your **units**` / `Deploy two Storm Guardian`）。
+        //    原版 `IsValidTarget` 只在「这张卡要选目标」时才被调到 ⇒ 不设闸就会把
+        //    `isWarlordOrVehicle` 这类条件贴到「你的所有单位」的池子上（静默筛掉大半）。
+        //    `Targeted == -1`（旧表 / 未知）同样**不接**（宁可退回正文）。
+        //
+        //  **落法（保守）**：只补 `TargetCondition == null && TargetConditionGap == ""` 的 op ——
+        //    ability 级那趟（`AssignAbilityIndices`）已经归位的不动、留了 gap 的也不动
+        //    （那是「有数据但归不了位」，拿卡级行去顶会把两种不同的条件混起来）。
+        //    卡级行**必须恰好一条**（多于一条 = 数据自身歧义 ⇒ 出声、不猜）。
+        static void AssignCardTargetFallback(List<EffectOp> ops, CardDef card)
+        {
+            if (ops == null || ops.Count == 0 || card == null) return;
+            if (card.Conditions == null || card.Conditions.Count == 0) return;
+
+            CardDef.ConditionSpec hit = null;
+            int n = 0;
+            for (int i = 0; i < card.Conditions.Count; i++)
+            {
+                var row = card.Conditions[i];
+                if (row == null || row.Role != "cardtarget") continue;
+                if (row.Ability != -3) continue;          // 卡级那一档（`-3` = 卡级，见生成器）
+                hit = row; n++;
+            }
+            if (n == 0) return;
+
+            if (card.Targeted != 1)
+            {
+                CardTargetNotice("notargeted|" + card.Id,
+                    $"卡「{card.Name}」（{card.Id}）带 `cardTargetCriteria`（`role=cardtarget`），"
+                  + $"但原版 `targeted={card.Targeted}` ⇒ **不接**（判据 "
+                  + "`RawCardScript__IsValidTarget.c:8-44`：只有要选目标的卡才走这一格）。"
+                  + "⛔ 这不是静默丢：`targeted=0` 的卡正文本来就不选目标。");
+                return;
+            }
+            if (n > 1)
+            {
+                CardTargetNotice("ambig|" + card.Id,
+                    $"卡「{card.Name}」（{card.Id}）有 **{n} 条**卡级 `role=cardtarget` 行 ⇒ 归不了位，**不接**"
+                  + "（⛔ 不猜是哪一条）。");
+                return;
+            }
+
+            int applied = 0;
+            for (int i = 0; i < ops.Count; i++)
+            {
+                var op = ops[i];
+                if (op == null) continue;
+                if (op.TargetCondition != null) continue;                  // ability 级已归位 ⇒ 不动
+                if (!string.IsNullOrEmpty(op.TargetConditionGap)) continue; // 有 gap ⇒ 不动（那是另一种条件）
+                op.TargetCondition = hit;
+                op.TargetConditionGap = "";
+                applied++;
+            }
+            if (applied == 0)
+                CardTargetNotice("unused|" + card.Id,
+                    $"卡「{card.Name}」（{card.Id}）的卡级 `cardTargetCriteria`（cond={hit.Condition}）"
+                  + "**没有可落的 op**（每条 op 都已被 ability 级条件占用、或都没归位）⇒ 本卡这一档不生效。");
+        }
+
+        static readonly HashSet<string> _cardTargetNotices =
+            new HashSet<string>(System.StringComparer.Ordinal);
+
+        /// <summary>同一 (卡, 原因) **只喊一次** —— 与 `EffectResolver.StructuredConditionNotice` 同一条纪律
+        /// （本工程红线是「不许静默」，不是「必须刷屏」）。</summary>
+        static void CardTargetNotice(string key, string msg)
+        {
+            if (!_cardTargetNotices.Add(key)) return;
+            UnityEngine.Debug.LogWarning("[RuleEngine] 卡级目标条件（新账-95 #2）：" + msg);
+        }
+
         // ==================================================================
         //  🆕 2026-10-23（引擎线 · 战斗审计 `B-17`）：op → `targetsAffected`
         // ==================================================================
@@ -1676,21 +1915,36 @@ namespace RuleEngine
                 for (int b = 0; b < blocks.Count; b++)
                 {
                     var spec = abil[b];
-                    var ta = spec != null ? spec.TargetsAffected : null;
                     var blk = blocks[b];
-                    if (ta == null || blk == null || ta.Length != blk.Count) continue;   // G2
-                    for (int j = 0; j < blk.Count; j++)
-                        if (ta[j] >= 0) blk[j].SubjectTargetsAffected = ta[j];
+                    if (spec == null || blk == null) continue;
+                    // ---- `targetsAffected`（v17）----
+                    var ta = spec.TargetsAffected;
+                    if (ta != null && ta.Length == blk.Count)                        // G2
+                        for (int j = 0; j < blk.Count; j++)
+                            if (ta[j] >= 0) blk[j].SubjectTargetsAffected = ta[j];
+                    // ---- `furtherMultiplier`（v20 · `A12`）----
+                    // 与上面**同一个 spec、同一个块**，各自按自己的长度过 G2（两列可能只有一列坏）。
+                    var fm = spec.FurtherMultiplier;
+                    if (card.AbilityMultipliersVersioned && fm != null && fm.Length == blk.Count)
+                        for (int j = 0; j < blk.Count; j++)
+                            if (fm[j] >= 0) blk[j].AbilityFurtherMultiplier = fm[j];
                 }
             }
             else
             {
                 if (abil.Count != 1) return;                                    // 多 ability 的片段 ⇒ 读不到
                 var spec = abil[0];
-                var ta = spec != null ? spec.TargetsAffected : null;
-                if (ta == null || ta.Length != ops.Count) return;
+                if (spec == null) return;
+                var ta = spec.TargetsAffected;
+                var fm = spec.FurtherMultiplier;
+                bool taOk = ta != null && ta.Length == ops.Count;
+                bool fmOk = card.AbilityMultipliersVersioned && fm != null && fm.Length == ops.Count;
                 for (int i = 0; i < ops.Count; i++)
-                    if (ops[i] != null && ta[i] >= 0) ops[i].SubjectTargetsAffected = ta[i];
+                {
+                    if (ops[i] == null) continue;
+                    if (taOk && ta[i] >= 0) ops[i].SubjectTargetsAffected = ta[i];
+                    if (fmOk && fm[i] >= 0) ops[i].AbilityFurtherMultiplier = fm[i];
+                }
             }
         }
 
@@ -8017,6 +8271,34 @@ namespace RuleEngine
             body = Regex.Replace(body, @"^friendly\s+", "").Trim();
             if (body.Length == 0) return null;
 
+            // 🔴🆕 **2026-10-24（引擎线 `A24` · `新账-104`）：`Deploy an X and a Y`** ——
+            //   **一次部署两种不同的具名卡**（全池唯一一句：`EC58 Vengeful Surge`
+            //   `Deploy an Infractor and a Tormentor`；上一版把它整个塞进一个载荷 ⇒
+            //   `「infractor and a tormentor」既不是原版卡名、也不是兵种词` ⇒ **两张都不上场**）。
+            //   判据（第一权威 = 原版卡数据字段，`cards_raw.json` 的 EC58 亲读）已写在
+            //   `EffectOp.Payload2` 的 doc 里（⛔ 不在这里抄第二份）。
+            //   ⚠️ **只在「两张具名卡、各 1 张、无其它限定」这一档填** ——
+            //      `from your deck` / `random` / 费用区间 / 多张 那几档今天**全池 0 例**，
+            //      不在这里猜（真出现时先查原版字段，再把闸放宽）。
+            //   ⚠️ 走 `and (a|an)` 这个形状判：`Deploy a Beast Snagga Boy and give it Vanguard`
+            //      那类尾句**已经被上面的 `SplitAndTail` 切走**，`and` 后面是动词、不是冠词。
+            if (op.DeployFrom == "pool" && !op.Random && op.Amount == 1 && !op.UpTo
+                && op.CostMin == 0 && op.CostMax == 0)
+            {
+                var mp = Regex.Match(body, @"^(.+?)\s+and\s+(?:a|an)\s+(.+)$", RegexOptions.IgnoreCase);
+                if (mp.Success)
+                {
+                    string first = mp.Groups[1].Value.Trim();
+                    string second = mp.Groups[2].Value.Trim();
+                    if (first.Length > 0 && second.Length > 0)
+                    {
+                        op.Payload = first;
+                        op.Payload2 = second;
+                        return op;
+                    }
+                }
+            }
+
             op.Payload = body;
             return op;
         }
@@ -8769,6 +9051,46 @@ namespace RuleEngine
         static readonly Regex RePluralOwn = new Regex(
             @"\b(?:your|friendly)\b[^,;]*\b(?:troops|units)\b",
             RegexOptions.Compiled | RegexOptions.IgnoreCase);
+
+        /// <summary>
+        /// 🔴 **2026-10-24（引擎线 `N1` · `GSC55` 修正）：这条目标短语指的是「**墓地**」。**
+        ///
+        /// **返回**：死亡时间窗 —— `"all"`（`died this game` / `died this battle`，整局）·
+        /// `"since_last_turn"`（`died since your last turn`）· `"this_turn"`（`died this turn`）；
+        /// **不是墓地目标 ⇒ `null`**（调用方照旧按棋盘扫描）。
+        ///
+        /// <para>**为什么需要它**：`Return up to 5 friendly troops that **died this game** to your deck`
+        /// （全池唯一持有者 = `GSC55 Eve of the Uprising`）在原版走
+        /// `TargetCriteria.targetsAffected = **60 = inCemeteryFiltered**`
+        /// （数据现读：`cards_engine.json` 的 `abilityTargets[0].ta = [60,150,150]`），
+        /// 而 `DoReturn` 原来走 `ResolveTargets`（**棋盘扫描**、不读墓地）
+        /// ⇒ **收走的是棋盘上还活着的友方部队**（`play "Eve of the Uprising"` 实测），与卡面相反。
+        /// 判据 = `AbilityLogic__GetTargets.c:949-960`（`0x3c` 支 → `BattleManager.GetCardsInCemetery`）
+        /// + `BattleManager__GetCardsInCemetery.c`（按 `cemeteryCardList` **正序**、只收在场过的单位）。</para>
+        ///
+        /// <para>⚠️ **为什么不加一个 `EffectTargetSpec` 字段**：那条结构体会被 `ruleprobe` 的
+        /// `TargetCols` 逐列打进 `scan` 基线（`工具/ruleprobe/Program.cs` 的 `TargetColsDrift`），
+        /// 加一列 = 全池基线整体漂移、还要动 `Pinned*Md5`（本轮红线：⛔ 不许动）。
+        /// ⇒ 这条规则落成**一个纯函数**，由结算层（`EffectResolver.DoReturn`）问它，
+        /// **判据只此一处**（⛔ 别在 `DoReturn` 里再写一遍 `Contains("died")`）。</para>
+        ///
+        /// <para>⚠️ **认不出的 `died …` 一律返回 `null`**（`"died"` 后面跟别的窗口时**不猜**）——
+        /// 猜成「整局」会把一条本该查不到的语义静默放宽（同 <see cref="ParseTarget"/> 那条纪律）。</para>
+        /// </summary>
+        public static string CemeteryTargetScope(string phrase)
+        {
+            if (string.IsNullOrEmpty(phrase)) return null;
+            string t = phrase.ToLowerInvariant();
+            if (t.IndexOf("died", System.StringComparison.Ordinal) < 0) return null;
+            // ⚠️ 顺序有意义：`since your last turn` 里**不含** `this turn`，但先判它更清楚。
+            if (t.IndexOf("died since your last turn", System.StringComparison.Ordinal) >= 0)
+                return "since_last_turn";
+            if (t.IndexOf("died this turn", System.StringComparison.Ordinal) >= 0) return "this_turn";
+            // 卡面 `this battle` 与 `this game` 是**同一个意思**（同 `ParseChooseCard` 的口径）
+            if (t.IndexOf("died this battle", System.StringComparison.Ordinal) >= 0
+                || t.IndexOf("died this game", System.StringComparison.Ordinal) >= 0) return "all";
+            return null;
+        }
 
         /// <summary>
         /// 目标短语的组合解释。返回 `null` = **词表里没有这个词**（调用方要报 Partial，不许当成 unit）。

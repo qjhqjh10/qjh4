@@ -23,6 +23,16 @@ arena_share_scan.py —— 【战场场景线】§28 第①步：跨场共用资
 import io, os, re, sys, glob
 from collections import defaultdict
 
+## A17 2026-10-24: -h/--help early exit (print usage only, exit 0; never run the real work).
+import sys as _wf_help_sys
+if any(_wf_help_sys.argv[_i] in ("-h", "--help") for _i in range(1, len(_wf_help_sys.argv))):
+    try:
+        _wf_help_sys.stdout.reconfigure(encoding="utf-8")
+    except Exception:
+        pass
+    print('用法：\n  PYTHONIOENCODING=utf-8 python 工具/arena_share_scan.py\n  PYTHONIOENCODING=utf-8 python 工具/arena_share_scan.py --md > out.md   # 直接吐可贴的 Markdown\n只读脚本，不写任何工程文件。\n  -h, --help  只打印本用法并退出（退出码 0），不执行任何真活。')
+    _wf_help_sys.exit(0)
+
 ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
 ASSETS = os.path.join(ROOT, 'MyGame', 'Assets')
 SCENES = os.path.join(ASSETS, 'CardPresentation', 'Scenes')

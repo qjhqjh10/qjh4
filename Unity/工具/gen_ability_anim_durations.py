@@ -21,10 +21,16 @@ gen_ability_anim_durations.py — 账 `A1767`：把「发动效果的时长」�
     `BattleManager.AddCardAnim(...)` 排队（`d:/2/tools/decomp_full/`）；`PlayAnim` 的调用点是
     `AbilityLogic__PlayAbility.c:273`，而 `PlayAbility` 只被 `TriggerAbility` / `ResolveActiveAbility` /
     `ResolveAbilities` 调。
-  · 排在末尾那一条若 `animInfo.waitAnimToApplyEffect != 0` 才 `bVar13 = true`（`PlayAnim.c` 尾段），
-    然后由 `_ResolveAnim` 播：`BattleManager._ResolveAnim_d__466__MoveNext.c` 里
+  · 每一拍各读**自己那份** `animInfo.waitAnimToApplyEffect`（`0x58`），然后由 `_ResolveAnim` 播：
+    `BattleManager._ResolveAnim_d__466__MoveNext.c` 里先
     `WaitForCompletion(BuildSequence(tweenAnim))`（**仅当** `tweenAnim != null && waitAnimation != 0`）
     之后**一定**再 `WaitForSeconds(AnimInfo.GetAnimDuration())`。
+    🔴 **2026-10-17 更正（铁律 5）**：本行原来抄的是「**排在末尾那一条**若 `waitAnimToApplyEffect != 0`」——
+    **错**（那是把「目标列表的最后一拍」误当成了「步骤列表」）；判据 →
+    `资料/普查产出_1017/BSC62/R4_waitForAnim语义.md`。求和不受影响。
+  · 🔴 **2026-10-23（A11 · R18）**：`tweenAnim` 那一段**已经算了** ——
+    `cards[*].*Anims[*].tweenAnim` 带 `name` / `waitAnimation` / `seconds`，
+    卡片级在 `activeWithTween`。⚠️ **运行时没接**（`s` 仍是 `active`，不含 tween）。
   · `CardAbility.trigger` 那一族（`cardAbilities[*].abilityLogic[*]`，`ThisCardPlayed` / `Slay` / …）
     是**别的时机**播的（我们的 `EvtKind.Trigger` / `Play`），**不进这张表** —— 全量件里留在
     `cards[*].otherAbilityAnims` 里备查。
@@ -44,6 +50,16 @@ import json
 import os
 import re
 import sys
+
+## A17 2026-10-24: -h/--help early exit (print usage only, exit 0; never run the real work).
+import sys as _wf_help_sys
+if any(_wf_help_sys.argv[_i] in ("-h", "--help") for _i in range(1, len(_wf_help_sys.argv))):
+    try:
+        _wf_help_sys.stdout.reconfigure(encoding="utf-8")
+    except Exception:
+        pass
+    print('用法：\n  python -I -X utf8 d:/4/Unity/工具/gen_ability_anim_durations.py            # 重出两份产物\n  python -I -X utf8 d:/4/Unity/工具/gen_ability_anim_durations.py --check    # 只比不写（幂等自检）\n  -h, --help  只打印本用法并退出（退出码 0），不执行任何真活。')
+    _wf_help_sys.exit(0)
 
 ROOT4 = "d:/4/Unity"
 ROOT2 = "d:/2"
@@ -88,6 +104,204 @@ def anim_duration(ai):
             + float(ai.get("timeAtEndPos") or 0.0))
 
 
+# =====================================================================================
+#  R18（2026-10-23 · A11）：`AnimInfo.tweenAnim`（`UnitTweenSO`）那一段的**名字与长度**
+# =====================================================================================
+#  原版判据（`BattleManager._ResolveAnim_d__466__MoveNext.c` 的 `case 1`）：
+#    `UnitTweenSO.BuildSequence(...)` → **仅当** `tweenAnim.waitAnimation(+0x18) != 0` 才
+#    `WaitForCompletion(seq)`；播完**之后一定**再 `WaitForSeconds(AnimInfo.GetAnimDuration())`。
+#  ⇒ 本表的 `cards[*].active`（= GetAnimDuration 之和）**不含** tween 那一段。带 `waitAnimation=1`
+#    的那几张卡，原版真正等的 = `tween 序列长度 + animDuration`。**两段都出**（`activeWithTween`），
+#    但 ⛔ **不替运行时决定用哪个** —— `Core/AbilityAnimDurations.cs` 读的是 `s`（= `active`）。
+#
+#  本件补的两个缺口：
+#    ① **PathID → 名字**：`AnimInfo.tweenAnim` 只存 `{m_FileID, m_PathID}`；`UnitTweenSO` 全在
+#       `bundle_tweenandshakes_assets_all`（74 个）。现成的 PathID 索引在
+#       `数据/索引/anim_address_map.json` 的 `guid_to_asset`（按 `bundle` 过滤即可，**不用再解包**）。
+#    ② **序列长度**：`Resources/UnitTweens.json` 只有按**名字**的键 ⇒ ① 补上就能算。
+#
+#  长度怎么算（判据 = 反编译 + DOTween 的数据结构）：
+#    · 每一拍：`TweenInfoAnimationBase__GetTween.c` 对每条 tween 做
+#      `SetDelay(delay@+0x3c)` + `SetLoops(loops@param_1[8], loopType@+0x44)`
+#      ⇒ 一拍占的时长 = `delay + duration × (loops + 1)`（DOTween：`loops = -1` 才是无限，这里没有负数）。
+#    · 排布：`UnitTweenSO__BuildSequence.c` 逐条 —— `muted != 0` 跳过（但记住「它本该是 Append 还是
+#      Join」）；`appendType != 0` ⇒ `Join`，否则 `Append`；若上一条被跳过且本该是 Append ⇒ 这一条
+#      **强制 Append**（原版 `bVar2 & bVar12` 那一对状态位）。
+#    · `Append` 落在「序列当前末端」；`Join` 落在「上一次插入的起点」——
+#      DOTween `Sequence.lastTweenInsertTime` 这个字段就是给 Join 用的
+#      （`d:/2/Warpforge_code/Scripts/DOTween/DG/Tweening/Sequence.cs:13`）。
+#      序列长度 = 所有拍 `起点 + delay + duration × (loops + 1)` 的最大值。
+#    ⚠️ 本机**没有** DOTween 的 IL（`Scripts/DOTween/` 下是空桩），`Join` 的落点靠的是上面那个
+#      字段名 + 与 `Core/UnitTweenTable.Build` 逐句对照。若 `Join` 其实是「落在当前末端」，
+#      只有 `Tyranid_Deform` 一条会变（2.4 → 3.0）；另外两条 wait=1 的件（`Subtle Shake` /
+#      `Mutation`）**全是 Append**，算出来的值与 Join 语义无关。
+TWEEN_PATHID_INDEX = ROOT4 + "/数据/索引/anim_address_map.json"
+UNIT_TWEENS_JSON = ROOT4 + "/MyGame/Assets/CardPresentation/Resources/UnitTweens.json"
+TWEEN_BUNDLE = "bundle_tweenandshakes_assets_all"
+
+
+def load_tween_names():
+    """`{PathID: UnitTweenSO 名}` —— 只取 `bundle_tweenandshakes_assets_all` 里的 MonoBehaviour。
+
+    同一 PathID 在不同 CAB 里可以是不同对象，所以**必须按束过滤**（`anim_address_map.json`
+    的每条都带 `bundle` 字段）。"""
+    names = {}
+    if not os.path.isfile(TWEEN_PATHID_INDEX):
+        print("⚠️ 读不到 %s ⇒ `tweenAnim` 的 PathID→名字 **判不了**（产物里如实标 resolved=false）"
+              % TWEEN_PATHID_INDEX)
+        return names
+    for v in (load(TWEEN_PATHID_INDEX).get("guid_to_asset") or {}).values():
+        if (v or {}).get("bundle") != TWEEN_BUNDLE or v.get("type") != "MonoBehaviour":
+            continue
+        pid, nm = v.get("pathId"), v.get("name")
+        if pid is None or not nm:
+            continue
+        names[int(pid)] = nm
+    return names
+
+
+def load_unit_tweens():
+    """`{名字: UnitTweens 条目}` —— 长度算式用的就是它（`工具/gen_unit_tweens.py` 的产物）。"""
+    d = load(UNIT_TWEENS_JSON) if os.path.isfile(UNIT_TWEENS_JSON) else {}
+    return {it.get("name"): it for it in (d.get("items") or []) if it.get("name")}
+
+
+def tween_seconds(entry):
+    """`UnitTweenSO` 建出来的 DOTween `Sequence` 总长（秒）。算式见上面那段注释。"""
+    pos = 0.0          # 序列当前末端
+    last_start = 0.0   # 上一次插入的起点（DOTween `lastTweenInsertTime`；Join 就落在这里）
+    skipped = False
+    skipped_was_append = False
+    for s in (entry or {}).get("tweens") or []:
+        if int(s.get("muted") or 0) != 0:
+            if not skipped:
+                skipped = True
+                skipped_was_append = (int(s.get("appendType") or 0) == 0)
+            continue
+        is_join = (not (skipped and skipped_was_append)) and int(s.get("appendType") or 0) != 0
+        skipped = False
+        dur = float(s.get("duration") or 0.0)
+        delay = float(s.get("delay") or 0.0)
+        loops = int(s.get("loops") or 0)
+        total = dur * (loops + 1) if loops >= 0 else float("inf")
+        start = last_start if is_join else pos
+        pos = max(pos, start + delay + total)
+        last_start = start
+    return round(pos, 4)
+
+
+def tween_row(pptr, tween_names, unit_tweens):
+    """`AnimInfo.tweenAnim` 的 PPtr → 产物里那一格（**PathID → 名字 → 长度** 三跳都落盘）。
+
+    没有引用时返回 `None`（= 原版这一拍根本不等 tween）。"""
+    pid = pptr.get("m_PathID")
+    if not pid:
+        return None
+    name = tween_names.get(int(pid))
+    entry = unit_tweens.get(name) if name else None
+    if entry is None:
+        return {"m_PathID": pid, "m_FileID": pptr.get("m_FileID"), "name": name,
+                "waitAnimation": None, "seconds": None, "resolved": False,
+                "why": ("PathID 在 `anim_address_map.json` 的 tween 束里查不到"
+                        if name is None else
+                        "名字 `%s` 在 `Resources/UnitTweens.json` 里没有" % name)}
+    return {"m_PathID": pid, "m_FileID": pptr.get("m_FileID"), "name": name,
+            "waitAnimation": int(entry.get("wait") or 0),
+            "seconds": tween_seconds(entry), "steps": len(entry.get("tweens") or []),
+            "resolved": True}
+
+
+def waited_tween_seconds(row):
+    """这一拍**真的会等**的 tween 秒数 —— 原版只在 `tweenAnim.waitAnimation != 0` 时 `WaitForCompletion`。"""
+    t = (row or {}).get("tweenAnim")
+    if not t or not t.get("waitAnimation"):
+        return 0.0
+    return float(t.get("seconds") or 0.0)
+
+
+# =====================================================================================
+#  R8（2026-10-23 · A11）：`normalAbilityBoardCriteria` 的语义（**第一权威 = 反编译方法体**）
+# =====================================================================================
+#  调用点：`RawCardScript__GetActiveAbility.c`
+#    `if (hasAlternativeAbility(+0x2AA)) { if (!MeetsCriteria(..., *(this+0x2B0), ...)) return *(this+0x2B8); }`
+#    ⇒ **满足 criteria 走【普通】`activeAbility`(+0x260)，不满足才落到替代能力**(+0x2B8)。
+#  `BoardAnalysis__MeetsCriteria.c`（155 行，逐句读过）的完整语义：
+#    · `criteria == null` ⇒ true；`criteria.countCriteria == null` ⇒ true
+#    · `playerTurn`(`PlayersAffected` @0x10)：`Self(10)` ⇒ 要求 `IsPlayerTurn() == card.isPlayer(+0x40)`；
+#      `Enemy(20)` ⇒ 要求不等；`Both(0)` ⇒ 不检查
+#    · `triggerIf == RandomChance(8)` 且 `referenceValue > 0` 且 `param_6 == 0` ⇒
+#      **先**掷 `RandomInt(0,100)`，返回 `rand < referenceValue`（这一支**不看目标数**）
+#    · `countCriteria.targetsAffected`(@+0x10) == 0 ⇒ true（「Any 忽略其它过滤」）
+#    · 否则 `targets = AbilityLogic.GetTargets(criteria=countCriteria, …)`，`n = targets.Count`；
+#      `countOptions == EnemiesMinusAllies(10)` ⇒ `n = Σ(+1 敌方 / -1 我方)`
+#    · 最后按 `triggerIf`(`StatFilterOptions` @0x24)：`EqualTo(1)` n==ref · `EqualOrHigher(2)` n>=ref ·
+#      `EqualOrLower(3)` n<=ref；**其余值**（含 `NotApplicable(0)`、`*Alt(9/10/11)`、
+#      `EqualOrLowerToThisUnitAttack(4)` 那一族）⇒ `LogError` 后**返回 true**
+#    ⚠️ 枚举值出处：`PlayersAffected.cs` / `CountOptions.cs` / `StatFilterOptions.cs`（`d:/2/Warpforge_code/`）。
+#    ⚠️ `param_6` 是第 6 个实参（我们读不出它的语义）⇒ 只有 `RandomChance` 那一支受影响，如实标。
+#  数据侧现状：`cards_raw.json` 的 `cards[*].full_raw.normalAbilityBoardCriteria` **有**（现读
+#    **1 张**卡带它：`SW21`），但 `cards_engine.json`（→ RuleEngine 的卡数据）**没有这个字段**
+#    ⇒ 引擎侧要接得先 `gen_cards_engine.py` 把它带出来（那是卡牌线 A1 的文件，本件不动）。
+PLAYERS_AFFECTED = {0: "Both", 10: "Self", 20: "Enemy"}
+COUNT_OPTIONS = {0: "AllTargets", 10: "EnemiesMinusAllies"}
+STAT_FILTER = {0: "NotApplicable", 1: "EqualTo", 2: "EqualOrHigher", 3: "EqualOrLower",
+               4: "EqualOrLowerToThisUnitAttack", 5: "HigherToThisUnitAttack",
+               6: "EqualOrLowerIncludingBastion", 7: "LowerToThisUnitAttack",
+               8: "RandomChance", 9: "EqualToAlt", 10: "EqualOrHigherAlt", 11: "EqualOrLowerAlt"}
+# `TargetsAffected.cs` 里 `countCriteria.targetsAffected` 用得到的那几个（0 之外的枚举全表在同一个文件）
+TARGETS_AFFECTED = {0: "any", 10: "allFiltered", 20: "self", 30: "target", 40: "attacker",
+                    50: "inHandFiltered", 55: "inPlayOrDyingFiltered", 60: "inCemeteryFiltered",
+                    70: "abilityOwner", 80: "actingCard", 120: "friendlyHero", 130: "enemyHero"}
+# 过滤位（`TargetCriteria` 的 bool 字段）—— 只列**为真**的那些，写进 summary
+TARGET_FILTER_BITS = ("friendlyUnits", "enemyUnits", "includeHero", "includeMinions", "includeSpells",
+                      "includeWhispers", "includeWeapons", "includeRemnants", "includeHeroParts",
+                      "includeSelf", "excludeNotSelf", "excludeSimilarCards", "excludeTargetted",
+                      "excludeFriendlyHero", "excludeEnemyHero")
+
+
+def decode_board_criteria(c):
+    """把 `normalAbilityBoardCriteria` 的**数字枚举**翻成人能读的名字 + 一句执行摘要。
+
+    ⛔ 不做「这张卡在什么局面下走替代」的判定（那要棋盘）—— 只把判据原样翻明白。"""
+    if not isinstance(c, dict):
+        return None
+    pt = int(c.get("playerTurn") or 0)
+    co = int(c.get("countOptions") or 0)
+    tf = int(c.get("triggerIf") or 0)
+    ref = int(c.get("referenceValue") or 0)
+    cc = c.get("countCriteria") or {}
+    ta = int(cc.get("targetsAffected") or 0) if isinstance(cc, dict) else 0
+    bits = [k for k in TARGET_FILTER_BITS if int(cc.get(k) or 0) != 0] if isinstance(cc, dict) else []
+    parts = []
+    if pt == 10:
+        parts.append("必须轮到这张卡的主人行动")
+    elif pt == 20:
+        parts.append("必须是对方的回合")
+    if ta == 0:
+        parts.append("目标数不参与判断（`targetsAffected = any(0)` ⇒ 直接满足）")
+    else:
+        cnt = "目标数" if co != 10 else "（敌方目标数 − 我方目标数）"
+        op = {1: "==", 2: ">=", 3: "<=", 8: "< 随机 0..99"}.get(tf)
+        parts.append("%s %s %d" % (cnt, op, ref) if op else "未知比较方式(%d)" % tf)
+        parts.append("目标集 = `%s`%s" % (TARGETS_AFFECTED.get(ta, "?(%d)" % ta),
+                                         ("，过滤位 " + "/".join(bits)) if bits else ""))
+    if tf == 8 and ref > 0:
+        parts.append("（随机分支：`RandomInt(0,100) < %d`，不看目标数）" % ref)
+    return {
+        "playerTurn": {"value": pt, "name": PLAYERS_AFFECTED.get(pt, "?")},
+        "countOptions": {"value": co, "name": COUNT_OPTIONS.get(co, "?")},
+        "triggerIf": {"value": tf, "name": STAT_FILTER.get(tf, "?")},
+        "referenceValue": ref,
+        "countCriteriaTargetsAffected": {"value": ta, "name": TARGETS_AFFECTED.get(ta, "?")},
+        "countCriteriaFilters": bits,
+        "summary": "；".join(parts) if parts else "无约束",
+        "method": ROOT2 + "/tools/decomp_full/BoardAnalysis__MeetsCriteria.c",
+        "semantics": "满足 ⇒ 用普通 `activeAbility`；不满足 ⇒ 用 `alternativeAbility`"
+                     "（`RawCardScript__GetActiveAbility.c`）",
+        "caveat": "`MeetsCriteria` 的第 6 个实参（`param_6`）语义未解，只影响 RandomChance 那一支",
+    }
+
+
 def dump_path(bundle, name):
     if not bundle or not name:
         return None
@@ -128,9 +342,12 @@ def build():
     ce = load(CARDS_ENGINE)["cards"]
     byid = {c["id"]: c for c in ce}
     name_of = {c["id"]: c.get("name") or "" for c in ce}
+    tween_names = load_tween_names()      # R18：PathID → UnitTweenSO 名
+    unit_tweens = load_unit_tweens()      # R18：名字 → 补间定义（算长度）
 
     cards = []
     unresolved = []
+    not_ability = []           # 不是 `activeAbility` 链上的行（见下面 `if not slot` 那段）
     unknown_card = []          # byCard 里的键不在我们卡池（不该发生，发生就报）
     for cid, e in vfx["byCard"].items():
         act, other = [], []
@@ -140,6 +357,20 @@ def build():
             slot = it.get("abilitySlot") or ""
             ca = it.get("cardanim")
             bundle = it.get("assetBundle")
+            if not slot:
+                # 🔴 2026-10-23（A11 就地修 `新账-72 ④`）：633 条 `inferred-keyword` 升
+                #   `authoritative`（2026-10-23）之后，`card_vfx_by_card.json` 的 `ability` 桶里
+                #   混进了 **142 条 `src == "cardtrait-so"`** 的**关键词演出**行
+                #   （`FlyingTraitPlay` / `StealthTraitPlay` / `CamouflageTraitPlay` …：没有
+                #   `abilitySlot`、没有 `assetBundle`）。它们**不是** `activeAbility` 链上的
+                #   CardAnim（原版那条链只遍历 `activeAbilityLogic[*].cardAnimations[*]`）⇒
+                #   既不进时长求和，也**不该**算「映射缺口」。
+                #   如实列进 `notAbilityRows`（⛔ 不静默丢），`unresolved` 只留给真正的缺口。
+                not_ability.append({"id": cid, "cardanim": ca, "src": it.get("src"),
+                                    "prefab": it.get("prefab"),
+                                    "why": "没有 `abilitySlot` ⇒ 不是 `activeAbility` 链上的 CardAnim"
+                                           "（`src == \"cardtrait-so\"` 的关键词演出行，别混进本表）"})
+                continue
             p = dump_path(bundle, ca)
             if not ca or not bundle or not os.path.exists(p):
                 unresolved.append({"id": cid, "cardanim": ca, "soField": it.get("soField"),
@@ -154,10 +385,7 @@ def build():
                 "trigger": it.get("abilityTriggerName"),
                 "chosenAbility": it.get("chosenAbilityName"),
                 "waitAnimToApplyEffect": int(ai.get("waitAnimToApplyEffect") or 0),
-                "tweenAnim": None if not (ai.get("tweenAnim") or {}).get("m_PathID") else {
-                    "m_PathID": (ai.get("tweenAnim") or {}).get("m_PathID"),
-                    "note": "UnitTweenSO —— 它自己的 waitAnimation/length 本地**没算**（见产物 `_headline`）",
-                },
+                "tweenAnim": tween_row(ai.get("tweenAnim") or {}, tween_names, unit_tweens),
             }
             (act if slot.startswith("activeAbility") else other).append(row)
 
@@ -170,6 +398,11 @@ def build():
             "id": cid,
             "name": name_of.get(cid, ""),
             "active": total if act else None,     # None = 原版这张卡的主动能力**一条动画都没有**
+            # 🔴 R18：原版 `_ResolveAnim` 在 `waitAnimation != 0` 时**先等** tween 序列，
+            #   再等 `GetAnimDuration()` ⇒ 真正等的 = 这一列。`active` 保持不变（运行时的 `s`
+            #   读的是它，改它 = 无人复核的行为变更；要接由 `Core/AbilityAnimDurations.cs` 那边定）。
+            "activeWithTween": (round(total + sum(waited_tween_seconds(r) for r in act), 4)
+                                if act else None),
             "activeAnims": act,
             "otherAbilityAnims": other,
             # 🔴 `alternativeAbility` 那一支（二选一，见 `GUID_MAP_TSV` 的注释）—— 下面统一填
@@ -207,19 +440,30 @@ def build():
                 continue
             ai = load(p).get("animInfo") or {}
             rows.append({"cardanim": rec[0], "seconds": round(anim_duration(ai), 4), "guid": g})
+        alt_raw = srow.get("full_raw") if isinstance(srow.get("full_raw"), dict) else {}
+        crit_raw = alt_raw.get("normalAbilityBoardCriteria")
         c["alternative"] = {
             "seconds": round(sum(r["seconds"] for r in rows), 4) if rows else None,
             "anims": rows,
             "missing": missing,
             "hasAlternativeAbility": int(srow.get("hasAlternativeAbility") or 0),
-            "selectCriteria": srow.get("full_raw", {}).get("normalAbilityBoardCriteria")
-            if isinstance(srow.get("full_raw"), dict) else None,
-            "why": ("原版 `GetActiveAbility`：`hasAlternativeAbility && MeetsCriteria(normalAbilityBoardCriteria)` "
-                    "⇒ 播**替代能力**；否则播普通 `activeAbility`。⛔ 本表 `active` 只记普通那一支"),
+            "selectCriteria": crit_raw,
+            # 🔴 R8（2026-10-23 · A11）：原来这一格只有**原始枚举数字**，没人把它翻明白。
+            #   语义 = `BoardAnalysis__MeetsCriteria.c`（逐句读过），见 `_conventions.boardCriteria`。
+            "selectCriteriaDecoded": decode_board_criteria(crit_raw),
+            "why": ("原版 `GetActiveAbility`（`RawCardScript__GetActiveAbility.c`）："
+                    "`hasAlternativeAbility` 且 `MeetsCriteria(normalAbilityBoardCriteria)` **满足** ⇒ "
+                    "播**普通** `activeAbility`；**不满足**才落到 `alternativeAbility`。"
+                    "⛔ 本表 `active` 只记普通那一支"),
         }
         conditional.append({
             "id": c["id"], "name": c["name"],
             "normal": c["active"], "alternative": c["alternative"]["seconds"],
+            "normalWithTween": c["activeWithTween"],
+            "alternativeWithTween": (round(
+                (c["alternative"]["seconds"] or 0.0)
+                + sum(waited_tween_seconds(r) for r in rows), 4) if rows else None),
+            "criteria": c["alternative"]["selectCriteriaDecoded"],
             "note": "同一张卡、不同棋盘状态 ⇒ 两个不同的时长（铁律 5·c）",
         })
     withtruth = [c for c in cards if c["active"] is not None]
@@ -358,6 +602,17 @@ def build():
         "median": med,
         "max": vals[-1] if vals else None,
         "unresolved": len(unresolved),
+        "notAbilityRows": len(not_ability),
+        "tweenRows": sum(1 for c in cards for r in (c["activeAnims"] + c["otherAbilityAnims"])
+                         if r.get("tweenAnim")),
+        "tweenUnresolved": sum(1 for c in cards for r in (c["activeAnims"] + c["otherAbilityAnims"])
+                               if r.get("tweenAnim") and not r["tweenAnim"].get("resolved")),
+        # 🔴 真正会被 `WaitForCompletion` 等的那种（`waitAnimation != 0`）—— 两个桶都数
+        "tweenWaitedRows": sum(1 for c in cards for r in (c["activeAnims"] + c["otherAbilityAnims"])
+                               if (r.get("tweenAnim") or {}).get("waitAnimation")),
+        # 其中落在 `activeAbility` 桶里的（= 会改 `activeWithTween` 的）—— 现读 **0**
+        "cardsWhoseTweenIsWaited": sum(1 for c in withtruth
+                                       if any(waited_tween_seconds(r) > 0 for r in c["activeAnims"])),
         "wantedCards": len(want),            # 引擎里**真能发 `EvtKind.Ability`** 的卡（池内、能上棋盘）
         "uncoveredCards": len(uncovered),
         # 两链交叉校验（`cards_engine.animTimes` 的 `tg == -1` 行）
@@ -386,14 +641,28 @@ def build():
         f"**同一张卡、不同棋盘状态 = 不同时长**的那一族：**{len(conditional)} 张**（见 `conditional`）—— "
         "原版 `RawCardScript.GetActiveAbility` 在 `activeAbility` / `alternativeAbility` 之间按 "
         "`normalAbilityBoardCriteria` **二选一**；本表 `active` 只记**普通那一支**。"
-        "⚠️ **三处如实标注**：① 那 " + str(len(uncovered)) + " 张没有真值 ——"
+        "⚠️ **四处如实标注**：① 那 " + str(len(uncovered)) + " 张没有真值 ——"
         " **不是快照年代**（2026-10-18 起真值 = 当前 build 的卡 SO），而是它们的卡 SO "
         "`activeAbility` 里**一条非空 CardAnim 引用都没有**（`m_AssetGUID` 全空）⇒ "
         "原版这条路上不放动画、「该等 0 还是等一拍」判据不足（铁律 11 例外①）；"
-        "② 原版 `_ResolveAnim` 里 tween 那一段（`animInfo.tweenAnim != null && waitAnimation != 0` 时 "
-        "`WaitForCompletion(BuildSequence)`）**本表没算**（`UnitTweenSO` 的长度本地没接）；"
+        f"② 原版 `_ResolveAnim` 里 tween 那一段（`animInfo.tweenAnim != null && waitAnimation != 0` 时 "
+        "先 `WaitForCompletion(BuildSequence)`、**再** `WaitForSeconds(GetAnimDuration())`）—— "
+        f"🔴 **2026-10-23（A11 · R18）已解**：{stats['tweenRows']} 条 CardAnim 带 tweenAnim，"
+        "PathID→名字→长度**三跳全落盘**（`cards[*].*Anims[*].tweenAnim`；名字来自 "
+        "`anim_address_map.json` 的 `bundle_tweenandshakes_assets_all`，长度按 "
+        "`UnitTweenSO__BuildSequence.c` + `TweenInfoAnimationBase__GetTween.c` 的排布算）"
+        f"；解不出 {stats['tweenUnresolved']} 条。真正会被等的（`waitAnimation != 0`）"
+        f"**{stats['tweenWaitedRows']} 条，全部落在 `otherAbilityAnims`（触发链）** ⇒ "
+        f"**本表 `active` 受影响的卡 = {stats['cardsWhoseTweenIsWaited']} 张**，"
+        "`activeWithTween` 与 `active` 现读逐卡相等。"
+        "⚠️ **运行时也没接**（`Core/AbilityAnimDurations.cs` 读的仍是 `active`）；"
+        "要接由卡牌线定（会改对局节奏）；"
         "③ `cardAbilities[*]`（`ThisCardPlayed` / `Slay` / … 那一族）是**别的时机**播的，"
-        "**不进这张表**（留在 `cards[*].otherAbilityAnims` 备查）。"
+        "**不进这张表**（留在 `cards[*].otherAbilityAnims` 备查）；"
+        f"④ `card_vfx_by_card.json` 的 `ability` 桶里有 **{len(not_ability)} 条**"
+        "（`src == \"cardtrait-so\"` 的关键词演出行：`FlyingTraitPlay` / `StealthTraitPlay` …）"
+        "**没有 `abilitySlot`** ⇒ 不是 `activeAbility` 链上的 CardAnim，单列在 `notAbilityRows`，"
+        "⛔ 既不算时长、也不算「映射缺口」（2026-10-23 修 `新账-72 ④`）。"
     )
 
     conventions = {
@@ -403,7 +672,21 @@ def build():
         "aggregate": "一张卡的值 = 它 `activeAbility` 全部 CardAnim 的时长**求和** —— 依据 "
                      "`AbilityLogic__PlayAnim.c` 会把这一整串逐条 `AddCardAnim` 排队播完",
         "fallback": f"表里没有这张卡 ⇒ 退回 {FALLBACK}（= 本表中位数；**能力事件那条路会出声**，见 `AbilityAnimDurations`）",
-        "notComputed": "`animInfo.tweenAnim`（UnitTweenSO）的长度；`waitAnimToApplyEffect` 只如实带出不参与求和",
+        # 🔴 2026-10-23（A11）**订正**：原来这一格写「tweenAnim 的长度；waitAnimToApplyEffect
+        #   只如实带出不参与求和」—— tween 那一段**已经算了**（见上面 R18 的那段注释）。
+        #   `waitAnimToApplyEffect` 的状态**不变**：只如实带出，仍不参与求和。
+        "tween": "`animInfo.tweenAnim`（UnitTweenSO）：`m_PathID → 名字（`anim_address_map.json` 的 "
+                 "tween 束）→ 长度（`Resources/UnitTweens.json`）`三跳都已落盘；长度 = BuildSequence "
+                 "排布下的 DOTween 序列总长；**只在 `waitAnimation != 0` 时原版才等它**"
+                 "（`_ResolveAnim` 先等 tween、再等 GetAnimDuration）。卡片级汇总 = `activeWithTween`。"
+                 "⚠️ 运行时读的仍是 `active`（不含 tween）",
+        "waitAnimToApplyEffect": "只如实带出，不参与求和（原版它是「这一拍带不带等待标记」，不是时长）",
+        "boardCriteria": "`normalAbilityBoardCriteria` 的语义 = `BoardAnalysis__MeetsCriteria.c`（第一权威）；"
+                         "**满足 ⇒ 走普通 `activeAbility`，不满足 ⇒ 走 `alternativeAbility`**"
+                         "（`RawCardScript__GetActiveAbility.c`）。枚举值出处 `PlayersAffected.cs` / "
+                         "`CountOptions.cs` / `StatFilterOptions.cs`。逐卡翻译在 `conditional[*].criteria`。"
+                         "⚠️ 这个字段**不在** `cards_engine.json` 里（`cards_raw.json` 的 `full_raw` 才有）"
+                         "⇒ 引擎要接得先让 `gen_cards_engine.py` 把它带出来（卡牌线的文件）",
         "whoEmitsAbility": "`EvtKind.Ability` 在引擎里只有三条产生点：`RuleCore.UseAbility`（`Ability:` 正文，"
                            "原版卡恒 false）· `UseOathAbility`（`Oath N:`）· `UseAlternative`"
                            "（`Duty/Pray/Ferocity/Agenda`）。前两条要 `Board[slot]` ⇒ **战术卡不可能发**",
@@ -427,6 +710,13 @@ def build():
             "splitter": ROOT2 + "/tools/decomp_full/AbilityLogic__PlayAnim.c",
             "resolver": ROOT2 + "/tools/decomp_full/BattleManager._ResolveAnim_d__466__MoveNext.c",
             "duration": ROOT2 + "/tools/decomp_full/AnimInfo__GetAnimDuration.c",
+            # 🔴 R18 / R8（2026-10-23 · A11）新增的判据源
+            "tweenSequencer": ROOT2 + "/tools/decomp_full/UnitTweenSO__BuildSequence.c",
+            "tweenCommon": ROOT2 + "/tools/decomp_full/TweenInfoAnimationBase__GetTween.c",
+            "tweenPathIds": TWEEN_PATHID_INDEX,
+            "unitTweens": UNIT_TWEENS_JSON,
+            "boardCriteria": ROOT2 + "/tools/decomp_full/BoardAnalysis__MeetsCriteria.c",
+            "activeAbilityChoice": ROOT2 + "/tools/decomp_full/RawCardScript__GetActiveAbility.c",
         },
         "_headline": headline,
         "_conventions": conventions,
@@ -437,6 +727,10 @@ def build():
         "conditional": conditional,
         "uncovered": uncovered,
         "unresolved": unresolved,
+        # 🔴 2026-10-23（A11）：`card_vfx_by_card.json` 的 `ability` 桶里那 142 条
+        #   **没有 `abilitySlot`** 的关键词演出行（`src == "cardtrait-so"`）—— 不是本表的口径，
+        #   单列备查，⛔ 不静默丢、也不算「映射缺口」。详见 `_headline` ④。
+        "notAbilityRows": not_ability,
         "unknownCardIds": unknown_card,
         "_crossCheck": cross,
         "stats": stats,
@@ -505,6 +799,11 @@ def main():
               % (u["id"], u["name"], u["faction"], u["soActiveAnims"], u["why"][:60]))
     print("另有 %d 张卡在真值里有键、但 `activeAbility` 一条动画都没有（原版就不放东西）"
           % s["cardsMatchedButNoActiveAnim"])
+    print("tweenAnim（R18）：%d 条带引用 · 解不出 %d · 会被等的 %d 条（落在 active 桶 %d 张卡）"
+          % (s["tweenRows"], s["tweenUnresolved"], s["tweenWaitedRows"],
+             s["cardsWhoseTweenIsWaited"]))
+    print("不是 `activeAbility` 链上的行（`src == \"cardtrait-so\"`）：%d 条 → `notAbilityRows`（不算缺口）"
+          % s["notAbilityRows"])
     print("两链交叉校验（animTimes 的 tg=-1）：%d 张 · 一致 %d · 不一致 %d · 只在 animTimes %d · 只在本表 %d%s"
           % (s["animTimesCards"], s["animTimesAgree"], s["animTimesMismatch"],
              s["animTimesOnly"], s["tableOnly"],

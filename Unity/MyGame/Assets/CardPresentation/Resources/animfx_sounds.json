@@ -4636,6 +4636,17 @@
    "timeToPlayAgain": 0.1
   },
   {
+   "name": "Trait Swarm Tyranid",
+   "clips": [
+    "Trait Swarm Tyranid"
+   ],
+   "minPitch": 0.8,
+   "maxPitch": 1.24,
+   "minVolume": 1.0,
+   "maxVolume": 1.0,
+   "timeToPlayAgain": 0.1
+  },
+  {
    "name": "Trait Talent",
    "clips": [
     "TalentEffect"

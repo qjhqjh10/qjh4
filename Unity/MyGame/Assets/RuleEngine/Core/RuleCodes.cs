@@ -98,12 +98,14 @@ namespace RuleEngine
         //    | 毁灭者（0x2a8 frenzied）另有可杀目标 | `:206-264` | `CantAttackDestroyer`（`DAT_184289988`） | `ErrCantAttackDestroyer` |
         //    | 召唤病 + 非 fast + 目标督军 | `:200-203` / `:282-292` | `CantAttackFlank`（`DAT_184289a78`） | `ErrCantAttackFlank` |
         //
-        //  🔴 **没有建码的三支（判据已闭合、但成因我们没建模 ⇒ 建了也是永远不返回的死码）**：
-        //    · `AttackGiantKiller`（`:182-305`，攻方 `0x154 giantKiller`）—— 现池 `GiantKiller` **0 张**；
+        //  🔴 **没有建码的两支（判据已闭合、但成因我们没建模 ⇒ 建了也是永远不返回的死码）**：
         //    · `CantAttackTainted`（`:186-199`，攻方督军 ∧ 目标 `0xa0 tainted`）—— `tainted` 我们**整条没有**
         //      （同 `ConditionEval` §330 那条缺口）；
         //    · `CantAttackCoward`（`:204-281`，攻方 `0xbe coward` ∧ 目标督军）—— 现池 `coward` **0 张**。
-        //    三支要做时**先补 trait 建模**，再加码 + `Terms` 一行（判据都在上表同一份方法体里）。
+        //    两支要做时**先补 trait 建模**，再加码 + `Terms` 一行（判据都在上表同一份方法体里）。
+        //    ✅ **2026-10-24（引擎线 `N1`）就地订正（铁律 5）**：原来这里是**三支**，其中
+        //      `AttackGiantKiller`（`:182-305`，攻方 `0x154 giantKiller`）**已经建码**了
+        //      （`ErrAttackGiantKiller` = 28，trait 建模 + 落点见 `KeywordTable.GiantKiller` 的 doc）。
         //    ⚠️ 同族但**原版本身就没有词条**的几支（`:211-222` 的 `summonRift` / `stun` / `pindown`）：
         //       `stun` → 已有 `ErrStunned`、`pindown` → 已有 `ErrPindown`，`summonRift` 未建模。
         //
@@ -144,6 +146,14 @@ namespace RuleEngine
         /// （键名写 Flank 是因为「侧翼」正是那条豁免词；`A1098` 已把语义核对过）。
         /// 谁返回它：`RuleCore.IsValidTarget` 的召唤病那一段（原来返回 `ErrTarget`）。</summary>
         public const int ErrCantAttackFlank = 27;
+        /// <summary>🆕 **2026-10-24（引擎线 `N1`）：巨人杀手（`giantkiller` / trait 340）的目标不合法** ——
+        /// 原版 `IsValidAttackTarget.c:182-190`：攻方带 `0x154`，而目标**既不是督军也不是前线单位**
+        /// （`CardScript.IsDefender` = 在场 ∧ 非隐身 ∧ `HasVanguardTrait`），词条
+        /// `Battle/Tips/AttackGiantKiller`（`DAT_184289890` → `stringliteral.json`，
+        /// 官方中文「你必须攻击战将或前线单位」）。
+        /// 谁返回它：<see cref="RuleCore.IsValidTarget"/> 的 GiantKiller 那一段
+        /// （位置照原版：排在 Flying 之后、召唤病之前）。⚠️ 池内 **0 张**卡带该 trait。</summary>
+        public const int ErrAttackGiantKiller = 28;
 
         static readonly Dictionary<int, string> Names = new Dictionary<int, string>
         {
@@ -203,6 +213,8 @@ namespace RuleEngine
             { ErrAttackBlockFlying,   "你不能用近战攻击飞行单位" },
             { ErrCantAttackDestroyer, "这个军队必须攻击它能摧毁的单位" },
             { ErrCantAttackFlank,     "不是侧翼攻击的有效目标" },
+            // 🆕 2026-10-24（引擎线 `N1`）：28 也**必须有中文名**（漏了 → 「未知错误码 28」）
+            { ErrAttackGiantKiller,   "你必须攻击战将或前线单位" },
         };
 
         public static string Describe(int code)
@@ -224,8 +236,11 @@ namespace RuleEngine
         //      （见下面那张表）。
         //      ✅ **2026-10-23（引擎线 · 战斗审计 `B-31`）：`ErrNoAttack` / `ErrTarget` 那一半【已做】** ——
         //      按 `IsValidAttackTarget.c` 的成因拆出 **7 档**（21..27，见 `ErrNoMeleeAttack` 上面那张表），
-        //      `Terms` 从 4 条变 **11 条**。⚠️ 三个成因我们没建模（GiantKiller / Tainted / Coward）
-        //      ⇒ **没建码**（理由与判据行号写在同一个注释块里，⛔ 别只看到「少了三条」就当漏做）。
+        //      `Terms` 从 4 条变 **11 条**。
+        //      🆕 **2026-10-24（引擎线 `N1`）**：`AttackGiantKiller` 那一支也建了 —— trait 建模
+        //      （`KeywordTable.GiantKiller`）+ 拒码 28 + `Terms` 一行 ⇒ 现在是 **12 条**；
+        //      **剩下两个成因仍没建模**（`CantAttackTainted` / `CantAttackCoward`）⇒ **没建码**
+        //      （理由与判据行号写在同一个注释块里，⛔ 别只看到「少了两个」就当漏做）。
         //   ③ 最后才谈「`Describe` 要不要改成**出键**」（那一步会动 `RuleEngine` 的消费面）。
         //
         // ⛔ **本笔只做了 ① 里【本文件能做的那一半】：把映射建出来。**
@@ -271,10 +286,19 @@ namespace RuleEngine
         //   `0x428a9b8`），查 `d:/2/tools/il2cpp_out/stringliteral.json` **5/5 命中**
         //   （`d:/4/CLAUDE.md` §二 那条「`_DAT_xxxxxxxx` 常量是能读的」的同一套办法）。
         //
-        // ⚠️ **值一条都没有**：`Battle/Tips/*` 这 24 条键**本地只有名字**（I2 词条表在**远端 CCD**，
-        //   全量扫过零 value —— `资料/普查产出_1018/W6_战斗本地化交件.md` §… + `Core/Tooltip.cs` 头注）。
-        //   ⇒ 就算调用点接上 `Loc.T(key)`，**今天显示的仍然是我们的中文兜底**
-        //     （`Loc.T` 查不到键时返回兜底/键名）。这一句是**如实标注**，不是缺陷。
+        // 🔴 **2026-10-24（引擎线 `J2`）就地订正（铁律 5）**：本段原来写着
+        //   「⚠️ **值一条都没有**：`Battle/Tips/*` 这 24 条键**本地只有名字**（I2 词条表在**远端 CCD**，
+        //   全量扫过零 value）」—— **两句都过期了**：
+        //     ① **I2 词条表已经在本地**（`K07` / 2026-10-18 并入）：
+        //        `Unity/数据/游戏数据/官方本地化_en+zh-CN.json`（10,854 条 en+zh），
+        //        其中 `Battle/Tips/*` **39 条**（现读；判据 = 直接数那份 JSON 的前缀）。
+        //     ② 那 24 条里 **22 条有官方 en+zh 值**，缺的恰好是
+        //        `CantAttackCoward` / `CantAttackTainted` —— 它们**官方表里本来就没有**
+        //        （原版那一档是**空文本**，见上面「不映射」那两条）。
+        //   ⇒ **今天 `Loc.T(key)` 对那 22 条给的是官方文案**，不是我们的兜底；兜底那一半
+        //     只服务「无键码 / 键不在表里」那一档（这条结论**不变**）。
+        //   ⚠️ 别再照旧话写「本地只有名字」—— 那是 **2025-07-30 快照**的口径。
+        //     判据 → `资料/普查产出_1018/G5_战斗本地化剩余.md` §… + `资料/普查产出_1023e/G1_战斗Tips与兜底.md` §1·2/§1·4。
 
         /// <summary>
         /// **这个返回码对应原版哪一条提示词条**（`Battle/Tips/&lt;名&gt;`）——
@@ -314,15 +338,37 @@ namespace RuleEngine
         ///   · `NotYourTurn` ← <see cref="ErrNotTurn"/> ✅ 1:1（原版那一支就是 `(param_3 &amp; isPlayer) == 0`）。
         ///     ⚠️ 我们这一个码**还多盖了**「`ctx.IsOver`」这一档（对局已结束）—— 那时提示行根本不会走，
         ///     如实标着，不是缺陷。
-        ///   · ✅ **`CantAttack*` / `AttackBlock*` / `CantAttackDestroyer` 那 7 条【已映射】** ——
+        ///   · ✅ **`CantAttack*` / `AttackBlock*` / `CantAttackDestroyer` / `AttackGiantKiller` 那 8 条【已映射】** ——
         ///     `B-31`（2026-10-23）把 `ErrNoAttack` / `ErrTarget` 拆细之后，它们各自有了自己的码
-        ///     （见 `Terms` 末尾那七行）。
-        ///   · `AttackGiantKiller` / `CantAttackTainted` / `CantAttackCoward` —— **不映射**：
-        ///     成因我们没建模（现池 0 张 / `tainted` 整条没有）⇒ 没有码可挂。
-        ///   · `PleaseWait` / `InvalidTarget` / `HandFull` / `DamageFatigue*` / `MuteEnemyChat` —— 同理：
-        ///     我们这边**没有那一档**（只有一个 `PlayerInputFrozen` 布尔，分不出
-        ///     `PleaseWait` / `PendingBerzerk`）或落点在别处 ⇒ **不映射**，
-        ///     见 `资料/普查产出_1018/G5_战斗本地化剩余.md` §4·B 那张分档表。
+        ///     （见 `Terms` 末尾那几行；`AttackGiantKiller` 由 `N1`（2026-10-24）补上）。
+        ///   · `CantAttackTainted` / `CantAttackCoward` —— **不映射**：
+        ///     成因我们没建模（`tainted` 整条没有 / `coward` 现池 0 张）⇒ 没有码可挂。
+        ///     ⚠️ **2026-10-24（引擎线 `N1`）就地订正（铁律 5）**：本行原来还并列了
+        ///     `AttackGiantKiller` —— 它**已经映射了**（`ErrAttackGiantKiller` → `Battle/Tips/AttackGiantKiller`，
+        ///     见 `Terms` 末尾那一行）。trait 建模与落点 → `KeywordTable.GiantKiller` 的 doc。
+        ///   · 🔴 **2026-10-24（引擎线 `J2`）就地订正（铁律 5）**：本行原来把
+        ///     `PleaseWait` / `InvalidTarget` / `HandFull` / `DamageFatigue*` / `MuteEnemyChat`
+        ///     **五条并列**写成「我们这边**没有那一档** ⇒ **不映射**」——
+        ///     **前四条早就不成立了**：它们**今天都有产品消费点**，只是**不走这张 `Terms` 表**
+        ///     （由表现层在调用点**直接取键**）：
+        ///       · `PleaseWait`    ← `BattleDriver.PleaseWaitTerm` · `WaitingForBlockingAction` 两处
+        ///         （演着上一手时又点了一下 ⇒ `NotifyCantDoAction(Battle/Tips/PleaseWait)`）；
+        ///       · `InvalidTarget` ← `BattleDriver.InvalidTargetTerm` · 技能目标落空那一支
+        ///         （`FinishedChoosingAbilityTargetByClick.c:20-30` ↔ `kind == Ability && code == ErrTarget`）；
+        ///       · `HandFull`      ← `BattleDriver.HandFullTerm` + `HandFullText()`
+        ///         （手牌满 ⇒ 那张牌没进手牌、直接进弃牌堆那一拍）；
+        ///       · `DamageFatigue` / `DamageFatigueEnemy` ← `BattleDriver.DamageFatigueTextWithKey`
+        ///         （自己 / 对手牌库空各一条；消费点 = `ErrorMessageBanner` 的唯一触发）。
+        ///     ⇒ **「不映射」只表示「不进 `Terms`」**（这几条本来就不是 `RuleCodes` 的返回码，
+        ///     而是表现层按**自己的时机**取键），**⛔ 不表示「没接」** —— 别再把它们当待办。
+        ///     判据 = `资料/普查产出_1023e/G1_战斗Tips与兜底.md` §1·2 那张逐条消费点表
+        ///     （那边同时补了「24 条键表长度 / 22 条 `Loc.HasEntry`」的覆盖表断言）。
+        ///   · ⚠️ `MuteEnemyChat` **仍然不映射，而且仍然做不了**：它的消费点在**对手聊天**那条链上
+        ///     （`VoiceLinesController__DisplayWarlordChatMessage.c`：第 5 条之后弹 SmallTip），
+        ///     而我们**还没有「对手聊天」这个功能**（`Battle/SettingsPanel.SetMuteChat` 的 doc 自陈）。
+        ///   · ⚠️ `PendingBerzerk` 那一档今天**仍分不出来**：只有一个 `PlayerInputFrozen` 布尔，
+        ///     区分不了 `PleaseWait` / `PendingBerzerk`（分档表见
+        ///     `资料/普查产出_1018/G5_战斗本地化剩余.md` §4·B）。
         /// </summary>
         static readonly Dictionary<int, string> Terms = new Dictionary<int, string>
         {
@@ -343,6 +389,9 @@ namespace RuleEngine
             { ErrAttackBlockFlying,   "Battle/Tips/AttackBlockFlying"              },  // `:177-181` / `:307-317`
             { ErrCantAttackDestroyer, "Battle/Tips/CantAttackDestroyer"            },  // `:206-264`
             { ErrCantAttackFlank,     "Battle/Tips/CantAttackFlank"                },  // `:200-203` / `:282-292`
+            // 🆕 2026-10-24（引擎线 `N1`）：`Battle/Tips/AttackGiantKiller` = 「你必须攻击战将或前线单位」
+            //   （官方本地化 en/zh 两列都在；`CardPresentation/Core/Loc.cs` 同键同值）—— `:182-190`
+            { ErrAttackGiantKiller,   "Battle/Tips/AttackGiantKiller"             },
         };
 
         public static bool IsOk(int code) { return code == OK; }

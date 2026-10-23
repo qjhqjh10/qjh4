@@ -2490,9 +2490,14 @@ namespace CardPresentation
         ///   `:262` 默认 `cardDestroyFX`（它的序列化引用就是 GameObject **`Card 3D Death Explosion`**），
         ///   两者**共享同一段后续处理**（`:266` set localScale · `:275-328` 换 `_CardImage`/`_MatCap`），
         ///   判别式在 **`:240`**：`Object.op_Equality(生成体, 0)` —— **逐卡那件取不到（或判空）才用默认件**。
-        ///   ⚠️ 这里必须问 **`ResolvePerCard`**（只查逐卡那一档），⛔ **不是 `Resolve`**：
-        ///      后者的兜底链会返回我们自己挑的替代品 `Explosion Fenrisian Monstrosities`，
-        ///      而那件**已经在退回路里**了 ⇒ 算进来就是**原版没有的第二下**。
+        ///   ⚠️ 这里**不许问 `Resolve`**：后者的兜底链会返回我们自己挑的替代品
+        ///      `Explosion Fenrisian Monstrosities`，而那件**已经在退回路里**了
+        ///      ⇒ 算进来就是**原版没有的第二下**。
+        ///   🔴 **2026-10-24（执行代理 `J1` · `C5` D13）**：也不许问 `ResolvePerCard` ——
+        ///      `death` 桶里混着 `ThisUnitDeath(80)` / `UnitDeathByAbility(180)` 的**能力动画**
+        ///      （6 行 / 6 张卡），取 `picks[0]` 会让那 5 张卡的阵亡播成别的能力的特效。
+        ///      改问 <see cref="VfxMap.ResolveDeathParticle"/>（只认 `customDeathParticles` 那一族，
+        ///      判据 → 那个方法的 doc）。
         ///   ⚠️ 逐卡的 66 张卡解出来**是同一件** `Necrons death explosion`
         ///      （判据 → 生成器 `gen_card_vfx_by_card.py` 的 `RT_SKIP_SOFIELDS` 那段）
         ///      ⇒ **别指望它是「一卡一件」**，也别因为「都一样」就以为这一跳没意义。
@@ -2560,7 +2565,15 @@ namespace CardPresentation
             }
 
             // ③ 普通卡（或残骸那件取不到时的退路）：原版那条二选一
-            pick.PerCard = VfxMap.ResolvePerCard(VfxMap.Death, card.Data.faction, card.Data.id);
+            // 🔴 **2026-10-24（执行代理 `J1` · `C5` D13）就地改（铁律 5）**：这里原来调
+            //   `VfxMap.ResolvePerCard(VfxMap.Death, …)`（= `death` 桶**第一条**）。那个桶里混着
+            //   `ThisUnitDeath(80)` / `UnitDeathByAbility(180)` 两族的**能力动画**（原版是
+            //   `TriggerAbilities(80/180)` 那一拍，**不是** `UnitDeath` 的 `Instantiate`）⇒
+            //   现读 6 行 / 6 张卡（`AM34` / `BL62` / `BL66` / `GOF83` / `GOF3` / `SAU72`）的阵亡
+            //   会播成「别的能力的特效」。改问 `VfxMap.ResolveDeathParticle` = **只认
+            //   `customDeathParticles` 那一族**（判据与「为什么这是唯一可分的判据」→ 那个方法的 doc）。
+            //   ⛔ 别改回 `ResolvePerCard`；也别指望数据侧的桶名（运行期表只有 `n/c/a`，没有 `src`）。
+            pick.PerCard = VfxMap.ResolveDeathParticle(card.Data.faction, card.Data.id);
             if (!string.IsNullOrEmpty(pick.PerCard) && !FxInLibrary(pick.PerCard))
             {
                 // 逐卡那件在库里没有 ⇒ **出声**，再退回默认件试一次。

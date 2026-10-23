@@ -290,6 +290,52 @@ namespace RuleEngine
         /// 反击的远程那一支**不经过**它）。</para>
         /// </summary>
         Retaliation,
+
+        // ==================================================================
+        //  🆕 2026-10-24（引擎线 `J2` · 战斗线 `W64` `B-30`）：**多卡展示窗**（效果 470）
+        //  ⚠️ **加在这张表的【末尾】**（枚举值只许追加，见上面 `Draw` 那段：插队会让
+        //     别处存下来的整数值错位）。
+        // ==================================================================
+
+        /// <summary>
+        /// 🆕 **摊开一批卡给玩家看**（原版 `AbilityEffect.showCardsWindow = 470` → 动作 86
+        /// → `BattleHud.DisplayMultiCardView`）。
+        ///
+        /// <para>**判据（逐段读过的原版链）**：</para>
+        /// <code>
+        /// AbilityLogic__PlayAbility.c  case 0x1d6 (470):
+        ///     BattleManager.AddShowCardsWindowAction(bm, *targets, *(ability+0x50) /* effectText */, priority, 0)
+        ///   → BattleManager__AddShowCardsWindowAction.c   // 建 BattleAction(type = 0x56)，打进「卡列表 + effectText」
+        ///   → AddAutoActionToQueue
+        ///   → BattleManager__ResolveAction.c  case 0x56:
+        ///        if (IsPlayerTurn(bm))                       // ← **只在本地玩家的回合**才开窗
+        ///            BattleHud.DisplayMultiCardView(hud, cards, Loc("Card_Abilities/" + effectText))
+        ///   → BattleHud__DisplayMultiCardView.c  → UIMultiCardDisplay.Initialize + WindowsManager.OpenWindow
+        /// </code>
+        ///
+        /// <para>**字段**：`Player` = 谁摊开（= 打这张牌的那一方）· `Slot` 恒 `-1`（不在格位上）·
+        /// `CardId` = **触发它的那张牌**的卡名 · `Effect` = **标题键**
+        /// （`Card_Abilities/&lt;effectText&gt;`，现池唯一一档 = `Card_Abilities/EffectDisplayCardsAddToDeck`
+        /// = `These cards have returned to your deck` / `这些张牌已返回到你的卡组`）·
+        /// `CardNames` = **摊开的那批卡的卡名**（原版列表序）。</para>
+        ///
+        /// <para>🔴 **「只在 `IsPlayerTurn` 时显示」这一道闸【不在引擎里】**：引擎是无头的、同时驱动两个座位，
+        /// 它没有「本机是哪个座位」这个概念（`BattleContext` 上**没有** `LocalSeat`）。原版那句判的是
+        /// **本地玩家**，⇒ **归表现层**（消费端拿 `Player` 与本机座位比即可，与 `Draw` 选
+        /// `DealDuration` / `DealDurationFoe` 同一套口径）。引擎这一侧只保证「**该发的时候发、不该发的时候不发**」。</para>
+        ///
+        /// <para>⚠️ **纯展示**：整条原版链**一个状态写入都没有** ⇒ 本事件**不改任何局面**
+        /// （`RuleEngineTest.TestW64ShowCardsWindow` 的 ③④ 钉着「`CardNames` 就是刚回牌库的那批、
+        /// 棋盘/牌库的改动全部来自 `return` 那一条 op」）。
+        /// 🔴 **2026-10-24（引擎线 `N1`）就地订正（铁律 5）**：本行原来写的是
+        /// 「③④ 钉着『打 GSC55 的全池结算与改前**逐字相同**』」—— 那句**已经过期**：
+        /// `N1` 修了 `GSC55` 的结算（`return` 的候选从**棋盘**改成**墓地**，
+        /// 见 `EffectResolver.ReturnFromCemetery`），全池 `play all dump` 的差异**只落在 `GSC55` 这一行**。
+        /// ⇒ 「本事件纯展示」这个结论**不变**，变的是「打这张卡的局面读数」。
+        /// ⚠️ 也**不进动作流**（不是 `LocalAct` / 不是 `SimpleAI.Executed`）—— `BattleEvent` 不进 `.json`，
+        /// 录像 / 联机不受影响。</para>
+        /// </summary>
+        ShowCardsWindow,
     }
 
     /// <summary>
@@ -447,8 +493,23 @@ namespace RuleEngine
 
         /// <summary>`Ability` / `Trigger` 专用：哪个关键词（`rally` / `slay` / `ability`…）</summary>
         public string Keyword;
-        /// <summary>`Ability` / `Trigger` 专用：效果原文（`Damage 2 EnemyUnit`）</summary>
+        /// <summary>`Ability` / `Trigger` 专用：效果原文（`Damage 2 EnemyUnit`）；
+        /// 🆕 `ShowCardsWindow` 也用这一位 —— 装的是**标题键**（`Card_Abilities/&lt;effectText&gt;`）。</summary>
         public string Effect;
+
+        /// <summary>
+        /// 🆕 **2026-10-24（`ShowCardsWindow` 专用）：这一窗要摊开的全部卡名**（原版列表序；`null` = 没写）。
+        ///
+        /// <para>**判据**：原版 `BattleManager__AddShowCardsWindowAction.c` 把**整个 `List`**
+        /// 打进 `BattleAction`（逐项 `List.Add`），`ResolveAction` case `0x56` 再整份交给
+        /// `BattleHud__DisplayMultiCardView` ⇒ 是**一批**，不是一条事件一张卡。
+        /// 我们的 `BattleEvent` 是标量结构，所以单开这一格装批（⛔ 不要改成「一张卡发一条事件」——
+        /// 消费端要能一眼看出**这一窗总共几张**，否则它得自己猜组边界）。</para>
+        ///
+        /// <para>⚠️ 别的种类**保持 `null`**（今天只有 `ShowCardsWindow` 会填）。
+        /// ⚠️ 它不进录像 / 联机（`BattleEvent` 不进 `.json`，见 `DeploySource` 那段同一条说明）。</para>
+        /// </summary>
+        public System.Collections.Generic.List<string> CardNames;
 
         /// <summary>
         /// 🆕 **2026-10-20（第五十七会话 `FACTION-DOUBLE605`）：这一拍是哪一条原版 `CardAbility`**

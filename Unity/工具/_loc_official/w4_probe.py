@@ -6,6 +6,16 @@ import os
 import re
 import sys
 
+## A17 2026-10-24: -h/--help early exit (print usage only, exit 0; never run the real work).
+import sys as _wf_help_sys
+if any(_wf_help_sys.argv[_i] in ("-h", "--help") for _i in range(1, len(_wf_help_sys.argv))):
+    try:
+        _wf_help_sys.stdout.reconfigure(encoding="utf-8")
+    except Exception:
+        pass
+    print('用法：python 工具/_loc_official/w4_probe.py [参数...]\n  说明：W4 探针入口（只读）。用法: python -I -X utf8 工具/_loc_official/w4_probe.py <子命令>\n  选项：无自定义选项（不带参数 = 默认模式）\n  位置参数：sys.argv[1:] 全收（数量以脚本自身判断为准）')
+    _wf_help_sys.exit(0)
+
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import w4_lib as L  # noqa: E402
 from collections import Counter  # noqa: E402

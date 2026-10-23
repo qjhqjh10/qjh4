@@ -20,6 +20,16 @@ import io, os, re, json, sys, collections
 # ⚠️ Windows 控制台默认 GBK，而本脚本会打 `✅` / `🔴`（`A1633` 那条判据起）—— 不转 UTF-8 会直接抛
 #    UnicodeEncodeError，而且是在**算完之后**抛，看着像「脚本坏了」。照 `restore_card_icons.py`
 #    / `gen_icon_doc.py` / `gen_icon_plan.py` 那三份的同一句写（本仓 python 3.14）。
+## A17 2026-10-24: -h/--help early exit (print usage only, exit 0; never run the real work).
+import sys as _wf_help_sys
+if any(_wf_help_sys.argv[_i] in ("-h", "--help") for _i in range(1, len(_wf_help_sys.argv))):
+    try:
+        _wf_help_sys.stdout.reconfigure(encoding="utf-8")
+    except Exception:
+        pass
+    print('用法：python 工具/gen_cardface_fixes.py [--check] [--legacy-bare-keys]\n  说明：从「卡面逐张提取」的结果里**算出**要修 `cards_engine.json` 的条目 →\n  选项：--check / --legacy-bare-keys（脚本内按字符串匹配；一个都不带 = 默认模式）')
+    _wf_help_sys.exit(0)
+
 try:
     sys.stdout.reconfigure(encoding='utf-8')
 except Exception:

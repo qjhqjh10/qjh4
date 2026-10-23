@@ -18,6 +18,16 @@ import io
 import re
 import sys
 
+## A17 2026-10-24: -h/--help early exit (print usage only, exit 0; never run the real work).
+import sys as _wf_help_sys
+if any(_wf_help_sys.argv[_i] in ("-h", "--help") for _i in range(1, len(_wf_help_sys.argv))):
+    try:
+        _wf_help_sys.stdout.reconfigure(encoding="utf-8")
+    except Exception:
+        pass
+    print('用法：\n  python _apply_card_fix.py <编译器日志> <工程根> --dry      # 只看前 N 条对不对称\n  python _apply_card_fix.py <编译器日志> <工程根> --apply    # 真改（按文件从后往前改，位置不串）\n  -h, --help  只打印本用法并退出（退出码 0），不执行任何真活。')
+    _wf_help_sys.exit(0)
+
 PAT = re.compile(r"^(Assets[^(]*)\((\d+),(\d+)\): error (CS\d+)")
 WANT = ("CS1503", "CS1061", "CS0029")
 OPEN = "([{"

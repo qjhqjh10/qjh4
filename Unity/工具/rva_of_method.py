@@ -34,6 +34,16 @@ import sys
 
 # 🔴 **控制台是 GBK**（Windows 默认）⇒ 直接 print 中文/符号会 `UnicodeEncodeError` 崩掉，
 #    或者打出乱码。本工具**自己把 stdout 切到 UTF-8**，不依赖调用方记得加 `-X utf8`。
+## A17 2026-10-24: -h/--help early exit (print usage only, exit 0; never run the real work).
+import sys as _wf_help_sys
+if any(_wf_help_sys.argv[_i] in ("-h", "--help") for _i in range(1, len(_wf_help_sys.argv))):
+    try:
+        _wf_help_sys.stdout.reconfigure(encoding="utf-8")
+    except Exception:
+        pass
+    print('用法：\n    PY=D:/2/Warpforge_tools/py312/python.exe\n    $PY d:/4/Unity/工具/rva_of_method.py <方法名片段> [最多几条=12] [script.json 路径]\n    # 名称里的 `<` `>` 在 script.json 里是 `\\u003C` `\\u003E` —— 本工具**两种写法都认**\n    # （直接写 `CollectionDisplay<object>$$GetItemCount` 也行）\n  -h, --help  只打印本用法并退出（退出码 0），不执行任何真活。')
+    _wf_help_sys.exit(0)
+
 try:
     sys.stdout.reconfigure(encoding='utf-8')
 except Exception:

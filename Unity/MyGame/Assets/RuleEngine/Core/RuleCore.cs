@@ -1313,14 +1313,23 @@ namespace RuleEngine
         /// （`BattleManager__GetPendingBerzerkUnit.c`，逐句）。
         ///
         /// 原版两道过滤：
-        ///   ① 候选：场上、`IsUnit`（`RawCardScript__IsUnit.c`：cardType `0` 或 `10`）、
+        ///   ① 候选：场上、**不是** `cardType == 0x14(20 Tactic)` / `== 0x28(40 Whispers)`、
         ///      **`isRemnant(+0x65) == 0`**、`IsInPlay()`；
         ///   ② 结果：`HasCurrentTrait(0x168 /*berzerk*/)` ∧ `CanAttackCard`（= **现在能不能攻击**，
         ///      不含目标合法性；`BattleManager__CanAttackCard.c`）。
-        /// ⇒ 我们的对应物：`Card.IsUnit`（含 `hero`，⚠️ 见下）+ 非残骸 + `Has(Berzerk)` +
+        /// ⇒ 我们的对应物：**黑名单两档**（`Type` 不是 `tactic` / `defence`）+ 非残骸 + `Has(Berzerk)` +
         ///    <see cref="CanActNow"/>（近战或远程任一能打）。
-        /// ⚠️ `CardDef.IsUnit` 把 `hero` 也算 unit，原版 `RawCardScript.IsUnit` 的 `10` 正是
-        ///    `CardTypeOptions` 里的督军那一档 ⇒ 口径一致；督军不会带 `berzerk`，所以无影响。
+        ///
+        /// 🔴 **2026-10-24（引擎线 `N1` · `T03·d` 的 `P2-8`）：这里原来是【白名单】`Card.IsUnit`
+        ///    （`Type ∈ {unit, hero}`），口径与原文**不等价**。**判据 = 现读
+        ///    `BattleManager__GetPendingBerzerkUnit.c:49-57`：
+        ///      `iVar2 = get_cardType(u); if (((iVar2 != 0x14) && (iVar2 != 0x28)) && (*(char*)(u+0x65)=='\0'))`
+        ///    ⇒ **黑名单**（只有 Tactic / Whispers 被排除，其余一律入候选）；`CardTypeOptions`
+        ///    （`dump.cs:45710-45717`）= `Minion 0 / Hero 10 / Tactic 20 / Whispers 40`。
+        ///    ⚠️ 本池 `type` 只有四种（`unit 586 / tactic 446 / hero 56 / defence 39`），
+        ///    而 `defence` 就是原版那一档 `Whispers(40)`（见 `CardDef.Type` 的取值域）
+        ///    ⇒ **今天两种写法在池内逐张等价、行为差 = 0**；改的是**口径**（铁律 11：都做）。
+        ///    ⚠️ 池内带 `berzerk` 的卡 **0 张**（`cards_engine.json` 1127 张现扫）⇒ 零行为变化。
         /// ⚠️ 原版这个方法带 `isPlayer` 参数、`ResolveEndTurn` 只在**本地人类玩家**回合调它；
         ///    我们引擎里没有「本地人类」这一层（P2P 两边都是人）⇒ 对**当前行动方**生效。
         /// ⚠️ **只对当前行动方有意义**：`CanActNow` 里自带 `p != ctx.Active ⇒ 假`
@@ -1336,7 +1345,9 @@ namespace RuleEngine
             for (int s = 0; s < BoardSpec.Size; s++)
             {
                 var u = b[s];
-                if (u == null || u.Card == null || !u.Card.IsUnit) continue;
+                if (u == null || u.Card == null) continue;
+                // 原版候选 = **黑名单两档**（Tactic 20 / Whispers 40）—— ⛔ 别换回 `IsUnit` 白名单
+                if (u.Card.Type == "tactic" || u.Card.Type == "defence") continue;
                 if (u.IsRemnant) continue;                 // 原版 `isRemnant(+0x65) == 0`
                 if (!u.IsAlive) continue;                  // 原版 `IsInPlay()`
                 if (!u.Has(Berzerk)) continue;
@@ -4882,6 +4893,27 @@ namespace RuleEngine
             if (!ranged && target.Has(KeywordTable.Flying) && !attacker.Has(KeywordTable.Flying))
                 return RuleCodes.ErrAttackBlockFlying;
 
+            // 🆕 **2026-10-24（引擎线 `N1`）：巨人杀手（`giantkiller` / trait 340）** ——
+            //   判据 = `BattleManager__IsValidAttackTarget.c:182-190`（逐句现读）：
+            //   ```
+            //     if (HasCurrentTrait(param_2 /*攻方*/, 0x154 /*giantKiller*/)
+            //         && !CardScript.IsDefender(param_3 /*目标*/, …)
+            //         &&  get_cardType(param_3) != 10 /*Hero = 督军*/)
+            //         ⇒ 不合法（`CustomDebug.LogWarning("Can't attack because it's not valid target
+            //            for GiantKiller")` + tip `Battle/Tips/AttackGiantKiller`）
+            //   ```
+            //   `CardScript__IsDefender.c` = 「`cardState ∈ {2,3,15,17}`（在场）∧ 非隐身 ∧
+            //   `HasVanguardTrait`（= 非隐身 ∧ 带 `vanguard`）」—— 目标此刻已经在棋盘上
+            //   （上面 `target == null ⇒ ErrNotUnit` 过了），隐身目标在更早那一段就被拒了
+            //   ⇒ 这一格只剩 `Has(Vanguard)` 这一维（`precognition` 我们整条没建模，见账）。
+            //   ⇒ 语义（官方中文原句）：「**你必须攻击战将或前线单位**」。
+            //   ⚠️ **位置照原版**：`:182` 紧跟在 `:177-181`（Flying）之后、`:200`（召唤病）之前。
+            //   ⚠️ 池内 **0 张**卡带该 trait（`cards_engine.json` 1127 张现扫；
+            //      `cards_raw.json` 1,351 张的 `CardTraits` 也 0 张）⇒ **零行为变化**。
+            if (attacker.Has(KeywordTable.GiantKiller) && !target.IsWarlord
+                && !target.Has(KeywordTable.Vanguard))
+                return RuleCodes.ErrAttackGiantKiller;
+
             // 🔴 **2026-10-18 之后·第十二会话（`A1098`）：召唤病 vs 督军** ——
             //   判据是 `IsValidAttackTarget.c:199-202`（`+0x58` 裸读，**只**配 `fast`）+
             //   `:282-290`（条件为假 ⇒ 走「不合法」那一支）。⚠️ **位置照原版**：它排在
@@ -5459,25 +5491,21 @@ namespace RuleEngine
         ///   「外层 Die 广播 → 外层 Slay 记账 → 嵌套死亡 action」；外层记账就在这里，所以嵌套死亡
         ///   必须在**这一步之后**才 flush（`CleanupDeaths` 末尾因此不替它抢先）。
         /// · `FlushDeaths` 传 `false` —— 它自己把新入队的追加到本地队列尾部（原版 FIFO）。</param>
-        /// <param name="inlineSlay">🆕 **2026-10-22（`W63` #2）**：Slay 那条 ability **就地结算**、
-        /// 不再排一条队列。只有 `FlushDeaths` 的 `slay-credit` 那一条传 `true`。
-        /// 判据 / 为什么只此一处 → <see cref="FireTriggerAt"/> 调用点那段注释。</param>
         /// <returns>真 = 已经记过一次击杀（`Slay` 触发 + `Kills` 广播）。</returns>
         static bool TryCreditKill(BattleContext ctx, UnitState killer, int victimP, UnitState victim,
-                                  bool flushNestedDeaths = true, bool inlineSlay = false)
+                                  bool flushNestedDeaths = true)
         {
             // 🔴 **P2-1**：记账本身也会打死人（`Slay:` 的伤害 / `Kills` 监听器）—— 也攒进「死亡批」，
             //   保证「外层 Die → 外层 Slay → 嵌套死亡」。`Release` 之后由下面那一句决定谁来 flush。
             ctx.DeferDeaths();
             bool credited;
-            try { credited = TryCreditKillCore(ctx, killer, victimP, victim, inlineSlay); }
+            try { credited = TryCreditKillCore(ctx, killer, victimP, victim); }
             finally { ctx.ReleaseDeferDeaths(); }
             if (flushNestedDeaths && !ctx.DeathsDeferred) FlushDeaths(ctx);
             return credited;
         }
 
-        static bool TryCreditKillCore(BattleContext ctx, UnitState killer, int victimP, UnitState victim,
-                                      bool inlineSlay = false)
+        static bool TryCreditKillCore(BattleContext ctx, UnitState killer, int victimP, UnitState victim)
         {
             // ① 凶手 ≠ 死者（原版 `:242`）
             if (killer == null || victim == null) return false;
@@ -5499,13 +5527,24 @@ namespace RuleEngine
             // ---- 唯一发射口 ----
             // 这两个消费者是「同一件事的两种写法」：`Slay:` 关键词 / 卡面 `When this unit kills an enemy, …`
             // （原版只有一个 `AbilityTrigger.Slay = 120`，见 `AbilityTrigger.cs:22`）。
-            // 🆕 **2026-10-22（`W63` #2）：`inlineSlay` ⇒ Slay 正文就地结算、不二次入队。**
-            //   只有 `FlushDeaths` 的 `slay-credit` 那一条传 `true` —— 它出队时攻击者**还活着**
-            //   （上面 ② 刚放行），再排一条队列就会落到**下一个死者的反噬之后**，
-            //   那时攻击者已被反噬打死 ⇒ `requireActorInPlay` 把整条正文取消（督军一点都不掉）。
-            //   直接路（`DoDestroy` / `Hurt` 那几处）**不传** —— 那条路上没有「下一个死者」压着，
-            //   保持「原版 `AddTriggerSlay` → `AddAutoActionToQueue` 只入队」的形状。
-            FireTriggerAt(ctx, killer, KeywordTable.Slay, kOwner, kSlot, inlineTrigger: inlineSlay);
+            // 🔴🆕 **2026-10-23（`Slay` 就地结算复核）：恢复原版【入队】语义 —— 去掉 `inlineSlay`。**
+            //   判据（第一权威，现读反编译）：
+            //     · `BattleManager__AddTriggerSlay.c:27` 造 `BattleAction(actionType = 0x59 /*triggerSlay*/)`
+            //       后调 `BattleManager__AddAutoActionToQueue`（`:52`）⇒ **Slay 是排进队的一条动作**；
+            //       优先级来自调用点 `AbilityLogic__PlayAbility.c:1903-1905` 的 `ability + 0x44`
+            //       （`ActionPriority`；Slay 与 Backlash 同道 `Instant = 1`）。
+            //     · `BattleManager__ResolveTriggerSlay.c:116-226`：出队时才判
+            //       `CardScript__IsInPlayOrDying()`（`CardScript__IsInPlayOrDying.c:8-13`，
+            //       放行 `state ∈ {2 inPlay, 15 inPlayTransforming, 3 inPlayAttacking, 17, 5 waitingToDie}`）
+            //       ⇒ 不满足才取消这一条。
+            //   ⇒ 我们这一侧：正文照 `FireTriggerAt` 的常规路**入队**，并给它挂上
+            //     `requireActorInPlayOrDying: true`（= 上面那条出队复核的等价物，
+            //     判据落在 `PumpActionQueues` 的 `QueuedAction.RequireActorInPlayOrDying` 那一支）。
+            //   ⚠️ **`W63` #2 当初加 `inlineSlay` 的理由已经过期**：那时 `abilityContext` 闸还在
+            //     **出队**（要求 `Play(0)` = 必须活着在场），入队后凶手一死正文就整条丢；`W63` 收口
+            //     已把闸搬到**入队那一刻**，出队只留「变残骸 / transform」⇒ 不会再把正文整条掐掉。
+            FireTriggerAt(ctx, killer, KeywordTable.Slay, kOwner, kSlot,
+                          requireActorInPlayOrDying: true);
             // `subject` = **被击杀的那个**（正文里的 `it` 指它），`actor` = **凶手**
             // （`this unit …` 的自指判据问的是它）—— 两个槽不能混，见 `WhenEvent`。
             // `who` = 死者的阵营：极性（`kills an enemy` = 敌方）靠它判。
@@ -7897,6 +7936,11 @@ namespace RuleEngine
             //     我们这里的顺序（`Prayed=false` → `EmitHit` → 扣血）与它**逐跳同形**。
             //   🔴 **`EmitHit` 的 `amount` 参数不变**（= `actual`，扣甲/减伤之后的实际伤害）——
             //     原版广播带的 `DamageInfo.damageValue` 也是调整后的那一份（`:136` 之后才广播）。
+            //   🆕 **2026-10-24（`A20`）**：这里**不传 `absorbed`**（默认 false）。空投舱那一支会把
+            //      `absorbed` 置真，但它**池子被打空**时 `actual` 换成了**易伤第二发**的量
+            //      —— 原版第二发是**另一条** `DealMultiDamage`、有它自己的 `DamageInfo`
+            //      （`GetAdjustedDamage` 那时 `dropPod` 已摘 ⇒ `absorbed = 0`）⇒ 这一发**本来就该广播**。
+            //      ⛔ 别为了「统一」写成 `EmitHit(ctx, u, actual, absorbed)`（那会漏掉第二发）。
             EmitHit(ctx, u, actual);
             u.Health -= actual;
             // 🆕 2026-09-23 战果：算给**被打那个单位的对方**（「打自己人」因此不会被记成「对敌方伤害」）
@@ -8193,22 +8237,44 @@ namespace RuleEngine
         /// 三处各写一遍「发 Hit + 广播 damaged」迟早只剩一处是对的
         /// —— 和「判据要共用一份」是同一条规矩，只是对象从规则换成了**事件**。
         ///
-        /// ⚠️ **被挡下也算「被打了一下」**（`amount == 0` 照样广播）：卡面写的是 `receives damage`，
-        ///    而原版对「被盾挡下」也是当一次命中处理的 —— 见 `ApplyDamage` 里那两处
-        ///    「挡下也发事件（Amount = 0）」的注释。口径与 `EvtKind.Hit` **完全一致**。
+        /// 🔴🔴 **2026-10-24（引擎线 `A20` · 第三批 ③）就地订正（铁律 5）**：
+        /// 本段原来写着「**被挡下也算「被打了一下」**（`amount == 0` 照样广播）……口径与 `EvtKind.Hit` 完全一致」
+        /// —— **那句只对到「调用点无条件」这一层，漏了接收端那道闸**。
+        /// 判据（`d:/2/tools/decomp_full/`）：
+        ///   · 广播调用点确实无条件：`BattleManagerSupport__BroadcastUnitDamaged.c:19,59,70,82`；
+        ///   · 但**接收端 `CardScript__ResolveDamageDealt.c:31-36` 头两句就早退**：
+        ///       `:31-33 if (damageInfo.damageAbsorbed(+0x24) != 0) return;`
+        ///       `:34-36 if (damageInfo.damageValue(+0x18) == 0) return;`
+        ///     ⇒ **不发 `OnTrigger(0x3c = 60 UnitDamaged)`、也不清 `isPraying(+0x67)`**
+        ///       （那两句在 `:159` / `:168`，都在早退**之后**）。
+        ///   ⇒ 「广播发出去」与「触发算数」是两件事；本工程把两件事绑在一处，所以**在出口统一挡一次**：
+        ///     `amount == 0`（0 点伤害）或 `absorbed`（被盾/闪避/无敌/空投舱/堡垒整份挡下）⇒ **不广播**。
+        ///
+        /// ⚠️ **只挡事件层**：<see cref="EvtKind.Hit"/> **照旧无条件发** —— 那是表现层的「挨了一下」，
+        ///    画面上盾碎 / 闪掉 / 打不动都要有反馈（原版 `BattleCardUI.DamageReceived` 在
+        ///    `_ReceiveDamage` 尾段，吸收时是否仍飘字**本轮没查** ⇒ 表现层另判，⛔ 别在这里一并删掉）。
         ///
         /// ⚠️ **递归**：监听器的效果可能再造成伤害 ⇒ 再走这里。靠 `ctx.EffectChain`
         ///    （`BroadcastWhen` 里 `++`/`--`）截断，上限 `BattleContext.MaxEffectChain`。
         ///    `RuleEngineTest` 里有一条专门验它的用例（**别删**）。
         /// </summary>
-        static void EmitHit(BattleContext ctx, UnitState u, int amount)
+        /// <param name="absorbed">原版 `DamageInfo.damageAbsorbed` —— 已挡下。今天所有挡下的调用点
+        /// 传的都是 `amount = 0`（两条闸任一命中即可），这个形参是给「**挡下了但数值非 0**」那种
+        /// 原版形态留的（`GetAdjustedDamage.c:39-50` 置 absorbed **不改** damageValue）。</param>
+        static void EmitHit(BattleContext ctx, UnitState u, int amount, bool absorbed = false)
         {
-            int owner = EmitUnit(ctx, EvtKind.Hit, u, amount);
+            int owner = EmitUnit(ctx, EvtKind.Hit, u, amount);   // ⚠️ 表现层**不受**下面那两条闸影响
 
             // 🆕 `When <单位> receives damage, …`（2026-09-13 第三十四轮）。
             // ⚠️ 在这之前 `WhenEventKind.Damaged` **一个广播点都没有** ——
-            //    有 2 张卡收下了监听器，但一辈子不会响，而卡面照旧不打 `*`（静默失效）。
+            //    有 2 张卡收下了监听器，但一辈子不会响，而卡页照旧不打 `*`（静默失效）。
             if (u == null || u.Card == null) return;
+
+            // 🔴🆕 **2026-10-24（`A20`）：原版 `CardScript.ResolveDamageDealt.c:31-36` 那两条早退。**
+            //   被整份挡下 / 0 点伤害 ⇒ **接收端根本不跑** ⇒ 我们也不许广播（否则带
+            //   「受到伤害时…」的卡会多响一次）。⛔ 别只挡 `absorbed`、漏掉 `amount == 0`：
+            //   原版那两条是**并列**的，`damageValue == 0` 那一支在「没被挡、但伤害就是 0」时也会命。
+            if (absorbed || amount == 0) return;
 
             // 🔴 **2026-10-20（`W58` · D8）：被打者的监听先跑一次，再广播其余。**
             //   判据 = 原版 `BattleManagerSupport.BroadcastUnitDamaged` @ `0x1809B77C0`（机器码直读）：
@@ -9087,11 +9153,12 @@ namespace RuleEngine
                 if (pd.ActingCard != null)
                 {
                     var _ck = pd.ActingCard; var _cv = pd.Unit; int _cp = pd.Player;
-                    // 🔴 **2026-10-22（`W63` #2）**：`inlineSlay: true` —— Slay 正文在**这一条动作里**
-                    //   就地结算，⛔ 不再二次入队（否则落到下一个死者的反噬之后、攻击者已死 ⇒
-                    //   `requireActorInPlay` 把正文取消）。判据见 `FireTriggerAt` 调用点那段。
+                    // 🔴🆕 **2026-10-23（`Slay` 就地结算复核）：这里不再传 `inlineSlay`** ——
+                    //   Slay 正文由 `TryCreditKillCore` → `FireTriggerAt` 走**常规入队**，
+                    //   并挂 `requireActorInPlayOrDying`（= 原版 `ResolveTriggerSlay` 的出队复核）。
+                    //   判据与「为什么 `W63` #2 的 inline 理由已过期」→ `TryCreditKillCore` 尾段那段注释。
                     EnqueueAbility(ctx, ActionPriority.Instant, "slay-credit:" + (_cv.Name ?? "?"),
-                                   () => TryCreditKill(ctx, _ck, _cp, _cv, inlineSlay: true),
+                                   () => TryCreditKill(ctx, _ck, _cp, _cv),
                                    // 🔴🆕 2026-10-22（`W63` · C4）：这一格由 **trigger 名**取数据，
                                    //   **不给关键词** —— `Slay(120)` 现读没有非 0 的 context 行
                                    //   （全 `Play(0)`，v14 只落非 0），走 trigger 名查法即可。
@@ -9467,6 +9534,26 @@ namespace RuleEngine
         {
             if (ctx == null || u == null) return false;
             return u.IsAlive || IsUnitInPlay(ctx, u) || ctx.DyingThisAction.Contains(u);
+        }
+
+        /// <summary>
+        /// 🔴🆕 **2026-10-23（`Slay` 就地结算复核）：`CardScript.IsInPlayOrDying` 的【窄口径】**
+        /// —— **不含「已回手 / 已进牌库但还活着」那一档**。
+        ///
+        /// 为什么要有第二个版本（与 <see cref="IsUnitInPlayOrDying"/> 并存、各自有出处）：
+        ///   · <see cref="IsUnitInPlayOrDying"/> 是**加效果 / 指代目标**用的口径，那一族
+        ///     `ResolveTargets` 连「已回手的那份 `prev`」也要算（见它的 doc），所以带 `u.IsAlive`；
+        ///   · 本函数是 **`BattleManager__ResolveTriggerSlay.c:116-226` 的出队复核**：
+        ///     原版问的是 `cardState ∈ {2 inPlay, 15 inPlayTransforming, 3 inPlayAttacking, 17, 5 waitingToDie}`
+        ///     —— 一张**回到手牌**的牌是「inHand」状态，**不在**这五档里 ⇒ 那一条 Slay 取消。
+        ///     落成三档：`IsUnitInPlay`（还在某一方棋盘上）· `IsPendingDeath`（同批待死）·
+        ///     `ctx.DyingThisAction`（本条顶层动作里刚判死、已从棋盘摘下 = 原版 `waitingToDie` 窗口）。
+        /// ⚠️ ⛔ **别拿它当 `IsAlive`**；也⛔别把它合并进上面那个（两者的判据不同源）。
+        /// </summary>
+        static bool IsOnBoardOrDying(BattleContext ctx, UnitState u)
+        {
+            if (ctx == null || u == null) return false;
+            return IsUnitInPlay(ctx, u) || ctx.IsPendingDeath(u) || ctx.DyingThisAction.Contains(u);
         }
 
         // ==================================================================
@@ -10617,7 +10704,7 @@ namespace RuleEngine
         static bool FireTriggerAt(BattleContext ctx, UnitState u, string keyword,
                                   int owner, int slot, UnitState chosen = null,
                                   UnitState subject = null, ActiveEnchantment only = null,
-                                  bool extraTrigger = false, bool inlineTrigger = false,
+                                  bool extraTrigger = false, bool requireActorInPlayOrDying = false,
                                   bool deferSignal = false)
         {
             // 🆕 2026-10-19（第五十五会话 · `A1567`）：`only != null` = **只结算这一件附魔卡上的这条能力**。
@@ -10643,6 +10730,16 @@ namespace RuleEngine
             //   出处：`资料/普查产出_1020/W58_战斗结算_附魔触发与受伤双响.md` §一·C / §三·1。
             //   只在「这一趟是载体自己那条触发」时扫（`only == null`），否则会无限递归。
             var ench = (only == null && Enchantments.HasAny(u)) ? Enchantments.Matching(u, keyword) : null;
+            // 🆕 **2026-10-24（引擎线 `G2`）：`questTimes` 消费点。**
+            //   原版 `RawCardScript__TriggerAbilities.c:115` 在**每一条附魔能力真正派发前**调
+            //   `EntityScript__ReachedQuestCounter(entity, 附魔 RawCardScript, entity)`：
+            //   任务附魔（`Whispers ∧ Quest ∧ questTimes > 1`）**没蓄够次数就不放行**（返回 0）。
+            //   ⚠️ 只在「载体自己那条触发」这一趟判（`only == null`）—— 与上面 `ench` 同一道闸；
+            //      附魔那几条能力是下面那段递归各调一次 `FireTriggerAt(..., only: e)`，
+            //      若在这里之外再判会**重复计数**（原版每个附魔能力只 +1 一次）。
+            //   📌 现池不可达（0 张 `spellType == 120`；判据 → `CardInstance.QuestCounter` 的 doc）。
+            if (ench != null && ench.Count > 0)
+                ench = Enchantments.FilterByQuestCounter(ctx, u, ench, keyword);
             // 🆕 2026-10-21（引擎线 `T03·b`）：**`skipCardDraw` 手牌效果**也是这条 ability 的产出
             //   —— 原版它和「正文 op」是**两条独立的 abilityLogic**（`AbilityLogic.handBuff` vs
             //   正文），但同一次触发里**可以只有手牌效果、没有正文** ⇒ 这一格必须参与「有没有东西可跑」
@@ -10734,13 +10831,14 @@ namespace RuleEngine
                 var _inner = body;
                 body = () => { emitSignal(); _inner(); };
             }
-            // 🔴🆕 **2026-10-22（`W63` #2 · Slay 伤害整条丢失）**：`inlineTrigger` ⇒ **就地结算、不二次入队**。
-            //   为什么：`FlushDeaths` 的 `slay-credit` 那一条出队时，攻击者**这一刻还活着**
-            //   （`TryCreditKillCore` 的「凶手还活着」闸刚放行）⇒ 记账成立；但 Slay 正文若再排一条
-            //   队列，就会落到**下一个死者的反噬之后**，那时攻击者已经被反噬打死 ⇒
-            //   出队时 `requireActorInPlay` 把整条正文取消（观测：督军一点都不掉）。
-            //   判据见 `TryCreditKill` 的 `inlineSlay` 形参 doc。
-            if (inlineTrigger) { body(); return true; }
+            // 🔴🆕 **2026-10-23（`Slay` 就地结算复核）：`requireActorInPlayOrDying` ⇒ 出队时按
+            //   原版 `CardScript.IsInPlayOrDying` 复核载体**（`BattleManager__ResolveTriggerSlay.c:116-226`）。
+            //   今天只有 `TryCreditKillCore` 的 Slay 那一跳传 `true`。
+            //   ⚠️ 这是**在 `abilityContext` 之上再加一道**，不是替代它：
+            //     · `abilityContext`（`Play(0)`）= 原版 `CanTriggerAbility` 的**入队前**闸（已在 `EnqueueAbility`）；
+            //     · 本形参 = 原版 `ResolveTriggerSlay` 的**出队时**闸（`IsInPlayOrDying` 比 `IsInPlay` 宽：
+            //       `waitingToDie(5)` 也算在场）。
+            //   ⛔ 2026-10-22 那个 `inlineTrigger`（就地结算、不二次入队）已删除 —— 见 `TryCreditKillCore` 尾段。
             // 🔴🆕 2026-10-22（`W63` · C5）：**唯一的关键词入队口** —— 判据从「关键词族猜」
             //   换成 **数据**：载体卡 + 关键词 → `CardDef.AbilityContextOfKeyword`（`-1` = 未知）。
             //   · **skip 表**（原版 `CardAbility__CanTriggerAbility.c:69-95`：`ThisCardPlayed` /
@@ -10775,7 +10873,8 @@ namespace RuleEngine
                 (u != null ? u.Name : "?") + "·" + keyword,
                 body,
                 actor: u, requireActorInPlay: ActorMustBeInPlayForTrigger(_carrierCard, null, keyword),
-                extraTrigger: extraTrigger, abilityContext: _abilityCtx);
+                extraTrigger: extraTrigger, abilityContext: _abilityCtx,
+                requireActorInPlayOrDying: requireActorInPlayOrDying);
             return queued;
         }
 

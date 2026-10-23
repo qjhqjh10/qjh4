@@ -94,6 +94,16 @@ namespace RuleEngine
                 if (_ctx == null || !_outermost) return;
                 _ctx.ActionQueue.Resolving = false;
                 PumpActionQueues(_ctx);          // ← 出队到空（2→1→3→0 循环）
+                // ---- 🆕 2026-10-24（引擎线 `G2` · `C4` D9）：`WhileInPlay`(20) 的表现口 ----
+                //  落点在**这里**（= 一条**顶层动作**结束、队列已排空），对原版
+                //  `BattleManager__FinishResolvingAction.c:91`（闸 = `ActionsLeftInQueue() < 1`）。
+                //  ⛔ **别放进 `PumpActionQueues`**：`ActionScope` 的**构造函数**也会调它一次
+                //  （`:87` 结掉上一轮残留）⇒ 那样一次动作会发**两条**（`G2` 探针实测 2 / 2）。
+                //  ⛔ 也别挂 `Aura.Recompose`（每次棋盘写入都跑 = 一动作多播）。
+                //  判据 / 只发有动画行那一张的理由 / 手牌那半为什么没做 →
+                //  `RuleCore.EmitWhileInPlayPass` 的 doc（⚠️ `Core/EffectResolver.cs` 是
+                //  `partial class RuleCore` ⇒ 这里写 `RuleCore.`，照文件名写 `EffectResolver.` 编译不过）。
+                RuleCore.EmitWhileInPlayPass(_ctx);
                 // 🔴 **结构性兜底（不该发生）**：顶层动作都跑完了队列却没空 ⇒ 两种病，**分开报**。
                 //    ⛔ 不静默；⛔ **别合并成一句** —— 两种病的修法完全不同：
                 //      ① **泵点漏了**（`Resolving` 已清、队列还有东西）⇒ 去找哪个顶层入口没包 `BeginAction`；
@@ -172,7 +182,8 @@ namespace RuleEngine
                                           System.Action body,
                                           UnitState actor = null, bool requireActorInPlay = false,
                                           bool extraTrigger = false,
-                                          int abilityContext = CardDef.AbilityContextUnknown)
+                                          int abilityContext = CardDef.AbilityContextUnknown,
+                                          bool requireActorInPlayOrDying = false)
         {
             if (ctx == null || body == null) return false;
             // ============================================================
@@ -213,6 +224,10 @@ namespace RuleEngine
                 Label = label, Execute = body,
                 Actor = actor, RequireActorInPlay = requireActorInPlay,
                 AbilityContext = abilityContext,
+                // 🔴🆕 **2026-10-23（`Slay` 就地结算复核）**：出队时按原版
+                //   `CardScript.IsInPlayOrDying`（含 `waitingToDie`）复核载体 ——
+                //   判据 `BattleManager__ResolveTriggerSlay.c:116-226`；今天只有 Slay 那一跳传 `true`。
+                RequireActorInPlayOrDying = requireActorInPlayOrDying,
                 // 🔴 **2026-10-22（`W63` #1 · Mob「再来一次」无限循环）**：**派生动作继承守卫**。
                 //
                 //   判据：额度（`UnitState.ExtraTriggers`）是**监听者**在它自己的队列动作里挂上的
@@ -708,6 +723,8 @@ namespace RuleEngine
                 //  ⚠️ **没有施放者（`act.Actor == null`）⇒ 不判**：与 `UnitInPlay(null)` 同口径。
                 //     `-1`（旧卡表 / 第二解析路没接列）⇒ **原样回退**旧口径
                 //     `RequireActorInPlay && !UnitInPlay(...)`（= `Play(0)` 的近似）。
+                //     🔴 **例外（2026-10-24 `F1`）**：同时还传了 `RequireActorInPlayOrDying`
+                //     （今天只有 Slay）⇒ **不用旧口径**，改由下面那道更宽的 `IsOnBoardOrDying` 判。
                 // ============================================================
                 if (act != null && act.Actor != null
                     && act.AbilityContext != CardDef.AbilityContextUnknown)
@@ -723,13 +740,48 @@ namespace RuleEngine
                         continue;
                     }
                 }
-                else if (act != null && act.RequireActorInPlay && !UnitInPlay(ctx, act.Actor))
+                // 🔴🆕 **2026-10-24（`F1` · 「Slay 正文整条丢失」那一格的根因）**：
+                //   `RequireActorInPlayOrDying` 那一道（下面 :753）**比这一支宽** ——
+                //   `IsInPlayOrDying` 把 `waitingToDie(5)` 也算在场，而这一支的 `UnitInPlay`
+                //   只认「还站在棋盘上」。`abilityContext=-1`（合成夹具卡 / 旧卡表）时这一支是
+                //   `Play(0)` 的**旧口径回退**，**与 OrDying 闸同时在** ⇒ 谁先 `continue` 谁说了算，
+                //   而这里是它先 ⇒ 「凶手在反噬里被打死、Slay 出队前已从棋盘摘下」那一格被**这一支**
+                //   取消（实测 `W58ILBlaster·slay` 的取消警告走的就是 `Play(0)` 旧口径那句）。
+                //   原版 `BattleManager__ResolveTriggerSlay.c:116-226` 在出队时判的是
+                //   `CardScript__IsInPlayOrDying()`（`CardScript__IsInPlayOrDying.c:8-13`，
+                //   `state ∈ {2,15,3,17,5}`）⇒ **待死照样触发**。⇒ 传了 OrDying 就不再走这一支，
+                //   交给下面 :753 那一闸（`IsOnBoardOrDying` = 棋盘 ∨ `IsPendingDeath` ∨ `DyingThisAction`）。
+                else if (act != null && !act.RequireActorInPlayOrDying
+                         && act.RequireActorInPlay && !UnitInPlay(ctx, act.Actor))
                 {
                     UnityEngine.Debug.LogWarning(
                         $"[ActionQueue] **取消**一条待结算动作「{act.Label}」（{act.Priority} 道）—— "
                         + $"施放者「{(act.Actor != null ? act.Actor.Name : "?")}」已经离场"
                         + "（原版 `CardAbility.IsRightContext` 的 `Play(0)` 同样不结算；"
                         + "⚠️ 这一支是 `abilityContext=-1` 的**旧口径回退**；"
+                        + "⛔ 不是静默丢，这条就是出声口）");
+                    continue;
+                }
+                // ============================================================
+                //  🔴🆕 **2026-10-23（`Slay` 就地结算复核）：Slay 专属的出队复核**
+                //
+                //  判据 = `BattleManager__ResolveTriggerSlay.c:116-226`：出队时
+                //  `CardScript__IsInPlayOrDying()` 为假 ⇒ **取消这一条**（`CardScript__TriggerSlay` 不跑）。
+                //  `IsInPlayOrDying`（`CardScript__IsInPlayOrDying.c:8-13`）放行
+                //  `state ∈ {2,15,3,17,5}` —— **`waitingToDie(5)` 也算在场** ⇒ 它比
+                //  `abilityContext = Play(0)` 宽：凶手刚被打死（待死 / 同一条顶层动作里已判死）
+                //  **照样要触发**，只有「真的不在这局里了（回手 / 回牌库 / 已处理完）」才取消。
+                //  ⛔ 这不是第二份 `abilityContext`：那一闸在入队（`EnqueueAbility`），这一闸在出队，
+                //     两个判点都是原版明写的（`TriggerAbilities` 广播时 / `ResolveTriggerSlay` 出队时）。
+                // ============================================================
+                if (act != null && act.RequireActorInPlayOrDying && act.Actor != null
+                    && !IsOnBoardOrDying(ctx, act.Actor))
+                {
+                    UnityEngine.Debug.LogWarning(
+                        $"[ActionQueue] **取消**一条待结算动作「{act.Label}」（{act.Priority} 道）—— "
+                        + $"施放者「{act.Actor.Name}」已不在棋盘上、也不处于「待死」（原版 "
+                        + "`BattleManager__ResolveTriggerSlay` 的出队复核 `CardScript.IsInPlayOrDying` "
+                        + "同样不结算 · `CardScript__IsInPlayOrDying.c:8-13`；"
                         + "⛔ 不是静默丢，这条就是出声口）");
                     continue;
                 }

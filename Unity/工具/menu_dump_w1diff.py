@@ -19,6 +19,16 @@
 同日搬进 `工具/` 并补了这段头。
 """
 import io, os, sys, types
+## A17 2026-10-24: -h/--help early exit (print usage only, exit 0; never run the real work).
+import sys as _wf_help_sys
+if any(_wf_help_sys.argv[_i] in ("-h", "--help") for _i in range(1, len(_wf_help_sys.argv))):
+    try:
+        _wf_help_sys.stdout.reconfigure(encoding="utf-8")
+    except Exception:
+        pass
+    print('用法：python 工具/menu_dump_w1diff.py [参数...]\n  说明：menu_dump 的「旧版行为复现器」—— 打印某扇窗 **W1(旧) → W3(现在)** 的逐节点位移。\n  选项：无自定义选项（不带参数 = 默认模式）\n  位置参数：sys.argv[1:] 全收（数量以脚本自身判断为准）')
+    _wf_help_sys.exit(0)
+
 sys.path.insert(0, r'd:/4/Unity/工具')
 import menu_rect as MR
 import menu_dump as MD3

@@ -118,6 +118,24 @@ namespace RuleEngine
         /// <summary>附魔条目（原版 `EntityScript.activeEnchantments // +0x110`）。见 <see cref="ActiveEffects"/>。</summary>
         public readonly List<ActiveEnchantment> ActiveEnchantments = new List<ActiveEnchantment>();
 
+        /// <summary>🆕 **2026-10-24（引擎线 `G2`）：原版 `CardScript.questCounter // +0x270`。**
+        ///
+        /// <para>语义（判据 = `d:/2/tools/decomp_full/EntityScript__ReachedQuestCounter.c`，全文 15 行）：
+        /// 载体身上**每触发一次**「任务附魔」（`cardType == 40 Whispers` ∧ `spellType == 120 Quest`
+        /// ∧ `questTimes > 1`）就 **+1**；**还没到 `questTimes` 时那条附魔的 ability 不结算**
+        /// （`return 0` + `UpdateFigures`），**到了之后每次照常结算**（计数器**不清零**）。
+        /// ⇒ `questTimes` 不是「任务卡要做的次数」，是**这条附魔能力的前置蓄力次数**。</para>
+        ///
+        /// <para>⚠️ **计数位在【载体】上、不在附魔条目上**（原版 `ReachedQuestCounter(entity, enchRaw, entity)`
+        /// 第三次实参就是 `entity`）⇒ 同一张牌身上挂两条任务附魔时**共用一个计数器**（原版如此，照搬）。
+        /// 🔴 **放在 `CardInstance` 而不是 `UnitState`**：原版 `CardScript` 的对应物是
+        /// `CardInstance`（见 `Enchantment.cs` 文件头那一段），单位离场再回来仍是**同一份牌**。</para>
+        /// <para>⚠️ **今天恒 0 / 无人可达**：`cards_raw.json` 1,351 张里 `_quest` / `questTimes` **全是 0**、
+        /// `spellType == 120` **0 张** ⇒ 消费点（`Enchantments.FilterByQuestCounter`）跑不到它。
+        /// 这是**数据事实**，⛔ 不是「原版没有这条规则」。</para>
+        /// </summary>
+        public int QuestCounter;
+
         /// <summary>
         /// 🔴 **2026-10-18（`A885` ④ · 铁律 5 就地订正）：到期位从「一份牌一格」改成「一条效果一格」。**
         ///

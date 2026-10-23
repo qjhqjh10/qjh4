@@ -128,6 +128,42 @@ namespace CardPresentation
         // 面板内边距与下限 —— ⚠️ **我们挑的**（原版是 UI 布局算的，见文件头 ②）
         const float PadX = 20f, PadY = 14f, MinW = 120f, MaxW = 640f, LineH = 30f;
 
+        // ==================================================================
+        //  🆕 2026-10-23（卡牌线 `A8`）：**关键词 tooltip = 原版 `Trait Tooltip` 那个两栏版式**
+        // ==================================================================
+        //
+        // **判据（逐字段现读，⛔ 不是照着截图量的 —— 铁律 3）**：
+        //   `assets_full/bundle_duplicateassetisolation_assets_all/GameObject/Trait Tooltip.json`
+        //   （根 `RectTransform/RectTransform_-8882280294788320839.json`）。
+        //   ⚠️ **不在 `bundle_menus_assets_all/`** —— 那个包里叫 `Tooltip` 的是一颗 **44.88 × 44.88**
+        //   的**图标触发器**（`GameObject/Tooltip.json` 现读），不是面板；面板（5 个变体）在
+        //   `bundle_duplicateassetisolation_assets_all/`。
+        //   树上逐节点（`m_SizeDelta` / `m_AnchoredPosition`，单位 = 设计 px）：
+        //     · 根 `Trait Tooltip` 437.63 × 169.20（⚠️ 见下面那条「残留值」）
+        //       · `Content`      494.68 × 168.01，pos (−18.986, 0)
+        //         · `Background` 494.98 × 141.60，pos (0.151, 0)，`Image.m_Type=1`(Sliced) + PA=1
+        //         · `TraitImage` **75.00 × 75.00**，pos (−208.720, 1.740)，`m_Type=0`(Simple)，`m_PreserveAspect=1`
+        //         · `Line`       344.00 × 5.00，pos (0.076, 39.300)，**`m_IsActive = false`** ⇒ **不建**
+        //         · `Title`      398.10 × 34.00，pos (27.124, 43.100)，TMP `m_fontSize` **32**（max 32 / min 10 / base 36）
+        //         · `Description`397.39 × 89.71，pos (27.476, −16.600)，TMP `m_fontSize` **30**（max 30 / min 10 / base 36）
+        //   两个 TMP 都是 **H=Left(1) + V=Middle(512)**，字体资产与 `BasicToolTip` 那颗**同一个**
+        //   （`m_fontAsset` 均为 `{m_FileID 5, m_PathID 3485036404935369831}`）⇒ `TmpFont.Face.LatinCardBody`。
+        //   挂点由根上那颗 `EverguildTraitTooltipItem`（`MonoBehaviour_4846335346156614073.json:15-17`）钉住：
+        //   `body` = `Description` · `titleText` = `Title` · `traitIcon` = `TraitImage` —— **三个独立部件**。
+        //   ⇒ 下面那组偏移 = **相对 `Background`（可见面板）中心**（已把 `Content` 的 −18.986 折进去）。
+        //   ⚠️ **根节点的 437.63 × 169.20 是【查不到来源的残留值】** —— 它比 `Background` 还窄，
+        //     而根上没有 `ContentSizeFitter` / `LayoutGroup`，反编译那两条显示路径
+        //     （`EverguildTooltipItem__Show` / `EverguildTraitTooltipItem__Show`）**只写 `pivot` 与
+        //     `position`**、不碰 `sizeDelta` ⇒ **可见面板以 `Background` 为准**。如实记，别拿它当面板尺寸。
+        const float TraitPanelWPx = 494.98f, TraitPanelHPx = 141.60f;
+        const float TraitIconPx = 75.00f;
+        const float TraitTitleWPx = 398.10f, TraitTitleHPx = 34.00f;
+        const float TraitDescWPx = 397.39f, TraitDescHPx = 89.71f;
+        const float TraitTitleMaxPx = 32f, TraitDescMaxPx = 30f, TraitMinPx = 10f, TraitBasePx = 36f;
+        static readonly Vector2 TraitIconOffPx = new Vector2(-208.87f, 1.74f);
+        static readonly Vector2 TraitTitleOffPx = new Vector2(26.97f, 43.10f);
+        static readonly Vector2 TraitDescOffPx = new Vector2(27.33f, -16.60f);
+
         // 底图（原版资产，九宫格）
         const string BgSprite = "Smooth_background_square";
         const float BgTexW = 32f, BgTexH = 32f;
@@ -138,6 +174,13 @@ namespace CardPresentation
         /// （🔴 2026-10-16 · `T09` 批 1：类型从 `ImageQuad` 改成 `HudPiece` —— `ApplyAlpha` 只用 `SetTint`，两档都有）。</summary>
         readonly List<HudPiece> _bgParts = new List<HudPiece>();
         Label _body;
+        /// <summary>trait 档的两个标签（basic 档 = `null`）。判据 = 原版 `Trait Tooltip` 的
+        /// `Title` / `Description` 两颗 TMP（见上面那组常量的注释）。</summary>
+        Label _title, _desc;
+        /// <summary>trait 档的**独立图标件**（basic 档 = `null`）。判据 = 原版 `TraitImage` 节点（75×75）。</summary>
+        HudPiece _icon;
+        /// <summary>当前是不是 trait 档（= 那三件建着、`_body` 关着）。</summary>
+        bool _traitMode;
         float _alpha, _target;
         Vector3 _pos;                       // 世界坐标（已含 offset）
         float _w = MinW, _h = 60f;
@@ -240,6 +283,12 @@ namespace CardPresentation
         {
             foreach (var q in _bgParts) if (q != null) q.SetTint(new Color(0f, 0f, 0f, 0.9f * a));
             if (_body != null) _body.SetColor(new Color(1f, 1f, 1f, a));
+            // 🆕 2026-10-23（`A8`）：trait 档那三件跟着一起淡入淡出（原版整块挂在**同一个
+            //   `CanvasGroup`** 上 —— `MonoBehaviour_4846335346156614073.json` 的 `canvasGroup` 字段
+            //   指的就是根上那颗 `CanvasGroup`，所以「一起淡」是原版行为，不是我们图省事）。
+            if (_icon != null) _icon.SetTint(new Color(1f, 1f, 1f, a));
+            if (_title != null) _title.SetColor(new Color(1f, 1f, 1f, a));
+            if (_desc != null) _desc.SetColor(new Color(1f, 1f, 1f, a));
         }
 
         /// <summary>显示一条。`worldPos` 是**触发器自己的位置**（不是鼠标），`anchor` = 原版 `AnchorPositions`。
@@ -270,7 +319,14 @@ namespace CardPresentation
             if (t._bgRoot == null                              // 底图没建起来（取不到图）⇒ 每次都重试，别把失败状态钉死
                 || !string.Equals(t._laidBody, body, System.StringComparison.Ordinal))
             {
-                t.Layout(body);
+                // 🆕 2026-10-23（`A8`）：**关键词那一条走原版的两栏版式**（独立 75×75 图标 + 标题 + 正文），
+                //   其余（数值 / HUD 计数 / `ByLink` 那三条资源键）仍是基础版式。
+                //   判据 = 文案是不是 `TipText.Trait` **刚刚逐字节产出**的那一串（形状记在
+                //   `TipText.TryTraitShape` 那张表里）—— ⛔ **不靠解析文案猜**（标题行里本来就有
+                //   图标 / `<b>` / 全角括号，靠猜迟早错）；也不是「凡是多行就当 trait」。
+                TipText.TraitShape shape;
+                if (TipText.TryTraitShape(body, out shape)) t.LayoutTrait(shape);
+                else t.Layout(body);
                 t._laidBody = body;
             }
             t.Pivot(anchor);
@@ -319,6 +375,16 @@ namespace CardPresentation
         public static string DebugDump()
         {
             if (_inst == null) return "(没有实例)";
+            if (_inst._traitMode)
+            {
+                // 🆕 2026-10-23（`A8`）：trait 档摊的是**那三件**（`_body` 在这一档是关着的，
+                //   去看它只会读到上一轮基础档剩下的字 —— 那正是「面板在、字不在」那类误诊的来源）。
+                var t = _inst._title; var d = _inst._desc;
+                return $"traitMode=true icon={TraitIconForTest ?? "(无)"} iconPx={TraitIconSizePxForTest} "
+                     + $"title=\"{t?.Text}\" desc=\"{d?.Text}\" "
+                     + $"titlePx={(t != null ? t.WorldW.ToString("F1") : "-")} descPx={(d != null ? d.WorldW.ToString("F1") : "-")} "
+                     + $"panelPx={PanelSizePx} bgParts={_inst._bgParts.Count} alpha={_inst._alpha:F2} target={_inst._target:F2}";
+            }
             var l = _inst._body;
             if (l == null) return "(没有 body)";
             int q = -1;
@@ -329,6 +395,80 @@ namespace CardPresentation
                  + $"cap={l.CapHeightWorld:F4} size={l.transform.localPosition} parentActive={l.transform.parent.gameObject.activeSelf} "
                  + $"selfActive={l.gameObject.activeSelf} queue={q} alpha={_inst._alpha:F2} target={_inst._target:F2} "
                  + $"bgParts={_inst._bgParts.Count} bgPos={PanelCenter} panelPx={PanelSizePx} | {l.DumpSizes()}";
+        }
+
+        /// <summary>自检用：**真正喂进 TMP 的那串文本**（= 折行后、sprite 面已钉住的那一串）。
+        /// <para>⚠️ 与 `ShownBody` 的分工：那个是 `Show()` 的**入参原文**（自检拿它比「弹的是哪一条」）；
+        /// 这个是**渲染源**（2026-10-23 `新账-101` 起，它里面的每枚 `&lt;sprite&gt;` 前面都跟着 `<font=Default>`）。</para></summary>
+        public static string BodyTextForTest
+        {
+            get
+            {
+                if (_inst == null) return null;
+                // 🆕 2026-10-23（`A8`）：trait 档的**正文**是独立那颗 `Description` 标签（原版
+                //   `EverguildTraitTooltipItem.body` 指的就是它）⇒ 这一档读 `_desc`，别读关着的 `_body`。
+                if (_inst._traitMode) return _inst._desc != null ? _inst._desc.Text : null;
+                return _inst._body != null ? _inst._body.Text : null;
+            }
+        }
+
+        // ==================================================================
+        //  🆕 2026-10-23（`A8`）：trait 档的**读口**（自检用；⛔ 不参与渲染）
+        // ==================================================================
+
+        /// <summary>现在是不是 trait 档（= 原版两栏版式）。</summary>
+        public static bool TraitModeForTest { get { return _inst != null && _inst._traitMode; } }
+
+        /// <summary>trait 图标的**贴图名**（没建 / 没图 ⇒ `null`）。</summary>
+        public static string TraitIconForTest
+        {
+            get
+            {
+                if (_inst == null || _inst._icon == null) return null;
+                var t = _inst._icon.Texture;
+                return t != null ? t.name : null;
+            }
+        }
+
+        /// <summary>trait 图标**画出来的尺寸**（**设计 px**；没建 ⇒ `(−1,−1)`）—— 原版 `TraitImage` 是 75×75。</summary>
+        public static Vector2 TraitIconSizePxForTest
+        {
+            get { return (_inst != null && _inst._icon != null) ? _inst._icon.SizePx : new Vector2(-1f, -1f); }
+        }
+
+        /// <summary>trait 标题那颗标签的**渲染源**（没有这一档 ⇒ `null`）。</summary>
+        public static string TitleTextForTest
+        {
+            get { return (_inst != null && _inst._title != null) ? _inst._title.Text : null; }
+        }
+
+        /// <summary>trait 正文那颗标签的**渲染源**（没有这一档 ⇒ `null`）。</summary>
+        public static string DescTextForTest
+        {
+            get { return (_inst != null && _inst._desc != null) ? _inst._desc.Text : null; }
+        }
+
+        /// <summary>trait 三件相对面板中心的偏移（**设计 px**，`localPosition` 折回去）——
+        /// 自检拿它断「图标在左栏、文字在右栏」这条**版式**（⛔ 只看形状永远断不出来）。
+        /// 件没建 ⇒ `Vector2.zero` + 调用方自己先用 `TraitModeForTest` 判。</summary>
+        public static Vector2 TraitOffsetPxForTest(int which)
+        {
+            if (_inst == null) return Vector2.zero;
+            Transform tr = which == 0 ? (_inst._icon != null ? _inst._icon.transform : null)
+                         : which == 1 ? (_inst._title != null ? _inst._title.transform : null)
+                         :              (_inst._desc != null ? _inst._desc.transform : null);
+            if (tr == null) return Vector2.zero;
+            float u = UnitPx;
+            Vector3 p = tr.localPosition;
+            Vector3 c = PanelCenter;
+            return new Vector2((p.x - c.x) * u, (p.y - c.y) * u);
+        }
+
+        /// <summary>自检用：本单例的根节点（用完由**调用方** `DestroyImmediate` —— `_inst` 是 Unity 对象，
+        /// 销毁后 `_inst != null` 自然为假，下一次 `Ensure()` 会重建）。</summary>
+        public static GameObject InstanceForTest
+        {
+            get { return _inst == null ? null : _inst.gameObject; }
         }
 
         /// <summary>原版 `EverguildTooltipItem.GetPivotPosition`（9 项表 + 未知值回落）。</summary>
@@ -361,17 +501,50 @@ namespace CardPresentation
             float cy = by + (0.5f - p.y) * _h / u;
             if (_bgRoot != null) _bgRoot.transform.localPosition = new Vector3(cx, cy, 0f);
             if (_body != null) _body.transform.localPosition = new Vector3(cx, cy, 0f);
+            // 🆕 2026-10-23（`A8`）：trait 档那三件按**各自相对面板中心的偏移**摆（判据 = 原版
+            //   `TraitImage` / `Title` / `Description` 三个节点的 `m_AnchoredPosition`，见上面那组常量）。
+            //   ⚠️ 偏移是**设计 px**，本档的单位是 `u`（世界档 108 / uGUI 档 1）⇒ 一定要折。
+            if (_traitMode)
+            {
+                PlaceTrait(_icon, TraitIconOffPx, cx, cy, u);
+                PlaceTrait(_title, TraitTitleOffPx, cx, cy, u);
+                PlaceTrait(_desc, TraitDescOffPx, cx, cy, u);
+            }
         }
 
         void Layout(string body)
         {
             if (_body == null) return;
+            if (_traitMode) ClearTrait();          // 🆕 2026-10-23（`A8`）：从 trait 档切回基础档
             LayoutCount++;
             // ⚠️ 我们的 `Label` **不自动换行**（TMP 只是一个 text 组件，宽度是算出来的）
             //    ⇒ 太长会顶到 `MaxW` 上限、字跑到面板外面去。这里按**字符数**手动折行
             //    （CJK 都是等宽的，按字宽算比按像素稳）。**这是我们的做法**，原版靠 UI 布局。
             string wrapped = Wrap(body, MaxCharsPerLine);
-            _body.SetText(wrapped);
+            // 🔴 **2026-10-23（卡牌线 `新账-101`）：`<sprite>` 的字体面收口到卡面同一套机制**（`CardIcons.PinSpriteFace`）。
+            //   病灶与卡面同一条（判据全文在那个函数的 doc 里，⛔ 别在这儿抄第二份）：TMP 的 sprite 分支
+            //   **不更新 `m_currentFontAsset`** ⇒ 图标大小继承「前一个字符」的 faceInfo；钉住之后它与前面
+            //   是什么字符**无关**（同一段文案里汉字前 / 空格前 / 拉丁前都是同一个尺寸）。
+            //
+            //   🔴 **如实写清今天的实际效果（⛔ 别读成「已经和卡面一样大」）**：
+            //     · `<font=Default>` 钉的是**本 TMP 自己的 `font`**。而 `Label.SyncFace`（`Battle/Label.cs`）
+            //       只要文本里有汉字就把 `_tmp.font` 换成 **CJK 面**（`Build()` 里那句 `SetFace(LatinCardBody)`
+            //       会被它覆盖）⇒ 中文 tooltip 的「默认面」= CJK，图标按 CJK 度量放大
+            //       （CJK A=0.103590 ÷ Pragati A=0.073684 = **1.406×**，与卡面图标的**每字号比例不同**）。
+            //     · 也就是说：**今天钉不钉面，中文 tooltip 的读数一样**（前一个字符本来也是 CJK）。
+            //       ⇒ 本条是**结构保证**（与卡面共用同一条规则、将来 `Label` 换面就自动跟着对），
+            //       **不是**「已经把 tooltip 图标改小/改大」。
+            //     · **原版的 tooltip 图标根本不是行内 sprite**：`Trait Tooltip` 预制体
+            //       （`assets_full/bundle_duplicateassetisolation_assets_all/GameObject/Trait Tooltip.json`）里
+            //       它是**独立 `Image` 节点 75×75 px**（与 28pt 正文并列），我们这条是行内 `<sprite>`
+            //       ⇒ 「图标多大」在原版由**那个节点**定，不归本函数管。**另记账**，见报告 §1·3。
+            //
+            //   ⚠️ **钉的位置只能是这里**：`_body.SetText` 全文件**仅此一处**（`Layout`）；
+            //      ⛔ 不在 `Show()` 里改 `body` —— `ShownBody` / `_laidBody` 的语义是「文案原文」，
+            //      自检（`BattleScene` 的 `Tooltip.ShownBody == TipText.Melee` 那几条）拿它比对。
+            //   ⚠️ **包在 `Wrap` 之后**（不是之前）：`Wrap` 把标签当零宽原子搬，两种顺序结果一样，
+            //      但放后面能保证「钉出来的 `<font>` 一定在一条**没被折行截断**的标签前面」。
+            _body.SetText(CardIcons.PinSpriteFace(wrapped));
             // ⚠️ `WorldW` 是「本档的单位」（世界档 = 世界单位 · uGUI 档 = 设计 px）⇒ 用 `UnitPx` 折
             float bw = _body.WorldW * UnitPx;
             _w = Mathf.Clamp(bw + PadX * 2f, MinW, MaxW);
@@ -423,6 +596,138 @@ namespace CardPresentation
 
         /// <summary>自检用：走一遍 `Layout` 里那个折行（不建面板）。</summary>
         public static string WrapForTest(string body) { return Wrap(body, MaxCharsPerLine); }
+
+        // ==================================================================
+        //  🆕 2026-10-23（卡牌线 `A8`）：**trait 档**（= 原版 `Trait Tooltip` 的两栏版式）
+        // ==================================================================
+        //
+        // **为什么必须另立一档、而不是继续拼行内 `<sprite>`**（2026-10-23 `A8` 现读 prefab 定的）：
+        //   原版那颗面板的图标是**独立 `Image` 节点 `TraitImage`（75×75 · Simple · PreserveAspect=1）**，
+        //   与 `Title`(32pt) / `Description`(30pt) 并列成**两栏**（判据见上面那组常量的注释）；
+        //   行内 `<sprite>` 的行高由**字体的 faceInfo** 定（≈ CJK 面 A×字号 ≈ 30 px 量级）
+        //   ⇒ **形状与尺寸都不对**（差 ≈2.5×，而且行内图标不可能盖到 75 px 而不撑行）。
+        //
+        // ⚠️ **哪些 tooltip 走这一档**：只有 `TipText.Trait(...)` **刚刚产出的那一串**
+        //   （`TipText.TryTraitShape` 按**逐字节相同**的文案查表）。数值 / HUD 计数 / `ByLink` 那三条
+        //   资源键仍是基础版式 —— ⛔ 别把「多行 / 带图标」当成判据去猜。
+
+        /// <summary>按原版两栏版式排一次 trait tooltip。`sh` = `TipText.Trait` 拆出来的三个部件。</summary>
+        void LayoutTrait(TipText.TraitShape sh)
+        {
+            if (_body == null) return;
+            LayoutCount++;
+            if (!_traitMode)
+            {
+                _traitMode = true;
+                // 原版 trait 那一版**没有** `Text (TMP)` 那一颗（`Trait Tooltip` 的子件只有
+                // `Background` / `TraitImage` / `Line`(关) / `Description` / `Title`）⇒ 基础档那条整条关掉。
+                if (_body != null) _body.gameObject.SetActive(false);
+            }
+            _w = TraitPanelWPx;
+            _h = TraitPanelHPx;
+            BuildBg();
+            EnsureTraitPieces();
+
+            // 图标：与卡面/徽标**同一份判据**（`Badges.SpriteOf` → `CardArt.Trait`），取不到就**不画**、不猜
+            Texture2D tex = string.IsNullOrEmpty(sh.iconSprite) ? null : CardArt.Trait(sh.iconSprite);
+            if (tex != null)
+            {
+                if (_icon == null) _icon = MakeTraitIcon(tex);
+                else if (!ReferenceEquals(_icon.Texture, tex))
+                {
+                    DestroySafe(_icon.gameObject);      // 换了一张图 ⇒ 重建（`ImageQuad` 的 uv/材质跟着走）
+                    _icon = MakeTraitIcon(tex);
+                }
+            }
+            else if (_icon != null) { DestroySafe(_icon.gameObject); _icon = null; }
+
+            StyleTraitLabel(_title, sh.title, TraitTitleWPx, TraitTitleHPx, TraitTitleMaxPx);
+            // 🔴 正文仍要过 **`CardIcons.PinSpriteFace`**（`新账-101` 那条钉面链，⛔ 别因为换了版式就丢）：
+            //   官方 `CardTraitDescription/*` 里确实有带 `<sprite>` 的条目（例如 `concussion` 的 `[[stun]]` 渲出来那枚）
+            //   ⇒ 不钉的话它又会继承前一个字符的 faceInfo（病灶与卡面同源，见 `CardIcons.PinSpriteFace` 的 doc）。
+            //   ⚠️ 标题**不钉**：它这一档已经没有 `<sprite>` 了（图标是独立件）—— 传进去也是空转。
+            StyleTraitLabel(_desc, CardIcons.PinSpriteFace(sh.body ?? ""), TraitDescWPx, TraitDescHPx, TraitDescMaxPx);
+            ApplyAlpha(_alpha);
+        }
+
+        /// <summary>两个标签按需建（trait 档一辈子只建一次，换文案只改文本 —— 同 `_body` 那条缓存口径）。</summary>
+        void EnsureTraitPieces()
+        {
+            if (_title == null) _title = MakeTraitLabel("tip_title");
+            if (_desc == null) _desc = MakeTraitLabel("tip_desc");
+        }
+
+        Label MakeTraitLabel(string name)
+        {
+            var l = UguiMode
+                  ? Label.CreateUgui(transform, "", Vector3.zero, 2, new Color(1f, 1f, 1f, 0f),
+                                     new Vector2(0.5f, 0.5f), name)
+                  : Label.Create(transform, "", Vector3.zero, 2, new Color(1f, 1f, 1f, 0f),
+                                 new Vector2(0.5f, 0.5f), name);
+            // 原版两颗 TMP 的 `m_fontAsset` 与 `BasicToolTip/Text (TMP)` **同一个** ⇒ 同一面
+            //   （⚠️ 顺序：先 `SetFace` 再 `SetText` —— `SetText` 里的 `SyncFace` 遇汉字会换 CJK 面，
+            //    那是**对的**、别在后面再压回拉丁，见 `Build()` 同一处口径）。
+            if (l != null) { l.SetFace(TmpFont.Face.LatinCardBody); l.SetRenderQueue(QTipText); }
+            return l;
+        }
+
+        /// <summary>把一个标签按原版那一颗 TMP 的参数定死（字号 / 框 / 自适应上下限 / 对齐）。</summary>
+        void StyleTraitLabel(Label l, string text, float boxWPx, float boxHPx, float maxPx)
+        {
+            if (l == null) return;
+            float u = UnitPx;
+            l.SetFace(TmpFont.Face.LatinCardBody);
+            l.SetText(text ?? "");
+            l.SetAlignLeft();                                   // 原版 `m_HorizontalAlignment = 1`（+ V=Middle 由它一起给）
+            l.SetScriptHeight(text ?? "", maxPx, u);            // 原版 `m_fontSize`：标题 32 / 正文 30
+            // 原版 `m_enableAutoSizing = 1` · `m_fontSizeMin = 10` · `m_fontSizeMax = 32/30` · `m_fontSizeBase = 36`
+            l.SetAutoFitBox(boxWPx / u, boxHPx / u, TraitMinPx, maxPx, TraitBasePx);
+        }
+
+        /// <summary>建那个 75×75 的独立图标件（两档各建各的，⛔ 不许两边都建）。</summary>
+        HudPiece MakeTraitIcon(Texture2D tex)
+        {
+            if (UguiMode)
+            {
+                // z 比底图（0）小 ⇒ 排在它**之后**（本画布的 z 语义：**大的画在底下**，见 `HudCanvas.Group.Add`）
+                var p = HudCanvas.MakeImageInParent(transform, tex, "tip_icon", 0f, 0f,
+                                                    TraitIconPx, TraitIconPx, -1f, new Color(1f, 1f, 1f, 0f));
+                if (p == null) return null;
+                var img = p.Rect != null ? p.Rect.GetComponent<UnityEngine.UI.Image>() : null;
+                if (img != null) { img.preserveAspect = true; img.type = UnityEngine.UI.Image.Type.Simple; }
+                return p;
+            }
+            // 世界档：`keepAspect: true` = `m_PreserveAspect = 1` 的等价物（`MenuDraw.Rect` 的 `CardbackFace.Fit`
+            //   那一路；⚠️ 本工程的 trait 图**全是 80×80 方图**（现核 5 张），所以今天两者逐像素相同 ——
+            //   保留这个参数是为了「哪天来一张非方图也照原版内接」）。
+            var q = MenuDraw.Rect(transform, tex, CenteredRectPx(TraitIconPx, TraitIconPx), "tip_icon", QTipText,
+                                  null, keepAspect: true);
+            if (q != null) q.SetTint(new Color(1f, 1f, 1f, 0f));
+            return HudPiece.Of(q);
+        }
+
+        /// <summary>从 trait 档切回基础档：那三件**销毁**（不是隐藏 —— 它们的尺寸/字号是按 trait 那颗 TMP 定的，
+        /// 留着复用会让「基础档的 tooltip」带着 trait 的框）。</summary>
+        void ClearTrait()
+        {
+            if (_title != null) { DestroySafe(_title.gameObject); _title = null; }
+            if (_desc != null) { DestroySafe(_desc.gameObject); _desc = null; }
+            if (_icon != null) { DestroySafe(_icon.gameObject); _icon = null; }
+            _traitMode = false;
+            if (_body != null) _body.gameObject.SetActive(true);
+        }
+
+        static void PlaceTrait(HudPiece p, Vector2 offPx, float cx, float cy, float u)
+        {
+            if (p == null) return;
+            p.transform.localPosition = new Vector3(cx + offPx.x / u, cy + offPx.y / u, 0f);
+        }
+
+        static void PlaceTrait(Label l, Vector2 offPx, float cx, float cy, float u)
+        {
+            if (l == null) return;
+            l.transform.localPosition = new Vector3(cx + offPx.x / u, cy + offPx.y / u, 0f);
+        }
 
         /// <summary>九宫格底**尺寸一变就得重建**（九块的位置依赖目标尺寸）。
         /// 原版是一张 `Image (Sliced)`，Unity 自己重排；我们这套是世界空间 quad。</summary>
@@ -591,6 +896,65 @@ namespace CardPresentation
             public string bodyZh; public string bodyEn; public string src;
         }
         [System.Serializable] class TraitTipTable { public TraitTipRow[] entries; }
+
+        // ==================================================================
+        //  🆕 2026-10-23（卡牌线 `A8`）：**关键词 tooltip 的三个部件**（原版是三个独立节点）
+        // ==================================================================
+        //
+        // **判据**：原版 `Trait Tooltip` 根上那颗 `EverguildTraitTooltipItem`
+        // （`assets_full/bundle_duplicateassetisolation_assets_all/MonoBehaviour/MonoBehaviour_4846335346156614073.json`）
+        // 的字段就是三件 —— `traitIcon` / `titleText` / `body`，`EverguildTraitTooltipItem__Show` 逐件灌值
+        // （`UnityEngine_UI_Image__set_sprite` + TMP 的 setter）。⇒ 我们那条「拼成一整串再交给一个 Label」
+        // 的写法在**形状上**就与原版不同（图标只能是行内 sprite）。
+        //
+        // 🔑 **为什么要一张「文案 → 部件」的表**：`Tooltip.Show(string)` 是**唯一入口**，而它的调用方
+        //   （`Battle/BattleDriver.TickTraitTip` → `TipText.ByLink`）**不在本批白名单**、⛔ 不能改成结构化签名。
+        //   ⇒ 让 `Trait()` 在**产出那一串的同时**把三个部件按「**逐字节相同**的返回值」记下来，
+        //   `Show` 再按**完全相等**查回去。⛔ **不去解析文案猜结构**（标题行里本来就有 `<b>` / `<sprite>` /
+        //   全角括号，猜必错）；也**不做「凡是多行就当 trait」**这种近似。
+        //   ⚠️ 表**只增不减**（值全是静态文案，条数 = 关键词数 × 语档数，有界；超上限时**出声**、不静默降级）。
+        public struct TraitShape
+        {
+            /// <summary>`Art/traits/` 里的图名（`Badges.SpriteOf` 的返回值）；`null` = 这个词没有图标。</summary>
+            public string iconSprite;
+            /// <summary>标题（显示名，中文档带 `（英文名）` 括注 —— 形状由 `Tips/Trait/TitleWithEn` 定）。</summary>
+            public string title;
+            /// <summary>正文（已过 `CardIcons.RewriteMarks`，即**可以直接喂渲染**的那一列）。</summary>
+            public string body;
+        }
+
+        static readonly Dictionary<string, TraitShape> _shapes =
+            new Dictionary<string, TraitShape>(System.StringComparer.Ordinal);
+        const int ShapeCap = 4096;
+        static bool _shapeCapWarned;
+
+        /// <summary>`body` 是不是**刚刚由 `Trait()` 产出**的那一串（逐字节相同）⇒ 走原版两栏版式。
+        /// ⛔ 未命中一律走基础版式（数值 / HUD 计数 / 资源键那几条）。</summary>
+        public static bool TryTraitShape(string body, out TraitShape shape)
+        {
+            shape = default(TraitShape);
+            return !string.IsNullOrEmpty(body) && _shapes.TryGetValue(body, out shape);
+        }
+
+        /// <summary>拼出 trait tooltip 的那一串，**同时**把三个部件记进 `_shapes`。
+        /// <para>⚠️ **返回串的形状一个字节都不许变** —— `Editor/BattleScene.cs` §15c 那一族断言
+        /// （`arm.Contains("&lt;sprite name=\"armour\"&gt;")` / `!Contains("规则书")` …）与既有的
+        /// `ShownBody` 比对都钉着它；本条只**加**了一份结构化副本，**没有**改文案。</para></summary>
+        static string Compose(string sprite, string title, string bodyText)
+        {
+            string icon = string.IsNullOrEmpty(sprite) ? "" : "<sprite name=\"" + sprite + "\">";
+            string s = "<b>" + icon + title + "</b>\n" + bodyText;
+            if (_shapes.Count < ShapeCap)
+                _shapes[s] = new TraitShape { iconSprite = sprite, title = title, body = bodyText };
+            else if (!_shapeCapWarned)
+            {
+                _shapeCapWarned = true;
+                Debug.LogWarning("[TipText] 关键词 tooltip 的形状表到上限 " + ShapeCap +
+                                 " 条 —— 新的那几条会退回**基础版式**（行内图标）。这不是静默降级，是记账；" +
+                                 "上限存在的理由见 `TipText._shapes` 那段注释。");
+            }
+            return s;
+        }
 
         static Dictionary<string, TraitTipRow> _tips;
         static readonly HashSet<string> _warnedNoEntry = new HashSet<string>();
@@ -787,8 +1151,9 @@ namespace CardPresentation
                 title = Loc.T("Tips/Trait/TitleWithEn").Replace("{0}", disp).Replace("{1}", en);
 
             // 图标：与卡面/徽标**同一份判据**（`Badges.SpriteOf`），认不出就**不画**、不猜
+            // 🔴 2026-10-23（`A8`）：`sprite` 现在**同时**喂给 `Compose`（它拿它拼行内 `<sprite>` 给
+            //   基础那几处兜底，并**记进 `_shapes`** 供 `Tooltip` 走原版两栏版式）。
             string sprite = Badges.SpriteOf(key);
-            string icon = string.IsNullOrEmpty(sprite) ? "" : "<sprite name=\"" + sprite + "\">";
 
             // 🔴 **2026-10-14（`A1803`）查表的键改口径**：原来是「中文显示名」
             //   （`CardText.KeywordZh(key)`），v2 起是**小写规范键**。
@@ -811,8 +1176,7 @@ namespace CardPresentation
                     Debug.Log("[TipText] `" + key + "` 在关键词文案表里没有条目 —— "
                               + "tooltip 只出名字、不出解释（`ability` 就是这一种：官方 `CardTraitDescription/*` "
                               + "与规则书 61 条里都没有它）。");
-                return "<b>" + icon + title + "</b>\n"
-                              + Loc.T("Tips/Trait/NoRulebookEntry");
+                return Compose(sprite, title, Loc.T("Tips/Trait/NoRulebookEntry"));
             }
 
             // 🔴 **2026-10-12（`A1660`）：这里原来拼「（规则书 :NNN）」贴正文尾 —— 已【整条链路】删掉。**
@@ -854,7 +1218,7 @@ namespace CardPresentation
                               + (useZh ? "中文" : "英文") + "那一列（`src=" + t.src + "`）⇒ 退回另一列。");
             }
             if (string.IsNullOrEmpty(body))
-                return "<b>" + icon + title + "</b>\n" + Loc.T("Tips/Trait/NoRulebookEntry");
+                return Compose(sprite, title, Loc.T("Tips/Trait/NoRulebookEntry"));
             // 🆕 **2026-10-19（`N71`）**：正文里的官方记号要渲染 —— `trait_tips.json` 的 `bodyZh/bodyEn`
             //   是从官方 `CardTraitDescription/*` **原样抄**下来的，值里可能带 `[[枚举名]]`（现读 **1 条**：
             //   `concussion` 的 `[[stun]]`；官方 `CardTraitDescription/*` 一共 4 条带记号）。
@@ -862,7 +1226,7 @@ namespace CardPresentation
             //   （卡面/任务正文走的就是同一条；先例 `Shell/DailyData.cs:183`）。
             //   ⚠️ 只在**真带记号**时过一遍（`HasOfficialMarks` 早退）⇒ 其余 60 多条正文逐字节不变。
             if (CardIcons.HasOfficialMarks(body)) body = CardIcons.RewriteMarks(body, useZh);
-            return "<b>" + icon + title + "</b>\n" + body;
+            return Compose(sprite, title, body);
         }
     }
 }

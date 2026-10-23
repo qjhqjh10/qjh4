@@ -16,6 +16,16 @@ import os
 import re
 import sys
 
+## A17 2026-10-24: -h/--help early exit (print usage only, exit 0; never run the real work).
+import sys as _wf_help_sys
+if any(_wf_help_sys.argv[_i] in ("-h", "--help") for _i in range(1, len(_wf_help_sys.argv))):
+    try:
+        _wf_help_sys.stdout.reconfigure(encoding="utf-8")
+    except Exception:
+        pass
+    print('用法:\n  PYTHONIOENCODING=utf-8 python d:/4/Unity/工具/_probe_envcard_panel.py DAT_1842a5eb0 DAT_184283060\n  PYTHONIOENCODING=utf-8 python d:/4/Unity/工具/_probe_envcard_panel.py --file <某个.c>\n  -h, --help  只打印本用法并退出（退出码 0），不执行任何真活。')
+    _wf_help_sys.exit(0)
+
 SL = 'd:/2/tools/il2cpp_out/stringliteral.json'
 BASE = 0x180000000
 

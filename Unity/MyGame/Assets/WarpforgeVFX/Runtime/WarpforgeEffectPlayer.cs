@@ -417,6 +417,41 @@ namespace WarpforgeVFX
             DestroyNow(true, alreadyBroadcast: true);   // 没有模块（或没人接管）⇒ 立刻销毁（原版兜底）
         }
 
+        /// <summary>🆕 **2026-10-24（`A31`）：原版 `SwarmVFXController.OnAnimationEndEvent` 的接收口。**
+        ///
+        /// <para>**为什么要有它**：`Swarm Card Merge VFX.prefab` 的 `Animation` 组件
+        /// （`m_PlayAutomatically = 1`）播 `Swarm Triat Merge.anim`，而那份 clip 在 **t = 1.2 s**
+        /// 带一个动画事件 `functionName: OnAnimationEndEvent`。原版那个方法体
+        /// （`SwarmVFXController__OnAnimationEndEvent.c`，逐句）做三件事：
+        /// ① 调回调（`CardScript.ExecuteSwarm` 传进来的闭包）· ② `StopAllCoroutines` ·
+        /// ③ `Object.Destroy(gameObject)`。
+        /// 我们这边**没有** `SwarmVFXController`（那份 prefab 的 `m_Script` 反查出来只有 binder）
+        /// ⇒ 这一拍原来既**没有接收者**（Unity 会打一条 "has no receiver"）**也不销毁**，
+        /// 对象一路活到 `natural = 3.5 s` 才被计时路收掉 ⇒ **比原版多活 2.3 s**。</para>
+        ///
+        /// <para>**为什么收在这里、而不是新加一个组件**：`WarpforgeEffectPlayer` 是
+        /// `WarpforgeEffectPlayer.Play()` 给**每一个**实例都挂上的（见 `Play` 末尾
+        /// `if (p == null) p = go.AddComponent<WarpforgeEffectPlayer>()`），而 legacy `Animation`
+        /// 的事件是**发给同一 GameObject 上的所有组件**（SendMessage 语义）⇒ 这一个方法就够，
+        /// ⛔ 不必去改 prefab 的 YAML（那要 Unity 才能可靠地落盘）。</para>
+        ///
+        /// <para>⚠️ **影响面已实测**：全仓 `.anim` 里带 `functionName: OnAnimationEndEvent` 的
+        /// **只有 `Swarm Triat Merge.anim` 一条**（`grep -rn functionName --include=*.anim`
+        /// 现读：另有 `AnimationEndEvent` / `AnimationResurrectionEnd` 等**别的名字**，不撞）。
+        /// ⇒ 这个方法的效果面 = 那 1 件。以后若再有 clip 用这个名字，它们也会走同一条收尾语义
+        /// （= 原版 `SwarmVFXController` 的语义），这正是我们要的默认。</para>
+        ///
+        /// <para>⚠️ 回调（①）那一跳我们**没有等价物**：原版那个闭包最后接到
+        /// `BattleManager.FinishResolvingAction` / `DestroyUnitSilent`（在 `Battle/**`，
+        /// 不在本批白名单）⇒ 本方法只做 ②③ 里的「销毁自己」那一半。接线时若要在
+        /// 动画结束之后再合并数值，得由战斗侧另挂。</para></summary>
+        public void OnAnimationEndEvent()
+        {
+            // 只在真播着的时候走销毁：已经收过（`_destroyed`）或正在 `Exit()` 收尾时
+            // `DoDestroy` 自己会 return，不会重复销毁。
+            DoDestroy();
+        }
+
         /// <param name="force">保留参数只为让调用点读起来明确；**Exit 计时路与 Kill 一律销毁**。</param>
         /// <param name="alreadyBroadcast">`DoDestroy()` 已经广播过模块，别再广播第二遍。</param>
         void DestroyNow(bool force = false, bool alreadyBroadcast = false)

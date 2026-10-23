@@ -307,7 +307,23 @@ namespace CardPresentation
             //     · **按文本世代分流**（本行）= 官方文本来了就**不再经过**自造层 ⇒ 退场目的达到、且零退步。
             //   ⚠️ 门只认那三对标点：`(N)`（费用图标那一支）**单独出现时不算** —— 原版那一支在**全表 9441 条里
             //   0 处输入**（现数），不为它单独开门；`RewriteMarks` 内部那一支照旧按原版实现并带「图不在就留着」的闸。
-            if (HasOfficialMarks(text)) return RewriteMarks(text, field == DescZhField);
+            //
+            // 🔴🔴 **2026-10-23（卡牌线 `新账-102`）：文本里已经有【成品渲染标签】的，同样不进自造层。**
+            //   同一道「**两个世代不许混**」的闸，只是判据从「模板记号还在」换成「**已经渲染过了**」。
+            //   **病灶（现读复现）**：官方 `Card_Description/*` 的中文列里**本来就带**渲染标签 ——
+            //     `GSC65` = `选择一张<link=sabotage><sprite name=Atlas_trait_icon_sabotage>Sabotage</link>牌…`
+            //     （逐字节等于 `数据/游戏数据/官方本地化_en+zh-CN.json` 的 `Card_Description/GSC65`；
+            //      同族 `GSC7/13/40/45/50/56/68/70` · `c433…` · `SAU44` · `SOR29` · `SOR49`，**全池 14 个字段**）。
+            //   ⚠️ 这些**不是我们的自译残留、也不是上一轮写坏的数据** —— 是**原版自己的写法**
+            //     （⇒ ⛔ 别把它们「清成纯文本」：那才是偏离原版；`新账-102` 原来的修法作废，铁律 5 就地留痕）。
+            //   但这类文本**没有** `[[`/`((`/`$$` ⇒ 原来会漏进下面那张**按卡表**，而表里 `GSC65`/`GSC56`/`GSC45`
+            //   的 `descZh` 有一条 `Sabotage`（`e9952f5…` 是 `破坏`）⇒ 裸词那一支会在**官方图标旁边再插一枚**
+            //   ⇒ 卡面同一处**两枚图标**。今天命中的正好是这 4 个字段（逐条核过：其余 10 个字段在表里
+            //   **没有**能落实的 token，改走本支零变化）。
+            //   ⛔ 门只认 `<sprite` / `<link=` 这两种**只有渲染层才会产出**的形状（`Core/CardText.cs` 的
+            //     关键词段、`RewriteMarks` 的 `[[…]]` 展开）—— 我们自造的记号（`[Attack]` / `①` / `路标石。`）
+            //     一个都长不成这样。
+            if (HasOfficialMarks(text) || HasRenderedMarkup(text)) return RewriteMarks(text, field == DescZhField);
 
             // 🆕 2026-10-19（`A2140`）：**信仰费写成裸词的** —— `N Energy:` / `N 能量：`
             //   卡面真印的是 `N〔金太阳〕:`（**数字留着、词换成图标**）。
@@ -602,6 +618,18 @@ namespace CardPresentation
             return text.IndexOf("[[", System.StringComparison.Ordinal) >= 0
                 || text.IndexOf("((", System.StringComparison.Ordinal) >= 0
                 || text.IndexOf("$$", System.StringComparison.Ordinal) >= 0;
+        }
+
+        /// <summary>这段文字里**已经带着成品渲染标签**（`&lt;sprite …&gt;` / `&lt;link=…&gt;`）吗？
+        /// <para>🆕 **2026-10-23（卡牌线 `新账-102`）**：官方 `Card_Description/*` 的**值本身**就有这两种标签
+        /// （例：`GSC65` 的中文列 = `…&lt;link=sabotage&gt;&lt;sprite name=Atlas_trait_icon_sabotage&gt;Sabotage&lt;/link&gt;…`；
+        /// 全池 14 个字段）。判据与「为什么这类文本不进自造层」→ <see cref="Rewrite"/> 开头那条注释，⛔ 别在这儿抄第二份。</para>
+        /// <para>⛔ 只认这两个**渲染层专有**的形状：我们自造的记号（`[Attack]` / `①` / `路标石。`）一个都长不成这样。</para></summary>
+        public static bool HasRenderedMarkup(string text)
+        {
+            if (string.IsNullOrEmpty(text)) return false;
+            return text.IndexOf("<sprite", System.StringComparison.Ordinal) >= 0
+                || text.IndexOf("<link=", System.StringComparison.Ordinal) >= 0;
         }
 
         /// <summary>

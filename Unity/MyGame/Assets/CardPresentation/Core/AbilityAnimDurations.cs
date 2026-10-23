@@ -23,7 +23,12 @@
 //  · **播多久**（`BattleManager._ResolveAnim_d__466__MoveNext.c`）：先（仅当
 //    `animInfo.tweenAnim != null && tweenAnim.waitAnimation != 0`）`WaitForCompletion(BuildSequence(…))`，
 //    之后**一定**再 `WaitForSeconds(AnimInfo.GetAnimDuration())`。
-//    ⚠️ **tween 那一段本表没算**（`UnitTweenSO` 的长度本地没接）—— 见下面 `TryGet` 的返回值说明。
+//    ⚠️ **tween 那一段本表没算** —— 见下面 `TryGet` 的返回值说明。
+//      🔴 **2026-10-24 就地订正（铁律 5）**：括号里原来写「`UnitTweenSO` 的长度**本地没接**」—— **已过期**：
+//      数据侧 2026-10-23（`A11`）已把 `UnitTweenSO` 的 PathID → 名字 → 长度全解出（全量件 `tweenRows`），
+//      并证明 `waitAnimation = 1` 的 **4 条全部落在触发链** ⇒ 对 `active` **零影响**
+//      （`activeWithTween` 与 `active` 93/93 逐卡相等）。运行时**仍未把 tween 加进 `s`**（`s` = `active`）
+//      ⇒「**本表没算**」这半句**仍然成立**。判据 → `资料/普查产出_1023e/A11_特效第三批.md` §2·1。
 //  · **哪一支**：只取 `activeAbility.activeAbilityLogic[*].cardAnimations[*]`
 //    （= 原版「单位主动发动能力」那条路）。`cardAbilities[*]`（`ThisCardPlayed` / `Slay` / …）
 //    是**别的时机**播的 ⇒ 归 `EvtKind.Trigger` / `Play`，**不进这张表**（全量件里备查）。
@@ -55,8 +60,16 @@
 //      ⇒ 判据字段 = **`normalAbilityBoardCriteria`(+0x2B0)**，**满足时走【普通】支**、
 //        **不满足**才落到 `alternativeAbility`(+0x2B8)。
 //      ⛔ 表只记普通那一支；运行时**要不要按棋盘切到 0.2 还没接** —— **数据侧也缺**：
-//        `normalAbilityBoardCriteria` **不在**卡导出里（`cards_raw.json` 的 `cards[*]` 只有
-//        `hasAlternativeAbility` / `activeAbility` / `alternativeAbility`）⇒ 要接得先补那个字段的导出。
+//        🔴 **2026-10-24 就地订正（铁律 5 · 判据 = `资料/普查产出_1023e/A11_特效第三批.md` §2·2(b)）**：
+//        原来这里写「`normalAbilityBoardCriteria` **不在**卡导出里（`cards_raw.json` 的 `cards[*]`
+//        只有 `hasAlternativeAbility` / `activeAbility` / `alternativeAbility`）」—— **一半不准**。
+//        它**在**卡导出里，只是挂在 **`cards[*].full_raw.normalAbilityBoardCriteria`**（不在 `cards[*]` 顶层）：
+//        现读 1,351 张**全都带这个结构体**，其中**非默认值 2 张** —— `SW21 Wulfen Pack Leader`
+//        与 `SpaceWolves-Fenrisian Wolf`（后者 `hasAlternativeAbility = 0` ⇒ `MeetsCriteria` 根本不会被调）。
+//        `工具/gen_ability_anim_durations.py:434` **一直在读它** ⇒ 全量件 `conditional` 一直是准的。
+//        **真正缺的是引擎那份** `MyGame/Assets/RuleEngine/Resources/cards_engine.json`：现读全池
+//        （张数见它的 `count`，⛔ 别写死）**逐张看**，`normalAbilityBoardCriteria` / `hasAlternativeAbility`
+//        **一个都没有** ⇒ 要接得先让 `gen_cards_engine.py` 把这两个字段带出来（卡牌线的文件）。
 //        逐条见全量件 `conditional`。
 //   ④ **tween 那一段仍没算**（见上「播多久」那一条）。
 //   ⑤ 命中不了时**退回 `1.0` 并出声**（不静默）—— 那是本表的**中位数**，与旧常数恰好相等。

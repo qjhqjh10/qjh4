@@ -74,6 +74,16 @@ import json
 import sys
 import os
 
+## A17 2026-10-24: -h/--help early exit (print usage only, exit 0; never run the real work).
+import sys as _wf_help_sys
+if any(_wf_help_sys.argv[_i] in ("-h", "--help") for _i in range(1, len(_wf_help_sys.argv))):
+    try:
+        _wf_help_sys.stdout.reconfigure(encoding="utf-8")
+    except Exception:
+        pass
+    print('用法：\n    "D:/2/Warpforge_tools/py312/python.exe" d:/4/Unity/工具/gen_card_anim_order.py\n    "D:/2/Warpforge_tools/py312/python.exe" d:/4/Unity/工具/gen_card_anim_order.py --check\n  -h, --help  只打印本用法并退出（退出码 0），不执行任何真活。')
+    _wf_help_sys.exit(0)
+
 SRC = r"d:/4/Unity/数据/游戏数据/card_anim_order.json"
 DST = r"d:/4/Unity/MyGame/Assets/CardPresentation/Resources/card_anim_order.json"
 # 🆕 2026-10-19（W）：**运行期用的卡名以【我们卡池】为准**。

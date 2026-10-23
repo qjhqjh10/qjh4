@@ -39,6 +39,16 @@ import sys
 
 import UnityPy
 
+## A17 2026-10-24: -h/--help early exit (print usage only, exit 0; never run the real work).
+import sys as _wf_help_sys
+if any(_wf_help_sys.argv[_i] in ("-h", "--help") for _i in range(1, len(_wf_help_sys.argv))):
+    try:
+        _wf_help_sys.stdout.reconfigure(encoding="utf-8")
+    except Exception:
+        pass
+    print('用法\n----\n    python 工具/read_tmp_level0.py                  # 读 `Loading text` / `Progress text` 两条\n    python 工具/read_tmp_level0.py --pid 298        # 读指定组件 pid（可给多个）\n    python 工具/read_tmp_level0.py --legacy-slice   # 保留口（说明用；见 main 里那句）\n  -h, --help  只打印本用法并退出（退出码 0），不执行任何真活。')
+    _wf_help_sys.exit(0)
+
 LEVEL0 = 'D:/2/unity_run_ref/Warpforge_Data/level0'          # 原始序列化文件（只读）
 GGM = 'D:/2/unity_run_ref/Warpforge_Data/globalgamemanagers.assets'   # level0 的 externals[0]（MonoScript 在这）
 BASE = 'D:/2/新解包资源/assets_full/level0'                   # 同一次解包的产出（GO JSON：名字 → 组件 pid）

@@ -19,6 +19,9 @@
 
 产物：`MyGame/Assets/CardPresentation/Resources/Art/audio/sfx/<clip 名>.wav`
 （`Resources/Art/` 整个被 `.gitignore` 排除 —— 原版资产不进仓库，与美术/语音同一条规矩。）
+🆕 **2026-10-24（G4）**：拷完**顺手补 `<clip 名>.wav.meta`** —— 共用实现 = `工具/_sfx_meta.py`
+（模板 = 同目录同扩展名的众数，只换 guid；**已存在的 meta 一个字节都不碰**）。没有这步的话
+新补进来的 wav 会被 Unity 用内置默认导入（`loadType: 0`），与同目录既有 510 条不一致。
 
 用法：
     PYTHONIOENCODING=utf-8 python 工具/import_remnant_sfx.py --check   # 只报告
@@ -32,6 +35,11 @@ import shutil
 import sys
 
 sys.stdout.reconfigure(encoding="utf-8")
+
+# 🔴 **2026-10-24（G4）：补 `.meta` 的共用实现**（`工具/_sfx_meta.py`，三个导入脚本共用一份）。
+#   `python -I` 不会把脚本目录放进 `sys.path` ⇒ 这里显式插一下。
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+import _sfx_meta                                  # noqa: E402
 
 import UnityPy
 
@@ -163,16 +171,20 @@ def main():
         return 0
 
     os.makedirs(DEST, exist_ok=True)
-    n = 0
+    guids = _sfx_meta.known_guids()      # 2026-10-24（G4）：全工程 meta 扫一次，别每条都扫
+    n = n_meta = 0
     for clip, src in sorted(uniq.items()):
         dst = os.path.join(DEST, clip + os.path.splitext(src)[1])
         if os.path.exists(dst) and os.path.getsize(dst) == os.path.getsize(src):
             print(f"  = 已有且同尺寸，跳过：{os.path.basename(dst)}")
-            continue
-        shutil.copy2(src, dst)
-        print(f"  + {os.path.basename(dst)}  ({os.path.getsize(dst)} 字节)")
-        n += 1
-    print(f"\n✅ 拷了 {n} 个（跳过 {len(uniq) - n} 个已存在的）→ {DEST}")
+        else:
+            shutil.copy2(src, dst)
+            print(f"  + {os.path.basename(dst)}  ({os.path.getsize(dst)} 字节)")
+            n += 1
+        # 🔴 已存在的 meta 一个字节都不碰 ⇒ 重跑幂等；上次漏了 meta 的这次补上。
+        if _sfx_meta.ensure_meta(dst, guids=guids) == "created":
+            n_meta += 1
+    print(f"\n✅ 拷了 {n} 个（跳过 {len(uniq) - n} 个已存在的）· 补 meta {n_meta} 条 → {DEST}")
 
     # 🆕 2026-09-29：把**六条 cue 的随机区间**写成一张小表。
     # ⚠️ **必须是「带 key 的数组」而不是「以 Army/when 为键的对象」** —— C# 那边用

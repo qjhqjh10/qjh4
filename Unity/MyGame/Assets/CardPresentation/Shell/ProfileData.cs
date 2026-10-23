@@ -7,7 +7,7 @@
 //    · 但**定义数据（ScriptableObject）在本地是全的** —— 470 个头像 SO + 462 个称号 SO
 //      （`素材/Warpforge原版/装饰品/定义数据/MonoBehaviour/`，那是游戏自己的资产，不是存档）。
 //    · ⇒ 由 `工具/gen_profile_cosmetics.py` 抽成 `Resources/profile_cosmetics.json` 给运行时读。
-//    用户 2026-09-27 拍板：**列表照填**（配合他定的「资源 9999 / 卡池与头像全解锁」那条边界）。
+//    用户 2026-09-27 拍板：**列表照填**（配合他定的「资源 2000（用户 2026-10-24 从 9999 改） / 卡池与头像全解锁」那条边界）。
 //
 // 🔴 **显示名是我们拼的**（原版真名在远端 I2 语言表，本地只有 key）：
 //    · 头像：`nameTextReference`（形如 `Avatar_UM_Attack Bike`）去掉 `Avatar_<阵营>_` 前缀 ⇒ `Attack Bike`；

@@ -497,6 +497,13 @@ namespace WarpforgeVFX
             //   ⚠️ 预乘那一档（1/10）本来就该两侧一致，所以「照抄彩色侧」在两种情况下都对。
             if (m.HasProperty("_SrcBlendAlpha")) m.SetFloat("_SrcBlendAlpha", (float)srcBlend);
             if (m.HasProperty("_DstBlendAlpha")) m.SetFloat("_DstBlendAlpha", (float)dstBlend);
+            // 🔴 **2026-10-24 补判据（`资料/普查产出_1023e/A11_特效第三批.md` §4·3）**：
+            //   **全库 148 个原版 shader × 431 个 pass，`rtSeparateBlend = True` 的 = 0 个** ——
+            //   原版**从来没有** separate blend（`Blend` 只写一条，彩色与 alpha 共用因子）
+            //   ⇒ 这里「alpha 侧 = 彩色侧」是**有意且正确的**（复现的是原版**实际**混合，不是近似）。
+            //   ⛔ **别把 `_SrcBlendAlpha` 改成 1**：现读有 241 张材质「我们 = `_SrcBlend`、原版字段 = 1」，
+            //   那 241 条的 `1` 在原版侧是**死值**（原版 shader 是单条 Blend）；改成 1 会让画面变差
+            //   （`Sand Storm.mat` 就被提名过一次，结论是**不改**）。
             if (m.HasProperty("_ZWrite"))    m.SetFloat("_ZWrite", zwrite);
             // 🔴 **预乘混合必须开 `_ALPHAPREMULTIPLY_ON`**（2026-09-19 补，E 组第三轮）。
             //   原版那批材质里 `_SrcBlend=1(One) + _DstBlend=10(OneMinusSrcAlpha)` 就是**预乘 alpha**，

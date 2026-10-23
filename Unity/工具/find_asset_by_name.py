@@ -20,6 +20,16 @@ import sys
 import os
 import UnityPy
 
+## A17 2026-10-24: -h/--help early exit (print usage only, exit 0; never run the real work).
+import sys as _wf_help_sys
+if any(_wf_help_sys.argv[_i] in ("-h", "--help") for _i in range(1, len(_wf_help_sys.argv))):
+    try:
+        _wf_help_sys.stdout.reconfigure(encoding="utf-8")
+    except Exception:
+        pass
+    print('用法：\n    python 工具/find_asset_by_name.py <子串> [<子串2> ...]      # 大小写不敏感\n    python 工具/find_asset_by_name.py --list-types              # 顺便统计每个包里有哪些类型\n  -h, --help  只打印本用法并退出（退出码 0），不执行任何真活。')
+    _wf_help_sys.exit(0)
+
 BUNDLE_DIR = os.environ.get(
     "WF_BUNDLE_DIR", r"D:/2/unity_run_ref/Warpforge_Data/StreamingAssets/aa/StandaloneWindows64")
 

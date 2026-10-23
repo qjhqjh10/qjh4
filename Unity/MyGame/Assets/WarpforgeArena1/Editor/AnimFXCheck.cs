@@ -1053,7 +1053,333 @@ public static class AnimFXCheck
                     + " —— 🧨 把「按名字筛」写成「已归口就整桶播」⇒ 本条红");
             }
         }
+        // ---------- ⑥ 🆕 2026-10-23（`W65` · 特效线）：`overrideByArmies` 10 条**真的被消费** ----------
+        //  原版判据 = `TraitEffect.GetEffect(army)`（`TraitEffect__GetEffect.c:9-34`）：
+        //  逐条比 `override.army`，**命中就返回 override 的 `effectAnim`**；全不命中才回默认那条。
+        //  期望值**一律从 JSON 现算**（`dto.rows[].overrides`）—— ⛔ 不从 `TraitFrames` 读回（那是自证）。
+        //  改前：`PrefabFor` 根本没有阵营参数 ⇒ 这 10 条（`shield` 4 / `invulnerable` 6）**一条都不生效**。
+        {
+            var asset = Resources.Load<TextAsset>(CardPresentation.TraitFrames.BindingsResourcePath);
+            CardPresentation.TraitFrames.BindingDoc dto = null;
+            if (asset != null)
+            {
+                try { dto = JsonUtility.FromJson<CardPresentation.TraitFrames.BindingDoc>(asset.text); }
+                catch (System.Exception ex) { Debug.LogWarning(P + "⑥ 读绑定表失败：" + ex.Message); }
+            }
+
+            int ovRows = 0, ovTotal = 0, ovHit = 0, ovMissAuDefault = 0, ovPlainLeak = 0, ovEmpty = 0;
+            int ovProbes = 0;
+            var split = new Dictionary<string, int>();
+            if (dto != null && dto.rows != null)
+            {
+                foreach (var r in dto.rows)
+                {
+                    if (r == null || string.IsNullOrEmpty(r.trait)
+                        || r.overrides == null || r.overrides.Length == 0) continue;
+                    ovRows++;
+                    split[r.trait] = (split.TryGetValue(r.trait, out var n0) ? n0 : 0) + r.overrides.Length;
+
+                    bool trigger = r.triggerType == 3 || r.triggerType == 6;
+                    if (r.triggerType != 2 && !trigger)
+                    {   // 0/1/5 这几档不归两本字典（`PreloadTraitEffect` 那类），这里只计不计判
+                        ovEmpty += r.overrides.Length;
+                        continue;
+                    }
+
+                    // **不带阵营**的重载必须**忽略**覆盖（老调用点语义不变）—— 期望值 = 数据里那条默认 `prefab`
+                    var plain = CardPresentation.TraitFrames.PrefabFor(r.trait, trigger);
+                    if (!string.Equals(plain, r.prefab, System.StringComparison.Ordinal)) ovPlainLeak++;
+
+                    // **一个数据里不存在的 army** 必须回落默认件（= 原版「全不命中 ⇒ 默认 effectAnim」）
+                    var miss = CardPresentation.TraitFrames.PrefabFor(r.trait, trigger, 9999);
+                    ovProbes++;
+                    if (string.Equals(miss, r.prefab, System.StringComparison.Ordinal)) ovMissAuDefault++;
+                    else Debug.LogWarning(P + $"⑥ 阵营回落失败：`{r.trait}` army=9999 得到「{miss}」，"
+                                            + $"期望默认件「{r.prefab}」");
+
+                    foreach (var o in r.overrides)
+                    {
+                        if (o == null) continue;
+                        ovTotal++;
+                        if (string.IsNullOrEmpty(o.prefab)) { ovEmpty++; continue; }
+                        var got = CardPresentation.TraitFrames.PrefabFor(r.trait, trigger, o.army);
+                        if (string.Equals(got, o.prefab, System.StringComparison.Ordinal)) ovHit++;
+                        else Debug.LogWarning(P + $"⑥ 阵营覆盖没生效：`{r.trait}` army={o.army} 得到「{got}」，"
+                                                + $"期望「{o.prefab}」");
+                    }
+                }
+            }
+
+            Check(ovRows == 2 && ovTotal == 10
+                  && split.TryGetValue("shield", out var nShield) && nShield == 4
+                  && split.TryGetValue("invulnerable", out var nInvuln) && nInvuln == 6,
+                  $"⑥ 前提：数据里**只有** `shield`(4) 与 `invulnerable`(6) 带 `overrideByArmies`，共 {ovTotal} 条"
+                + $"（实得 {ovRows} 行 / {Describe(split)}）—— 张数突然变少 = 生成器漏读了 override 段");
+
+            Check(ovHit > 0 && ovHit == ovTotal - ovEmpty,
+                  $"⑥ **每条 override 都真的被消费**：按它自己的 `army` 查，拿到的就是**它自己的 prefab**"
+                + $"（命中 {ovHit} / 可判 {ovTotal - ovEmpty} 条；空 prefab 的 {ovEmpty} 条原版本就不演）"
+                + " —— 🧨 把 `TraitFrames.PrefabOf` 里的 override 循环删掉 ⇒ 全部回落到默认件、本条红");
+
+            Check(ovProbes > 0 && ovMissAuDefault == ovProbes,
+                  $"⑥ **不命中 ⇒ 回落默认件**（拿数据里不存在的 army=9999 探针 {ovProbes} 次，全部回落 {ovMissAuDefault} 次）"
+                + " —— 🧨 把「命中判断」写成「只要有 override 就用第一条」⇒ 本条红");
+
+            Check(ovPlainLeak == 0,
+                  $"⑥ 不带阵营的两参重载**不套覆盖**（残留 {ovPlainLeak} 条）—— 老调用点的语义必须逐字不变");
+
+            // **灭自证（结构上不可能同时满足的一对）**：同一个 trait、同一个入口，
+            //   **不带阵营** 与 **带某个有覆盖的阵营** 必须拿到**不同**的件；缺任何一半都说明解析没分流。
+            var shieldDefault = CardPresentation.TraitFrames.PrefabFor("shield", false);
+            var shieldSautekh = CardPresentation.TraitFrames.PrefabFor("shield", false, 40);   // `Sautekh` = 40
+            Check(shieldDefault == "ShieldTraitEffect_Idle"
+                  && shieldSautekh == "ShieldTraitEffect_Idle Necron Variant"
+                  && shieldDefault != shieldSautekh,
+                  "⑥ **灭自证**：`shield` 默认件 = `ShieldTraitEffect_Idle`、"
+                + "而 `army=40`（Sautekh）⇒ `ShieldTraitEffect_Idle Necron Variant`"
+                + $"（实得「{shieldDefault}」/「{shieldSautekh}」）"
+                + " —— 🧨 只做「有覆盖就用」或「恒用默认」⇒ 二者必有一个对不上、本条红");
+
+            Check(CardPresentation.TraitFrames.ArmyOfFaction("Sautekh") == 40
+                  && CardPresentation.TraitFrames.ArmyOfFaction("BlackLegion") == 50
+                  && CardPresentation.TraitFrames.ArmyOfFaction("TauEmpire") == 70
+                  && CardPresentation.TraitFrames.ArmyOfFaction(null) == -1
+                  && CardPresentation.TraitFrames.ArmyOfFaction("Neutral") == -1,
+                  "⑥ `CardData.faction` → 原版 army id 的换算（`Sautekh`=40 · `BlackLegion`=50 · `TauEmpire`=70；"
+                + "`null`/`Neutral` = -1 = 不套覆盖）—— 换算口只此一处（`ArmyIcons.Id`）");
+        }
+
+        // ---------- ⑦ 🆕 2026-10-23（`W65`）：`ambush` 的槽位**不是「待接」，是「原版没有 FromCode(5)」** ----------
+        //  真值（`数据/游戏数据/trait_collection.json` 的 `Ambush` 段）：`Ambush`(1200) **只有一条**
+        //  `TraitEffect` = **End(1)** → `Ambush Effect` → `AmbushEffect`。
+        //  原版「从代码播」那条链硬编码 `FromCode(5)`（`CardScript__ActivateTraitParticlesFromCode.c:62`）
+        //  ⇒ ambush 在这一档**本来就什么都不播**（铁律 11 例外①）。
+        //  ⚠️ 这两条也是**反向断言**：谁把 `AmbushEffect` 按名字塞进 `TraitParticles` / `ByEvent`
+        //     当「通用件」，立刻红。
+        {
+            Check(CardPresentation.TraitParticles.PrefabFor("ambush") == null,
+                  "⑦ **灭自证**：`ambush` 在 `TraitParticles`（FromCode 那档）**必须没有绑定** —— "
+                + "原版 `Ambush.asset` 唯一的 `TraitEffect` 是 **End(1)**、没有 FromCode(5)"
+                + $"（实得「{CardPresentation.TraitParticles.PrefabFor("ambush")}」）"
+                + " ⇒ 🧨 把 `AmbushEffect` 按名字塞回 FromCode 表（或者让它当 `ambush_exit` 的通用件）⇒ 本条红");
+
+            bool ambushEnd = false, ambushAnyFromCode = false;
+            var all = CardPresentation.TraitFrames.RowsOfTriggerType(1);     // End(1)
+            for (int i = 0; i < all.Length; i++)
+                if (string.Equals(all[i].Trait, "ambush", System.StringComparison.OrdinalIgnoreCase)
+                    && all[i].Prefab == "AmbushEffect") ambushEnd = true;
+            var fcs = CardPresentation.TraitFrames.RowsOfTriggerType(5);      // FromCode(5)
+            for (int i = 0; i < fcs.Length; i++)
+                if (string.Equals(fcs[i].Trait, "ambush", System.StringComparison.OrdinalIgnoreCase))
+                    ambushAnyFromCode = true;
+            Check(ambushEnd && !ambushAnyFromCode,
+                  "⑦ `ambush` 的真值：**有** End(1) → `AmbushEffect`、**没有** FromCode(5) —— "
+                + "所以 `VfxMap.AmbushExit` 仍留空 + 出声（原版没有消费 End(1) 的调用点，照铁律 3 不猜）");
+        }
+
     }
+
+    // ================================================================
+    //  ⑧ 🆕 2026-10-23（特效线 A7 · 第二批）—— `Start(0)` 那 13 条 trait effect
+    //  ------------------------------------------------------------------
+    //  判据 = `BattleCardUI__DisplayStatusAnim.c:86-119`：`if (TraitEffect.TriggerType == 0)` 时
+    //  **拿这条 effect 直接 `BattleManager.ResolveTraitAnim` + `StartCoroutine`** ——
+    //  **不进字典、不查重、不写回调**（对比 `== 2` 那一支 `:121-198` 才有 `TraitFrameEffectsPlay`）。
+    //  ⚠️ 这一档**不过 `playIfWarlord` 门**（那道门只在 `…__DisplayTriggerAnim.c:62-68`）。
+    //  改前：`TraitFrames` 只收 2/3/6 ⇒ 这 13 条**一条都没接**（11 条有动画、2 条原版就是空引用）。
+    //  ⚠️ 期望值**一律从 `trait_effect_bindings.json` 现算**，⛔ 不从 `TraitFrames` 读回（那是自证）。
+    // ================================================================
+    static void CheckTraitStartEffects()
+    {
+        Debug.Log(P + "--- A7 · trait Start(0) 十三档 ---");
+
+        // ---- 期望值：从数据独立重算 ----
+        var asset = Resources.Load<TextAsset>(CardPresentation.TraitFrames.BindingsResourcePath);
+        CardPresentation.TraitFrames.BindingDoc dto = null;
+        if (asset != null)
+        {
+            try { dto = JsonUtility.FromJson<CardPresentation.TraitFrames.BindingDoc>(asset.text); }
+            catch (System.Exception ex) { Debug.LogWarning(P + "⑧ 读绑定表失败：" + ex.Message); }
+        }
+        Check(dto != null && dto.rows != null && dto.rows.Length > 0, "⑧（前提）：绑定表读得到");
+        if (dto == null || dto.rows == null) return;
+
+        var startRows = new List<CardPresentation.TraitFrames.BindingRow>();
+        for (int i = 0; i < dto.rows.Length; i++)
+            if (dto.rows[i] != null && dto.rows[i].triggerType == 0) startRows.Add(dto.rows[i]);
+
+        int wantWithPrefab = 0, wantEmpty = 0;
+        var playable = new List<CardPresentation.TraitFrames.BindingRow>();
+        var emptyOnes = new List<string>();
+        for (int i = 0; i < startRows.Count; i++)
+        {
+            if (string.IsNullOrEmpty(startRows[i].prefab)) { wantEmpty++; emptyOnes.Add(startRows[i].trait); }
+            else { wantWithPrefab++; playable.Add(startRows[i]); }
+        }
+
+        Check(startRows.Count == 13 && wantWithPrefab == 11 && wantEmpty == 2,
+              $"⑧ 前提：`TriggerType == 0 (Start)` 共 {startRows.Count} 条 —— 有动画 {wantWithPrefab} 条 /"
+            + $" 原版 `effectAnim` 空引用 {wantEmpty} 条（{string.Join(" / ", emptyOnes)}）"
+            + " —— 🧨 生成器漏读 / 把别的档混进 0 ⇒ 张数变、本条红");
+
+        Check(CardPresentation.TraitFrames.StartRowCount == startRows.Count
+              && CardPresentation.TraitFrames.StartTraitCount == wantWithPrefab,
+              $"⑧ `TraitFrames` 的 Start(0) 那本真的载进来了：{CardPresentation.TraitFrames.StartRowCount} 条 /"
+            + $" 能播的 {CardPresentation.TraitFrames.StartTraitCount} 个 trait"
+            + " —— 🧨 只要 `EnsureBindings` 没把 0 那档分出来，这里就是 0");
+
+        // ---- 逐条：解析出来的 prefab 必须 = 数据里那一条（⛔ 不按名字猜） ----
+        int mismatch = 0;
+        for (int i = 0; i < playable.Count; i++)
+        {
+            var got = CardPresentation.TraitFrames.StartPrefabsFor(playable[i].trait);
+            if (got.Length != 1 || !string.Equals(got[0], playable[i].prefab, System.StringComparison.Ordinal))
+            {
+                mismatch++;
+                Debug.LogWarning(P + $"⑧ `{playable[i].trait}` 的 Start(0) 解析成 "
+                                    + (got.Length == 1 ? "「" + got[0] + "」" : $"{got.Length} 件")
+                                    + $"，数据里是「{playable[i].prefab}」");
+            }
+        }
+        Check(mismatch == 0,
+              $"⑧ 逐条：数据里**每一条** Start(0) 的 prefab 都原样查得到（{playable.Count} 条，对不上 {mismatch} 条）"
+            + " —— 🧨 把 Start 那档按名字硬绑 / 拿 FromCode 那件的名字顶替 ⇒ 立刻对不上");
+
+        // ---- 空引用那两条：**留空 + 出声**，⛔ 不许猜替身 ----
+        int emptyBad = 0;
+        for (int i = 0; i < emptyOnes.Count; i++)
+        {
+            if (!CardPresentation.TraitFrames.StartIsEmptyByDesign(emptyOnes[i])
+                || CardPresentation.TraitFrames.StartPrefabsFor(emptyOnes[i]).Length != 0) emptyBad++;
+        }
+        Check(emptyBad == 0 && emptyOnes.Contains("firstStrike") && emptyOnes.Contains("piercing"),
+              "⑧ 灭自证：`firstStrike` / `piercing` 的 Start(0) **原版 `effectAnim` 是空引用** ⇒"
+            + " 我们**留空**（`StartIsEmptyByDesign` 为真、`StartPrefabsFor` 为空数组），只出声一次。"
+            + " 🧨 给它们猜一个替身（任何非空 prefab）⇒ 本条红");
+
+        // ---- 资产顺序：凡同时有 0 与 2 的 trait，0 都在 2 **前面**（我们的「先 Start 再 OnPlay」才等价） ----
+        int orderBad = 0, both = 0;
+        {
+            var first0 = new Dictionary<string, int>();
+            var first2 = new Dictionary<string, int>();
+            for (int i = 0; i < dto.rows.Length; i++)
+            {
+                var r = dto.rows[i];
+                if (r == null || string.IsNullOrEmpty(r.trait)) continue;
+                var k = r.trait.Trim().ToLowerInvariant();
+                if (r.triggerType == 0 && !first0.ContainsKey(k)) first0[k] = i;
+                if (r.triggerType == 2 && !first2.ContainsKey(k)) first2[k] = i;
+            }
+            foreach (var kv in first0)
+            {
+                int i2;
+                if (!first2.TryGetValue(kv.Key, out i2)) continue;
+                both++;
+                if (!(kv.Value < i2)) orderBad++;
+            }
+        }
+        Check(both > 0 && orderBad == 0,
+              $"⑧ 资产顺序：同时有 Start(0) 与 OnPlay(2) 的 {both} 个 trait 里，**0 都在 2 前面**"
+            + $"（倒序 {orderBad} 个）—— 「先播 Start、再处理 OnPlay」的等价前提；数据顺序一变这里先红");
+
+        // ---- 运行时：**每一条真的播了**（11 个 trait 逐个过 `DisplayStatus`） ----
+        var host = new GameObject("A7_Start0Probe");
+        try
+        {
+            var tf = CardPresentation.TraitFrames.Attach(host.transform);
+            Check(tf != null && tf.Anchor != null, "⑧（前提）：探针上挂出状态框那一套（含 `effectsAnchor`）");
+            if (tf == null) return;
+
+            int playedOk = 0;
+            var lastSeen = new Dictionary<string, string>();
+            for (int i = 0; i < playable.Count; i++)
+            {
+                var r = playable[i];
+                tf.DisplayStatus(r.trait);
+                lastSeen[r.trait] = tf.LastStartPrefab;
+                if (tf.StartPlayCountOf(r.trait) == 1
+                    && string.Equals(tf.LastStartPrefab, r.prefab, System.StringComparison.Ordinal)) playedOk++;
+                else
+                    Debug.LogWarning(P + $"⑧ `{r.trait}` 的 Start(0) 没播成：次数 {tf.StartPlayCountOf(r.trait)}、"
+                                        + $"最近一件「{tf.LastStartPrefab}」，期望「{r.prefab}」");
+            }
+            Check(playedOk == playable.Count,
+                  $"⑧ **确实播了**：11 个有 Start(0) 动画的 trait 逐个走 `DisplayStatus`，每个都真建出 player"
+                + $"（{playedOk}/{playable.Count}）—— 🧨 不接这一档 / 只在数据里登记不播 ⇒ 本条红");
+
+            Check(tf.StartPlayCount == playable.Count,
+                  $"⑧ 汇总：Start(0) 累计播了 {tf.StartPlayCount} 次（期望 {playable.Count}）"
+                + " —— 只计**真建出 player** 的（库里缺件时 `Play` 返回 null、不计）");
+
+            // 空引用那两条：**真的调一次** `DisplayStatus`，必须仍然一次都不播（留空 + 出声）
+            tf.DisplayStatus("firstStrike");
+            tf.DisplayStatus("piercing");
+            Check(tf.StartPlayCountOf("firstStrike") == 0 && tf.StartPlayCountOf("piercing") == 0,
+                  "⑧ 空引用那两条**调了 `DisplayStatus` 也一次都没播**（`firstStrike` / `piercing`）"
+                + " —— 🧨 用「随便找一件」兜底 ⇒ 本条红");
+
+            // ---- 灭自证 A：**不进字典、不去重** ⇒ 再调一次必须**再演一次**，而 OnPlay 那本**一件都不多** ----
+            int before = tf.StartPlayCountOf("armour");
+            int playBefore = tf.PlayCount;
+            tf.DisplayStatus("armour");
+            Check(tf.StartPlayCountOf("armour") == before + 1 && tf.PlayCount == playBefore,
+                  "⑧ **灭自证（不去重）**：`DisplayStatus(\"armour\")` 再调一次 ⇒ Start(0) **又播一次**"
+                + $"（{before} → {tf.StartPlayCountOf("armour")}），而 OnPlay 那本**一件都不多**"
+                + $"（{playBefore} → {tf.PlayCount}）。判据 `DisplayStatusAnim.c:86-119` 这一支没有任何守卫。"
+                + " 🧨 把 Start 塞进 `_play` 那本（最省事的错写法）⇒ 第二次被去重挡住、这条红");
+
+            // ---- 灭自证 B：**同一次调用里 0 与 2 两条都播**（`huntMark`），且是**两件不同**的 prefab ----
+            var huntStart = CardPresentation.TraitFrames.StartPrefabsFor("huntMark");
+            var huntPlay = CardPresentation.TraitFrames.PrefabFor("huntMark", false);
+            Check(tf.StartPlayCountOf("huntMark") == 1 && tf.HasPlayFrame("huntMark")
+                  && huntStart.Length == 1 && !string.IsNullOrEmpty(huntPlay)
+                  && !string.Equals(huntStart[0], huntPlay, System.StringComparison.Ordinal),
+                  "⑧ **灭自证（0 与 2 共存）**：`huntMark` 一次 `DisplayStatus` ⇒ Start(0)"
+                + $"「{(huntStart.Length == 1 ? huntStart[0] : "?")}」与 OnPlay(2)「{huntPlay}」**都播了**、"
+                + "而且是**两件不同**的 prefab（`HuntMark_StackEffect` / `HuntMark_IdleEffect`）"
+                + $" —— 实得 Start 次数 {tf.StartPlayCountOf("huntMark")}、OnPlay 框 {(tf.HasPlayFrame("huntMark") ? "在" : "不在")}。"
+                + " 🧨 写成「有 OnPlay 就走 OnPlay、否则才播 Start」⇒ 本条红");
+
+            // ---- 灭自证 C：**名字像、但不是同一条链**（`ferocity` 的 Start ≠ 它的 FromCode） ----
+            {
+                var fStart = CardPresentation.TraitFrames.StartPrefabsFor("ferocity");
+                var fFromCode = CardPresentation.TraitParticles.PrefabFor("ferocity");
+                Check(fStart.Length == 1 && fStart[0] == "FerocityEffect"
+                      && fFromCode == "Ferocity_RecallToDeck"
+                      && !string.Equals(fStart[0], fFromCode, System.StringComparison.Ordinal),
+                      "⑧ **灭自证（两条链别串）**：`ferocity` 的 **Start(0)** = `FerocityEffect`、"
+                    + $"**FromCode(5)** = `Ferocity_RecallToDeck`（实得「{fStart[0]}」/「{fFromCode}」）"
+                    + " —— 🧨 把名字最像的那件（`FerocityEffect`）塞进 FromCode、或把 FromCode 那件当 Start 播 ⇒ 红");
+
+                Check(CardPresentation.TraitFrames.StartPrefabsFor("stomp").Length == 0
+                      && !CardPresentation.TraitFrames.StartIsEmptyByDesign("stomp")
+                      && CardPresentation.TraitParticles.PrefabFor("stomp") == "Attack_Stomp",
+                      "⑧ 反向：`stomp` **没有** Start(0) 那一条（它只有 FromCode(5) = `Attack_Stomp`）"
+                    + " ⇒ 🧨 把 FromCode 那 10 条也当 Start 播（「反正都是 trait 特效」）⇒ 本条红");
+            }
+
+            // ---- 灭自证 D：`playIfWarlord` 这一档**不管**（判据：那门只在 DisplayTriggerAnim） ----
+            {
+                bool armourGate = true;
+                for (int i = 0; i < startRows.Count; i++)
+                    if (startRows[i].trait == "armour") armourGate = startRows[i].playIfWarlord;
+                Check(armourGate == false && lastSeen.ContainsKey("armour")
+                      && lastSeen["armour"] == "ArmourEffect",
+                      "⑧ **灭自证（`playIfWarlord` 不挡 Start）**：`armour` 那条的 `playIfWarlord = false`，"
+                    + "但 `DisplayStatusAnim` **没有**那道门（`:62-68` 只在 `DisplayTriggerAnim` 里）"
+                    + $" ⇒ 它照样播（实得「{(lastSeen.ContainsKey("armour") ? lastSeen["armour"] : "(没播)")}」）。"
+                    + " 🧨 给 `DisplayStatus` 也加一道 `BlocksForWarlord` ⇒ 本条红");
+            }
+        }
+        finally
+        {
+            // 探针必须在同一个批处理里自己收干净（粒子在批处理下不会自己走时间）
+            var players = host.GetComponentsInChildren<WarpforgeEffectPlayer>(true);
+            for (int i = 0; i < players.Length; i++) if (players[i] != null) players[i].Kill();
+            Object.DestroyImmediate(host);
+        }
+    }
+
 
     /// <summary>`⑤` 用：结果里有没有这个特效名（大小写逐字比 —— prefab 名是精确 join 键）。</summary>
     static bool HasVfx(CardPresentation.VfxMap.ResolvedVfx[] arr, string name)
@@ -1085,6 +1411,8 @@ public static class AnimFXCheck
     }
 
         CheckTraitAuthority();
+
+        CheckTraitStartEffects();          // 🆕 2026-10-23（A7）：`Start(0)` 那 13 条 trait effect
 
         Done();
     }

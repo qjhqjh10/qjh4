@@ -1,12 +1,14 @@
 {
  "_conventions": {
   "aggregate": "一张卡的值 = 它 `activeAbility` 全部 CardAnim 的时长**求和** —— 依据 `AbilityLogic__PlayAnim.c` 会把这一整串逐条 `AddCardAnim` 排队播完",
+  "boardCriteria": "`normalAbilityBoardCriteria` 的语义 = `BoardAnalysis__MeetsCriteria.c`（第一权威）；**满足 ⇒ 走普通 `activeAbility`，不满足 ⇒ 走 `alternativeAbility`**（`RawCardScript__GetActiveAbility.c`）。枚举值出处 `PlayersAffected.cs` / `CountOptions.cs` / `StatFilterOptions.cs`。逐卡翻译在 `conditional[*].criteria`。⚠️ 这个字段**不在** `cards_engine.json` 里（`cards_raw.json` 的 `full_raw` 才有）⇒ 引擎要接得先让 `gen_cards_engine.py` 把它带出来（卡牌线的文件）",
   "fallback": "表里没有这张卡 ⇒ 退回 1.0（= 本表中位数；**能力事件那条路会出声**，见 `AbilityAnimDurations`）",
   "formula": "AnimInfo.GetAnimDuration() = vfxDelayTime + timeAtStartPos + timeMoving + timeAtEndPos（不含 startDelay）",
-  "notComputed": "`animInfo.tweenAnim`（UnitTweenSO）的长度；`waitAnimToApplyEffect` 只如实带出不参与求和",
   "scope": "只取 `activeAbility.activeAbilityLogic[*].cardAnimations[*]`（原版「单位主动发动能力」那一条路）；`cardAbilities[*]` 归 `EvtKind.Trigger`/`Play`，不在本表",
   "secondChain": "`cards_engine.json` 的 `animTimes` 里 `tg == -1` 的行 = 同一份 `activeAbility.activeAbilityLogic[*].cardAnimations[*]`；那条链走的是 `guid_map_bundles.tsv`（与本表的 `card_vfx_by_card.json` 不同一条）⇒ 逐卡比一遍",
   "soAnimCount": "`uncovered[*].soActiveAnims` 数的是**非空 GUID** 的条数 —— 现读有 34 张卡的 `cardAnimations` 里是空引用（`m_AssetGUID: \"\"`），数 `len()` 会得出假数（2026-10-22 修）",
+  "tween": "`animInfo.tweenAnim`（UnitTweenSO）：`m_PathID → 名字（`anim_address_map.json` 的 tween 束）→ 长度（`Resources/UnitTweens.json`）`三跳都已落盘；长度 = BuildSequence 排布下的 DOTween 序列总长；**只在 `waitAnimation != 0` 时原版才等它**（`_ResolveAnim` 先等 tween、再等 GetAnimDuration）。卡片级汇总 = `activeWithTween`。⚠️ 运行时读的仍是 `active`（不含 tween）",
+  "waitAnimToApplyEffect": "只如实带出，不参与求和（原版它是「这一拍带不带等待标记」，不是时长）",
   "whoEmitsAbility": "`EvtKind.Ability` 在引擎里只有三条产生点：`RuleCore.UseAbility`（`Ability:` 正文，原版卡恒 false）· `UseOathAbility`（`Oath N:`）· `UseAlternative`（`Duty/Pray/Ferocity/Agenda`）。前两条要 `Board[slot]` ⇒ **战术卡不可能发**"
  },
  "_crossCheck": {
@@ -17,20 +19,27 @@
   "onlyInAnimTimes": [],
   "onlyInTable": []
  },
- "_headline": "🔴 `A1767`：`EventTiming.DurationOf(EvtKind.Ability)` 的那条常数 **1.0** 换成**逐卡真值**。判据 = 该卡 `activeAbility` 各 `cardAnimations` 的 `AnimInfo.GetAnimDuration()` 之和（`vfxDelayTime + timeAtStartPos + timeMoving + timeAtEndPos`；原版 `AnimInfo__GetAnimDuration.c`）。覆盖 **93 张卡 / 160 条 CardAnim**，min 0.2 / 中位 **1.0** / max 4.0。**第二条链交叉校验**（`cards_engine.json` 的 `animTimes`，`tg == -1` 行；那是一条独立的 GUID→CardAnim 链）：93 张卡，与本表**逐卡一致 93**、不一致 0 · 只在 animTimes 有 0 · 只在本表有 0（**两链全同**）。**「会发 Ability 事件」那一族 = 86 张**（`type ∈ unit/hero` 且卡面有 `Duty/Pray/Ferocity/Agenda` 正文或 `Oath N:` —— 引擎那三条产生点的代理判据），其中 **3 张没有真值**（逐张见 `uncovered`，理由逐条写明）。**同一张卡、不同棋盘状态 = 不同时长**的那一族：**1 张**（见 `conditional`）—— 原版 `RawCardScript.GetActiveAbility` 在 `activeAbility` / `alternativeAbility` 之间按 `normalAbilityBoardCriteria` **二选一**；本表 `active` 只记**普通那一支**。⚠️ **三处如实标注**：① 那 3 张没有真值 —— **不是快照年代**（2026-10-18 起真值 = 当前 build 的卡 SO），而是它们的卡 SO `activeAbility` 里**一条非空 CardAnim 引用都没有**（`m_AssetGUID` 全空）⇒ 原版这条路上不放动画、「该等 0 还是等一拍」判据不足（铁律 11 例外①）；② 原版 `_ResolveAnim` 里 tween 那一段（`animInfo.tweenAnim != null && waitAnimation != 0` 时 `WaitForCompletion(BuildSequence)`）**本表没算**（`UnitTweenSO` 的长度本地没接）；③ `cardAbilities[*]`（`ThisCardPlayed` / `Slay` / … 那一族）是**别的时机**播的，**不进这张表**（留在 `cards[*].otherAbilityAnims` 备查）。",
+ "_headline": "🔴 `A1767`：`EventTiming.DurationOf(EvtKind.Ability)` 的那条常数 **1.0** 换成**逐卡真值**。判据 = 该卡 `activeAbility` 各 `cardAnimations` 的 `AnimInfo.GetAnimDuration()` 之和（`vfxDelayTime + timeAtStartPos + timeMoving + timeAtEndPos`；原版 `AnimInfo__GetAnimDuration.c`）。覆盖 **93 张卡 / 160 条 CardAnim**，min 0.2 / 中位 **1.0** / max 4.0。**第二条链交叉校验**（`cards_engine.json` 的 `animTimes`，`tg == -1` 行；那是一条独立的 GUID→CardAnim 链）：93 张卡，与本表**逐卡一致 93**、不一致 0 · 只在 animTimes 有 0 · 只在本表有 0（**两链全同**）。**「会发 Ability 事件」那一族 = 86 张**（`type ∈ unit/hero` 且卡面有 `Duty/Pray/Ferocity/Agenda` 正文或 `Oath N:` —— 引擎那三条产生点的代理判据），其中 **3 张没有真值**（逐张见 `uncovered`，理由逐条写明）。**同一张卡、不同棋盘状态 = 不同时长**的那一族：**1 张**（见 `conditional`）—— 原版 `RawCardScript.GetActiveAbility` 在 `activeAbility` / `alternativeAbility` 之间按 `normalAbilityBoardCriteria` **二选一**；本表 `active` 只记**普通那一支**。⚠️ **四处如实标注**：① 那 3 张没有真值 —— **不是快照年代**（2026-10-18 起真值 = 当前 build 的卡 SO），而是它们的卡 SO `activeAbility` 里**一条非空 CardAnim 引用都没有**（`m_AssetGUID` 全空）⇒ 原版这条路上不放动画、「该等 0 还是等一拍」判据不足（铁律 11 例外①）；② 原版 `_ResolveAnim` 里 tween 那一段（`animInfo.tweenAnim != null && waitAnimation != 0` 时 先 `WaitForCompletion(BuildSequence)`、**再** `WaitForSeconds(GetAnimDuration())`）—— 🔴 **2026-10-23（A11 · R18）已解**：67 条 CardAnim 带 tweenAnim，PathID→名字→长度**三跳全落盘**（`cards[*].*Anims[*].tweenAnim`；名字来自 `anim_address_map.json` 的 `bundle_tweenandshakes_assets_all`，长度按 `UnitTweenSO__BuildSequence.c` + `TweenInfoAnimationBase__GetTween.c` 的排布算）；解不出 0 条。真正会被等的（`waitAnimation != 0`）**4 条，全部落在 `otherAbilityAnims`（触发链）** ⇒ **本表 `active` 受影响的卡 = 0 张**，`activeWithTween` 与 `active` 现读逐卡相等。⚠️ **运行时也没接**（`Core/AbilityAnimDurations.cs` 读的仍是 `active`）；要接由卡牌线定（会改对局节奏）；③ `cardAbilities[*]`（`ThisCardPlayed` / `Slay` / … 那一族）是**别的时机**播的，**不进这张表**（留在 `cards[*].otherAbilityAnims` 备查）；④ `card_vfx_by_card.json` 的 `ability` 桶里有 **142 条**（`src == \"cardtrait-so\"` 的关键词演出行：`FlyingTraitPlay` / `StealthTraitPlay` …）**没有 `abilitySlot`** ⇒ 不是 `activeAbility` 链上的 CardAnim，单列在 `notAbilityRows`，⛔ 既不算时长、也不算「映射缺口」（2026-10-23 修 `新账-72 ④`）。",
  "_sources": {
+  "activeAbilityChoice": "d:/2/tools/decomp_full/RawCardScript__GetActiveAbility.c",
+  "boardCriteria": "d:/2/tools/decomp_full/BoardAnalysis__MeetsCriteria.c",
   "cardAnimDumps": "d:/2/新解包资源/assets_full/bundle_*cardanims*/MonoBehaviour/*.json",
   "cardSoTruth": "d:/4/Unity/资料/普查产出_1018/allcards_1350/cards_raw.json",
   "cardVfxByCard": "d:/4/Unity/数据/游戏数据/card_vfx_by_card.json",
   "cardsEngine": "d:/4/Unity/MyGame/Assets/RuleEngine/Resources/cards_engine.json",
   "duration": "d:/2/tools/decomp_full/AnimInfo__GetAnimDuration.c",
   "resolver": "d:/2/tools/decomp_full/BattleManager._ResolveAnim_d__466__MoveNext.c",
-  "splitter": "d:/2/tools/decomp_full/AbilityLogic__PlayAnim.c"
+  "splitter": "d:/2/tools/decomp_full/AbilityLogic__PlayAnim.c",
+  "tweenCommon": "d:/2/tools/decomp_full/TweenInfoAnimationBase__GetTween.c",
+  "tweenPathIds": "d:/4/Unity/数据/索引/anim_address_map.json",
+  "tweenSequencer": "d:/2/tools/decomp_full/UnitTweenSO__BuildSequence.c",
+  "unitTweens": "d:/4/Unity/MyGame/Assets/CardPresentation/Resources/UnitTweens.json"
  },
  "cards": [
   {
    "active": null,
    "activeAnims": [],
+   "activeWithTween": null,
    "alternative": null,
    "id": "1dfc9bc738bfc4f4d93d48f165aee510",
    "name": "Dark Pact of Resilience",
@@ -49,6 +58,7 @@
   {
    "active": null,
    "activeAnims": [],
+   "activeWithTween": null,
    "alternative": null,
    "id": "30007162b68992e41a422f2061705b65",
    "name": "Lord of the Storm",
@@ -67,6 +77,7 @@
   {
    "active": null,
    "activeAnims": [],
+   "activeWithTween": null,
    "alternative": null,
    "id": "33eabec155f628440a426a4ba480ec24",
    "name": "Wrath of Khaine",
@@ -103,6 +114,7 @@
   {
    "active": null,
    "activeAnims": [],
+   "activeWithTween": null,
    "alternative": null,
    "id": "3ebb159036778d14ebd1c48451aa6ca0",
    "name": "Greatest Warboss",
@@ -139,6 +151,7 @@
   {
    "active": null,
    "activeAnims": [],
+   "activeWithTween": null,
    "alternative": null,
    "id": "468db99b4b10d0745bab346df37d3fb2",
    "name": "Feeding Frenzy",
@@ -150,8 +163,13 @@
      "slot": "cardAbilities[1].abilityLogic[0]",
      "trigger": "OtherUnitDeath",
      "tweenAnim": {
+      "m_FileID": 2,
       "m_PathID": 4970856932857792203,
-      "note": "UnitTweenSO —— 它自己的 waitAnimation/length 本地**没算**（见产物 `_headline`）"
+      "name": "Subtle Shake",
+      "resolved": true,
+      "seconds": 4.4,
+      "steps": 2,
+      "waitAnimation": 1
      },
      "waitAnimToApplyEffect": 0
     }
@@ -160,6 +178,7 @@
   {
    "active": null,
    "activeAnims": [],
+   "activeWithTween": null,
    "alternative": null,
    "id": "4a48457c24877f345be2e96f867c1e94",
    "name": "Dark Pact of Fate",
@@ -178,6 +197,7 @@
   {
    "active": null,
    "activeAnims": [],
+   "activeWithTween": null,
    "alternative": null,
    "id": "65cfec7d2bc719040b3b4b88622931b2",
    "name": "Lead the Righteous",
@@ -196,6 +216,7 @@
   {
    "active": null,
    "activeAnims": [],
+   "activeWithTween": null,
    "alternative": null,
    "id": "68909cf02f472734ea391665e0d28e15",
    "name": "Jammed Communications",
@@ -223,6 +244,7 @@
   {
    "active": null,
    "activeAnims": [],
+   "activeWithTween": null,
    "alternative": null,
    "id": "7c666a04c1b9e8b4e9a96247e9fe115a",
    "name": "Cult Propaganda",
@@ -250,6 +272,7 @@
   {
    "active": null,
    "activeAnims": [],
+   "activeWithTween": null,
    "alternative": null,
    "id": "851f73daf747eb642934a16429b391db",
    "name": "Storm of Silence",
@@ -277,6 +300,7 @@
   {
    "active": null,
    "activeAnims": [],
+   "activeWithTween": null,
    "alternative": null,
    "id": "8901e35c5de30eb48804da6651cfb132",
    "name": "Fury of the Righteous",
@@ -297,8 +321,13 @@
      "slot": "cardAbilities[1].abilityLogic[0]",
      "trigger": "UseFaith",
      "tweenAnim": {
+      "m_FileID": 2,
       "m_PathID": 5096351763409750592,
-      "note": "UnitTweenSO —— 它自己的 waitAnimation/length 本地**没算**（见产物 `_headline`）"
+      "name": "Impact Light Tween",
+      "resolved": true,
+      "seconds": 1.25,
+      "steps": 4,
+      "waitAnimation": 0
      },
      "waitAnimToApplyEffect": 1
     }
@@ -307,6 +336,7 @@
   {
    "active": null,
    "activeAnims": [],
+   "activeWithTween": null,
    "alternative": null,
    "id": "9a2cadc64c80a6b42912441105bb1cee",
    "name": "Dark Pact of Blood",
@@ -344,6 +374,7 @@
      "waitAnimToApplyEffect": 0
     }
    ],
+   "activeWithTween": 0.5,
    "alternative": null,
    "id": "AM1",
    "name": "Lord Solar Leontus",
@@ -380,6 +411,7 @@
      "waitAnimToApplyEffect": 1
     }
    ],
+   "activeWithTween": 1.5,
    "alternative": null,
    "id": "AM10",
    "name": "Cadian Standard Bearer",
@@ -407,6 +439,7 @@
      "waitAnimToApplyEffect": 1
     }
    ],
+   "activeWithTween": 0.2,
    "alternative": null,
    "id": "AM11",
    "name": "Shock Trooper Sgt.",
@@ -434,6 +467,7 @@
      "waitAnimToApplyEffect": 1
     }
    ],
+   "activeWithTween": 1.2,
    "alternative": null,
    "id": "AM12",
    "name": "Flamer Trooper",
@@ -442,6 +476,7 @@
   {
    "active": null,
    "activeAnims": [],
+   "activeWithTween": null,
    "alternative": null,
    "id": "AM14",
    "name": "Autocannon Squad",
@@ -479,6 +514,7 @@
      "waitAnimToApplyEffect": 1
     }
    ],
+   "activeWithTween": 1.0,
    "alternative": null,
    "id": "AM16",
    "name": "Scout Sentinel",
@@ -487,6 +523,7 @@
   {
    "active": null,
    "activeAnims": [],
+   "activeWithTween": null,
    "alternative": null,
    "id": "AM17",
    "name": "Commissar",
@@ -514,6 +551,7 @@
   {
    "active": null,
    "activeAnims": [],
+   "activeWithTween": null,
    "alternative": null,
    "id": "AM18",
    "name": "Master of Ordnance",
@@ -560,6 +598,7 @@
      "waitAnimToApplyEffect": 1
     }
    ],
+   "activeWithTween": 0.2,
    "alternative": null,
    "id": "AM2",
    "name": "Ursula Creed",
@@ -587,6 +626,7 @@
      "waitAnimToApplyEffect": 1
     }
    ],
+   "activeWithTween": 0.2,
    "alternative": null,
    "id": "AM21",
    "name": "Tech-Priest Enginseer",
@@ -621,12 +661,18 @@
      "slot": "activeAbility.activeAbilityLogic[0]",
      "trigger": "主动技能（`activeAbility`，不走 `CardAbility.trigger` 那套枚举）",
      "tweenAnim": {
+      "m_FileID": 2,
       "m_PathID": 5657933893940981911,
-      "note": "UnitTweenSO —— 它自己的 waitAnimation/length 本地**没算**（见产物 `_headline`）"
+      "name": "Impact Lightning",
+      "resolved": true,
+      "seconds": 2.2,
+      "steps": 1,
+      "waitAnimation": 0
      },
      "waitAnimToApplyEffect": 1
     }
    ],
+   "activeWithTween": 0.65,
    "alternative": null,
    "id": "AM22",
    "name": "Primaris Psyker",
@@ -651,12 +697,18 @@
      "slot": "activeAbility.activeAbilityLogic[0]",
      "trigger": "主动技能（`activeAbility`，不走 `CardAbility.trigger` 那套枚举）",
      "tweenAnim": {
+      "m_FileID": 2,
       "m_PathID": -8275538427997360676,
-      "note": "UnitTweenSO —— 它自己的 waitAnimation/length 本地**没算**（见产物 `_headline`）"
+      "name": "Recoil Normal Tween",
+      "resolved": true,
+      "seconds": 0.6,
+      "steps": 1,
+      "waitAnimation": 0
      },
      "waitAnimToApplyEffect": 1
     }
    ],
+   "activeWithTween": 0.75,
    "alternative": null,
    "id": "AM23",
    "name": "Bombast Field Gun",
@@ -665,6 +717,7 @@
   {
    "active": null,
    "activeAnims": [],
+   "activeWithTween": null,
    "alternative": null,
    "id": "AM25",
    "name": "Armoured Sentinel",
@@ -692,6 +745,7 @@
   {
    "active": null,
    "activeAnims": [],
+   "activeWithTween": null,
    "alternative": null,
    "id": "AM26",
    "name": "Taurox",
@@ -738,6 +792,7 @@
      "waitAnimToApplyEffect": 1
     }
    ],
+   "activeWithTween": 0.4,
    "alternative": null,
    "id": "AM28",
    "name": "Chimera",
@@ -746,6 +801,7 @@
   {
    "active": null,
    "activeAnims": [],
+   "activeWithTween": null,
    "alternative": null,
    "id": "AM29",
    "name": "Hydra",
@@ -792,6 +848,7 @@
      "waitAnimToApplyEffect": 0
     }
    ],
+   "activeWithTween": 1.5,
    "alternative": null,
    "id": "AM3",
    "name": "Commissar Denkler",
@@ -828,6 +885,7 @@
      "waitAnimToApplyEffect": 1
     }
    ],
+   "activeWithTween": 2.0,
    "alternative": null,
    "id": "AM30",
    "name": "Manticore",
@@ -836,6 +894,7 @@
   {
    "active": null,
    "activeAnims": [],
+   "activeWithTween": null,
    "alternative": null,
    "id": "AM31",
    "name": "Cadian Castellan",
@@ -854,6 +913,7 @@
   {
    "active": null,
    "activeAnims": [],
+   "activeWithTween": null,
    "alternative": null,
    "id": "AM32",
    "name": "Leman Russ Tank",
@@ -865,8 +925,13 @@
      "slot": "cardAbilities[0].abilityLogic[0]",
      "trigger": "Regiment",
      "tweenAnim": {
+      "m_FileID": 2,
       "m_PathID": 3203395777126525160,
-      "note": "UnitTweenSO —— 它自己的 waitAnimation/length 本地**没算**（见产物 `_headline`）"
+      "name": "Recoil Heavy Tween",
+      "resolved": true,
+      "seconds": 1.1,
+      "steps": 3,
+      "waitAnimation": 0
      },
      "waitAnimToApplyEffect": 1
     }
@@ -891,12 +956,18 @@
      "slot": "activeAbility.activeAbilityLogic[0]",
      "trigger": "主动技能（`activeAbility`，不走 `CardAbility.trigger` 那套枚举）",
      "tweenAnim": {
+      "m_FileID": 2,
       "m_PathID": -8275538427997360676,
-      "note": "UnitTweenSO —— 它自己的 waitAnimation/length 本地**没算**（见产物 `_headline`）"
+      "name": "Recoil Normal Tween",
+      "resolved": true,
+      "seconds": 0.6,
+      "steps": 1,
+      "waitAnimation": 0
      },
      "waitAnimToApplyEffect": 1
     }
    ],
+   "activeWithTween": 1.25,
    "alternative": null,
    "id": "AM34",
    "name": "Valkyrie",
@@ -933,6 +1004,7 @@
      "waitAnimToApplyEffect": 1
     }
    ],
+   "activeWithTween": 2.0,
    "alternative": null,
    "id": "AM35",
    "name": "Leman Russ Vanquisher",
@@ -969,6 +1041,7 @@
      "waitAnimToApplyEffect": 1
     }
    ],
+   "activeWithTween": 1.2,
    "alternative": null,
    "id": "AM36",
    "name": "Maelon Dhrost",
@@ -977,6 +1050,7 @@
   {
    "active": null,
    "activeAnims": [],
+   "activeWithTween": null,
    "alternative": null,
    "id": "AM37",
    "name": "Rogal Dorn Tank",
@@ -1020,12 +1094,18 @@
      "slot": "activeAbility.activeAbilityLogic[0]",
      "trigger": "主动技能（`activeAbility`，不走 `CardAbility.trigger` 那套枚举）",
      "tweenAnim": {
+      "m_FileID": 2,
       "m_PathID": 3203395777126525160,
-      "note": "UnitTweenSO —— 它自己的 waitAnimation/length 本地**没算**（见产物 `_headline`）"
+      "name": "Recoil Heavy Tween",
+      "resolved": true,
+      "seconds": 1.1,
+      "steps": 3,
+      "waitAnimation": 0
      },
      "waitAnimToApplyEffect": 1
     }
    ],
+   "activeWithTween": 0.75,
    "alternative": null,
    "id": "AM38",
    "name": "Baneblade Tank",
@@ -1050,12 +1130,18 @@
      "slot": "activeAbility.activeAbilityLogic[0]",
      "trigger": "主动技能（`activeAbility`，不走 `CardAbility.trigger` 那套枚举）",
      "tweenAnim": {
+      "m_FileID": 2,
       "m_PathID": -6655598350004933657,
-      "note": "UnitTweenSO —— 它自己的 waitAnimation/length 本地**没算**（见产物 `_headline`）"
+      "name": "Recoil Normal 0,2s Tween",
+      "resolved": true,
+      "seconds": 0.4,
+      "steps": 1,
+      "waitAnimation": 0
      },
      "waitAnimToApplyEffect": 1
     }
    ],
+   "activeWithTween": 0.4,
    "alternative": null,
    "id": "AM5",
    "name": "Shock Trooper",
@@ -1064,6 +1150,7 @@
   {
    "active": null,
    "activeAnims": [],
+   "activeWithTween": null,
    "alternative": null,
    "id": "AM54",
    "name": "At All Costs",
@@ -1091,6 +1178,7 @@
   {
    "active": null,
    "activeAnims": [],
+   "activeWithTween": null,
    "alternative": null,
    "id": "AM56",
    "name": "Vengeance for Cadia",
@@ -1109,6 +1197,7 @@
   {
    "active": null,
    "activeAnims": [],
+   "activeWithTween": null,
    "alternative": null,
    "id": "AM58",
    "name": "Siege Warfare",
@@ -1137,6 +1226,7 @@
      "waitAnimToApplyEffect": 1
     }
    ],
+   "activeWithTween": 0.8,
    "alternative": null,
    "id": "AM59",
    "name": "Astropath",
@@ -1145,6 +1235,7 @@
   {
    "active": null,
    "activeAnims": [],
+   "activeWithTween": null,
    "alternative": null,
    "id": "AM6",
    "name": "Ratling",
@@ -1165,8 +1256,13 @@
      "slot": "cardAbilities[0].abilityLogic[0]",
      "trigger": "Regiment",
      "tweenAnim": {
+      "m_FileID": 2,
       "m_PathID": -8275538427997360676,
-      "note": "UnitTweenSO —— 它自己的 waitAnimation/length 本地**没算**（见产物 `_headline`）"
+      "name": "Recoil Normal Tween",
+      "resolved": true,
+      "seconds": 0.6,
+      "steps": 1,
+      "waitAnimation": 0
      },
      "waitAnimToApplyEffect": 1
     }
@@ -1191,12 +1287,18 @@
      "slot": "activeAbility.activeAbilityLogic[0]",
      "trigger": "主动技能（`activeAbility`，不走 `CardAbility.trigger` 那套枚举）",
      "tweenAnim": {
+      "m_FileID": 2,
       "m_PathID": 5096351763409750592,
-      "note": "UnitTweenSO —— 它自己的 waitAnimation/length 本地**没算**（见产物 `_headline`）"
+      "name": "Impact Light Tween",
+      "resolved": true,
+      "seconds": 1.25,
+      "steps": 4,
+      "waitAnimation": 0
      },
      "waitAnimToApplyEffect": 1
     }
    ],
+   "activeWithTween": 0.2,
    "alternative": null,
    "id": "AM66",
    "name": "Hektor Thenmann",
@@ -1205,6 +1307,7 @@
   {
    "active": null,
    "activeAnims": [],
+   "activeWithTween": null,
    "alternative": null,
    "id": "AM67",
    "name": "Aquilon Servo-Sentry",
@@ -1216,8 +1319,13 @@
      "slot": "cardAbilities[0].abilityLogic[0]",
      "trigger": "TurnEnd",
      "tweenAnim": {
+      "m_FileID": 2,
       "m_PathID": -6655598350004933657,
-      "note": "UnitTweenSO —— 它自己的 waitAnimation/length 本地**没算**（见产物 `_headline`）"
+      "name": "Recoil Normal 0,2s Tween",
+      "resolved": true,
+      "seconds": 0.4,
+      "steps": 1,
+      "waitAnimation": 0
      },
      "waitAnimToApplyEffect": 1
     }
@@ -1233,12 +1341,18 @@
      "slot": "activeAbility.activeAbilityLogic[0]",
      "trigger": "主动技能（`activeAbility`，不走 `CardAbility.trigger` 那套枚举）",
      "tweenAnim": {
+      "m_FileID": 2,
       "m_PathID": -6655598350004933657,
-      "note": "UnitTweenSO —— 它自己的 waitAnimation/length 本地**没算**（见产物 `_headline`）"
+      "name": "Recoil Normal 0,2s Tween",
+      "resolved": true,
+      "seconds": 0.4,
+      "steps": 1,
+      "waitAnimation": 0
      },
      "waitAnimToApplyEffect": 1
     }
    ],
+   "activeWithTween": 0.6,
    "alternative": null,
    "id": "AM68",
    "name": "Tempestus Scion",
@@ -1266,6 +1380,7 @@
      "waitAnimToApplyEffect": 1
     }
    ],
+   "activeWithTween": 0.4,
    "alternative": null,
    "id": "AM69",
    "name": "Tempestor Sergeant",
@@ -1293,6 +1408,7 @@
   {
    "active": null,
    "activeAnims": [],
+   "activeWithTween": null,
    "alternative": null,
    "id": "AM7",
    "name": "Vox Operator",
@@ -1330,6 +1446,7 @@
      "waitAnimToApplyEffect": 1
     }
    ],
+   "activeWithTween": 0.2,
    "alternative": null,
    "id": "AM70",
    "name": "Scion Medic",
@@ -1357,6 +1474,7 @@
      "waitAnimToApplyEffect": 1
     }
    ],
+   "activeWithTween": 0.4,
    "alternative": null,
    "id": "AM73",
    "name": "Taurox Prime",
@@ -1365,6 +1483,7 @@
   {
    "active": null,
    "activeAnims": [],
+   "activeWithTween": null,
    "alternative": null,
    "id": "AM8",
    "name": "Cadian Medic",
@@ -1383,6 +1502,7 @@
   {
    "active": null,
    "activeAnims": [],
+   "activeWithTween": null,
    "alternative": null,
    "id": "AM9",
    "name": "Kasrkin",
@@ -1394,8 +1514,13 @@
      "slot": "cardAbilities[0].abilityLogic[0]",
      "trigger": "Regiment",
      "tweenAnim": {
+      "m_FileID": 2,
       "m_PathID": -6655598350004933657,
-      "note": "UnitTweenSO —— 它自己的 waitAnimation/length 本地**没算**（见产物 `_headline`）"
+      "name": "Recoil Normal 0,2s Tween",
+      "resolved": true,
+      "seconds": 0.4,
+      "steps": 1,
+      "waitAnimation": 0
      },
      "waitAnimToApplyEffect": 1
     }
@@ -1404,6 +1529,7 @@
   {
    "active": null,
    "activeAnims": [],
+   "activeWithTween": null,
    "alternative": null,
    "id": "ASH12",
    "name": "Swooping Hawk",
@@ -1440,6 +1566,7 @@
   {
    "active": null,
    "activeAnims": [],
+   "activeWithTween": null,
    "alternative": null,
    "id": "ASH14",
    "name": "Wraithblade",
@@ -1476,6 +1603,7 @@
   {
    "active": null,
    "activeAnims": [],
+   "activeWithTween": null,
    "alternative": null,
    "id": "ASH17",
    "name": "Spiritseer",
@@ -1512,6 +1640,7 @@
   {
    "active": null,
    "activeAnims": [],
+   "activeWithTween": null,
    "alternative": null,
    "id": "ASH20",
    "name": "Wraithguard",
@@ -1548,6 +1677,7 @@
   {
    "active": null,
    "activeAnims": [],
+   "activeWithTween": null,
    "alternative": null,
    "id": "ASH24",
    "name": "Vengeful Wraithblade",
@@ -1584,6 +1714,7 @@
   {
    "active": null,
    "activeAnims": [],
+   "activeWithTween": null,
    "alternative": null,
    "id": "ASH25",
    "name": "Warlock Skyrunner",
@@ -1595,8 +1726,13 @@
      "slot": "cardAbilities[0].abilityLogic[0]",
      "trigger": "OnCollectSpiritStone",
      "tweenAnim": {
+      "m_FileID": 2,
       "m_PathID": -8275538427997360676,
-      "note": "UnitTweenSO —— 它自己的 waitAnimation/length 本地**没算**（见产物 `_headline`）"
+      "name": "Recoil Normal Tween",
+      "resolved": true,
+      "seconds": 0.6,
+      "steps": 1,
+      "waitAnimation": 0
      },
      "waitAnimToApplyEffect": 1
     }
@@ -1605,6 +1741,7 @@
   {
    "active": null,
    "activeAnims": [],
+   "activeWithTween": null,
    "alternative": null,
    "id": "ASH28",
    "name": "Spiritseer Qelenaris",
@@ -1623,6 +1760,7 @@
   {
    "active": null,
    "activeAnims": [],
+   "activeWithTween": null,
    "alternative": null,
    "id": "ASH32",
    "name": "Wraithlord",
@@ -1659,6 +1797,7 @@
   {
    "active": null,
    "activeAnims": [],
+   "activeWithTween": null,
    "alternative": null,
    "id": "ASH33",
    "name": "Hemlock Wraithfighter",
@@ -1695,6 +1834,7 @@
   {
    "active": null,
    "activeAnims": [],
+   "activeWithTween": null,
    "alternative": null,
    "id": "ASH34",
    "name": "Avatar of Khaine",
@@ -1731,6 +1871,7 @@
   {
    "active": null,
    "activeAnims": [],
+   "activeWithTween": null,
    "alternative": null,
    "id": "ASH35",
    "name": "Wraithknight",
@@ -1758,6 +1899,7 @@
   {
    "active": null,
    "activeAnims": [],
+   "activeWithTween": null,
    "alternative": null,
    "id": "ASH38",
    "name": "Will of Asuryan",
@@ -1785,6 +1927,7 @@
   {
    "active": null,
    "activeAnims": [],
+   "activeWithTween": null,
    "alternative": null,
    "id": "ASH41",
    "name": "Webway Gate",
@@ -1812,6 +1955,7 @@
   {
    "active": null,
    "activeAnims": [],
+   "activeWithTween": null,
    "alternative": null,
    "id": "ASH48",
    "name": "Cosmic Serpent",
@@ -1830,6 +1974,7 @@
   {
    "active": null,
    "activeAnims": [],
+   "activeWithTween": null,
    "alternative": null,
    "id": "ASH49",
    "name": "Eldritch Storm",
@@ -1859,8 +2004,13 @@
      "slot": "cardAbilities[1].abilityLogic[0]",
      "trigger": "UseSpiritStone",
      "tweenAnim": {
+      "m_FileID": 2,
       "m_PathID": 5657933893940981911,
-      "note": "UnitTweenSO —— 它自己的 waitAnimation/length 本地**没算**（见产物 `_headline`）"
+      "name": "Impact Lightning",
+      "resolved": true,
+      "seconds": 2.2,
+      "steps": 1,
+      "waitAnimation": 0
      },
      "waitAnimToApplyEffect": 1
     }
@@ -1869,6 +2019,7 @@
   {
    "active": null,
    "activeAnims": [],
+   "activeWithTween": null,
    "alternative": null,
    "id": "ASH52",
    "name": "Hosts of the Dead",
@@ -1887,6 +2038,7 @@
   {
    "active": null,
    "activeAnims": [],
+   "activeWithTween": null,
    "alternative": null,
    "id": "ASH53",
    "name": "Reclaim the Stars",
@@ -1914,6 +2066,7 @@
   {
    "active": null,
    "activeAnims": [],
+   "activeWithTween": null,
    "alternative": null,
    "id": "ASH54",
    "name": "Wailing Doom",
@@ -1932,6 +2085,7 @@
   {
    "active": null,
    "activeAnims": [],
+   "activeWithTween": null,
    "alternative": null,
    "id": "ASH64",
    "name": "Devoted of Khaine",
@@ -1968,6 +2122,7 @@
   {
    "active": null,
    "activeAnims": [],
+   "activeWithTween": null,
    "alternative": null,
    "id": "ASH65",
    "name": "Shining Spear",
@@ -2004,6 +2159,7 @@
   {
    "active": null,
    "activeAnims": [],
+   "activeWithTween": null,
    "alternative": null,
    "id": "ASH66",
    "name": "Shining Spear Exarch",
@@ -2022,6 +2178,7 @@
   {
    "active": null,
    "activeAnims": [],
+   "activeWithTween": null,
    "alternative": null,
    "id": "ASH67",
    "name": "Hornet",
@@ -2058,6 +2215,7 @@
   {
    "active": null,
    "activeAnims": [],
+   "activeWithTween": null,
    "alternative": null,
    "id": "ASH73",
    "name": "Whirling Death",
@@ -2076,6 +2234,7 @@
   {
    "active": null,
    "activeAnims": [],
+   "activeWithTween": null,
    "alternative": null,
    "id": "ASH74",
    "name": "Jain Zar",
@@ -2094,6 +2253,7 @@
   {
    "active": null,
    "activeAnims": [],
+   "activeWithTween": null,
    "alternative": null,
    "id": "ASH77",
    "name": "Death Spinner Warp Spider",
@@ -2130,6 +2290,7 @@
   {
    "active": null,
    "activeAnims": [],
+   "activeWithTween": null,
    "alternative": null,
    "id": "ASH78",
    "name": "Warp Spider Exarch",
@@ -2157,6 +2318,7 @@
   {
    "active": null,
    "activeAnims": [],
+   "activeWithTween": null,
    "alternative": null,
    "id": "ASH79",
    "name": "Orian Laratharjos",
@@ -2175,6 +2337,7 @@
   {
    "active": null,
    "activeAnims": [],
+   "activeWithTween": null,
    "alternative": null,
    "id": "ASH8",
    "name": "Warlock",
@@ -2211,6 +2374,7 @@
   {
    "active": null,
    "activeAnims": [],
+   "activeWithTween": null,
    "alternative": null,
    "id": "ASH80",
    "name": "Farseer",
@@ -2247,6 +2411,7 @@
   {
    "active": null,
    "activeAnims": [],
+   "activeWithTween": null,
    "alternative": null,
    "id": "ASH81",
    "name": "Bright Lance Vyper",
@@ -2265,6 +2430,7 @@
   {
    "active": null,
    "activeAnims": [],
+   "activeWithTween": null,
    "alternative": null,
    "id": "ASH82",
    "name": "Farseer Skyrunner",
@@ -2301,6 +2467,7 @@
   {
    "active": null,
    "activeAnims": [],
+   "activeWithTween": null,
    "alternative": null,
    "id": "ASH83",
    "name": "Autarch",
@@ -2337,6 +2504,7 @@
   {
    "active": null,
    "activeAnims": [],
+   "activeWithTween": null,
    "alternative": null,
    "id": "ASH84",
    "name": "Ahnakh-Yth Shrine",
@@ -2364,6 +2532,7 @@
   {
    "active": null,
    "activeAnims": [],
+   "activeWithTween": null,
    "alternative": null,
    "id": "ASH86",
    "name": "Forewarned",
@@ -2400,6 +2569,7 @@
   {
    "active": null,
    "activeAnims": [],
+   "activeWithTween": null,
    "alternative": null,
    "id": "BL12",
    "name": "Aspiring Champion",
@@ -2418,6 +2588,7 @@
   {
    "active": null,
    "activeAnims": [],
+   "activeWithTween": null,
    "alternative": null,
    "id": "BL28",
    "name": "Helbrute",
@@ -2429,8 +2600,13 @@
      "slot": "cardAbilities[0].abilityLogic[0]",
      "trigger": "UnitReceivesMarkOfChaos",
      "tweenAnim": {
+      "m_FileID": 2,
       "m_PathID": -8275538427997360676,
-      "note": "UnitTweenSO —— 它自己的 waitAnimation/length 本地**没算**（见产物 `_headline`）"
+      "name": "Recoil Normal Tween",
+      "resolved": true,
+      "seconds": 0.6,
+      "steps": 1,
+      "waitAnimation": 0
      },
      "waitAnimToApplyEffect": 0
     }
@@ -2439,6 +2615,7 @@
   {
    "active": null,
    "activeAnims": [],
+   "activeWithTween": null,
    "alternative": null,
    "id": "BL3",
    "name": "Chaos Legionary",
@@ -2450,8 +2627,13 @@
      "slot": "cardAbilities[0].abilityLogic[0]",
      "trigger": "UnitReceivesMarkOfChaos",
      "tweenAnim": {
+      "m_FileID": 2,
       "m_PathID": -8275538427997360676,
-      "note": "UnitTweenSO —— 它自己的 waitAnimation/length 本地**没算**（见产物 `_headline`）"
+      "name": "Recoil Normal Tween",
+      "resolved": true,
+      "seconds": 0.6,
+      "steps": 1,
+      "waitAnimation": 0
      },
      "waitAnimToApplyEffect": 0
     }
@@ -2460,6 +2642,7 @@
   {
    "active": null,
    "activeAnims": [],
+   "activeWithTween": null,
    "alternative": null,
    "id": "BL32",
    "name": "Iskandar Khayon",
@@ -2478,6 +2661,7 @@
   {
    "active": null,
    "activeAnims": [],
+   "activeWithTween": null,
    "alternative": null,
    "id": "BL63",
    "name": "Havoc",
@@ -2489,8 +2673,13 @@
      "slot": "cardAbilities[0].abilityLogic[0]",
      "trigger": "UnitReceivesMarkOfChaos",
      "tweenAnim": {
+      "m_FileID": 2,
       "m_PathID": -8275538427997360676,
-      "note": "UnitTweenSO —— 它自己的 waitAnimation/length 本地**没算**（见产物 `_headline`）"
+      "name": "Recoil Normal Tween",
+      "resolved": true,
+      "seconds": 0.6,
+      "steps": 1,
+      "waitAnimation": 0
      },
      "waitAnimToApplyEffect": 1
     }
@@ -2499,6 +2688,7 @@
   {
    "active": null,
    "activeAnims": [],
+   "activeWithTween": null,
    "alternative": null,
    "id": "BL67",
    "name": "Ghallaron's Champion",
@@ -2517,6 +2707,7 @@
   {
    "active": null,
    "activeAnims": [],
+   "activeWithTween": null,
    "alternative": null,
    "id": "BL69",
    "name": "Meltagun Legionary",
@@ -2528,8 +2719,13 @@
      "slot": "cardAbilities[0].abilityLogic[0]",
      "trigger": "UnitReceivesMarkOfChaos",
      "tweenAnim": {
+      "m_FileID": 2,
       "m_PathID": -8275538427997360676,
-      "note": "UnitTweenSO —— 它自己的 waitAnimation/length 本地**没算**（见产物 `_headline`）"
+      "name": "Recoil Normal Tween",
+      "resolved": true,
+      "seconds": 0.6,
+      "steps": 1,
+      "waitAnimation": 0
      },
      "waitAnimToApplyEffect": 1
     }
@@ -2557,6 +2753,7 @@
      "waitAnimToApplyEffect": 1
     }
    ],
+   "activeWithTween": 1.2,
    "alternative": null,
    "id": "DA1",
    "name": "Azrael",
@@ -2575,6 +2772,7 @@
      "waitAnimToApplyEffect": 1
     }
    ],
+   "activeWithTween": 0.7,
    "alternative": null,
    "id": "DA13",
    "name": "Librarian",
@@ -2590,12 +2788,18 @@
      "slot": "activeAbility.activeAbilityLogic[0]",
      "trigger": "主动技能（`activeAbility`，不走 `CardAbility.trigger` 那套枚举）",
      "tweenAnim": {
+      "m_FileID": 2,
       "m_PathID": -8275538427997360676,
-      "note": "UnitTweenSO —— 它自己的 waitAnimation/length 本地**没算**（见产物 `_headline`）"
+      "name": "Recoil Normal Tween",
+      "resolved": true,
+      "seconds": 0.6,
+      "steps": 1,
+      "waitAnimation": 0
      },
      "waitAnimToApplyEffect": 1
     }
    ],
+   "activeWithTween": 0.75,
    "alternative": null,
    "id": "DA14",
    "name": "Ravenwing Speeder",
@@ -2614,6 +2818,7 @@
   {
    "active": null,
    "activeAnims": [],
+   "activeWithTween": null,
    "alternative": null,
    "id": "DA15",
    "name": "Ravenwing Champion",
@@ -2641,6 +2846,7 @@
   {
    "active": null,
    "activeAnims": [],
+   "activeWithTween": null,
    "alternative": null,
    "id": "DA17",
    "name": "Deathwing Terminator",
@@ -2678,6 +2884,7 @@
      "waitAnimToApplyEffect": 1
     }
    ],
+   "activeWithTween": 0.9,
    "alternative": null,
    "id": "DA18",
    "name": "Inner Circle Companion",
@@ -2686,6 +2893,7 @@
   {
    "active": null,
    "activeAnims": [],
+   "activeWithTween": null,
    "alternative": null,
    "id": "DA19",
    "name": "Interrogator Chaplain",
@@ -2723,6 +2931,7 @@
      "waitAnimToApplyEffect": 0
     }
    ],
+   "activeWithTween": 1.2,
    "alternative": null,
    "id": "DA20",
    "name": "Master Lazarus",
@@ -2750,6 +2959,7 @@
      "waitAnimToApplyEffect": 0
     }
    ],
+   "activeWithTween": 2.0,
    "alternative": null,
    "id": "DA23",
    "name": "Bladeguard Veteran",
@@ -2768,6 +2978,7 @@
      "waitAnimToApplyEffect": 1
     }
    ],
+   "activeWithTween": 1.0,
    "alternative": null,
    "id": "DA27",
    "name": "Ravenwing Talonmaster",
@@ -2776,6 +2987,7 @@
   {
    "active": null,
    "activeAnims": [],
+   "activeWithTween": null,
    "alternative": null,
    "id": "DA28",
    "name": "Company Master",
@@ -2813,6 +3025,7 @@
      "waitAnimToApplyEffect": 0
     }
    ],
+   "activeWithTween": 2.0,
    "alternative": null,
    "id": "DA29",
    "name": "Darkshroud",
@@ -2841,6 +3054,7 @@
      "waitAnimToApplyEffect": 1
     }
    ],
+   "activeWithTween": 0.2,
    "alternative": null,
    "id": "DA3",
    "name": "Asmodai",
@@ -2849,6 +3063,7 @@
   {
    "active": null,
    "activeAnims": [],
+   "activeWithTween": null,
    "alternative": null,
    "id": "DA30",
    "name": "Deathwing Strikemaster",
@@ -2867,6 +3082,7 @@
   {
    "active": null,
    "activeAnims": [],
+   "activeWithTween": null,
    "alternative": null,
    "id": "DA32",
    "name": "Deathwing Champion",
@@ -2885,6 +3101,7 @@
   {
    "active": null,
    "activeAnims": [],
+   "activeWithTween": null,
    "alternative": null,
    "id": "DA34",
    "name": "Unforgiven Redemptor",
@@ -2903,6 +3120,7 @@
   {
    "active": null,
    "activeAnims": [],
+   "activeWithTween": null,
    "alternative": null,
    "id": "DA37",
    "name": "Deathwing Knight Master",
@@ -2948,6 +3166,7 @@
   {
    "active": null,
    "activeAnims": [],
+   "activeWithTween": null,
    "alternative": null,
    "id": "DA5",
    "name": "Apothecary",
@@ -2985,6 +3204,7 @@
      "waitAnimToApplyEffect": 1
     }
    ],
+   "activeWithTween": 1.7,
    "alternative": null,
    "id": "DA65",
    "name": "Chaplain Gabutheron",
@@ -3003,6 +3223,7 @@
   {
    "active": null,
    "activeAnims": [],
+   "activeWithTween": null,
    "alternative": null,
    "id": "DA66",
    "name": "Ballistus Dreadnought",
@@ -3014,8 +3235,13 @@
      "slot": "cardAbilities[0].abilityLogic[0]",
      "trigger": "OnSecretCreated",
      "tweenAnim": {
+      "m_FileID": 2,
       "m_PathID": -8275538427997360676,
-      "note": "UnitTweenSO —— 它自己的 waitAnimation/length 本地**没算**（见产物 `_headline`）"
+      "name": "Recoil Normal Tween",
+      "resolved": true,
+      "seconds": 0.6,
+      "steps": 1,
+      "waitAnimation": 0
      },
      "waitAnimToApplyEffect": 1
     },
@@ -3026,8 +3252,13 @@
      "slot": "cardAbilities[1].abilityLogic[0]",
      "trigger": "OtherCardPlayed",
      "tweenAnim": {
+      "m_FileID": 2,
       "m_PathID": -8275538427997360676,
-      "note": "UnitTweenSO —— 它自己的 waitAnimation/length 本地**没算**（见产物 `_headline`）"
+      "name": "Recoil Normal Tween",
+      "resolved": true,
+      "seconds": 0.6,
+      "steps": 1,
+      "waitAnimation": 0
      },
      "waitAnimToApplyEffect": 1
     }
@@ -3036,6 +3267,7 @@
   {
    "active": null,
    "activeAnims": [],
+   "activeWithTween": null,
    "alternative": null,
    "id": "DA67",
    "name": "Assault Terminator",
@@ -3054,6 +3286,7 @@
   {
    "active": null,
    "activeAnims": [],
+   "activeWithTween": null,
    "alternative": null,
    "id": "DA68",
    "name": "Vengeful Brethren Bladeguard",
@@ -3072,6 +3305,7 @@
   {
    "active": null,
    "activeAnims": [],
+   "activeWithTween": null,
    "alternative": null,
    "id": "DA69",
    "name": "Vengeful Brethren Hellblaster",
@@ -3118,6 +3352,7 @@
      "waitAnimToApplyEffect": 1
     }
    ],
+   "activeWithTween": 0.9,
    "alternative": null,
    "id": "DA7",
    "name": "Ravenwing Bikes",
@@ -3126,6 +3361,7 @@
   {
    "active": null,
    "activeAnims": [],
+   "activeWithTween": null,
    "alternative": null,
    "id": "DA70",
    "name": "Vengeful Brethren Intercessor",
@@ -3172,6 +3408,7 @@
      "waitAnimToApplyEffect": 1
     }
    ],
+   "activeWithTween": 3.7,
    "alternative": null,
    "id": "DA71",
    "name": "Watcher in the Dark",
@@ -3199,6 +3436,7 @@
      "waitAnimToApplyEffect": 1
     }
    ],
+   "activeWithTween": 0.9,
    "alternative": null,
    "id": "DA75",
    "name": "Master Zacharial",
@@ -3207,6 +3445,7 @@
   {
    "active": null,
    "activeAnims": [],
+   "activeWithTween": null,
    "alternative": null,
    "id": "EC10",
    "name": "Infractor Obsessionist",
@@ -3225,6 +3464,7 @@
   {
    "active": null,
    "activeAnims": [],
+   "activeWithTween": null,
    "alternative": null,
    "id": "EC13",
    "name": "Lord Exultant",
@@ -3243,6 +3483,7 @@
   {
    "active": null,
    "activeAnims": [],
+   "activeWithTween": null,
    "alternative": null,
    "id": "EC14",
    "name": "Varius, Lord Kakophonist",
@@ -3261,6 +3502,7 @@
   {
    "active": null,
    "activeAnims": [],
+   "activeWithTween": null,
    "alternative": null,
    "id": "EC17",
    "name": "Konstrictus Tormentor",
@@ -3279,6 +3521,7 @@
   {
    "active": null,
    "activeAnims": [],
+   "activeWithTween": null,
    "alternative": null,
    "id": "EC18",
    "name": "Glittering Myriad Infractor",
@@ -3297,6 +3540,7 @@
   {
    "active": null,
    "activeAnims": [],
+   "activeWithTween": null,
    "alternative": null,
    "id": "EC20",
    "name": "Turyan Ghauze",
@@ -3315,6 +3559,7 @@
   {
    "active": null,
    "activeAnims": [],
+   "activeWithTween": null,
    "alternative": null,
    "id": "EC21",
    "name": "Malgarash the Adamant",
@@ -3333,6 +3578,7 @@
   {
    "active": null,
    "activeAnims": [],
+   "activeWithTween": null,
    "alternative": null,
    "id": "EC22",
    "name": "Veldras the Sublime",
@@ -3360,6 +3606,7 @@
   {
    "active": null,
    "activeAnims": [],
+   "activeWithTween": null,
    "alternative": null,
    "id": "EC23",
    "name": "Slaanesh Sorcerer",
@@ -3387,6 +3634,7 @@
   {
    "active": null,
    "activeAnims": [],
+   "activeWithTween": null,
    "alternative": null,
    "id": "EC24",
    "name": "Slaanesh's Spawn",
@@ -3405,6 +3653,7 @@
   {
    "active": null,
    "activeAnims": [],
+   "activeWithTween": null,
    "alternative": null,
    "id": "EC25",
    "name": "Terminator",
@@ -3423,6 +3672,7 @@
   {
    "active": null,
    "activeAnims": [],
+   "activeWithTween": null,
    "alternative": null,
    "id": "EC26",
    "name": "Terminator Champion",
@@ -3450,6 +3700,7 @@
   {
    "active": null,
    "activeAnims": [],
+   "activeWithTween": null,
    "alternative": null,
    "id": "EC28",
    "name": "Chaos Land Raider",
@@ -3468,6 +3719,7 @@
   {
    "active": null,
    "activeAnims": [],
+   "activeWithTween": null,
    "alternative": null,
    "id": "EC3",
    "name": "Disharmonist",
@@ -3486,6 +3738,7 @@
   {
    "active": null,
    "activeAnims": [],
+   "activeWithTween": null,
    "alternative": null,
    "id": "EC30",
    "name": "Maulerfiend",
@@ -3497,8 +3750,13 @@
      "slot": "cardAbilities[0].abilityLogic[0]",
      "trigger": "Ecstasy",
      "tweenAnim": {
+      "m_FileID": 2,
       "m_PathID": -3678793900283740710,
-      "note": "UnitTweenSO —— 它自己的 waitAnimation/length 本地**没算**（见产物 `_headline`）"
+      "name": "Mutation",
+      "resolved": true,
+      "seconds": 4.0,
+      "steps": 4,
+      "waitAnimation": 1
      },
      "waitAnimToApplyEffect": 1
     }
@@ -3507,6 +3765,7 @@
   {
    "active": null,
    "activeAnims": [],
+   "activeWithTween": null,
    "alternative": null,
    "id": "EC31",
    "name": "Chaos Rhino",
@@ -3525,6 +3784,7 @@
   {
    "active": null,
    "activeAnims": [],
+   "activeWithTween": null,
    "alternative": null,
    "id": "EC35",
    "name": "Blissbringer",
@@ -3543,6 +3803,7 @@
   {
    "active": null,
    "activeAnims": [],
+   "activeWithTween": null,
    "alternative": null,
    "id": "EC47",
    "name": "Exquisite Swordsmanship",
@@ -3570,6 +3831,7 @@
   {
    "active": null,
    "activeAnims": [],
+   "activeWithTween": null,
    "alternative": null,
    "id": "EC49",
    "name": "Terrifying Crescendo",
@@ -3588,6 +3850,7 @@
   {
    "active": null,
    "activeAnims": [],
+   "activeWithTween": null,
    "alternative": null,
    "id": "EC5",
    "name": "Tormentor",
@@ -3599,8 +3862,13 @@
      "slot": "cardAbilities[0].abilityLogic[0]",
      "trigger": "Ecstasy",
      "tweenAnim": {
+      "m_FileID": 2,
       "m_PathID": -8275538427997360676,
-      "note": "UnitTweenSO —— 它自己的 waitAnimation/length 本地**没算**（见产物 `_headline`）"
+      "name": "Recoil Normal Tween",
+      "resolved": true,
+      "seconds": 0.6,
+      "steps": 1,
+      "waitAnimation": 0
      },
      "waitAnimToApplyEffect": 1
     }
@@ -3609,6 +3877,7 @@
   {
    "active": null,
    "activeAnims": [],
+   "activeWithTween": null,
    "alternative": null,
    "id": "EC55",
    "name": "Lucius The Eternal",
@@ -3627,6 +3896,7 @@
   {
    "active": null,
    "activeAnims": [],
+   "activeWithTween": null,
    "alternative": null,
    "id": "EC56",
    "name": "Lord Kaphrael",
@@ -3645,6 +3915,7 @@
   {
    "active": null,
    "activeAnims": [],
+   "activeWithTween": null,
    "alternative": null,
    "id": "EC57",
    "name": "Xarahan, Daemon Prince",
@@ -3663,6 +3934,7 @@
   {
    "active": null,
    "activeAnims": [],
+   "activeWithTween": null,
    "alternative": null,
    "id": "EC6",
    "name": "Plasma Gun Tormentor",
@@ -3681,6 +3953,7 @@
   {
    "active": null,
    "activeAnims": [],
+   "activeWithTween": null,
    "alternative": null,
    "id": "EC7",
    "name": "Tormentor Obsessionist",
@@ -3699,6 +3972,7 @@
   {
    "active": null,
    "activeAnims": [],
+   "activeWithTween": null,
    "alternative": null,
    "id": "EC8",
    "name": "Infractor",
@@ -3717,6 +3991,7 @@
   {
    "active": null,
    "activeAnims": [],
+   "activeWithTween": null,
    "alternative": null,
    "id": "EC9",
    "name": "Icon of Excess",
@@ -3735,6 +4010,7 @@
   {
    "active": null,
    "activeAnims": [],
+   "activeWithTween": null,
    "alternative": null,
    "id": "GOF10",
    "name": "Grot Tank",
@@ -3762,6 +4038,7 @@
   {
    "active": null,
    "activeAnims": [],
+   "activeWithTween": null,
    "alternative": null,
    "id": "GOF102",
    "name": "Thundering Stampede",
@@ -3780,6 +4057,7 @@
   {
    "active": null,
    "activeAnims": [],
+   "activeWithTween": null,
    "alternative": null,
    "id": "GOF104",
    "name": "Drag it Down",
@@ -3798,6 +4076,7 @@
   {
    "active": null,
    "activeAnims": [],
+   "activeWithTween": null,
    "alternative": null,
    "id": "GOF12",
    "name": "Spanner",
@@ -3852,6 +4131,7 @@
   {
    "active": null,
    "activeAnims": [],
+   "activeWithTween": null,
    "alternative": null,
    "id": "GOF13",
    "name": "Deffgun Loota",
@@ -3863,8 +4143,13 @@
      "slot": "cardAbilities[0].abilityLogic[0]",
      "trigger": "OtherUnitDeath",
      "tweenAnim": {
+      "m_FileID": 2,
       "m_PathID": -8275538427997360676,
-      "note": "UnitTweenSO —— 它自己的 waitAnimation/length 本地**没算**（见产物 `_headline`）"
+      "name": "Recoil Normal Tween",
+      "resolved": true,
+      "seconds": 0.6,
+      "steps": 1,
+      "waitAnimation": 0
      },
      "waitAnimToApplyEffect": 1
     }
@@ -3873,6 +4158,7 @@
   {
    "active": null,
    "activeAnims": [],
+   "activeWithTween": null,
    "alternative": null,
    "id": "GOF17",
    "name": "Killa Kan",
@@ -3909,6 +4195,7 @@
   {
    "active": null,
    "activeAnims": [],
+   "activeWithTween": null,
    "alternative": null,
    "id": "GOF22",
    "name": "Deff Dread",
@@ -3938,8 +4225,13 @@
      "slot": "cardAbilities[1].abilityLogic[0]",
      "trigger": "Mob",
      "tweenAnim": {
+      "m_FileID": 2,
       "m_PathID": -8275538427997360676,
-      "note": "UnitTweenSO —— 它自己的 waitAnimation/length 本地**没算**（见产物 `_headline`）"
+      "name": "Recoil Normal Tween",
+      "resolved": true,
+      "seconds": 0.6,
+      "steps": 1,
+      "waitAnimation": 0
      },
      "waitAnimToApplyEffect": 1
     }
@@ -3948,6 +4240,7 @@
   {
    "active": null,
    "activeAnims": [],
+   "activeWithTween": null,
    "alternative": null,
    "id": "GOF24",
    "name": "Battlewagon",
@@ -3975,6 +4268,7 @@
   {
    "active": null,
    "activeAnims": [],
+   "activeWithTween": null,
    "alternative": null,
    "id": "GOF25",
    "name": "Gorkanaut",
@@ -4002,6 +4296,7 @@
   {
    "active": null,
    "activeAnims": [],
+   "activeWithTween": null,
    "alternative": null,
    "id": "GOF26",
    "name": "Stompa",
@@ -4029,6 +4324,7 @@
   {
    "active": null,
    "activeAnims": [],
+   "activeWithTween": null,
    "alternative": null,
    "id": "GOF3",
    "name": "Bomb Squig",
@@ -4056,6 +4352,7 @@
   {
    "active": null,
    "activeAnims": [],
+   "activeWithTween": null,
    "alternative": null,
    "id": "GOF56",
    "name": "Deffkopta",
@@ -4083,6 +4380,7 @@
   {
    "active": null,
    "activeAnims": [],
+   "activeWithTween": null,
    "alternative": null,
    "id": "GOF57",
    "name": "Ork Nob",
@@ -4101,6 +4399,7 @@
   {
    "active": null,
    "activeAnims": [],
+   "activeWithTween": null,
    "alternative": null,
    "id": "GOF58",
    "name": "Boomdakka Snazzwagon",
@@ -4128,6 +4427,7 @@
   {
    "active": null,
    "activeAnims": [],
+   "activeWithTween": null,
    "alternative": null,
    "id": "GOF59",
    "name": "Big Shoota Boy",
@@ -4139,8 +4439,13 @@
      "slot": "cardAbilities[1].abilityLogic[0]",
      "trigger": "FollowUpResolution",
      "tweenAnim": {
+      "m_FileID": 2,
       "m_PathID": -7747915887746572046,
-      "note": "UnitTweenSO —— 它自己的 waitAnimation/length 本地**没算**（见产物 `_headline`）"
+      "name": "Recoil Machine Gun Normal Tween",
+      "resolved": true,
+      "seconds": 1.4,
+      "steps": 1,
+      "waitAnimation": 0
      },
      "waitAnimToApplyEffect": 1
     }
@@ -4149,6 +4454,7 @@
   {
    "active": null,
    "activeAnims": [],
+   "activeWithTween": null,
    "alternative": null,
    "id": "GOF61",
    "name": "Rukkatrukk Squigbuggy",
@@ -4176,6 +4482,7 @@
   {
    "active": null,
    "activeAnims": [],
+   "activeWithTween": null,
    "alternative": null,
    "id": "GOF63",
    "name": "Gunwagon",
@@ -4203,6 +4510,7 @@
   {
    "active": null,
    "activeAnims": [],
+   "activeWithTween": null,
    "alternative": null,
    "id": "GOF66",
    "name": "Rokkit Boy",
@@ -4230,6 +4538,7 @@
   {
    "active": null,
    "activeAnims": [],
+   "activeWithTween": null,
    "alternative": null,
    "id": "GOF67",
    "name": "Boss Nob",
@@ -4248,6 +4557,7 @@
   {
    "active": null,
    "activeAnims": [],
+   "activeWithTween": null,
    "alternative": null,
    "id": "GOF69",
    "name": "Mega-Blasta Deffkopta",
@@ -4275,6 +4585,7 @@
   {
    "active": null,
    "activeAnims": [],
+   "activeWithTween": null,
    "alternative": null,
    "id": "GOF70",
    "name": "Krumpaklaw",
@@ -4311,6 +4622,7 @@
   {
    "active": null,
    "activeAnims": [],
+   "activeWithTween": null,
    "alternative": null,
    "id": "GOF77",
    "name": "Beastboss Morgrim",
@@ -4329,6 +4641,7 @@
   {
    "active": null,
    "activeAnims": [],
+   "activeWithTween": null,
    "alternative": null,
    "id": "GOF80",
    "name": "Grot Orderly",
@@ -4347,6 +4660,7 @@
   {
    "active": null,
    "activeAnims": [],
+   "activeWithTween": null,
    "alternative": null,
    "id": "GOF81",
    "name": "Thump Gun Beast Snagga",
@@ -4365,6 +4679,7 @@
   {
    "active": null,
    "activeAnims": [],
+   "activeWithTween": null,
    "alternative": null,
    "id": "GOF82",
    "name": "Beast Snagga Nob",
@@ -4392,6 +4707,7 @@
   {
    "active": null,
    "activeAnims": [],
+   "activeWithTween": null,
    "alternative": null,
    "id": "GOF84",
    "name": "Runtherd",
@@ -4410,6 +4726,7 @@
   {
    "active": null,
    "activeAnims": [],
+   "activeWithTween": null,
    "alternative": null,
    "id": "GOF87",
    "name": "Zodgrod Wortsnagga",
@@ -4428,6 +4745,7 @@
   {
    "active": null,
    "activeAnims": [],
+   "activeWithTween": null,
    "alternative": null,
    "id": "GOF9",
    "name": "Shoota Boy",
@@ -4439,8 +4757,13 @@
      "slot": "cardAbilities[0].abilityLogic[0]",
      "trigger": "Mob",
      "tweenAnim": {
+      "m_FileID": 2,
       "m_PathID": -7747915887746572046,
-      "note": "UnitTweenSO —— 它自己的 waitAnimation/length 本地**没算**（见产物 `_headline`）"
+      "name": "Recoil Machine Gun Normal Tween",
+      "resolved": true,
+      "seconds": 1.4,
+      "steps": 1,
+      "waitAnimation": 0
      },
      "waitAnimToApplyEffect": 1
     }
@@ -4449,6 +4772,7 @@
   {
    "active": null,
    "activeAnims": [],
+   "activeWithTween": null,
    "alternative": null,
    "id": "GOF90",
    "name": "Wurrboy",
@@ -4485,6 +4809,7 @@
   {
    "active": null,
    "activeAnims": [],
+   "activeWithTween": null,
    "alternative": null,
    "id": "GOF92",
    "name": "Weirdboy",
@@ -4512,6 +4837,7 @@
   {
    "active": null,
    "activeAnims": [],
+   "activeWithTween": null,
    "alternative": null,
    "id": "GOF95",
    "name": "Kill Rig",
@@ -4539,6 +4865,7 @@
   {
    "active": null,
    "activeAnims": [],
+   "activeWithTween": null,
    "alternative": null,
    "id": "GOF96",
    "name": "Snakebite Battlewagon",
@@ -4575,6 +4902,7 @@
   {
    "active": null,
    "activeAnims": [],
+   "activeWithTween": null,
    "alternative": null,
    "id": "GOF97",
    "name": "Gargantuan Squiggoth",
@@ -4600,12 +4928,18 @@
      "slot": "activeAbility.activeAbilityLogic[0]",
      "trigger": "主动技能（`activeAbility`，不走 `CardAbility.trigger` 那套枚举）",
      "tweenAnim": {
+      "m_FileID": 2,
       "m_PathID": -8275538427997360676,
-      "note": "UnitTweenSO —— 它自己的 waitAnimation/length 本地**没算**（见产物 `_headline`）"
+      "name": "Recoil Normal Tween",
+      "resolved": true,
+      "seconds": 0.6,
+      "steps": 1,
+      "waitAnimation": 0
      },
      "waitAnimToApplyEffect": 1
     }
    ],
+   "activeWithTween": 1.2,
    "alternative": null,
    "id": "GSC1",
    "name": "Primus Saffa Rhiannor",
@@ -4614,6 +4948,7 @@
   {
    "active": null,
    "activeAnims": [],
+   "activeWithTween": null,
    "alternative": null,
    "id": "GSC11",
    "name": "Neophyte Heavy",
@@ -4625,8 +4960,13 @@
      "slot": "cardAbilities[0].abilityLogic[0]",
      "trigger": "Ambush",
      "tweenAnim": {
+      "m_FileID": 2,
       "m_PathID": -8275538427997360676,
-      "note": "UnitTweenSO —— 它自己的 waitAnimation/length 本地**没算**（见产物 `_headline`）"
+      "name": "Recoil Normal Tween",
+      "resolved": true,
+      "seconds": 0.6,
+      "steps": 1,
+      "waitAnimation": 0
      },
      "waitAnimToApplyEffect": 1
     }
@@ -4635,6 +4975,7 @@
   {
    "active": null,
    "activeAnims": [],
+   "activeWithTween": null,
    "alternative": null,
    "id": "GSC14",
    "name": "Acolyte Leader",
@@ -4671,6 +5012,7 @@
   {
    "active": null,
    "activeAnims": [],
+   "activeWithTween": null,
    "alternative": null,
    "id": "GSC15",
    "name": "Acolyte Specialist",
@@ -4689,6 +5031,7 @@
   {
    "active": null,
    "activeAnims": [],
+   "activeWithTween": null,
    "alternative": null,
    "id": "GSC16",
    "name": "Acolyte Heavy",
@@ -4716,6 +5059,7 @@
   {
    "active": null,
    "activeAnims": [],
+   "activeWithTween": null,
    "alternative": null,
    "id": "GSC17",
    "name": "Locus",
@@ -4727,8 +5071,13 @@
      "slot": "cardAbilities[1].abilityLogic[0]",
      "trigger": "FollowUpResolution",
      "tweenAnim": {
+      "m_FileID": 2,
       "m_PathID": -8275538427997360676,
-      "note": "UnitTweenSO —— 它自己的 waitAnimation/length 本地**没算**（见产物 `_headline`）"
+      "name": "Recoil Normal Tween",
+      "resolved": true,
+      "seconds": 0.6,
+      "steps": 1,
+      "waitAnimation": 0
      },
      "waitAnimToApplyEffect": 1
     }
@@ -4737,6 +5086,7 @@
   {
    "active": null,
    "activeAnims": [],
+   "activeWithTween": null,
    "alternative": null,
    "id": "GSC18",
    "name": "Neophyte Leader",
@@ -4774,6 +5124,7 @@
      "waitAnimToApplyEffect": 1
     }
    ],
+   "activeWithTween": 1.0,
    "alternative": null,
    "id": "GSC2",
    "name": "Magus Uthrel Naas",
@@ -4782,6 +5133,7 @@
   {
    "active": null,
    "activeAnims": [],
+   "activeWithTween": null,
    "alternative": null,
    "id": "GSC22",
    "name": "Cult Sentinel",
@@ -4793,8 +5145,13 @@
      "slot": "cardAbilities[0].abilityLogic[0]",
      "trigger": "OtherCardPlayed",
      "tweenAnim": {
+      "m_FileID": 2,
       "m_PathID": -3578002550885412981,
-      "note": "UnitTweenSO —— 它自己的 waitAnimation/length 本地**没算**（见产物 `_headline`）"
+      "name": "Recoil Normal 1s Tween",
+      "resolved": true,
+      "seconds": 1.6,
+      "steps": 1,
+      "waitAnimation": 0
      },
      "waitAnimToApplyEffect": 1
     }
@@ -4803,6 +5160,7 @@
   {
    "active": null,
    "activeAnims": [],
+   "activeWithTween": null,
    "alternative": null,
    "id": "GSC23",
    "name": "Hybrid Metamorph",
@@ -4830,6 +5188,7 @@
   {
    "active": null,
    "activeAnims": [],
+   "activeWithTween": null,
    "alternative": null,
    "id": "GSC24",
    "name": "Nexos",
@@ -4866,6 +5225,7 @@
   {
    "active": null,
    "activeAnims": [],
+   "activeWithTween": null,
    "alternative": null,
    "id": "GSC25",
    "name": "Sanctus",
@@ -4884,6 +5244,7 @@
   {
    "active": null,
    "activeAnims": [],
+   "activeWithTween": null,
    "alternative": null,
    "id": "GSC28",
    "name": "Hulking Aberrant",
@@ -4921,6 +5282,7 @@
      "waitAnimToApplyEffect": 1
     }
    ],
+   "activeWithTween": 1.0,
    "alternative": null,
    "id": "GSC3",
    "name": "Iconward Malak Vorenth",
@@ -4929,6 +5291,7 @@
   {
    "active": null,
    "activeAnims": [],
+   "activeWithTween": null,
    "alternative": null,
    "id": "GSC31",
    "name": "Reductus Saboteur",
@@ -4956,6 +5319,7 @@
   {
    "active": null,
    "activeAnims": [],
+   "activeWithTween": null,
    "alternative": null,
    "id": "GSC32",
    "name": "Abominant",
@@ -4983,6 +5347,7 @@
   {
    "active": null,
    "activeAnims": [],
+   "activeWithTween": null,
    "alternative": null,
    "id": "GSC34",
    "name": "Kelermorph",
@@ -4994,8 +5359,13 @@
      "slot": "cardAbilities[0].abilityLogic[0]",
      "trigger": "Uprising",
      "tweenAnim": {
+      "m_FileID": 2,
       "m_PathID": -8275538427997360676,
-      "note": "UnitTweenSO —— 它自己的 waitAnimation/length 本地**没算**（见产物 `_headline`）"
+      "name": "Recoil Normal Tween",
+      "resolved": true,
+      "seconds": 0.6,
+      "steps": 1,
+      "waitAnimation": 0
      },
      "waitAnimToApplyEffect": 1
     }
@@ -5004,6 +5374,7 @@
   {
    "active": null,
    "activeAnims": [],
+   "activeWithTween": null,
    "alternative": null,
    "id": "GSC37",
    "name": "Patriarch",
@@ -5031,6 +5402,7 @@
   {
    "active": null,
    "activeAnims": [],
+   "activeWithTween": null,
    "alternative": null,
    "id": "GSC38",
    "name": "Cult Leman Russ",
@@ -5042,8 +5414,13 @@
      "slot": "cardAbilities[0].abilityLogic[0]",
      "trigger": "Uprising",
      "tweenAnim": {
+      "m_FileID": 2,
       "m_PathID": 3203395777126525160,
-      "note": "UnitTweenSO —— 它自己的 waitAnimation/length 本地**没算**（见产物 `_headline`）"
+      "name": "Recoil Heavy Tween",
+      "resolved": true,
+      "seconds": 1.1,
+      "steps": 3,
+      "waitAnimation": 0
      },
      "waitAnimToApplyEffect": 1
     }
@@ -5052,6 +5429,7 @@
   {
    "active": null,
    "activeAnims": [],
+   "activeWithTween": null,
    "alternative": null,
    "id": "GSC5",
    "name": "Concealed Explosives",
@@ -5070,6 +5448,7 @@
   {
    "active": null,
    "activeAnims": [],
+   "activeWithTween": null,
    "alternative": null,
    "id": "GSC6",
    "name": "Neophyte Initiate",
@@ -5081,8 +5460,13 @@
      "slot": "cardAbilities[0].abilityLogic[0]",
      "trigger": "Uprising",
      "tweenAnim": {
+      "m_FileID": 2,
       "m_PathID": -8275538427997360676,
-      "note": "UnitTweenSO —— 它自己的 waitAnimation/length 本地**没算**（见产物 `_headline`）"
+      "name": "Recoil Normal Tween",
+      "resolved": true,
+      "seconds": 0.6,
+      "steps": 1,
+      "waitAnimation": 0
      },
      "waitAnimToApplyEffect": 1
     }
@@ -5098,12 +5482,18 @@
      "slot": "activeAbility.activeAbilityLogic[0]",
      "trigger": "主动技能（`activeAbility`，不走 `CardAbility.trigger` 那套枚举）",
      "tweenAnim": {
+      "m_FileID": 2,
       "m_PathID": -8275538427997360676,
-      "note": "UnitTweenSO —— 它自己的 waitAnimation/length 本地**没算**（见产物 `_headline`）"
+      "name": "Recoil Normal Tween",
+      "resolved": true,
+      "seconds": 0.6,
+      "steps": 1,
+      "waitAnimation": 0
      },
      "waitAnimToApplyEffect": 1
     }
    ],
+   "activeWithTween": 1.2,
    "alternative": null,
    "id": "GSC66",
    "name": "Lhaska Szenari",
@@ -5112,6 +5502,7 @@
   {
    "active": null,
    "activeAnims": [],
+   "activeWithTween": null,
    "alternative": null,
    "id": "GSC68",
    "name": "Atalan Jackal",
@@ -5123,8 +5514,13 @@
      "slot": "cardAbilities[0].abilityLogic[0]",
      "trigger": "OnSabotageCreated",
      "tweenAnim": {
+      "m_FileID": 2,
       "m_PathID": -8275538427997360676,
-      "note": "UnitTweenSO —— 它自己的 waitAnimation/length 本地**没算**（见产物 `_headline`）"
+      "name": "Recoil Normal Tween",
+      "resolved": true,
+      "seconds": 0.6,
+      "steps": 1,
+      "waitAnimation": 0
      },
      "waitAnimToApplyEffect": 1
     }
@@ -5133,6 +5529,7 @@
   {
    "active": null,
    "activeAnims": [],
+   "activeWithTween": null,
    "alternative": null,
    "id": "GSC69",
    "name": "Jackal Outrider",
@@ -5151,6 +5548,7 @@
   {
    "active": null,
    "activeAnims": [],
+   "activeWithTween": null,
    "alternative": null,
    "id": "GSC7",
    "name": "Neophyte Hybrid",
@@ -5169,6 +5567,7 @@
   {
    "active": null,
    "activeAnims": [],
+   "activeWithTween": null,
    "alternative": null,
    "id": "GSC70",
    "name": "Jackal Specialist",
@@ -5187,6 +5586,7 @@
   {
    "active": null,
    "activeAnims": [],
+   "activeWithTween": null,
    "alternative": null,
    "id": "GSC73",
    "name": "Spotter Ridgerunner",
@@ -5207,8 +5607,13 @@
      "slot": "cardAbilities[1].abilityLogic[0]",
      "trigger": "Uprising",
      "tweenAnim": {
+      "m_FileID": 2,
       "m_PathID": -8275538427997360676,
-      "note": "UnitTweenSO —— 它自己的 waitAnimation/length 本地**没算**（见产物 `_headline`）"
+      "name": "Recoil Normal Tween",
+      "resolved": true,
+      "seconds": 0.6,
+      "steps": 1,
+      "waitAnimation": 0
      },
      "waitAnimToApplyEffect": 1
     },
@@ -5226,6 +5631,7 @@
   {
    "active": null,
    "activeAnims": [],
+   "activeWithTween": null,
    "alternative": null,
    "id": "GSC8",
    "name": "Neophyte Trooper",
@@ -5253,6 +5659,7 @@
   {
    "active": null,
    "activeAnims": [],
+   "activeWithTween": null,
    "alternative": null,
    "id": "GSC9",
    "name": "Acolyte Hybrid",
@@ -5280,6 +5687,7 @@
   {
    "active": null,
    "activeAnims": [],
+   "activeWithTween": null,
    "alternative": null,
    "id": "SAU11",
    "name": "Technomancer",
@@ -5298,6 +5706,7 @@
   {
    "active": null,
    "activeAnims": [],
+   "activeWithTween": null,
    "alternative": null,
    "id": "SAU2",
    "name": "Canoptek Plasmacyte",
@@ -5316,6 +5725,7 @@
   {
    "active": null,
    "activeAnims": [],
+   "activeWithTween": null,
    "alternative": null,
    "id": "SAU20",
    "name": "Chronomancer",
@@ -5334,6 +5744,7 @@
   {
    "active": null,
    "activeAnims": [],
+   "activeWithTween": null,
    "alternative": null,
    "id": "SAU22",
    "name": "Lokhust Heavy Destroyer",
@@ -5352,6 +5763,7 @@
   {
    "active": null,
    "activeAnims": [],
+   "activeWithTween": null,
    "alternative": null,
    "id": "SAU25",
    "name": "Hexmark Destroyer",
@@ -5370,6 +5782,7 @@
   {
    "active": null,
    "activeAnims": [],
+   "activeWithTween": null,
    "alternative": null,
    "id": "SAU26",
    "name": "Plasmancer",
@@ -5388,6 +5801,7 @@
   {
    "active": null,
    "activeAnims": [],
+   "activeWithTween": null,
    "alternative": null,
    "id": "SAU3",
    "name": "Flayed One",
@@ -5406,6 +5820,7 @@
   {
    "active": null,
    "activeAnims": [],
+   "activeWithTween": null,
    "alternative": null,
    "id": "SAU32",
    "name": "Skorpekh Lord",
@@ -5424,6 +5839,7 @@
   {
    "active": null,
    "activeAnims": [],
+   "activeWithTween": null,
    "alternative": null,
    "id": "SAU4",
    "name": "Gauss Warrior",
@@ -5451,6 +5867,7 @@
   {
    "active": null,
    "activeAnims": [],
+   "activeWithTween": null,
    "alternative": null,
    "id": "SAU6",
    "name": "Tesla Immortal",
@@ -5469,6 +5886,7 @@
   {
    "active": null,
    "activeAnims": [],
+   "activeWithTween": null,
    "alternative": null,
    "id": "SAU61",
    "name": "Resurrection Vault",
@@ -5487,6 +5905,7 @@
   {
    "active": null,
    "activeAnims": [],
+   "activeWithTween": null,
    "alternative": null,
    "id": "SAU68",
    "name": "Lokhust Destroyer",
@@ -5505,6 +5924,7 @@
   {
    "active": null,
    "activeAnims": [],
+   "activeWithTween": null,
    "alternative": null,
    "id": "SAU69",
    "name": "Flayed Ones Pack",
@@ -5523,6 +5943,7 @@
   {
    "active": null,
    "activeAnims": [],
+   "activeWithTween": null,
    "alternative": null,
    "id": "SAU70",
    "name": "Damaged Hexmark",
@@ -5541,6 +5962,7 @@
   {
    "active": null,
    "activeAnims": [],
+   "activeWithTween": null,
    "alternative": null,
    "id": "SAU71",
    "name": "Immortals Phalanx",
@@ -5559,6 +5981,7 @@
   {
    "active": null,
    "activeAnims": [],
+   "activeWithTween": null,
    "alternative": null,
    "id": "SAU73",
    "name": "Annihilation Barge",
@@ -5587,6 +6010,7 @@
      "waitAnimToApplyEffect": 1
     }
    ],
+   "activeWithTween": 1.0,
    "alternative": null,
    "id": "SOR1",
    "name": "Erika Luminas",
@@ -5595,6 +6019,7 @@
   {
    "active": null,
    "activeAnims": [],
+   "activeWithTween": null,
    "alternative": null,
    "id": "SOR10",
    "name": "Sister Repentia",
@@ -5613,6 +6038,7 @@
   {
    "active": null,
    "activeAnims": [],
+   "activeWithTween": null,
    "alternative": null,
    "id": "SOR12",
    "name": "Retributor",
@@ -5633,8 +6059,13 @@
      "slot": "cardAbilities[0].abilityLogic[0]",
      "trigger": "UseFaith",
      "tweenAnim": {
+      "m_FileID": 2,
       "m_PathID": -8275538427997360676,
-      "note": "UnitTweenSO —— 它自己的 waitAnimation/length 本地**没算**（见产物 `_headline`）"
+      "name": "Recoil Normal Tween",
+      "resolved": true,
+      "seconds": 0.6,
+      "steps": 1,
+      "waitAnimation": 0
      },
      "waitAnimToApplyEffect": 1
     }
@@ -5680,6 +6111,7 @@
      "waitAnimToApplyEffect": 1
     }
    ],
+   "activeWithTween": 4.0,
    "alternative": null,
    "id": "SOR13",
    "name": "Simulacrum Bearer",
@@ -5698,6 +6130,7 @@
      "waitAnimToApplyEffect": 1
     }
    ],
+   "activeWithTween": 1.0,
    "alternative": null,
    "id": "SOR15",
    "name": "Celestian",
@@ -5716,6 +6149,7 @@
      "waitAnimToApplyEffect": 1
     }
    ],
+   "activeWithTween": 0.4,
    "alternative": null,
    "id": "SOR17",
    "name": "Sister Superior",
@@ -5734,6 +6168,7 @@
      "waitAnimToApplyEffect": 1
     }
    ],
+   "activeWithTween": 1.0,
    "alternative": null,
    "id": "SOR18",
    "name": "Dialogus",
@@ -5742,6 +6177,7 @@
   {
    "active": null,
    "activeAnims": [],
+   "activeWithTween": null,
    "alternative": null,
    "id": "SOR19",
    "name": "Seraphim",
@@ -5779,6 +6215,7 @@
      "waitAnimToApplyEffect": 1
     }
    ],
+   "activeWithTween": 1.0,
    "alternative": null,
    "id": "SOR2",
    "name": "Junith Eruita",
@@ -5797,6 +6234,7 @@
      "waitAnimToApplyEffect": 1
     }
    ],
+   "activeWithTween": 1.0,
    "alternative": null,
    "id": "SOR20",
    "name": "Hospitaller",
@@ -5805,6 +6243,7 @@
   {
    "active": null,
    "activeAnims": [],
+   "activeWithTween": null,
    "alternative": null,
    "id": "SOR21",
    "name": "Death Cult Assassin",
@@ -5841,6 +6280,7 @@
   {
    "active": null,
    "activeAnims": [],
+   "activeWithTween": null,
    "alternative": null,
    "id": "SOR22",
    "name": "Dominion Superior",
@@ -5868,6 +6308,7 @@
   {
    "active": null,
    "activeAnims": [],
+   "activeWithTween": null,
    "alternative": null,
    "id": "SOR23",
    "name": "Canoness",
@@ -5914,6 +6355,7 @@
      "waitAnimToApplyEffect": 1
     }
    ],
+   "activeWithTween": 1.0,
    "alternative": null,
    "id": "SOR24",
    "name": "Simulacrum Celestian",
@@ -5941,6 +6383,7 @@
      "waitAnimToApplyEffect": 0
     }
    ],
+   "activeWithTween": 2.0,
    "alternative": null,
    "id": "SOR25",
    "name": "Imagifier",
@@ -5959,6 +6402,7 @@
      "waitAnimToApplyEffect": 1
     }
    ],
+   "activeWithTween": 1.0,
    "alternative": null,
    "id": "SOR26",
    "name": "Aestred-Thurga",
@@ -5977,6 +6421,7 @@
   {
    "active": null,
    "activeAnims": [],
+   "activeWithTween": null,
    "alternative": null,
    "id": "SOR27",
    "name": "Penitent Engine",
@@ -6005,6 +6450,7 @@
      "waitAnimToApplyEffect": 1
     }
    ],
+   "activeWithTween": 0.4,
    "alternative": null,
    "id": "SOR29",
    "name": "Ephrael Stern",
@@ -6020,12 +6466,18 @@
      "slot": "activeAbility.activeAbilityLogic[0]",
      "trigger": "主动技能（`activeAbility`，不走 `CardAbility.trigger` 那套枚举）",
      "tweenAnim": {
+      "m_FileID": 2,
       "m_PathID": -8275538427997360676,
-      "note": "UnitTweenSO —— 它自己的 waitAnimation/length 本地**没算**（见产物 `_headline`）"
+      "name": "Recoil Normal Tween",
+      "resolved": true,
+      "seconds": 0.6,
+      "steps": 1,
+      "waitAnimation": 0
      },
      "waitAnimToApplyEffect": 1
     }
    ],
+   "activeWithTween": 1.2,
    "alternative": null,
    "id": "SOR3",
    "name": "Morvenn Vahl",
@@ -6034,6 +6486,7 @@
   {
    "active": null,
    "activeAnims": [],
+   "activeWithTween": null,
    "alternative": null,
    "id": "SOR32",
    "name": "Mortifier",
@@ -6054,8 +6507,13 @@
      "slot": "cardAbilities[0].abilityLogic[0]",
      "trigger": "Rage",
      "tweenAnim": {
+      "m_FileID": 2,
       "m_PathID": -8275538427997360676,
-      "note": "UnitTweenSO —— 它自己的 waitAnimation/length 本地**没算**（见产物 `_headline`）"
+      "name": "Recoil Normal Tween",
+      "resolved": true,
+      "seconds": 0.6,
+      "steps": 1,
+      "waitAnimation": 0
      },
      "waitAnimToApplyEffect": 1
     }
@@ -6074,6 +6532,7 @@
      "waitAnimToApplyEffect": 1
     }
    ],
+   "activeWithTween": 0.2,
    "alternative": null,
    "id": "SOR34",
    "name": "Celestian Superior",
@@ -6102,6 +6561,7 @@
      "waitAnimToApplyEffect": 1
     }
    ],
+   "activeWithTween": 1.0,
    "alternative": null,
    "id": "SOR35",
    "name": "Immolator",
@@ -6110,6 +6570,7 @@
   {
    "active": null,
    "activeAnims": [],
+   "activeWithTween": null,
    "alternative": null,
    "id": "SOR36",
    "name": "Exorcist",
@@ -6165,6 +6626,7 @@
      "waitAnimToApplyEffect": 1
     }
    ],
+   "activeWithTween": 4.0,
    "alternative": null,
    "id": "SOR37",
    "name": "Triumph of St. Katherine",
@@ -6192,6 +6654,7 @@
   {
    "active": null,
    "activeAnims": [],
+   "activeWithTween": null,
    "alternative": null,
    "id": "SOR38",
    "name": "Paragon Warsuit",
@@ -6212,8 +6675,13 @@
      "slot": "cardAbilities[0].abilityLogic[0]",
      "trigger": "OnCollectFaith",
      "tweenAnim": {
+      "m_FileID": 2,
       "m_PathID": -8275538427997360676,
-      "note": "UnitTweenSO —— 它自己的 waitAnimation/length 本地**没算**（见产物 `_headline`）"
+      "name": "Recoil Normal Tween",
+      "resolved": true,
+      "seconds": 0.6,
+      "steps": 1,
+      "waitAnimation": 0
      },
      "waitAnimToApplyEffect": 1
     },
@@ -6241,6 +6709,7 @@
      "waitAnimToApplyEffect": 1
     }
    ],
+   "activeWithTween": 0.2,
    "alternative": null,
    "id": "SOR4",
    "name": "Sister Novitiate",
@@ -6259,6 +6728,7 @@
   {
    "active": null,
    "activeAnims": [],
+   "activeWithTween": null,
    "alternative": null,
    "id": "SOR44",
    "name": "Moment of Grace",
@@ -6277,6 +6747,7 @@
   {
    "active": null,
    "activeAnims": [],
+   "activeWithTween": null,
    "alternative": null,
    "id": "SOR47",
    "name": "Miraculous Feat",
@@ -6295,6 +6766,7 @@
   {
    "active": null,
    "activeAnims": [],
+   "activeWithTween": null,
    "alternative": null,
    "id": "SOR48",
    "name": "Imperial Creed",
@@ -6332,6 +6804,7 @@
      "waitAnimToApplyEffect": 1
     }
    ],
+   "activeWithTween": 1.0,
    "alternative": null,
    "id": "SOR5",
    "name": "Battle Sister",
@@ -6340,6 +6813,7 @@
   {
    "active": null,
    "activeAnims": [],
+   "activeWithTween": null,
    "alternative": null,
    "id": "SOR50",
    "name": "Relics of St. Katherine",
@@ -6358,6 +6832,7 @@
   {
    "active": null,
    "activeAnims": [],
+   "activeWithTween": null,
    "alternative": null,
    "id": "SOR51",
    "name": "Divine Intervention",
@@ -6394,6 +6869,7 @@
   {
    "active": null,
    "activeAnims": [],
+   "activeWithTween": null,
    "alternative": null,
    "id": "SOR52",
    "name": "Spirit of the Martyr",
@@ -6412,6 +6888,7 @@
   {
    "active": null,
    "activeAnims": [],
+   "activeWithTween": null,
    "alternative": null,
    "id": "SOR53",
    "name": "Blade of Faith",
@@ -6432,8 +6909,13 @@
      "slot": "cardAbilities[1].abilityLogic[0]",
      "trigger": "UseFaith",
      "tweenAnim": {
+      "m_FileID": 2,
       "m_PathID": -8275538427997360676,
-      "note": "UnitTweenSO —— 它自己的 waitAnimation/length 本地**没算**（见产物 `_headline`）"
+      "name": "Recoil Normal Tween",
+      "resolved": true,
+      "seconds": 0.6,
+      "steps": 1,
+      "waitAnimation": 0
      },
      "waitAnimToApplyEffect": 1
     }
@@ -6442,6 +6924,7 @@
   {
    "active": null,
    "activeAnims": [],
+   "activeWithTween": null,
    "alternative": null,
    "id": "SOR54",
    "name": "Fiery Conviction",
@@ -6469,6 +6952,7 @@
   {
    "active": null,
    "activeAnims": [],
+   "activeWithTween": null,
    "alternative": null,
    "id": "SOR55",
    "name": "Trial of Suffering",
@@ -6496,6 +6980,7 @@
   {
    "active": null,
    "activeAnims": [],
+   "activeWithTween": null,
    "alternative": null,
    "id": "SOR56",
    "name": "Beacon of Faith",
@@ -6541,6 +7026,7 @@
   {
    "active": null,
    "activeAnims": [],
+   "activeWithTween": null,
    "alternative": null,
    "id": "SOR58",
    "name": "Devout Warriors",
@@ -6566,12 +7052,18 @@
      "slot": "activeAbility.activeAbilityLogic[0]",
      "trigger": "主动技能（`activeAbility`，不走 `CardAbility.trigger` 那套枚举）",
      "tweenAnim": {
+      "m_FileID": 2,
       "m_PathID": -8275538427997360676,
-      "note": "UnitTweenSO —— 它自己的 waitAnimation/length 本地**没算**（见产物 `_headline`）"
+      "name": "Recoil Normal Tween",
+      "resolved": true,
+      "seconds": 0.6,
+      "steps": 1,
+      "waitAnimation": 0
      },
      "waitAnimToApplyEffect": 1
     }
    ],
+   "activeWithTween": 0.65,
    "alternative": null,
    "id": "SOR6",
    "name": "Battle Sister Gunner",
@@ -6599,6 +7091,7 @@
      "waitAnimToApplyEffect": 1
     }
    ],
+   "activeWithTween": 2.0,
    "alternative": null,
    "id": "SOR66",
    "name": "Armorium Cherub",
@@ -6617,6 +7110,7 @@
      "waitAnimToApplyEffect": 1
     }
    ],
+   "activeWithTween": 1.0,
    "alternative": null,
    "id": "SOR67",
    "name": "Sacred Rose Sister",
@@ -6663,6 +7157,7 @@
      "waitAnimToApplyEffect": 1
     }
    ],
+   "activeWithTween": 2.0,
    "alternative": null,
    "id": "SOR68",
    "name": "Ministorum Priest",
@@ -6681,6 +7176,7 @@
      "waitAnimToApplyEffect": 1
     }
    ],
+   "activeWithTween": 1.0,
    "alternative": null,
    "id": "SOR69",
    "name": "Zephyrim Superior",
@@ -6689,6 +7185,7 @@
   {
    "active": null,
    "activeAnims": [],
+   "activeWithTween": null,
    "alternative": null,
    "id": "SOR7",
    "name": "Crusader",
@@ -6726,6 +7223,7 @@
      "waitAnimToApplyEffect": 1
     }
    ],
+   "activeWithTween": 0.2,
    "alternative": null,
    "id": "SOR70",
    "name": "Sororitas Rhino",
@@ -6763,6 +7261,7 @@
      "waitAnimToApplyEffect": 1
     }
    ],
+   "activeWithTween": 0.2,
    "alternative": null,
    "id": "SOR71",
    "name": "Adelaide the Serene",
@@ -6800,6 +7299,7 @@
      "waitAnimToApplyEffect": 1
     }
    ],
+   "activeWithTween": 0.2,
    "alternative": null,
    "id": "SOR72",
    "name": "Castigator",
@@ -6811,8 +7311,13 @@
      "slot": "cardAbilities[0].abilityLogic[0]",
      "trigger": "TriggeredPray",
      "tweenAnim": {
+      "m_FileID": 2,
       "m_PathID": 3203395777126525160,
-      "note": "UnitTweenSO —— 它自己的 waitAnimation/length 本地**没算**（见产物 `_headline`）"
+      "name": "Recoil Heavy Tween",
+      "resolved": true,
+      "seconds": 1.1,
+      "steps": 3,
+      "waitAnimation": 0
      },
      "waitAnimToApplyEffect": 1
     }
@@ -6821,6 +7326,7 @@
   {
    "active": null,
    "activeAnims": [],
+   "activeWithTween": null,
    "alternative": null,
    "id": "SOR8",
    "name": "Arco-flagellant",
@@ -6848,6 +7354,7 @@
   {
    "active": null,
    "activeAnims": [],
+   "activeWithTween": null,
    "alternative": null,
    "id": "SOR9",
    "name": "Preacher",
@@ -6885,6 +7392,7 @@
      "waitAnimToApplyEffect": 1
     }
    ],
+   "activeWithTween": 1.2,
    "alternative": null,
    "id": "SW1",
    "name": "Logan Grimnar",
@@ -6893,6 +7401,7 @@
   {
    "active": null,
    "activeAnims": [],
+   "activeWithTween": null,
    "alternative": null,
    "id": "SW10",
    "name": "Grey Hunter",
@@ -6921,6 +7430,7 @@
      "waitAnimToApplyEffect": 1
     }
    ],
+   "activeWithTween": 0.5,
    "alternative": null,
    "id": "SW11",
    "name": "Grey Hunter Pack Leader",
@@ -6929,6 +7439,7 @@
   {
    "active": null,
    "activeAnims": [],
+   "activeWithTween": null,
    "alternative": null,
    "id": "SW14",
    "name": "Wolf Priest",
@@ -6947,6 +7458,7 @@
   {
    "active": null,
    "activeAnims": [],
+   "activeWithTween": null,
    "alternative": null,
    "id": "SW18",
    "name": "Hrolf the Ironhowl",
@@ -6974,6 +7486,7 @@
   {
    "active": null,
    "activeAnims": [],
+   "activeWithTween": null,
    "alternative": null,
    "id": "SW2",
    "name": "Njal Stormcaller",
@@ -6992,6 +7505,7 @@
   {
    "active": null,
    "activeAnims": [],
+   "activeWithTween": null,
    "alternative": null,
    "id": "SW20",
    "name": "Thunderwolf Cavalry Pack Leader",
@@ -7038,6 +7552,7 @@
      "waitAnimToApplyEffect": 1
     }
    ],
+   "activeWithTween": 0.4,
    "alternative": {
     "anims": [
      {
@@ -7095,7 +7610,34 @@
      "referenceValue": 0,
      "triggerIf": 1
     },
-    "why": "原版 `GetActiveAbility`：`hasAlternativeAbility && MeetsCriteria(normalAbilityBoardCriteria)` ⇒ 播**替代能力**；否则播普通 `activeAbility`。⛔ 本表 `active` 只记普通那一支"
+    "selectCriteriaDecoded": {
+     "caveat": "`MeetsCriteria` 的第 6 个实参（`param_6`）语义未解，只影响 RandomChance 那一支",
+     "countCriteriaFilters": [
+      "friendlyUnits",
+      "includeMinions"
+     ],
+     "countCriteriaTargetsAffected": {
+      "name": "allFiltered",
+      "value": 10
+     },
+     "countOptions": {
+      "name": "AllTargets",
+      "value": 0
+     },
+     "method": "d:/2/tools/decomp_full/BoardAnalysis__MeetsCriteria.c",
+     "playerTurn": {
+      "name": "Self",
+      "value": 10
+     },
+     "referenceValue": 0,
+     "semantics": "满足 ⇒ 用普通 `activeAbility`；不满足 ⇒ 用 `alternativeAbility`（`RawCardScript__GetActiveAbility.c`）",
+     "summary": "必须轮到这张卡的主人行动；目标数 == 0；目标集 = `allFiltered`，过滤位 friendlyUnits/includeMinions",
+     "triggerIf": {
+      "name": "EqualTo",
+      "value": 1
+     }
+    },
+    "why": "原版 `GetActiveAbility`（`RawCardScript__GetActiveAbility.c`）：`hasAlternativeAbility` 且 `MeetsCriteria(normalAbilityBoardCriteria)` **满足** ⇒ 播**普通** `activeAbility`；**不满足**才落到 `alternativeAbility`。⛔ 本表 `active` 只记普通那一支"
    },
    "id": "SW21",
    "name": "Wulfen Pack Leader",
@@ -7123,6 +7665,7 @@
      "waitAnimToApplyEffect": 1
     }
    ],
+   "activeWithTween": 2.8,
    "alternative": null,
    "id": "SW23",
    "name": "Fenrisian Drop Pod",
@@ -7141,6 +7684,7 @@
      "waitAnimToApplyEffect": 1
     }
    ],
+   "activeWithTween": 0.5,
    "alternative": null,
    "id": "SW29",
    "name": "Sons of Morkai Eliminator",
@@ -7159,6 +7703,7 @@
      "waitAnimToApplyEffect": 1
     }
    ],
+   "activeWithTween": 0.2,
    "alternative": null,
    "id": "SW3",
    "name": "Ragnar Blackmane",
@@ -7167,6 +7712,7 @@
   {
    "active": null,
    "activeAnims": [],
+   "activeWithTween": null,
    "alternative": null,
    "id": "SW32",
    "name": "Stormwolf",
@@ -7194,6 +7740,7 @@
   {
    "active": null,
    "activeAnims": [],
+   "activeWithTween": null,
    "alternative": null,
    "id": "SW35",
    "name": "Venerable Dreadnought",
@@ -7246,12 +7793,18 @@
      "slot": "activeAbility.activeAbilityLogic[0]",
      "trigger": "主动技能（`activeAbility`，不走 `CardAbility.trigger` 那套枚举）",
      "tweenAnim": {
+      "m_FileID": 2,
       "m_PathID": -8275538427997360676,
-      "note": "UnitTweenSO —— 它自己的 waitAnimation/length 本地**没算**（见产物 `_headline`）"
+      "name": "Recoil Normal Tween",
+      "resolved": true,
+      "seconds": 0.6,
+      "steps": 1,
+      "waitAnimation": 0
      },
      "waitAnimToApplyEffect": 1
     }
    ],
+   "activeWithTween": 1.5,
    "alternative": null,
    "id": "SW36",
    "name": "Bjorn the Fell-Handed",
@@ -7267,12 +7820,18 @@
      "slot": "activeAbility.activeAbilityLogic[0]",
      "trigger": "主动技能（`activeAbility`，不走 `CardAbility.trigger` 那套枚举）",
      "tweenAnim": {
+      "m_FileID": 2,
       "m_PathID": -8275538427997360676,
-      "note": "UnitTweenSO —— 它自己的 waitAnimation/length 本地**没算**（见产物 `_headline`）"
+      "name": "Recoil Normal Tween",
+      "resolved": true,
+      "seconds": 0.6,
+      "steps": 1,
+      "waitAnimation": 0
      },
      "waitAnimToApplyEffect": 1
     }
    ],
+   "activeWithTween": 0.75,
    "alternative": null,
    "id": "SW4",
    "name": "Blood Claw",
@@ -7291,6 +7850,7 @@
      "waitAnimToApplyEffect": 1
     }
    ],
+   "activeWithTween": 0.4,
    "alternative": null,
    "id": "SW5",
    "name": "Hunting Wolf",
@@ -7299,6 +7859,7 @@
   {
    "active": null,
    "activeAnims": [],
+   "activeWithTween": null,
    "alternative": null,
    "id": "SW56",
    "name": "Let Loose",
@@ -7317,6 +7878,7 @@
   {
    "active": null,
    "activeAnims": [],
+   "activeWithTween": null,
    "alternative": null,
    "id": "SW6",
    "name": "Blood Claw Pack Leader",
@@ -7335,6 +7897,7 @@
   {
    "active": null,
    "activeAnims": [],
+   "activeWithTween": null,
    "alternative": null,
    "id": "SW7",
    "name": "Deathwolf Scout",
@@ -7346,8 +7909,13 @@
      "slot": "cardAbilities[0].abilityLogic[0]",
      "trigger": "TriggeredFerocity",
      "tweenAnim": {
+      "m_FileID": 2,
       "m_PathID": -6655598350004933657,
-      "note": "UnitTweenSO —— 它自己的 waitAnimation/length 本地**没算**（见产物 `_headline`）"
+      "name": "Recoil Normal 0,2s Tween",
+      "resolved": true,
+      "seconds": 0.4,
+      "steps": 1,
+      "waitAnimation": 0
      },
      "waitAnimToApplyEffect": 1
     }
@@ -7375,6 +7943,7 @@
      "waitAnimToApplyEffect": 1
     }
    ],
+   "activeWithTween": 1.2,
    "alternative": null,
    "id": "SW8",
    "name": "Blackmane Reiver",
@@ -7383,6 +7952,7 @@
   {
    "active": null,
    "activeAnims": [],
+   "activeWithTween": null,
    "alternative": null,
    "id": "SW9",
    "name": "Fenrisian Wolf",
@@ -7410,6 +7980,7 @@
   {
    "active": null,
    "activeAnims": [],
+   "activeWithTween": null,
    "alternative": null,
    "id": "TAU10",
    "name": "Stealth Drone",
@@ -7437,6 +8008,7 @@
   {
    "active": null,
    "activeAnims": [],
+   "activeWithTween": null,
    "alternative": null,
    "id": "TAU13",
    "name": "DS8 Support Turret",
@@ -7455,6 +8027,7 @@
   {
    "active": null,
    "activeAnims": [],
+   "activeWithTween": null,
    "alternative": null,
    "id": "TAU25",
    "name": "Firesight Marksman",
@@ -7482,6 +8055,7 @@
   {
    "active": null,
    "activeAnims": [],
+   "activeWithTween": null,
    "alternative": null,
    "id": "TAU34",
    "name": "Coldstar Battlesuit",
@@ -7509,6 +8083,7 @@
   {
    "active": null,
    "activeAnims": [],
+   "activeWithTween": null,
    "alternative": null,
    "id": "TAU40",
    "name": "Technological Supremacy",
@@ -7536,6 +8111,7 @@
   {
    "active": null,
    "activeAnims": [],
+   "activeWithTween": null,
    "alternative": null,
    "id": "TAU6",
    "name": "Gun Drone",
@@ -7554,6 +8130,7 @@
   {
    "active": null,
    "activeAnims": [],
+   "activeWithTween": null,
    "alternative": null,
    "id": "TAU7",
    "name": "Marker Drone",
@@ -7572,6 +8149,7 @@
   {
    "active": null,
    "activeAnims": [],
+   "activeWithTween": null,
    "alternative": null,
    "id": "TAU70",
    "name": "Flesh Shaper",
@@ -7599,6 +8177,7 @@
   {
    "active": null,
    "activeAnims": [],
+   "activeWithTween": null,
    "alternative": null,
    "id": "TL14",
    "name": "Sporocyst",
@@ -7617,6 +8196,7 @@
   {
    "active": null,
    "activeAnims": [],
+   "activeWithTween": null,
    "alternative": null,
    "id": "TL15",
    "name": "Tyranid Prime",
@@ -7637,8 +8217,13 @@
      "slot": "cardAbilities[0].abilityLogic[0]",
      "trigger": "TriggeredSwarm",
      "tweenAnim": {
+      "m_FileID": 2,
       "m_PathID": -6121470673489406951,
-      "note": "UnitTweenSO —— 它自己的 waitAnimation/length 本地**没算**（见产物 `_headline`）"
+      "name": "Tyranid_Deform",
+      "resolved": true,
+      "seconds": 2.4,
+      "steps": 4,
+      "waitAnimation": 1
      },
      "waitAnimToApplyEffect": 0
     }
@@ -7647,6 +8232,7 @@
   {
    "active": null,
    "activeAnims": [],
+   "activeWithTween": null,
    "alternative": null,
    "id": "TL18",
    "name": "Zoanthrope",
@@ -7658,8 +8244,13 @@
      "slot": "cardAbilities[0].abilityLogic[0]",
      "trigger": "TriggeredSynapse",
      "tweenAnim": {
+      "m_FileID": 2,
       "m_PathID": 5657933893940981911,
-      "note": "UnitTweenSO —— 它自己的 waitAnimation/length 本地**没算**（见产物 `_headline`）"
+      "name": "Impact Lightning",
+      "resolved": true,
+      "seconds": 2.2,
+      "steps": 1,
+      "waitAnimation": 0
      },
      "waitAnimToApplyEffect": 1
     }
@@ -7668,6 +8259,7 @@
   {
    "active": null,
    "activeAnims": [],
+   "activeWithTween": null,
    "alternative": null,
    "id": "TL37",
    "name": "Spore Mine",
@@ -7686,6 +8278,7 @@
   {
    "active": null,
    "activeAnims": [],
+   "activeWithTween": null,
    "alternative": null,
    "id": "TL6",
    "name": "Biovore",
@@ -7704,6 +8297,7 @@
   {
    "active": null,
    "activeAnims": [],
+   "activeWithTween": null,
    "alternative": null,
    "id": "TL69",
    "name": "Neurotyrant",
@@ -7722,6 +8316,7 @@
   {
    "active": null,
    "activeAnims": [],
+   "activeWithTween": null,
    "alternative": null,
    "id": "TL75",
    "name": "Termagant Brood",
@@ -7733,8 +8328,13 @@
      "slot": "cardAbilities[0].abilityLogic[0]",
      "trigger": "TriggeredSwarm",
      "tweenAnim": {
+      "m_FileID": 2,
       "m_PathID": 4970856932857792203,
-      "note": "UnitTweenSO —— 它自己的 waitAnimation/length 本地**没算**（见产物 `_headline`）"
+      "name": "Subtle Shake",
+      "resolved": true,
+      "seconds": 4.4,
+      "steps": 2,
+      "waitAnimation": 1
      },
      "waitAnimToApplyEffect": 0
     }
@@ -7743,6 +8343,7 @@
   {
    "active": null,
    "activeAnims": [],
+   "activeWithTween": null,
    "alternative": null,
    "id": "TL8",
    "name": "Genestealer",
@@ -7777,12 +8378,18 @@
      "slot": "activeAbility.activeAbilityLogic[0]",
      "trigger": "主动技能（`activeAbility`，不走 `CardAbility.trigger` 那套枚举）",
      "tweenAnim": {
+      "m_FileID": 2,
       "m_PathID": -8275538427997360676,
-      "note": "UnitTweenSO —— 它自己的 waitAnimation/length 本地**没算**（见产物 `_headline`）"
+      "name": "Recoil Normal Tween",
+      "resolved": true,
+      "seconds": 0.6,
+      "steps": 1,
+      "waitAnimation": 0
      },
      "waitAnimToApplyEffect": 1
     }
    ],
+   "activeWithTween": 0.95,
    "alternative": null,
    "id": "UM101",
    "name": "1st Company Terminator",
@@ -7801,6 +8408,7 @@
      "waitAnimToApplyEffect": 1
     }
    ],
+   "activeWithTween": 0.2,
    "alternative": null,
    "id": "UM102",
    "name": "Terminator Captain",
@@ -7828,6 +8436,7 @@
      "waitAnimToApplyEffect": 0
     }
    ],
+   "activeWithTween": 2.0,
    "alternative": null,
    "id": "UM103",
    "name": "Terminator",
@@ -7855,6 +8464,7 @@
      "waitAnimToApplyEffect": 0
     }
    ],
+   "activeWithTween": 2.0,
    "alternative": null,
    "id": "UM104",
    "name": "Bladeguard Ancient",
@@ -7891,6 +8501,7 @@
      "waitAnimToApplyEffect": 1
     }
    ],
+   "activeWithTween": 1.4,
    "alternative": null,
    "id": "UM105",
    "name": "Dreadnought",
@@ -7915,12 +8526,18 @@
      "slot": "activeAbility.activeAbilityLogic[0]",
      "trigger": "主动技能（`activeAbility`，不走 `CardAbility.trigger` 那套枚举）",
      "tweenAnim": {
+      "m_FileID": 2,
       "m_PathID": 5096351763409750592,
-      "note": "UnitTweenSO —— 它自己的 waitAnimation/length 本地**没算**（见产物 `_headline`）"
+      "name": "Impact Light Tween",
+      "resolved": true,
+      "seconds": 1.25,
+      "steps": 4,
+      "waitAnimation": 0
      },
      "waitAnimToApplyEffect": 1
     }
    ],
+   "activeWithTween": 0.4,
    "alternative": null,
    "id": "UM106",
    "name": "Ferren Areios",
@@ -7945,12 +8562,18 @@
      "slot": "activeAbility.activeAbilityLogic[0]",
      "trigger": "主动技能（`activeAbility`，不走 `CardAbility.trigger` 那套枚举）",
      "tweenAnim": {
+      "m_FileID": 2,
       "m_PathID": -8275538427997360676,
-      "note": "UnitTweenSO —— 它自己的 waitAnimation/length 本地**没算**（见产物 `_headline`）"
+      "name": "Recoil Normal Tween",
+      "resolved": true,
+      "seconds": 0.6,
+      "steps": 1,
+      "waitAnimation": 0
      },
      "waitAnimToApplyEffect": 1
     }
    ],
+   "activeWithTween": 1.2,
    "alternative": null,
    "id": "UM108",
    "name": "Brutalis Dreadnought",
@@ -7959,6 +8582,7 @@
   {
    "active": null,
    "activeAnims": [],
+   "activeWithTween": null,
    "alternative": null,
    "id": "UM116",
    "name": "No Mercy",
@@ -7986,6 +8610,7 @@
   {
    "active": null,
    "activeAnims": [],
+   "activeWithTween": null,
    "alternative": null,
    "id": "UM118",
    "name": "Indomitus Crusade",
@@ -8013,6 +8638,7 @@
   {
    "active": null,
    "activeAnims": [],
+   "activeWithTween": null,
    "alternative": null,
    "id": "UM12",
    "name": "Antaro Chronus",
@@ -8040,6 +8666,7 @@
   {
    "active": null,
    "activeAnims": [],
+   "activeWithTween": null,
    "alternative": null,
    "id": "UM13",
    "name": "Primaris Chaplain",
@@ -8067,6 +8694,7 @@
   {
    "active": null,
    "activeAnims": [],
+   "activeWithTween": null,
    "alternative": null,
    "id": "UM15",
    "name": "Apothecary Polixis",
@@ -8085,6 +8713,7 @@
   {
    "active": null,
    "activeAnims": [],
+   "activeWithTween": null,
    "alternative": null,
    "id": "UM16",
    "name": "Sergeant Allectius",
@@ -8096,8 +8725,13 @@
      "slot": "cardAbilities[0].abilityLogic[0]",
      "trigger": "Codex",
      "tweenAnim": {
+      "m_FileID": 2,
       "m_PathID": -8275538427997360676,
-      "note": "UnitTweenSO —— 它自己的 waitAnimation/length 本地**没算**（见产物 `_headline`）"
+      "name": "Recoil Normal Tween",
+      "resolved": true,
+      "seconds": 0.6,
+      "steps": 1,
+      "waitAnimation": 0
      },
      "waitAnimToApplyEffect": 1
     },
@@ -8115,6 +8749,7 @@
   {
    "active": null,
    "activeAnims": [],
+   "activeWithTween": null,
    "alternative": null,
    "id": "UM20",
    "name": "Sergeant Telion",
@@ -8133,6 +8768,7 @@
   {
    "active": null,
    "activeAnims": [],
+   "activeWithTween": null,
    "alternative": null,
    "id": "UM24",
    "name": "Lieutenant Calsius",
@@ -8144,8 +8780,13 @@
      "slot": "cardAbilities[0].abilityLogic[0]",
      "trigger": "Codex",
      "tweenAnim": {
+      "m_FileID": 2,
       "m_PathID": -8275538427997360676,
-      "note": "UnitTweenSO —— 它自己的 waitAnimation/length 本地**没算**（见产物 `_headline`）"
+      "name": "Recoil Normal Tween",
+      "resolved": true,
+      "seconds": 0.6,
+      "steps": 1,
+      "waitAnimation": 0
      },
      "waitAnimToApplyEffect": 1
     },
@@ -8163,6 +8804,7 @@
   {
    "active": null,
    "activeAnims": [],
+   "activeWithTween": null,
    "alternative": null,
    "id": "UM25",
    "name": "Devastator Centurion",
@@ -8181,6 +8823,7 @@
   {
    "active": null,
    "activeAnims": [],
+   "activeWithTween": null,
    "alternative": null,
    "id": "UM28",
    "name": "Redemptor Dreadnought",
@@ -8192,8 +8835,13 @@
      "slot": "cardAbilities[0].abilityLogic[0]",
      "trigger": "Codex",
      "tweenAnim": {
+      "m_FileID": 2,
       "m_PathID": -8275538427997360676,
-      "note": "UnitTweenSO —— 它自己的 waitAnimation/length 本地**没算**（见产物 `_headline`）"
+      "name": "Recoil Normal Tween",
+      "resolved": true,
+      "seconds": 0.6,
+      "steps": 1,
+      "waitAnimation": 0
      },
      "waitAnimToApplyEffect": 1
     },
@@ -8211,6 +8859,7 @@
   {
    "active": null,
    "activeAnims": [],
+   "activeWithTween": null,
    "alternative": null,
    "id": "UM3",
    "name": "Firstborn",
@@ -8229,6 +8878,7 @@
   {
    "active": null,
    "activeAnims": [],
+   "activeWithTween": null,
    "alternative": null,
    "id": "UM37",
    "name": "Death from Above",
@@ -8247,6 +8897,7 @@
   {
    "active": null,
    "activeAnims": [],
+   "activeWithTween": null,
    "alternative": null,
    "id": "UM39",
    "name": "Inspired Retribution",
@@ -8265,6 +8916,7 @@
   {
    "active": null,
    "activeAnims": [],
+   "activeWithTween": null,
    "alternative": null,
    "id": "UM40",
    "name": "Avenging Zeal",
@@ -8283,6 +8935,7 @@
   {
    "active": null,
    "activeAnims": [],
+   "activeWithTween": null,
    "alternative": null,
    "id": "UM55",
    "name": "Sternguard Sergeant",
@@ -8294,8 +8947,13 @@
      "slot": "cardAbilities[0].abilityLogic[0]",
      "trigger": "Codex",
      "tweenAnim": {
+      "m_FileID": 2,
       "m_PathID": -8275538427997360676,
-      "note": "UnitTweenSO —— 它自己的 waitAnimation/length 本地**没算**（见产物 `_headline`）"
+      "name": "Recoil Normal Tween",
+      "resolved": true,
+      "seconds": 0.6,
+      "steps": 1,
+      "waitAnimation": 0
      },
      "waitAnimToApplyEffect": 1
     },
@@ -8313,6 +8971,7 @@
   {
    "active": null,
    "activeAnims": [],
+   "activeWithTween": null,
    "alternative": null,
    "id": "UM56",
    "name": "Intercessor Sergeant",
@@ -8324,8 +8983,13 @@
      "slot": "cardAbilities[0].abilityLogic[0]",
      "trigger": "Codex",
      "tweenAnim": {
+      "m_FileID": 2,
       "m_PathID": -8275538427997360676,
-      "note": "UnitTweenSO —— 它自己的 waitAnimation/length 本地**没算**（见产物 `_headline`）"
+      "name": "Recoil Normal Tween",
+      "resolved": true,
+      "seconds": 0.6,
+      "steps": 1,
+      "waitAnimation": 0
      },
      "waitAnimToApplyEffect": 1
     }
@@ -8334,6 +8998,7 @@
   {
    "active": null,
    "activeAnims": [],
+   "activeWithTween": null,
    "alternative": null,
    "id": "UM57",
    "name": "Primaris Invader",
@@ -8361,6 +9026,7 @@
   {
    "active": null,
    "activeAnims": [],
+   "activeWithTween": null,
    "alternative": null,
    "id": "UM59",
    "name": "Stormtalon",
@@ -8379,6 +9045,7 @@
   {
    "active": null,
    "activeAnims": [],
+   "activeWithTween": null,
    "alternative": null,
    "id": "UM66",
    "name": "Scout Bike",
@@ -8390,8 +9057,13 @@
      "slot": "cardAbilities[0].abilityLogic[0]",
      "trigger": "OtherUnitSummoned",
      "tweenAnim": {
+      "m_FileID": 2,
       "m_PathID": -8275538427997360676,
-      "note": "UnitTweenSO —— 它自己的 waitAnimation/length 本地**没算**（见产物 `_headline`）"
+      "name": "Recoil Normal Tween",
+      "resolved": true,
+      "seconds": 0.6,
+      "steps": 1,
+      "waitAnimation": 0
      },
      "waitAnimToApplyEffect": 1
     }
@@ -8400,6 +9072,7 @@
   {
    "active": null,
    "activeAnims": [],
+   "activeWithTween": null,
    "alternative": null,
    "id": "UM67",
    "name": "Outrider",
@@ -8418,6 +9091,7 @@
   {
    "active": null,
    "activeAnims": [],
+   "activeWithTween": null,
    "alternative": null,
    "id": "UM68",
    "name": "Primaris Techmarine",
@@ -8445,6 +9119,7 @@
   {
    "active": null,
    "activeAnims": [],
+   "activeWithTween": null,
    "alternative": null,
    "id": "UM71",
    "name": "Storm Speeder Hailstrike",
@@ -8456,8 +9131,13 @@
      "slot": "cardAbilities[0].abilityLogic[0]",
      "trigger": "Codex",
      "tweenAnim": {
+      "m_FileID": 2,
       "m_PathID": -8275538427997360676,
-      "note": "UnitTweenSO —— 它自己的 waitAnimation/length 本地**没算**（见产物 `_headline`）"
+      "name": "Recoil Normal Tween",
+      "resolved": true,
+      "seconds": 0.6,
+      "steps": 1,
+      "waitAnimation": 0
      },
      "waitAnimToApplyEffect": 1
     }
@@ -8466,6 +9146,7 @@
   {
    "active": null,
    "activeAnims": [],
+   "activeWithTween": null,
    "alternative": null,
    "id": "UM72",
    "name": "Predator Annihilator",
@@ -8477,8 +9158,13 @@
      "slot": "cardAbilities[0].abilityLogic[0]",
      "trigger": "Codex",
      "tweenAnim": {
+      "m_FileID": 2,
       "m_PathID": -3578002550885412981,
-      "note": "UnitTweenSO —— 它自己的 waitAnimation/length 本地**没算**（见产物 `_headline`）"
+      "name": "Recoil Normal 1s Tween",
+      "resolved": true,
+      "seconds": 1.6,
+      "steps": 1,
+      "waitAnimation": 0
      },
      "waitAnimToApplyEffect": 1
     }
@@ -8487,6 +9173,7 @@
   {
    "active": null,
    "activeAnims": [],
+   "activeWithTween": null,
    "alternative": null,
    "id": "UM78",
    "name": "Heavy Intercessor",
@@ -8505,6 +9192,7 @@
   {
    "active": null,
    "activeAnims": [],
+   "activeWithTween": null,
    "alternative": null,
    "id": "UM79",
    "name": "Primaris Eradicator",
@@ -8516,8 +9204,13 @@
      "slot": "cardAbilities[0].abilityLogic[0]",
      "trigger": "Codex",
      "tweenAnim": {
+      "m_FileID": 2,
       "m_PathID": -8275538427997360676,
-      "note": "UnitTweenSO —— 它自己的 waitAnimation/length 本地**没算**（见产物 `_headline`）"
+      "name": "Recoil Normal Tween",
+      "resolved": true,
+      "seconds": 0.6,
+      "steps": 1,
+      "waitAnimation": 0
      },
      "waitAnimToApplyEffect": 1
     }
@@ -8526,6 +9219,7 @@
   {
    "active": null,
    "activeAnims": [],
+   "activeWithTween": null,
    "alternative": null,
    "id": "UM81",
    "name": "Eliminator Sergeant",
@@ -8544,6 +9238,7 @@
   {
    "active": null,
    "activeAnims": [],
+   "activeWithTween": null,
    "alternative": null,
    "id": "UM84",
    "name": "Devastator Doctrine",
@@ -8571,6 +9266,7 @@
   {
    "active": null,
    "activeAnims": [],
+   "activeWithTween": null,
    "alternative": null,
    "id": "UM85",
    "name": "Tactical Doctrine",
@@ -8598,6 +9294,7 @@
   {
    "active": null,
    "activeAnims": [],
+   "activeWithTween": null,
    "alternative": null,
    "id": "UM86",
    "name": "Assault Doctrine",
@@ -8662,6 +9359,7 @@
      "waitAnimToApplyEffect": 1
     }
    ],
+   "activeWithTween": 3.2,
    "alternative": null,
    "id": "UM89",
    "name": "Incursor",
@@ -8689,6 +9387,7 @@
      "waitAnimToApplyEffect": 0
     }
    ],
+   "activeWithTween": 0.7,
    "alternative": null,
    "id": "UM90",
    "name": "Phobos Lieutenant",
@@ -8716,6 +9415,7 @@
      "waitAnimToApplyEffect": 1
     }
    ],
+   "activeWithTween": 1.2,
    "alternative": null,
    "id": "UM91",
    "name": "Tactical Marine",
@@ -8734,6 +9434,7 @@
      "waitAnimToApplyEffect": 1
     }
    ],
+   "activeWithTween": 0.2,
    "alternative": null,
    "id": "UM92",
    "name": "Firestrike Servo-Turret",
@@ -8761,6 +9462,7 @@
      "waitAnimToApplyEffect": 0
     }
    ],
+   "activeWithTween": 0.7,
    "alternative": null,
    "id": "UM93",
    "name": "Vico Therbeus",
@@ -8785,12 +9487,18 @@
      "slot": "activeAbility.activeAbilityLogic[0]",
      "trigger": "主动技能（`activeAbility`，不走 `CardAbility.trigger` 那套枚举）",
      "tweenAnim": {
+      "m_FileID": 2,
       "m_PathID": -8275538427997360676,
-      "note": "UnitTweenSO —— 它自己的 waitAnimation/length 本地**没算**（见产物 `_headline`）"
+      "name": "Recoil Normal Tween",
+      "resolved": true,
+      "seconds": 0.6,
+      "steps": 1,
+      "waitAnimation": 0
      },
      "waitAnimToApplyEffect": 1
     }
    ],
+   "activeWithTween": 0.95,
    "alternative": null,
    "id": "UM94",
    "name": "Scout Sniper",
@@ -8818,6 +9526,7 @@
      "waitAnimToApplyEffect": 0
     }
    ],
+   "activeWithTween": 1.2,
    "alternative": null,
    "id": "UM95",
    "name": "Attack Bike",
@@ -8845,6 +9554,7 @@
      "waitAnimToApplyEffect": 0
     }
    ],
+   "activeWithTween": 2.0,
    "alternative": null,
    "id": "UM96",
    "name": "Chapter Champion",
@@ -8882,6 +9592,7 @@
      "waitAnimToApplyEffect": 1
     }
    ],
+   "activeWithTween": 2.7,
    "alternative": null,
    "id": "UM97",
    "name": "Suppressor",
@@ -8906,12 +9617,18 @@
      "slot": "activeAbility.activeAbilityLogic[0]",
      "trigger": "主动技能（`activeAbility`，不走 `CardAbility.trigger` 那套枚举）",
      "tweenAnim": {
+      "m_FileID": 2,
       "m_PathID": -8275538427997360676,
-      "note": "UnitTweenSO —— 它自己的 waitAnimation/length 本地**没算**（见产物 `_headline`）"
+      "name": "Recoil Normal Tween",
+      "resolved": true,
+      "seconds": 0.6,
+      "steps": 1,
+      "waitAnimation": 0
      },
      "waitAnimToApplyEffect": 1
     }
    ],
+   "activeWithTween": 2.0,
    "alternative": null,
    "id": "UM98",
    "name": "Devastator Marine",
@@ -8936,12 +9653,18 @@
      "slot": "activeAbility.activeAbilityLogic[0]",
      "trigger": "主动技能（`activeAbility`，不走 `CardAbility.trigger` 那套枚举）",
      "tweenAnim": {
+      "m_FileID": 2,
       "m_PathID": 5657933893940981911,
-      "note": "UnitTweenSO —— 它自己的 waitAnimation/length 本地**没算**（见产物 `_headline`）"
+      "name": "Impact Lightning",
+      "resolved": true,
+      "seconds": 2.2,
+      "steps": 1,
+      "waitAnimation": 0
      },
      "waitAnimToApplyEffect": 1
     }
    ],
+   "activeWithTween": 0.85,
    "alternative": null,
    "id": "UM99",
    "name": "Phobos Librarian",
@@ -8950,6 +9673,7 @@
   {
    "active": null,
    "activeAnims": [],
+   "activeWithTween": null,
    "alternative": null,
    "id": "a7bb23355a30d344e9d2decf976d91e1",
    "name": "Poisoned Supplies",
@@ -8977,6 +9701,7 @@
   {
    "active": null,
    "activeAnims": [],
+   "activeWithTween": null,
    "alternative": null,
    "id": "a84a5b49f0ca9144585058db6987c2a0",
    "name": "Master Interromancer",
@@ -8995,6 +9720,7 @@
   {
    "active": null,
    "activeAnims": [],
+   "activeWithTween": null,
    "alternative": null,
    "id": "b8e81b2fe85cda747a68c4d6326b669c",
    "name": "Dark Pact of Excess",
@@ -9013,6 +9739,7 @@
   {
    "active": null,
    "activeAnims": [],
+   "activeWithTween": null,
    "alternative": null,
    "id": "d3e99cb18b8cbba4081486f57f510f75",
    "name": "Witchfire",
@@ -9042,8 +9769,13 @@
      "slot": "cardAbilities[1].abilityLogic[0]",
      "trigger": "UseSpiritStone",
      "tweenAnim": {
+      "m_FileID": 2,
       "m_PathID": 5657933893940981911,
-      "note": "UnitTweenSO —— 它自己的 waitAnimation/length 本地**没算**（见产物 `_headline`）"
+      "name": "Impact Lightning",
+      "resolved": true,
+      "seconds": 2.2,
+      "steps": 1,
+      "waitAnimation": 0
      },
      "waitAnimToApplyEffect": 1
     }
@@ -9052,6 +9784,7 @@
   {
    "active": null,
    "activeAnims": [],
+   "activeWithTween": null,
    "alternative": null,
    "id": "e01f4d54e8a474d96b5a1167cc28eebf",
    "name": "Daemonbreaker",
@@ -9079,6 +9812,7 @@
   {
    "active": null,
    "activeAnims": [],
+   "activeWithTween": null,
    "alternative": null,
    "id": "f104d4c21abe84546abc9365d9eda8dd",
    "name": "Righteous Repugnance",
@@ -9098,13 +9832,1038 @@
  "conditional": [
   {
    "alternative": 0.2,
+   "alternativeWithTween": 0.2,
+   "criteria": {
+    "caveat": "`MeetsCriteria` 的第 6 个实参（`param_6`）语义未解，只影响 RandomChance 那一支",
+    "countCriteriaFilters": [
+     "friendlyUnits",
+     "includeMinions"
+    ],
+    "countCriteriaTargetsAffected": {
+     "name": "allFiltered",
+     "value": 10
+    },
+    "countOptions": {
+     "name": "AllTargets",
+     "value": 0
+    },
+    "method": "d:/2/tools/decomp_full/BoardAnalysis__MeetsCriteria.c",
+    "playerTurn": {
+     "name": "Self",
+     "value": 10
+    },
+    "referenceValue": 0,
+    "semantics": "满足 ⇒ 用普通 `activeAbility`；不满足 ⇒ 用 `alternativeAbility`（`RawCardScript__GetActiveAbility.c`）",
+    "summary": "必须轮到这张卡的主人行动；目标数 == 0；目标集 = `allFiltered`，过滤位 friendlyUnits/includeMinions",
+    "triggerIf": {
+     "name": "EqualTo",
+     "value": 1
+    }
+   },
    "id": "SW21",
    "name": "Wulfen Pack Leader",
    "normal": 0.4,
+   "normalWithTween": 0.4,
    "note": "同一张卡、不同棋盘状态 ⇒ 两个不同的时长（铁律 5·c）"
   }
  ],
  "generatedBy": "d:/4/Unity/工具/gen_ability_anim_durations.py",
+ "notAbilityRows": [
+  {
+   "cardanim": "FlyingTraitPlay",
+   "id": "AM34",
+   "prefab": "FlyingEffect",
+   "src": "cardtrait-so",
+   "why": "没有 `abilitySlot` ⇒ 不是 `activeAbility` 链上的 CardAnim（`src == \"cardtrait-so\"` 的关键词演出行，别混进本表）"
+  },
+  {
+   "cardanim": "FlyingTraitPlay",
+   "id": "EC29",
+   "prefab": "FlyingEffect",
+   "src": "cardtrait-so",
+   "why": "没有 `abilitySlot` ⇒ 不是 `activeAbility` 链上的 CardAnim（`src == \"cardtrait-so\"` 的关键词演出行，别混进本表）"
+  },
+  {
+   "cardanim": "StealthTraitPlay",
+   "id": "ASH77",
+   "prefab": "StealthEffect",
+   "src": "cardtrait-so",
+   "why": "没有 `abilitySlot` ⇒ 不是 `activeAbility` 链上的 CardAnim（`src == \"cardtrait-so\"` 的关键词演出行，别混进本表）"
+  },
+  {
+   "cardanim": "CamouflageTraitPlay",
+   "id": "ASH69",
+   "prefab": "CamouflageEffect",
+   "src": "cardtrait-so",
+   "why": "没有 `abilitySlot` ⇒ 不是 `activeAbility` 链上的 CardAnim（`src == \"cardtrait-so\"` 的关键词演出行，别混进本表）"
+  },
+  {
+   "cardanim": "StealthTraitPlay",
+   "id": "ASH79",
+   "prefab": "StealthEffect",
+   "src": "cardtrait-so",
+   "why": "没有 `abilitySlot` ⇒ 不是 `activeAbility` 链上的 CardAnim（`src == \"cardtrait-so\"` 的关键词演出行，别混进本表）"
+  },
+  {
+   "cardanim": "StealthTraitPlay",
+   "id": "ASH6",
+   "prefab": "StealthEffect",
+   "src": "cardtrait-so",
+   "why": "没有 `abilitySlot` ⇒ 不是 `activeAbility` 链上的 CardAnim（`src == \"cardtrait-so\"` 的关键词演出行，别混进本表）"
+  },
+  {
+   "cardanim": "StealthTraitPlay",
+   "id": "ASH23",
+   "prefab": "StealthEffect",
+   "src": "cardtrait-so",
+   "why": "没有 `abilitySlot` ⇒ 不是 `activeAbility` 链上的 CardAnim（`src == \"cardtrait-so\"` 的关键词演出行，别混进本表）"
+  },
+  {
+   "cardanim": "StealthTraitPlay",
+   "id": "ASH11",
+   "prefab": "StealthEffect",
+   "src": "cardtrait-so",
+   "why": "没有 `abilitySlot` ⇒ 不是 `activeAbility` 链上的 CardAnim（`src == \"cardtrait-so\"` 的关键词演出行，别混进本表）"
+  },
+  {
+   "cardanim": "FlyingTraitPlay",
+   "id": "ASH70",
+   "prefab": "FlyingEffect",
+   "src": "cardtrait-so",
+   "why": "没有 `abilitySlot` ⇒ 不是 `activeAbility` 链上的 CardAnim（`src == \"cardtrait-so\"` 的关键词演出行，别混进本表）"
+  },
+  {
+   "cardanim": "FlyingTraitPlay",
+   "id": "ASH12",
+   "prefab": "FlyingEffect",
+   "src": "cardtrait-so",
+   "why": "没有 `abilitySlot` ⇒ 不是 `activeAbility` 链上的 CardAnim（`src == \"cardtrait-so\"` 的关键词演出行，别混进本表）"
+  },
+  {
+   "cardanim": "StealthTraitPlay",
+   "id": "ASH78",
+   "prefab": "StealthEffect",
+   "src": "cardtrait-so",
+   "why": "没有 `abilitySlot` ⇒ 不是 `activeAbility` 链上的 CardAnim（`src == \"cardtrait-so\"` 的关键词演出行，别混进本表）"
+  },
+  {
+   "cardanim": "StealthTraitPlay",
+   "id": "ASH13",
+   "prefab": "StealthEffect",
+   "src": "cardtrait-so",
+   "why": "没有 `abilitySlot` ⇒ 不是 `activeAbility` 链上的 CardAnim（`src == \"cardtrait-so\"` 的关键词演出行，别混进本表）"
+  },
+  {
+   "cardanim": "FlyingTraitPlay",
+   "id": "ASH31",
+   "prefab": "FlyingEffect",
+   "src": "cardtrait-so",
+   "why": "没有 `abilitySlot` ⇒ 不是 `activeAbility` 链上的 CardAnim（`src == \"cardtrait-so\"` 的关键词演出行，别混进本表）"
+  },
+  {
+   "cardanim": "FlyingTraitPlay",
+   "id": "ASH75",
+   "prefab": "FlyingEffect",
+   "src": "cardtrait-so",
+   "why": "没有 `abilitySlot` ⇒ 不是 `activeAbility` 链上的 CardAnim（`src == \"cardtrait-so\"` 的关键词演出行，别混进本表）"
+  },
+  {
+   "cardanim": "FlyingTraitPlay",
+   "id": "ASH81",
+   "prefab": "FlyingEffect",
+   "src": "cardtrait-so",
+   "why": "没有 `abilitySlot` ⇒ 不是 `activeAbility` 链上的 CardAnim（`src == \"cardtrait-so\"` 的关键词演出行，别混进本表）"
+  },
+  {
+   "cardanim": "FlyingTraitPlay",
+   "id": "ASH21",
+   "prefab": "FlyingEffect",
+   "src": "cardtrait-so",
+   "why": "没有 `abilitySlot` ⇒ 不是 `activeAbility` 链上的 CardAnim（`src == \"cardtrait-so\"` 的关键词演出行，别混进本表）"
+  },
+  {
+   "cardanim": "FlyingTraitPlay",
+   "id": "ASH27",
+   "prefab": "FlyingEffect",
+   "src": "cardtrait-so",
+   "why": "没有 `abilitySlot` ⇒ 不是 `activeAbility` 链上的 CardAnim（`src == \"cardtrait-so\"` 的关键词演出行，别混进本表）"
+  },
+  {
+   "cardanim": "FlyingTraitPlay",
+   "id": "ASH82",
+   "prefab": "FlyingEffect",
+   "src": "cardtrait-so",
+   "why": "没有 `abilitySlot` ⇒ 不是 `activeAbility` 链上的 CardAnim（`src == \"cardtrait-so\"` 的关键词演出行，别混进本表）"
+  },
+  {
+   "cardanim": "FlyingTraitPlay",
+   "id": "ASH30",
+   "prefab": "FlyingEffect",
+   "src": "cardtrait-so",
+   "why": "没有 `abilitySlot` ⇒ 不是 `activeAbility` 链上的 CardAnim（`src == \"cardtrait-so\"` 的关键词演出行，别混进本表）"
+  },
+  {
+   "cardanim": "FlyingTraitPlay",
+   "id": "ASH33",
+   "prefab": "FlyingEffect",
+   "src": "cardtrait-so",
+   "why": "没有 `abilitySlot` ⇒ 不是 `activeAbility` 链上的 CardAnim（`src == \"cardtrait-so\"` 的关键词演出行，别混进本表）"
+  },
+  {
+   "cardanim": "FlyingTraitPlay",
+   "id": "ASH67",
+   "prefab": "FlyingEffect",
+   "src": "cardtrait-so",
+   "why": "没有 `abilitySlot` ⇒ 不是 `activeAbility` 链上的 CardAnim（`src == \"cardtrait-so\"` 的关键词演出行，别混进本表）"
+  },
+  {
+   "cardanim": "FlyingTraitPlay",
+   "id": "ASH68",
+   "prefab": "FlyingEffect",
+   "src": "cardtrait-so",
+   "why": "没有 `abilitySlot` ⇒ 不是 `activeAbility` 链上的 CardAnim（`src == \"cardtrait-so\"` 的关键词演出行，别混进本表）"
+  },
+  {
+   "cardanim": "FlyingTraitPlay",
+   "id": "ASH16",
+   "prefab": "FlyingEffect",
+   "src": "cardtrait-so",
+   "why": "没有 `abilitySlot` ⇒ 不是 `activeAbility` 链上的 CardAnim（`src == \"cardtrait-so\"` 的关键词演出行，别混进本表）"
+  },
+  {
+   "cardanim": "FlyingTraitPlay",
+   "id": "ASH66",
+   "prefab": "FlyingEffect",
+   "src": "cardtrait-so",
+   "why": "没有 `abilitySlot` ⇒ 不是 `activeAbility` 链上的 CardAnim（`src == \"cardtrait-so\"` 的关键词演出行，别混进本表）"
+  },
+  {
+   "cardanim": "FlyingTraitPlay",
+   "id": "ASH65",
+   "prefab": "FlyingEffect",
+   "src": "cardtrait-so",
+   "why": "没有 `abilitySlot` ⇒ 不是 `activeAbility` 链上的 CardAnim（`src == \"cardtrait-so\"` 的关键词演出行，别混进本表）"
+  },
+  {
+   "cardanim": "FlyingTraitPlay",
+   "id": "ASH10",
+   "prefab": "FlyingEffect",
+   "src": "cardtrait-so",
+   "why": "没有 `abilitySlot` ⇒ 不是 `activeAbility` 链上的 CardAnim（`src == \"cardtrait-so\"` 的关键词演出行，别混进本表）"
+  },
+  {
+   "cardanim": "FlyingTraitPlay",
+   "id": "ASH18",
+   "prefab": "FlyingEffect",
+   "src": "cardtrait-so",
+   "why": "没有 `abilitySlot` ⇒ 不是 `activeAbility` 链上的 CardAnim（`src == \"cardtrait-so\"` 的关键词演出行，别混进本表）"
+  },
+  {
+   "cardanim": "FlyingTraitPlay",
+   "id": "ASH25",
+   "prefab": "FlyingEffect",
+   "src": "cardtrait-so",
+   "why": "没有 `abilitySlot` ⇒ 不是 `activeAbility` 链上的 CardAnim（`src == \"cardtrait-so\"` 的关键词演出行，别混进本表）"
+  },
+  {
+   "cardanim": "FlyingTraitPlay",
+   "id": "ASH29",
+   "prefab": "FlyingEffect",
+   "src": "cardtrait-so",
+   "why": "没有 `abilitySlot` ⇒ 不是 `activeAbility` 链上的 CardAnim（`src == \"cardtrait-so\"` 的关键词演出行，别混进本表）"
+  },
+  {
+   "cardanim": "FlyingTraitPlay",
+   "id": "ASH9",
+   "prefab": "FlyingEffect",
+   "src": "cardtrait-so",
+   "why": "没有 `abilitySlot` ⇒ 不是 `activeAbility` 链上的 CardAnim（`src == \"cardtrait-so\"` 的关键词演出行，别混进本表）"
+  },
+  {
+   "cardanim": "StealthTraitPlay",
+   "id": "ASH76",
+   "prefab": "StealthEffect",
+   "src": "cardtrait-so",
+   "why": "没有 `abilitySlot` ⇒ 不是 `activeAbility` 链上的 CardAnim（`src == \"cardtrait-so\"` 的关键词演出行，别混进本表）"
+  },
+  {
+   "cardanim": "ShieldTraitPlay",
+   "id": "AM59",
+   "prefab": "ShieldTraitEffect_Idle",
+   "src": "cardtrait-so",
+   "why": "没有 `abilitySlot` ⇒ 不是 `activeAbility` 链上的 CardAnim（`src == \"cardtrait-so\"` 的关键词演出行，别混进本表）"
+  },
+  {
+   "cardanim": "CamouflageTraitPlay",
+   "id": "AM59",
+   "prefab": "CamouflageEffect",
+   "src": "cardtrait-so",
+   "why": "没有 `abilitySlot` ⇒ 不是 `activeAbility` 链上的 CardAnim（`src == \"cardtrait-so\"` 的关键词演出行，别混进本表）"
+  },
+  {
+   "cardanim": "ShieldTraitPlay",
+   "id": "AM22",
+   "prefab": "ShieldTraitEffect_Idle",
+   "src": "cardtrait-so",
+   "why": "没有 `abilitySlot` ⇒ 不是 `activeAbility` 链上的 CardAnim（`src == \"cardtrait-so\"` 的关键词演出行，别混进本表）"
+  },
+  {
+   "cardanim": "FlyingTraitPlay",
+   "id": "AM71",
+   "prefab": "FlyingEffect",
+   "src": "cardtrait-so",
+   "why": "没有 `abilitySlot` ⇒ 不是 `activeAbility` 链上的 CardAnim（`src == \"cardtrait-so\"` 的关键词演出行，别混进本表）"
+  },
+  {
+   "cardanim": "CamouflageTraitPlay",
+   "id": "AM68",
+   "prefab": "CamouflageEffect",
+   "src": "cardtrait-so",
+   "why": "没有 `abilitySlot` ⇒ 不是 `activeAbility` 链上的 CardAnim（`src == \"cardtrait-so\"` 的关键词演出行，别混进本表）"
+  },
+  {
+   "cardanim": "FlyingTraitPlay",
+   "id": "AM72",
+   "prefab": "FlyingEffect",
+   "src": "cardtrait-so",
+   "why": "没有 `abilitySlot` ⇒ 不是 `activeAbility` 链上的 CardAnim（`src == \"cardtrait-so\"` 的关键词演出行，别混进本表）"
+  },
+  {
+   "cardanim": "CamouflageTraitPlay",
+   "id": "AM16",
+   "prefab": "CamouflageEffect",
+   "src": "cardtrait-so",
+   "why": "没有 `abilitySlot` ⇒ 不是 `activeAbility` 链上的 CardAnim（`src == \"cardtrait-so\"` 的关键词演出行，别混进本表）"
+  },
+  {
+   "cardanim": "ShieldTraitPlay",
+   "id": "BL32",
+   "prefab": "ShieldTraitEffect_Idle",
+   "src": "cardtrait-so",
+   "why": "没有 `abilitySlot` ⇒ 不是 `activeAbility` 链上的 CardAnim（`src == \"cardtrait-so\"` 的关键词演出行，别混进本表）"
+  },
+  {
+   "cardanim": "FlyingTraitPlay",
+   "id": "BL17",
+   "prefab": "FlyingEffect",
+   "src": "cardtrait-so",
+   "why": "没有 `abilitySlot` ⇒ 不是 `activeAbility` 链上的 CardAnim（`src == \"cardtrait-so\"` 的关键词演出行，别混进本表）"
+  },
+  {
+   "cardanim": "StealthTraitPlay",
+   "id": "BL17",
+   "prefab": "StealthEffect",
+   "src": "cardtrait-so",
+   "why": "没有 `abilitySlot` ⇒ 不是 `activeAbility` 链上的 CardAnim（`src == \"cardtrait-so\"` 的关键词演出行，别混进本表）"
+  },
+  {
+   "cardanim": "ShieldTraitPlay",
+   "id": "DA31",
+   "prefab": "ShieldTraitEffect_Idle",
+   "src": "cardtrait-so",
+   "why": "没有 `abilitySlot` ⇒ 不是 `activeAbility` 链上的 CardAnim（`src == \"cardtrait-so\"` 的关键词演出行，别混进本表）"
+  },
+  {
+   "cardanim": "CamouflageTraitPlay",
+   "id": "DA31",
+   "prefab": "CamouflageEffect",
+   "src": "cardtrait-so",
+   "why": "没有 `abilitySlot` ⇒ 不是 `activeAbility` 链上的 CardAnim（`src == \"cardtrait-so\"` 的关键词演出行，别混进本表）"
+  },
+  {
+   "cardanim": "StealthTraitPlay",
+   "id": "DA18",
+   "prefab": "StealthEffect",
+   "src": "cardtrait-so",
+   "why": "没有 `abilitySlot` ⇒ 不是 `activeAbility` 链上的 CardAnim（`src == \"cardtrait-so\"` 的关键词演出行，别混进本表）"
+  },
+  {
+   "cardanim": "ShieldTraitPlay",
+   "id": "DA13",
+   "prefab": "ShieldTraitEffect_Idle",
+   "src": "cardtrait-so",
+   "why": "没有 `abilitySlot` ⇒ 不是 `activeAbility` 链上的 CardAnim（`src == \"cardtrait-so\"` 的关键词演出行，别混进本表）"
+  },
+  {
+   "cardanim": "CamouflageTraitPlay",
+   "id": "DA8",
+   "prefab": "CamouflageEffect",
+   "src": "cardtrait-so",
+   "why": "没有 `abilitySlot` ⇒ 不是 `activeAbility` 链上的 CardAnim（`src == \"cardtrait-so\"` 的关键词演出行，别混进本表）"
+  },
+  {
+   "cardanim": "StealthTraitPlay",
+   "id": "DA6",
+   "prefab": "StealthEffect",
+   "src": "cardtrait-so",
+   "why": "没有 `abilitySlot` ⇒ 不是 `activeAbility` 链上的 CardAnim（`src == \"cardtrait-so\"` 的关键词演出行，别混进本表）"
+  },
+  {
+   "cardanim": "FlyingTraitPlay",
+   "id": "DA35",
+   "prefab": "FlyingEffect",
+   "src": "cardtrait-so",
+   "why": "没有 `abilitySlot` ⇒ 不是 `activeAbility` 链上的 CardAnim（`src == \"cardtrait-so\"` 的关键词演出行，别混进本表）"
+  },
+  {
+   "cardanim": "FlyingTraitPlay",
+   "id": "DA29",
+   "prefab": "FlyingEffect",
+   "src": "cardtrait-so",
+   "why": "没有 `abilitySlot` ⇒ 不是 `activeAbility` 链上的 CardAnim（`src == \"cardtrait-so\"` 的关键词演出行，别混进本表）"
+  },
+  {
+   "cardanim": "FlyingTraitPlay",
+   "id": "DA21",
+   "prefab": "FlyingEffect",
+   "src": "cardtrait-so",
+   "why": "没有 `abilitySlot` ⇒ 不是 `activeAbility` 链上的 CardAnim（`src == \"cardtrait-so\"` 的关键词演出行，别混进本表）"
+  },
+  {
+   "cardanim": "FlyingTraitPlay",
+   "id": "DA33",
+   "prefab": "FlyingEffect",
+   "src": "cardtrait-so",
+   "why": "没有 `abilitySlot` ⇒ 不是 `activeAbility` 链上的 CardAnim（`src == \"cardtrait-so\"` 的关键词演出行，别混进本表）"
+  },
+  {
+   "cardanim": "FlyingTraitPlay",
+   "id": "DA14",
+   "prefab": "FlyingEffect",
+   "src": "cardtrait-so",
+   "why": "没有 `abilitySlot` ⇒ 不是 `activeAbility` 链上的 CardAnim（`src == \"cardtrait-so\"` 的关键词演出行，别混进本表）"
+  },
+  {
+   "cardanim": "FlyingTraitPlay",
+   "id": "DA27",
+   "prefab": "FlyingEffect",
+   "src": "cardtrait-so",
+   "why": "没有 `abilitySlot` ⇒ 不是 `activeAbility` 链上的 CardAnim（`src == \"cardtrait-so\"` 的关键词演出行，别混进本表）"
+  },
+  {
+   "cardanim": "StealthTraitPlay",
+   "id": "DA71",
+   "prefab": "StealthEffect",
+   "src": "cardtrait-so",
+   "why": "没有 `abilitySlot` ⇒ 不是 `activeAbility` 链上的 CardAnim（`src == \"cardtrait-so\"` 的关键词演出行，别混进本表）"
+  },
+  {
+   "cardanim": "FlyingTraitPlay",
+   "id": "EC15",
+   "prefab": "FlyingEffect",
+   "src": "cardtrait-so",
+   "why": "没有 `abilitySlot` ⇒ 不是 `activeAbility` 链上的 CardAnim（`src == \"cardtrait-so\"` 的关键词演出行，别混进本表）"
+  },
+  {
+   "cardanim": "ShieldTraitECPlay",
+   "id": "EC20",
+   "prefab": "ShieldTraitEffect_Idle Emperor's Children Variant",
+   "src": "cardtrait-so",
+   "why": "没有 `abilitySlot` ⇒ 不是 `activeAbility` 链上的 CardAnim（`src == \"cardtrait-so\"` 的关键词演出行，别混进本表）"
+  },
+  {
+   "cardanim": "StealthTraitPlay",
+   "id": "GSC10",
+   "prefab": "StealthEffect",
+   "src": "cardtrait-so",
+   "why": "没有 `abilitySlot` ⇒ 不是 `activeAbility` 链上的 CardAnim（`src == \"cardtrait-so\"` 的关键词演出行，别混进本表）"
+  },
+  {
+   "cardanim": "StealthTraitPlay",
+   "id": "GSC17",
+   "prefab": "StealthEffect",
+   "src": "cardtrait-so",
+   "why": "没有 `abilitySlot` ⇒ 不是 `activeAbility` 链上的 CardAnim（`src == \"cardtrait-so\"` 的关键词演出行，别混进本表）"
+  },
+  {
+   "cardanim": "StealthTraitPlay",
+   "id": "GSC24",
+   "prefab": "StealthEffect",
+   "src": "cardtrait-so",
+   "why": "没有 `abilitySlot` ⇒ 不是 `activeAbility` 链上的 CardAnim（`src == \"cardtrait-so\"` 的关键词演出行，别混进本表）"
+  },
+  {
+   "cardanim": "StealthTraitPlay",
+   "id": "GSC31",
+   "prefab": "StealthEffect",
+   "src": "cardtrait-so",
+   "why": "没有 `abilitySlot` ⇒ 不是 `activeAbility` 链上的 CardAnim（`src == \"cardtrait-so\"` 的关键词演出行，别混进本表）"
+  },
+  {
+   "cardanim": "CamouflageTraitPlay",
+   "id": "GSC68",
+   "prefab": "CamouflageEffect",
+   "src": "cardtrait-so",
+   "why": "没有 `abilitySlot` ⇒ 不是 `activeAbility` 链上的 CardAnim（`src == \"cardtrait-so\"` 的关键词演出行，别混进本表）"
+  },
+  {
+   "cardanim": "FlyingTraitPlay",
+   "id": "SAU2",
+   "prefab": "FlyingEffect",
+   "src": "cardtrait-so",
+   "why": "没有 `abilitySlot` ⇒ 不是 `activeAbility` 链上的 CardAnim（`src == \"cardtrait-so\"` 的关键词演出行，别混进本表）"
+  },
+  {
+   "cardanim": "StealthTraitPlay",
+   "id": "SAU2",
+   "prefab": "StealthEffect",
+   "src": "cardtrait-so",
+   "why": "没有 `abilitySlot` ⇒ 不是 `activeAbility` 链上的 CardAnim（`src == \"cardtrait-so\"` 的关键词演出行，别混进本表）"
+  },
+  {
+   "cardanim": "FlyingTraitPlay",
+   "id": "SAU67",
+   "prefab": "FlyingEffect",
+   "src": "cardtrait-so",
+   "why": "没有 `abilitySlot` ⇒ 不是 `activeAbility` 链上的 CardAnim（`src == \"cardtrait-so\"` 的关键词演出行，别混进本表）"
+  },
+  {
+   "cardanim": "FlyingTraitPlay",
+   "id": "SAU73",
+   "prefab": "FlyingEffect",
+   "src": "cardtrait-so",
+   "why": "没有 `abilitySlot` ⇒ 不是 `activeAbility` 链上的 CardAnim（`src == \"cardtrait-so\"` 的关键词演出行，别混进本表）"
+  },
+  {
+   "cardanim": "FlyingTraitPlay",
+   "id": "SAU24",
+   "prefab": "FlyingEffect",
+   "src": "cardtrait-so",
+   "why": "没有 `abilitySlot` ⇒ 不是 `activeAbility` 链上的 CardAnim（`src == \"cardtrait-so\"` 的关键词演出行，别混进本表）"
+  },
+  {
+   "cardanim": "FlyingTraitPlay",
+   "id": "SAU21",
+   "prefab": "FlyingEffect",
+   "src": "cardtrait-so",
+   "why": "没有 `abilitySlot` ⇒ 不是 `activeAbility` 链上的 CardAnim（`src == \"cardtrait-so\"` 的关键词演出行，别混进本表）"
+  },
+  {
+   "cardanim": "FlyingTraitPlay",
+   "id": "SAU28",
+   "prefab": "FlyingEffect",
+   "src": "cardtrait-so",
+   "why": "没有 `abilitySlot` ⇒ 不是 `activeAbility` 链上的 CardAnim（`src == \"cardtrait-so\"` 的关键词演出行，别混进本表）"
+  },
+  {
+   "cardanim": "FlyingTraitPlay",
+   "id": "SAU16",
+   "prefab": "FlyingEffect",
+   "src": "cardtrait-so",
+   "why": "没有 `abilitySlot` ⇒ 不是 `activeAbility` 链上的 CardAnim（`src == \"cardtrait-so\"` 的关键词演出行，别混进本表）"
+  },
+  {
+   "cardanim": "FlyingTraitPlay",
+   "id": "SAU12",
+   "prefab": "FlyingEffect",
+   "src": "cardtrait-so",
+   "why": "没有 `abilitySlot` ⇒ 不是 `activeAbility` 链上的 CardAnim（`src == \"cardtrait-so\"` 的关键词演出行，别混进本表）"
+  },
+  {
+   "cardanim": "ShieldTraitPlay",
+   "id": "GOF92",
+   "prefab": "ShieldTraitEffect_Idle",
+   "src": "cardtrait-so",
+   "why": "没有 `abilitySlot` ⇒ 不是 `activeAbility` 链上的 CardAnim（`src == \"cardtrait-so\"` 的关键词演出行，别混进本表）"
+  },
+  {
+   "cardanim": "StealthTraitPlay",
+   "id": "GOF62",
+   "prefab": "StealthEffect",
+   "src": "cardtrait-so",
+   "why": "没有 `abilitySlot` ⇒ 不是 `activeAbility` 链上的 CardAnim（`src == \"cardtrait-so\"` 的关键词演出行，别混进本表）"
+  },
+  {
+   "cardanim": "FlyingTraitPlay",
+   "id": "GOF6",
+   "prefab": "FlyingEffect",
+   "src": "cardtrait-so",
+   "why": "没有 `abilitySlot` ⇒ 不是 `activeAbility` 链上的 CardAnim（`src == \"cardtrait-so\"` 的关键词演出行，别混进本表）"
+  },
+  {
+   "cardanim": "FlyingTraitPlay",
+   "id": "GOF20",
+   "prefab": "FlyingEffect",
+   "src": "cardtrait-so",
+   "why": "没有 `abilitySlot` ⇒ 不是 `activeAbility` 链上的 CardAnim（`src == \"cardtrait-so\"` 的关键词演出行，别混进本表）"
+  },
+  {
+   "cardanim": "FlyingTraitPlay",
+   "id": "GOF56",
+   "prefab": "FlyingEffect",
+   "src": "cardtrait-so",
+   "why": "没有 `abilitySlot` ⇒ 不是 `activeAbility` 链上的 CardAnim（`src == \"cardtrait-so\"` 的关键词演出行，别混进本表）"
+  },
+  {
+   "cardanim": "FlyingTraitPlay",
+   "id": "GOF69",
+   "prefab": "FlyingEffect",
+   "src": "cardtrait-so",
+   "why": "没有 `abilitySlot` ⇒ 不是 `activeAbility` 链上的 CardAnim（`src == \"cardtrait-so\"` 的关键词演出行，别混进本表）"
+  },
+  {
+   "cardanim": "FlyingTraitPlay",
+   "id": "SOR71",
+   "prefab": "FlyingEffect",
+   "src": "cardtrait-so",
+   "why": "没有 `abilitySlot` ⇒ 不是 `activeAbility` 链上的 CardAnim（`src == \"cardtrait-so\"` 的关键词演出行，别混进本表）"
+  },
+  {
+   "cardanim": "FlyingTraitPlay",
+   "id": "SOR66",
+   "prefab": "FlyingEffect",
+   "src": "cardtrait-so",
+   "why": "没有 `abilitySlot` ⇒ 不是 `activeAbility` 链上的 CardAnim（`src == \"cardtrait-so\"` 的关键词演出行，别混进本表）"
+  },
+  {
+   "cardanim": "CamouflageTraitPlay",
+   "id": "SOR21",
+   "prefab": "CamouflageEffect",
+   "src": "cardtrait-so",
+   "why": "没有 `abilitySlot` ⇒ 不是 `activeAbility` 链上的 CardAnim（`src == \"cardtrait-so\"` 的关键词演出行，别混进本表）"
+  },
+  {
+   "cardanim": "CamouflageTraitPlay",
+   "id": "SOR29",
+   "prefab": "CamouflageEffect",
+   "src": "cardtrait-so",
+   "why": "没有 `abilitySlot` ⇒ 不是 `activeAbility` 链上的 CardAnim（`src == \"cardtrait-so\"` 的关键词演出行，别混进本表）"
+  },
+  {
+   "cardanim": "FlyingTraitPlay",
+   "id": "SOR33",
+   "prefab": "FlyingEffect",
+   "src": "cardtrait-so",
+   "why": "没有 `abilitySlot` ⇒ 不是 `activeAbility` 链上的 CardAnim（`src == \"cardtrait-so\"` 的关键词演出行，别混进本表）"
+  },
+  {
+   "cardanim": "FlyingTraitPlay",
+   "id": "SOR19",
+   "prefab": "FlyingEffect",
+   "src": "cardtrait-so",
+   "why": "没有 `abilitySlot` ⇒ 不是 `activeAbility` 链上的 CardAnim（`src == \"cardtrait-so\"` 的关键词演出行，别混进本表）"
+  },
+  {
+   "cardanim": "FlyingTraitPlay",
+   "id": "SOR69",
+   "prefab": "FlyingEffect",
+   "src": "cardtrait-so",
+   "why": "没有 `abilitySlot` ⇒ 不是 `activeAbility` 链上的 CardAnim（`src == \"cardtrait-so\"` 的关键词演出行，别混进本表）"
+  },
+  {
+   "cardanim": "FlyingTraitPlay",
+   "id": "SOR28",
+   "prefab": "FlyingEffect",
+   "src": "cardtrait-so",
+   "why": "没有 `abilitySlot` ⇒ 不是 `activeAbility` 链上的 CardAnim（`src == \"cardtrait-so\"` 的关键词演出行，别混进本表）"
+  },
+  {
+   "cardanim": "CamouflageTraitPlay",
+   "id": "SW8",
+   "prefab": "CamouflageEffect",
+   "src": "cardtrait-so",
+   "why": "没有 `abilitySlot` ⇒ 不是 `activeAbility` 链上的 CardAnim（`src == \"cardtrait-so\"` 的关键词演出行，别混进本表）"
+  },
+  {
+   "cardanim": "CamouflageTraitPlay",
+   "id": "SW7",
+   "prefab": "CamouflageEffect",
+   "src": "cardtrait-so",
+   "why": "没有 `abilitySlot` ⇒ 不是 `activeAbility` 链上的 CardAnim（`src == \"cardtrait-so\"` 的关键词演出行，别混进本表）"
+  },
+  {
+   "cardanim": "CamouflageTraitPlay",
+   "id": "6e4f9040e8cc59641a32f29e33ea4cbc",
+   "prefab": "CamouflageEffect",
+   "src": "cardtrait-so",
+   "why": "没有 `abilitySlot` ⇒ 不是 `activeAbility` 链上的 CardAnim（`src == \"cardtrait-so\"` 的关键词演出行，别混进本表）"
+  },
+  {
+   "cardanim": "FlyingTraitPlay",
+   "id": "SW22",
+   "prefab": "FlyingEffect",
+   "src": "cardtrait-so",
+   "why": "没有 `abilitySlot` ⇒ 不是 `activeAbility` 链上的 CardAnim（`src == \"cardtrait-so\"` 的关键词演出行，别混进本表）"
+  },
+  {
+   "cardanim": "FlyingTraitPlay",
+   "id": "SW23",
+   "prefab": "FlyingEffect",
+   "src": "cardtrait-so",
+   "why": "没有 `abilitySlot` ⇒ 不是 `activeAbility` 链上的 CardAnim（`src == \"cardtrait-so\"` 的关键词演出行，别混进本表）"
+  },
+  {
+   "cardanim": "FlyingTraitPlay",
+   "id": "SW32",
+   "prefab": "FlyingEffect",
+   "src": "cardtrait-so",
+   "why": "没有 `abilitySlot` ⇒ 不是 `activeAbility` 链上的 CardAnim（`src == \"cardtrait-so\"` 的关键词演出行，别混进本表）"
+  },
+  {
+   "cardanim": "ShieldTraitPlay",
+   "id": "SW35",
+   "prefab": "ShieldTraitEffect_Idle",
+   "src": "cardtrait-so",
+   "why": "没有 `abilitySlot` ⇒ 不是 `activeAbility` 链上的 CardAnim（`src == \"cardtrait-so\"` 的关键词演出行，别混进本表）"
+  },
+  {
+   "cardanim": "FlyingTraitPlay",
+   "id": "TAU34",
+   "prefab": "FlyingEffect",
+   "src": "cardtrait-so",
+   "why": "没有 `abilitySlot` ⇒ 不是 `activeAbility` 链上的 CardAnim（`src == \"cardtrait-so\"` 的关键词演出行，别混进本表）"
+  },
+  {
+   "cardanim": "FlyingTraitPlay",
+   "id": "TAU11",
+   "prefab": "FlyingEffect",
+   "src": "cardtrait-so",
+   "why": "没有 `abilitySlot` ⇒ 不是 `activeAbility` 链上的 CardAnim（`src == \"cardtrait-so\"` 的关键词演出行，别混进本表）"
+  },
+  {
+   "cardanim": "ShieldTraitTAUPlay",
+   "id": "TAU17",
+   "prefab": "ShieldTraitEffect_Idle TAU Variant",
+   "src": "cardtrait-so",
+   "why": "没有 `abilitySlot` ⇒ 不是 `activeAbility` 链上的 CardAnim（`src == \"cardtrait-so\"` 的关键词演出行，别混进本表）"
+  },
+  {
+   "cardanim": "ShieldTraitTAUPlay",
+   "id": "TAU36",
+   "prefab": "ShieldTraitEffect_Idle TAU Variant",
+   "src": "cardtrait-so",
+   "why": "没有 `abilitySlot` ⇒ 不是 `activeAbility` 链上的 CardAnim（`src == \"cardtrait-so\"` 的关键词演出行，别混进本表）"
+  },
+  {
+   "cardanim": "StealthTraitPlay",
+   "id": "TAU21",
+   "prefab": "StealthEffect",
+   "src": "cardtrait-so",
+   "why": "没有 `abilitySlot` ⇒ 不是 `activeAbility` 链上的 CardAnim（`src == \"cardtrait-so\"` 的关键词演出行，别混进本表）"
+  },
+  {
+   "cardanim": "StealthTraitPlay",
+   "id": "TAU26",
+   "prefab": "StealthEffect",
+   "src": "cardtrait-so",
+   "why": "没有 `abilitySlot` ⇒ 不是 `activeAbility` 链上的 CardAnim（`src == \"cardtrait-so\"` 的关键词演出行，别混进本表）"
+  },
+  {
+   "cardanim": "FlyingTraitPlay",
+   "id": "TAU6",
+   "prefab": "FlyingEffect",
+   "src": "cardtrait-so",
+   "why": "没有 `abilitySlot` ⇒ 不是 `activeAbility` 链上的 CardAnim（`src == \"cardtrait-so\"` 的关键词演出行，别混进本表）"
+  },
+  {
+   "cardanim": "FlyingTraitPlay",
+   "id": "TAU7",
+   "prefab": "FlyingEffect",
+   "src": "cardtrait-so",
+   "why": "没有 `abilitySlot` ⇒ 不是 `activeAbility` 链上的 CardAnim（`src == \"cardtrait-so\"` 的关键词演出行，别混进本表）"
+  },
+  {
+   "cardanim": "FlyingTraitPlay",
+   "id": "TAU8",
+   "prefab": "FlyingEffect",
+   "src": "cardtrait-so",
+   "why": "没有 `abilitySlot` ⇒ 不是 `activeAbility` 链上的 CardAnim（`src == \"cardtrait-so\"` 的关键词演出行，别混进本表）"
+  },
+  {
+   "cardanim": "FlyingTraitPlay",
+   "id": "TAU15",
+   "prefab": "FlyingEffect",
+   "src": "cardtrait-so",
+   "why": "没有 `abilitySlot` ⇒ 不是 `activeAbility` 链上的 CardAnim（`src == \"cardtrait-so\"` 的关键词演出行，别混进本表）"
+  },
+  {
+   "cardanim": "FlyingTraitPlay",
+   "id": "TAU10",
+   "prefab": "FlyingEffect",
+   "src": "cardtrait-so",
+   "why": "没有 `abilitySlot` ⇒ 不是 `activeAbility` 链上的 CardAnim（`src == \"cardtrait-so\"` 的关键词演出行，别混进本表）"
+  },
+  {
+   "cardanim": "StealthTraitPlay",
+   "id": "TAU10",
+   "prefab": "StealthEffect",
+   "src": "cardtrait-so",
+   "why": "没有 `abilitySlot` ⇒ 不是 `activeAbility` 链上的 CardAnim（`src == \"cardtrait-so\"` 的关键词演出行，别混进本表）"
+  },
+  {
+   "cardanim": "ShieldTraitTAUPlay",
+   "id": "TAU32",
+   "prefab": "ShieldTraitEffect_Idle TAU Variant",
+   "src": "cardtrait-so",
+   "why": "没有 `abilitySlot` ⇒ 不是 `activeAbility` 链上的 CardAnim（`src == \"cardtrait-so\"` 的关键词演出行，别混进本表）"
+  },
+  {
+   "cardanim": "StealthTraitPlay",
+   "id": "TAU12",
+   "prefab": "StealthEffect",
+   "src": "cardtrait-so",
+   "why": "没有 `abilitySlot` ⇒ 不是 `activeAbility` 链上的 CardAnim（`src == \"cardtrait-so\"` 的关键词演出行，别混进本表）"
+  },
+  {
+   "cardanim": "StealthTraitPlay",
+   "id": "TAU25",
+   "prefab": "StealthEffect",
+   "src": "cardtrait-so",
+   "why": "没有 `abilitySlot` ⇒ 不是 `activeAbility` 链上的 CardAnim（`src == \"cardtrait-so\"` 的关键词演出行，别混进本表）"
+  },
+  {
+   "cardanim": "CamouflageTraitPlay",
+   "id": "TAU70",
+   "prefab": "CamouflageEffect",
+   "src": "cardtrait-so",
+   "why": "没有 `abilitySlot` ⇒ 不是 `activeAbility` 链上的 CardAnim（`src == \"cardtrait-so\"` 的关键词演出行，别混进本表）"
+  },
+  {
+   "cardanim": "ShieldTraitTAUPlay",
+   "id": "TAU19",
+   "prefab": "ShieldTraitEffect_Idle TAU Variant",
+   "src": "cardtrait-so",
+   "why": "没有 `abilitySlot` ⇒ 不是 `activeAbility` 链上的 CardAnim（`src == \"cardtrait-so\"` 的关键词演出行，别混进本表）"
+  },
+  {
+   "cardanim": "CamouflageTraitPlay",
+   "id": "TAU67",
+   "prefab": "CamouflageEffect",
+   "src": "cardtrait-so",
+   "why": "没有 `abilitySlot` ⇒ 不是 `activeAbility` 链上的 CardAnim（`src == \"cardtrait-so\"` 的关键词演出行，别混进本表）"
+  },
+  {
+   "cardanim": "CamouflageTraitPlay",
+   "id": "TAU72",
+   "prefab": "CamouflageEffect",
+   "src": "cardtrait-so",
+   "why": "没有 `abilitySlot` ⇒ 不是 `activeAbility` 链上的 CardAnim（`src == \"cardtrait-so\"` 的关键词演出行，别混进本表）"
+  },
+  {
+   "cardanim": "FlyingTraitPlay",
+   "id": "TAU16",
+   "prefab": "FlyingEffect",
+   "src": "cardtrait-so",
+   "why": "没有 `abilitySlot` ⇒ 不是 `activeAbility` 链上的 CardAnim（`src == \"cardtrait-so\"` 的关键词演出行，别混进本表）"
+  },
+  {
+   "cardanim": "FlyingTraitPlay",
+   "id": "TAU33",
+   "prefab": "FlyingEffect",
+   "src": "cardtrait-so",
+   "why": "没有 `abilitySlot` ⇒ 不是 `activeAbility` 链上的 CardAnim（`src == \"cardtrait-so\"` 的关键词演出行，别混进本表）"
+  },
+  {
+   "cardanim": "FlyingTraitPlay",
+   "id": "TAU37",
+   "prefab": "FlyingEffect",
+   "src": "cardtrait-so",
+   "why": "没有 `abilitySlot` ⇒ 不是 `activeAbility` 链上的 CardAnim（`src == \"cardtrait-so\"` 的关键词演出行，别混进本表）"
+  },
+  {
+   "cardanim": "ShieldTraitTAUPlay",
+   "id": "TAU3",
+   "prefab": "ShieldTraitEffect_Idle TAU Variant",
+   "src": "cardtrait-so",
+   "why": "没有 `abilitySlot` ⇒ 不是 `activeAbility` 链上的 CardAnim（`src == \"cardtrait-so\"` 的关键词演出行，别混进本表）"
+  },
+  {
+   "cardanim": "StealthTraitPlay",
+   "id": "TL19",
+   "prefab": "StealthEffect",
+   "src": "cardtrait-so",
+   "why": "没有 `abilitySlot` ⇒ 不是 `activeAbility` 链上的 CardAnim（`src == \"cardtrait-so\"` 的关键词演出行，别混进本表）"
+  },
+  {
+   "cardanim": "StealthTraitPlay",
+   "id": "TL17",
+   "prefab": "StealthEffect",
+   "src": "cardtrait-so",
+   "why": "没有 `abilitySlot` ⇒ 不是 `activeAbility` 链上的 CardAnim（`src == \"cardtrait-so\"` 的关键词演出行，别混进本表）"
+  },
+  {
+   "cardanim": "FlyingTraitPlay",
+   "id": "TL7",
+   "prefab": "FlyingEffect",
+   "src": "cardtrait-so",
+   "why": "没有 `abilitySlot` ⇒ 不是 `activeAbility` 链上的 CardAnim（`src == \"cardtrait-so\"` 的关键词演出行，别混进本表）"
+  },
+  {
+   "cardanim": "StealthTraitPlay",
+   "id": "TL8",
+   "prefab": "StealthEffect",
+   "src": "cardtrait-so",
+   "why": "没有 `abilitySlot` ⇒ 不是 `activeAbility` 链上的 CardAnim（`src == \"cardtrait-so\"` 的关键词演出行，别混进本表）"
+  },
+  {
+   "cardanim": "StealthTraitPlay",
+   "id": "TL13",
+   "prefab": "StealthEffect",
+   "src": "cardtrait-so",
+   "why": "没有 `abilitySlot` ⇒ 不是 `activeAbility` 链上的 CardAnim（`src == \"cardtrait-so\"` 的关键词演出行，别混进本表）"
+  },
+  {
+   "cardanim": "FlyingTraitPlay",
+   "id": "TL3",
+   "prefab": "FlyingEffect",
+   "src": "cardtrait-so",
+   "why": "没有 `abilitySlot` ⇒ 不是 `activeAbility` 链上的 CardAnim（`src == \"cardtrait-so\"` 的关键词演出行，别混进本表）"
+  },
+  {
+   "cardanim": "StealthTraitPlay",
+   "id": "TL10",
+   "prefab": "StealthEffect",
+   "src": "cardtrait-so",
+   "why": "没有 `abilitySlot` ⇒ 不是 `activeAbility` 链上的 CardAnim（`src == \"cardtrait-so\"` 的关键词演出行，别混进本表）"
+  },
+  {
+   "cardanim": "FlyingTraitPlay",
+   "id": "TL24",
+   "prefab": "FlyingEffect",
+   "src": "cardtrait-so",
+   "why": "没有 `abilitySlot` ⇒ 不是 `activeAbility` 链上的 CardAnim（`src == \"cardtrait-so\"` 的关键词演出行，别混进本表）"
+  },
+  {
+   "cardanim": "FlyingTraitPlay",
+   "id": "TL22",
+   "prefab": "FlyingEffect",
+   "src": "cardtrait-so",
+   "why": "没有 `abilitySlot` ⇒ 不是 `activeAbility` 链上的 CardAnim（`src == \"cardtrait-so\"` 的关键词演出行，别混进本表）"
+  },
+  {
+   "cardanim": "StealthTraitPlay",
+   "id": "TL16",
+   "prefab": "StealthEffect",
+   "src": "cardtrait-so",
+   "why": "没有 `abilitySlot` ⇒ 不是 `activeAbility` 链上的 CardAnim（`src == \"cardtrait-so\"` 的关键词演出行，别混进本表）"
+  },
+  {
+   "cardanim": "FlyingTraitPlay",
+   "id": "TL69",
+   "prefab": "FlyingEffect",
+   "src": "cardtrait-so",
+   "why": "没有 `abilitySlot` ⇒ 不是 `activeAbility` 链上的 CardAnim（`src == \"cardtrait-so\"` 的关键词演出行，别混进本表）"
+  },
+  {
+   "cardanim": "FlyingTraitPlay",
+   "id": "TL23",
+   "prefab": "FlyingEffect",
+   "src": "cardtrait-so",
+   "why": "没有 `abilitySlot` ⇒ 不是 `activeAbility` 链上的 CardAnim（`src == \"cardtrait-so\"` 的关键词演出行，别混进本表）"
+  },
+  {
+   "cardanim": "FlyingTraitPlay",
+   "id": "TL29",
+   "prefab": "FlyingEffect",
+   "src": "cardtrait-so",
+   "why": "没有 `abilitySlot` ⇒ 不是 `activeAbility` 链上的 CardAnim（`src == \"cardtrait-so\"` 的关键词演出行，别混进本表）"
+  },
+  {
+   "cardanim": "StealthTraitPlay",
+   "id": "UM81",
+   "prefab": "StealthEffect",
+   "src": "cardtrait-so",
+   "why": "没有 `abilitySlot` ⇒ 不是 `activeAbility` 链上的 CardAnim（`src == \"cardtrait-so\"` 的关键词演出行，别混进本表）"
+  },
+  {
+   "cardanim": "CamouflageTraitPlay",
+   "id": "UM8",
+   "prefab": "CamouflageEffect",
+   "src": "cardtrait-so",
+   "why": "没有 `abilitySlot` ⇒ 不是 `activeAbility` 链上的 CardAnim（`src == \"cardtrait-so\"` 的关键词演出行，别混进本表）"
+  },
+  {
+   "cardanim": "FlyingTraitPlay",
+   "id": "UM22",
+   "prefab": "FlyingEffect",
+   "src": "cardtrait-so",
+   "why": "没有 `abilitySlot` ⇒ 不是 `activeAbility` 链上的 CardAnim（`src == \"cardtrait-so\"` 的关键词演出行，别混进本表）"
+  },
+  {
+   "cardanim": "CamouflageTraitPlay",
+   "id": "UM99",
+   "prefab": "CamouflageEffect",
+   "src": "cardtrait-so",
+   "why": "没有 `abilitySlot` ⇒ 不是 `activeAbility` 链上的 CardAnim（`src == \"cardtrait-so\"` 的关键词演出行，别混进本表）"
+  },
+  {
+   "cardanim": "FlyingTraitPlay",
+   "id": "UM9",
+   "prefab": "FlyingEffect",
+   "src": "cardtrait-so",
+   "why": "没有 `abilitySlot` ⇒ 不是 `activeAbility` 链上的 CardAnim（`src == \"cardtrait-so\"` 的关键词演出行，别混进本表）"
+  },
+  {
+   "cardanim": "CamouflageTraitPlay",
+   "id": "UM94",
+   "prefab": "CamouflageEffect",
+   "src": "cardtrait-so",
+   "why": "没有 `abilitySlot` ⇒ 不是 `activeAbility` 链上的 CardAnim（`src == \"cardtrait-so\"` 的关键词演出行，别混进本表）"
+  },
+  {
+   "cardanim": "CamouflageTraitPlay",
+   "id": "UM1",
+   "prefab": "CamouflageEffect",
+   "src": "cardtrait-so",
+   "why": "没有 `abilitySlot` ⇒ 不是 `activeAbility` 链上的 CardAnim（`src == \"cardtrait-so\"` 的关键词演出行，别混进本表）"
+  },
+  {
+   "cardanim": "FlyingTraitPlay",
+   "id": "UM82",
+   "prefab": "FlyingEffect",
+   "src": "cardtrait-so",
+   "why": "没有 `abilitySlot` ⇒ 不是 `activeAbility` 链上的 CardAnim（`src == \"cardtrait-so\"` 的关键词演出行，别混进本表）"
+  },
+  {
+   "cardanim": "CamouflageTraitPlay",
+   "id": "UM20",
+   "prefab": "CamouflageEffect",
+   "src": "cardtrait-so",
+   "why": "没有 `abilitySlot` ⇒ 不是 `activeAbility` 链上的 CardAnim（`src == \"cardtrait-so\"` 的关键词演出行，别混进本表）"
+  },
+  {
+   "cardanim": "FlyingTraitPlay",
+   "id": "UM97",
+   "prefab": "FlyingEffect",
+   "src": "cardtrait-so",
+   "why": "没有 `abilitySlot` ⇒ 不是 `activeAbility` 链上的 CardAnim（`src == \"cardtrait-so\"` 的关键词演出行，别混进本表）"
+  },
+  {
+   "cardanim": "StealthTraitPlay",
+   "id": "UM93",
+   "prefab": "StealthEffect",
+   "src": "cardtrait-so",
+   "why": "没有 `abilitySlot` ⇒ 不是 `activeAbility` 链上的 CardAnim（`src == \"cardtrait-so\"` 的关键词演出行，别混进本表）"
+  },
+  {
+   "cardanim": "FlyingTraitPlay",
+   "id": "UM69",
+   "prefab": "FlyingEffect",
+   "src": "cardtrait-so",
+   "why": "没有 `abilitySlot` ⇒ 不是 `activeAbility` 链上的 CardAnim（`src == \"cardtrait-so\"` 的关键词演出行，别混进本表）"
+  },
+  {
+   "cardanim": "CamouflageTraitPlay",
+   "id": "UM66",
+   "prefab": "CamouflageEffect",
+   "src": "cardtrait-so",
+   "why": "没有 `abilitySlot` ⇒ 不是 `activeAbility` 链上的 CardAnim（`src == \"cardtrait-so\"` 的关键词演出行，别混进本表）"
+  },
+  {
+   "cardanim": "FlyingTraitPlay",
+   "id": "UM71",
+   "prefab": "FlyingEffect",
+   "src": "cardtrait-so",
+   "why": "没有 `abilitySlot` ⇒ 不是 `activeAbility` 链上的 CardAnim（`src == \"cardtrait-so\"` 的关键词演出行，别混进本表）"
+  },
+  {
+   "cardanim": "FlyingTraitPlay",
+   "id": "UM59",
+   "prefab": "FlyingEffect",
+   "src": "cardtrait-so",
+   "why": "没有 `abilitySlot` ⇒ 不是 `activeAbility` 链上的 CardAnim（`src == \"cardtrait-so\"` 的关键词演出行，别混进本表）"
+  }
+ ],
  "schema": "ability_anim_durations/v1",
  "stats": {
   "activeAnims": 160,
@@ -9113,12 +10872,17 @@
   "animTimesMismatch": 0,
   "animTimesOnly": 0,
   "cardsMatchedButNoActiveAnim": 271,
+  "cardsWhoseTweenIsWaited": 0,
   "cardsWithTruth": 93,
   "max": 4.0,
   "median": 1.0,
   "min": 0.2,
+  "notAbilityRows": 142,
   "otherAbilityAnims": 453,
   "tableOnly": 0,
+  "tweenRows": 67,
+  "tweenUnresolved": 0,
+  "tweenWaitedRows": 4,
   "uncoveredCards": 3,
   "unresolved": 0,
   "wantedCards": 86

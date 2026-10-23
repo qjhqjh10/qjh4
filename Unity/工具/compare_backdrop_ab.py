@@ -21,6 +21,16 @@ import os
 import sys
 from collections import defaultdict
 
+## A17 2026-10-24: -h/--help early exit (print usage only, exit 0; never run the real work).
+import sys as _wf_help_sys
+if any(_wf_help_sys.argv[_i] in ("-h", "--help") for _i in range(1, len(_wf_help_sys.argv))):
+    try:
+        _wf_help_sys.stdout.reconfigure(encoding="utf-8")
+    except Exception:
+        pass
+    print('用法：python 工具/compare_backdrop_ab.py [参数...]\n  说明：compare_backdrop_ab.py —— 「换尺子」A/B 的比较：**旧口径 vs 棋盘底图口径**。\n  选项：无自定义选项（不带参数 = 默认模式）\n  位置参数：sys.argv[1:] 全收（数量以脚本自身判断为准）')
+    _wf_help_sys.exit(0)
+
 TMP = r"d:/4/_tmp_view"
 GROUPS = ["A", "B"]
 

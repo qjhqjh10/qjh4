@@ -12,6 +12,16 @@ import os
 import re
 import sys
 
+## A17 2026-10-24: -h/--help early exit (print usage only, exit 0; never run the real work).
+import sys as _wf_help_sys
+if any(_wf_help_sys.argv[_i] in ("-h", "--help") for _i in range(1, len(_wf_help_sys.argv))):
+    try:
+        _wf_help_sys.stdout.reconfigure(encoding="utf-8")
+    except Exception:
+        pass
+    print('用法: py312 dump_go_tree.py <解包目录> <根GO名|根GO PathID> [最大深度] [输出文件]\n输出: 缩进树 — GO名 [锚点min/max pos size pivot] 组件摘要 (Image sprite名/Text文字/按钮)\n      每行末尾标注原始 JSON 文件路径, 坐标数值直接来自 m_AnchoredPosition/m_SizeDelta (1920x1080 可直接用)\n  -h, --help  只打印本用法并退出（退出码 0），不执行任何真活。')
+    _wf_help_sys.exit(0)
+
 sys.stdout.reconfigure(encoding='utf-8')
 
 SRC = sys.argv[1] if len(sys.argv) > 1 else 'D:/2/解包整理/03_界面UI/菜单'

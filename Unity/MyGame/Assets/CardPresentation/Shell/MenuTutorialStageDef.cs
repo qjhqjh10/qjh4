@@ -238,7 +238,8 @@ namespace CardPresentation
                 ExplainBodyKey = "TutorialData/TutorialMessage/CheckMissionsDescription",
                 // 原版：`HasCampaignPoints()` = 任一战役 `AvailablePoints > 0`（服务器下发），
                 //   且**当前窗不是 `RewardWindow`（领奖弹窗）**才 Complete。
-                // 🔴 我们这一版战役点固定 9999（用户「资源固定 9999」口径）⇒ 原判据恒真
+                // 🔴 我们这一版**战役点**固定 9999（`CampaignData.Points`；⚠️ 与钱包口径无关 —— 用户 2026-10-24 只把
+                //   `Wallet.StartAmount` 从 9999 改成 2000，**战役点未改**）⇒ 原判据恒真
                 //   ⇒ 等价物 = 「真领过一条 Missions 奖励」（原版里战役点正是领任务发的 ⇒ 语义同一件事）。
                 CompletionEvidence = "HasCampaignPoints（任一战役 AvailablePoints>0 且不在 RewardWindow 里）—— 我们等价物 = 领过任一 Missions 奖励",
             },

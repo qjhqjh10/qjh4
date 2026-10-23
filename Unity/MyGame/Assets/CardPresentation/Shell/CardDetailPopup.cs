@@ -39,7 +39,7 @@
 //     （= `项目任务.md` §三 第 13-E 条第 8 项那条老账的同一件事），**如实标**。
 //   · **升级表数值是我们编的**（原版在服务端 `CardTierConfig`）—— 照实拍那个数据点
 //     （等级 3 = 4 张 + 2000 + 500 锻造点）做梯度，见 `CardProgress`。**用户 2026-09-22 已裁决照办。**
-//   · **不扣货币**：单机资源固定 9999（同上裁决）⇒ 升级面板里那一格金币**永不动**。
+//   · **不扣货币**：单机资源固定 2000（同上裁决；⚠️ 2026-10-24 用户把固定值由 9999 改为 2000）⇒ 升级面板里那一格金币**永不动**。
 //     🔴 **2026-10-18 就地订正（铁律 5）**：这一段原来记着「两块面板恢复后，那两颗钮本版都不改任何数
 //     （升级钮 `Interactable=false`、创建副本只出声）」——**那一整段已过期**，用户当天拍板
 //     「照参考图那样布置…并且**通过升级按钮进行不同等级的卡框切换**」⇒ 两颗钮**都接了真机制**：
@@ -1046,7 +1046,24 @@ namespace CardPresentation
 
             // 六条 tween 全用同一个时长（原版 `relatedCardSwapTime` = 0.25s）：
             // 被点那张 → 前台位；前台那张 → 被点卡的槽位。
-            CardTween.ToPose(b.transform, pa, ra, sa, SwapTime, DG.Tweening.Ease.OutQuad).OnComplete(() =>
+            //
+            // 🔴 **缓动必须传 `Linear`**（2026-10-24 · A22 审计，铁律 5 就地订正：原来传的是 `OutQuad`）：
+            //   ① 原版 `CardDisplayWindow__ChangeCardPosition.c` 全文只有 **一个** `DOTween.Sequence()` +
+            //      六条 `Join(...)`，**没有对 Sequence 调过 `SetEase`**（`grep SetEase` 该文件 0 命中；
+            //      同类证据：`CardScript._AttackMeleeAnim_d__357__MoveNext.c` / `ResetBodyTween__GetTween.c`
+            //      里那几处 `SetEase` 的**第一个实参都是子 tween**，不是序列）。
+            //   ② 反编译 `DOTween.dll` 实读：`Sequence.Setup` 里 `easeType` **硬编码成 `Ease.Linear`(1)**
+            //      （`Sequence::Setup` IL_003a `ldc.i4.1; stfld Tween::easeType`），而 `Tweener.Setup` 才取
+            //      `DOTween.defaultEaseType`（= 6 OutQuad）。`Sequence.DoApplyTween` 开头
+            //      `if (easeType == Linear) skip` ⇒ **没写 SetEase 的 Sequence = 整条时间轴不弯曲**，
+            //      每条子补间各吃自己的 OutQuad。
+            //   ③ `CardTween.ToPose` 把三条子补间 `Join` 成一个 **Sequence**、再把传入的 ease 挂到
+            //      **Sequence 上**（`DOTween.XML`：`SetEase` "If applied to Sequences eases the whole
+            //      sequence animation"）⇒ 传 `OutQuad` = 子补间的 OutQuad 之上**再弯一次**（静默、只在动起来
+            //      时看得出）。传 `Linear` 才是原版那条：子补间各自 OutQuad、序列恒等。
+            //   ⚠️ 战斗侧同名逻辑 `Battle/CardDisplayWindow.cs:1539/1560` 走的是**单条** `TweenPose`
+            //      （`DOTween.To`，不是 Sequence）⇒ 那边传 `OutQuad` 是对的，两处不要互相抄错。
+            CardTween.ToPose(b.transform, pa, ra, sa, SwapTime, DG.Tweening.Ease.Linear).OnComplete(() =>
             {
                 // 层级对调：**两两互换** sibling 序（照原版 `SetSiblingIndex`）
                 int ia = a.transform.GetSiblingIndex(), ib = b.transform.GetSiblingIndex();
@@ -1067,7 +1084,7 @@ namespace CardPresentation
                 Debug.Log("[CardDetail] 换位完成：前台现在是「" + (FrontDef != null ? FrontDef.Name : "?")
                         + "」（收尾重设了 lore / 语音 / 眼睛钮 —— 原版 `CardSwapFinished`）");
             });
-            CardTween.ToPose(a.transform, pb, rb, sb, SwapTime, DG.Tweening.Ease.OutQuad);
+            CardTween.ToPose(a.transform, pb, rb, sb, SwapTime, DG.Tweening.Ease.Linear);   // 同上：Sequence 只能 Linear
             // 着色跟着换（原版 `ChangeCardPosition.c:203-221` 那两条 tween，同一时长）：
             // 去前台那张 → 白，让出前台那张 → `cardInBackGroundColorTint`(0.65)。
             CardFan.TweenTint(b, CardFan.BackTint, CardFan.FrontTint, SwapTime);
@@ -1917,7 +1934,7 @@ namespace CardPresentation
         /// 卡框档 = 等级（1 基），重算点只在 `CardView.Build()` 里那句 `CardProgress.Level(d.artId)`。</para>
         ///
         /// <para>⚠️ **不消耗任何东西**（副本 / 金币都不退也不扣）：升级那一路本来就只做「够不够」的检查、
-        /// 不真扣（单机资源固定 9999），降级自然也**只改等级**。⛔ 别为降级加一套退款逻辑（原版没有这一支）。</para></summary>
+        /// 不真扣（单机资源固定 2000 —— 2026-10-24 由 9999 改为 2000），降级自然也**只改等级**。⛔ 别为降级加一套退款逻辑（原版没有这一支）。</para></summary>
         public bool DoDowngrade()
         {
             if (Card == null) return false;
@@ -1968,7 +1985,7 @@ namespace CardPresentation
             Debug.Log("[CardDetail] " + (Card != null ? Card.Name : "?") + " 等级 → Lv" + after
                       + "（卡框档 = tier" + after + "）"
                       + " —— 「升级」那颗钮：Lv" + before + "→Lv" + after
-                      + "（**不扣货币**：单机资源固定 9999；升级表数值**是我们编的**）");
+                      + "（**不扣货币**：单机资源固定 2000（2026-10-24 由 9999 改为 2000）；升级表数值**是我们编的**）");
             RebuildKeepingState();
             return true;
         }

@@ -9,6 +9,16 @@
 """
 import io, json, sys, os
 
+## A17 2026-10-24: -h/--help early exit (print usage only, exit 0; never run the real work).
+import sys as _wf_help_sys
+if any(_wf_help_sys.argv[_i] in ("-h", "--help") for _i in range(1, len(_wf_help_sys.argv))):
+    try:
+        _wf_help_sys.stdout.reconfigure(encoding="utf-8")
+    except Exception:
+        pass
+    print('用法：python 工具/_oneoff_1015_p1fix/remap_stale_cs.py [--write]\n  说明：P1 收尾 · ① 把 .cs 里的旧 id 字面量换成新 id。\n  选项：--write（脚本内按字符串匹配；一个都不带 = 默认模式）')
+    _wf_help_sys.exit(0)
+
 ROOT = 'd:/4/'
 IDMAP = json.load(io.open(ROOT + '_tmp_view/p1_1014/idmap.json', encoding='utf-8'))
 

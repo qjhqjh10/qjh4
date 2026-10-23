@@ -4,6 +4,16 @@ import io
 import os
 import sys
 
+## A17 2026-10-24: -h/--help early exit (print usage only, exit 0; never run the real work).
+import sys as _wf_help_sys
+if any(_wf_help_sys.argv[_i] in ("-h", "--help") for _i in range(1, len(_wf_help_sys.argv))):
+    try:
+        _wf_help_sys.stdout.reconfigure(encoding="utf-8")
+    except Exception:
+        pass
+    print('用法：python 工具/_loc_official/w4_fix_comments.py [--write]\n  说明：W4：`Core/Loc.cs` 里那几条**已被官方表推翻的旧注**（铁律 5：就地改掉、留更正痕迹）。\n  选项：--write（脚本内按字符串匹配；一个都不带 = 默认模式）')
+    _wf_help_sys.exit(0)
+
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import w4_lib as L  # noqa: E402
 

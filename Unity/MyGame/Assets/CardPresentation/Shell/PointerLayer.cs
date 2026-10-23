@@ -1205,13 +1205,20 @@ namespace CardPresentation
         /// 横向这条支路给 `-sc.x`（与我们横向现有方向口径同号）。
         /// 🔴 **若把 `MenuScroll.Wheel` 改成 uGUI 原式（`Offset += dy`），这里必须同步改成 `+sc.x`** ——
         /// 两处是同一个口径（`W13_横向滚动.md` §五·2）。</para></summary>
-        bool WheelAt(float px, float py, Vector2 sc)
+        /// <summary>滚轮那一路的**真入口**（`Update` 用这一个：取 `Mouse.current.scroll.ReadValue()`）。
+        /// 🆕 **2026-10-24（L1）改成 `public`** —— 只为自检能直调它验「半格也滚得动」（判据 `C1-B08`）；
+        /// 生产调用点仍然只有 `Update` 一处，行为不变（⛔ 别把它当第二个生产入口去用）。</summary>
+        public bool WheelAt(float px, float py, Vector2 sc)
         {
             var s = HitScroll(px, py);
             if (s == null) return false;
             float f = sc.y;
             if (!s.Vertical && Mathf.Abs(sc.x) >= Mathf.Abs(sc.y)) f = -sc.x;
-            if (Mathf.Abs(f) < 1f) return false;
+            // 🔴 **2026-10-24（L1 · `C1-B08`）：这里原来还有第二道同款自造闸 `if (Mathf.Abs(f) < 1f) return false;`**
+            //   —— 它与 `MenuScroll.Wheel` 那道**成对**，只删下游那道等于没改（这一道在上游先丢掉）。
+            //   判据同 `MenuScroll.Wheel`：uGUI `ScrollRect.OnScroll` **没有阈值**，任何非零 delta 都位移；
+            //   零 delta 在 UGUI 里也只影响 `m_Scrolling`（`data.IsScrolling()`），不产生位移 ⇒ 这里 return false。
+            if (f == 0f) return false;
             s.Wheel(f);
             return true;
         }

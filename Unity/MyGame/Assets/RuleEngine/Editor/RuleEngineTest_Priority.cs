@@ -67,6 +67,11 @@ public static partial class RuleEngineTest
         W61T26PumpPointCount();
         W61T27ActorLeftPlayCancels();
         W61T28MissingPriorityDropped();
+        // 🆕 2026-10-23（`T03·c` 残余 · 审查 §三·4）：**手牌跳 / 常驻跳**各自的接线断言
+        W61T30HandListenerQueuesUntilBoundary();
+        W61T31PersistentQueuesUntilBoundary();
+        // 🆕 2026-10-24（引擎线 `A12` 第 4 件）：`BroadcastHandTrapWhen`（**非单位卡**那一跳）
+        W61T32HandTrapQueuesUntilBoundary();
     }
 
     // ==================================================================
@@ -952,5 +957,154 @@ public static partial class RuleEngineTest
 
         Check(string.Join(",", seq.ToArray()), "SAU1,SAU13",
               "★ T5 **跨道 priority 压过入队序**：后入队的 SAU1(Instant) 先于先入队的 SAU13(DelayedInstant)");
+    }
+
+    // ==================================================================
+    //  T30 / T31 · 🔴 2026-10-23（`T03·c` 残余）：**手牌跳 / 常驻跳各自的接线断言**
+    //
+    //  判据 → `普查产出_1021/W61b_引擎_T03c审查修复.md` §三·4 / §七·2：
+    //    T23 钉的是**棋盘那一跳**（`BroadcastWhen` 的棋盘监听器），而 `BroadcastWhen` 一共**四跳**
+    //    （棋盘 / 常驻 `BroadcastPersistentWhen` / 手牌陷阱 `BroadcastHandTrapWhen` /
+    //     手牌单位卡 `BroadcastHandWhen`）；后两跳从 2026-10-21 起也**只入队**
+    //    （`EnqueueAbility`），但**没有一条断言钉它们** ⇒ 「全改回同步递归」时 T23 仍绿。
+    //  本条补上缺的这两跳。
+    // ==================================================================
+
+    /// <summary>
+    /// **T30 · 手牌跳（单位卡那一支 = `BroadcastHandWhen`）只入队、由泵点结算。**
+    ///
+    /// 夹具：手里放一张**单位卡**，正文 `When you deploy a troop, gain 2 Quest Points`；
+    /// 外面自己开一层 `BeginAction`（⇒ `PlayCard` 变成内层、不泵队），在里面部署一个部队。
+    ///   · 动作体内：队列里躺着那条手牌监听、任务点**还没涨**；
+    ///   · 边界之后：任务点 +2。
+    /// 🧨 把 `BroadcastHandWhen` 那条 `EnqueueAbility` 改回同步 `ResolveOps` ⇒ 动作体内就 +2（红）。
+    /// 🧨 `ActionScope.Dispose` 不泵队 ⇒ 边界之后不涨（红）。
+    /// </summary>
+    static void W61T30HandListenerQueuesUntilBoundary()
+    {
+        var watcher = new CardDef("W61T30W", "W61T30W", "unit",
+                                  "When you deploy a troop, gain 2 Quest Points",
+                                  "common", "Test", 1, 1, 5, 0, null, subtype: "Infantry");
+        CheckTrue(watcher.WhenTriggers.Count > 0,
+                  "🧪 T30 夹具：监听器注册上了（没注册 ⇒ 下面两条假绿）");
+        CheckTrue(watcher.CanListenForEvents, "🧪 T30 夹具：它是单位卡 ⇒ 走 `BroadcastHandWhen` 那一跳");
+
+        var troop = Unit("W61T30T", 1, 1, 5);
+        var ctx = Battle(new[] { troop }, new CardDef[0]);
+        ctx.Players[0].Energy = 99;
+        ctx.Players[0].Hand.Add(ctx.NewInstance(watcher));      // 直接塞进手牌（不走抽牌）
+        int qp0 = ctx.Players[0].QuestPoints;
+
+        using (RuleCore.BeginAction(ctx))                        // ← 外层外壳：PlayCard 不泵队
+        {
+            CheckCode(RuleCore.PlayCard(ctx, 0, HandIdx(ctx, 0, "W61T30T"), 2, out int slot),
+                      RuleCodes.OK, "T30 部署一个部队（外层动作里）");
+            CheckTrue(slot >= 0 && ctx.Players[0].Board[slot] != null, "T30 前提：部队已上场");
+            CheckTrue(ctx.ActionQueue.Count > 0,
+                      "★ T30 动作体内：**手牌监听那条在队列里等着**（⛔ 不是当场结算）"
+                    + "｜🧨 `BroadcastHandWhen` 改回同步 `ResolveOps` ⇒ 本行红");
+            Check(ctx.Players[0].QuestPoints, qp0,
+                  "★ T30 动作体内：手牌监听**还没结算** ⇒ 任务点没涨"
+                + "｜🧨 同上（同步）⇒ 本行实得 +2");
+        }
+        Check(ctx.Players[0].QuestPoints, qp0 + 2,
+              "★ T30 边界之后：手牌监听结算完毕 ⇒ **任务点 +2**"
+            + "｜🧨 `ActionScope.Dispose` 不泵队 ⇒ 本行实得 +0");
+        Check(ctx.ActionQueue.Count, 0, "T30 边界之后：队列取空");
+    }
+
+    /// <summary>
+    /// **T31 · 常驻跳（`BroadcastPersistentWhen`）只入队、由泵点结算。**
+    ///
+    /// 夹具：先打一张 `For the rest of this battle, give Shield to all Drones you deploy`
+    /// 登记一条**部署时**的常驻效果（判据 → `TestDeployBuffAndCostMore` ①，那条已经端到端验过）；
+    /// 然后在外层 `BeginAction` 里部署一张 Drone。
+    ///   · 动作体内：队列里有常驻监听、Drone **还没有**护盾；
+    ///   · 边界之后：护盾到手。
+    /// 🧨 把 `BroadcastPersistentWhen` 那条 `EnqueueAbility` 改回同步 ⇒ 动作体内就有护盾（红）。
+    /// </summary>
+    static void W61T31PersistentQueuesUntilBoundary()
+    {
+        var pool = CardDatabase.Load();
+        var tac = Tactic("W61T31Tac", 1,
+                         "For the rest of this battle, give Shield to all Drones you deploy");
+        var drone = new CardDef("W61T31D", "W61T31D", "unit", "", "common", "Test",
+                                1, 1, 3, 0, null, subtype: "Drone");
+        var ctx = BattlePool(new[] { tac, drone }, new[] { Unit("E", 1, 1, 9) }, pool,
+                             warlordFaction: "TauEmpire");
+        ToP1Turn(ctx, 3);
+        CheckCode(RuleCore.PlayTactic(ctx, 0, HandIdx(ctx, 0, "W61T31Tac"), -1), RuleCodes.OK,
+                  "T31 打出「本场：你部署的 Drone 获得护盾」");
+        Check(ctx.PersistentEffects.Count, 1, "T31 前提：登记了 1 条常驻效果");
+
+        UnitState droneU = null;
+        using (RuleCore.BeginAction(ctx))
+        {
+            CheckCode(RuleCore.PlayCard(ctx, 0, HandIdx(ctx, 0, "W61T31D"), 2, out int slot),
+                      RuleCodes.OK, "T31 部署一张 Drone（外层动作里）");
+            var d = slot >= 0 ? ctx.Players[0].Board[slot] : null;
+            droneU = d;
+            CheckTrue(d != null, "T31 前提：Drone 已上场");
+            CheckTrue(ctx.ActionQueue.Count > 0,
+                      "★ T31 动作体内：**常驻监听那条在队列里等着**（⛔ 不是当场结算）"
+                    + "｜🧨 `BroadcastPersistentWhen` 改回同步 ⇒ 本行红");
+            CheckTrue(d != null && !d.HasShield,
+                      "★ T31 动作体内：常驻效果**还没结算** ⇒ Drone 没有护盾"
+                    + "｜🧨 同上（同步）⇒ 本行实得「有护盾」");
+        }
+        CheckTrue(droneU != null && droneU.HasShield,
+                  "★ T31 边界之后：常驻效果结算完毕 ⇒ **护盾到手**"
+                + "｜🧨 `ActionScope.Dispose` 不泵队 ⇒ 本行实得「没护盾」");
+    }
+
+    /// <summary>
+    /// **T32 · 手牌陷阱那一跳（`BroadcastHandTrapWhen`，非单位卡）只入队、由泵点结算。**
+    ///
+    /// 为什么单列一条：`BroadcastWhen` 四条非棋盘跳里，棋盘跳有 `T23`、手牌跳（单位卡）有 `T30`、
+    /// 常驻跳有 `T31`，**只剩这一条没有独立断言**（`A1` 报告 §四末）——
+    /// 把它改回同步 `ResolveOps`，上面三条**全都还是绿的**。
+    ///
+    /// 夹具：一张**计策卡**（`HandTrapWhens` 只收「**非单位卡** + 整条 desc 就是一句
+    /// `When &lt;事件&gt;, &lt;正文&gt;`」，判据 → `CardDef.CollectHandTrapWhens` /
+    /// `EffectText.SplitHandTrapWhen`）躺在手牌里，监听「部署一个部队」⇒ 任务点 +2。
+    /// 在外层 `BeginAction` 里部署一个部队：
+    ///   · 动作体内：队列里躺着那条陷阱、任务点**还没涨**；
+    ///   · 边界之后：任务点 +2、队列取空。
+    /// 🧨 `BroadcastHandTrapWhen` 改回同步 `ResolveOps` ⇒ 动作体内就 +2（红）。
+    /// 🧨 `ActionScope.Dispose` 不泵队 ⇒ 边界之后不涨（红）。
+    /// </summary>
+    static void W61T32HandTrapQueuesUntilBoundary()
+    {
+        var trap = Tactic("W61T32Trap", 1, "When you deploy a troop, gain 2 Quest Points");
+        // 夹具自证：**没登记成手牌陷阱 ⇒ 下面三条都是假绿**
+        CheckTrue(trap.HandTrapWhens.Count > 0,
+                  "🧪 T32 夹具：非单位卡的那句 `When …` 登记成**手牌陷阱**了（`HandTrapWhens` 非空）");
+        CheckTrue(trap.WhenTriggers.Count == 0,
+                  "🧪 T32 夹具：它**不是**单位卡 ⇒ 不许同时进 `WhenTriggers`（那会结算两次）");
+        CheckTrue(!trap.CanListenForEvents,
+                  "🧪 T32 夹具：`CanListenForEvents` 只对单位卡为真 ⇒ 它走的是手牌陷阱那一跳");
+
+        var troop = Unit("W61T32T", 1, 1, 5);
+        var ctx = Battle(new[] { troop }, new CardDef[0]);
+        ctx.Players[0].Energy = 99;
+        ctx.Players[0].Hand.Add(ctx.NewInstance(trap));      // 直接塞进手牌（不走抽牌）
+        int qp0 = ctx.Players[0].QuestPoints;
+
+        using (RuleCore.BeginAction(ctx))                    // ← 外层外壳：PlayCard 不泵队
+        {
+            CheckCode(RuleCore.PlayCard(ctx, 0, HandIdx(ctx, 0, "W61T32T"), 2, out int slot),
+                      RuleCodes.OK, "T32 部署一个部队（外层动作里）");
+            CheckTrue(slot >= 0 && ctx.Players[0].Board[slot] != null, "T32 前提：部队已上场");
+            CheckTrue(ctx.ActionQueue.Count > 0,
+                      "★ T32 动作体内：**手牌陷阱那条在队列里等着**（⛔ 不是当场结算）"
+                    + "｜🧨 `BroadcastHandTrapWhen` 改回同步 `ResolveOps` ⇒ 本行红");
+            Check(ctx.Players[0].QuestPoints, qp0,
+                  "★ T32 动作体内：手牌陷阱**还没结算** ⇒ 任务点没涨"
+                + "｜🧨 同上（同步）⇒ 本行实得 +2");
+        }
+        Check(ctx.Players[0].QuestPoints, qp0 + 2,
+              "★ T32 边界之后：手牌陷阱结算完毕 ⇒ **任务点 +2**"
+            + "｜🧨 `ActionScope.Dispose` 不泵队 ⇒ 本行实得 +0");
+        Check(ctx.ActionQueue.Count, 0, "T32 边界之后：队列取空");
     }
 }

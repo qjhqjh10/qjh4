@@ -12,6 +12,16 @@
 """
 import io, json, os, sys, glob
 
+## A17 2026-10-24: -h/--help early exit (print usage only, exit 0; never run the real work).
+import sys as _wf_help_sys
+if any(_wf_help_sys.argv[_i] in ("-h", "--help") for _i in range(1, len(_wf_help_sys.argv))):
+    try:
+        _wf_help_sys.stdout.reconfigure(encoding="utf-8")
+    except Exception:
+        pass
+    print('用法：PYTHONIOENCODING=utf-8 python Unity/工具/_dump_card_node.py [名字...]\n  -h, --help  只打印本用法并退出（退出码 0），不执行任何真活。')
+    _wf_help_sys.exit(0)
+
 ROOT = "d:/2/解包整理/07_场景/battlearena1"
 DEFAULT_NAMES = ["2DCard", "Front", "Textbackgrounds", "TextBackground Big UI",
                  "TextBackground Small UI", "CardFrame", "CardImage"]

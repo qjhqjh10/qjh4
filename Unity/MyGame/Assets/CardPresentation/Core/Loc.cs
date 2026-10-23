@@ -2079,15 +2079,19 @@ namespace CardPresentation
             //     弹窗正文原来那句「这套卡组还没有选战将，开不了局。」**不许缩水** ⇒ 另立本条（两处：`LiveOpsEventWindow` / `PracticeModePopup`）。
             //   · `MenuDeck/Error/WrongGameMode` / `…Deck` = **两句不同的整句**（P3 只报了一个键名，但代码里那两处是两句话）
             //     ⇒ 拆成两条，键名照 P3 那条 + `Deck` 后缀。
-            //   · `MenuDeck/GameMode/{Skirmish,Classic}` 与 `{Skirmish,Classic}Tag` = 同样是**两种形状**
-            //     （`:243` 的「遭遇战（Skirmish · 12 张）」vs `:280/:292` 内嵌的「遭遇 · 12 张」）⇒ 各两条。
+            //   · `MenuDeck/GameMode/{Skirmish,Classic}Tag` = 内嵌的「遭遇 · 12 张」（`:280/:292`）。
+            //     🔴 **2026-10-23 订正（铁律 5）**：这里原来还写着「与 `{Skirmish,Classic}` 各两条」——
+            //     那两条**不带 `Tag`** 的**全仓零引用**、已删（见下面那一行注释）。
             //   · `MenuDeck/CantImportDeck` 的**键名是原版**：`stringliteral.json` `0x42CEBF0` ——
             //     正是 P3 §⑥·4 写的那个 `DAT_1842cebf0`（VA − ImageBase 0x180000000 = RVA 0x42CEBF0）⇒ **查到就用它**。
             { "Settings/Online/MatchCancelled",        new Entry("已经取消这一局的联机匹配 —— 对面会收到通知，双方都没有开局。\n想再打一次：两边各自重新点一次 `Battle!`。",
                                                                   "The online match for this battle was cancelled — the other side gets a notice and neither side has started.\nTo try again: both sides press `Battle!` once more.") },
             { "Settings/Online/MatchCancelFailed",     new Entry("取消不了这一局：{0}", "Could not cancel this battle: {0}") },
-            { "MenuDeck/GameMode/Skirmish",            new Entry("遭遇战（Skirmish · 12 张）", "Skirmish (12 cards)") },
-            { "MenuDeck/GameMode/Classic",             new Entry("经典（Classic · 30 张）", "Classic (30 cards)") },
+            // 🔴 2026-10-23（卡牌线 `A8` · 主对话已裁）：这里原来还有两条**不带 `Tag`** 的
+            //   `MenuDeck/GameMode/{Skirmish,Classic}`（「遭遇战（Skirmish · 12 张）」/「经典（Classic · 30 张）」）——
+            //   **全仓零引用**，已删。判据：`grep -rn "MenuDeck/GameMode" --include=*.cs .` 只剩下面两条 `…Tag`
+            //   （消费点 = `Shell/LiveOpsEventWindow.cs` 那两处：`Menus/Play/Event/…` 的模式名）＋ 注释。
+            //   ⛔ **`{Skirmish,Classic}Tag` 这两条必须留着**（它们是活的）。
             { "MenuDeck/GameMode/SkirmishTag",         new Entry("遭遇 · 12 张", "Skirmish · 12 cards") },
             { "MenuDeck/GameMode/ClassicTag",          new Entry("经典 · 30 张", "Classic · 30 cards") },
             { "MenuDeck/Error/WrongGameMode",          new Entry("这副预组是「{0}」的，不能用在{1}里 —— 换一副。",

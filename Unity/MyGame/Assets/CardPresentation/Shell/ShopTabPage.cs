@@ -729,7 +729,7 @@ namespace CardPresentation
         string DoBuy(int idx)
         {
             string got = ShopData.Buy(_page, idx);
-            Debug.Log("[Shop] 买了 " + got + "（**不做真实经济**：资源固定 9999、不扣钱 —— 用户 2026-09-17 边界②）");
+            Debug.Log("[Shop] 买了 " + got + "（**不做真实经济**：资源固定 2000（用户 2026-10-24 从 9999 改）、不扣钱 —— 用户 2026-09-17 边界②）");
             // 拥有数变了 ⇒ 重建这一页（**卡变了就重建视图**，同卡池那条纪律）
             Setup();
             // ---- 到手之后那一扇窗：**两条路，按原版的档分开**（A439）----

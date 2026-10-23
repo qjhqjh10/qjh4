@@ -33,6 +33,16 @@ import re
 import sys
 import collections
 
+## A17 2026-10-24: -h/--help early exit (print usage only, exit 0; never run the real work).
+import sys as _wf_help_sys
+if any(_wf_help_sys.argv[_i] in ("-h", "--help") for _i in range(1, len(_wf_help_sys.argv))):
+    try:
+        _wf_help_sys.stdout.reconfigure(encoding="utf-8")
+    except Exception:
+        pass
+    print('用法：\n  "D:/2/Warpforge_tools/py312/python.exe" -X utf8 "d:/4/Unity/工具/_effect_shader_audit.py"\n  "…python.exe" -X utf8 "…/_effect_shader_audit.py" --check      # 只打汇总，不写文件\n  "…python.exe" -X utf8 "…/_effect_shader_audit.py" <别的报告.tsv>\n  -h, --help  只打印本用法并退出（退出码 0），不执行任何真活。')
+    _wf_help_sys.exit(0)
+
 A = r"d:/4/Unity/MyGame/Assets"
 ROOT = r"d:/4/Unity"
 REPORT = A + "/WarpforgeVFX/导出报告.tsv"

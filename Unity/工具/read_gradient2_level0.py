@@ -32,6 +32,16 @@ import sys
 
 import UnityPy
 
+## A17 2026-10-24: -h/--help early exit (print usage only, exit 0; never run the real work).
+import sys as _wf_help_sys
+if any(_wf_help_sys.argv[_i] in ("-h", "--help") for _i in range(1, len(_wf_help_sys.argv))):
+    try:
+        _wf_help_sys.stdout.reconfigure(encoding="utf-8")
+    except Exception:
+        pass
+    print('用法\n----\n    python 工具/read_gradient2_level0.py                      # 列全部 4 条 `Smooth background fade *`\n    python 工具/read_gradient2_level0.py "Smooth background fade Left"\n  -h, --help  只打印本用法并退出（退出码 0），不执行任何真活。')
+    _wf_help_sys.exit(0)
+
 LEVEL0 = 'D:/2/unity_run_ref/Warpforge_Data/level0'          # 原始序列化文件（只读）
 BASE = 'D:/2/新解包资源/assets_full/level0'                   # 同一次解包的产出（用来查 GO 名 → 组件 pid）
 SCRIPT_GRADIENT2 = 1277

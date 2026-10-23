@@ -12,6 +12,16 @@ import os
 import re
 import sys
 
+## A17 2026-10-24: -h/--help early exit (print usage only, exit 0; never run the real work).
+import sys as _wf_help_sys
+if any(_wf_help_sys.argv[_i] in ("-h", "--help") for _i in range(1, len(_wf_help_sys.argv))):
+    try:
+        _wf_help_sys.stdout.reconfigure(encoding="utf-8")
+    except Exception:
+        pass
+    print('用法：python 工具/_loc_official/w4_fix_en.py [--write]\n  说明：W4：把 `Core/Loc.cs` 里**还有旧 EN 的**那些条目换成官方 EN（`A1794` 那一批的另一半）。\n  选项：--write（脚本内按字符串匹配；一个都不带 = 默认模式）')
+    _wf_help_sys.exit(0)
+
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import w4_lib as L  # noqa: E402
 

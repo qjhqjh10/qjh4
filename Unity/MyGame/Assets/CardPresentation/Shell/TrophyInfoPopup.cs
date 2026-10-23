@@ -19,7 +19,29 @@
 //    `badgeDrawer → BadgeDrawer` · `trophyName → Title` · `trophyDescription → Descripton`（原版就这么拼）·
 //    `progressHolder → Progress`（GO）· `progressBar → ProgressBar`（组件）· `toggle → Checkbox` ·
 //    `closeButton → Generic Close Button Orange`。
-// ③ **`Category` 出厂 act = F** ⇒ **不建**（同族口径：出厂关着的件不建，见 `MainMenuRuntime` 纪律③）。
+// ③ **`Category` 出厂 act = F ⇒ 不建**。
+//    🔴 **2026-10-23（A13 · 界面线第四批）就地订正（铁律 5）**：这一条原来写的理由是
+//       「同族口径：出厂关着的件不建，见 `MainMenuRuntime` 纪律③」—— **那条引文已经过期**：
+//       `MainMenuRuntime.cs` 文件头 ③ 于 **2026-10-11（`A1522①` / `A1523①`）** 被收窄成
+//       「顶栏那两颗（`Feedback Button` / `Challenge button`）改成【建、但出厂关着】」，
+//       同处**仍写着**「⚠️ 其余那些出厂 `False` 的件（`Profile border` / `Tutorial highlight` 等）**照旧不建**」
+//       ⇒ 纪律③ **没有**被整体推翻，**逐件要看它自己的原版实况**（铁律 5·c）。本件按实况判如下：
+//       · **原版实况 = 恒关、没有任何东西会开它**（⛔ 不是「暂时关着、等运行期来开」）：
+//         ① prefab 实读：GameObject `Category`（pid **-491126403870794627**）`m_IsActive = 0`；
+//            它身上的 TMP（pid `-2155260334439506819`）`m_text = 'Sub-title'` · `fs 39 / base 39 / auto[3~39]` ·
+//            `m_characterSpacing = −1.8`，**没有 `Localize`**（⇒ 不是随语档变的词条件）；
+//         ② 全量反编译实读：`TrophyInfoPopup` 那颗 MB（`bundle_menus_assets_all/MonoBehaviour/MonoBehaviour_-3823665489305576323.json`）
+//            的**全部**字段里，指向子件的 `PPtr` 只有 7 个（badgeDrawer / trophyName / trophyDescription / progressHolder /
+//            progressBar / toggle / closeButton；另两颗 `openSound` / `closeSound` 是 **null**）—— **没有 `Category` 的槽位**；
+//            `TrophyInfoPopup__{Start,Open,HandleFeatureTrophy}.c` 里**没有一处** `GameObject.SetActive` 指着它；
+//            它身上唯一那颗脚本 `EverguildTextController` **只有 `Awake`**（只管字号，不开关）。
+//         ③ 它是 `RightSide` 的第 2 个直接子件，矩形 `976.00,307.85→1492.72,352.85` —— 与 `Title` **几乎完全重叠**，
+//            文字就是个占位串 `Sub-title` ⇒ 原版开发期留下的**死件**。
+//       ⇒ **决定 = 不建**（保持现状），理由**不再引纪律③**，而是上面这三条实况。
+//       ⚠️ **这条决定现在还被另一处钉着**：`Editor/MainMenuScene.cs:12721` 有一条
+//           `CheckTrue(FindChild(pRs, "Category") == null, "★ `Category`（`Sub-title` 那一条）**不建** …")`
+//           ⇒ **单改本文件会让那条断言红**。若将来要翻成「建、出厂关着」（同 `Content Area/Shadow (1)` 那个待遇），
+//           **必须同一批**把那条断言一起改（它不在本批白名单里，本批**一个字节没动**）。
 //
 // ---- 🔴 三处如实标注（本地拿不到的东西）----
 // ① **奖杯数据全在服务器**：`AllianceTrophy` 由 `AlliancesTrophyController` 从**远端 LiveOps 配置**建
@@ -59,7 +81,7 @@ namespace CardPresentation
         //   逐层的顺序 = **原版兄弟序**（uGUI 按兄弟序画 ⇒ 后面的压前面的；判据 = 各父节点的 `m_Children`）：
         //     根 = [Menu Dark Background, window]；
         //     window = [Generic Window Red Background Big, BadgeDrawer, Generic Close Button Orange, RightSide]；
-        //     RightSide = [Title, Category(act F ⇒ 不建), Descripton, Controls]；
+        //     RightSide = [Title, Category(act F ⇒ 不建，判据见文件头 ③ 的 2026-10-23 订正段), Descripton, Controls]；
         //     Controls(VLG) = [Progress, selectButton]；
         //     Progress = [ProgressBar, **Next Tier**]（⇒ 原版里 `Next Tier` 排在 `ProgressBar` **之后**）；
         //     ProgressBar = [Background, Outline, counter]，而 `Background` = [Fill Area]、`Fill Area` = [Fill]、
@@ -345,7 +367,10 @@ namespace CardPresentation
 
             // ---- 5) `RightSide`：标题 / 描述 / 下一级 / 进度 / 勾选行 ----
             var right = MenuDraw.Node(win, "RightSide", RightR);
-            // ⛔ `Category`（`976.00,307.85→1492.72,352.85`）**不建** —— 出厂 act F（判据③）。
+            // ⛔ `Category`（`976.00,307.85→1492.72,352.85`）**不建** —— 出厂 act F，且**全库没有任何代码会开它**
+            //    （2026-10-23 A13 实况复核：指向子件的那 7 个 PPtr 里没有它的槽位 · `Open`/`Start`/`HandleFeatureTrophy`
+            //     里没有指向它的 `SetActive` · 它身上只有 `EverguildTextController.Awake`。判据全文 → 文件头 ③ 的订正段）。
+            //    ⚠️ 这条决定同时被 `Editor/MainMenuScene.cs:12721` 的断言钉着 ⇒ 要翻案必须**同一批**改那条。
             // 🔴 **`Title` 的字号：`fontPx = 40` 是「上限档」，不是设计者填的输入**（2026-10-04 修红时读原始 MB 才看清）：
             //    `MonoBehaviour_2410309707926101117.json`（= `trophyName` 字段指的那一颗）实读 ——
             //    `m_text 'Trophy Name'` · **`m_fontSize 40`（= 自适应**收敛结果**，恰好顶到上限）** ·

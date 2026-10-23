@@ -200,7 +200,21 @@ namespace CardPresentation
         /// 🔴 **2026-10-17（A863）就地更正**：原来是 **30** —— **原版是 13**
         /// （实读 `bundle_menus_assets_all/MonoBehaviour/MonoBehaviour_-8185144684232147034.json`
         /// 的 `m_Padding`；那一颗的 `m_GameObject.m_PathID = -301262919896891482` = 本窗的 `Tab Buttons`）。
-        /// ⛔ 别与 `MenuWindowBase.BarPadTop`（奖励窗 / 商店 / 收藏窗那一族，120 / 117.7）混 —— 本窗不走那个基类。</summary>
+        /// ⛔ 别与 `MainMenuSubmenuWindow.BarPadTop`（奖励窗 / 商店 / 收藏窗那一族，**120 / 20 / 30**）混 —— 本窗不走那个基类。
+        /// <para>🔴 **2026-10-23（A13 · 界面线第四批）就地订正（铁律 5）**：这一行原来错两处 ——
+        /// ① 类名写成 `MenuWindowBase`：**全仓没有这个类**（`grep "class MenuWindowBase"` 零命中）；
+        ///    `BarPadTop` 的真身是 `Shell/MainMenuSubmenuWindow.cs:51` 的虚属性（基类缺省 = `BarPadTopBase = 120`，
+        ///    逐窗覆写：`Shell/ShopWindow.cs:101 = 20` · `Shell/CollectionWindow.cs:143 = 30` · 奖励 / 社交不覆写 ⇒ 120）。
+        /// ② 三个数写的是 `120 / 120 / 30` ⇒ **商店那一格是 20**，不是 120。
+        ///    （版本痕迹：`HEAD` 那一版还是 `120 / 117.7`；A5 同日先把 117.7 修成 `120 / 120 / 30`，
+        ///     **本批才把商店那格改成 20** —— 两个错是**先后**改的，别以为 A5 那一版就是对的。）
+        ///    判据 = 原版 prefab **逐窗现读**（`python -I -X utf8 工具/menu_dump.py bundle_menus_assets_all "&lt;窗&gt;" --depth 3 --no-sprite`
+        ///    ⇒ 那一行 `Tab Buttons` 尾部的 VLG 参数）：
+        ///    `Shop Menu Variant` = **`spacing=-20.0 … pad=0,0,20,0`** ·
+        ///    `Rewards Base Submenu Variant` = `spacing=0.0 … pad=0,0,120,0` ·
+        ///    `Collection Menu Variant` = `spacing=0.0 … pad=0,0,30,0`。
+        ///    （`RectOffset` 的序列化次序 = left,right,**top**,bottom ⇒ 第三个 0 后面那个数就是 `padTop`。）
+        ///    同一组数另见 `资料/普查产出_1023e/A9_界面第三批.md` §2.1（⛔ 别只改本行、不改那边的读数来源）。</para></summary>
         public const float BarPadTop = 13f;
         /// <summary>同上的 `m_Padding.m_Bottom`（原版 **0**）。**单列出来只为把起排算式写全** ——
         /// uGUI 的 `GetStartOffset` 把 `padding.vertical` 算进 requiredSpace。</summary>

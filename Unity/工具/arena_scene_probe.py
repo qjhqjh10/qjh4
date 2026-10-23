@@ -16,6 +16,16 @@ arena_scene_probe.py —— 查「我们**建好的** `<场>.unity` 里某个对
 """
 import glob, io, os, re, sys
 
+## A17 2026-10-24: -h/--help early exit (print usage only, exit 0; never run the real work).
+import sys as _wf_help_sys
+if any(_wf_help_sys.argv[_i] in ("-h", "--help") for _i in range(1, len(_wf_help_sys.argv))):
+    try:
+        _wf_help_sys.stdout.reconfigure(encoding="utf-8")
+    except Exception:
+        pass
+    print('用法：\n  PYTHONIOENCODING=utf-8 python 工具/arena_scene_probe.py <场名> <对象名> [对象名...]\n  PYTHONIOENCODING=utf-8 python 工具/arena_scene_probe.py --rs <场名>     # 只打这一场的 RenderSettings\n  -h, --help  只打印本用法并退出（退出码 0），不执行任何真活。')
+    _wf_help_sys.exit(0)
+
 ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
 # 🔴 2026-10-23 修（`T01` 施工计划 §2·2 的 B1）：原来指向 `Assets/CardPresentation/Scenes`
 #   —— 那里放的是 `Battle.unity` / `CardBase.unity` 这类**非战场**场景；13 个战场场景早在

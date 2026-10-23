@@ -10,6 +10,16 @@ import re
 import subprocess
 import sys
 
+## A17 2026-10-24: -h/--help early exit (print usage only, exit 0; never run the real work).
+import sys as _wf_help_sys
+if any(_wf_help_sys.argv[_i] in ("-h", "--help") for _i in range(1, len(_wf_help_sys.argv))):
+    try:
+        _wf_help_sys.stdout.reconfigure(encoding="utf-8")
+    except Exception:
+        pass
+    print('用法: d:/2/Warpforge_tools/py312/python.exe extract_rulebook_md.py <pdf> <out.md>\n说明: 依赖系统 pdftotext (poppler); 页眉/页脚剔除, 编号节/附录/短行识别为标题,\n      关键词表保留为代码块 (双栏布局无法转表格), 正文段落合并换行。\n  -h, --help  只打印本用法并退出（退出码 0），不执行任何真活。')
+    _wf_help_sys.exit(0)
+
 HEADER_RE = re.compile(r'WARPFORGE: OFFLINE RULEBOOK\s*[·-]\s*VERSION')
 FOOTER_RE = re.compile(r'NOT OFFICIAL\s*[·-]\s*FAN PROJECT\s*[·-]\s*PAGE\s*\d+')
 MAIN_H_RE = re.compile(r'^\d+\.\s+\S')

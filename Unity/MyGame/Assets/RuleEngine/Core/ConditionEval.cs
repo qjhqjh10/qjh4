@@ -57,6 +57,11 @@ namespace RuleEngine
         public const string WardWb = "wardwb";
         /// <summary>`tainted`（原版 `DefinedTrait.tainted = 160`；330 的第三项，且要 `!vanguard`）。</summary>
         public const string Tainted = "tainted";
+        /// <summary>🆕 2026-10-24（引擎线 `A20`）：`reload`（原版 `DefinedTrait.reload = 490`）——
+        /// 280 `siege` 的第二道闸（`DoesAbilityRequireLoading.c:35` 的 `HasRemovedTrait(0x1ea)`）。
+        /// ⚠️ 原版读的是**「已移除」簿记**，我们只能读「**当前带不带**」（`UnitState.Has`）；
+        /// 全池 `reload` **0 张** ⇒ 今天不可达，偏离写在 `case 280` 的注释里。</summary>
+        public const string ReloadTrait = "reload";
 
         /// <summary>这一格的「本版判得了吗」——给自检/报告用（⛔ 不参与求值）。</summary>
         public enum Kind
@@ -88,13 +93,18 @@ namespace RuleEngine
                 //   v19 卡表的 `spellType` 一列把「附魔卡是什么类型」补上了）；
                 //   330 = `stealth || ward || (tainted && !vanguard)`，四个词都是 `UnitState.Has` 的一等关键词
                 //   （⚠️ 当前池 `ward` / `tainted` **0 张** —— 全表普查见那一支的注释）。
+                // 🆕 2026-10-24（引擎线 `A20` · 第三批 ①）：280 / 320 **也判得了**了 ——
+                //   280 走 v21 卡表的 `hasActiveAbility` / `*NeedsLoading` / `hasAlternativeAbility`
+                //   （＋ `normalAbilityBoardCriteria` 选主备支）；320 走 v21 的 `quest` 列。
+                //   🔴 它们今天**恒假是数据事实**（`needsLoading` / `_quest` 真值全 0），
+                //   ⛔ 别再写回 `ModelGap` —— 「快照里都是 0」不是「判不了」。
+                case 280: case 320:
+                    return Kind.Ok;
                 case 240: case 250: case 330:
                 // 🆕 2026-10-23（`B-16` 残余）：241/242 判得了了 —— 数据侧是 v17 的
                 //   `abilityTriggers` 列（`cardAbilities[].trigger` 全量集合）。
                 case 241: case 242:
                     return Kind.Ok;
-                case 280: case 320:
-                    return Kind.ModelGap;
                 case 290: case 300: case 310:
                     // 原版 switch 里**没有**这三格 ⇒ 落到 `:354-361` 的 LogError + `bVar3 = 0`。
                     return Kind.OriginalUnhandled;
@@ -113,19 +123,9 @@ namespace RuleEngine
             {
                 // 240 / 250 / 330 **已判得了**（2026-10-23 · `新账-97` ⑤）：上面 `KindOf` 归 `Ok`，
                 //   本方法对 `Ok` 一律返回 null ⇒ 这三格**不再需要缺口说明**（⛔ 别加回来）。
-                case 280:
-                    return "280 siege：原版 `:220-225` → `CardScript__DoesAbilityRequireLoading`"
-                         + "（`hasActiveAbility(+0x220)` ∧ `HasRemovedTrait(490 reload)` ∧ `ActiveAbility` 的加载位 `+0x22`）。"
-                         + "🔴 2026-10-23 现核：`hasActiveAbility == false` 的卡**原版直接假**（`:14-16`），"
-                         + "而「加载位 `+0x22`」**我们整条没有** ⇒ 有主动技能的 87 张判不了（返回 null），"
-                         + "其余 1040 张可判假——但那要**逐卡**判，本档只能整体报「判不了」。"
-                         + "数据缺口：`cardAbilities[].abilityLogic[].requiresLoading`（本地反编译里没有这个字段名）。";
-                case 320:
-                    return "320 hasQuestCompleted：原版 `:227-248` = `!HasCurrentTrait(130 jam)` ∧ `raw._quest(+0x240)`"
-                         + " ∧ `HasQuests(card) <= 0`。🔴 2026-10-23 现核：`_quest` 在真值快照 `full_raw` 里"
-                         + "**1,351 张全是 0**（所以这一条今天只会是假）—— 但我们的卡表**没有这一列**"
-                         + "（`cards_engine.json` 无 `quest`），⛔ 不拿「快照里都是 0」当恒定假："
-                         + "要判得先加 `quest` 列（生成器读 `full_raw._quest`）+ `questTimes` 一并落。";
+                // 🆕 2026-10-24（引擎线 `A20`）：**280 / 320 不再有缺口说明** —— `KindOf` 已归 `Ok`，
+                //   本方法对 `Ok` 一律返回 null（见函数头第一句）。判据与落点 → `Match` 里那两个 case。
+                //   ⛔ 别再按「缺加载位 / 缺 `_quest` 列」把它们加回来：v21 卡表把两样都落了。
                 case 290: case 300: case 310:
                     return $"原版 `MeetsConditionCriteria.c` **没有** {cond} 这一格 ⇒ 它落到 `:354-361` 的"
                          + " `CustomDebug.LogError` ＋ `bVar3 = 0`。本版**照抄 false**（同样出声）。";
@@ -294,8 +294,16 @@ namespace RuleEngine
                 //   `CardScript.cs` 的 `<hasActiveAbility>k__BackingField`）。
                 // 我们这边它 = 「这张卡解析出了 `Ability:` 那一条」⇒ `UnitState.HasAbility`（= `Ability != null`）。
                 case 190:
+                {
                     if (u == null) return null;
+                    // 🆕 2026-10-24（引擎线 `A20`）：原版这一格读的是**卡数据** `hasActiveAbility(+0x220)`
+                    //   （`MeetsConditionCriteria.c:73-77`），v21 卡表把它落下来了 ⇒ **有数据就以数据为准**。
+                    //   旧表 / 真值里没这张卡（`-1`）才退回 `u.HasAbility`（= `Ability != null`，
+                    //   那是**文本解析**的近似，⛔ 不是原版判据本身）。
+                    var _c190 = card ?? u.Card;
+                    if (_c190 != null && _c190.HasActiveAbility >= 0) return _c190.HasActiveAbility != 0;
                     return u.HasAbility;
+                }
 
                 // ---------------------------------------------------------------- 220 dealtKillDmg（= 将死）
                 // 原版 `:253-257` → `CardScript__EnoughPendingDamageToDie.c:30-45`：
@@ -430,19 +438,39 @@ namespace RuleEngine
                     if (card == null) return null;
                     return SubtypeIs(card, "Infantry") || SubtypeIs(card, "Beast");
 
-                // ---------------------------------------------------------------- 280 siege（缺加载位）
+                // ---------------------------------------------------------------- 280 siege
                 // 原版 `:220-225` → `CardScript__DoesAbilityRequireLoading.c`：
-                //   `+0x220 hasActiveAbility == false` ⇒ **假**（`:14-16` 早退）；
-                //   否则遍历 `+0x108`：任一效果带 `HasRemovedTrait(0x1ea = 490 reload)` ⇒ 假；
-                //   最后取 `GetActiveAbilityCard → raw.GetActiveAbility(...)` 的 **`+0x22`（需要装填位）**。
-                // 🔴 2026-10-23 现核（`新账-97` ⑤）：**加载位 `+0x22` 我们整条没有数据**
-                //   （`cardAbilities` / `abilityLogic` / `full_raw` 里都没有 loading/reload 字段名；
-                //    池内 `reload` 关键词 0 张）⇒ 判不了、返回 `null`。
-                // ⚠️ **不能拿 `CardDef.Ability != null` 顶 `hasActiveAbility`**：2026-10-23 现读 ——
-                //   池内 1,127 张的 `desc` **一条 `Ability:` 都没有**（那个语法是另一族卡面的写法），
-                //   而真值 `hasActiveAbility == 1` 的有 **87 张** ⇒ 拿它判会把那 87 张静默判成假。
+                //   ① `:13` `hasActiveAbility(+0x220)` 为假 ⇒ **假**（早退，不看别的）；
+                //   ② `:35` 遍历 `activeEffects(+0x108)`，任一 `HasRemovedTrait(0x1ea = 490 reload)` ⇒ **假**；
+                //   ③ `:24-31` `GetActiveAbilityCard → RawCardScript.GetActiveAbility` 选出**主 / 备**
+                //      那个 `ActiveAbility`，返回它**对象内部**的 `+0x22 needsLoading`（`dump.cs:23758`）。
+                // 🆕 2026-10-24（引擎线 `A20` · `第三批 ①`）：**判得了**了 —— v21 卡表把
+                //   `hasActiveAbility` / `activeNeedsLoading` / `alternativeNeedsLoading` /
+                //   `hasAlternativeAbility` / `normalAbilityBoardCriteria` 五样都落了。
+                //   今天**恒假是数据事实**（1,351 张真值里两处 `needsLoading` **全是 0**），
+                //   ⛔ 不是「判不了」、也别写成「缺加载位」。
+                // 🔴 **已知偏离（如实标着）**：原版 `:35` 读的是 `HasRemovedTrait`（**已移除簿记**），
+                //   我们读 `u.Has("reload")`（**当前带不带**）—— 二者只在「曾经有过、后来被移除」时不同。
+                //   全池 `reload` 关键词 **0 张**（生成器现读）⇒ 今天不可达；要逐字对齐得先建簿记层。
+                // ⚠️ **不能拿 `CardDef.Ability != null` 顶 `hasActiveAbility`**：池内 `desc` 一条
+                //   `Ability:` 都没有（那个语法是另一族卡面的写法），而真值 `hasActiveAbility == 1`
+                //   有 **87 张** ⇒ 拿它判会把那 87 张静默判成假（`C2_引擎线判据_卡表加载位与字段.md` F-01）。
                 case 280:
-                    return null;
+                {
+                    var c = card ?? (u != null ? u.Card : null);
+                    if (c == null) return null;
+                    int ha = c.HasActiveAbility;
+                    if (ha < 0) return null;                 // 未知（旧表 / 真值里没这张卡）⇒ 不猜
+                    if (ha == 0) return false;               // 原版 `:14-16` 早退
+                    if (u != null && u.Has(ReloadTrait)) return false;    // 原版 `:35`
+                    int o = owner >= 0 ? owner : OwnerOf(ctx, u);
+                    bool? alt = c.UsesAlternativeAbility(ctx, o, u);      // 原版 `:24-31`
+                    if (alt == null) return null;
+                    int nl = alt.Value ? c.AlternativeAbilityNeedsLoading
+                                       : c.ActiveAbilityNeedsLoading;
+                    if (nl < 0) return null;                 // 未知 ⇒ 不猜
+                    return nl != 0;
+                }
 
                 // ---------------------------------------------------------------- 290/300/310（原版未实现）
                 // 原版 switch 里**没有**这三格 ⇒ 落到 `:354-361`：`CustomDebug.LogError` + `bVar3 = 0`
@@ -453,11 +481,29 @@ namespace RuleEngine
                     NoteOriginalUnhandled(cond);
                     return false;
 
-                // ---------------------------------------------------------------- 320 hasQuestCompleted（缺）
-                // 原版 `:227-248`：`!HasCurrentTrait(130 jam)` ∧ `raw._quest(+0x240)` ∧ `HasQuests(card) <= 0`。
-                // 我们既没有 `_quest` 列、也没有任务附魔计数 ⇒ 判不了。
+                // ---------------------------------------------------------------- 320 hasQuestCompleted
+                // 原版 `:227-248`：`!HasCurrentTrait(entity, 130 jam)` ∧ `rawData._quest(+0x240)`
+                //   ∧ `HasQuests(entity) <= 0`（`EntityScript__HasQuests.c:18-40` 数
+                //   `activeEnchantments(+0x110)` 里附魔卡 `spellType(+0x90) == 120 Quest` 的件数）。
+                // 🆕 2026-10-24（引擎线 `A20` · `第三批 ①`）：**判得了**了 —— v21 卡表的 `quest` 列
+                //   （真值直搬 `full_raw._quest`）。今天**恒假是数据事实**（1,351 张全是 0）。
+                // ⚠️ 判定顺序照原版：`jam` **先**判（它不成立时原版**根本不读** `_quest`）；
+                //   `_quest` 假时也**不数**任务附魔 —— 所以「附魔层里有未知 spellType」只在
+                //   `_quest == 1` 时才可能让我们判不了。
                 case 320:
-                    return null;
+                {
+                    if (u == null || u.Instance == null) return null;
+                    var c = card ?? u.Card;
+                    if (c == null) return null;
+                    if (u.Has(KeywordTable.Jam)) return false;      // 原版 `:227` 那条 `!HasCurrentTrait(130)`
+                    int q = c.Quest;
+                    if (q < 0) return null;                         // 未知 ⇒ 不猜
+                    if (q == 0) return false;                       // 原版 `raw+0x240 == 0` ⇒ 假
+                    int n = Enchantments.CountQuests(u.Instance);
+                    if (n > 0) return false;                        // `HasQuests <= 0` 不成立
+                    if (Enchantments.CountUnknownSpellType(u.Instance) > 0) return null;   // 可能还有数不到的
+                    return true;
+                }
 
                 // ---------------------------------------------------------------- 330 stealthOrWardOrDuplicitous
                 // 原版 `:124-145`（`FilterMethods__MeetsConditionCriteria.c` 的 0x14a 那一支）：

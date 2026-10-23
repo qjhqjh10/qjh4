@@ -455,4 +455,4 @@
 - **逐卡对号以 live 报表为准**，不要照抄 §三·3b 的表 ——
   它把 `Ravenwing Talonmaster` 与 `Devilfish` 都写成「…Flank.」，
   实际 live 是 `Friendly Vehicles have Flank` + `Friendly Infantry and Drones have Flank`
-  （`_tmp_view/unit_desc_unparsed.txt:19,39`）。**总数 19 不受影响。**
+  （`_tmp_view/unit_desc_unparsed.txt:19,39` —— 已过期/已迁，2026-10-24 核对：该文件由自检**每次重写**，现读 62 行里已无 `Ravenwing Talonmaster` / `Devilfish` 两行）。**总数 19 不受影响。**

@@ -670,7 +670,10 @@ public static class CardFaceProbe
         //  量法 = **渲两张逐像素差**（描边关 / 描边开白 α=1）⇒ 差集包围盒 = 真上屏的发光区。
         //  🧨 改坏法 ①：`OutlineMat` 退回立绘层（`_art` 的网格被 `ArtWindowMesh` 裁在开口里）
         //     ⇒ 光带最外沿 = 插图画窗外沿 ⇒ **左右两条必红**；
-        //  🧨 改坏法 ②：`OutlineGlowScale` 调小到「等值带落回插图画窗」（用户报的那一档）⇒ 同样红。
+        //  🧨 改坏法 ②：把 `ShadowSize` / `ShadowY` 改小或挪边（等值带就会落回插图画窗 —— 用户
+        //     2026-10-21 报的那一档）⇒ 同样红。
+        //     ⚠️ 2026-10-24（L1 · `C1-B03` 并层）：原来这里写的是「把 `OutlineGlowScale` 调小」——
+        //     **那个常量已删**（描边与软光/影并成一层，几何只有一份 `ShadowMesh()`/`ShadowSize`）。
         {
             CheckOutlineGlow("Armoured Offensive");   // UM75 —— 战术卡
             CheckOutlineGlow("Alien Idol");           // GSC63 —— 防御卡
@@ -1096,7 +1099,7 @@ public static class CardFaceProbe
     /// （`CardHighlight.OutlineAnimTime`）⇒ 不推的话拍到的是**补间起点 = alpha 0**（图上一片空，
     /// 看起来像「描边没做」，实际是没推）。做法 = 临时把 `CardTween.Mode` 切 `Manual`
     /// （`CardTween.Use` 在**建补间时**读它）→ `CardTween.Advance(时长 + 余量)` 推到头 → 还原。
-    /// ⚠️ 推完**出声核对**「专用描边层在不在、alpha &gt; 0」—— ⛔ 不许静默渲一张空图当证据。
+    /// ⚠️ 推完**出声核对**「描边真的亮在 `Card Frame SDF` 那份材质上、alpha &gt; 0」—— ⛔ 不许静默渲一张空图当证据。
     /// </summary>
     static void ShotPlayableOutline(CardView view, CardDef def, string path)
     {
@@ -1110,8 +1113,13 @@ public static class CardFaceProbe
 
             var got = view.OutlineColor;
             var dbg = view.OutlineDebug;
-            bool dedicated = dbg.Contains("层=描边专用");        // 判据串来自 `CardView.OutlineDebug`
-            if (got.a > 0.01f && dedicated)
+            // 🔴 **2026-10-24（L1 · `C1-B03` 并层）**：这里原来断的是「描边建在**专用 `outlineGlow` 层**上」。
+            //   那一层**已删**（原版 `2DCard.prefab` 全文件只有 1 颗 `Card Highlight And Shadow`，
+            //   `_Outline*` 与 `_ShadowColor` 是同一份 `Card Frame SDF` 的两个属性）⇒ 改断
+            //   「亮起来的那份材质**就是 `Card Frame SDF`**」：`_Inner_Fallof = 0.224`
+            //   （战斗状态环那份 `Card board Frame SDF` 是 **1.0** ⇒ 落错层会被这条抓到）。
+            bool onSdf = Mathf.Abs(view.OutlineFloatForTest("_Inner_Fallof") - 0.224f) < 0.004f;
+            if (got.a > 0.01f && onSdf)
             {
                 Debug.Log($"[cardface] 可打出描边 → {path}：目标 {want} · 实测 {got} · {dbg}");
             }
@@ -1119,7 +1127,7 @@ public static class CardFaceProbe
             {
                 // 「不许静默失败」：渲出来没有描边，必须大声说，别让这张图被当成「原版就是这样」
                 Debug.LogError($"[cardface] 可打出描边**没建出来 / 没亮**（{path}）："
-                             + $"实测 alpha={got.a:F3}、专用层={(dedicated ? "在" : "**不在（退回 SDF/软光层）**")} · {dbg}");
+                             + $"实测 alpha={got.a:F3}、材质是 `Card Frame SDF`={(onSdf ? "是" : "**不是**")} · {dbg}");
             }
             Shot(view, path);
 
@@ -1186,8 +1194,10 @@ public static class CardFaceProbe
     /// `CardTween.Mode = Manual` + `Advance` 推到头；否则拍到的是补间起点（α=0，一张空图）。</para>
     ///
     /// <para>🔴 **灭自证**：差值取的是**渲染结果**，⛔ 不是材质读数、也不是把算法再算一遍。
-    /// 把描边挂回立绘层（`_art` 的网格被 `ArtWindowMesh` 裁在开口里），或把 `OutlineGlowScale`
-    /// 调回「等值带落进插图画窗」那一档 ⇒ 下面左右两条立刻红。</para>
+    /// 把描边挂回立绘层（`_art` 的网格被 `ArtWindowMesh` 裁在开口里），或把 `ShadowSize`/`ShadowY`
+    /// 改到「等值带落进插图画窗」那一档 ⇒ 下面左右两条立刻红。
+    /// （⚠️ 2026-10-24 `C1-B03` 并层：原来这里写的是 `OutlineGlowScale` —— 常量已删，几何只剩一份
+    /// `ShadowMesh()`，所以「改坏法」也跟着换成 `ShadowSize`/`ShadowY`。）</para>
     /// </summary>
     static void CheckOutlineGlow(string cardName)
     {
@@ -1213,8 +1223,13 @@ public static class CardFaceProbe
 
                 view.SetOutline(Color.white);                     // 纯白 α=1 ⇒ 差集最干净
                 CardTween.Advance(CardHighlight.OutlineAnimTime + 0.05f);
-                Check(view.OutlineDebug.Contains("层=描边专用"),
-                      $"新账-66 ② 前提：`{cardName}` 的描边建在**专用 `outlineGlow` 层**上"
+                // 🔴 **2026-10-24（L1 · `C1-B03` 并层）**：原来这里断「描边建在**专用 `outlineGlow` 层**上」。
+                //   那一层已删，描边与软光/影是**同一层同一份材质**（原版只有 1 颗
+                //   `Card Highlight And Shadow`）⇒ 前提改成「点亮的 `_Outline` 落在 `Card Frame SDF` 上」。
+                //   分辨法 = `_Inner_Fallof = 0.224`（战斗状态环那份 `Card board Frame SDF` 是 1.0）。
+                //   ⚠️ 仍然**不是**恒真：「描边写到别的材质/别的层的实例上」这一档照样红。
+                Check(Mathf.Abs(view.OutlineFloatForTest("_Inner_Fallof") - 0.224f) < 0.004f,
+                      $"新账-66 ② 前提：`{cardName}` 的点亮描边落在 **`Card Frame SDF`**（`_Inner_Fallof = 0.224`）上"
                     + $"（实测 `_Outline`={view.OutlineColor} · {view.OutlineDebug}）");
                 on = RenderPixels();                              // 描边开
             }

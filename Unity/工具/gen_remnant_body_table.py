@@ -38,6 +38,16 @@ import json
 import os
 import sys
 
+## A17 2026-10-24: -h/--help early exit (print usage only, exit 0; never run the real work).
+import sys as _wf_help_sys
+if any(_wf_help_sys.argv[_i] in ("-h", "--help") for _i in range(1, len(_wf_help_sys.argv))):
+    try:
+        _wf_help_sys.stdout.reconfigure(encoding="utf-8")
+    except Exception:
+        pass
+    print('用法\n----\n  python -I -X utf8 d:/4/Unity/工具/gen_remnant_body_table.py            # 重出产物\n  python -I -X utf8 d:/4/Unity/工具/gen_remnant_body_table.py --check    # 只比不写（幂等自检）\n  -h, --help  只打印本用法并退出（退出码 0），不执行任何真活。')
+    _wf_help_sys.exit(0)
+
 ROOT4 = "d:/4/Unity"
 
 SO_TRUTH = ROOT4 + "/资料/普查产出_1018/allcards_1350/cards_raw.json"

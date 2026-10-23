@@ -88,6 +88,16 @@ import os
 import re
 import sys
 
+## A17 2026-10-24: -h/--help early exit (print usage only, exit 0; never run the real work).
+import sys as _wf_help_sys
+if any(_wf_help_sys.argv[_i] in ("-h", "--help") for _i in range(1, len(_wf_help_sys.argv))):
+    try:
+        _wf_help_sys.stdout.reconfigure(encoding="utf-8")
+    except Exception:
+        pass
+    print('用法：python 工具/gen_card_chat_intro.py [--check]\n  说明：gen_card_chat_intro.py —— 「定制开场白」两档的数据侧（账 `A1754`/`A1805` 的后续；战斗线 T17b）\n  选项：--check（脚本内按字符串匹配；一个都不带 = 默认模式）')
+    _wf_help_sys.exit(0)
+
 ROOT4 = "d:/4/Unity"
 
 CARDS_RAW = ROOT4 + "/资料/普查产出_1018/allcards_1350/cards_raw.json"

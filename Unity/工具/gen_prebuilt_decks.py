@@ -55,6 +55,16 @@ import sys
 from collections import Counter, defaultdict
 
 # 🔴 `--dry` = 只跑计算、打印读数、**零写盘**。默认（不带它）行为与以前完全一样。
+## A17 2026-10-24: -h/--help early exit (print usage only, exit 0; never run the real work).
+import sys as _wf_help_sys
+if any(_wf_help_sys.argv[_i] in ("-h", "--help") for _i in range(1, len(_wf_help_sys.argv))):
+    try:
+        _wf_help_sys.stdout.reconfigure(encoding="utf-8")
+    except Exception:
+        pass
+    print('用法：python 工具/gen_prebuilt_decks.py [参数...] [--dry]\n  说明：把原版「预组卡组」解析成我们卡池的 id，产出一份**旁挂数据**给运行时读。\n  选项：--dry（脚本内按字符串匹配；一个都不带 = 默认模式）\n  位置参数：sys.argv[1:] 全收（数量以脚本自身判断为准）')
+    _wf_help_sys.exit(0)
+
 DRY = "--dry" in sys.argv[1:]
 
 D = "d:/4/Unity/数据/游戏数据"

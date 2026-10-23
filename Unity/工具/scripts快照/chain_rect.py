@@ -10,6 +10,16 @@ v2 (2026-08-21): 补 m_LocalScale 支持 — 缩放绕自身 pivot 应用, 沿�
 """
 import json, os, sys, glob
 
+## A17 2026-10-24: -h/--help early exit (print usage only, exit 0; never run the real work).
+import sys as _wf_help_sys
+if any(_wf_help_sys.argv[_i] in ("-h", "--help") for _i in range(1, len(_wf_help_sys.argv))):
+    try:
+        _wf_help_sys.stdout.reconfigure(encoding="utf-8")
+    except Exception:
+        pass
+    print('用法: py312 chain_rect.py <场景目录> <GO PathID 或 GO 名>\n输出: GO名 [父链] -> Godot 屏幕坐标 x[y1,y2]\n  -h, --help  只打印本用法并退出（退出码 0），不执行任何真活。')
+    _wf_help_sys.exit(0)
+
 sys.stdout.reconfigure(encoding='utf-8')
 SRC = sys.argv[1]
 TARGET = sys.argv[2]

@@ -1522,7 +1522,8 @@ public static class MainMenuScene
             Check(textsL2R(probe.transform).Count, 4,
                   "★ 生产态 = 4 颗：**恒显 3 颗**（gold/crystals/blackStones）+ 活动点"
                 + "（它有记账口 `40K_genearl_icon_Campaign_points_big` ⇒ 拥有 > 0）。"
-                + "⚠️ **这是一条回归锚** —— 格数由**我们自己的 `Wallet`** 决定（有记账口的读出来 9999、没有的按 0），"
+                + "⚠️ **这是一条回归锚** —— 格数由**我们自己的 `Wallet`** 决定（有记账口的读出来 2000、没有的按 0；"
+                + "⚠️ 2026-10-24 用户把 `Wallet.StartAmount` 由 9999 改为 2000 —— 只影响读出的**数值**，`> 0` 的判据不变），"
                 + "⛔ 不是原版的格数（原版那张表最多 7 项）");
             {
                 // 药丸宽 = `29 + clamp(文字宽, 103.51, 153) + 9` ⇒ 落在 **[141.51, 191]** 这个闭区间里
@@ -10853,6 +10854,54 @@ public static class MainMenuScene
                               "`Tab Buttons/Shadow` **不建**（原版 `sizeDelta=(165,0)` ⇒ 静态看不见）");
                     CheckAtWorld(FindChild(FindChild(t, "Content Area"), "Tabs"), 167.17f, 1920.00f, 70.94f, 1080f, "`Tabs`");
 
+                    // ---------------- `Content Area/Shadow (1)`（🆕 2026-10-23 · A15 · 界面线第六批）----------------
+                    //  判据 = **解包资源逐窗现读**（⛔ 不是我们的常量）：
+                    //    `python -I -X utf8 工具/menu_rect.py bundle_menus_assets_all "Social Submenu Variant" --depth 3`
+                    //      ⇒ `Content Area/Shadow (1)  330.37  70.94  379.81  1080.00  INACT`（宽 49.43）
+                    //    `python -I -X utf8 工具/menu_dump.py bundle_menus_assets_all "Social Submenu Variant" --depth 3 --no-sprite`
+                    //      ⇒ 组件 `Image,LayoutElement` · 色 `(0,0,0,0.475)` · sprite `40k_main_tab_shadow` 51×4 Simple
+                    //        （与左栏那颗 `Tab Buttons/Shadow` **同一张图、同一个色**）。
+                    //  精确值由 prefab 序列化字段算（`m_SizeDelta.x = −1703.397216796875` + 父 `−167.169921875`）
+                    //  ⇒ 宽 **49.432861328125**（算式与出处 → `Shell/MainMenuSubmenuWindow.Shadow1W` 的 doc）。
+                    //  ⚠️ 这一件**出厂关着** ⇒ 量它必须带 `true`（`RectOf` / `CheckRectPx` 那一路只找激活链上的块）。
+                    //  ⚠️ **四扇窗同值**（商店 / 社交 / 收藏 / 奖励，`menu_rect` 逐窗现读），建树在**共用件** `BuildShell` 里。
+                    //     ⇒ 本组与 `Editor/ShopScene.cs`（A9）、`Editor/RewardsScene.cs` / `Editor/CollectionScene.cs`
+                    //       （A13）那三组是**同一件事的四个宿主**，期望值逐字相同（⛔ 别改其中一份）。
+                    //     ⚠️ 社交窗的 `Content Area` 自身与四窗同值 ⇒ 这颗阴影**不跟任何窗的 `BarTop` 跑**（恒从 70.94 起）。
+                    //  🧨 改坏法：删掉 `MainMenuSubmenuWindow.BuildShell` 末尾那三行 ⇒ 第 1 条红；
+                    //             去掉 `SetActive(false)` ⇒ 第 2 条红（它是半透明压暗件，开出来会把右边一片压黑）。
+                    {
+                        var socialArea = FindChild(t, "Content Area");
+                        var s1 = FindChild(socialArea, "Shadow (1)");
+                        CheckTrue(s1 != null, "★ `Content Area/Shadow (1)` **建出来了**（原版有、我们原来整件不建）");
+                        CheckTrue(s1 != null && !s1.gameObject.activeSelf, "★ …而且**出厂关着**（原版 `m_IsActive = 0`）");
+                        CheckAtWorld(s1, 330.374878f, 379.807739f, 70.94f, 1080f,
+                                     "★ `Shadow (1)` 在 **[330.3749,70.94]–[379.8077,1080.00]**"
+                                   + "（原版 prefab 字段算：中心 = `(960+83.5899658203125) − 688.4986572265625`、"
+                                   + "宽 = `(1920−167.169921875) − 1703.397216796875`）");
+                        var s1rt = s1 as RectTransform;
+                        CheckNear(s1rt != null ? s1rt.rect.width : -1f, LayoutSpace.Px(MainMenuSubmenuWindow.Shadow1W), 0.001f,
+                                  "★ `Shadow (1)` 宽 = **49.4329**（⛔ 与左栏那颗 47.64 的 `Tab Buttons/Shadow` **不是同一件**）");
+                        var s1quads = s1 != null ? s1.GetComponentsInChildren<ImageQuad>(true) : new ImageQuad[0];
+                        Check(s1quads.Length, 1, "★ `Shadow (1)` 底下**恰好 1 块** `ImageQuad`（原版只挂一个 `Image`）");
+                        if (s1quads.Length > 0 && s1quads[0] != null && s1quads[0].Texture != null)
+                        {
+                            CheckTrue(s1quads[0].Texture.name == MainMenuSubmenuWindow.ArtBarShadow,
+                                      $"★ …贴图 = **`{MainMenuSubmenuWindow.ArtBarShadow}`**（与左栏那颗同源；"
+                                    + $"现读「{s1quads[0].Texture.name}」）");
+                            var s1t = s1quads[0].Tint;
+                            CheckTrue(Mathf.Abs(s1t.r) < 0.002f && Mathf.Abs(s1t.g) < 0.002f && Mathf.Abs(s1t.b) < 0.002f
+                                      && Mathf.Abs(s1t.a - 0.4745098f) < 0.002f,
+                                      "★ …色 = **(0,0,0,0.4745)**（原版 `Image.m_Color` 实读）"
+                                    + $"（实得 {s1t.r:F4},{s1t.g:F4},{s1t.b:F4},{s1t.a:F4}）");
+                        }
+                        else
+                        {
+                            CheckTrue(false, "★ `Shadow (1)` 底下那块 `ImageQuad`（或它的贴图）取不到"
+                                           + " ⇒ 上面「贴图」「色」两条**等于没查**（如实红，不假装）");
+                        }
+                    }
+
                     // 左栏两键：`Alliances` / `Friends`（**位置是 VLG 算出来的**，165×180，顶 190.94 / 370.94）
                     // 🔴 **2026-10-18（第七轮）**：这两颗的**文案**从本轮起走词条（`Shell/SocialWindow.cs` 的
                     //   `LocalizedButtons()` —— 建窗时把静态那份 `Buttons` 的 `Label` 换成 `Loc.T(键)`）。
@@ -15390,7 +15439,11 @@ public static class MainMenuScene
                 "MainMenu/Ranked/GoToCreateDeck", "MainMenu/Ranked/OfflineNote", "MainMenu/RankedWindow/LeaderboardOfflineNote",
                 "MainMenu/Social/ProfileOfflineNote", "MainMenu/Social/ProfileTitle", "MenuDeck/Error/CantStartNoWarlord",
                 "MenuDeck/Error/NoDeckForMode", "MenuDeck/Error/WrongGameMode", "MenuDeck/Error/WrongGameModeDeck",
-                "MenuDeck/GameMode/Classic", "MenuDeck/GameMode/ClassicTag", "MenuDeck/GameMode/Skirmish",
+                // 🔴 2026-10-23（卡牌线 `A8` · 主对话已裁）：这里原来还有**不带 `Tag`** 的
+                //   `MenuDeck/GameMode/Classic` / `…/Skirmish` 两条 —— 它们**全仓零引用**、已经从
+                //   `Core/Loc.cs` 删掉；留在本数组里会让下面 `Loc.HasEntry` 那条当场红。
+                //   ⛔ `{Classic,Skirmish}Tag` 不动（`Shell/LiveOpsEventWindow.cs` 在用）。
+                "MenuDeck/GameMode/ClassicTag",
                 "MenuDeck/GameMode/SkirmishTag", "MenuDeck/HUD/NoWarlordText", "Settings/Online/MatchCancelFailed",
                 "Settings/Online/MatchCancelled", "SocialMenu/Alliances/Trophies/FeaturedTrophyLabel", "SocialMenu/Alliances/Trophies/NextTier",
             };

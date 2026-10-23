@@ -654,7 +654,7 @@ namespace CardPresentation
                 return;
             }
             Debug.Log("[BoosterInfo] 没有宿主 `ShopWindow`/那一页 ⇒ 直调 `ShopData.Buy`"
-                      + "（**不做真实经济**：资源固定 9999、不扣钱）");
+                      + "（**不做真实经济**：资源固定 2000（2026-10-24 由 9999 改为 2000）、不扣钱）");
             Debug.Log("[BoosterInfo] " + ShopData.Buy(Page, Index));
         }
 

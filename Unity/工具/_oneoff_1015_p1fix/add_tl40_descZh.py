@@ -12,6 +12,16 @@
 """
 import io, sys, json
 
+## A17 2026-10-24: -h/--help early exit (print usage only, exit 0; never run the real work).
+import sys as _wf_help_sys
+if any(_wf_help_sys.argv[_i] in ("-h", "--help") for _i in range(1, len(_wf_help_sys.argv))):
+    try:
+        _wf_help_sys.stdout.reconfigure(encoding="utf-8")
+    except Exception:
+        pass
+    print('用法：python 工具/_oneoff_1015_p1fix/add_tl40_descZh.py [--write]\n  说明：给新加的 `TL40 Infestation Node` 补 `descZh`（卡面中文效果文字）。\n  选项：--write（脚本内按字符串匹配；一个都不带 = 默认模式）')
+    _wf_help_sys.exit(0)
+
 P = 'd:/4/Unity/数据/游戏数据/cardface_fixes.json'
 raw = io.open(P, 'rb').read()
 txt = raw.decode('utf-8')

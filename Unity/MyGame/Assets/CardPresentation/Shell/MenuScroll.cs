@@ -291,7 +291,16 @@ namespace CardPresentation
         /// 滚轮**不产生速度**（惯性只由拖拽产生）。</summary>
         public void Wheel(float dy)
         {
-            if (Mathf.Abs(dy) < 1f) return;
+            // 🔴 **2026-10-24（L1 · `C1-B08`）：原版没有门槛。**
+            //   这里原来是 `if (Mathf.Abs(dy) < 1f) return;` —— 那是**自造闸**，而且正好卡一整格
+            //   （本机滚轮一格 = ±1，见 `ScrollUnitsPerNotch`）⇒ 触控板/半格滚被**静默丢掉**。
+            //   判据 = uGUI `ScrollRect.OnScroll`（`ScrollRect.cs:665-676`）：
+            //   `position += delta × m_ScrollSensitivity`，**任何非零 delta 都产生位移**，
+            //   幅度全交给 `m_ScrollSensitivity`（本类 = `NotchPx` / `NotchK`）。
+            //   ⚠️ 零 delta 必须早退的是 `m_Scrolling`（UGUI 是 `if (data.IsScrolling()) m_Scrolling = true;`
+            //   而 `IsScrolling()` = `scrollDelta != Vector2.zero`）⇒ 这里 `dy == 0` 就 return，**语义相同**。
+            //   判据全文 → `资料/普查产出_1023e/C1_战斗线判据_布置与层级.md` 的 `C1-B08`。
+            if (dy == 0f) return;
             _scrolling = true;                       // 回弹那一帧 smoothTime ×3（UGUI :853-854）
             Apply(Offset - dy * NotchK, !Elastic);   // Clamped ⇒ 夹；Elastic ⇒ 允许越界
         }

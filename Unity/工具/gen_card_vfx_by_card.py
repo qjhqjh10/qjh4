@@ -184,6 +184,22 @@ EV_HIT = "hit"
 EV_DEATH = "death"
 EV_ABILITY = "ability"
 EV_TRIGGER = "trigger"
+# 🔴🆕 **2026-10-24（执行代理 `J1` · `C5` D14）：关键词天赋 `EffectTriggerType.OnPlay(2)` 的归置桶。**
+#
+# 为什么它不能进 `ability`（判据 = 全量反编译，逐句读）：
+#   · `CardScript__ActivateTraitsOnSummonOrEnchantment.c` 在**召唤 / 附魔那一刻**逐条 trait 调
+#     `BattleCardUI__DisplayStatusAnim`；后者只处理 `EffectTriggerType == Start(0)`（播放）
+#     与 `== OnPlay(2)`（挂上持久状态框）。
+#   · `BattleCardUI__DisplayTriggerAnim.c:71`（触发那一拍）**只认 `Trigger(3)` / `TriggerOnPlay(6)`**。
+#   ⇒ `OnPlay(2)` **永远不在「发动技能」那一拍播**。
+# 我们这一侧它的播放口 = `Core/TraitFrames.cs`（`_playBook` ← `Resources/trait_effect_bindings.json`，
+#   由 `工具/gen_trait_effect_bindings.py` 从同一个 `trait_collection.json` 生成），发生在**登场**那一拍。
+# 🔴 改前的缺陷：这些行同时被塞进 `ability` 桶，而 `ability` 桶是**整桶全播**的
+#   ⇒ 21 张卡（`C5` 现读：AM5 · DA6 · SOR4 · SW2 · UM4）每发动一次主动技能都会顺带播一遍
+#   登场框（`FlyingEffect` / `StealthEffect` / `CamouflageEffect` / `ShieldTraitEffect_Idle*`）。
+# ⇒ 本桶名与 `CardPresentation/Core/VfxMap.cs` 的 `VfxMap.TraitOnPlay` **逐字一致**，
+#   但**它不是事件**（没有 `EvtKind`、不在 `VfxMap.Events` 里）—— 只为「别混进 ability」而存在。
+EV_TRAIT_ONPLAY = "trait_onplay"
 
 # 🔴 **2026-10-18（T21）**：原版 `CardAbility.trigger`（`AbilityTrigger` 枚举名）→ **我们引擎真正会发的事件**。
 #   以前 `cardAbilities[].cardAnimations[]` **一律归到 `ability`**（当时明写「是我们拍的」）⇒
@@ -270,7 +286,10 @@ AUDIO_EVENT_SO_FIELD = dict((v, k) for k, v in AUDIO_SO_FIELD_EVENT.items())
 # `CardTrait.EffectTriggerType`（签名桩 `CardTrait.cs`）：Start0 / End1 / OnPlay2 / Trigger3 / OnHand4 / FromCode5 / TriggerOnPlay6
 TRAIT_SUFFIX_EVENT = {
     "traitstart": ("trigger", "EffectTriggerType.Start(0)"),
-    "traitplay": ("ability", "EffectTriggerType.OnPlay(2)"),
+    # 🔴🆕 2026-10-24（执行代理 `J1` · `C5` D14）：`OnPlay(2)` 原来归 `ability` —— 那是**错的时机**
+    #   （原版只在**召唤/附魔**那一刻挂状态框，`DisplayTriggerAnim` 那一拍只认 3/6）。
+    #   改归 `trait_onplay`（理由与判据 → `EV_TRAIT_ONPLAY` 的注释）。播放口 = `Core/TraitFrames.cs`。
+    "traitplay": (EV_TRAIT_ONPLAY, "EffectTriggerType.OnPlay(2)"),
     "traittrigger": ("trigger", "EffectTriggerType.Trigger(3)"),
     "traittriggeronplay": ("trigger", "EffectTriggerType.TriggerOnPlay(6)"),
 }
@@ -1235,7 +1254,12 @@ def merge_authoritative(by_card, auth):
 #   Start0 · End1 · OnPlay2 · Trigger3 · OnHand4 · FromCode5 · TriggerOnPlay6
 # 我们的事件名只有 `trigger` / `ability` 两个 ⇒ 这张表**只用来校验「升权威前后事件桶不该变」**；
 # ⛔ **不是**「原版语义就是这么归的」—— 原始档位照旧逐条写在 `traitTriggerType` 上（降信息，不许抹掉）。
-TRAIT_TRIGGER_EVENT = {0: EV_TRIGGER, 2: EV_ABILITY, 3: EV_TRIGGER, 6: EV_TRIGGER}
+# 🔴🆕 2026-10-24（执行代理 `J1` · `C5` D14）：`OnPlay(2)` 那一格从 `ability` 改成 `trait_onplay` ——
+#   **口径本身也要跟着改**（`TRAIT_SUFFIX_EVENT` 已改）：不改这一格的话，升权威时「权威档位归到的事件
+#   桶 ≠ 当前桶」会命中 `want_ev != ev` 那一支 ⇒ 全部 OnPlay 行**不升权威** ⇒ 再被
+#   `strip_unbacked_inference` 当「无依据」删掉（那是错的：它们有依据，只是**不该在技能那一拍播**）。
+#   判据 / 为什么不能进 `ability` → `EV_TRAIT_ONPLAY` 的注释。
+TRAIT_TRIGGER_EVENT = {0: EV_TRIGGER, 2: EV_TRAIT_ONPLAY, 3: EV_TRIGGER, 6: EV_TRIGGER}
 # 只在 `triggerName` 缺字时兜底把数字翻成人话（`trait_collection.json` 现在每条都带 `triggerName`）
 TRAIT_TRIGGER_NAME = {0: "Start", 1: "End", 2: "OnPlay", 3: "Trigger",
                       4: "OnHand", 5: "FromCode", 6: "TriggerOnPlay"}
@@ -1274,7 +1298,7 @@ def _effects_matching_anim(trait, anim):
     return out
 
 
-def promote_keyword_traits(by_card, cards, traits, army_of_faction):
+def promote_keyword_traits(by_card, cards, traits, army_of_faction, idx):
     """把能对上 `CardTrait` 权威数据的 `inferred-keyword` 条目**升成 `authoritative`**。
 
     三条出路（逐条判，⛔ 不猜）：
@@ -1290,10 +1314,14 @@ def promote_keyword_traits(by_card, cards, traits, army_of_faction):
     而权威数据给的是 `EffectTriggerType`。两者不一致时**说明我们的构词法推断把事件也推错了**，
     这类必须人裁，⛔ 不能顺手改桶（改桶 = 换了一个播放时机，要 Unity 验收）。
 
-    ⚠️ **`prefab` / `cardanim` 一律不动**（本件任务口径）：只有「这个 prefab 对应哪个 trait / 哪个触发档」被证实了。
-    按阵营走 override 的那几条（今天 6 条 = `Shield` 的 EC/TAU 变体），
-    真实该播的是变体，权威名写在 `authoritativeAnim` 上并打 `animDiffersFromCardanim` ——
-    运行时改播变体是**另一件事**（要真机验收），别在这里顺手改。
+    ⚠️ **`prefab` / `cardanim` 今天（2026-10-23 · 账 `新账-75②`）**会按 `overrideByArmies` **改写成变体**：
+    本阵营有 override ⇒ 权威名 `applied` ≠ 原推断名时，走 `idx.prefab_of(applied)` 解出**变体的 prefab 名**
+    （例：`ShieldTraitTAUPlay` → `ShieldTraitEffect_Idle TAU Variant`）并**同时**写进
+    `prefab`（运行时真正 `CardEffects.Fire` 的名字）与 `cardanim`（时长 join 键 `CardAnimTime.Anim`）。
+    ⛔ **三个口必须一起改** —— 只改 `authoritativeAnim` 的话运行时**照样播基础变体**
+    （那正是改前的行为：6 张 Shield 卡全播 `ShieldTraitEffect_Idle`）。
+    解不出 prefab（`anim_address_map.json` 里没有这条 CardAnim）⇒ **保留原 `prefab`**、
+    打 `variantResolveFailed` 并 `PROBLEMS` 出声（⛔ 不猜）。
     """
     cards_by_id = {}
     for c in cards:
@@ -1311,6 +1339,8 @@ def promote_keyword_traits(by_card, cards, traits, army_of_faction):
         "leftInferredRows": [],
         "triggerTypeCorrected": [],
         "armyOverrideRows": [],
+        "variantRewritten": 0,
+        "variantResolveFailed": 0,
         "multiPlayBucketsBefore": 0,
         "multiPlayBucketsAfter": 0,
     }
@@ -1411,10 +1441,39 @@ def promote_keyword_traits(by_card, cards, traits, army_of_faction):
                         for o in e["overrideByArmies"]]
                 if applied and norm(applied) != norm(anim):
                     it["animDiffersFromCardanim"] = True
-                    st["armyOverrideRows"].append(
-                        {"cardId": cid, "event": ev, "keyword": kw, "cardanim": anim,
-                         "authoritativeAnim": applied,
-                         "army": army, "armyName": card.get("faction")})
+                    row = {"cardId": cid, "event": ev, "keyword": kw, "cardanim": anim,
+                           "authoritativeAnim": applied,
+                           "army": army, "armyName": card.get("faction")}
+                    # 🔴 2026-10-23（账 `新账-75②`）：**改播变体** —— `prefab` / `cardanim` /
+                    #   `authoritativeAnim` 三个口必须一起改（运行时 `CardEffects.Fire` 吃的是
+                    #   `prefab`，时长 join 键吃的是 `cardanim`；只改一个 = 播的还是基础件）。
+                    #   例：`ShieldTraitTAUPlay` → `ShieldTraitEffect_Idle TAU Variant`。
+                    vprefab = idx.prefab_of(applied)
+                    if vprefab:
+                        row["prefab"] = vprefab
+                        it["prefab"] = vprefab
+                        it["cardanim"] = applied
+                        it["variantPrefab"] = vprefab
+                        it["inLibrary"] = in_vfx_library(vprefab)
+                        row["inLibrary"] = it["inLibrary"]
+                        st["variantRewritten"] += 1
+                        if it["inLibrary"] is False:
+                            PROBLEMS.append(
+                                "变体改写：`%s` 的 `%s` 权威名 `%s` → prefab `%s`，但"
+                                "**该 prefab 不在我们的效果库里**（`Assets/WarpforgeVFX/Prefabs/`）"
+                                " ⇒ 运行时播不出来（照实记，⛔ 不是静默例外）"
+                                % (cid, anim, applied, vprefab))
+                    else:
+                        it["variantResolveFailed"] = (
+                            "`anim_address_map.json` 的 `cardanim_to_asset` 里没有 `%s` ⇒ "
+                            "解不出变体 prefab，**保留原 `prefab=%s`**（⛔ 不猜）" % (applied, anim))
+                        row["variantResolveFailed"] = True
+                        st["variantResolveFailed"] += 1
+                        PROBLEMS.append(
+                            "变体改写：`%s` 的权威名 `%s` 在 `anim_address_map.json` 里解不出 prefab"
+                            " ⇒ **保留基础件 `%s`**（这一张仍然播错，账 `新账-75②` 还开着）"
+                            % (cid, applied, it.get("prefab")))
+                    st["armyOverrideRows"].append(row)
                 if was_tt and was_tt != new_tt:
                     # 🔴 构词法把触发档推错了的那几条（今天 = `EcstasyTraitTrigger` 10 条：
                     #    `TraitTrigger` 后缀推 `Trigger(3)`，权威是 `TriggerOnPlay(6)`）——
@@ -1429,7 +1488,11 @@ def promote_keyword_traits(by_card, cards, traits, army_of_faction):
                     % (kw, trait.get("name"), e.get("name"), applied, new_tt,
                        "**一致**" if not it.get("animDiffersFromCardanim")
                        else "**在动画名上不一致**（本阵营走 `overrideByArmies` ⇒ 权威名 = `%s`；"
-                            "本行 `prefab`/`cardanim` 按本件口径**未改**）" % applied))
+                            "`prefab`/`cardanim` %s）"
+                            % (applied,
+                               ("**已改成变体** `%s`" % it["variantPrefab"])
+                               if it.get("variantPrefab")
+                               else "**仍为基础件**（变体解不出，见 `variantResolveFailed`）")))
                 st["promoted"] += 1
                 promoted_cards.add(cid)
                 by_trait[trait.get("name")] += 1
@@ -1682,7 +1745,7 @@ def main():
     tr_st = {"skipped": "--no-truth"}
     if not args.no_truth:
         traits, trait_tc = load_trait_authority()
-        tr_st = promote_keyword_traits(by_card, cards, traits, factions_army)
+        tr_st = promote_keyword_traits(by_card, cards, traits, factions_army, idx)
         tr_st["sourceGenerated"] = trait_tc.get("generated")
         _coll = trait_tc.get("collection") or {}
         tr_st["sourceCollection"] = _coll.get("m_Name")
@@ -1700,10 +1763,11 @@ def main():
                      " · ".join("%s %s→%s" % (x["cardanim"], x["was"], x["now"])
                                 for x in tr_st["triggerTypeCorrected"][:4]) + " …"))
         if tr_st["armyOverrideRows"]:
-            print("        ⚠️ 按阵营走 `overrideByArmies` 的 %d 条（权威动画名 != 本行 `cardanim`，"
-                  "见 `authoritativeAnim`）：%s"
-                  % (len(tr_st["armyOverrideRows"]),
-                     " · ".join("%s(%s)" % (x["cardId"], x["authoritativeAnim"])
+            print("        ⚠️ 按阵营走 `overrideByArmies` 的 %d 条（**已改播变体**：%d 条 / 解不出变体 %d 条）：%s"
+                  % (len(tr_st["armyOverrideRows"]), tr_st["variantRewritten"],
+                     tr_st["variantResolveFailed"],
+                     " · ".join("%s(%s→%s)" % (x["cardId"], x["authoritativeAnim"],
+                                               x.get("prefab") or "⚠️未改")
                                 for x in tr_st["armyOverrideRows"])))
         if tr_st["markedUnknown"]:
             print("        ⛔ 标 `unknown` 的 %d 条：%s"
@@ -1887,7 +1951,11 @@ def main():
             },
             "confPriority": CONF_PRIORITY,
             "events": ["play", "deploy", "attack_melee", "attack_ranged", "hit", "death",
-                       "ability", "trigger"],
+                       "ability", "trigger",
+                       # 🆕 2026-10-24（执行代理 `J1` · `C5` D14）：**不是事件**，是
+                       # `EffectTriggerType.OnPlay(2)` 的归置桶（播放口 = `Core/TraitFrames.cs`，
+                       # 发生在登场那一拍）。判据 → `EV_TRAIT_ONPLAY` 的注释。
+                       "trait_onplay"],
             "eventNamesAreFrom": "`CardPresentation/Core/VfxMap.cs` 的常量（那一份是唯一正本）",
             "authoritativeEventMapping": {
                 "customRangedAttackParticles": "attack_ranged（与 `CardScript.rangedAttackParticlesSO` 是同一件事的逐卡/阵营两个来源）",

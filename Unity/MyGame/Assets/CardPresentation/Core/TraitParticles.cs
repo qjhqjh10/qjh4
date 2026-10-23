@@ -29,6 +29,14 @@
 //       `FerocityEffect` 是它 **Start(0)** 那条的 prefab，属于另一档）。
 //     · 新增两条原来根本没有的：`shuriken → ShurikenEffect` · `teleport → Teleport Trait Summon`。
 //
+//   🆕 **2026-10-23（`W65`）`ambush` 的「`FromCode(5)` 槽位」结案 —— 原版【没有】这一槽**（不是缺口）：
+//     `Ambush`（DefinedTrait 1200）在 `数据/游戏数据/trait_collection.json` 里**只有一条 `TraitEffect` = End(1)**
+//     → `Ambush Effect` → `AmbushEffect`。两个 `ActivateTraitParticlesFromCode*` 都**硬编码 5**
+//     ⇒ 原版这条链对 ambush **本来就什么都不播**（铁律 11 例外①）。
+//     而 End(1) 那一档反编译里**没有调用点**（`DisplayStatusAnim` 0/2 · `DisplayTriggerAnim` 3/6 ·
+//     `CardScript__RemoveTrait` 只调 `RemoveStatusAnim`）⇒ `VfxMap.AmbushExit` 继续留空 + 出声，
+//     ⛔ 别把 `AmbushEffect` 按名字塞进这张表（`AnimFXCheck` ⑦ 有反向断言盯着）。
+//
 // 用法：`BattleDriver.PlayTraitParticles(e)` 在事件流上按「事件 → 该查哪几个 trait」调 `Play`。
 using System.Collections.Generic;
 using RuleEngine;          // 🆕 2026-10-20（W57 · SC-7）：`BattleEvent.SplitKeywordAbility` —— `#i` 后缀的**唯一解码口**
@@ -39,16 +47,20 @@ namespace CardPresentation
 {
     public static class TraitParticles
     {
-        /// <summary>trait（规范化键，与 `UnitState.Keywords` 同一套）→ 效果库里的 prefab 名。
+        /// <summary>trait（规范化键，与 `UnitState.Keywords` 同一套）→ 那条 FromCode 真值行（含 `Overrides`）。
         ///
         /// **唯一来源** = `TraitFrames.RowsOfTriggerType(5)`，也就是
         /// `Resources/trait_effect_bindings.json` 里 `TriggerType == 5 (FromCode)` 的那批行
         /// （= 原版每条 `CardTrait.TraitEffects[]` 里 `TriggerType == FromCode` 的那一条）。
         /// ⚠️ **走 `TraitFrames` 那次载入、不复读第二遍 JSON**：同一份数据只能有一个载入点（否则迟早不一致）。
-        /// ⚠️ 同一个 trait 若有**多条** FromCode，取**资产里第一条**并出声（今天数据里一条都没有重复）。</summary>
-        static Dictionary<string, string> _fromCode;
+        /// ⚠️ 同一个 trait 若有**多条** FromCode，取**资产里第一条**并出声（今天数据里一条都没有重复）。
+        /// 🆕 **2026-10-23**：存的是**整条真值行**（不是裸 prefab 名）—— 原版
+        /// `ActivateTraitParticlesFromCode` 调的是 `GetTraitEffect(trait, 5, **army**)`
+        /// （`CardScript__ActivateTraitParticlesFromCode.c:62`），`overrideByArmies` 在这条链上同样生效
+        /// （判据 `TraitEffect__GetEffect.c:9-34`；解析只走 `TraitFrames.PrefabOf`）。</summary>
+        static Dictionary<string, TraitFrames.TraitEffectBinding> _fromCode;
 
-        static Dictionary<string, string> FromCode
+        static Dictionary<string, TraitFrames.TraitEffectBinding> FromCode
         {
             get { EnsureFromCode(); return _fromCode; }
         }
@@ -57,7 +69,7 @@ namespace CardPresentation
         {
             if (_fromCode != null) return;
             var rows = TraitFrames.RowsOfTriggerType(TraitEffectTriggerType.FromCode);
-            var d = new Dictionary<string, string>(rows.Length);
+            var d = new Dictionary<string, TraitFrames.TraitEffectBinding>(rows.Length);
             for (int i = 0; i < rows.Length; i++)
             {
                 var r = rows[i];
@@ -65,10 +77,10 @@ namespace CardPresentation
                 if (d.ContainsKey(r.Trait))
                 {
                     Debug.LogWarning($"[TraitParticles] trait `{r.Trait}` 在原版里有**多条** FromCode effect"
-                                   + $"（`{d[r.Trait]}` / `{r.Prefab}`）—— 今天只播第一条（数据里本不该出现，先出声）");
+                                   + $"（`{d[r.Trait].Prefab}` / `{r.Prefab}`）—— 今天只播第一条（数据里本不该出现，先出声）");
                     continue;
                 }
-                d[r.Trait] = r.Prefab;
+                d[r.Trait] = r;
             }
             _fromCode = d;
             if (d.Count == 0)
@@ -118,24 +130,46 @@ namespace CardPresentation
         /// <summary>绑定的全部 trait（断言用：**每一件的 prefab 都该在效果库里**）。</summary>
         public static IEnumerable<string> Traits { get { return FromCode.Keys; } }
 
-        /// <summary>按那张表查 prefab 名（没绑 ⇒ null）。
-        /// ⚠️ 同样认 `#i` 传输形态（`Play` 走的就是这里，所以 `Play` 自动跟着认）。</summary>
+        /// <summary>按那张表查 prefab 名（没绑 ⇒ null）。**不带阵营** ⇒ 取那条的默认 `effectAnim`
+        /// （不套 `overrideByArmies`）。生产路径走 `Play`（它会按卡反推阵营）。</summary>
         public static string PrefabFor(string trait)
+        {
+            return PrefabFor(trait, -1);
+        }
+
+        /// <summary>🆕 2026-10-23：**带阵营**的查表（原版这条链也带 army ——
+        /// `CardScript__ActivateTraitParticlesFromCode.c:62` 把卡自己的 `cardArmy` 传给
+        /// `GetTraitEffect(trait, 5, army)`）。解析只走 `TraitFrames.PrefabOf`（判据只此一处）。
+        /// ⚠️ 同样认 `#i` 传输形态。</summary>
+        public static string PrefabFor(string trait, int army)
         {
             int abilityIndex;
             string key = Norm(trait, out abilityIndex);
             NoteKeyForTest(trait, key, abilityIndex);
-            string s;
-            return (key.Length != 0 && FromCode.TryGetValue(key, out s)) ? s : null;
+            TraitFrames.TraitEffectBinding row;
+            if (key.Length == 0 || !FromCode.TryGetValue(key, out row)) return null;
+            return TraitFrames.PrefabOf(row, army);
+        }
+
+        /// <summary>🆕 2026-10-23：从**挂点**反推这张卡的原版 army（`TraitEffect.GetEffect(army)` 的入参）。
+        /// 挂点是 `CardView.transform`（`BattleDriver.PlayTraitParticles` 传 `v.transform`）⇒ 直接读那张卡；
+        /// 取不到 ⇒ `-1`（= 不套覆盖、走默认件）。换算口 = `TraitFrames.ArmyOfFaction`（= `ArmyIcons.Id`）。
+        /// ⚠️ 与 `TraitFrames.ArmyId` 同一条已知偏差（`CardData.faction` 是拥有者阵营，不是卡自己的）。</summary>
+        static int ArmyOf(Transform at)
+        {
+            if (at == null) return -1;
+            var cv = at.GetComponent<CardView>();
+            if (cv == null) cv = at.GetComponentInParent<CardView>();
+            return cv == null ? -1 : TraitFrames.ArmyOfFaction(cv.Data.faction);
         }
 
         /// <summary>在 `at` 那儿播它的 FromCode 粒子。返回 false = 没绑定 / 库里没有（**都出声**）。
         /// 原版是 `Instantiate` 在卡的 `effectsAnchor` 下（`ResolveTraitAnim` 那条路）⇒ 这里挂在卡的 transform 下。</summary>
         public static bool Play(string trait, Transform at, string why = null)
         {
-            var name = PrefabFor(trait);
-            if (name == null) return false;
             if (at == null) return false;
+            var name = PrefabFor(trait, ArmyOf(at));   // 🆕 原版这一档也按卡阵营取 override
+            if (string.IsNullOrEmpty(name)) return false;
             var p = WarpforgeEffectPlayer.Play(name, at, Vector3.zero, 1f);
             if (p == null)
             {

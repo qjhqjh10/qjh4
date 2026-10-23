@@ -376,4 +376,99 @@ public static partial class RuleEngineTest
                 + "🧨 把 `RuleCore.FireTriggerOnSide` 里那句 `StableSortByPlayOrder(found, …)` 删掉"
                 + "（退回格号升序）⇒ 实得 B（格号 2）先 ⇒ 本行红");
     }
+
+    // ==================================================================
+    //  ⑤ 回合末触发的**发射顺序**：`TurnBeforeEnd(41)` 严格早于 `TurnEnd(40)`
+    // ==================================================================
+    /// <summary>
+    /// **`TurnBeforeEnd(41)` 整趟 早于 `TurnEnd(40)` 整趟，且每趟的遍历序 = 原版广播序**
+    /// （棋盘 `allCardsInPlay`（进场序）→ 当前玩家手牌）。账 `T21④`（2026-10-24 · 第四批 `A24`）。
+    ///
+    /// <para>**判据（本轮亲读全量反编译 `d:/2/tools/decomp_full/`）**：
+    /// · `BattleManager__ResolveEndTurn.c:385` → `BattleManagerSupport__BroadcastTurnBeforeEnd(...)`、
+    ///   `:433` → `BattleManagerSupport__BroadcastTurnEnd(...)` —— **同一段直线代码、同帧**，41 趟在前；
+    /// · 卡侧 `CardScript__OnTurnBeforeEnd.c` = `RawCardScript.OnTrigger(0x29 = 41)`、
+    ///   `CardScript__OnTurnEnd.c` = `OnTrigger(0x28 = 40)`；
+    /// · `BattleManagerSupport__BroadcastTurnEnd.c` / `__BroadcastTurnBeforeEnd.c` 的遍历序**逐行一致**：
+    ///   ① `manager+0x470`（`allCardsInPlay`，只对 `IsInPlay` 的调）
+    ///   → ② `GetCardsInHandRef(IsPlayerTurn())`（当前玩家手牌）→ ③ `…(!IsPlayerTurn())`（对手手牌）。</para>
+    ///
+    /// <para>**夹具**（真卡 —— 只有带动画行/ability 真值的卡才发得出 `EvtKind.Trigger`）：
+    /// 棋盘 `SAU20 Chronomancer`（41）**先落外格 6**；`AM18 Master of Ordnance` 与
+    /// `TAU10 Stealth Drone`（都 40）**后落内格 5 / 4** ⇒ 格号序与进场序**故意相反**；
+    /// 手牌再放一张 `Poisoned Supplies`（手牌陷阱，40）。</para>
+    ///
+    /// <para>🧨 **改坏法**：退回「边遍历作业边发」（手牌那趟排最前）⇒ 手牌陷阱的 40 抢在 41 前面 ⇒ 红 ·
+    /// 两遍并成一遍 ⇒ 同上 · 棋盘趟改回格号升序 ⇒ 棋盘那两条的相对序红 ·
+    /// 手牌那趟排回棋盘前面 ⇒ 最后一条红。</para>
+    /// </summary>
+    static void TestT21TurnBeforeEndBeforeTurnEnd()
+    {
+        var pool = CardDatabase.Load();
+        var chrono = CardDatabase.FindById(pool, "SAU20");       // TurnBeforeEnd(41)
+        var ordnance = CardDatabase.FindById(pool, "AM18");      // TurnEnd(40)
+        var drone = CardDatabase.FindById(pool, "TAU10");        // TurnEnd(40)
+        var poison = CardDatabase.FindById(pool, "a7bb23355a30d344e9d2decf976d91e1"); // Poisoned Supplies（手牌陷阱 · 40）
+        CheckTrue(chrono != null && ordnance != null && drone != null && poison != null,
+                  "🧪 T21④ 夹具：四张真卡都在池里（SAU20 / AM18 / TAU10 / Poisoned Supplies）");
+        if (chrono == null || ordnance == null || drone == null || poison == null) return;
+        CheckTrue(chrono.HasAnimTrigger("TurnBeforeEnd") && !chrono.HasAnimTrigger("TurnEnd"),
+                  "🧪 T21④ 夹具：`Chronomancer` **只有** `TurnBeforeEnd(41)` 动画行（两张名字都有的卡全池不存在）");
+        CheckTrue(ordnance.HasAnimTrigger("TurnEnd") && drone.HasAnimTrigger("TurnEnd")
+                  && poison.HasAnimTrigger("TurnEnd"),
+                  "🧪 T21④ 夹具：三张 `TurnEnd(40)` 都有动画行（发得出事件）");
+        CheckTrue(EffectText.IsHandTrap(poison),
+                  "🧪 T21④ 夹具：`Poisoned Supplies` 是**手牌陷阱**（躺在持有者手里、回合末触发）");
+
+        var ctx = ProbeBattle(new[] { poison }, new CardDef[0]);
+        ToP1Turn(ctx, 1);
+        Check(ctx.Active, 0, "🧪 T21④ 夹具：P1 是当前行动方（`your turn` 的从句才是这一拍）");
+        CheckTrue(HandHasInst(ctx, 0, poison.Name), "🧪 T21④ 夹具：手牌陷阱**在手里**" + LogTail(ctx));
+
+        // 棋盘：**先落外格、后落内格** ⇒ 格号序（4 < 5 < 6）与进场序（chono → ordnance → drone）相反。
+        var uChrono = Place(ctx, 0, 6, chrono, exhausted: true);
+        var uOrd = Place(ctx, 0, 5, ordnance, exhausted: true);
+        var uDrone = Place(ctx, 0, 4, drone, exhausted: true);
+        CheckTrue(uChrono.PlayOrder < uOrd.PlayOrder && uOrd.PlayOrder < uDrone.PlayOrder,
+                  "🧪 T21④（前提）进场号 " + uChrono.PlayOrder + " < " + uOrd.PlayOrder
+                + " < " + uDrone.PlayOrder + "；格号 6 > 5 > 4（两个排序键相反）");
+
+        ctx.ClearSignals();
+        RuleCore.EndTurn(ctx);
+
+        int iChrono = -1, iOrd = -1, iDrone = -1, iPoison = -1;
+        int n41 = 0, n40 = 0, iFirst41 = -1, iFirst40 = -1;
+        for (int i = 0; i < ctx.Signals.Count; i++)
+        {
+            var e = ctx.Signals[i];
+            if (e == null || e.Kind != EvtKind.Trigger) continue;
+            bool is41 = e.Keyword == "TurnBeforeEnd";
+            bool is40 = e.Keyword == "TurnEnd";
+            if (!is41 && !is40) continue;
+            if (is41) { n41++; if (iFirst41 < 0) iFirst41 = i; }
+            if (is40) { n40++; if (iFirst40 < 0) iFirst40 = i; }
+            if (e.CardId == chrono.Name) iChrono = i;
+            else if (e.CardId == ordnance.Name) iOrd = i;
+            else if (e.CardId == drone.Name) iDrone = i;
+            else if (e.CardId == poison.Name) iPoison = i;
+        }
+
+        Check(n41, 1, "T21④ `Chronomancer` 发**恰好一条** `TurnBeforeEnd(41)`");
+        Check(n40, 3, "T21④ 三张 `TurnEnd(40)` 各发一条（棋盘两张 + 手牌陷阱一张）");
+        CheckTrue(iChrono >= 0 && iOrd >= 0 && iDrone >= 0 && iPoison >= 0,
+                  "🧪 T21④（前提）四条事件都发出来了（缺哪条 ⇒ 后面的序断言是假绿）" + LogTail(ctx));
+        CheckTrue(iFirst41 >= 0 && iFirst40 >= 0 && iFirst41 < iFirst40,
+                  "★★ T21④ **`TurnBeforeEnd(41)` 整趟早于 `TurnEnd(40)` 整趟**（首个 41 在第 "
+                + iFirst41 + " 条、首个 40 在第 " + iFirst40 + " 条）—— 判据 = "
+                + "`BattleManager__ResolveEndTurn.c:385`（BroadcastTurnBeforeEnd）在 `:433`（BroadcastTurnEnd）之前；"
+                + "🧨 退回「边遍历作业边发」⇒ 手牌陷阱的 40 抢在 41 前面 ⇒ 本行红");
+        CheckTrue(iOrd >= 0 && iDrone >= 0 && iOrd < iDrone,
+                  "★★ T21④ **棋盘趟 = 进场序**（`Master of Ordnance`@" + iOrd + " 早于 `Stealth Drone`@"
+                + iDrone + "）—— 判据 = 两个 Broadcaster 的棋盘趟都走 `allCardsInPlay`；"
+                + "🧨 改回格号升序（4 → 5）⇒ `Stealth Drone` 先 ⇒ 本行红");
+        CheckTrue(iDrone >= 0 && iPoison >= 0 && iDrone < iPoison,
+                  "★★ T21④ **棋盘整趟在前、当前玩家手牌在后**（`Stealth Drone`@" + iDrone
+                + " 早于手牌陷阱@" + iPoison + "）—— 判据 = `BroadcastTurnEnd.c` 先 `allCardsInPlay`"
+                + " 再 `GetCardsInHandRef(IsPlayerTurn())`；🧨 把手牌那趟排回棋盘前面 ⇒ 本行红");
+    }
 }

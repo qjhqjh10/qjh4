@@ -51,8 +51,15 @@
 //        · `CardView.RestoreOriginalMaterial()` —— 回建体时那份（原版 `+0x2c8` 那份的对应物）
 //        · `CardView.CardImageTexture` —— 原版 `rawCard.cardSprite.texture`
 //      `BattleDriver` 那边只做「`Transform` → `CardView`」一跳，**不重复实现**。
-//   2. **`material` 资产**（`@asset:Material:<名字>`）：原版按资产找。我们这边要挂
-//      `MaterialResolver`，或者在 Inspector 里直接给 `material`。
+//   2. **`material` 资产**（`@asset:Material:<名字>`）：原版就是组件上的
+//      `[SerializeField] private Material material`（`d:/2/tools/il2cpp_out/dump.cs:48214`，类头在 `:48210`；
+//      签名桩 `Warpforge_code/Scripts/Assembly-CSharp/AnimFXModuleChangeMaterial.cs:67-68`）——
+//      **材质随该效果一起序列化**，运行期**没有任何方法给它赋值**，更没有「按名字全局查表」这一层。
+//      我们这一侧的等价物 = `materialName` + **本效果 binder 里按名字取**（2026-10-01 起，见 `ResolveAssets`），
+//      或者 Inspector 里手挂 `material`。
+//      ✅ **2026-10-23（`A10` · 战斗线 `新账-76①`）就地订正（铁律 5）**：这里原来写着「我们这边要挂
+//      `MaterialResolver`」—— 那个全局静态钩子是**我们自己造的**（原版没有这个字段/这一层），而且
+//      **全仓 0 个赋值点**（声明 / 读 / 警告文案三处）⇒ **已删除**。
 //      ~~⚠️ **这 3 张材质工程里没有**（2026-09-18 查过 `WarpforgeVFX/Materials/`：只有
 //      `Vanguard_Frame VAT`，**没有** ……）。原因：导出器只导**渲染器上**的材质
 //      （`WarpforgeArena1/Editor/EffectExporter.cs` 的 `GetComponentsInChildren<Renderer>`），
@@ -155,7 +162,7 @@ namespace WarpforgeVFX
         [Tooltip("原版 `material`：@asset:Material:<名字>。手挂时可直接在下面给 `material`")]
         public string materialName = "";
 
-        [Tooltip("手挂用：直接给材质。留空 = 问 MaterialResolver(materialName)")]
+        [Tooltip("手挂用：直接给材质。留空 = 从【本效果】的 binder 里按 materialName 取（原版是 [SerializeField] private Material）")]
         public Material material;
 
         [Tooltip("原版 `isCardMaterial`（**默认 true**）：换的是卡面的材质（走回调），否则走下面的自定义渲染器")]
@@ -229,9 +236,6 @@ namespace WarpforgeVFX
         public static Action<Transform> RestoreOriginalMaterial;
         /// <summary>`(卡)` → 卡图贴图（原版 `actingCard.rawCard.cardSprite.texture`），`changeTexture` 用。</summary>
         public static Func<Transform, Texture> CardTexture;
-        /// <summary>`@asset:Material:&lt;名字>` → 材质（见文件头「我们自己定的」2）。</summary>
-        public static Func<string, Material> MaterialResolver;
-
         // ---- 诊断 ----
         public static int MissingMaterial, MissingCardLayer, MissingCardContext, SkippedTweens;
         public static void ResetDiagnostics()
@@ -576,7 +580,11 @@ namespace WarpforgeVFX
         {
             if (material == null && !string.IsNullOrEmpty(materialName))
             {
-                if (MaterialResolver != null) material = MaterialResolver(materialName);
+                // 🔴 **2026-10-23（`A10` · `新账-76①`）：这里原来有一句 `MaterialResolver(materialName)` —— 已删。**
+                //   判据（原版）：这个字段就是 `[SerializeField] private Material material`（见文件头「我们自己定的」2），
+                //   **没有任何代码给它赋值**、也没有全局按名字查材质这一层。`MaterialResolver` 是我们在 binder 那套
+                //   做出来之前自己加的兜底钩子，而它**从来没有写点** ⇒ 留着只会让人以为「还有一条路」。
+                //   真正的等价物 = 下面那条「从本效果的 binder 按名字取」（与原版「材质属于该效果」同构）。
 
                 // 🆕 2026-10-01：**先问「自己这个效果」的 binder**，再谈「找不到」。
                 //
@@ -604,10 +612,9 @@ namespace WarpforgeVFX
                     if (!_warnedMaterial)
                     {
                         _warnedMaterial = true;
-                        Debug.LogWarning($"[WarpforgeVFX] 材质 `{materialName}` 取不到 —— 两条路都试过了："
-                                       + "① `MaterialResolver`（挂钩子的全局查找）；"
-                                       + "② **本效果 binder 里按名字找**（`EffectExporter` 会把它收进去，"
-                                       + "2026-10-01 起）。都没命中 ⇒ 按原版「material 为空」的兜底走"
+                        Debug.LogWarning($"[WarpforgeVFX] 材质 `{materialName}` 取不到 —— **本效果 binder** 里按名字找过了"
+                                       + "（`EffectExporter` 会把只被模块字段引用的材质收进该效果的 binder，"
+                                       + "2026-10-01 起）。没命中 ⇒ 按原版「material 为空」的兜底走"
                                        + "（自定义渲染器那条退到它的 sharedMaterial）。"
                                        + "⚠️ 找不到时先确认**该效果重导过没有**（导出器是按效果名读 "
                                        + "`数据/游戏数据/module_materials.tsv` 的）。这条警告只报一次。");

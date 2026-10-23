@@ -49,7 +49,7 @@
 //   ① **换一条的规则全是我们定的**（原版走服务端 `MissionEvent…RerollChallenge` + `ReRollMissionResult`）
 //      —— 规则与池子在 `DailyData.RerollDaily`（那里逐条标着）。**单机没有服务器**。
 //   ② **不扣钱**：价钱格（`icon` 56² scl1.2 + `text` 占位 `300,00`）**照原版外观建**，
-//      但点 `Confirm` **不扣任何资源** —— 用户 2026-09-17 拍板「**不做真实经济**：资源固定 9999」。
+//      但点 `Confirm` **不扣任何资源** —— 用户 2026-09-17 拍板「**不做真实经济**：资源固定 2000」（用户 2026-10-24 从 9999 改）。
 //      ⇒ 这是铁律 11 允许的「用户明确拍板不做」那一档，**不是我们偷懒**；价钱格**没删**（删了才是偏离）。
 //      ⚠️ `MissionData.get_RerollPrice` 的方法体在 `d:/2/tools/decomp_full/` 里是**错桩**（读出来是别的函数）
 //      ⇒ **真价钱本地读不到**；`300,00` 是 **prefab 出厂占位**（与 `BoosterInfoPopup` 同一个），**别当真实价钱**。
@@ -481,7 +481,7 @@ namespace CardPresentation
             RerolledTo = DailyData.RerollDaily(Index);
             Close();                       // 先关再回调（照 `PromptPopup.Choose`）—— 回调里可能再开窗
             Debug.Log("[MissionReroll] `Confirm` ⇒ 换了第 " + (Index + 1) + " 条任务：「" + RerolledTo
-                      + "」（⚠️ **不扣钱**：用户 2026-09-17 拍板「不做真实经济、资源固定 9999」；"
+                      + "」（⚠️ **不扣钱**：用户 2026-09-17 拍板「不做真实经济、资源固定 2000」（用户 2026-10-24 从 9999 改）」；"
                       + "原版这一步会扣 `RerollPrice` 并走服务端）");
             if (_onRerolled != null) _onRerolled();
         }

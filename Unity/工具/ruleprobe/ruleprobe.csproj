@@ -24,6 +24,15 @@
     <Compile Include="WillRun.cs" />
     <Compile Include="FaithProbe.cs" />
     <Compile Include="PlayProbe.cs" />
+    <!-- 🆕 `a24`（2026-10-24 · 引擎线第四批）：`T21④` 回合末发射序 + `新账-104` `EC58` 双子部署的离线真跑 -->
+    <Compile Include="A24Probe.cs" />
+    <!-- 🆕 `g2`（2026-10-24 · 引擎线剩余三件）：`D8` `ThisUnitSummoned` · `D9` `WhileInPlay` ·
+         `questTimes` 消费点的离线真跑。⚠️ 本 csproj 关了 `EnableDefaultCompileItems` ⇒ 漏了这行
+         构建会报 `CS0103 名称"G2Probe"`（不是运行时）。 -->
+    <Compile Include="G2Probe.cs" />
+    <!-- 🆕 `n2`（2026-10-24 · 引擎线 `新账-95` #2 的红灯诊断）：`role=mult` 结构化乘数的离线读数。
+         ⚠️ 本 csproj 关了 `EnableDefaultCompileItems` ⇒ 漏了这行构建会报 `CS0103 名称"N2Probe"`。 -->
+    <Compile Include="N2Probe.cs" />
     <!-- 🆕 `nonkw`（`A1462`）—— `non <关键词>` 的目标筛选专用探针，见 `NonKwProbe.cs` 头注 -->
     <Compile Include="NonKwProbe.cs" />
     <Compile Include="Program.cs" />

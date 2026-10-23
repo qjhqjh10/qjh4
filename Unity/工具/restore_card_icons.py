@@ -67,6 +67,16 @@ import io, os, re, sys, json, collections
 
 # ⚠️ Windows 控制台默认 GBK，报告里有 ↗ ↔ 这类符号会直接抛 UnicodeEncodeError。
 #    统一把 stdout 改成 UTF-8（本机 python 3.14）。
+## A17 2026-10-24: -h/--help early exit (print usage only, exit 0; never run the real work).
+import sys as _wf_help_sys
+if any(_wf_help_sys.argv[_i] in ("-h", "--help") for _i in range(1, len(_wf_help_sys.argv))):
+    try:
+        _wf_help_sys.stdout.reconfigure(encoding="utf-8")
+    except Exception:
+        pass
+    print('用法：python 工具/restore_card_icons.py [--legacy-smalltable] [--write] [--check]\n  说明：restore_card_icons.py —— 把卡表提取里的 `【图标:X】` 占位符**还原成真关键词**。\n  选项：--legacy-smalltable / --write / --check（脚本内按字符串匹配；一个都不带 = 默认模式）')
+    _wf_help_sys.exit(0)
+
 try:
     sys.stdout.reconfigure(encoding='utf-8')
 except Exception:

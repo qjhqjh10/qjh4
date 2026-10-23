@@ -28,6 +28,16 @@ import re
 import sys
 from collections import OrderedDict
 
+## A17 2026-10-24: -h/--help early exit (print usage only, exit 0; never run the real work).
+import sys as _wf_help_sys
+if any(_wf_help_sys.argv[_i] in ("-h", "--help") for _i in range(1, len(_wf_help_sys.argv))):
+    try:
+        _wf_help_sys.stdout.reconfigure(encoding="utf-8")
+    except Exception:
+        pass
+    print('用法（在 d:/4/Unity 下）：\n    PYTHONIOENCODING=utf-8 python 工具/diff_iso_props.py                     # 全部效果\n    PYTHONIOENCODING=utf-8 python 工具/diff_iso_props.py Buff_DA_Forest_Self # 只一个效果\n    PYTHONIOENCODING=utf-8 python 工具/diff_iso_props.py --only-diff         # 只列有差异的槽\n  -h, --help  只打印本用法并退出（退出码 0），不执行任何真活。')
+    _wf_help_sys.exit(0)
+
 BASE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..")
 TMP = r"d:/4/_tmp_view"
 DEFAULT = {

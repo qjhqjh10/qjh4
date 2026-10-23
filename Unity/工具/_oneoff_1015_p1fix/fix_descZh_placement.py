@@ -3,6 +3,16 @@
 本脚本把它挪进根对象里（`{` 之后第一对键值），其余一字不动。"""
 import io, json, sys
 
+## A17 2026-10-24: -h/--help early exit (print usage only, exit 0; never run the real work).
+import sys as _wf_help_sys
+if any(_wf_help_sys.argv[_i] in ("-h", "--help") for _i in range(1, len(_wf_help_sys.argv))):
+    try:
+        _wf_help_sys.stdout.reconfigure(encoding="utf-8")
+    except Exception:
+        pass
+    print('用法：python 工具/_oneoff_1015_p1fix/fix_descZh_placement.py [--write]\n  说明：修上一步的落点错误：说明段被插到了 JSON 对象的**外面**（文件开头），解析报 Extra data。\n  选项：--write（脚本内按字符串匹配；一个都不带 = 默认模式）')
+    _wf_help_sys.exit(0)
+
 P = 'd:/4/Unity/数据/游戏数据/cardface_fixes.json'
 b = io.open(P, 'rb').read()
 

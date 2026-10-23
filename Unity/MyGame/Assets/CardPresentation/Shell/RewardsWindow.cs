@@ -223,7 +223,11 @@ namespace CardPresentation
             _btnRes = res;
             _btnBadge = res.badge;
 
-            // ---- `Shadow (1)`：出厂 active=false ⇒ **不建**（照 `MainMenuRuntime` 那条纪律③）----
+            // ---- `Content Area/Shadow (1)`：**已由 `BuildShell` 建出来并 `SetActive(false)`**（2026-10-23 · A9）----
+            //   🔴 **就地订正（铁律 5）**：这一行原来写「出厂 active=false ⇒ **不建**（照 `MainMenuRuntime` 纪律③）」——
+            //   那条纪律已被推翻（见 `Shell/MainMenuRuntime.cs` 文件头 ③ 的 2026-10-11 订正 · `Shell/TopBar.cs:52`），
+            //   四种窗共用同一个 `BuildShell` ⇒ 这一件在那边建一次、四扇都有（原版实测四扇同矩形同色，判据 → `MainMenuSubmenuWindow.Shadow1R`）。
+            //   ⛔ 别在这里再建第二份。
 
             if (MissingArt.Count > 0)
                 Debug.LogWarning("[Rewards] ⚠️ 有 " + MissingArt.Count + " 张图取不到（**这些件没画**）："

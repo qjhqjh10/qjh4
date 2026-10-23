@@ -18,6 +18,16 @@ import io
 import re
 import sys
 
+## A17 2026-10-24: -h/--help early exit (print usage only, exit 0; never run the real work).
+import sys as _wf_help_sys
+if any(_wf_help_sys.argv[_i] in ("-h", "--help") for _i in range(1, len(_wf_help_sys.argv))):
+    try:
+        _wf_help_sys.stdout.reconfigure(encoding="utf-8")
+    except Exception:
+        pass
+    print('用法：\n  "D:/2/Warpforge_tools/py312/python.exe" _extract_dropped_props.py <日志> <输出.md>\n例：\n  ... _extract_dropped_props.py d:/4/_tmp_view/export_0917.log       d:/4/Unity/资料/普查产出_0917/替代shader丢失的源属性_0917.md\n  -h, --help  只打印本用法并退出（退出码 0），不执行任何真活。')
+    _wf_help_sys.exit(0)
+
 PAT = re.compile(r"目标 shader (.+?) 认不出 (\d+) 个属性，\*\*这些值没搬过去\*\*（材质 (.+?)）：(.*)$")
 
 # 属性名 → 它大概是干什么的（人读用；不确定的一律留空，别猜）

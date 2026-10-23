@@ -197,6 +197,19 @@ namespace CardPresentation
             //     `ASH78 Warp Spider Exarch`（`…+1 [远程]和潜行。` = 授予的能力，不是声明）**不会**被误当声明
             //     —— 卡面声明行该印的 `隐身。` 照印（这就是上面 `sentry` 不收的同一条道理）。
             //
+            //
+            //  🔴🔴 **2026-10-23（执行代理 `A2` 现核）：上面「卡面 `descZh` 仍是早期自译 ⇒ 会重复印」这条【前提】，
+            //    在【显示路径】上不成立 —— 本表今天**零承载**，留着当**安全网**。**（以下为实测，不是推断）**
+            //    · 卡面正文自 `A1945`（2026-10-19）起**优先取官方 `Card_Description/<卡 id>`**（`BattleDriver.FaceTextFull`）；
+            //      而官方 `Card_Description` 中文列里那批旧词**命中 0/1127**（2026-10-23 现算：护甲·天赋·爆裂·潜行·
+            //      路标石·典籍·护盾·猛击 全 0）⇒ 旧词只活在 `cards_engine.json` 的 `descZh` 列、**不进渲染**。
+            //    · 官方正文里的关键词多半是 `[[枚举名]]` 记号 ⇒ 先由 `DeclaredByOfficialMark` 去重。
+            //    · 现算：「**只**靠本表的别名才判成已声明」的 (卡,关键词) 对 = **0** ⇒ 拆掉本表今天也不会重复印。
+            //    ⛔ 结论不变的两条：本表**只参与去重、不上屏**；`AlreadyInHay` 收成「声明过」那一笔**照旧算数**
+            //      （它挡的是「宾语被当声明」那类**另一条**路，与旧词无关）。
+            //    📌 同批查出的**真**偏离（⛔ 本批没动，另记账）：官方正文**不提**某些 `keywords` 时 `KeywordSegment` 仍补一枚章
+            //      —— 现读 6 个 (卡,关键词) 对；PnP 例证 = `D:/2/Warpforge部队卡片/Genestealer Cult/2天赋/Warpforge_44_Deadliest-Killer.png`
+            //      卡面**不印 `Ephemeral`**，而我们补 `短暂的。`。详见 `资料/普查产出_1023e/A2_卡牌三件.md` §3·2。
             //  **这是过渡补丁，根治不在这里**：卡面 `descZh` 迁到官方文本（带 `[[枚举名]]` 记号）之后，
             //  `DeclaredByOfficialMark` 会自动接管去重 ⇒ 本段可以整段删掉（留着也无害：旧词在新文本里不再出现）。
             //  ⛔ 别把「迁移 `descZh`」当成不用做 —— 那正是本补丁要掩盖的那笔账（铁律 11）。
@@ -325,6 +338,8 @@ namespace CardPresentation
             {
                 string key = kv.Key;
                 if (string.IsNullOrEmpty(key)) continue;
+                // 🔴 2026-10-23（卡牌线 `A8`）：**卡面不印**的那几个词**不参与补印**（判据与逐张表 → `NeverSupplement`）。
+                if (NeverSupplement.Contains(CanonicalKey(key))) continue;
                 string word = zh ? KeywordZh(key)
                             : (lang13 ? (Loc.Lang13Current(TraitTerm(key)) ?? KeywordEn(key))
                                       : KeywordEn(key));   // ②
@@ -422,6 +437,53 @@ namespace CardPresentation
             //       中文档改前就是**无分隔符 + 末尾一个 `。`**（`装甲 1。飞行。`）⇒ 这里也同形。
             return zh ? string.Join("", outParts.ToArray())
                       : string.Join(" ", outParts.ToArray()) + " ";
+        }
+
+        // ==================================================================
+        //  🔴 **2026-10-23（卡牌线 `A8`）：卡面【不印】的关键词 —— 不参与「补印」**
+        // ==================================================================
+        //
+        // **病灶**：`keywords` 里有、官方正文里没声明 ⇒ 本方法会**补**一段（这正是它的用途：
+        //   OCR 的 `desc` 常把声明行整行丢了）。但有四个 (卡, 关键词) 对的原版卡面**根本不印**那个词
+        //   ⇒ 我们补出来就是**多印**。
+        //
+        // **判据 = PnP 成品卡图（铁律 7：印不印只认它）**，逐张亲读（2026-10-23 `A8`）：
+        //   · `f45dd537…` **Deadliest Killer**（`Genestealer Cult/2天赋/Warpforge_44_Deadliest-Killer.png`）
+        //     —— 正文 `Deal 6 damage to an enemy troop. If it dies, draw a troop`，**无 `Ephemeral`**
+        //   · `4959cd9e…` **Experimental Bio-Horrors**（`…/Warpforge_16_Experimental-Bio-Horrors.png`）
+        //     —— `Choose a Genomic Enhancement and put it in your hand`，**无 `Ephemeral`**
+        //   · `e9952f50…` **Vox-Hacker**（`…/Warpforge_29_Vox-Hacker.png`）
+        //     —— `Choose a 〔图〕 Sabotage and add it to the enemy hand`，**无 `Ephemeral`**
+        //   · `461354d9…` **Hardwired Destruction**（`Necron/2天赋/Warpforge_02_Hardwired-Destruction.png`）
+        //     —— `Give 〔近战+1〕 and 〔远程+1〕 to a friendly unit until your next turn`，**无 `Ephemeral`**
+        //   ⇒ **这 4 张是当前池里「`Ephemeral` 没在正文声明、需要补印」的【全部】**（现算：103 张带
+        //     `Ephemeral` 的卡，其余 99 张的官方正文自己就印了 —— 要么明文写 `Ephemeral`，
+        //     要么写官方记号 `[[ephemeral]]`，见 `DeclaredByOfficialMark`）。
+        //     ⇒ 规则落成「**`Ephemeral` 只在正文里声明过时才出现**」，对这 4 张 = 不印、对其余 99 张 = 无影响。
+        //
+        // 🔴 **⛔ 别把这条扩成「Ephemeral 一律不出现」**：它**确实**会印在卡面上 ——
+        //   反例亲读 `Necron/4计策/Warpforge_26_Reanimate.png`：正文就是
+        //   `〔图〕Ephemeral. Reanimate a friendly 〔图〕Remnant`。本条只压「**补印**」那一半。
+        //
+        // ⚠️ **同族的另外两条不能跟着一起压**（卡面**印**，我们补得对 —— 同样是逐张亲读的）：
+        //   · `GOF76` **Mozrog Skragbad** 的 `Stomp` —— `Orks/1督军/Warpforge_02_Mozrog-Skragbad.png`
+        //     正文 `〔图〕Stomp. 〔图〕Talent: Da Bigger Dey Iz…`（官方正文漏了，我们补得对）
+        //   · `GOF27` **Boss Zagstruk** 的 `Talent` —— `Orks/1督军/Warpforge_02_Boss-Zagstruk.png`
+        //     正文 `〔图〕Talent: Worst Temper`（官方**英文列**有 `[[talent]]`、中文列整段丢了 ⇒ 补得对）
+        //   ⇒ ⛔ **不许一刀切**：按「卡面印不印」分类，不是按「我们补没补」分类。
+        //
+        // 📌 **灭自证**（断言 → `Editor/IconSetup.cs` 的 ⑰）：`Ephemeral` 被压住的同时，
+        //   `stomp` / `talent` **必须仍然补得出来**（否则「凡是没声明就都不补」也会让上面那 4 张变绿）。
+        static readonly HashSet<string> NeverSupplement = new HashSet<string>
+        {
+            "ephemeral",
+        };
+
+        /// <summary>关键词 → **规范键**（本文件押「补印白名单」用）。判据只此一处 = `Badges.KeyOf`
+        /// （`Ephemeral` → `ephemeral`；别名那几条 `frenzied→destroyer` 等也在那儿）。认不出 ⇒ `null`。</summary>
+        static string CanonicalKey(string key)
+        {
+            return string.IsNullOrEmpty(key) ? null : CardPresentation.Badges.KeyOf(key);
         }
 
         // ==================================================================

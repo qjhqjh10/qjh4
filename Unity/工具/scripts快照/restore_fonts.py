@@ -25,6 +25,16 @@ import sys
 import json
 import hashlib
 
+## A17 2026-10-24: -h/--help early exit (print usage only, exit 0; never run the real work).
+import sys as _wf_help_sys
+if any(_wf_help_sys.argv[_i] in ("-h", "--help") for _i in range(1, len(_wf_help_sys.argv))):
+    try:
+        _wf_help_sys.stdout.reconfigure(encoding="utf-8")
+    except Exception:
+        pass
+    print('用法:\n    py312/python.exe restore_fonts.py                  # dry-run: 只报告会写什么\n    py312/python.exe restore_fonts.py --apply          # 真正落盘\n    py312/python.exe restore_fonts.py --apply --all-subfonts   # TTC 全部子字体都拆出来\n    py312/python.exe restore_fonts.py --apply --raw-ttc        # 额外保留原始 .ttc 集合\n    py312/python.exe restore_fonts.py --apply --lang KR        # 指定拆哪个语言 (JP/KR/SC/TC)\n    py312/python.exe restore_fonts.py --verify         # 校验已落盘文件 vs JSON\n  -h, --help  只打印本用法并退出（退出码 0），不执行任何真活。')
+    _wf_help_sys.exit(0)
+
 sys.stdout.reconfigure(encoding="utf-8")
 
 ROOT = r"d:/2/解包整理/10_字体"

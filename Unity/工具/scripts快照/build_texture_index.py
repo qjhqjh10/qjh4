@@ -26,6 +26,16 @@ import shutil
 import hashlib
 import collections
 
+## A17 2026-10-24: -h/--help early exit (print usage only, exit 0; never run the real work).
+import sys as _wf_help_sys
+if any(_wf_help_sys.argv[_i] in ("-h", "--help") for _i in range(1, len(_wf_help_sys.argv))):
+    try:
+        _wf_help_sys.stdout.reconfigure(encoding="utf-8")
+    except Exception:
+        pass
+    print('用法:\n    py312/python.exe build_texture_index.py                  # 只建索引（默认）\n    py312/python.exe build_texture_index.py --copy           # dry-run: 列出将复制哪些\n    py312/python.exe build_texture_index.py --copy --apply   # 真正复制\n    py312/python.exe build_texture_index.py --verify         # 校验每个场景是否已齐\n选项:\n    --refs <path>   逐场景引用清单 (默认 data/scene_tex_refs.json)\n    --root <path>   解包根目录 (默认 d:/2/解包整理)\n  -h, --help  只打印本用法并退出（退出码 0），不执行任何真活。')
+    _wf_help_sys.exit(0)
+
 sys.stdout.reconfigure(encoding="utf-8")
 
 ROOT = r"d:/2/解包整理"

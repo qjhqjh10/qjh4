@@ -8,7 +8,7 @@
 //
 //    对象路径  Canvas/FrontCanvas/Safe area FrontCanvas/Drag Attack Selector
 //    整条槽    621.7 × 122.2，**屏幕正中央**（两排棋盘之间那条带，y=479..601 @1080p）
-//    三个按钮  118.4 × 118.8，间距 37，居中排开
+//    三个按钮  118.372 × 118.806（节点 rect；Image `m_PreserveAspect = 0` ⇒ 拉满这张固定矩形），间距 37，居中排开
 //    attackType 是个位标志：1 = 近战、2 = 远程、4 = 主动技能（所以枚举值照抄）
 //    选中放大  scaleMultiplierWhenSelected = 1.3
 //    拖拽阈值  accumulatedDragForMinDistance = 0.085（屏高的 8.5%，1080p ≈ 92 px）
@@ -106,11 +106,31 @@ namespace CardPresentation
         // ==================================================================
 
         const float BarW = 621.7f, BarH = 122.2f;
-        const float ButtonSize = 118.8f;
+        /// <summary>原版三颗钮的**节点 rect**（`RectTransform.m_SizeDelta`）—— **固定值，⛔ 不按贴图比例**。
+        /// <para>🔴 **2026-10-24（`A28`）就地订正（铁律 5）**：原来只有一个 `ButtonSize = 118.8`、
+        /// 宽度写成 `ButtonSize × AspectOf(tex)`（按贴图宽高比）。判据（**逐件现读**，arena1/arena2 各三份）：
+        /// · `RT_3368 / 2804 / 2626`（arena1；arena2 = `2819 / 2997 / 3563`）全是
+        ///   **`m_SizeDelta (118.37200164794922, 118.80599975585938)`** · `m_LocalScale 1`；
+        /// · 它们身上的 `Image`（`MB_4206 / 4121 / 4054`）= **`m_PreserveAspect = 0`** · `m_Type 0`（Simple）
+        ///   ⇒ **拉满这个矩形**、与贴图宽高比无关。
+        /// （出处：`bundle_scenes_scenes_battlearena1/RectTransform/RectTransform_{3368,2804,2626}.json`
+        ///  · `…/MonoBehaviour/MonoBehaviour_{4206,4121,4054}.json`。）</para>
+        /// <para>⚠️ **原版不同状态下这一对宽度不变**（2026-10-24 全量反编译现核）：
+        /// `CardDisplayAttackTypeButton` / `AttackTypesButtonsController` 只写 `localPosition` 与
+        /// `localScale`（选中 1.3 倍挂的是 **`localScale`**，见 `HighlightScale`）——
+        /// **没有任何 `sizeDelta` / `SetSizeWithCurrentAnchors` 写入点** ⇒ 节点矩形恒定。</para>
+        /// <para>🧨 改坏法：宽再写成 `ButtonW × AspectOf(tex)` ⇒ 我们这批贴图恰好都是正方形 ⇒ 实测 118.8
+        /// ⇒ 与 118.372 差 0.428 px &gt; 容差 ⇒ `Editor/BattleScene.cs` 的 `A28` 那条红
+        /// （换成非正方形贴图会差更多，而且**画面看着还挺正常**）。</para></summary>
+        const float ButtonW = 118.372f, ButtonH = 118.806f;
         const float ButtonSpacing = 37f;
         const float HighlightScale = 1.3f;              // scaleMultiplierWhenSelected
-        /// <summary>选中黄圈（原版按钮的子对象 `Highlight`）的实测尺寸</summary>
-        const float RingSize = 176.2f;
+        /// <summary>选中黄圈（原版按钮的子件 `Highlight`）的**节点 rect** = **176.23 × 176.875**。
+        /// 判据：`RT_3028 / 2776 / 3512`（`m_SizeDelta (176.22999572753906, 176.875)` · `m_LocalScale 1`）
+        /// ＋ 它们的 `Image`（`MB_5267 / 4108 / 4478`）**`m_PreserveAspect = 0`** ⇒ 拉满。
+        /// 🔴 **2026-10-24（`A28`）就地订正**：原来按 `RingSize × AspectOf(tex)` 摆（我们这张贴图 227×227
+        /// 是正方形 ⇒ 176.2²），**高差 0.675 px**；而且与非正方形贴图一配就错。⛔ 别改回按比例。</summary>
+        const float RingW = 176.23f, RingH = 176.875f;
 
         // ⚠️ **`40K_melee_glow` / `40K_ranged_glow` 不在这里用**。
         //    我一开始以为它们是按钮的外发光 —— **错了**。它们真正的用途是
@@ -131,13 +151,31 @@ namespace CardPresentation
         // ⚠️ 只看 sizeDelta 会以为是 780×285，做出来一大块（这块差点做错，别再用 sizeDelta）
         const float BgW = 780f * 0.44f * 1.5f;          // 514.8
         const float BgH = 285f * 0.44f;                 // 125.4
-        const float BgDropY = 18.375f;                  // 从槽顶往下挂多少
-        /// <summary>三颗钮那一行比**锚点**低多少 px —— 就是原来 `center = _anchorAt − (0, W(BarH*0.5 − BgDropY))`
-        /// 里那个量（42.7485）。⚠️ **这是我们自己的摆法，不是原版的**：原版三颗钮的 `ap` 都是 `(0,0)`
-        /// （`RT_3563` / `RT_2819` / `RT_2997` 三份 `RectTransform`），而 `Select Attack Background` 是
-        /// `ap (0,−18.375)` + pivot `(0.5,1)`（`RT_3254.json`）⇒ 「三颗钮在**节点中心**」才对得上。
-        /// ⛔ 本件**只换渲染层与单位、不动排布模型**（差异已记进报告 §⑤，⛔ 别在本件里顺手改）。</summary>
-        const float ButtonRowDownPx = BarH * 0.5f - BgDropY;   // 42.7485
+        /// <summary>`Select Attack Background` 的**顶边**在父 rect **顶边**下方多少 px
+        /// （`RT_3254.json`：`m_AnchorMin/Max = (0.5, **1**)`、`m_AnchoredPosition = (0, −18.375)`、
+        /// `m_Pivot = (0.5, **1**)` ⇒ 它的**顶边** = 父 rect 顶边 − 18.375）。</summary>
+        const float BgDropY = 18.375f;
+        /// <summary>底板**顶边**在**锚点**（= 父 rect 中心 = 三颗钮那一行的中心）**上方**多少 px
+        /// = `BarH/2 − BgDropY` = **42.7485**。
+        ///
+        /// 🔴🔴 **2026-10-24（`B-21`）就地订正（铁律 5）—— 下面这段是本件最重要的一条口径，别看错符号：**
+        /// 原版 `Select Attack Background` 的锚点是 **`(0.5, 1)`（父 rect 的顶边）**，**不是中心** ——
+        /// 所以 `ap (0, −18.375)` 是「**父 rect 顶边**往下 18.375」。换算到「**以父中心为原点、y 向上**」
+        /// 的坐标里就是 `+BarH/2 − 18.375` = **+42.7485** ⇒ **底板顶边在钮心【上方】42.7485**。
+        /// 三颗钮则被父件上的 `HorizontalOrVerticalLayoutGroup`（`MB_4653`：`m_Spacing 37` ·
+        /// `m_ChildAlignment 4 = MiddleCenter` · padding 0）**居中**在父 rect 里 ⇒ **钮心 = 中心 y = 0**。
+        /// （三份 `RectTransform` 的 `ap (0,0)` / `anchor (0,0)` 是**布局组跑之前的模板位**，⛔ 别直接照抄 ——
+        ///  运行时实况 dump `runtime_ui_dump_Battle_Arena_1.tsv:363,366` 里技能/远程两颗已被布局组写到
+        ///  `(310.9, 61.1)` = 父 rect 左下角 +(310.9,61.1) = **中心 + (0,0)**，与这里一致。）
+        ///
+        /// ⚠️ **原来我们写的是 `ButtonRowDownPx = BarH/2 − BgDropY = 42.7485`，并把三颗钮压在锚点【下方】**
+        /// 42.7485**（`center = origin − (0, 42.7485)`）—— 代价是**整条选择器比原版低 42.7485 px**。
+        /// 现在 = `center = origin`（钮心落在锚点上）+ 底板顶边抬到锚点上方 42.7485 ⇒ 两者之间仍是
+        /// **42.7485**（原版的相对关系一直是对的，错的只是**整条相对锚点**的位置）。
+        /// 📌 判据出处：`RectTransform_3254/3166/3563/2819/2997.json` · `MonoBehaviour_4653.json`（布局组）·
+        /// `资料/普查产出_1016并行/T09_AttackSelector_报告.md:251-256` · 上面的运行时 dump。
+        /// 🧨 改坏法：`center` 再减掉一个 42.7485 ⇒ `Editor/BattleScene.cs` 的 `B-21` 两条断言红。</summary>
+        const float BgTopAboveAnchorPx = BarH * 0.5f - BgDropY;   // 42.7485
 
         // 按钮上的数字角标（原版 `Select Active Skill Button/ValueText`）：
         // 只有**主动技能**那一格有，字号大（base 36 / max 89），贴在中下部
@@ -192,6 +230,56 @@ namespace CardPresentation
 
         /// <summary>自检用：底板的颜色（原版 `(1,1,1,1)` = 白实心）。</summary>
         public Color BgTint { get { return _background != null ? _background.Tint : Color.clear; } }
+
+        /// <summary>把一件的**局部 y**（本档单位）换成 **px**。
+        /// 世界档的局部单位 = 世界单位 = 108 px（`W()` 的倒数）；uGUI 档的局部单位**本来就是设计 px**。</summary>
+        float PxOfLocalY(float localY) { return _frame != null ? localY : localY * PxPerUnit; }
+
+        /// <summary>🔴 **自检用（`B-21`）：三颗钮那一行的【中心】相对锚点的 y**（px、**向上为正**）。
+        /// <para>原版判据 = **0**：那一行由父件上的 `HorizontalOrVerticalLayoutGroup`
+        /// （`MB_4653`：`m_ChildAlignment = 4 (MiddleCenter)`、padding 0）居中在 `Drag Attack Selector`
+        /// 的 rect 里，而整条被 `set_position(单位位置)`、它自己的 pivot = 中心
+        /// ⇒ **行心 = 锚点**（运行时实况：`runtime_ui_dump_Battle_Arena_1.tsv:363,366` 的
+        /// `ap (310.9, 61.1)` + `anchor (0,0)` = 父 rect 左下角 + 该偏移 = 父中心 (+0,+0)）。</para>
+        /// <para>⚠️ 读到的是**真几何**（图标节点的局部位置），⛔ 不是本件的布局常量；
+        /// 入场动画期间会带 `EnterOffset` ⇒ 自检要先 `TickForTest` 把进度推到 1。</para></summary>
+        public float ButtonRowCenterPxFromAnchor
+        {
+            get
+            {
+                for (int i = 0; i < Order.Length; i++)
+                {
+                    var p = _icons[i];
+                    if (p == null || !p.gameObject.activeSelf) continue;
+                    return PxOfLocalY(p.transform.localPosition.y);
+                }
+                return float.NaN;          // 一件都没显示 ⇒ 量不到（⛔ 别返回 0 冒充「对上了」）
+            }
+        }
+
+        /// <summary>🔴 **自检用（`B-21`）：底板【顶边】相对锚点的 y**（px、**向上为正**）。
+        /// <para>原版判据 = `BarH/2 − 18.375` = **+42.7485**：`RectTransform_3254` 的
+        /// `m_AnchorMin/Max = (0.5, **1**)`（父 rect 顶边）+ `m_AnchoredPosition = (0, −18.375)` +
+        /// `m_Pivot = (0.5, **1**)` ⇒ 顶边 = 父顶边 − 18.375 = 父中心 + `BarH/2` − 18.375。</para>
+        /// <para>⚠️ 按**真几何**读：uGUI 档读 `anchor`（父中心）+ `pivot` 补出顶边；世界档读
+        /// `ImageQuad.anchor`。⛔ 不读 `BgTopAboveAnchorPx` 这个常量（那是被测实现 = 自证）。</para></summary>
+        public float BackgroundTopPxFromAnchor
+        {
+            get
+            {
+                if (_background == null) return float.NaN;
+                if (_background.IsUgui)
+                {
+                    var rt = _background.Rect;
+                    if (rt == null) return float.NaN;
+                    // 顶部 = 「枢轴那一点」+ (1 − pivot.y)·高（父 pivot 居中 ⇒ localPosition.y == anchoredPosition.y）
+                    return rt.anchoredPosition.y + (1f - rt.pivot.y) * rt.sizeDelta.y;
+                }
+                var q = _background.Quad;
+                if (q == null) return float.NaN;
+                return PxOfLocalY(_background.transform.localPosition.y + (1f - q.anchor.y) * _background.WorldH);
+            }
+        }
 
         /// <summary>拖拽阈值换算成世界单位（屏高恒 10 世界单位）</summary>
         public static float DragThresholdWorld
@@ -646,7 +734,7 @@ namespace CardPresentation
                 var itex = CardArt.Ui(IconName(k));
                 if (itex != null)
                     _icons[i] = HudCanvas.MakeImageInParent(P, itex, "Icon_" + k, 0f, 0f,
-                                                            ButtonSize * AspectOf(itex), ButtonSize,
+                                                            ButtonW, ButtonH,          // 原版固定 rect（PA=0）—— ⛔ 不乘贴图比例
                                                             ZIcon, Color.white);
 
                 // 选中黄圈（原版里是按钮的子对象 `Highlight`；我们这边是**平铺的兄弟件** ——
@@ -654,11 +742,11 @@ namespace CardPresentation
                 var rtex = CardArt.Ui("Attack_type_button_highlight");
                 if (rtex != null)
                     _rings[i] = HudCanvas.MakeImageInParent(P, rtex, "Highlight_" + k, 0f, 0f,
-                                                            RingSize * AspectOf(rtex), RingSize,
+                                                            RingW, RingH,               // 原版固定 rect（PA=0）
                                                             ZRing, Color.white);
                 // 🆕 2026-10-20（`T09` A3-e）：**悬停即选中**的 uGUI 送达 —— 原版三颗钮各挂
                 //   `CardDisplayAttackTypeButton`（`IPointerEnter/ExitHandler`），而那颗子件 `Highlight`
-                //   的 `Image.m_RaycastTarget = 1` ⇒ 拿**圈**当受体，命中区就是原版那一圈（176.2²）。
+                //   的 `Image.m_RaycastTarget = 1` ⇒ 拿**圈**当受体，命中区就是原版那一圈（176.23 × 176.875）。
                 //   ⚠️ 圈只在 `SetSlotActive` 的 `on && opt.Enabled` 时为真 —— 关掉/灰掉的格子自动收不到
                 //      悬停（与今天 `UpdatePointer` 跳过 `!opt.Enabled` 同义）。
                 //   ⚠️ 圈没建出来（`Attack_type_button_highlight` 贴图缺）⇒ **退回图标本体**当受体
@@ -715,13 +803,19 @@ namespace CardPresentation
                 var k = Order[i];
 
                 // 按钮本体（原版 Attack type button *，自带底盘和金属环）
+                // 🔴 **2026-10-24（`A28`）**：原版那颗 `Image` 是 **`m_PreserveAspect = 0`（拉满固定 rect）**
+                //   ⇒ 宽 **118.372**、高 **118.806**。世界档的 `ImageQuad` 默认「按高定、宽由贴图比例推」
+                //   ⇒ 建完立刻用 `SetAspect` 盖掉（同一招见 `EndPanel` 的骷髅底板那段）。
+                //   ⛔ 只改高度、把宽留给贴图 = 换一张非正方形贴图就静默错。
                 _icons[i] = HudPiece.Of(ImageQuad.Create(transform, CardArt.Ui(IconName(k)), Vector3.zero,
-                                             W(ButtonSize), new Vector2(0.5f, 0.5f), "Icon_" + k));
+                                             W(ButtonH), new Vector2(0.5f, 0.5f), "Icon_" + k));
+                if (_icons[i] != null) _icons[i].SetAspect(ButtonW / ButtonH);
 
-                // 选中黄圈（原版里是按钮的子对象 `Highlight`）
+                // 选中黄圈（原版里是按钮的子对象 `Highlight`）—— 同样按原版固定 rect 176.23 × 176.875
                 _rings[i] = HudPiece.Of(ImageQuad.Create(transform, CardArt.Ui("Attack_type_button_highlight"),
-                                             Vector3.zero, W(RingSize),
+                                             Vector3.zero, W(RingH),
                                              new Vector2(0.5f, 0.5f), "Highlight_" + k));
+                if (_rings[i] != null) _rings[i].SetAspect(RingW / RingH);
 
                 // 按钮上的数字角标（原版 `Select Active Skill Button/ValueText`）。
                 // 原版字号很大（base 36 / max 89），配上它那个半透明底图，数字是按钮的主视觉
@@ -739,12 +833,11 @@ namespace CardPresentation
             }
         }
 
-        /// <summary>贴图宽高比（`ImageQuad.Create` 那条「按高定、宽由比例来」的算法，uGUI 档自己算一次
-        /// —— 因为 `HudCanvas.QuadFromTopPx` 的 x/y 是屏幕绝对 px，本件用不了它，见 `BuildOnCanvas` 里那条）。</summary>
-        static float AspectOf(Texture2D t)
-        {
-            return t != null && t.height > 0 ? (float)t.width / t.height : 1f;
-        }
+        // 🔴 **2026-10-24（`A28`）：原来的私有助手 `AspectOf(tex)` 已删** —— 它只服务于
+        //   「按贴图比例定宽」那两处（按钮 / `Highlight`），而那两处的原版判据都是
+        //   **固定 rect + `m_PreserveAspect = 0`**（见 `ButtonW` / `RingW` 的 doc）。
+        //   ⛔ 别为了「贴图换得勤」把它加回来：原版换图（`SetButtonIcon`）只写 `Image.sprite`，
+        //   **不动 `sizeDelta`**（`CardDisplayAttackTypeButton__SetButtonIcon.c:14` 只有 `set_sprite`）。
 
         static string IconName(AttackKind k)
         {
@@ -844,12 +937,12 @@ namespace CardPresentation
                 if (tex != null && !ReferenceEquals(_icons[i].Texture, tex))
                 {
                     _icons[i].SetTexture(tex);
-                    // 🔴 **2026-10-16（`T09` 批 3）：uGUI 档要自己把宽补上** ——
-                    //   世界档的 `ImageQuad.SetTexture` 会**重算宽高比**、uGUI 的 `Image` 换 sprite
-                    //   **不会动 `sizeDelta`**（`HudPiece.SetTexture` 只重建 `Sprite`）⇒ 不补这一句，
-                    //   换图之后那一格会**留着上一张的宽度**（替代行动那五张 128×128 与占位图尺寸不同时看得出来）。
-                    if (_icons[i].IsUgui && _icons[i].Rect != null)
-                        _icons[i].Rect.sizeDelta = new Vector2(ButtonSize * AspectOf(tex), ButtonSize);
+                    // 🔴 **2026-10-24（`A28`）就地订正（铁律 5）**：原来这里只在 uGUI 档「按新贴图比例
+                    //   重算宽度」—— **方向错了**：原版那颗 `Image` 是 `m_PreserveAspect = 0`、
+                    //   节点 rect 是固定 118.372 × 118.806（判据见 `ButtonW` 的 doc）⇒ **换图不动矩形**。
+                    //   ⇒ 两档走同一个口 `SetAspect`（uGUI = 只改 `sizeDelta.x`；世界档 = 改 quad 的 aspect），
+                    //   把矩形重新钉回原版那一对值（世界档的 `SetTexture` 会把 aspect 重算回贴图比例）。
+                    _icons[i].SetAspect(ButtonW / ButtonH);
                 }
             }
         }
@@ -883,11 +976,12 @@ namespace CardPresentation
 
             // 条子**挂在被拖的那个单位身上**，不是屏幕中心。
             // 🔴 **2026-09-29 照原版改**：`UnitOnBoardAttackTypeSelector__Toggle.c:112-126` 展开时做的是
-            //    `set_position(Get2DWorldPosFromBoardPos(被拖单位.position))` —— 也就是把**那格的 pivot**
-            //    放到单位的位置上；那条的 `pivot = (0.5, 1)`（实读 `RectTransform_3061.json`）
-            //    ⇒ 条子从单位那儿**往下垂**。
-            //    我们的底板 pivot 同样是 `(0.5,1)`、位置 = `center + (0, BarH/2 − BgDropY)`，
-            //    所以要让**底板那一格的 pivot** 落在单位上，`center` 得先减掉那个偏移。
+            //    `set_position(Get2DWorldPosFromBoardPos(被拖单位.position))` —— 被 set_position 的是
+            //    **整条 `Drag Attack Selector` 自己的 Transform**（组件就挂在 GO 158 上）。
+            //    🔴 **2026-10-24（`B-21`）就地订正（铁律 5）**：本段原来写「那条的 `pivot = (0.5, 1)`
+            //    （实读 `RectTransform_3061.json`）」—— **引错了节点**：`RT_3061` 是它的子件
+            //    `Select Attack Background`；**整条自己的** `RT_2973`/`RT_3166` 是 `pivot (0.5, 0.5)`
+            //    （中心）⇒ `set_position` 落在锚点上的是**条子的中心**（= 三颗钮那一行），不是底板顶边。
             //
             // 🔴 **2026-10-16（`T09` 批 3）：原点在这一步按档取** ——
             //    · uGUI 档：帧节点摆到锚点上（画布单位），件全挂在帧下 ⇒ 下面的数**全部相对帧中心**；
@@ -903,14 +997,23 @@ namespace CardPresentation
             }
             else origin = _anchorAt;
 
-            var center = origin - new Vector3(0f, U(ButtonRowDownPx), 0f);
+            // 🔴 **2026-10-24（`B-21`）**：三颗钮那一行的中心 = **锚点本身**（原版那行由
+            //    `HorizontalLayoutGroup(MiddleCenter)` 居中在 `Drag Attack Selector`(RT_3166) 的 rect 里，
+            //    而整条被 `set_position(单位位置)`、pivot = 中心 ⇒ 行心 = 锚点）。
+            //    ⛔ 原来这里减了 `ButtonRowDownPx`(=42.7485)，整条比原版低 42.7485 px —— 见常量上的长注释。
+            var center = origin;
 
             if (_background != null)
             {
                 _background.gameObject.SetActive(true);
-                // 底板从**槽顶往下 18.4 px** 挂起（原版 anchor (0.5,1) + pivot (0.5,1)）
-                _background.transform.localPosition =
-                    center + new Vector3(0f, U(ButtonRowDownPx), Z(ZBg));
+                // 底板**顶边**在锚点**上方** `BarH/2 − 18.375` = 42.7485 px（原版 `RT_3254`：
+                // `anchor (0.5,1)` + `ap (0,−18.375)` + `pivot (0.5,1)`）。
+                // ⚠️ 两档的**枢轴不同**：世界档 `ImageQuad` 的 pivot 是 `(0.5,1)`（局部位置 = 顶边），
+                //    uGUI 档 `HudCanvas.MakeImageInParent` 的 pivot 恒 `(0.5,0.5)`（局部位置 = 中心）
+                //    ⇒ 后者要再减半个板高。（这一处也是**原先两档差 62.7 px** 的病根 —— 一起修掉。）
+                float bgTop = U(BgTopAboveAnchorPx);
+                float bgY = _background.IsUgui ? bgTop - U(BgH * 0.5f) : bgTop;
+                _background.transform.localPosition = center + new Vector3(0f, bgY, Z(ZBg));
             }
             if (_title != null)
             {
@@ -939,7 +1042,9 @@ namespace CardPresentation
                 var opt = Find(shown[n]);
                 // ⚠️ **间距那一项过 `US`**（不是 `U`）：世界档原来乘了 `LayoutSpace.Scale`（窄屏整体缩），
                 //    uGUI 档由 `CanvasScaler` 负责 ⇒ 不乘。
-                float x = (n - (shown.Count - 1) * 0.5f) * US(ButtonSize + ButtonSpacing);
+                //    🔴 **2026-10-24（`A28`）**：步距用**原版按钮宽 118.372**（不是旧常量 118.8）——
+                //    原版那一行是 `HorizontalLayoutGroup(m_Spacing 37)` 排的 ⇒ 步距 = **子件宽 + 37**。
+                float x = (n - (shown.Count - 1) * 0.5f) * US(ButtonW + ButtonSpacing);
                 var p = center + new Vector3(x, 0f, 0f);
 
                 SetSlotActive(i, opt);
@@ -1066,10 +1171,10 @@ namespace CardPresentation
             // 🔴 **2026-10-16（`T09` 批 3）：世界档的命中按【世界点】算** ——
             //   `transform.position` 与原来的 `localPosition` **逐位相同**（选择器根在世界原点，
             //   `Editor/BattleScene.cs` 的 A964 那条前提钉着）⇒ 这一支的行为一个字没变。
-            //   半径 = `W(ButtonSize)/2 × Scale`（原样）；⛔ 拿 px 去比世界点 = 命中框**大 108 倍**、画面却完全正常。
+            //   半径 = `W(ButtonH)/2 × Scale`（原样）；⛔ 拿 px 去比世界点 = 命中框**大 108 倍**、画面却完全正常。
             // 🔴 **2026-10-20（`T09` A3-e）**：uGUI 档那条「用 `_frame.lossyScale` 把 px 折成世界单位的圆判据」
             //   **已整段退场**（命中改由 `EventSystem` 送达，见上面的早退）—— ⛔ 别把它加回来（= 两条路抢 `Hovered`）。
-            float half = W(ButtonSize) * 0.5f * LayoutSpace.Scale;
+            float half = W(ButtonH) * 0.5f * LayoutSpace.Scale;   // A28：118.806（原版按钮高），⛔ 不再用旧的 118.8 合体常量
 
             var hit = AttackKind.None;
             for (int i = 0; i < Order.Length; i++)
@@ -1185,8 +1290,28 @@ namespace CardPresentation
         //
         //  ⚠️ **只读**（无 setter、不触发副作用）；播放器构建里整段不存在。
         //  判据（原版真值）→ 文件头：三颗 `Highlight` 的 `Image.m_RaycastTarget = 1`；底板 `MB_4492` 也是 1；
-        //  `Highlight` 节点 rect 176.23 × 176.875（我们 = `RingSize` 176.2²）。
+        //  `Highlight` 节点 rect 176.23 × 176.875（我们 = `RingW/RingH`，A28 起逐值相等）。
 #if UNITY_EDITOR
+        /// <summary>🆕 **2026-10-24（`A28`）** 自检用：某一格**按钮节点**的 rect（**设计 px**）。
+        /// 原版 = **118.372 × 118.806**（`RT_3368/2804/2626`；`Image.m_PreserveAspect = 0` ⇒ 拉满）。
+        /// <para>读的是**真几何** —— uGUI 走 `sizeDelta`、世界档走 `WorldW/H × 108`（= `HudPiece.SizePx` 那个口），
+        /// ⛔ **不读本件常量**（那是拿被测实现自证）。没建出来 ⇒ `(-1,-1)`（⛔ 不拿 0 冒充「量到了」）。</para></summary>
+        public Vector2 ButtonNodeSizePx(AttackKind k)
+        {
+            int i = SlotOf(k);
+            if (i < 0 || _icons[i] == null) return new Vector2(-1f, -1f);
+            return _icons[i].SizePx;
+        }
+
+        /// <summary>🆕 **2026-10-24（`A28`）** 自检用：某一格 `Highlight` 的节点 rect（**设计 px**）。
+        /// 原版 = **176.23 × 176.875**（`RT_3028/2776/3512`；PA=0）。没建出来 ⇒ `(-1,-1)`。</summary>
+        public Vector2 HighlightNodeSizePx(AttackKind k)
+        {
+            int i = SlotOf(k);
+            if (i < 0 || _rings[i] == null) return new Vector2(-1f, -1f);
+            return _rings[i].SizePx;
+        }
+
         /// <summary>自检用：第 `i` 格（`Order` 下标）的 `Highlight` 件（世界档 / 没建出来 = `null`）。</summary>
         public HudPiece HighlightPieceForTest(int i) { return (i >= 0 && i < _rings.Length) ? _rings[i] : null; }
         /// <summary>自检用：第 `i` 格 `Highlight` 的 `Image.raycastTarget`（原版 = **1**）。</summary>

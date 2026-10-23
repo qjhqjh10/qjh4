@@ -14,6 +14,16 @@
 """
 import io, json, sys
 
+## A17 2026-10-24: -h/--help early exit (print usage only, exit 0; never run the real work).
+import sys as _wf_help_sys
+if any(_wf_help_sys.argv[_i] in ("-h", "--help") for _i in range(1, len(_wf_help_sys.argv))):
+    try:
+        _wf_help_sys.stdout.reconfigure(encoding="utf-8")
+    except Exception:
+        pass
+    print('用法：python 工具/_oneoff_1015_p1fix/clean_dead_cardids.py [--write]\n  说明：P1 收尾 · ④-a：清掉 `card_ids.json` 里 **7 行已死的旧表残留**（`EC72`–`EC77` · `TL81`）。\n  选项：--write（脚本内按字符串匹配；一个都不带 = 默认模式）')
+    _wf_help_sys.exit(0)
+
 P = 'd:/4/Unity/数据/游戏数据/card_ids.json'
 b = io.open(P, 'rb').read()
 txt = b.decode('utf-8')

@@ -1,6 +1,6 @@
 # Astra Militarum 卡面逐张提取（第 2 批，33 张）
 
-来源清单：`d:/4/_tmp_view/cards_new/_工作清单/05_AstraMilitarum_2.txt`
+来源清单：`d:/4/_tmp_view/cards_new/_工作清单/05_AstraMilitarum_2.txt`（已过期/已迁，2026-10-24 核对：`_tmp_view/cards_new/` 目录已不在）
 图片来源：`D:\2\Warpforge部队卡片\Astra Militarum\`（`3部队` / `4计策` / `5防御卡`）
 提取方式：逐张 Read 原始 900×1200 PNG 全图。未参考任何已有 md/json 数据。
 

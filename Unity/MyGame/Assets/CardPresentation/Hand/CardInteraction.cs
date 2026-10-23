@@ -199,6 +199,73 @@ namespace CardPresentation
         /// <summary>现在是不是「禁操作」那一档（自检用）。判据两半合一，⛔ 别在别处再拼一次。</summary>
         public bool FrozenNow { get { return _frozenForTest || (Frozen != null && Frozen()); } }
 
+        // ==================================================================
+        //  🆕 2026-10-24（`J3`）**手牌重排的「动画闸」**
+        // ==================================================================
+        // 判据（全量反编译亲读；原版这里是**两件事**，都在 `PlayerHand.MoveCardsInHandToPosition` 里）：
+        //   ① **`isDoingAnim`（`PlayerHand` +0x61）** —— 协程**开头**置 1、`WaitForSeconds(timeToPositionCard)`
+        //      之后置 0（`PlayerHand._MoveCardsInHandToPosition_d__76__MoveNext.c`：置 1 在 `:33-35`、
+        //      `WaitForSeconds` 在 `:104-106`、置 0 在 `:134`；读口 = `PlayerHand__IsDoingAnim.c`：
+        //      `return *(bool*)(this + 0x61);`）。
+        //      ⚠️ **只在「重排整把牌」时置位**：`:33` 那句是
+        //      `if (*(int*)(state + 0x30) == -1) *(bool*)(hand + 0x61) = 1;`
+        //      （`+0x30` = `MoveCardsInHandToPosition(int selectedCard, …)` 的 selectedCard 实参）
+        //      ⇒ `CardScript.ShowCardInHand`（传**卡序号**）那条**不置** isDoingAnim；
+        //      而 `StopShowingCardInHand(restart:true)` / `HandCardReleased` / `HandCardMovedToNewIndex`
+        //      / 抽牌那几条协程传的都是 **-1** ⇒ 置位。
+        //      ⚠️ **`decomp_full` 的 25,096 个方法体里没有任何一处调用 `PlayerHand.IsDoingAnim()`**
+        //      （唯一命中是它自己的定义）⇒ 这个读口在这份 build 里**要么被内联进了没解出来的方法、要么是死码**；
+        //      ⛔ **不能**拿它当「原版靠它挡输入」的唯一证据。
+        //   ② **卡碰撞体开关**（**真正挡输入**的那一条）：协程状态 0 对名单里**每一张**牌调
+        //      `CardCollider2D.Toggle(false)`（`:44-47`：`*(card + 0x140)` = `CardCollider2D`，
+        //      虚表 +0x1F8 = `Toggle`、实参 0；体 = `Behaviour.set_enabled(boxCollider2D, false)`
+        //      ＋ 顺手关掉 `colliderShowInBig`），状态 1（等完 0.2 s 之后，`:126-127`）再对每张调
+        //      `CardCollider2D.SetColliderInHand()` —— 它的**末尾**就是 `Toggle(true)`。
+        //      ⇒ 原版语义 = **重排补间这 0.2 s 里，手牌一张都点不到**；
+        //        时长 `timeToPositionCard` = 0.2 s（`VarsGlobal +0xA4`）= `CardTween.RelayoutDuration` = 补间时长本身。
+        //   ⚠️ 我们**没有卡碰撞体开关**这一层（命中走 `CardView.HitByCollider` 的常开 collider），
+        //      所以闸落在**交互层**：闸在时 `UpdateHover` / `PickUp` / `BeginPressCandidate` 一律不收新动作。
+        //   ⚠️ **只对「整把重排」那几条路开闸**（`SetCards` / `Release` / `EndPressCandidate`）；
+        //      `UpdateHover` / `UpdateDrag` / `PickUp` 那几个叫位**不开** —— 原版那几条对应的是
+        //      `ShowCardInHand(selectedCard ≠ -1)` 与 `DisplayHandWithCardSpace`（**后者根本不碰碰撞体**），
+        //      而且我们的悬停是**连续**鼠标模型，开闸会让指针扫过手牌时每 0.2 s 冻一次。
+        //      ⚠️ **如实记（没做的部分）**：原版 `ShowCardInHand` 那条路**也**会 `Toggle(false)`；
+        //      它靠 `StopShowingCardInHand` 里的 `SetCollidersShowBig(false, 2)` → `Toggle(true)` **立刻**补回来。
+        //      这一格**我们没复刻**（判据在本段，做法留待真机验收后再定）。
+        //   ⚠️ **动画没开就不开闸**（`hand.animateRelayout == false` = 批处理/演示档，位置当场落）：
+        //      没有动画就没有「重排期间」，开闸只会让自检凭空红。
+        Tween _animGate;
+
+        /// <summary>原版 `PlayerHand.IsDoingAnim()`（+0x61）的等价物：**手牌重排动画进行中**。
+        /// ⚠️ 它只覆盖「整把重排」那几条路（见上面那段判据 ①），⛔ 别拿它当全局冻结（那个是 `FrozenNow`）。</summary>
+        public bool IsDoingAnim { get { return _animGate != null && _animGate.IsActive(); } }
+
+        /// <summary>自检用：闸现在开着吗（转调生产口径 <see cref="IsDoingAnim"/>，⛔ 别另算一份）。</summary>
+        public bool IsDoingAnimForTest { get { return IsDoingAnim; } }
+
+        /// <summary>自检用：闸还剩多久（秒；没闸 ⇒ 0）。</summary>
+        public float AnimGateRemainingForTest
+        {
+            get
+            {
+                if (!IsDoingAnim) return 0f;
+                return Mathf.Max(0f, _animGate.Duration(false) - _animGate.Elapsed());
+            }
+        }
+
+        /// <summary>开闸 = 原版协程状态 0 的那两句（`isDoingAnim = 1` ＋ 每张 `Toggle(false)`），
+        /// 时长 = `WaitForSeconds(timeToPositionCard)` = 重排补间时长。
+        /// <para>⚠️ 计时用 `DOVirtual.DelayedCall`（走 DOTween 自己的时间轴），**不用 `Time.time`**：
+        /// 批处理自检把 `CardTween.Mode` 拨成 `Manual` 之后，只有 DOTween 的补间会被
+        /// `CardTween.Advance(dt)` 推进（`Time.time` 是墙钟，不会跟着喂的 dt 走 ⇒ 自检验不了闸）。</para></summary>
+        void ArmAnimGate()
+        {
+            if (_animGate != null) _animGate.Kill();       // 新的重排开始时，旧的窗口作废（原版也是每次重开协程）
+            _animGate = DOVirtual.DelayedCall(CardTween.RelayoutDuration, () => { _animGate = null; })
+                                .SetUpdate(CardTween.Mode);
+            if (CardTween.LinkEnabled) _animGate = _animGate.SetLink(gameObject);
+        }
+
         /// <summary>
         /// 🔴 **2026-10-01 加：请求的落点 → 它真正会落在哪一格**（棋盘是**连续无洞**模型，
         /// 插进中间会把后面的单位整体外移一格 ⇒ 「拖到哪」和「落在哪」不是一回事）。
@@ -252,6 +319,14 @@ namespace CardPresentation
         int _dropLitSlot = -1;
 
         public int HoveredIndex { get { return _hovered; } }
+        /// <summary>指针下那张手牌（`_hovered` 在 `_cards` 范围内才非空）。
+        /// <para>🆕 2026-10-24（`J3`）：**重排动画闸**把 `UpdateHover` 冻住的那 0.2 s 里，`_cards`
+        /// 可能已经被 `SetCards` 换掉（比如联机同步把牌打出去、手牌变短），而 `_hovered` 还是**旧下标**
+        /// ⇒ 按下去会用旧下标取列表。这里统一夹一次，⛔ 别在三个调用点各写一遍 `_hovered &lt; Count`。</para></summary>
+        CardView HoveredCard
+        {
+            get { return (_hovered >= 0 && _hovered < _cards.Count) ? _cards[_hovered] : null; }
+        }
         public CardView Dragging { get { return _dragging; } }
         public bool IsDragging { get { return _dragging != null; } }
         public int InsertIndex { get { return _insertIndex; } }
@@ -279,7 +354,7 @@ namespace CardPresentation
             if (relayout) { Relayout(); return; }
             bool animate = hand.animateRelayout;
             hand.animateRelayout = false;
-            try { Relayout(); }
+            try { Relayout(false); }      // 换牌期：位姿要算、补间一条都不开 ⇒ 也不开闸
             finally { hand.animateRelayout = animate; }
         }
 
@@ -345,7 +420,8 @@ namespace CardPresentation
 
             if (pressedNow)
             {
-                if (_hovered >= 0 && _dragging == null)
+                var hc = HoveredCard;      // 🆕 `J3`：带范围夹取（闸把 `UpdateHover` 冻住时 `_cards` 可能已变短）
+                if (hc != null && _dragging == null)
                 {
                     // 🔴 2026-10-19（`C3` #11）：**两档行为**
                     //  · `TouchInputOn`（原版 `GameStaticData.touchInput`）**关** ⇒ PC 档：按下即抓。
@@ -353,8 +429,8 @@ namespace CardPresentation
                     //    `if (touchInput) return;` 整段不成立）⇒ **玩家看到的行为与原来逐位相同**。
                     //  · **开** ⇒ 只记候选（原版 `CardCollider.OnDrag` 也是**拖拽事件**里才
                     //    `StartMovingFromHand`，不是按下那一刻）—— 过两道阈值见 `TickPressCandidate`。
-                    if (TouchInputOn) BeginPressCandidate(_cards[_hovered], world);
-                    else PickUp(_cards[_hovered], world);
+                    if (TouchInputOn) BeginPressCandidate(hc, world);
+                    else PickUp(hc, world);
                 }
             }
             else if (releasedNow)
@@ -373,6 +449,10 @@ namespace CardPresentation
         // ---- 悬停 ----
         void UpdateHover(Vector3 world)
         {
+            // 🆕 2026-10-24（`J3`）：重排动画闸 —— 原版这 0.2 s 里手牌碰撞体全是关的
+            //   （`PlayerHand._MoveCardsInHandToPosition_d__76__MoveNext.c` 的 `Toggle(false)`），
+            //   指针进出**不会**产生新的 hover。判据/取舍见 `_animGate` 那段。
+            if (IsDoingAnim) return;
             int hit = HitTest(world);
             // 🔴 2026-10-22（`W63` · 判据见 `IsRightButtonOrTwoFingerTouch` 上面那一整段）：
             //   原版 `OnTouchEnter` 第一句就是那道闸 ⇒ **右键按着 / 双指以上 ⇒ 不许「进入」新卡**。
@@ -381,7 +461,7 @@ namespace CardPresentation
             if (hit != _hovered && hit >= 0 && IsRightButtonOrTwoFingerTouch()) return;
             if (hit == _hovered) return;
             _hovered = hit;
-            Relayout();
+            Relayout(false);      // 悬停档 = 原版 `ShowCardInHand`（不置 isDoingAnim）⇒ 不开闸（见 `_animGate` 那段）
         }
 
         // ---- 拖拽 ----
@@ -396,6 +476,8 @@ namespace CardPresentation
         void BeginPressCandidate(CardView card, Vector3 world)
         {
             if (card == null) return;
+            // 🆕 2026-10-24（`J3`）：重排动画闸（判据/取舍见 `_animGate` 那段）—— 候选态也不许起。
+            if (IsDoingAnim) return;
             _pressPending = true;
             _pressPendingCard = card;
             _pressWorld = world;
@@ -464,7 +546,9 @@ namespace CardPresentation
             if (card != null && _pressInside && _travel < TapThreshold && OnTapped != null) OnTapped(card);
             _pressInside = false;
             _hovered = -1;
-            Relayout();
+            // 🆕 2026-10-24（`J3`）：轻点结束 ⇒ 原版 `CardScript.StopShowingCardInHand(restart: true)` ⇒
+            //   `PlayerHand.MoveCardsInHandToPosition(-1, null)`（**传 -1**）⇒ 整把重排 + 开闸。
+            Relayout(true);
         }
 
         void PickUp(CardView card, Vector3 world, bool freshPress = true)
@@ -475,6 +559,10 @@ namespace CardPresentation
             //   ⚠️ `OnTouchDown`（按下）**没有**闸，但它对手牌（cardState 8）那一支直接 `return`
             //   ⇒ 「右键按着时按下没有反应」两版落到同一个结果。
             if (IsRightButtonOrTwoFingerTouch()) return;
+            // 🆕 2026-10-24（`J3`）：重排动画闸 —— 原版这 0.2 s 里手牌碰撞体全关 ⇒ 按了也抓不起来。
+            //   （`PlayerHand._MoveCardsInHandToPosition_d__76__MoveNext.c` 状态 0 的 `Toggle(false)`；
+            //     判据/取舍见 `_animGate` 那段。⛔ 与 `FrozenNow` 是**两件事**，别合并。）
+            if (IsDoingAnim) return;
             _dragging = card;
             _grabOffset = card.transform.position - world;
             _pressWorld = world;
@@ -490,13 +578,34 @@ namespace CardPresentation
             _hovered = -1;
 
             card.SetHighlight(CardHighlightState.Selected);
-            CardTween.ToPose(card.transform,
-                             card.transform.position + new Vector3(0f, 0f, -dragLiftZ),
-                             card.transform.eulerAngles.z,
-                             hand.cardScale * LayoutSpace.Scale * dragScale,
-                             CardTween.PickUpDuration, Ease.OutQuad);
+            // 🔴 2026-10-24（`A26`）：`Ease.Linear` 在这里的意思是「**别在序列层再弯一次**」，不是「线性手感」。
+            //   判据 = 原版 `CardScript.StartMovingFromHand`
+            //   （`d:/2/tools/decomp_full/CardScript__StartMovingFromHand.c`，亲读）：拿起手牌只开**一条**
+            //   `DOScale(transform, GetCardInHandScale() * globalVars+0x44, globalVars+0x78, 0)`
+            //   —— `+0x44` = `cardInHandMovingScale` 1.1（= 本类的 `dragScale`）、
+            //   `+0x78` = `timeToScaleIntoMoving` 0.1（= `CardTween.PickUpDuration`）；
+            //   **没写 `SetEase`** ⇒ 吃 `DOTween.defaultEaseType`；原版 `resources.assets`
+            //   pathID 1430 的 `DOTweenSettings` 实测 `defaultEaseType = 6`（`OutQuad`）。
+            //   ⚠️ 我们把这件「抬起 z + 保持倾角 + 放大」包进了 `CardTween.ToPose` 的 **Sequence**
+            //   （3 条 Join，子补间**各自都没写 `SetEase`** ⇒ 各自吃默认 OutQuad），所以：
+            //     · 传 `Linear` ⇒ 序列层不弯 → 缩放那条 = 单次 `OutQuad` = **与原版那条 `DOScale` 同形**；
+            //     · 传 `OutQuad` ⇒ 序列层再弯一次（OutQuad∘OutQuad，半程 0.9375 vs 原版 0.75）。
+            //   ⇒ ⛔ 别改回 `OutQuad`（`A22` 审计里「范围外、同一缺陷」的另一处）。
+            //
+            // 🔴 **2026-10-24（`J3` · 口径差 1）：旋转那一跳改成 `DOLocalRotate`，角度也改成【局部】角。**
+            //   判据同 `HandLayout.Place` 那一段（`CardScript__UpdateMinionInHandPosition.c` 用的是
+            //   `DOLocalRotate`）。原来这里传的是 `card.transform.eulerAngles.z`（**世界**角）配
+            //   `DORotate`（世界）—— 父链一有旋转，卡会被**反着拧**到世界 `(0,0,θ)`
+            //   （= 局部角 `θ − 父件角`）；改成 `localEulerAngles.z` + `DOLocalRotate` 之后
+            //   「保持它现在的倾角」才真的是保持（原版拿起时**根本没有角度补间**，
+            //   我们这一跳的语义就是「保持在当前角」，所以目标值必须取局部角）。
+            HandPoseTween.ToPose(card.transform,
+                                 card.transform.position + new Vector3(0f, 0f, -dragLiftZ),
+                                 card.transform.localEulerAngles.z,
+                                 hand.cardScale * LayoutSpace.Scale * dragScale,
+                                 CardTween.PickUpDuration, Ease.Linear);
 
-            Relayout();                    // 手牌把这张空出来，邻牌补位
+            Relayout(false);               // 手牌把这张空出来，邻牌补位（原版起拖时走 `DisplayHandWithCardSpace`，不碰碰撞体 ⇒ 不开闸）
             // 🔴 **2026-10-01：拿起牌时不再把九格全点亮。** 原来这里调 `board.SetDragHighlight(true)`
             //    （九格一起染绿 = 「哪些格能放」），与原版不符：原版只有**一格**落点指示
             //    （`SetCardShadow(GetLeft/RightSlotPos(落点))`，判据 → `资料/待办判据_战场与战斗视图.md` §8b）。
@@ -574,7 +683,7 @@ namespace CardPresentation
                 if (slot != _insertIndex)
                 {
                     _insertIndex = slot;
-                    Relayout();
+                    Relayout(false);      // 边拖边让位 = 原版 `DisplayHandWithCardSpace`（不开闸，见 `_animGate` 那段）
                 }
             }
 
@@ -861,20 +970,34 @@ namespace CardPresentation
                     _insertIndex = -1;
                 }
 
-                // 回弹：回到扇形里的原位
-                int idx = Mathf.Max(0, _cards.IndexOf(card));
-                var home = hand.SlotPosition(idx, Mathf.Max(1, _cards.Count));
-                var seq = DOTween.Sequence();
-                seq.Join(card.transform.DOMove(home, CardTween.SnapBackDuration));
-                seq.Join(card.transform.DOScale(Vector3.one * hand.cardScale * LayoutSpace.Scale,
-                                                CardTween.SnapBackDuration));
-                CardTween.Use(seq, Ease.OutQuad, card.transform);
+                // ---- 回弹：**交给手牌重排**（原版就是这么做的；⛔ 原版没有「回弹专用补间」）----
+                // 判据（2026-10-24 · `J3` 亲读；`BattleManager__Update.c` case 2 的松手那一支 + 两条协程）：
+                //   · `BattleManager__Update.c:210` 松手（`FUN_180617800()` 为真的那一支）⇒
+                //     `CardScript.MoveBackToHand(card)`：只做「sortingLayer 回手牌段 + `StopAnimsInPlay`
+                //     + 单位卡 `DissolveMinionCard` + `SetStateInHand()`（卡状态 = 1、
+                //     `SetParent(handAnchorLayout, worldPositionStays: true)`）」——**全文一个 `DOMove` 都没有**
+                //     （`CardScript__MoveBackToHand.c` / `PlayerHand__SetParentOfCard.c`）；
+                //   · 同支 `:220-223`：`GetClosestInHandSlot(指针)` → `PlayerHand.HandCardMovedToNewIndex(card, slot)`
+                //     —— 先 `List.Remove` + `Insert` 改列表序，再 `StartCoroutine(MoveCardsInHandToPosition(-1, null))`；
+                //   · `:246` 再 `PlayerHand.HandCardReleased()` ⇒ **又**起一条 `MoveCardsInHandToPosition(-1, null)`；
+                //   · 两条协程最后都落到 `CardScript.UpdateMinionInHandPosition` —— 对**手牌里每一张**
+                //     （含这张刚回来的）开三条单补间：`DOMove` / `DOLocalRotate` / `DOScale`，
+                //     时长 = `globalVars + 0xA4` = `timeToPositionCard` = **0.2 s**，**全文不写 `SetEase`**
+                //     （吃 `DOTween.defaultEaseType` = 6 `OutQuad`）。
+                // ⇒ 原版的「回弹」**就是普通的手牌重排**：0.2 s、位置 + 角度 + 缩放、OutQuad。
+                //   我们原来在这里自造了一条 `SnapBackDuration = 0.22` 的 `DOMove + DOScale`
+                //   （Sequence 层再挂一次 OutQuad、**没有角度**），而这一帧末尾的 `Relayout()` 本来就会
+                //   对同一张牌 `DOKill()` 再开一条正确的重排补间 ⇒ 那条自造补间**等于白开、还被白杀一次**。
+                //   ⇒ 删掉它：回弹完全交给下面那句 `Relayout(true)`（时长 / 形状 / 角度 三样一次对齐）。
+                //   ⚠️ `CardTween.SnapBackDuration`（0.22，在 `Core/CardTween.cs`）从此**没有调用方** ——
+                //      那个文件不在本笔所有权内，删它／改它 doc 的事留给调度台（见 `J3` 报告）。
                 card.SetHighlight(CardHighlightState.Normal);
                 if (OnReturned != null) OnReturned(card);
                 // 🔴 **「非法操作」与「正常取消」在这里分开** ——
                 //    拖回手牌/拖到空白处（`MissedSlot`）**不播** cantdo，只有落在格位上却被拒才播。
                 if (IsIllegalAction(kind) && OnIllegalAction != null) OnIllegalAction(card);
-                Debug.Log($"[CardPresentation] 落点不合法（{reject}）[{kind}]，{card.name} 回弹到手牌第 {idx} 位");
+                Debug.Log($"[CardPresentation] 落点不合法（{reject}）[{kind}]，{card.name} 回弹到手牌第 "
+                        + $"{Mathf.Max(0, _cards.IndexOf(card))} 位（走**手牌重排**那条补间，见上面那段判据）");
             }
 
             // 轻点（按下→松开几乎没动）：**没落位**才算 —— 顺手拍了张牌上场不该弹展示窗。
@@ -882,7 +1005,10 @@ namespace CardPresentation
             if (tapped && !ok && OnTapped != null) OnTapped(card);
 
             _hovered = -1;
-            Relayout();
+            // 🆕 2026-10-24（`J3`）：松手后这一趟重排 = 原版 `HandCardMovedToNewIndex` +
+            //   `HandCardReleased` 那两条 `MoveCardsInHandToPosition(-1, null)`（**传 -1**）⇒ 带闸。
+            //   回弹本身也由这一趟补间完成（见上面 else 支那段判据）。
+            Relayout(true);
         }
 
         /// <summary>手牌里当前**看得见**的那几张（拖拽中的那张不参与重排）</summary>
@@ -896,11 +1022,19 @@ namespace CardPresentation
         /// <summary>
         /// 手牌重排。拖拽中的那张不参与（它自己跟手），
         /// 但它会在 `_insertIndex` 处**留一个空位**，其余牌按多一张的间距让开。
+        /// <para>🔴 **2026-10-24（`J3`）**：这个**公开口** = 原版 `PlayerHand.MoveCardsInHandToPosition(-1, …)`
+        /// 那一档 ⇒ **带重排动画闸**（见 `_animGate` 那段判据）。连续路径（悬停 / 拖拽让位 / 拿起）走
+        /// `Relayout(animGate: false)`，原因也写在那段。</para>
         /// </summary>
-        public void Relayout()
+        public void Relayout() { Relayout(true); }
+
+        /// <param name="animGate">这一趟要不要开「重排动画闸」。只在 `hand.animateRelayout` 为真时真开
+        /// （没有动画就没有「重排期间」）。</param>
+        void Relayout(bool animGate)
         {
             var list = VisibleCards();
             hand.Refresh(list, HoveredIn(list), _dragging != null ? _insertIndex : -1);
+            if (animGate && hand != null && hand.animateRelayout) ArmAnimGate();
         }
 
         int HoveredIn(List<CardView> visible)
@@ -1100,7 +1234,7 @@ namespace CardPresentation
 
         // ---- 给批处理自检用的显式接口（不进 play 模式也能走完整流程）----
         public void SimulateHover(Vector3 world) { UpdateHover(world); }
-        public void SimulatePress(Vector3 world) { if (_hovered >= 0 && _dragging == null) PickUp(_cards[_hovered], world); }
+        public void SimulatePress(Vector3 world) { var h = HoveredCard; if (h != null && _dragging == null) PickUp(h, world); }
         public void SimulateDrag(Vector3 world, float dt) { if (_dragging != null) UpdateDrag(world, dt); }
         public void SimulateRelease(Vector3 world) { if (_dragging != null) Release(world); }
 
@@ -1118,7 +1252,8 @@ namespace CardPresentation
         /// <summary>自检：按 `TouchInputOn` 档按下（**不抓**）。前提与真实那条一样：已经 hover 到某张。</summary>
         public void SimulatePressPendingForTest(Vector3 world)
         {
-            if (_hovered >= 0 && _dragging == null) BeginPressCandidate(_cards[_hovered], world);
+            var h = HoveredCard;      // 🆕 `J3`：带范围夹取（同 `Update` 那一处）
+            if (h != null && _dragging == null) BeginPressCandidate(h, world);
         }
 
         /// <summary>自检：推一帧候选态；返回这一帧有没有**真的抓起来**。</summary>

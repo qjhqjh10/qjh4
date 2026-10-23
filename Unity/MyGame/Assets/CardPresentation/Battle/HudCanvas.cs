@@ -326,6 +326,13 @@ namespace CardPresentation
                 var t = RootRect.GetChild(i);
                 if (t != null && t.name == name) return t.GetComponent<Canvas>();
             }
+            // 🔴 **2026-10-24（`B-26`）补：也找【嵌套】的那几块。**
+            //   原版 `BattleDoors/Canvas` 是 `BattleDoors` 的**子件**（不是根 canvas 的直子）——
+            //   我们照原版把 `BattleDoors Canvas` 挂进 `BattleDoors` 之后，只查直子就会「找不到」，
+            //   而 `EnsureSubCanvas` 的幂等**正是靠这个函数** ⇒ 会**静默建出第二块同名画布**。
+            //   ⚠️ 仍然**先查直子**（原调用点的语义一个字不变），只有直子全不中才往下找。
+            foreach (var cv in RootRect.GetComponentsInChildren<Canvas>(true))
+                if (cv != null && cv.name == name) return cv;
             return null;
         }
 
@@ -626,6 +633,19 @@ namespace CardPresentation
             for (int i = SubCanvasRank.Length - 1; i >= 0; i--)
             {
                 var t = RootRect.Find(SubCanvasRank[i]);
+                if (t == null)
+                {
+                    // 🔴 **2026-10-24（`B-26`）**：这块画布可能是**嵌套**的（先例 = `BattleDoors Canvas`
+                    //   ⊂ `BattleDoors`，原版本来就是这棵树）⇒ 排它的**根直子祖先**（整棵子树一起挪）。
+                    //   ⛔ 别直接 `cv.SetSiblingIndex` —— 那只在它自己父件里换位置，等于没排。
+                    var cv = SubCanvas(SubCanvasRank[i]);
+                    if (cv != null)
+                    {
+                        var up = cv.transform;
+                        while (up.parent != null && up.parent != RootRect) up = up.parent;
+                        if (up.parent == RootRect) t = up;
+                    }
+                }
                 if (t == null) continue;
                 if (--idx < 0) break;
                 t.SetSiblingIndex(idx);

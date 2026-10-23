@@ -60,6 +60,16 @@ import os
 import re
 import sys
 
+## A17 2026-10-24: -h/--help early exit (print usage only, exit 0; never run the real work).
+import sys as _wf_help_sys
+if any(_wf_help_sys.argv[_i] in ("-h", "--help") for _i in range(1, len(_wf_help_sys.argv))):
+    try:
+        _wf_help_sys.stdout.reconfigure(encoding="utf-8")
+    except Exception:
+        pass
+    print('用法：\n  python -I -X utf8 d:/4/Unity/工具/gen_trait_tips.py            # 干跑，只报告\n  python -I -X utf8 d:/4/Unity/工具/gen_trait_tips.py --write    # 落盘\n  -h, --help  只打印本用法并退出（退出码 0），不执行任何真活。')
+    _wf_help_sys.exit(0)
+
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))          # d:/4/Unity
 RULEBOOK = os.path.join(ROOT, "资料/关键词图标/_规则书关键词表.md")
 OFFICIAL = os.path.join(ROOT, "数据/游戏数据/官方本地化_en+zh-CN.json")

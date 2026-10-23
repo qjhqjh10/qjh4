@@ -25,6 +25,16 @@ import re
 import sys
 from collections import Counter, OrderedDict, defaultdict
 
+## A17 2026-10-24: -h/--help early exit (print usage only, exit 0; never run the real work).
+import sys as _wf_help_sys
+if any(_wf_help_sys.argv[_i] in ("-h", "--help") for _i in range(1, len(_wf_help_sys.argv))):
+    try:
+        _wf_help_sys.stdout.reconfigure(encoding="utf-8")
+    except Exception:
+        pass
+    print('用法：python -I -X utf8 d:/4/Unity/工具/gen_ability_enum_dict.py [--out TSV]\n  -h, --help  只打印本用法并退出（退出码 0），不执行任何真活。')
+    _wf_help_sys.exit(0)
+
 STUB_DIR = r"d:/2/Warpforge_code/Scripts/Assembly-CSharp"
 TRUTH = r"d:/2/远端缓存_旧profile_1013/导出/cards_1195_2022时代.json"
 OUT_DEFAULT = r"d:/4/Unity/资料/普查产出_第二十七会话/abilityLogic_枚举词典.tsv"

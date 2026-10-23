@@ -14,8 +14,11 @@
 //   · 入口 = 主菜单左竖导航的 **COLLECTION 钮**（`OpenWindowButton` GUID `6b5ba7fb…`，`closeOtherMenus=1`）
 //   · 外壳与奖励窗/商店**同一个壳**（`Content Area` 167.17,70.94→1920.01,1080 · 左栏 165 宽 ·
 //     同一批图 `40k_main_tab_background`/`_shadow`/`40k_main_bt_selected BW`/`40k_main_bt_nametag`）
-//     ⇒ 直接继承 `MainMenuSubmenuWindow`。**唯一差别**：左栏第一个键顶边 **188.64**
-//     （条本身从 158.64 起 + VLG `padTop=30`）⇒ 覆写 `BarPadTop = 188.64 − 70.94 = **117.7**`。
+//     ⇒ 直接继承 `MainMenuSubmenuWindow`。**唯一差别**：左栏**条自己**从 **158.64** 起（奖励窗/商店是 70.94），
+//     条内 VLG `padTop=30` ⇒ 第一个键顶边 **188.64**。
+//     🔴 **2026-10-23（W62）就地订正（铁律 5）**：原文写「覆写 `BarPadTop = 188.64 − 70.94 = 117.7`」——
+//       那是把「条低 87.7」**折进 padTop** 的旧写法 ⇒ 条本身仍从 70.94 起、**底板比原版高 88 px**。
+//       现在拆成两个口：`BarTop = 158.64`（条顶边）+ `BarPadTop = 30`（原版 VLG padTop）。
 //   · 四个页签的**卡面文案 = Decks / Cards / Cosmetics / Styles**（不是页节点名），
 //     图标 `40k_collection_bt_{decks,cards,cosmetics,style}`，标签 fs **36**（auto 5–36）。
 //
@@ -124,23 +127,25 @@ namespace CardPresentation
                            term: "MenuShop/AlternateArtStyle"),
         };
 
-        /// <summary>左栏第一个键的顶边（原版 188.64）− `Content Area` 顶边（70.94）= **117.7**。
-        /// ⚠️ 别照抄「padTop = 30」—— 那是**条内**布局组的 padTop，条本身还从 158.64 起（比 `Content Area` 低 87.7）。</summary>
-        protected override float BarPadTop { get { return 117.7f; } }
+        /// <summary>🆕 **2026-10-23（W62 · 界面线）**：本窗左栏 `Tab Buttons` **自己的顶边 = 158.64**
+        /// （原版 `Collection Menu Variant` 与奖励窗/商店不同：那两扇的 `Tab Buttons` 铺满 `Content Area`
+        /// （从 `ContentT`=70.94 起），本窗的条本身就从 **158.64** 起）。
+        /// <para>判据（本轮现读）：`工具/menu_dump.py bundle_menus_assets_all "Collection Menu Variant" --depth 3`
+        /// ⇒ `Tab Buttons | 167.2 158.6 332.2 1080.0 | 165.00 921.36 | … pad=0,0,30,0`。
+        /// 与奖励窗/商店逐窗对比（同一条命令，三扇跨窗）→ `资料/普查产出_1022/W62_换牌压暗与收藏白条修复.md` §②。</para>
+        /// <para>🔴 **原来只有 `Shadow` 的顶边对了、底板没对** ⇒ 本窗左栏底板（`Tab Buttons/Background` 的
+        /// `Gradient2` 三条横带）比原版**高 88 px**（1009.06 − 921.36 = 87.7）。</para></summary>
+        protected override float BarTop { get { return TabBarTop; } }
 
-        /// <summary>本窗左栏 `Shadow` 的顶边 = **`Tab Buttons` 自己的顶边 158.64**（原版 `Collection Menu Variant`
-        /// 与奖励窗/商店不同：那两扇的 `Tab Buttons` 铺满 `Content Area`，本窗的条本身就从 158.64 起）。
-        /// 🔴 **2026-10-23（W62）**：这一条与下面的 tint 一起从「子类删掉重建一份 `Shadow`」收进基类的两个判据
-        /// （判据/来历 → `MainMenuSubmenuWindow.BarShadowTop`、`BarShadowTint`；原来那份临时补丁已删）。</summary>
-        protected override float BarShadowTop { get { return TabBarTop; } }
+        /// <summary>左栏第一个键距**条顶边**（`BarTop` = 158.64）= 原版 VLG 的 **`padTop = 30`** ⇒ 键顶边 188.64。
+        /// <para>🔴 **2026-10-23（W62）就地订正（铁律 5）**：这里原来是 **117.7** —— 那是「条从 70.94 起」时代的
+        /// 折算值（188.64 − 70.94）。`BarTop` 把条顶边单独表达之后必须回到原版的 **30**，否则键会掉到 276.34。</para></summary>
+        protected override float BarPadTop { get { return 30f; } }
 
-        /// <summary>本窗左栏 `Shadow` 的 tint = 原版 prefab 那颗 `Image.m_Color` **`(0,0,0,0.475)`**。
-        /// 🔴 **判据**（原版 prefab 现读，⛔ 不是从实现抄）：`工具/menu_dump.py bundle_menus_assets_all
-        /// "Collection Menu Variant" --depth 5` ⇒ `Shadow | 167.2 158.6 214.8 1080.0 | Image |
-        /// 40k_main_tab_shadow 51×4 | Simple (0,0,0,0.475)`。这张图本体是**纯白 + alpha 渐变** ⇒
-        /// 不给 tint 就会画成那条**竖向浅白带**（真机截图 `_tmp_view/shots/2026-10-22_第六十二会话/02_collection.png`）。
-        /// 详细判据 → `资料/普查产出_1022/W62_换牌压暗与收藏白条修复.md` §②。</summary>
-        protected override Color? BarShadowTint { get { return new Color(0f, 0f, 0f, 0.475f); } }
+        // 🔴 **2026-10-23（W62 · 界面线）**：`BarShadowTop` / `BarShadowTint` 两个覆写**已删** ——
+        //   基类现在是「`BarShadowTop` = `BarTop`（= 本窗 158.64）· `BarShadowTint` = 原版 `(0,0,0,0.4745098)`」，
+        //   与本窗原先那两个转发**逐值等价** ⇒ 判据只留基类一处（⛔ 别再在这里抄第二份）。
+        //   判据/来历 → `MainMenuSubmenuWindow.BarShadowTop` / `BarShadowTint` 的 doc。
 
         // ============================================================ 页内自己的层（照兄弟序逐层 +1）
         /// <summary>页内的渲染队列**梯子**。
@@ -274,7 +279,7 @@ namespace CardPresentation
         /// `CardCollectionDisplay__UpdateCardVisuals.c:45-47` 逐字重复）；并把 `拥有数 &lt; 1` 喂给
         /// `CollectionCardCounter.Set(…, setGreyscale)` ⇒ **没拥有的那张置灰**。</para>
         /// <para>⚠️ **我们这一格印 `min(拥有, 卡组上限)`，这是我们挑的偏离（不是原版的做法）**：
-        /// 本作资源固定 9999、`CardProgress.Owned` 是**给足**口径（= 卡组上限 + 升满所需 ⇒ 每张 10~11）
+        /// 本作资源固定 2000（用户 2026-10-24 从 9999 改）、`CardProgress.Owned` 是**给足**口径（= 卡组上限 + 升满所需 ⇒ 每张 10~11）
         /// ⇒ 照原式会把**每一格**印成 `x11` 那种没有意义的数。这一档**沿用同一个节点**在
         /// `DeckRuntime.PoolCounterText`（「还没有督军」那一支）里**用户 2026-09-28 已经拍过板**的写法
         /// ⇒ 同一棵树、两处印同一个数，不再各定一套口径。</para>
@@ -1152,6 +1157,211 @@ namespace CardPresentation
             if (_cardsEmpty != null) _cardsEmpty.gameObject.SetActive(CardsState.VisibleCards().Count <= 0);
         }
 
+        // ============================================================ 入场动画（原版 `CollectionCard.AnimateIn`）
+        //
+        // 判据（2026-10-24 · A18 **逐参数现读**，⛔ 不是挑的手感）：
+        //   · 方法体 `d:/2/tools/decomp_full/CollectionCard__AnimateIn.c:11-43`；参数从反汇编现读
+        //     （`工具/rva_of_method.py "CollectionCard$$AnimateIn"` → VA `0x1806D9540`，
+        //      `工具/disasm_va.py` + `工具/read_literal.py`）：
+        //       ① **`canvas.alpha = 0`** —— `0x1806D959C` `xorps xmm1,xmm1` → `CanvasGroup.set_alpha`
+        //          （`CanvasGroup.set_alpha` 实参走 xmm1，见 `0x18339A3F0` 的 `movaps xmm6,xmm1`）
+        //       ② `Sequence.AppendInterval(GetSiblingIndex() * 0.1)` —— 常量 `0x1834B2DC4` 实读 **0.1**
+        //       ③ `Append(canvas.DOFade(1, 0.7))` —— `0x1834B2BB8` 实读 **1**、`0x1834B3188` 实读 **0.7**
+        //       ④ `Join(canvas.transform.DOLocalMoveY(y, 0.7).From(y + 200))` —— `0x1834B3258` 实读 **200**；
+        //          `y` = 建补间之前那次 `get_localPosition` 的 `.y`（`0x1806D95FA` `movss xmm6,[rax+4]`），
+        //          `From` 传的是 `y + 200`、`setImmediately = true`（`r8b = 1`）/ `isRelative = false`（`r9 = 0`）
+        //          ⇒ **从上方 200px 落到最终位**。
+        //   · **缓动**：两条嵌套补间在原版都**没有 `SetEase`** ⇒ 吃 DOTween 的 `defaultEaseType`
+        //     （= `Ease.OutQuad`，工程 `Assets/Resources/DOTweenSettings.asset` 实读 `defaultEaseType: 6`；
+        //      原版自己那份 DOTweenSettings **本地查不到**，按 DOTween 默认那一档 —— 如实标注）。
+        //     ⚠️ **Sequence 上那句 `SetEase` 是「整条时间轴」的缓动**（`DOTween.XML` 原文
+        //     "If applied to Sequences eases the whole sequence animation"）⇒ 这里只能传 `Linear`
+        //     （= 时间轴不弯曲，两条嵌套补间保留各自的 OutQuad）；⛔ 传 `OutQuad` 会把它们**再弯一次**。
+        //   · **触发时机** = 原版 `CollectionDisplay.firstShow`（**只有第一屏播一次**）：
+        //       `CollectionDisplay<object>..ctor` 置 `[this+0x60] = 1`（VA `0x1815EF1ED`）
+        //       → `Initialize` 尾部调 `listView.ReloadData()`（VA `0x1815EC37B`）建首屏格子时
+        //         `SetCell` 把 `[this+0x60]`（= `firstShow`）当 `animate` 传给
+        //         `CollectionItem.Config(item, display, animate, isSelected)`（VA `0x1815EE8B3` 读、`0x1815EE925` 分支）
+        //       → `Config` 里 `if (animate) AnimateIn()`（VA `0x1815F1B71` → 虚表 `[rax+0x1e8]` = Slot 11）
+        //       → 之后 `RefreshCollection` 把它清 0（VA `0x1815ECC77`）
+        //       ⇒ 筛选 / 滚动 / 换风格**都不再播**（它们走 `RefreshCollection` / 重建）。
+        //   · ⚠️ `initialCardScale`(150) / `initialHeight`(512) **不在 `AnimateIn` 这条路上** ——
+        //     它们在 `OnRectTransformDimensionsChange` 里算
+        //     `cardUI.localScale = sizeDelta.y × 150 / 512`
+        //     （`CollectionCard__OnRectTransformDimensionsChange.c:17`）。
+        //     🔴 **A14 报告 §五·1 说它们用在 `AnimateIn` —— 就地更正：不是**（判据 = 该方法体全文
+        //     只碰 `+0x60` 与 `transform`，一次都没读 `+0x70` / `+0x74`）。
+        //
+        // 🔴 **本工程的两个偏离（如实记）**：
+        //   ① 原版一个 `CanvasGroup` 就能淡整格；我们这棵树里**卡面/张数条底图都是世界空间 `MeshRenderer`**
+        //      （`CardView` 自建网格 · `ImageQuad`）⇒ `CanvasGroup.alpha` **传不下去**（同族的坑：
+        //      `Shell/DeckInfoPopup.cs:2081`）。所以淡入要同时驱动卡 / 底图 / 文字三套后端 —— 见 `CellFade`。
+        //   ② `.From(y + 200, setImmediately: true)` 在这里写成「先把 `localPosition.y` 摆到 `y + 200`，
+        //      再 `DOLocalMoveY(y, 0.7)`」—— **语义逐条等价**（`setImmediately: true` 做的就是这件事），
+        //      `isRelative: false` ⇒ 绝对值而不是相对位移。
+        //   ③ **批处理（编辑器、非 Play）不播**：没有帧循环，DOTween 不会推进 ⇒ 播了会把整页卡停在
+        //      `alpha = 0` / `y + 200` 上（后面所有版面断言与截图全崩）。生产路径用 `Application.isPlaying`
+        //      把这一条关掉；动画本身由自检用 `CardTween.Mode = Manual` + `CardTween.Advance` 单独验。
+
+        /// <summary>`AppendInterval` 的步长 —— 原版 `.rdata` `0x1834B2DC4` 实读 **0.1** 秒 / 每格
+        /// （下标 = 格子在**本趟可见序列**里的序号；原版取的是 `GetSiblingIndex()`）。</summary>
+        public const float CardAnimateDelayStep = 0.1f;
+        /// <summary>`DOFade` / `DOLocalMoveY` 的时长 —— `0x1834B3188` 实读 **0.7** 秒。</summary>
+        public const float CardAnimateDuration = 0.7f;
+        /// <summary>`DOFade` 的两端 —— 终值 `0x1834B2BB8` 实读 **1**；起始 = `CanvasGroup.set_alpha(0)`。</summary>
+        public const float CardAnimateAlphaTo = 1f, CardAnimateAlphaFrom = 0f;
+        /// <summary>`DOLocalMoveY(…).From(y + 200)` 的 **200** —— `0x1834B3258` 实读。
+        /// ⚠️ **不折算**：原版运行时把格子从 350×512 改成 262.5×384 只改 `sizeDelta`，
+        /// `localPosition` 的量纲仍是画布 px（= 我们的设计 px）⇒ 这里就是 **200 / 200**。</summary>
+        public const float CardAnimateRise = 200f;
+
+        /// <summary>一格的「整格不透明度」把手 —— 原版 = `Collection Card/Content` 上那颗 `CanvasGroup`
+        /// （`CollectionCard.canvas`，字段 `+0x60`；`AnimateIn` 对它调 `CanvasGroup.set_alpha` / `DOFade`）。
+        ///
+        /// <para>🔴 **为什么这里不止一个把手**：`CanvasGroup.alpha` 只乘得到 uGUI 的 `CanvasRenderer`，
+        /// 而本工程的卡面（`CardView` 自建网格）与张数条底图（`ImageQuad`）都是**世界空间 `MeshRenderer`**
+        /// ⇒ 必须逐个后端写（同族的坑 → `Shell/DeckInfoPopup.cs:2081` 那段注释）。四路一起动：
+        /// ① `CardView.SetAlpha`（整卡，含它自己那几段 TMP 的顶点色）
+        /// ② `ImageQuad.SetTint`（张数条底图）
+        /// ③ `Label.SetColor`（张数条那行字）
+        /// ④ 容器上那颗 `CanvasGroup`（原版结构；今天没有 uGUI 子件，留着给将来）。</para></summary>
+        public sealed class CellFade
+        {
+            internal CanvasGroup cg;
+            internal CardView card;
+            internal ImageQuad[] bars;
+            internal Color[] barBase;
+            internal Label[] labels;
+            internal Color[] labelBase;
+            /// <summary>当前不透明度（自检读它 —— 批处理里补间要手动推）。
+            /// ⚠️ 出厂 = **1**（= 真实现场：刚建出来的格子是实心的；`AnimateIn` 会先把它们写成 0）。</summary>
+            public float Alpha { get; private set; } = 1f;
+
+            public void SetAlpha(float a)
+            {
+                Alpha = Mathf.Clamp01(a);
+                if (cg != null) cg.alpha = Alpha;                   // ④ 原版那颗 CanvasGroup
+                if (card != null) card.SetAlpha(Alpha);             // ① 卡面（自建 MeshRenderer）
+                if (bars != null)                                   // ② 张数条底图
+                {
+                    for (int i = 0; i < bars.Length; i++)
+                    {
+                        if (bars[i] == null) continue;
+                        var c = barBase[i]; c.a *= Alpha;
+                        bars[i].SetTint(c);
+                    }
+                }
+                if (labels != null)                                 // ③ 张数条文字
+                {
+                    for (int i = 0; i < labels.Length; i++)
+                    {
+                        if (labels[i] == null) continue;
+                        var c = labelBase[i]; c.a *= Alpha;
+                        labels[i].SetColor(c);
+                    }
+                }
+            }
+        }
+
+        /// <summary>把一格挂上 `CellFade`（建完卡与张数条**之后**调 —— 它按当时的颜色记基线）。
+        /// ⚠️ 卡体内的 `ImageQuad`（战斗态那两颗描边光）**要排掉**：它们已经吃 `CardView.SetAlpha`，
+        /// 再乘一次就变成 α² </summary>
+        static CellFade MakeCellFade(Transform cellT, CardView card)
+        {
+            if (cellT == null) return null;
+            var f = new CellFade { card = card, cg = cellT.GetComponent<CanvasGroup>() };
+            var barList = new List<ImageQuad>();
+            var quads = cellT.GetComponentsInChildren<ImageQuad>(true);
+            for (int i = 0; i < quads.Length; i++)
+            {
+                var q = quads[i];
+                if (q == null) continue;
+                if (card != null && q.transform.IsChildOf(card.transform)) continue;   // 见上：别乘两次
+                barList.Add(q);
+            }
+            f.bars = barList.ToArray();
+            f.barBase = new Color[f.bars.Length];
+            for (int i = 0; i < f.bars.Length; i++) f.barBase[i] = f.bars[i].Tint;
+            f.labels = cellT.GetComponentsInChildren<Label>(true);
+            f.labelBase = new Color[f.labels.Length];
+            for (int i = 0; i < f.labels.Length; i++)
+                f.labelBase[i] = f.labels[i] != null ? f.labels[i].color : Color.white;
+            return f;
+        }
+
+        /// <summary>自检口：拿一格的 `CellFade`（**与生产路径同一个方法**）。</summary>
+        public static CellFade MakeCellFadeForTest(Transform cellT, CardView card) { return MakeCellFade(cellT, card); }
+
+        /// <summary>建一格的入场补间（原版 `CollectionCard.AnimateIn`；四个参数逐条现读，见本节头部）。
+        /// <para>顺序 = 原版：`alpha = 0` → 摆到 `y + 200` → `Sequence{ AppendInterval(order × 0.1) ·
+        /// Append(fade 0→1 / 0.7) · Join(move 回落 / 0.7) }`。</para>
+        /// <para>⚠️ `order` 传的是**本趟可见序列里的序号**（0、1、2…）—— 原版用 `GetSiblingIndex()`，
+        /// 而我们的 `Viewport` 底下还留着池化的 `CardView`（同父级兄弟）⇒ 真取兄弟序会跳号。</para>
+        /// <para>自检用法：`CardTween.Mode = Manual` → 本方法 → `CardTween.Advance(dt)`（批处理无帧循环）。
+        /// 返回 `Tween`（`CardTween.Use` 的签名；自检读 `Duration()` 验「序号 → 延迟」）。</para></summary>
+        public static DG.Tweening.Tween BuildCardAnimateInTween(Transform cellT, CellFade fade, int order)
+        {
+            if (cellT == null) return null;
+            // 原版读的是 `canvas.transform.localPosition.y`（补间**开始前**那一次）⇒ 终值
+            float targetY = cellT.localPosition.y;
+            if (fade != null) fade.SetAlpha(CardAnimateAlphaFrom);        // ① `CanvasGroup.set_alpha(0)`
+            var lp = cellT.localPosition;                                 // ④ `.From(y + 200, setImmediately: true)`
+            lp.y = targetY + CardAnimateRise;
+            cellT.localPosition = lp;
+
+            var seq = DG.Tweening.DOTween.Sequence();
+            // ② 原版 `AppendInterval(GetSiblingIndex() * 0.1)`
+            DG.Tweening.TweenSettingsExtensions.AppendInterval(seq, order * CardAnimateDelayStep);
+            // ③ 原版 `Append(canvas.DOFade(1, 0.7))` —— 换成一条同参数（0→1 / 0.7s）的数值补间，
+            //    因为 `CanvasGroup` 传不到我们那两套世界空间渲染后端（见 `CellFade` 的 ①）。
+            DG.Tweening.TweenSettingsExtensions.Append(seq, DG.Tweening.DOTween.To(
+                () => fade != null ? fade.Alpha : CardAnimateAlphaTo,
+                v => { if (fade != null) fade.SetAlpha(v); },
+                CardAnimateAlphaTo, CardAnimateDuration));
+            // ④ 原版 `Join(canvas.transform.DOLocalMoveY(y, 0.7).From(y + 200))`
+            DG.Tweening.TweenSettingsExtensions.Join(seq,
+                DG.Tweening.ShortcutExtensions.DOLocalMoveY(cellT, targetY, CardAnimateDuration));
+            // ⚠️ Sequence 上只能挂 `Linear`（整条时间轴的缓动；见本节头部）—— 两条嵌套补间各自吃
+            //    DOTween 默认 `OutQuad`，与原版「没写 `SetEase`」一致。
+            return CardTween.Use(seq, DG.Tweening.Ease.Linear, cellT);
+        }
+
+        /// <summary>Cards 页的 `firstShow`（原版 `CollectionDisplay.firstShow`）：**第一屏播一次**入场动画。</summary>
+        bool _cardsFirstShow = true;
+        /// <summary>Styles 页的 `firstShow`（原版异画页是**另一个** `CollectionDisplay` 实例 ⇒ 自己一份）。</summary>
+        bool _stylesFirstShow = true;
+        /// <summary>自检读数：本进程真正**起过**几次入场动画（批处理 = 0，真 Play = 第一屏那一批）。
+        /// 用途 = 钉住「批处理不播」那道闸（⛔ 播了整页卡会停在 `alpha = 0`）。</summary>
+        public static int CardAnimateInCountForTest { get; private set; }
+
+        /// <summary>给一格起入场动画（生产路径）。⚠️ 只在真 Play 下起 —— 批处理没有帧循环，
+        /// DOTween 不推进，播了就是「整页卡停在 alpha 0 / y+200」（见本节头部偏离③）。
+        /// <para>🔴 **`liveClip`：格子升起时会跨过视口上沿 ⇒ 必须逐帧重裁。**
+        /// 原版 `Viewport` 挂的是 `RectMask2D`（真 mask，会随动的子件一起裁）；我们这条裁切是
+        /// **把裁切框烘进卡的网格**（`CardView.ApplyClip`，局部系里的几何切刀）⇒ 卡一挪，刀口就**跟着卡走**
+        /// ⇒ 不重裁的话第一排卡会整张画到页头空带上（原版被 mask 挡住了）。
+        /// 只给「**终位离视口上沿不足 `CardAnimateRise`**」的那些格子挂（见两个调用点的判据）——
+        /// 其余格子整张都在视口内，`CropLayer` 的「整块在视口内 ⇒ 一个字节都不动」那条快路径本来就没刀口。
+        /// ⚠️ 代价：这一档是**逐帧** 解析裁切 + 切网格 + 被切的 TMP 要 `ForceMeshUpdate`
+        /// （`CardView.ClipTextMesh`）——只发生在开场那 0.7 s、且只有跨上沿的那一排格子。
+        /// ⚠️ **自检覆盖不到**（批处理不播）⇒ 只能真 Play 看。</para></summary>
+        static void PlayCardAnimateIn(Transform cellT, CellFade fade, int order, CardView liveClip)
+        {
+            if (!Application.isPlaying) return;      // ⛔ 别删：批处理/编辑器下没有帧循环
+            var seq = BuildCardAnimateInTween(cellT, fade, order);
+            if (seq == null) return;
+            if (liveClip != null)
+            {
+                // 逐帧重裁：刀口跟着卡走的话，第一排卡会画到视口外（见上面那段）。
+                DG.Tweening.TweenSettingsExtensions.OnUpdate(seq,
+                    () => { if (liveClip != null) liveClip.SetClipFromTree(); });
+                // 收尾再裁一次（最后一帧的 `OnUpdate` 与终点可能差一帧）
+                DG.Tweening.TweenSettingsExtensions.OnComplete(seq,
+                    () => { if (liveClip != null) liveClip.SetClipFromTree(); });
+            }
+            CardAnimateInCountForTest++;
+        }
+
         /// <summary>重建整个 Cards 页（筛选变了调它；自检也用）。</summary>
         public void RebuildCardsPage()
         {
@@ -1171,15 +1381,34 @@ namespace CardPresentation
             //    `CardView` 留在池里复用。原来这里把 `parent` 下**所有孩子**（含 18 张卡）销毁再重建，
             //    而滚动回调的阈值只有 **0.01 px**（`MenuScroll`）⇒ 拖一下 = 18 × 2.6 s ≈ **49 秒**。
             //    实测与修法 → `资料/普查产出_1017/UI/PERF_T09_收藏窗性能诊断.md`
+            // 🔴 **2026-10-24（A14 · 界面线第五批）**：每格多了一层容器 `Content <i>`（= 原版
+            //    `Collection Card/Content`，判据见 `PunchCardCell` 那段）。**清理顺序不能反**：
+            //    ① 先把池里的 `CardView` 从上一趟的容器里**摘出来挂回 `parent`**（它们要活到下一趟复用），
+            //    ② 再销毁容器（连里面的张数条一起走）。
+            //    ⛔ 反过来 = 把池里的卡连同容器一起销毁 ⇒ `_cellPool` 里全是 Unity 假 null，
+            //       池化静默退化成「每趟全部重建」（自检那条「滚 100px 新建 0 张」会红）。
             for (int i = parent.childCount - 1; i >= 0; i--)
             {
                 var ch = parent.GetChild(i);
-                if (ch.name.StartsWith("Counter ") || ch.name.StartsWith("CardHit_"))
+                if (ch.name.StartsWith("Content "))
+                {
+                    for (int j = ch.childCount - 1; j >= 0; j--)
+                    {
+                        var cc = ch.GetChild(j);
+                        if (cc.GetComponent<CardView>() != null) cc.SetParent(parent, false);
+                    }
+                    DestroySafe(ch.gameObject);
+                }
+                else if (ch.name.StartsWith("Counter ") || ch.name.StartsWith("CardHit_"))
                     DestroySafe(ch.gameObject);
             }
             CardsCells.Clear();
             _cellUsed.Clear();
             CardsCellCreatedLastRefresh = 0;      // 自检读数：本趟真正建了几张（池命中不计）
+            // 🆕 **2026-10-24（A18）**：原版 `CollectionDisplay.firstShow` ⇒ **只有第一屏播入场动画**
+            //   （本趟读完就清；判据见上面「入场动画」那一节）。
+            bool animateIn = _cardsFirstShow;
+            int builtNo = 0;                      // 本趟**可见序列**里的序号（= 原版 `GetSiblingIndex()` 那一格）
 
             // 🔴 **2026-10-13（A435 阶段 2 · 乙 · A15）**：这里原来是一对「`Clip = CardsViewport;` →
             //   循环 → `Clip = prevClip;`」—— 迁移后**整对删掉**：裁切状态长在 `holder/Viewport` 那颗
@@ -1195,6 +1424,15 @@ namespace CardPresentation
                 var content = CardsCellRect(i);
                 var r = CardsScroll.Shift(content);
                 if (!CardsScroll.Intersects(r)) continue;
+                // 🔴 **2026-10-24（A14）**：每格一层容器 = 原版 `Collection Card/Content`
+                //    （卡体 `CardUI` 与张数条 `Counter` 都挂在它下面；选中 punch 打的就是这一级 ——
+                //     判据见 `PunchCardCell` 那段）。命中区 `CardHit_*` **不**放进来（原版的射线件在
+                //     `Content` 的**上一层** `Collection Card` 上 ⇒ punch 时命中区不跟着动）。
+                var cellT = Node(parent, "Content " + i, r);
+                // 🆕 **2026-10-24（A18）**：原版 `Content` 上挂着 `CanvasGroup`（`CollectionCard.canvas`，`+0x60`
+                //   ⇒ `AnimateIn` 的 `set_alpha` / `DOFade` 打的就是它）⇒ 我们也补一颗（出厂 alpha = 1，
+                //   不播动画时零影响；**不吃射线** —— 原版那颗 `NonDrawingGraphic` 才参与 raycast，本工程没有 uGUI）。
+                cellT.gameObject.AddComponent<CanvasGroup>();
                 BuildWatch.CellBegin();                      // 🆕 A1628 第二轮：逐格相位（只在真 Play 出声）
                 // 🔴 **`ToCardData` 只算一次** —— 原来这里算一次、下面 `SetData` 又算一次，
                 //   两个实参逐字相同（`list[i]` / `list[i].Faction`）⇒ 结果逐字段相同。
@@ -1212,10 +1450,11 @@ namespace CardPresentation
                 {
                     v.gameObject.name = "CollectionCard_" + i;   // 按当前槽号重命名（自检按名字找）
                     v.gameObject.SetActive(true);                // ⚠️ 先激活：TMP 在未激活对象上量不出尺寸
+                    v.transform.SetParent(cellT, false);         // 🆕 A14：从上一趟的容器搬进这一趟的（下一句 `SetPose` 会重写局部位姿）
                 }
                 else
                 {
-                    v = CardView.Create(parent, data, "CollectionCard_" + i);
+                    v = CardView.Create(cellT, data, "CollectionCard_" + i);
                     if (v == null) continue;
                     v.gameObject.SetActive(true);
                     _cellPool[key] = v;
@@ -1236,7 +1475,7 @@ namespace CardPresentation
                 // 🔴 **2026-10-18（`W11`）**：位姿按**卡那块矩形**（= 格上沿到张数条上沿），⛔ 不是整格 ——
                 //   整格居中 + 整格高反解 = 卡底压在张数条下面（见 `CardsCardRect`）。
                 var cardR = CardsCardRect(r);
-                v.SetPose(Local(parent, cardR.x1, cardR.y1, cardR.x2, cardR.y2), 0f, scale);
+                v.SetPose(Local(cellT, cardR.x1, cardR.y1, cardR.x2, cardR.y2), 0f, scale);
                 BuildWatch.CellPhase("② `SetPose`（摆位姿 —— 首次无裁切 ⇒ 这一句里的重裁是空转）");
                 // 🔴 **2026-10-13（A435 辛 · A774）**：裁切边界**沿父链解析**（就是上面那颗
                 //   `holder/Viewport` 上的 `ViewportClip`）—— 原来是把 `CardsViewport` 这个**常量矩形**
@@ -1252,7 +1491,7 @@ namespace CardPresentation
                 v.SetClipFromTree();
                 BuildWatch.CellPhase("③ `SetClipFromTree`（解析裁切 + 第一刀真裁：逐层切网格 + 逐字重排）");
                 // 🔴 **2026-10-12（`A1628` 第二轮）就把这一句 `v.SetData(data)` 删掉了** —— 它与上面
-                //   那句 `Create(parent, data, …)` **做的是同一件事**，逐条核过（`Core/CardView.cs`）：
+                //   那句 `Create(cellT, data, …)` **做的是同一件事**，逐条核过（`Core/CardView.cs`）：
                 //    · `Create` = `AddComponent` + `Build(d)`；`Build` 头一句就是 `Data = d`（`CardPresentation/Core/CardView.cs`），
                 //      尾三句是 `BuildTextLayers(d)`（`CardPresentation/Core/CardView.cs`）· `SetBadges(d.badges)`（`CardPresentation/Core/CardView.cs`）·
                 //      `BuildStatLayers(); SyncStatLayers();`（`CardPresentation/Core/CardView.cs`）。
@@ -1272,17 +1511,29 @@ namespace CardPresentation
                 _cellUsed.Add(v);
                 // 🆕 2026-10-17（B10 · 账上「卡重复与升级 · 三件 UI ①」）：格子**底下那条「张数」**
                 //    （原版 `Collection Card/Content/Counter`）—— 判据 / 文案 / 几何全在 `BuildCardsCounter` 那一段。
-                BuildCardsCounter(parent, i, r, list[i]);
+                BuildCardsCounter(cellT, i, r, list[i]);
                 // ⚠️ 闭包**别捕循环变量 `i`** —— 点击发生在重建之后，那时 `i` 已经是 `list.Count`（越界）
                 var def = list[i];
                 // 🆕 2026-10-23（`C3`）：点之前先来一下选中 punch（原版 `CollectionCard.SelectedHighlight(true)`）——
                 //   幅度/时长/vibrato/elasticity 全在原版 `.rdata`（见 `PunchCardCell` 那段判据）。
                 var cHit = AddHit(parent, "CardHit_" + i, r, QPageRow,
-                                  () => { PunchCardCell(v.transform); OpenCardDetail(def); });
+                                  () => { PunchCardCell(cellT); OpenCardDetail(def); });
                 AttachCardHover(cHit, v, wildcardArmy: true);      // 🆕 N70 P0-5 悬停描边 + 🆕 2026-10-19 徽记跟着卡阵营换（`CheckFocusedArmy`）
                 BuildWatch.CellPhase("⑤ 张数条（`Rect`+`Text`）+ 命中区（`AddHit`）");
+                // 🆕 **2026-10-24（A18）**：入场动画（原版 `CollectionCard.AnimateIn`，四个参数见本节头部）。
+                //   位置必须在**卡 + 张数条都建完之后**：`MakeCellFade` 按当时的颜色记基线。
+                //   只在 `firstShow` 那一趟 + 真 Play 下起（批处理没有帧循环 ⇒ 见本节头部偏离③）。
+                if (animateIn)
+                {
+                    var fade = MakeCellFade(cellT, v);
+                    // 终位离视口上沿不足 200px ⇒ 升起时会跨出视口 ⇒ 要逐帧重裁（理由见 `PlayCardAnimateIn` 的 doc）
+                    PlayCardAnimateIn(cellT, fade, builtNo,
+                                      r.y1 < CardsViewport.y1 + CardAnimateRise ? v : null);
+                }
+                builtNo++;                       // 序号只数**本趟真建出来的格**（同原版「可见序列」的兄弟序）
                 BuildWatch.CellEnd();
             }
+            _cardsFirstShow = false;             // 原版 `CollectionDisplay.RefreshCollection` 的 `firstShow = false`
 
             // 🔴 **2026-10-17（T09 第 1 步）**：本趟没露头的视图 —— **只关不删**（滚回来零成本），
             //   并改名成 `CollectionCard_parked`：⛔ 别留着旧的 `CollectionCard_<i>`，
@@ -2131,14 +2382,30 @@ namespace CardPresentation
             //   `DestroySafe` 再逐格 `CardView.Create`，而 `StyleScroll.OnChanged` 的阈值只有 **0.01 px**
             //   ⇒ 拖一下 = 整屏重建（≈2.2 s/格）。修法与卡池页（`RebuildCardsCells`）同一套；
             //   判据与实测 → `资料/普查产出_1017/UI/PERF_T09_收藏窗性能诊断.md`
+            // 🔴 **2026-10-24（A14）**：与卡池页同一套 —— 每格一层 `Content <i>` 容器（= 原版
+            //    `Collection Card/Content`，异画页用的是同一个 cell prefab）。清理顺序同样**先摘卡、再销毁容器**
+            //    （池化的 `CardView` 不能跟着容器一起走，理由见 `RebuildCardsCells` 那一行）。
             for (int i = parent.childCount - 1; i >= 0; i--)
             {
                 var ch = parent.GetChild(i);
-                if (ch.name.StartsWith("AltArtHit_")) DestroySafe(ch.gameObject);
+                if (ch.name.StartsWith("Content "))
+                {
+                    for (int j = ch.childCount - 1; j >= 0; j--)
+                    {
+                        var cc = ch.GetChild(j);
+                        if (cc.GetComponent<CardView>() != null) cc.SetParent(parent, false);
+                    }
+                    DestroySafe(ch.gameObject);
+                }
+                else if (ch.name.StartsWith("AltArtHit_")) DestroySafe(ch.gameObject);
             }
             StyleCells.Clear();
             _styleUsed.Clear();
             StyleCellCreatedLastRefresh = 0;      // 自检读数：本趟真正建了几张（池命中不计）
+            // 🆕 **2026-10-24（A18）**：异画页自己一份 `firstShow`（原版异画页是**另一个** `CollectionDisplay`
+            //   实例 ⇒ `firstShow` 各自一份；同卡池页，只有第一屏播）。判据见「入场动画」那一节。
+            bool animateIn = _stylesFirstShow;
+            int builtNo = 0;
 
             // 🔴 **2026-10-13（A435 阶段 2 · 乙 · A17）**：原来这里是一对「`Clip = StyleView;` → 循环 →
             //   `Clip = prevClip;`」—— **整对删掉**（裁切状态长在 `holder/Viewport` 那颗 `ViewportClip` 上，
@@ -2154,6 +2421,11 @@ namespace CardPresentation
                 var content = StyleCellRect(i);
                 var r = StyleScroll.Shift(content);
                 if (!StyleScroll.Intersects(r)) continue;
+                // 🔴 **2026-10-24（A14）**：格容器 = 原版 `Collection Card/Content`（punch 打这一级；
+                //    命中区 `AltArtHit_*` 留在 `Content` 外面 —— 原版的射线件在上一层，punch 时不跟着动）。
+                var cellT = Node(parent, "Content " + i, r);
+                // 🆕 **2026-10-24（A18）**：同卡池页 —— 原版 `Content` 上那颗 `CanvasGroup`（入场动画的目标）。
+                cellT.gameObject.AddComponent<CanvasGroup>();
                 BuildWatch.CellBegin();                      // 🆕 A1628 第二轮：逐格相位（只在真 Play 出声）
 
                 // 🔴 **2026-10-18（T09 / `A1813`）**：**按 `CardId + 语档` 复用**。
@@ -2167,6 +2439,7 @@ namespace CardPresentation
                 {
                     v.gameObject.name = "CollectionAltArt_" + a.CardId;   // 停过的视图改回原名（自检按名找）
                     v.gameObject.SetActive(true);                          // ⚠️ 先激活：TMP 在未激活对象上量不出尺寸
+                    v.transform.SetParent(cellT, false);                   // 🆕 A14：搬进这一趟的容器（`SetPose` 会重写位姿）
                 }
                 else
                 {
@@ -2176,7 +2449,7 @@ namespace CardPresentation
                     if (d.artOverride == null)
                         Debug.LogWarning("[Collection] 异画立绘取不到（卡面会退回普通立绘）：" + a.CardId);
 
-                    v = CardView.Create(parent, d, "CollectionAltArt_" + a.CardId);
+                    v = CardView.Create(cellT, d, "CollectionAltArt_" + a.CardId);
                     if (v == null) continue;
                     v.gameObject.SetActive(true);
                     _stylePool[key] = v;
@@ -2192,7 +2465,7 @@ namespace CardPresentation
                 //   🔴 **2026-10-13（A435 辛 · A774）**：边界改成**沿父链解析**（= 上面那颗
                 //   `holder/Viewport` 上的 `ViewportClip`），原来传的是 `StyleView` 那个常量矩形
                 //   ⇒ 第二份状态源。顺序与原由同卡池页那一处（`SetPose` 定完位姿再解析）。
-                v.SetPose(Local(parent, r.x1, r.y1, r.x2, r.y2), 0f, scale);
+                v.SetPose(Local(cellT, r.x1, r.y1, r.x2, r.y2), 0f, scale);
                 BuildWatch.CellPhase("② `SetPose`（摆位姿 —— 首次无裁切 ⇒ 这一句里的重裁是空转）");
                 v.SetClipFromTree();
                 BuildWatch.CellPhase("③ `SetClipFromTree`（解析裁切 + 第一刀真裁：逐层切网格 + 逐字重排）");
@@ -2209,11 +2482,22 @@ namespace CardPresentation
                 _styleUsed.Add(v);
                 // 🆕 2026-10-23（`C3`）：异画格与卡池格同一颗 punch（原版同一个 `CollectionCard.SelectedHighlight`）。
                 var aHit = AddHit(parent, "AltArtHit_" + a.CardId, r, QPageRow,
-                                  () => { PunchCardCell(v.transform); OpenCardDetail(card); });
+                                  () => { PunchCardCell(cellT); OpenCardDetail(card); });
                 AttachCardHover(aHit, v);      // 🆕 N70 P0-5：悬停描边 0.2s（同卡牌格）
                 BuildWatch.CellPhase("⑤ 命中区（`AddHit`；本页**没有**张数条）");
+                // 🆕 **2026-10-24（A18）**：入场动画 —— 与卡池页**同一条实现**（原版两页的格子都是
+                //   `CollectionCard` ⇒ `AnimateIn` 也是同一个方法；只有 `firstShow` 各自一份）。
+                if (animateIn)
+                {
+                    var fade = MakeCellFade(cellT, v);
+                    // 同卡池页：终位离视口上沿不足 200px ⇒ 升起时会跨出视口 ⇒ 逐帧重裁
+                    PlayCardAnimateIn(cellT, fade, builtNo,
+                                      r.y1 < StyleView.y1 + CardAnimateRise ? v : null);
+                }
+                builtNo++;
                 BuildWatch.CellEnd();
             }
+            _stylesFirstShow = false;            // 同 `CollectionDisplay.RefreshCollection` 的 `firstShow = false`
 
             // 🔴 **2026-10-18（T09 / `A1813`）**：本趟没露头的视图 —— **只关不删**（滚回来零成本），
             //   并改名成 `CollectionAltArt_parked`：⛔ 别留着原来的 `CollectionAltArt_<卡 id>`，
@@ -3296,14 +3580,15 @@ namespace CardPresentation
         /// <summary>四页一起刷（便宜且幂等 —— 见 <see cref="RefreshFilterToggle"/>）。</summary>
         void RefreshFilterToggles() { for (int i = 0; i < _hdrFltBtn.Length; i++) RefreshFilterToggle(i); }
 
-        /// <summary>本窗 `Content Area/Tab Buttons` 的顶边（**原版 158.64**）—— 左栏 `Shadow` 从这一行起。
+        /// <summary>本窗 `Content Area/Tab Buttons` 的顶边（**原版 158.64**）—— 左栏**底板**（`Tab Buttons/Background`
+        /// 的 `Gradient2`）与 `Shadow` 都从这一行起。
         /// <para>判据 = `工具/menu_dump.py bundle_menus_assets_all "Collection Menu Variant" --depth 5`：
         /// `Tab Buttons` = **167.2,158.6 → 332.2,1080**（165×921.36）· `Tab Buttons/Shadow` = **167.2,158.6 → 214.8,1080**。
         /// ⚠️ **本窗与奖励窗/商店不同**（那两扇的 `Tab Buttons` 铺满 `Content Area`，从 `ContentT`=70.94 起）
         /// —— 铁律 5·c 那一类，⛔ 别把这个数搬去基类（基类默认值仍是 `ContentT`）。</para>
-        /// <para>🔴 **2026-10-23（W62）**：它现在只服务 <see cref="BarShadowTop"/> 那个覆写 ——
-        /// 原来那份「在子类里删掉重建 `Shadow`」的临时补丁已删（正解 = 基类那两个判据
-        /// `BarShadowTop` / `BarShadowTint`）。</para></summary>
+        /// <para>🔴 **2026-10-23（W62 · 底板）**：现在服务 <see cref="BarTop"/>（条顶边）这一个覆写 ——
+        /// `BarShadowTop` 已在基类改成跟 `BarTop` 走（本窗不再单独覆写）。
+        /// 原来那份「在子类里删掉重建 `Shadow`」的临时补丁已删（正解 = 基类那几个判据）。</para></summary>
         const float TabBarTop = 158.64f;
 
         public void Build()
@@ -3349,9 +3634,12 @@ namespace CardPresentation
             //    （设计 px x≈167..232 · y≈368..1079）—— `40k_main_tab_shadow` 本体是**纯白 + alpha 渐变**
             //    （51×4、左 255 → 右 3），原版靠那颗 `Image.m_Color = (0,0,0,0.475)` 才变成黑阴影，
             //    而基类建它时**没给 tint** ⇒ 屏上是一条白带。
-            //  **现在**：判据收进 `MainMenuSubmenuWindow` 的两个可覆写口 —— `BarShadowTop`（顶边）与
-            //    `BarShadowTint`（色），本窗只在**上面那两个覆写**里给值（`TabBarTop` = 158.64 ·
-            //    `(0,0,0,0.475)`），`Shadow` 由基类**只画一次**。⛔ 别在本窗再删掉重建一份（会变成两处生产者）。
+            //  **现在**：判据收进 `MainMenuSubmenuWindow` 的可覆写口 —— `BarTop`（条顶边 158.64）·
+            //    `BarShadowTop`（基类已改成跟 `BarTop` 走）· `BarShadowTint`（基类默认 = 原版 `(0,0,0,0.4745098)`），
+            //    三个都在**上面那几个覆写/基类**里给值，`Shadow` 与底板由基类**各只画一次**。
+            //    ⛔ 别在本窗再删掉重建一份（会变成两处生产者）。
+            //  🔴 **2026-10-23（W62 · 底板）**：本轮再补一块 —— `Tab Buttons` **自己的 rect** 原来从 `ContentT`(70.94)
+            //    起，原版是 **158.64..1080** ⇒ 底板比原版**高 88 px**。改法 = `BarTop` 覆写（`TabBarTop`）。
             //  判据全文 → `资料/普查产出_1022/W62_换牌压暗与收藏白条修复.md` §②。
             // ══════════════════════════════════════════════════════════════════════════════════
             tabButtons = res.buttons;
@@ -4602,20 +4890,43 @@ namespace CardPresentation
         //   · elasticity = **`0x1834b2bb8` = 1.0**（`工具/read_literal.py` 实读）。
         //     🔴 **核查报告 §四 #3 写的「elasticity 0.3」是错的** —— 0.3 是 `0x1834b2dc8`（`CardScript.DoPushBack`
         //     那一处），本条调用传的是 `0x1834b2bb8`。本行按实读的 **1.0**（判据 > 转述）。
-        //   · 作用对象 = `param_1 + 0x60` 的 transform（`CollectionCard` 的 `content`，即「卡体」那一层）；
-        //     我们这棵树里最近的一级 = 那颗 `CardView` 自己的根（命中区是它的兄弟、不跟着动）。
+        //   · 作用对象 = `param_1 + 0x60` 的 transform —— 🔴 **2026-10-24（A14 · 界面线第五批）现核：
+        //     那一格是 `CollectionCard.canvas`（`CanvasGroup`），它的 GameObject 名字就叫 **`Content`**，
+        //     ⛔ **不是**「卡体那一层」**（旧说法把 `Content` 当成卡体了）：
+        //       · 字段序（`d:/2/Warpforge_code/Scripts/Assembly-CSharp/CollectionCard.cs` 声明序）：
+        //         `cardUI(0x48)` → `highlightColor(0x50，Color 16B)` → **`canvas(0x60)`** → `counter(0x68)`。
+        //         旁证 = `CollectionCard__Start.c` 拿 `+0x48` 调 `BasicCardUI` / 从 `+0x50` 读 Color；
+        //         `CollectionCard__AnimateIn.c` 对 `+0x60` 调 **`CanvasGroup.set_alpha` / `DOFade`** ⇒ 就是 CanvasGroup。
+        //       · 该 PPtr 在 prefab 里的落点（`bundle_menus_assets_all`）：
+        //         `MonoBehaviour_40971030049256792.json` 的 `canvas` = `CanvasGroup 533470822043284824`
+        //         → GO `Content`（`GameObject/Content_7243044493727364440.json`；RT `-6374656361261697704`：
+        //         `m_AnchorMin (0,0)` · `m_AnchorMax (1,1)` · `m_SizeDelta (0,0)` · `m_Pivot (.5,.5)` ·
+        //         `m_LocalScale (1,1,1)` ⇒ 与 cell 根同矩形、恒等缩放）。
+        //       · 它的父 = cell 根 `Collection Card`（350×512，`m_Children` **只有 `Content` 一个**），
+        //         孩子 = **`Counter`（张数条）+ `CardUI`（卡体）** ⇒ **punch = 整格一起弹**（卡 + 张数条）。
+        //   ⇒ 我们这棵树里对应的一级 = **每格的 `Content <i>` 容器**（`RebuildCardsCells` / `RebuildStyleCells`
+        //     每趟建一个）：卡体 `CollectionCard_*` 与张数条 `Counter *` 都挂在它下面；命中区 `CardHit_*`
+        //     与它**同级**（原版射线件在 `Content` 的上一层 `Collection Card` 上 ⇒ punch 时命中区不跟着动）。
+        //     ⛔ **别再打 `CardView` 自己的根**（A14 之前的写法）：那样张数条不弹、缩放中心也偏到卡心上，与原版差一格。
         /// <summary>选中 punch 的三个参数（原版 `.rdata` 直读；见上面那段判据）。</summary>
         public const float CardPunchSize = 0.05f, CardPunchTime = 0.1f, CardPunchElasticity = 1f;
         /// <summary>`DOPunchScale` 的 vibrato —— 原版调用里的立即数 **10**。</summary>
         public const int CardPunchVibrato = 10;
 
-        // ⚠️ 这三份是 **static**：punch 是「同一时刻只有被点的那一格在弹」的瞬时反馈，
+        // ⚠️ 这几份是 **static**：punch 是「同一时刻只有被点的那一格在弹」的瞬时反馈，
         //   而本窗全局只有一扇（同族先例：`LastCardDetail` 也是静态）⇒ 不需要按实例分家。
+        //   （`_cardPunchTarget` 只是给自检读的「打在哪一级」，不参与补间本身。）
         static DG.Tweening.Tween _cardPunch;
         static Vector3 _cardPunchBase;
         static int _cardPunchCount;
+        static Transform _cardPunchTarget;
         /// <summary>自检用：本进程一共发起过几次卡格 punch（批处理里补间不自己跑 ⇒ 连同「收尾复位」一起验）。</summary>
         public static int CardPunchCountForTest { get { return _cardPunchCount; } }
+        /// <summary>自检用：**上一次 punch 打在哪一级** —— 生产路径传的是每格的 `Content &lt;i&gt;` 容器
+        /// （原版 `CollectionCard.SelectedHighlight` 打 `<c>content</c>` 那一级，判据见上面那段）。
+        /// ⛔ 别让它返回 `CardView` 的根 —— 那是 A14 之前打岔的那一级（张数条不跟着弹）。
+        /// 判据 / 用法 → `Editor/CollectionScene.cs` 的「punch 作用节点」那三条断言。</summary>
+        public static Transform LastPunchTargetForTest { get { return _cardPunchTarget; } }
         /// <summary>自检用入口：对任意 transform 起一次 punch（与真实点击**同一个方法** —— ⛔ 别另写一份）。
         /// 用法见 `Editor/CollectionScene.cs` 的「选中 punch」那一段（自带 `CardTween.Mode = Manual` + `Advance`）。</summary>
         public static void PunchCardForTest(Transform t) { PunchCardCell(t); }
@@ -4625,13 +4936,15 @@ namespace CardPresentation
         {
             if (t == null) return;
             _cardPunchCount++;
+            _cardPunchTarget = t;          // 自检读数：打的是哪一级（应为每格 `Content <i>`，⛔ 不是 `CardView` 根）
             // 连点同一格：先把上一条杀掉 —— `OnKill` 会**先把缩放还原**，所以下面取到的 `base` 已经是干净的。
             if (_cardPunch != null && _cardPunch.IsActive()) _cardPunch.Kill();
             _cardPunchBase = t.localScale;
             var tw = DG.Tweening.ShortcutExtensions.DOPunchScale(
                          t, Vector3.one * -CardPunchSize, CardPunchTime, CardPunchVibrato, CardPunchElasticity);
-            // ⚠️ punch 走完 / 被打断**都必须显式复位**：`CardView.ApplyScale` 只在 `SetHighlightScale` 那一拍写
-            //   `localScale`，批处理里没人替它收尾 ⇒ 不复位就会留一个非 1 的缩放（静默、且只在缩放过的那一格看得见）。
+            // ⚠️ punch 走完 / 被打断**都必须显式复位**：目标现在是每格的 `Content <i>` 容器（恒等缩放 1，
+            //   没有任何别的代码会去写它）⇒ 不复位就会**永久**留一个非 1 的缩放；而批处理下没有帧循环，
+            //   `OnComplete` 不一定跑得到 ⇒ 两处都挂（`OnKill` 那一条正是「连点同一格」时的收尾）。
             tw.OnComplete(() => { if (t != null) t.localScale = _cardPunchBase; });
             tw.OnKill(() => { if (t != null) t.localScale = _cardPunchBase; });
             _cardPunch = CardTween.Use(tw, DG.Tweening.Ease.Linear, t);

@@ -1563,6 +1563,199 @@ def ability_targets_of(cid, name, trow, report):
 
 
 # ==========================================================================================
+#  🆕 2026-10-24（引擎线 `A12` · 第 3 件）：`AbilityLogic.furtherMultiplier(+0x38)`
+#    → 逐卡 `abilityMultipliers` 列
+# ==========================================================================================
+# 判据（第一权威 = 全量反编译 `AbilityLogic__PlayAbility.c:181-236`，逐行读过）：
+#   · `lVar13 = AbilityLogic.GetTargets(bm, multiplier /*+0x30*/, card, 1, 0)`；随后
+#       `multiplier.targetsAffected == 0 (any)`  ⇒ `local_178 = 1`
+#       `… ∈ {210, 220}`                        ⇒ 逐个目标累加 trait 值
+#       `其余`                                   ⇒ `local_178 = 目标个数`
+#   · `:235-236`  `if (0 < *(int *)(param_1 + 0x38)) local_178 = local_178 * *(int *)(param_1 + 0x38);`
+#     ⇒ **`furtherMultiplier > 0` 才乘**；`0` = 原版**明确不乘**（`0` 是合法取值，⛔ 不是「缺」）。
+#   · 之后 `local_178` 就是这条 logic 的**次数 / 倍数**：
+#       召唤族 `do { … } while (iVar8 < local_178)`（`:729` 起 · `0x46/0x47/0x48/0x4b/0x4d`）·
+#       伤害族 `*(int*)(lVar13 + 0x10) = local_178 * damageCriteria.damage`（`:708`）·
+#       `AbilityLogic.AdjustCardEffect(…, local_178, …)` 那一族（`:839` / `:918` / `:1188` …）。
+#
+# 形状：`[{"trigger": int, "fm": [int per abilityLogic]}]`，**按 `cardAbilities` 顺序**
+#   （与 `abilityTargets` 同形、同一套下标语义）。
+#   `fm[j]` = `cardAbilities[i].abilityLogic[j].furtherMultiplier`；
+#   **缺键/非整数/负数落 `-1`**（⛔ 不是 0 —— `0` 是「原版明确不乘」）。
+# 🔴 **每张卡都落**（没有 ability 的卡落 `[]`）——「缺列」与「空数组」必须分得开。
+# ⚠️ **本列只落数据**：消费端 `EffectText.AssignAbilityTargets` 用**同一道两道闸门**
+#   把它挂到 op 上（`EffectOp.AbilityFurtherMultiplier`）；挂不上 = 未知 ⇒ 结算层不乘。
+ABILITY_MULTIPLIERS_REPORT = {"cards": 0, "abilities": 0, "logics": 0, "no_truth": 0, "bad": []}
+
+
+def ability_multipliers_of(cid, name, trow, report):
+    """一张卡 → `[{"trigger":…, "fm":[…]}]`（**按 `cardAbilities` 顺序**；没 ability = `[]`）。
+
+    真值快照里没有这张卡 ⇒ `None`（调用方**不落列** = 未知）。
+    `furtherMultiplier` 缺键/非整数/负数 ⇒ 该格落 `-1` 并出声（⛔ 不猜成 `0` = 「不乘」）。
+    """
+    if trow is None:
+        report["no_truth"] += 1
+        return None
+    out = []
+    for i, ab in enumerate(trow.get("cardAbilities") or []):
+        tg = ab.get("trigger")
+        if isinstance(tg, bool) or not isinstance(tg, int):
+            # trigger 只作可读性（消费端按**下标**对齐）⇒ 坏值落 -1，⛔ 不因此丢掉整条 ability。
+            report["bad"].append((cid, name, i, "trigger", tg))
+            tg = -1
+        fm = []
+        for j, lg in enumerate(ab.get("abilityLogic") or []):
+            v = lg.get("furtherMultiplier")
+            if isinstance(v, bool) or not isinstance(v, int) or v < 0:
+                report["bad"].append((cid, name, i, f"lg{j}.furtherMultiplier", v))
+                v = -1
+            fm.append(v)
+        out.append({"trigger": tg, "fm": fm})
+        report["abilities"] += 1
+        report["logics"] += len(fm)
+    report["cards"] += 1
+    return out
+
+
+# ==========================================================================================
+#  🆕 2026-10-24（引擎线 `A20` · 第三批 ①/②）：主动能力的**分支闸 / 装填位 / 任务位**
+# ==========================================================================================
+# 判据（第一权威 = 全量反编译 `d:/2/tools/decomp_full/`，逐句读过；来源 `资料/普查产出_1023e/`）：
+#   · **280 `siege`** ← `CardScript__DoesAbilityRequireLoading.c`：
+#       `:13` `hasActiveAbility(+0x220)` 为假 ⇒ **假**；
+#       `:35` 遍历 `activeEffects(+0x108)`，任一 `HasRemovedTrait(0x1ea = 490 reload)` ⇒ **假**；
+#       `:24-31` `GetActiveAbilityCard → RawCardScript.GetActiveAbility` → 取那个 `ActiveAbility`
+#       对象内部的 **`+0x22 needsLoading`**（`dump.cs:23758`）。⚠️ 那个 `+0x22` **不是** `CardScript`
+#       的偏移（`CardScript` 的 `+0x22` 落在 0x220 那批 `k__BackingField` 里，见 `dump.cs:35444-35449`）。
+#   · **320 `hasQuestCompleted`** ← `FilterMethods__MeetsConditionCriteria.c:227-248`：
+#       `!HasCurrentTrait(130 jam)` ∧ `rawData._quest(+0x240)` ∧ `HasQuests(entity) <= 0`。
+#       另一条同源链（不在这条条件里）：`EntityScript__ReachedQuestCounter.c:5-14` 对
+#       `cardType == 40 ∧ spellType == 120 ∧ questTimes > 1` 的卡累计 `questCounter(+0x270)`。
+#   · **分支闸** ← `RawCardScript__GetActiveAbility.c`（全文 17 行）：
+#       `hasAlternativeAbility(+0x2AA)` 为真 **且** `BoardAnalysis.MeetsCriteria(+0x2B0 …)` 为**假**
+#       ⇒ 返回 `alternativeAbility(+0x2B8)`；否则返回 `activeAbility(+0x260)`。
+#       🔴 **方向别搞反**：满足 criteria 走【普通】支，不满足才走【替代】。
+#       `MeetsCriteria` 逐句 → `BoardAnalysis__MeetsCriteria.c`（criteria/countCriteria 为空 ⇒ 真；
+#       `playerTurn` 10 Self / 20 Enemy 是**整条闸**；`triggerIf == 8 RandomChance` 走随机；
+#       `countCriteria.targetsAffected == 0(any)` ⇒ 真；否则数个数再按 `triggerIf` 比）。
+#   · 数据侧（`资料/普查产出_1018/allcards_1350/cards_raw.json` 的 `cards[*].full_raw`，1,351 张：
+#       `hasActiveAbility` 88 张 = 1 · `hasAlternativeAbility` **1 张**（`SW21`）·
+#       `activeAbility.needsLoading` / `alternativeAbility.needsLoading` / `_quest` / `questTimes`
+#       **全是 0** ⇒ 今天这两条条件都恒假（**数据事实，不是「判不了」**）；
+#       `normalAbilityBoardCriteria` 只有 **2 张**不是默认值（`SW9` / `SW21`）。
+#
+# 🔴 **落值口径**：只落**非默认**的键（`0` 是合法取值「假/不加」）——
+#    · `hasActiveAbility` / `hasAlternativeAbility`：`1` 才落；`-1`（真值里没这张卡）也落。
+#    · `activeNeedsLoading` / `alternativeNeedsLoading` / `quest` / `questTimes`：非 0 才落（`-1` 也落）。
+#    · `normalAbilityBoardCriteria`：只有**不是默认**时才落。默认 = `playerTurn / countOptions /
+#      referenceValue` 全 0 **且** `countCriteria` 每个字段都是 0 —— 那一档 `MeetsCriteria` **恒真**
+#      （`targetsAffected = any`），落不落行为一样。
+#      ⛔ **缺席 ≠ 判不了**：缺席 = 原版给了恒真的默认 criteria；判不了只可能出现在坏值上（见 `bad`）。
+#    ⇒ 今天真正落地的只有 88 张 `hasActiveAbility: 1` ＋ `SW21` 的三个键 ＋ `SW9` 的一条 criteria。
+ABILITY_GATE_REPORT = {
+    "cards": 0, "no_truth": 0, "has_active": 0, "alt": 0, "needs_loading": 0,
+    "quest": 0, "criteria": 0, "bad": [],
+    # `count_set_of` 要的三个键（与 `unit_conditions_report` 同形，⛔ 别改名）
+    "set_bad": [], "set_unresolved": [], "set_rows": 0,
+}
+
+# 「默认 criteria」只看这三格（`triggerIf` 的默认是 `1 EqualTo`，全库恒等，⛔ 别把它算进「非默认」）。
+_GATE_TOP_FIELDS = ("playerTurn", "countOptions", "referenceValue")
+
+
+def _gate_int(row, key):
+    """真值行的整数列 → `int`；`bool` 折成 0/1；**缺键/非整数 → `None`**（⛔ 不拿 0 顶）。"""
+    v = (row or {}).get(key)
+    if isinstance(v, bool):
+        return 1 if v else 0
+    if isinstance(v, int):
+        return v
+    return None
+
+
+def _gate_nonzero(v):
+    """`MeetsCriteria` 眼里的「这一格不是默认值」。`bool` 先折成 0/1。"""
+    if isinstance(v, bool):
+        return v
+    if isinstance(v, list):
+        return len(v) > 0
+    return v not in (None, 0)
+
+
+def board_gate_of(cid, name, nab, truth_by_path, report):
+    """`full_raw.normalAbilityBoardCriteria` → 引擎可判的 `{countOptions, triggerIf, referenceValue, countSet}`。
+
+    **默认 criteria 返回 `None`**（= 不落列；那一档 `MeetsCriteria` 恒真，见上面「落值口径」）。
+    形状与 `cards_engine.json` 的 `countSet` 列**逐字同形**（复用 `count_set_of`，⛔ 别另写一份字段表）。
+    """
+    if not isinstance(nab, dict):
+        report["bad"].append((cid, name, "normalAbilityBoardCriteria", nab))
+        return None
+    cc = nab.get("countCriteria")
+    if not isinstance(cc, dict):
+        report["bad"].append((cid, name, "normalAbilityBoardCriteria.countCriteria", cc))
+        return None
+    if not any(_gate_nonzero(v) for v in cc.values()) \
+       and not any(_gate_nonzero(nab.get(k)) for k in _GATE_TOP_FIELDS):
+        return None                      # 默认 criteria ⇒ `MeetsCriteria` 恒真 ⇒ 不落
+    report["criteria"] += 1
+    out = {}
+    for k in _GATE_TOP_FIELDS + ("triggerIf",):
+        v = _gate_int(nab, k)
+        if v is None:
+            report["bad"].append((cid, name, f"normalAbilityBoardCriteria.{k}", nab.get(k)))
+            v = -1
+        out[k] = v
+    # `playerTurn` 由 `count_set_of` 一并收（它就在 `BoardCriteria` 上、与 `count` 行同源）。
+    out["countSet"] = count_set_of(cid, name, cc, nab, truth_by_path, report)
+    return out
+
+
+def ability_gate_of(cid, name, trow, truth_by_path, report):
+    """一张卡 → 只含**非默认**键的 dict（`hasActiveAbility` / `*NeedsLoading` / `quest` /
+    `questTimes` / `normalAbilityBoardCriteria`）。真值里没有这张卡 ⇒ `{}`（且 `no_truth` 计数）。"""
+    if trow is None:
+        report["no_truth"] += 1
+        return {}
+    out = {}
+    for col, key, bump in (("hasActiveAbility", "hasActiveAbility", "has_active"),
+                           ("hasAlternativeAbility", "hasAlternativeAbility", "alt")):
+        v = _gate_int(trow, key)
+        if v is None:
+            report["bad"].append((cid, name, key, trow.get(key)))
+            v = -1
+        if v != 0:
+            out[col] = v
+            if bump:
+                report[bump] += 1
+    for col, src in (("activeNeedsLoading", "activeAbility"),
+                     ("alternativeNeedsLoading", "alternativeAbility")):
+        ab = trow.get(src)
+        v = _gate_int(ab, "needsLoading") if isinstance(ab, dict) else None
+        if v is None:
+            report["bad"].append((cid, name, f"{src}.needsLoading", (ab or {}).get("needsLoading")
+                                  if isinstance(ab, dict) else ab))
+            v = -1
+        if v != 0:
+            out[col] = v
+            report["needs_loading"] += 1
+    for col, key in (("quest", "_quest"), ("questTimes", "questTimes")):
+        v = _gate_int(trow, key)
+        if v is None:
+            report["bad"].append((cid, name, key, trow.get(key)))
+            v = -1
+        if v != 0:
+            out[col] = v
+            report["quest"] += 1
+    gate = board_gate_of(cid, name, trow.get("normalAbilityBoardCriteria"), truth_by_path, report)
+    if gate is not None:
+        out["normalAbilityBoardCriteria"] = gate
+    report["cards"] += 1
+    return out
+
+
+# ==========================================================================================
 #  🆕 2026-10-22（引擎线 `W64` · 战斗审计 `B-16` 根因条）：原版**结构化条件** `conditionsFilter`
 #    → 逐卡 `unitConditions` 列（B-05 `foreach` / B-06 `istype` 的数据侧同源）
 # ==========================================================================================
@@ -1664,8 +1857,18 @@ COUNT_SET_REF_FIELDS = ("filterSpecificCards", "excludeEnchantments")
 PLAYERS_AFFECTED_VALUES = (0, 10, 20)
 
 
-def count_set_of(cid, name, cr, board, truth_by_path, report):
-    """`count` 行的「被数集合」→ `{"playerTurn":…, "targetsAffected":…, …, "filterSpecificCards":[…]}`。
+def criteria_set_of(cid, name, cr, player_turn, truth_by_path, report, label="",
+                    has_player_turn=True):
+    """一条 `TargetCriteria` → `{"playerTurn":…, "targetsAffected":…, …, "filterSpecificCards":[…]}`。
+
+    🆕 2026-10-24（`新账-95` #2 的 `mult`/`multi`/`avail`/`choice` 四格）：本函数从原来的
+    `count_set_of`（只服务 `BoardCriteria.countCriteria`）**上提一级**，四个 role 的 criteria
+    与 `count` 的「被数集合」用的是**同一套 36 格**（原版都是 `TargetCriteria`）——
+    ⛔ 别为每个 role 各写一份字段表（那就是四份判据，迟早不一致）。
+
+    · `player_turn`：**只有 `BoardCriteria` 有这一格**（`countSet` / `normalAbilityBoardCriteria`）；
+      其余四格传 `has_player_turn=False` ⇒ 落 `-1` **且不报 set_bad**（那不是坏数据，是结构上没有）；
+    · `label`：进 `report["set_bad"]` 的字段名前缀（`""` = 沿用 `countSet` 的老文案）。
 
     键的**插入顺序固定**（`playerTurn` → 16 个整数字段 → 18 个布尔字段 → 两个引用列表）
     —— 字节稳定靠它（两次 `--write` 必须逐字节相同）。
@@ -1673,8 +1876,10 @@ def count_set_of(cid, name, cr, board, truth_by_path, report):
     """
     out = {}
 
-    pv = board.get("playerTurn") if isinstance(board, dict) else None
-    if isinstance(pv, bool) or not isinstance(pv, int) or pv not in PLAYERS_AFFECTED_VALUES:
+    pv = player_turn
+    if not has_player_turn:
+        pv = -1                            # 结构上就没有这一格 ⇒ 明确的「不适用」，⛔ 不进 set_bad
+    elif isinstance(pv, bool) or not isinstance(pv, int) or pv not in PLAYERS_AFFECTED_VALUES:
         report["set_bad"].append((cid, name, "playerTurn", pv,
                                   "不在 PlayersAffected（0 Both / 10 Self / 20 Enemy）"))
         pv = -1
@@ -1683,7 +1888,7 @@ def count_set_of(cid, name, cr, board, truth_by_path, report):
     for f in COUNT_SET_INT_FIELDS:
         v = cr.get(f)
         if isinstance(v, bool) or not isinstance(v, int):
-            report["set_bad"].append((cid, name, f, v, "不是整数"))
+            report["set_bad"].append((cid, name, label + f, v, "不是整数"))
             v = -1
         out[f] = v
 
@@ -1692,14 +1897,14 @@ def count_set_of(cid, name, cr, board, truth_by_path, report):
         if isinstance(v, bool):
             v = 1 if v else 0
         elif not (isinstance(v, int) and v in (0, 1)):
-            report["set_bad"].append((cid, name, f, v, "布尔字段不是 0/1/bool"))
+            report["set_bad"].append((cid, name, label + f, v, "布尔字段不是 0/1/bool"))
             v = -1
         out[f] = v
 
     for f in COUNT_SET_REF_FIELDS:
         lst = cr.get(f)
         if not isinstance(lst, list):
-            report["set_bad"].append((cid, name, f, lst, "不是数组"))
+            report["set_bad"].append((cid, name, label + f, lst, "不是数组"))
             out[f] = None
             continue
         ids = []
@@ -1707,13 +1912,27 @@ def count_set_of(cid, name, cr, board, truth_by_path, report):
             pid = ref.get("m_PathID") if isinstance(ref, dict) else None
             uid = truth_by_path.get(pid)
             if uid is None:
-                report["set_unresolved"].append((cid, name, f, pid))
+                report["set_unresolved"].append((cid, name, label + f, pid))
             else:
                 ids.append(uid)
         out[f] = ids
 
-    report["set_rows"] += 1
+    # ⚠️ `set_rows` 的口径 = **`countSet` 行数**（摘要行就印这个）⇒ 四格 role 的 criteria 由
+    #   调用方用 `report["role_set"]` 自己计数，⛔ 别并进这一格（否则摘要会多报 10 条）。
+    if has_player_turn:
+        report["set_rows"] += 1
     return out
+
+
+def count_set_of(cid, name, cr, board, truth_by_path, report):
+    """`count` 行的「被数集合」（`BoardCriteria.countCriteria` ＋ `BoardCriteria.playerTurn`）。
+
+    🆕 2026-10-24：实体已上提到 <see cref="criteria_set_of"/>（四个 role 共用同一套 36 格），
+    本函数只保留「从 `board` 取 `playerTurn`」这一层 —— ⛔ 别再往这里加第二份字段循环。
+    """
+    return criteria_set_of(cid, name, cr,
+                           board.get("playerTurn") if isinstance(board, dict) else None,
+                           truth_by_path, report)
 
 
 def condition_rows_of(cid, name, trow, cond_names, report, truth_by_path):
@@ -1765,6 +1984,30 @@ def condition_rows_of(cid, name, trow, cond_names, report, truth_by_path):
             # 🆕 v16：被数集合（`countCriteria` 那 36 格 + `BoardCriteria.playerTurn`）。
             row["countSet"] = count_set_of(cid, name, cr, board if isinstance(board, dict) else {},
                                            truth_by_path, report)
+        elif role in ("mult", "multi", "avail", "choice"):
+            # 🆕 v22（2026-10-24 · 引擎线 `新账-95` #2）：这四格也把**整条 criteria** 落下来。
+            #
+            # 为什么必须落：`cond` 只回答「条件是什么」，**回答不了「数谁 / 候选池是谁」** ——
+            #   · `mult`    = `abilityLogic[].multiplier`（`AbilityLogic__PlayAbility.c:181-236`：
+            #                 `GetTargets(multiplier)` 的**个数** = `local_178`，`any(0)` ⇒ 1，
+            #                 `210/220` ⇒ 累加 `traitsFilter` 的值；再乘 `furtherMultiplier`）；
+            #   · `multi`   = `CardAbility.multiCountCriteria`（`+0x40`）——
+            #                 `RawCardScript__TriggerAbilities.c:230-250`：`targetsAffected != 0` 时
+            #                 **整条 ability 触发 N 遍**（`N` = `GetTargets` 的个数），`0` ⇒ 只触发一次；
+            #   · `avail`   = `RawCardScript.targetsAvailableCounter`（`+0x298`）—— 原版**只给 UI 数**：
+            #                 `BattleCardUI__ShowAvailableTargets.c:42` → `CardScript.GetTargetsAvailable`；
+            #   · `choice`  = `RawCardScript.choicesDefinition`（`+0x2A0`）——
+            #                 `BattleManager__GetChoiceFullPool.c:28-35` 的选牌候选池。
+            # 四格都是**一个完整的 `TargetCriteria`** ⇒ 与 `countSet` 用同一套 36 格
+            # （`criteria_set_of`，⛔ 别各写一份字段表）。它们**没有 `BoardCriteria.playerTurn`**
+            # ⇒ `has_player_turn=False`（落 `-1`，且**不算坏值**）。
+            _label = {"mult": "multiplierSet.", "multi": "multiSet.",
+                      "avail": "availSet.", "choice": "choiceSet."}[role]
+            _key = {"mult": "multiplierSet", "multi": "multiSet",
+                    "avail": "availSet", "choice": "choiceSet"}[role]
+            row[_key] = criteria_set_of(cid, name, cr, None, truth_by_path, report,
+                                        label=_label, has_player_turn=False)
+            report["role_set"][role] = report["role_set"].get(role, 0) + 1
         rows.append(row)
 
     def scan_ability(ab, obj):
@@ -2860,7 +3103,10 @@ def build():
     unit_conditions_report = {"cards": 0, "rows": 0, "no_truth": 0, "bad": [],
                               "by_cond": {}, "by_role": {},
                               # 🆕 v16（`B-16` 缺口）：`count` 行的「被数集合」
-                              "set_rows": 0, "set_bad": [], "set_unresolved": []}
+                              "set_rows": 0, "set_bad": [], "set_unresolved": [],
+                              # 🆕 v22（2026-10-24 · `新账-95` #2）：`mult`/`multi`/`avail`/`choice`
+                              #   四格各自落了整条 criteria 的**行数**（分布读数；键 = role）。
+                              "role_set": {}}
     # 🆕 2026-10-22：`UnitConditions` 枚举名（`name` 字段的唯一来源；读不到就一条都不落）
     unit_cond_names = load_unit_conditions_names()
     if not unit_cond_names:
@@ -3397,6 +3643,15 @@ def build():
         _atgt = ability_targets_of(cid, name, trow, ABILITY_TARGETS_REPORT)
         if _atgt is not None:
             entry["abilityTargets"] = _atgt
+        # ---- 🆕 2026-10-24（引擎线 `A12`）：`abilityLogic[].furtherMultiplier` ----------------------
+        # 判据 / 形状 / 「缺键 ≠ 0」→ `ability_multipliers_of` 上面那段。**每张卡都落**。
+        _amul = ability_multipliers_of(cid, name, trow, ABILITY_MULTIPLIERS_REPORT)
+        if _amul is not None:
+            entry["abilityMultipliers"] = _amul
+        # ---- 🆕 2026-10-24（引擎线 `A20` · 第三批 ①/②）：主动能力分支闸 / 装填位 / 任务位 ----------
+        # 判据 / 落值口径 / 「缺席 = 恒真的默认 criteria」→ `ability_gate_of` 上面那一段。
+        for _gk, _gv in ability_gate_of(cid, name, trow, truth_by_path, ABILITY_GATE_REPORT).items():
+            entry[_gk] = _gv
         # ---- 🆕 2026-10-21（引擎线 `T03·b`）：开局加成三列 --------------------------------------
         # 判据 / 为什么「只在非 0 时落列」→ `INITIAL_MODIFIER_COLS` 上面那一段。
         for _col in INITIAL_MODIFIER_COLS:
@@ -3863,7 +4118,7 @@ def build():
     talent_name_ids = build_talent_name_ids(truth_cards, truth_by_path, cards, talent_name_report)
 
     return {
-        "version": 19,         # v6: 每张卡带稳定 id（🔴 2026-10-18 `W25` 起按原版 `uniqueId` 直取，
+        "version": 22,         # v6: 每张卡带稳定 id（🔴 2026-10-18 `W25` 起按原版 `uniqueId` 直取，
                                #    名级联降为交叉校验；自造 = 生成期自检硬失败）
                                # v7（2026-10-14 `A1798`）：加 `inventoryOptions` / `showInCollectionOptions` 两列
                                # v8（2026-10-14 `A1775`）：加 `initiative` 一列（先后手；原版真值）
@@ -3959,6 +4214,46 @@ def build():
                                #       250 `hasQuests` 读的 `EntityScript__HasSecretOrders.c:31`）。
                                #    🔴 本列**只落数据、零行为变化**：当前快照 `spellType == 60 / 120` 的卡 **0 张**
                                #    （分布见 `main()` 的摘要）⇒ 那两条条件**照旧返回 null（判不了）**。
+                               #    ⚠️ 加列【必须】bump（`CardDatabase.cs` 的 version 守卫靠它出声）。
+                               # v20（2026-10-24 · 引擎线 `A12` · 第 3 件）：
+                               #    加逐卡 **`abilityMultipliers`**（原版 `AbilityLogic.furtherMultiplier`，
+                               #    `+0x38`；`PlayAbility.c:235-236` 的 `local_178 *= furtherMultiplier`）。
+                               #    形状与 `abilityTargets` 同形（按 `cardAbilities` / `abilityLogic` 下标）；
+                               #    **缺键 = `-1` 未知**，`0` = 原版明确「不乘」。
+                               #    🔴 该列**有消费端**（`EffectText.AssignAbilityTargets` →
+                               #    `EffectOp.AbilityFurtherMultiplier` → `EffectResolver` 的次数那一格），
+                               #    不是死列。现读：>1 的卡 27 张（31 个 logic）。
+                               #    ⚠️ 加列【必须】bump（`CardDatabase.cs` 的 version 守卫靠它出声）。
+                               # v21（2026-10-24 · 引擎线 `A20` · 第三批 ①/②）：
+                               #    加**主动能力分支闸 / 装填位 / 任务位**六列 ——
+                               #    `hasActiveAbility`（`+0x220` 由卡数据 `+0x2A9` 灌）·
+                               #    `activeNeedsLoading` / `alternativeNeedsLoading`（`ActiveAbility.needsLoading`
+                               #    `+0x22`）· `hasAlternativeAbility`（`+0x2AA`）·
+                               #    `quest`（`RawCardScript._quest` `+0x240`）· `questTimes`（`+0x7C`）·
+                               #    `normalAbilityBoardCriteria`（`BoardCriteria`：`playerTurn` /
+                               #    `countOptions` / `triggerIf` / `referenceValue` / `countSet`）。
+                               #    判据 → 本文件 `ABILITY_GATE_REPORT` 上面那一段；
+                               #    消费端 = `ConditionEval` 的 280 / 320 ＋ `CardDef.UsesAlternativeAbility`。
+                               #    🔴 **只落非默认值**（`0` 是合法取值「假」），缺席 = 0/false；
+                               #    `-1` = 真值里查不到这张卡（未知，⛔ 不是 0）。
+                               #    ⚠️ 加列【必须】bump（`CardDatabase.cs` 的 version 守卫靠它出声）。
+                               # v22（2026-10-24 · 引擎线 `新账-95` #2 的残余 8 个 role）：
+                               #    `unitConditions` 的 **`mult` / `multi` / `avail` / `choice` 四行
+                               #    各加一个「整条 criteria」对象** —— 键名 `multiplierSet` / `multiSet` /
+                               #    `availSet` / `choiceSet`，**36 格与 `countSet` 同形**
+                               #    （同一个 `criteria_set_of`，⛔ 别各写一份字段表）。
+                               #    原版位置与判据：
+                               #      · `mult`   = `abilityLogic[].multiplier`（`AbilityLogic__PlayAbility.c:181-236`）；
+                               #      · `multi`  = `CardAbility.multiCountCriteria`(`+0x40`) ——
+                               #                   `RawCardScript__TriggerAbilities.c:230-250`；
+                               #      · `avail`  = `RawCardScript.targetsAvailableCounter`(`+0x298`) ——
+                               #                   `BattleCardUI__ShowAvailableTargets.c:42`（**只服务 UI**）；
+                               #      · `choice` = `RawCardScript.choicesDefinition`(`+0x2A0`) ——
+                               #                   `BattleManager__GetChoiceFullPool.c:28-35`。
+                               #    🔴 `playerTurn` **结构上不适用**这四格 ⇒ 落 `-1`、**不进 `set_bad`**
+                               #    （与 `countSet` 的「坏值 `-1`」分开，⛔ 别混）。
+                               #    消费端 = `CardDef.ConditionSpec.{MultiplierSet,MultiSet,AvailSet,ChoiceSet}`
+                               #    → `CountEval` / `EffectResolver`（`mult`）/ 自检（另三格）。
                                #    ⚠️ 加列【必须】bump（`CardDatabase.cs` 的 version 守卫靠它出声）。
         "source": "Unity/数据/游戏数据/card_stats.json（稀有度另取 资料/卡牌数据表/卡牌宝石稀有度_0824.md；"
                   "英文名 / 中文名都以**原版官方表** 数据/游戏数据/官方本地化_en+zh-CN.json 的 `Card_Name/*` 为准"
@@ -4891,6 +5186,14 @@ def main():
     for _cid, _nm, _f, _pid in _ucr["set_unresolved"]:
         print(f"  ⚠️ 被数集合引用解不出：{_cid} {_nm} · `{_f}` 的 `m_PathID`={_pid!r}"
               " ⇒ **不落那一条**（⛔ 不拿 path_id 当 id）")
+    # 🆕 v22（2026-10-24 · 引擎线 `新账-95` #2）：`mult` / `multi` / `avail` / `choice`
+    #   四格的「整条 criteria」覆盖读数（键 = role；每条计数 = 落下来的行数）。
+    _rs = _ucr.get("role_set") or {}
+    if _rs:
+        print("             " + " · ".join(f"{_r}:{_rs[_r]}" for _r in ("mult", "multi", "avail", "choice")
+                                          if _rs.get(_r))
+              + " 行的 `multiplierSet` / `multiSet` / `availSet` / `choiceSet` 已落整条 criteria"
+              "（36 格；`playerTurn` 结构上不适用 ⇒ -1）")
 
     # 🆕 2026-10-23（引擎线 · `B-16` 残余 241/242）：`abilityTriggers` 覆盖读数。
     #   判据 → `ability_triggers_of` 上面那段（`HasAbilityType.c:16-38` 只看 trigger、不看 logic 空不空）。
@@ -4925,6 +5228,28 @@ def main():
         print(f"  🔴 `targetsAffected` 非整数：{_cid} {_nm} 第 {_i} 条 ability 的 `{_f}` → {_v!r}"
               " ⇒ 该格落 **-1**（⛔ 不猜成 0 = `any`）")
 
+    # 🆕 2026-10-24（引擎线 `A12`）：`abilityMultipliers` 覆盖读数。
+    _amr = ABILITY_MULTIPLIERS_REPORT
+    _fm_cnt = {}
+    _fm_gt1_cards = set()
+    for _c in doc["cards"]:
+        for _ab in (_c.get("abilityMultipliers") or []):
+            for _v in (_ab.get("fm") or []):
+                _fm_cnt[_v] = _fm_cnt.get(_v, 0) + 1
+                if _v > 1:
+                    _fm_gt1_cards.add(_c.get("id"))
+    _fm_top = " · ".join(f"{_v}:{_n}" for _v, _n in sorted(_fm_cnt.items(), key=lambda kv: -kv[1])[:8])
+    print(f"倍数         `abilityMultipliers` 落值 **{_amr['cards']}/{doc['count']}** 张 · "
+          f"{_amr['abilities']} 条 ability · {_amr['logics']} 个 logic 的 `furtherMultiplier`"
+          f"（原版 `AbilityLogic.furtherMultiplier`；0 = 不乘、-1 = 缺键）")
+    print(f"             按取值（条数）：{_fm_top or '（无）'} · **>1 的卡 {len(_fm_gt1_cards)} 张**"
+          f"（这些会被乘 ⇒ 消费端必须接）")
+    if _amr["no_truth"]:
+        print(f"  ⚠️ 真值快照里没有的卡 {_amr['no_truth']} 张 —— **不落列**（未知，⛔ 不是空表）")
+    for _cid, _nm, _i, _f, _v in _amr["bad"]:
+        print(f"  🔴 `furtherMultiplier` 坏值：{_cid} {_nm} 第 {_i} 条 ability 的 `{_f}` → {_v!r}"
+              " ⇒ 该格落 **-1**（⛔ 不猜成 0 = 不乘）")
+
     # 🆕 2026-10-23（v19 · 引擎线 `新账-97` ③/⑤）：`spellType` 列的读数。
     #   🔴 消费端要的两档是 **60 SecretOrder** 与 **120 Quest**（附魔层那两条条件）——
     #   它们**不在当前快照里**的话必须当面说清（那样 240/250 只能继续返回 null）。
@@ -4944,6 +5269,21 @@ def main():
         if _st_cnt.get(_need, 0) == 0:
             print(f"  ⚠️ `spellType == {_need}`（{_nm}）**池内 0 张** ⇒ `UnitConditions` 的 "
                   f"{240 if _need == 60 else 250} 仍判不了（`ConditionEval` 返回 null，⛔ 不拿 false 顶）")
+
+    # 🆕 2026-10-24（v21 · 引擎线 `A20` · 第三批 ①/②）：主动能力分支闸 / 装填位 / 任务位的读数。
+    #   🔴 六列全是「只在非默认时才落」⇒ 这条摘要就是「今天有没有卡走到」的唯一凭据：
+    #      这几个数**恒为 0 不是 bug**（`needsLoading` / `_quest` / `questTimes` 真值全 0）。
+    _agr = ABILITY_GATE_REPORT
+    print(f"能力闸       `hasActiveAbility=1` **{_agr['has_active']}** 张 · "
+          f"`hasAlternativeAbility=1` **{_agr['alt']}** 张 · "
+          f"`needsLoading` 非 0 {_agr['needs_loading']} 处 · "
+          f"`quest`/`questTimes` 非 0 {_agr['quest']} 处")
+    print(f"             非默认 `normalAbilityBoardCriteria` **{_agr['criteria']}** 张"
+          "（原版 `BoardAnalysis.MeetsCriteria`；缺席 = `targetsAffected = any` 的恒真默认值）")
+    if _agr["no_truth"]:
+        print(f"  ⚠️ 真值快照里没有的卡 {_agr['no_truth']} 张 —— 六列**都不落**（未知，⛔ 不是 0）")
+    for _bad in _agr["bad"]:
+        print(f"  🔴 能力闸坏值：{_bad}")
 
     # 🆕 2026-10-21（引擎线 `T03·b`）：开局加成三列 + `skipCardDraw` 生产列的读数。    #   三列/一列都**只在有值时才落** ⇒ 这条摘要就是「今天有没有卡走到」的唯一凭据。
     _im = initial_modifier_report

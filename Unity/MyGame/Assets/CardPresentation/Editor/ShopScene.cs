@@ -1291,13 +1291,143 @@ public static class ShopScene
         var bar = FindChild(root, "Tab Buttons");
         CheckAt(bar, 167.17f, 332.17f, 70.94f, 1080f, "`Tab Buttons`（左栏，165 宽）");
         CheckAt(FindChild(bar, "Shadow"), 167.18f, 214.81f, 70.94f, 1080f, "`Tab Buttons/Shadow`（47.64 宽）");
-        CheckAt(FindChild(area, "Tabs"), 166.69f, 1920f, 69.20f, 1080f, "`Tabs`");
+        // 🔴 **2026-10-23（A13）就地收紧（铁律 5）**：本条**原来**期望 `166.69 / 1920 / 69.20 / 1080`
+        //    —— 那是**从 `MainMenuSubmenuWindow.TabL/TabT` 抄来的**（自证：那对常量不是 `Tabs` 的读数），
+        //    与我们实建（`Content Area` 那一组）差 `√(0.245² + 0.87²) ≈ 0.903 px`，
+        //    而 `CheckAt` 的容差是 0.01 世界单位 = **1.08 px** ⇒ **靠 0.18 px 的余量过关**（改任何一点就假红/假绿）。
+        //    原版读数（`python -I -X utf8 工具/menu_rect.py bundle_menus_assets_all "Shop Menu Variant" --depth 3`）：
+        //      `Tabs  167.17  70.94  1920.01  1080.00`（= **与 `Content Area` 同矩形**，1752.83 × 1009.06）。
+        //    ⚠️ 别把那对常量当「`Tabs` 的读数」：`TabL/TabT = 166.69/69.20` 量的是原版 **`Tabs/Missions Tab`**
+        //       （`menu_rect` 现读 `166.69 69.20 1920.00 1080.00`，奖励窗那一页），**不是**页签容器。
+        //    ⚠️ **`CheckAt` 的 1.08 px 容差挡不住这 0.903 px 的差** ⇒ 下面紧跟一条 **0.3 px** 的专用断言，
+        //       它才是「实建确实落在原版 `Tabs` 上、而不是 `TabL/TabT` 那一组」的判据（改坏法：`BuildShell` 的
+        //       `tabsRect` 换回 `TabL/TabT` ⇒ 下面那条红，差 0.90 px）。
+        CheckAt(FindChild(area, "Tabs"), 167.17f, 1920.01f, 70.94f, 1080f,
+                "`Tabs`（原版 `Shop Menu Variant` 现读 167.17,70.94 → 1920.01,1080.00 = **与 `Content Area` 同矩形**）");
+        var tabsN = FindChild(area, "Tabs");
+        if (tabsN != null)
+        {
+            // ⛔ 不比「我们的常量」：期望由**原版四个读数**算中心（`LayoutSpace.RectCenter` 是全工程唯一那份）。
+            var tabsWant = LayoutSpace.RectCenter(167.17f, 70.94f, 1920.01f, 1080f);
+            CheckNear(Vector3.Distance(tabsN.position, tabsWant) * 108f, 0f, 0.3f,
+                      "★ `Tabs` 中心与**原版读数**的差 ≤ 0.3 px（⛔ 不是 1.08 px 那一档 —— "
+                    + "`TabL/TabT` 那一组会在 0.90 px 处，本条就是用来分开这两个读数的）");
+        }
+
+        // ---------------- `Content Area/Shadow (1)`（🆕 2026-10-23 · A9 · 界面线第三批）----------------
+        //  判据 = **解包资源逐窗现读**（⛔ 不是我们的常量）：
+        //    `python -I -X utf8 工具/menu_rect.py bundle_menus_assets_all "<窗>" --depth 3`
+        //      ⇒ 四扇窗（`Shop Menu Variant` / `Rewards Base Submenu Variant` / `Social Submenu Variant` /
+        //        `Collection Menu Variant`）的 `Content Area/Shadow (1)` **一律 330.37,70.94 → 379.81,1080.00**
+        //        （**49.43 × 1009.06**，四扇**同一组数**）。
+        //    `python -I -X utf8 工具/menu_dump.py bundle_menus_assets_all "<窗>" --depth 2 --no-sprite`
+        //      ⇒ 那一行还给出 **`INACT`**（= `m_IsActive = 0`）· 组件 `Image,LayoutElement` ·
+        //        色 **`(0,0,0,0.475)`** · sprite **`40k_main_tab_shadow` 51×4 Simple**（与左栏那颗同一张图、同一个色）。
+        //  ⚠️ **它和 `Tab Buttons/Shadow`（47.64 宽、贴条左边）** 不是同一件：这一颗贴条**右边**、宽 49.43。
+        //  原版它**出厂关着** ⇒ 画面上与原版**逐像素无差**；但**必须建出来**（结构 / 名字 / 队列照原版留全）——
+        //  同族先例 = `Shell/ParentEventWindow.cs:668-671` + `Editor/MainMenuScene.cs:16364` 那条「建了、且关着」。
+        //  改坏法：① 删掉 `MainMenuSubmenuWindow.BuildShell` 末尾那三行 ⇒ 第 1 条红；
+        //          ② 去掉 `SetActive(false)` ⇒ 第 2 条红（⚠️ 它是**半透明压暗件**，开出来会把右边一片压黑）；
+        //          ③ 把 `Shadow1R` 抄成左栏那组数（167.17/214.81）⇒ 中心那条红；
+        //          ④ 把 tint 写成 `null`（= 不上色）⇒ 色那条红（`40k_main_tab_shadow` 本色是**纯白 + alpha 渐变**）。
+        Section("`Content Area/Shadow (1)`（原版四扇窗都有、**出厂 INACT**）");
+        {
+            var s1 = FindChild(area, "Shadow (1)");
+            CheckTrue(s1 != null,
+                      "★ `Content Area/Shadow (1)` **建出来了**（改前我们整件不建 ⇒ 原版有、我们没有）");
+            CheckTrue(s1 != null && !s1.gameObject.activeSelf,
+                      "★ …而且**出厂关着**（原版 `m_IsActive = 0`；同族口径见 `Shell/ParentEventWindow.cs:668-671`）");
+            CheckAt(s1, 330.374878f, 379.807739f, 70.94f, 1080f,
+                    "★ `Shadow (1)` 在 **[330.3749,70.94]–[379.8077,1080.00]**（原版 prefab 字段算："
+                  + "中心 = `(960+83.5899658203125) − 688.4986572265625`、宽 = `(1920−167.169921875) − 1703.397216796875`）");
+            var s1rt = s1 as RectTransform;
+            // 尺寸**逐值**：原版 `m_SizeDelta.x` 的等价量（`SetPxSize` 写的就是 `LayoutSpace.Px(宽)`）。
+            // 期望值 `49.432861` 由 prefab **两个序列化字段相减**得来（见 `MainMenuSubmenuWindow.Shadow1W` 的 doc），
+            // ⛔ 不是 `menu_dump` 印的 2 位小数 49.43（那样会把 0.003 px 的四舍五入当成判据）。
+            CheckNear(s1rt != null ? s1rt.rect.width : -1f,
+                      LayoutSpace.Px(MainMenuSubmenuWindow.Shadow1W), 0.001f,
+                      "★ `Shadow (1)` 宽 = **49.4329**（原版 `m_SizeDelta.x = −1703.397216796875`；"
+                    + "⛔ 与左栏那颗 `Tab Buttons/Shadow` 的 47.64 **不是同一件**）");
+            // ⚠️ 这一件**出厂关着** ⇒ 量它必须带 `true`（`RectOf` / `CheckRectPx` 那一路只找激活链上的块）。
+            var s1quads = s1 != null ? s1.GetComponentsInChildren<ImageQuad>(true) : new ImageQuad[0];
+            Check(s1quads.Length, 1, "★ `Shadow (1)` 底下**恰好 1 块** `ImageQuad`（原版只挂一个 `Image`）");
+            if (s1quads.Length > 0 && s1quads[0] != null && s1quads[0].Texture != null)
+            {
+                CheckTrue(s1quads[0].Texture.name == MainMenuSubmenuWindow.ArtBarShadow,
+                          $"★ …贴图 = **`{MainMenuSubmenuWindow.ArtBarShadow}`**（原版 `Shadow` 与 `Shadow (1)` 同一张；"
+                        + $"现读「{s1quads[0].Texture.name}」）");
+                var s1t = s1quads[0].Tint;
+                CheckTrue(Mathf.Abs(s1t.r) < 0.002f && Mathf.Abs(s1t.g) < 0.002f && Mathf.Abs(s1t.b) < 0.002f
+                          && Mathf.Abs(s1t.a - 0.4745098f) < 0.002f,
+                          "★ …色 = **(0,0,0,0.4745)**（原版 `Image.m_Color` 实读）"
+                        + $"（实得 {s1t.r:F4},{s1t.g:F4},{s1t.b:F4},{s1t.a:F4}）");
+            }
+            else
+            {
+                CheckTrue(false, "★ `Shadow (1)` 底下那块 `ImageQuad`（或它的贴图）取不到"
+                               + " ⇒ 上面「贴图」「色」两条**等于没查**（如实红，不假装）");
+            }
+        }
 
         Section("左栏键（3 个页 + 1 个母版；**母版照建但关着**）");
         Check(CountByPrefix(bar, "ShopTabButton_"), 4, "建了 **4** 个键（3 页 + `tabButtonPrefab` 母版）");
         Check(CountVisible(bar, "ShopTabButton_"), 3, "**可见的键恰好 3 个**（母版照原版 `TabButtons.Initialize` 关掉）");
         CheckTrue(FindChild(bar, "ShopTabButton_3") != null && !FindChild(bar, "ShopTabButton_3").gameObject.activeSelf,
                   "第 4 键（母版）**建成但关着**");
+
+        // ---------------- 左栏 VLG：padTop / spacing（🆕 2026-10-23 · A6 · 界面线第二批）----------------
+        //  判据（解包资源现读，⛔ 不是我们的常量）：
+        //    `工具/menu_dump.py bundle_menus_assets_all "Shop Menu Variant" --depth 3 --no-sprite`
+        //    ⇒ `Tab Buttons | 167.2 70.9 332.2 1080.0 | Image,VerticalLayoutGroup,TabButtons,ToggleGroup,Gradient2 |
+        //        spacing=-20.0 align=1 pad=0,0,20,0 ctrlW=1 ctrlH=0 expandW=1 expandH=0`
+        //    ＋ 它**按 uGUI 算法排出来**的第一个键 `Shop Icon` = **167.2,90.9 → 332.2,270.9**（高 180 = 一个键）。
+        //    ⚠️ 原版 `Tab Buttons` 下**只序列化了一个键**（母版 `Shop Icon`）⇒ **第二个键的坐标读不到**，
+        //      步长只能由 `spacing` 这一条字段给：**180 + (−20) = 160**（相邻两键**重叠 20 px**）。
+        //  改坏法：删掉 `Shell/ShopWindow.cs` 的 `BarPadTop` / `BarSpacing` 两个覆写（吃回基类 120 / 0）
+        //    ⇒ 首键 190.94（第一条红 100 px）、步长 180（第 2 键起逐颗红）。
+        Section("左栏 VLG：`padTop` / `spacing`（原版 `Shop Menu Variant` 现读 pad=0,0,20,0 · spacing=-20）");
+        {
+            var k0 = FindChild(bar, "ShopTabButton_0");
+            var k1 = FindChild(bar, "ShopTabButton_1");
+            var k2 = FindChild(bar, "ShopTabButton_2");
+            var k3 = FindChild(bar, "ShopTabButton_3");
+            // 期望矩形 = 条顶 70.94 + padTop 20 = **90.94**；步长 **160**（键高仍 180 ⇒ 相邻重叠 20）
+            CheckAt(k0, 167.17f, 332.17f, 90.94f, 270.94f, "★ 首键 `ShopTabButton_0`（原版 `Shop Icon` 同矩形）");
+            CheckAt(k1, 167.17f, 332.17f, 250.94f, 430.94f, "★ 第 2 键（首键 + 步长 160）");
+            CheckAt(k2, 167.17f, 332.17f, 410.94f, 590.94f, "★ 第 3 键（首键 + 2×160）");
+            CheckAt(k3, 167.17f, 332.17f, 570.94f, 750.94f, "★ 第 4 键 = 母版（首键 + 3×160；**关着**，但矩形在）");
+            // `padTop` / `spacing` **逐值**：都从**量到的世界坐标**反推 —— 不读上面那两个覆写，所以不是自证。
+            // ⚠️ 半高用**原版读数**（条 1009.06 / 键 180），不读实现里的 `TabBtnH`。
+            if (k0 != null && k1 != null && bar != null)
+            {
+                float topK0 = LayoutSpace.ToDesignPixel(k0.position).y - 90f;              // 键矩形半高 90
+                float topBar = LayoutSpace.ToDesignPixel(bar.position).y - 1009.06f * 0.5f; // 条矩形半高 504.53
+                CheckNear(topK0 - topBar, 20f, 0.5f,
+                          "★ `padTop` = **20**（首键顶边 − 条顶边；= 原版 VLG `m_Padding.m_Top`）");
+                float step = LayoutSpace.ToDesignPixel(k1.position).y - LayoutSpace.ToDesignPixel(k0.position).y;
+                CheckNear(step, 160f, 0.5f, "★ 步长 = **160**（原版 `spacing = −20` + 键高 180）");
+                CheckNear(step - 180f, -20f, 0.5f,
+                          "★ 由此反推 `spacing` = **−20**（相邻两键**重叠 20 px** —— 原版本来就是这样，不是缺陷）");
+            }
+            // 🔴 **反向断言：奖励窗 / 社交窗不许被这次改动波及**（它们的原版是 120 / 0 ⇒ 首键 190.94、步长 180）。
+            //   ⚠️ 本宿主**不建那两扇窗**（它们各有自己的自检宿主，断的是**排出来的键位**：
+            //     `Editor/RewardsScene.cs:1045` 的 190.94…910.94 · `Editor/MainMenuScene.cs:16379` 的 190.9..370.9）。
+            //   这里断的是**改动机制**那一半：两扇**不覆写**这两个口 ⇒ 一定吃基类缺省；再把基类缺省钉死。
+            const System.Reflection.BindingFlags NP = System.Reflection.BindingFlags.Instance
+                                                   | System.Reflection.BindingFlags.NonPublic;
+            CheckTrue(typeof(RewardsWindow).GetProperty("BarPadTop", NP).DeclaringType == typeof(MainMenuSubmenuWindow),
+                      "★ 反向：**奖励窗不覆写** `BarPadTop`（⇒ 仍吃基类 120 ⇒ 首键 190.94）");
+            CheckTrue(typeof(SocialWindow).GetProperty("BarPadTop", NP).DeclaringType == typeof(MainMenuSubmenuWindow),
+                      "★ 反向：**社交窗不覆写** `BarPadTop`（⇒ 仍吃基类 120 ⇒ 首键 190.94）");
+            CheckTrue(typeof(RewardsWindow).GetProperty("BarSpacing", NP).DeclaringType == typeof(MainMenuSubmenuWindow),
+                      "★ 反向：**奖励窗不覆写** `BarSpacing`（⇒ 仍吃基类 0 ⇒ 步长 180）");
+            CheckTrue(typeof(SocialWindow).GetProperty("BarSpacing", NP).DeclaringType == typeof(MainMenuSubmenuWindow),
+                      "★ 反向：**社交窗不覆写** `BarSpacing`（⇒ 仍吃基类 0 ⇒ 步长 180）");
+            CheckNear(MainMenuSubmenuWindow.BarPadTopBase, 120f, 1e-4f,
+                      "★ 反向：基类缺省 `padTop` = **120**（原版奖励 / 社交两扇现读 `pad=0,0,120,0`）");
+            CheckNear(MainMenuSubmenuWindow.BarSpacingBase, 0f, 1e-4f,
+                      "★ 反向：基类缺省 `spacing` = **0**（原版奖励 / 社交两扇现读 `spacing=0.0`）");
+        }
         // 🔴 **2026-10-18（N59 之后的断言过期，第五十二会话就地订正）**：页键文案从 2026-10-18 起
         //    **走官方词条** `MenuShop/ShopItemType/*`（`Shell/ShopWindow.cs:82/84/86`），
         //    而这里原来钉的是 `ShopData.Pages[i].Label.ToUpperInvariant()`（`CARDS`/`DAILY`/`ITEMS`，

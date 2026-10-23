@@ -88,6 +88,28 @@ namespace RuleEngine
         public bool RequireActorInPlay;
 
         /// <summary>
+        /// 🔴🆕 **2026-10-23（`Slay` 就地结算复核）：出队时要不要按原版
+        /// `CardScript.IsInPlayOrDying` 复核 <see cref="Actor"/>。**
+        ///
+        /// 判据（第一权威 = 全量反编译）：`BattleManager__ResolveTriggerSlay.c:116-226` ——
+        /// Slay 这条动作出队时只有 `CardScript__IsInPlayOrDying()`（`:8-13`，
+        /// `state ∈ {2 inPlay, 15 inPlayTransforming, 3 inPlayAttacking, 17, **5 waitingToDie**}`）
+        /// 为真才 `CardScript__TriggerSlay()`，否则**取消这一条**。
+        ///
+        /// 与 <see cref="RequireActorInPlay"/> 的区别 = **`waitingToDie` 算不算在场**：
+        /// 那一档要求活着在场（`Play(0)`，待死 ⇒ 不算），这一档**待死也算**
+        /// （`Core/RuleCore.IsOnBoardOrDying`）。⇒ 本条**不比** `RequireActorInPlay` 严，
+        /// 它是 Slay 自己的那一道出队复核。
+        /// 🔴 **2026-10-24（`F1`）**：两闸**同时为真**时**以本条为准** —— 泵点里那一支旧口径
+        /// （`RequireActorInPlay && !UnitInPlay(...)`）现在会先让位（见 `ActionPump.PumpActionQueues`
+        /// 的出队复核段）。否则「凶手在反噬里被打死」那一格会被旧的 `Play(0)` 支**先取消**，
+        /// 等于把这一条更宽的闸架空（实测 `W58ILBlaster·slay`）。
+        ///
+        /// ⛔ 缺省 `false`（不判）—— 今天只有 `TryCreditKillCore` 的 Slay 那一跳传 `true`。
+        /// </summary>
+        public bool RequireActorInPlayOrDying;
+
+        /// <summary>
         /// 🔴🆕 **2026-10-22（引擎线 `W63` · C1）：这条 ability 的原版 `abilityContext`**
         /// （=`CardAbility.abilityContext // +0x14`；六档判据见 `RuleCore.IsRightContext` 的 doc）。
         ///

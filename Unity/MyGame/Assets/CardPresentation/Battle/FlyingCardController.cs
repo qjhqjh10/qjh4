@@ -88,7 +88,10 @@ namespace CardPresentation
         States _state = States.Landed;     // 原版 `currentState` (0x5C)
 
         /// <summary>原版 `OnFlyingToggleFinish`（`Action&lt;bool&gt;`）：过渡收尾时回调（true = 飞起 / false = 落地）。
-        /// ⚠️ 生产今天没有消费者（原版那一条挂在 `Card3DAnimationController` 上）；留着是为了将来接动画链。</summary>
+        /// 🔴 **2026-10-24 就地订正（铁律 5）**：原来这里写「⚠️ 生产今天**没有**消费者（原版那一条挂在
+        /// `Card3DAnimationController` 上）；留着是为了将来接动画链」—— **已过期**：那一条**已经接上了**，
+        /// `Battle/Card3DAnimationController.cs:254-255`（照原版 `-=` 再 `+=`，防重复挂）与
+        /// `:301`（`Detach` 时摘回调）**都在用**它 ⇒ 生产**有**消费者，而且就是原版那一条。</summary>
         public Action<bool> OnFlyingToggleFinish;
 
         /// <param name="t">要抬的那张卡（= 原版挂 `FlyingCardController` 的那个对象；它自己的 `localPosition`

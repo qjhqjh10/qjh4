@@ -1,7 +1,7 @@
 # Astra Militarum · 第 1 批（45 张）— 卡面逐张提取
 
 来源：`D:\2\Warpforge部队卡片\Astra Militarum\`（1督军 4 张 / 2天赋 6 张 / 3部队 35 张）
-工作清单：`d:/4/_tmp_view/cards_new/_工作清单/04_AstraMilitarum_1.txt`
+工作清单：`d:/4/_tmp_view/cards_new/_工作清单/04_AstraMilitarum_1.txt`（已过期/已迁，2026-10-24 核对：`_tmp_view/cards_new/` 目录已不在）
 提取方式：逐张 Read 完整 900×1200 PNG，照 `_提取规格.md` 记 11 列。**未参考任何已有 md/json 数据。**
 
 图标记法（按形状记，不猜语义）：

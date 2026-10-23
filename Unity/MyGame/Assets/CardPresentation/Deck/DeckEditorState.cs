@@ -561,7 +561,7 @@ namespace CardPresentation
         ///   现读卡表：**122 张 `show=0`**（92 天赋 + 30 `Z-NC`）⇒ 这一条把它们全挡在外面。</item>
         /// <item>✅ **（恒过）`show != OnlyIfOwned(10) || owned`** —— 判据 = 同族 `b__32_0.c`：
         ///   `if (*(int*)(param_2+0x48) != 10) return 1; return HasItem(card);`。
-        ///   我们单机**全解锁** ⇒ `owned` 恒真 ⇒ 这一条恒过。⚠️ **如实标**：这是**边界**（用户「资源 9999 / 全解锁」），
+        ///   我们单机**全解锁** ⇒ `owned` 恒真 ⇒ 这一条恒过。⚠️ **如实标**：这是**边界**（用户「资源 2000（2026-10-24 从 9999 改） / 全解锁」），
         ///   ⛔ 不是判据算出来的；现读卡表 `show=10` 的卡 = **0 张**，今天它连边界都用不上。</item>
         /// <item>⛔ **`!IsHidden()`（不做）** —— 判据 = `b__32_3.c` 的 vtable `0x2A8`，落到
         ///   `PlayerItem.IsHidden()` → `FeatureConfig.IsItemHidden(item)`（`FeatureConfig__IsItemHidden.c:20-40`，

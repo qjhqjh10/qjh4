@@ -29,6 +29,16 @@ import json
 import sys
 import time
 
+## A17 2026-10-24: -h/--help early exit (print usage only, exit 0; never run the real work).
+import sys as _wf_help_sys
+if any(_wf_help_sys.argv[_i] in ("-h", "--help") for _i in range(1, len(_wf_help_sys.argv))):
+    try:
+        _wf_help_sys.stdout.reconfigure(encoding="utf-8")
+    except Exception:
+        pass
+    print('用法（每条命令独立跑一次；`-I` 避免加载同目录的 `json.py` 之类）：\n  python -I d:/4/Unity/工具/wf_click.py info\n  python -I d:/4/Unity/工具/wf_click.py win Warpforge            # 找窗口（子串，不分大小写）并置前，打印 rect\n  python -I d:/4/Unity/工具/wf_click.py shot d:/4/_tmp_view/x.png [窗口子串]\n  python -I d:/4/Unity/工具/wf_click.py move 960 540\n  python -I d:/4/Unity/工具/wf_click.py click 960 540 [left|right] [次数]\n  python -I d:/4/Unity/工具/wf_click.py drag 100 200 800 600\n  python -I d:/4/Unity/工具/wf_click.py wheel 960 540 [格数]     # 🆕 正=向上滚、负=向下（一格 = 120）\n  python -I d:/4/Unity/工具/wf_click.py key esc | key space | key f5 | key ctrl+s | key w:200  (w 按住 200ms)\n  python -I d:/4/Unity/工具/wf_click.py cursor          # 只读当前光标位置\n输出一律 `ok ...` / `FAIL ...`（便于调用方判读）。\n  -h, --help  只打印本用法并退出（退出码 0），不执行任何真活。')
+    _wf_help_sys.exit(0)
+
 user32 = ctypes.windll.user32
 try:                                   # 让坐标与真实像素 1:1（缩放 125% 的机器必须有这一步）
     user32.SetProcessDpiAwarenessContext(ctypes.c_void_p(-4))   # PER_MONITOR_AWARE_V2

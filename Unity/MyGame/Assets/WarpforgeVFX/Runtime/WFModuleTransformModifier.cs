@@ -65,6 +65,7 @@
 //      **直接 NullReferenceException**（`FUN_1803f47a0` = 抛异常）；我们**报错并跳过**（不崩）。
 //
 // 🔴 没还原的（各有明确的「为什么做不了」，实现里都 `LogWarning` + 计数）
+//    ⚠️ 2026-10-23：**② 已接线、不再是「没还原」**（留在本节只为保留它当年的判据链）；①③④ 仍然没还原。
 // ----------------------------------------------------------------
 //   ① `setDefaultUnitTransformScaleWhenUnParenting`（2 例：`Teleport Trait Summon` /
 //      `Teleport Trigger Effect Quick`）：要 `BattleManager.GetUnitSizeInPlay(cardType, isPlayer)`。
@@ -87,12 +88,10 @@
 //      ✅ **曲线口已收口到共用静态口**：`CardPresentation/Core/CardFeel.cs` 的
 //      `DepthScaleFactor(worldZ, isPlayer)`（返回**相对**系数，自家那一行恒 1）· `DepthScaleCurve`
 //      · `DepthScaleKey0Time / Key0Value / Key1Time / Key1Value`（2026-10-23 落地，判据在那一节注释里）。
-//      ⚠️ **本模块这一条仍然 `SkippedBoardScale++` —— 没接线，而且这里【没有】第二份实现**
-//      （⛔ 别写成「已还原」）。要接只差两件：① `ModuleTick` 手上没有 ctx（`isPlayer` 只在
-//      `Initialize` 经 `IsPlayerCard(ctx)` 拿得到 ⇒ 得先缓存一个字段）；② 原版的 `localPosition` 是
-//      「相对自己那一行」，我们卡父节点恒在原点 ⇒ 要按 `CardFeel` 那样用「世界 z − 本行 z」换。
-//      （第三个入参 `originalScale` **不用另找** —— `Initialize` 第 ⑧ 步已经从卡上记了。）
-//      ⇒ **接线待做**（账 → 战斗线 `新账-79`）。
+//      ✅ **2026-10-23（`新账-76⑤`）已接线**：`updateScaleByBoardPosition` 不再 `SkippedBoardScale++`，
+//      改走共用静态口 `CardFeel.DepthScaleFactor(worldZ, isPlayer)`（`isPlayer` 在 `Initialize` 缓存、
+//      `worldZ` 用卡的世界 z —— 原版那句 `localPosition` 是「相对自己那一行」，我们卡父节点恒在原点，
+//      与 `CardFeel` 同一套换算）。⚠️ 卡不是 `CardView` 时（理论上没有这类调用点）退回直写 `localScale`。
 //   ③ `aimToTargetInUpdate`（1 例：`Shuriken_Short_Trait`）：要
 //      `controller.targetCard.GetEffectAnchor().position`。`CardScript.GetEffectAnchor` 是**原版卡
 //      prefab 上的锚点节点**，我们这边**没有对应物**（特效是按世界坐标播的，不挂在卡上）
@@ -108,6 +107,7 @@
 using System;
 using System.Collections.Generic;
 using UnityEngine;
+using CardPresentation;      // 🆕 2026-10-23（`新账-76⑤`）：`CardFeel.DepthScaleFactor` / `CardView.SetBaseScale`
 
 namespace WarpforgeVFX
 {
@@ -216,7 +216,7 @@ namespace WarpforgeVFX
         [Tooltip("原版 `aimToTargetInUpdate`（1 例）：每帧 transform.forward 指向目标卡 —— 见文件头「没还原」「③」")]
         public bool aimToTargetInUpdate;
 
-        [Tooltip("原版 `updateScaleByBoardPosition`（2 例）：按棋盘位置缩放 —— 见文件头「没还原」「②」")]
+        [Tooltip("原版 `updateScaleByBoardPosition`（2 例）：每帧按棋盘深度重算**卡**的缩放（`CardFeel.DepthScaleFactor`）")]
         public bool updateScaleByBoardPosition;
 
         [Tooltip("原版 `changeParent`（1 例）：Initialize 时挂到 **targetCard** 下")]
@@ -236,6 +236,13 @@ namespace WarpforgeVFX
         [NonSerialized] public Transform cardTarget;
         [NonSerialized] public Vector3 originalScale;
         [NonSerialized] public Vector3 originalLossyScale;
+        /// <summary>🆕 2026-10-23（`新账-76⑤`）：`cardTarget` 是不是玩家自己的卡
+        /// （原版 `CardScript+0x40`）。`ModuleTick` 手上没有 ctx ⇒ `Initialize` 时缓存。
+        /// 回调没挂时无意义（那时 `cardTarget` 恒 null、这一支本来就不跑）。</summary>
+        [NonSerialized] public bool cardIsPlayer;
+        /// <summary>🆕 `updateScaleByBoardPosition` 的**底数**（「这一侧静止该多大」）——
+        /// 只在 `Initialize` 抓一次，⛔ 别每帧读 `CardView.BaseScale`（那个值每帧被本模块改写 ⇒ 会复利）。</summary>
+        [NonSerialized] public float boardScaleBase;
 
         /// <summary>`_off` + `enabled`：原版是 `Behaviour.enabled = false`。
         /// ⚠️ 我们的 `ModuleTick` 是**无条件广播**的（player 不看 `enabled`）⇒ 自己也要记一个。</summary>
@@ -248,15 +255,22 @@ namespace WarpforgeVFX
         public static int DegradedRuns;
         /// <summary>没还原的那几个分支各跳过几次。</summary>
         public static int SkippedUnitSize, SkippedBoardScale, SkippedAim, ZeroLossyScale;
+        /// <summary>🆕 2026-10-23（`新账-76⑤`）：`updateScaleByBoardPosition` **真写过几次**缩放
+        /// （与 `SkippedBoardScale` 成对 —— 自检用它证明「接线了、不是只把计数器改了个名」）。</summary>
+        public static int BoardScaleApplied;
+        /// <summary>🆕 卡在 **2D 兜底布局**上（不在 3D 战场）⇒ 这条规则不适用（套曲线恒得 1.75× 是纯错，
+        /// 与 `CardFeel.HookDepthScale` 同一个门：`CardFeel.IsArenaCard`）。**不是缺陷**，是适用范围。</summary>
+        public static int SkippedBoardScale2D;
 
         public static void ResetDiagnostics()
         {
             StoppedNoCard = 0; DegradedRuns = 0;
             SkippedUnitSize = 0; SkippedBoardScale = 0; SkippedAim = 0; ZeroLossyScale = 0;
-            _warnedDegraded = _warnedAim = _warnedBoardScale = _warnedUnitSize = _warnedZeroScale = false;
+            BoardScaleApplied = 0; SkippedBoardScale2D = 0;
+            _warnedDegraded = _warnedAim = _warnedUnitSize = _warnedZeroScale = false;
         }
 
-        static bool _warnedDegraded, _warnedAim, _warnedBoardScale, _warnedUnitSize, _warnedZeroScale;
+        static bool _warnedDegraded, _warnedAim, _warnedUnitSize, _warnedZeroScale;
 
         public override void Configure(WFModuleDef def)
         {
@@ -383,6 +397,14 @@ namespace WarpforgeVFX
             {
                 originalScale = cardTarget.localScale;
                 originalLossyScale = cardTarget.lossyScale;
+                // 🆕 2026-10-23（`新账-76⑤`）：`updateScaleByBoardPosition` 要的两样，**只在这里抓一次**：
+                //   · `cardIsPlayer` = 原版 `CardScript+0x40`（`Update` 里那句 `cardTarget+0x40`）；
+                //   · `boardScaleBase` = 原版第三个实参 `originalScale`（卡在自己那一行上的静止缩放）。
+                //     优先取 `CardView.BaseScale`（那是**不含高亮系数**的底数，`ApplyScale` 用它）；
+                //     不是 `CardView` 时退回 `localScale.x`（我们的卡恒等比）。
+                cardIsPlayer = wired && IsPlayerCard(ctx);
+                var bcv = cardTarget.GetComponent<CardView>();
+                boardScaleBase = bcv != null ? bcv.BaseScale : originalScale.x;
             }
 
             // ⑨ affectEnemyOnly 闸门（降级模式下没有卡，闸门无从判 ⇒ 跳过并出声）
@@ -438,25 +460,33 @@ namespace WarpforgeVFX
             // ---- 2) updateScaleByBoardPosition ----
             if (updateScaleByBoardPosition)
             {
-                // 🔴 未还原（文件头「没还原 ②」）：要 `cardTarget.CardUI.<0x1c0>` 上的
-                // `MinionScaleByPositionSO.GetScale(isPlayer, localPosition, originalScale)`。
-                // ⚠️ **2026-10-23 更正（铁律 5）**：原来这里写「那份 SO 没导出来（`数据/` 里 0 命中）/
-                // 静态 Vector3 类名也查不到」—— **都不对**：SO 在
-                // `bundle_battleprefabs_vfxandmisc_assets_all/MonoBehaviour/MinionScaleByPosition.json`
-                // （两键 0.36 → 0.70），`…__GetScale` 也已反编译；**曲线口已收口**到共用静态口
-                // `CardFeel.DepthScaleFactor`（详见文件头「没还原 ②」）。**本模块仍未接线**（没有第二份
-                // 实现），差的只是 ctx 里的 `isPlayer` 与「相对本行」的 z 基准 ⇒ 待收口。
-                // ⛔ 别因为「曲线已备」就写成已还原 —— 这一行现在仍然只 `SkippedBoardScale++`。
-                SkippedBoardScale++;
-                if (!_warnedBoardScale)
+                // 🔴 **2026-10-23（`新账-76⑤`）已接线**（原版 `AnimFXModuleTransformModifier__Update.c` 第 2 支）：
+                //   `scale = MinionScaleByPositionSO.GetScale(isPlayer, card.localPosition, originalScale)`
+                //   → **写给卡**（`cardTarget.transform.localScale`，不是特效自己）。
+                //   曲线口 = `CardFeel.DepthScaleFactor(worldZ, isPlayer)`（共用静态口，⛔ 别在这里写第二份）。
+                //   ⚠️ 我们卡的父节点恒在原点 ⇒ 原版那个「相对自己那一行」的 `localPosition.z`
+                //      用「世界 z − 本行 z」换 —— 换算就在 `DepthScaleFactor` 里，这里只负责传**世界 z**。
+                if (cardTarget == null)
                 {
-                    _warnedBoardScale = true;
-                    Debug.LogWarning("[WarpforgeVFX] 🔴 未还原：`updateScaleByBoardPosition` —— "
-                                   + "原版从 `cardTarget.CardUI` 上取 `MinionScaleByPositionSO` 的曲线算缩放，"
-                                   + "（⚠️ 2026-10-23 更正：原来这条警告说「SO 没导出来 / 静态量查不到」，"
-                                   + "**都不对** —— 件在本地、曲线口已收口到 `CardFeel.DepthScaleFactor`，"
-                                   + "本模块只是还没接线。）⇒ 跳过（不动 localScale）。受影响 "
-                                   + "`Ork_Squiggoth_Charge` / `Ork_Trampla_Charge`。这条警告只报一次。");
+                    // 降级模式（回调没挂）：没有卡 ⇒ 算不出。`Initialize` 那条警告已经说明过，这里不刷屏。
+                    SkippedBoardScale++;
+                }
+                else
+                {
+                    var cv = cardTarget.GetComponent<CardView>();
+                    // 🔴 **只有活在 3D 战场上的卡才吃这条**（与 `CardFeel.HookDepthScale` 同一个门）：
+                    //   2D 兜底布局的卡全在 HUD 正交平面（z = 0），套这条曲线恒得 1.75× = **纯错**。
+                    //   判据见 `CardFeel` 的「按战场深度重算缩放」那一节。
+                    bool onArena = cv != null ? CardFeel.IsArenaCard(cv)
+                                              : cardTarget.gameObject.layer == ArenaSlots.ArenaLayer;
+                    if (!onArena) { SkippedBoardScale2D++; }
+                    else
+                    {
+                        float f = CardFeel.DepthScaleFactor(cardTarget.position.z, cardIsPlayer);
+                        if (cv != null) cv.SetBaseScale(boardScaleBase * f);   // ⛔ 别直写 localScale（`_baseScale` 会变陈）
+                        else cardTarget.localScale = originalScale * f;
+                        BoardScaleApplied++;
+                    }
                 }
             }
 

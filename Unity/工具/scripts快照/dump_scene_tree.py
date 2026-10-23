@@ -5,6 +5,16 @@
 """
 import json, glob, os, sys
 
+## A17 2026-10-24: -h/--help early exit (print usage only, exit 0; never run the real work).
+import sys as _wf_help_sys
+if any(_wf_help_sys.argv[_i] in ("-h", "--help") for _i in range(1, len(_wf_help_sys.argv))):
+    try:
+        _wf_help_sys.stdout.reconfigure(encoding="utf-8")
+    except Exception:
+        pass
+    print('用法: python dump_scene_tree.py <场景目录> [输出md]\n输出: 树形清单, 每行: 缩进-GO名 [Godot坐标 宽x高] active 组件摘要\n  -h, --help  只打印本用法并退出（退出码 0），不执行任何真活。')
+    _wf_help_sys.exit(0)
+
 sys.stdout.reconfigure(encoding='utf-8')
 
 SCENE = sys.argv[1] if len(sys.argv) > 1 else 'D:/2/解包整理/07_场景/mainmenuwarpforge'

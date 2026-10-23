@@ -2667,7 +2667,7 @@ class PlayProbe
     //     8 张全部能在 W58/W59 的报告里按卡名找到「改前 → 改后」的原文读数。
     //   重生成 `play all pf` 连跑两次逐字节一致（**755,372 B**；新增 0 / 消失 0），行数 **1713 不变**
     //   （主档 1127 ＋ 电池 586）；重生成后 `play check` **rc=0**（①-a/①-b 差异 0 · ② 哨兵过）。
-    public const string PinnedPlayMd5 = "5d81171ae96e5a07df9cdc1a2fac51cf";
+    public const string PinnedPlayMd5 = "6d4639fc4802b7b2f13212c47e21d62e";
 
 
     /// <summary>`play check` 的缺省基线 —— **按名字往上找**（形状照 `Program.CheckMain.DefaultBaseline`，

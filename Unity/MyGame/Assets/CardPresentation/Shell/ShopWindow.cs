@@ -89,6 +89,22 @@ namespace CardPresentation
             };
         }
 
+        // ============================================================ 左栏 VLG（原版逐窗不同）
+
+        /// <summary>🔴 **2026-10-23（A6 · 界面线第二批）**：左栏第一个键距**条顶边**的距离
+        /// = 原版 `Shop Menu Variant/Tab Buttons` 那颗 `VerticalLayoutGroup` 的 **`m_Padding.m_Top = 20`**。
+        /// <para>判据（`工具/menu_dump.py bundle_menus_assets_all "Shop Menu Variant" --depth 3 --no-sprite` 现读）：
+        /// `Tab Buttons` 那行 = `spacing=-20.0 align=1 pad=0,0,20,0 ctrlW=1 ctrlH=0 expandW=1 expandH=0`，
+        /// 它排出来的第一个键 `Shop Icon` = **167.2,90.9 → 332.2,270.9**（= 条顶 70.94 + 20）。</para>
+        /// <para>⚠️ 改之前我们吃基类缺省 **120** ⇒ 首键落在 **190.94**（比原版低 **100 px**）。
+        /// 基类缺省是**奖励窗 / 社交窗**那一档（120 / 0），⛔ 不许把这几个数塞进基类 —— 那会把那两扇一起改坏。</para></summary>
+        protected override float BarPadTop { get { return 20f; } }
+
+        /// <summary>🔴 **2026-10-23（A6）**：左栏 VLG 的 **`m_Spacing = −20`**
+        /// （同一行读数 `spacing=-20.0`；键高仍是 180 ⇒ **步长 160**，相邻两键**重叠 20 px**）。
+        /// 基类缺省是 **0**（奖励 / 社交 / 收藏三扇），⛔ 别搬进基类。</summary>
+        protected override float BarSpacing { get { return -20f; } }
+
         public ShopWindow()
         {
             // 左栏的**视觉顺序** = 三个页 + 母版（母版那格是 None ⇒ 点它走 `NotifyNotBuilt`）

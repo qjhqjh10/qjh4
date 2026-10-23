@@ -1,6 +1,6 @@
 # Aeldari 防御卡（03_Aeldari_3）
 
-来源清单：`d:/4/_tmp_view/cards_new/_工作清单/03_Aeldari_3.txt`（2 张）
+来源清单：`d:/4/_tmp_view/cards_new/_工作清单/03_Aeldari_3.txt`（2 张）—— 原始清单已过期/已迁，2026-10-24 核对：`_tmp_view/cards_new/` 目录已不在
 卡图目录：`d:/2/Warpforge部队卡片/Aeldari/5防御卡/`
 
 | 文件名 | 卡名 | 费用 | 近战 | 远程 | 护甲 | 生命 | 字段 | 类型 | 稀有度 | 效果原文 |
