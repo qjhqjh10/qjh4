@@ -28,6 +28,9 @@
 用法
 ----
   "D:/2/Warpforge_tools/py312/python.exe" "d:/4/Unity/工具/dump_animfx.py"
+
+  # 🆕 2026-10-23：**干跑**（⛔ 不覆盖正式产物）—— 改深度护栏之后先这么验一遍
+  "D:/2/Warpforge_tools/py312/python.exe" "d:/4/Unity/工具/dump_animfx.py" --out _tmp_view/xxx/after.json
 """
 import collections
 import glob
@@ -236,15 +239,34 @@ COLLISION_EVENT_MAX_DEPTH = 18
 #      别的模块一条都没有 ⇒ 放宽它**不会连带放过任何别的字段**。
 REFERENCES_MAX_DEPTH = 10
 
+# 🔴 2026-10-23（特效线 A1·R25 · 代理 E）**第三条单独放宽的路径：`eventToFire`**。
+#   实测（`资料/普查产出_1023/E_R25事件通道.md`）：`AnimFXModuleEvent.eventsToFire[i].eventToFire`
+#   是一个 `UnityEvent`，它的 `m_PersistentCalls.m_Calls` 整块被写成 `<深>`
+#   ⇒ 生成器跳过 ⇒ `数据/游戏数据/animfx_components.json` 里只剩 `"m_Calls": "<深>"`，
+#   于是「这个事件到点到底调什么」一度被记成「原版没有/查不到」（**错**，是本护栏截断的）。
+#   实际调什么（直接从 `assets_full` 的 prefab 原始 JSON 读出来的，全库 1 实例 / 2 条）：
+#     `AnimFXModuleChangeMaterial.ToggleMaterial(bool=true)`（同一 GameObject）
+#     `StoryProgramming.VATGPUPlayer.UpdateMaterials(bool=true)`（子节点 `Vanguard Frame Animated VAT`）
+#   这棵子树与 `collisionEvent` **同形**（UnityEvent → PersistentCallGroup → PersistentCall[] → 6 个叶子），
+#   最深的叶子 `m_Arguments.m_IntArgument` 同在该深度 ⇒ 同样给 18（只需放一条，别再放宽）。
+#   ✅ **面**：`eventToFire`（单数）全库**只有** `AnimFXModuleEvent.FireEvent` 这一个字段
+#      （`grep -rn "eventToFire" d:/2/Warpforge_code/Scripts/` 命中 1 处 = `AnimFXModuleEvent.cs:11`），
+#      且它只出现在 `eventsToFire[i]` 之下 ⇒ 放宽它**不会连带放过任何别的字段**。
+#   ⛔ **别抬 `DEFAULT_MAX_DEPTH`**（4→6 那次的教训就是「一抬就连带放宽几百个别的字段」）。
+EVENT_TO_FIRE_MAX_DEPTH = 18
+
 
 def _depth_limit(path):
-    """这一条键路径允许用到第几层。**只放宽两条子树**（`collisionEvent` / `references`），其余默认值。"""
+    """这一条键路径允许用到第几层。
+    **只放宽三条子树**（`collisionEvent` / `references` / `eventToFire`），其余默认值。"""
     if path:
         for seg in path.split("."):
             if seg.split("[", 1)[0] == "collisionEvent":
                 return COLLISION_EVENT_MAX_DEPTH
             if seg.split("[", 1)[0] == "references":
                 return REFERENCES_MAX_DEPTH
+            if seg.split("[", 1)[0] == "eventToFire":
+                return EVENT_TO_FIRE_MAX_DEPTH
     return DEFAULT_MAX_DEPTH
 
 
@@ -374,6 +396,19 @@ def short(v, depth=0, path=None):
 
 
 def main():
+    # 🆕 2026-10-23（A1·R25）：`--out <路径>` ⇒ 干跑到别处，**不覆盖正式产物**
+    #   （改深度护栏这种东西必须能先看「新增/变化了哪些键」再决定要不要落盘）。
+    out = OUT
+    argv = sys.argv[1:]
+    for i, a in enumerate(argv):
+        if a == "--out":
+            if i + 1 >= len(argv):
+                print("!! --out 后面要跟路径")
+                return 2
+            out = argv[i + 1]
+    if os.path.abspath(out) == os.path.abspath(OUT):
+        print("[0] ⚠ 输出 = 正式产物（会覆盖）。干跑请加 `--out _tmp_view/…`")
+
     files = sorted(glob.glob(os.path.join(BUNDLE_DIR, "*.bundle")))
     print(f"[1] 加载 {len(files)} 个 bundle …")
     env = UnityPy.load(*files)
@@ -472,14 +507,14 @@ def main():
     multi = {k: v for k, v in by_effect.items() if len(v) > 1}
     print(f"\n[4] 涉及 {len(by_effect)} 个效果；其中 {len(multi)} 个挂了不止一个模块")
 
-    os.makedirs(os.path.dirname(OUT), exist_ok=True)
-    with open(OUT, "w", encoding="utf-8") as f:
+    os.makedirs(os.path.dirname(os.path.abspath(out)), exist_ok=True)
+    with open(out, "w", encoding="utf-8") as f:
         json.dump({
             "summary": dict(found),
             "effect_count": len(by_effect),
             "effects": {k: v for k, v in sorted(by_effect.items())},
         }, f, ensure_ascii=False, indent=1)
-    print(f"\n[5] 已写出 {OUT}  ({os.path.getsize(OUT)/1024:.0f} KB)")
+    print(f"\n[5] 已写出 {out}  ({os.path.getsize(out)/1024:.0f} KB)")
     return 0
 
 

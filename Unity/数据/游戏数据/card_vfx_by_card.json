@@ -21,7 +21,7 @@
   "guidMap": "d:/4/Unity/资料/普查产出_1018/cardanim_guid_map/guid_map_bundles.tsv",
   "enumStubs": "d:/2/Warpforge_code/Scripts/Assembly-CSharp"
  },
- "_headline": "🔴 **2026-10-14 更正：原来写「逐卡那一跳在本地断掉」，实际是【通的】**。卡 SO 的字段本身就是 `AssetReference`（存 GUID），GUID → 束 → 资产原名一直可解（`guid_map.tsv` + `cardanim_to_asset`）—— 不需要那只远端 `allcards` 包。错因：**把「载体的文件不在本地」当成了「那一跳断掉」**（只找了「卡预制体」这一个载体）。⇒ `byCard` 里现在**有判据齐的逐卡条目**（`conf = authoritative`，见 `stats.authoritative*`）；旧的 `inferred-*` 三档**保留**但**降级为兜底**，按 `_conventions.confPriority` 取第一个命中的。⚠️ 权威档的两个限定：真值快照是 2022 时代（我们池子里 168 张比它新、查不到）；`cardAnimations` 的事件名归到 `ability` 是**我们拍的**（原版给的是枚举，已带在条目上）。",
+ "_headline": "🔴 **2026-10-14 更正：原来写「逐卡那一跳在本地断掉」，实际是【通的】**。卡 SO 的字段本身就是 `AssetReference`（存 GUID），GUID → 束 → 资产原名一直可解（`guid_map.tsv` + `cardanim_to_asset`）—— 不需要那只远端 `allcards` 包。错因：**把「载体的文件不在本地」当成了「那一跳断掉」**（只找了「卡预制体」这一个载体）。⇒ `byCard` 里现在**有判据齐的逐卡条目**（`conf = authoritative`，见 `stats.authoritative*`）；旧的 `inferred-*` 三档**保留**但**降级为兜底**，按 `_conventions.confPriority` 取第一个命中的。⚠️ 权威档的两个限定：① 真值快照 = **当前 build 的 `allcards`（1,351 张）**，现读我们池子 **1,127/1,127** 都在快照里（原文「2022 时代 1,195 张 / 168 张查不到」是 `T14` 换源前的口径，**2026-10-23 已过期**）；② `cardAnimations` 的事件名归到 `ability` 是**我们拍的**（原版给的是枚举，已带在条目上）。",
  "_conventions": {
   "conf": {
    "authoritative": "🔴 **原版真值**（不是推断）：卡 SO 字段（GUID）→ 束 → 资产原名 → VFX prefab。上限受真值快照年代约束（见 `stats.authoritative.poolCardsWithoutTruth`）",
@@ -59,7 +59,7 @@
    "activeAbility.activeAbilityLogic[].cardAnimations[]": "同上（`activeAbility` 不走 `CardAbility.trigger` 那套枚举）"
   },
   "byCard_assetRefs": "`byCard[*]._assetRefs` = 卡 SO 的**非 VFX**逐卡资产绑定（`cardImageReference` / `summonAudio` / `attackAudio` / `deathAudio`），**不挂事件**，每条带 `assetKind`（art / audio）。只为「哪张卡对哪个原版资产」留判据。",
-  "unresolved": "每条 entry 上 `prefab: null` + `unresolved: <原因>` = 原版引用了、但本地解不出。**不许当没有**（铁律：不静默失败）。汇总见 `stats.authoritative.authoritativeUnresolved`。"
+  "unresolved": "每条 entry 上 `prefab: null` + `unresolved: <原因>` = 原版引用了、但本地解不出。**不许当没有**（铁律：不静默失败）。汇总见 `stats.authoritative.authoritativeUnresolved`。⚠️ 2026-10-23（`R28`）起解不出会走**两条判据**：① `guid_map.tsv`（枚举各束 `m_Container`）→ ② 与本地束同 build 的 `catalog.bin`（补「短键」那一族 → 再用束内 `m_Container` 取名字）。两条都没有 = 该资产**不在这个 build 的 Addressables 里**（判据空，⛔ 不是「没查」）。② 解出的 GUID 记在 `stats.authoritative.resolvedByCatalogGuids`。"
  },
  "chain": [
   {
@@ -130,9 +130,9 @@
    "本脚本本次实测（我们卡池 1,126 张，见 `stats.authoritative`）"
   ],
   "limits": [
-   "真值快照是 **2022 时代**（1,195 张）。我们卡池 1,126 张里 **168 张比它新**（SpaceWolves / Ultramarines / DarkAngels 等后来加的内容）⇒ 那些卡在权威档下**查不到**，落旧档。",
+   "🔴 **2026-10-23 现读**：真值快照 = 当前 build 的 `allcards`（**1,351 张**），我们卡池 1,127 张里**快照没有的 = 0 张**（`stats.authoritative.poolCardsWithoutTruth`）。（原文写「快照是 2022 时代 1,195 张、168 张查不到」—— 那是 `T14`/2026-10-18 换源**之前**的口径，已过期。）",
    "`cardAnimations` 那一路的**事件名归到 `ability` 是我们拍的**（原版给的是枚举），已逐条带 `abilityTrigger` / `chosenAbility`。",
-   "**天赋触发**（`CardTrait.TraitEffects[].effectAnim`）**仍然没做** —— 那份 SO 不在卡 SO 里。"
+   "**天赋触发**（`CardTrait.TraitEffects[].effectAnim`）**仍然没做** —— 那份 SO 不在卡 SO 里，**而且两个 build（PC 关服前 / 安卓 1.35.0）的本地束里都没有 `CardTrait` 束**（2026-10-23 现查：`guid_map_bundles.tsv` 里 `className == CardTrait` **0 行**、`assets_full` 全库 `TraitEffects` **0 命中**、安卓 asset pack 里无 `cardtraits` 束）⇒ 这就是 R28 里`inferred-keyword` 那 600+ 条**升不了级**的判据缺口。"
   ]
  },
  "generic": {
@@ -17856,8 +17856,11 @@
      "guid": "71484dfd53e79344283044bba4047a40",
      "origCardId": "EC57",
      "joinKey": "id",
-     "assetKind": "audio",
-     "unresolved": "GUID 在 `guid_map.tsv` 里没有解出具名资产（目录里有这个 key、但本地束里没有对应容器键 —— 两个 build 的差）"
+     "assetName": "VO_CSM_EC_Daemon Prince Xarahan_attack",
+     "assetType": "AudioClip",
+     "assetBundle": "chaosspacemarinesemperorschildrencardassets_assets_all.bundle",
+     "containerKey": "71",
+     "assetKind": "audio"
     },
     {
      "conf": "authoritative",
@@ -17866,8 +17869,11 @@
      "guid": "49a871661c04d6f49b6b479dce126723",
      "origCardId": "EC57",
      "joinKey": "id",
-     "assetKind": "audio",
-     "unresolved": "GUID 在 `guid_map.tsv` 里没有解出具名资产（目录里有这个 key、但本地束里没有对应容器键 —— 两个 build 的差）"
+     "assetName": "VO_CSM_EC_Daemon Prince Xarahan_death",
+     "assetType": "AudioClip",
+     "assetBundle": "chaosspacemarinesemperorschildrencardassets_assets_all.bundle",
+     "containerKey": "49",
+     "assetKind": "audio"
     }
    ],
    "ability": [
@@ -25884,7 +25890,7 @@
      "origCardId": "GOF2",
      "joinKey": "id",
      "assetKind": "audio",
-     "unresolved": "GUID 在 `guid_map.tsv` 里没有解出具名资产（目录里有这个 key、但本地束里没有对应容器键 —— 两个 build 的差）"
+     "unresolved": "GUID 在两个判据下都解不出：① `guid_map.tsv` 里没有；② 与本地束同 build 的 `catalog.bin` 里也没有这个 key（两件事都做过 = 该资产不在这个 build 的 Addressables 里）"
     }
    ],
    "death": [
@@ -52184,7 +52190,7 @@
      "origCardId": "BL47",
      "joinKey": "id",
      "assetKind": "audio",
-     "unresolved": "GUID 在 `guid_map.tsv` 里没有解出具名资产（目录里有这个 key、但本地束里没有对应容器键 —— 两个 build 的差）"
+     "unresolved": "GUID 在两个判据下都解不出：① `guid_map.tsv` 里没有；② 与本地束同 build 的 `catalog.bin` 里也没有这个 key（两件事都做过 = 该资产不在这个 build 的 Addressables 里）"
     }
    ],
    "play": [
@@ -80502,6 +80508,12 @@
    "truthCards": 1351,
    "guidMap": "d:/4/Unity/资料/普查产出_1018/cardanim_guid_map/guid_map_bundles.tsv",
    "guidMapGuids": 6140,
+   "resolvedByCatalog": 2,
+   "resolvedByCatalogGuids": [
+    "71484dfd53e79344283044bba4047a40",
+    "49a871661c04d6f49b6b479dce126723"
+   ],
+   "catalogBin": "d:/2/Warhammer 40k Warpforge/Warpforge_Data/StreamingAssets/aa/catalog.bin",
    "authoritativePerCardEntries": 3949,
    "authoritativeVfxEntries": 2122,
    "authoritativeAssetRefEntries": 1827,
@@ -80556,7 +80568,7 @@
     "deploy": 1
    },
    "authoritativeUnresolved": {
-    "GUID 在 `guid_map.tsv` 里没有解出具名资产": 4,
+    "GUID 在两个判据下都解不出：① `guid_map.tsv` 里没有；② 与本地束同 build 的 `catalog.bin` 里也没有这个 key": 2,
     "CardAnim `Wait_1s` 没有可解的 `animInfo.animAdressable`": 7,
     "CardAnim `Wait_1,5s` 没有可解的 `animInfo.animAdressable`": 3,
     "CardAnim `Wait_300ms` 没有可解的 `animInfo.animAdressable`": 1,
@@ -80567,21 +80579,7 @@
      "cardId": "BL47",
      "soField": "summonAudio",
      "guid": "fda6e5bccaf40a14aa3b7f0249bd8dd8",
-     "why": "GUID 在 `guid_map.tsv` 里没有解出具名资产（目录里有这个 key、但本地束里没有对应容器键 —— 两个 build 的差）",
-     "kind": "assetRef"
-    },
-    {
-     "cardId": "EC57",
-     "soField": "attackAudio",
-     "guid": "71484dfd53e79344283044bba4047a40",
-     "why": "GUID 在 `guid_map.tsv` 里没有解出具名资产（目录里有这个 key、但本地束里没有对应容器键 —— 两个 build 的差）",
-     "kind": "assetRef"
-    },
-    {
-     "cardId": "EC57",
-     "soField": "deathAudio",
-     "guid": "49a871661c04d6f49b6b479dce126723",
-     "why": "GUID 在 `guid_map.tsv` 里没有解出具名资产（目录里有这个 key、但本地束里没有对应容器键 —— 两个 build 的差）",
+     "why": "GUID 在两个判据下都解不出：① `guid_map.tsv` 里没有；② 与本地束同 build 的 `catalog.bin` 里也没有这个 key（两件事都做过 = 该资产不在这个 build 的 Addressables 里）",
      "kind": "assetRef"
     },
     {
@@ -80644,7 +80642,7 @@
      "cardId": "GOF2",
      "soField": "deathAudio",
      "guid": "11641bc635cf50942b52e516f66d2ba6",
-     "why": "GUID 在 `guid_map.tsv` 里没有解出具名资产（目录里有这个 key、但本地束里没有对应容器键 —— 两个 build 的差）",
+     "why": "GUID 在两个判据下都解不出：① `guid_map.tsv` 里没有；② 与本地束同 build 的 `catalog.bin` 里也没有这个 key（两件事都做过 = 该资产不在这个 build 的 Addressables 里）",
      "kind": "assetRef"
     },
     {
@@ -80676,7 +80674,7 @@
      "cardanim": "Wait_1s"
     }
    ],
-   "authoritativeUnresolvedCount": 16,
+   "authoritativeUnresolvedCount": 14,
    "poolCardsWithoutTruth": 0,
    "poolCardsWithoutTruthIds": [],
    "cardsJoinedBy": {

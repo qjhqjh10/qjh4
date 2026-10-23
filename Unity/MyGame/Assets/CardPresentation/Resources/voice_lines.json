@@ -8,6 +8,19 @@
   },
   "cards": [
     {
+      "id": "6e4f9040e8cc59641a32f29e33ea4cbc",
+      "name": "Tyrnak and Fenrir",
+      "faction": "SpaceWolves",
+      "lines": [
+        {
+          "ev": "deploy",
+          "file": "VO_SpaceWolves_Tyrnak and Fenrir.ogg",
+          "text": "",
+          "src": "cardSO"
+        }
+      ]
+    },
+    {
       "id": "AM1",
       "name": "Lord Solar Leontus",
       "faction": "AstraMilitarum",
@@ -182,7 +195,7 @@
     },
     {
       "id": "AM11",
-      "name": "Shock Trooper Sgt",
+      "name": "Shock Trooper Sgt.",
       "faction": "AstraMilitarum",
       "lines": [
         {
@@ -559,7 +572,7 @@
     },
     {
       "id": "AM24",
-      "name": "Bullgryn Bone’ead",
+      "name": "Bullgryn Bone'ead",
       "faction": "AstraMilitarum",
       "lines": [
         {
@@ -775,7 +788,7 @@
     },
     {
       "id": "AM32",
-      "name": "Leman Russ",
+      "name": "Leman Russ Tank",
       "faction": "AstraMilitarum",
       "lines": [
         {
@@ -1164,7 +1177,7 @@
     },
     {
       "id": "AM70",
-      "name": "Medic Scion",
+      "name": "Scion Medic",
       "faction": "AstraMilitarum",
       "lines": [
         {
@@ -1177,7 +1190,8 @@
         {
           "ev": "deploy",
           "file": "VO_AM_Medic Scion - No soul left behind.ogg",
-          "text": "No soul left behind"
+          "text": "No soul left behind",
+          "src": "orphan"
         }
       ]
     },
@@ -1484,7 +1498,7 @@
     },
     {
       "id": "ASH16",
-      "name": "Nuadhu Fireheart",
+      "name": "Nuadhu 'Fireheart'",
       "faction": "SaimHann",
       "lines": [
         {
@@ -1958,7 +1972,7 @@
     },
     {
       "id": "ASH30",
-      "name": "Fire prism",
+      "name": "Fire Prism",
       "faction": "SaimHann",
       "lines": [
         {
@@ -2788,7 +2802,7 @@
     },
     {
       "id": "BL18",
-      "name": "Bringer of decay",
+      "name": "Bringer of Decay",
       "faction": "BlackLegion",
       "lines": [
         {
@@ -3139,12 +3153,6 @@
           "text": "",
           "src": "cardSO",
           "so": "wellPlayedChatSound"
-        },
-        {
-          "ev": "deploy",
-          "file": "VO_BlackLegion_Hexscorn_vs_Abaddon.ogg",
-          "text": "",
-          "src": "orphan"
         }
       ]
     },
@@ -4676,6 +4684,71 @@
       ]
     },
     {
+      "id": "DA65",
+      "name": "Chaplain Gabutheron",
+      "faction": "DarkAngels",
+      "lines": [
+        {
+          "ev": "deploy",
+          "file": "VO_DA_Chaplain Gabutheron - No price is too high to clean the sins of old.wav",
+          "text": "No price is too high to clean the sins of old",
+          "src": "cardSO"
+        }
+      ]
+    },
+    {
+      "id": "DA66",
+      "name": "Ballistus Dreadnought",
+      "faction": "DarkAngels",
+      "lines": [
+        {
+          "ev": "deploy",
+          "file": "VO_DA_Ballistus Dreadnought - Death is not enough to stay our wrath.wav",
+          "text": "Death is not enough to stay our wrath",
+          "src": "cardSO"
+        }
+      ]
+    },
+    {
+      "id": "DA67",
+      "name": "Assault Terminator",
+      "faction": "DarkAngels",
+      "lines": [
+        {
+          "ev": "deploy",
+          "file": "VO_DA_Assault Terminator - I will not suffer your existence one moment longer.wav",
+          "text": "I will not suffer your existence one moment longer",
+          "src": "cardSO"
+        }
+      ]
+    },
+    {
+      "id": "DA68",
+      "name": "Vengeful Brethren Bladeguard",
+      "faction": "DarkAngels",
+      "lines": [
+        {
+          "ev": "deploy",
+          "file": "VO_DA_Vengeful Brethren Bladeguard - Stand as firm as the mighty Rock itself!.wav",
+          "text": "Stand as firm as the mighty Rock itself!",
+          "src": "cardSO"
+        }
+      ]
+    },
+    {
+      "id": "DA69",
+      "name": "Vengeful Brethren Hellblaster",
+      "faction": "DarkAngels",
+      "lines": [
+        {
+          "ev": "deploy",
+          "file": "VO_DA_Vengeful Brethren Hellblaster - Mercy is not mine to deliver Only death.wav",
+          "text": "Mercy is not mine to deliver Only death",
+          "src": "cardSO"
+        }
+      ]
+    },
+    {
       "id": "DA7",
       "name": "Ravenwing Bikes",
       "faction": "DarkAngels",
@@ -4690,10 +4763,48 @@
       ]
     },
     {
+      "id": "DA70",
+      "name": "Vengeful Brethren Intercessor",
+      "faction": "DarkAngels",
+      "lines": [
+        {
+          "ev": "deploy",
+          "file": "VO_DA_Vengeful Brethren Intercessor - You are one mistake away from your death.wav",
+          "text": "You are one mistake away from your death",
+          "src": "cardSO"
+        }
+      ]
+    },
+    {
+      "id": "DA71",
+      "name": "Watcher in the Dark",
+      "faction": "DarkAngels",
+      "lines": [
+        {
+          "ev": "deploy",
+          "file": "VO_DA_Watcher in the Dark - You do not have long.wav",
+          "text": "You do not have long",
+          "src": "cardSO"
+        }
+      ]
+    },
+    {
       "id": "DA75",
       "name": "Master Zacharial",
       "faction": "DarkAngels",
       "lines": [
+        {
+          "ev": "attack",
+          "file": "VO_DA_Master Zacharial_attack.wav",
+          "text": "",
+          "src": "cardSO"
+        },
+        {
+          "ev": "death",
+          "file": "VO_DA_Master Zacharial_death.wav",
+          "text": "",
+          "src": "cardSO"
+        },
         {
           "ev": "backup1",
           "file": "VO_DA_Master Zacharial_Backup1.wav",
@@ -4710,11 +4821,6 @@
           "text": ""
         },
         {
-          "ev": "attack",
-          "file": "VO_DA_Master Zacharial_attack.wav",
-          "text": ""
-        },
-        {
           "ev": "cantdo",
           "file": "VO_DA_Master Zacharial_cantDo.wav",
           "text": ""
@@ -4722,11 +4828,6 @@
         {
           "ev": "concede",
           "file": "VO_DA_Master Zacharial_concede.wav",
-          "text": ""
-        },
-        {
-          "ev": "death",
-          "file": "VO_DA_Master Zacharial_death.wav",
           "text": ""
         },
         {
@@ -4817,42 +4918,6 @@
       ]
     },
     {
-      "id": "DA71",
-      "name": "Watcher in the Dark",
-      "faction": "DarkAngels",
-      "lines": [
-        {
-          "ev": "deploy",
-          "file": "VO_DA_Watcher in the Dark - You do not have long.wav",
-          "text": "You do not have long"
-        }
-      ]
-    },
-    {
-      "id": "DA70",
-      "name": "Vengeful Brethren Intercessor",
-      "faction": "DarkAngels",
-      "lines": [
-        {
-          "ev": "deploy",
-          "file": "VO_DA_Vengeful Brethren Intercessor - You are one mistake away from your death.wav",
-          "text": "You are one mistake away from your death"
-        }
-      ]
-    },
-    {
-      "id": "DA69",
-      "name": "Vengeful Brethren Hellblaster",
-      "faction": "DarkAngels",
-      "lines": [
-        {
-          "ev": "deploy",
-          "file": "VO_DA_Vengeful Brethren Hellblaster - Mercy is not mine to deliver Only death.wav",
-          "text": "Mercy is not mine to deliver Only death"
-        }
-      ]
-    },
-    {
       "id": "DA8",
       "name": "Reiver",
       "faction": "DarkAngels",
@@ -4863,54 +4928,6 @@
           "text": "Your pleas for mercy will go unheard",
           "src": "cardSO",
           "so": "summonAudio"
-        }
-      ]
-    },
-    {
-      "id": "DA68",
-      "name": "Vengeful Brethren Bladeguard",
-      "faction": "DarkAngels",
-      "lines": [
-        {
-          "ev": "deploy",
-          "file": "VO_DA_Vengeful Brethren Bladeguard - Stand as firm as the mighty Rock itself!.wav",
-          "text": "Stand as firm as the mighty Rock itself!"
-        }
-      ]
-    },
-    {
-      "id": "DA67",
-      "name": "Assault Terminator",
-      "faction": "DarkAngels",
-      "lines": [
-        {
-          "ev": "deploy",
-          "file": "VO_DA_Assault Terminator - I will not suffer your existence one moment longer.wav",
-          "text": "I will not suffer your existence one moment longer"
-        }
-      ]
-    },
-    {
-      "id": "DA65",
-      "name": "Chaplain Gabutheron",
-      "faction": "DarkAngels",
-      "lines": [
-        {
-          "ev": "deploy",
-          "file": "VO_DA_Chaplain Gabutheron - No price is too high to clean the sins of old.wav",
-          "text": "No price is too high to clean the sins of old"
-        }
-      ]
-    },
-    {
-      "id": "DA66",
-      "name": "Ravenwing Ballistus Dreadnought",
-      "faction": "DarkAngels",
-      "lines": [
-        {
-          "ev": "deploy",
-          "file": "VO_DA_Ballistus Dreadnought - Death is not enough to stay our wrath.wav",
-          "text": "Death is not enough to stay our wrath"
         }
       ]
     },
@@ -5000,7 +5017,7 @@
     },
     {
       "id": "EC14",
-      "name": "Lord Kakophonist",
+      "name": "Varius, Lord Kakophonist",
       "faction": "EmperorsChildren",
       "lines": [
         {
@@ -5028,7 +5045,7 @@
     },
     {
       "id": "EC16",
-      "name": "Dual Screamer Kakophonist",
+      "name": "Screamer Kakophonist",
       "faction": "EmperorsChildren",
       "lines": [
         {
@@ -5070,7 +5087,7 @@
     },
     {
       "id": "EC19",
-      "name": "Threnodic Choir Noise Marine",
+      "name": "Threnodic Noise Marine",
       "faction": "EmperorsChildren",
       "lines": [
         {
@@ -5388,6 +5405,83 @@
           "so": "defaultChatSound"
         },
         {
+          "ev": "cantdo",
+          "file": "VO_CSM_EC_Lucius_cantDo.ogg",
+          "text": "",
+          "src": "cardSO",
+          "so": "iCantDoThatChatSound"
+        },
+        {
+          "ev": "concede",
+          "file": "VO_CSM_EC_Lucius_concede.ogg",
+          "text": "",
+          "src": "cardSO",
+          "so": "concedeChatSound"
+        },
+        {
+          "ev": "gen1",
+          "file": "VO_CSM_EC_Lucius_gen1.ogg",
+          "text": "",
+          "src": "cardSO",
+          "so": "generic1ChatSound"
+        },
+        {
+          "ev": "gen2",
+          "file": "VO_CSM_EC_Lucius_gen2.ogg",
+          "text": "",
+          "src": "cardSO",
+          "so": "generic2ChatSound"
+        },
+        {
+          "ev": "gen3",
+          "file": "VO_CSM_EC_Lucius_gen3.ogg",
+          "text": "",
+          "src": "cardSO",
+          "so": "generic3ChatSound"
+        },
+        {
+          "ev": "greet",
+          "file": "VO_CSM_EC_Lucius_greet.ogg",
+          "text": "",
+          "src": "cardSO",
+          "so": "greetChatSound"
+        },
+        {
+          "ev": "hurry",
+          "file": "VO_CSM_EC_Lucius_hurry.ogg",
+          "text": "",
+          "src": "cardSO",
+          "so": "hurryChatSound"
+        },
+        {
+          "ev": "intro",
+          "file": "VO_CSM_EC_Lucius_intro.ogg",
+          "text": "",
+          "src": "cardSO",
+          "so": "introChatSound"
+        },
+        {
+          "ev": "mirror",
+          "file": "VO_CSM_EC_Lucius_mirror.ogg",
+          "text": "",
+          "src": "cardSO",
+          "so": "mirrorChatSound"
+        },
+        {
+          "ev": "threat",
+          "file": "VO_CSM_EC_Lucius_threat.ogg",
+          "text": "",
+          "src": "cardSO",
+          "so": "threatChatSound"
+        },
+        {
+          "ev": "wp",
+          "file": "VO_CSM_EC_Lucius_wp.ogg",
+          "text": "",
+          "src": "cardSO",
+          "so": "wellPlayedChatSound"
+        },
+        {
           "ev": "backup1",
           "file": "VO_CSM_EC_Lucius_Backup1.ogg",
           "text": ""
@@ -5400,31 +5494,6 @@
         {
           "ev": "backup3",
           "file": "VO_CSM_EC_Lucius_Backup3.ogg",
-          "text": ""
-        },
-        {
-          "ev": "cantdo",
-          "file": "VO_CSM_EC_Lucius_cantDo.ogg",
-          "text": ""
-        },
-        {
-          "ev": "concede",
-          "file": "VO_CSM_EC_Lucius_concede.ogg",
-          "text": ""
-        },
-        {
-          "ev": "gen1",
-          "file": "VO_CSM_EC_Lucius_gen1.ogg",
-          "text": ""
-        },
-        {
-          "ev": "gen2",
-          "file": "VO_CSM_EC_Lucius_gen2.ogg",
-          "text": ""
-        },
-        {
-          "ev": "gen3",
-          "file": "VO_CSM_EC_Lucius_gen3.ogg",
           "text": ""
         },
         {
@@ -5445,31 +5514,6 @@
         {
           "ev": "gen7",
           "file": "VO_CSM_EC_Lucius_gen7.ogg",
-          "text": ""
-        },
-        {
-          "ev": "greet",
-          "file": "VO_CSM_EC_Lucius_greet.ogg",
-          "text": ""
-        },
-        {
-          "ev": "hurry",
-          "file": "VO_CSM_EC_Lucius_hurry.ogg",
-          "text": ""
-        },
-        {
-          "ev": "intro",
-          "file": "VO_CSM_EC_Lucius_intro.ogg",
-          "text": ""
-        },
-        {
-          "ev": "mirror",
-          "file": "VO_CSM_EC_Lucius_mirror.ogg",
-          "text": ""
-        },
-        {
-          "ev": "threat",
-          "file": "VO_CSM_EC_Lucius_threat.ogg",
           "text": ""
         },
         {
@@ -5516,11 +5560,6 @@
           "ev": "vswe",
           "file": "VO_CSM_EC_Lucius_vsWE.ogg",
           "text": ""
-        },
-        {
-          "ev": "wp",
-          "file": "VO_CSM_EC_Lucius_wp.ogg",
-          "text": ""
         }
       ]
     },
@@ -5530,6 +5569,12 @@
       "faction": "EmperorsChildren",
       "lines": [
         {
+          "ev": "attack",
+          "file": "VO_CSM_EC_Lord Kaphrael_attack.ogg",
+          "text": "",
+          "src": "cardSO"
+        },
+        {
           "ev": "death",
           "file": "VO_CSM_EC_Lord Kaphrael_death.ogg",
           "text": "",
@@ -5537,53 +5582,88 @@
           "so": "deathAudio"
         },
         {
-          "ev": "gen7",
-          "file": "VO_CSM_EC_Lord Kaphrael_gen7.ogg",
-          "text": "",
-          "src": "cardSO"
-        },
-        {
           "ev": "default",
-          "file": "VO_CSM_EC_Lord Kaphrael_gen7.ogg",
+          "file": "VO_CSM_EC_Lord Kaphrael_attack.ogg",
           "text": "",
           "src": "cardSO",
           "so": "defaultChatSound"
         },
         {
-          "ev": "attack",
-          "file": "VO_CSM_EC_Lord Kaphrael_attack.ogg",
-          "text": "",
-          "src": "orphan"
-        },
-        {
           "ev": "cantdo",
           "file": "VO_CSM_EC_Lord Kaphrael_cantDo.ogg",
           "text": "",
-          "src": "orphan"
+          "src": "cardSO",
+          "so": "iCantDoThatChatSound"
         },
         {
           "ev": "concede",
           "file": "VO_CSM_EC_Lord Kaphrael_concede.ogg",
           "text": "",
-          "src": "orphan"
+          "src": "cardSO",
+          "so": "concedeChatSound"
         },
         {
           "ev": "gen1",
           "file": "VO_CSM_EC_Lord Kaphrael_gen1.ogg",
           "text": "",
-          "src": "orphan"
+          "src": "cardSO",
+          "so": "generic1ChatSound"
         },
         {
           "ev": "gen2",
           "file": "VO_CSM_EC_Lord Kaphrael_gen2.ogg",
           "text": "",
-          "src": "orphan"
+          "src": "cardSO",
+          "so": "generic2ChatSound"
         },
         {
           "ev": "gen3",
           "file": "VO_CSM_EC_Lord Kaphrael_gen3.ogg",
           "text": "",
-          "src": "orphan"
+          "src": "cardSO",
+          "so": "generic3ChatSound"
+        },
+        {
+          "ev": "greet",
+          "file": "VO_CSM_EC_Lord Kaphrael_greet.ogg",
+          "text": "",
+          "src": "cardSO",
+          "so": "greetChatSound"
+        },
+        {
+          "ev": "hurry",
+          "file": "VO_CSM_EC_Lord Kaphrael_hurry.ogg",
+          "text": "",
+          "src": "cardSO",
+          "so": "hurryChatSound"
+        },
+        {
+          "ev": "intro",
+          "file": "VO_CSM_EC_Lord Kaphrael_intro.ogg",
+          "text": "",
+          "src": "cardSO",
+          "so": "introChatSound"
+        },
+        {
+          "ev": "mirror",
+          "file": "VO_CSM_EC_Lord Kaphrael_mirror.ogg",
+          "text": "",
+          "src": "cardSO",
+          "so": "mirrorChatSound"
+        },
+        {
+          "ev": "threat",
+          "file": "VO_CSM_EC_Lord Kaphrael_threat.ogg",
+          "text": "",
+          "src": "cardSO",
+          "so": "threatChatSound"
+        },
+        {
+          "ev": "wp",
+          "file": "VO_CSM_EC_Lord Kaphrael_wp.ogg",
+          "text": "",
+          "src": "cardSO",
+          "so": "wellPlayedChatSound"
         },
         {
           "ev": "gen4",
@@ -5604,38 +5684,8 @@
           "src": "orphan"
         },
         {
-          "ev": "greet",
-          "file": "VO_CSM_EC_Lord Kaphrael_greet.ogg",
-          "text": "",
-          "src": "orphan"
-        },
-        {
-          "ev": "hurry",
-          "file": "VO_CSM_EC_Lord Kaphrael_hurry.ogg",
-          "text": "",
-          "src": "orphan"
-        },
-        {
-          "ev": "intro",
-          "file": "VO_CSM_EC_Lord Kaphrael_intro.ogg",
-          "text": "",
-          "src": "orphan"
-        },
-        {
-          "ev": "mirror",
-          "file": "VO_CSM_EC_Lord Kaphrael_mirror.ogg",
-          "text": "",
-          "src": "orphan"
-        },
-        {
-          "ev": "threat",
-          "file": "VO_CSM_EC_Lord Kaphrael_threat.ogg",
-          "text": "",
-          "src": "orphan"
-        },
-        {
-          "ev": "wp",
-          "file": "VO_CSM_EC_Lord Kaphrael_wp.ogg",
+          "ev": "gen7",
+          "file": "VO_CSM_EC_Lord Kaphrael_gen7.ogg",
           "text": "",
           "src": "orphan"
         }
@@ -5643,83 +5693,20 @@
     },
     {
       "id": "EC57",
-      "name": "Xarahan Daemon Prince",
+      "name": "Xarahan, Daemon Prince",
       "faction": "EmperorsChildren",
       "lines": [
         {
           "ev": "attack",
           "file": "VO_CSM_EC_Daemon Prince Xarahan_attack.ogg",
-          "text": ""
-        },
-        {
-          "ev": "cantdo",
-          "file": "VO_CSM_EC_Daemon Prince Xarahan_cantDo.ogg",
-          "text": ""
-        },
-        {
-          "ev": "concede",
-          "file": "VO_CSM_EC_Daemon Prince Xarahan_concede.ogg",
-          "text": ""
+          "text": "",
+          "src": "cardSO"
         },
         {
           "ev": "death",
           "file": "VO_CSM_EC_Daemon Prince Xarahan_death.ogg",
-          "text": ""
-        },
-        {
-          "ev": "gen1",
-          "file": "VO_CSM_EC_Daemon Prince Xarahan_gen1.ogg",
-          "text": ""
-        },
-        {
-          "ev": "gen2",
-          "file": "VO_CSM_EC_Daemon Prince Xarahan_gen2.ogg",
-          "text": ""
-        },
-        {
-          "ev": "gen3",
-          "file": "VO_CSM_EC_Daemon Prince Xarahan_gen3.ogg",
-          "text": ""
-        },
-        {
-          "ev": "gen4",
-          "file": "VO_CSM_EC_Daemon Prince Xarahan_gen4.ogg",
-          "text": ""
-        },
-        {
-          "ev": "gen5",
-          "file": "VO_CSM_EC_Daemon Prince Xarahan_gen5.ogg",
-          "text": ""
-        },
-        {
-          "ev": "greet",
-          "file": "VO_CSM_EC_Daemon Prince Xarahan_greet.ogg",
-          "text": ""
-        },
-        {
-          "ev": "hurry",
-          "file": "VO_CSM_EC_Daemon Prince Xarahan_hurry.ogg",
-          "text": ""
-        },
-        {
-          "ev": "intro",
-          "file": "VO_CSM_EC_Daemon Prince Xarahan_intro.ogg",
-          "text": ""
-        },
-        {
-          "ev": "mirror",
-          "file": "VO_CSM_EC_Daemon Prince Xarahan_mirror.ogg",
-          "text": ""
-        },
-        {
-          "ev": "threat",
-          "file": "VO_CSM_EC_Daemon Prince Xarahan_threat.ogg",
-          "text": ""
-        },
-        {
-          "ev": "wp",
-          "file": "VO_CSM_EC_Daemon Prince Xarahan_wp.ogg",
-          "text": ""
+          "text": "",
+          "src": "cardSO"
         }
       ]
     },
@@ -5767,7 +5754,7 @@
     },
     {
       "id": "EC9",
-      "name": "Icon of Excess Infractor",
+      "name": "Icon of Excess",
       "faction": "EmperorsChildren",
       "lines": [
         {
@@ -5823,7 +5810,7 @@
     },
     {
       "id": "GOF12",
-      "name": "Ork Spanner",
+      "name": "Spanner",
       "faction": "Goff",
       "lines": [
         {
@@ -5907,7 +5894,7 @@
     },
     {
       "id": "GOF18",
-      "name": "PainBoy Sniklaw",
+      "name": "Painboy Sniklaw",
       "faction": "Goff",
       "lines": [
         {
@@ -5949,7 +5936,7 @@
     },
     {
       "id": "GOF20",
-      "name": "Veteran Flyboy",
+      "name": "Veteran Stormboy",
       "faction": "Goff",
       "lines": [
         {
@@ -5991,7 +5978,7 @@
     },
     {
       "id": "GOF23",
-      "name": "Ardshell Gurk",
+      "name": "'Ardshell Gurk",
       "faction": "Goff",
       "lines": [
         {
@@ -6723,7 +6710,7 @@
     },
     {
       "id": "GOF69",
-      "name": "Mega Blasta Deffkopta",
+      "name": "Mega-Blasta Deffkopta",
       "faction": "Goff",
       "lines": [
         {
@@ -7260,7 +7247,7 @@
     },
     {
       "id": "GOF8",
-      "name": "Hornhelmz Boy",
+      "name": "Hornhelmz' Boy",
       "faction": "Goff",
       "lines": [
         {
@@ -7358,7 +7345,7 @@
     },
     {
       "id": "GOF86",
-      "name": "Unleashed TramplaSquig",
+      "name": "Unleashed Tramplasquig",
       "faction": "Goff",
       "lines": [
         {
@@ -8103,7 +8090,7 @@
     },
     {
       "id": "GSC3",
-      "name": "Acolyte Iconward",
+      "name": "Iconward Malak Vorenth",
       "faction": "Genestealers",
       "lines": [
         {
@@ -8206,72 +8193,86 @@
         {
           "ev": "backup1",
           "file": "VO_GSC_Acolyte Iconward_Backup1.ogg",
-          "text": ""
+          "text": "",
+          "src": "orphan"
         },
         {
           "ev": "backup2",
           "file": "VO_GSC_Acolyte Iconward_Backup2.ogg",
-          "text": ""
+          "text": "",
+          "src": "orphan"
         },
         {
           "ev": "backup3",
           "file": "VO_GSC_Acolyte Iconward_Backup3.ogg",
-          "text": ""
+          "text": "",
+          "src": "orphan"
         },
         {
           "ev": "backup4",
           "file": "VO_GSC_Acolyte Iconward_Backup4.ogg",
-          "text": ""
+          "text": "",
+          "src": "orphan"
         },
         {
           "ev": "backup5",
           "file": "VO_GSC_Acolyte Iconward_Backup5.ogg",
-          "text": ""
+          "text": "",
+          "src": "orphan"
         },
         {
           "ev": "backup6",
           "file": "VO_GSC_Acolyte Iconward_Backup6.ogg",
-          "text": ""
+          "text": "",
+          "src": "orphan"
         },
         {
           "ev": "gen4",
           "file": "VO_GSC_Acolyte Iconward_gen4.ogg",
-          "text": ""
+          "text": "",
+          "src": "orphan"
         },
         {
           "ev": "gen5",
           "file": "VO_GSC_Acolyte Iconward_gen5.ogg",
-          "text": ""
+          "text": "",
+          "src": "orphan"
         },
         {
           "ev": "gen6",
           "file": "VO_GSC_Acolyte Iconward_gen6.ogg",
-          "text": ""
+          "text": "",
+          "src": "orphan"
         },
         {
           "ev": "gen7",
           "file": "VO_GSC_Acolyte Iconward_gen7.ogg",
-          "text": ""
+          "text": "",
+          "src": "orphan"
         },
         {
           "ev": "vsastramilitarum",
           "file": "VO_GSC_Acolyte Iconward_vsAstraMilitarum.ogg",
-          "text": ""
+          "text": "",
+          "src": "orphan"
         },
         {
           "ev": "vsmagus",
           "file": "VO_GSC_Acolyte Iconward_vsMagus.ogg",
-          "text": ""
+          "text": "",
+          "src": "orphan"
         },
         {
           "ev": "vsnecrons",
           "file": "VO_GSC_Acolyte Iconward_vsNecrons.ogg",
-          "text": ""
+          "text": "",
+          "src": "orphan"
         },
         {
           "ev": "vsorks",
           "file": "VO_GSC_Acolyte Iconward_vsOrks.ogg",
-          "text": ""
+          "text": "",
+          "src": "orphan"
         }
       ]
     },
@@ -9592,7 +9593,7 @@
     },
     {
       "id": "SAU4",
-      "name": "Gauss Reaper Warrior",
+      "name": "Gauss Warrior",
       "faction": "Sautekh",
       "lines": [
         {
@@ -9620,7 +9621,7 @@
     },
     {
       "id": "SAU6",
-      "name": "Tesla Carbine Immortal",
+      "name": "Tesla Immortal",
       "faction": "Sautekh",
       "lines": [
         {
@@ -9648,7 +9649,7 @@
     },
     {
       "id": "SAU66",
-      "name": "Ramatekh The Cruel",
+      "name": "Ramatekh the Cruel",
       "faction": "Sautekh",
       "lines": [
         {
@@ -9751,67 +9752,80 @@
         {
           "ev": "backup1",
           "file": "VO_Sautekh_Ramatekh the Cruel_Backup1.ogg",
-          "text": ""
+          "text": "",
+          "src": "orphan"
         },
         {
           "ev": "backup2",
           "file": "VO_Sautekh_Ramatekh the Cruel_Backup2.ogg",
-          "text": ""
+          "text": "",
+          "src": "orphan"
         },
         {
           "ev": "backup3",
           "file": "VO_Sautekh_Ramatekh the Cruel_Backup3.ogg",
-          "text": ""
+          "text": "",
+          "src": "orphan"
         },
         {
           "ev": "gen4",
           "file": "VO_Sautekh_Ramatekh the Cruel_gen4.ogg",
-          "text": ""
+          "text": "",
+          "src": "orphan"
         },
         {
           "ev": "gen5",
           "file": "VO_Sautekh_Ramatekh the Cruel_gen5.ogg",
-          "text": ""
+          "text": "",
+          "src": "orphan"
         },
         {
           "ev": "gen6",
           "file": "VO_Sautekh_Ramatekh the Cruel_gen6.ogg",
-          "text": ""
+          "text": "",
+          "src": "orphan"
         },
         {
           "ev": "gen7",
           "file": "VO_Sautekh_Ramatekh the Cruel_gen7.ogg",
-          "text": ""
+          "text": "",
+          "src": "orphan"
         },
         {
           "ev": "vsaun'va",
           "file": "VO_Sautekh_Ramatekh the Cruel_vsAun'Va.ogg",
-          "text": ""
+          "text": "",
+          "src": "orphan"
         },
         {
           "ev": "vsgrukk",
           "file": "VO_Sautekh_Ramatekh the Cruel_vsGrukk.ogg",
-          "text": ""
+          "text": "",
+          "src": "orphan"
         },
         {
           "ev": "vsimotekh",
           "file": "VO_Sautekh_Ramatekh the Cruel_vsImotekh.ogg",
-          "text": ""
+          "text": "",
+          "src": "orphan"
         },
         {
           "ev": "vskeltoc",
           "file": "VO_Sautekh_Ramatekh the Cruel_vsKeltoc.ogg",
-          "text": ""
+          "text": "",
+          "src": "orphan"
         },
         {
           "ev": "vsnecron",
           "file": "VO_Sautekh_Ramatekh the Cruel_vsNecron.ogg",
-          "text": ""
+          "text": "",
+          "src": "orphan"
         },
         {
           "ev": "vsorikan",
           "file": "VO_Sautekh_Ramatekh the Cruel_vsOrikan.ogg",
-          "text": ""
+          "text": "",
+          "src": "orphan"
         }
       ]
     },
@@ -9929,7 +9943,7 @@
     },
     {
       "id": "SAU8",
-      "name": "Gauss Blaster Immortal",
+      "name": "Gauss Immortal",
       "faction": "Sautekh",
       "lines": [
         {
@@ -10491,7 +10505,7 @@
     },
     {
       "id": "SOR24",
-      "name": "Simulacrum Imperialis",
+      "name": "Simulacrum Celestian",
       "faction": "Sororitas",
       "lines": [
         {
@@ -10758,7 +10772,7 @@
     },
     {
       "id": "SOR31",
-      "name": "Sister Dogmata",
+      "name": "Dogmata",
       "faction": "Sororitas",
       "lines": [
         {
@@ -10842,7 +10856,7 @@
     },
     {
       "id": "SOR37",
-      "name": "Triumph of Saint Katherine",
+      "name": "Triumph of St. Katherine",
       "faction": "Sororitas",
       "lines": [
         {
@@ -11188,7 +11202,7 @@
     },
     {
       "id": "SOR8",
-      "name": "Arco-Flagellant",
+      "name": "Arco-flagellant",
       "faction": "Sororitas",
       "lines": [
         {
@@ -11220,6 +11234,18 @@
       "faction": "SpaceWolves",
       "lines": [
         {
+          "ev": "attack",
+          "file": "VO_SpaceWolves_Logan Grimnar_attack.ogg",
+          "text": "",
+          "src": "cardSO"
+        },
+        {
+          "ev": "death",
+          "file": "VO_SpaceWolves_Logan Grimnar_death.ogg",
+          "text": "",
+          "src": "cardSO"
+        },
+        {
           "ev": "backup1",
           "file": "VO_SpaceWolves_Logan Grimnar_Backup1.ogg",
           "text": ""
@@ -11235,11 +11261,6 @@
           "text": ""
         },
         {
-          "ev": "attack",
-          "file": "VO_SpaceWolves_Logan Grimnar_attack.ogg",
-          "text": ""
-        },
-        {
           "ev": "cantdo",
           "file": "VO_SpaceWolves_Logan Grimnar_cantDo.ogg",
           "text": ""
@@ -11247,11 +11268,6 @@
         {
           "ev": "concede",
           "file": "VO_SpaceWolves_Logan Grimnar_concede.ogg",
-          "text": ""
-        },
-        {
-          "ev": "death",
-          "file": "VO_SpaceWolves_Logan Grimnar_death.ogg",
           "text": ""
         },
         {
@@ -11342,78 +11358,6 @@
       ]
     },
     {
-      "id": "SW4",
-      "name": "Blood Claw",
-      "faction": "SpaceWolves",
-      "lines": [
-        {
-          "ev": "deploy",
-          "file": "VO_SpaceWolves_Blood Claw - This is where my saga begins!.ogg",
-          "text": "This is where my saga begins!"
-        }
-      ]
-    },
-    {
-      "id": "SW5",
-      "name": "Hunting Wolf",
-      "faction": "SpaceWolves",
-      "lines": [
-        {
-          "ev": "deploy",
-          "file": "VO_SpaceWolves_Hunting Wolf.ogg",
-          "text": ""
-        }
-      ]
-    },
-    {
-      "id": "SW8",
-      "name": "Blackmane Reiver",
-      "faction": "SpaceWolves",
-      "lines": [
-        {
-          "ev": "deploy",
-          "file": "VO_SpaceWolves_Blackmane Reiver - You will not live to see our victory.ogg",
-          "text": "You will not live to see our victory"
-        }
-      ]
-    },
-    {
-      "id": "SW6",
-      "name": "Blood Claw Pack Leader",
-      "faction": "SpaceWolves",
-      "lines": [
-        {
-          "ev": "deploy",
-          "file": "VO_SpaceWolves_Blood Claw Pack Leader - Keep moving! Battle does not wait for you!.ogg",
-          "text": "Keep moving! Battle does not wait for you!"
-        }
-      ]
-    },
-    {
-      "id": "SW7",
-      "name": "Deathwolf Scout",
-      "faction": "SpaceWolves",
-      "lines": [
-        {
-          "ev": "deploy",
-          "file": "VO_SpaceWolves_Deathwolf Scout - The trail is clearer with every step.ogg",
-          "text": "The trail is clearer with every step"
-        }
-      ]
-    },
-    {
-      "id": "SW9",
-      "name": "Fenrisian Wolf",
-      "faction": "SpaceWolves",
-      "lines": [
-        {
-          "ev": "deploy",
-          "file": "VO_SpaceWolves_Fenrisian Wolf.ogg",
-          "text": ""
-        }
-      ]
-    },
-    {
       "id": "SW10",
       "name": "Grey Hunter",
       "faction": "SpaceWolves",
@@ -11421,19 +11365,8 @@
         {
           "ev": "deploy",
           "file": "VO_SpaceWolves_Grey Hunter - I have eyes on the prey!.ogg",
-          "text": "I have eyes on the prey!"
-        }
-      ]
-    },
-    {
-      "id": "SW15",
-      "name": "Fyrri Askar",
-      "faction": "SpaceWolves",
-      "lines": [
-        {
-          "ev": "deploy",
-          "file": "VO_SpaceWolves_Fyrri Askar - Let's give the skjalds something to sing about!.ogg",
-          "text": "Let's give the skjalds something to sing about!"
+          "text": "I have eyes on the prey!",
+          "src": "cardSO"
         }
       ]
     },
@@ -11445,7 +11378,112 @@
         {
           "ev": "deploy",
           "file": "VO_SpaceWolves_Grey Hunter Pack Leader - Charge! No great champion dies clean!.ogg",
-          "text": "Charge! No great champion dies clean!"
+          "text": "Charge! No great champion dies clean!",
+          "src": "cardSO"
+        }
+      ]
+    },
+    {
+      "id": "SW12",
+      "name": "Thunderwolf Cavalry",
+      "faction": "SpaceWolves",
+      "lines": [
+        {
+          "ev": "deploy",
+          "file": "VO_SpaceWolves_Thunderwolf Calvary - If tooth and nail are not enough, the chainsword will bite.ogg",
+          "text": "If tooth and nail are not enough, the chainsword will bite",
+          "src": "cardSO"
+        }
+      ]
+    },
+    {
+      "id": "SW13",
+      "name": "Wolf Guard Headtaker",
+      "faction": "SpaceWolves",
+      "lines": [
+        {
+          "ev": "deploy",
+          "file": "VO_SpaceWolves_Wolf Guard Headtaker - Bring them fang! Bring them fury!.ogg",
+          "text": "Bring them fang! Bring them fury!",
+          "src": "cardSO"
+        }
+      ]
+    },
+    {
+      "id": "SW14",
+      "name": "Wolf Priest",
+      "faction": "SpaceWolves",
+      "lines": [
+        {
+          "ev": "deploy",
+          "file": "VO_SpaceWolves_Wolf Priest - It is fate that guides our blades.ogg",
+          "text": "It is fate that guides our blades",
+          "src": "cardSO"
+        }
+      ]
+    },
+    {
+      "id": "SW15",
+      "name": "Fyrri Askar",
+      "faction": "SpaceWolves",
+      "lines": [
+        {
+          "ev": "deploy",
+          "file": "VO_SpaceWolves_Fyrri Askar - Let's give the skjalds something to sing about!.ogg",
+          "text": "Let's give the skjalds something to sing about!",
+          "src": "cardSO"
+        }
+      ]
+    },
+    {
+      "id": "SW16",
+      "name": "Long Fang",
+      "faction": "SpaceWolves",
+      "lines": [
+        {
+          "ev": "deploy",
+          "file": "VO_SpaceWolves_Long Fang - Your time is over!.ogg",
+          "text": "Your time is over!",
+          "src": "cardSO"
+        }
+      ]
+    },
+    {
+      "id": "SW17",
+      "name": "Wulfen",
+      "faction": "SpaceWolves",
+      "lines": [
+        {
+          "ev": "deploy",
+          "file": "VO_SpaceWolves_Wulfen.ogg",
+          "text": "",
+          "src": "cardSO"
+        }
+      ]
+    },
+    {
+      "id": "SW18",
+      "name": "Hrolf the Ironhowl",
+      "faction": "SpaceWolves",
+      "lines": [
+        {
+          "ev": "deploy",
+          "file": "VO_SpaceWolves_Hrolf the Ironhowl - With me, brothers! Ride until the Wolftime!).ogg",
+          "text": "With me, brothers! Ride until the Wolftime!)",
+          "src": "cardSO"
+        }
+      ]
+    },
+    {
+      "id": "SW19",
+      "name": "Iron Priest",
+      "faction": "SpaceWolves",
+      "lines": [
+        {
+          "ev": "deploy",
+          "file": "VO_SpaceWolves_Iron Priest - Sharp senses, sharper steel.ogg",
+          "text": "Sharp senses, sharper steel",
+          "src": "cardSO"
         }
       ]
     },
@@ -11454,6 +11492,18 @@
       "name": "Njal Stormcaller",
       "faction": "SpaceWolves",
       "lines": [
+        {
+          "ev": "attack",
+          "file": "VO_SpaceWolves_Njal Stormcaller_attack.ogg",
+          "text": "",
+          "src": "cardSO"
+        },
+        {
+          "ev": "death",
+          "file": "VO_SpaceWolves_Njal Stormcaller_death.ogg",
+          "text": "",
+          "src": "cardSO"
+        },
         {
           "ev": "backup1",
           "file": "VO_SpaceWolves_Njal Stormcaller_Backup1.ogg",
@@ -11475,11 +11525,6 @@
           "text": ""
         },
         {
-          "ev": "attack",
-          "file": "VO_SpaceWolves_Njal Stormcaller_attack.ogg",
-          "text": ""
-        },
-        {
           "ev": "cantdo",
           "file": "VO_SpaceWolves_Njal Stormcaller_cantDo.ogg",
           "text": ""
@@ -11487,11 +11532,6 @@
         {
           "ev": "concede",
           "file": "VO_SpaceWolves_Njal Stormcaller_concede.ogg",
-          "text": ""
-        },
-        {
-          "ev": "death",
-          "file": "VO_SpaceWolves_Njal Stormcaller_death.ogg",
           "text": ""
         },
         {
@@ -11577,78 +11617,6 @@
       ]
     },
     {
-      "id": "SW12",
-      "name": "Thunderwolf Cavalry",
-      "faction": "SpaceWolves",
-      "lines": [
-        {
-          "ev": "deploy",
-          "file": "VO_SpaceWolves_Thunderwolf Calvary - If tooth and nail are not enough, the chainsword will bite.ogg",
-          "text": "If tooth and nail are not enough, the chainsword will bite"
-        }
-      ]
-    },
-    {
-      "id": "SW13",
-      "name": "Wolf Guard Headtaker",
-      "faction": "SpaceWolves",
-      "lines": [
-        {
-          "ev": "deploy",
-          "file": "VO_SpaceWolves_Wolf Guard Headtaker - Bring them fang! Bring them fury!.ogg",
-          "text": "Bring them fang! Bring them fury!"
-        }
-      ]
-    },
-    {
-      "id": "SW14",
-      "name": "Wolf Priest",
-      "faction": "SpaceWolves",
-      "lines": [
-        {
-          "ev": "deploy",
-          "file": "VO_SpaceWolves_Wolf Priest - It is fate that guides our blades.ogg",
-          "text": "It is fate that guides our blades"
-        }
-      ]
-    },
-    {
-      "id": "SW18",
-      "name": "Hrolf the Ironhowl",
-      "faction": "SpaceWolves",
-      "lines": [
-        {
-          "ev": "deploy",
-          "file": "VO_SpaceWolves_Hrolf the Ironhowl - With me, brothers! Ride until the Wolftime!).ogg",
-          "text": "With me, brothers! Ride until the Wolftime!)"
-        }
-      ]
-    },
-    {
-      "id": "SW19",
-      "name": "Iron Priest",
-      "faction": "SpaceWolves",
-      "lines": [
-        {
-          "ev": "deploy",
-          "file": "VO_SpaceWolves_Iron Priest - Sharp senses, sharper steel.ogg",
-          "text": "Sharp senses, sharper steel"
-        }
-      ]
-    },
-    {
-      "id": "SW16",
-      "name": "Long Fang",
-      "faction": "SpaceWolves",
-      "lines": [
-        {
-          "ev": "deploy",
-          "file": "VO_SpaceWolves_Long Fang - Your time is over!.ogg",
-          "text": "Your time is over!"
-        }
-      ]
-    },
-    {
       "id": "SW20",
       "name": "Thunderwolf Cavalry Pack Leader",
       "faction": "SpaceWolves",
@@ -11656,19 +11624,8 @@
         {
           "ev": "deploy",
           "file": "VO_SpaceWolves_Thunderwolf Cavalry Pack Leader - For Russ and the Allfather!.ogg",
-          "text": "For Russ and the Allfather!"
-        }
-      ]
-    },
-    {
-      "id": "SW17",
-      "name": "Wulfen",
-      "faction": "SpaceWolves",
-      "lines": [
-        {
-          "ev": "deploy",
-          "file": "VO_SpaceWolves_Wulfen.ogg",
-          "text": ""
+          "text": "For Russ and the Allfather!",
+          "src": "cardSO"
         }
       ]
     },
@@ -11680,7 +11637,60 @@
         {
           "ev": "deploy",
           "file": "VO_SpaceWolves_Wulfen Pack Leader.ogg",
-          "text": ""
+          "text": "",
+          "src": "cardSO"
+        }
+      ]
+    },
+    {
+      "id": "SW22",
+      "name": "Blackmane Inceptor",
+      "faction": "SpaceWolves",
+      "lines": [
+        {
+          "ev": "deploy",
+          "file": "VO_SpaceWolves_Blackmane Inceptor - Here's one to remember me by!.ogg",
+          "text": "Here's one to remember me by!",
+          "src": "cardSO"
+        }
+      ]
+    },
+    {
+      "id": "SW23",
+      "name": "Fenrisian Drop Pod",
+      "faction": "SpaceWolves",
+      "lines": [
+        {
+          "ev": "deploy",
+          "file": "VO_SpaceWolves_Fenrisian Drop Pod - From the Sea of Stars to the sea of blades!.ogg",
+          "text": "From the Sea of Stars to the sea of blades!",
+          "src": "cardSO"
+        }
+      ]
+    },
+    {
+      "id": "SW24",
+      "name": "Frost Claw Wulfen",
+      "faction": "SpaceWolves",
+      "lines": [
+        {
+          "ev": "deploy",
+          "file": "VO_SpaceWolves_Frost Claw Wulfen.ogg",
+          "text": "",
+          "src": "cardSO"
+        }
+      ]
+    },
+    {
+      "id": "SW25",
+      "name": "Wolf Guard Battle Leader",
+      "faction": "SpaceWolves",
+      "lines": [
+        {
+          "ev": "deploy",
+          "file": "VO_SpaceWolves_Wolf Guard Battle Leader - Enough barking! Time to do some biting.ogg",
+          "text": "Enough barking! Time to do some biting",
+          "src": "cardSO"
         }
       ]
     },
@@ -11692,7 +11702,47 @@
         {
           "ev": "deploy",
           "file": "VO_SpaceWolves_Arjac Rockfist - My hammer strikes with the wrath of Fenris!.ogg",
-          "text": "My hammer strikes with the wrath of Fenris!"
+          "text": "My hammer strikes with the wrath of Fenris!",
+          "src": "cardSO"
+        }
+      ]
+    },
+    {
+      "id": "SW27",
+      "name": "Wolf Guard Terminator Pack Leader",
+      "faction": "SpaceWolves",
+      "lines": [
+        {
+          "ev": "deploy",
+          "file": "VO_SpaceWolves_Wolf Guard Terminator Pack Leader - Give them the bolt-greeting they deserve!.ogg",
+          "text": "Give them the bolt-greeting they deserve!",
+          "src": "cardSO"
+        }
+      ]
+    },
+    {
+      "id": "SW28",
+      "name": "Blackmane Aggressor",
+      "faction": "SpaceWolves",
+      "lines": [
+        {
+          "ev": "deploy",
+          "file": "VO_SpaceWolves_Blackmane Aggressor - We are the storm! We are the Allfather's fury!.ogg",
+          "text": "We are the storm! We are the Allfather's fury!",
+          "src": "cardSO"
+        }
+      ]
+    },
+    {
+      "id": "SW29",
+      "name": "Sons of Morkai Eliminator",
+      "faction": "SpaceWolves",
+      "lines": [
+        {
+          "ev": "deploy",
+          "file": "VO_SpaceWolves_Sons of Morkai Eliminator - Morkai's claws reach longer than one expects.ogg",
+          "text": "Morkai's claws reach longer than one expects",
+          "src": "cardSO"
         }
       ]
     },
@@ -11702,13 +11752,20 @@
       "faction": "SpaceWolves",
       "lines": [
         {
-          "ev": "backup",
-          "file": "VO_SpaceWolves_Ragnar Blackmane_Backup.ogg",
-          "text": ""
-        },
-        {
           "ev": "attack",
           "file": "VO_SpaceWolves_Ragnar Blackmane_attack.ogg",
+          "text": "",
+          "src": "cardSO"
+        },
+        {
+          "ev": "death",
+          "file": "VO_SpaceWolves_Ragnar Blackmane_death.ogg",
+          "text": "",
+          "src": "cardSO"
+        },
+        {
+          "ev": "backup",
+          "file": "VO_SpaceWolves_Ragnar Blackmane_Backup.ogg",
           "text": ""
         },
         {
@@ -11719,11 +11776,6 @@
         {
           "ev": "concede",
           "file": "VO_SpaceWolves_Ragnar Blackmane_concede.ogg",
-          "text": ""
-        },
-        {
-          "ev": "death",
-          "file": "VO_SpaceWolves_Ragnar Blackmane_death.ogg",
           "text": ""
         },
         {
@@ -11824,90 +11876,6 @@
       ]
     },
     {
-      "id": "SW22",
-      "name": "Blackmane Inceptor",
-      "faction": "SpaceWolves",
-      "lines": [
-        {
-          "ev": "deploy",
-          "file": "VO_SpaceWolves_Blackmane Inceptor - Here's one to remember me by!.ogg",
-          "text": "Here's one to remember me by!"
-        }
-      ]
-    },
-    {
-      "id": "SW23",
-      "name": "Fenrisian Drop Pod",
-      "faction": "SpaceWolves",
-      "lines": [
-        {
-          "ev": "deploy",
-          "file": "VO_SpaceWolves_Fenrisian Drop Pod - From the Sea of Stars to the sea of blades!.ogg",
-          "text": "From the Sea of Stars to the sea of blades!"
-        }
-      ]
-    },
-    {
-      "id": "SW24",
-      "name": "Frost Claw Wulfen",
-      "faction": "SpaceWolves",
-      "lines": [
-        {
-          "ev": "deploy",
-          "file": "VO_SpaceWolves_Frost Claw Wulfen.ogg",
-          "text": ""
-        }
-      ]
-    },
-    {
-      "id": "SW25",
-      "name": "Wolf Guard Battle Leader",
-      "faction": "SpaceWolves",
-      "lines": [
-        {
-          "ev": "deploy",
-          "file": "VO_SpaceWolves_Wolf Guard Battle Leader - Enough barking! Time to do some biting.ogg",
-          "text": "Enough barking! Time to do some biting"
-        }
-      ]
-    },
-    {
-      "id": "SW27",
-      "name": "Wolf Guard Terminator Pack Leader",
-      "faction": "SpaceWolves",
-      "lines": [
-        {
-          "ev": "deploy",
-          "file": "VO_SpaceWolves_Wolf Guard Terminator Pack Leader - Give them the bolt-greeting they deserve!.ogg",
-          "text": "Give them the bolt-greeting they deserve!"
-        }
-      ]
-    },
-    {
-      "id": "SW28",
-      "name": "Blackmane Aggressor",
-      "faction": "SpaceWolves",
-      "lines": [
-        {
-          "ev": "deploy",
-          "file": "VO_SpaceWolves_Blackmane Aggressor - We are the storm! We are the Allfather's fury!.ogg",
-          "text": "We are the storm! We are the Allfather's fury!"
-        }
-      ]
-    },
-    {
-      "id": "SW29",
-      "name": "Morkai Eliminator",
-      "faction": "SpaceWolves",
-      "lines": [
-        {
-          "ev": "deploy",
-          "file": "VO_SpaceWolves_Sons of Morkai Eliminator - Morkai's claws reach longer than one expects.ogg",
-          "text": "Morkai's claws reach longer than one expects"
-        }
-      ]
-    },
-    {
       "id": "SW30",
       "name": "Terminator Rune Priest",
       "faction": "SpaceWolves",
@@ -11915,7 +11883,8 @@
         {
           "ev": "deploy",
           "file": "VO_SpaceWolves_Terminator Rune Priest - The winds will howl with Fenrisian rage!.ogg",
-          "text": "The winds will howl with Fenrisian rage!"
+          "text": "The winds will howl with Fenrisian rage!",
+          "src": "cardSO"
         },
         {
           "ev": "deploy",
@@ -11932,19 +11901,8 @@
         {
           "ev": "deploy",
           "file": "VO_SpaceWolves_Wolf Guard Terminator - Let the battle-reckoning be counted by the score!.ogg",
-          "text": "Let the battle-reckoning be counted by the score!"
-        }
-      ]
-    },
-    {
-      "id": "SW34",
-      "name": "Murderfang",
-      "faction": "SpaceWolves",
-      "lines": [
-        {
-          "ev": "deploy",
-          "file": "VO_SpaceWolves_Murderfang.ogg",
-          "text": ""
+          "text": "Let the battle-reckoning be counted by the score!",
+          "src": "cardSO"
         }
       ]
     },
@@ -11956,7 +11914,8 @@
         {
           "ev": "deploy",
           "file": "VO_SpaceWolves_Stormwolf - Our storm-wrath shall tear the skies!.ogg",
-          "text": "Our storm-wrath shall tear the skies!"
+          "text": "Our storm-wrath shall tear the skies!",
+          "src": "cardSO"
         }
       ]
     },
@@ -11968,19 +11927,21 @@
         {
           "ev": "deploy",
           "file": "VO_SpaceWolves_Vindicator - From Fenris to the stars, they will hear us howl!.ogg",
-          "text": "From Fenris to the stars, they will hear us howl!"
+          "text": "From Fenris to the stars, they will hear us howl!",
+          "src": "cardSO"
         }
       ]
     },
     {
-      "id": "SW36",
-      "name": "Bjorn the Fell-Handed",
+      "id": "SW34",
+      "name": "Murderfang",
       "faction": "SpaceWolves",
       "lines": [
         {
           "ev": "deploy",
-          "file": "VO_SpaceWolves_Bjorn the Fell-Handed  - I wake Fenris howls.ogg",
-          "text": "I wake Fenris howls"
+          "file": "VO_SpaceWolves_Murderfang.ogg",
+          "text": "",
+          "src": "cardSO"
         }
       ]
     },
@@ -11992,7 +11953,21 @@
         {
           "ev": "deploy",
           "file": "VO_SpaceWolves_Venerable Dreadnought - My saga does not end Not today.ogg",
-          "text": "My saga does not end Not today"
+          "text": "My saga does not end Not today",
+          "src": "cardSO"
+        }
+      ]
+    },
+    {
+      "id": "SW36",
+      "name": "Bjorn the Fell-Handed",
+      "faction": "SpaceWolves",
+      "lines": [
+        {
+          "ev": "deploy",
+          "file": "VO_SpaceWolves_Bjorn the Fell-Handed  - I wake Fenris howls.ogg",
+          "text": "I wake Fenris howls",
+          "src": "cardSO"
         }
       ]
     },
@@ -12004,31 +11979,99 @@
         {
           "ev": "deploy",
           "file": "VO_SpaceWolves_Wulfen Dreadnought_v2.ogg",
-          "text": ""
+          "text": "",
+          "src": "cardSO"
         }
       ]
     },
     {
       "id": "SW38",
-      "name": "Land Rider",
+      "name": "Land Raider",
       "faction": "SpaceWolves",
       "lines": [
         {
           "ev": "deploy",
           "file": "VO_SpaceWolves_Land Raider - We are the thunder of Fenris!.ogg",
-          "text": "We are the thunder of Fenris!"
+          "text": "We are the thunder of Fenris!",
+          "src": "cardSO"
         }
       ]
     },
     {
-      "id": "6e4f9040e8cc59641a32f29e33ea4cbc",
-      "name": "Tyrnak and Fenrir",
+      "id": "SW4",
+      "name": "Blood Claw",
       "faction": "SpaceWolves",
       "lines": [
         {
           "ev": "deploy",
-          "file": "VO_SpaceWolves_Tyrnak and Fenrir.ogg",
-          "text": ""
+          "file": "VO_SpaceWolves_Blood Claw - This is where my saga begins!.ogg",
+          "text": "This is where my saga begins!",
+          "src": "cardSO"
+        }
+      ]
+    },
+    {
+      "id": "SW5",
+      "name": "Hunting Wolf",
+      "faction": "SpaceWolves",
+      "lines": [
+        {
+          "ev": "deploy",
+          "file": "VO_SpaceWolves_Hunting Wolf.ogg",
+          "text": "",
+          "src": "cardSO"
+        }
+      ]
+    },
+    {
+      "id": "SW6",
+      "name": "Blood Claw Pack Leader",
+      "faction": "SpaceWolves",
+      "lines": [
+        {
+          "ev": "deploy",
+          "file": "VO_SpaceWolves_Blood Claw Pack Leader - Keep moving! Battle does not wait for you!.ogg",
+          "text": "Keep moving! Battle does not wait for you!",
+          "src": "cardSO"
+        }
+      ]
+    },
+    {
+      "id": "SW7",
+      "name": "Deathwolf Scout",
+      "faction": "SpaceWolves",
+      "lines": [
+        {
+          "ev": "deploy",
+          "file": "VO_SpaceWolves_Deathwolf Scout - The trail is clearer with every step.ogg",
+          "text": "The trail is clearer with every step",
+          "src": "cardSO"
+        }
+      ]
+    },
+    {
+      "id": "SW8",
+      "name": "Blackmane Reiver",
+      "faction": "SpaceWolves",
+      "lines": [
+        {
+          "ev": "deploy",
+          "file": "VO_SpaceWolves_Blackmane Reiver - You will not live to see our victory.ogg",
+          "text": "You will not live to see our victory",
+          "src": "cardSO"
+        }
+      ]
+    },
+    {
+      "id": "SW9",
+      "name": "Fenrisian Wolf",
+      "faction": "SpaceWolves",
+      "lines": [
+        {
+          "ev": "deploy",
+          "file": "VO_SpaceWolves_Fenrisian Wolf.ogg",
+          "text": "",
+          "src": "cardSO"
         }
       ]
     },
@@ -12249,7 +12292,7 @@
     },
     {
       "id": "TAU14",
-      "name": "Breacher Fire Warrior",
+      "name": "Fire Warrior Breacher",
       "faction": "TauEmpire",
       "lines": [
         {
@@ -12539,7 +12582,7 @@
     },
     {
       "id": "TAU23",
-      "name": "Breacher ShasUi",
+      "name": "Breacher Shas'ui",
       "faction": "TauEmpire",
       "lines": [
         {
@@ -12581,7 +12624,7 @@
     },
     {
       "id": "TAU26",
-      "name": "Stealth Shas’ui",
+      "name": "Stealth Shas'ui",
       "faction": "TauEmpire",
       "lines": [
         {
@@ -12819,7 +12862,7 @@
     },
     {
       "id": "TAU32",
-      "name": "Aunshi Ethereal",
+      "name": "Aun'Shi",
       "faction": "TauEmpire",
       "lines": [
         {
@@ -12833,7 +12876,7 @@
     },
     {
       "id": "TAU33",
-      "name": "Razorshark",
+      "name": "Razorshark Fighter",
       "faction": "TauEmpire",
       "lines": [
         {
@@ -12903,7 +12946,7 @@
     },
     {
       "id": "TAU38",
-      "name": "Stormsurge Battlesuit",
+      "name": "Stormsurge",
       "faction": "TauEmpire",
       "lines": [
         {
@@ -13252,7 +13295,7 @@
     },
     {
       "id": "TL10",
-      "name": "Von Ryans Leaper",
+      "name": "Von Ryan's Leaper",
       "faction": "Leviathan",
       "lines": [
         {
@@ -13698,7 +13741,7 @@
     },
     {
       "id": "TL35",
-      "name": "SwarmLord",
+      "name": "Swarmlord",
       "faction": "Leviathan",
       "lines": [
         {
@@ -13801,22 +13844,26 @@
         {
           "ev": "gen4",
           "file": "VO_Tyranid_Leviathan_Swarmlord_gen4.ogg",
-          "text": ""
+          "text": "",
+          "src": "orphan"
         },
         {
           "ev": "gen5",
           "file": "VO_Tyranid_Leviathan_Swarmlord_gen5.ogg",
-          "text": ""
+          "text": "",
+          "src": "orphan"
         },
         {
           "ev": "gen6",
           "file": "VO_Tyranid_Leviathan_Swarmlord_gen6.ogg",
-          "text": ""
+          "text": "",
+          "src": "orphan"
         },
         {
           "ev": "gen7",
           "file": "VO_Tyranid_Leviathan_Swarmlord_gen7.ogg",
-          "text": ""
+          "text": "",
+          "src": "orphan"
         }
       ]
     },
@@ -14329,6 +14376,123 @@
       ]
     },
     {
+      "id": "UM100",
+      "name": "Chaplain Cassius",
+      "faction": "Ultramarines",
+      "lines": [
+        {
+          "ev": "deploy",
+          "file": "VO_UM_Chaplain Cassius - At our backs stand the whole of the Imperium.wav",
+          "text": "At our backs stand the whole of the Imperium",
+          "src": "cardSO"
+        }
+      ]
+    },
+    {
+      "id": "UM101",
+      "name": "1st Company Terminator",
+      "faction": "Ultramarines",
+      "lines": [
+        {
+          "ev": "deploy",
+          "file": "VO_UM_2nd Company Terminator - Your fall will echo through the battlefield.wav",
+          "text": "Your fall will echo through the battlefield",
+          "src": "cardSO"
+        }
+      ]
+    },
+    {
+      "id": "UM102",
+      "name": "Terminator Captain",
+      "faction": "Ultramarines",
+      "lines": [
+        {
+          "ev": "deploy",
+          "file": "VO_UM_Terminator Captain - Break them! Leave none standing!.wav",
+          "text": "Break them! Leave none standing!",
+          "src": "cardSO"
+        }
+      ]
+    },
+    {
+      "id": "UM103",
+      "name": "Terminator",
+      "faction": "Ultramarines",
+      "lines": [
+        {
+          "ev": "deploy",
+          "file": "VO_UM_Terminator - I will test the limits of your arrogance.wav",
+          "text": "I will test the limits of your arrogance",
+          "src": "cardSO"
+        }
+      ]
+    },
+    {
+      "id": "UM104",
+      "name": "Bladeguard Ancient",
+      "faction": "Ultramarines",
+      "lines": [
+        {
+          "ev": "deploy",
+          "file": "VO_UM_Bladeguard Ancient - Fight well and your names shall leave on ever after in glory!.wav",
+          "text": "Fight well and your names shall leave on ever after in glory!",
+          "src": "cardSO"
+        }
+      ]
+    },
+    {
+      "id": "UM105",
+      "name": "Dreadnought",
+      "faction": "Ultramarines",
+      "lines": [
+        {
+          "ev": "deploy",
+          "file": "VO_UM_Dreadnought - Face the consequences of your existence.wav",
+          "text": "Face the consequences of your existence",
+          "src": "cardSO"
+        }
+      ]
+    },
+    {
+      "id": "UM106",
+      "name": "Ferren Areios",
+      "faction": "Ultramarines",
+      "lines": [
+        {
+          "ev": "deploy",
+          "file": "VO_UM_Ferren Areios - Pride outlives the prideful I make sure of it.wav",
+          "text": "Pride outlives the prideful I make sure of it",
+          "src": "cardSO"
+        }
+      ]
+    },
+    {
+      "id": "UM107",
+      "name": "Whirlwind",
+      "faction": "Ultramarines",
+      "lines": [
+        {
+          "ev": "deploy",
+          "file": "VO_UM_Whirlwind - We bring Ultramar's fire!.wav",
+          "text": "We bring Ultramar's fire!",
+          "src": "cardSO"
+        }
+      ]
+    },
+    {
+      "id": "UM108",
+      "name": "Brutalis Dreadnought",
+      "faction": "Ultramarines",
+      "lines": [
+        {
+          "ev": "deploy",
+          "file": "VO_UM_Brutalis Dreadnought - I have embraced death to deliver it with every step!.wav",
+          "text": "I have embraced death to deliver it with every step!",
+          "src": "cardSO"
+        }
+      ]
+    },
+    {
       "id": "UM11",
       "name": "7th Company Bike",
       "faction": "Ultramarines",
@@ -14555,11 +14719,6 @@
           "text": "We march for Macragge",
           "src": "cardSO",
           "so": "summonAudio"
-        },
-        {
-          "ev": "deploy",
-          "file": "VO_UM_Devastator Marine - Keep firing! Sustained volley!.wav",
-          "text": "Keep firing! Sustained volley!"
         }
       ]
     },
@@ -15341,7 +15500,7 @@
     },
     {
       "id": "UM66",
-      "name": "Scout bike",
+      "name": "Scout Bike",
       "faction": "Ultramarines",
       "lines": [
         {
@@ -15728,180 +15887,22 @@
       ]
     },
     {
-      "id": "UM104",
-      "name": "Bladeguard Ancient",
-      "faction": "Ultramarines",
-      "lines": [
-        {
-          "ev": "deploy",
-          "file": "VO_UM_Bladeguard Ancient - Fight well and your names shall leave on ever after in glory!.wav",
-          "text": "Fight well and your names shall leave on ever after in glory!"
-        }
-      ]
-    },
-    {
-      "id": "UM102",
-      "name": "Terminator Captain",
-      "faction": "Ultramarines",
-      "lines": [
-        {
-          "ev": "deploy",
-          "file": "VO_UM_Terminator Captain - Break them! Leave none standing!.wav",
-          "text": "Break them! Leave none standing!"
-        }
-      ]
-    },
-    {
-      "id": "UM106",
-      "name": "Ferren Areios",
-      "faction": "Ultramarines",
-      "lines": [
-        {
-          "ev": "deploy",
-          "file": "VO_UM_Ferren Areios - Pride outlives the prideful I make sure of it.wav",
-          "text": "Pride outlives the prideful I make sure of it"
-        }
-      ]
-    },
-    {
-      "id": "UM9",
-      "name": "Primaris Inceptor",
-      "faction": "Ultramarines",
-      "lines": [
-        {
-          "ev": "deploy",
-          "file": "VO_UM_Primaris Inceptor - One strike is all I need.ogg",
-          "text": "One strike is all I need",
-          "src": "cardSO",
-          "so": "summonAudio"
-        }
-      ]
-    },
-    {
-      "id": "UM107",
-      "name": "Whirlwind",
-      "faction": "Ultramarines",
-      "lines": [
-        {
-          "ev": "deploy",
-          "file": "VO_UM_Whirlwind - We bring Ultramar's fire!.wav",
-          "text": "We bring Ultramar's fire!"
-        }
-      ]
-    },
-    {
-      "id": "UM108",
-      "name": "Brutalis Dreadnought",
-      "faction": "Ultramarines",
-      "lines": [
-        {
-          "ev": "deploy",
-          "file": "VO_UM_Brutalis Dreadnought - I have embraced death to deliver it with every step!.wav",
-          "text": "I have embraced death to deliver it with every step!"
-        }
-      ]
-    },
-    {
-      "id": "UM101",
-      "name": "2nd Company Terminator",
-      "faction": "Ultramarines",
-      "lines": [
-        {
-          "ev": "deploy",
-          "file": "VO_UM_2nd Company Terminator - Your fall will echo through the battlefield.wav",
-          "text": "Your fall will echo through the battlefield"
-        }
-      ]
-    },
-    {
-      "id": "UM95",
-      "name": "Attack Bike",
-      "faction": "Ultramarines",
-      "lines": [
-        {
-          "ev": "deploy",
-          "file": "VO_UM_Attack Bike - For Guilliman and the Emperor!.wav",
-          "text": "For Guilliman and the Emperor!"
-        }
-      ]
-    },
-    {
-      "id": "UM100",
-      "name": "Chaplain Cassius",
-      "faction": "Ultramarines",
-      "lines": [
-        {
-          "ev": "deploy",
-          "file": "VO_UM_Chaplain Cassius - At our backs stand the whole of the Imperium.wav",
-          "text": "At our backs stand the whole of the Imperium"
-        }
-      ]
-    },
-    {
-      "id": "UM96",
-      "name": "Chapter Champion",
-      "faction": "Ultramarines",
-      "lines": [
-        {
-          "ev": "deploy",
-          "file": "VO_UM_Chapter Champion - I am Guilliman's blade!.wav",
-          "text": "I am Guilliman's blade!"
-        }
-      ]
-    },
-    {
-      "id": "UM105",
-      "name": "Dreadnought",
-      "faction": "Ultramarines",
-      "lines": [
-        {
-          "ev": "deploy",
-          "file": "VO_UM_Dreadnought - Face the consequences of your existence.wav",
-          "text": "Face the consequences of your existence"
-        }
-      ]
-    },
-    {
-      "id": "UM89",
-      "name": "Incursor",
-      "faction": "Ultramarines",
-      "lines": [
-        {
-          "ev": "deploy",
-          "file": "VO_UM_Incursor - Target acquired. Bring it down!.wav",
-          "text": "Target acquired. Bring it down!"
-        }
-      ]
-    },
-    {
-      "id": "UM99",
-      "name": "Phobos Librarian",
-      "faction": "Ultramarines",
-      "lines": [
-        {
-          "ev": "deploy",
-          "file": "VO_UM_Phobos Librarian - We are His will made manifest!.wav",
-          "text": "We are His will made manifest!"
-        }
-      ]
-    },
-    {
-      "id": "UM90",
-      "name": "Phobos Lieutenant",
-      "faction": "Ultramarines",
-      "lines": [
-        {
-          "ev": "deploy",
-          "file": "VO_UM_Phobos Lieutenant - The Emperor's grace follows us.wav",
-          "text": "The Emperor's grace follows us"
-        }
-      ]
-    },
-    {
       "id": "UM87",
       "name": "Roboute Guilliman",
       "faction": "Ultramarines",
       "lines": [
+        {
+          "ev": "attack",
+          "file": "VO_UM_Guilliman_attack.wav",
+          "text": "",
+          "src": "cardSO"
+        },
+        {
+          "ev": "death",
+          "file": "VO_UM_Guilliman_death.wav",
+          "text": "",
+          "src": "cardSO"
+        },
         {
           "ev": "backup1",
           "file": "VO_UM_Guilliman_Backup1.wav",
@@ -15963,11 +15964,6 @@
           "text": ""
         },
         {
-          "ev": "attack",
-          "file": "VO_UM_Guilliman_attack.wav",
-          "text": ""
-        },
-        {
           "ev": "cantdo",
           "file": "VO_UM_Guilliman_cantDo.wav",
           "text": ""
@@ -15975,11 +15971,6 @@
         {
           "ev": "concede",
           "file": "VO_UM_Guilliman_concede.wav",
-          "text": ""
-        },
-        {
-          "ev": "death",
-          "file": "VO_UM_Guilliman_death.wav",
           "text": ""
         },
         {
@@ -16095,46 +16086,22 @@
       ]
     },
     {
-      "id": "UM94",
-      "name": "Scout Sniper",
-      "faction": "Ultramarines",
-      "lines": [
-        {
-          "ev": "deploy",
-          "file": "VO_UM_Scout Sniper - Cut the head and the body will follow.wav",
-          "text": "Cut the head and the body will follow"
-        }
-      ]
-    },
-    {
-      "id": "UM97",
-      "name": "Suppressor",
-      "faction": "Ultramarines",
-      "lines": [
-        {
-          "ev": "deploy",
-          "file": "VO_UM_Suppressor - A bolt unfired is a bolt wasted.wav",
-          "text": "A bolt unfired is a bolt wasted"
-        }
-      ]
-    },
-    {
-      "id": "UM103",
-      "name": "Terminator",
-      "faction": "Ultramarines",
-      "lines": [
-        {
-          "ev": "deploy",
-          "file": "VO_UM_Terminator - I will test the limits of your arrogance.wav",
-          "text": "I will test the limits of your arrogance"
-        }
-      ]
-    },
-    {
       "id": "UM88",
       "name": "Valius Paxor",
       "faction": "Ultramarines",
       "lines": [
+        {
+          "ev": "attack",
+          "file": "VO_UM_Valius Paxor_attack.wav",
+          "text": "",
+          "src": "cardSO"
+        },
+        {
+          "ev": "death",
+          "file": "VO_UM_Valius Paxor_death.wav",
+          "text": "",
+          "src": "cardSO"
+        },
         {
           "ev": "backup1",
           "file": "VO_UM_Valius Paxor_Backup1.wav",
@@ -16166,11 +16133,6 @@
           "text": ""
         },
         {
-          "ev": "attack",
-          "file": "VO_UM_Valius Paxor_attack.wav",
-          "text": ""
-        },
-        {
           "ev": "cantdo",
           "file": "VO_UM_Valius Paxor_cantDo.wav",
           "text": ""
@@ -16178,11 +16140,6 @@
         {
           "ev": "concede",
           "file": "VO_UM_Valius Paxor_concede.wav",
-          "text": ""
-        },
-        {
-          "ev": "death",
-          "file": "VO_UM_Valius Paxor_death.wav",
           "text": ""
         },
         {
@@ -16268,6 +16225,72 @@
       ]
     },
     {
+      "id": "UM89",
+      "name": "Incursor",
+      "faction": "Ultramarines",
+      "lines": [
+        {
+          "ev": "deploy",
+          "file": "VO_UM_Incursor - Target acquired. Bring it down!.wav",
+          "text": "Target acquired. Bring it down!",
+          "src": "cardSO"
+        }
+      ]
+    },
+    {
+      "id": "UM9",
+      "name": "Primaris Inceptor",
+      "faction": "Ultramarines",
+      "lines": [
+        {
+          "ev": "deploy",
+          "file": "VO_UM_Primaris Inceptor - One strike is all I need.ogg",
+          "text": "One strike is all I need",
+          "src": "cardSO",
+          "so": "summonAudio"
+        }
+      ]
+    },
+    {
+      "id": "UM90",
+      "name": "Phobos Lieutenant",
+      "faction": "Ultramarines",
+      "lines": [
+        {
+          "ev": "deploy",
+          "file": "VO_UM_Phobos Lieutenant - The Emperor's grace follows us.wav",
+          "text": "The Emperor's grace follows us",
+          "src": "cardSO"
+        }
+      ]
+    },
+    {
+      "id": "UM91",
+      "name": "Tactical Marine",
+      "faction": "Ultramarines",
+      "lines": [
+        {
+          "ev": "deploy",
+          "file": "VO_UM_Tactical Marine - We are all sons of Lord Guilliman We all serve the Emperor.wav",
+          "text": "We are all sons of Lord Guilliman We all serve the Emperor",
+          "src": "cardSO"
+        }
+      ]
+    },
+    {
+      "id": "UM92",
+      "name": "Firestrike Servo-Turret",
+      "faction": "Ultramarines",
+      "lines": [
+        {
+          "ev": "deploy",
+          "file": "VO_UM_Firestrike Servoturret - Battlefields are filled with the remains of the obstinate.wav",
+          "text": "Battlefields are filled with the remains of the obstinate",
+          "src": "cardSO"
+        }
+      ]
+    },
+    {
       "id": "UM93",
       "name": "Vico Therbeus",
       "faction": "Ultramarines",
@@ -16275,19 +16298,86 @@
         {
           "ev": "deploy",
           "file": "VO_UM_Vico Therbeus - Our foes seem without limit but we will find it.wav",
-          "text": "Our foes seem without limit but we will find it"
+          "text": "Our foes seem without limit but we will find it",
+          "src": "cardSO"
         }
       ]
     },
     {
-      "id": "dcbd28525888ce54aaa93a47ba4de1e6",
-      "name": "Master Tactician",
+      "id": "UM94",
+      "name": "Scout Sniper",
       "faction": "Ultramarines",
       "lines": [
         {
           "ev": "deploy",
-          "file": "VO_UM_Tactical Marine - We are all sons of Lord Guilliman We all serve the Emperor.wav",
-          "text": "We are all sons of Lord Guilliman We all serve the Emperor"
+          "file": "VO_UM_Scout Sniper - Cut the head and the body will follow.wav",
+          "text": "Cut the head and the body will follow",
+          "src": "cardSO"
+        }
+      ]
+    },
+    {
+      "id": "UM95",
+      "name": "Attack Bike",
+      "faction": "Ultramarines",
+      "lines": [
+        {
+          "ev": "deploy",
+          "file": "VO_UM_Attack Bike - For Guilliman and the Emperor!.wav",
+          "text": "For Guilliman and the Emperor!",
+          "src": "cardSO"
+        }
+      ]
+    },
+    {
+      "id": "UM96",
+      "name": "Chapter Champion",
+      "faction": "Ultramarines",
+      "lines": [
+        {
+          "ev": "deploy",
+          "file": "VO_UM_Chapter Champion - I am Guilliman's blade!.wav",
+          "text": "I am Guilliman's blade!",
+          "src": "cardSO"
+        }
+      ]
+    },
+    {
+      "id": "UM97",
+      "name": "Suppressor",
+      "faction": "Ultramarines",
+      "lines": [
+        {
+          "ev": "deploy",
+          "file": "VO_UM_Suppressor - A bolt unfired is a bolt wasted.wav",
+          "text": "A bolt unfired is a bolt wasted",
+          "src": "cardSO"
+        }
+      ]
+    },
+    {
+      "id": "UM98",
+      "name": "Devastator Marine",
+      "faction": "Ultramarines",
+      "lines": [
+        {
+          "ev": "deploy",
+          "file": "VO_UM_Devastator Marine - Keep firing! Sustained volley!.wav",
+          "text": "Keep firing! Sustained volley!",
+          "src": "cardSO"
+        }
+      ]
+    },
+    {
+      "id": "UM99",
+      "name": "Phobos Librarian",
+      "faction": "Ultramarines",
+      "lines": [
+        {
+          "ev": "deploy",
+          "file": "VO_UM_Phobos Librarian - We are His will made manifest!.wav",
+          "text": "We are His will made manifest!",
+          "src": "cardSO"
         }
       ]
     }

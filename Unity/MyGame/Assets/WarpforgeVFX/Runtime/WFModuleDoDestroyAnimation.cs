@@ -20,13 +20,17 @@
 //   · 计时自己按 dt 推进（理由同 `WFModuleDestroyInTime`：批处理下 `Object.Destroy(go, t)` 不会到点），
 //     play 模式下**额外**照原版调一次 `Object.Destroy(go, t)` —— 两条路都指「t 秒后销毁」，谁先到都一样。
 //
-// 🔴 未还原（两条，都打一次性警告）：
-//   ① **`timeToDestroy` 的延时在我们这边实际上没有效果**：`WarpforgeEffectPlayer.DestroyNow:318-337`
-//      是「先广播所有模块的 `DoDestroy()`，**紧接着无条件 `Destroy(gameObject)`**」，
-//      而原版 `AnimFXController.DoDestroy` 是「**有模块就不销毁**、把销毁权交给模块」（块1 §「DoDestroy」那行）。
-//      ⇒ 对象当场就没了，退场动画与那 1 秒延时都看不到。要真正还原得改播放器（本次不许动）。
-//   ② **退场动画本体**：这个 clip 在我们工程里**没有**（全工程 0 个 `.anim`；prefab 里
-//      `m_Animations` 的两条引用 guid 全 0 ⇒ 挂不到资产）。`endAnimationName` 找不到就只报不播。
+// ✅ **2026-10-23（A1 R23）已还原「销毁权交给模块」这一跳**：
+//   基类新增 `TakesOverDestroy`（默认 false），本类按 `destroyOnAnimationEnd` 返回 true；
+//   `WarpforgeEffectPlayer.DoDestroy()`（**新增的公开口**）广播完**若有人接管就不销毁**
+//   （原版判据 = `AnimFXController.DoDestroy`「有模块就不销毁、交给模块」，块1 §2）。
+//   🔴 **别把这条接到 `Exit()` 的计时销毁上** —— 原版 `Exit()` 到点**一定**自毁，
+//      两条路的判据都在 `Battle/AnimFXController.cs:318-345`（那边先按原版实现过一遍）。
+//   ⚠️ `Kill()` 仍强制销毁（「立刻停掉」的口）。
+//
+// 🔴 **仍未还原（只有一条）**：
+//   **退场动画本体**：这个 clip 在我们工程里**没有**（全工程 0 个 `.anim`；prefab 里
+//   `m_Animations` 的两条引用 guid 全 0 ⇒ 挂不到资产）。`endAnimationName` 找不到就只报不播。
 using UnityEngine;
 
 namespace WarpforgeVFX
@@ -54,7 +58,10 @@ namespace WarpforgeVFX
         public static void ResetDiagnostics() { PlayFailures = 0; }
 
         float _t = -1f;
-        bool _fired, _warnedNoClip, _warnedPlayerDestroys;
+        bool _fired, _warnedNoClip;
+
+        /// <summary>原版：`destroyOnAnimationEnd` 为真 ⇒ 由本模块负责销毁（controller 不销毁）。</summary>
+        public override bool TakesOverDestroy { get { return destroyOnAnimationEnd; } }
 
         public override void Configure(WFModuleDef def)
         {
@@ -100,14 +107,6 @@ namespace WarpforgeVFX
                 if (Application.isPlaying) Destroy(gameObject, timeToDestroy);
                 // 批处理 / 编辑器（没有帧末，`Destroy(go, t)` 永远不会到点）：改由 ModuleTick 按 dt 数
                 else _t = 0f;
-                if (!_warnedPlayerDestroys)
-                {
-                    _warnedPlayerDestroys = true;
-                    Debug.LogWarning($"[WarpforgeVFX] 《{EffectName}》的 AnimFXModuleDoDestroyAnimation 想「播完 " +
-                                     $"{timeToDestroy}s 再销毁」，但**我们的播放器在广播 DoDestroy 之后立刻销毁**" +
-                                     "（原版是「有模块就不销毁、交给模块」）⇒ 这 1 秒延时与退场动画在我们这边看不到。" +
-                                     "要还原得改 WarpforgeEffectPlayer（`DestroyNow`）。");
-                }
             }
         }
 

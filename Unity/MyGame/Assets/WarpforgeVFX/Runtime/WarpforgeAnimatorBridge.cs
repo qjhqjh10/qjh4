@@ -39,7 +39,27 @@ namespace WarpforgeVFX
         /// <summary>重打的小包（相对 `StreamingAssets`）。</summary>
         public const string BundleRelPath = "WarpforgeVFX/wf_prefabs_extra.bundle";
 
+        /// <summary>🆕 2026-10-23：**战场布景动画的 9 个小包**（`工具/extract_missing_shaders.py --arena-anims`）。
+        ///
+        /// 为什么是列表：`repack_tree` 一个产物只能有一个 `src`，而这 15 件分属 9 个源包
+        /// （判据 → `资料/普查产出_1022/J-A_战场素材与材质诊断.md` §2·2 + `ARENA_ANIM_GROUPS`）。
+        /// ⚠️ 查找顺序 = **主包 → 本列表**；主包行为一个字没变（老调用点零影响）。
+        /// ⚠️ 消费方 = `CardPresentation.ArenaSceneAnims.Bind()`（按 `arena_scene_anims.json` 接）。</summary>
+        public static readonly string[] ExtraBundleRelPaths =
+        {
+            "WarpforgeVFX/wf_arena_anims_arena1.bundle",
+            "WarpforgeVFX/wf_arena_anims_arena2.bundle",
+            "WarpforgeVFX/wf_arena_anims_shared.bundle",
+            "WarpforgeVFX/wf_arena_anims_astra.bundle",
+            "WarpforgeVFX/wf_arena_anims_blacklegion.bundle",
+            "WarpforgeVFX/wf_arena_anims_darkangels.bundle",
+            "WarpforgeVFX/wf_arena_anims_emperorschildren.bundle",
+            "WarpforgeVFX/wf_arena_anims_genestealers.bundle",
+            "WarpforgeVFX/wf_arena_anims_tau.bundle",
+        };
+
         static AssetBundle _bundle;
+        static readonly List<AssetBundle> _extras = new List<AssetBundle>();
         static bool _tried;
         static readonly Dictionary<string, RuntimeAnimatorController> _byName =
             new Dictionary<string, RuntimeAnimatorController>();
@@ -53,11 +73,11 @@ namespace WarpforgeVFX
             if (string.IsNullOrEmpty(controllerName)) return null;
             if (_byName.TryGetValue(controllerName, out var cached)) return cached;
 
-            var rc = From(_bundle, controllerName);
+            var rc = FromAll(controllerName);
             if (rc == null)
             {
                 EnsureLoaded();
-                rc = From(_bundle, controllerName);
+                rc = FromAll(controllerName);
             }
             if (rc == null)
             {
@@ -108,6 +128,32 @@ namespace WarpforgeVFX
             return null;
         }
 
+        /// <summary>主包 + 额外包（战场动画）里按名字找控制器。顺序固定 ⇒ **同名时主包优先**（老行为不变）。</summary>
+        static RuntimeAnimatorController FromAll(string name)
+        {
+            var rc = From(_bundle, name);
+            if (rc != null) return rc;
+            for (int i = 0; i < _extras.Count; i++)
+            {
+                rc = From(_extras[i], name);
+                if (rc != null) return rc;
+            }
+            return null;
+        }
+
+        /// <summary>同上，找 clip。</summary>
+        static AnimationClip FromAllClip(string alias)
+        {
+            var c = FromClip(_bundle, alias);
+            if (c != null) return c;
+            for (int i = 0; i < _extras.Count; i++)
+            {
+                c = FromClip(_extras[i], alias);
+                if (c != null) return c;
+            }
+            return null;
+        }
+
         /// <summary>🆕 2026-10-19（T12 / `A1729`）：按**容器别名**取一份原版 `AnimationClip`。
         ///
         /// 谁在用：`WFModuleAnimation` —— 原版 `AnimFXModuleAnimation.Exit()` 调的是 AssetStore 插件
@@ -122,11 +168,11 @@ namespace WarpforgeVFX
             AnimationClip cached;
             if (_clipByName.TryGetValue(alias, out cached)) return cached;
 
-            var clip = FromClip(_bundle, alias);
+            var clip = FromAllClip(alias);
             if (clip == null)
             {
                 EnsureLoaded();
-                clip = FromClip(_bundle, alias);
+                clip = FromAllClip(alias);
             }
             if (clip == null)
             {
@@ -171,26 +217,60 @@ namespace WarpforgeVFX
         }
 
         static void EnsureLoaded()
-        {            if (_tried) return;
+        {
+            if (_tried) return;
             _tried = true;
             var path = Path.Combine(Application.streamingAssetsPath, BundleRelPath);
             if (!File.Exists(path))
             {
                 Debug.LogWarning($"[WarpforgeAnimatorBridge] 找不到 `{path}` —— 先跑一次 "
                                + "`工具/extract_missing_shaders.py --prefabs`");
-                return;
             }
-            try { _bundle = AssetBundle.LoadFromFile(path); }
-            catch (Exception e)
+            else
             {
-                Debug.LogWarning($"[WarpforgeAnimatorBridge] 加载 `{path}` 抛了：{e.GetType().Name}: {e.Message}");
+                try { _bundle = AssetBundle.LoadFromFile(path); }
+                catch (Exception e)
+                {
+                    Debug.LogWarning($"[WarpforgeAnimatorBridge] 加载 `{path}` 抛了：{e.GetType().Name}: {e.Message}");
+                }
+                if (_bundle == null)
+                    Debug.LogWarning($"[WarpforgeAnimatorBridge] `{path}` 加载不出（同一份内容可能已在进程里加载过？）"
+                                   + " —— 下面会去已加载的包里再找一遍");
             }
-            if (_bundle == null)
-                Debug.LogWarning($"[WarpforgeAnimatorBridge] `{path}` 加载不出（同一份内容可能已在进程里加载过？）"
-                               + " —— 下面会去已加载的包里再找一遍");
+
+            // 🆕 2026-10-23：战场布景动画的 9 个小包。**主包缺了也照常加载它们**（各自独立）。
+            _extras.Clear();
+            int missing = 0;
+            foreach (var rel in ExtraBundleRelPaths)
+            {
+                var ep = Path.Combine(Application.streamingAssetsPath, rel);
+                if (!File.Exists(ep)) { missing++; continue; }
+                try
+                {
+                    var eb = AssetBundle.LoadFromFile(ep);
+                    if (eb != null) _extras.Add(eb); else missing++;
+                }
+                catch (Exception e)
+                {
+                    missing++;
+                    Debug.LogWarning($"[WarpforgeAnimatorBridge] 加载 `{ep}` 抛了：{e.GetType().Name}: {e.Message}");
+                }
+            }
+            if (missing > 0)
+                Debug.LogWarning($"[WarpforgeAnimatorBridge] 战场动画小包 {missing}/{ExtraBundleRelPaths.Length} 个没加载成"
+                               + " —— 先跑 `工具/extract_missing_shaders.py --arena-anims`");
+            else
+                Debug.Log($"[WarpforgeAnimatorBridge] 战场动画小包 {_extras.Count} 个已加载");
         }
 
         /// <summary>给自检用：清掉缓存，下一问重新加载。</summary>
-        public static void Reset() { _bundle = null; _tried = false; _byName.Clear(); _clipByName.Clear(); }
+        public static void Reset()
+        {
+            _bundle = null;
+            _tried = false;
+            _extras.Clear();
+            _byName.Clear();
+            _clipByName.Clear();
+        }
     }
 }

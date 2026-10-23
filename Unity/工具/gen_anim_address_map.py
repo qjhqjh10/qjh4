@@ -46,10 +46,15 @@ join 办法（三选一里选了「UnityPy 重读原 bundle」+「文件名后�
   · 🆕 **短 internalId 容器键（2026-10-19 `T15` / `A2131`）**：EC 的 cardassets / cardanims 两个束，
     `m_Container` 的键是**短 internalId**（`bc` / `0d7` / `eac` …，= 真 GUID 的前缀截断），不是 GUID。
     只枚举容器项时这些资产**没有 GUID 身份**（实测 EC 卡引用的 27 个 CardAnim GUID 全缺）。
-    ⇒ 本脚本额外读 Addressables `catalog_main.json` 的「GUID → (束, internalId)」补这一跳
+    ⇒ 本脚本额外读 Addressables catalog 的「GUID → (束, internalId)」补这一跳
     （判据：`资料/普查产出_1018/R_K11_K12_报告.md` §五·1；EC29 全链
     `bc43540f…` → `Rally EC Heldrake` → `67eb257e…` → prefab `EC Heldrake Rally`）。
-    找不到那份 catalog 时**如实降级**（stats 里记 `catalogJsonError`），不编理由。
+    🔴 **2026-10-23（工具线 `T14`）：catalog 优先用【二进制】**（安装版 `aa/catalog.bin`，
+    `buildResultHash ae516dc0…`，与本地束同 build）—— 旧 `catalog_main.json` 是 2025-07-30
+    快照、**不是同一 build**，EC 短键束里 10 个资产的 `internalId` 被截断到**别的键**
+    ⇒ 会配到另一个对象（实测 12 条真错，逐条见 `资料/普查产出_1023/C5_语音错配修复.md` §5·1）。
+    旧 JSON 只在两份二进制都不在时兜底。
+    找不到任何 catalog 时**如实降级**（stats 里记 `catalogJsonError`），不编理由。
   · 🆕 **旧表 `exact=False` 的「退键族」（2026-10-19 T15 残余）**：catalog 给这些 GUID 的
     internalId 是**截断键**（`d`），拿它去束里取会命中别的对象 ⇒ 上面那条升级闸门整族跳过。
     但它们**不是解不出**：旧表已经用「退键」找到了真正的容器键（`db9`）。本脚本现在补一条
@@ -86,6 +91,22 @@ CATALOG_JSON_CANDIDATES = [
     os.path.join(os.path.expanduser("~"), "AppData", "LocalLow", "Everguild",
                  "Warpforge", "com.unity.addressables", "catalog_main.json"),
     r"d:/2/Warhammer 40k Warpforge/Warpforge_Data/StreamingAssets/aa/catalog_main.json",
+]
+
+# 🆕 **2026-10-23（工具线 `T14`）：二进制 catalog 优先**。
+# 为什么：上面的 `catalog_main.json` 是 **2025-07-30 快照**，与本地束**不是同一 build** ——
+#   EC 短键束里 10 个资产的 `internalId` 被**截断到别的键**（例 `8c3458c0…` 它给 `8c`，
+#   而本 build 的真键是 `8`）⇒ 那一族 GUID 会配到**另一个对象**（实测 12 条真错：
+#   6 音频 + 4 美术/卡框，逐条见 `资料/普查产出_1023/C5_语音错配修复.md` §5·1）。
+#   与本地束同 build 的二进制 catalog（安装版 `aa/catalog.bin`，`buildResultHash ae516dc0…`）
+#   给的是**真键**；安卓 1.35.0 的 catalog（`0dd7cbfa…`）与之逐条同键（互证见 `C3`）。
+# ⚠️ 旧 JSON 仍保留为**最后兜底**（二进制两份都不在时），并在输出里出声。
+CATALOG_BIN_CANDIDATES = [
+    (r"d:/2/Warhammer 40k Warpforge/Warpforge_Data/StreamingAssets/aa/catalog.bin",
+     "安装版 aa/catalog.bin（与本地束同 build）"),
+    (os.path.join(os.path.expanduser("~"), "AppData", "LocalLow", "Everguild",
+                  "Warpforge", "com.unity.addressables", "catalog_main.bin"),
+     "LocalLow catalog_main.bin"),
 ]
 
 DATA_DIR = r"d:/4/Unity/数据/游戏数据"
@@ -204,6 +225,76 @@ def decode_catalog_json(path):
     return keys, ents, d["m_InternalIds"], buckets
 
 
+_PROBE = {"tried": False, "mod": None}
+
+
+def _probe_module():
+    """按文件路径加载同目录 `_guid_resolve_probe.py`（`python -I` 不会把脚本目录放进 sys.path）。"""
+    if _PROBE["tried"]:
+        return _PROBE["mod"]
+    _PROBE["tried"] = True
+    try:
+        import importlib.util
+        p = os.path.join(os.path.dirname(os.path.abspath(__file__)), "_guid_resolve_probe.py")
+        spec = importlib.util.spec_from_file_location("wf_guid_resolve_probe", p)
+        mod = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(mod)
+        _PROBE["mod"] = mod
+    except Exception as e:                                  # noqa: BLE001
+        print("⚠️ 加载 `_guid_resolve_probe.py` 失败（%s）⇒ 二进制 catalog 用不了" % e)
+    return _PROBE["mod"]
+
+
+def iter_catalog_locations(path):
+    """catalog（`.bin` 或旧 `.json`）→ 逐条 `(guid, internalId, [候补束...], 类名)`。
+
+    · **`.bin`（首选）**：复用 `工具/_guid_resolve_probe.py` 的 `_load_catalog_bin`
+      （同一份解析实现，⛔ 不写第二份）。它的 `buckets[ki]` 是 location id、
+      `ents[lid] = (internalId, 0, 依赖束 lid 列表, …, rtypeIdx)`、`ids[lid]` = internalId。
+    · **`.json`（兜底）**：用本文件的 `decode_catalog_json`（与 probe 同一套字段布局）。
+
+    两个分支产出**同一种**四元组，调用方不必知道来源。
+    """
+    if path.lower().endswith(".json"):
+        keys, ents, ids, buckets = decode_catalog_json(path)
+        rtypes = json.load(io.open(path, encoding="utf-8"))["m_resourceTypes"]
+        for ki, k in enumerate(keys):
+            if not GUID_RE.match(k):
+                continue
+            for ei in buckets[ki]:
+                e = ents[ei]
+                iid = ids[e[0]]
+                depkey = keys[e[2]] if 0 <= e[2] < len(keys) else None
+                cand = []
+                if isinstance(depkey, str) and depkey.lstrip("-").isdigit():
+                    for be in buckets[e[2]]:
+                        cand.append(ids[ents[be][0]])
+                elif isinstance(depkey, str) and depkey.endswith(".bundle"):
+                    cand.append(depkey)
+                rt = rtypes[e[6]] if 0 <= e[6] < len(rtypes) else None
+                cls = rt.get("m_ClassName") if isinstance(rt, dict) else str(rt)
+                yield k.lower(), iid, cand, (cls or "").split(".")[-1]
+        return
+
+    mod = _probe_module()
+    if mod is None:
+        raise RuntimeError("`_guid_resolve_probe.py` 不可用")
+    cat = mod._load_catalog_bin(path)
+    keys, buckets = cat["keys"], cat["buckets"]
+    ents, ids, rtypes = cat["ents"], cat["ids"], cat["rtypes"]
+    for ki, k in enumerate(keys):
+        if not isinstance(k, str) or not GUID_RE.match(k):
+            continue
+        for lid in buckets[ki]:
+            e = ents.get(lid)
+            if not e:
+                continue
+            cand = [ids[d] for d in (e[2] or []) if isinstance(d, int) and 0 <= d < len(ids)]
+            rt = rtypes[e[6]] if e[6] is not None and 0 <= e[6] < len(rtypes) else None
+            cls = rt.get("m_ClassName") if isinstance(rt, dict) else str(rt)
+            yield k.lower(), ids[lid], cand, (cls or "").split(".")[-1]
+
+
 def load_catalog_internal_ids(bundle_dirs):
     """catalog → `{(束文件名, internalId): (GUID, 类名)}`（只收 GUID 键、只留本地束）。
 
@@ -227,17 +318,24 @@ def load_catalog_internal_ids(bundle_dirs):
 
     返回 `(pairs, catalogPath|None, error|None)`；找不到 catalog 时**如实降级**，不编理由。
     同一 `(束, internalId)` 对到两个不同 GUID ⇒ 该键记 `None`（歧义，不升级）。
+
+    🆕 **2026-10-23（工具线 `T14`）**：catalog **优先用二进制**（安装版 `aa/catalog.bin` →
+    LocalLow `catalog_main.bin`），旧 `catalog_main.json` 只作最后兜底 —— 理由见
+    `CATALOG_BIN_CANDIDATES` 上方那段（旧 JSON 与本地束不是同一 build，EC 短键被截断成
+    另一个键 ⇒ 10 条真错）。两条路走**同一个** `iter_catalog_locations()`。
     """
     import difflib
-    path = next((p for p in CATALOG_JSON_CANDIDATES if os.path.isfile(p)), None)
+    bin_path, bin_why = next(((p, w) for p, w in CATALOG_BIN_CANDIDATES
+                              if os.path.isfile(p)), (None, None))
+    json_path = next((p for p in CATALOG_JSON_CANDIDATES if os.path.isfile(p)), None)
+    path = bin_path or json_path
     if path is None:
-        return {}, None, ("catalog_main.json 找不到（试过 %d 个路径）" %
-                          len(CATALOG_JSON_CANDIDATES))
+        return {}, None, ("catalog 找不到（二进制试过 %d 个、JSON 试过 %d 个）" %
+                          (len(CATALOG_BIN_CANDIDATES), len(CATALOG_JSON_CANDIDATES)))
     try:
-        keys, ents, ids, buckets = decode_catalog_json(path)
-        rtypes = json.load(io.open(path, encoding="utf-8"))["m_resourceTypes"]
-    except Exception as e:
-        return {}, rel(path), "catalog_main.json 解不开: %s" % e
+        locs = list(iter_catalog_locations(path))
+    except Exception as e:                                  # noqa: BLE001
+        return {}, rel(path), "catalog 解不开（%s）: %s" % (os.path.basename(path), e)
 
     local = [d[len("bundle_"):] + ".bundle" for d in bundle_dirs
              if d.startswith("bundle_")]
@@ -263,33 +361,18 @@ def load_catalog_internal_ids(bundle_dirs):
         return r
 
     pairs = {}
-    for ki, k in enumerate(keys):
-        if not GUID_RE.match(k):
+    for g, iid, cand, cls in locs:
+        if not cand:
             continue
-        g = k.lower()
-        for ei in buckets[ki]:
-            e = ents[ei]
-            iid = ids[e[0]]
-            depkey = keys[e[2]] if 0 <= e[2] < len(keys) else None
-            cand = []
-            if isinstance(depkey, str) and depkey.lstrip("-").isdigit():
-                for be in buckets[e[2]]:
-                    cand.append(ids[ents[be][0]])
-            elif isinstance(depkey, str) and depkey.endswith(".bundle"):
-                cand.append(depkey)
-            if not cand:
-                continue
-            lb = match_local(norm_bundle(cand[0]))     # 第一束 = 资产主束
-            if not lb:
-                continue
-            rt = rtypes[e[6]] if 0 <= e[6] < len(rtypes) else None
-            cls = rt.get("m_ClassName") if isinstance(rt, dict) else str(rt)
-            key2 = (lb, iid)
-            if key2 in pairs:
-                if pairs[key2] is not None and pairs[key2][0] != g:
-                    pairs[key2] = None        # 同 (束, 短键) 对到两个 GUID ⇒ 歧义
-            else:
-                pairs[key2] = (g, (cls or "").split(".")[-1])
+        lb = match_local(norm_bundle(cand[0]))     # 第一束 = 资产主束
+        if not lb:
+            continue
+        key2 = (lb, iid)
+        if key2 in pairs:
+            if pairs[key2] is not None and pairs[key2][0] != g:
+                pairs[key2] = None            # 同 (束, 短键) 对到两个 GUID ⇒ 歧义
+        else:
+            pairs[key2] = (g, (cls or "").split(".")[-1])
     return {k: v for k, v in pairs.items() if v}, rel(path), None
 
 
@@ -748,6 +831,9 @@ def main():
                     help="只打印统计，不落盘（`A1648` 同族：只想看时不许写产物）")
     ap.add_argument("--stamp", default=None,
                     help="覆盖 generatedAt（复跑 md5 比对用；默认 = 当前时间）")
+    # 🆕 2026-10-23（T14）：干跑落点（⛔ 默认仍写正式产物；干跑请显式给 `_tmp_view/...`）
+    ap.add_argument("--out", default=OUT_JSON,
+                    help="输出路径（默认 %s；干跑时指到 _tmp_view/）" % OUT_JSON)
     args = ap.parse_args()
 
     t0 = time.time()
@@ -869,11 +955,13 @@ def main():
         upgraded.append(ne)
     entries.extend(upgraded)
     if catalog_err:
-        print("       catalog_main.json: %s ⇒ 短键容器项**不做 GUID 升级**" % catalog_err)
+        print("       catalog: %s ⇒ 短键容器项**不做 GUID 升级**" % catalog_err)
     else:
-        print("       catalog_main.json: %s；短键容器项校验后升级 **%d 条**"
+        print("       catalog: %s%s；短键容器项校验后升级 **%d 条**"
               "（跳过 %d 条：%s）"
-              % (catalog_json, len(upgraded), sum(up_why.values()), dict(up_why)))
+              % (catalog_json, "（二进制，与本地束同 build）"
+                 if str(catalog_json).lower().endswith(".bin") else "（JSON 兜底）",
+                 len(upgraded), sum(up_why.values()), dict(up_why)))
     if old_map_err:
         print("       ! 旧表校验降级：%s（非旧表条目只走类型兜底）" % old_map_err)
 
@@ -1242,6 +1330,9 @@ def main():
             "containerEntriesGuidViaVerifiedRetreatGuids": len(retreat_guids),
             "containerEntriesVerifiedRetreatSkipped": dict(retreat_why),
             "catalogJson": catalog_json,
+            # 🆕 2026-10-23（T14）：catalog 的实际形态（`bin` = 与本地束同 build；`json` = 旧快照兜底）
+            "catalogKind": ("bin" if str(catalog_json or "").lower().endswith(".bin")
+                            else ("json" if catalog_json else None)),
             "catalogJsonError": catalog_err,
             "oldGuidMapError": old_map_err,
             "nonGuidUniqueKeys": sum(1 for r in per_guid.values()
@@ -1298,15 +1389,16 @@ def main():
         },
     }
     if args.dry:
-        print("   干跑（--dry）：不写 %s（总耗时 %.0fs）" % (rel(OUT_JSON), time.time() - t0))
+        print("   干跑（--dry）：不写 %s（总耗时 %.0fs）" % (rel(args.out), time.time() - t0))
     else:
-        if not os.path.isdir(INDEX_DIR):
-            os.makedirs(INDEX_DIR)
-        with io.open(OUT_JSON, "w", encoding="utf-8", newline="\n") as fh:
+        out_dir = os.path.dirname(args.out)
+        if out_dir and not os.path.isdir(out_dir):
+            os.makedirs(out_dir)
+        with io.open(args.out, "w", encoding="utf-8", newline="\n") as fh:
             json.dump(out, fh, ensure_ascii=False, indent=1)
-        sz = os.path.getsize(OUT_JSON)
+        sz = os.path.getsize(args.out)
         print("   写盘 %s（%.2f MB，总耗时 %.0fs）"
-              % (rel(OUT_JSON), sz / 1048576.0, time.time() - t0))
+              % (rel(args.out), sz / 1048576.0, time.time() - t0))
 
     if not args.quiet and anim_unresolved:
         print("   -- 未解出明细（前 30 条）--")

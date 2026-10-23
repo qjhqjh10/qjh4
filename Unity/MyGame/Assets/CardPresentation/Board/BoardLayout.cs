@@ -132,8 +132,16 @@ namespace CardPresentation
         //      （`ArenaSlots.Position` 只有 x 随格号变），到相机的距离只差 `|x|`，而相机在正中
         //      （`NxOf(WarlordSlot) = 0.5` = 屏幕中心）⇒「中间那张最近」。督军位另有
         //      `heroExtraOffset` 的 z 偏移（我 −0.42 / 敌 −0.75）**方向也是更近** ⇒ 不冲突。
-        //      ⚠️ **原版场上卡不按格号排序**（`CardScript.SetUnitInPlayLayer` 给场上所有卡**同一个**
-        //      order 10、把次序交给**距离**）⇒ 我们这条就是把那个次序**写成确定的号**、逐对同向。
+        //      🔴 **原版场上卡不按格号排序** —— 🔴 **2026-10-23（D2）就地订正（铁律 5）**：
+        //      本行原来写「`SetUnitInPlayLayer` 给场上所有卡**同一个** order 10」—— **错的**。
+        //      实读 `decomp_full/CardScript__SetUnitInPlayLayer.c`：传的是
+        //      `BattleCardUI.SetSortingOrder(**-(isPlayer != 0) & 10**)` ⇒ **玩家 10 / 敌人 0**；
+        //      `BattleCardUI__SetSortingOrder.c` 里还有第二句 `transform.SetSiblingIndex(order)`。
+        //      而且那个 order 落在 `BattleCardUI.canvas`（= `2DCard` 的 Canvas）上，而场上那张 2D 卡
+        //      是**关掉**的（`BattleCardUI__ChangeCardToMinion.c` 只 `ToggleBody3D(true)`；
+        //      `ShowBoardObjects(true)` 会 `Card2DController.Toggle(!on)`）⇒ **场上画面实际交给距离**
+        //      （`3DBody` 的 SortingGroup 两边都是 Default/0）。
+        //      ⇒ 我们这条就是把那个次序**写成确定的号**、逐对同向（玩家行压敌方行、中格压两侧）。
         //
         // ⚠️ **静止时本来不可观测**：2D 那条路九格 `z` 恒 0（全共面，距离排序退化成不确定），
         //    而格距 149.3 px > 卡宽 137.2 px（按设计不重叠）⇒ 这条的价值在**重叠期**

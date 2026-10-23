@@ -115,8 +115,12 @@ CARDS_ENGINE = "d:/4/Unity/MyGame/Assets/RuleEngine/Resources/cards_engine.json"
 CARD_SO_VFX = "d:/4/Unity/数据/游戏数据/card_vfx_by_card.json"
 # 🔴 **归属①·B（权威）**：卡 SO 的 12 个 `*ChatSound` —— 只在 SO **本体**里（见文件头）。
 CARD_SO_TRUTH = "d:/2/远端缓存_旧profile_1013/导出/cards_1195_2022时代.json"
-# GUID → 资产名 的第二来源（第一来源 = `card_vfx_by_card.json` 的 `_assetRefs`，两处**取并集**）
+# GUID → 资产名 的三个来源（**优先级从高到低**：`_assetRefs` → `GUID_MAP_TSV` → `ANIM_ADDRESS_MAP`；
+#   🆕 2026-10-23 起 `ANIM_ADDRESS_MAP` **只作兜底** —— 它对短键束有 12 条真错，见 `load_guid_name_index`）
 ANIM_ADDRESS_MAP = "d:/4/Unity/数据/索引/anim_address_map.json"
+# 🆕 2026-10-23（C5）：**catalog 补过短键的 guid_map** —— 优先级**高于** `anim_address_map`（判据见
+#   `load_guid_name_index` 的 docstring；只用其中 `type == AudioClip` 的行）。
+GUID_MAP_TSV = "d:/4/Unity/资料/普查产出_1018/cardanim_guid_map/guid_map_bundles.tsv"
 DST_AUDIO = "d:/4/Unity/MyGame/Assets/CardPresentation/Resources/Art/audio/vo"
 DST_JSON = "d:/4/Unity/MyGame/Assets/CardPresentation/Resources/voice_lines.json"
 
@@ -318,13 +322,21 @@ def _load_vfx_json():
 
 
 def load_guid_name_index(by_card):
-    """`{guid 小写: 资产名}` —— **两个现成产物的并集**，本脚本**不自己解 GUID**。
+    """`{guid 小写: 资产名}` —— **三个现成产物的并集**，本脚本**不自己解 GUID**。
 
-      · `card_vfx_by_card.json` 的 `_assetRefs[*]`（带 `guid` + `assetName`）——
-        这一路覆盖 `guid_map.tsv` 解出来的那批（实测比下面那份多 109 个）
-      · `数据/索引/anim_address_map.json` 的 `guid_to_asset`（10,325 条）
+    🔴 **优先级（2026-10-23 · `C5`，⛔ 别调换）**：
+      ① `card_vfx_by_card.json` 的 `_assetRefs[*]`（带 `guid` + `assetName`）—— 逐卡 VFX 表自己的解；
+      ② **`资料/普查产出_1018/cardanim_guid_map/guid_map_bundles.tsv`**（**catalog 补过短键的那份**）——
+         只收 `type == AudioClip` 的行；同一 GUID 多行时取第一条（音频没有 Sprite/Texture2D 那种类型对）；
+      ③ `数据/索引/anim_address_map.json` 的 `guid_to_asset` —— **最后的兜底**。
+    **三处不一致时以 ②（catalog-backed）为准** —— ③ 是旧链路（目录退键）建的，对**短键束**
+    （EC cardassets 键 `8/a/9/c/3/…`）有 12 条真错（6 音频 + 4 美术/卡框 + 2 无法核，2026-10-23 现核）。
+    实测（2026-10-23）：不加 ② 时 EC56 的 concede/gen1/greet/threat 会被 ③ 指到
+    `Daemonette / Blastmaster / Xarahan_gen5 / Icon of Excess` 的音频上（**错配**）；
+    加 ② 后 = 该卡 SO 真正引用的 `Kaphrael_concede / _gen1 / _greet / _threat`。
+    ⚠️ `anim_address_map.json` **本批不改**（另立账）；这里只是让它不再压过 catalog 的解。
 
-    两路都解不出 = 真的没有（实测只剩 EC55/EC56 整套 + 2 条），调用方**逐条出声**。"""
+    三路都解不出 = 真的没有（实测只剩 EC55/EC56 整套 + 2 条），调用方**逐条出声**。"""
     idx = {}
     for _cid, v in (by_card or {}).items():
         for r in (v or {}).get("_assetRefs", []):
@@ -332,6 +344,26 @@ def load_guid_name_index(by_card):
             n = r.get("assetName")
             if g and n:
                 idx.setdefault(g, n)
+    # ② catalog 补过的那份 guid_map（只收 AudioClip；**优先于 ③**）
+    try:
+        import csv as _csv
+        n_tsv = 0
+        with io.open(GUID_MAP_TSV, encoding="utf-8") as fh:
+            for row in _csv.DictReader(fh, delimiter="\t"):
+                if (row.get("type") or "") != "AudioClip":
+                    continue
+                g = (row.get("assetGuid") or "").lower()
+                n = row.get("name") or ""
+                if len(g) == 32 and n:
+                    if g not in idx:
+                        n_tsv += 1
+                    idx.setdefault(g, n)
+        if n_tsv:
+            print(f"  （GUID→音频名：`{os.path.basename(GUID_MAP_TSV)}` 多解出 {n_tsv} 条）")
+    except Exception as e:                                  # noqa: BLE001
+        print(f"⚠️ 读不到 `{GUID_MAP_TSV}`（{e}）—— 退回只用 `_assetRefs` ∪ `anim_address_map`"
+              "（短键音频会继续按旧表的错名走）")
+    # ③ 最后兜底（旧链路，短键有错；⛔ 别提到 ② 前面）
     try:
         am = json.load(io.open(ANIM_ADDRESS_MAP, encoding="utf-8"))["guid_to_asset"]
         for g, a in am.items():
@@ -660,8 +692,11 @@ def main():
         ],
     }
     if not args.check:
+        # 🔴 2026-10-23：**缩进必须是 2**，与仓库里那一版一致。
+        #    原来这里是 `indent=1` ⇒ 每次重跑都把 16k 行整篇重排（`git diff --numstat` 16k/16k），
+        #    真正的内容变化（几百行）全被格式噪声埋掉。改 2 之后 diff 只剩内容。
         io.open(DST_JSON, "w", encoding="utf-8", newline="\n").write(
-            json.dumps(out, ensure_ascii=False, indent=1))
+            json.dumps(out, ensure_ascii=False, indent=2))
 
     total_lines = sum(len(v) for v in lines.values())
     evs = {}

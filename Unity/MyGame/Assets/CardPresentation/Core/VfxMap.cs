@@ -108,8 +108,41 @@ namespace CardPresentation
         ///    的 1.35 s 补间）—— 只是今天没有件可播，**那条时长仍然是长度闸的上限**（没改它）。</summary>
         public const string AmbushExit = "ambush_exit";
 
-        /// <summary>
-        /// 按事件兜底。
+        // ================== 🆕 2026-10-23（`W63` 收口）：**逐卡「技能动画」两桶** ==================
+        // 【为什么单立两个事件名】`gen_card_vfx_by_card.py` 的 `TRIGGER_EVENT` 把原版
+        //   `AbilityTrigger.UnitAttack(50)` 归到 `attack_melee`、`UnitDamaged(60)` 归到 `hit`
+        //   —— 那两桶的**语义是「攻击/受击的特效」**，于是这 17 条被当成「攻击件/受击件」播，
+        //   而原版它们是**这张卡的技能动画**（`CardAbility` 触发 → `AbilityLogic.PlayAnim` →
+        //   `BattleManager.AddCardAnim` → 动作队列）。两者**播的时刻、锚点、时长**全不一样。
+        //   数据侧（生成器）改归口在白名单外 ⇒ 这里在**载入时**把它们整份抄进自己这两个桶，
+        //   逐卡表的键仍然只有卡 id ⇒ 生产路径 `ResolveAllTimed` 照原样查得到（⛔ 不需要第二套 join）。
+        //
+        // 【池内口径（2026-10-23 现读；⚠️「原版几行」与「运行期几件」**不是同一个数**，别混）】
+        //   · `UnitAttack(50)`：原版 `cardAnimations[]` **13 行 / 11 张卡**
+        //     （判据 = `CardDef.AnimTimes` 里 `tn == "UnitAttack"` 的行：DA22×2 · SAU31×2 · 其余 9 张各 1）。
+        //     **运行期有件的是 12 行** —— `SAU31` 的第二行 `Wait_1s` 是**纯计时拍**（`animAdressable` 为空），
+        //     生成器写运行期表时按 `n` 为空丢掉它（它那 1.0 s 仍由 `AnimTimes` 管，只是没有 prefab 可播）。
+        //     ⚠️ `attack_melee` 里另外 2 条（`EC29` / `SOR8`）是 `inferred-name`（按名字猜的），
+        //     原版触发**不是** `UnitAttack` ⇒ **不收**，留在旧桶。
+        //   · `UnitDamaged(60)`：原版真值只有 **1 行**（`BL20 Buff_DiabolicStrength`）；
+        //     而 `hit` 桶里另有 3 条 `inferred-name`（按名字对上真 CardAnim 的）—— W63 §B 的「4 张」含它们
+        //     ⇒ 本桶收 `hit` **整桶 4 行**（这也正是「受击那一档」今天在池内的全部内容）。
+        //   ⇒ 两个口径都要记住：**原版行数 13 + 4 = 17**（本件的验收口径）·
+        //     **运行期有件 12 + 4 = 16**（`VfxMap.CardTableUnitAnimEntries` 那个数，断言里两条都断）。
+        //
+        // 【⚠️ 这两桶**没有** `ByEvent` 兜底】原版这两档**只有逐卡**（`cardAbilities[].abilityLogic[].
+        //   cardAnimations[]`），没有「通用技能动画」这种东西 ⇒ 没配的卡就是没有
+        //   ⇒ 已列进 <see cref="IsOriginalNoGenericEvent"/>（`ResolveFallback` 静默回 null，⛔ 不喊假警告）。
+        //   消费端 = `CardAnimClips`（数据）+ `BattleDriver.PlayUnitSkillAnim`（播放）。
+        /// <summary>原版 `AbilityTrigger.UnitAttack(50)` 触发的**技能动画**（逐卡；原版 13 行 / 运行期有件 12 条）。
+        /// ⛔ **不是**「近战攻击特效」——`ByEvent[AttackMelee]` 已于 2026-10-22（`W63` §B）整行删除。</summary>
+        public const string UnitAttack  = "unit_attack_anim";
+        /// <summary>原版 `AbilityTrigger.UnitDamaged(60)` 触发的**技能动画**（逐卡；池内 4 条）。
+        /// ⛔ **不是**「受击特效」——受击那一拍原版**一件粒子都不播**（`CardScript._ReceiveDamage`），
+        /// 见 `BattleDriver.PlaySignal` 里那段注释。</summary>
+        public const string UnitDamaged = "unit_damaged_anim";
+
+        /// <summary>按事件兜底。
         ///
         /// ⚠️ **这些是「在战斗场景里实拍过」才选进来的**（`Editor/VfxPicker.cs` 的试片台，
         ///    每个效果拍 3 个时刻）—— `effect_index.json` 判定「对得上」**不等于**在我们场景里也好看：
@@ -182,7 +215,12 @@ namespace CardPresentation
                 || evt == Ability      // B2：技能动画一律来自逐卡 `abilityLogic[].cardAnimations[]`
                 || evt == Death        // B3：真件 = `Card 3D Death Explosion`，播放口在 `CardFeel`（不进 ByEvent）
                 || evt == Return       // B4：`_ResolveRecallToHand` 0 处 Instantiate（回手是 Animation、不是粒子）
-                || evt == AttackMelee; // A2：1,195 张卡只有 2 张有 attackAnim、且都是空引用
+                || evt == AttackMelee  // A2：1,195 张卡只有 2 张有 attackAnim、且都是空引用
+                // 🆕 2026-10-23（`W63` 收口）：**这两桶只有逐卡，原版没有「通用技能动画」**
+                //   （`UnitAttack(50)` / `UnitDamaged(60)` 都写在卡的 `cardAbilities[]` 里）
+                //   ⇒ 没这张卡的候选就该静默回 null（⛔ 别让 `WarnNoFactionVariant` 把它当漏配喊出来）。
+                || evt == UnitAttack
+                || evt == UnitDamaged;
         }
 
         /// <summary>② **有真件、但本机还接不上**的事件（回 `null` **且出声一次**，⛔ 绝不拿替代品顶）。
@@ -538,6 +576,25 @@ namespace CardPresentation
         /// 退回 <see cref="ByFaction"/> / <see cref="ByEvent"/> 的老行为，**并已经出过声**）。</summary>
         public static int CardTableCards { get { EnsureLoaded(); return ByCard.Count; } }
         public static int CardTableEntries { get; private set; }
+
+        // ================== 🆕 2026-10-23（`W63` 收口）：两个「技能动画」桶的账 ==================
+        //  语义与口径见 <see cref="UnitAttack"/> 那一段。⚠️ 它们**不计入** `CardTableEntries`
+        //  （那一个是「原版逐卡真值行数」的口径，重复计会让历史断言漂）。
+        /// <summary>`UnitAttack` 桶里的**行数**（不是卡数；一张卡可以有两拍 —— DA22 / SAU31 各 2 条）。
+        /// 池内现读 **13**。</summary>
+        public static int CardTableUnitAttackEntries { get; private set; }
+        /// <summary>`UnitDamaged` 桶里的行数。池内现读 **4**。</summary>
+        public static int CardTableUnitDamagedEntries { get; private set; }
+        /// <summary>两个桶的行数合计（自检里那个 **17**）。</summary>
+        public static int CardTableUnitAnimEntries { get { return CardTableUnitAttackEntries + CardTableUnitDamagedEntries; } }
+        static readonly Dictionary<string, List<string>> _unitAnimCards = new Dictionary<string, List<string>>();
+        /// <summary>某个桶里**有候选的卡 id**（拷贝；自检逐卡查命中用）。表里没有 ⇒ 空数组。</summary>
+        public static string[] UnitAnimCardIds(string evt)
+        {
+            EnsureLoaded();
+            List<string> l;
+            return _unitAnimCards.TryGetValue(evt ?? "", out l) ? l.ToArray() : new string[0];
+        }
         /// <summary>🆕 2026-10-19（B3 · `T13`）：**会一次播多件**的 (卡, 事件) 行数
         /// （= `ByCard` 里值列表长度 &gt; 1 的行）。现读**全表 382 行**（V2 §3·2 的
         /// 「平票且最优是 `authoritative` 的行」；⚠️ 数据会随生成器重跑变，断言里别写死）。
@@ -698,7 +755,34 @@ namespace CardPresentation
                                       && dto.confPriority[bestRank] == ConfAuthoritative;
                     if (picks.Count > 1) CardTableMultiEntriesAll++;      // 过滤前（含推断档平票）
                     if (!authoritative && picks.Count > 1) picks.RemoveRange(1, picks.Count - 1);
-                    m[ev.ev] = picks;
+                    // 🆕 2026-10-23（`W63` 收口）：**这两族的行【改归】两个技能动画桶，⛔ 不再写回旧桶**
+                    //   （判据/口径见 <see cref="UnitAttack"/> 那一段）。🔴 **必须真的「搬」而不是「抄」**：
+                    //   生产路径 `ScheduleAttackPresentation` 会用 `attack_melee` 逐卡解一次并在
+                    //   **命中帧**播出去（`ResolveAllTimed`）—— 只加新桶不动旧桶的话，同一件
+                    //   `Hammer_Slam_SW` 会**当头一击的粒子播一次、再当技能动画播一次**（原版没有的第二下）。
+                    //   `hit` 那 4 条同理（受击那一拍原版一件粒子都不播，见 `PlaySignal` 那段注释）。
+                    //   ⚠️ **`attack_melee` 里另外 2 条 `inferred-name`（EC29/SOR8）留在旧桶** ——
+                    //   它们**不是** `UnitAttack(50)` 触发的（按名字猜的），不在本件口径内。
+                    bool movedToUnitAnim = false;
+                    if (ev.ev == AttackMelee && authoritative)
+                    {
+                        m[UnitAttack] = picks;
+                        CardTableUnitAttackEntries += picks.Count;
+                        if (!_unitAnimCards.TryGetValue(UnitAttack, out var ua))
+                            _unitAnimCards[UnitAttack] = ua = new List<string>();
+                        if (!ua.Contains(c.id)) ua.Add(c.id);
+                        movedToUnitAnim = true;
+                    }
+                    else if (ev.ev == Hit)
+                    {
+                        m[UnitDamaged] = picks;
+                        CardTableUnitDamagedEntries += picks.Count;
+                        if (!_unitAnimCards.TryGetValue(UnitDamaged, out var ud))
+                            _unitAnimCards[UnitDamaged] = ud = new List<string>();
+                        if (!ud.Contains(c.id)) ud.Add(c.id);
+                        movedToUnitAnim = true;
+                    }
+                    if (!movedToUnitAnim) m[ev.ev] = picks;
                     CardTableEntries++;
                     CardTableCandidates += picks.Count;
                     if (picks.Count > 1) CardTableMultiEntries++;
@@ -847,6 +931,11 @@ namespace CardPresentation
             /// <summary>**起点偏移（秒，相对这一事件的起播时刻）** = 原版 `CardDef.CardAnimTime.Offset`
             /// （= 同 `(卡, 原版 trigger)` 组内前面各候选的 `Duration` 之和）。`0` = 与事件同一拍。</summary>
             public float T;
+            /// <summary>🆕 2026-10-23（`W63` 收口 ①）：**这条候选的 `CardAnim` 资产名**
+            /// （= `CardPick.A`；空串 = 那条候选不来自 `cardAnimations[]`）。
+            /// 🔴 **它是 `AnimInfo` 参数的精确键**：同一个 prefab 名可以被多张
+            /// `CardAnim` 共用、参数却不同（现读 **215 组**）⇒ 按 prefab 名查 `AnimInfo` 会拿错。</summary>
+            public string Anim;
             /// <summary>🆕 这条候选**自己的时长**（= `AnimInfo.GetAnimDuration()`，`CardAnimTime.Duration`）。
             /// 消费端用它把「演出闸 / 队尾」推到这一拍的收尾（原版队列要等它演完才放行下一条动作）。
             /// `0` = 没有逐候选时间（同一档兜底 / 单候选）—— 那时收尾由事件自己的时长负责。</summary>
@@ -1006,7 +1095,7 @@ namespace CardPresentation
             if (times == null || times.Count == 0)
             {
                 var flat = new ResolvedVfx[n];
-                for (int i = 0; i < n; i++) flat[i] = new ResolvedVfx { Name = picks[i].N, T = 0f, Duration = 0f };
+                for (int i = 0; i < n; i++) flat[i] = new ResolvedVfx { Name = picks[i].N, Anim = picks[i].A, T = 0f, Duration = 0f };
                 return flat;
             }
 
@@ -1113,7 +1202,7 @@ namespace CardPresentation
                     long gk = ((long)picks[i].ai << 32) ^ (uint)picks[i].gj;
                     float at;
                     groupAcc.TryGetValue(gk, out at);
-                    res[k] = new ResolvedVfx { Name = picks[i].N, T = at + delay, Duration = dur };
+                    res[k] = new ResolvedVfx { Name = picks[i].N, Anim = picks[i].A, T = at + delay, Duration = dur };
                     groupAcc[gk] = at + dur;        // 下一件的组内起点 = 这一件动作起点 + 它的完整时长
                     k++;
                     continue;
@@ -1121,6 +1210,7 @@ namespace CardPresentation
                 res[k] = new ResolvedVfx
                 {
                     Name = picks[i].N,
+                    Anim = picks[i].A,
                     T = t + delay,
                     Duration = regression ? 0f : dur,
                 };
@@ -1242,6 +1332,18 @@ namespace CardPresentation
         /// 1-shot 那一档 + 近战那件 1 条）。逐卡件**不进来** —— 它们的时长在 `CardDef.AnimTimes` 里
         /// （逐卡真值优先）。🔴 **2026-10-22（`W63` §B）**：近战那一条**已经不是兜底件**（原版无通用近战件，
         /// `ByEvent[AttackMelee]` 已删），见下面那一段的注释。</para>
+        /// <para>🔴🔴 **2026-10-23（`W64` 收口 · 同一 prefab 名多 CardAnim 的歧义现核）**：
+        /// 本表按 **prefab 名**取值，而 `bundle_*cardanims*` 里 **215 个 prefab 名被 ≥2 张 CardAnim 共用、
+        /// 参数/时长不同**。逐条核过本表这 7 个名字（判据 = `Resources/cardanim_clips.json` 的 `vd+ts+tm+te`）：
+        /// · **无歧义 5 条**：`BulletImpact_2shot_trail`(0.75) · `…_ork_NEW`(0.75) · `NecronGauss`(0.75) ·
+        ///   `BulletImpact_2shot`(0.4) · `BulletImpactBurst_crowd`(0.4)；
+        /// · ⚠️ **有歧义 2 条**（`_quick` 变体是**另一张 CardAnim**，不是我们这条）：
+        ///   `BulletImpact_2shot_trail_chaos` = `Atk_BulletImpact_2shot_chaos` **0.75**
+        ///   （`…_chaos_quick` 是 0.3）· `BulletImpact_1shot_trail` = `Atk_BulletImpact_1shot` **0.3**
+        ///   （另有 `_nurgle` 0.75 / `_quick` 0.21）。
+        ///   ⇒ 本表取的**就是正常那一张**（原版 `RangedAttackParticlesByClan` 挂的也是它），值**不用改**；
+        ///   自检里有一条拿 `CardAnimClips.DurationOf("Atk_BulletImpact_2shot_chaos" / "Atk_BulletImpact_1shot")`
+        ///   逐值对过 —— 那次核对**就是**「防将来有人按 prefab 名换值换错」的锁。</para>
         /// <para>🔴 现读值（2026-10-22）：`BulletImpact_1shot_trail` **0.3** · `BulletImpact_2shot` **0.4**
         /// （**不再是兜底件**）· 4 个阵营的 `2shot*` / `NecronGauss` 全部 **0.75**（`ByEvent[AttackRanged]`
         /// 现在也取 `BulletImpact_2shot_trail` ⇒ **兜底档同样是 0.75**，与 `EventTiming.RangedVfxFallback` 一致）。
@@ -1825,6 +1927,13 @@ namespace CardPresentation
             //       🔴 **2026-10-22（P6）**：`CollectWaystone` **不再出现在那个名单里** ——
             //       它已接上 `Remnant Aeldari Collect particles`（见 `ByEvent` 那一行）。
             Draw, AmbushExit,
+            // 🆕 **2026-10-23（`W63` 收口）补 `UnitAttack` / `UnitDamaged`** —— 同一形状**第四次**
+            //   （前三次：`CollectWaystone` / `Draw`+`AmbushExit` / …）。它们**只有逐卡**，
+            //   `Resolve(evt)`（不带卡）恒 null 是**正确结果** ⇒ 已列进 `IsOriginalNoGenericEvent`，
+            //   `Unmapped()` 里会一直看到它们（预期，不是漏配）。
+            //   ⚠️ 加进来会让 `BattleScene` 那组「原版没有通用件」的**计数**从 5 变 7 ——
+            //   那条断言已同步改成 7（判据本来就是「恰好是那一族」，不是「恰好 5 个」）。
+            UnitAttack, UnitDamaged,
         };
 
         /// <summary>自检用：这个事件**至少有一个已注册阵营**配得上 —— <see cref="Unmapped"/> 的搭档。

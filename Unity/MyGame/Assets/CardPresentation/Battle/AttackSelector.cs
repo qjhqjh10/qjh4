@@ -118,9 +118,11 @@ namespace CardPresentation
         //    `d:/2/解包整理/08_预制体特效/战斗预制体/GameObject/Highlight_*.json`（近战，红）和
         //    `Highlight ranged_*.json`（远程，紫），挂在 `CardPrefab/Board Elements/3DBody/
         //    Base Attack Counters/Melee Attack Container`（和 `Range Attack Container`）下面。
-        //    那是「**这个单位能被选中**」的反馈，**还没做** ——
-        //    锚点到底在「卡面的近战/远程数值格上」还是「卡脚下」还没钉死，
-        //    证据和待办写在 `资料/规则引擎_进度与交接.md` 第七节，别照猜着做。
+        //    那是「**这个单位能被选中**」的反馈。
+        //    🔴 **2026-10-23（`W64`·`D-12` 就地订正 · 铁律 5）**：本段原来写「**还没做** / 锚点还没钉死」
+        //    —— **已过期**：那一层已经建好，落在 `Core/CardView.cs`（`MakeGlow("40K_melee_glow", …)`
+        //    与 `MakeGlow("40K_ranged_glow", …)`，见 `CardView.cs:7143-7145`；挂载/显隐由 `CardView`
+        //    自己的高亮那一段管，不在本文件）。⛔ 本文件仍然**不**用这两张图（它只管按钮本身的底盘/金属环）。
         //    按钮本身自带底盘和金属环（`Attack type button Melee/Ranged`），不用再垫一层光。
 
         // `Select Attack Background`：RectTransform 的 sizeDelta 是 780×285，**但它的 localScale = 0.44**，
@@ -1110,16 +1112,19 @@ namespace CardPresentation
         /// <summary>指针是不是在整条槽的范围里（点在槽外 = 取消）。
         /// ⚠️ **两档都不用改**：这里比的全是**世界量**（喂进来的点在世界上、`hw/hh` 由 px 常量折成世界单位）
         /// ⇒ 与「渲染层在哪一档」无关。
-        /// 🔴 **顺手发现（本件【没】改，已记报告 §⑤）**：这个盒子**以世界原点（屏心）为中心**，
-        /// 而 2026-09-29 起整条挂在**被拖那个单位**的位置上（`_anchorAt`）⇒ 两者只在「单位恰好在屏心」
-        /// 时重合。改它 = 改**输入行为**（「点槽外取消」的判定域），不属于本次「只换渲染层与单位」
-        /// ⇒ 留给主对话裁（铁律 11：要修，但不该在本件里顺手修）。</summary>
+        /// 🔴 **2026-10-23（`W64` `B-22` 收口 · 铁律 5 就地订正）**：本段原来写着「这个盒子以**世界原点（屏心）**
+        /// 为中心…留给主对话裁」—— **已修**。判据：整条 2026-09-29 起就挂在**被拖那个单位**的位置上
+        /// （`_anchorAt` = `Show(..., atWorld)` 传进来的世界锚，由 `BattleDriver` 喂
+        /// `playerBoard.DropTargetWorld(slot)`）⇒ 「点槽外取消」的判定域**必须跟着条子走**，
+        /// 否则单位不在屏心时判定域与画面脱节（画在左、点右边才取消）。
+        /// ⇒ 现在把喂进来的点**先减掉 `_anchorAt`** 再比（盒子的形状/尺寸一个字没变）。</summary>
         public bool ContainsBar(Vector3 world)
         {
             if (!Visible) return false;
+            Vector3 rel = world - _anchorAt;                       // ← 🆕 判定域跟着条子的世界锚平移
             float hw = W(BarW) * 0.5f * LayoutSpace.Scale;
             float hh = W(BarH + BgH * 0.5f) * LayoutSpace.Scale;   // 连底板一起算进去
-            return Mathf.Abs(world.x) <= hw && world.y <= hh && world.y >= -hh * 2f;
+            return Mathf.Abs(rel.x) <= hw && rel.y <= hh && rel.y >= -hh * 2f;
         }
 
         /// <summary>诊断用：这一次给了哪些选项</summary>

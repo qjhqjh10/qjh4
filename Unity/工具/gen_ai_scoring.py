@@ -78,6 +78,28 @@ HAND_EFFECT_CARD_KEYS = (
 )
 
 
+# 🔴 **2026-10-23（代理 B3 · `T06` P5 sweep 查出来的真偏差）**：`cards_raw.json` 里的评分条目用的是
+#   **SO 原名**（`damageCriteria` / `healCriteria` / `buffEffect`），而 `cards_truth.json` 那一跳已经
+#   把它们改名成 `damage` / `heal` / `buff`（`gen_cards_truth.py:349-357` 的 `compact_scoring`）。
+#   本脚本的 `norm_entry` 只认 **DTO 名**（`ENTRY_KEYS`）⇒ 从 raw 直接喂进去的那一路
+#   （**`activeAbility` 的两列**，见 `build()` 里 `raw` 的注释）会**静默丢掉这三块**：
+#   实测 118 条 AA 评分条目里 `buffEffect` 非默认 **118 条**、`damageCriteria` **71 条**、
+#   `healCriteria` **5 条**（涉及 117 张卡）⇒ 修前那 118 条在产物里**一格 buff 都没有**。
+#   ⚠️ 只在「DTO 名缺席」时才改名（原条目已带 `damage` 的不动）；⛔ 不就地改源对象。
+SO_TO_DTO = {'damageCriteria': 'damage', 'healCriteria': 'heal', 'buffEffect': 'buff'}
+
+
+def rename_so_entry(e):
+    """SO 名 → DTO 名（只补缺，不改别的键）。见 `SO_TO_DTO` 那段。"""
+    if not isinstance(e, dict):
+        return e
+    d = dict(e)
+    for a, b in SO_TO_DTO.items():
+        if a in d and b not in d:
+            d[b] = d.pop(a)
+    return d
+
+
 def compact_defaults(d):
     """丢掉默认值（`0` / `False` / `''` / `None` / 空 dict / 空 list），其余原样。
     口径与 `cards_truth.json` 的 `compact_*`（`gen_cards_truth.py:149-181`）一致 ——
@@ -191,7 +213,9 @@ def build():
             for col in ('nonTargetScoringCriteria', 'cardTargetScoringCriteria'):
                 arr = aa.get(col) or []
                 if arr:
-                    act[col] = [norm_entry(e) for e in arr]
+                    # 🔴 2026-10-23（代理 B3）：这一路**直接来自 `cards_raw.json`** ⇒ 键是 SO 原名，
+                    #   必须先 `rename_so_entry`（否则 `damage`/`heal`/`buff` 三块被静默丢掉 —— 见 `SO_TO_DTO`）。
+                    act[col] = [norm_entry(rename_so_entry(e)) for e in arr]
             if act:
                 d['activeAbility'] = act
 

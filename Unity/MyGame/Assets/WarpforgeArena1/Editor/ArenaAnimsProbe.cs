@@ -29,11 +29,22 @@ public static class ArenaAnimsProbe
 
     static readonly string[] Clips =
     {
+        // ① 5 条 muscle（只能重打包）
         "Cannon front Idle",
         "Battle Arena 2 Animations",
         "Dynamic Skulls",
         "Pump Animation",
         "SporeArmature|LeviathanBigSpore",
+        // ② 🆕 2026-10-23：9 条 legacy「场景动画」（取原件，比重建曲线忠实）
+        "Battle Arena 3 Animations",
+        "Astra Militarum Scene Animations",
+        "Black Legion Scene Animation",
+        "Dark Angels Scene animations",
+        "Emperor's Children Scene Animations",
+        "Genestealers Scene Animations",
+        "Railgun BIG",
+        "Railgun Turret 1",
+        "Railgun Turret 2",
     };
 
     static readonly string[] Controllers =
@@ -90,6 +101,52 @@ public static class ArenaAnimsProbe
             foreach (var b in packs) { c = b.LoadAsset<RuntimeAnimatorController>(n); if (c != null) { from = b.name; break; } }
             if (c != null) { ok++; Debug.Log(P + "✓ controller `" + n + "`（" + (c.animationClips != null ? c.animationClips.Length : 0) + " 条 clip · 来自 " + from + "）"); }
             else { bad++; Debug.LogError(P + "✗ controller `" + n + "` **取不到**"); }
+        }
+
+        // ---- ③ 🆕 2026-10-23 端到端：把 `arena_scene_anims.json` 接到真 prefab 上 ----
+        //   验收 = 每场「接上的 Animation/Animator 数 == 表里条数」且 `LastMissed == 0`。
+        //   ⚠️ 这一步**故意在包还载着的时候跑** —— 运行期 `WarpforgeAnimatorBridge` 先自己
+        //      `LoadFromFile`（会因「同一份内容已加载」返回 null）再走「已加载的包」兜底，
+        //      正好把那条兜底路也验了。
+        var doc = Resources.Load<TextAsset>("arena_scene_anims");
+        if (doc == null)
+        {
+            bad++;
+            Debug.LogError(P + "✗ `Resources/arena_scene_anims.json` 取不到 —— 先跑 `工具/gen_arena_scene_anims.py`");
+        }
+        else
+        {
+            var d = JsonUtility.FromJson<CardPresentation.ArenaAnimsDoc>(doc.text);
+            int arenas = 0, bindOk = 0, bindBad = 0;
+            foreach (var a in d.arenas)
+            {
+                int wantA = a.animations != null ? a.animations.Length : 0;
+                int wantN = a.animators != null ? a.animators.Length : 0;
+                if (wantA == 0 && wantN == 0) continue;
+                arenas++;
+                var prefab = Resources.Load<GameObject>("ArenaPrefabs/" + a.key);
+                if (prefab == null)
+                {
+                    bindBad++;
+                    Debug.LogError(P + "✗ 场景绑定 `" + a.key + "`：`Resources/ArenaPrefabs/" + a.key + ".prefab` 取不到");
+                    continue;
+                }
+                var go = Object.Instantiate(prefab);
+                CardPresentation.ArenaSceneAnims.Bind(go.transform, a.key);
+                bool pass = CardPresentation.ArenaSceneAnims.LastMissed == 0
+                         && CardPresentation.ArenaSceneAnims.LastAnimated == wantA
+                         && CardPresentation.ArenaSceneAnims.LastAnimators == wantN;
+                if (pass) bindOk++; else bindBad++;
+                Debug.Log(P + (pass ? "✓" : "✗") + " 场景绑定 `" + a.key + "`：Animation "
+                        + CardPresentation.ArenaSceneAnims.LastAnimated + "/" + wantA + " · Animator "
+                        + CardPresentation.ArenaSceneAnims.LastAnimators + "/" + wantN + " · 没接上 "
+                        + CardPresentation.ArenaSceneAnims.LastMissed
+                        + (CardPresentation.ArenaSceneAnims.LastMissed > 0
+                           ? "（" + string.Join(" / ", CardPresentation.ArenaSceneAnims.LastMissedWhat.ToArray()) + "）"
+                           : ""));
+                Object.DestroyImmediate(go);
+            }
+            Debug.Log(P + "=== 场景绑定：" + bindOk + " 过 / " + bindBad + " 红（" + arenas + " 场）===");
         }
 
         Debug.Log(P + "=== " + ok + " 取到 / " + bad + " 没取到 ===");

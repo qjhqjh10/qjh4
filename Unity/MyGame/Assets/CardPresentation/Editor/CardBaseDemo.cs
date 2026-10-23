@@ -320,6 +320,16 @@ public static class CardBaseDemo
         Debug.Log(P + "--- 卡面层级三项（A1658 底板在卡框下 · A1659 文字挂 `2DCard` · A1665 一卡一段队列）---");
         CardFaceProbe.CheckLayers();
 
+        // ---- 4d. 🆕 2026-10-23（D2 · `W63·层级审查` F2）：**场上档特效锚点**的节点/位置 ----
+        //   为什么挂本宿主：`CardFaceProbe` 不在 `工具/_run_8_checks.sh` 的 12 条里，
+        //   而本宿主在 ⇒ 这几条才真的会被跑到（同 4c 那条注释的理由）。
+        Debug.Log(P + "--- 卡上特效锚点（场上档 = 原版 `Board Elements/EffectAnchor`，local (0,1.34,−0.128)）---");
+        AssertEffectAnchor();
+
+        // ---- 4e. 🆕 2026-10-23（D4 · F1 Step 2/3）：**3D 卡体 = 不透明档 + Depth/Shadow pass** ----
+        Debug.Log(P + "--- 3D 卡体：不透明（Geometry 2000）+ DepthOnly/DepthNormalsOnly/ShadowCaster ---");
+        AssertBodyOpaque();
+
         // ---- 5. 手牌布局四件（B1 批 2026-10-17）----
         Debug.Log(P + "--- 手牌布局：小屏档触发 · 最近空位 · 选中让位 · 层序 ---");
         AssertHandLayout(cam);
@@ -597,6 +607,118 @@ public static class CardBaseDemo
 
         Object.DestroyImmediate(r1);
         Object.DestroyImmediate(r2);
+    }
+
+    /// <summary>
+    /// 🆕 **2026-10-23（D2 · `W63·层级审查` 的 F2）**：**场上档特效锚点**的节点与位置。
+    ///
+    /// 判据（全部实读，不是我们挑的）：
+    ///   · `d:/2/tools/decomp_full/CardScript__GetEffectAnchor.c` —— 状态 ∉ {0,1,4,8,9,10,12,16} ⇒
+    ///     `BattleCardUI.effectsAnchor`（`+0x1A0`）；否则 `card2DController.transform`（= `2DCard`）。
+    ///   · 卡 prefab 里那份 `BattleCardUI` 的**序列化 PPtr**：`effectsAnchor` → **`CardPrefab/Board Elements/EffectAnchor`**，
+    ///     `localPosition = (0, **1.34**, **−0.128**)`（prefab 根的原点 = 卡底边）。
+    ///   · 我们卡根原点在**卡心** ⇒ 换算只有 `y −= Height/2` 这一步（`CardView.BoardEffectAnchorLocal`）。
+    ///
+    /// 🧨 **改坏法**（两条**都要**能红）：
+    ///   · 把锚点挂回 `FaceRoot`（`2DCard` 那一级）⇒ 「父节点是卡根」那条红；
+    ///   · 把 `localPosition` 改回 `(0, +0.08, 0)`（那是**另一颗**同名节点 `2DCard/Front/EffectAnchor` 的位置，
+    ///     它不被 `effectsAnchor` 引用）⇒ 位置那条红。
+    /// ⚠️ 与它成对的**手牌档**不在这里断：那一档的锚点就是 `FaceRoot`，`CardFace.Hand` 建出来即成立。
+    /// </summary>
+    static void AssertEffectAnchor()
+    {
+        var root = new GameObject("fx_anchor_probe");
+        var v = CardView.Create(root.transform, CardData.Placeholder(0), "anchor_board", CardFace.Board);
+        var anchor = v.EffectAnchor(true);
+        Check(anchor != null, "场上档特效锚点：`EffectAnchor(true)` 取得到（懒建那条路建出来了）");
+        if (anchor != null)
+        {
+            Check(anchor.parent == v.transform,
+                  $"……父节点 = **卡根**（原版 `Board Elements` 与 `2DCard` 同级；⛔ 不是 `2DCard` 那一级）"
+                  + $" —— 实测 `{(anchor.parent == null ? "null" : anchor.parent.name)}`");
+            // 期望值**只从 `CardView.BoardEffectAnchorLocal` 取**（与产品侧同一份判据，⛔ 不在测试里再抄一个常量）
+            var want = CardView.BoardEffectAnchorLocal;
+            var got = anchor.localPosition;
+            Check((got - want).sqrMagnitude < 1e-8f,
+                  $"……局部位 = 原版 `(0, 1.34, −0.128)` 经 `From3DBody`（`y −= Height/2`）换算 = "
+                  + $"({want.x:F3}, {want.y:F3}, {want.z:F3})；实测 ({got.x:F3}, {got.y:F3}, {got.z:F3})");
+            // ★ 前提：这条换算**不是恒等**（Height/2 > 0）—— 否则上面那条分不出「换算过」和「没换算」
+            Check(Mathf.Abs(want.y - 1.34f) > 1f,
+                  $"★ 前提：换算真的动过 y（1.34 → {want.y:F3}）—— 否则上面那条对「直接抄 1.34」也是绿的");
+        }
+        Object.DestroyImmediate(root);
+    }
+
+    /// <summary>
+    /// 🆕 **2026-10-23（D4 · `W63·层级审查` F1 Step 2/3）**：**3D 卡体 = 不透明 + 有深度/阴影 pass**。
+    ///
+    /// 判据（原始 bundle 逐字段实读，全文 → `资料/普查产出_1023/D3_F1判据与方案.md`）：
+    ///   · 原版材质 `Card 3d Lvl1` 的 shader `Everguild/Cards/3D Card`：子标签
+    ///     `QUEUE=Geometry` / `RenderType=Opaque`；pass 状态 `blend (1,0)=One/Zero` · `zWrite 1` · `cull 2`。
+    ///   · 该 shader **5 个 pass**：Forward / DepthOnly / MotionVectors / DepthNormalsOnly / **ShadowCaster**。
+    ///   · `renderQueue` 的排序优先级**高于** shader 标签 ⇒ 必须同时断「`SetQueue` 不盖章卡体」。
+    ///
+    /// 🧨 **改坏法**（逐条都能红）：
+    ///   · `Card3D.shader` 的 `Queue` 改回 `Transparent` ⇒ ①②红；
+    ///   · 删掉 `StampQueue` 里 `if (mr == _body3D) return;` ⇒ ④红；
+    ///   · 删掉 `SubtreeQueues` 里那条 `continue` ⇒ ④b 红（`A1665`/`A1672②` 的 min/max 会被 2000 污染）；
+    ///   · 删掉三个 `UsePass` ⇒ ⑤a/⑤b/⑤c 红（⑤c 同时是 F3「卡体阴影真生效」的前提）。
+    /// </summary>
+    static void AssertBodyOpaque()
+    {
+        var root = new GameObject("body_opaque_probe");
+        var v = CardView.Create(root.transform, CardData.Placeholder(0), "opaque_board", CardFace.Board);
+        var body = v.transform.Find("body3D");
+        var mr = body != null ? body.GetComponent<MeshRenderer>() : null;
+        Check(mr != null && mr.sharedMaterial != null,
+              "★ 前提：场卡建出了 `body3D` 且有材质（取不到 ⇒ 下面几条全在假绿；`Card3D.shader` 编不过时就是这一条红）");
+        if (mr != null && mr.sharedMaterial != null)
+        {
+            var m = mr.sharedMaterial;
+            Check(m.renderQueue == 2000,
+                  $"① 卡体材质在**不透明档**（`renderQueue` 实测 {m.renderQueue}；原版 `Card 3d Lvl1` 的 `QUEUE=Geometry` = 2000）");
+            Check(m.GetTag("RenderType", false) == "Opaque" && m.GetTag("Queue", false) == "Geometry",
+                  "② shader 标签 = `Queue=Geometry` / `RenderType=Opaque`"
+                  + $"（实测 Queue=`{m.GetTag("Queue", false)}` · RenderType=`{m.GetTag("RenderType", false)}`）");
+            // ★ A/B 前提：`SetQueue` 真的动过 —— 否则 ④ 对「什么都没发生」也是绿的
+            v.SetQueue(2970);
+            Check(v.Queue == 2970, $"★ 前提：`SetQueue(2970)` 生效（实测 {v.Queue}）");
+            Check(mr.sharedMaterial != null && mr.sharedMaterial.renderQueue == 2000,
+                  $"④ `SetQueue` **不盖章 3D 卡体**（盖章后实测 {mr.sharedMaterial.renderQueue}，应仍为 2000）"
+                  + "｜🧨 删掉 `StampQueue` 里那条 `mr == _body3D` ⇒ 变 2970 ⇒ 红");
+            Check(System.Array.IndexOf(v.SubtreeQueues(), 2000) < 0,
+                  "④b `SubtreeQueues()` 里**没有**卡体那档 2000"
+                  + "（否则 `A1665`「前卡整段>后卡整段」与 `A1672②`「每层都在自己那一段」会被它污染）");
+            Check(m.FindPass("DepthOnly") >= 0,
+                  $"⑤a 有 `DepthOnly` pass（实测 {m.FindPass("DepthOnly")}，-1 = 没有 ⇒ 卡体不进 `_CameraDepthTexture`）");
+            Check(m.FindPass("DepthNormalsOnly") >= 0,
+                  $"⑤b 有 `DepthNormalsOnly` pass（实测 {m.FindPass("DepthNormalsOnly")}，-1 = 没有 ⇒ 不进 `_CameraNormalsTexture`）");
+            Check(m.FindPass("ShadowCaster") >= 0,
+                  $"⑤c 有 `ShadowCaster` pass（实测 {m.FindPass("ShadowCaster")}）"
+                  + "—— 没有它 `MeshRenderer.castShadows = On` 是**空转**（本工程 `Fallback Off`）");
+            // ⑥ 溶解中同样不许被盖章（老隐患：盖章会把渲染器换成队列克隆 ⇒ `SetDissolveAmount` 写进没人用的那份）
+            if (v.DissolveSupported)
+            {
+                v.BeginDissolve();
+                Check(v.OnDissolveMaterial, "★ 前提：`BeginDissolve()` 真的把溶解材质换上了");
+                v.SetQueue(2969);
+                Check(v.OnDissolveMaterial,
+                      "⑥ 溶解进行中 `SetQueue` **不会**把卡体换成队列克隆（`OnDissolveMaterial` 仍为真）");
+                // ⑦ 🆕 2026-10-23（D5 · A4 的审查）：`EndDissolve()` 必须**无条件换回**
+                //   判据 = 反编译 `BattleCardUI__RestoreOriginalMaterial.c`：整段没有「当前是不是溶解材质」
+                //   的分支；`DelayedResetMaterial` 收尾也是无条件 `SetCardMaterial(defaultMaterial, true)`。
+                //   🧨 改坏法：早退条件写成 `sharedMaterial == _dissolveMat` ⇒ ⑦ 立刻红（留在溶解材质上）。
+                v.EndDissolve();
+                Check(mr.sharedMaterial == m,
+                      "⑦ `EndDissolve()` 之后换回的是**原来那一份材质**（引用相等，不只是「不是溶解材质」）"
+                      + "｜🧨 早退条件写成 `== _dissolveMat` ⇒ 留在溶解材质上 ⇒ 红");
+                Check(!v.OnDissolveMaterial && mr.sharedMaterial != null && mr.sharedMaterial.renderQueue == 2000,
+                      $"⑦b ……而且材质不再是溶解那份、队列回到不透明档 2000（实测 queue={mr.sharedMaterial.renderQueue}）");
+                Check(v.DissolveAmount < 0f, $"⑦c `DissolveAmount` 复位 −1（实测 {v.DissolveAmount}）");
+            }
+            else Check(true, "（⑥⑦ 跳过：取不到原版溶解 shader `Everguild/Cards/3D Card Dissolve`）");
+        }
+        Object.DestroyImmediate(root);
     }
 
     /// <summary>

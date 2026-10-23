@@ -18,6 +18,9 @@
      修前有 **47 个被截断的键**（长度 1–3 hex，全是 EC 族）；修后应为 **0**。
      ②b 再验 catalog 补跳的**安全闸**：旧表 `exact=True` 的行名字必须逐字相同，
      `exact=False` 的行**不许**被对到别的对象（那族是 31 行「目录键被截断、靠退键解」）。
+     ⚠️ **2026-10-23（`T14` 收口 · C8）**：catalog 改成**二进制优先**（`stats.catalogKind=bin`，
+     与本地束同 build）后，短键 `internalId` 是真键 ⇒ 「整族跳过」计数 **0 才是正确态**；
+     旧 JSON catalog 路径才要求 >0。**`exact=False` 逐行核对（wrong==0）两条路都保留、都是硬断言。**
 
   ③ **163 条的处置**（K11/K12 报告 §五·2 的「全池 1,629 / 缺 163」）：
      用**当前 build 的真值快照**（`allcards_1350/cards_raw.json`，1,351 张）重算：
@@ -186,8 +189,22 @@ def main():
         check(len(wrong) == 0,
               "旧表 exact=False 的行没有被 catalog 对到别的对象", len(wrong), 0)
         skipped = amap["stats"].get("containerEntriesGuidUpgradeSkipped") or {}
-        check(skipped.get("旧表 exact=False（目录键被截断，catalog 的 iid 取到别的对象）", 0) > 0,
-              "stats 记录了「exact=False 整族跳过」的计数", skipped)
+        skipped_exact_false = skipped.get(
+            "旧表 exact=False（目录键被截断，catalog 的 iid 取到别的对象）", 0)
+        catalog_kind = amap["stats"].get("catalogKind")
+        # 🔴 **2026-10-23（工具线 `T14` 收口 · C8）**：二进制 catalog（与本地束同 build，`catalogKind=bin`）下
+        #   短键的 `internalId` 是**真键** ⇒ 「exact=False 整族跳过」**不再需要**，计数 **0 才是正确态**；
+        #   旧 JSON catalog（2025-07-30 快照、与本地束不同 build）才要求该计数 >0。
+        #   真正的安全判据是**上面那条 `wrong == 0`**（exact=False 的行不许被对到别的对象）—— 它仍然**硬断言**，
+        #   ⛔ 别因为本条的放宽而删掉它。
+        if catalog_kind == "bin":
+            check(skipped_exact_false == 0,
+                  "stats：二进制 catalog（catalogKind=bin）下「exact=False 整族跳过」= 0"
+                  "（真键直取，不再需要跳过；安全由上面 exact=False 逐行核对守）",
+                  skipped_exact_false, 0)
+        else:
+            check(skipped_exact_false > 0,
+                  "stats 记录了「exact=False 整族跳过」的计数（旧 JSON catalog 路径）", skipped)
     else:
         check(False, "旧表存在（%s）" % old_tsv, "missing")
 

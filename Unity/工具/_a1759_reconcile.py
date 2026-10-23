@@ -2112,6 +2112,50 @@ for _sb, _lst in _bysub.items():
     print('     · %-16s %3d 条 · 卡：%s' % (_sb, len(_lst), '、'.join(_cards)))
 print('   ⛔ 反例集（本规则**不吞**的真缺口，仍留红）：`GOF12` 的 health 三条（γ）'
       ' · `36892cd…` Bitter Blows / `9dcbe3d0…` Mekaniak（判据未定）· `GOF38` 两条（SO 与卡面冲突，按卡面）'
+# 🔴 **2026-10-23（代理 B2 · `T07` 四红定死）**：上面那四条的判据这轮**逐条过了机器码 / 两代快照 / 官方本地化**，
+#   **结论 = 判定一律不变（仍留红），但「定性」和「缺什么」写死在这里** —— 下一个会话别再从零查一遍。
+#     ① `GOF38 Proper Killy` a0.0（**两条红是同一件事的两面**：原版「我们缺」+ 我们「多」一条 `gain`）
+#        · 原版：`chosenAbility=30 buffOthers` · `buffEffect{buffType=3 addTrait, trait=220 bloodThirst,
+#          meleeAttackChange=2, untilEndOfTurn=1}` · `tgt{targetsAffected=10 allFiltered, friendlyUnits=1,
+#          includeHero=1, includeMinions=0}` ⇒ 「**所有友方英雄** 本回合 +2 近战 且 得嗜血」。
+#          `DefinedTrait.bloodThirst = 220`（`Assembly-CSharp/DefinedTrait.cs:21`）· `BuffType.addTrait = 3`
+#          （`BuffType.cs`）· `TargetsAffected.allFiltered = 10` / `friendlyHero = 120`（`TargetsAffected.cs`）。
+#        · 我方：`gain/0|blood thirst` 目标 `own|warlord`（scan 基线 `GOF38` 行）。
+#        · 🔴 **冲突是真的，⛔ 不能当残留糊过去**：`meleeAttackChange` 与 `addTrait` 同块时**引擎确实会用**
+#          —— 反证 = `Pariah Vanguard`「Give **+2 [Melee]** and Vanguard」= `bt3 trait=980 melee=2`、
+#          `Thunderous Charge`「+2 attack, +2 ranged and Concussive」、`Slaanesh's Spawn`「+1 Attack and Flank」
+#          （全池 26 条 `bt=3` 同时带 stats，其中 3 条卡面**明写**那些 stats）。
+#        · 🔴 **但卡面/官方本地化都没有那个 +2**：`Card_Description/GOF38` = `((Your_warlord_gains_trait_x_this_turn,
+#          [[bloodThirst]]))`（`数据/游戏数据/官方本地化_en+zh-CN.json`）· PnP 卡图同句。
+#          **同文孪生卡 `Proper Hunt`（同一句卡面）的 SO 里 `stats = {}`、`ta=120(friendlyHero)`** ⇒
+#          Proper Killy 的 `melee+2` 与 `ta=10` 是**只在这一张上多出来的**。
+#        · ⇒ **原版内部冲突**（SO 多 +2 melee、目标写成 allFiltered）。**我们按卡面**（只给督军 bloodThirst）；
+#          目标两侧等价（本游戏每方恰好 1 位英雄，allFiltered+includeHero+includeMinions=0 ≡ your warlord）。
+#          ⛔ 不改实现；要改也应由主对话拍板「按 SO 补 +2」，⛔ 别为了变绿把这条桥掉。
+#     ② `Bitter Blows` a0.1（`36892cd…`，原版「我们缺」）
+#        · 原版 step0 = **`destroy(110)`** + `targetSelectMethod=lowestHealth(6)` + `tgt{allFiltered, enemyUnits=1,
+#          includeMinions=1, maxTargets=1}` ⇒ **「摧毁生命值最低的敌方部队」= 卡面**（`AbilityEffect.destroy = 110`，
+#          `Assembly-CSharp/AbilityEffect.cs:25`）⇒ **我们那条 `destroy … PickMost=-health` 是对的，step0 已 ✅**。
+#        · 红的只是 **step1**（`buffOthers` 打/治/加血一个友方英雄）。它**逐字节等于 `Warmaster`
+#          （`97e95944…`）的 step1**，**两代快照（2022 时代 + 当前 build）完全相同** ⇒ 模板残余。
+#        · ⚠️ **没闭合的那半截**：`targetsAffected=90 targetIfMeetsCriteria` 在 `AbilityLogic__GetTargets.c:747-760`
+#          的 `0x5a` 支只是把**上一步的目标列表** `AddRange` 进去；若后续**不**再按 criteria 过滤，原版会把它
+#          作用在**上一步那个敌方部队**上（-0..2 血 +2 生命）。**那一跳（谁过滤、过滤几次）没读到** ⇒
+#          维持「判据未定」；**缺什么** = `AbilityLogic.GetTargets` 的调用方（`AbilityLogic__PlayAbility.c`
+#          对 `local_170` 的传递）与 `BoardAnalysis__MeetsCriteria` 在 90 那支上的调用点。
+#     ③ `Mekaniak` a0.0（`9dcbe3d0…`，选区动作不符 = 原版「我们缺」/「我们多」两面）
+#        · 原版：`chosenAbility=100 createCardInHand` + `selectFromChooseResolution=1` ·
+#          `tgt{choiceResolution(180), friendlyUnits=1, includeSpells=1, keywordFilter=10(Vehicle), maxTargets=1}`
+#          （`Keyword.Vehicle = 10`，`Assembly-CSharp/Keyword.cs`）· 两代快照逐字节相同。
+#        · 我方：`chooseeffect(give)` 目标 `own|vehicle`，池 = `More Dakka`/`Ramshackle`/`Wreckin' Ball`
+#          （`EffectResolver.ChooseEffectPools`；这三张的 PPtr 判据 → `资料/普查产出_1019/E11_报告.md` §二·2）。
+#        · 🔴 **冲突点**：同形 `createCardInHand + choiceResolution(180)` 的卡全池 **25 张**，卡面**清一色**写
+#          「… and **put it in your hand**」；**只有 Mekaniak 写「Give a Kustom Job of your choice to a
+#          friendly Vehicle」**（卡面 + 官方 `Card_Description/9dcbe3d0…` 同句）。⇒ SO 说「造进手里」，
+#          卡面说「直接给载具」，**两者可观测不同**（是否占手牌格 / 能否被弃 / 三张 Kustom Job 都是
+#          `Ephemeral` 0 费、回合末会没）。
+#        · ⇒ **原版内部冲突，按卡面**（现实现）；要改成「造牌进手」属于**行为改动 + `play` 结算指纹会变**，
+#          由主对话拍板，⛔ 本仪器不替它翻绿。
       # 🔴 2026-10-20（W57 EN-3 · 铁律 5 就地订正）：原来这一行还列着 `SW38`（判据冲突 β）——
       #   不成立了：`our_layers_1019.jsonl` 重生后 SW38 有 `Armour 2 ← Your Warlord has Armour 2`
       #   光环行（`W57_引擎线_T07_对账_EN3.tsv` 里是 `⚠️表示不同·语义同 / 光环层承载`）。

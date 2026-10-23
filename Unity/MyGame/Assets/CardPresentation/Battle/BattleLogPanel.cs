@@ -26,9 +26,11 @@
 //     · 「每行一张迷你卡 + `actionImage` 动作图标」**本来就不存在**（原版那三个类是**死代码**：
 //       `CemeteryLogGroup`/`CemeteryLogManager`/`CemeteryLogCard` 全 `assets_full` 里没有 MonoBehaviour
 //       指向它们）⇒ 这条**销账**，别再当欠账。判据 → `资料/待办判据_战场与战斗视图.md` §8b。
-//   ⏭ **还欠**：**悬停行内链接 ⇒ 在面板旁弹一张整套 `CardView`**（原版 `CemeteryManager.CheckCardLink`
-//      对行文字做 `FindIntersectingLink` → `GetLinkID` → `Split(',')` → `DisplayCard`）——
-//      要做就得先给日志文案**加上 TMP 链接**（我们现在是纯文本）。
+//   🔴 **2026-10-23（`W64`·`D-12` 就地订正 · 铁律 5）**：本段原来写「⏭ **还欠**：悬停行内链接 ⇒ 弹一张
+//      `CardView`；要做就得先给日志文案加上 TMP 链接（我们现在是纯文本）」—— **已过期，两半都做了**：
+//      · 行文字**已经有 TMP 链接**，命中判定 = `TMP_TextUtilities.FindIntersectingLink`（`LinkKeyAt`，`~:393`）；
+//      · 悬停 → `DisplayCard` 那一跳也已经接上（见本文件 `:446-523` 那三段注释的现读结论）。
+//      （`W63·审查` 把它列进「stale 注释」就是因为它一直没改 —— 现在改了。）
 //
 // 🔴🔴 **2026-10-16（`T09` 批 2 · `PopUps` 组）：整扇面板已从【世界空间 quad】迁到【uGUI 子画布】。**
 //   · **原版宿主** = `CemeteryLogPanel` @ `…/BackCanvas/Safe area BackCanvas/LeftArea` ——

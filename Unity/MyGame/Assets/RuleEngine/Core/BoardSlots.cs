@@ -129,6 +129,9 @@ namespace RuleEngine
         ///     落到该侧最外那一格。🔴 **2026-10-22（`T02` 同族 · `W63` 点名的那一笔）：这一支的落点
         ///     改走 <see cref="NextFreeWithoutDisplacing"/>**（选侧规则与原来那句 `l &lt; r ? 左 : 右`
         ///     **逐字相同**，多出来的只有「那一格真的空着吗」那道保险 —— 见方法体里的注释）。
+        ///   · 🔴 **2026-10-23 补：上面三条算出来的落点如果【已经有个人】（只可能发生在有洞的棋盘上），
+        ///     一律改成「该侧最外的空格」并出声** —— 见方法体里那段长注释（`Insert` 的插推循环
+        ///     会覆盖那一格的人；连续棋盘上这条闸**一次都不会触发**，行为逐字不变）。
         ///
         /// ⚠️ **全盘满**时原版是 `LogError` 之后**原样返回请求格**（`:38-44`）—— 那会让
         ///    `InsertMinion` 算出越界下标，说明**调用方事先用 `SpacesInTheBoard` 筛过**；
@@ -187,13 +190,77 @@ namespace RuleEngine
                 if (otherCount >= BoardSpec.SlotsPerSide) { index = 0; return false; }   // 全盘满
                 side = other;
                 index = otherCount;                // 追加 = 对侧最外
-                return true;
+            }
+            else
+            {
+                index = IndexOf(requestedSlot);
+                if (index < 0) index = 0;
+                if (index > count) index = count;  // 夹到最外那一格（= 追加）
             }
 
-            index = IndexOf(requestedSlot);
-            if (index < 0) index = 0;
-            if (index > count) index = count;      // 夹到最外那一格（= 追加）
+            // ============================================================
+            //  🔴 **2026-10-23（引擎线 · 补「插推族」最后一段）：有洞时落点被占 ⇒ 不覆盖、不推人。**
+            //
+            //  ⚠️ **这条闸只在【有洞】的棋盘上生效**（判据 = `IsContiguous`）—— 连续棋盘上
+            //    「请求的格有人」是**正常的插入**（`Insert` 把它后面的单位整体外移一格，
+            //    原版 `List.Insert` 就是这样），**绝不能**在这里换格，否则所有「插在两人之间」
+            //    的落点全变。⇒ 先判连续，连续就直接返回原来的 `index`。
+            //
+            //  有洞时才有的那一档（原版两侧是 `List`、结构上不可能有洞；我们的 `Board[]` 是定长
+            //  数组、**自检夹具**可以直接写出洞，见 `WarnHoley`）：
+            //    · 洞在内侧（例：左 3 号格空着、2/1/0 号格都有人）⇒ `index == count` 指到**被占的最外格**；
+            //    · 洞在中段（例：右 index0/2 有人、index1 空着）⇒ `index == count` 也指到**被占的 index2**；
+            //    · 请求侧满、换到对侧时同族（对侧有洞 ⇒ `index = otherCount` 指到被占格）。
+            //  ⇒ 交回给 `Insert` 的话，插推循环会把**外侧那个单位覆盖掉**（`A1692` 的原始症状：
+            //    循环从 `count-1` 搬到 `count`，而 `count` 那格有人）。
+            //  ⇒ 处置 = **改到该侧最外的空格**（判据 = <see cref="OutermostFreeOnSide"/>，
+            //    与 `NextFreeWithoutDisplacing` 的保险**同一个方向**）；该侧竟没有空格（不可达）
+            //    ⇒ 按「这一侧满了」处理：换对侧最外的空格；仍没有 ⇒ `false`。
+            //  ⚠️ 请求格**空着**（有洞）时**不换** —— 那一格正是洞，写进去就把它填上了
+            //    （`Insert` 在有洞分支里也是「请求哪格就写哪格」）。
+            //
+            //  ⚠️ **原版行为【不可比】**：`AdjustedSlot.c` 全文只比两条 `List.Count`、
+            //    **没有任何占用检查** ⇒ 换格是补**我们表示法**的洞，⛔ 别写成「照原版」。
+            //  ⚠️ **出声**（本仓红线「不许静默失败」）：这一格被改掉是夹具造出来的非法局面。
+            // ============================================================
+            int landing = SlotOf(side, index);
+            if (ps.Board[landing] != null && !IsContiguous(ps, out _))
+            {
+                int blocked = landing;
+                int free = OutermostFreeOnSide(ps, side);
+                if (free < 0)
+                {
+                    // 不可达（`count < SlotsPerSide` ⇒ 该侧必有空格）；留着当结构兜底。
+                    int other = -side;
+                    free = OutermostFreeOnSide(ps, other);
+                    if (free < 0) { index = 0; return false; }
+                    side = other;
+                }
+                index = IndexOf(free);
+                UnityEngine.Debug.LogWarning("[BoardSlots] ⚠️ 棋盘不连续：`Resolve`（侧向分支）算出的 "
+                    + blocked + " 号格已被 "
+                    + (ps.Board[blocked] != null ? ps.Board[blocked].Name : "?")
+                    + " 占着 —— **不覆盖、不推人**，改选该侧最外的空格 " + SlotOf(side, index)
+                    + "。引擎的增删路径都维持「每侧从贴督军那格起连续无洞」，出现洞说明"
+                    + "**有地方（多半是自检夹具）直接写了 `Board[]`**（`T02` / `A1692` 同族）。");
+            }
             return true;
+        }
+
+        /// <summary>
+        /// 这一侧**最外**的那个空格（`-1` = 这一侧满了）。
+        /// 判据只此一处 —— <see cref="NextFreeWithoutDisplacing"/> 与 <see cref="Resolve"/>
+        /// 的「有洞不覆盖」两支都调它（⛔ 别在调用点另写一遍「从最外往里扫」）。
+        /// ⚠️ 原版没有这一档（两侧是 `List`、不会有洞）—— 这是补我们表示法的洞。
+        /// </summary>
+        static int OutermostFreeOnSide(PlayerState ps, int side)
+        {
+            for (int i = BoardSpec.SlotsPerSide - 1; i >= 0; i--)
+            {
+                int s = SlotOf(side, i);
+                if (ps.Board[s] == null) return s;
+            }
+            return -1;
         }
 
         /// <summary>
@@ -258,12 +325,18 @@ namespace RuleEngine
                 //    `RuleEngineTest_T02` 的 `TestT02ResolveWarlordSlotHonoursAvailability`）。
                 //    ⇒ 有洞时**一律直写**（本方法在非法局面上的既定契约就是「不推别人」）。
                 //    ⚠️ 连续棋盘走不到这里（`IsContiguous` 已挡）⇒ **合法局面的行为一个字不变**。
-                if (!BoardSpec.IsValid(requestedSlot) || requestedSlot == BoardSpec.WarlordSlot)
+                //
+                // 🔴 **2026-10-23（补「插推族」最后一段）：请求格【被占】时同样不许落到插推循环。**
+                //  上面那条只接住了「请求格空着」；请求格被占（侧向格、有洞棋盘）原来会一路落到
+                //  下面的插推循环 —— 而插推循环是 `Board[SlotOf(side,i+1)] = Board[SlotOf(side,i)]`
+                //  那种整体外移：有洞时它会把**外侧那一格的人覆盖掉**（`A1692` 的原始症状）。
+                //  ⇒ 剩下的三种（督军格 / 越界 / **被占的侧向格**）走同一条：`Resolve` 给出的落点
+                //    **必定是空格**（侧向分支那段注释），直接写、⛔ 不推人。
                 {
                     int hs, hi;
                     if (!Resolve(ps, requestedSlot, out hs, out hi)) return -1;
                     int dst = SlotOf(hs, hi);
-                    if (ps.Board[dst] != null) return -1;   // 理论上到不了；宁可打不出去，也不覆盖
+                    if (!BoardSpec.IsValid(dst) || ps.Board[dst] != null) return -1;  // 理论上到不了
                     ps.Board[dst] = u;
                     return dst;
                 }
@@ -366,12 +439,7 @@ namespace RuleEngine
 
             blockedSlot = dst;                            // 有洞 ⇒ 那一格已经被占了
             int side = SideOf(dst);
-            for (int i = BoardSpec.SlotsPerSide - 1; i >= 0; i--)
-            {
-                int s = SlotOf(side, i);
-                if (ps.Board[s] == null) return s;        // 该侧最外的空格
-            }
-            return -1;                                    // 该侧一个空格都没有
+            return OutermostFreeOnSide(ps, side);         // 该侧最外的空格（没有 ⇒ -1）
         }
 
         /// <summary>

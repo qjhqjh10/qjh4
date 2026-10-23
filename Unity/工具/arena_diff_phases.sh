@@ -16,7 +16,10 @@
 #       bash d:/4/Unity/工具/arena_diff_phases.sh all          # ⚠️ 13 场 × N 个相位，很慢
 set -u
 U="D:/Unity/Hub/Editor/6000.3.23f1/Editor/Unity.exe"
-P="D:\\4\\Unity\\MyGame"
+# 🔴 2026-10-23 修：原来写 `P="D:\\4\\Unity\\MyGame"`（反斜杠）⇒ **Unity 静默不启动**
+#   （rc=0、日志都不建），而下面的 `cp` 照样成功（复制的是**旧图**）⇒ 三个「相位」其实是同一张图，
+#   `arena_diff.py` 的「多相位取中位」全是假的。⇒ 项目路径一律**正斜杠**。
+P="D:/4/Unity/MyGame"
 ARENAS="battlearena1 battlearena2 battlearena3 battlearenaaeldari battlearenaastramilitarum battlearenablacklegion battlearenadarkangels battlearenaemperorschildren battlearenagenestealers battlearenaleviathan battlearenasororitas battlearenaspacewolves battlearenatauviorla"
 # 相位（= `WF_PSSEC` 推进多少真实秒）。⚠️ 别用默认那一个值，**要的是铺开**。
 SECS="${WF_PHASES:-4 8 12}"
@@ -27,11 +30,19 @@ for a in $LIST; do
   D="d:/4/Unity/MyGame/Assets/WarpforgeArena1/arenas/$a"
   for s in $SECS; do
     unset ELECTRON_RUN_AS_NODE
-    env WF_ARENA="$a" WF_PSFIXSEED=1 WF_PSSEC="$s" "$U" -batchmode -quit -projectPath "$P" \
+    before=$(stat -c %Y "$D/preview_$a.png" 2>/dev/null || echo 0)
+    # 🔴 2026-10-23 修：原来套了一层 `env VAR=… "$U"` —— 在 Git Bash 下 Unity **静默不启动**
+    #   （rc=0、日志不建、预览不变）⇒ 改成 bash 的**直接前缀赋值**（实测有效）。
+    WF_ARENA="$a" WF_PSFIXSEED=1 WF_PSSEC="$s" "$U" -batchmode -quit -projectPath "$P" \
         -executeMethod ArenaBuilder.RenderPreviewFromCLI -logFile "d:/4/_tmp_view/arena20/phases_${a}_$s.log" >/dev/null 2>&1
-    # ⚠️ 判据 = 产物 mtime 变，⛔ 别信日志
-    cp "$D/preview_$a.png" "$D/preview_${a}__p$s.png" 2>/dev/null \
-      && echo "  $a 相位 $s → preview_${a}__p$s.png" || echo "  ⚠️ $a 相位 $s：没拿到产物（看 phases_${a}_$s.log）"
+    # ⚠️ 判据 = 产物 mtime **真的变了**（⛔ 别信日志、也别只看 `cp` 成功 —— 旧版就是这样复制了旧图）
+    after=$(stat -c %Y "$D/preview_$a.png" 2>/dev/null || echo 0)
+    if [ "$after" = "$before" ]; then
+      echo "  🔴 $a 相位 $s：**渲染没发生**（preview mtime 没变）—— 看 phases_${a}_$s.log；⛔ 不复制旧图"
+      continue
+    fi
+    cp "$D/preview_$a.png" "$D/preview_${a}__p$s.png" \
+      && echo "  $a 相位 $s → preview_${a}__p$s.png" || echo "  ⚠️ $a 相位 $s：复制失败"
   done
 done
 echo "=== 完。现在跑：python -I -X utf8 d:/4/Unity/工具/arena_diff.py <场|all> ==="

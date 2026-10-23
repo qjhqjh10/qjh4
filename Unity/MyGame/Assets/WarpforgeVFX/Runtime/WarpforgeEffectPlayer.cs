@@ -103,6 +103,8 @@ namespace WarpforgeVFX
         public bool autoTick = true;
 
         WFEffectEntry _entry;
+        /// <summary>`_entry == null`（没走效果库）那条兜底只报一次 —— 见 `EffectName`。</summary>
+        bool _warnedNoEntry;
 
         float _time;            // 从播放到现在
         float _lifetime;        // 到点调 Exit()；float.PositiveInfinity = 不自动收
@@ -110,8 +112,47 @@ namespace WarpforgeVFX
         float _exitDelay;       // Exit() 之后再活多久
         bool _exiting;
         bool _destroyed;
+        /// <summary>🆕 2026-10-23（A1 R23）：销毁权已交给某个模块（原版 `AnimFXController.DoDestroy`
+        /// 「有模块就不销毁」）⇒ controller 不再自己 `Destroy`，但仍要继续 `Tick` 让模块的数秒倒计时跑完。</summary>
+        bool _destroyHandedOff;
 
-        public string EffectName { get { return _entry != null ? _entry.name : name; } }
+        /// <summary>效果名 —— **全工程唯一的真名来源**。
+        ///
+        /// 正常路径：`Play()` 里 `Init(entry, …)` 填了 `_entry` ⇒ 直接是效果库条目的名字。
+        /// 兜底路径（`_entry == null`：手工 `Instantiate` / 预挂实例）：
+        ///   退回 `gameObject.name`，但**剥掉引擎 `Instantiate` 自动加的 `(Clone)`**，并**每个实例只报一次**。
+        ///
+        /// 为什么必须剥（2026-10-23 · 特效线 A1）：
+        ///   `WFModuleAnimation` 拿 `EffectName + "|" + 状态名` 去 `WarpforgeAnimatorBridge.TryGetClip`
+        ///   取原版片段别名（`工具/gen_simple_animation_clips.py` 登记的就是**干净的效果名**）。
+        ///   多一个 `(Clone)` ⇒ 别名取不到 ⇒ **整段动画静默失效**，而且现象看起来像「这个效果本来就没动画」。
+        ///   判据 → `资料/普查产出_1023/E2_dump护栏与EffectName审计.md` §②。
+        ///
+        /// ⛔ **别把这个剥后缀的逻辑抄到别处**：`WFModuleAnimation` 等调用方一律走本属性；
+        ///   两个类各剥一次迟早不一致（铁律：判据只留一处）。</summary>
+        public string EffectName
+        {
+            get
+            {
+                if (_entry != null) return _entry.name;
+
+                var n = name;
+                const string k = "(Clone)";
+                if (n != null && n.Length > k.Length && n.EndsWith(k, StringComparison.Ordinal))
+                    n = n.Substring(0, n.Length - k.Length).TrimEnd();
+
+                if (!_warnedNoEntry)
+                {
+                    _warnedNoEntry = true;
+                    Debug.LogWarning($"[WarpforgeVFX] 《{n}》这个 WarpforgeEffectPlayer **没有走效果库**" +
+                                     "（`_entry == null`：手工 Instantiate / 预挂实例）⇒ `EffectName` 退回 GameObject 名" +
+                                     "（已剥掉 `(Clone)`）。**按效果名拼键的模块**（`WFModuleAnimation` 的 " +
+                                     "`<效果名>|<状态名>` 别名）可能因此取不到片段。正常播放请走 " +
+                                     "`WarpforgeEffectPlayer.Play(name, …)`。");
+                }
+                return n;
+            }
+        }
         public WFEffectEntry Entry { get { return _entry; } }
         public bool IsExiting { get { return _exiting; } }
         public bool IsPlaying { get { return !_exiting && !_destroyed; } }
@@ -310,7 +351,7 @@ namespace WarpforgeVFX
             // ⚠️ 排在 `Exit()` **之后**：这样 `exitSounds`（按「开始退出后第 T 秒」计时）能在 Exit 那一帧就起算。
             TickSounds();
 
-            if (_exiting && _time - _exitAt >= _exitDelay)
+            if (_exiting && !_destroyHandedOff && _time - _exitAt >= _exitDelay)
             {
                 DestroyNow();
             }
@@ -340,23 +381,55 @@ namespace WarpforgeVFX
                 if (ps != null) ps.Stop(true, ParticleSystemStopBehavior.StopEmitting);
         }
 
-        /// <summary>立刻销毁。</summary>
+        /// <summary>立刻销毁（**强制** —— 不理会「销毁权交给模块」那条）。</summary>
         public void Kill()
         {
             if (_destroyed) return;
             _exiting = true;
-            DestroyNow();
+            DestroyNow(true);
         }
 
-        void DestroyNow()
+        /// <summary>🆕 2026-10-23（A1 R23）：原版 `AnimFXController.DoDestroy` ——
+        /// **没有模块 ⇒ 销毁自己；有模块 ⇒ 只广播、自己不动**（销毁权交给模块）。
+        /// 调用点（原版）= `BattleManager.RemoveDestroyableAnims`。
+        /// 🔴 **它和 `Exit()` 的计时销毁是两条路**（判据 = `Battle/AnimFXController.cs:318-345`）：
+        /// `Exit()` 到点**一定**销毁；本方法才有「交给模块」那一跳。
+        /// </summary>
+        public void DoDestroy()
+        {
+            if (_destroyed || _destroyHandedOff) return;
+
+            bool takeOver = false;
+            for (int i = 0; i < _modules.Count; i++)
+            {
+                if (_modules[i] == null) continue;
+                _modules[i].DoDestroy();
+                if (_modules[i].TakesOverDestroy) takeOver = true;
+            }
+
+            if (takeOver)
+            {
+                // 销毁权交给模块：**不置 `_destroyed`** —— `Tick` 要继续给模块 `ModuleTick` 跑倒计时。
+                _destroyHandedOff = true;
+                FireFinished();
+                return;
+            }
+            DestroyNow(true, alreadyBroadcast: true);   // 没有模块（或没人接管）⇒ 立刻销毁（原版兜底）
+        }
+
+        /// <param name="force">保留参数只为让调用点读起来明确；**Exit 计时路与 Kill 一律销毁**。</param>
+        /// <param name="alreadyBroadcast">`DoDestroy()` 已经广播过模块，别再广播第二遍。</param>
+        void DestroyNow(bool force = false, bool alreadyBroadcast = false)
         {
             if (_destroyed) return;
-            _destroyed = true;
-            Active.Remove(this);
 
             // 先让模块收尾（原版 `DoDestroy` 广播；基类是空实现，只有 1 个类重写了它）
-            for (int i = 0; i < _modules.Count; i++)
-                if (_modules[i] != null) _modules[i].DoDestroy();
+            if (!alreadyBroadcast)
+                for (int i = 0; i < _modules.Count; i++)
+                    if (_modules[i] != null) _modules[i].DoDestroy();
+
+            _destroyed = true;
+            Active.Remove(this);
 
             // 正常路径上 `Exit()` 开头已经发过；`Kill()` 直接过来时在这里补发（只发一次）
             FireFinished();

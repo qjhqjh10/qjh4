@@ -32,16 +32,36 @@ Shader "CardPresentation/Card3D"
         // 🆕 2026-10-19（`A2139`）：原版去饱和通道（判据 → `Resources/Shaders/CardSprite.shader` 头部）。
         // 0 = 原色（默认，画面不变）/ 1 = 全灰。场上 3D 卡体也是「卡面」的一部分。
         _GreyScale ("Greyscale", Range(0,1)) = 0
+        // 🔴 2026-10-23（D4 · F1 Step 3）：**只给 `UsePass` 进来的 `ShadowCaster` 用** ——
+        //   URP 的 `Simple Lit` 那个 pass 写的是 `Cull [_Cull]`，而卡体材质里原本没有 `_Cull`
+        //   ⇒ 不声明的话它读 0（= Cull Off，双面进阴影）。原版 `Card 3d Lvl1` 是 `cull 2`（Back）。
+        //   ⚠️ 主 pass 仍然**硬编码** `Cull Back`，不受本属性影响。
+        _Cull ("Cull", Float) = 2
     }
 
     SubShader
     {
-        // 透明队列（我们整套卡面都在透明队列里按 z 排序）· 写深度：网格是立体的，
-        // 不写深度的话背面会透出来；写深度之后正面的数字/徽标（z 更靠前）照样盖得住。
-        Tags { "Queue"="Transparent" "RenderType"="Transparent" "IgnoreProjector"="True" }
+        // 🔴 2026-10-23（D4 · F1 Step 2）—— **卡体回到原版的「不透明」档**。
+        //   判据（原始 bundle 逐字段实读，全文 → `资料/普查产出_1023/D3_F1判据与方案.md`）：
+        //   原版材质 `Card 3d Lvl1` 的 shader `Everguild/Cards/3D Card`：
+        //   子标签 `QUEUE=Geometry` / `RenderType=Opaque`；pass 状态 `blend (1,0)=One/Zero`、
+        //   `zWrite 1`、`zTest 4`（LEqual）、`cull 2`（Back）。
+        //   ⛔ 我们原来那套 `Transparent + SrcAlpha/OneMinusSrcAlpha` 是**我们自己排的**，不是原版。
+        //
+        //   改成不透明之后：
+        //     · 卡体与场地装饰 / 其它卡体之间的先后由**深度**决定（不再吃「一张卡一段队列」）；
+        //     · 卡面的透明层（框/立绘/数值/徽标）仍在透明队列，照旧按队列段排；
+        //     · `_Color.a` **不再影响画面**（输出的 alpha 固定 1）⇒ 卡体的「淡出」必须走
+        //       **溶解材质**（`Everguild/Cards/3D Card Dissolve`，AlphaTest 2450），
+        //       2D 卡面那一档走 `CardView.SetAlpha2D`。⛔ 别为了淡出把它改回 Transparent。
+        //
+        //   ⚠️ **`renderQueue` 的排序优先级高于 shader 标签** ⇒ `CardView.SetQueue` / `StampQueue`
+        //   必须**跳过 `_body3D`**（已同批改，`CardView.cs` 的 `StampQueue` 里有判据注释）——
+        //   否则标签会被卡队列段（场上 2962–2979）盖掉、这次改动等于没做。
+        Tags { "Queue"="Geometry" "RenderType"="Opaque" "IgnoreProjector"="True" }
         Cull Back
         ZWrite On
-        Blend SrcAlpha OneMinusSrcAlpha
+        Blend One Zero
 
         Pass
         {
@@ -126,10 +146,35 @@ Shader "CardPresentation/Card3D"
                 float lum = dot(col, float3(0.299, 0.587, 0.114));
                 col = lerp(col, lum.xxx, saturate(_GreyScale));
 
-                return fixed4(col * _Color.rgb, _Color.a);
+                // 🔴 2026-10-23（D4）：不透明档下 **alpha 固定写 1**（`Blend One Zero` ⇒ 它本来就不参与混合，
+                //   写 `_Color.a` 只会把 <1 的值带进 framebuffer alpha，对后处理是隐患）。
+                //   `_Color.rgb` 仍然是整卡着色（高亮/状态色）的入口，**保持不变**。
+                return fixed4(col * _Color.rgb, 1.0);
             }
             ENDCG
         }
+
+        // 🔴 2026-10-23（D4 · F1 Step 3）：补齐原版那套 **pass**。
+        //   判据 = 原版 `Everguild/Cards/3D Card` 的 `SerializedPass` 逐个实读，**5 个 pass**：
+        //     `Universal Forward` / `DepthOnly` / `MotionVectors` / `DepthNormalsOnly` / **`ShadowCaster`**。
+        //   我们原来只有 Forward + `Fallback Off` ⇒ ① 卡体**进不了阴影图**（`MeshRenderer` 的
+        //   `castShadows=On` 等于空转 —— 上一批 F3 改的就是它）；② 卡体不在 URP 的
+        //   `_CameraDepthTexture` / `_CameraNormalsTexture` 里。
+        //
+        //   ⇒ **直接复用 URP 自己的 pass**（`UsePass`）。名字在本工程 URP **17.3.0** 的
+        //     `Shaders/Unlit.shader`（`:148` `DepthOnly` · `:189` `DepthNormalsOnly`）与
+        //     `Shaders/SimpleLit.shader`（`:152` `ShadowCaster`）里逐个核对过。
+        //   ⛔ **不手写**：`DepthNormals` 要做八面体编码 / `_GBUFFER_NORMALS_OCT` 分支，手写编不过
+        //     就是满屏品红，而这一轮**跑不了 Unity**（验收主对话做）。
+        //   · `DepthOnly` / `DepthNormalsOnly` ← `Universal Render Pipeline/Unlit`（Unlit **没有** ShadowCaster）
+        //   · `ShadowCaster` ← `Universal Render Pipeline/Simple Lit`（它写 `Cull [_Cull]`
+        //     ⇒ 靠上面 Properties 里那句 `_Cull = 2` 保持 `Cull Back`，与原版 `cull 2` 同值）
+        //   · `MotionVectors` **没加**：我们没有开运动矢量/TAA 的需求（原版有，那是它管线的选择）。
+        //   ⚠️ 这三个 pass 与我们主 pass 的顶点变换互不相干（各编各的）；它们不带 `_Color` 着色 ——
+        //     深度/法线/阴影本来就不吃颜色。
+        UsePass "Universal Render Pipeline/Unlit/DepthOnly"
+        UsePass "Universal Render Pipeline/Unlit/DepthNormalsOnly"
+        UsePass "Universal Render Pipeline/Simple Lit/ShadowCaster"
     }
     Fallback Off
 }

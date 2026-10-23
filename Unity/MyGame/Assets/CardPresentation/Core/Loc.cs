@@ -3046,6 +3046,11 @@ namespace CardPresentation
         //     `Achievements/*` **212** · `Cardbacks/*` **181** · `PrebuiltDecks/*` **95** ·
         //     `Event_Description/*` **144** · `Card_Trait/*` **27**（合计 3,156）。
         //     2026-10-17 那组 368 / 419 / 198 / 157 / 74 / 111 与 2,758 是**当时快照**，⛔ 别当现值引用。
+        //     ⚠️ **2026-10-23 现读订正（铁律 5 · 特效线 `A1·R28` 收口时同步）**：上面那组**又过期了** ——
+        //     现读 `Resources/official_names.json` = **3,240 条 / 9 族**：
+        //     `PrebuiltDecks/*` **101 → 179**（`gen_official_names.py` 2026-10-23 起把**池外那 78 副**
+        //     练习窗卡组也 join 进来，见界面线 `W65`），其余八族逐值不变
+        //     （1198 / 498 / 459 / 342 / 212 / 181 / 144 / 27 + 179 = **3,240**）。
         //     复算 = 按 `entries[].k` 的 `/` 前缀分组计数（`d:/4/Unity/MyGame/Assets/CardPresentation/Resources/official_names.json`）。
         //   ✅ 也⛔ **别让各 `Shell/*Data.cs` 各抄一份** —— 「两处写同一条规则 = 迟早不一致」（工程红线）。
         // 产物 = `Resources/official_names.json`，生成器 = `工具/_loc_official/gen_official_names.py`

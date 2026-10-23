@@ -18,6 +18,7 @@
 //     · **位移方向** —— 把原版的 z 换成**屏幕平面上的方向**（攻击方朝目标、受击方背离攻击者）
 //     · **位移幅度** —— 按「原版棋盘那一层的像素密度 ÷ 我们这层的像素密度」折算（见 `ToOurs`）
 //   这三条是**我们的迁移**，不是原版的数值。
+using System.Collections.Generic;
 using DG.Tweening;
 using UnityEngine;
 
@@ -488,6 +489,10 @@ namespace CardPresentation
             P("PushBackDuration", PushBackDuration, Src.Field, "`CardScript__DoPushBack.c` 的 DOPunchPosition 第 3 参 + DLL `_DAT_1834b3158`"),
             P("PushBackVibrato", PushBackVibrato, Src.Field, "同上，vibrato 在调用里硬编码 8"),
             P("PushBackElasticity", PushBackElasticity, Src.Field, "同上 + DLL `_DAT_1834b2dc8`"),
+            // 🆕 2026-10-23（`W63` 收口 ②）：方向那一半的「两点重合」阈值
+            P("PushBackDegenEpsilon", PushBackDegenEpsilon, Src.Field,
+              "`CardScript__ReceiveAttackAnim.c` 的 `if (DAT_1834b2f44 < len)`（比的是**长度**不是平方）；"
+            + "DLL `_DAT_1834b2f44` 4 字节 float 实读 = **1e-5**"),
 
             // ---- 攻击：Recoil Normal Tween（UnitTweenSO）----
             P("AttackPunchUnits", AttackPunchUnits, Src.Field, "`Recoil Normal Tween` 的 `punch=(0,0,-0.1)`"),
@@ -817,7 +822,80 @@ namespace CardPresentation
         public static void HitReact(Transform tr, Vector3 away, bool heavy, float delay, int attackerMeleeAttack)
         {
             if (tr == null) return;
-            Vector3 d = Flat(away);
+            PunchBack(tr, Flat(away), heavy, delay, attackerMeleeAttack);
+        }
+
+        // ==================================================================
+        //  🆕 2026-10-23（`W63` 收口 ②）：**受击方向按「自己 − 攻击者」算**
+        // ==================================================================
+        //  原版判据（逐句，`d:/2/tools/decomp_full/CardScript__ReceiveAttackAnim.c`）：
+        //    `dx = 受击方.position.x − 攻击方.position.x` · `dz = 受击方.z − 攻击方.z` ·
+        //    `len = sqrt(dx² + dz²)`；`len > DAT_1834b2f44(=**1e-5**)` 时
+        //    `dir = (dx/len, **0**, dz/len)`；否则取一条**静态常量向量**（`DAT_1842da2a8 + 0xb8` 那一格，
+        //    反编译里读不出名字）⇒ 然后 `DOPunchPosition(dir × GetPushBackFactor(GetUnitSize(攻方)), 0.4, 8, 0.3)`。
+        //  🔴 **我们换了一条轴**：原版棋盘是 XZ 地面（y 是高度），我们的棋盘画在 **XY**（z 是景深）
+        //    ⇒ `dir` 取 `(dx, dy, 0)`（与 `Flat` 同一个平面）。这是**换算**，不是原版原样，如实记。
+        //  ⚠️ 退路那一档：原版的静态常量读出不来（见上），沿用本文件 `Flat` 既有的 `Vector3.up`。
+        /// <summary>原版那个「两点重合」阈值（`DAT_1834b2f44`，**4 字节 float 实读 = 1e-5**）——
+        /// 比的是**长度**（不是平方），判据见 `ReceiveAttackAnim.c` 那一句 `if (DAT < len)`。</summary>
+        public const float PushBackDegenEpsilon = 1e-5f;
+
+        /// <summary>原版 `normalize(受击方 − 攻击方)`（屏幕平面版，见上面那段换算说明）。
+        /// 两点距离 ≤ <see cref="PushBackDegenEpsilon"/> ⇒ 返回 `Vector3.up`（原版那一档取常量向量）。</summary>
+        public static Vector3 PushBackDir(Vector3 victimPos, Vector3 attackerPos)
+        {
+            Vector3 d = victimPos - attackerPos;
+            d.z = 0f;                                  // 原版 y 恒 0（XZ 地面）；我们 z 恒 0（XY 平面）
+            float len = d.magnitude;
+            if (len <= PushBackDegenEpsilon) return Vector3.up;
+            return d / len;
+        }
+
+        /// <summary>本会话**知道攻击方**的后坐次数（自检用：证明生产走的是新那条路）。</summary>
+        public static int AwayFromAttackerCount { get; private set; }
+        /// <summary>本会话**不知道攻击方**（疲劳 / 反噬 / 反伤）而后退回旧方向的后坐次数。</summary>
+        public static int NoAttackerFallbackCount { get; private set; }
+        /// <summary>最近一次后坐用的**平面单位方向**（自检用）。</summary>
+        public static Vector3 LastPushBackDir { get; private set; }
+
+        static readonly HashSet<string> _warnedNoAttacker = new HashSet<string>();
+        const int NoAttackerWarnCap = 8;
+        static void SpeakNoAttacker(string who)
+        {
+            if (_warnedNoAttacker.Count >= NoAttackerWarnCap || !_warnedNoAttacker.Add(who ?? "")) return;
+            Debug.LogWarning($"[CardFeel] `{who}` 的挨打后坐**不知道攻击方是谁** ⇒ 方向退回「往自己半场外侧」"
+                           + "（原版这一档不存在：`CardScript__ReceiveAttackAnim.c` 的方向恒为 `受击方 − 攻击方`）");
+        }
+
+        /// <summary>🆕 2026-10-23：**知道攻击方**时的挨打后坐（方向 = <see cref="PushBackDir"/>）。
+        /// <para><paramref name="attacker"/> 为 null ⇒ 退回 <paramref name="fallbackAway"/>（= 旧口径的恒定上/下）
+        /// **并出声**（⛔ 不装成原版）。</para>
+        /// <param name="attackerMeleeAttack">攻击方的近战值（-1 = 不知道 ⇒ 幅度走 `Impact *` 退路）。</param></summary>
+        public static Tween HitReactFrom(Transform tr, Transform attacker, Vector3 fallbackAway,
+                                         bool heavy, float delay, int attackerMeleeAttack)
+        {
+            if (tr == null) return null;
+            Vector3 d;
+            if (attacker != null)
+            {
+                d = PushBackDir(tr.position, attacker.position);
+                AwayFromAttackerCount++;
+            }
+            else
+            {
+                d = Flat(fallbackAway);
+                NoAttackerFallbackCount++;
+                SpeakNoAttacker(tr.name);
+            }
+            return PunchBack(tr, d, heavy, delay, attackerMeleeAttack);
+        }
+
+        /// <summary>后坐本体（两条入口共用一份 —— 判据只留一处）。</summary>
+        static Tween PunchBack(Transform tr, Vector3 d, bool heavy, float delay,
+                               int attackerMeleeAttack)
+        {
+            if (tr == null) return null;
+            LastPushBackDir = d;
             // 🔴 `B02`：档位轴 = **攻击方的近战档**（不是伤害值）。`heavy` 只剩「不知道攻击方」那条退路，
             //   `HeavyHitDamage` 也只在那条退路上当分档门槛（见 `BattleDriver` 的两处调用）。
             float mag = attackerMeleeAttack >= 0
@@ -825,7 +903,7 @@ namespace CardPresentation
                 : (heavy ? HitPunchUnitsHeavy : HitPunchUnitsLight);     // 退路：`Impact *` 顶替值（A06）
 
             // 位置：DoPushBack 的**形状**（0.4 / vib 8 / 弹性 0.3）+ 上面的幅度。**近战只有这一条。**
-            CardTween.Use(
+            return CardTween.Use(
                 tr.DOPunchPosition(d * ToOurs(mag), PushBackDuration, PushBackVibrato, PushBackElasticity)
                   .SetDelay(delay), Ease.OutQuad, tr);
         }
@@ -1218,7 +1296,8 @@ namespace CardPresentation
             float artFadeEnd = HandToBoardEnd - HandToBoardFadeStart;       // 0.5833
             float bodyGone = HandToBoardEnd - HandToBoardLand;              // 0.7500
 
-            bool canDissolve = card.BeginDissolve();
+            bool canDissolve = !ForceNoDissolveForTest && card.BeginDissolve();
+            LastReturnFallback = canDissolve ? FallbackPath.MaterialDissolve : FallbackPath.HideBody;
             if (!canDissolve)
                 Debug.LogWarning("[CardFeel] 卡体溶解不可用（取不到原版 shader `Everguild/Cards/3D Card Dissolve`）"
                                + " ⇒ 回手这一下**用淡出顶上**，与原版表现不一致（原版是材质溶解）");
@@ -1242,12 +1321,32 @@ namespace CardPresentation
             }
             else
             {
-                // 兜底：整卡淡出（**我们的做法**，见方法注释）
-                seq.Insert(0f, DOTween.To(() => card.Alpha, a => card.SetAlpha(a), 0f, HandToBoardEnd));
+                // 🔴 2026-10-23（`F1` 前置）：**兜底不再淡卡体**（不透明之后 `_Color.a` 对 3D 体无意义）。
+                //   改成原版那个形状：**到点直接关 3D 体**（`SetBody3DVisible(false)`），
+                //   2D 卡面照**同一条原版时间轴**打开/淡入（与上面 `canDissolve` 那一支逐时刻相同）。
+                //   判据 → `资料/普查产出_1023/D3_F1判据与方案.md` §③ C4；
+                //   旁证 = 原版阵亡正路 `DeathExplosion` 也是 `SetBody3DVisible(false)`（不淡）。
+                seq.InsertCallback(artOn, () => { card.SetBody3DVisible(false); card.SetArtAlpha(0f); });
+                seq.Insert(artFadeStart, DOTween.To(() => card.ArtAlpha, a => card.SetArtAlpha(a),
+                                                    1f, artFadeEnd - artFadeStart).SetEase(Ease.Linear));
             }
 
             var t = CardTween.Use(seq, Ease.Linear, tr).SetDelay(delay);
-            if (onDone != null) t.OnComplete(() => onDone());
+            // 🔴 **2026-10-23（第六十六会话 · `D5` 的发现）：回手演完要还原卡体材质。**
+            //   原版 `PlayBackToHandAnimation` 末尾有 `DelayedResetMaterial(0.55)` 把 3D 体换回正常材质
+            //   （见本方法头那段判据）；我们原来只喂 `_DissolveAmount` 不换回来 ⇒ 那张卡会**一直挂着溶解材质**
+            //   （`OnDissolveMaterial == true`），靠「下次登场 `HandToBoard` 再 `BeginDissolve`」才兜住。
+            //   `OnKill` 也补一次：补间被 kill（换局 / 视图销毁）时同样要还原。
+            //   ⚠️ `CardView.EndDissolve` 自 2026-10-23（`D5`）起是**幂等且安全**的（无体 / 无材质直接返回）。
+            // ⚠️ `OnComplete` 在 DOTween 里是**单槽**（再设一次会覆盖前一个）⇒ 两件事必须写在**同一个 lambda** 里。
+            t.OnComplete(() =>
+            {
+                if (onDone != null) onDone();
+                if (canDissolve) card.EndDissolve();
+            });
+            // `OnKill` 在「正常播完」时也会跟着触发一次 ⇒ `EndDissolve` 会被叫两次；
+            // `CardView.EndDissolve` 自 2026-10-23（`D5`）起幂等（无体 / 无材质直接返回），所以安全。
+            if (canDissolve) t.OnKill(() => card.EndDissolve());
             return t;
         }
 
@@ -2230,6 +2329,50 @@ namespace CardPresentation
         /// 🔴 **时长照原版分档**（2026-09-18）：小兵 `deathTimeMinionDuration 0.2` ·
         ///    督军 `deathTimeWarlordDuration 0.5` —— 见 <see cref="DeathDissolve"/>。
         ///    （改之前两边都用 0.5333，那是从出战 clip 对称借来的，**不是原版值**。）</summary>
+        // ==================================================================
+        //  🆕 2026-10-23（`F1` 前置；判据 → `资料/普查产出_1023/D3_F1判据与方案.md` §③ C3/C4）
+        //  卡体改成**不透明**（`Queue=Geometry` / `Blend One Zero`）之后，**`_Color.a` 对卡体不再生效**
+        //  ⇒ 两条靠「整卡淡出」的兜底会变成「卡体啪地留在场上」。这两条兜底是 F1 之后**最后的安全网**，
+        //  所以它们必须改走**原版那条路**（材质 `_DissolveAmount`）：
+        //    · 阵亡兜底 `Dissolve()`：`BeginDissolve()` 成功 ⇒ 驱动 `SetDissolveAmount(0→1)`；
+        //      取不到溶解材质 ⇒ **退回旧的整卡淡出并出声**（D3 原文：「`DissolveSupported==false` 时退回现状（并出声）」）。
+        //    · 回手兜底 `ReturnToHand()` 的 `!canDissolve` 分支：**0.2167 时直接关掉 3D 体**
+        //      （`SetBody3DVisible(false)`）+ 2D 卡面照原版时间轴打开/淡入 —— ⛔ 不再淡卡体。
+        //      判据：原版阵亡/小兵溶解本来就是「溶完直接关体」（`DeathExplosion` 正路 = `SetBody3DVisible(false)`）。
+        //  `ForceNoDissolveForTest` 是**自检专用**开关（同 `CardTween.LinkEnabled` 的定位）：
+        //  它让上面两条走「取不到溶解材质」那一支，好让断言能验**兜底本身**（否则真机上永远走不到）。
+        // ==================================================================
+        /// <summary>这两条兜底**实际走的是哪条路**（自检盯它；⛔ 别拿「代码里写了」当证据）。</summary>
+        public enum FallbackPath
+        {
+            None = 0,
+            /// <summary>材质溶解（原版那条路：`BeginDissolve` + `_DissolveAmount` 0→1）。</summary>
+            MaterialDissolve = 1,
+            /// <summary>旧的整卡淡出（**只剩「取不到溶解材质」这一档**；会出声）。</summary>
+            WholeCardAlpha = 2,
+            /// <summary>回手兜底：直接关 3D 体 + 2D 卡面照原版时间轴淡入（⛔ 不碰 `_Color.a`）。</summary>
+            HideBody = 3,
+        }
+        /// <summary>最近一次**阵亡兜底**走的路（<see cref="Dissolve"/>）。</summary>
+        public static FallbackPath LastDeathFallback { get; private set; }
+        /// <summary>最近一次**回手**走的路（<see cref="ReturnToHand"/>；正常档 = `MaterialDissolve`）。</summary>
+        public static FallbackPath LastReturnFallback { get; private set; }
+        /// <summary>自检专用：置真 ⇒ 两条兜底都按「取不到溶解材质」处理（见上面那一段）。</summary>
+        public static bool ForceNoDissolveForTest { get; set; }
+
+        static bool _warnedDeathFallbackAlpha;
+        static void SpeakDeathFallbackAlpha()
+        {
+            if (_warnedDeathFallbackAlpha) return;
+            _warnedDeathFallbackAlpha = true;
+            Debug.LogWarning("[CardFeel] 阵亡兜底：**取不到溶解材质**（`CardView.BeginDissolve()` = false）"
+                           + " ⇒ 退回「整卡淡出」—— ⚠️ 卡体不透明之后 `_Color.a` 对 3D 体**不生效**"
+                           + "（F1；判据 → `D3_F1判据与方案.md` §③ C3）⇒ 这一段只剩 2D 层会淡。"
+                           + "原版那条路是材质 `_DissolveAmount`，所以正常档不会走到这里。");
+        }
+        /// <summary>自检口：把「已出过声」那一位清零。</summary>
+        public static void ResetDeathFallbackWarnForTest() { _warnedDeathFallbackAlpha = false; }
+
         public static Tween Dissolve(CardView card, float delay = 0f, System.Action onDone = null,
                                      bool isWarlord = false)
         {
@@ -2240,7 +2383,19 @@ namespace CardPresentation
             var seq = DOTween.Sequence();
             seq.Append(tr.DOMove(tr.position + up, dur).SetEase(Ease.InSine));
             seq.Join(tr.DOScale(tr.localScale * 0.85f, dur).SetEase(Ease.InQuad));
-            seq.Join(DOTween.To(() => card.Alpha, a => card.SetAlpha(a), 0f, dur));
+            // 🔴 2026-10-23（`F1` 前置）：**先走原版那条路**（材质溶解）；拿不到溶解材质才退回整卡淡出。
+            bool canDissolve = !ForceNoDissolveForTest && card.BeginDissolve();
+            LastDeathFallback = canDissolve ? FallbackPath.MaterialDissolve : FallbackPath.WholeCardAlpha;
+            if (canDissolve)
+            {
+                seq.Join(DOTween.To(() => card.DissolveAmount, a => card.SetDissolveAmount(a), 1f, dur)
+                               .SetEase(Ease.Linear));
+            }
+            else
+            {
+                SpeakDeathFallbackAlpha();
+                seq.Join(DOTween.To(() => card.Alpha, a => card.SetAlpha(a), 0f, dur));
+            }
             var t = CardTween.Use(seq, Ease.Linear, tr).SetDelay(delay);
             // ⚠️ 回调**从这里接**，别让调用方去碰 DOTween —— 这是本文件的划法。
             //    🔴 **2026-10-19（W）就地订正（铁律 5）**：本行原来写「`BattleDriver` 没有

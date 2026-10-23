@@ -824,6 +824,83 @@ def load_guid_map(path):
     return out, None
 
 
+# ============================================================ 🔴 2026-10-23（特效线 `A1·R28`）
+# `guid_map.tsv` 里**没有**的 GUID → **第二判据 = Addressables 二进制 catalog**。
+#
+# 为什么需要这一跳：`guid_map_bundles.tsv` 是「枚举各束的 `m_Container`」建的，而**有些束的容器键是短键**
+#   （实测 `chaosspacemarinesemperorschildrencardassets` 的键是 `71` / `49` / `0a`…），
+#   短键与 GUID 之间**只有 catalog 的 `internalId` 能对上** ⇒ 只枚举束 = 那一族 GUID 永远解不出。
+#   实测（2026-10-23）：卡 SO 引用的 GUID 里**只剩 4 个**在表外，其中 **2 个**（EC57 的 attack/death 语音）
+#   用 catalog 一次解出（键 `71`/`49`，AudioClip，本地束里对象在）；另 2 个（GOF2 death / BL47 summon）
+#   **两个 build 的 catalog 里都没有** ⇒ 判据空（见报告）。
+#
+# 判据链（**复用** `工具/_guid_resolve_probe.py` 的 `lookup` —— 同一份实现，⛔ 不写第二份）：
+#   GUID --catalog--> (bundle, internalId, 资源类型) --本地束 `m_Container`--> 对象 `m_Name`
+# ⚠️ **只用安装版 `aa/catalog.bin`**（与本地束同 build，`buildResultHash ae516dc0…`）；
+#    旧 JSON catalog（2025-07-30 快照）与本地束不是同一 build ⇒ 那条路**不当事**（见 probe 文件头）。
+CAT_BIN = r"d:/2/Warhammer 40k Warpforge/Warpforge_Data/StreamingAssets/aa/catalog.bin"
+_PROBE = {"tried": False, "mod": None, "cat": None, "catErr": None}
+CATALOG_HITS = []          # 本次运行靠 catalog 解出的 GUID（写进 stats，便于复查）
+
+
+def _probe_module():
+    """按**文件路径**加载同目录的 `_guid_resolve_probe.py`（`python -I` 不会把脚本目录放进 sys.path）。"""
+    if _PROBE["tried"]:
+        return _PROBE["mod"]
+    _PROBE["tried"] = True
+    try:
+        import importlib.util
+        p = os.path.join(os.path.dirname(os.path.abspath(__file__)), "_guid_resolve_probe.py")
+        spec = importlib.util.spec_from_file_location("wf_guid_resolve_probe", p)
+        mod = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(mod)
+        _PROBE["mod"] = mod
+    except Exception as e:                      # noqa: BLE001
+        PROBLEMS.append("catalog 兜底：加载 `_guid_resolve_probe.py` 失败（%s）⇒ 只按 guid_map.tsv 解" % e)
+    return _PROBE["mod"]
+
+
+def catalog_row(guid):
+    """GUID → 与 `guid_map.tsv` **同形**的一行（解不出返回 `None`）。
+
+    只回**类型 + 名字都拿得到、且束在本地**的命中；多个命中按 `(bundle, key, pathid)` 排序取第一条
+    （确定性：同一份 catalog + 同一批束，两次跑结果逐字节相同）。
+    """
+    guid = (guid or "").strip().lower()
+    if len(guid) != 32:
+        return None
+    if not os.path.isfile(CAT_BIN):
+        # 没有二进制 catalog ⇒ 这一跳**没做**（`resolve_so_ref` 会据此把原因写成「第二判据不可用」，
+        # ⛔ 不写成「catalog 里也没有」—— 那是没查过却当成查过）
+        _PROBE["catErr"] = "安装版 `aa/catalog.bin` 不存在"
+        return None
+    mod = _probe_module()
+    if mod is None:
+        return None
+    if _PROBE["cat"] is None and _PROBE["catErr"] is None:
+        try:
+            _PROBE["cat"] = mod.load_catalog(CAT_BIN)
+        except Exception as e:                 # noqa: BLE001
+            _PROBE["catErr"] = str(e)
+            PROBLEMS.append("catalog 兜底：解析 `%s` 失败（%s）⇒ 只按 guid_map.tsv 解" % (CAT_BIN, e))
+    cat = _PROBE["cat"]
+    if cat is None:
+        return None
+    try:
+        hits = mod.lookup(cat, guid)
+    except Exception as e:                     # noqa: BLE001
+        PROBLEMS.append("catalog 兜底：lookup(`%s`) 失败（%s）" % (guid, e))
+        return None
+    hits = [h for h in hits if not h.get("note") and h.get("name") and h.get("type")]
+    if not hits:
+        return None
+    hits.sort(key=lambda h: (h.get("bundle") or "", str(h.get("key") or ""), h.get("pathid") or 0))
+    h = hits[0]
+    return {"assetGuid": guid, "bundle": h.get("bundle"), "containerKey": h.get("key"),
+            "type": h.get("type"), "className": h.get("cls"), "name": h.get("name"),
+            "internalId": h.get("iid"), "exact": h.get("exact"), "source": "catalog-bin"}
+
+
 def resolve_so_ref(guid, guid_map, idx, want_prefab):
     """卡 SO 的一个 AssetGUID → (解析出的资产 dict, 解不出的原因)。
 
@@ -834,10 +911,22 @@ def resolve_so_ref(guid, guid_map, idx, want_prefab):
         （`want_prefab=False` 的 `_assetRefs` 那一族用得上；`want_prefab=True` 时记成解不出）。
     **解不出的原因必须由调用方写进 entry 的 `unresolved` 并计数，不许静默丢。**
     """
-    rs = guid_map.get((guid or "").strip().lower()) or []
+    key = (guid or "").strip().lower()
+    rs = guid_map.get(key) or []
     if not rs:
-        return None, ("GUID 在 `guid_map.tsv` 里没有解出具名资产"
-                      "（目录里有这个 key、但本地束里没有对应容器键 —— 两个 build 的差）")
+        # 🆕 第二判据：catalog + 本地束（理由见上面 `CAT_BIN` 那段注释）
+        row = catalog_row(key)
+        if row:
+            guid_map[key] = [row]
+            rs = [row]
+            CATALOG_HITS.append(key)
+    if not rs:
+        if _PROBE.get("catErr"):
+            return None, ("GUID 在 `guid_map.tsv` 里没有解出具名资产；**第二判据不可用**（%s）"
+                          " ⇒ 只查了一条路，⛔ 不等于「资产不在」" % _PROBE["catErr"])
+        return None, ("GUID 在两个判据下都解不出：① `guid_map.tsv` 里没有；"
+                      "② 与本地束同 build 的 `catalog.bin` 里也没有这个 key"
+                      "（两件事都做过 = 该资产不在这个 build 的 Addressables 里）")
     ca = [r for r in rs if r["className"] == "CardAnim"]
     go = [r for r in rs if r["type"] == "GameObject"]
     pick = (ca or go or rs)[0]
@@ -959,6 +1048,8 @@ def build_authoritative(cards, idx, stats, problems, truth_path, guid_map_path, 
     guid_map, err = load_guid_map(guid_map_path)
     if err:
         problems.append("权威档：" + err)
+    base_guids = len(guid_map)          # 表本身的条数（不含下面 catalog 兜底补进来的）
+    del CATALOG_HITS[:]                 # 同一进程里被调多次时别带上一轮的
     trig_names = load_enum_stub("AbilityTrigger")
     eff_names = load_enum_stub("AbilityEffect")
     if not trig_names or not eff_names:
@@ -1073,7 +1164,10 @@ def build_authoritative(cards, idx, stats, problems, truth_path, guid_map_path, 
         "truthSnapshot": rel(truth_path),
         "truthCards": len(truth),
         "guidMap": rel(guid_map_path),
-        "guidMapGuids": len(guid_map),
+        "guidMapGuids": base_guids,
+        "resolvedByCatalog": len(CATALOG_HITS),
+        "resolvedByCatalogGuids": list(CATALOG_HITS),
+        "catalogBin": rel(CAT_BIN),
         "authoritativePerCardEntries": entries,
         "authoritativeVfxEntries": vfx_entries,
         "authoritativeAssetRefEntries": asset_entries,
@@ -1238,11 +1332,16 @@ def main():
             "本脚本本次实测（我们卡池 1,126 张，见 `stats.authoritative`）",
         ],
         "limits": [
-            "真值快照是 **2022 时代**（1,195 张）。我们卡池 1,126 张里 **168 张比它新**"
-            "（SpaceWolves / Ultramarines / DarkAngels 等后来加的内容）⇒ 那些卡在权威档下**查不到**，落旧档。",
+            "🔴 **2026-10-23 现读**：真值快照 = 当前 build 的 `allcards`（**1,351 张**），"
+            "我们卡池 1,127 张里**快照没有的 = 0 张**（`stats.authoritative.poolCardsWithoutTruth`）。"
+            "（原文写「快照是 2022 时代 1,195 张、168 张查不到」—— 那是 `T14`/2026-10-18 换源**之前**的口径，已过期。）",
             "`cardAnimations` 那一路的**事件名归到 `ability` 是我们拍的**（原版给的是枚举），"
             "已逐条带 `abilityTrigger` / `chosenAbility`。",
-            "**天赋触发**（`CardTrait.TraitEffects[].effectAnim`）**仍然没做** —— 那份 SO 不在卡 SO 里。",
+            "**天赋触发**（`CardTrait.TraitEffects[].effectAnim`）**仍然没做** —— 那份 SO 不在卡 SO 里，"
+            "**而且两个 build（PC 关服前 / 安卓 1.35.0）的本地束里都没有 `CardTrait` 束**"
+            "（2026-10-23 现查：`guid_map_bundles.tsv` 里 `className == CardTrait` **0 行**、"
+            "`assets_full` 全库 `TraitEffects` **0 命中**、安卓 asset pack 里无 `cardtraits` 束）⇒ 这就是 R28 里"
+            "`inferred-keyword` 那 600+ 条**升不了级**的判据缺口。",
         ],
     }
 
@@ -1305,8 +1404,10 @@ def main():
                       "⇒ `byCard` 里现在**有判据齐的逐卡条目**（`conf = authoritative`，"
                       "见 `stats.authoritative*`）；旧的 `inferred-*` 三档**保留**但**降级为兜底**，"
                       "按 `_conventions.confPriority` 取第一个命中的。"
-                      "⚠️ 权威档的两个限定：真值快照是 2022 时代（我们池子里 168 张比它新、查不到）；"
-                      "`cardAnimations` 的事件名归到 `ability` 是**我们拍的**（原版给的是枚举，已带在条目上）。"),
+                      "⚠️ 权威档的两个限定：① 真值快照 = **当前 build 的 `allcards`（1,351 张）**，"
+                      "现读我们池子 **1,127/1,127** 都在快照里（原文「2022 时代 1,195 张 / 168 张查不到」"
+                      "是 `T14` 换源前的口径，**2026-10-23 已过期**）；② `cardAnimations` 的事件名归到 "
+                      "`ability` 是**我们拍的**（原版给的是枚举，已带在条目上）。"),
         "_conventions": {
             "conf": {
                 "authoritative": "🔴 **原版真值**（不是推断）：卡 SO 字段（GUID）→ 束 → 资产原名 → VFX prefab。"
@@ -1341,7 +1442,12 @@ def main():
                                 "（`cardImageReference` / `summonAudio` / `attackAudio` / `deathAudio`），"
                                 "**不挂事件**，每条带 `assetKind`（art / audio）。只为「哪张卡对哪个原版资产」留判据。",
             "unresolved": "每条 entry 上 `prefab: null` + `unresolved: <原因>` = 原版引用了、但本地解不出。"
-                          "**不许当没有**（铁律：不静默失败）。汇总见 `stats.authoritative.authoritativeUnresolved`。",
+                          "**不许当没有**（铁律：不静默失败）。汇总见 `stats.authoritative.authoritativeUnresolved`。"
+                          "⚠️ 2026-10-23（`R28`）起解不出会走**两条判据**：① `guid_map.tsv`"
+                          "（枚举各束 `m_Container`）→ ② 与本地束同 build 的 `catalog.bin`"
+                          "（补「短键」那一族 → 再用束内 `m_Container` 取名字）。两条都没有 = 该资产"
+                          "**不在这个 build 的 Addressables 里**（判据空，⛔ 不是「没查」）。"
+                          "② 解出的 GUID 记在 `stats.authoritative.resolvedByCatalogGuids`。",
         },
         "chain": chain,
         "hop2_corrected": hop2,

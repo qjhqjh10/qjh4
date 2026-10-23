@@ -215,7 +215,57 @@ def ptr_id(v):
     return None
 
 
-def build(bundle_dir, ctrl_path, clip_index):
+def build_clip_index(roots):
+    """建 clip 名字索引。返回 `(per_bundle, global_index, collisions)`。
+
+    🔴 **2026-10-23 修（B 代理 · `Cannon 1` 数据错）**：原来这里是**一个裸 PathID 字典**
+    `clip_index.update(clip_names_in(r))`，把 84 个包并进同一个 `{PathID: 名字}` ——
+    **同一 PathID 在多个包里是常态**（PathID 只在包内唯一），后扫到的包**静默覆盖**前一个。
+    实测：`PathID 20` 在 3 个包里都有 ——
+      · `bundle_scenes_scenes_battlearena1` → `Cannon front Idle`（**`Cannon 1` 真正引用的那条**）
+      · `bundle_scenes_scenes_battlearenatauviorla` → `Railgun Turret 1`
+      · `bundle_scenes_scenes_battlearenaemperorschildren` → `Emperor's Children Scene Animations`
+    按目录名排序扫到最后一个是 ta viorla ⇒ `Cannon 1` 的 clip 被写成了 `Railgun Turret 1`（静默错）。
+
+    ⇒ 现在分成两层：**包内索引优先**（`per_bundle[bundle_dir][pid]`），包里没有才回落到
+    **全库索引**；全库索引的值是 **`[(包名, 名字), …]` 列表**（不再覆盖），
+    只有「所有候选名字相同」时才回落到它，**候选互相矛盾 ⇒ 点名进 `_unhandled`，不替它挑**。
+
+    `collisions` = 全库范围内「同一 PathID 在 ≥2 个包里且名字不同」的对照表，
+    写进产物的 `_clipIndexCollisions` 留作防回归记录。
+    """
+    per_bundle, global_index, collisions = {}, {}, {}
+    for r in roots:
+        m = clip_names_in(r)
+        per_bundle[r] = m
+        for pid, nm_ in m.items():
+            global_index.setdefault(pid, []).append((os.path.basename(r), nm_))
+    for pid, cands in sorted(global_index.items(), key=lambda kv: (kv[0] is None, kv[0])):
+        names = {c[1] for c in cands}
+        if len(cands) > 1 and len(names) > 1:
+            collisions[pid] = sorted(cands)
+    return per_bundle, global_index, collisions
+
+
+def resolve_clip(pid, bundle_dir, per_bundle, global_index, bad, owner):
+    """按「包内优先 · 全库唯一才回落」解析一个 clip PathID。解析不了就进 `bad`（不静默）。"""
+    n = (per_bundle.get(bundle_dir) or {}).get(pid)
+    if n is not None:
+        return n
+    cands = global_index.get(pid) or []
+    if not cands:
+        bad.append(f"{owner}: `m_AnimationClips` 里的 PathID {pid} 在解包树里查不到名字")
+        return ""
+    names = sorted({c[1] for c in cands})
+    if len(names) == 1:
+        return names[0]
+    bad.append(f"{owner}: `m_AnimationClips` 里的 PathID {pid} **同包内没有**，全库有 "
+               f"{len(names)} 个不同名字 {names}（分别在 "
+               f"{', '.join(sorted({c[0] for c in cands}))}）⇒ **不替它挑**，留空")
+    return ""
+
+
+def build(bundle_dir, ctrl_path, per_bundle, global_index):
     """把一份控制器摊成数据。返回 (dict, unhandled 列表)。"""
     d = load(ctrl_path)
     bad = []
@@ -226,14 +276,7 @@ def build(bundle_dir, ctrl_path, clip_index):
         return tos.get(int(i), "")
 
     clips_pid = [ptr_id(x) for x in (d.get("m_AnimationClips") or [])]
-    clips = []
-    for pid in clips_pid:
-        n = clip_index.get(pid)
-        if n is None:
-            bad.append(f"{name}: `m_AnimationClips` 里的 PathID {pid} 在解包树里查不到名字")
-            clips.append("")
-        else:
-            clips.append(n)
+    clips = [resolve_clip(pid, bundle_dir, per_bundle, global_index, bad, name) for pid in clips_pid]
 
     c = d.get("m_Controller") or {}
     sms = c.get("m_StateMachineArray") or []
@@ -346,10 +389,9 @@ def main():
     check = "--check" in sys.argv
     roots = sorted(os.path.join(ASSETS_FULL, d) for d in os.listdir(ASSETS_FULL)
                    if os.path.isdir(os.path.join(ASSETS_FULL, d)))
-    # 先建「整棵树」的 clip 名字索引（控制器可能引用别的包里的 clip）
-    clip_index = {}
-    for r in roots:
-        clip_index.update(clip_names_in(r))
+    # 先建 clip 名字索引（控制器可能引用别的包里的 clip）——
+    # 🔴 包内优先 + 全库只做「唯一才回落」的兜底，**不再是裸 PathID 字典**（见 build_clip_index）
+    per_bundle, global_index, collisions = build_clip_index(roots)
 
     out, bad = [], []
     for r in roots:
@@ -359,7 +401,7 @@ def main():
         for fn in sorted(os.listdir(cd)):
             if not fn.endswith(".json"):
                 continue
-            c, b = build(r, os.path.join(cd, fn), clip_index)
+            c, b = build(r, os.path.join(cd, fn), per_bundle, global_index)
             try:
                 c["pathId"] = int(fn[:-5].split("_")[-1])
             except ValueError:
@@ -375,6 +417,16 @@ def main():
     missing = [c["name"] for c in out
                if not c["layers"] or not c["layers"][0]["states"] or not c["layers"][0]["states"][0]["clip"]]
     print(f"[AC] clip 没解出来的控制器：{missing if missing else '无'}")
+    # ---- 防回归：跨包同 PathID 对照表（2026-10-23 修 `Cannon 1` 那一类静默覆盖）----
+    # ⚠️ 这张表**不是错误**（PathID 只在包内唯一，跨包撞号是常态）—— 它的用途是：
+    #    下次有人再想「拿 PathID 去全库查名字」时，能一眼看到那样做会撞多少。
+    print(f"[AC] 跨包同 PathID 且名字不同：**{len(collisions)}** 个"
+          f"（这些一律走「包内优先」，回落只在全库唯一时才用）")
+    for pid, cands in list(collisions.items())[:10]:
+        desc = " · ".join(f"{b}→{n!r}" for b, n in cands)
+        print(f"     · PathID {pid}: {desc}")
+    if len(collisions) > 10:
+        print(f"     · …另有 {len(collisions) - 10} 个，全表写在产物的 `_clipIndexCollisions` 里")
     # ---- 手写的那一节 `clipsByGuid`：原样搬过去 + 逐条核对（2026-10-07 · A200）----
     # （放在下面「解不动的」汇总之前 —— 核对出的问题也要进那份汇总）
     prev_clips, prev_how, fatal = read_prev_clips_by_guid(OUT)
@@ -420,6 +472,15 @@ def main():
            "_unhandled": bad,
            "count": len(out),
            "controllers": out,
+           "_clipIndexCollisions_note": "🆕 2026-10-23（修 `Cannon 1` 数据错）：PathID **只在包内唯一**，"
+                                        "跨包撞号是常态 ⇒**禁止**把各包的 `{PathID: 名字}` 并进一个裸字典"
+                                        "（那样后扫到的包会静默覆盖前一个，实测把 `Cannon 1` 的 "
+                                        "`Cannon front Idle` 换成了 ta viorla 包的 `Railgun Turret 1`）。"
+                                        "现在的解析顺序 = **同包优先** → 全库**唯一**才回落 → 矛盾就点名进 "
+                                        "`_unhandled`。这一节记的是全库范围内「同一 PathID 在 ≥2 个包里"
+                                        "且名字不同」的完整对照表，供以后排查用。",
+           "_clipIndexCollisions": {str(pid): [{"source": b, "name": n} for b, n in cands]
+                                    for pid, cands in sorted(collisions.items())},
            "_clipsByGuid_note": CLIPS_BY_GUID_NOTE,
            "clipsByGuid": prev_clips if prev_clips is not None else []}
     if check:

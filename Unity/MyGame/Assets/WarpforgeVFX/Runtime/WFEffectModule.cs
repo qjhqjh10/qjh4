@@ -130,8 +130,36 @@ namespace WarpforgeVFX
         /// <summary>原版 `AnimFXModuleBase.animFXController`。由 player 广播 `Initialize` 时注入。</summary>
         public WarpforgeEffectPlayer Controller { get; private set; }
 
-        /// <summary>本模块属于哪个效果（诊断用）。</summary>
-        public string EffectName { get { return Controller != null ? Controller.EffectName : name; } }
+        /// <summary>`Controller` 还没注入就读了 `EffectName` —— 每个模块只报一次（见下）。</summary>
+        bool _warnedNoController;
+
+        /// <summary>本模块属于哪个效果（诊断 / **拼键**用）。
+        ///
+        /// 🔴 2026-10-23（特效线 A1）：`Controller` 还没注入时**返回空串**，⛔ **不再退回 `name`**。
+        ///   `name` 是**本模块所在 GameObject** 的名字（例如 `Glow bottom R` / `Vanguard Frame Animated VAT`），
+        ///   **永远不是效果名**。拿它去拼 `<效果名>|<状态名>`（`WFModuleAnimation` 的片段别名）
+        ///   会得到一个**取不到但看起来像真的**键 —— 静默失效；空串至少让调用点/日志一眼看得见。
+        ///
+        /// 什么时候会读到空串：`WFModuleFactory.Create()` 是**先 `Configure(def)`、后**由播放器广播
+        /// `Initialize`（`WarpforgeEffectPlayer.BuildModules`）⇒ `Configure` / `Awake` / `OnEnable` /
+        /// `OnValidate` 里读到的都是空串（并打一次警告）。**目前所有调用点都在 `Initialize` 之后**
+        /// （逐个核过，见 `资料/普查产出_1023/E3_护栏落盘与EffectName收口.md` §②-4）。</summary>
+        public string EffectName
+        {
+            get
+            {
+                if (Controller != null) return Controller.EffectName;
+                if (!_warnedNoController)
+                {
+                    _warnedNoController = true;
+                    Debug.LogWarning($"[WarpforgeVFX] 模块 `{GetType().Name}`（节点 `{name}`）在 `Initialize` 之前" +
+                                     "就读了 `EffectName` ⇒ 拿不到效果名（返回**空串**）。" +
+                                     "⛔ 别在这个时机拼「效果名 + …」的键 —— `Controller` 要等播放器广播 " +
+                                     "`Initialize` 才注入；也⛔ 别退回 `name`（那是节点名，不是效果名）。");
+                }
+                return "";
+            }
+        }
 
         // ---- 生命周期：与控制器一一对应，基类默认都是空实现 ----
         // 🔴 原版 `AnimFXModuleBase.Exit()` / `DoDestroy()` **就是空实现** —— 18 类里只有
@@ -140,6 +168,16 @@ namespace WarpforgeVFX
         public virtual void Initialize(WarpforgeEffectPlayer controller) { Controller = controller; }
         public virtual void Exit() { }
         public virtual void DoDestroy() { }
+
+        /// <summary>🆕 2026-10-23（A1 R23）：**这个模块会不会自己接管销毁**。
+        ///
+        /// 原版 `AnimFXController.DoDestroy()`：`foreach (modules) module.DoDestroy()`；
+        /// **若一个模块都没有 → 兜底 `Destroy(gameObject)`；有模块时 controller 不销毁**
+        /// （判据 → `资料/AnimFX_18类方法体_块1.md` §2 `DoDestroy` 那一行）。
+        /// 18 类里**只有 `AnimFXModuleDoDestroyAnimation` 重写了 `DoDestroy`**，它会
+        /// `Destroy(gameObject, timeToDestroy)` ⇒ 只有它该返回 `true`。
+        /// ⚠️ 返回 `true` 的模块**必须**真的会在 `ModuleTick` / 延迟销毁里把对象收掉，否则就是泄漏。</summary>
+        public virtual bool TakesOverDestroy { get { return false; } }
 
         /// <summary>每帧。原版各模块自己写 `Update()`；这里收口成控制器广播 ——
         /// 这样 `autoTick=false`（批处理 / 确定性测试）时能整体停，不会漏掉某个模块。</summary>

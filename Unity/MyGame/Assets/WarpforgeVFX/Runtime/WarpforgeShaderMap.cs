@@ -369,7 +369,11 @@ namespace WarpforgeVFX
             //    现在单开一份 `WFParticlesMultiply.shader`（判据在那个文件头）。
             { "Mobile/Particles/Multiply",            "WarpforgeVFX/Particles/Multiply" },
             { "Particles/Standard Unlit",             "WarpforgeVFX/Particles/Extra Color" },
-            { "Particles/Additive",                   "WarpforgeVFX/Particles/Extra Color" },
+            // 🔴 **2026-10-23 删除 `Particles/Additive` 这一行**（A1 R2 · 铁律 5 记下来免得又被加回来）：
+            //    原版 84 个 bundle 的 `Shader/` 转储里**没有**这个名字（现读 0 命中），引用数也是 0
+            //    ⇒ 它是一条**死条目**，只会让每轮审计多数一条「疑似替代」。
+            //    ⚠️ 别和 `Mobile/Particles/Additive`（上面那行，仍在用）或
+            //    `Legacy Shaders/Particles/Additive`（下面那行，单独 shader）搞混。判据 → `普查产出_1022/A1_自造与兜底_特效动画.md` R2。
             // 🆕 2026-10-02（第三批）：`Legacy Shaders/Particles/{Additive,Alpha Blended}` 按**内置管线的编译字节码**
             //    单开 —— 它们比通用那份多一个 **`×2`**（Additive 那支还多乘 `_TintColor`）。判据 → 两个新 shader 的文件头。
             //    ⚠️ **同族的 `Mobile/Particles/*` 实测就是 `tex × 顶点色`**（只有 2 条指令、连 cbuffer 都没有）

@@ -824,4 +824,186 @@ public static partial class RuleEngineTest
                     + S23RTail(ctx, logFrom));
         }
     }
+
+    // ==================================================================
+    //  ⑦ `BoardSlots.Resolve` 的【侧向分支】（请求侧格被占）—— 插推族最后一段（2026-10-23）
+    // ==================================================================
+
+    /// <summary>
+    /// **`BoardSlots.Resolve` 的侧向分支（`requestedSlot` 落在某一侧）** —— 2026-10-22 那一批只修了
+    /// 「督军格退化路」，<see cref="BoardSlots.Resolve"/> 的**侧向分支**仍是「人数当插入下标」那套
+    /// （`T02` 普查的原文：「`Resolve` 的侧向分支仍属插推族未修」）。
+    ///
+    /// 判据（第一权威 = 全量反编译 `MinionManager__AdjustedSlot.c`，逐句）：
+    ///   · 请求在某侧、**那一侧没满** ⇒ 用请求的下标（`:81-96` 那一段：「`index &lt;= 该侧人数`
+    ///     就原样返回请求值」，否则取该侧最外 —— 我们那句 `index &gt; count ⇒ index = count` 就是它）；
+    ///   · 请求在某一侧、**那一侧满了** ⇒ 换到对侧最外（`:64-72` 右满 ⇒ `~leftMinions.Count`；
+    ///     `:104-107` 左满 ⇒ `rightOccupation.Count + 1`）。
+    ///   ⇒ **连续棋盘上「请求的格有人」是正常的插入点**（`List.Insert` 把后面的整体外移一格）——
+    ///     这一档**一个字都不许改**（见 ①②）。
+    ///
+    /// 我们的差异（**只可能出现在非法局面上**）：原版两侧是**连续 `List`**、结构上不可能有洞；
+    /// 我们的 `Board[]` 是定长数组、**自检夹具**可以直接写出洞 ⇒ `index` 可能指到**已经有人的格**，
+    /// 而 `Insert` 的插推循环会把**外侧那一格的人覆盖掉**（`A1692` 的原始症状）。
+    /// ⇒ 处置 = 有洞时改成「该侧最外的空格」（判据 = `BoardSlots.OutermostFreeOnSide`，
+    /// 与 `NextFreeWithoutDisplacing` 同一个方向），并出声（见 ③④⑤⑥）。
+    ///
+    /// ⚠️ **原版行为【不可比】**：`AdjustedSlot.c` 全文只比两条 `List.Count`、**没有任何占用检查**
+    ///    ⇒ 换格是补**我们表示法**的洞，⛔ 不是「照原版」。
+    /// ⚠️ 有洞时那一句提示是 `UnityEngine.Debug.LogWarning`（`BoardSlots` 里没有 `ctx`）——
+    ///    引擎自检捕不到 Unity 日志，本文件**不断言**它（同 `TestT02ResolveWarlordSlotHonoursAvailability`）。
+    /// </summary>
+    static void TestT02ResolveSideBranchHonoursAvailability()
+    {
+        // ---- ① 连续棋盘：请求「两人之间」= 正常插入点，`Resolve` **逐字返回请求的下标** ----
+        //   🔴 这条是**灭自证**：把「落点被占就换最外空格」那道闸写成**无条件**的（不先判连续），
+        //      这里就会实得 8（该侧最外空格）而不是 5 ⇒ 所有「插在两人之间」的落点全变。
+        {
+            var ctx = ProbeBattle(new CardDef[0], new CardDef[0]);
+            ToP1Turn(ctx, 1);
+            Place(ctx, 1, 3, Unit("T02_RS_C1", 1, 1, 5));
+            Place(ctx, 1, 2, Unit("T02_RS_C2", 1, 1, 5));            // 左 2
+            Place(ctx, 1, 5, Unit("T02_RS_C3", 1, 1, 5));
+            Place(ctx, 1, 6, Unit("T02_RS_C4", 1, 1, 5));            // 右 2（index 0/1）
+            CheckTrue(BoardSlots.IsContiguous(ctx.Players[1], out _),
+                      "（前提）① 连续无洞（左 2 / 右 2）");
+            bool ok = BoardSlots.Resolve(ctx.Players[1], 5, out int side, out int index);
+            CheckTrue(ok, "（前提）① 连续棋盘上「请求 5 号格」能落");
+            Check(side, BoardSlots.Right, "★ 请求 5 号格 ⇒ 右侧");
+            Check(index, 0,
+                  "★★ 连续棋盘：**请求的下标原样返回 0**（5 号格就是右侧 index 0）"
+                + "｜🧨 把「落点被占 ⇒ 换该侧最外空格」那道闸改成**无条件**（不先判 `IsContiguous`）"
+                + " ⇒ 实得 3（= 8 号格）—— 那样所有「插在两人之间」全变成「追加到最外」");
+            Check(BoardSlots.SlotOf(side, index), 5, "★ 格号 = **5**（= 请求那一格）");
+        }
+
+        // ---- ② 连续棋盘 + 端到端：插在两人之间 ⇒ 后面的整体外移一格，**谁都不被抹掉** ----
+        {
+            var ctx = BattlePool(new CardDef[0], new[] { Unit("T02_RS_Play1", 1, 1, 5) }, new List<CardDef>());
+            ToP1Turn(ctx, 2);
+            PassTurn(ctx);
+            Check(ctx.Active, 1, "（前提）现在是 P1 的回合");
+            ctx.Players[1].Energy = 20;
+            var r0 = Place(ctx, 1, 5, Unit("T02_RS_E1", 1, 1, 5));
+            var r1 = Place(ctx, 1, 6, Unit("T02_RS_E2", 1, 1, 5));
+            int idx = HandIdx(ctx, 1, "T02_RS_Play1");
+            CheckTrue(idx >= 0, "（前提）那张单位卡在 P1 手里");
+            int landed;
+            int code = RuleCore.PlayCard(ctx, 1, idx, 5, out landed);
+            CheckCode(code, RuleCodes.OK, "在 5 号格打出单位卡（插入语义）");
+            Check(landed, 5, "★★ 落在 **5** —— 请求哪一格就插哪一格（连续棋盘，逐字不变）");
+            CheckTrue(Board(ctx, 1, 6) == r0 && Board(ctx, 1, 7) == r1,
+                      "★★ 灭自证：原来那两位**整体外移一格**（5→6、6→7）且**还是原来那些对象** —— "
+                    + "插推语义（原版 `List.Insert`）。🧨 把侧向分支改成「恒追加到最外」⇒ 本行红");
+            Check(Board(ctx, 1, 8), null, "★ 8 号格仍然空着（没被顺手填掉）");
+        }
+
+        // ---- ③ 有洞：请求右侧最外那一格（**被占**）—— 洞在中段 ----
+        //   右：index0 = 5 有人、index1 = 6 **空着（洞）**、index2 = 7 有人 ⇒ 人数 2。
+        //   裸算式 `index = IndexOf(7) = 2`，夹到 `<= count(2)` 仍是 2 ⇒ 指向**已被占的 7 号格**。
+        {
+            var ctx = ProbeBattle(new CardDef[0], new CardDef[0]);
+            ToP1Turn(ctx, 1);
+            Place(ctx, 1, 3, Unit("T02_RS_H1", 1, 1, 5));
+            Place(ctx, 1, 2, Unit("T02_RS_H2", 1, 1, 5));            // 左 2（连续）
+            Place(ctx, 1, 5, Unit("T02_RS_H3", 1, 1, 5));            // 右 index 0
+            var outer = Place(ctx, 1, 7, Unit("T02_RS_H4", 1, 1, 5)); // 右 index 2 —— **6 号格是洞**
+            CheckTrue(!BoardSlots.IsContiguous(ctx.Players[1], out _),
+                      "（前提）③ 有洞棋盘（右 6 号格空着 = 中段洞）");
+            Check(BoardSlots.SlotOf(BoardSlots.Right, BoardSlots.CountOnSide(ctx.Players[1], BoardSlots.Right)), 7,
+                  "（前提）右 2 人 ⇒ **裸算法**（下标 = 人数）指向**已经被占**的 7 号格");
+            bool ok = BoardSlots.Resolve(ctx.Players[1], 7, out int side, out int index);
+            CheckTrue(ok, "（前提）③ 有洞时「请求 7 号格」仍然能落");
+            Check(side, BoardSlots.Right, "（前提）③ 请求 7 号格 ⇒ 仍是右侧（不换边）");
+            Check(BoardSlots.SlotOf(side, index), 8,
+                  "★★ `Resolve`（侧向分支）**绝不返回被占格** —— 改到该侧最外的空格 **8**"
+                + "｜🧨 把那段「落点被占 ⇒ 换该侧最外空格」的闸删掉 ⇒ 实得 7（被占）"
+                + "⇒ `Insert` 的插推循环把 7 号格那个**静默抹掉**");
+            CheckTrue(Board(ctx, 1, 7) == outer,
+                      "★★ 灭自证：7 号格原来那个**还是原来那个对象**（查询不动棋盘）");
+            Check(Board(ctx, 1, 8), null, "★ 而且 8 号格**确实是空的**（不是碰巧）");
+            CheckTrue(BoardSlots.SlotOf(side, index) != 6,
+                      "★★ 灭自证：**不是**「找第一个洞」（6 号格正是那个洞）—— 判据是「该侧**最外**的空格」"
+                    + "｜🧨 把实现写成「从督军往外找第一个空格」⇒ 实得 6");
+        }
+
+        // ---- ④ 有洞 + 请求的**正是那个洞** ⇒ **不换格**（钉住「不是恒取最外空格」）----
+        //   与 ③ 同一块棋盘，只把请求从 7 号格换成 6 号格（那一格空着）。
+        {
+            var ctx = ProbeBattle(new CardDef[0], new CardDef[0]);
+            ToP1Turn(ctx, 1);
+            Place(ctx, 1, 3, Unit("T02_RS_D1", 1, 1, 5));
+            Place(ctx, 1, 2, Unit("T02_RS_D2", 1, 1, 5));
+            Place(ctx, 1, 5, Unit("T02_RS_D3", 1, 1, 5));
+            var outer = Place(ctx, 1, 7, Unit("T02_RS_D4", 1, 1, 5)); // 右 index 2，**6 号格是洞**
+            CheckTrue(!BoardSlots.IsContiguous(ctx.Players[1], out _),
+                      "（前提）④ 有洞棋盘（右 6 号格空着）");
+            bool ok = BoardSlots.Resolve(ctx.Players[1], 6, out int side, out int index);
+            CheckTrue(ok, "（前提）④ 请求那个洞（6 号格）能落");
+            Check(BoardSlots.SlotOf(side, index), 6,
+                  "★★ 请求的格**空着** ⇒ **原样用它**（差一格的洞就是要填它）"
+                + "｜🧨 把闸写成「只要有洞就恒取该侧最外空格」⇒ 实得 8");
+            CheckTrue(index < BoardSlots.CountOnSide(ctx.Players[1], side),
+                      "★ 这个尺寸值得单钉：填洞时下标（" + index + "）**小于**该侧人数（"
+                    + BoardSlots.CountOnSide(ctx.Players[1], side) + "）—— 连续模型里不存在这一档");
+            CheckTrue(Board(ctx, 1, 7) == outer,
+                      "★ 灭自证：7 号格那个**没被碰过**");
+        }
+
+        // ---- ⑤ 有洞：**请求侧满** ⇒ 换对侧；对侧也有洞 ⇒ 取对侧最外的空格 ----
+        //   右 5/6/7/8 满（人数 4）；左：index0 = 3 有人、index1 = 2 **空着（洞）**、index2 = 1 有人
+        //   ⇒ 人数 2 ⇒ 原版公式给「对侧最外」= 下标 2 = **1 号格（被占）**。
+        {
+            var ctx = ProbeBattle(new CardDef[0], new CardDef[0]);
+            ToP1Turn(ctx, 1);
+            Place(ctx, 1, 3, Unit("T02_RS_F1", 1, 1, 5));            // 左 index 0
+            Place(ctx, 1, 1, Unit("T02_RS_F2", 1, 1, 5));            // 左 index 2 —— **2 号格是洞**
+            Place(ctx, 1, 5, Unit("T02_RS_F3", 1, 1, 5));
+            Place(ctx, 1, 6, Unit("T02_RS_F4", 1, 1, 5));
+            Place(ctx, 1, 7, Unit("T02_RS_F5", 1, 1, 5));
+            Place(ctx, 1, 8, Unit("T02_RS_F6", 1, 1, 5));            // 右满 4
+            CheckTrue(!BoardSlots.IsContiguous(ctx.Players[1], out _),
+                      "（前提）⑤ 有洞棋盘（左 2 号格空着）");
+            Check(BoardSlots.SlotOf(BoardSlots.Left, BoardSlots.CountOnSide(ctx.Players[1], BoardSlots.Left)), 1,
+                  "（前提）左 2 人 ⇒ 原版公式的「对侧最外」= 下标 2 = **1 号格（被占）**");
+            bool ok = BoardSlots.Resolve(ctx.Players[1], 5, out int side, out int index);
+            CheckTrue(ok, "（前提）⑤ 请求右侧（已满）仍然能落");
+            Check(side, BoardSlots.Left,
+                  "★ 请求侧满 ⇒ **换到对侧**（原版 `AdjustedSlot.c:64-72` 那一支，逐字不变）");
+            Check(BoardSlots.SlotOf(side, index), 0,
+                  "★★ 对侧有洞 ⇒ 取对侧最外的空格 **0**（不是被占的 1）"
+                + "｜🧨 把闸删掉 ⇒ 实得 1（被占）");
+            CheckTrue(Board(ctx, 1, 1) != null,
+                      "★★ 灭自证：1 号格那个人**还在**（查询不动棋盘）");
+        }
+
+        // ---- ⑥ 有洞 + 端到端：把这个落点喂给 `PlayCard`，**谁都不许被抹掉** ----
+        //   ⚠️ 用 `BattlePool`（带 20 张 filler）而不是 `ProbeBattle`：本块要推到**第 4 回合**，
+        //      空牌库会在抽牌时进疲劳分支 —— 那是与本断言无关的噪声。
+        {
+            var ctx = BattlePool(new CardDef[0], new[] { Unit("T02_RS_Play2", 1, 1, 5) }, new List<CardDef>());
+            ToP1Turn(ctx, 2);
+            PassTurn(ctx);
+            Check(ctx.Active, 1, "（前提）现在是 P1 的回合");
+            ctx.Players[1].Energy = 20;
+            Place(ctx, 1, 3, Unit("T02_RS_G1", 1, 1, 5));
+            Place(ctx, 1, 2, Unit("T02_RS_G2", 1, 1, 5));            // 左 2（连续）
+            var r0 = Place(ctx, 1, 5, Unit("T02_RS_G3", 1, 1, 5));   // 右 index 0
+            var r2 = Place(ctx, 1, 7, Unit("T02_RS_G4", 1, 1, 5));   // 右 index 2 —— **6 号格是洞**
+            CheckTrue(!BoardSlots.IsContiguous(ctx.Players[1], out _),
+                      "（前提）⑥ 有洞棋盘（右 6 号格空着）");
+            int idx = HandIdx(ctx, 1, "T02_RS_Play2");
+            CheckTrue(idx >= 0, "（前提）那张单位卡在 P1 手里");
+            int landed;
+            int code = RuleCore.PlayCard(ctx, 1, idx, 7, out landed);
+            CheckCode(code, RuleCodes.OK, "在 7 号格（被占）打出单位卡");
+            Check(landed, 8, "★★ 真正落在 **8** 号格（= `Resolve` 给的落点）");
+            CheckTrue(Board(ctx, 1, 7) == r2,
+                      "★★ 灭自证（`A1692` 的原始症状）：7 号格上那个单位**还在、还是同一个对象** —— "
+                    + "改回裸算式 ⇒ 落点 7（被占）⇒ `Insert` 的插推循环把它**静默抹掉** ⇒ 本行红");
+            CheckTrue(Board(ctx, 1, 5) == r0 && Board(ctx, 1, 3) != null && Board(ctx, 1, 2) != null,
+                      "★★ 灭自证：5 / 3 / 2 号格**一个都没被抹掉、也没被挪走**（有洞时一律直写、不推人）");
+            Check(SlotOf(ctx, 1, "T02_RS_Play2"), 8, "★ 新单位落在 8 号格（没顶掉任何人）");
+        }
+    }
 }

@@ -106,12 +106,15 @@ Unity 侧接 `BoosterPackExporter.Run`（→ `Assets/CardPresentation/Effects/`�
 
 --arena-anims 模式（2026-10-22 加 · 战场线）
 ------------------------------------------
-**5 条 muscle AnimationClip + 5 个 AnimatorController → 3 个小包**（`ARENA_ANIM_GROUPS`）。
-这是战场线里**唯一非重打包不可**的一类：muscle clip 解不成 `.anim`（`CreateAsset` 出来是空壳、`length=1`），
+**5 条 muscle AnimationClip + 5 个 AnimatorController ＋ 🆕 9 条 legacy「场景动画」clip → 9 个小包**（`ARENA_ANIM_GROUPS`）。
+前两类是战场线里**唯一非重打包不可**的：muscle clip 解不成 `.anim`（`CreateAsset` 出来是空壳、`length=1`），
 5 个 controller 又 0/5 不是 addressable。判据 → `资料/普查产出_1022/J-A_战场素材与材质诊断.md` §2·2 路线①②。
+🆕 **2026-10-23 追加的 9 条 legacy**：6 场的 `* Scene Animation(s)` + `Railgun BIG` / `Turret 1` / `Turret 2`
+（+ 并入 `_shared` 的 `Battle Arena 3 Animations`）。它们含 `GameObject.m_IsActive` /
+`MonoBehaviour.m_Enabled` / `SkinnedMeshRenderer.blendShape.*` 三种非 Transform 绑定 ⇒ **取原件比重建曲线忠实**。
 ⚠️ **不是** J-A 写的那一个 `wf_arena_anims.bundle`：`repack_tree` 一个产物只能有一个 `src`，
-而这 10 件分属 3 个源包（arena1 / arena2 / battleshared）⇒ 按源包切成
-`wf_arena_anims_arena1` / `_arena2` / `_shared` 三个小包（理由与 dry-run 实据 → `ARENA_ANIM_GROUPS` 上面那段）。
+这些件分属 9 个源包 ⇒ 按源包切开（`wf_arena_anims_{arena1,arena2,shared,astra,blacklegion,darkangels,emperorschildren,genestealers,tau}`），
+理由与 dry-run 实据 → `ARENA_ANIM_GROUPS` 上面那段。
 
 用法：
   python 工具/extract_missing_shaders.py --arena-anims --check   # 只体检（找根 + 走树 + 报外部引用），不写盘
@@ -291,7 +294,8 @@ BOOSTER_GROUPS = [
 #     （= `Assets/Data/Scenes/MainMenu Warpforge.unity` 场景自己）⇒ `GetAllAssetNames()` 只吐那一条；
 #     `LoadAllAssets()` 在这种包上**直接抛** `This method cannot be used on a streamed scene AssetBundle.`
 #     ⇒ Unity 侧三条取法**一条都到不了**它们；
-#   · `数据/索引/anim_address_map.json` 的 `guid_to_asset`（10,539 条）**8/8 都没有对应 guid**
+#   · `数据/索引/anim_address_map.json` 的 `guid_to_asset`（**10,564** 条；⚠️ 2026-10-23 现读，原写 10,539）
+#     **8/8 都没有对应 guid**（这 8 件是 `Wildcard_Use_*` 根；2026-10-23 用新表复核 `name` 仍 0 命中）
 #     ⇒ 它们**不是 addressable**（A2 报「原版出处 = 主菜单场景」即此意）。
 # 实读（UnityPy 1.24.2，2026-10-22，**按 (CAB, PathID) 取键** —— 裸 pid 会在两份 CAB 之间撞号）：
 #   · 8 件**全是** `m_Father = 0` 的独立根（可以直接当根收）；
@@ -376,10 +380,128 @@ ARENA_ANIM_GROUPS = [
         out=os.path.join(DEST_DIR, "wf_arena_anims_shared.bundle"),
         cab="CAB-wfarenaanimssh",
         roots=[],
-        clips=["SporeArmature|LeviathanBigSpore"],
+        # 🆕 2026-10-23（战场线「用素材重新布置」）：`Battle Arena 3 Animations` 是 **legacy**，
+        #   但它是 arena3 `Scenario/Battle Arena 3 Baked` 上 `Animation` 组件的**唯一** clip。
+        #   ⚠️ 它与那 5 条 muscle 同属本包 ⇒ 并进同一组，不另开包（一个源包一个产物）。
+        clips=["SporeArmature|LeviathanBigSpore", "Battle Arena 3 Animations"],
         controllers=["Battle Arena Leviathan"],
     ),
+    # =====================================================================================
+    # 🆕 2026-10-23：**9 条 legacy「场景动画」clip**（6 场的 `* Scene Animation(s)` + 3 条 `Railgun*`）
+    #   —— 判据 = `资料/普查产出_1022/J-A_战场素材与材质诊断.md` §1·4 A1/A3 + 本次现读
+    #   `d:/4/Unity/MyGame/Assets/...` 的 `Animation` 组件（见 `资料/普查产出_1023/`）。
+    #
+    #   为什么不走「JSON 重建曲线」：这 9 条里有 `GameObject.m_IsActive`（Railgun 的显隐）、
+    #   `MonoBehaviour.m_Enabled`、`SkinnedMeshRenderer.blendShape.*`（Black Legion 的变形）三种
+    #   **非 Transform 绑定**；`SetCurve` 重建要逐类对齐，而原件就在包里 ⇒ 直接取原件最省且最忠实。
+    #   ⚠️ 相机 intro 不在本表（`CameraIntro.cs` 已按 JSON 重建，⛔ 别收第二份）。
+    #   ⚠️ 每一组仍守「**一个源包一个产物**」（`repack_tree` 的 `src` 只能有一个）。
+    dict(
+        src=os.path.join(BUNDLE_DIR, "scenes_scenes_battlearenaastramilitarum.bundle"),
+        out=os.path.join(DEST_DIR, "wf_arena_anims_astra.bundle"),
+        cab="CAB-wfarenaanimsastra",
+        roots=[], clips=["Astra Militarum Scene Animations"], controllers=[],
+    ),
+    dict(
+        src=os.path.join(BUNDLE_DIR, "scenes_scenes_battlearenablacklegion.bundle"),
+        out=os.path.join(DEST_DIR, "wf_arena_anims_blacklegion.bundle"),
+        cab="CAB-wfarenaanimsbl",
+        roots=[], clips=["Black Legion Scene Animation"], controllers=[],
+    ),
+    dict(
+        src=os.path.join(BUNDLE_DIR, "scenes_scenes_battlearenadarkangels.bundle"),
+        out=os.path.join(DEST_DIR, "wf_arena_anims_darkangels.bundle"),
+        cab="CAB-wfarenaanimsda",
+        roots=[], clips=["Dark Angels Scene animations"], controllers=[],
+    ),
+    dict(
+        src=os.path.join(BUNDLE_DIR, "scenes_scenes_battlearenaemperorschildren.bundle"),
+        out=os.path.join(DEST_DIR, "wf_arena_anims_emperorschildren.bundle"),
+        cab="CAB-wfarenaanimsec",
+        roots=[], clips=["Emperor's Children Scene Animations"], controllers=[],
+    ),
+    dict(
+        src=os.path.join(BUNDLE_DIR, "scenes_scenes_battlearenagenestealers.bundle"),
+        out=os.path.join(DEST_DIR, "wf_arena_anims_genestealers.bundle"),
+        cab="CAB-wfarenaanimsgs",
+        roots=[], clips=["Genestealers Scene Animations"], controllers=[],
+    ),
+    dict(
+        src=os.path.join(BUNDLE_DIR, "scenes_scenes_battlearenatauviorla.bundle"),
+        out=os.path.join(DEST_DIR, "wf_arena_anims_tau.bundle"),
+        cab="CAB-wfarenaanimstau",
+        roots=[], clips=["Railgun BIG", "Railgun Turret 1", "Railgun Turret 2"], controllers=[],
+    ),
 ]
+
+# =====================================================================================
+# 🆕 2026-10-23（战场线 T00 / J-A §2·5 第 4 批）：**15 个原版场景根 → 一场一个 prefab 包**
+#
+#   判据 → `资料/普查产出_1022/J-A_战场素材与材质诊断.md` §2·1 B（我按 Transform 父链现核）：
+#     · 12 个 `Scenario`（arena1/2/3/aeldari/astra/blacklegion/darkangels/emperorschildren/
+#       genestealers/sororitas/spacewolves/tauviorla）
+#     · `Battle Arena Astra Militarum Baked` / `Battle Arena Black Legion Baked 2`（这两个场**另有**独立根）
+#     · leviathan **没有 `Scenario` 根** ⇒ 它的布景根 = `Particle Effects`
+#   ⇒ 合计 **15 根**。⚠️ `Battle Arena 3 Baked` **不是**根（它是 arena3 `Scenario` 的子件）。
+#
+#   🔴 **跨 CAB 容器引用**：场包的 `AssetBundle` 对象在 `*.sharedAssets`、`Scenario` 根在主 CAB ⇒
+#     `repack_tree` 会写 `m_FileID != 0` 的容器项（arena3 实测 `m_FileID=22`、新补 externals[21]）。
+#     **Unity 侧没有先例**（全库 13448 条 `m_Container` 的 fid 全是 0）⇒ **必须先 pilot `battlearena3`**，
+#     验过了再逐场铺（铁律 15：一场一场做，⛔ 别 `--all`）。
+# =====================================================================================
+ARENA_PREFAB_ROOTS = {
+    "battlearena1":          ["Scenario"],
+    "battlearena2":          ["Scenario"],
+    "battlearena3":          ["Scenario"],
+    "battlearenaaeldari":    ["Scenario"],
+    "battlearenaastramilitarum": ["Scenario", "Battle Arena Astra Militarum Baked"],
+    "battlearenablacklegion":    ["Scenario", "Battle Arena Black Legion Baked 2"],
+    "battlearenadarkangels": ["Scenario"],
+    "battlearenaemperorschildren": ["Scenario"],
+    "battlearenagenestealers": ["Scenario"],
+    "battlearenaleviathan":  ["Particle Effects"],
+    "battlearenasororitas":  ["Scenario"],
+    "battlearenaspacewolves": ["Scenario"],
+    "battlearenatauviorla":  ["Scenario"],
+}
+
+
+def run_arena_prefabs(args):
+    """`--arena-prefabs --arena <场>`：把该场那 1～2 个原版场景根（+ 整棵依赖树）重打成一只小包。
+
+    ⚠️ 产物按场分包（`wf_arena_prefabs_<场>.bundle`）—— 便于逐场验收/回滚，也避免一次拖进 13 份整 CAB。
+    """
+    arena = args.arena
+    if not arena:
+        raise SystemExit("[AP] `--arena-prefabs` 必须带 `--arena <场名>`")
+    roots = ARENA_PREFAB_ROOTS.get(arena)
+    if not roots:
+        raise SystemExit("[AP] 未知场 `%s`（已知：%s）" % (arena, " / ".join(sorted(ARENA_PREFAB_ROOTS))))
+    src = os.path.join(BUNDLE_DIR, "scenes_scenes_%s.bundle" % arena)
+    out = os.path.join(DEST_DIR, "wf_arena_prefabs_%s.bundle" % arena)
+    if not os.path.isfile(src):
+        raise SystemExit("[AP] 源包不存在：%s" % src)
+    print("[AP] 场 `%s`：源 %s → 目标 %s；根 %s"
+          % (arena, os.path.basename(src), os.path.basename(out), roots))
+    kept = repack_tree(src, out, roots, dry_run=args.check,
+                       cab_name="CAB-wfarenaprefab_%s" % arena,
+                       single_cab=getattr(args, "single_cab", False))
+    # 🔴 2026-10-23 pilot 结论（`ArenaPrefabProbe` 实跑）：
+    #   ① **跨 CAB 容器**（默认）：包能加载、容器项也写进去了，但 `LoadAsset<GameObject>("Scenario")`
+    #      返回 **null** ⇒ Unity 不认 `m_Container` 的 `m_FileID != 0`；
+    #   ② **单 CAB 写法**（`--single-cab`，把 AB 对象搬进主 CAB）：`LoadFromFile` **直接原生崩溃**
+    #      （move 出来的 AssetBundle 对象序列化不合法）⇒ **这条退路也判死**。
+    #   ⇒ 这 15 个 prefab 的导出**不能靠 repack 进包**；要么走 AssetRipper 工程，要么「把 482 对象
+    #      搬进 AB 所有者那份 CAB」（未试）。⛔ 别把 `--single-cab` 的产物留在 StreamingAssets 里（会崩）。
+    if args.check:
+        print("\n[AP] --check：只体检，未写文件")
+        return 0
+    if not kept:
+        return 1
+    # ⚠️ `kept` 的值是 ObjectReader（不可哈希）⇒ 只报个数；根名直接用输入那几只。
+    print("[AP] ✓ 产物 %d 个对象；根：%s" % (len(kept), " · ".join(roots)))
+    return 0
+
 
 # 🆕 2026-10-01 晚：**动画片段**（`AnimationClip`）也走同一条路。
 # 为什么：片段是**控制器的依赖**、不是资产根 ⇒ `LoadAllAssets<AnimationClip>()` 看不到它
@@ -1085,7 +1207,7 @@ def _rename_stream_path(p, rename):
 
 
 def repack_tree(src_path, out_path, names, dry_run=False, extra_materials=(), extra_clips=(),
-                extra_controllers=(), cab_name=None, extra_clip_guids=None):
+                extra_controllers=(), cab_name=None, extra_clip_guids=None, single_cab=False):
     """把 `names` 这几件 GameObject **连同整棵内部依赖树**重打成一个小包。
 
     🔴 **A523：本函数 = `--prefabs` 那个模式【唯一的口】**（另三个模式的口是 `repack()`）；
@@ -1592,6 +1714,56 @@ def repack_tree(src_path, out_path, names, dry_run=False, extra_materials=(), ex
               "（正常到不了这里：⓪ 已经按「AB 对象在哪份」挑过了）")
         return None
 
+    # ---- ④·b 🆕 2026-10-23：**pilot 实测「跨 CAB 容器」Unity 不认** ⇒ 可选单 CAB 写法 ----
+    #   证据：`wf_arena_prefabs_battlearena3.bundle` 的容器项写进去了（`Scenario` | `assets/scenario.prefab`），
+    #   但 Unity 里 `LoadAsset<GameObject>("Scenario")` 返回 **null**（`ArenaPrefabProbe` pilot 实跑）。
+    #   判据/先例 = `extract_mirror_shaders.py` 的「搬对象 + 改 `type_id` + 发新 `path_id`」。
+    #   做法：把 **AssetBundle 对象搬进「根所在的那一份 CAB」** ⇒ 容器项 `m_FileID=0`。
+    #   ⚠️ 只在调用方显式要 `single_cab=True` 时做（别的模式的行为一个字不变）。
+    if single_cab and cross_roots:
+        cabs = {c for c, _ in cross_roots.values()}
+        if len(cabs) != 1:
+            print("[P1] 🔴 单 CAB 写法：根分散在多个 CAB ⇒ 本模式不支持（中止）")
+            return None
+        target_cab = next(iter(cabs))
+        target_sf = next((v for v in cab_sfs if v.name == target_cab), None)
+        tid = None
+        if target_sf is not None:
+            tid = next((i for i, t in enumerate(target_sf.types) if getattr(t, "class_id", None) == 142), None)
+            if tid is None:
+                src_tid = next((i for i, t in enumerate(sf.types) if getattr(t, "class_id", None) == 142), None)
+                if src_tid is not None:
+                    target_sf.types.append(sf.types[src_tid])   # 目标文件的类型表里补一条 AssetBundle
+                    tid = len(target_sf.types) - 1
+        if target_sf is None or tid is None:
+            print("[P1] 🔴 单 CAB 写法：目标 CAB 缺 AssetBundle 类型 ⇒ 搬不过去（中止）")
+            return None
+        old_sf = sf
+        new_pid = max(list(target_sf.objects.keys()) + [0]) + 1
+        ab_reader.assets_file = target_sf      # `read()` 走的是原 reader 的字节 ⇒ 不受影响
+        ab_reader.type_id = tid
+        ab_reader.path_id = new_pid
+        target_sf.objects[new_pid] = ab_reader
+        sf = target_sf
+        print(f"[P1] 🆕 单 CAB 写法：AssetBundle 对象搬进 `{target_cab}`"
+              f"（新 pid={new_pid} · type_id={tid}）⇒ 容器项 `m_FileID=0`")
+        # 容器 fid 按**新** sf 重算（根在 target_sf ⇒ 0；仍在旧 sf ⇒ 查新 sf 的 externals）
+        cross_roots = {}
+        for n, o in found.items():
+            af = getattr(o, "assets_file", None)
+            if af is sf:
+                continue
+            fid, how = _ext_fid(sf, getattr(af, "name", None))
+            if fid is None:
+                print(f"[P1] 🔴 单 CAB 写法：根 `{n}` 的 CAB `{getattr(af, 'name', None)}` "
+                      f"登记不进新 sf（{how}）⇒ 中止")
+                return None
+            cross_roots[n] = (getattr(af, "name", None), fid)
+        # 旧的 AB 所有者那份 CAB 仍要留（主 CAB 里可能有对象引用它）
+        for k in bf.files.keys():
+            if _cab_group(k) == _cab_group(old_sf.name):
+                keep_files.add(k)
+
     # ---- ⑤ 容器登记：**裸名 + 小写路径**两种写法都登记（`LoadAsset(name)` 两种都可能被调）----
     # 🆕 2026-10-01：后缀按**对象类型**给（原来一律 `.prefab`）—— 材质根要 `.mat`，
     #   否则第二个别名是 `assets/xxx.prefab` 指着一个 Material，看着就是错的。
@@ -1784,6 +1956,16 @@ def main():
                     help="🆕 2026-10-22：改打**战场动画小包**（`ARENA_ANIM_GROUPS`）—— "
                          "5 条 muscle AnimationClip + 5 个 AnimatorController → "
                          "wf_arena_anims_{arena1,arena2,shared}.bundle（含整棵依赖树）")
+    ap.add_argument("--arena-prefabs", action="store_true",
+                    help="🆕 2026-10-23：把某一场的原版场景根（+整棵依赖树）重打成 "
+                         "wf_arena_prefabs_<场>.bundle —— **必须配 `--arena <场>`**；"
+                         "⚠️ 先 pilot `battlearena3`（跨 CAB 容器引用未在 Unity 侧验过）")
+    ap.add_argument("--arena", default=None,
+                    help="`--arena-prefabs` 的场名（见 `ARENA_PREFAB_ROOTS`）")
+    ap.add_argument("--single-cab", action="store_true",
+                    help="🆕 2026-10-23：`--arena-prefabs` 时把 AssetBundle 对象搬进根所在的那份 CAB "
+                         "—— ⚠️ **pilot 实测产物会让 Unity `LoadFromFile` 原生崩溃**，只在研究时用，"
+                         "⛔ 别把它的产物留在 StreamingAssets 里")
     ap.add_argument("--out", default=None,
                     help="默认 extra 模式写 wf_shaders_extra.bundle；--builtin 模式写 wf_builtin.bundle")
     ap.add_argument("--skip-boosters", action="store_true",
@@ -1814,6 +1996,9 @@ def main():
         for n in sorted(set(kept.values())):
             print("      ", n)
         return 0
+
+    if args.arena_prefabs:
+        return run_arena_prefabs(args)
 
     if args.arena_anims:
         return run_arena_anims(args)

@@ -23,10 +23,13 @@
 //     会拿到它 ⇒ 必须 `ResolveNode<Transform>` 拿节点，再在节点上找 Animator / Animation。
 //   · 销毁同样走「play → `Object.Destroy` / 否则 `DestroyImmediate`」（批处理没有帧末）。
 //
-// 🔴 未还原（两条，都在 Exit 时打一次性警告，不静默）：
-//   ① **动画事件通道**：`AnimationExitEnd` 原版由 Exit clip 的动画事件调（块2 标注为推断）。
-//      我们工程没有动画事件层 ⇒ 只能留一个公开方法等接线（与 `WFModuleScreenShake.AnimEventDoShake`
-//      同款处置：方法在、触发源不在）。
+// ✅ **2026-10-23（A1 R24）已还原「动画事件通道」**：`AnimationExitEnd` 由 `ModuleTick` 在
+//   **Exit clip 播完**（按 `clip.length` 数）时调用 —— 原版是 Exit clip 的动画事件调的
+//   （块2 §2 标注为推断；这里用「时长到点」做等价替代，⛔ 不要给 `Default` 也上膛）。
+//   判据 → `资料/普查产出_1022/A1_自造与兜底_特效动画.md` R24。
+//
+// 🔴 未还原（只剩一条，在 Exit 时打一次性警告，不静默）：
+//   ① ~~**动画事件通道**~~ —— ✅ 见上，2026-10-23 已接。
 //   ② ~~**Exit 动画本体**~~ —— ✅ **2026-10-19（T12 / `A1729`）已修**：
 //      原来我们导出的 prefab 上 `Animator.m_Controller = 0`、全工程 0 个 `.anim`/`.controller` ⇒ 播不出。
 //      修法**不走「把 clip 落成工程资产」**（那条路实验已证死：运行时格式，拷出来是空壳）——
@@ -56,9 +59,15 @@ namespace WarpforgeVFX
         [Tooltip("运行时解析出来的动画来源节点。空 = 退回本组件所在的节点")]
         public Transform animationNode;
 
-        /// <summary>Exit 时播不出东西的次数（自检用 —— 见文件头「未还原 ②」）。</summary>
+        /// <summary>**播不出东西**的次数（自检用 —— 见文件头「未还原 ②」）。
+        /// 🆕 2026-10-23（A1）：现在有两处会加 —— ① `Exit()` 播 `Exit` 失败；
+        ///   ② `EnsureClips()` 里**别名一条都取不到**（见下）。两处都意味着「这个模块不会按原版动」。</summary>
         public static int PlayFailures;
-        public static void ResetDiagnostics() { PlayFailures = 0; }
+        /// <summary>🆕 2026-10-23（A1）：**片段别名取不到**的次数（`<效果名>|Default` 与 `<效果名>|Exit` 都没命中）。
+        /// 单开一格是因为它和「`Exit` 播失败」根因不同（别名拼错 / 表没登记 / 效果名带 `(Clone)`），
+        /// 混在一个数里就分不出来 —— 而这次 R25/R24 之前，这种失败是**完全静默**的。</summary>
+        public static int ClipAliasMisses;
+        public static void ResetDiagnostics() { PlayFailures = 0; ClipAliasMisses = 0; }
 
         bool _warned;
         string _failReason = "";
@@ -99,19 +108,58 @@ namespace WarpforgeVFX
             if (_animator == null) _animator = GetComponent<Animator>();
             if (_animator == null) return;
 
-            var def = WarpforgeAnimatorBridge.TryGetClip(EffectName + "|Default");
-            var exit = WarpforgeAnimatorBridge.TryGetClip(EffectName + "|" + ExitState);
-            if (def == null && exit == null) return;      // 这个效果没有 SimpleAnimation 表 ⇒ 保持旧行为
+            // 🔴 2026-10-23（A1）：这两条失败以前**完全静默**（`return` 之后一路掉到
+            //    「Animator 没有 controller / 没有 clip」，现象像「这个效果本来就没动画」）。
+            //    走到 `EnsureClips()` 的模块**一定**有 `simpleAnimation` 引用（`Initialize` 在
+            //    `simpleAnimationRef` 为空时第 78 行就 return 了）⇒ 别名取不到**一定是缺陷**，不是正常态。
+            var effName = EffectName;                       // ⚠️ 只取一次：它可能带一次「没走效果库」的警告
+            if (string.IsNullOrEmpty(effName))
+            {
+                AliasMiss("拿不到效果名（`EffectName` 为空 —— 模块在 `Initialize` 之前被读了？）");
+                return;
+            }
+
+            var def = WarpforgeAnimatorBridge.TryGetClip(effName + "|Default");
+            var exit = WarpforgeAnimatorBridge.TryGetClip(effName + "|" + ExitState);
+            if (def == null && exit == null)
+            {
+                AliasMiss($"片段别名 `{effName}|Default` 与 `{effName}|{ExitState}` **一条都取不到**" +
+                          "（这张 `SimpleAnimation` 状态表没登记，或**效果名拼错了**）");
+                return;
+            }
             _hasClips = true;
             if (def != null) PlayClip(def);               // 原版 `m_PlayAutomatically = 1`（实读 5/5）
+        }
+
+        /// <summary>🆕 2026-10-23（A1）：**「片段别名取不到」的统一出口** —— 计入 `ClipAliasMisses`
+        /// **和** `PlayFailures`（后者与 `Exit()` 那条失败同口径：都表示「这个模块不会按原版动」），
+        /// 并按实例只报一次（`_warned`），把根因写进 `_failReason` 供后续 `Exit()` 的告警复用。</summary>
+        void AliasMiss(string why)
+        {
+            ClipAliasMisses++;
+            PlayFailures++;
+            if (_warned) return;
+            _warned = true;
+            _failReason = why;
+            Debug.LogWarning($"🔴 未还原：《{EffectName}》的 AnimFXModuleAnimation —— {why} ⇒ 这个模块不会播原版片段。" +
+                             "（原版用的是 AssetStore 的 `SimpleAnimation` 状态表；我们靠 " +
+                             "`工具/gen_simple_animation_clips.py` 登记的 `<效果名>|<状态名>` 别名取回。）");
         }
 
         bool _hasClips;
         Animator _animator;
         PlayableGraph _graph;
 
+        // 🆕 2026-10-23（A1 R24）：**动画事件通道** —— 原版 `AnimationExitEnd` 由 Exit clip 的
+        //   动画事件调（块2 §2 推断）；我们没有事件层，改成「**按 clip 真实时长数到结束**再调」。
+        //   ⚠️ 只对 **Exit 这条** 上膛（`Default` 是待机，播完不能销毁）。
+        AnimationClip _playing;
+        float _elapsed;
+        bool _endOnFinish, _finished;
+
         /// <summary>用 Playables 播一条片段（指向本节点的 `Animator`；它有没有 controller 都行）。</summary>
-        bool PlayClip(AnimationClip clip)
+        /// <param name="endDestroys">true = 这条是 Exit，播完要调 `AnimationExitEnd()`（原版动画事件）。</param>
+        bool PlayClip(AnimationClip clip, bool endDestroys = false)
         {
             if (clip == null) return false;
             if (_animator == null)
@@ -130,7 +178,21 @@ namespace WarpforgeVFX
             var o = AnimationPlayableOutput.Create(_graph, "WFModuleAnimation", _animator);
             o.SetSourcePlayable(p);
             _graph.Play();
+            _playing = clip;
+            _elapsed = 0f;
+            _endOnFinish = endDestroys;
+            _finished = false;
             return true;
+        }
+
+        /// <summary>数 Exit clip 的时长，到点就调原版的 `AnimationExitEnd()`（动画事件的等价物）。</summary>
+        public override void ModuleTick(float dt)
+        {
+            if (!_endOnFinish || _finished || _playing == null) return;
+            _elapsed += dt;
+            if (_elapsed < _playing.length) return;
+            _finished = true;
+            AnimationExitEnd();
         }
 
         void OnDestroy()
@@ -153,8 +215,8 @@ namespace WarpforgeVFX
         }
 
         /// <summary>原版 `AnimationExitEnd()`：**立即**销毁整个 GameObject（无延时）。
-        /// ⚠️ 原版这条是给 Exit clip 的**动画事件**用的（块2 §2 标注：调用点查不到 ⇒ 推断）——
-        ///    我们没有动画事件层，所以它**不会自己触发**，留在这里等接线。</summary>
+        /// 🆕 2026-10-23（A1 R24）：触发源已接 —— `ModuleTick` 按 Exit clip 的真实时长数到结束就调它
+        /// （原版由 clip 的动画事件调；我们没有事件层，用「时长到点」等价替代）。</summary>
         public void AnimationExitEnd()
         {
             if (this == null) return;
@@ -172,7 +234,7 @@ namespace WarpforgeVFX
             if (_hasClips)
             {
                 var clip = WarpforgeAnimatorBridge.TryGetClip(EffectName + "|" + state);
-                if (clip != null && PlayClip(clip)) return true;
+                if (clip != null && PlayClip(clip, state == ExitState)) return true;
             }
 
             var animator = node.GetComponent<Animator>();

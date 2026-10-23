@@ -31,6 +31,11 @@
   `MyGame/Assets/RuleEngine/Resources/prebuilt_decks.json` **一变（增删副 / 改 deckId / 重排版）就必须重跑本脚本**，
   否则那 101 条会**静默停在旧 deckId 上**（运行时按 deckId 取，取不到 = 回兜底英文名）。
   本脚本在「上游比产物新」时会**出声**（见 `resolve_prebuilt_decks` 里那段），但它只报不拦。
+  🆕 **2026-10-23（界面线 W65 尾账）**：**池外那 78 副**（`数据/游戏数据/prebuilt_decks_extra.json`，
+  练习窗「一对两副」落地时补的）**也在本族里** —— 它们的 `PrebuiltDecks/<deckId>` 官方键**78/78 全有**
+  （旧结论「0/78 命中」是把 `official_names.json` 的**产物**当成了**源表**：产物只 join 了 103 副池）。
+  ⇒ 一并 join 进来（`official_names.json` 的 `PrebuiltDecks/*` 101 → **179** 条），
+  否则练习窗左列那 48 副会回落英文名。extra 文件变了同样要重跑（mtime 也在检查里）。
   🔴 **2026-10-22 就地订正（铁律 5 · `W62`）**：这一行原来写「按英文名的生成期 join / 我们的 `deckId` 与官方键不同源」
   —— **两半都是错的**：原版 `LocalizedName` 读的是 `deckId`（`+0x48`），我们的 `deckId` 与官方键**同源**
   （现读 103 副里 **101 副**同形直中；旧口径按英文名只中 95 副）。判据 → `resolve_prebuilt_decks` 的 docstring。
@@ -45,6 +50,9 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import w4_lib as L  # noqa: E402
 
 OUT = r"d:/4/Unity/MyGame/Assets/CardPresentation/Resources/official_names.json"
+# 🆕 2026-10-23（界面线 W65）：池外那 78 副（练习窗一对两副）—— 数据面 + 运行期副本（见 resolve_prebuilt_decks）
+EXTRA_SRC = r"d:/4/Unity/数据/游戏数据/prebuilt_decks_extra.json"
+EXTRA_RES = r"d:/4/Unity/MyGame/Assets/RuleEngine/Resources/prebuilt_decks_extra.json"
 
 FAMILIES = [
     "Titles", "Avatars", "Achievements", "Cardbacks", "PrebuiltDecks", "Event_Description",
@@ -162,7 +170,8 @@ def resolve_prebuilt_decks(off, terms):
     ⇒ **原版的 `LocalizedName` 就是 null（画出来是空名）**。我们保留 `nameZh` 兜底（比原版多做的），
     但**在这里出声**（见 `main()`），⛔ 别当成 join 写错了去「修」。
 
-    返回 `(按 deckId 命中数, 按英文名兜底数, 英文名歧义例数, 仍缺的 deckId 列表)`。
+    返回 `(按 deckId 命中数, 按英文名兜底数, 英文名歧义例数, 仍缺的 deckId 列表,
+             池外按 deckId 命中数, 池外仍缺的 deckId 列表)`。
     """
     byen = {}
     for k, v in off.items():
@@ -170,16 +179,20 @@ def resolve_prebuilt_decks(off, terms):
             byen.setdefault(v[0], []).append(k[len("PrebuiltDecks/"):])
     src = r"d:/4/Unity/MyGame/Assets/RuleEngine/Resources/prebuilt_decks.json"
     if not os.path.exists(src):
-        return 0, 0, 0, []
+        return 0, 0, 0, [], 0, []
     # 🔴 `A1854`：这一族是**生成期 join** ⇒ 上游变了、产物就静默过期（旧 deckId / 旧英文名）。
     #    这里只**出声**（不拦写入）：mtime 比产物新就告诉你要重跑。
-    if os.path.exists(OUT) and os.path.getmtime(src) > os.path.getmtime(OUT):
-        print("🔴 上游 %s 比产物新 ⇒ `PrebuiltDecks/*` 的 join 已过期（`A1854`）"
-              "—— **必须重跑本脚本**（--write）" % src)
+    for up in (src, EXTRA_SRC):
+        if os.path.exists(up) and os.path.exists(OUT) and os.path.getmtime(up) > os.path.getmtime(OUT):
+            print("🔴 上游 %s 比产物新 ⇒ `PrebuiltDecks/*` 的 join 已过期（`A1854`）"
+                  "—— **必须重跑本脚本**（--write）" % up)
     decks = json.load(io.open(src, encoding="utf-8")).get("decks") or []
     n_direct, n_fb, amb, missing = 0, 0, 0, []
+    seen = set()
     for d in decks:
         did = d.get("deckId")
+        if did:
+            seen.add(did)
         # ① 原版口径：`PrebuiltDeck.get_LocalizedName` = GetTranslation("PrebuiltDecks/" + deckId)
         if did and ("PrebuiltDecks/" + did) in off:
             terms["PrebuiltDecks/" + did] = off["PrebuiltDecks/" + did]
@@ -198,7 +211,40 @@ def resolve_prebuilt_decks(off, terms):
             n_fb += 1
             continue
         missing.append(did)
-    return n_direct, n_fb, amb, missing
+
+    # 🆕 2026-10-23（界面线 W65）：**池外那 78 副**（练习窗「一对两副」里落不进 103 副池的那批）。
+    #    来源 = `数据/游戏数据/prebuilt_decks_extra.json`（生成器 `工具/gen_practice_decks_extra.py`；
+    #    运行期副本 `MyGame/Assets/RuleEngine/Resources/prebuilt_decks_extra.json` 与它**必须逐字节相同**）。
+    #    ⚠️ 这里**只走 deckId 直取**、不做英文名兜底 —— 这 78 副的 `name` 有 11 对与原版 `deckName` 不同，
+    #       按名兜底会静默挑到另一副（D3 报告 §四 的 `nameCandidates` 全是内容不同的同名陷阱）。
+    #    判据：官方 `PrebuiltDecks/*` 现读 215 条，这 78 个 deckId **78/78 直中**（2026-10-23 现读）。
+    n_extra, extra_missing = 0, []
+    extra = []
+    if os.path.exists(EXTRA_SRC):
+        extra = json.load(io.open(EXTRA_SRC, encoding="utf-8")).get("decks") or []
+        # 数据面与运行期副本漂移 ⇒ 产物按哪份算都不对，出声（`gen_practice_decks_extra.py --check` 能定位）
+        if os.path.exists(EXTRA_RES):
+            if io.open(EXTRA_SRC, "rb").read() != io.open(EXTRA_RES, "rb").read():
+                print("🔴 `prebuilt_decks_extra.json` 的数据面与运行期副本**不一致** ⇒ 先跑 "
+                      "`工具/gen_practice_decks_extra.py` 刷新，本产物按数据面那份 join")
+    else:
+        print("⚠️ 读不到 `%s` ⇒ 池外 78 副不会进本产物（练习窗那 48 副会回落英文名）" % EXTRA_SRC)
+    for d in extra:
+        did = d.get("deckId")
+        if not did:
+            continue
+        if did in seen:
+            # 两个来源有交集 = extra 不该含这一副（生成器里有硬断言）；出声、跳过、不覆盖已 join 的值
+            print("⚠️ 池外产物里的 `%s` **同时出现在 103 副池里** ⇒ 跳过（先查 gen_practice_decks_extra.py）" % did)
+            continue
+        seen.add(did)
+        key = "PrebuiltDecks/" + did
+        if key in off:
+            terms[key] = off[key]
+            n_extra += 1
+        else:
+            extra_missing.append(did)
+    return n_direct, n_fb, amb, missing, n_extra, extra_missing
 
 
 def main():
@@ -216,7 +262,7 @@ def main():
     # `PrebuiltDecks/*` 的两份键形只留**运行时真用的那一份**（按 deckId）—— 见上面那段 doc
     for k in [k for k in terms if k.startswith("PrebuiltDecks/")]:
         del terms[k]
-    n_direct, n_fb, amb, missing = resolve_prebuilt_decks(off, terms)
+    n_direct, n_fb, amb, missing, n_extra, extra_missing = resolve_prebuilt_decks(off, terms)
     print("PrebuiltDecks：按 deckId 命中 **%d** 副 / 按英文名兜底 %d 副（同名歧义 %d 例） / **仍缺 %d 副**"
           % (n_direct, n_fb, amb, len(missing)))
     if missing:
@@ -224,6 +270,11 @@ def main():
         print("   ⚠️ 仍缺（官方 `PrebuiltDecks/*` 表里没有这些键 ⇒ **原版 `LocalizedName` 也是 null/空名**）："
               + "、".join(missing))
         print("   ⇒ 运行时回 `nameZh` 兜底（`DisplayName` 第二档）—— **这是我们比原版多做的**，不是漏")
+    print("PrebuiltDecks（池外 · 练习窗一对两副）：按 deckId 命中 **%d** 副 / **仍缺 %d 副**"
+          % (n_extra, len(extra_missing)))
+    if extra_missing:
+        # ⛔ 同样**不是 join 写错**：这三档的判据是官方表本身，缺键 = 原版也画空名。
+        print("   ⚠️ 池外仍缺（官方表里没有这些键 ⇒ 原版 `LocalizedName` 也是空名）：" + "、".join(extra_missing))
     # 🆕 2026-10-15（P3 相 · `A1763` 数据层）：`Card_Trait/*` **只补 `Loc.cs` 手写表没有的那些** ——
     #    判据与理由见 `card_trait_complement()` 的 docstring。整族放进来会与手写表**同键两份**（铁律 6）。
     ct_terms, ct_diag = card_trait_complement(off)

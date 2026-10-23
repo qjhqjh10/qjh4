@@ -28,9 +28,27 @@
 · `source = bundle-container`（本工具枚举）或 `old-map`（旧表回填，仅当新枚举没覆盖该 GUID）；
 · 旧表回填**保留**：有些 GUID 只能走目录的「退键」逻辑才解得出来，直接枚举看不到。
 
+## 🆕 2026-10-23（特效线 `A1·R28` 尾账 · `C3`）：**短键束**的 GUID 补集
+
+**缺口**：`scan_bundle` 只枚举各束的 `m_Container`，而**有些束的容器键是短键**
+（实测 `chaosspacemarinesemperorschildrencardassets` 是 `71/49/0a/2ce…`，`…cardanims` 也有一批）
+—— 短键与 GUID 之间**只有 Addressables catalog 的 `internalId` 能对上** ⇒ 那一族 GUID 在本表里
+要么缺失、要么只剩旧表退键的解。
+
+**补法**：读**与本地束同 build 的二进制 catalog**（`aa/catalog.bin` / `catalog_main.bin`），
+取 `internalId` **不是 32-hex** 的那些 location（= 短键），用 `工具/_guid_resolve_probe.py` 的
+`lookup` 把「GUID → 束 → 短键 → 对象 `m_Name`」解出来，作为**增量行**追加（`source = catalog-internalid`）。
+· ⛔ **不改已有行**：同一 GUID 已经有行且**名字相同** ⇒ 记 `duplicate`、不追加；
+  名字**不同** ⇒ 记 `conflict`、**本次不写盘**（冲突要人来裁，⛔ 不猜哪个对）。
+· 场景 location（`SceneInstance`）默认**跳过**（卡 SO 不会引用场景；且场景束加载代价大）——
+  `--catalog-include-scenes` 可打开。
+· `--catalog PATH` 指定 catalog（默认按「安装版 → LocalLow」顺序找）；`--no-catalog` 关闭本功能
+  （= 复现 2026-10-23 之前的行为）。
+
 用法：
     "D:/2/Warpforge_tools/py312/python.exe" -I -X utf8 d:/4/Unity/工具/gen_guid_map_from_bundles.py
     可选 `--cards-only`：只扫卡相关的束（cardassets / cardanims / vfxandmisc / soundcollection / audiocontrol）
+    可选 `--dry`：只打印、不落盘；`--out <路径>` 可把干跑产物写到别的目录（⛔ 别默认覆盖正式表）
 """
 import argparse
 import collections
@@ -38,6 +56,7 @@ import csv
 import io
 import json
 import os
+import re
 import sys
 
 BUNDLES = r"d:/2/Warhammer 40k Warpforge/Warpforge_Data/StreamingAssets/aa/StandaloneWindows64"
@@ -57,6 +76,124 @@ CARD_BUNDLE_HINTS = ("cardassets", "cardanims", "battleprefabs_vfxandmisc",
 
 COLS = ["uniqueId", "cardName", "field", "assetGuid", "bundle", "containerKey",
         "type", "className", "name", "internalId", "exact", "source"]
+
+# 🆕 2026-10-23（C3）：短键补集的 catalog（二进制，与本地束同 build；旧 JSON 目录**不用**）
+CAT_BIN_CANDIDATES = [
+    (r"d:/2/Warhammer 40k Warpforge/Warpforge_Data/StreamingAssets/aa/catalog.bin",
+     "安装版 aa/catalog.bin（与本地束同 build）"),
+    (r"C:/Users/qjh36/AppData/LocalLow/Everguild/Warpforge/com.unity.addressables/catalog_main.bin",
+     "LocalLow catalog_main.bin"),
+]
+HEX32 = re.compile(r"^[0-9a-f]{32}$")
+_PROBE = {"tried": False, "mod": None}
+
+
+def _probe_module():
+    """按文件路径加载同目录 `_guid_resolve_probe.py`（`python -I` 不会把脚本目录放进 sys.path）。"""
+    if _PROBE["tried"]:
+        return _PROBE["mod"]
+    _PROBE["tried"] = True
+    try:
+        import importlib.util
+        p = os.path.join(os.path.dirname(os.path.abspath(__file__)), "_guid_resolve_probe.py")
+        spec = importlib.util.spec_from_file_location("wf_guid_resolve_probe", p)
+        mod = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(mod)
+        _PROBE["mod"] = mod
+    except Exception as e:                      # noqa: BLE001
+        print("⚠️ catalog 补集：加载 `_guid_resolve_probe.py` 失败（%s）⇒ 跳过本功能" % e)
+    return _PROBE["mod"]
+
+
+def pick_catalog(path=None):
+    if path:
+        return path, "显式指定"
+    for p, why in CAT_BIN_CANDIDATES:
+        if os.path.isfile(p):
+            return p, why
+    return None, None
+
+
+def catalog_short_rows(cat_path, existing, skip_scenes=True):
+    """catalog 的**短键**补集 → `(rows, stat, conflicts, dups)`。
+
+    `existing` = 已枚举/回填出来的行（用来判「重复」与「冲突」）。
+    · **只增不改**：同一 GUID 已有同名行 ⇒ `duplicate`（不追加）；名字不同 ⇒ `conflict`（不追加，交人裁）。
+    · 短键判据 = catalog 的 `internalId` **不是 32-hex**（长键那族 `scan_bundle` 已经覆盖）。
+    """
+    mod = _probe_module()
+    if mod is None:
+        return [], {"skipped": "probe 不可用"}, [], []
+    cat = mod.load_catalog(cat_path)
+    stat = collections.Counter()
+    per_bundle = collections.Counter()
+    conflicts, dups, rows, no_hit = [], [], [], []
+    by_guid = collections.defaultdict(list)
+    for r in existing:
+        by_guid[(r.get("assetGuid") or "").lower()].append(r)
+
+    keys = cat.get("keys") or []
+    for ki, key in enumerate(keys):
+        if not isinstance(key, str) or not HEX32.match(key):
+            continue
+        entries = mod.resolve_guid(cat, ki)
+        short = [e for e in entries if e.get("iid") and not HEX32.match(e["iid"])]
+        if not short:
+            continue
+        stat["short_guids"] += 1
+        rt_all = [t for e in short for t in (e.get("rtypes") or []) if t]
+        if skip_scenes and rt_all and all("SceneInstance" in t for t in rt_all):
+            stat["scene_skipped"] += 1
+            continue
+        try:
+            hits = mod.lookup(cat, key)
+        except Exception as e:                  # noqa: BLE001
+            stat["lookup_failed"] += 1
+            print("  !! lookup(%s) 失败: %s" % (key, e))
+            continue
+        hits = [h for h in hits if not h.get("note") and h.get("name") and h.get("type")]
+        if not hits:
+            stat["no_bundle_hit"] += 1
+            no_hit.append({"guid": key.lower(), "iid": short[0].get("iid"),
+                           "rtypes": rt_all, "bundles": short[0].get("bundles")})
+            continue
+        hits.sort(key=lambda h: (h.get("bundle") or "", str(h.get("key") or ""), h.get("pathid") or 0))
+        seen_sig = set()
+        for h in hits:
+            sig = (h.get("bundle"), h.get("key"), h.get("name"), h.get("type"))
+            if sig in seen_sig:
+                continue
+            seen_sig.add(sig)
+            row = {
+                "uniqueId": "", "cardName": "", "field": "",
+                "assetGuid": key.lower(), "bundle": h.get("bundle") or "",
+                "containerKey": h.get("key") or "", "type": h.get("type") or "",
+                "className": h.get("cls") or "", "name": h.get("name") or "",
+                "internalId": h.get("iid") or "", "exact": str(bool(h.get("exact"))),
+                "source": "catalog-internalid",
+            }
+            old = by_guid.get(key.lower()) or []
+            if old:
+                # 「重复」= 名字 + 束 + 容器键**三者都对上**（类型可以不同：Sprite/Texture2D 那一对）；
+                # 只对名字、束或键有一个对不上 ⇒ **冲突**（交人裁，⛔ 不静默当成重复）
+                if any((o.get("name") or "") == row["name"]
+                       and (o.get("bundle") or "") == row["bundle"]
+                       and (o.get("containerKey") or "") == row["containerKey"] for o in old):
+                    dups.append({"guid": key.lower(), "old": old, "new": row})
+                    stat["duplicate"] += 1
+                    continue
+                conflicts.append({"guid": key.lower(), "old": old, "new": row})
+                stat["conflict"] += 1
+                continue
+            rows.append(row)
+            by_guid[key.lower()].append(row)
+            per_bundle[row["bundle"]] += 1
+            stat["added"] += 1
+            stat["added_" + (row["type"] or "?")] += 1
+    stat["added_bundles"] = len(per_bundle)
+    return (rows, {"counts": dict(stat), "perBundle": dict(per_bundle),
+                   "noHit": no_hit, "dups": [d["guid"] for d in dups]},
+            conflicts, dups)
 
 
 def script_classes():
@@ -203,6 +340,14 @@ def main():
                     help="当前 build 卡快照（重算旧表注解用；默认 %s）" % CARDS_RAW)
     ap.add_argument("--dry", action="store_true",
                     help="只打印统计，不落盘（`A1648` 同族）")
+    # 🆕 2026-10-23（C3）：短键补集
+    ap.add_argument("--catalog", default=None,
+                    help="二进制 catalog（默认按「安装版 → LocalLow」找）；⛔ 别传旧 JSON 目录")
+    ap.add_argument("--no-catalog", action="store_true", help="关闭短键补集（= 旧行为）")
+    ap.add_argument("--catalog-include-scenes", action="store_true",
+                    help="连 SceneInstance location 也查（默认跳过：卡 SO 不引用场景）")
+    ap.add_argument("--allow-conflicts", action="store_true",
+                    help="有冲突也写盘（默认**不写**，冲突交人裁）")
     args = ap.parse_args()
 
     if not os.path.isdir(BUNDLES):
@@ -275,6 +420,38 @@ def main():
               % (len(changed), no_ref, os.path.basename(args.cards_raw), len(refs)))
         for g, old, new in changed:
             print("   %s\n      旧: %s\n      新: %s" % (g, old, new))
+
+    # ---- 🆕 2026-10-23（C3）：catalog 短键补集（只增不改；冲突 ⇒ 默认不写盘）
+    cat_conflicts, cat_dups = [], []
+    if not args.no_catalog:
+        cat_path, cat_why = pick_catalog(args.catalog)
+        if not cat_path:
+            print("⚠️ 找不到二进制 catalog ⇒ 跳过短键补集（⛔ 不当成「没有短键缺口」）")
+        else:
+            print("\n[catalog 短键补集] catalog = %s（%s）" % (cat_path, cat_why))
+            add_rows, cat_stat, cat_conflicts, cat_dups = catalog_short_rows(
+                cat_path, rows, skip_scenes=not args.catalog_include_scenes)
+            counts = (cat_stat or {}).get("counts") or {}
+            print("  短键 GUID %d · 场景跳过 %d · **新增 %d 行** · 重复 %d · 冲突 %d · 无束命中 %d · lookup 失败 %d"
+                  % (counts.get("short_guids", 0), counts.get("scene_skipped", 0),
+                     counts.get("added", 0), counts.get("duplicate", 0),
+                     counts.get("conflict", 0), counts.get("no_bundle_hit", 0),
+                     counts.get("lookup_failed", 0)))
+            print("  新增按类型：%s" % {k[6:]: v for k, v in counts.items() if k.startswith("added_") and k != "added_bundles"})
+            for b, n in sorted(((cat_stat or {}).get("perBundle") or {}).items(), key=lambda kv: -kv[1]):
+                print("    +%-4d %s" % (n, b))
+            for c in cat_conflicts:
+                print("  🔴 冲突 GUID %s\n      旧: %s\n      新: %s"
+                      % (c["guid"], [(o.get("bundle"), o.get("name"), o.get("type")) for o in c["old"]],
+                         [(c["new"].get("bundle"), c["new"].get("name"), c["new"].get("type"))]))
+            for nh in (cat_stat or {}).get("noHit") or []:
+                print("  ⚠️ 短键无束命中：GUID %s · internalId %s · 类型 %s · 目录束 %s"
+                      % (nh["guid"], nh["iid"], nh["rtypes"],
+                         [os.path.basename((b or "").replace("\\", "/")) for b in (nh["bundles"] or [])]))
+            rows.extend(add_rows)
+            if cat_conflicts and not args.allow_conflicts and not args.dry:
+                print("\n🔴 发现 %d 条冲突 ⇒ **本次不写盘**（先裁冲突；或 `--allow-conflicts` 强写）" % len(cat_conflicts))
+                sys.exit(2)
 
     if args.dry:
         print("\n干跑（--dry）：不写 %s" % args.out)

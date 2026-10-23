@@ -172,7 +172,14 @@ namespace CardPresentation
         }
         const float WcCntW = WcCountWrapPx, WcCntFontPx = WcCountFontPx;   // 本文件内的旧名字（同一份值）
         static readonly float[] WcIconX = { 1565f, 1640f, 1715f, 1790f };
-        const float ArmyIconX = 1470f, ArmyIconY = 71f, ArmyIconW = 80f, ArmyIconH = 85f;
+        /// <summary>页头 `WIldcard Counter/Army Icon` 的框。
+        /// 🔴 **2026-10-23（界面线 W65 尾账 · 新账-57）**：`Y` 原来是 **71**（四舍五入过的），
+        /// 原版 prefab 真值是 **70.97 → 155.97（80×85）** ⇒ 改成 70.97（差 0.03px，纯数值对齐）。
+        /// 判据 = `python -I -X utf8 工具/menu_rect.py bundle_menus_assets_all "Deck Editing Menu" --depth 7`
+        /// 的 `Army Icon 1470.00 70.97 1550.00 155.97 80.00 85.00` 那一行。
+        /// ⚠️ **别照收藏窗那套抄**：收藏窗（`Collection Menu Variant`）里同位置的原版值是
+        /// **70.94 / 155.94**（两棵 prefab 差 0.03px）—— 两份各自对，别互相"对齐"。</summary>
+        const float ArmyIconX = 1470f, ArmyIconY = 70.97f, ArmyIconW = 80f, ArmyIconH = 85f;
 
         // ---- Sidebar（R:33-56）----
         const float SideBgX = -203f, SideBgY = 156f, SideBgW = 538.5f, SideBgH = 924.1f;
@@ -1728,7 +1735,8 @@ namespace CardPresentation
             //      `m_Sprite` pid `5519774263930623761`（实读
             //      `bundle_menus_assets_all/MonoBehaviour/MonoBehaviour_-4938031877995384135.json`；
             //      该 pid 在整份切图缓存 5557 个 `Sprite/*.json` 里**只对应这一个名字**）
-      //        · `m_Type = 0 (Simple)` · **`m_PreserveAspect = 1`** · 框 80×85（`1470,71 → 1550,156`）。
+      //        · `m_Type = 0 (Simple)` · **`m_PreserveAspect = 1`** · 框 80×85（**`1470,70.97 → 1550,155.97`**，
+      //          `menu_rect.py bundle_menus_assets_all "Deck Editing Menu"` 现读；原来这里写的 `71/156` 是四舍五入值）。
       //   ② 🔴 **出厂那张只是出厂值 —— 运行期会被换成【这副卡组所属阵营】的徽记**：
       //      `DeckEditingWindow__FilterToDeck.c:24-28`：`uVar3 = 10`（= `CardArmy.Ultramarines`），
       //      `if (EditingDeck.deckArmy != 0) uVar3 = deckArmy;` →

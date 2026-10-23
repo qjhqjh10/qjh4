@@ -2878,6 +2878,55 @@ public static class MainMenuScene
                     }
                     else CheckTrue(false, "只读到 " + ps78.Count + " 对 ⇒ 上面三条 `uiOrder` 断言等于没查");
 
+                    // ---- ★ 78 对 × 两侧：**每一副都要取得到官方中文名**（W65 尾账 · 2026-10-23）----
+                    // 判据：原版 `PrebuiltDeck.get_LocalizedName` = `GetTranslation("PrebuiltDecks/" + deckId)`
+                    //   （`decomp_full/PrebuiltDeck__get_LocalizedName.c:15` + `dump.il2cpp` `+0x48` = deckId）；
+                    //   我们这一侧 = `PrebuiltDecks.DisplayName`（官方词条优先，`Shell/PrebuiltDecks.cs:118-126`）。
+                    // 数据：`Resources/official_names.json` 的 `PrebuiltDecks/*` 由 `工具/_loc_official/gen_official_names.py`
+                    //   生成期 join（103 副池 + **池外那 78 副**；2026-10-23 前只 join 了池 ⇒ 练习窗有 **48 副**
+                    //   回落英文名 —— 那正是本条盯的回归）。
+                    // 🧨 改坏法：把 `gen_official_names.py` 里池外那一段删掉/不重跑 ⇒ 这里 48 条红。
+                    // ⚠️ 只在中文档断「含汉字」——英文档（`Loc.Current == English`）官方值本身就是英文，断字符集没意义。
+                    {
+                        int noOfficial = 0, noCjk = 0;
+                        string firstNoOfficial = "", firstNoCjk = "";
+                        for (int pk = 0; pk < ps78.Count; pk++)
+                        {
+                            var px = ps78[pk];
+                            if (px == null) continue;
+                            var sides = new[] { px.classic, px.skirmish };
+                            for (int sk = 0; sk < 2; sk++)
+                            {
+                                var side = sides[sk];
+                                if (side == null || string.IsNullOrEmpty(side.deckId)) continue;
+                                var dd = PrebuiltDecks.ById(side.deckId);
+                                string shown = dd != null ? dd.DisplayName : null;
+                                // ① 官方词条**存在**：直接问数据面词条表（`DisplayName` 的第一档就是它）
+                                string offName = Loc.BulkOr("PrebuiltDecks/" + side.deckId, null);
+                                bool official = !string.IsNullOrEmpty(offName);
+                                if (!official)
+                                {
+                                    noOfficial++;
+                                    if (firstNoOfficial.Length == 0)
+                                        firstNoOfficial = side.deckId + "→「" + (shown ?? "<null>") + "」";
+                                }
+                                // ② 中文档下还得**真是中文**（防「官方键在、但落到 en 列」）
+                                if (Loc.Current == AvailableLanguages.Chinese && !Loc.HasCjk(shown ?? ""))
+                                {
+                                    noCjk++;
+                                    if (firstNoCjk.Length == 0) firstNoCjk = side.deckId + "→「" + shown + "」";
+                                }
+                            }
+                        }
+                        Check(noOfficial, 0,
+                              "★ 78 对 × 两侧（156 个 deckId）**全部**取得到官方词条 `PrebuiltDecks/<deckId>`"
+                            + "（`DisplayName` 不许回落到英文原名）" + (noOfficial > 0 ? "；首个缺：" + firstNoOfficial : ""));
+                        if (Loc.Current == AvailableLanguages.Chinese)
+                            Check(noCjk, 0,
+                                  "★ 中文档下这 156 个名字**全部含汉字**（官方中文列）"
+                                + (noCjk > 0 ? "；首个坏：" + firstNoCjk : ""));
+                    }
+
                     // ---- ★ 双卡组（最容易错的一处）：同一对在 Classic / Skirmish 下是**两副不同的牌** ----
                     CheckTrue(pw.PickedPair != null && pw.PickedPrebuilt != null,
                               "（前提）切到 Classic 之后自动选中了**一对**（`ResetContent → PickPair → PickPrebuilt`）");

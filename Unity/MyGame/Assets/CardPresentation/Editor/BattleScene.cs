@@ -902,14 +902,21 @@ public static class BattleScene
                 //   🧨 改坏法：给 `ByEvent[PlayCard]` / `[Ability]` / `[Death]` / `[Return]` 挂回任何一件
                 //   （`Tap Blue Glow` / `Buff_Blue_SW` / `Explosion Fenrisian Monstrosities` / `GSC RecallToHand`）
                 //   ⇒ 它就从 `Unmapped()` 里消失 ⇒ 本条红；给 `attack_melee` 挂回 `BulletImpactBurst_crowd` 同样红。
-                Check(noGenericSeen.Count == 5
+                // 🔴 **2026-10-23（`W63` 收口）就地改（铁律 5）**：这一个数原来写死 **5**。
+                //   不是「放宽判据」，是那一族**真的多了两个成员**：`UnitAttack(50)` / `UnitDamaged(60)`
+                //   两桶**只有逐卡**（原版没有「通用技能动画」）⇒ 与 `play`/`ability` 同一族。
+                //   「恰好等于 `IsOriginalNoGenericEvent` 那一族」这条不变式**没动**（改的只是那个数）。
+                Check(noGenericSeen.Count == 7
                       && noGenericSeen.Contains(VfxMap.PlayCard)
                       && noGenericSeen.Contains(VfxMap.Ability)
                       && noGenericSeen.Contains(VfxMap.Death)
                       && noGenericSeen.Contains(VfxMap.Return)
-                      && noGenericSeen.Contains(VfxMap.AttackMelee),
-                      "★ 五个事件**都不该由 `ByEvent` 兜底**（`VfxMap.IsOriginalNoGenericEvent`）："
+                      && noGenericSeen.Contains(VfxMap.AttackMelee)
+                      && noGenericSeen.Contains(VfxMap.UnitAttack)
+                      && noGenericSeen.Contains(VfxMap.UnitDamaged),
+                      "★ 七个事件**都不该由 `ByEvent` 兜底**（`VfxMap.IsOriginalNoGenericEvent`）："
                     + "`play` / `ability` / `return` / `attack_melee`（原版没有这一档）· `death`（真件走 `CardFeel` 那条二选一）"
+                    + "· `unit_attack_anim` / `unit_damaged_anim`（`UnitAttack(50)`/`UnitDamaged(60)`，**只有逐卡**）"
                     + $"（实得 {string.Join("/", noGenericSeen.ToArray())}）"
                     + "｜🧨 任何一个挂回替代品 ⇒ 红（`W64` B1/B2/B3/B4 + `W63` §B）");
                 // 🔴 **2026-10-22（P6 · `W64` B8 收口）就地改**：原来这条要 2 个已知缺口
@@ -6974,6 +6981,8 @@ public static class BattleScene
             string a1730AtkId = a1730AtkU != null && a1730AtkU.Card != null ? a1730AtkU.Card.Id : null;
             string[] a1730Melee = VfxMap.ResolveAll(VfxMap.AttackMelee, driver.FoeFaction, a1730AtkId);
             string[] a1730Ranged = VfxMap.ResolveAll(VfxMap.AttackRanged, driver.FoeFaction, a1730AtkId);
+            // 🆕 2026-10-23（W63 收口 ②）：记下「真正攻击」走过几次「从攻击者算方向」的后坐
+            int a1730AwayBefore = CardFeel.AwayFromAttackerCount;
             StepThrough(driver);          // 事件时间线推到播完（Attack 那 0.1s 在时间线上）
             int a1730NMelee = 0; foreach (var a1730Nm in a1730Melee) a1730NMelee += FiredCount(a1730Nm);
             // 🔴 **2026-10-22（`W63` §B）就地改判（铁律 5）：原版【没有】通用近战件。**
@@ -7002,6 +7011,14 @@ public static class BattleScene
                   a1730Overlap
                       ? $"★ A1730（灭自证）：跳过 —— 本卡近战/远程解析到同一件（`{string.Join("/", a1730Melee)}` vs `{string.Join("/", a1730Ranged)}`）"
                       : $"★ A1730（灭自证）：近战这一格**没有**播远程那件（实播 {a1730NRanged} 次）");
+            // 🔴 2026-10-23（W63 收口 ②）：**生产那两条入口真的用了「从攻击者算方向」**。
+            //   判据 = 原版 `CardScript__ReceiveAttackAnim.c` 的 `normalize(受击方 − 攻击方)`；
+            //   ⚠：目标那一格**没死**才有后坐（`PlayHitFrameFeel` 对 null 视图早退）
+            //   ⇒ 打死的那一击跳过。
+            Check(after == null || CardFeel.AwayFromAttackerCount > a1730AwayBefore,
+                  $"★ W63/后坐：这一记真攻击的受击后坐**走的是「从攻击者算方向」那一路"
+                + $"（{CardFeel.AwayFromAttackerCount} ← {a1730AwayBefore}；目标{(after == null ? "阵亡⇒跳过" : "存活")}）"
+                + "—— 🧨 把 `PlayHitFrameFeel` / `PlayHitFeel` 换回 `HitReact(… away …)` ⇒ 方向又变回恒定上/下、本条红");
             Step(0.3f);
             Shot(cam, "04_攻击后");
         }
@@ -9993,6 +10010,366 @@ public static class BattleScene
                           && Mathf.Abs(flyGo.transform.localPosition.y - 2f) < 1e-3f,
                           $"★ T05/飞行：`Toggle(false)` ⇒ **落回原位**（状态 {fly.State} / y {flyGo.transform.localPosition.y:F4} / 期望 2）");
                     Object.DestroyImmediate(flyGo);
+                }
+
+                // ==================================================================
+                //  🆕 2026-10-23（`W63` 收口）：**卡体动画层**（`Card3DAnimationController`）
+                // ==================================================================
+                //  判据（逐方法亲读）→ `Battle/Card3DAnimationController.cs` 文件头。
+                //  这一组盯四件事，缺一条这个形状就会退回「结构上不播、而且没人红」：
+                //    ① 组件真的建得起来、`DoAnim` 真的起播 / 收尾、两个状态位（0x48/0x49）真的置；
+                //    ② 飞行闸：**在飞 ⇒ 先落地 → 演完 → 飞回去**（本件 ① 那一类的核心）；
+                //    ③ 数据：`UnitAttack(50)` / `UnitDamaged(60)` 两桶按**卡 id** 逐个命中；
+                //    ④ 受击那一档解出来的件**非空**（= 那 4 条真的接上了，不是空桶）。
+                //  ⚠️ `AnimationClip` 那一路用**探针 clip**（`BuildProbeClip`）证明 ——
+                //     本 build 的卡体 clip 表是空的（判据见 `Battle/CardAnimClips.BodyClipOf`），
+                //     ⛔ 但**不许**因此把这条路写成「不用验」。
+                {
+                    Debug.Log(P + "--- W63 · 卡体动画层 ---");
+                    // ①-a 常数（`.rdata` 4 字节直读，见 `Card3DAnimationController` 文件头）
+                    Check(Mathf.Abs(Card3DAnimationController.ToggleOnFlyingTime - 0.45f) < 1e-6f
+                          && Mathf.Abs(Card3DAnimationController.ToggleOffFlyingTime - 0.15f) < 1e-6f,
+                          $"★ W63/卡体动画：`TOGGLE_ON_FLYING_TIME` = **0.45** · `TOGGLE_OFF_FLYING_TIME` = **0.15**"
+                        + $"（实得 {Card3DAnimationController.ToggleOnFlyingTime:F3} / {Card3DAnimationController.ToggleOffFlyingTime:F3}）"
+                        + "—— 判据 = 原版 `__cctor.c` 那两个 4 字节 float；🧨 对调这两个数 ⇒ 落地变 0.45、飞回变 0.15 ⇒ 红");
+                    Check(Mathf.Abs(Card3DAnimationController.CrossFadeTime - 0.2f) < 1e-6f
+                          && Mathf.Abs(Card3DAnimationController.OneFrameSlack - 1f) < 1e-6f,
+                          $"★ W63/卡体动画：`CrossFade` = **0.2**（`DAT_1834b2bb0`）· 过期裕量 = **1.0**（`DAT_1834b2bb8`）"
+                        + $"（实得 {Card3DAnimationController.CrossFadeTime:F3} / {Card3DAnimationController.OneFrameSlack:F3}）");
+
+                    // ①-b 空动画：**照原版**只调回调、返回 false、**不动**飞行两位（不是「悄悄跳过」）
+                    var animGo = new GameObject("W63_AnimProbe");
+                    animGo.transform.localPosition = new Vector3(1f, 2f, 3f);
+                    var probeFly = new FlyingCardController(animGo.transform);
+                    var animCtl = new Card3DAnimationController(animGo.transform, () => probeFly);
+                    bool emptyCb = false;
+                    bool emptyRet = animCtl.DoAnim(default(CardAnimPlayback), true, () => emptyCb = true);
+                    Check(!emptyRet && emptyCb && !animCtl.UnitWasFlying && !animCtl.HasAlreadyToggledOffFlying
+                          && !animCtl.Enabled,
+                          $"★ W63/卡体动画：**空动画** ⇒ 只调回调、返回 false、两位都不置（ret={emptyRet} cb={emptyCb} "
+                        + $"0x48={animCtl.UnitWasFlying} 0x49={animCtl.HasAlreadyToggledOffFlying}）"
+                        + "—— 判据 = 原版 `__DoAnim.c` 开头那一段（`clip == null` 的第一分支）");
+
+                    // ①-c 真 `AnimationClip` 这一路：`Animation` 组件真的挂上、clip 真的进表、倒计时走完真的收尾
+                    var probeClip = Card3DAnimationController.BuildProbeClip("W63 Probe Clip", 0.2f, 0.5f);
+                    bool clipCb = false;
+                    bool clipRet = animCtl.DoAnim(new CardAnimPlayback { Clip = probeClip, Label = "probe" },
+                                                  false, () => clipCb = true);
+                    Check(clipRet && animCtl.Enabled && animCtl.PlayingClipCount == 1,
+                          $"★ W63/卡体动画：`DoAnim(clip)` ⇒ 起播（ret={clipRet} enabled={animCtl.Enabled} "
+                        + $"clips={animCtl.PlayingClipCount}）");
+                    Check(animGo.GetComponent<Animation>() != null,
+                          "★ W63/卡体动画：`Animation` 组件**真的挂在卡根上**（原版那个组件的位置）"
+                        + "—— 🧨 把 `EnsureAnimation` 删掉 ⇒ `AnimationClip` 这一路整条静默不播，本条红");
+                    for (int i = 0; i < 20; i++) animCtl.Update(1f / 60f);      // 0.33 s > 0.2 s
+                    Check(clipCb && !animCtl.Enabled && animCtl.PlayingClipCount == 0 && animCtl.FinishedCount == 1,
+                          $"★ W63/卡体动画：倒计时走完 ⇒ `AnimFinished`（回调 {clipCb} · enabled {animCtl.Enabled} · "
+                        + $"剩 clip {animCtl.PlayingClipCount} · 收尾 {animCtl.FinishedCount} 次）"
+                        + "—— 🧨 把 `Update` 的过期闸改成 `>= 0` / 去掉 `OneFrameSlack` ⇒ 红");
+                    Object.DestroyImmediate(animGo);
+
+                    // ② **飞行闸**：在飞 ⇒ 落地（0.15）→ 演完 → 飞回去（0.45）
+                    var fly2Go = new GameObject("W63_AnimFly");
+                    fly2Go.transform.localPosition = new Vector3(0f, 1f, 0f);
+                    var fly2 = new FlyingCardController(fly2Go.transform);
+                    fly2.Toggle(true);
+                    for (int i = 0; i < 30; i++) fly2.Update(1f / 60f);
+                    Check(fly2.State == FlyingCardController.States.Flying, "★ W63/飞行闸：先让它真的飞起来（夹具）");
+                    var anim2 = new Card3DAnimationController(fly2Go.transform, () => fly2);
+                    var flyClip = Card3DAnimationController.BuildProbeClip("W63 Fly Clip", 0.3f, 0.2f);
+                    bool flyCb = false;
+                    anim2.DoAnim(new CardAnimPlayback { Clip = flyClip, Label = "fly" }, true, () => flyCb = true);
+                    Check(anim2.UnitWasFlying && anim2.HasAlreadyToggledOffFlying,
+                          $"★ W63/飞行闸：两个状态位**都置上**（`unitWasFlying`=0x48 {anim2.UnitWasFlying} · "
+                        + $"`hasAlreadyToggledOffFlying`=0x49 {anim2.HasAlreadyToggledOffFlying}）"
+                        + "—— 🧨 少置 0x49 ⇒ 每一拍都把单位按下去 0.15 s；少置 0x48 ⇒ 演完**不飞回去**（两条都会静默）");
+                    Check(fly2.State == FlyingCardController.States.InTransitionToLand && !anim2.Enabled,
+                          $"★ W63/飞行闸：**先落地**、落地期间**闸住不播**（飞行状态 {fly2.State} · 动画 enabled {anim2.Enabled}）"
+                        + "—— 判据 = `__DoAnim.c` 的 `ToggleFlying(false, 0.15)` 那一支；🧨 直接 `StartAnim` ⇒ 红");
+                    for (int i = 0; i < 20; i++) { fly2.Update(1f / 60f); anim2.Update(1f / 60f); }   // 0.33 s > 0.15
+                    Check(fly2.State == FlyingCardController.States.Landed && anim2.Enabled && !flyCb,
+                          $"★ W63/飞行闸：**落地完成 ⇒ 起播**（落定状态 {fly2.State} · enabled {anim2.Enabled} · 还没收尾 {!flyCb}）"
+                        + "—— 判据 = `OnFlyingToggleFinish(false) → StartAnim()`；🧨 把回调那一跳删掉 ⇒ 动画永远不开始，本条红");
+                    for (int i = 0; i < 45; i++) { fly2.Update(1f / 60f); anim2.Update(1f / 60f); }   // 0.75 s > 0.3
+                    Check(fly2.State == FlyingCardController.States.InTransitionToFly
+                          || fly2.State == FlyingCardController.States.Flying,
+                          $"★ W63/飞行闸：演完 ⇒ **飞回去**（飞行状态 {fly2.State}，期望 `InTransitionToFly`/`Flying`）"
+                        + "—— 判据 = `__Update.c` 过期时 `ToggleFlying(true, 0.15)` + `OnFlyingToggleFinish(true)`；"
+                        + "🧨 演完只 `AnimFinished` 不飞 ⇒ 状态停在 `Landed`、本条红");
+                    for (int i = 0; i < 60; i++) { fly2.Update(1f / 60f); anim2.Update(1f / 60f); }   // 1.0 s
+                    Check(flyCb && fly2.State == FlyingCardController.States.Flying && !anim2.UnitWasFlying,
+                          $"★ W63/飞行闸：飞回原位后**才收尾**、两位清零（回调 {flyCb} · 状态 {fly2.State} · "
+                        + $"0x48 {anim2.UnitWasFlying}）—— 🧨 在 `Update` 里直接 `AnimFinished`（不等飞起完成）⇒ 单位停在半空、红");
+                    Object.DestroyImmediate(fly2Go);
+
+                    // ③ 数据：两桶按**卡 id** 逐个命中（口径见 `VfxMap.UnitAttack` 那一段）
+                    VfxMap.EnsureLoaded();
+                    // 原版 `cardAnimations[]` 里 `UnitAttack` 的行数（= 引擎数据 `CardDef.AnimTimes` 的 `tn`）
+                    int uaRows = 0, udRows = 0;
+                    {
+                        var pool = RuleEngine.CardDatabase.Load();
+                        foreach (var cd in pool)
+                            for (int i = 0; i < cd.AnimTimes.Count; i++)
+                            {
+                                string tn = cd.AnimTimes[i] != null ? cd.AnimTimes[i].TriggerName : null;
+                                if (string.Equals(tn, "UnitAttack", System.StringComparison.OrdinalIgnoreCase)) uaRows++;
+                                else if (string.Equals(tn, "UnitDamaged", System.StringComparison.OrdinalIgnoreCase)) udRows++;
+                            }
+                    }
+                    Check(uaRows == 13,
+                          $"★ W63/技能动画：原版 `UnitAttack(50)` 在卡池里 **13 行 / 11 张卡**（实得 {uaRows}）"
+                        + "—— 判据 = `CardDef.AnimTimes` 的 `tn == UnitAttack`；判据全文 → `资料/普查产出_1022/W63_飞行与卡ID演出_调查.md` §B");
+                    Check(udRows == 1,
+                          $"★ W63/技能动画：原版 `UnitDamaged(60)` 在卡池里 **1 行**（`BL20`，实得 {udRows}）"
+                        + "—— 另外 3 条是按名字对上的（`inferred-name`），见下一条的 4");
+                    Check(VfxMap.CardTableUnitAttackEntries == 12 && VfxMap.CardTableUnitDamagedEntries == 4
+                          && VfxMap.CardTableUnitAnimEntries == 16,
+                          $"★ W63/技能动画：运行期两桶 = **12 + 4 = 16 条**（实得 {VfxMap.CardTableUnitAttackEntries} + "
+                        + $"{VfxMap.CardTableUnitDamagedEntries} = {VfxMap.CardTableUnitAnimEntries}）"
+                        + "—— ⚠️ 12 不是 13：`SAU31` 的第 13 行是**纯计时拍** `Wait_1s`（`animAdressable` 为空），"
+                        + "运行期表按设计不收「没有件」的行（时长仍由 `AnimTimes` 那句 1.0 s 管）"
+                        + "；🧨 把 `EnsureLoaded` 里那两段抄桶删掉 ⇒ 三个数一起变 0、本条红");
+                    {
+                        var uaCards = VfxMap.UnitAnimCardIds(VfxMap.UnitAttack);
+                        var udCards = VfxMap.UnitAnimCardIds(VfxMap.UnitDamaged);
+                        int uaHit = 0, udHit = 0;
+                        for (int i = 0; i < uaCards.Length; i++)
+                            if (VfxMap.ResolveAll(VfxMap.UnitAttack, null, uaCards[i]).Length > 0) uaHit++;
+                        for (int i = 0; i < udCards.Length; i++)
+                            if (VfxMap.ResolveAll(VfxMap.UnitDamaged, null, udCards[i]).Length > 0) udHit++;
+                        Check(uaCards.Length == 11 && uaHit == 11,
+                              $"★ W63/技能动画：11 张 `UnitAttack` 卡**按卡 id 逐个命中**（{uaHit}/{uaCards.Length}）"
+                            + "—— 🧨 把键换成卡名 / 改动 `EnsureLoaded` 的抄桶条件 ⇒ 命中数掉、本条红");
+                        Check(udCards.Length == 4 && udHit == 4,
+                              $"★ W63/技能动画：4 张 `UnitDamaged` 卡**按卡 id 逐个命中**（{udHit}/{udCards.Length}）");
+                    }
+                    // ④ 受击那一档解出来的件**非空**（`BL20` = 唯一那条 authoritative）
+                    {
+                        var bl = VfxMap.ResolveAll(VfxMap.UnitDamaged, null, "BL20");
+                        Check(bl.Length == 1 && bl[0] == "Buff_DiabolicStrength",
+                              $"★ W63/技能动画：`BL20` 的 **受击技能动画非空** = `Buff_DiabolicStrength`"
+                            + $"（实得 [{string.Join(",", bl)}]）"
+                            + "—— 🧨 把它挪回 `hit` 桶（当受击粒子）⇒ 这条仍绿但下面那条「分桶」红，"
+                            + "两条合起来才等于「拆对了」");
+                        // 分桶的**灭自证**：这 4 条必须**从旧桶里消失** —— 否则同一件会被
+                        //   「受击粒子」与「技能动画」各播一次（= 原版没有的第二下）。
+                        //   反向那半边由 `SW26` 在 `attack_melee` 上断（同一件两个桶不许同时在）。
+                        // 🔴 **2026-10-23（第六十六会话实跑红的 —— 断言口错了，不是实现错）**：
+                        //   初版这里用 `VfxMap.ResolveAll(evt, null, card)`，而它是**带兜底链**的
+                        //   （逐卡 → `ByFaction` → `ByEvent`）⇒ `ResolveAll(Hit, …, "BL20")` 逐卡查空之后
+                        //   会掉到 `ByEvent[Hit] = "AttackHitSmall"` 拿到 **1 件**，于是断出「旧桶还有 1 条」。
+                        //   那件通用命中件**本来就该在**（命中帧那一下靠它），与「这 4 条搬走没有」是两件事。
+                        //   ⇒ 判据要问的是**逐卡那一档** ⇒ 改用 `ResolveAllTimed(..., perCardOnly: true)`
+                        //   （= 生产路径里「只查逐卡、不许掉兜底」的同一个口，见 `VfxMap.ResolveAllTimed` 的 doc）。
+                        int oldHitLeft = VfxMap.ResolveAllTimed(VfxMap.Hit, null, "BL20", null, perCardOnly: true).Length;
+                        int oldMeleeLeft = VfxMap.ResolveAllTimed(VfxMap.AttackMelee, null, "SW26", null, perCardOnly: true).Length;
+                        Check(oldHitLeft == 0 && oldMeleeLeft == 0,
+                              $"★ W63/技能动画：这几条**从旧桶搬走了**（逐卡档 `hit[BL20]`={oldHitLeft} · "
+                            + $"`attack_melee[SW26]`={oldMeleeLeft}，两个都该是 0）"
+                            + "—— 🧨 在 `EnsureLoaded` 里改成「只加新桶、不搬旧桶」⇒ 同一件播两遍、本条红"
+                            + "｜⚠️ 用 `ResolveAll`（带兜底）断这条是**错的**：它会掉到 `ByEvent[Hit]=AttackHitSmall`");
+                        var one = CardAnimClips.Resolve(VfxMap.UnitDamaged, null, "BL20", null);
+                        Check(one.Length == 1 && !one[0].IsTimingOnly
+                              && one[0].Place.StartPos == (int)PositionOption.abilityTarget,
+                              $"★ W63/技能动画：`BL20` 那一拍的位置参数解出来了（prefab {one.Length} 个 / "
+                            + $"sp={(one.Length > 0 ? one[0].Place.StartPos : -999)}）"
+                            + "—— 🧨 把 `CardAnimClips` 那 16 行表删掉 ⇒ 退回 sp=0（落在卡自己身上）并出声");
+                    }
+                    // ④-b 🆕 2026-10-23（`W63` 收口 ②b）：**参数表从「代码里的 16 行」搬成 `Resources` 里的 JSON**
+                    //   （生成器 `工具/gen_cardanim_clips.py`；键 = **CardAnim 名**，不是 prefab 名 ——
+                    //    同 prefab 名不同参数的现读 215 组）。这一组盯三件事：
+                    //    ① 表**真的载进来了**（载不到 = 显式降级，见 `CardAnimClips` 文件头）；
+                    //    ② 行数对得上生成器的 `count`；
+                    //    ③ **搬迁前的 16 行逐值不变** —— 下面那张 EXPECTED 是**搬迁时的快照**
+                    //       （⛔ 不是生产数据、也不是第二份判据：它只在这一条断言里活）。
+                    //   🧨 改坏法：把生成器读成 `dump`（prefab 的 GameObject）而不是 `sourceMono` ⇒
+                    //     16 行全变 0 默认值、③ 当场红（第一版就是这么错的，就是这条抓出来的）。
+                    {
+                        Check(CardAnimClips.Loaded && CardAnimClips.TableCount > 1000,
+                              $"★ W63/技能动画：`Resources/cardanim_clips.json` **载进来了**（{CardAnimClips.TableCount} 行）"
+                            + "—— 🧨 删掉那份 JSON / 改名 ⇒ `Loaded=false`、技能动画的 sp/ep/pt 全退回「施法者自己 + 不位移」"
+                            + "（显式降级：件会贴在单位身上播完）");
+                        // 搬迁前的代码表（2026-10-23 第一版 `CardAnimClips.Table` 的 16 行，逐值快照）
+                        //   key = CardAnim 名 → (sp, ep, pt, mv, vd, ts, tm)
+                        var expect = new System.Collections.Generic.Dictionary<string, float[]>
+                        {
+                            { "Atk_HammerSlam",                    new[] { 2, 2, 2, 0, 0f, 0f, 1.0f } },
+                            { "Tyranid_Spawn_Self",                new[] { 0, 0, 0, 0, 0f, 0f, 1.0f } },
+                            { "Atk_BulletImpact_5shot_gatling",    new[] { 0, 2, 2, 0, 0f, 1.0f, 0f } },
+                            { "Trait_GainQuest_self",              new[] { 0, 0, 0, 0, 0f, 0f, 0.7f } },
+                            { "Healing_Volley_Effect",             new[] { 0, 2, 0, 1, 0f, 0f, 1.0f } },
+                            { "EC Sonic Destroy",                  new[] { 2, 2, 0, 0, 0f, 0f, 1.0f } },
+                            { "Debuff EC Lower Stats",             new[] { 2, 2, 0, 0, 0f, 0f, 0.5f } },
+                            { "CreateCard_GSC",                    new[] { 5, 5, 0, 0, 0f, 1.2f, 0f } },
+                            { "Atk_Gauss_Large",                   new[] { 0, 2, 2, 0, 0f, 0.75f, 0f } },
+                            { "Atk_BulletImpact_Bolter_Wide Area", new[] { 0, 2, 2, 0, 0f, 1.8f, 0f } },
+                            { "ToxicMiasma_Venomthrope",           new[] { 0, 0, 0, 0, 0f, 0f, 0.5f } },
+                            { "Atk_BulletImpact_2shot_autocannon", new[] { 0, 2, 2, 0, 0f, 0.75f, 0f } },
+                            { "Buff_DiabolicStrength",             new[] { 2, 2, 0, 0, 0f, 0f, 1.0f } },
+                            { "Master Interromancer Hit",          new[] { 2, 2, 0, 1, 0f, 0f, 0.3f } },
+                            { "Jammed Communications Damage",      new[] { 3, 3, 3, 0, 0f, 0.5f, 0f } },
+                            { "Lord_of_the_storm_hit",             new[] { 2, 2, 0, 1, 0f, 0f, 0.3f } },
+                        };
+                        int same = 0;
+                        var diff = new System.Collections.Generic.List<string>();
+                        foreach (var kv in expect)
+                        {
+                            var pl = CardAnimClips.PlacementOf(kv.Key);
+                            if (!pl.HasValue) { diff.Add(kv.Key + ":missing"); continue; }
+                            var p = pl.Value;
+                            bool ok = p.StartPos == (int)kv.Value[0] && p.EndPos == (int)kv.Value[1]
+                                   && p.PointTowards == (int)kv.Value[2] && (p.Move ? 1 : 0) == (int)kv.Value[3]
+                                   && Mathf.Abs(p.VfxDelay - kv.Value[4]) < 1e-5f
+                                   && Mathf.Abs(p.Ts - kv.Value[5]) < 1e-5f
+                                   && Mathf.Abs(p.Tm - kv.Value[6]) < 1e-5f;
+                            if (ok) same++; else diff.Add(kv.Key);
+                        }
+                        Check(same == 16,
+                              $"★ W63/技能动画：参数表**搬迁前后逐值相同**（{same}/16；不一致："
+                            + $"{string.Join("/", diff.ToArray())}）"
+                            + " —— 判据 = 搬迁前那份代码表（本断言里的 `expect` 快照）");
+                    }
+                    // ④-d 🆕 2026-10-23（`W63` P2/P3 收口）：**手动镜头的「指针在 UI 上」门** + **倒计时特效**
+                    //   P2 判据 = 原版 `BattleSettingsWindow__Open.c:123` 的 `TouchInputManager.Toggle(false)` +
+                    //   `EventSystemController.IsPointerOverUIObject`；我们原来 `PointerOverUi` 生产**恒 null**
+                    //   ⇒ 模态窗开着时滚轮/右键照样缩放/平移。
+                    //   P3 判据 = `ClockManager__Update.c:100-110` → `__CreateCountdownAnim.c:20-45`。
+                    {
+                        var cz = Object.FindObjectOfType<CombatCameraZoom>();
+                        if (cz != null)
+                        {
+                            cz.PointerOverUi = null;                    // 生产默认（没人接）
+                            bool bound = cz.BindPointerOverUi();
+                            Check(bound && cz.PointerOverUi != null,
+                                  "★ W63/P2：手动镜头那道「指针在不在 UI 上」的门**接上了**"
+                                + "—— 🧨 删掉 `CombatCameraZoom.PointerOverUiObject` 里那句 `BindPointerOverUi()` ⇒ 本条红"
+                                + "（生产里它恒 null ⇒ 模态窗开着也能缩放战场）");
+                            driver.ShowBattleLog();
+                            bool blocked = driver.HudButtonsBlockedForTest;
+                            bool gate = cz.PointerOverUi != null && cz.PointerOverUi();
+                            Check(blocked && gate,
+                                  $"★ W63/P2：模态窗（日志面板）开着 ⇒ 手动镜头**被挡**（blocked={blocked} gate={gate}）"
+                                + "—— 判据 = 原版 `BattleSettingsWindow__Open` 那句 `TouchInputManager.Toggle(false)`");
+                            driver.HideBattleLogForTest();
+                            Check(cz.PointerOverUi != null && !cz.PointerOverUi(),
+                                  "★ W63/P2：窗关掉 ⇒ 手动镜头**放行**"
+                                + "｜🧨 把判据改成恒 true ⇒ 手动镜头永远失效、本条红");
+                        }
+                        else Debug.Log(P + "   （没有 CombatCameraZoom ⇒ 跳过 P2 那三条）");
+                        Check(BattleDriver.CountdownAnimPrefab == "TurnTimerTickPulse",
+                              $"★ W63/P3：倒计时那一拍播的是原版那件 **`TurnTimerTickPulse`**"
+                            + $"（13/13 战场同 pathID `3127757642981683788`；实得 `{BattleDriver.CountdownAnimPrefab}`）"
+                            + "—— ⚠️ 它今天**不在效果库里**（进了 `CardEffects` 那条路、缺件会出声）；"
+                            + "🧨 把 `PlayCountdownAnim` 的调用点删掉 ⇒ 这条仍绿但 `CountdownAnimCount` 恒 0（下一节再断）");
+                    }
+
+                    // ④-c 🆕 2026-10-23（`W64` 收口）：**同一 prefab 名被多张 CardAnim 共用**（现读 215 组）
+                    //   ⇒ 任何「按 prefab 名查 AnimInfo」的表都要逐条核过。`VfxMap.SharedRangedVfxDuration`
+                    //   里有 **2 个名字**真的歧义（`_quick` 变体是另一张 CardAnim）：
+                    //     `BulletImpact_2shot_trail_chaos` 0.75（`_quick` 0.3）· `BulletImpact_1shot_trail` 0.3（`_quick` 0.21）。
+                    //   判据 = `Resources/cardanim_clips.json` 的 `vd+ts+tm+te`（= `AnimInfo.GetAnimDuration()`）。
+                    //   🧨 若谁按 prefab 名换成了 `_quick` 那一档 ⇒ 这一条红（远程攻击的时长闸会短 0.45 s）。
+                    Check(Mathf.Abs(VfxMap.AnimDurationOfPrefab("BulletImpact_2shot_trail_chaos")
+                                    - CardAnimClips.DurationOf("Atk_BulletImpact_2shot_chaos")) < 1e-3f
+                          && Mathf.Abs(VfxMap.AnimDurationOfPrefab("BulletImpact_1shot_trail")
+                                    - CardAnimClips.DurationOf("Atk_BulletImpact_1shot")) < 1e-3f,
+                          $"★ W64/共享远程件：两条**同 prefab 名多 CardAnim** 的时长取的是**正常那一张**"
+                        + $"（{VfxMap.AnimDurationOfPrefab("BulletImpact_2shot_trail_chaos"):F2} / "
+                        + $"{VfxMap.AnimDurationOfPrefab("BulletImpact_1shot_trail"):F2}，"
+                        + $"期望 {CardAnimClips.DurationOf("Atk_BulletImpact_2shot_chaos"):F2} / "
+                        + $"{CardAnimClips.DurationOf("Atk_BulletImpact_1shot"):F2}）"
+                        + "—— ⛔ 不是 `_quick` 那一档（0.3 / 0.21）");
+
+                    // ⑤ **生产那条口**真的能把一拍排出去 + 真的起播（不是只解出名来）
+                    if (rallyView != null)
+                    {
+                        int beforeSched = driver.UnitSkillAnimsScheduled;
+                        // ⚠️ `Player` 必须给**本地座位**（`rallyView` 是从 `driver.MyUnits` 取的）
+                        //   —— 给死 0 而 `_me == 1` 时 `ViewAt(0, slot)` 会去对面那张表里找 ⇒ 恒 null、假红。
+                        var sw26 = new BattleEvent
+                        { Kind = EvtKind.Attack, Player = driver.MySeat, Slot = rallySlot, CardId = "SW26" };
+                        driver.PlayUnitSkillAnimForTest(sw26, VfxMap.UnitAttack);
+                        Check(driver.UnitSkillAnimsScheduled == beforeSched + 1,
+                              $"★ W63/技能动画：`SW26` 的 `UnitAttack` 那一拍**排进时间线**（"
+                            + $"{beforeSched} → {driver.UnitSkillAnimsScheduled}）"
+                            + "—— 🧨 把 `ScheduleAttackPresentation` 末尾那句 `PlayUnitSkillAnim` 删掉 ⇒ 生产路径一拍都不会排");
+                        StepThrough(driver);
+                        Check(driver.UnitSkillAnimBeats >= 1 && driver.CardAnimControllerCountForTest >= 1
+                              && driver.AnimOfForTest(rallyView) != null
+                              && driver.AnimOfForTest(rallyView).PlayedCount >= 1,
+                              $"★ W63/技能动画：到点**真的起播**（有件的拍 {driver.UnitSkillAnimBeats} · "
+                            + $"控制器 {driver.CardAnimControllerCountForTest} 个 · "
+                            + $"这个视图起播 {driver.AnimOfForTest(rallyView)?.PlayedCount} 次）"
+                            + "—— 🧨 只排期不接 `DoAnim` ⇒ 前一条绿、本条红（两条合起来才等于「真的播了」）");
+                    }
+                    else Debug.Log(P + "   （没有场上视图 ⇒ 跳过「生产那条口真的起播」那两条）");
+
+                    // ==============================================================
+                    //  ⑥ 🆕 2026-10-23（`W63` 收口 ②）：**受击后坐的方向**（原版 `ReceiveAttackAnim`）
+                    // ==============================================================
+                    //  判据 = `d:/2/tools/decomp_full/CardScript__ReceiveAttackAnim.c`：
+                    //    `dir = normalize(受击方.pos − 攻击方.pos)`（原版 XZ 地面、y=0；我们 XY、z=0）·
+                    //    `|dir| ≤ DAT_1834b2f44(**1e-5**)` ⇒ 取一条静态常量向量 ·
+                    //    `punch = dir × GetPushBackFactor(GetUnitSize(攻击方))`，`DOPunchPosition(punch, 0.4, 8, 0.3)`。
+                    //  🧨 改坏法：把 `BattleDriver` 两处 `HitReactFrom` 换回 `HitReact(… away …)` ⇒
+                    //     「生产真的用了它」那两条红；把 `PushBackDir` 写死 `Vector3.up` ⇒ 前两条红。
+                    {
+                        Debug.Log(P + "--- W63 · 受击后坐方向 ---");
+                        // 原版档位（`SupportMethods__GetPushBackFactor.c:5-11`，三个常量 .rdata 实读）
+                        Check(Mathf.Abs(CardFeel.PushBackMagnitude(2) - 0.5f) < 1e-6f
+                              && Mathf.Abs(CardFeel.PushBackMagnitude(5) - 1.0f) < 1e-6f
+                              && Mathf.Abs(CardFeel.PushBackMagnitude(8) - 1.5f) < 1e-6f,
+                              $"★ W63/后坐：`GetPushBackFactor` 三档 = **0.5 / 1.0 / 1.5**"
+                            + $"（近战 ≤3 / ≤7 / >7；实得 {CardFeel.PushBackMagnitude(2)} / "
+                            + $"{CardFeel.PushBackMagnitude(5)} / {CardFeel.PushBackMagnitude(8)}）"
+                            + "—— 判据 = `SupportMethods__GetUnitSize.c:11-16` + `__GetPushBackFactor.c:5-11`，"
+                            + "常量 `0x1834b2bb4=0.5` / `0x1834b2bb8=1.0` / `0x1834b3090=1.5`（4 字节 float 实读）");
+
+                        var dirL = CardFeel.PushBackDir(Vector3.zero, new Vector3(-2f, 0f, 0f));
+                        var dirU = CardFeel.PushBackDir(Vector3.zero, new Vector3(0f, -2f, 0f));
+                        var vL = Vector3.zero - new Vector3(-2f, 0f, 0f);
+                        var vU = Vector3.zero - new Vector3(0f, -2f, 0f);
+                        Check(Vector3.Dot(dirL, vL.normalized) > 0.999f && Vector3.Dot(dirU, vU.normalized) > 0.999f,
+                              $"★ W63/后坐：方向**指向远离攻击者**（左攻 dot={Vector3.Dot(dirL, vL.normalized):F4} / "
+                            + $"下攻 dot={Vector3.Dot(dirU, vU.normalized):F4}，都该 ≈ 1）"
+                            + "—— 🧨 符号写反（`攻击方 − 受击方`）⇒ 两个 dot 都 −1、本条红");
+                        Check(Vector3.Distance(dirL, dirU) > 0.5f && Mathf.Abs(dirL.z) < 1e-6f,
+                              $"★ W63/后坐：方向**跟着攻击者变**、且压平在屏幕平面（两个方向距离 "
+                            + $"{Vector3.Distance(dirL, dirU):F3} / dirL.z={dirL.z:F6}）"
+                            + "—— 🧨 退回「恒定上/下」（`Vector3.up`/`down`）⇒ 两个方向距离 = 0 或只差一个分量"
+                            + "、且与上一条的 dot 对不上 ⇒ 本条红（这两条一起才排除「换了个固定方向」）");
+                        Check(CardFeel.PushBackDir(new Vector3(1f, 2f, 3f), new Vector3(1f, 2f, 3f)) == Vector3.up,
+                              "★ W63/后坐：两点重合（|dir| ≤ 1e-5）⇒ 原版取常量向量，我们沿用 `Vector3.up`（`Flat` 的既有退路）");
+
+                        // **生产路径真的用了它**：造两个探针对象，走 `HitReactFrom`（= 生产同一个口）
+                        var victimGo = new GameObject("W63_HitVictim");
+                        var atkAGo = new GameObject("W63_AtkA");
+                        var atkBGo = new GameObject("W63_AtkB");
+                        victimGo.transform.position = Vector3.zero;
+                        atkAGo.transform.position = new Vector3(-3f, 0f, 0f);
+                        atkBGo.transform.position = new Vector3(0f, -3f, 0f);
+                        int awayBefore = CardFeel.AwayFromAttackerCount;
+                        int fbBefore = CardFeel.NoAttackerFallbackCount;
+                        var tA = CardFeel.HitReactFrom(victimGo.transform, atkAGo.transform, Vector3.up, false, 0f, 5);
+                        var dA = CardFeel.LastPushBackDir;
+                        var tB = CardFeel.HitReactFrom(victimGo.transform, atkBGo.transform, Vector3.up, false, 0f, 5);
+                        var dB = CardFeel.LastPushBackDir;
+                        CardFeel.HitReactFrom(victimGo.transform, null, Vector3.up, false, 0f, -1);
+                        Check(CardFeel.AwayFromAttackerCount == awayBefore + 2
+                              && CardFeel.NoAttackerFallbackCount == fbBefore + 1,
+                              $"★ W63/后坐：`HitReactFrom` 的**两条支路**都走到了（知道攻击方 +2 = "
+                            + $"{CardFeel.AwayFromAttackerCount - awayBefore} · 不知道攻击方 +1 = "
+                            + $"{CardFeel.NoAttackerFallbackCount - fbBefore}）"
+                            + "—— 判据：原版**没有**「不知道攻击方」这一档（那条是我们补的退路，必须出声）");
+                        Check(Vector3.Distance(dA, dB) > 0.5f && Vector3.Dot(dA, (Vector3.zero - atkAGo.transform.position).normalized) > 0.99f,
+                              $"★ W63/后坐：同一张卡、两个不同方向的攻击者 ⇒ 两次后坐方向不同且各自背离"
+                            + $"（A {dA} / B {dB}）—— 🧨 生产还传固定 `away` ⇒ 两次方向相同、本条红");
+                        if (tA != null) DG.Tweening.DOTween.Kill(tA);
+                        if (tB != null) DG.Tweening.DOTween.Kill(tB);
+                        Object.DestroyImmediate(victimGo);
+                        Object.DestroyImmediate(atkAGo);
+                        Object.DestroyImmediate(atkBGo);
+                    }
                 }
                 // 🔴 2026-10-19（战斗线 B2 · 偏差 7）：**触发式不再播通用特效**。
                 //   判据 = 原版 `CardScript.ActivateTriggerTraitAnim` 只做 `HighlightTraitIcon`
@@ -17744,6 +18121,62 @@ public static class BattleScene
                     float dDissolveW = Dur(CardFeel.Dissolve(probe, 0f, null, isWarlord: true));
                     Check(Mathf.Abs(dDissolveW - CardFeel.DeathDissolveWarlord) < 1e-3f,
                           $"督军消散 {dDissolveW:F3}s == 原版 `deathTimeWarlordDuration` {CardFeel.DeathDissolveWarlord:F2}s（**分档**，不是一个常量）");
+                    // ==============================================================
+                    //  🆕 2026-10-23（`F1` 前置；判据 → `资料/普查产出_1023/D3_F1判据与方案.md` §③ C3/C4）
+                    //  卡体改成**不透明**（`Queue=Geometry` / `Blend One Zero`）后，`_Color.a` 对 3D 体**不再生效**
+                    //  ⇒ 两条「整卡淡出」的兜底必须改走**原版那条路**（材质 `_DissolveAmount`）：
+                    //    · 阵亡兜底 `CardFeel.Dissolve`：`BeginDissolve()` 成功 ⇒ 驱动 `_DissolveAmount` 0→1；
+                    //    · 回手兜底 `ReturnToHand` 的 `!canDissolve` 分支 ⇒ **直接关 3D 体**（`SetBody3DVisible(false)`），
+                    //      ⛔ 不再淡卡体。
+                    //  🧨 改坏法：把 `Dissolve` 里那句 `if (canDissolve)` 删回「一律 `SetAlpha(0)`」⇒
+                    //     本条红（`LastDeathFallback` 恒 `WholeCardAlpha`，而下面证明了场上视图是支持溶解的）。
+                    {
+                        int dissolvable = 0;
+                        foreach (var kv in driver.MyUnits)
+                            if (kv.Value != null && kv.Value.DissolveSupported) dissolvable++;
+                        Check(dissolvable > 0,
+                              $"★ F1：场上视图**支持材质溶解**（{dissolvable} 个 `DissolveSupported`）—— "
+                            + "阵亡兜底才有原版那条路可走（否则只能退回淡出，而那在不透明档下对 3D 体无效）");
+                        Check(CardFeel.LastDeathFallback == (probe.DissolveSupported
+                                  ? CardFeel.FallbackPath.MaterialDissolve
+                                  : CardFeel.FallbackPath.WholeCardAlpha),
+                              $"★ F1/阵亡兜底：走哪条路由 `BeginDissolve()` **现判**，不是写死"
+                            + $"（走的是 {CardFeel.LastDeathFallback} · 这张探针 DissolveSupported={probe.DissolveSupported}）"
+                            + "｜🧨 把它写成「总是素材溶解」⇒ 在取不到 shader 的机器上静默不动，本条红");
+
+                        // 兜底分支本身（真机上只有「取不到 shader」才走到）—— 用 `ForceNoDissolveForTest` 打开
+                        var f1 = CardView.Create(driver.transform, probeData, "F1FallbackProbe");
+                        if (f1 != null)
+                        {
+                            f1.SetPose(Vector3.zero, 0f, 1f);
+                            CardFeel.ForceNoDissolveForTest = true;
+                            CardFeel.Dissolve(f1);
+                            Check(CardFeel.LastDeathFallback == CardFeel.FallbackPath.WholeCardAlpha,
+                                  $"★ F1/阵亡兜底：取不到溶解材质 ⇒ **退回整卡淡出**（实得 {CardFeel.LastDeathFallback}）"
+                                + "（并已出声一次；⛔ 不是静默不动）");
+                            Step(0.35f);
+                            Check(f1.Alpha < 0.05f,
+                                  $"★ F1/阵亡兜底的退路**真的淡到 0**（实得 α={f1.Alpha:F3}）"
+                                + "—— 这条退路只在「取不到溶解材质」时活，所以它保留旧的淡出是对的");
+                            f1.SetAlpha(1f);                 // 归位，好验「兜底没碰 α」
+                            // ⚠️ **必须「先调一次、紧接着断」** —— `LastReturnFallback` 是**静态的上一次结果**，
+                            //    中间只要插任何别的 `ReturnToHand`（本节前面那几张探针就跑过），断言读到的
+                            //    就是**别人的**那一次。🔴 2026-10-23（第六十六会话实跑红）就是踩了这个：
+                            //    删重复行时把这句调到 Check **之后** ⇒ 实得 `MaterialDissolve`（= 前面探针留下的），
+                            //    而实现是对的（下面那条 α 不动也证明了兜底真的走了关体支）。
+                            CardFeel.ReturnToHand(f1);
+                            Check(CardFeel.LastReturnFallback == CardFeel.FallbackPath.HideBody,
+                                  $"★ F1/回手兜底：取不到溶解材质 ⇒ **关 3D 体**那条路（实得 {CardFeel.LastReturnFallback}）"
+                                + "｜🧨 改回 `SetAlpha(0)` ⇒ 本条红 + 下一半也红");
+                            Step(1.2f);
+                            Check(Mathf.Abs(f1.Alpha - 1f) < 1e-4f,
+                                  $"★ F1/回手兜底**不再依赖 `_Color.a`**（走完一轮后 α 仍是 {f1.Alpha:F3}，期望 1）"
+                                + "—— 🧨 退回「整卡淡出」⇒ α 变 0、本条红（而 F1 之后卡体根本不吃 α ⇒ 那一版是**无效动作**）");
+                            CardFeel.ForceNoDissolveForTest = false;
+                            Object.DestroyImmediate(f1.transform.gameObject);
+                        }
+                    }
+
                     float dDeal = Dur(CardFeel.DealIn(probe, Vector3.zero));
                     Check(Mathf.Abs(dDeal - CardFeel.DealDuration) < 1e-3f,
                           $"发牌序列 {dDeal:F3}s == {CardFeel.DealDuration:F2}s");

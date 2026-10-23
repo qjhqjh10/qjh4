@@ -181,9 +181,13 @@
 //
 // ============================ 我们没做 / 做不到的（如实） ============================
 // D. **`I2.Loc.LocalizationManager.GetTranslation` 那条本地化**：原版 `Show(..., localize: true)`
-//    走 I2 表。我们是 `Core/Loc.cs` ⇒ 等价物 = 「表里有这条键就 `Loc.T(键)`，否则**调用方给的兜底句**」
-//    （同 `BattleDriver.HandFullText` 那两态）。⚠️ `Battle/Tips/*` 那族键**本地一个 value 都没有**
-//    （I2 表在远端 CCD）⇒ 今天实际走的**永远是兜底句**。
+//    走 I2 表。我们是 `Core/Loc.cs` ⇒ 等价物 = 「`Loc.T(键)` 解得出来就用它，否则**调用方给的兜底句**」
+//    （同 `BattleDriver.HandFullText` 那两态）。
+//    🔴 **2026-10-23（`W64` `B-29` 收口 · 铁律 5 就地订正）**：本段原来写「`Battle/Tips/*` 那族键
+//    **本地一个 value 都没有**」—— **已过期**：官方本地化表已在本地（`官方本地化_en+zh-CN.json`，
+//    现读 10,854 键），`Battle/Tips/*` 那 **39 条全有值**（`GoFirst` = `You go first` / `你先行`）。
+//    而且本件的**闸**原来是 `Loc.HasEntry`（**只查手写 `Table`**）⇒ 官方表独有的键一律落到兜底句；
+//    ✅ 现在闸 = 「`Loc.T(键)` 的结果 ≠ 键」（`T` 缺键时**原样返回键名**，`Core/Loc.cs:3423-3431` 实读）。
 // E. **`OnKill` 那一支的触发时机**：原版 `SetAutoKill(false)` ⇒ 那条 fade tween **活到下次
 //    `Restart`**；我们手推的版本没有「kill」这回事 ⇒ 等价物 = <see cref="HideAll"/>（收工/换局用）。
 //    ⚠️ 生产路径今天**没有**任何地方调它（原版也没有「换局清横幅」这一句）。
@@ -657,13 +661,17 @@ namespace CardPresentation
             if (localize)
             {
                 // 等价物 D：原版走 I2；我们＝「表里有这条键才取值，否则用调用方给的兜底句」
-                if (Loc.HasEntry(text)) shown = Loc.T(text);
+                // 🔴 2026-10-23（`W64` `B-29`）：闸**不再**是 `Loc.HasEntry`（只查手写 `Table`）——
+                //   它会把「官方表独有的键」全判成「没有」。现在：`Loc.T` 解得出来（≠ 键）就用它；
+                //   缺键时 `T` 原样返回键名（`Core/Loc.cs:3423-3431` 实读）⇒ 落到调用方的兜底句。
+                string resolved = Loc.T(text);
+                if (!string.IsNullOrEmpty(resolved) && resolved != text) shown = resolved;
                 else if (!string.IsNullOrEmpty(fallback)) shown = fallback;
                 else
                 {
                     // 没有兜底句 ⇒ 不能印键名（那是本工程最忌讳的那种退化）⇒ 出声 + 退回键名
                     Debug.LogWarning($"[ErrorMessageBanner] 词条 `{text}` 不在语言表里、调用方也没给兜底句"
-                                   + " ⇒ 界面上会印**键名本身**（本文件头 D 段：`Battle/Tips/*` 那族本地全无 value）。");
+                                   + " ⇒ 界面上会印**键名本身**（本文件头 D 段：该条键**官方本地化表里也没有**）。");
                 }
             }
             LastShownText = shown;

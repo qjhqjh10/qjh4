@@ -670,6 +670,8 @@ namespace CardPresentation
         /// `PointerOverUi` 没人接 ⇒ 按「不在 UI 上」放行，**并出声一次**（⛔ 默认成「在 UI 上」= 手动缩放永远失效 = 静默）。</summary>
         bool PointerOverUiObject(int pointerId)
         {
+            // 🆕 2026-10-23（`W63` P2 收口）：**先试着接上**（只接一次；显式赋过就不动）。
+            if (PointerOverUi == null) BindPointerOverUi();
             if (PointerOverUi == null)
             {
                 if (!_pointerGateNoted)
@@ -683,6 +685,25 @@ namespace CardPresentation
                 return true;
             }
             return !PointerOverUi();
+        }
+
+        /// <summary>🆕 2026-10-23（`W63` P2 收口）：把「指针在不在 UI 上」**接到本局的 `BattleDriver`**。
+        /// <para>**判据**：原版 `BattleManager` 在 `<see>BattleSettingsWindow__Open.c:123</see>` 里
+        /// `TouchInputManager.Instance.Toggle(false)` —— 任何一扇模态窗开着时，**手动镜头（滚轮缩放 + 右键拖拽）整段禁用**；
+        /// 平时那一道是 `EventSystemController.IsPointerOverUIObject(fingerId)`。
+        /// 我们这台没有 uGUI `EventSystem` ⇒ 等价物 = `BattleDriver.HudButtonsBlocked`
+        /// （设置 / 聊天 / 换牌 / 选牌 / 多卡 / 放大 / 联盟 / 日志 任一开着）。</para>
+        /// <para>⚠️ 只绑一次：`PointerOverUi` 已经有值时**不动**（自检会显式把它钉成 `() => false`）。
+        /// ⚠️ `FindObjectOfType` 只会在**有输入的那几帧**跑（`HandleManualControl` 的调用点就那两处），
+        /// 绑上之后每帧只是一次委托调用。</para>
+        /// <returns>true = 现在有判据可用。</returns></summary>
+        public bool BindPointerOverUi()
+        {
+            if (PointerOverUi != null) return true;
+            var drv = Object.FindObjectOfType<BattleDriver>();
+            if (drv == null) return false;
+            PointerOverUi = drv.PointerOverBlockingUi;
+            return true;
         }
 
         /// <summary>= 原版那一句 `EventSystem.current.m_HasFocus`（`EventSystem` 的 `+0x48`，

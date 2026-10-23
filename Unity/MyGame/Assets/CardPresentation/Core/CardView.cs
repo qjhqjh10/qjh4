@@ -1259,6 +1259,18 @@ namespace CardPresentation
         void StampQueue(Renderer mr)
         {
             if (mr == null || mr.sharedMaterial == null) return;
+            // 🔴 2026-10-23（D4 · F1 Step 2）：**3D 卡体不参与「一张卡一段队列」。**
+            //   判据 = 原版 `Card 3d Lvl1` 的 shader `Everguild/Cards/3D Card` 子标签
+            //   `QUEUE=Geometry`（不透明档）+ `blend (1,0)` + `zWrite 1`（原始 bundle 实读；
+            //   全文 → `资料/普查产出_1023/D3_F1判据与方案.md`）。
+            //   为什么必须在这里拦：`renderQueue` 的排序优先级**高于** sortingLayer/sortingOrder
+            //   ⇒ 一旦盖成场上号段（2962–2979）或手牌号段（2980–3000），卡体就掉回透明档，
+            //   shader 那两条标签等于白改（`Shaders/Card3D.shader` 的 SubShader 头注里也写了这条）。
+            //   顺带治掉一个**老隐患**：溶解进行中被盖章时，`StampQueue` 会把渲染器换成
+            //   `QueueMaterial` 的**克隆**，而 `SetDissolveAmount` 写的是 `_dissolveMat` 原件
+            //   ⇒ 溶解会**静默卡住**（写进没人用的那份）。拦在这里，两条一起没了。
+            //   ⚠️ 只拦**卡体这一颗**：卡面各层 / 粒子仍照旧盖章（`A1665`/`A1674` 那两族判据靠它）。
+            if (mr == _body3D) return;
             var cur = mr.sharedMaterial;
             if (cur.renderQueue == _queue) return;   // 无操作就别拆材质（见 doc）
 
@@ -1345,7 +1357,18 @@ namespace CardPresentation
             var all = GetComponentsInChildren<MeshRenderer>(true);
             var list = new List<int>(all.Length + 2);
             foreach (var mr in all)
+            {
+                // 🔴 2026-10-23（D4 · F1 Step 2）：**3D 卡体不算「这段队列」的成员** ——
+                //   它自本批起是**不透明档**（shader 标签 `QUEUE=Geometry` = 2000），
+                //   已经不在「一张卡一段队列」那套里（`StampQueue` 同批跳过它）。
+                //   ⚠️ 不排除的话，所有拿本方法做 min/max 的判据都会把 2000 算进来：
+                //     · `CardFaceProbe` 的 `A1665`「前卡整段 > 后卡整段」
+                //     · `BattleScene` 的 `A1672②`「场上每张卡的每一层都在它自己那一段里」
+                //   那两条量的是**透明层**的号段 ⇒ 卡体本来就不该出现在集合里。
+                //   （判据全文 → `资料/普查产出_1023/D3_F1判据与方案.md` §4.1。）
+                if (mr == _body3D) continue;
                 if (mr.sharedMaterial != null) list.Add(mr.sharedMaterial.renderQueue);
+            }
             foreach (var pr in GetComponentsInChildren<ParticleSystemRenderer>(true))
             {
                 if (_remnantBody != null && pr.transform.IsChildOf(_remnantBody.transform)) continue;
@@ -1375,21 +1398,38 @@ namespace CardPresentation
         //     = `BattleCardUI+0x30` 那个组件的 transform；`+0x30` 现读 `il2cpp_out/dump.cs` =
         //     **`BasicCardUI.card2DController`** ⇒ **就是 `2DCard` 那一级** = 本类的 `FaceRoot`。
         //   · **场上档（其余状态）** = `BattleCardUI+0x1A0` = **`public Transform effectsAnchor`**。
-        //     那颗节点的真身 = **`2DCard/Front/EffectAnchor`**（`localPosition (0,0,0)`、**带 `SortingGroup`**；
-        //     判据 = 现读卡 prefab 那个包里**两颗同名** `EffectAnchor`：只有它带 `SortingGroup`，
-        //     另一颗带 `MonoBehaviour` 且 `y = 1.34` ⇒ 不是它）。
-        //     ⇒ 它的位置 = **`Front` 的原点** = `2DCard` 再抬 `Front` 的 `apos y = +0.08`
-        //       （父链注见本文件上面 `2DCard → Front → Textbackgrounds/Card Info` 那一段）。
-        //  ⛔ **别把两个合成一个** —— 手牌档锚在 `2DCard`（含整张卡面），场上档锚在 `Front`（抬了 0.08 卡单位）。
+        //     🔴 **它的真身 = `CardPrefab/Board Elements/EffectAnchor`** —— 判据是**序列化 PPtr 本身**：
+        //     实读卡 prefab 里 `BattleCardUI` 那份 MonoBehaviour，`effectsAnchor` 指向的是
+        //     **`Board Elements` 下面那颗**，`localPosition = (0, **1.34**, **−0.128**)`
+        //     （Prefab 根的原点 = 卡底边，见 `BuildBody3D` 那条注释；该节点挂的是一个 follow/align
+        //     约束组件，**没有 SortingGroup**）。
+        //     ⚠️ prefab 里还有**另一颗同名的** `2DCard/Front/EffectAnchor`（`localPosition (0,0,0)`、
+        //     **带 `SortingGroup order=1`**）—— 它**不被 `effectsAnchor` 引用**（`GetEffectAnchor` 也不返回它）。
+        //     🔴 **2026-10-23 就地订正（铁律 5）**：本段原来写「场上档 = `2DCard/Front/EffectAnchor`，
+        //     理由是两颗同名节点里只有它带 SortingGroup」—— **那条推断是反的**，错因是
+        //     **「同名节点里挑特征最像的那个」这种判法不成立**：字段的 PPtr 才是判据。
+        //     当场后果：锚点位置被写成 `(0, +0.08, 0)`（= `Front` 的 apos）而不是 `(0, 1.34, −0.128)`，
+        //     Y 高 ≈0.406 卡单位、Z 多 0.128（1080p 下约 27 px）。
+        //  ⛔ **别把两个合成一个** —— 手牌档锚在 `2DCard`（含整张卡面），场上档锚在 `Board Elements`（卡的兄弟级）。
         //  ⚠️ 谁在用它：`BattleManager.GetAnimTransform` 的 `self`/`cardTarget`/`abilityTarget` 三档
         //     （判据 → `任务线/战斗线/任务/T05` §2·6 那张逐档表）。
+
+        /// <summary>**场上档锚点在我们卡根坐标系里的局部位** —— **判据只此一处**（`EffectAnchorBoard` 与自检共用）。
+        /// <para>原版值 `(0, 1.34, −0.128)` 是 `Board Elements` 空间（= prefab 根空间，原点在**卡底边**）；
+        /// 我们卡根的原点在**卡心** ⇒ 只有 `y −= Height/2` 这一步，就是 <see cref="From3DBody"/>。
+        /// ⛔ **别在别处再写一遍 `1.34 − Height/2`**（两处写同一条规则 = 迟早不一致）。</para>
+        /// <para>判据出处：卡 prefab `CardPrefab/Board Elements/EffectAnchor` 的 `localPosition`
+        /// + `BattleCardUI.effectsAnchor` 的序列化 PPtr（2026-10-23 实读）。</para></summary>
+        public static Vector3 BoardEffectAnchorLocal { get { return From3DBody(0f, 1.34f, -0.128f); } }
 
         Transform _fxAnchorBoard;
         /// <summary>**手牌档**的卡上特效锚点（原版 = `card2DController.transform` = `2DCard` 那一级）＝ `FaceRoot`。</summary>
         public Transform EffectAnchorHand { get { return FaceRoot; } }
-        /// <summary>**场上档**的卡上特效锚点（原版 `effectsAnchor` = `2DCard/Front/EffectAnchor`，
-        /// `localPosition (0,0,0)` ⇒ 位置就是 `Front` 的原点）。懒建、建好留着。
-        /// ⚠️ 它是 `FaceRoot` 的子节点 ⇒ 跟着卡面倾摆走（原版也在 `Front` 底下）。</summary>
+        /// <summary>**场上档**的卡上特效锚点（原版 `effectsAnchor` = `CardPrefab/Board Elements/EffectAnchor`，
+        /// `localPosition (0, 1.34, −0.128)`）。懒建、建好留着。
+        /// <para>⚠️ 它挂在**卡根**（`transform`）下、**不是** `FaceRoot`：原版那颗节点是 `2DCard` 的
+        /// **兄弟**（`Board Elements` 与 `2DCard` 同级）⇒ 它不跟 2D 卡面的倾摆走（场上倾摆本来也关着）。</para>
+        /// <para>局部位取 <see cref="BoardEffectAnchorLocal"/>（与自检同一份判据）。</para></summary>
         public Transform EffectAnchorBoard
         {
             get
@@ -1397,9 +1437,8 @@ namespace CardPresentation
                 if (_fxAnchorBoard == null)
                 {
                     var go = new GameObject("EffectAnchor");
-                    go.transform.SetParent(FaceRoot, false);
-                    // `Front` 的 `apos y = +0.08`（**卡单位**，见本文件那条 `2DCard → Front → …` 父链注）
-                    go.transform.localPosition = new Vector3(0f, 0.08f, 0f);
+                    go.transform.SetParent(transform, false);
+                    go.transform.localPosition = BoardEffectAnchorLocal;
                     _fxAnchorBoard = go.transform;
                 }
                 return _fxAnchorBoard;
@@ -5198,12 +5237,29 @@ namespace CardPresentation
             _dissolveMat.SetFloat("_DissolveAmount", _dissolveAmount);
         }
 
-        /// <summary>换回正常那张卡体材质（原版 `DelayedResetMaterial` 那一步）。</summary>
+        /// <summary>换回正常那张卡体材质（原版 `DelayedResetMaterial` 那一步 —— 它等价于
+        /// `SetCardMaterial(defaultMaterial, alsoSetCardImage: true)`：**无条件**换回 + 重喂卡图）。
+        ///
+        /// <para>🔴 **2026-10-23（D5）就地订正（铁律 5）—— 早退条件原来**判反了**。**
+        /// 原来写的是 `if (_body3D == null || _body3D.sharedMaterial == _dissolveMat) return;`，
+        /// 含义变成「**正好在**溶解材质上就**不**还原」⇒ 任何 `BeginDissolve()` 之后接
+        /// `EndDissolve()` 的调用点都会**永远留在溶解材质上**（卡体一直是溶解态）。
+        /// 判据（反编译逐句实读）：`BattleCardUI__RestoreOriginalMaterial.c` 整段只有
+        /// `Renderer.SetMaterial(+0x2c8 缓存的原件)` + `SetCardImageTo3DBase()`，
+        /// **没有任何「当前是不是溶解材质」的分支**；`DelayedResetMaterial` 那条协程的收尾
+        /// （`BattleCardUI._DelayedResetMaterial_d__121__MoveNext.c`）也是无条件
+        /// `SetCardMaterial(defaultMaterial, true)`。⇒ 这里**只保留 null 守卫**。</para>
+        ///
+        /// <para>还原动作**转调** <see cref="RestoreOriginalMaterial"/>（它就是原版同名方法的对应物，
+        /// 判据只留一处，⛔ 别在这儿再写第二份「换回 `_bodyMat` + 喂卡图」）。</para>
+        ///
+        /// <para>⚠️ 本方法当前**没有调用点**（2026-10-23 全仓 `grep EndDissolve` 只命中定义）
+        /// ⇒ 这条是**潜伏缺陷**（来自 A4 的审查）。修它是给下一个调用点铺路：
+        /// 少这一修，`BeginDissolve → EndDissolve` 这条路会静默停在溶解材质上。</para></summary>
         public void EndDissolve()
         {
-            if (_body3D == null || _body3D.sharedMaterial == _dissolveMat) return;
-            // 正常材质是建体时那份 —— 直接由 `BuildBody3D` 的逻辑重建一份不值当，留个引用更省。
-            if (_bodyMat != null) _body3D.sharedMaterial = _bodyMat;
+            if (_body3D == null) return;
+            RestoreOriginalMaterial();
             _dissolveAmount = -1f;
         }
 
@@ -5891,8 +5947,14 @@ namespace CardPresentation
             go.AddComponent<MeshFilter>().sharedMesh = mesh;
 
             var mr = go.AddComponent<MeshRenderer>();
-            mr.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
-            mr.receiveShadows = false;
+            // 🔴 **2026-10-23（D2 · 铁律 5 订正）：阴影开关照原版打开。**
+            //   判据 = 卡 prefab `CardPrefab/Board Elements/3DBody/Card 3D` 的 `MeshRenderer` 实读：
+            //   `m_CastShadows = 1`、`m_ReceiveShadows = 1`（另有 `m_DynamicOccludee = 1`）。
+            //   原来这里写的是 `Off / false` —— **与判据相反**；当时没有出处。
+            //   ⚠️ 开它之前先确认场上真有光源（原版场景自带 `Scenario/Directional Light`）；
+            //   没有光的话这两句只是空转，不会画错（不会静默失败）。
+            mr.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.On;
+            mr.receiveShadows = true;
             var m = new Material(sh) { name = "Card3D" };
             // 材质属性值 = 原版 `Card 3d Lvl1`（`资料/3DBody_原版场上卡体规格.md` §一 那一行）
             m.SetTexture("_BaseMap", CardArt.Card3DBase());

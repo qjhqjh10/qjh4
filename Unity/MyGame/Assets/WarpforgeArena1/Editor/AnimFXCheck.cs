@@ -487,6 +487,99 @@ public static class AnimFXCheck
             }
         }
 
+        // ================================================================
+        // 🆕 2026-10-23（特效线 A1 R23 / R24）—— 两条「销毁时机」的回归断言
+        //   判据 → `资料/普查产出_1022/A1_自造与兜底_特效动画.md` R23 / R24
+        // ================================================================
+
+        // ---- R23：原版 `AnimFXController.DoDestroy` 「有模块就不销毁、销毁权交给模块」 ----
+        //   实例 = `Pray_Idle`（全工程唯一的 `AnimFXModuleDoDestroyAnimation`，`timeToDestroy = 1.0`）。
+        {
+            var e = entries.FirstOrDefault(x => x != null && x.name == "Pray_Idle");
+            Check(e != null, "R23：库里找得到 `Pray_Idle`（唯一的 DoDestroyAnimation 实例）");
+            if (e != null)
+            {
+                var p = WarpforgeEffectPlayer.Play(e.name, null, Vector3.zero, 1f);
+                Check(p != null, "R23：`Pray_Idle` 起了");
+                if (p != null)
+                {
+                    // ⚠️ 走**原版那条路**：`AnimFXController.DoDestroy`（调用方 = `BattleManager.RemoveDestroyableAnims`）——
+                    //    ⛔ 不是 `Exit()` 的计时销毁（那条**一定**自毁，不交接；判据 `Battle/AnimFXController.cs:318-345`）。
+                    var mod = p.GetComponentInChildren<WFModuleDoDestroyAnimation>(true);
+                    Check(mod != null, "R23：`Pray_Idle` 上装着 `WFModuleDoDestroyAnimation`");
+                    p.DoDestroy();
+                    // 🔴 灭自证：**只看「没销毁」不够** —— 若 `TakesOverDestroy` 一直是 false，
+                    //    这一跳会立刻销毁；所以必须再验「过了一会儿它真的被模块收掉」。
+                    Check(p != null, "R23：有模块接管 ⇒ **`DoDestroy()` 之后对象还在**（原版 controller 不自毁）");
+                    if (p != null) p.Tick(1.5f);             // timeToDestroy = 1.0
+                    Check(p == null, "R23：……而模块在 `timeToDestroy`(1s) 之后**自己销毁**（不是永久泄漏）");
+                }
+            }
+        }
+
+        // ---- R24：`AnimFXModuleAnimation.AnimationExitEnd`（原版由 Exit clip 的动画事件调）----
+        //   现在由 `ModuleTick` 按 clip 真实时长数到结束再调；实例 = `ShieldTraitEffect_Idle`。
+        {
+            var e = entries.FirstOrDefault(x => x != null && x.name == "ShieldTraitEffect_Idle");
+            Check(e != null, "R24：库里找得到 `ShieldTraitEffect_Idle`");
+            var exitClip = WarpforgeAnimatorBridge.TryGetClip("ShieldTraitEffect_Idle|Exit");
+            Check(exitClip != null, "R24：`ShieldTraitEffect_Idle|Exit` 片段取得到（否则这条断言没意义）");
+            if (e != null && exitClip != null)
+            {
+                var p = WarpforgeEffectPlayer.Play(e.name, null, Vector3.zero, 1f);
+                Check(p != null, "R24：`ShieldTraitEffect_Idle` 起了");
+                if (p != null)
+                {
+                    var mod = p.GetComponentInChildren<WFModuleAnimation>(true);
+                    var modGo = mod != null ? mod.gameObject : null;
+                    Check(mod != null && modGo != null, "R24：找得到 `WFModuleAnimation` 模块（挂在某个节点上）");
+                    p.Tick(e.AutoLifetime() + 0.01f);        // 进 Exit ⇒ 播 Exit clip
+                    p.Tick(exitClip.length + 0.05f);         // 数到片段结束
+                    Check(mod == null || modGo == null,
+                          $"R24：Exit 片段（{exitClip.length:F2}s）播完 ⇒ `AnimationExitEnd` 把宿主节点收掉了");
+                    if (p != null) p.Kill();
+                }
+            }
+        }
+
+        // ---- R25：`AnimFXModuleEvent` 的 UnityEvent 真的接上了（原版 `m_Calls` = 2 条）----
+        //   判据 → `资料/普查产出_1023/E_R25事件通道.md`
+        //   🔴 灭自证：只断 `FiredCount == 1` 的话，「Invoke 了一个什么都不做的 listener」也能绿
+        //   ⇒ 必须再断**副作用真的发生了**（`cm.materialInstance != null`）。
+        {
+            Check(WFModuleEvent.SelfCheck() == "",
+                  "R25：事件表自洽" + (WFModuleEvent.SelfCheck() == "" ? "" : "（" + WFModuleEvent.SelfCheck() + "）"));
+            Check(WFModuleEvent.TableCount == 2,
+                  $"R25：表里 2 条（原版 `VanguardIdleEffect` 的 `m_Calls`；实测 {WFModuleEvent.TableCount}）");
+            Check(WFModuleEvent.TableCovers("VanguardIdleEffect", 0, WFActionStart.Exit),
+                  "R25：表覆盖 `VanguardIdleEffect#0 @ Exit`");
+
+            var r25e = entries.FirstOrDefault(x => x != null && x.name == "VanguardIdleEffect");
+            Check(r25e != null, "R25：库里找得到 `VanguardIdleEffect`");
+            if (r25e != null)
+            {
+                WFModuleEvent.ResetDiagnostics();
+                var p = WarpforgeEffectPlayer.Play(r25e.name, null, Vector3.zero, 1f);
+                Check(p != null, "R25：`VanguardIdleEffect` 起了");
+                if (p != null)
+                {
+                    var ev = p.GetComponentInChildren<WFModuleEvent>(true);
+                    var cm = p.GetComponentInChildren<WFModuleChangeMaterial>(true);
+                    Check(ev != null, "R25：`WFModuleEvent` 装配上了");
+                    Check(cm != null, "R25：`WFModuleChangeMaterial` 装配上了（这条事件的第 1 个目标）");
+                    p.Exit();                                  // preventDestroy=1 ⇒ 只能手动 Exit
+                    Check(WFModuleEvent.UnresolvedCount == 0,
+                          "R25：表里 2 条**一条不落**全接上（未接 " + WFModuleEvent.UnresolvedCount + "："
+                          + string.Join(" / ", WFModuleEvent.WiringProblems) + "）");
+                    Check(WFModuleEvent.FiredCount == 1,
+                          $"R25：Exit 时事件真的 Invoke 了 1 次（实测 {WFModuleEvent.FiredCount}）");
+                    Check(cm != null && cm.materialInstance != null,
+                          "R25：`ToggleMaterial(true)` 真的换了材质（`materialInstance` 非空）");
+                    p.Kill();
+                }
+            }
+        }
+
         Done();
     }
 

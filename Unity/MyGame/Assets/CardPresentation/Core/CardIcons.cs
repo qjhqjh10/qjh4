@@ -695,7 +695,9 @@ namespace CardPresentation
         /// （同 ① 的六族里没有它，`Loc` 手写表里那 20 来条是我们自造的 `Ember Warlord` 那种，不是官方 id）
         /// ⇒ **本支今天也会全部「原样留着 + 出声」**。数据侧同属 `A1763` / `A1982`。</para>
         /// <para>🔴 **2026-10-18（`A1957`）现读订正 —— 上面那段【已过期】，⛔ 别照它再立账**：
-        /// `Resources/official_names.json` 现在带 `Card_Name/*` **1198 条**（九个族、共 3156 条）。
+        /// `Resources/official_names.json` 现在带 `Card_Name/*` **1198 条**
+        /// （九个族、共 **3156** 条 —— ⚠️ **2026-10-23 现读 = 3,240 条**：`PrebuiltDecks/*` 101 → 179，
+        /// 池外 78 副练习窗卡组也 join 进表，见界面线 `W65` / `gen_official_names.py`；其余八族不变）。
         /// 官方全表里含 `$$…$$` 的描述 **189 条**（`Card_Description` 182 + `Card_Abilities` 7）·
         /// **141 个唯一 id / 363 处**；我们卡池 `descZh` 里 `$$…$$` **107 个 id / 139 处** ——
         /// **逐 id 在 `official_names.json` 的 `Card_Name/*` 全都能查到（0 个解不出）** ⇒ 本支今天**全部能展开**，

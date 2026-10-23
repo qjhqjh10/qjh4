@@ -57,6 +57,7 @@ CARDANIM_MODULES = ("AnimFXInstanceParticleAdjacent",)
 
 # 🔴 2026-10-16（A828）：`collisionEvent` 子树里**被深度护栏截断**的键（本该是空的，见 `enc`）。
 #   收集起来由 `main` 打印 —— 「不许静默失败」。
+#   🆕 2026-10-23（A1·R25）：同一条哨兵也覆盖 `eventToFire`（第三个被放宽的路径）。
 DEEP_KEYS = []
 
 # 🔴 2026-10-16（A828）：`materialAnimations` 里 **rid 在 `references` 注册表里找不到** 的那几条
@@ -155,7 +156,11 @@ def enc(v, out, prefix):
             #   那边已经单独放宽到 18 层（`COLLISION_EVENT_MAX_DEPTH`）。真出现了就说明护栏
             #   又把它截断了 ⇒ **出声**，别像 2026-09 那样悄悄少一整层（563 条 PersistentCall
             #   全丢、没人发现，直到 A828 才查出来）。收集起来由 main 打出来。
-            if "collisionEvent" in prefix:
+            # 🔴 2026-10-23（特效线 A1·R25）：**再加 `eventToFire`** —— 同族的第三个受害者
+            #   （`dump_animfx.py` 的 `EVENT_TO_FIRE_MAX_DEPTH = 18`）。它整块被写成 `<深>` 时，
+            #   `AnimFXModuleEvent` 那条「到点调什么」就整段没了，而**没有任何断言会红**
+            #   （是 2026-10-23 靠 R25 偶然发现的，不是被这条哨兵抓到的）⇒ 补上，别再悄悄断。
+            if "collisionEvent" in prefix or "eventToFire" in prefix:
                 DEEP_KEYS.append(prefix)
             return                      # 太深了，宁可不给，也别给错
         out[prefix] = v
@@ -287,7 +292,8 @@ def main():
           % (out_doc["effect_count"], out_doc["module_count"], stats["node"], stats["asset"]))
     # 🔴 2026-10-16（A828）：`collisionEvent` 那棵子树**不该再有 `<深>`**（`dump_animfx.py` 已单独放宽到
     #   18 层）。有就说明数据又断了一层 ⇒ **出声**（见 `enc`）。这一条是「别再悄悄丢一层」的哨兵。
-    print("collisionEvent 子树被深度护栏截断的键：%d 个%s"
+    #   🆕 2026-10-23（A1·R25）：`eventToFire` 同列（`EVENT_TO_FIRE_MAX_DEPTH = 18`）。
+    print("collisionEvent / eventToFire 子树被深度护栏截断的键：%d 个%s"
           % (len(DEEP_KEYS),
              "" if not DEEP_KEYS else
              "  ⚠️ 不该有！例：" + " / ".join(sorted(set(DEEP_KEYS))[:5])))

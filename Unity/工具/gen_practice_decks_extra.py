@@ -213,10 +213,16 @@ def main():
     # 🔴 「卡号命中了、但那张卡不在本副阵营」= 卡表缺陷 ⇒ 出声（同 `gen_prebuilt_decks.py` 的收尾）
     for s in (ctx.get("warn") or []):
         print("   " + s.encode("ascii", "backslashreplace").decode("ascii"))
-    # 中文名：本批 78 副里有 48 副 `zh_decks.json` 没有条目（官方名表 `PrebuiltDecks/<deckId>` 也没有 ⇒
-    # `DisplayName` 按既定口径回落英文原名）。**如实印出来，⛔ 不编译名**。
+    # 中文名：本批 78 副里有 48 副 `zh_decks.json` 没有条目。
+    # 🔴 **2026-10-23 就地订正（铁律 5 · 界面线 W65）**：这里原来写「官方名表 `PrebuiltDecks/<deckId>` 也没有
+    #    ⇒ 界面回落英文原名」—— **前半句是错的**：官方源表 `数据/游戏数据/官方本地化_en+zh-CN.json` 里
+    #    这 78 个键 **78/78 全有**（旧结论「0/78」是把 `official_names.json` 的**产物**当成了**源表**：
+    #    那个产物当时只 join 了 103 副池）。`DisplayName` 的口径是**官方优先**
+    #    （`Shell/PrebuiltDecks.cs:118-126`）⇒ 界面显示的是**官方中文名**；
+    #    `gen_official_names.py` 2026-10-23 起也 join 这份池外名单（101 → 179 条）。
+    #    `nameZh` 只是「官方缺键」时的兜底，本批 0 副走到那一档。⛔ 别把官方名抄进 `nameZh`（两处一份 = 迟早不一致）。
     no_zh = sorted(x["deckId"] for x in doc["decks"] if not x["nameZh"])
-    print("noZh = %d（这些副没有我们自译的中文名，界面回落英文原名）%s"
+    print("noZh = %d（`zh_decks.json` 无自译条目 ⇒ 走官方词条；`nameZh` 兜底本批 0 副用到）%s"
           % (len(no_zh), "" if not no_zh else "：" + ", ".join(no_zh[:8]) + ("…" if len(no_zh) > 8 else "")))
 
 

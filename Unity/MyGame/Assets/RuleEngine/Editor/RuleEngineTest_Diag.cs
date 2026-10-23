@@ -83,8 +83,8 @@ public static partial class RuleEngineTest
         "TestS23ResolveA1426GiveToDyingOnBoard", "TestS23ResolveArmourTwoRepresentations", "TestS23ResolveA1692DeployFreeNoOverwrite", "TestS23ResolveA1690WhenBodyAdjacentAnchor", "TestS23ResolveA1312KeepStatusTurnState", "TestW59PlayOrderSameSideDeploy",
         "TestW59PlayOrderCrossPlayer", "TestW59PlayOrderTurnStartEnd", "TestW59PlayOrderReentry", "TestW59PlayOrderInvariant", "TestW59PlayOrderOnSide", "TestW61ActionQueue",
         "TestT02OrConditionTargetDiesOrFriendly", "TestT02SacrificeBodyLandsOnSelf", "TestT02PlacementNoOverwriteFamily", "TestT02FirstFreeSlotHonoursAvailability", "TestT02NextDeploySlotHonoursAvailability", "TestT02ReturnSideIsAvailableSlot",
-        "TestT02ResolveWarlordSlotHonoursAvailability", "TestW61bSpentAllMana", "TestW61bSpendInsufficientDrainsToZero", "TestW61bInitialModifiers", "TestW61bSkipCardDrawProducer", "TestW64UnitConditions",
-        "TestW64StructuredConditions", "TestW64StructuredTargetFilters", "TestW64OpAbilityTargetConditions",
+        "TestT02ResolveWarlordSlotHonoursAvailability", "TestT02ResolveSideBranchHonoursAvailability", "TestW61bSpentAllMana", "TestW61bSpendInsufficientDrainsToZero", "TestW61bInitialModifiers", "TestW61bSkipCardDrawProducer",
+        "TestW64UnitConditions", "TestW64StructuredConditions", "TestW64StructuredTargetFilters", "TestW64OpAbilityTargetConditions",
     };
 
     // 本次诊断真正跑过的用例（顺序同 `RunCaseNames`）—— 只给对账用
@@ -512,6 +512,7 @@ public static partial class RuleEngineTest
         Safe("TestT02NextDeploySlotHonoursAvailability", () => TestT02NextDeploySlotHonoursAvailability());
         Safe("TestT02ReturnSideIsAvailableSlot", () => TestT02ReturnSideIsAvailableSlot());
         Safe("TestT02ResolveWarlordSlotHonoursAvailability", () => TestT02ResolveWarlordSlotHonoursAvailability());
+        Safe("TestT02ResolveSideBranchHonoursAvailability", () => TestT02ResolveSideBranchHonoursAvailability());
         Safe("TestW61bSpentAllMana", () => TestW61bSpentAllMana());
         Safe("TestW61bSpendInsufficientDrainsToZero", () => TestW61bSpendInsufficientDrainsToZero());
         Safe("TestW61bInitialModifiers", () => TestW61bInitialModifiers());

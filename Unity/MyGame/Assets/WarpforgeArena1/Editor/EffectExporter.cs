@@ -931,7 +931,8 @@ public static class EffectExporter
         //   **为什么名字加进来还不够、必须同时重打包**：那是个**流式场景包** —— `m_Container` **只有 1 条**
         //   （=`MainMenu Warpforge.unity` 场景自己），`m_IsStreamedSceneAssetBundle = True`
         //   ⇒ `GetAllAssetNames()` 只有那一条、`LoadAllAssets()` 在场景包上**直接抛异常**；
-        //   `数据/索引/anim_address_map.json` 的 `guid_to_asset`（10,539 条）**8/8 都没有对应 guid**
+        //   `数据/索引/anim_address_map.json` 的 `guid_to_asset`（**10,564** 条；⚠️ 2026-10-23 现读，原写 10,539）
+        //   **8/8 都没有对应 guid**（这 8 件是 `Wildcard_Use_*` 根；2026-10-23 用新表复核 `name` 仍 0 命中）
         //   ⇒ 它们也不是 addressable 容器项。故已当**根**重打进 `wf_mainmenu_extra.bundle`
         //   （`工具/extract_missing_shaders.py` 的 **`MAINMENU_GROUPS`**，实读 8/8 都是 `m_Father = 0`
         //   的独立根、且与 `AssetBundle` 对象同在那份 `.sharedAssets` CAB 里）。

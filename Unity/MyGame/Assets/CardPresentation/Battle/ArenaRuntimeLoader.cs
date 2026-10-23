@@ -112,6 +112,12 @@ namespace CardPresentation
             // 🆕 A393：场景侧那 5 条 `AnimFXController`（不被任何 blendable 管）—— 原版它们
             //   序列化在场景里 ⇒ 从「战场出现」这一刻就该在。判据 → 资料/普查产出_1012/H2_场景侧AnimFX.md
             CardPresentation.ScenarioBlendableFactory.BuildSceneAnimFx(Current.transform, arenaKey);
+            // 🆕 2026-10-23（战场线「用素材重新布置」）：原版布景/机械/场景动画的 `Animation` 与
+            //   `Animator`（炮台 ×2 / 泵 / 动态骷髅 / 竞技场 2 / 雷尔贡 + 6 场 Scene Animation(s)）。
+            //   判据 → `资料/普查产出_1022/J-A_战场素材与材质诊断.md` §1·4 A1–A3；
+            //   数据 → `Resources/arena_scene_anims.json`（`工具/gen_arena_scene_anims.py`）。
+            //   ⚠️ 只接**场景侧**：HUD（`BattleHudAnim`）与相机 intro（`CameraIntro`）各归各的系统，别接第二份。
+            CardPresentation.ArenaSceneAnims.Bind(Current.transform, arenaKey);
 
             var data = Current.GetComponentInChildren<ArenaPrefabData>();
             double msInst = sw.Elapsed.TotalMilliseconds;                    // ③ 实例化（含取 `ArenaPrefabData`）

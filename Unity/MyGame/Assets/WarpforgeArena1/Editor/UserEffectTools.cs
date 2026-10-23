@@ -21,6 +21,12 @@ public static class UserEffectTools
     const string P = "WFEFF ";
     const string UserDir = "Assets/CardPresentation/Effects";
     const string SampleName = "Example_Spark";
+
+    /// <summary>🆕 2026-10-23（A1 R3）：开发样本目录 —— `CollectUserEffects` 会**跳过** `_dev/`，
+    /// 所以样本留在工程里当范例、但**不进生产库**。判据 → `普查产出_1022/A1_自造与兜底_特效动画.md` R3。</summary>
+    const string DevDir = UserDir + "/_dev";
+    /// <summary>临时探针：放**生产路径**（`UserDir` 根下）用来验「用户特效真的会进库」，自检完删掉并重建库。</summary>
+    const string ProbeName = "SelfTest_Probe";
     /// <summary>拿来验「重名」的原版条目名（取自库里的真实效果，别改成不存在的名字，否则这条断言是假的）。</summary>
     const string ClashName = "Acid Rain Damage Target";
 
@@ -37,7 +43,10 @@ public static class UserEffectTools
         EnsureFolder();
 
         string samplePath = MakeSample();
-        Check(!string.IsNullOrEmpty(samplePath) && File.Exists(samplePath), $"样本 prefab 就绪：{samplePath}");
+        Check(!string.IsNullOrEmpty(samplePath) && File.Exists(samplePath), $"开发样本 prefab 就绪（应被排除）：{samplePath}");
+
+        string probePath = MakeProbe();
+        Check(!string.IsNullOrEmpty(probePath) && File.Exists(probePath), $"生产路径探针就绪：{probePath}");
 
         string clashPath = MakeClash();
         Check(!string.IsNullOrEmpty(clashPath), $"重名靶子就绪：{clashPath}");
@@ -50,9 +59,12 @@ public static class UserEffectTools
         Check(lib != null, "效果库资产读得到");
         if (lib == null) { Done(); return; }
 
-        // ---- ① 自制特效进库了 ----
-        var mine = lib.Get(SampleName);
-        Check(mine != null, $"自制特效「{SampleName}」在库里");
+        // ---- ① 开发样本**不进**库 / 生产路径的用户特效**进**库 ----
+        //   🔴 2026-10-23（A1 R3/R5）：`_dev/` 是开发样本目录 ⇒ 跳过；生产路径用一个临时探针验。
+        var devSample = lib.Get(SampleName);
+        Check(devSample == null, $"开发样本「{SampleName}」**没有**进生产库（`_dev/` 被跳过）");
+        var mine = lib.Get(ProbeName);
+        Check(mine != null, $"生产路径的用户特效「{ProbeName}」在库里");
         Check(mine != null && mine.prefab != null, "它的 prefab 引用不是空的");
 
         // ---- ② 重名没顶掉原版 ----
@@ -65,17 +77,29 @@ public static class UserEffectTools
 
         // ---- ③ 原版那批一条不少 ----
         int originals = 0, mineCount = 0;
+        bool probeIn = false, sampleIn = false;
         foreach (var e in lib.entries ?? new WFEffectEntry[0])
         {
             if (e == null) continue;
-            if (e.verdict == "自制") mineCount++; else originals++;
+            if (e.verdict == "用户目录")
+            {
+                mineCount++;
+                if (e.name == ProbeName) probeIn = true;
+                if (e.name == SampleName) sampleIn = true;
+            }
+            else originals++;
         }
         Check(originals >= 958, $"原版条目一条不少（实测 {originals}，应 ≥ 958）");
-        Check(mineCount == 1, $"自制条目只有样本这 1 个（实测 {mineCount}）");
+        // 🔴 2026-10-23（A1 R3/R5）：**不再假设「用户目录里只有我们的样本」** —— 那里还放着
+        //    4 个 `Boosterpack Open Card Rarity 1~4`（**原版件**，按目录收进来的）。
+        //    所以只断言两件**语义**（探针在 / 开发样本不在），条数只报不钉。
+        Check(probeIn, $"用户目录条目里有探针 `{ProbeName}`");
+        Check(!sampleIn, $"用户目录条目里**没有**开发样本 `{SampleName}`");
+        Debug.Log(P + $"  用户目录条目 {mineCount} 个（含 4 个原版 Boosterpack + 1 个探针）");
 
         // ---- ④ 播得起来，而且会自己进收尾 ----
         int before = WarpforgeEffectPlayer.ActiveCount;
-        var player = WarpforgeEffectPlayer.Play(SampleName, null, Vector3.zero, 1f);
+        var player = WarpforgeEffectPlayer.Play(ProbeName, null, Vector3.zero, 1f);
         Check(player != null, "Play() 起了（库找不到 / prefab 空都会在这里变红）");
         if (player != null)
         {
@@ -94,7 +118,7 @@ public static class UserEffectTools
             Check(WarpforgeEffectPlayer.ActiveCount == before, "Kill() 之后不再占着池子");
         }
 
-        Cleanup(clashPath);
+        Cleanup(clashPath, probePath);
         Done();
     }
 
@@ -113,14 +137,41 @@ public static class UserEffectTools
             AssetDatabase.CreateFolder(parent, Path.GetFileName(UserDir));
             Debug.Log(P + $"新建目录 {UserDir}");
         }
+        if (!AssetDatabase.IsValidFolder(DevDir))
+        {
+            AssetDatabase.CreateFolder(UserDir, "_dev");
+            Debug.Log(P + $"新建开发样本目录 {DevDir}（`CollectUserEffects` 会跳过它）");
+        }
     }
 
-    /// <summary>建样本（幂等）。**故意的简单**：它要能当范例抄，不要塞花活。</summary>
+    /// <summary>建样本（幂等）。**故意的简单**：它要能当范例抄，不要塞花活。
+    /// 🆕 2026-10-23：样本落在 `_dev/`（开发样本目录）⇒ 不进生产库。</summary>
     static string MakeSample()
     {
-        string path = $"{UserDir}/{SampleName}.prefab";
+        string path = $"{DevDir}/{SampleName}.prefab";
         if (File.Exists(path)) return path;
+        // 🆕 2026-10-23：老工程里样本原来在 `UserDir` 根下（会被收进生产库）—— 搬到 `_dev/`。
+        //   ⚠️ 不删，它是「抄的范例」；只是换个目录。
+        string legacy = $"{UserDir}/{SampleName}.prefab";
+        if (File.Exists(legacy))
+        {
+            string err = AssetDatabase.MoveAsset(legacy, path);
+            if (string.IsNullOrEmpty(err))
+            {
+                Debug.Log(P + $"开发样本已搬到 {path}（不再进生产库）");
+                return path;
+            }
+            Debug.LogWarning(P + $"开发样本搬家失败（{err}）⇒ 重建一份到 `_dev/`");
+        }
         return BuildSimpleEffect(SampleName, path, tint: new Color(0.55f, 0.85f, 1f, 1f));
+    }
+
+    /// <summary>🆕 2026-10-23：生产路径的临时探针（自检用完即删）—— 验「用户目录里的 prefab 真的会进库」。</summary>
+    static string MakeProbe()
+    {
+        string path = $"{UserDir}/{ProbeName}.prefab";
+        if (File.Exists(path)) return path;
+        return BuildSimpleEffect(ProbeName, path, tint: new Color(0.9f, 0.7f, 0.4f, 1f));
     }
 
     /// <summary>故意与库里某条重名的靶子（自检用完就删）。</summary>
@@ -131,13 +182,27 @@ public static class UserEffectTools
         return BuildSimpleEffect(ClashName, path, tint: Color.white);
     }
 
-    static void Cleanup(string clashPath)
+    static void Cleanup(string clashPath, string probePath)
     {
         if (!string.IsNullOrEmpty(clashPath) && File.Exists(clashPath))
         {
             AssetDatabase.DeleteAsset(clashPath);
             Debug.Log(P + "已删掉重名靶子（那是自检用的，不该留在工程里）");
         }
+        if (!string.IsNullOrEmpty(probePath) && File.Exists(probePath))
+        {
+            AssetDatabase.DeleteAsset(probePath);
+            Debug.Log(P + "已删掉生产路径探针（自检用的）");
+        }
+        // 🆕 2026-10-23（A1 R4）：`MakeClash()` 造 prefab 时也会造一份 `.mat`；
+        //   只删 prefab 会留下**孤儿材质**（A1 R4 报的就是这个）⇒ 一起删掉。
+        string clashMat = $"{UserDir}/{ClashName}.mat";
+        if (File.Exists(clashMat)) AssetDatabase.DeleteAsset(clashMat);
+        string probeMat = $"{UserDir}/{ProbeName}.mat";
+        if (File.Exists(probeMat)) AssetDatabase.DeleteAsset(probeMat);
+        // 🔴 探针删掉之后**重建一次库** —— 否则产物里还挂着那条（`EffectLibraryBuilder.Build` 是覆盖写）。
+        EffectLibraryBuilder.Build(new string[0], EffectLibraryBuilder.DefaultOutAsset,
+                                   EffectLibraryBuilder.DefaultReportPath);
     }
 
     /// <summary>造一个能看的简单粒子 prefab。渲染器材质单独存成 .mat 资产 —— 不存的话

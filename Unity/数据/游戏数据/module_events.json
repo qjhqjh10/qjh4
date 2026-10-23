@@ -1,0 +1,83 @@
+{
+ "generated_by": "工具/gen_module_events.py",
+ "source_tree": "D:/2/新解包资源/assets_full",
+ "note": "原版 `AnimFXModuleEvent.eventsToFire[i].eventToFire.m_PersistentCalls.m_Calls` 的逐条展开。⛔ 别手改；改资源后重跑 `python -I gen_module_events.py`。`m_Calls` 在 `数据/游戏数据/animfx_components.json` 里被写成了 \"<深>\"（dump 深度护栏截断），不是原版没有 —— 本表直接读 prefab 原始 JSON。",
+ "whereToFireLegend": {
+  "0": "Initialize",
+  "5": "Exit",
+  "10": "DoDestroy(原版无方法体)",
+  "15": "Manual(原版无方法体)"
+ },
+ "argModeLegend": {
+  "0": "EventDefined",
+  "1": "Void",
+  "2": "Object",
+  "3": "Int",
+  "4": "Float",
+  "5": "String",
+  "6": "Bool"
+ },
+ "callStateLegend": {
+  "0": "Off",
+  "1": "EditorAndRuntime",
+  "2": "RuntimeOnly"
+ },
+ "stats": {
+  "bundles": 84,
+  "monoBehavioursScanned": 66459,
+  "instances": 1,
+  "calls": 2
+ },
+ "calls": [
+  {
+   "effect": "VanguardIdleEffect",
+   "index": 0,
+   "whereToFire": 5,
+   "callIndex": 0,
+   "targetPath": "",
+   "targetSiblingIndex": -1,
+   "targetComponent": "AnimFXModuleChangeMaterial",
+   "targetAssembly": "Assembly-CSharp",
+   "targetComponentOur": "WarpforgeVFX.WFModuleChangeMaterial",
+   "methodName": "ToggleMaterial",
+   "argMode": "Bool",
+   "argModeValue": 6,
+   "argBool": true,
+   "argInt": 0,
+   "argFloat": 0.0,
+   "argString": "",
+   "argObjectAssemblyType": "UnityEngine.Object, UnityEngine",
+   "callState": 1,
+   "callStateName": "EditorAndRuntime",
+   "sourceBundle": "bundle_battleprefabs_vfxandmisc_assets_all",
+   "sourceFile": "MonoBehaviour/MonoBehaviour_-3048259455998257043.json",
+   "sourceTargetFileId": 0,
+   "sourceTargetPathId": -8300107518467925907
+  },
+  {
+   "effect": "VanguardIdleEffect",
+   "index": 0,
+   "whereToFire": 5,
+   "callIndex": 1,
+   "targetPath": "Vanguard Frame Animated VAT",
+   "targetSiblingIndex": 1,
+   "targetComponent": "StoryProgramming.VATGPUPlayer",
+   "targetAssembly": "Assembly-CSharp-firstpass",
+   "targetComponentOur": "WarpforgeVFX.WarpforgeVatDriver",
+   "methodName": "UpdateMaterials",
+   "argMode": "Bool",
+   "argModeValue": 6,
+   "argBool": true,
+   "argInt": 0,
+   "argFloat": 0.0,
+   "argString": "",
+   "argObjectAssemblyType": "UnityEngine.Object, UnityEngine",
+   "callState": 2,
+   "callStateName": "RuntimeOnly",
+   "sourceBundle": "bundle_battleprefabs_vfxandmisc_assets_all",
+   "sourceFile": "MonoBehaviour/MonoBehaviour_-3048259455998257043.json",
+   "sourceTargetFileId": 0,
+   "sourceTargetPathId": -6996853648599967635
+  }
+ ]
+}

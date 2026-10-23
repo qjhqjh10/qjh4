@@ -247,6 +247,13 @@ public static class EffectLibraryBuilder
         foreach (var guid in AssetDatabase.FindAssets("t:Prefab", new[] { UserPrefabDir }))
         {
             var path = AssetDatabase.GUIDToAssetPath(guid);
+            // 🔴 2026-10-23（A1 R3）：`<UserDir>/_dev/` 是**开发样本**目录 ⇒ 不进生产库。
+            //    判据 → `资料/普查产出_1022/A1_自造与兜底_特效动画.md` R3。
+            if (path.Replace('\\', '/').Contains("/Effects/_dev/"))
+            {
+                skipped++;
+                continue;
+            }
             var prefab = AssetDatabase.LoadAssetAtPath<GameObject>(path);
             if (prefab == null) continue;
 
@@ -280,7 +287,10 @@ public static class EffectLibraryBuilder
                 preventDestroy = pd,
                 natural = natural,
                 loops = loops,
-                verdict = "自制",
+                // 🔴 2026-10-23（A1 R5）：原来写「自制」是**按目录判**的 —— 可这个目录里还放着
+                //    `Boosterpack Open Card Rarity 1~4`（原版件）。改成「用户目录」= **只陈述事实**，
+                //    ⛔ 不再替来源下结论。判据 → `普查产出_1022/A1_自造与兜底_特效动画.md` R5。
+                verdict = "用户目录",
                 confidence = "-",
                 ratio = -1f,
             });
@@ -288,7 +298,7 @@ public static class EffectLibraryBuilder
             added++;
 
             sb.AppendLine(string.Join("\t", new[] {
-                nm, "自制", "-", "",
+                nm, "用户目录", "-", "",
                 dt >= 0f ? dt.ToString("F2") : "",
                 et >= 0f ? et.ToString("F2") : "",
                 pd ? "1" : "",
@@ -300,7 +310,7 @@ public static class EffectLibraryBuilder
             }));
         }
         if (added > 0 || skipped > 0)
-            Debug.Log(P + $"自制特效目录 {UserPrefabDir}：收进 {added} 个"
+            Debug.Log(P + $"用户特效目录 {UserPrefabDir}：收进 {added} 个"
                        + (skipped > 0 ? $"，**{skipped} 个因重名被跳过**（见上面的警告）" : ""));
         return added;
     }
