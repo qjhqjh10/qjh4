@@ -71,7 +71,7 @@
 | C1 | **开场视频真的解码出帧** —— 自检只验了「加载得到 + 时长 + 参数 + 跳过链」 | 按 Play 目视 | `资料/阶段二_Shell_原版规格.md` |
 | C2 | **转圈（loading spinner）画出来了没有** | 按 Play 目视 | 同上 |
 | C3 | **滚动的惯性/回弹**（`v *= Mathf.Pow(0.135f, dt*60)`）—— **代码里还没做** | 做完再按 Play 试手感 | `资料/阶段二_滚动与指针_原版规格.md` |
-| C4 | 🆕 **战场布景/机械动画真的在动**（2026-10-23 接线：9 处 `Animation` + 6 个 `Animator`；`ArenaAnimsProbe` 只验了「组件接上、clip 取到」） | 起 player 进 **`battlearena2`**（泵 + 动态骷髅最显眼），同一机位拍两张**间隔 ≥2 s** 的图比像素差；再抽查 `battlearena1`（炮台） | `资料/普查产出_1023/Arena_素材重新布置.md` |
+| C4 | 🆕 **战场布景/机械动画真的在动**（2026-10-23 接线：9 处 `Animation` + 6 个 `Animator`；`ArenaAnimsProbe` 只验了「组件接上、clip 取到」） | 起 player 进 **`battlearena2`**（泵 + 动态骷髅最显眼），同一机位拍两张**间隔 ≥2 s** 的图比像素差；再抽查 `battlearena1`（炮台）。🔴 **2026-10-23 首跑**：`-wfscene Battle -wfdrive` + `WF_ARENA=battlearena2` 成功进对局（`[Arena] ⏱ 147.87 ms` · `Animator 3` 接上 · 4 张过程图 `_tmp_view/real/auto_0*.png`）；**9 个 `wf_arena_anims_*.bundle` 全部加载失败**（`another AssetBundle with the same files is already loaded`）⇒ ✅ **同日修复**（根因 = shader loader 的 `wf_arena_*` 通配先整只加载；桥改「先认领再加载」）—— **重出 player 复跑：`9/9 就绪（复用已加载包 9）` · 载入 128.31 ms · `Animator 3` 接上 · 背景帧差 28** ⇒ **C4 = ✓（布景骨骼的实际位移仍建议下一轮逐件核）** | `资料/普查产出_1023/Arena_素材重新布置.md` · `任务线/战场线/任务/T00_素材重新布置.md` §五 · `普查产出_1023b/真机_9动画包加载失败.md` |
 | C5 | 🆕 **特效模块的销毁时机**（R23 `DoDestroy` 交权模块 / R24 Exit clip 播完收节点；批处理已 60/0） | 起 player 播 `Pray_Idle`（退场 1 s 后消失、不早不晚）与 `ShieldTraitEffect_Idle`（Exit 片段播完节点才收） | `资料/普查产出_1023/F_特效A1_R2_R23_R24_R3_R5.md` |
 
 ### D. 表现 / 手感（**肉眼与并排比才能看出来的**）

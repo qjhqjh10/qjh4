@@ -289,6 +289,43 @@ namespace RuleEngine
             /// `CardDef.ConditionOf` 一律 `-1`（**未知**，⛔ 不是「没有条件」）。
             /// 数据源 = 真值 SO 快照 `full_raw` 的十处 `TargetCriteria`。</summary>
             public UnitConditionDto[] unitConditions;
+
+            /// <summary>🆕 v17（2026-10-23 · 引擎线 · `B-16` 残余）：**`cardAbilities[].trigger` 的
+            /// 全量集合**（`sorted(set(...))`），喂 <see cref="CardDef.AbilityTriggerPresence"/> →
+            /// `ConditionEval` 的 `241 hasUseSpiritStone` / `242 hasUseFaith`。
+            ///
+            /// 判据 = `FilterMethods__MeetsConditionCriteria.c:286-293` →
+            /// `RawCardScript__HasAbilityType(raw, 600/605)` → `RawCardScript__HasAbilityType.c:16-38`
+            /// （遍历 `rawCardData.cardAbilities`，**只看 `trigger`**，不看 `abilityLogic` 空不空）。
+            ///
+            /// 🔴 **每张卡都落这一列**（没 ability 的卡落 `[]`）—— 「缺列」与「空数组」必须分得开：
+            /// 缺列 = 真值快照里没有这张卡（**未知**，访问器回 `-1`）；
+            /// 空数组 = **明确没有任何 ability**（`HasAbilityType` ⇒ 假）。
+            /// ⚠️ 与 `abilityContext` **不是**同一份数据：那个只落 `context != 0` 的行 ⇒
+            /// 拿它当 trigger 表会漏掉 `context == 0` 的 ability（`241/242` 因此一直判不了）。</summary>
+            public int[] abilityTriggers;
+
+            /// <summary>🆕 v17（2026-10-23 · 引擎线 · 战斗审计 `B-17`）：**逐 ability / 逐 logic 的
+            /// `targetsAffected`**（原版 `AbilityLogic.targetCriteria.targetsAffected`），喂
+            /// <see cref="CardDef.AbilityTargets"/> → `EffectText.AssignAbilityTargets`。
+            ///
+            /// 形状 = `[{"trigger":…, "ta":[…]}]`，**按 `cardAbilities` 顺序**；`ta[j]` 对应
+            /// `cardAbilities[i].abilityLogic[j]`。
+            /// 🔴 **每张卡都落**（没 ability = `[]`）；缺列 = 真值里没有这张卡 = **未知**。
+            /// ⚠️ 非整数落 `-1`（`0` 是合法的 `any`）。判据 → `AbilityLogic__GetTargets.c` 的 `+0x10` 分发。</summary>
+            public AbilityTargetDto[] abilityTargets;
+        }
+
+        /// <summary>🆕 v17（2026-10-23 · 引擎线 · `B-17`）：`abilityTargets` 的一行
+        /// （**字段名故意与 JSON 列名逐字一致**，`JsonUtility` 直读）。
+        /// 语义 → <see cref="CardDef.AbilityTargetSpec"/>。</summary>
+        [System.Serializable]
+        public class AbilityTargetDto
+        {
+            /// <summary>`-1` = JSON 里没有 `trigger`（坏值；本列只作可读性，消费端按**下标**对齐）。</summary>
+            public int trigger = -1;
+            /// <summary>逐 `abilityLogic` 的 `targetsAffected`；`-1` = 该格坏值/缺键。</summary>
+            public int[] ta;
         }
 
         /// <summary>🆕 v15（2026-10-22 · 引擎线 `W64`）：`unitConditions` 的一行
@@ -688,6 +725,20 @@ namespace RuleEngine
                                + "`BoardCriteria.playerTurn`）；`CardDef.ConditionSpec.CountSet` 会一律 **null = 未知**"
                                + "（⛔ 不是「默认集合」：全 0 是一个具体的集合选择）⇒ 消费端按「未知」"
                                + "回退旧口径并出声。跑一下 gen_cards_engine.py 重生成（`W64`）。");
+            // 🆕 2026-10-23（引擎线 · `B-16` 残余 241/242）：v17 起才有逐卡 `abilityTriggers`
+            //   （`cardAbilities[].trigger` 的全量集合）。**旧表整列没有** ⇒
+            //   `CardDef.AbilityTriggerPresence` 一律 **`-1`（未知）**。
+            //   🔴 **必须出声**：空表是**合法取值**（「这张卡没有任何 ability」⇒ `HasAbilityType` 假）——
+            //   「缺列」若被读成空表，`241/242` 会把**所有卡**判成假（静默错一批）；反过来也⛔
+            //   不能当未知 ⇒ 条件从句只剩「回退旧文本口径」一条路。
+            if (dto.version < 17)
+                Debug.LogWarning($"[RuleEngine] 卡表 version={dto.version} < 17 —— 没有 `abilityTriggers` / "
+                               + "`abilityTargets` 两列（`cardAbilities[].trigger` 的全量集合；逐 ability / 逐 logic 的 "
+                               + "`targetsAffected`）。`CardDef.AbilityTriggerPresence` 会一律返回 **-1 = 未知**"
+                               + "（⛔ 不是「没有 ability」：那会让条件 241/242 静默判假）；"
+                               + "`CardDef.AbilityTargets` 为空表 ⇒ 「无主语正文」那条**回落旧的「己方全体」近似**并出声"
+                               + "（⛔ 不是「数据说就是己方全体」）。判据 → `RawCardScript__HasAbilityType.c:16-38` / "
+                               + "`AbilityLogic__GetTargets.c`。跑一下 gen_cards_engine.py 重生成（`B-16` 残余 ＋ `B-17`）。");
 
             int noId = 0;
 
@@ -808,7 +859,18 @@ namespace RuleEngine
                     //    来自 v16 卡表的**正面信号**。⚠️ 它**不参与**访问器判定（看 `CountSet` 本身
                     //    在不在）；缺值口径 = `CountSet == null`（未知），旧表整列没有 ⇒ 上面
                     //    `< 16` 的守卫已经出声。⛔ 不是「默认集合」。
-                    conditionsCountSetVersioned: dto.version >= 16));
+                    conditionsCountSetVersioned: dto.version >= 16,
+                    // 🆕 v17（2026-10-23 · 引擎线 · `B-16` 残余 241/242）：`cardAbilities[].trigger`
+                    //    的全量集合 —— **每张卡都落**（没 ability 的卡 `[]`），缺列 = 真值里没这张卡（未知）。
+                    //    ⚠️ 缺值口径 = `null` + `AbilityTriggersVersioned = false`（旧表整列没有 ⇒
+                    //    上面的 `< 17` 守卫已经出过声）；访问器一律 `-1`（未知），⛔ 不是「没有 ability」。
+                    abilityTriggers: c.abilityTriggers,
+                    abilityTriggersVersioned: dto.version >= 17,
+                    // 🆕 v17（2026-10-23 · 引擎线 · 战斗审计 `B-17`）：逐 ability / 逐 logic 的
+                    //    `targetsAffected` —— **每张卡都落**（没 ability = `[]`），缺列 = 真值里没这张卡。
+                    //    ⚠️ 缺值口径 = 空表 + `AbilityTriggersVersioned = false`（同一列版本位；旧表
+                    //    上面 `< 17` 的守卫已经出过声）⇒ 消费端回落旧的「己方全体」近似并出声。
+                    abilityTargets: MapAbilityTargets(c)));
             }
             // 🔴 🆕 2026-10-15（接线批）：**护甲两套口径一旦分叉就出声** ——
             //   引擎读的那一份（`CardDef` 构造里定下来的 `_keywords[armour]`）由
@@ -1022,6 +1084,37 @@ namespace RuleEngine
                     Keyword = string.IsNullOrEmpty(ac.keyword) ? null : ac.keyword,
                     Context = ac.context,
                 });
+            }
+            return list;
+        }
+
+        /// <summary>🆕 v17（2026-10-23 · 引擎线 · 战斗审计 `B-17`）：`abilityTargets` 列 →
+        /// <see cref="CardDef.AbilityTargetSpec"/>（逐 ability / 逐 logic 的 `targetsAffected`）。
+        ///
+        /// 🔴 **口径：只做形状校验，坏格落 `-1`、⛔ 不丢整条 ability**（与 `MapCountSet` 同族，
+        /// 而不是 `MapAbilityContext` 那四道闸）—— 因为这一列的消费端**已经有自己的两道闸门**
+        /// （`EffectText.AssignAbilityTargets`：块数 == ability 数、块内 op 数 == logic 数），
+        /// 这里再丢行只会让「第几条 ability」**整体错位**（下标就是语义）。
+        /// 真正非法的只有「`ta` 为 null」—— 那一格按空表处理（= 这条 ability 没有 logic）。
+        /// </summary>
+        static List<CardDef.AbilityTargetSpec> MapAbilityTargets(CardDto c)
+        {
+            var list = new List<CardDef.AbilityTargetSpec>();
+            if (c == null || c.abilityTargets == null) return list;
+            foreach (var at in c.abilityTargets)
+            {
+                if (at == null) { list.Add(null); continue; }   // 下标即语义 ⇒ 占位、不错位
+                var ta = at.ta ?? new int[0];
+                for (int i = 0; i < ta.Length; i++)
+                    if (ta[i] < -1)
+                    {
+                        // 负值只允许 `-1`（= 坏值/缺键）。更小的数说明生成器/数据坏了 ⇒ 出声并落 -1。
+                        Debug.LogError($"[RuleEngine] 卡「{c.name}」（{c.id}）的 `abilityTargets` 有一条 "
+                                     + $"`targetsAffected = {ta[i]}` **非法**（只允许 ≥ 0 或 -1）—— 该格按 -1 处理。"
+                                     + "重跑工具/gen_cards_engine.py。");
+                        ta[i] = -1;
+                    }
+                list.Add(new CardDef.AbilityTargetSpec { Trigger = at.trigger, TargetsAffected = ta });
             }
             return list;
         }

@@ -216,6 +216,24 @@ namespace RuleEngine
         /// `fragment-single` = 触发正文片段，且整张卡**只有一条 ability**；`""` = 读不到。</summary>
         public string AbilityMap = "";
 
+        /// <summary>
+        /// 🆕 2026-10-23（引擎线 · 战斗审计 `B-17`）：这条 op 对应的 `abilityLogic.targetCriteria
+        /// .targetsAffected`（`TargetsAffected` 枚举数值）。**`-1` = 读不到**（⛔ 不是 0 ——
+        /// `0` 是合法的 `any`）。
+        ///
+        /// <para>**归位判据** → <see cref="AssignAbilityTargets"/>（两道闸门：整卡能力块数 == ability 数、
+        /// 块内 op 数 == 该 ability 的 `abilityLogic` 数；片段只在整卡一条 ability 时归位）。
+        /// 与 <see cref="AbilityIndex"/> **是两套字段**：那个服务 `role=target` 条件行（闸门不同），
+        /// 合并会改掉 B-16 已经验过的归位规则。</para>
+        ///
+        /// <para>**消费端**：`EffectResolver.ResolveTargets` 的 `Subjectless` 分支 —— 只有
+        /// 「**没有施放者、也没点目标**」那一格才读它（战术卡那条路），
+        /// 目前只认 `120 friendlyHero`（`AbilityLogic__GetTargets.c:721-737` = 施放方督军）；
+        /// 其余值（`20 self` / `80 actingCard` / `10 allFiltered` …）**照旧落「己方全体」并出声**
+        /// （我们模型里「self」对战术卡是**卡自己**、不是场上单位 —— 猜一个就是静默错打）。</para>
+        /// </summary>
+        public int SubjectTargetsAffected = -1;
+
         /// <summary>落到**这条 op** 上的 `role = "target"` 结构化条件行（`null` = 这一格没有 / 读不到）。
         /// 消费端（`EffectResolver.ResolveTargets` / `IsLegalPick`）照原版
         /// `FilterMethods.MeetsConditionCriteria` 拿它筛**这一条 op 的目标池**。</summary>
@@ -1451,6 +1469,9 @@ namespace RuleEngine
             //   闸门不过 ⇒ 留 `-1` + `TargetConditionGap`（消费端出声、**不筛**）。
             //   ⚠️ 必须在 `InjectChoicesDefinitionOp` **之前**：注入的 `choosecard` 没有正文出处，
             //   不该被算进任何一条 ability 的块（它也不选单位目标）。
+            // 🆕 2026-10-23（`B-17`）：**先**给 op 挂 `targetsAffected`（它有自己的两道闸门、
+            //   与下面那套 `role=target` 归位互不影响）—— 放在同一位置，两者共用同一个块切法。
+            AssignAbilityTargets(ops, segOps, segHead, segPaid, card, desc);
             AssignAbilityIndices(ops, segOps, segHead, segPaid, card, desc);
             // 🆕 2026-10-19（`A1960`）：原版 `choicesDefinition` 要求选牌、而**正文没写 choose** 的卡
             //   —— 补一条 `choosecard`（候选域 = `specific`）。判据与闸门见那个函数。
@@ -1524,21 +1545,7 @@ namespace RuleEngine
             if (full)
             {
                 // ---- 整条 desc：按段切能力块 ----
-                var blocks = new List<List<EffectOp>>();
-                if (segOps != null && segOps.Count > 0)
-                {
-                    for (int i = 0; i < segOps.Count; i++)
-                    {
-                        bool newBlock = i == 0
-                                     || (segHead != null && i < segHead.Count && segHead[i])
-                                     || (segPaid != null && i < segPaid.Count && segPaid[i] > 0);
-                        if (newBlock || blocks.Count == 0) blocks.Add(new List<EffectOp>());
-                        var segList = segOps[i];
-                        if (segList == null) continue;
-                        for (int k = 0; k < segList.Count; k++)
-                            if (segList[k] != null) blocks[blocks.Count - 1].Add(segList[k]);
-                    }
-                }
+                var blocks = BuildAbilityBlocks(segOps, segHead, segPaid);
                 if (blocks.Count == 0) return;
                 // G2
                 if (blocks.Count <= maxAb)
@@ -1635,6 +1642,78 @@ namespace RuleEngine
             if (!anyCond && !anyGap)
                 for (int i = 0; i < ops.Count; i++)
                     if (ops[i] != null && ops[i].AbilityIndex >= 0) ops[i].TargetConditionGap = "row-unused";
+        }
+
+        // ==================================================================
+        //  🆕 2026-10-23（引擎线 · 战斗审计 `B-17`）：op → `targetsAffected`
+        // ==================================================================
+        // **要解决什么**：战术卡里那些**没有施放者、也没点目标**的无主语正文
+        //   （`Give +2 Health and Camouflage` 那几张匿名卡 / `Your Warlord … and heals 5` 的后半句），
+        //   过去一律落「己方全体」的**近似**（`EffectResolver` 里那条自己标着「不是原版语义」的日志）。
+        //   原版是按那条 `abilityLogic.targetCriteria.targetsAffected` 取（`AbilityLogic__GetTargets.c`）。
+        //
+        // **为什么需要闸门**：文字顺序 = ability 顺序**没有数据保证**（`desc` 是本地化表里手写的展示串）。
+        //   能对上的只有「**能力块**」这个结构（切点 = 触发头 / 付费前缀，与 `AssignAbilityIndices` 同一份）
+        //   ⇒ 两道闸门：
+        //     G1 **整卡能力块数 == `cardAbilities` 条数**（多一块/少一块都不对齐 ⇒ 全不给值）；
+        //     G2 **块里 op 数 == 那条 ability 的 `abilityLogic` 条数**（对不齐只影响那一块）。
+        //   片段解析（单位卡的触发正文）只在**整卡只有一条 ability** 时归位（那时「属于 ability 0」是数据决定的）。
+        // ⚠️ 与 `AssignAbilityIndices` **分开两个字段**（那个给 `role=target` 条件行用、闸门不同）：
+        //   合成一个会让 B-16 那套已经验过的归位规则被这里改掉。
+        static void AssignAbilityTargets(List<EffectOp> ops, List<List<EffectOp>> segOps,
+                                        List<bool> segHead, List<int> segPaid,
+                                        CardDef card, string desc)
+        {
+            if (ops == null || ops.Count == 0 || card == null) return;
+            var abil = card.AbilityTargets;
+            if (abil == null || abil.Count == 0 || !card.AbilityTargetsVersioned) return;
+
+            bool full = IsWholeDesc(desc, card.Desc);
+            if (full)
+            {
+                var blocks = BuildAbilityBlocks(segOps, segHead, segPaid);
+                if (blocks.Count == 0 || blocks.Count != abil.Count) return;     // G1
+                for (int b = 0; b < blocks.Count; b++)
+                {
+                    var spec = abil[b];
+                    var ta = spec != null ? spec.TargetsAffected : null;
+                    var blk = blocks[b];
+                    if (ta == null || blk == null || ta.Length != blk.Count) continue;   // G2
+                    for (int j = 0; j < blk.Count; j++)
+                        if (ta[j] >= 0) blk[j].SubjectTargetsAffected = ta[j];
+                }
+            }
+            else
+            {
+                if (abil.Count != 1) return;                                    // 多 ability 的片段 ⇒ 读不到
+                var spec = abil[0];
+                var ta = spec != null ? spec.TargetsAffected : null;
+                if (ta == null || ta.Length != ops.Count) return;
+                for (int i = 0; i < ops.Count; i++)
+                    if (ops[i] != null && ta[i] >= 0) ops[i].SubjectTargetsAffected = ta[i];
+            }
+        }
+
+        /// <summary>整条 `desc` 按**能力块**切 op（切点 = 触发头 / 付费前缀）。
+        /// 🔴 **唯一一份**：`AssignAbilityIndices`（`role=target` 条件行归位）与
+        /// `AssignAbilityTargets`（`B-17` 的 `targetsAffected`）都调它 —— 两处各切一遍迟早不一致。</summary>
+        static List<List<EffectOp>> BuildAbilityBlocks(List<List<EffectOp>> segOps,
+                                                       List<bool> segHead, List<int> segPaid)
+        {
+            var blocks = new List<List<EffectOp>>();
+            if (segOps == null || segOps.Count == 0) return blocks;
+            for (int i = 0; i < segOps.Count; i++)
+            {
+                bool newBlock = i == 0
+                             || (segHead != null && i < segHead.Count && segHead[i])
+                             || (segPaid != null && i < segPaid.Count && segPaid[i] > 0);
+                if (newBlock || blocks.Count == 0) blocks.Add(new List<EffectOp>());
+                var segList = segOps[i];
+                if (segList == null) continue;
+                for (int k = 0; k < segList.Count; k++)
+                    if (segList[k] != null) blocks[blocks.Count - 1].Add(segList[k]);
+            }
+            return blocks;
         }
 
         /// <summary>这一趟解析的是不是**整条 `desc`**（只有整条 desc 的段下标才等于 ability 下标）。

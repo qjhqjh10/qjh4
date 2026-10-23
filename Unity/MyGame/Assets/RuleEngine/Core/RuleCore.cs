@@ -1363,11 +1363,14 @@ namespace RuleEngine
         /// 排队（`AddBerzerkAttack.c`：打法是卡上的 `+0x120`，⇒ <see cref="DeclareAttackByCurrentType"/>）。
         /// 我们是同步引擎 ⇒ 当场按同一口径打出去。
         ///
-        /// 目标选择**照原版那一类判据的简化版**（先伤害、再斩杀、督军微优先）——
-        /// ⚠️ 原版走 `AI.SelectBestAttackAction`（`Data/SimpleAI.cs`），而 `Core/` 不许依赖 `Data/`
-        /// （`工具/ruleprobe` 只编 `Core/*.cs`）⇒ 落点差异与「为什么不直接调 SimpleAI」见方法体那段注释。
-        /// 打不出目标（全被 Stealth / Vanguard / 距离挡掉）⇒ 出声跳过（原版也是
-        /// `AI.SelectBestAttackAction` 返回 null 时 `LogWarning` + 跳过）。
+        /// 目标选择**与原版同一条评分**（`AI.SelectBestAttackAction` → `AI.GetActionScore` 的攻击支）——
+        /// 2026-10-23（`W64·B-01`）起经 <see cref="AiScorerHook"/> 调 `Data/SimpleAI` 里那一份实现；
+        /// 之前这里是「同族判据的最小版」，**与原版不等价**（不扣反击风险、不加关键词分）。
+        /// 钩子没装时（只有不编 `Data/` 的探针）才回退到那一版，判据见 <see cref="ScoreBerzerkCandidate"/>。
+        /// 打不出目标（`IsValidTarget` 全挡掉：Stealth / Vanguard / 攻击者自己的禁攻关键词 …）⇒ 出声跳过
+        /// （原版也是 `AI.SelectBestAttackAction` 返回 null 时 `LogWarning` + 跳过）。
+        /// ⚠️ 2026-10-23 就地订正：这里原来还写了「**距离**挡掉」—— 本引擎/原版都**没有攻击距离**
+        /// 这回事（`IsValidTarget` 里一个距离判据都没有），那句话是凭印象写的。
         /// </summary>
         static void ResolveBerzerkAttacks(BattleContext ctx)
         {
@@ -1407,19 +1410,13 @@ namespace RuleEngine
                             if (target == null) continue;
                             if (IsValidTarget(ctx, me, s2, foe, t, ranged) != RuleCodes.OK) continue;
 
-                            // 目标打分 —— 原版走 `AI.SelectBestAttackAction`（实现在 `Data/SimpleAI.cs`），
-                            // 而 **`Core/` 不许依赖 `Data/`**：`工具/ruleprobe/ruleprobe.csproj` 只编
-                            // `Core/*.cs`（显式列出 `Data/CardDatabase.cs`，没有 `SimpleAI.cs`）——
-                            // 在 Core 里写一句 `SimpleAI.ScoreAction` 会让**整条 ruleprobe 构建失败**
-                            // （实测 CS0103 `SimpleAI` / `AiAction`）。⇒ 这里用同一族判据的**最小版**：
-                            //   ① 先比「实际打掉多少血」（`DamageAfterReduction`，含护甲/易伤…）
-                            //   ② 能斩杀的最优先；③ 同为伤害时优先敌方督军。
-                            // ⚠️ **与 AI 的完整评分不等价**（它还扣反击风险、加关键词分），如实标着；
-                            //    这是**选哪个目标**的差异，不是「打不打」的差异（后者才是本机制的闸门）。
-                            int dmg = DamageAfterReduction(target, atk);
-                            float sc = dmg;
-                            if (WouldKill(target, atk)) sc += 10000f;   // 能杀先杀
-                            if (target.IsWarlord) sc += 0.5f;           // 伤害相同时优先督军
+                            // 目标打分 = **原版那一份**（2026-10-23 `W64·B-01` 接线）：
+                            //   原版 `BattleManager__ResolveEndTurn.c:44-59` 走 `AI.SelectBestAttackAction`（`:59` 那一句）
+                            //   → 逐条 `AI.GetActionScore`（`AI__GetActionScore.c:45-63` 的攻击支）→
+                            //   `AI.SelectBestAction`（严格 `>`，平手留先出现的）。
+                            //   那份评分在 `Data/SimpleAI.cs`，而 `Core/` 不许依赖 `Data/`
+                            //   ⇒ 走 <see cref="AiScorerHook"/>（接口见 `Core/IAiScorer.cs`），实现由 `Data` 注入。
+                            float sc = ScoreBerzerkCandidate(ctx, me, s2, t, ranged, target, atk);
                             if (bestSlot < 0 || sc > bestScore) { bestSlot = t; bestScore = sc; }
                         }
                     }
@@ -1436,6 +1433,39 @@ namespace RuleEngine
                 ctx.Log($"{u0.Name}（狂战士）强制攻击 {victim?.Name}"
                       + $"—— 打分 {bestScore:0.#}，返回 {code}");
             }
+        }
+
+        /// <summary>
+        /// **狂暴选靶那一步的分**（2026-10-23 `W64·B-01`）。
+        ///
+        /// 原版 `BattleManager__ResolveEndTurn.c:44-59` 对每个待攻击的狂暴单位调
+        /// `AI.SelectBestAttackAction`（`AI__SelectBestAttackAction.c:24-65`）：
+        /// 从 `GetAvailableActions` 里只留「出手单位自己、`actionType ∈ {1,2}`」的动作，
+        /// 逐条 `AI.GetActionScore`（`AI__GetActionScore.c:45-63`），最后 `SelectBestAction`
+        /// （严格 `>` ⇒ **平手留先出现的 = 槽号最小的那个**）。
+        ///
+        /// 🔴 **这一份评分只有一处实现**（`Data/SimpleAI.cs` 的 `SimpleAiScorer`），
+        ///   `Core` 通过 <see cref="AiScorerHook"/> 问它 —— ⛔ 别在 `Core` 里再写第二份评分
+        ///   （两处写同一条规则 = 迟早不一致，见 `CLAUDE.md` §三）。
+        ///
+        /// ⚠️ **回退分支（钩子未安装）**：`工具/ruleprobe` 只编 `Core/*.cs`、不编 `Data/*`
+        ///   ⇒ 探针里 `AiScorerHook.Scorer` 恒 `null`。此时用**本仓原来那一版最小评分**
+        ///   （先比实际掉血 → 能斩杀优先 → 打平优先督军）。它**不是原版**，只是「没装实现时的
+        ///   可运行兜底」；游戏/自检侧一定会装上（`Data/SimpleAI` 的静态构造 +
+        ///   `[RuntimeInitializeOnLoadMethod]`），⛔ 别把回退当成等价实现。
+        /// </summary>
+        static float ScoreBerzerkCandidate(BattleContext ctx, int side, int slot, int foeSlot,
+                                           bool ranged, UnitState target, int atk)
+        {
+            if (AiScorerHook.Installed)
+                return AiScorerHook.Scorer.ScoreAttack(ctx, side, slot, foeSlot, ranged);
+
+            // ---- 回退（⛔ 不是原版，判据见上面那段）----
+            int dmg = DamageAfterReduction(target, atk);
+            float sc = dmg;
+            if (WouldKill(target, atk)) sc += 10000f;   // 能杀先杀
+            if (target.IsWarlord) sc += 0.5f;           // 伤害相同时优先督军
+            return sc;
         }
 
         /// <summary>
@@ -3582,16 +3612,28 @@ namespace RuleEngine
             //      · `RawCardScript__OnCardPlayedWithTarget.c:73` —— 打出一张 Tactic(20)/Whispers(40)
             //        时发 `0x25d`（605）；同处 `:66` 的 600 就在旁边 ⇒ **与灵魂石同族同形**；
             //      · `CardScript__ResolveUnitSummoned.c:51` —— 一个 Minion(0) 入场时发 `0x25d`。
-            //    ⇒ **排在灵魂石后面**（原版 `OnCardPlayedWithTarget` 里就是 600 → 605），
-            //      并且**和灵魂石一样排在 `Rally` 之前**（Rally 结算时看得见这里刚给出的关键词）。
+            //    ⇒ **排在灵魂石后面**（原版 `OnCardPlayedWithTarget` 里就是 600 → 605）。
             //    ⚠️ **N 是阈值不是开销** —— 结算层一分信仰都不扣，判据在 `ResolveFaithAbility` 的 doc。
             //    ⚠️ 战术卡**不走这里**（它们的整条 `desc` 由 `PlayTactic` 一次结算，
             //      而那批 op 自带付费前缀 ⇒ 阈值判定照样生效）。
-            ResolveFaithAbility(ctx, p, unit);
+            //
+            // 🔴 **2026-10-23（`T03` 残留项「Deploy 的 `UseFaith(605)` 相对次序」）：位置已挪到
+            //    `Rally`（= `ThisUnitSummoned(195)`）**之后**。**判据 = `CardScript__ResolveUnitSummoned.c:44-51`
+            //    逐句（现读）**：同一张卡「自己入场」那一支（`op_Equality(param_2, param_1)`
+            //    ∧ `cardType == 0`）先发 `0xc3 = 195 ThisUnitSummoned`、**紧接着**发
+            //    `0x25d = 605 UseFaith` ⇒ 原版顺序 = **195 → 605**。
+            //    本仓原来写的是「信仰和灵魂石一样排在 `Rally` 之前」——那是**我们挑的**（旧注释
+            //    自己写着「无据可查」），现核已推翻：`ResolveUnitSummoned` 里两支相邻、`605` 在后。
+            //    ⇒ 调换之后：灵魂石(600) → Rally(195) → 信仰(605)，与原版
+            //    `OnCardPlayedWithTarget:66`(600) → `ResolveUnitSummoned`:195 → :605 逐拍对齐。
+            //    ⚠️ 代价（如实记）：信仰能力给出的关键词**不再**被同一次部署的 Rally 看见 ——
+            //    那正是原版顺序的后果，⛔ 别为了「让 Rally 看得见」再挪回去。
 
             // Rally（集结）：「从手牌部署后触发效果」—— 规则书 :200。
             // ⚠️ 触发在**部署之后**，所以效果里 `Self` 指向的已经是场上这个单位
             FireTriggerOnBoard(ctx, unit, KeywordTable.Rally);
+
+            ResolveFaithAbility(ctx, p, unit);
 
             // ---- 🆕 传送（`Teleport`）：**当回合从牌库抽到即打出时**触发能力 ----
             // 规则书 `:219`「当回合**从牌库抽到即打出**时触发能力」；问题机制那一节 `:234` 更明确：
@@ -3900,14 +3942,50 @@ namespace RuleEngine
         ///   · 判据是**卡名全等**（`System_String__op_Equality`）；
         ///   · 合并 = 数值相加、新来的**压在下面**（`UnitState.SwarmUnder`）。
         ///
-        /// ⚠️ **简化（如实标着）**：原版 `AddExecuteSwarm(self, right, 3, 1)` 还带两个参数
-        ///    （看着像动画/来源标记），我们只做数值合并 —— 表现层看到的是「新卡落地又立刻并进去」。
+        /// ✅ **2026-10-23（`W64 B-11`）**：原版 `AddExecuteSwarm(self, right, 3, 1)` 的两个参数
+        ///    **解出来了一个** —— `3` = `AddAutoActionToQueue` 的**道号**（DelayedInstant）⇒
+        ///    合并已改成**队列动作**（判据与实现见 <see cref="TrySwarmMerge"/> 正文）。
+        ///    `1` 那个 bool 位**语义仍未解**，如实不建模。
         /// ⚠️ 合并后**只有右边那一格还在**，所以「新来的那张」自己的 `Strike`/`Slay` 之类
         ///    以后不会再单独触发（它已经不在场上了）—— 和「压在下面」的物理含义一致。
         /// </summary>
         static void TrySwarmMerge(BattleContext ctx, int p, int slot, UnitState just)
         {
             if (just == null || just.Card == null || !just.Has(KeywordTable.Swarm)) return;
+            int right = slot + 1;
+            if (!BoardSpec.IsValid(right)) return;
+            var host = ctx.Players[p].Board[right];
+            if (host == null || host.IsAlive == false || host.Card == null) return;
+            if (host.Card.Name != just.Card.Name) return;         // 卡名**全等**
+
+            // 🔴 **2026-10-23（`W64 B-11`）：合并改成【进 DelayedInstant 道】的队列动作。**
+            //   判据 = `BattleManager__AddExecuteSwarm.c` 逐句（现读）：
+            //     `BattleAction..ctor(actionType = 0x4f /*79 = executeSwarm*/, 0, 打出那张,
+            //      param_5 = 1, 0)` → `AddAutoActionToQueue(bm, action, **param_4 = 3**)`；
+            //   而 `AddAutoActionToQueue.c` 的 `param_3` 就是**道号**（`:47` `==0` → `bm+0x350`
+            //   Player · `:284` `1` → `bm+0x358` Instant · `:175` `2` → `bm+0x368` Interrupt ·
+            //   `:231` `3` → `bm+0x360` DelayedInstant）⇒ **原版把虫群合并排在第三道**（延迟结算）。
+            //   ⇒ 我们以前是**当场同步合并**（比原版早），现在照原版入队。
+            //   ⚠️ `param_5 = 1` 是 `BattleAction` 构造的一个 bool 位（`+0x?`），
+            //     **语义未解**（与 `B-11` 当时记的「看着像动画/来源标记」一致）——
+            //     我们的 `QueuedAction` 没有对应位，**如实留着不建模**。
+            //   ⚠️ 出队时格子会变（前面的动作可能补位 / 把新来的打死）⇒ 按**身份现查**。
+            var who = just;
+            EnqueueAbility(ctx, ActionPriority.DelayedInstant, "虫群合并:" + just.Name,
+                () => SwarmMergeNow(ctx, p, who));
+        }
+
+        /// <summary>`TrySwarmMerge` 的**出队执行体**（`B-11`：原版那道 `executeSwarm` 动作）。
+        /// 按**身份**现查格位与右邻 —— 入队到出队之间棋盘可能已被别的动作改过。</summary>
+        static void SwarmMergeNow(BattleContext ctx, int p, UnitState just)
+        {
+            if (just == null || !just.IsAlive) return;
+            int slot, sp;
+            if (!FindSlot(ctx, just, out sp, out slot) || sp != p)
+            {
+                ctx.Log($"虫群：{just.Name} 排队期间已不在场上 ⇒ 不合并");
+                return;
+            }
             int right = slot + 1;
             if (!BoardSpec.IsValid(right)) return;
             var host = ctx.Players[p].Board[right];
@@ -4186,16 +4264,17 @@ namespace RuleEngine
                 //      （`RawCardScript__OnCardPlayedWithTarget.c:66`，与 605 相邻但那一条在
                 //      `ResolveUnitSummoned` 里**没有**）⇒ **这一格只加信仰、⛔ 不要顺手把
                 //      灵魂石也搬过来**（那会造出一个原版没有的触发）。
-                ResolveFaithAbility(ctx, owner, unit);
                 // 🔴 **2026-10-19（`A1571`）：`autoPlayFromHand` 那一档要触发 Rally。**
                 //   判据 = `_ResolveCardAutoSummoned_d__511__MoveNext.c` 的
                 //   `CardScript__MinionPlayedIntoField(..., 1 /*shouldTriggerSummon*/)`：
                 //   1 ⇒ `CardScript.ResolveUnitSummoned` 会发 `ThisUnitSummoned(195)`
                 //   （= 我们的 `Rally`）；而效果召唤那条协程（`_ResolveSummonUnit_d__510`）传的是
                 //   `0` ⇒ **不触发**。这就是两条路唯一可观测的差别，⛔ 别把默认那一档也改齐。
-                //   ⚠️ **排在 `ResolveFaithAbility` 之后**，与 `PlayCard` 里的先后一致
-                //     （`PlayCard`：`ResolveDeploy` → … → `ResolveFaithAbility` → **Rally**）。
+                //   ⚠️ ~~**排在 `ResolveFaithAbility` 之后**~~ —— 🔴 **2026-10-23（`T03` 残留项）
+                //     就地订正（铁律 5）**：`ResolveUnitSummoned.c:44-51` 里 `195` 在 `605` **之前**
+                //     ⇒ 现在是 **Rally(195) → 信仰(605)**，与 `PlayCard` 那边同一条口径。
                 if (fromHand) FireTriggerOnBoard(ctx, unit, KeywordTable.Rally);
+                ResolveFaithAbility(ctx, owner, unit);
                 return true;
             }
         }
@@ -4616,7 +4695,8 @@ namespace RuleEngine
         ///   `AI__PlayTurn.c:19` 递进来的是 **0**）—— 留着它只为**不给「以后要用时顺手改语义」留口子**。
         /// </summary>
         public static int IsValidTarget(BattleContext ctx, int p, int atkSlot, int tgtP, int tgtSlot,
-                                        bool ranged, bool allowAutoActions = false)
+                                        bool ranged, bool allowAutoActions = false,
+                                        bool isCheckingDestroyerTargets = false)
         {
             if (tgtP != 0 && tgtP != 1) return RuleCodes.ErrTarget;
             if (!BoardSpec.IsValid(atkSlot) || !BoardSpec.IsValid(tgtSlot)) return RuleCodes.ErrNotUnit;
@@ -4632,7 +4712,10 @@ namespace RuleEngine
             if (tgtP == p) return RuleCodes.ErrSelf;
 
             // Stealth：隐身单位不可被攻击（攻击后揭示）
-            if (target.Has(KeywordTable.Stealth)) return RuleCodes.ErrTarget;
+            // 🆕 2026-10-23（`B-31` 拆码）：原来返回 `ErrTarget`（一个码盖好几档）——
+            //   原版 `IsValidAttackTarget.c:134` 这一支带自己的词条 `Battle/Tips/AttackBlockStealth`
+            //   （`DAT_1842896a8` → `stringliteral.json`）⇒ 改用 `ErrAttackBlockStealth`。
+            if (target.Has(KeywordTable.Stealth)) return RuleCodes.ErrAttackBlockStealth;
 
             // Vanguard：敌方场上有 Vanguard → 只能打 Vanguard。**卡牌游戏的核心目标规则**
             bool enemyHasVanguard = false;
@@ -4654,7 +4737,11 @@ namespace RuleEngine
             if (enemyHasVanguard && !target.Has(KeywordTable.Vanguard)
                 && !(attacker.Card != null && attacker.Card.IgnoresVanguard)
                 && !attacker.Has(Unstoppable))
-                return RuleCodes.ErrTarget;
+                // 🆕 2026-10-23（`B-31` 拆码）：原版这一支 = `IsValidAttackTarget.c:149-174`
+                //   （`CardScript.IsDefender` / `MinionManager.IsThereDefender`），词条
+                //   `Battle/Tips/AttackBlock`（「你必须攻击先锋单位」，`DAT_1842894c0`）
+                //   ⇒ 改用 `ErrAttackBlock`（原来与隐身/飞行共用 `ErrTarget`）。
+                return RuleCodes.ErrAttackBlock;
 
             // 毁灭者（Destroyer）：规则书 `:180`「总是优先攻击可被摧毁的单位」。
             // ✅ 2026-09-14 做掉。
@@ -4717,16 +4804,42 @@ namespace RuleEngine
             //    **那句是错的**（`WouldKill` 回答的是「这一下会不会致死」）。已就地更正。
             // ⚠️ 比参考实现多一条 `du.IsAlive` —— 我们的棋盘上**死掉的督军会留在槽 4**
             //    （`RemoveIfDead` 只挪非督军），不给这一条会把一具尸体算成「可被摧毁的目标」。
-            if (attacker.Has(KeywordTable.Destroyer))
+            // 🔴 **2026-10-23（`W64 B-15`）：形状已照原版改写**（原来那句「只订正判据/注释、
+            //    实现本笔不动」到此为止）。判据 = `BattleManager__IsValidAttackTarget.c:207-250`
+            //    逐句（现读）：
+            //    ```
+            //      if (param_7 /*isCheckingDestroyerTargets*/ != 0
+            //          || !HasCurrentTrait(攻方, 0x2a8 /*frenzied = Destroyer*/)
+            //          || CheckIfAttackKillsTarget(攻方, 目标))
+            //          ⇒ 走「合法」那一路
+            //      否则：遍历场上单位（`bm + 0x470`），对每个 ≠ 目标的 `u`：
+            //          IsValidTarget(攻方, u, showTips=0, attType=0, allowAuto, param_7=1)
+            //          && CheckIfAttackKillsTarget(攻方, u)  ⇒ 报「不能这样做」+ return 0
+            //      （遍历完一个都不是 ⇒ 落到合法那一路 ⇒ 允许打）
+            //    ```
+            //    ⇒ **原版语义 = 「打不死当前目标时，只有当【另一个合法目标】这一下能打死才不合法」**，
+            //    不是我们原来那句「敌方另有可摧毁者（非 invulnerable / 非 remnant）就不能打 invulnerable」。
+            //    `CheckIfAttackKillsTarget.c:19-45`：先攒**近战**那一条伤害（`GetCombatDamageWithType(1)`）
+            //    判一次；不死则清表、换**远程**那一条（`GetCombatDamageWithType(2)`）再判
+            //    （两条**各自单条目**，所以「盾 / 闪避只跳第 0 条」对两条都成立 ——
+            //     `WouldKillByEntries` 的 index 语义正好对应）。
+            if (attacker.Has(KeywordTable.Destroyer) && !isCheckingDestroyerTargets)
             {
-                bool enemyDestroyable = false;
-                for (int s = 0; s < BoardSpec.Size; s++)
+                if (!AttackKillsTarget(ctx, p, atkSlot, tgtP, tgtSlot))
                 {
-                    var du = ctx.Players[tgtP].Board[s];
-                    if (du == null || du == target || !du.IsAlive) continue;
-                    if (!du.Has("invulnerable") && !du.IsRemnant) { enemyDestroyable = true; break; }
+                    for (int s = 0; s < BoardSpec.Size; s++)
+                    {
+                        var other = ctx.Players[tgtP].Board[s];
+                        if (other == null || ReferenceEquals(other, target) || !other.IsAlive) continue;
+                        // `param_7 = 1` = 递归时**绕过**毁灭者这道闸（原版那一支显式传 1）
+                        if (IsValidTarget(ctx, p, atkSlot, tgtP, s, ranged, allowAutoActions,
+                                          isCheckingDestroyerTargets: true) != RuleCodes.OK) continue;
+                        // 🆕 2026-10-23（`B-31` 拆码）：原版这一支（`IsValidAttackTarget.c:206-264`）
+                        //   自带词条 `Battle/Tips/CantAttackDestroyer`（`DAT_184289988`）
+                        //   ⇒ 改用 `ErrCantAttackDestroyer`（原来返回 `ErrTarget`）。
+                        if (AttackKillsTarget(ctx, p, atkSlot, tgtP, s)) return RuleCodes.ErrCantAttackDestroyer;
+                    }
                 }
-                if (enemyDestroyable && target.Has("invulnerable")) return RuleCodes.ErrTarget;
             }
 
             // Flying：**检查的是目标**（飞行单位不能被近战打到），远程正常，同为飞行可以。
@@ -4740,8 +4853,10 @@ namespace RuleEngine
             //       `:188-189` / `CardScript__IsDefender.c`）—— 我们 `IgnoresVanguard` 那条也归它。
             //    ⚠️ `rule_core.gd` 记的那条修正（「此前禁止飞行单位近战打地面、却允许地面近战打飞行」）
             //       是**我们上一版复刻**自己纠的（旁证）；上面的反编译判据**独立印证**了同一个方向。
+            // 🆕 2026-10-23（`B-31` 拆码）：原版这一支（`IsValidAttackTarget.c:177-181`）带词条
+            //   `Battle/Tips/AttackBlockFlying`（`DAT_1842895b8`）⇒ 改用 `ErrAttackBlockFlying`。
             if (!ranged && target.Has(KeywordTable.Flying) && !attacker.Has(KeywordTable.Flying))
-                return RuleCodes.ErrTarget;
+                return RuleCodes.ErrAttackBlockFlying;
 
             // 🔴 **2026-10-18 之后·第十二会话（`A1098`）：召唤病 vs 督军** ——
             //   判据是 `IsValidAttackTarget.c:199-202`（`+0x58` 裸读，**只**配 `fast`）+
@@ -4749,10 +4864,44 @@ namespace RuleEngine
             //   Flying / Vanguard / 各 trait 那几支**之后**（原版也在这条链的尾部）。
             //   ⚠️ **`fast` 走字面量**：`KeywordTable` 里没有 `Fast` 常量，
             //   `HasDeployExemption` 用的也是 `u.Has("fast")` —— 同一份口径，别另开一份。
+            // 🆕 2026-10-23（`B-31` 拆码）：原版这一支（`IsValidAttackTarget.c:200-203`）带词条
+            //   `Battle/Tips/CantAttackFlank`（`DAT_184289a78`；键名写 Flank 是因为「侧翼」是那条豁免词）
+            //   ⇒ 改用 `ErrCantAttackFlank`（原来返回 `ErrTarget`）。
             if (!allowAutoActions && attacker.SummonSickness && !attacker.Has("fast") && target.IsWarlord)
-                return RuleCodes.ErrTarget;
+                return RuleCodes.ErrCantAttackFlank;
 
             return RuleCodes.OK;
+        }
+
+        /// <summary>
+        /// **「这一下攻击打不打得死它」** —— 原版 `BattleManager.CheckIfAttackKillsTarget`
+        /// （`decomp_full/BattleManager__CheckIfAttackKillsTarget.c` 全文，2026-10-23 `W64 B-15` 现读）。
+        ///
+        /// 判据（逐句）：
+        ///   · 先攒 **近战** 那一条伤害 `EntityScript.GetCombatDamageWithType(attacker, 1)`，
+        ///     单条目判死（`CardScript.EnoughPendingDamageToDieWithDamageValues`）；
+        ///   · 不死 ⇒ **清表**（`+0x18 = 0` 是 `List._size`），换 **远程** 那一条
+        ///     `GetCombatDamageWithType(attacker, 2)` 再判一次。
+        ///   ⇒ 两条是**各自单条目**、不是「近战 + 远程相加」（`Clear` 那一句在
+        ///     `CheckIfAttackKillsTarget.c` 的 `if (cVar4 == '\0')` 分支里，`+0x1c` 是 `_version`）。
+        ///
+        /// 我们的对应：`FieldAttack(ctx, p, u, ranged)` = 当前近战/远程攻击值（buff 后）；
+        ///   判死用 <see cref="WouldKillByEntries"/>（**逐条**口径 —— 与原版 `…WithDamageValues`
+        ///   同形，盾/闪避只跳第 0 条、无敌任意条都跳）。
+        /// ⚠️ **与 `ranged` 形参无关**：原版这个函数**不看这一下选的是哪一档**（它两档都试），
+        ///   所以这里也不收 `ranged`。
+        /// </summary>
+        static bool AttackKillsTarget(BattleContext ctx, int p, int atkSlot, int tgtP, int tgtSlot)
+        {
+            var attacker = ctx.Players[p].Board[atkSlot];
+            var target = ctx.Players[tgtP].Board[tgtSlot];
+            if (attacker == null || target == null) return false;
+            // 单条目表（原版先近战后远程、各自清表）—— 长度 1 的复用缓冲，避免每次分配
+            var one = new int[1];
+            one[0] = FieldAttack(ctx, p, attacker, false);
+            if (WouldKillByEntries(target, one)) return true;
+            one[0] = FieldAttack(ctx, p, attacker, true);
+            return WouldKillByEntries(target, one);
         }
 
         /// <summary>「**这一格现在能不能发起攻击**」—— **唯一判据**。
@@ -4867,7 +5016,13 @@ namespace RuleEngine
             // （失明不在这里提前 return，它在 `FieldAttack` 里把远程攻击力算成 0，见那边的注释）
             if (!ranged && u.Has("pindown")) return RuleCodes.ErrPindown;
 
-            if (FieldAttack(ctx, p, u, ranged) <= 0) return RuleCodes.ErrNoAttack;
+            // 🆕 2026-10-23（`B-31` 拆码）：原版 `IsValidAttackTarget.c:57-70`（近战 ≤ 0）/
+            //   `:72-86`（远程 < 1）是**两支、各带各的词条**（`CantAttackWithZeroMeleeAttack` /
+            //   `CantAttackWithZeroRangedAttack`）⇒ 按 `ranged` 分两个码（原来一律 `ErrNoAttack`）。
+            //   ⚠️ 语义 1:1：`FieldAttack` 读的就是「这一种打法现在的攻击值」，
+            //      正是原版 `get_CurrentMeleeAttack` / `get_CurrentRangeAttack` 那一对。
+            if (FieldAttack(ctx, p, u, ranged) <= 0)
+                return ranged ? RuleCodes.ErrNoRangedAttack : RuleCodes.ErrNoMeleeAttack;
             // 🔴 **2026-10-18（`A992` 遗留甲）：原版 `canAttack`（`+0x23C`）那一位也要读。**
             //    原版 `CardScript__CanAttackNow.c:57-74` 是**两个位连着读**：先读 `+0x230`（`canAct`，
             //    我们的对应物是上面那句 `u.Exhausted`）、非假**再**读 `+0x23C`（`canAttack`，
@@ -8911,14 +9066,23 @@ namespace RuleEngine
                     EnqueueAbility(ctx, ActionPriority.Instant, "slay-credit:" + (_cv.Name ?? "?"),
                                    () => TryCreditKill(ctx, _ck, _cp, _cv, inlineSlay: true),
                                    // 🔴🆕 2026-10-22（`W63` · C4）：这一格由 **trigger 名**取数据，
-                                   //   **故意不给关键词** —— 见下面两行。
-                                   //   `Slay(120)` 现读**没有**非 0 的 context 行（全 Play(0)，v14 只落非 0
-                                   //   ⇒ 访问器恒 `-1`）⇒ 落到 `-1` 的旧表回退；若把 `slay` 关键词也传进去，
-                                   //   旧表会判成 `true`，而我们的闸在**出队时**判（原版在入队前判，
-                                   //   简报 §6.7）⇒ 会把 `inlineSlay` 刚要就地结算的正文再次取消
-                                   //   （= `W63` #2 的回归）。`-1` + 无关键词 ⇒ `false`，与改前逐字相同。
+                                   //   **不给关键词** —— `Slay(120)` 现读没有非 0 的 context 行
+                                   //   （全 `Play(0)`，v14 只落非 0），走 trigger 名查法即可。
+                                   //   ⚠️ 2026-10-22 原写「`-1` + 无关键词 ⇒ `false`，与改前逐字相同」——
+                                   //   **2026-10-23（`W63` 收口）起不再成立**：缺行现在读成 `Play(0)`
+                                   //   （`AbilityContextOfAbilityV14`），闸搬到了**入队那一刻**，
+                                   //   ⇒ 结果是「凶手活着在场就记账、已待死就不记账」，与原版同向。
                                    actor: _ck,
-                                   requireActorInPlay: ActorMustBeInPlayForTrigger(_ck.Card, "Slay", null));
+                                   requireActorInPlay: ActorMustBeInPlayForTrigger(_ck.Card, "Slay", null),
+                                   // 🔴🆕 **2026-10-23（`W63` 收口）：`Slay(120)` 的真值 = `Play(0)`**
+                                   //   （池内 16 张全 0，`cards_raw.json` 现读）⇒ 缺行 = `Play(0)`
+                                   //   由 `AbilityContextOfAbilityV14` 补出来。
+                                   //   ⚠️ **闸在入队那一刻**（`EnqueueAbility`）：凶手此刻还活着在场 ⇒
+                                   //   照记账；**已经待死**（同批同时伤害一起归零）⇒ 原版
+                                   //   `IsRightContext` 的 `!EnoughPendingDamageToDie` 同样不触发
+                                   //   ⇒ 我们不记账，**与原版同向**（`W63 #2` 那条回归不复现：
+                                   //   反噬是被**入队**的，要到出队才结算，记账这一刻凶手仍活着）。
+                                   abilityContext: AbilityContextOfAbilityV14(_ck.Card, "Slay", null));
                 }
                 // ---- 把本死者触发段里新死的人接到队尾（原版 `AddAutoActionToQueue`）----
                 var nested = ctx.TakePendingDeaths();
@@ -9349,7 +9513,7 @@ namespace RuleEngine
                 //    改成**先取值、先计数、再判去留** —— 行为完全不变（`isLoose == true` ⇔ `fit == false`），
                 //    只让那句出声真的可能触发。
                 bool isLoose;
-                bool fit = HandEffectFits(inst.Card, e, out isLoose);
+                bool fit = HandEffectFits(inst, e, out isLoose);
                 if (isLoose) loose++;
                 if (!fit) continue;
                 if (AttachHandEffectCopy(ctx, inst, e)) n++;
@@ -9428,10 +9592,17 @@ namespace RuleEngine
         ///    ⇒ 不补这一道的话，那条记录会**发给每一个后进手牌的部队**（卡面只管野兽）——
         ///    「打得比卡面宽」的静默错。（判据与写法 = `GrantHandBuffForTargets` 收候选那一段，
         ///     **同一份纪律**：`Subtype` 为空的卡**不许悄悄排除**。）</summary>
-        static bool HandEffectFits(CardDef card, CardInstance.HandEffect e, out bool loose)
+        static bool HandEffectFits(CardInstance inst, CardInstance.HandEffect e, out bool loose)
         {
             loose = false;
-            if (card == null) return false;
+            if (inst == null || inst.Card == null) return false;
+            var card = inst.Card;
+            // 🔴 **2026-10-23（`W64 B-09`）：按实例钉的那一格**（`OnlyInstanceId != 0`）——
+            //   判据 = `BL6` 的 `chosenAbility = 40 = buffSelf`（原版只加它自己那一份）。
+            //   不带这条的话，`NameFilter` 会把**同名**的牌也算进来（偏多）。
+            //   ⚠️ 判据缺实例的调用点不存在（本方法的唯一调用点就拿着 `inst`）⇒ 不用退路。
+            if (e.OnlyInstanceId != 0 && inst.Id != e.OnlyInstanceId)
+                return false;
             // 🔴 **2026-10-18（`W5` · 审查 §2 作者自陈 b + §5 账 9）：原来这里有一道
             //    `if (card.Type != "unit") return false;` —— 已删。**
             //    原版 `PlayerHand.SetupCardInHand` **不看卡类型**（`PlayerHand__SetupCardInHand.c:38-74`
@@ -10530,11 +10701,28 @@ namespace RuleEngine
             //   载体卡 = 附魔那几条能力时是**附魔卡**、否则是单位自己（与上面 `TriggerLaneOfCard` 同口径）。
             //   判据 → `W63_abilityContext_施工简报.md` §4·C5 · §1·2（skip 表）。
             var _carrierCard = only != null ? only.Card : (u != null ? u.Card : null);
+            // 🔴🆕 **2026-10-23（引擎线 `W63` 收口）：`abilityContext` 走【入队那一刻】的闸**
+            //   （判据 → `EnqueueAbility` 的 `abilityContext` 形参 doc：原版
+            //    `RawCardScript__TriggerAbilities.c:108,207` 在广播那一刻同步调
+            //    `CardAbility.CanTriggerAbility` ⇒ 闸在入队前）。
+            //   · **skip 表**（`ThisCardPlayed` / `ThisUnitDeath` / `Codex` / `Sacrifice` /
+            //     `TriggerEnchantment`）由 `TriggerSkipsAbilityContext` 一处判 ⇒ 一律**不判**（传 `-1`）；
+            //   · **附魔那几条能力**（`only != null`）不判：载体是附魔卡、场上定位到的是宿主，
+            //     两回事（今天 0 张可达，见 `FireTriggerDeferred` 那段）；
+            //   · 其余按「关键词 → 原版 trigger 名 → `AbilityContextOfAbilityV14`」取真值
+            //     （v14 只落非 0 ⇒ 缺行 = `Play(0)`）。
+            //   ⚠️ 仍**同时**传 `requireActorInPlay` —— 那只在 context 取到 `-1`（旧卡表 /
+            //     第二解析路没接列）时生效，是**回退口径**，⛔ 不是第二份判据。
+            string _kwTriggerName = TriggerNameOfKeyword(keyword);
+            int _abilityCtx = (only != null
+                               || TriggerSkipsAbilityContext(_kwTriggerName, keyword))
+                            ? CardDef.AbilityContextUnknown
+                            : AbilityContextOfAbilityV14(_carrierCard, _kwTriggerName, keyword);
             bool queued = EnqueueAbility(ctx, lane,
                 (u != null ? u.Name : "?") + "·" + keyword,
                 body,
                 actor: u, requireActorInPlay: ActorMustBeInPlayForTrigger(_carrierCard, null, keyword),
-                extraTrigger: extraTrigger);
+                extraTrigger: extraTrigger, abilityContext: _abilityCtx);
             return queued;
         }
 
@@ -10621,13 +10809,21 @@ namespace RuleEngine
                     EnqueueAbility(ctx, ListenerLane(u.Card), (u.Name ?? "?") + "·mob-extra",
                                    () => MobExtraTriggerDeferred(ctx, _mobP, _mobSlot, _mobAtk),
                                    // 🔴🆕 2026-10-22（`W63` · C4）：由 **trigger 名**取数据，
-                                   //   **故意不给关键词**（理由同 `slay-credit` 那一处）——
-                                   //   `Mob(300)` 现读没有非 0 的 context 行（全 Play(0)，v14 只落非 0
-                                   //   ⇒ 访问器恒 `-1`）；给 `mob` 关键词会让旧表判成 `true`，而额度是在
-                                   //   监听器动作里挂的、这条要等出队才跑（简报 §6.7 时机偏差）⇒ 会凭空取消。
-                                   //   `-1` + 无关键词 ⇒ `false`，与改前逐字相同。
+                                   //   **不给关键词**（理由同 `slay-credit` 那一处）——
+                                   //   `Mob(300)` 现读没有非 0 的 context 行（全 `Play(0)`，v14 只落非 0）。
+                                   //   ⚠️ 2026-10-22 原写「`-1` + 无关键词 ⇒ `false`，与改前逐字相同」——
+                                   //   **2026-10-23（`W63` 收口）起不再成立**：缺行读成 `Play(0)`，
+                                   //   闸在**入队那一刻**（攻击者正在打人 ⇒ 活着在场 ⇒ 照跑；
+                                   //   已待死 ⇒ 原版同样不触发）。
                                    actor: _mobAtk,
-                                   requireActorInPlay: ActorMustBeInPlayForTrigger(_mobAtk.Card, "Mob", null));
+                                   requireActorInPlay: ActorMustBeInPlayForTrigger(_mobAtk.Card, "Mob", null),
+                                   // 🔴🆕 **2026-10-23（`W63` 收口）：`Mob(300)` 的真值 = `Play(0)`**
+                                   //   （池内 16 张全 0）⇒ 缺行 = `Play(0)`。
+                                   //   闸在**入队那一刻**：攻击者此刻在打人 ⇒ 活着在场 ⇒ 照跑；
+                                   //   若它已经待死（反噬/同批伤害归零）⇒ 原版 `IsRightContext` 同样不触发。
+                                   //   ⚠️ **额度本身仍是在监听器动作里挂的**（`MobExtraTriggerDeferred`
+                                   //   只消费一次）—— 这里判的只是「这条派生动作要不要入队」，与额度无关。
+                                   abilityContext: AbilityContextOfAbilityV14(_mobAtk.Card, "Mob", null));
                 }
             }
 

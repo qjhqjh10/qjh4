@@ -72,17 +72,33 @@
 //     （动画事件只能绑实例方法）就把 `static` 去掉 —— 改的时候记得同步这句注释。
 //
 // 🔴 未还原（整条「怎么把它画到屏幕上」的那一半）
-//   · **`instanceMaterial = new Material(Shader.Find("Hidden/LUTBlender"))`**：那个 shader **不在我们工程里**
-//     （`Assets/WarpforgeVFX/Shaders/` 只有 5 个自建 `WF*`），也没有**运行时**取它的路 ⇒ 不建。
-//     📌 规格是查得到的，下游照这个做：`资料/普查产出_0917/shader属性表_块3.md:294-300` ——
+//   🔴🔴 **2026-10-23 就地订正（铁律 5 · `普查产出_1022/A1_自造与兜底_特效动画.md` §四 D4）——
+//      下面这一整段「没 shader / 没有后期链」的记载【已经过期】**（错因：写于 2026-09-17，
+//      之后 2026-10-01 那条链就建起来了，但没回来改本文件）。现读：
+//      · **shader 有了**：`WarpforgeVFX/Shaders/WFLUTBlender.shader`（自建，算式 = 反汇编读出来的
+//        `o = lerp(_LUT1,_LUT2,_Blend)`）；`WarpforgeShaderMap.Replacements` 里 `Hidden/LUTBlender`
+//        → `WarpforgeVFX/LUTBlender`，所以 `TryResolve("Hidden/LUTBlender", …)` 拿得到。
+//      · **后期链有了**：`CardPresentation/Battle/BattlePostFx.cs` —— 它 `new Material(sh)`、
+//        建 256×16 合并 RT、`Graphics.Blit(null, rt, mat)` 之后把结果塞进 URP `ColorLookup.texture`。
+//      · **钩子挂上了**：`BattleDriver.cs:2193`（`AttachPostFx` 里 `OnPostFx = r => _postFx.Handle(r)`，
+//        在战场载完之后挂）、卸钩在 `:2217`。
+//      ⇒ 现在剩下的缺口**只有一条**（与 shader 无关）：原版 `LUTBlender` 走的是
+//        「`_LUT1` = 原 LUT（只读）/ `_LUT2` = 目标」两跳，我们按 `BattlePostFx` 文件头第 ① 条
+//        直接落位（不建那两张中间 RT）—— 那一段的理由与出入都写在 `BattlePostFx.cs` 文件头。
+//
+//   ⚠️ 以下是**已过期原文**（留痕用，⛔ 别照它做）：
+//   · ~~**`instanceMaterial = new Material(Shader.Find("Hidden/LUTBlender"))`**：那个 shader **不在我们工程里**
+//     （`Assets/WarpforgeVFX/Shaders/` 只有 5 个自建 `WF*`），也没有**运行时**取它的路 ⇒ 不建。~~
+//     📌 规格（今天仍然有效，用来核自建那份对不对）：`资料/普查产出_0917/shader属性表_块3.md:294-300` ——
 //     `Hidden/LUTBlender` 属性 3 个：`_LUT1`(Texture, def white) · `_LUT2`(Texture, def white) ·
 //     `_Blend`(Range 0–1, def 0)；pass `One→Zero`、zWrite On、lod 100；原版有 13 个材质用它。
-//   · **`lutToApplyRT`（两张 LUT 的合并 RT，原版规格 **256×16**、`useMipMap = false`）**：
+//   · ~~**`lutToApplyRT`（两张 LUT 的合并 RT，原版规格 **256×16**、`useMipMap = false`）**：
 //     它的用途是 `Graphics.Blit(null, lutToApplyRT, instanceMaterial)` 的目标 —— **没有那个 shader 就建了没用**
-//     ⇒ 由下游建。规格（`LutMergeWidth` / `LutMergeHeight` 两个常量）留在这里，别改。
-//   · **真正把后期应用到画面上**：原版是 `PostFXController.ResetBloom/ResetLUT` + `LUTBlender.DoBlend`
-//     + `Universal.CameraExtensions.UpdateVolumeStack`。我们**没有后期链**（没有 URP `Volume` / `ColorLookup`）
-//     ⇒ 这一层整段路由到静态钩子 `OnPostFx`，**没人挂就整段不生效**（计数 + 警告，不静默）。
+//     ⇒ 由下游建。规格（`LutMergeWidth` / `LutMergeHeight` 两个常量）留在这里，别改。~~
+//     → **下游已经建了**（`BattlePostFx`）。
+//   · ~~**真正把后期应用到画面上**：…… 我们**没有后期链**（没有 URP `Volume` / `ColorLookup`）
+//     ⇒ 这一层整段路由到静态钩子 `OnPostFx`，**没人挂就整段不生效**（计数 + 警告，不静默）。~~
+//     → 钩子在 `BattleDriver.cs:2193` 挂着；`OnPostFx` 的两处装卸与断言都在那里。
 //     📌 下游该长什么样，原版已经给了骨架：`LUTBlender` 是个 MonoBehaviour，字段
 //     `blendMaterial:Material` · `volume:Volume` · `colorLUT:ColorLookup` · `originalLUTTexture:Texture` ·
 //     `instanceMaterial:Material` · `combinedLUT` / `workingRT:RenderTexture` · `targetBlendValue` ·
@@ -303,7 +319,15 @@ namespace WarpforgeVFX
             DoBloomAim();
             DoLUTAnim();
             // 🔴 未还原：原版最后一句是 `Universal.CameraExtensions.UpdateVolumeStack(BattleManager.<0xa8>)`
-            //    —— 那是相机后处理栈的刷新，我们这边没有 VolumeStack（也没有后期链），对应物在下游。
+            //    —— 那是相机后处理栈的刷新。
+            //    ⚠️ **2026-10-23 订正（铁律 5）**：原文写的「也没有后期链」**已过期** ——
+            //    后期链现在是 `BattlePostFx`（URP `Volume` + `ColorLookup` + Bloom，`BattleDriver.cs:2193` 挂的）。
+            //    但 `UpdateVolumeStack` 这个**显式刷新**我们仍然没有调用点（URP 每帧自己刷）
+            //    ⇒ 这一条的现状 = **未还原、且不知道有没有可见差别**。
+            //    判据实读（2026-10-23）：调用点 `AnimFXModulePostProcess__Update.c:65`
+            //    `UnityEngine_Rendering_Universal_CameraExtensions__UpdateVolumeStack(*(lVar1 + 0xa8), 0)`
+            //    —— 只有调用点；**方法体本身不在 `d:/2/tools/decomp_full/`**（全目录 grep 只有 2 个调用点）。
+            //    ⛔ 别当成「已经等价」，也别凭猜去加一次刷新。
         }
 
         /// <summary>原版 `DoBloomAim()`：只在开关打开时写 Bloom 的 intensity / threshold。

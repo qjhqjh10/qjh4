@@ -10,9 +10,12 @@
 //    工具：`工具/disasm_dxbc.py` 的 `_d3d_disassemble` + `split_dxbc`（Windows 自带 `d3dcompiler_47.dll`）。
 //    ⚠️ **它不在 `dump_shader_blob.BUNDLES` 那 3 个包里** —— 它在**每个战场场景包**
 //       （`scenes_scenes_battlearena*`，13 份）里 ⇒ 要自己指源包。
+//       🆕 **2026-10-23（铁律 5 补）：它也在 `StreamingAssets/WarpforgeVFX/wf_arena_2.bundle` 里**
+//       （`Shader.path_id = 42`，带完整 DXBC：压缩 2027 B → 解压 3504 B / 两段）——
+//       复核这条链**不必去翻 13 个场景包**，跑 `工具/dump_lutblender.py` 一条命令即可
+//       （判据 → `资料/普查产出_1023/E4_R29分因与R1判据.md` §2·3 / §⑤-4）。
 //    `Shader.compressedBlob` 解出 3504 字节，两段 DXBC（偏移 446 / 1278）：
-//      --- vs_4_0（684 B）---  只把 `v1.xy` 直通到 `o0.xy` + 常规 MVP 变换
-//                              （**没有 3D LUT 坐标运算**）
+//      --- vs_4_0（684 B）---  见下一条（**2026-10-23 订正：原版 VS 不是直通**）
 //      --- ps_4_0（452 B）---
 //        dcl_resource_texture2d (float,float,float,float) t0
 //        dcl_resource_texture2d (float,float,float,float) t1
@@ -25,6 +28,25 @@
 //    ⇒ 是 **`texture2d` + 同一个 UV**、在 **256×16 展开空间里逐纹素插值**（**不是** `texture3D`）。
 //      这正是「混两张 color-grading LUT」应有的语义 —— 在 3D 空间插值反而是错的。
 //    判据全文 → `资料/普查产出_1001/资产导入路三件_侦察.md` §3·5·a。
+//
+// 🔴🔴 **2026-10-23 就地订正（W65 · A1 的 `R1` · 铁律 5）—— 本文件原来写着「原版 vs 就是直通」，错的**：
+//   原版 `vs_4_0` 的**第一条指令就是 UV 的 scale/bias**（本件重跑 `工具/dump_lutblender.py` 现读）：
+//       `dcl_constantbuffer CB0[3], immediateIndexed`
+//       `mad o0.xy, v1.xyxx, cb0[2].xyxx, cb0[2].zwzz`      // ← uv * ST.xy + ST.zw
+//   而我们当时写的是 `o.uv = v.uv;`（**少了这一跳**）。
+//   为什么一直没被发现：`BattlePostFx` 是 `Graphics.Blit(null, rt, mat)`，`_MainTex` 未绑定
+//   ⇒ 各张 `*_ST` 都是**默认 (1,1,0,0) = 单位变换** ⇒ 两侧等价。
+//   但只要出现**非单位 ST**（源是真实纹理 / 走翻转投影的渲染通道 / 立体渲染），原版会缩放+平移、
+//   我们不会 ⇒ 256×16 的 LUT 会被**上下颠倒**（16 行 = 3D LUT 的纵轴）。
+//   ⇒ 已按原版补上这一跳（见 `vert()`）。
+//   ⚠️ **`cb0[2]` 到底是哪一张 `_ST`，查不到**：内置管线 shader 的常量缓冲反射
+//   （`SerializedPass.m_CommonParameters`）**没有序列化**（本件实读 `m_CommonParameters = None`），
+//   而 cb0 的槽位排布又拿不到 `m_ConstantBuffers` ⇒ **无法判定它是 `_LUT1_ST` / `_LUT2_ST` 还是别的**。
+//   取 `_LUT1_ST`（主纹理、原版只读那一张）—— **今天**这三张 ST 全是单位值，取哪一张**渲染逐像素相同**；
+//   将来真要接非单位 ST，先用 `LutBlendProbe` 的 A7 条（见下）对一次原件再定。
+//   判据 → `资料/普查产出_1023/E4_R29分因与R1判据.md` §1·D（新发现）+ 本文件 2026-10-23 补测。
+//   专验法（要 Unity）：`LutBlendProbe.Run` 的 A1–A7 七条断言 —— 方案在
+//   `资料/普查产出_1023/E4_R29分因与R1判据.md` §④-1；⛔ 本轮红线不跑 Unity，故**判据已齐、验证待跑**。
 //
 // 🔴 **两处刻意的选择**（写明白，别当成疏漏）
 //  · **名字不叫 `Hidden/LUTBlender`**：自建 shader 一律 `WarpforgeVFX/` 前缀；
@@ -67,6 +89,9 @@ Shader "WarpforgeVFX/LUTBlender"
             //    这里不会被包含）—— 一律 `half` / `float`。同族教训见 `WFSpritesAdditive.shader:104-112`。
             CBUFFER_START(UnityPerMaterial)
                 float _Blend;
+                // 🆕 2026-10-23（R1）：原版 VS 的 `mad o0.xy, v1.xyxx, cb0[2].xyxx, cb0[2].zwzz` 要这一格。
+                // ⚠️ 哪一张 `_ST` 查不到（见文件头那段订正）⇒ 取主纹理 `_LUT1` 的；默认 (1,1,0,0) 时与直通等价。
+                float4 _LUT1_ST;
             CBUFFER_END
 
             TEXTURE2D(_LUT1);   SAMPLER(sampler_LUT1);
@@ -88,8 +113,9 @@ Shader "WarpforgeVFX/LUTBlender"
             {
                 Varyings o;
                 o.positionCS = TransformObjectToHClip(v.positionOS.xyz);
-                // 原版 vs 就是**直通**（`mad o0.xy, v1.xyxx, cb0[2].xyxx, cb0[2].zwzz` —— 无滚动/无缩放）
-                o.uv = v.uv;
+                // 原版 vs（反汇编第一条指令）：`mad o0.xy, v1.xyxx, cb0[2].xyxx, cb0[2].zwzz`
+                //   = uv * ST.xy + ST.zw   ← **2026-10-23 补**（原来写成直通 = 少了这一跳，见文件头订正）
+                o.uv = v.uv * _LUT1_ST.xy + _LUT1_ST.zw;
                 return o;
             }
 

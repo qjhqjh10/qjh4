@@ -565,12 +565,29 @@ namespace RuleEngine
         /// </summary>
         public static float ScoreFromAttack(BattleContext ctx, AiAction a)
         {
+            if (ctx == null || a == null) return 0f;
             int me = ctx.Active, foe = 1 - me;
             var u = ctx.Players[me].Board[a.Slot];
             var target = ctx.Players[foe].Board[a.TargetSlot];
-            if (u == null || target == null) return 0f;
+            return ScoreFromAttack(ctx, me, u, target, a.Ranged);
+        }
 
-            int atk = RuleCore.FieldAttack(ctx, me, u, a.Ranged);
+        /// <summary>
+        /// 一刀值多少分 —— **出手方显式给**的那一版（上面那条 `AiAction` 版的实现体）。
+        ///
+        /// 🔴 为什么拆出这一版（2026-10-23 `W64·B-01`）：原版 `AI.ScoreFromAttack` 的入口带
+        ///   `attackType`，而**出手方不是隐含的「当前行动方」** —— `AI__SelectBestAttackAction.c:24`
+        ///   用的是 `*(actingCard + 0x40)`（该卡自己的 side）。`Core` 的 `IAiScorer` 要按这个口径
+        ///   问分（`Core/IAiScorer.cs`），所以 `side` 必须能显式传。
+        ///   现有的 `AiAction` 版**行为不变**（它照旧传 `ctx.Active`，那是 AI 出招时的事实）。
+        /// </summary>
+        public static float ScoreFromAttack(BattleContext ctx, int side, UnitState u, UnitState target, bool ranged)
+        {
+            if (ctx == null || u == null || target == null) return 0f;
+            if (side < 0 || side > 1) return 0f;
+            int foe = 1 - side;
+
+            int atk = RuleCore.FieldAttack(ctx, side, u, ranged);
             if (atk <= 0) return 0f;
 
             float s = ScoreDamaging(target, atk);       // 里面已经按「是不是督军」分了两支
@@ -578,9 +595,9 @@ namespace RuleEngine
             // 反击：取守方**本次打法那一档**的攻击力（原版 `GetCombatDamage(守方, 本次打法)`；
             //   引擎侧同一口径 = `RuleCore.DeclareAttack` 的
             //   `counterAtk = FieldAttack(ctx, tgtP, target, ranged)`）
-            bool noCounter = a.Ranged && u.Has(KeywordTable.LongRange);
-            bool sniperKill = a.Ranged && u.Has("sniper") && RuleCore.WouldKill(target, atk);
-            int counter = RuleCore.FieldAttack(ctx, foe, target, a.Ranged);
+            bool noCounter = ranged && u.Has(KeywordTable.LongRange);
+            bool sniperKill = ranged && u.Has("sniper") && RuleCore.WouldKill(target, atk);
+            int counter = RuleCore.FieldAttack(ctx, foe, target, ranged);
             if (!noCounter && !sniperKill && counter > 0)
             {
                 s -= ScoreDamaging(u, counter);
@@ -1137,23 +1154,36 @@ namespace RuleEngine
         /// 这一回合**最多能对对面督军造成多少伤害**。
         ///
         /// 把「还能动的单位」逐个数一遍，每个单位取它**能打出的最大那一份**：
-        ///   · **攻击**：近战 / 远程两路各问一次引擎（`IsValidTarget`），取伤害高的那一路
-        ///     —— 一个单位一回合只出一刀，**不能两路相加**；
-        ///   · **技能**：只算「打 `EnemyWarlord`」那类伤害技能。
-        ///     ⚠️ 技能和攻击**二选一**（放了技能这个单位就疲劳），所以取两者里大的那个，**也不能相加**。
+        ///   · **攻击**：近战 / 远程两路各问一次引擎（`IsValidTarget`），取**攻击力**高的那一路
+        ///     —— 一个单位一回合只出一刀，**不能两路相加**。
         ///
-        /// ⚠️ **和原版的一处差别**：原版 `CombinedAttackCanKillWarlord` **只累加攻击动作**
-        ///    （`AI__CombinedAttackCanKillWarlord.c:50-185`），我们这里把「打脸的伤害技能」也算进去了
-        ///    —— 因为下一刀一定是「攻击**或**技能」二选一，算进去才是真上界。判据**只此一处**。
-        /// ⚠️ 伤害一律过 `RuleCore.DamageAfterReduction`（督军也可能有护甲）。
-        /// ⚠️ **带盾的督军会被严重低估** —— `DamageAfterReduction` 对带盾目标一律返回 0
-        ///    （盾会碎，但我们没有「第几次命中」的概念）。`Shield` 在督军身上极罕见，先如实记着。
+        /// 🔴 **2026-10-23（`W64 B-02`）已改成原版口径，两处旧偏差都修掉了**（判据 =
+        ///    `decomp_full/AI__CombinedAttackCanKillWarlord.c` 全文，现读）：
+        ///   ① **不再累加「打脸的伤害技能」**。原版只读**攻击动作**（`:60-125` 的
+        ///      `action.attackType ∈ {1 近战, 2 远程}`，其它类型直接跳过），技能根本不在这个列表里。
+        ///      旧注释写「技能二选一，算进去才是真上界」——那是**我们自己放宽的**，不是原版。
+        ///   ② **不再过 `RuleCore.DamageAfterReduction`**。原版累加的是
+        ///      `GetCurrentMeleeAttack` / `GetCurrentRangeAttack` **原始攻击力**（`:140-155`），
+        ///      最后只跟 `督军 Health + CurrentBastion`（`:160-185`）比 —— **护甲 / 盾 / 易伤一律不参与**。
+        ///      ⇒ 我们以前「带盾的督军一律算 0」那条**偏差也随之消失**（不是靠补模型，是照原版不套减伤）。
+        ///      ⚠️ 结果是：这个数**不是**「实际会掉多少血」，而是原版那个**上界估计**；
+        ///      别拿它当伤害预测用（真要预测走 `DamageAfterReduction`）。
         /// ⚠️ **定死的规则，不掷骰** —— 种子只该影响洗牌（一局必须可复现）。
         /// </summary>
         public static int DamageToFoeWarlord(BattleContext ctx)
         {
+            return ctx == null ? 0 : DamageToFoeWarlord(ctx, ctx.Active);
+        }
+
+        /// <summary>同上的**显式出手方**版（2026-10-23 `W64·B-01`）。
+        /// 原版这一路从 `action.actingCard` 的 side 取值（`AI__SelectBestAttackAction.c:24`），
+        /// 不是隐含的「当前行动方」⇒ `Core` 的 `IAiScorer` 要能按 side 问。
+        /// ⚠️ 桩/夹具里出现 `side` 越界 ⇒ 返回 0（⛔ 别静默按 `ctx.Active` 顶替）。</summary>
+        public static int DamageToFoeWarlord(BattleContext ctx, int side)
+        {
             if (ctx == null || ctx.IsOver) return 0;
-            int me = ctx.Active, foe = 1 - me;
+            if (side < 0 || side > 1) return 0;
+            int me = side, foe = 1 - me;
             var myBoard = ctx.Players[me].Board;
             var foeW = ctx.Players[foe].Warlord;
             if (foeW == null) return 0;
@@ -1164,39 +1194,49 @@ namespace RuleEngine
                 var u = myBoard[s];
                 if (u == null || u.Exhausted || u.IsStunned) continue;
 
-                int byAttack = 0;
+                // 一个单位**只算一刀**、取它**能打出的最高那一路**（原版按攻击动作去重，
+                // 同一攻击者保留攻击力最高的那一条 —— `…CanKillWarlord.c:80-125` 的
+                // `List.Find` + `Remove` 那一段）。
+                int best = 0;
                 for (int ranged = 0; ranged <= 1; ranged++)
                 {
                     int atk = RuleCore.FieldAttack(ctx, me, u, ranged == 1);
                     if (atk <= 0) continue;
                     if (RuleCore.IsValidTarget(ctx, me, s, foe, BoardSpec.WarlordSlot,
                                                ranged == 1) != RuleCodes.OK) continue;
-                    int dealt = RuleCore.DamageAfterReduction(foeW, atk);
-                    if (dealt > byAttack) byAttack = dealt;
+                    if (atk > best) best = atk;
                 }
-
-                int byAbility = 0;
-                var spec = u.Ability;
-                if (spec != null && spec.IsDamage && spec.Target == EffectTargets.EnemyWarlord
-                    && RuleCore.CanUseAbility(ctx, me, s) == RuleCodes.OK)
-                    byAbility = RuleCore.DamageAfterReduction(foeW, spec.Amount);
-
-                total += System.Math.Max(byAttack, byAbility);
+                total += best;
             }
             return total;
         }
 
-        /// <summary>这一回合够不够把对面督军打死（= 斩杀线到了）。</summary>
+        /// <summary>这一回合够不够把对面督军打死（= 斩杀线到了）。
+        ///
+        /// 🔴 **2026-10-23（`W64 B-02`）改成原版口径**：`…CanKillWarlord.c:160-185` 的闸是
+        /// `总伤害 < 督军 Health(+0x68) + CurrentBastion` ⇒ **打不死**；否则报一句 LogWarning 返回 1。
+        /// ⇒ 我们这边 = `总伤害 >= Health + Bastion`。
+        /// 本笔之前漏了 `Bastion` 那一项（带堡垒的督军会被判成「这一回合就能打死」）。</summary>
         public static bool CanLethal(BattleContext ctx)
         {
+            return ctx != null && CanLethal(ctx, ctx.Active);
+        }
+
+        /// <summary>同上的**显式出手方**版（2026-10-23 `W64·B-01`；理由见 `DamageToFoeWarlord(ctx, side)`）。</summary>
+        public static bool CanLethal(BattleContext ctx, int side)
+        {
             if (ctx == null || ctx.IsOver) return false;
-            var foeW = ctx.Players[1 - ctx.Active].Warlord;
+            if (side < 0 || side > 1) return false;
+            var foeW = ctx.Players[1 - side].Warlord;
             return foeW != null && foeW.Health > 0
-                   && DamageToFoeWarlord(ctx) >= foeW.Health;
+                   && DamageToFoeWarlord(ctx, side) >= foeW.Health + foeW.Bastion;
         }
 
         /// <summary>原版 `CombinedAttackCanKillWarlord` 的名字，判据就是 <see cref="CanLethal"/>（**只此一处**）。</summary>
         public static bool CombinedAttackCanKillWarlord(BattleContext ctx) { return CanLethal(ctx); }
+
+        /// <summary>同上、**显式出手方**版（`W64·B-01`：`IAiScorer` 的评分里那 `+10000` 要用它）。</summary>
+        public static bool CombinedAttackCanKillWarlord(BattleContext ctx, int side) { return CanLethal(ctx, side); }
 
         // ==================================================================
         //  ④ 难度：随机挑掉最低分的动作（原版 `TweakAvailableActions`）
@@ -1675,6 +1715,76 @@ namespace RuleEngine
                 rejected.Add(a);
                 if (rejected.Count >= MaxRejectedActions) break;
             }
+        }
+
+        // ==================================================================
+        //  ⑥ `Core` 的 AI 评分钩子（`W64 · B-01`，2026-10-23）
+        //
+        //  `Core` 不许依赖 `Data/`（探针只编 `Core/*.cs`），而原版的选靶评分住在
+        //  `AI.GetActionScore` 那一族里 ⇒ `Core` 开一个 `IAiScorer` 接口（`Core/IAiScorer.cs`），
+        //  由本文件实现并注入。**评分只有这一份实现** —— 两处写同一条规则 = 迟早不一致。
+        // ==================================================================
+
+        /// <summary>
+        /// `Core/IAiScorer.cs` 的实现 —— **原版 `AI.GetActionScore` 的攻击支**
+        /// （`AI__GetActionScore.c:45-63` 的 `case 1 / case 2` 两支都汇到 `AI.ScoreFromAttack`）：
+        ///   · `s = ScoreFromAttack(出手方, 出手单位, 目标, 打法档)`（本文件同名重载）；
+        ///   · 目标是**督军**（原版 `EntityScript.get_cardType(targetCard) == 10`，`:60`）
+        ///     且 `CombinedAttackCanKillWarlord` ⇒ `s += 10000`（`:60-63` 的 `DAT_1834b32f4`
+        ///     = <see cref="CombinedKillBonus"/>）。
+        /// 更上层（`AI__SelectBestAttackAction.c:46-65`）是「逐条打分 → `SelectBestAction`」，
+        /// 严格 `>` ⇒ **平手留先出现的**；调用方按槽号升序枚举即可复现。
+        /// 无状态 ⇒ 单例安全（⛔ 别往这里存局面）。
+        /// </summary>
+        sealed class SimpleAiScorer : IAiScorer
+        {
+            public float ScoreAttack(BattleContext ctx, int side, int slot, int foeSlot, bool ranged)
+            {
+                if (ctx == null) return 0f;
+                if (side < 0 || side > 1) return 0f;
+                if (!BoardSpec.IsValid(slot) || !BoardSpec.IsValid(foeSlot)) return 0f;
+
+                var u = ctx.Players[side].Board[slot];
+                var target = ctx.Players[1 - side].Board[foeSlot];
+                if (u == null || target == null) return 0f;
+
+                float s = ScoreFromAttack(ctx, side, u, target, ranged);
+
+                // `AI__GetActionScore.c:60-63`：目标 cardType == 10（督军）+ 合击够斩杀 ⇒ +10000。
+                if (target.IsWarlord && CombinedAttackCanKillWarlord(ctx, side)) s += CombinedKillBonus;
+                return s;
+            }
+        }
+
+        /// <summary>共享的评分器实例（无状态）。</summary>
+        public static readonly IAiScorer Scorer = new SimpleAiScorer();
+
+        /// <summary>
+        /// 把 <see cref="Scorer"/> 挂到 `Core` 的 <see cref="AiScorerHook"/> 上（**幂等**）。
+        ///
+        /// 三条入口都会调它：
+        ///   ① 本类的**静态构造** —— 第一次用到 `SimpleAI` 时；
+        ///   ② `[RuntimeInitializeOnLoadMethod]` —— 进 play 模式 / player 启动时。
+        ///      ② 是必需的：狂暴强制出手发生在**玩家回合结束时**，而 AI 可能**还没动过一次**
+        ///      （先手第 1 回合）⇒ 只靠 ① 会漏掉那一回合的选靶；
+        ///   ③ 自检 / 任何宿主显式调（`-executeMethod` 批处理**不会**触发 ②）。
+        /// ⚠️ 这是一次**全局**副作用（`AiScorerHook.Scorer` 是进程级的）——
+        ///    自检里换过假评分器之后**记得换回来**（`RuleEngineTest.TestB01AiScorerHook` 用 `finally`）。
+        /// </summary>
+        public static void InstallAiScorer()
+        {
+            AiScorerHook.Scorer = Scorer;
+        }
+
+        static SimpleAI()
+        {
+            InstallAiScorer();
+        }
+
+        [UnityEngine.RuntimeInitializeOnLoadMethod(UnityEngine.RuntimeInitializeLoadType.SubsystemRegistration)]
+        static void InstallAiScorerOnLoad()
+        {
+            InstallAiScorer();
         }
     }
 }

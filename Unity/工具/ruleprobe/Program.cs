@@ -199,7 +199,13 @@ class Program
     // 🔴 **2026-10-22（第六十四会话 · B-16 count 被数集合）有意重钉**：`cards_engine.json` v15→v16，
     //    `role=="count"` 行新增 `countSet`（池内 4 张 / 6 条；37 格）⇒ 卡池 md5 变
     //    （`0dd76354…` → `b7b19efd…`）。解析输出逐字节没动（`check` 解析差异 0 行 · 输出指纹 `c9f6c642…`）。
-    public const string PinnedPoolMd5 = "b7b19efddfce342a6e2eb01137091dcc";
+    // 🔴 **2026-10-23（引擎线 · `B-16` 残余 241/242 ＋ `B-17`）有意重钉**：`cards_engine.json` v16→v17，
+    //    新列 `abilityTriggers`（1127 张 / 1008 张非空 / 1193 个 trigger 值）＋ `abilityTargets`
+    //    （1127 张 / 1270 条 ability / 1616 个 logic）⇒ 卡池 md5 变（`b7b19efd…` → `3f4002d0…`、
+    //    1,164,810 → 1,218,806 B）。解析输出逐字节没动（`check` 解析差异 0 行 · 输出指纹 `c9f6c642…`）
+    //    ⇒ **只重钉这一颗**，`PinnedBaselineMd5` / `PinnedParseMd5` 原样不动。
+    //    判据 → `资料/普查产出_1023b/引擎线_尾巴_执行报告.md` §5·1 / §6·1。
+    public const string PinnedPoolMd5 = "3f4002d0ff24a7b6375caedcd3ef329e";
 
     /// <summary>钉住的基线内容指纹（`工具/ruleprobe/基线/out_baseline.txt` 的 md5，**按字节**）。
     /// 与上面那个配对使用 —— 判据见上面那段长注释。</summary>
@@ -564,6 +570,15 @@ class Program
         //   非 0/1 的布尔、`playerTurn` 不在 0/10/20、引用列表不是数组或含空串）。
         //   🔴 口径与 `CardDatabase.MapCountSet` **一致**：坏值**不丢整行**，只把那一格落 `-1`。
         int nUcSetRows = 0, nBadUcSet = 0;
+        // 🆕 v17（2026-10-23 · 引擎线 · `B-16` 残余 241/242 ＋ `B-17`）：`abilityTriggers` /
+        //   `abilityTargets` 两列的读数。
+        //   · `nMissTrig` / `nMissTgt` = **缺这一列**的卡数（探针按 `null` = **未知**收下，⛔ 不是 `[]`）；
+        //   · `nBadTrig` = `abilityTriggers` 里非整数的格子数（⛔ 不猜成 0 —— `0` 是 `ThisCardPlayed`）；
+        //   · `nBadTaCell` = `abilityTargets` 的坏格数（`ta` 非数组 / 单格 `< -1`）——
+        //     口径同 `CardDatabase.MapAbilityTargets`：**那一格落 -1，⛔ 不丢整条 ability**
+        //     （下标即语义 ⇒ 丢一条会让后面每一条 ability 整体错位）。
+        int nMissTrig = 0, nMissTgt = 0, nBadTrig = 0, nBadTaCell = 0;
+        int nTrigCards = 0, nTrigValues = 0, nTgtCards = 0, nTgtAbilities = 0, nTgtLogics = 0;
         foreach (var c in doc.RootElement.GetProperty("cards").EnumerateArray())
         {
             string S(string k) => c.TryGetProperty(k, out var v) && v.ValueKind == JsonValueKind.String ? v.GetString() : null;
@@ -769,6 +784,64 @@ class Program
                 }
                 if (unitConds.Count > 0) nUcCards++;
             }
+            // 🆕 v17（2026-10-23 · 引擎线 · `B-16` 残余 241/242）：**`abilityTriggers` 也要传** ——
+            //   不传的后果与 `A1911` / `A1959` / v13 `triggerPriority` / v14 `abilityContext` **逐字同族**：
+            //   **探针与引擎口径不同**。引擎侧 `Data/CardDatabase.cs`（`abilityTriggers: c.abilityTriggers`）
+            //   从 v17 起把这一列传进 `CardDef`；探针不传 ⇒ `CardDef.AbilityTriggerPresence` 恒 `-1`
+            //   ⇒ `ConditionEval` 的 `241 hasUseSpiritStone` / `242 hasUseFaith` **在探针里永远判不了**。
+            //
+            //   🔴 **缺列 ≠ 空数组**（`-1` 契约）：缺列 = 真值快照里没有这张卡 = **未知**（访问器 -1）；
+            //     空数组 = **明确没有任何 ability**（`HasAbilityType` ⇒ 假）。
+            //     ⛔ 缺列**不许**落成 `[]`（那会把「不知道」静默变成「没有」）。
+            //     判据 = `RawCardScript__HasAbilityType.c:16-38`（遍历 `cardAbilities`、只看 `trigger`）。
+            //   ⚠️ 局部名加 `a17` 前缀：`hasTrig` / `e` 这些名字在**同一个卡循环的子作用域里**
+            //      （`abilityContext` 那一段）已经用过 ⇒ 直接叫 `hasTrig` 会撞 `CS0136`。
+            bool a17HasTrig = c.TryGetProperty("abilityTriggers", out var a17TrigEl) && a17TrigEl.ValueKind == JsonValueKind.Array;
+            var a17TrigVals = new List<int>();
+            if (a17HasTrig)
+                foreach (var a17Te in a17TrigEl.EnumerateArray())
+                {
+                    // 形状坏（非整数）⇒ 跳过并计数（⛔ 不猜成 0 —— `0` = `ThisCardPlayed` 是一个**具体**触发，
+                    //   同生成器 `ability_triggers_of` 的 `report["bad"]` 口径）。
+                    if (a17Te.ValueKind != JsonValueKind.Number) { nBadTrig++; continue; }
+                    a17TrigVals.Add(a17Te.GetInt32());
+                }
+            else nMissTrig++;
+            if (a17HasTrig) { nTrigCards++; nTrigValues += a17TrigVals.Count; }
+            // 🆕 v17（2026-10-23 · 引擎线 · 战斗审计 `B-17`）：**`abilityTargets` 也要传** ——
+            //   不传 ⇒ `CardDef.AbilityTargets` 恒空 ⇒ `EffectText.AssignAbilityTargets` 归不了位
+            //   ⇒ `EffectOp.SubjectTargetsAffected` 恒 `-1` ⇒ `EffectResolver` 的「无施放者、也没点目标」
+            //   那一支**永远走旧口径（己方全体）** ⇒ 拿 `play` 量 `B-17` 的读数全是**假阴性**。
+            //
+            //   🔴 **下标即语义**（`[i]` = `cardAbilities[i]`）⇒ 坏行/坏格**不丢、不压缩**：
+            //     非对象行 → `null` 占位（`CardDef.AbilityTargets` 的 doc 明写允许 null）；
+            //     `ta` 不是数组 → 空表；单格 `< -1` → 落 `-1` 并计数。
+            //     这是 `CardDatabase.MapAbilityTargets` 的**逐条口径**（那里也是出声 + 落 -1、⛔ 不丢整条）。
+            //   ⚠️ `0` 是合法的 `any`，⛔ 别拿它当缺值。
+            bool a17HasTgt = c.TryGetProperty("abilityTargets", out var a17TgtEl) && a17TgtEl.ValueKind == JsonValueKind.Array;
+            var a17TgtRows = new List<CardDef.AbilityTargetSpec>();
+            if (a17HasTgt)
+                foreach (var a17Row in a17TgtEl.EnumerateArray())
+                {
+                    if (a17Row.ValueKind != JsonValueKind.Object) { a17TgtRows.Add(null); continue; }   // 下标即语义 ⇒ 占位、不错位
+                    int a17Trigger = a17Row.TryGetProperty("trigger", out var a17TgEl) && a17TgEl.ValueKind == JsonValueKind.Number
+                                     ? a17TgEl.GetInt32() : -1;   // trigger 只作可读性；坏值 -1（同 `AbilityTargetDto.trigger` 的默认）
+                    var a17Ta = new List<int>();
+                    if (a17Row.TryGetProperty("ta", out var a17TaEl) && a17TaEl.ValueKind == JsonValueKind.Array)
+                        foreach (var a17Cell in a17TaEl.EnumerateArray())
+                        {
+                            if (a17Cell.ValueKind != JsonValueKind.Number) { nBadTaCell++; a17Ta.Add(-1); continue; }
+                            int a17Tv = a17Cell.GetInt32();
+                            if (a17Tv < -1) { nBadTaCell++; a17Tv = -1; }   // 只允许 `>= 0` 或 `-1`（同 `MapAbilityTargets`）
+                            a17Ta.Add(a17Tv);
+                        }
+                    else nBadTaCell++;   // `ta` 非数组（`MapAbilityTargets` 按空表处理）
+                    a17TgtRows.Add(new CardDef.AbilityTargetSpec { Trigger = a17Trigger, TargetsAffected = a17Ta.ToArray() });
+                    nTgtAbilities++;
+                    nTgtLogics += a17Ta.Count;
+                }
+            else nMissTgt++;
+            if (a17HasTgt) nTgtCards++;
             list.Add(new CardDef(S("id"), S("name"), S("type"), S("desc"), S("rarity"), S("faction"),
                                  I("cost"), I("attack"), I("health"), I("ranged"), kws,
                                  S("nameZh"), S("descZh"), true, S("subtype"), S("goesSecond"),
@@ -800,7 +873,15 @@ class Program
                                  conditionsVersioned: poolVersion >= 15,
                                  // 🆕 v16（`B-16` 缺口）：`count` 行的被数集合来自 v16 卡表的正面信号
                                  //   （口径同引擎 `CardDatabase.Parse` 的 `conditionsCountSetVersioned`）。
-                                 conditionsCountSetVersioned: poolVersion >= 16));
+                                 conditionsCountSetVersioned: poolVersion >= 16,
+                                 // 🆕 v17（2026-10-23 · 引擎线 · `B-16` 残余 / `B-17`）：两列 ——
+                                 //   缺列口径 / `-1` 契约 / 下标即语义 → 上面读数那一段注释（⛔ 别在这里抄第二份）。
+                                 //   ⚠️ 版本位与引擎 `CardDatabase.Parse` 同一口径：`dto.version >= 17`
+                                 //   （它同时置 `AbilityTriggersVersioned` 与 `AbilityTargetsVersioned` ——
+                                 //    v17 一次加的两列，`CardDef` 构造函数末尾就是这么绑的）。
+                                 abilityTriggers: a17HasTrig ? a17TrigVals : null,
+                                 abilityTriggersVersioned: poolVersion >= 17,
+                                 abilityTargets: a17HasTgt ? a17TgtRows : null));
         rawKw.Add(kws);
         }
         // 🔴 **缺列一律出声**（铁律「不许静默失败」）：缺了就是缺了，⛔ 不让它静默变成「某张卡的值是 X」。
@@ -886,6 +967,27 @@ class Program
                               + " —— 口径同 `CardDatabase.MapCountSet`：**那一格落 -1**，⛔ 不丢整行、不 clamp。");
         Console.WriteLine("  unitConditions[count]: 带被数集合的行 = " + nUcSetRows + " · 坏值格数 = " + nBadUcSet
                           + "（原版 `BoardCriteria.countCriteria` ＋ `playerTurn`；判据 → 同上 B-16）");
+        // 🆕 v17（2026-10-23 · 引擎线 · `B-16` 残余 241/242 ＋ `B-17`）：两列的读数（旧表 / 缺列 / 形状坏**都出声**）。
+        //   判据 → `资料/普查产出_1023b/引擎线_尾巴_执行报告.md` §2·3（abilityTriggers）与 §3·2（abilityTargets）。
+        if (poolVersion < 17)
+            Console.WriteLine("⚠️ 卡池 `version`=" + poolVersion + " < 17 —— 这一版没有 `abilityTriggers` / "
+                              + "`abilityTargets` 两列 ⇒ 探针把 `CardDef.AbilityTriggerPresence` 一律读成 **-1（未知）**、"
+                              + "`CardDef.AbilityTargets` 一律空表，⛔ 不是「没有 ability」（`[]` 才是明确没有）。"
+                              + "引擎侧 `CardDatabase.cs` 的 `< 17` 守卫同口径。跑 `工具/gen_cards_engine.py` 重生成。");
+        if (nMissTrig > 0 || nMissTgt > 0)
+            Console.WriteLine("⚠️ 卡池有缺列（探针按 **null = 未知** 收下，⛔ 没当成 `[]` = 没有 ability）："
+                              + "`abilityTriggers` 缺 " + nMissTrig + " 行 · `abilityTargets` 缺 " + nMissTgt + " 行"
+                              + " —— 先确认卡池是 v17（`gen_cards_engine.py`）。");
+        if (nBadTrig > 0 || nBadTaCell > 0)
+            Console.WriteLine("⚠️ 卡池 v17 两列形状坏：`abilityTriggers` 非整数 " + nBadTrig + " 个 · "
+                              + "`abilityTargets` 坏格 " + nBadTaCell + " 个（`ta` 非数组 / 单格 < -1）"
+                              + " —— 口径同 `CardDatabase.MapAbilityTargets`：**那一格落 -1**，"
+                              + "⛔ 不丢整条 ability（下标即语义）。先跑 `工具/gen_cards_engine.py`。");
+        Console.WriteLine("  abilityTriggers: 带这一列的卡 = " + nTrigCards + " · trigger 值 = " + nTrigValues
+                          + " · abilityTargets: 带这一列的卡 = " + nTgtCards
+                          + " · ability = " + nTgtAbilities + " · logic = " + nTgtLogics
+                          + "（对账期望：1127 张 / 1193 值 / 1127 张 / 1270 条 / 1616 个"
+                          + " —— 判据 → 资料/普查产出_1023b/引擎线_尾巴_执行报告.md §2·3/§3·2）");
 
         Pool = list;
         // 🆕 **同序留一份 `keywords` 原文**（见 `PoolRawKeywords` 的说明）——

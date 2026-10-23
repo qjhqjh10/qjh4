@@ -1082,6 +1082,61 @@ namespace CardPresentation
             return hero != null ? hero.Faction : "";
         }
 
+        // ============================================================ 🆕 2026-10-23（W66）：开窗的阵营筛选默认值
+
+        /// <summary>原版 `PracticeModePopup__Open` 末尾那条 `ChangeSelectedArmy(...)` 的**回落阵营**。
+        ///
+        /// <para>判据（第一权威 = 反编译方法体）`d:/2/tools/decomp_full/PracticeModePopup__Open.c:172-180`：
+        /// 活动那副牌为空 ⇒ `:174` **`uVar8 = 10`**；有牌 ⇒ `:178` `uVar8 = 牌.deckHero(+0x40).cardArmy(+0x2c)`
+        /// （= **牌里督军卡身上的阵营**，⛔ 不是 `CardDeck.deckArmy(+0x50)` —— `dump.cs` 的 `CardDeck` 字段表里两个都在，
+        /// 反编译读的是前者）；随后 `:180` `ChangeSelectedArmy(self, uVar8)`。</para>
+        ///
+        /// <para>**`10` 是什么档**：`CardArmy.Ultramarines` —— 枚举值是**每档 +10**
+        /// （`d:/2/tools/il2cpp_out/dump.cs` 的 `public enum CardArmy`：`Neutral = 0` · **`Ultramarines = 10`** ·
+        /// `Goff = 20` · `SaimHann = 30` · `Sautekh = 40` · `BlackLegion = 50` · `Leviathan = 60` ·
+        /// `TauEmpire = 70` · `Sororitas = 80` · `Genestealers = 90` · `AstraMilitarum = 100` ·
+        /// `DarkAngels = 110` · `EmperorsChildren = 120` · `SpaceWolves = 130`）。
+        /// 本工程同一映射的另一处旁证：`BattleLogData.ResolveArmy("Uriel Ventris") == 10`（`Editor/MainMenuScene.cs` 那条断言）。
+        /// ⚠️ 阵营格是**按 `Factions()` 的下标**编号的 ⇒ 这一档存**阵营名**，用的时候换下标（见 <see cref="DefaultArmyIndexOf"/>）。
+        /// ⛔ 别把 `10` 直接当 `ArmyIndex` —— 那是「第 10 格」（= `DarkAngels`）而不是 Ultramarines。</para></summary>
+        public const string DefaultArmyFaction = "Ultramarines";
+
+        /// <summary>`Open()` 那条默认筛选：**你的卡组督军所在阵营在 `Factions()` 里的下标**；
+        /// 你的那份阵营查不到（没有卡组 / 没有督军 / 阵营不在那 13 格里）⇒ <see cref="DefaultArmyFaction"/> 那一格。
+        /// <para>⚠️ 原版只在一个条件下回落到 `10`：**活动那副牌本身为空**（`Open.c:172-174`）。
+        /// 「牌在、督军为空」在原版走的是 `:177` 那句 `goto`（反编译里落到 `LAB_18080e960` 的异常/提前返回，
+        /// **不会**调 `ChangeSelectedArmy`）。我们本地**只有一份当前卡组**、没有 liveops 事件那副牌
+        /// ⇒ 「没有可用的牌」= 上面那三种情形，一律按**最接近的语义**回落到 `10` 并出声，⛔ 不用本窗的 `-1`
+        /// （那一档原版根本没有）。</para></summary>
+        int DefaultArmyIndex()
+        {
+            var facs = CollectionWindow.CardsState.Factions();     // 与 `BuildArmySelector` 里 `_facs` 同一份来源
+            var deck = CurrentDeck;
+            string fac = FactionOf(deck != null ? deck.WarlordId : null);
+            int i = DefaultArmyIndexOf(fac, facs);
+            if (i < 0)
+                Debug.LogWarning("[Practice] `Factions()` 里连回落阵营 `" + DefaultArmyFaction
+                                 + "` 都找不到（卡池数据残缺）⇒ 开窗不筛阵营（如实出声）");
+            else if (string.IsNullOrEmpty(fac) || !DeckRules.SameFaction(fac, facs[i]))
+                Debug.Log("[Practice] 开窗阵营筛选回落 = `" + facs[i] + "`（原版 `Open.c:174` 的 `10`；"
+                          + "当前卡组没有可用阵营：" + (string.IsNullOrEmpty(fac) ? "<无卡组/无督军>" : fac) + "）");
+            return i;
+        }
+
+        /// <summary>自检口（纯函数，无窗状态）：阵营名 → 阵营格下标。
+        /// 命中（按 `DeckRules.SameFaction`，与本窗其它几处同一个相等）⇒ 那个下标；
+        /// 未命中 / 空 ⇒ <see cref="DefaultArmyFaction"/> 的下标；连它都不在 ⇒ −1。</summary>
+        public static int DefaultArmyIndexOf(string faction, IList<string> facs)
+        {
+            if (facs == null || facs.Count == 0) return -1;
+            if (!string.IsNullOrEmpty(faction))
+                for (int i = 0; i < facs.Count; i++)
+                    if (DeckRules.SameFaction(faction, facs[i])) return i;
+            for (int i = 0; i < facs.Count; i++)
+                if (DeckRules.SameFaction(DefaultArmyFaction, facs[i])) return i;
+            return -1;
+        }
+
         /// <summary>`Selected Army Title` 现在显示的那句话（自检用）。
         /// ⚠️ 读的是**真 `Label` 上那句**（⛔ 不是重新算一次 `SelectedArmyName()` —— 那会与实现同一个口 = 自证）。</summary>
         public string ArmyTitleText { get { return _txtArmy != null ? _txtArmy.Text : ""; } }
@@ -1102,7 +1157,12 @@ namespace CardPresentation
         /// <para>它跟 <see cref="OpponentDeck"/> 一样要**跨场景**带给对局：放在 `BattleDriver` 的
         /// `SetPendingPlayMode` 静态通道里（时机 = `StartBotBattle`，见那一处）。</para></summary>
         public GameMode PlayMode = GameMode.OfflinePractice;
-        public int ArmyIndex = -1;              // -1 = 不限阵营
+        /// <summary>当前阵营筛选 = **`Factions()` 的下标**（⛔ 不是 `CardArmy` 的值 —— 那个是 10/20/…/130）。
+        /// <para>🆕 **2026-10-23（W66）**：`Open()` 现在按原版写**真值**（你的卡组阵营，或 `Ultramarines`），
+        /// 见 <see cref="DefaultArmyIndex"/>。`-1`（= 「不限阵营」）**原版没有这一档** ——
+        /// 今天只剩两个来路：① 自检里显式摆位（下面那几段按 79 格的基线跑）；② 数据残缺时的兜底
+        /// （`Factions()` 里连 `Ultramarines` 都没有 —— 正常数据不会发生，且会出声）。</para></summary>
+        public int ArmyIndex = -1;              // `Factions()` 的下标；-1 = 不限（原版没有这一档，见 doc）
         public readonly List<Transform> DeckRows = new List<Transform>();
         public readonly List<Transform> ArmyCells = new List<Transform>();
         public readonly List<Transform> CardRows = new List<Transform>();
@@ -1162,7 +1222,18 @@ namespace CardPresentation
             PairIndex = -1;                  // 🆕 2026-10-22：左列那一格的选中态一并归零（同 `DeckIndex`）
             PrebuiltDecks.ClearPendingBattleDeck();
             DeckIndex = CollectionData.CurrentIndex();
-            ArmyIndex = -1;
+            // 🔴 **2026-10-23（W66）：开窗的阵营筛选 = 原版 `Open` 末尾那条 `ChangeSelectedArmy(...)`。**
+            //   判据（`d:/2/tools/decomp_full/PracticeModePopup__Open.c:172-180`，逐句）：
+            //     `:172` `CardDeck__op_Inequality(活动那副牌)` ⇒ `:174` **空 ⇒ `uVar8 = 10`**
+            //     ⇒ 否则 `:178` `uVar8 = 牌.deckHero(+0x40).cardArmy(+0x2c)` ⇒ `:180` `ChangeSelectedArmy(self, uVar8)`。
+            //   `10` = `CardArmy.Ultramarines`（枚举值每档 +10，见 `DefaultArmyFaction` 的 doc）。
+            //   改前这里是 `ArmyIndex = -1`（本窗自加的「不限」档）⇒ 开窗左列 **79 格**；
+            //   照原版之后 = **该阵营 6 对 + 首格「你的卡组」= 7 格**。
+            //   ⚠️ 顺序与原版的差别（如实记）：原版 `ConfigureArmyFilterButtons` **先**建格、`ChangeSelectedArmy`
+            //     **后**设筛选并刷高亮；我们在 `Build()` 之前就把值算好 ⇒ 首次绘制直接就是终态
+            //     （原版中间那一帧没有高亮，我们连那一帧都没有）。**最终可见状态逐项相同**。
+            //   ⛔ 别改回 `-1`：那会让「开窗 = 全部 78 对」既是**与原版不符**、又让下面那批 79 格的数字回魂。
+            ArmyIndex = DefaultArmyIndex();
             // 🔴 **2026-10-22（`D1`）就地订正（铁律 5）：`Game mode` 出厂值 = 原版 `Skirmish(13)`。**
             //   判据 = 原版 `PracticeModePopup__ctor.c` 的**首句** `*(undefined4 *)(param_1 + 0x110) = 0xd;`
             //   （`d:/2/tools/decomp_full/PracticeModePopup__.ctor.c`，本批亲读）—— 与 prefab 那颗
@@ -1195,7 +1266,13 @@ namespace CardPresentation
         /// （`TickSearch` 挂在 `Update` 上）⇒ 这一局本来就不会开打，通道留着只会漏到下一场去。
         /// ⚠️ 原版「关窗重开能恢复上次选的牌」是靠 `SaveSelectedDeck` → `PlayerDataManager.SetDemoDeck`
         /// 再接 `LoadSavedDeck`（两个方法体都在本地，见 `decomp_full`）；**我们没做那两条口**
-        /// ⇒ 这一档如实退化成「关窗 = 归零」（并且出声，不假装记住了）。</para></summary>
+        /// ⇒ 这一档如实退化成「关窗 = 归零」（并且出声，不假装记住了）。
+        /// 🔴 **2026-10-23 补一条查证（这条支持「关窗=归零」与原版结果一致）**：全量反编译里
+        /// **`PracticeModePopup__LoadSavedDeck` / `__IsSavedDeck` / `__PlayerDeckChanged` 三个方法全是 0 调用点**
+        /// （`grep -rl "PracticeModePopup__LoadSavedDeck" d:/2/tools/decomp_full/*.c` 只命中它自己）
+        /// ⇒ 这个 build 里**「记住上次选的那副」根本没有读回那一环**（写进去的 `SetDemoDeck` 只喂
+        /// `PlayerDataManager+0x318`，而这个窗自己从不读它）⇒ 原版**关窗重开也不会恢复**，
+        /// 「关窗 = 归零」不是我们独有的偏离。⛔ 别按旧注释去补一条原版都没有的「记住」。</para></summary>
         public override void Close()
         {
             if (!StartedBattle)
@@ -1335,9 +1412,13 @@ namespace CardPresentation
         /// （原版 `DemoDeckInfoSO.GetDeck`）。</para>
         /// <para>开关的出现条件不同：原版 `Awake` 里只有 LiveOps 有对应活动才 `SetActive(true)`，
         /// 我们没有服务器 ⇒ 常显（同 `ChatPanel` 那条老账）。</para>
-        /// <para>⚠️ **`Open()` 之后左列没有选中格**：原版 `__Open` 取的是 LiveOps 那个 `PracticeEvent` 的演示卡组
-        /// （`PracticeModePopup__Open.c` 中段；拿不到事件时它 `FUN_1803f47a0()` 抛异常）——我们没有服务器，
-        /// 照旧退化成「面板显示 `DeckLibrary.Current`、左列一格不亮」，⛔ 不假装有事件。</para></summary>
+        /// <para>🔴 **2026-10-23 就地订正（铁律 5）**：这里原来写「`Open()` 之后左列**没有选中格**」——
+        /// **已过期**（2026-10-23 之前就过期了：首格「你的卡组」建出来之后，`Open()` 那条路本来就让首格亮着）。
+        /// 现在 `Open()` = `DeckIndex = CollectionData.CurrentIndex()` + `PickedPrebuilt = null` +
+        /// `PairIndex = -1` + `Build()` ⇒ **默认选中的就是「你的卡组」那一格**（与原版
+        /// `SetArmyButtons → DeckSelected(item0)` 的结果逐项一致，见 <see cref="ResetContent"/> 的 doc）。
+        /// ⚠️ 与原版仍有一处来源差别：原版那副来自 LiveOps `GameModes.GetActiveEvent(mode)`（
+        /// `PracticeModePopup__Open.c` 中段），我们没有服务器 ⇒ 用 `DeckLibrary.Current` 顶上（同一语义的本地来源）。</para></summary>
         public GameMode SelectedGameMode { get; private set; } = GameMode.Skirmish;
 
         /// <summary>`Background` 那一颗（开关底图，换态时换图用）。</summary>
@@ -1437,51 +1518,68 @@ namespace CardPresentation
         }
 
         /// <summary>原版 `PracticeModePopup__ResetContent` + `SetArmyButtons` 那两步的等价物：
-        /// **选择归零 → 按当前（模式 + 阵营）筛选重列**。
-        /// ⚠️ 我们的重列长在 `RebuildDeckRows` 里，所以这里只负责**选出该显示哪一对**（见方法体的更正注）。</summary>
+        /// **选择归零 → 按当前（模式 + 阵营）筛选重列 → 默认选中第 0 格（你的卡组）**。
+        ///
+        /// <para>🔴 **2026-10-23（W65 · 1c 收尾）：「默认选中 = 你的卡组」接上了。**
+        /// 判据 = `d:/2/tools/decomp_full/PracticeModePopup__SetArmyButtons.c:117-136` —— 建完第 0 项
+        /// （= 玩家自己的卡组）之后**紧接着**三句：`SetActive(item0.gameObject, 1)` ·
+        /// `SetActive(item0+0x38 /* Highlight */, 1)` · **`DeckSelected(item0.popup, item0.deckData, item0)`**
+        /// ⇒ 开窗 / 切模式 / 换阵营之后，被选中的那一副**是「你的卡组」，不是演示卡组**。
+        /// 只有「你那副的阵营 ≠ 当前阵营筛选」时第 0 项不建（见 <see cref="ShowYourDeckCell"/>），
+        /// 此时原版落到 `DeckSelectorMenuItemDemo__SelectItem(list[0])`（`SetArmyButtons.c:184-190` 的
+        /// `uVar9 == 0 &amp;&amp; !bVar4` 那一支）⇒ 我们的等价物 = 「该模式 + 该阵营下**第一对**」。</para>
+        ///
+        /// <para>⚠️ **与原版的差别（如实记）**：原版 `ResetContent` 只清选择（`+0xf8 = 0`、`+0xe8 = 0`）
+        /// 并销毁旧格，重列与默认选中都在随后的 `SetArmyButtons` 里；我们把两半都收在本方法
+        /// （`PickDeck` / `PickPair` 内部各自会 `RebuildDeckRows`）。</para>
+        ///
+        /// <para>🔴 **2026-10-23 按原版删掉一条我们自加的行为**：改前这里「保住 `PairIndex`、切模式落回同一对」
+        /// —— 原版没有这回事（`ResetContent` 把 `+0xf8` 清空，`SetArmyButtons` 一律重建并选 item0）。
+        /// 双卡组那条不变式**仍然成立**，只是入口换成「点那一格」：
+        /// `PickPair(pi)` 按**当前** `Game mode` 取该对的另一副 ⇒
+        /// `PickedPrebuilt` / `PendingSource` / `CurrentDeck` 永远 = 当前模式那一副。</para></summary>
         void ResetContent()
         {
-            // 🔴 **2026-10-22**：左列现在列的是 78 对 `DemoDeckInfoSO`（一格 = 一对）——
-            //    切模式之后仍然落回**同一对**（拿它的另一副），拿不到才退到该模式 + 该阵营下的第一对。
-            //    ⚠️ **与原版的差别如实记**：原版 `ResetContent` 只是把选择清空（`+0xf8 = 0`、`+0xe8 = 0`）
-            //       再销毁旧格，随后的 `SetArmyButtons(0)` 重建一列**谁都没选中**的格子
-            //       （`PracticeModePopup__ResetContent.c` + `__GameModeValueChange.c` 末句）。
-            //       我们这条「自动选中」是**沿用本窗改前既有行为**（原来也是选该模式第一副）——
-            //       理由：不开一局「空面板」也能看清这一对是哪副牌；⛔ 别把它当成原版行为。
-            //    🔴 **双卡组的关键不变式**（断言咬这一条）：`PickedPrebuilt` / `PendingSource` / `CurrentDeck`
-            //       永远 = **当前 `Game mode` 那一副** —— 它们只由下面这次 `PickPair` 写。
-            var pairs = PrebuiltDecks.Pairs;
-            if (PairIndex >= 0 && PairIndex < pairs.Count)
-            {
-                var keep = PrebuiltDecks.PairDeck(pairs[PairIndex], SelectedGameMode);
-                if (keep != null && (ArmyIndex < 0 || _facs == null || ArmyIndex >= _facs.Count
-                                     || keep.faction == _facs[ArmyIndex]))
-                {
-                    PickPair(PairIndex);
-                    return;
-                }
-            }
-            int first = FirstPairInMode(SelectedGameMode);
-            if (first >= 0) { PickPair(first); return; }
+            if (SelectDefaultDeck()) return;
+            ShowNoDeckSelected("`Game mode` = "
+                               + (SelectedGameMode == GameMode.Classic ? "Classic(0)" : "Skirmish(13)"));
+        }
 
-            // 该模式下一副都没有 ⇒ 空列表（原版这一次 `ResetContent` 也是空的；⛔ 不许静默）
+        /// <summary>原版 `SetArmyButtons` **末尾那半**：格建完之后**默认选中**哪一副。
+        /// <para>判据与逐句对照 → <see cref="ResetContent"/> 的 doc。两个入口都走它（⛔ 别各写一份）：
+        /// · <see cref="ResetContent"/>（= 原版 `ResetContent + SetArmyButtons`：切模式）；
+        /// · <see cref="PickArmy"/>（= 原版 `ChangeSelectedArmy` 末句那句 `SetArmyButtons`：换阵营）。
+        /// </para>
+        /// <returns>`true` = 选出了某一副（自家的卡组 / 第一对）；`false` = 当前筛选下**一格都没有**。</returns></summary>
+        bool SelectDefaultDeck()
+        {
+            // ① 原版第 0 项（玩家自己的卡组）—— 阵营不匹配时那一格根本不建。
+            if (ShowYourDeckCell()) { PickDeck(YourDeckIndex); return true; }
+            // ② 原版退到 `SelectItem(list[0])` —— 列表按 `decks` 数组序（= 我们的 `uiOrder`）筛过阵营。
+            int first = FirstPairInMode(SelectedGameMode);
+            if (first >= 0) { PickPair(first); return true; }
+            return false;
+        }
+
+        /// <summary>当前（模式 + 阵营）筛选下**一套都没有** ⇒ 面板归零再出声（⛔ 不许静默、也不许留下上一副）。
+        /// <para>🔴 **2026-10-21（审查代理 #1）**：一套都不剩 ⇒ 曲线也必须归零（判源 = `CurrentDeck` = null
+        /// ⇒ `Counts` 全 0）。原来这一支不重画，面板上会**留着一副已经不存在的牌**的 9 行。</para>
+        /// <para>🆕 2026-10-22（M2）：立绘一并撤掉 —— 同一句理由：⛔ 面板上不留上一副牌的东西。</para>
+        /// <param name="why">为什么走到这一支（进日志；两个调用方各说各的筛法）。</param></summary>
+        void ShowNoDeckSelected(string why)
+        {
             PairIndex = -1;
             DeckIndex = -1;
             PickedPrebuilt = null;
             PrebuiltDecks.ClearPendingBattleDeck();
             if (_deckHolder != null) RebuildDeckRows(_deckHolder);
             if (_info != null) BuildCardRows(_info);
-            // 🔴 **2026-10-21（审查代理 #1）**：一套都不剩 ⇒ 曲线也必须归零（判源 = `CurrentDeck` = null
-            //   ⇒ `Counts` 全 0）。原来这一支不重画，面板上会**留着一副已经不存在的牌**的 9 行。
             RefreshCostRows();
-            // 🆕 2026-10-22（M2）：立绘一并撤掉 —— 同一句理由：⛔ 面板上不留上一副牌的东西。
             RefreshCharacterImage();
             if (_txtDeckName != null) _txtDeckName.SetText("");
             if (_txtWarlord != null) _txtWarlord.SetText("");
             if (_txtArmy != null) _txtArmy.SetText(SelectedArmyName());
-            Debug.LogWarning("[Practice] `Game mode` = "
-                             + (SelectedGameMode == GameMode.Classic ? "Classic(0)" : "Skirmish(13)")
-                             + "：当前筛选下**一套卡组都没有** ⇒ 列表为空（如实出声，不假装选到了）");
+            Debug.LogWarning("[Practice] " + why + "：当前筛选下**一套卡组都没有** ⇒ 列表为空（如实出声，不假装选到了）");
         }
 
         /// <summary>当前（模式 + 阵营）筛选下**第一对**在 `PrebuiltDecks.Pairs` 里的下标；一套都没有 ⇒ −1。</summary>
@@ -1673,8 +1771,11 @@ namespace CardPresentation
                 // ⚠️ **我们的等价物**：`ArmyIndex`（本窗的那个「当前阵营」；`-1` = 不限）与
                 //    `CollectionData.DeckAt(DeckIndex).Faction`。🔴 **2026-10-19（批次 D）就地订正（铁律 5）**：
                 //    这里原来写「本窗 `ArmyIndex` 比原版**多一个**『再点一下取消筛选』，本轮不动它」—— **已过期**。
-                //    现在 `PickArmy` 按原版 `ChangeSelectedArmy.c:30-33` **同阵营早返回**（再点不改筛选），
-                //    `-1` 只剩「`Open()` 里那句 `ArmyIndex = -1`」那一个来路（原版 `ResetContent` 把 `+0xe8` 归 0 同款）。
+                //    现在 `PickArmy` 按原版 `ChangeSelectedArmy.c:30-33` **同阵营早返回**（再点不改筛选）。
+                //    🔴 **2026-10-23（W66）就地订正（铁律 5）**：这一行原来还写「`-1` 只剩 `Open()` 里那句
+                //    `ArmyIndex = -1`」—— **已过期**：`Open()` 现在按原版 `Open.c:172-180` 写**真值**
+                //    （`ArmyIndex = DefaultArmyIndex()` = 你的卡组阵营 / `Ultramarines`），
+                //    `-1` 今天只剩「自检显式摆位」与「`Factions()` 数据残缺」两个来路。
                 // 🔴 **2026-10-13（A435 阶段 2 · 戊 / A754-a）**：下面四层 + 命中区的 `clip` 形参
                 //    **一律换成 `null`** —— 硬裁那一刀（以及 `ArmyClipSoft (0,50)` 那道渐隐带）现在由
                 //    `Army Selector/Viewport` 那颗 `ViewportClip` 节点给（`MenuDraw.*` / `ImgTex` / `HitOn`
@@ -1750,7 +1851,9 @@ namespace CardPresentation
             //   ⇒ 这里如实写「出厂高 0」，别拿内容高顶替。
             var content = New(vp, "Content", new PxRect(DecksCL, DecksVpT, DecksCR, DecksVpT));
 
-            int n = FilteredDeckCount();
+            // ⚠️ 行数按**真正铺出来的格**算（= 对 + 「你的卡组」那一格）—— 用 `FilteredDeckCount()` 会少算一格
+            //    ⇒ 出厂那一次内容高差一行（`RebuildDeckRows` 末尾会重算，所以只是中途一帧的错，但别留着）。
+            int n = ListedCellCount;
             int rows = Mathf.Max(1, (n + DeckCols - 1) / DeckCols);
             DeckScroll = MenuScroll.TopAligned(view, GridContentH(rows, DeckCellH, DeckGapY, 0f, 0f), 100f);   // 原版 `Practice Mode Menu/…/Decks Scroll view` = 100（D_N29）
             DeckScroll.Owner = gameObject;
@@ -1777,6 +1880,47 @@ namespace CardPresentation
             //    判据 → `资料/普查产出_1022/D3_DemoDeckInfo成对表.md` §一·4（78 项 = `PracticeModePopup.decks`
             //    数组逐项相等）+ `DemoDeckInfoSO__GetDeck.c`（`0 → classic`、否则 `→ skirmish`）。
             var pairs = PrebuiltDecks.Pairs;
+
+            // ============================================================ 🆕 **2026-10-23（W65 · 1c）：首格「你的卡组」**
+            // **原版这一格一直在、我们缺了** —— 台账那句「「你的卡组」首格缺失」指的就是它（2026-10-23 查实）。
+            // 判据（第一权威 = 反编译方法体）`d:/2/tools/decomp_full/PracticeModePopup__SetArmyButtons.c`：
+            //   ① 清空列表后**先**看 `_data(+0x100).selectedDeck(+0x58)`；非空**且**它的 `army(+0x40).id(+0x2c)`
+            //      == 当前阵营 ⇒ 取**第 0 项**、`InitializeWithPracticeDeck(item0, this, _data, 0, lang)`
+            //      —— 那是「玩家自己的卡组」那一支（`DeckSelectorMenuItemDemo__InitializeWithPracticeDeck.c`
+            //      里 `DAT_1842605c8` 那个类型检查）：名字取**格子自己的词条**（`+0x78`）、图取
+            //      `ArmyUtilities.GetArmyIcon(army)`、`IsPlayerDeck` 那层 `SetActive(1)`；随后
+            //      `DeckSelected(item0, _data, item0)` **默认选中它**；
+            //   ② 演示卡组从**第 1 项起**（`uVar9 = 1` 那一支）—— 所以下面那一列对**整体后移一格**。
+            // 词条 = `MenuDeck/Practice/YourDeck` = `Your deck` / **你的卡组**（官方表实读；`MenuDeck/HUD/YourDeck`
+            //   是同值的另一条，⛔ 别混）。用户实拍 `C:/Users/qjh36/Desktop/warpforge参考图/练习界面参考图.png`
+            //   左列第 1 格就是它（名字「你的卡组」+ `IsPlayerDeck` 那枚印玺）。
+            // ⚠️ **`selectedDeck` 的离线等价物**：原版那份来自 `GameModes.GetActiveEvent(mode)` 的当前活动卡组
+            //   （`PracticeModePopup__Open.c` 里 `LiveOpsManager.GetHandler` → `GetActiveEvent` → 写 `+0x58` 那段）——
+            //   本工程**没有 liveops 事件实例** ⇒ 取**卡组库当前那一套**（`CollectionData.CurrentIndex()`；
+            //   选了预组时 `DeckIndex = −1`，仍回落到它）。这是同一语义的本地来源，⛔ 不是另起设计。
+            // ⚠️ **模式不参与筛选**：原版取的是「当前模式那个事件登记的那副」，本地没有按模式登记的这层数据
+            //   （`CollectionData` 只有一份当前卡组）⇒ 这里**只按阵营筛**。如实记，⛔ 别假装按模式筛过。
+            // ✅ **2026-10-23（W65 · 1c 收尾）：「默认选中」那半已经接上了** —— 判据与落点见
+            //   `ResetContent` / `SelectDefaultDeck`（原版 `SetArmyButtons.c:132-133` 的 `DeckSelected(item0, …)`）。
+            //   ⚠️ 改前这里写的是「默认选中仍是该模式第一对（那半还没接）」—— **已过期**。
+            // ⛔ 别把这一格塞进 `PrebuiltDecks.Pairs`（那是演示卡组的数据面，一格一对，与玩家卡组无关）。
+            if (ShowYourDeckCell())
+            {
+                int yi = YourDeckIndex;
+                var yInfo = CollectionData.DeckAt(yi);
+                int yiForHit = yi;                 // 命中回调要**建格那一刻**的下标（别在闭包里读字段）
+                var ycell = BuildDeckCell(
+                    holder, slot, YourDeckCellName, Loc.T(YourDeckTerm),
+                    CardArt.MenuUi(DeckRuntime.FactionIcon(yInfo.Faction)),
+                    ItemYourDeckColor,
+                    PickedPrebuilt == null && DeckIndex >= 0,
+                    () => PickDeck(yiForHit),
+                    "「你的卡组」那一格的阵营图（判据 = `ArmyUtilities.GetArmyIcon(selectedDeck.army)`"
+                    + " —— 与预组那一支**同一个来源**，只是不看 `DemoDeckInfoSO.armyIcon`）");
+                slot++;
+                if (ycell != null) DeckRows.Add(ycell);
+            }
+
             for (int pi = 0; pi < pairs.Count; pi++)
             {
                 var pair = pairs[pi];
@@ -1787,133 +1931,17 @@ namespace CardPresentation
                 //    与 `FactionOf(heroId)` 同源 —— 别在这儿再推一次）。
                 if (ArmyIndex >= 0 && _facs != null && ArmyIndex < _facs.Count && deck.faction != _facs[ArmyIndex])
                     continue;
-                // 🔴 格位照原版 `GridLayoutGroup.SetCellsAlongAxis`：
-                //   横 = `Content.x1 + startOffset + 列 × (格宽 + spacing.x)`（`startOffset` = 8.02 ⇒ 第 1 列 270.08）
-                //   纵 = `Viewport.y1 + 行 × (格高 + spacing.y)`（**spacing.y 是 −21** ⇒ 行距 159）
-                int col = slot % DeckCols, row = slot / DeckCols;
-                float x1 = DeckCellX0 + col * (DeckCellW + DeckGapX);
-                float y1 = DecksVpT + row * (DeckCellH + DeckGapY);
-                var r = new PxRect(x1, y1, x1 + DeckCellW, y1 + DeckCellH);
-                var rr = DeckScroll.Shift(r);
-                slot++;
-                // 🔴 **2026-10-07（A12①）**：同 `RebuildArmyCells` —— 内联的 `Inside(...)`（**完整**在视口里）
-                //    收口成唯一那份求交（**与视口相交**）；判据 = 原版 `RectMask2D`（只裁、不判整格在不在）。
-                // 🔴 **2026-10-13（A435 阶段 2 · 戊 / A754-b）**：改走 **`VisibleAbove`**（节点态那一版）——
-                //    理由与解析起点同 `RebuildArmyCells`（这里 = `holder` = `Content`，正挂在那颗 `Viewport` 下）。
-                if (!MenuDraw.VisibleAbove(holder, rr, null)) continue;   // 整格在视口外 ⇒ 不建
-                // 🔴 **2026-10-11（A218）**：格节点也是 `RectTransform` + 写 `sizeDelta`（尺寸 = 格矩形 `rr`）。
-                //    判据 = 原版这一格的 item prefab `Deck Selector Menu Item` 的 rect（= `DeckCellW × DeckCellH`，
-                //    见常量段那条 `GridLayoutGroup` 推导）。改坏法：删掉 `SetPxSize` ⇒ `Editor/ShellScene.cs`
-                //    §A218「`DeckRow_<i>` 的 rect = 格矩形」红。
-                var cell = new GameObject("DeckRow_" + pi, typeof(RectTransform));
-                cell.transform.SetParent(holder, false);
-                MenuDraw.SetPxSize(cell.transform, rr.W, rr.H);
-                cell.transform.localPosition = Local3(holder, rr.x1, rr.y1, rr.x2, rr.y2);
-                // 「当前这套」标记 = 这一格就是选中的那一对（原版 `DeckSelectorMenuItemDemo.SelectItem`）。
-                bool cur = pi == PairIndex;
-                // 🔴 **2026-10-03 就地更正（A17 顺带查出的偏离）**：原来这里画的是**一块纯色**（我们自建），
-                // 而**原版 `Practice Deck` 的根就是一张 `UI_Button_Mulligan`**（实测：324.5×80.1 Simple、
-                // `trans=2` → HL `UI_Button_Mulligan_hover`；见普查 §块 5 第 22 行）。
-                // ⚠️ **2026-10-07 更正（A77-㉒②，铁律 5）**：下面那行原注释写着「**选择态仍用我们原来那层色**
-                //    （黄色 = 当前这套；**原版怎么标当前套本地判据不足**）」—— **后半句已被判据推翻**：
-                //    原版 `Deck Selector Menu Item` 的当前套标记 = 它自己那颗 **`Highlight`** 子件
-                //    （`DeckSelectorMenuItemDemo.SelectItem()` / `ToggleHighlight(bool)` → `highlightObject.SetActive`；
-                //    每个格子 `Initialize(…, isSelected)` 里传的正是 false）。`Highlight` 那一层**本轮已建**（见下）。
-                //    ⚠️ 这层黄**留着**：它上面还压着 `rowWb.Bind(rowBg, "UI_Button_Mulligan")` 的悬停换图，
-                //    整层删掉是另一个决定 ⇒ **如实标：这一层色是我们挑的**（原版给的是 `Highlight` 那层，
-                //    且「染色 = 你的卡组」那个语义原版用的是 `yourDeckColor`、落在 `Text background` 上，见下面 ⑤）。
-                // 🆕 A9 尾巴：这一格也吃**软边**（原版 `Decks Scroll view/Viewport` 的 `m_Softness = (0,23)`）——
-                //   压在带上/带下的格按剖面削 alpha（`MenuDraw.ApplySoftEdges` 的几何等效物）。
-                // 🔴 **2026-10-13（A435 阶段 2 · 戊 / A754-b）**：本格**七处**（下面五层 + 名字 + 命中区）的
-                //   `clip` 形参**一律换成 `null`** —— 硬裁那一刀（以及 `DeckClipSoft (0,23)` 那道渐隐带）
-                //   现在由 `Decks Scroll view/Viewport` 那颗 `ViewportClip` 节点给（`MenuDraw.*` / `ImgTex`
-                //   / `HitOn` 内部各自 `Resolve`）。⚠️ `clipSoftness` **照旧传 `DeckClipSoft`**：它是
-                //   **回落那一档**的带宽（形参非空 = 旧路赢；节点在时由**节点自己的 `softness`** 说了算）。
-                var rowBg = Img(cell.transform, "UI_Button_Mulligan", rr.x1, rr.y1, rr.x2, rr.y2, "Row Bg", QPrRow,
-                                false, null, null, DeckClipSoft);
-                if (rowBg != null)
-                    rowBg.SetTint(cur ? new Color(1f, 0.773f, 0f, 0.55f) : new Color(1f, 1f, 1f, 0.10f));
-
-                // ============================================================ 🆕 2026-10-07（A77-㉒②）
-                // **`Deck Selector Menu Item` 的五层内景** —— 兄弟序照原版（**从下到上**）：
-                //   `Highlight` → `Button border` → `Main image` → `IsPlayerDeck` → `Text background`(+`Deck Name`)
-                // 逐层的锚点五元组 / sprite / 贴图模式出处 → 常量段 `Item*` 那一大段注释。
-                // ⚠️ 下面所有坐标 = **格左上角 + 该层的格内偏移**（`Item*` 常量），⛔ 别整体按 180/296 缩。
-                float ix = rr.x1, iy = rr.y1;
-                // ① `Highlight`（`UI_Deck_button_click`）—— **只有当前这套**在（原版那句 `SetActive(1/0)`）。
-                //    ⚠️ 建出来再 `SetActive`（不是「选了才建」）—— 自检要能在**同一批节点**上断两态。
-                var hl = Img(cell.transform, "UI_Deck_button_click",
-                             ix + ItemHLL, iy + ItemHLT, ix + ItemHLR, iy + ItemHLB,
-                             "Highlight", QPrItemHL, false, null, null, DeckClipSoft);
-                if (hl != null) hl.gameObject.SetActive(cur);
-                // ② `Button border`（`UI_Button_Round_background`，原版 `preserveAspect=1` ⇒ `keepAspect`）
-                Img(cell.transform, "UI_Button_Round_background",
-                    ix + ItemBdL, iy + ItemBdT, ix + ItemBdR, iy + ItemBdB,
-                    "Button border", QPrItemBd, true, null, null, DeckClipSoft);
-                // ③ `Main image` —— 原版**运行期喂** `ArmyUtilities.GetArmyIcon(army)`
-                //    （`DeckSelectorMenuItemDemo__InitializeWithPracticeDeck.c` 的 SO 那一支；
-                //     我方卡组那一支在 `InitializeWithPlayerDeck.c` 里也是同一句）。
-                //    🆕 **2026-10-22**：练习对那一支改用**产物里的 `armyIcon`**（`DemoDeckInfoSO.armyIcon`，
-                //    13 张 `40k_DeckSelection_icon_*`，与 `ArmyUtilities.GetArmyIcon` 逐阵营同一张）。
-                //    取不到 ⇒ 回落 `DeckRuntime.FactionIcon(faction)`（同一份映射，判据只那一处）。
-                ImgTex(cell.transform, ArmyIconOfPair(pair, deck),
-                       "`Deck Selector Menu Item/Main image` 的阵营图（`DemoDeckInfoSO.armyIcon` = "
-                       + (pair != null ? pair.armyIcon : "<无>") + "）",
-                       ix, iy, ix + DeckCellW, iy + DeckCellH,
-                       "Main image", QPrItemArt, false, null, null, DeckClipSoft);
-                // ④ `IsPlayerDeck`（`Purity Seal_02`）—— `highlightIsPlayerDeck`，同样只对玩家卡组开 ⇒ 恒开
-                Img(cell.transform, "Purity_Seal_02",
-                    ix + ItemSealL, iy + ItemSealT, ix + ItemSealR, iy + ItemSealB,
-                    "IsPlayerDeck", QPrItemSeal, false, null, null, DeckClipSoft);
-                // ⑤ `Text background`（`40k_bt_underbutton`）+ 其下的 `Deck Name`。
-                //    🔴 **2026-10-22：练习对那一支的色 = `DemoDeckInfoSO.armyColor`**（用 `armyColorRaw` 的
-                //       原样 4 个 float —— 原版存的是任意浮点、不是 8bit/255，`#RRGGBB` 只是便利值）。
-                //       判据 = `DeckSelectorMenuItemDemo__InitializeWithPracticeDeck.c` 末尾那段
-                //       `set_color(this+0x48, demoDeck.armyColor)`（`+0x48` = `Text background` 那颗 Image）；
-                //       对照：同一文件里**玩家自己的卡组**那一支（`InitializeWithPlayerDeck.c`）用的是
-                //       `yourDeckColor` —— 两支的色**不同源**，⛔ 别拿 `ItemYourDeckColor` 顶上。
-                //       prefab 里 Image 自带的 `m_Color=(0.408,0.811,0.279,1)` 是**模板默认**、会被盖掉。
-                Img(cell.transform, "40k_bt_underbutton",
-                    ix + ItemNameBgL, iy + ItemNameBgT, ix + ItemNameBgR, iy + ItemNameBgB,
-                    "Text background", QPrItemTxBg, false,
-                    pair != null ? pair.armyColorRaw.ToColor() : ItemYourDeckColor, null, DeckClipSoft);
-                // 文字与图**同一套**：原版 `RectMask2D` 对 TMP 一视同仁 ⇒ 走 `MenuDraw.ClipText` 同一个剖面
-                // 🔴 **㉒③**：名字条 = **172×30.6**（照原版锚点现算）+ **原版 `fs29 / auto[8,29]` / 居中 / 折行 1**
-                //    —— 原来是「顶 38px + 172 宽 + fs26 + **没有自适应**（我们挑的）」⇒ 长卡组名画到框外。
-                var nm = Txt(cell.transform, deck.DisplayName,
-                             ix + ItemNameL, ix + ItemNameR, iy + ItemNameT, iy + ItemNameB,
-                             ItemNameFontPx, Align.Center, "Deck Name", QPrText, null, DeckClipSoft,
-                             // 🔴 **2026-10-17（`A1233`）**：原来这里是「先 `Txt`、再自己补
-                             //    `nm.SetAutoFitBox(…)`」—— 收口进本方法形参（同一件事只写一处）。
-                             //    ⚠️ `wrapPx` **必须显式给**（本件的原版折行 = 1）：不给的话本方法末段
-                             //    会走 `if (autoMinPx > 0f && wrapPx <= 0f) lb.SetWrapping(false)` 那一支，
-                             //    把折行悄悄关掉（下面那句显式 `SetWrapping(true)` 要留着 —— 理由见它自己的注释）。
-                             wrapPx: ItemNameR - ItemNameL,
-                             autoMinPx: ItemNameAutoMin, autoMaxPx: ItemNameAutoMax, autoBasePx: ItemNameAutoBase,
-                             face: TmpFont.Face.LatinCardBody);
-                if (nm != null)
-                {
-                    // 原版 `m_TextWrappingMode = 1 (Normal)`；`SetAutoFitBox` 内部已经开了折行，
-                    // 这里**显式**再写一次（它现在是 `Label` 上唯一那个显式口，别让以后改公共件时静默回退）。
-                    nm.SetWrapping(true);
-                    // 🔴 **必须再推一次版面**：`SetAutoFitBox` 里那次 `RefreshBounds()` 会把 TMP 子节点
-                    //    **挪一个位**，而 `ClippedTextGuard` 的重裁发生在**挪之前**的 `ForceMeshUpdate` 里
-                    //    ⇒ 那一刀整体偏「新旧位置之差」（本窗实测约 (12, 5)px，**静默**）。
-                    //    见 `RelayoutNow` 的注释：它重排一次（顺带在**挪到位之后**重裁）+ 再收一次尺寸。
-                    RelayoutNow(nm);
-                }
                 int pidx = pi;
-                // 🔴 **2026-10-13（A435 阶段 2 · 戊 / A754-b）**：`clip` 传 `null`（同 `RebuildArmyCells`）——
-                //   命中区要的【裸框 + pad】由那颗 `Viewport` 节点给（`HitOn` → `MenuDraw.ClipRectAbove`）；
-                //   软边**故意不传**（原版 `m_Softness` 只改渲染，射线那一面只看矩形）。
-                var rowHit = HitOn(cell.transform, cell.transform, "Hit", rr, () => PickPair(pidx), QPrHit, null);
-                var rowWb = rowHit != null ? rowHit.GetComponent<WindowButton>() : null;
-                if (rowWb != null) rowWb.Bind(rowBg, "UI_Button_Mulligan");
-                // 🆕 **2026-10-18（音效线缺口 `AUD` §三 C2）**：原版
-                //   `Practice Mode Menu/Deck info/Deck List Drawer/Content/Deck Selector Card Info button_ref`
-                //   = 空 cue + **`useDefaultAudioClipIfNull = 0`** ⇒ **静音**。
-                if (rowWb != null) rowWb.playClickSound = false;
-                DeckRows.Add(cell.transform);
+                var cell = BuildDeckCell(
+                    holder, slot, "DeckRow_" + pi, deck.DisplayName,
+                    ArmyIconOfPair(pair, deck),
+                    pair != null ? pair.armyColorRaw.ToColor() : ItemYourDeckColor,
+                    pi == PairIndex,
+                    () => PickPair(pidx),
+                    "`Deck Selector Menu Item/Main image` 的阵营图（`DemoDeckInfoSO.armyIcon` = "
+                    + (pair != null ? pair.armyIcon : "<无>") + "）");
+                slot++;
+                if (cell != null) DeckRows.Add(cell.transform);
             }
             if (_txtArmy != null) _txtArmy.SetText(SelectedArmyName());
 
@@ -1933,6 +1961,185 @@ namespace CardPresentation
                 DeckScroll.ContentX2 = DecksVpT + GridContentH(nRows, DeckCellH, DeckGapY, 0f, 0f);
                 DeckScroll.Offset = Mathf.Clamp(DeckScroll.Offset, DeckScroll.ClampLo, DeckScroll.ClampHi);
             }
+        }
+
+        // ============================================================ 🆕 2026-10-23（W65 · 1c）「你的卡组」那一格
+
+        /// <summary>「你的卡组」那格的**节点名**（自检按名字找它 —— ⛔ 别改成 `DeckRow_<数字>`：
+        /// 那一族名字是**对下标**，混进来会让「第 N 对在哪一格」全部错位）。</summary>
+        public const string YourDeckCellName = "DeckRow_YourDeck";
+
+        /// <summary>「你的卡组」那格的文案词条（官方表实读 `Your deck` / `你的卡组`）。
+        /// ⚠️ 同族还有一条 `MenuDeck/HUD/YourDeck`（值相同）—— 本窗用的是 **`Practice`** 这一条
+        /// （格子自己的 `+0x78` 词条，判据见 `RebuildDeckRows` 那段注释）。</summary>
+        public const string YourDeckTerm = "MenuDeck/Practice/YourDeck";
+
+        /// <summary>「你的卡组」= 卡组库里**当前那一套**的下标；一套都没有 ⇒ −1。
+        /// <para>取法：选了预组时 `DeckIndex = −1`（预组不在库里）⇒ 回落到 `CollectionData.CurrentIndex()`。
+        /// 判据与「为什么是这一套」见 `RebuildDeckRows` 里那段「离线等价物」注释。</para></summary>
+        public int YourDeckIndex
+        {
+            get
+            {
+                int i = DeckIndex >= 0 ? DeckIndex : CollectionData.CurrentIndex();
+                return (i >= 0 && i < CollectionData.DeckCount()) ? i : -1;
+            }
+        }
+
+        /// <summary>这一列要不要画「你的卡组」首格 —— 判据 = 原版 `PracticeModePopup__SetArmyButtons.c`：
+        /// `selectedDeck != null` **且** 它的阵营 == 当前阵营筛选（`army.id == param_2`）。
+        /// ⚠️ `ArmyIndex < 0`（本窗的「不限阵营」；原版没有这一档 —— `Open()` 已不再产出它，
+        /// 今天只剩自检显式摆位与数据残缺）⇒ 不筛、一律显示。</summary>
+        public bool ShowYourDeckCell()
+        {
+            int i = YourDeckIndex;
+            if (i < 0) return false;
+            if (ArmyIndex >= 0 && _facs != null && ArmyIndex < _facs.Count)
+            {
+                var info = CollectionData.DeckAt(i);
+                if (!string.Equals(info.Faction, _facs[ArmyIndex], System.StringComparison.OrdinalIgnoreCase))
+                    return false;
+            }
+            return true;
+        }
+
+        /// <summary>画**一格** `Deck Selector Menu Item`（左列那 78 对 + 首格「你的卡组」**共用这一份**）。
+        /// <para>两处唯一不同的东西都从形参进来：`displayName` / `mainIcon` / `nameBg` / `cur` / `onClick`
+        /// —— 判据 = 原版 `DeckSelectorMenuItemDemo__InitializeWithPracticeDeck.c` 的两支：
+        /// **玩家自己的卡组**（名字 = 格子自己的词条、色 = `yourDeckColor`、图 = `GetArmyIcon(army)`）
+        /// 与**演示卡组**（名字 = `DemoDeckInfoSO.GetName`、色 = `armyColor`、图 = `DemoDeckInfoSO.armyIcon`）。</para>
+        /// <para>🔴 **别把它拆成两份实现**（「两处写同一条规则 = 迟早不一致」：五层的偏移/队列/裁切
+        /// 一旦只改一边，首格与其余格就会静默长得不一样）。</para>
+        /// <returns>建出来的格节点；`null` = 整格在视口外（判据 = 原版 `RectMask2D` 只裁不判整格 ⇒ 不建）。</returns></summary>
+        Transform BuildDeckCell(Transform holder, int slot, string nodeName, string displayName,
+                                Texture2D mainIcon, Color nameBg, bool cur, System.Action onClick,
+                                string iconNote)
+        {
+            // 🔴 格位照原版 `GridLayoutGroup.SetCellsAlongAxis`：
+            //   横 = `Content.x1 + startOffset + 列 × (格宽 + spacing.x)`（`startOffset` = 8.02 ⇒ 第 1 列 270.08）
+            //   纵 = `Viewport.y1 + 行 × (格高 + spacing.y)`（**spacing.y 是 −21** ⇒ 行距 159）
+            int col = slot % DeckCols, row = slot / DeckCols;
+            float x1 = DeckCellX0 + col * (DeckCellW + DeckGapX);
+            float y1 = DecksVpT + row * (DeckCellH + DeckGapY);
+            var r = new PxRect(x1, y1, x1 + DeckCellW, y1 + DeckCellH);
+            var rr = DeckScroll.Shift(r);
+            // 🔴 **2026-10-07（A12①）**：同 `RebuildArmyCells` —— 内联的 `Inside(...)`（**完整**在视口里）
+            //    收口成唯一那份求交（**与视口相交**）；判据 = 原版 `RectMask2D`（只裁、不判整格在不在）。
+            // 🔴 **2026-10-13（A435 阶段 2 · 戊 / A754-b）**：改走 **`VisibleAbove`**（节点态那一版）——
+            //    理由与解析起点同 `RebuildArmyCells`（这里 = `holder` = `Content`，正挂在那颗 `Viewport` 下）。
+            if (!MenuDraw.VisibleAbove(holder, rr, null)) return null;   // 整格在视口外 ⇒ 不建
+            // 🔴 **2026-10-11（A218）**：格节点也是 `RectTransform` + 写 `sizeDelta`（尺寸 = 格矩形 `rr`）。
+            //    判据 = 原版这一格的 item prefab `Deck Selector Menu Item` 的 rect（= `DeckCellW × DeckCellH`，
+            //    见常量段那条 `GridLayoutGroup` 推导）。改坏法：删掉 `SetPxSize` ⇒ `Editor/ShellScene.cs`
+            //    §A218「`DeckRow_<i>` 的 rect = 格矩形」红。
+            var cell = new GameObject(nodeName, typeof(RectTransform));
+            cell.transform.SetParent(holder, false);
+            MenuDraw.SetPxSize(cell.transform, rr.W, rr.H);
+            cell.transform.localPosition = Local3(holder, rr.x1, rr.y1, rr.x2, rr.y2);
+            // 🔴 **2026-10-03 就地更正（A17 顺带查出的偏离）**：原来这里画的是**一块纯色**（我们自建），
+            // 而**原版 `Practice Deck` 的根就是一张 `UI_Button_Mulligan`**（实测：324.5×80.1 Simple、
+            // `trans=2` → HL `UI_Button_Mulligan_hover`；见普查 §块 5 第 22 行）。
+            // ⚠️ **2026-10-07 更正（A77-㉒②，铁律 5）**：下面那行原注释写着「**选择态仍用我们原来那层色**
+            //    （黄色 = 当前这套；**原版怎么标当前套本地判据不足**）」—— **后半句已被判据推翻**：
+            //    原版 `Deck Selector Menu Item` 的当前套标记 = 它自己那颗 **`Highlight`** 子件
+            //    （`DeckSelectorMenuItemDemo.SelectItem()` / `ToggleHighlight(bool)` → `highlightObject.SetActive`；
+            //    每个格子 `Initialize(…, isSelected)` 里传的正是 false）。`Highlight` 那一层**本轮已建**（见下）。
+            //    ⚠️ 这层黄**留着**：它上面还压着 `rowWb.Bind(rowBg, "UI_Button_Mulligan")` 的悬停换图，
+            //    整层删掉是另一个决定 ⇒ **如实标：这一层色是我们挑的**（原版给的是 `Highlight` 那层，
+            //    且「染色 = 你的卡组」那个语义原版用的是 `yourDeckColor`、落在 `Text background` 上，见下面 ⑤）。
+            // 🆕 A9 尾巴：这一格也吃**软边**（原版 `Decks Scroll view/Viewport` 的 `m_Softness = (0,23)`）——
+            //   压在带上/带下的格按剖面削 alpha（`MenuDraw.ApplySoftEdges` 的几何等效物）。
+            // 🔴 **2026-10-13（A435 阶段 2 · 戊 / A754-b）**：本格**七处**（下面五层 + 名字 + 命中区）的
+            //   `clip` 形参**一律换成 `null`** —— 硬裁那一刀（以及 `DeckClipSoft (0,23)` 那道渐隐带）
+            //   现在由 `Decks Scroll view/Viewport` 那颗 `ViewportClip` 节点给（`MenuDraw.*` / `ImgTex`
+            //   / `HitOn` 内部各自 `Resolve`）。⚠️ `clipSoftness` **照旧传 `DeckClipSoft`**：它是
+            //   **回落那一档**的带宽（形参非空 = 旧路赢；节点在时由**节点自己的 `softness`** 说了算）。
+            var rowBg = Img(cell.transform, "UI_Button_Mulligan", rr.x1, rr.y1, rr.x2, rr.y2, "Row Bg", QPrRow,
+                            false, null, null, DeckClipSoft);
+            if (rowBg != null)
+                rowBg.SetTint(cur ? new Color(1f, 0.773f, 0f, 0.55f) : new Color(1f, 1f, 1f, 0.10f));
+
+            // ============================================================ 🆕 2026-10-07（A77-㉒②）
+            // **`Deck Selector Menu Item` 的五层内景** —— 兄弟序照原版（**从下到上**）：
+            //   `Highlight` → `Button border` → `Main image` → `IsPlayerDeck` → `Text background`(+`Deck Name`)
+            // 逐层的锚点五元组 / sprite / 贴图模式出处 → 常量段 `Item*` 那一大段注释。
+            // ⚠️ 下面所有坐标 = **格左上角 + 该层的格内偏移**（`Item*` 常量），⛔ 别整体按 180/296 缩。
+            float ix = rr.x1, iy = rr.y1;
+            // ① `Highlight`（`UI_Deck_button_click`）—— **只有当前这套**在（原版那句 `SetActive(1/0)`）。
+            //    ⚠️ 建出来再 `SetActive`（不是「选了才建」）—— 自检要能在**同一批节点**上断两态。
+            var hl = Img(cell.transform, "UI_Deck_button_click",
+                         ix + ItemHLL, iy + ItemHLT, ix + ItemHLR, iy + ItemHLB,
+                         "Highlight", QPrItemHL, false, null, null, DeckClipSoft);
+            if (hl != null) hl.gameObject.SetActive(cur);
+            // ② `Button border`（`UI_Button_Round_background`，原版 `preserveAspect=1` ⇒ `keepAspect`）
+            Img(cell.transform, "UI_Button_Round_background",
+                ix + ItemBdL, iy + ItemBdT, ix + ItemBdR, iy + ItemBdB,
+                "Button border", QPrItemBd, true, null, null, DeckClipSoft);
+            // ③ `Main image` —— 原版**运行期喂** `ArmyUtilities.GetArmyIcon(army)`
+            //    （`DeckSelectorMenuItemDemo__InitializeWithPracticeDeck.c` 的 SO 那一支；
+            //     我方卡组那一支在 `InitializeWithPlayerDeck.c` 里也是同一句）。
+            //    🆕 **2026-10-22**：练习对那一支改用**产物里的 `armyIcon`**（`DemoDeckInfoSO.armyIcon`，
+            //    13 张 `40k_DeckSelection_icon_*`，与 `ArmyUtilities.GetArmyIcon` 逐阵营同一张）。
+            //    取不到 ⇒ 回落 `DeckRuntime.FactionIcon(faction)`（同一份映射，判据只那一处）。
+            //    🆕 **2026-10-23（W65 · 1c）**：图从形参 `mainIcon` 进来 —— 「你的卡组」那一格走**同一句**
+            //    `GetArmyIcon` 的结果（只是不看 `DemoDeckInfoSO.armyIcon`），⛔ 别为它另写一条取图路。
+            ImgTex(cell.transform, mainIcon, iconNote,
+                   ix, iy, ix + DeckCellW, iy + DeckCellH,
+                   "Main image", QPrItemArt, false, null, null, DeckClipSoft);
+            // ④ `IsPlayerDeck`（`Purity Seal_02`）—— `highlightIsPlayerDeck`，同样只对玩家卡组开 ⇒ 恒开
+            Img(cell.transform, "Purity_Seal_02",
+                ix + ItemSealL, iy + ItemSealT, ix + ItemSealR, iy + ItemSealB,
+                "IsPlayerDeck", QPrItemSeal, false, null, null, DeckClipSoft);
+            // ⑤ `Text background`（`40k_bt_underbutton`）+ 其下的 `Deck Name`。
+            //    🔴 **2026-10-22：练习对那一支的色 = `DemoDeckInfoSO.armyColor`**（用 `armyColorRaw` 的
+            //       原样 4 个 float —— 原版存的是任意浮点、不是 8bit/255，`#RRGGBB` 只是便利值）。
+            //       判据 = `DeckSelectorMenuItemDemo__InitializeWithPracticeDeck.c` 末尾那段
+            //       `set_color(this+0x48, demoDeck.armyColor)`（`+0x48` = `Text background` 那颗 Image）；
+            //       对照：同一文件里**玩家自己的卡组**那一支（`InitializeWithPlayerDeck.c`）用的是
+            //       `yourDeckColor` —— 两支的色**不同源**，⛔ 别拿 `ItemYourDeckColor` 顶上。
+            //       🆕 **2026-10-23（W65 · 1c）**：色从形参 `nameBg` 进来 —— 「你的卡组」那一格**正是**
+            //       原版那个 `yourDeckColor` 的落点（`ItemYourDeckColor`），⛔ 别再让它只当兜底。
+            //       prefab 里 Image 自带的 `m_Color=(0.408,0.811,0.279,1)` 是**模板默认**、会被盖掉。
+            Img(cell.transform, "40k_bt_underbutton",
+                ix + ItemNameBgL, iy + ItemNameBgT, ix + ItemNameBgR, iy + ItemNameBgB,
+                "Text background", QPrItemTxBg, false,
+                nameBg, null, DeckClipSoft);
+            // 文字与图**同一套**：原版 `RectMask2D` 对 TMP 一视同仁 ⇒ 走 `MenuDraw.ClipText` 同一个剖面
+            // 🔴 **㉒③**：名字条 = **172×30.6**（照原版锚点现算）+ **原版 `fs29 / auto[8,29]` / 居中 / 折行 1**
+            //    —— 原来是「顶 38px + 172 宽 + fs26 + **没有自适应**（我们挑的）」⇒ 长卡组名画到框外。
+            var nm = Txt(cell.transform, displayName,
+                         ix + ItemNameL, ix + ItemNameR, iy + ItemNameT, iy + ItemNameB,
+                         ItemNameFontPx, Align.Center, "Deck Name", QPrText, null, DeckClipSoft,
+                         // 🔴 **2026-10-17（`A1233`）**：原来这里是「先 `Txt`、再自己补
+                         //    `nm.SetAutoFitBox(…)`」—— 收口进本方法形参（同一件事只写一处）。
+                         //    ⚠️ `wrapPx` **必须显式给**（本件的原版折行 = 1）：不给的话本方法末段
+                         //    会走 `if (autoMinPx > 0f && wrapPx <= 0f) lb.SetWrapping(false)` 那一支，
+                         //    把折行悄悄关掉（下面那句显式 `SetWrapping(true)` 要留着 —— 理由见它自己的注释）。
+                         wrapPx: ItemNameR - ItemNameL,
+                         autoMinPx: ItemNameAutoMin, autoMaxPx: ItemNameAutoMax, autoBasePx: ItemNameAutoBase,
+                         face: TmpFont.Face.LatinCardBody);
+            if (nm != null)
+            {
+                // 原版 `m_TextWrappingMode = 1 (Normal)`；`SetAutoFitBox` 内部已经开了折行，
+                // 这里**显式**再写一次（它现在是 `Label` 上唯一那个显式口，别让以后改公共件时静默回退）。
+                nm.SetWrapping(true);
+                // 🔴 **必须再推一次版面**：`SetAutoFitBox` 里那次 `RefreshBounds()` 会把 TMP 子节点
+                //    **挪一个位**，而 `ClippedTextGuard` 的重裁发生在**挪之前**的 `ForceMeshUpdate` 里
+                //    ⇒ 那一刀整体偏「新旧位置之差」（本窗实测约 (12, 5)px，**静默**）。
+                //    见 `RelayoutNow` 的注释：它重排一次（顺带在**挪到位之后**重裁）+ 再收一次尺寸。
+                RelayoutNow(nm);
+            }
+            // 🔴 **2026-10-13（A435 阶段 2 · 戊 / A754-b）**：`clip` 传 `null`（同 `RebuildArmyCells`）——
+            //   命中区要的【裸框 + pad】由那颗 `Viewport` 节点给（`HitOn` → `MenuDraw.ClipRectAbove`）；
+            //   软边**故意不传**（原版 `m_Softness` 只改渲染，射线那一面只看矩形）。
+            var rowHit = HitOn(cell.transform, cell.transform, "Hit", rr, onClick, QPrHit, null);
+            var rowWb = rowHit != null ? rowHit.GetComponent<WindowButton>() : null;
+            if (rowWb != null) rowWb.Bind(rowBg, "UI_Button_Mulligan");
+            // 🆕 **2026-10-18（音效线缺口 `AUD` §三 C2）**：原版
+            //   `Practice Mode Menu/Deck info/Deck List Drawer/Content/Deck Selector Card Info button_ref`
+            //   = 空 cue + **`useDefaultAudioClipIfNull = 0`** ⇒ **静音**。
+            if (rowWb != null) rowWb.playClickSound = false;
+            return cell.transform;
         }
 
         /// <summary>🆕 **2026-10-07（A77-㉒③/⑤）**：把一次「改完折行模式 / 改完自适应」的**版面真正推下去**。
@@ -1993,6 +2200,12 @@ namespace CardPresentation
         //    粗筛也从裸 `MenuDraw.Visible` 换成了 **`VisibleAbove`**（节点态那一版）。
         //    ⇒ 这一整段讲 `Inside` 的历史**照旧成立**（`Inside` 确实已删、语义确实是「相交就建」），
         //    只是「谁来裁」那一层换了载体 —— ⛔ 别按第 4 行那句话去推「本窗今天还逐件传框」。
+
+        /// <summary>当前（模式 + 阵营）筛选下**画出来的格数** = 练习对的格数 + 「你的卡组」那一格（有才加）。
+        /// <para>🔴 **与 <see cref="FilteredDeckCount"/> 分开**：那个只数**对**（78 这个数字到处被引用、口径别动），
+        /// 这一个才是**铺格子**用的（滚动内容高 / 行数）。⛔ 别把「你的卡组」那格算进 `FilteredDeckCount`
+        /// —— 会把「练习对 = 78」那一族判据一起改掉。</para></summary>
+        public int ListedCellCount { get { return FilteredDeckCount() + (ShowYourDeckCell() ? 1 : 0); } }
 
         int FilteredDeckCount()
         {
@@ -2241,7 +2454,15 @@ namespace CardPresentation
             if (ArmyIndex == i) return;
             ArmyIndex = i;
             if (DeckScroll != null) DeckScroll.SetOffset(0f);
-            if (_deckHolder != null) RebuildDeckRows(_deckHolder);
+            // 🔴 **2026-10-23（W65 · 1c 收尾）**：换阵营 = **重列 + 默认选中** —— 原版
+            //   `PracticeModePopup__ChangeSelectedArmy.c:61` 的**末句**就是 `SetArmyButtons(param_1, param_2)`
+            //   （与切模式那条同一份逻辑：建完第 0 项就 `DeckSelected(item0)`）。
+            //   改前这里只 `RebuildDeckRows` ⇒ **面板上会留着刚被筛掉的那一对牌**
+            //   （列里已经没有它、`Battle!` 却还拿它开战），原版不会出现这种态。
+            //   🧨 改坏法：把这两行换回 `if (_deckHolder != null) RebuildDeckRows(_deckHolder);`
+            //   ⇒ 切到别的阵营之后 `PickedPrebuilt` 仍是旧阵营那一副（断言「选中态必须在列表里」红）。
+            if (!SelectDefaultDeck())
+                ShowNoDeckSelected("阵营筛选：" + (ArmyIndex < 0 ? "不限" : _facs[ArmyIndex]));
             Debug.Log("[Practice] 阵营筛选：" + (ArmyIndex < 0 ? "不限" : _facs[ArmyIndex]));
         }
 
@@ -2249,7 +2470,12 @@ namespace CardPresentation
         {
             DeckIndex = i;
             PickedPrebuilt = null;      // 选了「我的卡组」⇒ 预组那次选中作废（两个是互斥的）
-            PairIndex = -1;             // …左列那一格的选中态也一起作废（「我的卡组」不在那一列里）
+            // …左列那一格（练习对）的选中态一起作废。🆕 **2026-10-23（W65 · 1c）就地订正（铁律 5）**：这里原来
+            //   写「（「我的卡组」不在那一列里）」—— **已不成立**：原版那一列**首格就是**「你的卡组」
+            //   （`PracticeModePopup__SetArmyButtons.c` 的第 0 项），我们本轮也已按原版补上（见 `RebuildDeckRows`）。
+            //   ⛔ 别按那句旧话去推「「我的卡组」不在这列 ⇒ 不用重画选中态」：重画由 `RebuildDeckRows` 自己按
+            //   `PickedPrebuilt == null && DeckIndex >= 0` 判，两处判据不要各写一份。
+            PairIndex = -1;
             PrebuiltDecks.ClearPendingBattleDeck();
             if (_deckHolder != null) RebuildDeckRows(_deckHolder);
             bool wasList = !ShowingGeneralInfo;             // 换卡组时**别把抽屉状态翻掉**
@@ -2421,6 +2647,17 @@ namespace CardPresentation
             //   `DeckLibrary.Current` 的模式筛，选中的那一副可能不在列表里）。
             w.SelectedGameMode = ToggleModeOf(CollectionData.DeckAt(ownDeckIndex).GameMode);
             w.RefreshGameModeVisual();
+            // 🆕 **2026-10-23（W66）**：阵营筛选也按**这一副**对齐 —— 与上面那句「模式对齐」同一条理由：
+            //   `Open()` 的默认筛选（原版 `Open.c:172-180`）读的是 **`DeckLibrary.Current` 那副**的阵营，
+            //   而这条链要播的是 `ownDeckIndex`。两者阵营不同时，`PickDeck` 之后**选中的那一副不在列表里**
+            //   （面板 / `Battle!` 拿的还是它）—— 又是那种「列里没有、却拿它开战」的静默不一致。
+            //   ⚠️ **原版这条链不经过本窗**：`DeckInfoPopup__StartPracticeMatch.c` 是 `ShowPopUp(等待窗)` +
+            //   直接 `StartMatch(...)`（`decomp_full` 实读），**没有**开 `Practice Mode Menu` ——
+            //   我们借本窗当开战宿主（见本文件头「练习对手链」），所以这一步是**我们内部的自洽**、
+            //   ⛔ 不是「原版也有这一句」。
+            w.ArmyIndex = DefaultArmyIndexOf(CollectionData.DeckAt(ownDeckIndex).Faction,
+                                             CollectionWindow.CardsState.Factions());
+            if (w.ArmyScroll != null) w.ArmyScroll.OnChanged();   // 阵营列重画 ⇒ 高亮落到这一格
             w.PickDeck(ownDeckIndex);                // 面板/卡列表跟着走（原版开这扇窗时也是拿这副铺的）
             w.OpponentDeck = PlayerDeckOf(opponent);
             Debug.Log("[Practice] 练习赛：**我** = 「" + CollectionData.DeckAt(ownDeckIndex).Name + "」（原版 `playerDeck`）"

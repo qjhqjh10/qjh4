@@ -16,6 +16,7 @@
 //   | **4 个开卡包粒子 prefab** → `Assets/CardPresentation/Effects/` | ✅ **运行时用**：`BoosterPackOpenWindow` 翻牌时按稀有度播（`WarpforgeEffectLibrary.TryGet(名字)` → `WarpforgeEffectPlayer.Play`） |
 //   | **8 条 `AnimationClip`** → `Assets/WarpforgeVFX/Animations/*.anim` | ⚠️ **不直接播**（我们的菜单层是 ImageQuad/Label，没有 uGUI 动画）。它们的用途是**判据**：`Booster Window Open` 的**末帧关键帧**就是 5 张卡停住的位姿（`Shell/BoosterPackOpenWindow.cs` 里那几个常量照它抄，注释标了出处）。导出来是为了**能复核**，不是为了播放 |
 //   | **2 个窗口 prefab** → `Assets/WarpforgeBooster/Prefabs/` | ⚠️ **参考/诊断用**：我们的窗口是**在菜单层重搭的**（同 `BoosterInfoPopup` 那条路），**不实例化**这份 prefab。它存在的意义是「依赖树可达」的物证 + 以后并排比对 |
+//   | 🆕 **17 个卡包外观 prefab**（2026-10-23 `A2`）→ 同一目录 | ⚠️ **同样只作参考**（原版 `BoosterPackOpenWindow.Initialize` 实例化的 `visualPrefab` 那一族；我们窗口画的是整屏纯色背景）。⛔ 不接运行时 |
 //
 // ============================ 落地在哪 ============================
 //   · 粒子 prefab → **`Assets/CardPresentation/Effects/`** —— 那是 `EffectLibraryBuilder.UserPrefabDir`
@@ -90,8 +91,10 @@ public static class BoosterPackExporter
     ///   · `boosterpacks_assets_all`（367 GO / **17 根**）：`Booster Pack Standard` + 15 阵营/扩展变体
     ///     + `Booster Pack All Armies Variant`（**卡包外观 prefab**，原版 `visualPrefab` 就在这一族里）·
     ///     2 条 clip（`Booster Open Standard` / `Booster Open Sororitas`）。
-    ///     ⚠️ **本导出器目前不导这一批** —— 我们的窗口画的是整屏纯色背景，用不上；
-    ///        它们由 `extract_missing_shaders.py` 的 `BOOSTER_GROUPS[1]` 重打进 `wf_boosters_extra.bundle` 备着。</summary>
+    ///     ⚠️ **2026-10-23 订正（铁律 5）**：本行原来写「**本导出器目前不导这一批**」——
+    ///        **已过期**：现在它们在 `WindowRoots` 表里（2026-10-23 `A2` 缺件），本导出器会导，
+    ///        落 `Assets/WarpforgeBooster/Prefabs/` 当**参考件**（⛔ 运行时不实例化，用户 2026-10-22 口径）。
+    ///        原件仍由 `extract_missing_shaders.py` 的 `BOOSTER_GROUPS[1]` 重打进 `wf_boosters_extra.bundle`。</summary>
 
     /// <summary>我们自己重打的小包目录（`extract_missing_shaders.py --prefabs` 的产物）。</summary>
     const string StreamDir = "Assets/StreamingAssets/WarpforgeVFX";
@@ -104,12 +107,43 @@ public static class BoosterPackExporter
 
     // ============================================================ 根（每一条都有判据）
 
-    /// <summary>两扇窗。出处：`资料/阶段二_商店_原版规格.md` §五·二 / §五·三。
+    /// <summary>两扇窗 + 卡包外观 17。出处：`资料/阶段二_商店_原版规格.md` §五·二 / §五·三。
     /// 🔴 **实测归属 = `menus_assets_all.bundle`**（2026-10-03 只读普查：`Booster Pack Open Window`
     ///    Transform `1342405282582379555` · `Booster Info Popup` `5823516886071648943`，**两件都是根**）。
     /// ⚠️ 它们**不是 addressable 根** ⇒ 原包里 `GetAllAssetNames()` / `LoadAllAssets()` 两条都枚举不到，
-    ///    必须先跑 `extract_missing_shaders.py --prefabs` 重打进 **`wf_menus_extra.bundle`**。</summary>
-    static readonly string[] WindowRoots = { "Booster Pack Open Window", "Booster Info Popup" };
+    ///    必须先跑 `extract_missing_shaders.py --prefabs` 重打进 **`wf_menus_extra.bundle`**。
+    /// 🆕 **2026-10-23（`A2` 缺件 · 卡包外观 17）**：下面那 17 个**卡包外观 prefab** 也并进本表 ——
+    ///   · 它们**不属「窗口」**，但落点相同（`Assets/WarpforgeBooster/Prefabs/`，**参考用、运行时不实例化**），
+    ///     走同一支 `Export(g, OutPrefabDir, false)` 就够，不必另开一套循环。
+    ///   · **实测归属 = `boosterpacks_assets_all.bundle`**（367 GameObject / **17 个根**），
+    ///     已由 `extract_missing_shaders.py` 的 `BOOSTER_GROUPS[1]` 重打进 **`wf_boosters_extra.bundle`**
+    ///     （UnityPy 回读：17/17 根名命中、容器 38 条）⇒ `FindInPacks` 按名字取得回来。
+    ///   · ⛔ **用户 2026-10-22 指示「只导出备用」，不接运行时**（我们的窗口画的是整屏纯色背景）。
+    ///   · 判据 → `资料/普查产出_1023b/特效线_A2_执行报告.md` §3（X1）§5·2。
+    /// </summary>
+    static readonly string[] WindowRoots =
+    {
+        "Booster Pack Open Window",
+        "Booster Info Popup",
+        // 🆕 2026-10-23：卡包外观 17（名字**逐字**照 bundle `m_Name`，别 Trim、别改大小写）。
+        "Booster Pack Standard",
+        "Booster Pack All Armies Variant",
+        "Booster Pack Standard Aeldari SaimHann",
+        "Booster Pack Standard Astra Militarum",
+        "Booster Pack Standard Chaos SM Black Legion",
+        "Booster Pack Standard Emperors Children",
+        "Booster Pack Standard Genestealers",
+        "Booster Pack Standard Necrons Sautekh",
+        "Booster Pack Standard Orks Goff",
+        "Booster Pack Standard Orks Goff Expansion",
+        "Booster Pack Standard Sororitas",
+        "Booster Pack Standard Space Marines Dark Angels",
+        "Booster Pack Standard Space Marines Space Wolves",
+        "Booster Pack Standard Space Marines Ultramarines",
+        "Booster Pack Standard Space Marines Ultramarines Expansion 1",
+        "Booster Pack Standard TauEmpire",
+        "Booster Pack Standard Tyranids Leviathan",
+    };
 
     /// <summary>开卡包粒子。**名字从 prefab 字段来、不是我猜的**：
     /// `Booster Pack Open Window` 的 `CardInBoosterPack.contentByRarities[]` 每条一个 `particles` PPtr，

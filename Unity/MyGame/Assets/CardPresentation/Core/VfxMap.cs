@@ -596,17 +596,18 @@ namespace CardPresentation
             return _unitAnimCards.TryGetValue(evt ?? "", out l) ? l.ToArray() : new string[0];
         }
         /// <summary>🆕 2026-10-19（B3 · `T13`）：**会一次播多件**的 (卡, 事件) 行数
-        /// （= `ByCard` 里值列表长度 &gt; 1 的行）。现读**全表 382 行**（V2 §3·2 的
-        /// 「平票且最优是 `authoritative` 的行」；⚠️ 数据会随生成器重跑变，断言里别写死）。
-        /// 自检用它断「全播这一档真的存在」—— 只看单卡样例不够（样例可能被数据更新掉）。</summary>
+        /// （= `ByCard` 里值列表长度 &gt; 1 的行）。🔴 **2026-10-23 订正（铁律 5）**：现读**全表 500 行**
+        /// （633 条 `inferred-keyword` 升 `authoritative` 后；旧读数 382 当时含推断档）。
+        /// 数据会随生成器重跑变，断言里别写死。</summary>
         public static int CardTableMultiEntries { get; private set; }
         /// <summary>🆕 同上：表里**要播的候选总数**（= Σ 每个 (卡,事件) 行列表长度）。
         /// 它 − <see cref="CardTableEntries"/> = 「全播比原来多播出去的件数」。</summary>
         public static int CardTableCandidates { get; private set; }
         /// <summary>🆕 同上：**过滤前**有多少行是「同档多候选」（含我们自己的 `inferred-*` 平票）。
-        /// 现读全表 **505 行**（V2 §3·2，其中 `authoritative` 382 行）。
-        /// 自检拿它和 <see cref="CardTableMultiEntries"/> 比 —— 两者相等就说明「推断档也被全播了」
-        /// （🧨 V2 §3·3 末条明确不许）。</summary>
+        /// 🔴 **2026-10-23 订正（铁律 5）**：现读 **500 行**，与 <see cref="CardTableMultiEntries"/> **相等**
+        /// —— 因为 633 条 `inferred-keyword` 已升权威、运行时表里**非权威平票行 = 0**（旧读数 505/382）。
+        /// 自检现在用「同一份 JSON 独立重算」+ `CardTableMultiEntriesAll == MultiEntries + 非权威平票行数`
+        /// （B3·T13 换靶子，见 `普查产出_1023b/B3T13换靶子_执行报告.md`）。</summary>
         public static int CardTableMultiEntriesAll { get; private set; }
         /// <summary>🆕 `A2082`：卡名索引里有几个名字（自检用 —— 它 = 0 就说明生产路径那一档查不动）。</summary>
         public static int CardTableNames { get { EnsureLoaded(); return _byName.Count; } }

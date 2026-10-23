@@ -15,15 +15,15 @@
 //
 // 🔴 **覆盖范围（如实标注，⛔ 别当成「全实现了」）**：
 //   已实现 `targetsAffected` = 0 / 10 / 20 / 30 / 40 / 50 / 51 / 52 / 55 / 60 / 65 / 80 /
-//   90 / 100 / 106 / 110 / 113 / 115 / 120 / 130 / 161 / 162 / 220（池内评分判据**只用到**
-//   0/10/20/30/50/51/52/60/65/90/110/113/120/161/220 —— 见 `AUD_T06` §三·三）；
-//   其余（105/140/150/160/170/180/190/200/201/210/230/235/240/245）当前评分数据 0 条，
-//   **一律返回空表**（原版对空表 → 0 分；⛔ 不造兜底）。
+//   90 / 100 / 106 / 110 / 113 / 115 / 120 / 130 / 160 / 161 / 162 / 170 / 190 / 210 / 220 / 245
+//   （池内评分判据**只用到** 0/10/20/30/50/51/52/60/65/90/110/113/120/161/220 —— 见 `AUD_T06` §三·三）；
+//   其余（105/140/150/180/200/201/230/235/240）**返回空表** —— 逐条理由写在 `GetTargets` 的
+//   `default` 分支里（235 在原版里**本来就没有分支**，空表是对的）。
 //   ⚠️ `55 inPlayOrDying` 按「在场」处理（濒死目标我们引擎里还在棋盘上）。
-//   ⚠️ `161/162`（灵魂石/信仰）原版是「英雄 + 资源计数」的**伪列表**（`GetTargets.c:321` 起）；
-//     我们按「资源 > 0 时返回督军一个」近似 —— 只影响 2 条 option 1 的 Count，报告里已记。
-//
-// ⚠️ **`currentMana(160)` / `maxMana(170)` 也是伪列表**，但评分数据 0 条 ⇒ 不实现。
+//   ✅ **2026-10-23（`W64 B-07`/`B-08`）就地订正**：`160/161/162/170/245` 都是**伪列表** ——
+//     原版 `while (resource > i) { list.Add(hero); i++ }` ⇒ **列表长度 = 资源点数**。
+//     本条原来写的是「161/162 按『资源 > 0 时返回督军一个』近似」「160/170 评分数据 0 条 ⇒ 不实现」
+//     —— 两句都已过期（近似已改成原版形状；160/170 已按同一形状实现）。
 using System.Collections.Generic;
 
 namespace RuleEngine
@@ -157,23 +157,68 @@ namespace RuleEngine
                     if (w != null) AddUnit(list, w, 1 - thisSide);
                     break;
                 }
-                case 161: // currentSpiritStone —— 原版伪列表（见文件头「覆盖范围」）
-                    if (ctx.Players[thisSide].SpiritStones > 0)
+                // ---- 🔴 2026-10-23（`W64 B-07`）：161/162 是**按资源点数重复**的伪列表，
+                //      不是「有资源就给督军一个」。判据 = `AbilityLogic__GetTargets.c:321-360`
+                //      （`0xa1`）与 `:422-460`（`0xa2`）：
+                //        `while (resource > i) { list.Add(GetHero(side)); i++ }`
+                //      ⇒ **列表长度 = 资源点数**（0 点 ⇒ 空表）。
+                //      `PlayerManager.GetCurrentSpiritStone` 读的是 `spiritStoneMana`（`+0x9C`），
+                //      我们对应 `PlayerState.SpiritStones`。
+                case 161: // currentSpiritStone —— 伪列表：长度 = 灵魂石点数
+                    AddHeroRepeated(list, ctx, thisSide, ctx.Players[thisSide].SpiritStones);
+                    break;
+                case 162: // currentFaith —— 伪列表：长度 = 信仰点数
+                    AddHeroRepeated(list, ctx, thisSide, ctx.Players[thisSide].Faith);
+                    break;
+                // ---- 🔴 2026-10-23（`W64 B-08` 的一部分）：160/170 也是同一种伪列表。
+                //   判据 = `AbilityLogic__GetTargets.c:220-320`（`0xa0`）与 `:624-720`（`0xaa`），
+                //   形状与 161/162 逐字相同，只是取值函数不同：
+                //     · 160 `currentMana`  → `BattleManager.GetUnusedMana` → `PlayerManager.unusedMana`(+0x4C)
+                //     · 170 `maxMana`      → `BattleManager.GetTotalMana`  → `PlayerManager.totalMana`(+0x38)
+                //   ⚠️ 我们的对应：`unusedMana` = `PlayerState.Energy`（本回合没花掉的能量）、
+                //     `totalMana` = `PlayerState.MaxEnergy`（本回合的能量总量）。
+                //     `ResetMana` / `AddNewMana` 那一族在 `RuleCore.BeginTurn` 那一侧已同构。
+                case 160: // currentMana
+                    AddHeroRepeated(list, ctx, thisSide, ctx.Players[thisSide].Energy);
+                    break;
+                case 170: // maxMana
+                    AddHeroRepeated(list, ctx, thisSide, ctx.Players[thisSide].MaxEnergy);
+                    break;
+                // ---- 🔴 2026-10-23（`W64 B-08` 的一部分）：190 `lastPlayedIfMeetsCriteria`。
+                //   判据 = `AbilityLogic__GetTargets.c:173-184`（`0xbe`）→
+                //     `CemeteryManager__GetCardsPlayed.c`：扫坟墓动作日志里 `actionType == 10
+                //     (playCard)` 的条目、**从最新往回**（`iVar1` 递减），逐条 `CheckIfMeetsCriteria`，
+                //     命中的塞进结果表；日志全对局不清（= 卡面 `this game`）。
+                //   我们的等价物 = `BattleContext.PlayedCards`（同一份判据，见 `PlayedCard` 的 doc）
+                //     ⇒ 顺序照原版：**从最新往回**加。之后仍要过本文件的 `ApplyFilters`/`Trim`。
+                case 190: // lastPlayedIfMeetsCriteria
+                {
+                    var played = ctx.PlayedCards;
+                    for (int i = played.Count - 1; i >= 0; i--)
                     {
-                        var w = ctx.Players[thisSide].Warlord;
-                        if (w != null) AddUnit(list, w, thisSide);
+                        var pc = played[i];
+                        if (pc == null || pc.Instance == null) continue;
+                        list.Add(new AiTargetRef { Inst = pc.Instance, Side = pc.Owner });
                     }
                     break;
-                case 162: // currentFaith
-                    if (ctx.Players[thisSide].Faith > 0)
-                    {
-                        var w = ctx.Players[thisSide].Warlord;
-                        if (w != null) AddUnit(list, w, thisSide);
-                    }
+                }
+                // ---- 🔴 2026-10-23（`W64 B-08`）：245 也是伪列表（`GetTargets.c:523-624`，`0xf5`）——
+                //   `PlayerManager.GetSecretsPlayed` 循环 ⇒ 长度 = 本局打出的密令数。
+                //   我们的对应 = `PlayerState.SecretsPlayed`（同一含义，`PlayerState.cs:138`）。
+                case 245: // currentSecretsPlayed
+                    AddHeroRepeated(list, ctx, thisSide, ctx.Players[thisSide].SecretsPlayed);
                     break;
                 default:
-                    // 105/140/150/160/170/180/190/200/201/230/235/240/245 —— 当前评分数据 0 条。
-                    // 原版对没有候选的 case 也是空表 ⇒ 返回空（⛔ 不造兜底）。
+                    // 105/140/150/180/200/201/230/240 —— 判据/输入还没闭合（2026-10-23 现核）：
+                    //   · 105/140/150 —— 读的是**静态缓存表** `DAT_1842c3a28 + 0xb8`
+                    //     （`GetTargets.c:849/867/1010`），**谁往里写没查到** ⇒ ⛔ 不猜；
+                    //   · 180 —— `PlayerDataManager.fullCardCollection`（**卡牌收藏**，不是对局），
+                    //     引擎里没有这个输入；
+                    //   · 200/201 —— `CardScript.referencedCards`(+0x278)，我们没有这一列；
+                    //   · 230/240 —— `GetHighestHealthWarlord` / `GetLowestHealthUnit` 的完整选法未读完。
+                    //   · **235 在 `GetTargets.c` 里没有任何分支**（现核 grep `0xeb` = 0 命中）
+                    //     ⇒ 原版对 235 本来就返回空表 ⇒ 我们返回空**是对的**。
+                    // 其余未列出的值同理：原版没有候选 ⇒ 空表（⛔ 不造兜底）。
                     return list;
             }
 
@@ -233,6 +278,23 @@ namespace RuleEngine
         static void AddUnit(List<AiTargetRef> list, UnitState u, int side)
         {
             if (u != null) list.Add(new AiTargetRef { Unit = u, Inst = u.Instance, Side = side });
+        }
+
+        /// <summary>
+        /// **伪列表：把督军重复 `count` 次**（`W64 B-07`，2026-10-23）。
+        ///
+        /// 判据 = `AbilityLogic__GetTargets.c:321-360` / `:422-460` / `:220-320` / `:624-720`（`0xa1`/`0xa2`/`0xa0`/`0xaa`）
+        /// 与 `:523-624`（`0xf5`）—— 那几支都是同一个形状：
+        /// <code>while (resource > i) { list.Add(BattleManager.GetHero(manager, side)); i++; }</code>
+        /// ⇒ **列表长度 = 资源点数**（不是「有资源就一个」）。
+        /// 影响面：这些目标只进 `ScoreFromCriteria` 的 `Count` 累加 ⇒ 打分随资源点数线性放大。
+        /// </summary>
+        static void AddHeroRepeated(List<AiTargetRef> list, BattleContext ctx, int side, int count)
+        {
+            if (count <= 0) return;
+            var w = ctx.Players[side].Warlord;
+            if (w == null) return;
+            for (int i = 0; i < count; i++) AddUnit(list, w, side);
         }
 
         static void AddAdjacent(List<AiTargetRef> list, BattleContext ctx, UnitState anchor, int side)

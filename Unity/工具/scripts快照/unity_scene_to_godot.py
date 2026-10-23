@@ -110,7 +110,15 @@ def load_go_dir(d):
         #   ⇒ `GO[pid]` 回默认空壳 ⇒ 那件对象在清单 / OBJ / 场景 / prefab **四处同时消失**（静默）。
         #   ⚠️ 别担心 `Scrap_5` / `Pipes_1` / `BG_Building_3` 那一族（**纯名文件**）：它们的
         #   `stem != nm` **且** `stem != nm.strip()`，照旧落 `plain`（那是**有意为之**，见上面 2026-09-20 那段）。
-        if m and (m.group(1) == nm or (nm.strip() and m.group(1) == nm.strip())):
+        # 🔴 2026-10-23（`A1585`）：**导出器把 `m_Name` 里的 `:` 洗成了 `_`** ——
+        #   例 `Anchor_ Cemetery_175.json` 的 `m_Name` 是 `'Anchor: Cemetery'`
+        #   ⇒ 文件名 stem = `Anchor_ Cemetery`，与 `nm` / `nm.strip()` 都不等
+        #   ⇒ 同一条静默丢（13 场 × 5 件 = 65 件，全是 `Anchor: *`）。
+        #   判据（账上给的就是这一条）：`stem.replace('_', ':') == nm`。
+        #   ⚠️ 只在这个方向加：`Scrap_5` 那种「名字本来就带下划线」的纯名文件，
+        #   `replace` 后仍不等于 `nm`（没有 `:`），不会误收。
+        if m and (m.group(1) == nm or (nm.strip() and m.group(1) == nm.strip())
+                  or ('_' in m.group(1) and m.group(1).replace('_', ':') == nm)):
             pid = int(m.group(2))
             # 🔴 同一条账的 ②：**同一个 pid 被两个文件同时认领** = 后写的静默盖掉先写的。
             #   实测 13 个战场 **0 例**；`mainmenuwarpforge` **127 例**（全是**纯名文件**，

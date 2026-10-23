@@ -809,6 +809,11 @@ namespace CardPresentation
                 //    （槽号小 = 靠左 = 靠前）—— 与上面 `z` 的方向**一致**（z 小 ⇔ 队号大）。
                 //    判据/号段约束见 `queueTop` 那一段。⚠️ 非悬停用 `slot + 1`（不是 `slot`）：
                 //    给悬停那张留 0 号，这样「悬停是唯一的顶号」在**有洞/无洞**两态都成立。
+                // 🆕 2026-10-23（D · `F6`）：**悬停那一档就是原版的「抬起」态** ——
+                //   `CardScript__ShowCardInHand.c` 在设 state 8 后 `SetSortingLayer(<HandMoving>)`
+                //   （判据见 `CardView.QHandMoving` 的 doc）。我们的等价物 = 「严格高于整条手牌段」
+                //   = `queueTop` 本身（其余牌拿 `queueTop − (slot+1)`）⇒ 相对序同向，**这里不用改号**。
+                //   `HandMoving` 那个独立的 3001 档只给「居中展示」用（我们唯一有对应件的状态）。
                 int top = (i == hoveredIndex) ? 0 : (slot + 1);
                 int q = queueTop - top;
                 if (q < QueueFloor)     // 防守：不许静默失败（见 `QueueFloor`）

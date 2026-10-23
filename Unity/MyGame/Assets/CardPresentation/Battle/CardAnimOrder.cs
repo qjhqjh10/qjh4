@@ -38,10 +38,23 @@
 //      而 `BattleEvent.CardId` 装的是**英文卡名**（`CardDef.Name`）⇒ 两个键都收（同 `AbilityAnimDurations` 的做法）。
 //      逐卡命中面（现读）：本表 **62 张卡 / 99 拍**（= 有 `activeAbility` 且那一拍的 `ca` 解得出参数的那些）。
 //      另有 **64 条 `activeAbility` 的 `ca` 是空串**（原版没绑 CardAnim）在生成期已剔除（池内口径）。
-//   ② 🔴 **「一张卡有多条 `activeAbility` 行」时【全部保留】**（如 `Leman Russ Vanquisher` 有 2 行）
-//      —— 这是**忠实于原版**的：原版 `AbilityLogic.PlayAnim` 的外层遍历是**一个 `AbilityLogic` 实例**，
-//      而同一张卡的两条 `activeAbilityLogic` 行各有自己的 `cardAnimations[]`；我们的事件分不出是哪一条
-//      ⇒ 按行序拼成一条（**不是猜**，是如实聚合）。⚠️ 这是**唯一**还留着的近似（单 `activeAbility` 行的卡逐拍精确）。
+//   ② 🔴 **「一张卡有多条 `activeAbility` 行」时【全部保留】、按行序拼**（如 `Leman Russ Vanquisher` 有 2 行）
+//      —— **这就是原版的做法，不是近似**。
+//      🔴 **2026-10-23（R8）就地订正（铁律 5 · 判据 = 第一权威反编译）**：这里原来写
+//      「原版 `AbilityLogic.PlayAnim` 只播**当前那一条** …… 按行序拼成一条是**唯一**还留着的近似」——
+//      **那句话不成立**。`RawCardScript__ResolveActiveAbility.c` 逐句读（`d:/2/tools/decomp_full/`）：
+//        `lVar6 = hasAlternativeAbility ? (MeetsCriteria(normalAbilityBoardCriteria) ? activeAbility(+0x260)
+//                  : alternativeAbility(+0x2B8)) : activeAbility(+0x260);`
+//        `… lVar6 = *(lVar6 + 0x48);                 // ActiveAbility.activeAbilityLogic (List<AbilityLogic>)`
+//        `while (i < list.Count) { AbilityLogic__PlayAbility(list[i], mgr, abilityData, 400, 0); i++; }`
+//      ⇒ 原版**遍历全部 `activeAbilityLogic` 行、按行序逐个 `PlayAbility`**（每行各自 `PlayAnim` 自己那份
+//        `cardAnimations[]`）⇒ **行序拼接 = 逐拍等价**，单行卡与多行卡**同一条口径**。
+//      ⚠️ **真正还开着的近似不在这张表，而在【选哪一份 ActiveAbility】**：
+//        上面那句三元里 `hasAlternativeAbility` 为真时，原版按 `normalAbilityBoardCriteria`(+0x2B0)
+//        **二选一**（`activeAbility` / `alternativeAbility`）；我们的事件只带卡名、**分不出是哪一份**
+//        ⇒ 本表只装 `activeAbility` 那一份（`SW21 Wulfen Pack Leader` 就是这一族：普通 0.4 / 替代 0.2）。
+//        ⛔ 要接得两件事一起：① `BattleEvent` 带一位「哪一份」（`RuleEngine`，不在本文件）② 卡导出补
+//        `normalAbilityBoardCriteria`（我们现在**没有**这个字段；`cards_raw.json` 只有三样）。
 //   ③ **0 条**解不出 guid（全量件里 `ca` 非空但 `cardAnims` 里没有的）。
 //   ④ **纯延时拍**（`vfx` 为空）在本表里**0 条** —— 那 4 个 `Wait_*` 都挂在 `cardAbilities` 行上（已按 ② 剔掉）。
 // ─────────────────────────────────────────────────────────────────────────────

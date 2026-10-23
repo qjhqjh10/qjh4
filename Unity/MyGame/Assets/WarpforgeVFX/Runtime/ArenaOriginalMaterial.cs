@@ -51,7 +51,13 @@ namespace WarpforgeVFX
         /// 为什么必须带：**透明物体的绘制顺序由它决定**，而 arena1 那一族的真值是
         /// `results-mat` **2450** · `results-wind` **3000** · **`results-FX` **3002****
         /// （见 `数据/游戏数据/mat_renderqueue.tsv`）。原来这条没进清单 ⇒ 我们一律写 3000
-        /// ⇒ 两张「烘焙光斑」（`Barrels Light FX` / `Generator 2 FX`）与烟雾/阴影接收板**打平**。</summary>
+        /// ⇒ 两张「烘焙光斑」（`Barrels Light FX` / `Generator 2 FX`）与烟雾/阴影接收板**打平**。
+        /// 🆕 **2026-10-23（`T06`/`A1582③`）**：构建期那份 `.mat` 现在也按同一条判据落值
+        /// （`ArenaBuilder.GetOrCreateMaterial` 调 <see cref="ResolveQueue"/>；透明的非 3000 队列
+        /// **另起一份 `<tex> q&lt;queue&gt;.mat`**，因为 `.mat` 资产是按贴图名共享的）
+        /// ⇒ **`Rebuild()` 失败退回 `.mat` 时绘制顺序也是对的**。
+        /// ⚠️ 但**别拿 `mat_renderqueue.tsv` 按名字查**（同名 `SandParticle` 有 3000/3001 两份，表里取了 3000）——
+        /// 判据只有 <see cref="ResolveQueue"/>（`_QueueOffset` 现算，天然分得开）。</summary>
         public int queue = -1;
         public bool transparent, alphaClip, blendAuthoritative, applyAmbientColor;
 

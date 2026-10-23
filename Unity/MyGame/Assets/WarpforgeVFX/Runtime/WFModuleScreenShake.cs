@@ -38,10 +38,19 @@
 //        它的字段表就是 `actionStart` / `cameraShakes` / `manualTriggerCameraShakes`（1 条）
 //        ⇒ **确实连到 `AnimFXModuleScreenShake` 上**（本件亲核）。
 //      **错因**：照「方法名像动画事件」推的触发源，没去数 `AnimationClip` 的事件表。
-//    ⚠️ **结论没变**（手动档今天不会自己播），理由换成真的那个：那 5 份 prefab 的 UnityEvent
+//    ⚠️ ~~**结论没变**（手动档今天不会自己播），理由换成真的那个：那 5 份 prefab 的 UnityEvent
 //       **在我们这条链上没有订阅者** —— `数据/游戏数据/animfx_modules.json` 里 `collisionEvent`
 //       这个键**一次都没出现**（实测 0 处；`collisionAndParticles` 1797 处）⇒ 数据装配出来的都是
-//       空事件（见 `WFModuleCollisions.cs` 文件头 B 段）。要接得先把那一层收进数据。
+//       空事件（见 `WFModuleCollisions.cs` 文件头 B 段）。要接得先把那一层收进数据。~~
+//    🔴 **2026-10-23 就地订正（铁律 5 · `资料/普查产出_1022/A1_自造与兜底_特效动画.md` §四 D1）**：
+//       上面那两句**已经过期**（错因 = 写在那层数据收进来之前，之后没回来改）。
+//       现读 `数据/游戏数据/animfx_modules.json`：`collisionEvent` **5,906 处** ·
+//       `collisionAndParticles` **7,703 处** · `AnimEventDoShake` **5 处**（= 那 5 份 prefab 的订阅，
+//       `m_Mode = 3 (Int)` · `m_IntArgument = 0`）· `PlayAnim` 92 处。
+//       ⇒ **手动档的通道已经通了**：`WFModuleCollisions.BindCollisionEvent` → `MakeAction` 的
+//       `case "AnimEventDoShake"` 会在撞到东西时调到本类的 `AnimEventDoShake(0)`。
+//       ⚠️ 「通了」≠「今天一定看得到」：这 5 份都在**碰撞驱动**的卡侧特效上（`AnimFXModuleCollisions`），
+//          隔离渲染里没有碰撞目标 ⇒ 表现在只有真打一局才看得到（`T11` 真 Play 那一格）。
 using System;
 using System.Collections.Generic;
 using UnityEngine;
@@ -68,6 +77,31 @@ namespace WarpforgeVFX
             public int overwriteDirection;   public Vector3 direction;
         }
 
+        /// <summary>一个 octave（原版 `NoiseSettings.TransformNoiseParams`）：X/Y/Z 三轴各一组
+        /// `{Frequency, Amplitude, Constant}`。**拍平成字段**是因为 `JsonUtility` 解析不了嵌套字典
+        /// （踩过：`presets` 只能是数组）。</summary>
+        [Serializable]
+        public class SignalOctave
+        {
+            public float fx, ax; public int cx;
+            public float fy, ay; public int cy;
+            public float fz, az; public int cz;
+        }
+
+        /// <summary>一份 `rawSignal`（原版 `Cinemachine.NoiseSettings`）。
+        /// 采样算式（**照抄，⛔ 别改**，判据 → `资料/普查产出_1023b/R9_rawSignal_算式.md`）：
+        /// 每轴每带 `u = Frequency × T`；`Constant == 1` ⇒ `A×0.5×sin(2πu)`、
+        /// `Constant == 0` ⇒ `A×(Mathf.PerlinNoise(u, 0) − 0.5)`；**三条带相加**；
+        /// `T = t × preset.frequency + 起播偏移`。
+        /// ⚠️ `Constant` **不是**「是不是常数」—— 1 = 正弦、0 = Perlin（反直觉，机器码坐实）。</summary>
+        [Serializable]
+        public class SignalRec
+        {
+            public string name;
+            public SignalOctave[] position;
+            public SignalOctave[] orientation;
+        }
+
         /// <summary>解析完的一次屏震（preset 值 + 覆盖已应用）。下游直接拿它播。</summary>
         [Serializable]
         public struct Request
@@ -75,6 +109,10 @@ namespace WarpforgeVFX
             public string preset;
             public float delay, sustainTime, attackTime, decayTime, amplitude, frequency;
             public Vector3 direction;
+            /// <summary>🆕 2026-10-23（R9）：原版这个 preset 实际会播的**信号表**（已解好默认值）。
+            /// `null` = 没有数据（退回下游的出厂表）。⚠️ 只带 `PositionNoise` 的 Y 轴是**必有的**，
+            /// X/Z 与 `Orientation` 收着但 2D 版不用（见 `CardFeel.ShakeSignal`）。</summary>
+            public SignalRec signal;
         }
 
         /// <summary>🔑 **下游钩子**：表现层挂这里。我们这边接 `CardFeel.ShakeCamera`
@@ -143,26 +181,63 @@ namespace WarpforgeVFX
         }
 
         // ---- preset 表（从 Resources 读，懒加载一次）----
+        // 🆕 **2026-10-23（R9 落地）**：`shake_presets.json` 现在**连波形本体一起带**了 ——
+        //   `signals` 段是 4 份 `Cinemachine.NoiseSettings`（`Warpforge 6D Shake*`）的
+        //   `PositionNoise`/`OrientationNoise` × 3 octave × X/Y/Z × `{Frequency,Amplitude,Constant}` 全表；
+        //   每个 preset 的 `rawSignal` 是**信号名**（空 = 走 `defaultSignal`）。
+        //   采样算式（机器码级）→ `资料/普查产出_1023b/R9_rawSignal_算式.md`；⛔ 别按「Constant 是不是常数」猜。
+        //   ⚠️ 只有**下游**（`CardFeel.ShakeNoise01`）真正采它；本文件只负责「解析出这个 preset 该用哪张表」。
         [Serializable] class PresetRec
         {
             public string name;
             public float delay, sustainTime, attackTime, decayTime, amplitude, frequency;
             public float dirX, dirY, dirZ;
             public int hasRawSignal;
+            /// <summary>信号名（空 = 用 `PresetDoc.defaultSignal`）。</summary>
+            public string rawSignal;
         }
-        [Serializable] class PresetDoc { public int count; public PresetRec[] presets; }
+        [Serializable] class PresetDoc
+        {
+            public int count;
+            public string defaultSignal;
+            public SignalRec[] signals;
+            public PresetRec[] presets;
+        }
 
         static Dictionary<string, PresetRec> _presets;
+        static Dictionary<string, SignalRec> _signals;
+        static readonly List<SignalRec> _signalList = new List<SignalRec>();
+        static SignalRec _defaultSignal;
         static readonly List<string> _missingPresets = new List<string>();
+        static readonly List<string> _rawSignalPresets = new List<string>();
+        static readonly List<string> _missingSignals = new List<string>();
 
         /// <summary>找不到的 preset 名（自检用）。</summary>
         public static IReadOnlyList<string> MissingPresets { get { return _missingPresets; } }
-        public static void ResetDiagnostics() { _missingPresets.Clear(); DroppedRequests = 0; }
+        /// <summary>2026-10-23（R9 落地后改口径）：**实际用到了非默认信号**（`rawSignal` 非空）的 preset 名 ——
+        /// 5 个。⛔ 它**不再是「没实现」的标记**（波形已经真采了），是「这几个走的是 × 号信号」的读数。
+        /// 判据 → `资料/普查产出_1023b/特效线_执行报告.md` §二。</summary>
+        public static IReadOnlyList<string> RawSignalPresets { get { return _rawSignalPresets; } }
+        /// <summary>🆕 数据里引用了、但 `signals` 段里找不到的信号名（**真空缺**，会一次性警告）。
+        /// 非空 = json 与 preset 不同步（`工具/gen_shake_presets.py` 重跑一遍通常就好）。</summary>
+        public static IReadOnlyList<string> MissingSignals { get { return _missingSignals; } }
+        /// <summary>默认信号（没有 `rawSignal` 的 preset 落到它）。数据没读到时为 null。</summary>
+        public static SignalRec DefaultSignal { get { EnsurePresets(); return _defaultSignal; } }
+        /// <summary>数据里的**全部**信号表（4 份 `Warpforge 6D Shake*`；自检用它验结构与一致性）。
+        /// ⚠️ 返回的是内部列表，只读用，⛔ 别改。</summary>
+        public static IReadOnlyList<SignalRec> Signals { get { EnsurePresets(); return _signalList; } }
+        public static void ResetDiagnostics()
+        {
+            _missingPresets.Clear(); _rawSignalPresets.Clear(); _missingSignals.Clear(); DroppedRequests = 0;
+        }
 
         static void EnsurePresets()
         {
             if (_presets != null) return;
             _presets = new Dictionary<string, PresetRec>();
+            _signals = new Dictionary<string, SignalRec>();
+            _signalList.Clear();
+            _defaultSignal = null;
             var ta = Resources.Load<TextAsset>("WarpforgeVFX/shake_presets");
             if (ta == null)
             {
@@ -171,9 +246,43 @@ namespace WarpforgeVFX
                 return;
             }
             var doc = JsonUtility.FromJson<PresetDoc>(ta.text);
-            if (doc != null && doc.presets != null)
+            if (doc == null) return;
+            if (doc.signals != null)
+                foreach (var s in doc.signals)
+                    if (s != null && !string.IsNullOrEmpty(s.name))
+                    {
+                        _signals[s.name] = s;
+                        _signalList.Add(s);
+                    }
+            if (!string.IsNullOrEmpty(doc.defaultSignal))
+                _signals.TryGetValue(doc.defaultSignal, out _defaultSignal);
+            if (doc.presets != null)
                 foreach (var p in doc.presets)
                     if (p != null && !string.IsNullOrEmpty(p.name)) _presets[p.name] = p;
+        }
+
+        /// <summary>🆕 2026-10-23（R9）：preset 名 → 它该播的信号表（空/找不到 ⇒ 默认信号）。
+        /// 找不到**非默认**信号时会记进 `MissingSignals` 并一次性警告（不静默退到默认 ——
+        /// 那会让「换了波形」变成「悄悄用另一个波形」）。</summary>
+        public static SignalRec SignalFor(string presetName)
+        {
+            EnsurePresets();
+            PresetRec p;
+            if (presetName != null && _presets.TryGetValue(presetName, out p)
+                && p != null && !string.IsNullOrEmpty(p.rawSignal))
+            {
+                SignalRec s;
+                if (_signals.TryGetValue(p.rawSignal, out s)) return s;
+                if (!_missingSignals.Contains(p.rawSignal))
+                {
+                    _missingSignals.Add(p.rawSignal);
+                    Debug.LogWarning($"[WarpforgeVFX] 屏震 preset `{presetName}` 引用的信号 `{p.rawSignal}` " +
+                                     "在 shake_presets.json 的 `signals` 段里找不到 —— 退回默认信号" +
+                                     "（重跑 工具/gen_shake_presets.py）。已知缺：" +
+                                     string.Join(" / ", _missingSignals));
+                }
+            }
+            return _defaultSignal;
         }
 
         /// <summary>preset 值 → 应用 6 个覆盖开关。**找不到 preset 要报**（不然屏震会「安静地不对」）。</summary>
@@ -192,6 +301,15 @@ namespace WarpforgeVFX
                                      string.Join(" / ", _missingPresets));
                 }
             }
+            // 🆕 2026-10-23（R9 落地）：这 5 个 preset 在原版**叠了自定义波形**（`rawSignal`）。现在
+            //   **真采了** —— 信号表随 `Request.signal` 送到下游（`CardFeel.ShakeNoise01` 按机器码算式采样）。
+            //   ⇒ 这里不再需要「没实现」的警告，只记一份读数（自检用它核「这 5 个确实走了非默认信号」）。
+            //   判据 → `资料/普查产出_1023b/R9_rawSignal_算式.md`（算式）+ 同目录 `特效线_执行报告.md` §二（全表）。
+            if (p != null && p.hasRawSignal != 0 && !_rawSignalPresets.Contains(e.preset))
+                _rawSignalPresets.Add(e.preset);
+            // 信号解析：空 / 找不到 ⇒ 默认信号（找不到**非默认**信号会在 `SignalFor` 里报警，不静默）
+            r.signal = SignalFor(e.preset);
+
             r.sustainTime = p != null ? p.sustainTime : 0.1f;
             r.attackTime  = p != null ? p.attackTime  : 0f;
             r.decayTime   = p != null ? p.decayTime   : 0.3f;

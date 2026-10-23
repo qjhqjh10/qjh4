@@ -330,6 +330,10 @@ public static class CardBaseDemo
         Debug.Log(P + "--- 3D 卡体：不透明（Geometry 2000）+ DepthOnly/DepthNormalsOnly/ShadowCaster ---");
         AssertBodyOpaque();
 
+        // ---- 4f. 🆕 2026-10-23（D · `W63·层级审查` F4/F6）：**卡上特效随卡排队** + **手牌活动中那一段** ----
+        Debug.Log(P + "--- 卡上特效随卡排队（F4）+ 手牌「活动中」档（F6）---");
+        AssertEffectQueueFollowsCard();
+
         // ---- 5. 手牌布局四件（B1 批 2026-10-17）----
         Debug.Log(P + "--- 手牌布局：小屏档触发 · 最近空位 · 选中让位 · 层序 ---");
         AssertHandLayout(cam);
@@ -646,6 +650,80 @@ public static class CardBaseDemo
             Check(Mathf.Abs(want.y - 1.34f) > 1f,
                   $"★ 前提：换算真的动过 y（1.34 → {want.y:F3}）—— 否则上面那条对「直接抄 1.34」也是绿的");
         }
+        Object.DestroyImmediate(root);
+    }
+
+    /// <summary>
+    /// 🆕 **2026-10-23（D · `W63·层级审查` F4 / F6）**：**卡上特效跟着这张卡排队** + **手牌「活动中」档**。
+    ///
+    /// 判据：
+    ///   · 原版场上可视体 = `3DBody` 的 SortingGroup；卡上特效挂 `Board Elements/EffectAnchor`
+    ///     （**无** SortingGroup）⇒ 两者**同 key、由距离排** ⇒ 「这张卡的特效」跟着这张卡
+    ///     （`资料/普查产出_1023/D_战斗层级审查.md` §②·B）。
+    ///   · 我们是「一张卡 = 一段 renderQueue」⇒ 落成 `renderQueue = 卡的 Queue` +
+    ///     `sortingOrder = EffectSortingOrder(70) + 原值`（判据与号段约束见 `CardView.StampEffectRoot`）。
+    ///   · `HandMoving` 层：`CardScript__ShowCardInCenter.c` 等三处（见 `CardView.QHandMoving`）。
+    ///
+    /// 🧨 **改坏法**：
+    ///   · `StampEffectRoot` 什么都不做 ⇒ ②③红；
+    ///   · 把 `EffectSortingOrder` 写成「固定 70」（不 + 原值）⇒ ⑤红（3 ⇒ 73）；
+    ///   · `SetQueue` 里删掉 `_effectRoots` 那一段 ⇒ ④红（特效停在旧号，不随卡重排）；
+    ///   · `QHandMoving` 改成 `QCard`（撞号）或 ≥ `CardFan.QCardBase`（越过详情窗）⇒ ⑥红。
+    /// </summary>
+    static void AssertEffectQueueFollowsCard()
+    {
+        var root = new GameObject("fx_queue_probe");
+        var v = CardView.Create(root.transform, CardData.Placeholder(0), "fx_queue_board", CardFace.Board);
+        // 假「特效实例」：一个挂在卡根上的子节点 + 一颗有材质的 MeshRenderer
+        var fx = new GameObject("ProbeEffect");
+        fx.transform.SetParent(v.transform, false);
+        var mr = fx.AddComponent<MeshRenderer>();
+        var sh = Shader.Find("Sprites/Default");
+        var mat = sh != null ? new Material(sh) : null;
+        if (mat != null) mr.sharedMaterial = mat;
+        Check(mr.sharedMaterial != null,
+              "★ 前提：假特效拿到材质（`Sprites/Default` 找不到 ⇒ 下面几条全在假绿）");
+        if (mr.sharedMaterial == null)
+        {
+            Object.DestroyImmediate(root);
+            return;
+        }
+        // 先给它一个**非 0** 的 sortingOrder —— 用来断「基准 + 原值」而不是「一律 70」
+        mr.sortingOrder = 3;
+
+        Check(CardView.OwnerOf(fx.transform) == v,
+              "① `CardView.OwnerOf` 沿父链找到这张卡（= `CardEffects.Fire` 判定「特效挂给谁」的那个口）");
+
+        v.StampEffectRoot(fx.transform);
+        Check(mr.sharedMaterial.renderQueue == v.Queue,
+              $"② 特效 renderQueue = **这张卡的那一段**（卡 {v.Queue} / 特效 {mr.sharedMaterial.renderQueue}）"
+              + "—— 原版「特效与卡同 key」的等价物：进了卡的段就**跨不到邻卡**");
+        Check(mr.sortingOrder == CardView.EffectSortingOrder + 3,
+              $"③ 特效 sortingOrder = 基准 {CardView.EffectSortingOrder} + 原值 3 = {CardView.EffectSortingOrder + 3}"
+              + $"（实测 {mr.sortingOrder}）—— 基准必须高于卡面最高层号 60，否则特效被卡面文字盖住");
+        Check(CardView.EffectSortingOrder > 60,
+              $"★ 前提：基准 {CardView.EffectSortingOrder} 真的高于卡面最高层号 60（否则 ③ 对「和卡面同号」也绿）");
+
+        // ④ 特效**随卡重排**（换段时一起走）—— 这才是 F4 的「治本」那半
+        v.SetQueue(3005);
+        Check(v.Queue == 3005, $"★ 前提：`SetQueue(3005)` 生效（实测 {v.Queue}）");
+        Check(mr.sharedMaterial != null && mr.sharedMaterial.renderQueue == 3005,
+              $"④ 卡换段之后特效**跟着换**（实测 {mr.sharedMaterial.renderQueue}；应 3005）"
+              + "｜🧨 删掉 `SetQueue` 里 `_effectRoots` 那一段 ⇒ 停在 3000 ⇒ 红");
+        Check(mr.sortingOrder == CardView.EffectSortingOrder + 3,
+              $"⑤ 反复盖章**不涨号**（仍是 {CardView.EffectSortingOrder + 3}，实测 {mr.sortingOrder}）"
+              + "—— 基准取的是「第一次记下的原值」，不是「当前值 + 70」");
+
+        // ⑥ F6：手牌「活动中」那一档的号段位置
+        Check(CardView.QHandMoving == CardView.QCard + 1,
+              $"⑥a `QHandMoving` = `QCard + 1`（{CardView.QHandMoving}，手牌段顶号的上一格）");
+        Check(CardView.QHandMoving > CardView.QCard && CardView.QHandMoving < CardFan.QCardBase,
+              $"⑥b 它夹在「手牌段顶号 {CardView.QCard}」与「详情窗卡叠 {CardFan.QCardBase}」之间"
+              + $"（实测 {CardView.QHandMoving}）—— 🧨 取 `QCard` 会撞号、取 ≥ `QCardBase` 会越过详情窗");
+        Check(CardView.QHandMoving > HandLayout.QueueFloor,
+              $"⑥c 高于手牌段下限 {HandLayout.QueueFloor}（原版 `HandMoving` 高于 `Hand` 的同向）");
+
+        if (mat != null) Object.DestroyImmediate(mat);
         Object.DestroyImmediate(root);
     }
 

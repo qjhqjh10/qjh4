@@ -231,10 +231,48 @@ namespace CardPresentation
         /// ⛔ 不要再把 0.5657 这个**乘积**当字面量写死（拆开才能按档换 amplitude）。</summary>
         public const float ShakePresetDirMag = 0.28284f;
 
-        /// <summary>归一化方向的**屏幕竖直分量** = `normalize((0, 0.2, 0.2)).y` = 0.70710678…
-        /// ⚠️ **这一步是我们的换算**（原版是 3D：相机沿 +z 看 ⇒ 那个 z 分量在屏幕上不动，只有 y 分量走屏幕上下）。
-        /// 出处判据与两处软连接见 `ShakeWorldAmplitude` 的注释。</summary>
-        public const float ShakeVerticalFrac = 0.70711f;
+        /// <summary>原版 `m_AmplitudeGain` = `preset.amplitude × |direction|`，`Shake Hit Small` 那件
+        /// = 2.0 × 0.28284 = **0.5657**。
+        /// 🔴 它**同时是旋转那一路的 gain**：`LegacySignalSource::GetSignal`（RVA 0xA2B350）里
+        /// `gain = m_Velocity.magnitude × m_AmplitudeGain`（`m_Velocity` 传入前已归一化 ⇒ |v| = 1），
+        /// 然后 `rot = SlerpUnclamped(identity, rot, gain)` —— 也就是说**同一份 gain**同时缩位置与角度。
+        /// （判据 → `资料/普查产出_1023b/R9_rawSignal_算式.md` §2·5；旋转数据见 `ShakeOrientation`。）</summary>
+        public const float ShakeHitRotationGain = ShakePresetAmplitude * ShakePresetDirMag;
+
+        /// <summary>原版 preset `Shake Hit Small` 的 `direction = (0, 0.2, 0.2)`
+        /// （真件 `d:/2/解包整理/09_游戏数据/动画曲线/MonoBehaviour/Shake Hit Small_4555857231027011253.json`）。
+        /// 🔴 **2026-10-23（R9 尾账）起，这一位不再折成一个 `ShakeVerticalFrac` 常量** ——
+        /// 屏幕竖直分量改由原版公式**现算**：<see cref="ShakeScreenUpOf"/>。</summary>
+        public static readonly Vector3 ShakeHitDirection = new Vector3(0f, 0.2f, 0.2f);
+
+        /// <summary>原版 preset `Shake Land on ground` 的 `direction = (0, −1, 0)`
+        /// （真件 `bundle_tweenandshakes_assets_all/MonoBehaviour/Shake Land on ground.json`）。</summary>
+        public static readonly Vector3 ShakeLandDirection = new Vector3(0f, -1f, 0f);
+
+        /// <summary>🔴 **原版方向链的唯一实现** —— 屏幕竖直分量由它给（**符号和幅度一起**）。
+        ///
+        /// 判据（机器码，`资料/普查产出_1023b/R9_rawSignal_算式.md` §2·5）：
+        /// `CinemachineImpulseDefinition+LegacySignalSource::GetSignal`（RVA 0xA2B350）
+        /// <code>pos = Quaternion.FromToRotation(Vector3.down, m_Velocity) * pos;</code>
+        /// 而 `m_Velocity = normalize(preset.direction)`（`CameraShakerManager._DoShake_d__33__MoveNext.c`）。
+        /// ⇒ 原始信号里 **−Y 指向 velocity**、+Y 指向 velocity 的反向。
+        ///
+        /// 我们 2D 只采 `PositionNoise` 的 **Y 轴** ⇒ raw pos = `(0, s, 0)`
+        /// ⇒ 旋转后的屏幕竖直分量 = `s × 本函数返回值`。
+        ///
+        /// ⚠️ 返回值**带幅度**：`±|normalize(direction).y|`，**可以是 0**
+        /// （`Shake Forward Pull` 的 `(0,0,2)` ⇒ 0：原版那一下是纯「前后推」，屏幕上不上下晃）。
+        /// ⇒ `worldAmp` 里**不再**另乘竖直比例，否则会重复计入（0.7071²）。
+        ///
+        /// ⛔ **别改回「取 `direction.y` 的符号」**：`FromToRotation(Vector3.down, ·)` 把 **−Y** 转到 velocity
+        /// ⇒ 挨打（`direction.y = +0.2`）相机会**朝下**、落地（`−1`）**朝上** —— 与直觉相反，但机器码如此。
+        /// 旧实现（`verticalSign = sign(direction.y)`）对这两件的**方向恰好都反着**
+        /// （判据 → `R9_落地_执行报告.md` §六·1 那条「仍开着」的尾巴）。</summary>
+        public static float ShakeScreenUpOf(Vector3 direction)
+        {
+            Vector3 v = direction.sqrMagnitude > 1e-12f ? direction.normalized : ShakeHitDirection.normalized;
+            return (Quaternion.FromToRotation(Vector3.down, v) * Vector3.up).y;
+        }
 
         /// <summary>原版 **BoardCamera 在棋盘平面**上的像素密度（px / 原版世界单位）。
         /// 推导：相机 z = −13.57、棋盘平面 z ≈ 3.66 ⇒ 距离 17.23；可见高 = 2 × 17.23 × tan(FOV 46.397°/2)
@@ -254,20 +292,29 @@ namespace CardPresentation
                                  : ShakeAmpUnitSize1;
         }
 
-        /// <summary>🆕 **某一档的世界单位峰值幅度**（我们这套坐标）—— **由真件字段现算，不再写死**。
+        /// <summary>🆕 **某一档的世界单位峰值幅度**（我们这套坐标，**旋转前**的 pos 峰值）——
+        /// **由真件字段现算，不再写死**。
         ///
-        /// `= ShakeAmplitudeForUnitSize(size) × ShakePresetDirMag × ShakeBandPeak × ShakeVerticalFrac
+        /// `= ShakeAmplitudeForUnitSize(size) × ShakePresetDirMag × ShakeBandPeak
         ///    × (ShakeOriginalPxPerUnit ÷ OurPxPerUnit)`
+        ///
+        /// 🔴 **2026-10-23（R9 尾账）**：这里**不再乘竖直比例** —— 那一半改由原版公式
+        /// `Quaternion.FromToRotation(Vector3.down, velocity)` 现算（见 `ShakeScreenUpOf`），
+        /// 它**自带符号和 `|vy|`**。挨打那件的最终竖直峰值仍是
+        /// `0.0570 × 0.7071 × 0.5(信号峰值) = 0.0202`（与 R9 报的「峰值 0.02 = 原版值」逐位一致）。
         ///
         /// 逐项出处与两处软连接见 `ShakeWorldAmplitude` 的注释（那条注释整段仍然成立，
         /// 只是**那个数从此是算出来的**）。
         /// 🔴 与老写法的差别：老的只有第 1 档那一个数（0.04），**第 2/3 档永远用不上**
-        ///   —— 而原版是按攻击方的近战档换幅度的（`ResolveAttackAnimationEffects`）⇒ 那是实打实的偏离。</summary>
+        ///   —— 而原版是按攻击方的近战档换幅度的（`ResolveAttackAnimationEffects`）⇒ 那是实打实的偏离。
+        /// 🔴 **2026-10-23（R9）注意**：`origUnits` 里的 `ShakeBandPeak`(0.149) **不是**信号的真实峰值
+        /// （真实峰值 = 0.5·ΣA = 0.0745），这一项**故意保留** —— 它与 `ShakeNoise01` 的 ±0.5 值域
+        /// **相抵一次**，合起来才是原版的位移峰值。⛔ 别单独把任何一边「修」成 0.0745。详见 `ShakeBandPeak`。</summary>
         public static float ShakeWorldAmplitudeFor(int unitSize)
         {
             float ampGain = ShakeAmplitudeForUnitSize(unitSize) * ShakePresetDirMag;   // 0/1 档 = 0.5657
-            float origUnits = ampGain * ShakeBandPeak * ShakeVerticalFrac;            // 0/1 档 = 0.0596
-            return origUnits * (ShakeOriginalPxPerUnit / OurPxPerUnit);               // 0/1 档 = 0.0403
+            float origUnits = ampGain * ShakeBandPeak;                                // 0/1 档 = 0.0843（**旋转前**的 pos 峰值）
+            return origUnits * (ShakeOriginalPxPerUnit / OurPxPerUnit);               // 0/1 档 = 0.0570
         }
 
         /// <summary>**按攻击方的近战攻击**取震屏的档（`SupportMethods.GetUnitSize`）——
@@ -295,9 +342,103 @@ namespace CardPresentation
         /// 屏幕上不动）；三条带照抄如下（`Amplitude` 就是信号里那一条的振幅）：</summary>
         static readonly float[] ShakeBandHz  = { 1.90f, 9.10f, 55.54f };     // PositionNoise[*].Y.Frequency
         static readonly float[] ShakeBandAmp = { 0.059f, 0.040f, 0.050f };   // PositionNoise[*].Y.Amplitude
-        /// <summary>三条带全同相时的合振幅（= Σ `ShakeBandAmp` = 0.149）—— 归一化用，
-        /// 这样 `ShakeWorldAmplitude` 表示的是**峰值**位移。</summary>
+        /// <summary>🆕 **2026-10-23（R9）**：三条带的 `Constant` = **1 / 0 / 1**
+        /// （低 1.9 Hz 与高 55.54 Hz 两条**正弦**、中 9.1 Hz 一条 **Perlin**）。
+        /// 判据（**机器码级**，`NoiseSettings+NoiseParams::GetValueAt` RVA 0xA10610）：
+        /// `Constant != 0` ⇒ `A×0.5×sin(2πu)`；`== 0` ⇒ `A×(Mathf.PerlinNoise(u, 0) − 0.5)`。
+        /// ⛔ **别把 `Constant` 理解成「常数 / 不随机化」** —— tooltip 是那么写的，但机器码是「正弦 vs Perlin」，
+        /// 按 tooltip 实现会得到一条**平线**（那是最容易踩的一处）。
+        /// 出处真件：`Warpforge 6D Shake.json` 的 `PositionNoise[0..2].Y.Constant`（3 份 `…One Axis` / `…No rotation`
+        /// 的 Y 列**逐位相同**）· 算式全文 → `资料/普查产出_1023b/R9_rawSignal_算式.md`。</summary>
+        public static readonly int[] ShakeBandConstant = { 1, 0, 1 };
+        /// <summary>三条带的振幅之和（= Σ `ShakeBandAmp` = 0.149）—— **归一化分母，不是峰值**。
+        ///
+        /// 🔴 **2026-10-23（R9）⛔ 别把这个数改成 0.0745**：原版**每条带**的输出是 ±0.5·A
+        /// （Perlin 那一支减 0.5、正弦那一支乘 0.5），所以三条带同相时的**真实合峰 = 0.5·ΣA = 0.0745**。
+        /// 而 `ShakeWorldAmplitudeFor` 推导时用的「峰值 = ΣA」这一假设**本来就多算了 2×** ⇒
+        /// 分母保持 0.149，`ShakeNoise01` 的值域就是 ±0.5，两者相抵后**位移峰值恰好落在原版值上**。
+        /// 改成 0.0745 会让屏震只剩原版的一半（判据 → `R9_rawSignal_算式.md` §五·5）。</summary>
         public const float ShakeBandPeak = 0.149f;
+
+        /// <summary>一条信号带（某 octave 的 Y 轴）：`hz` = 原版 `Frequency`、`amp` = `Amplitude`、
+        /// `constant` = 原版 `Constant`（**1 = 正弦、0 = Perlin**）。</summary>
+        public struct ShakeBandSignal
+        {
+            public float hz, amp;
+            public int constant;
+            public ShakeBandSignal(float hz, float amp, int constant)
+            {
+                this.hz = hz; this.amp = amp; this.constant = constant;
+            }
+        }
+
+        /// <summary>🆕 **2026-10-23（R9）** 一份 `rawSignal`（原版 `Cinemachine.NoiseSettings`）在 2D 版里的等价物。
+        ///
+        /// 装两半：
+        ///   · **`PositionNoise` 的 Y 轴三条带**（X/Z 不采 —— 2D 只走屏幕竖直，见 `R9_rawSignal_算式.md` §五·6）；
+        ///   · 🆕 **`OrientationNoise` 的 X/Y/Z 各三条带**（2026-10-23 R9 尾账接上：原版
+        ///     `GetSignal` 里 `rot = Quaternion.Euler(ΣOrientation × π/180)`，见 `ShakeOrientation`）。
+        /// 逐带由 `ShakeNoise01` / `ShakeOrientation` 求值（三条带**相加**）。</summary>
+        public sealed class ShakeSignal
+        {
+            public readonly string name;
+            readonly ShakeBandSignal[] _bands;
+            readonly ShakeBandSignal[] _orientation;   // 轴优先：axis * 3 + octave（0 = X, 1 = Y, 2 = Z）
+            readonly int _orientationOctaves;
+
+            public ShakeSignal(string name, ShakeBandSignal[] bands)
+                : this(name, bands, null, 0) { }
+
+            /// <param name="orientation">`OrientationNoise` 平铺表，**轴优先**（`axis * octaves + i`）。
+            /// `null` / `octaves = 0` ⇒ 这份信号不动角度（原版 `…No rotation` 那一份就是这样）。</param>
+            public ShakeSignal(string name, ShakeBandSignal[] bands, ShakeBandSignal[] orientation, int octaves)
+            {
+                this.name = name ?? "";
+                _bands = bands ?? new ShakeBandSignal[0];
+                _orientation = orientation ?? new ShakeBandSignal[0];
+                _orientationOctaves = Mathf.Max(0, octaves);
+            }
+            public int Count { get { return _bands.Length; } }
+            public ShakeBandSignal this[int i] { get { return _bands[i]; } }
+            /// <summary>`OrientationNoise` 每轴几条带（0 = 这份信号不带角度）。</summary>
+            public int OrientationOctaves { get { return _orientationOctaves; } }
+            /// <summary>取 `OrientationNoise[axis]` 的第 `octave` 条带；越界返回 0 带（不抛）。</summary>
+            public ShakeBandSignal Orientation(int axis, int octave)
+            {
+                int i = axis * _orientationOctaves + octave;
+                return (i >= 0 && i < _orientation.Length) ? _orientation[i] : new ShakeBandSignal(0f, 0f, 0);
+            }
+            public override string ToString() { return name; }
+        }
+
+        /// <summary>默认信号 = 原版场景里那台 `CinemachineImpulseSource` 的 `m_RawSignal`
+        /// = **`Warpforge 6D Shake`**（pathID 1276427422462347950）。**17 个 preset 里 12 个没有
+        /// `rawSignal` ⇒ 全落到它**，而且 4 份信号的 Y 列**逐位相同** ⇒ 2D 竖直波形对全部 17 个都一致，
+        /// 差别只在 `frequency`（时间缩放）与幅度/方向。
+        ///
+        /// 🆕 **2026-10-23（R9 尾账）**：连 **`OrientationNoise`（3 轴 × 3 octave）** 一起装进来。
+        /// 数据现读 `Resources/WarpforgeVFX/shake_presets.json` 的
+        /// `signals[name=="Warpforge 6D Shake"].orientation[0..2]`（生成器
+        /// `工具/gen_shake_presets.py` 从 `Warpforge 6D Shake.json` 的 `OrientationNoise` 抽的）：
+        ///   · X: f 5.83/0.09/c1 · 9.17/0.14/c1 · 57.17/0.15/c1
+        ///   · Y: f 1.80/0.059/c1 · 11.35/0.041/c1 · 54.17/0.048/c1
+        ///   · Z: f 2.38/0.017/c1 · 10.52/0.009/c1 · 63.76/0.016/c1
+        /// `Warpforge 6D Shake No rotation` 那一份 **orientation 为空** ⇒ 不动角度
+        /// （连名字都写着 no rotation，正好互证）。</summary>
+        public static readonly ShakeSignal DefaultShakeSignal = new ShakeSignal("Warpforge 6D Shake",
+            new[]
+            {
+                new ShakeBandSignal(ShakeBandHz[0], ShakeBandAmp[0], ShakeBandConstant[0]),
+                new ShakeBandSignal(ShakeBandHz[1], ShakeBandAmp[1], ShakeBandConstant[1]),
+                new ShakeBandSignal(ShakeBandHz[2], ShakeBandAmp[2], ShakeBandConstant[2]),
+            },
+            new[]
+            {
+                // axis * 3 + octave（X / Y / Z）
+                new ShakeBandSignal(5.83f, 0.090f, 1), new ShakeBandSignal(9.17f, 0.140f, 1), new ShakeBandSignal(57.17f, 0.150f, 1),
+                new ShakeBandSignal(1.80f, 0.059f, 1), new ShakeBandSignal(11.35f, 0.041f, 1), new ShakeBandSignal(54.17f, 0.048f, 1),
+                new ShakeBandSignal(2.38f, 0.017f, 1), new ShakeBandSignal(10.52f, 0.009f, 1), new ShakeBandSignal(63.76f, 0.016f, 1),
+            }, 3);
 
         /// <summary>🔴 震动的**绝对幅度**（世界单位，峰值 = 第 1 档 / 尺寸 1）。
         ///
@@ -306,22 +447,26 @@ namespace CardPresentation
         ///   ② 原版 `m_AmplitudeGain` = `preset.amplitude × |direction|`
         ///      = 2.0（`GetUnitSize` 第 1 档覆盖值）× |(0, 0.2, 0.2)|(0.28284) = **0.5657**
         ///   ③ 传给 `GenerateImpulseWithVelocity` 的 velocity = `normalize(direction)` = (0, 0.7071, 0.7071)
-        ///      ⇒ **屏幕竖直分量 = 0.7071**
-        ///   ④ 原版相机位移（世界单位）= 1.0 × 0.5657 × 0.149 × 0.7071 = **0.0596**
+        ///      ⇒ 屏幕竖直分量 = `ShakeScreenUpOf(direction)` = **−0.7071**（**含符号**，见那个方法）
+        ///   ④ 原版相机位移（世界单位）= 0.5657 × 0.149 × 0.7071 = **0.0596**
+        ///      （`0.149` 与 `ShakeNoise01` 的 ±0.5 值域相抵一次 ⇒ 真实峰值 0.0202 我们的世界单位）
         ///   ⑤ 换成屏幕像素：原版 BoardCamera 在**棋盘平面**（z≈3.66；相机 z=−13.57 ⇒ 距离 17.23）
         ///      的可见高 = 2 × 17.23 × tan(FOV 46.397/2) = **14.77 世界单位** = 1080 px
         ///      ⇒ **73.1 px / 世界单位**；0.0596 × 73.1 = **4.36 px** @1080p
         ///   ⑥ 换成本工程的世界单位（10 世界单位 = 屏高 = 1080 px ⇒ **108 px/单位**）
-        ///      ⇒ 4.36 ÷ 108 = **0.0404** ⇒ 取 **0.04**
+        ///      ⇒ 4.36 ÷ 108 = **0.0404** ⇒ 本常量 = **0.0570（旋转前）× 0.7071（竖直分量）= 0.0404**
+        ///
+        /// 🔴 **2026-10-23（R9 尾账）**：本常量现在是**旋转前**的 pos 峰值（0.057，= `ShakeWorldAmplitudeFor(0)`），
+        /// **不再**含 `ShakeVerticalFrac` —— 竖直分量与符号由 `ShakeScreenUpOf` 按原版
+        /// `FromToRotation(Vector3.down, velocity)` 现算。⚠️ 挨打那一下相机的实际峰值位移**没变**（0.0202），
+        /// 变的是**方向**：原版 `direction = (0,+0.2,0.2)` ⇒ **朝下**（旧实现取「向上」是错的）。
         ///
         /// ⚠️ **两处软连接（照这个数用之前先知道）**：
         ///   ① ②→④ 那一步按的是 **Cinemachine「Legacy impulse：位移 = velocity × AmplitudeGain × 信号」**
-        ///      这条公式，**没有从原版二进制里验**（要验得跑原版实测）；⚠️ 补充：这条链上的
-        ///      **Cinemachine 方法体本地读不到**（`decomp_full/` 只装了 Assembly-CSharp；Cinemachine 是
-        ///      单独的 asm，`d:/2/Warpforge_code/Scripts/Cinemachine/` 那边只有**签名桩**）
-        ///      ⇒ 公式这一环**只能算旁证**，不能算「逐行读过」；
+        ///      这条公式 —— 🔴 **2026-10-23 起已从机器码坐实**（`LegacySignalSource::GetSignal` RVA 0xA2B350，
+        ///      见 `R9_rawSignal_算式.md` §2·5），不再是旁证；
         ///   ② 「世界 y 分量 = 屏幕竖直、z 分量在屏幕上不动」是**我们的换算**（见文件头「3D → 2D 的迁移」）。
-        /// ⚠️ 至于「向上还是向下」，静态数据**判不出来**（要跑原版实测），这里取**相机向上抬**。
+        /// ⚠️ 至于「向上还是向下」，**已由机器码定案**：raw **−Y 指向 velocity** ⇒ 见 `ShakeScreenUpOf`。
         /// ✅ **2026-10-14（`A1767` / #10）**：「原版 `m_Randomize: 1` ⇒ 每次抖的相位随机」**已经从
         ///   本地资产坐实**（原来这里写「没有复刻」）—— 真件 = 场景里那台 `CinemachineImpulseSource`
         ///   的 `m_ImpulseDefinition`（battlearena1 `MonoBehaviour_4914.json`）：
@@ -331,12 +476,15 @@ namespace CardPresentation
         ///   **本地签名桩自己的 Tooltip 上**（`d:/2/Warpforge_code/Scripts/Cinemachine/Cinemachine/
         ///   CinemachineImpulseDefinition.cs`）：**「Legacy mode only: Randomize the signal start time」**
         ///   ⇒ 它随机的**不是方向、也不是幅度，是「从噪声信号的哪一刻开始播」**。
-        ///   ⇒ 复刻方式见下面的 `ShakePhaseOffset` / `ShakeNoise01`（**Perlin + 每次随机的起播时刻**）。
+        ///   ⇒ 复刻方式见下面的 `ShakePhaseOffset` / `ShakeNoise01`。
+        ///   🔴 **2026-10-23（R9）订正**：这句原写「**Perlin** + 每次随机的起播时刻」—— 波形**不是全 Perlin**：
+        ///   默认信号的三条带是 **sin / Perlin / sin**（`Constant` = 1/0/1），算式已从机器码坐实
+        ///   （→ `资料/普查产出_1023b/R9_rawSignal_算式.md`）。
         /// 🔴 **2026-10-14（`A1767` / #10）幅度改成按档现算**：本常量**只是「尺寸 0/1」那一档**
         ///   （= `ShakeWorldAmplitudeFor(0)` 四舍五入到两位），**运行时该走 `ShakeWorldAmplitudeFor`**
         ///   （按攻击方的近战档取 2 / 4 / 8）。留它是因为 `BattleDriver` 那两处调用点还在用它
         ///   —— ⚠️ **那两处是待接的一半**（见 `ShakeCameraForHit` 的注释）。</summary>
-        public const float ShakeWorldAmplitude = 0.04f;
+        public const float ShakeWorldAmplitude = 0.057f;
 
         // ==================================================================
         //  ③ 卡预制体上的时序字段
@@ -522,19 +670,18 @@ namespace CardPresentation
             P("ShakeAmpUnitSize3", ShakeAmpUnitSize3, Src.Field, "同上 `_DAT_1834b2e00` = **8.0**（尺寸 3）—— 🔴 **同上，2026-10-14 订正：也接得上**"),
             P("ShakePresetAmplitude", ShakePresetAmplitude, Src.Field, "preset 真件 `Shake Hit Small` 的 `preset.amplitude = 2.0`（`d:/2/解包整理/09_游戏数据/动画曲线/MonoBehaviour/Shake Hit Small_4555857231027011253.json`）"),
             P("ShakePresetDirMag", ShakePresetDirMag, Src.Field, "同一个真件的 `preset.direction = (0,0.2,0.2)` 的模长 0.28284271 —— 从 `ShakeWorldAmplitude` 那个**乘积** 0.5657 里拆出来（拆开才能按档换 amplitude）"),
-            P("ShakeVerticalFrac", ShakeVerticalFrac, Src.Derived, "`normalize((0,0.2,0.2)).y` = 0.7071 —— **z 分量在屏幕上不动、只有 y 走屏幕上下**是我们的换算（3D→2D）"),
+            P("ShakeHitRotationGain", ShakeHitRotationGain, Src.Field, "原版 `m_AmplitudeGain` = `preset.amplitude × |direction|` = 2.0 × 0.28284 = 0.5657 ——**位置与角度共用同一个 gain**（`LegacySignalSource::GetSignal`：`pos *= gain` 与 `rot = SlerpUnclamped(identity, rot, gain)`）；🔴 2026-10-23（R9 尾账）起 **`ShakeVerticalFrac` 已删**：屏幕竖直分量与符号改由 `ShakeScreenUpOf`（= 原版 `FromToRotation(Vector3.down, velocity)`）现算"),
             P("ShakeOriginalPxPerUnit", ShakeOriginalPxPerUnit, Src.Derived, "原版 BoardCamera **在棋盘平面**的像素密度 73.1 px/单位（2×17.23×tan(46.397/2)=14.77 单位=1080px）。⚠️ **别和 `OriginalBoardPxPerUnit`(182.14) 混** —— 那个是棋盘排版密度，这个是相机像平面密度"),
-            P("ShakePhaseRange", ShakePhaseRange, Src.Ours, "噪声的**起播时刻**取值范围（信号时间轴秒）。**语义有出处**（`CinemachineImpulseDefinition.m_Randomize` 的 Tooltip：「Legacy mode only: Randomize the signal start time」，桩在本地）但 **Cinemachine 没写范围/分布**（方法体本地读不到）⇒ 取 100 s 是我们的"),
+            P("ShakePhaseRange", ShakePhaseRange, Src.Field, "噪声的**起播时刻**取值范围（信号时间轴秒）= `Random.Range(−1000, +1000)`（`CinemachineImpulseDefinition+LegacySignalSource` ctor RVA 0xA2B5E0；两个常量 `c47a0000`/`447a0000` 从 GameAssembly.dll 实读）。⚠️ 原写「取 100 s 是我们的（Cinemachine 没写范围）」—— 2026-10-23 机器码解出后**已改成原版值**；唯一保留的代理是**用 `System.Random` 派生**（可复现红线）"),
             P("ShakeSeedBaseDefault", ShakeSeedBaseDefault, Src.Ours, "相位种子的出厂基线（固定常量 ⇒ 同一串事件给同一串相位 = 可复现）。⛔ 不是原版值。⚠️ **只在「没接锚点」的场合生效** —— 真机开局由 `AnchorShakeSeedToBattle(对局种子)` 覆盖它（`A1892`，落地那一行在 `BattleDriver.Begin`）"),
             P("ShakeFrequencyGain", ShakeFrequencyGain, Src.Field, "`Shake Hit Small` 的 `frequency=0.05` → Cinemachine `m_FrequencyGain`（信号时间轴缩放，0.05 = 放慢 20 倍），乘在 `ShakeBandHz` 上"),
             P("ShakeBandPeak", ShakeBandPeak, Src.Field, "`Warpforge 6D Shake`(Cinemachine `NoiseSettings`) 的 `PositionNoise[*].Y.Amplitude` 三条带之和 = 0.059+0.040+0.050；拿去归一化，让 `ShakeWorldAmplitude` 表示**峰值**"),
-            P("ShakeWorldAmplitude", ShakeWorldAmplitude, Src.Derived, "**只在「尺寸 0/1」这一档** = `ShakeWorldAmplitudeFor(0)` 的近似：0.149(带峰) × 0.5657(`amplitude × |direction|`) × 0.7071(velocity 的竖直分量) = 0.0596 原版世界单位 → 按 73.1 px/单位 → 4.36 px @1080p → ÷108 = 0.0403。🔴 **2026-10-14 起运行时应走 `ShakeWorldAmplitudeFor(size)`**（2/4/8 三档），本常量只是 `BattleDriver` 那两个调用点还没换过来的兜底。⚠️ **两处软连接**（Cinemachine impulse 公式未从二进制验；y→屏幕竖直是我们的换算）见常量注释"),
+            P("ShakeWorldAmplitude", ShakeWorldAmplitude, Src.Derived, "**只在「尺寸 0/1」这一档** = `ShakeWorldAmplitudeFor(0)` 的近似：0.149(带峰) × 0.5657(`amplitude × |direction|`) = 0.0843 原版世界单位（**旋转前**；竖直分量 0.7071 由 `ShakeScreenUpOf` 现算）→ 按 73.1 px/单位 → ÷108 = **0.0570**。🔴 **2026-10-14 起运行时应走 `ShakeWorldAmplitudeFor(size)`**（2/4/8 三档），本常量只是兜底。⚠️ 剩下的一处软连接 = 「世界 y 分量 = 屏幕竖直」是我们的换算（见常量注释）"),
 
             // ---- 🆕 2026-10-16 落地那一下：preset 真件 `Shake Land on ground` ----
             //   （消费点 `CardScript__LandOnGround.c:26-29`；见 `ShakeCameraForLand`）
             P("ShakeLandPresetAmplitude", ShakeLandPresetAmplitude, Src.Field, "preset 真件 `Shake Land on ground` 的 `preset.amplitude = 2.0`（`bundle_tweenandshakes_assets_all/MonoBehaviour/Shake Land on ground.json`）—— ⚠️ 与挨打那件**同值**，但卡预制体 `shakeWhenLand` 的三个 `overwrite*` 全是 0 ⇒ **不会被尺寸档覆盖**（`GetModifiedPreset` 原样用 preset）"),
-            P("ShakeLandPresetDirMag", ShakeLandPresetDirMag, Src.Field, "同一件真件的 `preset.direction = (0,−1,0)` 的模长 = 1.0（挨打那件 `Shake Hit Small` 是 (0,0.2,0.2) ⇒ 0.28284，这就是两者幅度差 3.5 倍的来源）"),
-            P("ShakeLandVerticalFrac", ShakeLandVerticalFrac, Src.Derived, "`|normalize((0,−1,0)).y|` = 1.0；与 `ShakeVerticalFrac` **同一条我们的换算**（3D→2D：世界 y 走屏幕竖直、z 在屏幕上不动）。⚠️ **符号**（原版 −1 = 朝下）沿用本工程既有口径取「相机向上抬」—— 静态判不出来，如实记在常量注释里"),
+            P("ShakeLandPresetDirMag", ShakeLandPresetDirMag, Src.Field, "`Shake Land on ground` 的 `direction = (0,−1,0)` 的模长 = 1.0（挨打那件 0.28284，这就是两者幅度差 3.5 倍的来源）。🔴 2026-10-23（R9 尾账）：`ShakeLandVerticalFrac` **已删** —— 竖直分量与**符号**改由 `ShakeScreenUpOf((0,−1,0)) = +1（朝上）` 现算"),
 
             // ---- 蓄力 / 出手：卡预制体 ----
             P("ChargeTime", ChargeTime, Src.Field, "卡预制体 `timeToChargeAttack`"),
@@ -923,19 +1070,38 @@ namespace CardPresentation
         ///   两者同向等量 ⇒ **HUD 在屏幕上纹丝不动**，而棋盘/卡牌/特效整体晃 `d`。
         ///   （⚠️ 是**同向**不是反向 —— 相机 +d 会让内容在屏幕上 −d，HUD 要留在原地就得也跟着 +d。）
         ///
-        /// 方向：原版 `direction (0, 0.2, 0.2)` 是 **3D 世界方向**（相机沿 +z 看、略向下俯）。
-        /// 它的 z 分量是「朝/背镜头」= **屏幕上不动**，只有 y 分量是屏幕上的上下 ⇒ 压到屏幕平面
-        /// = **竖直**。⚠️ **这一步是我们的换算**；而且「向上还是向下」**静态数据判不出来**
-        /// （要判得跑原版实测），这里取**相机向上抬**（读起来像「被撞得往后一仰」）。
+        /// 方向（🔴 **2026-10-23（R9 尾账）已改走原版公式**）：参数 `direction` = preset 真件的
+        /// `preset.direction`（3D 世界方向），屏幕竖直分量 = <see cref="ShakeScreenUpOf"/> =
+        /// `(FromToRotation(Vector3.down, normalize(direction)) · up).y` —— **符号与 `|vy|` 都由它给**。
+        /// ⇒ 原版 raw **−Y** 指向 velocity：「向上还是向下」**不再是我们的选择**，
+        /// 挨打 `(0,+0.2,0.2)` 朝下、落地 `(0,−1,0)` 朝上、`(0,0,2)` 在屏幕上不上下晃。
+        /// ⚠️ 「世界 y 分量 = 屏幕竖直」仍是**我们的 3D→2D 换算**（见 `ShakeWorldAmplitude`）。
         ///
-        /// 时间轴严格照 preset：`attackTime 0`（一帧到满）→ 保持 `sustainTime` → **线性**衰减到
-        /// `ShakeDecayTo`、历时 `decayTime`。总长 0.4 s。
-        /// 位移 = 峰值 × **包络**(t) × **噪声**(t)，噪声是 `Warpforge 6D Shake` 的 Y 轴三条带按
-        /// `m_FrequencyGain` 放慢后叠加（见 `ShakeBandHz` / `ShakeNoise01`）。
+        /// 时间轴严格照 preset：`attackTime` 线性 0→1 → 保持 `sustainTime` → **线性**衰减到
+        /// `ShakeDecayTo`、历时 `decayTime`。
+        /// 位移 = 峰值 × **包络**(t) × **噪声**(t)，噪声是该 preset 的 `rawSignal`（`Warpforge 6D Shake*`）
+        /// 按 `frequencyGain`（原版 `m_FrequencyGain` = preset 的 `frequency`）采样后叠加
+        /// （算式见 `ShakeNoise01`）。
+        /// 🆕 **2026-10-23（R9 尾账）**：还叠一层 **`OrientationNoise` 旋转**（见 `ShakeOrientation`）——
+        /// 相机空间后乘，HUD 根做同一个刚体变换保持在屏幕上不动。
+        /// 🆕 **2026-10-23（R9）**：`signal / frequencyGain / attack / sustain / decay` 全部**按 preset 传**
+        /// （默认参数 = `Shake Hit Small` 那一套 ⇒ 既有调用点行为不变）。
+        /// 原来这些是写死的常量 ⇒ AnimFX 那条支路（`BattleDriver.HookAnimFxShake`）上**别的 preset
+        /// 一律用 Hit Small 的时间轴**（`Shake Earthquake` 的 5 s 保持会被压成 0.1 s）。
         /// </summary>
-        /// <param name="worldAmp">**峰值**幅度（世界单位）。⚠️ **取哪一档由调用方决定** ——
-        /// 原版是按攻击方的近战档取 2/4/8（→ 世界单位 0.04 / 0.08 / 0.16），
-        /// 走 `ShakeWorldAmplitudeFor` / 更省事的 `ShakeCameraForHit`。</param>
+        /// <param name="worldAmp">**旋转前**的 pos 峰值（世界单位）。⚠️ **取哪一档由调用方决定** ——
+        /// 原版是按攻击方的近战档取 2/4/8（→ 世界单位 0.057 / 0.114 / 0.228），
+        /// 走 `ShakeWorldAmplitudeFor` / 更省事的 `ShakeCameraForHit`。
+        /// 🔴 屏幕竖直分量与符号由 <paramref name="direction"/> 现算（⛔ 别在这里再乘竖直比例）。</param>
+        /// <param name="direction">原版 `preset.direction`（3D，未归一化也行）；空向量 ⇒ `Shake Hit Small` 那件。
+        /// 判据 = `FromToRotation(Vector3.down, normalize(direction))`（见 <see cref="ShakeScreenUpOf"/>）。</param>
+        /// <param name="rotationGain">原版 `m_AmplitudeGain` = `preset.amplitude × |direction|`
+        /// （= 位置与角度**共用**的那个 gain，见 `ShakeOrientation`）。</param>
+        /// <param name="signal">该 preset 的波形表（原版 `rawSignal`）。`null` ⇒ `DefaultShakeSignal`。</param>
+        /// <param name="frequencyGain">信号时间轴缩放（原版 preset 的 `frequency`，逐 preset 不同：0.03 / 0.05 / 0.1 / 0.2 …）。</param>
+        /// <param name="attackTime">包络上升时长（原版 preset 的 `attackTime`）。</param>
+        /// <param name="sustainTime">包络满幅保持时长（原版 preset 的 `sustainTime`）。</param>
+        /// <param name="decayTime">包络衰减时长（原版 preset 的 `decayTime`）。</param>
         /// <param name="phaseSeed">噪声的**起播时刻**种子（见 `ShakePhaseOffset`）。
         /// `-1`（默认）= `ShakeSeedBase + 本局序号` ⇒ **同一局必然给同一串相位**（对局可复现）；
         /// `ShakeSeedBase` 由开局时的 <see cref="AnchorShakeSeedToBattle"/> 定成该局的对局种子
@@ -943,7 +1109,13 @@ namespace CardPresentation
         /// 传具体值 = 逐帧可复算（自检用）。</param>
         public static Tween ShakeCamera(Camera cam, Transform hudRoot, float worldAmp, float delay = 0f,
                                         Camera extraCam = null, int phaseSeed = -1,
-                                        float verticalSign = 1f)
+                                        Vector3 direction = default(Vector3),
+                                        ShakeSignal signal = null,
+                                        float frequencyGain = ShakeFrequencyGain,
+                                        float attackTime = ShakeAttackTime,
+                                        float sustainTime = ShakeSustainTime,
+                                        float decayTime = ShakeDecayTime,
+                                        float rotationGain = ShakeHitRotationGain)
         {
             if (cam == null) return null;
 
@@ -958,21 +1130,27 @@ namespace CardPresentation
 
             var camTr = cam.transform;
             Vector3 camHome = camTr.position;
-            Vector3 hudHome = hudRoot != null ? hudRoot.localPosition : Vector3.zero;
+            Quaternion camHomeRot = camTr.rotation;
+            // HUD 那一半**用世界坐标记账**（`hudRoot` 的父级 = 战斗根、identity ⇒ 与 local 逐位相同；
+            // 但「绕相机位置做刚体反补」这条算式的自然表述是世界坐标）。local 也留一份给收尾兜底。
+            Vector3 hudHome = hudRoot != null ? hudRoot.position : Vector3.zero;
+            Quaternion hudHomeRot = hudRoot != null ? hudRoot.rotation : Quaternion.identity;
+            Vector3 hudHomeLocal = hudRoot != null ? hudRoot.localPosition : Vector3.zero;
+            Quaternion hudHomeLocalRot = hudRoot != null ? hudRoot.localRotation : Quaternion.identity;
             // 🆕 2026-09-19：**3D 战场那台透视相机也跟着推**。不推的话挨打时「卡牌在动、背景纹丝不动」
             //    （战场现在是真 3D 了，原版震的本来就是战场相机）。两台相机同向等量平移 ⇒
             //    战场与卡牌的位移方向一致；像素幅度由各自投影决定（透视那侧略有视差，这是对的）。
             var extraTr = extraCam != null ? extraCam.transform : null;
             Vector3 extraHome = extraTr != null ? extraTr.position : Vector3.zero;
-            // 🔴 **2026-10-16（余账 (e)）：方向符号照原版 preset 的 `direction`。**
-            //   · **挨打**（`Shake Hit Small`）= `direction (0, **+0.2**, 0.2)` ⇒ 竖直分量**向上** ⇒
-            //     沿用本工程既有口径（`verticalSign = +1`，**默认值 = 行为不变**）。
-            //   · **落地**（`Shake Land on ground`）= `direction (0, **−1**, 0)` ⇒ **朝下** ⇒
-            //     `ShakeCameraForLand` 传 `−1`。⚠️ 原来那两处都取「相机向上抬」，理由是「y 的符号
-            //     静态判不出来」（2026-09-14）—— **那条理由现在不成立了**：preset 真件里有 `direction`。
-            //   ⚠️ 幅度不受影响：`|direction|` 早就在 `ShakePresetDirMag` / `ShakeLandPresetDirMag` 里算过，
-            //     这里只定**符号**。
-            Vector3 dir = Vector3.up * (verticalSign < 0f ? -1f : 1f);
+            Quaternion extraHomeRot = extraTr != null ? extraTr.rotation : Quaternion.identity;
+            // 🔴 **2026-10-23（R9 尾账）原版方向链 —— `verticalSign` 那一档已删掉。**
+            //   `LegacySignalSource::GetSignal`（RVA 0xA2B350）：`pos = FromToRotation(Vector3.down, velocity) * pos`。
+            //   我们 2D 只采 PositionNoise 的 Y ⇒ raw pos = (0, s, 0) ⇒ 屏幕竖直 = `s × ShakeScreenUpOf(direction)`。
+            //   ⚠️ 该值**自带 |vy|**（`worldAmp` 里不再乘竖直比例）且**自带符号**：
+            //     挨打 `(0,+0.2,0.2)` ⇒ **−0.7071（相机朝下）**；落地 `(0,−1,0)` ⇒ **+1（朝上）**。
+            if (direction.sqrMagnitude < 1e-12f) direction = ShakeHitDirection;   // 默认 = `Shake Hit Small` 那件
+            float screenUp = ShakeScreenUpOf(direction);
+            LastShakeVertical = screenUp;
 
             // 🆕 2026-10-14（`A1767` / #10）：**每次震的起播时刻不同**（原版 `m_Randomize = 1`，
             //   见 `ShakeWorldAmplitude` 的注释）。⚠️ 种子必须**可复现** —— 一律 `System.Random`
@@ -981,15 +1159,42 @@ namespace CardPresentation
             float phase = ShakePhaseOffset(LastShakeSeed);
             LastShakePhase = phase;
 
+            // 🆕 2026-10-23（R9）：**每个 preset 自己的**时间轴与信号（原来是写死的 Hit Small 那套）。
+            if (signal == null) signal = DefaultShakeSignal;
+            LastShakeFrequencyGain = frequencyGain;
+            LastShakeSignalName = signal.name;
+            LastShakeDuration = attackTime + sustainTime + decayTime;
+
             System.Action<float> apply = t =>
             {
-                Vector3 d = dir * (worldAmp * ShakeEnvelope(t) * ShakeNoise01(t, phase));
+                float env = ShakeEnvelope(t, attackTime, sustainTime, decayTime);
+                // ---- 平移（PositionNoise 的 Y，经原版 `FromToRotation` 投影到屏幕竖直）----
+                Vector3 d = Vector3.up * (worldAmp * env * ShakeNoise01(t, phase, frequencyGain, signal) * screenUp);
                 if (camTr != null) camTr.position = camHome + d;
-                if (hudRoot != null) hudRoot.localPosition = hudHome + d;
-                if (extraTr != null) extraTr.position = extraHome + d;
+
+                // ---- 旋转（OrientationNoise —— 🆕 2026-10-23（R9 尾账）接上）----
+                //   原版：`rot = SlerpUnclamped(identity, Euler(ΣOrientation×π/180), |v|·AmplitudeGain)`
+                //   （`LegacySignalSource::GetSignal`），再过一次 `SlerpUnclamped(identity, rot, 包络)`
+                //   （`GetDecayedSignal`）；listener 里 `m_UseCameraSpace = 1` ⇒ 落在**相机空间**
+                //   （`CameraState.GetFinalOrientation = RawOrientation × OrientationCorrection`）
+                //   ⇒ 后乘在相机自身旋转上。
+                Quaternion q = ShakeOrientation(t, phase, frequencyGain, signal, rotationGain, env);
+                if (camTr != null) camTr.rotation = camHomeRot * q;
+                if (extraTr != null) extraTr.rotation = extraHomeRot * q;
+                LastShakeRotation = q;
+
+                if (hudRoot != null)
+                {
+                    // HUD **在屏幕上纹丝不动**（原版 UI 相机没挂 impulse listener）。
+                    // 相机既平移 d、又旋转 q ⇒ HUD 跟着做**同一个刚体变换**（绕**相机位置**转 M）：
+                    //   X' = C + d + M·(X − C)，  M = R·q·R⁻¹（q 在相机空间 ⇒ 换回世界空间）
+                    Quaternion M = camHomeRot * q * Quaternion.Inverse(camHomeRot);
+                    hudRoot.position = camHome + d + M * (hudHome - camHome);
+                    hudRoot.rotation = M * hudHomeRot;
+                }
             };
 
-            float total = ShakeAttackTime + ShakeSustainTime + ShakeDecayTime;
+            float total = LastShakeDuration;
             // `attackTime = 0` ⇒ **当场**上到峰值。别等第一次 Update ——
             // 批处理里没有帧循环（和 `DealIn` 里 alpha 那条同款注释），等更新会把第一帧漏掉。
             apply(0f);
@@ -1003,9 +1208,14 @@ namespace CardPresentation
             //    DOTween 正常跑完时也会触发 `OnKill`，所以这一条就够。
             t.OnKill(() =>
             {
-                if (camTr != null) camTr.position = camHome;
-                if (hudRoot != null) hudRoot.localPosition = hudHome;
-                if (extraTr != null) extraTr.position = extraHome;
+                if (camTr != null) { camTr.position = camHome; camTr.rotation = camHomeRot; }
+                if (hudRoot != null)
+                {
+                    hudRoot.position = hudHome; hudRoot.rotation = hudHomeRot;
+                    hudRoot.localPosition = hudHomeLocal; hudRoot.localRotation = hudHomeLocalRot;   // 父级非 identity 时也对
+                }
+                if (extraTr != null) { extraTr.position = extraHome; extraTr.rotation = extraHomeRot; }
+                LastShakeRotation = Quaternion.identity;
             });
             LastShake = t;
             return t;
@@ -1032,7 +1242,11 @@ namespace CardPresentation
                                               int phaseSeed = -1)
         {
             int size = ShakeUnitSizeOf(attackerMeleeAttack);
-            return ShakeCamera(cam, hudRoot, ShakeWorldAmplitudeFor(size), delay, extraCam, phaseSeed);
+            // 🔴 2026-10-23（R9 尾账）：`direction` = `Shake Hit Small` 的真件值（**不再是 verticalSign**）；
+            //   旋转 gain 与位置同源 = `amplitude × |direction|`（尺寸 2/3 档一起放大，原版也是这样）。
+            return ShakeCamera(cam, hudRoot, ShakeWorldAmplitudeFor(size), delay, extraCam, phaseSeed,
+                               direction: ShakeHitDirection,
+                               rotationGain: ShakeAmplitudeForUnitSize(size) * ShakePresetDirMag);
         }
 
         // ---- 🆕 2026-10-16 落地那一下（原版 `CardScript.LandOnGround`）----
@@ -1050,26 +1264,21 @@ namespace CardPresentation
         /// （挨打那件是 (0, 0.2, 0.2) ⇒ 0.28284，这也是两者幅度差 3.5 倍的来源）。</summary>
         public const float ShakeLandPresetDirMag = 1.0f;
 
-        /// <summary>同一件真件 `normalize((0,−1,0)).y` 的绝对值 = 1.0
-        /// （挨打那件是 `ShakeVerticalFrac` = 0.70711）。⚠️ 这一位「世界 y → 屏幕竖直」仍是**我们的换算**
-        /// （见 `ShakeWorldAmplitude` 的注释）。
-        /// 🔴 **2026-10-16 订正**：原文接着写「符号取向上是沿用本工程既有口径」—— **那是错的、已改**：
-        /// 原版 `direction` 的 y = **−1 = 朝下**，`ShakeCameraForLand` 现在传 `verticalSign: -1` 照它
-        /// （原来取「相机向上抬」的理由是「符号静态判不出来」，而 preset 真件里**有** `direction`）。</summary>
-        public const float ShakeLandVerticalFrac = 1.0f;
-
-        /// <summary>🆕 2026-10-16：**落地震镜头的世界单位峰值幅度**（我们这套坐标）。
+        /// <summary>🆕 2026-10-16：**落地震镜头的世界单位峰值幅度**（我们这套坐标，**旋转前**的 pos 峰值）。
         /// 算式与 <see cref="ShakeWorldAmplitudeFor"/> **逐项同形**（同一个 `ShakeBandPeak`、
         /// 同一个 `ShakeOriginalPxPerUnit ÷ OurPxPerUnit`），只换 preset 那一组：
-        ///   `2.0(amplitude) × 1.0(|direction|) × 0.149(三条带同相峰值) × 1.0(屏幕竖直分量)`
+        ///   `2.0(amplitude) × 1.0(|direction|) × 0.149(三条带同相峰值)`
         ///   = **0.298 原版世界单位** ⇒ × 73.1 px/单位 = **21.8 px** @1080p ⇒ ÷ 108 = **0.2017**。
-        /// ⚠️ 它比挨打那一下（`ShakeWorldAmplitudeFor(0)` = 0.0403）**大 5 倍** —— 不是笔误：
-        ///   挨打的 |direction| 只有 0.28284、竖直分量 0.7071，落地这件两个都是 1.0。
-        /// ⚠️ 与 `ShakeWorldAmplitudeFor` 一样，两处软连接（Cinemachine 公式 / y→屏幕竖直）照旧成立。</summary>
+        /// 🔴 **2026-10-23（R9 尾账）**：这里**不再乘竖直比例** —— 落地那件的
+        /// `ShakeScreenUpOf((0,−1,0)) = **+1**`（原版 `FromToRotation(down, down)` = 恒等 ⇒ raw +Y 朝上），
+        /// 由 `ShakeCamera` 现算。⚠️ 竖直峰值不变（×1.0），但**符号从此是「朝上」**
+        /// （旧实现传 `verticalSign: -1` ⇒ 朝下，方向反了）。
+        /// ⚠️ 它比挨打那一下（`ShakeWorldAmplitudeFor(0)` = 0.0570）**大 3.5 倍** —— 不是笔误：
+        ///   挨打的 |direction| 只有 0.28284，落地这件是 1.0（再乘竖直分量 0.7071 vs 1.0 ⇒ 5 倍位移差）。</summary>
         public static float ShakeWorldAmplitudeForLand()
         {
             float ampGain = ShakeLandPresetAmplitude * ShakeLandPresetDirMag;    // = 2.0
-            float origUnits = ampGain * ShakeBandPeak * ShakeLandVerticalFrac;   // = 0.298
+            float origUnits = ampGain * ShakeBandPeak;                           // = 0.298
             return origUnits * (ShakeOriginalPxPerUnit / OurPxPerUnit);          // = 0.2017
         }
 
@@ -1080,10 +1289,12 @@ namespace CardPresentation
         public static Tween ShakeCameraForLand(Camera cam, Transform hudRoot, float delay = 0f,
                                               Camera extraCam = null, int phaseSeed = -1)
         {
-            // ⚠️ **`verticalSign: -1`** —— 原版这件 preset 的 `direction = (0, −1, 0)`（**朝下**），
-            //   与挨打那件 `(0, +0.2, 0.2)`（朝上）**符号相反**。判据与「原来为什么取向上」→ `ShakeCamera`。
+            // 🔴 **2026-10-23（R9 尾账）**：传原版 preset 的 `direction = (0, −1, 0)`，
+            //   符号由 `FromToRotation(Vector3.down, direction)` 现算 = **+1 ⇒ 相机朝上**
+            //   （旧实现传 `verticalSign: -1` 是反的）。旋转 gain = `2.0 × 1.0 = 2.0`（同一条链）。
             return ShakeCamera(cam, hudRoot, ShakeWorldAmplitudeForLand(), delay, extraCam, phaseSeed,
-                               verticalSign: -1f);
+                               direction: ShakeLandDirection,
+                               rotationGain: ShakeLandPresetAmplitude * ShakeLandPresetDirMag);
         }
 
         /// <summary>🆕 **震屏噪声的起播时刻基线**（原版 `m_Randomize = 1` 那一位）。
@@ -1149,15 +1360,19 @@ namespace CardPresentation
             SettleShake();                    // ① 见上面 ③
             ShakeSeedBase = battleSeed;       // ② 本局的第一下 = `ShakePhaseOffset(battleSeed)`
             _shakeSeq = 0;                    // ③ 序号从 0 起 ⇒ 同种子必然同序列
-            LastShakeSeed = 0;                // ④ 诊断那两格别留着上一局的读数（同 `ResetShakePhases`）
+            LastShakeSeed = 0;                // ④ 诊断那些格别留着上一局的读数（同 `ResetShakePhases`）
             LastShakePhase = 0f;
+            LastShakeSignalName = ""; LastShakeFrequencyGain = 0f; LastShakeDuration = 0f;
+            LastShakeVertical = 0f; LastShakeRotation = Quaternion.identity;
         }
 
-        /// <summary>起播时刻的取值范围（秒，**信号时间轴**上的量，不是真实秒）。
-        /// ⚠️ **这个范围是我们的**：Cinemachine 的方法体本地读不到（只有桩），
-        /// 桩上的 Tooltip 只说「randomize the signal start time」，**没说分布/范围**。
-        /// 取 100 s ⇒ 比最低频那条带的周期（1/1.9×0.05 ≈ 10.5）大一个量级，足以把相位彻底打散。</summary>
-        public const float ShakePhaseRange = 100f;
+        /// <summary>起播时刻的取值范围（秒，**信号时间轴**上的量，不是真实秒）——
+        /// 🔴 **2026-10-23（R9）订正：`±1000`，且含负**。判据（机器码）：`CinemachineImpulseDefinition+LegacySignalSource`
+        /// 的 ctor（RVA 0xA2B5E0）在 `m_Randomize=1` 且 `SignalDuration ≤ 0`（`NoiseSettings` 恒 0）时
+        /// `m_StartTimeOffset = Random.Range(−1000f, +1000f)`；两个常量 `c47a0000` / `447a0000` 从
+        /// `GameAssembly.dll` 实读（`R9_rawSignal_算式.md` §2·4）。
+        /// ⚠️ 原来写的 100 是**代理值**（当时方法体读不到，注释里也如实标了）—— 现在有判据，改用 ±1000。</summary>
+        public const float ShakePhaseRange = 1000f;
 
         /// <summary>本进程内已经震过几次（诊断 / 自检复位用）。**它决定相位种子的序号**。</summary>
         public static int ShakeSeq { get { return _shakeSeq; } }
@@ -1165,21 +1380,41 @@ namespace CardPresentation
         /// <summary>最近一次震动用的**种子**与**起播时刻**（自检读它核「种子确实进了噪声」）。</summary>
         public static int LastShakeSeed { get; private set; }
         public static float LastShakePhase { get; private set; }
+        /// <summary>🆕 2026-10-23（R9）最近一次震动用的**信号表名 / 时间缩放 / 总时长**。
+        /// 自检靠它钉「preset 自己的 `frequency` / `attack` / `sustain` / `decay` 真的传到底了」——
+        /// 原来 `BattleDriver.HookAnimFxShake` 把后四个全丢了，AnimFX 那条支路一律用 `Shake Hit Small` 的时间轴。</summary>
+        public static string LastShakeSignalName { get; private set; } = "";
+        public static float LastShakeFrequencyGain { get; private set; }
+        public static float LastShakeDuration { get; private set; }
+        /// <summary>🆕 2026-10-23（R9 尾账）最近一次震动用的**屏幕竖直分量** =
+        /// `ShakeScreenUpOf(direction)`（含符号与 `|vy|`；挨打 **−0.7071** / 落地 **+1**）。
+        /// 自检靠它钉「方向确实走原版 `FromToRotation(Vector3.down, velocity)`」。</summary>
+        public static float LastShakeVertical { get; private set; }
+        /// <summary>🆕 2026-10-23（R9 尾账）最近一次震动在**t=0** 施加的**相机空间旋转修正**
+        /// （`ShakeOrientation` 的结果；`ResetShakePhases` / 收尾时归 `identity`）。</summary>
+        public static Quaternion LastShakeRotation { get; private set; } = Quaternion.identity;
 
         /// <summary>把「震过几次」的计数清零（**自检专用**：批处理里跑两遍要拿到同一串相位）。
         /// ⚠️ **2026-10-14（`A1892`）实测：本方法全仓【一个调用点都没有】**（只在本文件里有定义）——
         /// 真机上的「每局从 0 起」现在由 <see cref="AnchorShakeSeedToBattle"/> 负责
         /// （它多做一件：把基线也换成该局的对局种子）。留着它是给自检用的复位口。</summary>
-        public static void ResetShakePhases() { _shakeSeq = 0; LastShakeSeed = 0; LastShakePhase = 0f; }
+        public static void ResetShakePhases()
+        {
+            _shakeSeq = 0; LastShakeSeed = 0; LastShakePhase = 0f;
+            LastShakeSignalName = ""; LastShakeFrequencyGain = 0f; LastShakeDuration = 0f;   // R9 的三格读数
+            LastShakeVertical = 0f; LastShakeRotation = Quaternion.identity;                 // R9 尾账的两格读数
+        }
 
         /// <summary>一个种子 → 该次震动的**起播时刻**（秒，信号时间轴）。
-        /// 判据：原版 `m_Randomize = 1`（Tooltip：「Legacy mode only: Randomize the signal start time」）。
-        /// ⚠️ **分布/范围查不到**（见 `ShakePhaseRange`）⇒ 这一句是**我们的代理**，如实标注。
+        /// 判据：原版 `m_Randomize = 1` ⇒ `m_StartTimeOffset = Random.Range(−1000f, +1000f)`
+        /// （`LegacySignalSource` ctor RVA 0xA2B5E0；**含负**）。
+        /// ⚠️ 唯一**我们的代理**：原版用 `UnityEngine.Random`，我们用 `System.Random` 派生
+        /// （工程红线「对局必须可复现」，⛔ 不用 `UnityEngine.Random`）；**区间与分布（均匀）照原版**。
         /// **纯函数**：同 `seed` 恒得到同一个值（自检靠这条钉「可复现」）。</summary>
         public static float ShakePhaseOffset(int seed)
         {
             var rng = new System.Random(seed);
-            return (float)rng.NextDouble() * ShakePhaseRange;
+            return (float)(rng.NextDouble() * (2.0 * ShakePhaseRange) - ShakePhaseRange);
         }
 
         /// <summary>
@@ -1205,46 +1440,116 @@ namespace CardPresentation
             if (s != null && s.IsActive()) s.Complete();     // `Complete()` 会触发 `OnKill` ⇒ 复位
         }
 
-        /// <summary>包络：`attackTime 0` ⇒ 立刻 1；保持 `sustainTime`；再**线性**降到 `ShakeDecayTo`
-        /// （**终点不是 0** —— 出处见 `ShakeDecayTo`）。</summary>
-        static float ShakeEnvelope(float t)
+        /// <summary>包络：**attack 段线性 0→1**（`attackTime 0` ⇒ 立刻 1）→ 保持 `sustainTime` →
+        /// **线性**降到 `ShakeDecayTo`（**终点不是 0** —— 出处见 `ShakeDecayTo`）。
+        /// 🆕 2026-10-23（R9）：三个时间改成**按 preset 传**（不同 preset 差很多：`Shake Earthquake`
+        /// attack 0.5 / sustain 5.0 / decay 1.0，`Shake Very Light 4s` 3.0 s 保持）。
+        /// attack 段的形状出处 = 场景 `CinemachineImpulseSource`（battlearena1 `MonoBehaviour_4914.json`）
+        /// 的 `m_TimeEnvelope.m_AttackShape` = (0,**0**)→(1,**1**)、两帧 `weightedMode:0`（切线被忽略）⇒ 线性。</summary>
+        static float ShakeEnvelope(float t, float attackTime, float sustainTime, float decayTime)
         {
-            float held = ShakeAttackTime + ShakeSustainTime;
+            if (attackTime > 0f && t < attackTime) return Mathf.Clamp01(t / attackTime);
+            float held = attackTime + sustainTime;
             if (t <= held) return 1f;
-            return Mathf.Lerp(1f, ShakeDecayTo, Mathf.Clamp01((t - held) / ShakeDecayTime));
+            return Mathf.Lerp(1f, ShakeDecayTo, Mathf.Clamp01((t - held) / decayTime));
         }
 
-        /// <summary>归一化到 [−1, 1] 的噪声（三条带同相时 = 1）。
+        /// <summary>归一化噪声（值域 ±0.5，见 `ShakeBandPeak` 的注释）。**默认信号 + `ShakeFrequencyGain`** 的
+        /// 便捷重载 —— 挨打 / 落地那两条走它（`Shake Hit Small` 与 `Shake Land on ground` 的 `frequency` 都是 0.05）。
         ///
-        /// 🔴 **2026-10-14（`A1767` / #10）改成正解**：原来是**同频同幅的正弦叠加**（cos），
-        ///   那是一条**我们自己的近似**。原版 `Warpforge 6D Shake` 是 **程序化噪声**
-        ///   （`Cinemachine.NoiseSettings` —— 它**没有采样点数组**，就是 Perlin），
-        ///   而且场景上开了 `m_Randomize = 1`（= **每次随机起播时刻**，见 `ShakeWorldAmplitude` 的注释）。
-        ///   ⇒ 现在：**每条带一个 Perlin 采样**，再按 `ShakeBandAmp` 加权求和、除以带峰归一化；
-        ///   起播时刻由 <see cref="ShakePhaseOffset"/> 给（**每次不同、且可复现**）。
-        ///   判据出处：真件 `Warpforge 6D Shake.json` 的 `PositionNoise[*].Y.{Frequency,Amplitude}`
-        ///   （三条带，见 `ShakeBandHz` / `ShakeBandAmp`）+ `m_Randomize` 的 Tooltip。
-        ///
-        /// ⚠️ **一处如实标注**：Cinemachine 那个**逐通道求值的表达式本身本地读不到**
-        ///   （`decomp_full/` 只装了 Assembly-CSharp，Cinemachine 的方法体是空的桩）
-        ///   ⇒ `Mathf.PerlinNoise(0, f·t + offset)` 这个**写法是我们的**。
-        ///   要坐实它得反汇编 `GameAssembly.dll` 的 `NoiseSettings.NoiseParams.GetValueAt`
-        ///   （VA 见 `dump.cs` 的 `NoiseSettings` 那一段）—— **本件没做**。
-        ///   站得住的只有「是程序化噪声、每次起播时刻随机、三条带按 Frequency/Amplitude 叠加」这三条。
-        /// ⚠️ **起相不再固定为峰值**（旧注释：「起相用 cos 不是 sin，因为 sin 从 0 起会让第一帧没有位移」）——
-        ///   现在第一帧的值由随机起播时刻决定，**这正是原版的形状**（`attackTime 0` 说的是**包络**
-        ///   一帧到满，不是「噪声一帧到峰值」）。包络那一半没变（见 `ShakeEnvelope`）。
+        /// 🔴 **2026-10-23（R9）算式已从机器码坐实，本函数照抄它**（判据 → `资料/普查产出_1023b/R9_rawSignal_算式.md`）：
+        /// ```text
+        /// T   = t × frequencyGain + phase                 // 信号时间（秒），**三条带共享同一个 T**
+        /// u_i = 带i.Frequency × T
+        /// 带i = Constant == 1 ? Amplitude × 0.5 × sin(2π·u_i)
+        ///                     : Amplitude × (Mathf.PerlinNoise(u_i, 0) − 0.5)
+        /// 输出 = (Σ 三条带) / ShakeBandPeak
+        /// ```
+        /// 三条关键细节（每条都踩过或差点踩）：
+        ///   ① **`Constant = 1` 走正弦、`0` 走 Perlin** —— 默认信号是 **1/0/1**，不是「三条全 Perlin」
+        ///      （旧实现就是三条全 Perlin ⇒ 低频 1.9 Hz 与高频 55.54 Hz 的**质感整个不对**）。
+        ///   ② **Perlin 的变化坐标在 x 轴**：`PerlinNoise(u, 0)`。旧实现写的是 `(0, u)` —— 2D 梯度噪声
+        ///      `noise(0,y) ≠ noise(y,0)`，整条波形都不同。
+        ///   ③ **每带输出是 ±0.5·A**（`−0.5` / `×0.5`），不是 ±A。归一化分母仍是 ΣA = 0.149
+        ///      ⇒ 峰值位移落在原版值上（推导见 `ShakeBandPeak`）。
+        /// 原版来源：`Cinemachine.NoiseSettings`（`GetValueAt` RVA 0xA10610 / `GetCombinedFilterResults`
+        /// RVA 0xA10670 = 三条带**相加**）。起播偏移（`phase` = 原版 `m_StartTimeOffset`）由
+        /// <see cref="ShakePhaseOffset"/> 给（**每次不同、且可复现**）。
         /// </summary>
         public static float ShakeNoise01(float t, float phase)
         {
+            return ShakeNoise01(t, phase, ShakeFrequencyGain, DefaultShakeSignal);
+        }
+
+        /// <summary>按指定信号表 / 时间缩放求值（同一个算式，见上面那个重载的注释）。
+        /// `signal == null` ⇒ 默认信号。</summary>
+        public static float ShakeNoise01(float t, float phase, float frequencyGain, ShakeSignal signal)
+        {
+            if (signal == null) signal = DefaultShakeSignal;
+            float T = t * frequencyGain + phase;      // ⚠️ 共享 T：相位由「T × 各带 f」自然分带
             float s = 0f;
-            for (int i = 0; i < ShakeBandHz.Length; i++)
+            for (int i = 0; i < signal.Count; i++)
             {
-                // Perlin 输出 [0,1]（可能略微越界）⇒ `×2 − 1` 折到 [−1,1]，再乘该带振幅
-                float x = Mathf.PerlinNoise(0f, ShakeBandHz[i] * ShakeFrequencyGain * t + phase) * 2f - 1f;
-                s += ShakeBandAmp[i] * x;
+                ShakeBandSignal b = signal[i];
+                float u = b.hz * T;
+                s += b.constant != 0
+                    ? b.amp * 0.5f * Mathf.Sin(u * 2f * Mathf.PI)          // Constant=1 ⇒ 正弦
+                    : b.amp * (Mathf.PerlinNoise(u, 0f) - 0.5f);           // Constant=0 ⇒ Perlin（x 轴变化）
             }
             return s / ShakeBandPeak;
+        }
+
+        /// <summary>🆕 **2026-10-23（R9 尾账）原版 `OrientationNoise`（角度抖动）** ——
+        /// 返回**相机空间**的旋转修正（后乘在相机自身旋转上）。
+        ///
+        /// 判据（全部机器码，`资料/普查产出_1023b/R9_rawSignal_算式.md` §2·3/§2·4/§2·5）：
+        /// ```text
+        /// euler_a = Σ_{octave} AxisValue(f, A, Constant, T)      // 三轴各自求和（同一套 sin/Perlin 算式）
+        /// rot     = Quaternion.Euler(euler)                      // 原版：×π/180 后走 Internal_FromEulerRad
+        /// rot     = SlerpUnclamped(identity, rot, gain)          // LegacySignalSource：gain = |v|·m_AmplitudeGain
+        /// rot     = SlerpUnclamped(identity, rot, envelope)      // GetDecayedSignal：再乘一次包络
+        /// ```
+        /// `T` 与位置那一路**共用同一个**（`t × frequencyGain + phase`）。
+        ///
+        /// 施加方式：原版 listener 的 `m_UseCameraSpace = 1`（场景 `MonoBehaviour_4546.json`）⇒
+        /// `state.OrientationCorrection = ... × (RawOrientation × rot)`，而
+        /// `CameraState.GetFinalOrientation = RawOrientation × OrientationCorrection`
+        /// （`CameraState.txt` 的 `get_CorrectedOrientation` / `get_FinalOrientation` 反汇编）
+        /// ⇒ 对相机就是**相机空间**的修正。⚠️ 我们两台相机（正交主相机 + 3D 战场相机）都后乘同一个 q。
+        ///
+        /// ⚠️ **数据**：`signal.OrientationOctaves == 0`（例：`Warpforge 6D Shake No rotation`）⇒ 恒等旋转。
+        /// 幅度量级（默认信号，`Shake Hit Small`）：X/Y/Z 三条带之和 = 0.38°/0.148°/0.042°（**峰值**）；
+        /// 乘 `0.5`（每带 ±0.5A）再乘 `ShakeHitRotationGain` 0.5657 ⇒ 实际 ≤ **0.11°/0.04°/0.01°**
+        /// —— 很小但原版确实有（`Shake Big` 那档 gain 4.47 ⇒ 俯仰 ~0.86°，能看出来）。
+        /// </summary>
+        /// <param name="rotationGain">原版 `m_AmplitudeGain` = `preset.amplitude × |direction|`
+        /// （`Shake Hit Small` = `ShakeHitRotationGain`）。</param>
+        /// <param name="envelope">包络（0…1）—— 原版第二次 `SlerpUnclamped` 的 `gain`。</param>
+        public static Quaternion ShakeOrientation(float t, float phase, float frequencyGain,
+                                                  ShakeSignal signal, float rotationGain, float envelope)
+        {
+            if (signal == null) signal = DefaultShakeSignal;
+            if (signal.OrientationOctaves <= 0) return Quaternion.identity;
+
+            float T = t * frequencyGain + phase;
+            float rx = 0f, ry = 0f, rz = 0f;
+            for (int axis = 0; axis < 3; axis++)
+            {
+                float s = 0f;
+                for (int i = 0; i < signal.OrientationOctaves; i++)
+                {
+                    ShakeBandSignal b = signal.Orientation(axis, i);
+                    float u = b.hz * T;
+                    s += b.constant != 0
+                        ? b.amp * 0.5f * Mathf.Sin(u * 2f * Mathf.PI)
+                        : b.amp * (Mathf.PerlinNoise(u, 0f) - 0.5f);
+                }
+                if (axis == 0) rx = s; else if (axis == 1) ry = s; else rz = s;
+            }
+            Quaternion q = Quaternion.Euler(rx, ry, rz);      // 原版：这是**度**（内部 ×π/180 走 FromEulerRad）
+            q = Quaternion.SlerpUnclamped(Quaternion.identity, q, rotationGain);
+            q = Quaternion.SlerpUnclamped(Quaternion.identity, q, envelope);
+            return q;
         }
 
         /// <summary>出手前的蓄力：后仰 + 微退（卡预制体的 `chargeAttackAngle/-10°`、

@@ -286,6 +286,9 @@ public static partial class RuleEngineTest
         Step(TestBeginTurn);
         Step(TestEnergyIsPerPlayer);
 
+        Section("`W64·B-01` · `Core` 的 `IAiScorer` 钩子（狂暴选靶 = 原版那一份评分）");
+        Step(TestB01AiScorerHook);
+
         Section("出牌");
         Step(TestPlayCostRejected);
         Step(TestPlaySlotRejected);
@@ -846,6 +849,8 @@ public static partial class RuleEngineTest
         Step(TestT02ReturnSideIsAvailableSlot);       // 归还侧判据 = 原版 `IsAvailableSlot`（`T02·P4`）
         Step(TestT02ResolveWarlordSlotHonoursAvailability); // `Resolve` 的督军格退化路也不许指向被占格（`W63` 最后一笔）
         Step(TestT02ResolveSideBranchHonoursAvailability);  // 🆕 2026-10-23：`Resolve` 的**侧向分支**（请求侧格被占）—— 插推族最后一段
+        Step(TestT02OrFamilyBuckets);                        // 🆕 2026-10-23：全池 `or` 的**玩家选 vs 随机**语义钉子（用户 2026-09-14 裁决）
+        Step(TestT02DuplicateTriggerBodyDedup);              // 🔴 2026-10-23（`EC33` 双结算）：同一个触发不许把同一段正文收两遍
 
         // ============================================================
         //  🔴 2026-10-21（引擎线 `T03·b`）：**回合流程残余的三块缺失机制**
@@ -878,6 +883,10 @@ public static partial class RuleEngineTest
         Section("🆕 `W64`：结构化条件**逐 ability 归位**（TL46/ASH73/SW14 三条反例 + 正向 AM61 + "
               + "`IsLegalPick` ↔ `ResolveTargets` 同口径）");
         Step(TestW64OpAbilityTargetConditions);
+        // 🆕 2026-10-23（引擎线 `B-16` 整件）：`UnitConditions` **逐值**求值器（`ConditionEval`）。
+        Section("🆕 `B-16`：结构化条件**逐值**求值（`ConditionEval` · 每值正例+反例 · 缺数据=null · 原版未实现=false）");
+        Step(TestB16ConditionEval);
+        Step(TestB17SubjectlessTargets);
 
         // 🔴 **`Run()` 自己的「静默少跑」闸**（`A1591`）—— 必须在【汇总】之前跑，
         //    否则它的 `Check` 不计进 `_pass/_fail`（汇总行会漏掉它）。
@@ -7322,7 +7331,9 @@ public static partial class RuleEngineTest
                 ToP1Turn(ctx, 4);
                 Place(ctx, 0, 3, Unit("FAtkS", 1, 3, 9), exhausted: false);
                 var b = Place(ctx, 1, 3, guard, exhausted: true);
-                CheckCode(RuleCore.IsValidTarget(ctx, 0, 3, 1, 3, false), RuleCodes.ErrTarget,
+                // 🆕 2026-10-23（`B-31` 拆码）：这一支现在有**自己的码** `ErrAttackBlockStealth`
+                //   （原版 `IsValidAttackTarget.c:134`，词条 `Battle/Tips/AttackBlockStealth`）。
+                CheckCode(RuleCore.IsValidTarget(ctx, 0, 3, 1, 3, false), RuleCodes.ErrAttackBlockStealth,
                           "反面：**直接**打带 Stealth 的替身 —— 被挡（先证这条判据是活的）");
                 Check(b.Health, b.MaxHealth, "……而且一滴没掉");
             }
@@ -7486,7 +7497,9 @@ public static partial class RuleEngineTest
             Place(ctx, 0, 3, f, exhausted: false);
             Place(ctx, 1, 2, Unit("FVan", 1, 1, 9, "Vanguard"), exhausted: true);
             Place(ctx, 1, 3, Unit("FOther", 1, 1, 9), exhausted: true);
-            CheckCode(RuleCore.IsValidTarget(ctx, 0, 2, 1, 3, false), RuleCodes.ErrTarget,
+            // 🆕 2026-10-23（`B-31` 拆码）：这一支现在有**自己的码** `ErrAttackBlock`
+            //   （原版 `IsValidAttackTarget.c:149-174`，词条 `Battle/Tips/AttackBlock`）。
+            CheckCode(RuleCore.IsValidTarget(ctx, 0, 2, 1, 3, false), RuleCodes.ErrAttackBlock,
                       "普通攻击者打**非先锋**目标：被先锋规则挡住（反面，先证尺子有效）");
             CheckCode(RuleCore.IsValidTarget(ctx, 0, 3, 1, 3, false), RuleCodes.OK,
                       "★ 带这条规则的单位**可以**打非先锋目标（同一条判据，只差一个标记）");
@@ -10167,7 +10180,9 @@ public static partial class RuleEngineTest
     ///   `付费段`（引擎认的付费前缀 `N <货币>:` / `Oath N:`，而**它自己那条货币通道没收到它** ——
     ///   `energy` / `might` 那几种货币在 `WillRunOps` 的 unit/hero 支里**根本没有通道**
     ///   ⇒ 那一段结构上收不到；⚠️ `A1594` 之前这里写的是「头正则」，漏 `Oath N:`）·
-    ///   `同头两写`（同一个头注册了，但 `desc` 与 `keywords` 两份正文**不一样**、后者被「先到先得」丢掉）。
+    ///   `同头两写`（同一个头注册了，但 `desc` 与 `keywords` 两份正文**不一样**。
+    ///   🔴 2026-10-23 就地订正（铁律 5）：`D15` 起 `AddTriggerOp` 是**同文去重 + 异文追加**
+    ///   ⇒ **不再「先到先得丢掉」**，两份 op 都进 `TriggerOps` ⇒ 本档**结构上不可达**（死代码，读数恒 0））。
     ///
     /// 🆕 **⑤「无头正文」逐句报账**（口径同探针的 `A1459`）：卡面**没有 `Head:`**、主解析器解得开 op、
     ///   腿 A 一条都没收到、**且三道闸（`CardDef.HandledByOtherLayer` / `EffectText.AtTurnClauses` /
@@ -10361,8 +10376,10 @@ public static partial class RuleEngineTest
                     + "**它自己那条货币通道没收到**的那几段（`energy` / `might` 等货币在 `WillRunOps` 的"
                     + "unit/hero 支里**根本没有通道** ⇒ 结构上收不到）。⚠️ 是**覆盖面**的洞、不是「表里缺词」： "
                     + nPaid + " 条");
-        sb.AppendLine($"- **{WRSegTwice}** —— 同一个头注册了、但 `desc` 与 `keywords` 两份正文**不一样**，"
-                    + "后者被「先到先得」丢掉（⚠️ **数据不一致**）： " + nTwice + " 条");
+        sb.AppendLine($"- **{WRSegTwice}** —— 同一个头注册了、但 `desc` 与 `keywords` 两份正文**不一样**"
+                    + "（⚠️ **数据不一致**）。🔴 `D15`（2026-10-23）起结算层**两份都收**"
+                    + "（`TriggerOps` **异文追加**）⇒ 本档**结构上不可达**（死代码，读数恒 0）： "
+                    + nTwice + " 条");
         sb.AppendLine();
         if (orphLines.Count > 0)
         {
@@ -10530,16 +10547,33 @@ public static partial class RuleEngineTest
                   "★ ……而这个档位的判据是**引擎的 `EffectText.ParseSegment`**（`PaidCost` = 2），"
                 + "⛔ 不是头正则（旧正则认不出 `Oath N:`，探针实测 `UM*` 那 18 张会被误判成 `" + WRSegMiss + "`）");
 
-            // ④-b **同头两写档**：同一个头 `Rally:` 注册过、两份正文不一样（后者被「先到先得」丢掉）
+            // ④-b **同一 trigger 挂两条正文**：`D15`（2026-10-23）起 `CardDef.AddTriggerOp` 是
+            //      「**同文去重 + 异文追加**」（`Core/CardDef.cs:3178-3199`）⇒ 两份正文**都**进
+            //      `TriggerOps` ⇒ `WillRunOps` 两条都收到 ⇒ **孤儿 0**。
+            //      判据（第一权威）：`RawCardScript__TriggerAbilities.c:112-120,204-215` 遍历
+            //      `cardAbilities` 的**每一个元素**逐个触发 —— 原版没有「先到先得」。
+            //      🔴 **2026-10-23 就地订正（铁律 5）**：本档原来的期望「孤儿 1 · 档位 = 同头两写」
+            //      是 `D15` **之前**的真值，**已作废**（α：断言被同一批的引擎改动作废，不是回归）。
             var wfTwice = wfx("ZZCTRL_A1594B", "Rally: Deal 1 damage. Rally: Deal 3 damage");
             var wfTwiceRow = MeasureWillRunRow(wfTwice, null, new List<CardDef> { wfTwice });
-            string wfTwiceKind = wfTwiceRow.Orphans.Count > 0 ? wfTwiceRow.Orphans[0].Kind : "(没有孤儿)";
-            Check(wfTwiceRow.Orphans.Count, 1,
-                  "★ `A1594` 哨兵④-b：夹具「" + wfTwice.Desc + "」—— 第二条 `Rally:` 的正文在腿 A 里"
-                + "没有同签名 op ⇒ 孤儿 **1 条**（实得 " + wfTwiceRow.Orphans.Count + " 条）");
-            Check(wfTwiceKind, WRSegTwice,
-                  "★ ……档位 = **" + WRSegTwice + "**（⛔ 不是「收到了」：头注册过**不等于**这一段收到 —— "
-                + "探针 §⑦ 断言 C 钉的就是这一条）");
+            Check(wfTwiceRow.RunOps.Count, 2,
+                  "★ `A1594` 哨兵④-b：夹具「" + wfTwice.Desc + "」—— 第二条 `Rally:` 的正文"
+                + "**也**进腿 A（`D15` 异文追加 ⇒ 同一个 trigger 挂两条就是两条都触发）"
+                + " —— 🧨 `AddTriggerOp` 改回「先到先得」⇒ 本条红");
+            Check(wfTwiceRow.Orphans.Count, 0,
+                  "★ ……两条都被腿 A 收到 ⇒ 孤儿 **0** 条"
+                + "（⛔ 不是 1 —— 那是 `D15` 之前的旧真值；实得 " + wfTwiceRow.Orphans.Count + " 条）");
+            // 🧨 **灭自证**：两条真的**各自**在腿 A 里 —— 只数条数挡不住「只追加了一条却报 2」
+            bool wfTwiceSaw1 = false, wfTwiceSaw3 = false;
+            foreach (var o in wfTwiceRow.RunOps)
+                if (o != null && o.Verb == "deal")
+                {
+                    if (o.Amount == 1) wfTwiceSaw1 = true;
+                    if (o.Amount == 3) wfTwiceSaw3 = true;
+                }
+            CheckTrue(wfTwiceSaw1 && wfTwiceSaw3,
+                      "★ ……腿 A 里**同时**有 `Deal 1` 与 `Deal 3` 两条（逐值核对，⛔ 不是只数条数）"
+                    + " —— 🧨 只追加了一条却报 2 条 ⇒ 本条红");
 
             // ④-c **② 判别式（灭自证）**：`Oath N:` 这个形状 —— 引擎 `ParseSegment` 认得出、旧头正则认不出
             //      ⇒ 两个判据在**同一个输入**上答案**相反** ⇒ 谁把 ② 改回正则，本条必红。
@@ -10612,7 +10646,10 @@ public static partial class RuleEngineTest
     /// <summary>段级三档 —— 口径与探针 <c>WillRun.KMiss/KPaid/KTwice</c> **逐字一致**。</summary>
     const string WRSegMiss = "收漏";             // 触发头没进本卡 `TriggerTexts`（`A1386` 那一族）
     const string WRSegPaid = "付费段";           // 引擎认的付费前缀（`N <货币>:` / `Oath N:`）而它自己那条货币通道没收下来
-    const string WRSegTwice = "同头两写";        // 同一个头注册过、但两份正文不一样（数据不一致）
+    const string WRSegTwice = "同头两写";        // 同一个头注册过、但两份正文不一样（数据不一致）。
+                                                 // 🔴 2026-10-23（`D15`）起**结构上不可达**（死代码，读数恒 0）——
+                                                 //    异文追加 ⇒ 每份正文的 op 都在 `TriggerOps` 里 ⇒ 一定收到。
+                                                 //    保留只为与探针 `WillRun.KTwice` / 报表行同口径，⛔ 别当它在跑。
 
     /// <summary>无头档三档 —— 口径与探针 <c>WillRun.KHNone/KHAtTurn/KHCostWhen</c> **逐字一致**。</summary>
     const string WRHeadNone = "无消费点";        // 三道闸全空 ⇒ 全仓没有任何一层会执行这句。🔴 **缺陷**
@@ -10900,17 +10937,29 @@ public static partial class RuleEngineTest
     /// <summary>给一条「没收下来」的段定性（三档，判据全在**引擎的公开面**上，⛔ 不新写文法）。</summary>
     static void ClassifyWillRunFace(CardDef c, WillRunFace b)
     {
-        // ① 同一个头**本卡注册过**（`TriggerTexts` 是公开面）⇒ 两份正文不一样，后者被「先到先得」丢了。
+        // ① 同一个头**本卡注册过**（`TriggerTexts` 是公开面）⇒ 两份正文不一样。
         //    实测（探针，同一族两例）：`ASH69 Howling Banshee Exarch` 的 `Strike` 在 `desc` 里写
         //    `Give +1 [Attack] to your units`、在 `keywords` 里写 `Give +1 to your units`；
         //    `DA7 Ravenwing Bikes` 的 `Agenda` 在两处写 `Gain 1 Quest Point` / `Gain 1`。
         //    ⚠️ 这不是「空转」（效果照样由另一份跑）⇒ **单独一档、不算缺陷**。
+        //    🔴 **2026-10-23 就地订正（铁律 5，第二遍）**：上一版这里写「`WillRunOps` 读的是
+        //      `TriggerTexts`（= 第一条正文）⇒ 这一档的分档结果不变（第二份正文仍然进不了
+        //      `WillRunOps` 的通道账）」—— **不成立**：`EffectText.WillRunOps` 读的是
+        //      **`TriggerOps(key)`**（`D15` 起的合并表，见 `Core/EffectText.cs:2330-2336`）
+        //      ⇒ 异文追加之后，第二份正文的 op **也在**腿 A 里（`A1594` ④-b 就是这条的证据）。
+        //    🔴 **本档在 `D15` 之后【结构上不可达】= 死代码**：异文追加 ⇒ 同一个头下的**每一份**
+        //      正文的 op 都在 `TriggerOps` 里 ⇒ 这一段**一定**同签名命中 ⇒ 一定不是孤儿
+        //      ⇒ 走不到本分支。今天全池读数恒 **0 条**（真卡那两例 `ASH69` / `DA7` 的
+        //      desc 与 keywords 正文**签名相同**，本来就靠「同签名已收到」判绿）。
+        //      ⛔ **保留**这一档（探针 `WillRun.KTwice` 与上面的报表行要同口径）；
+        //      ⛔ 别把它当成「今天还在跑」—— 它只是分类表的最后一档兜底。
         var tt = c.TriggerTexts;
         if (tt != null && tt.ContainsKey(b.Head))
         {
             b.Kind = WRSegTwice;
             b.Why = "这个头本卡注册过（`TriggerTexts[\"" + b.Head + "\"]` = `" + WillRunClip(tt[b.Head], 50)
-                  + "`）—— `desc` / `keywords` 两份正文**不一样**，后者被先到先得丢掉";
+                  + "`）—— `desc` / `keywords` 两份正文**不一样**；`D15` 起异文追加 ⇒ "
+                  + "每一份的 op 都在 `TriggerOps` 里 ⇒ 本档在 `D15` 之后**结构上不可达**（死代码）";
             return;
         }
 
@@ -23908,9 +23957,15 @@ public static partial class RuleEngineTest
             RuleCore.BeginTurn(bctx);                 // → P1 第 1 回合
             var zerker = Place(bctx, 0, 3, Unit("Zerker", 1, 5, 5));
             zerker.AddKeyword(RuleCore.Berzerk, 1);
-            // 目标给 4 血（< 5 攻）⇒ 打分里带「斩杀」优先，**必定**打这个部队而不是敌方督军
-            // （我们的简化选靶对督军只加 0.5 分；同伤害时它会先打督军 ⇒ 这条断言会失去判别力）
-            var zTarget = Place(bctx, 1, 3, Unit("Target", 1, 0, 4));
+            // 目标 **4 费 4 血**：不管走哪一份评分，打它都比打 30 血督军值 ——
+            //   · 原版评分（`W64·B-01` 起经 `IAiScorer` 调 `Data/SimpleAI`）：致死 = 卡价值 `2×4+1 = 9`
+            //     > 打督军 `5×1.2 − 反击 0.72 + 存活 0.1 = 5.38`（督军 30 血、攻 2）；
+            //   · 回退评分（钩子没装的宿主）：致死 `+10000` 也压倒督军的 `+0.5`。
+            // ⇒ 这条断言在两种实现下都只可能是「打这个部队」，不会因为评分来源而摇摆。
+            // ⚠️ 2026-10-23（`B-01`）就地订正：原来写「目标给 4 血（< 5 攻）⇒ 斩杀优先」并把这张卡
+            //    给成 **1 费** —— 1 费的价值只有 3，**原版评分下会输给督军的 5.38**（本笔实算），
+            //    那条注释是「拿我们的简化评分反推原版」写的，已改成 4 费（判据见上）。
+            var zTarget = Place(bctx, 1, 3, Unit("Target", 4, 0, 4));
             int zHp0 = zTarget.Health;
             CheckTrue(RuleCore.HasPendingBerzerkAttack(bctx),
                       "★ 待攻击谓词：狂暴单位 + 有可用目标 ⇒ 真"
@@ -23947,6 +24002,128 @@ public static partial class RuleEngineTest
             RuleCore.EndTurn(ectx);
             Check(eTarget.Health, eHp0, "对照：已行动过的狂暴单位不再强制出手（原版 `CanAttackCard` 为假）");
         }
+    }
+
+    // ==================================================================
+    //  `W64 · B-01`：`Core` 的 `IAiScorer` 钩子（2026-10-23）
+    // ==================================================================
+
+    /// <summary>自检用的假评分器：**只认目标格号**（`foeSlot == PreferSlot` 给高分），
+    /// 同时记下最后一次被调的实参 —— 用来证明 `ResolveBerzerkAttacks` **真的**在问它
+    /// （而不是绕开钩子用自己那份最小评分）。</summary>
+    sealed class PreferSlotScorer : IAiScorer
+    {
+        public int PreferSlot;
+        public float PreferScore = 1000f, OtherScore = 1f;
+        public int Calls;
+        public int LastSide = -1, LastSlot = -1, LastFoeSlot = -1;
+        public bool LastRanged = true;
+
+        public float ScoreAttack(BattleContext ctx, int side, int slot, int foeSlot, bool ranged)
+        {
+            Calls++;
+            LastSide = side; LastSlot = slot; LastFoeSlot = foeSlot; LastRanged = ranged;
+            return foeSlot == PreferSlot ? PreferScore : OtherScore;
+        }
+    }
+
+    /// <summary>
+    /// `W64 · B-01`（2026-10-23 调度台裁定：「`Core` 开 `IAiScorer` 钩子」）——
+    /// 回合末狂暴强制出手的**选靶**必须走**原版那一份评分**，而不是 `Core` 里另写的最小版。
+    ///
+    /// **判据（第一权威，逐条现读）**
+    ///   · `BattleManager__ResolveEndTurn.c:44-50` —— `AI.SelectBestAttackAction(ai, bm, 该单位, 0, 0)`；
+    ///   · `AI__SelectBestAttackAction.c:24-65` —— `GetAvailableActions` → 只留「该单位自己 +
+    ///     `actionType ∈ {1 近战, 2 远程}`」→ 逐条 `AI.GetActionScore` → `AI.SelectBestAction`
+    ///     （**严格 `>` ⇒ 平手留先出现的 = 槽号最小的那个**）；
+    ///   · `AI__GetActionScore.c:44-66` —— 攻击支 = `AI.ScoreFromAttack`；目标是督军
+    ///     （`cardType == 10`）且 `CombinedAttackCanKillWarlord` 再 `+10000`。
+    ///
+    /// **三条断言各挡一种「假绿」**
+    ///   ① **钩子被调用**：假评分器把两个目标的分**翻过来** ⇒ 选靶必须跟着翻；
+    ///   ② **同输入同结果**：默认实现跑两次，一字不差（打分是确定的，⛔ 不掷骰）；
+    ///   ③ **灭自证**：实现若**绕开钩子**（退回 `Core` 里那份最小评分）或**把分数写死成常量**
+    ///      ⇒ ① 里的「翻过来」不会发生，`3/0` 那条当场红。
+    /// </summary>
+    static void TestB01AiScorerHook()
+    {
+        // 钩子是**进程级**的全局挂载点 ⇒ 用过假评分器之后必须换回来（否则会污染同一次自检的后面几条）。
+        var saved = AiScorerHook.Scorer;
+        try
+        {
+            // ---- ① `Data` 侧那一份实现能挂到 `Core` 的钩子点上 ----
+            SimpleAI.InstallAiScorer();
+            CheckTrue(AiScorerHook.Installed, "★ `SimpleAI.InstallAiScorer()` ⇒ `Core` 的钩子已安装");
+            CheckTrue(ReferenceEquals(AiScorerHook.Scorer, SimpleAI.Scorer),
+                      "★ 挂上的就是 `Data/SimpleAI` 那一份实现（⛔ 不是别处另写的第二份）");
+
+            // ---- ② 打分形状（默认实现 = 原版 `GetActionScore` 的攻击支）----
+            //    6 攻打 3 费的 3 血小兵（打死 ⇒ 卡价值 2×3+1 = 7）；
+            //    同一刀打 40 血小兵（没打死 ⇒ 卡价值 × 0.6 × 实际伤害 / 血上限 ≈ 0.63）。
+            var dctx = Battle(new[] { Unit("A", 1, 1, 1), Unit("B", 1, 1, 1), Unit("C", 1, 1, 1) },
+                              new[] { Unit("X", 1, 1, 1), Unit("Y", 1, 1, 1), Unit("Z", 1, 1, 1) });
+            RuleCore.BeginTurn(dctx);
+            Place(dctx, 0, 3, Unit("Atk6", 1, 6, 10));
+            Place(dctx, 1, 3, Unit("Tiny", 3, 0, 3));
+            Place(dctx, 1, 5, Unit("Big", 3, 0, 40));
+            float sKill = AiScorerHook.Scorer.ScoreAttack(dctx, 0, 3, 3, false);
+            float sHurt = AiScorerHook.Scorer.ScoreAttack(dctx, 0, 3, 5, false);
+            CheckTrue(System.Math.Abs(sKill - 7f) < 1e-3f,
+                      $"★ 打死 3 费小兵 = 卡价值 2×3+1 = **7**（实得 {sKill:0.###}）"
+                      + "（原版 `ScoreFromDamagingBuffedUnit` 致死那一支）");
+            CheckTrue(sHurt > 0f && sHurt < sKill,
+                      $"★ 同一刀「打不死」的分更低（{sHurt:0.###} < {sKill:0.###}）"
+                      + "（原版未致死 = 卡价值 × 0.6 × 实际伤害 / 血上限）");
+
+            // ---- ③ 钩子真的被 `ResolveBerzerkAttacks` 用上了 ----
+            //    夹具：狂暴单位 5 攻，敌方槽 3 / 槽 5 各一个**完全等价**的 3 费 3 血目标
+            //    （默认评分 ⇒ 同分 ⇒ 平手留先出现的 = 槽 3）。
+            SimpleAI.InstallAiScorer();
+            Check(BerzerkPickTrace(), "dead/3",
+                  "★ 默认评分：两个等价目标同分 ⇒ 打**先出现的**（槽 3）；槽 5 保持 3 血"
+                  + "（原版 `SelectBestAction` 严格 `>` ⇒ 平手留先出现的）");
+
+            var fake = new PreferSlotScorer { PreferSlot = 5, PreferScore = 1000f, OtherScore = 1f };
+            AiScorerHook.Scorer = fake;
+            string traceFake = BerzerkPickTrace();
+            CheckTrue(fake.Calls > 0, "★ `ResolveBerzerkAttacks` **调了钩子**（没绕开去用自己那份最小评分）");
+            Check(fake.LastSide, 0, "★ 钩子收到出手方 = 0（原版传 `actingCard.side`，⛔ 不是猜「当前行动方」）");
+            Check(fake.LastSlot, 3, "★ 钩子收到出手格 = 3");
+            CheckTrue(!fake.LastRanged, "★ 钩子收到打法档 = 近战（该单位远程攻 = 0）");
+            Check(traceFake, "3/dead",
+                  "★ **选靶跟着钩子翻**：假评分器指槽 5 ⇒ 槽 5 被打死、槽 3 一点血没掉"
+                  + "（实现若绕开钩子或把分数写死，这里会是 `dead/3` —— 灭自证）");
+            CheckTrue(fake.Calls >= 2, $"★ 两个合法目标各问一次（实测 {fake.Calls} 次）");
+
+            // ---- ④ 同输入同结果（默认实现，跑两次必须一字不差）----
+            SimpleAI.InstallAiScorer();
+            string a1 = BerzerkPickTrace(), a2 = BerzerkPickTrace();
+            Check(a1, a2, "★ 同一输入跑两次 ⇒ 同一选择（打分是确定的，⛔ 不掷骰）");
+            Check(a1, "dead/3", "★ 换回默认实现后行为回到 ③ 的第一跑（钩子可换、行为可复现）");
+        }
+        finally
+        {
+            AiScorerHook.Scorer = saved;
+        }
+    }
+
+    /// <summary>`TestB01AiScorerHook` 的夹具：狂暴单位（5 攻）在槽 3，敌方槽 3 / 槽 5
+    /// 各一个**完全等价**的 3 费 3 血目标（谁被打死只可能由「评分」决定）。
+    /// 返回 `"槽3的生死/槽5的生死"` —— 用**血量/生死**而不是格号，避开
+    /// 「阵亡补位会把单位挪走」那一层（本工程棋盘是连续无洞模型）。
+    /// 活着写当前血、死了写 `dead` —— 不写具体负数，免得被「伤害溢出多少」这种无关细节钉住。</summary>
+    static string BerzerkPickTrace()
+    {
+        var ctx = Battle(new[] { Unit("A", 1, 1, 1), Unit("B", 1, 1, 1), Unit("C", 1, 1, 1) },
+                         new[] { Unit("X", 1, 1, 1), Unit("Y", 1, 1, 1), Unit("Z", 1, 1, 1) });
+        RuleCore.BeginTurn(ctx);
+        var z = Place(ctx, 0, 3, Unit("Zerker", 1, 5, 9));
+        z.AddKeyword(RuleCore.Berzerk, 1);
+        var t3 = Place(ctx, 1, 3, Unit("T3", 3, 0, 3));
+        var t5 = Place(ctx, 1, 5, Unit("T5", 3, 0, 3));
+        RuleCore.EndTurn(ctx);
+        return (t3.IsAlive ? t3.Health.ToString() : "dead")
+             + "/" + (t5.IsAlive ? t5.Health.ToString() : "dead");
     }
 
     static void TestEnergyIsPerPlayer()
@@ -24266,7 +24443,8 @@ public static partial class RuleEngineTest
         Place(ctx, 1, 3, Unit("Van", 1, 1, 5, "Vanguard"));
         Place(ctx, 1, 2, Unit("Plain", 1, 1, 5));
 
-        CheckCode(RuleCore.DeclareAttack(ctx, 0, 3, 1, 2), RuleCodes.ErrTarget,
+        // 🆕 2026-10-23（`B-31` 拆码）：`ErrAttackBlock`（词条 `Battle/Tips/AttackBlock`）。
+        CheckCode(RuleCore.DeclareAttack(ctx, 0, 3, 1, 2), RuleCodes.ErrAttackBlock,
                   "敌方有 Vanguard 时，不能打普通单位");
         CheckCode(RuleCore.DeclareAttack(ctx, 0, 3, 1, 3), RuleCodes.OK,
                   "敌方有 Vanguard 时，可以打 Vanguard");
@@ -24303,7 +24481,8 @@ public static partial class RuleEngineTest
         CheckTrue(BoardSlots.IsContiguous(ctx.Players[0], out whyS2a), "（前提）S2 有洞棋盘普查：P0（A→2 / Prey→3）连续 —— " + (whyS2a ?? "无洞"));
         CheckTrue(BoardSlots.IsContiguous(ctx.Players[1], out whyS2b), "（前提）S2 有洞棋盘普查：P1（Sneak→2 / Plain→3）连续 —— " + (whyS2b ?? "无洞"));
 
-        CheckCode(RuleCore.DeclareAttack(ctx, 0, 2, 1, 2), RuleCodes.ErrTarget, "隐身单位不可被攻击");
+        // 🆕 2026-10-23（`B-31` 拆码）：`ErrAttackBlockStealth`（词条 `Battle/Tips/AttackBlockStealth`）。
+        CheckCode(RuleCore.DeclareAttack(ctx, 0, 2, 1, 2), RuleCodes.ErrAttackBlockStealth, "隐身单位不可被攻击");
         CheckCode(RuleCore.DeclareAttack(ctx, 0, 2, 1, 3), RuleCodes.OK, "打旁边的普通单位没问题");
 
         // 隐身单位自己一攻击就现身（Prey 已在上面摆好 —— 目标就是它）
@@ -24322,7 +24501,8 @@ public static partial class RuleEngineTest
         Place(ctx, 1, 2, Unit("Bird", 1, 1, 5, "Flying"));
         Place(ctx, 1, 3, Unit("Plain", 1, 1, 5));
 
-        CheckCode(RuleCore.DeclareAttack(ctx, 0, 3, 1, 2, ranged: false), RuleCodes.ErrTarget,
+        // 🆕 2026-10-23（`B-31` 拆码）：`ErrAttackBlockFlying`（词条 `Battle/Tips/AttackBlockFlying`）。
+        CheckCode(RuleCore.DeclareAttack(ctx, 0, 3, 1, 2, ranged: false), RuleCodes.ErrAttackBlockFlying,
                   "地面单位**近战**打不到飞行单位");
         // 远程可以
         var ctxR = Battle(new[] { Ranged("Archer", 1, 0, 5, 3), Unit("F1", 1, 1, 1), Unit("F2", 1, 1, 1) },
@@ -25933,7 +26113,8 @@ public static partial class RuleEngineTest
         var victim = Place(ctx, 1, 5, bl20, exhausted: true);   // 被打者：大格号
         Place(ctx, 1, 1, watcher, exhausted: true);             // 旁观者：小格号
         // ⚠️ `Ranged(名字, 费用, 攻, 血, 远程, …)` —— **`atk` 必须是正数**：0 攻的单位
-        //    连 `DeclareAttack` 都过不去（`RuleCodes.ErrNoAttack`，离线探针实测 7）。
+        //    连 `DeclareAttack` 都过不去（🆕 2026-10-23 `B-31` 拆码之后是 `ErrNoMeleeAttack`(21) /
+        //    `ErrNoRangedAttack`(22)，按这一记的打法分支；拆码前是笼统的 `ErrNoAttack`(7)）。
         Place(ctx, 0, 3, Ranged("W58D8Shooter", 1, 3, 9, 3, "Long Range"), exhausted: false);
         ctx.ClearSignals();
         int logFrom = ctx.Events.Count;
@@ -30480,10 +30661,15 @@ public static partial class RuleEngineTest
 
         // ---- 乙：`oath` / `ferocity` —— **能动**（这个位不许把它们按 `Exhausted` 处理）**但不能攻击** ----
         {
+            // 🔴 第 10 个 int = `rangedAttack`，**必须 > 0**（这里 3）。写 0 时下面那条「远程**也**打不了」
+            //    会先撞上 `FieldAttack <= 0 ⇒ ErrNoRangedAttack(22)`（`RuleCore.cs:5019-5025`，B-31 拆码），
+            //    于是「删掉 `RuleCore.cs:5035` 那句 `CannotAttackThisTurn` ⇒ 本行红」的**灭自证力就没了**
+            //    （远程 0 本身就返回 22 ⇒ 期望写成 22 的话，删掉 5035 仍然绿）。
+            //    ⛔ 别把下面远程那条的期望改成 22。
             var oath = new CardDef("A992OathB", "A992OathB", "unit", "",
-                                   "common", "Test", 1, 3, 9, 0, new[] { "oath" }, subtype: "Infantry");
+                                   "common", "Test", 1, 3, 9, 3, new[] { "oath" }, subtype: "Infantry");
             var fero = new CardDef("A992FeroB", "A992FeroB", "unit", "Ferocity: Gain +2 Attack",
-                                   "common", "Test", 1, 3, 9, 0, new[] { "Ferocity" }, subtype: "Infantry");
+                                   "common", "Test", 1, 3, 9, 3, new[] { "Ferocity" }, subtype: "Infantry");
             var ctx = Battle(new[] { oath, fero }, new[] { Unit("A992FoeB", 1, 0, 9) });
             ToP1Turn(ctx, 1);
             ctx.Players[0].Energy = 30;
@@ -30615,7 +30801,8 @@ public static partial class RuleEngineTest
                       "Ⓑ （前提）没有召唤病 ⇒ 打敌方督军合法");
 
             sick.SummonSickness = true;
-            CheckCode(RuleCore.IsValidTarget(ctx, 0, 3, 1, W, false), RuleCodes.ErrTarget,
+            // 🆕 2026-10-23（`B-31` 拆码）：`ErrCantAttackFlank`（词条 `Battle/Tips/CantAttackFlank`）。
+            CheckCode(RuleCore.IsValidTarget(ctx, 0, 3, 1, W, false), RuleCodes.ErrCantAttackFlank,
                       "★ Ⓑ **召唤病在身、且不带 `fast` ⇒ 打不了敌方督军**"
                     + "（原版 `IsValidAttackTarget.c:199-202` 那个 `else if` 只配 `fast`；"
                     + " `:282-290` 是它的 `else` 支 = 「不合法」）"
@@ -30725,9 +30912,37 @@ public static partial class RuleEngineTest
                   + "｜🧨 随手给它塞一个键 ⇒ 本行红（而那正是「静默错报原因」）");
         CheckTrue(RuleCodes.TermKey(RuleCodes.ErrNoAttack) == null
                   && RuleCodes.TermKey(RuleCodes.ErrTarget) == null,
-                  "★ 反例：`ErrNoAttack` / `ErrTarget` 同理（各盖原版好几档 `CantAttack*` / `AttackBlock*` / "
-                  + "`InvalidTarget`）—— 等第二步**拆码**，别在这一步猜"
-                  + "｜⚠️ **`A985⑧` 第二步只做完了 `ErrSlot` 那一半**，这两个码还没拆");
+                  "★ 反例：`ErrNoAttack` / `ErrTarget` **拆码之后仍然不映射** —— 它们只剩各自那一层意思"
+                  + "（`ErrNoAttack` = 禁攻关键词 / 本回合不能攻击；`ErrTarget` = 参数非法 / 技能目标非法），"
+                  + "原版那两个因在 `CanAttackNow.c` 里**直接 return 0、没有 `Battle/Tips` 词条**"
+                  + "｜🧨 给它们硬塞一个键（比如 `CantAttackWithZero*`）⇒ 本行红 = 静默错报原因");
+
+        // ---- 🆕 2026-10-23（`B-31` · `ErrNoAttack` / `ErrTarget` 拆细）：七档各接上原版键 ----
+        //   判据 = `BattleManager__IsValidAttackTarget.c` 那七支（分支/行号/字面量地址见
+        //   `RuleCodes.ErrNoMeleeAttack` 上面那张表；字面量 → `stringliteral.json` 7/7 命中）。
+        Check(RuleCodes.TermKey(RuleCodes.ErrNoMeleeAttack), "Battle/Tips/CantAttackWithZeroMeleeAttack",
+              "★ `ErrNoMeleeAttack` → `CantAttackWithZeroMeleeAttack`（`IsValidAttackTarget.c:57-70`）");
+        Check(RuleCodes.TermKey(RuleCodes.ErrNoRangedAttack), "Battle/Tips/CantAttackWithZeroRangedAttack",
+              "★ `ErrNoRangedAttack` → `CantAttackWithZeroRangedAttack`（`:72-86`）");
+        Check(RuleCodes.TermKey(RuleCodes.ErrAttackBlock), "Battle/Tips/AttackBlock",
+              "★ `ErrAttackBlock` → `AttackBlock`（`:149-174` 护卫那支）");
+        Check(RuleCodes.TermKey(RuleCodes.ErrAttackBlockStealth), "Battle/Tips/AttackBlockStealth",
+              "★ `ErrAttackBlockStealth` → `AttackBlockStealth`（`:134`）");
+        Check(RuleCodes.TermKey(RuleCodes.ErrAttackBlockFlying), "Battle/Tips/AttackBlockFlying",
+              "★ `ErrAttackBlockFlying` → `AttackBlockFlying`（`:177-181`）");
+        Check(RuleCodes.TermKey(RuleCodes.ErrCantAttackDestroyer), "Battle/Tips/CantAttackDestroyer",
+              "★ `ErrCantAttackDestroyer` → `CantAttackDestroyer`（`:206-264`）");
+        Check(RuleCodes.TermKey(RuleCodes.ErrCantAttackFlank), "Battle/Tips/CantAttackFlank",
+              "★ `ErrCantAttackFlank` → `CantAttackFlank`（`:200-203`）");
+        CheckTrue(RuleCodes.ErrNoMeleeAttack != RuleCodes.ErrNoRangedAttack
+                  && RuleCodes.ErrAttackBlock != RuleCodes.ErrAttackBlockStealth
+                  && RuleCodes.ErrAttackBlock != RuleCodes.ErrAttackBlockFlying
+                  && RuleCodes.ErrAttackBlockStealth != RuleCodes.ErrAttackBlockFlying
+                  && RuleCodes.ErrCantAttackDestroyer != RuleCodes.ErrAttackBlock
+                  && RuleCodes.ErrCantAttackFlank != RuleCodes.ErrAttackBlock
+                  && RuleCodes.ErrNoMeleeAttack > RuleCodes.ErrNotPlayable,
+                  "★ **拆码本身**：七个新码互不相等、且都在旧码段（≤ 20）之后 ——"
+                  + "⛔ 别复用旧值（`B-31` 之前 21.. 是空号；复用 7/10 会把拆码退化成别名）");
 
         // ---- 🆕 2026-10-18（第三会话 · `A985⑧` 第二步「拆码」）：拆出来的两档各接上原版键 ----
         Check(RuleCodes.TermKey(RuleCodes.ErrNoTargetAvailable), "Battle/Tips/NoTargetAvailable",
@@ -34226,20 +34441,22 @@ public static partial class RuleEngineTest
     //  🆕 2026-10-22（引擎线 `W64` · 战斗审计 `B-16` **消费端**）：结算层真的吃结构化条件
     // ==================================================================
     //  判据（第一权威 = 全量反编译 `d:/2/tools/decomp_full/`）：
-    //   · 求值 = `FilterMethods__MeetsConditionCriteria.c`（`40` `:87-98` · `220` `:253-257` ·
-    //     `243` `:294-297` · `244` `:298-311`）；取反 = 末段 `:384-389`。
-    //   · 数据 = 卡池 v15 的 `unitConditions`（`CardDef.ConditionOf` / `Conditions`）。
+    //   · 求值 = `FilterMethods__MeetsConditionCriteria.c`（逐值判据**全在** `Core/ConditionEval.cs`）；
+    //     取反 = 末段 `:384-389`（`ConditionEval.Meets` 的出口做一次）。
+    //   · 数据 = 卡池 v15+ 的 `unitConditions`（`CardDef.ConditionOf` / `Conditions`）。
     //   · 接线 = `EffectResolver.TryStructuredCondition`（`ConditionHolds` 的**入口第一跳**）。
     //  ⚠️ 这一节钉的是「**哪一档判的**」（`structured` 那一位），不是「值恰好相等」——
     //     值相等有可能是正文碰巧判对，那证明不了接线。
+    //  🆕 2026-10-23（`B-16` 整件）：**逐值求值**（35 个成员、每值正例+反例）单列在
+    //     `TestB16ConditionEval`；本节只留「接线」那几条 + 四个消费者的判别式。
 
     /// <summary>🆕 2026-10-22（`W64` · `B-16` 消费端）：结构化条件的求值 + 接线 + 三条守卫。</summary>
     static void TestW64StructuredConditions()
     {
         var pool = CardDatabase.Load();
 
-        // ---- ① 求值器：原版四个枚举值的真假 + `excludeCondition` 取反 ----
-        //   判据逐条 → `RuleCore.MeetsUnitCondition` 的 doc（⛔ 别在这儿另写一份口径）。
+        // ---- ① 求值器：四个**消费端用到**的枚举值 + `excludeCondition` 取反 ----
+        //   判据逐条 → `ConditionEval` 的 doc（⛔ 别在这儿另写一份口径）；逐值全覆盖 → `TestB16ConditionEval`。
         {
             var ctx = ProbeBattle(new CardDef[0], new CardDef[0]);
 
@@ -34280,11 +34497,16 @@ public static partial class RuleEngineTest
             hurt.Prayed = true;
             CheckTrue(RuleCore.MeetsUnitCondition(ctx, hurt, 243, false) == true,
                       "★ 243 `isPraying` ⇒ 真（原版 `:294-297` 读 `+0x67`）");
-            CheckTrue(RuleCore.MeetsUnitCondition(ctx, hurt, 221, false) == null,
-                      "★ 221（`diedThisTurn`，**count 那一档**）本波**判不了 ⇒ `null`**（⛔ 不猜）"
-                    + "｜🧨 给它编一个「大概」的判据 ⇒ 本行红");
-            CheckTrue(RuleCore.MeetsUnitCondition(ctx, hurt, 277, false) == null,
-                      "★ 277（`isInfrantryOrBeast`，`B-06` 那一族）本波**判不了 ⇒ `null`**（没有消费者，也⛔ 不猜）");
+            // 🔴 2026-10-23（`B-16` 整件）：这两条**原来断言 `== null`**（当时求值器只有四类）。
+            //   `ConditionEval` 接上之后 221 / 277 都判得了 ⇒ 断言改成「判得了、且值对」：
+            //   · 221 对**活着的**单位 = 假（它没死过；死卡的窗口见 `TestB16ConditionEval` 那一节）；
+            //   · 277 对 `subtype` 为空的夹具 = 假（Infantry/Beast 都不是）。
+            CheckTrue(RuleCore.MeetsUnitCondition(ctx, hurt, 221, false) == false,
+                      "★ 221 `diedThisTurn`：**活着的**单位 ⇒ 假（原版 `turnDied == 当前回合号` 不成立）"
+                    + "｜🧨 把它判成 `null`（退回正文）⇒ 本行红 —— `B-16` 整件之后它已由 `ConditionEval` 判");
+            CheckTrue(RuleCore.MeetsUnitCondition(ctx, hurt, 277, false) == false,
+                      "★ 277 `isInfrantryOrBeast`：这个夹具的 `subtype` 是空串 ⇒ 假"
+                    + "（正例见 `TestB16ConditionEval` 的 Infantry / Beast 两条）");
         }
 
         // ---- ② 接线：DA22 的 `If it survives`（原版 `acting` 行 220/ex=1）**真的走结构化** ----
@@ -34427,11 +34649,16 @@ public static partial class RuleEngineTest
                     + "（那是把「打带护甲的目标」读成「能量为 0」）");
         }
 
-        // ---- ⑦ `deaths`（count 那一档）：**数据有行、但被数的集合没落列** ⇒ 本波不接 ----
+        // ---- ⑦ `deaths`（count 那一档）：**行在、被数集合也落了，但 `count` 的消费层还没接** ----
         //   `EC58 Vengeful Surge`：`If a friendly troop died this turn, give them Flank`
-        //   ⇒ 数据是两条 `count` 行（`op=1/ref=0` 与 `op=2/ref=1`）。v15 的列只落了**比较三参数**，
-        //   没落 `countCriteria.friendlyUnits / includeHero / includeMinions / targetsAffected`
-        //   ⇒ 「数谁」读不到 ⇒ **保持正文**（接了就是猜），并且**结构化的 `MeetsUnitCondition(221)` 返回 null**。
+        //   ⇒ 数据是两条 `count` 行（`op=1/ref=0` 与 `op=2/ref=1`）。
+        //   🔴 **2026-10-23 订正（`B-16` 整件）**：本节原写「v15 只落了比较三参数、没落被数集合
+        //     ⇒ 『数谁』读不到」—— **v16 起已不成立**：`countSet`（原版 `BoardCriteria.countCriteria`
+        //     那 36 格 ＋ `playerTurn`）已经落列，`CardDef.ConditionSpec.CountSet` 读得到。
+        //   仍然不接的是**另一层**：`countOptions / triggerIf / referenceValue` 的**比较** ＋ 对那个集合的
+        //     遍历（= `FilterMethods__CheckIfMeetsCriteria` 那一圈），本版**没有消费点** ⇒ `deaths` 保持正文。
+        //   ⚠️ 同句原来还写「结构化 `MeetsUnitCondition(221)` 返回 null」—— 现在 221 **判得了**
+        //      （本类只回答「**这一个**单位死没死」；`count` 要的是「有几个」，两件事别混）。
         var ec58 = CardDatabase.FindById(pool, "EC58");
         CheckTrue(ec58 != null, "(前提) EC58 Vengeful Surge 在池内");
         if (ec58 != null)
@@ -34531,10 +34758,15 @@ public static partial class RuleEngineTest
                     + "｜🧨 两边都用 `ex=0` 判 ⇒ 上一条与本条必有一条红");
 
             // ①-f 判不了的值 ⇒ **整条不筛**（⛔ 不空池、不猜）
+            //   ⚠️ 2026-10-23（铁律 5）：样本原来是 **277**，但 277 在 `ConditionEval` 接上之后
+            //   **已经判得了**（`ConditionEval.cs` 的 `case 277`；单位 subtype 的数据是齐的）——
+            //   对本格这几个夹具（`Unit(...)` 建的单位 = subtype 空串）它会判**假**、把池子筛成 0。
+            //   换 **240 `hasSecretOrder`**：仍是 `Kind.ModelGap`（`ConditionEval.cs` 的 `case 240`
+            //   返回 `null` —— 缺「附魔实例 → spellType」那一层），才测得到「判不了 ⇒ 不筛」这条不变量。
             var unjudgeable = RuleCore.ResolveTargets(ctx, 0, enemySpec, null, null,
-                new CardDef.ConditionSpec { Role = "target", Condition = 277, Exclude = false });
+                new CardDef.ConditionSpec { Role = "target", Condition = 240, Exclude = false });
             Check(unjudgeable.Count, 4,
-                  "★ `cond=277`（`isInfrantryOrBeast`，`B-06` 那一族）本波**判不了 ⇒ 不筛**"
+                  "★ `cond=240`（`hasSecretOrder`）本波**判不了 ⇒ 不筛**"
                 + "（⛔ 不把池子筛空）｜🧨 判不了时改成「全排除」⇒ 本行红");
         }
 
@@ -34810,6 +35042,454 @@ public static partial class RuleEngineTest
             };
             var got = RuleCore.ResolveTargets(ctx, 0, poolSpec, null, null, ops[0].TargetCondition);
             Check(got.Count, 2, "★ 目标池**完全不变**（两个敌人都在）—— 没条件的卡一个字节都不受影响");
+        }
+    }
+
+    // ==================================================================
+    //  🆕 2026-10-23（引擎线 `B-16` 整件）：`UnitConditions` **逐值**求值器
+    //  `Core/ConditionEval.cs`（唯一实现；`RuleCore.MeetsUnitCondition` 只是转发）。
+    //  判据 = `d:/2/tools/decomp_full/FilterMethods__MeetsConditionCriteria.c`（每格行号在 ConditionEval 里）。
+    //  口径：每个「本版判得了」的值 **一条正例 + 一条反例**；「模型缺数据」那七档断言 `null` + 原因非空；
+    //  「原版自己没实现」那三档断言 `Kind = OriginalUnhandled` ∧ `false`（原版 `:354-361` 的 LogError + 0）。
+    // ==================================================================
+    /// <summary>夹具：带兵种 / 阵营的卡（`Unit()` 那两个参数是固定值，这一族要指定）。</summary>
+    static CardDef Sub16(string name, string type, string subtype, string faction)
+    {
+        return new CardDef(name, name, type, "", null, faction, 1, 1, 5, 0, null, subtype: subtype);
+    }
+
+    static void TestB16ConditionEval()
+    {
+        var ctx = ProbeBattle(new CardDef[0], new CardDef[0]);
+
+        // ---- 0 `none` ------------------------------------------------------------
+        {
+            var u = Place(ctx, 0, 0, Unit("B16_none", 1, 1, 5));
+            CheckTrue(ConditionEval.MeetsUnit(ctx, u, 0) == true,
+                      "★ B-16 · 0 `none` ⇒ 真（`0` 在卡表里从不作为一行出现；`ConditionOf` 的 0 = 「这一格没有条件」）");
+        }
+
+        // ---- 10 `canAttack` ------------------------------------------------------
+        {
+            var u = Place(ctx, 0, 0, Unit("B16_canact", 1, 1, 5));
+            CheckTrue(ConditionEval.MeetsUnit(ctx, u, 10) == true,
+                      "★ B-16 · 10 `canAttack`：没行动过 ⇒ 真（原版 `:101-117` 读 `canAct(+0x230)` = 我们的 `Exhausted`）");
+            u.Exhausted = true;
+            CheckTrue(ConditionEval.MeetsUnit(ctx, u, 10) == false, "★ B-16 · 10：已行动 ⇒ 假");
+        }
+
+        // ---- 20 `mightAttack` ----------------------------------------------------
+        {
+            var u = Place(ctx, 0, 0, Unit("B16_might", 1, 2, 5));
+            CheckTrue(ConditionEval.MeetsUnit(ctx, u, 20) == true,
+                      "★ B-16 · 20 `mightAttack`：本回合没攻击过、无召唤病、非 stun/cantAttack/nonCombatant ⇒ 真");
+            u.SummonSickness = true;
+            CheckTrue(ConditionEval.MeetsUnit(ctx, u, 20) == false,
+                      "★ B-16 · 20：召唤病 ⇒ 假（`displaySummonSickness` = `+0x58 && !fast && !flank`）"
+                    + "｜🧨 把判据写成「只看 +0x58」⇒ 带 Fast 的分支会错（本夹具没带，另见下一条）");
+            u.SummonSickness = false;
+            u.AddKeyword(RuleCore.Noncombatant, 1);
+            CheckTrue(ConditionEval.MeetsUnit(ctx, u, 20) == false, "★ B-16 · 20：`nonCombatant(880)` ⇒ 假");
+            u.RemoveAll(RuleCore.Noncombatant);
+            u.AttacksThisTurn = 1;
+            CheckTrue(ConditionEval.MeetsUnit(ctx, u, 20) == false,
+                      "★ B-16 · 20：本回合已攻击 1 次但**不带 bloodThirst** ⇒ 假（`get_mightAct.c:7-14`）");
+            u.AddKeyword(KeywordTable.BloodThirst, 1);
+            CheckTrue(ConditionEval.MeetsUnit(ctx, u, 20) == true,
+                      "★ B-16 · 20：带 bloodThirst 且只攻击过 1 次 ⇒ 真");
+        }
+
+        // ---- 40 `damaged` --------------------------------------------------------
+        {
+            var u = Place(ctx, 0, 0, Unit("B16_dmg", 1, 1, 5));
+            CheckTrue(ConditionEval.MeetsUnit(ctx, u, 40) == false, "★ B-16 · 40 `damaged`：满血 ⇒ 假");
+            u.Health = 4;
+            CheckTrue(ConditionEval.MeetsUnit(ctx, u, 40) == true, "★ B-16 · 40：4/5 ⇒ 真");
+        }
+
+        // ---- 50 `flying` ---------------------------------------------------------
+        {
+            var fly = Place(ctx, 0, 0, Unit("B16_fly", 1, 1, 5, "Flying"));
+            CheckTrue(ConditionEval.MeetsUnit(ctx, fly, 50) == true, "★ B-16 · 50 `flying`：带 flying(390) ⇒ 真");
+            var van = Place(ctx, 0, 1, Unit("B16_flyvan", 1, 1, 5, "Flying", "Vanguard"));
+            CheckTrue(ConditionEval.MeetsUnit(ctx, van, 50) == false,
+                      "★ B-16 · 50：带 vanguard(980) ⇒ 假（原版 `:38-45` 的 `&& !MeetsTraitCriteria(980)`）");
+            var uns = Place(ctx, 0, 2, Unit("B16_unstop", 1, 1, 5, "Unstoppable"));
+            CheckTrue(ConditionEval.MeetsUnit(ctx, uns, 50) == true,
+                      "★ B-16 · 50：`unstoppable(180)` 也算飞行 ⇒ 真（原版 `trait 180 || trait 390`）");
+        }
+
+        // ---- 100 / 120（两张**不同**的 trait 列表，⛔ 别互相顶替）-----------------
+        {
+            var dodge = Place(ctx, 0, 0, Unit("B16_dodge", 1, 1, 5, "Dodge"));
+            CheckTrue(ConditionEval.MeetsUnit(ctx, dodge, 100) == true, "★ B-16 · 100：`dodge(240)` ⇒ 真");
+            var shield = Place(ctx, 0, 1, Unit("B16_shield", 1, 1, 5, "Shield"));
+            CheckTrue(ConditionEval.MeetsUnit(ctx, shield, 100) == false,
+                      "★ B-16 · 100：**只带 shield ⇒ 假**（`100` 的列表 = dodge/invulnerable/dropPod，不含 shield）"
+                    + "｜🧨 把 100 写成 120 的列表 ⇒ 本行红");
+            CheckTrue(ConditionEval.MeetsUnit(ctx, shield, 120) == true,
+                      "★ B-16 · 120：shield 在**这一张**列表里 ⇒ 真（`IsProtectedFromDamageOrSurvivor.c`）");
+            var dp = Place(ctx, 0, 2, Unit("B16_droppod", 1, 1, 5, "DropPod"));
+            CheckTrue(ConditionEval.MeetsUnit(ctx, dp, 100) == true, "★ B-16 · 100：`dropPod(230)` ⇒ 真");
+            var sv = Place(ctx, 0, 3, Unit("B16_120surv", 1, 1, 5, "Survivor 2"));
+            CheckTrue(ConditionEval.MeetsUnit(ctx, sv, 120) == true, "★ B-16 · 120：`survivor(430)` ⇒ 真");
+            CheckTrue(ConditionEval.MeetsUnit(ctx, sv, 100) == false,
+                      "★ B-16 · 100：survivor **不在** 100 的列表里 ⇒ 假（只该在 120 里）");
+        }
+
+        // ---- 110 `protectedFromAttackDamage`（= 100 ∨ 施法者攻击 ≤ 目标 Bastion）----
+        {
+            // 🔴 **目标自己攻击 9**（> 它自己的 `Bastion 3`）是**故意的**：主语一旦被读成候选（旧实现），
+            //    这里会算 `9 <= 3` ⇒ 假 ⇒ 本行红。目标攻击写 1 时旧实现「以错误的理由」通过（**假绿**）。
+            var tgt = Place(ctx, 1, 0, Unit("B16_110t", 1, 9, 5, "Bastion 3"));
+            var atk = Place(ctx, 0, 0, Unit("B16_110a", 1, 2, 5));
+            CheckTrue(ConditionEval.MeetsUnit(ctx, tgt, 110, false, atk) == true,
+                      "★ B-16 · 110：**施法者**攻击 2 ≤ 目标 `Bastion 3` ⇒ 真（`HasBastionHigherThanAttack.c:18-21`）"
+                    + "｜🧨 把主语误读成候选（= 目标自己，9 > 3）⇒ 本行红");
+            atk.Attack = 5;                       // 改的是**施法者**的攻击 —— 目标那 9 点从头到尾不参与
+            CheckTrue(ConditionEval.MeetsUnit(ctx, tgt, 110, false, atk) == false,
+                      "★ B-16 · 110：**施法者**攻击 5 > 目标 Bastion 3 ⇒ 假"
+                    + "（`EntityScript__get_currentCombatAttack.c`：残骸 ⇒ 0，否则按攻击型取近战/远程）");
+            // 🔴 **已知偏离（铁律 5·b 记账，本批不改）**：原版 `HasBastionHigherThanAttack.c:16-17,26`
+            //    在施法者为空时**明确 `return false`**（= 110 退化成只看 `100`），我们这里返回 `null`。
+            //    改它要连生产入口形参（`EffectResolver.cs:10106-10109` 没有 `thisUnit`）一起补 ⇒ 另立账。
+            CheckTrue(ConditionEval.MeetsUnit(ctx, tgt, 110) == null,
+                      "★ B-16 · 110：**拿不到施法者 ⇒ null**（⛔ 不猜）｜🧨 把后半段当成「恒假」⇒ 本行红");
+        }
+
+        // ---- 190 `hasAbility` ----------------------------------------------------
+        {
+            var ab = Place(ctx, 0, 0, Unit("B16_abil", 1, 1, 5, "Ability: Damage 3 EnemyUnit"));
+            CheckTrue(ConditionEval.MeetsUnit(ctx, ab, 190) == true,
+                      "★ B-16 · 190 `hasAbility`：解析出主动技能 ⇒ 真（原版 `+0x220 hasActiveAbility`）");
+            var noab = Place(ctx, 0, 1, Unit("B16_noab", 1, 1, 5));
+            CheckTrue(ConditionEval.MeetsUnit(ctx, noab, 190) == false, "★ B-16 · 190：没有主动技能 ⇒ 假");
+        }
+
+        // ---- 220 `dealtKillDmg`（= 将死；名字 ≠ 语义）-----------------------------
+        {
+            var dy = Place(ctx, 0, 0, Unit("B16_dying", 1, 1, 5));
+            dy.Health = 0;
+            CheckTrue(ConditionEval.MeetsUnit(ctx, dy, 220) == true,
+                      "★ B-16 · 220：血 0、无 Survivor ⇒ 将死 = 真（`EnoughPendingDamageToDie`）");
+            var sv = Place(ctx, 0, 1, Unit("B16_220surv", 1, 1, 5, "Survivor 3"));
+            sv.Health = 0;
+            CheckTrue(ConditionEval.MeetsUnit(ctx, sv, 220) == false, "★ B-16 · 220：血 0 但带 Survivor ⇒ 假");
+        }
+
+        // ---- 221 / 222（`DeadUnits` 的死亡回合窗口）------------------------------
+        {
+            var dead = Unit("B16_dead", 1, 1, 5);
+            ctx.DeadUnits.Add(new DeadUnit { Card = dead, Owner = 0, DeathTurn = ctx.Turn });
+            CheckTrue(ConditionEval.MeetsCard(ctx, dead, 0, 221) == true,
+                      "★ B-16 · 221 `diedThisTurn`：本回合死的卡 ⇒ 真（原版 `turnDied == turnCounter`）");
+            CheckTrue(ConditionEval.MeetsCard(ctx, dead, 0, 222) == true, "★ B-16 · 222：本回合死的也满足「自上一回合起」");
+            ctx.DeadUnits[ctx.DeadUnits.Count - 1].DeathTurn = ctx.Turn - 1;
+            CheckTrue(ConditionEval.MeetsCard(ctx, dead, 0, 221) == false, "★ B-16 · 221：**上**回合死的 ⇒ 假");
+            CheckTrue(ConditionEval.MeetsCard(ctx, dead, 0, 222) == true,
+                      "★ B-16 · 222：上回合死的 ⇒ 真（原版 `:26-47` = `turnDied == t || turnDied + 1 == t`）");
+            var live = Place(ctx, 0, 0, Unit("B16_alive", 1, 1, 5));
+            CheckTrue(ConditionEval.MeetsUnit(ctx, live, 221) == false, "★ B-16 · 221：活着的单位 ⇒ 假（它没死过）");
+        }
+
+        // ---- 230 `stealthAndNotDealtKillDmg` -------------------------------------
+        {
+            var st = Place(ctx, 0, 0, Unit("B16_st", 1, 1, 5, "Stealth"));
+            CheckTrue(ConditionEval.MeetsUnit(ctx, st, 230) == true, "★ B-16 · 230：隐身且不会死 ⇒ 真");
+            st.Health = 0;
+            CheckTrue(ConditionEval.MeetsUnit(ctx, st, 230) == false, "★ B-16 · 230：隐身但**将死** ⇒ 假");
+            var plain = Place(ctx, 0, 1, Unit("B16_230plain", 1, 1, 5));
+            CheckTrue(ConditionEval.MeetsUnit(ctx, plain, 230) == false, "★ B-16 · 230：不隐身 ⇒ 假（不看将死那一半）");
+        }
+
+        // ---- 243 `isPraying` / 244 `hasArmour` / 245 `hasAttackValues` -----------
+        {
+            var u = Place(ctx, 0, 0, Unit("B16_243", 1, 1, 5));
+            CheckTrue(ConditionEval.MeetsUnit(ctx, u, 243) == false, "★ B-16 · 243 `isPraying`：没祈祷 ⇒ 假");
+            u.Prayed = true;
+            CheckTrue(ConditionEval.MeetsUnit(ctx, u, 243) == true, "★ B-16 · 243：正在祈祷 ⇒ 真（原版读 `+0x67`）");
+
+            u.Armor = 0;
+            CheckTrue(ConditionEval.MeetsUnit(ctx, u, 244) == false, "★ B-16 · 244 `hasArmour`：护甲 0 ⇒ 假");
+            u.Armor = 2;
+            CheckTrue(ConditionEval.MeetsUnit(ctx, u, 244) == true, "★ B-16 · 244：护甲 2 ⇒ 真");
+            CheckTrue(ConditionEval.MeetsUnit(ctx, u, 244, true) == false,
+                      "★ B-16 · 244 + `excludeCondition=1` ⇒ **取反**（原版 `:384-389`）"
+                    + "｜🧨 把取反挪到调用方 / 删掉 ⇒ 与上一条不可能同时绿");
+
+            var zero = Place(ctx, 0, 1, Unit("B16_245z", 1, 0, 5));
+            CheckTrue(ConditionEval.MeetsUnit(ctx, zero, 245) == false, "★ B-16 · 245 `hasAttackValues`：近战远程都 0 ⇒ 假");
+            zero.Attack = 2;
+            CheckTrue(ConditionEval.MeetsUnit(ctx, zero, 245) == true, "★ B-16 · 245：近战 2 ⇒ 真");
+        }
+
+        // ---- 260 `costEqualToAvailableEnergy` ------------------------------------
+        {
+            ctx.Players[0].Energy = 3;
+            var c3 = Place(ctx, 0, 0, Unit("B16_cost3", 3, 1, 5));
+            CheckTrue(ConditionEval.MeetsUnit(ctx, c3, 260) == true,
+                      "★ B-16 · 260：卡费 3 == 剩余能量 3 ⇒ 真（原版 `CurrentCost == GetUnusedMana()`）");
+            ctx.Players[0].Energy = 4;
+            CheckTrue(ConditionEval.MeetsUnit(ctx, c3, 260) == false, "★ B-16 · 260：剩余能量 4 ≠ 卡费 3 ⇒ 假");
+        }
+
+        // ---- 270 / 275 / 276 / 277（卡本身的属性，不需要在场）--------------------
+        {
+            var hero = Hero("B16_hero", 2, 30);
+            var inf = Sub16("B16_inf", "unit", "Infantry", "Test");
+            var veh = Sub16("B16_veh", "unit", "Vehicle", "Test");
+            var bs = Sub16("B16_bs", "unit", "Battlesuit", "Test");
+            var beast = Sub16("B16_beast", "unit", "Beast", "Test");
+
+            CheckTrue(ConditionEval.MeetsCard(ctx, hero, 0, 270) == true,
+                      "★ B-16 · 270 `isWarlordEquivalent`：`type=hero` ⇒ 真（原版 = `cardType == 10`）");
+            CheckTrue(ConditionEval.MeetsCard(ctx, inf, 0, 270) == false, "★ B-16 · 270：部队 ⇒ 假");
+
+            CheckTrue(ConditionEval.MeetsCard(ctx, veh, 0, 275) == true, "★ B-16 · 275：Vehicle ⇒ 真");
+            CheckTrue(ConditionEval.MeetsCard(ctx, inf, 0, 275) == false, "★ B-16 · 275：Infantry ⇒ 假");
+            CheckTrue(ConditionEval.MeetsCard(ctx, hero, 0, 275) == true, "★ B-16 · 275：督军等价也算 ⇒ 真");
+
+            CheckTrue(ConditionEval.MeetsCard(ctx, bs, 0, 276) == true, "★ B-16 · 276：Battlesuit ⇒ 真");
+            CheckTrue(ConditionEval.MeetsCard(ctx, inf, 0, 276) == false, "★ B-16 · 276：Infantry ⇒ 假");
+            CheckTrue(ConditionEval.MeetsCard(ctx, veh, 0, 276) == true, "★ B-16 · 276：Vehicle 也算 ⇒ 真");
+
+            CheckTrue(ConditionEval.MeetsCard(ctx, inf, 0, 277) == true, "★ B-16 · 277：Infantry ⇒ 真");
+            CheckTrue(ConditionEval.MeetsCard(ctx, beast, 0, 277) == true, "★ B-16 · 277：Beast 也算 ⇒ 真");
+            CheckTrue(ConditionEval.MeetsCard(ctx, veh, 0, 277) == false, "★ B-16 · 277：Vehicle ⇒ 假");
+        }
+
+        // ---- 290 / 300 / 310（**原版自己也没实现** ⇒ 照抄 false）------------------
+        {
+            var u = Place(ctx, 0, 0, Unit("B16_unhandled", 1, 1, 5));
+            for (int i = 0; i < 3; i++)
+            {
+                int v = i == 0 ? 290 : (i == 1 ? 300 : 310);
+                CheckTrue(ConditionEval.KindOf(v) == ConditionEval.Kind.OriginalUnhandled,
+                          $"★ B-16 · {v}：原版 switch 没有这一格 ⇒ Kind = OriginalUnhandled（`:354-361` LogError + 0）");
+                CheckTrue(ConditionEval.MeetsUnit(ctx, u, v) == false,
+                          $"★ B-16 · {v}：照抄 **false**（⛔ 别改成 null —— 原版确实返回 0）");
+            }
+        }
+
+        // ---- 331 `stealthOrCamouflage` -------------------------------------------
+        {
+            var st = Place(ctx, 0, 0, Unit("B16_331st", 1, 1, 5, "Stealth"));
+            CheckTrue(ConditionEval.MeetsUnit(ctx, st, 331) == true, "★ B-16 · 331：stealth ⇒ 真");
+            var cam = Place(ctx, 0, 1, Unit("B16_331cam", 1, 1, 5, "Camouflage"));
+            CheckTrue(ConditionEval.MeetsUnit(ctx, cam, 331) == true, "★ B-16 · 331：camouflage(985) ⇒ 真");
+            var plain = Place(ctx, 0, 2, Unit("B16_331p", 1, 1, 5));
+            CheckTrue(ConditionEval.MeetsUnit(ctx, plain, 331) == false, "★ B-16 · 331：两者都没有 ⇒ 假");
+        }
+
+        // ---- 340 `onlyRemnants`（+ 原版那半句「阵营 = 太空死灵(40 Sautekh)」）-----
+        {
+            var rem = Place(ctx, 0, 0, Sub16("B16_rem", "unit", "Infantry", "Sautekh"));
+            rem.IsRemnant = true;
+            CheckTrue(ConditionEval.MeetsUnit(ctx, rem, 340) == true,
+                      "★ B-16 · 340 `onlyRemnants`：死灵(Sautekh)残骸 ⇒ 真"
+                    + "（`SupportMethods__IsNecronRemnant.c` = `cardArmy(+0x2c) == 40` ∧ `isRemnant(+0x65)`）");
+            rem.IsRemnant = false;
+            CheckTrue(ConditionEval.MeetsUnit(ctx, rem, 340) == false, "★ B-16 · 340：不是残骸 ⇒ 假");
+            var other = Place(ctx, 0, 1, Sub16("B16_rem2", "unit", "Infantry", "Goff"));
+            other.IsRemnant = true;
+            CheckTrue(ConditionEval.MeetsUnit(ctx, other, 340) == false,
+                      "★ B-16 · 340：**非死灵阵营**的残骸 ⇒ 假（原版那半句阵营判据）"
+                    + "｜🧨 只判 `IsRemnant`、丢掉阵营 ⇒ 本行红");
+        }
+
+        // ---- 341 `canUseDuty` / 342 `summonSickness` ------------------------------
+        {
+            var u = Place(ctx, 0, 0, Unit("B16_341", 1, 1, 5));
+            CheckTrue(ConditionEval.MeetsUnit(ctx, u, 341) == true, "★ B-16 · 341 `canUseDuty`：职责没用过 ⇒ 真（`+0x4c == 0`）");
+            u.DutyUsed = true;
+            CheckTrue(ConditionEval.MeetsUnit(ctx, u, 341) == false, "★ B-16 · 341：用过了 ⇒ 假");
+
+            CheckTrue(ConditionEval.MeetsUnit(ctx, u, 342) == false, "★ B-16 · 342 `summonSickness`：没有召唤病 ⇒ 假");
+            u.SummonSickness = true;
+            CheckTrue(ConditionEval.MeetsUnit(ctx, u, 342) == true, "★ B-16 · 342：召唤病 ⇒ 真（原版读 `+0x58`）");
+        }
+
+        // ---- 模型缺数据那五档：**必须是 null + 有原因**（⛔ 不猜）------------------
+        //   🆕 2026-10-23（`B-16` 残余）：241 / 242 **已经判得了**（v17 `abilityTriggers` 列），
+        //   从这一档移出去 —— 它们的正/反例见下一块。
+        {
+            var u = Place(ctx, 0, 0, Unit("B16_gap", 1, 1, 5));
+            int[] gaps = { 240, 250, 280, 320, 330 };
+            for (int i = 0; i < gaps.Length; i++)
+            {
+                int v = gaps[i];
+                string why = ConditionEval.GapOf(v);
+                CheckTrue(ConditionEval.KindOf(v) == ConditionEval.Kind.ModelGap
+                          && ConditionEval.MeetsUnit(ctx, u, v) == null
+                          && !string.IsNullOrEmpty(why),
+                          $"★ B-16 · {v}：本版**判不了 ⇒ null**，且 `GapOf` 给出原因（{why}）");
+            }
+            CheckTrue(ConditionEval.KindOf(999) == ConditionEval.Kind.UnknownValue
+                      && ConditionEval.MeetsUnit(ctx, u, 999) == null,
+                      "★ B-16 · 非枚举值 999：坏数据 ⇒ Kind = UnknownValue ∧ null");
+        }
+
+        // ---- 🆕 2026-10-23（`B-16` 残余）：241 `hasUseSpiritStone` / 242 `hasUseFaith` ----
+        //   判据 = 原版 `MeetsConditionCriteria.c:286-293` → `RawCardScript.HasAbilityType(raw, 600/605)`
+        //   → `RawCardScript__HasAbilityType.c:16-38`（遍历 `cardAbilities`、只看 `trigger`）。
+        //   数据 = v17 `abilityTriggers`（`cards_engine.json` 里 `sorted(set(...))`）。
+        {
+            var pool = CardDatabase.Load();
+            var spirit = pool.Find(c => c != null && c.Id == "ASH83");   // `cardAbilities[0].trigger = 600`
+            var faith = pool.Find(c => c != null && c.Id == "SOR54");    // 一条 `605 UseFaith` 的付费 ability
+            var plain = pool.Find(c => c != null && c.Id == "BL64");     // 只有 `trigger = 0`
+            CheckTrue(spirit != null && faith != null && plain != null,
+                      "（前提）三张判据卡都在池里（`ASH83` / `SOR54` / `BL64`）");
+            if (spirit != null && faith != null && plain != null)
+            {
+                CheckTrue(spirit.AbilityTriggerPresence(600) == 1
+                          && faith.AbilityTriggerPresence(605) == 1
+                          && plain.AbilityTriggerPresence(600) == 0,
+                          "（前提）`abilityTriggers` 列真的落到了 `CardDef` 上"
+                          + "（ASH83 有 600 / SOR54 有 605 / BL64 两者都没有）");
+                var us = Place(ctx, 0, 0, spirit);
+                var uf = Place(ctx, 0, 0, faith);
+                var up = Place(ctx, 0, 0, plain);
+                CheckTrue(ConditionEval.MeetsUnit(ctx, us, 241) == true,
+                          "★ 241：带 `UseSpiritStone(600)` ability 的卡 ⇒ 真");
+                CheckTrue(ConditionEval.MeetsUnit(ctx, us, 242) == false,
+                          "★ 241 的反面：同一张卡没有 605 ⇒ 242 假（两个值不是同一个判据）");
+                CheckTrue(ConditionEval.MeetsUnit(ctx, uf, 242) == true
+                          && ConditionEval.MeetsUnit(ctx, uf, 241) == false,
+                          "★ 242：带 `UseFaith(605)` 的卡 ⇒ 真；它的 241 假");
+                CheckTrue(ConditionEval.MeetsUnit(ctx, up, 241) == false
+                          && ConditionEval.MeetsUnit(ctx, up, 242) == false,
+                          "★ 反例：只有 `trigger = 0` 的卡 ⇒ 241/242 都假（不是「有 ability 就算」）");
+                // 🔴 **`-1` 契约**：旧表 / 缺列 ⇒ **未知**，⛔ 不许读成「没有」（那是静默判假）。
+                var unversioned = new CardDef("B16_nover", "B16_nover", "unit", "", "common", "Test",
+                                              1, 1, 5, 0, null, subtype: "Infantry", abilityTriggers: null);
+                var un = Place(ctx, 0, 0, unversioned);
+                CheckTrue(ConditionEval.MeetsUnit(ctx, un, 241) == null
+                          && ConditionEval.MeetsUnit(ctx, un, 242) == null,
+                          "★ `-1` 契约：`abilityTriggers` 缺列（旧表）⇒ `AbilityTriggerPresence == -1`"
+                          + " ⇒ 241/242 返回 **null（未知）**，⛔ 不是 false");
+                CheckTrue(ConditionEval.KindOf(241) == ConditionEval.Kind.Ok
+                          && ConditionEval.KindOf(242) == ConditionEval.Kind.Ok
+                          && ConditionEval.GapOf(241) == null && ConditionEval.GapOf(242) == null,
+                          "★ `KindOf(241/242) = Ok` ∧ `GapOf` 为 null（缺口账已核销）");
+            }
+        }
+
+        // ---- 单一实现：`RuleCore.MeetsUnitCondition` 只是转发 ---------------------
+        {
+            var u = Place(ctx, 0, 0, Unit("B16_one", 1, 1, 5));
+            u.Armor = 2;
+            CheckTrue(RuleCore.MeetsUnitCondition(ctx, u, 244, false) == ConditionEval.MeetsUnit(ctx, u, 244, false),
+                      "★ B-16 · `RuleCore.MeetsUnitCondition` 与 `ConditionEval.MeetsUnit` **同值**（唯一实现、不是两份）"
+                    + "｜🧨 在 `EffectResolver` 里再长回一份判据 ⇒ 两处迟早不一致（本行只盯值、盯不住分叉的意图）");
+        }
+    }
+
+    // ==================================================================
+    //  🆕 2026-10-23（引擎线 · 战斗审计 `B-17`）：无主语正文按 `targetsAffected` 取
+    // ==================================================================
+    //  判据（第一权威 = 全量反编译 `d:/2/tools/decomp_full/AbilityLogic__GetTargets.c`）：
+    //   · `iVar6 = *(int*)(criteria + 0x10)` = `targetsAffected`，整条函数按它分发；
+    //     `:721-737` `friendlyHero(120)` → `BattleManager.GetHero(actingCard.isPlayer)` = **施放方督军**。
+    //   · 数据 = 卡池 v17 的 `abilityTargets`（生成器 `ability_targets_of`）；
+    //     归位两道闸门 = `EffectText.AssignAbilityTargets`（块数 == ability 数、块内 op 数 == logic 数）。
+    //   · 消费 = `EffectResolver.ResolveTargets` 的 `Subjectless` 分支（**只**没有施放者、也没点目标那一格）。
+    //  ⚠️ 这一节钉三件事：① 数据真的挂到了 op 上；② 闸门不过时**不猜**（`-1`）；
+    //     ③ 消费端只认 `120`，其余照旧落「己方全体」。
+
+    /// <summary>🆕 2026-10-23（`B-17`）：`targetsAffected` 的归位 + 消费端。</summary>
+    static void TestB17SubjectlessTargets()
+    {
+        var pool = CardDatabase.Load();
+
+        // ---- ① 归位：GOF42 的后半句 `heals 5` 该拿到 `120 friendlyHero` -------------
+        {
+            var gof42 = pool.Find(c => c != null && c.Id == "GOF42");
+            CheckTrue(gof42 != null && gof42.AbilityTargetsVersioned && gof42.AbilityTargets.Count == 1,
+                      "（前提）`GOF42 Da Irongob` 在池里、带 v17 `abilityTargets`、且只有 1 条 ability");
+            if (gof42 != null && gof42.AbilityTargets.Count == 1)
+            {
+                var ops = EffectText.Parse(gof42.Desc, out _, out _, card: gof42);
+                EffectOp heal = null, gain = null;
+                for (int i = 0; i < ops.Count; i++)
+                {
+                    if (ops[i] == null) continue;
+                    if (ops[i].Verb == "heal") heal = ops[i];
+                    if (ops[i].Verb == "gain") gain = ops[i];
+                }
+                CheckTrue(heal != null && heal.Target != null && heal.Target.Subjectless,
+                          "（前提）`heals 5` 解析成一条**无主语**的 `heal` op");
+                CheckTrue(heal != null && heal.SubjectTargetsAffected == 120,
+                          "★ **归位**：`heals 5` 拿到 `targetsAffected = 120 friendlyHero`"
+                        + "（判据 `AbilityLogic__GetTargets.c:721-737`：`GetHero(actingCard.isPlayer)`）"
+                        + "｜🧨 把 `AssignAbilityTargets` 的两道闸门删掉（无条件按块下标硬配）⇒ 本行仍绿，"
+                        + "但下面那条 `ASH83` 会红 = 那条闸门的哨兵");
+                CheckTrue(gain != null && gain.SubjectTargetsAffected <= 120,
+                          "★ 同块的第一条 op（`Your Warlord gains …`）也拿到了值（`120`）——"
+                        + "它有自己的显式目标 ⇒ **消费端不会走无主语那一支**（见 ③ 的第一条）");
+            }
+        }
+
+        // ---- ② 闸门：块数对不上 ability 数 ⇒ **一个值都不给**（⛔ 不猜）-------------
+        {
+            // `ASH83 Autarch`：`Desc` = `Waystone. 1 [Spirit Stone]: Give …` ⇒ 2 个能力块
+            // （`Waystone.` 一段 + 付费前缀一段）而 `cardAbilities` **只有 1 条** ⇒ G1 不过。
+            var ash = pool.Find(c => c != null && c.Id == "ASH83");
+            CheckTrue(ash != null && ash.AbilityTargets.Count == 1, "（前提）`ASH83` 只有 1 条 ability");
+            if (ash != null)
+            {
+                var ops = EffectText.Parse(ash.Desc, out _, out _, card: ash);
+                bool any = false;
+                for (int i = 0; i < ops.Count; i++)
+                    if (ops[i] != null && ops[i].SubjectTargetsAffected >= 0) any = true;
+                CheckTrue(!any,
+                          "★ **闸门 G1**：`ASH83` 的能力块数（2）≠ ability 数（1）⇒ 全部 op 的 "
+                        + "`SubjectTargetsAffected` 保持 **-1**（读不到，⛔ 不按块下标硬配）"
+                        + "｜🧨 去掉 G1 ⇒ 这条 give 会拿到 `Self` 的 `10`（它属于 Waystone 那条付费 ability）");
+            }
+        }
+
+        // ---- ③ 消费端：只认 `120`，其余照旧落「己方全体」 --------------------------
+        {
+            var ctx = ProbeBattle(new CardDef[0], new CardDef[0]);
+            ToP1Turn(ctx, 3);
+            var a = Place(ctx, 0, 3, Unit("B17A", 1, 1, 5));
+            var b = Place(ctx, 0, 5, Unit("B17B", 1, 1, 5));
+            var hero = Board(ctx, 0, BoardSpec.WarlordSlot);
+            CheckTrue(a != null && b != null && hero != null, "（前提）己方场上：两个部队 + 督军");
+
+            EffectOp MakeOp(int ta)
+            {
+                return new EffectOp
+                {
+                    Verb = "heal", Source = "B17", Amount = 1,
+                    Target = new EffectTargetSpec
+                    {
+                        Raw = "(未写目标)", Side = "own", Kind = "unit", Count = 0, Auto = true,
+                        Subjectless = true,
+                    },
+                    SubjectTargetsAffected = ta,
+                };
+            }
+
+            var op120 = MakeOp(120);
+            var t120 = RuleCore.ResolveTargets(ctx, 0, op120.Target, null, null, null, op120);
+            CheckTrue(t120.Count == 1 && t120[0] == hero,
+                      "★ **消费端**：`targetsAffected = 120` ⇒ 只落到**己方督军**"
+                    + "（原版 `AbilityLogic__GetTargets.c:721-737`）"
+                    + "｜🧨 删掉 `ResolveTargets` 里那个 `if (ta == 120)` 支 ⇒ 退回己方全体（3 个）⇒ 本行红");
+
+            var op20 = MakeOp(20);   // `self`（= 卡自己，不是场上单位）⇒ 本版不认
+            var t20 = RuleCore.ResolveTargets(ctx, 0, op20.Target, null, null, null, op20);
+            CheckTrue(t20.Count == 3,
+                      "★ **反例（不猜）**：`targetsAffected = 20 self` ⇒ **照旧落己方全体（3 个）** ——"
+                    + "`self` 在战术卡上是**卡自己**（不是场上单位），本版没有那一层 ⇒ 宁可保持旧近似"
+                    + "｜🧨 顺手把 20 也映射成「施放者」⇒ 这条会变 1 个（静默错打）");
+
+            var opNone = MakeOp(-1);   // 读不到
+            var tNone = RuleCore.ResolveTargets(ctx, 0, opNone.Target, null, null, null, opNone);
+            CheckTrue(tNone.Count == 3,
+                      "★ 读不到（`-1`）⇒ 照旧己方全体（同 `B-17` 之前的全部行为，零回归）");
         }
     }
 }

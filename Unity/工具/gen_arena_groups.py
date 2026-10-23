@@ -17,8 +17,16 @@
 
 🔴 **A345（2026-10-13）：范围已从「A191 点名的几个宿主」扩到【全覆盖】** —— 每一场、**每一条会真被建出来的**
   清单条目（网格 / 粒子 / 灯 / 相机）都按**原版那棵树里的整条路径**归位：
-    · `nodes[]` = 原版树上有、我们**没建**的对象 ⇒ 新建**空节点**（含 `Scenario` / `Particles` 这类容器层，
-      以及被 `ArenaBuilder` 四道闸门挡掉的那批）；
+    · `nodes[]` = **为了让已建对象归回原版父链、需要在工程里存在（或新建）的节点集合** ——
+      = 「`want` 里每条路径的**祖先链 + 子树**」减去 `targets[]`（已建）。
+      ⇒ 它**混着两类**：① `Scenario` / `Particles` / `BattlePrefab` 这类**容器层**；
+      ② 原版树上有、我们**没建**的对象（含被 `ArenaBuilder` 四道闸门挡掉的那批）。
+      🔴 **它也会混进已建出来的对象**（例：`battlearenaastramilitarum` 的 `Battle Arena Astra Militarum Baked`
+      是已建的根、`Bunker Gun .001` 是已建对象）—— 判据是 `ps in built_paths` 按**路径**判，
+      而这些「清单里没有的父/子件」自然落到 `nodes[]`。
+      ⛔ **别拿 `nodes[]` 当「缺失清单」**（`A1559②`）：它只覆盖 `want` 的祖先链与子树，
+      **原版有、清单里没提、又不在任何人子树里的对象根本不在里面**
+      （照它找 astra 只会找到 `Bunker Gun `，**漏掉真正的 `Generator `**）。
     · `targets[]` = 我们**已经建出来**的对象 ⇒ 改挂到它的原版父节点下（`SetParent(…, true)`，画面零变化）；
     · ⇒ 容器层**不再是平铺的**（原来 `Scenario/Particles` 那一层、以及其余 11 场都没有）。
   ⚠️ **只有一条有意排除**（⛔ 别当「漏了」）：
@@ -53,9 +61,14 @@
     "nodes":   [ {path, name, localPos[3], localRot[4], localScale[3], parent, parentPos, animation} ],
     "targets": [ {name, pos[3], parent, parentPos, animation} ],
     "adds":    [ {name, pos[3], animation} ] }
-  · `nodes[]` = 要【新建】的节点（**浅→深**排好序 ⇒ 父一定先于子出现），
+  · `nodes[]` = **归位时需要在工程里存在（多数要新建）的节点**（**浅→深**排好序 ⇒ 父一定先于子出现），
     **写的是原版 local TRS**（`ArenaBuilder` 直接 `localPosition/localRotation/localScale` 写下去 ——
     不引入第二套坐标口径）。
+    🔴 **它不是「缺失清单」**（`A1559②`，2026-10-23 订正）：内容 = `want` 的**祖先链 + 子树** − `targets[]`，
+    所以**容器层、已建对象的路径、以及被闸门挡掉的对象混在一起**
+    （实测 astra：`Battle Arena Astra Militarum Baked` / `Bunker Gun .001` 都是**已建**的，照样在里面）。
+    而「原版有、清单没提、又不在任何人子树里」的对象**根本不进这张表**
+    （astra 的 `Battle Arena Astra Militarum Baked/Generator ` 就不在 —— 照 `nodes[]` 找会漏掉它）。
   · `targets[]` = 我们**已经建出来**的对象 ⇒ 改挂到 `parent` 那条路径下。
     `pos` / `parentPos` = **与清单同一套**的无缩放世界链（`world_chain` 口径），
     用来在 `ArenaBuilder` 侧按「名字 + 最近位置」把它对上（同名对象不止一个）。
@@ -637,13 +650,19 @@ def build(arena, blend, anims, manifest, sc=None):
         adds.append({'name': leaf, 'pos': [round(x, 6) for x in p], 'animation': 1})
 
     return {'scene': arena,
-            '_schema': 'nodes[] = 要新建的节点（浅→深；localPos/localRot/localScale = **原版 local**，'
+            '_schema': 'nodes[] = 归位时需要在工程里存在（多数要新建）的节点（浅→深；'
+                       'localPos/localRot/localScale = **原版 local**，'
                        '`ArenaBuilder` 直接写下去 —— 不引入第二套坐标口径）· '
                        'targets[] = 已建对象（改挂到 `parent` 那条路径下；`pos`/`parentPos` = '
                        '**与清单同一套**的无缩放世界链，用于按「名字 + 最近位置」对上对象）· '
                        'adds[] = 已建对象**不改挂**、只补 `Animation` 组件 · animation=1 = 原版这个 GO 上有它 · '
                        '🆕 A345：`want` = 本场清单里**每一条会建出来的**对象（网格/粒子/灯）的原版路径 '
-                       '+ 旁挂那两样 ⇒ `nodes[]` 是「原版有、我们没建」的那批（含容器层）',
+                       '+ 旁挂那两样 · '
+                       '🔴 2026-10-23 订正（A1559②）：**nodes[] 不是「缺失清单」** —— '
+                       '它的内容 = `want` 的祖先链 + 子树 − targets[]，所以**容器层、已建对象的路径、'
+                       '被闸门挡掉的对象混在一起**（实测 astra 里 `Battle Arena Astra Militarum Baked`、'
+                       '`Bunker Gun .001` 都是已建的）；而「原版有、清单没提、又不在任何人子树里」的对象'
+                       '**根本不进这张表**（astra 的 `Generator ` 就不在）⇒ ⛔ 别拿它找「还缺什么」',
             '_sources': 'scenes_scenes_%s.bundle（直读）＋ arenas/%s/%s_manifest.json（清单全覆盖，A345）'
                         '＋ 数据/游戏数据/env_blendables.json 的 _missingTargets[].wantedPath 与 '
                         'lookat 目标的 target 字段' % (arena, arena, arena),

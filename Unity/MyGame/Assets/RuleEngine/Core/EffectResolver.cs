@@ -1145,6 +1145,25 @@ namespace RuleEngine
         ///      绝不用 `UnityEngine.Random`；
         ///   ② **目标找不到就空过**，不自动改打别的（那是替玩家做决定）。
         /// </summary>
+        /// <summary>🆕 2026-10-23（`B-17`）：`TargetsAffected` 数值 → 枚举名（**只给日志/自检看**）。
+        /// 表 = `d:/2/Warpforge_code/Scripts/Assembly-CSharp/TargetsAffected.cs`；只收常被问到的几档，
+        /// 其余返回 `""`（⛔ 不编名字）。</summary>
+        static string TargetsAffectedName(int ta)
+        {
+            switch (ta)
+            {
+                case 0: return "any";
+                case 10: return "allFiltered";
+                case 20: return "self";
+                case 30: return "target";
+                case 40: return "attacker";
+                case 80: return "actingCard";
+                case 120: return "friendlyHero";
+                case 130: return "enemyHero";
+                default: return "";
+            }
+        }
+
         public static List<UnitState> ResolveTargets(BattleContext ctx, int owner,
                                                      EffectTargetSpec spec, UnitState source,
                                                      UnitState chosen,
@@ -1154,7 +1173,12 @@ namespace RuleEngine
                                                      //   生产调用点传的是 **`op.TargetCondition`**（逐 op 归位，
                                                      //   见 `EffectText.AssignAbilityIndices`）；`IsLegalPick`
                                                      //   传的是**同一条**行 ⇒ 高亮与结算不会分叉。
-                                                     CardDef.ConditionSpec structuredCondition = null)
+                                                     CardDef.ConditionSpec structuredCondition = null,
+                                                     // 🆕 2026-10-23（引擎线 · 战斗审计 `B-17`）：**这条 op 本身**。
+                                                     //   只有 `spec.Subjectless` ∧ 没有施放者 ∧ 没有点目标那一格用得上
+                                                     //   （读 `op.SubjectTargetsAffected`，原版 `abilityLogic.targetCriteria`）。
+                                                     //   传 `null` = 不知道是哪一条 ⇒ 照旧走「己方全体」近似并出声。
+                                                     EffectOp op = null)
         {
             var list = new List<UnitState>();
             if (spec == null) return list;
@@ -1279,13 +1303,36 @@ namespace RuleEngine
                 else if (chosen != null && chosen.IsAlive) list.Add(chosen);
                 else
                 {
+                    // 🔴 **2026-10-23（引擎线 · 战斗审计 `B-17`）：先按原版 `targetsAffected` 取。**
+                    //   判据 = `AbilityLogic__GetTargets.c`（`+0x10` 分发）；归位两道闸门 →
+                    //   `EffectText.AssignAbilityTargets`；值挂在 `op.SubjectTargetsAffected`。
+                    //   ⚠️ **只认 `120 friendlyHero`**（`:721-737` → `GetHero(actingCard.isPlayer)` =
+                    //   **施放方督军**）—— 语义与卡面「your Warlord」逐字对得上，且它在我们模型里
+                    //   就是一个**具体的单位**。其余值**不猜**：
+                    //     · `20 self` = **写着这条 ability 的那张卡**（战术卡/附魔卡自己，不是场上单位）；
+                    //     · `80 actingCard` / `40 attacker` = 触发方，战术卡这条路上根本没有；
+                    //     · `10 allFiltered` / `0 any` = 要按 `friendlyUnits/enemyUnits/includeHero/
+                    //       includeMinions` 现筛（我们这一列**没落那些位** ⇒ 拿不准，宁可不改）。
+                    //   读不到（`-1`）⇒ 退回既有近似 + 出声（下面那一段）。
+                    int ta = op != null ? op.SubjectTargetsAffected : -1;
+                    if (ta == 120)
+                    {
+                        var hero = ctx.Players[owner].Board[BoardSpec.WarlordSlot];
+                        if (hero != null && hero.IsAlive) list.Add(hero);
+                        ctx.Log($"（「{spec.Raw}」：**没有施放者、也没点目标** ⇒ 按原版"
+                              + " `targetsAffected = 120 friendlyHero` 落到**己方督军**"
+                              + $"（{Names(list)}）—— 判据 `AbilityLogic__GetTargets.c:721-737`）");
+                        return list;
+                    }
                     // 没有施放者、也没点目标：**退回既有近似**（己方全体），并把这件事说清楚 ——
                     // 静默换语义比报一行日志糟得多。
                     // 🔴 **2026-10-10（`A1407`）：这句话以前只写在注释里、代码里一行都没有**
                     //    （那一支是**唯一**没有任何日志的降级路）—— 现在真出声，并报出**具体收进了谁**。
                     AddSide(list, ctx.Players[owner], false, spec.Kind == "troop", -1);
                     ctx.Log($"（「{spec.Raw}」：**没有施放者、也没点目标** ⇒ 按既有近似落到**己方全体**"
-                          + $"（{list.Count} 个：{Names(list)}）—— 这条近似不是原版语义，如实报出来）");
+                          + $"（{list.Count} 个：{Names(list)}）—— 这条近似不是原版语义，如实报出来；"
+                          + $"原版这条 logic 的 `targetsAffected` = {ta}（{TargetsAffectedName(ta)}）"
+                          + (ta < 0 ? "，**读不到**" : "，本版没接这一档") + "）");
                 }
                 return list;
             }
@@ -1553,7 +1600,9 @@ namespace RuleEngine
                 //    扫完全场**一个合法目标都没有** ⇒ `Battle/Tips/NoTargetAvailable`。
                 //    ⚠️ 下面两句是同一件事的两半（**没给格位 / 给了个越界格位** 与 **那一格没有合法候选**）：
                 //      本卡**要求**选目标，而这一支判完就是「**没有可点的目标**」 ⇒ 两半同归这一档。
-                //    ⚠️ 别和 `ErrTarget` 混：那是**攻击**那一侧「目标不合法（Vanguard/Stealth/Flying）」。
+                //    ⚠️ 别和其它「目标类」码混：`B-31`（2026-10-23）之后，攻击那一侧的
+                //      Vanguard/Stealth/Flying **各有各的码**（`ErrAttackBlock` / `…Stealth` / `…Flying`），
+                //      而 `ErrTarget` 只剩「参数非法 / 技能目标非法」这一层意思。
                 if (targetSlot < 0 || !BoardSpec.IsValid(targetSlot)) return RuleCodes.ErrNoTargetAvailable;
                 var u = ctx.Players[spec.Side == "enemy" ? 1 - p : p].Board[targetSlot];
                 if (u == null || !IsLegalPick(ctx, p, spec, u, pickCond)) return RuleCodes.ErrNoTargetAvailable;
@@ -1731,8 +1780,8 @@ namespace RuleEngine
                     //   静默不筛 = 玩家看不出「这条条件本版没生效」（本工程红线）。
                     StructuredConditionNotice("unjudgeable-target|" + row.Condition,
                         $"结构化**目标**条件 `cond={row.Condition}`（ex={(row.Exclude ? 1 : 0)}）"
-                      + "本波判不了 ⇒ 这一条**不筛目标池**（⛔ 没有当成「不成立」、也没有筛空）。"
-                      + "能判的值见 `MeetsUnitCondition`（40 / 220 / 243 / 244 / 50）。");
+                      + "本版判不了 ⇒ 这一条**不筛目标池**（⛔ 没有当成「不成立」、也没有筛空）。"
+                      + "能判的值 → `ConditionEval.KindOf` / 判不了的原因 → `ConditionEval.GapOf`。");
                     return;
                 }
                 if (ok.Value) kept.Add(u);
@@ -2212,7 +2261,7 @@ namespace RuleEngine
                            UnitState chosen, List<string> unresolved)
         {
             // 🆕 2026-10-22（`W64`·`B-16`）：按**这条 op** 的结构化目标条件行筛（`null` = 没有/读不到 ⇒ 不筛）。
-            var targets = ResolveTargets(ctx, owner, op.Target, null, chosen, op.TargetCondition);
+            var targets = ResolveTargets(ctx, owner, op.Target, null, chosen, op.TargetCondition, op);
             if (targets.Count == 0)
             {
                 ctx.Log($"{by}：「{op.Source}」没有合法目标，空过");
@@ -2363,7 +2412,7 @@ namespace RuleEngine
             }
             else
             {
-                attackers.AddRange(ResolveTargets(ctx, owner, op.Target, null, chosen, op.TargetCondition));
+                attackers.AddRange(ResolveTargets(ctx, owner, op.Target, null, chosen, op.TargetCondition, op));
                 attackers.RemoveAll(u => u == null || !u.IsAlive);
             }
             if (attackers.Count == 0)
@@ -2691,7 +2740,7 @@ namespace RuleEngine
                 return true;
             }
             // 🆕 2026-10-22（`W64`·`B-16`）：按**这条 op** 的结构化目标条件行筛（`null` = 没有/读不到 ⇒ 不筛）。
-            var targets = ResolveTargets(ctx, owner, op.Target, null, chosen, op.TargetCondition);
+            var targets = ResolveTargets(ctx, owner, op.Target, null, chosen, op.TargetCondition, op);
             int total = 0;
             foreach (var t in targets)
                 total += HealUnit(ctx, t, heal, false);
@@ -3198,7 +3247,7 @@ namespace RuleEngine
                               UnitState chosen, List<string> unresolved)
         {
             // 🆕 2026-10-22（`W64`·`B-16`）：按**这条 op** 的结构化目标条件行筛（`null` = 没有/读不到 ⇒ 不筛）。
-            var targets = ResolveTargets(ctx, owner, op.Target, null, chosen, op.TargetCondition);
+            var targets = ResolveTargets(ctx, owner, op.Target, null, chosen, op.TargetCondition, op);
             foreach (var t in targets)
             {
                 if (t == null || !t.IsAlive) continue;
@@ -3241,7 +3290,7 @@ namespace RuleEngine
                 Raw = "(未写目标：默认一个敌方单位)", Side = "enemy", Kind = "any",
                 Count = op.Amount > 0 ? op.Amount : 1, Auto = true,
             };
-            var targets = ResolveTargets(ctx, owner, spec, null, chosen);
+            var targets = ResolveTargets(ctx, owner, spec, null, chosen, null, op);
 
             // ---- 🔴 2026-10-11（`A1224`）：**代词目标的「旧对象」要映射回棋盘上现在占位的那一个** ----
             // 起因（判据正本 = `资料/普查产出_第十三会话/R2_A1224现核.md`）：
@@ -3365,7 +3414,7 @@ namespace RuleEngine
                 Raw = "(未写目标：默认一个敌方单位)", Side = "enemy", Kind = "any",
                 Count = op.Amount > 0 ? op.Amount : 1, Auto = true,
             };
-            var targets = ResolveTargets(ctx, owner, spec, null, chosen);
+            var targets = ResolveTargets(ctx, owner, spec, null, chosen, null, op);
 
             int n = 0;
             foreach (var t in targets)
@@ -3689,6 +3738,24 @@ namespace RuleEngine
             }
 
             var pick = TakePickCard(ctx, cands, by, op.Source + "（选牌）", unresolved);
+
+            // ---- ①b 🔴🆕 2026-10-23（`W63·审查-日志3键`）：**从敌方手牌里选牌 ⇒ 亮出那一张** ----
+            //  原版判据（全量反编译）：`CemeteryManager__AddDisplayedCardActionToCemetery.c`
+            //    （动作类型 `local_1e8 = 0x1e` = **30 = `displayedCard`**）由
+            //    `BattleManager._ResolveDisplayFromHand_d__548__MoveNext` 落一行，发起者 = 能力
+            //    opcode **`0x136`(310)**（`AbilityLogic__PlayAbility.c:2225-2240` →
+            //    `BattleManager__AddDisplayFromHand.c:23` 入队）。
+            //  我们这边「从敌方手牌里挑一张」只有 `choosecard` 的 `enemyhand` 支这一个入口
+            //    （`ChooseCardCandidates` 的 `enemyhand` 档），它在本模型里的**唯一可观察结果**
+            //    就是「对手手里那张牌被亮出来了」⇒ 在**选定那一刻**发一条。
+            //  ⚠️ **载体是借的（如实标着）**：`EvtKind` 里没有 `displayedCard` 这一档，而枚举只许
+            //    追加（属引擎侧另一笔账）⇒ 借 `EvtKind.Draw` + `Effect == "display"`；渲染侧
+            //    `BattleDriver` 的 `case EvtKind.Draw` 已按这个子标签分两支
+            //    （`ActionDisplay{Your,Enemy}CardInHand`，2026-10-22 写完并断言）。⛔ 别在别处再造信号名。
+            //  `Player` = **看牌那一方**（= 这条能力的控制者 `owner`，不是被看的那一方）；
+            //  `CardId` = 被亮出的那一张；`slot = -1`（它在手牌里、不在棋盘上）。
+            if (op.ChooseSrc == "enemyhand" && pick != null)
+                ctx.Emit(EvtKind.Draw, owner, -1, pick.Id, effect: "display");
 
             // ---- ② 引用位：原版 `:1151-1152` **两个都写** ----
             // `LastCreated` 接通已有的 `(指代上一张)`（`Lower its cost by N` / `It costs N less`）；
@@ -4330,12 +4397,20 @@ namespace RuleEngine
         /// ⚠️ **仍是近似**：`RuleCore.HandEffectFits` 只拿得到 `CardDef`（不是实例）
         ///   ⇒ 「同名多份」区分不了 —— 这是本工程「卡实例身份」那条线的既有边界，不是本件引入的。
         /// </summary>
-        static EffectTargetSpec HandSelfCriteria(string cardName)
+        static EffectTargetSpec HandSelfCriteria(CardInstance inst)
         {
+            // 🔴 **2026-10-23（`W64 B-09`）就地订正（铁律 5）**：本方法原先只收 `cardName`、
+            //   用 `NameFilter = 卡名` 收窄，上一段 doc 里那句「`BL15` 的判据（原版 `buffHand`(50)
+            //   还是 `buffSelf`(40)）**在本地缺失的 `allcards` bundle 里**」**已过期** ——
+            //   `allcards` 2026-10-18 已本地导出，现读 `cards_raw.json`：
+            //   `BL6`（旧 id `BL15`）`cardAbilities[0].abilityLogic[0].chosenAbility = 40`。
+            //   `AbilityEffect.cs:12`：`buffSelf` = 40、`buffHand` = 50 ⇒ **原版只加它自己那一份**。
+            //   ⇒ 从「同名全部」收窄成**按实例身份**（`OnlyInstanceId`）。
+            //   ⚠️ 手里两张同名牌时，原版只有被触发的那一份吃得上 —— 旧写法会两张一起吃（偏多）。
             return new EffectTargetSpec
             {
                 Raw = "(手牌里的自己)", Side = "own", Kind = "unit", Count = 0, Auto = true,
-                NameFilter = cardName,
+                NameFilter = inst != null && inst.Card != null ? inst.Card.Name : null,
             };
         }
 
@@ -4443,7 +4518,8 @@ namespace RuleEngine
         static bool AttachHandEffect(BattleContext ctx, CardInstance inst, string source, string payload,
                                      string duration, CardInstance.HandBuffUses uses, bool dedupSamePayload,
                                      bool extrinsic = false, EffectTargetSpec criteria = null,
-                                     int recordId = 0, int ownerForRecord = -1)
+                                     int recordId = 0, int ownerForRecord = -1,
+                                     int onlyInstanceId = 0)
         {
             // ⚠️ 顺序：**先判空、再取号**（原来先取号 —— `ctx == null` 时会在
             //    `ctx.NextHandEffectRecord()` 上 NRE，那句 `ctx == null` 白写了）。
@@ -4502,6 +4578,9 @@ namespace RuleEngine
                 Extrinsic = extrinsic,
                 ActingUnit = ctx.ActingUnit,
                 Target = criteria,
+                // 🔴 **2026-10-23（`W64 B-09`）**：只补给**这一份**（0 = 不限）。
+                //   判据 / 为什么不是 `EffectTargetSpec` 上的字段 → `HandSelfCriteria` 的 doc。
+                OnlyInstanceId = onlyInstanceId,
             };
             switch (duration)
             {
@@ -4632,6 +4711,7 @@ namespace RuleEngine
                 Extrinsic = src.Extrinsic,
                 ActingUnit = src.ActingUnit,
                 Target = src.Target,
+                OnlyInstanceId = src.OnlyInstanceId,   // `B-09`：按份钉的那一格**照抄**
             });
             ctx.Log($"（进手牌：「{inst.Card.Name}」吃上了**还在生效**的手牌效果「{src.Source}」"
                   + $"（{src.Op.Payload}）—— 原版 `PlayerHand.SetupCardInHand`）");
@@ -6014,12 +6094,12 @@ namespace RuleEngine
         /// <summary>结算层的一个关键词 → 原版 `AbilityTrigger` 名（只列 `FollowUpSchedulerOf` 用到的四个）。</summary>
         internal static string AbilityTriggerNameOfKeyword(string keyword)
         {
-            if (string.IsNullOrEmpty(keyword)) return null;
-            if (keyword == KeywordTable.Regiment) return "Regiment";
-            if (keyword == KeywordTable.Strike)   return "Strike";
-            if (keyword == KeywordTable.Artifice) return "Artifice";
-            if (keyword == KeywordTable.Mob)      return "Mob";
-            return null;
+            // 🔴 **2026-10-23（`W63` 收口）：本方法原来只覆盖 4 个词（只服务
+            //   `FollowUpSchedulerOf`）。`abilityContext` 要按原版 trigger 名查真值
+            //   ⇒ 扩成全量 21 条，正本据已收进 `RuleCore.TriggerNameOfKeyword`
+            //   （`Core/ActionPump.cs`，与生成器 `ABILITY_TRIGGER_KEYWORD` 逐字对齐）。
+            //   本方法**只转发**，⛔ 别在这里另写一张表。
+            return RuleCore.TriggerNameOfKeyword(keyword);
         }
 
         /// <summary>🆕 **A 族发射口**：给一张卡发 `FollowUpResolution`（410）事件。
@@ -6774,7 +6854,7 @@ namespace RuleEngine
                 return false;
             }
             // 🆕 2026-10-22（`W64`·`B-16`）：按**这条 op** 的结构化目标条件行筛（`null` = 没有/读不到 ⇒ 不筛）。
-            var targets = ResolveTargets(ctx, owner, op.Target, null, chosen, op.TargetCondition);
+            var targets = ResolveTargets(ctx, owner, op.Target, null, chosen, op.TargetCondition, op);
             int n = 0;
             foreach (var t in targets)
             {
@@ -6837,7 +6917,7 @@ namespace RuleEngine
                                   UnitState chosen, List<string> unresolved)
         {
             // 🆕 2026-10-22（`W64`·`B-16`）：按**这条 op** 的结构化目标条件行筛（`null` = 没有/读不到 ⇒ 不筛）。
-            var targets = ResolveTargets(ctx, owner, op.Target, null, chosen, op.TargetCondition);
+            var targets = ResolveTargets(ctx, owner, op.Target, null, chosen, op.TargetCondition, op);
             if (targets.Count == 0)
             {
                 ctx.Log($"{by}：「{op.Source}」没有合法目标，空过");
@@ -7698,14 +7778,11 @@ namespace RuleEngine
             //   「查不到这一列」与「这条 ability 的 context 是 0」是两件事（`TriggerNameOfWhenKind`
             //   对认不出的 kind 返回 null，见它的 doc：认不出就别猜）。
             if (string.IsNullOrEmpty(triggerName)) return CardDef.AbilityContextUnknown;
-            // 取法**转调** `RuleCore.AbilityContextOfAbility`（trigger 名优先 → 关键词兜底；
-            //   它物理上在 `Core/ActionPump.cs` 那个 partial 文件里）——
-            //   本方法只补「v14 只落非 0」这一条落值口径，⛔ 不另写一份查法。
-            int c = RuleCore.AbilityContextOfAbility(card, triggerName, null);
-            if (c != CardDef.AbilityContextUnknown) return c;
-            return card.AbilityContextsVersioned
-                 ? CardDef.AbilityContextPlay
-                 : CardDef.AbilityContextUnknown;
+            // 🔴 **2026-10-23（`W63` 收口）：本方法只剩一个转发** ——
+            //   「v14 缺行 = `Play(0)`」那一跳已经收进
+            //   `RuleCore.AbilityContextOfAbilityV14`（`Core/ActionPump.cs`），全仓**只此一处**；
+            //   ⛔ 别在本文件里另写一份（两处写同一条规则 = 迟早不一致）。
+            return RuleCore.AbilityContextOfAbilityV14(card, triggerName, null);
         }
 
         /// <summary>
@@ -8201,7 +8278,8 @@ namespace RuleEngine
                             (HandListenerSelfOp(o) ? selfOps : restOps).Add(o);
                         foreach (var o in selfOps)
                             AttachHandEffect(ctx, inst, o.Source, o.Payload, o.Duration,
-                                             null, false, false, HandSelfCriteria(c.Name));
+                                             null, false, false, HandSelfCriteria(inst),
+                                             onlyInstanceId: inst != null ? inst.Id : 0);
                         if (selfOps.Count > 0)
                             ctx.Log($"—— 手牌监听：「{c.Name}」正文**没写主语**的那 {selfOps.Count} 条"
                                   + "落**在它自己**身上（打出时兑现 —— 原版那张牌自己是 acting card；"
@@ -8610,7 +8688,7 @@ namespace RuleEngine
             {
                 Raw = "(未写目标：己方全体)", Side = "own", Kind = "unit", Count = 0, Auto = true,
             };
-            var targets = ResolveTargets(ctx, owner, spec, null, chosen);
+            var targets = ResolveTargets(ctx, owner, spec, null, chosen, null, op);
             // 🆕 2026-09-16：**`… in play and in hand` 的「手牌」那半**（`Avenging Zeal` 那一族）——
             //   ⚠️ 放在「场上没有目标就空过」那个 `return` **之前**：手里有部队、场上空着时，
             //     这半句**照样该登记**（卡面写的就是「场上和手牌」）。
@@ -10015,57 +10093,19 @@ namespace RuleEngine
 
         /// <summary>
         /// **原版 `FilterMethods.MeetsConditionCriteria` 的等价求值**（单个单位）。
-        /// 返回 `null` = **本波判不了这个枚举值**（⛔ 不是「不成立」）。
+        /// 返回 `null` = **本版判不了这个枚举值**（⛔ 不是「不成立」）。
         ///
-        /// <para>只实现四个值，每个都对着反编译逐句核过（判据 → 本节开头那段）：
-        /// `40 damaged` · `220`（将死）· `243 isPraying` · `244 hasArmour`。
-        /// ⚠️ `243` 现在**没有消费者**（`anypraying` 对应的是 `count` 行，见「已知缺口①」）
-        /// —— 留着是因为求值本身是确定的，别为「今天没用到」把判据删掉再重写一遍。</para>
+        /// <para>🔴 **2026-10-23（`B-16` 整件）：本方法现在只是转发到 `ConditionEval.MeetsUnit`**
+        /// —— 逐值判据（`UnitConditions` 全部成员、每格都标了 `MeetsConditionCriteria.c:行号`）
+        /// **全在 `Core/ConditionEval.cs`**，⛔ 别在这里再写第二份（两处迟早不一致）。
+        /// 「判得了 / 模型缺数据 / 原版自己没实现」三档 → `ConditionEval.KindOf` / `GapOf`。</para>
         ///
-        /// <para>`exclude` 的取反在**这里**做（原版 `MeetsConditionCriteria.c:384-389`）——
-        /// ⛔ 调用方**不要**再取反一次。</para>
+        /// <para>`exclude` 的取反照旧在出口做一次（原版 `MeetsConditionCriteria.c:384-389`，
+        /// 实现见 `ConditionEval.Meets`）—— ⛔ 调用方**不要**再取反一次。</para>
         /// </summary>
         public static bool? MeetsUnitCondition(BattleContext ctx, UnitState u, int cond, bool exclude)
         {
-            bool match;
-            switch (cond)
-            {
-                case 40:
-                    // 原版 `:87-98`：`GetCurrentDamage >= 1` 且**没有**「够回满的待处理治疗」。
-                    if (u == null) return null;
-                    match = u.Health < u.MaxHealth;
-                    break;
-                case 220:
-                    // 原版 `:253-257` → `CardScript__EnoughPendingDamageToDie`：
-                    // 已进「将死」队列 **或** 血量 ≤0 且没有幸存者（`RuleCore.EnoughPendingDamageToDie`
-                    // 就是后一条，全仓唯一判死闸）。
-                    if (u == null) return null;
-                    match = (ctx != null && ctx.IsPendingDeath(u)) || RuleCore.EnoughPendingDamageToDie(u);
-                    break;
-                case 243:
-                    // 原版 `:294-297`（`case 0xf3`）：读 `card+0x67` = `isPraying`。
-                    if (u == null) return null;
-                    match = u.Prayed;
-                    break;
-                case 50:
-                    // 原版 `:38-44`（`case 0x32`）：`(MeetsTraitCriteria(180) || MeetsTraitCriteria(390))
-                    // && !MeetsTraitCriteria(980)` —— 三个都是 `DefinedTrait` 的数值。
-                    // 我们这边「飞行」的**唯一表达**是关键词 `flying`（`KeywordTable.Flying`），
-                    // 口径与 `Data/AiTargets.MeetsCondition` 的 `case 50` **逐字相同**（那边已审过）。
-                    // ⚠️ 那三个 trait 数值与 `flying` 的对应关系**没有逐号核过**（trait 表随 build 漂）；
-                    // 这里用的是**我们已有的一等表达**，不是从 trait 号反推的。
-                    if (u == null) return null;
-                    match = u.Has(KeywordTable.Flying);
-                    break;
-                case 244:
-                    // 原版 `:298-311`（`case 0xf4`）：护甲那组值 `0 <` ⇒ 真。
-                    if (u == null) return null;
-                    match = u.Armor > 0;
-                    break;
-                default:
-                    return null;              // 判不了（⛔ 不猜）
-            }
-            return exclude ? !match : match;
+            return ConditionEval.MeetsUnit(ctx, u, cond, exclude);
         }
 
         /// <summary>结构化条件行 → 被判的那个单位（`null` = 这一行没有可判的主语 ⇒ 退回正文）。</summary>
@@ -10689,7 +10729,7 @@ namespace RuleEngine
             {
                 Raw = "(未写目标：默认一个敌方单位)", Side = "enemy", Kind = "any", Count = 1, Auto = true,
             };
-            var targets = ResolveTargets(ctx, owner, spec, null, chosen);
+            var targets = ResolveTargets(ctx, owner, spec, null, chosen, null, op);
             if (targets.Count == 0)
             {
                 ctx.Log($"{by}：「{op.Source}」要降生命，但没有指到任何单位 —— **这条没生效**");
@@ -10762,7 +10802,7 @@ namespace RuleEngine
             }
 
             // 🆕 2026-10-22（`W64`·`B-16`）：按**这条 op** 的结构化目标条件行筛（`null` = 没有/读不到 ⇒ 不筛）。
-            var targets = ResolveTargets(ctx, owner, op.Target, null, chosen, op.TargetCondition);
+            var targets = ResolveTargets(ctx, owner, op.Target, null, chosen, op.TargetCondition, op);
             int n = 0;
             foreach (var t in targets)
             {
@@ -10802,7 +10842,7 @@ namespace RuleEngine
                                    UnitState chosen, List<string> unresolved)
         {
             // 🆕 2026-10-22（`W64`·`B-16`）：按**这条 op** 的结构化目标条件行筛（`null` = 没有/读不到 ⇒ 不筛）。
-            var targets = ResolveTargets(ctx, owner, op.Target, null, chosen, op.TargetCondition);
+            var targets = ResolveTargets(ctx, owner, op.Target, null, chosen, op.TargetCondition, op);
             int n = 0;
             foreach (var t in targets)
             {
@@ -10853,7 +10893,7 @@ namespace RuleEngine
             }
 
             // 🆕 2026-10-22（`W64`·`B-16`）：按**这条 op** 的结构化目标条件行筛（`null` = 没有/读不到 ⇒ 不筛）。
-            var targets = ResolveTargets(ctx, owner, op.Target, null, chosen, op.TargetCondition);
+            var targets = ResolveTargets(ctx, owner, op.Target, null, chosen, op.TargetCondition, op);
             if (targets.Count == 0)
             {
                 ctx.Log($"{by}：「{op.Source}」要强行触发 `{op.Payload}`，"
@@ -11158,8 +11198,18 @@ namespace RuleEngine
                         unresolved.Add(op.Source + "（`this card` 认不出是哪张）");
                         return false;
                     }
-                    keys.Add(self.Id); shown.Add(self.Name); cardRefs.Add(self); pins.Add(null);
-                    detail = "**本卡自己**";
+                    // 🔴 **2026-10-23（`W64 B-10`）**：能钉住**这一份**就钉（不再一律 `null` 退回
+                    //   「按卡 id 匹配全部副本」）。判据 = 原版费用修正是挂在**那张牌**上的
+                    //   `CardEffect.costChange`（`CardScript__AddEffect.c:403`、`EntityScript.CurrentCost`）
+                    //   ⇒ 按**实例**，不是按定义。
+                    //   ① 单位能力那条路：`ctx.ActingUnit.Instance` 就是它；
+                    //   ② 战术卡那条路**仍钉不住**：`ctx.PlayingCard` 只存 `CardDef`
+                    //      （`BattleContext.PlayingCard` 的 doc 明写「卡牌定义」），而打出的那一份
+                    //      已经从手牌挪走 ⇒ 退到按 id 匹配（如实留着，补齐要给 `ctx` 加
+                    //      「正在结算的那一份」，属另一笔）。
+                    CardInstance selfPin = ctx.ActingUnit != null ? ctx.ActingUnit.Instance : null;
+                    keys.Add(self.Id); shown.Add(self.Name); cardRefs.Add(self); pins.Add(selfPin);
+                    detail = selfPin != null ? "**本卡自己**（已钉到这一份）" : "**本卡自己**";
                 }
                 else if (t == "cards" || t == "card" || t.Length == 0)
                 {

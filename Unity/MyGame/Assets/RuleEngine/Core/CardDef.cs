@@ -650,7 +650,24 @@ namespace RuleEngine
                        //   🔴 它**不参与** `ConditionOf` / `TryGetCondition` 的判定 —— 那些看 `countSet`
                        //   本身在不在（<see cref="ConditionSpec.CountSet"/> 非 null）。本标志只给
                        //   自检/探针一个「表够不够新」的判据，⛔ 别拿它当「被数集合是默认值」。
-                       bool conditionsCountSetVersioned = false)
+                       bool conditionsCountSetVersioned = false,
+                       // 🆕 v17（2026-10-23 · 引擎线 · `B-16` 残余）：`cardAbilities[].trigger` 的
+                       //   **全量集合**（`cards_engine.json` 的 `abilityTriggers` 列）。
+                       //   判据 = 原版 `RawCardScript.HasAbilityType(raw, trigger)` →
+                       //   `RawCardScript__HasAbilityType.c:16-38`（遍历 `cardAbilities`、只看 `trigger`）。
+                       //   ⚠️ **追加在参数表末尾**（同前几条：全仓有位置传参的老调用点）。
+                       IEnumerable<int> abilityTriggers = null,
+                       // 「这一列**来自 v17 卡表**」的正面信号（只有 `CardDatabase.Parse` 知道）。
+                       // 🔴 它只在**这一列缺席**时参与判定 —— 缺席 + 旧表 = **未知(-1)**，
+                       //   缺席 + 新表 = 这一列没落（数据坏了，入口已出声）也按未知处置。
+                       bool abilityTriggersVersioned = false,
+                       // 🆕 v17（2026-10-23 · 引擎线 · 战斗审计 `B-17`）：**逐 ability / 逐 logic 的
+                       //   `targetsAffected`**（`cards_engine.json` 的 `abilityTargets` 列）。
+                       //   判据 = `AbilityLogic__GetTargets.c` 的 `+0x10` 分发。
+                       //   消费端 = `EffectText.AssignAbilityTargets` → `EffectOp.SubjectTargetsAffected`
+                       //   → `EffectResolver` 的「无施放者、也没点目标」那一支。
+                       //   ⚠️ **下标即语义**（`[i]` = `cardAbilities[i]`）⇒ 空/缺**不许压缩**。
+                       IEnumerable<AbilityTargetSpec> abilityTargets = null)
         {
             Id = id; Name = name; Type = type ?? ""; Desc = desc ?? ""; Rarity = rarity; Faction = faction;
             NameZh = nameZh ?? ""; DescZh = descZh ?? "";
@@ -738,6 +755,16 @@ namespace RuleEngine
             ConditionsVersioned = conditionsVersioned;
             // 🆕 v16：`count` 行的被数集合**来自 v16 卡表**的正面信号（见上面形参那一段）。
             ConditionsCountSetVersioned = conditionsCountSetVersioned;
+            // 🆕 v17（2026-10-23 · `B-16` 残余）：`cardAbilities[].trigger` 的全量集合 ——
+            //   原样收下（**每张卡都落**；空列 = 明确没有任何 ability）。判据 → `AbilityTriggerPresence`。
+            if (abilityTriggers != null)
+                foreach (int _tg in abilityTriggers) _abilityTriggers.Add(_tg);
+            AbilityTriggersVersioned = abilityTriggersVersioned;
+            // 🆕 v17（`B-17`）：逐 ability / 逐 logic 的 `targetsAffected` —— 原样收下
+            //   （**下标即语义**：`[i]` 必须还是 `cardAbilities[i]`，所以 null 占位也留着）。
+            if (abilityTargets != null)
+                foreach (var _at in abilityTargets) _abilityTargets.Add(_at);
+            AbilityTargetsVersioned = abilityTriggersVersioned;   // 同一列版本位（v17 一次加的）
             // 督军后手那张防御卡：这里只收**数据里的 id**；对象引用由 `CardDatabase.Parse`
             // 建完卡表之后按 id 反查置上（见 `GoesSecondCard` 的说明）。
             GoesSecondId = goesSecondId ?? "";
@@ -1686,6 +1713,72 @@ namespace RuleEngine
         /// ⛔ 别把 `false` 读成「被数集合 = 默认集合」。</summary>
         public bool ConditionsCountSetVersioned { get; private set; }
 
+        // ==================================================================
+        //  🆕 v17（2026-10-23 · 引擎线 · 战斗审计 `B-16` 的残余 241/242）
+        //  **`cardAbilities[].trigger` 的全量集合** —— `UnitConditions.hasUseSpiritStone(241)` /
+        //  `hasUseFaith(242)` 的唯一判据。
+        // ==================================================================
+        // 判据（第一权威 = 全量反编译）：
+        //   · `FilterMethods__MeetsConditionCriteria.c:286-289`（241）→
+        //     `RawCardScript__HasAbilityType(raw, 600 UseSpiritStone)`；`:290-293`（242）→ 同法 `605 UseFaith`；
+        //   · `RawCardScript__HasAbilityType.c:16-38` = 遍历 `rawCardData.cardAbilities`（`+0x290`）、
+        //     比 `CardAbility.trigger(+0x10)` —— **只看 trigger，不看 `abilityLogic` 空不空**
+        //     （所以 ⛔ 别拿 `abilityContext` 顶替：那一列只落 `context != 0` 的行，会漏掉 Play 那批）。
+        // ⚠️ 「未知」与「空表」必须分得开：空表 = **明确没有 ability**（`HasAbilityType` 恒假）；
+        //    `-1` = 旧表/缺列（⛔ 不许判假 —— 那会把 241/242 静默读错）。
+
+        /// <summary>这张卡 `cardAbilities[].trigger` 的全量集合（有序去重；生成器 `sorted(set(...))`）。</summary>
+        readonly HashSet<int> _abilityTriggers = new HashSet<int>();
+
+        /// <summary>这张卡的 `abilityTriggers` 列**来自 v17 卡表**的正面信号。
+        /// `false` = 旧表（&lt; v17）/ 解析路径没接这一列 ⇒ <see cref="AbilityTriggerPresence"/> 一律 `-1`。</summary>
+        public bool AbilityTriggersVersioned { get; private set; }
+
+        /// <summary><c>1</c> = 这张卡有 `trigger == <paramref name="trigger"/>` 的 ability；
+        /// <c>0</c> = **明确没有**；<c>-1</c> = **未知**（旧表 / 缺列）—— ⛔ 未知不许读成「没有」。</summary>
+        public int AbilityTriggerPresence(int trigger)
+        {
+            if (!AbilityTriggersVersioned) return -1;
+            return _abilityTriggers.Contains(trigger) ? 1 : 0;
+        }
+
+        // ==================================================================
+        //  🆕 v17（2026-10-23 · 引擎线 · 战斗审计 `B-17`）
+        //  **逐 ability / 逐 logic 的 `targetsAffected`**（原版 `AbilityLogic.targetCriteria`）
+        // ==================================================================
+        // 用途：解「一条**无主语正文**、且结算时**既没有施放者也没有点目标**」（战术卡那条路）
+        //   过去一律落「己方全体」的近似 —— 原版是按那条 logic 的 `targetsAffected` 取。
+        // 判据（`d:/2/tools/decomp_full/AbilityLogic__GetTargets.c`）：`iVar6 = *(int*)(criteria+0x10)`，
+        //   `self(20)` → thisCard（`:184-191`）· `actingCard/attacker(80/40)` → actingCard（`:761-769`）·
+        //   `friendlyHero(120)` → 施放方督军（`:721-737`）· `enemyHero(130)` → 对方督军（`:738-746`）·
+        //   `any(0)` → 场上全部单位（`:901-908`）· `allFiltered(10)` → 按 criteria 筛。
+        // 消费端的**两道闸门**在 `EffectText.AssignAbilityTargets`（块数 == ability 数、
+        //   块内 op 数 == logic 数）—— 不过 = 读不到，⛔ 不猜。
+
+        /// <summary>🆕 v17：一条 ability 的 `targetsAffected` 行。
+        /// `TargetsAffected[j]` 对应 `cardAbilities[i].abilityLogic[j]`；`-1` = 该格坏值/缺键
+        /// （⚠️ `0` 是合法的 `any`，⛔ 别拿它当缺值）。</summary>
+        public sealed class AbilityTargetSpec
+        {
+            /// <summary>原版 `CardAbility.trigger`（只作可读性；消费端按**下标**对齐）。
+            /// `-1` = 生成器读不到。</summary>
+            public int Trigger = -1;
+            /// <summary>逐 `abilityLogic` 的 `targetsAffected`（`TargetsAffected` 枚举数值）。</summary>
+            public int[] TargetsAffected;
+        }
+
+        readonly List<AbilityTargetSpec> _abilityTargets = new List<AbilityTargetSpec>();
+
+        /// <summary>🆕 v17：逐 ability 的 `targetsAffected`（**下标 = `cardAbilities` 下标**）。
+        /// 空表 = 旧表（&lt; v17）/ 这张卡没有 ability —— 两者靠
+        /// <see cref="AbilityTargetsVersioned"/> 与 <see cref="AbilityTriggersVersioned"/> 分。
+        /// ⚠️ 表里可能有 `null`（占位，保持下标不错位）。</summary>
+        public IReadOnlyList<AbilityTargetSpec> AbilityTargets { get { return _abilityTargets; } }
+
+        /// <summary>🆕 v17：`abilityTargets` 列**来自 v17 卡表**的正面信号（与
+        /// <see cref="AbilityTriggersVersioned"/> 同源 —— v17 一次加的两列）。</summary>
+        public bool AbilityTargetsVersioned { get; private set; }
+
         readonly List<ConditionSpec> _conditions = new List<ConditionSpec>();
 
         /// <summary>`(ability, logic, role)` → 条件行（同 key 后写覆盖；重复本当在数据入口被丢弃）。</summary>
@@ -1800,6 +1893,21 @@ namespace RuleEngine
 
         /// <summary>触发关键词 → 正文原文（日志与卡面用）</summary>
         readonly Dictionary<string, string> _triggerText = new Dictionary<string, string>();
+
+        /// <summary>🔴 **2026-10-23（`T03` / `D15`）**：每个触发键收过的**正文**（同文去重/多文追加的账）。
+        /// 与 <see cref="_triggerOps"/> 同键；`Count &gt; 1` = 这张卡有**多条独立 ability** 走同一个触发词
+        /// （原版各发一次，我们把它们的 op 按出现顺序合并）。
+        /// ⚠️ 只给排查/自检读（<see cref="TriggerTextsAll"/>），结算一律读 `TriggerOps`。</summary>
+        readonly Dictionary<string, List<string>> _triggerBodies =
+            new Dictionary<string, List<string>>(System.StringComparer.Ordinal);
+
+        /// <summary>这个触发键收过的**全部**正文（按出现顺序）。没有 ⇒ 空表。</summary>
+        public IReadOnlyList<string> TriggerTextsAll(string keyword)
+        {
+            List<string> v;
+            return (keyword != null && _triggerBodies.TryGetValue(keyword, out v))
+                 ? (IReadOnlyList<string>)v : null;
+        }
 
         /// <summary>
         /// 这个触发关键词的**正文原文**（`Rally: Stun an enemy` 里冒号后面那段）。
@@ -3091,7 +3199,19 @@ namespace RuleEngine
             //    `about to attack` 这种**多词变体**才真的换键 ⇒ **对现有卡池零影响**
             //    （`cards_engine.json` 1126 张里 `about to attack` 出现 **0** 次）。
             string key = KeywordTable.Normalize(head) ?? head;
-            if (_triggerOps.ContainsKey(key)) return;      // 先到先得（① 在 ② 前面）
+            // 🔴 **2026-10-23（`T03` / `D15`）：「先到先得」改成【同文去重 + 不同文全收】。**
+            //   判据 = 原版触发是**逐 `CardAbility`** 判的（`RawCardScript__TriggerAbilities.c:108,207`
+            //   遍历 `cardAbilities` 列表、每条各判各发，**同一 trigger 有多条就多条全触发**）。
+            //   我们按**关键词**路由（一张卡一个键）⇒ 同一个词出现两次时，
+            //     · **正文逐字相同的**（`desc` 与 `keywords` 数组里各存一份的同一条）⇒ 去重
+            //       （否则会结算两遍，那是静默翻倍 —— 这也是原来「先到先得」真正在挡的东西）；
+            //       🔴 **2026-10-23 追加**：「逐字相同」改由 <see cref="SameTriggerBody"/> 判 ——
+            //       同一句的**两种截法**（`desc` 跨句收、`keywords` 只印第一句）也算同文，
+            //       否则 `EC33 Alluress` 的 Rally `-2/-2` 会结算两遍（见那个方法的 doc）。
+            //     · **正文不同的**（原版两条独立 ability）⇒ **追加**到同一个键（都触发，按出现顺序）。
+            //   ⚠️ **如实标着的已知简化**：原版每条 ability 有自己的 `priority`（分道），
+            //     我们 `_triggerPriority` 是**按键**存的 ⇒ 追加进来的第二条沿用同一个道。
+            //     今天全池没有一张卡同时带两条不同正文的同名触发（见报告），这条简化暂不可观测。
 
             // 剥下来的那个数交给 `EcstasyX` 当**第二档**来源（第一档是正文里的正则）
             if (headNum != null && key == KeywordTable.Ecstasy)
@@ -3151,13 +3271,141 @@ namespace RuleEngine
             //   （`EffectResolver.PlayerChooseOps` / 结算）必须用**同一份注入判据**，否则
             //   「面板问了 / 结算没消费」或反过来。注入的 `choosecard` 的 `Source` 是固定串
             //   （`EffectText.ChoiceResolutionSource`）⇒ 两路的 `AskKey` 逐字相同，`AskOwners` 认领得上。
+            // 同文去重（见上面 `D15` 那段）：同一段正文只收一次
+            List<string> bodies;
+            if (!_triggerBodies.TryGetValue(key, out bodies))
+            {
+                bodies = new List<string>();
+                _triggerBodies[key] = bodies;
+            }
+            // 🔴 **2026-10-23（`EC33` 双结算）：去重键从「整串相等」放宽到「同一条正文的
+            //   两种截法」（`SameTriggerBody`）。** 整串相等挡不住「`desc` 跨句收、`keywords`
+            //   只印第一句」这两份**长度不同**的同一段正文（实测 `EC33 Alluress` 的 `rally`
+            //   `-2/-2` 因此结算了两遍）。判据与反例全写在 `SameTriggerBody` 的 doc 里。
+            for (int i = 0; i < bodies.Count; i++)
+                if (SameTriggerBody(bodies[i], body)) return;
+
             var ops = EffectText.Parse(body, out unparsedSegs, out partialSegs, card: this);
             if (ops == null || ops.Count == 0) return;
 
-            _triggerOps[key] = ops;      // 🆕 `A1566`：**规范键**（见上面那一段），不是 `head`
-            _triggerText[key] = body;
+            bodies.Add(body);
+            List<EffectOp> have;
+            if (_triggerOps.TryGetValue(key, out have) && have != null)
+                have.AddRange(ops);        // 第二条独立 ability：追加（原版两条都触发）
+            else
+                _triggerOps[key] = ops;    // 🆕 `A1566`：**规范键**（见上面那一段），不是 `head`
+            // `TriggerText` 只保留**第一条**正文（读它是「这张卡的这一族触发长什么样」的展示/排查口，
+            // 不是结算口；结算走 `TriggerOps` 的合并表）。多条正文的全貌见 `TriggerTextsAll`。
+            if (!_triggerText.ContainsKey(key)) _triggerText[key] = body;
             if (unparsedSegs.Count > 0 || partialSegs.Count > 0)
                 NoteTriggerBodyGap(key, body, unparsedSegs, partialSegs, ops.Count);
+        }
+
+        /// <summary>
+        /// 两段**触发正文**是不是**同一条能力** —— <see cref="AddTriggerOp"/> 的去重键
+        /// （2026-10-23 · `EC33` 双结算那份回归）。
+        ///
+        /// **为什么「整串相等」不够**（`D15` 原来那一版去重键）：
+        /// 同一条触发正文在卡表里**可能有两份、而且一份是另一份的截短副本** ——
+        ///   · `desc` 那一路按「正文可以跨句」收（<see cref="TriggerBodyAt"/>，跨到下一个
+        ///     「另一件事的开头」为止，`StartsAnotherThing`）；
+        ///   · `keywords` 数组里那条同文的条目**往往只印第一句**。
+        /// 实测（`cards_engine.json` / 全池 1127 张现读）：**只有 `EC33 Alluress` 撞上** ——
+        /// `desc` = `Rally: Give -2 [Attack] and -2 [Ranged] to an enemy troop. Friendly Daemonette have Flank.`
+        /// 的 Rally 正文跨到第二句（`Friendly Daemonette have Flank` 不是「另一件事的开头」），
+        /// 而 `keywords` = 只有第一句 ⇒ 两份**字符串不等** ⇒ 整串去重挡不住 ⇒
+        /// `have.AddRange(ops)` 把同一段 Rally **又追加一次** ⇒ `-2/-2` 结算两遍
+        /// （`play` 基线读数 `FIX_E1 2/0/0/6 → -2/-4`；卡面只印一次；
+        /// 原版真值 `cards_truth.json` 的 `EC33.cardTraits` 只有**一条** `rally`）。
+        ///
+        /// **判据（四条，按顺序；都是纯文本、不看 op）**：
+        ///   ① 归一化（空白折叠成一个空格、去首尾空白）后**整串相等** ⇒ 同一条；
+        ///   ①-bis **剥掉图标方括号**（`[Attack]` → `Attack`，解析器自己的口径）后相等 ⇒ 同一条
+        ///      （全池唯一命中 = `GOF17 Killa Kan` 的 `mob`：desc 带方括号、keywords 不带）；
+        ///   ② **去掉句末句号**后相等 ⇒ 同一条（同一个句子的两种截法）；
+        ///   ③ 一份是另一份的**严格前缀**，且**断点正好落在句子边界上**
+        ///      （`.` `;` `!` `?` `。` `；`）⇒ 同一条 ——
+        ///      这正是「跨句收」与「只印第一句」两种截法撞在一起的那个形状。
+        /// ⛔ **不是「前缀一律去重」**：`Deal 1 damage` 与 `Deal 1 damage to an enemy` 断点在**空格**上
+        ///   ⇒ 第 ③ 条**不成立**、两条照旧各触发一次（`D15` 的「异文追加」，⛔ 别把那条推翻）。
+        /// ⚠️ **如实标着的已知边界**：一张卡若**真的**把同一句能力印两遍（同一个 trigger 下
+        ///   两条逐字相同的 ability），第 ② ③ 条会把它并成一条 —— 那与原版「两条都触发」不符。
+        ///   全池今天 **0 张**这种形状（现扫），而且它与「数据重复」在文本层**分不开**，
+        ///   真要支持得回到原版 `cardAbilities` 条数那一层判（不在本函数能看到的输入里）。
+        ///
+        /// 🧨 **什么改动会让它退回去**：把第 ③ 条删掉（改回 `string.Equals`）⇒ `EC33` 的 `rally`
+        ///   会收下两条正文、`TriggerOps("rally")` 的 op 翻倍 ⇒ 自检 `TestT02DuplicateTriggerBodyDedup`
+        ///   的两条（单卡「`-2/-2` 只结算一次」＋ 全池「同一触发不许有『整句前缀』的两条正文」）同时变红。
+        /// </summary>
+        static bool SameTriggerBody(string a, string b)
+        {
+            a = CollapseBodyWhitespace(a);
+            b = CollapseBodyWhitespace(b);
+            if (string.Equals(a, b, System.StringComparison.Ordinal)) return true;   // ①
+
+            // ①-bis **方括号是图标记法**（`[Attack]` 与 `Attack` 是同一个词）——
+            //   解析器自己也把方括号当装饰（`EffectText.ParseSegment` 里
+            //   `s0.Replace("[", "").Replace("]", "")`）⇒ 剥掉后相等 = 同一段正文。
+            //   实测（2026-10-23 全池现扫）：只有 `GOF17 Killa Kan` 撞上 ——
+            //   `mob` 的两条正文 = `Gain +1 [Attack] this turn`（desc）与 `Gain +1 Attack this turn`
+            //   （keywords）；原版 `cards_truth.json` 的 `GOF17` 只有**一条** trigger 300 ability
+            //   ⇒ 它是同一段能力的两种写法，⛔ 不是两条独立 ability。
+            //   ⚠️ 剥方括号后**解析出的 op 完全相同** ⇒ 这一条只去掉重复登记，不改变任何结算。
+            a = StripBodyBrackets(a);
+            b = StripBodyBrackets(b);
+            if (string.Equals(a, b, System.StringComparison.Ordinal)) return true;
+
+            string ap = TrimTrailingPeriod(a), bp = TrimTrailingPeriod(b);
+            if (string.Equals(ap, bp, System.StringComparison.Ordinal)) return true; // ②
+
+            // ③ 严格前缀 + 断点在句界
+            //   ⚠️ 这里比较的是**去过句末句号的那两份**（`ap`/`bp`）—— 拿原文比的话，
+            //      一句带句号、一句不带时 `StartsWith` 会假失败（同一条正文的两种截法漏判）。
+            bool aLonger = ap.Length > bp.Length;
+            string longer = aLonger ? ap : bp;
+            string shorter = aLonger ? bp : ap;
+            if (shorter.Length == 0 || longer.Length <= shorter.Length) return false;
+            if (!longer.StartsWith(shorter, System.StringComparison.Ordinal)) return false;
+            char edge = longer[shorter.Length];
+            return edge == '.' || edge == ';' || edge == '!' || edge == '?'
+                || edge == '。' || edge == '；';
+        }
+
+        /// <summary>`SameTriggerBody` 的归一化：连续空白折成一个空格、去首尾空白。
+        /// ⚠️ 只做**空白**，⛔ 不改大小写、⛔ 不动标点 —— 归一是为了「同一个句子换个排版还认得出」，
+        ///    不是为了把不同句子混成一条（扩宽它等于放宽上面那条去重判据）。</summary>
+        static string CollapseBodyWhitespace(string s)
+        {
+            if (string.IsNullOrEmpty(s)) return "";
+            var buf = new char[s.Length];
+            int n = 0;
+            bool pendingSpace = false;
+            for (int i = 0; i < s.Length; i++)
+            {
+                char c = s[i];
+                if (char.IsWhiteSpace(c)) { pendingSpace = n > 0; continue; }
+                if (pendingSpace) { buf[n++] = ' '; pendingSpace = false; }
+                buf[n++] = c;
+            }
+            return new string(buf, 0, n);
+        }
+
+        /// <summary>`SameTriggerBody` 的 ①-bis：剥掉**属性图标**的方括号（`[Attack]` → `Attack`）。
+        /// ⚠️ 判据**转调**解析器那一份口径（`EffectText.ParseSegment` 把 `[`/`]` 当装饰直接删掉），
+        ///    ⛔ 不在这里另立一套「哪些方括号算图标」的表 —— 那会与解析层分家。</summary>
+        static string StripBodyBrackets(string s)
+        {
+            if (string.IsNullOrEmpty(s)) return "";
+            if (s.IndexOf('[') < 0 && s.IndexOf(']') < 0) return s;
+            return s.Replace("[", "").Replace("]", "");
+        }
+
+        /// <summary>`SameTriggerBody` 的 ②：去掉**句末的**句号（一个或多个）。中间的句号不动。</summary>
+        static string TrimTrailingPeriod(string s)
+        {
+            int n = s.Length;
+            while (n > 0 && s[n - 1] == '.') n--;
+            return n == s.Length ? s : s.Substring(0, n);
         }
 
         /// <summary>
@@ -4105,7 +4353,8 @@ namespace RuleEngine
 
         /// <summary>
         /// **隐身**。三条机制，**判据都在 `RuleCore`，别在别处另写一份**：
-        ///   ① **不可被攻击**（攻击校验里直接拒 `ErrTarget`；给单位选目标的主动技能也拒）；
+        ///   ① **不可被攻击**（攻击校验里直接拒 `ErrAttackBlockStealth` —— 🆕 2026-10-23 `B-31` 拆码，
+        ///      此前是笼统的 `ErrTarget`；给单位选目标的主动技能走另一条路、仍拒 `ErrTarget`）；
         ///   ② **自己发起攻击时「揭示」** —— 摘掉这个词，并广播 `LosesStealth`
         ///      （卡面写 `When a friendly unit loses Stealth, …` 的那几张靠它）；
         ///   ③ **回合开始到期** —— 摘掉 + 同一跳广播（判据 = 原版 `CardScript__OnTurnStart.c:110-118`，
@@ -4117,7 +4366,8 @@ namespace RuleEngine
 
         /// <summary>
         /// **飞行**。机制**只有一条**：**近战打不到它** —— `RuleCore` 的攻击校验里
-        /// 「目标带 `flying` 且攻击者不带 `flying`」⇒ 拒（`ErrTarget`）。
+        /// 「目标带 `flying` 且攻击者不带 `flying`」⇒ 拒（`ErrAttackBlockFlying`；
+        /// 🆕 2026-10-23 `B-31` 拆码，此前是笼统的 `ErrTarget`）。
         /// ⚠️ 反向**不**成立（飞行单位可以近战打地面），这是原版的方向，别「对偶地」补一条。
         /// </summary>
         public const string Flying = "flying";

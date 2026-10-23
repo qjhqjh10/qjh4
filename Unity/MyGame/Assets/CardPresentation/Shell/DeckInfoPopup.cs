@@ -35,7 +35,9 @@
 //       `UIMessageController`）。**改前**它是 `Manager.ShowPopUp(…)` = **要玩家点 OK 的模态弹窗**（那句
 //       「我们是模态弹窗」的标注就是它），**已按铁律 5 就地改掉**（改前/改后与全部判据 → `ShareDeck` 的 doc）；
 //       写剪贴板那份实现**全库只有一处** = `Deck/DeckRuntime.CopyDeckToClipboard`（卡组编辑那颗 `Share` 也走它）
-//       ⚠️ **卡组编辑那一侧仍没接上**（`DeckRuntime.ShareDeckString()` 走 `Say()`，屏幕上什么都不画）—— 如实标注，见 `ShareDeck` 的 doc。
+//       ⚠️ ~~**卡组编辑那一侧仍没接上**（`DeckRuntime.ShareDeckString()` 走 `Say()`，屏幕上什么都不画）~~
+//       🔴 **2026-10-23（W65 · 1c）就地订正（铁律 5）**：那个方法**已整段删掉**（全仓 0 调用点，
+//       死代码；留痕在 `DeckRuntime.cs` 那一处）⇒ **今天分享这条路只有本窗这一条**，不再有「另一处宿主是旧形」。
 //     · `Share On Chat` = 原版**开一扇两键面板（群组 / 全局）→ 发一条聊天消息**、**不写剪贴板**；
 //       ✅ **2026-10-12（`A1045`）接了**：真开那扇 `Generic Options Panel`（`WindowsManager.OpenGenericOptionsPanel`），
 //       **三道门一颗不少**（判据 = 原版那两个 `interactable` 表达式）+ 两颗钮的文案走 `Loc`；
@@ -2420,8 +2422,10 @@ namespace CardPresentation
         /// <para>🔴 **2026-10-08（`A1040`）就地订正（铁律 5）**：本处原文写「**原版走服务端 / 平台分享**」
         /// 与「（**批处理与桌面都没法替用户按剪贴板**）」—— **两句都不成立**：原版既不走上服务端、也没做
         /// 平台分享（`DeckInfoPopup__ShareDeck.c:16` 调的就是本地 API `GUIUtility.systemCopyBuffer`）；而
-        /// 「没法按剪贴板」被**同一个动作本来的那份实现**直接反证（`Deck/DeckRuntime.cs` 的 `ShareDeckString()`，
-        /// 它早就写着 `GUIUtility.systemCopyBuffer = s`）⇒ 那句理由**本身就是错的**，已删。</para>
+        /// 「没法按剪贴板」被**同一个动作本来的那份实现**直接反证（`Deck/DeckRuntime.cs` 的
+        /// `CopyDeckToClipboard`，它早就写着 `GUIUtility.systemCopyBuffer = s`）⇒ 那句理由**本身就是错的**，已删。
+        /// ⚠️ **2026-10-23（W65 · 1c）**：这段原文点名的 `ShareDeckString()` 已删（0 调用点死代码）；
+        /// 上面这句改指**仍在的那份共用件** `CopyDeckToClipboard`（同一句 `GUIUtility.systemCopyBuffer = s`）。</para>
         /// <para>🆕 **2026-10-09（`A1050`）：第 ③ 句现在是【同一形】了 —— 改前不是。**
         /// 改前挂的是 `Manager.ShowPopUp(…)` = **要玩家点 `确定` 的模态弹窗**（旧注释里那句
         /// 「我们是模态弹窗」说的就是它）；现走 <see cref="MessageToast.Show"/>（= 原版
@@ -2429,9 +2433,10 @@ namespace CardPresentation
         /// 判据 = `decomp_full/DeckInfoPopup__ShareDeck.c:21-23` 的 `UIMessageController.ShowMessage`
         /// （公开重载 `ShowMessage(string, bool)`，`localize = 1`；尾参那个 `0` 是 IL2CPP 的 `MethodInfo*`，
         /// **不是第 4 个实参** —— 逐条实证见 `Shell/MessageToast.cs` 文件头 ①）。
-        /// ⚠️ **另一处宿主（卡组编辑那颗 `Share`）仍是旧形**：`Deck/DeckRuntime.cs` 的 `ShareDeckString()`
-        /// 走的是 `Say()`（D35 删件之后它**只写日志、屏幕上什么都不画**）⇒ 那一边**还没**接上这条通道
-        /// （`Deck/` 不在本批白名单，已如实上报，归调度台）。</para></summary>
+        /// 🔴 **2026-10-23（W65 · 1c）就地订正（铁律 5）**：这里原来写「另一处宿主（卡组编辑那颗 `Share`）
+        /// 仍是旧形 —— `DeckRuntime.ShareDeckString()` 走 `Say()` ⇒ 那一边还没接上这条通道」——
+        /// **那半个宿主已经不存在了**：`ShareDeckString()` 全仓 0 调用点（D35 之后就是死代码），本轮已整段删掉。
+        /// ⇒ **分享这条路今天只有本窗这一条**，这句话不再需要「另一处」。</para></summary>
         void ShareDeck(string key)
         {
             if (key == "Share On Chat") { ShareOnChat(); return; }   // ⛔ 那条**不写剪贴板**（原版也不写）

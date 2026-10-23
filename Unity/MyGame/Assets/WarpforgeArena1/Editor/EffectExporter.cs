@@ -966,6 +966,25 @@ public static class EffectExporter
         //   `ScytheAssault` 是**同一条路**（那条也在 `cardanimsgeneral`）。
         //   判据 → 同上报告 §1·1 B5。
         "Swarm Battle Card Icon",
+        // 🆕 **2026-10-23（`A2` 缺件 · `TurnTimerTickPulse`）**：战斗 HUD 的**回合倒计时脉冲**。
+        //   · **消费者**：`Battle/BattleDriver.cs` 的 `PlayCountdownAnim()`（2026-10-23 `W63` P3 落的）
+        //     在**每回合倒计时开始那一拍**调 `CardEffects.Fire("TurnTimerTickPulse", …)` ——
+        //     在这件进库之前**每一拍都缺画面**（`WarpforgeEffectPlayer` 打「效果库里没有」）。
+        //   · **为什么必须重打包 + 进本表**：原件在 `battlesharedresources_assets_all.bundle` 里，
+        //     **不在该包的 `m_Container`（466 条）里**、也**不在特效主包** `battleprefabs_vfxandmisc`
+        //     ⇒ `Run()` 的容器枚举（只扫特效主包）与按名 `LoadAsset` 两条都取不到。
+        //     已当**根**重打进 **`wf_battleshared_extra.bundle`**（`工具/extract_missing_shaders.py` 的
+        //     `BOOSTER_GROUPS` 里 `ui=False` 那一组；UnityPy 回读：容器 2 条 / 对象 56 / 内部 PPtr 全解到）。
+        //   · **实读形状**（免得下个会话重查）：根 `TurnTimerTickPulse` 自己**不是粒子** ——
+        //     `Transform` + 1 个 `MonoBehaviour`；子件 `Circling Particle` 下 **13 个 `ParticleSystem`+`PSR`**
+        //     （`Sparks` / `Ring expand` / `Glow` ×8 / `Glow 9` …）；子树 14 个 GameObject。
+        //   · ⚠️ **产物里有 15 条 `m_FileID ≠ 0` 的外部引用**（13 条 `PSR.m_Materials[0]` 落在共享 CAB
+        //     `CAB-6e07…`、1 条 `MonoBehaviour.m_Script`、1 条 `sounds[0].sound` → `soundcollection`）——
+        //     `RunListed` 会把 `BundleDir` 下**全部源包**都载进来（本文件 `:1021`），导出那一刻能解析；
+        //     **产物包里没有材质** ⇒ 若导出后材质是 null，根因是这条外部引用，**不是重打包丢了东西**
+        //     （同款先例 = `wf_prefabs_extra.bundle` 的那 19 条）。
+        //   判据 → `资料/普查产出_1023b/特效线_A2_执行报告.md` §3 X3 / §5·3。
+        "TurnTimerTickPulse",
     };
 
     /// <summary>🎯 **本轮实际要导的名单** = `ListedPrefabs` 扣掉 `WFEFFECT_ONLY` 之外的那些

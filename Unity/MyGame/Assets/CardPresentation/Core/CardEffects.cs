@@ -46,9 +46,28 @@ namespace CardPresentation
             for (int i = 0; i < points.Length; i++)
             {
                 var p = points[i];
+                // 🆕 2026-10-23（D · `F4`）：**特效要跟着它挂的那张卡排队**（判据见
+                //   `CardView.StampEffectRoot` 的那一大段）。`Play` 是同步的 ——
+                //   `WarpforgeEffectPlayer.Play` 里 `Instantiate(prefab, parent)` 之后立刻返回
+                //   ⇒ 调用前后 `parent.childCount` 的差就是**这一拍新生成的实例**。
+                int before = (parent != null) ? parent.childCount : 0;
                 if (Play != null) Play(effectName, p, parent);
                 else Debug.Log($"[CardPresentation] （未接特效钩子）{effectName} @ {p}");
+                if (parent != null) StampNewChildren(parent, before);
             }
+        }
+
+        /// <summary>`parent` 下从 `from` 开始新出现的子节点 = 刚生成的特效实例 ⇒ 交给
+        /// <see cref="CardView.StampEffectRoot"/> 挂到那张卡的排序段上。
+        /// <para>⚠️ 父链上**没有** `CardView`（世界特效 / 棋盘特效 / 特效挂在别的载体上）⇒ 什么都不做 ——
+        /// 那些件的排序是另一笔账（`D` 报告 §④·6）。</para>
+        /// <para>⚠️ 自检里把 `Play` 换成假钩子时它不建子节点 ⇒ 这里天然是空操作。</para></summary>
+        static void StampNewChildren(Transform parent, int from)
+        {
+            if (parent == null || parent.childCount <= from) return;
+            var cv = CardView.OwnerOf(parent);
+            if (cv == null) return;
+            for (int i = from; i < parent.childCount; i++) cv.StampEffectRoot(parent.GetChild(i));
         }
 
         /// <summary>

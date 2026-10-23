@@ -46,10 +46,18 @@
 //      它们的 `activeAbility` **一条非空 CardAnim 引用都没有**（`m_AssetGUID` 全空）⇒ 原版这条路
 //      不放任何动画 ⇒ 我们退回兜底并**出声**（不是「表里漏了」）；
 //   ③ **`SW21 Wulfen Pack Leader` 是条件分支**（铁律 5·c：同一张卡、不同棋盘状态 = 不同时长）：
-//      **普通 `activeAbility` = 0.4**（表里存的就是这支）· **替代能力（`Cut Wulfen`）= 0.2**
-//      （`hasAlternativeAbility=1` 且 `MeetsCriteria(selectCriteria)` 满足时原版走这支）。
-//      ⛔ 表只记普通那一支；运行时**要不要按棋盘切到 0.2 还没接**（判据 = 原版
-//      `RawCardScript.GetActiveAbility`，逐条见全量件 `conditional`）。
+//      **普通 `activeAbility` = 0.4**（表里存的就是这支）· **替代能力（`Cut Wulfen`）= 0.2**。
+//      🔴 **2026-10-23 就地订正（铁律 5 · 判据 = 第一权威反编译）**：上一行原来写
+//      「`hasAlternativeAbility=1` 且 `MeetsCriteria(**selectCriteria**)` **满足时**原版走替代支」
+//      —— **字段名与方向都不对**（`RawCardScript__GetActiveAbility.c` 逐句）：
+//        `if (hasAlternativeAbility(+0x2AA)) { if (!MeetsCriteria(param_2, *(this+0x2B0), …))
+//             return *(this+0x2B8); } return *(this+0x260);`
+//      ⇒ 判据字段 = **`normalAbilityBoardCriteria`(+0x2B0)**，**满足时走【普通】支**、
+//        **不满足**才落到 `alternativeAbility`(+0x2B8)。
+//      ⛔ 表只记普通那一支；运行时**要不要按棋盘切到 0.2 还没接** —— **数据侧也缺**：
+//        `normalAbilityBoardCriteria` **不在**卡导出里（`cards_raw.json` 的 `cards[*]` 只有
+//        `hasAlternativeAbility` / `activeAbility` / `alternativeAbility`）⇒ 要接得先补那个字段的导出。
+//        逐条见全量件 `conditional`。
 //   ④ **tween 那一段仍没算**（见上「播多久」那一条）。
 //   ⑤ 命中不了时**退回 `1.0` 并出声**（不静默）—— 那是本表的**中位数**，与旧常数恰好相等。
 using System;

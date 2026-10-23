@@ -11,6 +11,9 @@
 //   全量件另存 `Unity/数据/游戏数据/arena_scene_anims.json`。
 //
 // 【clip / controller 从哪取】`WarpforgeAnimatorBridge`（`StreamingAssets/WarpforgeVFX/wf_arena_anims_*.bundle`）
+//   ⚠️ **2026-10-23 真机 C4**：这 9 只包会被 `WarpforgeShaderLoader` 的 `wf_arena_*.bundle` 通配
+//   **先加载走**，桥那边因此**认领已加载包**而不是第二次 `LoadFromFile`（判据与原因 →
+//   `WarpforgeAnimatorBridge.ExtraProbeAssets` 头注）。这一层只用 `TryGet` / `TryGetClip`，不受影响。
 //   · 9 条 legacy 场景 clip（6 场的 `* Scene Animation(s)` + 3 条 `Railgun*` + `Battle Arena 3 Animations`）
 //     里含 `GameObject.m_IsActive` / `MonoBehaviour.m_Enabled` / `SkinnedMeshRenderer.blendShape.*`
 //     三种非 Transform 绑定 ⇒ **取原件**比重建曲线忠实（判据见 `extract_missing_shaders.py` 的 `ARENA_ANIM_GROUPS`）。

@@ -378,6 +378,124 @@ public static partial class RuleEngineTest
         Check(ran, 2, "★ T27 `requireActorInPlay: false`（= 原版 `InPlayOrDying`）⇒ 施放者离场**也照跑**"
                     + " —— 🧨 写成「有 Actor 就取消」⇒ `Backlash`/`Unstable`/`minionDeath` 整条链断 ⇒ 本条红");
         ctx.Players[0].Board[slot] = u;                        // 还原（不影响别的用例，纯礼貌）
+
+        // ==================================================================
+        //  🔴🆕 **2026-10-23（`W63` 收口）：`abilityContext` 的闸在【入队那一刻】**
+        // ==================================================================
+        //  判据（第一权威 = 全量反编译）：原版 `CardAbility.CanTriggerAbility` 由
+        //  `RawCardScript.TriggerAbilities` 在**广播那一刻**同步调
+        //  （`RawCardScript__TriggerAbilities.c:108,207`），`IsRightContext` 全库只有这一个调用者
+        //  ⇒ **原版闸在入队前**；入了队的动作**死亡不会取消**它
+        //  （`BattleManager.CancelEffectsFromDisappearingUnit` 只有 removeEffect / jam / transform /
+        //  变残骸四个调用点，且**保留** `destroyUnit` / `recallToHand`）。
+        //  ⇒ 我们的闸从泵点（出队）搬到 `EnqueueAbility`（入队），泵点只留「变残骸 / transform」。
+        //  下面 ④～⑧ 逐档钉住这条口径。
+        // ==================================================================
+        //  ④ 载体活着在场 + `Play(0)` ⇒ 照常触发
+        RuleCore.EnqueueAbility(ctx, ActionPriority.Instant, "T27④-在场Play", () => ran++,
+                                actor: u, abilityContext: CardDef.AbilityContextPlay);
+        RuleCore.PumpActionQueues(ctx);
+        Check(ran, 3, "★ T27④ 载体**活着在场** + `abilityContext=Play(0)` ⇒ 照常入队并结算"
+                    + "（🧨 入队闸写成「恒 false」⇒ 本条红）");
+
+        //  🔴 **如实标着（口径不完全等价，本笔不改实现 —— 2026-10-23 · 8 红修复批顺手发现）**：
+        //    `Play(0)` 的闸我们写的是 `cell.IsAlive`（= `Health > 0`）+ `!IsPendingDeath`
+        //    （`Core/ActionPump.cs:551-553`）；原版 `CardAbility__IsRightContext.c:18-32` 是
+        //    `IsInPlay(card) && !EnoughPendingDamageToDie`，而 `CardScript__IsInPlay.c:7-13`
+        //    只看**卡状态四档**、**根本不看血量**。
+        //    ⇒ 对「`Health ≤ 0` 且 `Survivor > 0`」这一格：原版**放行**、我们**拦下**。
+        //    现读**不可达**（幸存者那一支在 `RuleCore.CleanupDeaths` 里就把血救回来了，
+        //    `Core/RuleCore.cs:8320-8432`），但**口径不严格等价** —— 记在这里，
+        //    ⛔ 别把它当成「已经和原版一样」。（诊断报告 §6·2，选项 ② 加固未做。）
+
+        //  ⑤ 载体已归零（= 原版「待死 / `EnoughPendingDamageToDie`」）+ `Play(0)` ⇒ **根本不触发**
+        int hp0 = u.Health;
+        u.Health = 0;
+        bool queued5 = RuleCore.EnqueueAbility(ctx, ActionPriority.Instant, "T27⑤-待死Play", () => ran++,
+                                               actor: u, abilityContext: CardDef.AbilityContextPlay);
+        RuleCore.PumpActionQueues(ctx);
+        CheckTrue(!queued5, "★ T27⑤ 载体**已待死** + `Play(0)` ⇒ `EnqueueAbility` 直接返回 false（⛔ 不入队）"
+                          + " —— 判据 = `IsRightContext` 的 `!EnoughPendingDamageToDie`"
+                          + "（`CardAbility__IsRightContext.c:20-32`）；🧨 删掉入队闸 ⇒ 返回 true ⇒ 红");
+        Check(ran, 3, "★ T27⑤ 这一条**没有结算**（`ran` 不涨）—— 🧨 闸只写日志、不 `return false` ⇒ 红");
+
+        //  ⑥ 同一条待死载体换成 `InPlayOrDying(40)` ⇒ 照触发（状态 5 也算在场）
+        RuleCore.EnqueueAbility(ctx, ActionPriority.Instant, "T27⑥-待死40", () => ran++,
+                                actor: u, abilityContext: CardDef.AbilityContextInPlayOrDying);
+        RuleCore.PumpActionQueues(ctx);
+        Check(ran, 4, "★ T27⑥ `InPlayOrDying(40)` 的载体**待死也照触发**"
+                    + "（`CardAbility__IsRightContext.c:52-55` 状态含 5）—— 🧨 把 40 也按 `Play(0)` 判 ⇒ 红");
+
+        //  ⑦ `InPlayOrCemetery(50)` ⇒ 待死**不算**（与 40 不等价）
+        //  🔴 **2026-10-23（8 红修复批）夹具订正（δ：原来那条夹具根本没建立「待死」）**：
+        //    以前这里只是 `u.Health = 0` —— 而本引擎判「待死 / 原版 state 5」用的是
+        //    **`_pendingDeaths` 队列**（`BattleContext.IsPendingDeath:1565-1571`，doc 自述
+        //    「口径 = 原版 `CardStateOptions.waitingToDie = 5`」），`IsRightContext` 的 50 档读的
+        //    就是它（`Core/ActionPump.cs:556-558`）。**只改血量不进队列 ⇒ 载体仍算在场** ⇒ 旧夹具
+        //    红的是夹具、不是实现（真对局里「站在棋盘上 + 血 ≤ 0 + 不在待死队列」这个状态产不出来：
+        //    写血 ≤ 0 的引擎路径当场跟一句 `CleanupDeaths`）。
+        //    ⚠️ **另起一个载体**（`u` 留给 ⑧⑨ —— 它们要的是「活着在场」的同一个单位）。
+        //    ⚠️ 待死队列的清空口 `TakePendingDeaths()` 是 `internal`（`BattleContext.cs:1590`），
+        //       Editor 程序集够不着 ⇒ **撤不回来**；本用例在方法末尾，`ctx` 随即丢弃、漏不到别的用例。
+        //    判据 → `d:/2/tools/decomp_full/CardAbility__IsRightContext.c:66-72`（50 = `IsInCemetery || IsInPlay`）
+        //         ＋ `CardScript__IsInPlay.c:7-13`（四档，**不含 5**）。
+        int dslot = BoardSpec.Size - 1;
+        while (dslot >= 0 && ctx.Players[0].Board[dslot] != null) dslot--;   // 本夹具只有 `Ghost`，末格必空；被占就退到最近空格
+        CheckTrue(dslot >= 0, "T27⑦ 前提：0 号方还有空格摆「待死」载体（否则本条与 ⑧⑨ 的基线会一起偏）");
+        if (dslot >= 0)
+        {
+            var dying = Place(ctx, 0, dslot, Unit("Dying", 1, 1, 1));
+            dying.Health = 0;                       // 语义上「血归零」
+            ctx.AddPendingDeath(0, dslot, -1);      // ← 这才是原版 state 5（唯一公开入口，`BattleContext.cs:1544`）
+            bool queued7 = RuleCore.EnqueueAbility(ctx, ActionPriority.Instant, "T27⑦-待死50", () => ran++,
+                                                   actor: dying, abilityContext: CardDef.AbilityContextInPlayOrCemetery);
+            RuleCore.PumpActionQueues(ctx);
+            CheckTrue(!queued7, "★ T27⑦ `InPlayOrCemetery(50)` 的载体**待死不算在场**（`:66-72` 不含状态 5）"
+                              + " —— 🧨 把 40/50 写成同一档 ⇒ 本条红");
+            Check(ran, 4, "★ T27⑦ 这条同样没结算");
+            ctx.Players[0].Board[dslot] = null;     // 清场（待死队列撤不回来，见上注）
+        }
+        u.Health = hp0;                             // ⑧⑨ 要的 `u` 是**活着在场**的（`Play(0)` 的闸看 `IsAlive`）
+
+        //  ⑧ 入队之后、出队之前载体**死亡（离场）** ⇒ **照跑**（原版死亡不取消）
+        //     ⚠️ 这一条钉的就是「把闸搬回出队」这个回归：泵点若仍按 context 复核 ⇒ `ran` 不涨 ⇒ 红。
+        RuleCore.EnqueueAbility(ctx, ActionPriority.Instant, "T27⑧-入队后离场", () => ran++,
+                                actor: u, abilityContext: CardDef.AbilityContextPlay);
+        ctx.Players[0].Board[slot] = null;                     // 入队之后才离场（= 死了 / 回手 / 移出）
+        RuleCore.PumpActionQueues(ctx);
+        Check(ran, 5, "★ T27⑧ 入队时在场、**出队前离场** ⇒ 这条**照跑**（原版 `IsRightContext` 只管入队那一刻；"
+                    + "`CancelEffectsFromDisappearingUnit` 不含死亡）"
+                    + " —— 🧨 把 context 复核搬回泵点 ⇒ 本条红（那正是 `W63 #2` Slay 正文丢失的成因）");
+
+        //  ⑨ 载体**变成了残骸**（同一份 `CardInstance`、换了一个 `UnitState`）⇒ **取消**
+        //     判据 = `RuleCore.CleanupDeaths` 的 `new UnitState(u.Instance, …) { IsRemnant = true }`；
+        //     这是原版四个「主动取消」里我们今天唯一建模得到的一路。
+        ctx.Players[0].Board[slot] = u;
+        RuleCore.EnqueueAbility(ctx, ActionPriority.Instant, "T27⑨-变残骸", () => ran++,
+                                actor: u, abilityContext: CardDef.AbilityContextPlay);
+        ctx.Players[0].Board[slot] = new UnitState(u.Instance, false) { IsRemnant = true };
+        RuleCore.PumpActionQueues(ctx);
+        Check(ran, 5, "★ T27⑨ 载体**变成残骸**（同一 `Instance`、换了 `UnitState`）⇒ 这条**被取消**"
+                    + "（原版 `TransformIntoRemnant` → `CancelEffectsFromDisappearingUnit`）"
+                    + " —— 🧨 连残骸那一支也删掉 ⇒ 本条红");
+        ctx.Players[0].Board[slot] = null;                     // 清场（本用例结束）
+
+        //  ⑩ 数据侧：「v14 缺行 = `Play(0)`」这一跳真的在起作用（池内结构性 + 负对照）
+        var pool10 = CardDatabase.Load();
+        int nHopPlay = 0, nRawUnknown = 0;
+        foreach (var c in pool10)
+        {
+            if (RuleCore.AbilityContextOfAbilityV14(c, "Slay", "slay") == CardDef.AbilityContextPlay) nHopPlay++;
+            if (RuleCore.AbilityContextOfAbility(c, "Slay", "slay") == CardDef.AbilityContextUnknown) nRawUnknown++;
+        }
+        Check(nHopPlay, pool10.Count,
+              "★ T27⑩ 全池每一张卡的 `Slay(120)` 都读成 **`Play(0)`**（v14 只落非 0 ⇒ 缺行 = 0）"
+            + " —— 🧨 删掉 `AbilityContextOfAbilityV14` 里「versioned ⇒ Play(0)」那一跳 ⇒ 全部 `-1` ⇒ 红");
+        Check(nRawUnknown, pool10.Count,
+              "🧪 T27⑩ 对照：**原始**访问器对 `Slay` 一律 `-1`（证明确实是那一跳在供值，不是数据里有行）"
+            + " —— 🧨 把 `AbilityContextOfAbilityV14` 改成直接转调原始访问器 ⇒ 上一条红、本条仍绿（两条一起钉死）");
+        //  ⚠️ `CardDatabase.Load()` 会按真卡池重建全局卡名索引 —— 那是**更强**的还原
+        //    （`T28` 用 `CreatePool.BuildNameIndex` 做的同一件事），不影响后面的用例。
     }
 
     // ==================================================================

@@ -2831,7 +2831,7 @@ public static class MainMenuScene
                 //   🔴 **2026-10-22 就地订正（铁律 5）**：这一行下面原来写「本窗卡组列表按赛制筛 ⇒ 默认 Skirmish 下
                 //   **一格都不列**；下面几段全是按 4 套 Classic 写的（内容高 339 / 816 那些）」——
                 //   **两句都已过期**：左列现在列的是**原版那 78 对**（两侧齐全，Skirmish 也列得出 78 格），
-                //   下面几段也改成按 78 对写（内容高 6222 / 498）。保留这一档切换是为了**继续走本窗正规入口**
+                //   下面几段也改成按 78 对 + 首格「你的卡组」= 79 格写（内容高 6381；筛单阵营时按实际格数算）。保留这一档切换是为了**继续走本窗正规入口**
                 //   `SetGameMode`（= 原版 `GameModeValueChange`：`false → 13` / `true → 0`）来验「切模式 ⇒ 换另一副」。
                 //   🔴 **默认值那条已经在上面钉死**（先断默认、再切夹具档，两条互不掩盖）。
                 pw.SetGameMode(GameMode.Classic);
@@ -2839,6 +2839,158 @@ public static class MainMenuScene
                       "（夹具）切到 Classic —— Classic 下左列列的是各对那副 30 张的 `classicDeck`");
                 CheckTrue(pw.DeckRows.Count > 0, $"卡组列表画了 {pw.DeckRows.Count} 格（原版是**两列**网格）");
                 CheckTrue(pw.ArmyCells.Count > 0, $"阵营列画了 {pw.ArmyCells.Count} 格（13 个阵营，可纵向滚）");
+
+                // ============================================================ 🆕 **2026-10-23（W65 · 1c 收尾）：
+                // **默认选中 =「你的卡组」**。判据 = `d:/2/tools/decomp_full/PracticeModePopup__SetArmyButtons.c`
+                //
+                // 原版建完第 0 项（玩家自己的卡组）之后**紧接着**三句（`:117-136`）：
+                //   `SetActive(item0.gameObject, 1)` · `SetActive(item0+0x38 /* Highlight */, 1)` ·
+                //   **`DeckSelected(item0.popup, item0.deckData, item0)`**
+                // ⇒ 开窗 / 切模式之后被选中的**是「你的卡组」，不是演示卡组**（演示卡组从第 1 项起）。
+                // 只有「你那副的阵营 ≠ 当前阵营筛选」时第 0 项不建（`ShowYourDeckCell`），那种情况原版落到
+                // `DeckSelectorMenuItemDemo__SelectItem(list[0])`（`:184-190` 的 `uVar9 == 0 && !bVar4` 那一支）。
+                // 我们这一侧的落点 = `PracticeModePopup.ResetContent → SelectDefaultDeck()`（换阵营那条 = `PickArmy`）。
+                // 🧨 改坏法：把 `SelectDefaultDeck()` 换回「取该模式第一对」（2026-10-23 改前那版）⇒ 下面
+                //   ① ② ③ 同时红；只把 `SelectDefaultDeck` 里 `ShowYourDeckCell` 那一支删掉 ⇒ ①② 红、③ 可能仍绿
+                //   （所以 ③ 另配「第 1 对不亮」那一半，两半都要满足）。
+                Section("★ 练习窗默认选中 =「你的卡组」（原版 `SetArmyButtons → DeckSelected(item0)`）");
+                {
+                    int ownIdx = CollectionData.CurrentIndex();
+                    CheckTrue(CollectionData.DeckCount() > 0 && ownIdx >= 0 && ownIdx < CollectionData.DeckCount(),
+                              "（前提）夹具里至少有一套自建卡组（" + CollectionData.DeckCount() + " 套，当前那套 = 第 "
+                            + (ownIdx + 1) + " 套）—— 没有它首格根本不建、下面三条会一起失去鉴别力");
+                    var ownInfo = CollectionData.DeckAt(ownIdx);
+                    // ① 选中态：三个字段 = 原版 `DeckSelected` 写的那三处（`+0xe0` 选中的那副 / `+0xf8` 那一格 / 预组空）
+                    CheckTrue(pw.PickedPrebuilt == null && pw.PairIndex < 0 && pw.DeckIndex == ownIdx,
+                              "★ ① 开窗 + 切一次模式（= 原版 `ResetContent → SetArmyButtons`）之后，选中的**是「你的卡组」**："
+                            + "`DeckIndex` = " + pw.DeckIndex + "（应为 " + ownIdx + "）· `PickedPrebuilt` = "
+                            + (pw.PickedPrebuilt != null ? pw.PickedPrebuilt.deckId : "null")
+                            + " · `PairIndex` = " + pw.PairIndex + "（应为 −1）");
+                    // ② 预览跟着它 —— 断的是**真 Label 上那句**（期望值从 `CollectionData` 取，⛔ 不拿实现自己的 `CurrentDeck` 当期望）
+                    CheckText(TextOf(FindChild(FindChild(pw.transform, "Deck info"), "Deck Name")),
+                              ownInfo.Name,
+                              "★ ② `Deck info ▸ Deck Name` = **你那套**的名字（原版 `DeckSelected → SetContent`；"
+                            + "期望值 = 卡组库当前那套「" + ownInfo.Name + "」）");
+                    // ③ / ③′ 灭自证：**结构上不可能同时满足** —— 「首格亮」与「第 1 对不亮」是两块不同的
+                    //    `Highlight` 节点；④ 再钉住「两副牌名字不同」⇒ 「其实选的是第 1 对」这种蒙混过不了 ②。
+                    var ownCell = FindChild(pw.transform, PracticeModePopup.YourDeckCellName);
+                    CheckTrue(ownCell != null,
+                              "（前提）首格「你的卡组」建出来了（`" + PracticeModePopup.YourDeckCellName + "`）");
+                    var ownHlD = ownCell != null ? FindChild(ownCell, "Highlight") : null;
+                    var p0CellD = FindChild(pw.transform, "DeckRow_0");
+                    var p0HlD = p0CellD != null ? FindChild(p0CellD, "Highlight") : null;
+                    CheckTrue(ownHlD != null && ownHlD.gameObject.activeSelf,
+                              "★ ③ 首格的高亮**亮着**（原版那一句 `SetActive(item0+0x38, 1)`）");
+                    CheckTrue(p0HlD != null && !p0HlD.gameObject.activeSelf,
+                              "★ ③′ 第 1 对的格**不亮** —— 原版「当前这套」的标记全局只有一处"
+                            + "（🧨 默认选中退回第 1 对 ⇒ 这两条一起反色 ⇒ 红）");
+                    var pr0d = PrebuiltDecks.Pairs.Count > 0
+                             ? PrebuiltDecks.PairDeck(PrebuiltDecks.Pairs[0], pw.SelectedGameMode) : null;
+                    CheckTrue(pr0d != null && pr0d.DisplayName != ownInfo.Name,
+                              "★ ④（灭自证·前提）「你的卡组」与第 1 对演示卡组的名字本来就不同（"
+                            + ownInfo.Name + " vs " + (pr0d != null ? pr0d.DisplayName : "<无>") + "）"
+                            + " ⇒ ② 不可能被「其实选的是第 1 对」蒙混过去");
+                }
+
+                // ============================================================ 🆕 **2026-10-23（W66）：
+                // **开窗时的阵营筛选 = 你的卡组那个阵营；没有可用的牌 ⇒ `Ultramarines`（原版字面量 `10`）**
+                //
+                // 判据（第一权威 = 反编译方法体）`d:/2/tools/decomp_full/PracticeModePopup__Open.c:172-180`：
+                //   `:172` `CardDeck__op_Inequality(活动那副牌)` ⇒ `:174` **空 ⇒ `uVar8 = 10;`**
+                //   ⇒ `:178` `uVar8 = 牌.deckHero(+0x40).cardArmy(+0x2c)`（= **督军卡身上的阵营**）
+                //   ⇒ `:180` `ChangeSelectedArmy(param_1, uVar8, 0)`（**Open 的末句**，然后就 return）。
+                // `10` 是什么档 = `CardArmy.Ultramarines`（`d:/2/tools/il2cpp_out/dump.cs` 的 `public enum CardArmy`：
+                //   `Neutral = 0` · **`Ultramarines = 10`** · 之后每档 +10：`Goff 20` … `SpaceWolves 130`）。
+                //   ⚠️ 「10 = Ultramarines」在本工程另有一处旁证：下面 `BattleLogData.ResolveArmy("Uriel Ventris") == 10` 那条。
+                // ⚠️ **我们的等价物**：`PracticeModePopup.Open() → DefaultArmyIndex()` —— 「活动那副牌」的本地来源
+                //   与「你的卡组」格同一份（`CollectionData` 当前那套，理由见 `RebuildDeckRows` 那段「离线等价物」）。
+                // 🧨 **改坏法（= 灭自证）**：把 `Open()` 那句 `ArmyIndex = DefaultArmyIndex();` 换回 `-1`
+                //   ⇒ ① 红（`-1` ≠ 期望下标）；② 那三条格数/内容高也一起退回 79 格那一档（6→78、7→79、657→6381）
+                //   ⇒ **①② 结构上不可能同时满足**（一个要求 `-1`、一个要求 `≥0`）。
+                Section("★ 练习窗开窗阵营筛选 = 你的卡组的阵营（原版 `Open → ChangeSelectedArmy`）");
+                {
+                    // 期望值**从数据面现算**（⛔ 不读 `PracticeModePopup` 的任何常量/字段：那是自证）
+                    var facsA0 = CollectionWindow.CardsState.Factions();
+                    int ownIdxA0 = CollectionData.CurrentIndex();
+                    var ownInfoA0 = CollectionData.DeckAt(ownIdxA0);
+                    int wantArmy0 = -1;
+                    for (int i = 0; i < facsA0.Count; i++)
+                        if (RuleEngine.DeckRules.SameFaction(facsA0[i], ownInfoA0.Faction)) { wantArmy0 = i; break; }
+                    CheckTrue(wantArmy0 >= 0 && !string.IsNullOrEmpty(ownInfoA0.Faction),
+                              "（前提）夹具当前那套卡组（第 " + (ownIdxA0 + 1) + " 套）的阵营「" + ownInfoA0.Faction
+                            + "」在本窗那 " + facsA0.Count + " 个阵营格里（下标 " + wantArmy0
+                            + "）—— ⛔ 不在 ⇒ 下面那条变回「两边都取回落」，等于没查");
+
+                    // ① 字段：开窗 = **你的卡组阵营**（⛔ 不是本窗自加的 `-1`「不限」）
+                    Check(pw.ArmyIndex, wantArmy0,
+                          "★ ① 开窗后 `ArmyIndex` = **你的卡组那个阵营**（" + wantArmy0 + " = " + ownInfoA0.Faction
+                        + "）—— 原版 `Open.c:172-180` 的 `ChangeSelectedArmy(牌.deckHero.cardArmy)`。"
+                        + "实测 " + pw.ArmyIndex + "（🧨 改回 `-1` ⇒ 本条红：−1 ≠ " + wantArmy0 + "）");
+                    // ①′ 节点态（**与字段不同源**）：恰好一格 `Highlight` 亮，且就是那一格
+                    //    —— 判据 = `PracticeModePopup__ChangeSelectedArmy.c` 循环里 `SetActive(btn+0x28, btn.army == param_2)`
+                    if (wantArmy0 >= 0 && wantArmy0 < pw.ArmyCells.Count)
+                    {
+                        var hlA0 = ArmyLit(pw, "Highlight");
+                        Check(hlA0.Count, 1,
+                              "★ ①′ 开窗后阵营列 **恰好一格 `Highlight` 亮**（原版那一句 `SetActive(btn+0x28, btn.army == param_2)`；"
+                            + "`ArmyIndex = -1` 时是 0 格 ⇒ 这条分得出两种状态，实测 " + hlA0.Count + "）");
+                        if (hlA0.Count == 1) Check(hlA0[0], wantArmy0, "…而且亮的正是卡组阵营那一格");
+                    }
+                    else CheckTrue(false, "（前提）卡组阵营下标 " + wantArmy0 + " 不在已建的 " + pw.ArmyCells.Count
+                                          + " 格阵营格里 ⇒ ①′ 那条没查成");
+
+                    // ② 列表真的被筛了：该阵营 **6 对** + 首格「你的卡组」= **7 格**
+                    int wantPairs0 = 0;
+                    var psA0 = PrebuiltDecks.Pairs;
+                    for (int pi = 0; pi < psA0.Count; pi++)
+                    {
+                        var dA = PrebuiltDecks.PairDeck(psA0[pi], pw.SelectedGameMode);
+                        if (dA != null && wantArmy0 >= 0
+                            && RuleEngine.DeckRules.SameFaction(dA.faction, facsA0[wantArmy0])) wantPairs0++;
+                    }
+                    Check(wantPairs0, 6, "（前提）该阵营 **6 对**（78 = 13 阵营 × 6 —— 原版每阵营 6 组演示卡组）");
+                    Check(pw.ListedDeckCount, wantPairs0,
+                          "★ ② 左列只剩**该阵营那 " + wantPairs0 + " 对**（改前 `ArmyIndex = -1` 时是 78 对）");
+                    Check(pw.ListedCellCount, wantPairs0 + 1,
+                          "★ ②′ 再加首格「你的卡组」（它的阵营 == 当前筛选 ⇒ 建）⇒ **" + (wantPairs0 + 1) + " 格**");
+                    Check(pw.DeckRows.Count, wantPairs0 + 1,
+                          "…而**建出来的格节点 = " + (wantPairs0 + 1) + "**：视口 540.79 高 ⇒ 4 行 × 2 列 = 8 格位 ≥ "
+                        + (wantPairs0 + 1) + " ⇒ 全部落在视口里，一格不少");
+                    // 内容高 = 原版 `GridLayoutGroup` 算式 `(格高 180 − spacing.y 21) × 行数 4 + spacing.y 21`
+                    CheckNear(pw.DeckScrollContentH, 159f * 4f + 21f, 0.6f,
+                              "★ ②″ 内容高 = **159×4 + 21 = 657**（7 格 ⇒ 4 行）—— ⛔ 不是 `-1` 那一档的 6381");
+
+                    // ③ 回落分支：**没有可用的牌 ⇒ `Ultramarines`**（原版 `Open.c:174` 的字面量 `10`）
+                    //    这一条打的是纯函数口（不依赖窗状态），两个分支各一条 —— 夹具里当前卡组**有**阵营，
+                    //    所以 ① 只覆盖「有阵营」那一支；「空 ⇒ 10」这一支只能这样钉。
+                    int ultIdx0 = -1, goffIdx0 = -1;
+                    for (int i = 0; i < facsA0.Count; i++)
+                    {
+                        if (ultIdx0 < 0 && RuleEngine.DeckRules.SameFaction(facsA0[i], "Ultramarines")) ultIdx0 = i;
+                        if (goffIdx0 < 0 && RuleEngine.DeckRules.SameFaction(facsA0[i], "Goff")) goffIdx0 = i;
+                    }
+                    CheckTrue(ultIdx0 >= 0 && goffIdx0 >= 0,
+                              "（前提）`Ultramarines` 与 `Goff` 都在阵营表里（下标 " + ultIdx0 + " / " + goffIdx0 + "）");
+                    Check(PracticeModePopup.DefaultArmyIndexOf(null, facsA0), ultIdx0,
+                          "★ ③ 没有可用的牌 ⇒ 回落 **`Ultramarines`**（原版 `Open.c:174` 的字面量 `10`；"
+                        + "`CardArmy.Ultramarines = 10`）—— 期望下标由阵营表现算，⛔ 不读实现的常量");
+                    Check(PracticeModePopup.DefaultArmyIndexOf("", facsA0), ultIdx0,
+                          "★ ③′ 空阵营（有卡组、没督军）同样回落 `Ultramarines`（同一条判据）");
+                    Check(PracticeModePopup.DefaultArmyIndexOf("Goff", facsA0), goffIdx0,
+                          "★ ③″ 有阵营 ⇒ 就用它（`Goff` ⇒ " + goffIdx0 + "）—— 两条分支**互斥**，③ 不可能是「恒返回某个数」");
+
+                    // ---- 夹具复位：`ArmyIndex = -1`（= 本窗的「不限」档；**原版没有这一档**）----
+                    // 下面那几段（78 对 / `DeckRows.Count == 8` / 内容高 6381 / 可滚 5840.21 /
+                    // 「`ArmyIndex = -1` ⇒ 一格都不亮」）全部按 **79 格**这条**观察基线**写 ——
+                    // 🔴 那是**夹具基线**、⛔ 不是原版口径（原版开窗就带筛选，见上面那节）。
+                    // ⛔ 别顺手把它们改成 7 格：「78 对 / 13×6」那族**数据判据**靠 79 格才量得到。
+                    pw.ArmyIndex = -1;
+                    pw.RebuildDeckListForTest();
+                    CheckNear(pw.DeckScrollContentH, 6381f, 0.6f,
+                              "（夹具复位）清回「不限」⇒ 78 对 + 首格「你的卡组」= 79 格 ⇒ 40 行 ⇒ **6381**"
+                            + "（下面几段的基线；⚠️ 这一档原版没有，只为量数据）");
+                    pw.ArmyScroll.OnChanged();      // 阵营列重画 ⇒ 0 格亮（= 3302 那条的前提）
+                }
 
                 // ============================================================ 🆕 **2026-10-22 · 练习窗数据源对齐原版**
                 // **左列 = 原版那 78 对 `DemoDeckInfoSO`**（`PrebuiltDecks.Pairs`），**一格 = 一对**（对里两副：
@@ -2855,11 +3007,13 @@ public static class MainMenuScene
                           "★ 左列数据源 = `demo_deck_pairs.json` 的 **78 对** `kind==\"practice\"`"
                         + "（= 原版 `PracticeModePopup.decks` 数组那 78 项）");
                     Check(pw.ListedDeckCount, 78,
-                          "★ 当前（Classic + 不限阵营）列出来的**格数 = 78** —— **不是**玩家卡组数 "
-                        + CollectionData.DeckCount());
+                          "★ 当前（Classic + 不限阵营）列出来的**练习对格数 = 78** —— **不是**玩家卡组数 "
+                        + CollectionData.DeckCount()
+                        + "（`ListedDeckCount` 只数对；「你的卡组」那一格另算，见 `ListedCellCount`）");
                     Check(pw.DeckRows.Count, 8,
                           "…而**建出来的格节点 = 8**：视口 540.79 高 ÷ 行距 159 ⇒ 4 行、两列"
-                        + "（其余在滚动区外，按原版 `RectMask2D` 不建 —— 所以「格数」看 `ListedDeckCount`、不看 `DeckRows.Count`）");
+                        + "（其余在滚动区外，按原版 `RectMask2D` 不建 —— 所以「格数」看 `ListedDeckCount`、不看 `DeckRows.Count`）"
+                        + "｜🆕 2026-10-23 首格「你的卡组」也是这 8 格之一（总格 79 ⇒ 仍只建 4 行）");
                     if (ps78.Count >= 3)
                     {
                         Check(ps78[0].uiOrder, 0, "★ 第 1 格 = 原版 `uiOrder` **0**（数组序，⛔ 不是按阵营/难度排）");
@@ -2870,13 +3024,88 @@ public static class MainMenuScene
                             var wantDeck = PrebuiltDecks.PairDeck(ps78[k3], GameMode.Classic);
                             CheckTrue(wantDeck != null,
                                       $"（前提）第 {k3 + 1} 对的 `classicDeck` 查得到（{ps78[k3].classic.deckId}）");
-                            CheckText(TextOf(FindChild(pw.DeckRows[k3], "Deck Name")),
+                            // 🔴 **2026-10-23（W65 · 1c）**：按**节点名**找那一格（`DeckRow_<对下标>`），
+                            //   ⛔ 别再用 `DeckRows[k3]` —— 列表下标从 2026-10-23 起被首格「你的卡组」顶掉一位
+                            //   （原版 `SetArmyButtons` 的演示卡组也从第 1 项起）。
+                            CheckText(TextOf(FindChild(FindChild(pw.transform, "DeckRow_" + k3), "Deck Name")),
                                       wantDeck != null ? wantDeck.DisplayName : "<无>",
                                       $"★ 第 {k3 + 1} 格的 `Deck Name` = 该对 **Classic 那一副**的显示名"
                                     + $"（`{ps78[k3].classic.deckId}`）—— 换模式之后它必须变成另一副");
                         }
                     }
                     else CheckTrue(false, "只读到 " + ps78.Count + " 对 ⇒ 上面三条 `uiOrder` 断言等于没查");
+
+                    // ============================================================ 🆕 **2026-10-23（W65 · 1c）：首格「你的卡组」**
+                    // 判据 = `decomp_full/PracticeModePopup__SetArmyButtons.c`：列表**第 0 项 = 玩家自己的卡组**
+                    //   （`_data(+0x100).selectedDeck(+0x58)` 非空**且**它的阵营 == 当前筛 ⇒
+                    //   `InitializeWithPracticeDeck(item0, this, _data, …)` 的「玩家卡组」那一支：名字 = **格子自己的词条**、
+                    //   图 = `ArmyUtilities.GetArmyIcon(army)`、`IsPlayerDeck` 层 `SetActive(1)`），演示卡组从**第 1 项**起。
+                    //   官方词条 = `MenuDeck/Practice/YourDeck` = `Your deck` / **你的卡组**（`官方本地化_en+zh-CN.json` 实读）。
+                    //   用户实拍 `C:/Users/qjh36/Desktop/warpforge参考图/练习界面参考图.png` 左列首格就是它。
+                    // 🧨 改坏法：① 删掉 `RebuildDeckRows` 里 `ShowYourDeckCell()` 那一整段 ⇒ 第一条红；
+                    //   ② 把首格的 `nameBg` 写成 `armyColor` ⇒ 上面判色那条红；
+                    //   ③ 命中回调写成空 / `PickPair` ⇒ 点它之后 `DeckIndex` 仍 −1 ⇒ 下面选中态那条红。
+                    {
+                        var own = FindChild(pw.transform, PracticeModePopup.YourDeckCellName);
+                        CheckTrue(own != null,
+                                  "★ 左列**首格 = 「你的卡组」**（`" + PracticeModePopup.YourDeckCellName + "`）");
+                        if (own != null)
+                        {
+                            CheckText(TextOf(FindChild(own, "Deck Name")), Loc.T(PracticeModePopup.YourDeckTerm),
+                                      "★ 首格名字 = 官方词条 `" + PracticeModePopup.YourDeckTerm
+                                    + "` 的译名（中文档 = 你的卡组）");
+                            CheckTrue(FindChild(own, "IsPlayerDeck") != null,
+                                      "★ 首格带 `IsPlayerDeck` 那枚印玺（原版玩家卡组那一支 `SetActive(1)`）");
+                            var ownHl = FindChild(own, "Highlight");
+                            // 🔴 **2026-10-23 就地订正（铁律 5）**：这里原来断「首格的高亮**灭**」——
+                            //   理由是「当前选中的是预组」；**已过期**：默认选中现在就是「你的卡组」
+                            //   （`ResetContent → SelectDefaultDeck`，判据 `SetArmyButtons.c:132-133`）
+                            //   ⇒ 首格是**当前那一格**，高亮**亮着**。反色那条（第 1 对不亮）见上面新加的那一节。
+                            CheckTrue(ownHl != null && ownHl.gameObject.activeSelf,
+                                      "★ …而首格**就是当前选中的那一格** ⇒ 它的高亮**亮着**"
+                                    + "（原版 `DeckSelected(item0)`；2026-10-23 之前这里断的是「灭」）");
+                            // 🔴 **2026-10-23（W65 · 1c 收尾）**：改前「点首格」这一下自带鉴别力（默认选中的是预组）；
+                            //   现在默认选中**就是首格** ⇒ 必须先点到第 1 对、让起始态**离开**首格，
+                            //   这一条才证明得了「点首格」这条路（否则无论命中回调对不对它都绿 = 自证）。
+                            var preCell = FindChild(pw.transform, "DeckRow_0");
+                            var preHit = preCell != null ? FindChild(preCell, "Hit") : null;
+                            var preWb = preHit != null ? preHit.GetComponent<WindowButton>() : null;
+                            CheckTrue(preWb != null, "（前提）第 1 对那格有点击区（先离开首格用）");
+                            if (preWb != null) preWb.Click();
+                            CheckTrue(pw.PairIndex == 0 && pw.PickedPrebuilt != null && pw.DeckIndex < 0,
+                                      "（夹具）先点第 1 对 ⇒ 选中态**离开**首格（`PairIndex` = " + pw.PairIndex
+                                    + "、`DeckIndex` = " + pw.DeckIndex + "）");
+                            // 🔴 **2026-10-23（α 断言修）**：这里**必须重找**首格 —— 上一句 `preWb.Click()` 走
+                            //   `PickPair → PickPrebuilt → RebuildDeckRows`（`PracticeModePopup.cs:2531 → :2574
+                            //   → :1866-1870`），整批格节点被 `RewardsWindow.DestroySafe` 销毁；
+                            //   编辑器非 playing 下 `MainMenuSubmenuWindow.cs:217-223` 走 `DestroyImmediate`
+                            //   ⇒ 第 3049 行抓的 `own` **当场变 Unity 假 null** ⇒ 再 `FindChild(own, "Hit")`
+                            //   恒得 null（`Editor/MenuCheck.cs:141-147` 对 null 父直接返回 null、不抛）
+                            //   ⇒ 本前提假红，且下面 `★ 点首格 ⇒ 选中我的卡组` 整块被跳过。
+                            //   写法与同文件 `3089 / 3161 / 3180 / 3195`「点完就按名字重找」一致。
+                            // 🧨 改坏法：退回复用点击前的 `own` ⇒ 本条红 + 下面那条正测不跑。
+                            // 判据：`资料/普查产出_1023b/诊断_MainMenu首格点击区.md` §二/§四。
+                            own = FindChild(pw.transform, PracticeModePopup.YourDeckCellName);
+                            var oh = own != null ? FindChild(own, "Hit") : null;
+                            var owb = oh != null ? oh.GetComponent<WindowButton>() : null;
+                            CheckTrue(owb != null, "（前提）首格有点击区（重建后重找）");
+                            if (owb != null)
+                            {
+                                owb.Click();
+                                CheckTrue(pw.DeckIndex >= 0 && pw.PickedPrebuilt == null && pw.PairIndex < 0,
+                                          "★ 点首格 ⇒ 选中**我的卡组**（`DeckIndex` = " + pw.DeckIndex
+                                        + "、预组与那一对作废）—— 原版 `DeckSelected(deckInfo, item0)`");
+                            }
+                            // 复位：点回第 1 对（本文件后面几段都按「选中的是预组」写；⛔ 别只改字段）
+                            var backCell = FindChild(pw.transform, "DeckRow_0");
+                            var backHit = backCell != null ? FindChild(backCell, "Hit") : null;
+                            var backWb = backHit != null ? backHit.GetComponent<WindowButton>() : null;
+                            CheckTrue(backWb != null, "（前提）第 1 对那格有点击区（复位用）");
+                            if (backWb != null) backWb.Click();
+                            CheckTrue(pw.PairIndex == 0 && pw.DeckIndex < 0,
+                                      "…点回第 1 对 ⇒ 选中态回预组（`PairIndex` = 0、`DeckIndex` = −1）");
+                        }
+                    }
 
                     // ---- ★ 78 对 × 两侧：**每一副都要取得到官方中文名**（W65 尾账 · 2026-10-23）----
                     // 判据：原版 `PrebuiltDeck.get_LocalizedName` = `GetTranslation("PrebuiltDecks/" + deckId)`
@@ -2928,28 +3157,59 @@ public static class MainMenuScene
                     }
 
                     // ---- ★ 双卡组（最容易错的一处）：同一对在 Classic / Skirmish 下是**两副不同的牌** ----
-                    CheckTrue(pw.PickedPair != null && pw.PickedPrebuilt != null,
-                              "（前提）切到 Classic 之后自动选中了**一对**（`ResetContent → PickPair → PickPrebuilt`）");
-                    var pr0 = pw.PickedPair;
-                    if (pr0 != null && pw.PickedPrebuilt != null)
+                    // 🔴 **2026-10-23 就地重写（W65 · 1c 收尾）**：这一段原来靠「切模式之后**自动落回同一对**」验 ——
+                    //   **那条行为是我们自加的**（原版 `ResetContent` 只清选择，随后的 `SetArmyButtons` 一律
+                    //   重建并默认选中 item0 = 你的卡组，从不"记住上一对"）。默认选中接上之后那条不再成立，
+                    //   ⇒ 改走**真正的入口**：点那一格（`PickPair`）；切模式之后**再点一次**同一格。
+                    //   判据不变（`DemoDeckInfoSO__GetDeck.c`：`0 → classic` / 否则 `→ skirmish`）。
+                    // 🧨 改坏法：`PickPair` 里写死 `pair.classic` ⇒ 下面「skirmishDeck」那条红。
+                    var psD = PrebuiltDecks.Pairs;
+                    CheckTrue(psD.Count > 0, "（前提）至少一对练习卡组（下面按第 1 对断）");
+                    if (psD.Count > 0)
                     {
-                        int pi0 = pw.PairIndex;
-                        Check(pw.PickedPrebuilt.deckId, pr0.classic.deckId,
-                              "★ Classic 下选中的那副 = 该对的 **`classicDeck`**（" + pr0.classic.deckId + "）");
+                        var pr0 = psD[0];
+                        // 先走一次入口点回第 1 对（上面那段复位点过；这里显式再来一次，⛔ 不靠字段摆状态）
+                        var r0d = FindChild(pw.transform, "DeckRow_0");
+                        var h0d = r0d != null ? FindChild(r0d, "Hit") : null;
+                        var w0d = h0d != null ? h0d.GetComponent<WindowButton>() : null;
+                        if (w0d != null) w0d.Click();
+                        CheckTrue(pw.PairIndex == 0 && pw.PickedPrebuilt != null
+                                  && pw.PickedPrebuilt.deckId == pr0.classic.deckId,
+                                  "★ Classic 下点第 1 格 ⇒ 拿的是该对的 **`classicDeck`**（" + pr0.classic.deckId + "）");
                         CheckTrue(pr0.classic.deckId != pr0.skirmish.deckId,
                                   "★（灭自证）这一对两副的 deckId **本来就不同**："
                                 + pr0.classic.deckId + " vs " + pr0.skirmish.deckId
                                 + " —— 「两档取同一副」在这一对上不可能蒙混过去");
+                        // 切模式 ⇒ 原版 `ResetContent → SetArmyButtons`：**选择归零 → 默认选中「你的卡组」**
                         pw.SetGameMode(GameMode.Skirmish);
-                        Check(pw.PairIndex, pi0, "★ 切到 Skirmish ⇒ 仍落回**同一对**（不是跳去别的格）");
-                        CheckTrue(pw.PickedPrebuilt != null && pw.PickedPrebuilt.deckId == pr0.skirmish.deckId,
-                                  "★ …而取的是该对的 **`skirmishDeck`**（" + pr0.skirmish.deckId + "）"
-                                + "｜🧨 改坏法：`PickPair` 里写死 `pair.classic` ⇒ 这里仍是 " + pr0.classic.deckId + " ⇒ 红");
+                        CheckTrue(pw.PickedPrebuilt == null && pw.PairIndex < 0
+                                  && pw.DeckIndex == CollectionData.CurrentIndex(),
+                                  "★ 切到 Skirmish ⇒ **默认选中回到「你的卡组」**（原版每次重建都 `DeckSelected(item0)`；"
+                                + "`DeckIndex` = " + pw.DeckIndex + " · `PairIndex` = " + pw.PairIndex + "）"
+                                + "｜🧨 改坏法：`ResetContent` 换回「保住 PairIndex」⇒ 本条红");
+                        // 再点同一格 ⇒ 该对的另一副
+                        var r0e = FindChild(pw.transform, "DeckRow_0");
+                        var h0e = r0e != null ? FindChild(r0e, "Hit") : null;
+                        var w0e = h0e != null ? h0e.GetComponent<WindowButton>() : null;
+                        if (w0e != null) w0e.Click();
+                        CheckTrue(pw.PairIndex == 0 && pw.PickedPrebuilt != null
+                                  && pw.PickedPrebuilt.deckId == pr0.skirmish.deckId,
+                                  "★ …同一格、切到 Skirmish 之后再点 ⇒ 取的是该对的 **`skirmishDeck`**（"
+                                + pr0.skirmish.deckId + "）"
+                                + "｜🧨 改坏法：`PickPair` 里写死 `pair.classic` ⇒ 仍是 " + pr0.classic.deckId + " ⇒ 红");
                         Check(pw.PickedPrebuilt != null ? pw.PickedPrebuilt.gameMode : -1,
                               (int)GameMode.Skirmish, "★ 交给开战的那副自己的 `gameMode` = 13（Skirmish）");
                         pw.SetGameMode(GameMode.Classic);
-                        CheckTrue(pw.PickedPrebuilt != null && pw.PickedPrebuilt.deckId == pr0.classic.deckId,
-                                  "★ 切回 Classic ⇒ 又回到 `classicDeck`（`PairIndex` 没变）");
+                        CheckTrue(pw.PickedPrebuilt == null && pw.DeckIndex == CollectionData.CurrentIndex(),
+                                  "★ 切回 Classic ⇒ 又回到「你的卡组」（同一条判据：原版重建一律选 item0）");
+                        // 复原到「第 1 对 · Classic」—— 后面几段都按这个状态写
+                        var r0f = FindChild(pw.transform, "DeckRow_0");
+                        var h0f = r0f != null ? FindChild(r0f, "Hit") : null;
+                        var w0f = h0f != null ? h0f.GetComponent<WindowButton>() : null;
+                        if (w0f != null) w0f.Click();
+                        CheckTrue(pw.PairIndex == 0 && pw.PickedPrebuilt != null
+                                  && pw.PickedPrebuilt.deckId == pr0.classic.deckId,
+                                  "…复原：回到第 1 对的 `classicDeck`（" + pr0.classic.deckId + "）");
                         Check(pw.PickedPrebuilt != null ? pw.PickedPrebuilt.gameMode : -1,
                               (int)GameMode.Classic, "…这一副的 `gameMode` = 0（Classic）");
                         CheckTrue(PrebuiltDecks.PendingSource != null
@@ -3269,8 +3529,15 @@ public static class MainMenuScene
                 //    `IsPlayerDeck` 那条红（它是固定 `sizeDelta`、**不随父件缩**）；名字条改回「顶 38px」⇒ 名字四条全红。
                 // ⚠️ 期望值全是**原版锚点算出来的字面量**（⛔ 不读 `PracticeModePopup.Item*` —— 那是自证）。
                 {
-                    var cell0 = FindChild(pw.transform, "DeckRow_0");
-                    CheckTrue(cell0 != null, "（前提）`DeckRow_0` 在（下面这一组都挂在它身上）");
+                    // 🔴 **2026-10-23（W65 · 1c）就地改夹具（铁律 5）**：这一组量的是**格位 0**（270.08,262.64）
+                    //   那一格的五层内景。2026-10-23 起格位 0 = **首格「你的卡组」**（原版
+                    //   `PracticeModePopup__SetArmyButtons.c` 的第 0 项），练习对从格位 1 起
+                    //   ⇒ 这里改成按**节点名** `DeckRow_YourDeck` 找（⛔ 别用 `DeckRows[0]`：那是列表下标，
+                    //   而且视口外的格不建 ⇒ 两者不是一回事）。
+                    //   ⚠️ 「你的卡组」那格的 `Text background` 色**不同源**（`yourDeckColor`）⇒ 判色那一条拆成
+                    //   两条：首格断 `yourDeckColor`、第 1 对断 `armyColor`。
+                    var cell0 = FindChild(pw.transform, "DeckRow_YourDeck");
+                    CheckTrue(cell0 != null, "（前提）`DeckRow_YourDeck`（格位 0）在（下面这一组都挂在它身上）");
                     if (cell0 != null)
                     {
                         // 框心 = (270.08,262.64)（上面已断过格位），下面全是「框心 + 原版格内偏移」
@@ -3335,11 +3602,10 @@ public static class MainMenuScene
                                       "★ 而**全部低于**文字档 `QPrText`(" + PracticeModePopup.QPrText + ") —— 名字画在最上面");
                         }
                         // `Highlight` = **只有当前这套**才在（原版 `SelectItem`/`ToggleHighlight` 的 `SetActive`）。
-                        // 🔴 **2026-10-22（`D1`）就地订正（铁律 5）**：原来这里写「开窗时选中的是
-                        // `DeckLibrary.Current` = 第 4 套」—— **已经不准了**：上面那句 `pw.SetGameMode(GameMode.Classic)`
-                        // 走的是原版 `ResetContent`（选择归零 → 落到该模式第一副）⇒ 现在选中的是**第 1 套**
-                        // （2026-10-22 起左列是练习对 ⇒ 实际是**第 1 对**，见下一段）。
-                        // 两态（亮 1 / 灭其余）照样可断，只是「当前那一套」换了人。
+                        // 🔴 **2026-10-23 就地订正（铁律 5）**：（这一段的前一版写「切模式后自动落到第 1 对」，
+                        // **已过期** —— 默认选中现在接上了原版那条：`ResetContent` 重建后一律选 item0 =「你的卡组」）。
+                        // 走到这里时选中态是**上面「双卡组」那段末尾显式点回的第 1 对**（不是自动落的），
+                        // `PairIndex` 因此 = 0。两态（亮 1 / 灭其余）照样可断，只是「当前那一套」是谁由那段决定。
                         // 🔴 **2026-10-22（练习窗数据源对齐）**：当前格 = **`PairIndex`**（一对的下标），
                         //   ⛔ 不是 `DeckIndex`（那一路只在「Change Deck 选了自建卡组」时 ≥ 0；左列选对时恒 −1）。
                         //   格节点名 `DeckRow_<pi>` 用的也是**对下标**（不是 `DeckRows` 的列表下标 —— 筛掉的不建）。
@@ -3370,11 +3636,23 @@ public static class MainMenuScene
                         //   对照：玩家自己的卡组那一支用的是 `yourDeckColor` —— **两支不同源**。）
                         // 🔴 期望值 = `demo_deck_pairs.json` 的 `pairs[0].armyColorRaw` **原样 4 个 float**
                         //    （原版存的是任意浮点、不是 8bit/255）⇒ 这里**写死原值**，⛔ 不读实现、⛔ 不读数据文件。
-                        //   🧨 改坏法：把 `RebuildDeckRows` 里那颗色换回 `ItemYourDeckColor`（1, 0.7952, 0, 1）⇒ 本条红。
-                        CheckTintOn(QuadOf(tb0), new Color(0.29178533f, 0.548370719f, 0.783018887f, 1f), 0.01f,
-                                    "★ `Text background` 的色 = 该对的 **`armyColor`**（`armyColorRaw` 原样浮点 "
+                        //   🧨 改坏法：把 `BuildDeckCell` 里 `nameBg` 那一支接回写死的 `ItemYourDeckColor`
+                        //    （1, 0.7952, 0, 1）⇒ 本条红。
+                        //   🔴 **2026-10-23（W65 · 1c）**：判色那一格改指**第 1 对**（`DeckRow_0` —— 格位 1）；
+                        //    `tb0` 现在属于首格「你的卡组」（它的色是 `yourDeckColor`，见下一条）。
+                        CheckTintOn(QuadOf(FindChild(FindChild(pw.transform, "DeckRow_0"), "Text background")),
+                                    new Color(0.29178533f, 0.548370719f, 0.783018887f, 1f), 0.01f,
+                                    "★ 第 1 对那格的 `Text background` 色 = 该对的 **`armyColor`**（`armyColorRaw` 原样浮点 "
                                   + "(0.2918, 0.5484, 0.7830, 1)，= `demo_deck_pairs.json` 第 1 对的 `armyColorRaw`）"
                                   + "（⛔ 不是 prefab 自带的 `(0.408,0.811,0.279,1)`、也⛔ 不是 `yourDeckColor`）");
+                        // 🆕 **2026-10-23（W65 · 1c）**：**首格「你的卡组」的色 = 原版 `yourDeckColor`**。
+                        //   判据 = `DeckSelectorMenuItemDemo__InitializeWithPracticeDeck.c` 里「玩家自己的卡组」那一支
+                        //   （`this+0x48` 那颗 `Text background` 被写成 `yourDeckColor`）；值 = prefab
+                        //   `MonoBehaviour_914357594831109544.json` 的 `yourDeckColor` = (1, 0.7951523, 0, 1)。
+                        //   🧨 改坏法：把首格的 `nameBg` 也写成 armyColor（「两支同一个色」）⇒ 本条红。
+                        CheckTintOn(QuadOf(tb0), new Color(1f, 0.7951523f, 0f, 1f), 0.01f,
+                                    "★ **首格「你的卡组」**的 `Text background` 色 = 原版 `yourDeckColor` "
+                                  + "(1, 0.7952, 0, 1)（判据 = `InitializeWithPracticeDeck.c` 的玩家卡组那一支）");
                         // ---- ㉒③：名字条 = 原版锚点 → 172×30.6 · 摆**格底** · `fs29 / auto[8,29]` · 居中 · 折行 ----
                         CheckTrue(nm0 != null, "（前提）`Deck Name` 在");
                         if (nm0 != null)
@@ -3429,8 +3707,8 @@ public static class MainMenuScene
                 //       **下带内沿 803.43 − 23 = 780.43**
                 //       🔴 **2026-10-22 就地订正（铁律 5）**：本行原来写「下带内沿 780.43 要**第 4 行**才够得到，
                 //         本夹具只有 4 套卡组（两列 ⇒ 2 行）⇒ 够不到」—— **那个夹具前提已经不存在了**：
-                //         左列现在列 **78 对预组**（`PrebuiltDecks.Pairs`，两列 ⇒ **39 行** ⇒ 内容高 6222、
-                //         可滚范围 5681.21）⇒ **下带内沿 780.43 确实够得到**（实测那一侧有 10 条切线）。
+                //         左列现在列 **78 对预组 + 首格「你的卡组」**（`PrebuiltDecks.Pairs`，两列 ⇒ **40 行** ⇒ 内容高 6381、
+                //         可滚范围 5840.21）⇒ **下带内沿 780.43 确实够得到**（实测那一侧有 10 条切线）。
                 //         ⇒ 下面 `want` 必须**两条内沿都登记**（少登记一条 ⇒ `CheckSoftCuts` 第 2 步报
                 //         「切线 #n 在 780.43 ⇒ 必须是带的内沿」= 一条 α 假红）。
                 // 🔴 期望值一律写**原版字面量**（⛔ 别写成「我们的视口上沿 + 50」—— 那会跟着实现漂 = 自证）。
@@ -3454,7 +3732,7 @@ public static class MainMenuScene
                                   new[] { 285.64f, 780.43f }, 0.6f,
                                   "练习窗 `Decks Scroll view`（原版 `m_Softness = (0,23)`；两条带内沿 = 视口上沿 "
                                   + "**262.64 + 23 = 285.64**（第 1 格 y 262.64..442.64 正压着它）与视口下沿 "
-                                  + "**803.43 − 23 = 780.43**（78 对 ⇒ 39 行 ⇒ 内容高 6222，底下那几行滚得进来、压着它）"
+                                  + "**803.43 − 23 = 780.43**（78 对 + 首格「你的卡组」= 79 格 ⇒ 40 行 ⇒ 内容高 6381，底下那几行滚得进来、压着它）"
                                   + " —— 两侧都要出现切线，少一侧 = 那一侧的软边没接）");
                     Check(ScanSoftCuts(deckHolder, true, new PxRect(
                                                                  PracticeModePopup.DecksVpL, PracticeModePopup.DecksVpT,
@@ -3467,53 +3745,105 @@ public static class MainMenuScene
                     // 左列现在列的是 **78 对预组**（`PrebuiltDecks.Pairs`），换存档一格都不会变
                     // （`RebuildDeckRows` 只读 `PrebuiltDecks.Pairs`，⛔ 不再读 `CollectionData`）。
                     // ⇒ 三件事分开处理：
-                    //   · ㉒④（内容高跟着阵营筛选重算）+ 文字吃软边：**直接用真数据**（78 对 ⇒ 39 行 ⇒ 6222px，
+                    //   · ㉒④（内容高跟着阵营筛选重算）+ 文字吃软边：**直接用真数据**（79 格 ⇒ 40 行 ⇒ 6381px，
                     //     比视口 540.79 高得多 ⇒ 滚得动，而且**不用换存档**）；
                     //   · ㉒③（长名字缩进 172px 的条）：真数据里最长的名字（`Wolves - Ferocity+HM Control`，28 字）
                     //     在 fs29 下**不会溢出** ⇒ 拿第 1 格那颗 `Label` **临时灌一个超长串**再 `ForceRelayout()`，
                     //     断「仍然缩进 172px」—— 断的还是建格时那套 `SetAutoFitBox(…, 8, 29)`，
                     //     只是阳性对照从「夹具里造一副长名字的牌」搬到了断言语里（⛔ 不是放宽判据）。
                     {
-                        // ---- ㉒④ 不过滤：78 对 ⇒ 39 行 ⇒ 内容高 = 159×39 + 21 = **6222** ----
+                        // ---- ㉒④ 不过滤：78 对 + 首格「你的卡组」= **79 格 ⇒ 40 行** ⇒ 内容高 = 159×40 + 21 = **6381** ----
                         // 期望值 = 原版 `GridLayoutGroup` 算式 `padT+padB+(格高+spacing.y)×行数−spacing.y`
-                        //        = `0 + 0 + (180−21)×39 + 21`（⛔ 不从 `PracticeModePopup` 读 —— 自证）。
+                        //        = `0 + 0 + (180−21)×40 + 21`（⛔ 不从 `PracticeModePopup` 读 —— 自证）。
+                        // 🔴 **2026-10-23（W65 · 1c）**：原版 `SetArmyButtons` 的第 0 项是「你的卡组」⇒ 总格 = 78 + 1。
+                        //   改前这里是 78 对 ⇒ 39 行 ⇒ 6222。
                         Check(pw.ListedDeckCount, 78, "（前提）不过滤时左列 **78 对**");
-                        CheckNear(pw.DeckScrollContentH, 6222f, 0.6f,
-                                  "★ ㉒④ 不过滤：**78 对 ⇒ 39 行** ⇒ 内容高 = 159×39 + 21 = **6222**");
-                        CheckNear(pw.DeckScroll.MaxOffset, 6222f - (803.43f - 262.64f), 0.6f,
-                                  "…可滚范围 = 6222 − (视口下沿 803.43 − 内容顶 262.64) = **5681.21**");
+                        CheckTrue(CollectionData.DeckCount() > 0,
+                                  "（前提）夹具里至少有一套自建卡组 ⇒ 首格「你的卡组」会出现（"
+                                + CollectionData.DeckCount() + " 套）");
+                        CheckNear(pw.DeckScrollContentH, 6381f, 0.6f,
+                                  "★ ㉒④ 不过滤：**78 对 + 首格「你的卡组」= 79 格 ⇒ 40 行** ⇒ 内容高 = 159×40 + 21 = **6381**");
+                        CheckNear(pw.DeckScroll.MaxOffset, 6381f - (803.43f - 262.64f), 0.6f,
+                                  "…可滚范围 = 6381 − (视口下沿 803.43 − 内容顶 262.64) = **5840.21**");
 
                         // ---- ㉒④ 筛一个阵营：每阵营 **6 对** ⇒ 3 行 ⇒ 498 ----
                         {
                             // ⚠️ 阵营格只装得下前 8 格（13 × 108.38 = 1382.56 比视口 764.21 高 ⇒
-                            //    后面的 `MenuDraw.Visible` 判不中、**根本没建**）⇒ 取第 1 格（一定在）。
-                            var aCell = pw.ArmyCells.Count > 0 ? pw.ArmyCells[0] : null;
+                            //    后面的 `MenuDraw.Visible` 判不中、**根本没建**）⇒ 只在前 8 格里取。
+                            // 🔴 **2026-10-23（W66）就地订正（铁律 5）**：这里原来点**第 0 格**，注释还写着
+                            //   「本夹具「你的卡组」= Ultramarines，而 `facs[0]` 不是它」—— **后半句是错的**：
+                            //   `facs[0]` **就是** Ultramarines（`DeckEditorState.ArmyOrder` 第 1 项，且卡池里有它）。
+                            //   ⇒ 点第 0 格 = 筛到「你的卡组」自己那个阵营 ⇒ 下面「换阵营后选中的那副也落在新筛里」
+                            //   那条**恒绿**（选不选都不变）= 自证；而且那种情况下首格「你的卡组」会留在列里 ⇒ 7 格 4 行，
+                            //   与本节标题那句「6 对 ⇒ 3 行 ⇒ 498」也对不上。
+                            //   ✅ 改成点 **`Goff`** 那一格：你的卡组是 Ultramarines ⇒ 首格「你的卡组」**不建**、
+                            //   默认选中**必须**换到 Goff 的第一对 —— 那条才证明得了 `PickArmy → SelectDefaultDeck`。
+                            var facsA1 = CollectionWindow.CardsState.Factions();
+                            int goffA1 = -1;
+                            for (int i = 0; i < facsA1.Count; i++)
+                                if (RuleEngine.DeckRules.SameFaction(facsA1[i], "Goff")) { goffA1 = i; break; }
+                            CheckTrue(goffA1 >= 0 && goffA1 < pw.ArmyCells.Count && pw.ArmyCells[goffA1] != null
+                                      && pw.ArmyCells[goffA1].name == "Army_" + goffA1,
+                                      "（前提）`Goff` 那一格（阵营下标 " + goffA1 + "）在已建的 " + pw.ArmyCells.Count
+                                    + " 格里，且节点名 = `Army_" + goffA1 + "`（格名 = 阵营下标，见 `RebuildArmyCells`）");
+                            var aCell = goffA1 >= 0 && goffA1 < pw.ArmyCells.Count ? pw.ArmyCells[goffA1] : null;
                             var aHit = aCell != null ? FindChild(aCell, "Hit") : null;
                             var awb = aHit != null ? aHit.GetComponent<WindowButton>() : null;
-                            CheckTrue(awb != null, "（前提）第 1 格阵营有点击区");
+                            CheckTrue(awb != null, "（前提）`Goff` 那一格有点击区");
                             if (awb != null)
                             {
                                 awb.Click();                       // = `PickArmy` ⇒ 重建卡组列表
-                                Check(pw.ArmyIndex, 0, "点第 1 格阵营 ⇒ 阵营筛选生效");
+                                Check(pw.ArmyIndex, goffA1, "点 `Goff` 那一格 ⇒ 阵营筛选生效");
+                                // 🔴 **2026-10-23（W65 · 1c 收尾）**：换阵营 = 原版 `ChangeSelectedArmy` 的**末句**
+                                //   `SetArmyButtons(param_1, param_2)` ⇒ **重建 + 默认选中**（`SelectDefaultDeck`：
+                                //   你那副的阵营相符 ⇒「你的卡组」，否则该阵营第一对）。
+                                //   改前这里只重建、不重选 ⇒ 面板上会留着**刚被筛掉的那一对**
+                                //   （列里已经没有它、`Battle!` 却还拿它开战）—— 原版不会出现这种态。
+                                //   🧨 改坏法：把 `PickArmy` 里的 `SelectDefaultDeck()` 换回 `RebuildDeckRows` ⇒ 本条红
+                                //   （本夹具「你的卡组」= Ultramarines、这一格筛的是 `Goff` ⇒ 选中的会**留在 Ultramarines 那一对**）。
+                                {
+                                    var facs0 = CollectionWindow.CardsState.Factions();
+                                    string wantFac = pw.ArmyIndex >= 0 && pw.ArmyIndex < facs0.Count
+                                                   ? facs0[pw.ArmyIndex] : null;
+                                    string selFac = pw.PickedPrebuilt != null
+                                                  ? pw.PickedPrebuilt.faction
+                                                  : (pw.DeckIndex >= 0 ? CollectionData.DeckAt(pw.DeckIndex).Faction : null);
+                                    CheckTrue(wantFac != null && selFac != null
+                                              && string.Equals(selFac, wantFac, System.StringComparison.OrdinalIgnoreCase),
+                                              "★ 换阵营之后**选中的那一副也落在新筛里**（筛「" + wantFac + "」，"
+                                            + "选中那副的阵营 = " + (selFac ?? "<没有选中>") + "）"
+                                            + " —— 原版 `ChangeSelectedArmy` 末句就是 `SetArmyButtons`");
+                                }
                                 Check(pw.ListedDeckCount, 6,
                                       "★ 该阵营 **6 对**（78 = 13 阵营 × 6 对 —— 原版每阵营 6 组演示卡组）");
-                                CheckNear(pw.DeckScrollContentH, 498f, 0.6f,
-                                          "★ ㉒④ **筛成 6 对 ⇒ 3 行** ⇒ 内容高**跟着重算** = 159×3 + 21 = **498**"
-                                        + "（改回「只在建窗时算一次」⇒ 这里还是 6222，这条立刻红）");
+                                // 🔴 **2026-10-23（W65 · 1c）**：这一格里还可能有**首格「你的卡组」**（原版
+                                //   `SetArmyButtons` 只在「你那副的阵营 == 当前阵营」时才建它）⇒ 行数按**实际格数**算，
+                                //   ⛔ 不再写死 6 格。判据仍是原版 `GridLayoutGroup` 算式（159×行数 + 21）。
+                                //   ⚠️ 格数用 `ListedCellCount`（= 对 + 首格）**只为算行数**；「内容高跟着筛选重算」
+                                //   这条的鉴别力来自上面那条 6381（硬编码）—— 若实现忘了重算，这里仍是 6381 ≠ 本算式。
+                                int cells0 = pw.ListedCellCount;
+                                int rows0 = Mathf.Max(1, (cells0 + 1) / 2);
+                                float h0 = 159f * rows0 + 21f;
+                                CheckTrue(cells0 == 6 || cells0 == 7,
+                                          "（前提）该阵营 6 对，加上可能的首格「你的卡组」= 6 或 7 格（实测 " + cells0 + "）");
+                                CheckNear(pw.DeckScrollContentH, h0, 0.6f,
+                                          "★ ㉒④ **筛成 " + cells0 + " 格 ⇒ " + rows0 + " 行** ⇒ 内容高**跟着重算** = 159×"
+                                        + rows0 + " + 21 = **" + h0 + "**"
+                                        + "（改回「只在建窗时算一次」⇒ 这里还是 6381，这条立刻红）");
                                 CheckNear(pw.DeckScroll.MaxOffset, 0f, 0.6f,
-                                          "★ ㉒④ **可滚范围**也跟着收：498 < 视口 540.79 ⇒ **0**"
-                                        + "（「内容高不重算」最直接的症状：这里会是 5681.21）");
+                                          "★ ㉒④ **可滚范围**也跟着收：" + h0 + " < 视口 540.79 ⇒ **0**"
+                                        + "（「内容高不重算」最直接的症状：这里会是 5840.21）");
                                 // 同阵营再点 = 早返回（原版 `ChangeSelectedArmy.c:30-33`）—— 语义没变，照旧钉住
                                 awb.Click();
-                                Check(pw.ArmyIndex, 0, "再点同一格 ⇒ **筛选保持不变**（原版同阵营早返回）");
-                                CheckNear(pw.DeckScrollContentH, 498f, 0.6f, "…内容高保持 **498**");
+                                Check(pw.ArmyIndex, goffA1, "再点同一格 ⇒ **筛选保持不变**（原版同阵营早返回）");
+                                CheckNear(pw.DeckScrollContentH, h0, 0.6f, "…内容高保持 **" + h0 + "**");
                             }
                         }
                         // 夹具复位：筛选清回「不限」（下面几段按不过滤写）
                         pw.ArmyIndex = -1;
                         pw.RebuildDeckListForTest();
-                        CheckNear(pw.DeckScrollContentH, 6222f, 0.6f,
-                                  "（夹具复位）阵营筛选清回「不限」⇒ 78 对 ⇒ **6222**");
+                        CheckNear(pw.DeckScrollContentH, 6381f, 0.6f,
+                                  "（夹具复位）阵营筛选清回「不限」⇒ 78 对 + 首格「你的卡组」= 79 格 ⇒ **6381**");
                         pw.ArmyScroll.OnChanged();            // `Highlight` 回到「一格都不亮」（同 本文件）
 
                         // ---- ㉒③ 长卡组名：**临时灌一个超长串**，断它仍然缩进 172×30.6 的条 ----
@@ -3566,7 +3896,7 @@ public static class MainMenuScene
                         // ⇒ 不滚时在 401.24..431.84，离带（262.64..285.64）差 116px。下滚 **140** 之后到
                         // **261.24..291.84** —— 正压着整条带。
                         pw.DeckScroll.SetOffset(140f);
-                        CheckNear(pw.DeckScroll.Offset, 140f, 0.6f, "（前提）卡组列表下滚 140px（78 对 ⇒ 内容高 6222，滚得到）");
+                        CheckNear(pw.DeckScroll.Offset, 140f, 0.6f, "（前提）卡组列表下滚 140px（79 格 ⇒ 内容高 6381，滚得到）");
                         var row0Name = FindChild(FindChild(deckHolder, "DeckRow_0"), "Deck Name");
                         CheckTrue(row0Name != null, "（前提）`DeckRow_0` 的 `Deck Name` 在（滚 140 之后它仍与视口相交）");
                         if (row0Name != null)
@@ -3624,8 +3954,9 @@ public static class MainMenuScene
                                 + " —— 那意味着某段字**悄悄没被裁**（原版 `RectMask2D` 会裁）");
                     }
                 }
-                // ⚠️ 左列现在列的是**练习对**：开窗/切模式之后 `ResetContent` 会落到**第 1 对**（`PairIndex = 0`），
-                //    这里顺手再点一次第 1 格（幂等），下面照旧断「选中第 1 对」。
+                // ⚠️ 左列现在列的是**练习对**。🔴 **2026-10-23 就地订正（铁律 5）**：这一行原来写「开窗/切模式之后
+                //    `ResetContent` 会落到**第 1 对**」—— **已过期**：默认选中现在 = 「你的卡组」（原版 `DeckSelected(item0)`）。
+                //    这里显式点一次第 1 格（= `PickPair(0)` 的正规入口），下面照旧断「选中第 1 对」。
                 // 🔴 **2026-10-22**：判据从 `DeckIndex` 换成 **`PairIndex` + `PickedPrebuilt`** ——
                 //    预组/练习对**不在卡组库里**，`DeckIndex` 这一档恒 −1（⛔ 别再拿它判「选了哪套」）。
                 {
@@ -3789,7 +4120,9 @@ public static class MainMenuScene
                         "原版 item prefab `Practice Army Select Button` 的根 **82×82**");
                     box(pw.ArmyCells.Count > 0 ? FindChild(pw.ArmyCells[0], "Hit") : null,
                         "阵营格的命中区（`HitOn` 那条路）", 82f, 82f, "= 传进去那个格矩形（82×82）");
-                    box(pw.DeckRows.Count > 0 ? pw.DeckRows[0] : null, "卡组格 `DeckRow_0`", 180f, 180f,
+                    // ⚠️ 2026-10-23（W65 · 1c）：`DeckRows[0]` = **格位 0** 那一格（现在可能是「你的卡组」）——
+                    //   本条只看 `sizeDelta`（两种格共用同一份 `BuildDeckCell`），所以名字不再写死 `DeckRow_0`。
+                    box(pw.DeckRows.Count > 0 ? pw.DeckRows[0] : null, "卡组格（格位 0）", 180f, 180f,
                         "原版 `Deck Selector Menu Item` 的格（`GridLayoutGroup` 格尺寸 180×180）");
                     box(pw.CardRows.Count > 0 ? pw.CardRows[0] : null, "卡格 `CardRow_0`", 231f, 27.88f,
                         "原版卡列表格 `DlCellW × DlCellH` = **231 × 27.88**");
@@ -3937,16 +4270,30 @@ public static class MainMenuScene
                         var prB = psB[0];
                         CheckTrue(prB.classic.deckId != prB.skirmish.deckId,
                                   "（前提）第 1 对两副 deckId 不同：" + prB.classic.deckId + " vs " + prB.skirmish.deckId);
+                        // 🔴 **2026-10-23（W65 · 1c 收尾）**：切模式现在会把选中**重置成「你的卡组」**
+                        //   （原版 `ResetContent → SetArmyButtons → DeckSelected(item0)`）⇒ 切完必须**再点一次那一格**，
+                        //   否则这里测到的是「你的卡组」而不是「该模式下那一副」。⛔ 不是放宽判据：
+                        //   走的是玩家真会走的那条路（切模式 → 点那一格 → `Battle!`）。
                         pw.SetGameMode(GameMode.Skirmish);
+                        var skCell = FindChild(pw.transform, "DeckRow_0");
+                        var skHit = skCell != null ? FindChild(skCell, "Hit") : null;
+                        var skWb = skHit != null ? skHit.GetComponent<WindowButton>() : null;
+                        CheckTrue(skWb != null, "（前提）切到 Skirmish 之后第 1 格仍有点击区");
+                        if (skWb != null) skWb.Click();
                         CheckTrue(PrebuiltDecks.PendingSource != null
                                   && PrebuiltDecks.PendingSource.deckId == prB.skirmish.deckId,
-                                  "★ 切到 Skirmish 后「本局用这副牌」= 该对的 **skirmishDeck**（" + prB.skirmish.deckId + "）");
+                                  "★ 切到 Skirmish、再点第 1 格 ⇒「本局用这副牌」= 该对的 **skirmishDeck**（" + prB.skirmish.deckId + "）");
                         CheckTrue(pw.CurrentDeck != null && pw.CurrentDeck.GameMode == (int)GameMode.Skirmish,
                                   "…面板的 `CurrentDeck` 也是同一副、`GameMode` = 13");
                         pw.SetGameMode(GameMode.Classic);
+                        var clCell = FindChild(pw.transform, "DeckRow_0");
+                        var clHit = clCell != null ? FindChild(clCell, "Hit") : null;
+                        var clWb = clHit != null ? clHit.GetComponent<WindowButton>() : null;
+                        CheckTrue(clWb != null, "（前提）切回 Classic 之后第 1 格仍有点击区");
+                        if (clWb != null) clWb.Click();
                         CheckTrue(PrebuiltDecks.PendingSource != null
                                   && PrebuiltDecks.PendingSource.deckId == prB.classic.deckId,
-                                  "★ 切回 Classic ⇒ 又回到 **classicDeck**（" + prB.classic.deckId + "）");
+                                  "★ 切回 Classic、再点第 1 格 ⇒ 又回到 **classicDeck**（" + prB.classic.deckId + "）");
                     }
                 }
                 var bh = pw.BtHit;

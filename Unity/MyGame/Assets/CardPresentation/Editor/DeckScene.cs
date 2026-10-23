@@ -792,6 +792,10 @@ public static class DeckScene
             Section("状态：卡池排序与显示判据（原版 `DeckEditingWindow.GetCardCollection`）");
             TestPoolSortAndVisibility();
 
+            // 🆕 2026-10-23（W64·B-12）：卡池「列不列防御卡」= `assignDefensiveCardsInEditMode`（原版唯一读点）
+            Section("状态：防御卡与 `assignDefensiveCardsInEditMode`（W64·B-12）");
+            TestDefensiveCardsInEditMode();
+
             Section("状态：加牌 / 删牌 / 督军");
             TestEditing();
 
@@ -1638,7 +1642,9 @@ public static class DeckScene
                 foreach (var c in vis) if (c.ShowInCollectionOptions == 0) badShow++;
 
                 // 期望张数 = 从卡表两列**现算**（原版卡池链：`show != 0`；卡组编辑再加
-                //   `inv != CantAddToDeck(5)`，防御卡按用户 2026-09-27 口径例外）
+                //   `inv != CantAddToDeck(5)`；`inv == 5` 的**防御卡**由 `assignDefensiveCardsInEditMode` 决定
+                //   —— 本用例这副是**经典**卡组，用户 2026-09-27 拍板保留的偏离让它**恒列**
+                //   （见 `TestDefensiveCardsInEditMode` ④；⛔ 别按原版删掉那一格））
                 int want = 0;
                 foreach (var c in s.Pool)
                     if (DeckRules.SameFaction(c.Faction, fac)
@@ -1722,6 +1728,100 @@ public static class DeckScene
             }
             Check(invBad, 0, "★ ⑤ 收藏序里「同阵营 + 同战将档」那一段的 `inventoryOptions` **非减**"
                            + "（🧨 去掉 `SortByInventoryOptions` 那一层 ⇒ 本条的判别力落在 `CollectionScene` 的同名断言上）");
+        }
+
+        /// <summary>🆕 **2026-10-23（`W64·B-12`）**：`assignDefensiveCardsInEditMode` 那一跳的**可观察差异**。
+        /// <para>判据 = 原版唯一读点 `DeckEditingWindow___GetCardCollection_b__32_1.c:24-40` 的分支③
+        /// （`inventoryOptions == CantAddToDeck(5)` + 是防御卡 ⇒ `return assignDefensiveCardsInEditMode`；
+        /// `.Where` 谓词**真 = 保留**）⇒ **true = 列出来 / false = 剔掉**。</para>
+        /// <para>期望值**不盯我们自己的常量**：① 「真值 ⇒ 防御卡仍在卡池」② 「假值 ⇒ 一张都不列」
+        /// 都是原版那条谓词的方向；张数从**卡表现算**（`defReachable`）。</para>
+        /// <para>驱动方式（判据缺的那一半如实标）：原版的值随 LiveOps 事件下发、本地解不出
+        /// ⇒ 我们走 `GameplayVariables.For(卡组模式)`；本用例把**遭遇 / 经典各自那份实例的字段**
+        /// 在 `try/finally` 里临时翻值（只在这几行内存续，跑完复原）。</para>
+        /// <para>🧨 **灭自证**：把 `DeckEditorState.AssignDefensiveCardsInEditMode` 改成**恒 true / 不读字段**
+        /// ⇒ 「假值 ⇒ 0 张」那条红；改成**恒 false** ⇒ 「真值 ⇒ 仍有」与「经典保留」两条红
+        /// （用户 2026-09-27 那条偏离不允许被「恒 false」顺手抹掉）。</para></summary>
+        static void TestDefensiveCardsInEditMode()
+        {
+            var pool = CardDatabase.Load();
+
+            // 逐阵营「卡池里实际列出来的防御卡张数」（`WarlordGatedPool` = 卡组编辑那条链）
+            Func<DeckEditorState, int> countDefence = st =>
+            {
+                int n = 0;
+                foreach (var fac in DeckEditorState.ArmyOrder)
+                {
+                    CardDef wl = null;
+                    foreach (var c in st.Pool) if (c.Type == "hero" && c.Faction == fac) { wl = c; break; }
+                    if (wl == null) continue;
+                    st.SetWarlord(wl.Id);
+                    foreach (var c in st.VisibleCards()) if (c.Type == "defence") n++;
+                }
+                return n;
+            };
+
+            int defTotal = 0, defNotFive = 0, defReachable = 0;
+            string firstDefNotFive = null;
+            foreach (var c in pool) if (c.Type == "defence")
+            {
+                defTotal++;
+                if (c.InventoryOptions != DeckRules.OptionCantAddToDeck)
+                {
+                    defNotFive++;
+                    if (firstDefNotFive == null)
+                        firstDefNotFive = c.Faction + "/" + c.Name + "(inv=" + c.InventoryOptions + ")";
+                }
+                bool hasHero = false;
+                foreach (var h in pool) if (h.Type == "hero" && h.Faction == c.Faction) { hasHero = true; break; }
+                // ⚠️ 阵营比较照 `DeckRules.SameFaction` 的口径（大小写不敏感）—— 别用 `Array.IndexOf` 的
+                //    序数比较，否则大小写一变就会出现「数得到但算不进期望值」的假红
+                bool inOrder = false;
+                foreach (var fac in DeckEditorState.ArmyOrder)
+                    if (DeckRules.SameFaction(fac, c.Faction)) { inOrder = true; break; }
+                if (hasHero && inOrder) defReachable++;
+            }
+
+            // ① 前提：字段**真的会作用到**这些卡上 —— 原版分支③只接「inv == 5 且是防御卡」那一格
+            Check(defNotFive, 0, $"★ B-12 前提：池内 {defTotal} 张防御卡**全部** `inventoryOptions == CantAddToDeck(5)`"
+                              + "（⇒ 原版分支③ `return 字段` 对它们全部生效）"
+                              + (firstDefNotFive == null ? "" : $"｜反例：{firstDefNotFive}"));
+            CheckTrue(defReachable > 0, $"……而且（前提）其中有 {defReachable} 张落在「有战将的阵营」里（会被 `countDefence` 数到）");
+
+            // ② 字段 true（遭遇）⇒ 防御卡列出来
+            var sk = new DeckEditorState(pool);
+            sk.WarlordGatedPool = true;
+            sk.NewDeck("B12", (int)GameMode.Skirmish);
+            CheckTrue(sk.Skirmish, "……（前提）这副卡组认成遭遇（`GameMode.Skirmish`）");
+            var skVars = GameplayVariables.Skirmish;
+            CheckTrue(skVars.assignDefensiveCardsInEditMode, "……（前提）遭遇那份实例的字段 = true");
+            Check(countDefence(sk), defReachable,
+                  $"★ B-12 字段 true（遭遇）⇒ {defReachable} 张防御卡**一张不少**地列在各自阵营的卡池里");
+
+            // ③ 同一个遭遇卡组，字段翻成 false ⇒ 一张都不列（原版分支③ `return 字段`）
+            bool savedSk = skVars.assignDefensiveCardsInEditMode;
+            int skOff;
+            try
+            {
+                skVars.assignDefensiveCardsInEditMode = false;
+                skOff = countDefence(sk);
+            }
+            finally { skVars.assignDefensiveCardsInEditMode = savedSk; }
+            Check(skOff, 0, "★ B-12 同一个遭遇卡组、字段翻成 false ⇒ 防御卡**一张都不列**"
+                          + "（🧨 把消费点改成恒 true / 不读字段 ⇒ 本条红）");
+            Check(countDefence(sk), defReachable, "★ B-12 ……复原字段之后又回来了（证明上面那 0 张确实是字段造成的，不是夹具坏了）");
+
+            // ④ 🔴 用户 2026-09-27 拍板保留的偏离：经典模式**即使字段 false 也要列**（原版会剔掉）
+            var cl = new DeckEditorState(pool);
+            cl.WarlordGatedPool = true;
+            cl.NewDeck("B12C", 0);                       // 0 = 经典
+            CheckTrue(!cl.Skirmish, "……（前提）这副是经典卡组");
+            CheckTrue(!GameplayVariables.Classic.assignDefensiveCardsInEditMode,
+                      "……（前提）经典那份实例的字段 = false（本地缺省）");
+            Check(countDefence(cl), defReachable,
+                  $"★ B-12 经典 + 字段 false ⇒ 防御卡**照旧全列**（{defReachable} 张）"
+                + "—— 🔴 **用户 2026-09-27 拍板保留的偏离，⛔ 别按原版改回**"
+                + "（🧨 把 `AssignDefensiveCardsInEditMode` 的用户那一格删掉 ⇒ 本条红）");
         }
 
         static void TestFilters()

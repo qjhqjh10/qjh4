@@ -42,15 +42,17 @@
 //     （`Kill()` 那条路不走 `Exit`，回调可能还在飞）。**这是我们加的，原版没有这个重写**。
 //
 // 🔴 未还原（这一半我们这边没有）
-//   · **真正的补间本身**。原版 `UnitTweenSO.BuildSequence`
-//     （`d:/2/tools/decomp_animfx_nested/UnitTweenSO__BuildSequence.c`：`DOTween.Sequence()` →
-//      逐条 `TweenInfoBase.GetTween(source, target)` → 按 `muted`/`appendType` 决定 `Append` 还是 `Join`
-//      → `useCallBack` 时 `InsertCallback`）与 6 个 tween 子类（`PunchTween` 32 · `ResetBodyTween` 11 ·
-//     `RotateTween` 6 · `ShakeTween` 4 · `ScaleTween` 3 · `MoveTween` 3；数据在 `数据/游戏数据/tween/*.json`
-//     74 个、被引用 24 个）—— **我们还没有运行时那份数据表**。
-//     ⇒ 这里把「该播哪一条」路由到静态钩子 `OnInvoke`（照 `WFModuleScreenShake.OnShake` 的写法）。
+//   · ~~**真正的补间本身**……**我们还没有运行时那份数据表**。~~
+//     🔴 **2026-10-23 就地订正（铁律 5 · `普查产出_1022/A1_自造与兜底_特效动画.md` §四 D3）**：
+//     **运行时那份数据表已经有了** —— `CardPresentation/Core/UnitTweenTable.cs`（74 个 `UnitTweenSO`
+//     的数据表）+ `CardPresentation/Core/UnitTweenRuntime.cs`（`BuildSequence` 的对应物：
+//     6 个子类 · `muted`/`appendType` 的 Append/Join · `useCallBack` · `waitAnimation`），
+//     且 **138 个 `AnimFXModuleTween` 全接上了**：`BattleDriver.cs:2004` 设 `CardResolver`、
+//     `UnitTweenRuntime.cs:48` 设 `OnInvoke`；跳过（取不到卡 / 取不到表）会
+//     `Debug.LogWarning` + 计数（`UnitTweenRuntime.cs:105-111`）。
+//     ⇒ 本文件仍然只负责「该播哪一条」那一跳（`OnInvoke`），**补间本体在下游**，这是分层、不是缺口。
 //   · **`waitAnimation` 的判断**：它是 `UnitTweenSO` 的字段（`so+0x18`；24 个里 6 个为 1），我们读不到
-//     ⇒ 由下游在 `OnInvoke` 的**返回值**里回答（只有它见过那份数据）。
+//     ⇒ 由下游在 `OnInvoke` 的**返回值**里回答（只有它见过那份数据 —— 现在 = `UnitTweenTable`）。
 //   · 🔴 **2026-10-17 就地订正（B15 · 铁律 5）：这一格原来写的是错的，而且导出了一条错的待办。**
 //     原文：「**动画事件通道**：`PlayAnim()` 在原版是给**动画片段事件**调的（零代码调用点，见块1 §附D）
 //     —— 我们**还没有动画事件层** ⇒ `playOnEnable = 0` 的那 **84/138** 个实例现在**没人会调它**，

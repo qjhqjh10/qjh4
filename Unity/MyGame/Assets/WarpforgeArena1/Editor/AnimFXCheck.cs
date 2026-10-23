@@ -210,6 +210,129 @@ public static class AnimFXCheck
               $"屏震 preset 全都找得到（缺 {WFModuleScreenShake.MissingPresets.Count} 个："
               + string.Join(" / ", WFModuleScreenShake.MissingPresets) + "）");
 
+        // ---- ③d 🆕 2026-10-23（R9）：`rawSignal` 信号表（原版 `Cinemachine.NoiseSettings`）----
+        //   判据 → `资料/普查产出_1023b/R9_rawSignal_算式.md`（机器码级算式）
+        //        + `资料/普查产出_1023b/特效线_执行报告.md` §二（逐轴 × 3 octave 全表）
+        //   这一段只验**数据与解析**（表在不在、5 个带波形的 preset 各自落到哪份、默认给谁）；
+        //   **算式**本身由 `BattleScene` 的 ⑦ 节逐点核（那里能用 `CardFeel.ShakeNoise01` 复算）。
+        {
+            var dflt = WFModuleScreenShake.DefaultSignal;
+            Check(dflt != null && dflt.name == "Warpforge 6D Shake",
+                  $"R9 默认信号 = `{dflt?.name}`（原版场景 `CinemachineImpulseSource.m_RawSignal`"
+                + " = `Warpforge 6D Shake`，pathID 1276427422462347950）");
+
+            var sigs = WFModuleScreenShake.Signals;
+            Check(sigs != null && sigs.Count == 4,
+                  $"R9 信号表收到 {sigs?.Count ?? 0} 份（原版 `bundle_tweenandshakes` 里 `Warpforge 6D Shake*` 共 4 份，"
+                + "2 份被 preset 引用、2 份没有）");
+            int badShape = 0;
+            foreach (var s in sigs ?? new List<WFModuleScreenShake.SignalRec>().AsReadOnly())
+            {
+                if (s == null || s.name == null || s.position == null || s.position.Length != 3) { badShape++; continue; }
+                for (int i = 0; i < s.position.Length; i++)
+                {
+                    var o = s.position[i];
+                    // Y 轴是我们 2D 版**唯一**采的那一列 ⇒ 它必须有频率/幅度，且 Constant 只能是 0/1
+                    if (o == null || o.fy <= 0f || o.ay <= 0f || (o.cy != 0 && o.cy != 1)) badShape++;
+                }
+            }
+            Check(badShape == 0,
+                  $"R9 每份信号都有 3 个 octave、`PositionNoise[*].Y` 的 f/a > 0 且 `Constant ∈ {{0,1}}`（异常 {badShape} 处）");
+
+            // 4 份信号的 **Y 列必须逐位相同** —— 这是「2D 版只采 Y、且换信号不改变竖直波形」的前提。
+            // ⛔ 一旦哪天原版数据里出现不同的 Y 列，这条会红：那时「只采 Y」的简化就要重新评估。
+            int yDiff = 0;
+            if (sigs != null && sigs.Count > 0 && sigs[0].position != null)
+                foreach (var s in sigs)
+                {
+                    if (s == null || s.position == null || s.position.Length != sigs[0].position.Length) { yDiff++; continue; }
+                    for (int i = 0; i < s.position.Length; i++)
+                    {
+                        var a = sigs[0].position[i];
+                        var b = s.position[i];
+                        if (a == null || b == null) { yDiff++; continue; }
+                        if (Mathf.Abs(b.fy - a.fy) > 1e-5f || Mathf.Abs(b.ay - a.ay) > 1e-6f || b.cy != a.cy) yDiff++;
+                    }
+                }
+            Check(yDiff == 0, $"R9 4 份信号的 `Position.Y` 三条带**逐位相同**（差异 {yDiff} 处）"
+                            + " ⇒ 2D 竖直波形对全部 17 个 preset 一致，差别只在 `frequency`/幅度/方向");
+
+            // 🆕 **2026-10-23（R9 尾账）：`OrientationNoise` 也进表了**（`CardFeel.ShakeOrientation` 要用）。
+            //   判据：两份 `…No rotation` 的名字就写着 no rotation ⇒ `orientation` 必须是**空**；
+            //   另外两份（`Warpforge 6D Shake` / `…One Axis`）各 3 个 octave，且**逐位相同**
+            //   （= 「换信号不改角度波形」的前提，同 Y 列那条）。
+            int oriBad = 0;
+            foreach (var s in sigs)
+            {
+                if (s == null || s.name == null) continue;
+                bool noRot = s.name.IndexOf("No rotation", System.StringComparison.Ordinal) >= 0;
+                int n = s.orientation == null ? 0 : s.orientation.Length;
+                if (noRot) { if (n != 0) oriBad++; }
+                else
+                {
+                    if (n != 3) { oriBad++; continue; }
+                    for (int i = 0; i < n; i++)
+                    {
+                        var o = s.orientation[i];
+                        if (o == null || o.ax <= 0f || o.ay <= 0f || o.az <= 0f
+                            || (o.cx != 0 && o.cx != 1) || (o.cy != 0 && o.cy != 1) || (o.cz != 0 && o.cz != 1)) oriBad++;
+                    }
+                }
+            }
+            Check(oriBad == 0,
+                  $"R9 尾账 `OrientationNoise` 形状：`…No rotation` 两名为空、另两名各 3 octave × X/Y/Z（异常 {oriBad} 处）");
+
+            var oriSrc = sigs != null ? sigs.FirstOrDefault(s => s != null && s.name == "Warpforge 6D Shake") : null;
+            int oriDiff = 0;
+            if (oriSrc != null && oriSrc.orientation != null)
+                foreach (var s in sigs)
+                {
+                    if (s == null || s == oriSrc || s.orientation == null || s.orientation.Length == 0) continue;
+                    if (s.orientation.Length != oriSrc.orientation.Length) { oriDiff++; continue; }
+                    for (int i = 0; i < s.orientation.Length; i++)
+                    {
+                        var a = oriSrc.orientation[i];
+                        var b = s.orientation[i];
+                        if (a == null || b == null) { oriDiff++; continue; }
+                        if (Mathf.Abs(b.fx - a.fx) > 1e-5f || Mathf.Abs(b.ax - a.ax) > 1e-6f
+                            || Mathf.Abs(b.fy - a.fy) > 1e-5f || Mathf.Abs(b.ay - a.ay) > 1e-6f
+                            || Mathf.Abs(b.fz - a.fz) > 1e-5f || Mathf.Abs(b.az - a.az) > 1e-6f
+                            || b.cx != a.cx || b.cy != a.cy || b.cz != a.cz) oriDiff++;
+                    }
+                }
+            Check(oriDiff == 0,
+                  $"R9 尾账 两份带角度的信号 `OrientationNoise` **逐位相同**（差异 {oriDiff} 处）"
+                + " ⇒ 换信号不改角度波形（同 `Position.Y` 那条的对称断言）");
+
+            // preset → 信号：5 个非空（3 个 `One Axis` + 2 个 `No rotation`），其余 12 个落默认
+            var expectSignal = new Dictionary<string, string>
+            {
+                { "Shake Forward Pull",   "Warpforge 6D Shake One Axis" },
+                { "Shake Land on ground", "Warpforge 6D Shake One Axis" },
+                { "Shake Upwards Hand",   "Warpforge 6D Shake One Axis" },
+                { "Shake UI Earthquake",  "Warpforge 6D Shake No rotation" },
+                { "Shake UI Hit",         "Warpforge 6D Shake No rotation" },
+            };
+            int mapBad = 0;
+            foreach (var kv in expectSignal)
+            {
+                var r = WFModuleScreenShake.Resolve(new WFModuleScreenShake.ShakeEntry { preset = kv.Key });
+                if (r.signal == null || r.signal.name != kv.Value) { mapBad++; Debug.LogError(P + $"  ✗ R9 `{kv.Key}` 的信号是 `{r.signal?.name}`，应为 `{kv.Value}`"); }
+            }
+            Check(mapBad == 0, $"R9 5 个带 `rawSignal` 的 preset 各自解析到正确的信号表（错 {mapBad} 个）");
+
+            int dfltBad = 0;
+            foreach (var n in new[] { "Shake Hit Small", "Shake Big", "Shake Hit Medium" })
+            {
+                var r = WFModuleScreenShake.Resolve(new WFModuleScreenShake.ShakeEntry { preset = n });
+                if (r.signal == null || r.signal.name != "Warpforge 6D Shake") dfltBad++;
+            }
+            Check(dfltBad == 0, $"R9 没有 `rawSignal` 的 preset（抽查 3 个）落到**默认信号**（错 {dfltBad} 个）");
+            Check(WFModuleScreenShake.MissingSignals.Count == 0,
+                  $"R9 没有「preset 引用了但表里没有」的信号（缺 {WFModuleScreenShake.MissingSignals.Count} 个："
+                + string.Join(" / ", WFModuleScreenShake.MissingSignals) + "）");
+        }
+
         // ---- ④ 屏震那条链真的通：播一个有自动档屏震的效果，钩子应当被调到 ----
         var shakeEff = entries.FirstOrDefault(e => e != null && e.modules != null
                         && e.modules.Any(d => d != null && d.kind == "AnimFXModuleScreenShake"));

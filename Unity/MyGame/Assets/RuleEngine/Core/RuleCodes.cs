@@ -22,7 +22,7 @@ namespace RuleEngine
         public const int ErrNoAttack = 7;         // 攻击力为 0 / Can't Attack
         public const int ErrSelf = 8;             // 不能攻击自己
         public const int ErrStunned = 9;          // 眩晕中无法行动
-        public const int ErrTarget = 10;          // 目标不合法（Vanguard/Stealth/Flying）
+        public const int ErrTarget = 10;          // 目标不合法（参数非法 / 技能目标非法）
         /// <summary>压制：无法执行**近战**攻击（规则书 :194）。
         /// ⚠️ 这个码值**沿用我们上一版复刻的**（`rule_core.gd:38` `ERR_PINDOWN := 11`）——
         /// 原来 11 被我们的 `ErrUnimplemented` 占着，2026-09-12 把自定义码往后挪到 13 让位。
@@ -79,6 +79,72 @@ namespace RuleEngine
         ///    也不复用 `ErrUnimplemented` —— 那是「本版没实现效果」，本档是「原版就不许直接打出」。</summary>
         public const int ErrNotPlayable = 20;
 
+        // ==================================================================
+        //  🆕 2026-10-23（引擎线 · 战斗审计 `B-31` · **`ErrNoAttack` / `ErrTarget` 拆细**）
+        //
+        //  **为什么要拆**：原版 `BattleManager.IsValidAttackTarget`（`d:/2/tools/decomp_full/`
+        //    `BattleManager__IsValidAttackTarget.c`，343 行）按**因**分档，每一档都带自己的
+        //    `Battle/Tips/*` 词条（字面量指针 → `stringliteral.json`，10/10 命中）；
+        //    而我们过去把它们全归成 `ErrNoAttack` / `ErrTarget` **两个码** ⇒ 界面只能给一句笼统人话。
+        //
+        //  **判据（逐支现读 `IsValidAttackTarget.c` + 字面量解引用）**：
+        //    | 原版分支 | 行 | 词条键 | 我们的码 |
+        //    |---|---|---|---|
+        //    | 近战攻击值 ≤ 0 | `:57-70` | `CantAttackWithZeroMeleeAttack`（`DAT_184289c60`） | `ErrNoMeleeAttack` |
+        //    | 远程攻击值 < 1 | `:72-86` | `CantAttackWithZeroRangedAttack`（`DAT_184289d58`） | `ErrNoRangedAttack` |
+        //    | 目标带 stealth(70) | `:134` / `:320-330` | `AttackBlockStealth`（`DAT_1842896a8`） | `ErrAttackBlockStealth` |
+        //    | 护卫（IsDefender / IsThereDefender） | `:149-174` | `AttackBlock`（`DAT_1842894c0`） | `ErrAttackBlock` |
+        //    | 飞行 + 近战 + 攻方不飞 | `:177-181` / `:307-317` | `AttackBlockFlying`（`DAT_1842895b8`） | `ErrAttackBlockFlying` |
+        //    | 毁灭者（0x2a8 frenzied）另有可杀目标 | `:206-264` | `CantAttackDestroyer`（`DAT_184289988`） | `ErrCantAttackDestroyer` |
+        //    | 召唤病 + 非 fast + 目标督军 | `:200-203` / `:282-292` | `CantAttackFlank`（`DAT_184289a78`） | `ErrCantAttackFlank` |
+        //
+        //  🔴 **没有建码的三支（判据已闭合、但成因我们没建模 ⇒ 建了也是永远不返回的死码）**：
+        //    · `AttackGiantKiller`（`:182-305`，攻方 `0x154 giantKiller`）—— 现池 `GiantKiller` **0 张**；
+        //    · `CantAttackTainted`（`:186-199`，攻方督军 ∧ 目标 `0xa0 tainted`）—— `tainted` 我们**整条没有**
+        //      （同 `ConditionEval` §330 那条缺口）；
+        //    · `CantAttackCoward`（`:204-281`，攻方 `0xbe coward` ∧ 目标督军）—— 现池 `coward` **0 张**。
+        //    三支要做时**先补 trait 建模**，再加码 + `Terms` 一行（判据都在上表同一份方法体里）。
+        //    ⚠️ 同族但**原版本身就没有词条**的几支（`:211-222` 的 `summonRift` / `stun` / `pindown`）：
+        //       `stun` → 已有 `ErrStunned`、`pindown` → 已有 `ErrPindown`，`summonRift` 未建模。
+        //
+        //  ⚠️ **`ErrNoAttack` / `ErrTarget` 保留**（不是改名）：它们现在只剩各自那一层意思 ——
+        //    `ErrNoAttack` = **禁攻关键词**（`cantattack` / `noncombatant`）/ `CannotAttackThisTurn`
+        //    （原版这两处**没有** `Battle/Tips` 词条，`CanAttackNow.c` 直接 return 0）；
+        //    `ErrTarget` = **参数非法**（`tgtP` 越界）＋**主动技能的目标非法**
+        //    （原版走 `Battle/Tips/InvalidTarget`，`FinishedChoosingAbilityTargetByClick.c:20-30`）。
+        //    ⇒ 表现层 `BattleDriver` 那条「技能 ∧ `ErrTarget` ⇒ `InvalidTarget`」**照旧成立**。
+        // ==================================================================
+
+        /// <summary>**近战攻击值 ≤ 0** —— 原版 `IsValidAttackTarget.c:57-70`，词条
+        /// `Battle/Tips/CantAttackWithZeroMeleeAttack`。
+        /// 谁返回它：`RuleCore.CanAttackNow(..., ranged: false)` 的 `FieldAttack(...) &lt;= 0`（原来返回 `ErrNoAttack`）。</summary>
+        public const int ErrNoMeleeAttack = 21;
+        /// <summary>**远程攻击值 &lt; 1** —— 原版 `IsValidAttackTarget.c:72-86`，词条
+        /// `Battle/Tips/CantAttackWithZeroRangedAttack`。
+        /// 谁返回它：`RuleCore.CanAttackNow(..., ranged: true)` 的 `FieldAttack(...) &lt;= 0`（原来返回 `ErrNoAttack`）。</summary>
+        public const int ErrNoRangedAttack = 22;
+        /// <summary>**必须攻击护卫（Vanguard）** —— 原版 `IsValidAttackTarget.c:149-174` 的
+        /// `CardScript.IsDefender` / `MinionManager.IsThereDefender` 那一支，词条 `Battle/Tips/AttackBlock`。
+        /// 谁返回它：`RuleCore.IsValidTarget` 的「敌方场上有 Vanguard、目标却不是 Vanguard」那一段
+        /// （原来返回 `ErrTarget`）。</summary>
+        public const int ErrAttackBlock = 23;
+        /// <summary>**目标隐身** —— 原版 `IsValidAttackTarget.c:134`（`HasCurrentTrait(目标, 0x46 stealth)`），
+        /// 词条 `Battle/Tips/AttackBlockStealth`。谁返回它：`RuleCore.IsValidTarget` 的 Stealth 那一段。</summary>
+        public const int ErrAttackBlockStealth = 24;
+        /// <summary>**近战打飞行** —— 原版 `IsValidAttackTarget.c:177-181`（目标 flying ∧ 非 vanguard ∧
+        /// `param_5 == 1` 近战 ∧ 攻方不飞），词条 `Battle/Tips/AttackBlockFlying`。
+        /// 谁返回它：`RuleCore.IsValidTarget` 的 Flying 那一段。</summary>
+        public const int ErrAttackBlockFlying = 25;
+        /// <summary>**毁灭者（`frenzied` 0x2a8）另有这一下打得死的合法目标** —— 原版
+        /// `IsValidAttackTarget.c:206-264`，词条 `Battle/Tips/CantAttackDestroyer`。
+        /// 谁返回它：`RuleCore.IsValidTarget` 的 Destroyer 那一段（`W64 B-15` 照 `:207-250` 改写的形状）。</summary>
+        public const int ErrCantAttackDestroyer = 26;
+        /// <summary>**召唤病在身、且目标是敌方督军** —— 原版 `IsValidAttackTarget.c:200-203` 的
+        /// `+0x58 && !fast && cardType==10`，词条 `Battle/Tips/CantAttackFlank`
+        /// （键名写 Flank 是因为「侧翼」正是那条豁免词；`A1098` 已把语义核对过）。
+        /// 谁返回它：`RuleCore.IsValidTarget` 的召唤病那一段（原来返回 `ErrTarget`）。</summary>
+        public const int ErrCantAttackFlank = 27;
+
         static readonly Dictionary<int, string> Names = new Dictionary<int, string>
         {
             { OK,             "OK" },
@@ -88,10 +154,10 @@ namespace RuleEngine
             { ErrNotTurn,     "不是你的回合" },
             { ErrNotUnit,     "该格没有单位" },
             { ErrExhausted,   "该单位本回合已行动" },
-            { ErrNoAttack,    "该单位没有攻击力或不能攻击" },
+            { ErrNoAttack,    "该单位不能攻击（禁攻关键词 / 本回合不能攻击）" },
             { ErrSelf,        "不能攻击自己" },
             { ErrStunned,     "该单位处于眩晕" },
-            { ErrTarget,      "目标不合法（Vanguard / Stealth / Flying 限制）" },
+            { ErrTarget,      "目标不合法（参数非法 / 技能目标非法）" },
             { ErrPindown,     "该单位被压制，无法进行近战攻击" },
             { ErrUnimplemented, "该功能本版未实现" },
             { ErrNoAbility,   "该单位没有主动技能" },
@@ -128,6 +194,15 @@ namespace RuleEngine
             { ErrNoTargetAvailable, "这张战术卡没有可选的合法目标" },
             { ErrNotEnoughRoom,     "棋盘上已经放不下了" },
             { ErrNotPlayable,       "这张卡不能直接打出" },
+            // 🆕 2026-10-23（`B-31` 拆码的配套）：21..27 **必须有中文名** ——
+            //   漏了就走 `Describe` 的 fallback，吐「**未知错误码 21**」（同 18/19 那两条的教训）。
+            { ErrNoMeleeAttack,       "这个单位不能进行近战攻击" },
+            { ErrNoRangedAttack,      "这个单位不能进行远程攻击" },
+            { ErrAttackBlock,         "你必须攻击先锋单位" },
+            { ErrAttackBlockStealth,  "你不能针对隐身单位" },
+            { ErrAttackBlockFlying,   "你不能用近战攻击飞行单位" },
+            { ErrCantAttackDestroyer, "这个军队必须攻击它能摧毁的单位" },
+            { ErrCantAttackFlank,     "不是侧翼攻击的有效目标" },
         };
 
         public static string Describe(int code)
@@ -146,7 +221,11 @@ namespace RuleEngine
         //      另开一轮）；
         //      ✅ **2026-10-18（第三会话）：`ErrSlot` 那一半【已做】** —— 拆出
         //      `ErrNoTargetAvailable` / `ErrNotEnoughRoom` 两档，`Terms` 也随之从 2 条变 4 条
-        //      （见下面那张表）。⚠️ **`ErrNoAttack` / `ErrTarget` 那一半【还没做】**，如实标着。
+        //      （见下面那张表）。
+        //      ✅ **2026-10-23（引擎线 · 战斗审计 `B-31`）：`ErrNoAttack` / `ErrTarget` 那一半【已做】** ——
+        //      按 `IsValidAttackTarget.c` 的成因拆出 **7 档**（21..27，见 `ErrNoMeleeAttack` 上面那张表），
+        //      `Terms` 从 4 条变 **11 条**。⚠️ 三个成因我们没建模（GiantKiller / Tainted / Coward）
+        //      ⇒ **没建码**（理由与判据行号写在同一个注释块里，⛔ 别只看到「少了三条」就当漏做）。
         //   ③ 最后才谈「`Describe` 要不要改成**出键**」（那一步会动 `RuleEngine` 的消费面）。
         //
         // ⛔ **本笔只做了 ① 里【本文件能做的那一半】：把映射建出来。**
@@ -235,12 +314,15 @@ namespace RuleEngine
         ///   · `NotYourTurn` ← <see cref="ErrNotTurn"/> ✅ 1:1（原版那一支就是 `(param_3 &amp; isPlayer) == 0`）。
         ///     ⚠️ 我们这一个码**还多盖了**「`ctx.IsOver`」这一档（对局已结束）—— 那时提示行根本不会走，
         ///     如实标着，不是缺陷。
-        ///   · `PleaseWait` / `InvalidTarget` / `CantAttack*` / `AttackBlock*` /
-        ///     `AttackGiantKiller` / `HandFull` / `DamageFatigue*` / `MuteEnemyChat` —— 同理：
-        ///     我们这边**码太粗**（`ErrNoAttack` / `ErrTarget` 各盖好几档）或**没有那一档**
-        ///     （只有一个 `PlayerInputFrozen` 布尔，分不出 `PleaseWait` / `PendingBerzerk`）
-        ///     ⇒ 全部**不映射**，见 `资料/普查产出_1018/G5_战斗本地化剩余.md` §4·B 那张分档表。
-        ///     （`A985⑧` 第二步剩下的那一半 —— `ErrNoAttack` / `ErrTarget` 也要拆 —— **还没做**。）
+        ///   · ✅ **`CantAttack*` / `AttackBlock*` / `CantAttackDestroyer` 那 7 条【已映射】** ——
+        ///     `B-31`（2026-10-23）把 `ErrNoAttack` / `ErrTarget` 拆细之后，它们各自有了自己的码
+        ///     （见 `Terms` 末尾那七行）。
+        ///   · `AttackGiantKiller` / `CantAttackTainted` / `CantAttackCoward` —— **不映射**：
+        ///     成因我们没建模（现池 0 张 / `tainted` 整条没有）⇒ 没有码可挂。
+        ///   · `PleaseWait` / `InvalidTarget` / `HandFull` / `DamageFatigue*` / `MuteEnemyChat` —— 同理：
+        ///     我们这边**没有那一档**（只有一个 `PlayerInputFrozen` 布尔，分不出
+        ///     `PleaseWait` / `PendingBerzerk`）或落点在别处 ⇒ **不映射**，
+        ///     见 `资料/普查产出_1018/G5_战斗本地化剩余.md` §4·B 那张分档表。
         /// </summary>
         static readonly Dictionary<int, string> Terms = new Dictionary<int, string>
         {
@@ -248,6 +330,19 @@ namespace RuleEngine
             { ErrNotTurn,           "Battle/Tips/NotYourTurn"      },   // 原版 `CanPlayCard.c:159-170`
             { ErrNoTargetAvailable, "Battle/Tips/NoTargetAvailable" },  // 原版 `CanPlayCard.c:142-156`
             { ErrNotEnoughRoom,     "Battle/Tips/NotEnoughRoom"    },   // 原版 `CanPlayCard.c:104-120`
+            // 🆕 2026-10-23（`B-31`）：**攻击那一路的七档**，全部 1:1 ——
+            //   判据 = `BattleManager__IsValidAttackTarget.c` 的那七支（分支/行号/字面量见
+            //   `ErrNoMeleeAttack` 上面那张表）。字面量解引用方法 = `RVA = 地址 − 0x180000000`
+            //   → `d:/2/tools/il2cpp_out/stringliteral.json`（七条 7/7 命中）。
+            //   ⚠️ 值全在 `Core/Loc.cs` 的表里（官方 en/zh 两列）；`HintForCodeWithKey` 的
+            //   「有键 ∧ 表里有值」两态闸门照旧 —— 这里**只提供映射**，落点是 `BattleDriver`。
+            { ErrNoMeleeAttack,       "Battle/Tips/CantAttackWithZeroMeleeAttack"  },  // `:57-70`
+            { ErrNoRangedAttack,      "Battle/Tips/CantAttackWithZeroRangedAttack" },  // `:72-86`
+            { ErrAttackBlock,         "Battle/Tips/AttackBlock"                    },  // `:149-174`
+            { ErrAttackBlockStealth,  "Battle/Tips/AttackBlockStealth"             },  // `:134` / `:320-330`
+            { ErrAttackBlockFlying,   "Battle/Tips/AttackBlockFlying"              },  // `:177-181` / `:307-317`
+            { ErrCantAttackDestroyer, "Battle/Tips/CantAttackDestroyer"            },  // `:206-264`
+            { ErrCantAttackFlank,     "Battle/Tips/CantAttackFlank"                },  // `:200-203` / `:282-292`
         };
 
         public static bool IsOk(int code) { return code == OK; }

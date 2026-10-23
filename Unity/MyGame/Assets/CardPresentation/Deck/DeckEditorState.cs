@@ -435,6 +435,8 @@ namespace CardPresentation
             //   · 卡组编辑（`WarlordGatedPool`）：原版 `DeckEditingWindow.GetCardCollection` 那条链；
             //   · 收藏卡牌页（`ShowInCollectionOnly`）：原版 `CardCollectionTab.GetCollection` 同一条 `Where`。
             bool showGate = WarlordGatedPool || ShowInCollectionOnly;
+            // 🆕 2026-10-23（`W64·B-12`）：原版分支③那个字段**一次取好**（属性里要过 `GameplayVariables.For`）
+            bool assignDefensiveInEditMode = AssignDefensiveCardsInEditMode;
 
             foreach (var c in _pool)
             {
@@ -444,9 +446,12 @@ namespace CardPresentation
                     if (wl == null) { if (c.Type != "hero") continue; }                 // 还没督军 ⇒ 只列督军
                     else if (!DeckRules.SameFaction(c.Faction, wl.Faction)) continue;   // 定了 ⇒ 只列该阵营
                     // 🔴 **2026-10-18**：这一行原来是 `DeckRules.CannotAddToDeck(c)`（准入判据），
-                    //   现换成**原版卡池的 `inventoryOptions` 层**（防御卡例外 —— 用户 2026-09-27 口径）。
+                    //   现换成**原版卡池的 `inventoryOptions` 层**。
                     //   ⛔ 别再退回准入判据：那会把「可见但加不进」的卡藏起来（原版是显示+变灰）。
-                    if (!PassesEditModeInventory(c)) continue;
+                    // 🆕 **2026-10-23（`W64·B-12`）**：防御卡那一格**不再整类放行**，改由原版分支③的字段决定
+                    //   （`AssignDefensiveCardsInEditMode`）—— 只有「经典 + 字段 false」这一格因用户 2026-09-27
+                    //   的拍板仍保留「列」（见那个属性的 doc，⛔ 别删）。
+                    if (!PassesEditModeInventory(c, assignDefensiveInEditMode)) continue;
                 }
                 if (needle != null && !NameSearchMatch(c, needle))
                     continue;
@@ -569,21 +574,64 @@ namespace CardPresentation
             return c != null && c.ShowInCollectionOptions != 0;       // `Hide(0)`
         }
 
-        /// <summary>卡组编辑卡池**额外来的一层**：`inventoryOptions != CantAddToDeck(5)`
-        /// （判据 = `DeckEditingWindow___GetCardCollection_b__32_1.c:28-35` 现读：
-        /// `if (*(int*)(param_2 + 0x4c) != 5) return 1;`，`inv==5` 的防御卡再看
-        /// `assignDefensiveCardsInEditMode`）。
-        /// <para>🔴 **防御卡例外**：用户 **2026-09-27** 明确要求「经典模式编辑卡池要列防御卡、玩家从这儿挑」
-        /// ⇒ 防御卡**整类放行**。⚠️ 实测池内 `inv==5` 的 **39 张全是 `type == "defence"`**
-        /// ⇒ 这一条例外等于把那 39 张全留下，没有别的卡被顺带放进来。</para>
+        /// <summary>🆕 **2026-10-23（`W64·B-12`）**：原版分支③的那一跳 —— **卡组编辑卡池列不列
+        /// 「被标了不能进卡组」的防御卡**。判据现读
+        /// `d:/2/tools/decomp_full/DeckEditingWindow___GetCardCollection_b__32_1.c:24-40`
+        /// （整条链 = `EditingDeck(+0x118).CustomGameModeEvent` → `GameModes.GetActiveEvent(deck.gameMode @0x74)`）
+        /// → `PlayEventData.gameplayVariables(+0x80)` → `.assignDefensiveCardsInEditMode(+0x4A)`
+        /// ⇒ **`return *(undefined1 *)(*(longlong *)(lVar2 + 0x80) + 0x4a);`**，谓词**真 = 保留**。
+        ///
+        /// <para>⇒ **`true` = 卡池里列出来 · `false` = 剔掉**（唯一读点；它**不**管「自动分配」——
+        /// 原版全客户端只有这一处读它，别扩到别处）。</para>
+        ///
+        /// <para>⚠️ **判据缺的那一半（如实标）**：**各模式的真值在服务器** ——
+        /// `GameplayVariablesData..ctor` 是空桩、全量反编译里没有一处带字面量赋值
+        /// ⇒ 本地**不可能**解出每个模式吃到的值（`资料/普查产出_1017/查证_assignDefensiveCardsInEditMode.md` §三 / §六）。
+        /// 这里取**我们那份建模值**，走全仓唯一的「模式号 → 参数」入口 `GameplayVariables.For`：
+        /// `Skirmish = true`【文案；且 1017 §三 已判那句文案**不是**本字段的证据】/
+        /// `Classic = false`（字段无初始化器 ⇒ 本地缺省）。⛔ **别把这当成原版真值**。</para>
+        ///
+        /// <para>🔴 **用户拍板保留的偏离（不会被原版取代）**：**经典模式编辑卡池【列】防御卡**
+        /// （用户 2026-09-27 明确要求「玩家从这儿挑」；2026-10-18 归档为「两条保留现状的偏离」①
+        /// → `资料/历史/任务总表_第五十六会话_核销前/界面线.md`）——
+        /// 原版 `Classic = false` 会剔掉它们，**⛔ 别按原版改回**。
+        /// ⇒ 本属性**只对「字段 false 且非遭遇」这一格**保留「列」，其余照字段走。</para>
+        ///
+        /// <para>⚠️ **原版无事件时这一支是抛空引用**（`b__32_1.c:40` 的 `FUN_1803f47a0()`，
+        /// 注释写着 `Subroutine does not return`，没有兜底值）⇒ 那个异常态**不复刻**
+        /// （我们用 `For(...)` 的经典档顶上，判据缺 → 按上一条用户口径处理）。</para></summary>
+        bool AssignDefensiveCardsInEditMode
+        {
+            get
+            {
+                var vars = GameplayVariables.For((GameMode)(Deck != null ? Deck.GameMode : 0));
+                bool v = vars.assignDefensiveCardsInEditMode;
+                if (!v && !Skirmish) return true;     // 🔴 用户 2026-09-27 拍板保留的偏离（见上，⛔ 别删）
+                return v;
+            }
+        }
+
+        /// <summary>卡组编辑卡池**额外来的一层**（`inventoryOptions` + 防御卡那一跳）——
+        /// 逐支照 `DeckEditingWindow___GetCardCollection_b__32_1.c:24-40` 现读：
+        /// <list type="number">
+        /// <item>`*（card + 0x4c) != 5` ⇒ **`return 1`（保留）** —— 连卡型都不看；</item>
+        /// <item>`inv == 5` 且 `cardType(+0x90) != 0xD2`（不是防御卡）⇒ **`return 0`（剔除）**；</item>
+        /// <item>`inv == 5` 且**是**防御卡 ⇒ **`return assignDefensiveCardsInEditMode`**
+        ///   （= <see cref="AssignDefensiveCardsInEditMode"/>，**唯一读点**）。</item>
+        /// </list>
+        /// <para>⚠️ **`InventoryOptions &lt; 0`（真值缺失）这一支是我们自己的**（原版没有这个状态：
+        /// 卡资产上恒有值）—— 不猜、不隐藏，与 `DeckRules.CannotAddToDeck` 对 `-1` 的口径一致。
+        /// 现读卡表：池内 `inv == 5` 的 **39 张全是 `type == "defence"`**、`defence` 39 张**全为 5**
+        /// ⇒ 分支②今天在数据上命中 0 张（口径仍要留着，那是原版的形状）。</para>
         /// <para>⚠️ 收藏卡牌页**不走这一条**（原版 `CardCollectionTab` 只看 `showInCollectionOptions`）——
         /// 那 39 张防御卡在收藏里照旧显示（现读卡表它们 `show=5`）。</para></summary>
-        static bool PassesEditModeInventory(CardDef c)
+        static bool PassesEditModeInventory(CardDef c, bool assignDefensiveInEditMode)
         {
             if (c == null) return false;
-            if (c.Type == "defence") return true;                  // 用户 2026-09-27 口径
-            if (c.InventoryOptions < 0) return true;               // 真值缺失 ⇒ 不猜、不隐藏
-            return c.InventoryOptions != DeckRules.OptionCantAddToDeck;
+            if (c.InventoryOptions < 0) return true;                              // 我们的一条：真值缺失 ⇒ 不猜、不隐藏
+            if (c.InventoryOptions != DeckRules.OptionCantAddToDeck) return true;   // 原版 ①：`!= 5 ⇒ return 1`
+            if (c.Type != "defence") return false;                                 // 原版 ②：`!= 0xD2 ⇒ return 0`
+            return assignDefensiveInEditMode;                                      // 原版 ③：`return 字段`
         }
 
         /// <summary>原版卡池 / 收藏卡牌页的**显示序**（判据见 <see cref="VisibleCards"/> 的 doc）。

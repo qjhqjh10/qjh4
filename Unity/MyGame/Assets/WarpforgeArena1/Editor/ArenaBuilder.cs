@@ -3724,6 +3724,12 @@ public static class ArenaBuilder
             //     · 我们现算的 `BattleScene.BoardLensShiftY()`（= `LensShiftY(16/9, 1)`）
             //     · 原版**场景里序列化**的 `m_LensShift.y = -0.20499999821186066`（清单 `camera.lensShiftY` 存的就是它）
             //   本开关就是用来把这两个值各渲一张、量哪一个与原版实拍对得上的。⛔ 不是生产参数。
+            //   ✅ **2026-10-11 当晚已用它跑完 A/B（`A1601`，判据 → `资料/历史/A表已收口_第二十一会话.md`）**：
+            //     · `WF_LENSSHIFT=-0.205` ⇒ 与原版实拍 **`dy=+0`**（完全对上）；
+            //     · 现算 `BoardLensShiftY()` = **-0.2105421** ⇒ **`dy=+2`**（1080p +6px）。
+            //   结论 = **原版那张实拍是「场景加载那一帧」**（相机停在序列化值），而**战斗里玩家看到的是
+            //   framer 的运行时值** ⇒ **裁定：不改相机**（我们烘的正是战斗该用的那个），
+            //   对比时由工具内置对齐吸收（`A1602`）。⛔ 别再把它当「抄错了一个数」。
             float lensY = BattleScene.BoardLensShiftY();
             var lensOv = System.Environment.GetEnvironmentVariable("WF_LENSSHIFT");
             if (!string.IsNullOrEmpty(lensOv) && float.TryParse(lensOv, System.Globalization.NumberStyles.Float,
@@ -4493,6 +4499,9 @@ public static class ArenaBuilder
         // 🔴 **2026-10-11（F4）：挂上去之前先把队列补成真值。**
         //   清单的 `queue` 在**跨包材质**上恒为 `-1`（成因 = 生成器 `unity_scene_to_godot.py:552
         //   mat_data()` 那个重建 dict 漏带 `m_CustomRenderQueue`，`d:/2` 不在白名单、改不了）
+        //   🔴 **2026-10-23（`T06`）就地订正**：那个生成器缺口**已经补了**（2026-10-11 那一轮）——
+        //   现读 13 场清单 `matQueue >= 0` 的有 **457/578**、与 `3000 + _QueueOffset` 打架 **0 条**；
+        //   下面这段「补真值」因此只在**旧清单**上才会真触发（保持它是兜底，⛔ 别删）。
         //   ⇒ 原来一律落到 3000，而 `battlearena1` 的 `TinyFlames` 真值是 **3005**、烘焙光斑
         //   `Barrels Light FX` 是 **3002** ⇒ **火画在光斑之前、被暖橙盖住**（消融实验坐实）。
         //   这里补一次 = **场景/prefab 里序列化的 `queue` 就是真值**（`grep` 得到，见 F4 报告）；
@@ -4500,6 +4509,9 @@ public static class ArenaBuilder
         //   ⚠️ **只在 `transparent` 这一档补**：不透明那颗的 `-1` 是「用 shader 的 tag」，
         //   补成 3000 会把它从 `AlphaTest`(2450) 挪进透明段（实测 44 颗不透明粒子 + 55 个
         //   不透明网格子材质槽都是 `-1`）。
+        //   🔴 **2026-10-23（`T06`/`A1582⑤`）现读订正**：这两个数现在是 **42 颗 / 34 个槽**
+        //   （44/55 是 2026-10-11 的读数，清单后来变过）；**结论不变** —— 它们的 `_QueueOffset` **全是 0**，
+        //   去掉闸门算出来也还是 3000，但那是**另一段**（透明段）⇒ **闸门必须有**。
         //   ✅ **为什么这是纯改进**：13 场 578 颗粒子 + 736 个网格子材质槽**逐条复算**过 ——
         //   除 `资料/普查产出_第十九会话/F4_粒子renderqueue.md` §二 列出的 **18 颗**外**一条都不变**（不透明的走不到这一支；透明的 `-1` 那颗
         //   `_QueueOffset` 全是 0 ⇒ 算出来还是 3000，与 `ApplyRenderState` 里那句兜底同值）。
@@ -4566,7 +4578,11 @@ public static class ArenaBuilder
     static Material GetOrCreateMaterial(string sceneName, Dictionary<string, Material> cache, MeshEntry e)
         => GetOrCreateMaterial(sceneName, cache, e.tex, e.texFile, e.baseColor, e.emission,
                                e.transparent, e.forceBlend, e.alphaClip, e.cull, e.blend,
-                               e.srcBlend, e.dstBlend, e.go, e.blendAuthoritative, e.shader);
+                               e.srcBlend, e.dstBlend, e.go, e.blendAuthoritative, e.shader,
+                               // 🆕 2026-10-23（T06）：内置网格那一支也带队列 —— 判定口径与
+                               //    `AttachOriginalMaterial` 那一行一致（取 `subMats[0].queue`）
+                               (e.subMats != null && e.subMats.Length > 0) ? e.subMats[0].queue : -1,
+                               e.props);
 
     // ---- 🆕 2026-09-25：**主贴图之外的贴图槽** -------------------------------------------------
     /// <summary>旁挂文件 `arenas/&lt;场&gt;/&lt;场&gt;_texslots.json` 的一条（由 `工具/gen_arena_texslots.py` 从原版包里按
@@ -4835,15 +4851,19 @@ public static class ArenaBuilder
                                         SubMatEntry s, string goName)
         => GetOrCreateMaterial(sceneName, cache, s.tex, s.texFile, s.baseColor, s.emission,
                                s.transparent, s.forceBlend, s.alphaClip, s.cull, 0,
-                               s.srcBlend, s.dstBlend, goName, s.blendAuthoritative, s.shader);
+                               s.srcBlend, s.dstBlend, goName, s.blendAuthoritative, s.shader,
+                               s.queue, s.props);   // 🆕 2026-10-23（T06）：队列 + 属性表（后者给 `_QueueOffset` 用）
 
     static Material GetOrCreateMaterial(string sceneName, Dictionary<string, Material> cache,
                                         string tex, string texFile, float[] baseColor, float[] emission,
                                         bool transparent, bool forceBlend, bool alphaClip,
                                         int cull, int blend, int srcBlend, int dstBlend, string goName,
-                                        bool blendAuthoritative = false, string origShader = null)
+                                        bool blendAuthoritative = false, string origShader = null,
+                                        int queue = -1, WarpforgeVFX.MatProp[] props = null)
     {
-        var key = $"{texFile}|{transparent}|{blend}|{cull}|{blendAuthoritative}|{origShader}";
+        // ⚠️ 队列也进 key：同一张贴图上可能挂着**不同队列**的槽（见下面「队列」那一段），
+        //    不进 key 会拿到上一格缓存的那份。
+        var key = $"{texFile}|{transparent}|{blend}|{cull}|{blendAuthoritative}|{origShader}|{queue}";
         if (cache.TryGetValue(key, out var cached) && cached != null) return cached;
 
         // ⚠️ 2026-09-20：**「用原版 shader」这条路当前是关的** —— 实测**整屏洋红**（Unity 的
@@ -4921,14 +4941,40 @@ public static class ArenaBuilder
             //    所以**不要**把它当产品路径。
             // 渲染状态的判据**共用一份**：`ArenaOriginalMaterial.ApplyRenderState`。
             // ⚠️ **不能调 `MakeTransparent`** —— 那个函数是按 URP/Unlit 的属性写的。
+            // 🆕 2026-10-23（T06 / `A1582③`）：**队列也要传**（原来没传 ⇒ `queue` 默认 -1 ⇒
+            //    A/B 那条路上队列一律落兜底值）。判据同下面那一段：`ResolveQueue`。
             WarpforgeVFX.ArenaOriginalMaterial.ApplyRenderState(
                 mat, cull, srcBlend, dstBlend, wantTransparent, alphaClip,
-                blendAuthoritative, ArenaApplyAmbientColor);
+                blendAuthoritative, ArenaApplyAmbientColor, queue, props);
         }
         else if (wantTransparent)
         {
             MakeTransparent(mat);
         }
+
+        // 🔴🔴 **2026-10-23（T06 / `A1582③`）：网格 `.mat` 的 render queue 也要落成真值。**
+        //   **原来**：这条 `.mat` 一律停在我们自己写的 3000（`MakeTransparent`）或 2450（`MakeAlphaClip`），
+        //   而清单里 **5 个 `Runes` 是 3011、两颗烘焙光斑（`Barrels Light FX` / `Generator 2 FX`）是 3002**
+        //   （现核：`arenas/*/Materials/*.mat` 219 份里 189 份 3000、**一份 3011 都没有**）。
+        //   运行期本来看不出（`ArenaOriginalMaterial.Rebuild()` 会按组件的 `queue` 重建），
+        //   **但只要 `Rebuild()` 失败退回这份 `.mat`，绘制顺序就错**（火/符文与光斑画反）。
+        //
+        //   判据**只此一处** = `ArenaOriginalMaterial.ResolveQueue`（`matQueue >= 0` 就用它，
+        //   否则 `3000 + _QueueOffset`）。⚠️ **透明闸门**：不透明那颗的 `-1` 意思是「用 shader 的 tag」
+        //   （这批多为 `AlphaTest` 2450）—— 给它算成 3000 会把它挪进透明段。
+        //   实测（2026-10-23 现读 13 场清单）：不透明且 `queue == -1` 的 = **42 颗粒子 + 34 个网格子材质槽**，
+        //   **它们的 `_QueueOffset` 全是 0** ⇒ 去掉闸门算出来也还是 3000（但那是**另一段**）⇒ 闸门必须有。
+        int wantQueue = queue > 0
+            ? queue
+            : (wantTransparent ? WarpforgeVFX.ArenaOriginalMaterial.ResolveQueue(props, queue) : -1);
+        // ⚠️ **材质资产是按【贴图名】共享的**（`SaveOrReuse` 的路径 = `<tex>.mat`），而同一张贴图上
+        //   可能挂着**不同队列**的槽（`BattleArena1 Texture Baked` 一份就同时被 2450 / 3000 / 3002 用）。
+        //   ⇒ 只给「**透明 + 队列不是 3000**」这一档**另起一份资产名**（`<tex> q<queue>.mat`），
+        //     其余一律沿用原名字 —— ⛔ **不要全体改名**（那会给 219 份既有资产换 guid，
+        //     早先存过盘的场景/prefab 立刻悬空，见 `SaveOrReuse` 的坑）。
+        //   实测会分家的只有 2 份：blacklegion 的符文（3011，5 个槽）+ arena1 的烘焙光斑（3002，2 个槽）。
+        if (wantTransparent && wantQueue > 0 && wantQueue != (int)RenderQueue.Transparent)
+            mat.name = Sanitize(string.IsNullOrEmpty(tex) ? goName : tex) + $" q{wantQueue}";
 
         // 🔴 **2026-09-21 修：这一句原来根本不存在 —— `MakeAlphaClip` 是**死代码**（全仓零调用者）。**
         //    ⇒ 清单里 `alphaClip: true` 的网格（`Background Building 1/2`、以及所有用共享图集
@@ -4941,6 +4987,10 @@ public static class ArenaBuilder
         //    原版 13 场最高 234~254，我们一律 197~209 —— **因为我们最亮的像素就是这块灰板**。
         //    裁剪与透明混合**互斥**（原版也是二选一）⇒ `wantTransparent` 为真时优先混合，不裁剪。
         if (!wantTransparent && alphaClip) MakeAlphaClip(mat);
+
+        // ⚠️ **必须排在 `MakeAlphaClip` 之后** —— 它会把 `renderQueue` 写成 `AlphaTest`(2450)；
+        //    队列真值（原版写死的那个）要比它更权威（例：`Pump mask` 原版是 2000）。
+        if (wantQueue > 0) mat.renderQueue = wantQueue;
 
         cache[key] = mat;
         return SaveOrReuse(sceneName, mat);

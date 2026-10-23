@@ -169,6 +169,21 @@ namespace RuleEngine
             /// </summary>
             public bool Extrinsic;
 
+            /// <summary>
+            /// 🆕 **2026-10-23（`W64 B-09`）：这条记录只补给【这一份】实例**（`0` = 不限）。
+            ///
+            /// 判据 = `cards_raw.json` 的 `BL6`（旧 id `BL15`，`Rubric Marine`）：
+            /// `cardAbilities[0].abilityLogic[0].chosenAbility = 40 = buffSelf`（`AbilityEffect.cs:12`）
+            /// ⇒ 原版那条手牌监听效果只加**它自己那一份**，不是「同名全部」。
+            /// ⚠️ 旧做法靠 `Target.NameFilter = 卡名` 收窄 ⇒ 手里两张同名时**两张一起吃**（静默偏多）。
+            /// 本字段按 `CardInstance.Id`（一局唯一）钉。消费口 = `RuleCore.HandEffectFits`
+            /// （后进手牌的牌那一趟）；条目的**首次挂载**本来就只有 `inst` 自己，不受影响。
+            /// ⚠️ 它**不是** `EffectTargetSpec` 上的字段 —— 那是原版 `targetCriteria` 的镜像，
+            /// 而这是**我们**为了区分「哪一份」加的实现位（放进 `EffectTargetSpec` 会污染
+            /// 「目标规格 ↔ 原版字段」的一一对应，`ruleprobe` 的 `TargetCols` 哨兵也会报）。
+            /// </summary>
+            public int OnlyInstanceId;
+
             /// <summary>施放者（原版 `CardEffect.enchantingCard // +0x18`）。
             /// extrinsic 剪枝要认**它**还在不在场上（`UpdateCardEffects.c` 那两条无条件支线）。</summary>
             public UnitState ActingUnit;

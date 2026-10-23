@@ -1130,6 +1130,30 @@ namespace CardPresentation
         /// 也是**卡这张卡自己的号段上限** —— 见上面那段「号段约束」。</summary>
         public const int QCard = 3000;
 
+        /// <summary>🆕 2026-10-23（D · **F6**）**手牌「活动中」那一段**（原版排序层 `HandMoving` 的等价物）。
+        ///
+        /// <para>**原版判据**（`d:/2/tools/decomp_full/`，四个方法逐句核过）：手牌常态 = `Hand` 层
+        /// （`PlayerHand__SetupCardInHand.c` → `SetSortingLayer(Hand)` + `SetSortingOrder(0)`）；
+        /// 而**「这张牌正在动」的三态**一律进 **`HandMoving`** 层 ——
+        /// `CardScript__ShowCardInHand.c`（抬起：设 state 8 后 `SetSortingLayer(<HandMoving>)`）·
+        /// `CardScript__ShowCardBeingDrawn.c`（抽出来给人看）·
+        /// `CardScript__ShowCardInCenter.c`（打出后居中展示）。
+        /// `StopShowingCardInHand` / `MoveBackToHand` 再退回 `Hand`。
+        /// ⇒ **`HandMoving` 高于 `Hand`** 是原版明写的，不是我们猜的。</para>
+        ///
+        /// <para>**我们怎么映射**：我们是「一张卡 = 一段 renderQueue」，没有 `HandMoving` 层。
+        /// 手牌段 = `HandLayout.queueTop`(3000) 往下排（下限 `QueueFloor` 2980）⇒ 它的**上一格**
+        /// 就是「高于整条手牌」的等价物 = **3001**。号段是空的：`3001–3008` 无人使用，
+        /// 3009 起是 `CardFan.QCardBase`（两扇详情窗的卡叠，见那条注释）、3020 `CardWinBox.QEffect`、
+        /// 3100 `BoardLayout.MarkerQ` ⇒ 取 3001 **不撞号、也不越过任何卡之外的件**。</para>
+        ///
+        /// <para>⚠️ **抬起**那一档**不用**它：`HandLayout.Refresh` 已经把悬停那张给到 `queueTop`(3000)、
+        /// 其余给 `queueTop − (slot+1)` ⇒ **悬停严格高于所有手牌**，相对序与 `Hand` vs `HandMoving`
+        /// 同向（见 `HandLayout` 那一行注释）。</para>
+        /// <para>⚠️ **`ShowCardBeingDrawn` 这一态我们暂无对应件**（原版用在「从手里抽出来给人看」：
+        /// `ResolveDiscardFromHand` / `ResolveStealFromDeck`）—— 如实记着，⛔ 别为它硬造一条路径。</para></summary>
+        public const int QHandMoving = QCard + 1;    // 3001
+
         int _queue = QCard;
 
         /// <summary>这张卡现在那一整段的队列号（布局给的；没被布局摆过就是 `QCard`）。
@@ -1177,6 +1201,15 @@ namespace CardPresentation
                 StampQueue(pr);
             }
             foreach (var lb in GetComponentsInChildren<Label>(true)) lb.SetRenderQueue(q);
+            // 🆕 2026-10-23（D · `F4`）：**卡上特效跟着这张卡换段**（判据见 `StampEffectRoot` 那段）。
+            //   顺序要在 `ApplyBoardSortingOrders` **之前** —— 那一趟会按层名给卡面定序，
+            //   而特效根的层号由这里自己管（`ApplySortingOrderTree` 已显式跳过登记的根）。
+            for (int i = _effectRoots.Count - 1; i >= 0; i--)
+            {
+                var fx = _effectRoots[i];
+                if (fx == null) { _effectRoots.RemoveAt(i); continue; }   // 特效播完会自毁 ⇒ 清账
+                StampEffectRootNow(fx);
+            }
             ApplyBoardSortingOrders();   // 🔴 2026-10-21：同队列内再按层号定序（见方法注释）
         }
 
@@ -1206,6 +1239,10 @@ namespace CardPresentation
         void ApplySortingOrderTree(Transform root)
         {
             if (root == null) return;
+            // 🆕 2026-10-23（D · `F4`）：**卡上特效根的层号归 `StampEffectRootNow` 管**（基准 70 + 原值）。
+            //   不跳过的话，特效根一旦跟卡面某个层**重名**（如 `shadow`）就会被这趟按层名改成 1，
+            //   于是「特效在卡面之上」静默失效。
+            if (_effectRoots.Contains(root)) return;
             int o = SortingOrderFor(root.name);
             if (o < 0) return;   // 未列名的层（VFX / 血痕 / 3D 卡体等）**不动** —— 别把它们统一压成 0
             foreach (var r in root.GetComponentsInChildren<Renderer>(true)) r.sortingOrder = o;
@@ -1375,6 +1412,101 @@ namespace CardPresentation
                 if (pr.sharedMaterial != null) list.Add(pr.sharedMaterial.renderQueue);
             }
             return list.ToArray();
+        }
+
+        // ==================================================================
+        //  🆕 2026-10-23（D · **F4**）**卡上特效跟着这张卡排队**
+        // ==================================================================
+        //  判据（原版）：
+        //   · 场上可视体 = `3DBody` 的 **SortingGroup**（layer `Default` / order 0）；
+        //     卡上特效挂在 `CardElements/Board Elements/EffectAnchor`（**无 SortingGroup**）
+        //     ⇒ 用 prefab 默认（`Default` / 0）⇒ **两者同 key、由距离排** —— 也就是说
+        //     原版里「这张卡的特效」**和这张卡一起被排序**，不会跑到别的卡那边去。
+        //     出处：`普查产出_1023/D_战斗层级审查.md` §②·B「谁压谁（场上卡 vs 自己的特效）」。
+        //   · 反编译侧还有一条旁证：`DepthSorting.SetSortingOrder` 把 `sortOrder + n` **批量**
+        //     落到 sprites/particles/meshes 三张表（`d:/2/tools/decomp_full/DepthSorting__SetSortingOrder.c`）；
+        //     而 `2DCard/Front/EffectAnchor` 带 `SortingGroup order=1`（用途未查清，见 D 报告 §④·3b）。
+        //     ⇒ 原版确有「把一组 renderer 抬到卡 canvas 之上」的口子。
+        //  🔴 **我们的模型与上面不同，所以映射要写清楚**（D 报告 §②·0）：我们是
+        //     「**一张卡 = 一段 renderQueue**」（场上 2962–2979 / 手牌 2980–3000），
+        //     而 `renderQueue` 的优先级**高于** sortingLayer / sortingOrder ⇒
+        //     一件没被盖章的透明件（所有特效）停在 3000 ⇒ **恒画在所有场上卡之上**。
+        //  ⇒ 本条的落地 = **让卡上的特效进这张卡自己的那一段**：
+        //     `renderQueue = 这张卡的 Queue`，`sortingOrder = EffectSortingOrder + 原值`。
+        //     · ⛔ **不要写成「卡队列号 + 1」**：我们的号段是**连续**的
+        //       （`BoardLayout.QBoardTop 2979` → `QBoardFloor 2962`，相邻两格正好差 1）
+        //       ⇒ +1 会落进**邻格**那一段（`BoardLayout.RankInRow` 保证名次连续）。
+        //     · 为什么还要抬 `sortingOrder`：同一个队列里 `sortingOrder` **先于**距离比较，
+        //       而卡面各层的层号是 1…60（`SortingOrderFor`）⇒ 基准取 **70** 才在它们之上。
+        //       原版那里「卡与特效同 key、靠距离」，我们是「同段 + 显式号」——
+        //       方向一致（特效在卡前），机制不同（已如实记在报告里）。
+        //  ⚠️ **触发口** = `CardEffects.Fire`（那才是「谁生了这个特效、挂给哪张卡」的唯一入口）：
+        //     它在本类之外（静态类），所以这里只提供 `StampEffectRoot`，由 `CardEffects` 调。
+        //  ⚠️ 残骸体（`_remnantBody`）**不走这条路** —— 它是 `CardView` 自己
+        //     `WarpforgeEffectPlayer.Play` 出来的，从不经过 `CardEffects`；而且
+        //     `SetQueue`/`SubtreeQueues` 本来就显式跳过它（那一族 prefab 自带
+        //     `m_SortingOrder` 0/1/155 在排内部层序，硬盖章会把层序压平）。
+
+        /// <summary>卡上特效在本卡队列段内的**排序基准号**（判据见上面那段）。
+        /// 必须 &gt; 卡面最高层号（`SortingOrderFor` 的上限 60，数值层），且远小于 `BoardLayout.MarkerQ`
+        /// （3100）与 `CardWinBox.QEffect`（3020）—— 那两个是**卡之外**的东西。</summary>
+        public const int EffectSortingOrder = 70;
+
+        /// <summary>挂在**本卡**身上的特效实例根（`CardEffects.Fire` 登记）。
+        /// `SetQueue` 每次换队列都会把它们一起重盖 —— 这就是「特效随卡重排」。</summary>
+        readonly List<Transform> _effectRoots = new List<Transform>();
+
+        /// <summary>每颗特效 renderer **第一次**被盖章时的 `sortingOrder`（保留 prefab 内部的相对层序；
+        /// 反复盖章永远以它为准，避免「70 再加一次」的棘轮）。</summary>
+        readonly Dictionary<Renderer, int> _effectBaseOrder = new Dictionary<Renderer, int>();
+
+        /// <summary>把一个**特效实例根**挂到这张卡的排序段上（幂等）。
+        /// <para>调用点只有一个 = <see cref="CardEffects.Fire"/>（判据见上面那段）。</para>
+        /// <para>⚠️ 传进来的必须是**特效根**（`CardEffects` 刚建出来那个子节点）——
+        /// 别把锚点或卡自己的层传进来：那会把卡面层号一并改成 70+。</para></summary>
+        public void StampEffectRoot(Transform fxRoot)
+        {
+            if (fxRoot == null) return;
+            // 残骸体不走这条路（上面那段注释）；真传进来也不盖，免得把它的内部层序压平。
+            if (_remnantBody != null && fxRoot.IsChildOf(_remnantBody.transform)) return;
+            if (!_effectRoots.Contains(fxRoot)) _effectRoots.Add(fxRoot);
+            StampEffectRootNow(fxRoot);
+        }
+
+        void StampEffectRootNow(Transform fxRoot)
+        {
+            if (fxRoot == null) return;
+            foreach (var r in fxRoot.GetComponentsInChildren<Renderer>(true))
+            {
+                if (r == null || r.sharedMaterial == null) continue;
+                int b;
+                if (!_effectBaseOrder.TryGetValue(r, out b))
+                {
+                    b = r.sortingOrder;          // 第一次：记下 prefab 自己的号（相对序的基准）
+                    _effectBaseOrder[r] = b;
+                }
+                r.sortingOrder = EffectSortingOrder + b;
+                StampQueue(r);                    // renderQueue = 这张卡那一段（唯一实现，⛔ 别另写）
+            }
+        }
+
+        /// <summary>这张卡身上现在登记着几个特效根（自检口）。</summary>
+        public int EffectRootCount { get { return _effectRoots.Count; } }
+
+        /// <summary>按一个**特效根**的 `sortingOrder` 读回它被盖成的值（自检口；判据见上）。</summary>
+        public int EffectSortingOrderOf(Transform fxRoot)
+        {
+            if (fxRoot == null) return -1;
+            foreach (var r in fxRoot.GetComponentsInChildren<Renderer>(true))
+                if (r != null && r.sharedMaterial != null) return r.sortingOrder;
+            return -1;
+        }
+
+        /// <summary>某个 `Transform` 归属哪张卡（沿父链找最近的一个）。`CardEffects` 用它决定「这个特效挂给谁」。
+        /// <para>⚠️ 找不到就返回 null（世界特效 / 棋盘特效）—— ⛔ 别退回「找场景里任意一张卡」。</para></summary>
+        public static CardView OwnerOf(Transform t)
+        {
+            return t != null ? t.GetComponentInParent<CardView>() : null;
         }
 
         // ---- 卡面那一层「内层节点」+ 整卡倾摆（原版 `2DCard` / `AutoCardRotation`）----

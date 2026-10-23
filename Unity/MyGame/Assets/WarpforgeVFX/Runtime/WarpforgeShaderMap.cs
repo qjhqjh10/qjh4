@@ -288,8 +288,17 @@ namespace WarpforgeVFX
             //     而这条链没有占位材质这一步）—— 两份表**这一条是特例**，别照抄过去。
             //   🔴 **为什么自建而不是用原版那份编译字节码**：bundle 里的 shader 在**编辑器 / 批处理下
             //     渲染会出故障**（整片品红，见 `TryResolve` 下面那段注释）—— 而**自检就跑在批处理里**。
+            //     ⚠️ **2026-10-23（`W65`·`R1`）：「原版在批处理下渲品红」这条理由本身【没核过】**
+            //     —— 它要真渲一次才知道（`资料/普查产出_1023/E4_R29分因与R1判据.md` §③-4 / §2·3）。
+            //     而且反证已经出现：`UseOriginal` 里 64 条（含 `Mobile/Particles/*`、`Hidden/Everguild/*`）
+            //     全都在走 bundle 原件。⇒ **A/B 之前不改这一条**（没量过就改 = 有可能让
+            //     `BattlePostFx` 整条后期失效）；A/B 方案（`LutBlendProbe.Run` + 7 条断言）
+            //     在同报告 §④-1，⛔ 要起 Unity，留给主对话。
             //   算式是**反汇编读出来的**（`o = lerp(_LUT1, _LUT2, _Blend)`），不是猜的：
             //   `WarpforgeVFX/Shaders/WFLUTBlender.shader` 文件头 + `资料/普查产出_1001/资产导入路三件_侦察.md` §3·5·a。
+            //   🆕 **2026-10-23**：自建那份的 **VS 少了 UV 的 `ST` 一跳**（原版 `mad o0.xy, v1.xyxx, cb0[2].xyxx,
+            //     cb0[2].zwzz`）已补 —— 单位 ST 下渲染逐像素不变，只影响非单位 ST 的情形。
+            //     判据 → `WFLUTBlender.shader` 文件头 2026-10-23 那段订正。
             { "Hidden/LUTBlender", "WarpforgeVFX/LUTBlender" },
 
             // ---- 🆕 2026-09-13 第三十三轮补的 10 个 ------------------------------------

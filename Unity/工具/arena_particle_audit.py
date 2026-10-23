@@ -12,7 +12,26 @@
     「我们抽了哪些字段」并排看过**。这个脚本就是那张并排表。
 
 判据（唯一）：**原版 JSON（`d:/2/解包整理/07_场景/<场>/`）里的模块字段**
- vs **我们清单里的键**。映射表在下面 `MAPPED`，`[未接]` 就是缺口。
+ vs **我们清单里的键**。映射表在下面 `MAPPED`，`[未接]` 就是「清单里没这一列」。
+
+🔴🔴 **别拿它的「缺口清单」派活**（2026-10-11 三个只读代理 `R1`/`F1`/`A3` 逐条核过；
+   2026-10-23 `T06` 又按生成器现状把 `MAPPED` 订正了一遍，并修掉两处把它撑大的工具 bug）：
+  · **判据口径（R1/F1/A3 逐条核过）= 真缺口只有 `EmissionModule.rateOverDistance`**
+    —— 静止发射体上它本来就不发射 ⇒ 接了也没有画面变化。
+  · **数值（`--arena battlearena1 --summary`，2026-10-23 现读）**：
+    订正前 **56** 个 → 现在 **28** 个；其中 `rateOverDistance` 只剩 **10 个对象**（另 24 个原版就是 0）。
+  · **现在还会报的 28 个 =「清单里没这一列」≠「画面错」**，分四类：
+    ① 序列化内部字段（`customEmitterVelocity` / `m_BurstCount`）—— 不是用户参数（`NOT_A_PARAM`）；
+    ② **当前形状用不到**的：`ShapeModule` 的 `m_Mesh*` / `m_Texture*` / `m_UseMesh*`
+       （只在 Mesh / Sprite 形状下生效；13 场实测 `shapeType` 只有 0/2/4/5/8/10/12/13/18，**没有一颗用它们**）；
+    ③ 默认值就等于原版的（`DEF` 表；⚠️ `donutRadius` 的默认已按 Unity 实读改成 **0.2**）；
+    ④ **真的是没接的小项**（不影响结论、但不是噪音）：`cullingMode`(28) / `emitterVelocityMode`(26) /
+       `randomPositionAmount`(25) / `ShapeModule.length`(9，锥高 0.85 ≠ 默认 5) /
+       `UVModule` 的 `mode/frameOverTime/speedRange/uvChannelMask/rowMode/sprites/flipU/flipV/startFrame`
+       （`ArenaBuilder` 只消费 `uvEnabled/tilesX/tilesY/uvAnimationType/uvTimeMode/uvFps/uvCycles/uvRowIndex`）/
+       `autoRandomSeed`+`randomSeed`（各 1 个）。
+       ⇒ 这一档**要补就按这一行补**，别按汇总数派活。
+  · ⇒ **派活前看这一节**，⛔ 别看汇总行数。
 
 用法：
   D:/2/Warpforge_tools/py312/python.exe d:/4/Unity/工具/arena_particle_audit.py --obj SmokeEffect
@@ -37,24 +56,50 @@ ARENAS = ['battlearena1', 'battlearena2', 'battlearena3', 'battlearenaaeldari',
 # ---------------------------------------------------------------- 已接字段映射
 # 键 = 原版 JSON 里的路径（`模块.字段`；`*` = 整段都接了），值 = 清单里的键。
 # 🔴 改生成器时**这张表要跟着改** —— 它就是「我们到底抽了哪些字段」的唯一正本。
+# ⚠️ 系统级字段（`ps` 顶层，不带模块名）的键**不带前缀** —— 见 `mapped()` 的说明。
+#
+# 🔴 2026-10-23（`T06` / `A1559①`）按 `工具/scripts快照/gen_unity_arena_manifest.py` **现读**订正：
+#   这几族**早就接了**，旧表漏登 ⇒ 一直被报成 `[未接]`：
+#     · `simulationSpeed`（`:1736`）· `startDelay`（`:1738`）
+#     · `startRotation` / `rotation3D` / `startRotationX` / `startRotationY`（`:1749-1754`；
+#       `rotation3D=true` 时 Z 轴存在 `startRotation` 里）
+#     · `randomizeRotationDirection`（`:1755`）· `size3D` / `startSizeY` / `startSizeZ`（`:1757-1759`）
+#     · `ShapeModule.m_Position` / `m_Rotation` / `m_Scale`（`:1804-1806` ⇒ 清单 `shapePos/shapeRot/shapeScale`）
+#     · `ShapeModule.radiusThickness`（`:1807`）
 MAPPED = {
     'lengthInSec': 'duration',
     'looping': 'looping',
     'prewarm': 'prewarm',
     'moveWithTransform': 'simulationSpace',
     'scalingMode': 'scalingMode',
+    'simulationSpeed': 'simulationSpeed',
+    'startDelay': 'startDelay',
     'InitialModule.startLifetime': 'startLifetime',
     'InitialModule.startSpeed': 'startSpeed',
     'InitialModule.startSize': 'startSize',
     'InitialModule.startColor': 'startColor',
     'InitialModule.gravityModifier': 'gravityModifier / gravityCurve',
     'InitialModule.maxNumParticles': 'maxParticles',
+    # 🔴 2026-10-23：这四个原来漏登（生成器 `:1749-1755` 早就抽了）
+    'InitialModule.startRotation': 'startRotation（rotation3D 时 = Z 轴）',
+    'InitialModule.rotation3D': 'rotation3D',
+    'InitialModule.startRotationX': 'startRotationX',
+    'InitialModule.startRotationY': 'startRotationY',
+    'InitialModule.randomizeRotationDirection': 'randomizeRotationDirection',
+    'InitialModule.size3D': 'size3D',
+    'InitialModule.startSizeY': 'startSizeY',
+    'InitialModule.startSizeZ': 'startSizeZ',
     'EmissionModule.rateOverTime': 'emissionRate / emissionRateCurve',
     'EmissionModule.m_Bursts': 'bursts',
     'ShapeModule.type': 'shapeType',
     'ShapeModule.radius': 'shapeRadius',
     'ShapeModule.angle': 'shapeAngle',
     'ShapeModule.arc': 'shapeArc',
+    # 🔴 2026-10-23：`m_Position/m_Rotation/m_Scale/radiusThickness` 也早就接了（生成器 `:1804-1807`）
+    'ShapeModule.m_Position': 'shapePos',
+    'ShapeModule.m_Rotation': 'shapeRot',
+    'ShapeModule.m_Scale': 'shapeScale',
+    'ShapeModule.radiusThickness': 'shapeRadiusThickness',
     'SizeModule.curve': 'sizeOverLifetime.x（separateAxes 时 X 存在 curve 里）',
     'SizeModule.x': 'sizeOverLifetime.x',
     'SizeModule.y': 'sizeOverLifetime.y',
@@ -87,8 +132,21 @@ NEVER_ON = {'ForceModule', 'ExternalForcesModule', 'InheritVelocityModule',
             'LightsModule', 'CustomDataModule', 'SizeBySpeedModule',
             'RotationBySpeedModule', 'ColorBySpeedModule', 'TrailModule'}
 
+# 🔴 2026-10-23（T06）：**Unity 序列化内部字段，不是用户参数** —— 生成器不抽是对的，
+#   汇总里不该把它们算成「缺口」（会让人以为要去补）。
+#   · `customEmitterVelocity`：ParticleSystem 的**运行时只读**缓存值（`InitialModule` 里那份），
+#     Inspector 上根本没有这一格 —— 判据 = 原版 34/34 颗都有它、值恒等于发射体速度。
+#   · `m_BurstCount`：`m_Bursts` 的**计数副本**；我们抽的是 `m_Bursts` 本体（⇒ 清单 `bursts`）。
+NOT_A_PARAM = {'InitialModule.customEmitterVelocity', 'EmissionModule.m_BurstCount'}
+
 
 def mapped(mod, field):
+    """`mod` 为空 = 系统级字段（`ps` 顶层，`MAPPED` 里的键**不带前缀**）。
+    ⚠️ 2026-10-23 修：原来统一拼成 `f'{mod}.{field}'`，系统级那批变成 `.lengthInSec`
+    （带前导点）⇒ **一条都对不上** ⇒ `lengthInSec`/`looping`/`prewarm`/`moveWithTransform`/
+    `scalingMode`/`simulationSpeed` 六项在汇总里**永远报「未接」**（arena1 每项 34 个对象）。"""
+    if not mod:
+        return field in MAPPED
     return (f'{mod}.{field}' in MAPPED) or (f'{mod}.*' in MAPPED)
 
 
@@ -199,8 +257,14 @@ def summary(recs, man):
                 continue
             if not v.get('enabled'):
                 continue
-            for p, val in flat(v):
-                if p == 'enabled' or mapped(k, p):
+            # 🔴 2026-10-23（T06）：**这里改成直接遍历原始值**（`v.items()`），不再走 `flat()`。
+            #   原因：`flat()` 把 dict 值**转成 JSON 字符串**（那是给 `dump_obj` 打印用的），
+            #   而 `_nondefault()` 拿到字符串只能 `float()` 失败 ⇒ 走「宁多报」⇒
+            #   **每一个 Vector3 / PPtr 字段都被报成缺口**（`boxThickness`/`m_Mesh`/`m_Texture`… 25 个对象）。
+            for p, val in v.items():
+                if p in SKIP_FIELD or p == 'enabled' or mapped(k, p):
+                    continue
+                if f'{k}.{p}' in NOT_A_PARAM:
                     continue
                 if _nondefault(p, val):
                     hits.setdefault((k, p), []).append(r['path'])
@@ -217,7 +281,9 @@ DEF = {
     'randomizeRotationDirection': 0, 'flipRotation': 0,
     'startSizeY': 1, 'startSizeZ': 1, 'gravitySource': 0,
     'rateOverDistance': 0,
-    'radiusThickness': 1, 'length': 5, 'boxThickness': 0, 'donutRadius': 0,
+    # ⚠️ 2026-10-23 修：`donutRadius` 原来写 0 —— Unity 的默认是 **0.2**（新建空 ParticleSystem 实读），
+    #    写 0 会让 13 场每一颗用 Donut 之外的形状也报「未接」（实测原版全是 0.2）。
+    'radiusThickness': 1, 'length': 5, 'boxThickness': 0, 'donutRadius': 0.2,
     'alignToDirection': False, 'randomDirectionAmount': 0, 'sphericalDirectionAmount': 0,
     'arcMode': 0, 'positionAmount': 0, 'rotationAmount': 0, 'scaleAmount': 1,
     'radialVelocityAmount': 0, 'normalOffset': 0, 'arcSpread': 0, 'arcSpeed': 1,
@@ -226,11 +292,38 @@ DEF = {
 
 
 def _nondefault(field, v):
+    """原版这个字段的值**是否偏离 Unity 默认**（偏离才算缺口）。
+
+    🔴 2026-10-23（T06）修两处（原来这两个 bug 一起把「56 个缺口」里的一大半做成了假的）：
+      ① **Vector3**（`boxThickness` / `m_Position` … 序列化成 `{x,y,z}`）原来落到 `float(dict)` 抛异常
+         ⇒ 「宁多报」⇒ 25 个对象×每个向量字段各报一条；
+      ② **PPtr 引用**（`m_Mesh` / `m_Sprite` / `m_Texture` / `m_MeshRenderer` … 是 `{m_FileID,m_PathID}`）
+         不是数值参数 —— 它们只在对应形状分支下才被采（13 场实测 `shapeType` 只有
+         0/2/4/5/8/10/12/13/18，**没有一颗用 Mesh / Sprite 形状**）。
+      ③ `MinMaxCurve` 的包裹仍然是 `{value,mode,…}` ⇒ 照旧取 `value`。
+    """
     d = DEF.get(field)
+    if isinstance(v, dict):
+        try:
+            if 'value' in v:              # MinMaxCurve / MinMaxGradient 包裹（`{value,mode,…}`）
+                v = v.get('value', 0)
+            elif 'scalar' in v:
+                # 🆕 2026-10-23：**Unity 旧序列化的 MinMaxCurve**（`{minMaxState,scalar,minScalar,maxScalar,…}`）
+                #   原来认不出结构 ⇒ 「宁多报」⇒ `ShapeModule.randomPositionAmount` 这种**全 0** 的也被报 25 条。
+                #   `TwoConstants` 时 `scalar` 不参与、真值在 `minScalar`/`maxScalar` ⇒ 三者取绝对值最大。
+                v = max(abs(float(v.get(k) or 0)) for k in ('scalar', 'minScalar', 'maxScalar'))
+                d = 0 if d is None else (float(d) if not isinstance(d, bool) else float(d))
+            elif any(k in v for k in ('x', 'y', 'z')):     # Vector3 / Vector4
+                v = max(abs(float(v.get(k) or 0)) for k in ('x', 'y', 'z'))
+                d = 0 if d is None else (float(d) if not isinstance(d, bool) else float(d))
+            elif 'm_PathID' in v or 'm_FileID' in v:       # PPtr 引用 —— 不是数值参数
+                return False
+            else:
+                return True               # 认不出的结构：宁多报
+        except (TypeError, ValueError):
+            return True                   # 结构像但不是纯数值（例：嵌套曲线）⇒ 宁多报
     if d is None:
         return True                       # 没登记的字段：先当有值（宁多报）
-    if isinstance(v, dict):               # {value,mode,spread,speed} 这种包裹
-        v = v.get('value', 0)
     if isinstance(d, bool):
         return bool(v) != d
     try:

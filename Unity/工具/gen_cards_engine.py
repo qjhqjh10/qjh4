@@ -1393,6 +1393,104 @@ def ability_contexts_of(cid, name, trow, trig_names, report):
 
 
 # ==========================================================================================
+#  🆕 2026-10-23（引擎线 · `B-16` 残余）：`cardAbilities[].trigger` 的**全量集合**
+#    → 逐卡 `abilityTriggers` 列（解 `UnitConditions.hasUseSpiritStone(241)` /
+#      `hasUseFaith(242)` 那一层）
+# ==========================================================================================
+# 判据（第一权威 = 全量反编译 `d:/2/tools/decomp_full/`）：
+#   · `FilterMethods__MeetsConditionCriteria.c:286-289`（241）→ `RawCardScript__HasAbilityType(raw, 600)`
+#     / `:290-293`（242）→ 同法 `605`；
+#   · `RawCardScript__HasAbilityType.c:16-38` = **遍历 `rawCardData.cardAbilities`（`+0x290`）**，
+#     看 `CardAbility.trigger(+0x10)` 是否等于参数 —— **只看 trigger，不看 abilityLogic 空不空**
+#     （所以这里**不**照 `trigger_priorities_of` 那样丢掉「logic 为空」的占位 ability：
+#       那个过滤是给 priority 用的，`HasAbilityType` 没有这道闸）。
+#
+# 形状：`[int, …]` = `sorted(set(cardAbilities[].trigger))`。
+# 🔴 **每张卡都落这一列**（没有 ability 的卡落 `[]`）—— 「缺列」与「空数组」必须分得开：
+#    前者 = 真值快照里没有这张卡（未知），后者 = **明确没有 ability**。
+#    `HasAbilityType` 对空表返回假，对「未知」我们**不许**返回假（⛔ 那会把缺口静默读成「没有」）。
+# ⚠️ 本列**只落数据**：消费端 = `CardDef.AbilityTriggerPresence` → `ConditionEval` 的 241/242。
+ABILITY_TRIGGER_REPORT = {"cards": 0, "triggers": 0, "no_truth": 0, "bad": []}
+
+
+def ability_triggers_of(cid, name, trow, report):
+    """一张卡 → `sorted(set(cardAbilities[].trigger))`（**没 ability 就是 `[]`**）。
+
+    真值快照里**没有这张卡** ⇒ 返回 `None`（调用方**不落列** = 未知，⛔ 不是空表）。
+    `trigger` 不是整数（坏数据）⇒ 跳过该条并出声（`report["bad"]`）——
+    ⛔ 不猜成 0（`0` = `ThisCardPlayed` 是一个**具体**的触发）。
+    """
+    if trow is None:
+        report["no_truth"] += 1
+        return None
+    seen = set()
+    for i, ab in enumerate(trow.get("cardAbilities") or []):
+        tg = ab.get("trigger")
+        if isinstance(tg, bool) or not isinstance(tg, int):
+            report["bad"].append((cid, name, i, tg))
+            continue
+        seen.add(tg)
+    out = sorted(seen)
+    report["cards"] += 1
+    report["triggers"] += len(out)
+    return out
+
+
+# ==========================================================================================
+#  🆕 2026-10-23（引擎线 · 战斗审计 `B-17`）：逐 ability / 逐 logic 的 `targetsAffected`
+#    → 逐卡 `abilityTargets` 列（解「无主语正文 ⇒ 落到己方全体」那条近似）
+# ==========================================================================================
+# 判据（第一权威 = 全量反编译 `d:/2/tools/decomp_full/AbilityLogic__GetTargets.c`）：
+#   · `iVar6 = *(int *)(criteria + 0x10)` = `TargetCriteria.targetsAffected`，整条函数就是按它分发：
+#     `:184-191` `self(20)` → 加 **thisCard**（`param_3`，= 写着这条 ability 的那张卡）；
+#     `:761-769` `actingCard(80)` / `attacker(40)` → 加 **actingCard**（`param_4`）；
+#     `:721-737` `friendlyHero(120)` → `BattleManager.GetHero(actingCard.isPlayer)` = **施放方督军**；
+#     `:738-746` `enemyHero(130)` → 同上取反；
+#     `:901-908` `any(0)` → `GetUnitsInPlayList(...)` = **场上全部单位**（两侧，再按 criteria 过滤）；
+#     `allFiltered(10)` → 走 criteria 的 friendlyUnits / enemyUnits / includeHero / includeMinions 筛。
+#   · 枚举 `TargetsAffected`：`d:/2/Warpforge_code/Scripts/Assembly-CSharp/TargetsAffected.cs`（38 个成员）。
+#
+# 形状：`[{"trigger": int, "ta": [int per abilityLogic]}]`，**按 `cardAbilities` 顺序**。
+#   `ta[j]` 就是 `cardAbilities[i].abilityLogic[j].targetCriteria.targetsAffected`；
+#   非整数（缺键/坏值）落 **`-1`**（⛔ 不是 0 —— `0` 是合法的 `any`）。
+# 🔴 **每张卡都落这一列**（没有 ability 的卡落 `[]`）—— 「缺列」与「空数组」必须分得开（同 `abilityTriggers`）。
+# ⚠️ **本列只落数据**：消费端 `EffectText.AssignAbilityTargets` 只在「**整卡能力块数 == ability 数**
+#   ∧ **块里 op 数 == 该 ability 的 logic 数**」两道闸都过时才把值挂到 op 上
+#   （`EffectOp.SubjectTargetsAffected`）；闸门不过 = **读不到**，结算层照旧走「己方全体」并出声。
+ABILITY_TARGETS_REPORT = {"cards": 0, "abilities": 0, "logics": 0, "no_truth": 0, "bad": []}
+
+
+def ability_targets_of(cid, name, trow, report):
+    """一张卡 → `[{"trigger":…, "ta":[…]}]`（**按 `cardAbilities` 顺序**；没 ability = `[]`）。
+
+    真值快照里没有这张卡 ⇒ `None`（调用方**不落列** = 未知）。
+    `targetsAffected` 非整数 ⇒ 该格落 `-1` 并出声（⛔ 不猜成 `0` = `any`）。
+    """
+    if trow is None:
+        report["no_truth"] += 1
+        return None
+    out = []
+    for i, ab in enumerate(trow.get("cardAbilities") or []):
+        tg = ab.get("trigger")
+        if isinstance(tg, bool) or not isinstance(tg, int):
+            # trigger 只作可读性（消费端按**下标**对齐）⇒ 坏值就落 -1，⛔ 不因此丢掉整条 ability。
+            report["bad"].append((cid, name, i, "trigger", tg))
+            tg = -1
+        ta = []
+        for j, lg in enumerate(ab.get("abilityLogic") or []):
+            v = (lg.get("targetCriteria") or {}).get("targetsAffected")
+            if isinstance(v, bool) or not isinstance(v, int):
+                report["bad"].append((cid, name, i, f"lg{j}.targetsAffected", v))
+                v = -1
+            ta.append(v)
+        out.append({"trigger": tg, "ta": ta})
+        report["abilities"] += 1
+        report["logics"] += len(ta)
+    report["cards"] += 1
+    return out
+
+
+# ==========================================================================================
 #  🆕 2026-10-22（引擎线 `W64` · 战斗审计 `B-16` 根因条）：原版**结构化条件** `conditionsFilter`
 #    → 逐卡 `unitConditions` 列（B-05 `foreach` / B-06 `istype` 的数据侧同源）
 # ==========================================================================================
@@ -3178,6 +3276,17 @@ def build():
                                 truth_by_path)
         if _uc:
             entry["unitConditions"] = _uc
+        # ---- 🆕 2026-10-23（引擎线 · `B-16` 残余）：`cardAbilities[].trigger` 的全量集合 ----------
+        # 判据 / 形状 / 「缺列 ≠ 空数组」的契约 → `ability_triggers_of` 上面那段。
+        # ⚠️ **每张卡都落**（没 ability 的卡落 `[]`）—— 只有「真值里没有这张卡」才不落。
+        _atg = ability_triggers_of(cid, name, trow, ABILITY_TRIGGER_REPORT)
+        if _atg is not None:
+            entry["abilityTriggers"] = _atg
+        # ---- 🆕 2026-10-23（引擎线 · 战斗审计 `B-17`）：逐 ability / 逐 logic 的 `targetsAffected` ----
+        # 判据 / 形状 / 两道闸门 → `ability_targets_of` 上面那段。**每张卡都落**。
+        _atgt = ability_targets_of(cid, name, trow, ABILITY_TARGETS_REPORT)
+        if _atgt is not None:
+            entry["abilityTargets"] = _atgt
         # ---- 🆕 2026-10-21（引擎线 `T03·b`）：开局加成三列 --------------------------------------
         # 判据 / 为什么「只在非 0 时落列」→ `INITIAL_MODIFIER_COLS` 上面那一段。
         for _col in INITIAL_MODIFIER_COLS:
@@ -3642,7 +3751,7 @@ def build():
     talent_name_ids = build_talent_name_ids(truth_cards, truth_by_path, cards, talent_name_report)
 
     return {
-        "version": 16,         # v6: 每张卡带稳定 id（🔴 2026-10-18 `W25` 起按原版 `uniqueId` 直取，
+        "version": 17,         # v6: 每张卡带稳定 id（🔴 2026-10-18 `W25` 起按原版 `uniqueId` 直取，
                                #    名级联降为交叉校验；自造 = 生成期自检硬失败）
                                # v7（2026-10-14 `A1798`）：加 `inventoryOptions` / `showInCollectionOptions` 两列
                                # v8（2026-10-14 `A1775`）：加 `initiative` 一列（先后手；原版真值）
@@ -3705,6 +3814,20 @@ def build():
                                #    （`FilterMethods__CheckIfMeetsCriteria.c` 逐字段）。
                                #    🔴 缺省/坏值 = `-1`（引用列表 `null`），⛔ **不是 0/false**
                                #    —— 「不知道」与「是默认值」必须分得开（同 `cond` 的 `-1` 契约）。
+                               #    ⚠️ 加列【必须】bump（`CardDatabase.cs` 的 version 守卫靠它出声）。
+                               # v17（2026-10-23 · 引擎线 · `B-16` 残余 241/242 ＋ 战斗审计 `B-17`）：
+                               #    ① **`abilityTriggers`**（`sorted(set(cardAbilities[].trigger))`，
+                               #       **每张卡都落、没 ability 落 `[]`**，缺列 = 真值里没有这张卡 = 未知）——
+                               #       判据 `FilterMethods__MeetsConditionCriteria.c:286-293` →
+                               #       `RawCardScript__HasAbilityType`（`RawCardScript__HasAbilityType.c:16-38`）；
+                               #       消费端 `CardDef.AbilityTriggerPresence` → `ConditionEval` 的 241/242。
+                               #    ② **`abilityTargets`**（逐 ability / 逐 logic 的 `targetsAffected`，
+                               #       形状 `[{"trigger":…, "ta":[…]}]`，按 `cardAbilities` 顺序；
+                               #       非整数落 `-1`）—— 判据 `AbilityLogic__GetTargets.c` 的
+                               #       `+0x10` 分发（`self(20)` / `actingCard(80)` / `friendlyHero(120)` /
+                               #       `any(0)` / `allFiltered(10)` …）；消费端
+                               #       `EffectText.AssignAbilityTargets` → `EffectOp.SubjectTargetsAffected`
+                               #       → `EffectResolver` 的「无施放者、无点目标」那一支。
                                #    ⚠️ 加列【必须】bump（`CardDatabase.cs` 的 version 守卫靠它出声）。
         "source": "Unity/数据/游戏数据/card_stats.json（稀有度另取 资料/卡牌数据表/卡牌宝石稀有度_0824.md；"
                   "英文名 / 中文名都以**原版官方表** 数据/游戏数据/官方本地化_en+zh-CN.json 的 `Card_Name/*` 为准"
@@ -4609,6 +4732,39 @@ def main():
     for _cid, _nm, _f, _pid in _ucr["set_unresolved"]:
         print(f"  ⚠️ 被数集合引用解不出：{_cid} {_nm} · `{_f}` 的 `m_PathID`={_pid!r}"
               " ⇒ **不落那一条**（⛔ 不拿 path_id 当 id）")
+
+    # 🆕 2026-10-23（引擎线 · `B-16` 残余 241/242）：`abilityTriggers` 覆盖读数。
+    #   判据 → `ability_triggers_of` 上面那段（`HasAbilityType.c:16-38` 只看 trigger、不看 logic 空不空）。
+    _atg = ABILITY_TRIGGER_REPORT
+    print(f"触发集合     `abilityTriggers` 落值 **{_atg['cards']}/{doc['count']}** 张 · "
+          f"{_atg['triggers']} 个 trigger 值（原版 `cardAbilities[].trigger` 全量集合；"
+          f"没 ability 的卡落 `[]`、缺列 = 真值里没这张卡）")
+    if _atg["no_truth"]:
+        print(f"  ⚠️ 真值快照里没有的卡 {_atg['no_truth']} 张 —— **不落列**（未知，⛔ 不是空表）")
+    for _cid, _nm, _i, _tg in _atg["bad"]:
+        print(f"  🔴 `trigger` 非整数：{_cid} {_nm} 第 {_i} 条 ability → {_tg!r} ⇒ 跳过该条")
+
+    # 🆕 2026-10-23（引擎线 · 战斗审计 `B-17`）：`abilityTargets` 覆盖读数。
+    _atgt = ABILITY_TARGETS_REPORT
+    _ta_cnt = {}
+    _ta_cards = {}
+    for _c in doc["cards"]:
+        for _ab in (_c.get("abilityTargets") or []):
+            for _v in (_ab.get("ta") or []):
+                _ta_cnt[_v] = _ta_cnt.get(_v, 0) + 1
+                _ta_cards.setdefault(_v, 0)
+            for _v in set(_ab.get("ta") or []):
+                _ta_cards[_v] = _ta_cards.get(_v, 0) + 1
+    _ta_top = " · ".join(f"{_v}:{_n}" for _v, _n in sorted(_ta_cnt.items(), key=lambda kv: -kv[1])[:10])
+    print(f"目标集合     `abilityTargets` 落值 **{_atgt['cards']}/{doc['count']}** 张 · "
+          f"{_atgt['abilities']} 条 ability · {_atgt['logics']} 个 logic 的 `targetsAffected`"
+          f"（原版 `AbilityLogic.targetCriteria`；每张卡都落、没 ability 落 `[]`）")
+    print(f"             按 targetsAffected（条数）：{_ta_top or '（无）'}")
+    if _atgt["no_truth"]:
+        print(f"  ⚠️ 真值快照里没有的卡 {_atgt['no_truth']} 张 —— **不落列**（未知，⛔ 不是空表）")
+    for _cid, _nm, _i, _f, _v in _atgt["bad"]:
+        print(f"  🔴 `targetsAffected` 非整数：{_cid} {_nm} 第 {_i} 条 ability 的 `{_f}` → {_v!r}"
+              " ⇒ 该格落 **-1**（⛔ 不猜成 0 = `any`）")
 
     # 🆕 2026-10-21（引擎线 `T03·b`）：开局加成三列 + `skipCardDraw` 生产列的读数。
     #   三列/一列都**只在有值时才落** ⇒ 这条摘要就是「今天有没有卡走到」的唯一凭据。

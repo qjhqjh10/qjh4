@@ -3313,7 +3313,7 @@ namespace CardPresentation
         //   原版这两个动作**各自的正当入口**（我们当时是「先摆这儿免得找不到」）：
         //     · 分享 = `DeckInfoPopup.ShareDeck()`（`decomp_full/DeckInfoPopup__ShareDeck.c`，卡组线那扇 Info 弹窗）；
         //     · 导入 = `SelectDecksTab.ImportDeck()` → `ImportDeckPopup`（外壳那扇，`Shell/ImportDeckPopup.cs` 已建）。
-        //   ⇒ **顺手发现（已在报告里点名，归调度台排）**：本窗 `ShareDeckString()` 现在**没有生产入口**了
+        //   ⇒ 🔴 **2026-10-23（W65 · 1c）**：本窗 `ShareDeckString()` **已整段删掉**（全仓 0 调用点，留痕在它原位置）
         //     （它原来只挂在这颗钮上）；`ImportDeckPopup` 那条链还有外壳那一份（`CollectionWindow.OpenImportPopup`），
         //     本窗那份（`UiOpenImport()` 供着的）已按 **T23** 整棵删掉。⛔ **别把这两颗钮加回来** —— 那是「我们多画的」，
         //     正确做法是把它们**接在原版的家里**（那两处都在别的文件，不在本批白名单）。
@@ -5336,7 +5336,7 @@ namespace CardPresentation
                 //   `case "info_share": ShareDeckString();` / `case "info_import": OpenImport();`
                 //   （那两颗圆钮原版这扇窗里没有）与 `imp_input/imp_ok/imp_close/imp_shade` 四支
                 //   （导入弹窗那棵树，重复实现）—— **已全部删掉**。
-                //   ⚠️ `ShareDeckString()` 因此暂时**没有生产入口**（归调度台，见它自己的 doc）。
+                //   ⚠️ `ShareDeckString()` 当时因此**没有生产入口** —— 🔴 **2026-10-23（W65 · 1c）已整段删掉**（0 调用点）。
                 case "tab_0": SetTab(0); return true;
                 case "tab_1": SetTab(1); return true;
                 case "tab_2": SetTab(2); return true;
@@ -5824,9 +5824,13 @@ namespace CardPresentation
         // ============================================================ 分享 / 导入
 
         /// <summary>🔴 **分享的【唯一】实现** —— 造卡组串 → **写系统剪贴板** → 返回那一串。
-        /// <para>**两个调用点都走这里**：卡组编辑那颗 `Share`（<see cref="ShareDeckString"/>）与卡组线
-        /// Info 弹窗那颗 `Share` 圆钮（`Shell/DeckInfoPopup.ShareDeck("Share")`，2026-10-08 `A1040` 接上）
-        /// —— 判据 `CLAUDE.md` §三「**两处写同一条规则 = 迟早不一致**」。</para>
+        /// <para>**今天唯一的调用点** = 卡组线 Info 弹窗那颗 `Share` 圆钮
+        /// （`Shell/DeckInfoPopup.ShareDeck("Share")`，2026-10-08 `A1040` 接上）。</para>
+        /// <para>⚠️ **2026-10-23（W65 · 1c）就地订正（铁律 5）**：这段原来写「**两个**调用点都走这里 ——
+        /// 卡组编辑那颗 `Share`（`ShareDeckString`）与 Info 弹窗那颗」—— **前半个已不存在**：卡组编辑窗侧栏那两颗钮
+        /// （`info_share` / `info_import`）原版就没有、`D35` 已删 ⇒ `DeckRuntime.ShareDeckString()` 成了
+        /// 全仓 **0 调用点**（连自检都没有）的死代码，本轮**整段删掉**（同 `OpenImport` 那一族的处理，
+        /// 留痕见下面那段注释）。⛔ 别把侧栏那两颗钮加回来当它的入口。</para>
         /// <para>**返回空串** = `deck == null` ⇒ 这一副导不出卡组串 ⇒ 调用方**必须出声**（本项目红线：
         /// ⛔ 不许静默失败）。⚠️ 空串**不写剪贴板** —— 原来那份「空串也照样写、还说『已复制（0 字符）』」
         /// 是**假报**。</para>
@@ -5850,34 +5854,26 @@ namespace CardPresentation
             return "卡组串已复制到剪贴板（" + len + " 字符）";
         }
 
-        /// <summary>卡组编辑窗那颗 `Share`：**写系统剪贴板**（走 <see cref="CopyDeckToClipboard"/>）+ `Say` 一句。
-        /// <para>🔴 **2026-10-08 订正（铁律 5，`A1040`）**：此处原文写「原版 `DeckInfoPopup__ShareDeck.c:16`
-        /// **就一句** `GUIUtility.systemCopyBuffer = MakeDeckString()`」—— **少了第 3 句**。逐句实读那份 `.c`，
-        /// 原版是**三句**：① `MakeDeckString()` 造串 ② `UnityEngine.GUIUtility.set_systemCopyBuffer(串)`
-        /// **写系统剪贴板** ③ `UIMessageController.ShowMessage(…)` **弹一条消息（toast）** ——
-        /// 没有确认弹窗、没有平台分享、没有「先问再写」。（错因：读到第 ② 句就下了结论，`:22` 那句
-        /// `ShowMessage` 没往下看。）</para>
-        /// <para>⚠️ 原版**只有写、没有读**（`get_systemCopyBuffer` 全库 0 命中）⇒ 我们也不做「一键从剪贴板导入」。</para>
-        /// <para>🔴 **2026-10-17（D35 删件后）：本方法暂时【没有生产入口】**。它原来挂在侧栏那颗
-        /// `info_import` / `info_share` 圆钮上，而那两颗钮**原版这扇窗里没有**、已删 ⇒ 今天无人调用。
-        /// **这不是「不做」**（铁律 11）：原版这个动作的家在 **`DeckInfoPopup`**
-        /// （`decomp_full/DeckInfoPopup__ShareDeck.c`，卡组线那扇 Info 弹窗的 `Share` 圆钮）——
-        /// ✅ **2026-10-08（`A1040`）那边已接上**：`Shell/DeckInfoPopup.ShareDeck("Share")` 调的是**同一个**
-        /// <see cref="CopyDeckToClipboard"/>（两处收口成一份）。本方法本体**保留**（`public`，可自检调）。
-        /// ⛔ 别把侧栏那两颗钮加回来当「权宜入口」。</para></summary>
-        public void ShareDeckString()
-        {
-            string s = CopyDeckToClipboard(State.Deck);
-            // 原版第 ③ 句：出声。⛔ 导不出时不许静默（原来那句「已复制（0 字符）」是**假报**）。
-            Say(string.IsNullOrEmpty(s) ? "分享失败：这一副导不出卡组串" : ShareCopiedText(s.Length));
-        }
+        // 🔴 **2026-10-23（W65 · 1c）删件：`ShareDeckString()` 整段删掉了** —— 全仓 **0 调用点**
+        //   （`grep -rn ShareDeckString CardPresentation/` 只命中它自己的定义与注释；`Editor/DeckScene.cs`
+        //   的自检也从来没调过它）。它原来挂在卡组编辑窗侧栏那两颗 `info_share` / `info_import` 圆钮上，
+        //   而那两颗钮**原版这扇窗里没有**、`D35` 已删 ⇒ 从那天起它就是死代码。
+        //   **这不是「不做」**（铁律 11）：原版这个动作的家在 **`DeckInfoPopup`**
+        //   （`decomp_full/DeckInfoPopup__ShareDeck.c`，卡组线那扇 Info 弹窗的 `Share` 圆钮）——
+        //   ✅ **2026-10-08（`A1040`）那边已接上**：`Shell/DeckInfoPopup.ShareDeck("Share")` 调的是**同一个**
+        //   `CopyDeckToClipboard`（共用件仍在上面，⛔ 别删）。方法本体已无存在理由 —— 留着只会让下一个会话
+        //   以为「卡组编辑那边还有一条分享路」（它原来那份 doc 就是这么误导的：写着「保留（`public`，可自检调）」，
+        //   而**没有任何自检调它**）。
+        //   ⛔ 别把侧栏那两颗钮加回来当「权宜入口」。
 
         // 🔴 **2026-10-17（T23 删件）：`OpenImport()` / `CloseImport()` / `TryImport()` /
         //   `RefreshImportText()` 四个方法整段删掉了**（连同 `ImportOutcome` 枚举与 `LastImportOutcome`）。
         //   它们是 `BuildImportPopup` 那棵树的行为侧 —— 生产入口早已没有，只剩 `Editor/DeckScene.cs` 的
         //   自检在调。真正的导入链在外壳：`Shell/CollectionData.ImportDeck`（走 `DeckLibrary.ImportString`，
         //   A503 / A547 那一份，`CollectionScene` 有断言）。
-        //   ⚠️ 注意**别把它和 `ShareDeckString()` 搞混**：分享那个方法**留着**（`Shell/DeckInfoPopup` 在用）。
+        //   ⚠️ 分享那一族**没删**（`CopyDeckToClipboard` / `ShareCopiedText`）—— 它们的调用方是
+        //   `Shell/DeckInfoPopup.ShareDeck("Share")`（2026-10-08 `A1040` 接上的那条链）。
+        //   ⚠️ 2026-10-23（W65 · 1c）：同族的 `ShareDeckString()` 已删（它才是 0 调用点那个），见上面那段留痕。
 
         /// <summary>Deck info 页签开着吗 —— **`_infoOnly` 那批件的显隐判据（唯一出处）**。
         /// `RefreshTabVisibility` 与 `KeyLive` 共用它；不许各写一遍 `_tab == 1`

@@ -18,7 +18,17 @@ namespace CardPresentation
         /// <summary>补间推进方式。批处理自检会把它设成 Manual。</summary>
         public static UpdateType Mode = UpdateType.Normal;
 
-        /// <summary>松手回弹（不合法落点）</summary>
+        /// <summary>松手回弹（不合法落点 / 拖回手牌）—— **这个 0.22 是我们挑的，原版判据没定位到**。
+        ///
+        /// <para>🔴 **2026-10-23（R16）如实标注（铁律 3 / 11）**：本常量原来**零注释、零出处**，
+        /// 账上那条待办写的是「查 `CardScript.OnTouchDrag` 取消出牌那一支」—— **去查了，那一支不存在**：
+        /// `d:/2/tools/decomp_full/CardScript__OnTouchDrag.c` 全文 **52 行**，只有一句
+        /// `if (*(int *)(lVar4 + 0x1c) != 0xa0) …`（卡状态闸），**没有任何「回弹 / DOMove / 补间时长」**。
+        /// ⇒ 今天**判据仍然缺**，不许拿 `VarsGlobal.timeToPositionCard`（0.2，那是**手牌重排**
+        /// `RelayoutDuration` 的出处）硬套过来 —— 那是「看着像」的等价，不是读出来的。</para>
+        ///
+        /// <para>⚠️ 用法：`Hand/CardInteraction` 的两处（回弹到扇形原位 + 缩放回手牌尺寸）。
+        /// 若将来查到原版那一支，**改这一个数**即可（两处共用，⛔ 别在调用点各写一个）。</para></summary>
         public const float SnapBackDuration = 0.22f;
         /// <summary>拿起时的放大。
         /// 🔴 **2026-09-17 换成正解**：原版值 = `VarsGlobal.timeToScaleIntoMoving = 0.1`

@@ -41,6 +41,16 @@ gen_card_vfx_by_card.py — 「逐卡 VFX 表」生成器（卡 id → 事件 �
      （链路与覆盖率见下面「第 2 跳」那段更正文 + `资料/普查产出_第二十七会话/逐卡VFX_改用真值_报告.md`）。
   ⑧ `d:/2/Warpforge_code/Scripts/Assembly-CSharp/{AbilityTrigger,AbilityEffect}.cs`
         —— 枚举名字表（签名桩）。**只为了把卡 SO 里的枚举数翻译成名字**；读不到就退回只记数字，不猜。
+  ⑨ 🔴 **`d:/4/Unity/数据/游戏数据/trait_collection.json`（2026-10-23 新增，只读）**
+        —— **`CardTrait` SO 的权威导出**（`工具/export_trait_collection.py` 产，77 个 `TraitPairs` /
+          73 个 trait SO / 75 条 `TraitEffect`）。它给的是 `关键词 → TraitEffects[].effectAnim`
+          这条**原版真值**，用来把本表 ② 那条「按构词法推出来的」`inferred-keyword` 逐条复核：
+          动画名吻合的升 `authoritative`，没有依据的标 `unknown`。
+        判据 → `资料/普查产出_1022/P3_M9_CardTraitCollection.md`；
+        **第二个 build 交叉验证**（安卓 1.35.0 的 `sharedassets0.assets`：73/75/77 + 逐字段 0 差异）
+          → `资料/普查产出_1023b/安卓存档_CardTraitSO普查.md` §三。
+        ⚠️ 它**不在任何 Addressables 束里**（`guid_map_bundles.tsv` 的 `CardTrait` 0 行**是对的**）——
+          数据在 player 自带的 `sharedassets0.assets` 里（PC 与安卓都是）。
 
 输出（只写这一个文件）：
     d:/4/Unity/数据/游戏数据/card_vfx_by_card.json
@@ -82,8 +92,12 @@ gen_card_vfx_by_card.py — 「逐卡 VFX 表」生成器（卡 id → 事件 �
       自 **T21 / 2026-10-18** 起按原版 `CardAbility.trigger` 枚举归口（见 `TRIGGER_EVENT`），
       归不了口的仍保持 `ability`（= 当前不可达，宁可少播、不可错播）。
     · `byCard[*]` conf=`inferred-name`    —— 卡名 → 同名 CardAnim（**推断**，覆盖很少）。
-    · `byCard[*]` conf=`inferred-keyword` —— 卡的关键词 → `<关键词>TraitStart/TraitTrigger/…`（**推断**；原版天赋命名的
-      构词法，但「哪个关键词配哪个 anim」这一步本地判不了）。
+    · `byCard[*]` conf=`inferred-keyword` —— 卡的关键词 → `<关键词>TraitStart/TraitTrigger/…`（**推断**）。
+      🔴 **2026-10-23 起**：这批行**逐条用 `trait_collection.json`（CardTrait SO）复核**，
+      动画名对得上的**升 `authoritative`**（`src: cardtrait-so`）、对不上的留推断并出声、
+      关键词根本不是 trait 的标 `unknown`（见下面 ⑨ 与 `promote_keyword_traits`）。
+    · `byCard[*]` conf=`unknown`          —— ⛔ **判据为空**（例如关键词 `penitence`：`CardTrait` 里没有它）。
+      保留 `prefab` 只为可查，**不许当权威播**。
     · `byCard[*]` conf=`inferred-envcard` —— 进攻卡；⚠️ 原版那张 SO 的卡是 PPtr，**解不出卡名**，
       所以是用卡面贴图名反推的候选名去对（可能对不上）。
     · `generic`            —— **判据齐**：共享 `CardPrefab` / 各 SO 上的**通用**每事件挂钩（**不是逐卡**）。
@@ -145,12 +159,18 @@ CARD_SO_TRUTH = r"d:/4/Unity/资料/普查产出_1018/allcards_1350/cards_raw.js
 #   ⇒ 新表 = `工具/gen_guid_map_from_bundles.py` 的产物（**6,140 个 GUID**；旧表只按缺口回填了 148 行）。
 #   ⚠️ **旧表别删** —— 它保留了目录「退键」那一族的解（有些 GUID 只能走目录才解得出来）。
 GUID_MAP_TSV = r"d:/4/Unity/资料/普查产出_1018/cardanim_guid_map/guid_map_bundles.tsv"
+# 🔴 **2026-10-23（`R33`）新增**：`CardTrait` SO 的权威导出（`关键词 → TraitEffect.effectAnim`）。
+#   用来把 ② 那条「按 `<关键词>Trait*` 构词法推出来的」`inferred-keyword` 逐条复核。
+#   判据 → `资料/普查产出_1023b/安卓存档_CardTraitSO普查.md`（安卓 1.35.0 与 PC 关服前 100% 逐字段相同）。
+TRAIT_COLLECTION = r"d:/4/Unity/数据/游戏数据/trait_collection.json"
 # 枚举名字表（签名桩；读不到就只记数字，不猜）
 ENUM_STUBS = r"d:/2/Warpforge_code/Scripts/Assembly-CSharp"
 
 # `conf` 的优先级（从高到低）。**消费者按这个顺序取第一个命中的**，别把推断当真值。
+# 🆕 `unknown`（2026-10-23）：**判据为空**那一档（原版数据里找不到依据），排最后 ——
+#   ⛔ 别把它塞到 `inferred-*` 前面（那是「我们知道它大概是什么」，`unknown` 是「我们根本不知道」）。
 CONF_PRIORITY = ["authoritative", "exact", "exact-not-per-card",
-                 "inferred-envcard", "inferred-name", "inferred-keyword"]
+                 "inferred-envcard", "inferred-name", "inferred-keyword", "unknown"]
 
 # 卡 SO 里**带 VFX 绑定**的顶层字段 → (我们的事件名, 一句解释) —— 定义见下面 `EV_*` 之后
 # 卡 SO 里**不带 VFX**、但同样是「逐卡资产绑定」的字段 → 收进 `byCard[*]._assetRefs`（**不挂事件**）
@@ -721,6 +741,10 @@ def build_by_card(cards, idx, gen, ledger, factions_army, stats):
                 for it in lst:
                     rec = {"prefab": it["prefab"], "cardanim": it["cardanim"],
                            "conf": "inferred-keyword", "src": "keyword-trait",
+                           # 🆕 2026-10-23：把**推导时用的那个关键词原样**记在条目上 ——
+                           #   下游（`promote_keyword_traits`）要拿它去 `trait_collection.json` 里
+                           #   找同一个 trait。⛔ 别从 `why` 的文案里反解（那是给人看的，不是键）。
+                           "keyword": k,
                            "traitTriggerType": it["traitTriggerType"],
                            "why": "卡的关键词 `%s` → 原版天赋动画名的构词法 `<关键词>%s`"
                                   "（= `%s`）" % (k, TRAIT_SUFFIX_DISPLAY.get(
@@ -1205,6 +1229,220 @@ def merge_authoritative(by_card, auth):
     return by_card
 
 
+# ---------------------------------------------------------------- 🔴 关键词天赋 → 权威（2026-10-23 · `R33`）
+
+# `CardTrait.EffectTriggerType` 七档（签名桩 `CardTrait.cs`）：
+#   Start0 · End1 · OnPlay2 · Trigger3 · OnHand4 · FromCode5 · TriggerOnPlay6
+# 我们的事件名只有 `trigger` / `ability` 两个 ⇒ 这张表**只用来校验「升权威前后事件桶不该变」**；
+# ⛔ **不是**「原版语义就是这么归的」—— 原始档位照旧逐条写在 `traitTriggerType` 上（降信息，不许抹掉）。
+TRAIT_TRIGGER_EVENT = {0: EV_TRIGGER, 2: EV_ABILITY, 3: EV_TRIGGER, 6: EV_TRIGGER}
+# 只在 `triggerName` 缺字时兜底把数字翻成人话（`trait_collection.json` 现在每条都带 `triggerName`）
+TRAIT_TRIGGER_NAME = {0: "Start", 1: "End", 2: "OnPlay", 3: "Trigger",
+                      4: "OnHand", 5: "FromCode", 6: "TriggerOnPlay"}
+
+
+def load_trait_authority():
+    """读 `trait_collection.json` → `{归一化 trait 名: trait dict}`（外加整份原件，写进 stats 用）。"""
+    tc = read_json(TRAIT_COLLECTION)
+    traits = {}
+    for t in (tc.get("traits") or []):
+        k = norm(t.get("name"))
+        if k:
+            traits[k] = t
+    return traits, tc
+
+
+def _keyword_of(item):
+    """条目上记的**推导用关键词**（② `build_by_card` 写的 `keyword`；老条目没有 ⇒ 回空串）。"""
+    return (item.get("keyword") or "").strip()
+
+
+def _kw_norm(kw):
+    """与 ② 那条**逐字同口径**：关键词只取第一个空格 / 冒号 / 括号之前那一段再归一化
+    （`Talent: Serene Unifier` → `talent`）。⛔ 两处口径不一致 = 一半卡对不上。"""
+    return norm(re.split(r"[ :(\[]", (kw or "").strip())[0])
+
+
+def _effects_matching_anim(trait, anim):
+    """这条 trait 里，`effectAnim`（**或它任一 `overrideByArmies` 的 effectAnim**）与 `anim` 同名的 effect。"""
+    out = []
+    for e in (trait.get("traitEffects") or []):
+        names = [e.get("effectAnim")]
+        names += [o.get("effectAnim") for o in (e.get("overrideByArmies") or [])]
+        if any(n and norm(n) == norm(anim) for n in names):
+            out.append(e)
+    return out
+
+
+def promote_keyword_traits(by_card, cards, traits, army_of_faction):
+    """把能对上 `CardTrait` 权威数据的 `inferred-keyword` 条目**升成 `authoritative`**。
+
+    三条出路（逐条判，⛔ 不猜）：
+
+    | 情况 | 处理 |
+    |---|---|
+    | 关键词是 trait，且这条 trait 的某条 effect 的 `effectAnim`（含阵营 override）与条目的 `cardanim` 同名 | **升 `authoritative`**（`src: cardtrait-so`）+ 带上 `traitName` / `traitTriggerName` / `playIfWarlord` / `authoritativeAnim` |
+    | 关键词**不是**任何 trait（例：`penitence`） | **标 `unknown`** + 写清为什么（**判据为空**，不是「没查」） |
+    | 关键词是 trait，但动画名对不上（或多个 effect 同名争不清） | **原样留在 `inferred-keyword`** + 出声（`PROBLEMS`）—— 这种情况今天 **0 条** |
+    | 权威 `triggerType` 归到的事件桶 ≠ 这条现在所在的桶 | **不升** + 出声（会挪桶 ⇒ 那是另一件事，得单独裁） |
+
+    ⚠️ **为什么升之前还要校验事件桶**：本条目的桶是「后缀 → 事件」拍的（`TRAIT_SUFFIX_EVENT`），
+    而权威数据给的是 `EffectTriggerType`。两者不一致时**说明我们的构词法推断把事件也推错了**，
+    这类必须人裁，⛔ 不能顺手改桶（改桶 = 换了一个播放时机，要 Unity 验收）。
+
+    ⚠️ **`prefab` / `cardanim` 一律不动**（本件任务口径）：只有「这个 prefab 对应哪个 trait / 哪个触发档」被证实了。
+    按阵营走 override 的那几条（今天 6 条 = `Shield` 的 EC/TAU 变体），
+    真实该播的是变体，权威名写在 `authoritativeAnim` 上并打 `animDiffersFromCardanim` ——
+    运行时改播变体是**另一件事**（要真机验收），别在这里顺手改。
+    """
+    cards_by_id = {}
+    for c in cards:
+        cards_by_id[c.get("id")] = c
+    st = {
+        "source": rel(TRAIT_COLLECTION),
+        "traits": len(traits),
+        "inferredKeywordBefore": 0,
+        "promoted": 0,
+        "promotedCards": 0,
+        "promotedByTrait": {},
+        "markedUnknown": 0,
+        "unknownRows": [],
+        "leftInferred": 0,
+        "leftInferredRows": [],
+        "triggerTypeCorrected": [],
+        "armyOverrideRows": [],
+        "multiPlayBucketsBefore": 0,
+        "multiPlayBucketsAfter": 0,
+    }
+    st["traitEffects"] = sum(len(t.get("traitEffects") or []) for t in traits.values())
+    promoted_cards = set()
+    by_trait = collections.Counter()
+
+    def _is_auth(it):
+        return isinstance(it, dict) and it.get("conf") == "authoritative"
+
+    # 升之前的「同档多播桶」基数（运行时会按 `confPriority` 只留最优档、**同档 authoritative 全播**）
+    for m in by_card.values():
+        for lst in m.values():
+            if isinstance(lst, list) and sum(1 for it in lst if _is_auth(it)) > 1:
+                st["multiPlayBucketsBefore"] += 1
+
+    for cid, m in by_card.items():
+        card = cards_by_id.get(cid)
+        if not card:
+            continue
+        for ev, lst in m.items():
+            if not isinstance(lst, list):
+                continue
+            for it in lst:
+                if not isinstance(it, dict) or it.get("conf") != "inferred-keyword":
+                    continue
+                st["inferredKeywordBefore"] += 1
+                kw = _keyword_of(it)
+                kwn = _kw_norm(kw)
+                trait = traits.get(kwn)
+                anim = it.get("cardanim") or ""
+                # ---- ⓐ 关键词根本不是 trait ⇒ 判据为空
+                if not trait:
+                    it["conf"] = "unknown"
+                    it["confBefore"] = "inferred-keyword"
+                    it["keyword"] = kw
+                    it["why"] = (
+                        "⛔ **无权威依据**（2026-10-23）：`trait_collection.json`（73 个 `CardTrait` / "
+                        "77 个 `TraitPairs`，安卓 1.35.0 交叉验证逐字段 0 差异）里**没有**关键词 `%s` "
+                        "这个 trait ⇒「`<关键词>Trait*`」这条构词法推断（= `%s`）**升不了级**。"
+                        "`prefab` 保留只为可查，⛔ 不许当权威播。"
+                        % (kw, anim))
+                    st["markedUnknown"] += 1
+                    st["unknownRows"].append({"cardId": cid, "event": ev, "keyword": kw,
+                                              "cardanim": anim, "prefab": it.get("prefab")})
+                    continue
+                # ---- ⓑ 关键词是 trait：找同名 effect
+                effs = _effects_matching_anim(trait, anim)
+                if len(effs) != 1:
+                    st["leftInferred"] += 1
+                    st["leftInferredRows"].append(
+                        {"cardId": cid, "event": ev, "keyword": kw, "cardanim": anim,
+                         "why": "权威数据里 %s" % ("找不到同名 effectAnim" if not effs else "有多条同名 effectAnim，争不清")})
+                    PROBLEMS.append(
+                        "关键词天赋复核：`%s` 的 `%s`（关键词 `%s`）在 `trait_collection.json` 的 trait `%s` 里%s"
+                        " ⇒ **保留 `inferred-keyword`**（⛔ 不升）"
+                        % (cid, anim, kw, trait.get("name"),
+                           "找不到同名 effectAnim" if not effs else "有多条同名 effectAnim"))
+                    continue
+                e = effs[0]
+                tt = e.get("triggerType")
+                tn = e.get("triggerName") or TRAIT_TRIGGER_NAME.get(tt, "")
+                # ---- ⓒ 事件桶校验：权威档位归到的事件必须 == 当前桶
+                want_ev = TRAIT_TRIGGER_EVENT.get(tt)
+                if want_ev is None or want_ev != ev:
+                    st["leftInferred"] += 1
+                    st["leftInferredRows"].append(
+                        {"cardId": cid, "event": ev, "keyword": kw, "cardanim": anim,
+                         "why": "权威 triggerType %s(%s) 归到的事件桶 != 当前桶 `%s`" % (tn, tt, ev)})
+                    PROBLEMS.append(
+                        "关键词天赋复核：`%s` 的 `%s` 权威 `EffectTriggerType.%s(%s)` 归到 `%s`，"
+                        "而条目在 `%s` ⇒ **不升**（挪桶要人裁）"
+                        % (cid, anim, tn, tt, want_ev, ev))
+                    continue
+                # ---- ⓓ 升权威
+                applied = e.get("effectAnim")
+                army = army_of_faction.get(card.get("faction"))
+                for o in (e.get("overrideByArmies") or []):
+                    if o.get("army") == army:
+                        applied = o.get("effectAnim")
+                        break
+                was_tt = it.get("traitTriggerType")
+                new_tt = "EffectTriggerType.%s(%s)" % (tn, tt)
+                it["conf"] = "authoritative"
+                it["confBefore"] = "inferred-keyword"
+                it["src"] = "cardtrait-so"
+                it["keyword"] = kw
+                it["traitName"] = trait.get("name")
+                it["traitEffectName"] = e.get("name")
+                it["traitTriggerName"] = tn
+                it["traitTriggerType"] = new_tt
+                it["playIfWarlord"] = bool(e.get("playIfWarlord"))
+                it["authoritativeAnim"] = applied
+                if e.get("overrideByArmies"):
+                    it["overrideByArmies"] = [
+                        {"army": o.get("army"), "armyName": o.get("armyName"),
+                         "effectAnim": o.get("effectAnim")}
+                        for o in e["overrideByArmies"]]
+                if applied and norm(applied) != norm(anim):
+                    it["animDiffersFromCardanim"] = True
+                    st["armyOverrideRows"].append(
+                        {"cardId": cid, "event": ev, "keyword": kw, "cardanim": anim,
+                         "authoritativeAnim": applied,
+                         "army": army, "armyName": card.get("faction")})
+                if was_tt and was_tt != new_tt:
+                    # 🔴 构词法把触发档推错了的那几条（今天 = `EcstasyTraitTrigger` 10 条：
+                    #    `TraitTrigger` 后缀推 `Trigger(3)`，权威是 `TriggerOnPlay(6)`）——
+                    #    事件桶刚好都归 `trigger`，所以只订正档位、不挪桶。
+                    st["triggerTypeCorrected"].append(
+                        {"cardId": cid, "event": ev, "cardanim": anim,
+                         "was": was_tt, "now": new_tt})
+                it["why"] = (
+                    "🔴 **权威**（2026-10-23）：关键词 `%s` → `trait_collection.json` 的 trait `%s` 的 "
+                    "`TraitEffects[%s]`：`effectAnim = %s`、触发档 `%s`。"
+                    "原推断（构词法 `<关键词><后缀>`）与之%s。"
+                    % (kw, trait.get("name"), e.get("name"), applied, new_tt,
+                       "**一致**" if not it.get("animDiffersFromCardanim")
+                       else "**在动画名上不一致**（本阵营走 `overrideByArmies` ⇒ 权威名 = `%s`；"
+                            "本行 `prefab`/`cardanim` 按本件口径**未改**）" % applied))
+                st["promoted"] += 1
+                promoted_cards.add(cid)
+                by_trait[trait.get("name")] += 1
+
+    st["promotedCards"] = len(promoted_cards)
+    st["promotedByTrait"] = dict(by_trait.most_common())
+    for cid, m in by_card.items():
+        for lst in m.values():
+            if isinstance(lst, list) and sum(1 for it in lst if _is_auth(it)) > 1:
+                st["multiPlayBucketsAfter"] += 1
+    return st
+
+
 PROBLEMS = []
 
 
@@ -1293,6 +1531,44 @@ def main():
     else:
         print("[3/4] 权威档：**已跳过**（--no-truth）⇒ 这份产物不带 `authoritative` 条目")
 
+    # ---- 🔴 关键词天赋 → 权威（2026-10-23 · `R33`）：`inferred-keyword` 逐条用 `CardTrait` SO 复核
+    #   为什么放在权威档**之后**：它只改 `conf == inferred-keyword` 的条目，与卡 SO 那一档不重叠；
+    #   放后面才能把「升完以后同档多播桶有多少」这个运行时影响一并算出来（`stats.traitAuthority`）。
+    tr_st = {"skipped": "--no-truth"}
+    if not args.no_truth:
+        traits, trait_tc = load_trait_authority()
+        tr_st = promote_keyword_traits(by_card, cards, traits, factions_army)
+        tr_st["sourceGenerated"] = trait_tc.get("generated")
+        _coll = trait_tc.get("collection") or {}
+        tr_st["sourceCollection"] = _coll.get("m_Name")
+        tr_st["traitPairs"] = len(traits)
+        tr_st["cardTraitObjects"] = _coll.get("cardTraitObjectCount")
+        print("[3·b/4] 关键词天赋→权威：原推断 %d 条 ⇒ **升 %d** · **unknown %d** · 仍留推断 %d"
+              % (tr_st["inferredKeywordBefore"], tr_st["promoted"],
+                 tr_st["markedUnknown"], tr_st["leftInferred"]))
+        print("        权威源 = %s（%d 个 TraitPair / %s 个 CardTrait SO / %d 条 TraitEffect，生成于 %s）"
+              % (tr_st["source"], tr_st["traitPairs"], tr_st["cardTraitObjects"],
+                 tr_st["traitEffects"], tr_st.get("sourceGenerated")))
+        if tr_st["triggerTypeCorrected"]:
+            print("        ⚠️ 触发档**被订正** %d 条（构词法推错档、事件桶不变）：%s"
+                  % (len(tr_st["triggerTypeCorrected"]),
+                     " · ".join("%s %s→%s" % (x["cardanim"], x["was"], x["now"])
+                                for x in tr_st["triggerTypeCorrected"][:4]) + " …"))
+        if tr_st["armyOverrideRows"]:
+            print("        ⚠️ 按阵营走 `overrideByArmies` 的 %d 条（权威动画名 != 本行 `cardanim`，"
+                  "见 `authoritativeAnim`）：%s"
+                  % (len(tr_st["armyOverrideRows"]),
+                     " · ".join("%s(%s)" % (x["cardId"], x["authoritativeAnim"])
+                                for x in tr_st["armyOverrideRows"])))
+        if tr_st["markedUnknown"]:
+            print("        ⛔ 标 `unknown` 的 %d 条：%s"
+                  % (tr_st["markedUnknown"],
+                     " · ".join("%s/%s" % (x["cardId"], x["keyword"]) for x in tr_st["unknownRows"])))
+        print("        ⚠️ 同档多播桶（运行时「权威同档全播」）：%d → %d"
+              % (tr_st["multiPlayBucketsBefore"], tr_st["multiPlayBucketsAfter"]))
+    else:
+        print("[3·b/4] 关键词天赋→权威：**已跳过**（--no-truth）")
+
     # 每个事件各有多少张卡
     per_ev = collections.Counter()
     for cid, m in by_card.items():
@@ -1337,11 +1613,20 @@ def main():
             "（原文写「快照是 2022 时代 1,195 张、168 张查不到」—— 那是 `T14`/2026-10-18 换源**之前**的口径，已过期。）",
             "`cardAnimations` 那一路的**事件名归到 `ability` 是我们拍的**（原版给的是枚举），"
             "已逐条带 `abilityTrigger` / `chosenAbility`。",
-            "**天赋触发**（`CardTrait.TraitEffects[].effectAnim`）**仍然没做** —— 那份 SO 不在卡 SO 里，"
-            "**而且两个 build（PC 关服前 / 安卓 1.35.0）的本地束里都没有 `CardTrait` 束**"
-            "（2026-10-23 现查：`guid_map_bundles.tsv` 里 `className == CardTrait` **0 行**、"
-            "`assets_full` 全库 `TraitEffects` **0 命中**、安卓 asset pack 里无 `cardtraits` 束）⇒ 这就是 R28 里"
-            "`inferred-keyword` 那 600+ 条**升不了级**的判据缺口。",
+            "🔴 **【2026-10-23 订正：本行原来那条结论是错的、已作废】** 原来写「**天赋触发**"
+            "（`CardTrait.TraitEffects[].effectAnim`）仍然没做 —— 两个 build 的本地束里都没有 `CardTrait` 束 ⇒ "
+            "`inferred-keyword` 那 600+ 条升不了级」。"
+            "**实际是**：①「束里没有」这半句**对**（`guid_map_bundles.tsv` 里 `className == CardTrait` **0 行**"
+            " **是正常的** —— 它根本不是 Addressables 资产，永远进不了那张表）；"
+            "②「升不了级」这半句**错** —— 数据在 **player 自带的 `sharedassets0.assets`** 里"
+            "（PC 关服前与安卓 1.35.0 **两个 build 都有**），2026-10-22 已由 `工具/export_trait_collection.py` "
+            "导出成 `数据/游戏数据/trait_collection.json`（73 个 trait / 75 条 `TraitEffect` / 77 个 pair），"
+            "并已**逐字段交叉验证两块 build 100% 相同** ⇒ 判据在手，"
+            "**633/638 条 `inferred-keyword` 已升 `authoritative`**（见 `stats.traitAuthority`），"
+            "剩 5 条 `penitence` 在 `CardTrait` 里没有对应 trait ⇒ 标 `unknown`。"
+            "**错因**：把「**本地束**里没有」当成了「**原版数据**里没有」—— 只搜了 bundle / asset pack，"
+            "没搜 player 自带的那三个 `.assets`（`sharedassets0` / `globalgamemanagers` / `resources`）。"
+            "判据 → `资料/普查产出_1023b/安卓存档_CardTraitSO普查.md` §二·§四。",
         ],
     }
 
@@ -1371,9 +1656,13 @@ def main():
                 "只是名字恰好对得上；事件靠后缀/词根判",
          "conf": "inferred"},
         {"hop": "旁路·关键词", "from": "卡的关键词", "to": "`<关键词>Trait*` 动画",
-         "how": "原版天赋动画的构词法（`ArmourTraitStart` / `SilenceTraitTrigger` / `VanguardTraitPlay`…）；"
-                "**是推断**：「哪个关键词配哪个 anim」真正判据在 `CardTrait` SO（本地 0 命中）",
-         "conf": "inferred"},
+         "how": "原版天赋动画的构词法（`ArmourTraitStart` / `SilenceTraitTrigger` / `VanguardTraitPlay`…）。"
+                "🔴 **2026-10-23 起**：这批行**已用权威数据逐条复核** —— `CardTrait` SO 的 "
+                "`TraitEffects[].effectAnim`（`数据/游戏数据/trait_collection.json`，"
+                "PC 关服前与安卓 1.35.0 两个 build 逐字段相同）⇒ 动画名吻合的 **633 条升 `authoritative`**"
+                "（`src: cardtrait-so`），`CardTrait` 里没有的关键词（5 条 `penitence`）标 `unknown`。"
+                "⇒ 这条旁路**今天只剩 0 条仍在推断档**",
+         "conf": "authoritative"},
         {"hop": "旁路·通用", "from": "共享卡预制体 `CardPrefab`", "to": "每事件的通用挂钩",
          "how": "`CardScript.normalSummon` / `landOnGroundParticles` / `attackHitSmallParticles` / "
                 "`cardDestroyFX` / `rangedAttackParticlesSO` —— **判据齐**，但**不是逐卡**",
@@ -1395,6 +1684,8 @@ def main():
             "bundleSrc": rel(bundle_src) if bundle_src else None,
             "cardSoTruth": rel(args.truth) if not args.no_truth else None,
             "guidMap": rel(args.guid_map) if not args.no_truth else None,
+            # 🆕 2026-10-23（`R33`）：`CardTrait` SO 的权威导出（关键词天赋复核用）
+            "traitCollection": rel(TRAIT_COLLECTION) if not args.no_truth else None,
             "enumStubs": rel(ENUM_STUBS),
         },
         "_headline": ("🔴 **2026-10-14 更正：原来写「逐卡那一跳在本地断掉」，实际是【通的】**。"
@@ -1407,7 +1698,10 @@ def main():
                       "⚠️ 权威档的两个限定：① 真值快照 = **当前 build 的 `allcards`（1,351 张）**，"
                       "现读我们池子 **1,127/1,127** 都在快照里（原文「2022 时代 1,195 张 / 168 张查不到」"
                       "是 `T14` 换源前的口径，**2026-10-23 已过期**）；② `cardAnimations` 的事件名归到 "
-                      "`ability` 是**我们拍的**（原版给的是枚举，已带在条目上）。"),
+                      "`ability` 是**我们拍的**（原版给的是枚举，已带在条目上）。"
+                      "🆕 **2026-10-23**：`inferred-keyword` 那 638 条**已用 `CardTrait` SO 的权威数据逐条复核**"
+                      "—— 633 条升 `authoritative`、5 条 `penitence` 无依据标 `unknown`"
+                      "（见 `stats.traitAuthority`）。"),
         "_conventions": {
             "conf": {
                 "authoritative": "🔴 **原版真值**（不是推断）：卡 SO 字段（GUID）→ 束 → 资产原名 → VFX prefab。"
@@ -1415,7 +1709,12 @@ def main():
                 "exact": "判据齐（本地能逐字对上）",
                 "exact-not-per-card": "判据齐，但**不是逐卡**（原版每张卡共用的那条通用链）",
                 "inferred-name": "卡名 → 同名 CardAnim（**推断**，原版不是这么找的）",
-                "inferred-keyword": "卡的关键词 → `<关键词>Trait*` 动画（**推断**）",
+                "inferred-keyword": "卡的关键词 → `<关键词>Trait*` 动画（**推断**）。"
+                                    "🔴 **2026-10-23 起**能对上 `trait_collection.json` 的都已升 `authoritative`"
+                                    "（`src: cardtrait-so`）⇒ **今天这一档剩 0 条**",
+                "unknown": "⛔ **判据为空**（2026-10-23 新增）：原版数据里**找不到依据** —— 例：关键词 "
+                           "`penitence` 在 73 个 `CardTrait` 里根本没有对应 trait。`prefab` 保留只为可查，"
+                           "**不许当权威播**（不是「没查」，是「查过了、原版没有」）",
                 "inferred-envcard": "进攻卡候选名 → 环境效果 VFX（**推断**，卡身份解不出）",
             },
             "confPriority": CONF_PRIORITY,
@@ -1468,6 +1767,8 @@ def main():
             "authoritativeCards": auth_st.get("authoritativeCards", 0),
             "authoritativeCardsVfxOnly": auth_st.get("authoritativeCardsVfxOnly", 0),
             "authoritative": auth_st,
+            # 🔴 2026-10-23（`R33`）：关键词天赋复核（`inferred-keyword` → `authoritative` / `unknown`）
+            "traitAuthority": tr_st,
             "factionArmyIds": factions_army,
             "problems": PROBLEMS,
         },
@@ -1618,7 +1919,11 @@ def main():
                  "`gj`(`abilityLogic[j]` 组号) / `gn`(`abilityLogic` 组数)；判据 = "
                  "`RawCardScript__TriggerAbility.c:75-97`，消费 = `VfxMap.ResolveAllTimed(..., rng)`。"
                  "只有 `rc==1` 才写（现读全池 1 条 = `GOF12 Spanner`），其余条目缺省 0。"
-                 "消费口 = `CardPresentation/Core/VfxMap.cs` 的 `ByCard`（按 `confPriority` 折叠，取第一个命中的）。"
+                 "消费口 = `CardPresentation/Core/VfxMap.cs` 的 `ByCard`（按 `confPriority` 折叠：只留最优档，"
+                 "**同档 `authoritative` 全播**、推断档平票只留第一条）。"
+                 "🆕 **2026-10-23**：`c` 现在**还会出现 `\"authoritative\"` 的「关键词天赋」行**"
+                 "（`src: cardtrait-so`，633 条由 `inferred-keyword` 升级）与 `\"unknown\"` 行"
+                 "（判据为空，5 条 `penitence`；排 `confPriority` 最后 —— ⛔ 它只是**保留可查**，别当权威播）。"
                  "⚠️ 形状是**数组**不是字典 —— `JsonUtility` 不支持字典（`VfxMap.EnsureLoaded` 里注明了）。"
                  "🆕 **`cards[].audio`（2026-10-14 · A1817）** = **逐卡精确语音绑定**："
                  "`[{\"ev\":\"deploy|attack|death\",\"n\":\"<原版 AudioClip 名，不带扩展名>\"}]`，"

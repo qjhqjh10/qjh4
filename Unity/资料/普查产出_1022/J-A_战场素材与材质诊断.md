@@ -96,14 +96,16 @@
 
 **B. 15 个导出根的真实形状（我按场景树现核，与 A2 §1·2 X4 的名单有出入 → 见 §四 更正）**
 
-| 场 | 场景根 | 布景根（PSR/演出所在） | 备注 |
+| 场 | 场景根 | 世界内容根（AssetRipper 导出实测） | 备注 |
 |---|---|---|---|
-| arena1 / 2 / 3 / aeldari / darkangels / genestealers / sororitas / spacewolves / tauviorla | `Scenario` | **`Scenario` 的子件**（`… Baked` / `Scenario Fillers`） | 直接导出 `Scenario` 整棵 |
-| astramilitarum / blacklegion | `Scenario`（只有灯光/粒子） | **另一个独立根** `Battle Arena … Baked`（80 / 43 个子件） | 要导**两个根** |
-| emperorschildren | `Scenario` | `Scenario` 的子件 `Battle Arena Emperor's Children Baked`（78 子件） | 与第一行同型（我最初误判它是根级，实测**不是**） |
-| **leviathan** | **没有 `Scenario` 根** | PSR 根 = **`Particle Effects`**；`Battle Arena Leviathan Baked`（44 子件，**带 `Animator`**）挂在别处，世界内容在 `BattlePrefab/BattleBoardElements`（10 子件） | 特殊：PSR 根与演出根**不是同一颗** |
+| arena1 / 2 / 3 / aeldari / darkangels / genestealers / sororitas / spacewolves / tauviorla | `Scenario` | **`Scenario` 的子件**（`… Baked` / `Scenario Fillers`；arena1/2 的 Baked 名字带 `Scenario` 前缀 + 尾随空格） | 直接导出 `Scenario` 整棵 |
+| astramilitarum / blacklegion | `Scenario`（只有灯光/粒子） | **另一个独立根** `Battle Arena … Baked`（84 / 70 个子件） | 要导**两个根**（blacklegion 有 4 条跨根引用，必须合并） |
+| emperorschildren | `Scenario`（21 节点） | **独立根** `Battle Arena Emperor's Children Baked`（78 子件） | ⚠️ **2026-10-23 更正：原来写「`Scenario` 的子件」是错的**，导出实测为独立根（`m_Father: {fileID:0}`） |
+| **leviathan** | **有 `Scenario` 根**（154 节点） | `Particle Effects`（22 子件）是 **`Scenario` 的子件**；`Battle Arena Leviathan Baked`（99 节点）在 `Scenario` 下 | ⚠️ **2026-10-23 更正：原来写「没有 `Scenario` 根」「PSR 根 = `Particle Effects`」是错的**，导出实测 `Scenario` 存在且子树 154 节点 |
 
-⇒ **导出根（PSR 根口径）= 12 × `Scenario` + `Battle Arena Astra Militarum Baked` + `Battle Arena Black Legion Baked 2` + leviathan 的 `Particle Effects` = 15**。
+⇒ **导出根（AssetRipper 导出实测）= 16 颗 = 13 × `Scenario` + 3 颗独立 `Baked`（astra / blacklegion / EC）**。
+⚠️ **2026-10-23 更正**：原来写「12 × `Scenario` + astra/blacklegion Baked + leviathan 的 `Particle Effects` = 15」——三处与导出不符（leviathan 有 `Scenario`、EC 的 Baked 是独立根、`Particle Effects` 是子件）。若要「一颗 prefab = 一场完整世界」，按 13 颗合并导出（3 个 Baked 并回 `Scenario`，根变换均为单位阵）。
+判据全文 → `资料/普查产出_1023b/战场线_15prefab清单.md` §一/§二/§六。
 这与 A2 §1·2 那张表「12 个 `Scenario` + 2 个 `Baked`（astra / blacklegion）= 14」**一致**（它漏了 leviathan 那 1 颗）；
 而 A2 §1·2 **X4 行写的「`Battle Arena 3 Baked`」是错的** —— 我按 Transform 父链现核，它是 **arena3 `Scenario` 的子件**，不是根（见 §四 ③）。
 ⚠️ **另**：每场还有 4 颗 `Energy Accumulation VFX Off/On` 也是 PSR 根（战斗 HUD 的能量累积特效，属 HUD 不属布景），A2 与本表都**不计入**这 15。

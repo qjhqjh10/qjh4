@@ -58,6 +58,46 @@ namespace WarpforgeVFX
             "WarpforgeVFX/wf_arena_anims_tau.bundle",
         };
 
+        /// <summary>🆕 2026-10-23（真机 C4）：**每只小包的「识别探针」** —— 与
+        /// `ExtraBundleRelPaths` **逐项对应**（同一下标 = 同一只包），值是那只包里**必定有**的
+        /// 一件资产名（取自 `工具/extract_missing_shaders.py` 的 `ARENA_ANIM_GROUPS`）。
+        /// 只用来回答一句：「**这只包是不是已经在进程里了？**」
+        ///
+        /// 🔴 **为什么需要它**（真机 2026-10-23 14:33 · `_tmp_view/real/battle_arena2.log:338-347`）：
+        ///   `WarpforgeShaderLoader.EnsureLoaded()` 用 **`wf_arena_*.bundle` 通配**扫目录
+        ///   （`WarpforgeShaderLoader.cs:122`），本意只要 shader 包，但 `wf_arena_anims_*.bundle`
+        ///   **也匹配这个通配** ⇒ 9 只动画包先被它整只加载走了（同一份日志 `:47-56` 逐只打出
+        ///   「一个 Shader 都没有」）。而 **Unity 一个进程里同一份内容只能加载一次** ⇒ 这里再
+        ///   `LoadFromFile` 一律返回 null，引擎逐条报
+        ///   `can't be loaded because another AssetBundle with the same files is already loaded`
+        ///   ⇒ 旧版把这 9 只全记成「没加载成」（**假失败**：它们其实都在内存里、资产也取得到，
+        ///   靠 `TryGet` 末尾那条兜底捡回来才没出事）。
+        /// ⇒ 现在**先拿探针去已加载的包里认领**，认到就复用那只包、不再尝试第二次加载。
+        ///    （反方向也安全：若本桥先加载了，`ShaderLoader` 那边撞上会走它自己的
+        ///    `HarvestFromLoadedBundles`，那条早就存在。）
+        ///
+        /// ⚠️ 两边的一致性由 `python -I -X utf8 工具/extract_missing_shaders.py --verify-arena-anims`
+        ///   对账（改了 `ARENA_ANIM_GROUPS` 没改这张表、或反过来 ⇒ 那条会红）。
+        /// ⚠️ 探针要挑**只在这一组里**的名字；同名跨包时认到谁无所谓（资产内容相同），
+        ///   但别拿 shader 包/卡包也有的名字。</summary>
+        public static readonly string[] ExtraProbeAssets =
+        {
+            "Cannon 1",                             // arena1（控制器）
+            "Pump 1",                               // arena2（控制器）
+            "Battle Arena Leviathan",               // shared（控制器）
+            "Astra Militarum Scene Animations",     // astra（legacy clip）
+            "Black Legion Scene Animation",         // blacklegion（legacy clip）
+            "Dark Angels Scene animations",         // darkangels（legacy clip）
+            "Emperor's Children Scene Animations",  // emperorschildren（legacy clip）
+            "Genestealers Scene Animations",        // genestealers（legacy clip）
+            "Railgun BIG",                          // tau（legacy clip）
+        };
+
+        /// <summary>最近一次 `EnsureLoaded()` 的读数（自检 / 真机日志断言用）。</summary>
+        public static int LastExtrasSelfLoaded;   // 本桥自己 `LoadFromFile` 加载的
+        public static int LastExtrasReused;       // 已被别的加载器加载、按探针认领复用的
+        public static int LastExtrasMissing;      // 文件不在 / 加载不出来 / 认不到
+
         static AssetBundle _bundle;
         static readonly List<AssetBundle> _extras = new List<AssetBundle>();
         static bool _tried;
@@ -239,28 +279,85 @@ namespace WarpforgeVFX
             }
 
             // 🆕 2026-10-23：战场布景动画的 9 个小包。**主包缺了也照常加载它们**（各自独立）。
+            // 🔴 顺序：**先认领、再加载** —— 见 `ExtraProbeAssets` 头注（`WarpforgeShaderLoader`
+            //    的 `wf_arena_*` 通配会先把这 9 只扫走，那时 `LoadFromFile` 必然返回 null）。
             _extras.Clear();
-            int missing = 0;
-            foreach (var rel in ExtraBundleRelPaths)
+            LastExtrasSelfLoaded = LastExtrasReused = LastExtrasMissing = 0;
+            var unusable = new List<string>();
+            for (int i = 0; i < ExtraBundleRelPaths.Length; i++)
             {
+                var rel = ExtraBundleRelPaths[i];
                 var ep = Path.Combine(Application.streamingAssetsPath, rel);
-                if (!File.Exists(ep)) { missing++; continue; }
-                try
-                {
-                    var eb = AssetBundle.LoadFromFile(ep);
-                    if (eb != null) _extras.Add(eb); else missing++;
-                }
+                var fileName = Path.GetFileName(rel);
+                if (!File.Exists(ep)) { LastExtrasMissing++; unusable.Add(fileName + "（文件不在）"); continue; }
+
+                // ① 已经在进程里了？⇒ 复用，**别再 `LoadFromFile`**（Unity：同一份内容只能加载一次）
+                var probe = (i < ExtraProbeAssets.Length) ? ExtraProbeAssets[i] : null;
+                var reuse = FindLoadedWith(probe);
+                if (reuse != null) { _extras.Add(reuse); LastExtrasReused++; continue; }
+
+                // ② 没人在场 ⇒ 自己加载
+                AssetBundle eb = null;
+                try { eb = AssetBundle.LoadFromFile(ep); }
                 catch (Exception e)
                 {
-                    missing++;
                     Debug.LogWarning($"[WarpforgeAnimatorBridge] 加载 `{ep}` 抛了：{e.GetType().Name}: {e.Message}");
                 }
+                if (eb != null) { _extras.Add(eb); LastExtrasSelfLoaded++; }
+                else { LastExtrasMissing++; unusable.Add(fileName); }
             }
-            if (missing > 0)
-                Debug.LogWarning($"[WarpforgeAnimatorBridge] 战场动画小包 {missing}/{ExtraBundleRelPaths.Length} 个没加载成"
-                               + " —— 先跑 `工具/extract_missing_shaders.py --arena-anims`");
+            if (LastExtrasMissing > 0)
+                // 🔴 真缺陷（不是「别人先加载了」那种）⇒ **报错并点名**，⛔ 别让它混在噪音里
+                Debug.LogError($"[WarpforgeAnimatorBridge] 战场动画小包 {LastExtrasMissing}/{ExtraBundleRelPaths.Length} 个**用不了**："
+                             + string.Join(" / ", unusable.ToArray())
+                             + " —— 先跑 `工具/extract_missing_shaders.py --arena-anims`；"
+                             + "产物对不对用 `python -I -X utf8 工具/extract_missing_shaders.py --verify-arena-anims` 对账");
             else
-                Debug.Log($"[WarpforgeAnimatorBridge] 战场动画小包 {_extras.Count} 个已加载");
+                Debug.Log($"[WarpforgeAnimatorBridge] 战场动画小包 {ExtraBundleRelPaths.Length}/{ExtraBundleRelPaths.Length} 就绪"
+                        + $"（自载 {LastExtrasSelfLoaded} · 复用已加载包 {LastExtrasReused}）");
+        }
+
+        /// <summary>在**已加载的**包里按探针找一只（跳过主包 `wf_prefabs_extra` 与已经收进 `_extras` 的）。
+        /// 找不到返回 null。判据与原因 → `ExtraProbeAssets` 头注。</summary>
+        static AssetBundle FindLoadedWith(string probe)
+        {
+            if (string.IsNullOrEmpty(probe)) return null;
+            foreach (var b in AssetBundle.GetAllLoadedAssetBundles())
+            {
+                if (b == null || ReferenceEquals(b, _bundle)) continue;
+                bool already = false;
+                for (int i = 0; i < _extras.Count; i++) if (ReferenceEquals(_extras[i], b)) { already = true; break; }
+                if (already) continue;
+                if (HasAsset(b, probe)) return b;
+            }
+            return null;
+        }
+
+        /// <summary>这只包里**有没有**这件资产 —— 只问容器/预加载表，**不实例化、不挑类型**。
+        ///
+        /// 两层判据（都由打包器登记过）：① `Contains(裸名)`（容器键；打包时同时登记了裸名与
+        /// `assets/&lt;小写&gt;.&lt;ext&gt;` 两条别名）② `GetAllAssetNames()` 里按小写比一回
+        /// （`Contains` 万一对别名不认，这一层兜住）。都不中 ⇒ 当「不在这只包里」。
+        /// ⚠️ 不用 `LoadAsset&lt;T&gt;`：类型不对时 Unity 可能额外打一行错，而这里只想知道**在不在**。</summary>
+        static bool HasAsset(AssetBundle b, string name)
+        {
+            try { if (b.Contains(name)) return true; } catch (Exception) { }
+            try
+            {
+                var all = b.GetAllAssetNames();
+                if (all != null)
+                {
+                    var want = name.ToLowerInvariant();
+                    var tail = "/" + want;
+                    for (int i = 0; i < all.Length; i++)
+                    {
+                        var a = all[i];
+                        if (a == want || a.EndsWith(tail, StringComparison.Ordinal)) return true;
+                    }
+                }
+            }
+            catch (Exception) { }
+            return false;
         }
 
         /// <summary>给自检用：清掉缓存，下一问重新加载。</summary>
@@ -271,6 +368,7 @@ namespace WarpforgeVFX
             _extras.Clear();
             _byName.Clear();
             _clipByName.Clear();
+            LastExtrasSelfLoaded = LastExtrasReused = LastExtrasMissing = 0;
         }
     }
 }

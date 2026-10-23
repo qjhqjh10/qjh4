@@ -148,6 +148,7 @@ import argparse
 import collections
 import json
 import os
+import re
 import sys
 
 # 🔴 **2026-10-03 补**（同 `import_original_art.py` 顶上那一句）：**stdout 必须是 UTF-8**。
@@ -284,6 +285,29 @@ BOOSTER_GROUPS = [
                "Booster Pack Standard Tyranids Leviathan"],
         clips=["Booster Open Standard", "Booster Open Sororitas"],
     ),
+    # ③ 🆕 **2026-10-23（`A2` 缺件 · `TurnTimerTickPulse`）**：**战斗 HUD 的回合倒计时脉冲**。
+    #   · **为什么必须重打包**：它在 `battlesharedresources_assets_all.bundle`，**不在该包的 `m_Container`
+    #     （466 条）里** ⇒ Unity 侧 `GetAllAssetNames()` / 按名 `LoadAsset` 两条都取不到；
+    #     而且它**不在特效主包** `battleprefabs_vfxandmisc` 里 ⇒ `EffectExporter.Run()` 的容器枚举也扫不到。
+    #   · **谁在等它**：`Battle/BattleDriver.cs` 的 `PlayCountdownAnim()`（2026-10-23 `W63` P3 落的）
+    #     每回合倒计时开始那一拍 `CardEffects.Fire("TurnTimerTickPulse", …)` —— 现在每次**都缺画面**。
+    #     判据 → `资料/普查产出_1023b/特效线_A2_执行报告.md` §3（X3）§5·3。
+    #   · **本代理实读（UnityPy 1.25.3，2026-10-23）**：包内**单 CAB**
+    #     `CAB-68cc81d35f88d5ad277f2717d6e1ac25`（1988 个对象）· `AssetBundle` 对象 m_Name =
+    #     `8a81dd2e8f198e9de97dbdc27afb02fb.bundle` · 根 GO `TurnTimerTickPulse` pid `3127757642981683788`、
+    #     `Transform` pid `3591192937544004172`、**`m_Father` 为 null（独立根）**、子树 **14 个 Transform**、
+    #     组件类型 = `Transform` / `MonoBehaviour` / `ParticleSystem` / `ParticleSystemRenderer`。
+    #   · ⚠️ **本组不属界面线**（`ui=False`）⇒ `--skip-boosters` **不跳它**（那一开关的语义是
+    #     「只改特效线的活时不重写界面线的产物」；本组正是特效线要的）。见 `run_prefabs` 的循环。
+    dict(
+        src=os.path.join(BUNDLE_DIR, "battlesharedresources_assets_all.bundle"),
+        out=os.path.join(DEST_DIR, "wf_battleshared_extra.bundle"),
+        cab="CAB-wfbattleshared",
+        roots=["TurnTimerTickPulse"],
+        clips=[],
+        ui=False,
+        label="战场 HUD 组",
+    ),
 ]
 
 # 🆕 2026-10-22（`A2` §1·2 **X2**）：**主菜单「用万能卡」那 8 个粒子 prefab**。
@@ -383,7 +407,16 @@ ARENA_ANIM_GROUPS = [
         # 🆕 2026-10-23（战场线「用素材重新布置」）：`Battle Arena 3 Animations` 是 **legacy**，
         #   但它是 arena3 `Scenario/Battle Arena 3 Baked` 上 `Animation` 组件的**唯一** clip。
         #   ⚠️ 它与那 5 条 muscle 同属本包 ⇒ 并进同一组，不另开包（一个源包一个产物）。
-        clips=["SporeArmature|LeviathanBigSpore", "Battle Arena 3 Animations"],
+        # 🆕 **2026-10-23（`A2` 缺件 · `Recorded`）**：全库 98 个 clip 名字里**唯一没有产物**的那条。
+        #   · **本代理实读（UnityPy 1.25.3）**：pid `5020847990147685683`、同在本包（单 CAB
+        #     `CAB-68cc81d35f88d5ad277f2717d6e1ac25`）· `m_Legacy=False` · `m_MuscleClipSize=4600` ·
+        #     `m_FloatCurves/m_PositionCurves/m_RotationCurves/m_ScaleCurves/m_EulerCurves` **全为 0**
+        #     ⇒ **muscle 格式**，`.anim` 那条路走不通（`W64 A1` 已证 `CreateAsset` 出来是空壳），
+        #     只能像那 5 条一样**重打包取原件**。
+        #   · **原版 0 消费者**（13 场里没有任何 `Animation.m_Animation` 指着它；`gen_arena_scene_clips.py`
+        #     头注同结论）⇒ 按铁律 11 属「**备用导出**」，导出齐资产用，⛔ **不接运行时**。
+        #   · 判据 → `资料/普查产出_1023b/特效线_A2_执行报告.md` §1·4 / §5·4。
+        clips=["SporeArmature|LeviathanBigSpore", "Battle Arena 3 Animations", "Recorded"],
         controllers=["Battle Arena Leviathan"],
     ),
     # =====================================================================================
@@ -1807,10 +1840,14 @@ def run_prefabs(args):
       ① **战场**那两件 → `wf_prefabs_extra.bundle`（本函数原来的那一段，行为一字未改）；
       ② **卡包两扇窗那批**（`BOOSTER_GROUPS`）→ `wf_boosters_extra.bundle` + `wf_menus_extra.bundle`
          （判据 → `资料/阶段二_商店_原版规格.md` §五·三）；
+      ②·b 🆕 **2026-10-23（`A2` 缺件）**：`TurnTimerTickPulse`（战斗 HUD 回合倒计时脉冲）
+         → **`wf_battleshared_extra.bundle`**（源包 `battlesharedresources_assets_all`，也写在
+         `BOOSTER_GROUPS` 里但 **`ui=False`**；判据 → `资料/普查产出_1023b/特效线_A2_执行报告.md` §3 X3）。
       ③ 🆕 **主菜单那 8 个 `Wildcard_Use_*`**（`MAINMENU_GROUPS`）→ `wf_mainmenu_extra.bundle`
          （判据 → `资料/普查产出_1022/A2_素材未导出与未使用.md` §1·2 X2）。
     ⚠️ `--out` 只作用于 ①；②③ 的目标名写在各自的组表里（一个源包一个产物，不能合并）。
-    ⚠️ `--skip-boosters` 把 ②③ 一起跳过（它们都属界面线），且**会打一行明示**（⛔ 不静默）。
+    ⚠️ `--skip-boosters` 把 ②③ 一起跳过（它们都属界面线），**但 ②·b 那组（`ui=False`）照跑**；
+      跳的时候**会打一行明示**（⛔ 不静默）。
     🆕 2026-10-07（A192）：① 里除了「控制器要用的 clip」，还收**只被环境 SO 按 GUID 引用**的两条
       （表里 `clipsByGuid` 那一节，见 `clips_by_guid`），并按 GUID 登记容器别名。
     """
@@ -1857,13 +1894,18 @@ def run_prefabs(args):
         return 1
 
     # ---- 🆕 2026-10-03：卡包那两扇窗（`BOOSTER_GROUPS`）----
+    #  🆕 2026-10-23（`A2` 缺件）：本表里多了一组**不属界面线**的（`ui=False` = `TurnTimerTickPulse`，
+    #  战斗 HUD 的件）⇒ `--skip-boosters` 只跳**界面线**那几组，`ui=False` 的照跑（⛔ 别静默吞掉）。
     if args.skip_boosters:
-        print("\n[P6] `--skip-boosters` ⇒ 跳过卡包/菜单那两包（它们不属特效线）")
-    for g in ([] if args.skip_boosters else BOOSTER_GROUPS):
+        print("\n[P6] `--skip-boosters` ⇒ 跳过卡包/菜单那两包（它们不属特效线）；"
+              "`ui=False` 的组（战场 HUD `wf_battleshared_extra`）**照跑**")
+    for g in BOOSTER_GROUPS:
+        if args.skip_boosters and g.get("ui", True):
+            continue
         if not os.path.isfile(g["src"]):
             print(f"[P0] 🔴 源包不在，跳过这一组：{g['src']}")
             continue
-        print(f"\n[P6] 卡包组：源 {os.path.basename(g['src'])} → {g['out']}")
+        print(f"\n[P6] {g.get('label', '卡包组')}：源 {os.path.basename(g['src'])} → {g['out']}")
         print(f"[P6] 根 GameObject {g['roots']} · 额外 AnimationClip {g['clips']}")
         k2 = repack_tree(g["src"], g["out"], g["roots"], dry_run=args.check,
                          extra_clips=g["clips"], cab_name=g["cab"])
@@ -1934,8 +1976,119 @@ def run_arena_anims(args):
     print("\n[P7] 完成。Unity 侧：`AssetBundle.LoadFromFile` 后按容器名取 —— "
           "clip 用 `LoadAsset<AnimationClip>(名字)`、控制器用 "
           "`LoadAsset<RuntimeAnimatorController>(名字)`（两者都登记了裸名 + `assets/<小写>.<ext>` 两条别名）。")
-    print("     ⚠️ 运行时接线（`WarpforgeAnimatorBridge.BundleRelPath` 目前只有 wf_prefabs_extra 一个包）"
-          "本轮**没改** `.cs` —— 三个新包要由主对话另派接线。")
+    print("     ⚠️ 重打完请跑 `--verify-arena-anims` 对账（产物内容 ↔ `ARENA_ANIM_GROUPS` ↔ "
+          "`WarpforgeAnimatorBridge` 的两张表），再重出 player。")
+    return 0
+
+
+# =====================================================================================
+# 🆕 2026-10-23（真机 C4 修完加的自检）：`--verify-arena-anims`
+#   症状（真机 14:33 `_tmp_view/real/battle_arena2.log:338-347`）：9 只 `wf_arena_anims_*.bundle`
+#   全被记成「加载失败」，实际是 `WarpforgeShaderLoader` 的 `wf_arena_*.bundle` 通配先加载走了
+#   （同一份内容 Unity 一个进程只能加载一次）⇒ 桥改成「先认领、再加载」（判据 →
+#   `WarpforgeAnimatorBridge.ExtraProbeAssets` 头注）。
+#   ⚠️ 那条是**运行时顺序**问题，静态查不出来；本模式查的是**另外三件会静默坏的事**：
+#     ① 产物在不在 / 能不能打开（`repack_tree` 打了一半、或 .bundle 被删）
+#     ② 每组声明的 clip / controller **有没有真登记进容器**（漏登记 ⇒ `LoadAsset(名字)` = null，
+#        桥那边只会说「取不到」——分不清是包坏了还是名字错了）
+#     ③ 桥那两张表（`ExtraBundleRelPaths` / `ExtraProbeAssets`）与 `ARENA_ANIM_GROUPS` **有没有对齐**
+#        （改了一边没改另一边 ⇒ 运行时认领不到 ⇒ 又退回「9/9 没加载成」）
+#   三条任一条不满足 ⇒ 退出码 1。可复现的「红」= 拿一份旧产物 / 改一个名字跑一次。
+# =====================================================================================
+ANIM_BRIDGE_CS = os.path.join(
+    os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
+    "MyGame", "Assets", "WarpforgeVFX", "Runtime", "WarpforgeAnimatorBridge.cs")
+
+
+def _cs_array_strings(src, field):
+    """把 C# 里 `public static readonly string[] <field> = { "a", "b", … };` 抄成 list。"""
+    m = re.search(r"%s\s*=\s*\{(.*?)\}\s*;" % re.escape(field), src, re.S)
+    if not m:
+        return None
+    return re.findall(r'"([^"]*)"', m.group(1))
+
+
+def run_verify_arena_anims(args):
+    """`--verify-arena-anims`：产物 ↔ `ARENA_ANIM_GROUPS` ↔ 桥的两张表，三方对账。"""
+    fails = []
+    print(f"[V] 对账 {len(ARENA_ANIM_GROUPS)} 组：产物内容 / 组声明 / `WarpforgeAnimatorBridge.cs` 两张表")
+
+    # ---- ① 桥那两张表 ----
+    if not os.path.isfile(ANIM_BRIDGE_CS):
+        fails.append(f"找不到桥的源码：{ANIM_BRIDGE_CS}")
+        cs_rels, cs_probes = None, None
+    else:
+        src = open(ANIM_BRIDGE_CS, "r", encoding="utf-8", newline="").read()
+        cs_rels = _cs_array_strings(src, "ExtraBundleRelPaths")
+        cs_probes = _cs_array_strings(src, "ExtraProbeAssets")
+        if cs_rels is None:
+            fails.append("`WarpforgeAnimatorBridge.cs` 里没找到 `ExtraBundleRelPaths`")
+        if cs_probes is None:
+            fails.append("`WarpforgeAnimatorBridge.cs` 里没找到 `ExtraProbeAssets`")
+        if cs_rels is not None and cs_probes is not None:
+            if len(cs_rels) != len(ARENA_ANIM_GROUPS):
+                fails.append(f"表长不一致：C# `ExtraBundleRelPaths` {len(cs_rels)} 条 · "
+                             f"`ARENA_ANIM_GROUPS` {len(ARENA_ANIM_GROUPS)} 组")
+            if len(cs_probes) != len(cs_rels):
+                fails.append(f"表长不一致：C# `ExtraProbeAssets` {len(cs_probes)} 条 · "
+                             f"`ExtraBundleRelPaths` {len(cs_rels)} 条（两边必须逐项对应）")
+
+    # ---- ② 逐组：文件在不在 / 资产登记没登记 ----
+    for i, g in enumerate(ARENA_ANIM_GROUPS):
+        out = g["out"]
+        name = os.path.basename(out)
+        want = list(g["clips"]) + list(g["controllers"])
+        if not os.path.isfile(out):
+            fails.append(f"{name}：产物不在（先跑 `--arena-anims`）")
+            print(f"[V] 🔴 {name}：产物不在 —— {out}")
+            continue
+        sizes = f"{os.path.getsize(out)/1024:.0f} KB"
+        try:
+            env = UnityPy.load(out)
+            cont = set()
+            ab_found = False
+            for o in env.objects:
+                if o.type.name != "AssetBundle":
+                    continue
+                ab_found = True
+                for key, _info in o.read().m_Container:
+                    cont.add(key)
+        except Exception as e:
+            fails.append(f"{name}：打不开（{type(e).__name__}: {e}）")
+            print(f"[V] 🔴 {name}：打不开 —— {type(e).__name__}: {e}")
+            continue
+        if not ab_found:
+            fails.append(f"{name}：包里没有 AssetBundle 对象")
+            print(f"[V] 🔴 {name}：没有 AssetBundle 对象（Unity 会拒收）")
+            continue
+        miss = [n for n in want if n not in cont]
+        if miss:
+            fails.append(f"{name}：容器里缺 {miss}")
+            print(f"[V] 🔴 {name}（{sizes}）：容器里**缺** {miss}；实有 {sorted(cont)[:8]}")
+        else:
+            print(f"[V] ✅ {name}（{sizes}）：{len(want)} 件全在容器里（{len(cont)} 条键）")
+
+        # ---- ③ 与 C# 的两张表逐项对 ----
+        if cs_rels is not None and i < len(cs_rels):
+            want_rel = "WarpforgeVFX/" + name
+            if cs_rels[i] != want_rel:
+                fails.append(f"{name}：C# `ExtraBundleRelPaths[{i}]` = `{cs_rels[i]}`，应为 `{want_rel}`")
+        if cs_probes is not None and i < len(cs_probes):
+            probe = cs_probes[i]
+            if probe not in want:
+                fails.append(f"{name}：C# 探针 `{probe}` 不是本组声明的 clip/controller（改了组没改探针？）")
+            elif probe not in cont:
+                fails.append(f"{name}：C# 探针 `{probe}` 不在产物容器里 ⇒ 运行时认领会失败")
+
+    if fails:
+        print(f"\n[V] 🔴 结论：**{len(fails)} 条不通过**：")
+        for f in fails:
+            print(f"       · {f}")
+        return 1
+    print(f"\n[V] ✅ 结论：{len(ARENA_ANIM_GROUPS)}/{len(ARENA_ANIM_GROUPS)} 组全部对得上"
+          "（产物内容 ↔ 组声明 ↔ 桥的两张表）")
+    print("     ⚠️ 这条**不覆盖**运行时的「谁先加载」—— 那一层看真机日志：")
+    print("        `grep '战场动画小包' <player.log>` 期望 `9/9 就绪（自载 N · 复用已加载包 M）`")
     return 0
 
 
@@ -1956,6 +2109,10 @@ def main():
                     help="🆕 2026-10-22：改打**战场动画小包**（`ARENA_ANIM_GROUPS`）—— "
                          "5 条 muscle AnimationClip + 5 个 AnimatorController → "
                          "wf_arena_anims_{arena1,arena2,shared}.bundle（含整棵依赖树）")
+    ap.add_argument("--verify-arena-anims", action="store_true",
+                    help="🆕 2026-10-23：对账战场动画小包 —— 产物容器里的 clip/controller ↔ "
+                         "`ARENA_ANIM_GROUPS` ↔ `WarpforgeAnimatorBridge.cs` 的两张表。"
+                         "只读不写；不通过退出码 1")
     ap.add_argument("--arena-prefabs", action="store_true",
                     help="🆕 2026-10-23：把某一场的原版场景根（+整棵依赖树）重打成 "
                          "wf_arena_prefabs_<场>.bundle —— **必须配 `--arena <场>`**；"
@@ -1970,7 +2127,8 @@ def main():
                     help="默认 extra 模式写 wf_shaders_extra.bundle；--builtin 模式写 wf_builtin.bundle")
     ap.add_argument("--skip-boosters", action="store_true",
                     help="🆕 2026-10-19：`--prefabs` 时**只重打 wf_prefabs_extra**、不碰卡包/菜单那两包"
-                         "（那两包属界面线；只改特效线的活时用这个，避免无谓重写别人的产物）")
+                         "（那两包属界面线；只改特效线的活时用这个，避免无谓重写别人的产物）。"
+                         "🆕 2026-10-23：`ui=False` 的组（战场 HUD `wf_battleshared_extra`）**不受本开关影响**")
     args = ap.parse_args()
     if args.out is None:
         args.out = (DEST_ARENA if args.arenas
@@ -1996,6 +2154,9 @@ def main():
         for n in sorted(set(kept.values())):
             print("      ", n)
         return 0
+
+    if args.verify_arena_anims:
+        return run_verify_arena_anims(args)
 
     if args.arena_prefabs:
         return run_arena_prefabs(args)

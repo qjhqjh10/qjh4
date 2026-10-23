@@ -1006,4 +1006,286 @@ public static partial class RuleEngineTest
             Check(SlotOf(ctx, 1, "T02_RS_Play2"), 8, "★ 新单位落在 8 号格（没顶掉任何人）");
         }
     }
+
+    // ==================================================================
+    //  T02 · `or` 族：**玩家选 vs 随机** 的语义钉子（用户 2026-09-14 裁决）
+    // ==================================================================
+    /// <summary>
+    /// 判据（**用户 2026-09-14 裁决**）：**卡面写了 `choose`（`choose one` / `choose an effect`）
+    /// 才是玩家挑；没写 `choose` 的 `A or B` 一律由引擎随机挑**。
+    /// 普查底数（`资料/普查产出_1022/W63_T02_or与落位_普查.md` §1，2026-10-22 现读）：
+    /// 全池带 `or`/「或」**38 张** = 8 张比较式 + 30 张真 `or`；**37 已建模 / 1 判据未定（`SW18`）/ 0 未建模**。
+    ///
+    /// 本条把普查里**逐张点过名**的那 19 张钉成分桶断言（**不钉快照张数**，钉的是「谁落在哪个桶」）：
+    ///   · **玩家选**（`chooseone` 且 `RandomPick == false`）= 5 张；
+    ///   · **随机二选一**（`chooseone` 且 `RandomPick == true`）= 10 张；
+    ///   · **条件换数值**（`AltCondition` 非空，**不是**二选一）= 4 张。
+    /// 另外全池扫一遍，把「桶互相打架」的卡**打出来**（读数，不作判决 —— 那是普查的活）。
+    /// 🧨 **灭自证**：把 `EffectText.EmitEitherOr` 的 `RandomPick = true` 改成 `false`
+    ///   ⇒ 那 10 张随机卡全部落进「玩家选」⇒ ② 红一片；把 `TryChooseOne` 那 5 张改成随机 ⇒ ① 红。
+    /// ⚠️ 如实标着：`SW18 Hrolf the Ironhowl`（「一次随机 → 全手牌统一 vs 逐张随机」）
+    ///   **判据未定**（`EffectResolver.cs:2399/2434` 自认是我们挑的）⇒ 本条**不判**它。
+    /// </summary>
+    static void TestT02OrFamilyBuckets()
+    {
+        // ---- 普查点过名的三组（判据 → W63_T02_or与落位_普查.md §1）----
+        // 🔴 **2026-10-23（`A16xx` 8 红修复批）就地订正（铁律 5）**：原来这 7 个 GUID 卡写的是
+        //   **8 位短哈希**（`6ed51d59` / `d01a5ba5` / `4d348cff` / `9f75a6fe` / `760bd3af` /
+        //   `97e95944` / `8482077f`）—— 那是**普查文档里的人读展示写法**，**从来不是任何一版卡池的 `id`**
+        //   （`K06` 之前也不是）。而 `byId.TryGetValue(id)` 是**精确匹配** ⇒ 这 7 个全落空
+        //   ⇒ `T02·or①/②` 各报「卡池里没有」（α：断言里的字面量错，不是分桶逻辑错）。
+        //   ⚠️ ⛔ 别在测试里加「前缀匹配」兜底 —— 那是给判据开第二种口径（本仓红线：一处规则只写一份）。
+        //   下表 = 现读 `Resources/cards_engine.json`（count = 1127）唯一命中的全长 id：
+        //     `6ed51d59…` Duelist's Hubris · `d01a5ba5…` Inscrutable Cunning · `4d348cff…` Hymn of Battle
+        //     `9f75a6fe…` Hero of the Empire · `760bd3af…` Spirit Leech · `97e95944…` Chosen of the Four
+        //     `8482077f…` Catechism of Death
+        var pickCards = new[] { "ASH71",
+                                "6ed51d59b9f8ea24ab0dc7ceaef7956c",   // Duelist's Hubris
+                                "d01a5ba5865ded4418194ea50e333b21",   // Inscrutable Cunning
+                                "4d348cff71208c24d8e39252d913ff9d",   // Hymn of Battle
+                                "SW48" };
+        var randCards = new[] { "ASH39", "AM22", "DA39", "SAU40", "GOF72", "SW43",
+                                "9f75a6fe11922eb409ffbad4ecdeb405",    // Hero of the Empire
+                                "760bd3afde513774d96d6492f995fd37",    // Spirit Leech
+                                "97e959444b53f424ea4285e2ca02c7e6",    // Chosen of the Four
+                                "8482077f309b08943b190f18b5874871" };  // Catechism of Death
+        var altCards  = new[] { "SAU44", "SW21", "SW33", "GOF105" };
+
+        var pool = RuleEngine.CardDatabase.Load();
+        CheckTrue(pool != null && pool.Count > 500,
+                  "（前提）卡池装载成功（" + (pool == null ? 0 : pool.Count) + " 张）");
+        if (pool == null) return;
+        var byId = new Dictionary<string, CardDef>();
+        foreach (var c in pool) if (c != null && !string.IsNullOrEmpty(c.Id) && !byId.ContainsKey(c.Id)) byId[c.Id] = c;
+
+        // 逐卡分桶：只认 `desc` 里真有的那几种 op（不碰 `whenBody` 之类的特例）。
+        int BucketOf(CardDef c, out bool rand, out bool pick, out bool alt)
+        {
+            rand = pick = alt = false;
+            List<string> un, pa;
+            var ops = EffectText.Parse(c.Desc, out un, out pa, card: c);
+            if (ops != null)
+                foreach (var op in ops)
+                {
+                    if (op == null) continue;
+                    if (op.Verb == "chooseone") { if (op.RandomPick) rand = true; else pick = true; }
+                    if (!string.IsNullOrEmpty(op.AltCondition)) alt = true;
+                }
+            return (rand ? 1 : 0) + (pick ? 1 : 0) + (alt ? 1 : 0);
+        }
+
+        var bad = new List<string>();
+        foreach (var id in pickCards)
+        {
+            CardDef c;
+            if (!byId.TryGetValue(id, out c)) { bad.Add(id + "(卡池里没有)"); continue; }
+            bool r, p, a; BucketOf(c, out r, out p, out a);
+            if (!p) bad.Add(id + "(" + c.Name + ")=没落进「玩家选」");
+        }
+        Check(bad.Count, 0, "★ T02·or① 那 5 张 `Choose one` 的卡**都**落进「玩家选」桶"
+                          + "（`chooseone` + `RandomPick=false`）—— 不成立：" 
+                          + (bad.Count == 0 ? "（无）" : string.Join(" ", bad.ToArray())));
+
+        bad.Clear();
+        foreach (var id in randCards)
+        {
+            CardDef c;
+            if (!byId.TryGetValue(id, out c)) { bad.Add(id + "(卡池里没有)"); continue; }
+            bool r, p, a; BucketOf(c, out r, out p, out a);
+            if (!r) bad.Add(id + "(" + c.Name + ")=没落进「随机」");
+        }
+        Check(bad.Count, 0, "★ T02·or② 那 10 张「没写 `choose` 的 `A or B`」**都**落进「随机」桶"
+                          + "（`chooseone` + `RandomPick=true`，用户 2026-09-14 裁决）—— 不成立："
+                          + (bad.Count == 0 ? "（无）" : string.Join(" ", bad.ToArray())));
+
+        bad.Clear();
+        foreach (var id in altCards)
+        {
+            CardDef c;
+            if (!byId.TryGetValue(id, out c)) { bad.Add(id + "(卡池里没有)"); continue; }
+            bool r, p, a; BucketOf(c, out r, out p, out a);
+            if (!a) bad.Add(id + "(" + c.Name + ")=没落进「条件换数值」");
+            if (r || p) bad.Add(id + "(" + c.Name + ")=**同时**落进了二选一桶");
+        }
+        Check(bad.Count, 0, "★ T02·or③ 那 4 张 `…, or N if <条件>` **都**落进「条件换数值」桶"
+                          + "（`AltCondition` 非空）而且**不是**二选一（判据见 `EffectOp.AltAmount` 的 doc："
+                          + "`Deal 3 …, or 6 if it has Hunt Mark` 是**条件换数值**）—— 不成立："
+                          + (bad.Count == 0 ? "（无）" : string.Join(" ", bad.ToArray())));
+
+        // ---- 全池读数（**不作判决**）：桶互相打架的卡打出来，供普查接着收 ----
+        int nOr = 0, nRand = 0, nPick = 0, nAlt = 0;
+        var both = new List<string>();
+        foreach (var c in pool)
+        {
+            if (c == null || string.IsNullOrEmpty(c.Desc)) continue;
+            if (c.Desc.IndexOf(" or ", System.StringComparison.OrdinalIgnoreCase) < 0 && 
+                c.Desc.IndexOf(" or,", System.StringComparison.OrdinalIgnoreCase) < 0) continue;
+            nOr++;
+            bool r, p, a; BucketOf(c, out r, out p, out a);
+            if (r) nRand++;
+            if (p) nPick++;
+            if (a) nAlt++;
+            if (r && p) both.Add(c.Id + "(" + c.Name + ")");
+        }
+        //  ⚠️ 这一格是**读数、不作判决**：一张卡可以合法地既有 `Choose one:` 又有一句独立的随机 `A or B`
+        //     ⇒ 真出现「两个桶都落」时要回普查逐张看，⛔ 不能自动判红。
+        CheckTrue(true, "🧪 T02·or④ 读数：同时落「随机」与「玩家选」两个桶的卡 = " + both.Count + " 张"
+                      + (both.Count == 0 ? "（无）" : "：" + string.Join(" ", both.ToArray())));
+        CheckTrue(nRand > 0 && nPick > 0 && nAlt > 0,
+                  "🧪 T02·or 读数（⛔ 不是判据）：全池带 `or` " + nOr + " 张 · 随机 " + nRand
+                + " · 玩家选 " + nPick + " · 条件换数值 " + nAlt
+                + "（普查底数：38 张 = 8 比较式 + 30 真 or；37 已建模 / 1 判据未定 `SW18`）");
+    }
+
+    // ==================================================================
+    //  🔴 2026-10-23（`play` 基线归因 · `EC33` 双结算）：
+    //     **同一个触发词不许把「同一段正文」收两遍**（一长一短的两种截法也算同一段）
+    // ==================================================================
+
+    /// <summary>
+    /// 判据：原版 `EC33 Alluress` 的 `cards_truth.json` 只有**一条** `rally`（`cardTraits`
+    /// ＋ `abilities[].trigger == 0` 各一处）；卡面也只印一次 `Rally: Give -2 …`。
+    /// 而我们的卡表把同一段印了两份、长度不同：
+    ///   · `desc` = `Rally: Give -2 … to an enemy troop. Friendly Daemonette have Flank.`
+    ///     —— 正文按**跨句**收到第二句（`Friendly Daemonette have Flank` 不是「另一件事的开头」）；
+    ///   · `keywords` = `Rally: Give -2 … to an enemy troop` —— 只有第一句。
+    /// `D15` 那版去重键是**整串相等** ⇒ 一长一短挡不住 ⇒ `TriggerOps("rally")` 收到两份 op
+    /// ⇒ 同一次结算跑两遍（`play` 基线读数 `FIX_E1 2/0/0/6 → -2/-4`，应为 `0/-2/0/6`）。
+    ///
+    /// 本格钉**四层**（只钉一层会漏掉「解析对了但注册翻倍」这一类静默缺陷）：
+    ///   ① **真卡注册层**：`EC33` 的 `rally` 只有 **1** 条正文、**1** 条 op；
+    ///   ② **真卡行为层**：打出后目标只掉一次（`2/0/0/6 → 0/-2/0/6`）；
+    ///   ③ **反例（⛔ 不许过度去重）**：同一个触发下的**两段不同正文**仍要各触发一次
+    ///      （`D15`「同一 trigger 挂两条就是两条都触发」，⛔ 别把那条推翻）；
+    ///   ④ **全池普查**（判据自己写一份，⛔ 不调 `CardDef.SameTriggerBody`）：任何卡的任何触发键，
+    ///      都不许出现「一段正文是另一段的整句前缀」的两条 —— `EC33` 与 `GOF17` 都是这个形状。
+    ///
+    /// 🧨 **什么改动会让它红**：
+    ///   · 把 `CardDef.SameTriggerBody` 改回 `string.Equals` ⇒ ①②④ 同时红
+    ///     （④ 里会打出 `EC33/Alluress`、`GOF17/Killa Kan`）；
+    ///   · 把去重改成「一个触发只收第一条」（退回 `D15` 之前的「先到先得」）⇒ ③ 红
+    ///     （第二段正文的 +2 攻击不再生效）；
+    ///   · 只把 ③ 的夹具写坏（两段正文写成同一段）⇒ ③ 会**假绿**，所以 ③ 的两段正文
+    ///     一个是 `damage`、一个是 `gain`，**结构上**不可能被同一条 op 顶替。
+    /// </summary>
+    static void TestT02DuplicateTriggerBodyDedup()
+    {
+        var pool = CardDatabase.Load();
+
+        // ---- ① 真卡注册层 ----
+        var ec33 = CardDatabase.FindById(pool, "EC33");
+        CheckTrue(ec33 != null, "（前提）卡池里有 `EC33 Alluress`");
+        if (ec33 != null)
+        {
+            var bodies = ec33.TriggerTextsAll(KeywordTable.Rally);
+            Check(bodies == null ? -1 : bodies.Count, 1,
+                  "★★ `T02·dup` ①：`EC33` 的 `rally` **只收下 1 条正文**"
+                + "｜卡表里同一条 Rally 存了两份（`desc` 跨句版 + `keywords` 只第一句版）"
+                + "｜🧨 去重键改回 `string.Equals` ⇒ 实得 2");
+            var ops = ec33.TriggerOps(KeywordTable.Rally);
+            Check(ops == null ? -1 : ops.Count, 1,
+                  "★★ `T02·dup` ①：`EC33` 的 `rally` **只有 1 条 op**（`give -2 attack/-2 ranged`）"
+                + "｜🧨 同上 ⇒ 实得 2（= 同一次 Rally 结算两遍）");
+            if (ops != null && ops.Count > 0)
+                Check(ops[0].Verb, "give",
+                      "（前提）那一条 op 是 `give`（原版 `EC33.abilities[0].logic[0].buff` 的 -2/-2）");
+        }
+
+        // ---- ② 真卡行为层：只掉一次 ----
+        if (ec33 != null)
+        {
+            var ctx = BattlePool(new[] { ec33 }, new[] { Unit("EFoe", 1, 1, 9) }, pool);
+            ToP1Turn(ctx, 4);
+            // 与 `play` 探针的 `FIX_E1` 同形：2/0/0/6（近战 2 · 远程 0 · 护甲 0 · 生命 6）。
+            var foe = Place(ctx, 1, 3, Ranged("FixtureEC33Target", 1, 2, 6, 0), exhausted: true);
+            CheckCode(RuleCore.PlayCard(ctx, 0, HandIdx(ctx, 0, "Alluress"), 1), RuleCodes.OK,
+                      "把 `EC33 Alluress` 打到场上（`Rally:` 随之触发）");
+            Check(foe.Attack, 0,
+                  "★★ `T02·dup` ②：Rally **只结算一次** ⇒ 目标近战 2 → **0**（不是 -2）"
+                + "｜🧨 去重键改回整串相等 ⇒ 实得 -2" + LogTail(ctx));
+            Check(foe.RangedAttack, -2,
+                  "★★ `T02·dup` ②：目标的远程 0 → **-2**（不是 -4）"
+                + "｜🧨 同上 ⇒ 实得 -4" + LogTail(ctx));
+            Check(foe.Health, 6,
+                  "（反例）这一下不碰生命：6 → 6（`Rally` 只给 -2/-2）" + LogTail(ctx));
+        }
+
+        // ---- ③ 反例：**两段不同正文**仍要各触发一次（`D15` 不许倒退） ----
+        {
+            var dual = new CardDef("FixtureDualRally", "FixtureDualRally", "unit",
+                                   "Rally: Deal 1 damage to an enemy troop", "common", "Test",
+                                   1, 1, 5, 0, new[] { "Rally: Gain +2 [Attack]" },
+                                   subtype: "Infantry");
+            var ctx = BattlePool(new[] { dual }, new[] { Unit("EFoe", 1, 1, 9) }, pool);
+            ToP1Turn(ctx, 4);
+            var foe = Place(ctx, 1, 3, Unit("FixtureDualTarget", 1, 0, 6), exhausted: true);
+            CheckCode(RuleCore.PlayCard(ctx, 0, HandIdx(ctx, 0, "FixtureDualRally"), 1), RuleCodes.OK,
+                      "打出双正文夹具（`desc` 一条 `damage`、`keywords` 一条 `gain`）");
+            int meSlot = SlotOf(ctx, 0, "FixtureDualRally");
+            CheckTrue(meSlot >= 0, "（前提）夹具到场上了（槽 " + meSlot + "）");
+            var me = meSlot >= 0 ? ctx.Players[0].Board[meSlot] : null;
+            Check(foe.Health, 6 - 1,
+                  "★★ `T02·dup` ③：**第一段**正文（`Deal 1 damage to an enemy troop`）触发了"
+                + "｜🧨 把去重写成「一个触发只收第一条之外的都丢」⇒ 这一条仍在（它本来就是第一条），"
+                + "所以本行**必须配下一行**才钉得住" + LogTail(ctx));
+            Check(me == null ? int.MinValue : me.Attack, 1 + 2,
+                  "★★ `T02·dup` ③：**第二段**正文（`Gain +2 [Attack]`）**也**触发了（近战 1 → 3）"
+                + "｜🧨 退回 `D15` 之前的「先到先得」⇒ 实得 1" + LogTail(ctx));
+        }
+
+        // ---- ④ 全池普查：同一触发下不许有「整句前缀」的两条正文 ----
+        //   ⚠️ 判据**在本文件里自己写一份**（⛔ 不调 `CardDef.SameTriggerBody`）——
+        //      否则「把实现和判据一起改回去」照样全绿（本仓那条「灭自证」）。
+        {
+            var who = new List<string>();
+            foreach (var c in pool)
+            {
+                if (c == null) continue;
+                foreach (var kv in c.TriggerTexts)
+                {
+                    var all = c.TriggerTextsAll(kv.Key);
+                    if (all == null || all.Count < 2) continue;
+                    for (int i = 0; i < all.Count; i++)
+                        for (int j = i + 1; j < all.Count; j++)
+                            if (SameAbilityTwoWaysForTest(all[i], all[j]))
+                                who.Add(c.Id + "(" + c.Name + ")/" + kv.Key);
+                }
+            }
+            Check(who.Count, 0,
+                  "★★ `T02·dup` ④：全池每个触发键下**都不许**出现「同一条正文的两种截法」"
+                + "（整串去掉方括号/句末句号后相等，或一段是另一段的**整句前缀**）"
+                + (who.Count == 0 ? "" : " —— 不成立：" + string.Join(" ", who.ToArray()))
+                + "｜🧨 去重键改回 `string.Equals` ⇒ `EC33/Alluress` 与 `GOF17/Killa Kan` 都会出现");
+        }
+    }
+
+    /// <summary>`T02·dup` ④ 的**测试自己那份**判据（⛔ 不转调 `CardDef.SameTriggerBody`）：
+    /// 空白归一 → 剥图标方括号 → 去句末句号 → 相等 **或** 「严格前缀 + 断点在句界」。</summary>
+    static bool SameAbilityTwoWaysForTest(string a, string b)
+    {
+        string Na(string s)
+        {
+            if (string.IsNullOrEmpty(s)) return "";
+            var sb = new System.Text.StringBuilder(s.Length);
+            bool ws = false;
+            foreach (char ch in s)
+            {
+                if (char.IsWhiteSpace(ch)) { ws = true; continue; }
+                if (ws && sb.Length > 0) sb.Append(' ');
+                ws = false;
+                if (ch == '[' || ch == ']') continue;      // 图标方括号 = 装饰
+                sb.Append(ch);
+            }
+            return sb.ToString().TrimEnd('.');
+        }
+        a = Na(a); b = Na(b);
+        if (string.Equals(a, b, System.StringComparison.Ordinal)) return true;
+        if (a.Length == b.Length) return false;
+        string longer = a.Length > b.Length ? a : b;
+        string shorter = a.Length > b.Length ? b : a;
+        if (shorter.Length == 0) return false;
+        if (!longer.StartsWith(shorter, System.StringComparison.Ordinal)) return false;
+        char e = longer[shorter.Length];
+        return e == '.' || e == ';' || e == '!' || e == '?' || e == '。' || e == '；';
+    }
 }

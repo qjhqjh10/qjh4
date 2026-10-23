@@ -1686,19 +1686,35 @@ namespace CardPresentation
         const float HandPlatePx = 65.7f;
 
         /// <summary>🔴🆕 **2026-10-16（`A1239`）：手牌数那颗标签（原版 `HandArea/CardsInHandText`）
-        /// 的【框与三档】—— 全都已经 ×100 换到我们这一侧的 px 口径**（本账的前置就是这条「单位桥」）。
-        /// <para>**桥的判据**（主对话现读 `bundle_scenes_scenes_battlearena1` 的 `CardsInHandText`，
+        /// 的【框与三档】** —— 两条桥**不是同一个倍数**：**框 ×100、字号四格 ×10**（见下面 2026-10-23 那条订正）。
+        /// <para>**框的桥**（主对话现读 `bundle_scenes_scenes_battlearena1` 的 `CardsInHandText`，
         /// 两个实例逐字段相同）：那颗 RT 的 `m_SizeDelta = (2.34, 0.64)`、`m_LocalScale = 0.925926`，
         /// 而**父链 `HandArea` 是纯 `Transform`、`m_LocalScale = 108`**
-        /// ⇒ **1 局域单位 = 108 × 0.925926 = 100 px**。
-        /// TMP 逐字段：`m_text = "Cards left: XX"` · `m_fontSize = 3.0` · `m_fontSizeBase = 36` ·
-        /// `m_fontSizeMin = 0.5` · `m_fontSizeMax = 3.0` · `m_enableAutoSizing = 1` · 居中。</para>
-        /// <para>⇒ **框与三档一律 ×100**。⚠️ 传原文（不乘）会得到 3 px 的字 —— 账里记的那条担心**成立**。
-        /// ⚠️ `base`：原版写 36，在它自己的量纲里**已经超出上限 3.0** ⇒ TMP 会把它夹到 max，
-        /// 所以我们按**夹过之后的 300** 传（等价），⛔ 别写成 3600。</para></summary>
-        const float HandLabelBoxW = 234f, HandLabelBoxH = 64f;      // = 2.34 / 0.64 局域 × 100
-        const float HandLabelFsMin = 50f, HandLabelFsMax = 300f;    // = 0.5 / 3.0 局域 × 100
-        const float HandLabelFsBase = 300f;                          // 原版 base 36 超上限 ⇒ 夹到 max
+        /// ⇒ **1 局域单位 = 108 × 0.925926 = 100 px** ⇒ 框 = **234 × 64 px**（矩形是几何量，只走这一条桥）。</para>
+        /// <para>TMP 逐字段（`MonoBehaviour_3712/3717.json` 现读）：`m_text = "Cards left: XX"` · `m_fontSize = 3.0` ·
+        /// `m_fontSizeBase = 36` · `m_fontSizeMin = 0.5` · `m_fontSizeMax = 3.0` · `m_enableAutoSizing = 1` · 居中 ·
+        /// **`m_isOrthographic = 0`（世界档 `TextMeshPro`，不是 uGUI）**。</para>
+        /// <para>🔴🔴 **2026-10-23 就地订正（铁律 5 · 已知 γ「手牌数框高」的根因）：字号四格原来按 ×100 换算，
+        /// 【大了 10 倍】—— 正确是 ×10。** 三条判据：
+        /// · **① 原版那一侧**：`m_isOrthographic = 0` ⇒ TMP 源码 `TextMeshPro.cs:2233`
+        ///   `orthographicMultiplier = m_isOrthographic ? 1 : 0.1f`，而
+        ///   `baseScale = m_fontSize / pointSize * faceInfo.scale * orthographicMultiplier`
+        ///   ⇒ **3D 档渲出来只有 fontSize 的 0.1 倍（局域单位）** ⇒ 换 px = `fontSize × 0.1 × 100` = **`fontSize × 10`**。
+        /// · **② 同族对照**：同场景那 16 颗 HUD 字挂在 `Canvas/BackCanvas` 下（**抽查** `MatchSkulls Score`，`m_isOrthographic = 1`）
+        ///   （例：`MatchSkulls Score` 的 `MonoBehaviour_3785.json`，`m_fontSize 35` 就是 35 px）⇒「fontSize = px」那套对它们成立，
+        ///   **只有这一颗是例外**（父链是纯 `Transform` + scale 108 的**世界档** TMP）。
+        /// · **③ 我们这一侧**：本仓 `Label.UguiFontScale` 的 doc 写着同一条
+        ///   （「同一个 fontSize，画布档渲出来是世界档的 **10 倍**」）⇒ 世界档的数值换到我们的 uGUI 档要 **÷10**。
+        /// · **症状（= 那条自检红）**：按 ×100 传 min = 50 px ⇒ 自适应**永远缩不进框**（Noto 行盒 = 计划 em × **1.516**，
+        ///   50 × 1.516 = **75.8 px** 高过 64 px 框；实测 `164.7544 × 75.8061` 与这个算式逐位吻合）。
+        ///   改 ×10 后 max = 30 ⇒ 行盒约 45.5 px、宽约 99 px，两项都落在 234×64 之内，且字号与原版同量级
+        ///   （原版 3.0 × 0.1 × 100 = **30 px em**）。
+        /// · ⚠️ **只把 min 降下来是错的**（自适应只会停在「刚好塞满框」那一档，计划 em 约 42 px，比原版 30 px 大约 1.4 倍）—— 四格是同一套量纲，一改全改。</para>
+        /// <para>⚠️ `base`：原版写 36（3D 量纲）⇒ 36 × 10 = 360 px，在它自己的量纲里**已经超出上限 3.0**
+        /// ⇒ TMP 会把它夹到 max，所以我们按**夹过之后的 30** 传（等价），⛔ 别写成 3600、也别写成 300。</para></summary>
+        const float HandLabelBoxW = 234f, HandLabelBoxH = 64f;      // = 2.34 / 0.64 局域 × 100（几何量）
+        const float HandLabelFsMin = 5f, HandLabelFsMax = 30f;      // = 0.5 / 3.0 局域 × 10（3D 档 ×0.1）
+        const float HandLabelFsBase = 30f;                          // 原版 base 36 超上限 ⇒ 夹到 max
 
         /// <summary>END TURN 按钮的中心（归一化）。**判据只有这一份** —— 建按钮、建文字、
         /// 以及换分辨率重贴，三处都读它。
@@ -2129,9 +2145,7 @@ namespace CardPresentation
                 bool onTarget = e.Kind == EvtKind.Attack;          // 其余事件 acting/target 同源
                 int side = onTarget ? e.TargetPlayer : e.Player;
                 int slot = onTarget ? e.TargetSlot : e.Slot;
-                AdjacentUnitViews(side == _me, slot, _adjViews);
-                for (int i = 0; i < _adjViews.Count; i++)
-                    WarpforgeVFX.WarpforgeEffectPlayer.Play(module.prefabName, _adjViews[i].transform, Vector3.zero);
+                PlayAdjacentVfx(module.prefabName, side == _me, slot);
             };
 
             // 🆕 2026-10-01（§三 第 31 条 · 第 1 件 · **卡材质那一半**）：`ChangeMaterial` 的三个回调。
@@ -2244,6 +2258,67 @@ namespace CardPresentation
                 var v = BoardViewAt(_adjBuf[i], mine);
                 if (v != null) into.Add(v);
             }
+        }
+
+        // ---- 🆕 2026-10-23（B18 尾巴）：`AnimFXInstanceParticleAdjacent` 的「播在哪 / 停多久」 ----
+
+        /// <summary>原版那份 `AnimInfo.timeAtStartPos` = **0.5 s**（在锚点上原地停 0.5 s 再结束）。
+        ///
+        /// <para>**判据** = `数据/游戏数据/adjacent_vfx_animinfo.json` 的
+        /// `instances[0].animInfo`：`startPosOption = endPosOption = 1` ·
+        /// `shouldMoveVFX = 0` · `timeMoving = 0` · **`timeAtStartPos = 0.5`**
+        /// （全库**只有 1 个实例**：`Deathspinner Slice Card Target` → `Deathspinner Cut Effect`）。
+        /// 原版由 `AnimFXController` 播到 `GetAnimDuration()` 结束；我们靠 prefab 自己的 `destroyTime`
+        /// ⇒ 用 `Play(..., autoDestroySeconds:)` 显式压成 0.5 s（= 同一件事）。</para>
+        ///
+        /// <para>⚠️ **这个值是数据表里的**（不是拍的）；表在 `数据/游戏数据/`（**不在 `Resources/`**）
+        /// ⇒ 运行期读不到，只能在这里落常量。⚠️ 若将来那份表进了 `Resources/` 或第二个实例出现，
+        /// 这里要改成读表（⛔ 别为第二个实例再抄一个数）。</para></summary>
+        public const float AdjacentVfxHoldSeconds = 0.5f;
+
+        /// <summary>自检口：最近一次「逐个相邻单位播一份」用的**锚点**（原版 = `unit.BattleCardUI.effectsAnchor`；
+        /// 我们 = `CardView.EffectAnchorBoard`）。`null` = 还没播过。</summary>
+        public Transform LastAdjacentVfxAnchor { get; private set; }
+
+        /// <summary>自检口：最近一次播了几份（= 目标卡的相邻单位数，0 = 一个都没有）。</summary>
+        public int LastAdjacentVfxCount { get; private set; }
+
+        /// <summary>🆕 **2026-10-23（B18）**：在**每个相邻单位**的场上特效锚点
+        /// （`CardView.EffectAnchorBoard` = 原版 `BattleCardUI.effectsAnchor`(+0x1A0)）上原地播一份、
+        /// **停 `AdjacentVfxHoldSeconds`**。
+        ///
+        /// <para>判据（逐句读 `d:/2/tools/decomp_full/`）：`AnimFXInstanceParticleAdjacent__ExecuteEffect.c:42-104`
+        /// → `CreateAnimFromAnimFxController(animInfo, actingCard.t, unit.t, unit.t, …)`，而
+        /// `BattleManager__GetAnimTransform.c:64-67` 的 `case 1/2` 取的是**第二个 CardScript 的
+        /// `CardUI`(+0x290) → `effectsAnchor`(+0x1A0)`** ⇒ **起点 = 终点 = 那个相邻单位的 `effectsAnchor`**。
+        /// 🔴 原来这里挂的是 `view.transform`（**卡根**）—— 与 `effectsAnchor` 差一个局部位
+        /// （`CardView.BoardEffectAnchorLocal` = `(0, 1.34, −0.128)`），特效会**偏低一截**。</para>
+        ///
+        /// <para>返回播了几份（自检也走它 —— ⛔ 别在自检里另写一遍这条链）。</para></summary>
+        public int PlayAdjacentVfx(string prefabName, bool mine, int slot)
+        {
+            LastAdjacentVfxAnchor = null;
+            LastAdjacentVfxCount = 0;
+            if (string.IsNullOrEmpty(prefabName)) return 0;
+            AdjacentUnitViews(mine, slot, _adjViews);
+            for (int i = 0; i < _adjViews.Count; i++)
+            {
+                var v = _adjViews[i];
+                if (v == null) continue;
+                // 锚点取不到（极少：3D 卡体没建出来那条退回路径）⇒ 退回卡根并**出声**（⛔ 不静默改落点）。
+                var anchor = v.EffectAnchor(true);
+                if (anchor == null)
+                {
+                    Debug.LogWarning($"[Battle] 相邻单位 `{v.name}` 取不到场上特效锚点（`EffectAnchorBoard`）"
+                                   + " ⇒ 这一份退回挂**卡根**（原版挂的是 `BattleCardUI.effectsAnchor`）。");
+                    anchor = v.transform;
+                }
+                WarpforgeVFX.WarpforgeEffectPlayer.Play(prefabName, anchor, Vector3.zero,
+                                                       1f, AdjacentVfxHoldSeconds);
+                LastAdjacentVfxAnchor = anchor;
+                LastAdjacentVfxCount++;
+            }
+            return LastAdjacentVfxCount;
         }
 
         // ============================================================ 粒子碰撞平面（原版 7 个场景物体）
@@ -2455,18 +2530,101 @@ namespace CardPresentation
         /// 也就是 `CardFeel.ShakeCamera`（做法与推导见它的注释）。
         ///
         /// ⚠️ **幅度换算是我们推的**：原版看的是 `amplitude × |direction|`（`CardFeel.ShakeWorldAmplitude`
-        ///    就是按 `Shake Hit Small` 的 2.0 × |(0,0.2,0.2)| = 0.5657 推出来的），
+        ///    就是按 `Shake Hit Small` 的 2.0 × |(0,0.2,0.2)| 推出来的），
         ///    所以这里**用同一个基准归一**，别的 preset 按比例放大缩小。
-        /// ⚠️ **原版的 `rawSignal`（Beautify 波形）没复刻** —— 见 `shake_presets.json` 的条目标注。</summary>
+        ///
+        /// <para>🔴 **2026-10-23（R10）就地坐实（铁律 5）—— 账上那条「原版这条支路会按 `GetUnitSize`
+        /// 覆盖 2/4/8」【不成立】**：`OverwriteCameraShakePreset__GetModifiedPreset.c` 全文 **150 行**，
+        /// `grep GetUnitSize` **零命中**（它只按那几个 `overwrite*` 开关换 amplitude/frequency/sustain/
+        /// direction/attack/decay）；全仓调 `SupportMethods.GetUnitSize` 的只有
+        /// `CardScript.ResolveAttackAnimationEffects` / `ReceiveAttackAnim` 那几条 —— **那是挨打那一档**
+        /// （我们已走 `ShakeCameraForHit`）。⇒ **AnimFX 模块这条支路本来就没有尺寸档**，
+        /// 拿一个**固定基准**按 `amplitude × |direction|` 线性放大**才是原版的做法**，⛔ 别改成 `ShakeWorldAmplitudeFor(size)`。</para>
+        ///
+        /// <para>⚠️ 基准值改用两个有出处的常量算（`ShakePresetAmplitude × ShakePresetDirMag`），
+        /// 不再写魔数 `0.5657` —— 那两个常量正是 `ShakeWorldAmplitude` 推导时用的同一对。</para>
+        ///
+        /// <para>🆕 **2026-10-23（R9）就地补齐：`frequency` / `attack` / `sustain` / `decay` / 信号表原来全丢了**。
+        /// 判据（R9 §五·8）：`CameraShakerManager._DoShake_d__33__MoveNext.c` 把 preset 的
+        /// `+0x3C = frequency`（= Cinemachine `m_FrequencyGain`）、`+0x58/0x5C/0x60 = attack/sustain/decay`
+        /// **逐项写进** impulse definition —— 也就是说**每个 preset 有自己的时间轴**。
+        /// 原来这里只传 `worldAmp/delay` ⇒ 别的 preset 走 AnimFX 时一律用 `Shake Hit Small` 的 0.05 / 0.1 / 0.3
+        /// （`Shake Earthquake` 的 5 s 保持会被压成 0.1 s —— 静默、而且看得见）。
+        /// 同时把 `req.signal`（原版 `rawSignal` 波形表）一起送下去（采样算式 → `CardFeel.ShakeNoise01`）。</para></summary>
         void HookAnimFxShake()
         {
             WarpforgeVFX.WFModuleScreenShake.OnShake = req =>
             {
                 if (cam == null || hudRoot == null) return;
                 float mag = req.amplitude * req.direction.magnitude;          // 原版口径
-                float worldAmp = CardFeel.ShakeWorldAmplitude * (mag / 0.5657f);  // 归一到 Shake Hit Small
-                CardFeel.ShakeCamera(cam, hudRoot, worldAmp, req.delay, boardCam);
+                // 归一基准 = `Shake Hit Small` 的 `amplitude × |direction|`（= 2.0 × 0.28284）
+                float baseline = CardFeel.ShakePresetAmplitude * CardFeel.ShakePresetDirMag;
+                float worldAmp = CardFeel.ShakeWorldAmplitude * (mag / baseline);
+                CardFeel.ShakeCamera(cam, hudRoot, worldAmp, req.delay, boardCam,
+                                     // 🔴 2026-10-23（R9 尾账）：`direction` 走原版链
+                                     //   （`pos = FromToRotation(Vector3.down, normalize(direction)) * pos`，
+                                     //    见 `CardFeel.ShakeScreenUpOf`）；`req.direction` 就是 preset 真件的那个 3D 向量。
+                                     //   旋转 gain 与位置同源 = `|velocity| × m_AmplitudeGain` = `mag`（velocity 已归一化）。
+                                     direction: req.direction,
+                                     signal: ShakeSignalOf(req.signal),
+                                     frequencyGain: req.frequency,
+                                     attackTime: req.attackTime,
+                                     sustainTime: req.sustainTime,
+                                     decayTime: req.decayTime,
+                                     rotationGain: mag);
             };
+        }
+
+        /// <summary>🆕 2026-10-23（R9）：`WFModuleScreenShake.SignalRec`（数据层，带 X/Y/Z 三轴）→
+        /// `CardFeel.ShakeSignal`（**2D 版只取 PositionNoise 的 Y 轴三条带**）。
+        /// 按信号名缓存 —— 震动每次都会调，别每帧现建数组；表本身是常量。
+        /// ⚠️ 4 份信号的 Y 列**逐位相同**（2026-10-23 逐份核过），所以今天换信号**不改变波形**；
+        /// 缓存 + 真取 Y 是为了「数据说了什么就采什么」，而不是「反正是同一张表就不取了」。</summary>
+        static readonly Dictionary<string, CardFeel.ShakeSignal> _shakeSignals =
+            new Dictionary<string, CardFeel.ShakeSignal>();
+
+        static CardFeel.ShakeSignal ShakeSignalOf(WarpforgeVFX.WFModuleScreenShake.SignalRec rec)
+        {
+            if (rec == null) return CardFeel.DefaultShakeSignal;
+            string key = rec.name ?? "";
+            CardFeel.ShakeSignal sig;
+            if (_shakeSignals.TryGetValue(key, out sig)) return sig;
+            var pos = rec.position ?? new WarpforgeVFX.WFModuleScreenShake.SignalOctave[0];
+            // 没有位置段 ⇒ 交给默认信号（⛔ 别拿空表算出「恒定 0 位移」那种静默不震）
+            if (pos.Length == 0) return CardFeel.DefaultShakeSignal;
+            var bands = new CardFeel.ShakeBandSignal[pos.Length];
+            for (int i = 0; i < pos.Length; i++)
+            {
+                var o = pos[i];
+                bands[i] = o != null ? new CardFeel.ShakeBandSignal(o.fy, o.ay, o.cy)
+                                     : new CardFeel.ShakeBandSignal(0f, 0f, 0);
+            }
+            // 🆕 2026-10-23（R9 尾账）：`OrientationNoise` 三轴也一起送下去（原版 `rot = Euler(ΣOrientation)`）。
+            //   数据层一个 octave 带 X/Y/Z 三组；`CardFeel.ShakeSignal` 的约定是 **轴优先**
+            //   （`Orientation(axis, octave) = 数组[axis * octaves + octave]`）⇒ 写入也按 axis-major。
+            //   ⛔ 别写成 `i * 3 + axis`（octave-major）—— 那会把 X/Y/Z 三轴串位（`Warpforge 6D Shake` 的
+            //   三个轴幅度/频率都不同，串位不会报错、只会让角度波形变成另一条）。
+            var ori = rec.orientation ?? new WarpforgeVFX.WFModuleScreenShake.SignalOctave[0];
+            var oriBands = new CardFeel.ShakeBandSignal[ori.Length * 3];
+            for (int i = 0; i < ori.Length; i++)
+            {
+                var o = ori[i];
+                if (o == null) continue;                       // 缺那个 octave ⇒ 留 0 带（幅度 0，不抛）
+                oriBands[0 * ori.Length + i] = new CardFeel.ShakeBandSignal(o.fx, o.ax, o.cx);
+                oriBands[1 * ori.Length + i] = new CardFeel.ShakeBandSignal(o.fy, o.ay, o.cy);
+                oriBands[2 * ori.Length + i] = new CardFeel.ShakeBandSignal(o.fz, o.az, o.cz);
+            }
+            sig = new CardFeel.ShakeSignal(key, bands, oriBands, ori.Length);
+            _shakeSignals[key] = sig;
+            return sig;
+        }
+
+        /// <summary>自检用：`SignalRec` → `CardFeel.ShakeSignal` —— **与 `HookAnimFxShake` 同一条转换**
+        /// （⛔ 不是第二条实现，只是把私有方法开个只读口）。
+        /// 用途：`BattleScene` 核「`shake_presets.json` → `CardFeel` 的 Orientation 轴序没串位」。</summary>
+        public static CardFeel.ShakeSignal ShakeSignalOfForTest(WarpforgeVFX.WFModuleScreenShake.SignalRec rec)
+        {
+            return ShakeSignalOf(rec);
         }
 
         /// <summary>挂「取督军 / 认座位」两个**补间解析口**（`UnitTweenRuntime.HeroBySeat` / `SeatOf`）。
@@ -2564,9 +2722,41 @@ namespace CardPresentation
                 return hl != null ? hl.transform : null;
             };
 
-            // 60-130 档：Psychic / SpiritStone / Plasma 三族能量锚 —— **我们 HUD 里没有这些件**
-            //   ⇒ **不挂** `ManaTransformOf`，那 10 档照 `Resolve` 的「取不到」分支出声、返回 null。
-            //   （原版取的是 `PlayerManager.Get{X}ManaTransform` 那颗 `TMP_Text` 的 transform。）
+            // 60-130 档：Psychic / SpiritStone / Plasma 三族能量锚。
+            //
+            // 🔴 **2026-10-23（R20）就地更新（铁律 5）**：原来这里写「**不挂** `ManaTransformOf`，
+            //   那 10 档一律取不到」。**那一半已经过期** —— 10 档里有 **2 档我们有现成件**：
+            //   · `61 friendlySpiritStoneMana` / `71 enemySpiritStoneMana`
+            //     → 原版 `PlayerManager.GetSpiritStoneManaTransform()`
+            //       （`AbilityLogic__GetPos.c` 的 `0x3d` / `0x47` 两支，逐句读：
+            //        `61` 取 `GetPlayerManager(actingCard.isPlayer)`、`71` 取 `…(!isPlayer)`）；
+            //     我们的对应物 = HUD 那两枚灵石图标 `_myStoneIcon` / `_foeStoneIcon`
+            //     （`WFModuleMoveParticlesToTarget.ResolveTarget` 早就在用同一个判据 —— 「有引用就用引用」，
+            //      不另摆空物体）。
+            //   · 其余 8 档（`60/70/80/90/100/110/120/130` = Psychic / Plasma 那两族）
+            //     **原版这套 HUD 上本来就空**（`普查产出_1022/A1…` §A-8：`GetPsychic/PlasmaManaTransform`
+            //     引用为 0 就抛；13 个战场的 HUD dump 里 `psychic`/`plasma` **零命中**）
+            //     ⇒ **照原版不造件**，仍由 `AnimAnchors.Mana` 的「取不到」分支出声返回 null。
+            //     ⛔ 别为了「补齐」拿灵石图标顶那 8 档（那是**猜**）。
+            AnimAnchors.ManaTransformOf = (opt, isPlayer) =>
+            {
+                switch (opt)
+                {
+                    // 61：行动方自己那一侧；71：**对面**那一侧（判据见上，两档互为镜像）。
+                    case PositionOption.friendlySpiritStoneMana:
+                    {
+                        var q = isPlayer ? _myStoneIcon : _foeStoneIcon;
+                        return q != null ? q.transform : null;
+                    }
+                    case PositionOption.enemySpiritStoneMana:
+                    {
+                        var q = isPlayer ? _foeStoneIcon : _myStoneIcon;
+                        return q != null ? q.transform : null;
+                    }
+                    default:
+                        return null;      // 其余 8 档：原版本身为空（见上），不造件
+                }
+            };
 
             // 0/1/2 档的「卡状态」判据：原版读 `card + 0x228`（`CardStateOptions`）二选一；
             //   我们的视图不存卡状态 ⇒ 退一步用「**这张视图现在在不在棋盘上**」判断。
@@ -2584,6 +2774,10 @@ namespace CardPresentation
         {
             EventTiming.FactionOfSeat = seat => seat == _me ? _myFaction : _foeFaction;
             EventTiming.AnimTimesOf = (cardId, faction) => AnimTimesOf(cardId, faction);
+            // 🆕 **2026-10-23（R19）**：抽卡那一档原版是 `VarsGlobal.TimeToDrawCard(bool isPlayer)`
+            //   的一对（我方 0.3 / 敌方 0.15），`EventTiming` 只有座位号、不知道「哪一方是我」
+            //   ⇒ 由驱动回答（`_me` 联机局可能是 1，⛔ 别写死 `seat == 0`）。
+            EventTiming.IsLocalSeat = seat => seat == _me;
         }
 
         /// <summary>某座位的**手牌容器**。判据只此一处（`HandRow01` 也走它）——
@@ -2959,6 +3153,8 @@ namespace CardPresentation
             //   真 Play 档因此**仍然成立**（不会因为这两条漏网而恒 > 0）。
             visit(EventTiming.FactionOfSeat, () => EventTiming.FactionOfSeat = null);
             visit(EventTiming.AnimTimesOf,   () => EventTiming.AnimTimesOf = null);
+            // 🆕 2026-10-23（R19）：抽卡分档那个「哪一方是我」的口 —— 同样闭包着本实例（读 `_me`）。
+            visit(EventTiming.IsLocalSeat,   () => EventTiming.IsLocalSeat = null);
         }
 
         /// <summary>
@@ -5250,7 +5446,15 @@ namespace CardPresentation
             //   ⚠️ 顺序逐字照原版：**先 Hide 再说话**（那条链自己若读 `Visible`，两档答案不同）。
             //   ⚠️ `Hide()` 之后 `Visible` 立刻为 false（收起补间还在走 —— 与 `BattleLogPanel.Hide` 同一套）。
             _chatPopup.Hide();
-            if (SpeakChat(hit)) _chatCooldown = ChatPopupPanel.Cooldown;   // 原版说完进 4 秒冷却
+            bool spoke = SpeakChat(hit);
+            if (spoke)
+            {
+                _chatCooldown = ChatPopupPanel.Cooldown;   // 原版说完进 4 秒冷却
+                // 🆕 2026-10-23（用户新口径 ①）：**玩家说完，AI 回话**（原版同一条链：
+                //   `DisplayWarlordChatMessage` 的 `isLocalPlayer` 支 → `AIResponse(..., 1)`；
+                //   概率/延迟见 `ScheduleAiReplyToPlayerChat` 的常量注释）。
+                ScheduleAiReplyToPlayerChat();
+            }
             return true;
         }
 
@@ -5312,6 +5516,141 @@ namespace CardPresentation
         public ChatPopupPanel ChatPopup { get { return _chatPopup; } }
         /// <summary>自检用：`ChatButton` 的剩余冷却秒数</summary>
         public float ChatCooldownLeft { get { return _chatCooldown; } }
+
+        // ==================================================================
+        //  🆕 2026-10-23（用户新口径）：**AI 发言**（两条）
+        // ==================================================================
+        //  🔴 **用户 2026-10-23 拍板（覆盖原来的「机制照原版、值标远端」方案）**：
+        //    ① **玩家发言时，AI 回话**；
+        //    ② 其他时候，AI **时不时发言一下**（频率用**本地默认值**，不依赖远端 RemoteConfig）。
+        //
+        //  【原版机制（背景，手法逐句读过）】
+        //   · 每次 AI 动作之后：`AI__ExecuteAction.c:463` → `BattleManager__PlayRandomAIVoiceLine`
+        //     → `Random.Range(2)` 挑一条 → `VoiceLinesController__AIResponse(...)`。
+        //   · 本地玩家发言之后：`VoiceLinesController__DisplayWarlordChatMessage.c` 在
+        //     `isLocalPlayer != 0` 那一支里调 `AIResponse(ctrl, 枚举号, 台词时长, **1**)`
+        //     （最后那个 `1` = 「这是**回话**」那一档）。
+        //   · `AIResponse` 里的概率闸：`Random.Range(0, 1f) < AIBotsConfig.BotEmotesConfig`
+        //     的 `+0x10`（= `emote_chance_after_action`）或 `+0x14`（= `reply_chance`）；
+        //     延迟 = `Random.Range(+0x18, +0x1C)`（`min|max_reply_delay`）。
+        //
+        //  🔴 **原版值【不可得】**：那四个数是 **RemoteConfig**（`AIBotsConfigProvider :
+        //     ConfigProvider<AIBotsConfig>`），本地 `assets_full` 逐字搜 `emote_chance_after_action`
+        //     **0 命中** ⇒ ⛔ 下面四个常量**不是原版值**，是我们挑的本地默认（用户已拍板这么做）。
+        //     ⛔ 别在文档里把它们写成「原版值」。
+        //
+        //  【为什么挂在 `_timeline` 而不是 `Update`】：本仓铁律 —— 批处理下没有帧循环，
+        //    任何「随时间推进」的东西必须挂 `ScheduleAction`/`AdvanceTimeline`，否则自检里永远不触发。
+        //    回话的延迟走 `ScheduleAction`（与攻击演出同一个泵）。
+
+        /// <summary>**本地默认**：玩家说话之后 AI 回话的概率。
+        /// ⚠️ 原版值在 RemoteConfig（`reply_chance`），本地不可得 —— 这个数**是我们挑的**。</summary>
+        public const float AiReplyChance = 0.75f;
+        /// <summary>**本地默认**：AI 每成功做完一条动作、自发说一句的概率。
+        /// ⚠️ 原版值在 RemoteConfig（`emote_chance_after_action`），本地不可得 —— **我们挑的**。</summary>
+        public const float AiEmoteChancePerAction = 0.06f;
+        /// <summary>**本地默认**：两条自发发言之间的最短间隔（秒）—— 防刷屏。
+        /// 原版没有这一条（它只有概率闸）；这是**我们加的护栏**，如实记。</summary>
+        public const float AiEmoteCooldown = 14f;
+        /// <summary>**本地默认**：回话延迟的上下限（秒）。原版是 `min|max_reply_delay`（RemoteConfig，不可得）。</summary>
+        public const float AiReplyDelayMin = 0.9f, AiReplyDelayMax = 2.4f;
+
+        /// <summary>AI 发言用的随机源 —— **固定种子**（自检可复现；⛔ 不消耗 `Ctx.Rng`，
+        /// 那是引擎的确定性随机，动它会让对局与录像不一致）。</summary>
+        readonly System.Random _aiChatRng = new System.Random(20261023);
+
+        float _lastAiEmoteAt = float.NegativeInfinity;   // `_clock` 口径
+        bool _aiReplyPending;                             // 已经排了一次回话（别叠）
+
+        /// <summary>自检口：AI **回话**成功说了几句。</summary>
+        public int AiChatReplyCount { get; private set; }
+        /// <summary>自检口：AI **自发**说了几句。</summary>
+        public int AiChatEmoteCount { get; private set; }
+        /// <summary>自检口：最近一条 AI 台词命中的 `ev`（`greet` / `threat` / … / `default`）。</summary>
+        public string LastAiChatEvent { get; private set; }
+
+        /// <summary>AI 现在能不能说话（原版 `VoiceLinesController.CanChat` 的等价闸）。
+        /// 判据：`CanChat` 要求 `IsDuringBattle`；我们这里 = 有 `Ctx`、未终局。
+        /// ⚠️ **另加一条我们挑的**：开场独白期间（`_introStage >= 0`）不说话 —— 否则会和开场白抢气泡
+        /// （原版有 `popUpEnabled` 那类闸，我们没搬；这条是本地护栏，如实记）。</summary>
+        bool CanAiChat()
+        {
+            return _unitChat != null && VoiceLines.Ready && Ctx != null && !Ctx.IsOver && _introStage < 0;
+        }
+
+        /// <summary>让**对面那位督军**说一句。`reply` = 这一句是「回玩家话」还是「自发」。
+        /// 返回说了没有（false 不是错：对面没配这句台词 / 语音条没建 / 闸没开）。
+        /// <para>台词从 `VoiceLines.ForChatButton`（6 句督军通用聊天：greet/threat/wp/gen1-3）里随机挑，
+        /// 取不到落 `"default"`（与玩家 `SpeakChat` **同一个消费口径**，见那里的 `A1768` 注释）。</para>
+        /// <para>🔴 **如实记**：原版 `PlayRandomAIVoiceLine` 到底怎么挑那一句**读不出来**
+        /// （`Random.Range(2)` 的参数被反编译器吞了）⇒ 「从同一张 6 句表里随机挑」**是我们挑的取法**，
+        /// 机位（`_unitChat` 的敌方那一侧）与语音来源（`VoiceLines`）则是原版同一条链。</para></summary>
+        public bool SpeakAiChat(bool reply)
+        {
+            if (!CanAiChat()) return false;
+            int seat = 1 - _me;
+            if (seat < 0 || seat >= Ctx.Players.Length) return false;
+            var w = Ctx.Players[seat] != null ? Ctx.Players[seat].Warlord : null;
+            if (w == null || w.Card == null) return false;
+
+            int idx = _aiChatRng.Next(0, VoiceLines.ForChatButton.Length);
+            string file, text, ev;
+            if (!VoiceLines.TryPick(w.Card.Id, new[] { VoiceLines.ForChatButton[idx], "default" }, _aiChatRng,
+                                    out file, out text, out ev))
+                return false;
+            var clip = VoiceLines.Clip(file);
+            if (clip == null) return false;
+
+            _unitChat.Speak(seat, w.Card.Id, "Chat" + idx, ArtKey(w.Card),
+                            CardDisplayName(w.Card, null), text, clip, file);
+            LastAiChatEvent = ev;
+            if (reply) AiChatReplyCount++; else AiChatEmoteCount++;
+            return true;
+        }
+
+        /// <summary>玩家刚说了一句 ⇒ 按**本地默认概率**排一次 AI 回话（延迟 `AiReplyDelayMin..Max`）。
+        /// 调用点 = <see cref="SpeakChatAt"/>（玩家从 `ChatPopup` 里选了一句且真的说了）。</summary>
+        void ScheduleAiReplyToPlayerChat(float chanceOverride = -1f)
+        {
+            if (_aiReplyPending || !CanAiChat()) return;
+            float chance = chanceOverride >= 0f ? chanceOverride : AiReplyChance;
+            if (_aiChatRng.NextDouble() >= chance) return;
+            float delay = AiReplyDelayMin + (AiReplyDelayMax - AiReplyDelayMin) * (float)_aiChatRng.NextDouble();
+            _aiReplyPending = true;
+            ScheduleAction(delay, () =>
+            {
+                _aiReplyPending = false;
+                if (!SpeakAiChat(true))
+                {
+                    // 不许静默失败：这一句没说出来要点明是哪一种（闸 / 台词 / 语音）
+                    Debug.Log($"[Battle] AI 回话到点了但**没说出来**"
+                            + $"（`CanAiChat`={CanAiChat()} · 语音条={((_unitChat != null) ? "有" : "无")}）");
+                }
+            });
+        }
+
+        /// <summary>AI 成功做完一条动作之后调一次（`AfterAiAction` 的 `ok` 那一支）：
+        /// 按**本地默认概率** + 冷却，让对面督军**自发**说一句。</summary>
+        void MaybeAiEmote()
+        {
+            if (!CanAiChat()) return;
+            if (_clock - _lastAiEmoteAt < AiEmoteCooldown) return;      // 冷却（我们加的护栏）
+            if (_aiChatRng.NextDouble() >= AiEmoteChancePerAction) return;
+            if (!SpeakAiChat(false)) return;
+            _lastAiEmoteAt = _clock;
+        }
+
+        /// <summary>自检用：直接走一次「AI 自发发言」（绕开概率闸）。</summary>
+        public bool AiEmoteForTest() { return SpeakAiChat(false); }
+        /// <summary>自检用：直接走一次「AI 回话」（绕开概率闸与延迟）。</summary>
+        public bool AiReplyForTest() { return SpeakAiChat(true); }
+        /// <summary>自检用：以**必中**（chance = 1）排一次回话 —— 验的是「延迟泵 → 真说出来」这条链
+        /// （概率本身不在这里验：那是一个本地默认值，不是行为）。</summary>
+        public void ScheduleAiReplyForTest() { ScheduleAiReplyToPlayerChat(1f); }
+        /// <summary>自检用：有没有一次回话**已排期、还没到点**。</summary>
+        public bool AiReplyPendingForTest { get { return _aiReplyPending; } }
+        /// <summary>自检用：AI 发言闸现在开着吗（独白期间 / 终局是关的）。</summary>
+        public bool CanAiChatForTest { get { return CanAiChat(); } }
 
         /// <summary>自检用：设置面板 / 设置按钮</summary>
         public SettingsPanel Settings { get { return _settingsPanel; } }
@@ -14480,6 +14819,10 @@ namespace CardPresentation
                 // 🆕 2026-10-17（A904）：AI 那条动作也要清账 —— **它正是「下一个 ask 点」里最危险的那个**
                 //   （面包板上的答案会被 AI 的动作吃掉，而那种错位不报错）。
                 ReportUnaskedChoices();
+                // 🆕 2026-10-23（用户新口径 ②）：**AI 时不时自发说一句**。挂在这里 = 原版
+                //   `AI__ExecuteAction` 末尾 `PlayRandomAIVoiceLine` 的同一个时机（每条动作之后）；
+                //   概率/冷却全是本地默认，判据与出处见 `AiEmoteChancePerAction` 那一整段。
+                MaybeAiEmote();
                 return true;
             }
             // 🆕 2026-09-29（Q6 后半段）：**不再一拒就收手** —— 把这条记进排除名单，
@@ -16691,7 +17034,12 @@ namespace CardPresentation
         /// <item>**档位不区分** —— `small/medium/big` 在原版**指向同一个 pathID**（`-3640304923993188049`），
         ///   档位（`SupportMethods.GetUnitSize`）只影响**震动与粒子** ⇒ 一律喊 `MeleeAttackHitSmall`（听感逐位等价）。</item>
         /// <item>**`Amount == 0` 也算**（护盾挡下）—— 原版播的是**动画命中回调**，与掉不掉血无关；
-        ///   `Amount &lt; 0` 是治疗（`BattleEvent.Hit`）⇒ 排除。</item>
+        ///   `Amount &lt; 0` ⇒ 排除 —— 🔴 **2026-10-23 就地订正（铁律 5）**：原来这里写的是
+        ///   「`Amount &lt; 0` **是治疗**（`BattleEvent.Hit`）」—— **不成立**：自 2026-10-20（`W58`）起
+        ///   治疗走 **`EvtKind.Heal`**，负数 `Hit` 只剩一个含义 = **幸存者广播的标记**
+        ///   （判据 → `PlayHitFeel` 开头那一段 / `VfxMap` 里 `W58` 的订正）。
+        ///   错因 = 这句写于「负数 Hit 当治疗」那一版口径，换了口径之后**没回来改这里**。
+        ///   ⚠️ **行为没变**（排除负数仍然对：广播标记不该算一次近战命中），错的只是理由。</item>
         /// <item>⚠️ **等价物、不是原件**：「哪一条 `Hit` 算攻击命中」我们判的是「**紧跟在一条 `Attack` 后面**」
         ///   —— 与 `UnitDamageCueIndex` **同一条判据**（原版那一位在 `_ResolveAttack` 里、事件里没有）。</item>
         /// </list></summary>
@@ -17807,6 +18155,28 @@ namespace CardPresentation
         ///   而根特效由 HUD 正交相机画）—— 本条按 `anchor.position` 原样用，与改前**同一个口径**。
         /// </para>
         /// </summary>
+        /// <summary>🆕 **2026-10-23（R26）**：把「刚生成的那几层特效实例」的**局部旋转归零**。
+        ///
+        /// <para>**为什么要**：原版 `CardAnimController.Initialize/Update` 直接写**实例自己**的
+        /// `transform.forward`（`CardAnimController__Initialize.c` 的 `RotateAnim`：
+        /// `transform.forward = 锚点 − 自己`）⇒ 它**覆盖** prefab 上作者摆的旋转。
+        /// 我们把朝向落在**载体**上，prefab 那层 `localRotation` 会**乘上去**（= 多叠一个作者朝向）。
+        /// ⇒ 只有**这一拍真的要朝向**（<paramref name="orient"/>）才归零；
+        /// `move` 但 `!orient` 时原版**不碰旋转**（作者朝向要留着），⛔ 别一起归零。</para>
+        ///
+        /// <para>⚠️ `CardEffects.Fire` 是同步的（`WarpforgeEffectPlayer.Play` 里 `Instantiate` 完立刻返回）
+        /// ⇒ 调用前后 `parent.childCount` 的差就是这一拍新生出来的实例（同 `CardEffects` 自己的口径）。
+        /// 抽成静态是为了自检能直接验它（批处理里 `CardEffects.Play` 被换成假钩子、不建子节点）。</para></summary>
+        public static void FlattenNewEffectRotation(Transform parent, int from, bool orient)
+        {
+            if (!orient || parent == null) return;
+            for (int i = from; i < parent.childCount; i++)
+            {
+                var c = parent.GetChild(i);
+                if (c != null) c.localRotation = Quaternion.identity;
+            }
+        }
+
         void PlayAbilityBeat(BattleEvent e, string vfx, int sp, int ep, int pt,
                              bool moveOn, bool otv, float ts, float tm, float[] ease,
                              CardAnimBeat beatData = null)
@@ -17933,7 +18303,17 @@ namespace CardPresentation
                     if (dir.sqrMagnitude > 1e-8f) carrier.forward = dir;
                 }
             }
+            // 🔴 **2026-10-23（R26）**：原版 `CardAnimController.Initialize/Update` 是直接写**实例自己**的
+            //   `transform.forward`（`CardAnimController__Initialize.c` 那句 `transform.forward = 锚点 − 自己`）
+            //   ⇒ **覆盖** prefab 上作者摆的旋转。我们把这个朝向落在**载体**上，
+            //   而 prefab 自己那层 `localRotation` 会**乘上去**（= 叠一个作者朝向，与原版不同）。
+            //   ⇒ 只有**这一拍真的要朝向**（`orient`）时，把刚生成的那一层实例的局部旋转归零
+            //   （原版那一句写的正是 root 的 forward；`move` 但 `!orient` 时原版不碰旋转，⛔ 别一起归零）。
+            //   ⚠️ `CardEffects.Fire` 是**同步**的（`WarpforgeEffectPlayer.Play` 里 `Instantiate` 完立刻返回），
+            //      所以调用前后 `carrier.childCount` 的差就是这一拍新生出来的实例（同 `CardEffects` 自己的口径）。
+            int beforeFire = carrier.childCount;
             CardEffects.Fire(vfx, Vector3.zero, carrier);
+            FlattenNewEffectRotation(carrier, beforeFire, orient);
             _animfxCtx = default;
 
             if (move)
@@ -18537,8 +18917,20 @@ namespace CardPresentation
             //   （而 miss 日志还会印一句「这个词条本来就没有图标」= **误导**）。
             string kw = KeywordForDisplay(e.Keyword) ?? "";
             var tf = v.GetComponent<TraitFrames>();
-            if (tf != null && tf.DisplayTrigger(kw))
+            // 🆕 2026-10-23（新账-70 第 3 条）：**`playIfWarlord` 门**（原版 `DisplayTriggerAnim.c:62-68`）
+            //   要问「这张卡是不是督军」—— 判据 = `UnitState.IsWarlord`（引擎侧唯一的督军身份位；
+            //   原版那个 `GameStaticData.IsWarlordEquivalent` 看的是卡类型 10 = 我们的 `Type == "hero"`，
+            //   两者同一个身份，⛔ 别按「槽位 == 4」判 —— 那是布局，不是卡的属性）。
+            bool isWarlord = false;
+            if (Ctx != null && e.Player >= 0 && BoardSpec.IsValid(e.Slot))
+            {
+                var u = Ctx.Players[e.Player].Board[e.Slot];
+                isWarlord = u != null && u.IsWarlord;
+            }
+            if (tf != null && tf.DisplayTrigger(kw, isWarlord))
                 Debug.Log($"[Battle] 「{kw}」触发 ⇒ 状态框上场（原版 `DisplayTriggerAnim`）");
+            else if (tf != null && isWarlord && TraitFrames.BlocksForWarlord(kw))
+                Debug.Log($"[Battle] 「{kw}」触发但卡是督军、该 effect 的 `playIfWarlord = 0` ⇒ 原版不播（`DisplayTriggerAnim.c:62-68`）");
 
             if (v.PulseBadgeByKeyword(kw)) return;
 
@@ -19440,6 +19832,12 @@ namespace CardPresentation
                                     CardFace.Hand);
             if (v == null) return null;
             v.gameObject.SetActive(true);
+            // 🆕 2026-10-23（D · `F6`）：**居中展示那一档 = 原版 `HandMoving` 排序层**
+            //   （判据 `CardScript__ShowCardInCenter.c` → `SetSortingLayer(<HandMoving>)`）。
+            //   我们的等价物 = `CardView.QHandMoving`（3001，手牌段顶号的上一格）——
+            //   不抬这一格的话，「打出的牌在屏幕正中展示」会与手牌最上面那张**同号**
+            //   （都是 3000）⇒ 谁压谁退回按距离，画面下方那排手牌可能盖住中间这张。
+            v.SetQueue(CardView.QHandMoving);
 
             // 起点 = 那一侧手牌**末位**（原版从手牌里飞出来）；口径与抽牌落点同一个口（`HandRow01`）
             Vector2 start01 = HandRow01(owner == _me, 1);
@@ -21782,16 +22180,20 @@ namespace CardPresentation
             //    ⇒ 按本仓红线（**不许自己发明口径**）**只报不动**；判据与两条候选读法全文 →
             //    `资料/普查产出_第十一会话/PH_A1213Hud补框.md` §4（那一节还记了「框若按 234×64 px 算」的旁证）。
             //    ⚠️ **只补框不补四格是没意义的** —— 框的唯一目的就是给自适应用（见 `Hud` 的 doc）。
+            //    🔴 **2026-10-23 就地订正（铁律 5）：上面那两条「候选读法」作废** —— 桥后来查实了（`A1239` 已落地，
+            //      四格就在下面接上）。**两条候选并不是互相打架**：那 16 颗是 **uGUI**（`m_isOrthographic = 1`）⇒ 走 ①；
+            //      这一颗是 **3D TMP**（`m_isOrthographic = 0`）⇒ 走 ②（`fontSize × 0.1`）。候选 ② 算出的 **28.4 px em**
+            //      与真值 **30 px** 只差 5%，它本来就是对的那一支。判据与算式 → `HandLabelBoxW` 的 doc。
             _handLabel = Hud(root, "", 0.075f, 0.158f, 3, dim, new Vector2(0f, 0f), "HandLabel",
                              face: TmpFont.Face.LatinCardBody);
             // 🔴🆕 **2026-10-16（`A1239`）：补框 + 接四格**（原来这颗**没有框也没有字号**，
             //   落 `Label` 默认档 —— 同族里最后一颗没接的）。
-            //   框与三档的**判据（含那条单位桥）×100 怎么来的** → `HandLabelBoxW` 那条 doc，⛔ 不在这里抄第二份。
+            //   框与三档的**判据（两条桥：框 ×100 / 四格 ×10）** → `HandLabelBoxW` 那条 doc，⛔ 不在这里抄第二份。
             //   ⚠️ 位置那半**不动**：原版那颗在 dump 里 `activeInHierarchy=False`、祖先链又是纯 `Transform`
             //     （算不出绝对坐标）⇒ 位置**是我们挑的**（跟着手牌标签走，见 `PlaceHandPlate`）。
             if (_handLabel != null)
                 // 🔴 **2026-10-16（`T09` 字族迁 uGUI）**：`SetAutoFitBox` 收的是**设计 px** ⇒
-                //    这两个常量（`234f`/`64f`，**本来就是 px**，见上面那条 doc 的「一律 ×100」）
+                //    这两个常量（`234f`/`64f`，**本来就是 px**，见上面那条 doc 的「框 ×100」）
                 //    **原样喂**；原来的 `LayoutSpace.Px(...)`（÷108）**已去**（喂进去字会小 108 倍、不报错）。
                 _handLabel.SetAutoFitBox(HandLabelBoxW, HandLabelBoxH,
                                          HandLabelFsMin, HandLabelFsMax, HandLabelFsBase);

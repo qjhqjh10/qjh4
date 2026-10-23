@@ -87,7 +87,9 @@
 //         我们**没有对应物**。
 //      ⇒ 我们保留**这个模块自己的那部分**（反击闸门 + 延时 + 「资产/钩子缺了要出声」），
 //        把「逐个相邻单位各播一份」交给 `OnExecute`（挂法一行）。
-//        ⚠️ **它自己一个人不会播任何东西**（今天没接 = 每次都会 LogWarning，计数可见）。
+//        ⚠️ ~~**它自己一个人不会播任何东西**（今天没接 = 每次都会 LogWarning，计数可见）。~~
+//        🔴 **2026-10-23 订正**：`OnExecute` 已于 2026-10-01 在 `BattleDriver.cs:2124` 挂上
+//        ⇒ 今天**会播**；`DroppedExecutions` 只在「别的宿主（自检 / 无对局）」里才会涨。
 //
 // 🔴 没还原的
 // ----------------------------------------------------------------
@@ -101,7 +103,23 @@
 //   ② 「谁何时播这份特效」的上层接线（`VfxMap` 目前只支持「一个事件 → 一个特效」，
 //      这条要的是「一个事件 → **对目标卡的每个相邻单位**各播一份」）—— 见块2 §6「Unity 侧重写」。
 //      ⛔ 注意主语：是**目标卡**的相邻单位（`controller.targetCard` = +0x58），不是出手卡的。
-//   ⚠️ 本批（`W64` · B18）**只订正了注释**，运行时接线**没做**（差什么见上 ① ② + Doomweaver shader）。
+//      🔴 **2026-10-23 就地订正（铁律 5 · `普查产出_1022/A1_自造与兜底_特效动画.md` §四 D2）**：
+//        这一条**已经接上了**（2026-10-01）：`BattleDriver.cs:2124` 挂 `OnExecute` ——
+//        按**被打那张卡**的一方/格号取 `BoardSpec.AdjacentSlots`，对每个相邻视图
+//        `WarpforgeEffectPlayer.Play(module.prefabName, 相邻单位.transform, Vector3.zero)`。
+//        原文那句「运行时接线没做」是写在接线之前的，之后没回来改（错因同 `D1`）。
+//      ⚠️ **仍差的两点**（都不影响「播不播」，影响「播在哪 / 停多久」）：
+//        a. 原版挂在 `BattleCardUI.effectsAnchor`(+0x1A0) 上，我们挂在**卡节点本身** ——
+//           我们这一侧的对应物是 `AnimAnchors` 那一族，还没接（要 `CardView` 的锚点句柄）；
+//        b. 原版那份 `AnimInfo` 是 `timeAtStartPos = 0.5` / `timeMoving = 0`（停 0.5 s 再结束），
+//           我们现在靠 prefab 自己的时长。数据侧已落地 `数据/游戏数据/adjacent_vfx_animinfo.json`
+//           （起终点 = 相邻单位的 `effectsAnchor` · 不飞 · 停 0.5 s），
+//           ⚠️ **但它到 2026-10-23 为止【还没有任何运行期消费者】**（全仓 `grep adjacent_vfx` 只命中本文件的注释，
+//           `CardPresentation/Resources/` 下也没有它的副本）⇒ **这一半是待接，不是「已接在别处」**。
+//           接的时候要连带 `effectsAnchor` 一起（a 与 b 是同一处改动：`Play` 要能指定锚点 + 时长）。
+//   ✅ `W64` · B18 的另外两半：Doomweaver 材质 —— `Shader Graphs/Doomweaver effect` 已按 Ruri 字节码
+//      重写成 `WarpforgeVFX/FX/DoomweaverEffect`（`WarpforgeShaderMap.cs` 的 `Replacements`，2026-10-22 `B11`）；
+//      「一事件→逐单位」—— 见上 ② 已接。
 using System;
 using UnityEngine;
 

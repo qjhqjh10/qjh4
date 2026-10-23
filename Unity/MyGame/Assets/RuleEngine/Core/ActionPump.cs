@@ -175,6 +175,39 @@ namespace RuleEngine
                                           int abilityContext = CardDef.AbilityContextUnknown)
         {
             if (ctx == null || body == null) return false;
+            // ============================================================
+            //  🔴🆕 **2026-10-23（引擎线 `W63` 收口）：`abilityContext` 的闸搬回【入队那一刻】**
+            //
+            //  判据（第一权威 = 全量反编译）：原版 `CardAbility.CanTriggerAbility` 是
+            //  **`RawCardScript.TriggerAbilities` 在广播那一刻同步调**的
+            //  （`RawCardScript__TriggerAbilities.c:108,207`），`IsRightContext` 全库**只有它一个调用者**
+            //  ⇒ **原版在入队前判**，入了队就照跑（死亡本身不在 `CancelEffectsFromDisappearingUnit`
+            //  的四个调用点里：只 service jam / transformUnit / TransformIntoRemnant / removeEffect）。
+            //  我们 2026-10-22（`W63` · C1）把它做在**出队**，比原版**更严**：
+            //  「入队时还在、被后面动作打死」原版照跑、我们取消 —— `W63 #2`（Slay 正文整条丢失）
+            //  就是这个偏差的产物。⇒ 判点搬到入队，出队只保留原版那四种「主动取消」里
+            //  我们唯一建模得到的**变残骸 / transform**（见泵点那一支）。
+            //
+            //  ⚠️ **只在能定位载体时判**（`FindBoardCell` 找得到施放者）：定位不到 ⇒ **不判**
+            //     （保持改前口径 —— 那些是「已离场 / 还没上场」的入队点，原版闸看的是**卡状态**，
+            //     我们此刻认不出它处在哪一档，⛔ 不许猜）。
+            //  ⚠️ `-1`（未知 / 旧卡表 / 第二解析路没接列）⇒ **一个字都不判**，回退
+            //     `requireActorInPlay` 那条旧口径（在泵点），与改前逐字相同。
+            // ============================================================
+            if (abilityContext != CardDef.AbilityContextUnknown && actor != null)
+            {
+                int co, cs;
+                FindBoardCell(ctx, actor, out co, out cs);
+                if (co >= 0 && !IsRightContext(ctx, co, cs, abilityContext, actor.Instance))
+                {
+                    UnityEngine.Debug.LogWarning(
+                        $"[ActionQueue] **不触发**「{label}」—— 载体「{actor.Name}」此刻不在原版 `abilityContext="
+                        + AbilityContextName(abilityContext) + "` 要求的区域"
+                        + "（原版 `CardAbility.CanTriggerAbility` → `IsRightContext` 在**入队前**判，"
+                        + "判据 `RawCardScript__TriggerAbilities.c:108,207`；⛔ 不是静默丢，这条就是出声口）");
+                    return false;
+                }
+            }
             var act = new QueuedAction
             {
                 Label = label, Execute = body,
@@ -271,6 +304,92 @@ namespace RuleEngine
         }
 
         /// <summary>
+        /// 🔴🆕 **2026-10-23（引擎线 `W63` · 收口）：在 <see cref="AbilityContextOfAbility"/> 之上补
+        /// 「**v14 缺行 = `Play(0)`**」这一跳** —— 消费端**唯一**取值口（两个 accessor 分工见下）。
+        ///
+        /// 为什么要有这一跳：`cards_engine.json` v14 起**只落 `context != 0` 的行**
+        /// （生成器 `ability_contexts_of()` 的落值口径，判据 → `W63_abilityContext_施工简报.md` §5·A）。
+        /// ⇒ 「这张卡这条 ability 在表里查不到」在**有真值快照的卡**上不是「未知」，而是
+        /// **`Play(0)` 被省略了**。没有这一跳，`-1` 会一路回退到
+        /// <see cref="LegacyActorMustBeInPlayForKeyword"/> 那张 5 词表 ⇒
+        /// **`Slay` / `Mob` / `Regroup` 这一族全部判不出**（旧表按关键词猜，⛔ 那正是要退役的东西）。
+        ///
+        /// 判据（逐条）：
+        ///   ① 先按 <see cref="AbilityContextOfAbility"/> 查真值（trigger 名优先 → 关键词兜底）；
+        ///   ② 查不到 **且** 这张卡的列确实来自 v14（<see cref="CardDef.AbilityContextsVersioned"/>）
+        ///      **且** 认得出 trigger 名（`triggerName` 非空，或 `keyword` 能反查
+        ///      → <see cref="TriggerNameOfKeyword"/>）⇒ **`Play(0)`**；
+        ///   ③ 其余 ⇒ `-1`（<see cref="CardDef.AbilityContextUnknown"/>，⛔ 不许读成 `Play(0)`）。
+        ///
+        /// ⚠️ **为什么 ② 要「认得出 trigger 名」**：生成器只在
+        /// `ABILITY_TRIGGER_KEYWORD` 有映射的行上落 `keyword`（21 条）。像 `swarm` / `survivor`
+        /// 这种既没有 trigger 名映射、又不在映射表里的关键词 —— 查不到**不能**推成 0
+        /// （那会把一条本来 `-1` 的路径静默变成「必须活着在场」）。
+        /// `AbilityContextsVersioned` 为假（旧卡表 / 第二解析路没接列）⇒ 照旧 `-1`。
+        ///
+        /// 🔴 **消费端一律用本方法**（`-1` 契约 = 「不知道，回退旧口径」）；
+        /// 只有「我要看原始真值、不想被省略语义影响」的断言才直接调
+        /// <see cref="AbilityContextOfAbility"/>。
+        /// </summary>
+        public static int AbilityContextOfAbilityV14(CardDef card, string triggerName, string keyword)
+        {
+            if (card == null) return CardDef.AbilityContextUnknown;
+            int c = AbilityContextOfAbility(card, triggerName, keyword);
+            if (c != CardDef.AbilityContextUnknown) return c;
+            string tn = string.IsNullOrEmpty(triggerName)
+                      ? TriggerNameOfKeyword(keyword)
+                      : triggerName;
+            if (!string.IsNullOrEmpty(tn) && card.AbilityContextsVersioned)
+                return CardDef.AbilityContextPlay;      // v14 只落非 0 ⇒ 缺行 = Play(0)
+            return CardDef.AbilityContextUnknown;
+        }
+
+        /// <summary>
+        /// 🆕 **2026-10-23（引擎线 `W63`）**：引擎侧触发关键词（`KeywordTable.*`）→
+        /// 原版 `AbilityTrigger` **枚举名**（`CardAbility.trigger` 的那个名字）。
+        ///
+        /// 🔴 **这张表的正本是生成器**：`工具/gen_cards_engine.py` 的 `ABILITY_TRIGGER_KEYWORD`
+        /// （21 条，`trigger 数值 → keyword`）。本表是它的**反向转写**，两边的键必须逐字对齐 ——
+        /// 生成器加/删一行，这里必须同步（`ruleprobe` 与 `CardDatabase` 两侧的
+        /// `abilityContext` 落值口径都靠它）。
+        /// 判据 → `资料/普查产出_1022/W63_abilityContext_施工简报.md` §3「JSON 形状」。
+        ///
+        /// ⚠️ **认不出 ⇒ `null`**（⛔ 别退回关键词本身当 trigger 名：原版 trigger 名是
+        /// `UnitAttack` / `UseSpiritStone` 这种驼峰枚举名，与引擎关键词不是一套词）。
+        /// ⚠️ `EffectResolver.AbilityTriggerNameOfKeyword`（原来只覆盖 4 个词、只服务
+        /// `FollowUpSchedulerOf`）现在**转调本方法** ⇒ 判据只此一处。
+        /// </summary>
+        public static string TriggerNameOfKeyword(string keyword)
+        {
+            if (string.IsNullOrEmpty(keyword)) return null;
+            switch (keyword)
+            {
+                case KeywordTable.Slay:          return "Slay";              // 120
+                case KeywordTable.Codex:         return "Codex";             // 145
+                case KeywordTable.Sacrifice:     return "Sacrifice";         // 220
+                case KeywordTable.AboutToAttack: return "AboutToAttack";     // 280
+                case KeywordTable.Mob:           return "Mob";               // 300
+                case KeywordTable.Regiment:      return "Regiment";          // 301
+                case KeywordTable.Survivor:      return "Survivor";          // 420
+                case KeywordTable.Landing:       return "Landing";           // 440
+                case KeywordTable.Artifice:      return "Artifice";          // 560
+                case KeywordTable.Strike:        return "Strike";            // 580
+                case KeywordTable.SpiritStone:   return "UseSpiritStone";    // 600
+                case KeywordTable.Pray:          return "Pray";              // 655
+                case KeywordTable.Duty:          return "Duty";              // 662
+                case KeywordTable.Ambush:        return "Ambush";            // 670
+                case KeywordTable.Uprising:      return "Uprising";          // 680
+                case KeywordTable.Teleport:      return "Teleport";          // 690
+                case KeywordTable.Agenda:        return "Agenda";            // 705
+                case KeywordTable.Stimulation:   return "Stimulation";       // 710
+                case KeywordTable.Ecstasy:       return "Ecstasy";           // 715
+                case KeywordTable.Cruelty:       return "Cruelty";           // 720
+                case KeywordTable.Ferocity:      return "Ferocity";          // 725
+                default:                         return null;
+            }
+        }
+
+        /// <summary>
         /// 原版 **skip 表**：这些触发**整段不判** `abilityContext`
         /// （`CardAbility__CanTriggerAbility.c:69-95`）。
         ///
@@ -352,6 +471,38 @@ namespace RuleEngine
                 for (int s = 0; s < BoardSpec.Size; s++)
                     if (ReferenceEquals(board[s], u)) { owner = p; slot = s; return; }
             }
+        }
+
+        /// <summary>
+        /// 🔴🆕 **2026-10-23（引擎线 `W63` 收口）：这条动作的载体**是不是在队列里被人换掉了
+        /// （= 原版 `CancelEffectsFromDisappearingUnit` 的 `TransformIntoRemnant` / `transformUnit(27)`
+        /// 两路）。泵点出队时唯一保留的「按状态取消」。
+        ///
+        /// 判据：**同一份 `CardInstance`** 此刻是否在某一方棋盘上、但挂着的**不是入队时那个
+        /// `UnitState` 对象** —— 变残骸走的就是这一条
+        /// （`RuleCore.cs:8454` 的 `new UnitState(u.Instance, false) { IsRemnant = true }`：
+        ///  `Instance` 沿用、对象换新），`transformUnit` 同形。
+        /// ⚠️ **找不到那份 `Instance`（死了 / 回手 / 洗回牌库 / 移出棋盘）⇒ 返回 `false`（不取消）** ——
+        ///   原版那四个调用点里**没有死亡**，`destroyUnit(45)` / `recallToHand(26)` 是**保留**的
+        ///   （判据 → 泵点那段注释）。⛔ 别把它写成「不在场就取消」，那就是 `W63 #2` 的回归。
+        /// ⚠️ `Instance` 为 `null`（理论上不会有）⇒ 不取消。
+        /// </summary>
+        static bool CarrierReplacedByRemnant(BattleContext ctx, UnitState carrier)
+        {
+            if (ctx == null || carrier == null) return false;
+            var inst = carrier.Instance;
+            if (inst == null) return false;
+            for (int p = 0; p < ctx.Players.Length; p++)
+            {
+                var board = ctx.Players[p].Board;
+                for (int s = 0; s < BoardSpec.Size; s++)
+                {
+                    var u = board[s];
+                    if (u == null || !ReferenceEquals(u.Instance, inst)) continue;
+                    return !ReferenceEquals(u, carrier);     // 同一份牌换了 UnitState
+                }
+            }
+            return false;                                   // 找不到 ⇒ 死亡/离场 ⇒ 不取消
         }
 
         /// <summary>
@@ -492,9 +643,11 @@ namespace RuleEngine
         /// 🔴 **`Resolving` 为真就立刻返回**（原版 `Update` 同一条闸）⇒ 动作内部调到这里是**空转**。
         /// 🔴 每结算一条，把它自己的 `Resolving` 置真/置假 —— 于是**它内部产生的触发只入队**，
         ///   由**本循环**接着取（原版下一帧取，次序相同）。
-        /// 🔴🆕 **取出来之后、结算之前复核「这条 ability 的载体还在不在原版要求的区域」** ——
-        ///   有 `AbilityContext`（数据）就走 <see cref="IsRightContext"/> 六档；
-        ///   `-1` 未知才回退 `RequireActorInPlay` 那一支（2026-10-22 `W63` · C1）。
+        /// 🔴🆕 **取出来之后、结算之前只复核原版那几种「主动取消」** ——
+        ///   有 `AbilityContext`（数据）时只看「载体是不是被换成了残骸 / 被 transform」
+        ///   （<see cref="CarrierReplacedByRemnant"/>）；`-1` 未知才回退 `RequireActorInPlay` 那一支。
+        ///   ⚠️ **2026-10-23（`W63` 收口）起 `abilityContext` 的主闸在【入队那一刻】**
+        ///   （`EnqueueAbility`），不在这里 —— 见下面那段判据。
         /// ⚠️ `ctx.IsOver` ⇒ 停止泵队（原版 `duringBattleFlag` 为假时 `Update` 也不再取）。
         ///   剩下的条目**保留在队列里**并如实记一条日志（⛔ 不静默丢）。
         /// </summary>
@@ -521,54 +674,44 @@ namespace RuleEngine
                     return;
                 }
                 // ============================================================
-                //  🔴 出队时复核「这条 ability 的**载体**还在不在原版要求的区域」
+                //  🔴 出队时**只**复核原版那四种「主动取消」（`W63` 收口，2026-10-23）
                 //
-                //  🔴🆕 **2026-10-22（`W63` · C1）把判据从「关键词族」换成「数据」**：
-                //    · `act.AbilityContext != -1` ⇒ <see cref="IsRightContext"/> 按**这张卡这条
-                //      ability** 的六档判（`0` 活着在场 · `10` 手 · `20` 牌库 · `30` 墓地 ·
-                //      `40` 在场**含待死** · `50` 在场或墓地**不含待死**）；
-                //    · `act.AbilityContext == -1`（旧卡表 / 这一路还没接线）⇒ **原样回退**旧口径：
-                //      `RequireActorInPlay && !UnitInPlay(...)`（= `Play(0)` 的近似）。
-                //      ⚠️ 缺省就是 `-1` ⇒ **今天所有既有调用点的行为逐字不变**。
+                //  🔴🆕 **就地改口径（铁律 5）**：2026-10-22（`W63` · C1）这里曾经按
+                //  `abilityContext` 六档复核「载体还在不在原版要求的区域」。**那个判点错了** ——
+                //  原版 `IsRightContext` 只有一个调用者 `CardAbility.CanTriggerAbility`，
+                //  而它是 `RawCardScript.TriggerAbilities` 在**广播那一刻同步调**的
+                //  （`RawCardScript__TriggerAbilities.c:108,207`）⇒ **原版闸在入队前**；
+                //  入了队的动作**死亡不会取消**它（`BattleManager.CancelEffectsFromDisappearingUnit`
+                //  全库只有四个调用点：`removeEffect(16)` / `jamUnit(22)` / `transformUnit(27)` /
+                //  `TransformIntoRemnant`，而且明确**保留** `destroyUnit(45)` / `recallToHand(26)`）。
+                //  我们做在出队 ⇒ 比原版更严：「入队时还在、被后面动作打死」原版照跑、我们取消
+                //  —— `W63 #2`（Slay 正文整条丢失）就是这个偏差的产物。
+                //  ⇒ **主闸已搬到 `EnqueueAbility`（入队那一刻）**，这里只留「主动取消」那一半。
                 //
-                //  判据（第一权威 = 全量反编译 `CardAbility__IsRightContext.c` 逐句 →
-                //        `IsRightContext` 的 doc；旧口径那一段的出处照原样保留在下面）：
-                //    · `:20-30`（`Play(0)`）—— 结算那一刻要求 `CardScript.IsInPlay(card)`；不在场就不结算。
-                //    · `:41-46`（`InPlayOrDying(40)`）—— `CardScript__IsInPlayOrDying`（状态 5 = 待死**算**在场）
-                //      ⇒ 死亡触发那一族**照跑**。
-                //    · 另有四处「效果被剥夺」的**主动**取消：`BattleManager__CancelEffectsFromDisappearingUnit`
-                //      的四个调用点 —— `removeEffect(16)`（`ResolveAction.c:2574`，只取消**动画**那四条道）、
-                //      `jamUnit(22)`、`transformUnit(27)`、`TransformIntoRemnant`（`RemoveSelfBuffsFromQueues`
-                //      → `CancelEffectsFromDisappearingUnit`，保留 `destroyUnit(45)` / `recallToHand(26)`）。
-                //      ⚠️ **死亡本身【不】走这个取消口**（全库只有那四个调用点）—— 死者的待结算 ability
-                //      是被**上面那道 `IsRightContext` 闸**挡掉的。两者可观测等价，我们统一在这一处做。
-                //      ⚠️ `CancelEffectsFromDisappearingUnitFromQueue` 还有第二个匹配维（`otherCard`：
-                //      「这条动作**的目标**也是这张牌」）—— 但四个调用点里只有 jam / transform 传它，
-                //      死亡路传的是 0 ⇒ 我们**只做施放者一侧**，这一半如实记在审查修复报告里。
+                //  今天建模得到的「主动取消」= **变残骸 / transform**：同一份 `CardInstance`
+                //  在棋盘上被换成了**另一个 `UnitState`**（`RuleCore.CleanupDeaths` 里
+                //  `new UnitState(u.Instance, …) { IsRemnant = true }`，`RuleCore.cs:8454`）
+                //  ⇒ <see cref="CarrierReplacedByRemnant"/> 认得出。
+                //    · `jamUnit` / `transformUnit` / `removeEffect` 三路：现池**零可达**
+                //      （`jam` 只在 `ResolveAction.c:2574` 的动画四条道上，我们没有对应建模）
+                //      ⇒ 如实记在报告里，⛔ 不是「不用做」，是「还没有判据把它接出来」。
+                //    · **死亡 / 回手 / 洗回牌库 ⇒ 不取消**（原版保留 `destroyUnit` / `recallToHand`）。
                 //
-                //  ⚠️ **已知时机偏差（本笔不改判点）**：原版 `IsRightContext` 在**入队前**判
-                //     （`RawCardScript__TriggerAbilities.c:108,207`），我们在**出队时**判 ——
-                //     「入队时还在、被后面动作打死」原版照跑、我们取消（**更严**）。
-                //     改判点会让 `RuleEngineTest` 的 `T27` ②③ 红（`W63_abilityContext_施工简报.md` §6.7）。
                 //  ⚠️ **没有施放者（`act.Actor == null`）⇒ 不判**：与 `UnitInPlay(null)` 同口径。
-                //     10/20/30 那三档要「卡级载体」（手/牌库/墓地的 `CardInstance`），今天还表达不出
-                //     —— 简报 §4 C7 的独立缺口，不是这一笔。
-                //  ⚠️ 原版那四种「主动取消」（jam / transform / 变残骸 / 剥夺效果）今天**没有单独建模**，
-                //     其中「变残骸」在我们这里恰好等价（原 `UnitState` 被换成新的 `rem` ⇒ 复核失败，
-                //     `Instance` 沿用 ⇒ `IsRightContext` 也判得出去了），jam / transform 今天零可达。
+                //     `-1`（旧卡表 / 第二解析路没接列）⇒ **原样回退**旧口径
+                //     `RequireActorInPlay && !UnitInPlay(...)`（= `Play(0)` 的近似）。
                 // ============================================================
                 if (act != null && act.Actor != null
                     && act.AbilityContext != CardDef.AbilityContextUnknown)
                 {
-                    int co, cs;
-                    FindBoardCell(ctx, act.Actor, out co, out cs);
-                    if (!IsRightContext(ctx, co, cs, act.AbilityContext, act.Actor.Instance))
+                    if (CarrierReplacedByRemnant(ctx, act.Actor))
                     {
                         UnityEngine.Debug.LogWarning(
                             $"[ActionQueue] **取消**一条待结算动作「{act.Label}」（{act.Priority} 道）—— "
-                            + $"载体「{act.Actor.Name}」已经不在原版 `abilityContext="
-                            + AbilityContextName(act.AbilityContext) + "` 要求的区域"
-                            + "（判据 `CardAbility.IsRightContext`；⛔ 不是静默丢，这条就是出声口）");
+                            + $"载体「{act.Actor.Name}」**已变成残骸 / 被 transform**（原版 "
+                            + "`BattleManager.CancelEffectsFromDisappearingUnit` 的 "
+                            + "`TransformIntoRemnant` / `transformUnit(27)` 两路；"
+                            + "⛔ 不是静默丢，这条就是出声口）");
                         continue;
                     }
                 }

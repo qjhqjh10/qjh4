@@ -34,12 +34,18 @@
 //      它们的 `activeAbility` **一条非空 CardAnim 引用都没有**（`m_AssetGUID` 全空）
 //      ⇒ 原版这条路上**不放任何动画** ⇒ 我们退回兜底并**出声**（不是「表里漏了」）。
 //   ③ **`SW21 Wulfen Pack Leader` 是条件分支**（铁律 5·c：同一张卡、不同棋盘状态 = 不同时长）：
-//      **普通 `activeAbility` = 0.4**（表里存的就是这支）· **替代能力 = 0.2**（`Cut Wulfen`；
-//      `hasAlternativeAbility=1` 且 `MeetsCriteria(selectCriteria)` = 己方 ≥1 个单位时原版走这支）。
-//      ⛔ 表只记普通那一支；运行时**要不要按棋盘切到 0.2 还没接**（判据 = 原版 `RawCardScript.GetActiveAbility`，
-//      逐条见全量件 `conditional`）。
-//   ⚠️ `Core/AbilityAnimDurations.cs` 的文件头**仍写着旧口径**（「只覆盖 2022 快照」/「62 张」）——
-//      那一份不在本批文件所有权内，**已记进报告待改**（⛔ 别以为两份说法可以并存）。
+//      **普通 `activeAbility` = 0.4**（表里存的就是这支）· **替代能力 = 0.2**（`Cut Wulfen`）。
+//      🔴 **2026-10-23 就地订正（铁律 5 · 判据 = 第一权威反编译）**：上一行原来写
+//      「`hasAlternativeAbility=1` 且 `MeetsCriteria(**selectCriteria**)` **满足时**原版走替代支」
+//      —— **字段名与方向都不对**。`RawCardScript__GetActiveAbility.c` 逐句是
+//      `if (hasAlternativeAbility(+0x2AA)) { if (!BoardAnalysis.MeetsCriteria(param_2, *(this+0x2B0), …))
+//          return *(this+0x2B8); }  return *(this+0x260);`
+//      ⇒ 判据字段 = **`normalAbilityBoardCriteria`(+0x2B0)**（卡上**没有**叫 `selectCriteria` 的字段），
+//        且**满足时走的是【普通】支**、**不满足**才落到 `alternativeAbility`(+0x2B8)。
+//      ⛔ 表只记普通那一支；运行时**要不要切到 0.2 还没接** —— 而且**数据侧也缺**：
+//        `normalAbilityBoardCriteria` **不在**我们的卡导出里（`cards_raw.json` 的 `cards[*]` 只有
+//        `hasAlternativeAbility` / `activeAbility` / `alternativeAbility` 三样）⇒ 要接得先补那个字段的导出。
+//        逐条见全量件 `conditional`。
 using RuleEngine;
 
 namespace CardPresentation
@@ -62,6 +68,19 @@ namespace CardPresentation
         /// <summary>(卡名, 阵营) → 那张卡的 `CardDef.AnimTimes`（`null` = 这张卡没有逐候选时长）。</summary>
         public static System.Func<string, string, System.Collections.Generic.IReadOnlyList<CardDef.CardAnimTime>>
             AnimTimesOf;
+
+        /// <summary>🆕 **2026-10-23（R19）：座位（0/1）是不是「本地玩家」那一侧** —— `null` = 没挂钩。
+        ///
+        /// <para>**为什么需要**：`VarsGlobal.TimeToDrawCard(bool isPlayer)` 原版是**分敌我的一对**
+        /// （我方 `timeToDrawPlayerCard = 0.3` / 敌方 `timeToEnemyDrawCard = 0.15`，
+        /// `资料/VarsGlobal_原版数值.md` §一），而 `EventTiming` 这张表拿不到「哪一方是我」——
+        /// 只有 `BattleEvent.Player`（座位号）与驱动里的 `_me`。
+        /// ⇒ 由 `BattleDriver` 挂钩回答（模式与 <see cref="FactionOfSeat"/> 完全一样：静态钩子 + 幂等覆盖，
+        /// 每次 `Begin` 重挂；没挂 = 纯引擎自检 ⇒ 退回「按我方档并出声」）。</para>
+        ///
+        /// <para>⚠️ 语义是「**本地玩家**」**不是**「座位 0」：联机局里本机可能是座位 1
+        /// （原版那个 `bool isPlayer` 也是这个意思 —— `PlayerHand._AddDrawnCardToHand` 的实参）。</para></summary>
+        public static System.Func<int, bool> IsLocalSeat;
 
         /// <summary>🆕 **2026-10-22（`W64`）反击那一拍占多久**（秒，相对事件起播）。
         ///
@@ -285,6 +304,10 @@ namespace CardPresentation
                 if (AbilityAnimDurations.TryGet(e.CardId, out s)) return s;
                 return AbilityFallbackSeconds;
             }
+            // 🆕 **2026-10-23（R19）抽卡按【座位】分档** —— 原版 `VarsGlobal.TimeToDrawCard(bool isPlayer)`
+            //    是一对（0.3 / 0.15）。`e.Player` 就是抽牌那一方 ⇒ 这里能分。
+            //    ⛔ 别退回 `DurationOf(e.Kind)`（它只会给我方档 0.3，敌方每抽一张多排 0.15 s）。
+            if (e.Kind == EvtKind.Draw) return DrawDealOf(e.Player);
             return DurationOf(e.Kind);
         }
 
@@ -482,17 +505,94 @@ namespace CardPresentation
         ///    我方 0.3 / 敌方 0.15）。`DurationOf(EvtKind)` 拿不到「哪一方是我」
         ///    （`DurationOf(BattleEvent)` 那个重载也只有 `e.Player`、没有座位号）
         ///    ⇒ 敌方抽卡在时间线上会被多排 0.15 s。这不是「值查不到」，是**这张表取不到那个参数** ——
-        ///    动画那一侧**没有**这个问题（`CardFeel.DealSeconds(false)` / `DealInQuad` 用的就是 0.15）。</summary>
+        ///    动画那一侧**没有**这个问题（`CardFeel.DealSeconds(false)` / `DealInQuad` 用的就是 0.15）。
+        /// 🔴 **2026-10-23（R19）就地更新**：`DurationOf(BattleEvent)` 那一路**已经分档**了
+        ///    （`DrawDealOf(e.Player)` + `IsLocalSeat` 钩子）⇒ 生产路径不再有「多排 0.15 s」这个问题；
+        ///    本常量现在只给**只按 `EvtKind` 的旧重载**（探针 / 拿不到座位号时的兜底）。</summary>
         public const float DrawDeal = CardFeel.DealDuration;
 
+        /// <summary>🆕 **2026-10-23（R19）：这一条抽卡事件占多久 —— 按【谁抽的】分档。**
+        ///
+        /// <para>**判据 = 原版 `VarsGlobal.TimeToDrawCard(bool isPlayer)`**
+        /// （`资料/VarsGlobal_原版数值.md` §一：`timeToDrawPlayerCard = 0.3` / `timeToDrawEnemyCard = 0.15`；
+        /// 消费点 `PlayerHand._AddDrawnCardToHand_d__37__MoveNext.c:78-80` 那个 `WaitForSeconds`）。
+        /// 而 <see cref="IsLocalSeat"/> 回答「这一方是不是本地玩家」—— **语义完全对齐**
+        /// （原版那个 `isPlayer` 就是「本地玩家」，联机局本机可能是座位 1）。</para>
+        ///
+        /// <para>⚠️ **没挂钩**（纯 `RuleEngine` 自检 / 探针）⇒ 按**我方档**并**出声一次** ——
+        /// ⛔ 不是静默按 0.3 走（那就是「看着有出处、其实是猜的」）。
+        /// ⛔ 判据只此一处：`CardFeel.DealSeconds` 是那一对数的**唯一**来源（动画侧也用它）。</para></summary>
+        public static float DrawDealOf(int seat)
+        {
+            // 座位没写（`-1`，手工合成的事件）⇒ 按我方档（与改前行为一致），⛔ 别把 -1 当「对面」。
+            if (seat < 0) return DrawDeal;
+            if (IsLocalSeat == null)
+            {
+                WarnNoLocalSeat();
+                return DrawDeal;             // 我方档（= `DealSeconds(true)`）
+            }
+            return CardFeel.DealSeconds(IsLocalSeat(seat));
+        }
+
+        static bool _warnedNoLocalSeat;
+
+        /// <summary>「`IsLocalSeat` 没挂 ⇒ 抽卡只能按我方档」的出声（只报一次）。</summary>
+        static void WarnNoLocalSeat()
+        {
+            if (_warnedNoLocalSeat) return;
+            _warnedNoLocalSeat = true;
+            UnityEngine.Debug.LogWarning(
+                "[EventTiming] `IsLocalSeat` 没挂（没有驱动）⇒ `EvtKind.Draw` 一律按**我方档** "
+              + $"{DrawDeal:F2}s 排；敌方那一档（{CardFeel.DealDurationFoe:F2}s）在这条路径上取不到。"
+              + "生产路径由 `BattleDriver.HookEventTimingCardSource` 挂钩。");
+        }
+
         /// <summary>
-        /// 这条数值**有没有原版出处**。
-        /// 🔴 **2026-09-18 更正**：原来写「`Death` 是唯一的 false —— `VarsGlobal` 资产缺失」——
-        ///    **那句话过期了**：`VarsGlobal` 2026-09-17 整表解出，`Death` 现在**有出处**
-        ///    （小兵 `deathTimeMinionDuration 0.2` / 督军 `deathTimeWarlordDuration 0.5`）。
-        /// ⇒ 现在**每一条都有出处**（`EventTiming.SourceOf` 会逐条打出来）。
+        /// 这一档用到的**每一个数**都**有原版出处**吗（`DurationOf` 与 `DelayBetween` 里属于它的那几格）。
+        ///
+        /// <para>🔴 **2026-10-23（R17）就地重写（铁律 5）—— 原来是 `{ return true; }`，等于一条自证断言**
+        /// （断言永远绿，问不出任何东西）。现在**逐档查表**，返回 `false` 的两档各有明确原因
+        /// （带 `out string` 的那个重载会说给人听）：</para>
+        /// <list type="bullet">
+        /// <item><b>`Death`</b> —— 时长 `0.2` 有出处（`VarsGlobal.deathTimeMinionDuration`），
+        ///   但「命中和阵亡之间那一拍」= <see cref="DeathHold"/> **0.1 是我们挑的**
+        ///   （引擎节拍 `minDelay`，见那个常量的注释：「原版那个 `WaitForSeconds` 等的正是
+        ///   `deathTimeMinionDuration`，我们已经把它算进动画时长，再加同样的数会重复计」）。</item>
+        /// <item><b>`Ability`</b> —— 逐卡真值有出处（`AbilityAnimDurations`），
+        ///   但**查不到那张卡时**退回的 <see cref="AbilityFallbackSeconds"/> **不是原版值**
+        ///   （它是真值表的中位数，恰好等于旧常数 1.0；见那个常量的 doc）。</item>
+        /// </list>
+        ///
+        /// <para>⚠️ **不在这张表里的种类**（`Play` / `Return` / `Gain*` / `CollectWaystone` / `SecretOrder`）
+        /// `DurationOf` 走 `default: 0` —— **它们不占时间**，没有「无出处」的数值可言 ⇒ 回 `true`
+        /// （⛔ 别把它当「这些事件也有出处」来引用）。</para>
         /// </summary>
-        public static bool IsSourced(EvtKind kind) { return true; }
+        public static bool IsSourced(EvtKind kind)
+        {
+            string why;
+            return IsSourced(kind, out why);
+        }
+
+        /// <summary><see cref="IsSourced(EvtKind)"/> 的带原因重载（`false` 时 <paramref name="unsourcedPart"/>
+        /// = 哪一格没出处；`true` 时是 `null`）。自检直接拿它打日志。</summary>
+        public static bool IsSourced(EvtKind kind, out string unsourcedPart)
+        {
+            unsourcedPart = null;
+            switch (kind)
+            {
+                case EvtKind.Death:
+                    unsourcedPart = $"`DelayBetween(Death)` = `DeathHold` {DeathHold:F2}s —— **我们挑的**"
+                                  + "（引擎节拍 `minDelay`；原版那个 `WaitForSeconds` 等的是 "
+                                  + "`deathTimeMinionDuration`，已算进阵亡动画时长，⛔ 不能重复计）";
+                    return false;
+                case EvtKind.Ability:
+                    unsourcedPart = $"查不到那张卡时退回的 `AbilityFallbackSeconds` {AbilityFallbackSeconds:F2}s "
+                                  + "**不是原版值**（= 真值表的中位数，恰好等于旧常数）";
+                    return false;
+                default:
+                    return true;
+            }
+        }
 
         /// <summary>这条数值的出处（自检报数用）。**以「拍的」结尾的就不是原版的数**</summary>
         public static string SourceOf(EvtKind kind)
@@ -512,8 +612,11 @@ namespace CardPresentation
                                              + $"{AbilityFallbackSeconds}（= 真值表中位数，与旧常数恰好相等）";
                 case EvtKind.Trigger: return "`BattleManager.twoFractDelay`(**+0x4C8**) = 0.2 —— `_ResolveTriggerTraitAnim` 那条链的等待";
                 case EvtKind.Death: return "`VarsGlobal.deathTimeMinionDuration`=0.2（督军那档 0.5 见 `CardFeel.DeathDissolve`）";
-                case EvtKind.Draw: return "`VarsGlobal.timeToDrawPlayerCard`=0.3（= `CardFeel.DealDuration`，发牌入场那条补间）"
-                                        + "；⚠️ 只覆盖**我方档**（敌方 0.15 这一张表取不到座位号）";
+                case EvtKind.Draw: return "`VarsGlobal.TimeToDrawCard(bool isPlayer)` 那一对："
+                                        + "我方 `timeToDrawPlayerCard`=0.3（`CardFeel.DealDuration`）/ "
+                                        + "敌方 `timeToDrawEnemyCard`=0.15（`CardFeel.DealDurationFoe`）；"
+                                        + "🔴 2026-10-23（R19）起**按座位分档**（`DrawDealOf(e.Player)` + `IsLocalSeat`），"
+                                        + "⛔ 不是一刀切 0.3";
                 case EvtKind.Heal: return "`CardScript._Heal_d__468__MoveNext.c:204` 的 `WaitForSeconds(1.5)`"
                                         + "（= `CardView.HealTextHoldSeconds`；`ResolveHeal` 每目标 `yield return` 等它跑完 "
                                         + "⇒ 多目标治疗严格串行，`BattleManager._ResolveHeal_d__491__MoveNext.c:114-147`）";
