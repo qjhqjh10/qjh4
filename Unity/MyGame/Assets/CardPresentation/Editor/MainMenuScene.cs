@@ -9322,8 +9322,46 @@ public static class MainMenuScene
                                 + "（残留会把玩家在没有任何窗口的情况下拉进战场 —— 诊断 §⑤ 那条脆弱链）");
                     }
 
+                    // ---- ⑤ 🆕 **2026-10-23（W62 · 界面线）：ESC 关全屏匹配窗 ⇒ 搜索真的被取消** ----
+                    //  **真机缺陷**：按 ESC 关掉 `SearchingOpponentWindow` 之后，匹配那一局**还挂着**
+                    //    （`Searching` / 常驻 ticker / 联机的账都没清），屏幕上却什么都没有。
+                    //  🔴 **原版判据**（第一权威 = 反编译）：`d:/2/tools/decomp_full/SearchingMatchWindowDemo__ESCPressed.c:24`
+                    //    —— `Close()` 之后**无条件** `SearchingMatchWindowDemo__CancelSearch(...)`；而
+                    //    `…__CancelSearch.c` 那句 = `MatchMakerManager.CancelSearch` + **再 `Close()` 一次**。
+                    //  ⚠️ 这里必须走**生产链**：`ESCPressed() → Close() → OnCancel = RankedEventWindow.CancelSearch
+                    //    → base.CancelSearch → _search.AbortSearch()`（⛔ 不是直接调 `AbortSearch` —— 那样测不到接线）。
+                    {
+                        CheckTrue(PointerLayer.InputEnabled,
+                                  "（W62·⑤ 夹具）输入层是启用的（原版 `EventSystem.enabled` 的等价物）—— "
+                                + "`ESCPressed()` 的第一道门槛，false 的话下面等于空断");
+                        var hit5 = FindChild(rk.transform, "BattleHit");
+                        var hb5 = hit5 != null ? hit5.GetComponent<WindowButton>() : null;
+                        CheckTrue(hb5 != null, "（W62·⑤ 夹具）ESC 那一遍：`Battle!` 仍有点击区（宿主刚被 ④ 重建过）");
+                        if (hb5 != null) hb5.Click();
+                        var pop5 = FindChild(rk.transform, "Searching Oponent Popup (1)");
+                        var pr5 = pop5 != null ? pop5.GetComponent<SearchingMatchPopup>() : null;
+                        var so5 = SearchingOpponentWindow.LastOpened;
+                        CheckTrue(so5 != null && so5.gameObject.activeSelf && pr5 != null && pr5.Searching,
+                                  "（W62·⑤ 夹具）ESC 那一遍：全屏搜索窗开着、12 秒搜索**在等** —— 拿不到 ⇒ 下面三条等于空断");
+                        bool esc5 = so5 != null && so5.ESCPressed();
+                        CheckTrue(esc5 && so5 != null && !so5.gameObject.activeSelf,
+                                  "★ ESC ⇒ **全屏搜索窗关上**（`SearchingOpponentWindow` 的 `closeOnEsc = 1`，原版值）");
+                        // `ReferenceEquals` 判「C# 对象还在」（`CancelSearch` 那条链会 `_searchWin.Close()` ⇒
+                        // 宿主 `ShowPreviousWindow → TryOpen → Build()` 把旧 popup 销毁；托管字段仍可读 —— 同 ④ 的口径）
+                        bool pr5Alive = !object.ReferenceEquals(pr5, null);
+                        CheckTrue(pr5Alive && !pr5.Searching && pr5.SecondsLeft <= 0f,
+                                  "★ **ESC ⇒ 搜索被取消**（`Searching` / `SecondsLeft` 清掉）"
+                                + "｜🧨 改坏法：删掉 `SearchingOpponentWindow.ESCPressed` 覆写（退回「`Close()` 只放那一口气」）⇒ 红");
+                        CheckTrue(!SearchOpponentManager.HasActive,
+                                  "★ ESC ⇒ 常驻 ticker 里**没有残留**（= 原版 `CancelBattleSearch → StopCoroutine`）");
+                        SearchOpponentManager.Advance(12f);
+                        CheckTrue(!rk.StartedBattle,
+                                  "★ ESC 取消之后再推满 12 秒**也不会开打**（同 ④：残留会把玩家直接拉进战场）");
+                    }
+
                     // ---- ① 复现真机：**宿主 inactive、只走生产 ticker** 推满 12 秒 ⇒ 开战 ----
-                    // 第三遍：上面取消那一下又把宿主重建了一次 ⇒ `Battle!` 的句柄又得重抓（同本段开头 A516 那条）。
+                    // 第三遍：上面 ④（`Cancel` 钮）与 ⑤（ESC）那两下**各把宿主重建过一次** ⇒ `Battle!` 的句柄又得重抓
+                    //   （同本段开头 A516 那条）。
                     {
                         var hit3 = FindChild(rk.transform, "BattleHit");
                         var hb3 = hit3 != null ? hit3.GetComponent<WindowButton>() : null;
@@ -15328,6 +15366,50 @@ public static class MainMenuScene
             CheckTrue(Loc.EntryCount >= 429,
                       $"★（A1025）表基线：`Loc.EntryCount` = {Loc.EntryCount} ≥ **429**（开工前实测）"
                     + "｜🧨 把键删掉、断言也一起删 ⇒ 这条红");
+        }
+
+        // ============================================================ 🆕 2026-10-23（卡牌线 `C1`）官方中文全量收口
+        // 判据：**手写 `Table` 里凡是「官方本地化表也有这个键」的条目，中文列必须与官方逐字相同。**
+        //   · 期望值来源 = `Resources/official_loc_13lang.json` 的 **`zh` 列**（官方 I2 全表，10,862 键；
+        //     与 `数据/游戏数据/官方本地化_en+zh-CN.json` 是**同一份上游数据**的两个导出）。
+        //     ⚠️ **为什么不直接读 `官方本地化_en+zh-CN.json`**：那份把 en==zh 的语言中立条目存成**纯字符串**
+        //     （391 条，如语言名 / `VSync` / `Unranked Classic`），按 `[0]`/`[1]` 读会读出「E/n」这种**假差异**
+        //     （2026-10-23 那批踩过）；13 语言那份是规整的平行数组，逐条取列没有这个坑。
+        //   · 覆盖 = **全表**（不是抽几条）：枚举官方 10,862 键 → 我们表里也有这个键的（**447 条**，2026-10-23
+        //     实测基线）逐条比。官方没有的键（自拟/我们造的词条，303 条）**不在本条范围**。
+        //   · 🧨 改坏法（**必须红**）：
+        //     ① 任一条中文列改回 2026-10-23 之前的旧译（例：`Card_Trait/armour` 盔甲→护甲 ·
+        //        `Card_Trait/stealth` 隐身→潜行 · `Armies/Sororitas` 修女会→战斗修女）⇒ ② 红；
+        //     ② 某条中文列清空 / 改成键名本身 ⇒ ② 红；
+        //     ③ **「实现与期望一起改回去」做不到**：期望值不来自 `Loc`，来自官方数据文件；
+        //     ④ 把表里的条目删掉一批（想让 ② 变绿）⇒ ①（覆盖数下限）红。
+        //   ⚠️ 本批**只比中文列**：EN 列仍有 7 条与官方不同（清单在 `Core/Loc.cs` 文件头「现状」那段）。
+        Section("C1 官方中文全量收口：手写表逐条 = 官方 zh 列");
+        {
+            string[] c1OffKeys = Loc.Lang13Keys("");
+            CheckTrue(c1OffKeys.Length >= 10000,
+                      $"（前提）官方 13 语言表读得到：{c1OffKeys.Length} 键（应 ≥ 10000）"
+                    + "｜🧨 读不到 ⇒ 下面那条等于没验");
+            int c1Covered = 0, c1Bad = 0;
+            var c1BadKeys = new System.Text.StringBuilder();
+            foreach (var k in c1OffKeys)
+            {
+                if (!Loc.HasEntry(k)) continue;      // 官方有、我们没建这个键 ⇒ 不在本条范围
+                c1Covered++;
+                string ours = Loc.ZhOf(k), theirs = Loc.Lang13Of(k, "zh");
+                if (!string.IsNullOrEmpty(ours) && ours == theirs) continue;
+                c1Bad++;
+                if (c1BadKeys.Length < 600)
+                    c1BadKeys.Append((c1BadKeys.Length == 0 ? "" : " · ") + k
+                                   + "（我们「" + ours + "」≠ 官方「" + theirs + "」）");
+            }
+            CheckTrue(c1Covered >= 447,
+                      $"★（C1）官方键覆盖：手写表里命中官方表的 **{c1Covered}** 条（下限 **447** = 2026-10-23 实测基线）"
+                    + "｜🧨 删表里的条目想绕过下面那条 ⇒ 这条红");
+            CheckTrue(c1Bad == 0,
+                      $"★（C1）**手写表中文列逐条 = 官方 zh 列**：{c1Covered} 条全一致（不一致 {c1Bad} 条"
+                    + (c1Bad == 0 ? "" : "：前若干 = " + c1BadKeys) + "）"
+                    + "｜🧨 把任一条改回旧译 ⇒ 红");
         }
 
         // ============================================================ 🆕 2026-10-17（界面线 T18 收尾）

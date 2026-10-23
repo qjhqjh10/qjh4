@@ -705,9 +705,14 @@ namespace RuleEngine
         ///   · **③** 电脑后手、卡组那张为空 ⇒ 该督军自己的 `goSecondCardInHand(+0x150)`（`:49-96`，
         ///     还挂着两闸：`IsAgainstAI()` **且**玩家收藏里有同玩家阵营的 `spellType=210` 卡）。
         ///     ✅ 🔴 **2026-10-14：这份数据已到手并接线**（真值 → `数据/游戏数据/warlord_goes_second.json`
-        ///     → 卡表 `goesSecond` 列 → `CardDef.GoesSecondCard`）；**只覆盖 11 个阵营**
+        ///     → 卡表 `goesSecond` 列 → `CardDef.GoesSecondCard`）。
+        ///     🔴 **2026-10-23 就地订正（铁律 5 · 引擎线 `P1·②`）**：这里原来写「**只覆盖 11 个阵营**
         ///     （EmperorsChildren / SpaceWolves 的督军在原版那份 2025-07-30 快照里没有这个字段）
-        ///     ⇒ 那两族仍走「出声 + 不给卡」。两闸的落地见下面 `PlayerHasOwnFactionDefence`。
+        ///     ⇒ 那两族仍走「出声 + 不给卡」」—— **已过期**。中间表已按**当前 build** 的卡 SO 快照
+        ///     重生成（`工具/gen_warlord_goes_second.py`）⇒ 现在 **56 位督军 / 13 个阵营全覆盖**
+        ///     （EC → `EC59 Vial Tanks` · SW → `SW59 Orbital Defences`）。走不到 `pick != null`
+        ///     只剩两种真异常（督军还没落位 / 那一格真的空）⇒ 照旧「出声 + 不给卡」。
+        ///     两闸的落地见下面 `PlayerHasOwnFactionDefence`。
         ///   · **②** `matchType ∈ {50,80,110,120}` ⇒ **后手方阵营**的防御池随机一张（`:98-153`），
         ///     **它会覆盖 ③**（唯一能盖回来的是 `:154-167` 那个「覆盖回玩家那张」的守卫，
         ///     而它**只对玩家后手成立**）。
@@ -745,6 +750,8 @@ namespace RuleEngine
             // ---- ③ 其余 AI 模式：督军自己的 `goSecondCardInHand`(+0x150) ----
             //  ✅ **2026-10-14（`A1070` 第 ③ 档）：这份数据到手中了** —— 抢救出的原版远端包
             //     `allcards` 里 55/55 张督军都有这个字段（同包内 PPtr，按 `m_PathID` 解成卡 id）。
+            //     🔴 **2026-10-23 就地订正（铁律 5）**：「55/55」是 **2025-07-30 旧快照**的读数；
+            //     现读（当前 build 的 `cards_raw.json`）**64/64 条 PPtr → 56 位督军 / 13 个阵营**。
             //     接线：`数据/游戏数据/warlord_goes_second.json` → `gen_cards_engine.py` 的 `goesSecond` 列
             //     → `CardDef.GoesSecondCard`（`CardDatabase.Parse` 建完卡表后按 id 反查一次）。
             //     ⛔ **别在这里改回「本地没有这份数据」** —— 那是它到手之前的说法。
@@ -763,8 +770,9 @@ namespace RuleEngine
                     + "原版 `AddGoesSecondCardToDeck.c:65-89`）");
                 return pick;
             }
-            // 走到这里 = **真拿不到**：要么两闸没过，要么真值里没有这个阵营的督军
-            //   （原版那份 2025-07-30 快照里 EmperorsChildren / SpaceWolves 的督军**根本没有这个字段**）。
+            // 走到这里 = **真拿不到**：要么两闸没过，要么这一位督军在真值里**真的没有这个字段**
+            //   （🔴 2026-10-23 订正：原来这里写「EmperorsChildren / SpaceWolves 的督军根本没有这个字段」
+            //    —— 那是 2025-07-30 旧快照的缺口，**现在 13 个阵营全有**，见 `gen_warlord_goes_second.py`）。
             //   ⇒ **如实出声、不给卡**；⛔ **不许静默换一张别的**（那就是拿猜想着规则 —— 红线）。
             UnityEngine.Debug.LogWarning($"[RuleEngine] 电脑（P{seat + 1}）后手那张防御卡**发不出来**："
                 + $"原版这一档 `matchType = {(int)t}`（{t}）不在 `{{50,80,110,120}}` 里 ⇒ 该读"
@@ -772,8 +780,9 @@ namespace RuleEngine
                 + (botWarlordCard == null
                     ? "**这一局电脑的督军还没落位**"
                     : $"督军「{botWarlordCard.Name}」({botWarlordCard.Id}) **这一格是空的**"
-                      + "（真值只覆盖 11 个阵营 —— EmperorsChildren / SpaceWolves 的督军在原版那份"
-                      + "2025-07-30 快照里没有这个字段）")
+                      + "（真值表 `warlord_goes_second.json` 里没有这位督军的 `goSecondCardInHand`；"
+                      + "当前 build 覆盖 56 位督军 / 13 个阵营 ⇒ 空着就是**数据异常**，"
+                      + "重跑 `工具/gen_warlord_goes_second.py` ＋ `gen_cards_engine.py --write`）")
                 + " ⇒ 这一局电脑**没有防御卡**。⛔ 不静默换一张别的"
                 + "（判据 → `资料/普查产出_第五会话/查证_防御卡电脑随机.md` §二/§五"
                 + " · 真值 → `数据/游戏数据/warlord_goes_second.json`）");
@@ -10300,22 +10309,48 @@ namespace RuleEngine
                     ctx.Log($"{u.Name} 的狂暴结算完 —— **留在场上**"
                           + "（`Bjorn's Shrine` 给的「本回合下一次」标记用掉了）");
                 }
-                else if (u.IsAlive && ctx.Players[p].Board[slot] == u)
+                else
                 {
-                    // 🔴 2026-10-01：离场要**补位**（原版 `_ResolveRecallToDeck` 同样走 `RemoveMinion`）
-                    BoardSlots.RemoveAt(ctx.Players[p], slot);
-                    ctx.Players[p].Deck.Add(u.Instance);   // 第 7 行第 2 步：**同一份**洗回牌库（不新发）
-                    Shuffle(ctx.Players[p].Deck, ctx.Rng);
-                    Auras.Recompose(ctx);  // 🆕 A7：棋盘变动 ⇒ 光环重算
-                    // 🔴 2026-10-14（账 `A1666`）：句里原来带「（**规则书 :186**）」—— 那份是**粉丝实体版**
-                    //    （`Not official. Fan project.`，见 `CLAUDE.md` §一·2）⇒ ⛔ 不当出处，已删；
-                    //    「洗回牌库」这件事的**权威**判据 = 上面那两行引的原版
-                    //    `_ResolveRecallToDeck` / `RemoveMinion`（还带一条「离场要补位」）。
-                    ctx.Log($"{u.Name} 的狂暴结算完 —— **洗回牌库**");
-                    // ⚠️ 发 `Return`（「离开格位但不是阵亡」）而不是 `Death` —— 表现层据此播
-                    //    「回手/回牌库」那套，不会误播阵亡消散
-                    ctx.Emit(new BattleEvent { Kind = EvtKind.Return, Player = p, Slot = slot, CardId = u.Name,
-                                               InstanceId = u.InstanceId });
+                    // 🔴🆕 **2026-10-23（引擎线 `E1` · 回归 `R2`）：洗回牌库是【一条队列动作】，不是同步改局面。**
+                    //
+                    //   原版判据（第一权威 = 全量反编译）：
+                    //     · `CardScript__UsedActiveAbility.c:58-66`：先 `BattleManager__BroadcastUnitFerocity`
+                    //       （监听器 → `PlayAbility` → `AddAutoActionToQueue` ⇒ **正文那条先入队**），
+                    //       **之后**才 `BattleManager__AddRecallToDeck`；
+                    //     · `BattleManager__AddRecallToDeck.c:101` 自己也是 `AddAutoActionToQueue(…, param_5, …)`，
+                    //       而调用点 `UsedActiveAbility.c:65` 传的 `param_5 = 3` ⇒ **DelayedInstant 道**；
+                    //     · `BattleManager._ResolveRecallToDeck_d__543__MoveNext.c:43` 在**出队那一刻**才判
+                    //       `IsInPlayOrDying`、才 `RemoveMinion` ⇒ 复核属于队列体（⛔ 别在入队时判死）。
+                    //
+                    //   ⇒ 改前 = 「入队正文 ＋ **同步**洗回」⇒ 泵点执行正文时载体已不在棋盘，
+                    //     `SW5 Hunting Wolf` 的狂暴攻击**静默丢失**（`alt(ferocity)=0` 仍报成功）。
+                    //   ⇒ 现在两条都在队列里：正文（`TriggerLane`，默认 Instant）先于本条（DelayedInstant）结算。
+                    bool queued = EnqueueAbility(ctx, ActionPriority.DelayedInstant,
+                        "recall-to-deck:" + u.Name, () =>
+                        {
+                            // ⛔ 不能用入队时的格号 —— `BoardSlots.RemoveAt` 会搬格（补位）⇒ 按实例现找
+                            //   （原版 `_ResolveRecallToDeck` 出队那一刻也重新判 `IsInPlayOrDying`）。
+                            int ro, rs;
+                            FindBoardCell(ctx, u, out ro, out rs);
+                            if (!u.IsAlive || ro < 0) return;
+                            // 🔴 2026-10-01：离场要**补位**（原版 `_ResolveRecallToDeck` 同样走 `RemoveMinion`）
+                            BoardSlots.RemoveAt(ctx.Players[ro], rs);
+                            ctx.Players[ro].Deck.Add(u.Instance);   // 第 7 行第 2 步：**同一份**洗回牌库（不新发）
+                            Shuffle(ctx.Players[ro].Deck, ctx.Rng);
+                            Auras.Recompose(ctx);  // 🆕 A7：棋盘变动 ⇒ 光环重算
+                            // 🔴 2026-10-14（账 `A1666`）：句里原来带「（**规则书 :186**）」—— 那份是**粉丝实体版**
+                            //    （`Not official. Fan project.`，见 `CLAUDE.md` §一·2）⇒ ⛔ 不当出处，已删；
+                            //    「洗回牌库」这件事的**权威**判据 = 上面那两行引的原版
+                            //    `_ResolveRecallToDeck` / `RemoveMinion`（还带一条「离场要补位」）。
+                            ctx.Log($"{u.Name} 的狂暴结算完 —— **洗回牌库**");
+                            // ⚠️ 发 `Return`（「离开格位但不是阵亡」）而不是 `Death` —— 表现层据此播
+                            //    「回手/回牌库」那套，不会误播阵亡消散
+                            ctx.Emit(new BattleEvent { Kind = EvtKind.Return, Player = ro, Slot = rs, CardId = u.Name,
+                                                       InstanceId = u.InstanceId });
+                        }, actor: u);
+                    if (!queued)
+                        ctx.Log($"[ActionQueue] ⚠️ {u.Name} 的「洗回牌库」**没能入队**（入队口返回 false）"
+                              + "—— 这张卡会留在场上（⛔ 不是静默：这一行就是出声口）。");
                 }
             }
 

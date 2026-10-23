@@ -26,6 +26,54 @@
 //      · `TwoSidesEventWindow__OnEnable.c` 给 `backgroundCloseButton.onClick` 挂监听（同一个 delegate 也交给
 //        表头返回钮）⇒ **点压暗层 = 关窗**（同 `EnergySinglePlayerOnlyEventWindow` 那条已订正的口径）
 //
+// ============================ 🆕 2026-10-23（活动线 L01/L02/L03 收尾）：页签与入口 ============================
+// 🔴 **就地订正（铁律 5）**：本文件上面第 ④ 条只把「原版 `SetupTabs` → `AddTabButton`」**记成行为**、
+//   **没有实现**（`资料/普查产出_1023c/工具与活动线_核销报告.md` §二 就是这么核销的）。现在补上了，
+//   判据（`d:/2/tools/decomp_full/`，方法体完整现读）：
+//   · `BaseParentEventWindow__SetupTabs.c`：`LiveOpsManager.GetAllEvents(2, …)` → `Where(谓词)` → 逐事件：
+//       `HasComponent(ev, 13 /*TabButton*/)` ⇒ `label = GetLabel(ev, 0)` · `sprite = LoadAsset(ev, 0)` →
+//         `TabButtons.AddTabButton(label, sprite)` → `transform.SetAsLastSibling()` → `EverguildToggle.add_OnClick(…)`；
+//         那个回调整句 = **开另一扇窗**：`WindowsManager.OpenWindow(GetComponentReference(ev, 12 /*Popup*/), ev)`
+//         （`BaseParentEventWindow.__c__DisplayClass4_0___SetupTabs_b__2.c`）
+//       `HasComponent(ev, 11 /*Tab*/)` ⇒ `CreateEventTab(ev)` = **本窗内的一个内容页**
+//         （label = `TryGetLabel(ev,4) ?? TryGetLabel(ev,0)`；组件 = `LoadComponent(ev,11)`）
+//       一个事件都没有 ⇒ `GameWindowWithTabs.SetupTabs(0)`（基类 ⇒ 左栏空）
+//   · `TabButtons__AddTabButton.c` 逐句：`Instantiate(tabButtonPrefab, tabHolder)` → `SetActive(true)` →
+//     `SetSiblingIndex(0)` → **`set_name(label)`** → `Image.sprite = 图标` → `Toggle.group = group` →
+//     找子件文字组件 `SetText(label)`
+//   ⇒ **两种页签**：①「事件钮」= 左侧竖栏一颗、点了**开另一扇窗**；②「内容页」= 本窗里的一页。
+//     本窗两种都有：内容页 = Two Sides 的两页（`PageNames`）；事件钮 = `SetupTabs(BuildEventTabs(...))`
+//     建出来的**兄弟活动窗**（Gacha / Raid / Expansion Pass）。
+//
+// 🔴 **数据源（原版 vs 我们）**：原版读 `LiveOpsManager.GetAllEvents`（远端 PlayFab/CCD），本机没有那条链
+//   ⇒ 事件钮名单 = 四扇活动窗里**除本窗以外**的那几扇；其中 Parent / Expansion Pass 两扇在
+//   `LiveOpsLocalCatalog`（13 份活动 SO 的离线等价物）里有同类**在期且可选中**的实例时，页签名与 id 取那个事件。
+//   · 页签名次序 = **label 4（NavigationBarTitle） > label 0（Title） > 该窗自己的官方词条兜底**
+//     （`SetupTabs` 的事件钮那一支读 label 0、`CreateEventTab` / `OpenEventButton.SetButtonInfo` 读 4；
+//      我们取 4 优先 —— 与 `TabLabelNote` 那条已定的口径一致）。
+//   · 页签图标 = `LoadAsset(ev, 0)`（`EventAssetReferenceType.Icon`）。本机只有 GUID / 子件名、**没有可加载的
+//     Sprite** ⇒ 留空（⛔ 不用母版 `40K_shop_bt_boosters` 冒充）。
+//   · **没有在期事件时仍然建出事件钮** —— 这是**我们的一处有意偏离**（原版没有 live 事件就没有那颗钮），
+//     理由 = 验收口径「页面能打开、看得到原版结构、空态出声」（与 `Shell/GachaEventWindow.cs` 文件头那条同口径）。
+//   · **过期事件不参与**（用户边界「过期活动不做」）⇒ 今天（2026-10-23）13 份 SO **全部过期**，全走官方词条兜底。
+//
+// 🔴 **入口**：原版 = **左竖导航第 6 颗（`Event`）那颗「事件钮」**
+//   `NavigationPanelController.BuildEventButtons`（每个 live 事件 `Instantiate(eventButtonPrefab)` →
+//   `OpenEventButton.Initialize` → `SetButtonInfo`：图标 = `LoadAsset(ev,0)` · over-icon = `LoadAsset(ev,9)` ·
+//   文字 = `TryGetLabel(4) ?? (0)` · 计时 = `LiveOpsUtility.IsTimedEvent`）
+//   → 点它 = `OpenEventButton__ButtonClick` → `OpenWindow` →
+//     `WindowsManager.OpenWindow(GetComponentReference(ev, 10 /*MainWindow*/), ev)`；
+//   关回来 = `ToggleValueChange(false)` → 那扇窗的 `Close()`。
+//   🔴 **`ev → 哪扇窗` 的映射已核过**（`bundle_menus_assets_all/AssetBundle/AssetBundle_1.json` 的
+//     `m_Container`（键 = GUID）→ PathID → UnityPy 读名）：
+//       `Parent` 事件 `MainWindow` = `9a26697357770d8458298d89467fd459` → PathID `-3290546486736551612`
+//         = **`Parent Event Window`**（就是本文件这扇）；
+//       `Scoring` 事件 `Tab` = `e6914cbdd45814f5f9bd40a854c12218` → PathID `-555883983194387681`
+//         = **`Expansion Pass Tab`**（= `ExpansionPassEventWindow`）。
+//   ⇒ 我们的等价物 = `WindowsManager.OpenEventHub(EventWindowKind)`（那一跳的唯一共用口）。
+//   ⚠️ **还差最后一跳**：左竖导航那颗钮在 `Shell/MainMenuRuntime.cs` 的 `BuildNavigationPanel`
+//     （**不在本代理的白名单里**）⇒ 本批**没接**，补法写进了报告；在那之前只能从 `WindowsManager.OpenEventHub` 打开。
+//
 // ============================ 🔴 两个 prefab 的事实（照实记录，⛔ 别把它们混成一份）============================
 // 本包里有**两份**：
 //   · `Parent Event Window`（GO `-3290546486736551612`）：组件 = `TabbedWindowComponents` + `BaseParentEventWindow`
@@ -209,6 +257,38 @@ namespace CardPresentation
         /// 优先级更高（调用方说了算）。</summary>
         public string[] TabLabelTerms;
 
+        // ============================================================ 🆕 2026-10-23：事件钮（`SetupTabs` 那一族）
+        /// <summary>本机四扇活动窗（= 原版 `LiveOpsManager.GetAllEvents` 结果里会出现的四种活动形态）。
+        /// <para>值 = 「`SetupTabs` 建出来的一颗事件钮指向哪扇窗」；`EventWindowRootNames` 逐值同序
+        /// （= 各窗 `Create()` 里那个根名，两处同源）。</para></summary>
+        public enum EventWindowKind { Parent = 0, Gacha = 1, Raid = 2, ExpansionPass = 3 }
+
+        /// <summary>四扇活动窗的**根名**（= prefab 根名 / `Create()` 用的名字；顺序 = <see cref="EventWindowKind"/>）。</summary>
+        public static readonly string[] EventWindowRootNames =
+        {
+            RootName,                                   // "Parent Event Window"
+            GachaEventWindow.RootName,                  // "Gacha Tab"
+            RaidEventWindow.RootName,                   // "Raid Progress Tab"
+            ExpansionPassEventWindow.RootName,          // "Expansion Pass Tab"
+        };
+
+        /// <summary>一颗「事件钮」= 原版 `TabButtons.AddTabButton(label, sprite)` 的一项 + 点它的去向。</summary>
+        public sealed class EventTab
+        {
+            /// <summary>指向哪扇窗。</summary>
+            public EventWindowKind Kind;
+            /// <summary>页签文字（原版 `AddTabButton` 的 `label` 实参；**同时是节点名** —— `set_name(label)`）。</summary>
+            public string Label;
+            /// <summary>页签图标（原版 `Image.sprite = LoadAsset(ev,0)`；本机没有可加载的 liveops sprite ⇒ null）。</summary>
+            public Texture2D Icon;
+            /// <summary>本地活动实例 id（`LiveOpsLocalCatalog` 的在期事件）；**null = 本机没有那个实例**（如实记）。</summary>
+            public string EventId;
+            /// <summary>这一项凭什么出现（自检读口 / 出声用）。</summary>
+            public string Note;
+            /// <summary>点它的去向（原版 `b__2` = `WindowsManager.OpenWindow(...)`）。</summary>
+            public System.Action Open;
+        }
+
         // ---- 第 1 页（`TwoSidesEvent_ChooseSideTab`）矩形（D_ dump 的 derived 树逐行实读）----
         public static readonly PxRect P1ScanLinesR = new PxRect(615.9f, 148.0f, 1304.1f, 888.1f);
         public static readonly PxRect P1GlowR = new PxRect(764.2f, 378.0f, 1155.8f, 778.0f);
@@ -369,11 +449,16 @@ namespace CardPresentation
         readonly List<Transform> _tabHi = new List<Transform>();
         readonly List<Label> _tabLabels = new List<Label>();
         readonly List<Transform> _pages = new List<Transform>();
+        // 🆕 2026-10-23：事件钮（`SetupTabs`）—— **与内容页那三张表分家**（见 `SetupTabs` 的 doc）
+        readonly List<Transform> _eventTabs = new List<Transform>();
+        readonly List<Transform> _eventHi = new List<Transform>();
+        readonly List<Label> _eventLabels = new List<Label>();
         readonly List<Label> _p1TapLabels = new List<Label>();
         readonly List<Label> _p2ScoreLabels = new List<Label>();
         Label _p1Title, _p2HeaderTitle, _p2RewardTile, _p2Collect, _p2TotalVictories, _p2Timer;
         Transform _p1Back, _p2Back, _p2CollectBtn, _scoreLevels;
         bool _warned;
+        bool _tabOverflowWarned;
         readonly List<string> _missArt = new List<string>();
 
         /// <summary>建不出来的图（非空 = 有件没画；自检读口）。</summary>
@@ -407,6 +492,12 @@ namespace CardPresentation
         /// <summary>两颗页签的选中高亮（兄弟序同 <see cref="TabButtonNodes"/>）。</summary>
         public List<Transform> TabHighlights { get { return _tabHi; } }
         public List<Label> TabLabels { get { return _tabLabels; } }
+        /// <summary>🆕 2026-10-23：**事件钮**（`SetupTabs` 建的那几颗；**不含**内容页签，兄弟序 = 事件名单序）。</summary>
+        public List<Transform> EventTabNodes { get { return _eventTabs; } }
+        public List<Transform> EventTabHighlights { get { return _eventHi; } }
+        public List<Label> EventTabLabels { get { return _eventLabels; } }
+        /// <summary>`SetupTabs` 那一声出声的原文（自检读口 / 人看着核名单用）。</summary>
+        public string EventTabNote { get; private set; }
         /// <summary>两页节点（兄弟序 = `tabs` 顺序）。</summary>
         public List<Transform> PageNodes { get { return _pages; } }
         public Transform ChooseSidePage { get { return _page0; } }
@@ -480,6 +571,7 @@ namespace CardPresentation
             MenuDraw.ClearChildren(transform);
             MissingArt.Clear();
             _tabButtonsList.Clear(); _tabHi.Clear(); _tabLabels.Clear(); _pages.Clear();
+            ClearEventTabs(); _tabOverflowWarned = false;
             _p1TapLabels.Clear(); _p2ScoreLabels.Clear();
             _p1Title = _p2HeaderTitle = _p2RewardTile = _p2Collect = _p2TotalVictories = _p2Timer = null;
             _p1Back = _p2Back = _p2CollectBtn = _scoreLevels = null;
@@ -562,6 +654,10 @@ namespace CardPresentation
             MenuDraw.Rect(_shadow1, Tex(ArtTabShadow, "页签栏阴影（右侧那条）"), Shadow1R, "Image",
                           QTabShadow, TabShadowTint);
             _shadow1.gameObject.SetActive(false);
+
+            // 🆕 2026-10-23：左栏的「事件钮」（原版 `BaseParentEventWindow.SetupTabs`）—— **建在最后**，
+            //   兄弟序 = 内容页签在前、事件钮在后（原版 `AddTabButton` 里那句 `SetAsLastSibling()`）
+            SetupTabs(BuildEventTabs(EventWindowKind.Parent, LiveOpsLocalCatalog.NowUtc));
 
             if (MissingArt.Count > 0)
                 Debug.LogWarning("[ParentEvent] ⚠️ 有 " + MissingArt.Count + " 张图取不到（**这些件没画**）："
@@ -646,6 +742,215 @@ namespace CardPresentation
             // ⚠️ 红点计数来自通知系统（远端）⇒ prefab 出厂是空字、底板照建（同 prefab 出厂态）。
 
             return btn;
+        }
+
+        // ============================================================ 🆕 2026-10-23：事件钮（`SetupTabs`）
+        // 判据全在文件头那一节（`BaseParentEventWindow__SetupTabs.c` / `TabButtons__AddTabButton.c` /
+        // `BaseParentEventWindow.__c__DisplayClass4_0___SetupTabs_b__2.c` / `OpenEventButton__*.c`）。
+
+        /// <summary>**建左栏的「事件钮」** —— 原版 `BaseParentEventWindow.SetupTabs` + `TabButtons.AddTabButton` 的等价物。
+        /// <para>⚠️ 本方法建的是**事件钮**那一种（点了**开另一扇窗**）；本窗**自己的页**是另一种（`Build()` 里那两颗
+        /// 内容页签）。兄弟序 = 内容页在前、事件钮在后（原版 `SetAsLastSibling`）。</para>
+        /// <para>⚠️ **内容页那三张表不被污染**：`TabButtonNodes` / `TabHighlights` / `TabLabels` 仍只含内容页
+        /// （`Editor/MainMenuScene.cs` 的 T28 断言按 2 颗数的）⇒ 事件钮走
+        /// <see cref="EventTabNodes"/> / <see cref="EventTabHighlights"/> / <see cref="EventTabLabels"/>。</para>
+        /// <para>**幂等**：再调一次会把上一轮的事件钮全拆掉重建（内容页签一颗都不动）。</para></summary>
+        /// <returns>建出几颗（0 = 名单空）。</returns>
+        public int SetupTabs(IList<EventTab> tabs)
+        {
+            ClearEventTabs();
+            if (tabs == null || tabs.Count == 0)
+            {
+                EventTabNote = "`SetupTabs` 名单为空 ⇒ 左栏只有内容页签（原版 `GameWindowWithTabs.SetupTabs(0)` 那一支）。";
+                Debug.Log("[ParentEvent] " + EventTabNote);
+                return 0;
+            }
+
+            var notes = new List<string>();
+            for (int i = 0; i < tabs.Count; i++)
+            {
+                var t = AddTabButton(tabs[i]);
+                if (t == null) continue;
+                notes.Add(t.name + "（" + (string.IsNullOrEmpty(tabs[i].Note) ? "—" : tabs[i].Note) + "）");
+            }
+            EventTabNote = "`SetupTabs` 建出 " + _eventTabs.Count + " 颗事件钮：" + string.Join(" · ", notes.ToArray())
+                         + "。⚠️ 名单 = 四扇活动窗里除本窗以外的那几扇（原版读 `LiveOpsManager.GetAllEvents` 的"
+                         + "远端列表，本机没有那条链）；在期活动实例参与页签名，过期的一律不用。";
+            Debug.Log("[ParentEvent] " + EventTabNote);
+            return _eventTabs.Count;
+        }
+
+        /// <summary>一颗事件钮（原版 `TabButtons__AddTabButton` 那一跳：`Instantiate` → `SetActive(true)` →
+        /// `SetSiblingIndex(0)` → `set_name(label)` → `Image.sprite = 图标` → `Toggle.group` → 文字 `SetText`）。
+        /// <para>⚠️ **不建 `Highlight` 的选中态**：原版左栏是一个 `ToggleGroup`（`m_AllowSwitchOff = 0`）里
+        /// 内容页与事件钮混排、恒有一颗亮；我们的窗是**一扇一页**（事件钮点下去是**换窗**，不是换页）
+        /// ⇒ 选中态只给内容页，事件钮的 `Highlight` 建着但**恒关**（如实标，⛔ 别当成漏做）。</para></summary>
+        public Transform AddTabButton(EventTab tab)
+        {
+            if (tab == null) return null;
+            int slot = PageCount + _eventTabs.Count;          // 内容页占 0..PageCount-1
+            float top = TabTop + TabH * slot;
+            if (!_tabOverflowWarned && top + TabH > ContentAreaR.y2 + 0.5f)
+            {
+                _tabOverflowWarned = true;
+                Debug.LogWarning("[ParentEvent] ⚠️ 第 " + (slot + 1) + " 颗页签的按钮矩形下沿 = "
+                               + (top + TabH).ToString("F1") + "px，超出左栏底 " + ContentAreaR.y2.ToString("F1")
+                               + "px（原版 `Tab Buttons` 是上对齐 VLG、**没有滚动** ⇒ 事件多的时候同样溢出）。"
+                               + "**可见件（图标 / 名牌 / 红点）仍在上沿 +24.6~+162.2 之内**，探出去的只是按钮矩形底部那截空白。");
+            }
+
+            // 原版 `add_name`/`set_name(label)` ⇒ 节点名 = 页签文字（⛔ 别改成内部代号：自检与出声都按它认）
+            var t = BuildTabButton(tab.Label, top, tab.Label, false);
+            // `BuildTabButton` 会把 `Highlight` / `Label` 记进**内容页**那两张表 ⇒ 事件钮要搬出来
+            //（否则 `SwitchPage` 会按页号去点事件钮的灯）
+            if (_tabHi.Count > 0) { _eventHi.Add(_tabHi[_tabHi.Count - 1]); _tabHi.RemoveAt(_tabHi.Count - 1); }
+            if (_tabLabels.Count > 0) { _eventLabels.Add(_tabLabels[_tabLabels.Count - 1]); _tabLabels.RemoveAt(_tabLabels.Count - 1); }
+
+            // 图标（原版 `Image.sprite = LoadAsset(ev, 0)`）：`Icon == null` ⇒ 留空（⛔ 不拿母版图冒充）
+            if (tab.Icon != null)
+            {
+                var icon = t.Find("Icon");                     // 直接子件（`transform.Find` 只找直接子件）
+                if (icon != null)
+                    MenuDraw.Rect(icon, tab.Icon, new PxRect(TabButtonsR.x1, top, TabButtonsR.x2, top + TabH),
+                                  "Image", QTabIcon, Color.white, true);
+            }
+
+            _eventTabs.Add(t);
+            // 点它 = 原版那个 `b__2` 回调（开**另一扇**活动窗）。`allowClickWhenAlreadySelected = 0` 照
+            // `EverguildToggle` 的口径；`isOn` 恒 false ⇒ 每一下都派发（事件钮没有「已选中」这一态）
+            var hit = MenuDraw.Hit(t, "Hit", new PxRect(TabButtonsR.x1, top, TabButtonsR.x2, top + TabH), QHit,
+                                   () => { if (tab.Open != null) tab.Open(); },
+                                   null, null, null, null, null, clickCue: WindowSounds.DefaultButtonCue);
+            var wb = hit != null ? hit.GetComponent<WindowButton>() : null;
+            if (wb != null) { wb.allowClickWhenAlreadySelected = false; wb.isOn = () => false; }
+            return t;
+        }
+
+        /// <summary>拆掉上一轮建的事件钮（`SetupTabs` 的第一句）。</summary>
+        void ClearEventTabs()
+        {
+            for (int i = 0; i < _eventTabs.Count; i++)
+                if (_eventTabs[i] != null) Kill(_eventTabs[i].gameObject);
+            _eventTabs.Clear(); _eventHi.Clear(); _eventLabels.Clear();
+            EventTabNote = null;
+        }
+
+        /// <summary>批处理下必须 `DestroyImmediate`（没有帧循环；同 `MenuDraw.ClearChildren` 那条）。</summary>
+        static void Kill(GameObject go)
+        {
+            if (go == null) return;
+#if UNITY_EDITOR
+            if (!Application.isPlaying) { Object.DestroyImmediate(go); return; }
+#endif
+            Object.Destroy(go);
+        }
+
+        /// <summary>原版 `LiveOpsManager.GetAllEvents(2, …).Where(…)` 的**离线等价物**：给出「除本窗以外」的事件钮名单。
+        /// <para>① 名单来自四扇活动窗（`EventWindowKind`）里不是本窗的那几扇 —— 原版是「每个 live 事件一颗钮」，
+        /// 而 Gacha / Raid 的**活动定义只在远端**（本机 13 份 SO 里没有这两类）⇒ 它们永远拿不到活动实例；</para>
+        /// <para>② Parent / Expansion Pass 两扇在 <see cref="LiveOpsLocalCatalog"/> 里有同类**在期且可选中**的实例时，
+        /// 页签名与 `EventId` 取那个事件的（`label 4 = NavigationBarTitle` ?? `label 0 = Title`）。</para>
+        /// <para>⚠️ **过期事件不参与**（用户边界「过期活动不做」）⇒ 今天（2026-10-23）13 份 SO 全部过期，
+        /// 全部走官方词条兜底；<paramref name="utc"/> 由调用方给（自检传显式时刻，⛔ 不读 `NowUtc` 去断）。</para></summary>
+        public static List<EventTab> BuildEventTabs(EventWindowKind self, System.DateTime utc)
+        {
+            var list = new List<EventTab>(4);
+            for (int i = 0; i < EventWindowRootNames.Length; i++)
+            {
+                var kind = (EventWindowKind)i;
+                if (kind == self) continue;                 // 本窗自己的内容已经在内容页签里了
+                list.Add(MakeEventTab(kind, utc));
+            }
+            return list;
+        }
+
+        static EventTab MakeEventTab(EventWindowKind kind, System.DateTime utc)
+        {
+            var tab = new EventTab { Kind = kind, Open = OpenerFor(kind) };
+
+            var kinds = CatalogKinds(kind);
+            LiveOpsLocalEvent ev = null;
+            string why;
+            if (kinds != null) LiveOpsLocalCatalog.TrySelectActive(kinds, utc, out ev, out why);
+            else
+                why = "本机 13 份活动 SO 里**没有**这一类活动实例（`LiveOpsLocalKind` 只有 Parent / Scoring / "
+                    + "PremiumItemOffer 三种）—— Gacha / Raid 的活动定义只在远端 CCD";
+
+            if (ev != null)
+            {
+                tab.EventId = ev.EventId;
+                tab.Label = LabelFromEvent(ev);
+                tab.Note = "本地活动目录的在期事件 `" + ev.EventId + "`（label 4 = NavigationBarTitle ?? label 0 = Title）";
+            }
+            else
+            {
+                tab.Label = FallbackTabLabel(kind);
+                tab.Note = "本机没有在期事件（" + why + "）⇒ 页签名用「" + tab.Label + "」兜底（**我们挑的**，"
+                         + "不是原版 liveops 文案；过期活动一律不用）";
+            }
+            // 最后一道兜底：词条表缺键时 `Loc.T` 会回键名/空串 ⇒ 用根名顶上并出声（⛔ 不许静默建一颗空字页签）
+            if (string.IsNullOrEmpty(tab.Label))
+            {
+                tab.Label = EventWindowRootNames[(int)kind];
+                Debug.LogWarning("[ParentEvent] 事件钮文字取不到（" + tab.Note + "）⇒ 用根名 `" + tab.Label + "` 顶上");
+            }
+            // 图标：原版 `LoadAsset(ev, 0)`；本机只有 GUID / 子件名，没有可加载的 Sprite ⇒ null（见文件头）
+            tab.Icon = null;
+            return tab;
+        }
+
+        /// <summary>事件形态 → 本地活动目录的那几类（`null` = 本机没有这一类）。</summary>
+        static LiveOpsLocalKind[] CatalogKinds(EventWindowKind kind)
+        {
+            switch (kind)
+            {
+                case EventWindowKind.Parent: return new[] { LiveOpsLocalKind.Parent };
+                case EventWindowKind.ExpansionPass: return new[] { LiveOpsLocalKind.Scoring };
+                default: return null;                        // Gacha / Raid
+            }
+        }
+
+        /// <summary>页签名（`label 4` 优先，其次 `label 0`）—— 原版 `CreateEventTab` / `SetButtonInfo` 的次序。</summary>
+        static string LabelFromEvent(LiveOpsLocalEvent ev)
+        {
+            LiveOpsLocalLabel l;
+            if (ev.TryGetLabel((int)LiveOpsLabelRef.NavigationBarTitle, out l))
+            {
+                var t = LiveOpsLocalCatalog.TermText(l.Term);
+                if (!string.IsNullOrEmpty(t)) return t;
+            }
+            if (ev.TryGetLabel((int)LiveOpsLabelRef.Title, out l))
+            {
+                var t = LiveOpsLocalCatalog.TermText(l.Term);
+                if (!string.IsNullOrEmpty(t)) return t;
+            }
+            return null;
+        }
+
+        /// <summary>没有活动实例时的页签名兜底（**我们挑的**，逐条注明判据；⛔ 别写成「原版就是这样」）。</summary>
+        static string FallbackTabLabel(EventWindowKind kind)
+        {
+            switch (kind)
+            {
+                case EventWindowKind.Gacha: return Loc.T(GachaEventWindow.TermTitle);           // `Event_Description/Gacha/TabTitle`
+                case EventWindowKind.Raid: return Loc.T(RaidEventWindow.TermTabTitle);         // `Event_Description/General/Raid`
+                case EventWindowKind.ExpansionPass: return Loc.T(ExpansionPassEventWindow.TermTabTitle); // `…/ExpansionPass/TabTitle`
+                // Two Sides 那扇：本机没有它的活动实例 ⇒ 用它 prefab 的**出厂标题**（`P1TitleText`，prefab 实读）
+                default: return P1TitleText;
+            }
+        }
+
+        /// <summary>点这颗钮去哪（原版 `b__2` = `WindowsManager.OpenWindow(GetComponentReference(ev, 12))`）。
+        /// ⚠️ 我们按 `<see cref="EventWindowKind"/>` 直开对应那扇窗（没有事件实例可选 ⇒ 这是等价物，如实标）。</summary>
+        static System.Action OpenerFor(EventWindowKind kind)
+        {
+            switch (kind)
+            {
+                case EventWindowKind.Gacha: return () => WindowsManager.OpenEventHub(EventWindowKind.Gacha);
+                case EventWindowKind.Raid: return () => WindowsManager.OpenEventHub(EventWindowKind.Raid);
+                case EventWindowKind.ExpansionPass: return () => WindowsManager.OpenEventHub(EventWindowKind.ExpansionPass);
+                default: return () => WindowsManager.OpenEventHub(EventWindowKind.Parent);
+            }
         }
 
         // ============================================================ 页切换

@@ -588,7 +588,7 @@ Armour 2.,~,护甲 2。
 Armour 2. Adjacent units have Armour 1. Duty: Deal 8 damage,~,装甲 2。相邻单位获得装甲 1。职责：造成 8 点伤害。
 Armour 2. Any attack against your Warlord targets this troop instead.,~,装甲 2。任何以你的战将为目标的攻击改为以该部队为目标。
 Armour 2. Concussive. Unstable. Rally: Stun a random enemy.,~,护甲 2。震荡。不稳定。集结：使一个随机敌人眩晕。
-Armour 2. Cruelty: Deploy a random Emperor's Children Infantry that costs 3 or less.,~,护甲 2。残忍：部署一个费用 3 或以下的随机帝皇之子步兵。
+Armour 2. Cruelty: Deploy a random Emperor's Children Infantry that costs 3 or less.,~,护甲 2。残忍：部署一个费用 3 或以下的随机帝皇子嗣步兵。
 Armour 2. Gain Blast 6 and Camouflage. Talent: Wrath of Khaine.,~,护甲 2。获得爆裂 6 和伪装。天赋：凯恩之怒。
 "Armour 2. Slay: Gain +1 Attack, +1 Armour and +1 Health.",~,护甲 2。斩杀：获得 +1 攻击、+1 装甲和 +1 生命。
 Armour 2. Teleport: Deal 3 damage to all enemies and give +2 to all friendly units.,~,护甲 2。传送：对所有敌人造成 3 点伤害，并给予所有我方单位 +2 攻击。
@@ -789,7 +789,7 @@ Chimera,~,奇美拉
 Choose a 2-cost Leviathan troop and deploy it,~,选择 1 个 2 费利维坦部队并将其部署
 Choose a Black Legion troop and put it in your hand. It costs 1 less.,~,选择一张黑色军团部队牌置入手牌。其费用减少 1。
 Choose a Combat Elixir and create it in your hand,~,选择一张战斗药剂并在你的手牌中生成它。
-"Choose a Dark Angels Secret and add it to your deck. If you control a Vehicle, draw a card",~,选择一张暗黑天使隐秘牌加入你的卡组。若你控制一个载具，抽 1 张牌
+"Choose a Dark Angels Secret and add it to your deck. If you control a Vehicle, draw a card",~,选择一张黑暗天使隐秘牌加入你的卡组。若你控制一个载具，抽 1 张牌
 Choose a Genomic Enhancement and put it in your hand,~,选择一张基因增强并加入你的手牌。
 Choose a Sabotage and add it to the enemy hand,~,选择一张破坏卡并加入对手手牌。
 Choose a Sabotage card and add it to your opponent's hand,~,选择一张破坏卡并加入对手手牌。
@@ -808,8 +808,8 @@ Choose a friendly troop that died since your last turn and deploy it,~,选择 1 
 Choose a friendly troop that died since your last turn and deploy it. Lower its Health to 1,~,选择一张自你的上个回合以来死亡的友方部队并部署它。将其生命降至 1。
 Choose a friendly troop that died this battle and deploy it,~,选择一张本场战斗中死亡的友方部队并部署它。
 Choose a friendly troop that died this game and put it in your hand,~,选择一张本场战斗中阵亡的友方部队牌，置入手牌。
-Choose a non-Legendary Dark Angels card and add it your hand. Gain 1.,~,选择一张非传说暗黑天使卡加入你的手牌。获得 1 点任务。
-Choose a non-Legendary Genestealer Cults troop and add it to your hand,~,选择一张非传说基因窃取者教派部队并加入你的手牌。
+Choose a non-Legendary Dark Angels card and add it your hand. Gain 1.,~,选择一张非传说黑暗天使卡加入你的手牌。获得 1 点任务。
+Choose a non-Legendary Genestealer Cults troop and add it to your hand,~,选择一张非传说基因窃取者教团部队并加入你的手牌。
 Choose a non-Legendary Ultramarines card and create two copies in your hand,~,选择 1 张非传说极限战士卡，在手牌中生成 2 张复制。
 Choose a troop from your deck and draw it. Heal 6 to your Warlord,~,从你的牌库选择 1 个部队并抽取。为你的战将治疗 6 点。
 Choose a troop from your deck and draw it. Lower its cost by 1,~,选择你牌库中的一张部队并抽取，其费用 -1。
@@ -881,7 +881,7 @@ Create a Chosen of Slaanesh in your hand,~,在你的手牌中生成一张色孽�
 Create a Hunting Wolf in your hand,~,手牌生成 1 张猎狼。
 Create a Termagant in your hand. Your next troop this turn costs 1 less,~,在你的手牌创建 1 张泰玛根。本回合你的下一个部队费用 -1
 Create a random Black Legion Stratagem in your hand. It costs 2 less.,~,将一张随机的黑色军团战术置入手牌。其费用减少 2。
-Create a random Dark Angels Vehicle in your hand. Talent: Master of Manoeuvre,~,将一张随机的暗黑天使载具置入手牌。天赋：机动大师
+Create a random Dark Angels Vehicle in your hand. Talent: Master of Manoeuvre,~,将一张随机的黑暗天使载具置入手牌。天赋：机动大师
 Create a random Sabotage in the enemy hand,~,在对手手牌中生成一张随机破坏卡。
 "Create a random Sabotage in the enemy hand. For the rest of this battle, Sabotage cards in the enemy hand cost 1 more",~,在对手手牌中生成一张随机破坏卡。本场战斗中，对手手牌中的破坏卡费用 +1。
 Create a random troop with Ambush in your hand. It costs 2 less,~,在你的手牌中生成一个带伏击的随机部队。其费用 -2。
@@ -1068,7 +1068,7 @@ Deffgun Loota,~,死枪掠夺者
 Deffkopta,~,死亡直升机
 Delightful Agonies,~,欢愉之痛
 Deploy 2 Canoptek Scarab,~,部署 2 个冥府圣甲虫。
-Deploy 2 random 2-cost Genestealer Cults troops,~,部署 2 个随机的 2 费基因窃取者教派部队。
+Deploy 2 random 2-cost Genestealer Cults troops,~,部署 2 个随机的 2 费基因窃取者教团部队。
 Deploy 3 Grot and give them Vanguard.,~,部署 3 个地精并给予它们先锋。
 Deploy 3 Primaris Intercessor and give them Flank. Codex: Give +1 to your Primaris Intercessor,~,部署 3 个原铸仲裁者并给予它们侧翼。典籍：给予你的原铸仲裁者 +1。
 Deploy 3 random 2-cost Sautekh troops,~,部署 3 个随机 2 费索泰克部队。
@@ -1093,7 +1093,7 @@ Deploy a Shock Trooper,~,部署一个震荡突击兵。
 Deploy a Spore Mine,~,部署 1 个孢子雷
 Deploy a Wraithguard,~,部署 1 个幽卫
 "Deploy a Wraithguard. Spend all your Spirit Stones. For each one, deploy a Wraithguard.",~,部署 1 个幽卫。消耗你所有的灵魂石。每消耗 1 颗，部署 1 个幽卫。
-Deploy a random Emperor's Children Infantry that costs 3 or less,~,部署一个费用 3 或以下的随机帝皇之子步兵。
+Deploy a random Emperor's Children Infantry that costs 3 or less,~,部署一个费用 3 或以下的随机帝皇的儿女步兵。
 "Deploy an Infractor and a Tormentor. If a friendly troop died this turn, give them Flank",~,部署一个违规者和一个折磨者。若本回合有友方部队死亡，给予它们侧翼。
 Deploy an Ultramarines troop that costs 6 or more. Oath 6: Deal damage to all enemy troops equal to its,~,部署 1 个费用 6 或更高的极限战士部队。誓言 6：对所有敌方部队造成等同于其近战攻击的伤害。
 Deploy one Battle Sister for each enemy unit,~,每有 1 个敌方单位，部署 1 个战斗修女
@@ -1103,7 +1103,7 @@ Deploy one Chaos Spawn for each enemy unit,~,每有一个敌方单位，部署�
 Deploy one Stormboy. Repeat for each enemy unit,~,部署一个风暴小子。每有一个敌方单位，重复此效果。
 Deploy three Shock Trooper. Lower cost by 1 when you deploy a Vehicle,~,部署 3 个震荡突击兵。每当你部署一个载具时，此牌费用减少 1 点。
 "Deploy three Tempestus Scion and give them Vanguard. If you control a Vehicle, give them Armour 1",~,部署 3 个暴风圣选兵并给予其先锋。若你控制一个载具，则再给予它们装甲 1。
-Deploy three random Emperor's Children Daemons that cost 5 or less,~,部署 3 个费用 5 或以下的随机帝皇之子恶魔。
+Deploy three random Emperor's Children Daemons that cost 5 or less,~,部署 3 个费用 5 或以下的随机帝皇子嗣恶魔。
 Deploy two Grot,~,部署两个地精。
 Deploy two Sacred Rose Sister. 6 [icon] Give them Flank,~,部署 2 个圣玫瑰修女。6 ☀：给予它们侧翼
 Deploy two Storm Guardian,~,部署 2 个风暴守护者
@@ -2053,7 +2053,7 @@ Radiation Storm,~,辐射风暴
 Raging Storm,~,狂暴风暴
 Ragnar Blackmane,~,拉格纳·黑鬃
 Raid Tactics,~,突袭战术
-Rally: Choose a 2-cost Genestealer Cults troop and create 2 copies in your hand Lower their cost by 1,~,集结：选择一张 2 费基因窃取者教派部队，在你的手牌中生成 2 张复制，并使其费用 -1。
+Rally: Choose a 2-cost Genestealer Cults troop and create 2 copies in your hand Lower their cost by 1,~,集结：选择一张 2 费基因窃取者教团部队，在你的手牌中生成 2 张复制，并使其费用 -1。
 Rally: Choose a Combat Elixir and create it in your hand. Stimulation: Gain Shield,~,集结：选择一张战斗药剂并在你的手牌中生成它。激励：获得护盾。
 Rally: Choose a card from your deck and put it at the top of your deck,~,集结：从你的卡组选择一张牌置于卡组顶部
 Rally: Choose a card in your opponent's hand and increase its cost by 1,~,集结：选择对手手牌中的一张牌，使其费用 +1。
@@ -2756,7 +2756,7 @@ Zodgrod Wortsnagga,~,佐德格罗德·沃茨纳加
 Bloodthirst,~,嗜血
 Chaos,~,混沌
 Adepta Sororitas,~,战斗修女团
-Genestealer Cults,~,基因窃取者教派
+Genestealer Cults,~,基因窃取者教团
 Ultramarines,~,极限战士
 Space Wolves,~,太空野狼
 Alpha Warrior,~,阿尔法战士
@@ -6378,7 +6378,7 @@ Troop,~,部队
 Event,~,事件
 Beast,~,野兽
 Unit,~,单位
-Battlesuit,~,战甲
+Battlesuit,~,战斗服
 Psychic Power,~,灵能
 Action,~,行动
 Drone,~,无人机

@@ -7,9 +7,13 @@
 // ⇒ 照抄原版参数**不保证**渲出来一样大。所以大小**必须拿成品卡图当尺子量出来**（铁律 7）。
 //
 // **尺子**：`d:/2/Warpforge部队卡片/Dark Angels/3部队/Warpforge_12_Aggressor.png`（900×1200）
-//   卡面那枚 `questPoints1` 图标 —— 用模板匹配（图集切片 ↔ 卡面）量出 **≈60 px 高**，
-//   同一行大写字母 `G`（`Gain`）**≈24.4 px** ⇒ **图标 ÷ 大写 ≈ 2.45**。
-//   图标 ÷ 卡宽 = 60/900 = **6.7%**（卡本体 165 px 宽 ⇒ **≈ 11.0 px**）。
+//   🔴 **2026-10-23 就地订正（铁律 5；与 `IconSetup.cs` 头那一段同一次实测）**：本节原写
+//   「图标 ≈60 px / 大写 `G` ≈24.4 px ⇒ 图标 ÷ 大写 ≈ **2.45**」—— 两个读数都偏了：
+//     · 图标墨迹（阈值 90~110 稳定）= **51 px**（不是 60）；
+//     · 同一行**真正的拉丁大写**（`S` / `G`）= **31 px**；原写的 24.4 是**小写 x-height**（`a/i/n` 23~24）。
+//   ⇒ **图标 ÷ 大写 = 51/31 = 1.65**；**图标 ÷ x-height ≈ 48/24 ≈ 2.0**（旧那个 2.45 哪个口径都不是）。
+//   ⚠️ 图标 ÷ 卡高 = 51/1200 ≈ **4.3%**（旧写 4.0% 是按 48 px 算的）—— 那是**印刷版式**，
+//   与卡面渲染值**不可比**（卡面还要过 `FitToBox`），⛔ 别拿它当标定目标（详见 `IconSetup.cs` 头）。
 //
 // **这个探针干什么**：把该比例**在我们自己的字体上量出来**，并给出该把
 // `faceInfo.pointSize` 填多少（让图标在我方 fontSize 下恰好落在那两条线上）。
@@ -51,9 +55,10 @@ public static class IconSizeProbe
 
         Measure(sa, fsCard, "H", "questPoints1", "qp1");
 
-        // ── ② 扫描候选 scale，找「图标高 ÷ 卡高」命中成品的那个 ──
-        //    成品卡图上量出来的是 **48/900 → 折成卡高是 48/1200 = 4.0%**
-        //    （图标÷卡宽 5.33% 与 图标÷卡高 4.0% 是同一个量的两个写法）
+        // ── ② 扫描候选 scale（**只做读数扫描**，不拿「÷ 卡高」当目标 —— 见文件头那条订正）──
+        //    成品卡图上量出来的**印刷版式**读数：图标 51 px ÷ 卡宽 900 = 5.67% / ÷ 卡高 1200 ≈ 4.3%
+        //    ⚠️ 卡面永远先过 `CardView.FitToBox` ⇒ 「÷ 卡高」逐卡不同，**不能当标定目标**；
+        //       标定目标 = 图标墨高 ÷ 拉丁大写墨高 = **1.65**（51/31）。
         float nowScale = GlyphScale(sa, "questPoints1");
         Log("现在 `questPoints1` 的 glyph scale = " + nowScale.ToString("F3"));
         foreach (float mult in new[] { 0.50f, 0.674f, 0.80f, 1.00f })
@@ -63,8 +68,10 @@ public static class IconSizeProbe
         }
         SetGlyphScale(sa, "questPoints1", nowScale);   // 还原（探针不许留副作用）
 
-        Log("目标：图标高 ÷ 卡高 = **4.0%**（成品图 `Warpforge_12_Aggressor`：图标 48 px / 卡高 1200 px）");
-        Log("     图标高 ÷ 卡宽 = **5.33%**（48/900）· 图标高 ÷ 大写高 ≈ **2.0**");
+        // ⚠️ 这两行是**印刷版式**的读数（会随文本长短过 `FitToBox` 变）—— 拿它们当标定目标会做错，
+        //    标定目标是「图标墨高 ÷ **拉丁大写**墨高 = **1.65**」（2026-10-23 实测，见文件头）。
+        Log("参考（**印刷版式，不是标定目标**）：图标高 ÷ 卡高 ≈ **4.3%**（成品图 `Warpforge_12_Aggressor`：图标 51 px / 卡高 1200 px）");
+        Log("     图标高 ÷ 卡宽 ≈ **5.67%**（51/900）· 图标高 ÷ **大写**高 = **1.65**（51/31）");
         Finish();
     }
 
@@ -98,8 +105,20 @@ public static class IconSizeProbe
     {
         var go = new GameObject("isp");
         var tmp = go.AddComponent<TextMeshPro>();
-        tmp.font = CardPresentation.TmpFont.Font;
-        if (tmp.font == null) { Log("!! 没有 TMP 字体（TmpFont.Font == null）"); UnityEngine.Object.DestroyImmediate(go); return; }
+        // 🔴 **2026-10-23（卡牌线 `D2`）：探针必须用【卡面效果文字那一个字体面】** ——
+        //   原来是 `TmpFont.Font`（**CJK 面**：`NotoSerifCJK`），而卡面正文实际是
+        //   `Face.LatinCardBody`（Pragati，`CardView.cs:4064` 的 `face: TmpFont.Face.LatinCardBody`）。
+        //   为什么这个差别要命：原版那份 sprite asset 的 `m_FaceInfo` 是 0 ⇒ TMP 按**正文字体的
+        //   faceInfo** 算图标缩放（`TMP_Text.cs:4164`：`spriteScale = fontSize / pointSize × scale × 0.1`
+        //   与 `ascentLine / glyph.metrics.height`）⇒ **字体面一换、同一个 `m_Scale` 的图标大小就变**。
+        //   现读两面的基准：CJK `ascentLine 57.55 / pointSize 50 / scale 0.9` ⇒ `0.10359`；
+        //   Pragati `70 / 95 / 1` ⇒ `0.07368` ⇒ **CJK 面量出来比卡面实际大 1.406×**
+        //   （反过来说卡面 = 探针读数 × 0.711）。用 CJK 面量出来的绝对数**不是卡面会渲出来的值**，
+        //   拿它去定 `IconSetup.CalibScale` 会系统性偏大 ⇒ 2026-10-23 本轮改成与卡面同面。
+        //   ⚠️ `CardView.KeywordFontSize`（本文件下面 `fsCard` 用的那个）本来就是**按面 em** 算的
+        //   （`CardView.cs:3826` 一族的注释），所以只要字体面跟着卡面走，两边量纲就对齐了。
+        tmp.font = CardPresentation.TmpFont.FaceAsset(CardPresentation.TmpFont.Face.LatinCardBody);
+        if (tmp.font == null) { Log("!! 没有 TMP 字体（TmpFont.FaceAsset(LatinCardBody) == null）"); UnityEngine.Object.DestroyImmediate(go); return; }
         tmp.spriteAsset = sa;
         tmp.fontSize = fontSize;
         tmp.enableWordWrapping = false;

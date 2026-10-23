@@ -40,16 +40,37 @@
 //    **不成立**：`CardTrait` / `CardTraitCollection` 就在 `d:/2/unity_run_ref/Warpforge_Data/sharedassets0.assets`
 //    （pid 458–530 = 73 个 trait · pid 531 `TraitsCollection`），只是 `assets_full` 对根资产文件的 JSON 导出有缺口、
 //    按文本搜必然 0 命中。2026-10-19 `K12` 已按原始字节解全（判据 → `资料/普查产出_1019/W_卡牌ID线_K12清零_1019b.md` §1.2）。
-//    ⇒ **现在每一条绑定都能报出它对应的 trait effect GUID**；下表仍标「我们的口径」的，是没有走运行时实况验证的那几条。
+//    ⇒ **现在每一条绑定都能报出它对应的 trait effect GUID**（🆕 2026-10-23 起：**全部**绑定都来自那份 SO，
+//    **没有一条**是「我们的口径」—— 见下面那段）。
 //    （另：`Vanguard` 那条——原版 `CardTrait.Vanguard` 的 OnPlay effect 是 `VanguardIdleAnim → VanguardIdleEffect`，
 //     与具名字段 `vanguardFrame` = `Vanguard Frame Animated VAT` 是**两套东西**；🆕 2026-10-23 已按真值改绑前者。）
-//    ⚠️ **`PlayFrames`（OnPlay 那本）仍不许当成「原版就是这样」** —— 只有逐条报出 trait effect GUID 的那几行
-//    才算「数据硬绑」，其余是「按名字硬绑、我们的口径」。
-//    🆕 **2026-10-23**：**触发类那一本（`TriggerFrames`）已经改成「按 trait effect 真值解析」** ——
-//    内容由 `TriggerEffectBindings` 派生，每行带 `DefinedTrait / TriggerType / effectAnim GUID / CardAnim / prefab /
-//    playIfWarlord` **六列**原版值（判据 → `数据/游戏数据/trait_collection.json`）。`bloodthirst` 那一行就是这一步的成果：
-//    Trigger(3) → `BloodThirstGainAnim` → **`BloodThirstEffect_Gain`**（原先按名字硬绑的 `BloodThirstEffect` 是错的）；
-//    2026-10-23 尾账又把 6 那条（`_Idle`）、`codex` 3、`playIfWarlord` 门一起补齐。
+//    🆕 **2026-10-23（`T1` · Trait 全量权威化）：两本字典【都】改成由原版 `CardTrait` SO 驱动** ——
+//    **C# 里再没有任何一条手写的 trait → prefab 绑定**。
+//      · 数据 = `Resources/trait_effect_bindings.json`（生成器 `工具/gen_trait_effect_bindings.py`；
+//        源 = `数据/游戏数据/trait_collection.json` = 原版 `TraitsCollection` + 73 个 `CardTrait` 资产逐字节解出；
+//        安卓 1.35.0 与 PC 关服前 build **逐字段 0 差异**，判据 → `资料/普查产出_1023b/安卓存档_CardTraitSO普查.md`）。
+//      · 每行带 **`DefinedTrait / TriggerType / effectAnim GUID / CardAnim / prefab / playIfWarlord`** 六列原版值
+//        （`prefab` 那一列 = GUID → CardAnim → `anim_address_map.json` 两跳解出，⛔ 不是按名字猜）。
+//      · 分本：`TriggerType == 2(OnPlay)` → `PlayFrames`（原版 `TraitFrameEffectsPlay`）；
+//        `TriggerType ∈ {3(Trigger), 6(TriggerOnPlay)}` → `TriggerFrames`（原版 `TraitFrameEffectsTrigger`）。
+//    ⚠️ **数据驱动之后被推翻/改判的四条**（都是原先手写表的错，别再抄回来）：
+//      · **`stealth`** → OnPlay `StealthTraitPlay` → `StealthEffect`（手写表原来就绑对了，保号）；
+//      · **`swarm` 从 OnPlay 那本【移除】** —— 原版 `Swarm` 只有**一条 FromCode(5)**（`SwarmTraitFromCode`
+//        → `Swarm_Trigger_OnTarget`），**没有 OnPlay effect**；原来那行是「按名字硬绑」的，属于被去掉的兜底。
+//        它现在只走 `TraitParticles`（FromCode 那条链）。原版另有具名字段 `swarmFrame`，那是**另一套**。
+//      · **`vanguard`** → OnPlay `VanguardIdleAnim` → `VanguardIdleEffect`（与具名字段 `vanguardFrame`
+//        = `Vanguard Frame Animated VAT` **是两套东西**；2026-10-23 早就改绑前者，这次由数据坐实）。
+//      · **`slay` 从 OnPlay 那本【移除】、归到触发那本** —— `Slay.asset`（id 260）唯一的 TraitEffect 是
+//        **Trigger(3)** → `Slay_Effect_target` → `SlayEffect`。原来那行是按
+//        `CardScript__AddEffect.c:889-891` 那个调用点的**意图**（附魔加身演一次）绑的，但原版那一档
+//        **没有 OnPlay effect**（文件头 §判据空那段已记）⇒ 附魔加身这一刻原版不播框，如实照数据。
+//      · 另外 **13 个 trait 的 OnPlay 框由此第一次接上**（`flying` / `shield` / `stun` / `blind` /
+//        `camouflage` / `vulnerable` / `huntMark` / `markerlight` / `pindown` / 四个 `markOf*`）——
+//        原版 `BattleCardUI__DisplayStatusAnim` 确实为它们演（`:297-310` 里 `0x186`=flying / `0x3d4`=vanguard
+//        两段专门处理飞行动画），⛔ 别当成「我们多加了」。
+//    ⚠️ **按阵营覆盖（`overrideByArmies`）今天还没消费** —— `PrefabFor` 没有阵营参数，加参数要动
+//    `CardView` / `BattleDriver`（不属本次白名单）。10 条覆盖（`shield` 4 · `invulnerable` 6）的真值
+//    留在 `TraitEffectBinding.Overrides` 上可查，缺口见报告。
 using System.Collections.Generic;
 using RuleEngine;
 using UnityEngine;
@@ -61,89 +82,87 @@ namespace CardPresentation
     public class TraitFrames : MonoBehaviour
     {
         // ==================================================================
-        //  绑定表（trait → 我们特效库里的框 prefab 名）—— **我们的口径**，见文件头
+        //  绑定表 —— **由原版 `CardTrait` SO 驱动**（⛔ 这里不再有手写的 trait → prefab）
         // ==================================================================
-        //  来路分三种，逐条标：
-        //   · 「同名直取」= 原版那件 prefab 的名字与我们要挂的那个 trait 语义一致、且**已在效果库里**；
-        //   · 「待接」= 原版那件在解包资源里有（`bundle_battleprefabs_vfxandmisc_assets_all/GameObject/`），
-        //     但**没进我们的效果库**（效果库只导出「被特效引用」的 prefab，而这几件只被 `CardAnim` 引用）。
-        //     ✅ **2026-10-01：导入路已经开出来了** —— `工具/extract_missing_shaders.py --prefabs`
-        //     把它们 + **整棵依赖树**重打成 `StreamingAssets/WarpforgeVFX/wf_prefabs_extra.bundle`
-        //     （🔴 内层 CAB **必须改名**，否则与源包撞名、Unity 直接拒收），再由
-        //     `EffectExporter.RunListed`（已改成同时扫这个目录）→ `EffectLibraryBuilder.Run` 进库。
-        //     ✅ **2026-09-30：`bloodThirstFrame` 也接上了** —— 它**不是**导入路的缺口（`BloodThirstEffect`
-        //     一直在库里），真卡点是**引擎从不发 `EvtKind.Trigger`** ⇒ 已在 `RuleCore.EmitBloodThirst`
-        //     补上触发点、并绑进 `TriggerFrames`。
-        //     ⚠️ 原写「卡点换了：我们引擎里没有 `bloodthirst` 这个词」—— **那半句是错的**（关键词一直在，
-        //     见 `EmitBloodThirst` 的判据段）。
-        //   · 「判据空」= 原版自己那几项引用就是空的（见文件头最后一段）⇒ 按铁律 11 第 ① 种**结案**。
+        //  数据 = `Resources/trait_effect_bindings.json`
+        //    ← `工具/gen_trait_effect_bindings.py`（源 = `数据/游戏数据/trait_collection.json`，
+        //       即原版 `TraitsCollection` + 73 个 `CardTrait` 资产逐字节解出；安卓 1.35.0 交叉验证 0 差异）。
+        //  ⛔ **别在本文件里再写第二份绑定**（铁律：「两处写同一条规则 = 迟早不一致」）。
+        //     要改绑定 ⇒ 改生成器 / 改 `trait_collection.json`，然后重跑生成器。
+        //  ⚠️ 数据里的 `prefab` 一列是**两跳解出来**的（GUID → CardAnim → `anim_address_map`），
+        //     生成器对每一行都做 GUID ↔ CardAnim 名的交叉校验（现读 68/68 相符、0 处不一致）。
+        //  ⚠️ 原版 `TraitEffect.effectAnim` 是**空引用**的 7 条（`combo` / `daemonicAllegiance` /
+        //     `firstStrike` / `large` / `mekaniak` / `piercing` / `resolution`）= 原版这几档**本来就没有动画**，
+        //     **不是缺口** ⇒ 不进两本字典、也⛔ 不当缺陷出声（生成器记在 `unresolvedRows` 里留档）。
 
-        /// <summary>按 **OnPlay(2)** 归口的那本（原版 `TraitFrameEffectsPlay`）。
-        /// 触发时机 = **这个 trait 被加到这张卡上**（原版挂在 `CardScript.AddEffect` 那几个分支上）。
-        ///
-        /// 🔴 **2026-10-23（新账-70）**：两行按真值表改过 ——
-        ///   · **`codex` 移出本表**：`Codex.asset`（trait id 1000）只有一条 **Trigger(3)**
-        ///     → `CodexTraitTrigger` → `CodexEffect` ⇒ 归**触发类**那本（判据 → `trait_collection.json`）。
-        ///     原版在「附魔/关键词加身」这一刻**没有** codex 的 OnPlay effect。
-        ///   · **`vanguard` 改绑 `VanguardIdleEffect`**：`Vanguard.asset`（id 980）唯一的 TraitEffect 是
-        ///     **OnPlay(2)** → `VanguardIdleAnim` → **`VanguardIdleEffect`**（判据同上）。
-        ///     原来绑的具名 `Vanguard Frame Animated VAT` 是**另一套**（`vanguardFrame` 那个字段）——
-        ///     两者都在效果库里，但「状态框」这条链原版只走 TraitEffect。</summary>
-        static readonly Dictionary<string, string> PlayFrames = new Dictionary<string, string>
+        /// <summary>绑定表的 `Resources` 路径（**没有扩展名**）。与 `VfxMap.CardTableResourcePath` 同一种玩法。</summary>
+        public const string BindingsResourcePath = "trait_effect_bindings";
+
+        /// <summary>运行期形状（`JsonUtility` → 只认 `rows`；其余键被忽略）。</summary>
+        [System.Serializable]
+        public class BindingOverrideRow
         {
-            // 「同名直取」——两件都在效果库里（`效果库报告.tsv` 有行）
-            { KeywordTable.Stealth, "StealthEffect" },
-            // 「走地址表」——原版 `ExecuteSwarm` 写的是 `swarmFrame`，而那一族的 CardAnim 叫
-            // `SwarmTraitFromCode`；`数据/索引/anim_address_map.json` 解出它指向 prefab
-            // **`Swarm_Trigger_OnTarget`**（那张表由 `工具/gen_anim_address_map.py` 从各 bundle 的
-            // `m_Container` 建出来）。⚠️ 「那个 CardAnim 就是 `swarmFrame` 的源」这一步**是推断**，如实标。
-            { KeywordTable.Swarm,   "Swarm_Trigger_OnTarget" },
-            // ✅ **2026-10-01 接上**（原来挂在 `MissingFrames` 里，卡点是那件 prefab **没进效果库**）。
-            // 🔴 **2026-10-23（新账-70）改绑真值**：原版 `Vanguard.asset`（trait id **980**）唯一那条
-            //   `TraitEffect` 是 **OnPlay(2)** → guid `45746aadb340e664b87453c64c0518c8` →
-            //   CardAnim `VanguardIdleAnim` → prefab **`VanguardIdleEffect`**
-            //   （`trait_collection.json` + `anim_address_map.json` 两跳现读）。
-            //   原来绑的具名 `Vanguard Frame Animated VAT` 来自原版**另一个字段** `vanguardFrame(+0x278)`
-            //   （写方 `SetVanguardStealth`），与 TraitEffect 是**两套东西** —— 本类管的是「状态框」= TraitEffect
-            //   ⇒ 按真值改绑。⚠️ `VanguardIdleEffect` 的 `cardanim_to_asset.guid` 是 `c53d2e22…`；
-            //   `VanguardIdleAnim` 在 `bundle_cardanimsgeneral_assets_all`。
-            { KeywordTable.Vanguard, "VanguardIdleEffect" },
-            // ✅ **2026-10-20（W58 · `SLAYVIS`）接上** —— 原版那条「Slay 附魔加身时演一下」的调用点
-            //   = `CardScript__AddEffect.c:889-891`：Slay 附魔（`trigger == 0x78 = 120`）加进来时
-            //   先移除宿主身上其它 Slay 附魔，再 `DisplayStatusAnim(0x2ee)` + `UpdateTraitIcons()`。
-            //   🔴 **但当前 build 里那一句是空转**（现读 `sharedassets0.assets` 原始字节，见下）：
-            //     · `0x2ee = 750` = `DefinedTrait.quest`；当前 build 的 `TraitsCollection`
-            //       （pid 531，77 条 `TraitPairs`，id 范围 5–1280）里**没有 750**
-            //       ⇒ `GetTrait(750)` 返回 null ⇒ `DisplayStatusAnim` 在 `op_Equality == null` 那一支直接返回。
-            //     · `slay` 自己的 id = **260**，对应 `CardTrait` pid 513：`_hasInPlayAnim = 0`，
-            //       唯一一条 `TraitEffect` 的 `TriggerType = 3(Trigger)` ⇒ 原版是由
-            //       **`DisplayTriggerAnim` 在 Slay 真的触发时**演（`TriggerAbility` → `PlayTriggerTraitAnim`
-            //       → `ActivateTriggerTraitAnim`），**不是**在附魔加身那一刻。
-            //   ⇒ 这一行按**那条调用点的意图**（附魔加身演一次）绑进 OnPlay 那本；prefab 来源是
-            //     Slay 自己那条 TraitEffect 的 GUID 链（**不是拿 quest 的框顶替** —— quest 连 `CardTrait` 都没有）：
-            //       `7dc58e5b008d8804f8fe911400c9bd53` → CardAnim `Slay_Effect_target`
-            //       → prefab **`SlayEffect`**（`bundle_battleprefabs_vfxandmisc_assets_all`；
-            //       三个变体 `Slay_Effect_self/target/warlord` 同指这一件）。
-            //     `SlayEffect` **已在我们的效果库**（`效果库报告.tsv` 有行 · `WarpforgeEffectLibrary.asset` 有项）。
-            //   ⚠️ 与 stealth/swarm/vanguard 同一个口径：**按数据硬绑**，不是从原版实况证出来的；
-            //      「原版在附魔加身这一刻到底演不演」当前 build **判据为否**，如实标在报告里。
-            { KeywordTable.Slay, "SlayEffect" },
-        };
+            public int army;
+            public string effectGuid;
+            public string cardAnim;
+            public string prefab;
+        }
 
-        /// <summary>原版一条 `TraitEffect` 的真值 —— **触发类那本表就是按它解析的**（⛔ 不是按 trait 名猜 prefab）。
+        [System.Serializable]
+        public class BindingRow
+        {
+            public string trait;
+            public int definedTrait;
+            public int triggerType;
+            public string triggerName;
+            public string effectGuid;
+            public string cardAnim;
+            public string prefab;
+            public bool playIfWarlord;
+            public string unresolved;
+            public BindingOverrideRow[] overrides;
+        }
+
+        [System.Serializable]
+        public class BindingDoc
+        {
+            public string schema;
+            public string generatedBy;
+            public string generatedAt;
+            public BindingRow[] rows;
+        }
+
+        /// <summary>原版一条 `TraitEffect` 里「按阵营覆盖」的那一档（`TraitEffect.overrideByArmies[]`）。</summary>
+        public struct TraitEffectOverride
+        {
+            /// <summary>原版 army id（= `stats.factionArmyIds` 那一组）。</summary>
+            public int Army;
+            /// <summary>那份 `AssetReference` 的 GUID。</summary>
+            public string EffectGuid;
+            /// <summary>该 GUID 的 CardAnim 名。</summary>
+            public string CardAnim;
+            /// <summary>该 CardAnim 的 target prefab。</summary>
+            public string Prefab;
+        }
+
+        /// <summary>原版一条 `TraitEffect` 的真值 —— **两本字典都是按它解析的**（⛔ 不是按 trait 名猜 prefab）。
         /// 判据 → `Unity/数据/游戏数据/trait_collection.json` 的 `traits[].traitEffects[]`
         /// （从 `sharedassets0.assets` 的 `TraitsCollection` ＋ 各 `CardTrait` 资产**逐字节**解出来的；
-        /// 生成器 → `工具/export_trait_collection.py`）。**六列全部来自原版资产，没有一列是猜的**：
+        ///  生成器 → `工具/export_trait_collection.py`；
+        ///  运行时用的这一份 → `资源/…` 见 <see cref="BindingsResourcePath"/>，由 `工具/gen_trait_effect_bindings.py` 产出）。
+        /// **六列全部来自原版资产，没有一列是猜的**：
         ///   · `DefinedTrait` = `DefinedTrait` 枚举值（`d:/2/Warpforge_code/Scripts/Assembly-CSharp/DefinedTrait.cs`）；
         ///   · `TriggerType`  = `TraitEffect.TriggerType`（0 Start · 1 End · 2 OnPlay · 3 Trigger · 5 FromCode · 6 TriggerOnPlay）；
         ///   · `EffectGuid`   = `TraitEffect.effectAnim` 那份 `AssetReference` 的 GUID；
         ///   · `CardAnim`     = 该 GUID 反查出来的 CardAnim 资产名
-        ///                      （`资料/普查产出_1018/cardanim_guid_map/guid_map_bundles.tsv`）；
+        ///                      （`资料/普查产出_1018/cardanim_guid_map/guid_map_bundles.tsv`；
+        ///                       生成器逐行做了 GUID ↔ 名字的交叉校验）；
         ///   · `Prefab`       = 那张 CardAnim 的 target prefab
-        ///                      （`数据/索引/anim_address_map.json` 的 `cardanim_to_asset[&lt;CardAnim&gt;].targetName`；
-        ///                       运行期同一份 join 也在 `Resources/cardanim_clips.json` 的 `a → n` 两列里）；
-        ///   · `PlayIfWarlord`= 🆕 **2026-10-23（新账-70）** `TraitEffect.playIfWarlord`（资产偏移 `+0x2c`，
+        ///                      （`数据/索引/anim_address_map.json` 的 `cardanim_to_asset[&lt;CardAnim&gt;].targetName`）；
+        ///   · `PlayIfWarlord`= `TraitEffect.playIfWarlord`（资产偏移 `+0x2c`，
         ///                      `BattleCardUI__DisplayTriggerAnim.c:67` 读它）—— 卡是督军且这一位是 0 ⇒ 不播。
+        /// 🆕 `Overrides` = `TraitEffect.overrideByArmies[]`（原版按阵营换 effect）。⚠️ **运行期还没消费**
+        ///   （`PrefabFor` 没有阵营参数；加参数要动 `CardView` / `BattleDriver`）—— 真值留全可查。
         ///
         /// 原版运行时怎么选（`BattleCardUI__DisplayTriggerAnim.c:47-111`，**逐条遍历**）：
         ///   · `:71` 只处理 `TriggerType ∈ {3, 6}`；
@@ -151,7 +170,7 @@ namespace CardPresentation
         ///     且该条 `playIfWarlord == 0` ⇒ `goto` 到函数尾 = **本次调用整条 return**（后面的 effect 也不播）；
         ///   · `:88-91` 的去重守卫**按 trait id**、只挡「表里已有这个 trait」；写表在 6 那条的**回调**里
         ///     ⇒ 同一次调用里 3 与 6 **都会播**（判据 → `…b__0.c:19-21`）。
-        /// ⚠️ 我们一个 trait 现在可以绑**多条**（`TriggerFrames` 是 `TraitEffectBinding[]`），
+        /// ⚠️ 我们一个 trait 可以绑**多条**（值是 `TraitEffectBinding[]`），
         /// 但只覆盖 `TriggerType ∈ {3,6}` 的行 —— End(1)/Start(0) 那几档本来也不归这两本字典。</summary>
         public struct TraitEffectBinding
         {
@@ -159,101 +178,173 @@ namespace CardPresentation
             public string Trait;
             /// <summary>原版 `DefinedTrait` 数值。</summary>
             public int DefinedTrait;
-            /// <summary>原版 `TraitEffect.TriggerType`（本表只收 **3 = Trigger / 6 = TriggerOnPlay**）。</summary>
+            /// <summary>原版 `TraitEffect.TriggerType`（0 Start · 1 End · 2 OnPlay · 3 Trigger · 5 FromCode · 6 TriggerOnPlay）。
+            /// 两本字典只收 **2** 与 **3/6**；`RowsOfTriggerType` 能看到全部。</summary>
             public int TriggerType;
             /// <summary>原版 `TraitEffect.effectAnim` 的 GUID。</summary>
             public string EffectGuid;
             /// <summary>该 GUID 的 CardAnim 资产名。</summary>
             public string CardAnim;
-            /// <summary>那张 CardAnim 的 target prefab（= 我们效果库里的名字）。</summary>
+            /// <summary>那张 CardAnim 的 target prefab（= 我们效果库里的名字）。空 = 原版 `effectAnim` 是空引用。</summary>
             public string Prefab;
-            /// <summary>🆕 原版 `TraitEffect.playIfWarlord`（`false` = 督军不播这一条）。</summary>
+            /// <summary>原版 `TraitEffect.playIfWarlord`（`false` = 督军不播这一条）。</summary>
             public bool PlayIfWarlord;
+            /// <summary>🆕 原版 `TraitEffect.overrideByArmies[]`（按阵营换 effect；⚠️ 运行期还没消费，只留真值）。</summary>
+            public TraitEffectOverride[] Overrides;
         }
 
-        /// <summary>**触发类那一本的真值表** —— 一行 = 原版一条 `TriggerType ∈ {3,6}` 的 `TraitEffect`。
-        /// `TriggerFrames` 由它派生（**prefab 名只在这里写一次**，⛔ 别在字典里再抄一份）。
-        /// 同一个 trait 的多行按**资产里的顺序**播（原版逐条遍历）。</summary>
-        public static readonly TraitEffectBinding[] TriggerEffectBindings =
-        {
-            // 誓约：`Oath.asset`（trait id 1275）**只有一条** Trigger(3) ⇒ 每次触发都演、不进去重表。
-            //   🔴 `playIfWarlord = **false**` ⇒ **督军身上的 oath 框原版不播**（那道门 2026-10-23 已实现，
-            //   见 `DisplayTrigger` / `BlocksForWarlord`）。这是全表唯一一条 false。
-            new TraitEffectBinding
-            {
-                Trait = KeywordTable.Oath, DefinedTrait = 1275, TriggerType = 3,
-                EffectGuid = "e88772cb08fb73243970183f0f1dff7a",
-                CardAnim = "Oath_Effect", Prefab = "Oath_Effect",
-                PlayIfWarlord = false,
-            },
-            // ✅ **2026-10-23 改挂（前一批）**：原先按名字硬绑 `BloodThirstEffect`，**改回它就是错的**。
-            //   `BloodThirst.asset`（trait id **220 = 0xdc**）的三条 `TraitEffect`：
-            //     · Trigger(3)      → guid `874dd68077c21cc4c86c5362b436d792` → `BloodThirstGainAnim`
-            //                         → prefab **`BloodThirstEffect_Gain`**  ← 本行
-            //     · TriggerOnPlay(6) → `5a60dbe6…` → `BloodThirstIdleAnim` → **`BloodThirstEffect_Idle`** ← 下一行
-            //     · End(1)          → `2b63fd56…` → `BloodThirstLoseAnim`（不归这两本字典）
-            //   🔴 **别拿名字更像的那两件顶替**（2026-09-30 那版就是这么挂错的）：
-            //     · prefab `BloodThirstEffect` ← CardAnim **`BloodThirstTraitTrigger`**（guid `d9a21c77…`），
-            //       **`BloodThirst.asset` 的 `_traitEffects` 一条都没引用它** ⇒ 引用链不成立；
-            //     · `Bloodthirst_Flare_Warlord` 同指 `BloodThirstEffect`，同样**不在 `_traitEffects` 里**。
-            //   ⚠️ 三条的 `playIfWarlord` **都是 true** ⇒ 那道门在 bloodthirst 上永远不拦。
-            //   判据全文 → `资料/普查产出_1020/W58_战斗线_触发框只演一次修复.md` §1.3 ·
-            //   `资料/普查产出_1019/W_卡牌ID线_K12清零_1019b.md` §1.2（71 条 TraitEffect 全解）。
-            new TraitEffectBinding
-            {
-                Trait = KeywordTable.BloodThirst, DefinedTrait = 220, TriggerType = 3,
-                EffectGuid = "874dd68077c21cc4c86c5362b436d792",
-                CardAnim = "BloodThirstGainAnim", Prefab = "BloodThirstEffect_Gain",
-                PlayIfWarlord = true,
-            },
-            // 🆕 **2026-10-23（新账-70 第 4 条）：多触发都播** —— 原版 `DisplayTriggerAnim` 逐条遍历，
-            //   同一个 trait 的 3 与 6 **各播一次**（去重表在 6 的回调里才写 ⇒ 首次两条都过守卫）。
-            //   这一行就是 `BloodThirst.asset` 的 TriggerOnPlay(6) 那一条。
-            new TraitEffectBinding
-            {
-                Trait = KeywordTable.BloodThirst, DefinedTrait = 220, TriggerType = 6,
-                EffectGuid = "5a60dbe6e84c80742bf4f9c74b0502ed",
-                CardAnim = "BloodThirstIdleAnim", Prefab = "BloodThirstEffect_Idle",
-                PlayIfWarlord = true,
-            },
-            // 🆕 **2026-10-23（新账-70 第 1 条）：`codex` 归触发类**。
-            //   `Codex.asset`（trait id **1000**）**只有一条** `Trigger(3)`：
-            //     guid `9869f9d036ce2854ab95004fec1a7598` → CardAnim `CodexTraitTrigger` → prefab **`CodexEffect`**
-            //   ⇒ 原版是「codex 真的触发时」演，**不是**「关键词加身时」（原来挂在 `PlayFrames` = OnPlay，错的）。
-            //   `playIfWarlord = true`。⚠️ 我们引擎目前**不发** `EvtKind.Trigger`「Codex」
-            //   （`ActionPump` 内部结算、没有表现事件）⇒ 这一条要等引擎侧补发射口才会真上场（如实记，见报告）。
-            new TraitEffectBinding
-            {
-                Trait = KeywordTable.Codex, DefinedTrait = 1000, TriggerType = 3,
-                EffectGuid = "9869f9d036ce2854ab95004fec1a7598",
-                CardAnim = "CodexTraitTrigger", Prefab = "CodexEffect",
-                PlayIfWarlord = true,
-            },
-        };
+        // ==================================================================
+        //  两本字典 —— **全部由 `Resources/trait_effect_bindings.json` 载入**（懒加载、只做一次）
+        // ==================================================================
+        //  · `_playBook`    ← 原版 `TriggerType == 2 (OnPlay)` 的行（原版 `TraitFrameEffectsPlay`）
+        //  · `_triggerBook` ← 原版 `TriggerType ∈ {3 (Trigger), 6 (TriggerOnPlay)}` 的行
+        //                     （原版 `TraitFrameEffectsTrigger`）
+        //  同一个 trait 的多行按**资产里的顺序**播（原版 `DisplayTriggerAnim` 逐条遍历）。
+        //  ⚠️ `prefab` 为空的行（= 原版 `effectAnim` 是空引用的那 7 条）**不进字典** ——
+        //     原版那几档本来就不演，不是缺口。
 
-        /// <summary>按 **Trigger(3) / TriggerOnPlay(6)** 归口的那本（原版 `TraitFrameEffectsTrigger`）。
-        /// 触发时机 = 那个关键词**真的触发了**（我们这边 = `EvtKind.Trigger`，`Keyword` 字段带规范键）。
-        /// **内容由 `TriggerEffectBindings` 派生** —— prefab 名在那边只写一次（铁律：两处写同一条规则迟早不一致）。
-        /// 🔴 **2026-10-23（新账-70）**：值从 `string` 改成 **`TraitEffectBinding[]`** —— 原版逐条遍历，
-        /// 一个 trait 可以有多条 3/6（`bloodthirst` = 3 + 6 两条），首次触发**两条都播**。</summary>
-        static readonly Dictionary<string, TraitEffectBinding[]> TriggerFrames = BuildTriggerFrames();
+        static readonly Dictionary<string, TraitEffectBinding[]> _playBook =
+            new Dictionary<string, TraitEffectBinding[]>();
+        static readonly Dictionary<string, TraitEffectBinding[]> _triggerBook =
+            new Dictionary<string, TraitEffectBinding[]>();
 
-        static Dictionary<string, TraitEffectBinding[]> BuildTriggerFrames()
+        static bool _bindingsTried, _bindingsLoaded;
+        static TraitEffectBinding[] _allRows = new TraitEffectBinding[0];
+        static string _bindingsProblem;
+        static string _bindingsGeneratedAt;
+
+        /// <summary>绑定表**载进来了吗**（断言/出声用；`false` 时两本字典是空的 ⇒ 一个状态框都挂不上）。</summary>
+        public static bool BindingsLoaded { get { EnsureBindings(); return _bindingsLoaded; } }
+        /// <summary>载不进来的原因（`BindingsLoaded == true` 时是 `null`）。</summary>
+        public static string BindingsProblem { get { EnsureBindings(); return _bindingsProblem; } }
+        /// <summary>生成的时刻（来自 JSON 的 `generatedAt`；重跑生成器之后断言会跟着变）。</summary>
+        public static string BindingsGeneratedAt { get { EnsureBindings(); return _bindingsGeneratedAt; } }
+        /// <summary>数据里的**总行数**（75 条 `TraitEffect` 一条不少，含 0/1 那两档 —— 它们是原版真值、只留档）。</summary>
+        public static int BindingRowCount { get { EnsureBindings(); return _allRows.Length; } }
+
+        /// <summary>某一档 `TriggerType` 的**全部**行（拷贝；`2` / `3` / `5` / `6` 是今天用到的四档）。
+        /// 断言用 —— 期望值从这份**数据**读，⛔ 不从两本字典读回（那是自证）。</summary>
+        public static TraitEffectBinding[] RowsOfTriggerType(int triggerType)
         {
-            // 按 trait 分组、**保持真值表里的先后**（= 原版资产里 `_traitEffects` 的顺序）
-            var lists = new Dictionary<string, List<TraitEffectBinding>>();
-            var order = new List<string>();
-            for (int i = 0; i < TriggerEffectBindings.Length; i++)
+            EnsureBindings();
+            var l = new List<TraitEffectBinding>();
+            for (int i = 0; i < _allRows.Length; i++)
+                if (_allRows[i].TriggerType == triggerType) l.Add(_allRows[i]);
+            return l.ToArray();
+        }
+
+        /// <summary>载入并分组。**失败一定出声**（`Debug.LogError` + `BindingsProblem`）——
+        /// ⛔ 不退回任何手写表（2026-10-23 起 C# 里已经没有手写绑定了）。
+        /// ⚠️ 只在**第一次**尝试（`_bindingsTried`），别每帧重试。</summary>
+        static void EnsureBindings()
+        {
+            if (_bindingsTried) return;
+            _bindingsTried = true;
+
+            var asset = Resources.Load<TextAsset>(BindingsResourcePath);
+            if (asset == null)
             {
-                var b = TriggerEffectBindings[i];
-                var k = Norm(b.Trait);
+                _bindingsProblem = $"`Resources/{BindingsResourcePath}.json` **没载到**";
+                Debug.LogError($"[TraitFrames] {_bindingsProblem} ⇒ 状态框(OnPlay/触发那两本)**一本都挂不上**。"
+                             + "重跑：\"D:/2/Warpforge_tools/py312/python.exe\" d:/4/Unity/工具/gen_trait_effect_bindings.py");
+                return;
+            }
+            BindingDoc dto;
+            try { dto = JsonUtility.FromJson<BindingDoc>(asset.text); }
+            catch (System.Exception e)
+            {
+                _bindingsProblem = "解析失败：" + e.Message;
+                Debug.LogError($"[TraitFrames] `Resources/{BindingsResourcePath}.json` {_bindingsProblem}");
+                return;
+            }
+            if (dto == null || dto.rows == null || dto.rows.Length == 0)
+            {
+                _bindingsProblem = "是空的 / 形状不对（`rows` 为空）";
+                Debug.LogError($"[TraitFrames] `Resources/{BindingsResourcePath}.json` {_bindingsProblem}");
+                return;
+            }
+            _bindingsGeneratedAt = dto.generatedAt;
+
+            var all = new List<TraitEffectBinding>(dto.rows.Length);
+            var playLists = new Dictionary<string, List<TraitEffectBinding>>();
+            var trigLists = new Dictionary<string, List<TraitEffectBinding>>();
+            var playOrder = new List<string>();
+            var trigOrder = new List<string>();
+            int noPrefab = 0;
+
+            for (int i = 0; i < dto.rows.Length; i++)
+            {
+                var r = dto.rows[i];
+                if (r == null || string.IsNullOrEmpty(r.trait)) continue;
+                var b = new TraitEffectBinding
+                {
+                    Trait = Norm(r.trait),
+                    DefinedTrait = r.definedTrait,
+                    TriggerType = r.triggerType,
+                    EffectGuid = r.effectGuid ?? "",
+                    CardAnim = r.cardAnim ?? "",
+                    Prefab = r.prefab ?? "",
+                    PlayIfWarlord = r.playIfWarlord,
+                    Overrides = ToOverrides(r.overrides),
+                };
+                all.Add(b);
+
+                if (b.TriggerType != 2 && b.TriggerType != 3 && b.TriggerType != 6) continue;  // 0/1/5 不进这两本
+                if (b.Prefab.Length == 0) { noPrefab++; continue; }   // 原版空引用 ⇒ 原版不演、不是缺口
+
+                bool play = b.TriggerType == 2;
+                var lists = play ? playLists : trigLists;
+                var order = play ? playOrder : trigOrder;
                 List<TraitEffectBinding> l;
-                if (!lists.TryGetValue(k, out l)) { l = new List<TraitEffectBinding>(); lists[k] = l; order.Add(k); }
+                if (!lists.TryGetValue(b.Trait, out l))
+                {
+                    l = new List<TraitEffectBinding>();
+                    lists[b.Trait] = l;
+                    order.Add(b.Trait);
+                }
                 l.Add(b);
             }
-            var d = new Dictionary<string, TraitEffectBinding[]>(order.Count);
-            for (int i = 0; i < order.Count; i++) d[order[i]] = lists[order[i]].ToArray();
-            return d;
+
+            _allRows = all.ToArray();
+            for (int i = 0; i < playOrder.Count; i++) _playBook[playOrder[i]] = playLists[playOrder[i]].ToArray();
+            for (int i = 0; i < trigOrder.Count; i++) _triggerBook[trigOrder[i]] = trigLists[trigOrder[i]].ToArray();
+            _bindingsLoaded = true;
+
+            Debug.Log($"[TraitFrames] 状态框绑定表已载入（源 = 原版 `CardTrait` SO）：{_allRows.Length} 行"
+                    + $" / OnPlay 那本 {playOrder.Count} 个 trait / 触发那本 {trigOrder.Count} 个 trait"
+                    + $"（`Resources/{BindingsResourcePath}.json`，生成于 {_bindingsGeneratedAt}）"
+                    + (noPrefab > 0 ? $"；另有 {noPrefab} 条原版 `effectAnim` 是空引用（原版不演，不是缺口）" : ""));
+        }
+
+        static TraitEffectOverride[] ToOverrides(BindingOverrideRow[] src)
+        {
+            if (src == null || src.Length == 0) return EmptyOverrides;
+            var o = new TraitEffectOverride[src.Length];
+            for (int i = 0; i < src.Length; i++)
+            {
+                var s = src[i];
+                if (s == null) continue;
+                o[i] = new TraitEffectOverride
+                {
+                    Army = s.army,
+                    EffectGuid = s.effectGuid ?? "",
+                    CardAnim = s.cardAnim ?? "",
+                    Prefab = s.prefab ?? "",
+                };
+            }
+            return o;
+        }
+        static readonly TraitEffectOverride[] EmptyOverrides = new TraitEffectOverride[0];
+
+        /// <summary>一个 trait 在**某一本**里的全部真值行（按资产顺序；空数组 = 那本没它）。
+        /// `trigger == false` = OnPlay 那本。⚠️ 返回内部数组，只读用，⛔ 别改。</summary>
+        public static TraitEffectBinding[] BindingsFor(string trait, bool trigger)
+        {
+            EnsureBindings();
+            var t = Norm(trait);
+            TraitEffectBinding[] rows;
+            if (t.Length != 0 && (trigger ? _triggerBook : _playBook).TryGetValue(t, out rows)) return rows;
+            return EmptyBindings;
         }
 
         /// <summary>查一个 trait 在触发类那一本的**第一条**原版真值（自检用；`false` = 本表没绑这一档）。
@@ -267,13 +358,10 @@ namespace CardPresentation
         }
 
         /// <summary>一个 trait 在触发类那一本的**全部**真值行（按资产顺序；空数组 = 没绑）。
-        /// ⚠️ 返回的是内部数组，只读用，⛔ 别改。</summary>
+        /// ⚠️ 返回的是内部数组，只读用，⛔ 别改。转 <see cref="BindingsFor"/>（与 OnPlay 那本同一份实现）。</summary>
         public static TraitEffectBinding[] TriggerBindingsFor(string trait)
         {
-            var t = Norm(trait);
-            TraitEffectBinding[] rows;
-            if (t.Length != 0 && TriggerFrames.TryGetValue(t, out rows)) return rows;
-            return EmptyBindings;
+            return BindingsFor(trait, true);
         }
         static readonly TraitEffectBinding[] EmptyBindings = new TraitEffectBinding[0];
 
@@ -310,7 +398,11 @@ namespace CardPresentation
 
         /// <summary>原版有、我们**暂时挂不上**的那几个（如实记：不是「不做」，是缺一件前置）。
         /// 键 = 原版那个具名字段（`…Frame 0xNNN`），值 = 缺什么。
-        /// ✅ 2026-10-01：`vanguardFrame` 已接上（见 `PlayFrames`），从这里移走。</summary>
+        /// ✅ 2026-10-01：`vanguardFrame` 已接上。
+        /// 🔴 **2026-10-23（铁律 5）就地订正**：原文写「vanguardFrame 已接上（见 `PlayFrames`）」——
+        ///   那是**另一套**（具名字段 `vanguardFrame` = `Vanguard Frame Animated VAT`）；状态框这条链走的是
+        ///   `TraitEffect`（`VanguardIdleAnim → VanguardIdleEffect`），所以「接上」的说法早就该改。
+        /// ⚠️ 这几条原版引用/写方都是空的 ⇒ 按铁律 11 第 ① 种**结案**，不是缺口。</summary>
         public static readonly string[] MissingFrames =
         {
             "summonSicknessFrame / stealthFrame / reflectedFrame（原版 `BattleAnims.json` 那几项是**空引用**）",
@@ -318,37 +410,24 @@ namespace CardPresentation
             "codexFrame / activeQuestFrame（原版不在两本字典里、无条件销毁；我们按同一语义处理 —— 见 `Clean`）",
         };
 
-        /// <summary>查一个 trait 该用哪张框（`null` = 没有绑定）。**判据只此一处**。
+        /// <summary>查一个 trait 该用哪张框（`null` = 没有绑定）。**判据只此一处**（= 数据里那一行）。
         /// 触发那一本现在是**一组** ⇒ 这里返回**第一条**（`bloodthirst` = `BloodThirstEffect_Gain`）。
         /// 要全部 ⇒ <see cref="PrefabsFor"/>。</summary>
         public static string PrefabFor(string trait, bool trigger)
         {
-            var t = Norm(trait);
-            if (t.Length == 0) return null;
-            if (trigger)
-            {
-                var rows = TriggerBindingsFor(t);
-                return rows.Length > 0 ? rows[0].Prefab : null;
-            }
-            string s;
-            return PlayFrames.TryGetValue(t, out s) ? s : null;
+            var rows = BindingsFor(trait, trigger);
+            return rows.Length > 0 ? rows[0].Prefab : null;
         }
 
-        /// <summary>🆕 **这一本里该播的**全部** prefab（按顺序；空数组 = 没绑）。
-        /// 触发那本 = 一个 trait 的多条 3/6（`bloodthirst` 首次触发两条都播）；OnPlay 那本恒 0/1 条。</summary>
+        /// <summary>**这一本里该播的**全部 prefab（按顺序；空数组 = 没绑）。
+        /// 触发那本 = 一个 trait 的多条 3/6（`bloodthirst` 首次触发两条都播）；OnPlay 那本按数据恒 0/1 条。</summary>
         public static string[] PrefabsFor(string trait, bool trigger)
         {
-            var t = Norm(trait);
-            if (t.Length == 0) return new string[0];
-            if (trigger)
-            {
-                var rows = TriggerBindingsFor(t);
-                var names = new string[rows.Length];
-                for (int i = 0; i < rows.Length; i++) names[i] = rows[i].Prefab;
-                return names;
-            }
-            string s;
-            return PlayFrames.TryGetValue(t, out s) ? new[] { s } : new string[0];
+            var rows = BindingsFor(trait, trigger);
+            if (rows.Length == 0) return new string[0];
+            var names = new string[rows.Length];
+            for (int i = 0; i < rows.Length; i++) names[i] = rows[i].Prefab;
+            return names;
         }
 
         // ==================================================================
@@ -407,11 +486,14 @@ namespace CardPresentation
 
         /// <summary>原版有框、我们**挂不上**的那几个 trait（`MissingFrames` 的键那一侧，用来出声）。
         /// 其余没绑定的 trait 原版也没有框 ⇒ 静默是对的。
-        /// ✅ 2026-10-01：`vanguard` 已接上（`PlayFrames` 里那一条），从这里移走。</summary>
+        /// ✅ 2026-10-01：`vanguard` 已接上，从这里移走。
+        /// 🔴 **2026-10-23（`T1`）**：这条判断现在**完全由数据说了算** —— 绑不上 = 数据里没有那一行。
+        /// 这 4 个名字在 73 个 `CardTrait` 里**一个都没有**（原版 `BattleAnims.json` 那几项是空引用/无写方），
+        /// 所以留着这一格只是「万一引擎给了这个词，出声而不是静默」的兜底**提示**，不是绑定表。</summary>
         static readonly HashSet<string> MissingTraits = new HashSet<string>
         { "summonsickness", "reflected", "perfection", "courage" };
-        // ⚠️ **2026-10-23 把 `bloodthirst` 从这里移走** —— 它在 `TriggerEffectBindings` 里绑着
-        //   `BloodThirstEffect_Gain`，本来就走不到「挂不上」那一支（留着只会让这句话失真）。
+        // ⚠️ **2026-10-23 把 `bloodthirst` 从这里移走** —— 数据里它有 `BloodThirstEffect_Gain`，
+        //   本来就走不到「挂不上」那一支（留着只会让这句话失真）。
         static readonly HashSet<string> _warnedMissing = new HashSet<string>();
 
         /// <summary>把「这一轮卡上持有的关键词」报进来 —— **我们对差出「新加上的 trait」的入口**。
@@ -529,7 +611,8 @@ namespace CardPresentation
         /// <summary>原版 `BattleCardUI.CleanStatusAnims(clearAll)` —— 清掉「卡上**已经不再持有**的 trait」
         /// 的框（`clearAll` = 全清，卡离场时走这条）。逐条判据见文件头。
         /// ⚠️ 原版还会**无条件**销毁 `codexFrame` / `activeQuestFrame`（那两个不在两本字典里）——
-        /// 我们这两个走的就是字典那条路（`codex` 在 `PlayFrames` 里），语义等价。</summary>
+        /// 我们的 `codex` 走**触发类**那本（数据：`Codex.asset` 只有一条 Trigger(3)），
+        /// 触发框由 prefab 自己的 `destroyTime` 收尾 ⇒ 语义等价（它本来也不在 `codexFrame` 那个字段上）。</summary>
         public void Clean(ICollection<string> stillHas, bool clearAll)
         {
             CleanOne(_play, stillHas, clearAll);

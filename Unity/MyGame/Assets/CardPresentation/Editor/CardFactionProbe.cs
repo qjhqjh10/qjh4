@@ -112,6 +112,7 @@ public static class CardFactionProbe
     // ==================================================================
     public static void Run()
     {
+        _assertBad = 0;                   // 同一会话里跑两次时，计数不累计（下面 B 那条断言用它）
         Directory.CreateDirectory(OutDir);
         var pool = CardDatabase.Load();
         if (pool == null || pool.Count == 0)
@@ -134,6 +135,7 @@ public static class CardFactionProbe
         var manifest = new StringBuilder();
         manifest.Append("阵营\t卡名\t卡 id\t输出文件\tPnP 路径\t并排图\n");
         int ok = 0, fail = 0;
+        int okPicks = 0;                  // ① 表里点名的 13 个阵营里**渲成功**的张数（B 那条断言量的就是它）
         var covered = new HashSet<string>();
 
         // ---- ① 表里点名的 13 个阵营 ----
@@ -162,7 +164,8 @@ public static class CardFactionProbe
                 fail++;
                 continue;
             }
-            if (RenderOne(def, pick.PnpRel, manifest)) ok++; else fail++;
+            if (RenderOne(def, pick.PnpRel, manifest)) { ok++; okPicks++; }
+            else fail++;
         }
 
         // ---- ② 池里有、表里没有的阵营（今天是 0 个；以后加阵营走这里，⛔ 不静默漏）----
@@ -187,6 +190,44 @@ public static class CardFactionProbe
         Debug.Log($"[cardfaction] === 完成 {ok} 张 · 失败 {fail} 张 · 清单 {manifestPath} ===");
         if (fail > 0)
             Debug.LogError($"[cardfaction] 有 {fail} 张没渲出来 —— **这不是通过**，见上面逐条 LogError");
+
+        // ═════════════════ B：把「13 张全成功」钉成一条**断言**（2026-10-23）═════════════════
+        //
+        // 🔴 **为什么补这一条**：原来这个探针全靠 `LogError + fail 计数` 兜着 ——
+        //   人能看见红字，但**没有任何一条判据**说「13 张必须全出来」；
+        //   少渲一张（阵营跳过 / 兜底也选不出卡 / 某张抛异常）时，只有一行 `Debug.LogWarning`
+        //   （「表过期了吗？」）就过去了 ⇒ 并排验收会**静默少一张**。
+        //
+        // **判据**：`Picks` 表里点名的每一条都必须渲出图（`okPicks == Picks.Length`）**且**全程 0 失败。
+        //   ⚠️ 只数 **① 循环**里那 13 条（`okPicks`）—— 池里以后**新增阵营**走 ② 循环兜底渲出来，
+        //     那属于「多渲了」、**不该把这条判红**（`ok` 总数会 > 13，本条不看它）。
+        //   ⚠️ `fail` 是**全程**的（② 循环失败也算）⇒ 「任意一张渲失败就红」。
+        //
+        // 🧨 **改坏法（必须能红）**：① 把 `Picks` 里任一条的 `CardId` 改成池里不存在的 id ⇒ 走兜底、
+        //   若兜底也选不出 ⇒ `fail++` ⇒ 红；② 把某个 `Pick.Faction` 改成不存在的阵营名 ⇒ 该格 `continue`、
+        //   `okPicks` 少 1 ⇒ 红；③ 让 `RenderOne` 里 `view` 建不出来（`CardView.Create` 抛异常）⇒ 红；
+        //   ④ 把 `Picks` 加一条而池里没有那个阵营 ⇒ 红。
+        Check(okPicks == Picks.Length && fail == 0,
+              "★ 13 阵营并排 **全部渲出**：Picks 表 " + Picks.Length + " 条 → 成功 **" + okPicks + "** 张、失败 " +
+              fail + " 张（全池共 " + ok + " 张）" +
+              "。改坏法：① `Picks` 里任一条 id 改成池里不存在的 ⇒ 兜底也选不出 ⇒ fail++ ⇒ 红；" +
+              "② 某个 `Pick.Faction` 写成不存在的阵营 ⇒ 该格 `continue`、okPicks 少 1 ⇒ 红；" +
+              "③ `RenderOne` 里 `CardView.Create` 抛异常 ⇒ 红。",
+              ref _assertBad);
+
+        if (_assertBad > 0)
+            Debug.LogError($"[cardfaction] **断言没过 {_assertBad} 条** —— 这不是通过（见上面 `!!` 那几行）");
+        else
+            Debug.Log($"[cardfaction] 断言全过（{Picks.Length} 张全部渲出）");
+    }
+
+    // ── 断言计数（与 `IconSetup.Verify` 的 `Check(bool,string,ref int)` 同一个写法）──
+    static int _assertBad;
+
+    static void Check(bool ok, string msg, ref int bad)
+    {
+        if (ok) Debug.Log("[cardfaction] OK " + msg);
+        else { bad++; Debug.LogError("[cardfaction] !! " + msg); }
     }
 
     /// <summary>兜底选卡（只给「表里没有的阵营」用）：部队卡 + desc/descZh 非空 + 有立绘，

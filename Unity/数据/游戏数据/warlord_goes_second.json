@@ -1,284 +1,330 @@
 {
- "note": "由 allcards 包解析：卡 SO 的 goSecondCardInHand 是【同包内 PPtr】，按 m_PathID 解成卡 id",
- "source": "d:/2/远端缓存_旧profile_1013/Unity缓存_按哈希/54bdb7b1.../__data",
- "provenance": "抢救来源 = 旧 Windows 用户目录 C:/Windows.old/Users/qjh/AppData/LocalLow/Unity/Everguild_Warpforge/（Unity 缓存，**按哈希命名**）里的原版远端包 allcards_assets_all；原件与全部导出 → d:/2/远端缓存_旧profile_1013/（含 README）。⚠️ 年代限制：该包是 Unity 2022.3.38f1 / 2025-07-30 的快照（1195 张卡 vs 当前卡池 1126 张），id 方案与字段结构是原版真值，个别卡的值未必等于最终版。",
- "invariant": "🔴 本表实测的不变量（55/55 全中，2026-10-14 现核）：**同一阵营的所有督军指向【同一张】goSecondCardInHand** —— 11 个阵营各一张，没有例外。判据 = 对 map 的 11 个不同 refId 分组，每组内阵营唯一、且 11 组两两不同阵营。gen_cards_engine.py 每次生成都会**重新断言这条不变量**，不成立就炸（不静默取一张）。⚠️ 这是**原版数据的实测形状**，不是我们对规则的推断 —— 原版那个字段确实是【督军 SO 上的 PPtr】，只是这份快照里同阵营督军填的都是同一张。同族还有 8 条 32 位 hex 的键（b3a0be3e… 这类）= 同一督军的**另一份 SO**（异画/教程副本/重复 SO），值与本表一致，**不额外提供信息**。",
- "count": 55,
- "map": {
-  "SAU37": {
-   "refId": "SAU59",
-   "refName": "Awakened Obelisk",
-   "warlord": "Orikan the Diviner"
-  },
-  "SOR3": {
-   "refId": "SOR59",
-   "refName": "Sacred Altar",
-   "warlord": "Morvenn Vahl"
-  },
-  "GOF27": {
-   "refId": "GOF49",
-   "refName": "Gretchin Tower",
-   "warlord": "Boss Zagstruk"
-  },
-  "ASH74": {
-   "refId": "ASH57",
-   "refName": "Webway Entrance",
-   "warlord": "Jain Zar"
-  },
-  "UM76": {
-   "refId": "UM53",
-   "refName": "Hive Factory",
-   "warlord": "Lieutenant Titus"
-  },
-  "DA3": {
-   "refId": "DA59",
-   "refName": "Grim Effigy",
-   "warlord": "Asmodai, Master Interrogator"
-  },
-  "SAU36": {
-   "refId": "SAU59",
-   "refName": "Awakened Obelisk",
-   "warlord": "Nemesor Zahndrekh"
-  },
-  "SAU66": {
-   "refId": "SAU59",
-   "refName": "Awakened Obelisk",
-   "warlord": "Ramatekh the Cruel"
-  },
-  "BL35": {
-   "refId": "BL57",
-   "refName": "Helfire Torch",
-   "warlord": "Haarken Worldclaimer"
-  },
-  "DA2": {
-   "refId": "DA59",
-   "refName": "Grim Effigy",
-   "warlord": "Belial, Master of the Deathwing"
-  },
-  "TAU2": {
-   "refId": "TAU62",
-   "refName": "Watch Tower",
-   "warlord": "Aun'Va"
-  },
-  "edb0fd16ad0760e47b4b37737f3e60bd": {
-   "refId": "ASH57",
-   "refName": "Webway Entrance",
-   "warlord": "Medreyal Ghaelyn"
-  },
-  "TL35": {
-   "refId": "TL54",
-   "refName": "Digestion Pool",
-   "warlord": "Swarmlord"
-  },
-  "BL34": {
-   "refId": "BL57",
-   "refName": "Helfire Torch",
-   "warlord": "Abaddon the Despoiler"
-  },
-  "b3a0be3e80b938144ba9364714823062": {
-   "refId": "BL57",
-   "refName": "Helfire Torch",
-   "warlord": "Haarken Worldclaimer"
-  },
-  "BL65": {
-   "refId": "BL57",
-   "refName": "Helfire Torch",
-   "warlord": "Ghallaron the Pious"
-  },
-  "SAU35": {
-   "refId": "SAU59",
-   "refName": "Awakened Obelisk",
-   "warlord": "Imotekh the Stormlord"
-  },
-  "DA1": {
-   "refId": "DA59",
-   "refName": "Grim Effigy",
-   "warlord": "Azrael, Grand Master"
-  },
-  "ef547f829b6491f45a8ad371f492278e": {
-   "refId": "SAU59",
-   "refName": "Awakened Obelisk",
-   "warlord": "Nemesor Zahndrekh"
-  },
-  "BL36": {
-   "refId": "BL57",
-   "refName": "Helfire Torch",
-   "warlord": "Sylar Hexscorn"
-  },
-  "TAU65": {
-   "refId": "TAU62",
-   "refName": "Watch Tower",
-   "warlord": "War Shaper"
-  },
-  "UM48": {
-   "refId": "UM53",
-   "refName": "Hive Factory",
-   "warlord": "Varro Tigurius"
-  },
-  "GOF75": {
-   "refId": "GOF49",
-   "refName": "Gretchin Tower",
-   "warlord": "Warboss Gordrang"
-  },
-  "GOF77": {
-   "refId": "GOF49",
-   "refName": "Gretchin Tower",
-   "warlord": "Beastboss Morgrim"
-  },
-  "bd6baa4e586791244a25861a52dfab02": {
-   "refId": "TL54",
-   "refName": "Digestion Pool",
-   "warlord": "Tervigon"
-  },
-  "UM65": {
-   "refId": "UM53",
-   "refName": "Hive Factory",
-   "warlord": "Chaplain Letharius"
-  },
-  "TAU3": {
-   "refId": "TAU62",
-   "refName": "Watch Tower",
-   "warlord": "Commander O'Maisos"
-  },
-  "GOF29": {
-   "refId": "GOF49",
-   "refName": "Gretchin Tower",
-   "warlord": "Grukk Face-Rippa"
-  },
-  "GOF28": {
-   "refId": "GOF49",
-   "refName": "Gretchin Tower",
-   "warlord": "GhazghkullThraka"
-  },
-  "ASH1": {
-   "refId": "ASH57",
-   "refName": "Webway Entrance",
-   "warlord": "Anvirr Keltoc"
-  },
-  "ASH76": {
-   "refId": "ASH57",
-   "refName": "Webway Entrance",
-   "warlord": "Lhykhis"
-  },
-  "AM3": {
-   "refId": "AM60",
-   "refName": "Timely Reinforcements",
-   "warlord": "Commissar Denkler"
-  },
-  "TL34": {
-   "refId": "TL54",
-   "refName": "Digestion Pool",
-   "warlord": "Tervigon"
-  },
-  "AM66": {
-   "refId": "AM60",
-   "refName": "Timely Reinforcements",
-   "warlord": "Tempestor Prime"
-  },
-  "UM47": {
-   "refId": "UM53",
-   "refName": "Hive Factory",
-   "warlord": "Uriel Ventris"
-  },
-  "SOR1": {
-   "refId": "SOR59",
-   "refName": "Sacred Altar",
-   "warlord": "Erika Luminas"
-  },
-  "SOR2": {
-   "refId": "SOR59",
-   "refName": "Sacred Altar",
-   "warlord": "Junith Eruita"
-  },
-  "52520927841c93c4785d2690edb9fb1f": {
-   "refId": "GOF49",
-   "refName": "Gretchin Tower",
-   "warlord": "Grukk Face-Rippa"
-  },
-  "ASH2": {
-   "refId": "ASH57",
-   "refName": "Webway Entrance",
-   "warlord": "Eliac Zephyrblade"
-  },
-  "GSC66": {
-   "refId": "GSC63",
-   "refName": "Alien Idol",
-   "warlord": "Shanus Daskovian"
-  },
-  "GSC3": {
-   "refId": "GSC63",
-   "refName": "Alien Idol",
-   "warlord": "Iconward Malak Vorenth"
-  },
-  "AM1": {
-   "refId": "AM60",
-   "refName": "Timely Reinforcements",
-   "warlord": "Lord Solar Leontus"
-  },
-  "GSC1": {
-   "refId": "GSC63",
-   "refName": "Alien Idol",
-   "warlord": "Primus Saffa Rhiannor"
-  },
-  "TL74": {
-   "refId": "TL54",
-   "refName": "Digestion Pool",
-   "warlord": "Terror of Vardenghast"
-  },
-  "SOR65": {
-   "refId": "SOR59",
-   "refName": "Sacred Altar",
-   "warlord": "Celestian Sacresant Aveline"
-  },
-  "AM2": {
-   "refId": "AM60",
-   "refName": "Timely Reinforcements",
-   "warlord": "Ursula Creed"
-  },
-  "b5ee585c2678220478c4aed4893f4cc4": {
-   "refId": "BL57",
-   "refName": "Helfire Torch",
-   "warlord": "Sylar Hexscorn (tutorial)"
-  },
-  "GSC2": {
-   "refId": "GSC63",
-   "refName": "Alien Idol",
-   "warlord": "Magus Uthrel Naas"
-  },
-  "ASH3": {
-   "refId": "ASH57",
-   "refName": "Webway Entrance",
-   "warlord": "Medreyal Ghaelyn"
-  },
-  "UM46": {
-   "refId": "UM53",
-   "refName": "Hive Factory",
-   "warlord": "Marneus Calgar"
-  },
-  "TL36": {
-   "refId": "TL54",
-   "refName": "Digestion Pool",
-   "warlord": "Neurothrope"
-  },
-  "TAU1": {
-   "refId": "TAU62",
-   "refName": "Watch Tower",
-   "warlord": "Shadowsun"
-  },
-  "b5eedae31b83f564baba23db311c9112": {
-   "refId": "UM53",
-   "refName": "Hive Factory",
-   "warlord": "Uriel Ventris"
-  },
-  "GOF76": {
-   "refId": "GOF49",
-   "refName": "Gretchin Tower",
-   "warlord": "Mozrog Skragbad"
-  },
-  "cb29b9bcde7995948a3c373401e67e3c": {
-   "refId": "SAU59",
-   "refName": "Awakened Obelisk",
-   "warlord": "Nemesor Zahndrekh"
+  "note": "由 allcards 包解析：卡 SO 的 goSecondCardInHand 是【同包内 PPtr】，按 m_PathID 解成卡 id",
+  "source": "d:/4/Unity/资料/普查产出_1018/allcards_1350/cards_raw.json（**当前 build** · 1,351 张卡 SO）",
+  "generator": "d:/4/Unity/工具/gen_warlord_goes_second.py",
+  "provenance": "⚠️ 2026-10-23 生成器换源（引擎线 P1·②）：旧表是 2025-07-30 旧 profile 快照的 55 位督军（`d:/2/远端缓存_旧profile_1013/…`），EmperorsChildren / SpaceWolves 两族整族缺席⇒ 那 6 位督军后手开局拿不到防御卡。现在改从**当前 build** 的卡 SO 快照重解，形状与字段语义不变。判据 → 资料/普查产出_1023c/引擎深审C_数据吻合.md §2·2。",
+  "invariant": "🔴 本表实测的不变量（64/64 全中，2026-10-23 现核）：**同一阵营的所有督军指向【同一张】goSecondCardInHand** —— 13 个阵营各一张，没有例外。gen_warlord_goes_second.py 每次生成都会**重新断言这条不变量**，不成立就炸（不静默取一张）；gen_cards_engine.py 的 resolve_warlord_defence 再断言一次（按【阵营】落位）。⚠️ 这是**原版数据的实测形状**，不是我们对规则的推断。",
+  "count": 64,
+  "map": {
+    "52520927841c93c4785d2690edb9fb1f": {
+      "refId": "GOF49",
+      "refName": "Gretchin Tower",
+      "warlord": "Grukk Face-Rippa"
+    },
+    "AM1": {
+      "refId": "AM60",
+      "refName": "Timely Reinforcements",
+      "warlord": "Lord Solar Leontus"
+    },
+    "AM2": {
+      "refId": "AM60",
+      "refName": "Timely Reinforcements",
+      "warlord": "Ursula Creed"
+    },
+    "AM3": {
+      "refId": "AM60",
+      "refName": "Timely Reinforcements",
+      "warlord": "Commissar Denkler"
+    },
+    "AM66": {
+      "refId": "AM60",
+      "refName": "Timely Reinforcements",
+      "warlord": "Tempestor Prime"
+    },
+    "ASH1": {
+      "refId": "ASH57",
+      "refName": "Webway Entrance",
+      "warlord": "Anvirr Keltoc"
+    },
+    "ASH2": {
+      "refId": "ASH57",
+      "refName": "Webway Entrance",
+      "warlord": "Eliac Zephyrblade"
+    },
+    "ASH3": {
+      "refId": "ASH57",
+      "refName": "Webway Entrance",
+      "warlord": "Medreyal Ghaelyn"
+    },
+    "ASH74": {
+      "refId": "ASH57",
+      "refName": "Webway Entrance",
+      "warlord": "Jain Zar"
+    },
+    "ASH76": {
+      "refId": "ASH57",
+      "refName": "Webway Entrance",
+      "warlord": "Lhykhis"
+    },
+    "BL34": {
+      "refId": "BL57",
+      "refName": "Helfire Torch",
+      "warlord": "Abaddon the Despoiler"
+    },
+    "BL35": {
+      "refId": "BL57",
+      "refName": "Helfire Torch",
+      "warlord": "Haarken Worldclaimer"
+    },
+    "BL36": {
+      "refId": "BL57",
+      "refName": "Helfire Torch",
+      "warlord": "Sylar Hexscorn"
+    },
+    "BL65": {
+      "refId": "BL57",
+      "refName": "Helfire Torch",
+      "warlord": "Ghallaron the Pious"
+    },
+    "DA1": {
+      "refId": "DA59",
+      "refName": "Grim Effigy",
+      "warlord": "Azrael, Grand Master"
+    },
+    "DA2": {
+      "refId": "DA59",
+      "refName": "Grim Effigy",
+      "warlord": "Belial, Master of the Deathwing"
+    },
+    "DA3": {
+      "refId": "DA59",
+      "refName": "Grim Effigy",
+      "warlord": "Asmodai, Master Interrogator"
+    },
+    "DA75": {
+      "refId": "DA59",
+      "refName": "Grim Effigy",
+      "warlord": "Master Zacharial"
+    },
+    "EC55": {
+      "refId": "EC59",
+      "refName": "Vial Tanks",
+      "warlord": "Lucius the Eternal"
+    },
+    "EC56": {
+      "refId": "EC59",
+      "refName": "Vial Tanks",
+      "warlord": "Lord Kaphrael"
+    },
+    "EC57": {
+      "refId": "EC59",
+      "refName": "Vial Tanks",
+      "warlord": "Xarahan Daemon Prince"
+    },
+    "GOF27": {
+      "refId": "GOF49",
+      "refName": "Gretchin Tower",
+      "warlord": "Boss Zagstruk"
+    },
+    "GOF28": {
+      "refId": "GOF49",
+      "refName": "Gretchin Tower",
+      "warlord": "GhazghkullThraka"
+    },
+    "GOF29": {
+      "refId": "GOF49",
+      "refName": "Gretchin Tower",
+      "warlord": "Grukk Face-Rippa"
+    },
+    "GOF75": {
+      "refId": "GOF49",
+      "refName": "Gretchin Tower",
+      "warlord": "Warboss Gordrang"
+    },
+    "GOF76": {
+      "refId": "GOF49",
+      "refName": "Gretchin Tower",
+      "warlord": "Mozrog Skragbad"
+    },
+    "GOF77": {
+      "refId": "GOF49",
+      "refName": "Gretchin Tower",
+      "warlord": "Beastboss Morgrim"
+    },
+    "GSC1": {
+      "refId": "GSC63",
+      "refName": "Alien Idol",
+      "warlord": "Primus Saffa Rhiannor"
+    },
+    "GSC2": {
+      "refId": "GSC63",
+      "refName": "Alien Idol",
+      "warlord": "Magus Uthrel Naas"
+    },
+    "GSC3": {
+      "refId": "GSC63",
+      "refName": "Alien Idol",
+      "warlord": "Iconward Malak Vorenth"
+    },
+    "GSC66": {
+      "refId": "GSC63",
+      "refName": "Alien Idol",
+      "warlord": "Shanus Daskovian"
+    },
+    "SAU35": {
+      "refId": "SAU59",
+      "refName": "Awakened Obelisk",
+      "warlord": "Imotekh the Stormlord"
+    },
+    "SAU36": {
+      "refId": "SAU59",
+      "refName": "Awakened Obelisk",
+      "warlord": "Nemesor Zahndrekh"
+    },
+    "SAU37": {
+      "refId": "SAU59",
+      "refName": "Awakened Obelisk",
+      "warlord": "Orikan the Diviner"
+    },
+    "SAU66": {
+      "refId": "SAU59",
+      "refName": "Awakened Obelisk",
+      "warlord": "Ramatekh the Cruel"
+    },
+    "SOR1": {
+      "refId": "SOR59",
+      "refName": "Sacred Altar",
+      "warlord": "Erika Luminas"
+    },
+    "SOR2": {
+      "refId": "SOR59",
+      "refName": "Sacred Altar",
+      "warlord": "Junith Eruita"
+    },
+    "SOR3": {
+      "refId": "SOR59",
+      "refName": "Sacred Altar",
+      "warlord": "Morvenn Vahl"
+    },
+    "SOR65": {
+      "refId": "SOR59",
+      "refName": "Sacred Altar",
+      "warlord": "Celestian Sacresant Aveline"
+    },
+    "SW1": {
+      "refId": "SW59",
+      "refName": "Orbital Defences",
+      "warlord": "Logan Grimnar"
+    },
+    "SW2": {
+      "refId": "SW59",
+      "refName": "Orbital Defences",
+      "warlord": "Njal Stormcaller"
+    },
+    "SW3": {
+      "refId": "SW59",
+      "refName": "Orbital Defences",
+      "warlord": "Ragnar Blackmane"
+    },
+    "TAU1": {
+      "refId": "TAU62",
+      "refName": "Watch Tower",
+      "warlord": "Shadowsun"
+    },
+    "TAU2": {
+      "refId": "TAU62",
+      "refName": "Watch Tower",
+      "warlord": "Aun'Va"
+    },
+    "TAU3": {
+      "refId": "TAU62",
+      "refName": "Watch Tower",
+      "warlord": "Commander O'Maisos"
+    },
+    "TAU65": {
+      "refId": "TAU62",
+      "refName": "Watch Tower",
+      "warlord": "War Shaper"
+    },
+    "TL34": {
+      "refId": "TL54",
+      "refName": "Digestion Pool",
+      "warlord": "Tervigon"
+    },
+    "TL35": {
+      "refId": "TL54",
+      "refName": "Digestion Pool",
+      "warlord": "Swarmlord"
+    },
+    "TL36": {
+      "refId": "TL54",
+      "refName": "Digestion Pool",
+      "warlord": "Neurothrope"
+    },
+    "TL74": {
+      "refId": "TL54",
+      "refName": "Digestion Pool",
+      "warlord": "Terror of Vardenghast"
+    },
+    "UM46": {
+      "refId": "UM53",
+      "refName": "Hive Factory",
+      "warlord": "Marneus Calgar"
+    },
+    "UM47": {
+      "refId": "UM53",
+      "refName": "Hive Factory",
+      "warlord": "Uriel Ventris"
+    },
+    "UM48": {
+      "refId": "UM53",
+      "refName": "Hive Factory",
+      "warlord": "Varro Tigurius"
+    },
+    "UM65": {
+      "refId": "UM53",
+      "refName": "Hive Factory",
+      "warlord": "Chaplain Letharius"
+    },
+    "UM76": {
+      "refId": "UM53",
+      "refName": "Hive Factory",
+      "warlord": "Lieutenant Titus"
+    },
+    "UM87": {
+      "refId": "UM53",
+      "refName": "Hive Factory",
+      "warlord": "Roboute Guilliman"
+    },
+    "UM88": {
+      "refId": "UM53",
+      "refName": "Hive Factory",
+      "warlord": "Valius Paxor"
+    },
+    "b3a0be3e80b938144ba9364714823062": {
+      "refId": "BL57",
+      "refName": "Helfire Torch",
+      "warlord": "Haarken Worldclaimer"
+    },
+    "b5ee585c2678220478c4aed4893f4cc4": {
+      "refId": "BL57",
+      "refName": "Helfire Torch",
+      "warlord": "Sylar Hexscorn (tutorial)"
+    },
+    "b5eedae31b83f564baba23db311c9112": {
+      "refId": "UM53",
+      "refName": "Hive Factory",
+      "warlord": "Uriel Ventris"
+    },
+    "bd6baa4e586791244a25861a52dfab02": {
+      "refId": "TL54",
+      "refName": "Digestion Pool",
+      "warlord": "Tervigon"
+    },
+    "cb29b9bcde7995948a3c373401e67e3c": {
+      "refId": "SAU59",
+      "refName": "Awakened Obelisk",
+      "warlord": "Nemesor Zahndrekh"
+    },
+    "edb0fd16ad0760e47b4b37737f3e60bd": {
+      "refId": "ASH57",
+      "refName": "Webway Entrance",
+      "warlord": "Medreyal Ghaelyn"
+    },
+    "ef547f829b6491f45a8ad371f492278e": {
+      "refId": "SAU59",
+      "refName": "Awakened Obelisk",
+      "warlord": "Nemesor Zahndrekh"
+    }
   }
- }
 }

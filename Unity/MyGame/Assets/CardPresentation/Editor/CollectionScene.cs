@@ -7703,9 +7703,11 @@ public static class CollectionScene
                 var hb0 = hit0 != null ? hit0.GetComponent<WindowButton>() : null;
                 CheckTrue(hb0 != null, "卡池第 1 格有点击区");
                 // 🆕 **2026-10-19（`N70` P0-5）**：卡牌格悬停 = 原版 `Card2DController.ToggleHighlight`（alpha 0.2s）。
-                //   我们落在 `CardView.SetHoverHighlight`（状态环 `_Outline.a` 补到 1/0）。
+                //   我们落在 **卡面那层 `Card Highlight And Shadow`** 的 `_Outline` 上
+                //   （`CardView.SetHoverHighlight` → `SetOutline`；⛔ **不是**战斗的 `_rim` —— 那是另一层，
+                //    判据见 `SetHoverHighlight` 的注释）。
                 //   🧨 改坏法：删掉 `AttachCardHover` 那两句 ⇒ `onEnter` 为空 ⇒ 第一条红；
-                //      删掉 `SetHoverHighlight` 里的 `ApplyRimColor` ⇒ 目标 alpha 不动 ⇒ 第二条红。
+                //      把 `SetHoverHighlight` 写回 `_rim`（或删掉 `SetOutline` 那一句）⇒ 后面整组红。
                 if (hb0 != null)
                 {
                     CheckTrue(hb0.onEnter != null && hb0.onExit != null,
@@ -7713,19 +7715,103 @@ public static class CollectionScene
                     var cv0 = cp != null ? FindChild(cp, "CollectionCard_0") : null;
                     var view0 = cv0 != null ? cv0.GetComponent<CardView>() : null;
                     CheckTrue(view0 != null, "（前提）第 1 格是 `CardView`（悬停那条判据的载体）");
+                    // 🆕 **2026-10-23（`C3`）**：悬停光**四项参数**照原版 `Collection Card` 那一份
+                    //   （判据 = `MENUS` 的 `CollectionCard.highlightColor` + `Card Highlight And Shadow` 的
+                    //   RectTransform + 材质 `Card Frame SDF`；核查报告 §三）。
                     if (view0 != null && hb0.onEnter != null && hb0.onExit != null)
                     {
+                        var prevMode = CardTween.Mode;
+                        CardTween.Mode = DG.Tweening.UpdateType.Manual;   // 0.2s 那条要手动推（批处理无帧循环）
                         hb0.onEnter();
-                        CheckTrue(view0.RimTargetForTest.a > 0f,
+                        // ① 颜色 = #0080FF（原版 `CollectionCard.highlightColor` 逐位实读）
+                        var mc = view0.OutlineTargetForTest;
+                        CheckTrue(mc.a > 0f,
                                   "★ 悬停 ⇒ 描边目标 **alpha > 0**（原版 `ToggleHighlight(true)` 把 alpha 补到 1）");
+                        CheckNear(mc.r, 0f, 0.004f, $"★ 菜单悬停色 **r = 0**（原版 `highlightColor.r`；实测 {mc.r:F4}）");
+                        CheckNear(mc.g, 0.5026951f, 0.004f, $"★ … **g = 0.5027**（= `#0080FF` 的 0x80；实测 {mc.g:F4}）");
+                        CheckNear(mc.b, 1f, 0.004f, $"★ … **b = 1**（实测 {mc.b:F4}）—— 原来这里是**白 (1,1,1)**");
+                        // ② alpha 目标 = **1.0**（原版 `ToggleHighlight` 直接写 1；⛔ 不乘 `RimAlphaScale 0.447`）
+                        CheckNear(mc.a, 1f, 0.004f,
+                                  $"★ alpha 目标 = **1.0**、**不乘** `RimAlphaScale`（原版菜单档 `ToggleHighlight` 写的就是 1）"
+                                + $"—— 实测 {mc.a:F4}；若变成 {CardHighlight.RimAlphaScale:F3} 说明走错了层（战斗那圈）");
+                        // ③ 尺寸 = 原版 4.4281²（= 那层 quad 的渲染尺寸；原来是卡的 1.09×1.06 = 2.281×3.531）
+                        var ms = view0.OutlineQuadSize;
+                        CheckNear(ms.x, 4.4281f, 0.02f, $"★ 悬停光 quad 宽 = **4.4281**（原版 `m_SizeDelta.x`；实测 {ms.x:F4}）");
+                        CheckNear(ms.y, 4.4281f, 0.02f, $"★ … 高 = **4.4281**（实测 {ms.y:F4}；原来只有卡的 1.09×1.06）");
+                        // ④ 材质档 = `Card Frame SDF`（与战斗 `Card board Frame SDF` **只差这三项**）
+                        CheckNear(view0.OutlineFloatForTest("_Inner_Edge"), 0.333f, 0.004f,
+                                  $"★ 材质 `_Inner_Edge` = **0.333**（原版 `Card Frame SDF`；实测 {view0.OutlineFloatForTest("_Inner_Edge"):F4}）");
+                        CheckNear(view0.OutlineFloatForTest("_Inner_Fallof"), 0.224f, 0.004f,
+                                  $"★ … `_Inner_Fallof` = **0.224**（实测 {view0.OutlineFloatForTest("_Inner_Fallof"):F4}）");
+                        CheckNear(view0.OutlineFloatForTest("_SpriteAlphaEdge_Inner"), 0.043f, 0.004f,
+                                  $"★ … `_SpriteAlphaEdge_Inner` = **0.043**（实测 {view0.OutlineFloatForTest("_SpriteAlphaEdge_Inner"):F4}）");
+                        // ⑤ **真落到材质上**（0.2 s 线性）：补间推完 ⇒ `_Outline` = #0080FF α1
+                        CardTween.Advance(CardHighlight.OutlineAnimTime + 0.05f);
+                        var land = view0.OutlineColor;
+                        CheckNear(land.g, 0.5026951f, 0.01f, $"★ 推完 0.2s ⇒ 材质 `_Outline.g` = **0.5027**（实测 {land.g:F4}）");
+                        CheckNear(land.a, 1f, 0.01f, $"★ … α = **1.0**（实测 {land.a:F4}）");
                         hb0.onExit();
-                        CheckTrue(view0.RimTargetForTest.a <= 1e-4f,
+                        CheckTrue(view0.OutlineTargetForTest.a <= 1e-4f,
                                   "★ 离开 ⇒ 目标 **alpha = 0**（原版 `ToggleHighlight(false)`）");
+                        CardTween.Advance(CardHighlight.OutlineAnimTime + 0.05f);
+                        CheckTrue(view0.OutlineColor.a <= 0.02f,
+                                  $"★ 离开推完 ⇒ 材质 α = **0**（实测 {view0.OutlineColor.a:F4}）");
+                        // 🔴 **反向断言（灭自证）**：菜单悬停**不许碰战斗那层状态环**（`_rim`）。
+                        //   判据 = 环的尺寸仍是 1.09×1.06 的 2.2810×3.5312、且目标 alpha 恒 0（从没被点亮）。
+                        //   ⇒ 把悬停写回 `_rim`（旧实现）或把菜单尺寸/材质套到环上，这一组立刻红。
+                        var rs = view0.RimSize;
+                        CheckNear(rs.x, 1.09f * CardView.Width, 0.01f,
+                                  $"★ 反向：战斗状态环尺寸仍是 **1.09 × 2.0927 = 2.2810**（实测 {rs.x:F4}）—— 悬停没碰它");
+                        CheckNear(rs.y, 1.06f * CardView.Height, 0.01f,
+                                  $"★ 反向：… 高 **1.06 × 3.3313 = 3.5312**（实测 {rs.y:F4}）");
+                        CheckTrue(view0.RimTargetForTest.a <= 1e-4f && !view0.RimVisible,
+                                  "★ 反向：悬停**从头到尾没点亮战斗状态环**（α 目标恒 0、环恒关）—— 两层是物理分开的");
+                        // 同一页里**另一格**（没悬停过）也不受影响（防止把悬停做成全局/静态）
+                        var cv1 = FindChild(cp, "CollectionCard_1");
+                        var view1 = cv1 != null ? cv1.GetComponent<CardView>() : null;
+                        CheckTrue(view1 != null, "（前提）第 2 格也是 `CardView`（反向断言要用一张没悬停过的卡）");
+                        if (view1 != null)
+                            CheckTrue(view1.OutlineTargetForTest.a <= 1e-4f,
+                                      "★ 反向：没悬停过的那一格描边目标 α = **0**（悬停只作用在被指的那一张）");
+                        CardTween.Mode = prevMode;
                     }
+                }
+                // 🆕 **2026-10-23（`C3`）选中 punch 的包络**（原版 `CollectionCard.SelectedHighlight(true)`）：
+                //   判据 = `CollectionCard__SelectedHighlight.c` + `.rdata` 实读（punch = −Vector3.one × **0.05**、
+                //   时长 **0.1**、vibrato **10**、elasticity **1.0**；向量怎么解出来的见 `PunchCardCell` 那段）。
+                //   用**独立探针**跑（⛔ 不拿窗里的卡试：批处理要 `CardTween.Advance` 手动推进，
+                //   推窗里那张会连带把详情窗的开窗补间一起推掉 ⇒ 后面那些断言的前提就变了）。
+                //   🧨 改坏法：删掉 `DOPunchScale` 那一句 ⇒ 第二条红（途中缩放不动）；删掉 `OnComplete` 复位 ⇒ 第三条红。
+                {
+                    var prevMode = CardTween.Mode;
+                    CardTween.Mode = DG.Tweening.UpdateType.Manual;
+                    var punchGo = new GameObject("CardPunchProbe");
+                    var pt = punchGo.transform;
+                    pt.localScale = Vector3.one;
+                    int punchBefore = CollectionWindow.CardPunchCountForTest;
+                    CollectionWindow.PunchCardForTest(pt);
+                    CheckTrue(CollectionWindow.CardPunchCountForTest == punchBefore + 1,
+                              "★ 点卡格 ⇒ 起了**一次**选中 punch（原版 `CollectionCard.SelectedHighlight(true)`）");
+                    // ⚠️ 取样点必须避开**零点**：punch 的包络是 `sin(t/duration × π × vibrato)`，
+                    //   而原版 vibrato = **10** ⇒ `t = 0.1k × duration` 全是零交叉（0.05 s 正好是零点！
+                    //   第一次写的就是 0.05，取样必得 1.0 = 假红）。取 **0.025 s = 0.25 × duration** ⇒ sin(2.5π) = **+1**（第一个峰）。
+                    CardTween.Advance(0.025f);
+                    CheckTrue(Mathf.Abs(pt.localScale.x - 1f) > 0.005f,
+                              $"★ punch **途中真的在缩放**（t=0.025s 第一个峰时 scale.x = {pt.localScale.x:F4}；原版幅度 ±0.05）"
+                            + "—— 幅度为 0 / 没建补间 都会是 1");
+                    CardTween.Advance(0.2f);           // 推到头
+                    CheckNear(pt.localScale.x, 1f, 0.002f,
+                              $"★ punch 收尾 ⇒ 缩放**复位到 1**（实测 {pt.localScale.x:F4}）"
+                            + "—— 不复位就会在那一格留一个非 1 的缩放（静默，且只在被点过的那一格看得见）");
+                    Object.DestroyImmediate(punchGo);
+                    CardTween.Mode = prevMode;
                 }
                 if (hb0 != null)
                 {
+                    int punchCnt = CollectionWindow.CardPunchCountForTest;
                     hb0.Click();
+                    CheckTrue(CollectionWindow.CardPunchCountForTest == punchCnt + 1,
+                              "★ 真点卡格这一下**也走同一条 punch**（`CardHit_0.onClick` 里调的不是另一份实现）");
                     var cd = CollectionWindow.LastCardDetail;
                     CheckTrue(cd != null, "点第 1 格 ⇒ **开出了卡片详情窗**");
                     if (cd != null)

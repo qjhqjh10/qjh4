@@ -337,6 +337,10 @@ public static class CardBaseDemo
         // ---- 5. 手牌布局四件（B1 批 2026-10-17）----
         Debug.Log(P + "--- 手牌布局：小屏档触发 · 最近空位 · 选中让位 · 层序 ---");
         AssertHandLayout(cam);
+
+        // ---- 6. 🆕 2026-10-23（战斗线 · 新账-73 / 新账-74）：远程收招第二段 + 缩放走唯一口 ----
+        AssertRangedRecoverAndBaseScale();
+
         ProbeTextBg(cam);                 // 🔍 诊断（`WF_TEXTBG_PROBE=1` 才跑；不设 = 零输出）
         ProbeTextBgDiff(cam);             // 🔍 诊断（`A1934`；`WF_TEXTBG_DIFF=1` 才跑 —— 开/关两帧存 PNG + 逐像素 diff）
 
@@ -2974,11 +2978,15 @@ public static class CardBaseDemo
             // ③ 中文档
             Check(CardText.Name("Ember Warlord") == "余烬督军",
                   $"③ 卡名 `Ember Warlord` → `余烬督军`（实得「{CardText.Name("Ember Warlord")}」）");
-            Check(CardText.KeywordZh("vanguard") == "先锋" && CardText.KeywordZh("waystone") == "路标石",
-                  "③ 关键词 `vanguard` / `waystone` → `先锋` / `路标石`（后者改前**只在那 62 条表里**、"
+            // 🔴 2026-10-23（`C4`）就地改期望值：`waystone` 路标石→**灵魂石** · `armour` 护甲→**盔甲**
+            //   —— `Core/Loc.cs` 那 42 条已换成官方值（判据 = `数据/游戏数据/官方本地化_en+zh-CN.json`
+            //   的 `Card_Trait/{waystone,armour}`；出处 = `资料/普查产出_1023c/官方中文全量收口_执行报告.md` §一·①）。
+            //   ⚠️ 只改期望值字面量，**没有放宽/合并任何一条断言**。
+            Check(CardText.KeywordZh("vanguard") == "先锋" && CardText.KeywordZh("waystone") == "灵魂石",
+                  "③ 关键词 `vanguard` / `waystone` → `先锋` / `灵魂石`（后者改前**只在那 62 条表里**、"
                 + "12 条那张里没有 ⇒ 合并只许合并、⛔ 不许合并时丢词）");
-            Check(CardText.KeywordZh("armour") == "护甲", "③ `armour` → `护甲`（⛔ 不是别名 `装甲`）");
-            Check(CardText.Keyword("armour") == "护甲", "③ `Keyword(\"armour\")` 仍 → `护甲`（带数值那一格由调用方拼）");
+            Check(CardText.KeywordZh("armour") == "盔甲", "③ `armour` → `盔甲`（⛔ 不是别名 `装甲` / 旧译 `护甲`）");
+            Check(CardText.Keyword("armour") == "盔甲", "③ `Keyword(\"armour\")` 仍 → `盔甲`（带数值那一格由调用方拼）");
     // 🔴 2026-10-14（第二十七会话）就地改期望值：Armies/Goff 原来是我们自译的「高夫兽人」，官方 zh-CN = 「欧克蛮人」
         Check(CardText.Faction("Goff") == "欧克蛮人", "③ 阵营 `Goff` → `欧克蛮人`");
             Check(CardText.Phrase("GAME OVER") == "对局结束" && CardText.Phrase("YOU LOSE") == "你输了",
@@ -3004,7 +3012,7 @@ public static class CardBaseDemo
                   $"④ 英文档 `Keyword` 仍回大写英文（**行为逐字照改前**；实得「{CardText.Keyword("armour")}」）");
             Check(CardText.KeywordDisplay("armour") == "Armour",
                   $"④ 英文档 `KeywordDisplay` = 英文列（表里那份 `Armour`；实得「{CardText.KeywordDisplay("armour")}」）");
-            Check(CardText.KeywordZh("armour") == "护甲",
+            Check(CardText.KeywordZh("armour") == "盔甲",     // 🔴 2026-10-23（`C4`）期望值 护甲→盔甲（同 ③，官方值）
                   "④ **判别式**：`KeywordZh` **恒中文**（`KeywordSegment` 在中文档也拿它比「印过没有」）⇒ 英文档下不变");
             Check(CardText.Phrase("YOU WIN") == "YOU WIN", "④ 英文档短语**照原样回英文原文**（本笔没改这条路的显示）");
             Check(sp != null && CardText.EffectSentence(sp) == "Deal 2 damage to an enemy unit",
@@ -3017,8 +3025,10 @@ public static class CardBaseDemo
             // ---- ⑤ 关键词 tooltip 的**标题跟语档**（原 `A1086③` 的缺陷）----
             Loc.RestoreForTest(AvailableLanguages.Chinese);
             string tipZh = TipText.Trait("armour");
-            Check(tipZh != null && TitleOf(tipZh).Contains("护甲（Armour）"),
-                  $"⑤ 中文档关键词 tooltip 的标题 = `护甲（Armour）`（**全角括号**，逐字同改前）"
+            // 🔴 2026-10-23（`C4`）期望值 护甲（Armour）→ **盔甲（Armour）**：标题 = `KeywordDisplay` 的中文列
+            //   + 全角括号；中文列已换成官方 `Card_Trait/armour` = 盔甲。
+            Check(tipZh != null && TitleOf(tipZh).Contains("盔甲（Armour）"),
+                  $"⑤ 中文档关键词 tooltip 的标题 = `盔甲（Armour）`（**全角括号**，逐字同改前）"
                 + $"—— 标题段「{TitleOf(tipZh)}」");
             Loc.RestoreForTest(AvailableLanguages.English);
             string tipEn = TipText.Trait("armour");
@@ -3034,7 +3044,8 @@ public static class CardBaseDemo
             var sb = new System.Text.StringBuilder();
             foreach (var s in CardText.AllChinese()) sb.Append(s);
             string all = sb.ToString();
-            string[] must = { "余烬督军", "路标石", "欧克蛮人", "对局结束", "对{1}造成 {0} 点伤害", "护甲", "眩晕" };
+            // 🔴 2026-10-23（`C4`）`路标石`→`灵魂石` · `护甲`→`盔甲`（语料 = `Loc` 中文列，已随官方值一起换）
+            string[] must = { "余烬督军", "灵魂石", "欧克蛮人", "对局结束", "对{1}造成 {0} 点伤害", "盔甲", "眩晕" };
             int no = 0; string wh = "";
             foreach (var m in must)
                 if (all.IndexOf(m, System.StringComparison.Ordinal) < 0) { no++; wh += "「" + m + "」"; }
@@ -3059,12 +3070,18 @@ public static class CardBaseDemo
         //   来由：官方那代文本用 `<br>` 断行，而 `IsDeclarationAt` 的「段首」那一支
         //   只看**紧邻字符**是不是句读符 ⇒ `<br>` 的 `>` 判不出来 ⇒ 词被再补一遍。
         //   实测：`ASH34 Avatar of Khaine` 卡面多印一个 `天赋。`（PnP 成品卡只印一遍）。
+        //   🔴 2026-10-23（`C4`）改**测试夹具**里的词：`talent` 的词条已换成官方 **才能**（原 天赋）
+        //     ⇒ 夹具正文跟着写 `才能：…`，否则这条**靠 `KeywordZhAliases` 的旧词别名才变绿**
+        //     （= 测不到「`<br>` 后算段首」那一支，断言形同放水）。⚠️ 另外三条 `护甲 2。` 只是**无关前文**，
+        //     不参与本条判据（`kwTalent` 里没有 `armour`），故原样保留。
+        //     ⚠️ `ASH34` 的**真实** `descZh` 里仍是旧词 `天赋：`（卡面 `descZh` 还没迁到官方）
+        //     —— 那一半由 `KeywordZhAliases` 的过渡补丁兜（见 `Core/CardText.cs`），**不是**本条在测的东西。
         var kwTalent = new System.Collections.Generic.Dictionary<string, int> { { "talent", 0 } };
-        Check(CardText.KeywordSegment(kwTalent, true, "护甲 2。<br>天赋：凯恩之怒。") == "",
-              "⑨ 正文里 `天赋：凯恩之怒。` 紧跟 `<br>` ⇒ 关键词段**不再补** `天赋。`"
+        Check(CardText.KeywordSegment(kwTalent, true, "护甲 2。<br>才能：凯恩之怒。") == "",
+              "⑨ 正文里 `才能：凯恩之怒。` 紧跟 `<br>` ⇒ 关键词段**不再补** `才能。`"
             + " —— 🧨 把 `IsDeclarationAt` 的「段首」那支改回**只看句读符** ⇒ 本条红"
-            + "（实测 `ASH34 Avatar of Khaine` 卡面会多印一个 `天赋。`，而 PnP 只印一遍）");
-        Check(CardText.KeywordSegment(kwTalent, true, "护甲 2。\n天赋：凯恩之怒。") == "",
+            + "（实测 `ASH34 Avatar of Khaine` 卡面会多印一个关键词，而 PnP 只印一遍）");
+        Check(CardText.KeywordSegment(kwTalent, true, "护甲 2。\n才能：凯恩之怒。") == "",
               "⑨ **判别式**：`<br>` 与真换行 `\\n` 必须**同效**"
             + " —— 只给 `<br>` 开小灶、或只认 `\\n`，两条必红其一");
         Check(CardText.KeywordSegment(kwTalent, true, "护甲 2。凯恩之怒。") != "",
@@ -3358,6 +3375,137 @@ public static class CardBaseDemo
             var c = t.GetChild(i);
             WalkZ(c, z + c.localPosition.z, ref lo, ref hi);
         }
+    }
+
+    // ==================================================================
+    //  🆕 2026-10-23（战斗线 · **新账-73** 远程收招第二段 / **新账-74** 缩放走唯一口）
+    // ==================================================================
+    //  判据（第一权威 = 反编译，全部在 `d:/2/tools/decomp_full/`）：
+    //   · **段1** `CardScript._ResolveAttackRangedAnim_d__360__MoveNext.c:80-104` =
+    //     `DOLocalMove(静止位)` + `DORotateQuaternion(identity)` + `DOScale(DefaultScale)`，时长 `attackStepTime` = 0.1；
+    //     之后 `WaitForCompletion` + `WaitForSeconds(0.1)` ⇒ 0.2 s 才发 VFX（= `EventTiming.AttackStepRanged`）。
+    //   · **段2** `CardScript__AfterAttack.c`（调用点 `CardScript._ResolveRangedAttack_d__364__MoveNext.c:39`，
+    //     在段1 那条协程跑完之后才调）= 同一句 `DOLocalMove(静止位, attackStepTime)` + `SetDelay(0.65)`
+    //     + `OnUpdate` = `localScale = MinionScaleByPositionSO.GetScale(...)` + `OnComplete` = `FinishAfterAttack`。
+    //     🔴 **0.65 不是我们挑的** —— `GameAssembly.dll` `.rdata 0x1834b315c` 4 字节 float 实读 = 0.65
+    //     （同一地址在 `FatigueCard._DrawFatigue_d__7:64-70` 当 0.65 的字面量用，两处互证）。
+    //   · **收尾** `CardScript__FinishAfterAttack.c` = `set_localPosition(静止位)` / `set_rotation(identity)` /
+    //     `set_localScale(DefaultScale)`。
+    //
+    //  为什么挂在**本宿主**：它在 `工具/_run_8_checks.sh` 的 12 条里，而且本来就
+    //  `CardTween.Mode = Manual` + `Step(dt)` 手动推进（同 4c / 4d 两节的理由）。
+    //
+    //  🔴 **成对（灭自证）**：
+    //    · ④（段2 在按深度重算）⟷ ③（那 0.65 s 里**不**参与）：
+    //      「钩子挂整条序列」过得了 ④ 过不了 ③；「段2 忘了挂钩子」过得了 ③ 过不了 ④。
+    //    · ②（`BaseScale` 跟上了目标）⟷ 老的 `DOScale` 写法（`localScale` 对、`BaseScale` 陈）⇒ 只有 ② 红。
+    //    · ⑧（HUD 层的卡不吃这条曲线）⇒ 摘掉 `IsArenaCard` 那道门时**只有它红**。
+    static void AssertRangedRecoverAndBaseScale()
+    {
+        Debug.Log(P + "--- 远程收招：第二段（新账-73）+ 缩放唯一口（新账-74）---");
+
+        // 曲线两端 = 原版 SO 实读值，**在这里独立重写一遍两键插值**
+        // （⛔ 不调 `CardFeel.DepthScaleCurve` —— 拿我们的实现证明我们的实现是自证）
+        const float K0T = 0.002811431884765625f, K0V = 0.36000001430511475f;
+        const float K1T = 7.699999809265137f,  K1V = 0.699999988079071f;
+        float Curve(float x)
+        {
+            return Mathf.Lerp(K0V, K1V, Mathf.Clamp01((x - K0T) / (K1T - K0T)));
+        }
+
+        // 这张卡 = **3D 战场层**（`IsArenaCard` 的门）+ 站在**敌方行**的 z 上 + 按 `isPlayer = true` 算
+        // ⇒ 深度系数 = 曲线两端之比（= 「我方卡冲到对面那一行」那一帧）。
+        var root = new GameObject("chk_recover");
+        var v = CardView.Create(root.transform, CardData.Placeholder(40), "chk_recover_card", CardFace.Board);
+        v.gameObject.layer = ArenaSlots.ArenaLayer;
+        v.SetPose(new Vector3(0f, 0f, ArenaSlots.EnemyZ), 0f, 0.36f);
+
+        float ratio = Curve(ArenaSlots.EnemyZ - ArenaSlots.PlayerZ) / Curve(0f);
+        Check(Mathf.Abs(ratio - 1.9444f) < 1e-3f,
+              $"夹具：我方行 → 敌方行的深度系数 = {ratio:F4}（原版曲线 = 0.70 / 0.36）");
+
+        var t = CardFeel.AttackRecover(v.transform, v.transform.localPosition, 0.30f, 0f, isPlayer: true);
+        if (t == null)
+        {
+            Check(false, "夹具：`AttackRecover` 没建出来（下面的条目**没验到**，不是通过）");
+            Object.DestroyImmediate(root);
+            return;
+        }
+        float wantDur = CardFeel.AttackStepTime + CardFeel.AfterAttackDelay + CardFeel.AttackStepTime;
+        // ⚠️ 这条必须在**任何 Step 之前**读 —— 段1 的缩放补间一开始跑就会把 0.36 往 0.30 拖
+        //    （推进 1 ms 就已经差了 1.2e-3，超过下面 1e-3 的容差 ⇒ 会变成假红）。
+        Check(Mathf.Abs(v.BaseScale - 0.36f) < 1e-3f, $"夹具：起始基础缩放 0.36（实测 {v.BaseScale:F4}）");
+
+        // ⚠️ 先推进 1 ms 再读 `Duration()` —— DOTween 的 `Sequence` 是**首次推进时**才算总时长的
+        //    （在那之前 `_duration` 还没 Validate，读出来是 0，会让下面那条假红）。
+        Step(0.001f);
+        Check(Mathf.Abs(t.Duration() - wantDur) < 1e-3f,
+              $"① 收招是**两段**：整条 {t.Duration():F3}s = 0.1（段1）+ {CardFeel.AfterAttackDelay:F2}"
+            + $"（原版 `AfterAttack` 那记 `SetDelay`）+ 0.1（段2归位）；期望 {wantDur:F3}"
+            + "｜🧨 删掉段2 ⇒ 0.100 ⇒ 红；删掉那记 `SetDelay` ⇒ 0.200 ⇒ 红");
+
+        Step(0.099f);                                        // t = 0.10（段1 跑完；上面已经推了 1 ms）
+        Check(Mathf.Abs(v.BaseScale - 0.30f) < 2e-3f,
+              $"②（新账-74）段1 的缩放补间写进的是 **`CardView.BaseScale`**（实测 {v.BaseScale:F4}，目标 0.30）"
+            + "｜🧨 退回 `tr.DOScale(...)` 直写 `localScale` ⇒ `localScale` 变 0.300 而 `BaseScale` 仍 0.360 ⇒ 本条红");
+        Check(Mathf.Abs(v.transform.localScale.x - v.BaseScale * v.HighlightMul) < 1e-3f,
+              $"……而且结构不变量成立：`localScale` {v.transform.localScale.x:F4} = "
+            + $"`BaseScale` {v.BaseScale:F4} × 高亮 {v.HighlightMul:F2}");
+
+        Step(0.4f);                                          // t = 0.50（在段2 之前那 0.65 s 里）
+        Check(Mathf.Abs(v.BaseScale - 0.30f) < 2e-3f,
+              $"③ 那 {CardFeel.AfterAttackDelay:F2}s 的 `SetDelay` 期间**深度缩放不参与**（t=0.50 实测 {v.BaseScale:F4} = 0.30）"
+            + $"｜🧨 把 `activeFrom` 传 0（= 钩子挂整条序列）⇒ 这里已是 {0.30f * ratio:F4} ⇒ 红");
+
+        Step(0.3f);                                          // t = 0.80（段2 = 0.75~0.85 中间）
+        float want2 = 0.30f * ratio;
+        Check(Mathf.Abs(v.BaseScale - want2) < 5e-3f,
+              $"④ 段2 在按**战场深度**重算：0.30 × {ratio:F4} = {want2:F4}（实测 {v.BaseScale:F4}）"
+            + "｜🧨 段2 只做位移、不挂 `HookDepthScale` ⇒ 停在 0.300 ⇒ 红");
+
+        Step(0.2f);                                          // t = 1.00（序列跑完）
+        Check(!t.IsActive(), "夹具：序列已跑完（下面的复位才可读）");
+        Check(Mathf.Abs(v.BaseScale - 0.30f) < 2e-3f,
+              $"⑤ 收尾按原版 `FinishAfterAttack` 把静止缩放写回（实测 {v.BaseScale:F4} = 0.30）"
+            + $"｜🧨 去掉 `HookDepthScale` 的 `OnKill` 复位 ⇒ 停在 {want2:F4} ⇒ 红");
+        Check(Mathf.Abs(v.transform.localPosition.z - ArenaSlots.EnemyZ) < 1e-3f
+              && Quaternion.Angle(v.transform.rotation, Quaternion.identity) < 0.5f,
+              "……而且位置在静止位、朝向回 identity（`FinishAfterAttack` 那三句）");
+
+        // 反档：**HUD 层**的卡（哪怕摆在敌行 z 上）⇒ 段2 也不写缩放
+        var hRoot = new GameObject("chk_hud_recover");
+        var h = CardView.Create(hRoot.transform, CardData.Placeholder(42), "chk_hud_card", CardFace.Hand);
+        h.gameObject.layer = 0;
+        h.SetPose(new Vector3(0f, 0f, ArenaSlots.EnemyZ), 0f, 0.36f);
+        var ht = CardFeel.AttackRecover(h.transform, h.transform.localPosition, 0.30f, 0f, isPlayer: true);
+        Step(CardFeel.AttackStepTime + CardFeel.AfterAttackDelay + 0.04f);   // t ≈ 0.79（段2 半路）
+        Check(Mathf.Abs(h.BaseScale - 0.30f) < 2e-3f,
+              $"⑥ 反档：**HUD 层**的卡不吃深度缩放（段2 半路实测 {h.BaseScale:F4} = 0.30）"
+            + $"｜🧨 摘掉 `IsArenaCard` 那道门 ⇒ 这里变 {want2:F4} ⇒ **只有本条**红");
+        Step(0.2f);                                           // 让它跑完（复位干净）
+        Check(ht != null && Mathf.Abs(h.BaseScale - 0.30f) < 2e-3f, "……跑完也停在 0.30（没被写歪）");
+
+        // ---- 新账-74：发牌那两条也不再直写 `localScale` ----
+        var dRoot = new GameObject("chk_deal_scale");
+        var d = CardView.Create(dRoot.transform, CardData.Placeholder(41), "chk_deal_card", CardFace.Hand);
+        d.SetPose(Vector3.zero, 0f, 0.5f);      // 起 0.5 ⇒ 老写法跑完 `BaseScale` 会**停在 0.5**
+        CardFeel.DealIn(d, new Vector3(5f, 0f, 0f));
+        Step(CardFeel.DealDuration + 0.05f);
+        Check(Mathf.Abs(d.BaseScale - 1f) < 1e-3f,
+              $"⑦（新账-74）`DealIn` 收尾 **`BaseScale` = 1**（实测 {d.BaseScale:F4}，起始 0.5）"
+            + "｜🧨 退回 `tr.DOScale(Vector3.one, …)` ⇒ `localScale` 变 1 而 `BaseScale` 仍 0.500 ⇒ 本条红");
+        Check(Mathf.Abs(d.transform.localScale.x - d.BaseScale * d.HighlightMul) < 1e-3f,
+              "……而且 `localScale` = `BaseScale × 高亮`（同一结构不变量）");
+
+        CardFeel.DealInPose(d, new Vector3(-5f, 0f, 0f), new Vector3(2f, 0f, 0f), 0f, 0.65f);
+        Step(CardFeel.DealDuration + 0.05f);
+        Check(Mathf.Abs(d.BaseScale - 0.65f) < 2e-3f,
+              $"⑧（新账-74）`DealInPose` 收尾 **`BaseScale` = 0.65**（实测 {d.BaseScale:F4}）"
+            + "｜🧨 退回 `tr.DOScale(Vector3.one * scale, …)` ⇒ `BaseScale` 停在 1.000 ⇒ 本条红");
+
+        Object.DestroyImmediate(root);
+        Object.DestroyImmediate(hRoot);
+        Object.DestroyImmediate(dRoot);
     }
 
     static void Shot(Camera cam, int w, int h, string tag)

@@ -1,10 +1,11 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-arena_scene_probe.py —— 查「我们**建好的** `Battle_<场>.unity` 里某个对象」的 pos/rot/scale/active
+arena_scene_probe.py —— 查「我们**建好的** `<场>.unity` 里某个对象」的 pos/rot/scale/active
 ================================================================================
 为什么需要：`ArenaBuilder` 是**把清单写进场景 YAML** —— 想验收「清单改了、场景里真生效了吗」，
 只能去读**场景文件**（读清单只能证明清单改了）。§28 那一批修复（雾 / 镜像负缩放 / 精灵）都要靠它验收。
+战场场景的真实位置 = `Assets/WarpforgeArena1/Scenes/<场>.unity`（见下面 `SCENES` 的 2026-10-23 注释）。
 
 用法：
   PYTHONIOENCODING=utf-8 python 工具/arena_scene_probe.py <场名> <对象名> [对象名...]
@@ -13,17 +14,29 @@ arena_scene_probe.py —— 查「我们**建好的** `Battle_<场>.unity` 里�
 判据出处：场景 YAML 的 `--- !u!1 &<goId>`（GameObject）/ `--- !u!4 &<trId>`（Transform）/ `--- !u!104`（RenderSettings）。
 只读脚本。
 """
-import io, os, re, sys
+import glob, io, os, re, sys
 
 ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
-SCENES = os.path.join(ROOT, 'MyGame', 'Assets', 'CardPresentation', 'Scenes')
+# 🔴 2026-10-23 修（`T01` 施工计划 §2·2 的 B1）：原来指向 `Assets/CardPresentation/Scenes`
+#   —— 那里放的是 `Battle.unity` / `CardBase.unity` 这类**非战场**场景；13 个战场场景早在
+#   `Assets/WarpforgeArena1/Scenes/`（现读该目录 = 13 个 `battlearena*.unity` + 2 个 `VFXWhiteboard`）。
+#   原写法 ⇒ 每次调用都 `FileNotFoundError` ⇒「候选 → 缺陷」的定位关**没有工具**。
+SCENES = os.path.join(ROOT, 'MyGame', 'Assets', 'WarpforgeArena1', 'Scenes')
 
 
 def load_scene(arena):
-    p = os.path.join(SCENES, 'Battle_%s.unity' % arena)
-    if not os.path.exists(p):
-        p = os.path.join(SCENES, '%s.unity' % arena)
-    return io.open(p, 'r', encoding='utf-8', errors='replace').read(), p
+    # 现名 = 裸名 `<场>.unity`（`battlearena1.unity`）；`Battle_<场>.unity` 是历史写法，留着兜底。
+    for name in ('%s.unity' % arena, 'Battle_%s.unity' % arena):
+        p = os.path.join(SCENES, name)
+        if os.path.exists(p):
+            return io.open(p, 'r', encoding='utf-8', errors='replace').read(), p
+    # 兜底：`Assets/*/Scenes/` 任一目录 —— 场景 2026-10-11 从 CardPresentation 搬过一次，
+    #   以后再搬就不用改路径（⛔ 别写死第二份目录，这里只按场名去 glob）。
+    hits = sorted(glob.glob(os.path.join(ROOT, 'MyGame', 'Assets', '*', 'Scenes', '%s.unity' % arena)))
+    if hits:
+        return io.open(hits[0], 'r', encoding='utf-8', errors='replace').read(), hits[0]
+    sys.exit('🔴 找不到战场场景 `%s`：查过 `%s` 与 `Assets/*/Scenes/`。\n'
+             '   场名应是 ArenaBuilder 用的那个（例：battlearena1 / battlearenatauviorla）。' % (arena, SCENES))
 
 
 def blocks(text):

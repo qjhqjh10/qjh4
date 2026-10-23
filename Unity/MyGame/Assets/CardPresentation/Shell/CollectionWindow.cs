@@ -80,6 +80,8 @@
 //   · **卡组的稳定标识**用 `Name`（`PlayerDeck` 没有 id 字段）—— 重命名会让选中态丢，如实记。
 using System.Collections.Generic;
 using UnityEngine;
+using DG.Tweening;     // 🆕 2026-10-23（`C3`）：卡格选中 punch 用到 `DOPunchScale` / `OnComplete` / `OnKill`
+                       //   —— 这几个都是 `DG.Tweening` 里的**扩展方法**，不引这个 using 就编不过（CS1061）。
 using RuleEngine;      // `CardDatabase` / `CardDef`（`DeckDef` 那套在 RuleEngine 里）
 
 namespace CardPresentation
@@ -125,6 +127,20 @@ namespace CardPresentation
         /// <summary>左栏第一个键的顶边（原版 188.64）− `Content Area` 顶边（70.94）= **117.7**。
         /// ⚠️ 别照抄「padTop = 30」—— 那是**条内**布局组的 padTop，条本身还从 158.64 起（比 `Content Area` 低 87.7）。</summary>
         protected override float BarPadTop { get { return 117.7f; } }
+
+        /// <summary>本窗左栏 `Shadow` 的顶边 = **`Tab Buttons` 自己的顶边 158.64**（原版 `Collection Menu Variant`
+        /// 与奖励窗/商店不同：那两扇的 `Tab Buttons` 铺满 `Content Area`，本窗的条本身就从 158.64 起）。
+        /// 🔴 **2026-10-23（W62）**：这一条与下面的 tint 一起从「子类删掉重建一份 `Shadow`」收进基类的两个判据
+        /// （判据/来历 → `MainMenuSubmenuWindow.BarShadowTop`、`BarShadowTint`；原来那份临时补丁已删）。</summary>
+        protected override float BarShadowTop { get { return TabBarTop; } }
+
+        /// <summary>本窗左栏 `Shadow` 的 tint = 原版 prefab 那颗 `Image.m_Color` **`(0,0,0,0.475)`**。
+        /// 🔴 **判据**（原版 prefab 现读，⛔ 不是从实现抄）：`工具/menu_dump.py bundle_menus_assets_all
+        /// "Collection Menu Variant" --depth 5` ⇒ `Shadow | 167.2 158.6 214.8 1080.0 | Image |
+        /// 40k_main_tab_shadow 51×4 | Simple (0,0,0,0.475)`。这张图本体是**纯白 + alpha 渐变** ⇒
+        /// 不给 tint 就会画成那条**竖向浅白带**（真机截图 `_tmp_view/shots/2026-10-22_第六十二会话/02_collection.png`）。
+        /// 详细判据 → `资料/普查产出_1022/W62_换牌压暗与收藏白条修复.md` §②。</summary>
+        protected override Color? BarShadowTint { get { return new Color(0f, 0f, 0f, 0.475f); } }
 
         // ============================================================ 页内自己的层（照兄弟序逐层 +1）
         /// <summary>页内的渲染队列**梯子**。
@@ -1033,6 +1049,10 @@ namespace CardPresentation
             int n = CardsState.VisibleCards().Count;
             int rows = Mathf.Max(1, Mathf.CeilToInt(n / (float)CardsCols));
             CardsScroll = MenuScroll.TopAligned(CardsViewport, rows * CardsCellH, 100f);   // 原版 `m_ScrollSensitivity = 100`（D_N29）
+            // 🔴 **2026-10-23（`C3`）**：原版这台 `ScrollRect` 是 **`m_MovementType = 1 (Elastic)`**
+            //   （`Collection Menu Variant ▸ CardsTab ▸ Collection Display ▸ Scroll View`；
+            //   五处主滚动区同值，判据见 `MenuScroll.Elastic` 的注释与核查报告 §2·15）⇒ 拖过头要有橡皮筋回弹。
+            CardsScroll.Elastic = true;
             CardsScroll.Owner = gameObject;
             // 🔴 **A465**：构建循环那一路「整块在视口外就不建」也要吃这颗节点
             //   （⛔ 别改成让 `Intersects` 沿 `Owner` 找 —— `Owner` 是窗根、节点在它下面，找不到）。
@@ -1255,7 +1275,10 @@ namespace CardPresentation
                 BuildCardsCounter(parent, i, r, list[i]);
                 // ⚠️ 闭包**别捕循环变量 `i`** —— 点击发生在重建之后，那时 `i` 已经是 `list.Count`（越界）
                 var def = list[i];
-                var cHit = AddHit(parent, "CardHit_" + i, r, QPageRow, () => OpenCardDetail(def));
+                // 🆕 2026-10-23（`C3`）：点之前先来一下选中 punch（原版 `CollectionCard.SelectedHighlight(true)`）——
+                //   幅度/时长/vibrato/elasticity 全在原版 `.rdata`（见 `PunchCardCell` 那段判据）。
+                var cHit = AddHit(parent, "CardHit_" + i, r, QPageRow,
+                                  () => { PunchCardCell(v.transform); OpenCardDetail(def); });
                 AttachCardHover(cHit, v, wildcardArmy: true);      // 🆕 N70 P0-5 悬停描边 + 🆕 2026-10-19 徽记跟着卡阵营换（`CheckFocusedArmy`）
                 BuildWatch.CellPhase("⑤ 张数条（`Rect`+`Text`）+ 命中区（`AddHit`）");
                 BuildWatch.CellEnd();
@@ -1403,6 +1426,7 @@ namespace CardPresentation
             BuildWatch.Mark("①b2a `CosmoTotal` = `CardArt.CosmeticNames()`（`Resources.LoadAll` 466 张 / 610 MB）");
             int rows = Mathf.Max(1, Mathf.CeilToInt(n / (float)CosmoCols));
             CosmoScroll = MenuScroll.TopAligned(CosmoView, rows * CosmoCellH, 100f);   // 原版 `Cardback Display/Scroll View` = 100（D_N29）
+            CosmoScroll.Elastic = true;                 // 原版 `m_MovementType = 1`（同上一条，同窗五处同值）
             CosmoScroll.Owner = gameObject;
             CosmoScroll.ClipNode = cosmoVp;             // 🔴 A465（同卡池页那一条）
             CosmoScroll.OnChanged = () => RebuildCosmoCells(holder);
@@ -1891,6 +1915,7 @@ namespace CardPresentation
             int n = StylesState.VisibleCards().Count;
             int rows = Mathf.Max(1, Mathf.CeilToInt(n / (float)StyleCols));
             StyleScroll = MenuScroll.TopAligned(StyleView, rows * StyleCellH, 100f);   // 原版 `Alternate Art Tab/…/Scroll View` = 100（D_N29）
+            StyleScroll.Elastic = true;                 // 原版 `m_MovementType = 1`（同上一条）
             StyleScroll.Owner = gameObject;
             StyleScroll.ClipNode = styleVp;             // 🔴 A465（同卡池页那一条）
             StyleScroll.OnChanged = () => RebuildStyleCells(holder);
@@ -2182,7 +2207,9 @@ namespace CardPresentation
                 BuildWatch.CellPhase("④ `SetFace` + `SetHighlight`（`SetFace` 是空操作）");
                 StyleCells.Add(v.transform);
                 _styleUsed.Add(v);
-                var aHit = AddHit(parent, "AltArtHit_" + a.CardId, r, QPageRow, () => OpenCardDetail(card));
+                // 🆕 2026-10-23（`C3`）：异画格与卡池格同一颗 punch（原版同一个 `CollectionCard.SelectedHighlight`）。
+                var aHit = AddHit(parent, "AltArtHit_" + a.CardId, r, QPageRow,
+                                  () => { PunchCardCell(v.transform); OpenCardDetail(card); });
                 AttachCardHover(aHit, v);      // 🆕 N70 P0-5：悬停描边 0.2s（同卡牌格）
                 BuildWatch.CellPhase("⑤ 命中区（`AddHit`；本页**没有**张数条）");
                 BuildWatch.CellEnd();
@@ -2280,6 +2307,7 @@ namespace CardPresentation
                 //    🆕 A11：滑动期间节点是**活着的**（要画）⇒ 那条判据不够用，改由
                 //    `SetDrawerInteractive` 在滑动期间**撤登记**、完全展开再登记回来（见那个函数）。
                 _fltScroll = MenuScroll.TopAligned(FltView, FilterPanelModel.ContentHFor(_flt != null ? _flt.State : null), 50f);   // 原版 `Card Filters/Scroll View` = 50（D_N29）
+                _fltScroll.Elastic = true;                   // 原版 `m_MovementType = 1`（同上一条）
                 _fltScroll.Owner = panel.gameObject;
                 _fltScroll.ClipNode = fltVp;                 // 🔴 A465（同上；⚠️ `Owner` 是**面板**、节点在它下面 ⇒ 只能显式给）
                 _fltScroll.OnChanged = () => RebuildFilterRows(p);
@@ -2537,7 +2565,7 @@ namespace CardPresentation
                     //   ⚠️ 原来这一行恒传 `c.Icon` ⇒ 这扇窗的开关**开/关长得一模一样、只差一点色偏**
                     //   （卡组编辑那扇 2026-10-04 A24 就修了，收藏窗这一份一直开着 —— 就是本条要收的账）。
                     //   判据与实现与 `Deck/DeckRuntime.RefreshFilterCells` 逐条同源。
-                    Rect(cell, c.IconOff != null && !c.On ? c.IconOff : c.Icon, b, "Background", QFltRow, CellTint(c), true);
+                    var cellBg = Rect(cell, c.IconOff != null && !c.On ? c.IconOff : c.Icon, b, "Background", QFltRow, CellTint(c), true);
                     if (!string.IsNullOrEmpty(c.Label))
                     {
                         var lr = cosmo ? Abs(c.Lab) : _fltScroll.Shift(Abs(c.Lab));
@@ -2553,8 +2581,19 @@ namespace CardPresentation
                     //    而点击发生在**建完之后**（那时 `_flt` 已经还原了）。第一版漏了这一步，
                     //    点一格筛选就 `NullReferenceException`（自检当场抓到）。
                     var owner = _flt;
-                    AddHit(cell, "Hit", r, QFltHit, () => Scope(owner, () => ApplyFilter(key)),
+                    var cellHit = AddHit(cell, "Hit", r, QFltHit, () => Scope(owner, () => ApplyFilter(key)),
                            clickCue: WindowSounds.SelectToggleCue);
+                    // 🆕 **2026-10-23（`C3`）ColorTint 悬停/按下 —— 只给【开关那两行】**（Owned only / Upgradable only）。
+                    //   判据：原版那两颗 `EverguildToggle` 是 `m_Transition = 1`、`HL = 0.9607843`、`fade = 0.1`、
+                    //   `m_TargetGraphic` = 子件 `Image`；而 **Army / Rarity / Cost / Type 四族是 `m_Transition = 0`**
+                    //   （`CollectionFilterToggle` 类里根本没有 pointer 处理）⇒ ⛔ 别把那四族也带上。
+                    //   本处唯一的「开关族」判据 = `Cell.IconOff != null`（模型里只有 Owned/Upgradable 给了它，
+                    //   与 `CellTint` 用的是同一个口 ⇒ 两处不会分叉）。
+                    if (c.IconOff != null && cellBg != null && cellHit != null)
+                    {
+                        var cellWb = cellHit.GetComponent<WindowButton>();
+                        if (cellWb != null) cellWb.TintOn(cellBg);
+                    }
                 }
             }
 
@@ -2662,6 +2701,7 @@ namespace CardPresentation
             //     藏在 `bundle_Warpforge_unitybuiltinassets` ⇒ 得单独导，见 `工具/import_original_art.py`）
             //     —— 图名/边宽/着色/占位符/字号**一律读共用模型**（别再手写第二份）
             var tex = Art(FilterPanelModel.InputSprite);
+            GameObject inputBg = null;      // 🆕 2026-10-23（`C3`）：ColorTint 的目标图形（原版 `m_TargetGraphic`）
             if (tex != null)
             {
                 float bd = FilterPanelModel.InputBorder;
@@ -2678,7 +2718,7 @@ namespace CardPresentation
                 //       **`clip` 一律 `null`**（本批只保证等价，⛔ 不顺手改观感）。
                 //   ⇒ 下面那圈 `foreach` **删掉了**：它设的两个值与公共件内部设的**同值**，
                 //     留着就是「同一条规则写两处」（将来改一处、另一处静默不动）。
-                MenuDraw.Nine(cell, tex, r, new Vector4(bd, bd, bd, bd), 32f, 32f,
+                inputBg = MenuDraw.Nine(cell, tex, r, new Vector4(bd, bd, bd, bd), 32f, 32f,
                               QFltRow, FilterPanelModel.InputTint, true, "Input BG");
             }
 
@@ -2719,8 +2759,13 @@ namespace CardPresentation
             // ⚠️ 同 `RebuildFilterRowsNow` 那一条：点击回调要**带上这一份面板**，别用 `ApplyCardFilter`
             //    （那个写死了作用在 Cards 页那份上）
             var owner = _flt;
-            AddHit(cell, "Hit", r, QFltHit, () => Scope(owner, () => ApplyFilter("$name")),
+            var nameHit = AddHit(cell, "Hit", r, QFltHit, () => Scope(owner, () => ApplyFilter("$name")),
                    clickCue: WindowSounds.SelectToggleCue);
+            // 🆕 **2026-10-23（`C3`）ColorTint 悬停/按下** —— 同 Deck 页那条（原版 `EverguildInputField`
+            //   `m_Transition = 1`、`HL 0.9607843` / `PR 0.7843137` / `fade 0.1`，打在输入框底图上）。
+            var nameWb = nameHit != null ? nameHit.GetComponent<WindowButton>() : null;
+            if (nameWb != null && inputBg != null)
+                nameWb.TintOn(inputBg.GetComponentsInChildren<ImageQuad>(true));
         }
 
         /// <summary>后 6 行的格子表 —— **模型在 `Core/FilterPanelModel.cs`（与卡组编辑共用一份）**，
@@ -3037,8 +3082,26 @@ namespace CardPresentation
                 MenuDraw.AlignLeft(fltLab, fltLabR);
             }
             if (onToggle != null)
-                AddHit(filterToggle, "FiltersHit", new PxRect(FltBtnX, FltBtnY, FltBtnX + FltBtnS + 220f, FltBtnY + FltBtnS),
-                       QPageRow, onToggle);
+            {
+                // 🔴 **2026-10-23（`C3`）命中区照原版**：可点 = 本颗 `Image`（`40k_menu_bt`，`m_RaycastTarget = 1`，
+                //   **`m_RaycastPadding = (-10,-10,-15,-10)`**）∪ `label`（TMP，`m_RaycastTarget = 1`、pad 0）
+                //   ⇒ x **357.2…587.2** · y **78.4…148.4**（核查报告 §2·3）。原来那块是 367.2…637.2 × 50：
+                //   左边/上下各少 10，右边多出 50（**原版点不到**的那一块）。
+                //   ⚠️ 走 `MenuDraw.PaddedRect` + `Union`（符号约定「正 = 缩、负 = 扩」；⛔ 别手写第二份 pad 算式）。
+                //   先各自 pad 再取并集（顺序见 `Union` 的注释）。
+                var fltHitR = MenuDraw.Union(
+                    MenuDraw.PaddedRect(new PxRect(FltBtnX, FltBtnY, FltBtnX + FltBtnS, FltBtnY + FltBtnS),
+                                        new Vector4(-10f, -10f, -15f, -10f)),
+                    fltLabR);
+                var fltHit = AddHit(filterToggle, "FiltersHit", fltHitR, QPageRow, onToggle);
+                // 🆕 **ColorTint 悬停/按下** —— 原版 `EverguildToggle.m_Transition = 1`、
+                //   `HL = 0.9607843` · `PR = 0.7843137` · `fade = 0.1`、**`m_TargetGraphic` = 本颗 `Image` 自己**。
+                //   本仓默认值恰好就是这三个（`WindowButton.HighlightKey/PressedKey/FadeSeconds`）⇒ 只补 `target`。
+                //   ⚠️ 用 `TintOn` 而不是 `Bind`：原版 `m_SpriteState` 的 hover/pressed 两格**空着**
+                //   （只有 `on/offSprite` 那对按值换图，见 `RefreshFilterToggle`），`Bind` 会把它当换图档、关掉色偏。
+                var fltWb = fltHit != null ? fltHit.GetComponent<WindowButton>() : null;
+                if (fltWb != null && btnQ != null) fltWb.TintOn(btnQ);
+            }
 
             Rect(header, "40k_main_line", new PxRect(167.17f, HdrSepT, 1920.01f, HdrSepB), "Separator Line", QPageRow);
 
@@ -3086,8 +3149,11 @@ namespace CardPresentation
             Transform clrHit = null;
             if (onClear != null)
                 // A17：原版 `…>Clear Filter Button` 是 SpriteSwap（普查 §块 3 第 4 行；我们 1 颗盖原版 3 颗）
+                // 🔴 **2026-10-23（`C3`）**：命中区按原版 `Image.m_RaycastPadding = (-10,-10,-10,-10)` **四边各外扩 10**
+                //   （原来 = 精确矩形 250×60）。仍走 `MenuDraw.PaddedRect`（负值 = 扩），⛔ 别手写第二份 pad 算式。
                 clrHit = AddHit(filtersGrp, "ClearFiltersHit",
-                       new PxRect(ClearFltX, ClearFltY, ClearFltX + ClearFltW, ClearFltY + ClearFltH), QPageRow, onClear,
+                       MenuDraw.PaddedRect(new PxRect(ClearFltX, ClearFltY, ClearFltX + ClearFltW, ClearFltY + ClearFltH),
+                                           new Vector4(-10f, -10f, -10f, -10f)), QPageRow, onClear,
                        clrQ2, "UI_Button_Mulligan", clickCue: WindowSounds.PositiveCue);
 
             // 🆕 **2026-10-11（A1496）**：三件存下来，交给 `RefreshClearFilter` 按「这一页的筛选空不空」开关
@@ -3232,43 +3298,13 @@ namespace CardPresentation
 
         /// <summary>本窗 `Content Area/Tab Buttons` 的顶边（**原版 158.64**）—— 左栏 `Shadow` 从这一行起。
         /// <para>判据 = `工具/menu_dump.py bundle_menus_assets_all "Collection Menu Variant" --depth 5`：
-        /// `Tab Buttons` = **167.2,158.6 → 332.2,1080**（165×921.36）。⚠️ **本窗与奖励窗/商店不同**
-        /// （那两扇的 `Tab Buttons` 铺满 `Content Area`，从 `ContentT`=70.94 起）—— 铁律 5·c 那一类，
-        /// ⛔ 别把这个数搬去基类。</para></summary>
+        /// `Tab Buttons` = **167.2,158.6 → 332.2,1080**（165×921.36）· `Tab Buttons/Shadow` = **167.2,158.6 → 214.8,1080**。
+        /// ⚠️ **本窗与奖励窗/商店不同**（那两扇的 `Tab Buttons` 铺满 `Content Area`，从 `ContentT`=70.94 起）
+        /// —— 铁律 5·c 那一类，⛔ 别把这个数搬去基类（基类默认值仍是 `ContentT`）。</para>
+        /// <para>🔴 **2026-10-23（W62）**：它现在只服务 <see cref="BarShadowTop"/> 那个覆写 ——
+        /// 原来那份「在子类里删掉重建 `Shadow`」的临时补丁已删（正解 = 基类那两个判据
+        /// `BarShadowTop` / `BarShadowTint`）。</para></summary>
         const float TabBarTop = 158.64f;
-
-        /// <summary>🆕 **2026-10-22（W62 · 界面线）**：把左栏 `Shadow` 按**原版**重画（见 `Build()` 里那段判据）。
-        /// <para>**为什么是「删掉重建」而不是「改个色」**：基类那件连**矩形**都不对（它从 `ContentT`=70.94 起，
-        /// 原版本窗从 **158.64** 起）—— 只改色会在页头那 88 px 上多压一条黑影。</para>
-        /// <para>⚠️ **本方法是【临时补丁】**：正解是基类 `MainMenuSubmenuWindow.BuildBar` 那一行为
-        /// `Rect(...)` 补 `tint`（并让起始 y 按窗取）；那份文件不在本批白名单 ⇒ 先在本窗落一份**同值**的。
-        /// 基类修好后本方法可整段删掉 —— 删之前先确认基类那件已经是「同矩形 + 同色」，
-        /// 否则会**变回**白带（本方法只在 `Build()` 里被调一次，删掉它基类那件就原样留在画面上）。</para></summary>
-        void RebuildTabBarShadow(Transform bar)
-        {
-            if (bar == null)
-            {
-                Debug.LogError("[Collection] `Tab Buttons` 没建出来 ⇒ 左栏 `Shadow` 重画不了（白带会留着）");
-                return;
-            }
-            var old = bar.Find("Shadow");
-            if (old != null)
-            {
-                var go = old.gameObject;
-#if UNITY_EDITOR
-                if (!Application.isPlaying) { Object.DestroyImmediate(go); }
-                else
-#endif
-                Object.Destroy(go);
-            }
-            // 原版那一件：`40k_main_tab_shadow`（51×4 · Simple）· 色 **(0,0,0,0.475)** ·
-            //   矩形 167.17,158.64 → 214.81,1080（宽 = `BarShadowW` 47.64）
-            var q = Rect(bar, ArtBarShadow, ContentL, ContentL + BarShadowW, TabBarTop, ContentB,
-                         "Shadow", QPanel, new Color(0f, 0f, 0f, 0.475f));
-            if (q == null)
-                Debug.LogError("[Collection] 左栏 `Shadow` 重画失败（`" + ArtBarShadow + "` 取不到？）"
-                             + " —— 旧件已销毁、新件没建出来（**有声的失败**，不是静默）");
-        }
 
         public void Build()
         {
@@ -3307,24 +3343,17 @@ namespace CardPresentation
 
             var res = BuildShell(transform, Buttons, "CollectionTabButton_", "Tabs", lastIsMaster: false);
             // ══════════════════════════════════════════════════════════════════════════════════
-            //  🆕 2026-10-22（W62 · 界面线）：左栏 `Shadow` 照**原版**重画（浅白带 → 黑阴影）
-            //  **病灶**（真机截图 `_tmp_view/shots/2026-10-22_第六十二会话/02_collection.png` +
-            //    裁图 `45_subnav_crop.png`）：主左栏与子导航列之间有一条**竖向浅白带** ——
-            //    实测设计 px **x≈167..232 · y≈368..1079**（正好是 `Tab Buttons/Shadow` 那个矩形，
-            //    从第一个页签下沿一直贯到屏底；上面那截被选中页签的红底 `QHighlight` 盖住了）。
-            //    原版实拍同一位置是**暗红**（裁图 `46_ref_subnav.png` · 原图 `收藏—卡组的参考图.png`）。
-            //  **根因** = 基类画这一件时**没给 tint**（= 白）：`40k_main_tab_shadow` 这张图本身是
-            //    **纯白 + alpha 渐变**（51×4、左 255 → 右 3，实测 `Resources/Art/ui_deck/40k_main_tab_shadow.png`），
-            //    原版那颗 `Image.m_Color` = **(0,0,0,0.475)** 才是「黑阴影」的来源。
-            //  **判据**（原版 prefab 现读：`工具/menu_dump.py bundle_menus_assets_all "Collection Menu Variant"`）：
-            //    `Content Area/Tab Buttons/Shadow` = **167.2,158.6 → 214.8,1080**（47.64×921.36）·
-            //    `40k_main_tab_shadow 51×4` · **Simple (0,0,0,0.475)**（= `Image` + 色）。
-            //  ⚠️ **为什么在本窗重画、而不是改基类**：基类 `MainMenuSubmenuWindow.BuildBar` **不在本批白名单**
-            //    （另有代理可能正在动它）。而且基类那件连**矩形**都不一样：它从 `ContentT`(**70.94**) 起算，
-            //    原版本窗是从**158.64** 起（本窗 `Tab Buttons` 自己的矩形，见 `BarPadTop` 那条 doc）。
-            //    🔴 **正解仍是基类那一行**（加 tint + 按窗给起始 y）：主对话合并后**应删掉本段**（同值幂等）。
+            //  🔴 **2026-10-23（W62 · 界面线）：本窗左栏 `Shadow` 的「重建补丁」已删** —— 正解在基类。
+            //  原来的病灶（真机截图 `_tmp_view/shots/2026-10-22_第六十二会话/02_collection.png` +
+            //    裁图 `45_subnav_crop.png`）：主左栏与子导航列之间有一条**竖向浅白带**
+            //    （设计 px x≈167..232 · y≈368..1079）—— `40k_main_tab_shadow` 本体是**纯白 + alpha 渐变**
+            //    （51×4、左 255 → 右 3），原版靠那颗 `Image.m_Color = (0,0,0,0.475)` 才变成黑阴影，
+            //    而基类建它时**没给 tint** ⇒ 屏上是一条白带。
+            //  **现在**：判据收进 `MainMenuSubmenuWindow` 的两个可覆写口 —— `BarShadowTop`（顶边）与
+            //    `BarShadowTint`（色），本窗只在**上面那两个覆写**里给值（`TabBarTop` = 158.64 ·
+            //    `(0,0,0,0.475)`），`Shadow` 由基类**只画一次**。⛔ 别在本窗再删掉重建一份（会变成两处生产者）。
+            //  判据全文 → `资料/普查产出_1022/W62_换牌压暗与收藏白条修复.md` §②。
             // ══════════════════════════════════════════════════════════════════════════════════
-            RebuildTabBarShadow(res.bar);
             tabButtons = res.buttons;
             _btnHighlight = res.highlight;
             _btnRes = res;
@@ -3686,6 +3715,7 @@ namespace CardPresentation
             //   内容高少 20 ⇒ 「滚到底 ⇒ 最后一格完整落进视口」那条断言当场红（实测 max=149.4 而不是 169.4）。
             float contentH = rows * (DeckCellH + DeckSpacingY) - DeckSpacingY;
             DeckScroll = MenuScroll.TopAligned(DeckViewport, contentH, 100f);   // 原版 `Deck Scroll View` = 100（D_N29）
+            DeckScroll.Elastic = true;                  // 原版 `m_MovementType = 1`（同上一条）
             DeckScroll.Owner = gameObject;
             DeckScroll.ClipNode = deckVp;               // 🔴 A465（同上）
             DeckScroll.OnChanged = () => RebuildDeckCells(holder);
@@ -4211,6 +4241,7 @@ namespace CardPresentation
             var nameRow = Node(filters, "Deck Name Filter", new PxRect(DfltL, DNameT, DfltR, DNameT + DNameH));
             var ir = new PxRect(DInputL, DInputT, DInputL + DInputW, DInputT + DInputH);
             var itex = Art("InputFieldBackground");
+            GameObject inputBg = null;      // 🆕 2026-10-23（`C3`）：ColorTint 的目标图形（原版 `m_TargetGraphic`）
             if (itex != null)
             {
                 // 🔴 **2026-10-06（A50③）：收口到公共件 `MenuDraw.Nine`**（等价性论证与 `BuildNameRow`
@@ -4220,7 +4251,7 @@ namespace CardPresentation
                 //   原样传；公共件内部直接转调 `ImageQuad.CreateNineSlice` ⇒ 块数 / uv 切分 / 每块 `SetAspect` /
                 //   `borderOutPx ?? border` 的退化**全同一条**。`clip` 一律 `null`（⛔ 不顺手改观感）。
                 //   ⚠️ `ir` **别动** —— 下面 `AddHit` 还要用它；公共件只按值读 `PxRect`，不改调用方那个变量。
-                MenuDraw.Nine(nameRow, itex, ir, new Vector4(10f, 10f, 10f, 10f), 32f, 32f,
+                inputBg = MenuDraw.Nine(nameRow, itex, ir, new Vector4(10f, 10f, 10f, 10f), 32f, 32f,
                               QFltRow, new Color(0.0627f, 0f, 0f, 1f), true, "Input BG");
             }
             _deckFltNameTx = Text(nameRow, DeckNameFilterText(), DInputL + 10f, DInputL + DInputW - 45f,
@@ -4242,7 +4273,14 @@ namespace CardPresentation
             }
             Rect(nameRow, "40k_icon_search", new PxRect(268.45f, 180.94f, 303.45f, 210.94f), "Search Icon",
                  QFltRow, null, true);
-            AddHit(nameRow, "Hit", ir, QFltHit, BeginDeckNameFilter);
+            var deckNameHit = AddHit(nameRow, "Hit", ir, QFltHit, BeginDeckNameFilter);
+            // 🆕 **2026-10-23（`C3`）ColorTint 悬停/按下** —— 原版 `EverguildInputField.m_Transition = 1`、
+            //   `HL = 0.9607843` · `PR = 0.7843137` · `fade = 0.1`、`m_TargetGraphic` = 输入框底图
+            //   （`InputFieldBackground` 那一块）。缺省 key 就是这三个值 ⇒ 只补 `target`。
+            //   ⚠️ `TintOn` 而不是 `Bind`：原版这颗的 `m_SpriteState` 四格全空（换了图就没图可换）。
+            var deckNameWb = deckNameHit != null ? deckNameHit.GetComponent<WindowButton>() : null;
+            if (deckNameWb != null && inputBg != null)
+                deckNameWb.TintOn(inputBg.GetComponentsInChildren<ImageQuad>(true));
 
             // ---- ② `Army Filter`：Title + 13 格（3 格一行）----
             var army = Node(filters, "Army Filter", new PxRect(DfltL, DArmyT, DfltR, DArmyT + DArmyH));
@@ -4545,6 +4583,58 @@ namespace CardPresentation
             // 还没建那棵树（或页已重建）⇒ 只记状态，建页时 `BuildCardsPage` 会按 `_wcArmy` 取图。
             // 同名图**不再重设**（悬停每帧级触发；`SetTexture` 会重建网格）。
             if (_wcArmyQuad != null && changed) _wcArmyQuad.SetTexture(tex, true);   // PA=1（原版 `m_PreserveAspect = 1`）
+        }
+
+        // ============================================================ 🆕 **2026-10-23（`C3`）**
+        // 卡格**选中 punch**（原版 `CollectionCard.SelectedHighlight(true)`）。
+        //
+        // 判据（`d:/2/tools/decomp_full/CollectionCard__SelectedHighlight.c` 逐句 + `.rdata` 实读）：
+        //   `DG_Tweening_ShortcutExtensions__DOPunchScale(<content>.transform, punch, **0.1**, **10**, elasticity, 0)`
+        //   · **punch 向量** = 静态表里某个 `Vector3` 的**三个分量各翻符号位**（`^ 0x80000000`，`DAT_1834b2c80`
+        //     实读 = −0.0）再 × **0.05**（`0x1834b2f94` 实读 = 0.05）。
+        //     那个向量在 `*(longlong*)(DAT_1842da2a8 + 0xb8) + 0xc`：`DAT_1842da2a8` = **`UnityEngine.Vector3`
+        //     的类**、`+0xb8` = 它的**静态字段块**，块内 `+0x00 / +0x0c / +0x18 / +0x3c / +0x48` 依次是
+        //     `zero / one / up / right / forward` —— 旁证三条：`PhotonTransformViewPositionControl..ctor` 拿 `+0x00`
+        //     当零向量初始化字段；`LookAtConstrainWIP__Update` 把 `+0x18` 当 `AngleAxis` 的**轴**（= `up`）；
+        //     `MoveByKeys__FixedUpdate` 在 `+0x3c` / `+0x48` 上做水平 / 前向位移（= `right` / `forward`）。
+        //     ⇒ **`+0xc` = `Vector3.one`** ⇒ punch = **(−0.05, −0.05, −0.05)**（每轴 ±0.05）。
+        //   · 时长 **0.1**（`0x1834b2dc4`）· **vibrato 10**（调用里的立即数）。
+        //   · elasticity = **`0x1834b2bb8` = 1.0**（`工具/read_literal.py` 实读）。
+        //     🔴 **核查报告 §四 #3 写的「elasticity 0.3」是错的** —— 0.3 是 `0x1834b2dc8`（`CardScript.DoPushBack`
+        //     那一处），本条调用传的是 `0x1834b2bb8`。本行按实读的 **1.0**（判据 > 转述）。
+        //   · 作用对象 = `param_1 + 0x60` 的 transform（`CollectionCard` 的 `content`，即「卡体」那一层）；
+        //     我们这棵树里最近的一级 = 那颗 `CardView` 自己的根（命中区是它的兄弟、不跟着动）。
+        /// <summary>选中 punch 的三个参数（原版 `.rdata` 直读；见上面那段判据）。</summary>
+        public const float CardPunchSize = 0.05f, CardPunchTime = 0.1f, CardPunchElasticity = 1f;
+        /// <summary>`DOPunchScale` 的 vibrato —— 原版调用里的立即数 **10**。</summary>
+        public const int CardPunchVibrato = 10;
+
+        // ⚠️ 这三份是 **static**：punch 是「同一时刻只有被点的那一格在弹」的瞬时反馈，
+        //   而本窗全局只有一扇（同族先例：`LastCardDetail` 也是静态）⇒ 不需要按实例分家。
+        static DG.Tweening.Tween _cardPunch;
+        static Vector3 _cardPunchBase;
+        static int _cardPunchCount;
+        /// <summary>自检用：本进程一共发起过几次卡格 punch（批处理里补间不自己跑 ⇒ 连同「收尾复位」一起验）。</summary>
+        public static int CardPunchCountForTest { get { return _cardPunchCount; } }
+        /// <summary>自检用入口：对任意 transform 起一次 punch（与真实点击**同一个方法** —— ⛔ 别另写一份）。
+        /// 用法见 `Editor/CollectionScene.cs` 的「选中 punch」那一段（自带 `CardTween.Mode = Manual` + `Advance`）。</summary>
+        public static void PunchCardForTest(Transform t) { PunchCardCell(t); }
+
+        /// <summary>卡格被点时的选中反馈（原版 `CollectionCard.SelectedHighlight(true)`，见上面那段判据）。</summary>
+        static void PunchCardCell(Transform t)
+        {
+            if (t == null) return;
+            _cardPunchCount++;
+            // 连点同一格：先把上一条杀掉 —— `OnKill` 会**先把缩放还原**，所以下面取到的 `base` 已经是干净的。
+            if (_cardPunch != null && _cardPunch.IsActive()) _cardPunch.Kill();
+            _cardPunchBase = t.localScale;
+            var tw = DG.Tweening.ShortcutExtensions.DOPunchScale(
+                         t, Vector3.one * -CardPunchSize, CardPunchTime, CardPunchVibrato, CardPunchElasticity);
+            // ⚠️ punch 走完 / 被打断**都必须显式复位**：`CardView.ApplyScale` 只在 `SetHighlightScale` 那一拍写
+            //   `localScale`，批处理里没人替它收尾 ⇒ 不复位就会留一个非 1 的缩放（静默、且只在缩放过的那一格看得见）。
+            tw.OnComplete(() => { if (t != null) t.localScale = _cardPunchBase; });
+            tw.OnKill(() => { if (t != null) t.localScale = _cardPunchBase; });
+            _cardPunch = CardTween.Use(tw, DG.Tweening.Ease.Linear, t);
         }
 
         /// <summary>把装饰格（卡背）的悬停接到它那颗 SDF 材质的 `_Outline` alpha 上（0.2 s 补间）。</summary>

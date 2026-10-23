@@ -642,6 +642,18 @@ namespace CardPresentation
               "`CardScript__ReceiveAttackAnim.c` 的 `if (DAT_1834b2f44 < len)`（比的是**长度**不是平方）；"
             + "DLL `_DAT_1834b2f44` 4 字节 float 实读 = **1e-5**"),
 
+            // ---- 🆕 2026-10-23（`新账-71`）：近战位移的**深度 → 缩放**曲线 ----
+            //   原件 `MinionScaleByPosition.json`（`assets_full/bundle_battleprefabs_vfxandmisc_assets_all/MonoBehaviour/`）；
+            //   消费点 = `CardScript.__c__DisplayClass357_0___AttackMeleeAnim_b__0.c` 的逐帧回调 → `MinionScaleByPositionSO.GetScale`
+            P("DepthScaleKey0Time", DepthScaleKey0Time, Src.Field,
+              "`MinionScaleByPosition.scaleCurve` 第 0 键 time（原版 SO 实读 0.002811431884765625）"),
+            P("DepthScaleKey0Value", DepthScaleKey0Value, Src.Field,
+              "同上第 0 键 value = 0.36000001430511475（我方那一行）"),
+            P("DepthScaleKey1Time", DepthScaleKey1Time, Src.Field,
+              "同上第 1 键 time = 7.699999809265137（= 两行 z 差 7.698）"),
+            P("DepthScaleKey1Value", DepthScaleKey1Value, Src.Field,
+              "同上第 1 键 value = 0.699999988079071（敌方那一行；敌方 `desiredScale` 0.69 是另一回事，差 1.4% 别混）"),
+
             // ---- 攻击：Recoil Normal Tween（UnitTweenSO）----
             P("AttackPunchUnits", AttackPunchUnits, Src.Field, "`Recoil Normal Tween` 的 `punch=(0,0,-0.1)`"),
             P("AttackPunchDuration", AttackPunchDuration, Src.Field, "`Recoil Normal Tween` 的 `duration=0.3`"),
@@ -711,6 +723,10 @@ namespace CardPresentation
             P("AttackTurnDeg", AttackTurnDeg, Src.Field, "段2 先绕 `Vector3.up` 转的角度，`.rdata 0x1834b2e04` 从 DLL 读出 = 90°"),
             P("AttackHoldTime", AttackHoldTime, Src.Field, "段3「停在目标身上」的时长，`.rdata 0x1834b2dc4` = 0.1"),
             P("AttackReturnTime", AttackReturnTime, Src.Derived, "段4/段5 归位时长 = `2 × attackStepTime`（原版 `:260` 就是 `attackStepTime * 2`）"),
+            P("AfterAttackDelay", AfterAttackDelay, Src.Field,
+              "🆕 新账-73 远程收招**第二段**（`CardScript.AfterAttack`）的 `SetDelay` = "
+            + "`.rdata 0x1834b315c` 从 `GameAssembly.dll` 实读 **0.65**"
+            + "（同一地址在 `FatigueCard._DrawFatigue_d__7:64-70` 当 0.65 的字面量用，两处互证）"),
 
             // ---- 🆕 2026-09-29 徽标淡入 / 数值涨落 ----
             P("HeroLandBadgeFadeTime", HeroLandBadgeFadeTime, Src.Field, "`CardScript.<HeroLandIntoField>:86` 传给 `FadeAllTraitsIcons` 的时长，`.rdata 0x1834b2dc8` 实读 = 0.3"),
@@ -873,6 +889,18 @@ namespace CardPresentation
         /// <summary>段4/段5 归位的时长 = `2 × attackStepTime`（原版 `:260` 是 `attackStepTime * 2`）</summary>
         public const float AttackReturnTime = AttackStepTime * 2f;
 
+        /// <summary>🆕 2026-10-23（战斗线 · **新账-73**）：**远程收招【第二段】之前那段等待 = 0.65 s**。
+        /// <para>判据 = `decomp_full/CardScript__AfterAttack.c`：
+        /// `DOLocalMove(transform, 静止位, attackStepTime)` 之后紧跟
+        /// `TweenSettingsExtensions.SetDelay&lt;object&gt;(tween, DAT_1834b315c, DAT_1842d0b20)`。</para>
+        /// <para>那个常量**不是**「查不到」：`GameAssembly.dll` 的 `.rdata` `0x1834b315c` 4 字节 float
+        /// **实读 = 0.65**（ImageBase `0x180000000` → PE 节表换文件偏移，同 `CLAUDE.md` §三 那套读法）。
+        /// 互证：同一地址在 `FatigueCard._DrawFatigue_d__7__MoveNext.c:64-70` 里被当成
+        /// `DOScale` 的目标向量分量（`local_48 = (0.65, 0.65, …)`）用 ⇒ 它就是一个 0.65 的字面量。</para>
+        /// <para>⚠️ 与 `AttackStepTime` 的关系：两段**串联**（本段等待 → 再 0.1 s 位移）⇒
+        /// `AttackRecover` 的整条序列 = `0.1 + 0.65 + 0.1 = 0.85 s`。</para></summary>
+        public const float AfterAttackDelay = 0.65f;
+
         /// <summary>
         /// **段1 的目标点**（原版 `:139-197` 那个表达式，逐项照写）：
         /// `endPos = 受击方位置 − Normalize(受击方 − 出手点) × margin + Vector3.up × dy`，
@@ -890,9 +918,118 @@ namespace CardPresentation
             return targetPos - dir * margin + Vector3.up * (dy * AttackPositionYOffset);
         }
 
+        // ── 🔴 2026-10-23（战斗线 · 新账-71）：**按「战场深度」重算缩放**（原版 `MinionScaleByPositionSO`）──
+        //
+        //  原版**任何**棋盘位移都在 Sequence 的 `OnUpdate` 里**每帧**重写一次 `localScale`：
+        //    · 回调本体 `decomp_full/CardScript.__c__DisplayClass357_0___AttackMeleeAnim_b__0.c`（近战）与
+        //      `CardScript___AfterAttack_b__370_0.c`（收招）**逐字同形**：
+        //        `scale = so.GetScale(isPlayer, transform.localPosition, defaultScale); transform.localScale = scale`
+        //    · `MinionScaleByPositionSO__GetScale.c` 逐句：
+        //        x = isPlayer ? localZ : (curve.lastKey.time + localZ)    ← localZ = **相对自己那一行**（`MinionManager` 局部 z）
+        //        v = curve.Evaluate(x)                                     ← 两端 Clamp（`m_PreInfinity/m_PostInfinity = 2`）
+        //        scale = 基准(Vector3.one) × v × (defaultScale.x ÷ 末端键值)
+        //      末端 = **isPlayer 取 keys[0]、敌方取 keys[last]**（反编译 `LAB_180935561` 那两跳）
+        //      ⇒ **在自家那一行上系数恒 1**，在对面那一行上系数 = 曲线两端之比。
+        //    · 曲线真件 `d:/2/解包整理/08_预制体特效/战斗预制体/MonoBehaviour/MinionScaleByPosition.json`：
+        //        (0.002811431884765625, 0.36000001430511475) → (7.699999809265137, 0.699999988079071)，两键斜率相等 ⇒ 直线。
+        //      🔑 横轴 7.70 与两行 `MinionArea` 的 z 差自洽：`EnemyZ − PlayerZ` = 1.043 − (−6.655) = **7.698**
+        //      ⇒ 这条曲线就是「自己这行 → 对面那行」的深度→缩放表，目的 = **抵消透视、屏幕上看起来大小不变**。
+        //  ⚠️ 我们原来**一次都没算** ⇒ 近战时卡在 0.1 s 内视觉缩到约 55%、再用 0.2 s 涨回来
+        //     （= 用户 2026-10-23 真机点名的「速度很快 / 细节上有点问题 / 不是原版的样子」）。
+        //
+        //  ⚠️ **z 用【世界】z**：我们卡父节点是 `Battle`（`boardRoot` = `sceneRoot`，恒在原点、缩放 1）；
+        //     而原版的 localZ 是「相对 `MinionManager`（= 自己那一行）」⇒ 这里用 `worldZ − 自己那行的 z` 现算。
+        //  ⚠️ **只有活在 3D 战场上的卡才吃这条**：2D 兜底布局的卡全在 HUD 正交平面（z = 0），
+        //     照这条曲线算出来恒 = 1.75×（那是纯错）。门 = 挂没挂 `ArenaSlots.ArenaLayer`
+        //     —— `BattleDriver.SyncBoard` 正是按 `use3DBoard` 决定挂不挂（同族那条 `★ A849` 钉着）。
+
+        /// <summary>`MinionScaleByPosition.scaleCurve` 第 0 键的 time —— 原版那份 SO **实读值**，⛔ 别「顺手取整」。</summary>
+        public const float DepthScaleKey0Time = 0.002811431884765625f;
+        /// <summary>第 0 键的 value（= 我方场上卡 `desiredScale` 0.36）</summary>
+        public const float DepthScaleKey0Value = 0.36000001430511475f;
+        /// <summary>第 1 键的 time（= 两行 z 差 7.698）</summary>
+        public const float DepthScaleKey1Time = 7.699999809265137f;
+        /// <summary>第 1 键的 value（曲线给 0.70；敌方 `desiredScale` 是 0.69，两者差 1.4%，别混）</summary>
+        public const float DepthScaleKey1Value = 0.699999988079071f;
+
+        /// <summary>曲线求值（`AnimationCurve.Evaluate` 的两端 Clamp 语义）。两键斜率相等 ⇒ 就是直线。</summary>
+        public static float DepthScaleCurve(float x)
+        {
+            return Mathf.Lerp(DepthScaleKey0Value, DepthScaleKey1Value,
+                              Mathf.Clamp01((x - DepthScaleKey0Time) / (DepthScaleKey1Time - DepthScaleKey0Time)));
+        }
+
+        /// <summary>深度 → **相对**缩放系数（自家那一行上恒 = 1）。`worldZ` 传卡的**世界** z。</summary>
+        public static float DepthScaleFactor(float worldZ, bool isPlayer)
+        {
+            float rowZ = isPlayer ? ArenaSlots.PlayerZ : ArenaSlots.EnemyZ;   // 自己那一行（`MinionArea` 的 z）
+            float localZ = worldZ - rowZ;                                     // 原版的 localPosition.z
+            float x = isPlayer ? localZ : DepthScaleKey1Time + localZ;        // 原版 `GetScale` 那一句，逐字
+            float homeX = isPlayer ? 0f : DepthScaleKey1Time;                 // 自家那一行 ⇒ localZ = 0
+            return DepthScaleCurve(x) / DepthScaleCurve(homeX);
+        }
+
+        /// <summary>这张卡是不是活在 **3D 战场**里（那一档才有「深度」可言）。
+        /// 判据 = 挂没挂 `ArenaSlots.ArenaLayer` —— `BattleDriver.SyncBoard` 正是按 `use3DBoard` 决定挂不挂。</summary>
+        public static bool IsArenaCard(CardView card)
+        {
+            return card != null && card.gameObject.layer == ArenaSlots.ArenaLayer;
+        }
+
+        /// <summary>「这张卡的静止位在哪一侧」—— 给没有 `isPlayer` 可传的调用点兜底（我们 `CardView` 不带阵营字段，
+        /// 阵营只存在于 `BattleDriver` 的两个字典里）。判据 = 静止位离哪一行近：两行 z 差 7.698，结构上不会误判
+        /// （督军另有 `heroExtraOffset` 0.42 / 0.75，离本行仍近一个数量级 → 也判得对）。</summary>
+        public static bool IsPlayerRow(float worldZ)
+        {
+            return Mathf.Abs(worldZ - ArenaSlots.PlayerZ) <= Mathf.Abs(worldZ - ArenaSlots.EnemyZ);
+        }
+
+        /// <summary>把「卡当前世界 z」对应的深度缩放写给这张卡（**经 `CardView.SetBaseScale` 的口**）。
+        /// <param name="baseScale">它**在自己那一行**上的静止缩放 —— 序列开始时抓一次。</param>
+        /// ⛔ **别拿 `card.BaseScale` 当 baseScale**：那个值每帧都被本方法改写着 ⇒ 会复利放大（静默）。</summary>
+        public static float ApplyDepthScale(CardView card, bool isPlayer, float baseScale)
+        {
+            if (card == null) return baseScale;
+            float s = baseScale * DepthScaleFactor(card.transform.position.z, isPlayer);
+            card.SetBaseScale(s);
+            return s;
+        }
+
+        /// <summary>给一条「棋盘位移补间」挂上**逐帧**深度缩放（原版 `Sequence.OnUpdate` 的等价物），
+        /// 并在收尾把静止缩放写回去（原版序列跑完就停在最后一帧；我们显式复位，见本条报告「残余不确定」）。
+        /// <para>`isPlayer` 传 null ⇒ 按静止位离哪一行近来判（<see cref="IsPlayerRow"/>）。</para>
+        /// <para>`activeFrom` &gt; 0 ⇒ **前 `activeFrom` 秒一个字节都不写**（原版 `AfterAttack` 那条序列是
+        /// 「先 `SetDelay(0.65)` 再跑 0.1 s」，而 `MeleeAttack` / `Reassemble` 是整条都算 ⇒ 默认 0 = 老行为）。
+        /// 🧨 少了这道门 ⇒ 收招第一段那个缩放补间会和本钩子**逐帧抢同一个 `_baseScale`**（静默）。</para>
+        /// <para>`restingScale` = 「这一侧静止该多大」的**基础缩放**；传 null ⇒ 抓钩子那一刻的
+        /// `card.BaseScale`（`MeleeAttack` / `Reassemble` 就是这一档）。</para>
+        /// ⚠️ 本方法自己**不做 3D 判定之外的决定**：不在 3D 战场上的卡**一个字节都不写**。</summary>
+        static void HookDepthScale(Tween t, Transform tr, bool? isPlayer,
+                                   float activeFrom = 0f, float? restingScale = null)
+        {
+            var card = tr != null ? tr.GetComponent<CardView>() : null;
+            if (t == null || card == null || !IsArenaCard(card)) return;
+            bool player = isPlayer ?? IsPlayerRow(tr.position.z);
+            float baseScale = restingScale ?? card.BaseScale;   // 静止缩放：**只在这里抓一次**（逐帧改的是它乘出来的值）
+            t.OnUpdate(() =>
+            {
+                if (card == null) return;
+                // ⚠️ `Elapsed(false)` 要**排掉 `SetDelay`** —— 否则「钩子挂的那条 tween 自己被延迟」时
+                //    这道门会整体往后飘（原版的 0.65 在 tween 内部，不在外面）。
+                if (activeFrom > 0f && t.Elapsed(false) < activeFrom) return;
+                ApplyDepthScale(card, player, baseScale);
+            });
+            // OnKill 在「正常跑完 autoKill」与「被打断」两种情况下都会来 ⇒ 复位写这一处就够。
+            t.OnKill(() => { if (card != null) card.SetBaseScale(baseScale); });
+        }
+
         /// <summary>近战攻击的整条序列（段1～段5）。`endPos` 由 <see cref="MeleeEndPos"/> 算好传进来；
         /// `home` = 出手前那个**静止位**（局部坐标）—— 段4 回的就是它，**不是出手那一帧的位置**。</summary>
-        public static Tween MeleeAttack(Transform tr, Vector3 endPos, Vector3 home, float delay = 0f)
+        /// <param name="isPlayer">有没有「我方」—— 原版是卡自己的 `isPlayer` 字段（`CardScript+0x40`）。
+        /// 我们 `CardView` 不带阵营 ⇒ 不传就按静止位离哪一行近来判（<see cref="IsPlayerRow"/>）；
+        /// 调用点知道得准就显式传（⛔ 别在别处再写第二份推断）。</param>
+        public static Tween MeleeAttack(Transform tr, Vector3 endPos, Vector3 home, float delay = 0f,
+                                        bool? isPlayer = null)
         {
             if (tr == null) return null;
             Quaternion homeRot = tr.rotation;
@@ -907,6 +1044,9 @@ namespace CardPresentation
             seq.AppendInterval(AttackHoldTime);                                      // 段3
             seq.Append(tr.DOLocalMove(home, AttackReturnTime).SetEase(Ease.OutQuart)); // 段4
             seq.Join(tr.DORotateQuaternion(homeRot, AttackReturnTime));              // 段5
+            // 🆕 2026-10-23（新账-71）：**逐帧按战场深度重算缩放**（原版那条 `seq.OnUpdate`）。
+            //   ⛔ 别把它写成 `tr.DOScale(...)` —— 原版不是补间、是每帧按**当前**位置现算的。
+            HookDepthScale(seq, tr, isPlayer);
             return CardTween.Use(seq, Ease.Linear, tr).SetDelay(delay);
         }
 
@@ -1753,8 +1893,16 @@ namespace CardPresentation
         ///      0.0333 把卡框换成 `SpriteUI Frame Dissolve` 实例（`CardView.BeginFrameDissolve`）、
         ///      `_DissolveAmount` 1→0 over [0.0167, 0.7]、0.75 还原并销毁（判据 →
         ///      `资料/普查产出_1022/W64_B04_floatProperty1材质.md`）。
-        /// · **仍然没做的曲线**：`ToBoardFX` / `Spawn Particles` / `Trail`
-        ///   （原版是**卡预制体自带的粒子节点**，我们这套卡没有 ⇒ 另账）。
+        /// · ✅ **`ToBoardFX` / `Spawn Particles` / `Trail` 已做**（`W64 B04` 尾巴②；见下面 `②'''`
+        ///   那一段与 <see cref="HandToBoardSpawnParticlesOn"/> / <see cref="HandToBoardTrailOn"/>）。
+        ///   ⚠️ **2026-10-23 更正（铁律 5）**：原来这里写「**仍然没做的曲线**：`ToBoardFX` /
+        ///   `Spawn Particles` / `Trail`（原版是卡预制体自带的粒子节点，我们这套卡没有 ⇒ 另账）」
+        ///   —— **已过期，错因是 B04 做完后没回来改这一行**。实况：
+        ///   ① `ToBoardFX` 自己恒 1（原版曲线只有一个键）⇒ 不需要动；
+        ///   ② `SetSpawnParticlesActive` / `SetTrailActive` 在 0.0167 / 0.55 拨开关；
+        ///   ③ 实例由驱动层在登场那一刻挂上来 —— `CardView.MountSpawnParticles` ←
+        ///      `BattleDriver.MountSpawnParticlesUnderToBoardFx`（`StartHandToBoardClip` 里，早于 clip 起播），
+        ///      ⇒ 「我们这套卡没有粒子节点」这句也不再成立。
         /// </para>
         ///
         /// <para>⚠️ **3D 体是懒建的**（`SetFace(Board)` 才建）⇒ 这里先借它把体建出来、再立刻退回原形态：
@@ -1908,23 +2056,102 @@ namespace CardPresentation
                               to, dur).SetEase(ClipSmoothStep);
         }
 
-        /// <summary>**远程攻击的「回正」段**（0.1 s）—— 原版 `CardScript._ResolveAttackRangedAnim_d__360__MoveNext.c:80-104`：
-        /// <para>一个 `Sequence` 里三条**同时**（时长全是 `attackStepTime` = 0.1，无 `SetEase` ⇒
-        /// DOTween 默认 `OutQuad`）：`DOLocalMove(handHomePos, 0.1)` + `DORotateQuaternion(identity, 0.1)`
-        /// + `DOScale(DefaultScale, 0.1)`；然后 `WaitForCompletion`（= 这三条跑完），再
+        /// <summary>缩放补间 —— **只经 `CardView.SetBaseScale` 这一个口**（⛔ 不写 `transform.localScale`）。
+        /// <para>⚠️ 原版那一侧**没有**「基础 × 高亮」这一层（`DOScale` 写的就是最终 `localScale`）；
+        /// 我们的等价物必须把 `_baseScale` 一起带过去，否则补间一结束，任何一次 `SetPose` /
+        /// `SetHighlightScale`（→ `ApplyScale`）都会把卡**弹回旧缩放**（静默 —— `T04` 那一族）。</para>
+        /// <para>拿不到 `CardView` 时**不做缩放**并出声一次（⛔ 不退回 `tr.DOScale`：那会重新制造
+        /// 「`_baseScale` 变陈」这条缺陷，而这个入口存在的意义就是堵它）。</para></summary>
+        static Tween ScaleTo(CardView card, Transform tr, float toBase, float dur, Ease ease)
+        {
+            if (card == null)
+            {
+                if (!_warnedNoCardView)
+                {
+                    _warnedNoCardView = true;
+                    Debug.LogWarning("[CardFeel] 缩放补间：这个 transform 上没有 `CardView`（"
+                                   + (tr != null ? tr.name : "null") + "）⇒ **不做缩放**"
+                                   + "（不退回直写 `transform.localScale`，见 `ScaleTo` 的注释）");
+                }
+                return null;
+            }
+            if (dur <= 0f) { card.SetBaseScale(toBase); return null; }
+            // ⚠️ 起点用**捕获量**：`DOTween.To` 的起点是在它开始那一刻读 getter 的，
+            //   而同一条 Sequence 里前面那几段可能已经改过缩放（同 `BodyYTo` 那条注释的坑）。
+            float v = card.BaseScale;
+            return DOTween.To(() => v, x => { v = x; if (card != null) card.SetBaseScale(x); },
+                              toBase, dur).SetEase(ease);
+        }
+
+        /// <summary>「**可见**缩放」（= `localScale.x`，含高亮系数）→ `CardView` 的**基础缩放**。
+        /// 只给「调用点传的是 `localScale` 现读值」的那几处用（见 `AttackRecover` 的 `<paramref name="scale"/>`）。</summary>
+        static float ToBaseScale(CardView card, float visible)
+        {
+            if (card == null) return visible;
+            float mul = card.HighlightMul;
+            return mul > 1e-4f ? visible / mul : visible;
+        }
+
+        static bool _warnedNoCardView;
+
+        /// <summary>**远程攻击的收招** —— 原版是**两段**，我们原来只有第一段。
+        ///
+        /// <para>**段1**（原版 `CardScript._ResolveAttackRangedAnim_d__360__MoveNext.c:80-104`）：
+        /// 一个 `Sequence` 里三条**同时**（时长全是 `attackStepTime` = 0.1，无 `SetEase` ⇒
+        /// DOTween 默认 `OutQuad`）：`DOLocalMove(handHomePos)` + `DORotateQuaternion(identity)`
+        /// + `DOScale(DefaultScale)`；然后 `WaitForCompletion`（= 这三条跑完），再
         /// `WaitForSeconds(attackStepTime)` 0.1 ⇒ **合计 0.2 s 才发 VFX**
         /// （我们的 `EventTiming.AttackStepRanged` 正是这 0.2）。</para>
-        /// <para>我们原来**没有这一段**（只有 `LeanHomeOf` 把瞄准抬手那个字段关掉了，卡可能停在半途）。
-        /// 判据里的 `handHomePos` = 抬手之前那个静止位、`DefaultScale` = `GetUnitSizeInPlay`。</para>
-        /// </summary>
-        public static Tween AttackRecover(Transform tr, Vector3 home, float scale, float delay = 0f)
+        ///
+        /// <para>🆕 **段2**（2026-10-23 · 战斗线 **新账-73**）—— 原版 `CardScript.AfterAttack`
+        /// （`CardScript__AfterAttack.c`，调用点 `_ResolveRangedAttack_d__364__MoveNext.c:39`，
+        /// 在段1 那条协程**跑完之后**才调）：
+        /// `DOLocalMove(transform, 静止位, attackStepTime)` + `SetDelay`（= <see cref="AfterAttackDelay"/> **0.65**）
+        /// + `OnUpdate: localScale = MinionScaleByPositionSO.GetScale(isPlayer, localPosition, defaultScale)`
+        /// + `OnComplete: FinishAfterAttack`（`CardScript__FinishAfterAttack.c`：
+        /// `set_localPosition(静止位)` / `set_rotation(identity)` / `set_localScale(DefaultScale)`）。
+        /// 🔴 **我们原来整条缺**⇒ 丢的正好是带**深度缩放**的那一段（段1 只有 `DOScale` 一路补到静止值）。
+        /// 深度缩放的三处消费点原来只有段1 那一处的近战版接了，这一处是第二处（见 `DepthScaleFactor` 那节）。</para>
+        ///
+        /// <para>🔴 **2026-10-23（新账-74）**：缩放**一律经 `CardView.SetBaseScale`**（`ScaleTo`）——
+        /// 原来的 `DOScale` 直写 `transform.localScale` ⇒ `_baseScale` 变陈，与刚接上的深度缩放迟早打架。</para></summary>
+        /// <param name="scale">**可见**缩放（= `transform.localScale.x` 那一档，**含**高亮系数）。
+        /// 调用点传的就是 `v.transform.localScale.x`（`BattleDriver.PlayAttackFeel` /
+        /// `ScheduleRetaliationPresentation`）⇒ 内部先 ÷ `HighlightMul` 换成基础缩放再写。</param>
+        /// <param name="isPlayer">原版是卡自己的 `isPlayer` 字段（`CardScript+0x40`）；不传 ⇒ 按静止位
+        /// 离哪一行近来判（`IsPlayerRow`，与 `MeleeAttack` 同一个兜底）。</param>
+        public static Tween AttackRecover(Transform tr, Vector3 home, float scale, float delay = 0f,
+                                          bool? isPlayer = null)
         {
             if (tr == null) return null;
+            var card = tr.GetComponent<CardView>();
+            float toBase = ToBaseScale(card, Mathf.Max(1e-4f, scale));   // 静止/默认缩放（= 原版 `DefaultScale`）
+
             var seq = DOTween.Sequence();
+            // ---- 段1：回正三条（同时，0.1 s）----
             seq.Append(tr.DOLocalMove(home, AttackStepTime));
             seq.Join(tr.DORotateQuaternion(Quaternion.identity, AttackStepTime));
-            seq.Join(tr.DOScale(Vector3.one * Mathf.Max(1e-4f, scale), AttackStepTime));
-            return CardTween.Use(seq, Ease.Linear, tr).SetDelay(delay);
+            var s1 = ScaleTo(card, tr, toBase, AttackStepTime, Ease.OutQuad);
+            if (s1 != null) seq.Join(s1);
+            // ---- 段2：原版 `AfterAttack`（0.65 s 之后再来一段 0.1 s 的归位 + 逐帧深度缩放）----
+            seq.AppendInterval(AfterAttackDelay);
+            seq.Append(tr.DOLocalMove(home, AttackStepTime));
+
+            var used = CardTween.Use(seq, Ease.Linear, tr);
+            // 深度缩放只挂在**段2**那 0.1 s 上（`activeFrom` = 两段的分界 0.75 s）；
+            // 静止缩放**显式**给 `toBase` —— 段2 的 OnUpdate 是拿它当底数的，⛔ 不能拿那一刻的 `BaseScale`
+            //（段1 的缩放补间刚把它写成别的值 ⇒ 会复利）。
+            HookDepthScale(used, tr, isPlayer, AttackStepTime + AfterAttackDelay, toBase);
+            // ---- 原版 `FinishAfterAttack`：收尾把位姿钉回静止态 ----
+            //   ⚠️ 缩放那一半由 `HookDepthScale` 的 `OnKill` 写回（同值）；这里只补位置与朝向。
+            used.OnComplete(() =>
+            {
+                if (tr == null) return;
+                tr.localPosition = home;
+                tr.rotation = Quaternion.identity;      // 原版是 `set_rotation`（世界），不是 local
+                if (card != null) card.SetBaseScale(toBase);
+            });
+            return used.SetDelay(delay);
         }
 
         // ==================================================================
@@ -2838,7 +3065,13 @@ namespace CardPresentation
         {
             if (card == null) return null;
             var t = card.transform.DOLocalMove(toLocalPos, ReassembleTime);
-            return CardTween.Use(t, Ease.OutQuad, card.transform).SetDelay(delay);
+            // 🆕 2026-10-23（新账-71）：**与 `MeleeAttack` 共用一个口** —— 原版 `ReassembleMinions` 那条
+            //   `DOLocalMove` 所在的序列，`OnUpdate` 挂的是**同一份** `MinionScaleByPositionSO`
+            //   （`CardScript___AfterAttack_b__370_0.c` 与近战那条逐字同形）。
+            //   ⚠️ 今天零可见差：同行的让位 z 不变 ⇒ 系数恒 1；只有**督军位**那 0.42 / 0.75 的 z 偏移会动到它。
+            var used = CardTween.Use(t, Ease.OutQuad, card.transform);
+            HookDepthScale(used, card.transform, null);
+            return used.SetDelay(delay);
         }
 
         /// <summary>
@@ -2873,7 +3106,12 @@ namespace CardPresentation
             //    ⚠️ 只换**我方**这条（`DealInPose` = 抽自己的牌）；敌方那条走 `DealInQuad`，
             //       原版对敌方**不翻**（`DrawCard.c:52-59` 判的 `isPlayer`）⇒ 那条不动。
             seq.Join(TurnCardAround(tr, rotZ, DealDuration));
-            seq.Join(tr.DOScale(Vector3.one * scale, DealDuration).SetEase(Ease.OutCubic));
+            // 🔴 2026-10-23（新账-74）：缩放走 `CardView.SetBaseScale` 的**唯一口**（`ScaleTo`）——
+            //   原来那句 `tr.DOScale(...)` 直写 `transform.localScale` ⇒ 补间跑完 `_baseScale` 仍是旧值，
+            //   下一次 `SetPose`（布局 / 切分辨率）会把它弹回去（`T04` 那一族，静默）。
+            //   ⚠️ 这里的 `scale` 与 `SetPose` 第三参**同一个口径**（**基础**缩放 —— 落位时布局还会再写一遍）。
+            var sc = ScaleTo(card, tr, scale, DealDuration, Ease.OutCubic);
+            if (sc != null) seq.Join(sc);
             seq.Join(DOTween.To(() => 0f, a => card.SetAlpha(a), 1f, DealDuration * 0.5f));
             // 🆕 2026-10-16：**翻面的前半段看的是卡背**（判据 → `CardView.SetBackVisible` 那段头注）。
             //   两段各占 `DealDuration × TurnCardAroundFrac`（0.25）⇒ 「侧立那一刻」在
@@ -2905,7 +3143,10 @@ namespace CardPresentation
             var seq = DOTween.Sequence();
             seq.Append(tr.DOMove(to, DealDuration).SetEase(Ease.OutCubic));
             seq.Join(tr.DORotate(Vector3.zero, DealDuration).SetEase(Ease.OutCubic));
-            seq.Join(tr.DOScale(Vector3.one, DealDuration).SetEase(Ease.OutCubic));
+            // 🔴 2026-10-23（新账-74）：同 `DealInPose` —— 只经 `CardView.SetBaseScale`（`ScaleTo`），
+            //   ⛔ 不再 `tr.DOScale` 直写 `localScale`。目标 1 = **基础**缩放（手牌档的静止值）。
+            var sc = ScaleTo(card, tr, 1f, DealDuration, Ease.OutCubic);
+            if (sc != null) seq.Join(sc);
             seq.Join(DOTween.To(() => 0f, a => card.SetAlpha(a), 1f, DealDuration * 0.5f));
             var t = CardTween.Use(seq, Ease.Linear, tr).SetDelay(delay);
             // ⚠️ **被打断时要把 alpha 补回 1**：`HandLayout.Place` 会 `DOKill()` 掉这张卡身上的补间

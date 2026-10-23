@@ -617,22 +617,30 @@ namespace RuleEngine
         }
 
         /// <summary>
-        /// **事件监听器那一条 ability 的道**（`When … , …` / `At the end of your turn` / 常驻效果）。
+        /// **事件监听器那一条 ability 的道**（`When … , …` / `At the end of your turn` / 常驻 / 部署 / 信仰）。
         ///
-        /// 🔴 **如实标着（数据缺口）**：`cards_engine.json` 的 `triggerPriority` 是按
-        /// **引擎触发关键词**（`artifice` / `codex` / `spiritstone` / `slay` …）落的，
-        /// 而监听器走的是 `WhenEventKind`（`play` / `deploy` / `die` / `damaged` …），
-        /// 两者**不是同一套词**（生成器 `ABILITY_TRIGGER_KEYWORD` 那 21 条里没有 `otherunitdeath(90)`
-        /// 这一族）⇒ 监听器这条路上**没有数据可查**，一律取原版默认 **1 = Instant**。
-        /// ⚠️ 现读全池：`priority != 1` 的 12 条 ability **没有一条**是监听器族
-        /// （判据报告 §3「已闭合旧账」：1484 Instant / 6 Interrupt / 4 DelayedInstant / 2 Player，
-        /// 那 10 条非默认全在关键词触发上）⇒ **今天零可观测差异**。
-        /// ⏭ 缺口：要让监听器也吃到 priority，得在生成器里把「`When …` 那一族 → 原版 trigger 名」
-        ///   也映进同一张表（`TriggerNameOfWhenKind` 已经有那套名字，但数据列没按它落）。见报告 §没查清。
+        /// <para>🔴🆕 **2026-10-23（引擎线 `P1·①`）起走数据**：`cards_engine.json` v18 的
+        /// `abilityTriggerPriority`（键 = **原版 `AbilityTrigger` 枚举名**）→
+        /// <see cref="CardDef.AbilityTriggerPriority"/>。**缺键 / 认不出 / 旧表 ⇒ 原版默认 1 = Instant**
+        /// （与 <see cref="TriggerLaneOfCard"/> 同一条缺省契约）。</para>
+        ///
+        /// <para>**为什么不能拿 `TriggerPriority(keyword)` 顶上**：那一列的键是**引擎触发关键词**
+        /// （`artifice` / `codex` / `slay` …，21 个），而监听器这一族走的是 `WhenEventKind`
+        /// （`play` / `deploy` / `die` / `damaged` …）—— **两套词**，查不到任何东西。v18 另落一列，
+        /// 键 = 原版 trigger 名（`OtherUnitDeath(90)` / `UnitReceivesMarkOfChaos(510)` /
+        /// `FollowUpResolution(410)` …），与 `abilityContext`（v14）同一套主键。</para>
+        ///
+        /// <param name="card">监听者那张卡。`null`（常驻效果没有载体 / 已离场）⇒ 默认道。</param>
+        /// <param name="triggerName">这条监听能力对应的**原版 `AbilityTrigger` 枚举名**。
+        /// ⚠️ **只有判据确定的调用点才传** —— 传 `null` = 「认不出是哪条 ability」⇒ 默认道
+        /// （⛔ 不许按措辞猜一个名字：`RuleEngineTest` 与 `EffectResolver` 的回合族注释都记了
+        /// 「同一措辞落在不同 trigger 号上」这条实测）。</param>
         /// </summary>
-        public static ActionPriority ListenerLane(CardDef card)
+        public static ActionPriority ListenerLane(CardDef card, string triggerName = null)
         {
-            return (ActionPriority)CardDef.DefaultTriggerPriority;
+            if (card == null || string.IsNullOrEmpty(triggerName))
+                return (ActionPriority)CardDef.DefaultTriggerPriority;
+            return (ActionPriority)card.AbilityTriggerPriority(triggerName);
         }
 
         /// <summary>

@@ -17,7 +17,7 @@
    抠完之后产物里「悬空引用」= **0 处** ⇒ 没有把任何引用吊死。
 3. **丢掉 27 个 MonoBehaviour**（`MonoBehaviour` 共 27 个，脚本 9 种，最多的是 `TapHitMaterialDefinition` 13 个）。
    **静态树一点没动**：节点数仍 123、父子关系全对、每一个 Transform 都在（§四）。
-4. **6 个 shader 没拷**（ExportedProject 的全是 Dummy）⇒ 22 个材质 import 后 shader 槽会 Missing/品红。
+4. **6 个 shader 没拷**（ExportedProject 的全是 Dummy）⇒ 22 个材质 import 后 shader 槽会 Missing/品红。 🔴 **2026-10-23 订正（铁律 5，AR 现核）：实测 b3 只有 2 个材质缺 shader**（`Material/Ground.mat`、`Necrons Flying Monolyth Rays.mat`），其余 20 个试点时已绑到自建/内置 shader —— 上面是「映射前」的预判。
    每个 shader 在我们工程里的对应关系见 §五 —— **映射已经查清，但没有动手改，等主对话裁**。
 5. **闭包资产拷了 88 个 / 13.37 MB**：44 个网格 + 4 个 Sprite + 22 个材质 + 18 张贴图，`.meta` 原样带过来（guid 不变）。
 6. **副产物发现（要并入清单）**：**Black Legion 不再需要「两棵根合并」** ——
@@ -130,7 +130,7 @@ Unity 只在**文件开头**写一次 `%TAG !u! tag:unity3d.com,2011:`，而 YAM
 ## 五、shader 映射待办（22 个材质 / 6 个 shader + 3 个内建）
 
 **现状**：材质的 `m_Shader` guid 指向 ExportedProject 里的 **Dummy shader**（149/149 都是 `//DummyShaderTextExporter`）。
-本试点**按任务书不拷 shader、也不改材质** ⇒ import 后这 22 个材质的 shader 槽会 **Missing / 品红**。
+本试点**按任务书不拷 shader、也不改材质** ⇒ import 后这 22 个材质的 shader 槽会 **Missing / 品红**。 🔴 **2026-10-23 订正（铁律 5，AR 现核）：实测 b3 只有 2 个材质缺 shader**（`Material/Ground.mat`、`Necrons Flying Monolyth Rays.mat`），其余 20 个试点时已绑到自建/内置 shader —— 上面是「映射前」的预判。
 下表是「原版 shader 名 → 我们工程里的对应」，**只查证、没动**：
 
 | 原版 shader 名 | 用它的材质 | 我们工程里的对应 | 判据 |

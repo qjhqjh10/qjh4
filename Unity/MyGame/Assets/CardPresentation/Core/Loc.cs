@@ -37,36 +37,41 @@
 //    数据件 → `数据/游戏数据/官方本地化_en+zh-CN.json`（`工具/gen_official_loc.py` 生成）；
 //    逐条清单与脚本 → `资料/普查产出_第二十七会话/新发现_待立账.md` 的 `A1788`。
 //
-//    🔴 **现状（**现读口径 · 2026-10-19**）—— ⚠️ 原来这里那组「官方表有键 266 / 换掉 100 / 逐字相同 127 /
-//       官方没键 245」是 2026-10-14 那一轮的**历史快照**（当时表里条目更少），⛔ 别当现值引用**：
-//      · 本表共 **780 条**（复算：`grep -c 'new Entry(' MyGame/Assets/CardPresentation/Core/Loc.cs`
-//        现读 **782** —— 其中 **2 行是注释里引用的这个字样**（本行与下面那行复算说明），实际条目 = **780**；
-//        逐条解析表行（`{ "键", … }` 那种）也是 780）；
-//      · 其中**官方表 `terms` 里有同名键的 446 条**、官方表没有这个键的 334 条；
-//        其中 **ZH 值仍与官方不同的 46 条**（EN 值不同 7 条）—— 下面「暂缓换回」那一族就在这 46 条里。
-//        🔴 **2026-10-19（`W57` 界面线 UI-8）现核订正（铁律 5）**：上一版写「775 / 440 / 45 / 6」——
-//        **四个数全部过期**，现读 **780 / 446 / 46 / 7**（本表后来加过条目，官方键也随之增加）。
-//        复算口径未变：逐条取键比对 `官方本地化_en+zh-CN.json` 的 `terms`（`[0]`=en · `[1]`=zh-CN；
-//        值为**纯字符串**的条目按「en = zh = 该串」比对 —— 那 14 条是语言名等语言中立值）。
+//    🔴 **现状（现读口径 · 2026-10-23「官方中文全量收口」`C1`）** —— ⚠️ 原来这里那几组数
+//       （「官方表有键 266 / 换掉 100 / 逐字相同 127 / 官方没键 245」= 2026-10-14 快照；
+//        「780 / 446 / 46 / 7」= 2026-10-19 快照）⛔ **别当现值引用**：
+//      · 本表共 **752 条**（复算：`grep -c 'new Entry(' MyGame/Assets/CardPresentation/Core/Loc.cs`
+//        现读 **754** —— 其中 **2 行是注释里引用的这个字样**（本行与下面那行复算说明），实际条目 = **752**（2026-10-23 补 `Battle/MatchType/FastMode` 与 `FastModeRanked` 后 +2）；
+//        逐条解析表行（`{ "键", … }` 那种，**跨行 / 用 `+` 拼接的也算一条**）也是 750）；
+//      · 其中**官方表 `terms`（10,854 条）里有同名键的 447 条**、官方表**没有**这个键的 303 条；
+//      · 🔴 **ZH 值与官方不同的：0 条**（2026-10-23 一次换完 **42** 条 · 见下面那段）；
+//        **EN 值不同的 7 条**（本批按调度台口径**只碰中文值**，EN 未动 —— 清单在下面那段）。
 //      · 复算口径：逐条取 `new Entry(` 前的键去
 //        `数据/游戏数据/官方本地化_en+zh-CN.json` 的 `terms[键]`（`[0]`=en · `[1]`=zh-CN）比对；
-//        该表当前 = **10,854 条**（2026 build；见文件自己的 `_count`，⛔ 别再引用 2025-07-30 旧快照的 9,447）。
+//        ⚠️ 该表里 **391 条是「纯字符串」形态**（en == zh 的语言中立值，如语言名 / `VSync` /
+//        `Unranked Classic`）⇒ 比对时按 **en = zh = 该串**。⛔ **别拿它当数组取 `[0]`/`[1]`** ——
+//        那会读出「E / n」「V / S」这种**假差异**（2026-10-23 本批踩过一轮，差点当成「官方值坏了」）。
+//        本表命中这种条目 **14 条**。
+//      · 该表当前 = **10,854 条**（2026 build；见文件自己的 `_count`，⛔ 别再引用 2025-07-30 旧快照的 9,447）。
 //
-//    🔴🔴 **那批「暂缓换回」为什么没换**（2026-10-14 记 33 条；现读族内键数见上面那行，后来有增）。
-//      判据 = **旧值在卡面 `descZh`/`nameZh` 里出现过**；
-//      脚本 `_tmp_a1070/loc_revert_clash.py` 就是按这条判据现算的，⛔ 别照下面的例子推断别的键也在内）：
-//      绝大多数是 `Card_Trait/*`（关键词显示名），另有 `Armies/*` 里**那 4 个**（`DarkAngels` 暗黑天使 ×3 ·
-//      `EmperorsChildren` 帝皇之子 ×3 · `Genestealers` 基因窃取者教派 ×3 · `Sororitas` 战斗修女 ×5）
-//      与 `MenuDeck/HUD/DeckDescription/Minions`（部队 ×337）。
-//      ⚠️ **不是「整个 `Armies/*` 都暂缓」** —— 例如 `Armies/Goff`（高夫兽人）的旧值**不在卡面文字里** ⇒
-//         **它换成了官方值「欧克蛮人」**（`CardBaseDemo.cs` 的断言跟着改了）。
-//      为什么暂缓：官方词换上之后，**卡面 `descZh`（仍是我们自译的）**里还在用旧词 ⇒ **同一屏上
-//      「关键词章 = 官方词、卡面正文 = 我们的旧词」两套说法**（实测旧值在卡面文字里出现：
-//      `Card_Trait/armour` 护甲 ×105 · `talent` 天赋 ×100 · `stealth` 潜行 ×50 · `ephemeral` 临时 ×43 ·
-//      `shield` 护盾 ×38 · `blast` 爆裂 ×36 · `codex` 典籍 ×34 · `strike` 猛击 ×28 …）。
-//      ⇒ **这一族与卡面文字【一起换】**（那是 `A1762`/`A1763` 那一批的活：先把 `CardIcons` 的
-//      `[[…]]`/`((…))` 记号层做出来，再整批换 `Card_Name`/`Card_Description`）。
-//      ⛔ **官方值没丢**（`官方本地化_en+zh-CN.json` 里都在），随时可以再换。
+//    ✅ **那批「暂缓换回」（2026-10-14 记 33 条）2026-10-23 已全部消化。**
+//      当时的判据 = **旧值在卡面 `descZh`/`nameZh` 里出现过**（脚本 `_tmp_a1070/loc_revert_clash.py`），
+//      所以整族留着旧译、等卡面文字一起换。**调度台 2026-10-23 改口径**：
+//      **一切以官方本地化表为准；官方表内部自相矛盾时照官方表原样显示，⛔ 不做「措辞统一」**
+//      ⇒ 这一次把 **42 条 ZH 差异全换完**（`Card_Trait/*` 28 条 · `Armies/Sororitas` 也换：
+//      战斗修女 → **修女会**；卡名 `Card_Name/SOR5` 官方本身就是「战斗修女」—— **两套词并存 = 原版如此**）。
+//      ⚠️ **换完仍会看到的「两套说法」**：卡面 `descZh` 里**还有一部分卡是我们早期的自译**（不是官方值），
+//      那些卡的正文仍印旧词（如「护甲」），而关键词章印官方词（「盔甲」）。那是**卡牌线 `descZh` 迁移**
+//      的余额 —— 2026-10-23 现读 `cards_engine.json`（全池 1,127 张）：`护甲` 46 处 / `盔甲` 0 处 ·
+//      `潜行` 13 / `隐身` 1 · `爆裂` 21 / `爆炸` 0 … ⛔ **不是本表的活**，
+//      也⛔ **不能拿它当「本表该留旧译」的理由**（口径已改）。
+//      ⚠️ **EN 列仍与官方不同的 7 条**（只碰中文值 ⇒ EN 未动；要不要改由下一批定）：
+//      `Demo/ToBattle`（Battle → `Battle!`）· `MenuCollection/NoDecksFound`（官方多 `or game mode`）·
+//      `Battle/MatchType/Ranked`（Ranked → `Classic`）· `Battle/MatchType/Unranked`（→ `Unranked Classic`）·
+//      `MainMenu/PurchasePremium/Description`（官方少 `Starter Deck and`）·
+//      `Settings/Graphics/FrameLimit`（`FPS limit` → `FPS Limit`·只是大小写）·
+//      `MainMenu/Chat/ChallengeConfirmation`（官方带 `<b><color=#FCDEBB>…</color></b>`）。
+//      逐条判据 → `资料/普查产出_1023c/官方中文全量收口_执行报告.md`。
 //
 //    ⚠️ **本文件里凡是还写着「原版中文在远端 I2 表 / 中文那一列是我们译的 / 本地没有中文表」的旧注，
 //       一律以本条为准**（逐处已于同日加注，见各处 `2026-10-14`）。
@@ -431,9 +436,9 @@ namespace CardPresentation
             { "Missions/RefillCount",                         new Entry("{0} 可用",     "{0} Available") },
             { "Missions/CollectCounter",                      new Entry("准备在 {0} 收集", "Ready to collect in {0}") },
             { "Missions/ActiveCounter",                       new Entry("在 {0} 结束",  "Ends in {0}") },
-            { "Missions/Daily_5",                             new Entry("对敌方战将造成 {0} 伤害", "Deal {0} damage to the enemy Warlord") },
+            { "Missions/Daily_5",                             new Entry("对敌方战将造成 {0} 点伤害", "Deal {0} damage to the enemy Warlord") },
             { "Missions/Daily_Generic_8",                     new Entry("攻击单位 {0} 次", "Attack with units {0} times") },
-            { "Missions/Daily_10",                            new Entry("[[ranged]]攻击 {0} 次", "Attack [[ranged]] {0} times") },
+            { "Missions/Daily_10",                            new Entry("[[ranged]] 攻击 {0} 次", "Attack [[ranged]] {0} times") },
             // 🔴 **2026-10-18（同批普查：这些键只在官方全表里、`Table`/bulk 都取不到 ⇒ 界面会印键名）**
             { "Demo/FriendsMenu/SearchPlayer",                new Entry("搜索玩家", "Search player") },
             { "SocialMenu/Alliances/Invitations",             new Entry("联盟邀请：", "Alliances invitations:") },
@@ -549,7 +554,7 @@ namespace CardPresentation
             // 消费侧 = `Shell/PracticeModePopup.cs` 的六处 `Txt(...)` 调用点。
             // ------------- F2 练习窗 -------------
             // `Back button ▸ Text`（TMP 'Back'）→ 见上面的 `MainMenu/MainButtons/ButtonLabel/Back`（共用）
-            { "Demo/ToBattle",                                new Entry("战斗",         "Battle") },              // `DeckSelectionContinueButton ▸ Text`
+            { "Demo/ToBattle",                                new Entry("战斗！",         "Battle") },              // `DeckSelectionContinueButton ▸ Text`
             { "Demo/DeckSelectionDemo/SelectDeck",            new Entry("选择要玩的卡组", "Select deck to play") },   // `Deck Selector ▸ tooltip`
             { "Demo/CardCostBalance",                         new Entry("卡/能量成本", "Card / Energy cost") },     // `Deck info ▸ General container ▸ Deck Information Cost/balance text`
             { "MainMenu/RankedWindow/ChangeDeck",             new Entry("更换卡组",       "Change Deck") },           // `… ▸ General container ▸ Generic Simplified UI Button ▸ Button Text`
@@ -760,7 +765,7 @@ namespace CardPresentation
             //   那会与 `Shell/ShopWindow` 的 `TxtEmpty`（同一句原文）分叉）。
             //   ⚠️ 中文取自 `zh_CN.csv:178`，但那条的英文串是 `…for the selected **filter**`（单数 filter），
             //   与我们这一串（复数 filters）**差一个字母** ⇒ 属「最近邻」，**不是精确命中**（如实记）。
-            { "MenuCollection/NoDecksFound",                  new Entry("在您选择的过滤器中，您的收藏里没有卡组", "There are no decks in your collection for the selected filters") }, // TMP 原文（含原版语病）；zh_CN.csv:178 近邻
+            { "MenuCollection/NoDecksFound",                  new Entry("在您选择的过滤器或游戏模式下，您的收藏中没有卡组", "There are no decks in your collection for the selected filters") }, // 🔴 2026-10-23：**ZH = 官方值**（原取自 `zh_CN.csv:178` 近邻）；EN 仍是 TMP 原文（含原版语病，官方多 `or game mode` —— EN 未动）
             // ------------- 收藏窗那两处页头 / 通用钮 --------------
             { "MenuCollection/Label/Cosmetics",               new Entry("你的化妆品收藏", "Your cosmetics collection") }, // TMP 原文；`label < Header < Cardback Tab`；zh_CN.csv:25
             //   `Back`：同键 8 颗，收藏窗那颗 = `Button Text < Close Button < Shared < Tabs < Content Area < Collection Menu Variant`
@@ -934,8 +939,11 @@ namespace CardPresentation
             //   官方表 2026-10-14 已在本机（`Card_Race/*` 21 条），本族两列与官方逐字相同。
             //   🔴 **2026-10-19（`W57` 界面线 UI-8）现读订正**：官方 `Card_Race/*` 现为 **23 条**
             //   （2026-10-18 并入当前 build 后 +2）；「21 条」是 2026-10-14 旧快照的读数。
-            //   ⚠️ 「本族两列与官方逐字相同」**只对大部分键成立**：现核有 3 条 ZH 不同
-            //   （`Battlesuit` 战甲/战斗服 · `Secret` 隐秘/秘密 · `Codicil` 法典/附则，都是保留下来的旧译）。
+            //   ⚠️ 「本族两列与官方逐字相同」**只对大部分键成立**：现核有 2 条 ZH 不同
+            //   （`Secret` 隐秘/秘密 · `Codicil` 法典/附则，都是保留下来的旧译）。
+            //   🔴 **2026-10-23（卡牌线 `G2`）**：原为 3 条 —— `Battlesuit` 的 ZH 已由「战甲」换成官方 **「战斗服」**
+            //   （判据：旧词在 `cards_engine.json` 的 `nameZh`/`descZh` 里 **0 处**，全池 1,127 张现读 ⇒ 不会出现
+            //   「卡面章 = 官方词、卡面正文 = 我们的旧词」那种两套说法）。
             //
             // ⚠️ 下面 43 条 = `RuleEngine/Resources/cards_engine.json` 里**出现过的全部非空 `subtype`**
             //    （🔴 2026-10-19 现读：全池 **1,127** 张卡、其中 **1,116** 张有非空 `subtype` —— 原写
@@ -949,15 +957,15 @@ namespace CardPresentation
             { "Card_Race/Defence",             new Entry("防御",       "Defence") },            // zh_CN.csv:6367
             { "Card_Race/Monster",             new Entry("怪物",       "Monster") },            // zh_CN.csv:6369
             { "Card_Race/Beast",               new Entry("野兽",       "Beast") },              // zh_CN.csv:6372
-            { "Card_Race/Battlesuit",          new Entry("战甲",       "Battlesuit") },         // zh_CN.csv:6374// zh_CN.csv:6374
+            { "Card_Race/Battlesuit",          new Entry("战斗服",     "Battlesuit") },         // zh_CN.csv:6374// zh_CN.csv:6374
             { "Card_Race/Drone",               new Entry("无人机",     "Drone") },              // zh_CN.csv:6377
             { "Card_Race/Psychic Power",       new Entry("灵能",       "Psychic Power") },      // zh_CN.csv:6375
             { "Card_Race/Combat Elixir",       new Entry("战斗药剂",   "Combat Elixir") },      // zh_CN.csv:6391
             { "Card_Race/Daemon",              new Entry("恶魔",       "Daemon") },             // zh_CN.csv:6381
-            { "Card_Race/Secret",              new Entry("隐秘",       "Secret") },             // zh_CN.csv:404// zh_CN.csv:404
+            { "Card_Race/Secret",              new Entry("秘密",       "Secret") },             // 🔴 2026-10-23：ZH = 官方值（原「隐秘」取自 zh_CN.csv:404）
             { "Card_Race/Dark Pact",           new Entry("黑暗契约",   "Dark Pact") },          // zh_CN.csv:378（`CardText.KeywordZhNames` 的 darkpact 同值）
             { "Card_Race/Sabotage",            new Entry("破坏",       "Sabotage") },           // zh_CN.csv:403（…的 sabotage 同值）
-            { "Card_Race/Codicil",             new Entry("法典",       "Codicil") },            // zh_CN.csv:6408
+            { "Card_Race/Codicil",             new Entry("附则",       "Codicil") },            // 🔴 2026-10-23：ZH = 官方值（原「法典」取自 zh_CN.csv:6408）
             { "Card_Race/Genomic Enhancement", new Entry("基因强化",   "Genomic Enhancement") },// zh_CN.csv:387
             // 🔴 **2026-10-18（A879）就地改值：中文列 `计策` → **`祈唤`**** —— 三条判据（主对话已亲核）：
             //   ① **原值 `计策` 与「卡类别」撞名**：`type='tactic'` 那类卡在 PnP 目录里就叫 `4计策/`
@@ -1249,12 +1257,24 @@ namespace CardPresentation
             { "Battle/HUD/WaitOpponentConnectionMsg",                  new Entry("等待你的对手重新连接", "Waiting for your opponent to reconnect") },
             // ---- Battle/（裸键）（4 条）----
             { "Battle/Jammed",                                         new Entry("卡住了", "Jammed") },
-            // ---- Battle/MatchType（5 条）----
+            // ---- Battle/MatchType（7 条）----
+            // 🔴 2026-10-23（`C1`）：`Ranked`/`Unranked` 两条 **ZH 换成官方值**（`经典` / `Unranked Classic`）。
+            //   ⚠️ 官方表自己就是「键叫 Ranked、值是 Classic」（`Battle/MatchType/Ranked` = `Classic`/`经典`，
+            //   `Unranked` = `Unranked Classic`，且后者是**纯字符串形态** en=zh）—— **照原样复刻，⛔ 不修**。
+            //   ⚠️ 本族**全仓无消费点**（`grep Battle/MatchType` 在 `Loc.cs` 之外 0 命中）⇒ 纯对齐、不动行为。
+            // 🔴 2026-10-23（`D2` · `A2066` ②③）：`C1` 那轮**只换了 ZH、EN 没跟**，而且官方有 2 键我们**没有** ——
+            //   `w4_verify.py` ④ 因此红了 2 条（现读：缺 `FastMode` / `FastModeRanked`；`Ranked` 我们 `Ranked`
+            //   vs 官方 `Classic`、`Unranked` 我们 `Unranked` vs 官方 `Unranked Classic`）。这一轮按官方表补齐：
+            //   判据 = `Unity/数据/游戏数据/官方本地化_en+zh-CN.json` 的 `terms`（`_count` 10,854），现读：
+            //   `FastMode` = `Unranked Skirmish` / `未排名的小冲突` · `FastModeRanked` = `Skirmish` / `小规模战斗`。
+            //   ⛔ 别把它们并进 `Draft`/`Practice` 之类 —— 原版是 7 个独立键。
             { "Battle/MatchType/ClosedDeck",                           new Entry("选秀", "Draft") },
             { "Battle/MatchType/Draft",                                new Entry("选秀", "Draft") },
+            { "Battle/MatchType/FastMode",                             new Entry("未排名的小冲突", "Unranked Skirmish") },
+            { "Battle/MatchType/FastModeRanked",                       new Entry("小规模战斗", "Skirmish") },
             { "Battle/MatchType/Practice",                             new Entry("练习", "Practice") },
-            { "Battle/MatchType/Ranked",                               new Entry("排名", "Ranked") },
-            { "Battle/MatchType/Unranked",                             new Entry("无级别", "Unranked") },
+            { "Battle/MatchType/Ranked",                               new Entry("经典", "Classic") },
+            { "Battle/MatchType/Unranked",                             new Entry("Unranked Classic", "Unranked Classic") },
             // ---- Battle/Mulligan（1 条）----
             { "Battle/Mulligan/extraWarlord",                          new Entry("战将技能", "Warlord ability") },
             // ---- Battle/Prebattle（4 条）----
@@ -1832,9 +1852,7 @@ namespace CardPresentation
             //     拼接**只是写法**，运行期取到的仍是同一串（`Loc.T` 返回拼好的那一串）。
             //   消费点 = `Shell/PurchasePremiumWindow` 里那句 `string.Format(TermInfoBody, points)`。
             { "MainMenu/PurchasePremium/Description", new Entry(
-                "• 解锁此派系的Campaign中的Premium奖励，包括首个节点的入门卡组和一张传奇牌。\n" +
-                "• <color=#E98A00FF>{0}</color> 每天只需登录，就能在每日登录奖励中为此派系获得Campaign积分。如果你有多个Premium Campaign，那么所有的都可以获得这个奖励！\n" +
-                "• 这个一次性购买将为此派系永久提供利益，因为最后一个Campaign节点可以反复领取！",
+                "• 解锁这个派系战役中的高级奖励，包括第一个节点的传奇张牌。\n• <color=#E98A00FF>{0}</color> 每天只需登录，就能在每日登录奖励中为此派系获得Campaign积分。如果你有多个Premium Campaign，那么所有的都可以获得这个奖励！\n• 这个一次性购买将为此派系永久提供利益，因为最后一个Campaign节点可以反复领取！",
                 "• Unlock the Premium rewards in this faction's Campaign, including a Starter Deck and a Legendary Card in the first node.\n" +
                 "• <color=#E98A00FF>{0}</color> Campaign Points for this faction in the Daily Login Bonus, every day, just for logging in. If you have several Premium Campaigns, you get this bonus for ALL of them!\n" +
                 "• This one-time purchase will provide benefits for this faction forever, as the last Campaign node can be claimed repeatedly!") },
@@ -1927,7 +1945,7 @@ namespace CardPresentation
             { "Card_Rarity/Legendary",                 new Entry("传奇", "Legendary") },
             { "Card_Rarity/Special",                   new Entry("特别", "Special") },
             // ⚠️ EN 是原版的**复数** `Stratagems` ⇒ 英文档会从我们原来的 `Stratagem` 变成它（P1 §⑤·4 已如实记）。
-            { "MenuDeck/HUD/DeckDescription/Minions",  new Entry("部队", "Troops") },
+            { "MenuDeck/HUD/DeckDescription/Minions",  new Entry("军队", "Troops") },
             { "MenuDeck/HUD/DeckDescription/Spells",   new Entry("计谋", "Stratagems") },
             { "MenuDeck/Filters/ShowOwnedOnly",        new Entry("只显示拥有的", "Owned only") },
             { "MenuDeck/Filters/ShowUpgradableOnly",   new Entry("仅显示可升级的", "Upgradable only") },
@@ -2492,8 +2510,10 @@ namespace CardPresentation
             { "Settings/Graphics/IncreaseUISize",      new Entry("增大用户界面尺寸",  "Large font size") },    // 节点 `…/Content/Small Screen Size Toggle/Label`（TMP = `Aumentar tamaño de UI`）· EN 自拟
             { "Settings/Graphics/EnableSuperSampling", new Entry("超采样",   "Supersampling") }, // 节点 `…/Content/Use super sampling/Label`（TMP = `Sobremuestreo`）· EN 自拟
             { "Settings/Graphics/Vsync",               new Entry("VSync",    "VSync") },              // 节点 `…/Content/Vsync/Label`；🔴 EN **逐字 = 原版 TMP**（本包唯一一条非西语）
-            { "Settings/Graphics/FrameLimit",          new Entry("帧率上限", "FPS limit") },          // 节点 `…/Content/FPS Limit/Title`（TMP = `Límite de FPS`）· EN 自拟
-            { "Settings/Graphics/UnlimitedFPS",        new Entry("不限帧",   "Unlimited") },          // 节点 `…/Content/FPS Limit/FPS Slider/Unlimited`（TMP = `Ilimitado`）· EN 自拟
+            // 🔴 2026-10-23（`C1`）：**ZH 两列换成官方值**（`FPS限制` / `无限制`）；EN 仍自拟（官方 = `FPS Limit` / `Unlimited`，
+            //   只有大小写差）—— 本批只碰中文值 ⇒ EN 未动。
+            { "Settings/Graphics/FrameLimit",          new Entry("FPS限制", "FPS limit") },          // 节点 `…/Content/FPS Limit/Title`（TMP = `Límite de FPS`）· EN 自拟
+            { "Settings/Graphics/UnlimitedFPS",        new Entry("无限制",   "Unlimited") },          // 节点 `…/Content/FPS Limit/FPS Slider/Unlimited`（TMP = `Ilimitado`）· EN 自拟
 
             //  ---------------------------------------------------------- ⑭·B 图形/通用页那几条 `_flash` 状态行 · A2 · 12 条（全自拟）
             //  🔴 **为什么算「要建」**：`Shell/SettingsWindow.RefreshOnline()` =
@@ -2593,6 +2613,12 @@ namespace CardPresentation
             //     **仍是我们自己的写法**：其中 `Card_Trait` 那 **28** 条属于文件头那批「**暂缓换回**」
             //     （🔴 2026-10-19 现核：与官方 ZH 不同的 `Card_Trait` 共 28 条、逐条等于换官方前的旧值；
             //       原写「25 条」已过期；旧值还出现在卡面 `descZh` 里）⇒ 不是「取不到」。
+            //     🔴 **2026-10-23（卡牌线 `C1`）那 28 条已全部换成官方值**（护甲→盔甲 · 潜行→隐身 ·
+            //     爆裂→爆炸 · 天赋→才能 · 典籍→圣典 · 猛击→攻击 · 临时→短暂的 · 护盾→盾牌 · 路标石→灵魂石 …）；
+            //     ⇒ **本族 ZH 列现在逐条 = 官方 `Card_Trait/*`**（`bloodthirst`/`cantattack`/`huntmark`/
+            //     `spiritstone` 那 4 条**大小写不同**的键仍是我们自己的写法、官方表里没有同名键 ⇒ 保留，见报告 §五）。
+            //     ⚠️ 卡面正文里那批**自译 `descZh`** 还没迁完 ⇒ 会看到章/正文两套词，
+            //     那是卡牌线的余额（判据 → `资料/普查产出_1023c/官方中文全量收口_执行报告.md`）。
             //   · `Armies/*`：**族 = 原版**（那 14 条 `mTerm` 在表① 全在；`Ember`/`Tide`/`Neutral` 原版无 ⇒ 自拟）。
             //     ⚠️ **载体没核**（普查 §⑦·2）：那 14 颗 `Localize` 挂在**主菜单阵营选择页**，
             //        **不一定是卡面那行阵营字**（卡面那行按 `CardText.cs:459` 的注释来自 `factions.json` 的 `cn`）
@@ -2636,35 +2662,35 @@ namespace CardPresentation
             { "Card_Trait/ability", new Entry("技能", "Ability") },
             { "Card_Trait/agenda", new Entry("议程", "Agenda") },
             { "Card_Trait/ambush", new Entry("伏击", "Ambush") },
-            { "Card_Trait/armour", new Entry("护甲", "Armour") },
-            { "Card_Trait/artifice", new Entry("巧技", "Artifice") },
-            { "Card_Trait/backlash", new Entry("反噬", "Backlash") },
-            { "Card_Trait/blast", new Entry("爆裂", "Blast") },
-            { "Card_Trait/blind", new Entry("失明", "Blind") },
+            { "Card_Trait/armour", new Entry("盔甲", "Armour") },
+            { "Card_Trait/artifice", new Entry("工匠", "Artifice") },
+            { "Card_Trait/backlash", new Entry("反击", "Backlash") },
+            { "Card_Trait/blast", new Entry("爆炸", "Blast") },
+            { "Card_Trait/blind", new Entry("失明的", "Blind") },
             { "Card_Trait/bloodthirst", new Entry("嗜血", "Blood Thirst") },
             { "Card_Trait/camouflage", new Entry("伪装", "Camouflage") },
             { "Card_Trait/cantattack", new Entry("无法攻击", "Can't Attack") },
-            { "Card_Trait/codex", new Entry("典籍", "Codex") },
-            { "Card_Trait/companion", new Entry("伴生", "Companion") },
+            { "Card_Trait/codex", new Entry("圣典", "Codex") },
+            { "Card_Trait/companion", new Entry("伙伴", "Companion") },
             { "Card_Trait/concussion", new Entry("震荡", "Concussion") },
             { "Card_Trait/cruelty", new Entry("残忍", "Cruelty") },
             { "Card_Trait/darkpact", new Entry("黑暗契约", "Dark Pacts") },
             { "Card_Trait/destroyer", new Entry("毁灭者", "Destroyer") },
             { "Card_Trait/duty", new Entry("职责", "Duty") },
             { "Card_Trait/ecstasy", new Entry("狂喜", "Ecstasy") },
-            { "Card_Trait/ephemeral", new Entry("临时", "Ephemeral") },
+            { "Card_Trait/ephemeral", new Entry("短暂的", "Ephemeral") },
             { "Card_Trait/faith", new Entry("信仰", "Faith") },
-            { "Card_Trait/fast", new Entry("迅捷", "Fast") },
-            { "Card_Trait/ferocity", new Entry("狂暴", "Ferocity") },
+            { "Card_Trait/fast", new Entry("快速", "Fast") },
+            { "Card_Trait/ferocity", new Entry("凶残", "Ferocity") },
             { "Card_Trait/flank", new Entry("侧翼", "Flank") },
             { "Card_Trait/flying", new Entry("飞行", "Flying") },
             { "Card_Trait/huntmark", new Entry("猎杀标记", "Hunt Mark") },
-            { "Card_Trait/invulnerable", new Entry("无敌", "Invulnerable") },
-            { "Card_Trait/longrange", new Entry("远射", "Long Range") },
-            { "Card_Trait/markerlight", new Entry("标记光", "Markerlight") },
-            { "Card_Trait/mob", new Entry("群体", "Mob") },
+            { "Card_Trait/invulnerable", new Entry("无懈可击", "Invulnerable") },
+            { "Card_Trait/longrange", new Entry("远程", "Long Range") },
+            { "Card_Trait/markerlight", new Entry("标记灯", "Markerlight") },
+            { "Card_Trait/mob", new Entry("暴群", "Mob") },
             { "Card_Trait/oath", new Entry("誓言", "Oath") },
-            { "Card_Trait/pack", new Entry("兽群", "Pack") },
+            { "Card_Trait/pack", new Entry("群体", "Pack") },
             { "Card_Trait/penitence", new Entry("忏悔", "Penitence") },
             { "Card_Trait/pindown", new Entry("压制", "Pin Down") },
             { "Card_Trait/pray", new Entry("祈祷", "Pray") },
@@ -2672,29 +2698,29 @@ namespace CardPresentation
             { "Card_Trait/rally", new Entry("集结", "Rally") },
             { "Card_Trait/regeneration", new Entry("再生", "Regeneration") },
             { "Card_Trait/regiment", new Entry("团", "Regiment") },
-            { "Card_Trait/remnant", new Entry("残骸", "Remnant") },
+            { "Card_Trait/remnant", new Entry("残余", "Remnant") },
             { "Card_Trait/sabotage", new Entry("破坏", "Sabotage") },
-            { "Card_Trait/sentry", new Entry("哨戒", "Sentry") },
-            { "Card_Trait/shield", new Entry("护盾", "Shield") },
+            { "Card_Trait/sentry", new Entry("哨兵", "Sentry") },
+            { "Card_Trait/shield", new Entry("盾牌", "Shield") },
             { "Card_Trait/shuriken", new Entry("星镖", "Shuriken") },
-            { "Card_Trait/slay", new Entry("斩杀", "Slay") },
-            { "Card_Trait/sniper", new Entry("狙击", "Sniper") },
+            { "Card_Trait/slay", new Entry("消灭", "Slay") },
+            { "Card_Trait/sniper", new Entry("狙击手", "Sniper") },
             { "Card_Trait/spiritstone", new Entry("灵魂石", "Spirit Stone") },
-            { "Card_Trait/stealth", new Entry("潜行", "Stealth") },
-            { "Card_Trait/stimulation", new Entry("激励", "Stimulation") },
+            { "Card_Trait/stealth", new Entry("隐身", "Stealth") },
+            { "Card_Trait/stimulation", new Entry("刺激", "Stimulation") },
             { "Card_Trait/stomp", new Entry("践踏", "Stomp") },
-            { "Card_Trait/strike", new Entry("猛击", "Strike") },
+            { "Card_Trait/strike", new Entry("攻击", "Strike") },
             { "Card_Trait/stun", new Entry("眩晕", "Stun") },
             { "Card_Trait/swarm", new Entry("虫群", "Swarm") },
-            { "Card_Trait/synapse", new Entry("突触", "Synapse") },
-            { "Card_Trait/talent", new Entry("天赋", "Talent") },
+            { "Card_Trait/synapse", new Entry("突触节点", "Synapse") },
+            { "Card_Trait/talent", new Entry("才能", "Talent") },
             { "Card_Trait/teleport", new Entry("传送", "Teleport") },
-            { "Card_Trait/tide", new Entry("潮涌", "Tide") },
+            { "Card_Trait/tide", new Entry("潮汐", "Tide") },
             { "Card_Trait/unstable", new Entry("不稳定", "Unstable") },
             { "Card_Trait/uprising", new Entry("起义", "Uprising") },
             { "Card_Trait/vanguard", new Entry("先锋", "Vanguard") },
-            { "Card_Trait/vulnerable", new Entry("脆弱", "Vulnerable") },
-            { "Card_Trait/waystone", new Entry("路标石", "Waystone") },
+            { "Card_Trait/vulnerable", new Entry("易受伤害", "Vulnerable") },
+            { "Card_Trait/waystone", new Entry("灵魂石", "Waystone") },
 
             // ---- 阵营：`CardDef.Faction` = 键尾（14 条键名 = 原版 `Armies/<Faction>`；`Ember`/`Tide`/`Neutral` 自拟）----
             { "Armies/Ember", new Entry("余烬", "Ember") },        // 我们自造的阵营（原版 `Armies/` 里没有）
@@ -2707,11 +2733,14 @@ namespace CardPresentation
             { "Armies/BlackLegion", new Entry("黑色军团", "Black Legion") },
             { "Armies/Leviathan", new Entry("利维坦虫巢舰队", "Hive Fleet Leviathan") },
             { "Armies/TauEmpire", new Entry("钛帝国", "T'au Empire") },
-            { "Armies/Sororitas", new Entry("战斗修女", "Adepta Sororitas") },
-            { "Armies/Genestealers", new Entry("基因窃取者教派", "Genestealer Cults") },
+            // 🔴 2026-10-23（`C1`）：**换回官方值「修女会」**（原「战斗修女」= 卡面用词）。判据 = 调度台口径
+            //   「官方表内部自相矛盾时照官方表原样显示」——官方 `Armies/Sororitas` = 修女会 而
+            //   `Card_Name/SOR5` = 战斗修女，**原版中文客户端本来就是两套词并存**（`G2` 的「暂缓」理由已作废）。
+            { "Armies/Sororitas", new Entry("修女会", "Adepta Sororitas") },
+            { "Armies/Genestealers", new Entry("基因窃取者教团", "Genestealer Cults") },
             { "Armies/AstraMilitarum", new Entry("星界军", "Astra Militarum") },
-            { "Armies/DarkAngels", new Entry("暗黑天使", "Dark Angels") },
-            { "Armies/EmperorsChildren", new Entry("帝皇之子", "Emperor's Children") },
+            { "Armies/DarkAngels", new Entry("黑暗天使", "Dark Angels") },
+            { "Armies/EmperorsChildren", new Entry("帝皇的孩子们", "Emperor's Children") },
             { "Armies/SpaceWolves", new Entry("太空野狼", "Space Wolves") },
 
             // ---- `CardText.Phrases` 那 11 条（+ `TurnLabel`）：**另立键、不复用近邻**（见上面那条判据）----
@@ -2803,7 +2832,11 @@ namespace CardPresentation
             //   `Demo/AvatarMenu/SelectAvatar`       = `Select your avatar` / `选择你的头像`
             //     ← `Shell/AvatarTab.cs` 的 `Item Display Panel/Select Item`（`PlayerProfile/SelectAvatarTip` 同值）。
             //   `MainMenu/Chat/ChallengeConfirmation`= `Do you want to challenge {0:0}?` / `你想挑战{0:0}吗？`
-            //     ← `Shell/DuelPopupWindow.cs` 的 `MessageText`（⚠️ 官方串**不带 HTML**）。
+            //     ← `Shell/DuelPopupWindow.cs` 的 `MessageText`。
+            //     🔴 **2026-10-23（`C1`）就地订正**：原写「官方串**不带 HTML**」—— **半错**：
+            //     官方 **EN 列也不带**（`Do you want to challenge {0:0}?`），但**官方 ZH 列带**
+            //     `<b><color=#FCDEBB>{0}</color></b>`（= 玩家名加粗染色），本批已把 ZH 换成官方那一串。
+            //     错因 = 只看了 prefab 那颗 TMP 的英文 `m_text` 就外推到两列。
             { "MainMenu/Register/PleaseChooseName",        new Entry("选择你的玩家名字", "Choose your player name") },
             { "Demo/AvatarMenu/SelectAvatar",              new Entry("选择你的头像", "Select your avatar") },
             // 🆕 **2026-10-17（`N37①`）**：`Select Avatar Button/Button Text` 的官方键（值 = `Select` / `选择`）。
@@ -2812,7 +2845,7 @@ namespace CardPresentation
             //   不是 prefab 证据。补进来是为了让 `Shell/AvatarTab.cs` 的本地兜底自动切回 `Loc.T`
             //   （它在那里先判 `Loc.HasEntry`，没有就走本地两列 + `Lang13Current`）。
             { "Demo/AvatarMenu/SelectAvatarButton",        new Entry("选择", "Select") },
-            { "MainMenu/Chat/ChallengeConfirmation",       new Entry("你想挑战{0:0}吗？", "Do you want to challenge {0:0}?") },
+            { "MainMenu/Chat/ChallengeConfirmation",       new Entry("你想挑战<b><color=#FCDEBB>{0}</color></b>吗？", "Do you want to challenge {0:0}?") },
             { "MenuShop/referral/counter",              new Entry("你已收集了{0}个推荐奖励！", "You have collected {0} referral rewards!") },
             { "MenuShop/referral/counterMaximum",       new Entry("您已收集到最多的推荐奖励。", "You have collected the maximum number of referral rewards.") },
             { "Missions/CollectingRewards",             new Entry("正在收集奖励...", "Collecting Rewards...") },
@@ -2862,7 +2895,8 @@ namespace CardPresentation
         //
         // ⚠️ **载入时机（2026-10-18 界面线 `N71` 起）**：非中英档**必然**载入；中文/英文档只在
         //   「`Table` + 数据面 bulk 都没命中」的键上**兜底**时才载入（约 **9.2 MB** / **10,862** 键 × 13 列）。
-        //   中文/英文档的**权威仍是上面那张手写 `Table`**（33 条刻意保留的旧译 + 我们自拟的键都在里面），
+        //   中文/英文档的**权威仍是上面那张手写 `Table`**（我们自拟的键 + 2026-10-23 起**逐条等于官方值**的
+        //   那 447 条都在里面；🔴 原来这里写的「33 条刻意保留的旧译」已作废 —— 那一族当天全换完了），
         //   官方全表只补「`Table`/bulk 里根本没有」的键（⛔ 不覆盖任何已有键的值 —— 见 `T()` 那三档顺序）。
         // ⚠️ 官方表里**没有**的键（例如自拟的 `Settings/Online/Title`）⇒ 回退英文 + 出声一次/键。
         [System.Serializable] class LangFile
@@ -3333,7 +3367,8 @@ namespace CardPresentation
             Entry e;
             bool inTable = Table.TryGetValue(key, out e);
 
-            // 中文 / 英文：手写 `Table` 是**权威**（33 条刻意保留的旧译 + 我们自拟的键都在里面）
+            // 中文 / 英文：手写 `Table` 是**权威**（我们自拟的键 + 官方值逐条对齐的那 447 条都在里面；
+            //   原「33 条刻意保留的旧译」2026-10-23 已全部换官方值）
             if (cur == AvailableLanguages.Chinese && inTable && !string.IsNullOrEmpty(e.Zh)) return e.Zh;
             if (cur == AvailableLanguages.English && inTable && !string.IsNullOrEmpty(e.En)) return e.En;
 

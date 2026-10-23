@@ -2590,6 +2590,35 @@ namespace CardPresentation
             }
         }
 
+        /// <summary>🆕 **2026-10-23（`C3`）自检用：描边的**目标色**（批处理没有帧循环 ⇒ 0.2 s 补间不会自己跑，
+        /// 想断「悬停把目标设成了什么」只能读它；断「真落到材质上」用 <see cref="OutlineColor"/> + `CardTween.Advance`）。
+        /// 用途 = 收藏窗卡格的**菜单档悬停**（`SetHoverHighlight`）那几条断言。</summary>
+        public Color OutlineTargetForTest { get { return _outlineTarget; } }
+
+        /// <summary>🆕 **2026-10-23（`C3`）自检用：描边那层 quad 的**设计尺寸**（卡单位；原版 = 4.4281²）。
+        /// 优先量 `outlineGlow` 层，没建就量 `_shadowLayer` —— 与 <see cref="OutlineMat"/> 同一条次序。
+        /// ⚠️ 量的是 `MeshRenderer.bounds`（网格轴对齐、网格自身 `localScale = 1`），**再除掉卡根的 `lossyScale`**
+        /// —— 收藏页的卡是按格缩放的（实测 ×0.9609），不除的话 4.4281 会量成 4.2551（🔴 2026-10-23 自检抓到）。</summary>
+        public Vector2 OutlineQuadSize
+        {
+            get
+            {
+                var mr = _outlineLayer != null ? _outlineLayer : _shadowLayer;
+                if (mr == null) return Vector2.zero;
+                var s = transform.lossyScale;
+                float sx = Mathf.Abs(s.x) > 1e-6f ? Mathf.Abs(s.x) : 1f;
+                float sy = Mathf.Abs(s.y) > 1e-6f ? Mathf.Abs(s.y) : 1f;
+                return new Vector2(mr.bounds.size.x / sx, mr.bounds.size.y / sy);
+            }
+        }
+
+        /// <summary>🆕 **2026-10-23（`C3`）自检用：描边那张材质某个 float 属性的当前值（读不到 ⇒ **−1**）。</summary>
+        public float OutlineFloatForTest(string p)
+        {
+            var m = OutlineMat;
+            return (m != null && m.HasProperty(p)) ? m.GetFloat(p) : -1f;
+        }
+
         /// <summary>描边的诊断串（自检失败时打出来用）</summary>
         public string OutlineDebug
         {
@@ -6558,21 +6587,40 @@ namespace CardPresentation
             }
         }
 
-        /// <summary>🆕 **2026-10-19（`N70` P0-5）：菜单侧卡格的悬停高亮**（收藏窗卡牌格 / 异画格 / 卡背格共用）。
+        /// <summary>🆕 **2026-10-19（`N70` P0-5）：菜单侧卡格的悬停高亮**（收藏窗卡牌格 / 异画格共用）。
         /// <para>判据（反编译逐句，`d:/2/tools/decomp_full/Card2DController__ToggleHighlight.c`）：
         /// 取那颗图形材质里某个颜色的 **`a`**，按 `hover` 写成 **1 / 0**，再交给
         /// `UIImageMaterialColorChanger.DoColorChange(..., 0.2f, …)` **补间 0.2 秒**（常数 `DAT_1834b2bb0` = 0.2，
-        /// 与 `CardHighlight.OutlineAnimTime` 同源）。原版**不改缩放**（缩放那一条是 `CollectionDeck` 卡组格专用的 1.05）。
-        /// ⇒ 我们的等价物 = **状态环那一层**（它写的就是 `_Outline` 的 alpha）补到 1/0，时长 0.2。</para>
-        /// <para>⚠️ 只在**常规态**用（收藏窗每格建完都 `SetHighlight(Normal)`）；置灰/其它态不点亮
+        /// 与 `CardHighlight.OutlineAnimTime` 同源）。原版**不改缩放**（缩放那一条是 `CollectionDeck` 卡组格专用的 1.05）。</para>
+        /// <para>🔴 **2026-10-23（`C3`）就地改判：这一条走【卡面那层 `Card Highlight And Shadow`】，
+        /// ⛔ 不再借战斗的 `_rim`（`3DBody/MinionLight` = 战斗 6 态状态环）。** 两层判据完全不同：
+        ///  · **菜单悬停**（本方法的判据，全部实读）：quad **4.4281²** @ y **−0.01265**
+        ///    （`MENUS/RectTransform/RectTransform_4117944419202364760.json` 的 `m_SizeDelta`/`m_AnchoredPosition`）
+        ///    · 贴图 = **本卡自己那张 SDF**（`CardArt.Sdf(faction, rarity, tactics, tier)`）
+        ///    · 材质 = **`Card Frame SDF`**（`bundle_duplicateassetisolation_assets_all/Material/
+        ///    Material_-3316280387615011577.json`：`_Inner_Edge 0.333` / `_Inner_Fallof 0.224` /
+        ///    `_SpriteAlphaEdge_Inner 0.043`）· 颜色 = `CollectionCard.highlightColor` **#0080FF** ·
+        ///    alpha 目标 **1.0**（`ToggleHighlight` 直接写 1/0，**不乘任何材质常量**）。
+        ///  · **战斗状态环**（`_rim`）：quad 2.4928 × 3.3084（手牌 1.09×1.06）· 贴图 `Card board frame SDF`(79×107) ·
+        ///    材质 `Card board Frame SDF`（0.242 / 1.0 / 0.339）· alpha 还要 × `RimAlphaScale 0.447`。
+        /// ⇒ 我们这棵树里，菜单那一层**本来就已经有了** —— `SdfMaterial()`（值 = `Card Frame SDF` 逐项）
+        ///   + `ShadowMesh()`（4.4281² @ −0.0126）+ 每卡各自的 SDF 贴图，就是原版那个节点。
+        ///   所以本方法只写 `OutlineMat`（= 那层材质的 `_Outline`；懒建的 `outlineGlow` 优先、没有就退回
+        ///   `_shadowLayer`），**`_rim` 一个字都不碰** —— 这就是「菜单档 / 战斗档分离」的落地方式
+        ///   （物理上就是两层不同的东西，⛔ 不是靠一个 bool 档位开关）。</para>
+        /// <para>⚠️ 只在**常规态**用（收藏窗每格建完都 `SetHighlight(Normal)`）；置灰不点亮
         /// —— 原版那颗 `ToggleHighlight` 也是挂在菜单卡格上、与战斗状态机无关。</para></summary>
         public void SetHoverHighlight(bool on)
         {
-            if (_rim == null || _rim.sharedMaterial == null) return;
             if (on && State == CardHighlightState.Unplayable) return;
-            _rim.enabled = true;
-            ApplyRimColor(new Color(1f, 1f, 1f, on ? 1f : 0f), CardHighlight.OutlineAnimTime);
+            // 颜色 = 原版 `CollectionCard.highlightColor`（MB 40971030049256792 实读 (0, 0.5026950836181641, 1, 1)）；
+            // alpha 目标 = 原版 `ToggleHighlight` 直接写的 **1 / 0**（`SetOutline` 那条链不乘 `RimAlphaScale`）。
+            SetOutline(new Color(MenuHoverColor.r, MenuHoverColor.g, MenuHoverColor.b, on ? 1f : 0f));
         }
+
+        /// <summary>菜单卡格的悬停色 = 原版 `CollectionCard.highlightColor` = **`#0080FF`**。
+        /// ⚠️ 与战斗那 5 个状态色（`CardHighlight.ColorOf/FrameColorOf`）是**两套**，⛔ 别合并。</summary>
+        public static readonly Color MenuHoverColor = new Color(0f, 0.5026951f, 1f);
 
         Color _rimTarget = new Color(0f, 0f, 0f, 0f);
         Color _rimNow = new Color(0f, 0f, 0f, 0f);
@@ -6675,6 +6723,14 @@ namespace CardPresentation
                 return (m != null && m.mainTexture != null) ? m.mainTexture.name : null;
             }
         }
+        /// <summary>自检用：状态环材质某个 float 属性的当前值（没有这个属性 ⇒ **−1**，不静默给 0）。
+        /// 用途 = 反向断「菜单那三个 SDF 值没有串进战斗材质」（判据 → `SetHoverHighlight` 的注释）。</summary>
+        public float RimFloatForTest(string p)
+        {
+            var m = _rim != null ? _rim.sharedMaterial : null;
+            return (m != null && m.HasProperty(p)) ? m.GetFloat(p) : -1f;
+        }
+
         /// <summary>自检用：状态环现在的**颜色**（这个 shader 没有 `_Color` ⇒ 读 `_Outline`；兜底那条读 `color`）。</summary>
         public Color RimColor
         {
@@ -8264,6 +8320,20 @@ namespace CardPresentation
         /// 原先 `CardDisplayWindow.SwapToFront` 就是这条潜伏缺陷（2026-10-16 顺手发现、账在战斗线 `T04`）。</para>
         /// 自检口：换位收尾后断「它 = 该槽的 `CardFan.Hpx(i) / (Height×108)`」。</summary>
         public float BaseScale { get { return _baseScale; } }
+
+        /// <summary>**只改基础缩放**并当场落到 `localScale`（走 <see cref="ApplyScale"/>）——
+        /// 给「逐帧按战场深度重算缩放」那类调用用（原版 `CardScript` 的 `Sequence.OnUpdate` 每帧
+        /// `transform.localScale = scale`，判据 → `CardFeel` 的「按战场深度重算缩放」那一节）。
+        /// <para>⚠️ 与 <see cref="SetPose"/> 的分工：只碰缩放；位置 / 倾角 / 影子 / 裁切一个都不动
+        /// （逐帧改那几样会和位移补间抢同一个 transform）。</para>
+        /// <para>🔴 **必须走这个口**：直接写 `transform.localScale` 会让 `_baseScale` 停在旧值上，
+        /// 之后任何一次 `SetPose` / `SetHighlightScale`（→ `ApplyScale`）都会把卡**弹回旧缩放**（静默）</para>
+        /// <para>⚠️ 调用方负责记住「这一侧静止该多大」并在收尾写回 —— 这里不认业务语义。</para></summary>
+        public void SetBaseScale(float scale)
+        {
+            _baseScale = scale;
+            ApplyScale();
+        }
 
         /// <summary>高亮的放大/还原（带 `AnimTime` 补间）。由 `SetHighlight` 调，外部一般不用直接调。</summary>
         public void SetHighlightScale(bool on)

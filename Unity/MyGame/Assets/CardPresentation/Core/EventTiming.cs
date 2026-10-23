@@ -100,8 +100,13 @@ namespace CardPresentation
             string faction = FactionOfSeat != null ? FactionOfSeat(retaliation.Player) : null;
             var times = (AnimTimesOf != null && !string.IsNullOrEmpty(retaliation.CardId))
                       ? AnimTimesOf(retaliation.CardId, faction) : null;
-            float chain = VfxMap.ChainDuration(VfxMap.AttackRanged, faction, retaliation.CardId, times);
-            if (chain > 0f) return AttackStepRanged + chain;
+            // 🔴 **2026-10-23（P1 · 演出时序 ④）**：改走 `CardAnimClips.RangedChainDuration` ——
+            //   它在 `VfxMap.ChainDuration` 那两档之后**多一档**「按 CardAnim 名查 `AnimInfo` 真值」
+            //   （逐卡远程件大多挂在卡 SO 顶层 `customRangedAttackParticles`、不进 `AnimTimes`
+            //   ⇒ 原来 441 个（卡,件）组合全落回 0.75 兜底）。契约：**≥ 0 = 真值（0 也是真值）**、
+            //   **&lt; 0 = 判据为空** ⇒ 才走 `RangedVfxFallback` 并出声。
+            float chain = CardAnimClips.RangedChainDuration(VfxMap.AttackRanged, faction, retaliation.CardId, times);
+            if (chain >= 0f) return AttackStepRanged + chain;
             WarnRetaliationFallback(retaliation.CardId);
             return AttackStepRanged + RangedVfxFallback;
         }
@@ -167,6 +172,10 @@ namespace CardPresentation
                 //    ⇒ **动画那一段**照原版 0.2（见下面 `DurationOf`），**后面这个「等一拍」仍是我们挑的**
                 //    （原版那个 `WaitForSeconds` 等的正是同一个字段，我们这里已经把它算进动画时长了，
                 //     再加同样的数会**重复计一次**）。
+                // 🔴 **2026-10-23（P1 · 演出时序 ②）**：`DurationOf(Death)` 已从 0.2 改成 **0.7**
+                //    （= `CardFeel.DeathTotal`，整条阵亡协程的寿命）⇒ 「两条 `Death` 的间隔」现在是
+                //    `0.7 + DeathHold 0.1 = 0.8 s` ≥ 每条演出自己的 0.7 s ⇒ **两条阵亡不再重叠**（原版就是串行）。
+                //    ⚠️ `DeathHold` 本身**不动** —— 它是「Hit 那一拍收尾之后到阵亡开场」的间隔，另一件事。
                 case EvtKind.Death: return DeathHold;
 
                 // 触发：用 `BattleManager` 里那两个命名延迟常量（见 `TriggerHold` 的注释）
@@ -231,10 +240,20 @@ namespace CardPresentation
                 // **拍的**：原版没有通用阵亡 tween（只有 `EC Heldrake Dissapear UP`、
                 // `Tyranid_Burrow_Tween` 两个单体专用），而 `VarsGlobal` 又缺 → 0.4 是估的
                 case EvtKind.Death:
-                    // 🔴 2026-09-18：原版**有**字段（`VarsGlobal.deathTimeMinionDuration = 0.2`），
-                    //    原来那个 0.4 是拍的。我们这条就是**消散动画的时长**（`CardFeel.Dissolve`），
-                    //    ⇒ 用同一个判据（`CardFeel.DeathDissolve`）—— 督军那档 0.5 由消散那侧自己带。
-                    return CardFeel.DeathDissolveMinion;
+                    // 🔴🔴 **2026-10-23（P1 · 演出时序 ②）就地改口径（铁律 5）：原来返回 0.2。**
+                    //   **错在把「消散那一小段」当成了「这条演出占多久」** —— 原版
+                    //   `BattleManager._ResolveMinionDeath_d__454__MoveNext.c:113-121` 对 `UnitDeath`
+                    //   是 **`StartCoroutine` + `yield return`**（`+0x10 = 1` 之后返回 1）⇒ 动作队列
+                    //   **真等整条阵亡协程跑完**，而那条协程的总寿命 = `CardFeel.DeathTotal` = **0.7 s**
+                    //   （抖 `DOShakePosition` **不等它** → 同帧起算的 `WaitForSeconds(gVars+0x34)` 0.5
+                    //    → 0.2 后 `GoToCemetery`；判据 → `CardFeel.DeathBeats` 的 doc）。
+                    //   ⇒ 原来 0.2 让「连续两条 `Death`」只隔 `0.2 + DeathHold 0.1 = 0.3 s`：
+                    //     **两条 0.7 s 的演出重叠 0.4 s**、整批也**早 0.5 s 放行**
+                    //     （闸 = `BeginBlockingWindow`）。现在 0.7 ⇒ 两条阵亡**串行**（原版就是串行）。
+                    //   🔑 **判据只此一处** = `CardFeel.DeathTotal`（⛔ 别在这儿另写 0.7）。
+                    //   ⚠️ 参数（督军与否）现在**不影响总寿命**（两档都是 0.7，只影响抖动长度）
+                    //     ⇒ 传 `false` 即可；`DurationOf` 这条重载本来就拿不到它。
+                    return CardFeel.DeathTotal(false);
 
                 // 技能：**逐卡真值**（🆕 2026-10-14 `A1767`）——
                 //   `DurationOf(BattleEvent)` 那个重载按事件里的卡（`CardId`）去
@@ -375,6 +394,25 @@ namespace CardPresentation
         public static float RangedDamageLag(float vfxDuration)
         {
             return AttackStepRanged + (vfxDuration >= 0f ? vfxDuration : RangedVfxFallback);
+        }
+
+        /// <summary>🆕 **2026-10-23（P1 · 演出时序 ③）：一条攻击 VFX 排期之后，「队尾」应该落在哪个时刻**
+        /// = `_clock + vfxAt + 该件自己的时长`（`clock` = 时间线泵的**绝对**时钟，`vfxAt` = 相对本拍的偏移，
+        /// `chainDuration` = 该件的 `AnimInfo.GetAnimDuration()`）。</summary>
+        ///
+        /// <para><b>为什么单开一个口</b>：这个形状在 `BattleDriver` 里有四处
+        /// （`ScheduleAction` 的 `_clock + delay` · 攻击 VFX 的队尾 · 技能拍的队尾 · 攻击 VFX cue 的队尾），
+        /// 而**攻击 VFX 的队尾那一处漏了 `_clock +`**（`BattleDriver.cs:17505`，2026-10-23 前）⇒
+        /// 中后期 `_clock > 3` 时算出来的数**恒小于已经排好的队尾**，`ExtendTimelineTail` 变成空操作 ——
+        /// **等于这一件没排队尾**（`_timelineTailAt` / `_blockingQuietAt` 都不动 ⇒ 下一批事件可以插到
+        /// 它还没演完的时候开场），而且**一行日志都不会有**（静默）。</para>
+        /// <para>⛔ 别在调用点再手写 `_clock + ...` —— 少写一处就是这么来的；`_clock = 0` 时两种写法同值
+        /// （所以「只在开局测一次」抓不到这个缺陷，自检要拿 `clock > 0` 的输入）。</para>
+        public static float AttackVfxTailAt(float clock, float vfxAt, float chainDuration)
+        {
+            return UnityEngine.Mathf.Max(0f, clock)
+                 + UnityEngine.Mathf.Max(0f, vfxAt)
+                 + UnityEngine.Mathf.Max(0f, chainDuration);
         }
 
         /// <summary>拿不到「这张卡 / 这个阵营」时远程 VFX 的兜底时长 = **0.75 s**。
@@ -554,10 +592,12 @@ namespace CardPresentation
         /// （断言永远绿，问不出任何东西）。现在**逐档查表**，返回 `false` 的两档各有明确原因
         /// （带 `out string` 的那个重载会说给人听）：</para>
         /// <list type="bullet">
-        /// <item><b>`Death`</b> —— 时长 `0.2` 有出处（`VarsGlobal.deathTimeMinionDuration`），
+        /// <item><b>`Death`</b> —— 时长 **0.7** 有出处（`CardFeel.DeathTotal` = 整条阵亡协程，
+        ///   `BattleManager._ResolveMinionDeath_d__454:113-121` 对 `UnitDeath` 是 `yield return`），
         ///   但「命中和阵亡之间那一拍」= <see cref="DeathHold"/> **0.1 是我们挑的**
         ///   （引擎节拍 `minDelay`，见那个常量的注释：「原版那个 `WaitForSeconds` 等的正是
-        ///   `deathTimeMinionDuration`，我们已经把它算进动画时长，再加同样的数会重复计」）。</item>
+        ///   `deathTimeMinionDuration`，我们已经把它算进动画时长，再加同样的数会重复计」）。
+        ///   ⚠️ 2026-10-23 前这里写的时长是 0.2（只算了消散那一段）—— 那一条**已作废**。</item>
         /// <item><b>`Ability`</b> —— 逐卡真值有出处（`AbilityAnimDurations`），
         ///   但**查不到那张卡时**退回的 <see cref="AbilityFallbackSeconds"/> **不是原版值**
         ///   （它是真值表的中位数，恰好等于旧常数 1.0；见那个常量的 doc）。</item>
@@ -583,7 +623,8 @@ namespace CardPresentation
                 case EvtKind.Death:
                     unsourcedPart = $"`DelayBetween(Death)` = `DeathHold` {DeathHold:F2}s —— **我们挑的**"
                                   + "（引擎节拍 `minDelay`；原版那个 `WaitForSeconds` 等的是 "
-                                  + "`deathTimeMinionDuration`，已算进阵亡动画时长，⛔ 不能重复计）";
+                                  + "`deathTimeMinionDuration`，已算进阵亡动画时长，⛔ 不能重复计）"
+                                  + $"；时长 {CardFeel.DeathTotal(false):F2}s 本身有出处（`CardFeel.DeathTotal`）";
                     return false;
                 case EvtKind.Ability:
                     unsourcedPart = $"查不到那张卡时退回的 `AbilityFallbackSeconds` {AbilityFallbackSeconds:F2}s "
@@ -611,7 +652,14 @@ namespace CardPresentation
                                              + "**只按 `EvtKind` 的这条重载拿不到卡** ⇒ 返回兜底 "
                                              + $"{AbilityFallbackSeconds}（= 真值表中位数，与旧常数恰好相等）";
                 case EvtKind.Trigger: return "`BattleManager.twoFractDelay`(**+0x4C8**) = 0.2 —— `_ResolveTriggerTraitAnim` 那条链的等待";
-                case EvtKind.Death: return "`VarsGlobal.deathTimeMinionDuration`=0.2（督军那档 0.5 见 `CardFeel.DeathDissolve`）";
+                // 🔴 **2026-10-23（P1 · 演出时序 ②）就地订正（铁律 5）**：原文写「0.2（督军那档 0.5 见
+                //   `CardFeel.DeathDissolve`）」—— **那句现在不成立**：这条演出占多久不再是消散那一段，
+                //   而是**整条阵亡协程**的寿命（原版对 `UnitDeath` 是 `yield return`，队列真等它跑完）。
+                //   0.2 / 0.5 仍然存在，但它们只是**抖动**长度（`DeathDissolve`），不影响这条时长。
+                case EvtKind.Death: return "整条阵亡协程 = `CardFeel.DeathTotal` **0.7 s**（抖不等 → "
+                                         + "`WaitForSeconds(gVars+0x34)` 0.5 → 0.2 后进墓地；"
+                                         + "`BattleManager._ResolveMinionDeath_d__454:113-121` 对 `UnitDeath` 是 "
+                                         + "`yield return` ⇒ 队列串行等 0.7。旧值 0.2 = 只算了消散那一段）";
                 case EvtKind.Draw: return "`VarsGlobal.TimeToDrawCard(bool isPlayer)` 那一对："
                                         + "我方 `timeToDrawPlayerCard`=0.3（`CardFeel.DealDuration`）/ "
                                         + "敌方 `timeToDrawEnemyCard`=0.15（`CardFeel.DealDurationFoe`）；"

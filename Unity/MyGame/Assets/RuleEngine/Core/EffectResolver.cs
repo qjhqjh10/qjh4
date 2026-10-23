@@ -6103,11 +6103,12 @@ namespace RuleEngine
         }
 
         /// <summary>🆕 **A 族发射口**：给一张卡发 `FollowUpResolution`（410）事件。
-        /// 闸 = 卡片真的有 410 的动画行（`HasAnimTrigger`）。`slot` = 动画落点（棋盘格号；`-1` = 不在场上）。</summary>
+        /// 闸 = <see cref="HasTriggerSource"/>（动画行 **或** 真值里有这条 ability）。
+        /// `slot` = 动画落点（棋盘格号；`-1` = 不在场上）。</summary>
         internal static void EmitFollowUpResolution(BattleContext ctx, CardDef card, int player, int slot, int instanceId)
         {
             if (ctx == null || card == null) return;
-            if (!card.HasAnimTrigger(TN_FollowUpResolution)) return;
+            if (!HasTriggerSource(card, TN_FollowUpResolution, ctx, "followAfterResolution(320)")) return;
             ctx.Emit(EvtKind.Trigger, player, slot, card.Name,
                      keyword: TN_FollowUpResolution,
                      effect: "followAfterResolution(320)",
@@ -6127,12 +6128,46 @@ namespace RuleEngine
             ctx.Log($"「{card.Name}」的监听器结算完毕 → 触发事件 `{tn}`（原版 AbilityTrigger）");
         }
 
+        /// <summary>🔴🆕 **2026-10-23（引擎线 `P1·③`）：`EvtKind.Trigger` 三族共用的【双闸】**
+        /// —— A（`FollowUpResolution` 410）/ E（监听者）/ F（回合起止）都只走这一处判。
+        ///
+        /// <para>**改前**：闸 = <see cref="CardDef.HasAnimTrigger"/>（问「**有没有动画行**」）。
+        /// 错在把「有东西可播」当成了「这条 ability 在不在」—— 实测两者**不等价**：
+        /// 410 有 ability 的 30 张里 **6 张没有动画行** · 31 缺 4 张 · 30 缺 2 张
+        /// （`GOF86` / `UM88` / `TAU3` / `BL35` 的 `animTimes` 是空表却带回合起止正文）
+        /// ⇒ 那一拍 `EvtKind.Trigger` **从不发**（监听者/表现层都收不到）。
+        /// 判据 → `资料/普查产出_1023c/引擎深C_数据吻合.md` §四·1。</para>
+        ///
+        /// <para>**闸（双闸，⛔ 不是删闸）**：
+        /// ① `HasAnimTrigger(名字)` = 有动画行 ⇒ 发（行为**逐字不变**）；
+        /// ② 否则看真值 `abilityTriggers`（原版 `RawCardScript.HasAbilityType`）——
+        ///    这张卡**真有这条 ability** ⇒ 照发，并**出声**记一条「有 ability、没动画行」
+        ///    （表现层没东西可播，但引擎语义上这一拍确实发生了；⛔ 不许静默吞掉）；
+        /// ③ 都没有 / `-1` 未知（旧卡表、合成夹具、认不出的名字）⇒ **不发** = 改前行为。</para>
+        ///
+        /// <para>⚠️ **为什么不直接删闸**：删了会把「连 ability 都没有」的卡也发一遍
+        /// ⇒ 掉进 `trigger` 粗桶**乱播**（判据见本节开头那段「多播」注释）。</para>
+        /// </summary>
+        static bool HasTriggerSource(CardDef card, string triggerName, BattleContext ctx, string effect)
+        {
+            if (card == null || string.IsNullOrEmpty(triggerName)) return false;
+            if (card.HasAnimTrigger(triggerName)) return true;          // ① 有动画行（改前口径）
+            if (card.AbilityTriggerPresence(triggerName) != 1) return false;   // ③ 没有 / 未知 ⇒ 不发
+            // ② 有 ability、没有动画行 ⇒ 照发并出声（⛔ 不许静默）。
+            if (ctx != null)
+                ctx.Log($"[EffectResolver] 「{card.Name}」有 `{triggerName}` 这条 ability 但**没有对应动画行**"
+                      + $" ⇒ 照发事件（{effect}）—— 判据 = 原版 `HasAbilityType`；"
+                      + "表现层这一拍可能没有东西可播（数据缺口，如实记着）");
+            return true;
+        }
+
         /// <summary>🆕 **所有「按原版 trigger 名发 `EvtKind.Trigger`」的唯一发射体**
         /// （`T21` A/E/F 三族 ＋ `W57` 的 600/605 共用）。
         ///
-        /// <para>**闸 = `CardDef.HasAnimTrigger(triggerName)`**（判据只此一处，见那个属性的 doc）：
-        /// 卡片自己的逐候选动画里没有一个标到这个名字的行 ⇒ **不发**（发了也没东西播，
-        /// 还会在战斗日志里多印一行、并可能掉进 `trigger` 粗桶乱播）。</para>
+        /// <para>**闸 = <see cref="HasTriggerSource"/>**（判据只此一处）：
+        /// 卡片自己的逐候选动画里有一个标到这个名字的行 **或者** 真值 `abilityTriggers` 说它有这条
+        /// ability ⇒ 才发。两者都没有 ⇒ **不发**（发了也没东西播，还会在战斗日志里多印一行、
+        /// 并可能掉进 `trigger` 粗桶乱播）。</para>
         /// <para>返回 `true` = 真发出去了（调用方可以据此打日志）。</para>
         /// <para>🆕 **2026-10-20（`FACTION-DOUBLE605`）**：可选 `abilityIndex`（≥0 = 原版
         /// `cardAbilities[i]` 下标）—— 写进 <see cref="BattleEvent.AbilityIndex"/>，并把 `#i` 后缀
@@ -6142,7 +6177,7 @@ namespace RuleEngine
                                     string triggerName, string effect, int abilityIndex = -1)
         {
             if (ctx == null || card == null || string.IsNullOrEmpty(triggerName)) return false;
-            if (!card.HasAnimTrigger(triggerName)) return false;
+            if (!HasTriggerSource(card, triggerName, ctx, effect)) return false;
             int slot = -1, p = owner;
             if (unit != null && FindSlot(ctx, unit, out p, out slot)) { /* 用找到的座位/格号 */ }
             else if (unit != null) { slot = -1; p = owner; }
@@ -6281,7 +6316,12 @@ namespace RuleEngine
         /// 判据 = 卡片自己的 `AnimTimes` 里**唯一那一条** `Turn*` 名的行
         /// （现读全池：18 张卡**每张只有一种** —— `TurnStart` 3 · `TurnStartPlayer` 3 ·
         ///  `TurnEnd` 11 · `TurnBeforeEnd` 1，报告 §三 F）。
-        /// `phase` 对不上 / 没有那一行 ⇒ `null`（不发）。</summary>
+        ///
+        /// <para>🔴🆕 **2026-10-23（引擎线 `P1·③`）**：改判 <see cref="HasTriggerSource"/>（双闸）——
+        /// 只有动画行、没有 `abilityTriggers` 那一批（`TurnStart` 2 张 · `TurnStartPlayer` 4 张）
+        /// 以前**连名字都取不到**（`null` ⇒ 整拍不发）。没有动画行的卡靠真值那一闸放行并出声。</para>
+        ///
+        /// `phase` 对不上 / 两闸都不成立 ⇒ `null`（不发）。</summary>
         static string TurnTriggerNameOf(CardDef card, string phase, BattleContext ctx = null)
         {
             if (card == null) return null;
@@ -6290,12 +6330,13 @@ namespace RuleEngine
                 ? new[] { "TurnStart", "TurnStartPlayer" }
                 : new[] { "TurnEnd", "TurnBeforeEnd" };
             for (int i = 0; i < names.Length; i++)
-                if (card.HasAnimTrigger(names[i]))
+                if (HasTriggerSource(card, names[i], ctx, "turn:" + phase))
                 {
-                    // ⚠️ 两张名字都有的卡今天不存在；真出现时**按顺序取第一个**并出声（别静默）
-                    if (i > 0 && card.HasAnimTrigger(names[0]) && ctx != null)
+                    // ⚠️ 两张名字都有的卡今天不存在；真出现时**按顺序取第一个**并出声（别静默）。
+                    //   ⚠️ 内层那次判**不传 ctx**（否则「有 ability 没动画」那条提示会打两遍）。
+                    if (i > 0 && HasTriggerSource(card, names[0], null, "turn:" + phase) && ctx != null)
                         ctx.Log($"[EffectResolver] 「{card.Name}」同时标了 `{names[0]}` 与 `{names[i]}` 两种"
-                              + $" {phase} trigger 动画行 ⇒ 按顺序取第一个");
+                              + $" {phase} trigger（动画行或 ability 真值）⇒ 按顺序取第一个");
                     return names[i];
                 }
             return null;
@@ -6794,7 +6835,7 @@ namespace RuleEngine
             //   （池内现读 `{0:14, 50:15}`）—— `0 Play` = 必须活着在场 · `50` = 在场或墓地
             //   （**不含待死**）· `-1` 未知 ⇒ 回退旧口径。取值口 → `AbilityContextOfAbilityV14` 的 doc。
             int fctx = AbilityContextOfAbilityV14(unit.Card, "UseFaith");
-            EnqueueAbility(ctx, ListenerLane(unit.Card), "信仰:" + unit.Name,
+            EnqueueAbility(ctx, ListenerLane(unit.Card, TN_UseFaith), "信仰:" + unit.Name,
                            () => FaithAbilityDeferred(ctx, owner, unit, _ops),
                            // 🔴🆕 2026-10-21（审查 `W61b` 第 3 条）就地订正（2026-10-22 `W63` · C3）：
                            //   `requireActorInPlay: false` 现在**只当 `-1` 的回退档**（= 改前的「不判」）——
@@ -7111,7 +7152,7 @@ namespace RuleEngine
                 //   → `AddAutoActionToQueue`（判据报告 §4.A 第 2 步 6-11 / §2.4）。
                 //   ⚠️ `LastTargets` 的种法一起搬进队列体（播报那边退出时会还原，见那边注释）。
                 var _pe = pe;                  // for 循环变量按帧捕获
-                EnqueueAbility(ctx, ListenerLane(_pe.Source), "部署触发:" + name,
+                EnqueueAbility(ctx, ListenerLane(_pe.Source, TN_OtherUnitSummoned), "部署触发:" + name,
                                () => DeployJobDeferred(ctx, owner, unit, _pe));
             }
 
@@ -7736,7 +7777,7 @@ namespace RuleEngine
             // ⚠️ `owner` / `u` / `subject` 全部**在入队时定死**（原版把 `actingCard` /
             //    `targetCard` 一起打包进 action；我们靠闭包）。⛔ 别改成「出队时现查」——
             //    监听者可能已经被别的动作打死/离场，现查会得到 -1。
-            EnqueueAbility(ctx, ListenerLane(u.Card), (u.Name ?? "?") + "·listen:" + kind,
+            EnqueueAbility(ctx, ListenerLane(u.Card, TriggerNameOfWhenKind(kind)), (u.Name ?? "?") + "·listen:" + kind,
                            () => FireBoardListenerDeferred(ctx, u, owner, subject, kind, ops,
                                                           card, target),
                            // 🔴🆕 2026-10-21（审查 `W61b` 第 3 条）：施放者 = **监听者自己** `u`。
@@ -7965,7 +8006,7 @@ namespace RuleEngine
                     //   （原版走同一个 `PlayAbility → AddAutoActionToQueue`）。
                     //   `EventSlotsScope` 与 `CardPlaySource` 的种/还原**一起搬进队列体**（见那边）。
                     var _pe = pe;                      // 循环变量按帧捕获（C# 5 起 foreach 才是逐帧；这里是 for）
-                    EnqueueAbility(ctx, ListenerLane(_pe.Source), "常驻:" + kind,
+                    EnqueueAbility(ctx, ListenerLane(_pe.Source, TriggerNameOfWhenKind(kind)), "常驻:" + kind,
                                    () => PersistentListenerDeferred(ctx, _pe, kind, subject, target));
                     if (ctx.IsOver) break;
                 }
@@ -8142,7 +8183,7 @@ namespace RuleEngine
                     //   照同族 `:7458` 的 `var _pe = pe;` 同形修：**入队这一刻拷一份**。
                     var _p = p;                        // 循环变量按帧捕获（for 不是逐帧）
                     var _opsT = ops;
-                    EnqueueAbility(ctx, ListenerLane(c), "手牌陷阱:" + kind,
+                    EnqueueAbility(ctx, ListenerLane(c, TriggerNameOfWhenKind(kind)), "手牌陷阱:" + kind,
                                    () => HandTrapListenerDeferred(ctx, _p, _opsT));
                 }
             }
@@ -8292,7 +8333,7 @@ namespace RuleEngine
                         //   （牌进手牌时就挂，见那个方法自己的判据），与队列无关。
                         var _restOps = restOps;
                         var _lcard = c;
-                        EnqueueAbility(ctx, ListenerLane(_lcard), "手牌监听:" + kind,
+                        EnqueueAbility(ctx, ListenerLane(_lcard, TriggerNameOfWhenKind(kind)), "手牌监听:" + kind,
                                        () => HandListenerDeferred(ctx, p, _restOps, subject,
                                                                   target, card));
                     }
@@ -10062,7 +10103,11 @@ namespace RuleEngine
         //      结构化行只有 `220/ex=1` 那一半 ⇒ 用结构化会**丢掉 "is a troop"** ⇒ 本波不动。
 
         /// <summary>正文条件种类 → (原版 `UnitConditions` 数值, `excludeCondition`)。**只收四类**，
-        /// 理由见上面那段（⛔ 别往里加「看起来像」的：`energyzero` 那 5 张配的是**目标筛选**，不是同一句话）。</summary>
+        /// 理由见上面那段（⛔ 别往里加「看起来像」的：`energyzero` 那 5 张配的是**目标筛选**，不是同一句话）。
+        ///
+        /// <para>🔴 **2026-10-23（引擎线 `E1` · 回归 `R1`）：前两类是【结算后判定】，与后两类（目标筛选）
+        /// 的「没有行 ⇒ 没有条件」那条推理不通用** —— 见 <see cref="IsPostCheckConditionKind"/>：
+        /// 它们只在**卡上真有这一行**时才用结构化数据，没有行一律退回正文口径。</para></summary>
         static readonly Dictionary<string, (int Cond, int Exclude)> ConditionKindToUnitCondition =
             new Dictionary<string, (int Cond, int Exclude)>(System.StringComparer.Ordinal)
         {
@@ -10071,6 +10116,27 @@ namespace RuleEngine
             { "targethasarmour", (244, 0) },
             { "damaged",         (40,  0) },
         };
+
+        /// <summary>
+        /// 🔴 **2026-10-23（引擎线 `E1` · 回归 `R1`）：这一类条件判的是「一条效果**结算完之后**，
+        /// 刚才那个目标死没死」**（卡面 `If the target dies, …` / `If the target survives, …`），
+        /// ⛔ **不是**「选目标时的筛」（`conditionsFilter` 那一层由 `ResolveTargets` 吃）。
+        ///
+        /// <para>**为什么单列**：`TryStructuredCondition` 的 `n == 0` 分支把「卡上没有这一行」
+        /// 读成「原版数据里没有这一格条件 ⇒ 没有条件 ⇒ `holds = true`」—— 那个推理只对**筛选**成立
+        /// （筛子缺失 = 不筛）。对**结算后判定**它会把「数据没落这一格」误读成「条件恒成立」：
+        /// `AM39` / `UM34` / `GSC40` / `3f38d2e2` / `30007162` 五张 `If the target dies` 在
+        /// `cards_engine.json` 里**一条 `unitConditions` 行都没有** ⇒ 目标活着也兑现支线
+        /// （`plays` 基线 10-21 的回归，判据 → `资料/普查产出_1023c/play基线归因签字.md` §二 R1）。</para>
+        ///
+        /// <para>⚠️ 同文件 `ConditionHolds` 的 `targetdies` 分支（`:10293-10299`）本来就是对的正文口径
+        /// （`LastTarget == null || !LastTarget.IsAlive`）—— 本方法只负责让它**轮得到**。
+        /// ⚠️ 卡上**真有**这一行时仍然走结构化（原版数据优先）—— 见 `n > 0` 那两支。</para>
+        /// </summary>
+        static bool IsPostCheckConditionKind(string kind)
+        {
+            return kind == "targetdies" || kind == "targetsurvives";
+        }
 
         /// <summary>结构化条件行里，哪些 `role` 的**主语**是「一个单位」、本段能判
         /// （`target` = 选定的/上一条的目标，`acting` = 施放者自己）。
@@ -10191,6 +10257,18 @@ namespace RuleEngine
                         $"卡「{card.Name}」（{card.Id}）的 `cond={want.Cond}` 条件挂在 "
                       + "`count` / `multi` / `mult` / 卡级计分 上（不是「一个单位」的形状）—— 本波**不接**"
                       + $"（正文「{op.Condition}」照旧走正文；⛔ 不拿别的位置硬凑）。");
+                    return false;
+                }
+                // 🔴 **2026-10-23（引擎线 `E1` · 回归 `R1`）：结算后判定（`targetdies` / `targetsurvives`）
+                //   没有这一行时**不能**读成「没有条件」** —— 那会让「目标活着」也成立（5 张卡的回归）。
+                //   原版那半句挂在 abilityLogic 上、v15 列没落 ⇒ 本仓判据 = 正文（`ConditionHolds` 那一支）。
+                //   ⛔ 别改成 `holds = false`（= 恒不成立，同样错）；要的是**退回正文**（返回 false）。
+                if (IsPostCheckConditionKind(kind))
+                {
+                    StructuredConditionNotice("postcheck-norow|" + card.Id + "|" + kind,
+                        $"卡「{card.Name}」（{card.Id}）**没有** `cond={want.Cond}`/ex={want.Exclude} 的条件行"
+                      + $"（正文「{op.Condition}」）—— 这是**结算后判定**，与目标筛选不同："
+                      + "「没有行」不能读成「没有条件」 ⇒ 退回**正文口径**（判上一条效果目标的死活）。");
                     return false;
                 }
                 // 原版数据里没有这一格条件 ⇒ **没有条件**。按铁律「原版是数据」，不再拿正文猜。

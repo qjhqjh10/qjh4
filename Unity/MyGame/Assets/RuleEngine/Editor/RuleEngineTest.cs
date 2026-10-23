@@ -836,6 +836,13 @@ public static partial class RuleEngineTest
         Step(TestW61ActionQueue);
 
         // ============================================================
+        //  🔴 2026-10-23（引擎线 `P1` 三条）：触发优先级 / `goesSecond` / ability 闸
+        // ============================================================
+        //  判据 → `资料/普查产出_1023c/引擎深审A_规则语义.md` P1·1 ＋ `引擎深C_数据吻合.md` §2·2 / §四·1。
+        //  ⚠️ 测试体全在**新分册** `RuleEngineTest_EngineP1.cs`（本文件只加这一段用例表）。
+        Step(TestEngineP1);
+
+        // ============================================================
         //  🔴 2026-10-21（引擎线 `T02`）：**`or` 族的条件析取 + 落位锚点族的另外两个写入点**
         // ============================================================
         //  判据 → `资料/任务线/引擎线/任务/T02_条件替代与落位锚点.md`（同族未补那一批）。
@@ -5023,7 +5030,10 @@ public static partial class RuleEngineTest
             }
 
             // ---- ⑥c 电脑后手 + 其它模式（经典 ⇒ 翻转 `RankedBot 20`，**不在那四档**）⇒ ③ 督军自带 ----
-            //   🔴 我们**没有** `goSecondCardInHand` 这份数据（全仓零命中）⇒ **必须出声**、且**不给卡**。
+            //   🔴 **2026-10-23 就地订正（铁律 5）**：这里原来写「我们**没有** `goSecondCardInHand`
+            //   这份数据（全仓零命中）」—— **已过期**（2026-10-14 起就有，2026-10-23 又补齐了 EC/SW）。
+            //   本格能过，是因为夹具的督军是**合成卡**（`HeroOf`，`GoesSecondId` 空）⇒ 照样「出声 + 不给卡」；
+            //   真卡的覆盖断言在 `RuleEngineTest_EngineP1.cs` 的 `W67T4` / `W67T5`。
             {
                 int warns = 0; string firstWarn = null;
                 Application.LogCallback onWarn = (text, stack, type) =>
@@ -12970,6 +12980,60 @@ public static partial class RuleEngineTest
                 CheckTrue(ReferenceEquals(Board(ctx, 0, 3), marked)
                           && !ReferenceEquals(Board(ctx, 0, 3), unmarked),
                           "★ 场上只剩**被标记**的那个（它补位到 3 号格）");
+            }
+        }
+
+        // ---- ③b 🔴 **回归 `R2`（2026-10-23 · 引擎线 `E1`）**：狂暴正文在**洗回牌库之前**结算 ----
+        //  判据（第一权威 = 全量反编译）：
+        //   · `CardScript__UsedActiveAbility.c:58-66`：先 `BattleManager__BroadcastUnitFerocity`
+        //     （监听器 → `PlayAbility` → `AddAutoActionToQueue` ⇒ **正文那条先入队**），**之后**才 `AddRecallToDeck`；
+        //   · `BattleManager__AddRecallToDeck.c:101` 自己也是 `AddAutoActionToQueue(…, param_5=3, …)`
+        //     （调用点 `UsedActiveAbility.c:65` 传 3）⇒ 洗回是 **DelayedInstant 道的一条队列动作**，
+        //     排在刚才那条正文之后；`BattleManager._ResolveRecallToDeck_d__543__MoveNext.c:43` 出队时才判 `IsInPlayOrDying`。
+        //  ⇒ 改前「**同步**洗回」⇒ 泵点执行正文时载体已离场 ⇒ `Hunting Wolf`（`SW5`）的狂暴攻击**静默丢失**
+        //    （`alt(ferocity)=0` 仍报成功）。判据 → `资料/普查产出_1023c/play基线归因签字.md` §二 R2。
+        //  🔴 **成对断言**：一条钉「正文真结算了」（掉血），一条钉「之后照常洗回」（格位空 + 牌库 +1）；
+        //    第三条是**次序判别式**（命中事件必须排在 `Return` 之前）。把洗回改回同步 ⇒ 第一条/第三条必红
+        //    （正文被取消、命中事件根本不存在）；把洗回删掉 ⇒ 第二条必红。**两条腿不可能同时被抹平**。
+        {
+            var pool = CardDatabase.Load();
+            var wolf = CreatePool.FindByName(pool, "Hunting Wolf");
+            CheckTrue(wolf != null, "(前提) `Hunting Wolf`（`SW5`）在池内");
+            if (wolf != null)
+            {
+                var ctx = BattlePool(new[] { wolf }, new[] { Unit("X", 1, 1, 5) }, pool,
+                                     warlordFaction: "SpaceWolves");
+                ToP1Turn(ctx, 1);
+                ctx.Players[0].Energy = 20;
+                var u = Place(ctx, 0, 2, wolf);
+                // 敌方部队：**攻击 0**（不反击，排除反击把狼打死造成的干扰）、血 9（一击打不死 ⇒
+                //   正文的「攻击」真的落在这张牌上，而不是把它打死之后的死亡结转）。
+                var foe = Place(ctx, 1, 3, Unit("R2Foe", 1, 0, 9));
+                int hp0 = foe.Health, deck0 = ctx.Players[0].Deck.Count;
+
+                CheckCode(RuleCore.UseAlternative(ctx, 0, 2, "ferocity"), RuleCodes.OK,
+                          "它用狂暴（R2 夹具）");
+
+                CheckTrue(foe.Health < hp0,
+                          $"★ **狂暴正文真的结算了**：敌方部队 {hp0} → {foe.Health}"
+                        + "（改前正文在洗回之后才出队、载体已离场 ⇒ 这里一点血都不掉）"
+                        + "｜🧨 把洗回改回同步（`BoardSlots.RemoveAt` + `Deck.Add` 直接写在 `UseAlternativeCore` 里）⇒ 本行红");
+                CheckTrue(Board(ctx, 0, 2) == null && ctx.Players[0].Deck.Count == deck0 + 1,
+                          "★ **之后**照常洗回牌库（原格位空 + 牌库 +1）"
+                        + "｜🧨 把整段洗回删掉 ⇒ 本行红（与上一条成对：一条钉正文、一条钉离场）");
+
+                // 次序判别式：**命中事件必须排在「离场(Return)」之前**。
+                int hitAt = -1, retAt = -1;
+                for (int i = 0; i < ctx.Signals.Count; i++)
+                {
+                    var e = ctx.Signals[i];
+                    if (hitAt < 0 && e.Kind == EvtKind.Hit && e.CardId == "R2Foe") hitAt = i;
+                    if (retAt < 0 && e.Kind == EvtKind.Return && e.CardId == u.Name) retAt = i;
+                }
+                CheckTrue(hitAt >= 0 && retAt >= 0 && hitAt < retAt,
+                          $"★ **次序**：命中(#{hitAt}) 必须排在离场(#{retAt}) **之前** —— 正文先结算、洗回在后"
+                        + "｜🧨 把洗回改回同步 ⇒ 离场先发、命中根本没有（两个下标会印在这行）；"
+                        + "只挪道不改入队 ⇒ 同样红");
             }
         }
 
@@ -34551,18 +34615,104 @@ public static partial class RuleEngineTest
 
         // ---- ③ `ConditionNone`（v15 且这一格没有条件）⇒ **没有条件**，⛔ 不再解析正文 ----
         //   合成卡：`conditionsVersioned = true` + **一条条件行都没有**。
+        //   🔴 **2026-10-23（引擎线 `E1` · 回归 `R1`）就地改用例形状**：本节原来拿 `targetsurvives`
+        //   （`survivesOp`）来钉「零行 ⇒ 没有条件」—— **那条口径对 post-check 不成立**
+        //   （`targetdies` / `targetsurvives` 判的是**结算后**目标死没死，原版那半句挂在 abilityLogic 上，
+        //   v15 列没落 ⇒ 「没有行」只能读成「这一格没落」，⛔ 不能读成「没有条件」）。
+        //   ⇒ 这里改用**目标筛选类** `damaged`（它的零行语义**仍然**是「没有条件」）来钉本职，
+        //   post-check 那一档单列在 ③b（判据 → `资料/普查产出_1023c/play基线归因签字.md` §二 R1）。
         var bare = new CardDef("W64_bare", "W64 无条件探针", "unit", "", "common", "Test",
                                1, 1, 3, 0, null, conditionsVersioned: true);
         {
+            var conditionNoneOp = new EffectOp
+            {
+                Verb = "gain", Payload = "flank",
+                Condition = "it is damaged", ConditionKind = "damaged",
+                Source = "W64 夹具（合成卡 · ConditionNone）",
+            };
             var ctx = ProbeBattle(new CardDef[0], new CardDef[0]);
             Place(ctx, 0, 5, bare);
             ctx.LastTarget = null;
             bool holds, structured;
-            CheckTrue(RuleCore.TryEvaluateCondition(ctx, 0, survivesOp, null, bare, out holds, out structured),
+            CheckTrue(RuleCore.TryEvaluateCondition(ctx, 0, conditionNoneOp, null, bare, out holds, out structured),
                       "（前提）合成卡判得了");
             CheckTrue(structured && holds,
-                      "★ **`ConditionNone` ⇒ 「没有条件」**：直接成立，⛔ 不再解析正文"
-                    + "｜🧨 把「零候选 ⇒ 没有条件」改回「退回正文」⇒ 本行红（正文在 `LastTarget=null` 时判不成立）");
+                      "★ **`ConditionNone` ⇒ 「没有条件」**（目标筛选类 `damaged`）：直接成立，⛔ 不再解析正文"
+                    + "｜🧨 把「零候选 ⇒ 没有条件」改回「退回正文」⇒ 本行红"
+                    + "（正文在 `LastTarget=null` 时判**不成立**，且 `TryEvaluateCondition` 会给 `false`）");
+        }
+
+        // ---- ③b 🔴 **回归 `R1`（2026-10-23）**：`targetdies` / `targetsurvives` **没有行 ⇒ 退回正文** ----
+        //   判据：`资料/普查产出_1023c/play基线归因签字.md` §二 R1（含影子探针的决定性实验）。
+        //   五张卡（`AM39` / `UM34` / `GSC40` / `3f38d2e2…` / `30007162…`）的 `If the target dies`
+        //   在 `cards_engine.json` 里**一条 `unitConditions` 行都没有** ⇒ 旧实现走
+        //   「零候选 ⇒ 没有条件 ⇒ holds=true」⇒ **目标活着也兑现支线**。
+        //   🔴 **灭自证的关键 = 同一个输入、两种判据给出【相反】的答案**：
+        //     · 旧结构化（零行 = 没有条件）⇒ `holds = true`、`structured = true`；
+        //     · 现行正文 ⇒ 判 `LastTarget` 死活 ⇒ 活目标 `false` / 死目标 `false`（survives 取反）。
+        //   所以下面两条断言**不可能在「两边一起改回去」时还绿**。
+        {
+            var barePost = new CardDef("W64_barepost", "W64 post-check 探针", "unit", "", "common", "Test",
+                                       1, 1, 3, 0, null, conditionsVersioned: true);
+            var diesOp = new EffectOp
+            {
+                Verb = "gain", Payload = "flank",
+                Condition = "the target dies", ConditionKind = "targetdies",
+                Source = "R1 夹具（合成卡 · 无行）",
+            };
+            var survOp = new EffectOp
+            {
+                Verb = "gain", Payload = "flank",
+                Condition = "the target survives", ConditionKind = "targetsurvives",
+                Source = "R1 夹具（合成卡 · 无行）",
+            };
+            var ctx = ProbeBattle(new CardDef[0], new CardDef[0]);
+            var alive = Place(ctx, 1, 0, Unit("R1_alive", 1, 0, 5));
+            var dead = Place(ctx, 1, 1, Unit("R1_dead", 1, 0, 5));
+            dead.Health = 0;
+
+            ctx.LastTarget = alive;   // 目标**活着**
+            bool holds, structured;
+            CheckTrue(RuleCore.TryEvaluateCondition(ctx, 0, diesOp, null, barePost, out holds, out structured),
+                      "（前提）post-check 零行时**判得了**（退回正文）");
+            CheckTrue(!structured && !holds,
+                      "★ `targetdies` 零行 ⇒ **退回正文**：目标活着 ⇒ **不成立**"
+                    + "（旧实现「零行 = 没有条件」会给 `holds=true`）"
+                    + "｜🧨 删掉 `IsPostCheckConditionKind` 那条退回 / 改成直接 `holds=false` 返回 ⇒ 本条或下一条红");
+
+            ctx.LastTarget = dead;    // 目标**已死**
+            bool holds2, structured2;
+            CheckTrue(RuleCore.TryEvaluateCondition(ctx, 0, survOp, null, barePost, out holds2, out structured2),
+                      "（前提）post-check 零行时判得了（survives 侧）");
+            CheckTrue(!structured2 && !holds2,
+                      "★ `targetsurvives` 零行 ⇒ **退回正文**：目标已死 ⇒ **不成立**"
+                    + "（旧实现同样会给 `holds=true`）"
+                    + "｜🧨 同上；两条一起看 ⇒ 「没有行」不再被读成「没有条件」");
+
+            // 配对正例：卡上**真有**这一行 ⇒ **仍然**走结构化（原版数据优先，⛔ 不是把整条路废掉）。
+            //   `DA43 Grim Resolve`：`Deal 2 damage. If the target dies, gain 1 Quest Point.`
+            //   → 真值行 `ab=1, role=target, cond=220, ex=0`（唯一一条 ⇒ 归位得动）。
+            var da43 = CardDatabase.FindById(pool, "DA43");
+            CheckTrue(da43 != null, "(前提) DA43 Grim Resolve 在池内");
+            if (da43 != null)
+            {
+                var c2 = ProbeBattle(new CardDef[0], new CardDef[0]);
+                var t2 = Place(c2, 1, 0, Unit("R1_da43_tgt", 1, 0, 5));
+                c2.LastTarget = t2;
+                bool h1, s1;
+                RuleCore.TryEvaluateCondition(c2, 0, diesOp, null, da43, out h1, out s1);
+                CheckTrue(s1 && !h1,
+                          "★ **行在** ⇒ 结构化照旧生效：目标满血（没有待死伤害）⇒ `220/ex=0` 判**不成立**"
+                        + "｜🧨 把 `targetdies` 整个移出映射表 ⇒ 本条仍可能绿（正文也判不成立）——"
+                        + " 所以它只作**配对**，判别力在下面那条值翻转");
+                t2.Health = 0;
+                bool h2, s2;
+                RuleCore.TryEvaluateCondition(c2, 0, diesOp, null, da43, out h2, out s2);
+                CheckTrue(s2 && h2,
+                          "★ **同一个 op、同一张卡，主语一换答案就翻**（满血 false → 血 0 true）"
+                        + "—— 证明结构化这一档**真的在算数据**、不是常量"
+                        + "｜🧨 把 `220` 的求值写成常量 ⇒ 上面两条不可能同时绿");
+            }
         }
 
         // ---- ④ 旧表（`ConditionsVersioned=false`）⇒ **退回正文 + 出声**（过渡守卫，不是生产兜底）----

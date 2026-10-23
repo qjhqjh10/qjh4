@@ -8857,6 +8857,131 @@ public static class ShellScene
                 CardPresentation.Net.NetMatchmaking.Reset();          // 收尾：别把静态状态带到后面
             }
 
+            // ---------------- 🆕 2026-10-23（W62 · 界面线）：ESC 关全屏匹配窗 ⇒ **取消搜索** ----------------
+            //  **病灶**（真机 + 静态都对上）：本窗 `Close()` 原来只 `ReleaseHold()`（放掉「切场景前那一口气」）、
+            //    **不取消搜索** ⇒ 按 ESC 关掉之后，匹配那一局还挂着（`Searching` / 常驻 ticker / 联机的账），
+            //    而屏幕上**一个字都不剩**（玩家看不到任何提示）。
+            //  🔴 **原版判据**（第一权威 = 反编译，**本类自己的** `Close` 覆写）：
+            //    · `d:/2/tools/decomp_full/SearchingOpponentWindow__Close.c` 全文两句 =
+            //      `GameWindow__Close(this)` + `MatchMakerManager__CancelSearch(manager, 0)` ⇒ **原版这扇窗关就取消**；
+            //    · `SearchingOpponentWindow__CancelButtonClick.c` = 尾调 `Close()`（虚表 `0x1b8`）；
+            //    · `SearchingOpponentWindow__OnDisable.c` **不取消**（只 `RemoveListener`）；
+            //    · 旁证（弹窗那一支）：`SearchingMatchWindowDemo__ESCPressed.c:24` 末尾**无条件** `CancelSearch()`。
+            //  ⇒ 三条一起断：① ESC 取消（**一次**）· ② **程序关窗不取消**（灭自证）· ③ `Cancel` 钮取消（**一次**）。
+            //    ② 是这一组的「成对」，而且是**我们故意与原版不同的一处**（⛔ 别按原版把它改回去）：
+            //    原版那个 `MatchMakerManager.CancelSearch` 是**有闸的轻动作**（只停协程），我们的 `OnCancel` =
+            //    `RankedEventWindow.CancelSearch`（`AbortSearch` + 联机 `match.cancel` + 自己关窗）⇒ 无条件调会把
+            //    「配到人 / 这一局被撤」两条**原版没有的**程序关窗路打成回归（往对面重发取消 / 弹「取消失败」）。
+            Section("W62：ESC 关全屏匹配窗 ⇒ 取消搜索（原版 `SearchingOpponentWindow__Close.c` = 基类 Close + `MatchMakerManager.CancelSearch`）");
+            {
+                // ① ESC ⇒ 取消，且只一次
+                var eWin = SearchingOpponentWindow.Create(shell.Windows, 0);
+                int nEsc = 0;
+                eWin.OnCancel = () => nEsc++;
+                eWin.Open();
+                CheckTrue(eWin.gameObject.activeSelf, "（前提）全屏匹配窗开出来了");
+                bool escClosed = eWin.ESCPressed();
+                CheckTrue(escClosed && !eWin.gameObject.activeSelf, "★ ESC ⇒ 窗关上");
+                Check(nEsc, 1,
+                      "★ **ESC 关窗 ⇒ 取消搜索**（原版 `SearchingMatchWindowDemo__ESCPressed.c:24` 末尾**无条件** `CancelSearch()`）"
+                    + "｜🧨 改坏法：删掉 `SearchingOpponentWindow.ESCPressed` 覆写（退回「`Close()` 只放那一口气」）⇒ 0 次 ⇒ 红");
+                // 幂等：原版那条 `CancelSearch` **自己还会再 `Close()` 一次**（`…__CancelSearch.c` 末尾）；我们这边是
+                //   `OnCancel → RankedEventWindow.CancelSearch → _searchWin.Close()` 也会回来再关一次
+                //   ⇒ 不幂等就是**无限递归**。这里再按一次 ESC，取消次数**不许涨**。
+                eWin.ESCPressed();
+                Check(nEsc, 1,
+                      "★（幂等）再按一次 ESC ⇒ **不重复取消**（`CancelSearchOnce` 那道闸；生产上 `OnCancel` 那条链"
+                    + "会反过来再关一次这扇窗 —— 不幂等就绕成递归）");
+                Object.DestroyImmediate(eWin.gameObject);
+
+                // ② 灭自证：**程序关窗不取消**（= `RankedEventWindow.OnSearchFinished`「配到人」与
+                //   本窗 `Tick` 的 `A1322`「这一局被撤」那两条路）
+                var pWin = SearchingOpponentWindow.Create(shell.Windows, 0);
+                int nProg = 0;
+                pWin.OnCancel = () => nProg++;
+                pWin.Open();
+                pWin.Close();
+                Check(nProg, 0,
+                      "★（灭自证）**程序关窗（配到人 / 这一局被撤）不取消** —— 把 `CancelSearch` **无条件**塞进 `Close()` 的"
+                    + "实现在这条上红：那会让「刚配上的这一局」被自己撤掉、也会往对面重发一次取消"
+                    + "（⚠️ 这是**我们故意与原版不同**的一处：原版 `SearchingOpponentWindow__Close.c` 确实无条件取消，"
+                    + "但它那个 `MatchMakerManager.CancelSearch` 只是停协程，我们这条会发 `match.cancel`）");
+                Object.DestroyImmediate(pWin.gameObject);
+
+                // ③ `Cancel` 钮：原版 `CancelMatchMatchmaking → MatchMakerManager.CancelSearch` ⇒ 取消（且只一次）
+                var cWin = SearchingOpponentWindow.Create(shell.Windows, 0);
+                int nBtn = 0;
+                cWin.OnCancel = () => nBtn++;
+                cWin.Open();
+                cWin.Cancel();
+                Check(nBtn, 1, "★ `Cancel` 钮 ⇒ **取消一次**（`Cancel()` 与它触发的 `Close()` 不许各算一次）");
+                CheckTrue(!cWin.gameObject.activeSelf, "…并把窗关掉（原版 `CancelMatchMatchmaking` 那条 `Close()`）");
+                Object.DestroyImmediate(cWin.gameObject);
+            }
+
+            // ---------------- 🆕 2026-10-23（W62 · 界面线）：左栏 `Shadow` 的 tint / 顶边收进基类 ----------------
+            //  **判据（原版 prefab 现读）**：
+            //   · 收藏窗 `Collection Menu Variant`：`Tab Buttons/Shadow` = 167.2,158.6→214.8,1080 ·
+            //     `40k_main_tab_shadow` · **Simple (0,0,0,0.475)**
+            //     （`资料/普查产出_1022/W62_换牌压暗与收藏白条修复.md` §②）；
+            //   · 社交窗同族同一行：`(0,0,0,0.475)`（`普查产出_0927/社交_联盟与好友页.md:45`，但它**高 0**）；
+            //   · 奖励窗 `Rewards Base Submenu Variant`：**只读到矩形/锚点、没读到色**
+            //     （`资料/日常_原版规格.md:118`；⚠️ 同文件 `:102` 那个 `#000 a=0.4745` 是**另一颗**
+            //     `Content Area/Shadow (1)`，⛔ 别当成左栏这颗）· 矩形随 `Tab Buttons` 铺满 `Content Area`（70.94 起）；
+            //     商店与它**同一套壳**（`资料/阶段二_商店_原版规格.md` §一·二）。
+            //  ⇒ 两样（顶边 / 色）都**逐窗不同** ⇒ 收进基类当**一处可覆写判据**（`BarShadowTop` / `BarShadowTint`），
+            //    子类只覆写值、**画只有基类那一处**（收藏窗原来「删掉基类那件再重建一份」的临时补丁已删）。
+            //  ⚠️ **本批口径（主对话 2026-10-23）**：只有收藏窗显式传 0.475；奖励 / 商店两扇**用户 2026-10-22 挂起**
+            //     ⇒ 基类默认仍 `null`（= 今天那条白带原样）。**将来把默认值改成 `(0,0,0,0.475)` 时，本段第 ③ 条要一起改**
+            //     —— 它钉的就是这个「先不动」的口径（⛔ 它不是对原版的断言）。
+            Section("W62：左栏 `Shadow` 的 tint / 顶边收进基类（一处判据 · 收藏窗显式 0.475 · 奖励窗本批不动）");
+            {
+                const System.Reflection.BindingFlags Flags =
+                    System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.Public
+                  | System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.DeclaredOnly;
+
+                // ① 结构：两把尺子在**基类**上、而且是 virtual
+                var pTint = typeof(MainMenuSubmenuWindow).GetProperty("BarShadowTint", Flags);
+                var pTop = typeof(MainMenuSubmenuWindow).GetProperty("BarShadowTop", Flags);
+                var gTint = pTint != null ? pTint.GetGetMethod(true) : null;
+                var gTop = pTop != null ? pTop.GetGetMethod(true) : null;
+                CheckTrue(gTint != null && gTint.IsVirtual,
+                          "★ 基类 `MainMenuSubmenuWindow` 上有 **virtual** 的 `BarShadowTint`（左栏阴影的色 —— 一处判据）");
+                CheckTrue(gTop != null && gTop.IsVirtual,
+                          "★ …同上的 `BarShadowTop`（原版 `Shadow` 的**顶边逐窗不同**：奖励/商店 70.94 · 收藏 158.64 —— 铁律 5·c）");
+                CheckTrue(typeof(CollectionWindow).GetMethod("RebuildTabBarShadow", Flags) == null,
+                          "★ 收藏窗那份**临时补丁** `RebuildTabBarShadow` 已删 —— 同一条 `Shadow` 只许有**一个生产者**"
+                        + "｜🧨 改坏法：把「删掉基类那件、再按原版重建一份」加回来 ⇒ 两处生产者 ⇒ 红");
+
+                if (gTint != null && gTop != null)
+                {
+                    // ② 值：**收藏窗**显式覆写 = 原版字面量（⛔ 不从被测类里读常量）
+                    var cw = CollectionWindow.Create(shell.Windows);
+                    var cTint = (Color?)gTint.Invoke(cw, null);
+                    float cTop = (float)gTop.Invoke(cw, null);
+                    CheckTrue(cTint.HasValue
+                              && Mathf.Abs(cTint.Value.r) < 2f / 255f && Mathf.Abs(cTint.Value.g) < 2f / 255f
+                              && Mathf.Abs(cTint.Value.b) < 2f / 255f && Mathf.Abs(cTint.Value.a - 0.475f) < 2f / 255f,
+                              "★ 收藏窗的 `Shadow` tint = 原版 **`(0,0,0,0.475)`**（`Collection Menu Variant` 的 `Image.m_Color`）"
+                            + "｜🧨 不给 tint（= 白）⇒ 屏上就是那条浅白带 ⇒ 红");
+                    CheckTrue(Mathf.Abs(cTop - 158.64f) < 0.01f,
+                              $"★ 收藏窗的 `Shadow` 顶边 = 原版 **158.64**（本窗 `Tab Buttons` 自己的顶边；实测 {cTop:F2}）");
+                    MainMenuSubmenuWindow.DestroySafe(cw.gameObject);
+
+                    // ③ 成对：**不覆写**的奖励窗维持本批口径（tint 仍 `null` / 顶边仍是 `ContentT` 70.94）
+                    var rw = RewardsWindow.Create(shell.Windows);
+                    var rTint = (Color?)gTint.Invoke(rw, null);
+                    float rTop = (float)gTop.Invoke(rw, null);
+                    CheckTrue(!rTint.HasValue,
+                              "★（本批口径）奖励窗**不覆写** ⇒ tint 仍 `null`（今天那条白带原样）—— ⚠️ 这一条是"
+                            + "**排期口径、不是对原版的断言**（奖励/商店用户 2026-10-22 挂起）；原版这颗的色**没逐窗读过**"
+                            + "（同族收藏/社交两扇都是 `(0,0,0,0.475)`，多半也是它）⇒ 将来并进基类默认值时**把这条一起改**");
+                    CheckTrue(Mathf.Abs(rTop - 70.94f) < 0.01f,
+                              $"★ 奖励窗的 `Shadow` 顶边 = 原版 **70.94**（= `ContentT`，随 `Tab Buttons` 铺满 `Content Area`；实测 {rTop:F2}）");
+                    MainMenuSubmenuWindow.DestroySafe(rw.gameObject);
+                }
+            }
+
             // ---------------- 🆕 2026-10-22：排位升段窗的三条 legacy 动画 clip ----------------
             // 判据链 → `工具/gen_division_clips.py` 文件头 + `Shell/RankedDivisionChangeWindow.cs` 的「动画」段。
             // 本段验四件事：① 数据表 ② 曲线条数守恒（原生 + 手动 = JSON）③ 两档播的**不是同一条**
@@ -8960,6 +9085,201 @@ public static class ShellScene
                 if (winRank != null) Object.DestroyImmediate(winRank.gameObject);
                 if (winDiv != null) Object.DestroyImmediate(winDiv.gameObject);
             }
+
+        // ---------------- 🆕 2026-10-23（活动线 L01/L02/L03 收尾 + 界面线 T28 尾巴）：活动窗的【页签】与【入口】
+        //
+        // 判据（`d:/2/tools/decomp_full/`，方法体完整现读；全文 → `Shell/ParentEventWindow.cs` 文件头「页签与入口」）：
+        //  · `BaseParentEventWindow__SetupTabs.c`：liveops 事件列表 → 逐事件 `HasComponent(ev,13 /*TabButton*/)`
+        //    ⇒ `TabButtons.AddTabButton(label, sprite)` + 点击**开另一扇窗**；`HasComponent(ev,11 /*Tab*/)`
+        //    ⇒ `CreateEventTab` = **本窗内的一个内容页**。一个事件都没有 ⇒ 基类 `SetupTabs(0)`（左栏空）。
+        //  · `TabButtons__AddTabButton.c`：`set_name(label)`（**节点名 = 页签文字**）· `Image.sprite = 图标`。
+        //  · `OpenEventButton__OpenWindow.c`：事件钮 → `WindowsManager.OpenWindow(GetComponentReference(ev,10), ev)`。
+        //  · `bundle_menus_assets_all/AssetBundle/AssetBundle_1.json` 的 `m_Container`（键 = GUID）→ PathID →
+        //    UnityPy 读名：Parent 事件 `MainWindow` = `Parent Event Window` · Scoring 事件 `Tab` = `Expansion Pass Tab`。
+        // 🔴 **期望值一律独立**：时刻用**写死的 UTC 字面量**（⛔ 不读被测实现的 `NowUtc`）、页签名对**官方词条**、
+        //    数目对**本机四扇活动窗**（不是对实现里的常量）；下面还带两条**灭自证**（见 ★★ 那两条）。
+        Section("活动线：`SetupTabs` 事件钮（原版 `BaseParentEventWindow.SetupTabs` 等价物）+ 唯一入口 `OpenEventHub`");
+        {
+            var utcExpired = new System.DateTime(2026, 10, 23, 0, 0, 0, System.DateTimeKind.Utc);  // 今天：13 份 SO 全过期
+            var utcOrks    = new System.DateTime(2025, 4, 15, 0, 0, 0, System.DateTimeKind.Utc);   // ExpansionOrks1 在期
+            var utcSW      = new System.DateTime(2025, 10, 25, 0, 0, 0, System.DateTimeKind.Utc);  // SWRelease(Scoring) 在期
+
+            // ---- ① 名单：除本窗以外的那几扇；顺序 = `EventWindowKind` 的值序 ----
+            var tForParent = ParentEventWindow.BuildEventTabs(ParentEventWindow.EventWindowKind.Parent, utcExpired);
+            Check(tForParent.Count, 3, "`BuildEventTabs(Parent)` = **3** 颗（本机 4 扇活动窗，去掉本窗自己）");
+            CheckTrue(tForParent.Count == 3
+                   && tForParent[0].Kind == ParentEventWindow.EventWindowKind.Gacha
+                   && tForParent[1].Kind == ParentEventWindow.EventWindowKind.Raid
+                   && tForParent[2].Kind == ParentEventWindow.EventWindowKind.ExpansionPass,
+                      "顺序 = `EventWindowKind` 的值序（原版取 `GetAllEvents` 的返回序；本机按窗登记表，如实标）");
+            bool allOpenable = true;
+            foreach (var t in tForParent) if (t.Open == null) allOpenable = false;
+            CheckTrue(allOpenable, "每一颗都有**去向**（原版 `b__2` = `WindowsManager.OpenWindow(...)`；null ⇒ 点了没反应）");
+
+            // ---- ② 页签名（今天全过期 ⇒ 走官方词条兜底）----
+            CheckTrue(tForParent.Count == 3
+                   && tForParent[0].Label == Loc.T(GachaEventWindow.TermTitle)
+                   && tForParent[1].Label == Loc.T(RaidEventWindow.TermTabTitle)
+                   && tForParent[2].Label == Loc.T(ExpansionPassEventWindow.TermTabTitle),
+                      "页签名逐个对上各自那扇窗的官方词条（`Event_Description/Gacha/TabTitle` · "
+                    + "`Event_Description/General/Raid` · `Event_Description/ExpansionPass/TabTitle`）");
+            CheckTrue(tForParent.Count == 3
+                   && tForParent[0].Label != tForParent[1].Label
+                   && tForParent[1].Label != tForParent[2].Label
+                   && tForParent[0].Label != tForParent[2].Label,
+                      "★★ 灭自证：三颗的文字**互不相同**（把三颗都写死成同一个字串的实现在这条上红）");
+            CheckTrue(tForParent.Count == 3 && tForParent[0].Label != GachaEventWindow.TermTitle,
+                      "页签名**不是键名本身**（词条查不到时 `Loc.T` 会回键 —— 那会印一串 `Event_Description/…` 到界面上）");
+            CheckTrue(tForParent.Count == 3 && string.IsNullOrEmpty(tForParent[0].EventId)
+                   && string.IsNullOrEmpty(tForParent[2].EventId),
+                      "今天（2026-10-23）13 份 SO **全部过期** ⇒ 不带任何活动实例 id"
+                    + "（用户边界：过期活动不做、⛔ 不拿过期事件顶空态）");
+
+            // ---- ③ 在期事件那一支：页签名与 id 取活动实例的（label 4 ?? label 0）----
+            var tForGacha = ParentEventWindow.BuildEventTabs(ParentEventWindow.EventWindowKind.Gacha, utcOrks);
+            CheckTrue(tForGacha.Count == 3 && tForGacha[0].Kind == ParentEventWindow.EventWindowKind.Parent
+                   && tForGacha[0].EventId == "ExpansionOrks1",
+                      "在期时刻（2025-04-15 UTC）：Parent 那颗取到本地活动实例 `ExpansionOrks1`（`LiveOpsLocalCatalog`）");
+            CheckTrue(tForGacha.Count == 3 && tForGacha[0].Label != ParentEventWindow.P1TitleText,
+                      "在期时页签名取**活动实例的 label**（不是兜底那句出厂标题）⇒ 「有实例就走实例」这条路由是活的");
+            var tForGacha2 = ParentEventWindow.BuildEventTabs(ParentEventWindow.EventWindowKind.Gacha, utcSW);
+            CheckTrue(tForGacha2.Count == 3
+                   && tForGacha2[0].EventId == "SWRelease"
+                   && tForGacha2[2].EventId == "SWReleaseScoring",
+                      "同一时刻 Parent / Scoring 两类各挑各的在期实例（`SWRelease` / `SWReleaseScoring`）");
+
+            // ---- ④ 窗口上真的建出来了：内容页签 + 事件钮（两张表分家）----
+            var pe = WindowsManager.OpenParentEvent();
+            CheckTrue(pe != null && pe.CurrentState == WindowState.Open, "（前提）活动承载窗开得出来");
+            if (pe != null)
+            {
+                Check(pe.TabButtonNodes.Count, 2,
+                      "**内容页签**仍是 2 颗（`tabs` 两个 PPtr：`Select Team Tab` / `Event On Going Tab`）"
+                    + " —— 事件钮不许混进这张表");
+                Check(pe.EventTabNodes.Count, 3,
+                      "★★ 灭自证：**事件钮 = 3 颗**（把 `Build()` 里那句 `SetupTabs(...)` 删掉 ⇒ 0 颗 ⇒ 这条红）");
+                Check(pe.EventTabLabels.Count, pe.EventTabNodes.Count, "事件钮的页签文字与按钮一一对应");
+                Check(pe.EventTabHighlights.Count, pe.EventTabNodes.Count, "每颗事件钮都带 `Highlight` 节点");
+
+                int hitOk = 0, nameOk = 0, hiOff = 0;
+                for (int i = 0; i < pe.EventTabNodes.Count && i < pe.EventTabLabels.Count; i++)
+                {
+                    var node = pe.EventTabNodes[i];
+                    var lb = pe.EventTabLabels[i];
+                    if (node != null && lb != null && !string.IsNullOrEmpty(lb.Text))
+                    {
+                        nameOk++;                                  // 文字非空
+                        if (node.name == lb.Text) hitOk++;         // 原版 `set_name(label)`
+                    }
+                    if (i < pe.EventTabHighlights.Count && pe.EventTabHighlights[i] != null
+                        && !pe.EventTabHighlights[i].gameObject.activeSelf) hiOff++;
+                }
+                Check(nameOk, pe.EventTabNodes.Count, "每颗事件钮的文字都**非空**（词条缺键 + 没兜底 ⇒ 空字页签）");
+                Check(hitOk, pe.EventTabNodes.Count,
+                      "节点名 = 页签文字（判据 = `TabButtons__AddTabButton.c` 那句 `set_name(label)`）");
+                Check(hiOff, pe.EventTabNodes.Count,
+                      "事件钮的 `Highlight` **恒关**（选中态只给内容页 —— 事件钮点下去是**换窗**不是换页；如实标）");
+
+                // 事件钮的命中区：每颗一个 `WindowButton`，且「已选中也不吞点击」（原版 `allowClickWhenAlreadySelected = 0`）
+                int wbOk = 0;
+                foreach (var node in pe.EventTabNodes)
+                {
+                    var wb = node != null ? node.GetComponentInChildren<WindowButton>(true) : null;
+                    if (wb != null && wb.onClick != null && !wb.allowClickWhenAlreadySelected) wbOk++;
+                }
+                Check(wbOk, pe.EventTabNodes.Count, "每颗事件钮都有可点的 `WindowButton`（`onClick` 非空 + 不吞重复点）");
+
+                // 内容页签照旧能切页（两种页签是**两条不同的机制**，⛔ 别混成一条）
+                pe.SwitchPage(1);
+                Check(pe.CurrentPageIndex, 1, "（内容页签那一支）`SwitchPage(1)` ⇒ 当前页 = 1");
+                CheckTrue(pe.OnGoingPage != null && pe.OnGoingPage.gameObject.activeSelf
+                       && pe.ChooseSidePage != null && !pe.ChooseSidePage.gameObject.activeSelf,
+                          "第 2 页开着、第 1 页关着（= 原版 `ChangeTab` 的 `SetActive` 语义）");
+                pe.SwitchPage(0);
+                Check(pe.CurrentPageIndex, 0, "切回第 1 页");
+
+                // ---- ⑤ 点事件钮 = **开另一扇窗**（原版 `b__2` 那一跳）----
+                var beforeGacha = GachaEventWindow.LastOpened;
+                Transform gachaTab = null;
+                for (int i = 0; i < pe.EventTabNodes.Count && i < pe.EventTabLabels.Count; i++)
+                    if (pe.EventTabLabels[i] != null && pe.EventTabLabels[i].Text == Loc.T(GachaEventWindow.TermTitle))
+                        gachaTab = pe.EventTabNodes[i];
+                CheckTrue(gachaTab != null, "（前提）找得到 Gacha 那颗事件钮");
+                if (gachaTab != null)
+                {
+                    var wb = gachaTab.GetComponentInChildren<WindowButton>(true);
+                    CheckTrue(wb != null && wb.onClick != null, "（前提）那颗钮有回调");
+                    if (wb != null) wb.Click();
+                    var gw = GachaEventWindow.LastOpened;
+                    CheckTrue(gw != null && gw != beforeGacha,
+                              "★ 点 Gacha 事件钮 ⇒ **Gacha 抽卡窗真的开了**（`GachaEventWindow.LastOpened` 换了）");
+                    CheckTrue(gw != null && gw.name == GachaEventWindow.RootName,
+                              "开出来的那扇根名 = `" + GachaEventWindow.RootName + "`（prefab 根名，两处同源）");
+                    CheckTrue(gw != null && shell.Windows.openWindows.Contains(gw),
+                              "它进了 `WindowsManager.openWindows`（窗口管理器认账，不是只建了个物体）");
+                }
+            }
+
+            // ---- ⑥ 唯一入口 `OpenEventHub`（= 原版 `OpenEventButton.OpenWindow` 那一跳）----
+            CheckTrue(WindowsManager.OpenEventHub(ParentEventWindow.EventWindowKind.Raid) is RaidEventWindow,
+                      "入口：`OpenEventHub(Raid)` ⇒ `RaidEventWindow`（原版 = 事件钮 → `OpenWindow(MainWindow)`）");
+            CheckTrue(WindowsManager.OpenEventHub(ParentEventWindow.EventWindowKind.ExpansionPass)
+                      is ExpansionPassEventWindow,
+                      "入口：`OpenEventHub(ExpansionPass)` ⇒ `ExpansionPassEventWindow`");
+            CheckTrue(WindowsManager.OpenEventHub(ParentEventWindow.EventWindowKind.Gacha) is GachaEventWindow,
+                      "入口：`OpenEventHub(Gacha)` ⇒ `GachaEventWindow`");
+            CheckTrue(WindowsManager.OpenEventHub() is ParentEventWindow,
+                      "入口：无参 `OpenEventHub()` ⇒ `ParentEventWindow`（默认那扇）");
+
+            // ---- ⑦ 三扇活动窗各自的页签（L01/L02/L03 的「页签」那一半）----
+            var gw2 = GachaEventWindow.LastOpened;
+            if (gw2 != null)
+            {
+                Check(gw2.TabButtonNodes.Count, 1, "Gacha：页签 **1** 颗（原版该窗只有 `The Vault` 这一页）");
+                CheckTrue(gw2.TabLabels.Count == 1 && gw2.TabLabels[0] != null
+                       && gw2.TabLabels[0].Text == Loc.T(GachaEventWindow.TermTitle),
+                          "Gacha：页签名 = `Event_Description/Gacha/TabTitle`（官方词条）");
+                CheckTrue(gw2.TabHighlights.Count == 1 && gw2.TabHighlights[0] != null
+                       && gw2.TabHighlights[0].gameObject.activeSelf,
+                          "Gacha：唯一那一页**恒选中**（`Highlight` 开着）");
+            }
+            var rd = WindowsManager.OpenRaidEvent();
+            Check(rd.TabButtonNodes.Count, 1, "Raid：页签 **1** 颗");
+            CheckTrue(rd.TabLabels.Count == 1 && rd.TabLabels[0] != null
+                   && rd.TabLabels[0].Text == Loc.T(RaidEventWindow.TermTabTitle),
+                      "Raid：页签名 = `Event_Description/General/Raid`（官方词条）");
+            var ep = WindowsManager.OpenExpansionPassEvent();
+            Check(ep.TabButtonNodes.Count, 2, "Expansion Pass：页签 **2** 颗（Pass / Missions）");
+            Check(ep.ActivePage, 0, "Expansion Pass：出厂落在第 0 页（Pass）");
+            var epWb = ep.TabButtonNodes.Count > 1 ? ep.TabButtonNodes[1].GetComponentInChildren<WindowButton>(true) : null;
+            CheckTrue(epWb != null && epWb.onClick != null, "（前提）Missions 那颗页签有回调");
+            if (epWb != null) epWb.Click();
+            Check(ep.ActivePage, 1, "★ 点 Missions 页签 ⇒ 当前页 = 1（**这一支是换页**，与事件钮换窗不同）");
+            CheckTrue(ep.MissionsPageNode != null && ep.MissionsPageNode.gameObject.activeSelf
+                   && ep.PageNode != null && !ep.PageNode.gameObject.activeSelf,
+                      "★★ 灭自证：Missions 页开着、Pass 页关着（`ShowPage` 什么都不做的实现在这条上红）");
+            if (ep.TabButtonNodes.Count > 0)
+            {
+                var epWb0 = ep.TabButtonNodes[0].GetComponentInChildren<WindowButton>(true);
+                if (epWb0 != null) epWb0.Click();
+                Check(ep.ActivePage, 0, "点回 Pass 页签 ⇒ 当前页 = 0");
+                CheckTrue(ep.PageNode != null && ep.PageNode.gameObject.activeSelf
+                       && ep.MissionsPageNode != null && !ep.MissionsPageNode.gameObject.activeSelf,
+                          "Pass 页开着、Missions 页关着（两页互斥）");
+            }
+
+            // 收尾：把本段开的四扇活动窗拆掉（本段是 RunCore 的最后一段，拆完只余「合计」那一行）
+            //   ⚠️ **只在这一个循环里拆**（别先单独拆 ep/rd 再循环 —— 对已销毁的组件读 `.gameObject` 会抛
+            //   `MissingReferenceException`）；`openWindows` 只有 `NotifyClosed` 会改，`DestroyImmediate` 不改它。
+            for (int i = shell.Windows.openWindows.Count - 1; i >= 0; i--)
+            {
+                var w = shell.Windows.openWindows[i];
+                if (w == null) continue;                       // Unity 假 null（已被拆掉 / 换了场景）
+                if (w is GachaEventWindow || w is ParentEventWindow || w is RaidEventWindow
+                    || w is ExpansionPassEventWindow)
+                    Object.DestroyImmediate(w.gameObject);
+            }
+        }
 
         Debug.Log(P + $"=== 合计：{_sink.Pass} 通过 / {_sink.Fail} 失败 ===");
         // 🔴 **2026-10-11（A350 · 调度台裁定）**：这一串是**失败表的【重列】**（每条失败在

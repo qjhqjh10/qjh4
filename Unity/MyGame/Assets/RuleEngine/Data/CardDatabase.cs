@@ -265,6 +265,20 @@ namespace RuleEngine
             /// 数据源 = 真值 SO 快照 `cardAbilities[].priority`（与 `cards_truth.json` 同一份数据）。</summary>
             public TriggerPriorityDto[] triggerPriority;
 
+            /// <summary>🔴🆕 v18（2026-10-23 · 引擎线 `P1·①`）：逐条 ability 的**原版
+            /// `CardAbility.priority`，键 = 原版 `AbilityTrigger` 枚举名** —— 补的是
+            /// `triggerPriority`（键 = 引擎关键词，21 个）覆盖不到的那一半：
+            /// `WhenEvent` / `ResolveAtTurn` / 打出族**没有引擎关键词**，手上只有原版 trigger 名。
+            /// 喂 <see cref="CardDef.AbilityTriggerPriority(string)"/> → `ActionPump.ListenerLane`。
+            ///
+            /// 🔴 **只出现 != 1 的那几条**（缺键 = 原版默认 **1** = Instant）。
+            /// 2026-10-23 现读全池 1127 张**只有 7 张**有本键，其中 3 张是本列新增：
+            /// `DA12` OnCollectQuestPoints 2 · `BL72` UnitReceivesMarkOfChaos 2 · `DA14` FollowUpResolution 0。
+            /// ⚠️ 与 `triggerPriority` **不是一套主键**（枚举名 vs 引擎关键词），⛔ 别把两张表合并
+            /// —— 语义分叉的判据 → `CardDef.AbilityTriggerPriority` 那一节。
+            /// 数据源 = 真值 SO 快照 `cardAbilities[].priority`（与 `triggerPriority` 同源、不同投影）。</summary>
+            public AbilityTriggerPriorityDto[] abilityTriggerPriority;
+
             /// <summary>🆕 v14（2026-10-22 · 引擎线 `W63` · `T03·c/d`）：逐条 ability 的**原版
             /// `CardAbility.abilityContext`**（载体此刻必须待在哪个区域），喂
             /// <see cref="CardDef.AbilityContextOfTrigger"/> / <see cref="CardDef.AbilityContextOfKeyword"/>。
@@ -519,6 +533,31 @@ namespace RuleEngine
             public int priority = MissingPriority;
         }
 
+        /// <summary>🔴🆕 v18（2026-10-23 · 引擎线 `P1·①`）：`abilityTriggerPriority` 的一行
+        /// （**字段名故意与 JSON 列名逐字一致**，`JsonUtility` 直读）。
+        /// `name` = 原版 `AbilityTrigger` 枚举名（**唯一按键**）；`priority` = 原版 `CardAbility.priority`。
+        /// 语义 → <see cref="CardDef.AbilityTriggerPriority(string)"/>。
+        ///
+        /// 🔴 **`trigger` 与 `priority` 都用 `-1` 哨兵**（与 `AbilityContextDto` / `TriggerPriorityDto` 同一条理由）：
+        /// `trigger = 0` 是 `ThisCardPlayed`、`priority = 0` 是 **Player 道**，两者都是**合法取值**
+        /// ⇒ 「JSON 里没写这个键」与「明确写 0」在 DTO 上必须分得开，缺键由
+        /// `MapAbilityTriggerPriority` 出声丢弃（⛔ 不许静默落进 Player 道）。
+        /// </summary>
+        [System.Serializable]
+        public class AbilityTriggerPriorityDto
+        {
+            /// <summary>「JSON 里没有 `trigger` 这个键」的哨兵值。</summary>
+            public const int MissingTrigger = -1;
+            /// <summary>「JSON 里没有 `priority` 这个键」的哨兵值（同 `TriggerPriorityDto.MissingPriority`）。</summary>
+            public const int MissingPriority = -1;
+            /// <summary>原版 `CardAbility.trigger`（`AbilityTrigger` 枚举数值；`0` = `ThisCardPlayed` 合法）。</summary>
+            public int trigger = MissingTrigger;
+            /// <summary>原版 `AbilityTrigger` **枚举名**（`FollowUpResolution` / `OtherUnitDeath` …）。</summary>
+            public string name;
+            /// <summary>原版 `CardAbility.priority`（0 Player / 1 Instant / 2 Interrupt / 3 DelayedInstant）。</summary>
+            public int priority = MissingPriority;
+        }
+
         /// <summary>🆕 v14（2026-10-22 · 引擎线 `W63` · `T03·c/d`）：`abilityContext` 的一行
         /// （**字段名故意与 JSON 列名逐字一致**，`JsonUtility` 直读）。
         /// 语义（六档 / skip 表 / `-1` 契约）→ <see cref="CardDef.AbilityContextOfTrigger"/>。
@@ -739,6 +778,18 @@ namespace RuleEngine
                                + "`CardDef.AbilityTargets` 为空表 ⇒ 「无主语正文」那条**回落旧的「己方全体」近似**并出声"
                                + "（⛔ 不是「数据说就是己方全体」）。判据 → `RawCardScript__HasAbilityType.c:16-38` / "
                                + "`AbilityLogic__GetTargets.c`。跑一下 gen_cards_engine.py 重生成（`B-16` 残余 ＋ `B-17`）。");
+            // 🔴🆕 v18（2026-10-23 · 引擎线 `P1·①`）：v18 起才有逐卡 `abilityTriggerPriority`
+            //   （原版 `AbilityTrigger` 名 → `CardAbility.priority`）。**旧表整列没有** ⇒
+            //   `CardDef.AbilityTriggerPriority(name)` 一律回默认 **1（Instant）= 改前行为**。
+            //   ⚠️ **这一列与 `triggerPriority` 不同**：缺列时**行为逐字不变**（改动前监听器就是一律
+            //   取 1），所以这里出声只是「表是旧的，这条修复还没生效」，⛔ 不是数据错。
+            if (dto.version < 18)
+                Debug.LogWarning($"[RuleEngine] 卡表 version={dto.version} < 18 —— 没有 `abilityTriggerPriority` 一列"
+                               + "（原版 `AbilityTrigger` 名 → `CardAbility.priority`：`WhenEvent` / 回合 / 打出族"
+                               + "那一半的触发道）。`CardDef.AbilityTriggerPriority` 会一律返回 **1 = Instant**"
+                               + "（= 改前的行为，⛔ 不是「数据说全是 Instant」）⇒ 非默认道的监听器"
+                               + "（现读 3 张：`DA12`/`BL72`/`DA14`）仍会排在 Instant 道上。"
+                               + "跑一下 gen_cards_engine.py 重生成（引擎线 `P1·①`）。");
 
             int noId = 0;
 
@@ -870,7 +921,15 @@ namespace RuleEngine
                     //    `targetsAffected` —— **每张卡都落**（没 ability = `[]`），缺列 = 真值里没这张卡。
                     //    ⚠️ 缺值口径 = 空表 + `AbilityTriggersVersioned = false`（同一列版本位；旧表
                     //    上面 `< 17` 的守卫已经出过声）⇒ 消费端回落旧的「己方全体」近似并出声。
-                    abilityTargets: MapAbilityTargets(c)));
+                    abilityTargets: MapAbilityTargets(c),
+                    // 🔴🆕 v18（2026-10-23 · 引擎线 `P1·①`）：逐条 ability 的 `priority`，**键 = 原版
+                    //    `AbilityTrigger` 枚举名** —— 补 `triggerPriority`（键 = 引擎关键词）覆盖不到的
+                    //    `WhenEvent` / 回合 / 打出族。四道闸（缺 `name` / 缺 `trigger` / 非法 `priority` /
+                    //    同 key 重复）在 `MapAbilityTriggerPriority` 里**出声丢弃**，⛔ 不在这里另判一遍。
+                    //    ⚠️ 缺值口径 = 空表 + `AbilityTriggerPrioritiesVersioned = false`（旧表整列没有
+                    //    ⇒ 上面的 `< 18` 守卫已经出过声）；访问器一律回 **1 = Instant**（= 改前行为）。
+                    abilityTriggerPriority: MapAbilityTriggerPriority(c),
+                    abilityTriggerPrioritiesVersioned: dto.version >= 18));
             }
             // 🔴 🆕 2026-10-15（接线批）：**护甲两套口径一旦分叉就出声** ——
             //   引擎读的那一份（`CardDef` 构造里定下来的 `_keywords[armour]`）由
@@ -988,6 +1047,82 @@ namespace RuleEngine
                                  + "最终生效的是最后一条。一张卡一个关键词只能有一个 priority；"
                                  + "重跑工具/gen_cards_engine.py（它会整条丢弃并报 `conflict`）。");
                 list.Add(new KeyValuePair<string, int>(tp.keyword, tp.priority));
+            }
+            return list;
+        }
+
+        /// <summary>🔴🆕 v18（2026-10-23 · 引擎线 `P1·①`）：`abilityTriggerPriority` 列 →
+        /// `CardDef.AbilityTriggerPrioritySpec`。`null` / 空 ⇒ 空表（`Parse` 那边一律传非 null 的 `IEnumerable`）。
+        ///
+        /// 🔴 **四道闸，全部「出声 + 丢弃该条」**（与 `MapTriggerPriority` / `MapAbilityContext` 同口径：
+        /// 坏数据挡在 `CardDef` 之前 —— 到了那边只会「后写覆盖」，也就是**静默**）：
+        ///   ① `name` 为空 ⇒ 丢弃（`AbilityTrigger` 枚举名是唯一按键）；
+        ///   ② `trigger` 缺键（`-1`）⇒ 丢弃（⛔ 别让它静默落成 0 = `ThisCardPlayed`）；
+        ///   ③ `priority` 缺键（`-1`）或不在 **0..3** ⇒ 丢弃
+        ///      （`0` = Player 道是**合法值**；原版对非法值 LogError 后丢弃，
+        ///       `BattleManager__AddAutoActionToQueue.c:226-228`）；
+        ///   ④ 同 `name` 重复 ⇒ **丢弃后出现的那条**（先到的保留）＋出声
+        ///      （生成器对「同卡同 trigger 两个不同 priority」已整条丢弃并报 `conflict`，现读 0 条）。
+        /// </summary>
+        static List<CardDef.AbilityTriggerPrioritySpec> MapAbilityTriggerPriority(CardDto c)
+        {
+            var list = new List<CardDef.AbilityTriggerPrioritySpec>();
+            if (c == null || c.abilityTriggerPriority == null) return list;
+            HashSet<string> seen = null;
+            foreach (var atp in c.abilityTriggerPriority)
+            {
+                if (atp == null) continue;
+                // ① 缺 `name`（`AbilityTrigger` 枚举名 = 唯一按键）。
+                if (string.IsNullOrEmpty(atp.name))
+                {
+                    Debug.LogError($"[RuleEngine] 卡「{c.name}」（{c.id}）的 `abilityTriggerPriority` 有一条没有 "
+                                 + $"`name`（trigger={atp.trigger}, priority={atp.priority}）—— 已丢弃该条"
+                                 + "（`AbilityTrigger` 枚举名是唯一按键；`CardDef` 那边也会静默丢）。"
+                                 + "重跑工具/gen_cards_engine.py。");
+                    continue;
+                }
+                // ② 缺 `trigger` 键。
+                if (atp.trigger == AbilityTriggerPriorityDto.MissingTrigger)
+                {
+                    Debug.LogError($"[RuleEngine] 卡「{c.name}」（{c.id}）的 `abilityTriggerPriority` 里 `{atp.name}` "
+                                 + "**没有 `trigger` 键** —— 已丢弃该条（⛔ 没当成 0 = ThisCardPlayed："
+                                 + "`0` 是合法取值，缺键与「明确写 0」在数据上必须分开）。"
+                                 + "重跑工具/gen_cards_engine.py。");
+                    continue;
+                }
+                // ③ 缺 `priority` / 越界。
+                if (atp.priority == AbilityTriggerPriorityDto.MissingPriority)
+                {
+                    Debug.LogError($"[RuleEngine] 卡「{c.name}」（{c.id}）的 `abilityTriggerPriority` 里 `{atp.name}` "
+                                 + "**没有 `priority` 键** —— 已丢弃该条（⛔ 没当成 0 = Player 道："
+                                 + "`0` 是合法取值，缺键与「明确写 0」在数据上必须分开）。"
+                                 + "重跑工具/gen_cards_engine.py。");
+                    continue;
+                }
+                if (atp.priority < 0 || atp.priority > 3)
+                {
+                    Debug.LogError($"[RuleEngine] 卡「{c.name}」（{c.id}）的 `abilityTriggerPriority` 里 `{atp.name}` "
+                                 + $"priority={atp.priority} **非法**（合法 0..3）—— 已丢弃该条"
+                                 + "（原版对非法 priority 也是 LogError 后丢弃）。"
+                                 + "重跑工具/gen_cards_engine.py。");
+                    continue;
+                }
+                // ④ 同 key 重复 ⇒ 丢弃后出现的那条（先到的保留）。
+                if (seen == null) seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+                if (!seen.Add(atp.name))
+                {
+                    Debug.LogError($"[RuleEngine] 卡「{c.name}」（{c.id}）的 `abilityTriggerPriority` 里 `{atp.name}` "
+                                 + "**出现了不止一次** —— 已丢弃**后出现**的那条（先到的保留）。"
+                                 + "一张卡一个 trigger 名只能有一个 priority；"
+                                 + "重跑工具/gen_cards_engine.py（它会整条丢弃并报 `conflict`）。");
+                    continue;
+                }
+                list.Add(new CardDef.AbilityTriggerPrioritySpec
+                {
+                    Trigger = atp.trigger,
+                    Name = atp.name,
+                    Priority = atp.priority,
+                });
             }
             return list;
         }

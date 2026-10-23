@@ -2423,6 +2423,7 @@ public static class EffectExporter
         // ⚠️ 纪律同上面几支：**接不上就留空 + 点名出声**，⛔ 不拿别的材质顶上。
         int tmpFontOk = 0, tmpFontMiss = 0;
         int tmpMatOk = 0, tmpMatMiss = 0, tmpMatApprox = 0, tmpMatAtlasRebound = 0, tmpMatAlreadyProject = 0;
+        int tmpMatWriteFail = 0;   // 🆕 2026-10-23（D2）：写了但**回读不等于目标**的条数（⛔ 不能算「接回」）
         var missingFonts = new Dictionary<string, int>();
         var missingMats = new Dictionary<string, int>();
         // `ShaderUtilities.ID_MainTex` 是 `GetShaderPropertyIDs()` 里填的（TMP 自己在 `LoadFontAsset()` 开头也调它）；
@@ -2450,11 +2451,22 @@ public static class EffectExporter
 
             // ③ 材质那一跳。
             if (srcMat == null) continue;          // 原版本来就空的那种（不算「丢」）
-            // 3D `TMPro.TextMeshPro` 的渲染器在 `:1769` 那圈里**已经导过**（材质池是同一个）⇒ 直接复用。
+            // 3D `TMPro.TextMeshPro` 的渲染器在渲染器那一圈里**已经导过**（材质池是同一个）⇒ 直接复用。
             // ⛔ 别在这里二次 `ImportMaterial` —— 源已经是工程资产时那等于「自己导自己」。
-            if (AssetDatabase.Contains(srcMat))
+            // 🔴 **2026-10-23（D2 · 新账-92 的根因）：判据从 `AssetDatabase.Contains` 换成 `IsProjectAsset`。**
+            //    `Contains` **对 bundle 里加载出来的对象也会返回 true**（先例：本文件 `LoadQueueTruth` 头部那段（2026-09-19「第三版判据」）
+            //    「第一版 `AssetDatabase.Contains(om.shader)` —— **恒为 true，等于没改**」；
+            //    `RQProbe.cs:5-6` 同一条结论）⇒ 2026-10-23 那次重导 **38/38** 全走进下面这一支
+            //    （日志原文「38 条本来就是工程资产，直接复用」）⇒ `ImportMaterial` 一次没跑，
+            //    bundle 材质原样留着，落盘写成 `{fileID: <原包 pathID>, guid: 000…0}`
+            //    ⇒ `check_prefab_refs.py` rc=1 原样复发。
+            //    新判据（`IsProjectAsset`）= `GetAssetPath` 非空 ＋ 取得到 guid ＋
+            //    **`LoadAssetAtPath` 拿回来的是同一个实例**（第三跳让判据不依赖「bundle 对象的
+            //    `GetAssetPath` 返回什么」这个**本项目没实测记录**的假设）。
+            if (IsProjectAsset(srcMat))
             {
-                t.fontSharedMaterial = srcMat; tmpMatOk++; tmpMatAlreadyProject++;
+                if (AssignTmpSharedMaterial(t, srcMat, src.name)) { tmpMatOk++; tmpMatAlreadyProject++; }
+                else tmpMatWriteFail++;
                 continue;
             }
             var pm = ImportMaterial(srcMat, out bool tmpApprox, out string tmpShader);
@@ -2489,7 +2501,7 @@ public static class EffectExporter
                     tmpMatAtlasRebound++;
                 }
             }
-            t.fontSharedMaterial = pm; tmpMatOk++;
+            if (AssignTmpSharedMaterial(t, pm, src.name)) tmpMatOk++; else tmpMatWriteFail++;
             if (tmpApprox)
             {
                 tmpMatApprox++;
@@ -2512,7 +2524,7 @@ public static class EffectExporter
             Debug.Log($"[EffectExporter] A1325 `{src.name}` TMP `m_fontAsset`：接回 **{tmpFontOk}** / 留空 **{tmpFontMiss}**"
                     + (mv.Count > 0 ? $"（工程里没有这些 TMP_FontAsset：{string.Join(" · ", mv)}）" : ""));
         }
-        if (tmpMatOk > 0 || tmpMatMiss > 0)
+        if (tmpMatOk > 0 || tmpMatMiss > 0 || tmpMatWriteFail > 0)
         {
             var mm = new List<string>();
             foreach (var kv in missingMats.OrderByDescending(k => k.Value))
@@ -2521,7 +2533,11 @@ public static class EffectExporter
                     + (tmpMatAlreadyProject > 0 ? $"（其中 {tmpMatAlreadyProject} 条本来就是工程资产，直接复用）" : "")
                     + (tmpMatApprox > 0 ? $"（其中近似 shader {tmpMatApprox} 条）" : "")
                     + (tmpMatAtlasRebound > 0 ? $"（图集改绑回字体资产 {tmpMatAtlasRebound} 条）" : "")
-                    + (tmpMatMiss > 0 ? $"、**留空 {tmpMatMiss} 条**（见上面的告警）" : ""));
+                    + (tmpMatWriteFail > 0 ? $"、**写了但回读不等于目标 {tmpMatWriteFail} 条**（见上面的告警）" : "")
+                    + (tmpMatMiss > 0 ? $"、**留空 {tmpMatMiss} 条**（见上面的告警）" : "")
+                    // 🔴 2026-10-23（D2）：这一行量的**全是内存**。别再单独拿它当判据 ——
+                    //    落盘真值看下一行（`SavePrefabAndRepairScripts` 之后按产物现读）。
+                    + "（⚠️ 本条量的是内存）");
         }
 
         // ---- 挂 binder：进游戏时用原版 shader 重建材质 ----
@@ -2542,10 +2558,156 @@ public static class EffectExporter
         var sfx = SavePrefabAndRepairScripts(inst, path);
         UnityEngine.Object.DestroyImmediate(inst);
 
+        // ---- 🔴 2026-10-23（D2 · 新账-92）：**TMP `m_sharedMaterial` 按【产物】现读** ----
+        // 病灶（这一笔的教训）：上面那条 `接回 38 条` 量的**全是内存**，而盘上一条都没落地
+        // （2026-10-23 那次日志「38 条本来就是工程资产，直接复用」+ `check_prefab_refs.py` rc=1 原样复发）。
+        // 与 `A1299` 同一条纪律：**唯一靠得住的判据是把产物读回来数**（`SavePrefabAndRepairScripts`
+        // 的腿② 就是这么做的）。所以这里在 `SaveAsPrefabAsset` **之后**按字节读回刚写出的文件：
+        //   · 坏引用（`guid: 000…0` 且 `fileID != 0`）= 应该为 **0**；
+        //   · **不同 guid 的个数** —— 这是「9 种描边」那条真判据（`check_prefab_refs.py` 查不出来，
+        //     见 `普查产出_1021/W61_工具线_T10_TMP材质半边.md` §2·3）。
+        // ⛔ 这里**只读数、不静默改**：接不上就点名出声（铁律「不许静默失败」）。
+        if (tmpMatOk > 0 || tmpMatMiss > 0 || tmpMatWriteFail > 0)
+        {
+            int smTotal, smZero, smDistinct;
+            var smSample = new List<string>();
+            if (ScanTmpSharedMaterialOnDisk(path, out smTotal, out smZero, out smDistinct, smSample))
+            {
+                var line = $"[EffectExporter] A1325 `{src.name}` TMP `m_sharedMaterial` **落盘现读**："
+                         + $"{smTotal} 条 / 坏引用(guid 全 0) **{smZero}** / 不同 guid **{smDistinct}** 种";
+                if (smZero > 0)
+                {
+                    Debug.LogWarning(line + " ⇒ 还有 guid0（前几条："
+                        + string.Join(" / ", smSample) + "）"
+                        + " —— ⛔ 别改成内存那条日志去「对齐」，要看这一条");
+                }
+                else Debug.Log(line + "（内存里报的条数见上一行；这一行量的才是产物）");
+            }
+        }
+
         LastDetail = $"材质定义{defs.Count}个；原 shader: {string.Join(", ", usedShaders.OrderBy(x => x))}" +
                      (approx > 0 ? $"；近似替代 {approx} 处" : "") +
                      (sfx.fixedInMemory > 0 ? $"；m_Script 接回 {sfx.fixedInMemory} 条" : "") +
                      (sfx.zeroOnDisk > 0 ? $"；**m_Script 落盘guid0 {sfx.zeroOnDisk}→改回{sfx.repaired}→剩{sfx.left}**" : "");
+    }
+
+    /// <summary>🆕 2026-10-23（D2 / 新账-92）：`o` 是不是**工程里**的资产。
+    /// 🔴 ⛔ **别用 `AssetDatabase.Contains`** —— 对 bundle 里加载出来的对象它**也返回 true**
+    /// （先例：本文件 `LoadQueueTruth` 头部那段（2026-09-19「第三版判据」）「第一版 `AssetDatabase.Contains(om.shader)` —— **恒为 true，等于没改**」；
+    /// `RQProbe.cs:5-6` 逐字记了同一件事）。判据改用与 `RepairZeroGuidScripts` 相同的一套：
+    /// **`GetAssetPath` 非空 + `TryGetGUIDAndLocalFileIdentifier` 真拿得到 guid**。</summary>
+    static bool IsProjectAsset(UnityEngine.Object o)
+    {
+        if (o == null) return false;
+        try
+        {
+            var ap = AssetDatabase.GetAssetPath(o);
+            if (string.IsNullOrEmpty(ap)) return false;
+            string guid; long lid;
+            if (!AssetDatabase.TryGetGUIDAndLocalFileIdentifier(o, out guid, out lid)) return false;
+            if (string.IsNullOrEmpty(guid) || guid == ZeroGuid) return false;
+            // 🔴 **最后一跳用「按路径加载回来的是不是同一个对象」定音**：
+            //    前两条（路径 / guid）在编辑器里对 bundle 对象的表现本项目**没实测记录**
+            //    （`RQProbe.cs` 只把这几列打出来、结果没落盘）⇒ 拿一个**不依赖那条假设**的身份判据兜底：
+            //    真·工程资产按它自己的路径 `LoadAssetAtPath` 一定拿回**同一个实例**；
+            //    bundle 对象拿回来是 null（或者别的对象）⇒ 判「不是工程资产」。
+            var again = AssetDatabase.LoadAssetAtPath<UnityEngine.Object>(ap);
+            return ReferenceEquals(again, o);
+        }
+        catch (Exception e)
+        {
+            // 判不出来时按「不是工程资产」处理（= 会走 `ImportMaterial` 落一份工程副本）——
+            // 这一档的代价是多重一份 `.mat`，而反过来（误判成工程资产）会让这一格**静默落成 guid0**。
+            Debug.LogWarning($"[EffectExporter] A1325 判 `{o.name}` 是不是工程资产失败"
+                           + $"（按「不是」处理、会走导入）：{e.GetType().Name}: {e.Message}");
+            return false;
+        }
+    }
+
+    /// <summary>🆕 2026-10-23（D2 / 新账-92）：写 TMP 的 `m_sharedMaterial`，**写完当场回读序列化字段**。
+    /// · setter 本身是写序列化字段的（`TMP_Text.cs:187-194` → `TextMeshProUGUI.SetSharedMaterial`
+    ///   `:1529-1539` 里 `m_sharedMaterial = mat`）⇒ 「setter 只写 `m_fontMaterial`」这个说法**不成立**；
+    /// · 但它**值相等就提前 return**（`if (m_sharedMaterial == value) return;`）⇒ 源和目标恰好同一个对象时
+    ///   什么都不做 —— 这一档本身无害（值已经对），**真正出问题的是判据（见 `IsProjectAsset`）**；
+    /// · 本仓库「内存看着对、落盘是 guid0」出过不止一次（`A1299`）⇒ 这里把回读做成硬判据，
+    ///   回读不等就再用 `SerializedObject` 硬写一次，仍不等则点名出声、由调用方**不算「接回」**。</summary>
+    static bool AssignTmpSharedMaterial(TMPro.TMP_Text t, Material mat, string prefabName)
+    {
+        t.fontSharedMaterial = mat;
+        if (ReferenceEquals(SerializedFieldRef(t, "m_sharedMaterial"), mat)) return true;
+        try
+        {
+            using (var so = new SerializedObject(t))
+            {
+                var p = so.FindProperty("m_sharedMaterial");
+                if (p != null && p.propertyType == SerializedPropertyType.ObjectReference)
+                {
+                    p.objectReferenceValue = mat;
+                    so.ApplyModifiedPropertiesWithoutUndo();
+                }
+            }
+        }
+        catch (Exception e)
+        {
+            Debug.LogWarning($"[EffectExporter] A1325 `{prefabName}` / `{t.gameObject.name}` 写 `m_sharedMaterial` 失败"
+                           + $"（`SerializedObject` 兜底那一跳）：{e.GetType().Name}: {e.Message}");
+        }
+        var back = SerializedFieldRef(t, "m_sharedMaterial") as Material;
+        if (ReferenceEquals(back, mat)) return true;
+        Debug.LogWarning($"[EffectExporter] A1325 `{prefabName}` / `{t.gameObject.name}` 的 TMP `m_sharedMaterial`"
+                       + $"**写不进去**（回读 = `{(back == null ? "null" : back.name)}`，期望 `{mat.name}`）"
+                       + " ⇒ 这一格落盘会是 guid0（如实记，⛔ 不假装成功）");
+        return false;
+    }
+
+    /// <summary>🆕 2026-10-23（D2 / 新账-92）：按**产物文本**数 TMP `m_sharedMaterial` 的三个读数。
+    /// `total` = 该字段行数；`zero` = `guid` 全 0 **且** `fileID != 0` 的坏引用条数（同 `check_prefab_refs.py`
+    /// 的口径 —— `fileID == 0` 是合法空引用）；`distinct` = 非 0 guid 的**种数**。
+    /// 返回 false = 文件读不了（调用方不要再报数）。</summary>
+    static bool ScanTmpSharedMaterialOnDisk(string path, out int total, out int zero,
+                                            out int distinct, List<string> sample)
+    {
+        total = zero = distinct = 0;
+        string text;
+        try { text = System.Text.Encoding.UTF8.GetString(File.ReadAllBytes(AbsFile(path))); }
+        catch (Exception e)
+        {
+            Debug.LogWarning($"[EffectExporter] A1325 读产物 `{path}` 失败，`m_sharedMaterial` 落盘判据跳过："
+                           + $"{e.GetType().Name}: {e.Message}");
+            return false;
+        }
+        var guids = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        int at = 0;
+        const string key = "m_sharedMaterial:";
+        while ((at = text.IndexOf(key, at, StringComparison.Ordinal)) >= 0)
+        {
+            int eol = text.IndexOf('\n', at);
+            if (eol < 0) eol = text.Length;
+            var lineText = text.Substring(at, eol - at);
+            at = eol;
+            total++;
+            int gi = lineText.IndexOf("guid:", StringComparison.Ordinal);
+            if (gi < 0) continue;                                   // 指向本文件内对象（正常形态，不算坏）
+            int gs = gi + 5;
+            while (gs < lineText.Length && lineText[gs] == ' ') gs++;
+            if (gs + 32 > lineText.Length) continue;
+            var g = lineText.Substring(gs, 32);
+            bool isZero = string.Equals(g, ZeroGuid, StringComparison.OrdinalIgnoreCase);
+            if (!isZero) { guids.Add(g); continue; }
+            int fi = lineText.IndexOf("fileID:", StringComparison.Ordinal);
+            if (fi < 0) continue;
+            int fs = fi + 7;
+            while (fs < lineText.Length && lineText[fs] == ' ') fs++;
+            int fe = fs;
+            while (fe < lineText.Length && (lineText[fe] == '-' || char.IsDigit(lineText[fe]))) fe++;
+            long fid = 0;
+            long.TryParse(lineText.Substring(fs, fe - fs), out fid);
+            if (fid == 0) continue;                                 // 合法空引用
+            zero++;
+            if (sample.Count < 6) sample.Add(lineText.Trim());
+        }
+        distinct = guids.Count;
+        return true;
     }
 
     /// <summary>🆕 A1325：按**序列化字段名**读一个对象引用（⛔ 不用带回落的 getter —— 例如

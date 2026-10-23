@@ -667,7 +667,15 @@ namespace RuleEngine
                        //   消费端 = `EffectText.AssignAbilityTargets` → `EffectOp.SubjectTargetsAffected`
                        //   → `EffectResolver` 的「无施放者、也没点目标」那一支。
                        //   ⚠️ **下标即语义**（`[i]` = `cardAbilities[i]`）⇒ 空/缺**不许压缩**。
-                       IEnumerable<AbilityTargetSpec> abilityTargets = null)
+                       IEnumerable<AbilityTargetSpec> abilityTargets = null,
+                       // 🔴🆕 v18（2026-10-23 · 引擎线 `P1·①`）：**原版 `AbilityTrigger` 名 → priority**
+                       //   （`cards_engine.json` 的 `abilityTriggerPriority` 列，**只落 != 1 的**）。
+                       //   与 `triggerPriority`（键 = 引擎关键词）互补、⛔ 不重叠 —— 见
+                       //   <see cref="AbilityTriggerPriority"/> 那一节的注释。
+                       //   ⚠️ **追加在参数表末尾**（同前几条：全仓有位置传参的老调用点）。
+                       IEnumerable<AbilityTriggerPrioritySpec> abilityTriggerPriority = null,
+                       // 「这一列**来自 v18 卡表**」的正面信号（只有 `CardDatabase.Parse` 知道）。
+                       bool abilityTriggerPrioritiesVersioned = false)
         {
             Id = id; Name = name; Type = type ?? ""; Desc = desc ?? ""; Rarity = rarity; Faction = faction;
             NameZh = nameZh ?? ""; DescZh = descZh ?? "";
@@ -765,6 +773,19 @@ namespace RuleEngine
             if (abilityTargets != null)
                 foreach (var _at in abilityTargets) _abilityTargets.Add(_at);
             AbilityTargetsVersioned = abilityTriggersVersioned;   // 同一列版本位（v17 一次加的）
+            // 🔴🆕 v18（`P1·①`）：原版 `AbilityTrigger` 名 → priority —— 原样收下
+            //   （`cards_engine.json` 的 `abilityTriggerPriority` 列，**只落 != 1 的行**）。
+            //   🔴 合法性闸（缺 `name` / 缺 `trigger` / `priority` 不在 0..3 / 同 key 重复）
+            //   **在 `CardDatabase.MapAbilityTriggerPriority` 那一层就出声丢弃** —— 与
+            //   `triggerPriority` / `abilityContext` 的分工一致（数据入口做一次，⛔ 别在这里再写第二份）。
+            if (abilityTriggerPriority != null)
+                foreach (var _atp in abilityTriggerPriority)
+                {
+                    if (_atp == null || string.IsNullOrEmpty(_atp.Name)) continue;
+                    // 同 key 后写覆盖 —— 与 `_triggerPriority` 同口径；重复本当已在数据入口被丢弃。
+                    _abilityTriggerPriority[_atp.Name] = _atp.Priority;
+                }
+            AbilityTriggerPrioritiesVersioned = abilityTriggerPrioritiesVersioned;
             // 督军后手那张防御卡：这里只收**数据里的 id**；对象引用由 `CardDatabase.Parse`
             // 建完卡表之后按 id 反查置上（见 `GoesSecondCard` 的说明）。
             GoesSecondId = goesSecondId ?? "";
@@ -1298,6 +1319,130 @@ namespace RuleEngine
             int v;
             return (keyword != null && _triggerPriority.TryGetValue(keyword, out v))
                  ? v : DefaultTriggerPriority;
+        }
+
+        // ==================================================================
+        //  🔴🆕 v18（2026-10-23 · 引擎线 `P1·①`）：原版 `AbilityTrigger` **名** → `CardAbility.priority`
+        // ==================================================================
+        // **为什么另开一本字典（⛔ 不是把上面那张补几个键）**：上面 `_triggerPriority` 的键 =
+        //   **引擎侧触发关键词**（`artifice` / `codex` / `spiritstone` … 21 个，生成器
+        //   `ABILITY_TRIGGER_KEYWORD`），只覆盖「引擎按关键词路由正文」的那一族；
+        //   而 `WhenEvent`（`When a friendly unit dies, …`）/ `ResolveAtTurn` / 打出族
+        //   **没有关键词**（正文走 `Desc` / `ResolveAtTurn`）—— 它们手上唯一的名字是
+        //   **原版 `AbilityTrigger` 枚举名**（`OtherUnitDeath` / `TurnStartPlayer` /
+        //   `FollowUpResolution` / `OnCollectQuestPoints` …，与 `abilityContext`（v14）同一套主键）。
+        //   ⇒ 两套主键**不是一套词**，混进同一列会让 `TriggerPriority(keyword)` 的语义分叉。
+        //
+        // 判据（与 `_triggerPriority` **共用同一条**，⛔ 不重写一份）：
+        //   · 原版 `CardAbility.priority`（`ActionPriority`：0 Player / 1 Instant / 2 Interrupt /
+        //     3 DelayedInstant），**默认 1**（`CardAbility__.ctor.c:5`）⇒ 缺键 = 1；
+        //   · 分道 / 消费序 → `资料/普查产出_1021/W61_引擎线_T03c批B判据.md` §2.2 / §2.3；
+        //   · 补这一半的原因 → `资料/普查产出_1023c/引擎深审A_规则语义.md` P1·1。
+        // 数据形状（`cards_engine.json` v18 的 `abilityTriggerPriority` 列）：
+        //   `[{"trigger":695, "name":"OnCollectQuestPoints", "priority":2}]`（**只落 != 1 的**）。
+        // 现读（2026-10-23 · 池内 1,127 张）：**7 条 / 7 张**，其中 3 条是这一列新增
+        //   （`DA12` OnCollectQuestPoints=2 · `BL72` UnitReceivesMarkOfChaos=2 ·
+        //    `DA14` FollowUpResolution=0）。
+        // 消费点 = `ActionPump.ListenerLane(card, triggerName)`（监听器 / 常驻 / 部署 / 信仰那一族）。
+
+        /// <summary>v18：一行「原版 trigger 名 → priority」。
+        /// `Trigger`（数值）与 `Name`（`AbilityTrigger` 枚举名）都由生成器落；
+        /// 消费端按 <see cref="Name"/> 查（大小写不敏感）。</summary>
+        public sealed class AbilityTriggerPrioritySpec
+        {
+            /// <summary>原版 `CardAbility.trigger`（`AbilityTrigger` 枚举数值；`-1` = 生成器读不到）。</summary>
+            public int Trigger = -1;
+            /// <summary>原版 `AbilityTrigger` **枚举名**（唯一按键）。</summary>
+            public string Name;
+            /// <summary>原版 `CardAbility.priority`（0..3）；`-1` = 缺键/坏值（入口已丢弃，不会走到这）。</summary>
+            public int Priority = -1;
+        }
+
+        readonly Dictionary<string, int> _abilityTriggerPriority =
+            new Dictionary<string, int>(System.StringComparer.OrdinalIgnoreCase);
+
+        /// <summary>这一列**来自 v18 卡表**的正面信号（只有 `CardDatabase.Parse` 知道）。
+        /// `false` = 旧表（&lt; v18）⇒ 访问器一律回默认 1（= 改前行为，⛔ 不是「这张卡没有 priority」的新知识）。</summary>
+        public bool AbilityTriggerPrioritiesVersioned { get; private set; }
+
+        /// <summary>这个**原版 `AbilityTrigger` 名**的 priority（0 Player / 1 Instant / 2 Interrupt /
+        /// 3 DelayedInstant）。没有登记 / 认不出 ⇒ <see cref="DefaultTriggerPriority"/>（1 = Instant，
+        /// 与 <see cref="TriggerPriority(string)"/> 同一条缺省契约）。
+        /// 🔴 **⛔ 别拿它当「这个触发会不会结算」的判据** —— 那个看 `TriggerOps` / `WhenTriggers`。</summary>
+        public int AbilityTriggerPriority(string triggerName)
+        {
+            int v;
+            return (!string.IsNullOrEmpty(triggerName) && _abilityTriggerPriority.TryGetValue(triggerName, out v))
+                 ? v : DefaultTriggerPriority;
+        }
+
+        /// <summary>这张卡**落下来的**「原版 trigger 名 → priority」条目（**只有 != 1 的**）。
+        /// ⚠️ 只读视图；消费一律走 <see cref="AbilityTriggerPriority(string)"/>（那条带缺省契约）。
+        /// 自检/对账用它扫全池（例：`RuleEngineTest.W67T1` 的逐条清单）。</summary>
+        public IReadOnlyDictionary<string, int> AbilityTriggerPriorities { get { return _abilityTriggerPriority; } }
+
+        // ── 原版 `AbilityTrigger` 枚举名 → 数值（**转写**，判据在下面） ──────────────────────
+        // 🔴 **来源 = `d:/2/Warpforge_code/Scripts/Assembly-CSharp/AbilityTrigger.cs`（97 条，逐个照抄）**。
+        //   为什么要抄一份：引擎里**没有**这个枚举的 C# 类型可用（那份桩在 `d:/2`，不在 `Assets/`），
+        //   而 `EmitCardTrigger` 手上拿的是**名字**、`_abilityTriggers` 里存的是**数值**。
+        //   ⚠️ 抄漏 = 那个名字查不到 ⇒ 闸退回「只看动画行」（= 改前行为，静默少发）⇒
+        //      `RuleEngineTest.W67T3` 会把引擎真会用到的那批名字逐个钉一遍。
+        static readonly Dictionary<string, int> AbilityTriggerNumberOfName =
+            new Dictionary<string, int>(System.StringComparer.OrdinalIgnoreCase)
+        {
+            {"ThisCardPlayed", 0}, {"OtherCardPlayed", 10}, {"PlayedThirdCardInTurn", 15},
+            {"WhileInPlay", 20}, {"TurnStart", 30}, {"TurnStartPlayer", 31},
+            {"TurnEnd", 40}, {"TurnBeforeEnd", 41}, {"Courtesy", 43}, {"Resolution", 45},
+            {"Talent", 46}, {"UnitAttack", 50}, {"UnitDamaged", 60}, {"UnitHealed", 70},
+            {"ThisUnitDeath", 80}, {"Unstable", 81}, {"OtherUnitDeath", 90}, {"Growth", 100},
+            {"HeroDefenseBonus", 110}, {"Slay", 120}, {"Rage", 130}, {"Codex", 145},
+            {"TurnSetup", 155}, {"TurnStarted", 160}, {"UnitDeathByPoison", 170},
+            {"UnitDeathAttacking", 175}, {"UnitDeathByAbility", 180}, {"UnitDamagedByAbility", 185},
+            {"UnitDamagedByAttack", 187}, {"OtherUnitSummoned", 190}, {"ThisUnitSummoned", 195},
+            {"TriggerOnceIfBoardCriteria", 200}, {"CardCreatedInHand", 210}, {"Sacrifice", 220},
+            {"OtherCardSacrifice", 225}, {"Relentless", 230}, {"WhileInPlayVariable", 240},
+            {"Pack", 245}, {"ThisCardDrawnAsTrap", 250}, {"OtherCardDrawn", 260},
+            {"TrapResolved", 270}, {"AboutToAttack", 280}, {"UnitPoisoned", 290},
+            {"UnitStunned", 291}, {"Mob", 300}, {"Regiment", 301}, {"ThisUnitAbilityUsed", 400},
+            {"FollowUpResolution", 410}, {"Survivor", 420}, {"SurvivorSpent", 422},
+            {"Requiem", 430}, {"OtherCardRequiem", 435}, {"Landing", 440},
+            {"OtherCardLanding", 450}, {"OtherCardSpiritStone", 455}, {"Mutated", 460},
+            {"CardReturnedToHand", 470}, {"CardReturnedToDeck", 480}, {"QuestTriggered", 490},
+            {"TriggerEnchantment", 500}, {"UnitReceivesMarkOfChaos", 510},
+            {"UnitReceivesMarkerlight", 515}, {"UnitReceivesHuntMark", 520}, {"Support", 550},
+            {"Artifice", 560}, {"Reanimated", 570}, {"Strike", 580}, {"Combo", 590},
+            {"UseSpiritStone", 600}, {"UseFaith", 605}, {"OnCollectSpiritStone", 610},
+            {"TriggeredSwarm", 620}, {"TriggeredSynapse", 630}, {"EarnedSkull", 640},
+            {"SpentAllMana", 641}, {"OtherCardMob", 645}, {"OtherCardRegiment", 646},
+            {"UnitLoseStealth", 647}, {"TriggeredCodex", 650}, {"Pray", 655},
+            {"TriggeredPray", 660}, {"TriggeredDuty", 661}, {"Duty", 662},
+            {"OnCollectFaith", 665}, {"Ambush", 670}, {"Uprising", 680}, {"Teleport", 690},
+            {"OnCollectQuestPoints", 695}, {"OnSecretCreated", 700}, {"OnSabotageCreated", 701},
+            {"Agenda", 705}, {"Stimulation", 710}, {"Ecstasy", 715}, {"Cruelty", 720},
+            {"Ferocity", 725}, {"TriggeredFerocity", 726}, {"Oath", 730},
+        };
+
+        /// <summary>原版 `AbilityTrigger` 名 → 数值；认不出 ⇒ `-1`（⛔ 不猜 0 = `ThisCardPlayed`）。</summary>
+        public static int AbilityTriggerNumber(string triggerName)
+        {
+            int n;
+            return (!string.IsNullOrEmpty(triggerName) && AbilityTriggerNumberOfName.TryGetValue(triggerName, out n))
+                 ? n : -1;
+        }
+
+        /// <summary><c>1</c> = 这张卡有 `trigger == <paramref name="triggerName"/>` 的 ability；
+        /// <c>0</c> = **明确没有**；<c>-1</c> = **未知**（旧卡表 / 认不出这个名字）。
+        ///
+        /// <para>🔴🆕 2026-10-23（引擎线 `P1·③`）：它是 `EmitCardTrigger` 那道「有没有东西可播」闸的
+        /// **真值判据**（原版 `RawCardScript.HasAbilityType` → `RawCardScript__HasAbilityType.c:16-38`）。
+        /// 与 <see cref="HasAnimTrigger"/> 的分工：那个问「**有没有动画行**」，这个问「**有没有这条 ability**」
+        /// —— 两者**不等价**（现读 410 缺 6 张、31 缺 4 张、30 缺 2 张：有 ability、没有动画行）。</para>
+        /// </summary>
+        public int AbilityTriggerPresence(string triggerName)
+        {
+            int n = AbilityTriggerNumber(triggerName);
+            if (n < 0) return -1;                 // 认不出名字 ⇒ 未知（⛔ 不猜）
+            return AbilityTriggerPresence(n);
         }
 
         // ==================================================================

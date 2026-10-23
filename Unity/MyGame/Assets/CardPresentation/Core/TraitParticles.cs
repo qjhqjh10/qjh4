@@ -10,8 +10,24 @@
 //     那边的值是 **GameObject**（进表、可整表清），这条是 **CardAnim**。
 //     `swarm` 两处都有 —— **是两个不同的用法**，别合并。
 //
-// 🔴 **哪些 trait 有 FromCode 的 effectAnim —— 本地【判不了】**：那份 `CardTrait` SO 本体全库 0 命中
-//    ⇒ 下面这张表是**按 `CardAnim` 名字 + trait 名逐字对应反推**出来的（**是我们的口径**，逐条标了来路）。
+// 🔴🔴 **2026-10-23（`T1` · Trait 全量权威化）就地改判（铁律 5，覆盖本文件原来那一整版「反推」说明）：**
+//   原文写「哪些 trait 有 FromCode 的 effectAnim —— 本地【判不了】…⇒ 下面这张表是**按 CardAnim 名字 + trait 名
+//   逐字对应反推**出来的（**是我们的口径**）」。**不再成立**：`CardTrait` SO 就在
+//   `Warpforge_Data/sharedassets0.assets`（pid 458–530 + 531 `TraitsCollection`），早已逐字节解出成
+//   `数据/游戏数据/trait_collection.json`（安卓 1.35.0 交叉验证 0 差异）。
+//   ⇒ **这张表由数据驱动**：`TriggerType == 5 (FromCode)` 的那 10 条 `TraitEffect`，
+//   prefab = `effectAnim` GUID → CardAnim → `anim_address_map` 两跳（生成器 `工具/gen_trait_effect_bindings.py`，
+//   产物 `Resources/trait_effect_bindings.json`）。**C# 里已经没有手写的 FromCode 绑定。**
+//
+//   ⚠️ **数据推翻的两条手写口径**（别再抄回来）：
+//     · **`huntMark` 原来「故意留白」是错误的** —— 原版 `HuntMark.asset` **确实有一条 FromCode(5)**：
+//       `HuntMark Damage Anim` → `HuntMark_DamageEffect`。原文「映射表里没有任何 `…InTarget` 结尾的 CardAnim
+//       ⇒ 宁可留白」是**按名字找绑定的思路**（= 正是这次要去掉的兜底）。现在照数据绑上。
+//     · **`stomp` 原来绑 `StompEffect` 是错的** —— 原版 FromCode(5) → `BluntImpact_Stomp_Forward` → **`Attack_Stomp`**
+//       （`StompEffect` 不是任何一条 TraitEffect 的 prefab）。`ferocity` 同理：
+//       原版 FromCode(5) → `Ferocity Recall to deck` → **`Ferocity_RecallToDeck`**（不是 `FerocityEffect`；
+//       `FerocityEffect` 是它 **Start(0)** 那条的 prefab，属于另一档）。
+//     · 新增两条原来根本没有的：`shuriken → ShurikenEffect` · `teleport → Teleport Trait Summon`。
 //
 // 用法：`BattleDriver.PlayTraitParticles(e)` 在事件流上按「事件 → 该查哪几个 trait」调 `Play`。
 using System.Collections.Generic;
@@ -25,25 +41,69 @@ namespace CardPresentation
     {
         /// <summary>trait（规范化键，与 `UnitState.Keywords` 同一套）→ 效果库里的 prefab 名。
         ///
-        /// `数据/索引/anim_address_map.json` 的 `cardanim_to_asset` 反查出目标 prefab（**全在库里**），
-        /// 再按「CardAnim 名里那个 trait 词」认领到 trait：
-        ///   · **「名字逐字对上」**（`&lt;Trait>TraitFromCode`，证据最硬）：
-        ///     `SniperTraitFromCode` · `MarkerlightTraitFromCode` · `SwarmTraitFromCode` · `SynapseTraitFromCode`；
-        ///   · **「该 trait 只有这一件 anim」**（**我们的口径**，名字不带 `FromCode`）：
-        ///     `LongRangeAnim` · `Trait Stomp` · `FerocityAnim`。
-        /// ⚠️ `huntMark` **故意不绑** —— 那条调用点是 `…InTarget`（`TriggerOnMinionDeath`），
-        ///    而映射表里**没有任何 `…InTarget` 结尾的 CardAnim**；最接近的 `HuntMark Damage Anim`
-        ///    → `HuntMark_DamageEffect` **名字对不上、语义也没坐实** ⇒ 宁可留白（不猜）。</summary>
-        static readonly Dictionary<string, string> FromCode = new Dictionary<string, string>
+        /// **唯一来源** = `TraitFrames.RowsOfTriggerType(5)`，也就是
+        /// `Resources/trait_effect_bindings.json` 里 `TriggerType == 5 (FromCode)` 的那批行
+        /// （= 原版每条 `CardTrait.TraitEffects[]` 里 `TriggerType == FromCode` 的那一条）。
+        /// ⚠️ **走 `TraitFrames` 那次载入、不复读第二遍 JSON**：同一份数据只能有一个载入点（否则迟早不一致）。
+        /// ⚠️ 同一个 trait 若有**多条** FromCode，取**资产里第一条**并出声（今天数据里一条都没有重复）。</summary>
+        static Dictionary<string, string> _fromCode;
+
+        static Dictionary<string, string> FromCode
         {
-            { "sniper",      "SniperPreEffect" },
-            { "markerlight", "MarkerlightTriggerDamage" },
-            { "swarm",       "Swarm_Trigger_OnTarget" },
-            { "synapse",     "SynapseEffect" },
-            { "longrange",   "LongRange_GainTrait" },
-            { "stomp",       "StompEffect" },
-            { "ferocity",    "FerocityEffect" },
-        };
+            get { EnsureFromCode(); return _fromCode; }
+        }
+
+        static void EnsureFromCode()
+        {
+            if (_fromCode != null) return;
+            var rows = TraitFrames.RowsOfTriggerType(TraitEffectTriggerType.FromCode);
+            var d = new Dictionary<string, string>(rows.Length);
+            for (int i = 0; i < rows.Length; i++)
+            {
+                var r = rows[i];
+                if (string.IsNullOrEmpty(r.Trait) || string.IsNullOrEmpty(r.Prefab)) continue;
+                if (d.ContainsKey(r.Trait))
+                {
+                    Debug.LogWarning($"[TraitParticles] trait `{r.Trait}` 在原版里有**多条** FromCode effect"
+                                   + $"（`{d[r.Trait]}` / `{r.Prefab}`）—— 今天只播第一条（数据里本不该出现，先出声）");
+                    continue;
+                }
+                d[r.Trait] = r.Prefab;
+            }
+            _fromCode = d;
+            if (d.Count == 0)
+                Debug.LogError("[TraitParticles] FromCode 粒子表**是空的**"
+                             + "（`Resources/trait_effect_bindings.json` 没载到 / 没有 `TriggerType == 5` 的行）"
+                             + " ⇒ 这一整条链（8 个调用点）一件都不会播");
+        }
+
+        /// <summary>FromCode 那档的原版枚举值（`EffectTriggerType.FromCode`；反编译里两个调用点都**硬编码 5**）。</summary>
+        static class TraitEffectTriggerType
+        {
+            public const int FromCode = 5;
+        }
+
+        /// <summary>这张表**载进来几条**（断言用：期望值从数据重算，⛔ 不从本类读回）。</summary>
+        public static int BindingCount { get { return FromCode.Count; } }
+
+        /// <summary>表是不是空的（= 数据没载到；那时整条链不播，且上面已经 `LogError` 过）。</summary>
+        public static bool Loaded { get { return FromCode.Count > 0; } }
+
+        /// <summary>这张表里**有**哪些 trait 的从代码粒子（只读快照）。</summary>
+        public static string[] Keys
+        {
+            get
+            {
+                var d = FromCode;
+                if (d == null || d.Count == 0) return new string[0];
+                var a = new string[d.Count];
+                d.Keys.CopyTo(a, 0);
+                return a;
+            }
+        }
+
+        /// <summary>测试/断言用：把表重置（**只**给 Editor 自检造「载不到」的场景；生产路径别调）。</summary>
+        public static void ResetForTest() { _fromCode = null; }
 
         /// <summary>这个 trait 有没有 FromCode 粒子（断言与出声用）。
         /// ⚠️ 传事件 `Keyword`（可能是 `UseFaith#1` 这种**传输形态**）也认 —— 见 <c>Norm(string, out int)</c>。</summary>

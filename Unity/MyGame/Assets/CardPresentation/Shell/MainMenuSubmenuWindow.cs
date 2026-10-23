@@ -34,6 +34,35 @@ namespace CardPresentation
         /// ⚠️ 全工程只有 `BuildBar` 一处用它（`grep BarShadowW` 只有两行），改它不是改公共契约。</summary>
         protected virtual float BarShadowW { get { return 47.64f; } }
 
+        /// <summary>🆕 **2026-10-23（W62 · 界面线）**：左栏 `Shadow` 的**顶边**（设计 px）——
+        /// 原版**逐窗不同**，判据都是「`Shadow` 是 `Tab Buttons` 的子件、`a=(0,0)-(1,1)` 在父里拉满」：
+        /// <list type="bullet">
+        /// <item>奖励窗 / 商店：`Tab Buttons` 铺满 `Content Area` ⇒ 从 **70.94**（= `ContentT`）起。
+        ///   实读 `资料/日常_原版规格.md:118`（`Tab Buttons / Shadow` `a=(0,0)-(1,1) pos=(-58.68,0) sz=(-117.4,0)`，
+        ///   父条 `Tab Buttons` = 70.94..1080）；商店与它**同一套壳**（`资料/阶段二_商店_原版规格.md` §一·二）。</item>
+        /// <item>收藏窗：`Tab Buttons` 自己只有 **158.64..1080** ⇒ `Shadow` 也从 **158.64** 起
+        ///   （47.64 × 921.36；实读 `资料/普查产出_1022/W62_换牌压暗与收藏白条修复.md` §②）。</item>
+        /// </list>
+        /// ⇒ 基类给**本窗自己的** `Tab Buttons` 顶边当默认值；子类要改只覆写这一个数（⛔ 别在子类里再画一份 `Shadow`）。</summary>
+        protected virtual float BarShadowTop { get { return ContentT; } }
+
+        /// <summary>🆕 **2026-10-23（W62 · 界面线）**：左栏 `Shadow` 的 tint（原版那颗 `Image.m_Color`）。
+        /// `null` = **不上色**（= 图本色 —— 这张 `40k_main_tab_shadow` 是**纯白 + alpha 渐变**，不上色屏上就是一条**白带**）。
+        /// <para>🔴 **原版值是 `(0,0,0,0.475)`** —— **逐窗实读到的有这三扇**：
+        /// 收藏窗 `…/Tab Buttons/Shadow` = `(0,0,0,.475)`（`资料/普查产出_0923/A1_外壳与弹窗.md:23` ·
+        /// `资料/普查产出_1022/W62_换牌压暗与收藏白条修复.md` §②）· 社交窗同一行同一色
+        /// （`资料/普查产出_0927/社交_联盟与好友页.md:45`，但它**高 0、静态看不见**）·
+        /// 收藏窗另有一颗 `Content Area/Shadow (1)` 也是 `(0,0,0,.475)`（A1 同表末行）。
+        /// ⚠️ **奖励窗 / 商店的 `Tab Buttons/Shadow` 只读到矩形与锚点、没读到色**
+        /// （`资料/日常_原版规格.md:118` 那一行没有色列；同文件 `:102` 那个 `#000 a=0.4745` 是
+        /// **`Content Area/Shadow (1)` 那颗**，⛔ 别当成这一颗）⇒ 按同族两扇推断「多半也是 0.475」，**但未逐窗验证**。</para>
+        /// <para>⚠️ **本批口径（主对话 2026-10-23）**：判据收进基类这一处，但**只有收藏窗显式覆写**
+        /// （`CollectionWindow.BarShadowTint` = `(0,0,0,0.475)`）—— 奖励 / 商店两扇**用户 2026-10-22 已挂起**，
+        /// 不在它们的真机复验之前改观感 ⇒ 基类默认仍 `null`（= 今天的样子）。
+        /// 🔴 **将来把默认值改成 `(0,0,0,0.475)` 时**：那两扇就与原版一致了 —— 但那要跟它们的真机复验同批做，
+        /// 并把 `Editor/ShellScene.cs` 里「奖励窗本批**不带** tint」那条断言一起改（期望值是按本批口径钉的）。</para></summary>
+        protected virtual Color? BarShadowTint { get { return null; } }
+
         /// <summary>页签页容器的实测矩形（`Tabs` 与 `Content Area` 同矩形）。</summary>
         public const float TabL = 166.69f, TabT = 69.20f, TabR = 1920f, TabB = 1080f;
 
@@ -507,8 +536,12 @@ namespace CardPresentation
             //    ⚠️ `GradientV` 的 `t=0` 在**下**（Unity 顶点 y 向上 ⇒ 本层已翻）—— 键值 0→黑 正对「下沿渐黑」。
             MenuDraw.GradientV(bar, Art(ArtBarBg), barRect, QPanel, "Background", TabGradT, TabGradC);
             // `Shadow`：**宽 0 就不建**（社交窗那条原版自己就是 0 高/0 宽，见 `BarShadowW` 的注释）
+            // 🔴 **2026-10-23（W62）**：顶边与 tint 改成**基类这一处的两个可覆写判据**（`BarShadowTop` / `BarShadowTint`）——
+            //    此前这两样都写死在这里（顶边 = `ContentT`、tint 缺省 = 白）⇒ 收藏窗只能在**子类里删掉重建**一份
+            //    （那段临时补丁已随本次改动删除）。⛔ 别再在子类里画第二份 `Shadow`。
             if (BarShadowW > 0f)
-                Rect(bar, ArtBarShadow, ContentL, ContentL + BarShadowW, ContentT, ContentB, "Shadow", QPanel);
+                Rect(bar, ArtBarShadow, ContentL, ContentL + BarShadowW, BarShadowTop, ContentB, "Shadow", QPanel,
+                     BarShadowTint);
 
             var tb = bar.gameObject.AddComponent<TabButtons>();
             tb.options.Clear();

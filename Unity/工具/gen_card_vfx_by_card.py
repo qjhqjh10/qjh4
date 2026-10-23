@@ -80,8 +80,10 @@ gen_card_vfx_by_card.py — 「逐卡 VFX 表」生成器（卡 id → 事件 �
         —— 而 GUID 反查资产名从来不需要那只远端包（走本地 84 个 `.bundle` 的 `m_Container`）。
         证据补记：`catalog_main.json` 的 **`m_InternalIds` 里 12,319/12,653 条的 internalId 就是主键 GUID 本身**，
         所以「GUID → 束」这一步连 CCD 都不用碰。
-      ⇒ **结论作废，改为**：逐卡那一跳**能拿到**，而且已经落在下面的 `conf = authoritative` 那一档；
-        旧的 `inferred-*` 三档**保留**（各有各的消费点），但**降级为兜底**，优先级排在 `authoritative` 之后。
+      ⇒ **结论作废，改为**：逐卡那一跳**能拿到**，而且已经落在下面的 `conf = authoritative` 那一档。
+        🔴 **2026-10-23（`T1` · Trait 全量权威化）再进一步**：旧的那三档推断**已经整档清掉**
+        （`strip_unbacked_inference`）—— `conventions.confPriority` 里那些名字只为**留档**，
+        **今天表里一条都不剩**（`stats.entriesByConf` 只有 `authoritative`）。
 
   ⇒ **所以这份表现在是四层拼起来的**，每一条都带 `conf`，**按 `conf` 过滤，别混用**
     （`_conventions.confPriority` 给了优先级顺序）：
@@ -91,13 +93,11 @@ gen_card_vfx_by_card.py — 「逐卡 VFX 表」生成器（卡 id → 事件 �
       `allcards`（**1,351 张**）⇒ 只剩 **1 张**池内卡不在快照里；② `cardAnimations` 那一路的**事件名**
       自 **T21 / 2026-10-18** 起按原版 `CardAbility.trigger` 枚举归口（见 `TRIGGER_EVENT`），
       归不了口的仍保持 `ability`（= 当前不可达，宁可少播、不可错播）。
-    · `byCard[*]` conf=`inferred-name`    —— 卡名 → 同名 CardAnim（**推断**，覆盖很少）。
-    · `byCard[*]` conf=`inferred-keyword` —— 卡的关键词 → `<关键词>TraitStart/TraitTrigger/…`（**推断**）。
-      🔴 **2026-10-23 起**：这批行**逐条用 `trait_collection.json`（CardTrait SO）复核**，
-      动画名对得上的**升 `authoritative`**（`src: cardtrait-so`）、对不上的留推断并出声、
-      关键词根本不是 trait 的标 `unknown`（见下面 ⑨ 与 `promote_keyword_traits`）。
-    · `byCard[*]` conf=`unknown`          —— ⛔ **判据为空**（例如关键词 `penitence`：`CardTrait` 里没有它）。
-      保留 `prefab` 只为可查，**不许当权威播**。
+    · ~~`byCard[*]` conf=`inferred-name` / `inferred-keyword`~~ —— 🔴 **2026-10-23（`T1`）已整档删除**：
+      卡 SO 里有同一条 CardAnim 的 ⇒ 判为**重复**删掉；卡 SO 与 `CardTrait` SO 都没引用的 ⇒ 判为
+      **无依据、不播**（进运行时的 `notPlayed[]`）。账在 `stats.inferenceGone`。
+    · ~~`byCard[*]` conf=`unknown`~~ —— 同上（5 条 `penitence` 全被判为**重复**：卡 SO 的 `ability`
+      桶里本来就有那条 `PenitenceTraitTrigger`）。
     · `byCard[*]` conf=`inferred-envcard` —— 进攻卡；⚠️ 原版那张 SO 的卡是 PPtr，**解不出卡名**，
       所以是用卡面贴图名反推的候选名去对（可能对不上）。
     · `generic`            —— **判据齐**：共享 `CardPrefab` / 各 SO 上的**通用**每事件挂钩（**不是逐卡**）。
@@ -1446,6 +1446,151 @@ def promote_keyword_traits(by_card, cards, traits, army_of_faction):
 PROBLEMS = []
 
 
+# ============================================================ 🔴 2026-10-23（`T1` · Trait 全量权威化）
+#  「**把兜底之类的东西都去掉**」——`inferred-*` 一条都不许留在表里。
+#
+#  为什么单开一步（而不是在 `build_by_card` 里就地删）：
+#    · 这一步要判「**这条推断有没有权威依据**」，而权威那一档是**后**跑出来的
+#      （`build_authoritative` 在 `build_by_card` 之后）—— 所以只能在两档都跑完之后再收口。
+#
+#  两条出路（⛔ 没有第三条，也不许「差不多就留着」）：
+#    ① **卡 SO 自己引用了同一条 CardAnim**（by_card 里同 guid 的 `authoritative` 行已经存在）
+#       ⇒ 这条推断是**同一件事的第二次记账**，直接删；出处记在 `duplicateOfAuthoritative` 上。
+#       典型：`Lord of the Storm` —— 卡 SO 说 `Lord_of_the_storm_hit` 属于 `ThisCardPlayed`（`play` 桶，
+#       `authoritative`），而按名字猜的那条把它塞进 `hit` 桶 ⇒ 那一拍原本会**多播一次**。
+#    ② **没有任何权威依据** ⇒ 标 `conf: unknown` + `why` 写清「卡 SO 里没有引用这条 CardAnim」，
+#       **从事件桶里拿出来**、进运行时的 `notPlayed`（消费端出声、**不播**）。
+#       ⛔ 不许「保留可查就当没看见」——那正是改前的行为（`unknown` 只有一条时照样播）。
+
+
+def cardanim_guid_by_name(path=GUID_MAP_TSV):
+    """`CardAnim 资产名 → GUID 集合`（用于把推断行对回卡 SO 引用的那条资产）。"""
+    out = collections.defaultdict(set)
+    if not os.path.isfile(path):
+        PROBLEMS.append("去兜底：guid_map 不在（%s）⇒ 无法判断推断行有没有权威依据" % rel(path))
+        return out
+    with io.open(path, encoding="utf-8") as f:
+        head = f.readline().rstrip("\n").split("\t")
+        try:
+            i_guid, i_cls, i_name = (head.index("assetGuid"), head.index("className"),
+                                     head.index("name"))
+        except ValueError:
+            PROBLEMS.append("去兜底：guid_map 表头不认识：%s" % head)
+            return out
+        for line in f:
+            p = line.rstrip("\n").split("\t")
+            if len(p) <= max(i_guid, i_cls, i_name):
+                continue
+            if p[i_cls] != "CardAnim":
+                continue
+            out[p[i_name]].add(p[i_guid].strip().lower())
+    return out
+
+
+def strip_unbacked_inference(by_card, cards, stats_partial):
+    """把 `inferred-*` / `unknown` 从事件桶里**全部清掉**（两条出路见上面那一段）。
+
+    返回 `(st, not_played)`：`st` 进 `stats.inferenceGone`，`not_played` 进运行时那份的 `notPlayed`。
+    """
+    name2guids = cardanim_guid_by_name()
+    meta = {c.get("id"): (c.get("name") or "", c.get("faction") or "") for c in cards}
+
+    st = {"before": {}, "droppedDuplicate": 0, "markedUnbacked": 0,
+          "leftInferred": 0, "rows": [], "unbacked": []}
+    for cid, m in by_card.items():
+        # 这张卡的**权威行**覆盖了哪些 guid（含它落在哪个桶、哪个 soField）
+        auth = {}
+        for ev, lst in m.items():
+            if not isinstance(lst, list):
+                continue
+            for it in lst:
+                if isinstance(it, dict) and it.get("conf") == "authoritative":
+                    g = (it.get("guid") or "").lower()
+                    if g:
+                        auth.setdefault(g, {"event": ev, "soField": it.get("soField")})
+        for ev in list(m.keys()):
+            lst = m[ev]
+            if not isinstance(lst, list):
+                continue
+            keep = []
+            for it in lst:
+                conf = it.get("conf") or ""
+                if not (conf.startswith("inferred") or conf == "unknown"):
+                    keep.append(it)
+                    continue
+                st["before"][conf] = st["before"].get(conf, 0) + 1
+                anim = it.get("cardanim") or ""
+                guids = set(g for g in name2guids.get(anim, set()) if g)
+                hit = None
+                for g in sorted(guids):
+                    if g in auth:
+                        hit = (g, auth[g])
+                        break
+                nm, fa = meta.get(cid, ("", ""))
+                # ⚠️ **真实事件桶里的**（不是 `_unclassified` / `_assetRefs`）才进运行时的 `notPlayed`
+                #   —— 那两类本来就不进运行时表，记进去只会变成噪声（它们仍进全量件的 `inferenceGone`）。
+                in_runtime = not ev.startswith("_")
+                if hit:
+                    g, where = hit
+                    it["duplicateOfAuthoritative"] = {
+                        "guid": g, "event": where["event"], "soField": where.get("soField")}
+                    _why = ("卡 SO 引用同一条 CardAnim（guid `%s`）⇒ 它已经以 `authoritative` 记在"
+                            " `%s` 桶（`%s`）；本条是按名字猜出来的**第二次记账**，删掉以免同一件播两次"
+                            % (g, where["event"], where.get("soField")))
+                    st["droppedDuplicate"] += 1
+                    st["rows"].append({
+                        "cardId": cid, "cardName": nm, "event": ev,
+                        "cardanim": anim, "prefab": it.get("prefab"),
+                        "confBefore": conf, "outcome": "dropped-duplicate", "why": _why})
+                    if in_runtime:
+                        st.setdefault("_np", []).append({
+                            "id": cid, "nm": nm, "fa": fa, "ev": ev,
+                            "n": it.get("prefab") or "", "a": anim,
+                            "outcome": "duplicate", "why": _why})
+                    continue
+                # ---- ② 没有权威依据
+                it["confBefore"] = conf
+                it["conf"] = "unknown"
+                it["why"] = (
+                    "⛔ **无权威依据、不播**（2026-10-23 · `T1`）：这条是**按名字**猜出来的"
+                    "（`src: %s`），而**这张卡的卡 SO 里没有任何字段引用这条 CardAnim**（`%s`），"
+                    "`trait_collection.json`（73 个 `CardTrait` / 75 条 `TraitEffect`）里也没有对应的"
+                    " trait effect ⇒ `inferred-*` 这一档被整批去掉，⛔ 不许当权威播。"
+                    % (it.get("src") or "name-match", anim or "(空)"))
+                where = "unclassified" if ev.startswith("_") else ev
+                _why2 = ("按名字猜出来的动画；卡 SO 与 `CardTrait` SO 都没有引用它"
+                         " ⇒ 无权威依据、不播（⛔ 不拿名字相近的顶替）")
+                st["markedUnbacked"] += 1
+                st["unbacked"].append({
+                    "cardId": cid, "cardName": nm, "faction": fa, "event": where,
+                    "cardanim": anim, "prefab": it.get("prefab"),
+                    "confBefore": conf, "why": _why2})
+                if in_runtime:
+                    st.setdefault("_np", []).append({
+                        "id": cid, "nm": nm, "fa": fa, "ev": ev,
+                        "n": it.get("prefab") or "", "a": anim,
+                        "outcome": "unbacked", "why": _why2})
+                continue   # ⛔ 不 keep：从事件桶里拿走
+            if keep:
+                m[ev] = keep
+            else:
+                del m[ev]
+
+    not_played = st.pop("_np", [])
+    # 复算「还有没有推断档」（必须 0）
+    left = collections.Counter()
+    for m in by_card.values():
+        for lst in m.values():
+            if isinstance(lst, list):
+                for it in lst:
+                    c = (it or {}).get("conf") or ""
+                    if c.startswith("inferred") or c == "unknown":
+                        left[c] += 1
+    st["leftInferred"] = sum(left.values())
+    st["leftByConf"] = dict(left)
+    return st, not_played
+
+
 # ---------------------------------------------------------------- 主流程
 
 
@@ -1568,6 +1713,26 @@ def main():
               % (tr_st["multiPlayBucketsBefore"], tr_st["multiPlayBucketsAfter"]))
     else:
         print("[3·b/4] 关键词天赋→权威：**已跳过**（--no-truth）")
+
+    # ---- 🔴 2026-10-23（`T1` · Trait 全量权威化）：**把 `inferred-*` / `unknown` 整档清出事件桶**
+    #   必须排在权威档 + 关键词升级**之后**（判据 = 那两档跑完才知道「这条推断有没有权威依据」）。
+    #   ⚠️ `--no-truth` 时**照样跑**：那时一条 `authoritative` 都没有 ⇒ 所有推断都会变成
+    #      「无依据、不播」——这正是那条开关的意思（没有真值就不许播猜出来的东西）。
+    inf_st, not_played = strip_unbacked_inference(by_card, cards, None)
+    print("[3·c/4] 去兜底：推断/未知 %d 条 ⇒ **删重复 %d** · **无依据不播 %d** · **仍留推断 %d**"
+          % (sum(inf_st["before"].values()), inf_st["droppedDuplicate"],
+             inf_st["markedUnbacked"], inf_st["leftInferred"]))
+    if inf_st["before"]:
+        print("        改前分布：%s（按「卡 SO 有没有引用同一条 CardAnim」逐条判）" % inf_st["before"])
+    for _r in inf_st["rows"]:
+        print("        · 删重复：%-28s %-13s %-34s ← %s"
+              % (_r["cardId"], _r["event"], _r["cardanim"], _r["why"]))
+    for _r in inf_st["unbacked"]:
+        print("        ⛔ 不播：%-28s %-13s %-34s → %s"
+              % (_r["cardId"], _r["event"], _r["cardanim"], _r["prefab"]))
+    if inf_st["leftInferred"] != 0:
+        PROBLEMS.append("去兜底：**还剩 %d 条推断/未知**（%s）—— 这一档本该归零"
+                        % (inf_st["leftInferred"], inf_st["leftByConf"]))
 
     # 每个事件各有多少张卡
     per_ev = collections.Counter()
@@ -1693,8 +1858,10 @@ def main():
                       "（`guid_map.tsv` + `cardanim_to_asset`）—— 不需要那只远端 `allcards` 包。"
                       "错因：**把「载体的文件不在本地」当成了「那一跳断掉」**（只找了「卡预制体」这一个载体）。"
                       "⇒ `byCard` 里现在**有判据齐的逐卡条目**（`conf = authoritative`，"
-                      "见 `stats.authoritative*`）；旧的 `inferred-*` 三档**保留**但**降级为兜底**，"
-                      "按 `_conventions.confPriority` 取第一个命中的。"
+                      "见 `stats.authoritative*`）。🔴 **2026-10-23（`T1` · Trait 全量权威化）**："
+                      "旧的 `inferred-*` / `unknown` **四档已整档清掉**（`strip_unbacked_inference`）"
+                      "⇒ 今天 `stats.entriesByConf` **只有 `authoritative`**；不播的那些在 "
+                      "`stats.inferenceGone` 与运行时的 `notPlayed[]` 里逐条可查。"
                       "⚠️ 权威档的两个限定：① 真值快照 = **当前 build 的 `allcards`（1,351 张）**，"
                       "现读我们池子 **1,127/1,127** 都在快照里（原文「2022 时代 1,195 张 / 168 张查不到」"
                       "是 `T14` 换源前的口径，**2026-10-23 已过期**）；② `cardAnimations` 的事件名归到 "
@@ -1708,13 +1875,14 @@ def main():
                                  "上限受真值快照年代约束（见 `stats.authoritative.poolCardsWithoutTruth`）",
                 "exact": "判据齐（本地能逐字对上）",
                 "exact-not-per-card": "判据齐，但**不是逐卡**（原版每张卡共用的那条通用链）",
-                "inferred-name": "卡名 → 同名 CardAnim（**推断**，原版不是这么找的）",
-                "inferred-keyword": "卡的关键词 → `<关键词>Trait*` 动画（**推断**）。"
-                                    "🔴 **2026-10-23 起**能对上 `trait_collection.json` 的都已升 `authoritative`"
-                                    "（`src: cardtrait-so`）⇒ **今天这一档剩 0 条**",
-                "unknown": "⛔ **判据为空**（2026-10-23 新增）：原版数据里**找不到依据** —— 例：关键词 "
-                           "`penitence` 在 73 个 `CardTrait` 里根本没有对应 trait。`prefab` 保留只为可查，"
-                           "**不许当权威播**（不是「没查」，是「查过了、原版没有」）",
+                "inferred-name": "~~卡名 → 同名 CardAnim（推断）~~ 🔴 **2026-10-23（`T1`）已整档删除** —— "
+                                 "**今天这一档剩 0 条**（账见 `stats.inferenceGone`）",
+                "inferred-keyword": "卡的关键词 → `<关键词>Trait*` 动画（推断）。"
+                                    "2026-10-23 上午能对上 `trait_collection.json` 的都已升 `authoritative`"
+                                    "（`src: cardtrait-so`）；**同一天（`T1`）剩下的也一并清掉** ⇒ **0 条**",
+                "unknown": "⛔ **判据为空**（2026-10-23 新增）：原版数据里**找不到依据**。"
+                           "🔴 **2026-10-23（`T1`）起这一档也不留在事件桶里** —— 无依据 ⇒ 不播、"
+                           "写到运行时的 `notPlayed[]`（消费端逐条出声）。**今天这一档剩 0 条**",
                 "inferred-envcard": "进攻卡候选名 → 环境效果 VFX（**推断**，卡身份解不出）",
             },
             "confPriority": CONF_PRIORITY,
@@ -1769,6 +1937,11 @@ def main():
             "authoritative": auth_st,
             # 🔴 2026-10-23（`R33`）：关键词天赋复核（`inferred-keyword` → `authoritative` / `unknown`）
             "traitAuthority": tr_st,
+            # 🔴 2026-10-23（`T1` · Trait 全量权威化）：**推断/未知整档清出事件桶**的账
+            #   （两条出路见 `strip_unbacked_inference` 的注释：删重复 / 无依据不播）。
+            #   `leftInferred` 必须 = 0；非 0 会同时进 `problems`。
+            "inferenceGone": inf_st,
+            "notPlayed": not_played,
             "factionArmyIds": factions_army,
             "problems": PROBLEMS,
         },
@@ -1920,16 +2093,24 @@ def main():
                  "`RawCardScript__TriggerAbility.c:75-97`，消费 = `VfxMap.ResolveAllTimed(..., rng)`。"
                  "只有 `rc==1` 才写（现读全池 1 条 = `GOF12 Spanner`），其余条目缺省 0。"
                  "消费口 = `CardPresentation/Core/VfxMap.cs` 的 `ByCard`（按 `confPriority` 折叠：只留最优档，"
-                 "**同档 `authoritative` 全播**、推断档平票只留第一条）。"
-                 "🆕 **2026-10-23**：`c` 现在**还会出现 `\"authoritative\"` 的「关键词天赋」行**"
-                 "（`src: cardtrait-so`，633 条由 `inferred-keyword` 升级）与 `\"unknown\"` 行"
-                 "（判据为空，5 条 `penitence`；排 `confPriority` 最后 —— ⛔ 它只是**保留可查**，别当权威播）。"
+                 "**同档 `authoritative` 全播**）。"
+                 "🔴 **2026-10-23（`T1` · Trait 全量权威化）**：`es[].c` **只剩 `authoritative` 一种** —— "
+                 "`inferred-*` / `unknown` 已由 `strip_unbacked_inference` **整档清出事件桶**"
+                 "（删重复 / 无依据不播），改前的 22 条（17 `inferred-name` + 5 `unknown`）现在一个都不在表里。"
+                 "**不播的那些去哪了**：`notPlayed[]`（每条的 `id/nm/fa/ev/n/a/why`）—— 消费端**必须出声**，"
+                 "⛔ 不许静默。"
                  "⚠️ 形状是**数组**不是字典 —— `JsonUtility` 不支持字典（`VfxMap.EnsureLoaded` 里注明了）。"
                  "🆕 **`cards[].audio`（2026-10-14 · A1817）** = **逐卡精确语音绑定**："
                  "`[{\"ev\":\"deploy|attack|death\",\"n\":\"<原版 AudioClip 名，不带扩展名>\"}]`，"
                  "来源 = 卡 SO 的 `summonAudio` / `attackAudio` / `deathAudio`（`ev` 的翻译表见脚本的 "
                  "`AUDIO_SO_FIELD_EVENT`，**只此一处**）；消费口 = `CardPresentation/Core/VoiceLines.cs` "
                  "的精确档（**精确优先、按文件名后缀猜的那一套兜底**）。"
+                 "🔴 **2026-10-23 补注（铁律 5 · 新账-76 现核）**：`普查产出_1023c/审查_每卡VFX与音效.md` "
+                 "把它记成「运行期无消费者 / 死字段」—— **不成立**：它只是**不在 `VfxMap.RtCard` 里**"
+                 "（`JsonUtility` 会忽略 DTO 没声明的键 ⇒ 两份 DTO 各取所需，这是**故意**的），"
+                 "真正的消费口是 `Core/VoiceLines.cs` 自己声明的 `RtAudio/RtCard/RtFile`"
+                 "（`EnsureExactLoaded` → `TryPickExact` ← `BattleDriver.SpeakFor:5726`）。"
+                 "⇒ **这条数据是活的，⛔ 别删、别当冗余剪掉**；`VfxMap.RtCard` 不吃它 ≠ 无消费者。"
                  "⚠️ `cardCount` = **文件里的卡数**（含几张**只有语音、没有 VFX** 的卡 —— 它们只带 `audio` 键、"
                  "没有 `events` 键，`VfxMap` 会跳过；`entryCount` 只数 `events` 里的条目）。",
         "generatedBy": out.get("generatedBy"),
@@ -1945,6 +2126,11 @@ def main():
         "audioCount": rt_audio,
         "audioCardCount": rt_audio_cards,
         "audioNoNameCount": rt_audio_noname,
+        # 🔴 2026-10-23（`T1`）：**有原版动画、但没有权威依据、因此不播**的那些 (卡, 事件)。
+        #   消费端 = `VfxMap.EnsureLoaded`（逐条 `Debug.LogWarning` 出声 + 计数给断言）。
+        #   ⛔ 别把它们塞回 `cards[].events`（那会让「无依据也播」回来）。
+        "notPlayedCount": len(not_played),
+        "notPlayed": not_played,
         "cards": rt_cards,
     }
     os.makedirs(os.path.dirname(OUT_RUNTIME), exist_ok=True)

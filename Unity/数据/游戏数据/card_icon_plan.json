@@ -34,6 +34,11 @@
      "name": "descZh",
      "items": [
       {
+       "token": "路标石。",
+       "sprite": "waystone",
+       "why": "卡面「图标 + 关键词」：句首这枚走**名字**（图集文件名就是关键词名，中文走 `_规则书关键词表.md` 那 61 条中英对照）。逐张核过这个写法：`Codex:` / `Armour 1.` / `Regiment:` / `Duty:` / `Ephemeral.` / `Waystone.` / `Flank.` / `Rally:` / `Blast 4.`"
+      },
+      {
        "token": "[攻击]",
        "sprite": "Melee",
        "why": "中文「近战」记号（本批新写的；全池既有 18 处全部 = 拳）"
@@ -14293,6 +14298,11 @@
     {
      "name": "descZh",
      "items": [
+      {
+       "token": "4 能量",
+       "sprite": "faith",
+       "why": "**信仰费**写成裸词（`N Energy:` / `N 能量：`）：卡面印的是 `N〔金太阳〕:`、**没有词**。⚠️ 这一枚由运行时 `Core/CardIcons.cs` 的 `RewriteFaithCost` 按句法画（在本表之前跑），本表这一条**恒空转**（token = 「数字 + 词」整段，词已被那一步吃掉）—— 只为让 `IconSetup` ④a「英文画了、中文也画」看得见它。⛔ 别把 token 缩成光秃秃的 `能量`。"
+      },
       {
        "token": "[攻击]",
        "sprite": "Melee",

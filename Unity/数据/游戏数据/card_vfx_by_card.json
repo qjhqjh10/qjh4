@@ -1,7 +1,7 @@
 {
  "schema": "card_vfx_by_card/v1",
  "generatedBy": "d:/4/Unity/工具/gen_card_vfx_by_card.py",
- "generatedAt": "2026-10-23 15:13:03",
+ "generatedAt": "2026-10-23 19:07:26",
  "_sources": {
   "cardsEngine": "d:/4/Unity/MyGame/Assets/RuleEngine/Resources/cards_engine.json",
   "animAddressMap": "d:/4/Unity/数据/索引/anim_address_map.json",
@@ -22,15 +22,15 @@
   "traitCollection": "d:/4/Unity/数据/游戏数据/trait_collection.json",
   "enumStubs": "d:/2/Warpforge_code/Scripts/Assembly-CSharp"
  },
- "_headline": "🔴 **2026-10-14 更正：原来写「逐卡那一跳在本地断掉」，实际是【通的】**。卡 SO 的字段本身就是 `AssetReference`（存 GUID），GUID → 束 → 资产原名一直可解（`guid_map.tsv` + `cardanim_to_asset`）—— 不需要那只远端 `allcards` 包。错因：**把「载体的文件不在本地」当成了「那一跳断掉」**（只找了「卡预制体」这一个载体）。⇒ `byCard` 里现在**有判据齐的逐卡条目**（`conf = authoritative`，见 `stats.authoritative*`）；旧的 `inferred-*` 三档**保留**但**降级为兜底**，按 `_conventions.confPriority` 取第一个命中的。⚠️ 权威档的两个限定：① 真值快照 = **当前 build 的 `allcards`（1,351 张）**，现读我们池子 **1,127/1,127** 都在快照里（原文「2022 时代 1,195 张 / 168 张查不到」是 `T14` 换源前的口径，**2026-10-23 已过期**）；② `cardAnimations` 的事件名归到 `ability` 是**我们拍的**（原版给的是枚举，已带在条目上）。🆕 **2026-10-23**：`inferred-keyword` 那 638 条**已用 `CardTrait` SO 的权威数据逐条复核**—— 633 条升 `authoritative`、5 条 `penitence` 无依据标 `unknown`（见 `stats.traitAuthority`）。",
+ "_headline": "🔴 **2026-10-14 更正：原来写「逐卡那一跳在本地断掉」，实际是【通的】**。卡 SO 的字段本身就是 `AssetReference`（存 GUID），GUID → 束 → 资产原名一直可解（`guid_map.tsv` + `cardanim_to_asset`）—— 不需要那只远端 `allcards` 包。错因：**把「载体的文件不在本地」当成了「那一跳断掉」**（只找了「卡预制体」这一个载体）。⇒ `byCard` 里现在**有判据齐的逐卡条目**（`conf = authoritative`，见 `stats.authoritative*`）。🔴 **2026-10-23（`T1` · Trait 全量权威化）**：旧的 `inferred-*` / `unknown` **四档已整档清掉**（`strip_unbacked_inference`）⇒ 今天 `stats.entriesByConf` **只有 `authoritative`**；不播的那些在 `stats.inferenceGone` 与运行时的 `notPlayed[]` 里逐条可查。⚠️ 权威档的两个限定：① 真值快照 = **当前 build 的 `allcards`（1,351 张）**，现读我们池子 **1,127/1,127** 都在快照里（原文「2022 时代 1,195 张 / 168 张查不到」是 `T14` 换源前的口径，**2026-10-23 已过期**）；② `cardAnimations` 的事件名归到 `ability` 是**我们拍的**（原版给的是枚举，已带在条目上）。🆕 **2026-10-23**：`inferred-keyword` 那 638 条**已用 `CardTrait` SO 的权威数据逐条复核**—— 633 条升 `authoritative`、5 条 `penitence` 无依据标 `unknown`（见 `stats.traitAuthority`）。",
  "_conventions": {
   "conf": {
    "authoritative": "🔴 **原版真值**（不是推断）：卡 SO 字段（GUID）→ 束 → 资产原名 → VFX prefab。上限受真值快照年代约束（见 `stats.authoritative.poolCardsWithoutTruth`）",
    "exact": "判据齐（本地能逐字对上）",
    "exact-not-per-card": "判据齐，但**不是逐卡**（原版每张卡共用的那条通用链）",
-   "inferred-name": "卡名 → 同名 CardAnim（**推断**，原版不是这么找的）",
-   "inferred-keyword": "卡的关键词 → `<关键词>Trait*` 动画（**推断**）。🔴 **2026-10-23 起**能对上 `trait_collection.json` 的都已升 `authoritative`（`src: cardtrait-so`）⇒ **今天这一档剩 0 条**",
-   "unknown": "⛔ **判据为空**（2026-10-23 新增）：原版数据里**找不到依据** —— 例：关键词 `penitence` 在 73 个 `CardTrait` 里根本没有对应 trait。`prefab` 保留只为可查，**不许当权威播**（不是「没查」，是「查过了、原版没有」）",
+   "inferred-name": "~~卡名 → 同名 CardAnim（推断）~~ 🔴 **2026-10-23（`T1`）已整档删除** —— **今天这一档剩 0 条**（账见 `stats.inferenceGone`）",
+   "inferred-keyword": "卡的关键词 → `<关键词>Trait*` 动画（推断）。2026-10-23 上午能对上 `trait_collection.json` 的都已升 `authoritative`（`src: cardtrait-so`）；**同一天（`T1`）剩下的也一并清掉** ⇒ **0 条**",
+   "unknown": "⛔ **判据为空**（2026-10-23 新增）：原版数据里**找不到依据**。🔴 **2026-10-23（`T1`）起这一档也不留在事件桶里** —— 无依据 ⇒ 不播、写到运行时的 `notPlayed[]`（消费端逐条出声）。**今天这一档剩 0 条**",
    "inferred-envcard": "进攻卡候选名 → 环境效果 VFX（**推断**，卡身份解不出）"
   },
   "confPriority": [
@@ -701,15 +701,6 @@
  },
  "byCard": {
   "ASH48": {
-   "_unclassified": [
-    {
-     "cardanim": "CosmicSerpent_Secondary",
-     "prefab": "Cosmic Serpent_Secondary",
-     "conf": "inferred-name",
-     "src": "name-match",
-     "why": "名字里没有可判读的事件词"
-    }
-   ],
    "_assetRefs": [
     {
      "conf": "authoritative",
@@ -797,13 +788,6 @@
      "chosenAbility": 30,
      "chosenAbilityName": "buffOthers",
      "inLibrary": true
-    },
-    {
-     "prefab": "Cosmic Serpent",
-     "cardanim": "Forewarned Board",
-     "conf": "inferred-name",
-     "src": "name-match",
-     "why": "卡名 `Forewarned` 归一化后是 CardAnim 名 `Forewarned Board` 的前缀；名字含 Board/Battleground（全场/落板那一下）"
     }
    ],
    "_assetRefs": [
@@ -891,50 +875,6 @@
    ]
   },
   "09bcb1b3b8794c4429d82d4b2e68fa1f": {
-   "_unclassified": [
-    {
-     "cardanim": "PathOfTheSeerGreen_self",
-     "prefab": "PathOfTheSeerGreen",
-     "conf": "inferred-name",
-     "src": "name-match",
-     "why": "名字里没有可判读的事件词"
-    },
-    {
-     "cardanim": "PathOfTheSeerGreen_warlord",
-     "prefab": "PathOfTheSeerGreen",
-     "conf": "inferred-name",
-     "src": "name-match",
-     "why": "名字里没有可判读的事件词"
-    },
-    {
-     "cardanim": "PathOfTheSeerRed_self",
-     "prefab": "PathOfTheSeerRed",
-     "conf": "inferred-name",
-     "src": "name-match",
-     "why": "名字里没有可判读的事件词"
-    },
-    {
-     "cardanim": "PathOfTheSeerRed_warlord",
-     "prefab": "PathOfTheSeerRed",
-     "conf": "inferred-name",
-     "src": "name-match",
-     "why": "名字里没有可判读的事件词"
-    },
-    {
-     "cardanim": "PathOfTheSeer_BG-effect",
-     "prefab": "PathOfTheSeer_BG-effect",
-     "conf": "inferred-name",
-     "src": "name-match",
-     "why": "后缀 `effect` ⇒ 天赋效果，**哪一类判不了**（原版归口在 `CardTrait.TraitEffects`）"
-    },
-    {
-     "cardanim": "PathOfTheSeer_Self",
-     "prefab": "PathOfTheSeer",
-     "conf": "inferred-name",
-     "src": "name-match",
-     "why": "名字里没有可判读的事件词"
-    }
-   ],
    "_assetRefs": [
     {
      "conf": "authoritative",
@@ -998,15 +938,6 @@
    ]
   },
   "ASH54": {
-   "_unclassified": [
-    {
-     "cardanim": "WailingDoom_Adjacent",
-     "prefab": "KhaineBuff",
-     "conf": "inferred-name",
-     "src": "name-match",
-     "why": "名字里没有可判读的事件词"
-    }
-   ],
    "_assetRefs": [
     {
      "conf": "authoritative",
@@ -1072,24 +1003,6 @@
    ]
   },
   "AM30": {
-   "play": [
-    {
-     "prefab": "Artillery Manticore down 1x",
-     "cardanim": "Manticore Board Down",
-     "conf": "inferred-name",
-     "src": "name-match",
-     "why": "卡名 `Manticore` 归一化后是 CardAnim 名 `Manticore Board Down` 的前缀；名字含 Board/Battleground（全场/落板那一下）"
-    }
-   ],
-   "_unclassified": [
-    {
-     "cardanim": "Manticore Self Up",
-     "prefab": "Artillery Manticore up 4x",
-     "conf": "inferred-name",
-     "src": "name-match",
-     "why": "名字里没有可判读的事件词"
-    }
-   ],
    "attack_ranged": [
     {
      "conf": "authoritative",
@@ -1199,15 +1112,6 @@
    ]
   },
   "AM34": {
-   "_unclassified": [
-    {
-     "cardanim": "Valkyrie_Hover_Dust",
-     "prefab": "Valkyrie Flyover Hover Dust",
-     "conf": "inferred-name",
-     "src": "name-match",
-     "why": "名字里没有可判读的事件词"
-    }
-   ],
    "attack_ranged": [
     {
      "conf": "authoritative",
@@ -1223,13 +1127,6 @@
      "cardanim": "Atk_BulletImpact_Valkyrie_Missiles",
      "prefab": "BulletImpact_ValkyrieMissile",
      "inLibrary": true
-    },
-    {
-     "prefab": "Valkyrie_MultiLaser_Hover",
-     "cardanim": "Valkyrie_MultiLaser_Hover_Target",
-     "conf": "inferred-name",
-     "src": "name-match",
-     "why": "卡名 `Valkyrie` 归一化后是 CardAnim 名 `Valkyrie_MultiLaser_Hover_Target` 的前缀；名字含 bullet/las/gauss/impact/shot/missile/beam"
     }
    ],
    "ability": [
@@ -1431,22 +1328,6 @@
      "chosenAbility": 0,
      "chosenAbilityName": "drawCard",
      "inLibrary": true
-    },
-    {
-     "prefab": "BlackCrusade_Battleground repeat",
-     "cardanim": "BlackCrusade_battleground",
-     "conf": "inferred-name",
-     "src": "name-match",
-     "why": "卡名 `Black Crusade` 归一化后是 CardAnim 名 `BlackCrusade_battleground` 的前缀；名字含 Board/Battleground（全场/落板那一下）"
-    }
-   ],
-   "_unclassified": [
-    {
-     "cardanim": "BlackCrusade_self",
-     "prefab": "BlackCrusade_Battleground repeat",
-     "conf": "inferred-name",
-     "src": "name-match",
-     "why": "名字里没有可判读的事件词"
     }
    ],
    "_assetRefs": [
@@ -1466,15 +1347,6 @@
    ]
   },
   "BL50": {
-   "_unclassified": [
-    {
-     "cardanim": "Execution_BlackLegion",
-     "prefab": "Execution_BlackLegion",
-     "conf": "inferred-name",
-     "src": "name-match",
-     "why": "名字里没有可判读的事件词"
-    }
-   ],
    "_assetRefs": [
     {
      "conf": "authoritative",
@@ -1516,22 +1388,6 @@
    ]
   },
   "3f38d2e2c83df4b4c9052ef4a510cfbb": {
-   "_unclassified": [
-    {
-     "cardanim": "RitesOfPossession_self",
-     "prefab": "Possession_self",
-     "conf": "inferred-name",
-     "src": "name-match",
-     "why": "名字里没有可判读的事件词"
-    },
-    {
-     "cardanim": "RitesOfPossession_target",
-     "prefab": "Explosion_Possession",
-     "conf": "inferred-name",
-     "src": "name-match",
-     "why": "名字里没有可判读的事件词"
-    }
-   ],
    "_assetRefs": [
     {
      "conf": "authoritative",
@@ -1661,22 +1517,6 @@
      "chosenAbility": 10,
      "chosenAbilityName": "doDamage",
      "inLibrary": true
-    },
-    {
-     "prefab": "TraitorsHate_Board",
-     "cardanim": "Traitors' Hate Board",
-     "conf": "inferred-name",
-     "src": "name-match",
-     "why": "卡名 `Traitors' Hate` 归一化后是 CardAnim 名 `Traitors' Hate Board` 的前缀；名字含 Board/Battleground（全场/落板那一下）"
-    }
-   ],
-   "_unclassified": [
-    {
-     "cardanim": "Traitors' Hate Target",
-     "prefab": "TraitorsHate_Target",
-     "conf": "inferred-name",
-     "src": "name-match",
-     "why": "名字里没有可判读的事件词"
     }
    ],
    "_assetRefs": [
@@ -1696,15 +1536,6 @@
    ]
   },
   "BL52": {
-   "_unclassified": [
-    {
-     "cardanim": "UnholySmite_random",
-     "prefab": "Psychic_Lightning_Red",
-     "conf": "inferred-name",
-     "src": "name-match",
-     "why": "名字里没有可判读的事件词"
-    }
-   ],
    "_assetRefs": [
     {
      "conf": "authoritative",
@@ -1790,15 +1621,6 @@
    ]
   },
   "a84a5b49f0ca9144585058db6987c2a0": {
-   "hit": [
-    {
-     "prefab": "Psychic_Lightning_down_Intense_white",
-     "cardanim": "Master Interromancer Hit",
-     "conf": "inferred-name",
-     "src": "name-match",
-     "why": "卡名 `Master Interromancer` 归一化后是 CardAnim 名 `Master Interromancer Hit` 的前缀；名字含 damage/hit"
-    }
-   ],
    "_assetRefs": [
     {
      "conf": "authoritative",
@@ -1864,15 +1686,6 @@
    ]
   },
   "EC29": {
-   "attack_melee": [
-    {
-     "prefab": "HeldrakeStrike",
-     "cardanim": "HeldrakeStrike",
-     "conf": "inferred-name",
-     "src": "name-match",
-     "why": "卡名 `Heldrake` 归一化后是 CardAnim 名 `HeldrakeStrike` 的前缀；名字含 strike/slash/slice/sweep/claw/melee/cleave"
-    }
-   ],
    "ability": [
     {
      "prefab": "FlyingEffect",
@@ -1978,15 +1791,6 @@
    ]
   },
   "GSC46": {
-   "_unclassified": [
-    {
-     "cardanim": "Bore Through Intense",
-     "prefab": "Bore Through Intense",
-     "conf": "inferred-name",
-     "src": "name-match",
-     "why": "名字里没有可判读的事件词"
-    }
-   ],
    "_assetRefs": [
     {
      "conf": "authoritative",
@@ -2050,15 +1854,6 @@
    ]
   },
   "68909cf02f472734ea391665e0d28e15": {
-   "hit": [
-    {
-     "prefab": "Jammed Communications damage",
-     "cardanim": "Jammed Communications Damage",
-     "conf": "inferred-name",
-     "src": "name-match",
-     "why": "卡名 `Jammed Communications` 归一化后是 CardAnim 名 `Jammed Communications Damage` 的前缀；名字含 damage/hit"
-    }
-   ],
    "_assetRefs": [
     {
      "conf": "authoritative",
@@ -2146,15 +1941,6 @@
    ]
   },
   "SAU20": {
-   "_unclassified": [
-    {
-     "cardanim": "Chronomancer_Buff",
-     "prefab": "Chronomancer_Buff",
-     "conf": "inferred-name",
-     "src": "name-match",
-     "why": "名字里没有可判读的事件词"
-    }
-   ],
    "trigger": [
     {
      "prefab": "TalentEffect",
@@ -2273,17 +2059,6 @@
    ]
   },
   "SAU3": {
-   "deploy": [
-    {
-     "prefab": "Flayed One Summon",
-     "cardanim": "Flayed One Summon",
-     "conf": "inferred-name",
-     "src": "name-match",
-     "why": "卡名 `Flayed One` 归一化后是 CardAnim 名 `Flayed One Summon` 的前缀；名字含 summon/spawn/deploy",
-     "ledgerCategory": "SUMMON",
-     "ledgerTrigger": "Necron Flayed One 部署/再生(Flayed Ones Pack Artifice; Remnant 再生 gain Fast)"
-    }
-   ],
    "death": [
     {
      "conf": "authoritative",
@@ -2383,13 +2158,6 @@
      "cardanim": "Plasmancer_Damage",
      "prefab": "Plasmancer_Damage",
      "inLibrary": true
-    },
-    {
-     "prefab": "Plasmancer_Damage",
-     "cardanim": "Plasmancer_Damage",
-     "conf": "inferred-name",
-     "src": "name-match",
-     "why": "卡名 `Plasmancer` 归一化后是 CardAnim 名 `Plasmancer_Damage` 的前缀；名字含 bullet/las/gauss/impact/shot/missile/beam"
     }
    ],
    "trigger": [
@@ -2493,15 +2261,6 @@
    ]
   },
   "SAU17": {
-   "_unclassified": [
-    {
-     "cardanim": "Psychomancer_Stun",
-     "prefab": "Psychomancer_Stun",
-     "conf": "inferred-name",
-     "src": "name-match",
-     "why": "名字里没有可判读的事件词"
-    }
-   ],
    "trigger": [
     {
      "prefab": "RallyEffect",
@@ -2620,15 +2379,6 @@
    ]
   },
   "SAU11": {
-   "_unclassified": [
-    {
-     "cardanim": "Technomancer_Buff",
-     "prefab": "Technomancer_Buff",
-     "conf": "inferred-name",
-     "src": "name-match",
-     "why": "名字里没有可判读的事件词"
-    }
-   ],
    "trigger": [
     {
      "prefab": "ArtificeEffect",
@@ -2835,22 +2585,6 @@
      "chosenAbility": 70,
      "chosenAbilityName": "summonUnit",
      "inLibrary": true
-    },
-    {
-     "prefab": "Sau_Dimensional_Breach_Battleground",
-     "cardanim": "Dimensional_Breach_Battleground",
-     "conf": "inferred-name",
-     "src": "name-match",
-     "why": "卡名 `Dimensional Breach` 归一化后是 CardAnim 名 `Dimensional_Breach_Battleground` 的前缀；名字含 Board/Battleground（全场/落板那一下）"
-    }
-   ],
-   "deploy": [
-    {
-     "prefab": "Sau_Dimensional_Breach_Spawn",
-     "cardanim": "Dimensional_Breach_Spawn",
-     "conf": "inferred-name",
-     "src": "name-match",
-     "why": "卡名 `Dimensional Breach` 归一化后是 CardAnim 名 `Dimensional_Breach_Spawn` 的前缀；名字含 summon/spawn/deploy"
     }
    ],
    "death": [
@@ -2886,15 +2620,6 @@
    ]
   },
   "65b2be828179515458a282cf1b027182": {
-   "_unclassified": [
-    {
-     "cardanim": "Indomitable_Will_Effect",
-     "prefab": "Sau_IndomitableWill",
-     "conf": "inferred-name",
-     "src": "name-match",
-     "why": "后缀 `effect` ⇒ 天赋效果，**哪一类判不了**（原版归口在 `CardTrait.TraitEffects`）"
-    }
-   ],
    "_assetRefs": [
     {
      "conf": "authoritative",
@@ -2936,15 +2661,6 @@
    ]
   },
   "30007162b68992e41a422f2061705b65": {
-   "hit": [
-    {
-     "prefab": "Sau_LordOfTheStorm",
-     "cardanim": "Lord_of_the_storm_hit",
-     "conf": "inferred-name",
-     "src": "name-match",
-     "why": "卡名 `Lord of the Storm` 归一化后是 CardAnim 名 `Lord_of_the_storm_hit` 的前缀；名字含 damage/hit"
-    }
-   ],
    "_assetRefs": [
     {
      "conf": "authoritative",
@@ -3010,15 +2726,6 @@
    ]
   },
   "cbabeb234380634479feab1a1b4c733a": {
-   "_unclassified": [
-    {
-     "cardanim": "Master_Chronomancer_Effect",
-     "prefab": "Sau_MasterChronomancer",
-     "conf": "inferred-name",
-     "src": "name-match",
-     "why": "后缀 `effect` ⇒ 天赋效果，**哪一类判不了**（原版归口在 `CardTrait.TraitEffects`）"
-    }
-   ],
    "_assetRefs": [
     {
      "conf": "authoritative",
@@ -3083,15 +2790,6 @@
    ]
   },
   "d8a14171b08b54144ba9dbf324b0a042": {
-   "deploy": [
-    {
-     "prefab": "GreenSummonCircle",
-     "cardanim": "RelentlessMarchSummon",
-     "conf": "inferred-name",
-     "src": "name-match",
-     "why": "卡名 `Relentless March` 归一化后是 CardAnim 名 `RelentlessMarchSummon` 的前缀；名字含 summon/spawn/deploy"
-    }
-   ],
    "_assetRefs": [
     {
      "conf": "authoritative",
@@ -3133,15 +2831,6 @@
    ]
   },
   "SAU43": {
-   "_unclassified": [
-    {
-     "cardanim": "Solar_Pulse_Effect",
-     "prefab": "Sau_SolarPulse",
-     "conf": "inferred-name",
-     "src": "name-match",
-     "why": "后缀 `effect` ⇒ 天赋效果，**哪一类判不了**（原版归口在 `CardTrait.TraitEffects`）"
-    }
-   ],
    "death": [
     {
      "conf": "authoritative",
@@ -3199,15 +2888,6 @@
    ]
   },
   "GOF71": {
-   "_unclassified": [
-    {
-     "cardanim": "Krump Da Gitz effect",
-     "prefab": "OrkBuff_KrumpDaGitz",
-     "conf": "inferred-name",
-     "src": "name-match",
-     "why": "后缀 `effect` ⇒ 天赋效果，**哪一类判不了**（原版归口在 `CardTrait.TraitEffects`）"
-    }
-   ],
    "_assetRefs": [
     {
      "conf": "authoritative",
@@ -3249,15 +2929,6 @@
    ]
   },
   "8425b809e9e64e24f9035f709f5aaee4": {
-   "_unclassified": [
-    {
-     "cardanim": "WorstTemper_Warlord",
-     "prefab": "WorstTemperEffect",
-     "conf": "inferred-name",
-     "src": "name-match",
-     "why": "名字里没有可判读的事件词"
-    }
-   ],
    "_assetRefs": [
     {
      "conf": "authoritative",
@@ -3299,15 +2970,6 @@
    ]
   },
   "GOF70": {
-   "_unclassified": [
-    {
-     "cardanim": "KrumpaKlawEffect",
-     "prefab": "BigKrumpaKlawEffect",
-     "conf": "inferred-name",
-     "src": "name-match",
-     "why": "后缀 `effect` ⇒ 天赋效果，**哪一类判不了**（原版归口在 `CardTrait.TraitEffects`）"
-    }
-   ],
    "trigger": [
     {
      "prefab": "MobEffect",
@@ -3440,15 +3102,6 @@
    ]
   },
   "SOR8": {
-   "attack_melee": [
-    {
-     "prefab": "Arco-Flagellant Strike",
-     "cardanim": "Arco-Flagellant Strike",
-     "conf": "inferred-name",
-     "src": "name-match",
-     "why": "卡名 `Arco-flagellant` 归一化后是 CardAnim 名 `Arco-Flagellant Strike` 的前缀；名字含 strike/slash/slice/sweep/claw/melee/cleave"
-    }
-   ],
    "trigger": [
     {
      "prefab": "FlankEffect",
@@ -3464,16 +3117,6 @@
      "traitTriggerName": "Start",
      "playIfWarlord": true,
      "authoritativeAnim": "FlankTraitStart"
-    },
-    {
-     "prefab": "PenitenceEffect",
-     "cardanim": "PenitenceTraitTrigger",
-     "conf": "unknown",
-     "src": "keyword-trait",
-     "keyword": "Penitence",
-     "traitTriggerType": "EffectTriggerType.Trigger(3)",
-     "why": "⛔ **无权威依据**（2026-10-23）：`trait_collection.json`（73 个 `CardTrait` / 77 个 `TraitPairs`，安卓 1.35.0 交叉验证逐字段 0 差异）里**没有**关键词 `Penitence` 这个 trait ⇒「`<关键词>Trait*`」这条构词法推断（= `PenitenceTraitTrigger`）**升不了级**。`prefab` 保留只为可查，⛔ 不许当权威播。",
-     "confBefore": "inferred-keyword"
     }
    ],
    "_assetRefs": [
@@ -3552,15 +3195,6 @@
    ]
   },
   "SOR43": {
-   "_unclassified": [
-    {
-     "cardanim": "CleansingFlamesEffect",
-     "prefab": "BulletImpact_FlamethrowerSororitas_long",
-     "conf": "inferred-name",
-     "src": "name-match",
-     "why": "后缀 `effect` ⇒ 天赋效果，**哪一类判不了**（原版归口在 `CardTrait.TraitEffects`）"
-    }
-   ],
    "_assetRefs": [
     {
      "conf": "authoritative",
@@ -3668,13 +3302,6 @@
      "chosenAbility": 110,
      "chosenAbilityName": "destroy",
      "inLibrary": true
-    },
-    {
-     "prefab": "Sororitas_Divine Intervention_ Battleground",
-     "cardanim": "Divine_Intervention_Battleground",
-     "conf": "inferred-name",
-     "src": "name-match",
-     "why": "卡名 `Divine Intervention` 归一化后是 CardAnim 名 `Divine_Intervention_Battleground` 的前缀；名字含 Board/Battleground（全场/落板那一下）"
     }
    ],
    "_assetRefs": [
@@ -3762,15 +3389,6 @@
    ]
   },
   "9f75a6fe11922eb409ffbad4ecdeb405": {
-   "_unclassified": [
-    {
-     "cardanim": "HeroOfTheEmpire_Warlord OLD",
-     "prefab": "HeroOfTheEmpire OLD",
-     "conf": "inferred-name",
-     "src": "name-match",
-     "why": "名字里没有可判读的事件词"
-    }
-   ],
    "_assetRefs": [
     {
      "conf": "authoritative",
@@ -3812,15 +3430,6 @@
    ]
   },
   "TAU44": {
-   "_unclassified": [
-    {
-     "cardanim": "Pulse Onslaught Target",
-     "prefab": "Pulse Onslaught",
-     "conf": "inferred-name",
-     "src": "name-match",
-     "why": "名字里没有可判读的事件词"
-    }
-   ],
    "_assetRefs": [
     {
      "conf": "authoritative",
@@ -3862,22 +3471,6 @@
    ]
   },
   "TAU55": {
-   "_unclassified": [
-    {
-     "cardanim": "Relentless Fusillade All enemies",
-     "prefab": "Relentless Fusillade",
-     "conf": "inferred-name",
-     "src": "name-match",
-     "why": "名字里没有可判读的事件词"
-    },
-    {
-     "cardanim": "Relentless Fusillade Sniper",
-     "prefab": "Relentless Fusillade sniper",
-     "conf": "inferred-name",
-     "src": "name-match",
-     "why": "名字里没有可判读的事件词"
-    }
-   ],
    "_assetRefs": [
     {
      "conf": "authoritative",
@@ -3941,15 +3534,6 @@
    ]
   },
   "TL37": {
-   "_unclassified": [
-    {
-     "cardanim": "SporeMine_Explosion",
-     "prefab": "Spore Mine Explosion",
-     "conf": "inferred-name",
-     "src": "name-match",
-     "why": "名字里没有可判读的事件词"
-    }
-   ],
    "attack_ranged": [
     {
      "conf": "authoritative",
@@ -4021,15 +3605,6 @@
    ]
   },
   "8f2da557fe484ee4bbf427c13eccd4cb": {
-   "_unclassified": [
-    {
-     "cardanim": "AlphaWarrior_Warlord",
-     "prefab": "AlphaWarriorEffect",
-     "conf": "inferred-name",
-     "src": "name-match",
-     "why": "名字里没有可判读的事件词"
-    }
-   ],
    "_assetRefs": [
     {
      "conf": "authoritative",
@@ -4071,29 +3646,6 @@
    ]
   },
   "TL51": {
-   "_unclassified": [
-    {
-     "cardanim": "ToxicMiasma_Venomthrope",
-     "prefab": "ToxicMiasma_Venomthrope",
-     "conf": "inferred-name",
-     "src": "name-match",
-     "why": "名字里没有可判读的事件词"
-    },
-    {
-     "cardanim": "ToxicMiasma_self",
-     "prefab": "ToxicMiasma_Warlord",
-     "conf": "inferred-name",
-     "src": "name-match",
-     "why": "名字里没有可判读的事件词"
-    },
-    {
-     "cardanim": "ToxicMiasma_warlord",
-     "prefab": "ToxicMiasma_Warlord",
-     "conf": "inferred-name",
-     "src": "name-match",
-     "why": "名字里没有可判读的事件词"
-    }
-   ],
    "_assetRefs": [
     {
      "conf": "authoritative",
@@ -4157,24 +3709,6 @@
    ]
   },
   "TL72": {
-   "deploy": [
-    {
-     "prefab": "TyranidInvasion_Spawn",
-     "cardanim": "TyranidInvasion_Spawn",
-     "conf": "inferred-name",
-     "src": "name-match",
-     "why": "卡名 `Tyranid Invasion` 归一化后是 CardAnim 名 `TyranidInvasion_Spawn` 的前缀；名字含 summon/spawn/deploy"
-    }
-   ],
-   "_unclassified": [
-    {
-     "cardanim": "TyranidInvasion_Target",
-     "prefab": "TyranidInvasion_Spawn",
-     "conf": "inferred-name",
-     "src": "name-match",
-     "why": "名字里没有可判读的事件词"
-    }
-   ],
    "_assetRefs": [
     {
      "conf": "authoritative",
@@ -4304,22 +3838,6 @@
    ]
   },
   "UM37": {
-   "_unclassified": [
-    {
-     "cardanim": "DeathFromAbove_TargetLock",
-     "prefab": "UM_Target_LockOn_Crosshair",
-     "conf": "inferred-name",
-     "src": "name-match",
-     "why": "名字里没有可判读的事件词"
-    },
-    {
-     "cardanim": "DeathFromAbove_ability",
-     "prefab": "UM_DeathFromAbove",
-     "conf": "inferred-name",
-     "src": "name-match",
-     "why": "名字里没有可判读的事件词"
-    }
-   ],
    "trigger": [
     {
      "prefab": "CodexEffect",
@@ -4446,15 +3964,6 @@
    ]
   },
   "cf0b346f70e748c4bbfc4dc03ab39ead": {
-   "_unclassified": [
-    {
-     "cardanim": "SmiteLightning_Down",
-     "prefab": "Psychic_Lightning_down",
-     "conf": "inferred-name",
-     "src": "name-match",
-     "why": "名字里没有可判读的事件词"
-    }
-   ],
    "_assetRefs": [
     {
      "conf": "authoritative",
@@ -4496,22 +4005,6 @@
    ]
   },
   "UM38": {
-   "_unclassified": [
-    {
-     "cardanim": "Stormraven_Center",
-     "prefab": "UM_StormravenShadow",
-     "conf": "inferred-name",
-     "src": "name-match",
-     "why": "名字里没有可判读的事件词"
-    },
-    {
-     "cardanim": "Stormraven_Shadow_Target",
-     "prefab": "UM_StormravenShadow_Perpendicular",
-     "conf": "inferred-name",
-     "src": "name-match",
-     "why": "名字里没有可判读的事件词"
-    }
-   ],
    "_assetRefs": [
     {
      "conf": "authoritative",
@@ -31705,18 +31198,6 @@
      "authoritativeAnim": "CamouflageTraitPlay"
     }
    ],
-   "trigger": [
-    {
-     "prefab": "PenitenceEffect",
-     "cardanim": "PenitenceTraitTrigger",
-     "conf": "unknown",
-     "src": "keyword-trait",
-     "keyword": "Penitence",
-     "traitTriggerType": "EffectTriggerType.Trigger(3)",
-     "why": "⛔ **无权威依据**（2026-10-23）：`trait_collection.json`（73 个 `CardTrait` / 77 个 `TraitPairs`，安卓 1.35.0 交叉验证逐字段 0 差异）里**没有**关键词 `Penitence` 这个 trait ⇒「`<关键词>Trait*`」这条构词法推断（= `PenitenceTraitTrigger`）**升不了级**。`prefab` 保留只为可查，⛔ 不许当权威播。",
-     "confBefore": "inferred-keyword"
-    }
-   ],
    "_assetRefs": [
     {
      "conf": "authoritative",
@@ -32421,18 +31902,6 @@
    ]
   },
   "SOR10": {
-   "trigger": [
-    {
-     "prefab": "PenitenceEffect",
-     "cardanim": "PenitenceTraitTrigger",
-     "conf": "unknown",
-     "src": "keyword-trait",
-     "keyword": "Penitence",
-     "traitTriggerType": "EffectTriggerType.Trigger(3)",
-     "why": "⛔ **无权威依据**（2026-10-23）：`trait_collection.json`（73 个 `CardTrait` / 77 个 `TraitPairs`，安卓 1.35.0 交叉验证逐字段 0 差异）里**没有**关键词 `Penitence` 这个 trait ⇒「`<关键词>Trait*`」这条构词法推断（= `PenitenceTraitTrigger`）**升不了级**。`prefab` 保留只为可查，⛔ 不许当权威播。",
-     "confBefore": "inferred-keyword"
-    }
-   ],
    "_assetRefs": [
     {
      "conf": "authoritative",
@@ -33111,18 +32580,6 @@
    ]
   },
   "SOR32": {
-   "trigger": [
-    {
-     "prefab": "PenitenceEffect",
-     "cardanim": "PenitenceTraitTrigger",
-     "conf": "unknown",
-     "src": "keyword-trait",
-     "keyword": "Penitence",
-     "traitTriggerType": "EffectTriggerType.Trigger(3)",
-     "why": "⛔ **无权威依据**（2026-10-23）：`trait_collection.json`（73 个 `CardTrait` / 77 个 `TraitPairs`，安卓 1.35.0 交叉验证逐字段 0 差异）里**没有**关键词 `Penitence` 这个 trait ⇒「`<关键词>Trait*`」这条构词法推断（= `PenitenceTraitTrigger`）**升不了级**。`prefab` 保留只为可查，⛔ 不许当权威播。",
-     "confBefore": "inferred-keyword"
-    }
-   ],
    "attack_ranged": [
     {
      "conf": "authoritative",
@@ -33348,18 +32805,6 @@
    ]
   },
   "SOR27": {
-   "trigger": [
-    {
-     "prefab": "PenitenceEffect",
-     "cardanim": "PenitenceTraitTrigger",
-     "conf": "unknown",
-     "src": "keyword-trait",
-     "keyword": "Penitence",
-     "traitTriggerType": "EffectTriggerType.Trigger(3)",
-     "why": "⛔ **无权威依据**（2026-10-23）：`trait_collection.json`（73 个 `CardTrait` / 77 个 `TraitPairs`，安卓 1.35.0 交叉验证逐字段 0 差异）里**没有**关键词 `Penitence` 这个 trait ⇒「`<关键词>Trait*`」这条构词法推断（= `PenitenceTraitTrigger`）**升不了级**。`prefab` 保留只为可查，⛔ 不许当权威播。",
-     "confBefore": "inferred-keyword"
-    }
-   ],
    "attack_ranged": [
     {
      "conf": "authoritative",
@@ -85215,25 +84660,20 @@
   "cardsUncovered": 0,
   "cardsCoveredByEvent": {
    "_assetRefs": 1127,
-   "play": 534,
+   "play": 533,
    "attack_ranged": 518,
    "ability": 440,
-   "trigger": 424,
+   "trigger": 420,
    "death": 101,
-   "_unclassified": 31,
-   "attack_melee": 13,
-   "deploy": 5,
-   "hit": 4
+   "attack_melee": 11,
+   "deploy": 1,
+   "hit": 1
   },
   "entriesByConf": {
-   "inferred-name": 59,
-   "authoritative": 4582,
-   "unknown": 5
+   "authoritative": 4582
   },
   "cardsByConf": {
-   "authoritative": 1127,
-   "inferred-name": 42,
-   "unknown": 5
+   "authoritative": 1127
   },
   "authoritativePerCardEntries": 3949,
   "authoritativeVfxEntries": 2122,
@@ -85619,6 +85059,882 @@
    "traitPairs": 77,
    "cardTraitObjects": 73
   },
+  "inferenceGone": {
+   "before": {
+    "inferred-name": 59,
+    "unknown": 5
+   },
+   "droppedDuplicate": 39,
+   "markedUnbacked": 25,
+   "leftInferred": 0,
+   "rows": [
+    {
+     "cardId": "ASH48",
+     "cardName": "Cosmic Serpent",
+     "event": "_unclassified",
+     "cardanim": "CosmicSerpent_Secondary",
+     "prefab": "Cosmic Serpent_Secondary",
+     "confBefore": "inferred-name",
+     "outcome": "dropped-duplicate",
+     "why": "卡 SO 引用同一条 CardAnim（guid `dd35fee4c7731b44ebd0f15e68d99499`）⇒ 它已经以 `authoritative` 记在 `ability` 桶（`cardAbilities[1].abilityLogic[0].cardAnimations[0]`）；本条是按名字猜出来的**第二次记账**，删掉以免同一件播两次"
+    },
+    {
+     "cardId": "ASH54",
+     "cardName": "Wailing Doom",
+     "event": "_unclassified",
+     "cardanim": "WailingDoom_Adjacent",
+     "prefab": "KhaineBuff",
+     "confBefore": "inferred-name",
+     "outcome": "dropped-duplicate",
+     "why": "卡 SO 引用同一条 CardAnim（guid `f0953437eb6ed0a4bb6816e7527a14df`）⇒ 它已经以 `authoritative` 记在 `ability` 桶（`cardAbilities[1].abilityLogic[0].cardAnimations[0]`）；本条是按名字猜出来的**第二次记账**，删掉以免同一件播两次"
+    },
+    {
+     "cardId": "BL55",
+     "cardName": "Black Crusade",
+     "event": "play",
+     "cardanim": "BlackCrusade_battleground",
+     "prefab": "BlackCrusade_Battleground repeat",
+     "confBefore": "inferred-name",
+     "outcome": "dropped-duplicate",
+     "why": "卡 SO 引用同一条 CardAnim（guid `abc7fb22246facb47a07f91e90a97d8d`）⇒ 它已经以 `authoritative` 记在 `play` 桶（`cardAbilities[0].abilityLogic[0].cardAnimations[0]`）；本条是按名字猜出来的**第二次记账**，删掉以免同一件播两次"
+    },
+    {
+     "cardId": "BL50",
+     "cardName": "Execution",
+     "event": "_unclassified",
+     "cardanim": "Execution_BlackLegion",
+     "prefab": "Execution_BlackLegion",
+     "confBefore": "inferred-name",
+     "outcome": "dropped-duplicate",
+     "why": "卡 SO 引用同一条 CardAnim（guid `17e016d3b293f024dbf6e57dcbacc60f`）⇒ 它已经以 `authoritative` 记在 `play` 桶（`cardAbilities[0].abilityLogic[0].cardAnimations[0]`）；本条是按名字猜出来的**第二次记账**，删掉以免同一件播两次"
+    },
+    {
+     "cardId": "3f38d2e2c83df4b4c9052ef4a510cfbb",
+     "cardName": "Rites of Possession",
+     "event": "_unclassified",
+     "cardanim": "RitesOfPossession_self",
+     "prefab": "Possession_self",
+     "confBefore": "inferred-name",
+     "outcome": "dropped-duplicate",
+     "why": "卡 SO 引用同一条 CardAnim（guid `4cd372f22f00a0d49a467e6ac8aa7e5b`）⇒ 它已经以 `authoritative` 记在 `play` 桶（`cardAbilities[0].abilityLogic[0].cardAnimations[1]`）；本条是按名字猜出来的**第二次记账**，删掉以免同一件播两次"
+    },
+    {
+     "cardId": "3f38d2e2c83df4b4c9052ef4a510cfbb",
+     "cardName": "Rites of Possession",
+     "event": "_unclassified",
+     "cardanim": "RitesOfPossession_target",
+     "prefab": "Explosion_Possession",
+     "confBefore": "inferred-name",
+     "outcome": "dropped-duplicate",
+     "why": "卡 SO 引用同一条 CardAnim（guid `3ec054880142aae4ea9d45b324320623`）⇒ 它已经以 `authoritative` 记在 `play` 桶（`cardAbilities[0].abilityLogic[0].cardAnimations[0]`）；本条是按名字猜出来的**第二次记账**，删掉以免同一件播两次"
+    },
+    {
+     "cardId": "BL42",
+     "cardName": "Traitors' Hate",
+     "event": "play",
+     "cardanim": "Traitors' Hate Board",
+     "prefab": "TraitorsHate_Board",
+     "confBefore": "inferred-name",
+     "outcome": "dropped-duplicate",
+     "why": "卡 SO 引用同一条 CardAnim（guid `db20b8de685b18b4f8eaf290be33e2ed`）⇒ 它已经以 `authoritative` 记在 `play` 桶（`cardAbilities[0].abilityLogic[0].cardAnimations[0]`）；本条是按名字猜出来的**第二次记账**，删掉以免同一件播两次"
+    },
+    {
+     "cardId": "BL42",
+     "cardName": "Traitors' Hate",
+     "event": "_unclassified",
+     "cardanim": "Traitors' Hate Target",
+     "prefab": "TraitorsHate_Target",
+     "confBefore": "inferred-name",
+     "outcome": "dropped-duplicate",
+     "why": "卡 SO 引用同一条 CardAnim（guid `b1d2181894460744e9a4a2126c19db13`）⇒ 它已经以 `authoritative` 记在 `play` 桶（`cardAbilities[0].abilityLogic[0].cardAnimations[1]`）；本条是按名字猜出来的**第二次记账**，删掉以免同一件播两次"
+    },
+    {
+     "cardId": "GSC46",
+     "cardName": "Bore Through",
+     "event": "_unclassified",
+     "cardanim": "Bore Through Intense",
+     "prefab": "Bore Through Intense",
+     "confBefore": "inferred-name",
+     "outcome": "dropped-duplicate",
+     "why": "卡 SO 引用同一条 CardAnim（guid `b8015cc76305722489f6eacfb36ac024`）⇒ 它已经以 `authoritative` 记在 `play` 桶（`cardAbilities[1].abilityLogic[0].cardAnimations[0]`）；本条是按名字猜出来的**第二次记账**，删掉以免同一件播两次"
+    },
+    {
+     "cardId": "68909cf02f472734ea391665e0d28e15",
+     "cardName": "Jammed Communications",
+     "event": "hit",
+     "cardanim": "Jammed Communications Damage",
+     "prefab": "Jammed Communications damage",
+     "confBefore": "inferred-name",
+     "outcome": "dropped-duplicate",
+     "why": "卡 SO 引用同一条 CardAnim（guid `463fe631f5e25a944b73bfe26d5f9721`）⇒ 它已经以 `authoritative` 记在 `ability` 桶（`cardAbilities[0].abilityLogic[0].cardAnimations[1]`）；本条是按名字猜出来的**第二次记账**，删掉以免同一件播两次"
+    },
+    {
+     "cardId": "SAU20",
+     "cardName": "Chronomancer",
+     "event": "_unclassified",
+     "cardanim": "Chronomancer_Buff",
+     "prefab": "Chronomancer_Buff",
+     "confBefore": "inferred-name",
+     "outcome": "dropped-duplicate",
+     "why": "卡 SO 引用同一条 CardAnim（guid `59f2270fe423ba44ca56abb5e3cec23e`）⇒ 它已经以 `authoritative` 记在 `ability` 桶（`cardAbilities[1].abilityLogic[0].cardAnimations[0]`）；本条是按名字猜出来的**第二次记账**，删掉以免同一件播两次"
+    },
+    {
+     "cardId": "SAU26",
+     "cardName": "Plasmancer",
+     "event": "attack_ranged",
+     "cardanim": "Plasmancer_Damage",
+     "prefab": "Plasmancer_Damage",
+     "confBefore": "inferred-name",
+     "outcome": "dropped-duplicate",
+     "why": "卡 SO 引用同一条 CardAnim（guid `4d97059b39769d541b4af1085f042e25`）⇒ 它已经以 `authoritative` 记在 `attack_ranged` 桶（`customRangedAttackParticles`）；本条是按名字猜出来的**第二次记账**，删掉以免同一件播两次"
+    },
+    {
+     "cardId": "SAU17",
+     "cardName": "Psychomancer",
+     "event": "_unclassified",
+     "cardanim": "Psychomancer_Stun",
+     "prefab": "Psychomancer_Stun",
+     "confBefore": "inferred-name",
+     "outcome": "dropped-duplicate",
+     "why": "卡 SO 引用同一条 CardAnim（guid `feedb82698cfcf9479288379d66c686b`）⇒ 它已经以 `authoritative` 记在 `attack_ranged` 桶（`customRangedAttackParticles`）；本条是按名字猜出来的**第二次记账**，删掉以免同一件播两次"
+    },
+    {
+     "cardId": "SAU11",
+     "cardName": "Technomancer",
+     "event": "_unclassified",
+     "cardanim": "Technomancer_Buff",
+     "prefab": "Technomancer_Buff",
+     "confBefore": "inferred-name",
+     "outcome": "dropped-duplicate",
+     "why": "卡 SO 引用同一条 CardAnim（guid `c56403cfa842e5a47abf21b704b63894`）⇒ 它已经以 `authoritative` 记在 `ability` 桶（`cardAbilities[1].abilityLogic[0].cardAnimations[0]`）；本条是按名字猜出来的**第二次记账**，删掉以免同一件播两次"
+    },
+    {
+     "cardId": "SAU50",
+     "cardName": "Dimensional Breach",
+     "event": "play",
+     "cardanim": "Dimensional_Breach_Battleground",
+     "prefab": "Sau_Dimensional_Breach_Battleground",
+     "confBefore": "inferred-name",
+     "outcome": "dropped-duplicate",
+     "why": "卡 SO 引用同一条 CardAnim（guid `9e2678f1ec482be4da67eb69c5ba8f3f`）⇒ 它已经以 `authoritative` 记在 `play` 桶（`cardAbilities[0].abilityLogic[0].cardAnimations[0]`）；本条是按名字猜出来的**第二次记账**，删掉以免同一件播两次"
+    },
+    {
+     "cardId": "SAU50",
+     "cardName": "Dimensional Breach",
+     "event": "deploy",
+     "cardanim": "Dimensional_Breach_Spawn",
+     "prefab": "Sau_Dimensional_Breach_Spawn",
+     "confBefore": "inferred-name",
+     "outcome": "dropped-duplicate",
+     "why": "卡 SO 引用同一条 CardAnim（guid `ddc4d9a2287eeff4ebf602d1b188a4c6`）⇒ 它已经以 `authoritative` 记在 `play` 桶（`cardAbilities[0].abilityLogic[0].cardAnimations[1]`）；本条是按名字猜出来的**第二次记账**，删掉以免同一件播两次"
+    },
+    {
+     "cardId": "65b2be828179515458a282cf1b027182",
+     "cardName": "Indomitable Will",
+     "event": "_unclassified",
+     "cardanim": "Indomitable_Will_Effect",
+     "prefab": "Sau_IndomitableWill",
+     "confBefore": "inferred-name",
+     "outcome": "dropped-duplicate",
+     "why": "卡 SO 引用同一条 CardAnim（guid `9fc3210083e7b604799bcaa83845c4aa`）⇒ 它已经以 `authoritative` 记在 `play` 桶（`cardAbilities[0].abilityLogic[0].cardAnimations[0]`）；本条是按名字猜出来的**第二次记账**，删掉以免同一件播两次"
+    },
+    {
+     "cardId": "30007162b68992e41a422f2061705b65",
+     "cardName": "Lord of the Storm",
+     "event": "hit",
+     "cardanim": "Lord_of_the_storm_hit",
+     "prefab": "Sau_LordOfTheStorm",
+     "confBefore": "inferred-name",
+     "outcome": "dropped-duplicate",
+     "why": "卡 SO 引用同一条 CardAnim（guid `26b0fe815ac74a248a54ae7421ff28bf`）⇒ 它已经以 `authoritative` 记在 `play` 桶（`cardAbilities[0].abilityLogic[0].cardAnimations[0]`）；本条是按名字猜出来的**第二次记账**，删掉以免同一件播两次"
+    },
+    {
+     "cardId": "cbabeb234380634479feab1a1b4c733a",
+     "cardName": "Master Chronomancer",
+     "event": "_unclassified",
+     "cardanim": "Master_Chronomancer_Effect",
+     "prefab": "Sau_MasterChronomancer",
+     "confBefore": "inferred-name",
+     "outcome": "dropped-duplicate",
+     "why": "卡 SO 引用同一条 CardAnim（guid `bcdfee71d56256846aa33c7102e3193f`）⇒ 它已经以 `authoritative` 记在 `play` 桶（`cardAbilities[0].abilityLogic[0].cardAnimations[0]`）；本条是按名字猜出来的**第二次记账**，删掉以免同一件播两次"
+    },
+    {
+     "cardId": "d8a14171b08b54144ba9dbf324b0a042",
+     "cardName": "Relentless March",
+     "event": "deploy",
+     "cardanim": "RelentlessMarchSummon",
+     "prefab": "GreenSummonCircle",
+     "confBefore": "inferred-name",
+     "outcome": "dropped-duplicate",
+     "why": "卡 SO 引用同一条 CardAnim（guid `ba1b8036688c35145b0a8f271e56548a`）⇒ 它已经以 `authoritative` 记在 `play` 桶（`cardAbilities[0].abilityLogic[0].cardAnimations[0]`）；本条是按名字猜出来的**第二次记账**，删掉以免同一件播两次"
+    },
+    {
+     "cardId": "SAU43",
+     "cardName": "Solar Pulse",
+     "event": "_unclassified",
+     "cardanim": "Solar_Pulse_Effect",
+     "prefab": "Sau_SolarPulse",
+     "confBefore": "inferred-name",
+     "outcome": "dropped-duplicate",
+     "why": "卡 SO 引用同一条 CardAnim（guid `57a6675510a3598468100d63dd91c401`）⇒ 它已经以 `authoritative` 记在 `play` 桶（`cardAbilities[0].abilityLogic[0].cardAnimations[0]`）；本条是按名字猜出来的**第二次记账**，删掉以免同一件播两次"
+    },
+    {
+     "cardId": "GOF71",
+     "cardName": "Krump da Gitz",
+     "event": "_unclassified",
+     "cardanim": "Krump Da Gitz effect",
+     "prefab": "OrkBuff_KrumpDaGitz",
+     "confBefore": "inferred-name",
+     "outcome": "dropped-duplicate",
+     "why": "卡 SO 引用同一条 CardAnim（guid `af0e438638428884eb579141f839283f`）⇒ 它已经以 `authoritative` 记在 `play` 桶（`cardAbilities[0].abilityLogic[0].cardAnimations[0]`）；本条是按名字猜出来的**第二次记账**，删掉以免同一件播两次"
+    },
+    {
+     "cardId": "8425b809e9e64e24f9035f709f5aaee4",
+     "cardName": "Worst Temper",
+     "event": "_unclassified",
+     "cardanim": "WorstTemper_Warlord",
+     "prefab": "WorstTemperEffect",
+     "confBefore": "inferred-name",
+     "outcome": "dropped-duplicate",
+     "why": "卡 SO 引用同一条 CardAnim（guid `7a2ceb162e185ba4188b422b20f6c8c7`）⇒ 它已经以 `authoritative` 记在 `play` 桶（`cardAbilities[0].abilityLogic[0].cardAnimations[0]`）；本条是按名字猜出来的**第二次记账**，删掉以免同一件播两次"
+    },
+    {
+     "cardId": "SOR8",
+     "cardName": "Arco-flagellant",
+     "event": "attack_melee",
+     "cardanim": "Arco-Flagellant Strike",
+     "prefab": "Arco-Flagellant Strike",
+     "confBefore": "inferred-name",
+     "outcome": "dropped-duplicate",
+     "why": "卡 SO 引用同一条 CardAnim（guid `273bb79fcfedc8848bf4729c288bc4da`）⇒ 它已经以 `authoritative` 记在 `ability` 桶（`cardAbilities[0].abilityLogic[0].cardAnimations[1]`）；本条是按名字猜出来的**第二次记账**，删掉以免同一件播两次"
+    },
+    {
+     "cardId": "SOR8",
+     "cardName": "Arco-flagellant",
+     "event": "trigger",
+     "cardanim": "PenitenceTraitTrigger",
+     "prefab": "PenitenceEffect",
+     "confBefore": "unknown",
+     "outcome": "dropped-duplicate",
+     "why": "卡 SO 引用同一条 CardAnim（guid `230c929a27cf26b409d2a081125e0b33`）⇒ 它已经以 `authoritative` 记在 `ability` 桶（`cardAbilities[0].abilityLogic[0].cardAnimations[0]`）；本条是按名字猜出来的**第二次记账**，删掉以免同一件播两次"
+    },
+    {
+     "cardId": "SOR51",
+     "cardName": "Divine Intervention",
+     "event": "play",
+     "cardanim": "Divine_Intervention_Battleground",
+     "prefab": "Sororitas_Divine Intervention_ Battleground",
+     "confBefore": "inferred-name",
+     "outcome": "dropped-duplicate",
+     "why": "卡 SO 引用同一条 CardAnim（guid `951b8365cec26f04588515b1ca53b392`）⇒ 它已经以 `authoritative` 记在 `ability` 桶（`cardAbilities[1].abilityLogic[0].cardAnimations[1]`）；本条是按名字猜出来的**第二次记账**，删掉以免同一件播两次"
+    },
+    {
+     "cardId": "TAU44",
+     "cardName": "Pulse Onslaught",
+     "event": "_unclassified",
+     "cardanim": "Pulse Onslaught Target",
+     "prefab": "Pulse Onslaught",
+     "confBefore": "inferred-name",
+     "outcome": "dropped-duplicate",
+     "why": "卡 SO 引用同一条 CardAnim（guid `389acaddbc3852344a53328472686a3d`）⇒ 它已经以 `authoritative` 记在 `play` 桶（`cardAbilities[0].abilityLogic[0].cardAnimations[0]`）；本条是按名字猜出来的**第二次记账**，删掉以免同一件播两次"
+    },
+    {
+     "cardId": "TAU55",
+     "cardName": "Relentless Fusillade",
+     "event": "_unclassified",
+     "cardanim": "Relentless Fusillade All enemies",
+     "prefab": "Relentless Fusillade",
+     "confBefore": "inferred-name",
+     "outcome": "dropped-duplicate",
+     "why": "卡 SO 引用同一条 CardAnim（guid `6f1bbedbb22d0c64682a360a5fa70aec`）⇒ 它已经以 `authoritative` 记在 `play` 桶（`cardAbilities[0].abilityLogic[0].cardAnimations[0]`）；本条是按名字猜出来的**第二次记账**，删掉以免同一件播两次"
+    },
+    {
+     "cardId": "TAU55",
+     "cardName": "Relentless Fusillade",
+     "event": "_unclassified",
+     "cardanim": "Relentless Fusillade Sniper",
+     "prefab": "Relentless Fusillade sniper",
+     "confBefore": "inferred-name",
+     "outcome": "dropped-duplicate",
+     "why": "卡 SO 引用同一条 CardAnim（guid `a6df0f1acc937ba479b89ffab5e86431`）⇒ 它已经以 `authoritative` 记在 `play` 桶（`cardAbilities[0].abilityLogic[1].cardAnimations[0]`）；本条是按名字猜出来的**第二次记账**，删掉以免同一件播两次"
+    },
+    {
+     "cardId": "TL37",
+     "cardName": "Spore Mine",
+     "event": "_unclassified",
+     "cardanim": "SporeMine_Explosion",
+     "prefab": "Spore Mine Explosion",
+     "confBefore": "inferred-name",
+     "outcome": "dropped-duplicate",
+     "why": "卡 SO 引用同一条 CardAnim（guid `c8f584eb3dd14974fb8e4556b82d124f`）⇒ 它已经以 `authoritative` 记在 `ability` 桶（`cardAbilities[0].abilityLogic[0].cardAnimations[0]`）；本条是按名字猜出来的**第二次记账**，删掉以免同一件播两次"
+    },
+    {
+     "cardId": "8f2da557fe484ee4bbf427c13eccd4cb",
+     "cardName": "Alpha Warrior",
+     "event": "_unclassified",
+     "cardanim": "AlphaWarrior_Warlord",
+     "prefab": "AlphaWarriorEffect",
+     "confBefore": "inferred-name",
+     "outcome": "dropped-duplicate",
+     "why": "卡 SO 引用同一条 CardAnim（guid `2809536fdaf79dc48bc5a05b3ced1687`）⇒ 它已经以 `authoritative` 记在 `play` 桶（`cardAbilities[0].abilityLogic[0].cardAnimations[0]`）；本条是按名字猜出来的**第二次记账**，删掉以免同一件播两次"
+    },
+    {
+     "cardId": "TL51",
+     "cardName": "Toxic Miasma",
+     "event": "_unclassified",
+     "cardanim": "ToxicMiasma_warlord",
+     "prefab": "ToxicMiasma_Warlord",
+     "confBefore": "inferred-name",
+     "outcome": "dropped-duplicate",
+     "why": "卡 SO 引用同一条 CardAnim（guid `7268c1bdb6e409a4baceaff01859a5c7`）⇒ 它已经以 `authoritative` 记在 `play` 桶（`cardAbilities[0].abilityLogic[0].cardAnimations[0]`）；本条是按名字猜出来的**第二次记账**，删掉以免同一件播两次"
+    },
+    {
+     "cardId": "TL72",
+     "cardName": "Tyranid Invasion",
+     "event": "deploy",
+     "cardanim": "TyranidInvasion_Spawn",
+     "prefab": "TyranidInvasion_Spawn",
+     "confBefore": "inferred-name",
+     "outcome": "dropped-duplicate",
+     "why": "卡 SO 引用同一条 CardAnim（guid `69e644d84a3385146985969c4780dee5`）⇒ 它已经以 `authoritative` 记在 `play` 桶（`cardAbilities[0].abilityLogic[0].cardAnimations[1]`）；本条是按名字猜出来的**第二次记账**，删掉以免同一件播两次"
+    },
+    {
+     "cardId": "UM37",
+     "cardName": "Death from Above",
+     "event": "_unclassified",
+     "cardanim": "DeathFromAbove_TargetLock",
+     "prefab": "UM_Target_LockOn_Crosshair",
+     "confBefore": "inferred-name",
+     "outcome": "dropped-duplicate",
+     "why": "卡 SO 引用同一条 CardAnim（guid `f7908c688e6523544aaa3df85e9e1f7a`）⇒ 它已经以 `authoritative` 记在 `play` 桶（`cardAbilities[0].abilityLogic[0].cardAnimations[0]`）；本条是按名字猜出来的**第二次记账**，删掉以免同一件播两次"
+    },
+    {
+     "cardId": "UM38",
+     "cardName": "Stormraven",
+     "event": "_unclassified",
+     "cardanim": "Stormraven_Center",
+     "prefab": "UM_StormravenShadow",
+     "confBefore": "inferred-name",
+     "outcome": "dropped-duplicate",
+     "why": "卡 SO 引用同一条 CardAnim（guid `84a456d72b714804686d0dd8126250a4`）⇒ 它已经以 `authoritative` 记在 `play` 桶（`cardAbilities[0].abilityLogic[0].cardAnimations[0]`）；本条是按名字猜出来的**第二次记账**，删掉以免同一件播两次"
+    },
+    {
+     "cardId": "SOR21",
+     "cardName": "Death Cult Assassin",
+     "event": "trigger",
+     "cardanim": "PenitenceTraitTrigger",
+     "prefab": "PenitenceEffect",
+     "confBefore": "unknown",
+     "outcome": "dropped-duplicate",
+     "why": "卡 SO 引用同一条 CardAnim（guid `230c929a27cf26b409d2a081125e0b33`）⇒ 它已经以 `authoritative` 记在 `ability` 桶（`cardAbilities[0].abilityLogic[0].cardAnimations[0]`）；本条是按名字猜出来的**第二次记账**，删掉以免同一件播两次"
+    },
+    {
+     "cardId": "SOR10",
+     "cardName": "Sister Repentia",
+     "event": "trigger",
+     "cardanim": "PenitenceTraitTrigger",
+     "prefab": "PenitenceEffect",
+     "confBefore": "unknown",
+     "outcome": "dropped-duplicate",
+     "why": "卡 SO 引用同一条 CardAnim（guid `230c929a27cf26b409d2a081125e0b33`）⇒ 它已经以 `authoritative` 记在 `ability` 桶（`cardAbilities[0].abilityLogic[0].cardAnimations[0]`）；本条是按名字猜出来的**第二次记账**，删掉以免同一件播两次"
+    },
+    {
+     "cardId": "SOR32",
+     "cardName": "Mortifier",
+     "event": "trigger",
+     "cardanim": "PenitenceTraitTrigger",
+     "prefab": "PenitenceEffect",
+     "confBefore": "unknown",
+     "outcome": "dropped-duplicate",
+     "why": "卡 SO 引用同一条 CardAnim（guid `230c929a27cf26b409d2a081125e0b33`）⇒ 它已经以 `authoritative` 记在 `ability` 桶（`cardAbilities[0].abilityLogic[0].cardAnimations[0]`）；本条是按名字猜出来的**第二次记账**，删掉以免同一件播两次"
+    },
+    {
+     "cardId": "SOR27",
+     "cardName": "Penitent Engine",
+     "event": "trigger",
+     "cardanim": "PenitenceTraitTrigger",
+     "prefab": "PenitenceEffect",
+     "confBefore": "unknown",
+     "outcome": "dropped-duplicate",
+     "why": "卡 SO 引用同一条 CardAnim（guid `230c929a27cf26b409d2a081125e0b33`）⇒ 它已经以 `authoritative` 记在 `ability` 桶（`cardAbilities[0].abilityLogic[0].cardAnimations[0]`）；本条是按名字猜出来的**第二次记账**，删掉以免同一件播两次"
+    }
+   ],
+   "unbacked": [
+    {
+     "cardId": "ASH86",
+     "cardName": "Forewarned",
+     "faction": "SaimHann",
+     "event": "play",
+     "cardanim": "Forewarned Board",
+     "prefab": "Cosmic Serpent",
+     "confBefore": "inferred-name",
+     "why": "按名字猜出来的动画；卡 SO 与 `CardTrait` SO 都没有引用它 ⇒ 无权威依据、不播（⛔ 不拿名字相近的顶替）"
+    },
+    {
+     "cardId": "09bcb1b3b8794c4429d82d4b2e68fa1f",
+     "cardName": "Path of the Seer",
+     "faction": "SaimHann",
+     "event": "unclassified",
+     "cardanim": "PathOfTheSeerGreen_self",
+     "prefab": "PathOfTheSeerGreen",
+     "confBefore": "inferred-name",
+     "why": "按名字猜出来的动画；卡 SO 与 `CardTrait` SO 都没有引用它 ⇒ 无权威依据、不播（⛔ 不拿名字相近的顶替）"
+    },
+    {
+     "cardId": "09bcb1b3b8794c4429d82d4b2e68fa1f",
+     "cardName": "Path of the Seer",
+     "faction": "SaimHann",
+     "event": "unclassified",
+     "cardanim": "PathOfTheSeerGreen_warlord",
+     "prefab": "PathOfTheSeerGreen",
+     "confBefore": "inferred-name",
+     "why": "按名字猜出来的动画；卡 SO 与 `CardTrait` SO 都没有引用它 ⇒ 无权威依据、不播（⛔ 不拿名字相近的顶替）"
+    },
+    {
+     "cardId": "09bcb1b3b8794c4429d82d4b2e68fa1f",
+     "cardName": "Path of the Seer",
+     "faction": "SaimHann",
+     "event": "unclassified",
+     "cardanim": "PathOfTheSeerRed_self",
+     "prefab": "PathOfTheSeerRed",
+     "confBefore": "inferred-name",
+     "why": "按名字猜出来的动画；卡 SO 与 `CardTrait` SO 都没有引用它 ⇒ 无权威依据、不播（⛔ 不拿名字相近的顶替）"
+    },
+    {
+     "cardId": "09bcb1b3b8794c4429d82d4b2e68fa1f",
+     "cardName": "Path of the Seer",
+     "faction": "SaimHann",
+     "event": "unclassified",
+     "cardanim": "PathOfTheSeerRed_warlord",
+     "prefab": "PathOfTheSeerRed",
+     "confBefore": "inferred-name",
+     "why": "按名字猜出来的动画；卡 SO 与 `CardTrait` SO 都没有引用它 ⇒ 无权威依据、不播（⛔ 不拿名字相近的顶替）"
+    },
+    {
+     "cardId": "09bcb1b3b8794c4429d82d4b2e68fa1f",
+     "cardName": "Path of the Seer",
+     "faction": "SaimHann",
+     "event": "unclassified",
+     "cardanim": "PathOfTheSeer_BG-effect",
+     "prefab": "PathOfTheSeer_BG-effect",
+     "confBefore": "inferred-name",
+     "why": "按名字猜出来的动画；卡 SO 与 `CardTrait` SO 都没有引用它 ⇒ 无权威依据、不播（⛔ 不拿名字相近的顶替）"
+    },
+    {
+     "cardId": "09bcb1b3b8794c4429d82d4b2e68fa1f",
+     "cardName": "Path of the Seer",
+     "faction": "SaimHann",
+     "event": "unclassified",
+     "cardanim": "PathOfTheSeer_Self",
+     "prefab": "PathOfTheSeer",
+     "confBefore": "inferred-name",
+     "why": "按名字猜出来的动画；卡 SO 与 `CardTrait` SO 都没有引用它 ⇒ 无权威依据、不播（⛔ 不拿名字相近的顶替）"
+    },
+    {
+     "cardId": "AM30",
+     "cardName": "Manticore",
+     "faction": "AstraMilitarum",
+     "event": "play",
+     "cardanim": "Manticore Board Down",
+     "prefab": "Artillery Manticore down 1x",
+     "confBefore": "inferred-name",
+     "why": "按名字猜出来的动画；卡 SO 与 `CardTrait` SO 都没有引用它 ⇒ 无权威依据、不播（⛔ 不拿名字相近的顶替）"
+    },
+    {
+     "cardId": "AM30",
+     "cardName": "Manticore",
+     "faction": "AstraMilitarum",
+     "event": "unclassified",
+     "cardanim": "Manticore Self Up",
+     "prefab": "Artillery Manticore up 4x",
+     "confBefore": "inferred-name",
+     "why": "按名字猜出来的动画；卡 SO 与 `CardTrait` SO 都没有引用它 ⇒ 无权威依据、不播（⛔ 不拿名字相近的顶替）"
+    },
+    {
+     "cardId": "AM34",
+     "cardName": "Valkyrie",
+     "faction": "AstraMilitarum",
+     "event": "unclassified",
+     "cardanim": "Valkyrie_Hover_Dust",
+     "prefab": "Valkyrie Flyover Hover Dust",
+     "confBefore": "inferred-name",
+     "why": "按名字猜出来的动画；卡 SO 与 `CardTrait` SO 都没有引用它 ⇒ 无权威依据、不播（⛔ 不拿名字相近的顶替）"
+    },
+    {
+     "cardId": "AM34",
+     "cardName": "Valkyrie",
+     "faction": "AstraMilitarum",
+     "event": "attack_ranged",
+     "cardanim": "Valkyrie_MultiLaser_Hover_Target",
+     "prefab": "Valkyrie_MultiLaser_Hover",
+     "confBefore": "inferred-name",
+     "why": "按名字猜出来的动画；卡 SO 与 `CardTrait` SO 都没有引用它 ⇒ 无权威依据、不播（⛔ 不拿名字相近的顶替）"
+    },
+    {
+     "cardId": "BL55",
+     "cardName": "Black Crusade",
+     "faction": "BlackLegion",
+     "event": "unclassified",
+     "cardanim": "BlackCrusade_self",
+     "prefab": "BlackCrusade_Battleground repeat",
+     "confBefore": "inferred-name",
+     "why": "按名字猜出来的动画；卡 SO 与 `CardTrait` SO 都没有引用它 ⇒ 无权威依据、不播（⛔ 不拿名字相近的顶替）"
+    },
+    {
+     "cardId": "BL52",
+     "cardName": "Unholy Smite",
+     "faction": "BlackLegion",
+     "event": "unclassified",
+     "cardanim": "UnholySmite_random",
+     "prefab": "Psychic_Lightning_Red",
+     "confBefore": "inferred-name",
+     "why": "按名字猜出来的动画；卡 SO 与 `CardTrait` SO 都没有引用它 ⇒ 无权威依据、不播（⛔ 不拿名字相近的顶替）"
+    },
+    {
+     "cardId": "a84a5b49f0ca9144585058db6987c2a0",
+     "cardName": "Master Interromancer",
+     "faction": "DarkAngels",
+     "event": "hit",
+     "cardanim": "Master Interromancer Hit",
+     "prefab": "Psychic_Lightning_down_Intense_white",
+     "confBefore": "inferred-name",
+     "why": "按名字猜出来的动画；卡 SO 与 `CardTrait` SO 都没有引用它 ⇒ 无权威依据、不播（⛔ 不拿名字相近的顶替）"
+    },
+    {
+     "cardId": "EC29",
+     "cardName": "Heldrake",
+     "faction": "EmperorsChildren",
+     "event": "attack_melee",
+     "cardanim": "HeldrakeStrike",
+     "prefab": "HeldrakeStrike",
+     "confBefore": "inferred-name",
+     "why": "按名字猜出来的动画；卡 SO 与 `CardTrait` SO 都没有引用它 ⇒ 无权威依据、不播（⛔ 不拿名字相近的顶替）"
+    },
+    {
+     "cardId": "SAU3",
+     "cardName": "Flayed One",
+     "faction": "Sautekh",
+     "event": "deploy",
+     "cardanim": "Flayed One Summon",
+     "prefab": "Flayed One Summon",
+     "confBefore": "inferred-name",
+     "why": "按名字猜出来的动画；卡 SO 与 `CardTrait` SO 都没有引用它 ⇒ 无权威依据、不播（⛔ 不拿名字相近的顶替）"
+    },
+    {
+     "cardId": "GOF70",
+     "cardName": "Krumpaklaw",
+     "faction": "Goff",
+     "event": "unclassified",
+     "cardanim": "KrumpaKlawEffect",
+     "prefab": "BigKrumpaKlawEffect",
+     "confBefore": "inferred-name",
+     "why": "按名字猜出来的动画；卡 SO 与 `CardTrait` SO 都没有引用它 ⇒ 无权威依据、不播（⛔ 不拿名字相近的顶替）"
+    },
+    {
+     "cardId": "SOR43",
+     "cardName": "Cleansing Flames",
+     "faction": "Sororitas",
+     "event": "unclassified",
+     "cardanim": "CleansingFlamesEffect",
+     "prefab": "BulletImpact_FlamethrowerSororitas_long",
+     "confBefore": "inferred-name",
+     "why": "按名字猜出来的动画；卡 SO 与 `CardTrait` SO 都没有引用它 ⇒ 无权威依据、不播（⛔ 不拿名字相近的顶替）"
+    },
+    {
+     "cardId": "9f75a6fe11922eb409ffbad4ecdeb405",
+     "cardName": "Hero of the Empire",
+     "faction": "TauEmpire",
+     "event": "unclassified",
+     "cardanim": "HeroOfTheEmpire_Warlord OLD",
+     "prefab": "HeroOfTheEmpire OLD",
+     "confBefore": "inferred-name",
+     "why": "按名字猜出来的动画；卡 SO 与 `CardTrait` SO 都没有引用它 ⇒ 无权威依据、不播（⛔ 不拿名字相近的顶替）"
+    },
+    {
+     "cardId": "TL51",
+     "cardName": "Toxic Miasma",
+     "faction": "Leviathan",
+     "event": "unclassified",
+     "cardanim": "ToxicMiasma_Venomthrope",
+     "prefab": "ToxicMiasma_Venomthrope",
+     "confBefore": "inferred-name",
+     "why": "按名字猜出来的动画；卡 SO 与 `CardTrait` SO 都没有引用它 ⇒ 无权威依据、不播（⛔ 不拿名字相近的顶替）"
+    },
+    {
+     "cardId": "TL51",
+     "cardName": "Toxic Miasma",
+     "faction": "Leviathan",
+     "event": "unclassified",
+     "cardanim": "ToxicMiasma_self",
+     "prefab": "ToxicMiasma_Warlord",
+     "confBefore": "inferred-name",
+     "why": "按名字猜出来的动画；卡 SO 与 `CardTrait` SO 都没有引用它 ⇒ 无权威依据、不播（⛔ 不拿名字相近的顶替）"
+    },
+    {
+     "cardId": "TL72",
+     "cardName": "Tyranid Invasion",
+     "faction": "Leviathan",
+     "event": "unclassified",
+     "cardanim": "TyranidInvasion_Target",
+     "prefab": "TyranidInvasion_Spawn",
+     "confBefore": "inferred-name",
+     "why": "按名字猜出来的动画；卡 SO 与 `CardTrait` SO 都没有引用它 ⇒ 无权威依据、不播（⛔ 不拿名字相近的顶替）"
+    },
+    {
+     "cardId": "UM37",
+     "cardName": "Death from Above",
+     "faction": "Ultramarines",
+     "event": "unclassified",
+     "cardanim": "DeathFromAbove_ability",
+     "prefab": "UM_DeathFromAbove",
+     "confBefore": "inferred-name",
+     "why": "按名字猜出来的动画；卡 SO 与 `CardTrait` SO 都没有引用它 ⇒ 无权威依据、不播（⛔ 不拿名字相近的顶替）"
+    },
+    {
+     "cardId": "cf0b346f70e748c4bbfc4dc03ab39ead",
+     "cardName": "Smite",
+     "faction": "Ultramarines",
+     "event": "unclassified",
+     "cardanim": "SmiteLightning_Down",
+     "prefab": "Psychic_Lightning_down",
+     "confBefore": "inferred-name",
+     "why": "按名字猜出来的动画；卡 SO 与 `CardTrait` SO 都没有引用它 ⇒ 无权威依据、不播（⛔ 不拿名字相近的顶替）"
+    },
+    {
+     "cardId": "UM38",
+     "cardName": "Stormraven",
+     "faction": "Ultramarines",
+     "event": "unclassified",
+     "cardanim": "Stormraven_Shadow_Target",
+     "prefab": "UM_StormravenShadow_Perpendicular",
+     "confBefore": "inferred-name",
+     "why": "按名字猜出来的动画；卡 SO 与 `CardTrait` SO 都没有引用它 ⇒ 无权威依据、不播（⛔ 不拿名字相近的顶替）"
+    }
+   ],
+   "leftByConf": {}
+  },
+  "notPlayed": [
+   {
+    "id": "ASH86",
+    "nm": "Forewarned",
+    "fa": "SaimHann",
+    "ev": "play",
+    "n": "Cosmic Serpent",
+    "a": "Forewarned Board",
+    "outcome": "unbacked",
+    "why": "按名字猜出来的动画；卡 SO 与 `CardTrait` SO 都没有引用它 ⇒ 无权威依据、不播（⛔ 不拿名字相近的顶替）"
+   },
+   {
+    "id": "AM30",
+    "nm": "Manticore",
+    "fa": "AstraMilitarum",
+    "ev": "play",
+    "n": "Artillery Manticore down 1x",
+    "a": "Manticore Board Down",
+    "outcome": "unbacked",
+    "why": "按名字猜出来的动画；卡 SO 与 `CardTrait` SO 都没有引用它 ⇒ 无权威依据、不播（⛔ 不拿名字相近的顶替）"
+   },
+   {
+    "id": "AM34",
+    "nm": "Valkyrie",
+    "fa": "AstraMilitarum",
+    "ev": "attack_ranged",
+    "n": "Valkyrie_MultiLaser_Hover",
+    "a": "Valkyrie_MultiLaser_Hover_Target",
+    "outcome": "unbacked",
+    "why": "按名字猜出来的动画；卡 SO 与 `CardTrait` SO 都没有引用它 ⇒ 无权威依据、不播（⛔ 不拿名字相近的顶替）"
+   },
+   {
+    "id": "BL55",
+    "nm": "Black Crusade",
+    "fa": "BlackLegion",
+    "ev": "play",
+    "n": "BlackCrusade_Battleground repeat",
+    "a": "BlackCrusade_battleground",
+    "outcome": "duplicate",
+    "why": "卡 SO 引用同一条 CardAnim（guid `abc7fb22246facb47a07f91e90a97d8d`）⇒ 它已经以 `authoritative` 记在 `play` 桶（`cardAbilities[0].abilityLogic[0].cardAnimations[0]`）；本条是按名字猜出来的**第二次记账**，删掉以免同一件播两次"
+   },
+   {
+    "id": "BL42",
+    "nm": "Traitors' Hate",
+    "fa": "BlackLegion",
+    "ev": "play",
+    "n": "TraitorsHate_Board",
+    "a": "Traitors' Hate Board",
+    "outcome": "duplicate",
+    "why": "卡 SO 引用同一条 CardAnim（guid `db20b8de685b18b4f8eaf290be33e2ed`）⇒ 它已经以 `authoritative` 记在 `play` 桶（`cardAbilities[0].abilityLogic[0].cardAnimations[0]`）；本条是按名字猜出来的**第二次记账**，删掉以免同一件播两次"
+   },
+   {
+    "id": "a84a5b49f0ca9144585058db6987c2a0",
+    "nm": "Master Interromancer",
+    "fa": "DarkAngels",
+    "ev": "hit",
+    "n": "Psychic_Lightning_down_Intense_white",
+    "a": "Master Interromancer Hit",
+    "outcome": "unbacked",
+    "why": "按名字猜出来的动画；卡 SO 与 `CardTrait` SO 都没有引用它 ⇒ 无权威依据、不播（⛔ 不拿名字相近的顶替）"
+   },
+   {
+    "id": "EC29",
+    "nm": "Heldrake",
+    "fa": "EmperorsChildren",
+    "ev": "attack_melee",
+    "n": "HeldrakeStrike",
+    "a": "HeldrakeStrike",
+    "outcome": "unbacked",
+    "why": "按名字猜出来的动画；卡 SO 与 `CardTrait` SO 都没有引用它 ⇒ 无权威依据、不播（⛔ 不拿名字相近的顶替）"
+   },
+   {
+    "id": "68909cf02f472734ea391665e0d28e15",
+    "nm": "Jammed Communications",
+    "fa": "Genestealers",
+    "ev": "hit",
+    "n": "Jammed Communications damage",
+    "a": "Jammed Communications Damage",
+    "outcome": "duplicate",
+    "why": "卡 SO 引用同一条 CardAnim（guid `463fe631f5e25a944b73bfe26d5f9721`）⇒ 它已经以 `authoritative` 记在 `ability` 桶（`cardAbilities[0].abilityLogic[0].cardAnimations[1]`）；本条是按名字猜出来的**第二次记账**，删掉以免同一件播两次"
+   },
+   {
+    "id": "SAU3",
+    "nm": "Flayed One",
+    "fa": "Sautekh",
+    "ev": "deploy",
+    "n": "Flayed One Summon",
+    "a": "Flayed One Summon",
+    "outcome": "unbacked",
+    "why": "按名字猜出来的动画；卡 SO 与 `CardTrait` SO 都没有引用它 ⇒ 无权威依据、不播（⛔ 不拿名字相近的顶替）"
+   },
+   {
+    "id": "SAU26",
+    "nm": "Plasmancer",
+    "fa": "Sautekh",
+    "ev": "attack_ranged",
+    "n": "Plasmancer_Damage",
+    "a": "Plasmancer_Damage",
+    "outcome": "duplicate",
+    "why": "卡 SO 引用同一条 CardAnim（guid `4d97059b39769d541b4af1085f042e25`）⇒ 它已经以 `authoritative` 记在 `attack_ranged` 桶（`customRangedAttackParticles`）；本条是按名字猜出来的**第二次记账**，删掉以免同一件播两次"
+   },
+   {
+    "id": "SAU50",
+    "nm": "Dimensional Breach",
+    "fa": "Sautekh",
+    "ev": "play",
+    "n": "Sau_Dimensional_Breach_Battleground",
+    "a": "Dimensional_Breach_Battleground",
+    "outcome": "duplicate",
+    "why": "卡 SO 引用同一条 CardAnim（guid `9e2678f1ec482be4da67eb69c5ba8f3f`）⇒ 它已经以 `authoritative` 记在 `play` 桶（`cardAbilities[0].abilityLogic[0].cardAnimations[0]`）；本条是按名字猜出来的**第二次记账**，删掉以免同一件播两次"
+   },
+   {
+    "id": "SAU50",
+    "nm": "Dimensional Breach",
+    "fa": "Sautekh",
+    "ev": "deploy",
+    "n": "Sau_Dimensional_Breach_Spawn",
+    "a": "Dimensional_Breach_Spawn",
+    "outcome": "duplicate",
+    "why": "卡 SO 引用同一条 CardAnim（guid `ddc4d9a2287eeff4ebf602d1b188a4c6`）⇒ 它已经以 `authoritative` 记在 `play` 桶（`cardAbilities[0].abilityLogic[0].cardAnimations[1]`）；本条是按名字猜出来的**第二次记账**，删掉以免同一件播两次"
+   },
+   {
+    "id": "30007162b68992e41a422f2061705b65",
+    "nm": "Lord of the Storm",
+    "fa": "Sautekh",
+    "ev": "hit",
+    "n": "Sau_LordOfTheStorm",
+    "a": "Lord_of_the_storm_hit",
+    "outcome": "duplicate",
+    "why": "卡 SO 引用同一条 CardAnim（guid `26b0fe815ac74a248a54ae7421ff28bf`）⇒ 它已经以 `authoritative` 记在 `play` 桶（`cardAbilities[0].abilityLogic[0].cardAnimations[0]`）；本条是按名字猜出来的**第二次记账**，删掉以免同一件播两次"
+   },
+   {
+    "id": "d8a14171b08b54144ba9dbf324b0a042",
+    "nm": "Relentless March",
+    "fa": "Sautekh",
+    "ev": "deploy",
+    "n": "GreenSummonCircle",
+    "a": "RelentlessMarchSummon",
+    "outcome": "duplicate",
+    "why": "卡 SO 引用同一条 CardAnim（guid `ba1b8036688c35145b0a8f271e56548a`）⇒ 它已经以 `authoritative` 记在 `play` 桶（`cardAbilities[0].abilityLogic[0].cardAnimations[0]`）；本条是按名字猜出来的**第二次记账**，删掉以免同一件播两次"
+   },
+   {
+    "id": "SOR8",
+    "nm": "Arco-flagellant",
+    "fa": "Sororitas",
+    "ev": "attack_melee",
+    "n": "Arco-Flagellant Strike",
+    "a": "Arco-Flagellant Strike",
+    "outcome": "duplicate",
+    "why": "卡 SO 引用同一条 CardAnim（guid `273bb79fcfedc8848bf4729c288bc4da`）⇒ 它已经以 `authoritative` 记在 `ability` 桶（`cardAbilities[0].abilityLogic[0].cardAnimations[1]`）；本条是按名字猜出来的**第二次记账**，删掉以免同一件播两次"
+   },
+   {
+    "id": "SOR8",
+    "nm": "Arco-flagellant",
+    "fa": "Sororitas",
+    "ev": "trigger",
+    "n": "PenitenceEffect",
+    "a": "PenitenceTraitTrigger",
+    "outcome": "duplicate",
+    "why": "卡 SO 引用同一条 CardAnim（guid `230c929a27cf26b409d2a081125e0b33`）⇒ 它已经以 `authoritative` 记在 `ability` 桶（`cardAbilities[0].abilityLogic[0].cardAnimations[0]`）；本条是按名字猜出来的**第二次记账**，删掉以免同一件播两次"
+   },
+   {
+    "id": "SOR51",
+    "nm": "Divine Intervention",
+    "fa": "Sororitas",
+    "ev": "play",
+    "n": "Sororitas_Divine Intervention_ Battleground",
+    "a": "Divine_Intervention_Battleground",
+    "outcome": "duplicate",
+    "why": "卡 SO 引用同一条 CardAnim（guid `951b8365cec26f04588515b1ca53b392`）⇒ 它已经以 `authoritative` 记在 `ability` 桶（`cardAbilities[1].abilityLogic[0].cardAnimations[1]`）；本条是按名字猜出来的**第二次记账**，删掉以免同一件播两次"
+   },
+   {
+    "id": "TL72",
+    "nm": "Tyranid Invasion",
+    "fa": "Leviathan",
+    "ev": "deploy",
+    "n": "TyranidInvasion_Spawn",
+    "a": "TyranidInvasion_Spawn",
+    "outcome": "duplicate",
+    "why": "卡 SO 引用同一条 CardAnim（guid `69e644d84a3385146985969c4780dee5`）⇒ 它已经以 `authoritative` 记在 `play` 桶（`cardAbilities[0].abilityLogic[0].cardAnimations[1]`）；本条是按名字猜出来的**第二次记账**，删掉以免同一件播两次"
+   },
+   {
+    "id": "SOR21",
+    "nm": "Death Cult Assassin",
+    "fa": "Sororitas",
+    "ev": "trigger",
+    "n": "PenitenceEffect",
+    "a": "PenitenceTraitTrigger",
+    "outcome": "duplicate",
+    "why": "卡 SO 引用同一条 CardAnim（guid `230c929a27cf26b409d2a081125e0b33`）⇒ 它已经以 `authoritative` 记在 `ability` 桶（`cardAbilities[0].abilityLogic[0].cardAnimations[0]`）；本条是按名字猜出来的**第二次记账**，删掉以免同一件播两次"
+   },
+   {
+    "id": "SOR10",
+    "nm": "Sister Repentia",
+    "fa": "Sororitas",
+    "ev": "trigger",
+    "n": "PenitenceEffect",
+    "a": "PenitenceTraitTrigger",
+    "outcome": "duplicate",
+    "why": "卡 SO 引用同一条 CardAnim（guid `230c929a27cf26b409d2a081125e0b33`）⇒ 它已经以 `authoritative` 记在 `ability` 桶（`cardAbilities[0].abilityLogic[0].cardAnimations[0]`）；本条是按名字猜出来的**第二次记账**，删掉以免同一件播两次"
+   },
+   {
+    "id": "SOR32",
+    "nm": "Mortifier",
+    "fa": "Sororitas",
+    "ev": "trigger",
+    "n": "PenitenceEffect",
+    "a": "PenitenceTraitTrigger",
+    "outcome": "duplicate",
+    "why": "卡 SO 引用同一条 CardAnim（guid `230c929a27cf26b409d2a081125e0b33`）⇒ 它已经以 `authoritative` 记在 `ability` 桶（`cardAbilities[0].abilityLogic[0].cardAnimations[0]`）；本条是按名字猜出来的**第二次记账**，删掉以免同一件播两次"
+   },
+   {
+    "id": "SOR27",
+    "nm": "Penitent Engine",
+    "fa": "Sororitas",
+    "ev": "trigger",
+    "n": "PenitenceEffect",
+    "a": "PenitenceTraitTrigger",
+    "outcome": "duplicate",
+    "why": "卡 SO 引用同一条 CardAnim（guid `230c929a27cf26b409d2a081125e0b33`）⇒ 它已经以 `authoritative` 记在 `ability` 桶（`cardAbilities[0].abilityLogic[0].cardAnimations[0]`）；本条是按名字猜出来的**第二次记账**，删掉以免同一件播两次"
+   }
+  ],
   "factionArmyIds": {
    "SaimHann": 30,
    "AstraMilitarum": 100,

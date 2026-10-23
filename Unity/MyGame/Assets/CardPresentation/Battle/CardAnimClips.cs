@@ -164,6 +164,65 @@ namespace CardPresentation
             return p.HasValue ? (p.Value.VfxDelay + p.Value.Ts + p.Value.Tm + p.Value.Te) : -1f;
         }
 
+        /// <summary>🆕 **2026-10-23（P1 · 演出时序 ④）：远程攻击那一件的「原版时长」
+        /// = 逐件 `AnimInfo.GetAnimDuration()`（`vd + ts + tm + te`，**四字段无条件直加**）。</summary>
+        ///
+        /// <para>**判据（第一权威）** = `d:/2/tools/decomp_full/AnimInfo__GetAnimDuration.c`
+        /// （四个字段直接相加、没有任何条件分支）；调用点
+        /// `BattleManager._ResolveAnimInfoRangeAttack_d__468__MoveNext.c:111-124` 用 `WaitForSeconds(...)`
+        /// 等它，**等完才** `ReceiveDamage` ⇒ **这一件演多久 = 伤害晚多久**。</para>
+        ///
+        /// <para>**为什么需要这一档**：`VfxMap.ChainDuration` 只覆盖两档 ——
+        /// ① 逐卡 `CardDef.AnimTimes`（只收 `cardAbilities[].abilityLogic[].cardAnimations[]`）·
+        /// ② 共享件表（`SharedRangedVfxDuration` 的 7 个 prefab 名）。
+        /// 而逐卡远程件大多挂在卡 SO 的**顶层** `customRangedAttackParticles` 上、**不进 `AnimTimes`**
+        /// ⇒ 现读 **441 个（卡,件）组合**两档都查不到、落回 `EventTiming.RangedVfxFallback` 0.75
+        /// （其中 **265 个真值 ≠ 0.75**：186 早 / 79 晚，极端 **−2.85 s** —— Exorcist 真值 3.6
+        /// vs 我们 0.75）。本条补的就是**第三档**：按 `ResolvedVfx.Anim`（CardAnim 名）查本表。
+        /// 🔴 **⛔ 别按 prefab 名查** —— 现读 **215 组**同名不同参（见文件头）。</para>
+        ///
+        /// <para>**返回值契约（与 `VfxMap.ChainDuration` 不同，注意）**：
+        /// **≥ 0 = 真值**（**`0` 也是真值** —— 现读 4 张 Tau 无人机共用的
+        /// `Atk_BulletImpact_Tau_Pulse Drone Dual` 四字段**全是 0**，原版那一下就是 `WaitForSeconds(0)`）；
+        /// **&lt; 0 = 判据为空**（那几件的 CardAnim 不在表里 / 有一件没有 CardAnim 名 ⇒ 调用方按老口径兜底并出声）。
+        /// ⛔ 别把「0」当「查不到」用 —— 那 4 张卡会被无端推迟 0.75 s。</para>
+        ///
+        /// <para>⚠️ **不吃 `rng`**：与 `VfxMap.ChainDuration` 同一条口径（队尾是**纯函数**、只按「按序全播」
+        /// 那条路算）。⛔ 别把生产的 `randomAbilityChoice` 随机源传进来 —— 那会**多抽一次**、
+        /// 把后面真正要播的那一组抽偏。</para></summary>
+        public static float RangedChainDuration(string evt, string faction, string cardIdOrName,
+                                               IReadOnlyList<CardDef.CardAnimTime> times)
+        {
+            if (string.IsNullOrEmpty(evt)) return -1f;
+
+            // ① 前两档（逐卡 `AnimTimes` → 共享件表）：走 `VfxMap` 自己的口，⛔ 别在这儿再写一份 join。
+            float d = VfxMap.ChainDuration(evt, faction, cardIdOrName, times);
+            if (d > 0f) return d;
+
+            // ② 第三档：按 **CardAnim 名**查本表（`vd+ts+tm+te`）。
+            //    终点 = `T`（组内起点偏移，单候选恒 0）+ 该件自己的时长 —— 与 `ChainDuration` 的
+            //    `max(T + Duration)` 同形（原版队列一条一条等完才弹下一条）。
+            var items = VfxMap.ResolveAllTimed(evt, faction, cardIdOrName, times);
+            if (items == null || items.Length == 0) return -1f;
+            float end = 0f;
+            int known = 0;
+            for (int i = 0; i < items.Length; i++)
+            {
+                float a = DurationOf(items[i].Anim);     // -1 = 表里没有那条 CardAnim
+                if (a < 0f) return -1f;                  // 有一件判据为空 ⇒ 整条链的收尾也是空的，⛔ 别拿半条当真值
+                known++;
+                float e2 = Mathf.Max(0f, items[i].T) + a;
+                if (e2 > end) end = e2;
+            }
+            if (known == 0) return -1f;
+            ChainTruthHits++;
+            return end;
+        }
+
+        /// <summary>🆕 2026-10-23（P1）：<see cref="RangedChainDuration"/> 的**第三档真的被用到**的次数
+        /// （自检口 —— 用来证明「不是前两档顺手算出来的」，也证明它没退回常数）。</summary>
+        public static int ChainTruthHits { get; private set; }
+
         /// <summary>某个 `CardAnim` 的位置参数（查不到 ⇒ `null` **并出声一次**）。</summary>
         public static CardAnimPlacement? PlacementOf(string cardAnim)
         {

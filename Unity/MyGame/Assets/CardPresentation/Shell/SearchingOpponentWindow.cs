@@ -270,8 +270,81 @@ namespace CardPresentation
             _holdLeft = -1f;
         }
 
+        // ==================================================================
+        //  🆕 **2026-10-23（W62 · 界面线）**：ESC 关这扇窗 ⇒ **必须把搜索真的取消掉**
+        //
+        //  🔴 **病灶**（真机 + 静态都对上）：本类原来的 `Close()` 只调 `ReleaseHold()`（放掉「切场景前那一口气」），
+        //     **没有任何「取消搜索」**（不回调 `OnCancel`）⇒ 玩家按 ESC 关掉全屏匹配窗之后，
+        //     匹配那一局**还挂着**（`SearchingMatchPopup` 的 `Searching` / 常驻 ticker 的注册 / 联机那一局的账都没清），
+        //     而屏幕上**一个字都不剩**（玩家看不到任何提示）。
+        //
+        //  🔴 **原版判据**（第一权威 = 反编译，**本类自己的** `Close` 覆写）：
+        //     `d:/2/tools/decomp_full/SearchingOpponentWindow__Close.c` 全文两句 ——
+        //       ① `GameWindow__Close(this)`（= 基类那一套）；
+        //       ② `if (MatchMakerManager 单例 != null) Everguild_MatchMakerManager__CancelSearch(manager, 0)`。
+        //     ⇒ 原版**这扇窗的 `Close()` 一定取消搜索**。另外两个旁证：
+        //       · `SearchingOpponentWindow__CancelButtonClick.c` = 尾调 `Close()`（虚表 `0x1b8`）⇒ **`Cancel` 钮也是走 `Close` 取消的**；
+        //       · `SearchingOpponentWindow__OnDisable.c` **不取消**（它只 `RemoveListener`）。
+        //     ⚠️ 原版 `Everguild.MatchMakerManager__CancelSearch.c` 本身是**有闸的轻动作**
+        //     （`if (SearchOpponentManager 字段 != null) { CancelBattleSearch(停协程); 事件; }`），所以它无条件调没有副作用。
+        //
+        //  🔴 **为什么我们这边要加一道闸（`_escClose`）而不是照抄「无条件」**：我们 `OnCancel` 接的是
+        //     **`RankedEventWindow.CancelSearch`** —— 它比原版那个重得多：`_search.AbortSearch()`（清状态 + 注销 ticker）
+        //     **＋ 联机那一支 `NetMatchmaking.Cancel(...)`（会往对面发 `match.cancel`）＋ 自己关窗**。
+        //     而本类有**两条原版没有的程序关窗路**，无条件取消会把它们打成回归：
+        //        · `RankedEventWindow.OnSearchFinished()` → `_searchWin.Close()`（**配到人了 / 等满 12 秒要开战**）；
+        //        · 本文件 `Tick()` 的 `A1322` 那一支（**这一局已经被撤**，再撤一次 = 往对面重发取消 + 弹一句「取消失败」——
+        //          `NetMatchmaking.Cancel` 此刻没有活着的账 ⇒ 返回 false ⇒ 会弹 `Settings/Online/MatchCancelFailed`）。
+        //     ⇒ 实现 = `ESCPressed()` 里置一个「这次关窗是玩家按 ESC 引起的」瞬时标志（`_escClose`），
+        //       `Close()` 只在那一位为真时取消 —— 于是**恰好覆盖原版那两个调用点**（ESC / `Cancel` 钮），
+        //       两扇程序关窗不受影响。**两道门槛（输入层 / `closeOnEsc`）仍由基类判**（⛔ 别在这儿抄第二份）。
+        //
+        //  ⚠️ **与 `Cancel()` 的关系**：那条路本来就取消（`CancelMatchMatchmaking → CancelSearch`），
+        //     现在与 ESC 共用 `CancelSearchOnce()` ⇒ **两条路都只取消一次**（幂等）。
+        // ==================================================================
+
+        /// <summary>这次 `Close()` 是不是**玩家按 ESC** 引起的 —— 只有它才取消搜索（见上面那一节）。</summary>
+        bool _escClose;
+
+        /// <summary>`OnCancel` 是否已经发过（**幂等闸**）。
+        /// 🔴 **非它不可**：`OnCancel` 在生产上是 `RankedEventWindow.CancelSearch`，而那条链**自己会再把这扇窗关掉**
+        /// （`_searchWin.Close()`）⇒ 不幂等就会 `Close → OnCancel → Close → OnCancel …` **绕成无限递归**。</summary>
+        bool _cancelSent;
+
+        /// <summary>取消搜索 —— **只发一次**（见 `_cancelSent`）。没接 `OnCancel` 时**出声**（红线：不许静默失败）。</summary>
+        void CancelSearchOnce()
+        {
+            if (_cancelSent) return;
+            _cancelSent = true;
+            if (OnCancel != null) OnCancel();
+            else Debug.LogWarning("[SearchingOpp] 要取消搜索，但**没有接 `OnCancel`** ⇒ 这一局不会被撤"
+                                + "（谁开的这扇窗？生产上 `RankedEventWindow.OpenSearchWindow` 会接）");
+        }
+
+        /// <summary>ESC / 返回：原版这条路上**一定会取消搜索** ——
+        /// `SearchingOpponentWindow__Close.c`（本类自己的 `Close` 覆写）= `GameWindow.Close()` + `MatchMakerManager.CancelSearch()`；
+        /// 而 `GameWindow__ESCPressed` 正是 `Close()`（虚表 `0x1b8`）。旁证：弹窗那一支
+        /// `SearchingMatchWindowDemo__ESCPressed.c:24` 末尾也是**无条件** `CancelSearch()`。
+        /// <para>⚠️ **先取消、再由基类关窗**（原版是 `Close()` 然后 `CancelSearch()`，两者顺序反过来）——
+        ///   因为我们的 `CancelSearch` 那条链**自己会关窗**（`RankedEventWindow.CancelSearch → _searchWin.Close()`），
+        ///   而 `Close()` 会经 `ShowPreviousWindow → TryOpen → Build()` **把宿主整棵重建、销毁旧的那份搜索弹窗**；
+        ///   若先关窗，`AbortSearch()` 就打在重建后的新弹窗上（它本来就没在搜）⇒ **旧那份的状态永远清不掉**
+        ///   （托管字段仍是 `Searching == true`）。原版两条路都以「取消 + 关窗」收尾，净效果一致。</para>
+        /// <para>两道门槛（`PointerLayer.InputEnabled` / `closeOnEsc`）**仍然只有基类那一份**：门槛没过时基类直接
+        /// `return false`、**根本不调 `Close()`** ⇒ `_escClose` 这一位也就不会触发取消（= 原版那一支的语义）。</para></summary>
+        public override bool ESCPressed()
+        {
+            _escClose = true;
+            try { return base.ESCPressed(); }
+            finally { _escClose = false; }
+        }
+
         public override void Close()
         {
+            // 原版 `SearchingOpponentWindow__Close.c` 是「基类 Close + `MatchMakerManager.CancelSearch()`」——
+            // 那一句本身是**有闸的轻动作**，所以原版无条件调；而我们的 `OnCancel` 会往对面发 `match.cancel`
+            // ⇒ 只在**玩家关窗**（ESC）这一支取消，两条程序关窗（配到人 / 这一局被撤）不动。判据见上面那一节。
+            if (_escClose) CancelSearchOnce();
             ReleaseHold();
             base.Close();
         }
@@ -325,6 +398,8 @@ namespace CardPresentation
             _foeFound = null; _foeNotFound = null;
             // 🆕 A932：提示行那一颗同理（旧的那颗已被销毁；状态也归零 —— 重开一扇窗不许留着上一局那句话）
             _hintLine = null; HintText = null;
+            // 🆕 **2026-10-23（W62）**：重开 = 新的一局 ⇒ 幂等闸复位（上一次取消过，不妨碍这一局再取消一次）
+            _cancelSent = false;
 
             MenuDraw.Rect(root, CardArt.Solid(), new PxRect(BgL, BgT, BgR, BgB),
                           "Background", QSr, new Color(0f, 0f, 0f, 0.71f));
@@ -396,11 +471,13 @@ namespace CardPresentation
             if (isFoe) { _foeFound = f; _foeFoundRect = found; _foeNameRect = nameR; _foeNotFound = nf.gameObject; }
         }
 
-        /// <summary>点 `Cancel`（原版 `CancelMatchMatchmaking → MatchMakerManager.CancelSearch`）。</summary>
+        /// <summary>点 `Cancel`（原版 `CancelMatchMatchmaking → MatchMakerManager.CancelSearch`）。
+        /// 🔴 **2026-10-23（W62）**：改走 `CancelSearchOnce()` —— 与 ESC 共用同一道幂等闸，
+        /// 否则「先回调、再 `Close()`」会让实现侧变成两条路各取消一次（而生产上 `OnCancel` 那条链**自己也会关窗**）。</summary>
         public void Cancel()
         {
             Debug.Log("[SearchingOpp] `Cancel Match` —— 取消匹配（原版 `CancelMatchMatchmaking`）");
-            if (OnCancel != null) OnCancel();
+            CancelSearchOnce();
             Close();
         }
     }

@@ -52,37 +52,65 @@ public static class IconSetup
     public const string SaResourcePath = "Fonts/Warpforge Trait TextSprites";
 
     /// <summary>
-    /// 🔴 **标定：把一个字形的 `m_Scale` 乘多少，图标才和成品卡图上一样大**（2026-09-15）。
-    /// **为什么需要**：原版那份 sprite asset 的 `m_FaceInfo` 是 0 ⇒ TMP 退回**按当前字体**算缩放，
-    /// 而原版卡面的字体和我们**不是同一份**（`Tooltips_Global_SDF`/`Tooltips_Global_Unit_SDF` vs 我们的那份）
-    /// ⇒ 照抄原版的 `m_Scale` **不保证**渲出来一样大。所以大小只能**量**出来（铁律 7：拿成品卡图当尺子）。
+    /// 🔴 **标定：把一个字形的 `m_Scale` 乘多少，图标才和成品卡图上一样大。**
+    /// **为什么需要**：原版那份 sprite asset 的 `m_FaceInfo` 是 **0**（pointSize / scale 全 0）⇒ TMP 走
+    /// 「**按正文字体的 faceInfo 算缩放**」那一支（`Library/PackageCache/com.unity.ugui@…/Runtime/TMP/TMP_Text.cs:4164`）：
+    ///   `spriteScale = fontSize / fontFace.pointSize × fontFace.scale × 0.1`，
+    ///   `currentElementScale = fontFace.ascentLine / glyph.metrics.height × sprite.scale × glyph.scale × spriteScale`
+    /// ⇒ **同一个 `m_Scale`，正文字体换了、图标大小就跟着变**。所以大小只能**量**出来（铁律 7）。
     ///
-    /// **尺子**（可复查）：`D:/2/Warpforge部队卡片/Dark Angels/3部队/Warpforge_12_Aggressor.png`（900×1200）
-    /// 那一行 `Strike: Gain 〔questPoints1〕`：
-    ///   · 图标墨迹 **h≈48 px**（`d:/4/_tmp_view/cardmeas/qp_zoom.png` 8× 放大图 60×65 里量出来的）
-    ///   · 同行的拉丁大写高 **h≈24 px**（`S`、`G`、`i` 的升部都是 23~24；`b/t` 那 31 是升部不是大写）
-    ///   ⇒ **图标 ÷ 大写 ≈ 2.0**、**图标 ÷ 卡高 = 4.0%**（48/1200）
+    /// **两条仪器口径（2026-10-23 查实，别再踩）**
+    ///   · `IconSizeProbe.Run` 建的是**裸 TMP**、`font = TmpFont.Font`（**CJK 面**：
+    ///     `ascentLine 57.55 / pointSize 50 / scale 0.9`），而**卡面效果文字的正文字体是
+    ///     `Face.LatinCardBody`（Pragati：`ascentLine 70 / pointSize 95 / scale 1`）**
+    ///     ⇒ 同一字号下两边图标差 **0.711 倍**（`70×0.1/95 = 0.07368` ÷ `57.55×0.9×0.1/50 = 0.10359`）。
+    ///     所以探针报的 `questPoints1` 墨高 **0.32 卡单位**（CJK 面）**不是**卡面会渲出来的值；
+    ///     换成卡面真实那一面是 **≈0.23**。⛔ 别再把探针的绝对数直接当卡面读数用。
+    ///   · 下面 ⑨ 那条断言（`Verify`）**按 `Face.LatinCardBody` 量**，不复用探针的绝对数。
     ///
-    /// **我方量出来的**（`-executeMethod IconSizeProbe.Run`，输出在 `_tmp_view/iconsize/`）：
-    ///   · 卡面效果文字字号 **2.3552**（`CardView.KeywordFontSize` 现读）、拉丁大写墨迹高 **0.19** 卡单位
-    ///     🔴 **2026-10-22（`W64`）订正读数**：这里原来写 **2.48** —— 那是**按 CJK 墨高标定**的旧口径
-    ///     （`0.23552 ÷ WorldGlyphPerFontSize 0.0948` = 2.4844）。`W62/T2` 把字号改成按面 em 之后
-    ///     现读 = **2.3552**（= `Height 3.3313 × DescEmOfCard 0.0707 ÷ 0.1`，`CardView.cs:3826`）。
-    ///     判据 → `资料/普查产出_1022/W64_卡牌线_剩余与预判.md` §6·2。
-    ///     ⚠️ **只订正这条读数，`CalibScale` 一个字没动**（见下）：字号 2.48 → 2.3552，大写墨迹高照理会
-    ///     跟着掉到 ≈0.180、`CalibScale` 就该是 ≈0.735 —— **但那是按比例推算、不是实测**
-    ///     ⇒ 按下面那句办：**待 `IconSizeProbe.Run` 复量之后再定**，⛔ 不许拿推算改常数。
-    ///     ⇒ 下面这条 0.19 也是**旧口径下量出来的**，同样待 `IconSizeProbe.Run` 复量。
-    ///   · 目标图标高 = 2.0 × 0.19 = **0.38** 卡单位 = 卡高的 11.4%
-    ///   · 原样（scale 1.7）时图标墨迹 **0.49** 卡单位（`IconSizeProbe` 扫描实测：
-    ///     0.5→0.24 / 0.674→0.33 / 0.8→0.39 / 1.0→0.49，**线性吻合**，可直接按比例算）
-    ///   ⇒ 系数 = 0.38 ÷ 0.49 = **0.776**（**旧口径**下的值；字号改成 2.3552 之后**待 `IconSizeProbe.Run` 复量**）
+    /// **尺子（2026-10-23 亲测，可复查）**：`D:/2/Warpforge部队卡片/Dark Angels/3部队/Warpforge_12_Aggressor.png`（900×1200）
+    /// 那一行 `〔骷髅〕Strike: Gain 〔questPoints1〕`：
+    ///   · 图标墨迹 **51 px 高**（阈值 90~110 稳定在 50~51；阈值 150 时 48）
+    ///   · 同一行**拉丁大写**（`S` / `G`）**31 px**；小写 x-height **23~24 px**
+    ///   ⇒ **图标 ÷ 大写 = 51/31 = 1.65**；**图标 ÷ x-height ≈ 48/24 ≈ 2.0**。
+    ///   🔴 **2026-10-23 就地订正（铁律 5）**：本节原来写「图标 ÷ 大写 ≈ **2.0**」「大写高 h≈24 px」——
+    ///     **那个 24 是一行的【小写】字母**（`a/i/n` 23~24），真正的拉丁大写是 **31 px** ⇒
+    ///     **2.0 是「图标 ÷ x-height」，不是「图标 ÷ 大写」**。本文件下面所有 2.0 一律按 1.65 更正。
     ///
-    /// ⚠️ **改这条要重跑 `IconSizeProbe.Run` 复量**，别照着感觉调。
-    /// ⚠️ 和 `CardIcons.FontScaleFor`（字号那一侧）是**两个不同的东西**：那条是「字号该乘多少」，
-    ///    这条是「字形本身该缩多少」。两个都从上面同一组测量来，改一个要想另一个。
+    /// **换算链（每个数的量纲写死）**
+    ///   · `1.65`   = 成品卡图上「图标墨高 ÷ **大写**墨高」——**无量纲**（见上）
+    ///   · `0.155`  = **我们**卡面效果文字在**名义字号**下的**大写**墨迹高，单位 = **卡单位**
+    ///                （`KeywordFontSize 2.3552 × TmpFont.CapPerFontSize(LatinCardBody) 0.0656 ≈ 0.1545`。
+    ///                 ⚠️ 原注释那条 **0.19** 是拿 `TmpFont.Font`（CJK 面）量的，口径不对，已作废）
+    ///   · 两者相乘 = 「目标图标墨高」= **0.255 卡单位**（**名义字号**下）
+    ///   · ÷ `CardView.Height`（3.3313）= **7.7% 卡高** —— ⚠️ **这是【名义】值，不能当标定目标**
+    ///
+    /// 🔴 **为什么「÷ 卡高」不能当标定目标**：卡面效果文字过 `CardView.FitToBox`（`CardView.cs:4267`）
+    ///   **按版面框回缩**，正文字号不是名义值 —— `DA65` 实测回缩到名义的 **≈0.40**
+    ///   （卡面 CJK 墨高 26 px ÷ 卡高 1001 px = 2.6%，而名义 em 是 7.07% 卡高）
+    ///   ⇒ 「图标 ÷ 卡高」**逐卡不同**（文本越长越小）。
+    ///   原注释「目标图标高 = 2.0 × 0.19 = 0.38 卡单位 = 卡高的 11.4%」两处都错：
+    ///     ① `0.38` 是拿 **x-height 口径的 2.0** 乘 **大写口径的 0.19**（两个量纲混乘）；正确 = `1.65 × 0.155 ≈ 0.255`；
+    ///     ② 「11.4% 卡高」只在名义字号下成立，而卡面永远先过 `FitToBox`
+    ///        ⇒ 与成品图的「图标 ÷ 卡高 4.0%（48/1200）」**本来就不可比** ——
+    ///        成品图那 4.0% 是**印刷版式**；铁律 10 第 3 条：PnP 是印刷品，量「内容」可以、量「版式」不行。
+    ///
+    /// **本值怎么来的（0.842）**
+    ///   名义字号下「图标 quad ÷ 大写 quad」= (`70/95` ÷ `60/95`) × `glyph.scale` × 墨占
+    ///     = `1.1667 × glyph.scale × 0.9875`（`questPoints1` 的墨占 79/80）
+    ///   要它等于成品图的 **1.65** ⇒ `glyph.scale` = 1.432 ⇒ **`CalibScale` = 1.432 ÷ 1.7 = 0.842**。
+    ///   ✅ **模型与实物对得上**：同一公式算 `DA65` 的 `armour`（旧值 0.776）= 0.968，卡面渲图实测 **0.98**
+    ///     （2026-10-23：图标墨高 25.5 px ÷ CJK 墨高 26 px）—— 差 1% ⇒ 这套公式可以直接用来标定。
+    ///   📌 旧值 **0.776** 的来历：2026-09-15 按「2.0 × 0.19 / 0.49」算的，那条链同时错在
+    ///     **x-height 当大写**、**CJK 面当正文面**、**名义值当卡面值**三处；字号按面分档（2026-10-18 `N55`）之后
+    ///     连「正文字体不是同一份」这个前提也没了 ⇒ 本次按上面的实测重标。
+    ///
+    /// ⚠️ **改这条必须重跑 `IconSetup.Run`** 重建资产 —— `Build()` 才把 `glyph.scale × CalibScale` 写进
+    ///   `Warpforge Trait TextSprites.asset`；**只跑 `Verify` 量到的还是旧资产**（⑨ 会红，文案里提示这一点）。
+    /// ⚠️ 和 `CardIcons.FontScaleFor`（字号那一侧）是**两个不同的东西**：那条是「字号该乘多少」（今天恒 1），
+    ///   这条是「字形本身该缩多少」。
     /// </summary>
-    const float CalibScale = 0.776f;
+    const float CalibScale = 0.842f;
 
     static void Log(string s) { Debug.Log(P + s); }
     static void Err(string s) { Debug.LogError(P + s); }
@@ -495,8 +523,11 @@ public static class IconSetup
 
                 string d = CardPresentation.CardIcons.Rewrite(id, "desc", cd.Desc);
                 string z = CardPresentation.CardIcons.Rewrite(id, "descZh", cd.DescZh);
-                int nD = CountOf(d, "<sprite name=\"oath\">"), nZ = CountOf(z, "<sprite name=\"oath\">");
-                int iD = d.IndexOf("<sprite name=\"oath\">", System.StringComparison.Ordinal);
+                // ⚠️ **数两档名字**（`oath` 与 `Atlas_trait_icon_oath`，同一个字形 —— 见 `CountSprite` 的 doc）：
+                //    英文 `desc` 走**计划表**（短名），中文 `descZh` 走**官方 `[[oath]]`**（`RewriteMarkTraits` 写全名）
+                //    ⇒ 只数短名会把中文那三条全判成 0/1（2026-10-23 实测的假红）。
+                int nD = CountSprite(d, "oath"), nZ = CountSprite(z, "oath");
+                int iD = IndexOfSprite(d, "oath");
                 Check(nD == want && iD >= 0 && d.IndexOf(enWord, System.StringComparison.Ordinal) > iD
                       && CardPresentation.CardIcons.StripTags(d).Contains(enWord),
                       "★ ②i " + id + " [desc]：Oath 徽记 **" + nD + "/" + want + "** 枚，"
@@ -1132,7 +1163,109 @@ public static class IconSetup
         Log("③ 探针图 → " + png + "（**人眼看一下图标出没出来**）");
         Object.DestroyImmediate(go);
 
+        // ═════════════════ ⑨ 图标尺度「量出来」的护栏（`CalibScale` 的锚，2026-10-23）═════════════════
+        //
+        // 🔴 **钉什么**：**卡面效果文字的正文面（`Face.LatinCardBody` = Pragati）下**，
+        //   一个行内图标的墨高 ÷ 同一行的**拉丁大写**墨高，必须落在**成品卡图量出来的**比例附近。
+        //   · 目标 `1.65` = `Warpforge_12_Aggressor.png` 亲测：`questPoints1` 图标 51 px ÷ 大写 `S`/`G` 31 px
+        //     （复量命令写在 `CalibScale` 的 doc 里：阈值 90~110 稳定 50~51）。
+        //   · ⛔ **不是**断 `CalibScale` 这个常数本身 —— 断言量的是**渲染出来的几何**，
+        //     常数只是它的一条输入（资产里的 `glyph.scale` 才是真正被量的东西）。
+        //
+        // 🔴 **「图标」那一侧量的是渲染出来的**：那个 sprite 的网格 quad 就是它的 80×80 字形框
+        //   （墨占 79/80 ⇒ 用 quad 当墨高只差 1%）。**「大写」那一侧不用网格** ——
+        //   字符 quad 会把字形上下的留白也算进去（实测 `H` 的 quad 比 `capLine` 高 ≈11%），
+        //   所以直接用**正文字体自己的 `faceInfo`** 折算：
+        //   `capH = capLine / pointSize × scale × 0.1 × fontSize` —— 与 TMP 自己算字号的那条式子同源
+        //   （`TMP_Text.cs:7183` 的 `fontScale = fontSize/pointSize × scale × 0.1`），**不含任何本项目的常数**。
+        //   ⇒ 比值 = `ascentLine / capLine × glyph.scale`（`Pragati` = `70/60 × glyph.scale`）。
+        //
+        // 🧨 **改坏法（必须能红）**：
+        //   · `Build()` 里把 `g.scale * CalibScale` 改回 `g.scale`（= CalibScale 1.0）⇒ 1.67 → **1.98** ⇒ 红；
+        //   · 把正文面换回 `TmpFont.Font`（CJK 面）⇒ TMP 走 `TMP_Text.cs:4164` 那一支、图标 ×1.41 ⇒ 2.29 ⇒ 红；
+        //   · 改了 `CalibScale` 却**没重跑 `IconSetup.Run`**（资产里还是旧 scale = 0.776）⇒ 量到 **1.54** ⇒ 红
+        //     （这条是它最实用的一格：常数与资产必须**成对**改）；
+        //   · 字形表里 `questPoints1` 的 `m_Scale` 被改成别的数 ⇒ 红。
+        //   ⚠️ **判别力 ≈ ±10%**：它抓「结构性漂移」（换面 / 资产没重建 / 常数改了 10% 以上），
+        //     不是小数级别的调参（±3% 以内的调整它盖不住，那也不需要它盖）。
+        {
+            const float PnpIconOverCap = 1.65f;   // PnP 墨比：`Warpforge_12_Aggressor.png` 51 px ÷ 31 px
+            const float TolRel = 0.10f;           // ±10%，见上「判别力」
+
+            float ratio = -1f, iconQ = -1f, capH = -1f, faceAscent = -1f, faceCapLine = -1f;
+            var go9 = new GameObject("iconscale_probe");
+            try
+            {
+                var t9 = go9.AddComponent<TextMeshPro>();
+                t9.font = CardPresentation.TmpFont.FaceAsset(CardPresentation.TmpFont.Face.LatinCardBody);
+                t9.spriteAsset = sa;
+                t9.fontSize = CardPresentation.CardView.KeywordFontSize;   // 卡面效果文字的字号（现读 2.3552）
+                t9.enableWordWrapping = false;
+                // `H` 只是把行撑起来（和 `IconSizeProbe.Measure` 同一写法）；真正量的那个字形在**最后一个**
+                t9.text = "H<sprite name=\"questPoints1\">";
+                t9.ForceMeshUpdate();
+                float s9 = Mathf.Abs(t9.transform.lossyScale.y);
+                int si9 = t9.textInfo.characterCount - 1;
+                // 前提检查：末尾那个必须**真的是 sprite 字形**（sprite 名写错 ⇒ TMP 不生成那个字符 ⇒ 这里红）
+                bool isSprite9 = si9 >= 1 && t9.textInfo.characterInfo[si9].elementType == TMP_TextElementType.Sprite;
+                if (!isSprite9) Err("⑨ 前提不成立：`<sprite name=\"questPoints1\">` 没生成 sprite 字形（名字写错 / 资产里没这条）");
+                else iconQ = InkQuadH(t9.textInfo, si9) * s9;
+
+                // 大写墨迹高的**解析值**（同一面、同一字号的 TMP 换算，⛔ 不是我们的常数）
+                var fi = t9.font != null ? t9.font.faceInfo : new FaceInfo();
+                faceAscent = fi.ascentLine;
+                faceCapLine = fi.capLine;
+                capH = fi.capLine / fi.pointSize * fi.scale * 0.1f * t9.fontSize;
+                if (capH > 0f && iconQ > 0f) ratio = iconQ / capH;
+
+                // 顺手把「名义口径」的读数打出来（⛔ 不断言：卡面会过 `FitToBox`，见 `CalibScale` doc）
+                Log("⑨ 读数：正文字面 ascent/capLine = " + faceAscent.ToString("F2") + " / " +
+                    faceCapLine.ToString("F2") + " · fontSize " + t9.fontSize.ToString("F4") +
+                    " · 图标 quad " + iconQ.ToString("F5") + " · 大写（解析）" + capH.ToString("F5") +
+                    " · **图标 ÷ 大写 = " + ratio.ToString("F3") + "**（目标 " + PnpIconOverCap.ToString("F2") +
+                    " ±" + (TolRel * 100f).ToString("F0") + "%）" +
+                    "；换算成卡高：图标 " + (iconQ / CardPresentation.CardView.Height * 100f).ToString("F2") +
+                    "% 卡高（**名义值** —— 卡面还要过 `FitToBox`，⛔ 别拿它跟成品图那 4.0% 直接比）");
+            }
+            catch (System.Exception e)
+            {
+                Err("⑨ 量不了图标尺度：" + e.GetType().Name + ": " + e.Message);
+            }
+            finally { Object.DestroyImmediate(go9); }
+
+            Check(ratio > 0f && Mathf.Abs(ratio / PnpIconOverCap - 1f) <= TolRel,
+                  "★ ⑨ **图标墨高 ÷ 拉丁大写墨高**（卡面正文面 `LatinCardBody`、卡面效果文字的字号）" +
+                  "落在成品卡图的比例附近：实测 **" + ratio.ToString("F3") + "** / 目标 " +
+                  PnpIconOverCap.ToString("F2") + "（出处 `Warpforge_12_Aggressor.png`：`questPoints1` 图标 51 px ÷ 大写 `S`/`G` 31 px）" +
+                  "· 容差 ±" + (TolRel * 100f).ToString("F0") + "%" +
+                  "。🧨 改坏法：① `Build()` 里 `g.scale * CalibScale` 改回 `g.scale`（CalibScale 1.0）⇒ 1.98 ⇒ 红；" +
+                  "② 正文面换成 `TmpFont.Font`（CJK 面；`TMP_Text.cs:4164` 用**正文面**的 faceInfo 算图标缩放）⇒ 2.29 ⇒ 红；" +
+                  "③ **改了 `CalibScale` 却没重跑 `IconSetup.Run`**（资产里还是旧 scale = 0.776 ⇒ 1.54）⇒ 红 —— " +
+                  "先跑 `-executeMethod IconSetup.Run` 重建资产再验；④ 字形表里 `questPoints1` 的 `m_Scale` 被改 ⇒ 红。" +
+                  "⚠️ 判别力 ≈ ±10%：抓的是结构性漂移（换面 / 资产没重建 / 常数改了 10% 以上），不是小数级调参。", ref bad);
+        }
+
         Finish(bad);
+    }
+
+    /// <summary>
+    /// 第 `i` 个字符的**网格 quad 高**（局部单位；调用方自己乘 `lossyScale`）。
+    /// 顶点布局照 TMP：每字符 4 个顶点（左下/左上/右上/右下），`characterInfo[i].vertexIndex` 是它的起点。
+    /// ⚠️ 这是 **quad**，不是墨迹：对 **sprite** 它 = 那个字形框（80×80，墨占 79/80 ⇒ 差 1%）；
+    /// 对**字符**它会带上字形上下的留白（实测 `H` 的 quad 比 `capLine` 高 ≈11%）——
+    /// ⑨ 那条断言**只拿它量 sprite**，字符那一侧改用 `faceInfo` 解析折算（理由见那里的注释）。
+    /// </summary>
+    static float InkQuadH(TMP_TextInfo ti, int i)
+    {
+        if (ti == null || i < 0 || i >= ti.characterCount) return -1f;
+        var ci = ti.characterInfo[i];
+        int vi = ci.vertexIndex, mi = ci.materialReferenceIndex;
+        if (mi < 0 || mi >= ti.meshInfo.Length) return -1f;
+        var v = ti.meshInfo[mi].vertices;
+        if (vi < 0 || vi + 3 >= v.Length) return -1f;
+        float minY = float.MaxValue, maxY = float.MinValue;
+        for (int k = 0; k < 4; k++) { float y = v[vi + k].y; if (y < minY) minY = y; if (y > maxY) maxY = y; }
+        return maxY - minY;
     }
 
     static void Check(bool ok, string msg, ref int bad)
@@ -1146,6 +1279,38 @@ public static class IconSetup
         int n = 0, i = 0;
         while ((i = s.IndexOf(sub, i, System.StringComparison.Ordinal)) >= 0) { n++; i += sub.Length; }
         return n;
+    }
+
+    /// <summary>
+    /// 一个徽记在卡面文字里**画了几枚** —— **短名与 `Atlas_trait_icon_*` 全名都算**。
+    ///
+    /// 🔴 **为什么必须数两档**（2026-10-23 · 卡牌线 `D1` 现核）：
+    ///   `Build()` 把两套名字注册到**同一个字形**上（[`Build` 上方文件头「别名」那一段] 的落地）——
+    ///   现读 `Resources/Fonts/Warpforge Trait TextSprites.asset`：
+    ///   `oath` 与 `Atlas_trait_icon_oath` **都是 `m_GlyphIndex: 91` / `m_Scale: 1.65`**
+    ///   （`talent` / `Atlas_trait_icon_talent` 同为 `:15`）。而**两条渲染路各写一档**：
+    ///     · **官方 I2 那一代**（`descZh` 里的 `[[oath]]`）走 `CardIcons.RewriteMarkTraits`
+    ///       ⇒ 原版 `GetTraitTextSprite` 拼的是**全名** `<sprite name=Atlas_trait_icon_oath>`
+    ///       （`Core/CardIcons.cs:747-750`、`CardTraitCollection__GetTraitTextSprite.c`）;
+    ///     · **我们自造那一代**（计划表 `card_icon_plan.json`）走 `CardIcons.Rewrite` 的方括号/裸词两支
+    ///       ⇒ 写的是**短名** `<sprite name="oath">`。
+    ///   ⇒ 只数一档会把**另一半**误判成「没画」（2026-10-23 实测：②i 三条全红，中文那侧其实都画着）。
+    ///   ⚠️ 别名等价性由本文件 `Build()` 保证（`AliasImageName` / 两张同名表），⛔ 不是「看得差不多」。
+    /// </summary>
+    static int CountSprite(string s, string shortName)
+    {
+        return CountOf(s, "<sprite name=\"" + shortName + "\">")
+             + CountOf(s, "<sprite name=\"Atlas_trait_icon_" + shortName + "\">");
+    }
+
+    /// <summary>同上：某个徽记**第一次**出现的位置（两档名字取较小的那个下标；都没有 = -1）。</summary>
+    static int IndexOfSprite(string s, string shortName)
+    {
+        int a = s.IndexOf("<sprite name=\"" + shortName + "\">", System.StringComparison.Ordinal);
+        int b = s.IndexOf("<sprite name=\"Atlas_trait_icon_" + shortName + "\">", System.StringComparison.Ordinal);
+        if (a < 0) return b;
+        if (b < 0) return a;
+        return System.Math.Min(a, b);
     }
 
     // ─────────────── ④ / ⑤ / ⑥ 用的常量与纯函数（`A1409` / `A1370` / `A1421` / `A1423`）───────────────
@@ -1431,6 +1596,15 @@ public static class IconSetup
         foreach (var c in doc.cards)
         {
             if (c == null || c.fields == null) continue;
+            // 🔴 **2026-10-23（卡牌线 `D1` 现核）：控制集必须和谓词【同一个作用域】** ——
+            //   `ZhGaps` 对「黑暗契约」那一族**整卡 `continue`**（见它上面那段：那 41 张的徽记走
+            //   `RewriteMarks`、不参与本表对账）。而这里原来没跳 ⇒ 那一族的 (卡,sprite) 对**照样进控制集**，
+            //   抽掉它们**永远不可能**让 `ZhGaps` 多报一条 ⇒ **14 条必然漏**（实测 `705/719`，
+            //   漏掉的正好 = 控制集里属于黑暗契约卡的那 14 对）。
+            //   ⚠️ 这不是「放宽」：判据仍是「抽掉的 ⇒ ④a 每一条都得认出来」；只是**控制集不再包含
+            //   谓词本来就不判的卡**（否则那 14 条是**结构上给不出答案**的空转项）。
+            //   判据只此一处 = `CreatePool.MentionsDarkPact`（`MentionsDarkPactCard` 转发）。
+            if (MentionsDarkPactCard(c.id)) continue;
             var en = new HashSet<string>();
             var zh = new HashSet<string>();
             foreach (var f in c.fields)

@@ -82,10 +82,10 @@ public static partial class RuleEngineTest
         "TestS23ParseCostWhenIconMarker", "TestS23AssertImplementedReadSites", "TestS23AssertA1413PayGroup", "TestS23ResolveDeployCopyOfThisTroop", "TestS23ResolveInsteadOnAbilityLayer", "TestS23ResolveInsteadConditionalNotPairedOnAbilityLayer",
         "TestS23ResolveLandingCancelsAttack", "TestS23ResolveA1426GiveToDyingOnBoard", "TestS23ResolveArmourTwoRepresentations", "TestS23ResolveA1692DeployFreeNoOverwrite", "TestS23ResolveA1690WhenBodyAdjacentAnchor", "TestS23ResolveA1312KeepStatusTurnState",
         "TestW59PlayOrderSameSideDeploy", "TestW59PlayOrderCrossPlayer", "TestW59PlayOrderTurnStartEnd", "TestW59PlayOrderReentry", "TestW59PlayOrderInvariant", "TestW59PlayOrderOnSide",
-        "TestW61ActionQueue", "TestT02OrConditionTargetDiesOrFriendly", "TestT02SacrificeBodyLandsOnSelf", "TestT02PlacementNoOverwriteFamily", "TestT02FirstFreeSlotHonoursAvailability", "TestT02NextDeploySlotHonoursAvailability",
-        "TestT02ReturnSideIsAvailableSlot", "TestT02ResolveWarlordSlotHonoursAvailability", "TestT02ResolveSideBranchHonoursAvailability", "TestT02OrFamilyBuckets", "TestT02DuplicateTriggerBodyDedup", "TestW61bSpentAllMana",
-        "TestW61bSpendInsufficientDrainsToZero", "TestW61bInitialModifiers", "TestW61bSkipCardDrawProducer", "TestW64UnitConditions", "TestW64StructuredConditions", "TestW64StructuredTargetFilters",
-        "TestW64OpAbilityTargetConditions", "TestB16ConditionEval", "TestB17SubjectlessTargets",
+        "TestW61ActionQueue", "TestEngineP1", "TestT02OrConditionTargetDiesOrFriendly", "TestT02SacrificeBodyLandsOnSelf", "TestT02PlacementNoOverwriteFamily", "TestT02FirstFreeSlotHonoursAvailability",
+        "TestT02NextDeploySlotHonoursAvailability", "TestT02ReturnSideIsAvailableSlot", "TestT02ResolveWarlordSlotHonoursAvailability", "TestT02ResolveSideBranchHonoursAvailability", "TestT02OrFamilyBuckets", "TestT02DuplicateTriggerBodyDedup",
+        "TestW61bSpentAllMana", "TestW61bSpendInsufficientDrainsToZero", "TestW61bInitialModifiers", "TestW61bSkipCardDrawProducer", "TestW64UnitConditions", "TestW64StructuredConditions",
+        "TestW64StructuredTargetFilters", "TestW64OpAbilityTargetConditions", "TestB16ConditionEval", "TestB17SubjectlessTargets",
     };
 
     // 本次诊断真正跑过的用例（顺序同 `RunCaseNames`）—— 只给对账用
@@ -507,6 +507,7 @@ public static partial class RuleEngineTest
         Safe("TestW59PlayOrderInvariant", () => TestW59PlayOrderInvariant());
         Safe("TestW59PlayOrderOnSide", () => TestW59PlayOrderOnSide());
         Safe("TestW61ActionQueue", () => TestW61ActionQueue());
+        Safe("TestEngineP1", () => TestEngineP1());
         Safe("TestT02OrConditionTargetDiesOrFriendly", () => TestT02OrConditionTargetDiesOrFriendly());
         Safe("TestT02SacrificeBodyLandsOnSelf", () => TestT02SacrificeBodyLandsOnSelf());
         Safe("TestT02PlacementNoOverwriteFamily", () => TestT02PlacementNoOverwriteFamily());

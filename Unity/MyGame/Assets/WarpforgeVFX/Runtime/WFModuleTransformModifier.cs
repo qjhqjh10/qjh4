@@ -72,17 +72,39 @@
 //      「我们的单位不占多格，没有『尺寸』这个概念」，那三档尺寸常量也接不上）⇒ **跳过**。
 //   ② `updateScaleByBoardPosition`（2 例：`Ork_Squiggoth_Charge` / `Ork_Trampla_Charge`）：
 //      要 `cardTarget.CardUI.<0x1c0>.MinionScaleByPositionSO.GetScale(isPlayer, localPosition,
-//      originalScale)`。那份 SO **没有导出来**（`数据/` 里 0 命中），而且 `GetScale` 里那个
-//      「全局默认尺度」静态 Vector3 在 `DAT_1842da2a8` 的静态块、**类名未定**（块1 §7 同一条）
-//      ⇒ **跳过**。
+//      originalScale)`。
+//      🔴 **2026-10-23 更正（铁律 5）**：原来这里写「那份 SO **没有导出来**（`数据/` 里 0 命中）」+
+//      「`GetScale` 里那个『全局默认尺度』静态 Vector3 类名未定」—— **两句都不成立**：
+//        · **件在本地**：`d:/2/新解包资源/assets_full/bundle_battleprefabs_vfxandmisc_assets_all/
+//          MonoBehaviour/MinionScaleByPosition.json` —— `scaleCurve` 两键
+//          `(time 0.0028114319, value 0.36) → (time 7.6999998, value 0.70)`，两键斜率相等 ⇒ 直线。
+//          当年「`数据/` 里 0 命中」只是**搜的那棵树里没有它**（查不到 ≠ 不存在，铁律 2）。
+//        · **`MinionScaleByPositionSO__GetScale` 已反编译**（`d:/2/tools/decomp_full/MinionScaleByPositionSO__GetScale.c`），
+//          逐句已读。里面那个 `DAT_1842da2a8` 静态块**身份也已定**：`+0xb8` = `static_fields`、
+//          `+0xc/+0x10/+0x14` = **`UnityEngine.Vector3.one`**（判据 → `资料/普查产出_1011/F1_W1修复.md:42`
+//          两条独立证据 + `dump.cs` 的 `Vector3` 静态字段表 `oneVector 0xC`）⇒ 与 `CardFeel` 里
+//          那个 `基准(Vector3.one)` 一致，**不再是「类名未定」**。
+//      ✅ **曲线口已收口到共用静态口**：`CardPresentation/Core/CardFeel.cs` 的
+//      `DepthScaleFactor(worldZ, isPlayer)`（返回**相对**系数，自家那一行恒 1）· `DepthScaleCurve`
+//      · `DepthScaleKey0Time / Key0Value / Key1Time / Key1Value`（2026-10-23 落地，判据在那一节注释里）。
+//      ⚠️ **本模块这一条仍然 `SkippedBoardScale++` —— 没接线，而且这里【没有】第二份实现**
+//      （⛔ 别写成「已还原」）。要接只差两件：① `ModuleTick` 手上没有 ctx（`isPlayer` 只在
+//      `Initialize` 经 `IsPlayerCard(ctx)` 拿得到 ⇒ 得先缓存一个字段）；② 原版的 `localPosition` 是
+//      「相对自己那一行」，我们卡父节点恒在原点 ⇒ 要按 `CardFeel` 那样用「世界 z − 本行 z」换。
+//      （第三个入参 `originalScale` **不用另找** —— `Initialize` 第 ⑧ 步已经从卡上记了。）
+//      ⇒ **接线待做**（账 → 战斗线 `新账-79`）。
 //   ③ `aimToTargetInUpdate`（1 例：`Shuriken_Short_Trait`）：要
 //      `controller.targetCard.GetEffectAnchor().position`。`CardScript.GetEffectAnchor` 是**原版卡
 //      prefab 上的锚点节点**，我们这边**没有对应物**（特效是按世界坐标播的，不挂在卡上）
 //      ⇒ **跳过**（有卡上下文也只差这一件）。
 //   ④ `alwaysMaintainWorldScale` 的「没有父级」分支：原版除以 `DAT_1842da2a8` 静态块里的一个
-//      Vector3（**类名未定，查不到**）。我们按 `Vector3.one` 处理 —— 语义上就是「没有父级时
-//      不做补偿」，而且 `v / 1 = v` 与「无父级时 localScale == lossyScale」自洽。
-//      ⚠️ 这条是**我们挑的**，不是原版的值。
+//      Vector3。⚠️ **2026-10-23 更正（铁律 5）**：原来这里写「**类名未定，查不到**」+「这条是
+//      **我们挑的**，不是原版的值」—— **都过期了**。实况：`DAT_1842da2a8` = `UnityEngine.Vector3`
+//      的 Il2CppClass、`static_fields + 0xc` = **`oneVector`**（判据 → `资料/普查产出_1011/F1_W1修复.md:42`
+//      的两条证据，其中一条就是 `AnimFXModuleTransformModifier__Update.c:34-40` 自己在无父级时
+//      拿这一格兜底缩放 ⇒ 是 `one` 不是 `zero`；字段表 `dump.cs` `zeroVector 0x0 / oneVector 0xC`）。
+//      ⇒ 我们按 `Vector3.one` 处理**正是原版的值**，不是猜的；语义上 `v / 1 = v` 也和
+//      「无父级时 localScale == lossyScale」自洽。
 using System;
 using System.Collections.Generic;
 using UnityEngine;
@@ -418,16 +440,22 @@ namespace WarpforgeVFX
             {
                 // 🔴 未还原（文件头「没还原 ②」）：要 `cardTarget.CardUI.<0x1c0>` 上的
                 // `MinionScaleByPositionSO.GetScale(isPlayer, localPosition, originalScale)`。
-                // 那份 SO 没导出来（`数据/` 里 0 命中），GetScale 里那个「全局默认尺度」静态
-                // Vector3 的类名也查不到 ⇒ 跳过。
+                // ⚠️ **2026-10-23 更正（铁律 5）**：原来这里写「那份 SO 没导出来（`数据/` 里 0 命中）/
+                // 静态 Vector3 类名也查不到」—— **都不对**：SO 在
+                // `bundle_battleprefabs_vfxandmisc_assets_all/MonoBehaviour/MinionScaleByPosition.json`
+                // （两键 0.36 → 0.70），`…__GetScale` 也已反编译；**曲线口已收口**到共用静态口
+                // `CardFeel.DepthScaleFactor`（详见文件头「没还原 ②」）。**本模块仍未接线**（没有第二份
+                // 实现），差的只是 ctx 里的 `isPlayer` 与「相对本行」的 z 基准 ⇒ 待收口。
+                // ⛔ 别因为「曲线已备」就写成已还原 —— 这一行现在仍然只 `SkippedBoardScale++`。
                 SkippedBoardScale++;
                 if (!_warnedBoardScale)
                 {
                     _warnedBoardScale = true;
                     Debug.LogWarning("[WarpforgeVFX] 🔴 未还原：`updateScaleByBoardPosition` —— "
                                    + "原版从 `cardTarget.CardUI` 上取 `MinionScaleByPositionSO` 的曲线算缩放，"
-                                   + "那份 SO **没导出来**、曲线里的「全局默认尺度」静态量也查不到"
-                                   + "（块1 §7）⇒ 跳过（不动 localScale）。受影响 "
+                                   + "（⚠️ 2026-10-23 更正：原来这条警告说「SO 没导出来 / 静态量查不到」，"
+                                   + "**都不对** —— 件在本地、曲线口已收口到 `CardFeel.DepthScaleFactor`，"
+                                   + "本模块只是还没接线。）⇒ 跳过（不动 localScale）。受影响 "
                                    + "`Ork_Squiggoth_Charge` / `Ork_Trampla_Charge`。这条警告只报一次。");
                 }
             }

@@ -205,7 +205,11 @@ class Program
     //    1,164,810 → 1,218,806 B）。解析输出逐字节没动（`check` 解析差异 0 行 · 输出指纹 `c9f6c642…`）
     //    ⇒ **只重钉这一颗**，`PinnedBaselineMd5` / `PinnedParseMd5` 原样不动。
     //    判据 → `资料/普查产出_1023b/引擎线_尾巴_执行报告.md` §5·1 / §6·1。
-    public const string PinnedPoolMd5 = "3f4002d0ff24a7b6375caedcd3ef329e";
+    // 🔴 2026-10-23（引擎深审 C/E-A 之后 · G1 三条 P1 落地）有意重钉：`cards_engine.json` → **version 18**
+    //   新增 `abilityTriggerPriority` 列（7 条 / 7 张，键 = 原版 `AbilityTrigger` 枚举名）+ `goesSecond` 补齐 6 位督军
+    //   ⇒ 卡池 md5 变（`b7b19efd…`/`3f4002d0…` → `a9bba94e…`）。**解析输出逐字节没动**（`check` 解析差异 0 行 ·
+    //   ⑦ 输出指纹 `c9f6c642…` 仍一致）⇒ 只重钉这一颗，`PinnedBaselineMd5` / `PinnedParseMd5` 原样不动。
+    public const string PinnedPoolMd5 = "49ecd64c7bef92ce2c1020455f71e16e";
 
     /// <summary>钉住的基线内容指纹（`工具/ruleprobe/基线/out_baseline.txt` 的 md5，**按字节**）。
     /// 与上面那个配对使用 —— 判据见上面那段长注释。</summary>

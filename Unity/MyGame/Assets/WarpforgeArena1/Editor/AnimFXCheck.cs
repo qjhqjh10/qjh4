@@ -19,15 +19,17 @@ public static class AnimFXCheck
     const string P = "ANIMFX ";
     static int _pass, _fail;
 
-    /// <summary>**已知**解不出的音效 cue。
+    /// <summary>**历史上**解不出的音效 cue —— 🔴 **现为空数组**（`new string[0]`）。
     ///
-    /// ⚠️ 2026-09-19 实测：**已是空表** —— 曾经有 4 个（`Buff Black Legion 3` / `Helbrute_plasma` /
-    /// `Meltagun_Chaos` / `Sororitas Shrine Bombardment Audio`）报「bundle 里没有」，
+    /// ⚠️ 2026-10-23 更正（铁律 5）：本行原来写「**已知**解不出的音效 cue」，读起来像「现在还有 4 个」。
+    /// 实际那 4 个（`Buff Black Legion 3` / `Helbrute_plasma` / `Meltagun_Chaos` /
+    /// `Sororitas Shrine Bombardment Audio`）**早在 2026-09-19 就补齐了**：它们当年报「bundle 里没有」，
     /// 真因是**第一次只读了 `soundcollection_assets_all` 一个包**，它们其实在
     /// `battleprefabs_vfxandmisc_assets_all` 里 —— **又一次「查不到 = 搜错了目录」**。
-    /// 导入器已改成「按名字定位包」，408/408 全解得出。
-    /// 保留这个白名单机制（而不是删掉断言）：**新增**的缺失能立刻红出来。
-    /// 真有查实的缺口就往这里加一条，并在注释里写清为什么。</summary>
+    /// 导入器已改成「按名字定位包」，408/408 全解得出。**错因**：把「历史缺口」写成了现在时。
+    /// 🔑 **这个字段现在的用途 = 白名单机制**（**不是**「记录已知缺口」）：①b 那条断言写的是
+    /// 「**除本表列出的以外**新增缺失 = 0」，所以留一个空数组（而不是删掉断言）⇒ **将来**真出现
+    /// 解不出的 cue 会**立刻红**；查实是原版本身缺的，才往这里加一条并写清为什么。</summary>
     static readonly string[] KnownMissingCues = new string[0];
 
     static void Check(bool ok, string what)
@@ -103,9 +105,11 @@ public static class AnimFXCheck
         // ---- ①b 音效 cue 覆盖（✅ 2026-09-19 接线；这里做**全量**覆盖检查）----
         // ⚠️ 不能只查「播过的那些」—— 自检只播几个效果，那样覆盖不到全表。
         //    所以直接扫**数据文件**里全部 `sounds[*].sound` / `exitSounds[*].sound`。
-        // 判据：除了**已知的 4 个**（那 4 个 cue 不在 `soundcollection_assets_all.bundle` 里，
-        // 见 `资料/AnimFX_实现与接线.md` §11.4），不该再有任何解不出的 cue。
-        // ⚠️ 写成「必须 == 0」的话会**每次全红** —— 而一直红的断言等于没有断言。
+        // 判据：除了 `KnownMissingCues` 里列出的（🔴 **现为空数组**；⚠️ 2026-10-23 更正：原来这里写
+        // 「已知的 4 个…不在 `soundcollection_assets_all.bundle` 里」，那 4 个 2026-09-19 已全部补齐、
+        // 那个包也不是唯一来源，见 `资料/AnimFX_实现与接线.md` §11.4），不该再有任何解不出的 cue。
+        // ⚠️ 断言口径保持「除白名单外 == 0」而不是「总数 == 0」：将来为「原版本身缺」加白名单时
+        //    才不会**每次全红** —— 而一直红的断言等于没有断言。
         if (System.IO.File.Exists(EffectLibraryBuilder.DefaultModulesJson))
         {
             var sdoc = JsonUtility.FromJson<ModuleDoc>(
@@ -702,6 +706,289 @@ public static class AnimFXCheck
                 }
             }
         }
+
+    // ==================================================================
+    //  🔴 2026-10-23（`T1` · Trait 全量权威化 / **去兜底**）—— 四组断言
+    //  ------------------------------------------------------------------
+    //  用户 2026-10-23 指令：「安卓存档有 CardTrait SO，把我们兜底之类的东西都去掉，
+    //  **全面使用 CardTrait SO**」。对应到代码里三件事：
+    //    ① 运行时逐卡特效表（`Resources/card_vfx_by_card.json`）**只剩 `authoritative`**；
+    //    ② 5 条 `penitence`（`SOR8/10/21/27/32`）**不进播放表**，但**必须出声**；
+    //    ③ `TraitFrames`（状态框两本）与 `TraitParticles`（FromCode 粒子）**由
+    //       `Resources/trait_effect_bindings.json` 驱动** —— 里面每一行都能追到
+    //       `DefinedTrait / TriggerType / effectAnim GUID / CardAnim / prefab`。
+    //  ⚠️ **期望值一律从数据独立重算**（同一份 JSON，⛔ 不从被测实现读回 —— 那是自证）。
+    //  ⚠️ 字面量那几条（`StealthEffect` / `Oath_Effect` …）**摘自原版资产**（`CardTrait` SO），
+    //     写死是有意的：它们是「回归靶子」，实现改了就得红。
+    // ==================================================================
+    static void CheckTraitAuthority()
+    {
+        Debug.Log(P + "--- T1 · Trait 全量权威化（去兜底）---");
+
+        // ⚠️ **先把逐卡表载进来**：`CardTableNonAuthoritativeRows` / `CardTableNotPlayed` 是**载表时**写的，
+        //    不载就读到 0 ⇒ 下面那几条会变成「空断言自己绿」（本仓踩过的坑，见 `A1731` 那条注释）。
+        CardPresentation.VfxMap.EnsureLoaded();
+        Check(CardPresentation.VfxMap.CardTableCards > 1000,
+              $"前提：逐卡表**载进来了**（{CardPresentation.VfxMap.CardTableCards} 张卡 / "
+            + $"{CardPresentation.VfxMap.CardTableEntries} 行）—— 载不到的话下面「非权威 = 0」全是没有内容的绿");
+
+        // ---------- ① 运行时逐卡表：非 `authoritative` 的行必须 = 0 ----------
+        CardPresentation.VfxMap.RtFile vfxDto = null;
+        {
+            var vfxAsset = Resources.Load<TextAsset>(CardPresentation.VfxMap.CardTableResourcePath);
+            if (vfxAsset != null)
+            {
+                try { vfxDto = JsonUtility.FromJson<CardPresentation.VfxMap.RtFile>(vfxAsset.text); }
+                catch (System.Exception ex) { Debug.LogWarning(P + "① 读逐卡表失败：" + ex.Message); }
+            }
+            int rows = 0, nonAuth = 0;
+            var confs = new Dictionary<string, int>();
+            if (vfxDto != null && vfxDto.cards != null)
+            {
+                foreach (var card in vfxDto.cards)
+                {
+                    if (card == null || card.events == null) continue;
+                    foreach (var ev in card.events)
+                    {
+                        if (ev == null || ev.es == null) continue;
+                        foreach (var e in ev.es)
+                        {
+                            if (e == null || string.IsNullOrEmpty(e.n)) continue;
+                            rows++;
+                            var key = e.c ?? "(null)";
+                            confs[key] = (confs.TryGetValue(key, out var n0) ? n0 : 0) + 1;
+                            if (!string.Equals(key, CardPresentation.VfxMap.ConfAuthoritative,
+                                               System.StringComparison.Ordinal)) nonAuth++;
+                        }
+                    }
+                }
+            }
+            Check(rows > 2000,
+                  $"① 前提：`Resources/{CardPresentation.VfxMap.CardTableResourcePath}.json` 里**读得出**逐卡特效行"
+                + $"（实得 {rows} 行）—— 读成 0 行的话下面那条「非权威 = 0」就是**空断言自己绿**");
+            Check(nonAuth == 0,
+                  $"① 运行时逐卡表里**非 `authoritative` 的行 = 0**（实得 {nonAuth} 条 / 共 {rows} 行；"
+                + $"conf 分布 {Describe(confs)}）"
+                + " —— 🧨 把 `工具/gen_card_vfx_by_card.py` 里 `strip_unbacked_inference(...)` 那句删掉"
+                + "（或把 `VfxMap.EnsureLoaded` 的第二道闸删掉）⇒ 17 条 `inferred-name` + 5 条 `unknown` 回来、本条红");
+        }
+
+        // ---------- ② 5 条 `penitence`：不播 + 出声；但 `ability` 那档的权威行**仍在** ----------
+        {
+            Check(CardPresentation.VfxMap.CardTableNonAuthoritativeRows == 0,
+                  $"② 第二道闸：载入时被挡掉的**非权威行** = "
+                + $"{CardPresentation.VfxMap.CardTableNonAuthoritativeRows}（应为 0 —— 数据侧已清空，这里是防回退的闸）");
+            int npRows = 0, npWithWhy = 0;
+            if (vfxDto != null && vfxDto.notPlayed != null)
+            {
+                foreach (var x in vfxDto.notPlayed)
+                {
+                    if (x == null) continue;
+                    npRows++;
+                    if (!string.IsNullOrEmpty(x.why)) npWithWhy++;      // 「出声」= 每条都带得出去的 `why`
+                }
+            }
+            Check(npRows >= 5 && npWithWhy == npRows,
+                  $"② `notPlayed[]` = {npRows} 条（改前表里那 22 条非权威行**一条不落**）、"
+                + $"其中带 `why` 的 {npWithWhy} 条（必须**全部**带 —— 这就是「⛔ 不许静默」的落地）");
+
+            var pen = new[] { "SOR8", "SOR10", "SOR21", "SOR27", "SOR32" };
+            int inNotPlayed = 0, playedViaTrigger = 0, stillInAbility = 0;
+            foreach (var id in pen)
+            {
+                if (CardPresentation.VfxMap.IsNotPlayed(id, CardPresentation.VfxMap.Trigger)) inNotPlayed++;
+                var viaTrigger = CardPresentation.VfxMap.ResolveAllTimed(
+                    CardPresentation.VfxMap.Trigger, "Sororitas", id, null, perCardOnly: true);
+                for (int i = 0; i < viaTrigger.Length; i++)
+                    if (viaTrigger[i].Name == "PenitenceEffect") playedViaTrigger++;
+                var viaAbility = CardPresentation.VfxMap.ResolveAllTimed(
+                    CardPresentation.VfxMap.Ability, "Sororitas", id, null, perCardOnly: true);
+                bool has = false;
+                for (int i = 0; i < viaAbility.Length; i++)
+                    if (viaAbility[i].Name == "PenitenceEffect") has = true;
+                if (has) stillInAbility++;
+            }
+            Check(inNotPlayed == 5,
+                  $"② `penitence` 那 5 张（{string.Join("/", pen)}）的 `trigger` 档**都在 `notPlayed` 里**"
+                + $"（实得 {inNotPlayed}/5）—— 🧨 把它们塞回事件桶或者干脆不记账 ⇒ 本条红");
+            Check(playedViaTrigger == 0,
+                  $"② 这 5 张**没有任何一条** `PenitenceEffect` 从 `trigger` 档播出去（实得 {playedViaTrigger} 条）"
+                + " —— 🧨 把 `strip_unbacked_inference` 里那步「删重复」去掉 ⇒ 5 条回来、本条红");
+            Check(stillInAbility == 5,
+                  $"② **灭自证**：同一件 `PenitenceEffect` 在卡 SO 的 `ability` 档**仍然拿得到**"
+                + $"（{stillInAbility}/5）—— 证明我们删掉的是「无依据的**触发行**」，"
+                + "⛔ 不是「一怒之下把这张卡的动画整个删了」（那样上面那条会绿、这条会红）");
+        }
+
+        // ---------- ③ TraitFrames：两本字典由 `trait_effect_bindings.json` 驱动 ----------
+        {
+            Check(CardPresentation.TraitFrames.BindingsLoaded,
+                  "③ 状态框绑定表**载进来了**（`Resources/trait_effect_bindings.json`）"
+                + (CardPresentation.TraitFrames.BindingsLoaded ? ""
+                   : " —— 载不到：" + CardPresentation.TraitFrames.BindingsProblem));
+
+            var asset = Resources.Load<TextAsset>(CardPresentation.TraitFrames.BindingsResourcePath);
+            CardPresentation.TraitFrames.BindingDoc dto = null;
+            if (asset != null)
+            {
+                try { dto = JsonUtility.FromJson<CardPresentation.TraitFrames.BindingDoc>(asset.text); }
+                catch (System.Exception ex) { Debug.LogWarning(P + "③ 读绑定表失败：" + ex.Message); }
+            }
+            int onPlay = 0, trigger = 0, fromCode = 0, rows = 0, mismatch = 0;
+            int emptyOnBook = 0, leakedIntoBook = 0;
+            if (dto != null && dto.rows != null)
+            {
+                foreach (var r in dto.rows)
+                {
+                    if (r == null || string.IsNullOrEmpty(r.trait)) continue;
+                    rows++;
+                    bool book = r.triggerType == 2 || r.triggerType == 3 || r.triggerType == 6;
+                    if (string.IsNullOrEmpty(r.prefab))
+                    {
+                        // 原版 `effectAnim` 是空引用的那几条**本来就没动画** ⇒ 不该进两本字典。
+                        // ⚠️ 断的口要**对着字典**断（不是「数据里没有这种行」—— 数据里确实有 7 条）。
+                        if (book)
+                        {
+                            emptyOnBook++;
+                            // 🔴 2026-10-23 订正：第二个参数语义是 `trigger`（`true` = **触发那一本**），
+                            //    原来传的是 `r.triggerType == 2`（= OnPlay 才 true）⇒ **两本查反了**，
+                            //    空 prefab 的行永远查不到 ⇒ 这条「不许漏进字典」曾是**恒绿的假断言**。
+                            var g0 = CardPresentation.TraitFrames.BindingsFor(r.trait, r.triggerType != 2);
+                            for (int i0 = 0; i0 < g0.Length; i0++)
+                                if (g0[i0].TriggerType == r.triggerType && string.IsNullOrEmpty(g0[i0].Prefab))
+                                    leakedIntoBook++;
+                        }
+                        continue;
+                    }
+                    if (r.triggerType == 2) onPlay++;
+                    else if (r.triggerType == 3 || r.triggerType == 6) trigger++;
+                    else if (r.triggerType == 5) fromCode++;
+
+                    if (!book) continue;
+                    // 逐行核对：数据里这一行必须在**对应那一本**里，且 TriggerType/GUID/DefinedTrait/prefab 四项全等
+                    // 🔴 2026-10-23 订正：`BindingsFor` 第二参 = `trigger`（true = 触发那一本）。
+                    //    原来传 `r.triggerType == 2` ⇒ 两本查反 ⇒ 16 条 OnPlay 行 + 25 条触发(3/6) 行
+                    //    全部「查不到」= 41 条假红（数据本身没问题）。
+                    var got = CardPresentation.TraitFrames.BindingsFor(r.trait, r.triggerType != 2);
+                    bool found = false;
+                    for (int i = 0; i < got.Length; i++)
+                    {
+                        if (got[i].TriggerType != r.triggerType) continue;
+                        if (got[i].Prefab != r.prefab) continue;
+                        if ((got[i].EffectGuid ?? "") != (r.effectGuid ?? "")) continue;
+                        if (got[i].DefinedTrait != r.definedTrait) continue;
+                        found = true;
+                        break;
+                    }
+                    if (!found) mismatch++;
+                }
+            }
+            Check(rows > 60 && onPlay > 10 && trigger > 20 && fromCode > 5,
+                  $"③ 数据规模：{rows} 条 `TraitEffect` 行 / OnPlay(2) {onPlay} 条 / 触发(3·6) {trigger} 条 / "
+                + $"FromCode(5) {fromCode} 条 —— 规模突然变小 = 生成器读错了源（原版共 75 行，少于 60 行就红）");
+            Check(emptyOnBook > 0 && leakedIntoBook == 0,
+                  $"③ 原版 `effectAnim` 是**空引用**的行**一条都没进两本字典**（数据里有 {emptyOnBook} 条这种行，"
+                + $"混进字典的 {leakedIntoBook} 条）—— 那几条（`combo`/`daemonicAllegiance`/`large`/`mekaniak`/"
+                + "`resolution`/`firstStrike`/`piercing`）原版本来就不演，⛔ 不是缺口；"
+                + "🧨 把 `EnsureBindings` 里 `if (Prefab.Length == 0) continue;` 删掉 ⇒ 字典里多出空 prefab、本条红");
+            Check(mismatch == 0,
+                  "③ **逐行**：数据里每一条 (trait · TriggerType · GUID · DefinedTrait · prefab) 都能在"
+                + $" `TraitFrames` 的两本字典里**原样查到**（对不上 {mismatch} 条）"
+                + " —— 🧨 把 `TraitFrames.EnsureBindings` 换回任何**手写表** ⇒ 行数与 prefab 立刻对不上、本条红");
+
+            // ---- 灭自证：手写表**被数据推翻**的那几条（反向断，⛔ 不是「新写法对」那种自证）----
+            Check(CardPresentation.TraitFrames.PrefabFor("stealth", false) == "StealthEffect",
+                  "③ `stealth` 的 OnPlay 框 = `StealthEffect`（原版 `StealthTraitPlay` → 它；手写表当年也绑对了，保号）");
+            Check(CardPresentation.TraitFrames.PrefabFor("vanguard", false) == "VanguardIdleEffect",
+                  "③ `vanguard` 的 OnPlay 框 = `VanguardIdleEffect`（原版 `VanguardIdleAnim`；"
+                + "⛔ 不是具名字段 `vanguardFrame` 那件 `Vanguard Frame Animated VAT`）");
+            Check(CardPresentation.TraitFrames.PrefabFor("swarm", false) == null,
+                  "③ **灭自证**：`swarm` 在 OnPlay 那本**必须是 null** —— 原版 `Swarm.asset` 只有一条 "
+                + "FromCode(5)（`SwarmTraitFromCode`），**没有 OnPlay effect**。"
+                + "🧨 把手写表里那一行 `{ Swarm, \"Swarm_Trigger_OnTarget\" }` 抄回来 ⇒ 本条立刻红");
+            Check(CardPresentation.TraitFrames.PrefabFor("slay", false) == null
+                  && CardPresentation.TraitFrames.PrefabFor("slay", true) == "SlayEffect",
+                  "③ **灭自证**：`slay` **不在 OnPlay 那本**、而在**触发那本** —— 原版 `Slay.asset` 唯一的 "
+                + "`TraitEffect` 是 Trigger(3) → `Slay_Effect_target` → `SlayEffect`。"
+                + $"(实得 OnPlay={(CardPresentation.TraitFrames.PrefabFor("slay", false) ?? "null")} · "
+                + $"触发={(CardPresentation.TraitFrames.PrefabFor("slay", true) ?? "null")})"
+                + " 🧨 把「附魔加身演一次」那条手写绑定抄回 OnPlay 那一本 ⇒ 本条红");
+            Check(CardPresentation.TraitFrames.PrefabFor("oath", true) == "Oath_Effect"
+                  && CardPresentation.TraitFrames.BlocksForWarlord("oath")
+                  && CardPresentation.TraitFrames.TriggerBindingsFor("oath").Length == 1
+                  && CardPresentation.TraitFrames.TriggerBindingsFor("oath")[0].DefinedTrait == 1275
+                  && CardPresentation.TraitFrames.TriggerBindingsFor("oath")[0].TriggerType == 3,
+                  "③ `oath`：一条 Trigger(3) · DefinedTrait 1275 · `playIfWarlord = false`"
+                + "（督军不播）· prefab `Oath_Effect` —— 四项全来自 `trait_collection.json`");
+            var bt = CardPresentation.TraitFrames.TriggerBindingsFor("bloodthirst");
+            Check(bt.Length == 2
+                  && bt[0].TriggerType == 3 && bt[0].Prefab == "BloodThirstEffect_Gain"
+                  && bt[1].TriggerType == 6 && bt[1].Prefab == "BloodThirstEffect_Idle",
+                  "③ `bloodthirst` 两行（3→`BloodThirstEffect_Gain` · 6→`BloodThirstEffect_Idle`，"
+                + $"按资产顺序；实得 {bt.Length} 行）—— 🧨 只留一行 / 换成名字更像的 `BloodThirstEffect` ⇒ 红");
+            int libMissing = 0;
+            if (dto != null && dto.rows != null && WarpforgeEffectLibrary.Available)
+            {
+                foreach (var r in dto.rows)
+                {
+                    if (r == null || string.IsNullOrEmpty(r.prefab)) continue;
+                    if (!WarpforgeEffectLibrary.Instance.TryGet(r.prefab, out _)) libMissing++;
+                }
+            }
+            Check(libMissing == 0,
+                  $"③ 绑定表里每一件 prefab **都在效果库里**（不在的 {libMissing} 件）"
+                + " —— 🧨 改名 / 重导 prefab 没重建效果库 ⇒ 状态框静默挂不上、本条红");
+        }
+
+        // ---------- ④ TraitParticles：FromCode 那档同样由数据驱动 ----------
+        {
+            var asset = Resources.Load<TextAsset>(CardPresentation.TraitFrames.BindingsResourcePath);
+            CardPresentation.TraitFrames.BindingDoc dto = null;
+            if (asset != null)
+            {
+                try { dto = JsonUtility.FromJson<CardPresentation.TraitFrames.BindingDoc>(asset.text); }
+                catch (System.Exception) { }
+            }
+            int want = 0, mismatch = 0;
+            if (dto != null && dto.rows != null)
+            {
+                foreach (var r in dto.rows)
+                {
+                    if (r == null || r.triggerType != 5 || string.IsNullOrEmpty(r.prefab)) continue;
+                    want++;
+                    var got = CardPresentation.TraitParticles.PrefabFor(r.trait);
+                    if (!string.Equals(got, r.prefab, System.StringComparison.Ordinal)) mismatch++;
+                }
+            }
+            Check(want > 5 && CardPresentation.TraitParticles.BindingCount == want,
+                  $"④ FromCode 粒子表由数据驱动：数据里 {want} 条、`TraitParticles` 载进来 "
+                + $"{CardPresentation.TraitParticles.BindingCount} 条（原版 75 条 `TraitEffect` 里 TriggerType==5 的是 10 条）");
+            Check(mismatch == 0,
+                  $"④ 数据里每一条 FromCode 行的 prefab 与 `TraitParticles.PrefabFor` **逐条相等**（不等 {mismatch} 条）"
+                + " —— 🧨 把手写表抄回来（`StompEffect` / `FerocityEffect`）⇒ 立刻对不上、本条红");
+            Check(CardPresentation.TraitParticles.PrefabFor("stomp") == "Attack_Stomp",
+                  "④ **灭自证**：`stomp` 的 FromCode 粒子 = `Attack_Stomp`"
+                + $"（原版 `BluntImpact_Stomp_Forward` → 它；实得「{CardPresentation.TraitParticles.PrefabFor("stomp")}」）"
+                + " —— 🧨 抄回手写表的 `StompEffect` ⇒ 本条红（`StompEffect` 不是任何一条 `TraitEffect` 的 prefab）");
+            Check(CardPresentation.TraitParticles.PrefabFor("huntMark") == "HuntMark_DamageEffect",
+                  "④ **灭自证**：`huntMark` **有** FromCode 粒子 = `HuntMark_DamageEffect`"
+                + $"（实得「{CardPresentation.TraitParticles.PrefabFor("huntMark")}」）"
+                + " —— 改前它被「故意留白」（按名字找不到绑定）；原版 `HuntMark.asset` 有一条 FromCode(5)"
+                + " `HuntMark Damage Anim` ⇒ 🧨 把它改回 null（留白）⇒ 本条红");
+            Check(CardPresentation.TraitParticles.PrefabFor("ferocity") == "Ferocity_RecallToDeck",
+                  "④ `ferocity` 的 FromCode 粒子 = `Ferocity_RecallToDeck`"
+                + $"（实得「{CardPresentation.TraitParticles.PrefabFor("ferocity")}」）"
+                + " —— ⛔ `FerocityEffect` 是它 **Start(0)** 那条的 prefab，不是这一档的");
+        }
+    }
+
+    static string Describe(Dictionary<string, int> d)
+    {
+        if (d == null || d.Count == 0) return "(空)";
+        return string.Join(" · ", d.OrderByDescending(kv => kv.Value).Select(kv => kv.Key + "=" + kv.Value));
+    }
+
+        CheckTraitAuthority();
 
         Done();
     }

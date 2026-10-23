@@ -2231,6 +2231,45 @@ def resource_tokens(text, taken):
     return out
 
 
+# ── 🆕 2026-10-23（卡牌线 `D1`）：**信仰费写成裸词**（`N Energy:` / `N 能量：`）──────────────
+#
+# **为什么本表要记这一条**：这一枚**不靠本表画** —— 运行时的 `Core/CardIcons.cs`
+#   `RewriteFaithCost`（`:437-465`，**在计划表那一支之前**跑，见 `:229-233`）按句法把
+#   「数字 + `Energy`/`能量` + 冒号」里的**词**换成 `<sprite name="faith">`（数字留着）。
+#   但 `IconSetup.Verify` 的 **④a**（「英文卡面画的每一枚徽记、中文卡面也画」）只读**计划表**
+#   ⇒ 中文侧那一枚**明明画着却查不到** ⇒ 报成假缺口（2026-10-23 实测：`f104d4c21abe…|faith`
+#   一条新缺口；同一张卡的英文侧是 `☀` 走 `SYMBOLS`、计划表里有 ⇒ 两侧不对称）。
+#
+# **token 为什么取「数字 + 词」整段**（`4 能量`，不是 `能量`）：
+#   运行时 `RewriteFaithCost` 先把那个词吃掉 ⇒ 走到计划表这一支时 `4 能量` **已经不存在**
+#   ⇒ `CardIcons.Rewrite` 那句 `if (s.IndexOf(it.token) < 0) continue;` 让本条**一定空转**
+#   （⇒ **零可见变化**，本表只多一条「这一枚画在哪」的账）。
+#   🔴 **⛔ 不能只写 `能量`** —— `s.Replace(token, bare)` 是全局的，而中文里 `能量` 还有
+#   「获得 1 能量 / 补 2 能量」这类**资源动作**（卡面印的是词、`RewriteFaithCost` 不匹配它们）
+#   ⇒ 只写 `能量` 会在那些位置**凭空插一枚信仰图标**（原版卡面没有）。冒号是判据的一部分。
+#
+# **判据**：`Core/CardIcons.cs:405-436`（那一节逐条列了 PnP 亲读 + 官方 `((Faith_cost_x,N))`）；
+#   本池现读命中 **EN 0 处 / ZH 1 处**（`f104d4c21abe…`，`descZh` = `…。4 能量：改为给予…`）。
+FAITH_COST = re.compile(r"[0-9]\s*(?:Energy|能量)(?=\s*[：:])")
+FAITH_COST_WHY = ("**信仰费**写成裸词（`N Energy:` / `N 能量：`）：卡面印的是 `N〔金太阳〕:`、**没有词**。"
+                  "⚠️ 这一枚由运行时 `Core/CardIcons.cs` 的 `RewriteFaithCost` 按句法画（在本表之前跑），"
+                  "本表这一条**恒空转**（token = 「数字 + 词」整段，词已被那一步吃掉）—— "
+                  "只为让 `IconSetup` ④a「英文画了、中文也画」看得见它。⛔ 别把 token 缩成光秃秃的 `能量`。")
+
+
+def faith_cost_tokens(text, taken):
+    """`N Energy:` / `N 能量：` → `[(token, "faith", why)]`（见上面 `FAITH_COST` 那一段）。
+
+    token = **匹配段整段**（`4 能量`，冒号不进来 —— 冒号是卡面真印着的字，要留着）。
+    """
+    out = []
+    for m in FAITH_COST.finditer(text):
+        if any(s <= m.start() < e for s, e in taken):
+            continue
+        out.append((text[m.start():m.end()], "faith", FAITH_COST_WHY))
+    return out
+
+
 def annotate(text, pat):
     """还原文字 → 带 ⟦图标⟧ 标记的文本（只用来做**交叉核对**）。
 
@@ -2963,6 +3002,9 @@ def main():
             kws = _kws_keep
             # 不带方括号的资源词（`Gain 1 Quest Point` / 「获得 1 点任务」）—— 见 RESOURCE_WHY
             res = resource_tokens(text, [(m.start(), m.end()) for m in toks])
+            # 🆕 2026-10-23（卡牌线 `D1`）：**信仰费裸词**（`4 Energy:` / `4 能量：`）—— 见 `FAITH_COST` 那一段。
+            #   ⚠️ 与 `res` 并列、都进 `got`；token 是「数字 + 词」整段 ⇒ 运行时那一步先把词吃掉、本条恒空转。
+            fc = faith_cost_tokens(text, [(m.start(), m.end()) for m in toks])
             # 按卡的**裸 token**（见 `BARE_TOKEN_BY_CARD`）—— 必须在**下面那道 `continue` 之前**算出来。
             # 🔴 2026-10-10（`A1366`）实测踩到：`DA39` 的 `desc` 只有 `Stun an enemy`（`Flying`/`Rally`
             #    在 `keywords` 数组里、不在 `desc` 里）⇒ 这份字段的 `toks/syms/kws/res` **全空**、
@@ -2981,6 +3023,7 @@ def main():
             # 守卫③ 用的名单 = **本字段已经注定要画的那几条 token**（句首关键词 / 资源词 / 逐卡裸 token）：
             #   裸词规则给的词只要落在其中任何一条**里面**，就是「一条是另一条的子串」那个形状。
             _pre_tokens = ([_x for _x, _s, _w in kws] + [_x for _x, _s, _w in res] +
+                           [_x for _x, _s, _w in fc] +
                            [_x for _x, _s, _w, _k in btok])
             for _t, _sp, _why in BARE_TOKEN_BY_RULE:
                 if _t not in text:
@@ -3038,7 +3081,7 @@ def main():
                     continue
                 rule_audit[_t]["规则命中"].add(cid)
                 btok.append((_t, _sp, _why, "按词规则"))
-            if not toks and not syms and not kws and not res and not btok:
+            if not toks and not syms and not kws and not res and not btok and not fc:
                 continue
             got = {}
             for _tok, _sprite, _why in kws:
@@ -3051,6 +3094,11 @@ def main():
                     continue
                 got[_tok] = [(_sprite, _why)]
                 stat["资源词"] += 1
+            for _tok, _sprite, _why in fc:
+                if _tok in got:
+                    continue
+                got[_tok] = [(_sprite, _why)]
+                stat["信仰费裸词"] += 1
             for m in toks:
                 key = m.group(0)
                 answer = None

@@ -1037,6 +1037,48 @@ namespace CardPresentation
                              wm => ExpansionPassEventWindow.Create(wm));
         }
 
+        /// <summary>🆕 **2026-10-23（活动线 L01/L02/L03 收尾 + 界面线 T28）**：**活动窗的唯一开窗入口**
+        /// （= 原版 `OpenEventButton__OpenWindow.c` 那一跳）。
+        ///
+        /// <para>**原版那条链**（`d:/2/tools/decomp_full/`，方法体完整现读）：
+        /// `NavigationPanelController.BuildEventButtons`（每个 live 事件 `Instantiate(eventButtonPrefab)` →
+        /// `OpenEventButton.Initialize` → `SetButtonInfo`）→ 点那颗钮 = `OpenEventButton__ButtonClick` →
+        /// `OpenWindow` → `WindowsManager.OpenWindow(LiveOpsAssetUtility.GetComponentReference(ev, 10), ev)`
+        /// （10 = `EventComponentReferenceType.MainWindow`）；那颗钮是 toggle，关回来走
+        /// `ToggleValueChange(false)` → 那扇窗的 `Close()`。</para>
+        ///
+        /// <para>🔴 **`ev → 哪扇窗` 的映射是核过的**（`bundle_menus_assets_all/AssetBundle/AssetBundle_1.json`
+        /// 的 `m_Container`（键 = GUID）→ PathID → UnityPy 读名字）：
+        /// `Parent` 事件的 `MainWindow` = `9a26697357770d8458298d89467fd459` → PathID `-3290546486736551612`
+        /// = **`Parent Event Window`**；`Scoring` 事件的 `Tab` = `e6914cbdd45814f5f9bd40a854c12218` →
+        /// PathID `-555883983194387681` = **`Expansion Pass Tab`**。判据全文 →
+        /// `Shell/ParentEventWindow.cs` 文件头「页签与入口」那一节。</para>
+        ///
+        /// <para>⚠️ **本机没有 liveops 事件列表**（远端 PlayFab/CCD）⇒ 这里按 <see cref="ParentEventWindow.EventWindowKind"/>
+        /// 直接开对应那扇窗（原版是「事件实例 → 它的 `MainWindow`」；我们没有实例 ⇒ **这一层映射是等价物、如实标**）。
+        /// 活动数据仍全在远端：窗照样建满、数值 `--` + 出声（数据缺口 → 各窗文件头）。</para>
+        ///
+        /// <para>⚠️ **还差最后一跳**：原版那颗「事件钮」在左竖导航（`BuildEventButtons`），本仓的
+        /// `Shell/MainMenuRuntime.BuildNavigationPanel` **只建了前 5 颗**（`Event = 5` 那颗没建，见
+        /// `MainMenuRuntime.NavigationPanelToggleType` 的注释）⇒ 那颗钮**还没接**（2026-10-23 本批的白名单
+        /// 不含 `MainMenuRuntime.cs`）。补法 = 在 `BuildNavigationPanel` 里加第 6 颗 `NavButton(..., Event, ...)`、
+        /// 回调转调本方法；在那之前活动窗只能从这里打开（⛔ 不静默：本方法每开一次都 `Debug.Log` 一行）。</para></summary>
+        public static GameWindow OpenEventHub(ParentEventWindow.EventWindowKind kind = ParentEventWindow.EventWindowKind.Parent)
+        {
+            GameWindow w;
+            switch (kind)
+            {
+                case ParentEventWindow.EventWindowKind.Gacha: w = OpenGachaEvent(); break;
+                case ParentEventWindow.EventWindowKind.Raid: w = OpenRaidEvent(); break;
+                case ParentEventWindow.EventWindowKind.ExpansionPass: w = OpenExpansionPassEvent(); break;
+                default: w = OpenParentEvent(); break;
+            }
+            Debug.Log("[Win] `OpenEventHub(" + kind + ")` ⇒ 开 `" + (w != null ? w.name : "(null)")
+                    + "`（原版那一跳 = `OpenEventButton.OpenWindow` → `WindowsManager.OpenWindow(MainWindow)`；"
+                    + "那颗钮在本仓左竖导航里还没接，见本方法的 doc）");
+            return w;
+        }
+
         /// <summary>🆕 **2026-10-17（界面线 T18）**：开一扇 <see cref="TutorialMessagePopup"/>
         /// （原版 `TutorialMessageWindowPopUp` —— 教程消息窗 / 「点击以继续」整屏简报）。
         /// <para><paramref name="ctx"/> = 标题/正文词条键 + `Event image`（`null` ⇒ prefab 出厂那一份：

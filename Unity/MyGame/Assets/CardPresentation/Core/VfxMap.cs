@@ -122,13 +122,19 @@ namespace CardPresentation
         //     （判据 = `CardDef.AnimTimes` 里 `tn == "UnitAttack"` 的行：DA22×2 · SAU31×2 · 其余 9 张各 1）。
         //     **运行期有件的是 12 行** —— `SAU31` 的第二行 `Wait_1s` 是**纯计时拍**（`animAdressable` 为空），
         //     生成器写运行期表时按 `n` 为空丢掉它（它那 1.0 s 仍由 `AnimTimes` 管，只是没有 prefab 可播）。
-        //     ⚠️ `attack_melee` 里另外 2 条（`EC29` / `SOR8`）是 `inferred-name`（按名字猜的），
-        //     原版触发**不是** `UnitAttack` ⇒ **不收**，留在旧桶。
-        //   · `UnitDamaged(60)`：原版真值只有 **1 行**（`BL20 Buff_DiabolicStrength`）；
-        //     而 `hit` 桶里另有 3 条 `inferred-name`（按名字对上真 CardAnim 的）—— W63 §B 的「4 张」含它们
-        //     ⇒ 本桶收 `hit` **整桶 4 行**（这也正是「受击那一档」今天在池内的全部内容）。
-        //   ⇒ 两个口径都要记住：**原版行数 13 + 4 = 17**（本件的验收口径）·
-        //     **运行期有件 12 + 4 = 16**（`VfxMap.CardTableUnitAnimEntries` 那个数，断言里两条都断）。
+        //     🔴 **2026-10-23（`T1`）就地订正（铁律 5）**：原文写「`attack_melee` 里另外 2 条
+        //     （`EC29` / `SOR8`）是 `inferred-name` ⇒ 不收、留在旧桶」—— **那两条已经不在表里了**
+        //     （卡 SO 没引用 `HeldrakeStrike` / `Arco-Flagellant Strike` ⇒ 无权威依据 ⇒ `notPlayed`）。
+        //     ⇒ **运行期仍有件的就是 12 行**（数字没变，理由变了：改前是「2 条留在旧桶」，
+        //       现在是「那 2 条根本不播」）。
+        //   · `UnitDamaged(60)`：原版真值只有 **1 行**（`BL20 Buff_DiabolicStrength`）。
+        //     🔴 **2026-10-23（`T1`）**：`hit` 桶改前是 4 行，其中 3 条是 `inferred-name` ——
+        //     `Lord_of_the_storm_hit` / `Jammed Communications Damage` 两条**已被判为重复**
+        //     （卡 SO 里同一条 CardAnim 已以 `authoritative` 记在 `play` / `ability`），
+        //     `Master Interromancer Hit` **卡 SO 根本没引用** ⇒ 不播。
+        //     ⇒ 本桶现在收 `hit` **1 行**。
+        //   ⇒ 两个口径都要记住：**原版行数 13 + 1 = 14**（本件的验收口径）·
+        //     **运行期有件 12 + 1 = 13**（`VfxMap.CardTableUnitAnimEntries` 那个数）。
         //
         // 【⚠️ 这两桶**没有** `ByEvent` 兜底】原版这两档**只有逐卡**（`cardAbilities[].abilityLogic[].
         //   cardAnimations[]`），没有「通用技能动画」这种东西 ⇒ 没配的卡就是没有
@@ -137,9 +143,11 @@ namespace CardPresentation
         /// <summary>原版 `AbilityTrigger.UnitAttack(50)` 触发的**技能动画**（逐卡；原版 13 行 / 运行期有件 12 条）。
         /// ⛔ **不是**「近战攻击特效」——`ByEvent[AttackMelee]` 已于 2026-10-22（`W63` §B）整行删除。</summary>
         public const string UnitAttack  = "unit_attack_anim";
-        /// <summary>原版 `AbilityTrigger.UnitDamaged(60)` 触发的**技能动画**（逐卡；池内 4 条）。
+        /// <summary>原版 `AbilityTrigger.UnitDamaged(60)` 触发的**技能动画**（逐卡；池内 **1** 条 —— `BL20`）。
         /// ⛔ **不是**「受击特效」——受击那一拍原版**一件粒子都不播**（`CardScript._ReceiveDamage`），
-        /// 见 `BattleDriver.PlaySignal` 里那段注释。</summary>
+        /// 见 `BattleDriver.PlaySignal` 里那段注释。
+        /// 🔴 2026-10-23（`T1`）：原来这里是 4 条，多出的 3 条是按名字猜的（`inferred-name`）——
+        /// 其中 2 条已删重复、1 条无依据不播（见 `UnitAttack` 上面那段）。</summary>
         public const string UnitDamaged = "unit_damaged_anim";
 
         /// <summary>按事件兜底。
@@ -470,10 +478,12 @@ namespace CardPresentation
         /// 原来这张表把每个 (卡,事件) 压成一个 string（按 `confPriority` 取第一个）⇒ **丢了 508 个
         /// 权威 prefab / 375 张卡**（判据与统计 → `资料/普查产出_1019/V2_报告.md` §3·2/§3·3）。
         /// <para>**表里存什么**（三条都重要，⛔ 别自己再收一遍）：
-        /// · 只留**最优置信度那一档**（`confPriority` 里 rank 最小的）；
-        /// · **只有该档是 `authoritative` 时才保留同档的全部候选**；我们自己的推断档
-        ///   （`inferred-*`）**保持原行为只留第一条** —— V2 §3·3 最后那条：
-        ///   「别把推断档也全播」；
+        /// 🔴 **2026-10-23（`T1` · Trait 全量权威化）：只有 `authoritative` 进得来。**
+        /// `inferred-*` / `unknown` 在**数据侧**已被 `strip_unbacked_inference` 清出事件桶
+        /// （删重复 / 无依据不播 → 运行时的 `notPlayed[]`），消费端**另有一道闸**再挡一遍
+        /// （<see cref="CardTableNonAuthoritativeRows"/> 正常应 = 0）。以下三条是「权威行之间」的口径：
+        /// · 只留**最优置信度那一档**（`confPriority` 里 rank 最小的；今天只剩一档）；
+        /// · **同档全部候选都留**（判据 = 原版「all are triggered in order」—— 见上面那段）；
         /// · 同档里**同名重复也保留**（现读 59 行）—— 那是两条 `abilityLogic` 指向同一件 prefab，
         ///   原版 `AbilityLogic.PlayAnim` 会各播一次；⛔ 别自作主张去重（去重 = 少播）。
         /// 顺序 = JSON 里 `es` 的数组顺序 = **原版 `abilityLogic` 的索引顺序**
@@ -581,11 +591,15 @@ namespace CardPresentation
         //  语义与口径见 <see cref="UnitAttack"/> 那一段。⚠️ 它们**不计入** `CardTableEntries`
         //  （那一个是「原版逐卡真值行数」的口径，重复计会让历史断言漂）。
         /// <summary>`UnitAttack` 桶里的**行数**（不是卡数；一张卡可以有两拍 —— DA22 / SAU31 各 2 条）。
-        /// 池内现读 **13**。</summary>
+        /// 🔴 **2026-10-23（`T1`）现读 12** —— 改前 12，**数字没变**：`attack_melee` 里那 2 条 `inferred-name`
+        /// （EC29/SOR8）**不再进表**（无权威依据 ⇒ `notPlayed`），而有权威依据的 12 条照旧全搬过来。</summary>
         public static int CardTableUnitAttackEntries { get; private set; }
-        /// <summary>`UnitDamaged` 桶里的行数。池内现读 **4**。</summary>
+        /// <summary>`UnitDamaged` 桶里的行数。🔴 **2026-10-23（`T1`）现读 1**（只有 `BL20`）——
+        /// 改前的 **4** 里有 3 条是 `inferred-name`（`Lord_of_the_storm_hit` / `Jammed Communications Damage` /
+        /// `Master Interromancer Hit`）：前两条已被判为「卡 SO 里同一条 CardAnim 已以 authoritative 记在
+        /// `play`/`ability` ⇒ 删重复」，第三条卡 SO 根本没引用 ⇒ 不播。⚠️ 断言里别写死 4。</summary>
         public static int CardTableUnitDamagedEntries { get; private set; }
-        /// <summary>两个桶的行数合计（自检里那个 **17**）。</summary>
+        /// <summary>两个桶的行数合计。🔴 **2026-10-23（`T1`）现读 13**（改前 16）。</summary>
         public static int CardTableUnitAnimEntries { get { return CardTableUnitAttackEntries + CardTableUnitDamagedEntries; } }
         static readonly Dictionary<string, List<string>> _unitAnimCards = new Dictionary<string, List<string>>();
         /// <summary>某个桶里**有候选的卡 id**（拷贝；自检逐卡查命中用）。表里没有 ⇒ 空数组。</summary>
@@ -612,6 +626,57 @@ namespace CardPresentation
         /// <summary>🆕 `A2082`：卡名索引里有几个名字（自检用 —— 它 = 0 就说明生产路径那一档查不动）。</summary>
         public static int CardTableNames { get { EnsureLoaded(); return _byName.Count; } }
 
+        // ================== 🔴 2026-10-23（`T1` · Trait 全量权威化）：**去兜底**的两个计数器 ==================
+        /// <summary>数据里 `notPlayed[]` 的条数（= **改前在表里、现在不播**的那些，逐条出声）。
+        /// 🔴 现读 **22** = 改前表里那 22 条非权威行（17 `inferred-name` + 5 `unknown`）**一条不落**：
+        ///   · `outcome == "duplicate"` **16**（卡 SO 里同一条 CardAnim 已在别的桶有 `authoritative`；
+        ///     **5 条 `penitence` 全在这里**）；
+        ///   · `outcome == "unbacked"` **6**（卡 SO 根本没引用 ⇒ 无依据）。
+        /// ⚠️ 它**不是**「解不出 prefab」那一档（那个是 `noPrefabCount`，仍在文件头字段里）。
+        /// ⛔ 断言里别写死 22（数据会随生成器重跑变），要断「≥5 且 penitence 那几张在里面」。</summary>
+        public static int CardTableNotPlayed { get; private set; }
+        /// <summary>**第二道闸**：载入时因为 `c != authoritative` 被挡掉的行数。
+        /// 🔴 **正常必须 = 0**（数据侧已经清空）；非 0 = 有人把推断又塞回了 `es[]`。
+        /// 每次会话每条 (卡,事件) 只警告一次（上限 <see cref="NonAuthWarnCap"/>）。</summary>
+        public static int CardTableNonAuthoritativeRows { get; private set; }
+        const int NonAuthWarnCap = 24;
+        const int NotPlayedWarnCap = 24;
+        static readonly HashSet<string> _nonAuthWarned = new HashSet<string>();
+
+        /// <summary>🆕 2026-10-23（`T1`）：`notPlayed` 里那些条目的**卡 id**（拷贝；断言用）。
+        /// 顺序 = 数据里的顺序。⚠️ 会触发载表。</summary>
+        public static string[] NotPlayedCardIds()
+        {
+            EnsureLoaded();
+            return _notPlayedIds.ToArray();
+        }
+        static readonly List<string> _notPlayedIds = new List<string>();
+
+        /// <summary>🆕 2026-10-23（`T1`）：某张卡是否在 `notPlayed` 里（断言用；按 id **或** 卡名比）。
+        /// `evt` 传 `null` = 只看卡。</summary>
+        public static bool IsNotPlayed(string cardIdOrName, string evt = null)
+        {
+            EnsureLoaded();
+            if (string.IsNullOrEmpty(cardIdOrName)) return false;
+            for (int i = 0; i < _notPlayedIdx.Count; i++)
+            {
+                var x = _notPlayedIdx[i];
+                if (evt != null && !string.Equals(x.Event, evt, System.StringComparison.Ordinal)) continue;
+                if (string.Equals(x.Id, cardIdOrName, System.StringComparison.Ordinal)
+                    || string.Equals(x.Name ?? "", cardIdOrName, System.StringComparison.Ordinal))
+                    return true;
+            }
+            return false;
+        }
+        /// <summary>(id, 事件, 卡名) 三元组 —— `IsNotPlayed` 用；与 `_notPlayedIds` 同一次载入建立。</summary>
+        struct NotPlayedKey
+        {
+            public string Id;
+            public string Event;
+            public string Name;
+        }
+        static readonly List<NotPlayedKey> _notPlayedIdx = new List<NotPlayedKey>();
+
         // ---- 运行时那份 JSON 的形状（**数组，不是字典** —— `JsonUtility` 不支持字典）----
         /// <summary>🆕 2026-10-19（W · 多候选 ③）：`rc/ai/gj/gn` 只在 `rc == 1` 的候选上出现
         /// （= 该卡那条 `CardAbility.randomAbilityChoice` 为真）—— 见 <see cref="CardPick"/> 的 doc。
@@ -635,9 +700,26 @@ namespace CardPresentation
         ///
         /// ⚠️ **两个键都可能缺**（原版那张卡查不到卡名时生成器不写）⇒ 取用时一律判 null。</summary>
         [System.Serializable] public class RtCard { public string id; public string nm; public string fa; public RtEvent[] events; }
+        /// <summary>🔴 **2026-10-23（`T1` · Trait 全量权威化）**：**改前在表里、现在不播**的那一条。
+        /// 由 `工具/gen_card_vfx_by_card.py` 的 `strip_unbacked_inference` 写出来。两种 `outcome`：
+        ///   · `"duplicate"` —— 卡 SO 里**同一条 CardAnim** 已经以 `authoritative` 记在**别的桶**上
+        ///     （典型 = 按名字猜成 `hit`，而卡 SO 说它属于 `ThisCardPlayed`）⇒ 删掉，免得同一件播两次；
+        ///     **5 条 `penitence` `unknown` 全在这一档**（卡 SO 的 `ability` 桶里本来就有 `PenitenceTraitTrigger`）。
+        ///   · `"unbacked"` —— 卡 SO 与 `CardTrait` SO **都没有引用**这条 CardAnim ⇒ 无权威依据，不播。
+        /// ⚠️ 它**不是**「解不出 prefab」那一档（那个是 `noPrefabCount`），是「**猜到过、但不许播**」。
+        /// 消费 = <see cref="EnsureLoaded"/>：逐条出声 + 计数，⛔ 不许静默丢掉。</summary>
+        [System.Serializable] public class RtNotPlayed
+        {
+            public string id; public string nm; public string fa;
+            public string ev; public string n; public string a;
+            public string outcome;    // "duplicate" / "unbacked"
+            public string why;
+        }
         [System.Serializable] public class RtFile
         {
             public string[] confPriority;      // 权威优先；不认识的一律排最后
+            public int notPlayedCount;         // 🆕 2026-10-23（`T1`）：`notPlayed[]` 的条数
+            public RtNotPlayed[] notPlayed;    // 🆕 同上：无权威依据 ⇒ 不播（但**必须出声**）
             public RtCard[] cards;
             public int cardCount;
             public int entryCount;
@@ -669,10 +751,13 @@ namespace CardPresentation
         /// ⛔ **别再把这几个数当成手写常量** —— 要看真值就读文件头那几个字段（本行的数**也会再变**）。
         /// 🔑 **判幂等**：生成器连跑两次，除 `generatedAt` 外**逐字节一致**（本会话实测）。
         ///
-        /// **取哪一条**：同一条 (卡, 事件) 可能有多个候选（原版真值 + 我们早先按名/按关键词推的），
-        /// 按 JSON 自带的 `confPriority`（`authoritative` 最前）**只留最优那一档**。
-        /// 🆕 **2026-10-19（B3 · `T13`）**：最优档是 `authoritative` 且同档有多个 ⇒ **全都留**（按序全播，
-        /// 判据 = 原版 `CardAbility.cs:27-29` 的 `randomAbilityChoice` 注释）；推断档之间平票仍只留第一条。
+        /// **取哪一条**：同一条 (卡, 事件) 可能有多个候选（都是原版真值），
+        /// 按 JSON 自带的 `confPriority`（`authoritative` 最前）**只留最优那一档**；
+        /// 同档有多个 ⇒ **全都留**（按序全播，判据 = 原版 `CardAbility.cs:27-29` 的 `randomAbilityChoice` 注释）。
+        /// 🔴 **2026-10-23（`T1` · Trait 全量权威化）**：**非 `authoritative` 的档一律不进表**
+        /// （第二道闸，见那个 `foreach` 里的注释）—— 改前「推断档只要桶里只有它一条就照样播」的行为已经没了。
+        /// 数据侧同一件事由 `工具/gen_card_vfx_by_card.py` 的 `strip_unbacked_inference` 做完
+        /// （删重复 / 无依据不播 → `notPlayed[]`）。
         /// ⚠️ 这与 `gen_card_vfx_by_card.py` 打印的优先级**是同一份**（数据自带，⛔ 别在这儿再写一张表）。
         ///
         /// **载不到怎么办**：**出声 + 退回老行为**（`ByFaction` → `ByEvent`），⛔ **不静默**。
@@ -738,6 +823,22 @@ namespace CardPresentation
                     foreach (var e in ev.es)
                     {
                         if (e == null || string.IsNullOrEmpty(e.n)) continue;
+                        // 🔴 **2026-10-23（`T1` · Trait 全量权威化）：只收 `authoritative`。**
+                        //   以前这里是「按 `confPriority` 取最优档」，于是**推断档、`unknown` 档只要
+                        //   桶里只有它一条就照样播**（数据里那 17 条 `inferred-name` + 5 条 `penitence`
+                        //   `unknown` 就是这么进画面的）。用户 2026-10-23 明确要「把兜底都去掉」⇒
+                        //   消费端也上闸：**不是 `authoritative` 的一律不进表**，并出声 + 计数。
+                        //   ⚠️ 数据侧（生成器）已经把那些条目移走了 ⇒ 正常应恒为 0；
+                        //      这条闸是**第二道**（数据回退时不会静默把推断播出去）。
+                        if (!string.Equals(e.c ?? "", ConfAuthoritative, System.StringComparison.Ordinal))
+                        {
+                            CardTableNonAuthoritativeRows++;
+                            if (_nonAuthWarned.Count < NonAuthWarnCap && _nonAuthWarned.Add(c.id + "|" + ev.ev))
+                                Debug.LogWarning($"[Vfx] 逐卡表里有一条**非权威**档（`{e.c}`）："
+                                               + $"卡 `{c.nm ?? c.id}` 的 `{ev.ev}` → `{e.n}` ⇒ **不播**"
+                                               + "（2026-10-23 起只收 `authoritative`；数据侧应已清空，这里是第二道闸）");
+                            continue;
+                        }
                         int rank;
                         if (!prio.TryGetValue(e.c ?? "", out rank)) rank = worst;
                         if (rank < bestRank)
@@ -751,6 +852,11 @@ namespace CardPresentation
                     // 🔴 **只播最优档那一档，且只播 `authoritative` 时全播**（V2 §3·3 末条）：
                     //   我们自己的推断档（`inferred-*`）之间平票**不扩**—— 那不是原版真值，
                     //   全播只会多放我们猜出来的东西。
+                    // 🆕 **2026-10-23（`T1`）**：上面那道闸已经把非权威档全挡掉了 ⇒ 走到这里的
+                    //   `picks` **全是 `authoritative`**，「`authoritative` 才全播」那条判断现在是
+                    //   **结构性恒真**。⛔ 别删它 —— 它是数据回退时的第二道保险（删了就会把
+                    //   `CardTableMultiEntriesAll == CardTableMultiEntries + 非权威平票行` 那条断言
+                    //   变成两条恒等的自证）。
                     bool authoritative = dto.confPriority != null
                                       && bestRank >= 0 && bestRank < dto.confPriority.Length
                                       && dto.confPriority[bestRank] == ConfAuthoritative;
@@ -761,9 +867,13 @@ namespace CardPresentation
                     //   生产路径 `ScheduleAttackPresentation` 会用 `attack_melee` 逐卡解一次并在
                     //   **命中帧**播出去（`ResolveAllTimed`）—— 只加新桶不动旧桶的话，同一件
                     //   `Hammer_Slam_SW` 会**当头一击的粒子播一次、再当技能动画播一次**（原版没有的第二下）。
-                    //   `hit` 那 4 条同理（受击那一拍原版一件粒子都不播，见 `PlaySignal` 那段注释）。
-                    //   ⚠️ **`attack_melee` 里另外 2 条 `inferred-name`（EC29/SOR8）留在旧桶** ——
-                    //   它们**不是** `UnitAttack(50)` 触发的（按名字猜的），不在本件口径内。
+                    //   `hit` 那几条同理（受击那一拍原版一件粒子都不播，见 `PlaySignal` 那段注释）。
+                    //   🔴 **2026-10-23（`T1`）就地订正（铁律 5）**：本段原文写「`attack_melee` 里另外 2 条
+                    //   `inferred-name`（EC29/SOR8）留在旧桶」—— **那两条已经不在表里了**
+                    //   （卡 SO 没引用 `HeldrakeStrike` / `Arco-Flagellant Strike` ⇒ 无权威依据 ⇒ 不播，
+                    //   见 `notPlayed`）。同理 `hit` 从 4 条降到 **1 条**（只剩 `BL20` 那条 authoritative）。
+                    //   ⇒ **`UnitDamaged` 现在只有 BL20 一张卡**（`CardTableUnitDamagedEntries == 1`）。
+                    //   `attack_melee` 剩下的 12 条全是 authoritative ⇒ 全搬进 `UnitAttack`。
                     bool movedToUnitAnim = false;
                     if (ev.ev == AttackMelee && authoritative)
                     {
@@ -789,12 +899,36 @@ namespace CardPresentation
                     if (picks.Count > 1) CardTableMultiEntries++;
                 }
             }
+            // 🔴 **2026-10-23（`T1`）：`notPlayed[]` —— 有原版动画、但**没有权威依据**、所以不播的那些。**
+            //   以前它们就混在 `es[]` 里（`c: inferred-name` / `unknown`）⇒ **桶里只有它一条时照样播**，
+            //   这就是「按名兜底」。现在生成器把它们挪出来，这里**逐条出声**（⛔ 不许静默丢掉）。
+            if (dto.notPlayed != null && dto.notPlayed.Length > 0)
+            {
+                int shown = 0;
+                for (int i = 0; i < dto.notPlayed.Length; i++)
+                {
+                    var x = dto.notPlayed[i];
+                    if (x == null) continue;
+                    CardTableNotPlayed++;
+                    if (!string.IsNullOrEmpty(x.id)) _notPlayedIds.Add(x.id);
+                    _notPlayedIdx.Add(new NotPlayedKey { Id = x.id, Event = x.ev, Name = x.nm });
+                    if (shown >= NotPlayedWarnCap) continue;
+                    shown++;
+                    Debug.LogWarning($"[Vfx] **不播**（{x.outcome ?? "?"}；⛔ 不是解失败）：卡 `{x.nm ?? x.id}` 的 "
+                                   + $"`{x.ev}` 档 `{x.a ?? "?"}` → `{x.n}` —— {x.why}");
+                }
+                if (shown < CardTableNotPlayed)
+                    Debug.LogWarning($"[Vfx] …另有 {CardTableNotPlayed - shown} 条同类，"
+                                   + $"全表见 `Resources/{CardTableResourcePath}.json` 的 `notPlayed`");
+            }
             Debug.Log($"[Vfx] 逐卡特效表已载入：{ByCard.Count} 张卡 / {CardTableEntries} 条"
-                    + $"（`Resources/{CardTableResourcePath}.json`，按 `confPriority` 取权威优先）"
+                    + $"（`Resources/{CardTableResourcePath}.json`，🔴 2026-10-23 起**只收 `authoritative`**）"
                     + $"；卡名索引 {_byName.Count} 个名字（🆕 `A2082`：生产路径传的是**卡名**，"
                     + "没有这个索引逐卡那一档就恒不命中）"
                     + $"；🆕 `T13` 全播：{CardTableMultiEntries} 条会播多件 / 候选共 {CardTableCandidates} 件"
-                    + "（= 最优档 `authoritative` 的同档平票，按原版 `abilityLogic` 顺序）");
+                    + "（= 最优档 `authoritative` 的同档平票，按原版 `abilityLogic` 顺序）"
+                    + $"；⛔ 无权威依据**不播** {CardTableNotPlayed} 条（已逐条出声）"
+                    + $"；被第二道闸挡掉的非权威行 {CardTableNonAuthoritativeRows} 条（正常应 = 0）");
         }
 
         /// <summary>🆕 2026-10-19（W）：运行时表的一条 → <see cref="CardPick"/>
@@ -1768,10 +1902,13 @@ namespace CardPresentation
         /// （`BattleDriver.PlaySignal` → `FireEventAll(keyword:)`）。保守推断档只剩给
         /// 「`keyword` 为空」的旧事件 / 自检直调。</para>
         ///
-        /// <para>⚠️ **未标名的候选**（`TriggerNameOf` 回 null：顶层字段 / 我们的 `inferred-*` 档）：
+        /// <para>⚠️ **未标名的候选**（`TriggerNameOf` 回 null：卡 SO 顶层字段 / 关键词天赋行）：
         /// 归口生效时**两张桶都丢掉**（它们证明不了自己属于这个 trigger）。今天受影响的只有
-        /// `GSC32`/`GSC28`/`GSC37` 那几条 `inferred-keyword` 行（Concussive/Armour/Talent —— 这几个
-        /// 关键词在我们引擎里**根本不触发**，报告 §3·2），丢掉它们 = 不再在伏击那一拍乱播。</para>
+        /// `GSC32`/`GSC28`/`GSC37` 那几条**关键词天赋**行（Concussive/Armour/Talent —— 这几个
+        /// 关键词在我们引擎里**根本不触发**，报告 §3·2），丢掉它们 = 不再在伏击那一拍乱播。
+        /// 🔴 **2026-10-23（`T1`）**：这几条 2026-10-23 已由 `inferred-keyword` 升成 `authoritative`
+        /// （`src: cardtrait-so`）—— **结论不变**：它们不在 `CardDef.AnimTimes` 里 ⇒ `TriggerNameOf`
+        /// 仍回 null ⇒ 仍被丢掉。⛔ 别因为「现在是 authoritative」就改成「一律保留」。</para>
         ///
         /// <para>🆕 **2026-10-20（`FACTION-DOUBLE605`）`abilityIndex`**（≥0 = 原版 `cardAbilities[i]`
         /// 的 0 基下标；`-1` = 不筛 = 改前行为）：本方法**不再筛**（见 ③ 的注释）——
