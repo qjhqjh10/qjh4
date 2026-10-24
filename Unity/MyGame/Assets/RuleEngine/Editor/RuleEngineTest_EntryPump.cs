@@ -1,4 +1,4 @@
-// RuleEngineTest_EntryPump.cs — 引擎线 `W62·自检` 残余：**18 个顶层入口的「返回即空队列」结构自检**
+// RuleEngineTest_EntryPump.cs — 引擎线 `W62·自检` 残余：**19 个顶层入口的「返回即空队列」结构自检**
 //                                     ＋ 战斗线 `W64` `B-30`：**效果 470（`showCardsWindow`）发事件**
 // （2026-10-24 · 执行代理 `J2`）
 //
@@ -24,11 +24,11 @@ using RuleEngine;
 public static partial class RuleEngineTest
 {
     // ==================================================================
-    //  一 · `W62·自检`：18 个顶层入口的「返回即空队列」结构自检
+    //  一 · `W62·自检`：19 个顶层入口的「返回即空队列」结构自检
     // ==================================================================
 
-    /// <summary>本批覆盖的入口条数 —— 写死，和 `Run()` 里那 18 行 `W62EntryCase` 对账（删一条就红）。</summary>
-    const int W62EntryPumpCaseCount = 18;
+    /// <summary>本批覆盖的入口条数 —— 写死，和 `Run()` 里那 19 行 `W62EntryCase` 对账（删一条就红）。</summary>
+    const int W62EntryPumpCaseCount = 19;
 
     /// <summary>
     /// **`W62·自检` 的结构自检主场**（`Run()` 里一行 `Step(TestW62EntryPump)`）。
@@ -46,20 +46,26 @@ public static partial class RuleEngineTest
     ///   · 入口**漏了** `ActionScope` ⇒ 哨兵留在队列里 ⇒ `ran == 0`、`Count == 1` ⇒ **两行同时红**。
     /// ⇒ 「入口返回时 `ActionQueue.Count == 0`」这句话**只有配上哨兵才有判别力**（这是本组的主设计）。</para>
     ///
-    /// <para>⚠️ **夹具一律「最小局面」**（空棋盘 / 空手牌为主）—— 本组测的是**外壳**，不是那 18 个入口的业务语义
+    /// <para>⚠️ **夹具一律「最小局面」**（空棋盘 / 空手牌为主）—— 本组测的是**外壳**，不是那 19 个入口的业务语义
     /// （业务语义各有各的用例）。夹具让入口走到「非法参数 / 无目标」的早退分支**完全够用**：
     /// `using (BeginAction(ctx))` 是每个入口的**第一句**，早退也在作用域**里面**。</para>
     /// </summary>
     public static void TestW62EntryPump()
     {
-        Section("🆕 `W62·自检` · 顶层入口结构自检（18 个入口，返回时 `ActionQueue` 必须为空）");
+        Section("🆕 `W62·自检` · 顶层入口结构自检（19 个入口，返回时 `ActionQueue` 必须为空）");
 
         _w62EntryCases = 0;
 
-        // ---- RuleCore 那 15 个（`using (BeginAction(ctx))` 的落点，判据 = `W61T26` 的计数口径）----
+        // ---- RuleCore 那 16 个（`using (BeginAction(ctx))` 的落点，判据 = `W61T26` 的计数口径）----
         //  ① `BeginTurn` / `EndTurn` —— 回合起止（`ResolveAtTurn` 那一族触发的宿主）
         W62EntryCase("`RuleCore.BeginTurn`", W62MinBattle, c => RuleCore.BeginTurn(c));
         W62EntryCase("`RuleCore.EndTurn`", W62MinBattle, c => RuleCore.EndTurn(c));
+
+        //  ①b `BeginTurnForReplayExpansion` —— 回放 / 重连展开专用（越过 `IsOver` 闸，判据 = `普查产出_1023e/A29_回放展开.md` §6.4）。
+        //     它和 `BeginTurn` **各带一层自己的 `ActionScope`**（`RuleCore.cs:1516` / `:1542`，两条入口语义务必别合并），
+        //     所以结构上必须同样进本表。业务语义（越过闸的判别式）由 `A1ReplayBeginTurn` 覆盖，本表只测外壳。
+        W62EntryCase("`RuleCore.BeginTurnForReplayExpansion`", W62MinBattle,
+            c => RuleCore.BeginTurnForReplayExpansion(c));
 
         //  ② `Draw` —— 抽牌（`BroadcastWhen(Draw)` 的宿主）
         W62EntryCase("`RuleCore.Draw`", W62MinBattle, c => RuleCore.Draw(c, c.Active));
@@ -115,7 +121,7 @@ public static partial class RuleEngineTest
             W62EntryCase("`RuleCore.Hurt`（私有）", W62MinBattle, c =>
             {
                 var u = Place(c, c.Active, 3, Unit("W62E_Hurt", 1, 1, 9));
-                miHurt.Invoke(null, new object[] { c, u, 1, "W62E", -1, false, null });
+                miHurt.Invoke(null, new object[] { c, u, 1, "W62E", -1, false, null, UnitDeathType.Unknown });
             });
 
         //  ⑩⑪⑫ 三个「花掉本回合行动」的口（主动技能 / 誓约 / 信仰）
@@ -168,11 +174,11 @@ public static partial class RuleEngineTest
             RuleCore.GrantDarkPact(c, c.Active, u, "excess", "W62E");
         });
 
-        // ---- 覆盖度：本批真的跑了 18 条（删掉任何一条 `W62EntryCase` ⇒ 这里红）----
+        // ---- 覆盖度：本批真的跑了 19 条（删掉任何一条 `W62EntryCase` ⇒ 这里红）----
         Check(_w62EntryCases, W62EntryPumpCaseCount,
               $"★ `W62·自检` 覆盖了 **{W62EntryPumpCaseCount} 个顶层入口**（实得 {_w62EntryCases} 条用例）"
             + "｜🧨 删掉/注释掉任何一条 `W62EntryCase(...)` ⇒ 本行红"
-            + "（⛔ 别把常数改小 —— 常数就是「泵点集合」的口径，与 `W61T26` 的 18 同源）");
+            + "（⛔ 别把常数改小 —— 常数就是「泵点集合」的口径，与 `W61T26` 的 19 同源）");
     }
 
     /// <summary>本组跑过的用例数（只给上面那条覆盖度断言用；⛔ 不是第二个用例表）。</summary>
@@ -182,7 +188,7 @@ public static partial class RuleEngineTest
     static BattleContext W62MinBattle() { return ProbeBattle(new CardDef[0], new CardDef[0]); }
 
     /// <summary>
-    /// **一条「入口返回即空队列」的用例**（18 条共用这一段 —— ⛔ 别每条各写一份判据，
+    /// **一条「入口返回即空队列」的用例**（19 条共用这一段 —— ⛔ 别每条各写一份判据，
     /// 那样迟早有一条漏写「哨兵」而变成假绿）。
     ///
     /// 三步：① 塞一条 `Player` 道哨兵（`ran++`）→ ② **裸调**入口（⛔ 外面不许再包 `BeginAction`，
@@ -397,8 +403,14 @@ public static partial class RuleEngineTest
                 Place(ctx, p, 5, Unit(aliveNames[1], 1, 1, 9)),
                 Place(ctx, p, 6, Unit(aliveNames[2], 1, 1, 9)),
             };
-            foreach (var d in ctx.DeadUnits)
-                CheckTrue(d == null || d.Owner != p, "⑤ 前提：这一方的墓地是**空的**");
+            // 🔴 2026-10-24（`E1` · 铁律 5 就地订正）：这里原来是
+            //    `foreach (var d in ctx.DeadUnits) CheckTrue(d == null || d.Owner != p, "…墓地是空的");`
+            //    —— ⑤ 的夹具**一张都没杀** ⇒ `DeadUnits` 为空 ⇒ 循环跑零次 ⇒ 那条断言**从来没执行过**（假绿）。
+            //    改成「先数再判」：`DeadUnits` 空时也真的执行一次「我方 0 条」。
+            int deadPremise = 0;
+            foreach (var d in ctx.DeadUnits) if (d != null && d.Owner == p) deadPremise++;
+            Check(deadPremise, 0, "⑤ 前提：这一方的墓地是**空的**（`DeadUnits` 里我方 0 条）"
+                               + "｜🧨 夹具自己先杀了人 ⇒ 下面「3 张活人一张都没被收走」变成假绿 ⇒ 本行先红");
 
             ctx.ClearSignals();
             CheckCode(RuleCore.PlayTactic(ctx, p, handIdx), RuleCodes.OK,

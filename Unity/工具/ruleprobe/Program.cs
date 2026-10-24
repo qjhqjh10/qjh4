@@ -213,7 +213,7 @@ class Program
     //   本轮 `gen_cards_engine.py` 重生成卡表：version 18→19 + 新增 `spellType` 列（`cards_raw.json` 真值直搬），
     //   逐张语义 diff 只有这两处、其余 0 漂移（判据 → `普查产出_1023d/引擎批量_A1690_97_95_执行报告.md` §4）。
     //   基线文件 / 输出指纹**没动** ⇒ 只重钉这一条。
-    public const string PinnedPoolMd5 = "fafc0f562db54f139b29891b119b8c7e";
+    public const string PinnedPoolMd5 = "b6035055b993b33e9bcfa93bbce97d13";  // 2026-10-24 重钉（Z71 · D11）：卡表新增 activeAbilityLogic 列（132 张/193 行，版本 22→23）；归因 → 资料/普查产出_1024/D11_activeAbility列.md
 
     /// <summary>钉住的基线内容指纹（`工具/ruleprobe/基线/out_baseline.txt` 的 md5，**按字节**）。
     /// 与上面那个配对使用 —— 判据见上面那段长注释。</summary>
@@ -247,7 +247,7 @@ class Program
     //   的**后半句**原来被静默吃掉）。判据 → `资料/任务线/引擎线/任务总表.md` `T02` 行 ＋ 卡面中文
     //   「如果目标死亡或为友方单位」＋ `cards_1195_2022时代.json` 的 `targetCriteria(friendlyUnits=1/enemyUnits=1)`。
     //   ⇒ 按「先修好解析器，再跑 `scan` 定为新基线」重生成，⛔ 不是把红抹平。
-    public const string PinnedBaselineMd5 = "61ccfb36e70694ae24c5a7e46195e41c";
+    public const string PinnedBaselineMd5 = "71cedcd7aef4a86b14cee9ca891128b9";  // 2026-10-24 重钉（Z71 · G10）：GSC75 一行解析变化后重生成基线
 
     /// <summary>🆕 **解析输出指纹**（`A1382` **一般情形**的堵法，2026-10-12 第二十一会话 · 写手 `E5`）
     /// —— 「`check` 的判据是『与**基线文件**比』，而**基线文件同一个工具就能重写**」这条洞的机器级补丁。
@@ -312,7 +312,7 @@ class Program
     //   🔴 **2026-10-21（第五十九会话 · 引擎线 `T02`）重钉** —— 唯一变化 = `SOR31|Dogmata` 的条件种类
     //   （`targetdies` → `targetdiesorfriendly`）。行为侧另有三条新断言（友方活着 +1 / 敌方活着 +0 /
     //   敌方被打死 +1）钉住它，见 `Assets/RuleEngine/Editor/RuleEngineTest_T02.cs`。
-    public const string PinnedParseMd5 = "31d298eb7d6394e3861e2c82d1d17095";
+    public const string PinnedParseMd5 = "af836aa00928b52b05cbb5f6a2d5d786";  // 2026-10-24 重钉（Z71 · G10）：`in your hand` 计数从句（全池只 GSC75 一张）；归因 → 资料/普查产出_1024/G10_GSC75解析缺陷.md
 
     /// <summary>一个文件的 md5（按字节；读不到返回 `null` —— ⛔ 不静默当成空串）。</summary>
     public static string Md5File(string path)
@@ -740,6 +740,8 @@ class Program
             //     `0` 也是 `ab` / `lg` 的**合法位置** ⇒ 缺键一律 `-99`（`MissingIndex`）并出声丢弃。
             //   🔴 **四道闸与 `CardDatabase.MapUnitConditions` 同口径**（role / ab·lg 缺键 /
             //     cond 缺键或非法 / 同 key 重复），全部「计数 + 丢弃该条」，⛔ 不静默、⛔ 不默认。
+            //     🆕 2026-10-24（引擎线 `G6`）：`mult`/`multi`/`avail`/`choice` 四格的 `cond = 0` **不算坏数据**
+            //     （见下面 ③ 的注释），其余 role 的 `cond = 0` 照旧丢弃。
             bool hasUc = c.TryGetProperty("unitConditions", out var ucEl) && ucEl.ValueKind == JsonValueKind.Array;
             var unitConds = new List<CardDef.ConditionSpec>();
             if (hasUc && poolVersion < 15)
@@ -767,10 +769,21 @@ class Program
                     if (ucAb == CardDef.ConditionSpec.MissingIndex
                         || ucLg == CardDef.ConditionSpec.MissingIndex) { nBadUc++; continue; }
                     // ③ `cond` 缺键 / none(0) / 不在枚举里。
+                    //    🔴 **2026-10-24（引擎线 `G6` · `C6` §1·3 A）：`mult`/`multi`/`avail`/`choice` 四格放行 `cond = 0`。**
+                    //    口径同引擎 `Data/CardDatabase.cs` 的 `IsUnconditionalCriteriaRole`：那四格是
+                    //    「**整条 criteria**」行（`multiplierSet` / `multiSet` / `availSet` / `choiceSet`），
+                    //    `conditionsFilter == 0` 只是其中一个字段；其余 role 的「缺行 = 没有条件」被
+                    //    `CardDef.ConditionOf` 依赖 ⇒ 照旧丢弃。
+                    //    ⛔ 改前这里对**所有** role 一律丢 ⇒ 探针看不见 `G6` 新增的 131 行（`GOF4` 的结构化
+                    //    `mult` 那条腿因此验不到）。⚠️ 这一行与引擎那份是**同一条规则的第二处** ——
+                    //    引擎那格的 role 集合变了，这里要跟着改。
                     bool hasCond = e.TryGetProperty("cond", out var ucCvEl) && ucCvEl.ValueKind == JsonValueKind.Number;
                     if (!hasCond) { nBadUc++; continue; }
                     int ucCond = ucCvEl.GetInt32();
-                    if (ucCond == CardDef.ConditionNone || !CardDef.IsLegalUnitCondition(ucCond)) { nBadUc++; continue; }
+                    if (!CardDef.IsLegalUnitCondition(ucCond)) { nBadUc++; continue; }
+                    if (ucCond == CardDef.ConditionNone
+                        && ucRole != "mult" && ucRole != "multi" && ucRole != "avail" && ucRole != "choice")
+                    { nBadUc++; continue; }
                     // ④ 同 `(ab, lg, role)` 重复 ⇒ 丢弃后出现的那条（先到的保留）。
                     string ucKey = ucAb + ":" + ucLg + ":" + ucRole;
                     if (ucKeys == null) ucKeys = new HashSet<string>(StringComparer.Ordinal);
@@ -1067,8 +1080,9 @@ class Program
         if (nBadUc > 0)
             Console.WriteLine("⚠️ 卡池 `unitConditions` 有 " + nBadUc + " 条被丢弃（`role` 不认识 / 缺 `ab`·`lg` 键 / "
                               + "`cond` 缺键·为 none·不在枚举里 / 同 (ab,lg,role) 重复）—— 口径同 `CardDatabase.MapUnitConditions`。");
-        Console.WriteLine("  unitConditions: 带条件的卡 = " + nUcCards + " · 条 = " + nUcRows
-                          + "（原版 `TargetCriteria.conditionsFilter`，**none(0) 省略**"
+        Console.WriteLine("  unitConditions: 带行的卡 = " + nUcCards + " · 条 = " + nUcRows
+                          + "（原版 `TargetCriteria.conditionsFilter`；`mult`/`multi`/`avail`/`choice` 四格的"
+                          + " `cond = 0` 行**照收**（`G6` 起，与引擎同口径），其余 role 的 none(0) 省略"
                           + " —— 判据 → 资料/普查产出_1022/W64_兜底审计_战斗.md B-16）");
         // 🆕 v16（`B-16` 的明确缺口）：`count` 行的**被数集合**（原版 `BoardCriteria.countCriteria` ＋ `playerTurn`）。
         if (poolVersion < 16)
@@ -1094,7 +1108,7 @@ class Program
                               + "跑 `工具/gen_cards_engine.py` 重生成。");
         if (nUcRoleSetRows > 0 || nBadUcSet > 0)
             Console.WriteLine("  unitConditions[roleSet]: `mult`/`multi`/`avail`/`choice` 四格落整条 criteria 的行 = "
-                              + nUcRoleSetRows + "（对账期望：mult 4 · multi 1 · avail 3 · choice 2 = **10**）");
+                              + nUcRoleSetRows + "（对账期望：mult 31 · multi 9 · avail 17 · choice 84 = **141**）");
         // 🆕 v17（2026-10-23 · 引擎线 · `B-16` 残余 241/242 ＋ `B-17`）：两列的读数（旧表 / 缺列 / 形状坏**都出声**）。
         //   判据 → `资料/普查产出_1023b/引擎线_尾巴_执行报告.md` §2·3（abilityTriggers）与 §3·2（abilityTargets）。
         if (poolVersion < 17)

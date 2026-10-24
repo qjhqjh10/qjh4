@@ -34,7 +34,7 @@ public static partial class RuleEngineTest
         CheckTrue(mi != null,
                   "前提：`RuleCore.Hurt` 还在（改名 ⇒ 本组夹具造不出阵亡，⛔ 别静默跳过）");
         if (mi == null || u == null) return;
-        mi.Invoke(null, new object[] { ctx, u, 99, "N1Kill", -1, false, null });
+        mi.Invoke(null, new object[] { ctx, u, 99, "N1Kill", -1, false, null, UnitDeathType.Unknown });
     }
 
     /// <summary>这一个 `UnitState` 是不是还在**这一方**的棋盘上（按**对象身份**比，⛔ 不比名字）。</summary>

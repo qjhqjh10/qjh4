@@ -267,6 +267,26 @@ namespace RuleEngine
         /// </summary>
         public int AbilityFurtherMultiplier = -1;
 
+        /// <summary>🆕 v23（2026-10-24 · 引擎线 `G12`）：这条 op 是**主动能力链**的第几行
+        /// （原版 `activeAbility.activeAbilityLogic[j]` / `alternativeAbility.activeAbilityLogic[j]`）。
+        /// **`-1` = 不属于主动能力链 / 归不到那一行**（⛔ 不是 0 —— 0 是合法行号）。
+        ///
+        /// <para>**归位判据** → `CardDef.ApplyActiveAbilityLogic`：只有「卡上**恰好一个**替代行动关键词
+        /// （`duty` / `pray` / `ferocity` / `agenda` / `oath`）∧ 该能力对象 `gate = 1`
+        /// ∧ 那一组**恰好一个对象、一行 logic、一条 op**」时才挂 —— 那一档**只有一种配对可能**，
+        /// 不需要「第 j 行配第 j 条 op」这条没有判据的假设。其余形状一律留 `-1`，
+        /// 原因记在 `CardDef.ActiveAbilityMap`（取值表见 `ApplyActiveAbilityLogic` 的 doc，⛔ 别放宽这道闸）。</para>
+        ///
+        /// <para>**判据（原版，逐行读过）**：`RawCardScript__ResolveActiveAbility.c:18` / `:26-31` 选能力对象、
+        /// `:50` 取 `activeAbilityLogic` 列表、`:58-67` 逐行 `PlayAbility(…, 400 /* ThisUnitAbilityUsed */, 0)`；
+        /// 每行的目标 = `AbilityLogic__PlayAbility.c:262` `GetTargets(…, logic.targetCriteria, …)`、
+        /// 倍数 = `:235-236` `local_178 *= furtherMultiplier`。
+        /// ⚠️ 一行的 `targetCriteria` 是**一个目标集合**，**不是一条卡面从句** ——
+        /// 所以「第 j 行 ↔ 第 j 条 op」**没有一般性**（实测 `AM23` 1 条 op / 2 行：
+        /// `ta=30` 目标本体 ＋ `ta=110` 它的相邻；`AM34` 1 行 / 2 条 op）。</para>
+        /// </summary>
+        public int ActiveAbilityRow = -1;
+
         /// <summary>落到**这条 op** 上的 `role = "target"` 结构化条件行（`null` = 这一格没有 / 读不到）。
         /// 消费端（`EffectResolver.ResolveTargets` / `IsLegalPick`）照原版
         /// `FilterMethods.MeetsConditionCriteria` 拿它筛**这一条 op 的目标池**。</summary>
@@ -683,6 +703,19 @@ namespace RuleEngine
         ///   `board`  —— 盘面（谁的、什么兵种、是否受损，全在 <see cref="CountRef"/> 里）
         ///   `draw`   —— 本次结算抽到的牌（`For each troop drawn`）
         ///   `died`   —— 本回合阵亡的单位（`For each one that dies`）
+        ///   `diedsincelastturn` —— **本回合或上一回合**阵亡的单位
+        ///             （`Repeat for each friendly troop that died since your last turn`，`UM77`；
+        ///              判据 `CardScript__HasDiedSinceLastTurn.c:26-47`；
+        ///              `CountRef` 形如 `own|troop` / `any|unit` / **`enemy|troop`（2026-10-24 `B7` 新增第三档）**
+        ///              —— 侧只看名词短语，⛔ 不看时间窗里的 `your`，见 `ClassifyCount`）
+        ///   `hand` / `enemyhand` —— **自己 / 对手手牌**里的某类牌
+        ///             （`for each Vehicle in your hand` = `GSC75` · `for each Sabotage in the opponent's hand` = `GSC56`；
+        ///              判据 = 原版 `GetTargets` 的 `inHandFiltered(50)` 分支 `AbilityLogic__GetTargets.c:884-892`；
+        ///              `CountRef` 里带筛选词（`sabotage` / `vehicle` / `troop` / `unit` / `spell` / `any`）；
+        ///              🔴 **介词短语收哪些写法 / 哪些是形状档** → `ClassifyCount` 上面那条 `ReCountInHand` 的 doc，
+        ///              ⛔ 别在别处再写第二份手牌句式）
+        ///   `spiritspent` —— 上一次「花掉全部灵魂石」花了几颗（`For each one`，`ASH52`）
+        ///   `darkpact` —— 黑暗契约层数（`for each Dark Pact on …`）
         ///   `played` —— 本局打出过的某类牌（`For each Secret you played this game`）
         /// 空 = 不计数。
         /// </summary>
@@ -889,12 +922,11 @@ namespace RuleEngine
         public bool AdjacentFailed;
         /// <summary>「每一个」——`for each friendly unit` 那种计数层（见 <see cref="EffectOp.Verb"/> 的 for-each）</summary>
         public bool Each;
-        /// <summary>原文**没写**目标词，按**定死的规则**自动挑（如裸 `Deal N damage` → 敌方最弱单位）。
-        /// 🔴 出处（正本）= 反编译 `AbilityLogic__GetTargets.c:837` ← `dump.cs:20817` 的
-        ///    `TargetsAffected.lowestHealth = 240` → `BattleManager__GetLowestHealthUnit.c:153`（见 `TryDeal`）。
-        ///    ⚠️ 我们上一版复刻 `rule_core.gd:2692` 只是**旁证**，不是判据。
-        /// ⚠️ 这不是「不知道打谁」—— 是规则明确、只是不在文本里。
-        /// **不能掷骰**：同一局必须永远可复现（见 `RuleCore.ResolveTarget` 的注释）。</summary>
+        /// <summary>原文**没写**目标词、按**定死的规则**自动挑（如 `Give it …` 那族代词 / 无主语的兜底）。
+        /// 🔴 **2026-10-24（引擎线 `G5`）就地订正（铁律 5）**：这里原来举的例子是
+        ///    「裸 `Deal N damage` → 敌方最弱单位」，**那个例子已作废** —— 裸 Deal 的原版
+        ///    `targetsAffected = 30 (target)`（施放方选一个），现在**不置 `Auto`**（见 `TryDeal`）。
+        ///    `Auto = true` 仍然表示「**不问玩家**」，消费者 = `PickTarget`（它靠这一位跳过）。</summary>
         public bool Auto;
         /// <summary>
         /// 目标带了**我们过滤不了的兵种词**（`a friendly Vehicle` / `every Beast`）。
@@ -1461,8 +1493,10 @@ namespace RuleEngine
             // 🔴 **误伤面（全池实测，`D:/tmp/wf_e5/` 离线探针 · 1126 张的 `desc` ＋全部 `keywords`
             //   原文与冒号后正文）**：全池 `Instead` op 一共 **12 条**，逐条分类：
             //   · **6 条**是 `… damage instead`（`ASH31` / `ASH36` / `AM40` / `DA37` / `GSC54` / `GOF94`）
-            //     —— 它们的目标是 `TryDeal` 那条「按原版规则自动选敌方生命最低的单位」的补底
-            //     （`Auto = true`、**不是** `Subjectless`）⇒ 被下面第一道闸挡掉；
+            //     —— 它们的目标来自 `TryDeal` 的**裸 `Deal` 支**（`Subjectless` 为假；
+            //     2026-10-24 `G5` 起那一支是 `ta=30` 的「施放方选一个」，**不再**是生命最低自动挑
+            //     ⇒ `Auto` 也不再为真 —— 但这道闸只认 `Subjectless`，结论不变）
+            //     ⇒ 被下面第一道闸挡掉；
             //   · **5 条**目标明写（`it` / `them`）或**没有同动词前驱**（`GOF100` / `SOR49` /
             //     `SW53` / `TAU53` / `DA37` 的 `gain`）⇒ 挡在「不是 `Subjectless`」或「前驱找不到」；
             //   ⇒ **吃到这一趟的只有 `SOR6` 那 1 条**（改前 → 改后的目标规格见本笔报告 §3）。
@@ -4568,6 +4602,41 @@ namespace RuleEngine
         }
 
         /// <summary>
+        /// `for each &lt;某类牌> in &lt;谁的> hand` —— **手牌计数**的**唯一**判据（`ClassifyCount` 的 ⓪b 用它）。
+        ///
+        /// 🔴 **2026-10-24（`G10`）：为什么单列成一条正则** —— 改前这段是**内联**在 `ClassifyCount` 里的，
+        ///    而且把 `in **the** &lt;谁的> hand` 写成了硬条件（`in` 与 `your` 之间**必须有** `the`）。
+        ///    卡面实际写的是 `Repeat for each Vehicle in **your hand**`（`GSC75`）⇒ 匹配不上
+        ///    ⇒ 落进 ④ 盘面 ⇒ 数的是**场上**的载具
+        ///    （`ruleprobe card "Roaming Outriders"` 改前实测 `countRef=[own|vehicle|all] countScope=[board]`）。
+        ///    **判据** = 卡面原文（`GSC75` 的 `desc`）＋ 原版 `inHandFiltered(50)`
+        ///    （`AbilityLogic__GetTargets.c:884-892`）。
+        ///
+        /// **收进来的写法**（全池 1127 张逐条扫过 `for each|for every … hand`：命中 6 张，
+        ///    其中只有 `GSC56` / `GSC75` 是**计数**从句 —— 另 4 张里 3 张（`BL51` / `EC45` / `SAU75`）
+        ///    的 `in your hand` 是**目的地**（`create … in your hand`，计数源是 `draw`），
+        ///    第 4 张 `GSC37` 的 `in enemy hand` 在**降价**句里、今天整句 unparsed
+        ///    ⇒ 这 4 张本来就不该走这里。`GSC47` / `GOF104` 的 `hand` 在**另一个分句**里，
+        ///    同样只是目的地（`RuleEngineTest_G10` 里 `GSC47` 当反例钉着））：
+        ///   · `in your hand` —— `GSC75`（**改前唯一漏掉的那一种**）；
+        ///   · `in the opponent's hand` —— `GSC56`（改前能匹配，那一条是对的）；
+        ///   · `in the enemy hand` —— 计数从句里**今天 0 例**（`GSC35` / `GSC59` 的
+        ///     `equal to the number of cards in the enemy hand` 走 `ReEqualEnemyHandCount`，**不是**这一条）；
+        ///   · `in enemy hand`（不带 `the`）—— 池内唯一一例是 `GSC37` 的
+        ///     `Costs 1 less for each card in enemy hand`，那句今天**整句 unparsed**、
+        ///     根本没进 `ClassifyCount`；收在这里属**形状**，⛔ 别当它已生效；
+        ///   · 同族的 `opponents'` / `enemies'` / `their` / `his` / `her` / `its` —— **今天 0 例**，
+        ///     同属**形状档**。⚠️ `their` 的**归属**（自己 / 对手）**今天没有原版判据**，
+        ///     按本池文风定为「对手」（同一批卡的 `their` 指前一句的 `enemy`，见 `ASH82`：
+        ///     `… in the enemy hand and shuffle it into their deck`）—— 真出现时**先核卡面**再谈。
+        ///   ⛔ **不收裸 `in hand`（不带所有格）**：侧不明（`AM31` 的 `a friendly troop in hand` 那类），
+        ///     猜一侧 = 静默数错；今天也**没有** `for each … in hand` 的计数从句。
+        /// </summary>
+        static readonly Regex ReCountInHand = new Regex(
+            @"^(?<what>[a-z][a-z' ]*?)\s+in\s+(?:the\s+)?(?<who>your|their|his|her|its|opponent'?s?'?|enem(?:y|ies)'?s?'?)\s+hand\b",
+            RegexOptions.Compiled);
+
+        /// <summary>
         /// `for each` 从句 →（计数范围, 计数对象）。**认不出来返回 false** ——
         /// 宁可让整句判半懂，也不能猜一个计数对象（猜错就是「打多/打少」）。
         ///
@@ -4578,7 +4647,8 @@ namespace RuleEngine
         {
             scope = null; reference = null;
             if (string.IsNullOrEmpty(countRef)) return false;
-            string c = countRef.Trim().ToLowerInvariant()
+            string raw = countRef.Trim().ToLowerInvariant();
+            string c = raw
                 .Replace(" in play", "").Replace(" in your hand", "").Replace(" this game", "").Trim();
 
             // ⓪ **`For each one`** —— 指**前一句刚花掉的灵魂石颗数**（2026-09-13 第三十三轮）。
@@ -4587,6 +4657,40 @@ namespace RuleEngine
             //    ⚠️ 这是个**窄判据**：`one` 单独出现时没有别的含义，而 `LastSpentSpirit` 只在
             //    「花掉全部灵魂石」之后非 0 ⇒ 不会误伤（认错的话那张卡会重复错次数，测试里有断言）。
             if (c == "one") { scope = "spiritspent"; reference = "one"; return true; }
+
+            // ⓪b 🆕 **2026-10-24（引擎线 `A1` 第 3 件 · `GSC56` / `GSC75`）：手牌里的某类牌** ——
+            //    `for each Sabotage in the opponent's hand` / `for each Vehicle in your hand`。
+            //
+            //    **为什么必须排在 ④ 盘面之前、而且要看【未剥过句子的 `raw`】**：
+            //    下面那句 `.Replace(" in your hand", "")` 会把「手里的载具」**剥成**「vehicle」
+            //    ⇒ 落进 ④ 变成「场上的载具」（`GSC75` **改前**数的就是棋盘上的载具；`G10` 已修）。
+            //
+            //    **判据 = 原版 `GetTargets` 的 `inHandFiltered(50)` 那一支**：
+            //    `AbilityLogic__GetTargets.c:884-892` → `BattleManager.GetCardsInHandList(
+            //    includeHero/includeMinions/includeSpells/includeWhispers, friendlyUnits, enemyUnits, …)`
+            //    ⇒ 候选是**手牌**、侧由 `friendlyUnits`/`enemyUnits` 定；卡种/`spellType` 再筛。
+            //    `GSC56` 的 `multiCountCriteria` 现读 = `ta 50 / enemyUnits 1 / includeSpells 1 /
+            //    spellType 230`（Sabotage），与卡面「opponent's hand」逐字对得上；
+            //    `GSC75` 的 `multiplier` 现读 = `ta 50 inHandFiltered / friendlyUnits / keywordFilter`
+            //    （`C6` §1·5 同族）⇒ 侧 = **自己**、筛 = **载具**。
+            //
+            //    🔴 **2026-10-24（`G10`）：写法收口到 `ReCountInHand` 一处**。改前那条**内联**正则硬要求
+            //    `in **the** <谁的> hand` ⇒ `GSC75` 的 `in your hand` 匹配不上、静默落进 ④（数场上载具）。
+            //    ⛔ 别再往这里补第二条字符串判据 —— 变体清单与判据缺口都在 `ReCountInHand` 的 doc 里。
+            var mh = ReCountInHand.Match(raw);
+            if (mh.Success)
+            {
+                string what = mh.Groups["what"].Value.Trim();
+                // 冠词剥掉（`a card in your hand` 那类写法）；通称 → `any`（与 ④ 的「没写名词」同义）。
+                foreach (string art in new[] { "any ", "an ", "a " })
+                    if (what.StartsWith(art, System.StringComparison.Ordinal))
+                    { what = what.Substring(art.Length); break; }
+                if (what == "one" || what == "card" || what == "cards") what = "any";
+                // 侧：`your` = 自己；其余 = 对手（`their` 那一档的判据缺口见 `ReCountInHand` 的 doc）。
+                scope = mh.Groups["who"].Value.StartsWith("your") ? "hand" : "enemyhand";
+                reference = what;
+                return true;
+            }
 
             // ① 黑暗契约的**层数**（不是单位数）——
             //    `for each Dark Pact on it` / `for each Dark Pact on friendly units`。
@@ -4604,6 +4708,41 @@ namespace RuleEngine
             {
                 scope = "draw";
                 reference = md.Groups[1].Success ? md.Groups[1].Value : "any";
+                return true;
+            }
+            // ②b 🆕 **2026-10-24（引擎线 `A1` 第 2 件 · `UM77 Chairon`）：自上一回合以来的阵亡** ——
+            //    `Repeat for each friendly troop that died since your last turn`。
+            //    ⚠️ **必须排在 ②「本回合阵亡」之前**：那句 `that died` 会被 ② 先吃掉
+            //    ⇒ 窗口被静默缩成「本回合」（`UM77` 的实测缺口：对手回合末死的兵不算）。
+            //    **判据 = `CardScript__HasDiedSinceLastTurn.c:26-47`**：
+            //    `turnDied == turnCounter || turnDied + 1 == turnCounter` ⇒ **本回合或上一回合**
+            //    （与 `ConditionEval` 的 `cond 222` 同一口径）。结算见 `CountFor` 的同名 scope。
+            if (c.Contains("since your last turn") || c.Contains("since last turn")
+                || c.Contains("since the last turn"))
+            {
+                // 🔴 **2026-10-24（`B7` · 独立审查 R1 `P2-10`）：侧只看【名词短语】，⛔ 别把时间窗里的 `your`。**
+                //
+                // **改前**：`ownD = c.Contains("friendly") || c.Contains("your")` —— 而
+                // `since **your** last turn` 这句时间窗**自己就带 `your`** ⇒ 这个判据**恒真**，
+                // 于是「`for each **enemy** troop that died since your last turn`」被判成 `own|troop`
+                // （少数一半、**静默**）。今天池内没有敌方句式（现读只有 `EC39` / `SOR42` 的
+                // 「**friendly** troop …」与 `UM77` 的「**friendly** troop …」）⇒ 属**形状缺陷**。
+                //
+                // **原版这一位从哪来**：`multiCountCriteria` 的 `friendlyUnits(+0x14)` / `enemyUnits(+0x15)`
+                // 两个布尔位（`AbilityLogic__GetTargets.c:207-219` 那一段的同一个来源；侧筛本身在
+                // `GetTargets` 的 60 `inCemeteryFiltered` 支）。我们只有文本 ⇒ 三档：显式 `enemy` 认敌方、
+                // `friendly`/`your` 认己方、其余 `any`（消费端 `CountFor` 已经按 `d.Owner` 分得开）。
+                string subjD = c;
+                foreach (var win in new[] { "since your last turn", "since last turn", "since the last turn" })
+                    subjD = subjD.Replace(win, " ");
+                string sideD =
+                      Regex.IsMatch(subjD, @"\b(enemy|enemies|enemy's|enemies'|opponent|opponents|opponent's|opponents'|their)\b")
+                        ? "enemy"
+                    : Regex.IsMatch(subjD, @"\b(friendly|your)\b") ? "own"
+                    : "any";
+                bool troopD = subjD.Contains("troop");
+                scope = "diedsincelastturn";
+                reference = sideD + "|" + (troopD ? "troop" : "unit");
                 return true;
             }
             // ② 本回合阵亡：`for each one that dies` / `for each one destroyed`
@@ -6208,10 +6347,21 @@ namespace RuleEngine
             return false;
         }
 
-        /// <summary>`Deal X damage [to Y]` —— 我们上一版复刻 `rule_core.gd:2672`（**旁证**）。
-        /// 目标词缺省（`Deal 3 damage`）= **定死的规则**：自动选敌方最弱单位
-        /// （🔴 正本 = 反编译，见下面 `TryDeal` 里那条 `AbilityLogic__GetTargets.c:837`；
-        ///  `rule_core.gd:2692` 只是旁证，不是判据）。</summary>
+        /// <summary>`Deal X damage [to Y]`。
+        /// 目标词缺省（`Deal 3 damage`）= 原版 **`targetsAffected = 30 (target)`**：**由施放方选一个目标**
+        /// （玩家点 / AI 按自己的评分挑），**不是**「自动选生命最低」。
+        /// 🔴 **2026-10-24（引擎线 `G5`）就地订正（铁律 5）**：上面这一句原来写的是「**定死的规则**：
+        ///    自动选敌方最弱单位」（判据引 `AbilityLogic__GetTargets.c:837` = `ta=240 lowestHealth`）——
+        ///    **那句已作废**。现读数据（`C4` 顺手发现 2）：
+        ///      · 当前 build 全池 **33 张**「`Deal &lt;n&gt; damage` 后面不接 `to`」的卡，
+        ///        **每一张**的 `chosenAbility = 10 doDamage` 逻辑行都是 **`ta = 30 (target)`**
+        ///        （`资料/普查产出_1024/C4_ta240是否含督军.md` §六·2；2022 快照同口径），
+        ///        **没有一张是 240**；`ta=240` 全池只有 2 张（`SAU70` / `SAU73`，**都不是裸 Deal**）；
+        ///      · `ta=30` 那一支（`AbilityLogic__GetTargets.c:192-207`）= **把调用方传进来的
+        ///        `targetCard` 原样返回，不做任何筛选** ⇒ 语义 = 「目标由施放方选」。
+        ///    ⛔ 别再改回 `PickMost = "-health"`（那会让玩家无从选择、且 33 张卡全打错人）。
+        ///    「生命最低」只在**卡面明写** `with lowest Health` 时出现（`ParseTarget` 那条
+        ///    `lowest/highest` 正则），判据仍是 `ta=240` 那一族。</summary>
         static EffectOp TryDeal(string low, string src)
         {
             // 🔴 **先切 ` and <动词>` 的尾巴，再匹配**（2026-09-14 A5 批 4）——
@@ -6266,21 +6416,38 @@ namespace RuleEngine
 
             if (tok.Length == 0)
             {
-                // 裸 `Deal N damage`（如 Fire prism）—— 原版是**定死的规则**：自动选敌方**生命最低**的单位。
-                // **不是**「不知道打谁」。🔴 出处（2026-09-18 换成正本）：
-                //   分派 `AbilityLogic__GetTargets.c:837` ← `dump.cs:20817 TargetsAffected.lowestHealth = 240`
-                //   → 实现 `BattleManager__GetLowestHealthUnit.c:153`：逐单位比 `currentHealth` 取最小，
-                //   **严格小于**（并列留列表序先者）；空场回落到督军。
-                //   ⚠️ 原来这里引的是 `d:/warpforge/scripts/rule_core.gd:2692` —— 那是**我们自己的 Godot 复刻**，
-                //   按 `CLAUDE.md` 只能当旁证、不能当判据。
-                // 🔑 挑法**不新写**：`PickMost` 那一支是「挑法」的唯一实现（见 `EffectResolver` 里
-                //   `spec.PickMost` 那段），并列取槽号在前者 —— 与原版「严格小于」**同一条规则**。
-                // `Auto = true` 照旧保留 ⇒ 仍然「不问玩家」（`EffectText.cs` 的 `PickTarget` 靠它跳过）。
+                // 裸 `Deal N damage` —— 原版 `ta = 30 (target)`：**目标由施放方选一个**。
+                // 🔴 **2026-10-24（引擎线 `G5`）重写（铁律 5/11）**。改前这里是
+                //   `{ Auto = true, PickMost = "-health" }`（= 自动选敌方生命最低），
+                //   依据是「裸 Deal 走 `ta=240 lowestHealth`」—— **数据证伪**：
+                //     · 当前 build 全池 33 张裸 `Deal <n> damage` 卡的逻辑行 **33/33 = `ta=30`**；
+                //     · `ta=240` 全池只有 2 张（`SAU70` / `SAU73`），**都不是裸 Deal**；
+                //     · `ta=30`（`AbilityLogic__GetTargets.c:192-207`）= 原样返回调用方给的
+                //       `targetCard`，不筛选 ⇒ 语义就是「谁用谁选」。
+                //   完整判据 → `资料/普查产出_1024/C4_ta240是否含督军.md` §六·2。
+                //
+                // **落到我们引擎上的两条路**（写清「玩家/AI 各自怎么挑」）：
+                //   · **玩家**：本 spec 的 `Auto` 为假、`Count == 1` ⇒ `EffectText.PickTarget` 会把它
+                //     选出来 ⇒ `CanPlayTactic` 要求一个合法 `targetSlot`（高亮判据 = `IsLegalPick`），
+                //     打出去时 `PlayTactic` 按 `PickSide` 取那一格当 `chosen`；
+                //     单位卡的 Duty/Pray/Agenda/Oath 走 `RuleCore.UseAlternativeCore`，同样按
+                //     `PickTarget` 问「点哪一侧」（`AlternativeTargetSide` / `CanPickAlternativeTarget`）。
+                //   · **AI**：`SimpleAI.EnumerateActions` 对**每一个合法目标各发一条动作**
+                //     （战术卡 = `CanPlayCard(…, slot)` 过的那几格；替代行动 = `CanPickAlternativeTarget`），
+                //     再按 `ScoreFromPlayingCard` → `AiScoring.ScoreFromPlayingNow` 打分挑最高 ——
+                //     其中的候选表 / 排序走 `AiTargets.GetTargets`（`targetSelectMethod` 那一套，
+                //     引擎线 `G3` 已按原版八档重写）。⇒ **不是**「挑生命最低」。
+                //   · ⚠️ **没有选择方的场合**（触发式正文：`Rally: Deal 1 damage` 那一族，`chosen == null`）：
+                //     原版 `ta=30` 在 `targetCard == null` 时**返回空表**（`:192-207` 的
+                //     `param_5 != 0` 那一闸）；我们这一侧没有「为触发式能力临时问玩家」的通道，
+                //     `ResolveTargets` 的末段兜底会取**目标池里的前 N 个**（= 格号序）——
+                //     这是本仓对**所有**「明写了目标却没人点」的正文（如 `to an enemy`）**同一份既有近似**，
+                //     ⛔ 不在这里另造第二条规则；它与原版的差别已如实记在
+                //     `资料/普查产出_1024/G5_裸Deal与ta200.md`。
                 op.Target = new EffectTargetSpec
                 {
-                    Raw = "(未写目标：按原版规则自动选敌方生命最低的单位)",
-                    Side = "enemy", Kind = "any", Count = 1, Auto = true,
-                    PickMost = "-health",
+                    Raw = "(未写目标短语：原版 `ta=30 target` ⇒ 由施放方选一个敌方单位)",
+                    Side = "enemy", Kind = "any", Count = 1,
                 };
             }
             else op.Target = ParseTarget(tok);

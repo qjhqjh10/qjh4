@@ -378,6 +378,23 @@ namespace RuleEngine
             /// ⚠️ `-1` = 缺键/坏值；`0` = **原版明确「不乘」**（合法取值）。</summary>
             public AbilityMultiplierDto[] abilityMultipliers;
 
+            /// <summary>🆕 v23（2026-10-24 · 引擎线 `G12`）：**主动能力整条链** ——
+            /// 原版 `activeAbility` / `alternativeAbility` 两个对象里 `activeAbilityLogic[]`
+            /// **逐行**的 `targetsAffected` / `furtherMultiplier`（形状 → <see cref="ActiveAbilityLogicDto"/>）。
+            ///
+            /// <para>判据（逐行读过反编译）：`RawCardScript__ResolveActiveAbility.c:18/26-31` 选对象、
+            /// `:50` 取那个对象的 `activeAbilityLogic`、`:58-67` 逐行 `PlayAbility(…, 400, 0)`；
+            /// 目标 = `AbilityLogic__PlayAbility.c:262`、倍数 = `:235-236`。
+            /// `hasActiveAbility == 0` 的卡整条路径被 `CardScript__ResolveActiveAbilityPlayed.c:22`
+            /// 短路 ⇒ 数据照落、带 `gate = 0`（**本 build 死数据**，⛔ 不是「没有这份数据」）。</para>
+            ///
+            /// <para>🔴 **每张卡都落这一列**（没有 active/alt 行的 995 张落 `[]`）——
+            /// 「缺列（旧表 = 未知）」与「空数组（明确没有）」必须分得开（同 `abilityTargets`）。
+            /// ⚠️ **别把它并进 `abilityTargets`**：那一列的契约是「按 `cardAbilities` 下标对齐」，
+            /// 混进来会打坏 `EffectText.AssignAbilityTargets` 的 G1 闸门（判据 →
+            /// `资料/普查产出_1024/D10_abilityTargets管线.md` §三）。</para></summary>
+            public ActiveAbilityLogicDto[] activeAbilityLogic;
+
             // ==================================================================================
             //  🆕 v21（2026-10-24 · 引擎线 `A20` · 第三批 ①/②）：主动能力的**分支闸 / 装填位 / 任务位**
             // ==================================================================================
@@ -461,6 +478,38 @@ namespace RuleEngine
             /// <summary>`-1` = JSON 里没有 `trigger`（只作可读性；消费端按**下标**对齐）。</summary>
             public int trigger = -1;
             /// <summary>逐 `abilityLogic` 的 `furtherMultiplier`；`-1` = 该格坏值/缺键。</summary>
+            public int[] fm;
+        }
+
+        /// <summary>🆕 v23（2026-10-24 · 引擎线 `G12`）：`activeAbilityLogic` 的一行
+        /// （**一个元素 = 一个能力对象**；`ta` / `fm` 是**逐 logic** 的数组）。
+        /// 字段名与 JSON 键名**逐字一致**（`JsonUtility` 直读）。语义 → <see cref="CardDef.ActiveAbilityLogicSpec"/>。
+        ///
+        /// <para>🔴 **`ab` / `gate` 用 `MissingIndex`（-99）当缺键哨兵，⛔ 别退回 0 或 -1** ——
+        /// `-1` / `-2` 都是合法的 `ab`（active / alternative），`-1` 也是合法的 `gate`（闸未知）。
+        /// 缺键静默读成 `-1` 会把「JSON 里没这个键」认成「alternativeAbility」/「闸未知」——
+        /// 前者**错对象**、后者**永远不挂**，两种都是静默错。</para>
+        /// <para>`ta` / `fm` 的坏值口径**与 `abilityTargets` / `abilityMultipliers` 逐字相同**：
+        /// 非整数/缺键 ⇒ 该格 `-1`（`0` 是合法取值：`any` / 「不乘」）。</para></summary>
+        [System.Serializable]
+        public class ActiveAbilityLogicDto
+        {
+            /// <summary>缺键哨兵 —— 唯一来源 <see cref="UnitConditionDto.MissingIndex"/>（`-99`）。
+            /// 理由：`-1` / `-2` 都是合法 `ab`、`-1` 也是合法 `gate`（同 `AbilityGateDto` 的写法）。</summary>
+            const int MissingIndex = UnitConditionDto.MissingIndex;
+
+            /// <summary>`-1` = `activeAbility` · `-2` = `alternativeAbility`（与 `unitConditions` 的 `ab` 同词）。
+            /// `MissingIndex` = JSON 里没有这个键（坏行 ⇒ 出声丢弃）。</summary>
+            public int ab = MissingIndex;
+            /// <summary>`1` 可达 · `0` 本 build 死数据 · `-1` 闸未知。`MissingIndex` = 缺键（坏行）。</summary>
+            public int gate = MissingIndex;
+            /// <summary>原版逐行传的**虚拟时机**（恒 `400` = `ThisUnitAbilityUsed`）；只作可读性。</summary>
+            public int trigger = -1;
+            /// <summary>该能力对象的 `needsLoading`；`-1` = 未知。</summary>
+            public int needsLoading = -1;
+            /// <summary>逐行 `targetsAffected`；`-1` = 该格坏值/缺键（⛔ `0` 是合法的 `any`）。</summary>
+            public int[] ta;
+            /// <summary>逐行 `furtherMultiplier`；`-1` = 该格坏值/缺键（`0` = 原版明确「不乘」）。</summary>
             public int[] fm;
         }
 
@@ -987,6 +1036,22 @@ namespace RuleEngine
                                + "⇒ 结构化乘数（`mult`）**不生效、退回正文口径**（⛔ 不是「没有乘数」）。"
                                + "跑一下 gen_cards_engine.py 重生成（引擎线 `新账-95` #2）。");
 
+            // 🆕 v23（2026-10-24 · 引擎线 `G12`）：`activeAbilityLogic` 一列
+            //   （原版 `activeAbility` / `alternativeAbility` 的 `activeAbilityLogic[]` 逐行 ta/fm）。
+            //   缺列 ⇒ `CardDef.ActiveAbilityLogic = **null**（未知）` + `ActiveAbilityLogicVersioned = false`
+            //   ⇒ 主动能力那批 op 的 `ActiveAbilityRow` / `SubjectTargetsAffected` / `AbilityFurtherMultiplier`
+            //   全保持 `-1`（= 改前的行为）。⛔ 旧表**不许**被读成「全池都没有主动能力」
+            //   （那正是本仓红线里最贵的那类静默错：缺列 ≠ 空数组）。
+            if (dto.version < 23)
+                Debug.LogWarning($"[RuleEngine] 卡表 version={dto.version} < 23 —— 没有 `activeAbilityLogic` 一列"
+                               + "（原版 `activeAbility.activeAbilityLogic[j].targetCriteria.targetsAffected` 与 "
+                               + "`furtherMultiplier`；判据 `RawCardScript__ResolveActiveAbility.c:50-67`、"
+                               + "`AbilityLogic__PlayAbility.c:235-236/262`）。"
+                               + "`CardDef.ActiveAbilityLogic` 会是 **null = 未知** ⇒ 主动能力那批 op 的 "
+                               + "`ActiveAbilityRow` / `SubjectTargetsAffected` / `AbilityFurtherMultiplier` "
+                               + "一律保持 **-1（读不到）**（= 改前行为，⛔ 不是「原版说没有目标」）。"
+                               + "跑一下 gen_cards_engine.py 重生成（引擎线 `G12`）。");
+
             int noId = 0;
 
             // 🆕 2026-10-22（卡牌线 `T04`）：`useOverDraw` 一列的**缺列兜底** —— v9 才有这一列，
@@ -1131,6 +1196,14 @@ namespace RuleEngine
                     //    ⇒ 上面的 `< 20` 守卫已经出过声）；未知格 = `-1`（⛔ 不是 0 = 「不乘」）。
                     abilityMultipliers: MapAbilityMultipliers(c),
                     abilityMultipliersVersioned: dto.version >= 20,
+                    // 🆕 v23（2026-10-24 · 引擎线 `G12`）：主动能力整条链（`activeAbilityLogic` 列）——
+                    //    **每张卡都落**（没行的 995 张 `[]`），缺列 = 真值里没这张卡 = 未知。
+                    //    ⚠️ 缺值口径 = `null`（⛔ 不是空表）+ `ActiveAbilityLogicVersioned = false`
+                    //    （旧表整列没有 ⇒ 上面的 `< 23` 守卫已经出过声）。
+                    //    ⚠️ 挂到 op 上不在这里：`CardDef` 收完 `TriggerOps` / `OathOps` 之后自己做
+                    //    （`ApplyActiveAbilityLogic`，闸门与「为什么只挂 1↔1」写在那边）。
+                    activeAbilityLogic: MapActiveAbilityLogic(c),
+                    activeAbilityLogicVersioned: dto.version >= 23,
                     // 🔴🆕 v18（2026-10-23 · 引擎线 `P1·①`）：逐条 ability 的 `priority`，**键 = 原版
                     //    `AbilityTrigger` 枚举名** —— 补 `triggerPriority`（键 = 引擎关键词）覆盖不到的
                     //    `WhenEvent` / 回合 / 打出族。四道闸（缺 `name` / 缺 `trigger` / 非法 `priority` /
@@ -1151,6 +1224,39 @@ namespace RuleEngine
                     questTimes: dto.version >= 21 ? c.questTimes : -1,
                     normalAbilityBoardCriteria: dto.version >= 21 ? MapBoardGate(c) : null));
             }
+            // 🆕 v23（2026-10-24 · 引擎线 `G12`）：`activeAbilityLogic` 的**挂载读数**（一行，⛔ 不逐卡刷屏）。
+            //   为什么要有这一行：这一列只在「1 个对象 ↔ 1 行 ↔ 1 条 op」时能挂上（理由 →
+            //   `CardDef.ApplyActiveAbilityLogic` 的 doc），其余档**必须看得见**——否则下一个人
+            //   会以为「132 张全接上了」。逐卡原因在 `CardDef.ActiveAbilityMap`，这里是汇总。
+            //   ⚠️ 旧表（< v23）整列没落 ⇒ 不出这一行（上面那条 `< 23` 守卫已经说清了）。
+            if (dto.version >= 23)
+            {
+                int withRows = 0, logicRows = 0, attached = 0, dead = 0, gapShape = 0, gapNoKw = 0;
+                int gapOther = 0;
+                foreach (var cd in list)
+                {
+                    if (cd == null || cd.ActiveAbilityLogic == null || cd.ActiveAbilityLogic.Count == 0) continue;
+                    withRows++;
+                    foreach (var r in cd.ActiveAbilityLogic) if (r != null) logicRows += r.LogicCount;
+                    switch (cd.ActiveAbilityMap)
+                    {
+                        case "attached": attached++; break;
+                        case "gate-0": dead++; break;
+                        case "gap:shape": gapShape++; break;
+                        case "gap:no-keyword": gapNoKw++; break;
+                        case "": break;                       // 理论到不了（有行就会有结论）
+                        default: gapOther++; break;
+                    }
+                }
+                if (withRows > 0)
+                    Debug.Log($"[RuleEngine] `activeAbilityLogic`（卡表 v{dto.version}）：有行的 **{withRows} 张 / {logicRows} 行**；"
+                            + $"挂到 op 上的 **{attached} 张**（只挂「1 个对象 ↔ 1 行 ↔ 1 条 op」，"
+                            + "闸门 → `CardDef.ApplyActiveAbilityLogic`）。未挂："
+                            + $"`gate=0` 死数据 {dead} 张 · 行数≠op 数 {gapShape} 张 · "
+                            + $"卡上没有替代行动关键词 {gapNoKw} 张 · 其它闸门 {gapOther} 张"
+                            + "（逐卡原因 = `CardDef.ActiveAbilityMap`；⛔ 未挂 ≠ 原版没有目标，是**我们读不到**）。");
+            }
+
             // 🔴 🆕 2026-10-15（接线批）：**护甲两套口径一旦分叉就出声** ——
             //   引擎读的那一份（`CardDef` 构造里定下来的 `_keywords[armour]`）由
             //   「v9 `armour` 列优先、`keywords` 旧口径兜底」合成，两条腿**在正常数据上必须一致**。
@@ -1501,6 +1607,85 @@ namespace RuleEngine
             return list;
         }
 
+        /// <summary>🆕 v23（2026-10-24 · 引擎线 `G12`）：`activeAbilityLogic` 列 →
+        /// <see cref="CardDef.ActiveAbilityLogicSpec"/> 列表（**一个元素 = 一个能力对象**）。
+        ///
+        /// <para>🔴 **返回 `null` ≠ 返回空表**：
+        /// · `c.activeAbilityLogic == null`（旧表没这一列 / 卡上没有这一格）⇒ **`null` = 未知**；
+        /// · `[]`（JSON 里就是空数组）⇒ **空表 = 明确没有主动能力行**（现池 995 张）。
+        /// 两者由 `CardDef.ActiveAbilityLogicVersioned` 再分一层，消费端**不许**把 `null` 当空表。</para>
+        ///
+        /// <para>**只做形状校验**（坏行出声丢弃 / 坏格出声落 `-1`），不做语义判断 ——
+        /// 与 `MapAbilityMultipliers` / `MapUnitConditions` 同一分工：
+        /// ① `ab` 不是 `-1` / `-2` ⇒ 出声 + 丢掉那一行（`ab` 是分组键，错一个就挂到别的对象上）；
+        /// ② `gate` 不是 `1` / `0` / `-1` ⇒ 出声 + 丢掉那一行（三值之外没有别的语义）；
+        /// ③ `ta` / `fm` 的格 `< -1` ⇒ 出声 + 该格落 `-1`（`0` 合法，⛔ 不猜）；
+        /// ④ `ta` 与 `fm` **长度不一致** ⇒ 出声 + 两格都置 `null`（未知）—— 逐行对齐的前提没了，
+        ///    留着会让「第 j 行」的定义自相矛盾。</para>
+        /// </summary>
+        static List<CardDef.ActiveAbilityLogicSpec> MapActiveAbilityLogic(CardDto c)
+        {
+            if (c == null || c.activeAbilityLogic == null) return null;   // 🔴 null = 这一列没落（未知）
+            var list = new List<CardDef.ActiveAbilityLogicSpec>(c.activeAbilityLogic.Length);
+            foreach (var r in c.activeAbilityLogic)
+            {
+                if (r == null) continue;                                   // 不是下标语义 ⇒ 不用占位
+                if (r.ab != CardDef.ActiveAbilityObject && r.ab != CardDef.AlternativeAbilityObject)
+                {
+                    Debug.LogError($"[RuleEngine] 卡「{c.name}」（{c.id}）的 `activeAbilityLogic` 有一条 "
+                                 + $"`ab = {r.ab}` **非法**（只允许 {CardDef.ActiveAbilityObject}"
+                                 + $" / {CardDef.AlternativeAbilityObject}）—— 那一行**已丢弃**。"
+                                 + "重跑 工具/gen_cards_engine.py。");
+                    continue;
+                }
+                if (r.gate != 1 && r.gate != 0 && r.gate != CardDef.GateUnknown)
+                {
+                    Debug.LogError($"[RuleEngine] 卡「{c.name}」（{c.id}）的 `activeAbilityLogic`（ab={r.ab}）"
+                                 + $"`gate = {r.gate}` **非法**（只允许 1 / 0 / -1）—— 那一行**已丢弃**。"
+                                 + "重跑 工具/gen_cards_engine.py。");
+                    continue;
+                }
+                var ta = r.ta;
+                var fm = r.fm;
+                if (ta != null)
+                    for (int i = 0; i < ta.Length; i++)
+                        if (ta[i] < -1)
+                        {
+                            Debug.LogError($"[RuleEngine] 卡「{c.name}」（{c.id}）的 `activeAbilityLogic`（ab={r.ab}）"
+                                         + $"第 {i} 行 `targetsAffected = {ta[i]}` **非法**（只允许 ≥ 0 或 -1）"
+                                         + "—— 该格按 -1 处理。重跑 工具/gen_cards_engine.py。");
+                            ta[i] = -1;
+                        }
+                if (fm != null)
+                    for (int i = 0; i < fm.Length; i++)
+                        if (fm[i] < -1)
+                        {
+                            Debug.LogError($"[RuleEngine] 卡「{c.name}」（{c.id}）的 `activeAbilityLogic`（ab={r.ab}）"
+                                         + $"第 {i} 行 `furtherMultiplier = {fm[i]}` **非法**（只允许 ≥ 0 或 -1）"
+                                         + "—— 该格按 -1 处理。重跑 工具/gen_cards_engine.py。");
+                            fm[i] = -1;
+                        }
+                if (ta != null && fm != null && ta.Length != fm.Length)
+                {
+                    Debug.LogError($"[RuleEngine] 卡「{c.name}」（{c.id}）的 `activeAbilityLogic`（ab={r.ab}）"
+                                 + $"`ta` 长度 {ta.Length} 与 `fm` 长度 {fm.Length} 不一致 —— "
+                                 + "**两格都按未知(null)处理**（逐行对齐的前提没了，⛔ 不压缩、不猜）。"
+                                 + "重跑 工具/gen_cards_engine.py。");
+                    ta = null; fm = null;
+                }
+                list.Add(new CardDef.ActiveAbilityLogicSpec
+                {
+                    Ability = r.ab,
+                    Gate = r.gate,
+                    Trigger = r.trigger,
+                    NeedsLoading = r.needsLoading,
+                    TargetsAffected = ta,
+                    FurtherMultiplier = fm,
+                });
+            }
+            return list;
+        }
+
         /// <summary>🆕 v16（2026-10-22 · 引擎线 `W64` · 战斗审计 `B-16` 的**明确缺口**）：
         /// `count` 行的**被数集合**（原版 `BoardCriteria.countCriteria` ＋ `playerTurn`）→
         /// <see cref="CardDef.CountSetSpec"/>。
@@ -1719,15 +1904,31 @@ namespace RuleEngine
         ///   ② `ab` / `lg` **缺键**（= `UnitConditionDto.MissingIndex`）⇒ 丢弃。
         ///      ⛔ 别让它静默落成 0：`0` 是**合法** `ab`（第 0 条 ability）与**合法** `lg`
         ///      （第 0 条 logic）⇒ 缺键读成 0 会把条件挂到**错的位置**上。
-        ///   ③ `cond` **缺键**（`-1`）/ `0`（`none`，本列按约定不落）/ 不在 `UnitConditions` 枚举里
-        ///      ⇒ 丢弃。`0` 在这里是**「没有条件」**，而本列的每一行都表示**有一个条件** ⇒
-        ///      落成 0 的行是坏数据（⛔ 不静默当成「无条件」）。
+        ///   ③ `cond` **缺键**（`-1`）/ 不在 `UnitConditions` 枚举里 ⇒ 丢弃。
+        ///      `0`（`none`）**只对 `mult` / `multi` / `avail` / `choice` 四格放行**
+        ///      （🆕 2026-10-24 · `G6` · `C6` §1·3 A：那四格是「整条 criteria」行，`cond`
+        ///      只是其中一个字段；判据 → `IsUnconditionalCriteriaRole`）；其余 role 落成 0
+        ///      **仍是坏数据**（本列每一行都表示**有一个条件**，⛔ 不静默当成「无条件」）。
         ///   ④ 同 `(ab, lg, role)` 重复 ⇒ **丢弃后出现的那条**（先到的保留）＋出声。
         ///      生成器每一格只落一行（同一格天然唯一）；这里是**第二道闸**，且**必须**丢：
         ///      `CardDef` 的索引是「后写覆盖」⇒ 不丢就是静默取最后一条。
         /// ⚠️ 位置语义（十个 role 分别是什么、`count` 的三个参数）**只在 `CardDef` 那一段注释里有一份**，
         /// ⛔ 别在这里抄第二份。
         /// </summary>
+        /// <summary>🆕 **2026-10-24（执行代理 `G6` · `C6` §1·3 A）**：这四个 role 的行是「**整条 criteria**」
+        /// （`multiplierSet` / `multiSet` / `availSet` / `choiceSet`），`cond = 0`（`UnitConditions.none`）
+        /// 是**合法档**（= 这条 criteria 不附加条件），⛔ 不是坏数据。
+        /// <para>判据：原版里这四个位置都是**一个完整 `TargetCriteria`**，`conditionsFilter` 只是其中一个字段
+        /// —— 它等于 0 时，这条 criteria 仍在回答「**数谁 / 候选池是谁**」（`AM18` 的
+        /// `multiCountCriteria` 就是 `ta 10 + keywordFilter 10(Vehicle) + cond 0`）。</para>
+        /// <para>⚠️ 其余 role（`target` / `acting` / `count` / 卡级计分）**不放行** ——
+        /// 它们的「缺行 = 这一格没有条件」是消费端（`ConditionOf` / `TryStructuredCondition`）依赖的契约。</para>
+        /// </summary>
+        static bool IsUnconditionalCriteriaRole(string role)
+        {
+            return role == "mult" || role == "multi" || role == "avail" || role == "choice";
+        }
+
         static List<CardDef.ConditionSpec> MapUnitConditions(CardDto c)
         {
             var list = new List<CardDef.ConditionSpec>();
@@ -1763,12 +1964,17 @@ namespace RuleEngine
                                  + "重跑工具/gen_cards_engine.py。");
                     continue;
                 }
-                if (uc.cond == CardDef.ConditionNone)
+                if (uc.cond == CardDef.ConditionNone && !IsUnconditionalCriteriaRole(uc.role))
                 {
+                    // 🔴 **2026-10-24（执行代理 `G6` · `C6` §1·3 A）**：这句原来对所有 role 一律丢弃。
+                    //   现在 `mult` / `multi` / `avail` / `choice` 四格**允许** `cond = 0`（判据 →
+                    //   `IsUnconditionalCriteriaRole`）—— 那四格是「**整条 criteria**」行，
+                    //   `conditionsFilter` 只是其中一个字段。其余 role（`target` / `acting` / `count` /
+                    //   卡级计分那几族）**照旧丢弃**：它们的「缺行 = 没有条件」已被消费端依赖。
                     Debug.LogError($"[RuleEngine] 卡「{c.name}」（{c.id}）的 `unitConditions` 有一条 "
                                  + $"`{uc.role}` 的 `cond = 0`（`UnitConditions.none`）—— 已丢弃该条"
-                                 + "（本列按约定**只落非 none 的行**；落 0 的行是坏数据，"
-                                 + "⛔ 不静默当成「无条件」）。重跑工具/gen_cards_engine.py。");
+                                 + "（除 `mult`/`multi`/`avail`/`choice` 四格外，本列按约定**只落非 none 的行**；"
+                                 + "落 0 的行是坏数据，⛔ 不静默当成「无条件」）。重跑工具/gen_cards_engine.py。");
                     continue;
                 }
                 if (!CardDef.IsLegalUnitCondition(uc.cond))
@@ -1826,22 +2032,24 @@ namespace RuleEngine
                 };
                 list.Add(spec);
 
-                // 🆕 v22（2026-10-24 · 引擎线 `新账-95` #2）：**`role == "multi"` 的引擎缺口如实出声**。
-                //   原版 `RawCardScript__TriggerAbilities.c:230-250`：`multiCountCriteria.targetsAffected != 0`
-                //   ⇒ **整条 ability 触发 N 遍**（`N` = `GetTargets(multiCountCriteria)` 的个数）；
-                //   `== 0 (any)` ⇒ 只触发一次。
-                //   🔴 本版**未实现**「整条 ability 重复」这一层（那是 ability 触发点的结构性改动）⇒
-                //      数据一旦出现 `targetsAffected != 0` 的 `multi` 行，**必须出声**（⛔ 不许静默当 1 遍）。
-                //   ⚠️ 现读池内 `multi` 行只有 `UM77` 一条、`targetsAffected = 0` ⇒ 行为与原版一致（1 遍）。
-                if (spec.Role == "multi" && spec.MultiSet != null
-                    && spec.MultiSet.TargetsAffected != 0
-                    && spec.MultiSet.TargetsAffected != CardDef.CountSetSpec.Unknown)
+                // 🔴 **2026-10-24（执行代理 `G6` · `C6` §1·3 D）：这条告警原来写着「本版**没有实现**
+                //    ability 级重复 ⇒ 按 1 遍处理」—— **两半都不成立了**：
+                //    ① 数据侧：`gen_cards_engine.py` 改前对 `conditionsFilter == 0` 的 criteria
+                //       **整行丢弃** ⇒ 池内 `multi` 行只落了 `UM77` 一条（`ta = any(0)`）⇒ 这条告警
+                //       **永远响不了**（护栏在、喂不到数据）。`G6` 的 A 笔已让 `ta != 0` 的 8 条
+                //       `multi` 行落下来（`AM18` / `ASH52` / `DA57` / `GOF46` / `GSC56` / `SOR45` /
+                //       `SW51` / `SW58`）。
+                //    ② 引擎侧：`G6` 的 C 笔已在触发层实现「整条 ability 触发 N 遍」
+                //       （`EffectResolver.TryStructuredMultiTrigger` + `TryComputeRepeats`），
+                //       判据 = `RawCardScript__TriggerAbilities.c:230-250`。
+                //    ⇒ 这里**不再是缺口**，改成一条**数据形状校验**：`multi` 行的 `multiSet` 必须落全
+                //    （旧表 / 生成器漏落 ⇒ 消费端只能退回正文口径，那才是真的静默）。
+                if (spec.Role == "multi" && spec.MultiSet == null)
                 {
                     Debug.LogWarning(
-                        $"[RuleEngine] 卡「{c.name}」（{c.id}）有一条 `multi` 行，"
-                      + $"`multiCountCriteria.targetsAffected = {spec.MultiSet.TargetsAffected}` ≠ `any(0)` —— "
-                      + "原版会把**整条 ability 触发 N 遍**（`RawCardScript__TriggerAbilities.c:246-258`），"
-                      + "而本版**没有实现** ability 级重复 ⇒ **这一格按 1 遍处理**（如实出声，⛔ 不是「原版就这样」）。");
+                        $"[RuleEngine] 卡「{c.name}」（{c.id}）有一条 `multi` 行**没有 `multiSet`**"
+                      + "（旧卡表 / 生成器没落整条 criteria）—— 触发层只能退回**正文口径**"
+                      + "（`for each …`），⛔ 不是「原版就这样」。重跑工具/gen_cards_engine.py。");
                 }
             }
             return list;

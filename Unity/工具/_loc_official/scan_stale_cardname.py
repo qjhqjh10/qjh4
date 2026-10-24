@@ -21,6 +21,9 @@ OLD / NEW 两份值集：
 用法：
     python -I -X utf8 d:/4/Unity/工具/_loc_official/scan_stale_cardname.py
     ... --old d:/4/_tmp_view/cards_engine_换官方前.json
+    ⚠️ 2026-10-24 更正（铁律 5）：`cards_engine_换官方前.json` **现读已不在盘上**（一次性快照），
+       所以第二行那个 `--old` 例子**照抄会读不到**；**默认那条路不受影响** —— 不传 `--old` 时
+       判据取 `git HEAD:` 那一版（见上：「要在提交之前跑」）。
 """
 import io
 import os

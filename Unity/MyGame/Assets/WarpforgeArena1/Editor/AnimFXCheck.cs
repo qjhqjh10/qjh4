@@ -1031,17 +1031,42 @@ public static class AnimFXCheck
 
                 // 🔑 **灭自证（结构上不可能同时满足的一对）**：同一个入口、同一张卡、同一份 `times`，
                 //    **换一个未归口的 keyword** 必须换回**另一组**结果 ——
-                //      · `keyword="Flank"` ⇒ 走原来的 `trigger` 粗桶 ⇒ **必须只有** `FlankEffect`；
-                //      · `keyword="penitence"` ⇒ 按 trigger 名筛 ⇒ **必须没有** `FlankEffect`。
-                //    两条一起才钉死「真的按名字分流」：⛔ 退回粗桶 ⇒ 上面那条红；
-                //    ⛔ 把归口写成「只要 keyword 非空 / 已归口就整桶播」⇒ 这一条红（Flank 会变成 PenitenceEffect）。
+                //      · `keyword="Flank"` ⇒ 回 `trigger` 桶，但按拍分件 ⇒ SOR8 那条是 Start(0) ⇒ **空**；
+                //      · `keyword="Strike"`  ⇒ 同一入口在 `BL14` 上 ⇒ **必须播 StrikeEffect**（TriggerType 3）。
+                //    两条一起才钉死「按拍分件」：⛔ 「整桶照播」⇒ 第一条红；⛔ 「trigger 桶一律停掉」⇒ 第二条红。
+                //
+                //  🔴 **2026-10-24（`E3` · `DG3` 红 #6·α）：第一条的期望改成【空】** ——
+                //    `D4`（`A2`）有意把 `trigger` 桶里 `TriggerType ∉ {3,6}` 的行滤掉
+                //    （判据 = `BattleCardUI__DisplayTriggerAnim.c:71`：触发那一拍**只处理 3/6**；
+                //     `Start(0)` 归召唤/附魔，见 `DisplayStatusAnim.c:86-119`）。
+                //    `SOR8` 的 trigger 桶**只有** `FlankEffect`（`FlankTraitStart`，
+                //    `trait_effect_bindings.json` 里 `flank` 的 `triggerType = 0`）⇒ **空是正确结果**。
+                //    原来那条「必须只有 `FlankEffect`」写于 10-23，期望值被 D4 的改口径**过期**了。
                 var flank8 = CardPresentation.VfxMap.ResolveAllTimed(
                     CardPresentation.VfxMap.Trigger, "Sororitas", "SOR8", c8.AnimTimes,
                     perCardOnly: true, keyword: "Flank");
-                Check(HasVfx(flank8, "FlankEffect") && !HasVfx(flank8, "PenitenceEffect"),
-                      "⑤ 灭自证：未归口的 `keyword=\"Flank\"` 仍然走原来的 `trigger` 桶 ⇒ 只有 `FlankEffect`"
+                Check(flank8.Length == 0
+                      && !HasVfx(flank8, "FlankEffect") && !HasVfx(flank8, "PenitenceEffect"),
+                      "⑤ 按拍分件：未归口的 `keyword=\"Flank\"` 回 `trigger` 桶，但 `SOR8` 那条是 **Start(0)**"
+                    + " ⇒ 触发这一拍**什么都不播**"
                     + $"（实得 {VfxNames(flank8)}）"
-                    + " —— 🧨 把归口改成「keyword 非空就回 ability 桶」⇒ 本条红");
+                    + " —— 🧨 把 `D4` 的分件闸去掉（回整桶）⇒ 播 `FlankEffect`（召唤那一刻的件，错拍）⇒ 本条红");
+
+                // 🔑 **正例**（证明「按拍分件」不是「把 trigger 桶整个关掉」）：
+                //    `BL14` 的 trigger 桶只有 `StrikeEffect`（`StrikeTraitTrigger`，绑定表 `triggerType = 3`）
+                //    ⇒ 触发这一拍**必须播得出来**。与上面那条一起才有牙。
+                var c14 = RuleEngine.CardDatabase.FindById(pool, "BL14");
+                Check(c14 != null, "⑤（前提）：卡池里拿得到 `BL14`（Strike 正例）");
+                if (c14 != null)
+                {
+                    var strike14 = CardPresentation.VfxMap.ResolveAllTimed(
+                        CardPresentation.VfxMap.Trigger, c14.Faction, "BL14", c14.AnimTimes,
+                        perCardOnly: true, keyword: "Strike");
+                    Check(HasVfx(strike14, "StrikeEffect"),
+                          "⑤ 正例：`keyword=\"Strike\"`（未归口）在 `BL14` 上**播得出 `StrikeEffect`**（TriggerType 3）"
+                        + $"（实得 {VfxNames(strike14)}）"
+                        + " —— 🧨 把 `D4` 的分件闸改成「trigger 桶一律回空」/ 把 trigger 桶整个停掉 ⇒ 本条红");
+                }
 
                 // 再补一刀（防「万金油」）：归口取的是 keyword **本身**，不是「任取一个已归口名字」。
                 var amb10 = CardPresentation.VfxMap.ResolveAllTimed(
@@ -1404,6 +1429,58 @@ public static class AnimFXCheck
         return s.ToString();
     }
 
+    /// <summary>`⑤d` 用：给 <paramref name="cardId"/> 的 <paramref name="ev"/> 换 24 个种子挑，
+    /// 是不是**每次都**取到 <paramref name="file"/>（期望值来自 `voice_lines.json`，⛔ 不从被测函数反推）。</summary>
+    static bool AlwaysPicks(string cardId, string ev, string file)
+    {
+        for (int seed = 0; seed < 24; seed++)
+        {
+            string clip, text, hitEv;
+            if (!CardPresentation.VoiceLines.TryPick(cardId, new[] { ev }, new System.Random(seed),
+                                                     out clip, out text, out hitEv)) return false;
+            if (!string.Equals(clip, file, System.StringComparison.Ordinal)) return false;
+        }
+        return true;
+    }
+
+    /// <summary>`⑤d` / `⑤f` 用：24 个种子的取值去重后拼成一行（失败时要看得见「实得什么」）。</summary>
+    static string PickedSet(string cardId, string ev)
+    {
+        var seen = new List<string>();
+        for (int seed = 0; seed < 24; seed++)
+        {
+            string clip, text, hitEv;
+            if (!CardPresentation.VoiceLines.TryPick(cardId, new[] { ev }, new System.Random(seed),
+                                                     out clip, out text, out hitEv)) clip = "(miss)";
+            if (!seen.Contains(clip)) seen.Add(clip);
+        }
+        return string.Join(" / ", seen);
+    }
+
+    /// <summary>`⑤e` 用：24 个种子下出现了几种不同的取值（用来证明「随机池还在」）。</summary>
+    static int DistinctPicks(string cardId, string ev)
+    {
+        var set = new HashSet<string>();
+        for (int seed = 0; seed < 24; seed++)
+        {
+            string clip, text, hitEv;
+            if (!CardPresentation.VoiceLines.TryPick(cardId, new[] { ev }, new System.Random(seed),
+                                                     out clip, out text, out hitEv)) clip = "(miss)";
+            set.Add(clip);
+        }
+        return set.Count;
+    }
+
+    /// <summary>`⑤f` / `⑤g` 用：按「<paramref name="first"/> → <paramref name="second"/>」这条兜底链取
+    /// （rng 传 null = 定死），命中的文件名是否正好是 <paramref name="file"/>。</summary>
+    static bool PicksFile(string cardId, string first, string second, string file)
+    {
+        string clip, text, hitEv;
+        bool hit = CardPresentation.VoiceLines.TryPick(cardId, new[] { first, second }, null,
+                                                       out clip, out text, out hitEv);
+        return hit && string.Equals(clip, file, System.StringComparison.Ordinal);
+    }
+
     static string Describe(Dictionary<string, int> d)
     {
         if (d == null || d.Count == 0) return "(空)";
@@ -1413,6 +1490,183 @@ public static class AnimFXCheck
         CheckTraitAuthority();
 
         CheckTraitStartEffects();          // 🆕 2026-10-23（A7）：`Start(0)` 那 13 条 trait effect
+
+        // ---- ⑤b 语音表：卡 SO 的 `summonAudio` 都要有 `deploy` 行（🆕 2026-10-24 · A8 落地 A4 的片段）----
+        //  判据 = `Resources/voice_lines.json`（经 `VoiceLines` 读回来），⛔ 不是我们自己的常量：
+        //    · `EC57`（Xarahan, Daemon Prince）的 `summonAudio` 在原版卡 SO 里就指着
+        //      `VO_UM_Primaris Intercessor - For the Imperium`（**原版自己抄错了**）⇒ **照原版播**。
+        //    · `UM6` 与它共用同一条 clip ⇒ 两张卡都必须有这一行
+        //      （生成器 `import_original_audio.py` 的「多卡共用同一 clip 照原版都挂」）。
+        //  🧨 **灭自证**：把 `voice_lines.json` 里 EC57 的 `deploy` 行删掉 ⇒ `TryPick(…, ForDeploy, …)`
+        //     返回 false ⇒ 下面那两条（`ev == ExactDeploy` / `clip == …`）**当场红**；
+        //     把生成器那道「多卡共用」护栏改回「唯一才认」⇒ UM6 / EC57 各红一条。
+        Check(CardPresentation.VoiceLines.Ready,
+              "voice_lines.json 读得到（" + CardPresentation.VoiceLines.LoadError + "）");
+        Check(CardPresentation.VoiceLines.CardCount >= 600,
+              "语音表卡数 " + CardPresentation.VoiceLines.CardCount + " ≥ 600");
+        foreach (var vcId in new[] { "EC57", "UM6" })
+        {
+            string vclip, vtext, vev;
+            bool vhit = CardPresentation.VoiceLines.TryPick(
+                vcId, CardPresentation.VoiceLines.ForDeploy, null, out vclip, out vtext, out vev);
+            Check(vhit && vev == CardPresentation.VoiceLines.ExactDeploy,
+                  "⑤b " + vcId + " 的 `deploy` 行存在（命中 ev=" + vev + "）"
+                + "｜🧨 删掉 `voice_lines.json` 里这一行 ⇒ 本条红（这就是「照原版都挂」那条护栏的反向闸）");
+            Check(vhit && vclip == "VO_UM_Primaris Intercessor - For the Imperium.ogg",
+                  "⑤b " + vcId + " 的 deploy 指 `VO_UM_Primaris Intercessor - For the Imperium.ogg`（现读 "
+                + (vhit ? vclip : "无") + "）—— 原版卡 SO 就是这么指的（**原版自己抄错 UM 的语音**，照原版）");
+            Check(vhit && CardPresentation.VoiceLines.Clip(vclip) != null,
+                  "⑤b " + vcId + " 的 deploy 音频资源真的在 `Resources/"
+                + CardPresentation.VoiceLines.ClipRoot + "…`");
+        }
+
+        // ---- ⑤c 件2 现状：`D5` 删掉那两条「按名字猜」的死行之后，两处都只剩 SO 指名的 **1 行** ----
+        //  🔴 **2026-10-24（`E3` · `DG3` 红 #7/#8·α）：期望从 2 行/1 SO 改成 **1 行/1 SO**。**
+        //    被删的是 `ASH2/gen1` 的 `_gen1.ogg` 与 `UM88/gen3` 的 `_gen3.wav`（按名字猜的），
+        //    删除理由 = `D5_语音归属两处.md` §五 B 表第 1 / 9 条：同卡同 ev **已有 SO 指名行**
+        //    ⇒ `orphan_is_dead`（`VoiceLines.IsSoAttributed` + `TryPick` 的 `soOnly` 让它们**永远被压掉**）
+        //    ⇒ 删的是**死数据**，不是数据退化。⛔ 别为了让它变回 2 行去恢复那两条死行。
+        //  ⛔ 期望值**从数据独立算**（行数都是 JSON 里的原值）—— `LineRowCount`/`SoRowCount` 量的是原始数据，
+        //     不是 `TryPick` 的取词逻辑。
+        Check(CardPresentation.VoiceLines.LineRowCount("ASH2", "gen1") == 1
+              && CardPresentation.VoiceLines.SoRowCount("ASH2", "gen1") == 1,
+              "⑤c ASH2 的 `gen1` 只剩 1 行、就是卡 SO 指名那条（D5 已按 `orphan_is_dead` 删掉按名字猜的死行；现读 行/SO = "
+            + CardPresentation.VoiceLines.LineRowCount("ASH2", "gen1") + "/"
+            + CardPresentation.VoiceLines.SoRowCount("ASH2", "gen1") + "）");
+        Check(CardPresentation.VoiceLines.LineRowCount("UM88", "gen3") == 1
+              && CardPresentation.VoiceLines.SoRowCount("UM88", "gen3") == 1,
+              "⑤c UM88 的 `gen3` 只剩 1 行、就是卡 SO 指名那条（同上；现读 行/SO = "
+            + CardPresentation.VoiceLines.LineRowCount("UM88", "gen3") + "/"
+            + CardPresentation.VoiceLines.SoRowCount("UM88", "gen3") + "）");
+
+        // ---- ⑤d 件2 行为：同 ev 多行时**永远**取 SO 指名那一条（换 24 个种子都不许变）----
+        //  🔴 **2026-10-24（`E3` · `DG3` 顺手发现 3）：从「真实数据夹具」改成「合成数据驱动」。**
+        //    原来靠 `ASH2/gen1`、`UM88/gen3` 各 2 行当夹具；`D5` 删掉死行之后全表只剩 4 组
+        //    「(卡, ev) 多行」（`ASH3/BL35/BL36/SAU36` 的 `intro-vs`；`D7` 之前记作 `deploy`），**没有一组含 `src=cardSO`**
+        //    ⇒ 原断言恒真（一条重要规则长期无人守）。⛔ 不许就这样删掉这条判据。
+        //    ⇒ 用 `VoiceLines.SetRowsForTest`（形状照 `E2` 的 `SetExactForTest`：成对 / 幂等 /
+        //      抛异常也还原 / `WasInjected` 可断言）注入「1 条 SO 指名 + 1 条按名字猜」的同 ev 两行，断：
+        //      ① 24 个种子**都**取到 SO 那条；② 出作用域还原后这个合成 id **取不到任何东西**（防「把表写死」）。
+        //  🧨 把 `TryPick` 里的 `soOnly` 去掉、回到纯随机 ⇒ 24 个种子下几乎必然抽到猜的那条 ⇒ 红。
+        {
+            const string testId = "ZZ_E3_SO_PRIORITY", testEv = "gen1";
+            const string soClip = "VO_E3_SO_priority_gen4.ogg", guessClip = "VO_E3_guess_gen1.ogg";
+            bool injected = false;
+            using (var inj = CardPresentation.VoiceLines.SetRowsForTest(testId, testEv, soClip, guessClip))
+            {
+                injected = inj.WasInjected;
+                Check(injected, "⑤d（前提）：合成两行注入进台词表（`VoiceLines.SetRowsForTest`）"
+                              + "｜没注进去 ⇒ 下面两条**没验到**，别读成通过");
+                if (injected)
+                {
+                    Check(CardPresentation.VoiceLines.LineRowCount(testId, testEv) == 2
+                          && CardPresentation.VoiceLines.SoRowCount(testId, testEv) == 1,
+                          "⑤d（前提）：合成夹具确实是「2 行 / 其中 1 行卡 SO 指名」（现读 行/SO = "
+                        + CardPresentation.VoiceLines.LineRowCount(testId, testEv) + "/"
+                        + CardPresentation.VoiceLines.SoRowCount(testId, testEv) + "）");
+                    Check(AlwaysPicks(testId, testEv, soClip),
+                          $"⑤d 同 ev 两行时 24 个种子**都**取卡 SO 指的那条 `{soClip}`"
+                        + "（实得：" + PickedSet(testId, testEv) + "）"
+                        + "｜🧨 `TryPick` 去掉 `soOnly`（回纯随机）⇒ 抽到猜的那条 ⇒ 红");
+                }
+            }
+            // 还原：合成 id 不在表里 ⇒ 取不到（挡「为了让它绿把表写死 / Dispose 不还原」）
+            string backClip, backText, backEv;
+            bool backHit = CardPresentation.VoiceLines.TryPick(
+                testId, new[] { testEv }, new System.Random(0), out backClip, out backText, out backEv);
+            Check(!backHit && CardPresentation.VoiceLines.LineRowCount(testId, testEv) == 0,
+                  $"⑤d（还原）出作用域后合成 id `{testId}` 不在表里（取到 `{(backHit ? backClip : "无")}`；"
+                + $"残留行数 {CardPresentation.VoiceLines.LineRowCount(testId, testEv)}）"
+                + "｜🧨 把注入做成「永久写进表」/ `Dispose` 不还原 ⇒ 本条红");
+        }
+
+        // ---- ⑤e 灭自证（另一面）：**同 ev 多行、且没有一行是 SO 指名**时，随机池必须还在 ----
+        //  🔴 **2026-10-24（`E10` · 宿主 151/1 里唯一那条红）：从【真实数据夹具】改成【注入驱动】。**
+        //    ⑤e 原本拿 `BL35` 的 `deploy`（4 条 `vs_*`、全无 SO 归属）当自然夹具；**`D7` 合法地把那批
+        //    `_vs_` 行从 `ev=deploy` 改记成 `ev=intro-vs` + `src=orphan`**（判据 →
+        //    `资料/普查产出_1024/D7_语音脏数据订正.md` §一/§二）⇒ 现读 `voice_lines.json`：
+        //      · `BL35` 的 `deploy` 行数 = **0**（全表**已没有任何 `deploy` 多行组**）；
+        //      · 仅存的 4 组多行全是 `intro-vs`（`ASH3` 3 行 / `BL35` 4 行 / `BL36` 7 行 / `SAU36` 4 行，
+        //        SO 均 0）—— 那是对手台词归档桶，走 `vs~` 虚拟 ev 通路，不适合当本条的夹具。
+        //    ⇒ 旧断言前半 `SoRowCount("BL35","deploy")==0` 恒真、后半 `DistinctPicks>=2` 恒假
+        //      （0 行 ⇒ 24 个种子全是 `(miss)`）。
+        //    ⛔ **这不是「为了绿而改」**：⑤e 守的规则一字未变 —— **同 ev 多行、且无一行 SO 指名 ⇒ 仍然随机**；
+        //       变的只是夹具来源（仿 ⑤d 用 `VoiceLines.SetRowsForTest`：成对 / 幂等 / 可还原）。
+        //  🧨 **灭自证**：① 把 `TryPick` 改成「永远取第一条」⇒ 夹具①的 24 个种子只剩 1 种取值 ⇒ 红；
+        //                ② 把 `soOnly`（SO 优先）删掉、回纯随机 ⇒ 夹具②的 24 个种子几乎必然抽到猜的那条 ⇒ 红
+        //                （这条闸与 ⑤d 同源，这里在 `deploy` 上再钉一次；⑤d 本身不动）。
+        {
+            const string ev = "deploy";
+            const string randId = "ZZ_E10_NO_SO_RANDOM";        // 夹具①：2 条**无 SO** 的 `deploy` 行
+            const string soId   = "ZZ_E10_SO_PRIORITY_DEPLOY";  // 夹具②：1 条 SO 指名 + 1 条按名字猜
+            const string guessA = "VO_E10_noSO_deploy_a.ogg", guessB = "VO_E10_noSO_deploy_b.ogg";
+            const string soClip = "VO_E10_so_deploy.ogg",     guessC = "VO_E10_guess_deploy_c.ogg";
+
+            bool randInj = false, soInj = false, allSo = false;
+            int randRows = 0, randSo = 0, soRows = 0, soSo = 0, distinct = 1;
+            string soPicked = "";
+            using (var inj = CardPresentation.VoiceLines.SetRowsForTest(randId, ev, null, guessA, guessB))
+            {
+                randInj = inj.WasInjected;
+                randRows = CardPresentation.VoiceLines.LineRowCount(randId, ev);
+                randSo = CardPresentation.VoiceLines.SoRowCount(randId, ev);
+                if (randInj) distinct = DistinctPicks(randId, ev);
+            }
+            using (var inj = CardPresentation.VoiceLines.SetRowsForTest(soId, ev, soClip, guessC))
+            {
+                soInj = inj.WasInjected;
+                soRows = CardPresentation.VoiceLines.LineRowCount(soId, ev);
+                soSo = CardPresentation.VoiceLines.SoRowCount(soId, ev);
+                if (soInj) { allSo = AlwaysPicks(soId, ev, soClip); soPicked = PickedSet(soId, ev); }
+            }
+
+            // 还原：两个合成 id 都不在表里 ⇒ 取不到（挡「为了让它绿把表写死 / Dispose 不还原」）
+            string b1, t1, e1, b2, t2, e2;
+            bool back1 = CardPresentation.VoiceLines.TryPick(
+                randId, new[] { ev }, new System.Random(0), out b1, out t1, out e1);
+            bool back2 = CardPresentation.VoiceLines.TryPick(
+                soId, new[] { ev }, new System.Random(0), out b2, out t2, out e2);
+            int backRows = CardPresentation.VoiceLines.LineRowCount(randId, ev)
+                         + CardPresentation.VoiceLines.LineRowCount(soId, ev);
+
+            Check(randInj && soInj
+                  && randRows == 2 && randSo == 0 && distinct >= 2
+                  && soRows == 2 && soSo == 1 && allSo
+                  && !back1 && !back2 && backRows == 0,
+                  "⑤e 同 ev 多行、无一行 SO 指名时仍然随机（夹具由 `SetRowsForTest` 注入；原自然夹具已由 D7 合法清空）："
+                + "① 2 条无 SO ⇒ 24 个种子出现 " + distinct + " 种取值（应 ≥ 2；行/SO = "
+                + randRows + "/" + randSo + "，注入 " + (randInj ? "成功" : "**失败**") + "）"
+                + "；② 1 条 SO + 1 条猜 ⇒ " + (allSo ? "24 个种子都取 SO 那条" : "实得：" + soPicked)
+                + "（行/SO = " + soRows + "/" + soSo + "，注入 " + (soInj ? "成功" : "**失败**") + "）"
+                + "；还原后取不到 [" + (back1 ? b1 : "无") + " / " + (back2 ? b2 : "无")
+                + "]，残留行数 " + backRows
+                + "｜🧨 `TryPick` 改成永远取第一条 ⇒ ①红；删掉 `soOnly`（SO 优先）⇒ ②红");
+        }
+
+        // ---- ⑤f 件1 现状：`defaultChatSound` 仍是**原版真兜底**（⛔ 别按 B2 §八·1 删掉）----
+        //  判据 = `RawCardScript$$GetChatSound` 的**指令流**（全文见 `VoiceLines.cs` 文件头）：
+        //    `default:`（枚举 >10）支在 `CustomDebug.LogWarning` 之后**不跳走**，直接落进各 case 支共用的尾巴；
+        //    那条尾巴在 clip 取不到时读 `+0x188`（= `defaultChatSound`）并 `Load`。
+        //  ⚠️ 本条**故意**断言「取得到」：原来那份待办想断言「取不到」——**那个口径被指令流推翻了**，
+        //     照它改会**偏离原版**。这里用「主次 ev 都不存在 → 落到 `default`」模拟原版那条兜底。
+        //  🧨 灭自证：把 `"default"` 从数据行里删掉 / 让 `TryPick` 跳过 `default` ⇒ 本条红。
+        Check(PicksFile("ASH2", "__no_such_ev__", "default", "VO_SaimHann_Zephyrblade_attack.ogg"),
+              "⑤f ASH2 的 `default` 行（= 原版 `defaultChatSound`，与 `attack` 同 clip）仍可兜底取到"
+            + "（实得：" + PickedSet("ASH2", "default") + "）");
+        Check(PicksFile("EC57", "__no_such_ev__", "default", "VO_CSM_EC_Daemon Prince Xarahan_attack.ogg"),
+              "⑤f EC57 的 `default` 行（B2 刚补的那一条）也取得到 —— 应为 "
+            + "`VO_CSM_EC_Daemon Prince Xarahan_attack.ogg`（实得：" + PickedSet("EC57", "default") + "）");
+
+        // ---- ⑤g 防「一刀切静音」：正常事件照常取得到，且音频实体真在工程里 ----
+        {
+            string gclip, gtext, gev;
+            bool ghit = CardPresentation.VoiceLines.TryPick(
+                "EC57", new[] { "greet" }, null, out gclip, out gtext, out gev);
+            Check(ghit && gev == "greet" && gclip == "VO_CSM_EC_Daemon Prince Xarahan_greet.ogg"
+                  && CardPresentation.VoiceLines.Clip(gclip) != null,
+                  "⑤g EC57 的 `greet` 照常取得到且音频在 `Resources/"
+                + CardPresentation.VoiceLines.ClipRoot + "…`（现读 " + (ghit ? gclip : "无") + "）");
+        }
 
         Done();
     }

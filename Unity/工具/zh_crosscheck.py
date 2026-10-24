@@ -62,6 +62,11 @@ if any(_wf_help_sys.argv[_i] in ("-h", "--help") for _i in range(1, len(_wf_help
 
 PROBE = "d:/4/_tmp_view/probe_out.txt"
 CARDS = "d:/4/Unity/MyGame/Assets/RuleEngine/Resources/cards_engine.json"
+# ⚠️ 2026-10-24 更正（铁律 5）：`desc_to_cards.tsv` **现读已不在盘上**，而且**全仓找不到生成它的脚本**
+#   （扫 `工具/**` 与 `Unity/**` 的 `.py/.cs/.sh`：只有本文件与 `scan_swallowed_clauses.py` **读**它，
+#    没有任何一处**写**它）⇒ 第 ③ 级兜底实际上**永远不会命中**。`make_cards_for` 里那段 `try/except`
+#    会把「文件不在」静默吞掉 ⇒ **读本节的人别以为 ③ 还在起作用**（①②两级不受影响）。
+#   ⛔ 别自己造一份填进去（映射口径不明，会造出「凭空的 A 类」）。要恢复 ③ 得先找到当年那份生成器/快照。
 D2C = "d:/4/_tmp_view/desc_to_cards.tsv"      # **子句 → 卡** 的映射（探针输入是**子句级**的）
 OUT_MD = "d:/4/_tmp_view/zh_crosscheck_0918.md"
 OUT_TSV = "d:/4/_tmp_view/zh_crosscheck_full.tsv"

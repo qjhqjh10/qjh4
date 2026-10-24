@@ -904,7 +904,7 @@ public static partial class RuleEngineTest
         //  的根因同源）；求值器 `d:/2/tools/decomp_full/FilterMethods__MeetsConditionCriteria.c`。
         //  ⚠️ 本波**只落数据 + 数据模型 + 探针**，消费端（`EffectResolver` / `RuleCore`）下一波才切；
         //     旧文本正则**不删** ⇒ 行为零变化。测试体全在本文件（`TestW64UnitConditions`）。
-        Section("🆕 `W64`：结构化条件 `unitConditions`（167 张逐张对真值 / 未知 vs 无条件 / 语义 220·244）");
+        Section("🆕 `W64`：结构化条件 `unitConditions`（285 张逐张对真值 / 未知 vs 无条件 / 语义 220·244）");
         Step(TestW64UnitConditions);
         // 消费端：结算层真的吃结构化条件（`ConditionHolds` 的入口第一跳）。
         Section("🆕 `W64`：结构化条件**消费端**（求值器 / 接线判别式 / 旧表守卫 / 不劫持 Codex）");
@@ -932,10 +932,10 @@ public static partial class RuleEngineTest
         Section("🆕 `A30`：`UnitReceivesHuntMark`(520) / `OnCollectFaith`(665) 真的发 `EvtKind.Trigger`");
         Step(TestA30ListenerTriggerNames);
 
-        // 🆕 2026-10-24（引擎线 `J2` · `W62·自检` 残余）：**18 个顶层入口的「返回即空队列」结构自检**
+        // 🆕 2026-10-24（引擎线 `J2` · `W62·自检` 残余）：**19 个顶层入口的「返回即空队列」结构自检**
         //   判据 = `普查产出_1022/W62_引擎32红诊断.md` 的 R1 + `Core/ActionPump.cs` 的口径 ③；
         //   测试体在 `RuleEngineTest_EntryPump.cs`（同一 partial 类）。
-        Section("🆕 `W62·自检`：顶层入口结构自检 —— 18 个入口返回时 `ActionQueue` 必须为空");
+        Section("🆕 `W62·自检`：顶层入口结构自检 —— 19 个入口返回时 `ActionQueue` 必须为空");
         Step(TestW62EntryPump);
         // 🆕 2026-10-24（引擎线 `J2` · 战斗线 `W64` `B-30`）：效果 470（`showCardsWindow`）→ 可订阅事件
         Section("🆕 `W64` `B-30`：效果 470（`showCardsWindow`）→ `EvtKind.ShowCardsWindow`");
@@ -945,6 +945,100 @@ public static partial class RuleEngineTest
         //   逐 role 判别式（测试体在 `RuleEngineTest_UnitRoles.cs`，同一 partial 类）。
         //   判据 → `资料/普查产出_1023e/N2_八个role.md` 的逐 role 表。
         Step(TestN2UnitConditionRoles);
+
+        // 🆕 2026-10-24（引擎线 `A1` 五件 · 执行代理 A1）：
+        //   `previousAbilityFiltered(150)` · `UM77` 自上一回合阵亡 · 8 张 `multi` 逐张 ·
+        //   换牌期投降的回放补开回合 · 缺列 `abilityContext` 的档位（`Play(0)`）。
+        //   测试体在 `RuleEngineTest_EngineA1.cs`（同一 partial 类）；判据 → `资料/普查产出_1024/A1_引擎五件.md`。
+        Section("🆕 引擎线 A1 五件：`ta 150` · 自上一回合阵亡 · 8 张 `multi` · 回放补开回合 · 缺列 context");
+        Step(TestA1EngineFive);
+
+        // 🆕 2026-10-24（引擎线 `B3` 五件 · 执行代理 B3）：
+        //   回合结算序（`D11`）· `UnitDeathByAbility(180)` 发射口 · `SW18` 逐张随机 ·
+        //   `BroadcastTurnEnd` 棋盘趟第三支 · `currentCombatAttack` 的 `isLeavingRemnant` 那一维。
+        //   测试体在 `RuleEngineTest_EngineB3.cs`（同一 partial 类）；判据 → `资料/普查产出_1024/C1_引擎线判据总表.md`。
+        Section("🆕 引擎线 B3 五件：回合结算序 · 180 发射口 · `SW18` 逐张随机 · 回合末第三支 · `isLeavingRemnant`");
+        Step(TestB3EngineFive);
+
+        // 🆕 2026-10-24（引擎线 `B6` 第三批 · 执行代理 B6）：
+        //   `AiTargets` 的 `ta==0 (any)` = 场上全部单位（`C1` 顺手发现 1）· `ta 140/150/240`
+        //   （`C1` §4）· `requireActorInPlay` 与 `abilityContext` 两个判点的差别（`C1` §8）。
+        //   测试体在 `RuleEngineTest_EngineB6.cs`（同一 partial 类）。
+        Section("🆕 引擎线 B6 第三批：`AiTargets` 的 `any`/140/150/240 · `abilityContext` 两个判点");
+        Step(TestB6EngineThird);
+
+        // 🆕 2026-10-24（引擎线 `B7` · 执行代理 B7）：
+        //   ① `… with lowest Health`（`ta=240`）的「生命最低」挑法对齐原版 `BattleManager__GetLowestHealthUnit`
+        //      （候选闸 `!isRemnant` / `!EnoughPendingDamageToDie` · 并列督军优先 · 遍历序 = `PlayOrder`）；
+        //      🔴 2026-10-24（`E6`）：原来这里写的是「裸 `Deal N damage` 的挑法」—— 裸 Deal 是 `ta=30`
+        //      （由施放方选目标），不再走这一支；⑥ 的端到端样本已换成真卡 `SAU73 Annihilation Barge`。
+        //   ② `diedsincelastturn` 的侧补第三档 `enemy`（独立审查 R1 `P2-10`：时间窗里的 `your` 不再算侧）。
+        //   测试体在 `RuleEngineTest_EngineB7.cs`（同一 partial 类）。
+        Section("🆕 引擎线 B7：`… with lowest Health`（`ta=240`）的挑法 · `diedsincelastturn` 的侧");
+        Step(TestB7EnginePickAndCount);
+
+        // 🆕 2026-10-24（引擎线 `F8` · `F7` 顺手发现 1 的收口）：
+        //   `AiTargets` 遍历序的**判别式**断言 —— `PlayOrder == -1`（未取号）不许抢在已取号之前；
+        //   同批把 `_EngineB6` 那条「并列取进场更早」的夹具改成**格号序与进场序相反**（原先同向 ⇒ 无鉴别力）。
+        //   测试体在 `RuleEngineTest_EngineF8.cs`（同一 partial 类）；判据 →
+        //   `资料/普查产出_1024/F7_引擎两处小订正.md` §二。
+        Section("🆕 引擎线 F8：`AiTargets` 遍历序 —— 未取号（-1）排末尾");
+        Step(TestF8EnginePlayOrder);
+
+        // 🆕 2026-10-24（引擎线 `G1b` 第二批）：
+        //   ① `C2` §2（`D8`）`ASH80 Farseer` 的 610 —— 收路标石 ⇒ `OnCollectSpiritStone` 发 `EvtKind.Trigger`
+        //      （映射 = `EffectResolver.TriggerNameOfWhenKind` 的 `GainSpirit` 支；白名单三处同批）；
+        //   ② `C2` §6 `DisplayStatusAnim` 同关键词再次施加 ⇒ 新增 `EvtKind.StatusApplied`
+        //      （首次 `Amount = 0` / 重施加 `1`，两条路结构上互斥）。
+        //   测试体在 `RuleEngineTest_G1b.cs`（同一 partial 类）。
+        Section("🆕 引擎线 `G1b`：`OnCollectSpiritStone`(610) 发得出来 · `StatusApplied` 重施加档");
+        Step(TestG1bSpiritStone);
+        Step(TestG1bStatusApplied);
+
+        // 🆕 2026-10-24（引擎线 `G2` · `C5` §1）：
+        //   死因三族（`10 → 175` · `20 → 180` · `40 → 170`）的发射口 + `tactic(30)` 修正
+        //   （战术卡 / 防御卡 / 密令卡的伤害致死**不是** `ability(20)`）。
+        //   测试体在 `RuleEngineTest_G2.cs`（同一 partial 类）。
+        Section("🆕 引擎线 `G2`：死因三族 170/175/180 的发射口 · `tactic(30)` 修正");
+        Step(TestG2DeathRoutes);
+
+        // 🆕 2026-10-24（引擎线 `G3`）：`AiTargets.Trim` 的 `targetSelectMethod` 逐值口径（判据 = `C5` §2）——
+        //   1 = `isRemnant` 主键 + `max(近战,远程)` · 0/4 = **随机** · 6 = `CurrentIntrinsicHealth` · 并列 = `PlayOrder`。
+        //   测试体在 `RuleEngineTest_G3.cs`（同一 partial 类）。
+        Section("🆕 引擎线 `G3`：`AiTargets.Trim` 的 `targetSelectMethod` 逐值口径");
+        Step(TestG3AiTargetsTrim);
+
+        Section("🆕 引擎线 `G5`：裸 `Deal N damage` 的 `ta=30` 目标语义 · `ta=200/201` 的 `referencedCards`");
+        Step(TestG5BareDealAndReferencedCards);
+
+        // 🆕 2026-10-24（引擎线 `G6` · 判据源 `C6` §1，执行报告 `G6_AM18与GOF4根因.md`）：
+        //   ① 触发层补 `repeats`（`multiCountCriteria` ⇒ 整条 ability 按 N 遍、每条 op 按 N 遍）；
+        //   ② `CountFor` 盘面分支**按兵种筛**（`AM18` 的 `for each friendly Vehicle`）；
+        //   ③ 结构化 `mult` 乘数（`GOF4` 的 `filterSpecificCards` ＋ 归位兜底）。
+        //   测试体在 `RuleEngineTest_G6.cs`（同一 partial 类）。
+        Section("🆕 引擎线 `G6`：`multiCountCriteria` 触发层 repeats · 盘面按兵种筛 · 结构化 `mult`");
+        Step(TestG6MultiCountRepeats);
+
+        // 🆕 2026-10-24（`E8`）：`ta=150 previousAbilityFiltered` 的候选 = **本跳抽到的牌**
+        //   （判据 `AbilityLogic__AddDrawCard.c` 把 `GetNextCardsInDeck` 的结果 AddRange 进 `abilityTargetsToSave`）。
+        //   修前空表 ⇒ 静默返回 0 ⇒ 5 张「抽 N 张、每抽到一张部队…」的卡乘数被 0 顶掉。
+        //   测试体在 `RuleEngineTest_E8.cs`（同一 partial 类）。
+        Section("🆕 引擎线 `E8`：`ta=150` 的候选含本跳抽到的牌（空表不再静默 0）");
+        Step(TestE8PreviousAbilityDrawnCards);
+
+        // 🆕 2026-10-24（`G10`）：`for each … in your hand` 的计数从句解析。
+        //   旧正则硬要求 `in **the** your hand` ⇒ `GSC75` 的 `for each Vehicle in your hand`
+        //   被判成 `board`（数场上）；全池只有这一张受影响（另 4 张的 `in your hand` 是造牌目的地）。
+        //   测试体在 `RuleEngineTest_G10.cs`（同一 partial 类）。
+        Section("🆕 引擎线 `G10`：`in your hand` 的计数从句（`GSC75`）");
+        Step(TestG10HandCountScope);
+
+        // 🆕 2026-10-24（`G12`）：卡表 v23 的 `activeAbilityLogic` 列接进引擎
+        //   （`CardDef.ActiveAbilityLogicVersioned` / `ApplyActiveAbilityLogic` / `fm` 接 `EffectOp`）。
+        //   归位只做无歧义档（38/87）；其余 48 张缺 `chosenAbility` 列 ⇒ 留 `-1` + 记 `ActiveAbilityMap`。
+        //   测试体在 `RuleEngineTest_G12.cs`（同一 partial 类）。
+        Section("🆕 引擎线 `G12`：`activeAbilityLogic` v23 接线（DTO/版本守卫/归位/fm/选组）");
+        Step(TestG12ActiveAbilityLogic);
 
         // 🔴 **`Run()` 自己的「静默少跑」闸**（`A1591`）—— 必须在【汇总】之前跑，
         //    否则它的 `Check` 不计进 `_pass/_fail`（汇总行会漏掉它）。
@@ -7607,12 +7701,18 @@ public static partial class RuleEngineTest
             Check(r.Ops.Count, 2, "切成**两条**（deal + gain）—— 修之前整句失配（`ReDeal` 锚了 `$`）");
             Check(r.Ops[0].Verb, "deal", "① deal");
             Check(r.Ops[0].Amount, 5, "……打 5 点");
-            CheckTrue(r.Ops[0].Target != null && r.Ops[0].Target.Auto,
-                      "……**没写目标** ⇒ 走「自动选敌方最弱单位」那一支（**不是**「不知道打谁」）");
-            // 🆕 2026-09-18：那一支现在**真的**按「生命最低」挑了（原版 `BattleManager.GetLowestHealthUnit`）。
-            //    改之前 `Auto` 只是个「不问玩家」的标记，实际落到 `ResolveTargets` 的退化支 = **槽号最小**。
-            CheckTrue(r.Ops[0].Target != null && r.Ops[0].Target.PickMost == "-health",
-                      "……挑法是**生命最低**（原版 `TargetsAffected.lowestHealth = 240`），不是槽号最小");
+            CheckTrue(r.Ops[0].Target != null && !r.Ops[0].Target.Auto,
+                      "……**没写目标** ⇒ 走「原版 `ta=30 target`：由施放方选一个敌方单位」那一支"
+                    + "（**不是**「不知道打谁」）");
+            // 🔴 **2026-10-24（`E6`）就地订正**：这里原来写「2026-09-18：那一支现在**真的**按「生命最低」挑了
+            //    （原版 `BattleManager.GetLowestHealthUnit`）；改之前 `Auto` 只是个『不问玩家』的标记，
+            //    实际落到 `ResolveTargets` 的退化支 = 槽号最小」，并断 `PickMost == "-health"`。**判据已推翻**：
+            //    裸 `Deal N damage` = 原版 `ta = 30 (target)`（`AbilityLogic__GetTargets.c:192-207`；全池 33/33，
+            //    判据 → `资料/普查产出_1024/C4_ta240是否含督军.md` §六·2）⇒ **非 Auto、不带 `PickMost`**，
+            //    由玩家 / AI 选目标。「生命最低」= 另一档 `ta=240`，只有卡面明写 `with lowest Health` 的卡才走。
+            //    **错因**：把「AI 会替玩家挑」当成了「引擎自己挑」。
+            CheckTrue(r.Ops[0].Target != null && string.IsNullOrEmpty(r.Ops[0].Target.PickMost),
+                      "……挑法**不是**「生命最低」—— 裸 Deal 是 `ta=30`、不设 `PickMost`（⛔ 别再写回 `-health`）");
             Check(r.Ops[1].Verb, "gain", "② gain（原来被切掉的那条尾巴）");
 
             var ri = EffectText.ParseSegment("If it has Flying, deal 5 damage and gain 1 Armour instead");
@@ -11782,11 +11882,23 @@ public static partial class RuleEngineTest
                       + (ctx.Events.Count - before) + " 条日志");
         }
 
-        // ---- ⑦ 裸 `Deal N damage` 打的是「**生命最低**」的敌人（2026-09-18 用户拍板）----
-        //    改之前 `Auto` 只是个「不问玩家」的标记，实际落到 `ResolveTargets` 的退化支
-        //    = 池序前 N = **槽号最小**。原版是 `BattleManager.GetLowestHealthUnit`（逐单位比
-        //    `currentHealth` 取最小，严格小于 ⇒ 并列留列表序先者），分派链见 `RuleEngine/Core/EffectText.cs` 的 `TryDeal`。
-        //    🔑 判据要能**区分两者** ⇒ 故意让**槽号小的那个血更多**（槽号最小那条路会打错人）。
+        // ---- ⑦ 裸 `Deal N damage` = 原版 `ta = 30 (target)` ⇒ **由施放方选目标**（2026-10-24 `G5` 改口径）----
+        //    🔴 **2026-10-24（`E6`）就地订正**：本段原来写「裸 `Deal N damage` 打的是**生命最低**的敌人
+        //       （2026-09-18 用户拍板）」—— **那条判据已被推翻**。原版 `AbilityLogic__GetTargets.c:192-207`
+        //       里 `ta = 30 (target)` **不做任何筛选**（`targetCard` 非空就直接塞进结果表、然后出函数）；
+        //       当前 build 全池 **33/33** 张裸 Deal 都是 `ta = 30`
+        //       （`资料/普查产出_1024/C4_ta240是否含督军.md` §六·2）。「生命最低」是**另一档** `ta = 240`
+        //       （`BattleManager__GetLowestHealthUnit`），只有卡面明写 `with lowest Health` 的卡才走它。
+        //       **错因**：把「AI 会替玩家挑」当成了「引擎自己挑」—— 原版是**引擎不挑、由调用方给 `targetCard`**。
+        //    ⇒ 玩家 / AI 各自选：玩家点的那一格由 `PlayTactic` / `UseAlternativeCore` 传成 `chosen`；
+        //       AI 对**每个合法目标**各发一条动作、按 `ScoreFromPlayingCard` 打分挑最高
+        //       （`SimpleAI.EnumerateActions`；判据与分派链见 `资料/普查产出_1024/G5_裸Deal与ta200.md` §1·2）。
+        //    ⚠️ 本格走的是**没有选择方**的那一条路（`ResolveOps(..., source:null, seed:null)` ⇒ `chosen == null`）：
+        //       原版这时 `ta=30` 给**空表**（`:192-207` 的 `param_5 != 0` 那一闸）；我们落的是
+        //       `ResolveTargets` 末段那条**对所有「明写了目标却没人点」的正文共用的既有近似**
+        //       = **池序前 N**（= 格号序）。🔴 **这一格与原版不等价**（G5 报告 §四·1 已如实记）；
+        //       本断言钉的是「**我们这条近似 + 它不再是生命最低**」，⛔ 别把它读成「原版就是这么挑」。
+        //    🔑 判据要能**区分两者**（池序 vs 生命最低）⇒ 故意让**槽号小的那个血更多**。
         {
             var ctx = ProbeBattle(new[] { Unit("T", 1, 1, 5) }, new[] { Unit("A", 1, 1, 9), Unit("B", 1, 1, 2) });
             ToP1Turn(ctx, 3);
@@ -11799,22 +11911,43 @@ public static partial class RuleEngineTest
             CheckTrue(BoardSlots.IsContiguous(ctx.Players[1], out whyS2a), "（前提）S2 有洞棋盘普查：P1 两侧各一张（3 / 5），都连续 —— " + (whyS2a ?? "无洞"));
             var ops = EffectText.Parse("Deal 1 damage", out _, out _);
             CheckTrue(ops != null && ops.Count > 0, "夹具：`Deal 1 damage` 解析得出 op");
+            CheckTrue(ops[0].Target != null && !ops[0].Target.Auto
+                      && string.IsNullOrEmpty(ops[0].Target.PickMost),
+                      "★ 裸 `Deal 1 damage` 的目标规格 = **非 Auto、无 `PickMost`**"
+                    + "（= 原版 `ta=30`：不做筛选、由施放方给目标）"
+                    + "｜🧨 改回 `Auto=true` / `PickMost=-health` ⇒ 红");
             RuleCore.ResolveOps(ctx, 0, null, ops, "自检 auto 目标");
-            Check(Board(ctx, 1, 5).Health, 1, "★ 打的是**生命最低**的 B（槽号大、血少）");
-            Check(Board(ctx, 1, 3).Health, 9, "……槽号最小但血多的 A **没挨打**（改之前这里会掉血 ⇒ 判据能区分）");
+            Check(Board(ctx, 1, 3).Health, 8, "★ 没有选择方 ⇒ 打**池序第一**的 A（槽 3，9 → 8）"
+                                            + "｜🧨 退回「生命最低」⇒ 打 2 血的 B、A 仍是 9 ⇒ 红");
+            Check(Board(ctx, 1, 5).Health, 2, "……槽号大、血少的 B **一点没挨**（还是 2）"
+                                            + "｜🧨 同上 ⇒ 实得 1");
         }
 
-        // 平手时取**槽号在前**的那个（原版是严格小于 + 列表序，同一条规则，不是随手定的）
+        // ⚠️ 🆕 2026-10-24（`E6`）**这一格仍然绿，但「绿的理由」变了** —— 只订正注释/文案，
+        //   🔴 期望值（C 3→2、D 3）**一个字没动**。
+        //   · 本段用的是**裸 `Deal 1 damage`**。按新判据（`AbilityLogic__GetTargets.c:192-207`，全池 33/33）
+        //     它是 `ta = 30 target`、**不再走 `-health`** ⇒ 「平手取进场序在先」这条规则在本格
+        //     **根本没被考到**；它现在走的是 ⑦ 那条「没有选择方 ⇒ 池序前 N（= 格号序）」的近似，
+        //     池序第一 = 槽 3 = C ⇒ 期望值照旧成立，只是理由从「进场序」换成了「池序/格号」。
+        //   · 本例里 C 恰好**既是先进场、又占更小的格号** ⇒ 两套口径指向同一个人、**分不开**
+        //     （这也是它此前一直绿、文案却错过一次的原因；`F7` 那次订正的是**当时**的口径）。
+        //   · 🔴 「并列时取 `PlayOrder` 在先者」这条判据的**判别力现在只由**
+        //     `RuleEngineTest_EngineB7.cs` 的 ①②③④ 承担 —— 它们仍用真正的 `PickMost = -health` 规格
+        //     （手搓 `B7Lowest(...)`），且 ② 故意让**进场序与格号序相反**。
+        //     ⛔ 别拿本格当那条规则的证据。
+        //   判据出处 → `RuleEngine/Core/EffectResolver.cs` 的 `ResolveTargets` 末段（无选择方 ⇒ 池序前 N）
+        //   与 `PickMost` 支（只有 `ta=240` 走：`RuleCore.StableSortByPlayOrder` 排完再「严格小于才换人」）。
         {
             var ctx = ProbeBattle(new[] { Unit("T", 1, 1, 5) }, new[] { Unit("C", 1, 1, 3), Unit("D", 1, 1, 3) });
             ToP1Turn(ctx, 3);
             Place(ctx, 0, 3, Unit("T", 1, 1, 5));
-            Place(ctx, 1, 3, Unit("C", 1, 1, 3));      // 槽号在前
-            Place(ctx, 1, 5, Unit("D", 1, 1, 3));      // 一模一样，槽号在后
+            Place(ctx, 1, 3, Unit("C", 1, 1, 3));      // 先进场（本例里格号也小）
+            Place(ctx, 1, 5, Unit("D", 1, 1, 3));      // 一模一样，后进场（格号也大）
             var ops = EffectText.Parse("Deal 1 damage", out _, out _);
             RuleCore.ResolveOps(ctx, 0, null, ops, "自检 auto 目标平手");
-            Check(Board(ctx, 1, 3).Health, 2, "★ 生命并列 ⇒ 取**槽号在前**的 C（原版严格小于 ⇒ 留列表序先者）");
-            Check(Board(ctx, 1, 5).Health, 3, "……槽号在后的 D 没挨打");
+            Check(Board(ctx, 1, 3).Health, 2, "★ 没有选择方 ⇒ 池序第一（槽 3）的 C 挨打（3 → 2）"
+                                             + "（本例 C 也是先进场者 ⇒ 两套口径同一个人，分不开；见上方注释）");
+            Check(Board(ctx, 1, 5).Health, 3, "……D 没挨打（同样地：它的格号更大、进场也更晚）");
         }
 
         // ---- ⑧ 🆕 2026-10-19（`A992`）**`[X] X`「记号 + 同一个词」压成一份** ----
@@ -15473,12 +15606,14 @@ public static partial class RuleEngineTest
         {
             var kinds = new List<string>();
             foreach (EvtKind k in System.Enum.GetValues(typeof(EvtKind))) kinds.Add(k.ToString());
-            Check(kinds.Count, 18, "`EvtKind` 现在 **18** 种（17 + `ShowCardsWindow`（`W64` B-30 · 效果 470））"
+            // 🔴 **2026-10-24（引擎线 `G1b` · `C2` §6）**：18 → **19**（新增 `StatusApplied`）。
+            Check(kinds.Count, 19, "`EvtKind` 现在 **19** 种"
+                                 + "（18 + `StatusApplied`（`G1b` · `C2` §6：关键词再次施加））"
                                  + " —— 🔴 **加新事件时同步改这一条**：它是「事件表」的护栏"
                                  + "（`BattleEvent.cs` 头写着「少而稳定」）");
             CheckTrue(kinds.Contains("Draw") && kinds.Contains("AmbushExit") && kinds.Contains("SecretOrder")
-                      && kinds.Contains("Heal") && kinds.Contains("Retaliation"),
-                      "★ 新事件都在表里（`Draw` / `AmbushExit` / `SecretOrder` / `Heal` / `Retaliation`）");
+                      && kinds.Contains("Heal") && kinds.Contains("Retaliation") && kinds.Contains("StatusApplied"),
+                      "★ 新事件都在表里（`Draw` / `AmbushExit` / `SecretOrder` / `Heal` / `Retaliation` / `StatusApplied`）");
 
             // 「今天没有任何一处会发它」—— 跑几个回合问一遍。
             // ⚠️ **这一条不是行为断言、是记账**：🔴 **2026-10-19 第五十五会话 `E3` 订正（铁律 5）**：
@@ -17495,29 +17630,58 @@ public static partial class RuleEngineTest
             CheckTrue(h2 > h0, "★ 选第 3 项（`Draw 2 cards`）**手上多两张** —— " + d0 + " / " + d2);
         }
 
-        // ---- ⑥ 🔴 变身：**引擎随机挑，不问玩家**（用户 2026-09-14 裁决）----
-        //   钉三件事：① 每个种子都变成候选之一、**全手牌统一**（不是每张各掷一次）；
-        //             ② **不同种子真的会变出不同的狼**（固定一只 = 根本没在随机）；
-        //             ③ **面板队列完全没被碰过**（`ChooseSites` = 0 ⇒ 没问玩家）。
+        // ---- ⑥ 🔴 变身：**引擎随机挑，不问玩家**（用户 2026-09-14 裁决 · 逐张取法 2026-10-24 `C1` §7 订正）----
+        //   钉四件事：
+        //     ① 每张战略卡都变成**候选之一**；
+        //     ② **不同种子真的会变出不同的狼**（固定一只 = 根本没在随机）；
+        //     ③ **面板队列完全没被碰过**（`ChooseSites` = 0 ⇒ 没问玩家）；
+        //     ④ 🔴 **两张手牌【可以】各自变成不同的狼** —— 原版 `PlayAbility.c:950-978` 的
+        //        `while` 循环里**每张目标各调一次 `GetCardToSummon`**，而它 `:193` 每次掷一次
+        //        ⇒ **逐张独立随机**。改前「只掷一次、全手牌统一」的旧口径会被 ④ 钉红。
         {
             var seen = new HashSet<string>();
-            bool allFine = true, anyAsked = false;
+            var pairs = new HashSet<string>();
+            bool allFine = true, anyAsked = false, anyMixed = false;
             string detail = "";
-            for (int seed = 0; seed < 8; seed++)
+            for (int seed = 0; seed < 16; seed++)
             {
                 int asked = 0;
                 string n = RunBecome(pool, seed, out asked, out string d);
-                if (n != "Hunting Wolf" && n != "Fenrisian Wolf") { allFine = false; detail += d + " ‖ "; }
-                else seen.Add(n);
+                var parts = n.Length == 0 ? new string[0] : n.Split('|');
+                if (parts.Length != 2)
+                {
+                    allFine = false; detail += d + " ‖ ";
+                }
+                else
+                {
+                    foreach (var p in parts)
+                    {
+                        if (p != "Hunting Wolf" && p != "Fenrisian Wolf") { allFine = false; detail += d + " ‖ "; }
+                        else seen.Add(p);
+                    }
+                    pairs.Add(n);
+                    if (parts[0] != parts[1]) anyMixed = true;
+                }
                 if (asked != 0) anyAsked = true;
             }
             CheckTrue(allFine,
-                      "★ 8 个种子都变出了候选之一、且**全手牌统一变成同一只** —— " + detail);
+                      "★ 16 个种子里，手牌里那两张战略卡**都**变成了候选之一 —— " + detail);
             CheckTrue(seen.Count == 2,
-                      $"★ **不同种子变出不同的狼**（8 个种子里出现过 {seen.Count} 种）—— "
+                      $"★ **不同种子变出不同的狼**（16 个种子里出现过 {seen.Count} 种）—— "
                       + "固定一只就说明它根本没在随机");
             CheckTrue(!anyAsked,
-                      "★ **一次都没问玩家**（`ChooseSites` 恒为 0）—— 卡面没有 `choose` 字样");
+                      "★★ **一次都没问玩家**（`ChooseSites` 恒为 0）—— 卡面没有 `choose` 字样"
+                    + "｜🧨 改回 `TakePick` 问玩家 ⇒ 红");
+            CheckTrue(anyMixed,
+                      "★★ ⑥ **两张手牌可以各自变成不同的狼**（至少一个种子出现混合）—— "
+                    + "原版是**逐张目标各自掷一次**（`AbilityLogic__PlayAbility.c:950-978` → "
+                    + "`AbilityLogic__GetCardToSummon.c:193`）"
+                    + "｜🧨 退回「**只掷一次、全手牌统一用**」（2026-10-24 之前的实现）⇒ 16 个种子里"
+                    + "两张永远同名、`anyMixed` 恒假 ⇒ 红");
+            CheckTrue(pairs.Count >= 3,
+                      $"★ 两张手牌的组合在 16 个种子里出现过 {pairs.Count} 种（HH/FF/HF/FH 里至少 3 种）"
+                    + "｜🧨 「只掷一次」⇒ 只可能出现 HH/FF 两种 ⇒ 红（与上一条互为灭自证："
+                    + "只把上一条放宽成「允许混合」而实现没改，这一条仍会红）");
         }
 
         // ---- ⑦ 🆕 2026-10-19（引擎线波 2b · `A1960`）：原版 `choicesDefinition` 的 `specific` 候选域 ----
@@ -17864,10 +18028,12 @@ public static partial class RuleEngineTest
 
     /// <summary>
     /// 部署 `Hrolf the Ironhowl`（`Rally: Stratagems in your hand become A or B`），
-    /// 指定**面板选第几项**，回传**变身之后手牌里那只狼的名字**（没变成返回空串）。
-    /// `pick &lt; 0` = 不填队列（模拟面板没问）。
+    /// 回传**变身之后手牌里那两只狼的名字**（按手牌顺序、`|` 分隔；没变成返回空串）。
     /// ⚠️ 判据找的是**名字 = 两只狼之一**的手牌 —— 战略卡变身之后**已经不是战略卡**了
     ///    （变成 unit），所以不能按 `MatchesKind` 回头找。
+    /// 🔴 **2026-10-24（引擎线 `B3` · `C1` §7）**：返回值从「一只狼的名字」改成「两只狼的名字」——
+    ///    原版是**逐张目标各自掷一次**（`PlayAbility.c:950-978` + `GetCardToSummon.c:193`），
+    ///    两张手牌**可以**变成不同的两只 ⇒ 调用方要能看见「混合」这件事。
     /// </summary>
     static string RunBecome(IList<CardDef> pool, int seed, out int asked, out string diag)
     {
@@ -17887,23 +18053,21 @@ public static partial class RuleEngineTest
         //    填了反而会掩盖「改回问玩家」这种回归。
         int code = RuleCore.PlayCard(ctx, 0, idx, 0);       // 单位走 `PlayCard`，`Rally` 在部署时触发
         if (code != RuleCodes.OK) { diag = $"部署被拒（{RuleCodes.Describe(code)}）"; return ""; }
-        asked = ctx.ChooseSites;
+        asked = ctx.ChooseSites;          // ⚠️ 必须**真的读一次**面板队列（别留 0 —— 那是自证）
 
-        // 手牌里那批战略卡变成了哪一只；**混着两只**说明「每张各掷一次」（那是另一种读法，不是我们要的）
-        string got = "";
-        bool mixed = false;
+        // 手牌里那批战略卡变成了哪一只（**按手牌顺序**收）
+        var got = new List<string>();
         foreach (var c in ctx.Players[0].Hand)
         {
             if (c == null) continue;
             if (c.Card.Name != "Hunting Wolf" && c.Card.Name != "Fenrisian Wolf") continue;
-            if (got.Length == 0) got = c.Card.Name;
-            else if (got != c.Card.Name) mixed = true;
+            got.Add(c.Card.Name);
         }
         var hn = new List<string>();
         foreach (var c in ctx.Players[0].Hand) hn.Add(c != null ? c.Card.Name : "null");
-        diag = $"变身 {got}（混合={mixed}；问了玩家 {ctx.ChooseSites} 次）"
+        diag = $"变身 [{string.Join("|", got.ToArray())}]（问了玩家 {ctx.ChooseSites} 次）"
              + $"；手牌 = {string.Join("/", hn.ToArray())}";
-        return mixed ? "MIXED" : got;
+        return string.Join("|", got.ToArray());
     }
 
     static void TestAuraSettle()
@@ -27079,7 +27243,9 @@ public static partial class RuleEngineTest
             CheckTrue(!RuleCore.WouldKillByEntries(Board(ctx, 1, 3), entries),
                       "★ 反例：4 血 ⇒ 不会死（不是恒 true）");
         }
-        //  反例：**不是「所有技能都算成会死」** —— 三个都不是「打到玩家点的那个敌人」的来源。
+        //  反例：**不是「所有技能都算成会死」** —— 治疗 / `EnemyWarlord` 两档都不是 `ta=30` 的来源。
+        //  🔴 **2026-10-24（`E6`）就地订正**：本段头注原来写「三个都不是『打到玩家点的那个敌人』的来源」——
+        //     第三条（裸 `Deal 3 damage`）**判决已翻转**：它就是 `ta = 30 target`（见下面那一格的更正痕）。
         {
             UnitState a, b;
             var medic = Unit("Medic2", 2, 1, 4, "Ability: Heal 3 OwnWarlord");
@@ -27092,16 +27258,28 @@ public static partial class RuleEngineTest
             Check(RuleCore.ActiveAbilityDamageEntries(ctx2, 0, 3, 1, 3).Count, 0,
                   "反例：`Damage 3 EnemyWarlord` 0 条（原版那是 `TargetsAffected.enemyWarlord` 那一档，不是 `target`）");
 
-            //  裸 `Deal 3 damage`（**没写目标**）= 原版 `TargetsAffected.lowestHealth`(=240)
-            //  —— `EntityScript.GetActiveAbilityDamage` 只认 `target`(=30) ⇒ **不计入**。
-            //  这一条同时钉住誓约那条来源的守卫（`CanUseOathAbility` 通过、但 op 被判掉）。
+            //  🔴🔴 **2026-10-24（`E6`）口径翻转 —— 判据现读：裸 `Deal 3 damage` = 原版 `ta = 30 (target)`**
+            //     （`AbilityLogic__GetTargets.c:192-207`：整张函数里**只有** `ta=30` / `220` 两支读
+            //     `targetCard`；全池 **33/33** 张裸 Deal 都是 `ta=30`，见
+            //     `资料/普查产出_1024/C4_ta240是否含督军.md` §六·2）。
+            //     ⇒ `EntityScript.GetActiveAbilityDamage` 只认 `ta = 30` ⇒ 这手誓约**应当计入**伤害预览
+            //     （1 条、值 3）。**与本条原来写的正好相反**。
+            //   ⚠️ 更正痕：本条原来写「裸 `Deal 3 damage`（没写目标）= 原版 `TargetsAffected.lowestHealth`(=240)
+            //     —— `GetActiveAbilityDamage` 只认 `target`(=30) ⇒ **不计入**」，期望 **0**。
+            //     **错因**：`ta=240` 那条假设本身是错的（C4 已证伪，两张 `ta=240` 都不是裸 Deal）。
+            //   🔑 这一条现在同时钉住：① 裸 Deal 不再被当成 `240` 排除；② 誓约那条来源的守卫仍然通
+            //     （`CanUseOathAbility` = OK，而 op **没有**被误判掉）。
             var autoHitter = new CardDef("AutoOath", "AutoOath", "unit",
                                          "Oath 1: Deal 3 damage", "common", "Test", 2, 1, 4, 0, null);
             var ctx3 = Duel(autoHitter, Unit("Dummy4", 1, 0, 9), out a, out b);
             Check(ctx3.Players[0].Board[3].Card.OathOps.Count, 1, "（前提）誓约正文收进 `OathOps` 了");
             Check(RuleCore.CanUseOathAbility(ctx3, 0, 3), RuleCodes.OK, "（前提）这一手誓约能用");
-            Check(RuleCore.ActiveAbilityDamageEntries(ctx3, 0, 3, 1, 3).Count, 0,
-                  "反例：裸 `Deal 3 damage` 0 条 —— 原版那是 `lowestHealth`(=240)，只认 `target`(=30)");
+            var oathEntries = RuleCore.ActiveAbilityDamageEntries(ctx3, 0, 3, 1, 3);
+            Check(oathEntries.Count, 1,
+                  "★ 裸 `Deal 3 damage` = 原版 `ta=30 target` ⇒ **计入**伤害预览 1 条"
+                + "（原版 `GetActiveAbilityDamage` 认的就是 `ta=30`）"
+                + "｜🧨 改回「裸 Deal = 240 ⇒ 不计入」⇒ 实得 0 ⇒ 红");
+            Check(oathEntries[0], 3, "★ 那一条 = 技能伤害 **3**（= `minDamage`）");
         }
 
         // ---- (b-1) **护甲 × 多条目**：每条各扣一次（`:138-156`）----
@@ -34455,73 +34633,132 @@ public static partial class RuleEngineTest
     //     `cards_engine.json`）—— 「独立走一遍」正是它不当自证的理由：生成器的 Python 走法与
     //     这张表的走法是两份实现，两边不一致就红。
     //     重算方法（改卡池 / 改生成器之后照这个跑一遍即可）：读 `cards_raw.json` 每张卡的
-    //     `full_raw`，按十个位置取 `conditionsFilter != 0` 的行，行格式
-    //     `ab,lg,role,cond,ex[,opt,op,refValue]`（`count` 才带后三格），卡内**按字符串序**排、`;` 连接。
-    //     ⚠️ 表只收**在池内**的卡（真值快照 1,351 张里 186 张有条件，其中 167 张在现池）。
+    //     `full_raw`，按十个位置取 `conditionsFilter != 0` 的行；**2026-10-24（引擎线 `G6`）起**再多收一类：
+    //     role ∈ {`mult`, `multi`, `avail`, `choice`} 且 `conditionsFilter == 0`、但 `targetsAffected != 0`
+    //     的行也**照落**（`cond = 0`；判据 → `工具/gen_cards_engine.py` 的 `CONDITION_ROLES_OPTIONAL_COND`
+    //     ＋ `criteria_carries_targets`，`targetsAffected == 0 (any)` 不带「数谁」的信息 ⇒ 仍不落）。
+    //     行格式 `ab,lg,role,cond,ex[,opt,op,refValue]`（`count` 才带后三格），卡内**按字符串序**排、`;` 连接。
+    //     ⚠️ 表只收**在池内**的卡（现读 **285 张 / 349 条**；`G6` 改前 = 167 张 / 218 条）。
 
     /// <summary>🆕 `W64`：`unitConditions` 的逐卡真值（`id|` + 上面那种行串）。</summary>
     static readonly string[] W64ConditionsTruth =
     {
-"09bcb1b3b8794c4429d82d4b2e68fa1f|-3,0,nontarget,10,0",   // Path of the Seer
+"09bcb1b3b8794c4429d82d4b2e68fa1f|-3,-1,choice,0,0;-3,0,nontarget,10,0",   // Path of the Seer
+"141c5ed661a9e42bd9a793f0d2a1c682|-3,-1,choice,0,0",   // Unhallowed Gifts
 "1bfe0893592c9dd40bed8d68d5d2b516|-3,-1,cardtarget,275,0",   // Path of the Warrior
 "1ff4815a506d2f34e94ec2f50900d352|1,-1,target,220,0",   // Efficiency and Excellence
+"20d0f4451f16fc441836a02f99bf77da|-3,-1,avail,0,0",   // Da Red Waaagh
 "27a4b748a7bf358499f038aa09895ead|-3,-1,cardtarget,340,0",   // Reanimate
 "33eabec155f628440a426a4ba480ec24|-3,0,nontarget,10,0",   // Wrath of Khaine
+"38871853fabb5244d8148766829230cd|0,1,mult,0,0",   // Refuse to Yield
 "3a52026b99bb56f40aa9dc130fc66f34|-3,0,nontarget,341,1",   // Cadian Honour
+"40667e346ae58a84dbda1033dff70ccb|-3,-1,choice,0,0",   // Author of the Codex
 "468db99b4b10d0745bab346df37d3fb2|-3,-1,cardtarget,40,0",   // Feeding Frenzy
+"4959cd9e99597f74ca9af0bd65ae6307|-3,-1,choice,0,0",   // Experimental Bio-Horrors
 "4cdc1b5f965f99945b685bca7660e9fa|1,-1,target,220,1",   // Exemplar of Hate
+"4d348cff71208c24d8e39252d913ff9d|-3,-1,choice,0,0",   // Hymn of Battle
+"4de4fcfb5d7e0554a88b9f419a2cd7c2|-3,-1,choice,0,0",   // Angel's Wrath
 "507f79fa60945d04e93fe806aca912b7|-3,-1,cardtarget,276,0",   // Deploy Anchors
+"508002f5d7ee54f4686aefa2e6adce41|-3,-1,avail,0,0",   // Wreckin' Ball
 "61046837c330b48978b4af5201230b6e|-3,0,nontarget,10,0",   // Helspear Assault
 "64a657fc5ed5bbb4fa7b585cf29c1e95|1,-1,target,220,1",   // Da Bigger Dey Iz...
+"65b2be828179515458a282cf1b027182|-3,-1,choice,0,0",   // Indomitable Will
 "67adbc7f7bce2bd4c8f6937fab3134e5|-3,0,nontarget,10,0",   // Flickerjump
+"6ed51d59b9f8ea24ab0dc7ceaef7956c|-3,-1,choice,0,0",   // Duelist's Hubris
 "70199b6f183ec364082ca16e62f3d0cb|-3,0,targetscore,10,0",   // Heliotrophos
 "708c0306e73fd494eb0f718ddaeea48a|1,0,target,40,0",   // Smothering Decree
 "7bf8ce67fb6be4744ae44345a5b465fd|-3,0,nontarget,10,0",   // Diabolic Strength
 "8425b809e9e64e24f9035f709f5aaee4|-3,0,nontarget,10,0",   // Worst Temper
+"8482077f309b08943b190f18b5874871|-3,-1,choice,0,0",   // Catechism of Death
 "851f73daf747eb642934a16429b391db|1,0,target,220,1",   // Storm of Silence
-"8f2da557fe484ee4bbf427c13eccd4cb|-3,-1,cardtarget,40,0",   // Alpha Warrior
+"8f2da557fe484ee4bbf427c13eccd4cb|-3,-1,cardtarget,40,0;0,2,mult,0,0",   // Alpha Warrior
+"98d3c65702746b04baf7f5ead1a9e507|-3,-1,avail,0,0",   // Ramshackle
 "9c3562ffa183ede41b1626d9c9dc1e2f|-3,0,nontarget,10,0",   // Path of Command
-"AM18|0,0,target,220,1",   // Master of Ordnance
+"9dcbe3d0c04b02f4fbb19974ae0e37b2|-3,-1,avail,0,0;-3,-1,choice,0,0",   // Mekaniak
+"9f4e1b7ea9f00da458c6a859a4e958c8|-3,-1,avail,0,0",   // More Dakka
+"AM18|0,-1,multi,0,0;0,0,target,220,1",   // Master of Ordnance
 "AM21|0,0,target,40,0;1,0,target,40,0",   // Tech-Priest Enginseer
 "AM32|0,0,target,220,1",   // Leman Russ Tank
+"AM4|-3,-1,choice,0,0",   // Faeburn Vanquisher
 "AM43|0,-1,count,331,0,0,2,1;1,-1,count,331,0,0,1,0",   // Recon Operation
-"AM44|0,0,target,220,1",   // Shock Troops
+"AM44|0,0,mult,0,0;0,0,target,220,1",   // Shock Troops
 "AM47|-3,0,nontarget,341,1",   // Press the Attack
+"AM52|-3,-1,choice,0,0",   // Armoured Squadron
 "AM53|0,0,target,220,1",   // Artillery Strike
 "AM6|0,0,target,220,1",   // Ratling
 "AM61|0,0,target,220,1",   // Defence Batteries
+"AM62|-3,-1,choice,0,0",   // Munitorum Supplies
 "AM67|0,0,target,220,1",   // Aquilon Servo-Sentry
 "AM69|0,0,target,220,1",   // Tempestor Sergeant
 "AM75|1,-1,target,220,0",   // Valkyrie Drop
 "AM8|0,0,target,40,0;1,0,target,40,0",   // Cadian Medic
 "AM9|0,0,target,220,1",   // Kasrkin
 "ASH30|0,-1,target,244,1;1,-1,target,244,0;1,0,target,244,0",   // Fire Prism
+"ASH41|-3,-1,choice,0,0",   // Webway Gate
 "ASH46|0,0,target,220,1",   // Aerial Dominion
 "ASH47|-3,0,nontarget,10,0",   // Bladestorm
 "ASH48|0,0,target,241,0;1,0,target,241,0",   // Cosmic Serpent
+"ASH52|1,-1,multi,0,0",   // Hosts of the Dead
+"ASH57|-3,-1,choice,0,0",   // Webway Entrance
+"ASH71|-3,-1,choice,0,0",   // Craftworld Convergence
 "ASH73|0,1,target,220,0",   // Whirling Death
+"ASH80|-3,-1,choice,0,0",   // Farseer
+"ASH82|-3,-1,choice,0,0",   // Farseer Skyrunner
+"BL13|-3,-1,choice,0,0",   // Chosen
+"BL23|-3,-1,choice,0,0",   // Sorcerer
 "BL28|0,0,target,220,1",   // Helbrute
+"BL29|-3,-1,choice,0,0",   // Terminator Champion
 "BL3|0,0,target,220,1",   // Chaos Legionary
+"BL37|-3,-1,choice,0,0",   // Abaddon's Chosen
+"BL38|-3,-1,choice,0,0",   // Dark Oratory
+"BL4|-3,-1,choice,0,0",   // Chaos Sergeant
+"BL40|0,0,mult,0,0",   // Legacy of Vengeance
+"BL45|0,0,mult,0,0",   // Spawndom
+"BL48|0,1,mult,0,0",   // Skeins of Fate
+"BL49|0,1,mult,0,0",   // Delightful Agonies
 "BL50|-3,-1,cardtarget,40,0;0,0,target,40,0",   // Execution
+"BL51|0,1,mult,0,0",   // Hosts of Chaos
+"BL52|1,0,mult,0,0",   // Unholy Smite
+"BL56|-3,-1,choice,0,0",   // Throne of the Heretic
+"BL57|-3,-1,choice,0,0",   // Hellfire Torch
 "BL63|0,0,target,220,1",   // Havoc
 "BL64|-3,-1,cardtarget,40,0;0,0,target,341,1",   // Murderous Desires
 "BL69|0,0,target,220,1",   // Meltagun Legionary
+"DA1|-3,-1,choice,0,0",   // Azrael
+"DA11|-3,-1,choice,0,0",   // Chaplain
 "DA15|1,0,target,220,1",   // Ravenwing Champion
+"DA16|-3,-1,choice,0,0",   // Captain
 "DA17|0,0,target,220,1",   // Deathwing Terminator
 "DA22|1,-1,acting,220,1",   // Techmarine
 "DA24|0,0,target,220,1",   // Company Champion
 "DA34|0,0,target,220,1",   // Unforgiven Redemptor
 "DA38|1,-1,target,220,0",   // Repulsor
+"DA39|-3,-1,choice,0,0",   // Ancient Reliquary
+"DA40|-3,-1,choice,0,0",   // Inner Circle
+"DA42|-3,-1,choice,0,0",   // Reconnaissance Mission
 "DA43|1,-1,target,220,0",   // Grim Resolve
+"DA44|-3,-1,choice,0,0",   // Secret Agenda
+"DA45|0,0,mult,0,0",   // Stubborn Defiance
+"DA46|-3,-1,choice,0,0",   // The Rock
+"DA49|0,1,mult,0,0",   // Hunt the Fallen
+"DA56|-3,-1,avail,0,0",   // Desperate Mission
+"DA57|0,-1,multi,0,0",   // Deadly Hunters
 "DA60|0,0,target,220,1",   // Defensive Turrets
+"DA71|-3,-1,choice,0,0",   // Watcher in the Dark
+"DA73|-3,-1,avail,0,0;0,1,mult,0,0",   // Relic Munitions
+"DA75|-3,-1,choice,0,0",   // Master Zacharial
+"EC10|-3,-1,choice,0,0",   // Infractor Obsessionist
 "EC2|0,0,target,244,0",   // Blastmaster Noise Marine
 "EC3|0,0,target,245,0",   // Disharmonist
 "EC39|-3,-1,avail,222,0;-3,-1,choice,222,0;0,0,target,222,0",   // Eternal Servitude
 "EC40|0,1,target,220,1;1,-1,target,220,1",   // Embrace the Pain
+"EC45|0,1,mult,0,0",   // Mechanised Murder
 "EC5|0,0,target,220,1",   // Tormentor
 "EC50|1,-1,target,220,0",   // Rapid Evisceration
 "EC55|1,0,target,220,1",   // Lucius the Eternal
 "EC58|0,-1,count,221,0,0,1,0;1,-1,count,221,0,0,2,1",   // Vengeful Surge
+"EC59|-3,-1,choice,0,0",   // Vial Tanks
+"EC61|-3,-1,choice,0,0",   // Decadent Throne
 "GOF10|0,0,target,220,1",   // Grot Tank
 "GOF104|0,-1,target,220,0;2,-1,target,220,0",   // Drag it Down
 "GOF12|0,0,target,220,1",   // Spanner
@@ -34533,8 +34770,11 @@ public static partial class RuleEngineTest
 "GOF25|0,0,target,220,1",   // Gorkanaut
 "GOF26|0,0,target,220,1;1,0,target,220,1",   // Stompa
 "GOF3|1,0,target,220,1",   // Bomb Squig
+"GOF34|-3,-1,choice,0,0",   // Prophet of the Waaagh!
 "GOF38|-3,0,nontarget,10,0",   // Proper Killy
+"GOF4|0,0,mult,0,0",   // Slugga Boy
 "GOF41|0,0,target,220,1",   // Unbridled Carnage
+"GOF46|1,-1,multi,0,0",   // Stormboyz Strike
 "GOF56|0,0,target,220,1",   // Deffkopta
 "GOF58|0,0,target,220,1",   // Boomdakka Snazzwagon
 "GOF59|0,0,target,220,0;1,0,target,220,1",   // Big Shoota Boy
@@ -34549,20 +34789,33 @@ public static partial class RuleEngineTest
 "GOF9|0,0,target,220,1",   // Shoota Boy
 "GOF90|0,0,target,220,1;1,0,target,220,1",   // Wurrboy
 "GOF92|0,0,target,220,1",   // Weirdboy
+"GOF93|-3,-1,choice,0,0",   // Hunta Rig
 "GOF95|0,0,target,220,1;1,0,target,244,1;1,1,target,244,0",   // Kill Rig
 "GOF96|0,0,target,220,1",   // Snakebite Battlewagon
 "GSC11|0,0,target,220,1",   // Neophyte Heavy
+"GSC13|-3,-1,choice,0,0",   // Neophyte Specialist
 "GSC17|1,0,target,220,1",   // Locus
 "GSC22|0,0,target,220,1",   // Cult Sentinel
 "GSC25|0,0,target,220,1",   // Sanctus
 "GSC28|0,1,target,220,1",   // Hulking Aberrant
+"GSC29|-3,-1,choice,0,0",   // Metamorph Iconbearer
 "GSC34|0,0,target,220,1",   // Kelermorph
+"GSC35|0,0,mult,0,0",   // Benefictus
+"GSC37|2,0,mult,0,0",   // Patriarch
 "GSC38|0,0,target,220,1",   // Cult Leman Russ
+"GSC44|-3,-1,choice,0,0",   // Subterranean Ambush
 "GSC46|0,-1,target,244,1;1,-1,target,244,0;1,0,target,244,0",   // Bore Through
-"GSC56|0,0,target,220,1;1,0,target,220,1",   // A Trap Sprung
+"GSC47|0,0,mult,0,0",   // Perfect Hosts
+"GSC50|-3,-1,choice,0,0",   // Clandestine Operation
+"GSC55|-3,-1,avail,0,0",   // Eve of the Uprising
+"GSC56|0,0,target,220,1;1,-1,multi,0,0;1,0,target,220,1",   // A Trap Sprung
+"GSC59|0,0,mult,0,0",   // Day of Ascension
 "GSC6|0,0,target,220,1",   // Neophyte Initiate
+"GSC65|-3,-1,choice,0,0",   // Pilfered Supplies
+"GSC67|-3,-1,choice,0,0",   // Jackal Scout
 "GSC68|0,0,target,220,1",   // Atalan Jackal
-"GSC75|0,0,target,220,1;1,0,target,220,1",   // Roaming Outriders
+"GSC74|-3,-1,choice,0,0",   // Rogue Informant
+"GSC75|0,0,target,220,1;1,0,mult,0,0;1,0,target,220,1",   // Roaming Outriders
 "SAU11|-3,-1,avail,340,0;0,0,target,340,0;1,0,target,340,0",   // Technomancer
 "SAU17|0,0,target,220,1",   // Psychomancer
 "SAU19|-3,-1,cardtarget,340,0",   // Canoptek Reanimator
@@ -34571,64 +34824,110 @@ public static partial class RuleEngineTest
 "SAU25|0,0,target,220,1",   // Hexmark Destroyer
 "SAU26|0,0,target,220,1",   // Plasmancer
 "SAU36|1,0,target,340,0",   // Nemesor Zahndrekh
+"SAU39|-3,-1,choice,0,0",   // Reconstitution Protocol
 "SAU40|1,-1,target,340,0",   // Protection Protocol
 "SAU41|-3,-1,cardtarget,340,0",   // Reanimation Protocol
 "SAU42|0,0,target,40,0",   // Relentless Advance
+"SAU45|-3,-1,choice,0,0",   // Hyperlogical Strategist
 "SAU49|-3,0,nontarget,340,0;0,0,target,340,0",   // Resurrection Orb
+"SAU57|-3,-1,avail,0,0",   // Tomb World
 "SAU59|1,-1,target,220,0",   // Awakened Obelisk
 "SAU6|0,0,target,220,1",   // Tesla Immortal
 "SAU61|-3,-1,cardtarget,340,0",   // Resurrection Vault
 "SAU68|0,0,target,220,1",   // Lokhust Destroyer
 "SAU71|0,0,target,220,1",   // Immortals Phalanx
+"SAU74|-3,-1,choice,0,0",   // Dimensional Corridor
+"SAU75|0,1,mult,0,0",   // Awakened Dynasty
 "SOR21|0,0,target,220,1",   // Death Cult Assassin
 "SOR31|1,-1,target,220,1;2,-1,target,220,0",   // Dogmata
 "SOR39|-3,0,targetscore,243,0",   // Prayer
 "SOR42|-3,-1,avail,222,0;-3,-1,choice,222,0;-3,0,nontarget,221,0;0,-1,count,222,0,0,2,1;0,0,target,222,0",   // Rite of Restoration
+"SOR45|0,-1,multi,0,0",   // Defenders of the Faith
 "SOR46|-3,0,targetscore,40,0;0,1,target,40,0",   // Furious Reprisal
+"SOR49|0,1,mult,0,0",   // Shrineworld
 "SOR54|-3,0,nontarget,10,0",   // Fiery Conviction
 "SOR70|0,-1,count,243,0,0,2,1",   // Sororitas Rhino
+"SOR71|0,0,mult,0,0",   // Adelaide the Serene
 "SOR72|0,0,target,220,1",   // Castigator
+"SOR74|0,1,mult,0,0",   // Emperor's Judgement
 "SOR75|0,1,target,243,0",   // Devout Serenity
+"SW1|-3,-1,choice,0,0",   // Logan Grimnar
 "SW14|0,0,target,40,0",   // Wolf Priest
 "SW22|0,-1,target,220,1",   // Blackmane Inceptor
 "SW42|1,-1,target,220,0",   // Savage Legacy
 "SW44|0,0,target,221,0;0,1,target,221,0",   // Death Shun
+"SW48|-3,-1,choice,0,0",   // The Fang
+"SW51|1,-1,multi,0,0",   // Hunter's Guile
+"SW58|0,-1,multi,0,0;1,0,mult,0,0",   // Fenrisian Wolfpack
 "SW7|0,0,target,220,1",   // Deathwolf Scout
 "SW9|-1,-1,target,50,1",   // Fenrisian Wolf
 "TAU18|0,-1,target,220,1",   // Fire Warrior Marksman
+"TAU47|-3,-1,avail,0,0",   // Dynamic Offensive
+"TAU48|-3,-1,choice,0,0",   // Emergency Dispensation
+"TAU51|-3,-1,choice,0,0",   // Saviour Protocols
 "TAU58|1,-1,target,220,1",   // Coordinated Engagement
 "TAU6|0,0,target,220,1",   // Gun Drone
 "TAU7|0,0,target,220,1",   // Marker Drone
 "TAU75|-3,0,nontarget,40,0;0,0,mult,40,0",   // Hunter's Instincts
 "TL17|0,0,target,220,1",   // Deathleaper
+"TL20|-3,-1,choice,0,0",   // Carnifex
 "TL30|0,0,target,220,1;0,1,target,220,1;0,2,target,220,1;0,3,target,220,1;0,4,target,220,1;0,5,target,220,1;0,6,target,220,1;0,7,target,220,1",   // Tyrannofex
 "TL37|0,0,target,220,1",   // Spore Mine
 "TL45|-3,0,targetscore,10,0",   // Apex Predator
 "TL46|1,0,target,40,0",   // Rapacious Hunger
+"TL49|-3,-1,choice,0,0",   // Hyper-adaptation
+"TL50|-3,-1,choice,0,0",   // Infinite Biomorphologies
 "TL62|0,0,target,220,1;0,1,target,220,1",   // Ravener
 "TL68|1,0,mult,40,0",   // Psychophage
 "TL71|0,0,target,220,1;0,1,target,220,1",   // Toxic Entanglement
 "TL75|0,0,target,220,1",   // Termagant Brood
-"UM116|2,0,target,40,0",   // No Mercy
+"UM109|-3,-1,choice,0,0",   // Adaptive Strategy
+"UM110|-3,-1,choice,0,0",   // Fall Back
+"UM111|-3,-1,choice,0,0",   // Shall Know No Fear
+"UM112|-3,-1,choice,0,0",   // Champions of Humanity
+"UM114|-3,-1,choice,0,0",   // Lead From the Front
+"UM115|-3,-1,choice,0,0",   // Stormhawk Interception
+"UM116|-3,-1,choice,0,0;2,0,target,40,0",   // No Mercy
+"UM117|-3,-1,choice,0,0",   // No Respite
+"UM118|-3,-1,choice,0,0",   // Indomitus Crusade
 "UM15|0,0,target,40,0;0,1,target,40,0",   // Apothecary Polixis
 "UM2|-3,-1,cardtarget,40,0",   // Octavio Infiltrator
 "UM21|0,0,target,220,1",   // Primaris Judiciar
 "UM3|0,0,target,220,1",   // Firstborn
 "UM42|-3,0,targetscore,341,0",   // Forward Deployment
 "UM43|-3,0,nontarget,10,0",   // Knights of Macragge
+"UM45|0,1,mult,0,0",   // Gather the Company
 "UM55|0,0,target,220,1",   // Sternguard Sergeant
 "UM56|0,0,target,220,1",   // Intercessor Sergeant
 "UM59|0,0,target,220,1",   // Stormtalon
+"UM61|-3,-1,avail,0,0;-3,-1,choice,0,0",   // The Chapter's Due
+"UM62|-3,-1,avail,0,0",   // Battlefield Supremacy
+"UM63|-3,-1,avail,0,0;-3,-1,choice,0,0",   // Chapter Council
+"UM7|0,0,mult,0,0;0,1,mult,0,0",   // Tyrannic War Veteran
 "UM72|0,0,target,220,1",   // Predator Annihilator
+"UM74|-3,-1,choice,0,0",   // Rapid Deployment
 "UM77|0,0,target,220,1;1,-1,multi,222,0;1,0,mult,222,0;1,0,target,220,1",   // Chairon
 "UM79|0,0,target,244,0",   // Primaris Eradicator
+"UM97|-3,-1,choice,0,0",   // Suppressor
+"a51adc8f5c311584385c3117cfd919e9|-3,-1,choice,0,0",   // High Rune Priest
 "a84a5b49f0ca9144585058db6987c2a0|1,-1,target,220,0",   // Master Interromancer
+"af98d423c7279a14c84c0d0382c53541|-3,-1,choice,0,0",   // Legendary Commandant
 "b4d6d186eb95a3f468013c5be649ee3b|1,-1,target,220,1",   // Sawbonez
 "b9665eadf1207ff49bcf0a730b0b7f9d|1,-1,target,220,0",   // Euphoric Strike
+"c0ddba6cc45944f46a65f4fd93bcc0a5|-3,-1,choice,0,0",   // Aerial Seeding
+"c4f5c920744030c4e84428dc5a0f1bf2|-3,-1,choice,0,0",   // Drone Companion
+"c4ff279078605aa42942c8dd16b77147|-3,-1,avail,0,0",   // Scryer's Gaze
+"cbabeb234380634479feab1a1b4c733a|-3,-1,choice,0,0",   // Master Chronomancer
+"cc1400347b15ee3449bc18bbdb9ddec9|-3,-1,choice,0,0",   // Exemplary Warrior
+"d01a5ba5865ded4418194ea50e333b21|-3,-1,choice,0,0",   // Inscrutable Cunning
 "d19e8b68aaa9a884781d06697ad237a6|-3,-1,cardtarget,277,0",   // Special Dose
 "dc7e575c0a328f446be1521c23ec850b|-3,0,nontarget,10,0;1,-1,target,220,0;1,0,target,220,1",   // Empyric Ambush
 "e59ac9e46f4ea804784e954c3b820e77|-3,-1,cardtarget,275,0;-3,0,nontarget,10,0",   // Path of the Warrior
+"e9952f50921d2844a94d39ce883430f4|-3,-1,choice,0,0",   // Vox-Hacker
 "f104d4c21abe84546abc9365d9eda8dd|-3,0,nontarget,10,0",   // Righteous Repugnance
+"f2b80d575cbf8f64597b991022beaf35|-3,-1,choice,0,0",   // Serene Unifier
+"f923701f207d23a4f81d6ff5891b4a0c|-3,-1,choice,0,0",   // Master of Arcana
+"fd67b47572987b84cb2990ea1ecfe982|-3,-1,choice,0,0",   // Brood Prophet
     };
 
     /// <summary>把一张卡的 `Conditions` 归一成真值表那一种行串（**按字符串序**，与表同口径）。</summary>
@@ -34682,7 +34981,7 @@ public static partial class RuleEngineTest
 
     /// <summary>🆕 2026-10-22（`W64` · 战斗审计 `B-16`）：结构化条件的数据层自检。
     ///
-    /// <para>五组断言：① 版本正面信号 + 覆盖数；② **167 张逐张**对真值表（含「表里的 id 必须都在池内」）；
+    /// <para>五组断言：① 版本正面信号 + 覆盖数；② **285 张逐张**对真值表（含「表里的 id 必须都在池内」）；
     /// ③ 0 条件的卡 ⇒ `ConditionNone`（**不是** `ConditionUnknown`）；④ 旧版表 ⇒ 出声 + 未知
     /// （**且不是** `ConditionNone` —— 灭自证那一半）；⑤ 抽 220 / 244 两条语义的期望真假。</para>
     ///
@@ -34704,14 +35003,15 @@ public static partial class RuleEngineTest
         Check(versioned, pool.Count,
               "★ 全池卡都来自 v15+ 卡表（`ConditionsVersioned` 全真 —— 否则 `ConditionOf` 全是 -1 未知）"
             + "｜🧨 `CardDatabase.Parse` 的 `conditionsVersioned: dto.version >= 15` 写错 ⇒ 红");
-        Check(withRows, 167,
-              "★ `unitConditions` 落值 **167** 张（真值快照 186 张有条件、其中 167 张在现池）"
+        Check(withRows, 285,
+              "★ `unitConditions` 落值 **285** 张（`G6` 起：`mult`/`multi`/`avail`/`choice` 四格的 `cond = 0` 行"
+            + "也照落，判据 → `工具/gen_cards_engine.py` 的 `criteria_carries_targets`）"
             + "｜🧨 生成器漏一个位置（十个 role 少一个）⇒ 掉下去");
-        Check(rowTotal, 218,
-              "★ 条件行合计 **218** 条（同上：`cards_raw.json` 十处 `conditionsFilter != 0`，池内部分）"
+        Check(rowTotal, 349,
+              "★ 条件行合计 **349** 条（同上；改前 167 张 / 218 条，`G6` 新增 118 张 / 131 条）"
             + "｜🧨 漏 role / 漏 ab·lg 的行才会掉；`count` 参数漏落不影响这个数");
 
-        // ---- ② 逐张真值（167 张；独立走法，见本节头顶）----
+        // ---- ② 逐张真值（285 张；独立走法，见本节头顶）----
         var truth = new Dictionary<string, string>(StringComparer.Ordinal);
         foreach (var line in W64ConditionsTruth)
         {
@@ -34719,7 +35019,7 @@ public static partial class RuleEngineTest
             if (bar <= 0) continue;
             truth[line.Substring(0, bar)] = line.Substring(bar + 1);
         }
-        Check(truth.Count, 167, "★ 真值表自身 167 行（少一行 = 表被误删）");
+        Check(truth.Count, 285, "★ 真值表自身 285 行（少一行 = 表被误删）");
         var mismatched = new List<string>();
         int compared = 0;
         foreach (var c in pool)
@@ -34735,7 +35035,7 @@ public static partial class RuleEngineTest
               "★ 真值表里的每张卡都在池内被比到（⛔ 表里的 id 与池对不上会静默少比）"
             + "｜🧨 卡池 id 改名 / 表里写了池外卡 ⇒ 红");
         Check(mismatched.Count, 0,
-              "★ **167 张逐张**：`unitConditions` 与 `cards_raw.json` 真值**逐条相等**"
+              "★ **285 张逐张**：`unitConditions` 与 `cards_raw.json` 真值**逐条相等**"
             + "（ab/lg/role/cond/ex + count 的三个参数）"
             + (mismatched.Count > 0 ? " —— 差异：" + string.Join(" / ", mismatched.ToArray()) : "")
             + "｜🧨 生成器少落/多落一个位置、`ex` 取反、`count` 参数读错字段 ⇒ 红");
@@ -34754,8 +35054,8 @@ public static partial class RuleEngineTest
               "★ **没有条件的卡**解析成 `ConditionNone`（0）而不是 `ConditionUnknown`（-1）"
             + (noneBad.Count > 0 ? " —— 不对：" + string.Join(" / ", noneBad.ToArray()) : "")
             + "｜🧨 把「查不到」和「无条件」并成一个哨兵 ⇒ 红");
-        CheckTrue(noneOk >= 900,
-                  $"★ 无条件的卡 {noneOk} 张（现池 1127 - 167 = 960）—— 数量级对才说明整列没漏读");
+        CheckTrue(noneOk >= 800,
+                  $"★ 无条件的卡 {noneOk} 张（现池 1127 - 285 = 842）—— 数量级对才说明整列没漏读");
 
         // ---- ④ 旧版表（version 14）⇒ **出声 + 未知**（且不是「无条件」）----
         //   `unitConditions` 加列在 v15；v14 的表整列没有 ⇒ 必须出声，⛔ 不许静默当「全池都没条件」。

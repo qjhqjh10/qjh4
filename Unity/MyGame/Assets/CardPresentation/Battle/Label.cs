@@ -381,7 +381,39 @@ namespace CardPresentation
             TryApplyPendingWrap();
         }
 
+        // ==================================================================
+        //  🆕 2026-10-24（执行代理 `B1` · `C2` §4·3 · 战斗线「对手聊天」④）：**打字机**
+        // ==================================================================
+        //  判据（第一权威）= `VoiceLinesController__DisplayWarlordRegularChatMessage.c` 尾部那条
+        //  `VoiceLineBox.AnimateText`：`maxVisibleCharacters` **每字 +1**、每字等一个静态常量
+        //  （`DAT_18427be00` 的 `+0x1b8` —— 那个 TypeInfo 的类身份没解出 ⇒ **值读不到**，见 C2 §4·3）。
+        //  ⚠️ 这里只做「按计数显示」这一半；**节拍**由调用方（`UnitChatPanel`）按本地默认给。
+        //  ⛔ 点阵那条路（`_tmp == null`）没有 `maxVisibleCharacters` ⇒ 早退 = 「一次全显」（与改前一致）。
+
+        /// <summary>只显示前 <paramref name="n"/> 个字（`n &lt; 0` = 全显）。</summary>
+        public void SetMaxVisibleCharacters(int n)
+        {
+            if (_tmp == null) return;
+            _tmp.maxVisibleCharacters = n < 0 ? 99999 : n;
+            // 批处理没有帧循环：TMP 的 setter 只置脏、真正重算在下一帧的 `ForceMeshUpdate` ⇒ 这里自己推一次。
+            _tmp.ForceMeshUpdate();
+        }
+
+        /// <summary>自检用：排版后一共几个字（TMP 的 `characterCount`；`0` = 还没排出 textInfo）。</summary>
+        public int CharacterCount
+        {
+            get
+            {
+                var ti = _tmp != null ? _tmp.textInfo : null;
+                return ti != null ? ti.characterCount : 0;
+            }
+        }
+
+        /// <summary>自检用：当前 `maxVisibleCharacters`（`99999` = 全显）。</summary>
+        public int MaxVisibleCharacters { get { return _tmp != null ? _tmp.maxVisibleCharacters : 0; } }
+
         public void SetColor(Color c)
+
         {
             color = c;
             if (_tmp != null) { _tmp.color = c; return; }

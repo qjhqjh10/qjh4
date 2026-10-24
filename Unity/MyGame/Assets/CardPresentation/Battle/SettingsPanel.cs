@@ -2181,11 +2181,18 @@ namespace CardPresentation
         /// <summary>点那颗开关（原版 `BattleSettingsWindow.OnMuteChatChanged` 整支的等价物）：
         /// ① 翻 `isOn` ② **只 `SetActive` ON 那半** ③ 写「对手聊天静音」那一位。
         ///
-        /// <para>🔴 **如实声明：我们这边点了没有可见效果**（除了开关自己的滑块动一下）。判据（2026-10-16 实核）：
-        /// 它那一位挡的是**一条链** —— 对手在 `ChatPopup` 选的那 6 句 → `PUNReceiveChatMessage`（`isPlayer=0`）
-        /// → 被拦 ⇒ **气泡 + 语音 + 「对手在聊天」提示三样一起没**；而 `CardPresentation/Net/*.cs`（8 个文件）
-        /// 里 `chat` **0 命中** ⇒ **我们没有那条链**。⛔ 别把敌方单位语音条绑上来（原版不受它影响 ——
-        /// 三条判据见 `资料/普查产出_1015战斗判据/T01b_三处判据缺口.md`）。将来做联机对手聊天时**必须**进这个开关。</para></summary>
+        /// <para>🔴 **2026-10-24 就地订正（铁律 5 · 执行代理 `A13`）：下面这段「点了没有可见效果」已不成立。**
+        /// 原文写的是「我们这边点了没有可见效果（除了开关自己的滑块动一下）……那条链我们没有」——
+        /// **错因**：那句话写于对手聊天链落地之前（2026-10-16），之后 `B1` 接上了消费方却没回来改这一行。
+        /// **现状**：`BattleDriver` 在建设置面板之后接了**拉式读口**
+        /// `ChatMutedSource = () => _settingsPanel.MuteChatOn`（`BattleDriver.cs` 的 `ChatMutedSource` 段），
+        /// 而 `CanAiChat()`（= 原版 `CanChat(isLocal=0)`）与 `VoiceLinesController` 的 tip 分支都读它
+        /// ⇒ **玩家在这颗开关上翻一下，下一次敌方督军说话/弹 SmallTip 立刻按新值走**（拉式读，
+        /// 不需要推事件，见 `BattleDriver.ChatMuted` 的 doc）。</para>
+        /// <para>判据（2026-10-16 实核，**仍然成立的那部分**）：它那一位挡的是**一条链** ——
+        /// 对手选的那几句 → 收端（`isPlayer=0`）→ 被拦 ⇒ **气泡 + 语音 + tip 三样一起没**。
+        /// ⛔ 别把敌方单位语音条绑上来（原版不受它影响 —— 三条判据见
+        /// `资料/普查产出_1015战斗判据/T01b_三处判据缺口.md`）。联机对手聊天（真实玩家打字那条）**仍未做**。</para></summary>
         public void ToggleMuteChatFromPanel()
         {
             if (!Visible) return;
@@ -2199,7 +2206,10 @@ namespace CardPresentation
             RefreshMuteChat();
             Debug.Log($"[Battle] 「静音对手」→ {(v ? "ON" : "OFF")}（原版 `BattleSettingsWindow.OnMuteChatChanged`："
                     + "`isOn = v` + `muteChatToggleOn.SetActive(v)` + `voiceLinesController.chatMuted = v`）。"
-                    + "⚠️ **我们这边没有可见效果** —— 那条链（对手聊天）我们还没做，见 `ToggleMuteChatFromPanel` 的 doc。");
+                    + "✅ **2026-10-24（`A13`）就地订正（铁律 5）**：原来这里写「我们这边没有可见效果 —— 那条链还没做」，"
+                    + "**已不成立**：`BattleDriver.ChatMutedSource` 直接读本面板的 `MuteChatOn`（拉式），"
+                    + "`CanAiChat()` 与 SmallTip 分支都吃它 ⇒ 翻一下开关，敌方督军**下一次**说话就按新值走。"
+                    + "（联机真人打字那条仍未做。）");
         }
 
         /// <summary>自检用：开关当前状态（原版那颗 `Toggle.isOn`）。</summary>

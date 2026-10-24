@@ -1061,10 +1061,14 @@ namespace CardPresentation
             //   ③ **`Selected highlight` 的色与五颗不同**（⚠️ 别一刀切）：这份 prefab 实读
             //      `m_Color = (0.67, 0.132, 0.0853, 1)`（暗红），而 `Main Menu Navigation Button` 是
             //      `(1, 0.0805, 0, 1)`（正红）⇒ 走 `hiTint` 逐颗传。
-            //   ④ **图标 = liveops 资产**（`OpenEventButton.SetButtonInfo`：`Image.sprite = LoadAsset(ev, 0)`，
-            //      事件 `Icon`）⇒ 本机**没有可加载的 sprite**（真名 `40k_main_bt_event` 只在
-            //      `bundle_liveopsicons_assets_all` 里、没导进 `Resources/`）⇒ **照原版「无事件」空态留空**，
-            //      ⛔ 不拿别的图冒充（缺图与取法见下面那条 `LogWarning`）。
+            //   ④ **图标 = liveops 资产 `40k_main_bt_event`**（`OpenEventButton.SetButtonInfo`：
+            //      `Image.sprite = LoadAsset(ev, 0)`，用的就是事件的 `Icon`）。
+            //      🔴 **2026-10-24（C3 判据 + 本轮落地）**：原来这里写「本机没有可加载的 sprite ⇒ 留空」——
+            //      判据其实一直在本地：切好的 PNG 在 `d:/2/Warpforge_tools/data/ui_extract/
+            //      liveopsicons_assets_all_sprites/Sprite/40k_main_bt_event.png`（135²、PPU 100、Simple、border 0），
+            //      已登记进 `工具/import_original_art.py` 的 `MENU_IMAGES` 并导到
+            //      `Resources/Art/ui_menu/40k_main_bt_event.png` ⇒ **照原版把这张图画出来**。
+            //      ⚠️ **原版这颗的 `Image.m_Color` 是 (0.7358490, …, 1) 灰**（不是白）—— 见下面 `iconTint`。
             //   ⑤ **`OpenEventButton.closeOtherMenus = 0`**（MB 实读）⇒ 点它**不关**别的窗
             //      （我们的 `OpenEventHub` 也没传 `closeAll`，两边一致）。
             //   ⑥ **文字**：原版由 `TryGetLabel(ev,4) ?? TryGetLabel(ev,0)`（= 活动标题）填，本机没有事件实例
@@ -1074,18 +1078,22 @@ namespace CardPresentation
             //   ⑦ ⚠️ **一处有意偏离**：原版没有在期事件时 `ParentEventHandler.BeforeRefresh` 会把这一颗
             //      `SetActive(false)`；本机没有 liveops 事件源、而验收口径是「**入口必须点得开**」
             //      ⇒ **恒显示**（与 `ParentEventWindow` 「没有在期事件也建事件钮」那条同口径）。
-            NavButton(holder, 5, "Event", null,
+            //   ⑧ 🔴 **图标色 = 原版插槽的灰**（C3「顺手发现 ①」）：`Event Navigation Button/Image` 的
+            //      `m_Color = (0.7358490228652954, …, 1)`（现读 `MonoBehaviour_-1269977380222428235.json`），
+            //      而通用 `Main Menu Navigation Button/Image` 是 **(1,1,1,1) 白**；`SetButtonInfo` **只设 sprite、
+            //      不写 color** ⇒ 原版事件图标**天生比五颗暗 26%**。照它传 `iconTint`（`WindowButton` 的色偏是
+            //      「基准色 × 状态键」，见 `WindowButton.Collect()` ⇒ 悬停/按下也在灰底上乘，与原版 `CrossFadeColor` 同义）。
+            NavButton(holder, 5, "Event", "40k_main_bt_event",
                       910.0f, 1079.7f, null,
                       140.0f, 12.8f, 152.8f, 911.7f, 24f,
                       nodeName: "Event Navigation Button",
                       label: "EVENT",
-                      hiTint: new Color(0.67f, 0.132f, 0.0853f, 1f));
-            Debug.LogWarning("[Menu] 第 6 颗「事件钮」的**图标留空**：原版这颗的 `Image` 是空槽、运行期灌 liveops 图标"
-                           + "（`OpenEventButton.SetButtonInfo` → `LoadAsset(ev, 0)`）。本机那张图真名 = "
-                           + "**`40k_main_bt_event`**（135×135，`bundle_liveopsicons_assets_all`，"
-                           + "切好的 PNG 在 `d:/2/Warpforge_tools/data/ui_extract/liveopsicons_assets_all/Sprite/40k_main_bt_event.png`），"
-                           + "但**没导进 `Resources/`** ⇒ 本件不画。补法 = 进 `工具/import_original_art.py` 的 "
-                           + "`MENU_IMAGES` 后跑一次同步。⛔ 不拿 `40K_shop_bt_boosters` 之类别的图冒充。");
+                      hiTint: new Color(0.67f, 0.132f, 0.0853f, 1f),
+                      iconTint: new Color(0.7358490f, 0.7358490f, 0.7358490f, 1f));
+            Debug.Log("[Menu] 第 6 颗「事件钮」的图标已接：`40k_main_bt_event`（135²，PPU 100，Simple）"
+                    + " · 染色照原版插槽 `m_Color` = 0.7358490 灰（比五颗导航钮的白图标暗 26%）"
+                    + " —— 判据 = `bundle_liveopsicons_assets_all/Sprite/40k_main_bt_event.json` + "
+                    + "`Event Navigation Button/Image` 的 `MonoBehaviour_-1269977380222428235.json`（现读）。");
 
             // 🆕 **2026-10-19（N117）**：六颗命中区建完，按「当前最上面那扇窗」落一次档
             //   （重建左栏之后旧 quad 已经销毁 ⇒ 上面那几句 `_navHitQuads.Clear()` 把它们丢了，
@@ -1105,9 +1113,16 @@ namespace CardPresentation
         /// 钮顶按父 VLG 算 —— 见调用点那段。⚠️ **2026-10-11（F2）**：原来写「都来自 §五 C 表」，
         /// 而那份表把 `Shop`/`Rewards`/`Social` 三颗**各写高 10** ⇒ 已改成照 RT 现推，别再回头引那张表）。</param>
         /// <param name="fontPx">原版 TMP 的 `m_fontSize`（画布像素）。</param>
+        /// <param name="iconTint">🆕 **2026-10-24（活动线 · 事件钮图标）**：图标那格的**基准色**（原版
+        /// `Image.m_Color`）。默认 `null` = 不染色（材质的 `color` 就是白，五颗导航钮那一档）。
+        /// 🔴 为什么必须在这里传、不能建完再改：`WindowButton.Collect()` 把**当时的 `Tint` 记成基准色**，
+        /// 色偏是「基准色 × 状态键」⇒ 在 `TintOn`/首次悬停**之前**写好，悬停/按下才会在灰底上乘
+        /// （与原版 `CrossFadeColor` 同义）。判据 → `Event Navigation Button/Image` 的
+        /// `m_Color = (0.7358490, 0.7358490, 0.7358490, 1)`（`bundle_menus_assets_all` 现读）。</param>
         void NavButton(Transform parent, int idx, string name, string art, float y1, float y2, string locKey,
                        float ih, float ix1, float ix2, float iy1, float fontPx,
-                       string nodeName = null, string label = null, Color? hiTint = null)
+                       string nodeName = null, string label = null, Color? hiTint = null,
+                       Color? iconTint = null)
         {
             var b = New(parent, nodeName ?? ("Main Menu Navigation Button - " + name), NavBtnW, NavBtnH);
             // 🆕 **2026-10-11（`A1522④`）：把「这一颗 + 它的 (顶,底)」记进表** —— `SelectNav` 换高亮时
@@ -1121,23 +1136,32 @@ namespace CardPresentation
             //   全在 `QNavHighlight` 那段注释里（原版兄弟序 + 两张图逐点量的对照 + `DeckRuntime` 的先例）。
             if (idx == SelectedNav) RepaintNavHighlight(idx);
 
-            // 🆕 **2026-10-23（活动线收尾）**：`art` 传**空** = 「这颗 prefab 的 `Image` 槽本来就是空的」——
-            //   原版第 6 颗 `Event Navigation Button` 的 `Image` 实读 `<无图>`（运行期由
-            //   `OpenEventButton.SetButtonInfo` 用 `LoadAsset(ev,0)` 灌 liveops 图标）⇒ 那是**原版的空态**，
-            //   ⛔ **不是「图取不到」**（所以**不记账**进 `MissingArt`）。空态的出声在 `BuildNavigationPanel` 那一处。
+            // 🆕 **2026-10-23（活动线收尾）**：`art` 传**空** = 「这颗 prefab 的 `Image` 槽本来就是空的」那一档。
+            // 🔴 **2026-10-24 更正（铁律 5）**：原版第 6 颗 `Event Navigation Button` 的 `Image` **不是空槽** ——
+            //   它的 `m_Sprite = PPtr(FileID 3, PathID -7836703677562955936)`，落在 `0_GeneralUI Atlas` 上，
+            //   是一张**占位图**；运行期 `OpenEventButton.SetButtonInfo` 再换成活动的 `Icon`
+            //   （`LoadAsset(ev,0)`）。⇒ 本件已按真图 `40k_main_bt_event` 接上；`art` 传空这条路留给
+            //   「真的没有图」的调用点（**不记账**进 `MissingArt`：那是原版的空态，不是「图取不到」）。
             var icon = string.IsNullOrEmpty(art) ? null : Art(art);   // 先确认图在不在（不在就别画一个空按钮）
             ImageQuad iconQ = null;     // 🆕 A222：这颗**可见**的图形要交给 `WindowButton` 当色偏目标（见下）
             if (icon != null)
             {
                 iconQ = ImageQuad.Create(b, icon, Center(ix1, ix2, iy1, iy1 + ih), H(iy1, iy1 + ih),
                                          new Vector2(0.5f, 0.5f), "Image");
-                if (iconQ != null) { iconQ.SetAspect((ix2 - ix1) / ih); iconQ.SetRenderQueue(QContent); }
+                if (iconQ != null)
+                {
+                    iconQ.SetAspect((ix2 - ix1) / ih); iconQ.SetRenderQueue(QContent);
+                    // 🆕 2026-10-24：基准色**必须在这里写**（`WindowButton.Collect()` 稍后把它记成基准色，
+                    //   见形参 `iconTint` 的注释）。五颗导航钮不传 ⇒ 保持材质的白。
+                    if (iconTint.HasValue) iconQ.SetTint(iconTint.Value);
+                }
             }
             else if (!string.IsNullOrEmpty(art)) MissingArt.Add(art);
             else
             {
-                // 原版那颗 `Image` 是**空槽**（`m_Sprite` 为空，运行期由 `LoadAsset(ev,0)` 灌 liveops 图标）
-                // ⇒ **节点照建、不出图**（⛔ 不是「把节点删掉」，也不是「拿别处的图冒充」）。
+                // 原版第 6 颗的 `Image` prefab 上是**占位图**（`0_GeneralUI Atlas`），运行时再换活动图标
+                // ⇒ 那一颗已按真图接上；走到这里只表示「调用点没给 art」⇒ **节点照建、不出图**
+                // （⛔ 不是「把节点删掉」，也不是「拿别处的图冒充」）。
                 var img = New(b, "Image", ix2 - ix1, ih);
                 img.localPosition = Center(ix1, ix2, iy1, iy1 + ih);
             }

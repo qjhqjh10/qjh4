@@ -830,7 +830,18 @@ namespace RuleEngine
                        int hasAlternativeAbility = GateUnknown,
                        int quest = GateUnknown,
                        int questTimes = GateUnknown,
-                       BoardGateSpec normalAbilityBoardCriteria = null)
+                       BoardGateSpec normalAbilityBoardCriteria = null,
+                       // 🆕 v23（2026-10-24 · 引擎线 `G12`）：**主动能力整条链**（`cards_engine.json` 的
+                       //   `activeAbilityLogic` 列）—— 原版 `activeAbility` / `alternativeAbility` 两个对象里
+                       //   `activeAbilityLogic[]` **逐行**的 `targetsAffected` / `furtherMultiplier`。
+                       //   语义 / 形状 / 闸门 → <see cref="ActiveAbilityLogicSpec"/> 与
+                       //   <see cref="ApplyActiveAbilityLogic"/>（⛔ 别在这里抄第二份）。
+                       //   ⚠️ **追加在参数表末尾**（同前几条：全仓有位置传参的老调用点）。
+                       //   🔴 **`null` ≠ `[]`**：`null` = 这一列**没落**（旧表 / 调用方没给 ⇒ 未知）；
+                       //     `[]` = **明确没有主动能力行**。再叠一层 <see cref="ActiveAbilityLogicVersioned"/>。
+                       IEnumerable<ActiveAbilityLogicSpec> activeAbilityLogic = null,
+                       // 「这一列**来自 v23 卡表**」的正面信号（只有 `CardDatabase.Parse` 知道）。
+                       bool activeAbilityLogicVersioned = false)
         {
             Id = id; Name = name; Type = type ?? ""; Desc = desc ?? ""; Rarity = rarity; Faction = faction;
             NameZh = nameZh ?? ""; DescZh = descZh ?? "";
@@ -966,6 +977,17 @@ namespace RuleEngine
                 }
             }
             AbilityMultipliersVersioned = abilityMultipliersVersioned;
+            // 🆕 v23（2026-10-24 · 引擎线 `G12`）：主动能力链 —— **原样收下**，`null` 与 `[]` 分开保存
+            //   （`null` = 这一列没落 ⇒ 未知；`[]` = 明确没有行）。
+            //   ⚠️ 挂到 op 上**不在这里**：要等 `CollectTriggerOps` 把 `TriggerOps` / `OathOps`
+            //   都收完（它末尾调 `ApplyActiveAbilityLogic`）—— 这里只有数据、还没有正文。
+            if (activeAbilityLogic != null)
+            {
+                _activeAbilityLogic = new List<ActiveAbilityLogicSpec>();
+                foreach (var _al in activeAbilityLogic)
+                    if (_al != null) _activeAbilityLogic.Add(_al);
+            }
+            ActiveAbilityLogicVersioned = activeAbilityLogicVersioned;
             // 🔴🆕 v18（`P1·①`）：原版 `AbilityTrigger` 名 → priority —— 原样收下
             //   （`cards_engine.json` 的 `abilityTriggerPriority` 列，**只落 != 1 的行**）。
             //   🔴 合法性闸（缺 `name` / 缺 `trigger` / `priority` 不在 0..3 / 同 key 重复）
@@ -1872,7 +1894,12 @@ namespace RuleEngine
             public int Logic = -1;
             /// <summary>位置（十个之一，见本节开头）。</summary>
             public string Role;
-            /// <summary>原版 `UnitConditions` **数值**（消费端按它判）。`0` = none（本列不落这种行）。</summary>
+            /// <summary>原版 `UnitConditions` **数值**（消费端按它判）。`0` = none（无条件的哨兵）。
+            /// ⚠️ 2026-10-24 订正（铁律 5）：原来写「`0` = none（**本列不落这种行**）」—— **不成立**：
+            /// v22 / `G6` 起，**`mult` / `multi` / `avail` / `choice` 四格**的 `conditionsFilter == 0` 行
+            /// **照落**（`cond = 0` / `name = null`），因为它们还携带「数谁 / 触发几遍」。
+            /// 只落 `targetsAffected != 0` 的那一档（`ta == 0 (any)` 在原版 `GetTargets` 里让其余 35 格
+            /// 全部失效 ⇒ 与缺行同义）。判据 → `资料/普查产出_1024/G6_AM18与GOF4根因.md` §1·1 / §1·3。</summary>
             public int Condition = ConditionUnknown;
             /// <summary>`UnitConditions` **枚举名**（**只给人看**；⚠️ 名字 ≠ 语义，见本节开头）。</summary>
             public string Name;
@@ -2176,6 +2203,230 @@ namespace RuleEngine
         /// 一律 `null`（未知），消费端**不乘**、⛔ 不拿 1 顶（1 也是「乘了但没变」，读不出区别）。</summary>
         public bool AbilityMultipliersVersioned { get; private set; }
 
+        // ==================================================================
+        //  🆕 v23（2026-10-24 · 引擎线 `G12`）：**主动能力整条链**
+        //  （原版 `activeAbility` / `alternativeAbility` 的 `activeAbilityLogic[]`）
+        // ==================================================================
+        //  判据（第一权威 = 全量反编译；逐行读过）：
+        //    · `RawCardScript__ResolveActiveAbility.c:18` `hasAlternativeAbility == 0` ⇒ 取 `activeAbility`；
+        //      `:26-31` 有替代能力时**按运行期 `MeetsCriteria`** 选 active / alternative（方向：满足 ⇒ 普通支）；
+        //    · `:50` `lVar6 = *(lVar6 + 0x48)` = 那个能力对象的 `activeAbilityLogic`（List）；
+        //    · `:58-67` **逐行** `AbilityLogic__PlayAbility(…, 400 /* ThisUnitAbilityUsed */, 0)`；
+        //    · 每行的目标 = `AbilityLogic__PlayAbility.c:262` `GetTargets(…, logic.targetCriteria, …)`；
+        //      倍数 = `:235-236` `if (0 < furtherMultiplier) local_178 *= furtherMultiplier`；
+        //    · `hasActiveAbility == 0` 的卡，整条路径被 `CardScript__ResolveActiveAbilityPlayed.c:22` 短路
+        //      ⇒ 数据仍在、本 build 不消费（`gate = 0`）。
+        //  ⚠️ 数据侧（列的形状 / `ta`·`fm` 的坏值口径 / 132 张·193 行·45 张 gate=0 等读数）→
+        //    `资料/普查产出_1024/D11_activeAbility列.md`；本文件只负责**读**与**挂**。
+        // ==================================================================
+
+        /// <summary>`ab` 的取值：`activeAbility` 那个对象（与 `unitConditions` 的 `ab` **同词**）。</summary>
+        public const int ActiveAbilityObject = -1;
+        /// <summary>`ab` 的取值：`alternativeAbility` 那个对象。</summary>
+        public const int AlternativeAbilityObject = -2;
+
+        /// <summary>🆕 v23：`activeAbilityLogic` 的一行（= **一个能力对象**；它自己的 `ta` / `fm`
+        /// 是**逐 logic** 的数组，长度 = 该对象的 `activeAbilityLogic` 条数）。
+        /// 语义 / 判据 → 上面那一段注释；形状 / 坏值口径 → `CardDatabase.ActiveAbilityLogicDto`。</summary>
+        public sealed class ActiveAbilityLogicSpec
+        {
+            /// <summary><see cref="ActiveAbilityObject"/>（-1）或 <see cref="AlternativeAbilityObject"/>（-2）。
+            /// ⚠️ **⛔ 别拿 -2 当缺值**（-1/-2 都是合法位置）—— 缺键在数据入口就被丢弃并出声。</summary>
+            public int Ability = ConditionSpec.MissingIndex;
+            /// <summary>`1` 可达 · `0` 本 build 死数据 · `-1` 闸本身未知（⛔ 不拿 0 顶「已知不消费」）。</summary>
+            public int Gate = ConditionSpec.MissingIndex;
+            /// <summary>原版逐行传的虚拟时机 —— **恒 400**（`ThisUnitAbilityUsed`，`:65`）。
+            /// ⚠️ 行数据里没有 trigger 字段，这里只作可读性。</summary>
+            public int Trigger = -1;
+            /// <summary>该能力对象的 `needsLoading`（`ActiveAbility.+0x22`）。`-1` = 未知。</summary>
+            public int NeedsLoading = -1;
+            /// <summary>逐行的 `targetsAffected`（`-1` = 该格未知/坏值；`0` 是合法的 `any`）。
+            /// `null` = 未知（整格读不到）。</summary>
+            public int[] TargetsAffected;
+            /// <summary>逐行的 `furtherMultiplier`（`-1` = 该格未知/坏值；`0` = 原版明确「不乘」）。
+            /// `null` = 未知。</summary>
+            public int[] FurtherMultiplier;
+
+            /// <summary>这个能力对象有**几行 logic**（`ta` 与 `fm` 逐格同长 ⇒ 任一非空即可）。</summary>
+            public int LogicCount
+            {
+                get
+                {
+                    if (TargetsAffected != null) return TargetsAffected.Length;
+                    if (FurtherMultiplier != null) return FurtherMultiplier.Length;
+                    return 0;
+                }
+            }
+        }
+
+        /// <summary>本卡的 `activeAbilityLogic` 行（**一个元素 = 一个能力对象**，按 `ab` 分组用
+        /// <see cref="ActiveAbilityLogicGroup"/>）。
+        /// <para>🔴 **`null` ≠ `[]`**：`null` = 这一列**没落**（旧表 &lt; v23 / 调用方没给 ⇒ **未知**）；
+        /// `[]` = **明确没有主动能力行**（现池 995 张）。两者靠 `ActiveAbilityLogicVersioned` 再分一层
+        /// —— 与 `AbilityTargets` / `AbilityTriggers` 同一口径。</para></summary>
+        public IReadOnlyList<ActiveAbilityLogicSpec> ActiveAbilityLogic
+        {
+            get { return _activeAbilityLogic; }
+        }
+
+        /// <summary>`activeAbilityLogic` 列**来自 v23 卡表**的正面信号（只有 `CardDatabase.Parse` 知道）。
+        /// `false` = 旧表 ⇒ 上面那份是 `null`（未知），⛔ 不是「全池都没有主动能力」。</summary>
+        public bool ActiveAbilityLogicVersioned { get; private set; }
+
+        /// <summary>`activeAbilityLogic` 的**挂载结论**（`ApplyActiveAbilityLogic` 写；空串 = 不适用，
+        /// 即这张卡没有这一列 / 没有行 / 旧表）。取值表：
+        /// `attached` = 已挂到 op · `gate-0` = 有行但全 `gate=0`（本 build 死数据 ⇒ 不挂）·
+        /// `gap:gate-unknown` · `gap:groups-differ` · `gap:no-keyword` · `gap:two-keywords` ·
+        /// `gap:no-ops` · `gap:multi-object` · `gap:shape`（都不挂，op 保持 `-1 = 读不到`）。
+        /// ⚠️ 这不是「错误码」而是**读数**：`gap:*` 是本版**做不到**的档，⛔ 别当缺陷报。</summary>
+        public string ActiveAbilityMap { get; private set; } = "";
+
+        /// <summary>按 `ab` 取那个能力对象的行（**按原顺序**；没有 = 空表；整列没落 = `null`）。</summary>
+        public IReadOnlyList<ActiveAbilityLogicSpec> ActiveAbilityLogicGroup(int ab)
+        {
+            if (_activeAbilityLogic == null) return null;
+            var list = new List<ActiveAbilityLogicSpec>();
+            foreach (var r in _activeAbilityLogic)
+                if (r != null && r.Ability == ab) list.Add(r);
+            return list;
+        }
+
+        /// <summary>🆕 v23：**这次该用哪一组**（`false` = 普通支 `activeAbility` / `true` = 替代支
+        /// `alternativeAbility`）—— 只是 <see cref="ActiveAbilityLogicGroup"/> 的命名包装。
+        /// 🔴 **怎么判「该用替代支」不在这里**：那是**运行期**闸
+        /// （<see cref="UsesAlternativeAbility"/>，判据 `RawCardScript__ResolveActiveAbility.c:26-31`）；
+        /// 本方法只把两组数据取出来。</summary>
+        public IReadOnlyList<ActiveAbilityLogicSpec> ActiveAbilityGroupFor(bool alternative)
+        {
+            return ActiveAbilityLogicGroup(alternative ? AlternativeAbilityObject : ActiveAbilityObject);
+        }
+
+        readonly List<ActiveAbilityLogicSpec> _activeAbilityLogic;   // null = 列没落（⚠️ 与空表不同）
+
+        /// <summary>替代行动那一族的关键词 —— **`gate=1` 时正文就收在这个键下**：
+        /// `duty`/`pray`/`ferocity`/`agenda` 走 `TriggerOps`（`RuleCore.UseAlternative` 读 `u.FxOps(kw)`）、
+        /// `oath` 走 `OathOps`（`RuleCore.UseOathAbility` → `EffectResolver.ResolveOathAbility`）。
+        /// ⚠️ 这是**唯一一份**名单：`RuleCore.AlternativeKeywords`（运行期那四条）＋ `oath`，
+        /// 但本表**不能**直接引用它的常量（那个数组在 `RuleCore`、语义是「可用的替代行动」）。
+        /// 判据 → `RuleCore.cs` 的 `UseAlternative` / `UseOathAbility` 两处读点。</summary>
+        static readonly string[] ActiveActionKeywordNames =
+        {
+            KeywordTable.Duty, KeywordTable.Pray, KeywordTable.Ferocity, KeywordTable.Agenda, KeywordTable.Oath,
+        };
+
+        /// <summary>两个能力对象（顺序固定：先 `activeAbility`、后 `alternativeAbility`）。</summary>
+        static readonly int[] ActiveAbilityObjectPair = { ActiveAbilityObject, AlternativeAbilityObject };
+
+        /// <summary>
+        /// 🆕 v23（2026-10-24 · 引擎线 `G12`）：把 `activeAbilityLogic` 的 `ta` / `fm` 挂到
+        /// **替代行动正文**那批 op 上（`EffectOp.ActiveAbilityRow` / `SubjectTargetsAffected` /
+        /// `AbilityFurtherMultiplier`）。由 `CollectTriggerOps` **末尾**调用（那时 `TriggerOps` /
+        /// `OathOps` 都收完了）。
+        ///
+        /// <para>🔴 **只挂「1 个对象 ↔ 1 行 ↔ 1 条 op」那一档，其余一律留 `-1`（读不到）
+        /// 并把原因记进 <see cref="ActiveAbilityMap"/>。为什么不按行号硬配（这是本方法的全部理由）：</para>
+        /// <para>原版一行的 `targetCriteria.targetsAffected` 是**一个目标集合**，不是一条卡面从句
+        /// （判据 `AbilityLogic__PlayAbility.c:262` → `GetTargets(…, logic.targetCriteria, …)`）。
+        /// 现池实测两种形状都常见：
+        /// · **1 条 op / 2 行**：`AM23 Bombast Field Gun` `Deal 3-5 damage to an enemy and its adjacent units`
+        ///   —— 行0 `ta=30`（玩家点的那一个）、行1 `ta=110`（它的相邻）⇒ **两行都属同一条 op**；
+        /// · **1 行 / 2 条 op**：`AM34 Valkyrie` —— 行 `ta=10`（全体敌人）只覆盖 `Deal 2 damage` 那一半。
+        /// ⇒ 现池 **87 张** `gate=1` 的卡里，行数 == op 数的 51 张，而「1 ↔ 1」的 **38 张**是
+        /// **唯一不需要任何行号假设**的一档。⛔ 别把闸放宽成「数字相等就算对上」——
+        /// 那要靠「第 j 行 = 第 j 条 op」这条**没有判据**的假设（本仓红线：宁可读不到，不许猜）。
+        /// 要把 87 张全接上**还差一列**：逐行的 `chosenAbility`（判据 / 缺口清单 →
+        /// `资料/普查产出_1024/G12_activeAbility消费.md`）。</para>
+        ///
+        /// <para>**闸门（任一不过 ⇒ 不挂 + 记原因）**：
+        /// ① `gate` 必须**全部 = 1**（`0` = 本 build 死数据；`&lt; 0` = 闸未知 ⇒ 不许猜）；
+        /// ② 卡上的替代行动关键词必须**恰好一个**（正文就在那个键下）；
+        /// ③ 两个能力对象**都存在时必须逐格一致** —— 走哪一组是**运行期**决定
+        ///    （<see cref="UsesAlternativeAbility"/>），解析期判不了 ⇒ 不一致就不挂；
+        /// ④ 那一组必须**恰好 1 个对象、1 行、1 条 op**。</para>
+        ///
+        /// <para>⚠️ **会覆盖 `AssignAbilityTargets` 从 `cardAbilities` 贴上来的值**（那一档是**错的**）：
+        /// 片段解析（`AddTriggerOp` → `Parse(body, card: this)`）在「整卡只有一条 `cardAbilities` ∧
+        /// 片段 op 数 == 它的 `ta` 长度」时会把**那条 `cardAbilities` 的 `ta`** 贴到触发正文的 op 上 ——
+        /// 而替代行动正文**不属于** `cardAbilities`。实测（2026-10-24 现读）：`AM38 Baneblade Tank`
+        /// 的 `Duty: Deal 8 damage` 那条 op 上现在挂的是 `ta=100`（= `cardAbilities[0]` 的
+        /// `adjacentToSelf`），真值应为 `ta=30`。今天**无消费者**（`ResolveOps` 的 `Subjectless`
+        /// 分支要求 `source == null`，而这两条路都带施放者）⇒ 只记在这里，另账见 G12 报告。</para>
+        /// </summary>
+        void ApplyActiveAbilityLogic()
+        {
+            ActiveAbilityMap = "";
+            if (!ActiveAbilityLogicVersioned || _activeAbilityLogic == null) return;   // 旧表 / 没落 ⇒ 守卫已出声
+            if (_activeAbilityLogic.Count == 0) return;                                // 明确「没有主动能力行」
+
+            // ---- ① gate：只留 gate=1；gate 未知 ⇒ 整体不挂 ----
+            var groups = new List<List<ActiveAbilityLogicSpec>>();
+            bool gateUnknown = false;
+            foreach (int ab in ActiveAbilityObjectPair)
+            {
+                var g = new List<ActiveAbilityLogicSpec>();
+                foreach (var r in _activeAbilityLogic)
+                {
+                    if (r == null || r.Ability != ab) continue;
+                    if (r.Gate == 1) g.Add(r);
+                    else if (r.Gate < 0) gateUnknown = true;
+                }
+                if (g.Count > 0) groups.Add(g);
+            }
+            if (gateUnknown) { ActiveAbilityMap = "gap:gate-unknown"; return; }
+            if (groups.Count == 0) { ActiveAbilityMap = "gate-0"; return; }            // 全是死数据
+
+            // ---- ③ 两组（active / alternative）必须逐格一致 ----
+            if (groups.Count > 1 && !SameActiveRows(groups[0], groups[1]))
+            { ActiveAbilityMap = "gap:groups-differ"; return; }
+
+            // ---- ② 替代行动关键词恰好一个 ----
+            string kw = null; int nkw = 0;
+            foreach (string k in ActiveActionKeywordNames)
+                if (Has(k)) { nkw++; if (kw == null) kw = k; }
+            if (nkw != 1) { ActiveAbilityMap = nkw == 0 ? "gap:no-keyword" : "gap:two-keywords"; return; }
+
+            // ---- ④ 1 个对象 / 1 行 / 1 条 op（唯一没有配对歧义的那一档）----
+            var grp = groups[0];
+            if (grp.Count != 1) { ActiveAbilityMap = "gap:multi-object"; return; }
+            var spec = grp[0];
+            IReadOnlyList<EffectOp> ops = kw == KeywordTable.Oath ? OathOps : TriggerOps(kw);
+            if (ops == null || ops.Count == 0) { ActiveAbilityMap = "gap:no-ops"; return; }
+            if (spec.LogicCount != 1 || ops.Count != 1) { ActiveAbilityMap = "gap:shape"; return; }
+
+            var op = ops[0];
+            if (op == null) { ActiveAbilityMap = "gap:no-ops"; return; }
+
+            // 逐格落值（`-1` = 读不到 ⇒ 保持原样：⛔ 不拿 -1 覆盖掉别处的值，与 `AssignAbilityTargets` 同口径）
+            int ta = (spec.TargetsAffected != null && spec.TargetsAffected.Length == 1) ? spec.TargetsAffected[0] : -1;
+            int fm = (spec.FurtherMultiplier != null && spec.FurtherMultiplier.Length == 1) ? spec.FurtherMultiplier[0] : -1;
+            if (ta >= 0) op.SubjectTargetsAffected = ta;
+            if (fm >= 0) op.AbilityFurtherMultiplier = fm;
+            op.ActiveAbilityRow = 0;
+            ActiveAbilityMap = "attached";
+        }
+
+        /// <summary>两组行**逐格一致**吗（只比 `ta` / `fm` —— `gate` 已经筛过 1，`trigger` 恒 400，
+        /// `needsLoading` 不影响结算）。不一致 ⇒ 解析期判不了走哪一组（运行期才定）。</summary>
+        static bool SameActiveRows(List<ActiveAbilityLogicSpec> a, List<ActiveAbilityLogicSpec> b)
+        {
+            if (a == null || b == null || a.Count != b.Count) return false;
+            for (int i = 0; i < a.Count; i++)
+            {
+                if (a[i] == null || b[i] == null) { if (a[i] != b[i]) return false; continue; }
+                if (!SameActiveInts(a[i].TargetsAffected, b[i].TargetsAffected)) return false;
+                if (!SameActiveInts(a[i].FurtherMultiplier, b[i].FurtherMultiplier)) return false;
+            }
+            return true;
+        }
+
+        static bool SameActiveInts(int[] a, int[] b)
+        {
+            if (a == null || b == null) return a == b;
+            if (a.Length != b.Length) return false;
+            for (int i = 0; i < a.Length; i++) if (a[i] != b[i]) return false;
+            return true;
+        }
+
         readonly List<ConditionSpec> _conditions = new List<ConditionSpec>();
 
         /// <summary>`(ability, logic, role)` → 条件行（同 key 后写覆盖；重复本当在数据入口被丢弃）。</summary>
@@ -2392,6 +2643,10 @@ namespace RuleEngine
             //    见 <see cref="FaithOps"/>：**与灵魂石同一形状**（打出/入场那一步自动结算），
             //    但 N 是**【阈值】不是开销**（`A1453`）—— 判据全写在那个属性的 doc 里。
             CollectFaithOps();
+            // ⑭ 🆕 v23（2026-10-24 · 引擎线 `G12`）：**主动能力链**（`activeAbilityLogic` 列）的
+            //    `ta` / `fm` 挂到替代行动正文那批 op 上 —— **必须在最后**（它读 `TriggerOps` / `OathOps`，
+            //    那两本字典上面 ①②⑤⑫ 才填满）。闸门与理由 → `ApplyActiveAbilityLogic` 的 doc。
+            ApplyActiveAbilityLogic();
         }
 
         /// <summary>

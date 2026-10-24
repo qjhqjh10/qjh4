@@ -816,7 +816,11 @@ public static class MainMenuScene
         //   · 根 **164.31 × 169.68**（与五颗 `Main Menu Navigation Button - *` **逐值相同**）
         //   · `Text Background` 9.6..156.6 / 118.3..157.6 · `Badge Highlight` 118.1..153.1 / 91.7..126.7
         //     （与五颗同一套；**我们**五颗都是按 9.3/156.2 · 117.8/152.8 取的整 ⇒ 第 6 颗沿用同一套）
-        //   · `Image` 13.1..153.1 / 1.7..141.7 = **140×140**，`m_Sprite` **空**（运行期灌 liveops 图标）
+        //   · `Image` 13.1..153.1 / 1.7..141.7 = **140×140**，`m_Sprite` = **占位图**
+        //     （`PPtr(FileID 3, PathID -7836703677562955936)`，落在 `0_GeneralUI Atlas`）——
+        //     🔴 **2026-10-24 更正（铁律 5）**：这里原来写「`m_Sprite` **空**」，**是错的**：
+        //     prefab 上是有图的（占位），真图 `40k_main_bt_event` 由 `OpenEventButton.SetButtonInfo` 运行期换上去
+        //     （判据 → `资料/普查产出_1024/C3_界面卡牌活动判据总表.md` §3 与「顺手发现 9」）。
         //   · 位置 = `Buttons Container` 那条 VLG 的第 6 个孩子 ⇒ 顶 = 143.41 + 5×153.33 = **910.06**
         //     ⇒ `NavButton` 那一套取整 = **910.0**（步进与前五颗同一条 153.33）
         // ⛔ 期望值**全部来自 prefab dump**，不读 `MainMenuRuntime` 的常量（读了 = 自证）。
@@ -834,12 +838,48 @@ public static class MainMenuScene
                         "第 6 颗的红点（原版 118.1..153.1 / 91.7..126.7）");
                 var evImg = FindChild(evNav, "Image");
                 CheckTrue(evImg != null,
-                          "第 6 颗的 `Image` 节点**建着**（原版那颗是**空槽**：`m_Sprite` 为空、运行期由 "
-                        + "`OpenEventButton.SetButtonInfo` 的 `LoadAsset(ev,0)` 灌 liveops 图标）"
+                          "第 6 颗的 `Image` 节点**建着**（原版这颗的 prefab 上放的是 `0_GeneralUI` 的**占位图**，"
+                        + "真图 `40k_main_bt_event` 由 `OpenEventButton.SetButtonInfo` 的 `LoadAsset(ev,0)` 换上去）"
                         + " —— ⛔ 不是「把节点删掉」，也不是「拿别的图冒充」");
                 if (evImg != null)
+                {
                     CheckAt(evImg, 12.8f, 152.8f, 911.7f, 1051.7f,
                             "第 6 颗图标那一格 **140×140**（原版 `Image` 13.1..153.1 / 1.7..141.7 = 钮顶 + 1.7）");
+                    // ==================================================== 🆕 2026-10-24（活动线 · 事件钮图标）
+                    // 🔴 期望值**全部来自解包资源**（⛔ 不读 `MainMenuRuntime` 的实参/常量 —— 读了就是自证）：
+                    //   · 图名 = `bundle_liveopsicons_assets_all/Sprite/40k_main_bt_event.json` 的 `m_Name`
+                    //   · 真加载到 = `Texture2D` 非空（`Resources/Art/ui_menu/40k_main_bt_event.png`，135²）
+                    //   · 颜色 = `Event Navigation Button/Image` 的 `m_Color = (0.7358490228652954, …, 1)`
+                    //     （`bundle_menus_assets_all/MonoBehaviour/MonoBehaviour_-1269977380222428235.json` 现读）
+                    //     —— 五颗通用导航钮是 **(1,1,1,1) 白**，这一颗**天生暗 26%**，⛔ 别写成白。
+                    var evQ = evImg.GetComponentInChildren<ImageQuad>(true);
+                    CheckTrue(evQ != null && evQ.Texture != null,
+                              "★ 第 6 颗的图标**真加载到了**（`Image` 底下那颗 `ImageQuad` 的 `Texture` 非空；"
+                            + "实测 " + (evQ == null ? "quad 没建" : (evQ.Texture == null ? "贴图 null" : "贴图 = `" + evQ.Texture.name + "`")) + "）"
+                            + " —— 空图 ⇒ 画面上这颗钮没有图标（而断言若只查「节点在」照样全绿）");
+                    CheckTrue(evQ != null && evQ.Texture != null && evQ.Texture.name == "40k_main_bt_event",
+                              "★ 第 6 颗图标的**图名 = `40k_main_bt_event`**（原版 liveop 事件图标资产名，"
+                            + "`m_Rect 135×135` / PPU 100 / Simple / border 0）"
+                            + " —— 🧨 **灭自证**：把 `MainMenuRuntime` 里那颗钮的 art 改回 `null` ⇒ `Image` 底下"
+                            + "**没有 `ImageQuad`** ⇒ 本条（连同上面那条）必红");
+                    if (evQ != null)
+                    {
+                        var tc = evQ.Tint;
+                        // 原版 `m_Color` = 0.7358490228652954（73.5849% 灰）⇒ 逐通道 ±0.002，
+                        // 另单列一句「不是纯白」：两件事分开报，免得以后有人把容差放宽松了悄悄变成白。
+                        CheckTrue(Mathf.Abs(tc.r - 0.7358490f) <= 0.002f
+                                  && Mathf.Abs(tc.g - 0.7358490f) <= 0.002f
+                                  && Mathf.Abs(tc.b - 0.7358490f) <= 0.002f
+                                  && Mathf.Abs(tc.a - 1f) <= 0.002f,
+                                  $"★ 第 6 颗图标的基准色 = 原版插槽的 **0.7358490 灰**（实测 ({tc.r:F4}, {tc.g:F4}, {tc.b:F4}, {tc.a:F3})）"
+                                + " —— 判据 = `Event Navigation Button/Image` 的 `m_Color`（现读）；"
+                                + "五颗通用导航钮才是 (1,1,1,1) 白。🧨 写成白 ⇒ 本条红");
+                        CheckTrue(tc.r < 0.99f && tc.g < 0.99f && tc.b < 0.99f,
+                                  "★ 第 6 颗图标**不是纯白**（原版这一颗天生比五颗暗 26%；"
+                                + "`OpenEventButton.SetButtonInfo` 只设 sprite、不写 color ⇒ 灰来自 prefab 的 `m_Color`）"
+                                + $" —— 实测 RGB = ({tc.r:F4}, {tc.g:F4}, {tc.b:F4})");
+                    }
+                }
                 var evHit = FindChild(evNav, "Hit");
                 CheckTrue(evHit != null && evHit.GetComponentInChildren<WindowButton>(true) != null,
                           "第 6 颗有命中区 `Hit` + `WindowButton`（否则**真鼠标点不动** —— 只有「节点在」不算数）");

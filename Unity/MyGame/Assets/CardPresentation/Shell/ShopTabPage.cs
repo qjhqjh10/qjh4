@@ -711,11 +711,7 @@ namespace CardPresentation
                 if (_win != null && _win.Manager != null)
                 {
                     int captured = idx;
-                    // 两颗钮走词条（键 `MainMenu/General/OK` / `MainMenu/General/Cancel`）——
-                    // 出处 = 原版 `CatalogItemContainer__TryPurchase.c:37,41,43` 传的两个地址
-                    // （`0x42BE718` / `0x42BE120`）的地址表实读，见 `Core/Loc.cs` 里 `MainMenu/General/OK` / `Cancel` 那一条的留痕。
-                    // ⚠️ 是 `OK` **不是** `Ok`（施工单 §④ 那条口径）；中文列「确定」与改前的写死串**同字**。
-                    _win.Manager.ShowPopUp(ShopData.LegendaryWarnText, Loc.T("MainMenu/General/OK"), () => DoBuy(captured), Loc.T("MainMenu/General/Cancel"));
+                    ShowLegendaryConfirm(_win.Manager, () => DoBuy(captured));
                     return "";
                 }
                 Debug.LogWarning("[Shop] 没有 `WindowsManager` ⇒ **弹不出确认框**（这一件按原版不该直接买）");
@@ -724,7 +720,37 @@ namespace CardPresentation
             return DoBuy(idx);
         }
 
-        /// <summary>真正掏钱那一步（确认框点「确定」之后走的也是它）。
+        /// <summary>把「买传奇」那扇确认框开出来 —— **左 = `Cancel`（不买）· 右 = `OK`（买）**。
+        /// 生产路径 <see cref="Buy"/> 与自检都**只走这一处**（⛔ 别在调用点另拼一遍两颗钮的顺序）。
+        ///
+        /// <para>🔴 **2026-10-24（`A11` · 铁律 5 就地订正：这里原来左右是反的）**。
+        /// 原版 `d:/2/tools/decomp_full/CatalogItemContainer__TryPurchase.c:30-50` 与
+        /// `CraftingPanel__TryCrafting.c:26-49` 是**同一形状**：`buttons[0] = Cancel`（左）、
+        /// `buttons[1] = OK`（右）；而 `PopUpGameWindow.ConfigurePopUp` 的 `LiveButtons[0]` = `ButtonLeft`
+        /// ⇒ `ShowPopUp(…, primaryButton, secondButton)` 的 **primary = 左**。
+        /// 改前我们把 `OK` 当 primary 传 ⇒ 商店那扇**左 OK / 右 Cancel**，与隔壁锻造确认窗
+        /// （左 Cancel / 右 OK）自相矛盾。⇒ 现在按原版：**primary = `Cancel`（回调 null ⇒ 只关窗）·
+        /// secondary = `OK`（回调 = 真正的购买）**。
+        /// ⚠️ 两颗钮**都**要「点下去关窗」：原版 `ConfigurePopUp` 无条件挂
+        /// `PopUpGameWindow.PopUpWindowButtonPressed`（第二个监听专门关窗）。我们这里由
+        /// `WindowsManager.ShowPopUp` 那层包装负责（先 `Close()` 再跑调用方回调，⛔ 别绕开它直调
+        /// `ShowMessagePopUp`，那样 Cancel 那颗就关不掉）。</para>
+        /// <para>⚠️ 文案走词条（`MainMenu/General/Cancel` = 「取消」· `MainMenu/General/OK` = **「好的」**）——
+        /// 改前这里写着「中文列『确定』」，那是**过期**的：官方本地化表 `MainMenu/General/OK` 的 ZH 列
+        /// 实读 = 「好的」（`数据/游戏数据/官方本地化_en+zh-CN.json`，2026-10-24 现读）。
+        /// 键名出处 = 原版 `CatalogItemContainer__TryPurchase.c:37,41,43` 传的那两个地址
+        /// （`0x42BE718` / `0x42BE120`）的地址表实读。</para>
+        /// <returns>开出来的那扇窗（`WindowsManager` 为 null / 建失败时为 null）—— 自检读口。</returns>
+        public static PopUpGameWindow ShowLegendaryConfirm(WindowsManager mgr, System.Action onConfirm)
+        {
+            if (mgr == null) return null;
+            mgr.ShowPopUp(ShopData.LegendaryWarnText,
+                          Loc.T("MainMenu/General/Cancel"), null,          // 左：Cancel（不买，只关窗）
+                          Loc.T("MainMenu/General/OK"), onConfirm);        // 右：OK（买）
+            return mgr.popUpWindow as PopUpGameWindow;
+        }
+
+        /// <summary>真正掏钱那一步（确认框点**右钮 OK** 之后走的也是它）。
         /// <para>🆕 **2026-10-12（A439）：买到手 ⇒ 弹领奖窗**（非容器档那几件）。判据见下面那一段注释。</para></summary>
         string DoBuy(int idx)
         {

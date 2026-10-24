@@ -6,6 +6,9 @@ gen_card_vfx_by_card.py — 「逐卡 VFX 表」生成器（卡 id → 事件 �
 用法（本项目惯例）：
     PYTHONIOENCODING=utf-8 "D:/2/Warpforge_tools/py312/python.exe" d:/4/Unity/工具/gen_card_vfx_by_card.py
     # 可选 --quiet   不打明细
+    # 🆕 2026-10-24（执行代理 `A12`）`--check`：**只算不写**，与盘上两份产物**逐字节**比对；
+    #    一致 rc=0、不同则打印差异摘要并 rc=1。对拍必须固定 `--generated-at`（否则 `generatedAt` 每次都变）。
+    # 🆕 2026-10-24（`A12`）`-h` / `--help`：只打印用法并退出（rc=0），**不执行任何真活**。
 
 只读（绝不写 d:/2/）：
   ① d:/4/Unity/MyGame/Assets/RuleEngine/Resources/cards_engine.json    —— 我们的卡池（**现读 1,127 张**，id 就是原版 id；⛔ 别写死张数）
@@ -111,6 +114,16 @@ import os
 import re
 import sys
 import time
+
+## A17 2026-10-24: -h/--help early exit (print usage only, exit 0; never run the real work).
+import sys as _wf_help_sys
+if any(_wf_help_sys.argv[_i] in ("-h", "--help") for _i in range(1, len(_wf_help_sys.argv))):
+    try:
+        _wf_help_sys.stdout.reconfigure(encoding="utf-8")
+    except Exception:
+        pass
+    print('用法：\n    "D:/2/Warpforge_tools/py312/python.exe" d:/4/Unity/工具/gen_card_vfx_by_card.py [--quiet] [--no-truth] [--generated-at "..."]\n    "D:/2/Warpforge_tools/py312/python.exe" d:/4/Unity/工具/gen_card_vfx_by_card.py --check --generated-at "YYYY-MM-DD HH:MM:SS"\n  -h, --help  只打印本用法并退出（退出码 0），不执行任何真活。')
+    _wf_help_sys.exit(0)
 
 # ---------------------------------------------------------------- 常量 / 路径
 
@@ -1550,6 +1563,95 @@ def cardanim_guid_by_name(path=GUID_MAP_TSV):
     return out
 
 
+# 🔴🆕 2026-10-24（执行代理 `A9` · 特效线「静音桶复核」第二轮）：`unbacked` 桶的**逐条证据**。
+#   🆕 2026-10-24（执行代理 `A10`）：补上**余下 2 个**（`ASH86` / `AM34`）⇒ 现覆盖**全部 6 个** `unbacked` 桶。
+#   🆕 2026-10-24（执行代理 `A12`）：再补 1 条 **`AM34 / Valkyrie_Hover_Dust`** —— 它落在 `_unclassified`
+#      （**不在运行时 `notPlayed[]` 里**，只进全量件的 `stats.inferenceGone.unbacked[]`）；
+#      证据来自 `A10` §六·1（全库唯一引用 = `AM75` 的 `play[0]`）。**同样只加文字、不改判定。**
+#
+#   为什么单开一张表：通用 `why` 只写「卡 SO 与 `CardTrait` SO 都没有引用它」——
+#   下一个会话看不出「**到底搜过哪些字段 / 搜了多少张 / 这两件到底归谁**」，
+#   于是要么再查一遍（白花一轮）、要么误当成「漏查」而按名字补回去（静默错一张）。
+#
+#   ⛔ **本表只【加证据文字】，不恢复任何条目**。判据（2026-10-24 现核）：
+#     ① 4 张卡的卡 SO 用 **UnityPy 重读类型树**逐字段核过（116 字段 / 引用集与
+#        `cards_raw.json` 的 `full_raw` **逐条相同**）⇒ 「搜过卡 SO 全部字段」不是 grep 的弱证据；
+#     ② 全 24.7 万件解包资产（`d:/2/新解包资源/assets_full/`）按 **GUID + 名字**双扫；
+#     ③ `CardTrait` SO（`数据/游戏数据/trait_collection.json`，73 trait / 75 TraitEffect）0 命中；
+#     ④ 2022 时代那份 1,195 张卡 SO 快照（`数据/游戏数据/card_anim_order.json`）也**给同一结论**。
+#   其中 2 件（`HeldrakeStrike` / `Flayed One Summon`）**在别的卡的权威桶里**——
+#   挪给这 4 张 = 把别家的演出错播一遍；另 1 件的 prefab 与这张卡 `play` 的权威件**是同一件**
+#   （已在 `play` 播）；剩 1 件全库零卡引用（它自己那张卡没有 `ThisCardPlayed` 能力）。
+#
+#   键 = `(卡 id, CardAnim 名)`；值 = 写进 `notPlayed[].why` / `stats.inferenceGone.unbacked[].why`。
+UNBACKED_EVIDENCE = {
+    ("AM30", "Manticore Board Down"):
+        "⛔ **无权威依据、不播**（2026-10-24 `A9` 现核）：`Manticore Board Down`（CardAnim `2bb742a0…`）"
+        "在**当前 build 的 1,351 张卡 SO 全 116 字段**里**零引用**（UnityPy 重读类型树逐字段核过，"
+        "不是只 grep 字段名），**全 24.7 万件解包资产**里只有它自己的 CardAnim 记录引用它，"
+        "`CardTrait` SO 0 命中。它落的 prefab `Artillery Manticore down 1x`（`e3fb0804…`）另由 CardAnim "
+        "`Artillery Ground Big` 引用，而后者**已经在 `AM53`（play）/ `AM18`（ability）的权威桶里** ⇒ "
+        "这件视觉本身没丢，⛔ 但它不是 AM30 的 `play` 件（AM30 `cardAbilities` 为空、没有 "
+        "`ThisCardPlayed(0)` 能力；登场走共享 `normalSummon`）。",
+
+    ("EC29", "HeldrakeStrike"):
+        "⛔ **无权威依据、不播**（2026-10-24 `A9` 现核）：`HeldrakeStrike`（CardAnim `39dca211…`）"
+        "**全库唯一**的卡 SO 引用 = **`BL53 Heldrake Strike`**（Black Legion 法术，`ThisCardPlayed(0)`）⇒ "
+        "它是 BL53 的演出，挪给 EC29 = 把别家的件错播一遍。EC29 侧：卡 SO **没有近战专用字段**"
+        "（`RawCardScript` 里根本没有），近战协程 `CardScript._AttackMeleeAnim_d__357__MoveNext.c` "
+        "**313 行 0 处 `CardAnim`/`AddCardAnim`** ⇒ 原版近战这一拍**没有逐卡 VFX**（只有攻击音 + 位移 tween；"
+        "判据全文 → `资料/普查产出_1023c/Trait_pentitence与静音桶溯源.md` §B·2）。",
+
+    ("SAU3", "Flayed One Summon"):
+        "⛔ **无权威依据、不播**（2026-10-24 `A9` 现核）：`Flayed One Summon`（CardAnim `53f3e4ca…`）"
+        "**全库唯一**的卡 SO 引用 = **`SAU69 Flayed Ones Pack`**（`AbilityTrigger.Artifice(560)`）⇒ "
+        "它是那张**召唤法术**的演出，**不是** Flayed One 单位自身的登场件。SAU3 的 `summonAnimDelayed` "
+        "是**空 GUID**（UnityPy 类型树现读）⇒ 单位登场走共享 `normalSummon`（`Invoke Minion Card Fade *`）。",
+
+    ("a84a5b49f0ca9144585058db6987c2a0", "Master Interromancer Hit"):
+        "⛔ **无权威依据、不播**（2026-10-24 `A9` 现核）：这条按名字猜的 CardAnim "
+        "`Master Interromancer Hit`（`7a4f21e3…`）**全库零卡引用**；但它落的 prefab "
+        "`Psychic_Lightning_down_Intense_white`（`9d7fa450…`）**与这张卡 `play` 桶权威件 "
+        "`Atk_SmiteLightning_white_Down`（`39d3e084…`）是同一件 prefab** ⇒ **视觉没丢、那一拍已经在 "
+        "`play` 播**；卡 SO 也没有 `UnitDamaged(60)` 能力 ⇒ `hit` 这一拍原版没有逐卡件"
+        "（保留 = 同一件播两遍）。",
+
+    # ---- 2026-10-24 `A10`：余下两个（`A9` 那轮的 §七·1 顺手发现）
+    ("ASH86", "Forewarned Board"):
+        "⛔ **无权威依据、不播**（2026-10-24 `A10` 现核）：`Forewarned Board`（CardAnim `a0a1091e…`）"
+        "在**当前 build 的 1,351 张卡 SO 全 116 字段**里**零引用**（UnityPy 重读类型树逐字段核过，"
+        "不是只 grep 字段名：ASH86 的 5 条非空 GUID 全在 `cardAbilities` / `cardImageReference`，"
+        "`targetedSpellAnim` / `nonTargetedSpellAnim` 是**空 PPtr**）；全 24.7 万件解包资产按 GUID + 名字双扫"
+        "只有它自己；`CardTrait` SO 0 命中；2022 时代快照同一结论。它落的 prefab `Cosmic Serpent`（`ccef7d44…`）"
+        "另由 CardAnim `CosmicSerpent`（`b277fe66…`）引用，而后者**已经在 `ASH48 Cosmic Serpent` 的 `play` "
+        "权威桶里** ⇒ 这件美术本身没丢，但它是 ASH48 的演出；ASH86 的 `play` 权威件是 `Buff_Khaine`"
+        "（`ed801be9…`）⇒ 补回 = 同一拍播两件。（另注：包里还有一个**只差下划线**的 prefab "
+        "`Forewarned_Board`（`796d76e0…`），全库零引用、**与本条 CardAnim 不是同一件** —— 别拿它反推。）",
+
+    ("AM34", "Valkyrie_MultiLaser_Hover_Target"):
+        "⛔ **无权威依据、不播**（2026-10-24 `A10` 现核）：`Valkyrie_MultiLaser_Hover_Target`"
+        "（CardAnim `7f071e26…`）**全库唯一**的卡 SO 引用 = **`AM75 Valkyrie Drop`** 的 "
+        "`cardAbilities[0].abilityLogic[0].cardAnimations[1]`（`ThisCardPlayed(0)` → `play`；"
+        "2022 时代快照也给同一结论）⇒ 它是 AM75 的演出，挪给 AM34 = 把别家的件错播一遍。"
+        "AM34 自己的远程权威件 = `customRangedAttackParticles` → `Atk_BulletImpact_Valkyrie_Missiles`"
+        "（`e4501e8d…`，prefab `BulletImpact_ValkyrieMissile`）——与猜的 prefab `Valkyrie_MultiLaser_Hover`"
+        "（`3df06e24…`）**不是同一件**；卡 SO 的 116 字段里远程攻击只有这一个字段。",
+
+    # ---- 2026-10-24 `A12`（`A10` §六·1 的顺手发现）：同一张卡的 `_unclassified` 那条也是「链到别的卡」
+    ("AM34", "Valkyrie_Hover_Dust"):
+        "⛔ **无权威依据、不播**（2026-10-24 `A10` 发现 · `A12` 补录）：`Valkyrie_Hover_Dust`"
+        "（CardAnim `c438c0c6…`，prefab `Valkyrie Flyover Hover Dust`）**全库唯一**的卡 SO 引用 = "
+        "**`AM75 Valkyrie Drop`** 的 `cardAbilities[0].abilityLogic[0].cardAnimations[0]`"
+        "（`ThisCardPlayed(0)` → `play`；运行期表 `AM75.play[0]` = **authoritative**）⇒ 它是 AM75 空投演出的"
+        "**首步**（第 1 步才是 `Valkyrie_MultiLaser_Hover_Target`），挪给 AM34 = 把 AM75 的整段空投演出"
+        "错播一遍。AM34 的登场走共享 `normalSummon`，卡 SO 里没有别的「登场/落地」槽引用它。"
+        "⚠️ 本条落在 `_unclassified`（连事件都判不出来的候选）⇒ 只进**全量件**的 "
+        "`stats.inferenceGone.unbacked[]`，**不进运行时的 `notPlayed[]`**"
+        "（`strip_unbacked_inference` 的 `in_runtime = not ev.startswith('_')`）—— 这是**既有设计**，"
+        "⛔ 不要为了「让两边看起来一致」把它塞进运行时。",
+}
+
+
 def strip_unbacked_inference(by_card, cards, stats_partial):
     """把 `inferred-*` / `unknown` 从事件桶里**全部清掉**（两条出路见上面那一段）。
 
@@ -1623,6 +1725,9 @@ def strip_unbacked_inference(by_card, cards, stats_partial):
                 where = "unclassified" if ev.startswith("_") else ev
                 _why2 = ("按名字猜出来的动画；卡 SO 与 `CardTrait` SO 都没有引用它"
                          " ⇒ 无权威依据、不播（⛔ 不拿名字相近的顶替）")
+                # 🔴 2026-10-24（`A9`）：特效线复核过的那 4 桶用**逐条证据**顶掉这句通用话
+                #   （表见 `UNBACKED_EVIDENCE`；⛔ 只是把 `why` 写具体，**不恢复**条目）。
+                _why2 = UNBACKED_EVIDENCE.get((cid, anim), _why2)
                 st["markedUnbacked"] += 1
                 st["unbacked"].append({
                     "cardId": cid, "cardName": nm, "faction": fa, "event": where,
@@ -1657,6 +1762,92 @@ def strip_unbacked_inference(by_card, cards, stats_partial):
 # ---------------------------------------------------------------- 主流程
 
 
+# ---------------------------------------------------------------- `--check`（只算不写）
+def _wf_short(v, limit=110):
+    """把任意值收成一行短串（差异摘要用；⛔ 别让它把整棵子树打出来）。"""
+    try:
+        s = json.dumps(v, ensure_ascii=False, sort_keys=True)
+    except Exception:
+        s = repr(v)
+    return s if len(s) <= limit else s[:limit] + "…"
+
+
+def _wf_json_diff_summary(disk_txt, new_txt, max_items=8):
+    """两份 JSON 文本的结构差异 → `(最多 max_items 条摘要, 差异总处数)`。
+
+    ⚠️ 这两份产物都是**巨大的单行/缩进文档**，逐行 diff 打出来没法看；
+    这里按「路径 → 盘上 / 新算」收敛。解析失败时退回「只报字节差」。
+    """
+    try:
+        a = json.loads(disk_txt)
+        b = json.loads(new_txt)
+    except Exception as e:
+        return ["（JSON 解析失败，只能看字节差）：%s" % e], 1
+    lines, total = [], [0]
+
+    def _add(msg):
+        total[0] += 1
+        if len(lines) < max_items:
+            lines.append(msg)
+
+    def _walk(x, y, path):
+        if isinstance(x, dict) and isinstance(y, dict):
+            for k in sorted(set(x) | set(y), key=str):
+                p = "%s.%s" % (path, k)
+                if k not in x:
+                    _add("%s: 盘上=<缺> / 新算=%s" % (p, _wf_short(y[k])))
+                elif k not in y:
+                    _add("%s: 盘上=%s / 新算=<缺>" % (p, _wf_short(x[k])))
+                else:
+                    _walk(x[k], y[k], p)
+            return
+        if isinstance(x, list) and isinstance(y, list):
+            if len(x) != len(y):
+                _add("%s.length: 盘上=%d / 新算=%d" % (path, len(x), len(y)))
+            for i in range(min(len(x), len(y))):
+                _walk(x[i], y[i], "%s[%d]" % (path, i))
+            return
+        if x != y:
+            _add("%s: 盘上=%s / 新算=%s" % (path, _wf_short(x), _wf_short(y)))
+
+    _walk(a, b, "$")
+    return lines, total[0]
+
+
+def _wf_run_check(pairs, generated_at, max_items=8):
+    """`pairs = [(路径, 新算文本), …]`；逐字节比对盘上产物。返回 rc（0 = 全一致）。"""
+    ok = True
+    for p, txt in pairs:
+        new_b = txt.encode("utf-8")
+        disk_b = io.open(p, "rb").read() if os.path.exists(p) else None
+        if disk_b is None:
+            print("[--check] %s **盘上没有这个文件** ❌（新算 %d 字节）" % (rel(p), len(new_b)))
+            ok = False
+            continue
+        if disk_b == new_b:
+            print("[--check] %s 逐字节一致 ✅（%d 字节）" % (rel(p), len(new_b)))
+            continue
+        ok = False
+        n = min(len(disk_b), len(new_b))
+        off = next((i for i in range(n) if disk_b[i] != new_b[i]), n)
+        print("[--check] %s **不同** ❌（盘上 %d 字节 / 新算 %d 字节；第一处不同 @%d）"
+              % (rel(p), len(disk_b), len(new_b), off))
+        try:
+            disk_txt = disk_b.decode("utf-8")
+        except Exception:
+            print("           盘上那份不是合法 UTF-8 ⇒ 只报字节差")
+            continue
+        lines, total = _wf_json_diff_summary(disk_txt, txt, max_items)
+        print("           结构差异 **%d 处**%s："
+              % (total, "" if total <= max_items else "（只列前 %d）" % max_items))
+        for l in lines:
+            print("            · " + l)
+    if not generated_at:
+        print("ℹ️ 本次没固定 `--generated-at`（`generatedAt` 取当前时间）⇒ 该字段通常必然不同；"
+              "对拍请加 `--generated-at \"YYYY-MM-DD HH:MM:SS\"`。")
+    return 0 if ok else 1
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--quiet", action="store_true")
@@ -1670,6 +1861,13 @@ def main():
     #   加这个开关（或环境变量 `WF_GENERATED_AT`）只为**确定性复跑/对拍**，⛔ 不改默认行为。
     ap.add_argument("--generated-at", default=os.environ.get("WF_GENERATED_AT"),
                     help="固定 generatedAt（默认当前时间；复跑对拍时用）")
+    # 🆕 2026-10-24（执行代理 `A12`）：**只算不写**的幂等自检开关。
+    #   口径与仓里其它生成器一致（`gen_related_cards.py` / `gen_card_anim_order.py`）：
+    #   算出来的**同一份文本**拿去和盘上产物**逐字节**比，一致 rc=0、不同打印差异摘要并 rc=1。
+    #   ⛔ 不改默认行为：不带 `--check` 时写出去的字节与加这个开关之前逐字节相同。
+    ap.add_argument("--check", action="store_true",
+                    help="只算不写：与盘上两份产物逐字节比对；一致 rc=0、不同打印差异摘要并 rc=1"
+                         "（对拍要固定 --generated-at）")
     args = ap.parse_args()
     t0 = time.time()
 
@@ -2014,10 +2212,18 @@ def main():
             "problems": PROBLEMS,
         },
     }
-    with io.open(OUT_JSON, "w", encoding="utf-8", newline="\n") as fh:
-        json.dump(out, fh, ensure_ascii=False, indent=1, sort_keys=False)
-    print("[4/4] 写盘 %s（%.1f KB，耗时 %.1fs）"
-          % (rel(OUT_JSON), os.path.getsize(OUT_JSON) / 1024.0, time.time() - t0))
+    # ⚠️ 先把文本算进变量、确认没错再写（本仓踩过 `io.open(p,'wb').write(<表达式>)` **先截断后求值**的坑）。
+    #   `json.dump(obj, fh)` 写出来的就是 `json.dumps(obj)` 的结果（**无尾换行**）⇒ 改成先算后写**逐字节不变**；
+    #   `--check` 拿的也是这同一份文本 ⇒ 「算出来的」与「写出去的」不可能分叉。
+    full_txt = json.dumps(out, ensure_ascii=False, indent=1, sort_keys=False)
+    if not args.check:
+        with io.open(OUT_JSON, "w", encoding="utf-8", newline="\n") as fh:
+            fh.write(full_txt)
+        print("[4/4] 写盘 %s（%.1f KB，耗时 %.1fs）"
+              % (rel(OUT_JSON), os.path.getsize(OUT_JSON) / 1024.0, time.time() - t0))
+    else:
+        print("[4/4] --check：**不写盘** %s（算得 %.1f KB）"
+              % (rel(OUT_JSON), len(full_txt.encode("utf-8")) / 1024.0))
 
     # ---- 🆕 运行时那一份（`Resources/` 下；只留「播哪个 prefab」这一件事）----
     #   逐卡的事件名与 `conf` **与全量那份同源同算**（同一个 `by_card`）⇒ 不可能分叉。
@@ -2201,14 +2407,22 @@ def main():
         "notPlayed": not_played,
         "cards": rt_cards,
     }
-    os.makedirs(os.path.dirname(OUT_RUNTIME), exist_ok=True)
-    with io.open(OUT_RUNTIME, "w", encoding="utf-8", newline="\n") as fh:
-        json.dump(rt, fh, ensure_ascii=False, separators=(",", ":"))
-    print("[4/4] 写盘 %s（%.1f KB · %d 张卡 · %d 条 · 没解析出 prefab 的 %d 条**没进来**）"
-          % (rel(OUT_RUNTIME), os.path.getsize(OUT_RUNTIME) / 1024.0,
-             len(rt_cards), rt_entries, rt_noprefab)
-          + "；🆕 语义与同事件不同的 %d 条也**没进来**（`remnantBodyPrefab`，见 `RT_SKIP_SOFIELDS`）"
-          % rt_skip_field)
+    # 同全量件：先算文本、`--check` 时**不写盘**（`json.dumps(..., separators=(",",":"))` 与
+    # `json.dump(rt, fh, ...)` 的输出逐字节相同 ⇒ 不带 `--check` 时落盘内容不变）。
+    rt_txt = json.dumps(rt, ensure_ascii=False, separators=(",", ":"))
+    if not args.check:
+        os.makedirs(os.path.dirname(OUT_RUNTIME), exist_ok=True)
+        with io.open(OUT_RUNTIME, "w", encoding="utf-8", newline="\n") as fh:
+            fh.write(rt_txt)
+        print("[4/4] 写盘 %s（%.1f KB · %d 张卡 · %d 条 · 没解析出 prefab 的 %d 条**没进来**）"
+              % (rel(OUT_RUNTIME), os.path.getsize(OUT_RUNTIME) / 1024.0,
+                 len(rt_cards), rt_entries, rt_noprefab)
+              + "；🆕 语义与同事件不同的 %d 条也**没进来**（`remnantBodyPrefab`，见 `RT_SKIP_SOFIELDS`）"
+              % rt_skip_field)
+    else:
+        print("[4/4] --check：**不写盘** %s（算得 %.1f KB · %d 张卡 · %d 条）"
+              % (rel(OUT_RUNTIME), len(rt_txt.encode("utf-8")) / 1024.0,
+                 len(rt_cards), rt_entries))
     print("   🆕 逐卡精确语音：%d 条 / %d 张卡（解不出名字的 %d 条**没进来**）"
           % (rt_audio, rt_audio_cards, rt_audio_noname)
           + ("" if _vo_missing is None else
@@ -2224,6 +2438,11 @@ def main():
                  for k, v in by_card[cid].items() if k != "_assetRefs"}
             print("      %-32s %s" % (cid, json.dumps(m, ensure_ascii=False)[:150]))
     print("=" * 78)
+    # 🆕 2026-10-24（`A12`）：`--check` 在这里收口 —— 两份文本都是**本次实算**的，
+    #   与盘上产物逐字节比对；一致 rc=0、不同打印差异摘要并 rc=1。**全程不写盘。**
+    if args.check:
+        return _wf_run_check([(OUT_JSON, full_txt), (OUT_RUNTIME, rt_txt)],
+                             args.generated_at)
     return 0
 
 

@@ -251,6 +251,21 @@ namespace RuleEngine
         public bool IsRemnant;
 
         /// <summary>
+        /// 🔴🆕 **2026-10-24（引擎线 `T03·c` · `C1` §5）：这具残骸**正在离场**（原版 `EntityScript +0x66
+        /// = `isLeavingRemnant`）。
+        ///
+        /// <para>**为什么需要它**：原版 `EntityScript__get_currentCombatAttack.c:40-47` 的两道闸是
+        /// **`+0x65 (isRemnant) && !+0x66 (isLeavingRemnant)` ⇒ 返回 0** —— 也就是说
+        /// **「正在离场的残骸」会落回正常攻击值**（按 `+0x120` 的近战/远程），不是 0。
+        /// 我们原来只有 <see cref="IsRemnant"/> 一维 ⇒ 那一档会算成 0（terror 豁免 / 反击预判偏）。</para>
+        ///
+        /// <para>⚠️ **今天没有写入点**（`grep` 全仓只有本字段与 `CounterAttack` 的读）——
+        /// 原版那个 `+0x66` 在哪一刻置 1 **没查清**（C1 §5 末：写入点本轮未追）。
+        /// ⇒ 语义按判据补齐，**可达性未证**；⛔ 别自行在死亡路径上顺手置它（铁律 2：不许猜口径）。</para>
+        /// </summary>
+        public bool IsLeavingRemnant;
+
+        /// <summary>
         /// **面朝下**（`Ambush`，2026-09-13 A2）—— 规则书 `:166`「伏击：**面朝下打出**；
         /// **下次回合前**若被伤害：翻开**无效果**；若未被伤害：翻开**并触发效果**」。
         /// ⚠️ **2026-10-20 补注**：上面这句是**粉丝实体版规则书**（非官方）的说法，
@@ -622,6 +637,41 @@ namespace RuleEngine
         /// ⚠️ 负数（`-1`）= 没取过号 ⇒ **排序时排在末尾**（见 `RuleCore.StableSortByPlayOrder`）。
         /// </summary>
         public int PlayOrder = -1;
+
+        /// <summary>
+        /// 🔴 **2026-10-24（引擎线 `G5`）：原版 `CardScript.referencedCards // +0x278` 的运行期列表**
+        /// （`d:/2/tools/il2cpp_out/dump.cs:35480` 的 `<referencedCards>k__BackingField`，属性 `:35549`，
+        /// `List&lt;CardScript&gt;`）。
+        ///
+        /// <para>**它不是卡 SO 字段**（`RawCardScript` 上没有它，`cards_raw.json` 的 116 个键里也没有）
+        /// ⇒ **不落卡表、不序列化**、每局从空开始。数据面判据 →
+        /// `资料/普查产出_1024/C5_剩余判据普查.md` §3。</para>
+        ///
+        /// <para>**写点（唯一一个）= 能力 `380 setReferenceCard`**
+        /// （`AbilityLogic__PlayAbility.c:2128-2160`，`iVar8 == 0x17c`）：
+        /// 先把 `actingCard.referencedCards` **换成一张新 List**（`:2139-2143` 直写 `+0x278`），
+        /// 再把**那条 abilityLogic 自己的目标表**逐个 `Add` 进去（`:2144-2160`）。
+        /// 我们的消费者 = <see cref="RuleCore.SetReferenceCards"/>（形状照抄：先清空再 `AddRange`）。</para>
+        ///
+        /// <para>**读点（原版 `targetsAffected` 两档）** —— 都收在
+        /// `EffectResolver.ResolveTargets` 的最前面（按 `EffectOp.SubjectTargetsAffected` 分派）：
+        ///   · `200 referencedCards`（`AbilityLogic__GetTargets.c:770-781`）= **整表 `AddRange`**，不过筛、不 Trim；
+        ///   · `201 referencedCardsInPlay`（`:784-806`）= 同上，但**只留 `IsInPlay` 的**
+        ///     （`CardScript__IsInPlay.c:7`：`cardState ∈ {2,15,3,17}`；我们的等价物 = `RuleCore.IsUnitInPlay`）。
+        /// </para>
+        ///
+        /// ⚠️ **挂在 `UnitState` 而不是 `CardInstance` 的理由（如实标）**：原版载体是 `CardScript`
+        /// （**手牌 + 场上**同一套），而本批白名单不含 `Core/CardInstance.cs`；场上的 `UnitState`
+        /// 已经持有 `Instance`，是当前能做的最小落点。⇒ **从【手牌】打出的战术卡**（`AM54 At All Costs`
+        /// 那条 380 就属于这种）在本结构里**没有存放处** —— 这条缺口**未做**，见
+        /// `资料/普查产出_1024/G5_裸Deal与ta200.md` §件2。
+        ///
+        /// ⚠️ **今天不改任何一局的行为**：我们的引擎**不跑 SO `abilityLogic`**，380 没有自然调用点，
+        /// 200/201 也没有任何 op 带得到（两张卡的卡面效果由文字管线覆盖，见报告 §件2）。
+        /// 与 `UnitState` 上其它字段一样：**由 `BattleContext` 发号、同种子必然同结果**（不掷骰、不用 Guid）。
+        /// ⚠️ 它是**引用列表**（同一批单位对象），不是快照 —— 与 `ctx.LastTargets` 同一种「引用了谁」的语义。
+        /// </summary>
+        public readonly List<UnitState> ReferencedCards = new List<UnitState>();
 
         readonly Dictionary<string, int> _keywords;
 

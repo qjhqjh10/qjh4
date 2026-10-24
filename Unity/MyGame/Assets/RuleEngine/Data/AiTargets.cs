@@ -15,10 +15,18 @@
 //
 // 🔴 **覆盖范围（如实标注，⛔ 别当成「全实现了」）**：
 //   已实现 `targetsAffected` = 0 / 10 / 20 / 30 / 40 / 50 / 51 / 52 / 55 / 60 / 65 / 80 /
-//   90 / 100 / 106 / 110 / 113 / 115 / 120 / 130 / 160 / 161 / 162 / 170 / 190 / 210 / 220 / 245
-//   （池内评分判据**只用到** 0/10/20/30/50/51/52/60/65/90/110/113/120/161/220 —— 见 `AUD_T06` §三·三）；
-//   其余（105/140/150/180/200/201/230/235/240）**返回空表** —— 逐条理由写在 `GetTargets` 的
+//   90 / 100 / 106 / 110 / 113 / 115 / 120 / 130 / 140 / 150 / 160 / 161 / 162 / 170 /
+//   190 / 210 / 220 / 240 / 245
+//   （池内评分判据**只用到** 0/10/20/30/50/51/52/60/65/90/110/113/120/140/161/220 —— 见 `AUD_T06` §三·三）；
+//   其余（105/180/200/201/230/235）**返回空表** —— 逐条理由写在 `GetTargets` 的
 //   `default` 分支里（235 在原版里**本来就没有分支**，空表是对的）。
+//   🔴 **2026-10-24（引擎线 `B6` 第三批 · 判据由 `C1` §4/§顺手发现1 闭合）就地订正**：
+//     · **`0 any` 原来返回空表是【错的】** —— 原版 `AbilityLogic__GetTargets.c:884-891` 明写
+//       `GetUnitsInPlayList(…, 全 1)` = **场上全部单位**（忽略 criteria 其余全部筛位），
+//       而 `AI__ScoreFromCriteria.c:93` 正是拿 `targetCriteria` 调它 ⇒ 池内 `DA50` / `UM86`
+//       两张卡的 AI 评分原来一律算 0 个目标（详见 `addAllUnitsInPlay` 的 doc）；
+//     · **`140 previousAbilityTargets` / `150 previousAbilityFiltered` / `240 lowestHealth` 已实现**
+//       （判据 = `GetTargets.c:849-883` / `:835-844`）。
 //   ⚠️ `55 inPlayOrDying` 按「在场」处理（濒死目标我们引擎里还在棋盘上）。
 //   ✅ **2026-10-23（`W64 B-07`/`B-08`）就地订正**：`160/161/162/170/245` 都是**伪列表** ——
 //     原版 `while (resource > i) { list.Add(hero); i++ }` ⇒ **列表长度 = 资源点数**。
@@ -48,6 +56,40 @@ namespace RuleEngine
         public int Attack { get { return Unit != null ? Unit.Attack : (Card != null ? Card.Attack : 0); } }
         public int Health { get { return Unit != null ? Unit.Health : (Card != null ? Card.Health : 0); } }
         public int Cost { get { return Card != null ? Card.Cost : 0; } }
+
+        /// <summary>🆕 **2026-10-24（引擎线 `G3` · `C5` §2）**：当前**远程**攻击（在场用运行时值，手牌用卡面值）。
+        /// 用途 = `targetSelectMethod == 1` 的排序键 `GetHighestAttackValue`（见 <see cref="HighestAttack"/>）。</summary>
+        public int RangedAttack { get { return Unit != null ? Unit.RangedAttack : (Card != null ? Card.RangedAttack : 0); } }
+
+        /// <summary>
+        /// 🆕 `CardScript.GetHighestAttackValue()` = **`max(CurrentRangeAttack, CurrentMeleeAttack)`**。
+        /// 判据 = `d:/2/tools/decomp_full/CardScript__GetHighestAttackValue.c:6-14`：
+        /// <code>
+        ///   iVar1 = EntityScript__get_CurrentRangeAttack(param_1);   // 远程
+        ///   iVar2 = EntityScript__get_CurrentMeleeAttack(param_1);   // 近战
+        ///   if (iVar2 < iVar1) return 远程;  else return 近战;        // ⇒ max(近战, 远程)
+        /// </code>
+        /// ⚠️ **旧实现只比 `Attack`（近战）** —— 远程单位（`RangedAttack > Attack`）的排序键被低估。
+        /// </summary>
+        public int HighestAttack
+        {
+            get
+            {
+                int melee = Attack, ranged = RangedAttack;
+                return melee < ranged ? ranged : melee;
+            }
+        }
+
+        /// <summary>🆕 原版 `EntityScript.isRemnant // +0x65`
+        /// （`EntityScript__get_isRemnant.c`；`targetSelectMethod == 1` 的**第一排序键**）。
+        /// 手牌/牌库候选不是残骸 ⇒ `false`。</summary>
+        public bool IsRemnant { get { return Unit != null && Unit.IsRemnant; } }
+
+        /// <summary>🆕 进场序（= 原版 `BattleManager.unitsInPlay // +0x470` 的追加序）。
+        /// **并列时的次序判据**：LINQ `OrderBy` 是**稳定排序**，并列会保留源表顺序，
+        /// 而源表就是这张追加序表（`C5` §2·3 已闭合）。手牌/牌库候选不在那张表里 ⇒ `-1`
+        /// （`RuleCore.StableSortByPlayOrder` 同口径：负数排末尾）。</summary>
+        public int PlayOrder { get { return Unit != null ? Unit.PlayOrder : -1; } }
     }
 
     public static class AiTargets
@@ -67,16 +109,39 @@ namespace RuleEngine
                                                    int thisSide, UnitState targetUnit)
         {
             var list = new List<AiTargetRef>();
-            if (ctx == null || c == null || thisCard == null) return list;
+            if (ctx == null || thisCard == null) return list;
+
+            // 🔴 **2026-10-24（引擎线 `B6` 第三批 · `C1` 顺手发现 1）：`ta == 0 (any)` 的语义改了。**
+            //
+            //   改前这里返回**空表**，理由是「原版候选表进 case 前是空的、`any` 不在 case 列表里
+            //   所以落到函数尾部 ⇒ 空表」。**那条推断是错的** —— 现读
+            //   `AbilityLogic__GetTargets.c:884-891`：
+            //   <code>
+            //     if (*(int *)(param_2 + 0x10) == 0) {                    // targetsAffected == Any
+            //       BattleManager__GetUnitsInPlayList(param_1, result, 0, 1,1,1,1,1,1,1,1, 0);
+            //       goto LAB_180818485;                                   // ⇒ 直接 return
+            //     }
+            //   </code>
+            //   即 **场上全部单位**（`include*` 八个筛位**全是 1** ⇒ 忽略 criteria 的其余筛位），
+            //   建完就 `goto` 到函数出口 ⇒ **不过筛、也不 `maxTargets` 截断**。
+            //   而 `AI__ScoreFromCriteria.c:93` 正是拿 `targetCriteria(+0x28)` 调它
+            //   （`multiplierCriteria(+0x30)` 那一路才走 `ta==0 ⇒ 1` 的特判，见 `AiScoring`）⇒
+            //   **AI 评分里凡 `ta=0` 的判据，改前一律算 0 个目标**。
+            //   池内真受影响的两条（`ai_scoring.json` 现读，`ta==0` 且 scoringOption 会遍历目标的）：
+            //     · `DA50 Sacred Standard`（option 1 `Count`）· `UM86 Assault Doctrine`（option 2 `SumValueInPlay`）。
+            //   ⚠️ **`c == null` 也是这一档**：`cards_truth.json` 把**全默认对象整个省略**
+            //   （`gen_cards_truth.py` 的 `compact_*`），而原版 `ScoringCriteria.targetCriteria` 是
+            //   `[Serializable]` 类字段、`AbilityLogic__GetTargets` 进门就解引用它（`:87`
+            //   `if (param_2 == 0) goto <NRE>`）⇒ 原版数据里它**不可能是 null**，缺键只能是
+            //   「ta=0 全默认」被省略。`UM86` 正是这一形状。⇒ 与 `MatchesTarget` 的既有口径
+            //   （`c == null` / `ta == 0` 都 `return true`）一致。
+            if (c == null || c.targetsAffected == 0)
+            {
+                AddAllUnitsInPlay(list, ctx);
+                return list;
+            }
 
             int ta = c.targetsAffected;
-
-            // ---- `any`：原版 tooltip「'Any' disregards all other filters」→ 直接返回空？
-            //      ⚠️ 不在 `GetTargets` 的 case 列表里（它落到函数尾部）⇒ 原版返回**候选表本身**，
-            //      而候选表在进入 case 之前是空的 ⇒ `any` 实际 = 空表（0 个目标）。
-            //      但 `CheckIfMeetsCriteria` 对 ta==0 直接 `return true` —— 那是**另一条路**
-            //      （`FilterMethods` 在别处单独被调用时）。评分走 `GetTargets` ⇒ 这里给空表。
-            if (ta == 0) return list;
 
             // ---- self(20) / target(30/220)：**原版提前 return，不跑筛选**（`GetTargets.c:184/192`）----
             if (ta == 20 || ta == 40 || ta == 80)
@@ -91,7 +156,7 @@ namespace RuleEngine
                 // 原版 30/220 提前返回；90 还要过筛选 ⇒ 90 继续往下走
                 if (ta != 90) return list;
                 ApplyFilters(ctx, c, thisCard, thisInst, thisSide, targetUnit, list);
-                Trim(list, c, thisCard, targetUnit);
+                Trim(ctx, list, c);
                 return list;
             }
 
@@ -208,14 +273,36 @@ namespace RuleEngine
                 case 245: // currentSecretsPlayed
                     AddHeroRepeated(list, ctx, thisSide, ctx.Players[thisSide].SecretsPlayed);
                     break;
+                // ---- 🔴 2026-10-24（引擎线 `B6` 第三批 · `C1` §4）：140 / 150 / 240 三档补上。----
+                //   判据全部在 `AbilityLogic__GetTargets.c`（顺序 `if` 链，`+0x10` = targetsAffected）：
+                case 140: // previousAbilityTargets（`:849-866`，`iVar6 == 0x8c`）
+                    // 原版 = `AddRange(result, <静态池 pooledPossibleTargets>)`，然后 **`:865 goto` 直接返回**
+                    // ⇒ **不过筛、也不 Trim**（与 150 的唯一差别就在这里）。
+                    AddPreviousAbilityTargets(list, ctx);
+                    return list;
+                case 150: // previousAbilityFiltered（`:867-882`，`iVar6 == 0x96`）
+                    // 同一个静态池，但这一支**不 return** ⇒ 落到 `:1083-1105` 的通用筛选尾
+                    // （`FilterMethods.CheckIfMeetsCriteria` 里那条「候选必须在表里」+ 阵营/卡种/条件筛）。
+                    // ⇒ 本处 `break`，由下面的 `ApplyFilters` / `Trim` 收尾。
+                    AddPreviousAbilityTargets(list, ctx);
+                    break;
+                case 240: // lowestHealth（`:835-844`，`iVar6 == 0xf0`）
+                {
+                    // 原版：`uVar8 = BattleManager__GetLowestHealthUnit(param_1, bVar16)`，
+                    // 把**那一个**单位塞进结果表，然后 `:843 goto` 直接返回（不过筛、不 Trim）。
+                    AddLowestHealthUnit(list, ctx, thisSide, c);
+                    return list;
+                }
                 default:
-                    // 105/140/150/180/200/201/230/240 —— 判据/输入还没闭合（2026-10-23 现核）：
-                    //   · 105/140/150 —— 读的是**静态缓存表** `DAT_1842c3a28 + 0xb8`
-                    //     （`GetTargets.c:849/867/1010`），**谁往里写没查到** ⇒ ⛔ 不猜；
+                    // 105 / 180 / 200 / 201 / 230 / 235 —— 判据/输入还没闭合（2026-10-24 现核）：
+                    //   · 105 —— 读的是**静态缓存表** `DAT_1842c3a28 + 0xb8`（`GetTargets.c:1010`），
+                    //     同族 140/150 的写点已查明（`SetPreviousAbilityTargets`），**105 没有对应的写点**
+                    //     ⇒ ⛔ 不猜；
                     //   · 180 —— `PlayerDataManager.fullCardCollection`（**卡牌收藏**，不是对局），
                     //     引擎里没有这个输入；
-                    //   · 200/201 —— `CardScript.referencedCards`(+0x278)，我们没有这一列；
-                    //   · 230/240 —— `GetHighestHealthWarlord` / `GetLowestHealthUnit` 的完整选法未读完。
+                    //   · 200/201 —— `CardScript.referencedCards`(+0x278)，**我们卡表没有这一列**
+                    //     （`cards_engine.json` 现读的 36 个键里没有）⇒ 差的是数据管线，不是实现；
+                    //   · 230 —— `GetHighestHealthWarlord` 的完整选法未读完（池内 ta 值里也没有 230）。
                     //   · **235 在 `GetTargets.c` 里没有任何分支**（现核 grep `0xeb` = 0 命中）
                     //     ⇒ 原版对 235 本来就返回空表 ⇒ 我们返回空**是对的**。
                     // 其余未列出的值同理：原版没有候选 ⇒ 空表（⛔ 不造兜底）。
@@ -223,7 +310,7 @@ namespace RuleEngine
             }
 
             ApplyFilters(ctx, c, thisCard, thisInst, thisSide, targetUnit, list);
-            Trim(list, c, thisCard, targetUnit);
+            Trim(ctx, list, c);
             return list;
         }
 
@@ -266,6 +353,126 @@ namespace RuleEngine
                 var u = board[s];
                 if (u != null) list.Add(new AiTargetRef { Unit = u, Inst = u.Instance, Side = side });
             }
+        }
+
+        /// <summary>
+        /// **`ta == 0 (any)` 的候选池** = 场上全部单位（双方，含督军）。
+        ///
+        /// 判据 = `AbilityLogic__GetTargets.c:884-891`：
+        /// `BattleManager__GetUnitsInPlayList(manager, result, /*clear*/0, 1,1,1,1,1,1,1,1)` ——
+        /// 那 8 个筛位**全是 1** ⇒ 「忽略 criteria 其余全部筛位」；随后 `goto LAB_180818485`
+        /// （= 函数出口 `return *result`）⇒ **不过筛、不 Trim**。
+        ///
+        /// ⚠️ 这里**仍然要判「在不在场」**：`GetUnitsInPlayList` 内部走的是 `CardScript.IsInPlay`
+        /// （`BattleManager__GetUnitsInPlayPooledList.c:70-73`），所以**待死（`waitingToDie=5`）**
+        /// 与「血已归零还没结算」的都不算。⛔ 别拿 `AddBoard` 直接顶 —— 那个不过 `IsInPlay`
+        /// （它服务的那几档后面还有 `ApplyFilters` 兜，这一档没有）。
+        /// </summary>
+        static void AddAllUnitsInPlay(List<AiTargetRef> list, BattleContext ctx)
+        {
+            for (int side = 0; side < 2; side++)
+            {
+                var board = ctx.Players[side].Board;
+                for (int s = 0; s < BoardSpec.Size; s++)
+                {
+                    var u = board[s];
+                    if (u == null || !u.IsAlive || ctx.IsPendingDeath(u)) continue;
+                    list.Add(new AiTargetRef { Unit = u, Inst = u.Instance, Side = side });
+                }
+            }
+        }
+
+        /// <summary>
+        /// **`ta == 140 / 150`（`previousAbilityTargets` / `previousAbilityFiltered`）的候选池**
+        /// = <see cref="BattleContext.PreviousAbilityTargets"/>（原版静态表 `pooledPossibleTargets`，
+        /// 写入 = `AbilityLogic__SetPreviousAbilityTargets.c:19-28` 的「先 `Clear` 再 `AddRange`」整表覆盖）。
+        ///
+        /// 两档**共用这一份候选**，差别只在**后面**：140 直接返回（不过筛），150 落到通用筛选尾
+        /// （`GetTargets.c:849-866` vs `:867-882` —— 前者 `:865 goto` 出函数，后者不 return）。
+        ///
+        /// ⚠️ **`Side` 判不出就出声 + 跳过**（⛔ 不静默算成敌方）：AI 评分按 `Side` 分朋友/敌人
+        /// （`AiScoring.ScoreFromCriteria` 的 `Count` / `SideMul`），`-1` 会被算进敌方那一栏。
+        /// 今天本表只装**场上单位**（写点 = `EffectResolver.NotePreviousAbilityTargets`，
+        /// 取的是 `ctx.LastTargets`）⇒ 这一支零可达；原版表里可以有手牌/牌库的卡（`SW51` 的上一跳）。
+        /// </summary>
+        static void AddPreviousAbilityTargets(List<AiTargetRef> list, BattleContext ctx)
+        {
+            var prev = ctx.PreviousAbilityTargets;
+            for (int i = 0; i < prev.Count; i++)
+            {
+                var u = prev[i];
+                if (u == null) continue;
+                int side = SideOf(ctx, u);
+                if (side < 0)
+                {
+                    UnityEngine.Debug.LogWarning(
+                        "[AiTargets] `previousAbilityTargets` 里有**判不出阵营**的候选「"
+                        + (u.Name ?? "?") + "」—— **跳过它**（不按敌方算）。"
+                        + "判据 → Data/AiTargets.cs 的 AddPreviousAbilityTargets doc");
+                    continue;
+                }
+                list.Add(new AiTargetRef { Unit = u, Inst = u.Instance, Side = side });
+            }
+        }
+
+        /// <summary>
+        /// **`ta == 240 (lowestHealth)`** —— 原版 `AbilityLogic__GetTargets.c:835-844`
+        /// （`iVar6 == 0xf0`）：`BattleManager__GetLowestHealthUnit(manager, bVar16)` 取**一个**单位。
+        ///
+        /// **选的是哪一侧**（`bVar16` 的来路 = `GetTargets.c:207-219`，相对 `thisCard` 解析）：
+        /// <code>
+        ///   if (thisCard.isPlayer == 0) { bVar16 = criteria.enemyUnits;  ... }   // 敌方 = player 0 那一侧
+        ///   else                        { bVar16 = criteria.friendlyUnits; ... }
+        /// </code>
+        /// 而 `BattleManager__GetLowestHealthUnit.c:63-64` 里 `param_2 == 0` 只收 `isPlayer == 0` 的卡、
+        /// `param_2 != 0` 只收 `isPlayer != 0` 的卡 ⇒ **`bVar16` 的含义是「要不要 player 0 那一侧」**。
+        /// ⇒ 翻译成本工程的 `thisSide`：
+        /// `player0 = (thisSide == 0) ? friendlyUnits : enemyUnits`；选中 = `player0 ? 0 : 1`。
+        /// ⚠️ **两侧都勾/都不勾时的行为照抄原版**：两侧都勾且 `thisSide==0` ⇒ 只取 player 0 那侧；
+        /// 都不勾 ⇒ 取 player 1 那侧（`bVar16` 假）。
+        ///
+        /// **挑法**（`BattleManager__GetLowestHealthUnit.c:150-215`）：
+        ///   · 只在**该侧**的卡里挑，候选闸 = `IsInPlay` ∧ `!EnoughPendingDamageToDie` ∧
+        ///     `cardType ∉ {20 Tactic, 40 Whispers}` ∧ `!isRemnant(+0x65)`；
+        ///   · 比的是 `currentHealth`，**严格小于**才换人 ⇒ **并列留先者**；
+        ///   · 初始 best 就是**该侧督军**（`:100-104` 那句 `lVar9 = *(hero + 0x28)`），
+        ///     所以**空场回落督军**、**并列也优先督军**；遍历序 = `allCardsInPlay` 追加序（= `PlayOrder`）。
+        /// </summary>
+        static void AddLowestHealthUnit(List<AiTargetRef> list, BattleContext ctx, int thisSide,
+                                        AiTargetCriteriaDto c)
+        {
+            bool player0 = thisSide == 0 ? c.friendlyUnits : c.enemyUnits;
+            int side = player0 ? 0 : 1;
+
+            UnitState best = ctx.Players[side].Warlord;   // 原版初始 best = 该侧督军（空场回落 + 并列优先）
+            int bestHp = best != null ? best.Health : int.MaxValue;
+
+            // 遍历序照原版 `allCardsInPlay` = 进场追加序 ⇒ 按 `PlayOrder` 稳定排序（⛔ 别用格号：
+            // 格号序在「中间补位」之后与进场序不同）。
+            var board = ctx.Players[side].Board;
+            var order = new List<UnitState>();
+            for (int s = 0; s < BoardSpec.Size; s++)
+            {
+                var u = board[s];
+                if (u == null || ReferenceEquals(u, best)) continue;
+                if (!u.IsAlive || ctx.IsPendingDeath(u)) continue;
+                if (u.IsRemnant) continue;                       // `+0x65 == 0`
+                int ct = CardTypeOf(u.Card);
+                if (ct == 20 || ct == 40) continue;              // Tactic / Whispers 不入池
+                order.Add(u);
+            }
+            // 🔴 2026-10-24（F7）：⛔ 别用 `List.Sort` —— 它**不稳定**，而未取号的单位 `PlayOrder == -1`
+            //    ⇒ 同号之间次序任意，「并列留先者」会**静默退化**（同一局面两次挑出不同人）。
+            //    统一走 `RuleCore.StableSortByPlayOrder`（`-1` 排末尾 + 下标做第二排序键 ⇒ 稳定）。
+            RuleCore.StableSortByPlayOrder(order, u => u.PlayOrder);
+
+            for (int i = 0; i < order.Count; i++)
+            {
+                var u = order[i];
+                if (u.Health < bestHp) { best = u; bestHp = u.Health; }   // **严格小于** ⇒ 并列留先者
+            }
+
+            if (best != null) AddUnit(list, best, side);
         }
 
         static void AddZone(List<AiTargetRef> list, List<CardInstance> zone, int side)
@@ -583,38 +790,210 @@ namespace RuleEngine
 
         // ==================================================================
         //  `maxTargets` 截断（原版 `GetTargets.c` 尾部 switch，`targetSelectMethod`）
+        //
+        //  🔴 **2026-10-24（引擎线 `G3`）整块按原版重写** —— 判据 = `C5_剩余判据普查.md` §2
+        //     （第一权威：`d:/2/tools/decomp_full/AbilityLogic__GetTargets.c:1164-1366`）。
+        //     `targetSelectMethod` 是**纯客户端字段**（卡 SO 的 `TargetCriteria.targetSelectMethod`），
+        //     ⛔ 不是服务端下发 —— 所以这一块能逐字复刻。
+        //
+        //  **状态 → 行为**（`+0x44` = targetSelectMethod；`:1170` 起 `switch`）：
+        //  | 值 | 原版 | 本实现 |
+        //  |---|---|---|
+        //  | 0 | **落 `default:`**：随机取 N（`:1250-1273`） | 同（`TrimRandom`） |
+        //  | 1 | `OrderBy(isRemnant(+0x65)).ThenByDescending(max(近战,远程))`（`:1172-1207`） | 同 |
+        //  | 2 | `OrderByDescending(GetValueInPlay)`（`:1208-1228`） | 同 |
+        //  | 3 | `OrderBy(GetValueInPlay)`（`:1229-1249`） | 同 |
+        //  | 4 | **switch 里没有 case 4** ⇒ 落 `default:` = **随机取 N** | 同（并进 `default`） |
+        //  | 5 | 建新表、**从尾往前**拷 `maxTargets` 个（`:1274-1310`） | 保尾（`RemoveRange(0, …)`） |
+        //  | 6 | `OrderBy(CurrentIntrinsicHealth)`（`:1311-1331`） | 同（`CurrentIntrinsicHealth`） |
+        //  | 7 | 建新表、从头拷 `maxTargets` 个（`:1332-1360`） | 保头 |
+        //  其余没列的值（含 8 以后）在原版里**同样落 `default:` = 随机** ⇒ 本实现一并走随机。
+        //
+        //  **并列**：LINQ `OrderBy` 稳定 ⇒ 并列保留源表顺序 = `unitsInPlay(+0x470)` 的**追加序**
+        //  = 进场序（`C5` §2·3）。我们的等价物 = `UnitState.PlayOrder`
+        //  ⇒ `StableSortWithPlayOrder` 把「主键 → `PlayOrder` → 原下标」三段做全序。
+        //  ⚠️ **⛔ 不能用 `List.Sort`**：它**不稳定**（同样输入可能给出不同次序）。
+        //
+        //  **随机源**：`ctx.AiRng`（`System.Random(seed ^ 0x0A1A1A1A)`，见 `BattleContext.AiRng` 的 doc）
+        //  —— 同一局面同 seed 结果固定；⛔ 不用 `UnityEngine.Random`（工程铁律）。
+        //  🔴 **有意偏离原版（2026-10-24 主对话拍板 · 不是「等价」）**：
+        //     原版 `BattleManager.GetRandomInt` 是**单流**，AI 评分与伤害/随机目标共用它；
+        //     本仓既有决定是「**AI 这一侧的随机走 `ctx.AiRng`**，不挪动共享流」
+        //     （`BattleContext.cs:371-377`，理由 = `ShowRng` 同族：共享流一动，
+        //      同一副牌的动作序列就整体错位，而**回放不重掷**）。⇒ 本处照那条决定走 `AiRng`。
+        //     ⚠️ 后果：同一 seed 下，我们的 AI 抽签序列**与同种子的原版局不同** ——
+        //       这是**契约优先**的选择（回放 / 自检可复现 > 逐位复刻原生随机序列）。
+        //  🔴 **2026-10-24（`G3` 现读就地订正 —— 铁律 5）**：本段原来写「走随机的 0/4 那条
+        //  **没有任何评分判据今天会踩到**」——**不成立**。现读 `ai_scoring.json`（1,351 张）：
+        //  `targetSelectMethod != 0 或 maxTargets > 0` 的判据共 **7 条**，其中 **6 条是
+        //  `method == 0` 且 `maxTargets > 0`**（method 0 一样落 `default:` = 随机，不是「不截」）：
+        //    · `BL53 Heldrake Strike`（max 3）· `SOR48 Imperial Creed`（max 3）
+        //    · `Lord of the Storm` / `Hero of the Empire` / `GSC56 A Trap Sprung` /
+        //      `Grisly Feast`（各 max 1）
+        //  ⇒ 这 6 条从「保前 N」变成**随机**，每次评估都会从 `ctx.AiRng` 取数
+        //    （**不碰 `ctx.Rng`** ⇒ 不影响伤害/随机目标那一路，也不影响回放动作流）。
+        //  📌 只走排序的那 1 条 = `SOR51 Divine Intervention`（`method 1` / `maxTargets 1`），
+        //     它的 `includeRemnants` 缺省 false ⇒ 残骸早被筛掉 ⇒ `isRemnant` 主键对它今天**空转**。
         // ==================================================================
 
-        static void Trim(List<AiTargetRef> list, AiTargetCriteriaDto c, CardDef thisCard, UnitState targetUnit)
+        /// <summary>
+        /// 按 `targetSelectMethod` 把候选表截断到 `maxTargets` 个。
+        /// <para>⚠️ `ctx` 只用于**随机**那一支（原版 `BattleManager.GetRandomInt` → 我们 **`ctx.AiRng`**，
+        /// 刻意不走共享的 `ctx.Rng`，理由见上方块注释「有意偏离原版」）。</para>
+        /// </summary>
+        static void Trim(BattleContext ctx, List<AiTargetRef> list, AiTargetCriteriaDto c)
         {
+            // 原版 `:1164-1170`：`param_6`(applyMaxTargets) 为假 或 `maxTargets < 1` ⇒ 不截；
+            // `list.Count <= maxTargets` ⇒ 不截（连排序都不做）。
             if (c.maxTargets <= 0 || list.Count <= c.maxTargets) return;
 
             switch (c.targetSelectMethod)
             {
-                case 1: // highestAttack
-                    list.Sort((a, b) => b.Attack.CompareTo(a.Attack));
+                case 1: // highestAttack —— 🆕 主键 `isRemnant`（升序：非残骸在前）、次键 `max(近战,远程)` 降序
+                    StableSortWithPlayOrder(list, delegate (AiTargetRef a, AiTargetRef b)
+                    {
+                        int c1 = (a.IsRemnant ? 1 : 0).CompareTo(b.IsRemnant ? 1 : 0);
+                        if (c1 != 0) return c1;
+                        return b.HighestAttack.CompareTo(a.HighestAttack);
+                    });
                     break;
                 case 2: // highestValueInPlay
-                    list.Sort((a, b) => SimpleAI.ValueInPlay(b.Unit).CompareTo(SimpleAI.ValueInPlay(a.Unit)));
+                    StableSortWithPlayOrder(list, delegate (AiTargetRef a, AiTargetRef b)
+                    {
+                        return SimpleAI.ValueInPlay(b.Unit).CompareTo(SimpleAI.ValueInPlay(a.Unit));
+                    });
                     break;
                 case 3: // lowestValueInPlay
-                    list.Sort((a, b) => SimpleAI.ValueInPlay(a.Unit).CompareTo(SimpleAI.ValueInPlay(b.Unit)));
+                    StableSortWithPlayOrder(list, delegate (AiTargetRef a, AiTargetRef b)
+                    {
+                        return SimpleAI.ValueInPlay(a.Unit).CompareTo(SimpleAI.ValueInPlay(b.Unit));
+                    });
                     break;
-                case 6: // lowestHealth
-                    list.Sort((a, b) => a.Health.CompareTo(b.Health));
-                    break;
-                case 4: // cardTarget —— 目标排最前
-                    list.Sort((a, b) =>
-                        (b.Unit != null && ReferenceEquals(b.Unit, targetUnit)) ? 1
-                      : (a.Unit != null && ReferenceEquals(a.Unit, targetUnit)) ? -1 : 0);
+                case 6: // lowestHealth —— 🆕 键从裸 `Health` 换成 `CurrentIntrinsicHealth`
+                    StableSortWithPlayOrder(list, delegate (AiTargetRef a, AiTargetRef b)
+                    {
+                        return CurrentIntrinsicHealth(a).CompareTo(CurrentIntrinsicHealth(b));
+                    });
                     break;
                 case 5: // lastAdded —— 保尾部
                     list.RemoveRange(0, list.Count - c.maxTargets);
                     return;
-                default: // 0 random / 7 firstAdded —— 保前 N（random 在池内 0 条）
+                case 7: // firstAdded —— 保头部
                     break;
+                default: // 0 random / 4 cardTarget（原版**没有 case 4**）—— 随机取 N
+                    TrimRandom(ctx, list, c.maxTargets);
+                    return;
             }
             if (list.Count > c.maxTargets) list.RemoveRange(c.maxTargets, list.Count - c.maxTargets);
+        }
+
+        /// <summary>
+        /// 原版 `default:` 支（`GetTargets.c:1250-1273`）：
+        /// <code>
+        ///   lVar7 = new List&lt;…&gt;();
+        ///   for (i = 0; i &lt; maxTargets; i++) {
+        ///     uVar4 = BattleManager__GetRandomInt(param_1, 0, list.Count);  // [0, Count)
+        ///     List__Add(lVar7, List__get_Item(list, uVar4));
+        ///     List__RemoveAt(list, uVar4);                                  // 取一个删一个
+        ///   }
+        ///   list = lVar7;                                                   // **结果按抽中序**
+        /// </code>
+        /// ⇒ 无放回随机取 `maxTargets` 个，**结果的次序 = 抽中的次序**（不是原表次序）。
+        /// 我们照抄这个形状（`ctx.AiRng.Next(list.Count)` 同 `GetRandomInt(0, Count)`），
+        /// 但**随机流换成 `AiRng`**（原版是单流 `GetRandomInt`）——这处**有意偏离**，
+        /// 理由 = 本仓「AI 随机不挪动共享流」的既有决定，见上方块注释。
+        /// </summary>
+        static void TrimRandom(BattleContext ctx, List<AiTargetRef> list, int keep)
+        {
+            if (keep >= list.Count) return;
+            var picked = new List<AiTargetRef>(keep);
+            for (int i = 0; i < keep; i++)
+            {
+                int k = ctx.AiRng.Next(list.Count);    // 上界开区间 ⇒ [0, Count)；流 = AiRng（见上）
+                picked.Add(list[k]);
+                list.RemoveAt(k);
+            }
+            list.Clear();
+            list.AddRange(picked);
+        }
+
+        /// <summary>
+        /// **稳定排序 + 并列按进场序**：主键相同时比 `PlayOrder`（`-1` 排末尾），仍然相同再比原下标。
+        /// ⇒ 等价于原版「源表 = `unitsInPlay` 追加序」上的 LINQ 稳定 `OrderBy`。
+        /// ⚠️ **⛔ 别改成 `list.Sort(cmp)`**：那是**不稳定**排序，并列时次序取决于内部实现。
+        /// </summary>
+        static void StableSortWithPlayOrder(List<AiTargetRef> list, System.Comparison<AiTargetRef> primary)
+        {
+            int n = list.Count;
+            if (n < 2) return;
+            var items = new AiTargetRef[n];
+            var rank = new int[n];
+            var idx = new int[n];
+            for (int i = 0; i < n; i++)
+            {
+                items[i] = list[i];
+                int po = items[i].PlayOrder;
+                rank[i] = po < 0 ? int.MaxValue : po;     // 没进场号 ⇒ 末尾（与 `RuleCore.StableSortByPlayOrder` 同口径）
+                idx[i] = i;
+            }
+            System.Array.Sort(idx, delegate (int a, int b)
+            {
+                int r = primary(items[a], items[b]);
+                if (r != 0) return r;
+                r = rank[a].CompareTo(rank[b]);
+                if (r != 0) return r;
+                return a.CompareTo(b);                   // 全序兜底 ⇒ 确定性
+            });
+            for (int i = 0; i < n; i++) list[i] = items[idx[i]];
+        }
+
+        /// <summary>
+        /// 🆕 **`EntityScript.CurrentIntrinsicHealth()`**（`targetSelectMethod == 6` 的排序键）。
+        ///
+        /// 判据 = `d:/2/tools/decomp_full/EntityScript__get_CurrentIntrinsicHealth.c:44-62`：
+        /// <code>
+        ///   iVar3 = 0;
+        ///   foreach (var eff in activeEffects(+0x108))            // List&lt;CardEffect&gt;
+        ///     if (eff.extrinsic(+0x30) != 0 &amp;&amp; eff.buffType(+0x38) == 1 /*addStats*/)
+        ///       iVar3 += eff.healthChange(+0x60);
+        ///   return currentHealth(+0x68) - iVar3;
+        /// </code>
+        /// ⇒ **当前生命 − 「extrinsic（在场上才成立）的 addStats 效果」给的那份生命**。
+        /// （`buffType` 枚举 → `dump.cs:45430-45450`；`CardEffect` 字段 → `dump.cs:119071-119094`。）
+        ///
+        /// 🔴 **我们的等价物与它的边界**（如实标注，⛔ 别当成逐字等价）：
+        ///   · 我们**没有** `CardEffect` 对象表（属性 buff 直接折进 `UnitState.Health/MaxHealth`），
+        ///     唯一**带账**的 extrinsic 一族 = **光环层**（`Auras.ApplyAura` 走
+        ///     `UnitState.RecordGrant(…, Auras.GrantTag)`，`Core/Aura.cs:805`）；
+        ///     原版 `extrinsic = abilityData.whileInPlay || whileInPlayVariable`（`dump.cs:19557-19566`）
+        ///     而我们的 whileInPlay 能力**全都落在光环层**（`CardDef.AuraSpecs`）⇒ 这一族对得上。
+        ///   · 因此**只减 `Source == Auras.GrantTag` 且 `Attr == "health"` 的那几条**。
+        ///     ⛔ **不减**其它 health 记账（例：黑暗契约 `EffectResolver.cs:10376` 的 grant 是
+        ///     **永久关键词**给的、原版 `extrinsic` 为假 ⇒ 按原版「不减」）。
+        ///   · ⚠️ **已知不覆盖**：(a) 不走 `RecordGrant` 的 extrinsic 生命增益（今天没有产出者）；
+        ///     (b) 原版 `buffType == 9 setHealth`（如 `Eternal Servitude` 翻倍）**原版本来也不减** ——
+        ///     我们也不减 ✓；(c) 手牌/牌库候选没有运行时附魔 ⇒ 直接返回卡面 `Health`（原版同样只减
+        ///     `activeEffects`，手里那份为空）。
+        ///   ⛔ **别改用 `MaxHealth − Card.Health`**：那会把**非 extrinsic** 的生命增益（一次性 buff）
+        ///     和 `setHealth` 一起减掉 —— 原版明确只减 extrinsic 那一族。
+        /// </summary>
+        static int CurrentIntrinsicHealth(AiTargetRef t)
+        {
+            if (t.Unit == null)
+            {
+                var card = t.Card;
+                return card != null ? card.Health : 0;
+            }
+            int h = t.Unit.Health;
+            var grants = t.Unit.PendingGrants;
+            for (int i = 0; i < grants.Count; i++)
+            {
+                var g = grants[i];
+                if (g == null || g.Attr != "health") continue;
+                if (g.Source != Auras.GrantTag) continue;    // 只减 extrinsic（whileInPlay）那一族
+                h -= g.Value;
+            }
+            return h;
         }
 
         // ==================================================================

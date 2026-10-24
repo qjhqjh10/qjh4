@@ -617,10 +617,20 @@ namespace CardPresentation
                 myHero = "", foeHero = "",                 // 结算时补（此刻还没抽出督军）
                 // 🆕 2026-10-18（A938）：教程局要把**关号**也记下来（重建这一局少不得它，见那个字段的注释）。
                 //   ⚠️ 哨兵是 **`0` = 不是教程局**（不是 `-1`）—— 老录像的 JSON 里没这个键，
-                //      读出什么取决于 `JsonUtility` 跑不跑初始化器（**本地无判据**）⇒ 取 `0` 才两条路都安全。
+                //      读出什么取决于 `JsonUtility` 跑不跑初始化器 ⇒ 取 `0` 才两条路都安全。
+                //   ✅ **2026-10-24（执行代理 `B1` · 铁律 5）就地订正：这条「本地无判据」已经结案** ——
+                //      A8 实测：`JsonUtility` **会跑无参构造 ⇒ 会跑字段初始化器** ⇒ 缺键字段留的是
+                //      **初始化器的值**，不是 `default(T)`（依据 + 探针断言 →
+                //      `资料/普查产出_1024/A8_断言归口.md` §JsonUtility）。`ReplayRecord` **没有显式构造**
+                //      ⇒ 属「会跑初始化器」那一档。⇒ 上面那句「取 `0` 才两条路都安全」的**结论不变**
+                //      （`0` 与初始化器默认值一致），但**理由要按新判据读**：缺键读到的是初始化器的值。
                 tutorialStage = _tutorialStage != null ? _tutorialStage.stage : 0,
                 // 🆕 2026-10-19（A1087）：开局这一格也要记（存**值 + 2** —— 哨兵纪律见 `ReplayStore.botSeatPlus2`）。
                 botSeatPlus2 = botSeat + 2,
+                // 🆕 2026-10-24（`A2` · `F2` 顺手发现 3）：**开局有没有换牌阶段**也进录像头
+                //   （存**值 + 1**：0 = 没记 / 1 = false / 2 = true —— 哨兵纪律见 `ReplayStore.mulliganPlus1`）。
+                //   ⛔ 它不进 `MsgStart`（那是联机协议结构，加字段 = 把码送上网）。
+                mulliganPlus1 = mulliganEnabled ? 2 : 1,
                 start = new MsgStart
                 {
                     seed = seed,
@@ -773,6 +783,14 @@ namespace CardPresentation
 
             bool keepRecording = RecordReplays;
             RecordReplays = false;                 // 🔴 **放的时候别录**（否则会把回放自己录成新的一局）
+            // 🆕 2026-10-24（`A2` · `F2` 顺手发现 3）：**开局那一格照录像头** —— 录制时开着换牌，
+            //   回放就必须也开着（否则动作流里的 `Mulligan*` 那几条会被引擎拒掉 / 从第一条就错位）。
+            //   `MulliganEnabledForReplay == null` = **老录像没记** ⇒ 保留 driver 当时的字段值
+            //   （行为逐字不变）。⚠️ 用完在 `finally` 里还原（别把回放的档留给下一局）。
+            bool? replayMulligan = rec.MulliganEnabledForReplay;
+            bool savedMulligan = mulliganEnabled;
+            ReplayMulliganPlus1AppliedForTest = rec.mulliganPlus1;   // 自检口（见那个属性的 doc）
+            if (replayMulligan.HasValue) mulliganEnabled = replayMulligan.Value;
             // 🔴 **2026-10-24（`A29`）**：这一趟是**重放**（不是活局）⇒ `ApplyLoggedAction` 里那句
             //   「换牌一落地就补 `BeginTurn`」**不在这里走**，交给 `NetApply.Apply` 在第一条真动作前补。
             bool keepLogReplaying = _logReplaying;
@@ -868,9 +886,11 @@ namespace CardPresentation
                         //   在这里够不着，得**自己补一次**：录制端在「换牌一结束就投降 / 掉线判负」那一局里
                         //   早就开过回合了（活局 `ApplyLoggedAction` 末尾）⇒ 这一格的 `DeepHash` 含回合已开。
                         //   ⚠️ 幂等（没有待办 = 空操作）；⚠️ 必须排在 `Forfeit` **之前**（它之后 `ctx.IsOver`，
-                        //      `BeginTurnCore` 会直接 return ⇒ 补了也白补）。`RuleCore.BeginTurn` 自己也有
-                        //      `IsOver` 闸，两处同口径。
-                        NetApply.BeginTurnAfterSetup(Ctx);
+                        //      `BeginTurnCore` 会直接 return ⇒ 补了也白补）。
+                        // 🔴 **2026-10-24（执行代理 `B1` · 引擎线 `A1` 第 4 件）**：改走 `CompleteReplayBeginTurn()`
+                        //   —— 它内部仍先走 `NetApply.BeginTurnAfterSetup`（**待办标记只有它会消费**），
+                        //   再对「被 `IsOver` 闸挡成空操作」那一档用 `RuleCore.BeginTurnForReplayExpansion` 补上。
+                        CompleteReplayBeginTurn();
                         RuleCore.Forfeit(Ctx, m.actor, replayResultCode);
                         continue;
                     }
@@ -950,7 +970,10 @@ namespace CardPresentation
                 //   永远等不到真动作 ⇒ 这里补一次。**幂等**：正常录像在这一刻早就开过回合了，是空操作。
                 //   ⚠️ 不补的话，这种录像的终局指纹会与录制时差一个「回合开始」（并且 `_replayDivergence`
                 //      不会置位 —— 终局指纹那条断言会红、但说不出为什么）。
-                NetApply.BeginTurnAfterSetup(Ctx);
+                // 🔴 **2026-10-24（执行代理 `B1` · 引擎线 `A1` 第 4 件）**：改走 `CompleteReplayBeginTurn()`
+                //   —— 「换牌阶段就投降」的录像走到这里时 `Forfeit` 已落地（`ctx.IsOver`）⇒ 普通
+                //   `BeginTurn` 是空操作，得用回放展开入口补上（判据 → `RuleCore.BeginTurnForReplayExpansion`）。
+                CompleteReplayBeginTurn();
                 int got = NetProtocol.StateHash(Ctx);
                 bool same = got == rec.finalHash;
                 Debug.Log($"[Replay] 演完了：{Ctx.Turn} 回合 · 终局指纹 {got}"
@@ -960,7 +983,7 @@ namespace CardPresentation
                         + (same ? "" : "（说明有动作没录全 —— 如实报出来，别当演对了）"));
                 return same;
             }
-            finally { RecordReplays = keepRecording; _logReplaying = keepLogReplaying; }
+            finally { RecordReplays = keepRecording; _logReplaying = keepLogReplaying; mulliganEnabled = savedMulligan; }
         }
 
         /// <summary>放一份录像（按文件名）。</summary>
@@ -1041,6 +1064,19 @@ namespace CardPresentation
             //   而重放侧要等「第一条真动作」才补 ⇒ **这里不补，本机就停在回合 0**，
             //   下一次指纹对账必然对不上（而且 `NetKind.Hash` 那一支只会打一句「回合对不上，先不判」⇒ 静默）。
             //   **幂等**：正常重连（流里已经有过真动作）这里是空操作。
+            // 🔴 **2026-10-24（执行代理 `D6` · 审查 `R1`-P1-6）**：这里**退回普通入口**
+            //   （`NetApply.BeginTurnAfterSetup` = `ctx.IsOver` 时**空操作**），⭐ **不**走
+            //   `CompleteReplayBeginTurn()` 那条强制路。理由（两条，缺一不可）：
+            //     ① **`NetReplay` 不是「放录像」** —— 它是**活局的重建**：状态必须与主机逐位一致，
+            //        主机那边是「真实时序」下的结果，不是「回放到收尾才补」的结果。
+            //     ② 强制入口（`RuleCore.BeginTurnForReplayExpansion`，越过 `IsOver` 闸）会在**局终之后**
+            //        再跑一次 `BeginTurnCore` 的全套：`Turn++` · 能量 · 抽牌 · `ExpireCostMods` ·
+            //        `DiedThisTurn` 滚动 · 光环重算…；而**主机侧那些效果发生在弃权之前**。
+            //        两套顺序不交换 ⇒ 被 `IsOver` 闸掉的触发（如 `EmitDeadByAbility` 那类）
+            //        与主机侧**顺序不同**，`StateHash` 会**反向发散**（改前这里是空操作，至少不会更差）。
+            //   ⇒ 强制入口只用于**回放播放**那两处（`PlayReplay` 的 `RecKindForfeit` 支 + 流尾）；
+            //     「重连赶上换牌刚完就断」那一格**仍然欠着**（正确修法要在 `NetApply.Apply` 里
+            //     按原版次序把 `BeginTurn` 挪到 `MulliganDone` 之后、弃权之前 —— 那是 `Net/**` 的活）。
             NetApply.BeginTurnAfterSetup(Ctx);
             RefreshAll(); UpdateHud();
             }
@@ -1048,6 +1084,40 @@ namespace CardPresentation
             // 🔴 2026-10-22：原来这里 `SetHint("已重连并追平")` —— **我们自拟的句子，已删**
             //   （原版没有对应词条）。重连这件事本身照样出声：上面那几条 `[Replay]`/`[Net]` 日志在。
             NetAfterTurnStart();
+        }
+
+        /// <summary>🆕 **2026-10-24（执行代理 `B1` · 引擎线 `A1` 第 4 件）：【回放播放】那一趟「补开回合」的出口。**
+        ///
+        /// <para>🔴 **2026-10-24（执行代理 `D6` · 审查 `R1`-P1-6）范围收紧**：⛔ **只有 `PlayReplay` 用它**
+        /// （那两处：`RecKindForfeit` 支 + 动作流收尾）。**`NetReplay` 不许用** —— 理由见 `NetReplay`
+        /// 收尾那段注释：重连是**活局重建**、状态必须与主机逐位一致，而强制入口会在**局终之后**再跑
+        /// 一次 `BeginTurnCore`，与主机侧（那些效果发生在弃权之前）**顺序不同** ⇒ `StateHash` 反向发散。
+        /// 「重连赶上换牌刚完就断」那一格**仍然欠着**，正确修法在 `NetApply.Apply`（`Net/**`）。</para>
+        ///
+        /// <para>**它补的格子**（判据 → `资料/普查产出_1024/A1_引擎五件.md` 第 4 件）：
+        /// 「换牌阶段就投降 / 掉线判负」的录像 —— 录制端在 `MulliganDone` 之后那一拍
+        /// `BeginTurn` **真的跑过**（回合 +1 / 能量 / 抽牌都进了 `DeepHash`），而重放端把「补开回合」
+        /// 推迟到**收尾**才做，那时 `Forfeit` 已经落地 ⇒ `ctx.IsOver` ⇒ 普通 `BeginTurn` **空操作**
+        /// ⇒ 终局指纹差一格（回合少 1、少抽一张）。</para>
+        ///
+        /// <para>🔴 **为什么不是直接换一句 `RuleCore.BeginTurnForReplayExpansion(Ctx)`**：
+        /// 「换牌做完了、回合还没开」那个**待办标记**（`NetApply.PendingSetupBegin`）**只有
+        /// `NetApply.BeginTurnAfterSetup` 会消费**（`Net/**` 本轮不动）—— 直接换会把标记留在表里，
+        /// 后续任何一次 `NetApply.Apply` 都会**再开一个回合**（回合号 +1，静默改状态）。
+        /// ⇒ 这里先走 `NetApply.BeginTurnAfterSetup`（幂等、消费标记），
+        /// 再用「**回合号有没有动**」判它是不是被 `IsOver` 闸挡成了空操作，是才用强制入口补一次。
+        /// ⚠️ `BeginTurnCore` 唯一的提前返回就是 `IsOver`（别的路都必然 `Turn++`）⇒ 这个判别式是精确的。</para></summary>
+        void CompleteReplayBeginTurn()
+        {
+            if (Ctx == null) return;
+            int before = Ctx.Turn;
+            bool opened = NetApply.BeginTurnAfterSetup(Ctx);
+            if (opened && Ctx.Turn == before)
+            {
+                RuleCore.BeginTurnForReplayExpansion(Ctx);
+                Debug.Log($"[Replay] 补开回合：普通 `BeginTurn` 被 `IsOver` 挡成空操作"
+                        + $"（`Forfeit` 已落地）⇒ 走回放展开入口补上（回合 {before} → {Ctx.Turn}）");
+            }
         }
 
         /// <summary>每回合开始（换边之后）要做的一件事：**对一次状态指纹**。</summary>
@@ -1565,6 +1635,14 @@ namespace CardPresentation
         /// <summary>自检用：这个驱动一共**记过几次结算账**（每局至多一次）。
         /// 「放一局录像不会再记一遍账」这条断言就比它：`PlayReplay` 前后这个数**不该变**。</summary>
         public int SettleCount { get { return _settleCount; } }
+        /// <summary>🆕 2026-10-24（执行代理 `A2` · `F2` 顺手发现 3）：**上一次 `PlayReplay` 从录像头读到的
+        /// `mulliganPlus1` 原样值**（`0` = 没记 / `1` = false / `2` = true）。
+        /// 自检拿它断「回放**真的**按录像头恢复、而不是恰好等于 driver 当时的字段值」。</summary>
+        public int ReplayMulliganPlus1AppliedForTest { get; private set; }
+        /// <summary>🆕 2026-10-24（执行代理 `A2`）：**上一次 `Begin` 里 `RuleCore.NewBattle` 收到的
+        /// `openMulligan`**（`1` = false / `2` = true）。与 <see cref="ReplayMulliganPlus1AppliedForTest"/>
+        /// 配对 ⇒ 证明「录像头那一格**真的传到了引擎**」（不是只在驱动字段上写了一下）。</summary>
+        public int MulliganSeenByBeginForTest { get; private set; } = -1;
         /// <summary>自检用：🆕 **2026-10-19（T07）** 战后收尾闸（<see cref="StopBattleAfterBattleEnd"/>）跑过几次。
         /// 正常对局 = **1**（结算那一刻跑一次）；回放局不结算 ⇒ **0**；`Begin()` 清零。</summary>
         public int StopBattleAfterBattleEndCount { get { return _stopBattleAfterEndCount; } }
@@ -4215,6 +4293,16 @@ namespace CardPresentation
             // 🆕 2026-10-23（`新账-84`）：攻击锚点记账同理（「本局排过哪些件的锚点」，自检读它）。
             _attackAnchorPlans.Clear();
             _lastAttackEventAt = -1f;
+            // 🆕 2026-10-24（执行代理 `B1` · C2 §4·4 / D3）：**本局账**（同一个 driver 会被 `Restart()`
+            //   再 `Begin` 一次 ⇒ 跨局泄漏同族）。
+            //   · 敌方聊天计数 / SmallTip 的「一辈子一次」闩 / 回合号；
+            //   · 技能动画的起播时刻自检口。
+            //   ⚠️ **静音开关不复位**：它是**设置**（跟 `SettingsPanel.MuteChatOn` 走，见 `ChatMuted` 的 doc），
+            //      不是本局的账 ⇒ ⛔ 别顺手把它清成 false（那会和设置窗显示的 OFF 打架）。
+            _enemyChatsThisTurn = 0;
+            _enemyChatTipShown = false;
+            _chatTurnSeen = -1;
+            LastUnitSkillBeatAtForTest = -1f;
 
             // 🆕 2026-10-01：**「已经把键让出去了、等演出」的那几张**同理（`DetachStaleView` 摘的）
             foreach (var kv in _myFading) if (kv.Value != null) Kill(kv.Value.gameObject);
@@ -4410,6 +4498,7 @@ namespace CardPresentation
             //   全错位（`RuleCore.GoesSecondCard`）⇒ 回放演成另一局。
             int botSeatThisGame = botSeatOverride ?? (AiShouldDriveOpponent ? 1 : -1);
             // 🆕 A1127：这一格的 `shuffle` 改由 `Begin` 的形参来（原来是字段 `_shuffleDecks` —— 跨局泄漏形状，已删）
+            MulliganSeenByBeginForTest = mulliganEnabled ? 2 : 1;   // 自检口（见那个属性的 doc）
             Ctx = RuleCore.NewBattle(myCards, foeCards, seed, shuffle: shuffle, cardPool: pool,
                                      openMulligan: mulliganEnabled, vars: _vars, firstSeat: firstSeat,
                                      tutorial: tutorial, botSeat: botSeatThisGame);   // A1070：单机（无联机层）⇒ 座位 1 是电脑
@@ -5743,12 +5832,83 @@ namespace CardPresentation
         /// <summary>自检口：最近一条 AI 台词命中的 `ev`（`greet` / `threat` / … / `default`）。</summary>
         public string LastAiChatEvent { get; private set; }
 
+        // ==================================================================
+        //  🆕 2026-10-24（执行代理 `B1` · `C2` §4·4 / §4·5 / §4·7 · 战斗线「对手聊天」）
+        //  **静音闸 + 第 5 条之后的 SmallTip**
+        // ==================================================================
+        //  原版判据（第一权威，逐句）= `VoiceLinesController__DisplayWarlordChatMessage.c`：
+        //    ① 开头 `if (param_4 /*force*/ == 0 && !CanChat(isLocal)) return;`；
+        //    ② `CanChat(isLocal)`：`isLocal == 0` 时要求 `chatMuted(+0x40) == 0`（`CanChat.c:20-26`）
+        //       ⇒ **静音的消费点 = 敌方督军的非 forced 聊天**（气泡 + 语音一起没有）；
+        //    ③ 末尾 tip 分支（**不在 `isLocal` 那一支里**）：
+        //       `isLocal == 0 ∧ tipShowed(+0x68) == 0 ∧ chatMessage != 0 ∧ chatMuted(+0x40) == 0`
+        //       ⇒ `chatsReceivedInTurn(+0x6c)++` ；**> 4** ⇒ `+0x6c = 0` · `+0x68 = 1` ·
+        //       建 `SmallTipData(tipText = L("Battle/Tips/MuteEnemyChat"), tipDuration = 4.0)` 并
+        //       **`ShowChatBox(panel, 2 /*RadioChat*/, data)`**（立绘/音源 = `GetHero(isLocal: 0)` = **敌方**督军；
+        //       `GenerateVoiceLineData(audio: null)` ⇒ 气泡时长 = `GetCurrentClipLength(null)` = **2.0 s**、无语音）。
+        //    ④ 计数器**每回合清零**：`BattleManager._NextTurn_d__395__MoveNext.c:181` →
+        //       `VoiceLinesController.ResetChatsReceived()`。
+        //  ⚠️ `CheckIfEnemyChatReceivedForTip` **全库 0 调用点**（那份 `.c` 里装的是别的函数）⇒ 判据是内联的，
+        //     ⛔ 别去「接这个方法」。
+        //  ⚠️ 「SmallTip」在这里**只是一颗 `RadioChat` 气泡**，⛔ **不是** `TutorialOverlay` 的那套 SmallTip
+        //     （那是另一条链：`tipDuration 4.0`、`WaitingForTutorialTipFlag`）。本处用不到它。
+
+        /// <summary>官方本地化键（两列都有：`You can mute enemy chat in settings` /
+        /// `你可以在设置中静音敌人聊天`，`数据/游戏数据/官方本地化_en+zh-CN.json`）。</summary>
+        public const string MuteEnemyChatTerm = "Battle/Tips/MuteEnemyChat";
+
+        /// <summary>敌方督军的聊天**静音**了吗（原版 `VoiceLinesController.chatMuted` **`+0x40`**）。
+        /// <para>**读口**：优先走注入的 <see cref="ChatMutedSource"/>（拉），没接就用推过来的字段。</para>
+        /// <para>**写口不在本类**：原版写点 = `BattleSettingsWindow.OnMuteChatChanged`（`+0x40 = v`）——
+        /// 我们的对应物是设置窗那一行（`SettingsPanel.SetMuteChat`）。接线见 <see cref="SetEnemyChatMuted"/>。</para>
+        /// <para>⚠️ **不需要每局复位**：本字段是 `BattleDriver` 的实例字段，而每个战斗场景新建一个驱动
+        /// （= 原版「每局新建 `VoiceLinesController` ⇒ 默认 false」的同形）；⛔ 别在 `Begin` 里再补一句复位。</para></summary>
+        public bool ChatMuted { get { return ChatMutedSource != null ? ChatMutedSource() : _enemyChatMuted; } }
+
+        /// <summary>🆕 推式读口：外框（设置窗）把当前值写进来 —— 原版 `OnMuteChatChanged` 那一跳。</summary>
+        public void SetEnemyChatMuted(bool muted) { _enemyChatMuted = muted; }
+
+        /// <summary>🆕 **拉式读口**：外框把这个值接到 `SettingsPanel.MuteChatOn`（`null` = 没接 ⇒ 用推式字段）。
+        /// <para>为什么两种都留：设置窗每帧/每次刷新读它最省事，而「写完推一次」更接近原版那一跳。
+        /// **两者都收口在 <see cref="ChatMuted"/>** —— ⛔ 别在第三处再读 `SettingsPanel.MuteChatOn`。</para></summary>
+        public System.Func<bool> ChatMutedSource;
+
+        bool _enemyChatMuted;
+        /// <summary>那条 SmallTip 本局**已经弹过**（原版 `+0x68`，一辈子一次）。</summary>
+        bool _enemyChatTipShown;
+        /// <summary>**本回合**收到几条敌方督军聊天（原版 `+0x6c`；每回合清零）。</summary>
+        int _enemyChatsThisTurn;
+        /// <summary>上一次见到的回合号（`Ctx.Turn`）—— 变了就清计数器（原版 `ResetChatsReceived`）。</summary>
+        int _chatTurnSeen = -1;
+
+        /// <summary>自检口：那条 SmallTip 弹过没有 / 本回合的敌方聊天计数。</summary>
+        public bool EnemyChatTipShownForTest { get { return _enemyChatTipShown; } }
+        /// <summary>自检口：本回合已经数到几条敌方聊天。</summary>
+        public int EnemyChatsThisTurnForTest { get { return _enemyChatsThisTurn; } }
+        /// <summary>自检口：直接走一次「弹 SmallTip」（绕开计数闸；验的是气泡那一侧）。</summary>
+        public void ShowMuteEnemyChatTipForTest() { ShowMuteEnemyChatTip(); }
+        /// <summary>自检口：清零 tip 的两个状态位（只给自检用；⛔ 生产路径别调）。</summary>
+        public void ResetEnemyChatTipForTest()
+        {
+            _enemyChatTipShown = false;
+            _enemyChatsThisTurn = 0;
+            _chatTurnSeen = Ctx != null ? Ctx.Turn : -1;
+        }
+
         /// <summary>AI 现在能不能说话（原版 `VoiceLinesController.CanChat` 的等价闸）。
         /// 判据：`CanChat` 要求 `IsDuringBattle`；我们这里 = 有 `Ctx`、未终局。
         /// ⚠️ **另加一条我们挑的**：开场独白期间（`_introStage >= 0`）不说话 —— 否则会和开场白抢气泡
         /// （原版有 `popUpEnabled` 那类闸，我们没搬；这条是本地护栏，如实记）。</summary>
         bool CanAiChat()
         {
+            // 🆕 2026-10-24（`B1` · C2 §4·5 消费① · `+0x40`）：**静音闸就装在这里** ——
+            //   原版 `CanChat(isLocal)` 的 `isLocal == 0` 支要求 `!chatMuted`（`VoiceLinesController__CanChat.c:20-26`），
+            //   而 `DisplayWarlordChatMessage` 开头 `force == 0 && !CanChat` 就整支 return
+            //   ⇒ 静音时**敌方督军的所有非 forced 聊天**（气泡 + 语音）一起没有。
+            //   ⚠️ **不受影响**的：`force = 1` 那几档（开场白 / 认输 / 脚本台词）—— 它们绕开 `CanChat`，本方法不管它们。
+            //   ⛔ 别把这条闸放到 `SpeakAiChat` 里当第二道 —— 那样 `ScheduleAiReplyToPlayerChat` /
+            //      `MaybeAiEmote` 还会照常排期、到点再失败并打一条日志（假噪音）。
+            if (ChatMuted) return false;
             return _unitChat != null && VoiceLines.Ready && Ctx != null && !Ctx.IsOver && _introStage < 0;
         }
 
@@ -5775,11 +5935,75 @@ namespace CardPresentation
             var clip = VoiceLines.Clip(file);
             if (clip == null) return false;
 
-            _unitChat.Speak(seat, w.Card.Id, "Chat" + idx, ArtKey(w.Card),
-                            CardDisplayName(w.Card, null), text, clip, file);
+            if (!_unitChat.Speak(seat, w.Card.Id, "Chat" + idx, ArtKey(w.Card),
+                                 CardDisplayName(w.Card, null), text, clip, file))
+                return false;      // 气泡没建出来 ⇒ 这一句**没说出来**（⛔ 别计入 / 别当成功）
             LastAiChatEvent = ev;
             if (reply) AiChatReplyCount++; else AiChatEmoteCount++;
+            // 🆕 2026-10-24（`B1` · C2 §4·7 第 2 步）：**这条敌方督军聊天要计数**（原版
+            //   `DisplayWarlordChatMessage` 的 tip 分支）。⚠️ 数的是「说成了一条」——
+            //   原版也是先 `DisplayWarlordRegularChatMessage` 再 `count++`（同一个函数里）。
+            NoteEnemyWarlordChat();
             return true;
+        }
+
+        /// <summary>🆕 **2026-10-24（执行代理 `B1` · C2 §4·4/§4·7 第 2/3 步）**：敌方督军又说了一句
+        /// ⇒ 按原版 `DisplayWarlordChatMessage` 末尾那一支计数，**第 5 条**时弹一次 SmallTip。
+        ///
+        /// <para>**判据逐值**（`VoiceLinesController__DisplayWarlordChatMessage.c` 那一大段 `if`）：
+        /// `isLocal == 0 ∧ tipShowed(+0x68) == 0 ∧ msg != 0 ∧ chatMuted(+0x40) == 0`
+        /// ⇒ `count(+0x6c)++`；**`count > 4`** ⇒ `count = 0` · `+0x68 = 1` · 弹 tip。</para>
+        /// <para>⚠️ 调用点 = 所有「敌方督军说话」的口（今天 = <see cref="SpeakAiChat"/> 的回复/自发两档，
+        /// 以及**对手认输**那一档 —— 原版 `Concede` 是 `force = 1`、`isLocal` 按 `result+0x28` 判，
+        /// `isLocal == 0` 时**同样会走到**计数支（那一段**不在** forced 闸之内，只看上面四个条件））。
+        /// ⛔ 别把它挂到**我方**那几条（`DisplayLocalChatMessage` 的 `Bored`/`ICantDoThat` 走 isLocal=1）。</para></summary>
+        void NoteEnemyWarlordChat()
+        {
+            if (ChatMuted) return;              // 原版：`+0x40 == 0` 才计数
+            if (_enemyChatTipShown) return;     // 原版：`+0x68` 打开之后**不再数**（一辈子一次）
+            _enemyChatsThisTurn++;
+            if (_enemyChatsThisTurn <= 4) return;
+            _enemyChatsThisTurn = 0;
+            _enemyChatTipShown = true;
+            ShowMuteEnemyChatTip();
+        }
+
+        /// <summary>🆕 **2026-10-24（`B1` · C2 §4·7 第 3 步）**：弹「可以在设置里静音对手聊天」那条提示。
+        /// <para>**载体 = 第 3 颗气泡（`RadioChat`，序号 2）**；立绘/音源 = **敌方**督军
+        /// （`BattleManager__GetHero.c:4-11` 的 `isPlayer = 0` ⇒ `+0xC8 = enemyManager`）；
+        /// 文本 = 官方词条 <see cref="MuteEnemyChatTerm"/>；**无语音** ⇒ 时长走
+        /// `GetCurrentClipLength(null) = 2.0 s`（`UnitChatPanel.Duration`）。</para>
+        /// <para>⛔ **不是** `TutorialOverlay` 的 SmallTip（那条链是 `tipDuration 4.0` + `WaitingForTutorialTipFlag`，
+        /// 本方法**不碰**）。`SmallTipData` 的 4.0 只在那个结构体里，**不进**聊天气泡时长。</para></summary>
+        void ShowMuteEnemyChatTip()
+        {
+            if (_unitChat == null || Ctx == null)
+            {
+                Debug.LogWarning("[Battle] SmallTip（MuteEnemyChat）到点了但**没弹**：语音条或对局上下文不在（不静默）");
+                return;
+            }
+            int seat = 1 - _me;
+            var w = seat >= 0 && seat < Ctx.Players.Length && Ctx.Players[seat] != null
+                  ? Ctx.Players[seat].Warlord : null;
+            var card = w != null ? w.Card : null;
+            if (card == null)
+            {
+                Debug.LogWarning("[Battle] SmallTip（MuteEnemyChat）到点了但**敌方督军卡取不到** ⇒ 没弹（不静默）");
+                return;
+            }
+            string tipText = Loc.T(MuteEnemyChatTerm);
+            // ⚠️ `clip: null` + `expectVoice: false` —— 原版这一档就是 `GenerateVoiceLineData(audio = null)`
+            //   ⇒ 有字无声；把「本该有声却没有」那条告警关掉（否则每次都会误报一条）。
+            bool shown = _unitChat.Speak(2, card.Id, "MuteEnemyChat", ArtKey(card), CardDisplayName(card, null),
+                                         tipText, null, null, null, MuteEnemyChatTerm, false, false);
+            if (!shown)
+            {
+                Debug.LogWarning("[Battle] SmallTip（MuteEnemyChat）**没显示出来**：第 3 颗 `RadioChat` "
+                               + "没建出来（`UnitChatPanel.HasRadio == false`）—— 判据 `UnitsVoiceLinesPanel.GetChatBox(2)`");
+                return;
+            }
+            Debug.Log($"[Battle] SmallTip（`{MuteEnemyChatTerm}`）已弹在第 3 颗 `RadioChat` 上"
+                    + $"（立绘/音源 = 敌方督军 `{card.Id}`；原版 `+0x68` 打开 = 本局不再弹）");
         }
 
         /// <summary>玩家刚说了一句 ⇒ 按**本地默认概率**排一次 AI 回话（延迟 `AiReplyDelayMin..Max`）。
@@ -5921,8 +6145,13 @@ namespace CardPresentation
             }
             if (clip == null) return;      // 表里有、音频没导进来 —— `VoiceLines.Clip` 已经报过警告了
 
+            // 🆕 2026-10-24（执行代理 `B1` · C2 §4·3 / 顺手发现 7）：**召唤气泡的并发闸** ——
+            //   原版 `VoiceLinesController__DisplaySummonMessage.c:22-30`：三个盒子 `+0x40` 全 0
+            //   （没人正在说）才 `ShowChatBox` ⇒ 有人正在说的时候**召唤这一条不显示**。
+            //   ⚠️ 只有召唤这一档（`Deploy`）挂这道闸；`attack` / `death` 那两档不经过气泡（原版只放音）。
             _unitChat.Speak(e.Player == _me ? 0 : 1, card.Id, e.Kind.ToString(),
-                            ArtKey(card), CardDisplayName(card, null), text, clip, file);
+                            ArtKey(card), CardDisplayName(card, null), text, clip, file,
+                            onlyIfQuiet: e.Kind == EvtKind.Deploy);
         }
 
         /// <summary>自检用：喂一条引擎事件给 <see cref="SpeakFor"/>（**转发**，判据只有那一份 ——
@@ -5943,6 +6172,11 @@ namespace CardPresentation
             var clip = VoiceLines.Clip(file);
             if (clip == null) return;
             _unitChat.Speak(who == _me ? 0 : 1, card.Id, "Concede", ArtKey(card), CardDisplayName(card, null), text, clip, file);
+            // 🆕 2026-10-24（`B1` · C2 §4·4）：**对手认输也进「敌方聊天」计数** —— 原版
+            //   `Concede(4)` 是 `force = 1`（绕开 `CanChat`），但 tip 计数那一段在 forced 闸**之外**、
+            //   只判 `isLocal == 0 ∧ +0x68 == 0 ∧ msg != 0 ∧ +0x40 == 0` ⇒ `isLocal == 0` 时**照样数**。
+            //   ⚠️ 所以这里**不能**先过 `CanAiChat`（那会静音时把认输也挡掉，原版不挡）。
+            if (who != _me) NoteEnemyWarlordChat();
         }
 
         /// <summary>🆕 **2026-10-18（第十五轮 · `G5`）**：原版「操作被拒」那族**文字**提示的两条键
@@ -7302,13 +7536,25 @@ namespace CardPresentation
         //      那会变成「同一个语义两条路径」，而且卡视图的生命周期不归本类管）。
         //
         //  🔴 **三处如实标注**（铁律 3：查不到就写查不到，不许把猜的写成「原版就是这样」）：
-        //    ① **落点位姿没能完全解出来** —— 原版那两个目标来自
-        //       `GetOffensiveCardPlayedDisplayPosition` / `GetEnemyCardPlayedDisplayScale`，它们依赖
-        //       **两个静态对象**（`DAT_1842da2a8 + 0xb8` 上的两组 Vector3）与 **`BattleManager + 0xd8`**
-        //       那个 transform ⇒ 本地解不出**基准位/基准缩放**。
-        //       ✅ **但缩放那一半的乘数有真值**：`GetEnemyCardPlayedDisplayScale` 非移动端 = `基准 ×
-        //       VarsGlobal.enemyCardDisplayScale(+0x48) = **1.4**`（移动端再 × `+0x4c = 1.3`）
-        //       —— 判据 `资料/VarsGlobal_原版数值.md:35-36`。
+        //    ① **缩放已全部解出；位置只解出一半。**
+        //       · **缩放** = `GetEnemyCardPlayedDisplayScale()` 非移动端 `Vector3.one × VarsGlobal.enemyCardDisplayScale(+0x48)
+        //         = **1.4**`（移动档再 × `+0x4c = 1.3`）—— **绝对 localScale**。判据与推导 → `RevealEndScale` 的 doc。
+        //       · **旋转**：`DORotate` 目标读的是 `Vector3` 静态块 `+0x0` = **`zeroVector`**
+        //         （`CardScript._DisplayOffensiveCardInCenter_d__264__MoveNext.c:41-44`）⇒ 目标 = `(0,0,0)`、
+        //         时长 `DAT_1834b2dc4` = 0.1。我们起手就是 identity ⇒ 终态等价
+        //         （🔴 2026-10-24 订正：原文写「目标旋转**没解出来**」，**现在解出来了 = 零**）。
+        //       · **位置** = `GetOffensiveCardPlayedDisplayPosition`：
+        //         `transform(BattleManager+0xd8).position + Vector3.right × Xoffset − Vector3.up × Yoffset`
+        //         （`:60-80` 读 `+0x3c` = `rightVector` / `+0x18` = `upVector`；非移动档 `Xoffset = VarsGlobal+0x60
+        //         = offensiveCardDisplayXoffset = −25`、`Yoffset = +0x5c = offensiveCardDisplayYoffset = 30`，
+        //         移动档 X 换成 `+0x64 = −25`。偏移按字段声明顺序定位、`minionInPlayScale(+0x68)` 回证）。
+        //         `BattleManager+0xd8` = **`enemyHand`**（`dump.cs:30739-30741` 字段表：`playerHand // 0xD0` /
+        //         `enemyHand // 0xD8`），揭示卡就是 `battleCards.CreateCard(card, enemyHand.transform, …)` 建的。
+        //         ⛔ **仍解不出**：那 25/30 个偏移在**我们的世界**里是多少 px、`enemyHand` 那台 transform
+        //         对应我们哪个点 —— 所以 `RevealStartPx / RevealEndPx` **仍然是我们挑的**，不是原版推算值。
+        //       · **起始位置** = `Vector3.zero`（世界零；`BattleManager__DisplayRevealedCard.c:61-63`）——
+        //         同一层未知（「原版世界零」落在屏幕哪一处）⇒ `RevealStartPx` 亦然。
+        //       · **起始缩放** = `Vector3.one × 0.01`（同文件 `:47-53`）—— 见 `RevealStartScale`。
         //    ② **1.0 s 那一段的目标 = HUD 那颗进攻卡钮的位置**（原版 `BattleHud.OffensiveButtonTransform()`），
         //       **不是墓地** —— 2026-09-30 亲读反编译订正（文档里原来写的「DOMove(墓地)」是错的）。
         //    ③ **推进方式用显式 Lerp、不走 DOTween** —— 批处理没有帧循环，`AdvanceTimeline` 泵一次推一步，
@@ -7326,12 +7572,35 @@ namespace CardPresentation
         /// 所以这一段的**实际等待**是 `RevealFlyHold`（0.5），不是 1.0。列在这里是为了和原版那张表对得上。</summary>
         const float RevealFlyDur   = 1.0f;
         // 内层（`DisplayOffensiveCardInCenter`；与外层那 2.0 s 并发）
-        const float RevealMoveDur  = 0.15f;   // `DAT_1834b3178`
-        const float RevealRotDur   = 0.10f;   // `DAT_1834b2dc4`
-        const float RevealWait1    = 0.198f;  // `DAT_1834b3184` × 0.66
+        const float RevealMoveDur  = 0.15f;   // `DAT_1834b3178`（2026-10-24 `G7` 现读 4B float = 0.15）
+        const float RevealRotDur   = 0.10f;   // `DAT_1834b2dc4`（现读 4B float = **0.1**）
+        /// <summary>缩放**前**的等待 —— 原版 state 0 的 `WaitForSeconds(DAT_1834b2dc4)`，与 `DORotate`
+        /// **用的是同一个常数** ⇒ **0.1**（现读判据见下面 `RevealScaleHold` 那条）。
+        /// 🔴 **2026-10-24（`G7` · 铁律 5 就地订正）**：原来这里是 **0.198**、注成「`DAT_1834b3184` × 0.66」——
+        /// 那是 **state 1**（缩放**之后**）的等待，**不是**缩放前的延迟 ⇒ 缩放相位整体**后移 0.098 s**（C6 §四·5）。
+        /// 判据：`CardScript._DisplayOffensiveCardInCenter_d__264__MoveNext.c:41-46`（state 0）的
+        /// `WaitForSeconds` 吃的是 `DAT_1834b2dc4`，与同一段 `DORotate` 的时长是**同一个常量**
+        /// = `工具/read_literal.py` 现读 **0.1**（`资料/普查产出_1024/G7_reveal_state2与相位.md`）。</summary>
+        const float RevealWait1    = 0.10f;
+        /// <summary>state 1 的 `WaitForSeconds(0.3 × DAT_1834b3184)` = **0.198** —— ⚠️ 它在**缩放之后**
+        /// （原来被误当成缩放前的延迟，见 `RevealWait1`）。现读 `DAT_1834b3184` = 0.66。</summary>
+        const float RevealScaleHold = 0.198f;
         const float RevealScaleDur = 0.30f;   // 第三实参
-        const float RevealWait2    = 0.78f;   // `DAT_1834b3190` × 2.6
-        const float RevealStartScale = 0.01f; // 原版 `localScale = 场上值 × 0.01`（`DAT_1834b2dbc` 实读）
+        const float RevealWait2    = 0.78f;   // `DAT_1834b3190` × 2.6 —— state 2 之后那段**相对等待**；⛔ 别拿它当绝对时刻（绝对时刻见 `RevealInnerState3At`）
+        /// <summary>内层 state 2（`DisplayCreatedByText` + `ToggleHighlight(false)`）的**触发时刻**
+        /// = state 0 的等待 + state 1 的等待（原版那两个 `WaitForSeconds` 是**串行**的）
+        /// ⇒ 0.1 + 0.198 = **0.298 s**。
+        /// ⚠️ 缩放那条补间（`RevealScaleDur` 0.3 s）在这之后才结束 —— **不是**相位的分界点。</summary>
+        const float RevealInnerState2At = RevealWait1 + RevealScaleHold;
+        /// <summary>内层 state 3（`BattleCardUI +0xd8` 那个「由谁创建」节点 `SetActive(false)`）的**触发时刻**
+        /// = state 0 等待 + state 1 等待 + state 2 等待（原版那三个 `WaitForSeconds` 是**串行**的）
+        /// ⇒ 0.1 + 0.198 + 0.78 = **1.078 s**。
+        /// 判据：`CardScript._DisplayOffensiveCardInCenter_d__264__MoveNext.c:74-81`（state 3 把 `+0xd8`
+        ///   那个节点关掉）＋ `BattleCardUI__DisplayCreatedByText.c:14`（`+0xd8` 就是「由谁创建」那行字）。
+        /// ⛔ **不能直接用 `RevealWait2`** —— 那是 state 2 之后的**相对等待**，拿来当阈值会早 0.298 s 收字。
+        /// 🔴 **2026-10-24（执行代理 `G9`）**：原来 `RevealWait2` 全仓只有定义、没有使用（G8 §四·1 判为真缺口）。
+        const float RevealInnerState3At = RevealWait1 + RevealScaleHold + RevealWait2;
+        const float RevealStartScale = 0.01f; // 原版 = **`Vector3.one` × 0.01**（`BattleManager__DisplayRevealedCard.c:47-53` 实读：基准向量取 `Vector3` 静态块 `+0xc` = `oneVector`，再乘 `DAT_1834b2dbc` = 0.01）—— 是**绝对值**，不是「场上值 × 0.01」（见下面 `RevealEndScale` 的订正）
 
         /// <summary>🔴 **我们挑的**：起始「场中央」与落到展示位的屏幕像素坐标。
         /// 原版的基准位 = `BattleManager+0xd8` 那个 transform + 两个静态向量 × `VarsGlobal` 的偏移
@@ -7339,17 +7608,63 @@ namespace CardPresentation
         static readonly Vector2 RevealStartPx = new Vector2(960f, 660f);
         static readonly Vector2 RevealEndPx   = new Vector2(960f, 520f);
 
-        /// <summary>落到的缩放。**半真半推导，写明**：真值只有那个乘数 **1.4**（`VarsGlobal.enemyCardDisplayScale`，
-        /// `GetEnemyCardPlayedDisplayScale` 非移动端就是拿它乘基准）；**基准查不到** ⇒ 我们按已有的「大卡」口径取
-        /// `CardDisplayWindow` 那 5 个槽的原版 `m_LocalScale = 250`（= 250 设计像素宽），
-        /// 而 `CardView` 自然宽 = 1 世界单位 = **108** 设计像素 ⇒ `1.4 × 250 / 108 ≈ 3.24`。
-        /// ⚠️ 所以这个数**是推导值、不是原版读出来的**。</summary>
-        const float RevealEndScale = 1.4f * 250f / 108f;
+        /// <summary>reveal 的**终点缩放** = 原版 `GetEnemyCardPlayedDisplayScale()` 的返回值
+        /// （`DOScale(那个值, param_2 = 0.3)`，`CardScript._DisplayOffensiveCardInCenter_d__264__MoveNext.c:58-61`）。
+        ///
+        /// <para>🔴 **2026-10-24（执行代理 `D6`）就地订正（铁律 5）**：原文写
+        /// `RevealEndScale = 1.4 × 250 / 108 ≈ 3.24`，理由 =「基准查不到 ⇒ 借 `CardDisplayWindow` 的
+        /// `m_LocalScale = 250`；而 `CardView` 自然宽 = 1 世界单位 = 108 设计像素」。
+        /// **那两个前提都错，真实值 = <see cref="PlayedCardCenterAbsoluteScaleForTest"/>（1.4；小屏档 1.82）。**
+        /// 判据（逐句，`d:/2/tools/decomp_full/`）：
+        ///   ① `CardScript__GetEnemyCardPlayedDisplayScale.c:26-31`：基准 = `static_fields(DAT_1842da2a8) + 0xc`
+        ///      那个 `Vector3`，再 `× globalVars[0x48]`（移动档再 × `[0x4c]`，`:53-61`）。
+        ///   ② `DAT_1842da2a8` **就是 `UnityEngine.Vector3` 的 Il2CppClass**、`static_fields + 0xc` = **`oneVector`**
+        ///      （`dump.cs` 的 Vector3 静态字段表 `zero 0x0 / one 0xC / up 0x18 / right 0x3C`；类身份三条独立反证
+        ///      → `资料/普查产出_1011/审查_W1.md:113`）⇒ **基准 = `Vector3.one`**，返回值是**绝对 `localScale`**。
+        ///   ③ 同一条链的起手那一半反证得更硬：`BattleManager__DisplayRevealedCard.c:47-53` 把**初始**
+        ///      `localScale` 写成「同一个基准 × `DAT_1834b2dbc`(0.01)」= **`Vector3.one × 0.01`**
+        ///      ⇒ 起手绝对 0.01、终点绝对 1.4，同量纲（我们那格 `RevealStartScale = 0.01` 本来就对）。
+        ///
+        /// <para>❌ **`250` 属于另一条链、与本条无关**：它是**`CardDisplayWindow`（战斗放大窗）**那个 uGUI 槽
+        /// `Card Display/Cards/CardUI` 的 `m_LocalScale = 250`（大卡画出来 `2.0927 × 250 ≈ 523` px 宽；
+        /// 出处 `资料/战斗UI_原版对账表.md:48` · `阶段二_卡片详情窗_原版规格.md:567`）。
+        /// 进攻卡 reveal 是**世界空间的 `BattleCardUI`**（`BattleCardManager.CreateCard` 建、父级 =
+        /// `transform(BattleManager+0xd8)`），原版对它**从不读那个 250**。
+        /// ❌ **「`CardView` 自然宽 = 1 世界单位 = 108 px」也是错的**：`CardView.Width = 2.0927` **世界单位**
+        /// （= 226 设计 px @108 ppu，`Core/CardView.cs:226`；网格按 `Width / CardUnitW` 铺，今天系数 = 1）
+        /// ⇒ 自然宽就是 **2.0927 个世界单位**。两个错前提合起来把终点宽算成 ≈ 3.24×226 ≈ 732 px，
+        /// 比原版的 ≈ 1.4×226 ≈ 316 px **大 2.3 倍**（真机实测应能直接看出来）。
+        /// </para>
+        ///
+        /// <para>⚠️ `× LayoutSpace.Scale` 是**我们那一层窄屏设备补偿**（原版没有这一乘；世界 HUD 在窄屏整体缩）——
+        /// 与**同一条原版函数**的另一个消费点（`DisplayEnemyCardInCenter` 的 `centerScale`）同一个口径；
+        /// 16:9 下它 = 1，逐值等于原版的 1.4 / 1.82。⛔ 别在这里另写一份「1.4」字面量
+        /// （「两处写同一条规则 = 迟早不一致」）。</para></summary>
+        static float RevealEndScale
+        {
+            get { return PlayedCardCenterAbsoluteScaleForTest * LayoutSpace.Scale; }
+        }
 
         int _revealStage = -1;         // -1 = 没在跑
         float _revealT;
         CardView _revealCard;
         Vector3 _revealFromWorld, _revealToWorld;
+        /// <summary>内层协程 state 2（`DisplayCreatedByText` + `ToggleHighlight(false)`）跑过了没有 ——
+        /// **每张揭示卡只跑一回**（原版那一段在协程里只执行一次，`_d__264__MoveNext.c:84-100`）。
+        /// 🔴 复位点 = `BeginOffensiveRevealOrApply` **建新卡那一处**（⛔ 不是「本局」的账：
+        ///   联机局里那条入口可能被调两次，而每张揭示卡都要自己算一次 —— 见那段注释）。</summary>
+        bool _revealInnerState2Done;
+        /// <summary>上面那一段**真被调过几次**（自检读它：闩只能证明「状态翻过了」，这个证明「动作发生过」）。</summary>
+        int _revealInnerState2Calls;
+        /// <summary>内层协程 state 3 跑过了没有 —— **每张揭示卡只跑一回**（同 `_revealInnerState2Done`）。
+        /// 🔴 复位点与 state 2 **同一处**（`BeginOffensiveRevealOrApply` 建新卡那一格）。
+        /// 🔴 **2026-10-24（`G9`）**：原版 `_d__264__MoveNext.c:74-81` 的 state 3 = `BattleCardUI +0xd8`
+        ///   （「由谁创建」那行字）`SetActive(false)`，时刻 = 1.078 s（`RevealInnerState3At`）。
+        ///   ⚠️ 今天这个动作**是空操作**：state 2 已把档位设成 `Hidden`，`SetCreatedBy` 的三元组去重会早退；
+        ///   但判据在，按铁律 11 仍显式复刻（⛔ 不许因为「看不见」就不接）。</summary>
+        bool _revealInnerState3Done;
+        /// <summary>上面那一段**真被调过几次**（自检口：闩证明状态翻过了，计数证明动作发生过）。</summary>
+        int _revealInnerState3Calls;
         /// <summary>「进攻卡那一段」跑过了没有 —— 见 `BeginOffensiveRevealOrApply` 的注释
         /// （联机局要能被调两次，所以这个闩**只在真的定下来之后**才闩上）。
         /// 🔴 **2026-10-19（`A1110`）**：它是**本局**的闩 —— 由 `Begin` 每局**显式复位**（`= false`），
@@ -7362,6 +7677,19 @@ namespace CardPresentation
         public int RevealStageForTest { get { return _revealStage; } }
         /// <summary>自检用：揭示用的那张卡（没在跑时为 null）。</summary>
         public CardView RevealCardForTest { get { return _revealCard; } }
+        /// <summary>自检用：内层 state 2 那个闩（原版 t ≈ 0.298 s 那一拍翻真）。</summary>
+        public bool RevealInnerState2DoneForTest { get { return _revealInnerState2Done; } }
+        /// <summary>自检用：内层 state 2 真被调过几次（同一张揭示卡应为 **1**）。</summary>
+        public int RevealInnerState2CallsForTest { get { return _revealInnerState2Calls; } }
+        /// <summary>自检用：内层 state 3 那个闩（原版 t ≈ 1.078 s 那一拍翻真）。</summary>
+        public bool RevealInnerState3DoneForTest { get { return _revealInnerState3Done; } }
+        /// <summary>自检用：内层 state 3 真被调过几次（同一张揭示卡应为 **1**）。</summary>
+        public int RevealInnerState3CallsForTest { get { return _revealInnerState3Calls; } }
+        /// <summary>自检用：内层相位 `{ state2 触发时刻, 缩放前等待, 缩放时长, state3 触发时刻 }`（秒）。
+        /// ⛔ 这里只把常量交出去 —— 判据仍在原版（`_d__264__MoveNext.c:41-46 / :61-65 / :95-100`），
+        /// 断言用**现读到的原版字面量**比对，⛔ 别拿本数组自己证明自己。</summary>
+        public static float[] RevealInnerPhaseForTest
+        { get { return new[] { RevealInnerState2At, RevealWait1, RevealScaleDur, RevealInnerState3At }; } }
         /// <summary>自检用：这一局选定的进攻卡**不是空卡**（原版 `d__337` state 0 那个 `+0x30`）。</summary>
         public bool OffensiveIsNonEmpty
         { get { return Ctx != null && Ctx.OffensiveChosen && Ctx.OffensiveSlotIdx >= 0; } }
@@ -7416,6 +7744,14 @@ namespace CardPresentation
             _revealCard.transform.localScale = Vector3.one * RevealStartScale;
             _revealStage = 0;
             _revealT = 0f;
+            // 🆕 **2026-10-24（`G7`）**：内层 state 2 的闩**跟着这张揭示卡走**（每建一张卡重新算一次）——
+            //   复位点选在这里而不是只靠 `Begin`：联机局里这条入口会被调两次（见本方法 doc），
+            //   若只在 `Begin` 复位，第 2 张揭示卡的内层 state 2 会**静默**不跑。
+            _revealInnerState2Done = false;
+            _revealInnerState2Calls = 0;
+            // 🔴 **G9**：state 3 的闩与 state 2 **同一个复位点**（每建一张揭示卡各算一次；理由同上面那条）。
+            _revealInnerState3Done = false;
+            _revealInnerState3Calls = 0;
             Debug.Log("[Battle] 进攻卡 reveal 开始（原版 `_ApplyOffensiveAndDefensiveEffects`）"
                     + $" —— 卡 `{d.title}` · 四段时长 {RevealHoldDur}/{RevealFlyDur}+{RevealFlyHold}/{RevealTailDur} s");
         }
@@ -7425,7 +7761,66 @@ namespace CardPresentation
         {
             if (_revealStage < 0) return;
             _revealT += dt;
-            if (_revealCard != null) ApplyRevealInnerPose(_revealT);
+            // 🔴 **2026-10-24（执行代理 `D6`）**：**只在第 0 段**驱动内层那三段显式插值 ——
+            //   原版那条内层协程（`CardScript._DisplayOffensiveCardInCenter_d__264`，
+            //   合计 **1.078 s** = 0.1（state 0 等待）+ 0.198（state 1 等待）+ 0.78（state 2 等待）；
+            //   ⚠️ 2026-10-24（`G7` · 铁律 5 就地订正：原来这里写「合计 1.758 s」—— 把三个
+            //   `WaitForSeconds` 加错了；逐行读 `_d__264__MoveNext.c:41-46 / :61-65 / :95-100` 得上面三个数）
+            //   它与外层那 2.0 s **并发**、并且**先结束**；进 state 1 之后这张卡由 `DestroyCardOffensive`
+            //   接管（那条只 `DOMove` + `DOFade`，**不碰 position/scale**）。
+            //   ⚠️ 改前这里是**无条件**调 `ApplyRevealInnerPose(_revealT)`，而进第 1 段时 `_revealT` 刚被
+            //   归零 ⇒ 下一拍就把卡**瞬间缩回 0.01、并瞬移回起点**（还和 `StartRevealFlight` 的 `DOMove`
+            //   抢同一个 transform）—— 真机上是肉眼可见的一跳；批处理没有帧循环，所以断言抓不到。
+            if (_revealStage == 0 && _revealCard != null) ApplyRevealInnerPose(_revealT);
+
+            // 🔴 **2026-10-24（执行代理 `G7`）**：原版【**内层**】协程的 state 2 ——
+            //   `CardScript._DisplayOffensiveCardInCenter_d__264__MoveNext.c:84-100`：
+            //     `BattleCardUI.DisplayCreatedByText(cardUI, cardState)` → `Card2DController.ToggleHighlight(false)`
+            //   ⚠️ **它落在 t ≈ 0.298 s = 我们的 `_revealStage == 0` 期间**（内层那条与外层那 2.0 s **并发**、
+            //      并且**先结束**）：0.1（state 0 的 `WaitForSeconds(DAT_1834b2dc4)`）+
+            //      0.198（state 1 的 `WaitForSeconds(0.3 × DAT_1834b3184)`）。
+            //   ⛔ **别挪到 `_revealStage == 2`**：那是**外层**协程的 `ApplyEnvEffect`（另一件事），
+            //      而且那时这张揭示卡已经在 `_revealStage 1 → 2` 那一格被 `Kill` 掉、`_revealCard` 已置 null。
+            //   ⚠️ 今天这两句**都是空操作**（C6 现核：零可观测差异），但按铁律 11 仍显式做：
+            //     ① 创建者文字：揭示卡是「进攻卡」，不是任何东西造出来的 ⇒ 原版 `createdBy` 恒 null
+            //        （`BattleCardUI__DisplayCreatedByText.c:18` 就在那一步 bail ⇒ **不点亮**）；我们这侧
+            //        `ChosenOffensiveCard()` 给的是 `OffensiveCards.Card`（数据记录，**不是 `CardInstance`**）
+            //        ⇒ 连 `Ctx.CreatedByOf` 都无从查起，只能显式传 null。
+            //        🔴 档位传 **`Hidden`** 而不是 `InHandPlaying`：原版那次 bail **发生在看档位之前**
+            //        （「有没有创建者」是一道**更早**的闸）⇒ 行为上的等价物是「这一档不印」。
+            //        而 `CardView.CreatedByVisible` 的谓词**只看档位、不看名字**
+            //        （`InHandPlaying && !isLocalPlayer` ⇒ 点亮）—— 传 `InHandPlaying` 会把一个
+            //        **空文字节点**点亮（真机看不见，但「该藏的时候没藏」正是本工程点名的缺陷形状）。
+            //     ② 高亮：这张卡出生即 `Normal`（`_Outline` alpha 0），从没被点亮过 ⇒ 关高亮 = 归零。
+            //   🔮 将来真有 `revealOrder`（`AbilityEffect.revealOrder = 280`）的卡走到这条链上时，
+            //      这两句**必须**变成真接线（`SetCreatedBy` 那时要传真的创建者 + 原版那一档）——
+            //      见 C6 §3·3 末段。
+            if (_revealStage == 0 && _revealCard != null
+                && !_revealInnerState2Done && _revealT >= RevealInnerState2At)
+            {
+                _revealInnerState2Done = true;      // 内层 state 2 只跑一回（⛔ 别写成每帧都调）
+                _revealInnerState2Calls++;          // 自检读「动作真发生过几次」
+                _revealCard.SetCreatedBy(null, CardView.CreatedByState.Hidden, isLocalPlayer: false);
+                _revealCard.SetHighlight(CardHighlightState.Normal);
+            }
+
+            // 🔴 **2026-10-24（执行代理 `G9`）**：原版【**内层**】协程的 state 3 ——
+            //   `CardScript._DisplayOffensiveCardInCenter_d__264__MoveNext.c:74-81`：
+            //     `BattleCardUI +0xd8` 那个节点 `SetActive(false)` → 协程结束（`return 0`）。
+            //   `+0xd8` **就是** `BattleCardUI__DisplayCreatedByText.c:14` 开头被 `SetActive(false)` 的
+            //   「由谁创建」那行字 ⇒ **state 3 的动作 = 把那一行收掉**（⛔ 不是「清名字后重印」）。
+            //   时刻 = 0.1 + 0.198 + 0.78 = **1.078 s**（三个 `WaitForSeconds` 串行，原版 state 1 的
+            //   0.198 与 state 2 的 0.78 见 G7 的相位订正）—— 它落在 `_revealStage == 0` 那 2.0 s 里，
+            //   所以与 state 2 并排放在这里；⛔ 别挪到外层 stage 2（那时卡已被 `Kill`、`_revealCard` 已 null）。
+            //   ⚠️ 今天这是**空操作**（state 2 已设 `Hidden`，`SetCreatedBy` 的三元组去重直接早退）——
+            //      但判据在，按铁律 11 仍显式复刻；自检读的是 `_revealInnerState3Calls`（动作真发生过几次）。
+            if (_revealStage == 0 && _revealCard != null
+                && !_revealInnerState3Done && _revealT >= RevealInnerState3At)
+            {
+                _revealInnerState3Done = true;      // state 3 只跑一回（⛔ 别写成每帧都调）
+                _revealInnerState3Calls++;          // 自检读「动作真发生过几次」
+                _revealCard.SetCreatedBy(null, CardView.CreatedByState.Hidden, isLocalPlayer: false);
+            }
 
             if (_revealStage == 0 && _revealT >= RevealHoldDur)
             {
@@ -7458,6 +7853,9 @@ namespace CardPresentation
         ///   · **3 = `OutSine`**：本机 `DOTween.dll` 的 `DG.Tweening.Ease` 反射现读
         ///     `0 Unset / 1 Linear / 2 InSine / **3 OutSine**`（同文件 `:19326` 早就这么写过 —— 两处说法原本互相打架）。
         /// ⇒ 现在**真的按 OutSine 插值**。⛔ 别再退回线性。</summary>
+        /// <remarks>🔴 **2026-10-24（`G7` · 相位订正）**：缩放那一段的起点是 `RevealWait1`，现在 = **0.1**
+        /// （原版 state 0 的 `WaitForSeconds(DAT_1834b2dc4)`）⇒ 缩放跑 `0.10 → 0.40`。
+        /// ⚠️ 原来 `RevealWait1 = 0.198` ⇒ 跑 `0.198 → 0.498`、整体**后移 0.098 s**（见 `RevealWait1` 的注释）。</remarks>
         void ApplyRevealInnerPose(float t)
         {
             var tr = _revealCard.transform;
@@ -7520,7 +7918,11 @@ namespace CardPresentation
         //   · 除「等当前语音播完」外**没有任何额外秒数**，无随机、无计数。
         //   · **`vs*` 的查表不在协程里**，在 `ChatManager`：`GetCustomIntro(己方, 对方督军)`
         //     → 失败 `GetCustomIntroByArmy(己方, 对方.army)` → 再失败退回普通 `intro`。
-        //     我们用 `VoiceLines.ForVersus(对方督军, 对方阵营)` 一次给出这个顺序（它末尾就带 `intro`）。
+        //     原版那两跳（卡 SO 的 `customIntroChatData`）由 `CardChatIntro.TryResolve` 先查；
+        //     之后才用 `VoiceLines.ForVersus(对方督军, 对方阵营)` 给出的 `voice_lines` 侧顺序。
+        //     🔴 **2026-10-24（`D9` · 铁律 5）**：`ForVersus` 的顺序**改过** —— 现在是
+        //     `intro` → `default` →（我们按文件名猜的）`vs~` → 阵营词。
+        //     旧顺序把猜的 `vs~` 排在真兜底前面（会播错，判据见 `VoiceLines.ForVersus` 的注释）。
         //   · **同督军对局**（`AreSameWarlords()`）改用 `mirror` 那一族 → `VoiceLines.ForMirror`。
         //
         //  ⚠️ **两条我们没做的（照实记着，不是静默）**：
@@ -7626,8 +8028,10 @@ namespace CardPresentation
             var fw = foe != null ? foe.Warlord : null;
             var fc = fw != null ? fw.Card : null;
 
-            // 同督军对局 → `mirror`（原版 `AreSameWarlords()` 分支）；否则走 `vs*` 那条回落链
-            // （`ForVersus` 的返回顺序就是原版的回落链，末尾带 `intro`）
+            // 同督军对局 → `mirror`（原版 `AreSameWarlords()` 分支）；否则走 `vs*` 那条回落链。
+            // 🔴 **2026-10-24（`D9`）**：`ForVersus` 的顺序是
+            // **`intro` → `default` →（我们猜的）`vs~` → 阵营词** —— 猜的排最后，
+            // 因为原版真兜底是卡 SO 的 `introChatSound`（`vs*` 那一跳原版根本没有）。
             bool mirror = fc != null && fc.Id == w.Card.Id;
             var order = mirror
                 ? VoiceLines.ForMirror
@@ -7678,12 +8082,25 @@ namespace CardPresentation
                 clipFile = ci.SoundAsset;
                 // 文字仍要 voice_lines 的英文**兜底**（官方词条由 `Speak` 自己优先取）——
                 //   取不到不算错：`Speak` 会回卡名。
-                VoiceLines.TryPick(w.Card.Id, order, null, out file, out text, out ev);
+                //   🔴 **2026-10-24（`D9`）**：这一路放的是**卡 SO 的对手台词音**，文字就该配**同一条**对手台词
+                //   ⇒ 先用**猜的 `vs~`/阵营词**那几跳（它们正是 `customIntroChatData` 那份数据的投影），
+                //   取不到再退回 `order`（`intro`/`default`）。
+                //   ⛔ 别直接用 `order`：`hasText == false` 的那 5 条（ASH76/DA1/DA2×2/DA3）会把
+                //   **普通 `intro` 的英文**配到对手台词上（音频是 vs、字幕是泛用开场白）。
+                if (!VoiceLines.TryPick(w.Card.Id,
+                                        VoiceLines.ForVersusGuess(fc != null ? fc.Name : null,
+                                                                  fc != null ? fc.Faction : null),
+                                        null, out file, out text, out ev))
+                    VoiceLines.TryPick(w.Card.Id, order, null, out file, out text, out ev);
             }
             else
             {
                 // 随机源传 null —— 与别处同规矩：**不消耗 `Ctx.Rng`**
                 if (!VoiceLines.TryPick(w.Card.Id, order, null, out file, out text, out ev)) return;
+                // 🔴 2026-10-24（`D9`）：命中的是**按文件名猜的** `vs*` 行 ⇒ 出声一次（不静默）。
+                //   它现在排在 `intro`/`default` **之后**（`ForVersus`），走到这里说明这张卡
+                //   连卡 SO 的开场白兜底都没有（`BL5` / `BL67` 那种）—— 有它才有开场白。
+                if (ev != null && ev.StartsWith("vs")) VoiceLines.WarnFilenameVsFallback(w.Card.Id, ev, file);
                 clip = VoiceLines.Clip(file);
                 if (clip == null) return;
                 clipFile = file;
@@ -15414,6 +15831,20 @@ namespace CardPresentation
 
         public void RefreshAll()
         {
+            // 🆕 2026-10-24（执行代理 `B1` · C2 §4·4 ④）：**每回合清零「敌方聊天」计数**
+            //   （原版 `VoiceLinesController.ResetChatsReceived`，调用点 =
+            //    `BattleManager._NextTurn_d__395__MoveNext.c:181`）。
+            //   判据 = **回合号变了**；落点选这里是因为 `RefreshAll` 是每个 `RuleCore.BeginTurn`
+            //   之后**共同的**那一句（开局 / 结束回合 / 联机同步 / 重连都过它）。
+            //   ⚠️ 必须排在最前（`PlaySignals` 之前）：新回合的事件里可能就有敌方聊天，
+            //      放到后面会把刚数上的那一条又清掉。
+            //   ⚠️ 只清**计数**；「一辈子一次」的那个 latch（`_enemyChatTipShown`）**不清**。
+            if (Ctx != null && Ctx.Turn != _chatTurnSeen)
+            {
+                _chatTurnSeen = Ctx.Turn;
+                _enemyChatsThisTurn = 0;
+            }
+
             // ① 先把引擎**这一轮发生的事**翻译成特效。
             //    ⚠️ 必须赶在同步视图之前 —— 阵亡单位这一格马上就要空了，
             //       事件里带着格位号，趁现在把它变成世界坐标最省事。
@@ -15566,6 +15997,10 @@ namespace CardPresentation
             //   `max(现在, 上一批最后一条 cue 的收尾时刻)`。判据 / 为什么闸之外还要这一道 → `_timelineTailAt` 的 doc。
             float t = Mathf.Max(_clock, _timelineTailAt);
             _lastBatchStartAt = t;      // 自检口（偏差 3）
+            // 🆕 2026-10-24（`B1` · D3）：本批「那一击整条动画跑完」的时刻（见 `_batchAttackSkillAnimAt`）。
+            _batchAttackSkillAnimAt = -1f;
+            _batchAttackEvent = null;
+            int firstNewSignal = _timeline.Count;   // 本批第一格（循环后回填 D3 那两个字段用）
 
             // 🆕 2026-10-19（偏差 4）：**两条要「批内视野」的 cue 改成随事件那一拍播**。
             //   原来在 drain 之后**当场** `BattleSfx.Play`（= 血/特效都还没演到就响了）——
@@ -15597,6 +16032,13 @@ namespace CardPresentation
                 {
                     float atStart = Mathf.Max(0f, t - beatGap - _clock);
                     ScheduleAction(atStart, () => BattleSfx.Play(BattleSfx.MinionInitiatingAttack));
+                    // 🆕 2026-10-24（`B1` · C2 §1·5 步 D · D3）：**这一击的技能动画落在哪一刻** ——
+                    //   `t` = 这条攻击宣言在时间线上的时刻，`+ SkillAnimLagOf(e)` = 整条攻击动画跑完。
+                    //   `EvtKind.Trigger`（`attacked` / `UnitAttack`）那一支就按这个**绝对时刻**排
+                    //   （见 `PlaySignal` 里那段判据）；⛔ 别改回「在 Trigger 那一拍上再加 atkEnd」——
+                    //   `attacked` 族排在攻击宣言**之前**，那样算会整体早一拍。
+                    _batchAttackSkillAnimAt = t + SkillAnimLagOf(e);
+                    _batchAttackEvent = e;      // 见那个字段的 doc（反应者是攻方时拿它当载体）
                 }
 
                 // 🆕 2026-10-17（`T05` 第 3 步）：**「一次技能」按表展开成 N 拍**。
@@ -15659,6 +16101,24 @@ namespace CardPresentation
                 t += EventTiming.DurationOf(e);
                 _timelineTailAt = Mathf.Max(_timelineTailAt, t);   // 🆕 偏差 3：队尾跟着走
                 prev = e;
+            }
+
+            // 🆕 2026-10-24（执行代理 `B1` · 战斗线 `D3`）：**把「这一击的技能动画落在哪一刻 / 用哪条
+            //   攻击事件当载体」回填到本批每一条 `Trigger` 信号上**。
+            //   ⚠️ 必须在这圈**之后**做：`attacked` 那族 trigger **排在攻击宣言之前**
+            //   （`RuleCore` 攻击结算段），入队那一刻 `_batchAttackSkillAnimAt` 还是 `-1`。
+            //   ⛔ 别改成「只在 `PlaySignal` 里读字段」—— 下一批 `PlaySignals` 会覆盖那个字段
+            //   （见 `PendingSignal.skillAnimAt` 的 doc）。
+            if (_batchAttackSkillAnimAt >= 0f || _batchAttackEvent != null)
+            {
+                for (int k = firstNewSignal; k < _timeline.Count; k++)
+                {
+                    var ps = _timeline[k];
+                    if (ps.evt == null || ps.evt.Kind != EvtKind.Trigger) continue;
+                    ps.skillAnimAt = _batchAttackSkillAnimAt;
+                    ps.attackEvent = _batchAttackEvent;
+                    _timeline[k] = ps;
+                }
             }
 
             // 🆕 2026-10-19（战斗线 W 第 2 条）：**这一批事件开一个「演出未收尾」窗口** ——
@@ -15848,6 +16308,15 @@ namespace CardPresentation
             public Vector3[] points;
             /// <summary>本事件在 <see cref="points"/> 里占第几个（0 起）。</summary>
             public int pointIndex;
+
+            // ── 🆕 2026-10-24（执行代理 `B1` · 战斗线 `D3`）：**技能动画的时基与载体** ──
+            //   为什么要钉在**信号自己身上**（而不是只留一个 `BattleDriver` 字段）：下一批 `PlaySignals`
+            //   可能在这批信号还没播完时就覆盖那个字段（两批事件挤在同一个收尾窗口里是常态），
+            //   而 `Trigger` 事件要用的正是「**它所属那一击**」的时刻 —— 钉在信号上才不会被后面那批偷走。
+            /// <summary>`_clock` 绝对口径：这一批那一击「整条攻击动画跑完」的时刻（`-1` = 这一批没有攻击）。</summary>
+            public float skillAnimAt;
+            /// <summary>这一批那条攻击宣言事件（`null` = 没有）。见 `_batchAttackEvent` 的 doc。</summary>
+            public BattleEvent attackEvent;
 
             // 🆕 2026-10-17（`T05` 第 3 步）：**「按表展开的一拍」那五个字段** ——
             //   `beat == false`（默认）= 老形状（一条事件一条信号，`PlaySignal` 走原来那整段）。
@@ -16146,6 +16615,55 @@ namespace CardPresentation
         /// 偏差 3 的落点：它必须 ≥ 上一批的收尾（⛔ 不是 `_clock` 本身）。</summary>
         public float LastBatchStartAtForTest { get { return _lastBatchStartAt; } }
         float _lastBatchStartAt;
+
+        /// <summary>🆕 **2026-10-24（执行代理 `B1` · `C2` §1·5 步 D · 战斗线 `D3`）**：**这一批里那一击
+        /// 「整条攻击动画跑完」的时刻**（`_clock` 绝对口径；`-1` = 这一批里没有攻击）。
+        ///
+        /// <para>**为什么要在「排时间线」那一圈先算好**（而不是等 `PlaySignal` 播到那一条 Attack 再算）：
+        /// 同一批 `Signals` 里 `attacked` 那族 trigger **排在 `EvtKind.Attack` 之前**
+        /// （`RuleCore.cs` 攻击结算段：`AttackedOps` 的 `Emit` 在攻击宣言 `Emit` 之前）、而
+        /// `UnitAttack` 监听者那族**排在之后** ⇒ 播放那一刻的 `_clock` 两头都取不到「这一击」的基准。
+        /// 先在这里扫一遍，两条路都拿到**同一个数**（= 改前 ③ 的那个 `atkEnd`，见
+        /// <see cref="SkillAnimLagOf"/>），这正是原版「`BroadcastUnitAttacked` 在攻击动画跑完之后
+        /// 一次性广播给所有卡」的形状。</para>
+        /// <para>⚠️ 一批里有多条 `Attack` 时**以最后一条为准**（现读一步最多一条攻击宣言；
+        /// 真出现两条时前一条会被后一条覆盖 —— 如实记，不是判据）。</para></summary>
+        float _batchAttackSkillAnimAt;
+
+        /// <summary>🆕 2026-10-24（`B1` · D3）：**这一批里那条攻击宣言事件**（`null` = 这一批没有攻击）。
+        /// <para>**为什么要它**：`attacked` 族（`AttackedOps`）与「自己攻击」的监听者（`SW16`）
+        /// **反应者就是攻方** —— 改前 ③ 传给 `PlayUnitSkillAnim` 的正是这条**攻击事件**
+        /// （它带 `Kind = Attack` 与 `Target*` = 被打者）。`EvtKind.Trigger` 那条事件**不带目标**
+        /// ⇒ 直接拿它播会让 `abilityTarget` 锚点退回 `self`（12 条 `attack_melee` 里有 8 条
+        /// `endPos/pointTowards = 2`）⇒ 位置/朝向全变。⇒ 反应者是攻方时**用这条攻击事件当载体**。</para>
+        /// <para>⚠️ 一批里有多条 `Attack` 时以最后一条为准（同 `_batchAttackSkillAnimAt`）。</para></summary>
+        BattleEvent _batchAttackEvent;
+
+        /// <summary>自检用：见 <see cref="SkillAnimLagOf"/> / `_batchAttackSkillAnimAt`。</summary>
+        public float BatchAttackSkillAnimAtForTest { get { return _batchAttackSkillAnimAt; } }
+
+        /// <summary>🆕 **2026-10-24（执行代理 `B1` · `C2` §1·5 步 D）：这一击「整条攻击动画跑完」到
+        /// 攻击宣言那一刻的偏移** —— **改前 `ScheduleAttackPresentation` 的 ③ 用的就是它**，
+        /// 判据只此一处（⛔ 别在别处再算一遍）：
+        /// <list type="bullet">
+        /// <item>近战 = <see cref="EventTiming.MeleeDamageLag"/> **0.4**（`_AttackMeleeAnim` 整条 0.1+0.1+0.1+0.2）；</item>
+        /// <item>远程 = <see cref="EventTiming.RangedDamageLag"/>（回正 0.2 + 该件 `AnimInfo.GetAnimDuration()`）。</item>
+        /// </list>
+        /// 判据（第一权威）= `BattleManager._ResolveAttack_d__438__MoveNext.c:988 BroadcastUnitAttacked` ——
+        /// 它在**近战/远程两条路都汇到**（共享尾标号），随后每张卡各 `OnTrigger(0x32)` →
+        /// `CardAbility__CanTriggerAbility.c:126-140` → `PlayAbility` → `PlayAnim`。</summary>
+        float SkillAnimLagOf(BattleEvent e)
+        {
+            if (e == null || e.Kind != EvtKind.Attack) return 0f;
+            if (!e.Ranged) return EventTiming.MeleeDamageLag;
+            string faction = e.Player == _me ? _myFaction : _foeFaction;
+            // ⚠️ 与 `ScheduleAttackPresentation` 同一个口：`evt` = `GenericVfxFor(Attack)` 的结果
+            //   （`attack_ranged`），`times` = 攻方那张卡的逐候选取值。
+            string evt = GenericVfxFor(e);
+            var times = AnimTimesOf(e.CardId, faction);
+            return EventTiming.RangedDamageLag(
+                       CardAnimClips.RangedChainDuration(evt, faction, e.CardId, times));
+        }
 
         /// <summary>自检用：还有几条「在飞的技能拍特效」（偏差 6）。
         /// 🆕 2026-10-23（P1 · 演出时序 ⑤）：**攻击 / 反击那一件的弹道位移也进这个泵**
@@ -16544,7 +17062,7 @@ namespace CardPresentation
                            p.beat, p.beatVfx, p.beatSp, p.beatEp, p.beatPt, p.beatTail,
                            p.beatMove, p.beatOtv, p.beatTs, p.beatTm, p.beatEase,
                            p.cueUnitDamage, p.cueMeleeHit, p.beatData, p.hitOfAttack, p.hitAmount,
-                           p.collectDeath, p.hitOfCounter);
+                           p.collectDeath, p.hitOfCounter, p.skillAnimAt, p.attackEvent);
             }
 
             // 🆕 2026-10-19（偏差 1 的残余④）：**登场那一拍到了 ⇒ 把视图补建出来**。
@@ -18095,22 +18613,22 @@ namespace CardPresentation
                 });
             }
 
-            // ③ 🆕 2026-10-23（`W63` 收口）：**攻方自己的 `UnitAttack(50)` 技能动画**。
-            //    原版时刻 = 整条攻击动画**跑完**之后 → `BroadcastUnitAttacked` → 逐卡
-            //    `UnitAttack` 触发 → `AbilityLogic.PlayAnim` 进动作队列：
-            //      · 近战：`_AttackMeleeAnim` 全长 0.4（`EventTiming.MeleeDamageLag`）；
-            //      · 远程：回正 0.2 + VFX 时长（`EventTiming.RangedDamageLag`）。
-            //    ⚠️ 这 13 条**原来被当成近战攻击粒子**播在**受击方**（`attack_melee` 桶）——
-            //      播的时刻、锚点、属于谁全错（判据 → `资料/普查产出_1022/W63_飞行与卡ID演出_调查.md` §B）。
-            //    ⛔ 别把它挪回 `ScheduleAttackPresentation` 的 ①（那是「攻击 VFX」，另一档）。
-            // 🔴 **2026-10-23（P1 · 演出时序 ④）**：时长改走 `CardAnimClips.RangedChainDuration`
-            //   （多一档「按 CardAnim 名查 `AnimInfo` 真值」）。契约：**≥ 0 = 真值**、**< 0 = 判据为空**
-            //   ⇒ `RangedDamageLag` 那一侧按 `>= 0` 判，查不到才落 0.75 兜底（与伤害时刻同源）。
-            float atkEnd = e.Ranged
-                ? EventTiming.RangedDamageLag(
-                      CardAnimClips.RangedChainDuration(evt, faction, e.CardId, times))
-                : EventTiming.MeleeDamageLag;
-            PlayUnitSkillAnim(e, VfxMap.UnitAttack, atkEnd);
+            // ③ 🆕 2026-10-23（`W63` 收口）→ 🔴 **2026-10-24（执行代理 `B1` · `C2` §1·5 步 E · `D3`）
+            //   这一整段【已删】。** 攻方自己的 `UnitAttack(50)` 技能动画不再在这里播，改由
+            //   `PlaySignal` 的 `EvtKind.Trigger` 支按 canonical 分流到 `PlayUnitSkillAnim`
+            //   （判据与整段说明 → 那一支；时刻基准 → `_batchAttackSkillAnimAt` / `SkillAnimLagOf`）。
+            //   【为什么必须搬】原版那一下是 **ability 的一步**（`OnTrigger(50)` → `TriggerAbilities` →
+            //   `CardAbility__CanTriggerAbility.c:126-140` → `PlayAbility` → `PlayAnim`）——
+            //   写的这一版**不判 ability 是否结算** ⇒ `DA22 Techmarine` 自己攻击时也会播（原版不播），
+            //   而 7 张「监听别人的攻击」的卡一条都不播（`TryResolveTriggerPicks` 只看 `trigger`/`ability`
+            //   两桶，`unit_attack_anim` 不在合并范围）。
+            //   【为什么不能只「再补一条 Trigger 支」】那会和这一条**重复播**（同一击两下）⇒ 只能删。
+            //   ⚠️ 时刻公式（近战 `EventTiming.MeleeDamageLag` 0.4 / 远程 `RangedDamageLag`）**一字未变**，
+            //     只是搬到 `SkillAnimLagOf`（判据只此一处）。
+            //   【改前这段的原始记录（保留痕迹）】原注释：这 13 条**原来被当成近战攻击粒子**播在**受击方**
+            //     （`attack_melee` 桶）—— 播的时刻、锚点、属于谁全错
+            //     （判据 → `资料/普查产出_1022/W63_飞行与卡ID演出_调查.md` §B）。
+            //     ⛔ 也别把它挪回 ①（那是「攻击 VFX」，另一档）。
 
             // ④ 🆕 2026-10-23（P2 · 演出时序 · `新账-78①`）：**受方的 `UnitDamaged(60)`** 排在
             //    `Attack + AttackWindUp`（0.2）—— 原版 `BattleManager._ResolveAttack_d__438:866`
@@ -18532,8 +19050,32 @@ namespace CardPresentation
                         bool cueUnitDamage = false, bool cueMeleeHit = false,
                         CardAnimBeat beatData = null,
                         bool hitOfAttack = false, int hitAmount = 0,
-                        bool collectDeath = false, bool hitOfCounter = false)
+                        bool collectDeath = false, bool hitOfCounter = false,
+                        float skillAnimAt = -1f, BattleEvent attackEvent = null)
         {
+            // 🆕 2026-10-24（引擎线 `G1b` · 战斗线 `C2` §6）：**同一个关键词再次施加 ⇒ 重播 `Start(0)`**。
+            //   判据 = 原版 `BattleCardUI__DisplayStatusAnim.c`：`Start(0)` 那一档**每次都演**
+            //   （`:78-119`，不进表、不查重）；`OnPlay(2)` 那一档只首次演（`:121-198`，已有 ⇒ 只归位）。
+            //   我们原来的唯一入口 = `SyncBoard` → `TraitFrames.SyncKeywords` 的**集合对差**
+            //   ⇒ 同一个关键词第二次以后**一次都不调** `DisplayStatus`（`C2` §6·3 的缺口）。
+            //   🔴 `Amount` 的约定（见 `EvtKind.StatusApplied` 的 doc）：`0` = **首次** ⇒ **不由这里演**
+            //   （`SyncKeywords` 的「新出现」那条路负责 —— 两条路**结构上互斥**，一次施加恰好演一次）；
+            //   `> 0` = **重施加** ⇒ 这里演一次。
+            //   ⚠️ 取视图**不新建** `TraitFrames`：`TraitFrames.Attach` 会挂一个 `_prev` 为空的新实例
+            //   ⇒ 下一次 `SyncKeywords` 会把**所有**关键词的 OnPlay 重演一遍（静默多播）。
+            //   视图还没建出来（`ViewAt` 回 null）⇒ 什么都不做：那时它是「首次」，
+            //   `SyncBoard` 建视图之后 `SyncKeywords` 本来就会演。
+            if (e.Kind == EvtKind.StatusApplied)
+            {
+                if (e.Amount > 0)
+                {
+                    var statusView = ViewAt(e.Player, e.Slot);
+                    var statusTf = statusView != null ? statusView.GetComponent<TraitFrames>() : null;
+                    if (statusTf != null) statusTf.DisplayStatus(e.CardId);
+                }
+                return;
+            }
+
             // 🆕 2026-10-17（`T05` 第 3 步）：**「按表展开的一拍」那条出口**（展开点 = `ExpandAbilityBeats`）。
             //   它**整条在这里处理**（含第一拍的事件级副作用），走完就 return ⇒ 下面原来那整段
             //   （`case EvtKind.Ability: evt = VfxMap.Ability;` 那一格）**只留给「表里没有这张卡」的卡**
@@ -18677,6 +19219,63 @@ namespace CardPresentation
             // 这一条事件**只有手感补间、没有通用特效**（目前只有阵亡，见上面那个 case）。
             // ⚠️ 必须在 `PlayFeel` **之后**返回 —— 阵亡的消散/爆散体就是 `PlayFeel` 里起的。
             if (evt == null) return;
+
+            // 🔴🔴 **2026-10-24（执行代理 `B1` · `C2` §1·4 / §1·5 步 C · 战斗线 `D3`）：
+            //   `UnitAttack(50)` 那一族 ⇒ 走【技能动画】那个口，⛔ 不走 `FireEventAll` 的通用件。**
+            //
+            //   【判据（第一权威，逐句）】
+            //     · `BattleManagerSupport__BroadcastUnitAttacked.c:22 / :29 / :48-58` —— 攻击动画跑完后
+            //       **对在场每张卡**（外加被打者与攻方）各调一次 `ResolveUnitAttacked`；
+            //     · `CardScript__ResolveUnitAttacked.c:28-30` —— 收端无条件 `OnTrigger(0x32 = 50, …)`；
+            //     · `CardAbility__CanTriggerAbility.c:126-140` —— 但**动画是 ability 的一步**：
+            //       `OnTrigger` 无条件 ≠ 动画无条件（要过 `IsRightContext` + 三条 criteria）⇒
+            //       **animation 的唯一来源 = 引擎真的把这条 ability 跑了一次**。
+            //   ⇒ 所以「该不该播」由**这条 trigger 事件本身**回答（它是 `EmitCardTrigger` 在闸内发的），
+            //     而不是像改前的 ③ 那样「只要有人攻击就给攻方播一发」。
+            //
+            //   【为什么不能用 `FireEventAll` 的通用通道】（C2 §1·4，2026-10-24 的新发现）：
+            //     那条路的 `pos` 是**这张卡在屏幕上的格位点**（`layout.DropTargetWorld`），
+            //     **没有** `startPos/endPos` 锚点解析、**没有**卡体动画层（`DoAnim`）、
+            //     **没有**每拍时长 `SkillBeatDuration` ⇒ 名字虽对，位置/朝向/体动画/时长全错。
+            //     `PlayUnitSkillAnim` 才是这一桶的正确播放入口（`CardAnimClips.Resolve` 取件 → `PlayOneUnitAnim`）。
+            //
+            //   【时刻】`t0` = **这一击整条攻击动画跑完**的那一刻（`skillAnimAt` = 这条信号所属那一批的
+            //     `_batchAttackSkillAnimAt`，在 `PlaySignals` 排时间线时先算好、再回填到信号上；
+            //     见 `PendingSignal.skillAnimAt` 的 doc —— ⛔ 别读字段本体，下一批会覆盖它）。
+            //     `attacked` 族排在攻击宣言**之前**、监听者族排在**之后** ⇒ 两条路都只能靠这个绝对值。
+            //     `Mathf.Max(0f, …)`：播放这一刻已经过了那个时刻（远程件很短时会出现）⇒ 当场起播，
+            //     ⛔ 不要倒着排（`ScheduleAction` 会把负延迟夹成 0，行为相同，但这里显式写出来）。
+            if (e.Kind == EvtKind.Trigger)
+            {
+                // ⚠️ 先拆 `#i` 后缀（`EmitCardTrigger` 把能力序号拼在 `Keyword` 里）——
+                //    ⛔ 别拿带后缀的原文去比 canonical（会漏掉多能力卡那几条）。
+                string kw = BattleEvent.SplitKeywordAbility(e.Keyword, out _);
+                string canonical = VfxMap.CanonicalTriggerName(kw);
+                if (string.Equals(canonical, VfxMap.UnitAttackTriggerName, System.StringComparison.OrdinalIgnoreCase))
+                {
+                    // `skillAnimAt` / `attackEvent` = **这条信号自己那一批**的（见 `PendingSignal.skillAnimAt`）。
+                    float t0 = skillAnimAt >= 0f ? skillAnimAt - _clock : 0f;
+                    // 载体选谁（见 `_batchAttackEvent` / `PendingSignal.attackEvent` 的 doc）：
+                    //   · **反应者就是攻方**（`attacked` 族 / `SW16` 那种自己攻击的监听者）⇒ 用这一批的
+                    //     **攻击事件**（`Kind = Attack` + `Target*` = 被打者）—— 与改前 ③ 逐字段相同；
+                    //   · **别的卡在监听**（`DA22` / `UM70` / `UM83` …）⇒ 用**它自己**那条 trigger 事件
+                    //     （`Player/Slot/CardId` = 它自己，锚点 = 它自己那张卡）。
+                    //     ⚠️ **如实记（未闭合）**：这一档**没有目标** ⇒ `endPos/pointTowards = abilityTarget`
+                    //     会退回 `self` 并出声（`MapSelf`）。原版那几条能力的**目标列表**我们的事件不带
+                    //     （`CardAbility.abilityTargets` 不进 `EvtKind.Trigger`）⇒ 这一位判据未定，
+                    //     ⛔ 别自己拿「被打者」去顶（那是 `attacked` 族的语义，对监听者族没有依据）。
+                    BattleEvent carrier = attackEvent != null
+                                          && e.Player == attackEvent.Player
+                                          && e.Slot == attackEvent.Slot
+                                          && string.Equals(e.CardId, attackEvent.CardId,
+                                                           System.StringComparison.OrdinalIgnoreCase)
+                                        ? attackEvent : e;
+                    LastUnitSkillUsedAttackEventForTest = ReferenceEquals(carrier, attackEvent) && attackEvent != null;
+                    PlayUnitSkillAnim(carrier, VfxMap.UnitAttack, Mathf.Max(0f, t0));
+                    _animfxCtx = default;       // 与改前 Trigger 那条路收尾同形（见 `PlaySignal` 末尾）
+                    return;
+                }
+            }
 
             // 🔴 **「挂在 HUD 上、不是挂在格位上」的那一族** —— 它们的 `Slot` **本来就是 -1**
             //    （阵营资源那三件：`BattleEvent.GainFaith` 的注释写着是「给玩家」的；
@@ -19372,6 +19971,16 @@ namespace CardPresentation
 
         /// <summary>自检：本局一共排过几拍「逐卡技能动画」（= 真的解出了候选的那些拍）。</summary>
         public int UnitSkillAnimsScheduled { get; private set; }
+
+        /// <summary>🆕 2026-10-24（执行代理 `B1` · 战斗线 `D3`）自检口：最近一拍技能动画**真的起播**
+        /// 那一刻的 `_clock`（在 `PlayOneUnitAnim` 第一行记）。用来验「Trigger 那条路与改前 ③ 的时刻等价」：
+        /// 期望 ≈ <see cref="BatchAttackSkillAnimAtForTest"/>（差 ≤ 一个 `Step` 的 dt）。</summary>
+        public float LastUnitSkillBeatAtForTest { get; private set; } = -1f;
+
+        /// <summary>🆕 2026-10-24（`B1` · `D3`）自检口：最近那次 `UnitAttack` 分流**用的是不是攻击事件当载体**
+        /// （`true` = 反应者就是攻方：`attacked` 族 / `SW16` 那种自己攻击的监听者 ⇒ 带 `Target*`；
+        /// `false` = 别的卡在监听 ⇒ 用它自己的 trigger 事件，**没有目标**）。</summary>
+        public bool LastUnitSkillUsedAttackEventForTest { get; private set; }
         /// <summary>自检：其中真的有内容（prefab 非空）的拍数 —— 纯计时拍（`Wait_1s`）不算。</summary>
         public int UnitSkillAnimBeats { get; private set; }
 
@@ -19491,6 +20100,10 @@ namespace CardPresentation
         /// ⛔ 别再读 `clip.Duration` —— 单候选时它被回归口径压成 0）。</para></summary>
         void PlayOneUnitAnim(BattleEvent e, CardAnimClip clip, float duration)
         {
+            // 🆕 2026-10-24（执行代理 `B1` · D3）：**自检口** —— 这一拍**真的起播**那一刻的 `_clock`。
+            //   主对话用它验「Trigger 那条路的 t0 与改前 ③ 逐帧等价」：期望 ≈ `BatchAttackSkillAnimAtForTest`
+            //   （差 ≤ 一个 `Step` 的 dt；`PlaySignals` 里 `_clock` 会略过信号自身的 `at`）。
+            LastUnitSkillBeatAtForTest = _clock;
             var v = ViewAt(e.Player, e.Slot);
             if (v == null) return;
 
@@ -20845,15 +21458,50 @@ namespace CardPresentation
         const float TimeToPlayEnemyCard = 0.12f;
 
         /// <summary>🆕 **2026-10-24（`A19` · `C1-A06`）**：`DisplayEnemyCardInCenter`（**非单位卡**那一支）
-        /// 的居中**缩放倍率** —— 它取的是 `CardScript.GetEnemyCardPlayedDisplayScale`
+        /// 的居中**缩放** —— 它取的是 `CardScript.GetEnemyCardPlayedDisplayScale`
         /// （`globalVars+0x48`，带 `+0x11c` 开关时再 × `+0x4c`），**不是** `ShowCardInCenter` 用的
         /// `cardInHandMovingScale(0x44 = 1.1)` ⇒ **两套字段，别互相顶替**。
-        /// <para>⚠️ `+0x48 / +0x4c` 的原版值**本轮没查**（`资料/VarsGlobal_原版数值.md` 里没有这两格）。
-        /// 这里**原样保留**改动之前用的那两个数（我方 1.65 / 敌方 1.1）—— ⛔ 别拿 `AutoPlayCenter*` 替它，
-        /// 那会跟着 `ShowCardInCenter` 的口径一起变（两个函数本来就不是同一套缩放）。</para></summary>
-        const float PlayedCardCenterScaleMulPlayer = 1.1f * 1.5f;
-        /// <summary>见上（敌方那一档）。</summary>
-        const float PlayedCardCenterScaleMulFoe = 1.1f;
+        /// <para>🔴 **2026-10-24（执行代理 `B1` · `C2` §7）就地订正（铁律 5）**：原文写「`+0x48/0x4c`
+        /// 的原版值本轮没查」—— **不成立**（A19 那句也是错的）：那两个字段就是
+        /// `VarsGlobal.enemyCardDisplayScale` / `enemyCardScaleMobileMultiplier`
+        /// （`dump.cs:120074-120089` 字段表 · `工具/read_varsglobal.py` 实跑 **1.39999998 / 1.29999995**），
+        /// `资料/VarsGlobal_原版数值.md` 第 14/15 行本来就有这两格。
+        /// 改前沿用 `ShowCardInCenter` 借来的 1.1×1.5 / 1.1 —— 那是**两个字段被当成一个**。</para>
+        /// <para>🔴 **量纲也一起改对了（C2 §7·3）**：原版 `GetEnemyCardPlayedDisplayScale` 的返回值是
+        /// **绝对 `Vector3`**（`Vector3.one × globalVars[0x48]`，`Vector3.one` 取自
+        /// `UnityEngine.Vector3` 静态块 `+0xc`），`DOScale` 的目标就是它本身；我们改前是
+        /// **`手牌缩放 × 倍率`**（`startScale × 1.1` ≈ 0.594）⇒ 比原版小 2.36 倍，**光换常数不会对**。
+        /// 现在 `DOScale` 的目标 = **绝对值**（× 窄屏补偿，见调用点）。</para>
+        /// <para>⚠️ 这是**可见变化**（敌方打出的非单位卡会明显变大）⇒ 真机要复算一次。</para></summary>
+        const float EnemyCardPlayedDisplayScale = 1.4f;
+        /// <summary>见上：`globalVars+0x4c` = **1.3**，仅当 `+0x11c`（GraphicsTab 的「小屏」开关）打开时
+        /// 再乘一次 ⇒ 小屏档合 **1.82**（判据 `CardScript__GetEnemyCardPlayedDisplayScale.c:53-61` 两支）。
+        ///
+        /// <para>🔴 **2026-10-24（执行代理 `D6` · 审查 `R1`-P1-2）就地订正（铁律 5）**：原文写
+        /// 「**我们没有这个设置项**（`SettingsPanel` 里没有「小屏」那一行）⇒ 生产恒走自造的
+        /// `SmallScreenToggle = false`」——**两句都不成立**：
+        ///   · 这个设置项**有**：`Shell/SettingsWindow.cs:4411` 的 `Small Screen UI` 那一行 →
+        ///     `ToggleSmallScreenUI()`（`:4572-4574` = 原版 `GraphicsTab.SmallScreenToggleClick` 的等价物）；
+        ///   · 唯一来源 = **`CardPresentation.SmallScreenUI.Enabled`**（= 原版 `GameStaticData.smallScreenUI`
+        ///     `+0x11c`，判据见本文件 `13447-13454` 那段）。自造的 `SmallScreenToggle`（恒 false、
+        ///     **零接线**）**已删** —— 留着的后果是「玩家开了小屏 UI，这里仍按 1.4 算」，
+        ///     而同文件的 `TutSmallScreenFactor` 那一格（`if (SmallScreenUI.Enabled) v *= …`）**跟着真开关走**
+        ///     ⇒ 同一原版字段两条路、自相矛盾。
+        /// ⇒ 现在只读 `SmallScreenUI.Enabled` 一条源，⛔ 别在别处再存一份。</para></summary>
+        const float EnemyCardPlayedMobileMultiplier = 1.3f;
+
+        /// <summary>自检用：居中展示的**绝对**缩放（原版 `GetEnemyCardPlayedDisplayScale` 的返回值）。
+        /// 两档 = 1.4 / 1.4×1.3；开关读 **`SmallScreenUI.Enabled`**（唯一来源）。
+        /// ⚠️ `Editor/BattleScene.cs:539-543` 在 `Run` 开头已把它压成「关」并在 `:39962-39969` 放回
+        /// ⇒ 自检里默认那一档恒 1.4（要验 1.82 就照 `:31180-31187` 那个两态写法，**用完立刻放回**）。</summary>
+        public static float PlayedCardCenterAbsoluteScaleForTest
+        {
+            get
+            {
+                return EnemyCardPlayedDisplayScale
+                     * (SmallScreenUI.Enabled ? EnemyCardPlayedMobileMultiplier : 1f);
+            }
+        }
 
 
         /// <summary>**「打出的卡 → 中央展示」**（原版 `CardScript._DisplayEnemyCardInCenter`，逐句见上面那一大段）。
@@ -20898,7 +21546,13 @@ namespace CardPresentation
                                 ? (hl != null ? hl.cardScale : HandLayout.DefaultCardScale)
                                 : HandLayout.EnemyCardScale) * LayoutSpace.Scale;
             bool mine = owner == _me;
-            float centerMul = mine ? PlayedCardCenterScaleMulPlayer : PlayedCardCenterScaleMulFoe;
+            // 🆕 2026-10-24（执行代理 `B1` · C2 §7·3）：**目标缩放 = 原版那个绝对值**（不是「手牌缩放 × 倍率」）。
+            //   `× LayoutSpace.Scale` 只补偿「我们的世界 HUD 在窄屏整体缩」这一层（设计宽高比下 = 1，
+            //   逐值等于原版的 1.4 / 1.82）；⛔ 别再乘手牌缩放（改前那样算出来敌方只有 0.594，比原版小 2.36 倍）。
+            float centerScale = PlayedCardCenterAbsoluteScaleForTest * LayoutSpace.Scale;
+            // ⚠️ `mine` 今天只可能来自自检（`MaybeDisplayPlayedCardInCenter` 对 `e.Player == _me` 早退）；
+            //   原版我方那张走 `_DisplayOffensiveCardInCenter`，**同一个** `GetEnemyCardPlayedDisplayScale`
+            //   （`CardScript._DisplayOffensiveCardInCenter_d__264__MoveNext.c:58`）⇒ 两档同一个数，不分敌我。
 
             v.SetPose(startLocal, 0f, startScale);
             v.SetHighlight(CardHighlightState.Normal);
@@ -20932,7 +21586,7 @@ namespace CardPresentation
                 seq.Insert(PlayedCardCenterStraightenTime, flip);
             }
             seq.Insert(PlayedCardCenterStraightenTime,
-                       v.transform.DOScale(Vector3.one * (startScale * centerMul), scaleTime).SetEase(Ease.OutSine));
+                       v.transform.DOScale(Vector3.one * centerScale, scaleTime).SetEase(Ease.OutSine));
             // state 2（t = 0.1 + 0.66·hold）：`DisplayCreatedByText` / `ToggleHighlight(false)` —— 见方法头「⚠️」
             // 🔴 **2026-10-22（`W62/D5①`）**：那一拍现在是**真的推**（原来「`Play` 事件不带创建者 ⇒ 不画」）。
             //   判据链：`CardScript._DisplayOffensiveCardInCenter_d__264__MoveNext.c:86-88` 在 state 2 调
@@ -20955,7 +21609,14 @@ namespace CardPresentation
                 if (showFront) v.SetBackVisible(true, backTex);   // 造牌入手的路：收尾 `SetCardVisibility(Back)`
                 // 🔴 `W62/D5①`：原版 state 3 把 `CreatedByText` 节点 `SetActive(false)`
                 //   （`_DisplayOffensiveCardInCenter…:79-80`）—— 那一段大图演完就收。
-                if (creator != null) v.SetCreatedBy(null);
+                // 🔴 **2026-10-24（`G9`，读法歧义）**：原来写成 `if (creator != null) v.SetCreatedBy(null);` ——
+                //   守卫看的是**外层变量**（「有创建者才走到这一拍」），实参却恒为 `null`，档位又吃默认参
+                //   `InHandShowing`（= *展示档*）⇒ 读代码的人会以为「传进去的是创建者」。原版这一拍就是
+                //   把那行字收掉（`…MoveNext.c:79-80` 的 `SetActive(false)`）⇒ 显式写 `Hidden`
+                //   （与 reveal 那边 state 2/3 同口径，见 `TickOffensiveReveal`）。
+                // ⛔ `CreatedByState` 的**默认参**不许动（`CardBaseDemo` 有断言靠它）；改的是这一个调用点。
+                if (creator != null)
+                    v.SetCreatedBy(null, CardView.CreatedByState.Hidden, isLocalPlayer: false);
             });
             var tw = CardTween.Use(seq, Ease.Linear, v);
             tw.OnComplete(() =>
@@ -23675,6 +24336,15 @@ namespace CardPresentation
             //   判据/接线要求 → `W57_战斗线_T09_A3b2_SettingsPanel.md` §六。
             //   ⛔ 别用 `ApplyTutorialSkipForTest()` 顶：它跳过 `TutorialOverlay.TrySkip` 那道闸（语义不同）。
             if (_settingsPanel != null) _settingsPanel.OnSkipTutorial = SkipTutorialFromSettings;
+
+            // 🆕 2026-10-24（执行代理 `B1` · `C2` §4·5 / §5 · 战斗线「对手聊天」② 静音闸）：
+            //   **把「静音对手聊天」的**读口**接到设置窗那颗开关上 —— **这一句就是原版
+            //   `BattleSettingsWindow.Open` 每次读 `voiceLinesController.chatMuted(+0x40)` 的等价物**
+            //   （我们的开关状态就存在面板自己的 `_muteChatOn` 上 ⇒ 拉式读口最省事、不需要改面板）。
+            //   ⚠️ 面板**还没建**时（快照之前）`ChatMuted` 落到推式字段（默认 false）。
+            //   ⛔ 别在 `SettingsPanel` 里再存一份状态、也别在别处再读 `MuteChatOn`（两处写同一条规则）。
+            if (_settingsPanel != null)
+                ChatMutedSource = () => _settingsPanel != null && _settingsPanel.MuteChatOn;
             // 🔴 **2026-10-18：这里原来还有第二处幂等注入 `_tutOverlay.SkipPanel = _settingsPanel;`（已删）。**
             //   A991 当时加它是为了对付「两件创建顺序不固定」，而那两个转发口现在**全仓零调用** ⇒ 注入再无意义。
             //   ✅ **2026-10-18（第三会话）订正**：原来这里写「还剩哪四个口没删」—— **那四个口已经删光了**

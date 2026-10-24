@@ -40,9 +40,14 @@
 //    🔴 **现状（现读口径 · 2026-10-23「官方中文全量收口」`C1`）** —— ⚠️ 原来这里那几组数
 //       （「官方表有键 266 / 换掉 100 / 逐字相同 127 / 官方没键 245」= 2026-10-14 快照；
 //        「780 / 446 / 46 / 7」= 2026-10-19 快照）⛔ **别当现值引用**：
-//      · 本表共 **752 条**（复算：`grep -c 'new Entry(' MyGame/Assets/CardPresentation/Core/Loc.cs`
-//        现读 **754** —— 其中 **2 行是注释里引用的这个字样**（本行与下面那行复算说明），实际条目 = **752**（2026-10-23 补 `Battle/MatchType/FastMode` 与 `FastModeRanked` 后 +2）；
-//        逐条解析表行（`{ "键", … }` 那种，**跨行 / 用 `+` 拼接的也算一条**）也是 750）；
+//      · 本表共 **750 条**（复算：`grep -c 'new Entry(' MyGame/Assets/CardPresentation/Core/Loc.cs`
+//        现读 **752** —— 其中 **2 行是注释里引用的这个字样**（本行与下面那行复算说明），实际条目 = **750**；
+//        逐条解析表行（`{ "键", … }` 那种，**跨行 / 用 `+` 拼接的也算一条**）正则看见 **749** —— 那条
+//        **拼接写法**（`MainMenu/PurchasePremium/Description`）正则读不出，表里算 1 条）。
+//        🔴 **2026-10-24 就地订正（铁律 5 · `A5` 现读 `w4_verify.py` 36/0）**：上面那行原来写「752 条 /
+//        `grep` 754」—— 那是 **2026-10-23** 补 `Battle/MatchType/{FastMode,FastModeRanked}` 之后、**当天晚些**
+//        `45dd42d4` **有意删掉 2 条自造文案**（`MenuDeck/GameMode/Skirmish` / `…/Classic`，值里带
+//        「（Skirmish · 12 张）」那种）**之前**的读数 ⇒ 现读 **750**。⛔ 别再引用 752/754。
 //      · 其中**官方表 `terms`（10,854 条）里有同名键的 447 条**、官方表**没有**这个键的 303 条；
 //      · 🔴 **ZH 值与官方不同的：0 条**（2026-10-23 一次换完 **42** 条 · 见下面那段）；
 //        **EN 值不同的 7 条**（本批按调度台口径**只碰中文值**，EN 未动 —— 清单在下面那段）。
@@ -65,12 +70,15 @@
 //      的余额 —— 2026-10-23 现读 `cards_engine.json`（全池 1,127 张）：`护甲` 46 处 / `盔甲` 0 处 ·
 //      `潜行` 13 / `隐身` 1 · `爆裂` 21 / `爆炸` 0 … ⛔ **不是本表的活**，
 //      也⛔ **不能拿它当「本表该留旧译」的理由**（口径已改）。
-//      ⚠️ **EN 列仍与官方不同的 7 条**（只碰中文值 ⇒ EN 未动；要不要改由下一批定）：
+//      ⚠️ **EN 列仍与官方不同的 5 条**（只碰中文值 ⇒ EN 未动；要不要改由下一批定）：
 //      `Demo/ToBattle`（Battle → `Battle!`）· `MenuCollection/NoDecksFound`（官方多 `or game mode`）·
-//      `Battle/MatchType/Ranked`（Ranked → `Classic`）· `Battle/MatchType/Unranked`（→ `Unranked Classic`）·
 //      `MainMenu/PurchasePremium/Description`（官方少 `Starter Deck and`）·
 //      `Settings/Graphics/FrameLimit`（`FPS limit` → `FPS Limit`·只是大小写）·
 //      `MainMenu/Chat/ChallengeConfirmation`（官方带 `<b><color=#FCDEBB>…</color></b>`）。
+//      🔴 **2026-10-24 就地订正（铁律 5）**：这里原来列 **7 条**，其中 `Battle/MatchType/Ranked`
+//      （`Ranked` → `Classic`）与 `Battle/MatchType/Unranked`（→ `Unranked Classic`）**2026-10-23 已按官方表补齐**
+//      ⇒ 从本清单销掉（现读 **5 条**；判据 = `官方本地化_en+zh-CN.json` 的 `terms` 逐键比对，
+//      `w4_verify.py` ④「官方 Battle 键 156 条 EN 全一致」同批复核）。
 //      逐条判据 → `资料/普查产出_1023c/官方中文全量收口_执行报告.md`。
 //
 //    ⚠️ **本文件里凡是还写着「原版中文在远端 I2 表 / 中文那一列是我们译的 / 本地没有中文表」的旧注，
@@ -1808,8 +1816,13 @@ namespace CardPresentation
             //     ⇒ EN / ZH **都自拟**；ZH 照我们那句动作说明（`DeckRuntime` 里 `Say("已丢弃未保存的改动")`）。
             //   · `MenuShop/ExtraLegendaryWarning` = 原版 `CatalogItemContainer.TryPurchase` 那扇确认框的正文键
             //     （`0x42D24E0` → 地址表实读 = 本条；消费点 `Shell/ShopWindow` + `Shell/ShopData` 里那条）。
-            //     🔴 EN / ZH **都自拟**（同上 **0 命中**）；ZH 一列 = 改之前在
-            //     `Shell/ShopData.LegendaryWarnText` 里写死的那句原话 ⇒ **中文档零变化**。
+            //     🔴 **2026-10-24（`A11` · 铁律 5 就地订正）：原来这里写「EN / ZH 都自拟（同上 0 命中）」—— 【错】。**
+            //     **官方本地化表两列都在**，且与本 Entry **逐字相同**（`数据/游戏数据/官方本地化_en+zh-CN.json`
+            //     的 `terms["MenuShop/ExtraLegendaryWarning"]`，2026-10-24 现读；键名解法 → `资料/全量反编译_入口与用法.md` ⑤）。
+            //     ⇒ 这一条的**值一个字不用改**（本来就已经是官方原文），只是**来源**要说清：**官方表实读**，不是我们译的。
+            //     错因 = 当年「本地全库扫这个键 0 命中」被读成了「官方没有这条文案」，实际是
+            //     **它由远端 Addressables 的本地化包下发、不在客户端安装目录里**（同族教训 → `CLAUDE.md` 铁律 2
+            //     那条 2026-10-14 更正：**「不在离线包里」≠「原版没有」**）。
             { "MenuDeck/HUD/DiscardChanges",    new Entry("放弃更改", "Discard changes") },
             { "MenuShop/ExtraLegendaryWarning", new Entry("请记住，您的卡组中只能使用每张传奇牌的一份副本。您仍然可以创建此张牌的更多副本，但它们只能用于升级该张牌。您想要继续吗？",
                                                           "You can only use one copy of each legendary card in your deck. You can buy or craft more copies of this card, but they are only usable to level up the card. Do you wish to continue?") },

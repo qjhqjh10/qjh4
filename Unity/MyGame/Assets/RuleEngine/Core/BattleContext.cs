@@ -17,6 +17,32 @@ using System.Collections.Generic;
 namespace RuleEngine
 {
     /// <summary>
+    /// 🔴🆕 **2026-10-24（引擎线 `T03·c` · `C1` §3）：原版 `UnitDeathType` 的数值表**
+    /// （照抄 `d:/2/Warpforge_code/Scripts/Assembly-CSharp/UnitDeathType.cs:3-9`）。
+    ///
+    /// <para>**为什么现在才需要它**：原版 `RawCardScript__OnMinionDeath.c:25-37` 按**死因**分派
+    /// 三条触发 —— `10 combatAttacker → 175 UnitDeathAttacking` · `20 ability → 180 UnitDeathByAbility`
+    /// · `40 poison → 170 UnitDeathByPoison`，其余（`15 combatDefender` / `30 tactic` / `50 collectWaystone`）
+    /// **一条都不发**。我们以前只有「`ActingCard != null` = 记击杀」这一维，
+    /// 它把 `15` 与 `20` 混在一起 ⇒ 分不出「能不能发 180」。</para>
+    ///
+    /// <para>⚠️ **只作死因标签用**，⛔ 别拿它去当「记不记击杀」的判据 ——
+    /// 那一条仍然只在 `RuleCore.TryCreditKill` 一处（「`ActingCard != null`」）。
+    /// `Unknown(0)` = 我们没钉死的那几路（进攻卡 / 不稳定 / 回合开始清死人…），
+    /// **不许当 `ability` 用**（铁律 2：查不到就说查不到）。</para>
+    /// </summary>
+    public static class UnitDeathType
+    {
+        public const int Unknown = 0;
+        public const int CombatAttacker = 10;
+        public const int CombatDefender = 15;
+        public const int Ability = 20;
+        public const int Tactic = 30;
+        public const int Poison = 40;
+        public const int CollectWaystone = 50;
+    }
+
+    /// <summary>
     /// 一条**常驻效果**（`BattleContext.PersistentEffects` 的一项）。
     ///
     /// <see cref="Source"/> 记着是哪张卡、<see cref="Owner"/> 记着是谁打出的 ——
@@ -576,6 +602,25 @@ namespace RuleEngine
         public int DiedThisTurn;
 
         /// <summary>
+        /// 🆕 **2026-10-24（引擎线 `A1` · `UM77`）：上一个回合号里阵亡了几个单位**。
+        ///
+        /// <para>**为什么必须单独开一格（⛔ 不是改 `DiedThisTurn`）**：
+        /// `cond 222 diedSinceLastTurn` 的原版判据是
+        /// `turnDied == turnCounter || turnDied + 1 == turnCounter` ——
+        /// **本回合或上一回合**（`CardScript__HasDiedSinceLastTurn.c:26-47`；
+        /// `ConditionEval` 的 222 也是这么实现的）。而 `ctx.DiedThisTurn` 只覆盖**本回合**那一半。
+        /// 消费者是 `for each … that died since your last turn`（今天只有 `UM77 Chairon`）——
+        /// 少算那一半的表现 = **对手回合末被打死的兵不算**（少打一遍）。
+        /// `DiedThisTurn` 自己的两份消费者（反噬 `TestDiedThisTurnDuringBacklash` /
+        /// `for each one that dies`）要的仍然是「**本回合**」⇒ 语义一个字都没动。</para>
+        ///
+        /// <para>**写点唯一** = `RuleCore.BeginTurnCore`：`ctx.DiedLastTurn = ctx.DiedThisTurn;`
+        /// 排在 `ctx.DiedThisTurn = 0;` **之前**（每开一个回合号滚动一次 ⇒
+        /// 「上一回合」= `ctx.Turn - 1` 那个回合号里死的）。</para>
+        /// </summary>
+        public int DiedLastTurn;
+
+        /// <summary>
         /// **本次结算**（一次 `ResolveOps`）里抽到的牌。`For each troop drawn …`
         /// 这种「前一句抽了牌、后一句按张数翻倍」的写法靠它。
         ///
@@ -997,6 +1042,30 @@ namespace RuleEngine
         /// 由 <see cref="RuleCore.ResolveOps"/> 那条路（`ResolveTargets` / `DoDeploy`）写。
         /// </summary>
         public readonly List<UnitState> LastTargets = new List<UnitState>();
+
+        /// <summary>
+        /// 🆕 **2026-10-24（引擎线 `A1` 第 1 件）：上一条能力留下的目标集合** —
+        /// 原版 `AbilityLogic` 的**静态表**（反编译里是 `pooledPossibleTargets`，函数名
+        /// `SetPreviousAbilityTargets`）：`AbilityLogic__SetPreviousAbilityTargets.c:19-28`
+        /// = `Array.Clear` + `AddRange`（**整表覆盖**），调用点 = `AbilityLogic__PlayAbility.c:2743-2745`
+        /// （**这条能力结算完就把槽覆盖掉**）。
+        ///
+        /// <para>**消费者** = `TargetsAffected.previousAbilityFiltered = 150`：
+        /// `AbilityLogic__GetTargets.c:867-882` 把它 `AddRange` 成**候选池**，
+        /// `FilterMethods__CheckIfMeetsCriteria.c:172-183` 再闸一次「候选必须在表里」，
+        /// 之后照常走阵营 / 卡种 / 条件筛。`CountEval` 的 `ta == 150` 分支读的就是本表。</para>
+        ///
+        /// <para>⚠️ **本版的两处如实标注（⛔ 不拿猜的顶）**：
+        /// ① 写点 = `EffectResolver.ResolveOps` 两条重载的出口（`NotePreviousAbilityTargets`），
+        ///    取的是**该次结算最后解出的那批目标**（`ctx.LastTargets`）；原版是逐 verb 往
+        ///    `abilityTargetsToSave(+0x80)` 累加 ⇒ 我们少了「一条能力里多个效果各自的目标取并集」
+        ///    那一半（**近似**）。今天池内 `ta = 150` 的真实消费行 **0 条**（`SW51` 的 `multiSet`
+        ///    因 `conditionsFilter = 0` 未落行，见 `N2_八个role.md` §五·⑤）⇒ **零可观测差异**；
+        /// ② 本版只覆盖**场上单位**候选。原版表里还可能有**手牌 / 牌库的卡**（`SW51` 的上一跳
+        ///    正是 `Draw 2 cards`）⇒ 那种候选落到 `CountEval` 会**返回 null 并出声**
+        ///    （⛔ 不静默少数）；那条路今天由正文的 `countScope == "draw"` 覆盖（`SW51` 等价）。</para>
+        /// </summary>
+        public readonly List<UnitState> PreviousAbilityTargets = new List<UnitState>();
 
         /// <summary>
         /// **事件里那个宾语**（`target`）—— 2026-09-13 A3 加。目前只有一个来源：
@@ -1523,6 +1592,18 @@ namespace RuleEngine
             /// ⚠️ 缺省 `false` = 摧毁那一档（⛔ 别改成 `true`）。
             /// </summary>
             public bool MaySurvive;
+
+            /// <summary>
+            /// 🔴🆕 **2026-10-24（引擎线 `T03·c` · `C1` §3）：这一条死亡的**死因**（<see cref="UnitDeathType"/>）。
+            ///
+            /// <para>**为什么必须随条目走**：原版 `RawCardScript__OnMinionDeath.c:25-37` 按死因分派
+            /// `175 / 180 / 170` 三条触发；而死因是在**判死那一刻**定下的（`DamageInfo.deathType`），
+            /// 死亡被延后进「同时伤害批」后，出批时已经拿不到那一刻的上下文了
+            /// ⇒ 和 <see cref="MaySurvive"/> 同一条纪律：**入队时带走、出队时原样回放**。</para>
+            ///
+            /// <para>`Unknown(0)`（缺省）= 这一路我们没钉死死因 —— **不发 180**（⛔ 别猜成 ability）。</para>
+            /// </summary>
+            public int DeathType;
         }
 
         readonly List<PendingDeath> _pendingDeaths = new List<PendingDeath>();
@@ -1550,7 +1631,7 @@ namespace RuleEngine
         ///    第二次进来时 `u` 还是那个死单位（棋盘上还没清）⇒ **标记会结算两遍**。
         /// </summary>
         public void AddPendingDeath(int p, int slot, int killer, UnitState actingCard = null,
-                                    bool maySurvive = false)
+                                    bool maySurvive = false, int deathType = UnitDeathType.Unknown)
         {
             if (p < 0 || p >= Players.Length) return;
             var u = Players[p].Board[slot];
@@ -1563,6 +1644,8 @@ namespace RuleEngine
                 Player = p, Unit = u, Killer = killer, SlotAtDeath = slot, ActingCard = actingCard,
                 // 🆕 2026-10-22（`W63` #5–#8）：**原样带走**，出队时原样回放（见 `PendingDeath.MaySurvive`）。
                 MaySurvive = maySurvive,
+                // 🔴 2026-10-24（`C1` §3）：死因同上「入队带走、出队回放」（见 `PendingDeath.DeathType`）。
+                DeathType = deathType,
             });
         }
 

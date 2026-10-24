@@ -269,7 +269,7 @@ public static partial class RuleEngineTest
     }
 
     // ==================================================================
-    //  T26 · **泵点集合 = 18 个 `BeginAction` 调用点**（审查第 8 条）
+    //  T26 · **泵点集合 = 19 个 `BeginAction` 调用点**（审查第 8 条）
     // ==================================================================
     /// <summary>
     /// 「漏一个泵点 = 静默丢一条动作」（审查第 1 / 第 5 条就是这么来的）⇒ 这个数必须钉住。
@@ -282,12 +282,14 @@ public static partial class RuleEngineTest
     ///   ② `EffectResolver.cs:1676` 也是同一个 `try { … }` 同行写法；另外两处（`:7164` / `:8775`）
     ///      **连 `RuleCore.` 前缀都没有**（同一个类里直接调 `BeginAction`）
     ///      ⇒ 旧前缀在整份 `EffectResolver.cs` 里命中 **0**（`nEff = 0` 就是这么来的）。
-    ///   ⇒ 旧期望「13 + 1 = 14」是**扫描器给出的假数**；现读真值 = **`RuleCore.cs` 15 + `EffectResolver.cs` 3 = 18**。
+    ///   ⇒ 旧期望「13 + 1 = 14」是**扫描器给出的假数**；现读真值 = **`RuleCore.cs` 16 + `EffectResolver.cs` 3 = 19**
+    ///      （2026-10-24 现读：`A1` 第 4 件新增 `BeginTurnForReplayExpansion` 的泵点 `RuleCore.cs:1542`）。
     ///   ⚠️ **没有丢泵点**：W62 列的 13 个全在，+ R1 新增的
-    ///      `Hurt`（`RuleCore.cs:7690`）/ `TryCancelAttack`（`RuleCore.cs:6800`）= 15。
+    ///      `Hurt`（泵点 `RuleCore.cs:8040`）/ `TryCancelAttack`（泵点 `RuleCore.cs:7139`）= 15；
+    ///      再加 2026-10-24（引擎线 `A1` 第 4 件）新增的 `BeginTurnForReplayExpansion`（`RuleCore.cs:1542`）= 16。
     /// 🧨 任何一处 `using (BeginAction…)` 被删 / 被注释掉 ⇒ 数字变小 ⇒ 红（= 那个顶层入口从此不泵队）。
     /// 🧨 **新增**顶层入口时本条也会红 —— 那是**故意的**：去确认新入口真的包了 `BeginAction`，
-    ///    再把这里的期望值 +1（⛔ 别改成「≥18」，那会让「漏一个」和「加一个」分不开）。
+    ///    再把这里的期望值 +1（⛔ 别改成「≥19」，那会让「漏一个」和「加一个」分不开）。
     /// </summary>
     static void W61T26PumpPointCount()
     {
@@ -298,10 +300,10 @@ public static partial class RuleEngineTest
         //    分不清是**夹具前提塌了**还是**实现缺陷**（`W63` 之前就是这种双重红：#10 只是 #12 的级联）。
         CheckTrue(nRule >= 0 && nEff >= 0,
                   "T26 夹具：两份源码都读到了（**-1 = 文件不存在**；路径见上面两行）");
-        Check(nRule, 15, "★ T26 `RuleCore.cs` 的 `using (BeginAction(ctx))` = 15（2026-10-22 现读）");
+        Check(nRule, 16, "★ T26 `RuleCore.cs` 的 `using (BeginAction(ctx))` = 16（2026-10-24 现读：`A1` 新增 `BeginTurnForReplayExpansion`）");
         Check(nEff, 3, "★ T26 `EffectResolver.cs` 的 `using (BeginAction(ctx))` = 3"
-                     + "（`PlayTacticCore` :1676 · `BroadcastWhen` 壳 :7164 · `GrantDarkPact` 壳 :8775）");
-        Check(nRule + nEff, 18, "★ T26 **泵点总数 = 18**（漏一个 ⇒ 那个顶层入口的触发永远不结算）");
+                     + "（`PlayTacticCore` :2042 · `BroadcastWhen` 壳 :8341 · `GrantDarkPact` 壳 :10185）");
+        Check(nRule + nEff, 19, "★ T26 **泵点总数 = 19**（漏一个 ⇒ 那个顶层入口的触发永远不结算）");
     }
 
     /// <summary>`T26` 的行扫描：**整行正则** —— 行内**任意位置**出现

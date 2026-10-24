@@ -1,9 +1,9 @@
 {
   "version": 2,
-  "note": "原版单位语音表。id = 我们卡表的 id（cards_engine.json）；file = Resources/Art/audio/vo/<名>；ev = 事件名（**按原版字段名定**，见 lines[].so）；`wp` = 原版 `wellPlayedChatSound`。归属三级：卡 SO（权威，lines[].src=cardSO —— 含 summon/attack/death 三个战斗字段与 12 个 *ChatSound）→ card_index.json（兜底，无 src）→ 按文件名猜（src=orphan）。`lines[].so` = 该条音频在卡 SO 上的**原版字段名**（没佐证的条目不写）；`lines[].text` 只作气泡文字用。",
+  "note": "原版单位语音表。id = 我们卡表的 id（cards_engine.json）；file = Resources/Art/audio/vo/<名>；ev = 事件名（**按原版字段名定**，见 lines[].so）；`wp` = 原版 `wellPlayedChatSound`。归属三级：卡 SO（权威，lines[].src=cardSO —— 含 summon/attack/death 三个战斗字段与 12 个 *ChatSound）→ card_index.json（兜底，无 src；卡名与我们卡表不同的那批走两条身份级 join：① name+factionId → 原版 SO cardName+cardArmy → uniqueId → 我们卡 id；② ① 对不上时 art 资产名 → 卡 SO 的 cardImageReference 资产名 → 我们卡 id）→ 按文件名猜（src=orphan；`_vs_` 对手台词**只认 `_vs_` 之前那一段当主人**；命中取**词数最多**的那个卡名（全名/首段短名两张表一起比），词数相同且指向不同卡 ⇒**同名多义、不认**）；猜出来的行里**原版不会播的已丢弃**（文件名带 `VO_NOT USED_` · 同卡同事件已有卡 SO 指名，判据见 `工具/import_original_audio.py` 的 `orphan_is_dead`）。🔴 2026-10-24（`D9`）：②/③ 挂错主人的开场白 clip 已按 `Resources/card_chat_intro.json` 的**权威归属**（原版卡 SO 的 `customIntroChatData[].customSound`）改判 —— 现读 4 条（`BL5`→`BL34` ×3 对手开场白 · `BL67`→`BL65` ×1 `gen6`）；`src`/`so` 留痕不变，判据 `资料/普查产出_1024/D9_开场白兜底顺序与脏标.md`。🔴 2026-10-24（`D7`）：`_vs_` 对手台词（`<主人>_vs_<对手>`）**不再记 `deploy`** —— 它们记成 `ev=\"intro-vs\"`（权威通道 = `Resources/card_chat_intro.json` 的开场白 Intro，`VoiceLines` 永不选这个 ev；判据 `C5` §4）；原版**没有**的 `gen4..gen7` 通道那批行**保留**（留证据）但标 `src=\"orphan\"`（死数据，判据 `C5` §5）。`lines[].so` = 该条音频在卡 SO 上的**原版字段名**（没佐证的条目不写）；`lines[].text` 只作气泡文字用。",
   "source": {
     "audio": "d:/2/新解包资源/assets_full/bundle_*cardassets*_assets_all/AudioClip/",
-    "owner": "① 卡 SO 的 summonAudio/attackAudio/deathAudio（经 d:/4/Unity/数据/游戏数据/card_vfx_by_card.json 的 byCard[*]._assetRefs）**+ 12 个 *ChatSound**（经 SO 本体 d:/2/远端缓存_旧profile_1013/导出/cards_1195_2022时代.json，GUID → 资产名走 card_vfx_by_card.json._assetRefs ∪ 数据/索引/anim_address_map.json 的 guid_to_asset）**权威**；② d:/4/Unity/数据/索引/card_index.json 的 cards[].voice **兜底**",
+    "owner": "① 卡 SO 的 summonAudio/attackAudio/deathAudio（经 d:/4/Unity/数据/游戏数据/card_vfx_by_card.json 的 byCard[*]._assetRefs）**+ 12 个 *ChatSound**（经 SO 本体 d:/4/Unity/资料/普查产出_1018/allcards_1350/cards_raw.json（当前 build 1,351 张 RawCardScript，卡 SO 全字段在 full_raw），GUID → 资产名走 card_vfx_by_card.json._assetRefs ∪ 资料/普查产出_1018/cardanim_guid_map/guid_map_bundles.tsv ∪ 数据/索引/anim_address_map.json 的 guid_to_asset）**权威**；② d:/4/Unity/数据/索引/card_index.json 的 cards[].voice **兜底**",
     "script": "工具/import_original_audio.py"
   },
   "cards": [
@@ -16,7 +16,8 @@
           "ev": "deploy",
           "file": "VO_SpaceWolves_Tyrnak and Fenrir.ogg",
           "text": "",
-          "src": "cardSO"
+          "src": "cardSO",
+          "so": "summonAudio"
         }
       ]
     },
@@ -125,22 +126,26 @@
         {
           "ev": "gen4",
           "file": "VO_AM_Arcadian Leontus_gen4.ogg",
-          "text": ""
+          "text": "",
+          "src": "orphan"
         },
         {
           "ev": "gen5",
           "file": "VO_AM_Arcadian Leontus_gen5.ogg",
-          "text": ""
+          "text": "",
+          "src": "orphan"
         },
         {
           "ev": "gen6",
           "file": "VO_AM_Arcadian Leontus_gen6.ogg",
-          "text": ""
+          "text": "",
+          "src": "orphan"
         },
         {
           "ev": "gen7",
           "file": "VO_AM_Arcadian Leontus_gen7.ogg",
-          "text": ""
+          "text": "",
+          "src": "orphan"
         },
         {
           "ev": "vsabaddon",
@@ -288,66 +293,6 @@
           "text": "Do your duty, or die by my hand",
           "src": "cardSO",
           "so": "summonAudio"
-        },
-        {
-          "ev": "backup1",
-          "file": "VO_AM_Commissar Elan_Backup1.ogg",
-          "text": "",
-          "src": "orphan"
-        },
-        {
-          "ev": "gen4",
-          "file": "VO_AM_Commissar Elan_gen4.ogg",
-          "text": "",
-          "src": "orphan"
-        },
-        {
-          "ev": "gen5",
-          "file": "VO_AM_Commissar Elan_gen5.ogg",
-          "text": "",
-          "src": "orphan"
-        },
-        {
-          "ev": "gen6",
-          "file": "VO_AM_Commissar Elan_gen6.ogg",
-          "text": "",
-          "src": "orphan"
-        },
-        {
-          "ev": "gen7",
-          "file": "VO_AM_Commissar Elan_gen7.ogg",
-          "text": "",
-          "src": "orphan"
-        },
-        {
-          "ev": "vsghazghkull",
-          "file": "VO_AM_Commissar Elan_vsGhazghkull.ogg",
-          "text": "",
-          "src": "orphan"
-        },
-        {
-          "ev": "vshaarken",
-          "file": "VO_AM_Commissar Elan_vsHaarken.ogg",
-          "text": "",
-          "src": "orphan"
-        },
-        {
-          "ev": "vsleontus",
-          "file": "VO_AM_Commissar Elan_vsLeontus.ogg",
-          "text": "",
-          "src": "orphan"
-        },
-        {
-          "ev": "vsminka",
-          "file": "VO_AM_Commissar Elan_vsMinka.ogg",
-          "text": "",
-          "src": "orphan"
-        },
-        {
-          "ev": "vsursula",
-          "file": "VO_AM_Commissar Elan_vsUrsula.ogg",
-          "text": "",
-          "src": "orphan"
         }
       ]
     },
@@ -484,22 +429,26 @@
         {
           "ev": "gen4",
           "file": "VO_AM_Ursula Creed_gen4.ogg",
-          "text": ""
+          "text": "",
+          "src": "orphan"
         },
         {
           "ev": "gen5",
           "file": "VO_AM_Ursula Creed_gen5.ogg",
-          "text": ""
+          "text": "",
+          "src": "orphan"
         },
         {
           "ev": "gen6",
           "file": "VO_AM_Ursula Creed_gen6.ogg",
-          "text": ""
+          "text": "",
+          "src": "orphan"
         },
         {
           "ev": "gen7",
           "file": "VO_AM_Ursula Creed_gen7.ogg",
-          "text": ""
+          "text": "",
+          "src": "orphan"
         },
         {
           "ev": "vsabaddon",
@@ -755,6 +704,60 @@
           "text": "",
           "src": "cardSO",
           "so": "wellPlayedChatSound"
+        },
+        {
+          "ev": "backup1",
+          "file": "VO_AM_Commissar Elan_Backup1.ogg",
+          "text": ""
+        },
+        {
+          "ev": "gen4",
+          "file": "VO_AM_Commissar Elan_gen4.ogg",
+          "text": "",
+          "src": "orphan"
+        },
+        {
+          "ev": "gen5",
+          "file": "VO_AM_Commissar Elan_gen5.ogg",
+          "text": "",
+          "src": "orphan"
+        },
+        {
+          "ev": "gen6",
+          "file": "VO_AM_Commissar Elan_gen6.ogg",
+          "text": "",
+          "src": "orphan"
+        },
+        {
+          "ev": "gen7",
+          "file": "VO_AM_Commissar Elan_gen7.ogg",
+          "text": "",
+          "src": "orphan"
+        },
+        {
+          "ev": "vsghazghkull",
+          "file": "VO_AM_Commissar Elan_vsGhazghkull.ogg",
+          "text": ""
+        },
+        {
+          "ev": "vshaarken",
+          "file": "VO_AM_Commissar Elan_vsHaarken.ogg",
+          "text": ""
+        },
+        {
+          "ev": "vsleontus",
+          "file": "VO_AM_Commissar Elan_vsLeontus.ogg",
+          "text": ""
+        },
+        {
+          "ev": "vsminka",
+          "file": "VO_AM_Commissar Elan_vsMinka.ogg",
+          "text": ""
+        },
+        {
+          "ev": "vsursula",
+          "file": "VO_AM_Commissar Elan_vsUrsula.ogg",
+          "text": ""
         }
       ]
     },
@@ -1075,22 +1078,26 @@
         {
           "ev": "gen4",
           "file": "VO_AM_Hektor Thenmann_gen4.ogg",
-          "text": ""
+          "text": "",
+          "src": "orphan"
         },
         {
           "ev": "gen5",
           "file": "VO_AM_Hektor Thenmann_gen5.ogg",
-          "text": ""
+          "text": "",
+          "src": "orphan"
         },
         {
           "ev": "gen6",
           "file": "VO_AM_Hektor Thenmann_gen6.ogg",
-          "text": ""
+          "text": "",
+          "src": "orphan"
         },
         {
           "ev": "gen7",
           "file": "VO_AM_Hektor Thenmann_gen7.ogg",
-          "text": ""
+          "text": "",
+          "src": "orphan"
         },
         {
           "ev": "vsdenkler",
@@ -1113,9 +1120,10 @@
           "text": ""
         },
         {
-          "ev": "deploy",
+          "ev": "intro-vs",
           "file": "VO_AM_Hektor Thenmann_vsTau_v2.ogg",
-          "text": ""
+          "text": "",
+          "src": "orphan"
         }
       ]
     },
@@ -1186,12 +1194,6 @@
           "text": "",
           "src": "cardSO",
           "so": "summonAudio"
-        },
-        {
-          "ev": "deploy",
-          "file": "VO_AM_Medic Scion - No soul left behind.ogg",
-          "text": "No soul left behind",
-          "src": "orphan"
         }
       ]
     },
@@ -1220,11 +1222,6 @@
           "text": "Fight to the last breath!",
           "src": "cardSO",
           "so": "summonAudio"
-        },
-        {
-          "ev": "deploy",
-          "file": "VO_AM_Vitus Gryf - Your death is our duty.ogg",
-          "text": "Your death is our duty"
         }
       ]
     },
@@ -1375,22 +1372,26 @@
         {
           "ev": "gen4",
           "file": "VO_SaimHann_Anvirr_gen4.ogg",
-          "text": ""
+          "text": "",
+          "src": "orphan"
         },
         {
           "ev": "gen5",
           "file": "VO_SaimHann_Anvirr_gen5.ogg",
-          "text": ""
+          "text": "",
+          "src": "orphan"
         },
         {
           "ev": "gen6",
           "file": "VO_SaimHann_Anvirr_gen6.ogg",
-          "text": ""
+          "text": "",
+          "src": "orphan"
         },
         {
           "ev": "gen7",
           "file": "VO_SaimHann_Anvirr_gen7.ogg",
-          "text": ""
+          "text": "",
+          "src": "orphan"
         },
         {
           "ev": "vscalgar",
@@ -1655,24 +1656,16 @@
           "so": "wellPlayedChatSound"
         },
         {
-          "ev": "gen1",
-          "file": "VO_SaimHann_Zephyrblade_gen1.ogg",
-          "text": ""
-        },
-        {
           "ev": "gen6",
           "file": "VO_SaimHann_Zephyrblade_gen6.ogg",
-          "text": ""
+          "text": "",
+          "src": "orphan"
         },
         {
           "ev": "gen7",
           "file": "VO_SaimHann_Zephyrblade_gen7.ogg",
-          "text": ""
-        },
-        {
-          "ev": "intro",
-          "file": "VO_SaimHann_Zephyrblade_intro.ogg",
-          "text": ""
+          "text": "",
+          "src": "orphan"
         },
         {
           "ev": "vsghaelyn",
@@ -1936,37 +1929,44 @@
         {
           "ev": "gen4",
           "file": "VO_SaimHann_Ghaelyn_gen4.ogg",
-          "text": ""
+          "text": "",
+          "src": "orphan"
         },
         {
           "ev": "gen5",
           "file": "VO_SaimHann_Ghaelyn_gen5.ogg",
-          "text": ""
+          "text": "",
+          "src": "orphan"
         },
         {
           "ev": "gen6",
           "file": "VO_SaimHann_Ghaelyn_gen6.ogg",
-          "text": ""
+          "text": "",
+          "src": "orphan"
         },
         {
           "ev": "gen7",
           "file": "VO_SaimHann_Ghaelyn_gen7.ogg",
-          "text": ""
+          "text": "",
+          "src": "orphan"
         },
         {
-          "ev": "deploy",
+          "ev": "intro-vs",
           "file": "VO_SaimHann_Ghaelyn_vs_Eliac.ogg",
-          "text": ""
+          "text": "",
+          "src": "orphan"
         },
         {
-          "ev": "deploy",
+          "ev": "intro-vs",
           "file": "VO_SaimHann_Ghaelyn_vs_Haarken.ogg",
-          "text": ""
+          "text": "",
+          "src": "orphan"
         },
         {
-          "ev": "deploy",
+          "ev": "intro-vs",
           "file": "VO_SaimHann_Ghaelyn_vs_Tyranids.ogg",
-          "text": ""
+          "text": "",
+          "src": "orphan"
         }
       ]
     },
@@ -2341,22 +2341,26 @@
         {
           "ev": "gen4",
           "file": "VO_CW_SaimHann_Jain Zar_gen4.ogg",
-          "text": ""
+          "text": "",
+          "src": "orphan"
         },
         {
           "ev": "gen5",
           "file": "VO_CW_SaimHann_Jain Zar_gen5.ogg",
-          "text": ""
+          "text": "",
+          "src": "orphan"
         },
         {
           "ev": "gen6",
           "file": "VO_CW_SaimHann_Jain Zar_gen6.ogg",
-          "text": ""
+          "text": "",
+          "src": "orphan"
         },
         {
           "ev": "gen7",
           "file": "VO_CW_SaimHann_Jain Zar_gen7.ogg",
-          "text": ""
+          "text": "",
+          "src": "orphan"
         },
         {
           "ev": "vsdrukhari",
@@ -2509,22 +2513,26 @@
         {
           "ev": "gen4",
           "file": "VO_CW_SaimHann_Lhykhis_gen4.ogg",
-          "text": ""
+          "text": "",
+          "src": "orphan"
         },
         {
           "ev": "gen5",
           "file": "VO_CW_SaimHann_Lhykhis_gen5.ogg",
-          "text": ""
+          "text": "",
+          "src": "orphan"
         },
         {
           "ev": "gen6",
           "file": "VO_CW_SaimHann_Lhykhis_gen6.ogg",
-          "text": ""
+          "text": "",
+          "src": "orphan"
         },
         {
           "ev": "gen7",
           "file": "VO_CW_SaimHann_Lhykhis_gen7.ogg",
-          "text": ""
+          "text": "",
+          "src": "orphan"
         },
         {
           "ev": "vsec",
@@ -3153,6 +3161,21 @@
           "text": "",
           "src": "cardSO",
           "so": "wellPlayedChatSound"
+        },
+        {
+          "ev": "vsgrukk",
+          "file": "VO_BlackLegion_Abaddon_vsGrukk.ogg",
+          "text": ""
+        },
+        {
+          "ev": "vshexscorn",
+          "file": "VO_BlackLegion_Abaddon_vsHexscorn.ogg",
+          "text": ""
+        },
+        {
+          "ev": "vsorikan",
+          "file": "VO_BlackLegion_Abaddon_vsOrikan.ogg",
+          "text": ""
         }
       ]
     },
@@ -3261,42 +3284,50 @@
         {
           "ev": "gen4",
           "file": "VO_BlackLegion_Haarken_Gen4.ogg",
-          "text": ""
+          "text": "",
+          "src": "orphan"
         },
         {
           "ev": "gen5",
           "file": "VO_BlackLegion_Haarken_Gen5.ogg",
-          "text": ""
+          "text": "",
+          "src": "orphan"
         },
         {
           "ev": "gen6",
           "file": "VO_BlackLegion_Haarken_Gen6.ogg",
-          "text": ""
+          "text": "",
+          "src": "orphan"
         },
         {
           "ev": "gen7",
           "file": "VO_BlackLegion_Haarken_Gen7.ogg",
-          "text": ""
+          "text": "",
+          "src": "orphan"
         },
         {
-          "ev": "deploy",
+          "ev": "intro-vs",
           "file": "VO_BlackLegion_Haarken_vs_Commissar.ogg",
-          "text": ""
+          "text": "",
+          "src": "orphan"
         },
         {
-          "ev": "deploy",
+          "ev": "intro-vs",
           "file": "VO_BlackLegion_Haarken_vs_JainZar.ogg",
-          "text": ""
+          "text": "",
+          "src": "orphan"
         },
         {
-          "ev": "deploy",
+          "ev": "intro-vs",
           "file": "VO_BlackLegion_Haarken_vs_Orikan.ogg",
-          "text": ""
+          "text": "",
+          "src": "orphan"
         },
         {
-          "ev": "deploy",
+          "ev": "intro-vs",
           "file": "VO_BlackLegion_Haarken_vs_Zagstruk.ogg",
-          "text": ""
+          "text": "",
+          "src": "orphan"
         }
       ]
     },
@@ -3401,6 +3432,72 @@
           "text": "",
           "src": "cardSO",
           "so": "wellPlayedChatSound"
+        },
+        {
+          "ev": "gen4",
+          "file": "VO_BlackLegion_Hexscorn_Gen4.ogg",
+          "text": "",
+          "src": "orphan"
+        },
+        {
+          "ev": "gen5",
+          "file": "VO_BlackLegion_Hexscorn_Gen5.ogg",
+          "text": "",
+          "src": "orphan"
+        },
+        {
+          "ev": "gen6",
+          "file": "VO_BlackLegion_Hexscorn_Gen6.ogg",
+          "text": "",
+          "src": "orphan"
+        },
+        {
+          "ev": "gen7",
+          "file": "VO_BlackLegion_Hexscorn_Gen7.ogg",
+          "text": "",
+          "src": "orphan"
+        },
+        {
+          "ev": "intro-vs",
+          "file": "VO_BlackLegion_Hexscorn_vs_Abaddon.ogg",
+          "text": "",
+          "src": "orphan"
+        },
+        {
+          "ev": "intro-vs",
+          "file": "VO_BlackLegion_Hexscorn_vs_Keltoc.ogg",
+          "text": "",
+          "src": "orphan"
+        },
+        {
+          "ev": "intro-vs",
+          "file": "VO_BlackLegion_Hexscorn_vs_UrsulaCreed.ogg",
+          "text": "",
+          "src": "orphan"
+        },
+        {
+          "ev": "intro-vs",
+          "file": "VO_BlackLegion_Hexscorn_vs_Varro.ogg",
+          "text": "",
+          "src": "orphan"
+        },
+        {
+          "ev": "intro-vs",
+          "file": "VO_BlackLegion_Hexscorn_vs_tbc2.ogg",
+          "text": "",
+          "src": "orphan"
+        },
+        {
+          "ev": "intro-vs",
+          "file": "VO_BlackLegion_Hexscorn_vs_tbc3.ogg",
+          "text": "",
+          "src": "orphan"
+        },
+        {
+          "ev": "intro-vs",
+          "file": "VO_BlackLegion_Hexscorn_vs_tbc4.ogg",
+          "text": "",
+          "src": "orphan"
         }
       ]
     },
@@ -3433,22 +3530,26 @@
         {
           "ev": "gen4",
           "file": "VO_BlackLegion_Abaddon_gen4.ogg",
-          "text": ""
+          "text": "",
+          "src": "orphan"
         },
         {
           "ev": "gen5",
           "file": "VO_BlackLegion_Abaddon_gen5.ogg",
-          "text": ""
+          "text": "",
+          "src": "orphan"
         },
         {
           "ev": "gen6",
           "file": "VO_BlackLegion_Abaddon_gen6.ogg",
-          "text": ""
+          "text": "",
+          "src": "orphan"
         },
         {
           "ev": "gen7",
           "file": "VO_BlackLegion_Abaddon_gen7.ogg",
-          "text": ""
+          "text": "",
+          "src": "orphan"
         },
         {
           "ev": "vscalgar",
@@ -3456,23 +3557,8 @@
           "text": ""
         },
         {
-          "ev": "vsgrukk",
-          "file": "VO_BlackLegion_Abaddon_vsGrukk.ogg",
-          "text": ""
-        },
-        {
-          "ev": "vshexscorn",
-          "file": "VO_BlackLegion_Abaddon_vsHexscorn.ogg",
-          "text": ""
-        },
-        {
           "ev": "vsminka",
           "file": "VO_BlackLegion_Abaddon_vsMinka.ogg",
-          "text": ""
-        },
-        {
-          "ev": "vsorikan",
-          "file": "VO_BlackLegion_Abaddon_vsOrikan.ogg",
           "text": ""
         }
       ]
@@ -3620,6 +3706,12 @@
           "text": "",
           "src": "cardSO",
           "so": "wellPlayedChatSound"
+        },
+        {
+          "ev": "gen6",
+          "file": "VO_BL_Ghallaron_gen6.ogg",
+          "text": "",
+          "src": "orphan"
         }
       ]
     },
@@ -3672,22 +3764,20 @@
         {
           "ev": "gen4",
           "file": "VO_BL_Ghallaron_gen4.ogg",
-          "text": ""
+          "text": "",
+          "src": "orphan"
         },
         {
           "ev": "gen5",
           "file": "VO_BL_Ghallaron_gen5.ogg",
-          "text": ""
-        },
-        {
-          "ev": "gen6",
-          "file": "VO_BL_Ghallaron_gen6.ogg",
-          "text": ""
+          "text": "",
+          "src": "orphan"
         },
         {
           "ev": "gen7",
           "file": "VO_BL_Ghallaron_gen7.ogg",
-          "text": ""
+          "text": "",
+          "src": "orphan"
         },
         {
           "ev": "vsghazghkull",
@@ -3923,22 +4013,26 @@
         {
           "ev": "gen4",
           "file": "VO_DA_Azrael_gen4.ogg",
-          "text": ""
+          "text": "",
+          "src": "orphan"
         },
         {
           "ev": "gen5",
           "file": "VO_DA_Azrael_gen5.ogg",
-          "text": ""
+          "text": "",
+          "src": "orphan"
         },
         {
           "ev": "gen6",
           "file": "VO_DA_Azrael_gen6.ogg",
-          "text": ""
+          "text": "",
+          "src": "orphan"
         },
         {
           "ev": "gen7",
           "file": "VO_DA_Azrael_gen7.ogg",
-          "text": ""
+          "text": "",
+          "src": "orphan"
         },
         {
           "ev": "vsabaddon",
@@ -4197,22 +4291,26 @@
         {
           "ev": "gen4",
           "file": "VO_DA_Belial_gen4.ogg",
-          "text": ""
+          "text": "",
+          "src": "orphan"
         },
         {
           "ev": "gen5",
           "file": "VO_DA_Belial_gen5.ogg",
-          "text": ""
+          "text": "",
+          "src": "orphan"
         },
         {
           "ev": "gen6",
           "file": "VO_DA_Belial_gen6.ogg",
-          "text": ""
+          "text": "",
+          "src": "orphan"
         },
         {
           "ev": "gen7",
           "file": "VO_DA_Belial_gen7.ogg",
-          "text": ""
+          "text": "",
+          "src": "orphan"
         },
         {
           "ev": "vsasmodai",
@@ -4471,22 +4569,26 @@
         {
           "ev": "gen4",
           "file": "VO_DA_Asmodai_gen4.ogg",
-          "text": ""
+          "text": "",
+          "src": "orphan"
         },
         {
           "ev": "gen5",
           "file": "VO_DA_Asmodai_gen5.ogg",
-          "text": ""
+          "text": "",
+          "src": "orphan"
         },
         {
           "ev": "gen6",
           "file": "VO_DA_Asmodai_gen6.ogg",
-          "text": ""
+          "text": "",
+          "src": "orphan"
         },
         {
           "ev": "gen7",
           "file": "VO_DA_Asmodai_gen7.ogg",
-          "text": ""
+          "text": "",
+          "src": "orphan"
         },
         {
           "ev": "vsazrael",
@@ -4692,7 +4794,8 @@
           "ev": "deploy",
           "file": "VO_DA_Chaplain Gabutheron - No price is too high to clean the sins of old.wav",
           "text": "No price is too high to clean the sins of old",
-          "src": "cardSO"
+          "src": "cardSO",
+          "so": "summonAudio"
         }
       ]
     },
@@ -4705,7 +4808,8 @@
           "ev": "deploy",
           "file": "VO_DA_Ballistus Dreadnought - Death is not enough to stay our wrath.wav",
           "text": "Death is not enough to stay our wrath",
-          "src": "cardSO"
+          "src": "cardSO",
+          "so": "summonAudio"
         }
       ]
     },
@@ -4718,7 +4822,8 @@
           "ev": "deploy",
           "file": "VO_DA_Assault Terminator - I will not suffer your existence one moment longer.wav",
           "text": "I will not suffer your existence one moment longer",
-          "src": "cardSO"
+          "src": "cardSO",
+          "so": "summonAudio"
         }
       ]
     },
@@ -4731,7 +4836,8 @@
           "ev": "deploy",
           "file": "VO_DA_Vengeful Brethren Bladeguard - Stand as firm as the mighty Rock itself!.wav",
           "text": "Stand as firm as the mighty Rock itself!",
-          "src": "cardSO"
+          "src": "cardSO",
+          "so": "summonAudio"
         }
       ]
     },
@@ -4744,7 +4850,8 @@
           "ev": "deploy",
           "file": "VO_DA_Vengeful Brethren Hellblaster - Mercy is not mine to deliver Only death.wav",
           "text": "Mercy is not mine to deliver Only death",
-          "src": "cardSO"
+          "src": "cardSO",
+          "so": "summonAudio"
         }
       ]
     },
@@ -4771,7 +4878,8 @@
           "ev": "deploy",
           "file": "VO_DA_Vengeful Brethren Intercessor - You are one mistake away from your death.wav",
           "text": "You are one mistake away from your death",
-          "src": "cardSO"
+          "src": "cardSO",
+          "so": "summonAudio"
         }
       ]
     },
@@ -4784,7 +4892,8 @@
           "ev": "deploy",
           "file": "VO_DA_Watcher in the Dark - You do not have long.wav",
           "text": "You do not have long",
-          "src": "cardSO"
+          "src": "cardSO",
+          "so": "summonAudio"
         }
       ]
     },
@@ -4803,7 +4912,92 @@
           "ev": "death",
           "file": "VO_DA_Master Zacharial_death.wav",
           "text": "",
-          "src": "cardSO"
+          "src": "cardSO",
+          "so": "deathAudio"
+        },
+        {
+          "ev": "default",
+          "file": "VO_DA_Master Zacharial_attack.wav",
+          "text": "",
+          "src": "cardSO",
+          "so": "defaultChatSound"
+        },
+        {
+          "ev": "cantdo",
+          "file": "VO_DA_Master Zacharial_cantDo.wav",
+          "text": "",
+          "src": "cardSO",
+          "so": "iCantDoThatChatSound"
+        },
+        {
+          "ev": "concede",
+          "file": "VO_DA_Master Zacharial_concede.wav",
+          "text": "",
+          "src": "cardSO",
+          "so": "concedeChatSound"
+        },
+        {
+          "ev": "gen1",
+          "file": "VO_DA_Master Zacharial_gen1.wav",
+          "text": "",
+          "src": "cardSO",
+          "so": "generic1ChatSound"
+        },
+        {
+          "ev": "gen2",
+          "file": "VO_DA_Master Zacharial_gen2.wav",
+          "text": "",
+          "src": "cardSO",
+          "so": "generic2ChatSound"
+        },
+        {
+          "ev": "gen3",
+          "file": "VO_DA_Master Zacharial_gen3.wav",
+          "text": "",
+          "src": "cardSO",
+          "so": "generic3ChatSound"
+        },
+        {
+          "ev": "greet",
+          "file": "VO_DA_Master Zacharial_greet.wav",
+          "text": "",
+          "src": "cardSO",
+          "so": "greetChatSound"
+        },
+        {
+          "ev": "hurry",
+          "file": "VO_DA_Master Zacharial_hurry.wav",
+          "text": "",
+          "src": "cardSO",
+          "so": "hurryChatSound"
+        },
+        {
+          "ev": "intro",
+          "file": "VO_DA_Master Zacharial_intro.wav",
+          "text": "",
+          "src": "cardSO",
+          "so": "introChatSound"
+        },
+        {
+          "ev": "mirror",
+          "file": "VO_DA_Master Zacharial_mirror.wav",
+          "text": "",
+          "src": "cardSO",
+          "so": "mirrorChatSound"
+        },
+        {
+          "ev": "threat",
+          "file": "VO_DA_Master Zacharial_threat.wav",
+          "text": "",
+          "src": "cardSO",
+          "so": "threatChatSound"
+        },
+        {
+          "ev": "wp",
+          "file": "VO_DA_Master Zacharial_wp.wav",
+          "text": "",
+          "src": "cardSO",
+          "so": "wellPlayedChatSound"
         },
         {
           "ev": "backup1",
@@ -4821,74 +5015,28 @@
           "text": ""
         },
         {
-          "ev": "cantdo",
-          "file": "VO_DA_Master Zacharial_cantDo.wav",
-          "text": ""
-        },
-        {
-          "ev": "concede",
-          "file": "VO_DA_Master Zacharial_concede.wav",
-          "text": ""
-        },
-        {
-          "ev": "gen1",
-          "file": "VO_DA_Master Zacharial_gen1.wav",
-          "text": ""
-        },
-        {
-          "ev": "gen2",
-          "file": "VO_DA_Master Zacharial_gen2.wav",
-          "text": ""
-        },
-        {
-          "ev": "gen3",
-          "file": "VO_DA_Master Zacharial_gen3.wav",
-          "text": ""
-        },
-        {
           "ev": "gen4",
           "file": "VO_DA_Master Zacharial_gen4.wav",
-          "text": ""
+          "text": "",
+          "src": "orphan"
         },
         {
           "ev": "gen5",
           "file": "VO_DA_Master Zacharial_gen5.wav",
-          "text": ""
+          "text": "",
+          "src": "orphan"
         },
         {
           "ev": "gen6",
           "file": "VO_DA_Master Zacharial_gen6.wav",
-          "text": ""
+          "text": "",
+          "src": "orphan"
         },
         {
           "ev": "gen7",
           "file": "VO_DA_Master Zacharial_gen7.wav",
-          "text": ""
-        },
-        {
-          "ev": "greet",
-          "file": "VO_DA_Master Zacharial_greet.wav",
-          "text": ""
-        },
-        {
-          "ev": "hurry",
-          "file": "VO_DA_Master Zacharial_hurry.wav",
-          "text": ""
-        },
-        {
-          "ev": "intro",
-          "file": "VO_DA_Master Zacharial_intro.wav",
-          "text": ""
-        },
-        {
-          "ev": "mirror",
-          "file": "VO_DA_Master Zacharial_mirror.wav",
-          "text": ""
-        },
-        {
-          "ev": "threat",
-          "file": "VO_DA_Master Zacharial_threat.wav",
-          "text": ""
+          "text": "",
+          "src": "orphan"
         },
         {
           "ev": "vsasmodai&belial",
@@ -4908,11 +5056,6 @@
         {
           "ev": "vsshadowsun",
           "file": "VO_DA_Master Zacharial_vsShadowsun.wav",
-          "text": ""
-        },
-        {
-          "ev": "wp",
-          "file": "VO_DA_Master Zacharial_wp.wav",
           "text": ""
         }
       ]
@@ -5499,22 +5642,26 @@
         {
           "ev": "gen4",
           "file": "VO_CSM_EC_Lucius_gen4.ogg",
-          "text": ""
+          "text": "",
+          "src": "orphan"
         },
         {
           "ev": "gen5",
           "file": "VO_CSM_EC_Lucius_gen5.ogg",
-          "text": ""
+          "text": "",
+          "src": "orphan"
         },
         {
           "ev": "gen6",
           "file": "VO_CSM_EC_Lucius_gen6.ogg",
-          "text": ""
+          "text": "",
+          "src": "orphan"
         },
         {
           "ev": "gen7",
           "file": "VO_CSM_EC_Lucius_gen7.ogg",
-          "text": ""
+          "text": "",
+          "src": "orphan"
         },
         {
           "ev": "vsabaddon",
@@ -5706,7 +5853,111 @@
           "ev": "death",
           "file": "VO_CSM_EC_Daemon Prince Xarahan_death.ogg",
           "text": "",
-          "src": "cardSO"
+          "src": "cardSO",
+          "so": "deathAudio"
+        },
+        {
+          "ev": "deploy",
+          "file": "VO_UM_Primaris Intercessor - For the Imperium.ogg",
+          "text": "For the Imperium",
+          "src": "cardSO",
+          "so": "summonAudio"
+        },
+        {
+          "ev": "default",
+          "file": "VO_CSM_EC_Daemon Prince Xarahan_attack.ogg",
+          "text": "",
+          "src": "cardSO",
+          "so": "defaultChatSound"
+        },
+        {
+          "ev": "cantdo",
+          "file": "VO_CSM_EC_Daemon Prince Xarahan_cantDo.ogg",
+          "text": "",
+          "src": "cardSO",
+          "so": "iCantDoThatChatSound"
+        },
+        {
+          "ev": "concede",
+          "file": "VO_CSM_EC_Daemon Prince Xarahan_concede.ogg",
+          "text": "",
+          "src": "cardSO",
+          "so": "concedeChatSound"
+        },
+        {
+          "ev": "gen1",
+          "file": "VO_CSM_EC_Daemon Prince Xarahan_gen1.ogg",
+          "text": "",
+          "src": "cardSO",
+          "so": "generic1ChatSound"
+        },
+        {
+          "ev": "gen2",
+          "file": "VO_CSM_EC_Daemon Prince Xarahan_gen2.ogg",
+          "text": "",
+          "src": "cardSO",
+          "so": "generic2ChatSound"
+        },
+        {
+          "ev": "gen3",
+          "file": "VO_CSM_EC_Daemon Prince Xarahan_gen3.ogg",
+          "text": "",
+          "src": "cardSO",
+          "so": "generic3ChatSound"
+        },
+        {
+          "ev": "greet",
+          "file": "VO_CSM_EC_Daemon Prince Xarahan_greet.ogg",
+          "text": "",
+          "src": "cardSO",
+          "so": "greetChatSound"
+        },
+        {
+          "ev": "hurry",
+          "file": "VO_CSM_EC_Daemon Prince Xarahan_hurry.ogg",
+          "text": "",
+          "src": "cardSO",
+          "so": "hurryChatSound"
+        },
+        {
+          "ev": "intro",
+          "file": "VO_CSM_EC_Daemon Prince Xarahan_intro.ogg",
+          "text": "",
+          "src": "cardSO",
+          "so": "introChatSound"
+        },
+        {
+          "ev": "mirror",
+          "file": "VO_CSM_EC_Daemon Prince Xarahan_mirror.ogg",
+          "text": "",
+          "src": "cardSO",
+          "so": "mirrorChatSound"
+        },
+        {
+          "ev": "threat",
+          "file": "VO_CSM_EC_Daemon Prince Xarahan_threat.ogg",
+          "text": "",
+          "src": "cardSO",
+          "so": "threatChatSound"
+        },
+        {
+          "ev": "wp",
+          "file": "VO_CSM_EC_Daemon Prince Xarahan_wp.ogg",
+          "text": "",
+          "src": "cardSO",
+          "so": "wellPlayedChatSound"
+        },
+        {
+          "ev": "gen4",
+          "file": "VO_CSM_EC_Daemon Prince Xarahan_gen4.ogg",
+          "text": "",
+          "src": "orphan"
+        },
+        {
+          "ev": "gen5",
+          "file": "VO_CSM_EC_Daemon Prince Xarahan_gen5.ogg",
+          "text": "",
+          "src": "orphan"
         }
       ]
     },
@@ -6137,22 +6388,26 @@
         {
           "ev": "gen4",
           "file": "VO_Goff_Zagstruk_gen4.ogg",
-          "text": ""
+          "text": "",
+          "src": "orphan"
         },
         {
           "ev": "gen5",
           "file": "VO_Goff_Zagstruk_gen5.ogg",
-          "text": ""
+          "text": "",
+          "src": "orphan"
         },
         {
           "ev": "gen6",
           "file": "VO_Goff_Zagstruk_gen6.ogg",
-          "text": ""
+          "text": "",
+          "src": "orphan"
         },
         {
           "ev": "gen7",
           "file": "VO_Goff_Zagstruk_gen7.ogg",
-          "text": ""
+          "text": "",
+          "src": "orphan"
         },
         {
           "ev": "vstbc2",
@@ -6276,22 +6531,26 @@
         {
           "ev": "gen4",
           "file": "VO_Goff_Ghazghkull_gen4.ogg",
-          "text": ""
+          "text": "",
+          "src": "orphan"
         },
         {
           "ev": "gen5",
           "file": "VO_Goff_Ghazghkull_gen5.ogg",
-          "text": ""
+          "text": "",
+          "src": "orphan"
         },
         {
           "ev": "gen6",
           "file": "VO_Goff_Ghazghkull_gen6.ogg",
-          "text": ""
+          "text": "",
+          "src": "orphan"
         },
         {
           "ev": "gen7",
           "file": "VO_Goff_Ghazghkull_gen7.ogg",
-          "text": ""
+          "text": "",
+          "src": "orphan"
         },
         {
           "ev": "vscalgar",
@@ -6425,22 +6684,26 @@
         {
           "ev": "gen4",
           "file": "VO_Goff_Grukk_gen4.ogg",
-          "text": ""
+          "text": "",
+          "src": "orphan"
         },
         {
           "ev": "gen5",
           "file": "VO_Goff_Grukk_gen5.ogg",
-          "text": ""
+          "text": "",
+          "src": "orphan"
         },
         {
           "ev": "gen6",
           "file": "VO_Goff_Grukk_gen6.ogg",
-          "text": ""
+          "text": "",
+          "src": "orphan"
         },
         {
           "ev": "gen7",
           "file": "VO_Goff_Grukk_gen7.ogg",
-          "text": ""
+          "text": "",
+          "src": "orphan"
         },
         {
           "ev": "vsabaddon",
@@ -6880,22 +7143,26 @@
         {
           "ev": "gen4",
           "file": "VO_Ork_Goff_Gordrang_gen4.ogg",
-          "text": ""
+          "text": "",
+          "src": "orphan"
         },
         {
           "ev": "gen5",
           "file": "VO_Ork_Goff_Gordrang_gen5.ogg",
-          "text": ""
+          "text": "",
+          "src": "orphan"
         },
         {
           "ev": "gen6",
           "file": "VO_Ork_Goff_Gordrang_gen6.ogg",
-          "text": ""
+          "text": "",
+          "src": "orphan"
         },
         {
           "ev": "gen7",
           "file": "VO_Ork_Goff_Gordrang_gen7.ogg",
-          "text": ""
+          "text": "",
+          "src": "orphan"
         },
         {
           "ev": "vsabaddon",
@@ -7024,22 +7291,26 @@
         {
           "ev": "gen4",
           "file": "VO_Ork_Mozrog Skragbad_gen4.ogg",
-          "text": ""
+          "text": "",
+          "src": "orphan"
         },
         {
           "ev": "gen5",
           "file": "VO_Ork_Mozrog Skragbad_gen5.ogg",
-          "text": ""
+          "text": "",
+          "src": "orphan"
         },
         {
           "ev": "gen6",
           "file": "VO_Ork_Mozrog Skragbad_gen6.ogg",
-          "text": ""
+          "text": "",
+          "src": "orphan"
         },
         {
           "ev": "gen7",
           "file": "VO_Ork_Mozrog Skragbad_gen7.ogg",
-          "text": ""
+          "text": "",
+          "src": "orphan"
         },
         {
           "ev": "vsbl",
@@ -7173,22 +7444,26 @@
         {
           "ev": "gen4",
           "file": "VO_Ork_Beastboss Morgrim_gen4.ogg",
-          "text": ""
+          "text": "",
+          "src": "orphan"
         },
         {
           "ev": "gen5",
           "file": "VO_Ork_Beastboss Morgrim_gen5.ogg",
-          "text": ""
+          "text": "",
+          "src": "orphan"
         },
         {
           "ev": "gen6",
           "file": "VO_Ork_Beastboss Morgrim_gen6.ogg",
-          "text": ""
+          "text": "",
+          "src": "orphan"
         },
         {
           "ev": "gen7",
           "file": "VO_Ork_Beastboss Morgrim_gen7.ogg",
-          "text": ""
+          "text": "",
+          "src": "orphan"
         },
         {
           "ev": "vsastramilitarum",
@@ -7635,22 +7910,26 @@
         {
           "ev": "gen4",
           "file": "VO_GSC_Saffa Rhiannor_gen4.ogg",
-          "text": ""
+          "text": "",
+          "src": "orphan"
         },
         {
           "ev": "gen5",
           "file": "VO_GSC_Saffa Rhiannor_gen5.ogg",
-          "text": ""
+          "text": "",
+          "src": "orphan"
         },
         {
           "ev": "gen6",
           "file": "VO_GSC_Saffa Rhiannor_gen6.ogg",
-          "text": ""
+          "text": "",
+          "src": "orphan"
         },
         {
           "ev": "gen7",
           "file": "VO_GSC_Saffa Rhiannor_gen7.ogg",
-          "text": ""
+          "text": "",
+          "src": "orphan"
         },
         {
           "ev": "vsaeldari",
@@ -7914,22 +8193,26 @@
         {
           "ev": "gen4",
           "file": "VO_GSC_Uthrel Naas_gen4.ogg",
-          "text": ""
+          "text": "",
+          "src": "orphan"
         },
         {
           "ev": "gen5",
           "file": "VO_GSC_Uthrel Naas_gen5.ogg",
-          "text": ""
+          "text": "",
+          "src": "orphan"
         },
         {
           "ev": "gen6",
           "file": "VO_GSC_Uthrel Naas_gen6.ogg",
-          "text": ""
+          "text": "",
+          "src": "orphan"
         },
         {
           "ev": "gen7",
           "file": "VO_GSC_Uthrel Naas_gen7.ogg",
-          "text": ""
+          "text": "",
+          "src": "orphan"
         },
         {
           "ev": "vsastramilitarum",
@@ -8193,38 +8476,32 @@
         {
           "ev": "backup1",
           "file": "VO_GSC_Acolyte Iconward_Backup1.ogg",
-          "text": "",
-          "src": "orphan"
+          "text": ""
         },
         {
           "ev": "backup2",
           "file": "VO_GSC_Acolyte Iconward_Backup2.ogg",
-          "text": "",
-          "src": "orphan"
+          "text": ""
         },
         {
           "ev": "backup3",
           "file": "VO_GSC_Acolyte Iconward_Backup3.ogg",
-          "text": "",
-          "src": "orphan"
+          "text": ""
         },
         {
           "ev": "backup4",
           "file": "VO_GSC_Acolyte Iconward_Backup4.ogg",
-          "text": "",
-          "src": "orphan"
+          "text": ""
         },
         {
           "ev": "backup5",
           "file": "VO_GSC_Acolyte Iconward_Backup5.ogg",
-          "text": "",
-          "src": "orphan"
+          "text": ""
         },
         {
           "ev": "backup6",
           "file": "VO_GSC_Acolyte Iconward_Backup6.ogg",
-          "text": "",
-          "src": "orphan"
+          "text": ""
         },
         {
           "ev": "gen4",
@@ -8253,26 +8530,22 @@
         {
           "ev": "vsastramilitarum",
           "file": "VO_GSC_Acolyte Iconward_vsAstraMilitarum.ogg",
-          "text": "",
-          "src": "orphan"
+          "text": ""
         },
         {
           "ev": "vsmagus",
           "file": "VO_GSC_Acolyte Iconward_vsMagus.ogg",
-          "text": "",
-          "src": "orphan"
+          "text": ""
         },
         {
           "ev": "vsnecrons",
           "file": "VO_GSC_Acolyte Iconward_vsNecrons.ogg",
-          "text": "",
-          "src": "orphan"
+          "text": ""
         },
         {
           "ev": "vsorks",
           "file": "VO_GSC_Acolyte Iconward_vsOrks.ogg",
-          "text": "",
-          "src": "orphan"
+          "text": ""
         }
       ]
     },
@@ -8549,22 +8822,26 @@
         {
           "ev": "gen4",
           "file": "VO_GSC_Lhaska Szenari_gen4.ogg",
-          "text": ""
+          "text": "",
+          "src": "orphan"
         },
         {
           "ev": "gen5",
           "file": "VO_GSC_Lhaska Szenari_gen5.ogg",
-          "text": ""
+          "text": "",
+          "src": "orphan"
         },
         {
           "ev": "gen6",
           "file": "VO_GSC_Lhaska Szenari_gen6.ogg",
-          "text": ""
+          "text": "",
+          "src": "orphan"
         },
         {
           "ev": "gen7",
           "file": "VO_GSC_Lhaska Szenari_gen7.ogg",
-          "text": ""
+          "text": "",
+          "src": "orphan"
         },
         {
           "ev": "vscalgar",
@@ -9388,42 +9665,50 @@
         {
           "ev": "gen4",
           "file": "Sautekh_Zahndrekh_gen4.ogg",
-          "text": ""
+          "text": "",
+          "src": "orphan"
         },
         {
           "ev": "gen5",
           "file": "Sautekh_Zahndrekh_gen5.ogg",
-          "text": ""
+          "text": "",
+          "src": "orphan"
         },
         {
           "ev": "gen6",
           "file": "Sautekh_Zahndrekh_gen6.ogg",
-          "text": ""
+          "text": "",
+          "src": "orphan"
         },
         {
           "ev": "gen7",
           "file": "Sautekh_Zahndrekh_gen7.ogg",
-          "text": ""
+          "text": "",
+          "src": "orphan"
         },
         {
-          "ev": "deploy",
+          "ev": "intro-vs",
           "file": "Sautekh_Zahndrekh_vs_Grukk.ogg",
-          "text": ""
+          "text": "",
+          "src": "orphan"
         },
         {
-          "ev": "deploy",
+          "ev": "intro-vs",
           "file": "Sautekh_Zahndrekh_vs_Tau.ogg",
-          "text": ""
+          "text": "",
+          "src": "orphan"
         },
         {
-          "ev": "deploy",
+          "ev": "intro-vs",
           "file": "Sautekh_Zahndrekh_vs_Tyranid.ogg",
-          "text": ""
+          "text": "",
+          "src": "orphan"
         },
         {
-          "ev": "deploy",
+          "ev": "intro-vs",
           "file": "Sautekh_Zahndrekh_vs_Ultramarine.ogg",
-          "text": ""
+          "text": "",
+          "src": "orphan"
         }
       ]
     },
@@ -9752,20 +10037,17 @@
         {
           "ev": "backup1",
           "file": "VO_Sautekh_Ramatekh the Cruel_Backup1.ogg",
-          "text": "",
-          "src": "orphan"
+          "text": ""
         },
         {
           "ev": "backup2",
           "file": "VO_Sautekh_Ramatekh the Cruel_Backup2.ogg",
-          "text": "",
-          "src": "orphan"
+          "text": ""
         },
         {
           "ev": "backup3",
           "file": "VO_Sautekh_Ramatekh the Cruel_Backup3.ogg",
-          "text": "",
-          "src": "orphan"
+          "text": ""
         },
         {
           "ev": "gen4",
@@ -9794,38 +10076,32 @@
         {
           "ev": "vsaun'va",
           "file": "VO_Sautekh_Ramatekh the Cruel_vsAun'Va.ogg",
-          "text": "",
-          "src": "orphan"
+          "text": ""
         },
         {
           "ev": "vsgrukk",
           "file": "VO_Sautekh_Ramatekh the Cruel_vsGrukk.ogg",
-          "text": "",
-          "src": "orphan"
+          "text": ""
         },
         {
           "ev": "vsimotekh",
           "file": "VO_Sautekh_Ramatekh the Cruel_vsImotekh.ogg",
-          "text": "",
-          "src": "orphan"
+          "text": ""
         },
         {
           "ev": "vskeltoc",
           "file": "VO_Sautekh_Ramatekh the Cruel_vsKeltoc.ogg",
-          "text": "",
-          "src": "orphan"
+          "text": ""
         },
         {
           "ev": "vsnecron",
           "file": "VO_Sautekh_Ramatekh the Cruel_vsNecron.ogg",
-          "text": "",
-          "src": "orphan"
+          "text": ""
         },
         {
           "ev": "vsorikan",
           "file": "VO_Sautekh_Ramatekh the Cruel_vsOrikan.ogg",
-          "text": "",
-          "src": "orphan"
+          "text": ""
         }
       ]
     },
@@ -10089,22 +10365,26 @@
         {
           "ev": "gen4",
           "file": "VO_ADS_Erika Luminas_gen4.ogg",
-          "text": ""
+          "text": "",
+          "src": "orphan"
         },
         {
           "ev": "gen5",
           "file": "VO_ADS_Erika Luminas_gen5.ogg",
-          "text": ""
+          "text": "",
+          "src": "orphan"
         },
         {
           "ev": "gen6",
           "file": "VO_ADS_Erika Luminas_gen6.ogg",
-          "text": ""
+          "text": "",
+          "src": "orphan"
         },
         {
           "ev": "gen7",
           "file": "VO_ADS_Erika Luminas_gen7.ogg",
-          "text": ""
+          "text": "",
+          "src": "orphan"
         },
         {
           "ev": "vsghaelyn",
@@ -10408,22 +10688,26 @@
         {
           "ev": "gen4",
           "file": "VO_ADS_Junith Eruita_gen4.ogg",
-          "text": ""
+          "text": "",
+          "src": "orphan"
         },
         {
           "ev": "gen5",
           "file": "VO_ADS_Junith Eruita_gen5.ogg",
-          "text": ""
+          "text": "",
+          "src": "orphan"
         },
         {
           "ev": "gen6",
           "file": "VO_ADS_Junith Eruita_gen6.ogg",
-          "text": ""
+          "text": "",
+          "src": "orphan"
         },
         {
           "ev": "gen7",
           "file": "VO_ADS_Junith Eruita_gen7.ogg",
-          "text": ""
+          "text": "",
+          "src": "orphan"
         },
         {
           "ev": "vsabaddon",
@@ -10702,22 +10986,26 @@
         {
           "ev": "gen4",
           "file": "VO_ADS_Morvenn Vahl_gen4.ogg",
-          "text": ""
+          "text": "",
+          "src": "orphan"
         },
         {
           "ev": "gen5",
           "file": "VO_ADS_Morvenn Vahl_gen5.ogg",
-          "text": ""
+          "text": "",
+          "src": "orphan"
         },
         {
           "ev": "gen6",
           "file": "VO_ADS_Morvenn Vahl_gen6.ogg",
-          "text": ""
+          "text": "",
+          "src": "orphan"
         },
         {
           "ev": "gen7",
           "file": "VO_ADS_Morvenn Vahl_gen7.ogg",
-          "text": ""
+          "text": "",
+          "src": "orphan"
         },
         {
           "ev": "vsastramilitarum",
@@ -11049,22 +11337,26 @@
         {
           "ev": "gen4",
           "file": "VO_ADS_Celestian Sacresant Aveline_gen4.ogg",
-          "text": ""
+          "text": "",
+          "src": "orphan"
         },
         {
           "ev": "gen5",
           "file": "VO_ADS_Celestian Sacresant Aveline_gen5.ogg",
-          "text": ""
+          "text": "",
+          "src": "orphan"
         },
         {
           "ev": "gen6",
           "file": "VO_ADS_Celestian Sacresant Aveline_gen6.ogg",
-          "text": ""
+          "text": "",
+          "src": "orphan"
         },
         {
           "ev": "gen7",
           "file": "VO_ADS_Celestian Sacresant Aveline_gen7.ogg",
-          "text": ""
+          "text": "",
+          "src": "orphan"
         },
         {
           "ev": "vsdaemon",
@@ -11243,7 +11535,92 @@
           "ev": "death",
           "file": "VO_SpaceWolves_Logan Grimnar_death.ogg",
           "text": "",
-          "src": "cardSO"
+          "src": "cardSO",
+          "so": "deathAudio"
+        },
+        {
+          "ev": "default",
+          "file": "VO_SpaceWolves_Logan Grimnar_attack.ogg",
+          "text": "",
+          "src": "cardSO",
+          "so": "defaultChatSound"
+        },
+        {
+          "ev": "cantdo",
+          "file": "VO_SpaceWolves_Logan Grimnar_cantDo.ogg",
+          "text": "",
+          "src": "cardSO",
+          "so": "iCantDoThatChatSound"
+        },
+        {
+          "ev": "concede",
+          "file": "VO_SpaceWolves_Logan Grimnar_concede.ogg",
+          "text": "",
+          "src": "cardSO",
+          "so": "concedeChatSound"
+        },
+        {
+          "ev": "gen1",
+          "file": "VO_SpaceWolves_Logan Grimnar_gen1.ogg",
+          "text": "",
+          "src": "cardSO",
+          "so": "generic1ChatSound"
+        },
+        {
+          "ev": "gen2",
+          "file": "VO_SpaceWolves_Logan Grimnar_gen2.ogg",
+          "text": "",
+          "src": "cardSO",
+          "so": "generic2ChatSound"
+        },
+        {
+          "ev": "gen3",
+          "file": "VO_SpaceWolves_Logan Grimnar_gen3.ogg",
+          "text": "",
+          "src": "cardSO",
+          "so": "generic3ChatSound"
+        },
+        {
+          "ev": "greet",
+          "file": "VO_SpaceWolves_Logan Grimnar_greet.ogg",
+          "text": "",
+          "src": "cardSO",
+          "so": "greetChatSound"
+        },
+        {
+          "ev": "hurry",
+          "file": "VO_SpaceWolves_Logan Grimnar_hurry.ogg",
+          "text": "",
+          "src": "cardSO",
+          "so": "hurryChatSound"
+        },
+        {
+          "ev": "intro",
+          "file": "VO_SpaceWolves_Logan Grimnar_intro.ogg",
+          "text": "",
+          "src": "cardSO",
+          "so": "introChatSound"
+        },
+        {
+          "ev": "mirror",
+          "file": "VO_SpaceWolves_Logan Grimnar_mirror.ogg",
+          "text": "",
+          "src": "cardSO",
+          "so": "mirrorChatSound"
+        },
+        {
+          "ev": "threat",
+          "file": "VO_SpaceWolves_Logan Grimnar_threat.ogg",
+          "text": "",
+          "src": "cardSO",
+          "so": "threatChatSound"
+        },
+        {
+          "ev": "wp",
+          "file": "VO_SpaceWolves_Logan Grimnar_wp.ogg",
+          "text": "",
+          "src": "cardSO",
+          "so": "wellPlayedChatSound"
         },
         {
           "ev": "backup1",
@@ -11261,74 +11638,28 @@
           "text": ""
         },
         {
-          "ev": "cantdo",
-          "file": "VO_SpaceWolves_Logan Grimnar_cantDo.ogg",
-          "text": ""
-        },
-        {
-          "ev": "concede",
-          "file": "VO_SpaceWolves_Logan Grimnar_concede.ogg",
-          "text": ""
-        },
-        {
-          "ev": "gen1",
-          "file": "VO_SpaceWolves_Logan Grimnar_gen1.ogg",
-          "text": ""
-        },
-        {
-          "ev": "gen2",
-          "file": "VO_SpaceWolves_Logan Grimnar_gen2.ogg",
-          "text": ""
-        },
-        {
-          "ev": "gen3",
-          "file": "VO_SpaceWolves_Logan Grimnar_gen3.ogg",
-          "text": ""
-        },
-        {
           "ev": "gen4",
           "file": "VO_SpaceWolves_Logan Grimnar_gen4.ogg",
-          "text": ""
+          "text": "",
+          "src": "orphan"
         },
         {
           "ev": "gen5",
           "file": "VO_SpaceWolves_Logan Grimnar_gen5.ogg",
-          "text": ""
+          "text": "",
+          "src": "orphan"
         },
         {
           "ev": "gen6",
           "file": "VO_SpaceWolves_Logan Grimnar_gen6.ogg",
-          "text": ""
+          "text": "",
+          "src": "orphan"
         },
         {
           "ev": "gen7",
           "file": "VO_SpaceWolves_Logan Grimnar_gen7.ogg",
-          "text": ""
-        },
-        {
-          "ev": "greet",
-          "file": "VO_SpaceWolves_Logan Grimnar_greet.ogg",
-          "text": ""
-        },
-        {
-          "ev": "hurry",
-          "file": "VO_SpaceWolves_Logan Grimnar_hurry.ogg",
-          "text": ""
-        },
-        {
-          "ev": "intro",
-          "file": "VO_SpaceWolves_Logan Grimnar_intro.ogg",
-          "text": ""
-        },
-        {
-          "ev": "mirror",
-          "file": "VO_SpaceWolves_Logan Grimnar_mirror.ogg",
-          "text": ""
-        },
-        {
-          "ev": "threat",
-          "file": "VO_SpaceWolves_Logan Grimnar_threat.ogg",
-          "text": ""
+          "text": "",
+          "src": "orphan"
         },
         {
           "ev": "vsbl",
@@ -11349,11 +11680,6 @@
           "ev": "vstyranids",
           "file": "VO_SpaceWolves_Logan Grimnar_vsTyranids.ogg",
           "text": ""
-        },
-        {
-          "ev": "wp",
-          "file": "VO_SpaceWolves_Logan Grimnar_wp.ogg",
-          "text": ""
         }
       ]
     },
@@ -11366,7 +11692,8 @@
           "ev": "deploy",
           "file": "VO_SpaceWolves_Grey Hunter - I have eyes on the prey!.ogg",
           "text": "I have eyes on the prey!",
-          "src": "cardSO"
+          "src": "cardSO",
+          "so": "summonAudio"
         }
       ]
     },
@@ -11379,7 +11706,8 @@
           "ev": "deploy",
           "file": "VO_SpaceWolves_Grey Hunter Pack Leader - Charge! No great champion dies clean!.ogg",
           "text": "Charge! No great champion dies clean!",
-          "src": "cardSO"
+          "src": "cardSO",
+          "so": "summonAudio"
         }
       ]
     },
@@ -11392,7 +11720,8 @@
           "ev": "deploy",
           "file": "VO_SpaceWolves_Thunderwolf Calvary - If tooth and nail are not enough, the chainsword will bite.ogg",
           "text": "If tooth and nail are not enough, the chainsword will bite",
-          "src": "cardSO"
+          "src": "cardSO",
+          "so": "summonAudio"
         }
       ]
     },
@@ -11405,7 +11734,8 @@
           "ev": "deploy",
           "file": "VO_SpaceWolves_Wolf Guard Headtaker - Bring them fang! Bring them fury!.ogg",
           "text": "Bring them fang! Bring them fury!",
-          "src": "cardSO"
+          "src": "cardSO",
+          "so": "summonAudio"
         }
       ]
     },
@@ -11418,7 +11748,8 @@
           "ev": "deploy",
           "file": "VO_SpaceWolves_Wolf Priest - It is fate that guides our blades.ogg",
           "text": "It is fate that guides our blades",
-          "src": "cardSO"
+          "src": "cardSO",
+          "so": "summonAudio"
         }
       ]
     },
@@ -11431,7 +11762,8 @@
           "ev": "deploy",
           "file": "VO_SpaceWolves_Fyrri Askar - Let's give the skjalds something to sing about!.ogg",
           "text": "Let's give the skjalds something to sing about!",
-          "src": "cardSO"
+          "src": "cardSO",
+          "so": "summonAudio"
         }
       ]
     },
@@ -11444,7 +11776,8 @@
           "ev": "deploy",
           "file": "VO_SpaceWolves_Long Fang - Your time is over!.ogg",
           "text": "Your time is over!",
-          "src": "cardSO"
+          "src": "cardSO",
+          "so": "summonAudio"
         }
       ]
     },
@@ -11457,7 +11790,8 @@
           "ev": "deploy",
           "file": "VO_SpaceWolves_Wulfen.ogg",
           "text": "",
-          "src": "cardSO"
+          "src": "cardSO",
+          "so": "summonAudio"
         }
       ]
     },
@@ -11470,7 +11804,8 @@
           "ev": "deploy",
           "file": "VO_SpaceWolves_Hrolf the Ironhowl - With me, brothers! Ride until the Wolftime!).ogg",
           "text": "With me, brothers! Ride until the Wolftime!)",
-          "src": "cardSO"
+          "src": "cardSO",
+          "so": "summonAudio"
         }
       ]
     },
@@ -11483,7 +11818,8 @@
           "ev": "deploy",
           "file": "VO_SpaceWolves_Iron Priest - Sharp senses, sharper steel.ogg",
           "text": "Sharp senses, sharper steel",
-          "src": "cardSO"
+          "src": "cardSO",
+          "so": "summonAudio"
         }
       ]
     },
@@ -11502,7 +11838,92 @@
           "ev": "death",
           "file": "VO_SpaceWolves_Njal Stormcaller_death.ogg",
           "text": "",
-          "src": "cardSO"
+          "src": "cardSO",
+          "so": "deathAudio"
+        },
+        {
+          "ev": "default",
+          "file": "VO_SpaceWolves_Njal Stormcaller_attack.ogg",
+          "text": "",
+          "src": "cardSO",
+          "so": "defaultChatSound"
+        },
+        {
+          "ev": "cantdo",
+          "file": "VO_SpaceWolves_Njal Stormcaller_cantDo.ogg",
+          "text": "",
+          "src": "cardSO",
+          "so": "iCantDoThatChatSound"
+        },
+        {
+          "ev": "concede",
+          "file": "VO_SpaceWolves_Njal Stormcaller_concede.ogg",
+          "text": "",
+          "src": "cardSO",
+          "so": "concedeChatSound"
+        },
+        {
+          "ev": "gen1",
+          "file": "VO_SpaceWolves_Njal Stormcaller_gen1.ogg",
+          "text": "",
+          "src": "cardSO",
+          "so": "generic1ChatSound"
+        },
+        {
+          "ev": "gen2",
+          "file": "VO_SpaceWolves_Njal Stormcaller_gen2.ogg",
+          "text": "",
+          "src": "cardSO",
+          "so": "generic2ChatSound"
+        },
+        {
+          "ev": "gen3",
+          "file": "VO_SpaceWolves_Njal Stormcaller_gen3.ogg",
+          "text": "",
+          "src": "cardSO",
+          "so": "generic3ChatSound"
+        },
+        {
+          "ev": "greet",
+          "file": "VO_SpaceWolves_Njal Stormcaller_greet.ogg",
+          "text": "",
+          "src": "cardSO",
+          "so": "greetChatSound"
+        },
+        {
+          "ev": "hurry",
+          "file": "VO_SpaceWolves_Njal Stormcaller_hurry.ogg",
+          "text": "",
+          "src": "cardSO",
+          "so": "hurryChatSound"
+        },
+        {
+          "ev": "intro",
+          "file": "VO_SpaceWolves_Njal Stormcaller_intro.ogg",
+          "text": "",
+          "src": "cardSO",
+          "so": "introChatSound"
+        },
+        {
+          "ev": "mirror",
+          "file": "VO_SpaceWolves_Njal Stormcaller_mirror.ogg",
+          "text": "",
+          "src": "cardSO",
+          "so": "mirrorChatSound"
+        },
+        {
+          "ev": "threat",
+          "file": "VO_SpaceWolves_Njal Stormcaller_threat.ogg",
+          "text": "",
+          "src": "cardSO",
+          "so": "threatChatSound"
+        },
+        {
+          "ev": "wp",
+          "file": "VO_SpaceWolves_Njal Stormcaller_wp.ogg",
+          "text": "",
+          "src": "cardSO",
+          "so": "wellPlayedChatSound"
         },
         {
           "ev": "backup1",
@@ -11525,74 +11946,28 @@
           "text": ""
         },
         {
-          "ev": "cantdo",
-          "file": "VO_SpaceWolves_Njal Stormcaller_cantDo.ogg",
-          "text": ""
-        },
-        {
-          "ev": "concede",
-          "file": "VO_SpaceWolves_Njal Stormcaller_concede.ogg",
-          "text": ""
-        },
-        {
-          "ev": "gen1",
-          "file": "VO_SpaceWolves_Njal Stormcaller_gen1.ogg",
-          "text": ""
-        },
-        {
-          "ev": "gen2",
-          "file": "VO_SpaceWolves_Njal Stormcaller_gen2.ogg",
-          "text": ""
-        },
-        {
-          "ev": "gen3",
-          "file": "VO_SpaceWolves_Njal Stormcaller_gen3.ogg",
-          "text": ""
-        },
-        {
           "ev": "gen4",
           "file": "VO_SpaceWolves_Njal Stormcaller_gen4.ogg",
-          "text": ""
+          "text": "",
+          "src": "orphan"
         },
         {
           "ev": "gen5",
           "file": "VO_SpaceWolves_Njal Stormcaller_gen5.ogg",
-          "text": ""
+          "text": "",
+          "src": "orphan"
         },
         {
           "ev": "gen6",
           "file": "VO_SpaceWolves_Njal Stormcaller_gen6.ogg",
-          "text": ""
+          "text": "",
+          "src": "orphan"
         },
         {
           "ev": "gen7",
           "file": "VO_SpaceWolves_Njal Stormcaller_gen7.ogg",
-          "text": ""
-        },
-        {
-          "ev": "greet",
-          "file": "VO_SpaceWolves_Njal Stormcaller_greet.ogg",
-          "text": ""
-        },
-        {
-          "ev": "hurry",
-          "file": "VO_SpaceWolves_Njal Stormcaller_hurry.ogg",
-          "text": ""
-        },
-        {
-          "ev": "intro",
-          "file": "VO_SpaceWolves_Njal Stormcaller_intro.ogg",
-          "text": ""
-        },
-        {
-          "ev": "mirror",
-          "file": "VO_SpaceWolves_Njal Stormcaller_mirror.ogg",
-          "text": ""
-        },
-        {
-          "ev": "threat",
-          "file": "VO_SpaceWolves_Njal Stormcaller_threat.ogg",
-          "text": ""
+          "text": "",
+          "src": "orphan"
         },
         {
           "ev": "vsdg",
@@ -11608,11 +11983,6 @@
           "ev": "vswe",
           "file": "VO_SpaceWolves_Njal Stormcaller_vsWE.ogg",
           "text": ""
-        },
-        {
-          "ev": "wp",
-          "file": "VO_SpaceWolves_Njal Stormcaller_wp.ogg",
-          "text": ""
         }
       ]
     },
@@ -11625,7 +11995,8 @@
           "ev": "deploy",
           "file": "VO_SpaceWolves_Thunderwolf Cavalry Pack Leader - For Russ and the Allfather!.ogg",
           "text": "For Russ and the Allfather!",
-          "src": "cardSO"
+          "src": "cardSO",
+          "so": "summonAudio"
         }
       ]
     },
@@ -11638,7 +12009,8 @@
           "ev": "deploy",
           "file": "VO_SpaceWolves_Wulfen Pack Leader.ogg",
           "text": "",
-          "src": "cardSO"
+          "src": "cardSO",
+          "so": "summonAudio"
         }
       ]
     },
@@ -11651,7 +12023,8 @@
           "ev": "deploy",
           "file": "VO_SpaceWolves_Blackmane Inceptor - Here's one to remember me by!.ogg",
           "text": "Here's one to remember me by!",
-          "src": "cardSO"
+          "src": "cardSO",
+          "so": "summonAudio"
         }
       ]
     },
@@ -11664,7 +12037,8 @@
           "ev": "deploy",
           "file": "VO_SpaceWolves_Fenrisian Drop Pod - From the Sea of Stars to the sea of blades!.ogg",
           "text": "From the Sea of Stars to the sea of blades!",
-          "src": "cardSO"
+          "src": "cardSO",
+          "so": "summonAudio"
         }
       ]
     },
@@ -11677,7 +12051,8 @@
           "ev": "deploy",
           "file": "VO_SpaceWolves_Frost Claw Wulfen.ogg",
           "text": "",
-          "src": "cardSO"
+          "src": "cardSO",
+          "so": "summonAudio"
         }
       ]
     },
@@ -11690,7 +12065,8 @@
           "ev": "deploy",
           "file": "VO_SpaceWolves_Wolf Guard Battle Leader - Enough barking! Time to do some biting.ogg",
           "text": "Enough barking! Time to do some biting",
-          "src": "cardSO"
+          "src": "cardSO",
+          "so": "summonAudio"
         }
       ]
     },
@@ -11703,7 +12079,8 @@
           "ev": "deploy",
           "file": "VO_SpaceWolves_Arjac Rockfist - My hammer strikes with the wrath of Fenris!.ogg",
           "text": "My hammer strikes with the wrath of Fenris!",
-          "src": "cardSO"
+          "src": "cardSO",
+          "so": "summonAudio"
         }
       ]
     },
@@ -11716,7 +12093,8 @@
           "ev": "deploy",
           "file": "VO_SpaceWolves_Wolf Guard Terminator Pack Leader - Give them the bolt-greeting they deserve!.ogg",
           "text": "Give them the bolt-greeting they deserve!",
-          "src": "cardSO"
+          "src": "cardSO",
+          "so": "summonAudio"
         }
       ]
     },
@@ -11729,7 +12107,8 @@
           "ev": "deploy",
           "file": "VO_SpaceWolves_Blackmane Aggressor - We are the storm! We are the Allfather's fury!.ogg",
           "text": "We are the storm! We are the Allfather's fury!",
-          "src": "cardSO"
+          "src": "cardSO",
+          "so": "summonAudio"
         }
       ]
     },
@@ -11742,7 +12121,8 @@
           "ev": "deploy",
           "file": "VO_SpaceWolves_Sons of Morkai Eliminator - Morkai's claws reach longer than one expects.ogg",
           "text": "Morkai's claws reach longer than one expects",
-          "src": "cardSO"
+          "src": "cardSO",
+          "so": "summonAudio"
         }
       ]
     },
@@ -11761,7 +12141,92 @@
           "ev": "death",
           "file": "VO_SpaceWolves_Ragnar Blackmane_death.ogg",
           "text": "",
-          "src": "cardSO"
+          "src": "cardSO",
+          "so": "deathAudio"
+        },
+        {
+          "ev": "default",
+          "file": "VO_SpaceWolves_Ragnar Blackmane_attack.ogg",
+          "text": "",
+          "src": "cardSO",
+          "so": "defaultChatSound"
+        },
+        {
+          "ev": "cantdo",
+          "file": "VO_SpaceWolves_Ragnar Blackmane_cantDo.ogg",
+          "text": "",
+          "src": "cardSO",
+          "so": "iCantDoThatChatSound"
+        },
+        {
+          "ev": "concede",
+          "file": "VO_SpaceWolves_Ragnar Blackmane_concede.ogg",
+          "text": "",
+          "src": "cardSO",
+          "so": "concedeChatSound"
+        },
+        {
+          "ev": "gen1",
+          "file": "VO_SpaceWolves_Ragnar Blackmane_gen1.ogg",
+          "text": "",
+          "src": "cardSO",
+          "so": "generic1ChatSound"
+        },
+        {
+          "ev": "gen2",
+          "file": "VO_SpaceWolves_Ragnar Blackmane_gen2.ogg",
+          "text": "",
+          "src": "cardSO",
+          "so": "generic2ChatSound"
+        },
+        {
+          "ev": "gen3",
+          "file": "VO_SpaceWolves_Ragnar Blackmane_gen3.ogg",
+          "text": "",
+          "src": "cardSO",
+          "so": "generic3ChatSound"
+        },
+        {
+          "ev": "greet",
+          "file": "VO_SpaceWolves_Ragnar Blackmane_greet.ogg",
+          "text": "",
+          "src": "cardSO",
+          "so": "greetChatSound"
+        },
+        {
+          "ev": "hurry",
+          "file": "VO_SpaceWolves_Ragnar Blackmane_hurry.ogg",
+          "text": "",
+          "src": "cardSO",
+          "so": "hurryChatSound"
+        },
+        {
+          "ev": "intro",
+          "file": "VO_SpaceWolves_Ragnar Blackmane_intro.ogg",
+          "text": "",
+          "src": "cardSO",
+          "so": "introChatSound"
+        },
+        {
+          "ev": "mirror",
+          "file": "VO_SpaceWolves_Ragnar Blackmane_mirror.ogg",
+          "text": "",
+          "src": "cardSO",
+          "so": "mirrorChatSound"
+        },
+        {
+          "ev": "threat",
+          "file": "VO_SpaceWolves_Ragnar Blackmane_threat.ogg",
+          "text": "",
+          "src": "cardSO",
+          "so": "threatChatSound"
+        },
+        {
+          "ev": "wp",
+          "file": "VO_SpaceWolves_Ragnar Blackmane_wp.ogg",
+          "text": "",
+          "src": "cardSO",
+          "so": "wellPlayedChatSound"
         },
         {
           "ev": "backup",
@@ -11769,74 +12234,28 @@
           "text": ""
         },
         {
-          "ev": "cantdo",
-          "file": "VO_SpaceWolves_Ragnar Blackmane_cantDo.ogg",
-          "text": ""
-        },
-        {
-          "ev": "concede",
-          "file": "VO_SpaceWolves_Ragnar Blackmane_concede.ogg",
-          "text": ""
-        },
-        {
-          "ev": "gen1",
-          "file": "VO_SpaceWolves_Ragnar Blackmane_gen1.ogg",
-          "text": ""
-        },
-        {
-          "ev": "gen2",
-          "file": "VO_SpaceWolves_Ragnar Blackmane_gen2.ogg",
-          "text": ""
-        },
-        {
-          "ev": "gen3",
-          "file": "VO_SpaceWolves_Ragnar Blackmane_gen3.ogg",
-          "text": ""
-        },
-        {
           "ev": "gen4",
           "file": "VO_SpaceWolves_Ragnar Blackmane_gen4.ogg",
-          "text": ""
+          "text": "",
+          "src": "orphan"
         },
         {
           "ev": "gen5",
           "file": "VO_SpaceWolves_Ragnar Blackmane_gen5.ogg",
-          "text": ""
+          "text": "",
+          "src": "orphan"
         },
         {
           "ev": "gen6",
           "file": "VO_SpaceWolves_Ragnar Blackmane_gen6.ogg",
-          "text": ""
+          "text": "",
+          "src": "orphan"
         },
         {
           "ev": "gen7",
           "file": "VO_SpaceWolves_Ragnar Blackmane_gen7.ogg",
-          "text": ""
-        },
-        {
-          "ev": "greet",
-          "file": "VO_SpaceWolves_Ragnar Blackmane_greet.ogg",
-          "text": ""
-        },
-        {
-          "ev": "hurry",
-          "file": "VO_SpaceWolves_Ragnar Blackmane_hurry.ogg",
-          "text": ""
-        },
-        {
-          "ev": "intro",
-          "file": "VO_SpaceWolves_Ragnar Blackmane_intro.ogg",
-          "text": ""
-        },
-        {
-          "ev": "mirror",
-          "file": "VO_SpaceWolves_Ragnar Blackmane_mirror.ogg",
-          "text": ""
-        },
-        {
-          "ev": "threat",
-          "file": "VO_SpaceWolves_Ragnar Blackmane_threat.ogg",
-          "text": ""
+          "text": "",
+          "src": "orphan"
         },
         {
           "ev": "vsasmodai",
@@ -11867,11 +12286,6 @@
           "ev": "vsts",
           "file": "VO_SpaceWolves_Ragnar Blackmane_vsTS.ogg",
           "text": ""
-        },
-        {
-          "ev": "wp",
-          "file": "VO_SpaceWolves_Ragnar Blackmane_wp.ogg",
-          "text": ""
         }
       ]
     },
@@ -11884,12 +12298,8 @@
           "ev": "deploy",
           "file": "VO_SpaceWolves_Terminator Rune Priest - The winds will howl with Fenrisian rage!.ogg",
           "text": "The winds will howl with Fenrisian rage!",
-          "src": "cardSO"
-        },
-        {
-          "ev": "deploy",
-          "file": "VO_SpaceWolves_Terminator Rune Priest_backup- I bring the storm-wrath!.ogg",
-          "text": ""
+          "src": "cardSO",
+          "so": "summonAudio"
         }
       ]
     },
@@ -11902,7 +12312,8 @@
           "ev": "deploy",
           "file": "VO_SpaceWolves_Wolf Guard Terminator - Let the battle-reckoning be counted by the score!.ogg",
           "text": "Let the battle-reckoning be counted by the score!",
-          "src": "cardSO"
+          "src": "cardSO",
+          "so": "summonAudio"
         }
       ]
     },
@@ -11915,7 +12326,8 @@
           "ev": "deploy",
           "file": "VO_SpaceWolves_Stormwolf - Our storm-wrath shall tear the skies!.ogg",
           "text": "Our storm-wrath shall tear the skies!",
-          "src": "cardSO"
+          "src": "cardSO",
+          "so": "summonAudio"
         }
       ]
     },
@@ -11928,7 +12340,8 @@
           "ev": "deploy",
           "file": "VO_SpaceWolves_Vindicator - From Fenris to the stars, they will hear us howl!.ogg",
           "text": "From Fenris to the stars, they will hear us howl!",
-          "src": "cardSO"
+          "src": "cardSO",
+          "so": "summonAudio"
         }
       ]
     },
@@ -11941,7 +12354,8 @@
           "ev": "deploy",
           "file": "VO_SpaceWolves_Murderfang.ogg",
           "text": "",
-          "src": "cardSO"
+          "src": "cardSO",
+          "so": "summonAudio"
         }
       ]
     },
@@ -11954,7 +12368,8 @@
           "ev": "deploy",
           "file": "VO_SpaceWolves_Venerable Dreadnought - My saga does not end Not today.ogg",
           "text": "My saga does not end Not today",
-          "src": "cardSO"
+          "src": "cardSO",
+          "so": "summonAudio"
         }
       ]
     },
@@ -11967,7 +12382,8 @@
           "ev": "deploy",
           "file": "VO_SpaceWolves_Bjorn the Fell-Handed  - I wake Fenris howls.ogg",
           "text": "I wake Fenris howls",
-          "src": "cardSO"
+          "src": "cardSO",
+          "so": "summonAudio"
         }
       ]
     },
@@ -11980,7 +12396,8 @@
           "ev": "deploy",
           "file": "VO_SpaceWolves_Wulfen Dreadnought_v2.ogg",
           "text": "",
-          "src": "cardSO"
+          "src": "cardSO",
+          "so": "summonAudio"
         }
       ]
     },
@@ -11993,7 +12410,8 @@
           "ev": "deploy",
           "file": "VO_SpaceWolves_Land Raider - We are the thunder of Fenris!.ogg",
           "text": "We are the thunder of Fenris!",
-          "src": "cardSO"
+          "src": "cardSO",
+          "so": "summonAudio"
         }
       ]
     },
@@ -12006,7 +12424,8 @@
           "ev": "deploy",
           "file": "VO_SpaceWolves_Blood Claw - This is where my saga begins!.ogg",
           "text": "This is where my saga begins!",
-          "src": "cardSO"
+          "src": "cardSO",
+          "so": "summonAudio"
         }
       ]
     },
@@ -12019,7 +12438,8 @@
           "ev": "deploy",
           "file": "VO_SpaceWolves_Hunting Wolf.ogg",
           "text": "",
-          "src": "cardSO"
+          "src": "cardSO",
+          "so": "summonAudio"
         }
       ]
     },
@@ -12032,7 +12452,8 @@
           "ev": "deploy",
           "file": "VO_SpaceWolves_Blood Claw Pack Leader - Keep moving! Battle does not wait for you!.ogg",
           "text": "Keep moving! Battle does not wait for you!",
-          "src": "cardSO"
+          "src": "cardSO",
+          "so": "summonAudio"
         }
       ]
     },
@@ -12045,7 +12466,8 @@
           "ev": "deploy",
           "file": "VO_SpaceWolves_Deathwolf Scout - The trail is clearer with every step.ogg",
           "text": "The trail is clearer with every step",
-          "src": "cardSO"
+          "src": "cardSO",
+          "so": "summonAudio"
         }
       ]
     },
@@ -12058,7 +12480,8 @@
           "ev": "deploy",
           "file": "VO_SpaceWolves_Blackmane Reiver - You will not live to see our victory.ogg",
           "text": "You will not live to see our victory",
-          "src": "cardSO"
+          "src": "cardSO",
+          "so": "summonAudio"
         }
       ]
     },
@@ -12071,7 +12494,8 @@
           "ev": "deploy",
           "file": "VO_SpaceWolves_Fenrisian Wolf.ogg",
           "text": "",
-          "src": "cardSO"
+          "src": "cardSO",
+          "so": "summonAudio"
         }
       ]
     },
@@ -12185,22 +12609,26 @@
         {
           "ev": "gen4",
           "file": "VO_Tau_Empire_Shadowsun_gen4.ogg",
-          "text": ""
+          "text": "",
+          "src": "orphan"
         },
         {
           "ev": "gen5",
           "file": "VO_Tau_Empire_Shadowsun_gen5.ogg",
-          "text": ""
+          "text": "",
+          "src": "orphan"
         },
         {
           "ev": "gen6",
           "file": "VO_Tau_Empire_Shadowsun_gen6.ogg",
-          "text": ""
+          "text": "",
+          "src": "orphan"
         },
         {
           "ev": "gen7",
           "file": "VO_Tau_Empire_Shadowsun_gen7.ogg",
-          "text": ""
+          "text": "",
+          "src": "orphan"
         },
         {
           "ev": "vsaun'va",
@@ -12479,22 +12907,26 @@
         {
           "ev": "gen4",
           "file": "VO_Tau_Empire_Aun'va_gen4.ogg",
-          "text": ""
+          "text": "",
+          "src": "orphan"
         },
         {
           "ev": "gen5",
           "file": "VO_Tau_Empire_Aun'va_gen5.ogg",
-          "text": ""
+          "text": "",
+          "src": "orphan"
         },
         {
           "ev": "gen6",
           "file": "VO_Tau_Empire_Aun'va_gen6.ogg",
-          "text": ""
+          "text": "",
+          "src": "orphan"
         },
         {
           "ev": "gen7",
           "file": "VO_Tau_Empire_Aun'va_gen7.ogg",
-          "text": ""
+          "text": "",
+          "src": "orphan"
         },
         {
           "ev": "vsastramillitarum",
@@ -12783,22 +13215,26 @@
         {
           "ev": "gen4",
           "file": "VO_Tau_Empire_Commander O'Maisos_gen4.ogg",
-          "text": ""
+          "text": "",
+          "src": "orphan"
         },
         {
           "ev": "gen5",
           "file": "VO_Tau_Empire_Commander O'Maisos_gen5.ogg",
-          "text": ""
+          "text": "",
+          "src": "orphan"
         },
         {
           "ev": "gen6",
           "file": "VO_Tau_Empire_Commander O'Maisos_gen6.ogg",
-          "text": ""
+          "text": "",
+          "src": "orphan"
         },
         {
           "ev": "gen7",
           "file": "VO_Tau_Empire_Commander O'Maisos_gen7.ogg",
-          "text": ""
+          "text": "",
+          "src": "orphan"
         },
         {
           "ev": "vsaun'va",
@@ -13105,22 +13541,26 @@
         {
           "ev": "gen4",
           "file": "VO_Tau_War Shaper_gen4.ogg",
-          "text": ""
+          "text": "",
+          "src": "orphan"
         },
         {
           "ev": "gen5",
           "file": "VO_Tau_War Shaper_gen5.ogg",
-          "text": ""
+          "text": "",
+          "src": "orphan"
         },
         {
           "ev": "gen6",
           "file": "VO_Tau_War Shaper_gen6.ogg",
-          "text": ""
+          "text": "",
+          "src": "orphan"
         },
         {
           "ev": "gen7",
           "file": "VO_Tau_War Shaper_gen7.ogg",
-          "text": ""
+          "text": "",
+          "src": "orphan"
         },
         {
           "ev": "vsaunva",
@@ -13720,22 +14160,26 @@
         {
           "ev": "gen4",
           "file": "VO_Tyranid_Leviathan_Tervigon_gen4.ogg",
-          "text": ""
+          "text": "",
+          "src": "orphan"
         },
         {
           "ev": "gen5",
           "file": "VO_Tyranid_Leviathan_Tervigon_gen5.ogg",
-          "text": ""
+          "text": "",
+          "src": "orphan"
         },
         {
           "ev": "gen6",
           "file": "VO_Tyranid_Leviathan_Tervigon_gen6.ogg",
-          "text": ""
+          "text": "",
+          "src": "orphan"
         },
         {
           "ev": "gen7",
           "file": "VO_Tyranid_Leviathan_Tervigon_gen7.ogg",
-          "text": ""
+          "text": "",
+          "src": "orphan"
         }
       ]
     },
@@ -13972,22 +14416,26 @@
         {
           "ev": "gen4",
           "file": "VO_Tyranid_Leviathan_Neurothrope_gen4.ogg",
-          "text": ""
+          "text": "",
+          "src": "orphan"
         },
         {
           "ev": "gen5",
           "file": "VO_Tyranid_Leviathan_Neurothrope_gen5.ogg",
-          "text": ""
+          "text": "",
+          "src": "orphan"
         },
         {
           "ev": "gen6",
           "file": "VO_Tyranid_Leviathan_Neurothrope_gen6.ogg",
-          "text": ""
+          "text": "",
+          "src": "orphan"
         },
         {
           "ev": "gen7",
           "file": "VO_Tyranid_Leviathan_Neurothrope_gen7.ogg",
-          "text": ""
+          "text": "",
+          "src": "orphan"
         }
       ]
     },
@@ -14384,7 +14832,8 @@
           "ev": "deploy",
           "file": "VO_UM_Chaplain Cassius - At our backs stand the whole of the Imperium.wav",
           "text": "At our backs stand the whole of the Imperium",
-          "src": "cardSO"
+          "src": "cardSO",
+          "so": "summonAudio"
         }
       ]
     },
@@ -14397,7 +14846,8 @@
           "ev": "deploy",
           "file": "VO_UM_2nd Company Terminator - Your fall will echo through the battlefield.wav",
           "text": "Your fall will echo through the battlefield",
-          "src": "cardSO"
+          "src": "cardSO",
+          "so": "summonAudio"
         }
       ]
     },
@@ -14410,7 +14860,8 @@
           "ev": "deploy",
           "file": "VO_UM_Terminator Captain - Break them! Leave none standing!.wav",
           "text": "Break them! Leave none standing!",
-          "src": "cardSO"
+          "src": "cardSO",
+          "so": "summonAudio"
         }
       ]
     },
@@ -14423,7 +14874,8 @@
           "ev": "deploy",
           "file": "VO_UM_Terminator - I will test the limits of your arrogance.wav",
           "text": "I will test the limits of your arrogance",
-          "src": "cardSO"
+          "src": "cardSO",
+          "so": "summonAudio"
         }
       ]
     },
@@ -14436,7 +14888,8 @@
           "ev": "deploy",
           "file": "VO_UM_Bladeguard Ancient - Fight well and your names shall leave on ever after in glory!.wav",
           "text": "Fight well and your names shall leave on ever after in glory!",
-          "src": "cardSO"
+          "src": "cardSO",
+          "so": "summonAudio"
         }
       ]
     },
@@ -14449,7 +14902,8 @@
           "ev": "deploy",
           "file": "VO_UM_Dreadnought - Face the consequences of your existence.wav",
           "text": "Face the consequences of your existence",
-          "src": "cardSO"
+          "src": "cardSO",
+          "so": "summonAudio"
         }
       ]
     },
@@ -14462,7 +14916,8 @@
           "ev": "deploy",
           "file": "VO_UM_Ferren Areios - Pride outlives the prideful I make sure of it.wav",
           "text": "Pride outlives the prideful I make sure of it",
-          "src": "cardSO"
+          "src": "cardSO",
+          "so": "summonAudio"
         }
       ]
     },
@@ -14475,7 +14930,8 @@
           "ev": "deploy",
           "file": "VO_UM_Whirlwind - We bring Ultramar's fire!.wav",
           "text": "We bring Ultramar's fire!",
-          "src": "cardSO"
+          "src": "cardSO",
+          "so": "summonAudio"
         }
       ]
     },
@@ -14488,7 +14944,8 @@
           "ev": "deploy",
           "file": "VO_UM_Brutalis Dreadnought - I have embraced death to deliver it with every step!.wav",
           "text": "I have embraced death to deliver it with every step!",
-          "src": "cardSO"
+          "src": "cardSO",
+          "so": "summonAudio"
         }
       ]
     },
@@ -14657,12 +15114,6 @@
           "text": "Intro",
           "src": "cardSO",
           "so": "summonAudio"
-        },
-        {
-          "ev": "deploy",
-          "file": "VO_NOT USED_UM_Primaris Judiciar - You're not ready to take on a foe like me.ogg",
-          "text": "You're not ready to take on a foe like me",
-          "src": "orphan"
         }
       ]
     },
@@ -14925,22 +15376,26 @@
         {
           "ev": "gen4",
           "file": "VO_UM_Calgar_gen4.ogg",
-          "text": ""
+          "text": "",
+          "src": "orphan"
         },
         {
           "ev": "gen5",
           "file": "VO_UM_Calgar_gen5.ogg",
-          "text": ""
+          "text": "",
+          "src": "orphan"
         },
         {
           "ev": "gen6",
           "file": "VO_UM_Calgar_gen6.ogg",
-          "text": ""
+          "text": "",
+          "src": "orphan"
         },
         {
           "ev": "gen7",
           "file": "VO_UM_Calgar_gen7.ogg",
-          "text": ""
+          "text": "",
+          "src": "orphan"
         },
         {
           "ev": "vsagemman",
@@ -15014,11 +15469,25 @@
           "so": "concedeChatSound"
         },
         {
+          "ev": "gen1",
+          "file": "VO_Ultramarines_Ventris_gen1.ogg",
+          "text": "",
+          "src": "cardSO",
+          "so": "generic1ChatSound"
+        },
+        {
           "ev": "gen2",
           "file": "VO_Ultramarines_Ventris_gen2.ogg",
           "text": "",
           "src": "cardSO",
           "so": "generic2ChatSound"
+        },
+        {
+          "ev": "gen3",
+          "file": "VO_Ultramarines_Ventris_gen3.ogg",
+          "text": "",
+          "src": "cardSO",
+          "so": "generic3ChatSound"
         },
         {
           "ev": "greet",
@@ -15033,6 +15502,13 @@
           "text": "",
           "src": "cardSO",
           "so": "hurryChatSound"
+        },
+        {
+          "ev": "intro",
+          "file": "VO_Ultramarines_Ventris_intro.ogg",
+          "text": "",
+          "src": "cardSO",
+          "so": "introChatSound"
         },
         {
           "ev": "mirror",
@@ -15056,39 +15532,28 @@
           "so": "wellPlayedChatSound"
         },
         {
-          "ev": "gen1",
-          "file": "VO_Ultramarines_Ventris_gen1.ogg",
-          "text": ""
-        },
-        {
-          "ev": "gen3",
-          "file": "VO_Ultramarines_Ventris_gen3.ogg",
-          "text": ""
-        },
-        {
-          "ev": "gen2",
+          "ev": "gen4",
           "file": "VO_Ultramarines_Ventris_gen4.ogg",
-          "text": ""
+          "text": "",
+          "src": "orphan"
         },
         {
           "ev": "gen5",
           "file": "VO_Ultramarines_Ventris_gen5.ogg",
-          "text": ""
+          "text": "",
+          "src": "orphan"
         },
         {
           "ev": "gen6",
           "file": "VO_Ultramarines_Ventris_gen6.ogg",
-          "text": ""
+          "text": "",
+          "src": "orphan"
         },
         {
-          "ev": "gen3",
+          "ev": "gen7",
           "file": "VO_Ultramarines_Ventris_gen7.ogg",
-          "text": ""
-        },
-        {
-          "ev": "intro",
-          "file": "VO_Ultramarines_Ventris_intro.ogg",
-          "text": ""
+          "text": "",
+          "src": "orphan"
         },
         {
           "ev": "vscalgar",
@@ -15207,22 +15672,26 @@
         {
           "ev": "gen4",
           "file": "VO_Ultramarines_Tigurius_gen4.ogg",
-          "text": ""
+          "text": "",
+          "src": "orphan"
         },
         {
           "ev": "gen5",
           "file": "VO_Ultramarines_Tigurius_gen5.ogg",
-          "text": ""
+          "text": "",
+          "src": "orphan"
         },
         {
           "ev": "gen6",
           "file": "VO_Ultramarines_Tigurius_gen6.ogg",
-          "text": ""
+          "text": "",
+          "src": "orphan"
         },
         {
           "ev": "gen7",
           "file": "VO_Ultramarines_Tigurius_gen7.ogg",
-          "text": ""
+          "text": "",
+          "src": "orphan"
         },
         {
           "ev": "vscalgar",
@@ -15253,12 +15722,6 @@
           "ev": "vsventris",
           "file": "VO_Ultramarines_Tigurius_vsVentris.ogg",
           "text": ""
-        },
-        {
-          "ev": "deploy",
-          "file": "VO_BlackLegion_Hexscorn_vs_Varro.ogg",
-          "text": "",
-          "src": "orphan"
         }
       ]
     },
@@ -15355,6 +15818,7 @@
           "ev": "deploy",
           "file": "VO_UM_Primaris Intercessor - For the Imperium.ogg",
           "text": "For the Imperium",
+          "src": "cardSO",
           "so": "summonAudio"
         }
       ]
@@ -15464,22 +15928,26 @@
         {
           "ev": "gen4",
           "file": "VO_UM_Chaplain Letharius_gen4.ogg",
-          "text": ""
+          "text": "",
+          "src": "orphan"
         },
         {
           "ev": "gen5",
           "file": "VO_UM_Chaplain Letharius_gen5.ogg",
-          "text": ""
+          "text": "",
+          "src": "orphan"
         },
         {
           "ev": "gen6",
           "file": "VO_UM_Chaplain Letharius_gen6.ogg",
-          "text": ""
+          "text": "",
+          "src": "orphan"
         },
         {
           "ev": "gen7",
           "file": "VO_UM_Chaplain Letharius_gen7.ogg",
-          "text": ""
+          "text": "",
+          "src": "orphan"
         },
         {
           "ev": "vsghallaron",
@@ -15725,22 +16193,26 @@
         {
           "ev": "gen4",
           "file": "VO_UM_Titus_gen4.ogg",
-          "text": ""
+          "text": "",
+          "src": "orphan"
         },
         {
           "ev": "gen5",
           "file": "VO_UM_Titus_gen5.ogg",
-          "text": ""
+          "text": "",
+          "src": "orphan"
         },
         {
           "ev": "gen6",
           "file": "VO_UM_Titus_gen6.ogg",
-          "text": ""
+          "text": "",
+          "src": "orphan"
         },
         {
           "ev": "gen7",
           "file": "VO_UM_Titus_gen7.ogg",
-          "text": ""
+          "text": "",
+          "src": "orphan"
         },
         {
           "ev": "vsaeldari",
@@ -15775,11 +16247,6 @@
           "text": "I will make them suffer now",
           "src": "cardSO",
           "so": "summonAudio"
-        },
-        {
-          "ev": "deploy",
-          "file": "VO_UM_Chairon (with Gadriel in play) - We shall thin their numbers today, brother.ogg",
-          "text": "We shall thin their numbers today, brother"
         }
       ]
     },
@@ -15864,11 +16331,6 @@
           "text": "Take them down!",
           "src": "cardSO",
           "so": "summonAudio"
-        },
-        {
-          "ev": "deploy",
-          "file": "VO_UM_Sergeant Gadriel (with Chairon in play) - You care to see who can slay more Xenos, brother Chairon.ogg",
-          "text": "You care to see who can slay more Xenos, brother Chairon"
         }
       ]
     },
@@ -15901,7 +16363,92 @@
           "ev": "death",
           "file": "VO_UM_Guilliman_death.wav",
           "text": "",
-          "src": "cardSO"
+          "src": "cardSO",
+          "so": "deathAudio"
+        },
+        {
+          "ev": "default",
+          "file": "VO_UM_Guilliman_attack.wav",
+          "text": "",
+          "src": "cardSO",
+          "so": "defaultChatSound"
+        },
+        {
+          "ev": "cantdo",
+          "file": "VO_UM_Guilliman_cantDo.wav",
+          "text": "",
+          "src": "cardSO",
+          "so": "iCantDoThatChatSound"
+        },
+        {
+          "ev": "concede",
+          "file": "VO_UM_Guilliman_concede.wav",
+          "text": "",
+          "src": "cardSO",
+          "so": "concedeChatSound"
+        },
+        {
+          "ev": "gen1",
+          "file": "VO_UM_Guilliman_gen1.wav",
+          "text": "",
+          "src": "cardSO",
+          "so": "generic1ChatSound"
+        },
+        {
+          "ev": "gen2",
+          "file": "VO_UM_Guilliman_gen2.wav",
+          "text": "",
+          "src": "cardSO",
+          "so": "generic2ChatSound"
+        },
+        {
+          "ev": "gen3",
+          "file": "VO_UM_Guilliman_gen3.wav",
+          "text": "",
+          "src": "cardSO",
+          "so": "generic3ChatSound"
+        },
+        {
+          "ev": "greet",
+          "file": "VO_UM_Guilliman_greet.wav",
+          "text": "",
+          "src": "cardSO",
+          "so": "greetChatSound"
+        },
+        {
+          "ev": "hurry",
+          "file": "VO_UM_Guilliman_hurry.wav",
+          "text": "",
+          "src": "cardSO",
+          "so": "hurryChatSound"
+        },
+        {
+          "ev": "intro",
+          "file": "VO_UM_Guilliman_intro.wav",
+          "text": "",
+          "src": "cardSO",
+          "so": "introChatSound"
+        },
+        {
+          "ev": "mirror",
+          "file": "VO_UM_Guilliman_mirror.wav",
+          "text": "",
+          "src": "cardSO",
+          "so": "mirrorChatSound"
+        },
+        {
+          "ev": "threat",
+          "file": "VO_UM_Guilliman_threat.wav",
+          "text": "",
+          "src": "cardSO",
+          "so": "threatChatSound"
+        },
+        {
+          "ev": "wp",
+          "file": "VO_UM_Guilliman_wp.wav",
+          "text": "",
+          "src": "cardSO",
+          "so": "wellPlayedChatSound"
         },
         {
           "ev": "backup1",
@@ -15964,74 +16511,28 @@
           "text": ""
         },
         {
-          "ev": "cantdo",
-          "file": "VO_UM_Guilliman_cantDo.wav",
-          "text": ""
-        },
-        {
-          "ev": "concede",
-          "file": "VO_UM_Guilliman_concede.wav",
-          "text": ""
-        },
-        {
-          "ev": "gen1",
-          "file": "VO_UM_Guilliman_gen1.wav",
-          "text": ""
-        },
-        {
-          "ev": "gen2",
-          "file": "VO_UM_Guilliman_gen2.wav",
-          "text": ""
-        },
-        {
-          "ev": "gen3",
-          "file": "VO_UM_Guilliman_gen3.wav",
-          "text": ""
-        },
-        {
           "ev": "gen4",
           "file": "VO_UM_Guilliman_gen4.wav",
-          "text": ""
+          "text": "",
+          "src": "orphan"
         },
         {
           "ev": "gen5",
           "file": "VO_UM_Guilliman_gen5.wav",
-          "text": ""
+          "text": "",
+          "src": "orphan"
         },
         {
           "ev": "gen6",
           "file": "VO_UM_Guilliman_gen6.wav",
-          "text": ""
+          "text": "",
+          "src": "orphan"
         },
         {
           "ev": "gen7",
           "file": "VO_UM_Guilliman_gen7.wav",
-          "text": ""
-        },
-        {
-          "ev": "greet",
-          "file": "VO_UM_Guilliman_greet.wav",
-          "text": ""
-        },
-        {
-          "ev": "hurry",
-          "file": "VO_UM_Guilliman_hurry.wav",
-          "text": ""
-        },
-        {
-          "ev": "intro",
-          "file": "VO_UM_Guilliman_intro.wav",
-          "text": ""
-        },
-        {
-          "ev": "mirror",
-          "file": "VO_UM_Guilliman_mirror.wav",
-          "text": ""
-        },
-        {
-          "ev": "threat",
-          "file": "VO_UM_Guilliman_threat.wav",
-          "text": ""
+          "text": "",
+          "src": "orphan"
         },
         {
           "ev": "vsabaddon",
@@ -16077,11 +16578,6 @@
           "ev": "vsuriel",
           "file": "VO_UM_Guilliman_vsUriel.wav",
           "text": ""
-        },
-        {
-          "ev": "wp",
-          "file": "VO_UM_Guilliman_wp.wav",
-          "text": ""
         }
       ]
     },
@@ -16100,7 +16596,92 @@
           "ev": "death",
           "file": "VO_UM_Valius Paxor_death.wav",
           "text": "",
-          "src": "cardSO"
+          "src": "cardSO",
+          "so": "deathAudio"
+        },
+        {
+          "ev": "default",
+          "file": "VO_UM_Valius Paxor_attack.wav",
+          "text": "",
+          "src": "cardSO",
+          "so": "defaultChatSound"
+        },
+        {
+          "ev": "cantdo",
+          "file": "VO_UM_Valius Paxor_cantDo.wav",
+          "text": "",
+          "src": "cardSO",
+          "so": "iCantDoThatChatSound"
+        },
+        {
+          "ev": "concede",
+          "file": "VO_UM_Valius Paxor_concede.wav",
+          "text": "",
+          "src": "cardSO",
+          "so": "concedeChatSound"
+        },
+        {
+          "ev": "gen1",
+          "file": "VO_UM_Valius Paxor_gen1.wav",
+          "text": "",
+          "src": "cardSO",
+          "so": "generic1ChatSound"
+        },
+        {
+          "ev": "gen2",
+          "file": "VO_UM_Valius Paxor_gen2.wav",
+          "text": "",
+          "src": "cardSO",
+          "so": "generic2ChatSound"
+        },
+        {
+          "ev": "gen3",
+          "file": "VO_UM_Valius Paxor_gen4.wav",
+          "text": "",
+          "src": "cardSO",
+          "so": "generic3ChatSound"
+        },
+        {
+          "ev": "greet",
+          "file": "VO_UM_Valius Paxor_greet.wav",
+          "text": "",
+          "src": "cardSO",
+          "so": "greetChatSound"
+        },
+        {
+          "ev": "hurry",
+          "file": "VO_UM_Valius Paxor_hurry.wav",
+          "text": "",
+          "src": "cardSO",
+          "so": "hurryChatSound"
+        },
+        {
+          "ev": "intro",
+          "file": "VO_UM_Valius Paxor_intro.wav",
+          "text": "",
+          "src": "cardSO",
+          "so": "introChatSound"
+        },
+        {
+          "ev": "mirror",
+          "file": "VO_UM_Valius Paxor_mirror.wav",
+          "text": "",
+          "src": "cardSO",
+          "so": "mirrorChatSound"
+        },
+        {
+          "ev": "threat",
+          "file": "VO_UM_Valius Paxor_threat.wav",
+          "text": "",
+          "src": "cardSO",
+          "so": "threatChatSound"
+        },
+        {
+          "ev": "wp",
+          "file": "VO_UM_Valius Paxor_wp.wav",
+          "text": "",
+          "src": "cardSO",
+          "so": "wellPlayedChatSound"
         },
         {
           "ev": "backup1",
@@ -16133,74 +16714,22 @@
           "text": ""
         },
         {
-          "ev": "cantdo",
-          "file": "VO_UM_Valius Paxor_cantDo.wav",
-          "text": ""
-        },
-        {
-          "ev": "concede",
-          "file": "VO_UM_Valius Paxor_concede.wav",
-          "text": ""
-        },
-        {
-          "ev": "gen1",
-          "file": "VO_UM_Valius Paxor_gen1.wav",
-          "text": ""
-        },
-        {
-          "ev": "gen2",
-          "file": "VO_UM_Valius Paxor_gen2.wav",
-          "text": ""
-        },
-        {
-          "ev": "gen3",
-          "file": "VO_UM_Valius Paxor_gen3.wav",
-          "text": ""
-        },
-        {
-          "ev": "gen4",
-          "file": "VO_UM_Valius Paxor_gen4.wav",
-          "text": ""
-        },
-        {
           "ev": "gen5",
           "file": "VO_UM_Valius Paxor_gen5.wav",
-          "text": ""
+          "text": "",
+          "src": "orphan"
         },
         {
           "ev": "gen6",
           "file": "VO_UM_Valius Paxor_gen6.wav",
-          "text": ""
+          "text": "",
+          "src": "orphan"
         },
         {
           "ev": "gen7",
           "file": "VO_UM_Valius Paxor_gen7.wav",
-          "text": ""
-        },
-        {
-          "ev": "greet",
-          "file": "VO_UM_Valius Paxor_greet.wav",
-          "text": ""
-        },
-        {
-          "ev": "hurry",
-          "file": "VO_UM_Valius Paxor_hurry.wav",
-          "text": ""
-        },
-        {
-          "ev": "intro",
-          "file": "VO_UM_Valius Paxor_intro.wav",
-          "text": ""
-        },
-        {
-          "ev": "mirror",
-          "file": "VO_UM_Valius Paxor_mirror.wav",
-          "text": ""
-        },
-        {
-          "ev": "threat",
-          "file": "VO_UM_Valius Paxor_threat.wav",
-          "text": ""
+          "text": "",
+          "src": "orphan"
         },
         {
           "ev": "vsec",
@@ -16216,11 +16745,6 @@
           "ev": "vsum",
           "file": "VO_UM_Valius Paxor_vsUM.wav",
           "text": ""
-        },
-        {
-          "ev": "wp",
-          "file": "VO_UM_Valius Paxor_wp.wav",
-          "text": ""
         }
       ]
     },
@@ -16233,7 +16757,8 @@
           "ev": "deploy",
           "file": "VO_UM_Incursor - Target acquired. Bring it down!.wav",
           "text": "Target acquired. Bring it down!",
-          "src": "cardSO"
+          "src": "cardSO",
+          "so": "summonAudio"
         }
       ]
     },
@@ -16260,7 +16785,8 @@
           "ev": "deploy",
           "file": "VO_UM_Phobos Lieutenant - The Emperor's grace follows us.wav",
           "text": "The Emperor's grace follows us",
-          "src": "cardSO"
+          "src": "cardSO",
+          "so": "summonAudio"
         }
       ]
     },
@@ -16273,7 +16799,8 @@
           "ev": "deploy",
           "file": "VO_UM_Tactical Marine - We are all sons of Lord Guilliman We all serve the Emperor.wav",
           "text": "We are all sons of Lord Guilliman We all serve the Emperor",
-          "src": "cardSO"
+          "src": "cardSO",
+          "so": "summonAudio"
         }
       ]
     },
@@ -16286,7 +16813,8 @@
           "ev": "deploy",
           "file": "VO_UM_Firestrike Servoturret - Battlefields are filled with the remains of the obstinate.wav",
           "text": "Battlefields are filled with the remains of the obstinate",
-          "src": "cardSO"
+          "src": "cardSO",
+          "so": "summonAudio"
         }
       ]
     },
@@ -16299,7 +16827,8 @@
           "ev": "deploy",
           "file": "VO_UM_Vico Therbeus - Our foes seem without limit but we will find it.wav",
           "text": "Our foes seem without limit but we will find it",
-          "src": "cardSO"
+          "src": "cardSO",
+          "so": "summonAudio"
         }
       ]
     },
@@ -16312,7 +16841,8 @@
           "ev": "deploy",
           "file": "VO_UM_Scout Sniper - Cut the head and the body will follow.wav",
           "text": "Cut the head and the body will follow",
-          "src": "cardSO"
+          "src": "cardSO",
+          "so": "summonAudio"
         }
       ]
     },
@@ -16325,7 +16855,8 @@
           "ev": "deploy",
           "file": "VO_UM_Attack Bike - For Guilliman and the Emperor!.wav",
           "text": "For Guilliman and the Emperor!",
-          "src": "cardSO"
+          "src": "cardSO",
+          "so": "summonAudio"
         }
       ]
     },
@@ -16338,7 +16869,8 @@
           "ev": "deploy",
           "file": "VO_UM_Chapter Champion - I am Guilliman's blade!.wav",
           "text": "I am Guilliman's blade!",
-          "src": "cardSO"
+          "src": "cardSO",
+          "so": "summonAudio"
         }
       ]
     },
@@ -16351,7 +16883,8 @@
           "ev": "deploy",
           "file": "VO_UM_Suppressor - A bolt unfired is a bolt wasted.wav",
           "text": "A bolt unfired is a bolt wasted",
-          "src": "cardSO"
+          "src": "cardSO",
+          "so": "summonAudio"
         }
       ]
     },
@@ -16364,7 +16897,8 @@
           "ev": "deploy",
           "file": "VO_UM_Devastator Marine - Keep firing! Sustained volley!.wav",
           "text": "Keep firing! Sustained volley!",
-          "src": "cardSO"
+          "src": "cardSO",
+          "so": "summonAudio"
         }
       ]
     },
@@ -16377,7 +16911,8 @@
           "ev": "deploy",
           "file": "VO_UM_Phobos Librarian - We are His will made manifest!.wav",
           "text": "We are His will made manifest!",
-          "src": "cardSO"
+          "src": "cardSO",
+          "so": "summonAudio"
         }
       ]
     }

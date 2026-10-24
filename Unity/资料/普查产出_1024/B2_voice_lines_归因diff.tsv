@@ -1,0 +1,163 @@
+cardId	cardName	kind	file	ev_before	ev_after	src_so_before	src_so_after	reason
+6e4f9040e8cc59641a32f29e33ea4cbc	Tyrnak and Fenrir	field_annotated	VO_SpaceWolves_Tyrnak and Fenrir.ogg	deploy	deploy	cardSO/-	cardSO/summonAudio	补上 SO 字段归属（ev 不变）
+DA65	Chaplain Gabutheron	field_annotated	VO_DA_Chaplain Gabutheron - No price is too high to clean the sins of old.wav	deploy	deploy	cardSO/-	cardSO/summonAudio	补上 SO 字段归属（ev 不变）
+DA66	Ballistus Dreadnought	field_annotated	VO_DA_Ballistus Dreadnought - Death is not enough to stay our wrath.wav	deploy	deploy	cardSO/-	cardSO/summonAudio	补上 SO 字段归属（ev 不变）
+DA67	Assault Terminator	field_annotated	VO_DA_Assault Terminator - I will not suffer your existence one moment longer.wav	deploy	deploy	cardSO/-	cardSO/summonAudio	补上 SO 字段归属（ev 不变）
+DA68	Vengeful Brethren Bladeguard	field_annotated	VO_DA_Vengeful Brethren Bladeguard - Stand as firm as the mighty Rock itself!.wav	deploy	deploy	cardSO/-	cardSO/summonAudio	补上 SO 字段归属（ev 不变）
+DA69	Vengeful Brethren Hellblaster	field_annotated	VO_DA_Vengeful Brethren Hellblaster - Mercy is not mine to deliver Only death.wav	deploy	deploy	cardSO/-	cardSO/summonAudio	补上 SO 字段归属（ev 不变）
+DA70	Vengeful Brethren Intercessor	field_annotated	VO_DA_Vengeful Brethren Intercessor - You are one mistake away from your death.wav	deploy	deploy	cardSO/-	cardSO/summonAudio	补上 SO 字段归属（ev 不变）
+DA71	Watcher in the Dark	field_annotated	VO_DA_Watcher in the Dark - You do not have long.wav	deploy	deploy	cardSO/-	cardSO/summonAudio	补上 SO 字段归属（ev 不变）
+DA75	Master Zacharial	field_annotated	VO_DA_Master Zacharial_death.wav	death	death	cardSO/-	cardSO/deathAudio	补上 SO 字段归属（ev 不变）
+DA75	Master Zacharial	field_annotated	VO_DA_Master Zacharial_cantDo.wav	cantdo	cantdo	-/-	cardSO/iCantDoThatChatSound	补上 SO 字段归属（ev 不变）
+DA75	Master Zacharial	field_annotated	VO_DA_Master Zacharial_concede.wav	concede	concede	-/-	cardSO/concedeChatSound	补上 SO 字段归属（ev 不变）
+DA75	Master Zacharial	field_annotated	VO_DA_Master Zacharial_gen1.wav	gen1	gen1	-/-	cardSO/generic1ChatSound	补上 SO 字段归属（ev 不变）
+DA75	Master Zacharial	field_annotated	VO_DA_Master Zacharial_gen2.wav	gen2	gen2	-/-	cardSO/generic2ChatSound	补上 SO 字段归属（ev 不变）
+DA75	Master Zacharial	field_annotated	VO_DA_Master Zacharial_gen3.wav	gen3	gen3	-/-	cardSO/generic3ChatSound	补上 SO 字段归属（ev 不变）
+DA75	Master Zacharial	field_annotated	VO_DA_Master Zacharial_greet.wav	greet	greet	-/-	cardSO/greetChatSound	补上 SO 字段归属（ev 不变）
+DA75	Master Zacharial	field_annotated	VO_DA_Master Zacharial_hurry.wav	hurry	hurry	-/-	cardSO/hurryChatSound	补上 SO 字段归属（ev 不变）
+DA75	Master Zacharial	field_annotated	VO_DA_Master Zacharial_intro.wav	intro	intro	-/-	cardSO/introChatSound	补上 SO 字段归属（ev 不变）
+DA75	Master Zacharial	field_annotated	VO_DA_Master Zacharial_mirror.wav	mirror	mirror	-/-	cardSO/mirrorChatSound	补上 SO 字段归属（ev 不变）
+DA75	Master Zacharial	field_annotated	VO_DA_Master Zacharial_threat.wav	threat	threat	-/-	cardSO/threatChatSound	补上 SO 字段归属（ev 不变）
+DA75	Master Zacharial	field_annotated	VO_DA_Master Zacharial_wp.wav	wp	wp	-/-	cardSO/wellPlayedChatSound	补上 SO 字段归属（ev 不变）
+DA75	Master Zacharial	added	VO_DA_Master Zacharial_attack.wav	default		cardSO/defaultChatSound		原版 SO 有该字段 ⇒ 新增
+EC57	Xarahan, Daemon Prince	field_annotated	VO_CSM_EC_Daemon Prince Xarahan_death.ogg	death	death	cardSO/-	cardSO/deathAudio	补上 SO 字段归属（ev 不变）
+EC57	Xarahan, Daemon Prince	added	VO_CSM_EC_Daemon Prince Xarahan_attack.ogg	default		cardSO/defaultChatSound		原版 SO 有该字段 ⇒ 新增
+EC57	Xarahan, Daemon Prince	added	VO_CSM_EC_Daemon Prince Xarahan_cantDo.ogg	cantdo		cardSO/iCantDoThatChatSound		原版 SO 有该字段 ⇒ 新增
+EC57	Xarahan, Daemon Prince	added	VO_CSM_EC_Daemon Prince Xarahan_concede.ogg	concede		cardSO/concedeChatSound		原版 SO 有该字段 ⇒ 新增
+EC57	Xarahan, Daemon Prince	added	VO_CSM_EC_Daemon Prince Xarahan_gen1.ogg	gen1		cardSO/generic1ChatSound		原版 SO 有该字段 ⇒ 新增
+EC57	Xarahan, Daemon Prince	added	VO_CSM_EC_Daemon Prince Xarahan_gen2.ogg	gen2		cardSO/generic2ChatSound		原版 SO 有该字段 ⇒ 新增
+EC57	Xarahan, Daemon Prince	added	VO_CSM_EC_Daemon Prince Xarahan_gen3.ogg	gen3		cardSO/generic3ChatSound		原版 SO 有该字段 ⇒ 新增
+EC57	Xarahan, Daemon Prince	added	VO_CSM_EC_Daemon Prince Xarahan_greet.ogg	greet		cardSO/greetChatSound		原版 SO 有该字段 ⇒ 新增
+EC57	Xarahan, Daemon Prince	added	VO_CSM_EC_Daemon Prince Xarahan_hurry.ogg	hurry		cardSO/hurryChatSound		原版 SO 有该字段 ⇒ 新增
+EC57	Xarahan, Daemon Prince	added	VO_CSM_EC_Daemon Prince Xarahan_intro.ogg	intro		cardSO/introChatSound		原版 SO 有该字段 ⇒ 新增
+EC57	Xarahan, Daemon Prince	added	VO_CSM_EC_Daemon Prince Xarahan_mirror.ogg	mirror		cardSO/mirrorChatSound		原版 SO 有该字段 ⇒ 新增
+EC57	Xarahan, Daemon Prince	added	VO_CSM_EC_Daemon Prince Xarahan_threat.ogg	threat		cardSO/threatChatSound		原版 SO 有该字段 ⇒ 新增
+EC57	Xarahan, Daemon Prince	added	VO_CSM_EC_Daemon Prince Xarahan_wp.ogg	wp		cardSO/wellPlayedChatSound		原版 SO 有该字段 ⇒ 新增
+SW1	Logan Grimnar	field_annotated	VO_SpaceWolves_Logan Grimnar_death.ogg	death	death	cardSO/-	cardSO/deathAudio	补上 SO 字段归属（ev 不变）
+SW1	Logan Grimnar	field_annotated	VO_SpaceWolves_Logan Grimnar_cantDo.ogg	cantdo	cantdo	-/-	cardSO/iCantDoThatChatSound	补上 SO 字段归属（ev 不变）
+SW1	Logan Grimnar	field_annotated	VO_SpaceWolves_Logan Grimnar_concede.ogg	concede	concede	-/-	cardSO/concedeChatSound	补上 SO 字段归属（ev 不变）
+SW1	Logan Grimnar	field_annotated	VO_SpaceWolves_Logan Grimnar_gen1.ogg	gen1	gen1	-/-	cardSO/generic1ChatSound	补上 SO 字段归属（ev 不变）
+SW1	Logan Grimnar	field_annotated	VO_SpaceWolves_Logan Grimnar_gen2.ogg	gen2	gen2	-/-	cardSO/generic2ChatSound	补上 SO 字段归属（ev 不变）
+SW1	Logan Grimnar	field_annotated	VO_SpaceWolves_Logan Grimnar_gen3.ogg	gen3	gen3	-/-	cardSO/generic3ChatSound	补上 SO 字段归属（ev 不变）
+SW1	Logan Grimnar	field_annotated	VO_SpaceWolves_Logan Grimnar_greet.ogg	greet	greet	-/-	cardSO/greetChatSound	补上 SO 字段归属（ev 不变）
+SW1	Logan Grimnar	field_annotated	VO_SpaceWolves_Logan Grimnar_hurry.ogg	hurry	hurry	-/-	cardSO/hurryChatSound	补上 SO 字段归属（ev 不变）
+SW1	Logan Grimnar	field_annotated	VO_SpaceWolves_Logan Grimnar_intro.ogg	intro	intro	-/-	cardSO/introChatSound	补上 SO 字段归属（ev 不变）
+SW1	Logan Grimnar	field_annotated	VO_SpaceWolves_Logan Grimnar_mirror.ogg	mirror	mirror	-/-	cardSO/mirrorChatSound	补上 SO 字段归属（ev 不变）
+SW1	Logan Grimnar	field_annotated	VO_SpaceWolves_Logan Grimnar_threat.ogg	threat	threat	-/-	cardSO/threatChatSound	补上 SO 字段归属（ev 不变）
+SW1	Logan Grimnar	field_annotated	VO_SpaceWolves_Logan Grimnar_wp.ogg	wp	wp	-/-	cardSO/wellPlayedChatSound	补上 SO 字段归属（ev 不变）
+SW1	Logan Grimnar	added	VO_SpaceWolves_Logan Grimnar_attack.ogg	default		cardSO/defaultChatSound		原版 SO 有该字段 ⇒ 新增
+SW10	Grey Hunter	field_annotated	VO_SpaceWolves_Grey Hunter - I have eyes on the prey!.ogg	deploy	deploy	cardSO/-	cardSO/summonAudio	补上 SO 字段归属（ev 不变）
+SW11	Grey Hunter Pack Leader	field_annotated	VO_SpaceWolves_Grey Hunter Pack Leader - Charge! No great champion dies clean!.ogg	deploy	deploy	cardSO/-	cardSO/summonAudio	补上 SO 字段归属（ev 不变）
+SW12	Thunderwolf Cavalry	field_annotated	VO_SpaceWolves_Thunderwolf Calvary - If tooth and nail are not enough, the chainsword will bite.ogg	deploy	deploy	cardSO/-	cardSO/summonAudio	补上 SO 字段归属（ev 不变）
+SW13	Wolf Guard Headtaker	field_annotated	VO_SpaceWolves_Wolf Guard Headtaker - Bring them fang! Bring them fury!.ogg	deploy	deploy	cardSO/-	cardSO/summonAudio	补上 SO 字段归属（ev 不变）
+SW14	Wolf Priest	field_annotated	VO_SpaceWolves_Wolf Priest - It is fate that guides our blades.ogg	deploy	deploy	cardSO/-	cardSO/summonAudio	补上 SO 字段归属（ev 不变）
+SW15	Fyrri Askar	field_annotated	VO_SpaceWolves_Fyrri Askar - Let's give the skjalds something to sing about!.ogg	deploy	deploy	cardSO/-	cardSO/summonAudio	补上 SO 字段归属（ev 不变）
+SW16	Long Fang	field_annotated	VO_SpaceWolves_Long Fang - Your time is over!.ogg	deploy	deploy	cardSO/-	cardSO/summonAudio	补上 SO 字段归属（ev 不变）
+SW17	Wulfen	field_annotated	VO_SpaceWolves_Wulfen.ogg	deploy	deploy	cardSO/-	cardSO/summonAudio	补上 SO 字段归属（ev 不变）
+SW18	Hrolf the Ironhowl	field_annotated	VO_SpaceWolves_Hrolf the Ironhowl - With me, brothers! Ride until the Wolftime!).ogg	deploy	deploy	cardSO/-	cardSO/summonAudio	补上 SO 字段归属（ev 不变）
+SW19	Iron Priest	field_annotated	VO_SpaceWolves_Iron Priest - Sharp senses, sharper steel.ogg	deploy	deploy	cardSO/-	cardSO/summonAudio	补上 SO 字段归属（ev 不变）
+SW2	Njal Stormcaller	field_annotated	VO_SpaceWolves_Njal Stormcaller_death.ogg	death	death	cardSO/-	cardSO/deathAudio	补上 SO 字段归属（ev 不变）
+SW2	Njal Stormcaller	field_annotated	VO_SpaceWolves_Njal Stormcaller_cantDo.ogg	cantdo	cantdo	-/-	cardSO/iCantDoThatChatSound	补上 SO 字段归属（ev 不变）
+SW2	Njal Stormcaller	field_annotated	VO_SpaceWolves_Njal Stormcaller_concede.ogg	concede	concede	-/-	cardSO/concedeChatSound	补上 SO 字段归属（ev 不变）
+SW2	Njal Stormcaller	field_annotated	VO_SpaceWolves_Njal Stormcaller_gen1.ogg	gen1	gen1	-/-	cardSO/generic1ChatSound	补上 SO 字段归属（ev 不变）
+SW2	Njal Stormcaller	field_annotated	VO_SpaceWolves_Njal Stormcaller_gen2.ogg	gen2	gen2	-/-	cardSO/generic2ChatSound	补上 SO 字段归属（ev 不变）
+SW2	Njal Stormcaller	field_annotated	VO_SpaceWolves_Njal Stormcaller_gen3.ogg	gen3	gen3	-/-	cardSO/generic3ChatSound	补上 SO 字段归属（ev 不变）
+SW2	Njal Stormcaller	field_annotated	VO_SpaceWolves_Njal Stormcaller_greet.ogg	greet	greet	-/-	cardSO/greetChatSound	补上 SO 字段归属（ev 不变）
+SW2	Njal Stormcaller	field_annotated	VO_SpaceWolves_Njal Stormcaller_hurry.ogg	hurry	hurry	-/-	cardSO/hurryChatSound	补上 SO 字段归属（ev 不变）
+SW2	Njal Stormcaller	field_annotated	VO_SpaceWolves_Njal Stormcaller_intro.ogg	intro	intro	-/-	cardSO/introChatSound	补上 SO 字段归属（ev 不变）
+SW2	Njal Stormcaller	field_annotated	VO_SpaceWolves_Njal Stormcaller_mirror.ogg	mirror	mirror	-/-	cardSO/mirrorChatSound	补上 SO 字段归属（ev 不变）
+SW2	Njal Stormcaller	field_annotated	VO_SpaceWolves_Njal Stormcaller_threat.ogg	threat	threat	-/-	cardSO/threatChatSound	补上 SO 字段归属（ev 不变）
+SW2	Njal Stormcaller	field_annotated	VO_SpaceWolves_Njal Stormcaller_wp.ogg	wp	wp	-/-	cardSO/wellPlayedChatSound	补上 SO 字段归属（ev 不变）
+SW2	Njal Stormcaller	added	VO_SpaceWolves_Njal Stormcaller_attack.ogg	default		cardSO/defaultChatSound		原版 SO 有该字段 ⇒ 新增
+SW20	Thunderwolf Cavalry Pack Leader	field_annotated	VO_SpaceWolves_Thunderwolf Cavalry Pack Leader - For Russ and the Allfather!.ogg	deploy	deploy	cardSO/-	cardSO/summonAudio	补上 SO 字段归属（ev 不变）
+SW21	Wulfen Pack Leader	field_annotated	VO_SpaceWolves_Wulfen Pack Leader.ogg	deploy	deploy	cardSO/-	cardSO/summonAudio	补上 SO 字段归属（ev 不变）
+SW22	Blackmane Inceptor	field_annotated	VO_SpaceWolves_Blackmane Inceptor - Here's one to remember me by!.ogg	deploy	deploy	cardSO/-	cardSO/summonAudio	补上 SO 字段归属（ev 不变）
+SW23	Fenrisian Drop Pod	field_annotated	VO_SpaceWolves_Fenrisian Drop Pod - From the Sea of Stars to the sea of blades!.ogg	deploy	deploy	cardSO/-	cardSO/summonAudio	补上 SO 字段归属（ev 不变）
+SW24	Frost Claw Wulfen	field_annotated	VO_SpaceWolves_Frost Claw Wulfen.ogg	deploy	deploy	cardSO/-	cardSO/summonAudio	补上 SO 字段归属（ev 不变）
+SW25	Wolf Guard Battle Leader	field_annotated	VO_SpaceWolves_Wolf Guard Battle Leader - Enough barking! Time to do some biting.ogg	deploy	deploy	cardSO/-	cardSO/summonAudio	补上 SO 字段归属（ev 不变）
+SW26	Arjac Rockfist	field_annotated	VO_SpaceWolves_Arjac Rockfist - My hammer strikes with the wrath of Fenris!.ogg	deploy	deploy	cardSO/-	cardSO/summonAudio	补上 SO 字段归属（ev 不变）
+SW27	Wolf Guard Terminator Pack Leader	field_annotated	VO_SpaceWolves_Wolf Guard Terminator Pack Leader - Give them the bolt-greeting they deserve!.ogg	deploy	deploy	cardSO/-	cardSO/summonAudio	补上 SO 字段归属（ev 不变）
+SW28	Blackmane Aggressor	field_annotated	VO_SpaceWolves_Blackmane Aggressor - We are the storm! We are the Allfather's fury!.ogg	deploy	deploy	cardSO/-	cardSO/summonAudio	补上 SO 字段归属（ev 不变）
+SW29	Sons of Morkai Eliminator	field_annotated	VO_SpaceWolves_Sons of Morkai Eliminator - Morkai's claws reach longer than one expects.ogg	deploy	deploy	cardSO/-	cardSO/summonAudio	补上 SO 字段归属（ev 不变）
+SW3	Ragnar Blackmane	field_annotated	VO_SpaceWolves_Ragnar Blackmane_death.ogg	death	death	cardSO/-	cardSO/deathAudio	补上 SO 字段归属（ev 不变）
+SW3	Ragnar Blackmane	field_annotated	VO_SpaceWolves_Ragnar Blackmane_cantDo.ogg	cantdo	cantdo	-/-	cardSO/iCantDoThatChatSound	补上 SO 字段归属（ev 不变）
+SW3	Ragnar Blackmane	field_annotated	VO_SpaceWolves_Ragnar Blackmane_concede.ogg	concede	concede	-/-	cardSO/concedeChatSound	补上 SO 字段归属（ev 不变）
+SW3	Ragnar Blackmane	field_annotated	VO_SpaceWolves_Ragnar Blackmane_gen1.ogg	gen1	gen1	-/-	cardSO/generic1ChatSound	补上 SO 字段归属（ev 不变）
+SW3	Ragnar Blackmane	field_annotated	VO_SpaceWolves_Ragnar Blackmane_gen2.ogg	gen2	gen2	-/-	cardSO/generic2ChatSound	补上 SO 字段归属（ev 不变）
+SW3	Ragnar Blackmane	field_annotated	VO_SpaceWolves_Ragnar Blackmane_gen3.ogg	gen3	gen3	-/-	cardSO/generic3ChatSound	补上 SO 字段归属（ev 不变）
+SW3	Ragnar Blackmane	field_annotated	VO_SpaceWolves_Ragnar Blackmane_greet.ogg	greet	greet	-/-	cardSO/greetChatSound	补上 SO 字段归属（ev 不变）
+SW3	Ragnar Blackmane	field_annotated	VO_SpaceWolves_Ragnar Blackmane_hurry.ogg	hurry	hurry	-/-	cardSO/hurryChatSound	补上 SO 字段归属（ev 不变）
+SW3	Ragnar Blackmane	field_annotated	VO_SpaceWolves_Ragnar Blackmane_intro.ogg	intro	intro	-/-	cardSO/introChatSound	补上 SO 字段归属（ev 不变）
+SW3	Ragnar Blackmane	field_annotated	VO_SpaceWolves_Ragnar Blackmane_mirror.ogg	mirror	mirror	-/-	cardSO/mirrorChatSound	补上 SO 字段归属（ev 不变）
+SW3	Ragnar Blackmane	field_annotated	VO_SpaceWolves_Ragnar Blackmane_threat.ogg	threat	threat	-/-	cardSO/threatChatSound	补上 SO 字段归属（ev 不变）
+SW3	Ragnar Blackmane	field_annotated	VO_SpaceWolves_Ragnar Blackmane_wp.ogg	wp	wp	-/-	cardSO/wellPlayedChatSound	补上 SO 字段归属（ev 不变）
+SW3	Ragnar Blackmane	added	VO_SpaceWolves_Ragnar Blackmane_attack.ogg	default		cardSO/defaultChatSound		原版 SO 有该字段 ⇒ 新增
+SW30	Terminator Rune Priest	field_annotated	VO_SpaceWolves_Terminator Rune Priest - The winds will howl with Fenrisian rage!.ogg	deploy	deploy	cardSO/-	cardSO/summonAudio	补上 SO 字段归属（ev 不变）
+SW31	Wolf Guard Terminator	field_annotated	VO_SpaceWolves_Wolf Guard Terminator - Let the battle-reckoning be counted by the score!.ogg	deploy	deploy	cardSO/-	cardSO/summonAudio	补上 SO 字段归属（ev 不变）
+SW32	Stormwolf	field_annotated	VO_SpaceWolves_Stormwolf - Our storm-wrath shall tear the skies!.ogg	deploy	deploy	cardSO/-	cardSO/summonAudio	补上 SO 字段归属（ev 不变）
+SW33	Vindicator	field_annotated	VO_SpaceWolves_Vindicator - From Fenris to the stars, they will hear us howl!.ogg	deploy	deploy	cardSO/-	cardSO/summonAudio	补上 SO 字段归属（ev 不变）
+SW34	Murderfang	field_annotated	VO_SpaceWolves_Murderfang.ogg	deploy	deploy	cardSO/-	cardSO/summonAudio	补上 SO 字段归属（ev 不变）
+SW35	Venerable Dreadnought	field_annotated	VO_SpaceWolves_Venerable Dreadnought - My saga does not end Not today.ogg	deploy	deploy	cardSO/-	cardSO/summonAudio	补上 SO 字段归属（ev 不变）
+SW36	Bjorn the Fell-Handed	field_annotated	VO_SpaceWolves_Bjorn the Fell-Handed  - I wake Fenris howls.ogg	deploy	deploy	cardSO/-	cardSO/summonAudio	补上 SO 字段归属（ev 不变）
+SW37	Wulfen Dreadnought	field_annotated	VO_SpaceWolves_Wulfen Dreadnought_v2.ogg	deploy	deploy	cardSO/-	cardSO/summonAudio	补上 SO 字段归属（ev 不变）
+SW38	Land Raider	field_annotated	VO_SpaceWolves_Land Raider - We are the thunder of Fenris!.ogg	deploy	deploy	cardSO/-	cardSO/summonAudio	补上 SO 字段归属（ev 不变）
+SW4	Blood Claw	field_annotated	VO_SpaceWolves_Blood Claw - This is where my saga begins!.ogg	deploy	deploy	cardSO/-	cardSO/summonAudio	补上 SO 字段归属（ev 不变）
+SW5	Hunting Wolf	field_annotated	VO_SpaceWolves_Hunting Wolf.ogg	deploy	deploy	cardSO/-	cardSO/summonAudio	补上 SO 字段归属（ev 不变）
+SW6	Blood Claw Pack Leader	field_annotated	VO_SpaceWolves_Blood Claw Pack Leader - Keep moving! Battle does not wait for you!.ogg	deploy	deploy	cardSO/-	cardSO/summonAudio	补上 SO 字段归属（ev 不变）
+SW7	Deathwolf Scout	field_annotated	VO_SpaceWolves_Deathwolf Scout - The trail is clearer with every step.ogg	deploy	deploy	cardSO/-	cardSO/summonAudio	补上 SO 字段归属（ev 不变）
+SW8	Blackmane Reiver	field_annotated	VO_SpaceWolves_Blackmane Reiver - You will not live to see our victory.ogg	deploy	deploy	cardSO/-	cardSO/summonAudio	补上 SO 字段归属（ev 不变）
+SW9	Fenrisian Wolf	field_annotated	VO_SpaceWolves_Fenrisian Wolf.ogg	deploy	deploy	cardSO/-	cardSO/summonAudio	补上 SO 字段归属（ev 不变）
+UM100	Chaplain Cassius	field_annotated	VO_UM_Chaplain Cassius - At our backs stand the whole of the Imperium.wav	deploy	deploy	cardSO/-	cardSO/summonAudio	补上 SO 字段归属（ev 不变）
+UM101	1st Company Terminator	field_annotated	VO_UM_2nd Company Terminator - Your fall will echo through the battlefield.wav	deploy	deploy	cardSO/-	cardSO/summonAudio	补上 SO 字段归属（ev 不变）
+UM102	Terminator Captain	field_annotated	VO_UM_Terminator Captain - Break them! Leave none standing!.wav	deploy	deploy	cardSO/-	cardSO/summonAudio	补上 SO 字段归属（ev 不变）
+UM103	Terminator	field_annotated	VO_UM_Terminator - I will test the limits of your arrogance.wav	deploy	deploy	cardSO/-	cardSO/summonAudio	补上 SO 字段归属（ev 不变）
+UM104	Bladeguard Ancient	field_annotated	VO_UM_Bladeguard Ancient - Fight well and your names shall leave on ever after in glory!.wav	deploy	deploy	cardSO/-	cardSO/summonAudio	补上 SO 字段归属（ev 不变）
+UM105	Dreadnought	field_annotated	VO_UM_Dreadnought - Face the consequences of your existence.wav	deploy	deploy	cardSO/-	cardSO/summonAudio	补上 SO 字段归属（ev 不变）
+UM106	Ferren Areios	field_annotated	VO_UM_Ferren Areios - Pride outlives the prideful I make sure of it.wav	deploy	deploy	cardSO/-	cardSO/summonAudio	补上 SO 字段归属（ev 不变）
+UM107	Whirlwind	field_annotated	VO_UM_Whirlwind - We bring Ultramar's fire!.wav	deploy	deploy	cardSO/-	cardSO/summonAudio	补上 SO 字段归属（ev 不变）
+UM108	Brutalis Dreadnought	field_annotated	VO_UM_Brutalis Dreadnought - I have embraced death to deliver it with every step!.wav	deploy	deploy	cardSO/-	cardSO/summonAudio	补上 SO 字段归属（ev 不变）
+UM47	Uriel Ventris	field_annotated	VO_Ultramarines_Ventris_gen1.ogg	gen1	gen1	-/-	cardSO/generic1ChatSound	补上 SO 字段归属（ev 不变）
+UM47	Uriel Ventris	field_annotated	VO_Ultramarines_Ventris_gen3.ogg	gen3	gen3	-/-	cardSO/generic3ChatSound	补上 SO 字段归属（ev 不变）
+UM47	Uriel Ventris	field_annotated	VO_Ultramarines_Ventris_intro.ogg	intro	intro	-/-	cardSO/introChatSound	补上 SO 字段归属（ev 不变）
+UM47	Uriel Ventris	removed	VO_Ultramarines_Ventris_gen4.ogg	gen2				旧行被真值改写/取代
+UM47	Uriel Ventris	removed	VO_Ultramarines_Ventris_gen7.ogg	gen3				旧行被真值改写/取代
+UM47	Uriel Ventris	added	VO_Ultramarines_Ventris_gen4.ogg	gen4		-/-		原版 SO 有该字段 ⇒ 新增
+UM47	Uriel Ventris	added	VO_Ultramarines_Ventris_gen7.ogg	gen7		-/-		原版 SO 有该字段 ⇒ 新增
+UM87	Roboute Guilliman	field_annotated	VO_UM_Guilliman_death.wav	death	death	cardSO/-	cardSO/deathAudio	补上 SO 字段归属（ev 不变）
+UM87	Roboute Guilliman	field_annotated	VO_UM_Guilliman_cantDo.wav	cantdo	cantdo	-/-	cardSO/iCantDoThatChatSound	补上 SO 字段归属（ev 不变）
+UM87	Roboute Guilliman	field_annotated	VO_UM_Guilliman_concede.wav	concede	concede	-/-	cardSO/concedeChatSound	补上 SO 字段归属（ev 不变）
+UM87	Roboute Guilliman	field_annotated	VO_UM_Guilliman_gen1.wav	gen1	gen1	-/-	cardSO/generic1ChatSound	补上 SO 字段归属（ev 不变）
+UM87	Roboute Guilliman	field_annotated	VO_UM_Guilliman_gen2.wav	gen2	gen2	-/-	cardSO/generic2ChatSound	补上 SO 字段归属（ev 不变）
+UM87	Roboute Guilliman	field_annotated	VO_UM_Guilliman_gen3.wav	gen3	gen3	-/-	cardSO/generic3ChatSound	补上 SO 字段归属（ev 不变）
+UM87	Roboute Guilliman	field_annotated	VO_UM_Guilliman_greet.wav	greet	greet	-/-	cardSO/greetChatSound	补上 SO 字段归属（ev 不变）
+UM87	Roboute Guilliman	field_annotated	VO_UM_Guilliman_hurry.wav	hurry	hurry	-/-	cardSO/hurryChatSound	补上 SO 字段归属（ev 不变）
+UM87	Roboute Guilliman	field_annotated	VO_UM_Guilliman_intro.wav	intro	intro	-/-	cardSO/introChatSound	补上 SO 字段归属（ev 不变）
+UM87	Roboute Guilliman	field_annotated	VO_UM_Guilliman_mirror.wav	mirror	mirror	-/-	cardSO/mirrorChatSound	补上 SO 字段归属（ev 不变）
+UM87	Roboute Guilliman	field_annotated	VO_UM_Guilliman_threat.wav	threat	threat	-/-	cardSO/threatChatSound	补上 SO 字段归属（ev 不变）
+UM87	Roboute Guilliman	field_annotated	VO_UM_Guilliman_wp.wav	wp	wp	-/-	cardSO/wellPlayedChatSound	补上 SO 字段归属（ev 不变）
+UM87	Roboute Guilliman	added	VO_UM_Guilliman_attack.wav	default		cardSO/defaultChatSound		原版 SO 有该字段 ⇒ 新增
+UM88	Valius Paxor	field_annotated	VO_UM_Valius Paxor_death.wav	death	death	cardSO/-	cardSO/deathAudio	补上 SO 字段归属（ev 不变）
+UM88	Valius Paxor	field_annotated	VO_UM_Valius Paxor_cantDo.wav	cantdo	cantdo	-/-	cardSO/iCantDoThatChatSound	补上 SO 字段归属（ev 不变）
+UM88	Valius Paxor	field_annotated	VO_UM_Valius Paxor_concede.wav	concede	concede	-/-	cardSO/concedeChatSound	补上 SO 字段归属（ev 不变）
+UM88	Valius Paxor	field_annotated	VO_UM_Valius Paxor_gen1.wav	gen1	gen1	-/-	cardSO/generic1ChatSound	补上 SO 字段归属（ev 不变）
+UM88	Valius Paxor	field_annotated	VO_UM_Valius Paxor_gen2.wav	gen2	gen2	-/-	cardSO/generic2ChatSound	补上 SO 字段归属（ev 不变）
+UM88	Valius Paxor	field_annotated	VO_UM_Valius Paxor_greet.wav	greet	greet	-/-	cardSO/greetChatSound	补上 SO 字段归属（ev 不变）
+UM88	Valius Paxor	field_annotated	VO_UM_Valius Paxor_hurry.wav	hurry	hurry	-/-	cardSO/hurryChatSound	补上 SO 字段归属（ev 不变）
+UM88	Valius Paxor	field_annotated	VO_UM_Valius Paxor_intro.wav	intro	intro	-/-	cardSO/introChatSound	补上 SO 字段归属（ev 不变）
+UM88	Valius Paxor	field_annotated	VO_UM_Valius Paxor_mirror.wav	mirror	mirror	-/-	cardSO/mirrorChatSound	补上 SO 字段归属（ev 不变）
+UM88	Valius Paxor	field_annotated	VO_UM_Valius Paxor_threat.wav	threat	threat	-/-	cardSO/threatChatSound	补上 SO 字段归属（ev 不变）
+UM88	Valius Paxor	field_annotated	VO_UM_Valius Paxor_wp.wav	wp	wp	-/-	cardSO/wellPlayedChatSound	补上 SO 字段归属（ev 不变）
+UM88	Valius Paxor	removed	VO_UM_Valius Paxor_gen4.wav	gen4				旧行被真值改写/取代
+UM88	Valius Paxor	added	VO_UM_Valius Paxor_attack.wav	default		cardSO/defaultChatSound		原版 SO 有该字段 ⇒ 新增
+UM88	Valius Paxor	added	VO_UM_Valius Paxor_gen4.wav	gen3		cardSO/generic3ChatSound		原版 SO 有该字段 ⇒ 新增
+UM89	Incursor	field_annotated	VO_UM_Incursor - Target acquired. Bring it down!.wav	deploy	deploy	cardSO/-	cardSO/summonAudio	补上 SO 字段归属（ev 不变）
+UM90	Phobos Lieutenant	field_annotated	VO_UM_Phobos Lieutenant - The Emperor's grace follows us.wav	deploy	deploy	cardSO/-	cardSO/summonAudio	补上 SO 字段归属（ev 不变）
+UM91	Tactical Marine	field_annotated	VO_UM_Tactical Marine - We are all sons of Lord Guilliman We all serve the Emperor.wav	deploy	deploy	cardSO/-	cardSO/summonAudio	补上 SO 字段归属（ev 不变）
+UM92	Firestrike Servo-Turret	field_annotated	VO_UM_Firestrike Servoturret - Battlefields are filled with the remains of the obstinate.wav	deploy	deploy	cardSO/-	cardSO/summonAudio	补上 SO 字段归属（ev 不变）
+UM93	Vico Therbeus	field_annotated	VO_UM_Vico Therbeus - Our foes seem without limit but we will find it.wav	deploy	deploy	cardSO/-	cardSO/summonAudio	补上 SO 字段归属（ev 不变）
+UM94	Scout Sniper	field_annotated	VO_UM_Scout Sniper - Cut the head and the body will follow.wav	deploy	deploy	cardSO/-	cardSO/summonAudio	补上 SO 字段归属（ev 不变）
+UM95	Attack Bike	field_annotated	VO_UM_Attack Bike - For Guilliman and the Emperor!.wav	deploy	deploy	cardSO/-	cardSO/summonAudio	补上 SO 字段归属（ev 不变）
+UM96	Chapter Champion	field_annotated	VO_UM_Chapter Champion - I am Guilliman's blade!.wav	deploy	deploy	cardSO/-	cardSO/summonAudio	补上 SO 字段归属（ev 不变）
+UM97	Suppressor	field_annotated	VO_UM_Suppressor - A bolt unfired is a bolt wasted.wav	deploy	deploy	cardSO/-	cardSO/summonAudio	补上 SO 字段归属（ev 不变）
+UM98	Devastator Marine	field_annotated	VO_UM_Devastator Marine - Keep firing! Sustained volley!.wav	deploy	deploy	cardSO/-	cardSO/summonAudio	补上 SO 字段归属（ev 不变）
+UM99	Phobos Librarian	field_annotated	VO_UM_Phobos Librarian - We are His will made manifest!.wav	deploy	deploy	cardSO/-	cardSO/summonAudio	补上 SO 字段归属（ev 不变）

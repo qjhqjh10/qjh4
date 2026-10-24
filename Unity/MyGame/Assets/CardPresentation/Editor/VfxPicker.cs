@@ -113,6 +113,11 @@ public static class VfxPicker
                 }
                 Debug.Log(P + $"  ✓ {evt,-7} {name}（{Times.Length} 个时刻）");
 
+                // 🔴 **2026-10-24（`H2` · `E4` 顺手发现 1 复核）**：`fx` 是 `WarpforgeEffectPlayer`
+                //   ⇒ 这里调的是**我们自己的** `Kill()`，批处理里**真生效**（`DestroyNow`：
+                //   `Active.Remove` + `DestroyImmediate`，见 `WarpforgeVFX/Runtime/WarpforgeEffectPlayer.cs`）。
+                //   ⛔ 它**不是** DOTween 的 `TweenExtensions.Kill`（那个在 `initialized == false` 时静默 return）。
+                //   本文件是「试片」工具、**没有任何断言**读它 ⇒ 无论哪条都不影响验收。
                 fx.Kill();
                 Step(0.05f);
             }

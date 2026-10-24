@@ -18,18 +18,6 @@ namespace CardPresentation
         /// <summary>补间推进方式。批处理自检会把它设成 Manual。</summary>
         public static UpdateType Mode = UpdateType.Normal;
 
-        /// <summary>松手回弹（不合法落点 / 拖回手牌）—— **这个 0.22 是我们挑的，原版判据没定位到**。
-        ///
-        /// <para>🔴 **2026-10-23（R16）如实标注（铁律 3 / 11）**：本常量原来**零注释、零出处**，
-        /// 账上那条待办写的是「查 `CardScript.OnTouchDrag` 取消出牌那一支」—— **去查了，那一支不存在**：
-        /// `d:/2/tools/decomp_full/CardScript__OnTouchDrag.c` 全文 **52 行**，只有一句
-        /// `if (*(int *)(lVar4 + 0x1c) != 0xa0) …`（卡状态闸），**没有任何「回弹 / DOMove / 补间时长」**。
-        /// ⇒ 今天**判据仍然缺**，不许拿 `VarsGlobal.timeToPositionCard`（0.2，那是**手牌重排**
-        /// `RelayoutDuration` 的出处）硬套过来 —— 那是「看着像」的等价，不是读出来的。</para>
-        ///
-        /// <para>⚠️ 用法：`Hand/CardInteraction` 的两处（回弹到扇形原位 + 缩放回手牌尺寸）。
-        /// 若将来查到原版那一支，**改这一个数**即可（两处共用，⛔ 别在调用点各写一个）。</para></summary>
-        public const float SnapBackDuration = 0.22f;
         /// <summary>拿起时的放大。
         /// 🔴 **2026-09-17 换成正解**：原版值 = `VarsGlobal.timeToScaleIntoMoving = 0.1`
         /// （手牌「起身」用时）。**原来写 0.12 是「我们挑的」**，已替换。
@@ -71,27 +59,27 @@ namespace CardPresentation
             return t;
         }
 
-        /// <summary>把一张卡补间到「位置 + 倾角 + 缩放」。
-        ///
-        /// <para>🔴 **`ease` 只对「整条 Sequence」生效，而它一定是二次弯曲**（2026-10-24 · A22 审计）。
-        /// 本方法把三条**没有各自 `SetEase`** 的子补间 `Join` 进一个 `DOTween.Sequence()`，再把 <paramref name="ease"/>
-        /// 挂到 **Sequence 上**（`DOTween.XML`：`SetEase` "If applied to Sequences eases the whole sequence animation"）。
-        /// 反编译 `DOTween.dll` 实读：`Tweener.Setup` 给子补间 `DOTween.defaultEaseType`（本工程 = 6 OutQuad），
-        /// 而 `Sequence.Setup` 把序列自己的 `easeType` 硬编码成 `Ease.Linear`；`Sequence.DoApplyTween` 在
-        /// `easeType == Linear` 时**整段跳过**缓动 ⇒ **原版不写 `SetEase` 的 Sequence 是「不弯曲」的**。
-        /// ⇒ **传 `Linear`** = 三条子补间各自 OutQuad（= 原版的形状）；**传任何别的 ease** = 在其上再弯一次。
-        /// ⛔ 所以调用方「想要 OutQuad」时**必须**传 `Ease.Linear`，别把 `OutQuad` 传进来。</para>
-        /// <para>⚠️ 判据不是「本工程的约定」，是原版方法体：`CardDisplayWindow__ChangeCardPosition.c`
-        /// 全文一个 `DOTween.Sequence()` + 六条 `Join`、**没有** `SetEase`。</para></summary>
-        public static Tween ToPose(Transform tr, Vector3 pos, float rotZ, float scale,
-                                   float duration, Ease ease)
-        {
-            var seq = DOTween.Sequence();
-            seq.Join(tr.DOMove(pos, duration));
-            seq.Join(tr.DORotate(new Vector3(0f, 0f, rotZ), duration));
-            seq.Join(tr.DOScale(Vector3.one * scale, duration));
-            return Use(seq, ease, tr);
-        }
+        // 🆕 **2026-10-24（`A11`）：`ToPose` 已删除** —— 最后一个调用点
+        //   （`Shell/CardDetailPopup.SwapToFront` 的两条换位补间）改走 `CardView.TweenPose`。
+        //
+        // 🔴 **为什么必须走那条、⛔ 别把这个方法照原样加回来**：它原来是
+        //   `DOMove/DOLocalRotate/DOScale` 三条子补间 `Join` 成一条 Sequence，其中 `DOScale`
+        //   **直写 `transform.localScale`**，而卡片的缩放是「**基础 × 高亮系数**」（`CardView.BaseScale` /
+        //   `ApplyScale`）⇒ 补间期间 `_baseScale` 一直停在**起点槽位**的值上，补间一结束任何一次
+        //   `SetPose`（手牌重排 / 战场落位 / 切分辨率）或 `SetHighlightScale` 都会把卡**弹回旧缩放**
+        //   （静默、图上只表现为「位置对、大小不对」）。`CardView.TweenPose` 每帧经 `SetPose` 写 ⇒ 连
+        //   `_baseScale` 一起带过去。判据与全过程 → `Core/CardView.TweenPose` 的 doc（`T04`）＋
+        //   `资料/普查产出_1024/A3_手牌卡面五件.md` §六。
+        //
+        // ⚠️ 真需要「拿裸 Transform 补位姿」时：要带缩放语义就传 `CardView`；只是搬一个非卡的 Transform，
+        //   直接在调用点写 `DOTween.Sequence()` 并把三条子补间的 `SetLink` 带上
+        //   （⛔ 别再包一个公共入口 —— 那正是这条被删掉的原因：它让「写错也不会报错」）。
+        //
+        // 🔑 **留在这里的 ease 知识（仍成立，别丢）**：Sequence 自己的 `easeType` 是
+        //   `Ease.Linear`（`DOTween.dll` 反编译：`Sequence.Setup` 硬编码 + `DoApplyTween` 在 Linear 时整段跳过），
+        //   子补间才吃 `DOTween.defaultEaseType`（本工程 = 6 OutQuad）⇒ **给 Sequence 传 `Linear`** 才是
+        //   「每条子补间各自 OutQuad」的形状；单条 tween（`DOTween.To`）反而要**直接传 `OutQuad`**。
+        //   两个入口的约定是反的，⛔ 别对调。
 
         /// <summary>批处理自检用：推进所有 Manual 模式的补间</summary>
         public static void Advance(float dt)

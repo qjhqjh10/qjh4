@@ -184,7 +184,38 @@ namespace CardPresentation
             public Material waveMat;
             public Label text;
             public AudioSource audio;
+            /// <summary>🆕 **2026-10-24（执行代理 `A13`）：这一颗**自己的**剩余寿命（秒）。
+            /// 🔴 原版是**三条各自独立**的倒计时（`VoiceLineBox` 各有一份），我们改前**三颗共用一个**
+            /// `_left` —— 那是「同一时刻只会显示一条」这个近似带出来的（见类头 `_current` 那一段）。</summary>
             public float left;
+            /// <summary>这一颗**最近一次说话**的序号（越大越新）。`ShownSide` 取「还亮着的那几颗里最新的」——
+            /// 多颗共存时它才答得出「刚说的那一句在哪一颗」（旧口径「按 0→1→2 取第一颗亮着的」在共存下会恒答 0）。</summary>
+            public int seq;
+            // ---- 🆕 2026-10-24（`A13`）：打字机 / 诊断状态**按颗独立**（改前是面板级单份）----
+            public bool typing;
+            public int typeTotal;
+            public float typeElapsed;
+            /// <summary>这一句**本来该有声**吗 = `Speak` 的 `expectVoice` 的**原值**（只记调用方语义，与取没取到 clip 无关）。
+            /// 🆕 **2026-10-24（审查修复代理 `F3` · 审 `P1-5`）**：改前本格叫 `expectsVoice` 且写的是
+            /// 「`expectVoice && clip != null`」—— 把「本来就没声」与「本该有声但 clip 取不到」合成同一个 `false`
+            /// （后果见 <see cref="voiceMissing"/> 那一格）。</summary>
+            public bool voiceRequested;
+            /// <summary>🔴 **2026-10-24（审查修复代理 `F3` · 审 `P1-5` 订正）**：**调用方说要声、`clip` 却取不到**
+            /// = 真实的语音资源缺口（`voice_lines.json` 有这一行，但文件没导进 `Resources/Art/audio/vo/`）。
+            /// <para>改前它与「这一档本来就没声」共用 `expectsVoice = false` ⇒ `TickBubble` 里那条
+            /// 「气泡在显示但没有音频在播」（`新账-63` 的诊断口、**全仓唯一的缺口信号**）被条件挡掉 ⇒ **静默**。</para>
+            /// <para>现在这一档在 <see cref="Speak"/> 里**单独出声一次**（<see cref="WarnVoiceMissing"/>，
+            /// 按 `卡|事件` 去重，⛔ 不每帧刷）。</para></summary>
+            public bool voiceMissing;
+            /// <summary>这一句**该有声、且取到了 clip**（= 改前 `expectsVoice` 的原义，语义保留）——
+            /// `TickBubble` 那条「没在播」告警只看它（那一档才是「Play 失败」）。</summary>
+            public bool expectsVoice;
+            public bool warnedNotPlaying;
+            /// <summary>这一颗的「真实缺口」已经喊过了（🔴 2026-10-24 `F3` · 审 `P1-5`）。</summary>
+            public bool warnedVoiceMissing;
+            public bool warnedZeroSpectrum;
+            public float waveAmp;
+            public float[] spectrum;
             public bool Visible { get { return bg != null && bg.gameObject.activeSelf; } }
             public void SetActive(bool on)
             {
@@ -192,6 +223,21 @@ namespace CardPresentation
                 if (portrait != null) portrait.gameObject.SetActive(on);
                 if (wave != null) wave.gameObject.SetActive(on);
                 if (text != null) text.gameObject.SetActive(on);
+            }
+            /// <summary>把这一颗的「本句状态」清干净（**不碰音频** —— 与 `HideAll` 的既有口径一致，见 `StopVoice`）。</summary>
+            public void ResetState()
+            {
+                left = 0f;
+                typing = false;
+                typeTotal = 0;
+                typeElapsed = 0f;
+                // 🔴 2026-10-24（`F3` · 审 `P1-5`）：三格一起清 —— `voiceRequested` / `voiceMissing` 是新拆出来的两态。
+                voiceRequested = false;
+                voiceMissing = false;
+                expectsVoice = false;
+                warnedNotPlaying = false;
+                warnedVoiceMissing = false;
+                warnedZeroSpectrum = false;
             }
         }
 
@@ -207,9 +253,18 @@ namespace CardPresentation
         ///    **右上角贴着屏幕右边 25 px、顶上往下 126 px**（与另两颗都在左侧不同 —— 它是「电台」）。
         ///    ⚠️ 场景树里那一份 `[-674,1206 649x237]` 是**布局前**的序列化位（`(inactive)`），别拿它当位置。</summary>
         Bubble _radio;
-        float _left;                 // 还剩多少秒（三边的气泡共用一个倒计时 —— 原版是三条独立的，
-                                     // 但我们同一时刻只会显示一条：对手说话时我没在说）
+        /// <summary>🔴 **2026-10-24（执行代理 `A13`）就地改写（铁律 5 / 11）**：这里原来是一份**面板级**的
+        /// `_left`（三颗气泡共用一个倒计时），注释写着「原版是三条独立的，但我们同一时刻只会显示一条」。
+        /// **那条近似已取消**：原版三颗盒子（`PlayerChatDisplay` / `EnemyChatDisplay` / `RadioChat`）
+        /// 各自独立，`DisplaySummonMessage.c:22-30` 的并发闸（三颗 `+0x40` **全 0** 才让召唤说话）
+        /// 就是它存在的证据；单气泡模型的实际后果 = `SmallTip` 一弹会把**刚说的敌方督军那句**顶掉
+        /// （语音还在放、气泡被换走）。⇒ 现在寿命 / 打字机 / 诊断状态全挂在 `Bubble` 自己身上，
+        /// 三颗可以**同时亮**、各自到点各自收。
+        /// <para>`_current` = **最近一次说话的那一颗**（不必然是唯一亮着的那颗）—— 自检那几个读口
+        /// （`ShownText` / `TextLabel` / `LastChatTerm` …）问的都是「刚说的那一句」，语义与改前一致。</para></summary>
         Bubble _current;
+        /// <summary>说话序号（每次 `Speak` +1；`ShownSide` 用它挑「还亮着的最新那颗」）。</summary>
+        int _speakSeq;
 
         /// <summary>一颗气泡的**左上角**（屏幕 px · y 自顶）—— `left` 自左缘、`top` 自上缘。
         /// ⚠️ 三颗的子件（`Mask`/`Background`/`wave`/`ChatText`）在原版里 `anchoredPosition` **逐字相同**
@@ -237,20 +292,53 @@ namespace CardPresentation
         //   已早退（见它自己的 doc）；世界档仍要重摆。⛔ 别把「分辨率相关」的算式加回 `Move` 的画布支。
 
         public bool Ready { get { return _player != null && _player.bg != null; } }
-        /// <summary>自检用：现在亮着的是哪一侧（`-1` = 都没显示；`2` = `RadioChat`）。
-        /// ⚠️ 顺序固定 0 → 1 → 2（同一时刻只有一颗亮着，见 `Speak` 开头的 `HideAll()`）。</summary>
-        public int ShownSide
+        /// <summary>自检用：**最近说话的那一颗**（`-1` = 一颗都没亮；`0/1/2` 见 `BubbleFor`）。
+        /// 🔴 **2026-10-24（执行代理 `A13`）就地改口径（铁律 5 / 11）**：原来写的是「顺序固定 0 → 1 → 2
+        /// （同一时刻只有一颗亮着）」—— 三槽状态机之后**可以同时亮**，那条固定顺位会让「刚说的那一句」
+        /// 在多颗共存时**恒答 0**（`SmallTip` 在 `RadioChat` 上说、而敌方那颗还没收 ⇒ 旧写法答 1）。
+        /// ⇒ 改成「**亮着的那几颗里 `seq` 最大**的」（`seq` = 每次 `Speak` +1）。
+        /// 一颗都没亮 ⇒ `-1`（`AnyShown` / `TickIntroMonologue` 那几个「有没有人在说」的判据口径不变）。</summary>
+        public int ShownSide { get { return SideOf(NewestVisible()); } }
+
+        /// <summary>还亮着的那几颗里**最新说的**（一颗都没亮 ⇒ null）。判据只此一处 ——
+        /// `ShownSide` / `Advance` 收尾时把 `_current` 挪到「还有人在说」的那一颗，都走它。</summary>
+        Bubble NewestVisible()
         {
-            get
-            {
-                if (_player != null && _player.Visible) return 0;
-                if (_enemy != null && _enemy.Visible) return 1;
-                if (_radio != null && _radio.Visible) return 2;
-                return -1;
-            }
+            Bubble best = null;
+            if (_player != null && _player.Visible && (best == null || _player.seq > best.seq)) best = _player;
+            if (_enemy != null && _enemy.Visible && (best == null || _enemy.seq > best.seq)) best = _enemy;
+            if (_radio != null && _radio.Visible && (best == null || _radio.seq > best.seq)) best = _radio;
+            return best;
+        }
+
+        /// <summary>气泡 → 原版那个序号（`0 = PlayerChatDisplay` · `1 = EnemyChatDisplay` · `2 = RadioChat`）。</summary>
+        int SideOf(Bubble b)
+        {
+            if (b == null) return -1;
+            if (b == _player) return 0;
+            if (b == _enemy) return 1;
+            if (b == _radio) return 2;
+            return -1;
         }
         /// <summary>自检用：`RadioChat` 那一颗建出来了没有（原版那颗在场景里是 `(inactive)`）。</summary>
         public bool HasRadio { get { return _radio != null && _radio.bg != null; } }
+
+        /// <summary>🆕 **2026-10-24（执行代理 `A13` · 多气泡共存）**：**指定的那一颗**现在亮不亮
+        /// （`0/1/2` 见 <see cref="BubbleFor"/>）。
+        /// <para>为什么需要它：`ShownSide` 只答「**最近说的**那颗」（共存时同时可能有两颗亮着）——
+        /// 「别的气泡弹出来**有没有把这一颗顶掉**」只能逐颗问。</para></summary>
+        public bool BubbleShownForTest(int side)
+        {
+            var b = BubbleFor(side);
+            return b != null && b.Visible;
+        }
+
+        /// <summary>🆕 **2026-10-24（执行代理 `B1` · `C2` §4·3 / 顺手发现 7）**：三颗气泡里**有没有
+        /// 任意一颗还亮着**。
+        /// <para>**判据（第一权威）= 原版 `VoiceLinesController__DisplaySummonMessage.c:22-30`**：
+        /// 召唤气泡的并发闸 = 三个盒子 `+0x40` **全 0** 才显示 ⇒ 有人正在说的时候，**召唤那一路不显示**
+        /// （⚠️ 与「督军聊天可以顶掉」不同 —— 后者原版就是同盒替换、异盒共存）。</para></summary>
+        public bool AnyShown { get { return ShownSide >= 0; } }
         /// <summary>自检用：条上写的字</summary>
         public string ShownText
         {
@@ -282,12 +370,17 @@ namespace CardPresentation
         {
             get
             {
-                var c = _current;
-                return c != null && c.audio != null && c.audio.isPlaying;
+                // 🆕 2026-10-24（`A13`）：三颗**各自**有 `AudioSource`，原版这个名字本来就是
+                //   `IsAnyVoiceLinePlaying()`（「**任意一条**在播」）⇒ 改成三颗任一在播。
+                if (_player != null && _player.audio != null && _player.audio.isPlaying) return true;
+                if (_enemy != null && _enemy.audio != null && _enemy.audio.isPlaying) return true;
+                if (_radio != null && _radio.audio != null && _radio.audio.isPlaying) return true;
+                return false;
             }
         }
-        /// <summary>自检用：还剩几秒</summary>
-        public float TimeLeft { get { return _left; } }
+        /// <summary>自检用：还剩几秒（**最近说的那一颗**的剩余寿命；没在说 = 0）。
+        /// 🆕 2026-10-24（`A13`）：改前读的是面板级 `_left`（三颗共用一份），现在读 `_current.left`。</summary>
+        public float TimeLeft { get { return _current != null ? _current.left : 0f; } }
         /// <summary>自检用：图都取到了没有（两张原版图任一缺失就报 false）</summary>
         public bool HasArt
         {
@@ -854,19 +947,62 @@ namespace CardPresentation
         /// 后缀里带着对手那一段（见 <see cref="CardChatIntro"/>）。
         /// <para>🆕 2026-10-19（`T17`）：显示文本**官方词条优先**（`Chat_Messages/*`），
         /// `text`（voice_lines 的英文）降为兜底 —— 判据见上面那一大段。</para>
+        /// <para>🆕 **2026-10-24（执行代理 `B1` · 战斗线「对手聊天」）**三个新开关：
+        /// <list type="bullet">
+        /// <item><paramref name="onlyIfQuiet"/> —— **召唤闸**（原版 `DisplaySummonMessage.c:22-30`：
+        ///   三颗气泡都不在播才显示）；只有召唤那一路传 true。</item>
+        /// <item><paramref name="expectVoice"/> —— 这一句**本来就该有声吗**（调用方语义）。传 false = 这一档
+        ///   **本来就没声**（原版 `GenerateVoiceLineData(audio: null)`，典型 = `MuteEnemyChat` 那条 SmallTip）
+        ///   ⇒ 「气泡在显示但没有音频在播」那条告警不打（⛔ 不是静默真失败，是那一档本来就没声）。
+        ///   🔴 **2026-10-24（审查修复代理 `F3` · 审 `P1-5`）订正**：**`true` + `clip == null` 是另一回事** ——
+        ///   那是**真实的资源缺口**，现在会**单独 `LogWarning` 一次**（<see cref="WarnVoiceMissing"/>）。
+        ///   改前这两态共用同一个 `false` ⇒ 缺口被静默吞掉。</item>
+        /// <item>返回值 = 这一句**说成了没有**（闸挡下 / 气泡序号认不出 ⇒ false）。</item>
+        /// </list></para>
         /// </summary>
-        public void Speak(int side, string cardId, string evt, string artKey, string fallbackName,
+        public bool Speak(int side, string cardId, string evt, string artKey, string fallbackName,
                           string text, AudioClip clip, string clipFile = null, string chatSuffix = null,
-                          string chatTermOverride = null)
+                          string chatTermOverride = null, bool onlyIfQuiet = false, bool expectVoice = true)
         {
             var b = BubbleFor(side);
-            if (b == null) return;
+            if (b == null) return false;
 
-            HideAll();                                  // 同时只显示一条（另一侧说话就把这条顶掉）
+            // 🆕 2026-10-24（`B1` · C2 §4·3 / 顺手发现 7）：**召唤闸** —— 原版
+            //   `DisplaySummonMessage.c:22-30` 要求**三颗盒子 `+0x40` 全 0**（没人正在说）才显示召唤气泡。
+            //   ⚠️ 只有**召唤**那一路传 `onlyIfQuiet: true`；督军聊天照旧顶替（原版语义不同，见 `AnyShown` 的 doc）。
+            if (onlyIfQuiet && AnyShown)
+            {
+                Debug.Log($"[UnitChat] 召唤气泡**不显示**：三颗气泡里已经有一颗在说"
+                        + $"（side={ShownSide}）—— 判据 = 原版 `DisplaySummonMessage.c:22-30` 的并发闸");
+                return false;
+            }
+
+            // 🔴 **2026-10-24（执行代理 `A13`）就地改（铁律 5 / 11）**：这里原来是 `HideAll()`
+            //   （「同时只显示一条，另一侧说话就把这条顶掉」）—— 那正是单气泡模型的近似。
+            //   原版三颗盒子各自独立：**同一个盒子**再说一句 = 同盒替换（`DisplayChatBox` 覆盖本盒），
+            //   **别的盒子**在说**不影响**（`DisplaySummonMessage.c:22-30` 的并发闸是它存在的证据）。
+            //   ⇒ 只收**这一颗**，其余两颗各走各的寿命 / 打字机。
+            HideBubble(b);
+            // 🔴 **2026-10-24（审查修复代理 `F3` · 审 `P1-5` 订正 · 铁律 5 / 11）**：这里原来只有一句
+            //   `b.expectsVoice = expectVoice && clip != null;` —— **把两种 `false` 合成了一种**：
+            //     ① 这一档本来就没声（`expectVoice:false`，例 `MuteEnemyChat` 的 SmallTip）；
+            //     ② 本该有声、但 clip 取不到（**真实的语音资源缺口**）。
+            //   后果：`TickBubble` 那条「气泡在显示但没有音频在播」（`新账-63` 的诊断口 ·
+            //   **全仓唯一的缺口信号**）对 ② **永远不会为真** ⇒ 缺口彻底静默。
+            //   ⇒ 拆成三格：`voiceRequested`（调用方语义）· `voiceMissing`（真缺口）·
+            //     `expectsVoice`（该有声**且**取到了 clip —— 原义，`TickBubble` 的告警仍只看它）。
+            //   ⚠️ **行为不变**：该有声的照旧有声、该静默的照旧静默 —— 只是把缺口**重新暴露出来**。
+            b.voiceRequested = expectVoice;
+            b.voiceMissing = expectVoice && clip == null;
+            b.expectsVoice = expectVoice && clip != null;
+            b.warnedNotPlaying = false;                 // 🆕 2026-10-21（新账-63）：每条气泡各自报一次
+            b.warnedVoiceMissing = false;
+            b.warnedZeroSpectrum = false;
+            // 🔴 2026-10-24（`F3` · 审 `P1-5`）：真缺口**当场出声一次**（按 `卡|事件` 去重，⛔ 不每帧刷）。
+            WarnVoiceMissing(b, side, cardId, evt, clipFile);
+            b.left = Duration(clip);
+            b.seq = ++_speakSeq;                        // 最近说的那颗（`ShownSide` 的判据）
             _current = b;
-            _warnedNotPlaying = false;                  // 🆕 2026-10-21（新账-63）：每条气泡各自报一次
-            _warnedZeroSpectrum = false;
-            _left = Duration(clip);
             LastCardId = cardId; LastEvent = evt; LastClipName = clipFile;
             LastClipLoaded = clip != null;
             string chatTerm;
@@ -950,6 +1086,40 @@ namespace CardPresentation
                               + $" · dspRate={AudioSettings.outputSampleRate} · speakerMode={AudioSettings.speakerMode}");
                 }
             }
+
+            // ---- 🆕 2026-10-24（`B1` · 战斗线「对手聊天」④ 打字机）----
+            //   原版 `VoiceLineBox.AnimateText`：`maxVisibleCharacters` 每字 +1、每字等一个静态常量，
+            //   **打完才开始算 `Duration`**（= 气泡寿命从打字结束起算，见 `Advance` 那一段）。
+            //   ⚠️ 节拍 `TypewriterCharSeconds` **不是原版值**（原版那个常量读不到，见它的 doc）。
+            //   ⚠️ `CharacterCount == 0`（没有 TMP / 还没排出 textInfo）⇒ **不启用打字机**（一次全显）——
+            //      ⛔ 别把它当成「0 个字」而永远不显示。
+            // ⚠️ 打字机状态**按颗独立**（🆕 2026-10-24 `A13`：改前是面板级单份 ⇒ 一颗在打字、另一颗
+            //    进来会把进度清掉）。
+            b.typeTotal = b.text != null ? b.text.CharacterCount : 0;
+            b.typeElapsed = 0f;
+            b.typing = b.typeTotal > 1;
+            if (b.typing) b.text.SetMaxVisibleCharacters(0);
+            return true;
+        }
+
+        /// <summary>🔴 **2026-10-24（审查修复代理 `F3` · 审 `P1-5`）**：把「**该有声、`clip` 却取不到**」
+        /// 这一档**单独出声一次**（改前它被 `expectsVoice = expectVoice && clip != null` 静默吞掉）。
+        /// <para>去重口径 = `卡id|事件` —— 同一张卡的同一句只喊一次（⛔ 不每帧刷，也不每句重复喊）；
+        /// 与 `VoiceLines.Clip` 的 `_missingLogged` 同形。计数留给自检
+        /// （<see cref="VoiceMissingWarnCountForTest"/>）。</para>
+        /// <para>⚠️ 与「这一档本来就没声」分得清清楚楚：那一档调用方传 `expectVoice:false`
+        /// （例：`BattleDriver` 的 `MuteEnemyChat` SmallTip），**不会走这里**。</para></summary>
+        void WarnVoiceMissing(Bubble b, int side, string cardId, string evt, string clipFile)
+        {
+            if (b == null || !b.voiceMissing || b.warnedVoiceMissing) return;
+            b.warnedVoiceMissing = true;
+            if (!_voiceMissingLogged.Add((cardId ?? "?") + "|" + (evt ?? "?"))) return;
+            _voiceMissingWarns++;
+            Debug.LogWarning($"[UnitChat] 这一句**该有语音、但 clip 取不到**"
+                             + $"（side={side} · card={cardId ?? "null"} · evt={evt ?? "null"}"
+                             + $" · file={clipFile ?? "-"}）⇒ 气泡照原版显示、但没有声音。"
+                             + "查：`voice_lines.json` 这一行引用的文件是否已导进 `Resources/Art/audio/vo/`。"
+                             + "（⛔ 与「这一档本来就没声」不是一回事 —— 后者调用方会传 `expectVoice:false`。）");
         }
 
         /// <summary>
@@ -973,13 +1143,25 @@ namespace CardPresentation
             return Mathf.Max(2.0f, clip.length + 0.3f);
         }
 
+        /// <summary>三颗**全收**（`BattleDriver.Begin` 新局 / 自检清场走它；到点那一颗走 <see cref="HideBubble"/>）。
+        /// <para>🆕 **2026-10-24（执行代理 `A13`）**：三槽状态机之后还要把**每一颗自己的**本句状态
+        /// （寿命 / 打字机 / 诊断闩）一起清掉 —— 改前这些是面板级单份，一处清就够。</para>
+        /// <para>⚠️ **仍然不碰音频**（既有口径 → <see cref="StopVoice"/> 的 doc）。</para></summary>
         public void HideAll()
         {
-            if (_player != null) _player.SetActive(false);
-            if (_enemy != null) _enemy.SetActive(false);
-            if (_radio != null) _radio.SetActive(false);
+            HideBubble(_player);
+            HideBubble(_enemy);
+            HideBubble(_radio);
             _current = null;
-            _left = 0f;
+        }
+
+        /// <summary>收起**一颗**（连同它自己的本句状态）。多颗共存之后「只收一颗」是常态：
+        /// 那一颗到点了 / 同一颗又说了一句（原版 `DisplayChatBox` 是**同盒替换**）。</summary>
+        void HideBubble(Bubble b)
+        {
+            if (b == null) return;
+            b.SetActive(false);
+            b.ResetState();
         }
 
         /// <summary>🆕 2026-10-20（W58 · G 组）：把三颗气泡挂的语音也**停掉**。
@@ -1020,30 +1202,60 @@ namespace CardPresentation
         /// <summary>走表（`BattleDriver.AdvanceTimeline` 里每帧推，批处理靠 `Step` 推）。</summary>
         public void Advance(float dt)
         {
-            if (_current == null) return;
+            // 🔴 **2026-10-24（执行代理 `A13`）· 三槽状态机（铁律 5 / 11）**：三颗**各推各的**。
+            //   改前这里只推 `_current` 一颗、且 `Speak` 先 `HideAll()` ⇒ 同一时刻只可能有一颗亮着
+            //   （后果：`SmallTip` 一弹就把刚说的敌方督军那句顶掉）。原版是三条**独立**的气泡/倒计时。
+            TickBubble(_player, dt);
+            TickBubble(_enemy, dt);
+            TickBubble(_radio, dt);
+        }
+
+        /// <summary>推**一颗**气泡（寿命 / 打字机 / 音波 / 诊断）。三颗的状态**互不影响** ——
+        /// 全挂在 <see cref="Bubble"/> 自己身上（判据 → `Bubble.left` / `Bubble.typing` 的 doc）。</summary>
+        void TickBubble(Bubble b, float dt)
+        {
+            if (b == null || !b.Visible) return;
+            // 🆕 2026-10-24（`B1` · 战斗线「对手聊天」④）：**打字机** —— 每字 +1（原版 `AnimateText`），
+            //   **打完才开始扣气泡寿命**（原版 `FinishChat(duration)` 排在 `AnimateText` 之后）。
+            //   ⚠️ 打字期间直接 return ⇒ 频谱/音波那一半这段不刷新（音频本来自顾自播，不影响）；
+            //      换来的是「寿命与打字时长不叠算」这一条与原版同形。
+            if (b.typing)
+            {
+                b.typeElapsed += dt;
+                int n = Mathf.Clamp(Mathf.FloorToInt(b.typeElapsed / TypewriterCharSeconds) + 1, 1, b.typeTotal);
+                if (b.text != null)
+                    b.text.SetMaxVisibleCharacters(n >= b.typeTotal ? -1 : n);
+                if (n < b.typeTotal) return;
+                b.typing = false;
+                // 打字打完（第 1 个字在 t = 0 就出来 ⇒ 全程 = `(total - 1) × 节拍`）——
+                // **把多出来的那一段 dt 还给气泡寿命**：自检里会有 `Advance(10f)` 这种一大步调用，
+                // 直接 return 会让那一步整段作废、气泡永远收不起来（2026-10-24 起的那条断言就是这么断的）。
+                dt = Mathf.Max(0f, dt - Mathf.Max(0f, (b.typeTotal - 1) * TypewriterCharSeconds));
+            }
             // 🔴 2026-10-21（`新账-63` · 第三层诊断）：每 **0.08 s** 打一次「气泡在场时的真实状态」——
             //   原来 0.4 s 太稀：本工程语音中位数只有 **0.41 s**，0.4 s 的采样点**整个落在播放窗口之外**
             //   （上一轮真机日志里 4 个 tick 只有 1 个 `playing=True`，且那一个时刻 `_spectrum` 还是 null）。
             //   定位完可以删。
-            if (Time.unscaledTime - _lastDiagAt > 0.08f)
+            //   ⚠️ 三槽之后只报**最近说的那一颗**（三颗都报 = 日志三倍；要查的永远是刚起的那一条）。
+            if (b == _current && Time.unscaledTime - _lastDiagAt > 0.08f)
             {
                 _lastDiagAt = Time.unscaledTime;
-                float mA = _current.waveMat != null ? _current.waveMat.GetFloat("_MovementRange") : -999f;
+                float mA = b.waveMat != null ? b.waveMat.GetFloat("_MovementRange") : -999f;
                 float ss = 0f;
-                if (_spectrum != null) for (int i = 0; i < 16; i++) ss += _spectrum[i];
-                var a0 = _current.audio;
+                if (b.spectrum != null) for (int i = 0; i < 16; i++) ss += b.spectrum[i];
+                var a0 = b.audio;
                 // 🔴 2026-10-21 第四层诊断：真机实测「`isPlaying=True`、`aTime` 在走，频谱却恒 ≈0」
                 //   ⇒ 需要区分「**source 专有 API 取不到**」与「**整条音频链路没输出**」：
                 //   同一时刻再读一次 `AudioListener.GetSpectrumData`（全场混音），两者对比即判。
                 if (_lspec == null) _lspec = new float[64];
                 AudioListener.GetSpectrumData(_lspec, 0, FFTWindow.Hamming);
                 float ls = 0f; for (int i = 0; i < 16; i++) ls += _lspec[i];
-                Debug.Log($"[UnitChat] tick playing={(a0 != null && a0.isPlaying)}"
+                Debug.Log($"[UnitChat] tick side={SideOf(b)} playing={(a0 != null && a0.isPlaying)}"
                           + $" aTime={(a0 != null ? a0.time : -1f):F3} aLen={(a0 != null && a0.clip != null ? a0.clip.length : -1f):F3}"
                           + $" load={(a0 != null && a0.clip != null ? a0.clip.loadState.ToString() : "-")}"
                           + $" vol={(a0 != null ? a0.volume : -1f):F2} mute={(a0 != null && a0.mute)}"
-                          + $" waveMat={(_current.waveMat != null)} waveAmp={_waveAmp:F3} matAmp={mA:F3}"
-                          + $" specSum16={ss:F6} lisSum16={ls:F6} left={_left:F2}");
+                          + $" waveMat={(b.waveMat != null)} waveAmp={b.waveAmp:F3} matAmp={mA:F3}"
+                          + $" specSum16={ss:F6} lisSum16={ls:F6} left={b.left:F2}");
             }
             // 🆕 2026-10-21：音波幅度 —— **逐行照原版 `AudioWaveEqualizer.Update`**
             //   （`d:/2/tools/decomp_full/AudioWaveEqualizer__Update.c:29-67`）：
@@ -1053,58 +1265,95 @@ namespace CardPresentation
             //     · 写 `Material.SetFloat`（属性名在 `DAT_184235590`）。
             //   两个字段值来自原版场景对象：`bundle_scenes_scenes_battlearena1/MonoBehaviour/
             //   MonoBehaviour_4115.json` 的 `spectrumModifier = 15.0` / `speedChange = 10.0`。
-            if (_current.audio != null && _current.waveMat != null)
+            if (b.audio != null && b.waveMat != null)
             {
-                if (_spectrum == null) _spectrum = new float[64];
-                _current.audio.GetSpectrumData(_spectrum, 0, FFTWindow.Hamming);
+                if (b.spectrum == null) b.spectrum = new float[64];
+                b.audio.GetSpectrumData(b.spectrum, 0, FFTWindow.Hamming);
                 float sum = 0f;
-                for (int i = 0; i < 16; i++) sum += _spectrum[i];
+                for (int i = 0; i < 16; i++) sum += b.spectrum[i];
                 float target = Mathf.Clamp01(sum * 15f);
                 // 🔴 不许静默失败：语音在播、频谱却全 0 ⇒ 音波会是直线（真机 `新账-63` 就是这现象）。
                 //   只报一次，够定位「是频谱取不到」还是「音频根本没播」。
-                if (target <= 0f && _current.audio.isPlaying && !_warnedZeroSpectrum)
+                if (target <= 0f && b.audio.isPlaying && !b.warnedZeroSpectrum)
                 {
-                    _warnedZeroSpectrum = true;
+                    b.warnedZeroSpectrum = true;
                     Debug.LogWarning("[UnitChat] 语音在播（`isPlaying=1`）但 `GetSpectrumData` 前 16 bin 全 0"
                                      + " ⇒ 音波线不会动。查：AudioSource 是否被 mixer 组静音 / 平台是否禁了频谱。");
                 }
-                _waveAmp = Mathf.Lerp(_waveAmp, target, Mathf.Clamp01(10f * dt));
+                b.waveAmp = Mathf.Lerp(b.waveAmp, target, Mathf.Clamp01(10f * dt));
                 // 🔴 属性名 = **原版那个 `_MovementRange`**（名字来自 `DAT_184235590` 的字符串，
                 //   RVA 0x4235590；材质默认值 0.00591）。我们原来起名 `_Amplitude` 并在这里乘 0.22 ——
                 //   现在量纲收进 shader 的 `_WaveScale`，这里写的是**原版 0..1 的原值**。
-                _current.waveMat.SetFloat("_MovementRange", _waveAmp);
+                b.waveMat.SetFloat("_MovementRange", b.waveAmp);
             }
-            // 🔴 `新账-63` 的另一半：气泡在显示、音频**却没在播**（clip=null / Play 失败）⇒ 也出声一次。
+            // 🔴 `新账-63` 的另一半：气泡在显示、音频**却没在播**（Play 失败）⇒ 也出声一次。
             //   别把「没声」和「频谱全 0」混成同一个现象（两者的修法不同）。
-            else if (_current.audio != null && !_current.audio.isPlaying && !_warnedNotPlaying)
+            //   🔴 **2026-10-24（审查修复代理 `F3` · 审 `P1-5`）就地订正**：本句原来写「（clip=null / Play 失败）」——
+            //   **`clip == null` 那一档已从这里拆走**（`Speak` 里 `WarnVoiceMissing` 单独报，因为那是
+            //   「资源缺口」不是「Play 失败」）；本支现在只看 `expectsVoice`（= 该有声**且**取到了 clip）。
+            else if (b.audio != null && !b.audio.isPlaying && !b.warnedNotPlaying && b.expectsVoice)
             {
-                _warnedNotPlaying = true;
-                var a = _current.audio;
+                b.warnedNotPlaying = true;
+                var a = b.audio;
                 var cl = a.clip;
                 // 🔴 2026-10-21（`新账-63` · 第二层诊断）：把「为什么没播」一次打全 ——
                 //   长度/加载状态/组件开关/所在对象激活/mute/音量。首轮只报了 clip 名，定位不到是
                 //   「clip 长度 0」「没加载」「对象未激活」还是「Play 失败」。
-                Debug.LogWarning($"[UnitChat] 气泡在显示但没有音频在播（clip={(cl == null ? "null" : cl.name)}"
+                Debug.LogWarning($"[UnitChat] 气泡在显示但没有音频在播（side={SideOf(b)} · clip={(cl == null ? "null" : cl.name)}"
                                  + $" · length={(cl != null ? cl.length : -1f):F3}s"
                                  + $" · loadState={(cl != null ? cl.loadState.ToString() : "-")}"
                                  + $" · audioEnabled={a.enabled} · goActive={a.gameObject.activeInHierarchy}"
                                  + $" · mute={a.mute} · vol={a.volume:F2}）"
                                  + " ⇒ 音波线不会动（这一条台词本来就没声？还是 Play 失败？）。");
             }
-            _left -= dt;
-            if (_left > 0f) return;
-            if (_current.audio != null && _current.audio.isPlaying) _current.audio.Stop();
-            HideAll();
+            b.left -= dt;
+            if (b.left > 0f) return;
+            if (b.audio != null && b.audio.isPlaying) b.audio.Stop();
+            HideBubble(b);
+            // 到点的是「最近说的那颗」而**别人还在说** ⇒ 读口挪到还亮着的最新那颗（`ShownText`/`TimeLeft`
+            // 才继续指向「现在还在说的那一句」）；一颗都不剩 ⇒ null（旧口径：全收之后这两个读口都归零）。
+            if (_current == b) _current = NewestVisible();
         }
 
-        float _waveAmp;
-        float[] _spectrum;
+        // 🔴 2026-10-24（`A13`）：`_waveAmp` / `_spectrum` 已按颗搬进 `Bubble.waveAmp` / `Bubble.spectrum`。
+
+        // ---- 🆕 2026-10-24（执行代理 `B1` · 战斗线「对手聊天」④）：打字机状态 ----
+        /// <summary>打字机节拍（秒/字）。
+        /// <para>🔴 **这不是原版值** —— 原版那一个常量在 `DAT_18427be00` 的**静态字段 `+0x1b8`**
+        /// （`VoiceLineBox.AnimateText` 每字 `WaitForSeconds(该字段)`），而那个 TypeInfo 的**类身份没解出**
+        /// （同一个 TypeInfo 的 `+0x11c` 是 GraphicsTab 的小屏开关，可旁证它是某个「全局设置/静态」类）
+        /// ⇒ **值读不到**（C2 §4·3）。这里 **0.03 s/字** 是我们挑的（≈33 字/秒）；
+        /// ⛔ 别把 0.03 写进文档当原版值。要还原得先把那个静态字段的类与值解出来。</para></summary>
+        public const float TypewriterCharSeconds = 0.03f;
+
+        // 🔴 **2026-10-24（执行代理 `A13`）· 三槽状态机**：打字机 / 诊断闩 / 音波幅度这些**逐句状态**
+        //   已搬进 `Bubble` 自己（三颗各一份），面板级这几格全部删掉 ——
+        //   改前它们只有一份，一颗在打字时另一颗进来会把进度清掉（单气泡模型的残留）。
+
+        /// <summary>自检用：**最近说的那颗**还在打字吗。</summary>
+        public bool TypingForTest { get { return _current != null && _current.typing; } }
+        /// <summary>自检用：**最近说的那颗**这一句一共几个字（`0` = 没启用打字机）。</summary>
+        public int TypeTotalForTest { get { return _current != null ? _current.typeTotal : 0; } }
         float[] _lspec;                 // 🔴 2026-10-21 第四层诊断：全场混音频谱（与 source 专有 API 对比）
-        // 🔴 2026-10-21（`新账-63`）：两种「音波不会动」的原因各只报一次，避免每帧刷屏。
-        bool _warnedZeroSpectrum;
-        bool _warnedNotPlaying;
+        // 🔴 2026-10-21（`新账-63`）：诊断日志只打一次的那几个闩（`b.warned*` 已按颗搬走，这里只剩全局那一格）
         bool _loggedClipState;
         float _lastDiagAt;
+
+        // ---- 🔴 2026-10-24（审查修复代理 `F3` · 审 `P1-5`）：「真实语音缺口」的出声账 ----
+        //   集合按 `卡id|事件` 去重（同一张卡同一句只喊一次）；计数供自检断言
+        //   「喂一条缺口 ⇒ +1 / 喂「本来就没声」那一档 ⇒ 不动」。
+        readonly HashSet<string> _voiceMissingLogged = new HashSet<string>();
+        int _voiceMissingWarns;
+        /// <summary>自检用：**真实语音缺口**（该有声、clip 取不到）累计出声了几次（按 `卡|事件` 去重后）。
+        /// 判据 → `WarnVoiceMissing`（🔴 2026-10-24 `F3` · 审 `P1-5`）。</summary>
+        public int VoiceMissingWarnCountForTest { get { return _voiceMissingWarns; } }
+        /// <summary>自检用：把缺口去重表与计数**清干净**（⛔ 只给自检 —— 生产路径不清：
+        /// 那是「这批语音资源缺了哪几行」的一笔账，跨局也该留着）。</summary>
+        public void ResetVoiceMissingWarningsForTest()
+        {
+            _voiceMissingLogged.Clear();
+            _voiceMissingWarns = 0;
+        }
     }
 
     // ==================================================================
@@ -1123,7 +1372,12 @@ namespace CardPresentation
     //   · `ChatManager__IsPlayerFirstIntro.c`：只看**玩家自己的精确档** —— 命中返回 `entry.talksFirst(+0x20)`；
     //     未命中（含只命中按阵营档 / 没有数据）⇒ **1（玩家先说）**。
     //   · `GetChatId(card) = chatMessagesReferenceId(+0x168) ?: customIntroReferenceId(+0x170, 仅 param_2!=0) ?: uniqueId(+0x38)`。
-    //  ⚠️ **数据 = `Resources/card_chat_intro.json`**（49 张运行时卡 · 197 键；生成器 `工具/gen_card_chat_intro.py`）。
+    //  ⚠️ **数据 = `Resources/card_chat_intro.json`**（**56** 张运行时卡 · 197 键；生成器 `工具/gen_card_chat_intro.py`）。
+    //     🔴 **2026-10-24（`D9` · 铁律 5）就地订正**：这里原来写「49 张运行时卡」——
+    //     `D8` 把「只有兜底档（`introChatSound`/`mirrorChatSound`/`defaultChatSound`）、
+    //     没有定制档」的 7 张卡（`EC55`/`EC56`/`EC57`/`GOF76`/`GOF77`/`SW2`/`TL74`）也收进表 ⇒ 现读 **56**。
+    //     ⚠️ **定制档条目数不变（仍 197）** —— 那 7 张的 `introByOpponent`/`introByArmy` 都是 0 条。
+    //     判据 → `资料/普查产出_1024/D8_补全chat_intro覆盖.md` §一。
     //     ⛔ **别拿「官方表里有没有这个键」当判据** —— 原版的闸门是 **SO 列表**（这就是那份数据）；
     //     官方表里多出来的键是**死键**（数据报告 §3·A 逐张裁过）。
     //  ⚠️ `hasText == false`（官方表缺原文；运行时卡上 5 条）⇒ 调用方回 `voice_lines` 英文兜底 + 出声，⛔ **不自译**。
@@ -1172,7 +1426,7 @@ namespace CardPresentation
 
         /// <summary>表载进来了没有（没载 = 资源不在；**不静默**：<see cref="LastError"/> 有话说）。</summary>
         public static bool Loaded { get { EnsureLoaded(); return _byId != null && _byId.Count > 0; } }
-        /// <summary>表里几张卡（运行时件 = 49）。</summary>
+        /// <summary>表里几张卡（运行时件 = **56**）。⚠️ 2026-10-24（`D9` · 铁律 5）订正：原写 49（`D8` 补了 7 张兜底档卡）。</summary>
         public static int Count { get { EnsureLoaded(); return _byId != null ? _byId.Count : 0; } }
         /// <summary>载入 / 解析失败的原因（`null` = 一切正常）。</summary>
         public static string LastError { get { EnsureLoaded(); return _lastError; } }
@@ -1204,7 +1458,8 @@ namespace CardPresentation
         }
 
         /// <summary>这张卡的 **chatId**（原版 `GetChatId`：`chatMessagesReferenceId ?: customIntroReferenceId ?: uniqueId`）。
-        /// 运行时件里 49 张的 `chatRef/introRef` 全空 ⇒ 现读恒等于卡 id；`chatIdOverrides` 以后非空时以它为准。</summary>
+        /// 运行时件里 **56** 张的 `chatRef/introRef` 全空 ⇒ 现读恒等于卡 id；`chatIdOverrides` 以后非空时以它为准。
+        /// ⚠️ 2026-10-24（`D9` · 铁律 5）订正：原写「49 张」（`D8` 补了 7 张只有兜底档的卡 ⇒ 现读 56）；<b>结论不变</b>（两者仍都全空）。</summary>
         public static string ChatIdOf(string cardId)
         {
             EnsureLoaded();

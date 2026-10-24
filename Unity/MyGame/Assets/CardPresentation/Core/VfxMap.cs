@@ -160,6 +160,14 @@ namespace CardPresentation
         //
         // 🔴 **2026-10-24（`A21` · `C3` 审查 D3）：这一桶的【消费时机】与【播在谁身上】还不符原版 ——
         //   已知缺陷，本文件里改不了（要动 `BattleDriver` 的 `ScheduleAttackPresentation` + `RuleEngine`）。**
+        //   ✅ **2026-10-24（执行代理 `B1`，C2 §1·5 步 B/C/E）就地订正（铁律 5）：本条缺陷【已修】，下面那段
+        //      「我们 / 修法」是**改之前**的记录，保留作痕迹。**修法落地 = ① `CanonicalTriggerName` 加
+        //      `attacked → UnitAttack` 别名（本文件）；② `BattleDriver.PlaySignal` 的 `EvtKind.Trigger`
+        //      支按 canonical 分流到 `PlayUnitSkillAnim`（**不再**走 `FireEventAll` 的通用件 ——
+        //      那条路没有 `startPos/endPos` 锚点、没有卡体动画、没有 `SkillBeatDuration` 时长）；
+        //      ③ 删掉 `ScheduleAttackPresentation` 末尾那句「攻方自己的 UnitAttack」。
+        //      ⚠️ **仍不要**把本桶并进 `TryResolveTriggerPicks`：`ResolvedVfx` 没有字段能告诉
+        //      `FireEventAll`「这一拍要用技能动画那套播」⇒ 并桶 = 把正确的数据送进错误的播放入口。
         //   原版判据（逐句读过）：
         //     · `BattleManager._ResolveAttack_d__438__MoveNext.c:987-990` → `BroadcastUnitAttacked(...)`，
         //       **近战与远程两条路都会走到**（`case 0xb/0xe/0x11/0x14` → `:1622`）。
@@ -188,6 +196,22 @@ namespace CardPresentation
         /// 🔴 2026-10-23（`T1`）：原来这里是 4 条，多出的 3 条是按名字猜的（`inferred-name`）——
         /// 其中 2 条已删重复、1 条无依据不播（见 `UnitAttack` 上面那段）。</summary>
         public const string UnitDamaged = "unit_damaged_anim";
+
+        /// <summary>🆕 **2026-10-24（执行代理 `B1` · `C2` §1·2 · 战斗线 `D3`）**：原版
+        /// `AbilityTrigger.UnitAttack = 50` 的**枚举名** —— ⚠️ **不是桶名**（桶名是 <see cref="UnitAttack"/>
+        /// = `unit_attack_anim`）。表现层按它分流去 <c>PlayUnitSkillAnim</c>（判据 = 原版
+        /// `CardScript__ResolveUnitAttacked.c:28-30` `OnTrigger(0x32)` → `TriggerAbilities(50)` →
+        /// `CardAbility__CanTriggerAbility.c:126-140` → `PlayAbility` → `PlayAnim`）。</summary>
+        public const string UnitAttackTriggerName = "UnitAttack";
+
+        /// <summary>🆕 **2026-10-24（执行代理 `B1` · 战斗线 `D3`）**：`CardDef.AttackedOps`（卡面正文
+        /// 「被这套打过的单位…」）在引擎里发的 keyword —— 发射口 = `RuleCore.cs` 攻击结算段
+        /// （`ctx.Emit(EvtKind.Trigger, …, keyword: "attacked")`）。
+        /// <para>**为什么它也要归到 <see cref="UnitAttackTriggerName"/>**：原版那一族**不是另一个 trigger**，
+        /// 就是同一步 `UnitAttack(50)` —— `BroadcastUnitAttacked` 对每张卡逐张 `OnTrigger(0x32)`
+        /// （`BattleManagerSupport__BroadcastUnitAttacked.c:22 / :29 / :48-58`），差别只在**能力判据**
+        /// （`CardAbility__CanTriggerAbility` 的 criteria）。⇒ 归一之后表现层按**同一档**播技能动画。</para></summary>
+        public const string AttackedKeyword = "attacked";
 
         /// <summary>按事件兜底。
         ///
@@ -870,6 +894,202 @@ namespace CardPresentation
                 Debug.LogError($"[Vfx] `Resources/{CardTableResourcePath}.json` 是空的 / 形状不对 ⇒ 逐卡特效不起作用");
                 return;
             }
+            LoadTableFromJson(dto, "Resources/" + CardTableResourcePath + ".json", false);
+        }
+
+        // ==================================================================
+        //  🆕 2026-10-24（执行代理 `A2` · 特效线「新账-72⑥」）：**合成表注入口（只给自检用）**
+        //
+        //  为什么需要：`EnsureLoaded` 里有一条规则 ——「非权威档（`inferred-*`）之间平票**只留第一条**」
+        //  （`if (!authoritative && picks.Count > 1) picks.RemoveRange(1, …)`）。而现读**全表
+        //  非权威平票行 = 0** ⇒ 任何基于真实 JSON 的断言都**只能恒绿**（= 自证）。
+        //  ⇒ 本口让人喂一份**合成表**（同一个 `RtFile` 形状的 JSON），走**同一段** `LoadTableFromJson`：
+        //    构造两条同档 `inferred` 行 ⇒ 断言只播第一条。
+        //
+        //  🔴 **生产路径零影响**：两件事保证 ——
+        //    ① 本方法只有自检调（`Editor/BattleScene.cs` 的 `LoadForTest` 那一组）；`EnsureLoaded` 不经过它；
+        //    ② 还原走**成对**的口子：`using (VfxMap.LoadForTest(json)) { … }`（自动、抛异常也还原），
+        //       或显式 <see cref="RestoreSyntheticTableForTest"/> / <see cref="ReloadRealCardTableForTest"/>。
+        //       —— 否则后面的自检会跑在合成表上，那会让别的断言静默失去意义。
+        //       🔴 2026-10-24（`F2` · R1 P2-8）订正：本行原来只写「请调 `ReloadRealCardTableForTest`」，
+        //          **还原只靠调用方自觉**（`try` 之前抛就漏）。判据与改法见下面那段。
+        //
+        //  ⚠️ **`allowNonAuthoritativeInferredTie` 这一档是干什么的**：2026-10-23（`T1`）之后，
+        //    生产在**更前面**还有一道闸「非 `authoritative` 一律不进表」（`CardTableNonAuthoritativeRows`）
+        //    ⇒ 今天就算喂两条 `inferred` 也**一件都留不下**，那条「只留第一条」的规则**结构上摸不到**。
+        //    自检要证的是**那条规则本身**，所以本口允许显式打开「放非权威行进来」这一档
+        //    （= 退回到 2026-10-23 之前的形状）。生产恒传 `false`，行为一个字不变。
+        // ==================================================================
+
+        //  🔴 **2026-10-24（`F2` · R1 P2-8）：注入/还原改成【成对且自愈】** —— 原文写的是
+        //    「`LoadForTest` 之后请调 `ReloadRealCardTableForTest` 把真表放回去」，**还原只靠调用方自己写
+        //    `try/finally`**：调用方若在 `try` **之前**抛 / 提前 `return`（或将来新加一个不配对 `finally`
+        //    的调用点），全局共享表就**停在合成表上** —— 后面所有自检、**以及生产查询**都跑在错数据上，
+        //    而且**一个字都不说**（静默）。
+        //  ⇒ 现在三件事：
+        //    ① `LoadForTest` **返回一个 `IDisposable` 作用域**：
+        //       `using (VfxMap.LoadForTest(json)) { … }` ⇒ 出作用域**自动还原**（抛异常也还原）。
+        //       老写法 `VfxMap.LoadForTest(json);`（丢掉返回值）**仍然编译、语义不变**，
+        //       但那就退回「必须自己还原」的旧契约。
+        //    ② 内部**记下还原点**（`_reloadTableBeforeSyntheticForTest`）：还原 = 回到**注入之前那一份表**
+        //       （注入前是真表 ⇒ 重载真表；注入前是另一份合成表 ⇒ 装回它）。
+        //       连续注入两次（自检里就是先 `LoadForTest(a)` 再 `LoadForTest(b)`）= **换一份合成表**，
+        //       还原点仍是**第一次注入之前**（⛔ 不支持靠 `using` 嵌套回滚到中间那一层）。
+        //    ③ 多一道**可断言的口子**：<see cref="IsSyntheticTableForTest"/> 与
+        //       <see cref="RestoreSyntheticTableForTest"/>（幂等）—— 「合成表没留下」应该是**可断言的**，
+        //       而不是只靠人记得还原（见 `F2_渲染与静态闩.md` 给 `BattleScene` 的断言片段）。
+        //  🔴 **生产路径零变化**：`_tableIsSyntheticForTest` 在生产里恒 `false`，
+        //     `EnsureLoaded` 与所有查询**一个字没动**。
+        // ==================================================================
+
+        /// <summary>自检用：**当前装的是合成表吗**（<see cref="LoadForTest"/> 之后为 `true`，还原之后为 `false`）。
+        /// 收尾断言用它 —— 「合成表没留下」要**可断言**，⛔ 别只靠人记得还原。</summary>
+        public static bool IsSyntheticTableForTest { get { return _tableIsSyntheticForTest; } }
+
+        /// <summary>自检用：**当前这份表怎么再装一遍**（`null` = 生产真表）。</summary>
+        static System.Action _reloadCurrentTableForTest;
+        /// <summary>自检用：**注入之前**那一份表怎么装（`null` = 当时就是生产真表 / 还没装过）。</summary>
+        static System.Action _reloadTableBeforeSyntheticForTest;
+        static bool _tableIsSyntheticForTest;
+
+        /// <summary>🆕 2026-10-24（`F2` · R1 P2-8）：<see cref="LoadForTest"/> 返回的**还原作用域**。
+        /// `using` 出作用域 ⇒ 回到注入之前那一份表（<see cref="RestoreSyntheticTableForTest"/>，幂等；
+        /// 抛异常也照样还原）。⚠️ 不用 `using` 时把它记下来手工 `Dispose()` 也行 —— 语义相同。</summary>
+        public sealed class SyntheticTableScope : System.IDisposable
+        {
+            bool _disposed;
+            internal SyntheticTableScope() { }
+            public void Dispose()
+            {
+                if (_disposed) return;
+                _disposed = true;
+                RestoreSyntheticTableForTest();
+            }
+        }
+
+        /// <summary>🆕 2026-10-24（`A2` · `新账-72⑥`）：**喂一份合成表**（自检专用；生产路径零影响）。
+        /// JSON 形状 = `Resources/card_vfx_by_card.json`（`confPriority` + `cards[].events[].es[]`）。
+        /// <para>⚠️ 走的是**同一段**装载逻辑（<see cref="LoadTableFromJson"/>）—— 所以它测的是
+        /// **真实的过滤/分档/平票规则**，不是另写的一条。</para>
+        /// <para>🔴 **2026-10-24（`F2` · R1 P2-8）**：本方法**返回一个 `IDisposable` 作用域**。
+        /// 推荐 `using (VfxMap.LoadForTest(json)) { … }` ⇒ 出作用域**自动还原**（抛异常也还原）。
+        /// 丢掉返回值（老写法）仍然编译，但那就**退回「必须自己还原」的旧契约** ——
+        /// 那种调用点收尾必须调 <see cref="RestoreSyntheticTableForTest"/>（幂等）或
+        /// <see cref="ReloadRealCardTableForTest"/>（强制真表）。</para></summary>
+        /// <param name="json">合成表 JSON（`null` / 空 ⇒ 出声并清空，不装任何东西）。</param>
+        /// <param name="allowNonAuthoritativeInferredTie">🆕 见上面那段：`true` = 放非权威行进表，
+        /// 从而让「推断档之间只留第一条」这条规则**可被观测**。生产恒 `false`。</param>
+        public static SyntheticTableScope LoadForTest(string json, bool allowNonAuthoritativeInferredTie = false)
+        {
+            // 第一次注入 ⇒ 记下还原点（连装两份 = 换表，还原点仍是第一次之前，见上面那段 ②）
+            if (!_tableIsSyntheticForTest)
+            {
+                _reloadTableBeforeSyntheticForTest = _reloadCurrentTableForTest;
+                _tableIsSyntheticForTest = true;
+            }
+            InstallSyntheticTableForTest(json, allowNonAuthoritativeInferredTie);
+            _reloadCurrentTableForTest = () => InstallSyntheticTableForTest(json, allowNonAuthoritativeInferredTie);
+            return new SyntheticTableScope();
+        }
+
+        /// <summary>🆕 2026-10-24（`F2` · R1 P2-8）：真正把合成表装进去（`LoadForTest` 的唯一装法 ——
+        /// 还原时也走它，保证「装进去的东西」与「还原出来的东西」走**同一段**）。
+        /// ⚠️ 不碰 `_tableIsSyntheticForTest` / 还原点（那是调用方的事）。</summary>
+        static void InstallSyntheticTableForTest(string json, bool allowNonAuthoritativeInferredTie)
+        {
+            ResetCardTableForTest();
+            _triedCardTable = true;            // 别让生产的懒载入把合成表覆盖掉（还原时 `EnsureLoaded` 会重新置位）
+            if (string.IsNullOrEmpty(json))
+            {
+                Debug.LogError("[Vfx][LoadForTest] 传了空 JSON ⇒ 表保持清空（这不是通过）。");
+                return;
+            }
+            RtFile dto;
+            try { dto = JsonUtility.FromJson<RtFile>(json); }
+            catch (System.Exception e)
+            {
+                Debug.LogError($"[Vfx][LoadForTest] 合成表解析失败：{e.Message}");
+                return;
+            }
+            if (dto == null || dto.cards == null)
+            {
+                Debug.LogError("[Vfx][LoadForTest] 合成表形状不对（`cards` 为空）⇒ 表保持清空。");
+                return;
+            }
+            LoadTableFromJson(dto, "（合成表 · 自检专用）", allowNonAuthoritativeInferredTie);
+        }
+
+        /// <summary>🆕 2026-10-24（`F2` · R1 P2-8）：回到**注入之前**那一份表（**幂等** —— 没注入过 /
+        /// 已经还原过就什么都不做，⛔ 不会顺手清掉真表）。
+        /// 注入前是真表 ⇒ 重载真表；注入前是另一份合成表 ⇒ 装回它（后者只有「不用 `using`、
+        /// 手工连装两份」的调用点会走到）。</summary>
+        public static void RestoreSyntheticTableForTest()
+        {
+            if (!_tableIsSyntheticForTest) return;
+            _tableIsSyntheticForTest = false;
+            var prev = _reloadTableBeforeSyntheticForTest;
+            _reloadTableBeforeSyntheticForTest = null;
+            ResetCardTableForTest();
+            if (prev == null)
+            {
+                EnsureLoaded();                 // = 生产真表（载不到会自己出声，见 EnsureLoaded）
+                _reloadCurrentTableForTest = null;
+            }
+            else
+            {
+                prev();
+                _tableIsSyntheticForTest = true;
+                _reloadCurrentTableForTest = prev;
+            }
+        }
+
+        /// <summary>🆕 2026-10-24（`A2`）：把逐卡表**清空并允许重新懒载入**（自检用）。
+        /// ⚠️ 只清表与计数器；`ByEvent` / `ByFaction`（写死的兜底表）不在这里（它们不是载入产物）。
+        /// 🔴 2026-10-24（`F2` · R1 P2-8）：**不碰**合成表标记 / 还原点 —— 那些是
+        /// <see cref="LoadForTest"/> / <see cref="RestoreSyntheticTableForTest"/> 的事
+        /// （本方法被它们内部调用，这里一动就会把还原点清掉）。</summary>
+        public static void ResetCardTableForTest()
+        {
+            ByCard.Clear();
+            _byName.Clear();
+            _factionOfId.Clear();
+            _legendaryOfCard.Clear();
+            _notPlayedIds.Clear();
+            _notPlayedIdx.Clear();
+            _unitAnimCards.Clear();
+            _nonAuthWarned.Clear();
+            CardTableEntries = 0;
+            CardTableUnitAttackEntries = 0;
+            CardTableUnitDamagedEntries = 0;
+            CardTableMultiEntries = 0;
+            CardTableCandidates = 0;
+            CardTableMultiEntriesAll = 0;
+            CardTableNotPlayed = 0;
+            CardTableNonAuthoritativeRows = 0;
+            _triedCardTable = false;
+        }
+
+        /// <summary>🆕 2026-10-24（`A2`）：把**真表**放回去（清空 + 懒载入 `Resources/card_vfx_by_card.json`）。
+        /// ⚠️ 自检用完 <see cref="LoadForTest"/> **必须**还原 —— 否则后面的自检会跑在合成表上。
+        /// 🔴 2026-10-24（`F2` · R1 P2-8）：本方法是**强制真表**那一档（连合成表标记/还原点一起清）；
+        /// 一般情形优先用 <see cref="SyntheticTableScope"/>（`using`）或 <see cref="RestoreSyntheticTableForTest"/>
+        /// ——那两个还原到的是「注入之前那一份表」，不会无脑盖掉调用方原来的状态。</summary>
+        public static void ReloadRealCardTableForTest()
+        {
+            _tableIsSyntheticForTest = false;
+            _reloadTableBeforeSyntheticForTest = null;
+            _reloadCurrentTableForTest = null;
+            ResetCardTableForTest();
+            EnsureLoaded();
+        }
+
+        /// <summary>🆕 2026-10-24（`A2` · `新账-72⑥`）：**真正把一份 `RtFile` 装进表里** ——
+        /// `EnsureLoaded`（生产）与 `LoadForTest`（自检）**共用这一段**（⛔ 别在别处再写第二份过滤逻辑）。
+        /// <param name="sourceLabel">日志里那份表的来源（生产 = `Resources/...json`，自检 = 「合成表」）。</param>
+        /// <param name="allowNonAuthoritativeInferredTie">见 <see cref="LoadForTest"/> 的 doc；生产恒 `false`。</param>
+        /// </summary>
+        static void LoadTableFromJson(RtFile dto, string sourceLabel, bool allowNonAuthoritativeInferredTie)
+        {
             // `conf` → 优先级序数（不认识的一律排最后；⛔ 不猜它比谁高）
             var prio = new Dictionary<string, int>();
             if (dto.confPriority != null)
@@ -913,12 +1133,18 @@ namespace CardPresentation
                         //      这条闸是**第二道**（数据回退时不会静默把推断播出去）。
                         if (!string.Equals(e.c ?? "", ConfAuthoritative, System.StringComparison.Ordinal))
                         {
+                            // 🆕 2026-10-24（`A2` · `新账-72⑥`）：自检的合成表可以**显式**放非权威行进来，
+                            //   好让下面「推断档平票只留第一条」那条规则**可被观测**（生产恒 false）。
+                            if (!allowNonAuthoritativeInferredTie)
+                            {
+                                CardTableNonAuthoritativeRows++;
+                                if (_nonAuthWarned.Count < NonAuthWarnCap && _nonAuthWarned.Add(c.id + "|" + ev.ev))
+                                    Debug.LogWarning($"[Vfx] 逐卡表里有一条**非权威**档（`{e.c}`）："
+                                                   + $"卡 `{c.nm ?? c.id}` 的 `{ev.ev}` → `{e.n}` ⇒ **不播**"
+                                                   + "（2026-10-23 起只收 `authoritative`；数据侧应已清空，这里是第二道闸）");
+                                continue;
+                            }
                             CardTableNonAuthoritativeRows++;
-                            if (_nonAuthWarned.Count < NonAuthWarnCap && _nonAuthWarned.Add(c.id + "|" + ev.ev))
-                                Debug.LogWarning($"[Vfx] 逐卡表里有一条**非权威**档（`{e.c}`）："
-                                               + $"卡 `{c.nm ?? c.id}` 的 `{ev.ev}` → `{e.n}` ⇒ **不播**"
-                                               + "（2026-10-23 起只收 `authoritative`；数据侧应已清空，这里是第二道闸）");
-                            continue;
                         }
                         int rank;
                         if (!prio.TryGetValue(e.c ?? "", out rank)) rank = worst;
@@ -1000,16 +1226,20 @@ namespace CardPresentation
                 }
                 if (shown < CardTableNotPlayed)
                     Debug.LogWarning($"[Vfx] …另有 {CardTableNotPlayed - shown} 条同类，"
-                                   + $"全表见 `Resources/{CardTableResourcePath}.json` 的 `notPlayed`");
+                                   + $"全表见 `{sourceLabel}` 的 `notPlayed`");
             }
             Debug.Log($"[Vfx] 逐卡特效表已载入：{ByCard.Count} 张卡 / {CardTableEntries} 条"
-                    + $"（`Resources/{CardTableResourcePath}.json`，🔴 2026-10-23 起**只收 `authoritative`**）"
+                    + $"（`{sourceLabel}`，"
+                    + (allowNonAuthoritativeInferredTie
+                        ? "⚠️ **自检档**：非权威行也放行了（只为观测「推断档平票只留第一条」那条规则）"
+                        : "🔴 2026-10-23 起**只收 `authoritative`**") + "）"
                     + $"；卡名索引 {_byName.Count} 个名字（🆕 `A2082`：生产路径传的是**卡名**，"
                     + "没有这个索引逐卡那一档就恒不命中）"
                     + $"；🆕 `T13` 全播：{CardTableMultiEntries} 条会播多件 / 候选共 {CardTableCandidates} 件"
                     + "（= 最优档 `authoritative` 的同档平票，按原版 `abilityLogic` 顺序）"
                     + $"；⛔ 无权威依据**不播** {CardTableNotPlayed} 条（已逐条出声）"
-                    + $"；被第二道闸挡掉的非权威行 {CardTableNonAuthoritativeRows} 条（正常应 = 0）");
+                    + $"；非权威行 {CardTableNonAuthoritativeRows} 条"
+                    + (allowNonAuthoritativeInferredTie ? "（本档放行）" : "（被第二道闸挡掉，正常应 = 0）"));
         }
 
         /// <summary>🆕 2026-10-19（W）：运行时表的一条 → <see cref="CardPick"/>
@@ -2089,7 +2319,7 @@ namespace CardPresentation
                 //     · `Mob` 那 11 张的桶里混着 `TideEffect` / `RallyEffect` / `TalentEffect`（Start(0)）
                 //       以及 `MobEffect`（Trigger(3)）⇒ 整桶一起播 = 错件 + 多播。
                 //   ⚠️ **放行后如实的取舍（⛔ 别当回归去「修」）**：`MobEffect` / `ArmourEffect` 这类
-                //     **trait 件在 `CardDef.AnimTimes` 里没有行** ⇒ `TriggerNameOf` 回 null ⇒ 被
+                //     **trait 件在 `CardDef.AnimTimes` 里没有行** ⇒ 分类键（`AddTriggerNamesOf`）标不上名 ⇒ 被
                 //     「未标名的一律丢」那条规则丢掉 ⇒ 这一拍只播**卡自己那条技能动画**。
                 //     原版两件都播（trait 的 `DisplayTriggerAnim` + `PlayAbility` 各一趟）。
                 //     ⇒ 补齐属于 **D4 / `P7`（`trigger` 桶按 `traitTriggerType` 分档）**：要先把
@@ -2107,9 +2337,12 @@ namespace CardPresentation
                 //       （「每次你打出战术时」；keyword = **`"artifice"`**，`CardDef.cs:5361`）。
                 //       候选现读 **11 张 / 14 行**（`BL32` + `GSC24/31` + **Sautekh 8 张**——
                 //       C3 第二批只覆盖新三阵营，所以它记的是「3 张 / 6 条」；⛔ 断言里别写死 3）。
-                //   ⛔ **下面这四个名字【不许】跟着加**（引擎没有发射口）：`OnCollectSpiritStone`(610) /
-                //     `UnitLoseStealth`(647) / `UnitStunned`(291) / `OnSabotageCreated`(701)
+                //   ⛔ **下面这三个名字【不许】跟着加**（引擎没有发射口）：`UnitLoseStealth`(647) /
+                //     `UnitStunned`(291) / `OnSabotageCreated`(701)
                 //     —— 见 `NoEmitTriggerNames` 那条常驻反向闸（`SelfCheckRoutedTriggerNames`）。
+                //   🔴 **2026-10-24（引擎线 `G1b` · `C2` §2 · D8）就地订正（铁律 5）**：这一段原来还列着
+                //     `OnCollectSpiritStone`(610) —— 它的发射口**同批补上了**
+                //     （`TriggerNameOfWhenKind` 的 `GainSpirit` 支），见下面那一段 `case`。
                 //   ⛔ 同理 `Unstable` / `OnSecretCreated` / `OnCollectQuestPoints` / `TriggeredCodex` 也不许加。
                 case "uprising":
                 case "artifice":
@@ -2185,6 +2418,16 @@ namespace CardPresentation
                 //     `a` 播；若将来分类键改成「只按 `n`」，它会掉进 ambiguous 那一档（见 A27 §七·4）。
                 case "unitreceiveshuntmark":
                 case "oncollectfaith":
+                // ---- 🆕 2026-10-24（引擎线 `G1b` · `C2` §2 · D8）：`OnCollectSpiritStone`(610) ----
+                //   发射口 = `EffectResolver.TriggerNameOfWhenKind(WhenEventKind.GainSpirit)`
+                //   （本批补的分支；事件源 = `RuleCore.CollectWaystoneCore` 的
+                //   `BroadcastWhen(..., GainSpirit, ...)`，全仓唯一一处）。
+                //   判据 = `CardScript__ReactToCollectSpiritStone.c:5-9` 的 `OnTrigger(0x262 = 610)`；
+                //   广播器 = `BattleManagerSupport__BroadcastCollectSpiritStone.c:22-38`。
+                //   候选现读 **5 行 / 4 张**（`ASH80` / `ASH28` / `ASH78` 2 行 / `ASH25`，全 SaimHann）。
+                //   ⚠️ 大小写：`EmitCardTrigger` 发的是 **PascalCase 原版枚举名**
+                //   ⇒ `MustRouteTriggerKeywords` 那一格也写 PascalCase（同 520/665）。
+                case "oncollectspiritstone":
                     return true;
                 // ---- 🆕 2026-10-24（引擎线 `G2` · `C4` D8）：`ThisUnitSummoned`(195) ----
                 //   **只差白名单 + 一条映射分流**（两条本批同批上）：
@@ -2216,11 +2459,11 @@ namespace CardPresentation
                 //   候选现读（`cards_engine.json`，2026-10-24 现算）：**1 张 / 2 行** —— `SW18 Hrolf the Ironhowl`
                 //   （`Buff_Blue_SW` + `Card_Buff_Hand_SW`）。全池 13 张卡 `abilityTriggers` 含 20，
                 //   但另外 12 张**没有这一拍的动画行** ⇒ 发射口按 `HasAnimTrigger` 收窄（见那个方法的 doc）。
-                //   ⚠️ **已知歧义（如实记，⛔ 别当通过）**：`Card_Buff_Hand_SW` 这条 `CardAnim`
-                //   同时挂在 `WhileInPlay`(20) 与 `ThisCardPlayed`(0) 下（同一个 `a` 键、两个 `tn`）
-                //   ⇒ `TriggerNameOf` 只取第一条（= `WhileInPlay`）⇒ 件级自检用 `AmbiguousTriggerLabel`
-                //   **跳过它**（`SelfCheckRoutedTriggers` 只验到 `Buff_Blue_SW` 那 1 行）。
-                //   🔴 这是真歧义、不是断言失败：要收口得让分类键带上 `Order`（数据/引擎侧另案）。
+                //   ⚠️ **同一个 `CardAnim` 挂两个 trigger**：`Card_Buff_Hand_SW` 同时挂在
+                //   `WhileInPlay`(20) 与 `ThisCardPlayed`(0) 下（同一个 `a` 键、两个 `tn`）。
+                //   🔴 **2026-10-24（`A2`）已收口**：分类键改成「一条候选可以有多个 trigger 名」
+                //   （`AddTriggerNamesOf`）⇒ 这一行在 `WhileInPlay` 那一拍取得到，件级自检
+                //   **逐条验它**（⛔ 原来的 `AmbiguousTriggerLabel` 跳过已删）。
                 //   ⚠️ 大小写：`EmitCardTrigger` ⇒ `Keyword = KeywordWithAbility(原版 trigger 名, -1)`
                 //   ⇒ 生产路径发 **PascalCase**（与 520/665/195 同形）。
                 case "whileinplay":
@@ -2241,7 +2484,7 @@ namespace CardPresentation
                 //   ⚠️ 两张卡在基础数值下永远走不到远程（`AM26` 4/4 · `AM31` 6/6，
                 //     `ChooseAttackTypeAutomatically` 平手取近战，原版同算式）⇒ 放行不改变它们。
                 //   ⚠️ 放行后**如实留白**（与 `Mob`/`Teleport` 同一取舍）：trait 件在 `CardDef.AnimTimes`
-                //     里没有行 ⇒ `TriggerNameOf` 回 null ⇒ 被「未标名一律丢」丢掉 ⇒ 这一拍只播卡自己那条
+                //     里没有行 ⇒ 分类键（`AddTriggerNamesOf`）标不上名 ⇒ 被「未标名一律丢」丢掉 ⇒ 这一拍只播卡自己那条
                 //     技能动画。补齐属于 D4 / `P7`。
                 case "regiment":
                     return true;
@@ -2273,15 +2516,67 @@ namespace CardPresentation
         /// 里 `case "Rage"` 那一整段注释）。为什么必须有它：`penitence` 是显示名、`Rage` 是原版
         /// `AbilityTrigger` 枚举名，`NameIs` 是**逐字比较**（大小写不敏感）⇒ 不归一就永远筛不出候选。</para>
         ///
+        /// <para>🆕 **2026-10-24（执行代理 `B1` · `C2` §1·5 步 B · 战斗线 `D3`）：第二条别名
+        /// `attacked` → <see cref="UnitAttackTriggerName"/>**。判据：原版那一族（`EC1`/`EC2`/`SW26`/`TL11`）
+        /// 触发的**就是** `UnitAttack(50)` 那一步（见 <see cref="AttackedKeyword"/> 的 doc）——
+        /// 不归一的话它 `IsRoutedTriggerName` 判不中 ⇒ 掉回 `trigger` 粗桶（错件/多播），
+        /// 而它的**动画**（`unit_attack_anim` 桶）永远不会被发现。
+        /// ⚠️ **只此一处**：⛔ 别把 `"attacked"` 塞进 `IsRoutedTriggerName` / `MustRouteTriggerNames`
+        /// —— 它不是原版枚举名，白名单里放的是枚举名那一档。</para>
+        ///
         /// <para>🔑 **判据收口在这里**：调用点只认本方法的返回值，⛔ 别在别处再写一份映射。
         /// 大小写口径与 <see cref="IsRoutedTriggerName"/> 开头两条一致（`OrdinalIgnoreCase`）——
-        /// 引擎发的是小写常量、原版名是 PascalCase。空输入原样回空（调用方先判空）。</para></summary>
-        static string CanonicalTriggerName(string triggerName)
+        /// 引擎发的是小写常量、原版名是 PascalCase。空输入原样回空（调用方先判空）。</para>
+        /// <para>⚠️ **2026-10-24（`B1`）**：可见性从 `static` 提到 `internal` ——
+        /// `BattleDriver.PlaySignal` 要按它分流（D3），⛔ 别在驱动里再写一份别名表。</para></summary>
+        internal static string CanonicalTriggerName(string triggerName)
         {
             if (string.IsNullOrEmpty(triggerName)) return null;
             if (string.Equals(triggerName, KeywordTable.Penitence, System.StringComparison.OrdinalIgnoreCase))
                 return "Rage";          // `DefinedTrait.rage = 280` 的枚举名（`AbilityTrigger.Rage = 130`）
+            // 🆕 2026-10-24（`B1` · D3）：`attacked` 是 `UnitAttack(50)` 那一步的**另一个拨出点**
+            //   （`AttackedOps` 族），不是另一个 trigger。
+            if (string.Equals(triggerName, AttackedKeyword, System.StringComparison.OrdinalIgnoreCase))
+                return UnitAttackTriggerName;
             return triggerName;
+        }
+
+        /// <summary>🆕 2026-10-24（执行代理 `A2` · 战斗线 **`D4`**）：**这条候选是不是「不属于触发那一拍」的 trait 行**。
+        ///
+        /// <para>**判据（第一权威，逐句读）**：
+        ///   · `CardScript__ActivateTriggerTraitAnim.c` 的触发那一拍 → `BattleCardUI__DisplayTriggerAnim`
+        ///     → `BattleCardUI__DisplayTriggerAnim.c:71` **只处理 `TraitEffect.TriggerType ∈ {3, 6}`**；
+        ///   · `CardScript__ActivateTraitsOnSummonOrEnchantment.c` 的**召唤 / 附魔那一刻**
+        ///     → `BattleCardUI__DisplayStatusAnim.c:86-119` 才处理 **`Start(0)`**（另有 `OnPlay(2)`）。
+        /// ⇒ **`trigger` 桶里 `TriggerType = 0/1/2/5` 的那几行不该在触发那一拍播。**
+        /// 现读桶里的形状：`Start(0)` **258 行** · `Trigger(3)` **223 行** · `TriggerOnPlay(6)` **10 行**
+        /// · 非 trait 的卡级行 **36 行**（2026-10-24 现读运行期表 + 绑定表逐条算过）。</para>
+        ///
+        /// <para>**为什么要在这里挡**：数据侧 `gen_card_vfx_by_card.py` 按 `TRAIT_TRIGGER_EVENT` 归桶时
+        /// 不带 `TriggerType` 这一列 ⇒ 那 258 行 `Start(0)` 与 `Trigger(3)` 在同一个桶里。
+        /// 归口（`target` 定得出来）时它们因为 `CardAnimTime.TriggerName` 为空被丢掉；但**掉回整桶**
+        /// （第 ②/④ 档：这张卡没有 `animTimes`，或关键词不在白名单）时**整桶照播** ⇒ 召唤那一刻的
+        /// `ArmourEffect` / `RallyEffect` / `TideEffect` 会在**每一次触发**时再播一遍（错拍 + 多播）。
+        /// 现读 ≥2 行且混着 `Start(0)` 的卡 **46 张 / 103 行**（其中 47 行是 `Start(0)`）。</para>
+        ///
+        /// <para>⚠️ **只挡 trait 行**（`TriggerTypeOf` 认得出的）；卡级行（`TriggerTypeOf` 回 `-1`）
+        /// 与 `Trigger(3)` / `TriggerOnPlay(6)` 一律保留 —— 后者正是触发那一拍该播的。
+        /// ⛔ 别把这条闸推广到 `ResolvePerCard` / `ResolveAll`（那两个是**原始查询口**，见它们的 doc）。</para></summary>
+        static bool IsNonTriggerBeatTraitRow(CardPick p)
+        {
+            int tt = TraitFrames.TriggerTypeOf(p.A, p.N);
+            return tt >= 0 && tt != 3 && tt != 6;
+        }
+
+        /// <summary>`D4`：把「不属于触发那一拍」的 trait 行从一条桶里滤掉（产出**新 list**，⛔ 别原地改表）。
+        /// 全被滤掉 ⇒ 回空 list（调用方据此「这一拍什么都不播」，⛔ 不再掉回整桶）。</summary>
+        static List<CardPick> TriggerBeatRows(List<CardPick> bucket)
+        {
+            if (bucket == null || bucket.Count == 0) return bucket;
+            var kept = new List<CardPick>(bucket.Count);
+            for (int i = 0; i < bucket.Count; i++)
+                if (!IsNonTriggerBeatTraitRow(bucket[i])) kept.Add(bucket[i]);
+            return kept;
         }
 
         /// <summary>🆕 2026-10-19（W · `T21`）：一条候选**自己那条** `CardAnimTime` 的原版 trigger 名
@@ -2291,25 +2586,97 @@ namespace CardPresentation
         /// （prefab 名；`A` 为空的那几条来自卡 SO 顶层字段 / 我们自己的推断档）。
         /// ⚠️ **它是分类器、不是计时器** —— 只回名字，计时仍由 <see cref="FindAnimTimeIndex"/> 的游标做
         /// （同名重复按顺序逐次消费那一条规则只属于计时）。</para>
-        /// <para>钉不上 ⇒ `null`（= 这条候选不是来自 `cardAnimations[]`）。</para></summary>
-        static string TriggerNameOf(IReadOnlyList<CardDef.CardAnimTime> times, CardPick p)
+        /// <para>钉不上 ⇒ `null`（= 这条候选不是来自 `cardAnimations[]`）。</para>
+        ///
+        /// <para>🔴 **2026-10-24（执行代理 `A2` · 战斗线 `UM37`/`UM84`）就地改口径（铁律 5）**：
+        /// 原来这里**只取第一条**同名行 —— 而同一个 `CardAnim` 可以在**两条不同的 `CardAbility`** 里
+        /// 各出现一次、`TriggerName` 不同（现读 3 行：`UM37` 的
+        /// `BulletTrail_Stormraven_SingleTarget`（`ThisCardPlayed` 0.0.2 ↔ `Codex` 1.0.0）·
+        /// `UM84` 的 `Buff_Purple_target`（`ThisCardPlayed` 0.0.1 ↔ `Codex` 1.0.1）·
+        /// `SW18` 的 `Card_Buff_Hand_SW`（`WhileInPlay` 0.0.1 ↔ `ThisCardPlayed` 1.0.0））。
+        /// 「只取第一条」⇒ 第二条那个 trigger **结构上取不到**（`UM37` / `UM84` 的 `Codex` 那一拍
+        /// 一直播不出来）。⇒ 现在返回**这一条候选可能属于的【全部】 trigger 名**（去重），
+        /// 归口时「命中任意一个即算」；`Order` 第一段（= 原版 `cardAbilities` 下标）仍然是它俩
+        /// 唯一的区分依据，**在 `times` 里按该键出现的次数逐个对齐**（见 `TrimToLabelledRowCount`）。
+        /// ⛔ 别改回「只取第一条」—— 那会让这两张卡的 Codex 拍静默消失。</para></summary>
+        static void AddTriggerNamesOf(List<string> names, IReadOnlyList<CardDef.CardAnimTime> times, CardPick p)
         {
-            if (times == null || times.Count == 0) return null;
+            if (times == null || times.Count == 0) return;
             // `A` 非空 ⇒ **只认 `A`**（它是 `cardAnimations[]` 的精确 join 键）。
             // ⚠️ **不许在 `A` 查不到时退回 `N`**：`A` 有值但 `times` 里没有 = 这条候选来自
-            //    别的数据源（典型 = 我们自己的 `inferred-keyword` 行，`GSC32` 的
-            //    `ArmourTraitStart`/`ConcussiveTraitTrigger`）。退回按 prefab 名匹配会把它
+            //    别的数据源（典型 = 我们自己的 `inferred-keyword` 行）。退回按 prefab 名匹配会把它
             //    错标成同名的 `Ambush` 候选（`GSC32` 的 `ArmourEffect` 两边同名）⇒ **多播**。
             if (!string.IsNullOrEmpty(p.A))
             {
                 for (int i = 0; i < times.Count; i++)
-                    if (times[i] != null && times[i].Anim == p.A) return times[i].TriggerName;
-                return null;
+                    if (times[i] != null && times[i].Anim == p.A) AddTriggerName(names, times[i].TriggerName);
+                return;
             }
             if (!string.IsNullOrEmpty(p.N))
                 for (int i = 0; i < times.Count; i++)
-                    if (times[i] != null && times[i].Prefab == p.N) return times[i].TriggerName;
-            return null;
+                    if (times[i] != null && times[i].Prefab == p.N) AddTriggerName(names, times[i].TriggerName);
+        }
+
+        /// <summary><see cref="AddTriggerNamesOf"/> 的判定版：这条候选**有没有**标到 <paramref name="target"/>。
+        /// （与 `AddTriggerNamesOf` 同一套 `A`/`N` 钉法 —— ⛔ 别在别处再写一遍。）</summary>
+        static bool CandidateHasTrigger(IReadOnlyList<CardDef.CardAnimTime> times, CardPick p, string target)
+        {
+            if (times == null || times.Count == 0 || string.IsNullOrEmpty(target)) return false;
+            if (!string.IsNullOrEmpty(p.A))
+            {
+                for (int i = 0; i < times.Count; i++)
+                    if (times[i] != null && times[i].Anim == p.A && NameIs(times[i].TriggerName, target)) return true;
+                return false;
+            }
+            if (!string.IsNullOrEmpty(p.N))
+                for (int i = 0; i < times.Count; i++)
+                    if (times[i] != null && times[i].Prefab == p.N && NameIs(times[i].TriggerName, target)) return true;
+            return false;
+        }
+
+        /// <summary>🆕 2026-10-24（`A2` · `UM37`/`UM84`）：**同一个 `CardAnim` 在多条 `CardAbility` 里各出现一次**
+        /// 时，`times` 侧标到<paramref name="target"/>的行数就是这一拍**应该播的件数**；
+        /// 候选侧因为分不出是哪一条 occurrence，可能多收 ⇒ 按「先来先得」截到应有条数。
+        ///
+        /// <para>⚠️ **现读这条分支一次都不触发**（3 行歧义里，另一条 occurrence 都落在别的桶：
+        /// `UM37`/`UM84`/`SW18` 的第二条都在 `play` 桶 ⇒ 归口时只看 `trigger`+`ability` ⇒ 候选数 ≤ 行数）。
+        /// 留着它是防**将来**出现「同一个 `CardAnim` 同时落在 `trigger` 与 `ability` 两张桶」的形状 ——
+        /// 那时两件同 prefab，多播一次**画面一样**、只是多播一遍 ⇒ 截断并出声。</para></summary>
+        static List<CardPick> TrimToLabelledRowCount(List<CardPick> merged,
+                                                     IReadOnlyList<CardDef.CardAnimTime> times,
+                                                     string target, string cardKey)
+        {
+            if (merged == null || merged.Count <= 1 || times == null || times.Count == 0) return merged;
+            var seen = new Dictionary<string, int>(System.StringComparer.Ordinal);
+            var trimmed = new List<CardPick>(merged.Count);
+            bool cut = false;
+            string cutKey = null;
+            for (int i = 0; i < merged.Count; i++)
+            {
+                var p = merged[i];
+                string key = !string.IsNullOrEmpty(p.A) ? p.A : p.N;
+                int want = 0;
+                if (!string.IsNullOrEmpty(key))
+                {
+                    for (int t = 0; t < times.Count; t++)
+                    {
+                        var at = times[t];
+                        if (at == null || !NameIs(at.TriggerName, target)) continue;
+                        string k = !string.IsNullOrEmpty(at.Anim) ? at.Anim : at.Prefab;
+                        if (string.Equals(k, key, System.StringComparison.Ordinal)) want++;
+                    }
+                }
+                int got;
+                seen.TryGetValue(key ?? "", out got);
+                if (want > 0 && got >= want) { cut = true; cutKey = key; continue; }
+                seen[key ?? ""] = got + 1;
+                trimmed.Add(p);
+            }
+            if (cut)
+                Debug.LogWarning($"[Vfx] `{cardKey}` 的 `{target}` 那一拍里 `{cutKey}` 的候选**多于**"
+                               + "`animTimes` 标到这一拍的条数（同一个 `CardAnim` 落在两张桶里？）"
+                               + " ⇒ **截到应有条数**（同一 prefab，多播只是多放一遍）。");
+            return cut ? trimmed : merged;
         }
 
         /// <summary>🆕 2026-10-19（W · `T21` 缺口 B/G）：`EvtKind.Trigger` 的逐卡取数 —— **按原版
@@ -2322,7 +2689,10 @@ namespace CardPresentation
         /// ③ 目标 trigger 名定得出来 ⇒ **两张桶一起、只留标到那个名字的候选**。这正是原版
         ///    `RawCardScript.TriggerAbilities(triggerId)` 的语义（按 triggerId 取 ability）；
         /// ④ 定不出来（同一张卡混着多种 trigger 动画，典型 = `GSC16` 的 `Ambush` + `Strike`）⇒
-        ///    **原样回 `trigger` 桶**（= 今天的行为）并如实留白 —— ⛔ 不猜（多播比不播更糟）。</para>
+        ///    **回 `trigger` 桶**（= 今天的行为）并如实留白 —— ⛔ 不猜（多播比不播更糟）。
+        ///    🆕 **2026-10-24（`A2` · `D4`）**：回桶时**按拍分件** —— 只留触发那一拍该播的
+        ///    （`Trigger(3)` / `TriggerOnPlay(6)` + 卡级行），把 `Start(0)` 那批（召唤/附魔那一刻）
+        ///    挡在外面，见 `IsNonTriggerBeatTraitRow`。</para>
         ///
         /// <para>**目标怎么定**：`keyword` 非空 ⇒ **先经 <see cref="CanonicalTriggerName"/> 归一**
         /// （🆕 2026-10-23「新账-86」：`penitence` → `Rage`），归一名是
@@ -2332,13 +2702,13 @@ namespace CardPresentation
         /// （`BattleDriver.PlaySignal` → `FireEventAll(keyword:)`）。保守推断档只剩给
         /// 「`keyword` 为空」的旧事件 / 自检直调。</para>
         ///
-        /// <para>⚠️ **未标名的候选**（`TriggerNameOf` 回 null：卡 SO 顶层字段 / 关键词天赋行）：
+        /// <para>⚠️ **未标名的候选**（`AddTriggerNamesOf` 一个名字都没加 —— 卡 SO 顶层字段 / 关键词天赋行）：
         /// 归口生效时**两张桶都丢掉**（它们证明不了自己属于这个 trigger）。今天受影响的只有
         /// `GSC32`/`GSC28`/`GSC37` 那几条**关键词天赋**行（Concussive/Armour/Talent —— 这几个
         /// 关键词在我们引擎里**根本不触发**，报告 §3·2），丢掉它们 = 不再在伏击那一拍乱播。
         /// 🔴 **2026-10-23（`T1`）**：这几条 2026-10-23 已由 `inferred-keyword` 升成 `authoritative`
-        /// （`src: cardtrait-so`）—— **结论不变**：它们不在 `CardDef.AnimTimes` 里 ⇒ `TriggerNameOf`
-        /// 仍回 null ⇒ 仍被丢掉。⛔ 别因为「现在是 authoritative」就改成「一律保留」。</para>
+        /// （`src: cardtrait-so`）—— **结论不变**：它们不在 `CardDef.AnimTimes` 里 ⇒ 一个 trigger 名
+        /// 都标不上 ⇒ 仍被丢掉。⛔ 别因为「现在是 authoritative」就改成「一律保留」。</para>
         ///
         /// <para>🆕 **2026-10-20（`FACTION-DOUBLE605`）`abilityIndex`**（≥0 = 原版 `cardAbilities[i]`
         /// 的 0 基下标；`-1` = 不筛 = 改前行为）：本方法**不再筛**（见 ③ 的注释）——
@@ -2367,14 +2737,17 @@ namespace CardPresentation
                 // 🆕 2026-10-20（`FACTION-DOUBLE605`）：带能力序号的拍**证明不了**是哪几条动画
                 //   ⇒ 宁可留白（多发一条事件时「全播」= 两遍，那正是本件要修的缺陷）。
                 if (abilityIndex >= 0) return false;
-                picks = trig;
-                return hasTrig;
+                // 🆕 2026-10-24（`A2` · `D4`）：整桶里**只留触发那一拍该播的**（`Trigger(3)/TriggerOnPlay(6)`
+                //   + 卡级行）—— `Start(0)` 那批是**召唤/附魔那一刻**的（判据见 `IsNonTriggerBeatTraitRow`）。
+                picks = TriggerBeatRows(trig);
+                return picks != null && picks.Count > 0;
             }
 
-            // ① 标名（两张桶一起）
+            // ① 标名（两张桶一起）—— 🆕 2026-10-24（`A2`）：一条候选可以有**多个** trigger 名
+            //   （同一个 `CardAnim` 在两条 `CardAbility` 里各出现一次，见 `AddTriggerNamesOf`）。
             var names = new List<string>();
-            if (hasTrig) foreach (var p in trig) AddTriggerName(names, TriggerNameOf(times, p));
-            if (hasAbil) foreach (var p in abil) AddTriggerName(names, TriggerNameOf(times, p));
+            if (hasTrig) foreach (var p in trig) AddTriggerNamesOf(names, times, p);
+            if (hasAbil) foreach (var p in abil) AddTriggerNamesOf(names, times, p);
 
             // ② 定目标
             //   🆕 2026-10-23（特效线「新账-86」）：**先归一成原版 trigger 名再判白名单**
@@ -2394,14 +2767,19 @@ namespace CardPresentation
                 // 🆕 2026-10-20（`FACTION-DOUBLE605`）：带能力序号的拍**判不出目标 trigger 就留白**
                 //   —— 掉回 `trigger` 粗桶会把整批候选再播一遍（同一张卡发两条事件时 = 播两遍）。
                 if (abilityIndex >= 0) return false;
-                picks = trig;                     // ④ 判不出 ⇒ 原样（今天的行为）
-                return hasTrig;
+                // 🆕 2026-10-24（`A2` · `D4`）：同上 —— 整桶里只留触发那一拍该播的。
+                picks = TriggerBeatRows(trig);    // ④ 判不出 ⇒ 原样（今天的行为，但按拍分件）
+                return picks != null && picks.Count > 0;
             }
 
             // ③ 两张桶一起、只留标到目标的候选
             var merged = new List<CardPick>();
-            if (hasTrig) foreach (var p in trig) if (NameIs(TriggerNameOf(times, p), target)) merged.Add(p);
-            if (hasAbil) foreach (var p in abil) if (NameIs(TriggerNameOf(times, p), target)) merged.Add(p);
+            if (hasTrig) foreach (var p in trig) if (CandidateHasTrigger(times, p, target)) merged.Add(p);
+            if (hasAbil) foreach (var p in abil) if (CandidateHasTrigger(times, p, target)) merged.Add(p);
+            // 🆕 2026-10-24（`A2` · `UM37`/`UM84`）：同一个 `CardAnim` 在两条 `CardAbility` 里各出现一次时，
+            //   两边的候选都可能「命中」这个 target（分类键只看 `CardAnim`，分不出哪一条 occurrence）
+            //   ⇒ 按 `times` 标到这一拍的行数截断（现读一次都不触发，见该方法的 doc）。
+            merged = TrimToLabelledRowCount(merged, times, target, cardIdOrName);
             // 🆕 2026-10-20（`W58-REFIX` · 铁律 5 就地订正）：**能力序号筛选不在这里做** ——
             //   原来这里调 `FilterPicksByAbilityIndex`（它自己从游标 0 重钉一遍），随后
             //   `ResolveAllTimed` 又用**另一组** `pin[]` 从游标 0 再钉一次 ⇒ 第 2 条能力被钉回
@@ -2459,9 +2837,12 @@ namespace CardPresentation
         /// <item>`OnCollectQuestPoints`(695)：同上（DA 2 张 / 2 条）。</item>
         /// <item>`TriggeredCodex`(650)：只出现在注释里（UM 1 张 / 1 条）。⚠️ 与已在白名单里的 `Codex`
         ///   **不是同一个名字** —— `Codex` 有真发射口（`RuleCore.CheckCodex` → `FireTriggerAt`），它没有。</item>
-        /// <item>🆕 `OnCollectSpiritStone`(610)：SaimHann 5 条 / 4 张。**没有**独立触发口 ——
-        ///   `VfxMap.CrossTriggerDrops` 只是把 610 那条从 `ability` 桶里**丢掉**（C3 D8）；
-        ///   要补得走「收集」那条事件（`EvtKind.GainSpirit` / 残骸收集），⛔ 别接成技能。</item>
+        /// <item>✅ **2026-10-24（引擎线 `G1b` · `C2` §2 · D8）：`OnCollectSpiritStone`(610) 已放行，不在本表。**
+        ///   留痕说明它当初为什么在：那一拍**有事件**（`WhenEventKind.GainSpirit`），但
+        ///   `EffectResolver.TriggerNameOfWhenKind` 当时**没有 `GainSpirit` 分支** ⇒ `EmitListenerTrigger`
+        ///   在 `tn == null` 时直接 return ⇒ `EvtKind.Trigger` **从不发**；而 `CrossTriggerDrops` 只是把
+        ///   610 那条从 `ability` 桶里**丢掉**（C3 D8，丢弃本身对、⛔ 别删）。本批补上映射
+        ///   （`CardScript__ReactToCollectSpiritStone.c:5-9` = `0x262`）⇒ 现在它在 `MustRouteTriggerNames` 里。</item>
         /// <item>🆕 `UnitLoseStealth`(647)：SaimHann 1 条 / 1 张，没有发射口。</item>
         /// <item>🆕 `UnitStunned`(291)：SaimHann 1 条 / 1 张，没有发射口。</item>
         /// <item>🆕 `OnSabotageCreated`(701)：Genestealers 1 条 / 1 张，没有发射口。</item>
@@ -2490,7 +2871,11 @@ namespace CardPresentation
         static readonly string[] NoEmitTriggerNames =
         {
             "Unstable", "OnSecretCreated", "OnCollectQuestPoints", "TriggeredCodex",
-            "OnCollectSpiritStone", "UnitLoseStealth", "UnitStunned", "OnSabotageCreated",
+            // 🔴 **2026-10-24（引擎线 `G1b` · `C2` §2 · D8）**：`OnCollectSpiritStone`(610)
+            //   **已补发射口并从本表移出** —— 映射 = `EffectResolver.TriggerNameOfWhenKind` 的
+            //   `WhenEventKind.GainSpirit` 支；事件源 = `RuleCore.CollectWaystoneCore` 的
+            //   `BroadcastWhen(..., GainSpirit, ...)`。⇒ 现在它在 `MustRouteTriggerNames` 里。
+            "UnitLoseStealth", "UnitStunned", "OnSabotageCreated",
             // 🆕 2026-10-24（`A27` · `C4` D8(C4) / D9(C4)）：**名字不对 / 没有那一拍**
             //   （`UnitReceivesHuntMark` / `OnCollectFaith` 已于 2026-10-24 `A30` 补好映射并移出本表 ·
             //    `ThisUnitSummoned` / `WhileInPlay` 已于 2026-10-24 `G2` 补好发射口并移出本表
@@ -2508,7 +2893,9 @@ namespace CardPresentation
             "Cruelty", "Stimulation", "Ecstasy",
             // 🆕 2026-10-24（`A30` · `C4` D7 第二批）：监听者那一拍（映射在 `TriggerNameOfWhenKind`）
             //   5 行 / 2 张（SW20 / SW35）· 2 行 / 1 张（SOR38）
-            "UnitReceivesHuntMark", "OnCollectFaith",
+            // 🆕 2026-10-24（引擎线 `G1b` · `C2` §2 · D8）：收集路标石那一拍
+            //   **5 行 / 4 张**（`ASH80` / `ASH28` / `ASH78` 2 行 / `ASH25`）。
+            "UnitReceivesHuntMark", "OnCollectFaith", "OnCollectSpiritStone",
             // 🆕 2026-10-24（引擎线 `G2` · `C4` D8）：`Deploy` 的 **`SelfOnly`** 那一支
             //   1 行 / 1 张（`SW10 Grey Hunter`）—— 映射分流 + 白名单同批上。
             "ThisUnitSummoned",
@@ -2536,7 +2923,9 @@ namespace CardPresentation
             KeywordTable.Cruelty, KeywordTable.Stimulation, KeywordTable.Ecstasy,
             // 🆕 2026-10-24（`A30`）：监听者那一族发的是原版枚举名本身（见上面那段补注）。
             //   与 `MustRouteTriggerNames` 同长同序 ⇒ 这两格与上表最后两项逐字相同。
-            "UnitReceivesHuntMark", "OnCollectFaith",
+            // 🆕 2026-10-24（`G1b` · D8）：`EmitCardTrigger` 发的是 PascalCase 原版枚举名
+            //   ⇒ 这一格与上表最后一项逐字相同（⛔ 别写成 `"gainspirit"`）。
+            "UnitReceivesHuntMark", "OnCollectFaith", "OnCollectSpiritStone",
             // 🆕 2026-10-24（`G2` · D8）：同上 —— `EmitCardTrigger` 发的是 PascalCase 原版枚举名。
             "ThisUnitSummoned",
             // 🆕 2026-10-24（`G2` · D9）：同上（`EmitWhileInPlayPass` → `EmitCardTrigger`）。
@@ -2599,20 +2988,24 @@ namespace CardPresentation
         ///   · 那批候选一件都不能少（少一件 = 归口把它丢了）。
         /// 现读口径（2026-10-24，逐张现算 —— ⛔ 断言里别写死这些数）：
         /// `Mob` 11 张/15 行 · `Teleport` 6 张/9 行 · `Codex` 23 张/33 行
-        /// （**32 行有件**：`UM28` 那条 `Wait_1s` 是纯计时拍 = D5；其中 **2 行**是「一个 `CardAnim`
-        /// 挂两个 trigger」分不出来的档 —— `UM37` / `UM84`，见 <see cref="AmbiguousTriggerLabel"/>，
-        /// 自检**跳过** ⇒ 实际验到 **22 张 / 30 行**）· `Uprising` 8 张/13 行 · `Artifice` 11 张/14 行
+        /// （**32 行有件**：`UM28` 那条 `Wait_1s` 是纯计时拍 = D5；🆕 **2026-10-24（`A2`）起
+        /// 「一个 `CardAnim` 挂两个 trigger」的 3 行**（`UM37` / `UM84` / `SW18`）**也逐条验**
+        /// —— 分类键改成「一条候选可以有多个 trigger 名」之后它们不再是盲区）·
+        /// `Uprising` 8 张/13 行 · `Artifice` 11 张/14 行
         /// （C3 第二批只覆盖新三阵营 ⇒ 它记的 `Artifice`「3 张/6 条」不含 Sautekh 那 8 张）·
         /// 🆕 `Cruelty` **8 张/10 行** · `Stimulation` **10 张/10 行** · `Ecstasy` **7 张/7 行**
         /// （三个全在 EmperorsChildren；2026-10-24 `A27` 现算：**0 行无件、0 行歧义**）·
         /// 🆕 **2026-10-24（`A30`）** `UnitReceivesHuntMark` **2 张/5 行**（`SW20` 2 · `SW35` 3）·
         /// `OnCollectFaith` **1 张/2 行**（`SOR38`）—— 三条都逐行有 prefab（现读 `cards_engine.json`）·
         /// 🆕 **2026-10-24（`G2` · D8）** `ThisUnitSummoned` **1 张/1 行**（`SW10 Grey Hunter`）·
-        /// 🆕 **2026-10-24（`G2` · D9）** `WhileInPlay` **1 张/2 行**（`SW18 Hrolf the Ironhowl`，
-        /// 其中 `Card_Buff_Hand_SW` 是真歧义行 ⇒ 只验到 `Buff_Blue_SW` 那 1 行；见 `AmbiguousTriggerLabel`）·
+        /// 🆕 **2026-10-24（`G2` · D9）** `WhileInPlay` **1 张/2 行**（`SW18 Hrolf the Ironhowl`；
+        /// 🆕 **2026-10-24（`A2`）起 `Card_Buff_Hand_SW` 那行也验** —— 它同时挂在
+        /// `WhileInPlay` 与 `ThisCardPlayed` 下，现在两边都取得到）·
         /// 🆕 **2026-10-24（执行代理 `J1` · `C5` D11/D12）** `Regiment` **10 张/14 行**
         /// （全 AstraMilitarum；`AM6`/`AM37`/`AM69` 各 2 行；**0 行无件、0 行歧义**）·
-        /// `TriggeredSynapse` **1 张/1 行**（`TL18 Zoanthrope`）。</para>
+        /// `TriggeredSynapse` **1 张/1 行**（`TL18 Zoanthrope`）。
+        /// 🆕 **2026-10-24（引擎线 `G1b` · `C2` §2 · D8）** `OnCollectSpiritStone` **4 张/5 行**
+        /// （全 SaimHann：`ASH80` 1 · `ASH28` 1 · `ASH78` 2 · `ASH25` 1；逐行有 prefab）。</para>
         /// <para>⚠️ 本方法走的是**生产解释路径**（`ResolveAllTimed`）⇒ 理论上会给 `UnpinnedPicks` 那类计数器加数
         /// （现读**增量 0**：候选全部来自 `cardAnimations[]`、都能钉上 `AnimTimes`）。若宿主对那个计数敏感，
         /// 断言前先 `ResetUnpinnedForTest()`。</para></summary>
@@ -2636,39 +3029,25 @@ namespace CardPresentation
             {
                 string name = MustRouteTriggerNames[k];
                 string kw = kws[k];
-                int cards = 0, rows = 0, ambiguous = 0;
+                int cards = 0, rows = 0;
                 foreach (var kv in ByCard)
                 {
                     var card = CardDatabase.FindById(pool, kv.Key);
                     if (card == null || card.AnimTimes == null || card.AnimTimes.Count == 0) continue;
                     List<string> want = null;
-                    List<string> ambig = null;
                     for (int i = 0; i < card.AnimTimes.Count; i++)
                     {
                         var t = card.AnimTimes[i];
                         if (t == null || !NameIs(t.TriggerName, name)) continue;
                         // `Wait_*` 纯计时拍没有 prefab（原版 `animAdressable` 就是空 GUID）⇒ 本来就没件
                         if (string.IsNullOrEmpty(t.Prefab)) continue;
-                        // ⚠️ **同一个 `CardAnim` 在同一条卡里被两个不同 trigger 各引一次** ⇒ 运行期的分类键
-                        //    `TriggerNameOf`（先 `A` 后 `N`、**只取第一条**，见它自己的 doc）**分不出来**：
-                        //    这种行会被判成**先出现**的那个 trigger。现读 **2 行**：`UM37` 的
-                        //    `BulletTrail_Stormraven_SingleTarget` 与 `UM84` 的 `Buff_Purple_target`
-                        //    （两条都同时挂在 `ThisCardPlayed` 与 `Codex` 下）⇒ 它们的 Codex 那一拍**今天播不出来**
-                        //    （视觉上由 `play` 那条同 prefab 的行盖住）。本自检**跳过**它们并如实记账 ——
-                        //    ⛔ 别把它改成「通过」：要收口得让分类键带上 `Order`（引擎/数据侧的另案）。
-                        if (AmbiguousTriggerLabel(card.AnimTimes, t))
-                        {
-                            // 🆕 2026-10-24（`G2` · D9）：**歧义行的件名** —— `got` 那边也要按同一档跳过。
-                            //   为什么两边都要跳：`want` 只决定「必交清单」，而生产路径 `TriggerNameOf`
-                            //   （只取第一条 `Anim`）**照样会把它播出来** ⇒ 只跳一边 = 每张这样的卡
-                            //   恒定报「多播」（自检永远红 ⇒ 这条闸报废）。
-                            //   现读唯一命中 = `SW18` 的 `Card_Buff_Hand_SW`（`WhileInPlay` / `ThisCardPlayed`）。
-                            //   ⛔ 别为了让它变绿而删掉 `want` 那侧的跳过 —— 那是「如实记账」的口。
-                            ambiguous++;
-                            if (ambig == null) ambig = new List<string>();
-                            ambig.Add(t.Prefab);
-                            continue;
-                        }
+                        // 🔴 **2026-10-24（`A2` · `UM37`/`UM84`）就地改口径（铁律 5）**：原来这里用
+                        //    `AmbiguousTriggerLabel` **跳过**「同一个 `CardAnim` 挂两个 trigger」的行
+                        //    （`UM37` / `UM84` / `SW18` 共 3 行）—— 那时分类键只取第一条同名行，
+                        //    第二条 occurrence **结构上取不到**，跳过是「如实记账」。现在分类键
+                        //    **带上了它**（`AddTriggerNamesOf`：一条候选可以有多个 trigger 名）⇒
+                        //    这三行**必须逐条验**。⛔ 别把跳过加回来（那会让这三张卡的 Codex /
+                        //    WhileInPlay 拍永远没人验）。
                         if (want == null) want = new List<string>();
                         want.Add(t.Prefab);
                     }
@@ -2682,9 +3061,6 @@ namespace CardPresentation
                     var left = new List<string>(want);
                     for (int i = 0; i < got.Length; i++)
                     {
-                        // 🆕 2026-10-24（`G2` · D9）：歧义行（见上面 `ambig` 的理由）—— 生产路径会播它
-                        //   ⇒ 这一档不计入「多播」（`Remove` 逐次消费，与 `left` 同一手法）。
-                        if (ambig != null && ambig.Remove(got[i].Name)) continue;
                         if (!left.Remove(got[i].Name))
                             bad.Add($"`{card.Name}`（{kv.Key}）的 `{name}` 那一拍**多播**了 `{got[i].Name}`"
                                   + "（不属于这个 trigger 的候选）⇒ 归口没生效 / 整桶播了。");
@@ -2694,38 +3070,10 @@ namespace CardPresentation
                               + "（原版这一行的 outer trigger 标的就是它）");
                 }
                 if (cards == 0)
-                    bad.Add(ambiguous > 0
-                        ? $"全表 `TriggerName == {name}` 的行**全落在「一个 `CardAnim` 挂两个 trigger」那一档**"
-                        + $"（{ambiguous} 行）⇒ 本自检**一条也验不了**（⛔ 这不是通过）。"
-                        : $"全表**一张卡**都没有 `TriggerName == {name}` 的候选 ⇒ 白名单这一条是空放"
-                        + "（数据侧变了？⛔ 别把白名单留在那儿当装饰）");
+                    bad.Add($"全表**一张卡**都没有 `TriggerName == {name}` 的候选 ⇒ 白名单这一条是空放"
+                          + "（数据侧变了？⛔ 别把白名单留在那儿当装饰）");
             }
             return bad.ToArray();
-        }
-
-        /// <summary>🆕 2026-10-24（`A21`）：**这条 `CardAnimTime` 的运行期分类键分得出来吗** ——
-        /// 同一个 `Anim`（`Anim` 为空时退到 `Prefab`，与 <see cref="TriggerNameOf"/> 同口径）
-        /// 在 `times` 里出现了**两个不同的 `TriggerName`** ⇒ `TriggerNameOf`（**只取第一条**）分不出来，
-        /// 这种行归口时会被判成先出现的那个 trigger。自检用它**如实跳过**（⛔ 不是判它通过）。
-        /// <para>现读命中 3 行：`UM37` 的 `BulletTrail_Stormraven_SingleTarget` · `UM84` 的
-        /// `Buff_Purple_target`（两条都同时挂在 `ThisCardPlayed` 与 `Codex` 下）·
-        /// 🆕 `SW18` 的 `Card_Buff_Hand_SW`（同时挂在 `WhileInPlay` 与 `ThisCardPlayed` 下）。</para></summary>
-        static bool AmbiguousTriggerLabel(IReadOnlyList<CardDef.CardAnimTime> times, CardDef.CardAnimTime t)
-        {
-            if (times == null || t == null) return false;
-            string key = !string.IsNullOrEmpty(t.Anim) ? t.Anim : t.Prefab;
-            if (string.IsNullOrEmpty(key)) return false;
-            string first = null;
-            for (int i = 0; i < times.Count; i++)
-            {
-                var o = times[i];
-                if (o == null) continue;
-                string k = !string.IsNullOrEmpty(o.Anim) ? o.Anim : o.Prefab;
-                if (!string.Equals(k, key, System.StringComparison.Ordinal)) continue;
-                if (first == null) { first = o.TriggerName ?? ""; continue; }
-                if (!NameIs(o.TriggerName, first)) return true;
-            }
-            return false;
         }
 
         /// <summary>🆕 2026-10-15（账 `A2082`）：**把一个「卡名」钉到唯一那张卡的 id 上**。

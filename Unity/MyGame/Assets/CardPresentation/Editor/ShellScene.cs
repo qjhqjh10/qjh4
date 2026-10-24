@@ -1453,6 +1453,99 @@ public static class ShellScene
             Check(shell.Windows.openWindows.Count, 1, "（收尾）又只剩底窗 1 个");
         }
 
+        // ---------------- 🆕 2026-10-24（A11）：消息弹窗 = **销毁旧的 + 按按钮数重建** ----------------
+        // 判据（第一权威 = 反编译方法体）→ `WindowsManager._LoadPopup_d__55__MoveNext.c:20-45`：
+        //   `if (popUpWindow != null) { CloseWindow(this, popUpWindow, false); Destroy(popUpWindow.gameObject); }`
+        //   → 按 `twoButtons` 挑 prefab `Instantiate` → 赋回 `*(this+0x60)`。
+        // 改前（A416/A454）：**复用同一扇 + `RefreshLiveContent`** —— 不是原版，而且有一档**丢钮**：
+        //   场上是 **1 按钮版**实例、这次要两颗 ⇒ 右钮那颗**画不出来**（A6 在调用点兜过底，见
+        //   `资料/普查产出_1024/A6_传奇合成确认窗.md` §六·1）。
+        // 灭自证：本节点同时咬三件 ——「换了新的一扇」「新的是 2 按钮版且右钮**有字**」「旧的那扇**被销毁**」。
+        Section("A11：消息弹窗 = 销毁旧的 + 按按钮数重建（原版 `_LoadPopup` 那一支）");
+        {
+            CheckTrue(shell.Windows.popUpWindow == null, "（前提）场上没有遗留的弹窗（上一节收尾过）");
+            var a11One = shell.Windows.ShowMessagePopUp("A11·一钮第一条", "确定", null);
+            CheckTrue(a11One != null && !a11One.TwoButtons && ReferenceEquals(shell.Windows.popUpWindow, a11One),
+                      "（前提）先开一扇 **1 按钮版**、它还开着、而且就是 `popUpWindow`");
+            // 🔴 **致命档**：1 钮版**还开着**时再要两颗 —— 改前会复用那一扇 ⇒ 右钮画不出来
+            var a11Two = shell.Windows.ShowMessagePopUp("A11·两钮第二条", "确定", null, "取消", null);
+            CheckTrue(a11Two != null && !ReferenceEquals(a11Two, a11One),
+                      "★ A11：1 钮版开着时再要两颗 ⇒ **换了一扇新的**（原版每次都 `Instantiate`；改回复用 ⇒ 返回的还是同一扇 ⇒ 本条红）");
+            CheckTrue(a11Two != null && a11Two.TwoButtons,
+                      "★ …而且新那扇是 **2 按钮版**（复用时它仍是 1 钮版 ⇒ 右钮**画不出来**，正是 A6 报的那一档）");
+            Check(a11Two != null ? a11Two.SecondaryShown : null, Loc.T("MainMenu/General/Cancel"),
+                  "★ …右钮**真画出来了**（= 第二颗 `LiveButtons` 的文案；改回「在 1 钮版上 `SetActive(true)`」⇒ 这条红）");
+            CheckTrue(a11One == null,
+                      "★ …**旧那一扇被销毁了**（原版 `Object.Destroy(Component.get_gameObject())`；"
+                    + "改回「只 `Close()` 不 Destroy」⇒ 旧对象还在 ⇒ 本条红。"
+                    + "⚠️ 批处理走 `DestroyImmediate` ⇒ 当场为 null；player 里 `Destroy` 是帧末生效）");
+            Check(shell.Windows.openWindows.Count, 2, "（收尾）底窗 1 + 弹窗 1 = 2");
+            // 再开一条**不同文案**的：仍要新建（顺带把「复用 + 刷新内容」那一版被悄悄改回来也挡住）
+            var a11TwoB = shell.Windows.ShowMessagePopUp("A11·两钮第三条", "确定", null, "取消", null);
+            CheckTrue(a11TwoB != null && !ReferenceEquals(a11TwoB, a11Two),
+                      "★ …第二条弹窗同样**换新的一扇**（不复用）");
+            Check(a11TwoB != null ? a11TwoB.MessageShown : null, "A11·两钮第三条",
+                  "★ …正文跟着换成这一次的");
+            CheckTrue(a11Two == null, "★ …中间那一扇也被销毁了（只在新建**之前**销毁旧的，⛔ 不留一串尸体）");
+            // 收尾：**直调** `ShowMessagePopUp` 没有 `ShowPopUp` 那层关窗包装 ⇒ 自己 `Close()`（同 A569·S1 的写法）
+            if (a11TwoB != null) a11TwoB.Close();
+            CheckTrue(shell.Windows.popUpWindow == null, "（收尾）`popUpWindow` 位空着");
+            Check(shell.Windows.openWindows.Count, 1, "（收尾）只剩底窗 1 个");
+        }
+
+        // ---------------- 🆕 2026-10-24（A11）：商店「买传奇」确认框 = **左 Cancel / 右 OK** ----------------
+        // 判据（第一权威 = 反编译方法体）：`CatalogItemContainer__TryPurchase.c:30-50` 与
+        //   `CraftingPanel__TryCrafting.c:26-49` **同形** —— `buttons[0] = Cancel`（左）· `buttons[1] = OK`（右）；
+        //   而 `PopUpGameWindow.ConfigurePopUp` 的 `LiveButtons[0]` = `ButtonLeft`（= `ShowPopUp` 的 primary）。
+        // 改前：`ShopTabPage.Buy` 把 `OK` 当 primary 传 ⇒ **左 OK / 右 Cancel**，与隔壁锻造确认窗
+        //   （左 Cancel / 右 OK）自相矛盾（发现于 `资料/普查产出_1024/A6_传奇合成确认窗.md` §六·2）。
+        // 灭自证：两条 ★ 断的是**左右两颗钮各自画的是什么字**（不是「我们传了哪个常量」）——
+        //   把调用点的两个参数换回去 ⇒ 两条同时红；只对调回调不对调文字 ⇒ 「点左钮不买 / 点右钮买」红。
+        Section("A11：商店「买传奇」确认框 —— 左 = Cancel · 右 = OK（原版 `buttons[0]/[1]` 顺序）");
+        {
+            CheckTrue(ShopData.NeedsLegendaryConfirm(0, 2),
+                      "（前提）这一件真的是**传奇（Rarity 4）且 owned == 1**（`ShopData` 第 0 页第 2 件"
+                    + " `Space Wolves Booster`）—— 否则开出来的根本不是那扇确认框");
+            CheckTrue(shell.Windows.popUpWindow == null, "（前提）场上没有遗留的弹窗（上一节收尾过）");
+            int a11OwnedBefore = ShopData.OwnedOf(0, 2);
+            bool a11Confirmed = false;
+            var a11Left = ShopTabPage.ShowLegendaryConfirm(shell.Windows, () => a11Confirmed = true);
+            CheckTrue(a11Left != null && a11Left.TwoButtons,
+                      "★ A11：确认框开出来了、而且是 **2 按钮版**（原版传了两颗 `GameWindowButton` ⇒ 两钮 prefab）");
+            if (a11Left != null)
+            {
+                Check(a11Left.PrimaryShown, Loc.T("MainMenu/General/Cancel"),
+                      "★ …**左钮 = Cancel**（原版 `buttons[0]`；改回「把 OK 当 primary 传」⇒ 本条与下一条一起红）");
+                Check(a11Left.SecondaryShown, Loc.T("MainMenu/General/OK"),
+                      "★ …**右钮 = OK**（原版 `buttons[1]`）");
+                ClickPopUpButton(a11Left, "ButtonLeft");
+                CheckTrue(!a11Confirmed,
+                          "★ …点**左钮（Cancel）**⇒ **不买**（确认回调一条都没跑；两颗钮的回调接反 ⇒ 本条红）");
+                Check(ShopData.OwnedOf(0, 2), a11OwnedBefore,
+                      "★ …而且拥有数**没变**（取消不发货；判据 = `ShopData.OwnedOf` 现读，⛔ 不是看日志）");
+                CheckTrue(!a11Left.gameObject.activeSelf,
+                          "★ …窗自己关掉了（Cancel 那颗的回调是 null ⇒ 靠 `WindowsManager.ShowPopUp` 那层包装关窗；"
+                        + "绕开它直调 `ShowMessagePopUp` ⇒ 这条红）");
+            }
+            Check(shell.Windows.openWindows.Count, 1, "（收尾）关掉之后只剩底窗 1 个");
+
+            // 右钮那一半：两条合起来才钉住「**哪颗钮**调**哪个回调**」两边都对
+            a11Confirmed = false;
+            var a11Right = ShopTabPage.ShowLegendaryConfirm(shell.Windows, () => a11Confirmed = true);
+            CheckTrue(a11Right != null && a11Right.TwoButtons, "（前提）重开一扇同样是 2 按钮版");
+            if (a11Right != null)
+            {
+                ClickPopUpButton(a11Right, "ButtonRight");
+                CheckTrue(a11Confirmed,
+                          "★ …点**右钮（OK）**⇒ 确认回调真的执行了（生产路径传的是 `() => DoBuy(captured)`）");
+                CheckTrue(!a11Right.gameObject.activeSelf, "★ …而且窗自己关掉了");
+            }
+            Check(ShopData.OwnedOf(0, 2), a11OwnedBefore,
+                  "（复核）本节点只验**回调接线**、没有真去买 ⇒ 拥有数仍然不变"
+                + "（⛔ 别把这里的 `() => a11Confirmed = true` 换成生产那个 `DoBuy`：那会把商店状态写脏）");
+            Check(shell.Windows.openWindows.Count, 1, "（收尾）又只剩底窗 1 个");
+        }
+
         // ---------------- 🆕 A672：`type` 忘了显式赋值 ⇒ **第二层出声**（有人绕过 `AttachToAnchor`）----------------
         // 生产侧（哨兵 `UnsetType` + 两层出声 + 兜底写回）→ `Shell/WindowsManager.cs`（写手 W8 落地；
         //   报告 = `资料/普查产出_1015/W8_WindowsManager_A672与A633.md`）。
@@ -1508,15 +1601,15 @@ public static class ShellScene
                       "（前提）场上只有 ⑤ 那扇底窗（上一节收尾还原过；本节点收尾同样还回去）");
             var s1A = shell.Windows.ShowMessagePopUp("A569 S1 明文正文", "确定", null);
             CheckTrue(s1A != null && ReferenceEquals(shell.Windows.popUpWindow, s1A),
-                      "（前提）第一扇弹窗开出来了、而且它就是 `popUpWindow` —— `ShowMessagePopUp` 的**复用**判据"
-                    + "正是「这一位还是同一扇」（`StillOpen`）");
+                      "（前提）第一扇弹窗开出来了、而且它就是 `popUpWindow`（`HidePopUp` 第一句比的就是这一位）");
             // ⚠️ 下面一律**空值安全**地取（照 ⑤·a 那节 `hp2 != null` 的写法）：`Create` 万一交回 `null`，
             //   `x.transform` 那一句就是**当场 NRE 崩**（后面整片都不跑 —— 比红更糟，同 A569·S1 在 DeckScene 那条前提）。
             var s1BtnA = s1A != null ? FindChildIn(s1A.transform, "Generic UI Button") : null;
             CheckTrue(s1BtnA != null, "（前提）窗内那颗钮找得到（下面拿它当「窗内句柄」的样本）");
             if (s1A != null) s1A.Close();
             CheckTrue(shell.Windows.popUpWindow == null,
-                      "（前提）关掉之后 `popUpWindow` 位**空了**（`Close()` = 摘表 + 清位 + `SetActive(false)`；这一位也是「复用」的判据）");
+                      "（前提）关掉之后 `popUpWindow` 位**空了**（`Close()` = 摘表 + 清位 + `SetActive(false)`；"
+                    + "`HidePopUp` 第一句比的就是这一位）");
             CheckTrue(s1A == null || !s1A.gameObject.activeSelf, "（前提）……而且那一扇不激活了");
             var s1B = shell.Windows.ShowMessagePopUp("A569 S1 明文正文（第二次）", "确定", null);
             CheckTrue(s1B != null && s1B != s1A,
@@ -1524,8 +1617,10 @@ public static class ShellScene
                     + " ⇒ 关过就是没了 ⇒ 再开只能新建）—— 所以**上一拍抓的窗句柄不能接着用**"
                     + "；改坏法：让 `StillOpen` 认「实例还在」而不是「还在 `openWindows` 里」⇒ 复用同一扇 ⇒ 这条红");
             var s1BtnB = s1B != null ? FindChildIn(s1B.transform, "Generic UI Button") : null;
-            // 🔴 本节的重点：旧句柄**至今不是 `null`**（我们关窗只 `SetActive(false)`、**从不销毁对象**，A123 那条老账）
-            //   ⇒ `if (x != null)` 那种守卫**结构上挡不住它** —— 唯一正确的处置就是「**重取**」。
+            // 🔴 本节的重点：**上一拍抓的窗句柄不能接着用**。`Close()` 本身只 `SetActive(false)`、**不销毁**
+            //   （A123 那条老账），所以那一刻它还**不是** null；而**下一次 `ShowMessagePopUp` 会把它销毁**
+            //   （2026-10-24 `A11` 照原版 `_LoadPopup` 改的，见上面那一节）⇒ 再往后它就成假 null 了。
+            //   两种状态都挡不住 `if (x != null)` 那种守卫 —— 唯一正确的处置就是「**重取**」。
             CheckTrue(s1BtnB != null && s1BtnB != s1BtnA,
                       "★ …而且**窗内子树也是新的**（`s1BtnA` 从那一下就**不再是**这一扇窗里的钮了）"
                     + "；改坏法：把上面那句 `FindChildIn(s1B.transform, …)` 换成沿用 `s1BtnA` ⇒ 这条红");

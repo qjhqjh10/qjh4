@@ -482,7 +482,8 @@ def main():
              f"（解析到 shader 的 {sum(mat_count.values())} 个）。")
     S += ["", "## 二、口径与判据（可复查）",
           "- **名单不是二手清单**：直接遍历 `aa\\StandaloneWindows64\\*.bundle` 里 type=Shader 的对象。"
-          "（任务书让读 `_tmp_view/导出报告_快照_0917.tsv` 第 3 段 —— 那份只解出 **8** 个名字，见「五」。）",
+          "（任务书让读 `_tmp_view/导出报告_快照_0917.tsv` 第 3 段 —— 那份只解出 **8** 个名字，见「五」。"
+          "⚠️ 2026-10-24：该快照现读已不在盘上，此句是 2026-09-17 当时的读数，不可复查。）",
           "- 工具：`d:/4/Unity/工具/_dump_shaders_batch.py`（包了 `dump_shader.py` + `dump_shader_blob.py` 的主逻辑；"
           "原版两个工具都一次只吃一个 shader 名，不循环）。",
           "- **材质→shader**：`Material.m_Shader` 是 PPtr；`m_FileID=0` 是同 bundle，`m_FileID=n` 取 "
@@ -522,7 +523,9 @@ def main():
               "Everguild/Matcap/Matcap Full Options", "Legacy Shaders/Particles/Additive",
               "Mobile/Particles/Alpha Blended", "Universal Render Pipeline/Lit",
               "Universal Render Pipeline/Particles/Unlit", "WarpforgeVFX/Particles/Extra Color"]) +
-             "。这 8 个是 135 个的**子集** ⇒ 只当名单会漏 127 个。")
+             "。这 8 个是 135 个的**子集** ⇒ 只当名单会漏 127 个。"
+             "⚠️ 2026-10-24：该快照现读已不在盘上 —— 以上「960 行 / 只有 2 行 / 8 个名字」"
+             "是 2026-09-17 当时的读数，**不可复查**。")
     S += ["", "## 六、关键发现",
           "1. **DXBC 里没有 RDEF 段**：`工具/dump_shader_blob.py` 头注释写「DXBC 的 RDEF 段里资源名是明文」，"
           "实测每个 DXBC 只有 `ISGN`/`OSGN`/`SHDR` 三段（出包时反射表被剥了）；该工具扫到的名字来自 "

@@ -67,7 +67,7 @@
 ### B·1 `AM30 Manticore` — `play`（unbacked，不播）
 - 卡 SO：`abilityCount=0`、`hasActiveAbility=1`；`cardAbilities` **为空** ⇒ **没有 `ThisCardPlayed(0)` 能力**。
 - 它**有**的：`customRangedAttackParticles` = `Atk_Artillery_manticore`（→ `attack_ranged` 桶）；`activeAbility.activeAbilityLogic[0].cardAnimations[0..2]` = `DutyAnim` / `Artillery Up Manticore 2x` / `Artillery Ground Manticore 2x spread`（→ `ability` 桶，主动技能用的时候播）。
-- 猜的 `Manticore Board Down`（CardAnim guid `2bb742a0…`）：**1,351 张卡 SO 引用数 = 0**；它的 prefab `Artillery Manticore down 1x`（guid `e3fb0804…`）只被 CardAnim `Manticore Board Down` + `Artillery Ground Big` 引用，两者都**不被任何卡引用**；`trait_collection.json` 命中 0。
+- 猜的 `Manticore Board Down`（CardAnim guid `2bb742a0…`）：**1,351 张卡 SO 引用数 = 0**；它的 prefab `Artillery Manticore down 1x`（guid `e3fb0804…`）只被 CardAnim `Manticore Board Down` + `Artillery Ground Big` 引用，~~两者都**不被任何卡引用**~~ 🔴 **2026-10-24 更正（铁律 5 · A9 现核）**：**`Artillery Ground Big` 实际被 `AM53`（play）与 `AM18`（ability）引用，且两条都是 authoritative** ⇒ 这句话不成立；`trait_collection.json` 命中 0。**结论（AM30 的 play 不播）不变**，但**理由要换成**「AM30 的 `cardAbilities` 为空、没有 `ThisCardPlayed(0)` ⇒ 本就没有逐卡 play 件；`Artillery Manticore down 1x` 那一件是 AM53/AM18 在播的」（判据 → `资料/普查产出_1024/A9_四个unbacked桶.md`）。
 - 原版这一拍：`ThisCardPlayed` 没有能力 ⇒ **没有逐卡播放件**（登场淡入走共享 `normalSummon`，见 B·5）。
 - **判定**：确认原版无引用 ⇒ 不播**正确**。
 

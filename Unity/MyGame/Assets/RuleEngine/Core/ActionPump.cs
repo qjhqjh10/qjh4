@@ -291,7 +291,19 @@ namespace RuleEngine
         public static bool ActorMustBeInPlayForTrigger(CardDef card, string triggerName, string keyword)
         {
             if (TriggerSkipsAbilityContext(triggerName, keyword)) return false;
-            int context = AbilityContextOfAbility(card, triggerName, keyword);
+            // 🔴🆕 **2026-10-24（引擎线 `A1` 第 5 件 · 判据由 C1 闭合）**：这一格改走
+            //   <see cref="AbilityContextOfAbilityV14"/> —— 原版 `CardAbility.abilityContext` 是
+            //   **序列化枚举、默认 `0 = Play`**（`cards_raw.json` 1351 张 / 1496 条 **0 条缺键**），
+            //   而我们卡表**只落非 0 行**（`gen_cards_engine.py` 的 `ability_contexts_of`）
+            //   ⇒ 「查不到这一行」在有 v14 真值快照的卡上 = **`Play(0)` 被省略**，**不是未知**
+            //   （判据 → `资料/普查产出_1024/C1_引擎线判据总表.md` §5·1）。
+            //   ⚠️ **`-1` 只剩两种来路**：旧卡表 / 第二解析路没接列 / 载体卡拿不到
+            //   （`DeathWatch` 那一支传 `null`）—— 那才回退旧关键词表。
+            //   ⚠️ 本方法的返回值只喂 **`requireActorInPlay`（出队复核）**；凡**同时**传了
+            //   `abilityContext` 的调用点，泵点会走「变残骸才取消」那一支、**跳过**这一支
+            //   （`ActionPump.PumpActionQueues` 的 `else if` 结构）⇒ 原版「入队后死亡不取消」
+            //   那条口径（`W63`）不受影响。
+            int context = AbilityContextOfAbilityV14(card, triggerName, keyword);
             if (context == CardDef.AbilityContextUnknown)
                 return LegacyActorMustBeInPlayForKeyword(keyword);   // `-1` 契约：回退旧表
             return context == CardDef.AbilityContextPlay;
@@ -564,8 +576,17 @@ namespace RuleEngine
             switch (context)
             {
                 case CardDef.AbilityContextPlay:
-                    // 活着 + 在棋盘 + 未待死。`IsAlive` 补的是「血已归零、还没进待死队列」那一格。
-                    return cell != null && cell.IsAlive && !ctx.IsPendingDeath(cell);
+                    // 活着 + 在棋盘 + 未待死 + **不是残骸**。
+                    // `IsAlive` 补的是「血已归零、还没进待死队列」那一格。
+                    // 🆕 2026-10-24（引擎线 `A1` 第 5 件）：**`+0x65 isRemnant == 0` 这一道补上了** ——
+                    //   原版 `CardAbility__IsRightContext.c:20-30` 的 `Play(0)` 支逐句是：
+                    //   `IsInPlay(card)` ∧ `!EnoughPendingDamageToDie(card)` ∧
+                    //   `*(char *)(card + 0x65) == 0`；而 `+0x65` 就是 `EntityScript.isRemnant`
+                    //   （`dump.cs:22001`），`CheckIfMeetsCriteria.c:255-261` 的 `includeRemnants`
+                    //   读的也是同一格。⇒ 残骸**不算** `Play(0)` 的合法载体。
+                    //   ⚠️ 今天零可达（残骸是 `new UnitState(...){IsRemnant=true}`，不带 ability），
+                    //   本条堵的是形状（⛔ 不是「没判据所以不做」）。
+                    return cell != null && cell.IsAlive && !ctx.IsPendingDeath(cell) && !cell.IsRemnant;
                 case CardDef.AbilityContextInPlayOrDying:
                     return cell != null;                              // 🔴 含待死（状态 5 也算在场）
                 case CardDef.AbilityContextInPlayOrCemetery:

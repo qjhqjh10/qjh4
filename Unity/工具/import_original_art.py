@@ -484,6 +484,14 @@ MENU_IMAGES = [
     ('40k_main_bt_shop',                      'atlasindividual_assets_0_mainmenu'),
     ('40k_main_bt_rewards',                   'atlasindividual_assets_0_mainmenu'),
     ('40k_main_bt_friends',                   'atlasindividual_assets_0_mainmenu'),
+    # 🆕 2026-10-24（活动线 · 事件钮图标）：第 6 颗导航钮 `Event Navigation Button` 的图标。
+    #   判据 = `bundle_liveopsicons_assets_all/Sprite/40k_main_bt_event.json` 现读：
+    #   `m_Rect = (0,0,135,135)` · `m_PixelsToUnits = 100` · `m_Pivot = (0.5,0.5)` · `m_Border = (0,0,0,0)`；
+    #   Texture2D = `sactx-0-512x512-DXT5_BC3-Liveop Icons-b11043a2.png`（图集 `Liveop Icons`）。
+    #   ⚠️ 插槽是 **140×140 + `m_PreserveAspect = 1`**（`Event Navigation Button/Image`），135² 与 140² 同比例
+    #   ⇒ 实际画成 140×140，几何不用改。⚠️ 原版插槽 `m_Color = (0.73585,0.73585,0.73585,1)`（≈73.6% 灰）
+    #   —— 比五颗导航钮的白图标暗 26%，色值在 `Shell/MainMenuRuntime.cs` 的调用点传。
+    ('40k_main_bt_event',                     'liveopsicons_assets_all_sprites'),
     ('Closed-Chat_background',                'atlasindividual_assets_0_mainmenu'),   # 聊天预览底
     ('40K_icon_menu_chat',                    'atlasindividual_assets_0_mainmenu'),   # 聊天入口
     ('Tutorial Highlight',                    'duplicateassetisolation_assets_all'),  # 教程光罩（出厂 inactive）

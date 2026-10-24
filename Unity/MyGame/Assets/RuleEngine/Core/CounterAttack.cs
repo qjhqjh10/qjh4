@@ -71,11 +71,18 @@ namespace RuleEngine
         /// <summary>
         /// 原版 `EntityScript.currentCombatAttack`：按**当前攻击型**取近战/远程那一档；
         /// 残骸 = 0（`+0x65 && !+0x66`）。`dropPod` 的存档值那一支没建模（池内 0 张，见文件头）。
+        ///
+        /// 🔴🆕 **2026-10-24（`C1` §5）订正**：原来这里只判 `u.IsRemnant` ⇒ 少了
+        /// `!isLeavingRemnant(+0x66)` 那一维。原版 `get_currentCombatAttack.c:40-47`：
+        /// **`(+0x65 != 0) && (+0x66 == 0)` ⇒ return 0**；「正在离场的残骸」**落回**正常攻击值。
+        /// 语义已按判据补齐（`UnitState.IsLeavingRemnant`）；⚠️ **写入点未查清 ⇒ 今天不可达**，
+        /// 由合成夹具断言（`RuleEngineTest_EngineB3`）。
         /// </summary>
         public static int CurrentCombatAttack(BattleContext ctx, int owner, UnitState u)
         {
             if (u == null) return 0;
-            if (u.IsRemnant) return 0;
+            // 🔴 `+0x65 && !+0x66` ⇒ 0（见上面那段 2026-10-24 订正）
+            if (u.IsRemnant && !u.IsLeavingRemnant) return 0;
             bool ranged = u.CurrentAttackType == UnitState.AttackTypeRanged;
             return RuleCore.FieldAttack(ctx, owner, u, ranged);
         }

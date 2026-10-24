@@ -2667,7 +2667,7 @@ class PlayProbe
     //     8 张全部能在 W58/W59 的报告里按卡名找到「改前 → 改后」的原文读数。
     //   重生成 `play all pf` 连跑两次逐字节一致（**755,372 B**；新增 0 / 消失 0），行数 **1713 不变**
     //   （主档 1127 ＋ 电池 586）；重生成后 `play check` **rc=0**（①-a/①-b 差异 0 · ② 哨兵过）。
-    public const string PinnedPlayMd5 = "6d4639fc4802b7b2f13212c47e21d62e";
+    public const string PinnedPlayMd5 = "c7236f26c4a0cbcd1cef184fe2c4a7c9";  // 2026-10-24 重钉（Z71 · G10 收尾）：只有 GSC75 一行（手牌计数 1 而不是盘面 2）；归因 → 资料/普查产出_1024/G10_GSC75解析缺陷.md
 
 
     /// <summary>`play check` 的缺省基线 —— **按名字往上找**（形状照 `Program.CheckMain.DefaultBaseline`，

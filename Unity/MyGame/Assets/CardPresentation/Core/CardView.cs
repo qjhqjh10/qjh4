@@ -729,6 +729,80 @@ namespace CardPresentation
         ///    拉成一圈白边（踩过，见 `ArtMeshInFrame`）。</summary>
         const float ArtCoverMargin = 1.04f;
 
+        // ==================================================================
+        //  🔴 原版立绘的**硬矩形** `_Clamp_Range`（2026-10-24 · A7）
+        // ==================================================================
+        //
+        // **它是什么**：原版 `CardImage`（那张 Image，材质 = `Card Image Overflow`）的 shader
+        //   `Everguild/Card ImageUI`（解包 `bundle_shaders_assets_all/Shader/Shader_-2318977921299023320.json`，
+        //   `m_ParsedForm.m_Name`）片元里**只**对 α 做的一件事：
+        //
+        //     α *= (z < uv.x ≤ x && w < uv.y ≤ y) ? 1 : 0        // 四个变体（b7/b8/b9/b10）逐字相同
+        //
+        //   即 **UV 空间的一个硬矩形**：矩形外整块 α=0（不是按轮廓、也不是渐变）。
+        //
+        // **真值（一手，不是猜）**：`CardImageController__.cctor.c` 把两个 Vector4 写进静态字段
+        //   （静态区 +0x00 = SMALL、+0x10 = BIG），字节来自 `_DAT_1834b33d0…0x1834b33ec` ——
+        //   `工具/read_literal.py` 现读（4 字节档，本文件上下文就是 float）：
+        //     · SMALL = (x 0.81, y 1, z 0.18, w 0)      ← 0x1834b33d0 / d4 / d8 / dc
+        //     · BIG   = (x 0.75, y 0.89, z 0.25, w 0.1) ← 0x1834b33e0 / e4 / e8 / ec
+        //   作用层级 = `CardImageController.DoChange` 的 `Material.SetVector(materialOffsetAndScaleID, …)`，
+        //   那个 ID 来自 ctor 的 `Shader.PropertyToID("_Clamp_Range")`（字符串字面量 VA 0x1842c5010，
+        //   `script.json` 的 `ScriptString` 逐字节命中；`Card Image Overflow.mat` 里那份序列化值也是
+        //   `(0.82, 1, 0.18, 0)`）。
+        //
+        // ⚠️ **UV 是【贴图 UV】，不是 sprite 局部 UV**（`_MainTex_ST` 恒 = 1,0 ⇒ 就是 `Sprite.uv`）。
+        //   原版卡图贴图统一 **1024²**，两族 sprite rect（全池 1207 个 Sprite 实测：657 + 548 + 2 杂项）：
+        //     · 单位 / 督军 = **670.5×1024 @ x=176.5**（671 张 unit/hero 卡）⇒ 贴图 UV 的 (0.18,0.81]
+        //       在这族上只等于**图宽两端各切 1.2% / 2.6%**（不是「中间 64%」—— 那是把贴图 UV 当局部 UV 的误读）；
+        //     · 战术 / 防御 = **整张 1024²**（548 张）⇒ 那族上才是 (0.18,0.81] / BIG (0.25,0.75]。
+        //   ⇒ 换算到**我们这张 PNG 的局部 UV** 走 `ArtClampUv01`（下面），一张图一份。
+        //
+        // ⚠️ **两个小图值**：材质序列化默认 `x=0.82`，cctor 常量 `x=0.81`。产品路径
+        //   （`CardDisplayWindow.ShowBattleCard` → `ChangeSize(Small, instant)` → `ChangeState(Small)`）
+        //   在 `currentState` 已经是 Small(0) 时**提前 return**（`ChangeState` 第一句）⇒ 画面上用的是
+        //   **材质默认 0.82**；0.81 只在 Big→Small 之后出现（本 build 只有调试组件 `CardImageControllerTester`
+        //   会走到）。两者差 1% 图宽（≈10 纹素），落点都在卡框不透明金属/或框外 ⇒ 这里取**产品实际值 0.82**
+        //   （BIG 只可能由 ChangeState(Big) 写入 ⇒ 用 cctor 的 0.75/0.89/0.25/0.1）。
+        //
+        // ⚠️ **状态**：`ChangeState` 只在**尺寸切换**时改它；`DoChange` 把 `Vector4` 写进材质。
+        //   BIG 那一档只在 `currentState == 1` 时取（本 build 的产品路径**不可达** —— 见 `BigCardOverdraw`）。
+        //
+        // ⚠️ **我们怎么落**（⚠️ 2026-10-24 订正（铁律 5）：本段原来写「硬矩形**只套 `_artFront`** …
+        //   底层 `_art`（`ArtOpaque`）**不套**：原版没有与之对应的被 clamp 的层」—— **只对单位卡成立**，
+        //   对战术/防御卡**已不成立**。判据 → `资料/普查产出_1024/H1_战术卡生产立绘硬矩形.md`）：
+        //   · **`_artFront`**（真 alpha 那层 = 原版 `CardImage` 的等价物：同一张贴图、同一个 alpha 语义）
+        //     照旧套 —— 小图档 `clampKind 1`、大图档 `2`。
+        //   · **底层 `_art`**（`ArtOpaque`，忽略 alpha 的整幅插图）：**单位卡恒 0（不套）**；
+        //     **非单位卡（战术/防御）小图档 `1` · 大图档 `2`**（`H1` 起；档位收在 `ArtClampKindFor` 一处，
+        //     `Build` 与状态重烘共用）。
+        //   判据（一手）：`CardImageController__SetImage.c` 的 `Tactic(0x14)` 分支（`:126-137`）**只关
+        //   `frameMask`**（`AlphaMask = null` + `enabled = false`），而 `Image.sprite = sprite` 在 `:174-177`
+        //   对**所有卡型无条件**执行、`ChangeState` / `DoChange` 对卡类型**没有任何判断** ⇒ 原版战术/防御卡
+        //   与单位卡走**同一颗 `CardImage`、同一个硬矩形**；原版战术卡**只有** `CardImage` 这一层立绘
+        //   ⇒ 我们与之对应的那一层正是 `_art`。判据全文 → `资料/普查产出_1024/F4_卡面条带与断言.md` §三
+        //   ＋ `H1_战术卡生产立绘硬矩形.md`。原写「战术/防御卡上套了会**在拱窗里切出一条竖边**」那条
+        //   **没复核过** —— 它只是「我们的战术立绘是满幅方图 vs 原版 `cardScales` 0.61 +
+        //   `tacticsOffsetPosition` y+0.5」这个**既有偏离**的推论，⛔ 别当判据。
+        //   可见变化：集中在**非单位卡 且 卡框开口比硬矩形（±0.9147 卡单位）宽**那一档（`tier2/3/4` 的少数框，
+        //   每侧 ≈0.09 卡单位 ≈28 px）；`tier1` 与最窄那档夹了等于没夹。
+        //   ⚠️ opt-in 开 `_artFront`（`UseFrontLayer` 出厂 false）时它会**真的切掉一条**（单位卡贴图的 alpha
+        //   伸到局部 u 0.006…1.049，超出小窗口 u 0.0117…0.9883）—— 这正是原版对 `CardImage` 做的事
+        //   （`CardFaceProbe` ④b 断「切了」且「只切在矩形外」；④a 现在按卡型分两档：单位卡差集 = 0、
+        //   战术/防御卡差集 > 0 且全在硬矩形之外 —— `H3`/`H6` 已改）。
+        // ⚠️ 未闭合的一点（如实记）：**单位卡**的背景那一半插图（我们 `ArtOpaque` 那层）由谁画、受不受同一硬矩形，
+        //   本地只找到一颗 art 材质（`Card Image Overflow`）⇒ 判不了；这一条留待真机并排复核。
+        //   （非单位卡那一半已由 `H1` 按上面判据落定。）
+        static readonly Vector4 ClampRangeSmall = new Vector4(0.82f, 1f, 0.18f, 0f);
+        static readonly Vector4 ClampRangeBig = new Vector4(0.75f, 0.89f, 0.25f, 0.1f);
+
+        /// <summary>原版卡图**贴图**边长（1207 个卡图 Sprite 全是 1024² 画布）。</summary>
+        const float ArtSourceTexPx = 1024f;
+
+        /// <summary>探针/自检用：**关掉**原版 `_Clamp_Range` 硬矩形（回到 2026-10-24 之前）。
+        /// ⚠️ 只给「小图态 A/B 逐像素不变」那条断言用，⛔ 别在业务代码里翻它。</summary>
+        public static bool DebugDisableArtClamp = false;
+
         /// <summary>整张图（立绘、占位卡面这类「UV 就是全图」的层用）</summary>
         static readonly Vector2[] FULL_UV =
         {
@@ -946,6 +1020,20 @@ namespace CardPresentation
             }
         }
 
+        /// <summary>自检用（`H1`）：**底层立绘那一层**（`_art`）真交给渲染器的网格。
+        /// <para>为什么要这个口：立绘网格的顶点是**烘出来**的（`ArtMeshInFrame`），`ArtDrawSize` 只给 bounds
+        /// 的宽高、给不出**左右极值** ⇒ 判不了「原版 `_Clamp_Range` 的硬矩形有没有真的夹住」。
+        /// <para>`null` = 这一层**根本没建**（卡框取不到等）—— 调用方**别读成通过**。</para></summary>
+        public Mesh ArtLayerMesh
+        {
+            get
+            {
+                if (_art == null) return null;
+                var mf = _art.GetComponent<MeshFilter>();
+                return mf != null ? mf.sharedMesh : null;
+            }
+        }
+
         /// <summary>自检/量尺用：卡框那一层**实际画出来多大**（世界单位，宽×高）。
         /// ⚠️ 截图看这个看不出来 —— 卡框贴图四周是透明的，肉眼量的是「金属」，量不到这一层真正的 quad。</summary>
         public Vector2 FrameDrawSize
@@ -1048,6 +1136,13 @@ namespace CardPresentation
         /// 见 `FramePxAt01` 那一段。占位卡面（`frameTex == null`）⇒ null。
         /// ⚠️ 与 `_frame` 不是一回事：`_frame` **只在占位卡面那条兜底支路**才非 null。</summary>
         Texture2D _frameTex;
+        /// <summary>🆕 2026-10-24（`H5`）：**`Build` 那一趟用的立绘贴图 / 卡数据** —— 只给
+        /// `RebakeBigStateMeshes` 用（Big 状态轴在 `Create` 之后才赋值 ⇒ 要按**建网格时那份**重烘，
+        /// ⛔ 不是读当时的 `Data`：`Create` 里 `Build` 跑在 `SetData` **之前**，那时 `Data` 还是默认值）。
+        /// ⚠️ 与 `_art.sharedMaterial.mainTexture` 不是同一个概念：后者会跟 `SetData` 换（那是贴图），
+        /// 这两份是**网格几何**的输入（`SetData` 至今不重建几何，见 `SetData` 那段注释）。</summary>
+        Texture2D _artTexBuilt;
+        CardData _builtData;
         MeshRenderer _textBg;    // 🆕 文字底板（原版 `Front/Textbackgrounds/TextBackground * UI`）
         MeshRenderer _art;       // 立绘：**完整插图**（忽略 alpha，垫在卡框下）
         MeshRenderer _artFront;  // 立绘：**角色抠图**（真 alpha，盖在卡框上 ⇒ 越出卡框）
@@ -2904,12 +2999,27 @@ namespace CardPresentation
             InHandPlaying = 10,
         }
 
-        /// <summary>这一档到底印不印（判据 = 上面那张原版状态表；⛔ 别在别处再拼一次）。</summary>
+        /// <summary>这一档到底印不印（判据 = 上面那张原版状态表；⛔ 别在别处再拼一次）。
+        ///
+        /// 🔴 **2026-10-24（`G8`）补上原版的【第一道闸】：名字为空 ⇒ 不印**。
+        /// 原版 `BattleCardUI__DisplayCreatedByText.c` 是**两道闸**：
+        ///   ① `:22` `op_Equality(creator, null)` —— 相等就**整段跳过**（`:16` 那句 `SetActive(false)` 是它之前的事），
+        ///      即「`createdBy == null` ⇒ 不印」；
+        ///   ② 之后才看 `CardStateOptions`（`:24-31`，展示档 8 / 打出档 10 + `isPlayer`）。
+        /// 我们原来**只有 ②** ⇒ 谓词对「名字为空 + 展示/打出档」判成「印」。
+        /// ⚠️ **今天看不出画面差异**（`Fill` 收到空文本会把节点整个拆掉、`_createdBy` 变 null，
+        ///   ⇒ `CreatedByShown` 两边都是 null）；所以这是**谓词错**、不是现行可见缺陷。
+        ///   但谓词错正是下一个会话会照着它写新调用点的东西（本仓第五次踩「一处分叉两处口径」），
+        ///   而且 `BattleDriver.cs:21570` 与 `PushCreatedByStates` 今天**真的**以
+        ///   「null 名字 + 展示档」的形状调进来（见 `G8` 报告的调用点核查）⇒ 补上，判据只此一处。
+        /// ⛔ 档位那半（`InHandShowing` / `InHandPlaying + !isPlayer`）**一个字没动**。</summary>
         bool CreatedByVisible
         {
             get
             {
                 if (_faceMode == CardFace.Board) return false;                  // 原版场上（inPlay 那几档）先把节点关掉
+                // 原版第一道闸（`:22`）：没有创建者 ⇒ 不印（比档位更早，见上）
+                if (string.IsNullOrEmpty(_createdByName)) return false;
                 if (_createdByState == CreatedByState.InHandShowing) return true;
                 return _createdByState == CreatedByState.InHandPlaying && !_createdByIsLocalPlayer;
             }
@@ -2922,6 +3032,15 @@ namespace CardPresentation
         {
             get { return _createdBy != null && _createdBy.gameObject.activeSelf ? _createdBy.text : null; }
         }
+
+        /// <summary>自检用：**那两道闸合起来**判成印不印（原版 `DisplayCreatedByText` 的 ① 名字 + ② 档位）。
+        ///
+        /// 🔴 **2026-10-24（`G8`）为什么必须另开这个口**：`CreatedByShown` **证明不了 ① 那道闸** ——
+        ///   名字为空时 `Fill` 会把节点整个拆掉（`_createdBy = null`）⇒ 有没有那道闸，`CreatedByShown` 都是 null
+        ///   （拿它写断言 = 恒绿 = 自证）。这个属性读的是**真正驱动 `Show(...)` 的谓词本身**
+        ///   （`FillCreatedBy` / `SetFace` 两处都只用它），所以「名字为空 ⇒ false」才是一条真能红的断言。
+        /// ⚠️ 只是**读**，不改变任何行为；产品代码 ⛔ 别用它（它就是为了让断言能验那个私有谓词）。</summary>
+        public bool CreatedByVisibleForTest { get { return CreatedByVisible; } }
 
         // ---- 🆕 棋盘单位卡的 buff/debuff 徽标（原版 `boardTraitIcons`）------------------
 
@@ -3577,12 +3696,53 @@ namespace CardPresentation
                 //    大图档里那张**矩形**立绘也放大，越过卡框不透明外沿露出「天空/底色带」
                 //    （受影响的卡：useOverDraw=0 的战术/防御卡 485 张 + 部队卡 264 张，判据 →
                 //     `普查产出_1021/W60_真机与Unity_结果.md` §五）。原版只放大「角色抠图」那一层。
-                float artScale = (_bigImage && BigCardOverdraw) ? BigArtScale : 1f;
-                var artMesh = ArtMeshInFrame(artTex, FrameQuad(frameTex), 1f,
-                                             frameTex, clipWindow: !d.isUnit);
-                var artFrontMesh = artScale > 1f
-                    ? ArtMeshInFrame(artTex, FrameQuad(frameTex), artScale)
-                    : artMesh;
+                // 🔴 **2026-10-24（D3）**：把「大图档**状态**」与「立绘**放大倍率**」拆成两个量 ——
+                //    原版里它们本来就是两件事：`_Clamp_Range = BIG` 在状态 1 对**所有卡类型**都设
+                //    （`CardImageController__ChangeState.c:99-105`），而 ×1.27 只在状态 1 **且**
+                //    卡类型 ∈ {Minion, Hero} 时才乘（`SetImage.c:110-111`，判据全本见 `BigArtScaleApplies`）。
+                //    ⚠️ 原来两件事都挂在 `artScale > 1f` 上 ⇒ 一旦按类型把倍率降到 1.0，硬矩形档位会
+                //    跟着从「大图档」掉成「小图档」（`clampKind` 1 = 窗口更小）—— 那是**另一个**静默偏差。
+                //    ⇒ 下面 `clampKind` 只认 `bigState`，不认 `artScale`。
+                // 🔴 **2026-10-24（H5）**：`bigState` 就是原版 `CardImageController` 的**状态 1（Big）** ——
+                //    判据收在 `BigImageState` 一处（= D3 那一版 + 两条逐卡 / 逐格的 overdraw 轴，doc 见那里）。
+                //    ⚠️ 那两条轴是**窗口在 `Create` 之后**才赋值的（`CardDisplayWindow.BuildFan` :1393-1394 /
+                //    `CardDetailPopup.BuildCardStack` :928-929）⇒ 出生这一趟两轴都是默认 `true`
+                //    （= 与改前**逐位相同**）；之后轴一变，由那两个 setter 走 `RebakeBigStateMeshes`
+                //    按新状态重烘三块网格 —— 那正是原版 `SetImageOverDraw → ChangeState → DoChange` 那一步。
+                bool bigState = BigImageState;
+                float artScale = ArtScaleFor(d, bigState);
+                _builtData = d;            // 重烘要用**建这块网格时那份**数据（`Data` 这时可能还没赋，见 `Create`）
+                _artTexBuilt = artTex;
+                // 🔴 **2026-10-24（H1）**：战术/防御卡的**生产立绘**（`_art` 底层）也要套原版 `_Clamp_Range` 硬矩形。
+                //    判据（一手）：`CardImageController__SetImage.c` 的 `Tactic(0x14)` 分支（`:126-137`）**只关 `frameMask`**
+                //    （`AlphaMask = null` + `enabled = false`），而 `Image.sprite = sprite` 在 `:174-177`、
+                //    **对所有卡型无条件执行**；`ChangeState` / `DoChange` 对卡类型**没有任何判断**
+                //    ⇒ 战术/防御卡的立绘与单位卡走**同一颗 `CardImage`、同一份材质、同一个硬矩形**。
+                //    原版战术卡**只有** `CardImage` 这一层立绘 ⇒ 我们与之对应的那一层正是 `_art`
+                //    （单位卡对应的是 `_artFront`，那层早就套上了，见下面）。
+                //    档位按 A7/D3 的分档：**小图档 = SMALL(1) · 大图档 = BIG(2)** —— 认状态、⛔ 不认放大倍率。
+                //    ⛔ **单位卡仍是 0**（`_art` 保持原样、逐顶点不变）。
+                //    判据全文 → `资料/普查产出_1024/F4_卡面条带与断言.md` §三（原版战术卡立绘也吃同一个硬矩形）。
+                //    档位（单位卡 **0** / 非单位卡 **小图档 1 · 大图档 2**）**也收在 `ArtClampKindFor` 一处** ——
+                //    重烘那条路读同一个函数（两处各写一遍 = 迟早不一致）。
+                var artMesh = ArtLayerMeshFor(d, artTex, frameTex, bigState);
+                // 🔴 2026-10-24（A7）：硬矩形也套 `_artFront`（= 原版那层 CardImage 的等价物：
+                //    同一张贴图、吃它的 alpha）。
+                //    ⚠️ **同日 H1 就地订正**：本行原来写「底层 `_art` …原版**没有**与之对应的被 clamp 的层 ⇒ 不套」
+                //    —— **对单位卡成立、对战术/防御卡不成立**（原版战术卡只有 `CardImage` 这一层立绘，它被 clamp）。
+                //    现在 `_art` 按卡型分档（见上面 H1 那一段）。原写「套了会在拱窗里切出一条竖边」那条**没复核过**，
+                //    它只是「我们的战术立绘是满幅方图 vs 原版 `cardScales` 0.61」这个**既有偏离**的推论，⛔ 别当判据。
+                //    小图档**生产路径**上 opt-in 的前景层（`UseFrontLayer` 出厂 false）照旧套小图档
+                //    （见 `ClampRangeSmall` 的 doc —— 那是原版的画法）。
+                // 🔴 **2026-10-24（H5）· 铁律 5 就地订正**：这里原来写
+                //    `var artFrontMesh = bigState ? <大图档那份> : artMesh;`，注释说「小图档那一支复用 `artMesh`」——
+                //    **不成立**：`_artFront` 真正用的是下面 `AddLayer` 里那个三元，`bigState == false` 时走的是
+                //    **它自己的一次 `ArtMeshInFrame(..., 1)`**（`clipWindow` 跟着卡型）。两份只在「非单位卡」时
+                //    逐位相同（单位卡差 `clampKind` 0 vs 1、且 `clipWindow` false vs true）⇒ 那个 `: artMesh`
+                //    兜底**一次都没被读到** = 死代码（`H1` §六·4 记账，`H5` 件 2·2 核清）。
+                //    现在把「小图档那一支」搬进 `ArtFrontMeshFor`、直接当 `_artFront` 的网格用 ——
+                //    参数与原来那一次**逐字相同** ⇒ 行为不变，死支消失。
+                var artFrontMesh = ArtFrontMeshFor(d, artTex, frameTex, bigState);
                 // ---- 立绘：**画在框下、由框的 alpha 剪出来**（原版小卡档就是这个，**不越出**）----
                 //   ① 底层「完整插图」：**忽略贴图的 alpha**（那张图的 alpha 是角色抠图，不是不透明信息），
                 //      垫在卡框下面 —— 卡框拱窗自己也是透明的（实测 alpha=0），窗里的背景就靠这一层。
@@ -3663,6 +3823,17 @@ namespace CardPresentation
                 bool hasRealArt = d.artOverride != null || CardArt.Portrait(d.artId) != null;
                 bool bigFront = !board && hasRealArt && _bigImage && BigCardOverdraw;
                 if (bigFront || (!board && cut && UseFrontLayer))
+                    // ⚠️ 档位认 `bigState`（状态），**不认 `artScale`**（倍率）—— 见上面那段的判据。
+                    //    战术/防御卡的大图档：`artScale` 可能是 1.0，但硬矩形仍然是**大图档**那组值。
+                    // 🔴 **2026-10-24（`F1` · `R1` P1-3 就地订正）**：小图档这一支原来传的是 `null, false`
+                    //    （`frameTex` 与 `clipWindow` **都丢了** —— 改前该支复用 `artMesh`，两样都在）⇒
+                    //    opt-in `UseFrontLayer` 的**战术/防御卡**前景立绘不再被卡框开口裁，满幅方图盖住拱窗。
+                    //    ⇒ 补回 `frameTex` 与 `clipWindow: !d.isUnit`（与上面 `artMesh` 那一处同形）。
+                    //    `clampKind` 仍取 **1 = 小图档** —— 它认的是 `bigState`（本支恒 false），
+                    //    ⛔ 不跟着 `artScale` 走（A7/D3 的口径，见上面那条 🔴）。
+                    // ⚠️ **2026-10-24（H5）**：网格由 `ArtFrontMeshFor` **一份**给出（大图档 = ×倍率 + 大图档硬矩形；
+                    //    小图档 = `clipWindow: !d.isUnit` + 小图档硬矩形）—— 原来这里那个三元就是它的两支，
+                    //    收进函数后「建出来」与「状态轴变了重烘」走的是**同一个判据**（⛔ 别再在这儿拼一遍）。
                     _artFront = AddLayer("artFront", frameTex, -0.008f, artTex, artFrontMesh);
                 if (!board) _frame = AddLayer("frame", frameTex, 0f, null);
                 // 🆕 文字底板（原版 `Front/Textbackgrounds`）—— 让卡名/效果文字在黑底上读得清。
@@ -7822,23 +7993,34 @@ namespace CardPresentation
 
         /// <summary>把这张卡**补间到**「局部位置 + 绕 Z 倾角 + 缩放」—— **每帧都经 <see cref="SetPose"/> 写**。
         ///
-        /// <para>🔴 **2026-10-19（`T04`）：为什么不能用 `CardTween.ToPose`** ——
+        /// <para>🔴 **2026-10-19（`T04`）：为什么不能用 `CardTween.ToPose`**（该入口已于 2026-10-24 `A11`
+        /// **整段删除** —— 下面这段是「⛔ 别照原样加回来」的理由，退役注见 `Core/CardTween.cs:62`）——
         /// 那个入口走 `DOMove/DORotate/DOScale`，直接写 `transform.localScale`，而本类的缩放是
         /// 「**基础缩放 × 高亮系数**」（<see cref="BaseScale"/> / `ApplyScale`）⇒ tween 期间 `_baseScale`
         /// **一直停在起点值**：补间一结束，任何一次 `SetPose`（手牌重排 / 战场落位 / 切分辨率）或
         /// `SetHighlightScale` 都会把卡**弹回旧缩放**（静默、图上只表现为「换位后位置对、大小不对」）。
         /// 判据 = 原版 `CardDisplayWindow.ChangeCardPosition` 的两条 tween 写的是**同一个 transform**，
         /// 而原版的缩放**没有**我们这层「基础 × 高亮」⇒ 等价物必须把 `_baseScale` 一起带过去。
-        /// ⚠️ **菜单版详情窗 `Shell/CardDetailPopup` 仍是 `CardTween.ToPose`**（同一潜伏缺陷；
-        /// 那个文件不在本笔所有权内，见 `W_战斗线_T04放大窗_1019b.md` §四）。</para>
+        /// ⚠️ **2026-10-24 就地订正（铁律 5 · `A11`）**：本行原写「菜单版详情窗 `Shell/CardDetailPopup`
+        /// 仍是 `CardTween.ToPose`（同一潜伏缺陷）」—— **已不成立**：`CardDetailPopup.SwapToFront` 那两处
+        /// 已改走本函数，且 `CardTween.ToPose` **本身已整段删除**（全仓零代码调用方，退役注见
+        /// `Core/CardTween.cs:62`）。⇒ 那条潜伏缺陷**已消**，别按旧注释去「修」一个不存在的入口。</para>
         ///
         /// <para>⚠️ **走 `SetPose` 的连带开销**：`SyncCostTier()`（一次 bool 比较）· `_blobShadow.Sync()`
         /// （只有场上 3D 卡有影子；展示窗的卡是 `CardFace.Full` ⇒ 没有）· `ApplyClip()`（只有裁着的卡）。
-        /// ⚠️ **`pos` 是【局部坐标】**（同 `SetPose`）—— ⛔ 别传世界坐标（`CardTween.ToPose` 收的是世界坐标，
-        /// 两者只在父链 `lossyScale == 1` 且父件在原点时同值）。</para>
+        /// ⚠️ **`pos` 是【局部坐标】**（同 `SetPose`）—— ⛔ 别传世界坐标（被删掉的 `CardTween.ToPose`
+        /// 收的是世界坐标，两者只在父链 `lossyScale == 1` 且父件在原点时同值；该入口 2026-10-24 `A11` 已删，
+        /// 这条差异说明留着防「照旧签名猜坐标」）。</para>
         /// <returns>补间本体（`duration &lt;= 0` 时直接落终态、返回 null）。调用方自己 `OnComplete`。</returns>
         public Tween TweenPose(Vector3 pos, float rotZ, float scale, float duration, Ease ease)
         {
+            // 🆕 2026-10-24（`A3`）：**同一条位姿链只留一条补间** —— 上一次没跑完的先杀掉。
+            //   为什么必须在这里杀：`DOTween.To` 建出来的补间默认**没有 target**，
+            //   `transform.DOKill()` 按 `target` 比 ⇒ 杀不到它。而调用方（`HandLayout.Place`
+            //   第一句、`Battle/MulliganPanel.cs:681/977`）历史上一直靠 `transform.DOKill()`
+            //   防「补间叠补间」⇒ 见下面 `SetTarget(transform)` 那一句（把那层的语义接回来）。
+            KillPoseTween();
+
             if (duration <= 0f)
             {
                 SetPose(pos, rotZ, scale);
@@ -7856,7 +8038,60 @@ namespace CardPresentation
                         fromRot + dRot * x,
                         Mathf.LerpUnclamped(fromScale, scale, x));
             }, 1f, duration);
-            return CardTween.Use(tw, ease, this);
+            var used = CardTween.Use(tw, ease, this);
+            // 🔴 2026-10-24（`A3`）：把 tween 的 `target` 指成**卡根 Transform**。
+            //   `CardTween.ToPose`（旧入口，2026-10-24 `A11` 已删）那条 Sequence 的
+            //   `DOMove/DOLocalRotate/DOScale` 自带 target = transform，
+            //   ⇒ 外部 `transform.DOKill()` 能杀掉；换成 `DOTween.To` 之后这层语义会**静默丢掉**
+            //   （`HandLayout.Place` 防叠、`MulliganPanel` 掐重排补间都靠它）。这里把它接回来。
+            used.SetTarget(transform);
+            // 🔴 2026-10-24（`E4`）：再给这条补间一个**本卡唯一**的 id —— `KillPoseTween` 的「非 play」兜底要用
+            //   （`TweenExtensions.Kill` 在 `DOTween.initialized == false` 时会直接 return，判据见 `KillPoseTween`）。
+            //   用**独立对象**而不是 `this`/`transform`：`DOTween.Kill(x)` 是「target **或** id 命中」，
+            //   拿 `transform` 当 id 会把本卡上 `DOMove/DOScale` 那一族一起收掉。
+            used.SetId(_poseTweenId);
+            _poseTween = used;
+            return used;
+        }
+
+        /// <summary>位姿补间本体（`TweenPose` 建的那一条）—— 见 <see cref="TweenPose"/> 的 doc。
+        /// ⚠️ 只用来「同一张卡不叠两条位姿补间」；要停它请调 <see cref="KillPoseTween"/> 或 `transform.DOKill()`。</summary>
+        Tween _poseTween;
+        /// <summary>`TweenPose` 那条补间的 id（每张卡一个独立对象）。
+        /// 唯一用途 = `KillPoseTween` 在 `DOTween.initialized == false`（编辑器批处理 / 非 play）时的兜底击杀。
+        /// ⚠️ ⛔ 别把它换成 `transform` / `this` —— `DOTween.Kill(x)` 是「target **或** id 命中」 ⇒ 会误杀别的补间。</summary>
+        readonly object _poseTweenId = new object();
+
+        /// <summary>掐掉在飞的**位姿补间**（只掐 `TweenPose` 那一条，不碰这个 Transform 上的别的补间）。
+        /// 给「要当场 snap 的场景」用 —— 比如 `HandLayout.Place` 的 `!animateRelayout` 那一支：
+        /// 不掐的话上一次重排的补间会继续把刚 snap 好的位姿改回去（静默、只在动起来时看得见）。</summary>
+        public void KillPoseTween()
+        {
+            // 🔴 **2026-10-24（`E3` · `DG3` 红 #5）：⛔ 别再加回 `IsActive()` 闸。**
+            //   原来写的是 `if (_poseTween != null && _poseTween.IsActive()) _poseTween.Kill();`
+            //   —— 闸不成立时**什么都不做**，下一句又把引用丢掉 ⇒ 那条补间**还活着、再也没人杀得掉**，
+            //   继续把位姿推走（静默；`CardBaseDemo ③1` 实测：割在 40% 处，推完一整段后到了终点）。
+            //   `DG.Tweening.TweenExtensions.Kill` 对**已完成 / 已被杀**的补间本身就是 no-op ⇒
+            //   无条件杀是安全的；判据见 `CardBaseDemo.AssertHandPoseTween` ③ 那一支（它连着断
+            //   「掐完 `tw.IsActive() == false`」这半条自证）。
+            //
+            // 🔴 **2026-10-24（`E4` · `DG3` 红 #5 的第二半）：`TweenExtensions.Kill` 在非 play 环境里是空转。**
+            //   DOTween.dll 的 IL（`TweenExtensions::Kill` 开头）是：
+            //     `ldsfld DOTween::initialized; brtrue.s IL_0008; ret`
+            //   —— `initialized == false` 时**直接 return**。而**编辑器批处理（`-executeMethod`，不进 play）
+            //   里 `initialized` 永远是 false**：`DOTween.Init()` 自己在 `!Application.isPlaying` 时返回 null，
+            //   `InitCheck()`（`DOTween.To` 每次创建补间都会调）同样**不调** `AutoInit()`。
+            //   ⇒ 批处理里 `tw.Kill()` 静默空转：实测 `CardBaseDemo ③1` 掐完 `tw.IsActive()` 仍为 True、
+            //   位姿被继续推到终点（起点 0.7301 → 割在 40% 的 0.5508 → 终点 0.4500）。
+            //   🔑 **同一批里的对照**：③2 用 `transform.DOKill()` 却是绿的 —— 那条走 `DOTween.Kill(target)` →
+            //   `TweenManager.FilteredOperation`，**这条链不读 `initialized`**。⇒ 「补间本身没问题，是 `Kill` 这条路被闸住」。
+            //   兜底：**按 id 杀**（`DOTween.Kill(_poseTweenId)`，同样不读 `initialized`，且只命中本卡这一条）。
+            //   ⛔ 别改成 `transform.DOKill()`：那会把本卡 Transform 上别的补间一起收掉，违背本函数的约定。
+            Tween tw = _poseTween;
+            _poseTween = null;
+            if (tw == null) return;
+            tw.Kill();                                  // play 模式下的正常路径（批处理里会被 DOTween 空转）
+            if (tw.IsActive()) DOTween.Kill(_poseTweenId);   // 非 play 兜底（按 id，精确到这一条）
         }
 
         // ==================================================================
@@ -8298,7 +8533,8 @@ namespace CardPresentation
 
         /// <summary>**基础缩放**（不含高亮系数）—— `ApplyScale` 的那一半底数。
         /// <para>🔴 **2026-10-19（`T04`）：换位补间必须经 <see cref="TweenPose"/> 写它** ——
-        /// `CardTween.ToPose` 直接写 `transform.localScale`，`_baseScale` 会**停在换位前的槽位值**上；
+        /// `CardTween.ToPose`（旧入口；2026-10-24 `A11` 已删，这里说的是它当时的写法）直接写
+        /// `transform.localScale`，`_baseScale` 会**停在换位前的槽位值**上；
         /// 之后任何一次 `SetPose` / `SetHighlightScale`（→ `ApplyScale`）都会把卡**弹回旧缩放**（静默）。
         /// 原先 `CardDisplayWindow.SwapToFront` 就是这条潜伏缺陷（2026-10-16 顺手发现、账在战斗线 `T04`）。</para>
         /// 自检口：换位收尾后断「它 = 该槽的 `CardFan.Hpx(i) / (Height×108)`」。</summary>
@@ -9019,9 +9255,45 @@ namespace CardPresentation
             return true;
         }
 
-        static Mesh ArtMeshInFrame(Texture2D art, Vector3 frameQuad, float artScale = 1f,
-                                   Texture2D frameTex = null, bool clipWindow = false)
+        /// <summary>原版 `_Clamp_Range`（**贴图 UV**，见 `ClampRangeSmall` 的 doc）→ **这张立绘 PNG 的局部 UV**。
+        /// <para>返回 `(u0, u1, v0, v1)`（0..1、v 自下往上）；false = 这张图不在实测的两族里 ⇒ **不套硬矩形**。</para>
+        /// <para>换算：我们的 PNG = 原版 sprite rect 的裁剪（`工具/import_original_art.py` 的 `write_portrait`
+        /// 按 `m_RD.textureRect` 裁）。原版贴图恒 1024²、rect 水平居中（657 张单位卡 rect x=176.5 / 宽 670.5
+        /// ⇒ 中心 511.75 vs 512，偏 0.25 px）⇒ `spanU = art.width / 1024` · `uMin = (1 − spanU) / 2`，纵向同理。</para>
+        /// <para>⚠️ **只覆盖两族**（1207 个卡图 Sprite 里的 1206 个）：单位/督军 670.5×1024、战术/防御整张 1024²。
+        /// 占位图（128×179）与那张杂项 512×512 **不套** —— 拿一个不在判据里的尺寸去猜 = 静默错一张。</para>
+        /// <para>⚠️ 原版有两个小图值（材质默认 `x=0.82` / cctor `x=0.81`），见 `ClampRangeSmall` 的 doc。</para></summary>
+        static bool ArtClampUv01(Texture2D art, bool big, out Vector4 uv01)
         {
+            uv01 = Vector4.zero;
+            if (art == null || art.width <= 0 || art.height <= 0) return false;
+            if (art.height < 1000 || art.height > 1032 || art.width < 500 || art.width > 1032) return false;
+            float spanU = Mathf.Clamp01(art.width / ArtSourceTexPx);
+            float spanV = Mathf.Clamp01(art.height / ArtSourceTexPx);
+            if (spanU <= 0.01f || spanV <= 0.01f) return false;
+            float uMin = (1f - spanU) * 0.5f;
+            float vMin = (1f - spanV) * 0.5f;
+            Vector4 c = big ? ClampRangeBig : ClampRangeSmall;
+            uv01 = new Vector4(
+                Mathf.Clamp01((c.z - uMin) / spanU),      // u0
+                Mathf.Clamp01((c.x - uMin) / spanU),      // u1
+                Mathf.Clamp01((c.w - vMin) / spanV),      // v0
+                Mathf.Clamp01((c.y - vMin) / spanV));     // v1
+            return uv01.y > uv01.x && uv01.w > uv01.z;
+        }
+
+        /// <summary>把立绘摆进卡里那一块网格。**板走 `ArtBoard`**（立绘自己那块 ×`ArtCoverMargin`）——
+        /// 🔴 **2026-10-24（`H5`）删掉了形参 `frameQuad`（`Vector3`）**：它从 2026-09 起**一次都没被方法体读过**
+        /// （尺寸/中心全从 `ArtBoard` 取，见下方那段 2026-09-12 的注释），调用点却因此要传 `FrameQuad(frameTex)`
+        /// 或 `Vector3.zero` 两种假值 —— 那是死参数（`H1` §六·3 记账、`H5` 件 2·1 核清后删除）。
+        /// ⚠️ 卡框那一份 quad 仍然由 `FrameMesh` / `FrameQuad` 那条链用，**没有删**。</summary>
+        static Mesh ArtMeshInFrame(Texture2D art, float artScale = 1f,
+                                   Texture2D frameTex = null, bool clipWindow = false, int clampKind = 0)
+        {
+            // `clampKind`：0 = 不套硬矩形 · 1 = 小图档 · 2 = 大图档（见 `ClampRangeSmall` / `ClampRangeBig`）。
+            // 🔴 关掉时**必须折算成 0 再进缓存键** —— 否则同一份键会存下「关掉时算的网格」，
+            //    之后打开的人拿到的是没裁的那块（静默失效）。
+            clampKind = DebugDisableArtClamp ? 0 : clampKind;
             float s = Width / CardUnitW;
             float aw, ah, acy;
             ArtExtent(art, out aw, out ah, out acy);
@@ -9038,6 +9310,10 @@ namespace CardPresentation
             key = key * 100 + Mathf.RoundToInt(artScale * 100f);
             // 🔴 2026-10-21：战术卡「裁到卡框开口」也进键（不同阵营/tier 的开口不同）。
             key = key * 10 + (clipWindow ? 1 : 0);
+            // 🔴 2026-10-24（A7）：`_Clamp_Range` 硬矩形档位也进键（0/1/2，见 `ClampRangeSmall`）。
+            //    ⚠️ 乘数取**奇数**（397）而不是 10 —— 键在这一步早就超过 `int` 范围（`unchecked` 回绕），
+            //    奇数乘法在 mod 2³² 上是**双射**（10 不是，会丢掉最低位 ⇒ 两个不同的档位可能撞到同一格）。
+            key = unchecked(key * 397 + clampKind);
             if (clipWindow && frameTex != null) key = unchecked(key * 31 + frameTex.GetInstanceID());
             Mesh cached;
             if (_artMeshCache.TryGetValue(key, out cached) && cached != null) return cached;
@@ -9051,6 +9327,16 @@ namespace CardPresentation
             //    读的是同一份，两处各算一遍就会「遮罩和立绘差 4%」（2026-10-07 修，见 `ArtUvAt`）。
             ArtBoard(art, artScale, out float w, out float h, out float cy);
             float u0 = 0f, u1 = 1f, v0 = 0f, v1 = 1f;
+
+            // 🔴 2026-10-24（A7）：原版 `_Clamp_Range` 硬矩形 → **卡面坐标里的一个矩形**
+            //    （`.y > .x` 才算有；空 = 这张图不在实测两族里 ⇒ 不套）。见 `ClampRangeSmall` 的 doc。
+            Vector4 clampCard = Vector4.zero;
+            if (clampKind != 0 && ArtClampUv01(art, clampKind == 2, out Vector4 clampUv))
+            {
+                clampCard = new Vector4(
+                    -w * 0.5f + clampUv.x * w, -w * 0.5f + clampUv.y * w,
+                    cy - h * 0.5f + clampUv.z * h, cy - h * 0.5f + clampUv.w * h);
+            }
 
             // **裁到卡本体那块矩形** —— 原版卡图 2.7484² 比卡大，溢出部分先被卡的矩形收边、
             //  再被卡框 alpha 遮罩（判据 → `资料/普查产出_1018/R_卡片详情大图三问.md` §二）。
@@ -9086,7 +9372,25 @@ namespace CardPresentation
                     var rowsForArt = FrameRowsOf(frameTex);
                     if (rowsForArt != null && rowsForArt.HasAny)
                     {
-                        var strip = ArtWindowMesh(art, frameTex, rowsForArt, xL0, yB0, w, h, xL, xR, yB, yT);
+                        // 🔴 **2026-10-24（`F4` · `F1` §六·1 交叉面）**：`_Clamp_Range` 硬矩形也必须夹**这条早退路**。
+                        //    原来这里拿到条带就直接 `return`，跳过了下面「与硬矩形取交集」那一段
+                        //    ⇒ **非单位卡**（`clipWindow = true`）的 opt-in 小图档前景层上，A7 的
+                        //    `_Clamp_Range` **是空转的**（A7 ④b 只跑单位卡 `clipWindow = false`，所以断不到）。
+                        //    判据（原版一手）：战术/防御卡的立绘与单位卡走**同一个** `cardImage`
+                        //    （`CardImageController__SetImage.c:174-177` 在 `param_3 == 0x14` 分支**之后**、
+                        //    无条件执行 `Image.sprite = sprite`；tactic 那一支只把 `frameMask` 关掉
+                        //    `:130-136`，**不动** sprite、也不换材质）；`ChangeState` / `DoChange`
+                        //    对卡类型**没有任何判断**，`_Clamp_Range` 写的是同一份 `cardImage.material`
+                        //    ⇒ 硬矩形对战术/防御卡同样生效。判据全文 → `资料/普查产出_1024/F4_卡面条带与断言.md`。
+                        //    ⚠️ 只在 `clampKind != 0` 时 `clampCard` 非空 ⇒ 生产小卡（`clampKind = 0`）**逐位不变**；
+                        //       单位卡 `clipWindow = false` 根本走不到本条 ⇒ 行为也不变。
+                        float sL = xL, sR = xR, sB = yB, sT = yT;
+                        if (clampCard.y > clampCard.x)
+                        {
+                            sL = Mathf.Max(sL, clampCard.x); sR = Mathf.Min(sR, clampCard.y);
+                            sB = Mathf.Max(sB, clampCard.z); sT = Mathf.Min(sT, clampCard.w);
+                        }
+                        var strip = ArtWindowMesh(art, frameTex, rowsForArt, xL0, yB0, w, h, sL, sR, sB, sT);
                         if (strip != null) { _artMeshCache[key] = strip; return strip; }
                     }
                     // 拿不到逐行开口（贴图不可读 / 没有闭合开口）⇒ **退回矩形**（= 改前的行为）。
@@ -9099,6 +9403,14 @@ namespace CardPresentation
                         xL = Mathf.Max(xL, win.xMin); xR = Mathf.Min(xR, win.xMax);
                         yB = Mathf.Max(yB, win.yMin); yT = Mathf.Min(yT, win.yMax);
                     }
+                }
+                // 🔴 2026-10-24（A7）：原版 `_Clamp_Range` 硬矩形 —— 与「卡体矩形 / 卡框开口」取交集。
+                //    **裁画面，不拉伸**（UV 由 `u0..v1` 那两行按原始板位反算）—— 这正是原版 shader
+                //    「矩形外 α=0」的等价物。见 `ClampRangeSmall` 的 doc。
+                if (clampCard.y > clampCard.x)
+                {
+                    xL = Mathf.Max(xL, clampCard.x); xR = Mathf.Min(xR, clampCard.y);
+                    yB = Mathf.Max(yB, clampCard.z); yT = Mathf.Min(yT, clampCard.w);
                 }
                 if (xR <= xL || yT <= yB)
                 {
@@ -9125,6 +9437,33 @@ namespace CardPresentation
             m.RecalculateBounds();
             _artMeshCache[key] = m;
             return m;
+        }
+
+        /// <summary>自检用：原版 `_Clamp_Range` 换算到**这张立绘 PNG 的局部 UV**（判据见 `ArtClampUv01`）。
+        /// 返回 false = 这张图不在实测两族里（**没套硬矩形**，别读成通过）。</summary>
+        public static bool ArtClampWindowForTest(Texture2D art, bool big, out Vector4 uv01)
+            => ArtClampUv01(art, big, out uv01);
+
+        /// <summary>自检用：**立绘网格**（与 `Build` 走同一条 `ArtMeshInFrame` 路）。`clampKind`：
+        /// 0 = 不套硬矩形 · 1 = 小图档 · 2 = 大图档（判据见 `ClampRangeSmall`）。探针拿它做 A/B（灭自证）。</summary>
+        public static Mesh ArtMeshForTest(Texture2D art, float artScale, Texture2D frameTex,
+                                          bool clipWindow, int clampKind)
+            => ArtMeshInFrame(art, artScale, frameTex, clipWindow, clampKind);
+
+        /// <summary>自检用（`D3`）：**大图档前景抠图层**（`_artFront`）真交给渲染器的那块网格 ——
+        /// 「×1.27 只给 Minion/Hero」这道门控（<see cref="BigArtScaleApplies"/>）就烘在这块网格的顶点里。
+        /// <para>`null` = 这一层**根本没建**（不是大图档 / 这张卡没有真立绘 / `BigCardOverdraw` 关）——
+        /// 调用方**别读成通过**。</para>
+        /// <para>为什么不能用 `transform.localScale` 量：倍率是烘进**网格顶点**的（`ArtBoard` /
+        /// `ArtMeshInFrame`），那个节点上的 scale 恒为 1 ⇒ 只有这块网格能证明门控生效。</para></summary>
+        public Mesh ArtFrontMeshForTest
+        {
+            get
+            {
+                if (_artFront == null) return null;
+                var mf = _artFront.GetComponent<MeshFilter>();
+                return mf != null ? mf.sharedMesh : null;
+            }
         }
 
         /// <summary>自检用（`新账-66` 收口）：**卡框开口的逐像素覆盖统计**（卡面单位口径）。
@@ -9163,7 +9502,7 @@ namespace CardPresentation
             int x0, y0, w, h;
             if (!FrameMaskData(frameTex, out alpha, out hole, out outside, out ring, out x0, out y0, out w, out h))
                 return false;
-            var mesh = ArtMeshInFrame(art, FrameQuad(frameTex), artScale, frameTex, true);
+            var mesh = ArtMeshInFrame(art, artScale, frameTex, true);
             if (mesh == null || mesh.vertexCount < 4) return false;
 
             // 网格三角形 → 逐个 quad（顶点序 BL/BR/TR/TL，见 `ArtWindowMesh` / 单 quad 那条路）
@@ -9297,7 +9636,7 @@ namespace CardPresentation
             int x0, y0, w, h;
             if (!FrameMaskData(frameTex, out alpha, out hole, out outside, out ring, out x0, out y0, out w, out h))
                 return false;
-            var mesh = ArtMeshInFrame(art, FrameQuad(frameTex), artScale, frameTex, true);
+            var mesh = ArtMeshInFrame(art, artScale, frameTex, true);
             if (mesh == null || mesh.vertexCount < 4) return false;
 
             // 网格三角形 → 逐个 quad（顶点序 BL/BR/TR/TL，见 `ArtWindowMesh` / 单 quad 那条路）
@@ -9746,8 +10085,81 @@ namespace CardPresentation
         /// <summary>大图档立绘的放大倍率 = 原版 `CardImageController.bigSizeMultiplier`（**1.27**）。
         /// 🔴 **2026-10-21 订正**：只乘**前景抠图层**（`_artFront`）；底层 `_art`（opaque 矩形底图）**保持 1.0**
         /// —— 共用一块 ×1.27 的网格会把矩形立绘放大到卡框外（用户报的「插图超过卡框」）。卡框不动；
-        /// 放大发生在「收边到卡体」之前 ⇒ 放多大都不会画到卡体外面（原版也是卡体矩形收边）。</summary>
+        /// 放大发生在「收边到卡体」之前 ⇒ 放多大都不会画到卡体外面（原版也是卡体矩形收边）。
+        /// 🔴 **2026-10-24（`D3`）**：本倍率**不是对所有卡类型都乘** —— 只有 Minion(0) / Hero(10) 乘，
+        /// 判据与单一门控函数见 <see cref="BigArtScaleApplies"/>。</summary>
         public const float BigArtScale = 1.27f;
+
+        /// <summary>自检钩子：**临时取消「×1.27 只给 Minion/Hero」这道门**（= 回到 2026-10-24 之前
+        /// 「所有卡类型都乘」的旧行为）。**只给 `CardFaceProbe` 做灭自证用**，出厂 `false`。
+        /// <para>⚠️ 必须在**建卡之前**设（倍率是 `Build` 那一趟烘进网格顶点的；
+        /// 已建好的卡不会跟着变）—— 与 `BigCardOverdraw` / `DebugDisableArtClamp` 同一类口子。</para></summary>
+        public static bool DebugDisableBigArtScaleGate = false;
+
+        /// <summary>🆕 2026-10-24（`D3`）：**这张卡的大图档立绘该不该乘 ×1.27** —— 判据只此一处。
+        ///
+        /// <para>🔴 **判据（一手，亲读）**：`d:/2/tools/decomp_full/CardImageController__SetImage.c:31,79,110-118`
+        /// <code>
+        /// fVar12 = *(float *)(param_1 + 0x80);              // 组件上的一个倍率场（局部初值）
+        /// …
+        /// fVar12 = DAT_1834b2bb8;                            // 随后重设成 **1.0f**
+        /// if ((*(int *)(param_1 + 100) == 1) &amp;&amp; ((param_3 == 10 || (param_3 == 0)))) {
+        ///     fVar12 = *(float *)(param_1 + 0x20);           // ← 只有这里才取 `bigSizeMultiplier`
+        /// }
+        /// local_60 = local_40 * fVar12;  local_68 = (fVar11 * fVar12, fVar10 * fVar12);
+        /// UnityEngine_Transform__set_localScale(lVar5, &amp;local_58, 0);   // ← 乘进 localScale
+        /// </code>
+        /// · `DAT_1834b2bb8` 用 `工具/read_literal.py` 从 `D:/2/unity_run_ref/GameAssembly.dll` 现读
+        ///   = **4 字节 float `1`**（8 字节读是 `2`，按上下文是 float ⇒ 取 1）。
+        /// · `param_1 + 0x20` = 序列化字段 `bigSizeMultiplier`；`CardImage.json`
+        ///   （`bundle_battleprefabs_vfxandmisc_assets_all/MonoBehaviour/MonoBehaviour_5393623139443973056.json`）
+        ///   现读 = **1.2699999809**。
+        /// · `param_3` 的类型 = `CardTypeOptions`（签名桩 `CardImageController.cs` 的
+        ///   `SetImage(Sprite, CardTypeOptions)`；枚举 `CardTypeOptions.cs` = `Minion 0 / Hero 10 / Tactic 20 / Whispers 40`）。
+        /// ⇒ **状态 1（Big）∧ 卡类型 ∈ {0 Minion, 10 Hero}** 才乘；**Tactic(20) / 防御 / 其余一律 ×1.0**。</para>
+        ///
+        /// <para>⚠️ **防御卡「原版 cardType 是几」不值得再查**：`数据/游戏数据/cards_truth.json` 里
+        /// 我们卡池里那 33 张 `type="defence"` 读出来是 **20**；而 `CardScalesByCardType.json` 另有一条
+        /// `cardTypeOptions: 5 → 0.60`（`A7` 把它叫「防御」），但**没有任何一张卡读得到 5**。
+        /// 两条路都不是 0/10 ⇒ **结论不受这个分叉影响**（门照样挡掉防御卡）。</para>
+        ///
+        /// <para>🔑 **为什么原版里这条门控「只看一处看不出来」**（2026-10-24 `D3` 现核补全 —— `A7` 只引了
+        /// `SetImage` 那一处）：`ChangeState.c:90-95`（Small→Big 的正常路径）**不判卡类型**，
+        /// 一律 `originalImageScale × bigSizeMultiplier`；但**只有 `useOverDraw=1` 的卡才会被送进状态 1**
+        /// （`CardDisplayWindow__ShowCard.c:62-84` → `BasicCardUI.SetImageOverDraw` → `ChangeSize(Big)`），
+        /// 而卡池现读 **`useOverDraw=1` 的正好只有 unit 585/586 + hero 56/56，
+        /// tactic 446 + defence 39 全是 0**（`cards_engine.json`）⇒
+        /// 「×1.27 只对 Minion/Hero 生效」是**这两条合起来**的结果，不是单靠 `SetImage` 那道 if。
+        /// 我们这一侧**没有**「`useOverDraw=0` ⇒ 不放大」那一步（`_artFront` 照建，只由
+        /// `ArtFrontVisible` 把它藏起来）⇒ **必须**在倍率上补这道门，否则战术/防御卡会烘出一块
+        /// 按 1.27 算的网格（今天看不见，`useOverDraw` 数据一变就现形）。</para>
+        ///
+        /// <para>🔴 **2026-10-24（`H5`）就地订正（铁律 5）**：上一段最后那句「我们这一侧**没有**
+        /// 『`useOverDraw=0` ⇒ 不放大』那一步」**已不成立** —— `H5` 把**状态**也接上了两轴
+        /// （`BigImageState`：前台 × 逐卡许可），`useOverDraw=0` 的卡现在**根本不进状态 1**
+        /// ⇒ 连 `ArtScaleFor(…, bigState)` 都拿到 `false`、倍率天然是 1.0。
+        /// 本函数（按**卡类型**判）仍然**必须留着**，它挡的是另一半：原版 `SetImage.c:110-111` 那道
+        /// `cardType ∈ {0,10}` 的 if（状态 1 时**再**乘的条件）。两条判据是**与**关系，⛔ 别合并、别删任一条
+        /// （删了本条 ⇒ `DebugDisableBigArtScaleGate` 那条灭自证失去对象；
+        /// 删了状态那条 ⇒ 相关卡 / 战术卡会被烘成 BIG 硬矩形）。</para>
+        ///
+        /// <para>🔑 **我们这一列里的单一判据 = `CardData.isUnit`**：它的上游 `CardDef.IsUnit` 的定义字面就是
+        /// `Type == "unit" || Type == "hero"`（`RuleEngine/Core/CardDef.cs` 的 `IsUnit`），而那个定义本身又是
+        /// 原版 `RawCardScript.IsUnit`（= `cardType` 0 或 10）的镜像
+        /// （`RuleEngine/Core/ConditionEval.cs` 里 `IsUnitOrHero` 的 doc 写明了这条一一对应）。
+        /// 同一段建层代码里 `clipWindow: !d.isUnit` 判的也是这一条 ⇒ **两处同源，不会各说各话**。
+        /// ⛔ 别在这里改成读 `d.type` 字符串：那是同一件事的第二个数据源，空串（老构造点）时还要再定一套兜底，
+        /// 两份判据迟早打架（`SubtypeLine` 已经为「空 `type`」留了一条兜底，本函数不需要再留一条）。</para>
+        ///
+        /// <para>⚠️ 池内实测（2026-10-24，`cards_engine.json` × `cards_truth.json` 按唯一名对账）：
+        /// `unit → 0` 575 张 · `hero → 10` 48 张 · `tactic → 20` 432 张 · `defence → 20` 33 张
+        /// —— **`isUnit` 与 `cardType ∈ {0,10}` 逐张一致，0 张不一致**。</para></summary>
+        static bool BigArtScaleApplies(CardData d)
+        {
+            // 自检钩子：复现「一律 ×1.27」（灭自证用；见 `DebugDisableBigArtScaleGate`）。
+            if (DebugDisableBigArtScaleGate) return true;
+            return d.isUnit;        // = 原版 `cardType ∈ {Minion 0, Hero 10}`
+        }
 
         /// <summary>🆕 2026-10-22（卡牌线 `T04` 第二笔）：**这张卡当前允不允许「角色压框」** ——
         /// 原版 `BasicCardUI.SetImageOverDraw(bool)` 的等价物（**默认 `true`** = 建出来的样子不变）。
@@ -9762,6 +10174,10 @@ namespace CardPresentation
         /// **不放大、不在框上重画** ⇒ 我们的等价物是**整层关掉 `_artFront`**，露出来的就是底层 `_art`
         /// （1.0 那一档）。⛔ 别把它理解成「把 `_artFront` 缩到 1.0 继续画」—— 抠图板本身比卡框宽 1.22×
         /// （2.7484 vs 2.2452，判据同 <see cref="BigArtScale"/> 的 doc），画在框上仍然是「插图超出卡框」。</para>
+        /// <para>🔴 **2026-10-24（`H5`）补全**：`false` 还**改底层 `_art` 的硬矩形档位** —— 原版状态 0 的
+        /// `_Clamp_Range` 是 SMALL（`ChangeState.c:53-82`），我们原来只把 `_artFront` 藏掉、`_art` 仍按
+        /// **BIG** 硬矩形烘（相关卡 / 战术卡因此一直画错窗口）。现在本开关是
+        /// <see cref="BigImageState"/> 的一条轴 ⇒ 置 `false` 时 setter 会把三块网格按「状态 0」重烘。</para>
         ///
         /// <para>⚠️ 只在**大图档**（<see cref="BigImage"/>）上真起作用：小卡档若靠 `UseFrontLayer` 建了
         /// 同名那一层，那个老口子**不受本开关管**（见 `ArtFrontVisible`）。层是在 `Build` 那一趟建的 ⇒
@@ -9774,7 +10190,9 @@ namespace CardPresentation
                 if (_artOverdraw == value) return;
                 _artOverdraw = value;
                 // ⚠️ 判据与 `SetFace` 那条**共用同一个函数**（`ArtFrontVisible`）—— 两处各写一遍 = 迟早不一致。
-                Show(_artFront, ArtFrontVisible);
+                // 🔴 2026-10-24（`H5`）：这一轴**同时是大图档 BIG 状态的一条轴**（原版 `idx != 0 ⇒ Small`，
+                //    判据见 `BigImageState`）⇒ 走 `ApplyBigStateAxes`（开关层 + 按新状态重烘网格）。
+                ApplyBigStateAxes();
             }
         }
         bool _artOverdraw = true;
@@ -9797,6 +10215,11 @@ namespace CardPresentation
         /// <para>⚠️ `false` 的效果 = **关掉 `_artFront` 那一层**（露出 1.0 的底层 `_art`，不放大、不压框）——
         /// 与原版 `CardImageController` 状态 0 同义；⛔ 不是「把前景缩到 1.0 继续画」（那张抠图板本身比卡框宽 1.22×）。
         /// 只在**大图档**真起作用（`_artFront` 只在大图档建，见 `BigCardOverdraw`）。</para>
+        /// <para>🔴 **2026-10-24（`H5`）补全**：本开关**同时是「进不进状态 1」那条逐卡轴** ——
+        /// 原版 `useOverDraw == 0 ⇒ SetImageOverDraw(Small)`（`ShowCard.c:62-84`），状态 0 的
+        /// `_Clamp_Range` = SMALL、且不乘 `bigSizeMultiplier`。原来我们只拿它开关 `_artFront`，
+        /// 底层 `_art` 仍是 BIG 硬矩形（判据缺口 → `D3` §1·3 / `H1` §五·4）⇒ 现在它进
+        /// <see cref="BigImageState"/>，置 `false` 时由 setter 重烘三块网格（见 `RebakeBigStateMeshes`）。</para>
         public bool UseOverDraw
         {
             get { return _useOverDraw; }
@@ -9805,7 +10228,10 @@ namespace CardPresentation
                 if (_useOverDraw == value) return;
                 _useOverDraw = value;
                 // ⚠️ 与 `SetFace` / `ArtOverdraw` **共用同一个判据函数**（`ArtFrontVisible`）—— 两处各写一遍 = 迟早不一致。
-                Show(_artFront, ArtFrontVisible);
+                // 🔴 2026-10-24（`H5`）：这一轴也决定原版**进不进状态 1**（`useOverDraw == 0 ⇒ Small`，
+                //    判据 `ShowCard.c:62-84` / `CardOverdrawHandle.c:7-39`，见 `BigImageState`）
+                //    ⇒ 走 `ApplyBigStateAxes`（开关层 + 按新状态重烘网格）。
+                ApplyBigStateAxes();
             }
         }
         bool _useOverDraw = true;
@@ -9827,6 +10253,102 @@ namespace CardPresentation
                 if (_faceMode == CardFace.Board) return false;
                 return !_bigImage || (_artOverdraw && _useOverDraw);
             }
+        }
+
+        // ==================================================================
+        //  🆕 2026-10-24（H5）**大图档的「状态」= 原版 `CardImageController` 的状态 1（Big）**
+        // ==================================================================
+        //
+        // 🔴 判据（一手，全部亲读 `d:/2/tools/decomp_full/`，⛔ 不是照 D3 的报告转述）：
+        //
+        //  1. **谁把卡送进状态 1** —— `BasicCardUI.SetImageOverDraw(ImageInFrameSize, bool)`
+        //     （签名桩 `BasicCardUI.cs:334`）→ `CardImageController.ChangeSize`（`CardImageController__ChangeSize.c:5`）
+        //     → `ChangeState`（`CardImageController__ChangeState.c`）。**`SetImageOverDraw` 只有下面三处调用**：
+        //       · `CardDisplayWindow__ShowCard.c:62-84`（开窗那张前台）
+        //         —— `useOverDraw == 0`（`RawCardScript + 0x58`）⇒ `SetImageOverDraw(Small, instant)`；
+        //            `!= 0` ⇒ 先 `SetImageOverDraw(Small)` 再 `SetImageOverDraw(Big)`；
+        //       · `CardDisplayWindow__CardOverdrawHandle.c:7-39`（扇形每一格）
+        //         —— `useOverDraw == 0 || idx != 0` ⇒ `Small`；只有 **`idx == 0` 且 `useOverDraw != 0`** ⇒ `Big`；
+        //       · `CardDisplayWindow__ChangeCardPosition.c:74-79`（换位）
+        //         —— 让位那张 `SetImageOverDraw(false)`；接位那张传 `useOverDraw`。
+        //     ⇒ **状态 1 ⇔ 「这一格是前台」∧「这张卡 `useOverDraw != 0`」**（⛔ 与卡类型无关）。
+        //
+        //  2. **状态 1 到底改了什么** —— `ChangeState.c:84-113`：
+        //       · `_Clamp_Range` 换成 BIG（`:100-104` 取的是静态字段 `+0x10` 那份 = `(0.75, 0.89, 0.25, 0.1)`）；
+        //       · 立绘 `originalImageScale × bigSizeMultiplier`（`:90-95`，即我们烘进顶点的 ×1.27）；
+        //       · `frameMask` 打开（`:105-108`）。
+        //     `ChangeState` 第一句 `if (currentState == stateToChange) return;`（`:30-32`）——
+        //     **Small 是出厂态**（`currentState` 非序列化）⇒ SMALL 那一档用的是材质序列化默认 `x=0.82`
+        //     （= 我们的 `ClampRangeSmall`，判据见那段 doc）。
+        //
+        //  3. ⇒ **`bigState` 必须是这个合取**，⛔ 不能只看「是不是大图档窗口」——
+        //     D3 那版 `_bigImage && BigCardOverdraw` 只在**两轴都是默认 `true`** 时与它一致，
+        //     而生产里 **9 格扇形只有 1 格两轴全真**（相关卡 `ArtOverdraw = false`；战术/防御卡
+        //     `useOverDraw = 0`，`cards_engine.json` 现读 tactic 446 + defence 39 全 0）。
+        /// <summary>这张卡**现在**处不处于原版 `CardImageController` 的**状态 1（Big）** —— 判据只此一处
+        /// （`Build` 建层、两个状态轴 setter 的重烘，两处都读它）。四个合取项 = 大图档 × 总开关 × 前台 × 逐卡许可。
+        /// <para>⚠️ `BigCardOverdraw` 是**建卡前**定的静态总开关（后面翻它不会重烘，见它的 doc）——
+        /// 这里读它只为让「建卡前关掉」这条路仍然是 Small。</para></summary>
+        bool BigImageState
+        {
+            get { return _bigImage && BigCardOverdraw && _artOverdraw && _useOverDraw; }
+        }
+
+        /// <summary>这张卡当前该乘的立绘倍率（状态 1 **且** 卡类型 ∈ Minion/Hero 才 ×1.27，见 <see cref="BigArtScaleApplies"/>）。</summary>
+        static float ArtScaleFor(CardData d, bool bigState)
+            => (bigState && BigArtScaleApplies(d)) ? BigArtScale : 1f;
+
+        /// <summary>`_art` 的硬矩形档位：单位卡 **0**（不套）/ 非单位卡 **小图档 1 · 大图档 2**
+        /// （判据见 `ClampRangeSmall` 的 doc；`Build` 与重烘共用这一份）。</summary>
+        static int ArtClampKindFor(CardData d, bool bigState)
+            => d.isUnit ? 0 : (bigState ? 2 : 1);
+
+        /// <summary>`_art`（底层完整插图）的网格 —— `Build` 与状态重烘**共用**（原来只写在 `Build` 里）。
+        /// ⚠️ 倍率恒 **1.0**（2026-10-21 用户报「插图超过卡框」那条：放大只给 `_artFront`）；
+        /// 状态只改**硬矩形档位**。</summary>
+        static Mesh ArtLayerMeshFor(CardData d, Texture2D artTex, Texture2D frameTex, bool bigState)
+            => ArtMeshInFrame(artTex, 1f, frameTex,
+                              clipWindow: !d.isUnit, clampKind: ArtClampKindFor(d, bigState));
+
+        /// <summary>`_artFront`（角色压框层）的网格 —— `Build` 与状态重烘**共用**。
+        /// 大图档 = 卡类型倍率 + **大图档**硬矩形（`clipWindow: false`、`frameTex: null` —— 单位卡那支原样）；
+        /// 小图档 = 1.0 + **小图档**硬矩形 + `clipWindow: !d.isUnit`（= 2026-10-24 `F1`/`R1` 补的那一支）。</summary>
+        static Mesh ArtFrontMeshFor(CardData d, Texture2D artTex, Texture2D frameTex, bool bigState)
+            => bigState
+                ? ArtMeshInFrame(artTex, ArtScaleFor(d, true), null, false, 2)
+                : ArtMeshInFrame(artTex, ArtScaleFor(d, false), frameTex, clipWindow: !d.isUnit, clampKind: 1);
+
+        /// <summary>状态轴变了 ⇒ **按新状态重烘三块网格**（原版 `SetImageOverDraw → ChangeState → DoChange`）。
+        /// <para>为什么必须重烘：档位与 ×1.27 都是**烘进顶点**的（`ArtMeshInFrame` / `FrameMesh` 的 uv2），
+        /// 不是节点 `localScale`、也不是材质参数 ⇒ 改属性改不到。</para>
+        /// <para>幂等且便宜：三块网格都走静态缓存（键含倍率 / 档位 / `clipWindow`）⇒ 切回去拿到的就是原来那一块，
+        /// 断言可以逐顶点比「切回去 = 原来那份」。</para>
+        /// <para>⛔ 只在**轴真的变了**时调（两个 setter 的 `if (value == _field) return;` 已经挡住重复赋值）。</para></summary>
+        void RebakeBigStateMeshes()
+        {
+            if (!_bigImage || _frameTex == null || _art == null || _artTexBuilt == null) return;
+            if (_faceMode == CardFace.Board) return;          // 场上不画 2D 卡面（3D 体那条路）
+            bool bigState = BigImageState;
+            var amf = _art.GetComponent<MeshFilter>();
+            if (amf != null) amf.sharedMesh = ArtLayerMeshFor(_builtData, _artTexBuilt, _frameTex, bigState);
+            if (_frame != null)
+            {
+                var fmf = _frame.GetComponent<MeshFilter>();
+                if (fmf != null) fmf.sharedMesh = FrameMesh(_frameTex, _artTexBuilt, ArtScaleFor(_builtData, bigState));
+            }
+            if (_artFront != null)
+            {
+                var afmf = _artFront.GetComponent<MeshFilter>();
+                if (afmf != null) afmf.sharedMesh = ArtFrontMeshFor(_builtData, _artTexBuilt, _frameTex, bigState);
+            }
+        }
+
+        /// <summary>两个状态轴（<see cref="ArtOverdraw"/> / <see cref="UseOverDraw"/>）setter 的**唯一落点**：
+        /// 先按合成判据开关 `_artFront`，再按新状态重烘网格（⛔ 两处各写一遍 = 迟早不一致）。</summary>
+        void ApplyBigStateAxes()
+        {
+            Show(_artFront, ArtFrontVisible);
+            RebakeBigStateMeshes();
         }
 
         // 🔴 **2026-10-10 删掉了 `FrameCutoutMaterial()` / `_frameCutMat`** —— 它们只服务于
@@ -9973,8 +10495,10 @@ namespace CardPresentation
 
         /// <summary>
         /// 卡框那一层的 quad：**宽、高、中心 y**（world 单位）。**判据只有这一份** ——
-        /// `FrameMesh`（画框）读它（`ArtMeshInFrame` 虽然还收这个参数，但它的板走 `ArtBoard`，
+        /// `FrameMesh`（画框）读它（`ArtMeshInFrame` 的板走 `ArtBoard`，
         /// 不从这里取尺寸；两处各算一遍的话立绘和框就会错位）。
+        /// 🔴 **2026-10-24（`H5`）**：`ArtMeshInFrame` 原来还收一份 `frameQuad`，**方法体一次没读过**
+        /// ⇒ 那个死形参已删（判据 / 清账见它的 doc）。本函数的消费者只剩 `FrameMesh`。
         /// <para>🆕 **2026-10-19（`A2138`）**：矩形**不受 uv 影响**（恒 = `FrameUnitW/H`，原版 `m_PreserveAspect=0`
         /// 的固定矩形）；「画什么」由 `FrameUv` 决定（= sprite rect）。本节旧注「返回值依赖 `FrameUv`
         /// （量不透明 bbox）、贴图必须开 Read/Write」**已过期**：卡框的 uv 现在是**常量**，

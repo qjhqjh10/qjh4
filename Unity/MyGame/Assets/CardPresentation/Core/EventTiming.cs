@@ -206,6 +206,119 @@ namespace CardPresentation
             }
         }
 
+        // ==================================================================
+        //  🆕 2026-10-24（执行代理 `A2` · `J2` 顺手发现 3）：**`EvtKind` 的登记表**
+        //
+        //  问题：`IsSourced` / `SourceOf` / `DurationOf(EvtKind)` 三处原来都是 `default:` 一把兜住
+        //  ⇒ **往 `EvtKind` 里加一个新值时**，它会被自动当成「有出处」（`IsSourced` = true）
+        //  且时长 `0f` —— 而 `BattleScene.cs` 那条 `unsourced == 2` 的断言**不会**因此报警
+        //  （它只数 `IsSourced` 为假的那几个）。整条链路**静默**。
+        //
+        //  ⇒ 现在三处的 `default:` 都先查这张登记表：
+        //    · **登记为「不占时间线（0 s）」** ⇒ 照旧（行为一个字不变）；
+        //    · **没登记** ⇒ **出声（每个 kind 只喊一次）+ 计数**，并且 `IsSourced` 回 `false`
+        //      （带原因）⇒ `BattleScene` 的 `unsourced == 2` 会变红，**逼着**加值的人来登记。
+        //
+        //  ⚠️ **新增一个 `EvtKind` 时要做的事**：在下面两张表里挑一张登记（有值 → 去
+        //     `DurationOf` 的 `switch` 里加 `case`；零时长 → 加进 `ZeroDurationKinds`）。
+        //  ⚠️ `ShowCardsWindow` **显式登记成零时长**（原版那一拍**非阻塞**：`FinishResolvingAction`
+        //     紧跟其后、无 `yield`，见 `BattleDriver.FireEventAll` 里 `OpenShowCardsWindow` 那段判据）
+        //     —— ⛔ 别让它掉进「未登记」，那会把一条**本来正确**的 0 s 变成噪音。
+        // ==================================================================
+
+        /// <summary>🆕 2026-10-24（`A2`）：**明确登记为「不占时间线（`DurationOf` = 0）」的事件种类**。
+        /// 每一档都写清为什么是 0 —— 新加一档照这个格式补，⛔ 别默默依赖 `default: 0`。</summary>
+        static readonly EvtKind[] ZeroDurationKinds =
+        {
+            EvtKind.Play,           // 出牌本身不占（登场位移由紧随的 `Deploy` 负责，见 `DurationOf(Deploy)`）
+            EvtKind.Return,         // 离场位移是表现层补间（`CardFeel.ReturnToHand`），不进动作队列
+            EvtKind.GainFaith,      // 纯资源变化（HUD 计数），不起播任何占时动作
+            EvtKind.GainSpirit,
+            EvtKind.GainQuest,
+            EvtKind.CollectWaystone,// 收集粒子是**并行**的一发（原版 `CollectWaystoneEffect` 不 `yield`）
+            EvtKind.AmbushExit,     // 原版 `SetAmbush(card,false)` 是普通方法、不阻塞（见 `SourceOf`）
+            EvtKind.SecretOrder,    // 日志/揭密那一拍；我们没有它的演出（`RuleCore` 无发出点）
+            EvtKind.ShowCardsWindow,// 🆕 原版**非阻塞**（`FinishResolvingAction` 紧跟、无 `yield`）
+            // 🆕 2026-10-24（引擎线 `G1b` · `C2` §6）：关键词施加那一拍**不占时间线** ——
+            //   原版 `BattleCardUI__DisplayStatusAnim.c:78-119` 是当场
+            //   `StartCoroutine(ResolveTraitAnim(…))`、**不 `yield`**；那件 Start(0) 由 prefab 自己的
+            //   `destroyTime` 收尾（同 `CollectWaystone` 那一档的口径）。
+            EvtKind.StatusApplied,
+        };
+
+        /// <summary>🆕 2026-10-24（`A2`）：**在 `DurationOf(EvtKind)` 里【有值】的事件种类**
+        /// （每一项都在下面的 `switch` 里有自己的 `case`）。加值时**两处一起改**。
+        /// ⚠️ `Attack` / `Deploy` / `Retaliation` / `Draw` / `Ability` 的**精确值**还要看
+        /// `DurationOf(BattleEvent)` 那个重载（按远近 / 来源 / 座位 / 卡分档），这里只登记「它有时间」。</summary>
+        static readonly EvtKind[] TimedKinds =
+        {
+            EvtKind.Deploy, EvtKind.Attack, EvtKind.Hit, EvtKind.Death, EvtKind.Ability,
+            EvtKind.Trigger, EvtKind.Draw, EvtKind.Heal, EvtKind.Retaliation,
+        };
+
+        /// <summary>自检用：`DurationOf` 里登记成「零时长」的那一档吗（不触发未登记告警）。</summary>
+        public static bool IsZeroDurationKind(EvtKind kind)
+        {
+            for (int i = 0; i < ZeroDurationKinds.Length; i++) if (ZeroDurationKinds[i] == kind) return true;
+            return false;
+        }
+
+        /// <summary>自检用：这一档**登记过**吗（`ZeroDurationKinds` 或 `TimedKinds`）。
+        /// 未登记 ⇒ 三处 `default:` 会出声 + `IsSourced` 回 `false`。</summary>
+        public static bool IsRegisteredEventKind(EvtKind kind)
+        {
+            if (IsZeroDurationKind(kind)) return true;
+            for (int i = 0; i < TimedKinds.Length; i++) if (TimedKinds[i] == kind) return true;
+            return false;
+        }
+
+        /// <summary>自检用：累计「遇到未登记的事件种类」的次数（每个 `EvtKind` 每次会话只出声一次，
+        /// 但**计数每次都加**）。⚠️ 只增不减 —— 断言「报了没有」用它。</summary>
+        public static int UnregisteredKindHits { get; private set; }
+
+        // 🔴 2026-10-24（`F2` · R1 P2-5）：**「只喊一次」的闩（`_warnedUnregistered`）与「自检计数」
+        //   （`UnregisteredKindHits`）原来是同一个 `Reset` 一起清的** ⇒ 任一自检调过 `ResetUnregisteredKindForTest()`
+        //   之后，**生产路径**再遇到同一个未登记 kind **会再喊一遍**（每局一次 → 变多次），
+        //   日志噪音会**掩盖真正新加的那一档**（新加的那一档是「第一次出现」，老的那一档又在重喊）。
+        // ⇒ 现在两件事分开：
+        //    · `ResetUnregisteredKindForTest()` —— **只清计数**（自检要「从 0 开始数」时用），**不动闩**；
+        //    · `ResetWarnedForTest()` —— 显式清闩，**只给「要重新观察『出声』这件事本身」的自检**用；
+        //      生产路径永远不碰它 ⇒ 每条未登记 kind 在整个会话里**至多喊一次**。
+        //   ⚠️ 读数保持：`BattleScene` 那组断言只用计数（`hitsBefore → hits`），所以 `unsourced == 2` 等读数一个字不变。
+        static readonly System.Collections.Generic.HashSet<EvtKind> _warnedUnregistered =
+            new System.Collections.Generic.HashSet<EvtKind>();
+
+        /// <summary>自检用：**「已经喊过」的未登记 kind 有几种**（= 「只喊一次」那个闩的读数）。
+        /// 🔴 `ResetUnregisteredKindForTest()` **不会**让它变小 —— 这正是 R1 P2-5 要证的那件事
+        /// （清计数 ≠ 清闩）。只有 <see cref="ResetWarnedForTest"/> 会清零。</summary>
+        public static int UnregisteredKindWarnedCount { get { return _warnedUnregistered.Count; } }
+
+        /// <summary>自检用：清零**计数**（不改登记表本身，**也不清「已经喊过」的闩** —— 见上面那段）。</summary>
+        public static void ResetUnregisteredKindForTest()
+        {
+            UnregisteredKindHits = 0;
+        }
+
+        /// <summary>自检用：清「已经喊过」的闩（**生产路径不调**；只有「要重新观察『出声』这件事本身」的
+        /// 自检才调）。⚠️ 与 <see cref="ResetUnregisteredKindForTest"/> 分开，正是为了让自检**清计数**
+        /// 时不要把生产的「只喊一次」清掉（R1 P2-5）。</summary>
+        public static void ResetWarnedForTest()
+        {
+            _warnedUnregistered.Clear();
+        }
+
+        /// <summary>遇到未登记的 `EvtKind` ⇒ 计数 + 出声一次（同一种类每次会话只喊一次，别刷屏）。</summary>
+        static void ReportUnregisteredKind(EvtKind kind, string where)
+        {
+            UnregisteredKindHits++;
+            if (!_warnedUnregistered.Add(kind)) return;
+            UnityEngine.Debug.LogError($"[EventTiming] `EvtKind.{kind}`（值 {(int)kind}）**没在登记表里**"
+                + $"（`{where}` 走到了 `default:`）⇒ 它现在被当成「零时长 / 无出处」。"
+                + "新增事件种类必须显式登记：**零时长** → `EventTiming.ZeroDurationKinds`；"
+                + "**有时间** → `EventTiming.TimedKinds` + `DurationOf` 的 `switch` 加 `case`。"
+                + "⛔ 别默默依赖 `default:` —— 那正是 J2 顺手发现 3 那条缺陷的形状。");
+        }
+
         /// <summary>这条事件「占」多久（秒）—— 下一个环节要等这么久。出处见每条后面</summary>
         public static float DurationOf(EvtKind kind)
         {
@@ -294,7 +407,12 @@ namespace CardPresentation
                 //   ⛔ 别把它当成生产值：生产走 `DurationOf(BattleEvent)` → `RetaliationHoldOf`。
                 case EvtKind.Retaliation: return AttackStepRanged + RangedVfxFallback;
 
-                default: return 0f;
+                // 🆕 2026-10-24（`A2` · `J2` 顺手发现 3）：**不再一把兜住** —— 只有登记成
+                // 「零时长」的那一档才静默回 0；没登记的**出声 + 计数**（见 `ZeroDurationKinds` 上面那段）。
+                default:
+                    if (IsZeroDurationKind(kind)) return 0f;
+                    ReportUnregisteredKind(kind, "DurationOf(EvtKind)");
+                    return 0f;
             }
         }
 
@@ -611,6 +729,11 @@ namespace CardPresentation
         /// <para>⚠️ **不在这张表里的种类**（`Play` / `Return` / `Gain*` / `CollectWaystone` / `SecretOrder`）
         /// `DurationOf` 走 `default: 0` —— **它们不占时间**，没有「无出处」的数值可言 ⇒ 回 `true`
         /// （⛔ 别把它当「这些事件也有出处」来引用）。</para>
+        ///
+        /// <para>🆕 **2026-10-24（`E2` · `DG2` 红 #1~#3）**：`TimedKinds` 里那 9 档（`Deploy`/`Attack`/`Hit`/
+        /// `Trigger`/`Draw`/`Heal`/`Retaliation` + 上面显式回 `false` 的 `Death`/`Ability`）**也已登记** ⇒
+        /// 除 `Death`/`Ability` 外一律回 `true`。判据 = <see cref="IsRegisteredEventKind"/>（两张表任一登记）。
+        /// `false` 只剩**三种**：`Death` · `Ability` · **未登记**（后者出声）。</para>
         /// </summary>
         public static bool IsSourced(EvtKind kind)
         {
@@ -635,8 +758,26 @@ namespace CardPresentation
                     unsourcedPart = $"查不到那张卡时退回的 `AbilityFallbackSeconds` {AbilityFallbackSeconds:F2}s "
                                   + "**不是原版值**（= 真值表的中位数，恰好等于旧常数）";
                     return false;
+                // 🆕 2026-10-24（`A2`）：未登记的 `EvtKind` ⇒ **如实报「无出处」**（不是「有出处」）。
+                //   ⇒ `BattleScene` 那条 `unsourced == 2` 会因为多出这一条而变红，逼着加值的人来登记。
+                // ✅ 已登记的**任何**一档都回 `true` —— **零时长（`ZeroDurationKinds`）** 或
+                //    **有时间（`TimedKinds`）**：
+                //      · 零时长档**不占时间** ⇒ 没有「无出处的数值」可言；
+                //      · 有时间档各自在 `DurationOf` / `SourceOf` 里有 `case`。它们**不是**「无出处」的
+                //        那种未登记；真有「值是我们挑的」情形（`Death` / `Ability`）在上面两个 `case` 里
+                //        **已经显式回 `false`** ⇒ 走不到这里。
+                // 🔴 **2026-10-24（`E2` · `DG2` 红 #1~#3）就地订正（铁律 5）**：这里原来只查
+                //    `IsZeroDurationKind(kind)`，把「**有时间且已登记**」的 7 档（Deploy/Attack/Hit/Trigger/
+                //    Draw/Heal/Retaliation）也归进了「未登记」⇒ `unsourced` 实得 9、外加 7 条 `LogError` 噪音。
+                //    错因：`IsRegisteredEventKind`（本文件 `:263`，登记表**两张都查**）就在旁边，这里却只查了一张。
+                //    ⛔ 别写回「只查零时长表」—— 那会让登记表与查表人口径不一致（自相矛盾的两条断言一绿一红）。
                 default:
-                    return true;
+                    if (IsRegisteredEventKind(kind)) return true;
+                    unsourcedPart = $"**未登记的事件种类** `EvtKind.{kind}`（值 {(int)kind}）—— "
+                                  + "`DurationOf` 走 `default: 0f`、`SourceOf` 也没有它 ⇒ 这个 0 与这段"
+                                  + "「出处」都是**没人认领的**。登记办法见 `EventTiming.ZeroDurationKinds` 上面那段。";
+                    ReportUnregisteredKind(kind, "IsSourced");
+                    return false;
             }
         }
 
@@ -694,7 +835,12 @@ namespace CardPresentation
                                               + "`WaitForSeconds(GetAnimDuration())`；**协程跑完才**落伤害 `:1136-1147`）"
                                               + " ⇒ 前摇 `AttackStepRanged` 0.2 + **守方那件**的 `ChainDuration`"
                                               + "（拿不到 ⇒ `RangedVfxFallback` 0.75，出声）；⚠️ 只覆盖**远程档**，近战档守方不播 = 0";
-                default: return "（无）";
+                // 🆕 2026-10-24（`A2`）：登记成零时长的那一档照旧回「（无）」；**未登记**的出声 + 明写。
+                default:
+                    if (IsZeroDurationKind(kind)) return "（无）";
+                    ReportUnregisteredKind(kind, "SourceOf");
+                    return $"⚠️ **未登记的事件种类** `EvtKind.{kind}`（值 {(int)kind}）—— "
+                         + "见 `EventTiming.ZeroDurationKinds` 上面那段（新增 `EvtKind` 必须显式登记）";
             }
         }
 

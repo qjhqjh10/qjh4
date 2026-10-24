@@ -1,7 +1,7 @@
 {
  "schema": "card_vfx_by_card/v1",
  "generatedBy": "d:/4/Unity/工具/gen_card_vfx_by_card.py",
- "generatedAt": "2026-10-23 23:21:15",
+ "generatedAt": "2026-10-24 10:20:00",
  "_sources": {
   "cardsEngine": "d:/4/Unity/MyGame/Assets/RuleEngine/Resources/cards_engine.json",
   "animAddressMap": "d:/4/Unity/数据/索引/anim_address_map.json",
@@ -85618,7 +85618,7 @@
      "cardanim": "Forewarned Board",
      "prefab": "Cosmic Serpent",
      "confBefore": "inferred-name",
-     "why": "按名字猜出来的动画；卡 SO 与 `CardTrait` SO 都没有引用它 ⇒ 无权威依据、不播（⛔ 不拿名字相近的顶替）"
+     "why": "⛔ **无权威依据、不播**（2026-10-24 `A10` 现核）：`Forewarned Board`（CardAnim `a0a1091e…`）在**当前 build 的 1,351 张卡 SO 全 116 字段**里**零引用**（UnityPy 重读类型树逐字段核过，不是只 grep 字段名：ASH86 的 5 条非空 GUID 全在 `cardAbilities` / `cardImageReference`，`targetedSpellAnim` / `nonTargetedSpellAnim` 是**空 PPtr**）；全 24.7 万件解包资产按 GUID + 名字双扫只有它自己；`CardTrait` SO 0 命中；2022 时代快照同一结论。它落的 prefab `Cosmic Serpent`（`ccef7d44…`）另由 CardAnim `CosmicSerpent`（`b277fe66…`）引用，而后者**已经在 `ASH48 Cosmic Serpent` 的 `play` 权威桶里** ⇒ 这件美术本身没丢，但它是 ASH48 的演出；ASH86 的 `play` 权威件是 `Buff_Khaine`（`ed801be9…`）⇒ 补回 = 同一拍播两件。（另注：包里还有一个**只差下划线**的 prefab `Forewarned_Board`（`796d76e0…`），全库零引用、**与本条 CardAnim 不是同一件** —— 别拿它反推。）"
     },
     {
      "cardId": "09bcb1b3b8794c4429d82d4b2e68fa1f",
@@ -85688,7 +85688,7 @@
      "cardanim": "Manticore Board Down",
      "prefab": "Artillery Manticore down 1x",
      "confBefore": "inferred-name",
-     "why": "按名字猜出来的动画；卡 SO 与 `CardTrait` SO 都没有引用它 ⇒ 无权威依据、不播（⛔ 不拿名字相近的顶替）"
+     "why": "⛔ **无权威依据、不播**（2026-10-24 `A9` 现核）：`Manticore Board Down`（CardAnim `2bb742a0…`）在**当前 build 的 1,351 张卡 SO 全 116 字段**里**零引用**（UnityPy 重读类型树逐字段核过，不是只 grep 字段名），**全 24.7 万件解包资产**里只有它自己的 CardAnim 记录引用它，`CardTrait` SO 0 命中。它落的 prefab `Artillery Manticore down 1x`（`e3fb0804…`）另由 CardAnim `Artillery Ground Big` 引用，而后者**已经在 `AM53`（play）/ `AM18`（ability）的权威桶里** ⇒ 这件视觉本身没丢，⛔ 但它不是 AM30 的 `play` 件（AM30 `cardAbilities` 为空、没有 `ThisCardPlayed(0)` 能力；登场走共享 `normalSummon`）。"
     },
     {
      "cardId": "AM30",
@@ -85708,7 +85708,7 @@
      "cardanim": "Valkyrie_Hover_Dust",
      "prefab": "Valkyrie Flyover Hover Dust",
      "confBefore": "inferred-name",
-     "why": "按名字猜出来的动画；卡 SO 与 `CardTrait` SO 都没有引用它 ⇒ 无权威依据、不播（⛔ 不拿名字相近的顶替）"
+     "why": "⛔ **无权威依据、不播**（2026-10-24 `A10` 发现 · `A12` 补录）：`Valkyrie_Hover_Dust`（CardAnim `c438c0c6…`，prefab `Valkyrie Flyover Hover Dust`）**全库唯一**的卡 SO 引用 = **`AM75 Valkyrie Drop`** 的 `cardAbilities[0].abilityLogic[0].cardAnimations[0]`（`ThisCardPlayed(0)` → `play`；运行期表 `AM75.play[0]` = **authoritative**）⇒ 它是 AM75 空投演出的**首步**（第 1 步才是 `Valkyrie_MultiLaser_Hover_Target`），挪给 AM34 = 把 AM75 的整段空投演出错播一遍。AM34 的登场走共享 `normalSummon`，卡 SO 里没有别的「登场/落地」槽引用它。⚠️ 本条落在 `_unclassified`（连事件都判不出来的候选）⇒ 只进**全量件**的 `stats.inferenceGone.unbacked[]`，**不进运行时的 `notPlayed[]`**（`strip_unbacked_inference` 的 `in_runtime = not ev.startswith('_')`）—— 这是**既有设计**，⛔ 不要为了「让两边看起来一致」把它塞进运行时。"
     },
     {
      "cardId": "AM34",
@@ -85718,7 +85718,7 @@
      "cardanim": "Valkyrie_MultiLaser_Hover_Target",
      "prefab": "Valkyrie_MultiLaser_Hover",
      "confBefore": "inferred-name",
-     "why": "按名字猜出来的动画；卡 SO 与 `CardTrait` SO 都没有引用它 ⇒ 无权威依据、不播（⛔ 不拿名字相近的顶替）"
+     "why": "⛔ **无权威依据、不播**（2026-10-24 `A10` 现核）：`Valkyrie_MultiLaser_Hover_Target`（CardAnim `7f071e26…`）**全库唯一**的卡 SO 引用 = **`AM75 Valkyrie Drop`** 的 `cardAbilities[0].abilityLogic[0].cardAnimations[1]`（`ThisCardPlayed(0)` → `play`；2022 时代快照也给同一结论）⇒ 它是 AM75 的演出，挪给 AM34 = 把别家的件错播一遍。AM34 自己的远程权威件 = `customRangedAttackParticles` → `Atk_BulletImpact_Valkyrie_Missiles`（`e4501e8d…`，prefab `BulletImpact_ValkyrieMissile`）——与猜的 prefab `Valkyrie_MultiLaser_Hover`（`3df06e24…`）**不是同一件**；卡 SO 的 116 字段里远程攻击只有这一个字段。"
     },
     {
      "cardId": "BL55",
@@ -85748,7 +85748,7 @@
      "cardanim": "Master Interromancer Hit",
      "prefab": "Psychic_Lightning_down_Intense_white",
      "confBefore": "inferred-name",
-     "why": "按名字猜出来的动画；卡 SO 与 `CardTrait` SO 都没有引用它 ⇒ 无权威依据、不播（⛔ 不拿名字相近的顶替）"
+     "why": "⛔ **无权威依据、不播**（2026-10-24 `A9` 现核）：这条按名字猜的 CardAnim `Master Interromancer Hit`（`7a4f21e3…`）**全库零卡引用**；但它落的 prefab `Psychic_Lightning_down_Intense_white`（`9d7fa450…`）**与这张卡 `play` 桶权威件 `Atk_SmiteLightning_white_Down`（`39d3e084…`）是同一件 prefab** ⇒ **视觉没丢、那一拍已经在 `play` 播**；卡 SO 也没有 `UnitDamaged(60)` 能力 ⇒ `hit` 这一拍原版没有逐卡件（保留 = 同一件播两遍）。"
     },
     {
      "cardId": "EC29",
@@ -85758,7 +85758,7 @@
      "cardanim": "HeldrakeStrike",
      "prefab": "HeldrakeStrike",
      "confBefore": "inferred-name",
-     "why": "按名字猜出来的动画；卡 SO 与 `CardTrait` SO 都没有引用它 ⇒ 无权威依据、不播（⛔ 不拿名字相近的顶替）"
+     "why": "⛔ **无权威依据、不播**（2026-10-24 `A9` 现核）：`HeldrakeStrike`（CardAnim `39dca211…`）**全库唯一**的卡 SO 引用 = **`BL53 Heldrake Strike`**（Black Legion 法术，`ThisCardPlayed(0)`）⇒ 它是 BL53 的演出，挪给 EC29 = 把别家的件错播一遍。EC29 侧：卡 SO **没有近战专用字段**（`RawCardScript` 里根本没有），近战协程 `CardScript._AttackMeleeAnim_d__357__MoveNext.c` **313 行 0 处 `CardAnim`/`AddCardAnim`** ⇒ 原版近战这一拍**没有逐卡 VFX**（只有攻击音 + 位移 tween；判据全文 → `资料/普查产出_1023c/Trait_pentitence与静音桶溯源.md` §B·2）。"
     },
     {
      "cardId": "SAU3",
@@ -85768,7 +85768,7 @@
      "cardanim": "Flayed One Summon",
      "prefab": "Flayed One Summon",
      "confBefore": "inferred-name",
-     "why": "按名字猜出来的动画；卡 SO 与 `CardTrait` SO 都没有引用它 ⇒ 无权威依据、不播（⛔ 不拿名字相近的顶替）"
+     "why": "⛔ **无权威依据、不播**（2026-10-24 `A9` 现核）：`Flayed One Summon`（CardAnim `53f3e4ca…`）**全库唯一**的卡 SO 引用 = **`SAU69 Flayed Ones Pack`**（`AbilityTrigger.Artifice(560)`）⇒ 它是那张**召唤法术**的演出，**不是** Flayed One 单位自身的登场件。SAU3 的 `summonAnimDelayed` 是**空 GUID**（UnityPy 类型树现读）⇒ 单位登场走共享 `normalSummon`（`Invoke Minion Card Fade *`）。"
     },
     {
      "cardId": "GOF70",
@@ -85872,7 +85872,7 @@
     "n": "Cosmic Serpent",
     "a": "Forewarned Board",
     "outcome": "unbacked",
-    "why": "按名字猜出来的动画；卡 SO 与 `CardTrait` SO 都没有引用它 ⇒ 无权威依据、不播（⛔ 不拿名字相近的顶替）"
+    "why": "⛔ **无权威依据、不播**（2026-10-24 `A10` 现核）：`Forewarned Board`（CardAnim `a0a1091e…`）在**当前 build 的 1,351 张卡 SO 全 116 字段**里**零引用**（UnityPy 重读类型树逐字段核过，不是只 grep 字段名：ASH86 的 5 条非空 GUID 全在 `cardAbilities` / `cardImageReference`，`targetedSpellAnim` / `nonTargetedSpellAnim` 是**空 PPtr**）；全 24.7 万件解包资产按 GUID + 名字双扫只有它自己；`CardTrait` SO 0 命中；2022 时代快照同一结论。它落的 prefab `Cosmic Serpent`（`ccef7d44…`）另由 CardAnim `CosmicSerpent`（`b277fe66…`）引用，而后者**已经在 `ASH48 Cosmic Serpent` 的 `play` 权威桶里** ⇒ 这件美术本身没丢，但它是 ASH48 的演出；ASH86 的 `play` 权威件是 `Buff_Khaine`（`ed801be9…`）⇒ 补回 = 同一拍播两件。（另注：包里还有一个**只差下划线**的 prefab `Forewarned_Board`（`796d76e0…`），全库零引用、**与本条 CardAnim 不是同一件** —— 别拿它反推。）"
    },
    {
     "id": "AM30",
@@ -85882,7 +85882,7 @@
     "n": "Artillery Manticore down 1x",
     "a": "Manticore Board Down",
     "outcome": "unbacked",
-    "why": "按名字猜出来的动画；卡 SO 与 `CardTrait` SO 都没有引用它 ⇒ 无权威依据、不播（⛔ 不拿名字相近的顶替）"
+    "why": "⛔ **无权威依据、不播**（2026-10-24 `A9` 现核）：`Manticore Board Down`（CardAnim `2bb742a0…`）在**当前 build 的 1,351 张卡 SO 全 116 字段**里**零引用**（UnityPy 重读类型树逐字段核过，不是只 grep 字段名），**全 24.7 万件解包资产**里只有它自己的 CardAnim 记录引用它，`CardTrait` SO 0 命中。它落的 prefab `Artillery Manticore down 1x`（`e3fb0804…`）另由 CardAnim `Artillery Ground Big` 引用，而后者**已经在 `AM53`（play）/ `AM18`（ability）的权威桶里** ⇒ 这件视觉本身没丢，⛔ 但它不是 AM30 的 `play` 件（AM30 `cardAbilities` 为空、没有 `ThisCardPlayed(0)` 能力；登场走共享 `normalSummon`）。"
    },
    {
     "id": "AM34",
@@ -85892,7 +85892,7 @@
     "n": "Valkyrie_MultiLaser_Hover",
     "a": "Valkyrie_MultiLaser_Hover_Target",
     "outcome": "unbacked",
-    "why": "按名字猜出来的动画；卡 SO 与 `CardTrait` SO 都没有引用它 ⇒ 无权威依据、不播（⛔ 不拿名字相近的顶替）"
+    "why": "⛔ **无权威依据、不播**（2026-10-24 `A10` 现核）：`Valkyrie_MultiLaser_Hover_Target`（CardAnim `7f071e26…`）**全库唯一**的卡 SO 引用 = **`AM75 Valkyrie Drop`** 的 `cardAbilities[0].abilityLogic[0].cardAnimations[1]`（`ThisCardPlayed(0)` → `play`；2022 时代快照也给同一结论）⇒ 它是 AM75 的演出，挪给 AM34 = 把别家的件错播一遍。AM34 自己的远程权威件 = `customRangedAttackParticles` → `Atk_BulletImpact_Valkyrie_Missiles`（`e4501e8d…`，prefab `BulletImpact_ValkyrieMissile`）——与猜的 prefab `Valkyrie_MultiLaser_Hover`（`3df06e24…`）**不是同一件**；卡 SO 的 116 字段里远程攻击只有这一个字段。"
    },
    {
     "id": "BL55",
@@ -85922,7 +85922,7 @@
     "n": "Psychic_Lightning_down_Intense_white",
     "a": "Master Interromancer Hit",
     "outcome": "unbacked",
-    "why": "按名字猜出来的动画；卡 SO 与 `CardTrait` SO 都没有引用它 ⇒ 无权威依据、不播（⛔ 不拿名字相近的顶替）"
+    "why": "⛔ **无权威依据、不播**（2026-10-24 `A9` 现核）：这条按名字猜的 CardAnim `Master Interromancer Hit`（`7a4f21e3…`）**全库零卡引用**；但它落的 prefab `Psychic_Lightning_down_Intense_white`（`9d7fa450…`）**与这张卡 `play` 桶权威件 `Atk_SmiteLightning_white_Down`（`39d3e084…`）是同一件 prefab** ⇒ **视觉没丢、那一拍已经在 `play` 播**；卡 SO 也没有 `UnitDamaged(60)` 能力 ⇒ `hit` 这一拍原版没有逐卡件（保留 = 同一件播两遍）。"
    },
    {
     "id": "EC29",
@@ -85932,7 +85932,7 @@
     "n": "HeldrakeStrike",
     "a": "HeldrakeStrike",
     "outcome": "unbacked",
-    "why": "按名字猜出来的动画；卡 SO 与 `CardTrait` SO 都没有引用它 ⇒ 无权威依据、不播（⛔ 不拿名字相近的顶替）"
+    "why": "⛔ **无权威依据、不播**（2026-10-24 `A9` 现核）：`HeldrakeStrike`（CardAnim `39dca211…`）**全库唯一**的卡 SO 引用 = **`BL53 Heldrake Strike`**（Black Legion 法术，`ThisCardPlayed(0)`）⇒ 它是 BL53 的演出，挪给 EC29 = 把别家的件错播一遍。EC29 侧：卡 SO **没有近战专用字段**（`RawCardScript` 里根本没有），近战协程 `CardScript._AttackMeleeAnim_d__357__MoveNext.c` **313 行 0 处 `CardAnim`/`AddCardAnim`** ⇒ 原版近战这一拍**没有逐卡 VFX**（只有攻击音 + 位移 tween；判据全文 → `资料/普查产出_1023c/Trait_pentitence与静音桶溯源.md` §B·2）。"
    },
    {
     "id": "68909cf02f472734ea391665e0d28e15",
@@ -85952,7 +85952,7 @@
     "n": "Flayed One Summon",
     "a": "Flayed One Summon",
     "outcome": "unbacked",
-    "why": "按名字猜出来的动画；卡 SO 与 `CardTrait` SO 都没有引用它 ⇒ 无权威依据、不播（⛔ 不拿名字相近的顶替）"
+    "why": "⛔ **无权威依据、不播**（2026-10-24 `A9` 现核）：`Flayed One Summon`（CardAnim `53f3e4ca…`）**全库唯一**的卡 SO 引用 = **`SAU69 Flayed Ones Pack`**（`AbilityTrigger.Artifice(560)`）⇒ 它是那张**召唤法术**的演出，**不是** Flayed One 单位自身的登场件。SAU3 的 `summonAnimDelayed` 是**空 GUID**（UnityPy 类型树现读）⇒ 单位登场走共享 `normalSummon`（`Invoke Minion Card Fade *`）。"
    },
    {
     "id": "SAU26",

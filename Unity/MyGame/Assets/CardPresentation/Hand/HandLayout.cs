@@ -365,7 +365,8 @@ namespace CardPresentation
         // `c.transform.position` 建的「换」钮**全都落到牌堆上**（实拍 `_tmp_view/ui_1019/17_battle.png`）。
         // ⇒ 调用方（`BattleDriver.SyncHand`）在读落点**之前**先用本表把新牌落实。
         // ⚠️ 每趟 `Refresh` **重填**（不留上一趟的）—— 它只保证「最近一次排布的结果」。
-        // ⚠️ 世界坐标，与 `SlotPosition` / `CardTween.ToPose`（`DOMove`）同一套。
+        // ⚠️ 世界坐标，与 `SlotPosition` 同一套（`Place` 在喂 `CardView.TweenPose` 之前自己
+        //     `InverseTransformPoint` 成局部位 —— `TweenPose`/`SetPose` 吃的都是**局部**位）。
         struct HandPose { public Vector3 pos; public float angle; public float scale; }
         readonly Dictionary<CardView, HandPose> _lastPose = new Dictionary<CardView, HandPose>();
 
@@ -838,10 +839,13 @@ namespace CardPresentation
         {
             // 记下这一趟算出来的位姿（`A1540`：发牌入场读落点前要靠它先落实，见 `_lastPose` 的注释）
             _lastPose[c] = new HandPose { pos = pos, angle = angle, scale = scale };
-            if (!animateRelayout) { c.SetPose(pos, angle, scale); return; }
+            // ⚠️ 「不补间」这一支也要 **先掐掉在飞的位姿补间** —— 否则上一次重排的补间会继续把
+            //   刚 snap 好的位姿改回去（静默、只在动起来时看得见）。只掐 `TweenPose` 那一条，
+            //   不碰这个 Transform 上的别的补间（`KillPoseTween` 的 doc 有说明）。
+            if (!animateRelayout) { c.KillPoseTween(); c.SetPose(pos, angle, scale); return; }
             // 只有真的会动的地方才补间（拖拽让位每帧都可能重排，别把补间叠起来）
             c.transform.DOKill();
-            // 🔴 2026-10-24（`A26`）：这里的 `Ease.Linear` **不是「线性手感」**，是「**别在序列层再弯一次**」。
+            // 🔴 2026-10-24（`A26` / `A3`）：**传 `OutQuad`，⛔ 不是 `Linear`。**
             //   判据 = 原版 `CardScript.UpdateMinionInHandPosition`
             //   （`d:/2/tools/decomp_full/CardScript__UpdateMinionInHandPosition.c`，亲读）：
             //   手牌重排是**三条独立单补间** —— `DOMove`（位置）/ `DOLocalRotate`（倾角）/
@@ -850,29 +854,32 @@ namespace CardPresentation
             //   **全文一个 `SetEase` 都没有** ⇒ 三条各自吃 `DOTween.defaultEaseType`；
             //   原版 `resources.assets` pathID 1430 的 `DOTweenSettings` 实测 `defaultEaseType = 6`
             //   （= `OutQuad`，字节落在 1.70158 那个 float 前 4 字节）。
-            //   ⚠️ 我们这边是 `CardTween.ToPose` = **一个 Sequence + 3 条 Join**，且三条子补间
-            //   **都没写 `SetEase`**（⇒ 它们自己也吃默认 OutQuad）。所以：
-            //     · 传 `Linear` ⇒ 序列层不弯、子补间各自 OutQuad = **与原版那三条单补间同形**；
-            //     · 传 `OutQuad` ⇒ 在已经 OutQuad 的子补间上**再弯一次**（半程 0.75 → 0.9375），静默变样。
-            //   ⇒ ⛔ 别改回 `OutQuad`（这是 `A22` 审计里「范围外、同一缺陷」那两处之一）。
+            //   🔴 **两条入口的 ease 约定是反的，别抄错**：
+            //     · `CardTween.ToPose` = **一个 Sequence + 3 条 Join**，Sequence 上的 ease 是**整条时间轴**
+            //       的缓动（`DOTween.XML` 原文）⇒ 那一路必须传 `Linear`（否则在子补间 OutQuad 上再弯一次）；
+            //     · `CardView.TweenPose`（本处）= **单条补间**（`DOTween.To` + 每帧 `SetPose`）
+            //       ⇒ 传 `OutQuad` = 原版那三条单补同形；传 `Linear` 会变成**匀速**（错的那一档）。
             //
-            // 🔴 **2026-10-24（`J3` · 口径差 1）：旋转改走 `DOLocalRotate`（⛔ 不再是 `DORotate`）。**
+            // 🔴 **2026-10-24（`J3` · 口径差 1）：旋转必须是【局部】角（⛔ 不是 `DORotate` 的世界欧拉）。**
             //   判据 = 同一个原版方法体 `CardScript__UpdateMinionInHandPosition.c`（亲读，逐句）：
             //     · 位置 `DG_Tweening_ShortcutExtensions__DOMove(transform, pos, param_4, 0, 0)` —— **世界**；
             //     · 角度 先 `Quaternion.Internal_ToEulerRad` × `Rad2Deg` 再 `Internal_MakePositive`
             //       ⇒ `DG_Tweening_ShortcutExtensions__DOLocalRotate(transform, euler, param_4, 0, 0)` —— **局部**；
             //     · 缩放 `DG_Tweening_ShortcutExtensions__DOScale(transform, GetCardInHandScale(), param_4, 0)`
             //       —— `DOScale` 写的就是 `localScale`。
-            //   我们原来用的是 `CardTween.ToPose`，它中间那一跳是 **`DORotate`（世界欧拉）** ⇒
-            //   **父链一有旋转，两者就分叉**：世界欧拉 `(0,0,θ)` 会把父件的旋转一起抵掉，
-            //   卡最终在父件局部系里的角度 = `θ − 父件角`；原版要的是局部的 `θ`。
-            //   ⚠️ **今天看不出差别**：手牌卡的父件 = `BattleDriver` 根（在原点、旋转=`identity`、
-            //      缩放=1；判据 `BattleDriver.SyncHand` 的 `CardView.Create(transform, …)`）⇒ 局部位姿
-            //      ≡ 世界位姿。这一改是**把语义摆正**，并把「父链一旦带上旋转/缩放就静默走样」这条路堵死。
-            //   ⚠️ `HandPoseTween` 是 `CardTween.ToPose` 的**逐句同形副本，只差这一跳**；
-            //      `Core/CardTween.cs` 不在本笔所有权内 ⇒ 先在这里落，**收口方式见报告**（把 Core 那份也换成
-            //      `DOLocalRotate`、再删掉这份副本）。⛔ 别在此之上再加第三份。
-            HandPoseTween.ToPose(c.transform, pos, angle, scale, CardTween.RelayoutDuration, Ease.Linear);
+            //   `CardView.TweenPose` 每帧走 `SetPose`：`transform.localPosition` / `transform.localRotation`
+            //   ⇒ **局部角天然等价**于原版的 `DOLocalRotate`（父链带旋转也不会被抵掉，
+            //   这正是 `J3` 当时新增 `HandPoseTween` 要修的那一跳）。
+            //
+            // 🔴 **2026-10-24（`A3` · 本笔）：整体换成 `CardView.TweenPose`** —— 原来走 `CardTween.ToPose`
+            //   （Sequence 版），`DOScale` **直写 `localScale`**，`CardView._baseScale` 在补间期间
+            //   停在起点值上（`Core/CardView.cs` 的 `T04` 那条 doc 写明的潜伏缺陷：补间一结束，
+            //   任何一次 `SetPose` / `SetHighlightScale` 都会把卡**弹回旧缩放**，静默）。
+            //   `TweenPose` 把**局部位置 + 局部角度 + `_baseScale`** 一起带 ⇒ 缩放的所有权回到 `CardView`。
+            //   ⚠️ 顺带收口：`J3` 那份 `HandPoseTween`（第二份实现）**已删**，本仓不再有第三个口。
+            var parent = c.transform.parent;
+            Vector3 local = parent != null ? parent.InverseTransformPoint(pos) : pos;
+            c.TweenPose(local, angle, scale, CardTween.RelayoutDuration, Ease.OutQuad);
         }
 
         // ==================================================================
@@ -895,43 +902,6 @@ namespace CardPresentation
                  + $"  跨度 {SpanWorld(count):F2} / 上限 {MaxLayoutWorld():F2}"
                  + $"  满弧 {ArcHeightFull * 100f * LayoutSpace.Scale:F2} 归一化×100"
                  + $"  张角修正 {rotationModifierByCount.Evaluate(CountFraction(count)):F2}";
-        }
-    }
-
-    /// <summary>
-    /// 手牌位姿补间 —— **原版 `CardScript.UpdateMinionInHandPosition` 的同形移植**
-    /// （`d:/2/tools/decomp_full/CardScript__UpdateMinionInHandPosition.c`，2026-10-24 `J3` 亲读逐句）：
-    /// <code>
-    ///   Kill(+0x340) → DOLocalRotate(transform, euler, param_4, 0, 0)   // 局部角度
-    ///   Kill(+0x348) → DOScale(transform, GetCardInHandScale(), param_4, 0)   // localScale
-    ///   Kill(+0x2d0) → DOMove(transform, pos, param_4, 0, 0)            // 世界位置
-    /// </code>
-    /// 三条**独立单补间**、同一个时长（`param_4` = `VarsGlobal.timeToPositionCard` = 0.2 s，
-    /// 由 `PlayerHand._MoveCardsInHandToPosition_d__76__MoveNext.c:76-80` 喂进来）、**全文没有 `SetEase`**
-    /// ⇒ 各自吃 `DOTween.defaultEaseType`（原版资源 = 6 `OutQuad`）。
-    ///
-    /// <para>🔴 **与 `Core/CardTween.ToPose` 的唯一差别 = 旋转那一跳**：那份用 `DORotate`（世界欧拉），
-    /// 本份用 `DOLocalRotate`（局部欧拉）—— 原版就是后者。父链带旋转时两者**不等价**
-    /// （世界欧拉会把父件角抵掉，卡的局部角变成 `θ − 父件角`）。</para>
-    /// <para>⚠️ **为什么是第二份实现**：`Core/CardTween.cs` 不在 `J3` 的改动白名单里（另一路在写 `Core`）。
-    /// 收口办法 = 把 `CardTween.ToPose` 的中间那一跳也换成 `DOLocalRotate`，然后**删掉本类**。
-    /// ⛔ 在收口之前别再写第三份（两处写同一条规则 = 迟早不一致，这是本仓踩过的坑）。</para>
-    /// <para>⚠️ `ease` 与 `CardTween.ToPose` 同一个约定：**传 `Linear`** —— 序列层不弯，
-    /// 三条子补间各自吃默认 `OutQuad` = 原版三条单补间的形状；传别的就是**二次弯曲**。</para>
-    /// <para>⚠️ `worldPos` 是**世界**坐标（原版 `DOMove`）；`localRotZ` / `localScale` 是**局部**量
-    /// （原版 `DOLocalRotate` / `DOScale`）。今天手牌卡的父件 = 驱动根（原点、`identity`、缩放 1）
-    /// ⇒ 局部位姿 ≡ 世界位姿；父链一旦变了，这一区分才开始起作用（那正是本类的意义）。</para>
-    /// </summary>
-    internal static class HandPoseTween
-    {
-        public static Tween ToPose(Transform tr, Vector3 worldPos, float localRotZ, float localScale,
-                                   float duration, Ease ease)
-        {
-            var seq = DOTween.Sequence();
-            seq.Join(tr.DOMove(worldPos, duration));                                  // 原版 DOMove（世界）
-            seq.Join(tr.DOLocalRotate(new Vector3(0f, 0f, localRotZ), duration));    // 原版 DOLocalRotate（局部）
-            seq.Join(tr.DOScale(Vector3.one * localScale, duration));                 // 原版 DOScale
-            return CardTween.Use(seq, ease, tr);
         }
     }
 }

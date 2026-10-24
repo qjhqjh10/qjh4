@@ -47,6 +47,9 @@ else {                                                                        //
 **输入**：`d:/4/_tmp_view/probe_out.txt`（探针快照）· `cards_engine.json`
 （探针读法与「desc→卡」的映射**不另写一份**：转调 `工具/zh_crosscheck.py` 的
 `parse_probe` / `make_cards_for` —— 本工程规矩：同一条判据别写两份）
+⚠️ 2026-10-24：`probe_out.txt` **现读不在盘上**（不是死链，是**要现跑**的产物）——
+   先 `-executeMethod EffectParseProbe.Run`（`RuleEngine/Editor/EffectParseProbe.cs:25/28`
+   就写这个路径），再跑本脚本。
 **输出**：`d:/4/_tmp_view/fixedcount_targets_0918.md`（清单）+ stdout 汇总
 
 用法：`PYTHONIOENCODING=utf-8 python d:/4/Unity/工具/scan_fixedcount_targets.py`

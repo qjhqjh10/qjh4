@@ -33,8 +33,24 @@ import os
 import re
 import sys
 
+## A17 2026-10-24: -h/--help early exit (print usage only, exit 0; never run the real work).
+import sys as _wf_help_sys
+if any(_wf_help_sys.argv[_i] in ("-h", "--help") for _i in range(1, len(_wf_help_sys.argv))):
+    try:
+        _wf_help_sys.stdout.reconfigure(encoding="utf-8")
+    except Exception:
+        pass
+    print('用法：\n  # ① 先跑探针（`-executeMethod EffectParseProbe.Run`，写 d:/4/_tmp_view/probe_out.txt）\n'
+          '  # ② PYTHONIOENCODING=utf-8 python -I -X utf8 d:/4/Unity/工具/scan_swallowed_clauses.py\n'
+          '  # 输出：d:/4/_tmp_view/swallow_candidates.tsv\n'
+          '  -h, --help  只打印本用法并退出（退出码 0），不执行任何真活。')
+    _wf_help_sys.exit(0)
+
 PROBE = "d:/4/_tmp_view/probe_out.txt"
 DESC2CARDS = "d:/4/_tmp_view/desc_to_cards.tsv"
+# ⚠️ 2026-10-24 更正（铁律 5）：`desc_to_cards.tsv` **现读已不在盘上，全仓也没有生成它的脚本**
+#   ⇒ 这一路（子句 → 卡）实际不再起作用，`load_desc2cards` 读不到就返回空表（不报错）。
+#   判据与影响面 → `工具/zh_crosscheck.py:65` 上面那段更正注。
 OUT = "d:/4/_tmp_view/swallow_candidates.tsv"
 
 # 「引文里不该出现的东西」——命中任意一条就进候选。

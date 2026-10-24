@@ -12,6 +12,10 @@
 例：
   ... _extract_dropped_props.py d:/4/_tmp_view/export_0917.log \
       d:/4/Unity/资料/普查产出_0917/替代shader丢失的源属性_0917.md
+  ⚠️ 2026-10-24 更正（铁律 5）：上面那个例子里的 `export_0917.log` **现读已不在盘上**
+     （一次性 Unity 导出日志，生产者没有留存）⇒ 这个例子只能当**格式示范**，照着跑会读不到文件。
+     要复算同一件事，得**重新跑一次 EffectExporter 导出**、把它新写的日志路径换进来
+     （产物已落盘、不必重做：`资料/普查产出_0917/替代shader丢失的源属性_0917.md`）。
 """
 import collections
 import io

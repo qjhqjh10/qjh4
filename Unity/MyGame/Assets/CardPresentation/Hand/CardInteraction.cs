@@ -578,7 +578,7 @@ namespace CardPresentation
             _hovered = -1;
 
             card.SetHighlight(CardHighlightState.Selected);
-            // 🔴 2026-10-24（`A26`）：`Ease.Linear` 在这里的意思是「**别在序列层再弯一次**」，不是「线性手感」。
+            // 🔴 2026-10-24（`A26`）：ease 这一档的口径 —— **单补间传 `OutQuad`，Sequence 才传 `Linear`**。
             //   判据 = 原版 `CardScript.StartMovingFromHand`
             //   （`d:/2/tools/decomp_full/CardScript__StartMovingFromHand.c`，亲读）：拿起手牌只开**一条**
             //   `DOScale(transform, GetCardInHandScale() * globalVars+0x44, globalVars+0x78, 0)`
@@ -586,11 +586,8 @@ namespace CardPresentation
             //   `+0x78` = `timeToScaleIntoMoving` 0.1（= `CardTween.PickUpDuration`）；
             //   **没写 `SetEase`** ⇒ 吃 `DOTween.defaultEaseType`；原版 `resources.assets`
             //   pathID 1430 的 `DOTweenSettings` 实测 `defaultEaseType = 6`（`OutQuad`）。
-            //   ⚠️ 我们把这件「抬起 z + 保持倾角 + 放大」包进了 `CardTween.ToPose` 的 **Sequence**
-            //   （3 条 Join，子补间**各自都没写 `SetEase`** ⇒ 各自吃默认 OutQuad），所以：
-            //     · 传 `Linear` ⇒ 序列层不弯 → 缩放那条 = 单次 `OutQuad` = **与原版那条 `DOScale` 同形**；
-            //     · 传 `OutQuad` ⇒ 序列层再弯一次（OutQuad∘OutQuad，半程 0.9375 vs 原版 0.75）。
-            //   ⇒ ⛔ 别改回 `OutQuad`（`A22` 审计里「范围外、同一缺陷」的另一处）。
+            //   🔴 这里现在走 `CardView.TweenPose` = **单条补间** ⇒ 传 `OutQuad` 就是那条 `DOScale` 的形状；
+            //   ⛔ 别照抄 `CardTween.ToPose` 的「Sequence 只能传 `Linear`」约定（那会变成匀速）。
             //
             // 🔴 **2026-10-24（`J3` · 口径差 1）：旋转那一跳改成 `DOLocalRotate`，角度也改成【局部】角。**
             //   判据同 `HandLayout.Place` 那一段（`CardScript__UpdateMinionInHandPosition.c` 用的是
@@ -599,11 +596,26 @@ namespace CardPresentation
             //   （= 局部角 `θ − 父件角`）；改成 `localEulerAngles.z` + `DOLocalRotate` 之后
             //   「保持它现在的倾角」才真的是保持（原版拿起时**根本没有角度补间**，
             //   我们这一跳的语义就是「保持在当前角」，所以目标值必须取局部角）。
-            HandPoseTween.ToPose(card.transform,
-                                 card.transform.position + new Vector3(0f, 0f, -dragLiftZ),
-                                 card.transform.localEulerAngles.z,
-                                 hand.cardScale * LayoutSpace.Scale * dragScale,
-                                 CardTween.PickUpDuration, Ease.Linear);
+            //
+            // 🔴 **2026-10-24（`A3` · 新账-82②）：改走 `CardView.TweenPose`，⛔ 不再直写 `localScale`。**
+            //   原来这里经 `J3` 那份 `HandPoseTween` → `transform.DOScale(...)`，**直接写 `localScale`**
+            //   ⇒ `CardView._baseScale` 停在**上一次重排时的旧值**（今天零可见差，但这是全仓
+            //   「直写 localScale」的第 4 个口；一旦紧接着有 `SetPose` / `SetHighlightScale`，
+            //   卡会**静默弹回旧缩放** —— `CardView` 的 `T04` 那条 doc 记的就是这一族）。
+            //   `TweenPose` 每帧经 `SetPose` 写：**局部位置 + 局部角度 + `_baseScale`** 一起带。
+            //   ⚠️ **ease 这一档与 `HandLayout.Place` 相反**：`TweenPose` 是**单条补间**（不是 Sequence）
+            //   ⇒ 传 `OutQuad` 才对（= 原版那条 `DOScale` 吃默认 `defaultEaseType`）；
+            //   照抄 `CardTween.ToPose` 那条「Sequence 只能传 Linear」的约定会变成**匀速**（错的那一档）。
+            //   ⚠️ 缩放目标照旧是「手牌档 × `dragScale`」—— `CardView` 的 `_hlMul`（高亮系数）
+            //   会在它之上再乘（`Selected` 那一档原版**不缩放**，`_hlMul` 会回 1，见 `CardHighlight.ScaleOf`）。
+            {
+                var tr = card.transform;
+                Vector3 worldTarget = tr.position + new Vector3(0f, 0f, -dragLiftZ);
+                Vector3 localTarget = tr.parent != null ? tr.parent.InverseTransformPoint(worldTarget) : worldTarget;
+                card.TweenPose(localTarget, tr.localEulerAngles.z,
+                               hand.cardScale * LayoutSpace.Scale * dragScale,
+                               CardTween.PickUpDuration, Ease.OutQuad);
+            }
 
             Relayout(false);               // 手牌把这张空出来，邻牌补位（原版起拖时走 `DisplayHandWithCardSpace`，不碰碰撞体 ⇒ 不开闸）
             // 🔴 **2026-10-01：拿起牌时不再把九格全点亮。** 原来这里调 `board.SetDragHighlight(true)`
@@ -989,8 +1001,9 @@ namespace CardPresentation
                 //   （Sequence 层再挂一次 OutQuad、**没有角度**），而这一帧末尾的 `Relayout()` 本来就会
                 //   对同一张牌 `DOKill()` 再开一条正确的重排补间 ⇒ 那条自造补间**等于白开、还被白杀一次**。
                 //   ⇒ 删掉它：回弹完全交给下面那句 `Relayout(true)`（时长 / 形状 / 角度 三样一次对齐）。
-                //   ⚠️ `CardTween.SnapBackDuration`（0.22，在 `Core/CardTween.cs`）从此**没有调用方** ——
-                //      那个文件不在本笔所有权内，删它／改它 doc 的事留给调度台（见 `J3` 报告）。
+                //   ✅ **2026-10-24（`A3`）：`CardTween.SnapBackDuration`（0.22）已从 `Core/CardTween.cs` 删掉** ——
+                //      判据就是上面这几条（原版没有回弹专用补间）；全仓已**没有**该常量的定义/调用
+                //      （剩下的只是本段这条留痕注释）。
                 card.SetHighlight(CardHighlightState.Normal);
                 if (OnReturned != null) OnReturned(card);
                 // 🔴 **「非法操作」与「正常取消」在这里分开** ——

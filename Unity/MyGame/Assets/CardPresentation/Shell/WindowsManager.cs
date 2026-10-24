@@ -89,6 +89,13 @@ namespace CardPresentation
         public GameWindow currentWindow;
         public GameWindow popUpWindow;
 
+        /// <summary>本类**建过的那一扇消息弹窗**（`ShowMessagePopUp` 唯一出口建的；全仓 `PopUpGameWindow.Create`
+        /// 只被它调）。为什么要单独记一格：`popUpWindow` 会在关窗时被 `NotifyClosed` 清掉，而我们的
+        /// `Close()` **只 `SetActive(false)`、不销毁** ⇒ 光看字段找不到那具已关掉的对象，
+        /// 每弹一次就在锚点下留一具尸体。原版 `OBJECT.Destroy` 那一步靠这一格补上
+        /// （判据 → `WindowsManager._LoadPopup_d__55__MoveNext.c:20-45`；2026-10-24 `A11`）。</summary>
+        PopUpGameWindow _lastMessagePopup;
+
         void Awake()
         {
             if (Instance != null && Instance != this) { Destroy(gameObject); return; }
@@ -1328,53 +1335,80 @@ namespace CardPresentation
         /// 同族的另两份记录也各漂过一版：`资料/普查产出_1012/H5_DeckScene红与ShowPopUp收编.md:139,248`
         /// 与 `H17_ShowPopUp收编.md:145,149` 里的旧行号**是历史快照、本件不改**，只在此说明「以 `grep` 为准」）。</para>
         ///
-        /// <para>🔴 **复用同一扇**（照原版）：`WindowsManager` 在反编译里认的是**字段** `popUpWindow`（+0x60）——
-        /// `_LoadPopUpAndShow` 的 `MoveNext` 第 2 段就是 `PopUpGameWindow__ConfigurePopUp(*(this+0x60), …)` +
-        /// `OpenWindow(this, *(this+0x60))` ⇒ **第二次弹窗是「重配 + 重开同一实例」**，不是新建
-        /// （`ConfigurePopUp` 那个逐颗 `LiveButtons` 贴标签 / 藏多余钮的循环本来就是为了复用而写的）。
-        /// 我们的判据 = `popUpWindow as PopUpGameWindow` **且**它还在 `openWindows` 里（`StillOpen`，
-        /// 关过就不再复用 —— 同 `OpenByRef` 那条口径）。</para>
+        /// <para>🔴 **2026-10-24（`A11` · 铁律 5 就地订正）：原来这里写的是「复用同一扇（照原版）」，【那是错的】。**
+        /// 原文的理由是「`_LoadPopUpAndShow` 的 `MoveNext` 第 2 段 = `ConfigurePopUp(*(this+0x60))` +
+        /// `OpenWindow(*(this+0x60))` ⇒ 第二次是重配同一实例」—— **漏读了它前面那一整段**：
+        /// `WindowsManager._LoadPopup_d__55__MoveNext.c:20-45`（亲读）逐句是
+        /// **`if (popUpWindow != null) { CloseWindow(this, popUpWindow, false); Destroy(popUpWindow.gameObject); }`
+        /// → 按 `twoButtons` 挑 prefab `Instantiate` → 赋回 `*(this+0x60)`**。
+        /// 配套：`WindowsManager._LoadPopUpAndShow_d__59__MoveNext.c` 的 `bVar4 = 1 &lt; buttons.Count` 就是那个挑法。
+        /// ⇒ **原版每次都销毁旧的、按按钮数重建**；`ConfigurePopUp` 里「超出按钮数的 `SetActive(false)`」
+        /// 在**原版**是一条**防御性死路**（prefab 的按钮数本来就够）。
+        /// 改前的「复用 + `RefreshLiveContent`」**不是原版**，而且有一档会**丢钮**：场上开着一扇
+        /// **1 按钮版**实例、又要求两颗钮时，那颗 OK **画不出来**（A6 在调用点做过局部兜底并出声）；
+        /// 现在照原版销毁重建 ⇒ **从根上没了**。`RefreshLiveContent` 仍留着（原版 `ConfigurePopUp`
+        /// 确实会写活组件，只是它写的那一扇**永远是刚建出来的** ⇒ 落在 `Build()` 那一支）。
+        /// 错因 = **只读了 `MoveNext` 的后半段**（`ConfigurePopUp` 那一跳），没读它开头那两句销毁。</para>
         ///
         /// <para>⚠️ 如实标注：我们**没有**原版那个 `popUpWindowOneButton`/`TwoButtons` 的
-        /// `automaticallyLoadedWindows` 缓存（原版按 **prefab 引用**缓存），这里是按「当前那扇还是不是它」判的
-        /// —— 行为等价（同一时刻只可能有一扇消息弹窗在场），但机制不同。</para></summary>
+        /// `automaticallyLoadedWindows` 缓存（原版按 **prefab 引用**缓存）—— 现在**也不需要**它：
+        /// 原版这条消息弹窗的路**根本不走复用**（每次 Instantiate）。
+        /// 同一时刻只可能有一扇消息弹窗在场（旧的那扇在新建**之前**就被销毁了）。</para></summary>
         /// <param name="messageKey">**I2 术语键**（⛔ 不是明文 —— 见 `PopUpGameWindow` 文件头 ③）。</param>
         /// <param name="primaryKey">主按钮的术语键。原版 `ShowPopUp(…, primaryButton, secondButton)` 里
         /// primary 落在 **`LiveButtons[0]` = `ButtonLeft`（左）**。</param>
         public PopUpGameWindow ShowMessagePopUp(string messageKey, string primaryKey, System.Action onPrimary,
                                                 string secondaryKey = null, System.Action onSecondary = null)
         {
-            var win = popUpWindow as PopUpGameWindow;
-            bool reuse = win != null && StillOpen(this, win);
-            if (!reuse)
+            // 🔴 **2026-10-24（`A11` · 铁律 5 就地改实现）：照原版【销毁旧的、按按钮数重建】。**
+            //   判据（第一权威 = 反编译方法体，亲读）→ `WindowsManager._LoadPopup_d__55__MoveNext.c:20-45`：
+            //     if (op_Inequality(popUpWindow, 0)) {
+            //         WindowsManager__CloseWindow(this, popUpWindow, false);      // ① 先关
+            //         Object__Destroy(Component__get_gameObject(popUpWindow));    // ② 再销毁
+            //     }
+            //     prefab = this.<1 按钮版 / 2 按钮版>;                            // ③ 参数 = `_LoadPopup` 的第 2 参
+            //     popUpWindow = Object__Instantiate(prefab, …);                  // ④ 每次新建
+            //   ⇒ 「复用 + `RefreshLiveContent`」（A416/A454）**不是原版**，而且有一档会丢钮：
+            //   场上是 1 按钮版实例、这次要两颗 ⇒ OK 那颗画不出来（A6 在调用点做过局部兜底，留着当第二道闸）。
+            //
+            // ⚠️ **为什么还要 `_lastMessagePopup`**：我们的 `GameWindow.Close()` 只 `SetActive(false)`、
+            //   **不销毁**（原版 `CloseWindowCO` 是 `Object.Destroy`，见本文件 A123 那段），而 `NotifyClosed`
+            //   会把 `popUpWindow` 这一位清掉 ⇒ **光看 `popUpWindow` 找不到那具已经关掉的对象**，
+            //   每弹一次就在锚点下留一具尸体。⇒ 用本类自己记的一格「本类建的那扇」兜住
+            //   （本类是全仓**唯一**调 `PopUpGameWindow.Create` 的地方，见 `grep`）。
+            var old = popUpWindow as PopUpGameWindow;
+            if (old == null) old = _lastMessagePopup;
+            if (old != null)
             {
-                win = PopUpGameWindow.Create(this, messageKey, primaryKey, onPrimary, secondaryKey, onSecondary);
-                Debug.Log("[Win] 消息弹窗**不在**（没建过 / 已经关掉）⇒ 新建一扇（照原版 `Instantiate` 那一支）");
+                bool wasOpen = StillOpen(this, old);
+                if (wasOpen) old.Close();                 // = 原版 `CloseWindow(this, popUpWindow, false)`
+                DestroyWindowObject(old.gameObject);      // = 原版 `Object.Destroy(Component.get_gameObject())`
+                if (popUpWindow == old) popUpWindow = null;   // 兜底（`NotifyClosed` 正常已清过这一位）
+                if (_lastMessagePopup == old) _lastMessagePopup = null;
+                Debug.Log("[Win] 消息弹窗**已在场** ⇒ 照原版**先关旧的、销毁、再新建**"
+                        + $"（旧的 `{(wasOpen ? "还开着" : "已经关掉")}` · 新建按钮数 = {(string.IsNullOrEmpty(secondaryKey) ? 1 : 2)}）");
             }
-            else
-            {
-                win.Configure(messageKey, primaryKey, onPrimary, secondaryKey, onSecondary);
-                Debug.Log("[Win] 消息弹窗**还开着** ⇒ 复用同一扇、重配内容（照原版 `ConfigurePopUp` + `OpenWindow`）");
-            }
-            OpenWindow(win);      // 两支都照原版**再走一遍**开窗流程；
-                                  // 🔴 **2026-10-12（A416）就地订正一处说法（铁律 5）**：这里原来写
-                                  //   「🔴 内容重建与否按 `CurrentState` 走（A217②：还开着 ⇒ `TryOpen` 早退、
-                                  //   不重建 —— 所以上面那一支必须用 `Configure` **先**把正文/两钮/回调改掉，
-                                  //   ⛔ 不是靠 `Open()` 重铺）」—— **后半句当时与实现对不上**：那时的
-                                  //   `Configure` 只写那 5 个字段，**建树在 `Build()`**（由 `Open()` 调），
-                                  //   而复用支（`CurrentState == Open`）**根本不会再跑 `Open()`**
-                                  //   （= 上面 `TryOpen` 的第 ④ 支）⇒ 复用一扇「还开着」的弹窗时
-                                  //   **正文/钮标/回调都不刷新**，而原版 `PopUpGameWindow__ConfigurePopUp.c`
-                                  //   是**直接写活组件**（`SetText(文案, …)` + 逐颗 `LiveButtons` 贴标签 / 挂回调）
-                                  //   ⇒ 复用那一刻内容是会变的。
-                                  //   ✅ **2026-10-12（A454）已修**：`PopUpGameWindow.Configure` 现在照原版，
-                                  //   窗已经建过时把正文/钮标/回调/多余钮的显隐**写进活着的组件**
-                                  //   （`RefreshLiveContent`，⛔ 一个对象都不重建 ⇒ 与 A217② 的「`Open` 支不重建
-                                  //   内容对象」不冲突）⇒ 上面那句「必须用 `Configure` 先把正文/两钮/回调改掉」
-                                  //   **今天成了真的**（当时是拿一句做不到的话描述意图）。
-                                  //   🔴 改坏法（自检落点见报告「待接线」）：复用一扇**还开着**的窗、给**不同**的文案 ⇒
-                                  //   删掉 `Configure` 里那句 `RefreshLiveContent()` 就会退回去显示旧文案。
+            var win = PopUpGameWindow.Create(this, messageKey, primaryKey, onPrimary, secondaryKey, onSecondary);
+            _lastMessagePopup = win;
+            // = 原版 `_LoadPopUpAndShow` 最后那一跳 `OpenWindow(this, *(this+0x60))`。
+            // ⚠️ 现在**没有**「复用支」了 ⇒ 上一版那段「复用一扇还开着的窗时 `Open()` 早退、
+            //   必须靠 `RefreshLiveContent` 刷新」的坑在**这条路上**不存在（A454 那份实现仍然留着：
+            //   原版 `ConfigurePopUp` 本来就会写活组件，只是它写的那一扇永远是刚建出来的 ⇒ 走 `Build()`）。
+            OpenWindow(win);
             return win;
+        }
+
+        /// <summary>销毁一扇窗的 GameObject —— **批处理（编辑器、非 Play）里 `Object.Destroy` 不生效**，
+        /// 必须 `DestroyImmediate`（`CLAUDE.md`「批处理下没有帧循环」那条）。
+        /// 形态与 `MainMenuSubmenuWindow.DestroySafe` 逐句相同（⛔ 不跨文件依赖：那个是窗那边的 public
+        /// helper，本类是共用件、不该被某个具体窗的 API 牵着走）。</summary>
+        static void DestroyWindowObject(GameObject go)
+        {
+            if (go == null) return;
+#if UNITY_EDITOR
+            if (!Application.isPlaying) { Object.DestroyImmediate(go); return; }
+#endif
+            Object.Destroy(go);
         }
 
         /// <summary>🆕 **2026-10-12（A364）**：原版 `WindowsManager.HidePopUp(bool force = false)` —— 逐句照

@@ -243,6 +243,18 @@ namespace CardPresentation
             new Dictionary<string, TraitEffectBinding[]>();
         static readonly HashSet<string> _startEmptyTraits = new HashSet<string>();
 
+        //  🆕 2026-10-24（执行代理 `A2` · 战斗线 `D4`）：**动画名 → 原版 `TraitEffect.TriggerType`** 的反查表。
+        //  为什么需要：`trigger` 桶（`VfxMap`）把 **Start(0)**（召唤/附魔那一刻播）与
+        //  **Trigger(3)/TriggerOnPlay(6)**（触发那一刻播）的 trait 行混在一起 —— 数据侧
+        //  `gen_card_vfx_by_card.py` 按 `TRAIT_TRIGGER_EVENT` 归桶时没带 `TriggerType` 这一列，
+        //  而本类**本来就有**那份真值（`_allRows`）。⇒ 在这里开一个只读反查口，让消费端
+        //  按原版分拍（判据 = `BattleCardUI__DisplayStatusAnim.c:86-119` 只认 0/2、
+        //  `…__DisplayTriggerAnim.c:71` 只认 3/6）。⛔ 不要在别处再手写一张 trait→类型表。
+        //  ⚠️ 现读 67 个不同名字，**没有任何一个**同时对应两种 `TriggerType`（2026-10-24 现核）
+        //     ⇒ 反查是单值的；将来若出现冲突，后写的那条会覆盖先写的（届时用 `RowsOfTriggerType` 核）。
+        static readonly Dictionary<string, int> _triggerTypeOfAnim = new Dictionary<string, int>(System.StringComparer.Ordinal);
+        static readonly Dictionary<string, int> _triggerTypeOfPrefab = new Dictionary<string, int>(System.StringComparer.Ordinal);
+
         static bool _bindingsTried, _bindingsLoaded;
         static TraitEffectBinding[] _allRows = new TraitEffectBinding[0];
         static int _startRows;                    // TriggerType == 0 的行数（含 prefab 空的那两条）
@@ -268,6 +280,32 @@ namespace CardPresentation
             for (int i = 0; i < _allRows.Length; i++)
                 if (_allRows[i].TriggerType == triggerType) l.Add(_allRows[i]);
             return l.ToArray();
+        }
+
+        /// <summary>🆕 2026-10-24（执行代理 `A2` · 战斗线 `D4`）：**一条动画属于原版哪一种
+        /// `TraitEffect.TriggerType`**（先按 `CardAnim` 名、再按 prefab 名；两处都没有 ⇒ **`-1`** = 它不是 trait 行）。
+        ///
+        /// <para>**为什么要有这个反查口**：`VfxMap` 的 `trigger` 桶里混着两种拍的 trait 行 ——
+        /// **Start(0)**（召唤/附魔那一刻，`BattleCardUI__DisplayStatusAnim.c:86-119`）与
+        /// **Trigger(3)/TriggerOnPlay(6)**（触发那一刻，`…__DisplayTriggerAnim.c:71` 只认 3/6）。
+        /// 原版**触发那一拍只播 3/6** ⇒ 消费端必须能把 0/1/2/5 那几档分出去。
+        /// 真值来源 = 本类已载入的 `Resources/trait_effect_bindings.json`（= 原版 `CardTrait` SO），
+        /// ⛔ 不是按名字猜、也⛔ 不要在调用方再写一张表。</para>
+        /// <para>⚠️ 空名字按「没匹配」处理（先试 `cardAnim`、再试 `prefab`，都没有就回 `-1`）。</para></summary>
+        public static int TriggerTypeOf(string cardAnim, string prefab)
+        {
+            EnsureBindings();
+            if (!string.IsNullOrEmpty(cardAnim))
+            {
+                int t;
+                if (_triggerTypeOfAnim.TryGetValue(cardAnim, out t)) return t;
+            }
+            if (!string.IsNullOrEmpty(prefab))
+            {
+                int t;
+                if (_triggerTypeOfPrefab.TryGetValue(prefab, out t)) return t;
+            }
+            return -1;
         }
 
         /// <summary>载入并分组。**失败一定出声**（`Debug.LogError` + `BindingsProblem`）——
@@ -367,6 +405,14 @@ namespace CardPresentation
             }
 
             _allRows = all.ToArray();
+            // 🆕 2026-10-24（`A2` · `D4`）：把「动画名 → `TriggerType`」建起来（反查口见 `TriggerTypeOf`）。
+            //  ⚠️ 两个键都要建：运行期表里有的候选带 `CardAnim`（`a`）、有的只有 prefab（`n`）。
+            for (int i = 0; i < _allRows.Length; i++)
+            {
+                var b = _allRows[i];
+                if (b.CardAnim.Length > 0) _triggerTypeOfAnim[b.CardAnim] = b.TriggerType;
+                if (b.Prefab.Length > 0) _triggerTypeOfPrefab[b.Prefab] = b.TriggerType;
+            }
             for (int i = 0; i < playOrder.Count; i++) _playBook[playOrder[i]] = playLists[playOrder[i]].ToArray();
             for (int i = 0; i < trigOrder.Count; i++) _triggerBook[trigOrder[i]] = trigLists[trigOrder[i]].ToArray();
             for (int i = 0; i < startOrder.Count; i++) _startBook[startOrder[i]] = startLists[startOrder[i]].ToArray();

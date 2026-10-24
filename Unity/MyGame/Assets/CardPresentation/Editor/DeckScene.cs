@@ -6927,14 +6927,21 @@ public static class DeckScene
                     CheckTrue(_rt.ModalPopupOpen, "★ ……不合法时再按 ESC：窗**还开着**（不会偷偷把自己收掉）");
                     Check(DeckLibrary.Load().Current.Name, keepName, "★ ……而且盘上仍然**没有**这次的名字（没落盘）");
 
-                    // ---- ⑤ 复用：**还开着**时再弹 ⇒ 原版是「重配 + 重开同一实例」（`*(this+0x60)`）----
+                    // ---- ⑤ **这里其实没有第二次弹窗**（⇒ 下面那条是平凡真；带电的在 A502 那一节）----
                     // 🔴 **2026-10-13（A502）如实记**：这一条原来是靠 ④ 那次 ESC（当时它**不认弹窗**、
                     //   又走了一遍保存 ⇒ 把窗重弹一次）**带电**的；A502 之后 ④ 的 ESC 什么都不做
-                    //   ⇒ 这里成了**平凡真**。带电的那条挪到 A502 那一节（那里显式再 `TryClose()` 一次，
-                    //   断言「同一个实例」）；本节这条留着不删（④ 一旦被改回旧写法，它仍然是对的）。
+                    //   ⇒ 这里成了**平凡真**（④ 之后根本没有第二次 `ShowMessagePopUp`）。
+                    // 🔴 **2026-10-24（执行代理 `A13`）就地订正（铁律 5）**：本节标题原来写
+                    //   「原版是『重配 + 重开同一实例』（`*(this+0x60)`）」—— **那个判据错了**。
+                    //   原版 `WindowsManager._LoadPopup_d__55__MoveNext.c:20-45` 逐句是
+                    //   `CloseWindow(popUpWindow)` → `Object.Destroy(gameObject)` → `Object.Instantiate(prefab)`，
+                    //   即**每次销毁 + 按按钮数重建**（`_LoadPopUpAndShow` 的 `1 < buttons.Count` 是那个挑法）；
+                    //   字段 `popUpWindow` 只是「旧的还在不在 ⇒ 先关掉销毁」的判据，**不是复用**。
+                    //   ⇒ 本条**断言本体不动**（此刻窗确实还是原来那一扇，因为它压根没被重弹），
+                    //     带电的那条在 A502 那一节 —— 它已按新判据翻成「再弹 ⇒ **新的一扇**」。
                     Check(pop.GetInstanceID(), popId1,
-                          "★ ……而且**还是同一扇实例**（原版 `ShowPopUp` 打的是字段 `popUpWindow`；"
-                        + "每次都新建 ⇒ 这条红）");
+                          "★ ……而且**还是同一扇实例**（⚠️ 平凡真：④ 的 ESC 之后没有第二次 `ShowMessagePopUp`；"
+                        + "「再弹会怎样」在 A502 那一节按原版断「新的一扇」）");
                     // 点**右钮**（`Cancel`）= 原版那颗回调体里只有 `HidePopUp()`
                     // ⚠️ 走**真钮**那条路（`WindowButton.ClickForTest` → `Click` → `onClick`），
                     //    ⛔ 不另开一个「关窗」自检口 —— 那样就验不到两颗钮的接线了。
@@ -7639,16 +7646,29 @@ public static class DeckScene
                     Check(DeckLibrary.ExportString(DeckLibrary.Load().Current), disk502,
                           "★ ……盘上**一个字节都没动**（⛔ 这一下绝不能走到 `SaveAndSay()`）");
                     Check(DeckLibrary.Load().Current.Name, name502, "★ ……盘上那个名字还是旧的（同上，双保险）");
-                    // 🔴 **「还开着时再弹 ⇒ 复用同一扇」**（原版 `ShowPopUp` 打的是字段 `popUpWindow`）——
-                    //   这一条从 A364 ⑤ 接过来：那边原来是靠 ESC 重弹一次带电的，A502 之后 ESC 不再重弹
-                    //   ⇒ 这里显式再走一次「脏了先问」（`TryClose` → `ConfirmDiscard` ⇒ 第二次 `ShowMessagePopUp`）。
-                    //   改坏法：把 `WindowsManager.ShowMessagePopUp` 里 `StillOpen` 那一支删掉（每次都新建）⇒ 这条红。
+                    // 🔴 **2026-10-24（执行代理 `A13`）就地【翻面】（铁律 5 / 11）**：这一条原来断的是
+                    //   「还开着时再弹 ⇒ **复用同一扇实例**」—— 那是一条把**旧（非原版）行为**钉死的断言。
+                    //   **判据已翻**：原版 `WindowsManager._LoadPopup_d__55__MoveNext.c:20-45` 逐句 =
+                    //     `if (popUpWindow != 0) { CloseWindow(popUpWindow); Object.Destroy(popUpWindow.gameObject); }`
+                    //     → `Object.Instantiate(prefab)`（prefab 按**按钮数**挑，`_LoadPopUpAndShow` 的 `1 < buttons.Count`）
+                    //   ⇒ **每次都销毁 + 重建**；我们那条「复用 + `Configure`」是实现独有的坑。
+                    //   `A11` 已把 `WindowsManager.ShowMessagePopUp` 改成同形 ⇒ 正确期望 = **`!= popId502`（新的一扇）**。
+                    //   🧨 改坏法：把 `ShowMessagePopUp` 改回复用（`StillOpen` 那一支）⇒ 本条红
+                    //      （旧那扇的实例 id 会被原样还回来）。
                     int popId502 = pop502.GetInstanceID();
                     _rt.TryClose();                                      // 窗还开着 + 仍脏 ⇒ 再弹一次
-                    Check(_rt.ModalPopup != null ? _rt.ModalPopup.GetInstanceID() : 0, popId502,
-                          "★ 还开着时再弹 ⇒ **复用同一扇实例**（每次都新建 ⇒ 这条红）");
+                    var pop502b = _rt.ModalPopup;
+                    CheckTrue(pop502b != null, "★ 还开着时再弹 ⇒ **窗还在**（⛔ 先断非空："
+                             + "否则 `null` 会让下面那条「换了新的一扇」假绿）");
+                    if (pop502b != null)
+                        CheckTrue(pop502b.GetInstanceID() != popId502,
+                                  "★ 还开着时再弹 ⇒ **新的一扇实例**（原版 `_LoadPopup` 是 `Destroy` 旧的 + "
+                                + "`Instantiate` 新的；复用同一扇 ⇒ 这条红）");
+                    if (pop502b != null)
+                        CheckTrue(pop502 == null, "★ 旧的**那一扇已被销毁**（原版那句 `Object.Destroy`；"
+                                 + "批处理下走 `DestroyImmediate` ⇒ 当场为 null）");
                     // 收尾：右钮（`Cancel`）关窗 ⇒ 名字改回盘上那个 ⇒ 再按一次 ESC（此刻**没有**弹窗）落盘收口。
-                    ClickPopupButton(pop502, "ButtonRight");
+                    ClickPopupButton(pop502b, "ButtonRight");
                     CheckTrue(!_rt.ModalPopupOpen, "（收尾）右钮关窗");
                     CheckTrue(_rt.DeckDirty, "（收尾）窗关了、脏标记还在（原版右钮那颗回调体里只有 `HidePopUp()`）");
                 }

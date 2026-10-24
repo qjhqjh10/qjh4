@@ -48,12 +48,22 @@ ChatManager.GetChatMessage(idx, isPlayer)                    // ChatManager__Get
 ## 真值从哪来
 
 `d:/4/Unity/资料/普查产出_1018/allcards_1350/cards_raw.json` —— 当前 build（2026-10-18）的
-**1,351 张 RawCardScript** 全字段语料。本表读这四项：
-  · `customIntroChatData`（57 张）/ `customIntroByArmyChatData`（15 张）
-  · `chatMessagesReferenceId`（8）/ `customIntroReferenceId`（7）
+**1,351 张 RawCardScript** 全字段语料。本表读这**七项**：
+  · 定制档：`customIntroChatData`（57 张）/ `customIntroByArmyChatData`（15 张）
+  · 引用档：`chatMessagesReferenceId`（8）/ `customIntroReferenceId`（7）
   · 以及每条精确档里的 `talksFirst`。
-其中 **60 张**至少带一项；**49 张**的 `uniqueId` 在 `cards_engine.json`（= 运行时卡池）里，
+  · 🆕 2026-10-24（`D8`）**兜底档的三个 `customSound`**：
+    `introChatSound`（`GetChatSound(Intro)`）/ `mirrorChatSound`（`GetChatSound(MirrorMatch)`）/
+    `defaultChatSound`（`GetChatSound` 末尾兜底）—— 现读各 **66 张**非空（`m_AssetGUID` 非空才算）。
+其中 **67 张**至少带一项；**56 张**的 `uniqueId` 在 `cards_engine.json`（= 运行时卡池）里，
 另 **11 张**是**副本 / 教程 SO**（GUID uniqueId），不在卡池 ⇒ 对局取不到（标 `inRuntime=false`，只进全量件）。
+
+⚠️ 2026-10-24（`D8`）就地订正（铁律 5）：本节原来只写四项、并给出 **60 张 / 49 张**。
+`D7` 据此以为「`customIntroChatData` 远不止 49 条 ⇒ 大量开场白没导」；**实际不是** ——
+`customIntroChatData` 现读就是 **57 张 SO**（216 条，去重 215），其中 **49 张**在运行时卡池。
+真正漏掉的是**兜底档那三项普通开场白**（`introChatSound` / `mirrorChatSound` / `defaultChatSound`），
+它们让**整卡覆盖**从 49 张扩到 **56 张运行时 / 67 张 SO**（新增的 7 张 = `EC55/EC56/EC57/GOF76/GOF77/SW2/TL74`，
+它们没有定制档、只有普通开场白）。`customIntroChatData` 本身一张没漏。
 
 ⚠️ **重复 SO**（同一张卡两份 uniqueId，短 id 那份才是卡池里的）：副本那份的
 `chatMessagesReferenceId`/`customIntroReferenceId` 常常指回短 id（例：`52520927…` → `GOF29`），
@@ -62,15 +72,28 @@ ChatManager.GetChatMessage(idx, isPlayer)                    // ChatManager__Get
 
 ## 产物（同一次运行写两份 ⇒ 不会分叉）
 
-1. `d:/4/Unity/数据/游戏数据/card_chat_intro.json` —— **全量真值**（60 张 + 缺键清单 + 算法出处）
+1. `d:/4/Unity/数据/游戏数据/card_chat_intro.json` —— **全量真值**（67 张 + 缺键清单 + 算法出处）
 2. `d:/4/Unity/MyGame/Assets/CardPresentation/Resources/card_chat_intro.json` —— **运行时件**
-   （只收 49 张运行时卡；`Resources.Load<TextAsset>("card_chat_intro")`）
+   （只收 56 张运行时卡；`Resources.Load<TextAsset>("card_chat_intro")`）
 
 🆕 **2026-10-20（战斗线 `T18`）**：每条开场白多导两格 —— `soundGuid`（SO 的
 `customSound.m_AssetGUID`）与 `soundAsset`（用 `资料/普查产出_1018/cardanim_guid_map/
 guid_map_bundles.tsv` 解出的 AudioClip 资产名；解不出 ⇒ 空串 + 全量件 `unresolvedSoundGuids`，
 **⛔ 不猜成默认音**）。运行时按 `Resources/Art/audio/vo/<soundAsset>` 加载（语音线导入器已把
 卡包的 1,857 条 AudioClip 全拷到那里）。
+
+**运行时分流**：`BattleDriver.SpeakIntro` 先 `CardChatIntro.TryResolve`（精确档 → 按阵营档）；
+两档都没命中时，原版的兜底是 `RawCardScript.GetChatSound(0)`（= `introChatSound`）→ `defaultChatSound`
+（`ChatManager__GetChatSoundAsset.c:14-45` 的末尾两档）。为了让表现层**有真值可回落**（而不是按文件名猜 `vs*`），
+本表从 `D8` 起把这三条 `customSound` 也导出来（见下）：
+
+      "introSound":   { "key": "Chat_Messages/<chatRef ?: uid>-Chat0", "hasText": …, "soundGuid": …, "soundAsset": … }
+      "mirrorSound":  { "key": "Chat_Messages/<chatRef ?: uid>-Chat1", "hasText": …, "soundGuid": …, "soundAsset": … }
+      "defaultSound": { "soundGuid": …, "soundAsset": … }        （⚠️ 没有文本键 —— 它是音效兜底）
+
+⚠️ `introSound`/`mirrorSound` 的键走 `GetLocalizedChatMsg` 那条链 = **`chatMessagesReferenceId ?: uniqueId`**
+（**不看** `customIntroReferenceId`，与精确档的 `chatId` 链不同）。三项 GUID 全解出（现读 0 条解不出）。
+⛔ 没这几项的卡**不写这三个键**（不写空壳），消费方按「键不存在 = 没这条」处理。
 
 ## 用法
 
@@ -165,6 +188,24 @@ def _sound_guid(entry):
     return cs.get("m_AssetGUID") or ""
 
 
+# 兜底档三项（`RawCardScript.GetChatSound`）：字段名 → 文本键后缀（None = 没有文本键）
+FALLBACK_SOUND_FIELDS = (
+    ("introChatSound", "-Chat0"),      # ChatMessage.Intro = 0
+    ("mirrorChatSound", "-Chat1"),     # ChatMessage.MirrorMatch = 1
+    ("defaultChatSound", None),        # GetChatSound 的尾巴：只有音、没有专属文本键
+)
+
+
+def _field_guid(v):
+    """`full_raw` 里一个 `AssetReferenceTyped<AudioClip>` 的 `m_AssetGUID`
+    （⚠️ 这些字段**总是**一个三键 dict，`m_AssetGUID` 可能是空串 ⇒ ⛔ 不能拿 `_ne(dict)` 判非空）。"""
+    if isinstance(v, str):
+        return v
+    if isinstance(v, dict):
+        return v.get("m_AssetGUID") or ""
+    return ""
+
+
 def _read_guid_map(path, source):
     """`guid_map*.tsv` → {assetGuid: {"name":…, "type":…, "bundle":…, "source":…}}。
 
@@ -239,8 +280,13 @@ def build():
         fr = c.get("full_raw") or {}
         if (_ne(fr.get("customIntroChatData"))
                 or _ne(fr.get("customIntroByArmyChatData"))
-                or _ne(fr.get("chatMessagesReferenceId"))
-                or _ne(fr.get("customIntroReferenceId"))):
+                or _field_guid(fr.get("chatMessagesReferenceId"))
+                or _field_guid(fr.get("customIntroReferenceId"))
+                # 🆕 2026-10-24（`D8`）：兜底档三项普通开场白 —— 只有它们、没有定制档的卡
+                #   之前整张漏在表外（现读 7 张：EC55/EC56/EC57/GOF76/GOF77/SW2/TL74）。
+                or _field_guid(fr.get("introChatSound"))
+                or _field_guid(fr.get("mirrorChatSound"))
+                or _field_guid(fr.get("defaultChatSound"))):
             selected.append(c)
     selected.sort(key=lambda c: c["uniqueId"])
 
@@ -322,6 +368,26 @@ def build():
                     "inRuntime": uid in engine_ids,
                 })
 
+        # ---- ③ 兜底档的三条普通开场白（`GetChatSound`）----
+        # 文本键走 `RawCardScript.GetLocalizedChatMsg` = `chatMessagesReferenceId ?: uniqueId`
+        # （⚠️ **不看** `customIntroReferenceId` —— 与精确档的 `chatId` 链不同，别复用 chat_id）。
+        fallback_chat_id = chat_ref or uid
+        fallback_sounds = {}
+        for field, suffix in FALLBACK_SOUND_FIELDS:
+            sg = _field_guid(fr.get(field))
+            if not sg:
+                continue                      # 没有就不写（⛔ 不写空壳）
+            if suffix is None:
+                fallback_sounds[field] = {"soundGuid": sg, "soundAsset": sound_asset(sg)}
+            else:
+                key = CHAT_PREFIX + fallback_chat_id + suffix
+                fallback_sounds[field] = {
+                    "key": key,
+                    "hasText": key in i2,
+                    "soundGuid": sg,
+                    "soundAsset": sound_asset(sg),
+                }
+
         # talksFirst：**逐对手**。只有全部精确档条目一致时才给标量；
         # 否则 null（消费方看 introByOpponent[*].talksFirst）。
         tf_vals = sorted({v["talksFirst"] for v in intro_by_opponent.values()})
@@ -339,6 +405,9 @@ def build():
             "talksFirst": talks_first,
             "introByOpponent": intro_by_opponent,
             "introByArmy": intro_by_army,
+            # 🆕 2026-10-24（`D8`）：兜底档三项（键名 = 原版 `RawCardScript` 字段名）。
+            #   只含**非空 GUID** 的那几项；消费方看到键不存在 = 这张卡没有这一条。
+            "fallbackSounds": fallback_sounds,
             "duplicateOpponentEntries": dup_opponents,
             "duplicateArmyEntries": dup_armies,
         })
@@ -387,6 +456,16 @@ def build():
         for v in list(c["introByOpponent"].values()) + list(c["introByArmy"].values())
         if v.get("soundGuid") and not v.get("soundAsset")})
 
+    # 🆕 `D8`：兜底档三项的覆盖读数（按**卡**数 + 条目数）
+    def _fb_stat(lst, field):
+        return sum(1 for c in lst if field in c["fallbackSounds"])
+
+    rt_fb_entries = sum(len(c["fallbackSounds"]) for c in rt_cards)
+    all_fb_entries = sum(len(c["fallbackSounds"]) for c in cards)
+    fb_stat = {}
+    for field, _suffix in FALLBACK_SOUND_FIELDS:
+        fb_stat[field] = [_fb_stat(cards, field), _fb_stat(rt_cards, field)]
+
     counts = {
         "soCards": len(cards),
         "runtimeCards": len(rt_cards),
@@ -410,6 +489,13 @@ def build():
         "soundGuids": len(sound_guids),
         "soundGuidsResolved": len(sound_guids) - len(sound_unresolved),
         "soundGuidsUnresolved": len(sound_unresolved),
+        # 🆕 2026-10-24（`D8`）：兜底档三项（`GetChatSound` 的 Intro / MirrorMatch / default）
+        #   值是 [全量件, 运行时件]；条目数同。`soundEntries` 之上**另算**，不混进定制档的 230/197。
+        "fallbackSoundEntries": all_fb_entries,
+        "fallbackSoundEntriesRuntime": rt_fb_entries,
+        "cardsWithIntroChatSound": fb_stat["introChatSound"],
+        "cardsWithMirrorChatSound": fb_stat["mirrorChatSound"],
+        "cardsWithDefaultChatSound": fb_stat["defaultChatSound"],
     }
 
     algorithm = {
@@ -433,14 +519,27 @@ def build():
                        "不是官方表里有哪些键；表里多出来的键 = 死键。",
         "introRefRedirect": "customIntroReferenceId(+0x170) 非空时，GetCustomIntro 会先"
                             " CollectionManager.GetRawCardFromId(那个 id) 把 me 重定向到该卡，"
-                            "数据列表取那张卡的（本表按 SO 原样导出各自的列表；运行时 49 张"
+                            "数据列表取那张卡的（本表按 SO 原样导出各自的列表；运行时 56 张"
                             "chatRef/introRef 全空 ⇒ 不含重定向差异）。",
+        "fallbackSound": "ChatManager__GetChatSoundAsset.c:14-45 的末尾三档（定制档两档都没命中时）："
+                         "① MirrorMatch（同督军且非玩家）取 `mirrorChatSound`；"
+                         "② 否则取 `introChatSound`（GetChatSound(0)）；③ 再没有 ⇒ `defaultChatSound`。"
+                         "三项都是 `AssetReferenceTyped<AudioClip>`，本表导成 cards[*].fallbackSounds"
+                         "（键名 = 原版字段名；`introChatSound`/`mirrorChatSound` 另带文本键 "
+                         "`Chat_Messages/<chatMessagesReferenceId ?: uniqueId>-Chat0/-Chat1`，"
+                         "⚠️ 这条链**不看** customIntroReferenceId —— RawCardScript__GetLocalizedChatMsg.c）。",
+        "fallbackSoundConsumers": "⚠️ 运行时代码**还没有**读 cards[*].fallbackSounds（2026-10-24 现读："
+                                  "UnitChatPanel.CardChatIntro 只读 introByOpponent/introByArmy）。"
+                                  "它是给 BattleDriver.SpeakIntro「定制档未命中 ⇒ 回落卡自己 GetChatSound」用的真值；"
+                                  "在那条 .cs 接上之前，表现层仍走 `VoiceLines.ForVersus` 的文件名兜底。",
         "vs": "-vs* 18 条：stringliteral.json 无 '-vs' 字面量、反编译无方法拼它 ⇒ 旧版本遗留，本表不建。",
         "customSound": "ChatManager__GetChatSoundAsset.c（idx=0）：① 精确档条目命中且 "
                        "entry.customSound(+0x18) 非空 ⇒ `AssetReferenceTyped<AudioClip>.Load` 播它；"
                        "② 否则按阵营档同一条；③ 两档都没有/条目没带 customSound ⇒ 回落 "
                        "RawCardScript.GetChatSound(idx)（`introChatSound` → `defaultChatSound`）。"
-                       "⚠️ 运行时 49 张卡的 197 条条目**全部**带 customSound（现读）。"
+                       "⚠️ 运行时 49 张**有定制档**的卡共 197 条条目**全部**带 customSound（现读）。"
+                       "（`D8` 起另有 7 张只有兜底档的卡：它们**没有** customIntro 条目，"
+                       "开场白音走 cards[*].fallbackSounds。）"
                        "字段 `soundGuid` = `AssetReference.m_AssetGUID`，`soundAsset` = 束里 AudioClip 的资产名"
                        "（解出后我们按 `Resources/Art/audio/vo/<soundAsset>` 加载；解不出 ⇒ 空串 + 进 "
                        "`unresolvedSoundGuids`，⛔ 不猜成默认音）。",
@@ -467,7 +566,10 @@ def build():
                 "talksFirst=null 表示精确档逐对手不同（看 introByOpponent[*].talksFirst），"
                 "或该卡没有精确档条目（此时原版 IsPlayerFirstIntro 返回 1）。"
                 "hasText 是「这个键在官方 en+zh-CN 表里存不存在」（en 与 zh-CN 任一非空才算有；"
-                "13lang 运行时表是本表的超集：10,854/10,854 全在）。",
+                "13lang 运行时表是本表的超集：10,854/10,854 全在）。"
+                "🆕 2026-10-24（D8）：cards[*].fallbackSounds = 兜底档三项（原版字段名 "
+                "introChatSound / mirrorChatSound / defaultChatSound，各自 soundGuid + soundAsset；"
+                "前两项另带文本键 key/hasText），覆盖从 49 张扩到 56 张运行时卡 —— 只含非空 GUID 的项。",
         "algorithm": algorithm,
         "counts": counts,
         "missingKeys": all_missing,
@@ -483,7 +585,10 @@ def build():
                 "talksFirst=null ⇒ 逐对手不同（看 introByOpponent[*].talksFirst）或无精确档（默认 1）。"
                 "hasText=false 的键在官方表里没有原文（⛔ 不补假键；Loc.T 会回显键名）。"
                 "soundGuid = SO 的 `customSound.m_AssetGUID`；soundAsset = 解出的 AudioClip 资产名"
-                "（加载路径 = `Resources/Art/audio/vo/<soundAsset>`；空串 = 这条没有定制音）。",
+                "（加载路径 = `Resources/Art/audio/vo/<soundAsset>`；空串 = 这条没有定制音）。"
+                "cards[*].fallbackSounds = 兜底档三项（原版 `GetChatSound` 的 introChatSound / "
+                "mirrorChatSound / defaultChatSound）—— 定制档两档都没命中时原版播的那几条；"
+                "键不存在 = 这张卡没有该项。⚠️ 当前 .cs 尚未读取它（见全量件 algorithm.fallbackSoundConsumers）。",
         "chatIdOverrides": chat_id_overrides,
         "counts": {
             "cards": len(rt_cards),
@@ -498,6 +603,10 @@ def build():
                                for v in list(c["introByOpponent"].values()) + list(c["introByArmy"].values())
                                if v.get("soundGuid")}),
             "soundGuidsUnresolved": len(rt_sound_unresolved),
+            "fallbackSoundEntries": rt_fb_entries,
+            "cardsWithIntroChatSound": fb_stat["introChatSound"][1],
+            "cardsWithMirrorChatSound": fb_stat["mirrorChatSound"][1],
+            "cardsWithDefaultChatSound": fb_stat["defaultChatSound"][1],
         },
         "cards": [],
     }
@@ -521,6 +630,7 @@ def build():
                     "soundGuid": v["soundGuid"], "soundAsset": v["soundAsset"]}
                 for k, v in c["introByArmy"].items()
             },
+            "fallbackSounds": c["fallbackSounds"],
         })
 
     return full_doc, rt_doc, counts, rt_missing
@@ -577,6 +687,11 @@ def main():
     print("[统计] customSound 条目 %d（运行时 %d）｜GUID %d 个（解出 %d / 解不出 %d）"
           % (counts["soundEntries"], counts["soundEntriesRuntime"], counts["soundGuids"],
              counts["soundGuidsResolved"], counts["soundGuidsUnresolved"]))
+    print("[统计] 兜底档 fallbackSounds %d 条（运行时 %d）｜卡数 intro %s / mirror %s / default %s"
+          " —— 值 = [全量件, 运行时件]"
+          % (counts["fallbackSoundEntries"], counts["fallbackSoundEntriesRuntime"],
+             counts["cardsWithIntroChatSound"], counts["cardsWithMirrorChatSound"],
+             counts["cardsWithDefaultChatSound"]))
     if full_doc.get("unresolvedSoundGuids"):
         print("[customSound GUID 解不出]（⛔ 不猜成默认音 —— 运行时件对应条目 soundAsset 为空串）")
         for g in full_doc["unresolvedSoundGuids"]:

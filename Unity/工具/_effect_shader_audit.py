@@ -47,6 +47,12 @@ A = r"d:/4/Unity/MyGame/Assets"
 ROOT = r"d:/4/Unity"
 REPORT = A + "/WarpforgeVFX/导出报告.tsv"
 SNAPSHOT = r"d:/4/_tmp_view/导出报告_快照_0917.tsv"     # 0917 那份被续跑截过的快照（只用来对照）
+# ⚠️ 2026-10-24 更正（铁律 5）：上面那份快照 **现读已不在盘上**（`os.path.exists` = False）。
+#   本脚本**不会因此报错** —— 读取处是 `parse_report(SNAPSHOT) if os.path.exists(SNAPSHOT) else []`
+#   （现读在 `:229` 附近；⚠️ 行号会随注释增删漂，判据是**那行代码本身**在不在）
+#   ⇒ 「对照臂」自动退化为空表；但**报告里凡是引用它内容的句子就都不可复查了**。
+#   ⛔ 别拿 `MyGame/Assets/WarpforgeVFX/导出报告.tsv`（`REPORT`）顶替 —— 那是**另一次**导出的现报表，
+#   不是 0917 那份被截断的快照（两者的「第 3 格覆盖率」判据本来就是为了比这个差）。
 ARCHIVE = ROOT + "/资料/普查产出_0913/效果_shader_对账.tsv"
 OUT_TSV = ROOT + "/资料/普查产出_0917/效果_shader对账.tsv"
 OUT_MD = ROOT + "/资料/普查产出_0917/效果_shader对账_小结.md"

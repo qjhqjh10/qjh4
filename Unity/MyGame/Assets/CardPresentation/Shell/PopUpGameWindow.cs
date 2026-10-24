@@ -239,16 +239,22 @@ namespace CardPresentation
         Transform _secondaryNode;
 
         /// <summary>这一扇是照**哪一版 prefab** 建的（`MessagePopupWindow2Buttons` / `MessagePopupWindow`）。
-        /// 🔴 **建实例那一刻定死、之后不变**（原版：`_LoadPopUpAndShow` 只在**没有** `popUpWindow` 时按
-        /// 「按钮数 > 1」挑 prefab，之后复用同一个实例不再换 prefab）。</summary>
+        /// 🔴 **建实例那一刻定死、之后不变**。原版 `_LoadPopup_d__55__MoveNext.c:20-45` 每次**销毁旧的、
+        /// 按「按钮数 > 1」重新挑 prefab `Instantiate`**（2026-10-24 `A11` 已照改，见
+        /// `WindowsManager.ShowMessagePopUp`）⇒ 「同一实例换 prefab」这件事在原版**根本不存在**。</summary>
         public bool TwoButtons { get { return _prefabTwo; } }
         bool _prefabTwo;
         /// <summary>这扇窗**头上的 prefab 根名**（自检按它钉「建的是哪一版」）。</summary>
         public string PrefabName { get { return _prefabTwo ? "MessagePopupWindow2Buttons" : "MessagePopupWindow"; } }
         /// <summary>这一次调用给没给第二颗钮（原版 `ShowPopUp(…, primaryButton, secondButton)` 的 `!= null`）。
-        /// ⚠️ **与 `TwoButtons` 不是同一件事**：2 按钮版 prefab 的实例被复用去弹一条单钮消息时，
-        /// 原版是**把那颗多余的 `LiveButtons[i].SetActive(false)`**（`ConfigurePopUp` 那个循环），
-        /// ⛔ 不是把面板换成 1 按钮版（那要 `Destroy` 重建，原版没做）⇒ 本类照它做。</summary>
+        /// ⚠️ **与 `TwoButtons` 理论上可以不一致，但正常路径上一致**：原版按按钮数挑 prefab，
+        /// 所以「给了两颗 + 1 按钮版实例」只会出现在**有人绕过 `ShowMessagePopUp` 直接建**的场合。
+        /// 🔴 **2026-10-24（`A11` · 铁律 5 就地订正）**：这里原来写「2 按钮版实例被**复用**去弹一条单钮消息时，
+        /// 原版把多余的 `LiveButtons[i].SetActive(false)`…⛔ 不是换成 1 按钮版（原版**没做** `Destroy` 重建）」
+        /// —— **后半句是错的**：原版 `_LoadPopup` 每次 **先 `Destroy` 旧的、再按按钮数 `Instantiate`**
+        /// （`WindowsManager._LoadPopup_d__55__MoveNext.c:20-45` 亲读）。`SetActive(false)` 那一支在
+        /// **原版**是**防御性死路**（prefab 的按钮数本来就够）。我们照原版销毁重建 ⇒ 今天正常路径上
+        /// `TwoButtons == HasSecondary`；`RefreshLiveContent` 里那句 `SetActive` 留着当防御（见 `Configure`）。</summary>
         public bool HasSecondary { get { return !string.IsNullOrEmpty(_secondaryKey); } }
 
         public string MessageKey { get { return _msgKey; } }
@@ -294,8 +300,13 @@ namespace CardPresentation
         }
 
         /// <summary>= 原版 `ConfigurePopUp(文案, localizeTexts, 按钮数组, closeOnEsc)` 那一半**记参数**
-        /// —— 两条路（新建 / 复用）都先走它，见下。换文案/换钮 = 再调一次它 + `OpenWindow`
-        /// （原版就是 `ConfigurePopUp` + `OpenWindow` 这对）。
+        /// 🔴 **2026-10-24（`A11` · 铁律 5 就地订正）**：原文接着写「两条路（新建 / 复用）都先走它」——
+        /// **「复用」那条路已经没有了**：原版 `WindowsManager._LoadPopup_d__55__MoveNext.c:20-45` 每次都
+        /// `CloseWindow` + `Destroy` 旧的、再按按钮数 `Instantiate`，`WindowsManager.ShowMessagePopUp`
+        /// 已于同一天照改（见那边的 doc）⇒ 本方法今天**只有一个调用者 `Create`**（建完立刻调，
+        /// 那时 `_msgLb` 还是 null ⇒ 只记字段，建树在 `Open() → Build()`）。
+        /// `RefreshLiveContent` 那一支今天就**走不到**了，但**留着**：原版 `ConfigurePopUp` 本来就会写活组件，
+        /// ⛔ 别拿「没人调」当理由删它（真要删，得先改掉下面 A454 那段判据）。
         ///
         /// <para>🔴 **2026-10-12（A454）就地改实现（铁律 5）**：本方法原来**只写那 5 个字段**，注释里给的理由是
         /// 「真的建树在 `Open()` 里 —— 我们的窗是**代码建**的，**`Open()` 恒重建** ⇒ 复用同一扇时自然刷新内容」。

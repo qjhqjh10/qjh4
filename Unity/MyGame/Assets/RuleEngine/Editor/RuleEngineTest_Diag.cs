@@ -87,7 +87,9 @@ public static partial class RuleEngineTest
         "TestT02ReturnSideIsAvailableSlot", "TestT02ResolveWarlordSlotHonoursAvailability", "TestT02ResolveSideBranchHonoursAvailability", "TestT02OrFamilyBuckets", "TestT02DuplicateTriggerBodyDedup", "TestW61bSpentAllMana",
         "TestW61bSpendInsufficientDrainsToZero", "TestW61bInitialModifiers", "TestW61bSkipCardDrawProducer", "TestW64UnitConditions", "TestW64StructuredConditions", "TestW64StructuredTargetFilters",
         "TestW64OpAbilityTargetConditions", "TestB16ConditionEval", "TestB17SubjectlessTargets", "TestEngineBatch1023", "TestA12FurtherMultiplier", "TestA30ListenerTriggerNames",
-        "TestW62EntryPump", "TestW64ShowCardsWindow", "TestN2UnitConditionRoles",
+        "TestW62EntryPump", "TestW64ShowCardsWindow", "TestN2UnitConditionRoles", "TestA1EngineFive", "TestB3EngineFive", "TestB6EngineThird",
+        "TestB7EnginePickAndCount", "TestF8EnginePlayOrder", "TestG1bSpiritStone", "TestG1bStatusApplied", "TestG2DeathRoutes", "TestG3AiTargetsTrim",
+        "TestG5BareDealAndReferencedCards", "TestG6MultiCountRepeats", "TestE8PreviousAbilityDrawnCards", "TestG10HandCountScope", "TestG12ActiveAbilityLogic",
     };
 
     // 本次诊断真正跑过的用例（顺序同 `RunCaseNames`）—— 只给对账用
@@ -541,6 +543,20 @@ public static partial class RuleEngineTest
         Safe("TestW62EntryPump", () => TestW62EntryPump());
         Safe("TestW64ShowCardsWindow", () => TestW64ShowCardsWindow());
         Safe("TestN2UnitConditionRoles", () => TestN2UnitConditionRoles());
+        Safe("TestA1EngineFive", () => TestA1EngineFive());
+        Safe("TestB3EngineFive", () => TestB3EngineFive());
+        Safe("TestB6EngineThird", () => TestB6EngineThird());
+        Safe("TestB7EnginePickAndCount", () => TestB7EnginePickAndCount());
+        Safe("TestF8EnginePlayOrder", () => TestF8EnginePlayOrder());
+        Safe("TestG1bSpiritStone", () => TestG1bSpiritStone());
+        Safe("TestG1bStatusApplied", () => TestG1bStatusApplied());
+        Safe("TestG2DeathRoutes", () => TestG2DeathRoutes());
+        Safe("TestG3AiTargetsTrim", () => TestG3AiTargetsTrim());
+        Safe("TestG5BareDealAndReferencedCards", () => TestG5BareDealAndReferencedCards());
+        Safe("TestG6MultiCountRepeats", () => TestG6MultiCountRepeats());
+        Safe("TestE8PreviousAbilityDrawnCards", () => TestE8PreviousAbilityDrawnCards());
+        Safe("TestG10HandCountScope", () => TestG10HandCountScope());
+        Safe("TestG12ActiveAbilityLogic", () => TestG12ActiveAbilityLogic());
 
         VerifyDiagCoverage();
 

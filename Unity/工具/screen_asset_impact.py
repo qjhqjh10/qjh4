@@ -21,6 +21,8 @@
   数据/游戏数据/effect_index.json       效果名 → prefab 路径
   Assets/WarpforgeVFX/**.meta          guid → 资产名（材质/贴图/网格）
   _tmp_view/orig_material_index.json   原版材质索引（由本脚本 --build-index 生成）
+                                       ⚠️ 2026-10-24 现读**不在盘上**，且**不在 git 里**（`_tmp_view` 被忽略）
+                                       ⇒ 第一次跑先执行 `--build-index` 建它（只读 `D:/2/新解包资源`，不碰 Unity）。
 """
 import argparse
 import collections

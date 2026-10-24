@@ -61,6 +61,9 @@ def v3(v):
 
 
 IDX_CACHE = 'd:/4/_tmp_view/sprite_index.json'
+# ⚠️ 2026-10-24 现读**不在盘上** —— 但**这不是死链**：它是本脚本自己的**缓存**
+#   （`build_index` 跑完写到这儿、下次直接读；见下面的 `os.path.isfile(IDX_CACHE)` 分支）
+#   ⇒ 缺了会**自动重建**（慢一点而已）。⛔ 别把它当「输入丢了」。现读 `d:/4/_tmp_view/` 下也没有同名替代。
 
 
 def build_index(UnityPy, aa):

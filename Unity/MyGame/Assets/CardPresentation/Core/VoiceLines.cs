@@ -5,7 +5,7 @@
 //     🔴 **2026-10-14 就地订正（铁律 5 · 账 `A1831`/`A1832`）**：原来这里写「从 `card_index.json` 的
 //     `cards[].voice` + 音频源清点合并而成」—— **归属口径换了**：现在**以卡 SO 的
 //     `summonAudio`/`attackAudio`/`deathAudio` 为权威**（582 条），`card_index.json` 的 `cards[].voice`
-//     **降为兜底**（1208 条），名字对不上的仍按名猜但**标 `src:"orphan"`**（58 条；**9 条**四种来源都认不出）。
+//     **降为兜底**（1208 条），名字对不上的仍按名猜但**标 `src:"orphan"`**（58 条；**9 条**四种来源都认不出）。🔴 **2026-10-24 订正（铁律 5 · `D7` 现核）：`src="orphan"` 现读 246 条**，含 D7 新标的两类（19 条 `_vs_` 改 `intro-vs` + 203 条 `gen4..gen7` 死通道）；58 是更早的口径。
 //     ⚠️ 根因 = **`card_index.json` 它自己错了**（`d:/2/解包整理/` 那份 2026-08-15 的产物，那次卡 SO 还没解出来，
 //     它靠名字/目录对、对不上就**并到邻近那张卡**）⇒ 它在 `d:/2` **没改**，只降级。
 //     现读数与逐条对照 → `资料/普查产出_第二十八会话/W7_语音导入漏件与归属.md`。
@@ -27,8 +27,14 @@
 // | `deploy` | `summonAudio`（`dump.cs:23270` @`0xB8`） | `VoiceLinesController__DisplaySummonMessage.c:31` → `RawCardScript__GetSummonSound` |
 // | `attack` | `attackAudio`（`:23271` @`0xC0`） | `CardScript._AttackMeleeAnim_d__357__MoveNext.c:76` → `GetAttackSound` → `BattleManager__PlaySoundClip` |
 // | `death`  | `deathAudio`（`:23272` @`0xC8`） | `CardScript._UnitDeath_d__446__MoveNext.c:82` → `GetDeathSound` → `PlaySoundClip` |
-// | `intro` `mirror` `hurry` `cantdo` `concede` `greet` `threat` `wp` `gen1` `gen2` `gen3` `default` |
-// | 12 个 `*ChatSound`（`dump.cs:23300-23315`） | `RawCardScript__GetChatSound.c` 的 `switch`（枚举号 → 偏移） |
+// | `intro` `mirror` `hurry` `cantdo` `concede` `greet` `threat` `wp` `gen1` `gen2` `gen3` |
+// | **11 个** `*ChatSound`（`dump.cs:23301-23315` @`0x190`…`0x1E0`） | `RawCardScript__GetChatSound.c` 的 `switch`（枚举号 → 偏移，**只有 0..10**） |
+// | `default` | `defaultChatSound`（`dump.cs:23300` @`0x188`）—— **不在 `switch` 里**，是它**末尾那一跳的兜底** |
+//
+//   🔴 **2026-10-24（B4 · 铁律 5）**：上面那两行原来写成「`default` 也是 `*ChatSound` 之一 · 12 个」——
+//     **数错了**：`ChatMessage` 枚举只有 **11** 个值（`ChatMessage.cs:1-14`），`switch` 也就 11 个 case；
+//     `defaultChatSound` 是**单独的兜底字段**（`+0x188`），不参与 `switch`。
+//     ⇒ 事件名一共 **12** 个没错，但它们是「11 个 case + 1 个兜底」，不是「12 个同族字段」。
 //
 //   ⇒ **三条硬结论**（都写进了下面那些 `ForXxx` 的注释里）：
 //   ① **战斗那三族没有回落** —— 三个消费点都是 `if (sound != null) 播`，取不到就**什么也不播**；
@@ -36,6 +42,33 @@
 //      ⛔ **不是**我们以前写的 `line`；
 //   ③ **`line` 这个我们自己造的名字退场**，改叫 `deploy`（= `summonAudio` 在生成侧的译名；
 //      判据：`summonAudio` 指到的 clip 实测 **448/536** 就是「`VO_<阵营>_<卡名> - <台词>`」那种命名）。
+//
+//  🔴 **2026-10-24（B4 · 铁律 5 就地订正）**：`资料/普查产出_1024/B2_语音归属换真值SO.md` §八·1 写过
+//     「`GetChatSound` 的 `default:` 分支只 `LogWarning` 后**返回空**、**不读** `defaultChatSound(+0x188)`」
+//     —— **不成立，⛔ 别照它改**（下面各表的 `"default"` 第二跳是**对的**）。判据 = **指令流**：
+//       `D:/2/Warpforge_tools/py312/python.exe d:/4/Unity/工具/disasm_va.py D:/2/unity_run_ref/GameAssembly.dll 0x180946C80`
+//       （`RawCardScript$$GetChatSound`，RVA `0x946C80`）
+//       · `0x180946D08 cmp esi,0xa / ja 0x180946DA7` ⇒ `default:` 那一支；
+//       · `default:` 支在 `0x180946DE3 call CustomDebug.LogWarning` 之后**没有 `jmp`** ——
+//         下一条就落在 `0x180946DE8`，也就是**各 case 支共用的那条尾巴**
+//         （`.c` 里那句 `goto LAB_180946de8` 就是它；Ghidra 把这个标签画在了 `if` 块体内，容易被误读成「跳出去」）；
+//       · 那条尾巴：`op_Inequality(clip,0)` 为假 ⇒ `0x180946E0C je 0x180946E47` ⇒
+//         `0x180946E47 mov rcx,[rbx+0x188]` ⇒ `test/je` ⇒ **尾调 `AssetReferenceTyped.Load`**；
+//       · `+0x188` = `defaultChatSound`（`d:/2/tools/il2cpp_out/dump.cs` 的字段偏移表）。
+//     ⇒ **`defaultChatSound` 是原版真在用的兜底**，有两条路进去：
+//       ① 枚举越界（`default:`）；② **更常用的那条** —— 某个 `*ChatSound` 字段存在、但 `Load()` 取不到 clip
+//       时，各 case 支是 `0x180946D48 jmp 0x180946DE8`，**跟 `default:` 汇到同一处**。
+//       ⚠️ case 支里那个 `if (字段指针 != 0)` **不是**「取不到就返回空」，那是 il2cpp 给
+//       `callvirt` 补的空检查（失败直接抛）；Unity 把这类引用序列化成**非空但 GUID 为空**的对象，所以它不触发。
+//     📌 **结论**：`ForIntro / ForMirror / ForCantDo / ForHurry / ForConcede / ForVersus / ForVoiceOver`
+//       里的 `"default"` 第二跳**保持不动**；`voice_lines.json` 里 56 条 `ev="default"` 也**保留**。
+//
+//  🔴 **2026-10-24（B4）同 ev 多行的取值口径**：同一张卡上同一个 `ev` 可能有多行
+//     （生成器的三种归属来源撞在一起），其中**只有一行是卡 SO 指的**，其余是按文件名猜的。
+//     ⇒ `TryPick` **优先取「卡 SO 指名」的那一条**（`so` 非空，或 `src == "cardSO"`），
+//     **仍然多解才随机**；把 SO 没指名的那些压掉时会打一行日志（不静默）。
+//     判据实例（现读 `voice_lines.json`）：`ASH2` 的 `gen1`（SO→`_gen4.ogg`，另有 `_gen1.ogg`）·
+//     `ASH2` 的 `intro`（SO→`_gen5.ogg`，另有 `_intro.ogg`）· `UM88` 的 `gen3`（SO→`_gen4.wav`，另有 `_gen3.wav`）。
 using System.Collections.Generic;
 using UnityEngine;
 
@@ -48,7 +81,18 @@ namespace CardPresentation
         /// <summary>音频目录（相对 `Resources`）—— 和 `工具/import_original_audio.py` 的落点一致</summary>
         public const string ClipRoot = "Art/audio/vo/";
 
-        [System.Serializable] class Line { public string ev; public string file; public string text; }
+        //  ⚠️ `src` / `so` 是生成器 `工具/import_original_audio.py` 写的**归属留痕**：
+        //     `src` = `cardSO` / `orphan` / 空（空 = 二级/三级来源）；
+        //     `so`  = 原版卡 SO 上**哪个字段**指的这条（`summonAudio` / `introChatSound` / `defaultChatSound` …），
+        //             推不出（同一 clip 被两个字段共指）时为空。
+        //     🔴 **2026-10-24（B4）起它们不只是留痕** —— `TryPick` 用它们把
+        //     「**卡 SO 指名的那一条**」与「按文件名猜出来的那一条」分开（见 `TryPick` 的注释与文件头）。
+        [System.Serializable]
+        class Line
+        {
+            public string ev; public string file; public string text;
+            public string src; public string so;
+        }
         [System.Serializable] class Card { public string id; public string name; public string faction; public List<Line> lines; }
         [System.Serializable] class Db { public int version; public string note; public List<Card> cards; }
 
@@ -267,6 +311,86 @@ namespace CardPresentation
             return true;
         }
 
+        // ==================================================================
+        //  🆕 2026-10-24（`E2` · `DG2` 红 #4）：**精确表注入口（自检专用）**
+        //  为什么需要它：「精确档 ≠ 后缀兜底的复制品」那条灭自证断言，原来靠 `exOnly > 0`
+        //  （兜底**结构上给不出**、只有精确档有）的**数据巧合**当见证者。本批 `D10(C4)` 把数据补齐
+        //  （`EC57/deploy` 那唯一一条补上）之后，`exDiff + exOnly` **结构性恒 0** ⇒ 断言恒红，
+        //  而且**没有任何真实数据能再当见证者**（精确档的值本来就来自同一个 SO 字段 ⇒ 两边都有时必然同一条）。
+        //  ⇒ 改成**夹具级见证者**：自检注入一条「精确表有、兜底表给不出」的合成绑定，
+        //     再断「`TryPickExact` 拿得到它」+「**还原之后**拿不到」。
+        //    🧨 把精确档改回「照抄后缀兜底」/ 改成不看表直接回一条 ⇒ 合成 id 在 `voice_lines.json` 里
+        //       根本不存在 ⇒ 注入值取不到 ⇒ 红；而「还原后必须取不到」挡的是「把表写死」那一类。
+        //  ⚠️ **生产路径零变化**：`SetExactForTest` 全仓只有 `Editor/BattleScene.cs` 调。
+        //  ⚠️ 形状照 `VfxMap.LoadForTest`（`F2` · R1 P2-8 的教训）：**注入与还原成对**，
+        //     `using` 出作用域自动还原（抛异常也还原），并把「还回去了没有」做成**可断言**的口子。
+        // ==================================================================
+
+        /// <summary>自检用：<see cref="SetExactForTest"/> 返回的**还原作用域**。
+        /// `using` 出作用域 ⇒ 把注入的那一条**还原成注入之前的样子**（原来同一 (卡, 事件) 有值 ⇒ 装回旧值；
+        /// 原来没有 ⇒ 删掉，卡空了连卡一起删）。<see cref="Dispose"/> 幂等；抛异常也还原。</summary>
+        public sealed class ExactInjectionScopeForTest : System.IDisposable
+        {
+            internal string CardId, Ev, PrevClip;
+            internal bool HadPrev, Injected;
+            bool _disposed;
+
+            internal ExactInjectionScopeForTest() { }
+
+            /// <summary>真的注入了没有（`false` = 精确表没载入 ⇒ 自检**应当据此报红**，⛔ 别当成通过）。</summary>
+            public bool WasInjected { get { return Injected; } }
+
+            public void Dispose()
+            {
+                if (_disposed) return;
+                _disposed = true;
+                if (!Injected || _exactById == null) return;
+                Dictionary<string, string> m;
+                if (!_exactById.TryGetValue(CardId, out m)) return;   // 表已被别的口清掉 ⇒ 不用管
+                if (HadPrev) m[Ev] = PrevClip;
+                else
+                {
+                    m.Remove(Ev);
+                    if (m.Count == 0) _exactById.Remove(CardId);
+                }
+            }
+        }
+
+        /// <summary>🆕 2026-10-24（`E2` · `DG2` 红 #4）：**往精确表里塞一条合成绑定**（自检专用）。
+        /// 只改内存表 `_exactById`（**不动** `Resources/card_vfx_by_card.json`、**不动** `ExactEntries` 计数 ——
+        /// 那个计数是「载入时读了多少条」的读数，不是表长）。
+        /// 推荐 `using (VoiceLines.SetExactForTest(id, ev, clip)) { … }` ⇒ 出作用域自动还原。
+        /// ⚠️ 精确表没载入（见 <see cref="ExactError"/>）时**注入不了**：返回作用域的
+        /// <see cref="ExactInjectionScopeForTest.WasInjected"/> = `false` —— 调用方要据此**报红**，⛔ 别默默当通过。</summary>
+        public static ExactInjectionScopeForTest SetExactForTest(string cardId, string ev, string clip)
+        {
+            var scope = new ExactInjectionScopeForTest { CardId = cardId, Ev = ev };
+            EnsureExactLoaded();
+            if (string.IsNullOrEmpty(cardId) || string.IsNullOrEmpty(ev))
+            {
+                Debug.LogError("[VoiceLines][SetExactForTest] 卡 id / 事件名不能为空 ⇒ 未注入。");
+                return scope;
+            }
+            if (_exactById == null)
+            {
+                Debug.LogError("[VoiceLines][SetExactForTest] 精确表没载入 ⇒ 未注入"
+                             + (ExactError == null ? "。" : "（" + ExactError + "）"));
+                return scope;
+            }
+            Dictionary<string, string> m;
+            if (!_exactById.TryGetValue(cardId, out m))
+            {
+                m = new Dictionary<string, string>();
+                _exactById[cardId] = m;
+            }
+            string prev;
+            scope.HadPrev = m.TryGetValue(ev, out prev);
+            scope.PrevClip = prev;
+            m[ev] = clip;
+            scope.Injected = true;
+            return scope;
+        }
+
         /// <summary>精确档的**事件名 → 后缀顺序**（= 兜底那一套）。给「精确 miss 之后退哪儿」用，
         /// 也给自检算「精确值 vs 后缀兜底值」用。认不出的事件返回 null。</summary>
         public static string[] SuffixOrderFor(string evt)
@@ -420,9 +544,16 @@ namespace CardPresentation
 
         /// <summary>**打特定对手时的开场白**（原版 `ChatManager.GetCustomIntro`）。
         /// 原版回落链：**先** `GetCustomIntro(己方, 对方督军)` → **再** `GetCustomIntroByArmy(己方, 对方阵营)`
-        /// → 都失败退回普通 `intro`（本方法的返回顺序**就是照这条链排的**）。
+        /// → 都失败退回普通 `intro`。
         ///
-        /// ⚠️ **不是「谁对谁说」** —— `vs&lt;X>` 里的 X **只说对手是谁**（2026-09-18 三条独立证据：
+        /// 🔴 **2026-10-24（`D9` · 铁律 5）就地订正**：这一行原来接着写
+        /// 「本方法的返回顺序**就是照这条链排的**」—— **不成立（那时只排对了一半）**：
+        /// 前两跳原来排的是**按文件名猜的** `vs~<对手名>` / 阵营词（`voice_lines.json` 的 `vs*` 行），
+        /// 而原版前两跳的真身是**卡 SO 的 `customIntroChatData`**（今天由 `CardChatIntro.TryResolve`
+        /// 在 `BattleDriver.SpeakIntro` 里**先**查）。⇒ **猜的压过真的**，实测会播错语音。
+        /// 现在的顺序见方法体：**`intro` → `default` →（我们猜的）`vs~` → 阵营词**。
+        ///
+        /// ⚠️ **不是「谁对谁说」** —— `vs&lt;X&gt;` 里的 X **只说对手是谁**（2026-09-18 三条独立证据：
         /// 同一 token 出现在 9 个不同主讲下 · 同一对对手双向各录一条 · 236 个文件名逐条扫 0 反例）。
         ///
         /// ⚠️ **主讲也不只限督军** —— `Hound of Abaddon` / `Ghallaron's Champion` / `Acolyte Iconward` /
@@ -435,13 +566,49 @@ namespace CardPresentation
         /// **阵营级**则**查 `VsFactionTokens` 表**，不做任何猜测。</summary>
         public static string[] ForVersus(string opponentWarlord, string opponentFaction)
         {
-            var list = new List<string>(8);
+            // ① **卡 SO 的兜底档先走**：`intro` → `default`。
+            //    原版 `ChatManager__GetChatSoundAsset` 的链是
+            //    「`customIntro` → `customIntroByArmy` → `GetChatSound(0)`」；
+            //    前两跳（有卡 SO 数据的那两档）已经由 `CardChatIntro.TryResolve` 在
+            //    `BattleDriver.SpeakIntro` **先查过了** ⇒ 走到这里只剩 `GetChatSound(0)` 那一跳
+            //    = `introChatSound`，再取不到才落 `GetChatSound` 自己内部的 `defaultChatSound`
+            //    （🔴 2026-10-16 · `A1768`：`RawCardScript__GetChatSound.c` 取不到词条时落 `+0x188`）。
+            var list = new List<string>(8) { "intro", "default" };
 
-            // ① **对手督军优先**（原版先查 `GetCustomIntro`，查不到才按阵营兜底）
+            // ② 🔴 **之后才是我们自己按文件名猜的 `vs~` / 阵营词 —— 必须排在最后**（见 `ForVersusGuess`）。
+            //    ⛔ **不许把这一族整条删掉** —— 没有卡 SO 数据的卡（`BL5` / `BL67`：
+            //    `introChatSound` 的 GUID 本身就是空的、表里也没有 `intro`/`default` 行）
+            //    全靠它才不至于「完全没开场白」。真走到它时 `WarnFilenameVsFallback` 会出声一次（不静默）。
+            foreach (var t in ForVersusGuess(opponentWarlord, opponentFaction))
+                if (!list.Contains(t)) list.Add(t);
+            return list.ToArray();
+        }
+
+        /// <summary>`vs~<paramref name="opponentWarlord"/>` + 对手**阵营**级词 ——
+        /// **按文件名猜的那几跳**，单独拿出来只给「**已经确定播的是定制开场白**」那一路**取台词文字**用
+        /// （`BattleDriver.SpeakIntro` 的 `wantCustom` 支：那时放的是卡 SO 的对手台词音，
+        /// 文字就该配同一条对手台词，⛔ 不该落成普通 `intro` 的英文）。
+        /// ⛔ **别拿它当播放顺序** —— 播放顺序用 <see cref="ForVersus"/>（它把这族排在最后）。
+        ///
+        /// 🔴 **原版没有这一跳**：它从不按「文件名里的对手名」找开场白 —— 对手台词在卡 SO 上是
+        /// `customIntroChatData[].customSound`（= `ForVersus` ①之前那道 `TryResolve`）。
+        /// `voice_lines.json` 里的 `vs*` 行是 `card_index.json` / 文件名猜出来的**投影**，
+        /// 所以它在 `ForVersus` 里只能**兜底**：卡 SO 的 `introChatSound` 有值时，必须让 `intro` 先赢。
+        ///
+        /// 🔴 **2026-10-24（`D9` · 铁律 5）就地订正**：这一族**原来排在 `ForVersus` 最前面**
+        /// （人名 `vs~` → 阵营词 → `intro` → `default`）⇒ **猜的压过真的**：
+        /// `AM2` 对 `Abaddon` 该走 `introChatSound`，却被猜出来的 `vsabaddon` 抢走；
+        /// 85 条未按对手键命中的 `_vs_` 里 A/B/C/D 四类全是这个形状
+        /// （判据 → `资料/普查产出_1024/D8_补全chat_intro覆盖.md` §三）。</summary>
+        public static string[] ForVersusGuess(string opponentWarlord, string opponentFaction)
+        {
+            var list = new List<string>(6);
+
+            // ① 人名级：`vs~<对手督军>`（`EvMatches` 按「短词 ⊂ 对手全名」比）
             var d = VersNorm(opponentWarlord);
             if (!string.IsNullOrEmpty(d)) list.Add("vs~" + d);
 
-            // ② 再按**对手阵营**兜底（查表；一个阵营可能有多条，也可能一条都没有）
+            // ② 阵营级：查 `VsFactionTokens` 表（一个阵营可能有多条，也可能一条都没有）
             if (!string.IsNullOrEmpty(opponentFaction))
             {
                 string[] toks;
@@ -449,13 +616,6 @@ namespace CardPresentation
                     foreach (var t in toks)
                         if (!list.Contains(t)) list.Add(t);
             }
-
-            // ③ 再回落普通 `intro`（= 原版 `ChatManager__GetChatSoundAsset` 里
-            //    「customIntro → customIntroByArmy → `GetChatSound(0)`」那一跳），
-            //    最后是 `GetChatSound` **自己内部**的那一跳 = `defaultChatSound`
-            //    （🔴 2026-10-16 · `A1768`：原版 `RawCardScript__GetChatSound.c` 取不到词条时落 `+0x188`）。
-            if (!list.Contains("intro")) list.Add("intro");
-            if (!list.Contains("default")) list.Add("default");
             return list.ToArray();
         }
 
@@ -549,18 +709,39 @@ namespace CardPresentation
                 // 同一后缀可能有几条（台词池）—— 收集后按 rng 挑
                 // ⚠️ 用 `EvMatches` 而不是 `==`：`vs~<对手词>` 这种**虚拟 ev** 要按包含比对
                 //    （真 ev 是 `vstyranids` 这类，见 `ForVersus` 的说明）。
-                int hits = 0;
+                //
+                // 🔴 **2026-10-24（B4）同 ev 多行：优先「卡 SO 指名」的那一条**。
+                //    为什么：同一张卡同一个 `ev` 会出现多行（三种归属来源撞在一起），
+                //    其中**只有一行是原版卡 SO 真指的**，其余是**按文件名猜的**。随机挑会挑到 SO 没指的
+                //    那一条 ⇒ 播错语音。现读实例（`Resources/voice_lines.json`）：
+                //      · `ASH2` 的 `gen1`：SO→`_gen4.ogg`，另有猜的 `_gen1.ogg`；
+                //      · `ASH2` 的 `intro`：SO→`_gen5.ogg`，另有猜的 `_intro.ogg`；
+                //      · `UM88` 的 `gen3`：SO→`_gen4.wav`，另有猜的 `_gen3.wav`。
+                //    判据列 = 生成器写的 `so`（原版字段名）/ `src == "cardSO"`（见 `Line` 的注释）。
+                //    ⛔ **不是**按文件名猜（`UM88` 那条的文件序号和字段序号本来就对不上，正是原版如此）。
+                //    **仍然多解才随机**（台词池），且把压掉的行打一行日志（不静默）。
+                int hits = 0, soHits = 0;
                 for (int i = 0; i < c.lines.Count; i++)
-                    if (c.lines[i] != null && EvMatches(c.lines[i].ev, want)) hits++;
+                {
+                    var l = c.lines[i];
+                    if (l == null || !EvMatches(l.ev, want)) continue;
+                    hits++;
+                    if (IsSoAttributed(l)) soHits++;
+                }
                 if (hits == 0) continue;
 
+                bool soOnly = soHits > 0;
+                if (soOnly && soHits < hits) WarnSuppressed(cardId, want, hits - soHits);
+                int pool = soOnly ? soHits : hits;
+
                 int pick = 0;
-                if (rng != null && hits > 1) pick = rng.Next(0, hits);
+                if (rng != null && pool > 1) pick = rng.Next(0, pool);
                 int seen = 0;
                 for (int i = 0; i < c.lines.Count; i++)
                 {
                     var l = c.lines[i];
                     if (l == null || !EvMatches(l.ev, want)) continue;
+                    if (soOnly && !IsSoAttributed(l)) continue;   // ← 只有卡 SO 指名的那批进池
                     if (seen++ != pick) continue;
                     clipName = l.file;
                     text = l.text;
@@ -569,6 +750,158 @@ namespace CardPresentation
                 }
             }
             return false;
+        }
+
+        /// <summary>这一行是不是**原版卡 SO 指名**的那一条。
+        /// `so` 非空 = 生成器解出了「哪个字段指它」；`src == "cardSO"` = 至少能确定来源是卡 SO
+        /// （那 56 条「`attackAudio` + `defaultChatSound` 共指同一 clip」的行属于后者：
+        ///  出处确定、但**代表不了哪一个角色**，所以 `so` 留空 —— 见 B2 报告 §七·3）。
+        /// ⚠️ `src == "orphan"`（按名字猜的）与 `src` 为空的一律**不算**。</summary>
+        static bool IsSoAttributed(Line l)
+        {
+            if (l == null) return false;
+            if (!string.IsNullOrEmpty(l.so)) return true;
+            return string.Equals(l.src, "cardSO", System.StringComparison.Ordinal);
+        }
+
+        /// <summary>「同 ev 多行、把 SO 没指名的压掉了」的日志 —— **每条只报一次**（别刷屏），
+        /// 但不静默（红线：不许静默失败）。自检想验这条规则时直接看行为，不解析日志。</summary>
+        static readonly HashSet<string> _suppressedLogged = new HashSet<string>();
+        static void WarnSuppressed(string cardId, string ev, int dropped)
+        {
+            var key = cardId + "\u0001" + ev;
+            if (!_suppressedLogged.Add(key)) return;
+            Debug.Log($"[VoiceLines] {cardId} 的 `{ev}` 有 {dropped} 条不是卡 SO 指名的，"
+                    + "按「SO 优先」压掉了（原版 SO 只指了其中一条；见 VoiceLines.TryPick 的注释）");
+        }
+
+        /// <summary>「这一句是靠**按文件名猜的** `vs*` 行兜的」—— 每条 (卡, ev) 只报一次（红线：不静默）。
+        /// 🔴 **2026-10-24（`D9`）**：`vs*` 那一跳在 <see cref="ForVersus"/> 里已经排到**最后**，
+        /// 所以真走到它 = 「这张卡**没有**卡 SO 的 `introChatSound` / `customIntroChatData`」——
+        /// 就是 `BL5` / `BL67` 这类连兜底档都没录的卡。⛔ 别据此把那一跳删掉：有它才有开场白。
+        /// 判据 → `资料/普查产出_1024/D9_开场白兜底顺序与脏标.md`。</summary>
+        static readonly HashSet<string> _vsGuessLogged = new HashSet<string>();
+        public static void WarnFilenameVsFallback(string cardId, string ev, string file)
+        {
+            var key = (cardId ?? "") + "\u0001" + (ev ?? "");
+            if (!_vsGuessLogged.Add(key)) return;
+            Debug.Log($"[VoiceLines] {cardId} 的开场白靠**按文件名猜的** `{ev}` 行兜底（`{file}`）"
+                    + " —— 卡 SO 的 `introChatSound` / `customIntroChatData` 都没给这一句；"
+                    + "原版没有这一跳，它是我们的兜底（`ForVersus` 已把它排到最后）");
+        }
+
+        /// <summary>自检用：这张卡上 `ev` **逐字等于** <paramref name="ev"/> 的原始行数。
+        /// ⛔ 不走 `EvMatches` —— 这里量的是**数据本身**（夹具），不是取词逻辑。</summary>
+        public static int LineRowCount(string cardId, string ev)
+        {
+            EnsureLoaded();
+            Card c;
+            if (cardId == null || _byId == null || !_byId.TryGetValue(cardId, out c) || c.lines == null) return 0;
+            int n = 0;
+            for (int i = 0; i < c.lines.Count; i++)
+                if (c.lines[i] != null && string.Equals(c.lines[i].ev, ev, System.StringComparison.Ordinal)) n++;
+            return n;
+        }
+
+        /// <summary>自检用：同上，其中**卡 SO 指名**的条数（判据同 <see cref="IsSoAttributed"/>）。</summary>
+        public static int SoRowCount(string cardId, string ev)
+        {
+            EnsureLoaded();
+            Card c;
+            if (cardId == null || _byId == null || !_byId.TryGetValue(cardId, out c) || c.lines == null) return 0;
+            int n = 0;
+            for (int i = 0; i < c.lines.Count; i++)
+            {
+                var l = c.lines[i];
+                if (l != null && string.Equals(l.ev, ev, System.StringComparison.Ordinal) && IsSoAttributed(l)) n++;
+            }
+            return n;
+        }
+
+        // ==================================================================
+        //  🆕 2026-10-24（`E3` · `DG3` 顺手发现 3）：**台词表注入口（自检专用）**
+        //
+        //  🔴 **为什么要有它**：「同 ev 多行时**永远取卡 SO 指名的那一条**」（`TryPick` 里 `soOnly` 那一支）
+        //  在本批 `D5` 删掉那 9 条死行之后，**现数据里已经没有任何活的夹具** —— 全表只剩 4 组
+        //  「(卡, ev) 多行」（`ASH3/BL35/BL36/SAU36` 的 `deploy`），**没有一组含 `src=cardSO`**
+        //  ⇒ ⑤d 无论怎么改期望都**恒真**（一条重要规则长期无人守）。
+        //  ⇒ 改成**夹具级见证者**（形状照 `E2` 的 `SetExactForTest`）：自检注入一组合成行
+        //  （1 条 SO 指名 + N 条按名字猜的），再断「24 个种子都取 SO 那条」+「还原之后这个合成 id 取不到」。
+        //  🧨 把 `TryPick` 里的 `soOnly` 去掉、回到纯随机 ⇒ 24 个种子下几乎必然抽到猜的那条 ⇒ 红；
+        //  而「还原后必须取不到」挡的是「为了让它绿而把表写死」那一类。
+        //  ⚠️ **生产路径零变化**：全仓只有 `WarpforgeArena1/Editor/AnimFXCheck.cs` 调它。
+        //  ⚠️ 与 `SetExactForTest` 的区别：那个注的是**精确档**（`_exactById`，卡 SO 的
+        //  `summonAudio/attackAudio/deathAudio`）；这个注的是**台词表本体**（`_byId`，即 `voice_lines.json`）。
+        // ==================================================================
+
+        /// <summary>自检用：<see cref="SetRowsForTest"/> 返回的**还原作用域**。
+        /// `using` 出作用域 ⇒ 把那张卡**还原成注入之前的样子**（原来有 ⇒ 装回旧卡；原来没有 ⇒ 删掉）。
+        /// <see cref="Dispose"/> 幂等；抛异常也还原。</summary>
+        public sealed class RowsInjectionScopeForTest : System.IDisposable
+        {
+            internal string CardId;
+            // 存成 `object`：`Card` 是**私有**嵌套类型，`internal` 字段不能把它写进签名（CS0052）；
+            // 而**外层**不能访问嵌套类的 `private` 字段（C# 只有「嵌套 → 外层」单向可见）。
+            // ⇒ 装箱成 `object`，`Dispose` 里再转回 `Card`（嵌套类看得到外层的私有类型）。
+            internal object PrevCard;     // null = 注入之前这张卡不存在
+            internal bool HadPrev, Injected;
+            bool _disposed;
+
+            internal RowsInjectionScopeForTest() { }
+
+            /// <summary>真的注入了没有（`false` = 台词表没载入 ⇒ 自检**应当据此报红**，⛔ 别当成通过）。</summary>
+            public bool WasInjected { get { return Injected; } }
+
+            public void Dispose()
+            {
+                if (_disposed) return;
+                _disposed = true;
+                if (!Injected || _byId == null) return;
+                if (HadPrev) _byId[CardId] = (Card)PrevCard;
+                else _byId.Remove(CardId);
+            }
+        }
+
+        /// <summary>🆕 2026-10-24（`E3` · `DG3` 顺手发现 3）：**往台词表里塞一张合成卡**（自检专用）。
+        /// 只改内存表 `_byId`（**不动** `Resources/voice_lines.json`、**不动** `LineCount` ——
+        /// 那个计数是「载入时读了多少条」的读数，不是表长）。
+        /// <para>造出来的行：`soFile` 非空 ⇒ 一条 **`src = "cardSO"`** 的行（= 卡 SO 指名，`so` 留空 ——
+        /// 与现数据里那 56 条「出处确定、代表不了哪个角色」的行同形状）；`guessedFiles` 每条 ⇒ 一行
+        /// **`src = "orphan"`**（按文件名猜的，`TryPick` 必须把它压掉）。</para>
+        /// <para>推荐 `using (VoiceLines.SetRowsForTest(id, ev, soClip, guessClip)) { … }` ⇒ 出作用域自动还原。</para>
+        /// ⚠️ 台词表没载入（见 <see cref="LoadError"/>）时**注入不了**：返回作用域的
+        /// <see cref="RowsInjectionScopeForTest.WasInjected"/> = `false` —— 调用方要据此**报红**，⛔ 别默默当通过。</summary>
+        public static RowsInjectionScopeForTest SetRowsForTest(string cardId, string ev, string soFile,
+                                                               params string[] guessedFiles)
+        {
+            var scope = new RowsInjectionScopeForTest { CardId = cardId };
+            EnsureLoaded();
+            if (string.IsNullOrEmpty(cardId) || string.IsNullOrEmpty(ev))
+            {
+                Debug.LogError("[VoiceLines][SetRowsForTest] 卡 id / 事件名不能为空 ⇒ 未注入。");
+                return scope;
+            }
+            if (_byId == null)
+            {
+                Debug.LogError("[VoiceLines][SetRowsForTest] 台词表没载入 ⇒ 未注入"
+                             + (LoadError == null ? "。" : "（" + LoadError + "）"));
+                return scope;
+            }
+            Card prev;
+            scope.HadPrev = _byId.TryGetValue(cardId, out prev);
+            scope.PrevCard = prev;
+
+            var lines = new List<Line>();
+            if (!string.IsNullOrEmpty(soFile))
+                lines.Add(new Line { ev = ev, file = soFile, text = null, src = "cardSO", so = null });
+            if (guessedFiles != null)
+                for (int i = 0; i < guessedFiles.Length; i++)
+                    if (!string.IsNullOrEmpty(guessedFiles[i]))
+                        lines.Add(new Line { ev = ev, file = guessedFiles[i], text = null, src = "orphan", so = null });
+
+            _byId[cardId] = new Card { id = cardId, name = cardId, faction = null, lines = lines };
+            scope.Injected = true;
+            return scope;
         }
 
         /// <summary>取音频（**没有就返回 null** —— 调用方据此不播、也不显示气泡）。</summary>

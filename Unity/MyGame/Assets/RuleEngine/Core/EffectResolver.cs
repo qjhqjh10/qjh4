@@ -543,87 +543,14 @@ namespace RuleEngine
                 // 出处：规则书 :233「随机选出 N 张候选 … 结算」；原版 `_resolve_for_each:2524`。
                 // ⚠️ **N = 0 就是一次都不结算**（不是「退化成 1 次」）—— 盘上一个友方部队都没有时，
                 //    `Deal 1 damage to an enemy for each friendly unit` 就该什么都不做。
-                int repeats = 1;
-                bool textCounted = false;
-                if (!string.IsNullOrEmpty(op.CountRef) && op.CountScope != null)
-                {
-                    int n = CountFor(ctx, owner, source, op);
-                    if (n < 0)
-                    {
-                        ctx.Log($"{by}：「{op.Source}」的计数「{op.CountRef}」本版数不出来 —— **这条没生效**");
-                        unresolved.Add(op.Source + "（计数 " + op.CountRef + " 数不出来）");
-                        continue;
-                    }
-                    repeats = n;
-                    textCounted = true;
-                    ctx.Log($"{by}：「{op.Source}」按 {op.CountRef} 计 {n} 遍");
-                }
-                // 🆕 v22（2026-10-24 · `新账-95` #2）：**结构化乘数（`role == "mult"`）优先** ——
-                //   原版 `AbilityLogic.multiplier`（`PlayAbility.c:181-236`）的个数 = `local_178`。
-                //   正文里那个 `for each X` 只是它的转写 ⇒ 数据可判时**以数据为准**并出声。
-                //   ⚠️ 只在本条 op 的 `(ab, lg)` 真有一条带 `multiplierSet` 的 `mult` 行时生效
-                //      （`TryStructuredMultiplier` 自己判；其余 op 一条都不受影响）。
-                {
-                    int sm; string smGap;
-                    if (TryStructuredMultiplier(ctx, owner, op, sourceCard, chosen, out sm, out smGap))
-                    {
-                        if (textCounted && sm != repeats)
-                            ctx.Log($"{by}：「{op.Source}」正文计数「{op.CountRef}」= {repeats}，"
-                                  + $"而原版 `multiplier` 结构化数据 = **{sm}** ⇒ 按数据 {sm} 遍"
-                                  + "（`AbilityLogic__PlayAbility.c:181-236`）");
-                        else if (!textCounted)
-                            ctx.Log($"{by}：「{op.Source}」正文没给次数 ⇒ 按原版 `multiplier` "
-                                  + $"结构化数据结算 **{sm}** 遍");
-                        repeats = sm;
-                    }
-                    else if (smGap != null)
-                    {
-                        StructuredConditionNotice("mult-gap|" + (sourceCard != null ? sourceCard.Id : "?") + "|" + smGap,
-                            $"卡「{sourceCard.Name}」（{sourceCard.Id}）的 `mult` 条件（正文「{op.Source}」）"
-                          + $"**本版判不了**：{smGap} ⇒ 退回**正文口径**。");
-                    }
-                }
-                // 🆕 2026-09-16：**`…, N times` 的重复次数**（`EffectOp.RepeatTimes`）——
-                //   走**同一条** `for` 循环：每遍 `ResolveOne` 会**重新挑目标、重掷 Rng**
-                //   ⇒ 正是卡面「对 1 个**随机**敌人造成 1 点伤害，共 8 次」的意思。
-                //   （在这之前：`Tyrannofex` 被解成「打 8 个不同敌人」、池子不足就退成
-                //     「每个敌人各打一次」；`Kelermorph` 更惨，只打一下。）
-                if (op.RepeatTimes > 1) repeats *= op.RepeatTimes;
+                // 🔴 **2026-10-24（执行代理 `G6` · `C6` §1·3 C）：算法**只此一份** =
+                //    `TryComputeRepeats`（出牌路与触发路共用）。改前这一整套（正文计数 → 结构化 `mult`
+                //    → `RepeatTimes` → `furtherMultiplier`）**只写在出牌路**里，触发层完全没有 ——
+                //    `AM18`（回合末「按友方载具数」）因此只结算 1 遍。
+                int repeats;
+                if (!TryComputeRepeats(ctx, owner, source, op, sourceCard, chosen, by, unresolved, out repeats))
+                    continue;
 
-                // ---- 🆕 2026-10-24（引擎线 `A12` 第 3 件）：`AbilityLogic.furtherMultiplier` ----
-                // 原版 `AbilityLogic__PlayAbility.c:235-236`：
-                //   `if (0 < *(int *)(param_1 + 0x38)) local_178 = local_178 * *(int *)(param_1 + 0x38);`
-                // `local_178` 就是这条 logic 的**次数 / 倍数**（召唤循环上界 `:729` 起 ·
-                // `local_178 * damageCriteria.damage` `:708` · `AdjustCardEffect(…, local_178, …)`）。
-                //
-                // 🔴 **为什么只在「正文没给次数」时才乘**：卡面印的那个数**就是** `local_178`
-                //  （`Deploy 8 …` / `Draw 5 …` / `Deal 1 damage …, six times` —— 实测 27 张 fM>1
-                //  的卡逐张核过，正文都自带同一个数），我们解析层已经从正文读到了它
-                //  ⇒ 再乘一次就是**平方**（`Rok Invasion` 会变成部署 64 张）。
-                //  ⇒ 本格的规则：**正文给过数 ⇒ 只对账、不乘**（给数的方式三种：
-                //   `RepeatTimes` / `Amount` / `CountRef` 的 `for each` 动态计数）。
-                //   `CountRef` 那一档是**动态**的（数场上几个），与常数 fM 不可比 ⇒ 一句话不说。
-                int fm = op.AbilityFurtherMultiplier;
-                if (fm > 1)
-                {
-                    if (string.IsNullOrEmpty(op.CountRef))
-                    {
-                        int textCount = op.RepeatTimes > 1 ? op.RepeatTimes
-                                      : (op.Amount > 1 ? op.Amount : 1);
-                        if (textCount <= 1 && repeats == 1)
-                        {
-                            repeats = fm;
-                            ctx.Log($"{by}：「{op.Source}」正文没给次数 ⇒ 按原版 "
-                                  + $"`furtherMultiplier = {fm}` 结算 **{fm}** 遍");
-                        }
-                        else if (textCount != fm)
-                        {
-                            ctx.Log($"{by}：「{op.Source}」正文给的次数 {textCount} 与原版 "
-                                  + $"`furtherMultiplier = {fm}` **不一致** ⇒ 按正文结算"
-                                  + "（⛔ 不叠加：卡面那个数就是原版这一个数）");
-                        }
-                    }
-                }
 
                 // ---- 🔴 2026-10-10（第十四会话 · `A1369` 洞 1）：**这 N 遍【只收一次钱】** ----
                 //
@@ -661,6 +588,8 @@ namespace RuleEngine
             // 摧毁/伤害可能把督军打死 —— 结算完统一判一次胜负
             // （`Hurt` 自己不判，和攻击那条路一致：由调用方在结算完之后判）
             if (!ctx.IsOver) CheckWinner(ctx);
+            // 🆕 2026-10-24（引擎线 `A1` 第 1 件）：出牌 / 战术卡这条路的「上一条能力的目标」。
+            NotePreviousAbilityTargets(ctx);
             return done;
         }
 
@@ -1283,8 +1212,66 @@ namespace RuleEngine
                 case 80: return "actingCard";
                 case 120: return "friendlyHero";
                 case 130: return "enemyHero";
+                // 🆕 2026-10-24（引擎线 `G5`）：`ta=200/201` 那一族的运行期引用表，见 `SetReferenceCards`
+                // / `UnitState.ReferencedCards`（判据 → `资料/普查产出_1024/C5_剩余判据普查.md` §3）。
+                case 200: return "referencedCards";
+                case 201: return "referencedCardsInPlay";
                 default: return "";
             }
+        }
+
+        /// <summary>
+        /// 🔴 **2026-10-24（引擎线 `G5`）：原版能力 `380 setReferenceCard` 的消费者。**
+        ///
+        /// <para>**判据（第一权威，`d:/2/tools/decomp_full/AbilityLogic__PlayAbility.c:2128-2160`，
+        /// `iVar8 == 0x17c`）**：先给 `actingCard.referencedCards` **换一张新 List**（`:2139-2143`
+        /// 直写字段 `+0x278`），再把**本条 abilityLogic 自己的目标表**逐个 `Add` 进去（`:2144-2160`）。
+        /// ⇒ 语义 = **覆盖**（不是追加到上一次的结果上）。我们照抄：`Clear()` 后再 `AddRange()`
+        /// （`UnitState.ReferencedCards` 是 `readonly` 字段，换对象这一层用清空等价表达）。</para>
+        ///
+        /// <para>**目标表从哪来**：就是这条 logic 自己的 `targetCriteria` —— 这里直接复用
+        /// <see cref="ResolveTargets"/>（与 ta=200/201 的**读**同一份解析，⛔ 不另写一遍）。
+        /// 池内唯一的 380 用法（`AM54` / `GOF93`）其 `ta = 150 previousAbilityFiltered`，
+        /// 而 `ta` 已在 `EffectText.<see cref="EffectText.AssignAbilityTargets"/>` 那一趟挂到 op 上。</para>
+        ///
+        /// <para>⚠️ **今天没有生产调用点**：我们的引擎**不跑 SO `abilityLogic`**，
+        /// `cards_engine.json` 也没有 `chosenAbility` 这一列（见 `EffectResolver.FollowUpSchedulerOf`
+        /// 的说明）⇒ 380 这条能力没有自然触发口。本方法是**结构件**：先把原版那一跳的语义落成
+        /// 可被调用的一个口（自检直接调它），等能力数据那条线接上再挂调用点。
+        /// ⛔ 别为了让某张卡「看起来动了」而在文字管线里硬塞一个猜测的调用点。</para>
+        ///
+        /// <para>⚠️ **副作用**：`ResolveTargets` 会覆写 `ctx.LastTargets` / `ctx.LastTarget`
+        ///（供下一句 `it` / `them` 指代）。原版 380 那一跳读的是**另一套**静态池
+        ///（`SetPreviousAbilityTargets`），不碰这两个代词槽 ⇒ 这里**先存后还原**，
+        /// 免得一条「设立引用表」的 logic 把后续正文的代词目标悄悄改掉（那会静默错打）。</para>
+        /// </summary>
+        /// <returns>写进引用表的条数（`acting == null` ⇒ 0）。</returns>
+        public static int SetReferenceCards(BattleContext ctx, int owner, UnitState acting,
+                                            EffectTargetSpec spec, UnitState source = null,
+                                            UnitState chosen = null)
+        {
+            if (ctx == null) return 0;
+            if (acting == null)
+            {
+                ctx.Log("（能力 380 `setReferenceCard`：**没有施放的那张牌**（`actingCard` 为空）"
+                      + "⇒ 引用表无处可写，本次空过 —— 原版 `PlayAbility.c:2139` 写的是 `actingCard + 0x278`）");
+                return 0;
+            }
+
+            var saved = new List<UnitState>(ctx.LastTargets);
+            var savedLast = ctx.LastTarget;
+            var got = ResolveTargets(ctx, owner, spec, source, chosen);
+            ctx.LastTargets.Clear();
+            ctx.LastTargets.AddRange(saved);
+            ctx.LastTarget = savedLast;
+
+            acting.ReferencedCards.Clear();
+            for (int i = 0; i < got.Count; i++)
+                if (got[i] != null) acting.ReferencedCards.Add(got[i]);
+            ctx.Log($"（能力 380 `setReferenceCard`：「{acting.Name}」的引用表 = "
+                  + $"{acting.ReferencedCards.Count} 张（{Names(acting.ReferencedCards)}）"
+                  + " —— 判据 `AbilityLogic__PlayAbility.c:2128-2160`）");
+            return acting.ReferencedCards.Count;
         }
 
         public static List<UnitState> ResolveTargets(BattleContext ctx, int owner,
@@ -1315,6 +1302,51 @@ namespace RuleEngine
             // `ActingUnit`（由 `ResolveOne` 在结算每一条效果**之前**设好、结算完恢复）。
             // 「相邻」的 `Self` 锚点要用它 —— 见 `ResolveAdjacentAnchor`。
             if (source == null) source = ctx.ActingUnit;
+
+            // ---- 🆕 2026-10-24（引擎线 `G5`）：原版 `ta = 200 / 201` 的 `referencedCards` ----
+            // 判据（第一权威 = `d:/2/tools/decomp_full/`，现读）：
+            //   · 分派：`AbilityLogic__GetTargets.c:770-781`（`iVar6 == 0xc8` = 200）⇒ 把
+            //     `actingCard.referencedCards`（`+0x278`）**整表 AddRange**，然后 `goto` 出口
+            //     ⇒ **不过筛、不 Trim、不看 targetSelectMethod**；
+            //   · `:784-806`（`iVar6 == 0xc9` = 201）同上，但**只把 `IsInPlay` 的加进去**
+            //     （判据 `CardScript__IsInPlay.c:7`：`cardState ∈ {2,15,3,17}`）。
+            //   · 写入方 = 能力 `380 setReferenceCard`（见 `SetReferenceCards`）；
+            //     **不是**卡 SO 字段 ⇒ 数据面为空是正常的（`资料/普查产出_1024/C5_剩余判据普查.md` §3）。
+            // 🔴 **位置必须在最前**：原版这两档**完全绕开** `targetCriteria` 的其它字段
+            //   （与 `ta=240` 同一形态），所以文本解析出来的 `Side/Kind/Count` 一个字都不该参与。
+            // ⚠️ **按 `op.SubjectTargetsAffected` 分派**（这是本仓 op ↔ `targetsAffected` 的唯一镜像，
+            //   见 `EffectText.AssignAbilityTargets`）；`-1` = 读不到 ⇒ 走下面对文本 spec 的那几条老路。
+            if (op != null && (op.SubjectTargetsAffected == 200 || op.SubjectTargetsAffected == 201))
+            {
+                bool inPlayOnly = op.SubjectTargetsAffected == 201;
+                if (source == null)
+                {
+                    // 原版写的是 `actingCard.referencedCards` —— 没有施放者就无处可读。
+                    // 手牌打出的战术卡在**本结构里**没有载体（见 `UnitState.ReferencedCards` 的 ⚠️），如实出声。
+                    ctx.Log($"（`ta={op.SubjectTargetsAffected} referencedCards`：**没有施放的那张牌**"
+                          + "（`actingCard` 为空）⇒ 目标表为空。⚠️ 手牌卡这条载体本批**没做**，"
+                          + "见 `资料/普查产出_1024/G5_裸Deal与ta200.md` §件2）");
+                    return list;
+                }
+                for (int i = 0; i < source.ReferencedCards.Count; i++)
+                {
+                    var u = source.ReferencedCards[i];
+                    if (u == null) continue;
+                    // 201 = 只留 `IsInPlay`（原版 `CardScript.IsInPlay`；我们的等价物见 `IsUnitInPlay`）。
+                    // ⚠️ 200 **一律不筛** —— 包括**已经离场**的那些（原版是整表 AddRange）。
+                    if (inPlayOnly && !IsUnitInPlay(ctx, u)) continue;
+                    list.Add(u);
+                }
+                ctx.LastTargets.Clear();
+                ctx.LastTargets.AddRange(list);
+                if (list.Count > 0) ctx.LastTarget = list[0];
+                ctx.Log($"（`ta={op.SubjectTargetsAffected} referencedCards`："
+                      + $"「{source.Name}」的引用表 {source.ReferencedCards.Count} 张"
+                      + (inPlayOnly ? "，只留还在场上的" : "（整表）")
+                      + $" ⇒ 目标 {list.Count} 张（{Names(list)}）—— 判据 `AbilityLogic__GetTargets.c:"
+                      + (inPlayOnly ? "784-806" : "770-781") + "`）");
+                return list;
+            }
 
             // 指代上一条效果的目标（`it` = 一个 / `them` = 一批）
             if (spec.Side == "prev" || spec.Kind == "prev")
@@ -1423,7 +1455,20 @@ namespace RuleEngine
                 // ⚠️ 排在「己方全体」**之前**：`Beacon of Faith` 那类卡的第一次「whose」是
                 //    `your units`（`PickTarget` 返回 null ⇒ `chosen` 也是 null）⇒ 仍然落到己方全体 ✓
                 //    行为不变；而真点了目标的卡（`Luminous Strike` 那种）就不会再打全体。
-                else if (chosen != null && chosen.IsAlive) list.Add(chosen);
+                // 🔴 **2026-10-24（引擎线 `G5`）：这一支要用 `chosen`，必须【这一条 op 自己的
+                //    `targetsAffected` 就是「用调用方给的那个目标」】** —— 判据（现读
+                //    `AbilityLogic__GetTargets.c:192-207`）：整张函数里**只有** `iVar6 == 0x1e (30 target)`
+                //    与 `0xdc (220)` 两支会去读 `param_5`（= `targetCard`）并把它塞进结果表，**其余每一档
+                //    都把 `targetCard` 忽略掉**。⇒ 一条**无主语** op 若不是这两档，玩家点的那个目标
+                //    **不是它的目标**（`ta=-1` 读不到时仍按旧行为放行 —— 宁可不改也不猜）。
+                //    🔬 **这条闸是实测逼出来的**：改前 `GOF103 Da Hunt is On`（`Deal 2 damage.` +
+                //    `The next Beast you play gains Flank.`，第二条 `subjTa = 0 any`）把 Flank 加到了
+                //    **玩家点中的那个敌人**身上（`play` 基线整表只有这 1 张变，见
+                //    `资料/普查产出_1024/G5_裸Deal与ta200.md` §件1）。加闸后回到「己方全体」的既有近似。
+                else if (chosen != null && chosen.IsAlive
+                         && (op == null || op.SubjectTargetsAffected < 0
+                             || op.SubjectTargetsAffected == 30 || op.SubjectTargetsAffected == 220))
+                    list.Add(chosen);
                 else
                 {
                     // 🔴 **2026-10-23（引擎线 · 战斗审计 `B-17`）：先按原版 `targetsAffected` 取。**
@@ -1590,15 +1635,64 @@ namespace RuleEngine
                 // ---- `the enemy with **highest attack**` / `lowest Health`（2026-09-13 A4 批 2）----
                 // 出处：`Target friendly unit attacks the enemy with highest attack`（`Peerless Bladesmen`）·
                 //       `Attacks a random enemy with lowest Health`（`Damaged Hexmark`）。
-                // 挑法**不掷骰**：并列时取**槽号在前**的那个（和引擎里其它「取第一个」的规矩一致，
-                // 也保证同一局可复现 —— 铁律：定死的规则不要改成随机）。
+                // 挑法**不掷骰**（同一局必须可复现 —— 铁律：定死的规则不要改成随机）。
+                // ⚠️ **并列规则分两档**（2026-10-24 `B7` 就地订正：这一句以前一律写「取槽号在前」）：
+                //    · `-health` = 原版 `GetLowestHealthUnit` 那一支 ⇒ **督军优先，其次按进场序（`PlayOrder`）**
+                //      —— 见下面那段判据；
+                //    · 其余（`+attack` 等）= **没有原版判据**，仍按池序（= 格号序）取先出现者。
                 // ⚠️ `attack` 取的是**近战攻击力**（`UnitState.Attack`）：卡面写的是裸 `attack`，
                 //    而远程是单独一栏（`ranged attack`）；本版就这一张卡，按近战解，**如实记在这儿**。
                 bool low = spec.PickMost.StartsWith("-");
                 string stat = spec.PickMost.Substring(1).Trim();
                 UnitState best = null;
                 int bestV = 0;
-                foreach (var u in pool)
+
+                // 🔴🆕 **2026-10-24（引擎线 `B7` · B6 报告的「顺手发现 2」）：`lowest Health` 补两处口径差。**
+                //
+                // 判据（第一权威，本轮现读）= `d:/2/tools/decomp_full/BattleManager__GetLowestHealthUnit.c`
+                // （分派 → `AbilityLogic__GetTargets.c:835-844` 的 `iVar6 == 0xf0 (240 lowestHealth)`；
+                //  🔴 **2026-10-24（引擎线 `G5`）就地订正（铁律 5）**：这条注释原来写
+                //    「裸 `Deal N damage` 走的正是 240，见 `EffectText.TryDeal` 的 `PickMost = "-health"`」——
+                //    **作废**：裸 Deal 的原版 `ta = 30 (target)`（33/33 张现读），改后不再走这一支；
+                //    这一支现在只服务**卡面明写** `with lowest Health` 的那几张（`ta=240`）。
+                //    判据 → `资料/普查产出_1024/C4_ta240是否含督军.md` §三 + §六·2）：
+                //   · **① 候选闸**（`:73-88` 收集 + `:122-128` 复核）= `IsInPlay` ∧
+                //     **`!EnoughPendingDamageToDie`** ∧ `!isRemnant(+0x65)` ∧ cardType ∉ {20 Tactic, 40 Whispers}。
+                //     我们改前只判 `IsAlive` ⇒ **残骸（`Health = 1`、`IsAlive` 真）会被挑中**；
+                //     待死（`waitingToDie`，= 我们的 `ctx.IsPendingDeath`）也能被挑中。
+                //   · **② 初始 best = 该侧督军**（`:100-109`，与 `BattleManager__GetHero.c` 逐句同形）⇒
+                //     **并列时督军优先**、空池回落督军；改前 `foreach` + 严格小于 ⇒ 并列取**池里先出现**的那个
+                //     （池序 = 格号序，督军在 `Board[4]`，同血的 1~3 号格部队会抢先）。
+                //   · **③ 遍历序 = `allCardsInPlay` 追加序**（`:66` 的 `*(manager + 0x470)`）——
+                //     同一张表就是我们的 `UnitState.PlayOrder`（见那个字段的 doc）⇒ ⛔ 不是格号序。
+                // ⚠️ `cardType ∈ {20, 40}` 那一道**在我们这一侧是空闸**：`pool` 只由 `AddSide` 扫
+                //    `PlayerState.Board` 得来，盘上只有单位/督军（`CardDef.Type` = `unit`/`hero`），
+                //    没有 Tactic/Whispers 的位置 ⇒ **照判据记在这里、不另造一个卡类判据**。
+                // ⚠️ 只动 `-health` 这一档：`+attack` / `-attack` 等的遍历序与并列规则**保持原样**
+                //    （它们不是 `GetLowestHealthUnit` 那条判据，别顺手「统一」）。
+                bool lowestHealth = low && string.Equals(stat, "health", System.StringComparison.OrdinalIgnoreCase);
+                var pickPool = pool;
+                if (lowestHealth)
+                {
+                    var cand = new List<UnitState>(pool.Count);
+                    foreach (var u in pool)
+                    {
+                        if (u == null || !u.IsAlive) continue;
+                        if (ctx.IsPendingDeath(u)) continue;                    // `IsInPlay` 假（状态 5）
+                        if (u.IsRemnant) continue;                              // `+0x65 == 0`
+                        if (RuleCore.EnoughPendingDamageToDie(u)) continue;     // 原版那道判死闸
+                        cand.Add(u);
+                    }
+                    // 原版遍历序 = 进场追加序；`StableSortByPlayOrder` 把没取号的（`-1`）排到末尾。
+                    RuleCore.StableSortByPlayOrder(cand, u => u.PlayOrder);
+                    pickPool = cand;
+                    // 初始 best = 该侧督军（**只在它自己也是合法候选时**预置 —— 否则会把被卡面筛掉的
+                    // 督军当成目标，例如 `the enemy **troop** with lowest Health` 时督军根本不在池里）。
+                    best = WarlordInPool(ctx, cand);
+                    if (best != null) bestV = StatOf(best, stat);
+                }
+
+                foreach (var u in pickPool)
                 {
                     if (u == null || !u.IsAlive) continue;
                     int v = StatOf(u, stat);
@@ -2426,7 +2520,13 @@ namespace RuleEngine
                 //   —— 死亡若被延后进「同时伤害」批，它会随 `PendingDeath` 走到 `FlushDeaths`，
                 //   在那个死者**自己的那一拍**上记账（原版 death action 的 FIFO：死者1 反噬
                 //   → 死者1 的 Slay → 死者2 …）。批外（没延后）的死亡仍由下面这一句当场记。
-                dealt += Hurt(ctx, t, one, by, actingCard: ctx.ActingUnit);
+                dealt += Hurt(ctx, t, one, by, actingCard: ctx.ActingUnit,
+                              // 🔴 2026-10-24（`C1` §3）：效果伤害的死因按**来源卡种**定 ——
+                              //   单位能力 ⇒ `ability(20)`（原版 `deathType = ability`）；
+                              //   **战术卡 / 防御卡 / 密令卡** ⇒ `tactic(30)`
+                              //   （判据 `BattleManager__GetDeathType.c:140-146` +
+                              //    `SupportMethods__IsSpellType.c:3-6`，见 `RuleCore.DeathTypeOfSource`）。
+                              deathType: RuleCore.DeathTypeOfSource(ctx));
                 if (!ctx.DeathsDeferred)
                     RuleCore.TryCreditKill(ctx, ctx.ActingUnit, vOwner, t);
             }
@@ -2509,6 +2609,30 @@ namespace RuleEngine
                 case "health": return u.Health;
                 default: return 0;
             }
+        }
+
+        /// <summary>🆕 2026-10-24（引擎线 `B7`）：**`pool` 里有没有那一方的督军**（有就返回它，没有返回 `null`）。
+        ///
+        /// 用途 = 原版 `BattleManager__GetLowestHealthUnit.c:100-109` 的「**初始 best = 该侧督军**」
+        /// （那段与 `BattleManager__GetHero.c` 的主体逐句同形：`*(manager + (isPlayer0 ? 200 : 0xC0))`
+        /// 再取 `+0x28`）。原版**不判**督军是否在候选闸里就先塞进去，是因为 `ta = 240`
+        /// （`AbilityLogic__GetTargets.c:835-844`）**不过筛**、督军一定在 `allCardsInPlay` 里；
+        /// 我们这一侧的 `pool` 已经被卡面词筛过（`a friendly **troop**` 之类）⇒ 只有它**本身也在候选表里**
+        /// 才预置，否则会把一个被卡面排除的对象当成目标。
+        /// ⚠️ 两侧督军都在池里时（`Side == "any"` 那种）取 **player 0 那个** —— 原版同样只会解析出**一侧**
+        /// （`bVar16` 是个布尔），今天池内**没有任何卡**走到这一格（见 B7 报告「可达性」）。</summary>
+        static UnitState WarlordInPool(BattleContext ctx, List<UnitState> pool)
+        {
+            if (ctx == null || ctx.Players == null || pool == null || pool.Count == 0) return null;
+            for (int p = 0; p < ctx.Players.Length; p++)
+            {
+                if (ctx.Players[p] == null) continue;
+                var w = ctx.Players[p].Warlord;
+                if (w == null) continue;
+                for (int i = 0; i < pool.Count; i++)
+                    if (ReferenceEquals(pool[i], w)) return w;
+            }
+            return null;
         }
 
         /// <summary>
@@ -2708,24 +2832,32 @@ namespace RuleEngine
         ///
         /// 手牌里每一张**战略卡**换成候选卡之一。
         ///
-        /// 🔴 **`or` 到底怎么解，三层权威全都没有** —— 规则书里没有 `become` 这个词、
-        ///    反编译里查不到对应的 handler（`grep -rn -i "become" d:/2/tools/decomp_full/` 只命中
-        ///    与控制流无关的同名串；**没有**「把手牌里的牌换成另一张」这个方法 —— 理由与搜过的
-        ///    路径/词同 `EffectText.cs` 文件头那段）、**我们自己的**上一版复刻
-        ///    （`d:/warpforge/scripts/rule_core.gd`，⚠️ **旁证、非判据**）也没有这个 handler、
-        ///    成品卡图（`Space Wolves/3部队/Warpforge_23_Hrolf-the-Ironhowl.png`，照铁律 7 核过）
-        ///    也只印着一个 `or`。
-        ///    ⇒ **两层都是我们挑的**，如实标着（原版若不一样，差别肉眼可见）：
+        /// 🔴 **更正痕迹（铁律 5）**：这里原来写着「`or` 到底怎么解，三层权威全都没有 ⇒ 两层都是我们挑的」——
+        ///    **2026-10-24（`C1` §7）推翻**：原版语义**查得到**（见下面 ② 的逐句判据），
+        ///    只是它落在**结构化资产**（`summonCriteria.unitsToSummon` + `chosenAbility 90`）里，
+        ///    不在**卡面文本**上 —— 当年按 `become` 这个词在反编译里搜，搜的不是这条路。
+        ///    ✅ **仍然是我们挑的只有一层**：**「把英文正文 `a X or Y` 解析成「这两个候选」**这一跳
+        ///    （原版没有文本解析层）。候选名单本身对得上（`Hunting Wolf` / `Fenrisian Wolf`）。
+        ///    成品卡图（`Space Wolves/3部队/Warpforge_23_Hrolf-the-Ironhowl.png`，照铁律 7 核过）只印着 `or`。
         ///      ① **挑法** = **随机**（`ctx.Rng`）—— 🔴 **2026-09-14 用户裁决**：
         ///         「`a Hunting Wolf or Fenrisian Wolf` 这个就是**随机变成两个中的一个**」。
         ///         卡面**没有** `choose` 字样 ⇒ 按规则书 `:475` 那条「`choose` 关键词才轮到玩家选」
         ///         的反面，这里**不该问玩家**。
         ///         ⚠️ 沿革：第二十六轮是「每张手牌各自 `ctx.Rng` 随机」（近似），
         ///         2026-09-14 晚改成 `TakePick` 问玩家（**那个改错了，本次改回随机**）。
-        ///      ② **一次选择、全手牌统一变成它** —— 卡面写的是 `become a Hunting Wolf or
-        ///         Fenrisian Wolf`（**单数冠词、二选一**），不是 `a random …`
-        ///         （对照 `dark pact`：我们自己的 `rule_core.gd:1670`（旁证、非权威）明写 `random`）。
-        ///         ⚠️ 若原版其实是「每张各自随机」，这里会表现成「全手牌统一变成同一个」。
+        ///      ② 🔴 **2026-10-24 就地订正（引擎线 `T02` · `C1` §7 · `SW18`）：原版是【逐张目标各自随机】。**
+        ///         判据（第一权威，逐句读过反编译）：
+        ///           · `AbilityLogic__PlayAbility.c:950` 的 `chosenAbility == 0x5a /*90*/` 那一支，
+        ///             `:953-978` 是 **`while` 循环遍历目标表**（`logic.possibleTargets(+0x78)`，
+        ///             由 `targetCriteria` 的 `GetTargets` 填 = `SW18` 的 `ta 50 inHandFiltered` 手牌），
+        ///             **循环体内 `:958` 每次都调 `AbilityLogic__GetCardToSummon(...)`**；
+        ///           · `AbilityLogic__GetCardToSummon.c:191-206`：候选非空 ∧ `summonAllTargets == 0`
+        ///             ⇒ **`:193` `GetRandomInt(0, count)` 取一个** ⇒ **每次调用独立掷一次**。
+        ///         ⇒ 两张以上手牌时结果是**混合**的（有的变 Hunting Wolf、有的变 Fenrisian Wolf）。
+        ///         ⚠️ 改前这里是「**只掷一次、全手牌统一用**」（旧口径是照卡面单数冠词猜的，
+        ///         三层权威都查不到 `or` 怎么解）—— 那是错的，现在按上面那条判据改成逐张掷。
+        ///         ⚠️ 掷的**次数**也照原版：**每一张被选中的战略卡各掷一次**（即使掷出来跟它现在
+        ///         同名，也照样掷——原版是先 `GetCardToSummon` 再 `AddTransformCard`）。
         ///    ⇒ 每次变身照旧**逐张打日志**，不静默。
         ///
         /// ⚠️ 「手牌里哪些算战略卡」的判据**转调 `CreatePool.MatchesKind(c, "stratagem")`**
@@ -2756,28 +2888,33 @@ namespace RuleEngine
             var ps = ctx.Players[owner];
             int changed = 0, seen = 0;
 
-            // 🔴 **随机**（用户 2026-09-14 裁决）—— 卡面没有 `choose` ⇒ 不问玩家。
-            //    ⚠️ **只掷一次**，答案**全手牌统一用** —— 见函数头 ②。
-            int pickIdx = names.Count <= 1 ? 0 : ctx.Rng.Next(names.Count);
-            var pick = names[pickIdx];
-            ctx.Log($"{by}：「{op.Source}」变身 → **{pick.Name}**（随机；手牌里的战略卡全变成它）");
-
             for (int i = 0; i < ps.Hand.Count; i++)
             {
                 var cur = ps.Hand[i];
                 if (cur == null || !CreatePool.MatchesKind(cur.Card, "stratagem")) continue;
                 seen++;
-                if (ReferenceEquals(pick, cur.Card)) continue;      // 已经是它 = 没变
+                // 🔴 **2026-10-24（`C1` §7 · `SW18`）：逐张**各掷一次**（判据见函数头 ②）。
+                //   ⚠️ 掷的位置必须在这里：**先掷、后判「是不是已经同名」** —— 原版
+                //   `PlayAbility.c:958` 先 `GetCardToSummon`（掷），`:974` 才 `AddTransformCard`。
+                var pick = names.Count <= 1 ? names[0] : names[ctx.Rng.Next(names.Count)];
+                if (ReferenceEquals(pick, cur.Card))
+                {
+                    ctx.Log($"{ps.Name} 的手牌「{cur.Card.Name}」掷到**同名** ⇒ 不变（原版也照掷一次）");
+                    continue;
+                }
                 // 🔴 第 7 行第 2 步 + **用户 2026-09-18 拍的口径**：**变身 = 另发新实例、状态不跟**
                 //   （卡都换了；改前那套按 `CardDef` 键，换 def 之后键就变了 ⇒ 旧行为本来也是「不跟」）。
                 ps.Hand[i] = ctx.NewInstance(pick);
                 changed++;
                 ctx.Log($"{ps.Name} 的手牌「{cur.Card.Name}」变成了「{pick.Name}」");
             }
-            ctx.Log($"{by}：「{op.Source}」手牌里 {seen} 张战略卡，{changed} 张变了身"
+            // 🔴 **2026-10-24（`E2` · `DG2` 红 #6）**：汇总日志**必须带「变身」二字** ——
+            //   `BattleScene.cs` 那条「日志里留下了变身那一笔（**不静默**）」是**全文 grep「变身」**。
+            //   本批 `C1` 重写文案时把它写成了「变了身」（拆开的），断言当场失配（行为没退化，只是换了词）。
+            //   ⇒ 词头写回「变身：」；⛔ 别改成只让断言去找「变了身」，那还是盯文案（下次再改词还会红）。
+            ctx.Log($"{by}：「{op.Source}」变身：手牌里 {seen} 张战略卡，{changed} 张变了身"
                   + $"（候选：{string.Join(" / ", names.ConvertAll(c => c.Name).ToArray())}）"
-                  + "—— ⚠️「一次随机、全手牌统一」这条是我们挑的，"
-                  + "原版的三层权威都查不到 `or` 怎么解");
+                  + "—— 逐张各自随机（判据 `PlayAbility.c:950-978` + `GetCardToSummon.c:193`）");
             return true;
         }
 
@@ -2837,7 +2974,12 @@ namespace RuleEngine
                 // 阵营要在 `Hurt` 之前取（打完它可能已经不在棋盘上了，见 `DoDeal` 同一条）。
                 int vOwner = OwnerOf(ctx, t);
                 // `W58-INTERLEAVE`：同 `DoDeal` —— 延后进批的死亡由 `FlushDeaths` 逐死者记账。
-                dealt += Hurt(ctx, t, n, by, actingCard: u);
+                dealt += Hurt(ctx, t, n, by, actingCard: u,
+                              // 🔴 2026-10-24（`G2` · `C5` 顺手发现 11）：死因同 `DoDeal` —— 按**来源卡种**
+                              //   取 `ability(20)` / `tactic(30)`。单位能力驱动时 `ActingUnit` = 那个单位
+                              //   ⇒ 仍是 `ability(20)`（与改前逐字相同）；**战术卡**驱动时它才是 `null`、
+                              //   回落 `CreationSource`（= 那张战术卡）⇒ `tactic(30)`。
+                              deathType: RuleCore.DeathTypeOfSource(ctx));
                 if (!ctx.DeathsDeferred)
                     RuleCore.TryCreditKill(ctx, u, vOwner, t);
                 hitters++;
@@ -3464,7 +3606,11 @@ namespace RuleEngine
                 {
                     // `W58-INTERLEAVE`：把来源卡一并交给 `CleanupDeaths` —— 死亡若被延后进批，
                     // `FlushDeaths` 会在那个死者自己的那一拍上记账；批外仍由下面这一句当场记。
-                    CleanupDeaths(ctx, o2, s2, actingCard: ctx.ActingUnit);
+                    CleanupDeaths(ctx, o2, s2, actingCard: ctx.ActingUnit,
+                                  // 🔴 2026-10-24（`C1` §3）：`Destroy` 效果的死因同 `DoDeal` ——
+                                  //   按**来源卡种**取 `ability(20)` / `tactic(30)`
+                                  //   （判据 → `RuleCore.DeathTypeOfSource`）。
+                                  deathType: RuleCore.DeathTypeOfSource(ctx));
                     // 🔴 **2026-10-10（`A1250`）**：**「摧毁」也是击杀的一条** —— 判据 = 原版那条闸
                     // 允许 `local_28 == 0x14 /* ability(20) */`（`CardScript__ResolveDeadCard.c:252`）。
                     // ⚠️ 阵营 (`o2`) 现成（就在上一行），不用像 `DoDeal` 那样先存 —— 但那一份是
@@ -3579,6 +3725,10 @@ namespace RuleEngine
                 //     `IsValidAttackTarget` / `AllowResolveAttack` / `get_mightAct` / `ActivateMinion` …）
                 //     ⇒ **原版只有一份表示**，`IsStunned` 现在的定义就是它。
                 t.AddKeyword(KeywordTable.Stun, 1);
+                // 🆕 **2026-10-24（引擎线 `G1b` · `C2` §6）**：原版 `CardScript__Stun.c:125` **每次被晕**
+                //   都调 `DisplayStatusAnim`。本行前面已有 `if (t.IsStunned) continue;` ⇒ 走到这里
+                //   一定**首次**（`Amount = 0` ⇒ 由 `SyncKeywords` 的「新出现」路演，不在这里重复演）。
+                EmitStatusApplied(ctx, t, KeywordTable.Stun, reapply: false);
                 // 🆕 2026-10-09（`A1121`）：**施加时清「回合开始时就在这个状态」那个闸门** ——
                 //    判据 = `CardScript__Stun.c:98`（`*(undefined1 *)(card + 0x55) = 0;`）。
                 //    ⇒ 这一下眩晕**不会**在**本回合末**被 `RuleCore.EndTurn` 摘掉
@@ -3633,7 +3783,10 @@ namespace RuleEngine
                 // 🆕 2026-10-09（`A1121`）：**施加时清闸门** —— 判据 = `CardScript__AddEffect.c:487`
                 //    （挂上 `0x3cf` 那一段里的 `*(undefined1 *)(card + 0x56) = 0;`）。
                 t.BlindedAtStartOfTurn = false;
+                bool hadBlind = t.KwValue(KeywordTable.Blind) > 0;
                 t.AddKeyword(KeywordTable.Blind, 1);   // ← **这就是唯一表示**（不再是「只为 Has 可见」）
+                // 🆕 2026-10-24（引擎线 `G1b` · `C2` §6）：状态施加事件（判据同 `DoStun` 那一处）。
+                EmitStatusApplied(ctx, t, KeywordTable.Blind, hadBlind);
                 n++;
                 ctx.Log($"{t.Name} 失明了（远程攻击力视为 0，到回合 {t.BlindTurnEnd + 1} 结束）");
             }
@@ -6244,6 +6397,41 @@ namespace RuleEngine
                                     card: source != null ? source.Card : null);
             var skip = plan.Skip;
 
+            // ================================================================
+            //  🔴 **2026-10-24（执行代理 `G6` · `C6` §1·3 C）：整条 ability 触发 N 遍**
+            //
+            //  判据 = `RawCardScript__TriggerAbilities.c:226-259`：`multiCountCriteria != null`
+            //  且 `targetsAffected != 0` ⇒ 先 `GetTargets(...)` 求候选表，再
+            //  `for (i < 表长) TriggerAbility(...)`；**表空（N = 0）⇒ 一次都不触发**
+            //  （连付费都不发生，所以下面的 `ChargePaidGroups` 也一并跳过）。
+            //  `targetsAffected == 0 (any)` ⇒ 那条 criteria 不携带任何信息 ⇒ 不覆盖正文（见
+            //  `TryStructuredMultiTrigger` 的 doc）。
+            // ================================================================
+            int abilityRepeats = 1;
+            {
+                int mn; string mgap;
+                if (TryStructuredMultiTrigger(ctx, owner, ops, source != null ? source.Card : null, source,
+                                              out mn, out mgap))
+                {
+                    abilityRepeats = mn;
+                    if (mn != 1)
+                        ctx.Log($"{by}：原版 `multiCountCriteria` = **{mn}** ⇒ **整条能力触发 {mn} 遍**"
+                              + "（`RawCardScript__TriggerAbilities.c:226-259`）");
+                }
+                else if (mgap != null)
+                {
+                    StructuredConditionNotice("multi-gap|" + (source != null && source.Card != null ? source.Card.Id : "?") + "|" + mgap,
+                        $"「{by}」的 `multiCountCriteria`（角色 `multi`）**本版判不了**：{mgap}"
+                      + " ⇒ 退回正文口径（`for each …`）。");
+                }
+                if (abilityRepeats <= 0)
+                    ctx.Log($"{by}：原版 `multiCountCriteria` 数出 **0** 个候选 ⇒ **整条能力不触发**"
+                          + "（`RawCardScript__TriggerAbilities.c:226-259`：列表为空 = 一次都不触发）");
+            }
+
+            bool anyRunnable = false;              // 🆕 W57：这条 ability 激活了没有（见返回值的 doc）
+            if (abilityRepeats > 0)
+            {
             var paidOk = ChargePaidGroups(ctx, owner, source, by, ops, null, unresolved);
             // 🆕 2026-10-20（`FACTION-DOUBLE605`）：把「哪几个付费组收到钱」回填给调用方 ——
             //   组首 = `Cost > 0 && !CostShared`（判据同 `ChargePaidGroups` / `EffectOp.CostShared`）。
@@ -6255,7 +6443,7 @@ namespace RuleEngine
                     if (gop == null || gop.Cost <= 0 || gop.CostShared) continue;
                     if (paidOk[i]) activatedGroups.Add(gop);
                 }
-            bool anyRunnable = false;              // 🆕 W57：这条 ability 激活了没有（见返回值的 doc）
+            for (int r = 0; r < abilityRepeats; r++)
             for (int i = 0; i < ops.Count; i++)
             {
                 if (skip[i]) continue;             // 🆕 `A1685`：这条被 `instead` 替换掉了
@@ -6269,9 +6457,48 @@ namespace RuleEngine
                 //   改前这条路没有这一跳 ⇒ 所有触发里的 `equal to your Faith / 敌方手牌数` 都按 0 结算。
                 EffectOp amtOp;
                 if (!TryApplyAmountRef(ctx, owner, by, op, unresolved, out amtOp)) continue;
+
+                // 🔴 **2026-10-24（`G6` · `C6` §1·3 C）：这条 op 自己的 `repeats`**
+                //   —— 判据与出牌路**同一份**（`TryComputeRepeats`），不要再抄一遍。
+                //   ⚠️ 两档**不套用**（触发路今天判不了，保持改前口径并出声，⛔ 不用 repeats 顶）：
+                //   ① `PerCount` 增量型（「an additional +1 for each X」= **加 N 次**不是**跑 N 遍**；
+                //      出牌路那一档在重载 #1 的 `:489` 一段，本重载还没有）；
+                //   ② `CountScope == "died"`（「For each one that dies, …」）—— 触发本身**就是**
+                //      那次死亡事件（`OtherUnitDeath(90)` / `UnitDeathByAbility(180)`），
+                //      再乘「本回合累计阵亡数」= **平方**；原版那两张卡的 `multiCountCriteria` 现读
+                //      `ta = 0 (any)`（`AM34` / `TL46`）= 数据也说不重复。
+                int opRepeats = 1;
+                string skipWhy = null;
+                if (amtOp.PerCount > 0 && !string.IsNullOrEmpty(amtOp.CountRef)
+                    && amtOp.Verb != "deal" && amtOp.Verb != "heal")
+                    skipWhy = "percount";
+                else if (amtOp.CountScope == "died")
+                    skipWhy = "died";
+                if (skipWhy != null)
+                {
+                    StructuredConditionNotice(
+                        "trigger-repeat-" + skipWhy + "|" + (source != null && source.Card != null ? source.Card.Id : "?") + "|" + amtOp.Verb,
+                        $"「{by}」的「{amtOp.Source}」是 `{skipWhy}` 档的 `for each` —— 触发层**不按它重复**"
+                      + (skipWhy == "died"
+                           ? "（这条触发本身就是那次死亡事件，再乘累计阵亡数就是平方；"
+                           + " 原版这两张卡的 `multiCountCriteria` 现读 `ta = 0 (any)` ⇒ 不重复）"
+                           : "（`PerCount` = 数值加 N 次，不是跑 N 遍；该档本重载尚未实现）"));
+                }
+                else if (!TryComputeRepeats(ctx, owner, source, amtOp,
+                                            source != null ? source.Card : null, source, by, unresolved,
+                                            out opRepeats))
+                    continue;                      // 计数数不出来 ⇒ 整条跳过（日志/unresolved 已写）
+
+                if (opRepeats <= 0)
+                {
+                    ctx.Log($"{by}：「{amtOp.Source}」按 `{amtOp.CountRef}` 计 **0** 遍 ⇒ 这条什么都不做");
+                    continue;
+                }
                 // 🆕 2026-10-22（`W64` · `B-16`）：触发路的卡 = `source.Card`（`source` = 触发的那张）。
-                ResolveOne(ctx, owner, source, by, Prepaid(amtOp), null, unresolved,
-                           card: source != null ? source.Card : null);
+                for (int k = 0; k < opRepeats; k++)
+                    ResolveOne(ctx, owner, source, by, Prepaid(amtOp), null, unresolved,
+                               card: source != null ? source.Card : null);
+            }
             }
 
             // 🔴 **2026-09-16：这里原来「建了、传了、从来没读」。**
@@ -6281,6 +6508,9 @@ namespace RuleEngine
             ReportUnresolved(ctx, "「" + by + "」", unresolved);
 
             // 用完还原：调用方（`FireTriggerAt` 上面那层）可能还指望原来的值
+            // 🆕 2026-10-24（引擎线 `A1` 第 1 件）：**先记「上一条能力的目标」、再还原调用方的槽**
+            //   —— 顺序反了就会把调用方那一批当成「这次能力的目标」。
+            NotePreviousAbilityTargets(ctx);
             ctx.LastTargets.Clear();
             ctx.LastTargets.AddRange(savedTargets);
             ctx.LastTarget = savedLast;
@@ -6357,6 +6587,18 @@ namespace RuleEngine
         //     （`WhenEvent.cs:190` / `:107`），返回的这一侧才是原版枚举名。
         const string TN_UnitReceivesHuntMark = "UnitReceivesHuntMark"; // 520
         const string TN_OnCollectFaith       = "OnCollectFaith";       // 665
+        // 🆕 **2026-10-24（引擎线 `G1b` · `C2` §2 · D8）：灵族「收集路标石」那一拍（610）。**
+        //   判据 = `CardScript__ReactToCollectSpiritStone.c:5-9` 的
+        //   `RawCardScript__OnTrigger(thisCard, thisCard, thisCard, 0x262, …)`（`0x262` = **610**）；
+        //   广播器 = `BattleManagerSupport__BroadcastCollectSpiritStone.c:22-38`（先对收集者那张卡
+        //   `ReactToCollectSpiritStone`，再遍历**全场**在场卡、跳过收集者）。
+        //   我们的事件源 = `RuleCore.CollectWaystoneCore` 的 `BroadcastWhen(WhenEventKind.GainSpirit, …)`
+        //   （现读全仓**唯一**一处发 `GainSpirit` 的地方 ⇒ 不会因为「任何加灵魂石」误发）。
+        //   候选现读（`cards_engine.json`，判据 = `animTimes[].tn == "OnCollectSpiritStone"`）：
+        //   **5 行 / 4 张** —— `ASH80 Farseer`（`PathOfTheSeer_Self`）· `ASH28 Spiritseer Qelenaris` ·
+        //   `ASH78 Warp Spider Exarch`（2 行）· `ASH25 Warlock Skyrunner`；四张的 `abilityTriggers` 都含 610。
+        //   ⚠️ **它不是引擎关键词** ⇒ `KeywordTable` 里**没有**、也**不该新造**常量（同 `TN_OnCollectFaith`）。
+        const string TN_OnCollectSpiritStone = "OnCollectSpiritStone"; // 610
         const string TN_TriggeredFerocity   = "TriggeredFerocity";    // 726
         const string TN_TriggeredPray       = "TriggeredPray";        // 660
         const string TN_TriggeredDuty       = "TriggeredDuty";        // 661
@@ -6432,6 +6674,11 @@ namespace RuleEngine
                 //   含 **665** 的只有 `SOR38` ⇒ 补这两条**不会**给别的卡凭空发事件。
                 case WhenEventKind.GetsHuntMark:  return TN_UnitReceivesHuntMark;
                 case WhenEventKind.GainFaith:     return TN_OnCollectFaith;
+                // 🆕 **2026-10-24（引擎线 `G1b` · `C2` §2 · D8）**：`When you collect a Spirit Stone, …`
+                //   —— 改前**没有这条分支** ⇒ `EmitListenerTrigger` 在 `tn == null` 时直接 return
+                //   ⇒ `EvtKind.Trigger` **从不发** ⇒ `ASH80/28/78/25` 的 610 动画一条都不播。
+                //   判据与安全边界 → `TN_OnCollectSpiritStone` 的常量注释。
+                case WhenEventKind.GainSpirit:    return TN_OnCollectSpiritStone;
                 case WhenEventKind.Prays:         return TN_TriggeredPray;
                 // `When you trigger a Spirit Stone ability, …`（`ASH81 Bright Lance Vyper`）——
                 //   原版那条监听能力的 trigger 名 = `OtherCardSpiritStone`（455，`dump.cs` 枚举表）。
@@ -6619,6 +6866,160 @@ namespace RuleEngine
             if (!EmitCardTrigger(ctx, card, owner, unit, tn, "listener:" + kind)) return;
             ctx.Log($"「{card.Name}」的监听器结算完毕 → 触发事件 `{tn}`（原版 AbilityTrigger）");
         }
+
+        /// <summary>🆕 **2026-10-24（引擎线 `G1b` · `C2` §6）：关键词施加的统一发射口。**
+        ///
+        /// <para>**判据 = 原版 `BattleCardUI.DisplayStatusAnim` 的调用点那一族**：
+        /// 它在「某条 effect / trait 被加到这张卡上」那一刻被调（`CardScript__Stun.c:125` ·
+        /// `CardScript__AddEffect.c:678/:890`），`Start(0)` 那一档**每次都重演**、
+        /// `OnPlay(2)` 那一档只首次演（判据全文 → `TraitFrames.DisplayStatus` 的 doc）。</para>
+        ///
+        /// <para>🔴 <paramref name="reapply"/> = **施加【之前】这个关键词已经在身上**（`KwValue &gt; 0`）——
+        /// 它写进 `BattleEvent.Amount`：`0` = 首次（由 `SyncKeywords` 的「新出现」路演）、
+        /// `&gt; 0` = 重施加（由本事件演）。两条路**结构上互斥** ⇒ 一次施加恰好演一次
+        /// （见 `EvtKind.StatusApplied` 的 doc）。⛔ 别把两档都交给人演（同一次施加会演两遍）。</para>
+        ///
+        /// <para>⚠️ 不在场上（`FindSlot` 失败）⇒ **不发**：表现层没有落点；
+        /// 它上场时 `SyncKeywords` 那条路仍会把「新出现」补上。</para></summary>
+        static void EmitStatusApplied(BattleContext ctx, UnitState u, string keyword, bool reapply)
+        {
+            if (ctx == null || u == null || string.IsNullOrEmpty(keyword)) return;
+            int p, slot;
+            if (!FindSlot(ctx, u, out p, out slot)) return;
+            ctx.Emit(EvtKind.StatusApplied, p, slot, keyword,
+                     amount: reapply ? 1 : 0, instanceId: u.InstanceId);
+        }
+
+        /// <summary>
+        /// 🔴🆕 **2026-10-24（引擎线 `T03·c` · `C1` §3）：`UnitDeathByAbility(180)` 的结构化发射口。**
+        ///
+        /// <para>**判据（第一权威，逐层方法体）**：
+        /// `BattleManagerSupport__BroadcastDeadUnit.c:82-150`（遍历 `manager+0x470` = `allCardsInPlay`，
+        /// 对**每一张在场卡**各调一次 `CardScript__ResolveDeadCard`，`:147`）
+        /// → `CardScript__ResolveDeadCard.c:228-237` → `CardScript__TriggerOnMinionDeath.c:97`
+        /// → **`RawCardScript__OnMinionDeath.c:25-37`**：按 `deathType` 分派
+        /// `10 → 175 UnitDeathAttacking` · **`20 ability → 180 UnitDeathByAbility`** · `40 → 170 UnitDeathByPoison`；
+        /// 其余（`15 combatDefender` / `30 tactic` / `50 collectWaystone`）**一条都不发**。</para>
+        ///
+        /// <para>**谁收到**：`param_1 = thisCard` 是**每一张在场卡**（含刚死的那个自己 ——
+        /// `BroadcastDeadUnit` 那一刻它还在 `allCardsInPlay` 里、状态 `waitingToDie(5)`）；
+        /// 死的是谁由 `param_5 = dead` 传进来。⇒ 本函数扫**双方棋盘全部单位**（**不**按
+        /// `WhenTriggers` 过滤 —— 那是**正文**监听器；这一族是**结构化** `abilityTriggers`），
+        /// 顺序照原版活列表 = **进场序**（`PlayOrder`）。</para>
+        ///
+        /// <para>🔴 **与正文后置条件 `targetdies` 的分工（两路并存，别双发）**：
+        /// 4 张带 180 的卡（`AM9` / `AM34` / `SOR29` / `UM99`）**效果本身**今天仍由正文解析的
+        /// 后置条件 `targetdies`（`EffectText.EffectCondition`）承担 —— 那条链**不动**。
+        /// 本函数补的是**结构化发射口**：① 表现层按原版 trigger 名归口动画；
+        /// ② 将来做结构化 ability 时的挂点。⇒ ⛔ **这里只发 `EvtKind.Trigger`、不结算任何效果**，
+        /// 否则会与 `targetdies` 双发（同一件事做两遍）。</para>
+        ///
+        /// <para>**`abilityContext` 闸**（原版 `CardAbility__CanTriggerAbility` → `IsRightContext`，
+        /// 在**广播那一刻**对**能力载体 thisCard** 判）：现读 4 张里 `AM9` 是 **`50 InPlayOrCemetery`**、
+        /// 另三张是 **`0 Play`** ⇒ ⛔ 别一律按 Play 判。`-1`（旧表/未知）⇒ 不判（保持改前口径）。</para>
+        /// </summary>
+        internal static void EmitDeathByAbilityTriggers(BattleContext ctx, int deadOwner, UnitState dead)
+        {
+            EmitDeathTriggerToListeners(ctx, deadOwner, dead,
+                "UnitDeathByAbility", 180, "deathByAbility", "被能力打死");
+        }
+
+        /// <summary>
+        /// 🔴🆕 **2026-10-24（引擎线 `G2` · `C5` §1）：`UnitDeathByPoison(170)` 的结构化发射口。**
+        ///
+        /// <para>**判据**：与 180 **同一个调用**（`RawCardScript__OnMinionDeath.c:25-37`），
+        /// 死因白名单里 `deathType == 0x28 (40 poison)` ⇒ `uVar2 = 0xaa = 170`。
+        /// 15 / 30 / 50 以及 `0 undefined` 都在 `:34` 的 `return` 上 ⇒ **一条都不发**。
+        /// 触发名见 `Core/CardDef.cs:1592-1593`（`UnitDeathByPoison`）。</para>
+        ///
+        /// <para>⚠️ 与 <see cref="EmitDeathByAbilityTriggers"/> **逐字同形**，区别只有触发名/号 ——
+        /// 别再复制第三份：三族共用 <see cref="EmitDeathTriggerToListeners"/>。
+        /// ⚠️ 池内 1,351 张卡**没有任何一张**带 170（`C5` §1 证据⑧）⇒ 现读**不可观测**，
+        /// 断言用合成夹具（`RuleEngineTest_G2.cs`）。</para>
+        /// </summary>
+        internal static void EmitDeathByPoisonTriggers(BattleContext ctx, int deadOwner, UnitState dead)
+        {
+            EmitDeathTriggerToListeners(ctx, deadOwner, dead,
+                "UnitDeathByPoison", 170, "deathByPoison", "中毒而死");
+        }
+
+        /// <summary>
+        /// 🔴🆕 **2026-10-24（引擎线 `G2` · `C5` §1）：`UnitDeathAttacking(175)` 的结构化发射口。**
+        ///
+        /// <para>**判据**：同一条白名单，`deathType == 10 (combatAttacker)` ⇒ `uVar2 = 0xaf = 175`
+        /// （`RawCardScript__OnMinionDeath.c:25-26`）。语义 = 「**在攻击时死**（被反击打死）」——
+        /// 我们的唯一产地 = 反击那一路（`RuleCore.cs` 的 `DeclareAttack` 尾段 `Hurt(…, 反击)`，
+        /// 原版 `_ResolveAttack_d__438__MoveNext.c:1142` 的 `UnitDeathType.combatAttacker(10)`）。
+        /// ⚠️ 攻击**防御方**死亡是 `combatDefender(15)` ⇒ **不发**（⛔ 别把「攻击中有人死」都当 175）。</para>
+        ///
+        /// <para>⚠️ 池内 0 张卡监听 175 ⇒ 现读不可观测（同上）。</para>
+        /// </summary>
+        internal static void EmitDeathAttackingTriggers(BattleContext ctx, int deadOwner, UnitState dead)
+        {
+            EmitDeathTriggerToListeners(ctx, deadOwner, dead,
+                "UnitDeathAttacking", 175, "deathAttacking", "在攻击中死亡");
+        }
+
+        /// <summary>
+        /// 🔴🆕 **2026-10-24（引擎线 `G2`）：死因三族（**170 / 175 / 180**）共用的发射口核心。**
+        ///
+        /// <para>三族的原版判据是同一条 `RawCardScript__OnMinionDeath.c:25-37` 的 switch：
+        /// `10 → 175` · `20 → 180` · `40 → 170` · 其余 `return` ⇒ 三族**除触发名/号之外逐字相同**
+        /// （同一份监听者集合、同一道 `abilityContext` 闸、同一份 `EvtKind.Trigger`），
+        /// ⇒ 收在本函数一处，⛔ 别复制三份（复制的那两份迟早与 180 分叉）。</para>
+        ///
+        /// <para>⚠️ **本函数只发信号、不结算效果**（理由同 180：效果由正文 `targetdies` 承担）。</para>
+        /// </summary>
+        static void EmitDeathTriggerToListeners(BattleContext ctx, int deadOwner, UnitState dead,
+                                               string TN, int triggerId, string effectPrefix, string how)
+        {
+            if (ctx == null || ctx.IsOver) return;
+            if (ctx.EffectChain >= BattleContext.MaxEffectChain)
+            {
+                ctx.Log($"效果链已达 {BattleContext.MaxEffectChain} 层，「{TN}」的发射不再连锁");
+                return;
+            }
+            // 快照（照原版活列表的**进场序**）—— 见 doc：这一族**不**按 `WhenTriggers` 过滤。
+            var listeners = new List<BoardListener>();
+            for (int p = 0; p < 2; p++)
+            {
+                var board = ctx.Players[p].Board;
+                for (int s = 0; s < BoardSpec.Size; s++)
+                {
+                    var u = board[s];
+                    if (u == null || u.Card == null) continue;
+                    listeners.Add(new BoardListener { Unit = u, Owner = p });
+                }
+            }
+            RuleCore.StableSortByPlayOrder(listeners, l => l.Unit.PlayOrder);
+            using (EventSlotsScope.TargetAndCard(ctx, dead, dead != null ? dead.Card : null))
+            {
+                foreach (var l in listeners)
+                {
+                    var u = l.Unit;
+                    if (u == null || u.Card == null) continue;
+                    // context 闸：只在**能定位载体**时判（与 `ActionPump.EnqueueAbility` 同一条纪律）
+                    int context = AbilityContextOfAbilityV14(u.Card, TN, null);
+                    if (context != CardDef.AbilityContextUnknown)
+                    {
+                        int o, s;
+                        FindBoardCell(ctx, u, out o, out s);
+                        if (o >= 0 && !IsRightContext(ctx, o, s, context, u.Instance))
+                        {
+                            // ⛔ 不许静默：原版这一格是「不触发」，我们也说不出为什么别的卡没响
+                            ctx.Log($"[{TN}]「{u.Card.Name}」此刻不在原版 `abilityContext="
+                                  + AbilityContextName(context) + "` 要求的区域 ⇒ 不发（判据 `IsRightContext`）");
+                            continue;
+                        }
+                    }
+                    if (EmitCardTrigger(ctx, u.Card, l.Owner, u, TN,
+                                        effectPrefix + ":" + (dead != null ? dead.Name : "?")))
+                        ctx.Log($"「{u.Card.Name}」收到「{(dead != null ? dead.Name : "?")} {how}」"
+                              + $" → 触发事件 `{TN}`（原版 AbilityTrigger = {triggerId}）");
+                }
+            }
+        }
+
 
         /// <summary>🔴🆕 **2026-10-24（引擎线 `G2` · `C4` D9）：`WhileInPlay`(20) 的**表现口** ——
         /// 每次「动作队列排空」给场上带这一拍动画的单位各发一条 `EvtKind.Trigger`。
@@ -7020,9 +7421,11 @@ namespace RuleEngine
         /// <summary>
         /// **回合起止触发段** —— 规则书「回合结构」第 9 步（开始）/ 第 14 步（结束）。
         ///
-        /// 段内顺序规则书**没规定**，照 `rule_core.gd:397-442 _at_turn_effects` 定的确定性口径。
-        /// **三个触发源**（那边函数头写得明明白白）：
-        ///   ① 当前行动方**手牌里的陷阱卡** → ② **双方棋盘上的 at-turn 单位** → ③ 已登记的常驻效果。
+        /// 段内顺序 = **原版广播序**（2026-10-24 `D11` 订正）：**棋盘（进场序）→ 当前方手牌 → 常驻**
+        /// （判据 → `BattleManagerSupport__BroadcastTurnStart.c:18-31/32-43/44-61`；见方法体里那段更正痕迹）。
+        /// **三个触发源**：
+        ///   ① **双方棋盘上的 at-turn 单位**（`rule_core.gd` 里叫 `for pi in 2: for slot …`）→
+        ///   ② 当前行动方**手牌里的陷阱卡** → ③ 已登记的常驻效果。
         /// ⚠️ **② 原来整层没做**（2026-09-14 A5 批 2 补）：`Chronomancer`（回合结束再起）·
         ///    `Grot Orderly`（回合开始回手）· `Beast Snagga Nob` · `Ghallaron's Champion` ·
         ///    `Konstrictus Tormentor` · `Aquilon Servo-Sentry`（`each turn` 每回合）·
@@ -7090,14 +7493,34 @@ namespace RuleEngine
                 for (int s = 0; s < BoardSpec.Size; s++)
                 {
                     var u = ctx.Players[pi].Board[s];
-                    if (u == null || u.Card == null || !u.IsAlive) continue;
+                    if (u == null || u.Card == null) continue;
+                    // 🔴🆕 **2026-10-24（引擎线 `T03·c` · `C1` §6）：原版这道循环有【三支】，不是两支。**
+                    //   判据 = `BattleManagerSupport__BroadcastTurnEnd.c:26-41`（`BroadcastTurnStart` 同形）：
+                    //     · `IsInPlay(card)` ⇒ 调 `OnTurnEnd`（正常）；
+                    //     · **否则**：`HasCurrentTrait(card, 0x41a /* = 1050 DefinedTrait.remnant */)`
+                    //       且 `cardState(+0x228) == 5 (waitingToDie)` ⇒ **也调 `OnTurnEnd`**。
+                    //       （trait 号的机器码级证据：`GameAssembly.dll` RVA `0x9B6BE0` → 文件偏移
+                    //        `0x9B55E0`，`:0x9B6C95 mov edx, 0x41a` → `:0x9B6C9A call EntityScript$$HasCurrentTrait`。）
+                    //   ⇒ 我们这一侧的映射：
+                    //     · **在场** = 活着 ∧ 没进将死队列（原版 `IsInPlay` 四档 ≈ 这个）；
+                    //     · **第三支** = **不在场 ∧ `IsRemnant` ∧ 已进将死队列**（= `waitingToDie`）。
+                    //   ⚠️ 与上面 `IsPendingDeath` **不是同一个概念**（C1 已点名）：`IsPendingDeath` 只是
+                    //      「在棋盘上但待死」；第三支还要求 **remnant 且不在场** ⇒ 两个条件**都要**判。
+                    bool inPlay = u.IsAlive && !ctx.IsPendingDeath(u);
+                    bool waitingRemnant = !inPlay && u.IsRemnant && ctx.IsPendingDeath(u);
+                    if (!inPlay && !waitingRemnant) continue;
+                    bool notInPlayBranch = !inPlay;
                     foreach (var cl in EffectText.AtTurnClauses(u.Card.Desc))
                     {
                         if (cl.Phase != phase) continue;
                         if (cl.View != "each" && pi != active) continue;
                         var ops = EffectText.Parse(cl.Body, out _, out _);
                         if (ops == null || ops.Count == 0) continue;
-                        unitJobs.Add(new AtTurnUnitJob { Owner = pi, Unit = u, Ops = ops });
+                        unitJobs.Add(new AtTurnUnitJob
+                        {
+                            Owner = pi, Unit = u, Ops = ops,
+                            NotInPlayRemnant = notInPlayBranch,
+                        });
                     }
                 }
 
@@ -7137,19 +7560,22 @@ namespace RuleEngine
             //   整趟，两趟各自按「棋盘（`allCardsInPlay`，进场序）→ 当前玩家手牌 → 对手手牌」遍历。
             //   改前：手牌那一趟排最前、且 40/41 混在同一批 ⇒ 序与原版不同（`T21④` 的病灶）。
             //   发射顺序的判据全文 → `EmitAtTurnTriggers` 的 doc。
-            //   ⚠️ 下面三趟 foreach 的**次序一个字没动**（`T03·c` 的结算口径），只删掉了里面的发射。
+            //   ⚠️ 2026-10-24（`D11`）起，下面三趟 foreach 的次序也按原版广播序排（棋盘 → 手牌 → 常驻）。
             EmitAtTurnTriggers(ctx, active, phase, unitJobs, handJobs, persistJobs);
 
-            // **结算顺序 = 手牌 → 棋盘 → 常驻**（`rule_core.gd:402` 那句确定性口径；⛔ 别改）。
-            foreach (var j in handJobs)
-            {
-                // 🔴 2026-10-21（`T03·c` 批 B 接线）：**一条 at-turn ability = 一条队列动作**
-                //   （原版 `CardScript.OnTurnStart/OnTurnEnd` → `OnTrigger` → `PlayAbility`
-                //    → `AddAutoActionToQueue`，判据报告 §4.A 第 2 步 6-11）。
-                var _hj = j;
-                EnqueueAbility(ctx, ListenerLane(_hj.Card), "回合" + phase + ":" + (_hj.Card != null ? _hj.Card.Name : "?"),
-                               () => AtTurnHandJobDeferred(ctx, active, _hj, label));
-            }
+            // 🔴 **2026-10-24（引擎线 `T03·c` · `D11`）：结算顺序改成【棋盘 → 当前方手牌 → 常驻】**
+            //   —— 与上面 `EmitAtTurnTriggers` 的**发射序**一致（原版广播三趟就是结算三趟）。
+            //   判据 = `BattleManagerSupport__BroadcastTurnStart.c:18-31 / 32-43 / 44-61`：三趟同帧直线代码
+            //   ① `allCardsInPlay`（棋盘，只对 `IsInPlay` 的调 `OnTurnStart`）→ ② `GetCardsInHandRef(IsPlayerTurn())`
+            //   当前方手牌 → ③ `GetCardsInHandRef(!IsPlayerTurn())` 另一方手牌；
+            //   `__BroadcastTurnEnd.c` / `__BroadcastTurnBeforeEnd.c` 逐行同形。
+            //   ⚠️ **更正痕迹（铁律 5）**：这一行原来写「结算顺序 = 手牌 → 棋盘 → 常驻
+            //   （`rule_core.gd:402` 那句确定性口径；⛔ 别改）」—— `rule_core.gd` 是**我们自己的 Godot 复刻**
+            //   （旁证，不是权威），而原版广播序里**棋盘在前**。判别用例 = `Poisoned Supplies`（手牌陷阱）
+            //   × `GOF90 Wurrboy`（棋盘、按友军数打伤害）：原版 Wurrboy 先结算、数到的友军包含
+            //   「随后被 Poisoned Supplies 打死的那个」；旧的「手牌先」会少算。
+            //   ③ 对手手牌那一趟今天恒空（见 `EmitAtTurnTriggers` ③ 的 doc）⇒ 这里没有循环体。
+            //   ④ 常驻（我们自己的模型；原版广播没有这一趟）仍排最后。
             foreach (var j in unitJobs)
             {
                 // 递归保护与 `RuleCore.FireTriggerAt` 同一套（回合起止效果自己可能又触发回合效果）
@@ -7179,7 +7605,19 @@ namespace RuleEngine
                                //   （其余全是 0 = 与今天的 `require:true` 同档），而它的 `TurnEnd(40)` 与
                                //   `Unstable(81)` 两条能力**同卡同值**，分不清哪条对应 desc 那句。
                                //   判据未闭合 ⇒ 按简报 §4·C6「数据确认不了就保持现状」处置，账记进报告。
-                               actor: _uj.Unit, requireActorInPlay: true);
+                               // 🔴🆕 2026-10-24（`C1` §6）：**第三支例外** —— 原版这一支处理的
+                               //   就是「**不在场**的待死残骸」，`requireActorInPlay: true` 会在出队时
+                               //   把它整条掐掉（它本来就不在场）⇒ 那一条传 `false`。
+                               actor: _uj.Unit, requireActorInPlay: !_uj.NotInPlayRemnant);
+            }
+            foreach (var j in handJobs)
+            {
+                // 🔴 2026-10-21（`T03·c` 批 B 接线）：**一条 at-turn ability = 一条队列动作**
+                //   （原版 `CardScript.OnTurnStart/OnTurnEnd` → `OnTrigger` → `PlayAbility`
+                //    → `AddAutoActionToQueue`，判据报告 §4.A 第 2 步 6-11）。
+                var _hj = j;
+                EnqueueAbility(ctx, ListenerLane(_hj.Card), "回合" + phase + ":" + (_hj.Card != null ? _hj.Card.Name : "?"),
+                               () => AtTurnHandJobDeferred(ctx, active, _hj, label));
             }
             foreach (var j in persistJobs)
             {
@@ -7251,6 +7689,12 @@ namespace RuleEngine
             public int Owner;
             public UnitState Unit;
             public List<EffectOp> Ops;
+            /// <summary>🔴🆕 **2026-10-24（引擎线 `T03·c` · `C1` §6）：这一条走的是原版
+            /// `BroadcastTurnEnd` 棋盘趟的**第三支**（`!IsInPlay ∧ remnant(1050) ∧ cardState==5 waitingToDie`），
+            /// 不是正常的「在场单位」那一支。
+            /// ⇒ 出队时**不许**按 `requireActorInPlay` 把它掐掉（它本来就「不在场」）。
+            /// ⚠️ 今天池内不可达（没有残骸带 `TurnEnd(40)`/`TurnBeforeEnd(41)`），由合成夹具断言。</summary>
+            public bool NotInPlayRemnant;
         }
 
         /// <summary>🆕 2026-10-19（`T21` · 缺口 F）：回合起止段里「**手牌陷阱**」那一类作业 ——
@@ -9292,10 +9736,38 @@ namespace RuleEngine
             return HealUnit(ctx, u, amount, syphon);
         }
 
+        /// <summary>
+        /// 🆕 **2026-10-24（引擎线 `A1` 第 1 件）：把这次能力结算「最后解出的那批目标」记进
+        /// <see cref="BattleContext.PreviousAbilityTargets"/>** —— 原版
+        /// `AbilityLogic.SetPreviousAbilityTargets`（`Array.Clear` + `AddRange`，整表覆盖，
+        /// 在该能力末尾调；判据 → 那个字段的 doc）。
+        ///
+        /// **写点 = `ResolveOps` 的两条重载出口**（各一行）。⛔ 别挪到 `ResolveTargets` 里逐条累加：
+        /// 那会跨能力污染槽（本槽的语义是「**上一条**能力」）。
+        ///
+        /// ⚠️ **这是近似**（如实标）：原版逐 verb 往 `abilityTargetsToSave(+0x80)` 累加，
+        /// 我们取的是 `ctx.LastTargets` = **最后一个解出目标的效果**那一批。今天池内
+        /// `ta = 150` 的真实消费行 0 条 ⇒ 零可观测差异（详见那个字段的 doc）。
+        /// </summary>
+        static void NotePreviousAbilityTargets(BattleContext ctx)
+        {
+            ctx.PreviousAbilityTargets.Clear();
+            var lt = ctx.LastTargets;
+            if (lt == null) return;
+            for (int i = 0; i < lt.Count; i++)
+                if (lt[i] != null) ctx.PreviousAbilityTargets.Add(lt[i]);
+        }
+
+        /// <summary>🆕 2026-10-24（引擎线 `A1` 第 3 件）：原版 `TargetCriteria.spellType` 的
+        /// **Sabotage = 230** —— `GSC56` 的 `multiCountCriteria.spellType` 现读 230；
+        /// 卡表里 `subtype = Sabotage` 的 4 张也全是 230（两把尺子同值）。
+        /// ⚠️ 与 `Enchantment.cs` 的 `SpellTypeSecretOrder(60)` / `SpellTypeQuest(120)` 同族，
+        /// 但用途不同（那两格是**附魔**的判据，本格是**手牌卡**的判据）⇒ ⛔ 别并到那边去。</summary>
+        const int SpellTypeSabotage = 230;
+
         static int CountFor(BattleContext ctx, int owner, UnitState source, EffectOp op)
         {
             string reference = op.CountRef ?? "";
-
             // ---- ⓪b 上一次「花掉全部灵魂石」花了几颗（2026-09-13 第三十三轮）----
             // 正主只有一张：`Hosts of the Dead` = `Deploy a Wraithguard. Spend all your Spirit Stones.
             // **For each one, deploy a Wraithguard**` —— 这里的「one」指的就是**刚花掉的那几颗**。
@@ -9333,8 +9805,66 @@ namespace RuleEngine
                 return n;
             }
 
+            // ---- ①b 🆕 2026-10-24（引擎线 `A1` 第 3 件）：**手牌里的某类牌** ----
+            //  `for each Sabotage in the opponent's hand`（`GSC56`）/
+            //  `for each Vehicle in your hand`（`GSC75`）。
+            //  判据 = 原版 `GetTargets` 的 `inHandFiltered(50)` 分支：
+            //  `AbilityLogic__GetTargets.c:884-892` → `BattleManager.GetCardsInHandList(…,
+            //  friendlyUnits, enemyUnits, …)` ⇒ 候选是**手牌**（侧 = 谁的），再按卡种 / `spellType` 筛。
+            //  `GSC56` 的结构化数据现读：`ta 50 / enemyUnits 1 / includeSpells 1 / spellType 230`。
+            //  ⚠️ 认不出的筛选词 ⇒ 返回 `-1`（调用方如实报「数不出来」），⛔ 不悄悄当 0。
+            if (op.CountScope == "hand" || op.CountScope == "enemyhand")
+            {
+                int who = op.CountScope == "enemyhand" ? 1 - owner : owner;
+                string what = reference;
+                int n = 0;
+                foreach (var ci in ctx.Players[who].Hand)
+                {
+                    if (ci == null || ci.Card == null) continue;
+                    // 🔴 **2026-10-24（`G6` · `C6` §四·2）：判据收口到 `CountKindMatches`**
+                    //   （与盘面分支 / `DrawnMatches` **同一份**；改前这里是第二份 if/else 链）。
+                    //   `null` = 这个词本版不认 ⇒ 返回 -1（调用方如实报「数不出来」）。
+                    bool? hit = CountKindMatches(ci.Card, what);
+                    if (hit == null) return -1;
+                    if (!hit.Value) continue;
+                    n++;
+                }
+                return n;
+            }
+
             // ---- ② 本回合阵亡的单位（`For each one that dies`）----
             if (op.CountScope == "died") return ctx.DiedThisTurn;
+
+            // ---- ②b 🆕 2026-10-24（引擎线 `A1` 第 2 件）：**自上一回合以来的阵亡** ----
+            //  `Repeat for each friendly troop that died since your last turn`（`UM77 Chairon`）。
+            //  判据 = `CardScript__HasDiedSinceLastTurn.c:26-47`（`turnDied ∈ {turnCounter,
+            //  turnCounter - 1}`）—— 与 `ConditionEval` 的 `cond 222` **同一口径**，
+            //  `reference` 形如 `own|troop` / `any|unit`（`EffectText.ClassifyCount` 落的）。
+            //  🔴 **⛔ 别把它并进 `died`**：那一条的窗口是「本回合」，反噬 / `for each one that dies`
+            //     要的就是它（`TestDiedThisTurnDuringBacklash` 钉着）。
+            //  ⚠️ `ctx.DeadUnits` 只收**真离场**（翻面成残骸那一支不进来）—— 与原版
+            //     `inCemeteryFiltered`（墓地）同口径；`turnDied` 自己会连残骸一起计，
+            //     但**这里的消费者数的是「墓地里有多少个」**（`UM77` 的 `multiplierSet` = `inCemeteryFiltered(60)`）。
+            if (op.CountScope == "diedsincelastturn")
+            {
+                bool ownSide = reference.StartsWith("own");
+                // 🆕 2026-10-24（`B7` · R1 `P2-10`）：第三档 `enemy|…` —— 原版这一位是
+                // `multiCountCriteria.enemyUnits`，改前分类层把它折成 `own`（见 `ClassifyCount` 那段）。
+                bool enemySide = reference.StartsWith("enemy");
+                bool troopOnly = reference.EndsWith("troop");
+                int nd = 0;
+                for (int i = 0; i < ctx.DeadUnits.Count; i++)
+                {
+                    var d = ctx.DeadUnits[i];
+                    if (d == null || d.Card == null) continue;
+                    if (d.DeathTurn != ctx.Turn && d.DeathTurn != ctx.Turn - 1) continue;
+                    if (ownSide && d.Owner != owner) continue;
+                    if (enemySide && d.Owner == owner) continue;
+                    if (troopOnly && d.Card.Type == "hero") continue;   // 督军阵亡 = 输局，正常不进表
+                    nd++;
+                }
+                return nd;
+            }
 
             // ---- ③ 本局打出过的某类牌（`For each Secret you played this game`）----
             // 🔴 **2026-10-17（B24）：`secret` 这一支已经有真计数器了** —— 判据是反编译里那条
@@ -9369,11 +9899,51 @@ namespace RuleEngine
                 if (u == null || !u.IsAlive) continue;
                 // `troop(s)` 排除督军（原版 `_fe_count` 的 `troop_only` 过滤）
                 if (kind == "troop" && u.IsWarlord) continue;
+                // 🔴 **2026-10-24（执行代理 `G6` · `C6` §1·3 B / §四·2）：兵种筛收口到 `CountKindMatches`。**
+                //  改前这里**只判 `troop`**，`vehicle / infantry / daemon / beast / drone / unit`
+                //  一个都不筛 ⇒ `AM18` 的 `for each friendly Vehicle in play` 被数成「友方全体单位」
+                //  （`AM18` 自己 + 督军都会被数进去）。同一份判据原来在 `DrawnMatches` 与手牌分支
+                //  **各有一份** —— 这次漏的就是盘面这一处（两处写同一条规则 = 迟早不一致）。
+                bool? hit = CountKindMatches(u.Card, kind);
+                if (hit == null) return -1;       // 兵种词不认识 ⇒ 如实报「数不出来」（⛔ 不当「都算」）
+                if (!hit.Value) continue;
                 // `for each damaged enemy` —— 受损 = 当前血 < 上限
                 if (damagedOnly && u.Health >= u.MaxHealth) continue;
                 count++;
             }
             return count;
+        }
+
+        /// <summary>
+        /// **「兵种词 → 这张卡算不算」的唯一判据** —— `CountFor` 的盘面 / 手牌分支与
+        /// <see cref="DrawnMatches"/> 三条计数路**共用这一份**（2026-10-24 · 执行代理 `G6` · `C6` §四·2）。
+        ///
+        /// <para>**为什么必须收成一处**：改前盘面分支只筛 `troop`（载具/步兵/…全不筛 ⇒ `AM18` 少数成
+        /// 「友方全体」），而同一份判据在 `DrawnMatches` 与手牌分支各写了一份 —— 三处里漏一处就是**静默**多数。</para>
+        ///
+        /// <para>`kind` 的取值域 = `EffectText.ClassifyCount` 落的**封闭词表**
+        /// （`any` / `card` / `troop` / `unit` / `vehicle` / `infantry` / `daemon` / `beast` / `drone`；
+        /// 手牌那一路另有 `spell` / `sabotage`）。返回 `null` = **这个词本版不认**
+        /// （调用方如实报「数不出来」，⛔ 不许当「都算」—— 那是静默多数）。</para>
+        ///
+        /// <para>口径：兵种词一律转 `CreatePool` 的 `KindWords` **那一张表**（⛔ 不在这里另写一张）；
+        /// 只有三条**这里才有的**语义补丁：① 卡模板这一层分不开 `troop` / `unit`（差别只在督军 ⇒
+        /// 盘面分支另有一句 `kind == "troop" &amp;&amp; u.IsWarlord ⇒ 不算`）；② `unit` **含督军**
+        /// （`CardDef.Type == "hero"`）；③ 手牌/抽牌两路上的 `spell` 指**战术卡**（`Type == "tactic"`），
+        /// 不是 `KindWords` 里那个 `spell` 行（那是 `subtype`）。</para>
+        /// </summary>
+        static bool? CountKindMatches(CardDef c, string kind)
+        {
+            if (string.IsNullOrEmpty(kind)) return null;
+            switch (kind)
+            {
+                case "any": case "card": return true;
+                case "troop": return c != null && c.Type == "unit";                       // 部队（不含督军）
+                case "unit": return c != null && (c.Type == "unit" || c.Type == "hero");   // 单位（含督军）
+                case "spell": return c != null && c.Type == "tactic";                      // 手牌那一路的「法术」
+                case "sabotage": return c != null && c.SpellType == SpellTypeSabotage;
+            }
+            return CreatePool.IsKnownKind(kind) ? (bool?)CreatePool.MatchesKind(c, kind) : null;
         }
 
         /// <summary>
@@ -9674,7 +10244,12 @@ namespace RuleEngine
             {
                 if (val >= 0)
                 {
+                    // 🆕 2026-10-24（引擎线 `G1b` · `C2` §6）：**施加前**是否已经在身上 ——
+                    //   写进 `StatusApplied.Amount`（重施加 = 1 / 首次 = 0，见 `EvtKind.StatusApplied` 的 doc）。
+                    bool hadKw = u.KwValue(p.Keyword) > 0;
                     u.AddKeyword(p.Keyword, val);
+                    // `val > 0` 才算「加上了」（同下面广播那一族的口径；`+0` 是空给）。
+                    if (val > 0) EmitStatusApplied(ctx, u, p.Keyword, hadKw);
                     // 🆕 事件层：`When an enemy gets Hunt Mark, …` / `When you gain [Shield], …`
                     // （2026-09-13 第三十四轮）—— **授予点就是这里**，原来只是没人广播。
                     // ⚠️ `val > 0` 才算「获得」：`val == 0` 是空给，不该触发「有人拿到了」。
@@ -9751,7 +10326,10 @@ namespace RuleEngine
                         {
                             // 加：走 `AddKeyword` ⇒ `SyncKeywordState` 把 `Armor` **一起**加上 `delta`
                             // （⛔ 这里**别**再自己写一遍 `u.Armor`，会加两次）。
+                            // 🆕 2026-10-24（引擎线 `G1b` · `C2` §6）：状态施加事件（`armour` 是
+                            //   13 个**有 Start(0) 行**的 trait 之一 ⇒ 重施加要重播 `ArmourEffect`）。
                             u.AddKeyword(KeywordTable.Armour, delta);
+                            EmitStatusApplied(ctx, u, KeywordTable.Armour, before > 0);
                         }
                         else if (delta < 0)
                         {
@@ -11073,6 +11651,164 @@ namespace RuleEngine
         }
 
         /// <summary>
+        /// 🔴 **2026-10-24（执行代理 `G6` · `C6` §1·3 C）：整条 ability 触发 N 遍** ——
+        /// 原版 `CardAbility.multiCountCriteria`（`CardAbility.cs` 字段序第 9 格，实例偏移 `+0x40`）。
+        ///
+        /// <para>**判据** = `RawCardScript__TriggerAbilities.c:226-259`：
+        /// `multiCountCriteria == null` ⇒ 触发一次；`targetsAffected == 0 (any)` ⇒ 触发一次；
+        /// 否则 `GetTargets(manager, multiCountCriteria, thisCard, thisCard, targetCard,
+        /// checkMaxTargets:true)` 求候选表，**表长 = N**，`for (i &lt; N) TriggerAbility(...)`；
+        /// **表空 ⇒ 一次都不触发**。</para>
+        ///
+        /// <para>**返回值**：`true` = 结构化数据可判（`n` 有效，含 `n = 0`）；
+        /// `false` + `gap == null` = 没有这一行 / 不适用（最常见，⛔ 不是缺陷）；
+        /// `false` + `gap != null` = 有行但判不了（调用方退回正文口径并出声）。</para>
+        ///
+        /// <para>🔴 **`ta == 0 (any)` 按「不适用」返回**（⛔ 不返回 1）：原版 `any` 让其余 35 格全部失效
+        /// （`Any disregards all other filters`）⇒ 这条 criteria 不携带任何「数谁」信息；而正文的
+        /// `for each X` **可能来自另一个机制** —— 一号实例 `GOF90 Wurrboy`：外层 ability 的
+        /// `multiCountCriteria` 与 `multiplier` 都是 `any(0)`，真正的「按友方部队数」写在**它挂的那张
+        /// 附魔**（`648c49… Wurrboy`）的 `multiplier.ta = 10` 上。按数据返回 1 会把正文 `for each`
+        /// **压成 1 遍**（比缺数据更糟）。</para>
+        ///
+        /// <para>⚠️ **归位门**：只按 `ops` 上真的归位过的 `AbilityIndex` 取行（`multi` 行永远挂在
+        /// `lg = -1` 的 ability 级）。`AbilityIndex &lt; 0`（句柄没归位）⇒ 返回 `false` + `gap == null`
+        /// —— ⛔ 不按卡猜是哪一条 ability（`AM18` 的回合末正文在 `ResolveAtTurn` 里是**单独解析**的，
+        /// 下标恒 `-1`，它的 N 由正文 `for each` 那条路给，见 `TryComputeRepeats`）。</para>
+        /// </summary>
+        static bool TryStructuredMultiTrigger(BattleContext ctx, int owner, IReadOnlyList<EffectOp> ops,
+                                              CardDef card, UnitState actor, out int n, out string gap)
+        {
+            n = 0; gap = null;
+            if (ctx == null || card == null || ops == null || ops.Count == 0) return false;
+            int ab = -1;
+            for (int i = 0; i < ops.Count; i++)
+                if (ops[i] != null && ops[i].AbilityIndex >= 0) { ab = ops[i].AbilityIndex; break; }
+            if (ab < 0) return false;
+            CardDef.ConditionSpec spec;
+            if (!card.TryGetCondition(ab, -1, "multi", out spec) || spec == null) return false;
+            if (spec.MultiSet == null)
+            {
+                gap = "`multi` 行**没有** `multiSet`（旧卡表 / 生成器没落）";
+                return false;
+            }
+            int ta = spec.MultiSet.TargetsAffected;
+            if (ta == CardDef.CountSetSpec.Unknown)
+            {
+                gap = "`multiSet.targetsAffected` **未知（没落）**";
+                return false;
+            }
+            if (ta == 0) return false;              // `any` ⇒ 不携带信息（见 doc）
+            var r = CountEval.CountTargets(ctx, owner, spec.MultiSet, 0, actor, out gap);
+            if (r == null) return false;
+            n = r.Value;
+            return true;
+        }
+
+        /// <summary>
+        /// 🔴 **2026-10-24（执行代理 `G6` · `C6` §1·3 C）：一条 op 要结算几遍** ——
+        /// **出牌路与触发路共用这一份**（⛔ 别在两处各写一遍：一处漏改就是静默少数/多数）。
+        ///
+        /// <para>**优先序（照改前出牌路原样搬过来，⛔ 别调换）**：
+        /// ① 正文 `CountRef`/`CountScope` → <see cref="CountFor"/>；
+        /// ② 结构化 `role == "mult"`（`AbilityLogic.multiplier`）**优先于**正文 —— 数据可判时以数据为准并出声；
+        /// ③ `EffectOp.RepeatTimes`（`…, N times`）**乘上去**（每遍重新挑目标、重掷 Rng）；
+        /// ④ `AbilityFurtherMultiplier` —— **只在正文没给次数时**才乘（卡面那个数就是它，再乘是平方）。</para>
+        ///
+        /// <para>返回 `false` = 这条 op 的**计数数不出来**（`CountFor` 返回 `-1`）⇒ 调用方整条跳过
+        /// （本方法已经把日志与 `unresolved` 写了，与出牌路改前一字不差）。</para>
+        ///
+        /// <para>`actor` = 结构化乘数里 `includeSelf` / `excludeNotSelf` 的「**这条 ability 的所有者**」
+        /// （`CountEval.CountTargets` 的形参）：出牌路传 `chosen`（改前原样）、触发路传**触发的那张单位**
+        /// （`source`）—— `GOF4` 的 `includeSelf = 0` 靠它把自己排除掉。</para>
+        /// </summary>
+        static bool TryComputeRepeats(BattleContext ctx, int owner, UnitState source, EffectOp op,
+                                      CardDef sourceCard, UnitState actor, string by,
+                                      List<string> unresolved, out int repeats)
+        {
+            repeats = 1;
+            if (op == null) return true;
+            bool textCounted = false;
+            if (!string.IsNullOrEmpty(op.CountRef) && op.CountScope != null)
+            {
+                int n = CountFor(ctx, owner, source, op);
+                if (n < 0)
+                {
+                    ctx.Log($"{by}：「{op.Source}」的计数「{op.CountRef}」本版数不出来 —— **这条没生效**");
+                    unresolved.Add(op.Source + "（计数 " + op.CountRef + " 数不出来）");
+                    return false;
+                }
+                repeats = n;
+                textCounted = true;
+                ctx.Log($"{by}：「{op.Source}」按 {op.CountRef} 计 {n} 遍");
+            }
+            // 🆕 v22（2026-10-24 · `新账-95` #2）：**结构化乘数（`role == "mult"`）优先** ——
+            //   原版 `AbilityLogic.multiplier`（`PlayAbility.c:181-236`）的个数 = `local_178`。
+            //   正文里那个 `for each X` 只是它的转写 ⇒ 数据可判时**以数据为准**并出声。
+            //   ⚠️ 只在本条 op 的 `(ab, lg)` 真有一条带 `multiplierSet` 的 `mult` 行时生效。
+            {
+                int sm; string smGap;
+                if (TryStructuredMultiplier(ctx, owner, op, sourceCard, actor, out sm, out smGap))
+                {
+                    if (textCounted && sm != repeats)
+                        ctx.Log($"{by}：「{op.Source}」正文计数「{op.CountRef}」= {repeats}，"
+                              + $"而原版 `multiplier` 结构化数据 = **{sm}** ⇒ 按数据 {sm} 遍"
+                              + "（`AbilityLogic__PlayAbility.c:181-236`）");
+                    else if (!textCounted)
+                        ctx.Log($"{by}：「{op.Source}」正文没给次数 ⇒ 按原版 `multiplier` "
+                              + $"结构化数据结算 **{sm}** 遍");
+                    repeats = sm;
+                }
+                else if (smGap != null)
+                {
+                    StructuredConditionNotice("mult-gap|" + (sourceCard != null ? sourceCard.Id : "?") + "|" + smGap,
+                        $"卡「{sourceCard.Name}」（{sourceCard.Id}）的 `mult` 条件（正文「{op.Source}」）"
+                      + $"**本版判不了**：{smGap} ⇒ 退回**正文口径**。");
+                }
+            }
+            // 🆕 2026-09-16：**`…, N times` 的重复次数**（`EffectOp.RepeatTimes`）——
+            //   走**同一条** `for` 循环：每遍 `ResolveOne` 会**重新挑目标、重掷 Rng**
+            //   ⇒ 正是卡面「对 1 个**随机**敌人造成 1 点伤害，共 8 次」的意思。
+            if (op.RepeatTimes > 1) repeats *= op.RepeatTimes;
+
+            // ---- 🆕 2026-10-24（引擎线 `A12` 第 3 件）：`AbilityLogic.furtherMultiplier` ----
+            // 原版 `AbilityLogic__PlayAbility.c:235-236`：
+            //   `if (0 < *(int *)(param_1 + 0x38)) local_178 = local_178 * *(int *)(param_1 + 0x38);`
+            // `local_178` 就是这条 logic 的**次数 / 倍数**（召唤循环上界 `:729` 起 ·
+            // `local_178 * damageCriteria.damage` `:708` · `AdjustCardEffect(…, local_178, …)`）。
+            //
+            // 🔴 **为什么只在「正文没给次数」时才乘**：卡面印的那个数**就是** `local_178`
+            //  （`Deploy 8 …` / `Draw 5 …` / `Deal 1 damage …, six times` —— 实测 27 张 fM>1
+            //  的卡逐张核过，正文都自带同一个数），我们解析层已经从正文读到了它
+            //  ⇒ 再乘一次就是**平方**（`Rok Invasion` 会变成部署 64 张）。
+            //  ⇒ 本格的规则：**正文给过数 ⇒ 只对账、不乘**（给数的方式三种：
+            //   `RepeatTimes` / `Amount` / `CountRef` 的 `for each` 动态计数）。
+            //   `CountRef` 那一档是**动态**的（数场上几个），与常数 fM 不可比 ⇒ 一句话不说。
+            int fm = op.AbilityFurtherMultiplier;
+            if (fm > 1)
+            {
+                if (string.IsNullOrEmpty(op.CountRef))
+                {
+                    int textCount = op.RepeatTimes > 1 ? op.RepeatTimes
+                                  : (op.Amount > 1 ? op.Amount : 1);
+                    if (textCount <= 1 && repeats == 1)
+                    {
+                        repeats = fm;
+                        ctx.Log($"{by}：「{op.Source}」正文没给次数 ⇒ 按原版 "
+                              + $"`furtherMultiplier = {fm}` 结算 **{fm}** 遍");
+                    }
+                    else if (textCount != fm)
+                    {
+                        ctx.Log($"{by}：「{op.Source}」正文给的次数 {textCount} 与原版 "
+                              + $"`furtherMultiplier = {fm}` **不一致** ⇒ 按正文结算"
+                              + "（⛔ 不叠加：卡面那个数就是原版这一个数）");
+                    }
+                }
+            }
+            return true;
+        }
+
+        /// <summary>
         /// 🆕 v22（2026-10-24 · 引擎线 `新账-95` #2）：**`role == "mult"` 的结构化乘数** ——
         /// 原版 `AbilityLogic.multiplier`（`AbilityLogic__PlayAbility.c:181-236`）的个数。
         ///
@@ -11082,23 +11818,51 @@ namespace RuleEngine
         /// —— 那一格**不在本方法**（走 `EffectOp.AbilityFurtherMultiplier`，那儿已有消费者）。</para>
         ///
         /// <para>**返回值**：`true` = `n` 有效（结构化数据可判）；`false` + `gap == null` = 这条 op
-        /// **没有** `mult` 行（最常见，⛔ 不是缺陷）；`false` + `gap != null` = 有行但**判不了**
+        /// **没有** `mult` 行 / 不适用（最常见，⛔ 不是缺陷）；`false` + `gap != null` = 有行但**判不了**
         /// （调用方退回正文口径并出声，⛔ 不拿 0 顶）。</para>
         ///
         /// <para>🔴 **`exclude` 取反不在这里**：`excludeCondition` 的取反是在**逐候选**判条件时做的
         /// （`CountEval.CountSet` 现在固定 `exclude=false`）⇒ 这一格非 0 时**如实判不了**（出声），
         /// ⛔ 不许当「没写取反」。今天池内 4 条 `mult` 行 `ex=0` ⇒ 零影响。</para>
+        ///
+        /// <para>🔴 **2026-10-24（执行代理 `G6` · `C6` §1·3 A＋§1·4）：两处订正**（改前这两条都不成立）：
+        /// ① **`targetsAffected == 0 (any)` ⇒ 本方法返回 `false`（= 不覆盖正文）**，⛔ 不返回 1。
+        ///    原版 `any` 确实是 `local_178 = 1`，但它同时让**其余 35 格全部失效**
+        ///    （`Any disregards all other filters`）⇒ 这个「乘数」没有任何信息；而正文里的
+        ///    `for each X` **可能来自另一个机制** —— 一号实例 `GOF90 Wurrboy`：外层 ability 的
+        ///    `multiplier` / `multiCountCriteria` 都是 `any(0)`，真正「按友方部队数」写在**它挂的那张附魔**
+        ///    （`648c49… Wurrboy`）的 `multiplier.ta = 10` 上。按数据返回 1 会把正文那条 `for each`
+        ///    **压成 1 遍**（比缺数据更糟）。
+        /// ② **归位门没过（`op.AbilityIndex &lt; 0`）时按「卡上唯一一条**有值**的 `mult` 行」兜底**
+        ///    （见 <see cref="FindSoleMultiplierRow"/>）—— 改前这里写着「⛔ 不做兜底猜测」。改的原因：
+        ///    `A` 笔让 `cond == 0` 的行落下来了，而 `EffectText.AssignBlockIndicesOnly` 的片段门
+        ///    （整卡**只有一条 ability**）把 `GOF4 Slugga Boy`（`Tide 1. Rally: …` = 两个能力块）
+        ///    这类卡的触发正文**一律留在 `-1`** ⇒ 不兜底的话 `GOF4` 的 `multiplier`（`includeSelf = 0`
+        ///    ＋ `filterSpecificCards = [自己]`）**永远取不到**，卡面「for each **other** friendly Slugga Boy」
+        ///    会照正文数成「含自己」= +1。兜底只收**唯一一条有信息**的行（`ta != 0` 且 != 未知），
+        ///    多于一条一律不猜。⛔ 等归位门补上后请删掉这一段。
+        ///    ⚠️ **兜底只对 `AbilityIndex &lt; 0` 的 op 生效**：归位了但这一格没有 `mult` 行的 op
+        ///    （例：`GOF74` 的 `Give Armour 1` = `(0,0)`）**必须保持「没有乘数」** —— 否则会被兜到
+        ///    同卡 `(0,1)` 那条 `cond=40 damaged` 的乘数上，按 0 遍把「给督军 Armour 1」整条抹掉
+        ///    （2026-10-24 实测：`play GOF74` 的那条 `Armour 1` 会消失）。</para>
         /// </summary>
         static bool TryStructuredMultiplier(BattleContext ctx, int owner, EffectOp op, CardDef card,
                                             UnitState actor, out int n, out string gap)
         {
             n = 0; gap = null;
             if (ctx == null || op == null || card == null) return false;
-            CardDef.ConditionSpec spec;
-            // 只按**下标**归位（`mult` 行永远带具体 `lg`，见 `CONDITION_ROLES` 的落值口径）——
-            // ⛔ 不做「卡上唯一一条 mult 行」的兜底猜测（与 `FindCountRow` 那档不同：那里
-            //    正文种类能唯一对上，这里没有第二把尺子）。
-            if (!card.TryGetCondition(op.AbilityIndex, op.LogicIndex, "mult", out spec) || spec == null)
+            CardDef.ConditionSpec spec = null;
+            // 先按**下标**归位（`mult` 行永远带具体 `lg`，见 `CONDITION_ROLES` 的落值口径）；
+            // 🔴 只有「**整条 op 都没归位**」（`AbilityIndex < 0`）才走兜底 —— ⛔ 不能对
+            //    「归位了、但这一格没有 mult 行」的 op 兜底：实测 `GOF74` 的 op0
+            //    （`Give Armour 1`，`(0,0)`）会被兜到 `(0,1)` 那条乘数上、按 0 遍抹掉。
+            if (op.AbilityIndex >= 0 && card.TryGetCondition(op.AbilityIndex, op.LogicIndex, "mult", out spec) && spec != null)
+            { /* 归位命中 */ }
+            else if (op.AbilityIndex < 0)
+                spec = FindSoleMultiplierRow(card);
+            else
+                spec = null;
+            if (spec == null)
                 return false;
             if (spec.MultiplierSet == null)
             {
@@ -11110,10 +11874,159 @@ namespace RuleEngine
                 gap = "`mult` 行的 `excludeCondition` = 1（逐候选取反）本版未实现";
                 return false;
             }
-            var r = CountEval.CountTargets(ctx, owner, spec.MultiplierSet, spec.Condition, actor, out gap);
+            // ① `any(0)` ⇒ 没有乘数（理由见 doc ①）—— ⛔ 不是 `return n = 1`。
+            int ta = spec.MultiplierSet.TargetsAffected;
+            if (ta == CardDef.CountSetSpec.Unknown)
+            {
+                gap = "`multiplierSet.targetsAffected` **未知（没落）**";
+                return false;
+            }
+            if (ta == 0) return false;
+            var r = CountMultiplierTargets(ctx, owner, spec.MultiplierSet, spec.Condition, actor, out gap);
             if (r == null) return false;
             n = r.Value;
             return true;
+        }
+
+        /// <summary>
+        /// 🆕 **2026-10-24（执行代理 `G6` · 见 <see cref="TryStructuredMultiplier"/> doc ②）**：
+        /// `op` 归不到 `(ab, lg)` 时，按「**卡上唯一一条有值**的 `mult` 行」兜底。
+        ///
+        /// <para>「有值」= `MultiplierSet != null` 且 `targetsAffected != 0 / != 未知` ——
+        /// `any(0)` 的行不携带乘数（`Any disregards all other filters`），拿它兜底只会把正文压成 1 遍。</para>
+        /// <para>🔴 **结构闸（2026-10-24 实测加）**：还要求**整卡只有一条 ability、那条只有一条 logic**
+        /// （`AbilityTargets.Count == 1 &amp;&amp; [0].TargetsAffected.Length == 1`）。
+        /// 理由：兜底没有「这一格属于哪条 op」的信息，卡上有多条 logic 时它会把**别的 op** 乘掉 ——
+        /// `UM77 Chairon`（`Deal 1-2 damage` 被 `(1,0)` 那条 `cond=222` 按 0 遍抹掉 · 实测
+        /// `play UM77` 伤害 4 → 0）与 `TL68`（同类）就是这么撞出来的。</para>
+        /// <para>收窄后**必须恰好剩一条**才用；0 条 / 多于一条 ⇒ `null`（⛔ 不猜是哪一条，与
+        /// <see cref="FindCountRow"/> 同一口径）。用兜底时出声一次（`mult-fallback`）。</para>
+        /// </summary>
+        static CardDef.ConditionSpec FindSoleMultiplierRow(CardDef card)
+        {
+            if (card == null || card.Conditions == null || card.Conditions.Count == 0) return null;
+            // ① **先卡一道结构闸**：整卡**只有一条 ability**、且那条**只有一条 logic**。
+            //    只有这样，「那唯一一条乘数」才可能属于当前这条 op；否则同一张卡上别的 op 会被
+            //    错误地乘 / 乘 0（实测：`UM77 Chairon` 的 `Deal 1-2 damage` 会被 `(1,0)` 那条
+            //    `cond=222` 的乘数按 0 遍抹掉、`TL68` 的 Rally 同类）。判据 = `AbilityTargets`
+            //    （v17 列，`[i]` = `cardAbilities[i]`、内层 = `abilityLogic[j]`）。
+            var ats = card.AbilityTargets;
+            if (ats == null || ats.Count != 1) return null;
+            var a0 = ats[0];
+            if (a0 == null || a0.TargetsAffected == null || a0.TargetsAffected.Length != 1) return null;
+            CardDef.ConditionSpec hit = null;
+            int n = 0;
+            for (int i = 0; i < card.Conditions.Count; i++)
+            {
+                var row = card.Conditions[i];
+                if (row == null || row.Role != "mult" || row.MultiplierSet == null) continue;
+                if (row.Ability != 0 || row.Logic != 0) continue;      // 与上面那道闸对齐
+                int ta = row.MultiplierSet.TargetsAffected;
+                if (ta == 0 || ta == CardDef.CountSetSpec.Unknown) continue;
+                hit = row; n++;
+            }
+            if (n != 1) return null;
+            StructuredConditionNotice("mult-fallback|" + card.Id,
+                $"卡「{card.Name}」（{card.Id}）的正文 op **没有归位到 ability/logic**（`AbilityIndex < 0`）"
+              + "⇒ 按**卡上唯一一条有值的 `mult` 行**取结构化乘数（⛔ 不是猜：多于一条时不用）。");
+            return hit;
+        }
+
+        /// <summary>
+        /// 🆕 **2026-10-24（执行代理 `G6` · `C6` §1·4）**：`mult` 的候选计数 ——
+        /// 一般情况直接转 <see cref="CountEval.CountTargets"/>；**只有**带 `filterSpecificCards`
+        /// （原版 `TargetCriteria.filterSpecificCards`，`+0x70`）时才走本文件补的那一档。
+        ///
+        /// 为什么补：`CountEval.SetGap` 把「`filterSpecificCards` 非空」判成**未实现**（返回 `null`），
+        /// 而 `GOF4 Slugga Boy` 的整个 `multiplier` 就是「**只有这一种卡**（它自己）＋ `includeSelf = 0`」——
+        /// 不补这一档，卡面 `for each **other** friendly Slugga Boy` 永远退回正文（含自己 ⇒ 恒 +1）。
+        /// ⚠️ **等 `CountEval` 支持这一维后请删掉 `CountSpecificCardsOnBoard`**（同一判据别留两份）。
+        /// </summary>
+        static int? CountMultiplierTargets(BattleContext ctx, int owner, CardDef.CountSetSpec set,
+                                           int cond, UnitState actor, out string gap)
+        {
+            gap = null;
+            if (set == null) { gap = "没有 criteria"; return null; }
+            if (set.FilterSpecificCardIds == null || set.FilterSpecificCardIds.Length == 0)
+                return CountEval.CountTargets(ctx, owner, set, cond, actor, out gap);
+            return CountSpecificCardsOnBoard(ctx, owner, set, cond, actor, out gap);
+        }
+
+        /// <summary>
+        /// 见 <see cref="CountMultiplierTargets"/>：数「**指定卡**在场上、且过其余筛」的个数。
+        ///
+        /// 判据 = `FilterMethods__CheckIfMeetsCriteria.c`：`:210-232` 阵营闸 · `:234-244`
+        /// `includeSelf` / `excludeNotSelf` · `:255-261` 残骸闸 · `:286-300` 卡种白名单 ·
+        /// `:300-420` 条件（`conditionsFilter`）。**只实现 `targetsAffected ∈ {10, 55}`（在场上）**
+        /// —— 其余集合族本版未实现 ⇒ `null` + 出声（⛔ 不拿「在场上」顶替）。
+        /// 其余「未实现的筛」（`armyFilter` / `keywordFilter` / `traitsFilter` / …）与
+        /// `CountEval.SetGap` **同一张清单**：只要非 0 就 `null`（⛔ 不静默当「不过滤」）。
+        /// </summary>
+        static int? CountSpecificCardsOnBoard(BattleContext ctx, int owner, CardDef.CountSetSpec set,
+                                              int cond, UnitState actor, out string gap)
+        {
+            gap = null;
+            if (ctx == null) { gap = "没有对局上下文"; return null; }
+            if (set.TargetsAffected != 10 && set.TargetsAffected != 55)
+            {
+                gap = $"`targetsAffected={set.TargetsAffected}` 的 `filterSpecificCards` 本版未实现";
+                return null;
+            }
+            // 其余维度：与 `CountEval.SetGap` 同一张清单（非 0 = 未实现 ⇒ 判不了）。
+            if (set.ArmyFilter != 0 || set.KeywordFilter != 0 || set.TraitsFilter != 0
+                || set.SpellType != 0 || set.AttackFilterOption != 0
+                || set.CurrentHealthFilterOption != 0 || set.ManaCostFilterOption != 0
+                || set.RarityFilterOption != 0
+                || (set.ExcludeEnchantmentIds != null && set.ExcludeEnchantmentIds.Length > 0)
+                || set.ExcludeSimilarCards != 0 || set.ExcludeTargetted != 0
+                || set.ExcludeFriendlyHero != 0 || set.ExcludeEnemyHero != 0
+                || set.ExcludeRace != 0 || set.ExcludeTrait != 0
+                || set.SelectFromChooseResolution != 0)
+            {
+                gap = "`filterSpecificCards` 与其它**未实现的筛**同时出现（本版判不了）";
+                return null;
+            }
+            bool anySide = set.FriendlyUnits == 1 || set.EnemyUnits == 1;
+            if (!anySide) { gap = "`friendlyUnits` / `enemyUnits` 都是 0（原版一个候选都不留）"; return 0; }
+
+            int count = 0;
+            for (int p = 0; p < 2; p++)
+            {
+                bool friendly = p == owner;
+                if (friendly ? set.FriendlyUnits != 1 : set.EnemyUnits != 1) continue;
+                var board = ctx.Players[p].Board;
+                for (int s = 0; s < BoardSpec.Size; s++)
+                {
+                    var u = board[s];
+                    if (u == null || !u.IsAlive) continue;
+                    // 卡种白名单 / 残骸闸 / 自他闸 —— 与 `CountEval.IncludeUnit` 同口径
+                    // （那一份是 `private`；这里只补「指定卡」这一维，**其余逐条照抄**）。
+                    if (u.IsRemnant && set.IncludeRemnants == 0) continue;
+                    bool hero = u.IsWarlord;
+                    if (hero && set.IncludeHero == 0) continue;
+                    if (!hero && set.IncludeMinions == 0) continue;
+                    if (actor != null)
+                    {
+                        bool self = ReferenceEquals(u, actor);
+                        if (self && set.IncludeSelf == 0) continue;
+                        if (!self && set.ExcludeNotSelf == 1) continue;
+                    }
+                    if (!CardIdIn(u.Card, set.FilterSpecificCardIds)) continue;
+                    var v = ConditionEval.MeetsUnit(ctx, u, cond, false);
+                    if (v == null) { gap = $"cond={cond} 在候选身上判不了"; return null; }
+                    if (v.Value) count++;
+                }
+            }
+            return count;
+        }
+
+        /// <summary>这张卡的 id 在不在那一串里（`filterSpecificCards` 解出来的 `uniqueId`）。</summary>
+        static bool CardIdIn(CardDef c, string[] ids)
+        {
+            if (c == null || ids == null) return false;
+            for (int i = 0; i < ids.Length; i++)
+                if (string.Equals(ids[i], c.Id, System.StringComparison.Ordinal)) return true;
+            return false;
         }
 
         /// <summary>`TryCountCondition` 的第二档：正文种类 → 卡上**唯一**一条 `count` 行。
@@ -11585,15 +12498,11 @@ namespace RuleEngine
         /// </summary>
         static bool DrawnMatches(CardDef c, string reference)
         {
-            switch (reference)
-            {
-                // `troop` / `unit` = 单位卡（督军是 `type=hero`，不算）
-                case "troop": case "unit": return c.Type == "unit";
-                case "vehicle":  return Same(c.Subtype, "Vehicle");
-                case "infantry": return Same(c.Subtype, "Infantry");
-                // `counter` 是 `ClassifyCount` 正则里那个兜底词，卡池里没有对应兵种 —— 都算
-                default: return true;
-            }
+            // 🔴 **2026-10-24（执行代理 `G6` · `C6` §四·2）：判据收口到 `CountKindMatches`**
+            //   （与 `CountFor` 的盘面 / 手牌分支**同一份**；改前这里是第三份 switch）。
+            // ⚠️ 保留改前的**兜底语义**：`ClassifyCount` 的词表是封闭的，认不出的（历史注释点名的
+            //    `counter`）按「都算」处理 —— 这里**不改成一 -1**，那会让那张卡整条不结算。
+            return CountKindMatches(c, reference) ?? true;
         }
 
         static bool Same(string a, string b)

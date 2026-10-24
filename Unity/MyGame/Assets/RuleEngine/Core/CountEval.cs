@@ -131,6 +131,10 @@ namespace RuleEngine
         /// <para>`null` = 本版判不了（`gap` 写清是哪一格）：`targetsAffected ∈ {210,220}`（原版是
         /// **累加 `traitsFilter` 的值**，不是数个数 —— 池内 `mult` 行 0 条用到，⛔ 不拿个数顶）；
         /// 以及 <see cref="CountSet"/> 没实现的那些池（手牌 / 牌库 / adjacent / 伪列表 …）。</para>
+        /// <para>🆕 2026-10-24（`A1` 第 1 件）：`targetsAffected = 150 (previousAbilityFiltered)`
+        /// **已实现**（候选 = <see cref="BattleContext.PreviousAbilityTargets"/>，见 `CountSet` ④）。
+        /// 🆕 同日（执行代理 `E8`）：**上一跳是抽牌时**候选 = <see cref="BattleContext.DrawnThisResolve"/>
+        /// 里那几张牌（判据见 `CountSet` ④ 与 <see cref="CountDrawnAsPreviousTargets"/>）。</para>
         /// </summary>
         public static int? CountTargets(BattleContext ctx, int owner, CardDef.CountSetSpec set, int cond,
                                         UnitState actor, out string gap)
@@ -395,6 +399,75 @@ namespace RuleEngine
                 return count;
             }
 
+            // ---- ④ 上一条能力的目标集合（`150 previousAbilityFiltered`）----
+            //  判据（2026-10-24 · 引擎线 `A1` 第 1 件，逐行现读）：
+            //    · `AbilityLogic__GetTargets.c:867-882`：`ta == 0x96(150)` ⇒ 把静态表
+            //      （`AbilityLogic.pooledPossibleTargets`）**AddRange 成候选池**（与 `140` 同一支，
+            //      只多一句 `CustomDebug.Log`）；
+            //    · `FilterMethods__CheckIfMeetsCriteria.c:172-183`：候选还要**在表里**（`Contains`），
+            //      然后照常走 `:184-420` 的阵营 / 卡种 / 自他 / 条件 / 兵种筛；
+            //    · 表的写点 = `AbilityLogic__SetPreviousAbilityTargets.c:19-28`（整表覆盖），
+            //      调用点 = `AbilityLogic__PlayAbility.c:2743-2745`（该能力末尾）⇒ 我们落在
+            //      `BattleContext.PreviousAbilityTargets`（写点 = `ResolveOps` 出口）。
+            //  ⚠️ **已知差别**（如实标，⛔ 不拿猜的顶）：原版候选可以是**手牌/牌库的卡**
+            //     （`SW51` 的上一跳是抽牌）—— **抽牌那一跳**已建模（见下面 `DrawnThisResolve` 分支，
+            //     2026-10-24 执行代理 `E8`，修 `G6` 5 条 `mult` 行把正文的 2 顶成 0 的回归）；
+            //     其余手牌/牌库族（选牌 / 翻找）仍未建模 ⇒ 那种候选落到这里会 `null` + 出声。
+            if (ta == 150)
+            {
+                if (SideEmpty(set)) return 0;
+                // 🔴 **上一跳是抽牌 ⇒ 候选 = 抽到的牌**（手牌里的卡，不是场上单位）。
+                //  判据（`d:/2/tools/decomp_full/`，逐句现读）：
+                //    · `AbilityLogic__AddDrawCard.c`：抽牌那一支把
+                //      `BattleManager__GetNextCardsInDeck(...)` 的结果 **`AddRange` 进
+                //      `abilityTargetsToSave`（`param_1 + 0x80`）**（`System_Collections_Generic_
+                //      List<object>__AddRange(lVar2, uVar3, …)`，`lVar2 = *param_7`、`param_7 = param_1+0x80`）；
+                //    · 该 effect 的出口 `AbilityLogic__SetPreviousAbilityTargets.c:19-28`
+                //      （`Array.Clear` + `AddRange`，**整表覆盖**）把它写进静态表；
+                //    · `AbilityLogic__GetTargets.c` 的 `iVar6 == 0x96 (150)` 支再把静态表
+                //      `AddRange` 成候选池 ⇒ **候选就是抽到的那几张牌**。
+                //  ⇒ 本版 `PreviousAbilityTargets` 是 `List<UnitState>`（只装场上单位）⇒ 抽牌那一跳
+                //     **结构上装不下**；`ctx.DrawnThisResolve`（「一张卡一次结算」窗口，入口
+                //     `ResolveOps` 清、抽牌写）就是这一跳的候选来源。
+                //  🔴 **必须先判抽牌、再判场上表**：`PreviousAbilityTargets` 只在 `ResolveOps`
+                //     **出口**同步 ⇒ 结算过程中读到的是**上一张卡**留下的值。若先看它，实战里
+                //     「先打一张指定目标的卡、再打 `Draw N cards. For each troop drawn …`」会把
+                //     上一张卡的目标当成候选（静默多数）。今天池内 `ta = 150` 的消费行只有这 5 张
+                //     「先抽后数」的战术卡。
+                //  ⚠️ **仍是近似（如实标）**：DrawnThisResolve 的窗口是「一张卡」而不是「一跳」——
+                //     若同一张卡里抽牌之后又打了别的目标、再用 `150`，原版取的是**最后那一跳**
+                //     （整表覆盖），这里会取抽到的牌。池内 0 张这种卡。
+                if (ctx.DrawnThisResolve.Count > 0)
+                {
+                    // ⚠️ 必须**写回 `count`** 再 `return count`（`count` 是 `out` 形参）——
+                    //    直接 `return CountDrawnAsPreviousTargets(...)` 会让调用方拿到 0，
+                    //    而返回值非 null ⇒ 又不报 gap（那正是本件那条回归的形状）。
+                    var drawn = CountDrawnAsPreviousTargets(ctx, owner, set, cond, countOption, ref gap);
+                    if (drawn == null) return null;
+                    count = drawn.Value;
+                    return count;
+                }
+                var prev = ctx.PreviousAbilityTargets;
+                for (int i = 0; i < prev.Count; i++)
+                {
+                    var u = prev[i];
+                    if (u == null) continue;
+                    int side = SideOfUnit(ctx, u);
+                    if (side < 0)
+                    {
+                        gap = "`targetsAffected=150 previousAbilityFiltered` 的候选里有**不在场上**的卡"
+                            + "（抽到的牌 / 已离场）—— 原版按 `CardScript` 筛，本版只建模场上单位";
+                        return null;
+                    }
+                    if (!SideMatches(owner, side, set)) continue;
+                    if (!IncludeUnit(u, set, actor)) continue;
+                    var v = ConditionEval.MeetsUnit(ctx, u, cond, false);
+                    if (v == null) { gap = $"cond={cond} 在上一条能力的目标身上判不了"; return null; }
+                    if (v.Value) count += Weight(owner, side, countOption);
+                }
+                return count;
+            }
+
             // ---- ③ 手牌 / 牌库 / 手牌+场上：**本版未实现**（池内 `count` 行 0 条用到）----
             //  🔴 2026-10-23：原来这里按 50/51/52 写了一版「最小档」，其中 **52（inHandAndPlayFiltered）
             //     少数了场上那一半**（注释说「场上那半已在 ① 数过」，可 ① 与本支互斥、永远走不到）。
@@ -440,6 +513,105 @@ namespace RuleEngine
             if (friendly == 1) return side == owner;
             if (enemy == 1) return side != owner;
             return false;       // 两个都不开 ⇒ 一个候选都不留（见 `SideEmpty`）
+        }
+
+        /// <summary>🆕 2026-10-24（引擎线 `A1`）：某个单位在哪一方棋盘上（`-1` = 不在任何一方的棋盘上）。
+        /// <para>为什么需要它：`PreviousAbilityTargets` 是**一串 `UnitState`**，没有「属于哪方」这一列
+        /// （`UnitState` 没有 `Owner` 字段）⇒ `targetsAffected=150` 的阵营筛只能回棋盘上查。
+        /// 查不到 = 那张候选已经离场 / 本来就不在场上（抽到的牌）—— 由调用方**如实报判不了**。</para></summary>
+        static int SideOfUnit(BattleContext ctx, UnitState u)
+        {
+            for (int p = 0; p < 2; p++)
+            {
+                var b = ctx.Players[p].Board;
+                for (int s = 0; s < b.Length; s++)
+                    if (object.ReferenceEquals(b[s], u)) return p;
+            }
+            return -1;
+        }
+
+        /// <summary>🆕 2026-10-24（执行代理 `E8`）：`targetsAffected = 150 (previousAbilityFiltered)`
+        /// 在「**上一跳是抽牌**」时的候选 = <see cref="BattleContext.DrawnThisResolve"/> 里那几张牌。
+        ///
+        /// <para>**判据**（为什么是抽到的牌，而不是场上单位）→ `CountSet` ④ 那一大段注释：
+        /// `AbilityLogic__AddDrawCard.c` 把 `GetNextCardsInDeck` 的结果 `AddRange` 进
+        /// `abilityTargetsToSave(param_1+0x80)`，随后 `SetPreviousAbilityTargets` 整表覆盖，
+        /// `GetTargets` 的 `150` 支把它当候选池。</para>
+        ///
+        /// <para>**筛**：阵营（按「这份牌在谁手里」判，<see cref="SideOfCardInstance"/>）＋ 卡种白名单
+        /// （<see cref="DrawnKindPasses"/>：兵种 / 督军 / 法术三档）＋ 条件行（`cond`，走
+        /// `ConditionEval.MeetsCard` —— 主语是一张**不在场上的卡**，与该文件里墓地那一支同口径）。
+        /// `includeSelf` / `excludeNotSelf`：候选是牌、`actor` 是单位 ⇒ 两者**永不是同一件东西**；
+        /// `excludeNotSelf != 0`（「只要这张卡自己」）⇒ 抽到的牌一个都不合格（0），
+        /// `includeSelf` 不限制别的候选（与原版 `:233-244` 的两句同构）。</para>
+        ///
+        /// <para>`null` = 判不了（写 `gap`）—— ⛔ 不拿「都算」或 0 顶。</para>
+        /// </summary>
+        static int? CountDrawnAsPreviousTargets(BattleContext ctx, int owner, CardDef.CountSetSpec set,
+                                                int cond, int countOption, ref string gap)
+        {
+            if (ctx == null) { gap = "没有对局上下文"; return null; }
+            int count = 0;
+            for (int i = 0; i < ctx.DrawnThisResolve.Count; i++)
+            {
+                var inst = ctx.DrawnThisResolve[i];
+                if (inst == null || inst.Card == null) continue;
+                int side = SideOfCardInstance(ctx, inst);
+                if (side < 0)
+                {
+                    gap = "`targetsAffected=150 previousAbilityFiltered` 的候选里有**不在任一方手牌里**的牌"
+                        + "（抽到之后又被移走 / 弃掉）—— 阵营判不了";
+                    return null;
+                }
+                if (!SideMatches(owner, side, set)) continue;
+                bool? kind = DrawnKindPasses(inst.Card, set);
+                if (kind == null)
+                {
+                    gap = "`targetsAffected=150` 的卡种筛（`includeWhispers`/`includeWeapons`/"
+                        + "`includeHeroParts` 或 `type=" + (inst.Card.Type ?? "?") + "`）在**不在场上的牌**上本版判不了";
+                    return null;
+                }
+                if (!kind.Value) continue;
+                if (set.ExcludeNotSelf != 0) continue;   // 「只要这张卡自己」⇒ 抽到的牌永远不合格
+                var v = ConditionEval.MeetsCard(ctx, inst.Card, side, cond, false, inst.Id);
+                if (v == null) { gap = $"cond={cond} 在抽到的牌身上判不了"; return null; }
+                if (v.Value) count += Weight(owner, side, countOption);
+            }
+            return count;
+        }
+
+        /// <summary>这份牌在**哪一方的手牌里**（`-1` = 都不在）。语义与 <see cref="SideOfUnit"/> 同理，
+        /// 只是查的是 `PlayerState.Hand`（`CardInstance` 没有 `Owner` 字段）。</summary>
+        static int SideOfCardInstance(BattleContext ctx, CardInstance inst)
+        {
+            for (int p = 0; p < 2; p++)
+            {
+                var hand = ctx.Players[p].Hand;
+                for (int i = 0; i < hand.Count; i++)
+                    if (object.ReferenceEquals(hand[i], inst)) return p;
+            }
+            return -1;
+        }
+
+        /// <summary>🆕 2026-10-24（执行代理 `E8`）：卡种白名单（`includeHero` / `includeMinions` /
+        /// `includeSpells`）在**一张不在场上的牌**上的口径 —— 只给 <see cref="CountDrawnAsPreviousTargets"/> 用。
+        ///
+        /// <para>取值口径与 <see cref="IncludeUnit"/> 一致：**`!= 0` 才筛**（`Unknown(-1)` = 未知 ⇒ 不筛，
+        /// 与原版「没落 ≠ 明确不要」同一条纪律）。</para>
+        /// <para>`null` = 本版分不了这一档：`includeWhispers` / `includeWeapons` / `includeHeroParts`
+        /// 非 0（原版另有 `cardType` 取值，本版没建模），或卡种不在这三档里（`defence` 等）。
+        /// ⛔ 不静默当「都算」。</para>
+        /// </summary>
+        static bool? DrawnKindPasses(CardDef c, CardDef.CountSetSpec set)
+        {
+            if (c == null) return false;
+            if (set.IncludeWhispers > 0) return null;
+            if (set.IncludeWeapons > 0) return null;
+            if (set.IncludeHeroParts > 0) return null;
+            if (c.Type == "hero") return set.IncludeHero != 0;        // 督军
+            if (c.Type == "unit") return set.IncludeMinions != 0;     // 部队
+            if (c.Type == "tactic") return set.IncludeSpells != 0;    // 法术
+            return null;   // `defence` / 空 type ⇒ 本版没建模（原版 `cardType` 另有取值）
         }
 
         /// <summary>`includeHero` / `includeMinions` / `includeRemnants` 三格（**卡种白名单**，不是「要不要额外加」）

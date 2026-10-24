@@ -898,9 +898,17 @@ namespace RuleEngine
         /// ⇒ **同一张卡打不同目标 = 不同的分**。
         ///
         /// 🔴 **我们原来没这一层** ⇒ `slot` 形参函数体里**一次都没读** ⇒ 同一张战术卡的所有格位
-        /// **同分**、平手留先（`NextPlay` / `SelectBestAction` 都是严格 `>`）⇒ **永远打「槽号最小的合法目标」**；
-        /// 后果是**裸 `Deal N damage` 不会打最低血的那个**（用户 2026-09-18 拍的
-        /// 「裸伤害走 `lowestHealth`」在 AI 出牌这条路上没生效）。见正本 §10·9 ②。
+        /// **同分**、平手留先（`NextPlay` / `SelectBestAction` 都是严格 `>`）⇒ **永远打「槽号最小的合法目标」**。
+        /// ⚠️ **2026-10-24 订正（铁律 5）**：本段原来接着写「后果是**裸 `Deal N damage` 不会打最低血的那个**
+        /// （用户 2026-09-18 拍的『裸伤害走 `lowestHealth`』在 AI 出牌这条路上没生效）」—— **那个前提本身已被证伪**：
+        /// 全池 **33/33** 张裸 `Deal N damage` 卡是 **`ta = 30 (target)`**（由施放方选一个目标；卡面没写
+        /// `with lowest Health`），「生命最低」是**另一档** `ta = 240 lowestHealth`（全池只有 `SAU70` / `SAU73`
+        /// 那两张明写 `with lowest Health` 的卡走它）。判据 → `EffectText.TryDeal` 的裸 Deal 支（`G5` 改后
+        /// = `Auto = false` + `Count = 1`，`Raw` 写的是「未写目标短语：原版 ta=30 target ⇒ 由施放方选一个敌方单位」）
+        /// ＋ `资料/普查产出_1024/G5_裸Deal与ta200.md` §1·1。
+        /// ⇒ 现在这条**不是「没生效」而是「原版本来就不按最低血挑」**：AI 对**每个合法目标各发一条动作**、
+        /// 按评分挑最高（`EnumerateActions` → `ScoreFromPlayingCard` → `AiScoring.ScoreFromPlayingNow`），
+        /// 本函数下面 `slotIsTarget` 那几支就是「按这一格的目标算分」的入口。见正本 §10·9 ②。
         /// </summary>
         public static float ScoreOp(BattleContext ctx, EffectOp op, int slot, bool slotIsTarget = false)
         {

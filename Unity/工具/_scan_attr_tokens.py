@@ -8,9 +8,17 @@ v2 修掉 v1 的两个毛病：
      类A = 我们写了 token、但 token 与卡面图标不是同一个属性（token 名被 OCR 读错）
      类B = 我们写的是**裸 `+N`**（没 token）⇒ `GivePayload` 兜底当近战，卡面却是紫枪/别的
 """
-import io, re, json, collections
+import io, os, re, sys, json, collections
 
 RESTORED = r'd:/4/Unity/资料/卡表核对_卡图提取/_还原效果文字.md'
+# 🔴 2026-10-24 更正（铁律 5）：`_cards_engine_before.json` **现读已不在这台机器上**
+#   （`os.path.exists('d:/4/_tmp_view/_cards_engine_before.json')` = False；它是「换官方名/换官方文案
+#   **之前**」拍的一次性快照，全仓没有任何脚本会再生成它 —— 扫过 `工具/**` 与 `Unity/**` 的 `.py/.sh`，
+#   只有本文件与 `资料/普查产出_*/` 的历史报告引用它）。⇒ 本脚本**照默认参数跑不起来**。
+#   ⛔ 别拿当前池 `MyGame/Assets/RuleEngine/Resources/cards_engine.json` 顶上：那是**换官方之后**的
+#   口径（`nameZh`/`desc` 都换过一批），与 `_还原效果文字.md` 是同一时点的前提已经不存在 ⇒ 会把
+#   「文案本身变了」当成「token 抄错」。要复算得先**另留一份当时的快照**，或用 `ENGINE = <别的快照>`
+#   覆盖，并在报告里写清是哪一份。
 ENGINE = r'd:/4/_tmp_view/_cards_engine_before.json'
 
 ATTR_WORDS = (r'(ranged attack|attack|ranged|health|armor|armour|melee|might|fist|strength|weapon)')
@@ -44,6 +52,12 @@ with io.open(RESTORED, encoding='utf-8') as f:
         byname[cols[1]].append([s for s in seq if s])
 
 # ---- 2. 我们那份 ----
+# ⚠️ 2026-10-24：缺文件时**出声停手**（原来直接 `io.open` 抛 FileNotFoundError，看不出该换哪一份）。
+if not os.path.isfile(ENGINE):
+    sys.exit("🔴 读不到 `%s` —— 它是「换官方名/文案之前」的一次性快照，本机已不在，"
+             "也没有脚本会重新生成（见常量处的更正注）。\n"
+             "   ⇒ 要么把 ENGINE 指到一份**同期**的快照，要么在报告里写明「本轮无法复算」。"
+             % ENGINE)
 eng = json.load(io.open(ENGINE, encoding='utf-8'))
 cards = eng['cards'] if isinstance(eng, dict) else eng
 

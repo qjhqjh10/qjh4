@@ -1516,16 +1516,49 @@ namespace RuleEngine
             using (BeginAction(ctx)) { BeginTurnCore(ctx); return; }
         }
 
-        /// <summary><see cref="RuleCore.BeginAction"/> 包住的原文（2026-10-21 `T03·c` 批 B 接线）。</summary>
-        static void BeginTurnCore(BattleContext ctx)
+        /// <summary>
+        /// 🆕 **2026-10-24（引擎线 `A1` 第 4 件）：回放 / 重连展开专用 —— 连 `ctx.IsOver` 都不过，硬开一个回合。**
+        ///
+        /// <para>**它补的是哪一格**（`资料/普查产出_1023e/A29_回放展开.md` §6.4）：
+        /// 「换牌阶段就投降」的老录像 —— 录制时那一局**还没结束**，`MulliganDone` 之后那一拍
+        /// `BeginTurn` **真的跑过**（回合 +1 / 能量 / 抽牌都落在录像的哈希里）；
+        /// 而重放端把「补开回合」推迟到 `PlayReplay` **收尾**才做
+        /// （`BattleDriver.cs` 的 `NetApply.BeginTurnAfterSetup(Ctx)`），那时 `Forfeit` 已经落地
+        /// ⇒ `ctx.IsOver` ⇒ 普通 `BeginTurn` **空操作** ⇒ 终局指纹差一格（`ctx.Turn` 少 1、
+        /// 少抽一张、能量也没摆回）。</para>
+        ///
+        /// <para>🔴 **⛔ 不要把 `BeginTurnCore` 的 `if (ctx.IsOver) return;` 删掉来「顺手修」它**：
+        /// 那道闸是**活局**的语义（一局已经结束就不该再开回合、更不该继续抽牌改状态）。
+        /// 这里用**显式的另一条入口**，让「谁需要越过闸」变成可审查的一件事。
+        /// 断言（`TestA1EngineFive` 的 `A1ReplayBeginTurn`）就是「把闸拿掉 ⇒ 红」的判别式。</para>
+        ///
+        /// ⚠️ **接线（本代理白名单外）**：`CardPresentation/Battle/BattleDriver.cs` `PlayReplay` /
+        /// `NetReplay` 收尾那三句 `NetApply.BeginTurnAfterSetup(Ctx)` 需要改成这个入口
+        /// （或让 `NetApply.BeginTurnAfterSetup` 在「确有 `MulliganDone` 待补」时走本入口）
+        /// —— `CardPresentation/**` 是黑名单，留给主对话派单，见本批报告。
+        /// </summary>
+        public static void BeginTurnForReplayExpansion(BattleContext ctx)
         {
-            if (ctx.IsOver) return;
+            using (BeginAction(ctx)) { BeginTurnCore(ctx, evenIfOver: true); return; }
+        }
+
+        /// <summary><see cref="RuleCore.BeginAction"/> 包住的原文（2026-10-21 `T03·c` 批 B 接线）。
+        /// <paramref name="evenIfOver"/> = **只有 <see cref="BeginTurnForReplayExpansion"/> 传 true**
+        /// （见那个方法的 doc：回放展开要越过 `IsOver` 闸补上录制时真的跑过的那一拍）。</summary>
+        static void BeginTurnCore(BattleContext ctx, bool evenIfOver = false)
+        {
+            if (ctx.IsOver && !evenIfOver) return;
 
             ctx.Turn++;
             // 「本回合」的费用修正到期 —— **必须在 Turn++ 之后**：
             // 它是在**上一回合**登记的（`ExpireTurn = 登记时的 Turn`），
             // 放到 `EndTurn` 里撤的话那会儿 Turn 还没变，会晚撤一个回合（撞到过）。
             ExpireCostMods(ctx);
+            // 🆕 2026-10-24（引擎线 `A1` 第 2 件）：**上一回合的阵亡数滚动一格**（在清零之前）。
+            //   `for each … that died since your last turn`（`UM77`）的窗口 = 本回合 + 上一回合
+            //   （判据 `CardScript__HasDiedSinceLastTurn.c:26-47`）⇒ 需要这一格。
+            //   🔴 **`DiedThisTurn` 的语义一个字没动**（反噬 / `for each one that dies` 读的还是「本回合」）。
+            ctx.DiedLastTurn = ctx.DiedThisTurn;
             ctx.DiedThisTurn = 0;      // 「本回合阵亡数」按回合清零（`For each one that dies …` 用）
             // 🆕 2026-10-17（`A1547`）：**本回合打出的牌张数**按回合清零 ——
             // 原版 `BattleManager._NextTurn_d__395__MoveNext.c:231` 把 `+0x3D0` 写回 0
@@ -2296,8 +2329,12 @@ namespace RuleEngine
             //     `enchantingCard`，而我们的 `_keywords` 是**一份值表、不记授予者**
             //     （`UnitState.TempBuff.SourceCard` 只覆盖「限时增益」那一族，毒不走那条路）
             //     ⇒ **如实说出这件事**，⛔ 不编一个来源、也不假装记给了谁。
-            //  ⚠️ **`deathType = poison(40)` 我们【没有这一层概念】**（`EvtKind.Death` 不带死因，
-            //     而 `BattleEvent.cs` 不在本笔能碰的文件里）⇒ 只在日志里写出来。如实标着。
+            //  ⚠️ 🔴 **2026-10-24（引擎线 `G2`）就地订正**：本行原来写「`deathType = poison(40)`
+            //     我们【没有这一层概念】（`EvtKind.Death` 不带死因）」—— **已过期**：
+            //     `UnitDeathType` 枚举（`BattleContext.cs:34-43`）与 `Hurt/CleanupDeaths` 的
+            //     `deathType` 形参 2026-10-24 已由 `T03·c`（`C1` §3）建好，死因走内部通道、
+            //     不进 `BattleEvent`（`EvtKind.Death` 仍然不带它 —— 这一半原话是对的）。
+            //     本段下面那一处调用现在**真的传 `poison(40)`** ⇒ 死者会被发 `UnitDeathByPoison(170)`。
             //  ⚠️ 原版那一下是**入队**（`priority 1`）的，我们是**同步**结算 —— 与引擎其它
             //     「摧毁」的落地形态一致（`EffectResolver.DoDestroy` 也是同步 `CleanupDeaths`）。
             //  ⚠️ **全池今天 0 张卡带 `poisoned` / `resistant`** ⇒ 不可观测；照铁律 11 先做完
@@ -2334,7 +2371,13 @@ namespace RuleEngine
                     u.Health = 0;
                     // ⛔ **不传 `maySurvive`** —— 这条路是**摧毁**，原版绕过幸存者
                     // （判据 → `CleanupDeaths` 的 `maySurvive` 形参注释）。
-                    CleanupDeaths(ctx, op, os);
+                    // 🔴 **2026-10-24（引擎线 `G2` · `C5` §1）：死因 = `poison(40)`** ——
+                    //   改前这里走默认 `Unknown` ⇒ 补了 170 发射口也发不出去。判据 =
+                    //   `BattleManager.DestroyUnit(…, priority 1, deathType = poison(40))`
+                    //   （`CardScript__OnTurnEnd.c:258`，见上面那段注释）。
+                    //   ⚠️ 只有「**回合末中毒摧毁**」这一路是 40；残骸回合末销毁是 `0`、
+                    //     收集灵魂石是 `50` ⇒ 那两路**不发 170**（`C5` §1 结论 6）。
+                    CleanupDeaths(ctx, op, os, deathType: UnitDeathType.Poison);
                     poisonedDeaths++;
                 }
                 if (poisonedDeaths > 0)
@@ -5888,7 +5931,11 @@ namespace RuleEngine
                     //    ⇒ 哨戒击杀**该记 Slay**（旧代码不传 `actingCard` ⇒ 永远不记；`BattleContext`
                     //    那条「哨戒没钉死」的注释已按铁律 5 订正）。
                     //  ⚠️ `killer` 不传：P1-1 之后猎杀标记不看它；击杀记账只认 `actingCard`。
-                    int sd = Hurt(ctx, attacker, se, target.Name + " 的 Sentry", actingCard: target);
+                    int sd = Hurt(ctx, attacker, se, target.Name + " 的 Sentry", actingCard: target,
+                                  // 🔴 2026-10-24（`C1` §3）：哨戒那一下原版就是 `ability(20)`
+                                  //   （`_ResolveAttack_d__438__MoveNext.c:1421` 的 `0x14`）
+                                  //   ⇒ 被打死的攻击者会收到 `UnitDeathByAbility`。
+                                  deathType: UnitDeathType.Ability);
                     ctx.Log($"Sentry {se}：{target.Name} 反击了正在攻击它的 {attacker.Name} {sd} 伤"
                           + $"（剩 {attacker.Health}）");
                 }
@@ -5898,7 +5945,10 @@ namespace RuleEngine
                 if (attacker.Has("shuriken"))
                 {
                     int sh = attacker.KwValue("shuriken");
-                    int extra = Hurt(ctx, target, sh, attacker.Name + " 的 Shuriken", actingCard: attacker);
+                    int extra = Hurt(ctx, target, sh, attacker.Name + " 的 Shuriken", actingCard: attacker,
+                                     // 🔴 2026-10-24（`C1` §3）：星镖原版死因是 `ability(20)`
+                                     //   （`Slay` 那条 doc 里早已写明「星镖原版是 ability(20)」）。
+                                     deathType: UnitDeathType.Ability);
                     ctx.Log($"Shuriken {sh}：{attacker.Name} 先对 {target.Name} 追加 {extra} 伤"
                           + $"（剩 {target.Health}）");
                     // ⚠️ 判据是「**血量**见底了」而不是「已经不在场上了」——
@@ -6009,6 +6059,15 @@ namespace RuleEngine
                                            //   （40 = `IsInPlayOrDying`，状态 5「待死」也算在场）。
                                            actor: _atk,
                                            requireActorInPlay: ActorMustBeInPlayForTrigger(
+                                               _atk.Card, "UnitAttack", "attacked"),
+                                           // 🔴🆕 2026-10-24（引擎线 `A1` 第 5 件 · 判据由 C1 闭合）：
+                                           //   **把 `abilityContext` 真的传下去** —— 原版闸在**入队前**
+                                           //   （`CanTriggerAbility` → `IsRightContext`），而这里原来
+                                           //   只传 `requireActorInPlay`（那是**出队**的旧近似）⇒
+                                           //   「缺列(=Play)」被当成「未知」、入队闸整段跳过 ⇒ **比原版宽**。
+                                           //   现读 9 条 `UnitAttack` 全是 **40 `InPlayOrDying`** ⇒ 传下去后
+                                           //   入队闸放行的仍是「在棋盘（含待死）」那一档（与上面那段同口径）。
+                                           abilityContext: AbilityContextOfAbilityV14(
                                                _atk.Card, "UnitAttack", "attacked"));
                         }
                     }
@@ -6288,9 +6347,14 @@ namespace RuleEngine
                     //    打的是 `param_1 + 0x28` = **攻击方**；对比 `:999` 打防御方的是
                     //    `0xf = combatDefender`）。而 `_ReceiveDamage…:63` 的守卫是
                     //    `bastion < 1 || deathType == 10` ⇒ **堡垒不接反击**。
-                    //    ⚠️ 我们这边没有 `deathType` 参数，映射方式就是**这一处实参**
-                    //      （与 `TryCreditKill` 注释里那句「我们的映射 = 靠调用点」同一套口径）。
-                    int back = Hurt(ctx, attacker, counterAtk, target.Name, ignoreBastion: true);
+                    //    🔴 **2026-10-24（引擎线 `G2` · `C5` §1）：死因现在真传下去了** ——
+                    //    改前这里只有 `ignoreBastion: true` 这一个实参在「映射」它，死因本身仍是
+                    //    `Unknown` ⇒ 补了 175 发射口也发不出去。判据 = `C5` §1 证据⑥ + `:366-369`
+                    //    （`damageType == 8 VulnerableCombat` 且死者是**当前回合方** ⇒ 10）。
+                    //    ⚠️ 攻击**防御方**那一支是 `combatDefender(15)`，**不发任何事件**（白名单外）
+                    //      ⇒ 这里只给反击这一处打 10，⛔ 别无脑往别的伤害上贴。
+                    int back = Hurt(ctx, attacker, counterAtk, target.Name, ignoreBastion: true,
+                                    deathType: UnitDeathType.CombatAttacker);
                     ctx.Log($"{target.Name} 反击 {attacker.Name}："
                           + $"{counterAtk} 攻 → 实际 {back} 伤（{attacker.Name} 剩 {attacker.Health}）");
                 }
@@ -6384,6 +6448,10 @@ namespace RuleEngine
                         //     `grep -n "AddTraitSilently(param_1,100" *.c` 只此一条），
                         //    而 `IsStunned` 现在是它的派生属性。
                         stunVictim.AddKeyword(KeywordTable.Stun, 1);
+                        // 🆕 2026-10-24（引擎线 `G1b` · `C2` §6）：状态施加事件。
+                        //   本支已被 `!stunVictim.IsStunned` 把着 ⇒ 一定**首次**（`Amount = 0`，
+                        //   由 `SyncKeywords` 的「新出现」路演，见 `EvtKind.StatusApplied` 的 doc）。
+                        EmitStatusApplied(ctx, stunVictim, KeywordTable.Stun, reapply: false);
                         // 🆕 2026-10-09（`A1121`）：**施加时清「回合开始时就在这个状态」的闸门** ——
                         //    判据 = `CardScript__Stun.c:98`（`*(char *)(card + 0x55) = 0`）。
                         //    ⇒ 这一下眩晕在**本回合末不会被摘**，要到它自己的下个回合末才摘。
@@ -7348,10 +7416,14 @@ namespace RuleEngine
         ///    而我们的解析层**没有** `TargetsAffected` 这个字段，改用
         ///    「**打一个 · 敌方 · 由玩家点 · 不是自动/随机/相邻/每个/无主语那几档**」——
         ///    把 `lowestHealth`(240) / `allEnemies` / `randomEnemies` 那几档**分开**
-        ///    （见 <see cref="DealsToPickedTarget"/>）。⇒ 裸 `Deal N damage`（自动选血最低）、
-        ///    `Deal N damage to all enemies`、`to a random enemy`、`to an enemy and adjacent units`
-        ///    都**不计入**（与原版 `!= 30` 同向）。
-        ///    🔴 **未逐字段对上 `TargetsAffected` 的枚举值**（我们没有那个字段，映射是推的）——
+        ///    （见 <see cref="DealsToPickedTarget"/>）。
+        ///    🔴 **2026-10-24（引擎线 `G5`）就地订正（铁律 5）**：这句原来写「⇒ 裸 `Deal N damage`
+        ///    （自动选血最低）…**不计入**」—— **作废**。裸 Deal 的原版 `ta = 30 (target)`（33/33 张现读，
+        ///    见 `资料/普查产出_1024/C4_ta240是否含督军.md` §六·2）⇒ 改后它**就是**「玩家点的那个目标」，
+        ///    因此**要计入**（`Duty: Deal 8 damage` 那族以前预览里是 0，改后才有数 —— 与原版同向）。
+        ///    仍然**不计入**的：`to all enemies`（`Count == 0`）、`to a random enemy`、
+        ///    `to an enemy and adjacent units`、`with lowest Health`（= `PickMost`，240 那一档）。
+        ///    🔴 **未逐字段对上 `TargetsAffected` 的枚举值**（这一处仍是结构等价物、映射是推的）——
         ///    如实标注，别当已核实。
         /// </summary>
         public static List<int> ActiveAbilityDamageEntries(BattleContext ctx, int p, int slot,
@@ -7970,8 +8042,14 @@ namespace RuleEngine
         /// ⚠️ 没延后（批外）的死亡仍旧由**调用点**当场记账（`EffectResolver` 那几路 /
         /// `ResolveEffect` 的 `damage` 支）—— 攻击那一路**不再有尾段记账**，一律经本形参到
         /// `FlushDeaths` 结算。本形参在批外那条路上不触发任何结算。</param>
+        /// <param name="deathType">🔴🆕 **2026-10-24（引擎线 `T03·c` · `C1` §3）：死因**（<see cref="UnitDeathType"/>）——
+        /// 随死亡进 `PendingDeath`，`20 ability` 时向在场监听者发 `UnitDeathByAbility(180)`。
+        /// **缺省 `Unknown(0)` = 不发**；今天显式传 `Ability` 的是「效果伤害 / 摧毁 / 哨戒 / 星镖」四路。
+        /// ⚠️ 与 <paramref name="actingCard"/> **不是同一维**：那一维判「记不记击杀」（`15`/`20` 都记），
+        /// 这一维才分得出「能发哪条死因触发」。</param>
         static int Hurt(BattleContext ctx, UnitState u, int amount, string source, int killer = -1,
-                        bool ignoreBastion = false, UnitState actingCard = null)
+                        bool ignoreBastion = false, UnitState actingCard = null,
+                        int deathType = UnitDeathType.Unknown)
         {
             // 🔴 **2026-10-22（`W62` · R1）：`Hurt` 也是「拥有死亡/广播路径的入口」⇒ 必须自带 `ActionScope`。**
             //   触发改「只入队」之后，本函数里那几拍（Penitence / Ecstasy / Cruelty → `FireTriggerAt`，
@@ -7983,12 +8061,12 @@ namespace RuleEngine
             //   ⚠️ 嵌套安全：已经在一条动作里 ⇒ 内层空转（`ActionPump.cs` 的设计口径 ②）。
             //   ⚠️ **别删 `ApplyDamage` 的那个作用域**（它自己也可能被单独调用，嵌套无害）。
             using (BeginAction(ctx))
-                return HurtCore(ctx, u, amount, source, killer, ignoreBastion, actingCard);
+                return HurtCore(ctx, u, amount, source, killer, ignoreBastion, actingCard, deathType);
         }
 
         /// <summary><see cref="Hurt"/> 的原文（2026-10-22 `W62` · R1 抽出，逐字搬下来）。</summary>
         static int HurtCore(BattleContext ctx, UnitState u, int amount, string source, int killer,
-                            bool ignoreBastion, UnitState actingCard)
+                            bool ignoreBastion, UnitState actingCard, int deathType)
         {
             // 已经死了的不再挨第二遍。
             // 什么时候会走到这：攻击者先被对方的**忏悔**打死了，回来还要结算反击 ——
@@ -8108,7 +8186,7 @@ namespace RuleEngine
                     FireTriggerOnSide(ctx, ctx.Active, KeywordTable.Cruelty);
             }
 
-            RemoveIfDead(ctx, u, killer, actingCard);
+            RemoveIfDead(ctx, u, killer, actingCard, deathType);
             return dealt;
         }
 
@@ -8118,20 +8196,23 @@ namespace RuleEngine
         /// ⚠️ 别加默认形参去和 `EffectResolver.HurtForTest` 重载撞车 —— 那个是 4 参版本，
         /// 4 参调用会同时匹配两个重载 ⇒ 编译期二义性。</summary>
         public static int HurtWithSourceForTest(BattleContext ctx, UnitState u, int amount, string source,
-                                                int killer = -1, UnitState actingCard = null)
+                                                int killer = -1, UnitState actingCard = null,
+                                                int deathType = UnitDeathType.Unknown)
         {
-            return Hurt(ctx, u, amount, source, killer: killer, actingCard: actingCard);
+            return Hurt(ctx, u, amount, source, killer: killer, actingCard: actingCard, deathType: deathType);
         }
 
         /// <summary>死了就从棋盘上拿掉（督军除外 —— 它留在槽 4，胜负交给 <see cref="CheckWinner"/>）</summary>
-        static void RemoveIfDead(BattleContext ctx, UnitState u, int killer = -1, UnitState actingCard = null)
+        static void RemoveIfDead(BattleContext ctx, UnitState u, int killer = -1, UnitState actingCard = null,
+                                 int deathType = UnitDeathType.Unknown)
         {
             int owner, slot;
             if (!FindUnit(ctx, u, out owner, out slot)) return;
             // 🔴 **`maySurvive: true`**：这一跳**只**由 `Hurt`（= **伤害**那条路）调
             //   ⇒ 正是原版 `survivor` 挂着的那个入口（`CheckIfDead`，见 `CleanupDeaths` 的形参注释）。
             //   ⛔ 别的调用点（`DoDestroy` / `DestroyRemnants` / 收走灵魂石）**一律不要传**。
-            CleanupDeaths(ctx, owner, slot, killer, maySurvive: true, actingCard: actingCard);
+            CleanupDeaths(ctx, owner, slot, killer, maySurvive: true, actingCard: actingCard,
+                          deathType: deathType);
         }
 
         /// <summary>
@@ -8362,6 +8443,47 @@ namespace RuleEngine
         }
 
         /// <summary>
+        /// 🔴🆕 **2026-10-24（引擎线 `G2` · `C5` 顺手发现 11）：按「伤害来源卡」定死因 ——
+        /// `tactic(30)` 还是 `ability(20)`。**
+        ///
+        /// <para>**判据 = 原版 `BattleManager__GetDeathType.c:140-146`（另一处 `:249-255` 同形）**：
+        /// 先拿伤害来源那张牌的 `cardType` 进 `SupportMethods.IsSpellType`
+        /// （`SupportMethods__IsSpellType.c:3-6`：**只认 `0x14 Tactic(20)` / `0x28 Whispers(40)`**），
+        /// 为真 ⇒ **直接 `return 0x1e(30 tactic)`**，不再看 damageType。</para>
+        ///
+        /// <para>⇒ 我们改前把**战术卡 / 密令卡造成的伤害致死**一律打成 `ability(20)`，那是错的：
+        /// 30 不在 `RawCardScript__OnMinionDeath.c` 的白名单里 ⇒ 原版**一条死因事件都不发**，
+        /// 我们会错误地发 `UnitDeathByAbility(180)`（池内 `AM9` / `AM34` / `SOR29` / `UM99` 带 180）。</para>
+        ///
+        /// <para>**来源卡的取法**（与本仓既有优先级逐字一致，见 `BattleContext.CreationSource` 的 doc）：
+        /// `ActingUnit != null` ⇒ 它的 `Card`（= 原版 `AbilityData.actingCard` / `DamageInfo.actingCard`）；
+        /// 否则回落 `CreationSource`（战术卡整条结算 / 常驻效果的作用域里 = 写出这张效果的那张卡）。
+        /// 战术卡那一路 `ActingUnit` 是 `null`（`ResolveOps(…, source: null, …)`）⇒ 靠回落档拿到它。</para>
+        ///
+        /// <para>⚠️ **没有来源卡**（`null`）⇒ 返回 `ability(20)`，与改前逐字相同（⛔ 别改成 30：
+        /// 原版 `GetDeathType.c:133` 的 `if (lStack_110 == 0) goto …` 就是「没有 actingCard ⇒
+        /// 跳过 spell 判、落到 damageType 那几档」）。</para>
+        /// </summary>
+        internal static int DeathTypeOfSource(BattleContext ctx)
+        {
+            if (ctx == null) return UnitDeathType.Ability;
+            var src = ctx.ActingUnit != null ? ctx.ActingUnit.Card : ctx.CreationSource;
+            if (src == null) return UnitDeathType.Ability;
+            // 我们的 `type` 字符串 ↔ 原版 cardType 的映射（唯一判据 → `WhenEvent.ActingCardTypeMatches`）：
+            // `tactic` / `defence` = Tactic(20) · `whispers` = Whispers(40) —— 这三档都是 spell。
+            string t = src.Type;
+            if (string.Equals(t, "tactic", StringComparison.OrdinalIgnoreCase)
+                || string.Equals(t, "defence", StringComparison.OrdinalIgnoreCase)
+                || string.Equals(t, "whispers", StringComparison.OrdinalIgnoreCase))
+                return UnitDeathType.Tactic;
+            return UnitDeathType.Ability;
+        }
+
+        /// <summary>自检用：<see cref="DeathTypeOfSource"/> 的只读门 —— **纯查询、不改变任何行为**
+        /// （同 `RuleCore.HurtWithSourceForTest` 的纪律）。Editor 程序集看不见 `internal`。</summary>
+        public static int DeathTypeOfSourceForTest(BattleContext ctx) { return DeathTypeOfSource(ctx); }
+
+        /// <summary>
         /// 生命归零的单位离场。督军不离场（留在槽 4），胜负交给 CheckWinner
         /// </summary>
         /// <param name="killer">击杀方（0/1）。`-1` = 无来源。**只作 `PendingDeath.Killer` 的诊断留痕** ——
@@ -8390,8 +8512,14 @@ namespace RuleEngine
         /// 留在队列里、由调用方 flush。** 只有 `FlushDeaths` 的逐死者循环传 `true` —— 它要把新入队的
         /// 追加到**本地队列尾部**（原版 `AddAutoActionToQueue` 的 FIFO：[A,B] 里 A 打死 C ⇒ [A,B,C]）。
         /// ⛔ 别的调用点别传。</param>
+        /// <param name="deathType">🔴🆕 **2026-10-24（引擎线 `T03·c` · `C1` §3）：死因**（<see cref="UnitDeathType"/>）。
+        /// 只服务一件事 —— 按原版 `RawCardScript__OnMinionDeath.c:25-37` 的白名单向在场监听者发
+        /// **`10 → 175` · `20 → 180` · `40 → 170`**（✅ `G2` 已补齐三族；其余死因**一条都不发**）。
+        /// **缺省 `Unknown(0)` = 不发**（⛔ 别猜）。当前显式传值的只有「效果伤害 / 摧毁 / 哨戒 / 星镖
+        /// ⇒ `DeathTypeOfSource`」「反击 ⇒ `CombatAttacker`」「回合末中毒 ⇒ `Poison`」那几路。</param>
         static void CleanupDeaths(BattleContext ctx, int p, int slot, int killer = -1, bool maySurvive = false,
-                                  UnitState actingCard = null, bool holdNestedDeaths = false)
+                                  UnitState actingCard = null, bool holdNestedDeaths = false,
+                                  int deathType = UnitDeathType.Unknown)
         {
             if (!BoardSpec.IsValid(slot)) return;
 
@@ -8559,7 +8687,7 @@ namespace RuleEngine
                 // 🔴 **2026-10-22（`W63` #5–#8）**：**`maySurvive` 也必须一起带走** ——
                 //   摧毁那条路（`maySurvive: false`）同样会走到这一跳，而入队时丢掉它、
                 //   出队时硬编码 `true` ⇒ 摧毁打不穿 Survivor。见 `PendingDeath.MaySurvive`。
-                ctx.AddPendingDeath(p, slot, killer, actingCard, maySurvive);
+                ctx.AddPendingDeath(p, slot, killer, actingCard, maySurvive, deathType);
                 return;
             }
             // ---- 猎杀标记：**带标记的敌方部队被摧毁时** ----
@@ -8799,8 +8927,10 @@ namespace RuleEngine
             //      正文 `Backlash: Deal 1-2 damage to all enemies`；`animTimes` 里两条 `tg`
             //      依次是 **80 → 81**（原版演出也是先反噬、后自爆）。
             //
-            //  ⇒ 本方法的次序 = **Backlash(80) → Unstable(81) →（deathType 175/180/170：我们还没实现，
-            //     见判据表 D6，⛔ 别在这一笔里顺手加）→ 观察者 Die 广播(90)**。
+            //  ⇒ 本方法的次序 = **Backlash(80) → Unstable(81) → 死因触发（175/180/170，
+            //     ✅ 2026-10-24（`G2` · `C5` §1）已实现：见下面那支 `switch`）→ 观察者 Die 广播(90)**。
+            //     ⚠️ 旧话「我们还没实现、⛔ 别在这一笔里顺手加」已过期（本笔就是那一笔）——
+            //     但**次序**仍照原版：死因族排在观察者之前。
             //
             //  🔴 **2026-10-20 就地订正（铁律 5）**：改之前这里写着两条错话 ——
             //    ① 「Unstable **排在 Backlash 之前** —— 我们自己的 `rule_core.gd:4529` 就是这个顺序」；
@@ -8876,6 +9006,11 @@ namespace RuleEngine
                                //   判据 → `W63_abilityContext_施工简报.md` §4·C4 · `CardAbility__IsRightContext.c:52-55`。
                                actor: _bu,
                                requireActorInPlay: ActorMustBeInPlayForTrigger(
+                                   _bu.Card, "Unstable", KeywordTable.Unstable),
+                               // 🔴🆕 2026-10-24（引擎线 `A1` 第 5 件）：同上，把 `abilityContext`
+                               //   传下去（现读 18 条 `Unstable` 全是 **40 `InPlayOrDying`**）——
+                               //   别再让「缺列(=Play)」被当成「未知」而跳过入队闸。
+                               abilityContext: AbilityContextOfAbilityV14(
                                    _bu.Card, "Unstable", KeywordTable.Unstable));
             }
 
@@ -8885,6 +9020,31 @@ namespace RuleEngine
             // ⚠️ `who = p`（**死者的阵营**）—— 极性判据（friendly / enemy）在
             //    `WhenEvents.Matches` 里拿它和监听者的阵营比。给错就等于整档反着触发。
             BroadcastWhen(ctx, WhenEventKind.Die, p, u.Card, u);
+
+            // ---- 🔴🆕 **死因分派（原版 `RawCardScript__OnMinionDeath.c:25-37`）** ----
+            //   原版同一个调用里：`10 → 175 UnitDeathAttacking` / **`20 → 180 UnitDeathByAbility`** /
+            //   `40 → 170 UnitDeathByPoison`，其余（`0 undefined` / `15 combatDefender` /
+            //   `30 tactic` / `50 collectWaystone`）**一条都不发**（`:34` 的 `return`）。
+            //   ✅ 2026-10-24（引擎线 `G2` · `C5` §1）：`170` / `175` 两条已补上 ——
+            //   改前这里只有 `20 → 180` 一道闸（单闸），`10` / `40` 即使打了死因也发不出去。
+            //   ⚠️ **效果仍由正文后置条件 `targetdies` 承担**（4 张带 180 的卡全走那条路）——
+            //   这里补的是**结构化发射口**（表现层归口 + 将来结构化 ability 的挂点），⛔ 不结算效果。
+            //   ⚠️ 次序：原版是**逐监听者**「80/81（自己）或 90（观察者）→ 死因触发」（同一个 `OnMinionDeath`
+            //   调用里）；我们是**逐死者**聚合再发 ⇒ 多监听者时的**交错次序**与原版不同（如实记着）。
+            //   这三条只发 `EvtKind.Trigger`、无规则副作用，所以先按本层落点。
+            switch (deathType)
+            {
+                case UnitDeathType.CombatAttacker:     // 10 → 175（在攻击中死 = 被反击打死）
+                    EmitDeathAttackingTriggers(ctx, p, u);
+                    break;
+                case UnitDeathType.Ability:            // 20 → 180
+                    EmitDeathByAbilityTriggers(ctx, p, u);
+                    break;
+                case UnitDeathType.Poison:             // 40 → 170
+                    EmitDeathByPoisonTriggers(ctx, p, u);
+                    break;
+                // 其余（0 / 15 / 30 / 50）**一条都不发** —— 原版白名单只有上面三条。
+            }
 
             // 🆕 2026-09-16 「它本回合内死了就把这条效果转给另一个」（`BL74 Spreading Corruption`）——
             //    登记在 `EffectResolver.DoGive`，这里消费。**排在死亡广播之后**：
@@ -9136,7 +9296,7 @@ namespace RuleEngine
                 // 🔴 `holdNestedDeaths: true` —— 本死者触发段里的嵌套死亡**留给本循环**
                 //   追加到队尾（见上面那段 P2-1 判据）。
                 CleanupDeaths(ctx, nowP, nowSlot, pd.Killer, maySurvive: pd.MaySurvive,
-                              holdNestedDeaths: true);
+                              holdNestedDeaths: true, deathType: pd.DeathType);
                 // ---- 这一个死者的击杀记账（`W58-INTERLEAVE` 的交错点）----
                 // ⚠️ 放在 `CleanupDeaths` **之后**（见上面那段判据）；`TryCreditKill` 自己判
                 //   「凶手还活着 / 还在场 / 属于当前回合方 / 死者非督军非残骸」。
@@ -11644,7 +11804,11 @@ namespace RuleEngine
                     int vOwner = OwnerOf(ctx, t);
                     // `W58-INTERLEAVE`：来源卡随死亡进 `PendingDeath`；死亡若被延后进批，
                     // 由 `FlushDeaths` 在死者自己的那一拍上记账（批外仍当场记）。
-                    int dealt = Hurt(ctx, t, spec.Amount, by + " 的效果", actingCard: source);
+                    int dealt = Hurt(ctx, t, spec.Amount, by + " 的效果", actingCard: source,
+                                     // 🔴 2026-10-24（`C1` §3）：效果伤害的死因按**来源卡种**定 ——
+                                     //   单位能力 ⇒ `ability(20)`；战术卡 / 防御卡 / 密令卡 ⇒ `tactic(30)`
+                                     //   （判据 → `DeathTypeOfSource`）。
+                                     deathType: DeathTypeOfSource(ctx));
                     if (!ctx.DeathsDeferred) TryCreditKill(ctx, source, vOwner, t);
                     ctx.Log($"{by} 的效果「{spec.Source}」对 {t.Name} 造成 {dealt} 伤（剩 {t.Health}）");
                     break;

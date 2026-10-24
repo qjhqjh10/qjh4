@@ -47,6 +47,17 @@
 //       · **升级** = 多余副本够就升一级，**等级 = 卡框档**（`CardView` 把 `CardProgress.Level` 喂给
 //         `CardArt.Frame/Sdf` 的 `tier`）⇒ 重画后卡框换成新档；满级 ⇒ `Content` 关 + `No Upgrade Warning` 露。
 //     ⇒ 判据与落地见 `CardProgress`（存档段 / `Level` / `Wildcards`）与 `BuildCrafting` / `BuildUpgrade`。
+//     🆕 **2026-10-24（主对话裁定 · 铁律 5 订正）**：「创建副本」那条链**补齐了原版的后半段** ——
+//       原版 `CraftingPanel.TryCraftingInternal` 是「**发出合成请求之后、同一次调用里**就 `DoVFX()`」
+//       ⇒ 我们现在 = `CraftHit` → `OnCraftClicked` → `TryCraft`（真请求：`DoCraft`，扣通配符 + owned+1）
+//       → `PlayCraftVfx`（原版 `craftVFXs[]` 的 **按钮 + 前台卡**两件，`WarpforgeUiEffect.PlayWildcardCraft`）。
+//       🔴 **失败 ⇒ 不播**（原版失败走 `OnFail_22_1` 的 `ShowErrorMessage(10)`，不调 `DoVFX`）。
+//       ⚠️ 2026-10-18 那版「点击但不起作用、保持可点外观」**已作废**；可交互度回到原版
+//       `CraftingPanel__CheckButtons.c` 的判据（**有同稀有度通配符才可点**）。详见 `OnCraftClicked`。
+//       🆕 **2026-10-24（A6）补上**：原版那**另一支** ——「**传奇 且 `owned == 1` ⇒ 先弹确认窗**、
+//       确认前**一件特效都不播**」（`CraftingPanel__TryCrafting.c:26-49`）现在也照做了：
+//       `OnCraftClicked` 前加闸（= `TryCrafting` 那一层）→ `ShowMessagePopUp` 那扇 2 按钮窗
+//       （左 `Cancel` / 右 `OK`）→ `OK` 才走 `CraftNow()`（= `TryCraftingInternal`）。见 `OnCraftClicked`。
 //     ⚠️ **仍然保留的两处「我们编的」**：升级消耗表（`NeedCopies/NeedGold/Points`，原版在服务端
 //     `CardTierConfig`；照实拍那个数据点做的梯度，用户 2026-09-22 已裁决照办）· 通配符的**初始**库存
 //     （原版是服务端发放，没有本地发放源）。
@@ -70,7 +81,7 @@
 //     （**不是缺口**）；同族的眼睛钮恰好相反（原版战斗版也没有、**是我们多建了一颗** ⇒ 已删）。
 //     判据全文 → `资料/普查产出_1017/W_B4_战斗详情窗.md`（+ 六条断言在 `Editor/BattleScene.cs` 的 §A860）。
 using System.Collections.Generic;
-using DG.Tweening;          // 换位那两条补间（`CardTween.ToPose` 返回 `Tween`，`OnComplete` 是它的扩展方法）
+using DG.Tweening;          // 换位那两条补间（`CardView.TweenPose` 返回 `Tween`，旧注释写的 `CardTween.ToPose` 已于 2026-10-24 `A11` 退役）
 using UnityEngine;
 using RuleEngine;
 
@@ -303,6 +314,17 @@ namespace CardPresentation
             _owned.Clear(); _lvl.Clear(); _wild.Clear();
             _persist = false;      // 本进程后续所有 `Save()` 变成空操作
             _loaded = true;        // 跳过 `EnsureLoaded()` 的读盘
+        }
+
+        /// <summary>🆕 **2026-10-24**：自检用 —— 把某一档通配符库存**设成绝对值**
+        /// （用来摆「0 张」那一档，验「没有万能卡 ⇒ **不许播特效**」，见 `Editor/CollectionScene.cs`）。
+        /// <para>与 <see cref="ResetForTest"/> 同一族（那个管清零 / 关落盘，本方法管摆单档）；
+        /// ⚠️ 只有 `Editor/**` 的自检该调它 —— ⛔ 别在运行时路径里拿它当「发卡 / 发通配符」的发放源
+        /// （通配符的发放源在原版是服务端，我们这边如实标注为「初始 99/档」）。</para>
+        /// <para>不落盘（`Save()` 不在这里调）：自检里 `_persist` 已是 false；就算不是，摆库存也不该改玩家存档。</para></summary>
+        public static void SetWildcardsForTest(string rarity, int n)
+        {
+            _wild[(rarity ?? "").ToLowerInvariant()] = Mathf.Max(0, n);
         }
     }
 
@@ -678,9 +700,13 @@ namespace CardPresentation
         //    `[CardDetail] Close/Hide …` 在不在，一眼就能分开「关窗跑了」与「关窗根本没跑」。
         //
         // ② **把「相关卡扇形」的临时状态收干净**（任务书第 4 条）。换位那一叠补间是
-        //    `CardTween.ToPose(tr, …)` / `CardFan.TweenTint(v, …)`，两者的 `CardTween.Use(..., link)` 默认带
+        //    `CardView.TweenPose` / `CardFan.TweenTint(v, …)`，两者的 `CardTween.Use(..., link)` 默认带
         //    `SetLink(link.gameObject)`（`Core/CardTween.cs` 的 `SetLink(link.gameObject)`）⇒ **正常情况下**物体 `SetActive(false)` 时
-        //    DOTween 自己会杀。但 `LinkEnabled` **可以**被 `WF_NO_SETLINK=1` 关掉（那是 `CardTween` 的 A/B 开关，
+        //    DOTween 自己会杀。
+        //    （`CardView.TweenPose` 那条**另外**还 `SetTarget(transform)` —— `DOTween.To` 建出来的补间默认没有 target，
+        //      不设的话外面 `transform.DOKill()` 掐不到它；旧入口 `CardTween.ToPose` 已于 2026-10-24 `A11` 退役，
+        //      判据见 `SwapToFront` 里那一段。）
+        //    但 `LinkEnabled` **可以**被 `WF_NO_SETLINK=1` 关掉（那是 `CardTween` 的 A/B 开关，
         //    见 `CardTween.LinkEnabled` 的注释）—— 那一档下补间**活得比窗长**：0.25 s 后的 `OnComplete`
         //    （`SwapToFront` 里那一段）会去写 `_slotDefs` / `Find(transform, …)` / `RefreshButtons()`；
         //    玩家若在那一刻已经重开（`Build()` 把整棵子树销毁重建），那些引用就是**已销毁对象**
@@ -716,7 +742,7 @@ namespace CardPresentation
             {
                 var v = SlotViews[i];
                 if (v == null) continue;                    // 空槽 / 已销毁（Unity 假 null）
-                v.transform.DOKill();                       // 位姿补间（`CardTween.ToPose` 的 target = Transform）
+                v.transform.DOKill();                       // 位姿补间（`CardView.TweenPose` 那条的 target = Transform，见 `SetTarget`）
                 DOTween.Kill(v);                            // 着色补间（`CardFan.TweenTint` 的 target = CardView）
             }
             _swapping = false;
@@ -1041,29 +1067,44 @@ namespace CardPresentation
             a.ArtOverdraw = false;    // 让位那张 → `CardImageController` 状态 0
 
             var pa = a.transform.position; var pb = b.transform.position;
-            float ra = a.transform.eulerAngles.z, rb = b.transform.eulerAngles.z;
-            float sa = a.transform.localScale.x, sb = b.transform.localScale.x;
+            float ra = a.transform.localEulerAngles.z, rb = b.transform.localEulerAngles.z;
+            // 缩放跟着【槽位】走：被点那张 → 前台档（= 前台那张现在的**基础**缩放）；前台那张 → 让位的槽位档。
+            // 🔴 **取 `BaseScale`、⛔ 不是 `localScale.x`** —— `localScale` 含高亮系数（`_hlMul`），
+            //    而 `TweenPose` 的 `scale` 形参正是写 `_baseScale` 的那一个（同 `SetPose`）。
+            float sa = a.BaseScale, sb = b.BaseScale;
 
             // 六条 tween 全用同一个时长（原版 `relatedCardSwapTime` = 0.25s）：
             // 被点那张 → 前台位；前台那张 → 被点卡的槽位。
             //
-            // 🔴 **缓动必须传 `Linear`**（2026-10-24 · A22 审计，铁律 5 就地订正：原来传的是 `OutQuad`）：
-            //   ① 原版 `CardDisplayWindow__ChangeCardPosition.c` 全文只有 **一个** `DOTween.Sequence()` +
-            //      六条 `Join(...)`，**没有对 Sequence 调过 `SetEase`**（`grep SetEase` 该文件 0 命中；
-            //      同类证据：`CardScript._AttackMeleeAnim_d__357__MoveNext.c` / `ResetBodyTween__GetTween.c`
-            //      里那几处 `SetEase` 的**第一个实参都是子 tween**，不是序列）。
-            //   ② 反编译 `DOTween.dll` 实读：`Sequence.Setup` 里 `easeType` **硬编码成 `Ease.Linear`(1)**
-            //      （`Sequence::Setup` IL_003a `ldc.i4.1; stfld Tween::easeType`），而 `Tweener.Setup` 才取
-            //      `DOTween.defaultEaseType`（= 6 OutQuad）。`Sequence.DoApplyTween` 开头
-            //      `if (easeType == Linear) skip` ⇒ **没写 SetEase 的 Sequence = 整条时间轴不弯曲**，
-            //      每条子补间各吃自己的 OutQuad。
-            //   ③ `CardTween.ToPose` 把三条子补间 `Join` 成一个 **Sequence**、再把传入的 ease 挂到
-            //      **Sequence 上**（`DOTween.XML`：`SetEase` "If applied to Sequences eases the whole
-            //      sequence animation"）⇒ 传 `OutQuad` = 子补间的 OutQuad 之上**再弯一次**（静默、只在动起来
-            //      时看得出）。传 `Linear` 才是原版那条：子补间各自 OutQuad、序列恒等。
-            //   ⚠️ 战斗侧同名逻辑 `Battle/CardDisplayWindow.cs:1539/1560` 走的是**单条** `TweenPose`
-            //      （`DOTween.To`，不是 Sequence）⇒ 那边传 `OutQuad` 是对的，两处不要互相抄错。
-            CardTween.ToPose(b.transform, pa, ra, sa, SwapTime, DG.Tweening.Ease.Linear).OnComplete(() =>
+            // 🔴 **2026-10-24（`A11` · 铁律 5 就地订正）：位姿补间从 `CardTween.ToPose` 换成 `CardView.TweenPose`。**
+            //   判据 = `Core/CardView.TweenPose` 的 doc（`T04`）：`CardTween.ToPose` 是
+            //   `DOMove/DOLocalRotate/DOScale`，**直写 `transform.localScale`**，而本类的缩放是
+            //   「**基础缩放 × 高亮系数**」（`BaseScale` / `ApplyScale`）⇒ 补间期间 `_baseScale` 一直停在
+            //   **原槽位**的值上：换位一结束，任何一次 `SetPose`（重排 / 切分辨率）或 `SetHighlightScale`
+            //   都会把卡**弹回旧缩放**（静默；图上只表现为「换位后位置对、大小不对」）。
+            //   战斗侧同名逻辑 `Battle/CardDisplayWindow.cs` 早已在 `T04` 改掉，**本窗一直挂着**（账在
+            //   `资料/普查产出_1024/A3_手牌卡面五件.md` §六）⇒ 本笔收口。
+            //
+            //   🔴 **ease 的约定在两个入口上是【反】的（⛔ 别对调）**：
+            //     · `CardTween.ToPose` = 一个 Sequence + 3 条 Join ⇒ 只能传 **`Linear`**
+            //       （Sequence 的 ease 是整条时间轴的：传别的 = 在子补间的 OutQuad 之上再弯一次）；
+            //     · `CardView.TweenPose` = **单条** `DOTween.To`（每帧经 `SetPose` 写）⇒ 传 **`OutQuad`**
+            //       （= 原版那三条单补间各自吃的 `DOTween.defaultEaseType` = 6）。
+            //   判据：原版 `CardDisplayWindow__ChangeCardPosition.c` 全文一个 `DOTween.Sequence()` + 六条
+            //   `Join`、**没有** `SetEase`（`grep SetEase` 0 命中）⇒ 每条子补间各走默认 OutQuad
+            //   （`DOTween.dll` 反编译：`Sequence.Setup` 把序列自己的 `easeType` 硬编码成 `Linear`、
+            //   `DoApplyTween` 在 Linear 时整段跳过缓动；`Tweener.Setup` 才取 `DOTween.defaultEaseType`）。
+            //   改坏法：这里退回 `Linear` ⇒ 半程位移 0.5（OutQuad = 0.75）；退回 `CardTween.ToPose(…, OutQuad)`
+            //   ⇒ 0.9375（二次弯曲）。
+            //
+            //   ⚠️ **`pos` 是【局部】位**（`TweenPose` 同 `SetPose`）：两张卡各自挂在自己的位姿节点下
+            //   （`MenuDraw.Node`）⇒ 目标**世界**位必须经**目标卡自己的父件**反算回局部。
+            //   今天父件是纯平移（rotation / scale 恒等）⇒ 与直接传世界位等价，但⛔ 别因此省掉这一步
+            //   （父链一有旋转/缩放就分家 —— 同 `CardView.TweenPose` doc 里那条 ⚠️）。
+            Vector3 pbInB = b.transform.parent != null ? b.transform.parent.InverseTransformPoint(pa) : pa;
+            Vector3 paInA = a.transform.parent != null ? a.transform.parent.InverseTransformPoint(pb) : pb;
+
+            void FinishSwap()
             {
                 // 层级对调：**两两互换** sibling 序（照原版 `SetSiblingIndex`）
                 int ia = a.transform.GetSiblingIndex(), ib = b.transform.GetSiblingIndex();
@@ -1083,8 +1124,13 @@ namespace CardPresentation
                 RefreshButtons();
                 Debug.Log("[CardDetail] 换位完成：前台现在是「" + (FrontDef != null ? FrontDef.Name : "?")
                         + "」（收尾重设了 lore / 语音 / 眼睛钮 —— 原版 `CardSwapFinished`）");
-            });
-            CardTween.ToPose(a.transform, pb, rb, sb, SwapTime, DG.Tweening.Ease.Linear);   // 同上：Sequence 只能 Linear
+            }
+
+            // ① 被点那张 → 前台位（`FinishSwap` 挂在它身上：原版换位收尾也是等这一条补间跑完）
+            var twB = b.TweenPose(pbInB, ra, sa, SwapTime, DG.Tweening.Ease.OutQuad);
+            if (twB != null) twB.OnComplete(FinishSwap); else FinishSwap();   // 兜底：`TweenPose` 在 `duration<=0` 时返回 null
+            // ② 前台那张 → 被点卡的槽位（同上：单条补间 ⇒ `OutQuad`，⛔ 不是 Sequence 的 `Linear`）
+            a.TweenPose(paInA, rb, sb, SwapTime, DG.Tweening.Ease.OutQuad);
             // 着色跟着换（原版 `ChangeCardPosition.c:203-221` 那两条 tween，同一时长）：
             // 去前台那张 → 白，让出前台那张 → `cardInBackGroundColorTint`(0.65)。
             CardFan.TweenTint(b, CardFan.BackTint, CardFan.FrontTint, SwapTime);
@@ -1125,8 +1171,22 @@ namespace CardPresentation
 
         /// <summary>🆕 **2026-10-18**：与 <see cref="WildcardIcons"/> **逐下标对应**的稀有度键
         /// （计数条那 4 格的数字现在读**真库存** `CardProgress.Wildcards(rarity)`，不再是写死的 `99`）。
-        /// ⚠️ 两个数组的次序**必须同序** —— 改一个就要改另一个（下面 `BuildWildcards` 按下标同时用）。</summary>
+        /// ⚠️ 两个数组的次序**必须同序** —— 改一个就要改另一个（下面 `BuildWildcards` 按下标同时用）。
+        /// 🔴 **2026-10-24**：它同时是「稀有度 → 原版 `craftVFXs` 的 1 基 rarity」的**唯一判据**
+        /// （<see cref="CraftRarityIndex"/>）—— ⛔ 别在调用点另写一份 switch。</summary>
         static readonly string[] WildcardRarities = { "common", "rare", "epic", "legendary" };
+
+        /// <summary>稀有度键 → 原版 `CraftingPanel.craftVFXs[]` 的 **1 基 rarity 号**
+        /// （1=Common · 2=Rare · 3=Epic · 4=Legendary）。认不出（`special` / 空）⇒ **0**。
+        ///
+        /// <para>判据（只此一处）：<see cref="WildcardRarities"/> 的下标 + 1。原版那张表的键就是
+        /// `UpgradeFXByRarity.rarity`（场景 `MainMenu Warpforge.unity` 的 `craftVFXs[]`，逐行实读 →
+        /// `WarpforgeUiEffect.WildcardCraftPrefab` 的文件头 ①）。`special` 那一档原版**不能合成**
+        /// （<see cref="Craftable"/> 只放行四档，2026-09-27 用户指出）⇒ 走不到这里。</para></summary>
+        static int CraftRarityIndex(string rarity)
+        {
+            return System.Array.IndexOf(WildcardRarities, (rarity ?? "").ToLowerInvariant()) + 1;
+        }
 
         /// <summary>按稀有度取万能卡图标。**认不出时返回原版 prefab 的默认那张** ——
         /// 原版 `Craft/WC icon` 的 `m_Sprite` 存的就是 `40k_general_wildcard_epic_small`，
@@ -1210,27 +1270,32 @@ namespace CardPresentation
                           1726f - 1307.5f, 10f, 40f, 36f, face: TmpFont.Face.Cjk);
             MenuDraw.Rect(p, CardArt.MenuUi("40K_generic_bt_info"), new PxRect(1740.65f, 161.91f, 1782f, 203.26f),
                           "Craft Info Icon", QCdRow, null, true);
-            // 🔴🔴 **2026-10-18 用户拍板（逐字）：「点击副本，但是不起作用」** —— 本条【推翻】上面 W5 那一段
-            //   「接上真机制」的口径（铁律 5：就地改掉，别留两份说法）：
-            //   ① 面板与按钮**外观照旧**（照参考图）；② 点下去**不改数据** —— 不扣通配符、不动拥有数；
-            //      ③ 钮**保持可点外观**（`Interactable` 恒 `true`，⛔ 别按库存变灰 ——
-            //      用户要的是「点击但不起作用」，不是「点不动」）。
-            //   `DoCraft()` 那套**真扣减机制代码保留**（见该方法），只是**不再从 UI 调**。
-            //   🔴 **同日用户追加（第二次口径）**：「**这个继续保留音效啊**」⇒ 点击**要出按钮音**。
-            //      🆕 **2026-10-18（音效线缺口 `AUD` §三 B2）**：cue 归真 —— 原版
-            //      `Card Displayer Menu For Menu/Card Options Panel/Panel/Crafting Panel/Content/Craft` 的
-            //      `m_onClickSound = 8549838806721213354` = **`ButtonClick Positive`**（同面板 `Upgrade` 同值）
-            //      ⇒ `clickCue: PositiveCue`（⛔ 不是默认 `ButtonClick`）。
+            // 🔴🔴 **2026-10-24 改判（主对话裁定 · 铁律 5 就地订正）**：本段原来的口径是
+            //   2026-10-18 用户那句「**点击副本，但是不起作用**」⇒ 空实现 + `Interactable` 恒 `true`。
+            //   现行口径 = **「请求 + 特效」一起做**（判据 → `资料/任务线/特效线/任务总表.md` 那条
+            //   「锻造按钮的完整链路」）：**⛔ 不合成却播特效 = 假反馈** ⇒ 点一下要**真发合成请求**
+            //   （`DoCraft`：扣 1 张同稀有度通配符 + `owned +1`，**不动货币** —— 单机资源固定 2000），
+            //   **同一拍**再播原版 `craftVFXs` 那两件（见 `OnCraftClicked` / `PlayCraftVfx`）。
+            //   ⇒ 可交互度**回到原版 `CraftingPanel__CheckButtons.c` 的判据**：
+            //     `interactable = CheckForCardCrafting(...)`（**有同稀有度通配符才可点**）。
+            //   ⚠️ **按钮音照旧保留**：用户 2026-10-18 追加「这个继续保留音效啊」；cue 归真 =
+            //     原版 `…/Crafting Panel/Content/Craft` 的 `m_onClickSound = ButtonClick Positive`
+            //     （音效线缺口 `AUD` §三 B2）。
             var craftHit = Hit(p, "CraftHit", b, () => { OnCraftClicked(); }, QCdHit, craftBg, "UI_Button_Mulligan",
                               clickCue: WindowSounds.PositiveCue);
             var craftWb = craftHit != null ? craftHit.GetComponent<WindowButton>() : null;
             if (craftWb != null)
             {
-                craftWb.Interactable = true;      // 用户 2026-10-18：保持可点外观，⛔ 别按库存变灰
+                // 原版 `CheckButtons`：没有通配符 ⇒ `Selectable.interactable = false`（灰掉、点不派发）。
+                int have = CardProgress.Wildcards(Card.Rarity);
+                craftWb.Interactable = have > 0;
                 craftWb.playClickSound = true;    // 用户 2026-10-18 追加：**保留按钮音**（⛔ 别再关掉）
+                if (have <= 0)
+                    Debug.Log("[CardDetail] 「创建副本」那颗钮 = **不可交互**（「" + Card.Rarity + "」通配符 0 张）"
+                            + " —— 判据 = 原版 `CraftingPanel__CheckButtons.c` 的 `set_interactable(CheckForCardCrafting())`");
             }
             else Debug.LogWarning("[CardDetail] 「创建副本」那颗钮的 `WindowButton` 拿不到 ⇒ "
-                                + "**「点击但不起作用」没落地**（不静默）");
+                                + "**「请求 + 特效」没落地**（不静默）");
         }
 
         // ---- ② 升级 ----
@@ -1862,48 +1927,253 @@ namespace CardPresentation
             RebuildKeepingState();
         }
 
-        /// <summary>点「创建副本」那颗钮 —— 🔴 **2026-10-18 用户拍板：点击但【不起作用】**。
+        /// <summary>点「创建副本」那颗钮 —— 🔴 **2026-10-24 改判（主对话裁定）：真发请求 + 同一拍播特效**。
         ///
-        /// <para>用户原话：「关于右边的副本和升级按钮，我的建议是：**点击副本，但是不起作用**」。
-        /// ⇒ 本方法**不改任何数**（拥有数 / 通配符 / 存档一律不动）。
-        /// 🔴 **同日用户追加（第二次口径）**：「**这个继续保留音效啊**」⇒ 点击**有按钮音**
-        /// （`BuildCrafting` 里 `playClickSound = true`）；本方法体只打一行日志，⛔ 别再写成「没声音」。</para>
+        /// <para>**为什么不单接特效**：用户 2026-10-18 曾拍板「点击副本，但是不起作用」；2026-10-24
+        /// 主对话按「**⛔ 不合成却播特效 = 假反馈**」把它改成**两半一起做**（判据 →
+        /// `资料/任务线/特效线/任务总表.md` 那条「锻造按钮的完整链路（请求 + 特效）」）。</para>
         ///
-        /// <para>📌 `DoCraft()`（真扣减：扣 1 张通配符 + 拥有数 +1 + 落盘）**代码保留**，只是**不再从 UI 调** ——
-        /// 用户 2026-10-18 的口径：**按钮保留、点击不生效；真扣减机制留作以后**。
-        /// 将来要恢复，就把本方法体换成 `DoCraft();`（别另写第三份扣减）。</para>
+        /// <para>**链路的形状照原版**（`CraftingPanel__TryCraftingInternal.c`）：
+        /// ① **先发请求**（`CardServices__CraftCard` 的本地等价物 = <see cref="DoCraft"/>：
+        ///   扣 1 张同稀有度通配符 + `owned +1` + 落盘）；② **同一次调用里**再
+        ///   `CraftingPanel__DoVFX()`（`CraftingPanel__TryCraftingInternal.c:51`）—— **不回调、不等服务端**。
+        /// 失败那一支原版走 `OnFail_22_1`（`ErrorPopupWindowController.ShowErrorMessage(10)`）、**不播** ⇒
+        /// 我们这里同样是「请求失败 ⇒ **一件特效都不播**」，只出声。</para>
         ///
-        /// <para>🔴 **改判记录（铁律 5）**：2026-10-18 早些时候（`W5`）这里转发给 `DoCraft()` 真扣减，
-        /// **当天被用户这句推翻**；2026-10-12 那版「只出声、不做机制」也不是现在这个口径
-        /// —— 现在是「**外观可点、点了不改数据、但有按钮音**」（用户同日两次口径的合成）。</para></summary>
+        /// <para>⚠️ **货币不扣**：单机资源固定 2000（用户口径「不做真实经济」）；这里动的只有**通配符**，
+        /// 那正是原版 `This will consume a wildcard` 说的那一样。通配符库存是本地存档
+        /// （`CardProgress.Wildcards`，初始 99/档、没有服务端发放源 —— 如实标注的偏离）。</para>
+        ///
+        /// <para>🔴 **2026-10-24（A6）补齐原版的【闸】**（`CraftingPanel__TryCrafting.c:26-49` 逐句）：
+        /// <code>
+        /// if (card.Rarity != 4) goto normal;                       // 4 = Legendary
+        /// if (InventoryManager.GetOwnedCount(card) != 1) goto normal;
+        /// WindowsManager.ShowPopUp(MenuShop/ExtraLegendaryWarning, localizeTexts:1, closeOnEsc:0,
+        ///                          [Cancel(OnPress=null), OK(OnPress = &lt;TryCrafting&gt;b__21_0)])
+        /// return;                                                  // ← 这一次**不合成、不播**
+        /// normal: TryCraftingInternal();
+        /// </code>
+        /// ⇒ 本方法现在只做**那一层闸**：传奇且拥有数 **== 1** ⇒ 弹确认窗后 `return`；其余一律
+        /// <see cref="CraftNow"/>（= `TryCraftingInternal`）。⛔ 别把闸写进 <see cref="TryCraft"/> /
+        /// <see cref="DoCraft"/> —— 原版那两半在 `TryCraftingInternal` 里，**确认窗的 OK 就是直调它**，
+        /// 闸再写一份会让 OK 自己又弹一次窗（死循环）。
+        ///
+        /// <para>⚠️ **原版条件是 `== 1`**（`!= 1 ⇒ normal`）—— ⛔ 不是 `&lt;= 1` / `&lt; 2`。</para></summary>
         public void OnCraftClicked()
         {
-            Debug.Log("[CardDetail] 「创建副本」点击：用户 2026-10-18 拍板「点击但不起作用」⇒ **什么都不做**"
-                    + "（拥有数 / 通配符 / 存档都不动；真扣减 `DoCraft()` 保留但不由 UI 调用）");
+            if (NeedsLegendaryCraftConfirm())
+            {
+                ShowLegendaryCraftConfirm();
+                return;                                  // = 原版那一支的 `return`（不合成、不播）
+            }
+            CraftNow();
+        }
+
+        /// <summary>= 原版 `CraftingPanel.TryCraftingInternal`（**闸之后** —— 不需要确认、或确认窗点了 OK 时走）：
+        /// ① 先发请求（<see cref="TryCraft"/> → <see cref="DoCraft"/>）；② **同一次调用里**播那两件特效。
+        /// <para>⛔ 别在它里面再判一次「要不要确认」—— 原版 `TryCraftingInternal` 没有那道闸（OK 的回调
+        /// `<TryCrafting>b__21_0` 调的就是它本身，判了会再弹一次窗）。</para></summary>
+        void CraftNow()
+        {
+            int rarity;
+            if (!TryCraft(out rarity)) return;
+            PlayCraftVfx(rarity);
+        }
+
+        /// <summary>原版 `CraftingPanel.TryCrafting` 那道闸的**唯一判据**：
+        /// `rarity == Legendary(4)` **且** `GetOwnedCount(card) == 1`。
+        /// <para>稀有度换算只走 <see cref="CraftRarityIndex"/>（1..4，legendary = 4）、
+        /// 拥有数取 <see cref="CardProgress.Owned"/> —— ⛔ 别在调用点另写一份 `rarity == "legendary"`。</para></summary>
+        bool NeedsLegendaryCraftConfirm()
+        {
+            return Card != null
+                && CraftRarityIndex(Card.Rarity) == 4
+                && CardProgress.Owned(Card.Id, Card.Rarity) == 1;
+        }
+
+        /// <summary>弹那扇确认窗 = 原版 `WindowsManager.ShowPopUp(正文, localizeTexts:1, closeOnEsc:0,
+        /// primaryButton, secondButton)`；宿主 = `PopUpGameWindow` 的 **2 按钮版**（`MessagePopupWindow2Buttons`）。
+        /// <para>两颗钮**照原版顺序**：**左 = `Cancel`**（= `primaryButton`，原版 `OnPress = null`，
+        /// 只会被 `PopUpWindowButtonPressed` 那个「每颗钮都挂」的监听关窗）· **右 = `OK`**
+        /// （= `secondButton`，`OnPress` = `<TryCrafting>b__21_0` ⇒ `TryCraftingInternal`）。</para>
+        /// <para>🔴 **2026-10-24（审查修复代理 `F3` · 铁律 5 就地订正 · 审 `P2-2`）**：本段原来写
+        /// 「我们的 `WindowsManager.ShowMessagePopUp` **会复用还开着的那一扇**（原版 `LoadPopup` 是
+        /// **先 `CloseWindow` + `Destroy` 旧的、再按按钮数 `Instantiate`**）⇒ 若场上还开着一扇 **1 按钮版**实例，
+        /// 这颗 `OK` 就画不出来」—— **【已过期，那条机制差不存在了】**。</para>
+        /// <para>**现状**（见紧接下面 `ShowLegendaryCraftConfirm` 开头那个 🆕 段）：`A11` 已在同一天把
+        /// `ShowMessagePopUp` **照原版改成「每次销毁旧的 + 按按钮数重建」**（判据逐句 → 那边方法的 doc）
+        /// ⇒ 正常路径上**不会**再出现「1 钮版实例 + 要两颗钮 ⇒ `OK` 画不出来」。
+        /// 下面那段前置关闭**降级为第二道闸**（万一将来那一边又退化成「复用」才用得上）。</para>
+        /// <para>**历史**（改前为什么这么写）：旧的复用语义下 `1 钮版` 实例会被留下来、`OK` 画不出来
+        /// ——`A6` 当年就是这么发现的；当时用「先关掉逼它重开」绕过去，并**把那处机制差出声**（⛔ 不是静默绕开）。
+        /// **错因**：这一段写于 `A11` 改口径之前，改完没有回来订正这几行（两句说法打架 → 铁律 5 / 6）。</para></summary>
+        void ShowLegendaryCraftConfirm()
+        {
+            var mgr = WindowsManager.Get();
+            // 🆕 **2026-10-24（`A11`）：这里降级成【第二道闸】** —— 原版
+            //   `WindowsManager._LoadPopup_d__55__MoveNext.c:20-45` 每次都 `CloseWindow` + `Destroy` 旧的、
+            //   再按按钮数挑 prefab `Instantiate`；`WindowsManager.ShowMessagePopUp` 已在同一天照它改完
+            //   （判据与逐句对照 → 那边方法的 doc）⇒ **正常路径上这一段不会触发**。
+            //   留着它只为一件事：万一将来有人把 `ShowMessagePopUp` 改回「复用同一扇」，这里还能兜住
+            //   （1 钮版实例 + 要两颗钮 ⇒ OK 画不出来，A6 当年就是这么发现的）。
+            var stale = mgr.popUpWindow as PopUpGameWindow;
+            if (stale != null && stale.gameObject.activeSelf && !stale.TwoButtons)
+            {
+                Debug.Log("[CardDetail] 场上的消息弹窗是 **1 按钮版** ⇒ 先关掉，好按「两颗钮」重开一扇"
+                        + "（⚠️ 这是**第二道闸**：`WindowsManager.ShowMessagePopUp` 现在照原版每次销毁重建，"
+                        + "正常不会走到这里 —— 走到这里说明那一边又退化成「复用」了）");
+                mgr.HidePopUp(true);
+                // ⚠️ 关掉之后还要**销毁**：原版那一句 `Object.Destroy` 就是这个意思
+                //   （我们的 `Close()` 只 `SetActive(false)`，不销毁 ⇒ 不销毁就会在锚点下留一具尸体）。
+                CollectionWindow.DestroySafe(stale.gameObject);
+            }
+            CraftConfirmPopup = mgr.ShowMessagePopUp(
+                KeyLegendaryCraftWarning,
+                PopUpGameWindow.KeyCancel, HideCraftConfirm,                       // 左 = Cancel：只关窗
+                KeyCraftConfirmOk, () => { CraftNow(); HideCraftConfirm(); });     // 右 = OK：先合成 → 再关窗
+        }
+
+        /// <summary>传奇合成确认窗的那三句文案的**术语键** —— 反编译 `CraftingPanel__TryCrafting.c` 里
+        /// `ShowPopUp` 的四个实参逐个对上（**地址表实读**，办法见 `资料/全量反编译_入口与用法.md` ⑤：
+        /// `stringliteral.json` 的 `address` 就是 RVA、`DAT_0x184XXXXXX = 0x180000000 + address`）：
+        /// <list type="bullet">
+        /// <item>`DAT_1842d24e0`（正文）= <c>MenuShop/ExtraLegendaryWarning</c></item>
+        /// <item>`DAT_1842be120`（左钮 `primaryButton`）= <c>MainMenu/General/Cancel</c></item>
+        /// <item>`DAT_1842be718`（右钮 `secondButton`）= <c>MainMenu/General/OK</c></item>
+        /// </list>
+        /// <para>⚠️ 正文那条键**在 `MenuShop/` 命名空间下**（原版就是这么复用的，⛔ 不是我们挑的）；
+        /// 官方本地化表里中英文都齐（`Core/Loc.cs` 有这条：zh「请记住，您的卡组中只能使用每张传奇牌的
+        /// 一份副本。……」/ en「You can only use one copy of each legendary card in your deck. ……」）。
+        /// ⚠️ 原版 `localizeTexts = 1` ⇒ 这三条都过 `LocalizationManager.GetTranslation`
+        /// （我们的 `PopUpGameWindow.Term`）。</para></summary>
+        public const string KeyLegendaryCraftWarning = "MenuShop/ExtraLegendaryWarning";
+        public const string KeyCraftConfirmOk = "MainMenu/General/OK";
+
+        /// <summary>最近一次那扇**传奇合成确认窗**（自检读它；关掉之后是 `null`）。
+        /// 类型 = <see cref="PopUpGameWindow"/>（原版 `popupWindowTwoButtons` 的宿主类）。</summary>
+        public PopUpGameWindow CraftConfirmPopup { get; private set; }
+
+        /// <summary>关掉确认窗 —— = 原版 `PopUpGameWindow.PopUpWindowButtonPressed`（`ConfigurePopUp` 给
+        /// **每一颗**钮都挂的那个第二监听）→ `WindowsManager.HidePopUp`。
+        /// <para>⚠️ 我们的 `WindowButton.onClick` 不会自动关窗（原版那颗钮的 `OnPress` 与「关窗」是
+        /// **两个监听**，我们只能把两件事都写进回调里）⇒ Cancel 那颗也走这里。</para>
+        /// <para>🔴 关不掉**出声**（红线）：`HidePopUp` 的判据是「顶窗就是它」，万一有人在我们头上又开了
+        /// 一扇，它就不关 —— 那种情况不许说成「已经关掉了」。</para></summary>
+        public void HideCraftConfirm()
+        {
+            var win = CraftConfirmPopup;
+            CraftConfirmPopup = null;
+            if (win == null) return;                           // 本来就没开（幂等）
+            var mgr = win.Manager != null ? win.Manager : WindowsManager.Instance;
+            if (mgr != null) mgr.HidePopUp();                  // 判据只留 `WindowsManager.HidePopUp` 一处
+            else win.Close();                                  // 没有管理器（自检边角）⇒ 走最底那一层，别把模态卡死
+            if (win != null && win.gameObject != null && win.gameObject.activeSelf)
+                Debug.LogWarning("[CardDetail] 合成确认窗**没关掉**（`WindowsManager.HidePopUp` 没命中 ——"
+                               + "多半是它上面又开了一扇窗）⇒ 窗仍开着，⛔ 不是已关。");
+        }
+
+        /// <summary>「创建副本」的**请求那一半**（= 原版 `CraftingPanel.TryCraftingInternal` 的前半段）。
+        /// 成功返回 `true` 并给出 **1 基 rarity**（= `craftVFXs` 的下标 + 1，判据
+        /// <see cref="CraftRarityIndex"/>）；失败**出声、返回 `false`**（调用方据此不播特效）。
+        /// <para>唯一扣减口 = <see cref="DoCraft"/>（⛔ 别在这里另写一份扣减）。</para></summary>
+        bool TryCraft(out int rarity)
+        {
+            rarity = 0;
+            if (Card == null)
+            {
+                Debug.LogWarning("[CardDetail] 「创建副本」**请求不发**：窗上没有卡（`Card == null`）");
+                return false;
+            }
+            rarity = CraftRarityIndex(Card.Rarity);
+            if (rarity < 1)
+            {
+                rarity = 0;
+                Debug.LogWarning("[CardDetail] 「创建副本」**请求不发**：稀有度「" + Card.Rarity
+                               + "」不在原版 `craftVFXs` 的 1..4 里（`special` 那档原版整块不建）");
+                return false;
+            }
+            if (!DoCraft())
+            {
+                // 失败原因与后续提示已在 DoCraft 里出声（原版这一支 = `OnFail_22_1` 的 ErrorPopup）。
+                // 🔴 这里**必须**返回 false：原版失败**不调 `DoVFX`** ⇒ 我们也不许播（否则就是假反馈）。
+                Debug.Log("[CardDetail] 「创建副本」请求失败 ⇒ **不播特效**"
+                        + "（判据 = 原版 `TryCraftingInternal` 只在请求发出后调 `DoVFX`；失败走 `OnFail`）");
+                return false;
+            }
+            return true;
+        }
+
+        /// <summary>「创建副本」的**特效那一半** = 原版 `CraftingPanel.DoVFX()`（逐句 →
+        /// `普查产出_1023e/A31_特效接线.md` §2·1 与 `WarpforgeVFX/Runtime/WarpforgeUiEffect.cs` 文件头）：
+        /// **两件**——按钮那道（`ParticleButton`）与前台卡那道（`ParticleCard`），各按 rarity 选 prefab。
+        /// <para>落点照原版取**目标节点当时的世界位置**：按钮 = `Craft Bg` 节点；卡 = **前台那张**
+        /// （`SlotViews[0]`，扇形槽 0）。⛔ 原版 `SetParent` 保**世界缩放**，所以这里传的父节点必须是
+        /// **窗根**（`lossyScale = 1`）—— `WarpforgeUiEffect.PlayUi` 的护栏会替我们出声。</para></summary>
+        void PlayCraftVfx(int rarity)
+        {
+            var btn = Find(transform, "Craft Bg");
+            var front = SlotViews[0];
+            var root = transform;                    // 窗根（`WindowsManager.AttachToAnchor` 把它归到 Holder，缩放 = 1）
+            Vector3 btnWorld = btn != null ? btn.position : Vector3.zero;
+            Vector3 cardWorld = front != null ? front.transform.position : btnWorld;
+            if (btn == null || front == null)
+                Debug.LogWarning("[CardDetail] 「创建副本」特效的落点少了一个："
+                               + (btn == null ? "`Craft Bg` 不在" : "") + (btn == null && front == null ? " / " : "")
+                               + (front == null ? "前台卡 `SlotViews[0]` 为空" : "")
+                               + " ⇒ 缺的那件照旧不播（不静默）");
+            // 两件都是 `WarpforgeUiEffect.PlayWildcardCraft`（= 原版 `craftVFXs[]` 表 + `.PlayUi` 组合口）：
+            //   · onButton: true  = `Wildcard_Use_Button <rarity> <档名>`
+            //   · onButton: false = `Wildcard_Use_Card   <rarity> <档名>`
+            // ⚠️ 表里 **rarity 5** 是原版原值（Button 复用 4 / Card 回落 1）；我们四档才能合成 ⇒ 走不到。
+            var pBtn = WarpforgeVFX.WarpforgeUiEffect.PlayWildcardCraft(rarity, true, root, btnWorld);
+            var pCard = WarpforgeVFX.WarpforgeUiEffect.PlayWildcardCraft(rarity, false, root, cardWorld);
+            if (pBtn == null || pCard == null)
+                Debug.LogWarning("[CardDetail] 「创建副本」特效**没播全**（"
+                               + (pBtn == null ? "按钮那件 = null" : "按钮那件 OK") + " / "
+                               + (pCard == null ? "卡那件 = null" : "卡那件 OK")
+                               + "）—— 最常见的原因是效果库缺条目 / prefab 引用为空（`Tools > Warpforge > 生成效果库`）");
+            else
+                Debug.Log("[CardDetail] 「创建副本」特效：rarity " + rarity + " ⇒ 「"
+                        + WarpforgeVFX.WarpforgeUiEffect.WildcardCraftPrefab(rarity, true) + "」@ 钮 · 「"
+                        + WarpforgeVFX.WarpforgeUiEffect.WildcardCraftPrefab(rarity, false) + "」@ 前台卡"
+                        + "（判据 = 原版 `CraftingPanel__DoVFX.c`：Instantiate 在目标节点世界位置、保世界缩放）");
         }
 
         /// <summary>创建副本：**扣 1 张同稀有度通配符 + 拥有数 +1 + 落盘 + 重画**（= 原版 `CardServices.CraftCard` 的一半）。
         ///
-        /// <para>🔴 **2026-10-18 用户拍板：本方法【不再从 UI 调用】**（原来的调用点 `OnCraftClicked` 已改成空操作，
-        /// 见那里）。用户原话「点击副本，但是不起作用」⇒「**按钮保留、点击不生效；真扣减机制留作以后**」。
-        /// 方法体**原样保留**（通配符库存、扣减、落盘都还是好的），将来要恢复只改调用点，⛔ 别把这段删了重写。</para>
+        /// <para>🔴 **2026-10-24 就地订正（铁律 5）：本方法重新有了 UI 调用点** ——
+        /// 链路 = `CraftHit` → `OnCraftClicked` → `TryCraft` → **本方法** → `PlayCraftVfx`
+        /// （主对话裁定「请求 + 特效一起做」；2026-10-18 那版「不由 UI 调用」已作废，见 `OnCraftClicked`）。</para>
         ///
         /// <para>原版那一支（`CardServices__CheckForCardCrafting.c` / `CraftingPanel__TryCrafting.c`）：
         /// 按 **army + rarity** 找通配符且数量 &gt; 0 ⇒ 扣 1、`owned +1`（拥有数无上限）。
         /// ⚠️ **我们的等价物少一个维度**：通配符库存只按 **稀有度** 记（4 档），**不区分阵营** ——
         /// 因为详情窗底下那条通配符计数条本来就只画 4 格（原版那 4 格跟着**指针悬停那张卡**的阵营走，
         /// 单机没有发放源）。⇒ **如实标注为一处偏离**，⛔ 别当成原版语义。
-        /// ⚠️ 原版「传奇且 `owned==1` 先弹确认窗」那一支**没做**（我们没有那扇确认窗）—— 同样如实标注。</para></summary>
+        /// 🔴 **2026-10-24（A6）就地订正（铁律 5）**：原来这里写「原版『传奇且 `owned==1` 先弹确认窗』
+        /// 那一支**没做**」—— **现在做了**，但**不在本方法里**：闸在 `OnCraftClicked`（= 原版
+        /// `TryCrafting` 那一层）。本方法对应的是 `TryCraftingInternal`（闸**之后**）⇒ 它**不该**再判一次
+        /// （确认窗的 OK 直调这条链，再判会自己又弹一次窗）。</para>
+        /// <para>返回 `false` = **请求没发出去**（空卡 / 通配符 0 / 扣减失败）。调用方（`TryCraft`）据此
+        /// **不播特效** —— 原版失败走 `OnFail_22_1`、**不调 `DoVFX`**。</para></summary>
         public bool DoCraft()
         {
             if (Card == null) return false;
             if (CardProgress.Wildcards(Card.Rarity) <= 0)
             {
-                Debug.Log("[CardDetail] 创建副本**失败**：「" + Card.Name + "」那种稀有度（" + Card.Rarity
-                        + "）的通配符 = 0 —— 原版 `CraftingPanel__CheckButtons.c` 同支：没通配符 ⇒ 钮 `interactable=false`");
+                Debug.LogWarning("[CardDetail] 创建副本**失败**：「" + Card.Name + "」那种稀有度（" + Card.Rarity
+                        + "）的通配符 = 0 —— 原版 `CraftingPanel__CheckButtons.c` 同支：没通配符 ⇒ 钮 `interactable=false`；"
+                        + "走到这里说明有人绕过了灰钮（本方法照样拒绝、**不播特效**）");
                 return false;
             }
-            CardProgress.TrySpendWildcard(Card.Rarity);
+            // 🔴 扣减的结果**必须判**：`TrySpendWildcard` 在竞争 / 存档异常时可能返回 false，
+            //   不判就会「没扣成功却 +1 张卡」（静默送卡）。原版那一支是「服务端受理才 owned+1」。
+            if (!CardProgress.TrySpendWildcard(Card.Rarity))
+            {
+                Debug.LogWarning("[CardDetail] 创建副本**失败**：扣通配符那一步没成功（「" + Card.Rarity
+                               + "」现有 " + CardProgress.Wildcards(Card.Rarity) + " 张）⇒ 不做后面的 +1、不播特效");
+                return false;
+            }
             CardProgress.AddOwned(Card.Id, Card.Rarity, 1);
             Debug.Log("[CardDetail] 创建副本：「" + Card.Name + "」拥有数 → "
                       + CardProgress.Owned(Card.Id, Card.Rarity)
