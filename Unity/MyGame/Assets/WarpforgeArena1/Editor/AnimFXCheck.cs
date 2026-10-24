@@ -774,10 +774,14 @@ public static class AnimFXCheck
         }
 
         // ---------- ② 5 条 `penitence`：数据侧已从事件桶移出（`notPlayed[]` 带 `why`）；----------
-        //  `ability` 那档的权威行**仍在**，**播放**由 ⑤ 的 trigger 归口负责（⛔ 不再靠事件桶）。
-        //  ⚠️ 2026-10-23（新账-86）订正：本段的 `viaTrigger` 一律传 `times = null` —— 那一档
-        //     分不出 trigger 组，走的是「只回 `trigger` 桶」的旧口径（`VfxMap.cs` 的 ② 那一支）；
-        //     **生产路径带 `times` + `keyword`**，见下面 ⑤（`SOR8/10/21/27/32` 真的播得出来）。
+        //  播放由 ⑤ 的 trigger 归口负责（⛔ 不再靠事件桶）；这里只核「记账 + 归口形状 + 桶归属」。
+        //  🔴 **2026-10-24（第七十三会话 · 执行代理 `W6` / 上游 `W2` 桶归口）就地改口径（铁律 5）**：
+        //     `PenitenceEffect` 的原版 trigger = **`Rage`(130)**（routed）⇒ 生成器已把这 5 行从
+        //     **`ability` 挪进 `trigger`** ⇒ 原来那两条期望（`playedViaTrigger == 0` / `stillInAbility == 5`）
+        //     **画像过期**、必红。现在改成**生产形状**（`times` + `keyword="penitence"`，= `BattleDriver.PlaySignal`
+        //     传下来的形态）：每张卡**恰好 1 条** `PenitenceEffect`（合计 5）· `ability` 桶里 **0 条**。
+        //     ⚠️ `times = null` 那一档**结构上拿不到 trigger 名**（运行期表没有 `tn` 那一列）⇒ 粗桶必然把这
+        //     5 条卡级行一起播 —— 那不是判据、是那条路的已知边界（`W2` §5·2 已如实记），⛔ 别拿它当回归。
         {
             Check(CardPresentation.VfxMap.CardTableNonAuthoritativeRows == 0,
                   $"② 第二道闸：载入时被挡掉的**非权威行** = "
@@ -797,14 +801,25 @@ public static class AnimFXCheck
                 + $"其中带 `why` 的 {npWithWhy} 条（必须**全部**带 —— 这就是「⛔ 不许静默」的落地）");
 
             var pen = new[] { "SOR8", "SOR10", "SOR21", "SOR27", "SOR32" };
-            int inNotPlayed = 0, playedViaTrigger = 0, stillInAbility = 0;
+            int inNotPlayed = 0, playedViaTrigger = 0, stillInAbility = 0, oneEach = 0;
+            var penPool = RuleEngine.CardDatabase.Load();
             foreach (var id in pen)
             {
                 if (CardPresentation.VfxMap.IsNotPlayed(id, CardPresentation.VfxMap.Trigger)) inNotPlayed++;
-                var viaTrigger = CardPresentation.VfxMap.ResolveAllTimed(
-                    CardPresentation.VfxMap.Trigger, "Sororitas", id, null, perCardOnly: true);
-                for (int i = 0; i < viaTrigger.Length; i++)
-                    if (viaTrigger[i].Name == "PenitenceEffect") playedViaTrigger++;
+                // 生产形状：`times` + `keyword`（原版 trigger 名 `Rage` 由 `CanonicalTriggerName` 归一）。
+                var cd = RuleEngine.CardDatabase.FindById(penPool, id);
+                Check(cd != null, $"②（前提）：卡池里拿得到 `{id}`（生产形状那一条要它的 `AnimTimes`）");
+                if (cd != null)
+                {
+                    var viaTrigger = CardPresentation.VfxMap.ResolveAllTimed(
+                        CardPresentation.VfxMap.Trigger, "Sororitas", id, cd.AnimTimes,
+                        perCardOnly: true, keyword: "penitence");
+                    int here = 0;
+                    for (int i = 0; i < viaTrigger.Length; i++)
+                        if (viaTrigger[i].Name == "PenitenceEffect") here++;
+                    playedViaTrigger += here;
+                    if (here == 1) oneEach++;
+                }
                 var viaAbility = CardPresentation.VfxMap.ResolveAllTimed(
                     CardPresentation.VfxMap.Ability, "Sororitas", id, null, perCardOnly: true);
                 bool has = false;
@@ -815,14 +830,16 @@ public static class AnimFXCheck
             Check(inNotPlayed == 5,
                   $"② `penitence` 那 5 张（{string.Join("/", pen)}）的 `trigger` 档**都在 `notPlayed` 里**"
                 + $"（实得 {inNotPlayed}/5）—— 🧨 把它们塞回事件桶或者干脆不记账 ⇒ 本条红");
-            Check(playedViaTrigger == 0,
-                  $"② 这 5 张在 **`times = null`** 那一档**没有任何一条** `PenitenceEffect` 从 `trigger` 粗桶播出去"
-                + $"（实得 {playedViaTrigger} 条；生产路径带 `times` ⇒ 见 ⑤）"
-                + " —— 🧨 把 `strip_unbacked_inference` 里那步「删重复」去掉 ⇒ 5 条回来、本条红");
-            Check(stillInAbility == 5,
-                  $"② **灭自证**：同一件 `PenitenceEffect` 在卡 SO 的 `ability` 档**仍然拿得到**"
-                + $"（{stillInAbility}/5）—— 证明我们删掉的是「无依据的**触发行**」，"
-                + "⛔ 不是「一怒之下把这张卡的动画整个删了」（那样上面那条会绿、这条会红）");
+            Check(oneEach == 5 && playedViaTrigger == 5,
+                  $"② 这 5 张在**生产形状**（`times` + `keyword=\"penitence\"` ⇒ 原版 `Rage`）下"
+                + $"**各恰好 1 条** `PenitenceEffect`（实得 {oneEach}/5 张、共 {playedViaTrigger} 条；生产路径见 ⑤）"
+                + " —— 🧨 把 `VfxMap.CanonicalTriggerName` 的 `penitence → Rage` 删掉（归口失效 ⇒ 掉回粗桶，"
+                + "`SOR8` 还会带出 `Arco-Flagellant Strike`）／把这 5 行从数据里删掉 ⇒ 本条红");
+            Check(stillInAbility == 0,
+                  $"② 同一件 `PenitenceEffect` 在 `ability` 桶里**已经一条都没有**（实得 {stillInAbility} 条）"
+                + " —— 判据 = 原版这一行的 trigger 是 `Rage`(130)（`penitence` 的枚举名）、**不是**「发动技能」那一拍；"
+                + "🧨 把它挪回 `ability` 桶 ⇒ 本条红（而且同一件会在两拍各播一次）；"
+                + "⚠️ 「没丢」这一半由上面那条 `oneEach == 5` 钉（一删数据它就红）");
         }
 
         // ---------- ③ TraitFrames：两本字典由 `trait_effect_bindings.json` 驱动 ----------
@@ -1042,15 +1059,23 @@ public static class AnimFXCheck
                 //    `SOR8` 的 trigger 桶**只有** `FlankEffect`（`FlankTraitStart`，
                 //    `trait_effect_bindings.json` 里 `flank` 的 `triggerType = 0`）⇒ **空是正确结果**。
                 //    原来那条「必须只有 `FlankEffect`」写于 10-23，期望值被 D4 的改口径**过期**了。
+                //  🔴 **2026-10-24（第七十三会话 `W6`）：现在「空」有两个原因，两个都要在** ——
+                //    上游 `W2` 的桶归口把 `PenitenceEffect`（原版 `Rage`）/ `Arco-Flagellant Strike`
+                //    从 `ability` 挪进了 `trigger` ⇒ 光有 D4 那道闸时这里会播 **2 件**（都是卡级行、
+                //    `TriggerTypeOf` 回 `-1`，D4 管不到它们）。所以 `VfxMap.TriggerBeatRowsMatching`
+                //    又加了一道「卡级行要对得上本拍的 `CardAnimTime.TriggerName`」——`Flank` 对不上 `Rage`
+                //    ⇒ 这两件被挡。⇒ 本条现在同时钉**两道**闸（判据 / 灭自证 → 那个方法的 doc）。
                 var flank8 = CardPresentation.VfxMap.ResolveAllTimed(
                     CardPresentation.VfxMap.Trigger, "Sororitas", "SOR8", c8.AnimTimes,
                     perCardOnly: true, keyword: "Flank");
                 Check(flank8.Length == 0
                       && !HasVfx(flank8, "FlankEffect") && !HasVfx(flank8, "PenitenceEffect"),
                       "⑤ 按拍分件：未归口的 `keyword=\"Flank\"` 回 `trigger` 桶，但 `SOR8` 那条是 **Start(0)**"
-                    + " ⇒ 触发这一拍**什么都不播**"
+                    + " ⇒ 触发这一拍**什么都不播**（它的卡级行标的是原版 `Rage`，也不是这一拍）"
                     + $"（实得 {VfxNames(flank8)}）"
-                    + " —— 🧨 把 `D4` 的分件闸去掉（回整桶）⇒ 播 `FlankEffect`（召唤那一刻的件，错拍）⇒ 本条红");
+                    + " —— 🧨 把 `D4` 的分件闸去掉（回整桶）⇒ 播 `FlankEffect`（召唤那一刻的件，错拍）⇒ 本条红；"
+                    + "把 `TriggerBeatRowsMatching` 那道「卡级行对 trigger 名」的闸去掉 ⇒ "
+                    + "播 `PenitenceEffect` / `Arco-Flagellant Strike`（`Rage` 那一拍的件）⇒ 本条红");
 
                 // 🔑 **正例**（证明「按拍分件」不是「把 trigger 桶整个关掉」）：
                 //    `BL14` 的 trigger 桶只有 `StrikeEffect`（`StrikeTraitTrigger`，绑定表 `triggerType = 3`）

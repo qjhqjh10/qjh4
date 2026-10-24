@@ -214,10 +214,32 @@ EV_TRIGGER = "trigger"
 #   但**它不是事件**（没有 `EvtKind`、不在 `VfxMap.Events` 里）—— 只为「别混进 ability」而存在。
 EV_TRAIT_ONPLAY = "trait_onplay"
 
+# 🔴 **2026-10-24（执行代理 `W2` · `R4`）：`trigger_unmapped` —— 「引擎没有发射口」的触发名，**留档不播**。**
+#
+# 改前的缺陷（判据 = 全池现读 + `核心/VfxMap.cs` 的播放口）：
+#   `trigger_event()` 只归 7 个 `AbilityTrigger` 名，**其余一律 `EV_ABILITY`** —— 而 `ability` 桶是
+#   **整桶全播**的（`BattleDriver.PlaySignal` 的 `case EvtKind.Ability → VfxMap.Ability →
+#   ResolveAllTimed`）⇒ 这些「别的时机」的动画会在**发动技能那一拍**播出来（错拍），
+#   卡上有 `activeAbility` 时**真的会响**。
+#   ⇒ 判据（同一份）也写在 `工具/gen_card_anim_order.py` 的文件头：
+#     「`EvtKind.Ability` ↔ 该卡的 `activeAbility`，⛔ **不是**全部 `cardAbilities`；
+#      若拿全表（含 `cardAbilities`）展开，会把出场/触发时机的动画播在『发动技能』那一拍上」。
+#   本桶的语义：**原版有这个时机，但我们引擎今天发不出那个事件** ⇒ 数据**留着**（不许丢，
+#   否则将来补发射口时要重新挖一遍），但**不挂任何事件**（`VfxMap` 根本不查这个名字 ⇒ 一个都不播）。
+#   ⚠️ 它不是事件：⛔ 别加进 `VfxMap.Events`；⛔ 别让运行期把它并进 `ability`。
+EV_TRIGGER_UNMAPPED = "trigger_unmapped"
+
 # 🔴 **2026-10-18（T21）**：原版 `CardAbility.trigger`（`AbilityTrigger` 枚举名）→ **我们引擎真正会发的事件**。
 #   以前 `cardAbilities[].cardAnimations[]` **一律归到 `ability`**（当时明写「是我们拍的」）⇒
 #   `ThisCardPlayed` 那 696 条（战术/防守整族）**永远不播**（`PlayTactic` 只发 `EvtKind.Play`）。
-#   这里按原版触发名归口；**判据不足的一律保持 `ability`**（= 当前不可达，宁可少播、不可错播）。
+#   这里按原版触发名归口。
+#   🔴 **2026-10-24（`W2` · `R4`）就地改口径（铁律 5）**：原来最后一句是「**判据不足的一律保持
+#   `ability`**」—— 那正是本条要修的缺陷（`ability` 会被整桶播）。现在三级归口：
+#     ① 本表（7 个名字）→ 明确的事件；
+#     ② `ABILITY_BEAT_TRIGGERS`（`ThisUnitAbilityUsed(400)`）→ `ability`（**显式**，附判据）；
+#     ③ `VfxMap.IsRoutedTriggerName` 放行的名字（引擎真的会带着它发 `EvtKind.Trigger`）→ `trigger`
+#        （运行期 `TryResolveTriggerPicks` 会**按名字**从 `trigger` + `ability` 两桶里挑）；
+#     ④ 其余 → `trigger_unmapped`（**留档不播**）。
 TRIGGER_EVENT = {
     "ThisCardPlayed": EV_PLAY,
     "Strike": EV_TRIGGER,
@@ -228,14 +250,94 @@ TRIGGER_EVENT = {
     "UnitAttack": EV_ATK_MELEE,
 }
 
+# 原版 `AbilityTrigger.ThisUnitAbilityUsed = 400` —— 它是 `activeAbility` **逐行传的虚拟时机**
+# （判据 = `RuleEngine/Core/CardDef.cs:2246`「原版逐行传的虚拟时机 —— 恒 400」），
+# 即「部队卡在场上发动技能」那一拍本身 ⇒ 与 `activeAbility` 同桶（`ability`）。
+# ⚠️ 这是**唯一**一个按名字进 `ability` 的例外，而且必须在表里（⛔ 不许写成「其余默认 ability」）。
+ABILITY_BEAT_TRIGGERS = {"ThisUnitAbilityUsed"}
+
+# 白名单的正本（⛔ 别在这里抄第二份 —— 本仓红线：两处写同一条规则 = 迟早不一致）
+VFXMAP_CS = os.path.join(os.path.dirname(os.path.dirname(OUT_RUNTIME)), "Core", "VfxMap.cs")
+
+_ROUTED_CACHE = {}
+
+
+def routed_trigger_names():
+    """`VfxMap.IsRoutedTriggerName` 的白名单 = 引擎**真的会带着这个名字**发 `EvtKind.Trigger` 的那批。
+
+    为什么在生成期**读 C# 源**而不是在 Python 里抄一张表：白名单的正本只有一份
+    （`CardPresentation/Core/VfxMap.cs`），抄第二份 = 迟早不一致。
+    解析法（与只读审查代理 AN1 的 `an1_bucket_matrix.py` 同一个，现读 38 个名字）：
+    取 `IsRoutedTriggerName` → `CanonicalTriggerName` 之间每一行**去掉 `//` 注释后**的
+    `case "…":` 标签，加上两条 `string.Equals(triggerName, KeywordTable.X, …)`。
+
+    两条**常驻交叉校验**（不通过**直接抛**，⛔ 不许静默退化成空集 —— 那会把所有 routed 行
+    误判成「未归口」，一整片动画静默不播）：
+      · `MustRouteTriggerNames` 里的每个名字都必须在解析结果里（正向锁）；
+      · `NoEmitTriggerNames` 里的名字**不许**在解析结果里（反向闸）。
+    """
+    if _ROUTED_CACHE:
+        return _ROUTED_CACHE["names"]
+    if not os.path.isfile(VFXMAP_CS):
+        raise RuntimeError("读不到白名单正本 %s ⇒ **停手**（⛔ 不许自己猜一张表："
+                           "猜错 = 整片触发动画静默不播）" % VFXMAP_CS)
+    src = io.open(VFXMAP_CS, encoding="utf-8").read()
+
+    def _array(name):
+        i = src.index("static readonly string[] " + name)
+        j = src.index("};", i)
+        body = "\n".join(l.split("//")[0] for l in src[i:j].splitlines())
+        return set(re.findall(r'"([^"]+)"', body))
+
+    i = src.index("static bool IsRoutedTriggerName")
+    j = src.index("static string CanonicalTriggerName", i)
+    body = "\n".join(l.split("//")[0] for l in src[i:j].splitlines())
+    names = set(m.group(1) for m in re.finditer(r'case\s+"([^"]+)"\s*:', body))
+    for m in re.finditer(r'string\.Equals\(\s*triggerName\s*,\s*KeywordTable\.(\w+)', body):
+        names.add(m.group(1))
+    must = _array("MustRouteTriggerNames")
+    noemit = _array("NoEmitTriggerNames")
+    missing = sorted(n for n in must if n.lower() not in set(x.lower() for x in names))
+    if missing:
+        raise RuntimeError("`MustRouteTriggerNames` 里有名字不在 `IsRoutedTriggerName` 白名单：%s "
+                           "⇒ 解析法过期或有编译不过的改动，**停手**" % (missing,))
+    bad = sorted(n for n in noemit if n.lower() in set(x.lower() for x in names))
+    if bad:
+        raise RuntimeError("`NoEmitTriggerNames` 里的名字却出现在白名单：%s ⇒ 白名单自检会红，**停手**" % (bad,))
+    if len(names) < 10:
+        raise RuntimeError("只从 `IsRoutedTriggerName` 解析出 %d 个名字 ⇒ 解析法过期，**停手**" % len(names))
+    _ROUTED_CACHE["names"] = set(n.lower() for n in names)
+    _ROUTED_CACHE["raw"] = names
+    return _ROUTED_CACHE["names"]
+
 
 def trigger_event(name):
-    """`AbilityTrigger` 枚举名 → 我们的事件名 + 一句理由。
-    ⚠️ 只归**引擎真的会发**的事件；其余保持 `ability`（⛔ 别乱塞到 `trigger` 让它在任何触发上播）。"""
+    """`AbilityTrigger` 枚举名 → (我们的事件名 / 桶名, 一句理由, 归类标签)。
+
+    归类标签（供统计/断言用）：`mapped` / `ability` / `routed` / `unmapped` / `no-name`。
+    ⚠️ **没有「默认落到 ability」这一档** —— 判不出来的一律 `trigger_unmapped` 并出声。
+    """
     ev = TRIGGER_EVENT.get(name)
     if ev:
-        return ev, "原版 `AbilityTrigger.%s` → `%s`" % (name, ev)
-    return EV_ABILITY, "未归口（保持 `ability`；原版触发 `%s` 我们引擎没有对应事件）" % (name,)
+        return ev, "原版 `AbilityTrigger.%s` → `%s`" % (name, ev), "mapped"
+    if name in ABILITY_BEAT_TRIGGERS:
+        return (EV_ABILITY,
+                "原版 `AbilityTrigger.%s`(400) = `activeAbility` 逐行传的虚拟时机 ⇒ 与主动技能同拍" % name,
+                "ability")
+    if name and name.lower() in routed_trigger_names():
+        return (EV_TRIGGER,
+                "原版 `AbilityTrigger.%s` ⇒ 引擎会带着这个名字发 `EvtKind.Trigger`"
+                "（`VfxMap.IsRoutedTriggerName` 放行）⇒ `trigger`（运行期按名字挑这一条）" % name,
+                "routed")
+    if not name:
+        return (EV_TRIGGER_UNMAPPED,
+                "**判不出触发名**（`AbilityTrigger` 枚举名没解出来）⇒ 落 `trigger_unmapped`（留档不播）",
+                "no-name")
+    return (EV_TRIGGER_UNMAPPED,
+            "**未归口**：原版触发 `%s`，但引擎没有带这个名字的 `EvtKind.Trigger` 发射口"
+            "（`VfxMap.NoEmitTriggerNames` / 未登记）⇒ 落 `trigger_unmapped`（**留档、不参与任何播放**）；"
+            "要播必须先补引擎发射口，再进 `IsRoutedTriggerName`" % name,
+            "unmapped")
 
 
 # 卡 SO 里**带 VFX 绑定**的顶层字段 → (我们的事件名, 一句解释)
@@ -1022,7 +1124,7 @@ def so_refs(card, trig_names, eff_names):
             out.append((f, None, g, {}))
     for i, ab in enumerate(card.get("cardAbilities") or []):
         _trig_name = trig_names.get(ab.get("trigger"))
-        _ev, _ev_why = trigger_event(_trig_name)
+        _ev, _ev_why, _ev_cls = trigger_event(_trig_name)
         _logic = ab.get("abilityLogic") or []
         for j, lg in enumerate(_logic):
             for k, a in enumerate(lg.get("cardAnimations") or []):
@@ -1034,6 +1136,10 @@ def so_refs(card, trig_names, eff_names):
                           "abilityTriggerName": _trig_name,
                           "abilityEvent": _ev,
                           "abilityEventWhy": _ev_why,
+                          # 🆕 2026-10-24（`W2` · `R4`）：归口**档**（`mapped` / `ability` / `routed` /
+                          #   `unmapped` / `no-name`）。统计与断言只读这一列 ⇒ 与 `trigger_event()`
+                          #   的那一次判定**同源**（⛔ 别在别处再判一遍）。
+                          "abilityEventClass": _ev_cls,
                           "chosenAbility": lg.get("chosenAbility"),
                           "chosenAbilityName": eff_names.get(lg.get("chosenAbility"))}
                 # 🆕 2026-10-19（W · 多候选 ③）：`randomAbilityChoice` 的**按组随机**要用的四个数。
@@ -1068,6 +1174,7 @@ def so_refs(card, trig_names, eff_names):
                 {"abilitySlot": "activeAbility.activeAbilityLogic[%d]" % j,
                  "abilityTrigger": None,
                  "abilityTriggerName": "主动技能（`activeAbility`，不走 `CardAbility.trigger` 那套枚举）",
+                 "abilityEventClass": "ability",
                  "chosenAbility": lg.get("chosenAbility"),
                  "chosenAbilityName": eff_names.get(lg.get("chosenAbility"))}))
     return out
@@ -1848,6 +1955,78 @@ def _wf_run_check(pairs, generated_at, max_items=8):
     return 0 if ok else 1
 
 
+# ==========================================================================================
+#  🔴 2026-10-24（执行代理 `W2` · `R4`）：`cardAbilities[]` 的**三级归口账** + 桶不变量硬闸
+# ==========================================================================================
+def trigger_bucket_stats(by_card):
+    """`cardAbilities[].cardAnimations[]` 的归口账（`mapped` / `ability` / `routed` / `unmapped`）。
+
+    ⚠️ **只读 `abilityEventClass`** —— 那是 `trigger_event()` 那一次判定的产物
+    （⛔ 不在这里按 trigger 名再判一遍：两处判同一条规则 = 迟早不一致）。
+    `activeAbility` 那一支也写 `ability`（它本来就是主动技能那一拍）。
+    """
+    rows = collections.Counter()
+    cards_of = collections.defaultdict(set)
+    by_name = collections.Counter()
+    cards_by_name = collections.defaultdict(set)
+    for cid, m in by_card.items():
+        for ev, lst in m.items():
+            if not isinstance(lst, list):
+                continue
+            for e in lst:
+                cls = e.get("abilityEventClass")
+                if not cls:
+                    continue
+                rows[cls] += 1
+                cards_of[cls].add(cid)
+                if cls in ("unmapped", "no-name"):
+                    nm = e.get("abilityTriggerName") or "（空）"
+                    by_name[nm] += 1
+                    cards_by_name[nm].add(cid)
+    all_unmapped = set()
+    for v in cards_by_name.values():
+        all_unmapped |= v
+    return {
+        "rows": {k: rows[k] for k in sorted(rows)},
+        "cards": {k: len(cards_of[k]) for k in sorted(cards_of)},
+        "unmapped": {
+            "rows": sum(by_name.values()),
+            "cards": len(all_unmapped),
+            "byName": {k: {"rows": by_name[k], "cards": len(cards_by_name[k])}
+                       for k in sorted(by_name)},
+        },
+    }
+
+
+def assert_no_default_ability(by_card):
+    """🔴 **R4 的硬闸**：`ability` 桶里**只许**有主动技能那一拍的条目。
+
+    判据 = `工具/gen_card_anim_order.py` 的文件头（同一份口径）：
+      「`EvtKind.Ability` ↔ 该卡的 `activeAbility`，⛔ 不是全部 `cardAbilities`；
+        若拿全表（含 `cardAbilities`）展开，会把出场/触发时机的动画播在『发动技能』那一拍上。」
+    ⇒ `ability` 桶的每一条都必须带 `abilityEventClass == "ability"`（只有 `activeAbility` 与
+    `ThisUnitAbilityUsed(400)` 这两支会写它）。
+
+    🧨 **灭自证**：把 `trigger_event()` 的兜底改回改前那版
+    （`return EV_ABILITY, "未归口（保持 `ability`…）"`）⇒ 这一条立刻抛 —— 它测的是**归口规则本身**，
+    不是「表里恰好没有」。
+    """
+    bad = []
+    for cid, m in by_card.items():
+        for e in m.get(EV_ABILITY) or []:
+            if not isinstance(e, dict):
+                continue
+            cls = e.get("abilityEventClass")
+            if cls == "ability":
+                continue
+            bad.append((cid, e.get("abilityTriggerName"), e.get("prefab"), cls or "（没有归类标记）"))
+    if bad:
+        raise RuntimeError(
+            "`ability` 桶里混进了 **%d 条别的时机**的动画（它们会被整桶播到「发动技能」那一拍）：%s "
+            "⇒ 归口规则坏了，**停手**（判据见 `trigger_event()` 与 `gen_card_anim_order.py` 文件头）"
+            % (len(bad), bad[:8]))
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--quiet", action="store_true")
@@ -1996,6 +2175,27 @@ def main():
         PROBLEMS.append("去兜底：**还剩 %d 条推断/未知**（%s）—— 这一档本该归零"
                         % (inf_st["leftInferred"], inf_st["leftByConf"]))
 
+    # ---- 🔴 2026-10-24（`W2` · `R4`）：`cardAbilities[]` 的**三级归口**账 + 桶不变量硬闸 ----
+    #   判据 → `trigger_event()` 的 doc（`mapped` / `ability(400)` / `routed` / `unmapped`）。
+    #   ⛔ 改前这里是「其余一律 `ability`」⇒ 那些行会在**发动技能那一拍**整桶播出来。
+    tb_st = trigger_bucket_stats(by_card)
+    print("[3·d/4] 归口：mapped %d 行 / ability(主动技能) %d 行 / routed→trigger %d 行 / "
+          "**未归口→trigger_unmapped %d 行**"
+          % (tb_st["rows"].get("mapped", 0), tb_st["rows"].get("ability", 0),
+             tb_st["rows"].get("routed", 0),
+             tb_st["rows"].get("unmapped", 0) + tb_st["rows"].get("no-name", 0)))
+    if tb_st["unmapped"]["byName"]:
+        print("        未归口逐个触发名（留档、不播）：%s"
+              % " · ".join("%s %d 行/%d 卡" % (k, v["rows"], v["cards"])
+                           for k, v in tb_st["unmapped"]["byName"].items()))
+        PROBLEMS.append(
+            "归口：**%d 行 / %d 卡**的原版触发**引擎没有发射口** ⇒ 已落 `trigger_unmapped`（留档不播）：%s"
+            "（要播必须先补 `EvtKind.Trigger` 发射口 + 进 `VfxMap.IsRoutedTriggerName`，判据见 "
+            "`VfxMap.NoEmitTriggerNames`）"
+            % (tb_st["unmapped"]["rows"], tb_st["unmapped"]["cards"],
+               " · ".join(tb_st["unmapped"]["byName"].keys())))
+    assert_no_default_ability(by_card)      # 🧨 归口规则坏了就停手（判据见那个方法的 doc）
+
     # 每个事件各有多少张卡
     per_ev = collections.Counter()
     for cid, m in by_card.items():
@@ -2038,8 +2238,9 @@ def main():
             "🔴 **2026-10-23 现读**：真值快照 = 当前 build 的 `allcards`（**1,351 张**），"
             "我们卡池 1,127 张里**快照没有的 = 0 张**（`stats.authoritative.poolCardsWithoutTruth`）。"
             "（原文写「快照是 2022 时代 1,195 张、168 张查不到」—— 那是 `T14`/2026-10-18 换源**之前**的口径，已过期。）",
-            "`cardAnimations` 那一路的**事件名归到 `ability` 是我们拍的**（原版给的是枚举），"
-            "已逐条带 `abilityTrigger` / `chosenAbility`。",
+            "`cardAnimations` 那一路的**事件名**已按原版 `CardAbility.trigger` **三级归口**"
+            "（2026-10-24 `W2` · `R4`；改前那句「一律归到 `ability` 是我们拍的」已作废），"
+            "逐条带 `abilityTrigger` / `abilityTriggerName` / `abilityEventClass` / `chosenAbility`。",
             "🔴 **【2026-10-23 订正：本行原来那条结论是错的、已作废】** 原来写「**天赋触发**"
             "（`CardTrait.TraitEffects[].effectAnim`）仍然没做 —— 两个 build 的本地束里都没有 `CardTrait` 束 ⇒ "
             "`inferred-keyword` 那 600+ 条升不了级」。"
@@ -2153,7 +2354,12 @@ def main():
                        # 🆕 2026-10-24（执行代理 `J1` · `C5` D14）：**不是事件**，是
                        # `EffectTriggerType.OnPlay(2)` 的归置桶（播放口 = `Core/TraitFrames.cs`，
                        # 发生在登场那一拍）。判据 → `EV_TRAIT_ONPLAY` 的注释。
-                       "trait_onplay"],
+                       "trait_onplay",
+                       # 🆕 2026-10-24（执行代理 `W2` · `R4`）：**不是事件**，是「原版有这个时机、
+                       #   但我们引擎今天**发不出**那个 `EvtKind.Trigger`」的**留档桶**
+                       #   （`VfxMap` 根本不查这个名字 ⇒ 一条都不播；⛔ 别让运行期把它并进 `ability`）。
+                       #   判据 → `EV_TRIGGER_UNMAPPED` 的注释。
+                       "trigger_unmapped"],
             "eventNamesAreFrom": "`CardPresentation/Core/VfxMap.cs` 的常量（那一份是唯一正本）",
             "authoritativeEventMapping": {
                 "customRangedAttackParticles": "attack_ranged（与 `CardScript.rangedAttackParticlesSO` 是同一件事的逐卡/阵营两个来源）",
@@ -2165,10 +2371,15 @@ def main():
                     "谁进 `death` **是掷硬币** ⇒ 运行时那一份已把本字段**挡在外面**（见 `RT_SKIP_SOFIELDS`），"
                     "本全量件里**保留**（带 `soField`，随时可查）。逐卡残骸体**今天没接**（走关键词）。",
                 "summonAnimDelayed": "deploy（逐卡登场延迟特效）",
-                "cardAbilities[].abilityLogic[].cardAnimations[]": "⚠️ **归到 `ability` 是【我们拍的】**"
-                    "（`VfxMap.Ability`＝部队卡在场上发动技能）。原版真正给的是 `CardAbility.trigger` / "
-                    "`AbilityLogic.chosenAbility` 两个枚举，**两个原样带在条目上**"
-                    "（`abilityTrigger` / `abilityTriggerName` / `chosenAbility` / `chosenAbilityName`）⇒ 要精确到事件自己判。",
+                "cardAbilities[].abilityLogic[].cardAnimations[]": "🔴 **2026-10-24（`W2` · `R4`）起按"
+                    "`CardAbility.trigger` 三级归口**（⛔ 不再一律 `ability`）：① 7 个名字 → 明确事件"
+                    "（`TRIGGER_EVENT`）· ② `ThisUnitAbilityUsed(400)` → `ability`（主动技能那一拍，"
+                    "`ABILITY_BEAT_TRIGGERS`）· ③ `VfxMap.IsRoutedTriggerName` 放行的名字 → `trigger`"
+                    "（引擎真的会带着这个名字发 `EvtKind.Trigger`，运行期按名字挑）· ④ 其余 → "
+                    "`trigger_unmapped`（**留档、不播**）。每条仍带 `abilityTrigger` / "
+                    "`abilityTriggerName` / `abilityEventClass` 四个字段可逐条复核。"
+                    "⚠️ 改前那句「归到 `ability` 是【我们拍的】」已作废 —— `ability` 桶会被**整桶播**到"
+                    "「发动技能」那一拍，把别的时机的动画塞进去 = 错拍（判据 = `gen_card_anim_order.py` 文件头）。",
                 "activeAbility.activeAbilityLogic[].cardAnimations[]": "同上（`activeAbility` 不走 `CardAbility.trigger` 那套枚举）",
             },
             "byCard_assetRefs": "`byCard[*]._assetRefs` = 卡 SO 的**非 VFX**逐卡资产绑定"
@@ -2207,6 +2418,10 @@ def main():
             #   （两条出路见 `strip_unbacked_inference` 的注释：删重复 / 无依据不播）。
             #   `leftInferred` 必须 = 0；非 0 会同时进 `problems`。
             "inferenceGone": inf_st,
+            # 🔴 2026-10-24（`W2` · `R4`）：`cardAbilities[]` 的**三级归口账**
+            #   （`rows` / `cards` 按档；`unmapped.byName` = 留档不播的那些触发名）。
+            #   断言/台账直接读这一节，⛔ 别在脚本里另算一遍。
+            "triggerBuckets": tb_st,
             "notPlayed": not_played,
             "factionArmyIds": factions_army,
             "problems": PROBLEMS,
@@ -2373,6 +2588,10 @@ def main():
                  "（删重复 / 无依据不播），改前的 22 条（17 `inferred-name` + 5 `unknown`）现在一个都不在表里。"
                  "**不播的那些去哪了**：`notPlayed[]`（每条的 `id/nm/fa/ev/n/a/why`）—— 消费端**必须出声**，"
                  "⛔ 不许静默。"
+                 "🆕 **2026-10-24（`W2` · `R4`）**：`events[].ev` 里可能出现 **`trigger_unmapped`** —— 它"
+                 "**不是事件**（`VfxMap` 不查这个名字 ⇒ 一条都不播），只留档「原版有这个触发、我们引擎今天"
+                 "没有对应发射口」的那批行；⛔ 别让运行期把它并进 `ability`（那会把别的时机的动画播在"
+                 "「发动技能」那一拍）。计数见 `stats.triggerBuckets`。"
                  "⚠️ 形状是**数组**不是字典 —— `JsonUtility` 不支持字典（`VfxMap.EnsureLoaded` 里注明了）。"
                  "🆕 **`cards[].audio`（2026-10-14 · A1817）** = **逐卡精确语音绑定**："
                  "`[{\"ev\":\"deploy|attack|death\",\"n\":\"<原版 AudioClip 名，不带扩展名>\"}]`，"

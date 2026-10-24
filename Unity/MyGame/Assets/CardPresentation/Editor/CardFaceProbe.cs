@@ -899,7 +899,11 @@ public static class CardFaceProbe
         // ⇒ 现在由 `CheckClampSmallPixelsUnchanged` **自己把卡框档位钉到 tier4**
         //   （`frame_ultramarines_strat_tier4` 的 `hole ∪ ring` x ∈ [−0.8148, +1.0321]，右侧越界 ≈0.117 卡单位），
         //   并在里面按 `artClamped` 分两种判据：单位卡 = 差集 0 · 战术卡 = 差集 > 0 且全在硬矩形之外。
-        try { CheckClampSmallPixelsUnchanged(defT, "战术卡 `Armoured Offensive`", false, artClamped: true); }
+        // 战术卡 ④a：🔴 **2026-10-24（第七十三会话 `M2`）翻面** —— `_art` 的硬矩形档位**恒 0**
+        //   （原版实况：战术/防御卡插图铺满拱窗、无黑边；判据 → `CardView.ArtClampKindFor` 的 doc）。
+        //   ⇒ 战术卡与单位卡同判：生产小卡档「硬矩形开/关」**逐像素不变**（差集 0）。
+        //   🧨 谁把 `clampKind` 接回 1/2 ⇒ 差集 > 0 ⇒ 立刻红（这就是本条的判别力）。
+        try { CheckClampSmallPixelsUnchanged(defT, "战术卡 `Armoured Offensive`", false, artClamped: false); }
         catch (System.Exception e)
         {
             _fail++;
@@ -929,7 +933,8 @@ public static class CardFaceProbe
             + " —— 缺 ⇒ 防御卡那一条**没验到**（不是通过）");
         if (defD != null && defD.Type == "defence")
         {
-            try { CheckClampSmallPixelsUnchanged(defD, "防御卡 `Sacred Altar`", false, artClamped: true); }
+            // 🔴 **2026-10-24（第七十三会话 `M2`）翻面**：防御卡与战术卡同走「不套」⇒ 差集 0。
+            try { CheckClampSmallPixelsUnchanged(defD, "防御卡 `Sacred Altar`", false, artClamped: false); }
             catch (System.Exception e)
             {
                 _fail++;
@@ -1351,15 +1356,19 @@ public static class CardFaceProbe
     /// <summary>A7 ④a：生产小卡档的「硬矩形开 / 关」像素对照 —— 按**卡型**分两种判据。
     /// <para>· **单位卡**（`artClamped` = false）：生产小卡路径**不建前景层**（`UseFrontLayer` = false），
     /// 硬矩形只挂在 `_artFront` 上 ⇒ 小卡的渲染一个像素都不该变（差集 **= 0**）。</para>
-    /// <para>🔴 **2026-10-24（`H3`）就地改写**：本段原来写「🧨 谁把 `clampKind` 接到 `_art` 底层，
-    /// 战术卡那张**立刻**红」，并把单位卡/战术卡共用「差集 = 0」——**战术卡那一半已过期**：
-    /// `H1`（同日）起生产 `_art` 对**非单位卡**套 `clampKind: 1/2`（`CardView.cs` 的 `artClampKind`），
-    /// 原判据（`== 0`）按设计必红。判据（为什么战术卡的生产 `_art` 必须受硬矩形）→
-    /// `资料/普查产出_1024/H1_战术卡生产立绘硬矩形.md` §一。</para>
-    /// <para>· **战术 / 防御卡**（`artClamped` = true）：差集**必须 > 0**，且变的像素**全在硬矩形之外**
-    /// （矩形里面一个像素都不许动）⇒ 「硬矩形没接上」（差集 0）与「硬矩形算错/乱切」（矩内有改动）都过不了。</para>
-    /// <para>⚠️ **样本卡框档位由本方法钉住**（`TacticClampProbeFrameTier`）：生产档位来自
-    /// `CardProgress.Level`（读玩家存档，没存档时 = 1），而同一张卡各档的开口宽度差很多
+    /// <para>🔴 **2026-10-24（`H3` → 第七十三会话 `M2` 再翻面）**：本段在 `H1` 那天改过一次
+    /// （「非单位卡的 `_art` 也套 `clampKind 1/2` ⇒ 战术卡断『差集 > 0』」），**那一版已作废** ——
+    /// `M2` 用原版实况证伪了 `H1`（战术卡插图铺满拱窗、无黑边；判据 → `CardView.ArtClampKindFor` 的 doc）
+    /// ⇒ **两种卡型现在同判：差集 = 0**。</para>
+    /// <para>· **战术 / 防御卡**（🔴 **2026-10-24 第七十三会话 `M2` 起 `artClamped` = false**，与单位卡同判）：
+    /// 生产 `_art` **不套**硬矩形（`CardView.ArtClampKindFor` 恒 0）⇒ 差集必须 **= 0**。
+    /// 🧨 谁把 `clampKind` 接回 1/2 ⇒ 差集 > 0 ⇒ 红。判据 → `CardView.ArtClampKindFor` 的 doc。
+    /// 历史：`H1`~`M2` 之前这一档是 `artClamped = true`、断「差集 > 0 且全在硬矩形之外」——
+    /// 那条建立在「战术卡也吃 `_Clamp_Range`」上，已被原版实况证伪。</para>
+    /// <para>⚠️ **卡框档位**：`M2` 起所有调用点都传 `artClamped = false` ⇒ 本方法**不再钉**
+    /// `TacticClampProbeFrameTier`（不套硬矩形时档位不影响结果）。`artClamped = true` 那条分支
+    /// **保留但当前无人调用**（留作「万一要把硬矩形接回 `_art`」时的现成判据）。
+    /// 生产档位来自 `CardProgress.Level`（读玩家存档，没存档时 = 1），而同一张卡各档的开口宽度差很多
     /// （tier1/2 **完全落在硬矩形内** · tier3 只差 1 px · tier4 右侧越界 ≈0.117 卡单位）
     /// ⇒ 不钉住就会「随存档变红变绿」。⛔ 这不是放宽判据 —— 是把「测的是不是那个情况」钉死。</para>
     /// <para>A7 ④b（`withFront` · 只给单位卡跑）：**证明这份代码真的接上了** —— 临时开 `UseFrontLayer`
@@ -1963,12 +1972,31 @@ public static class CardFaceProbe
     /// 选它而不选另外两条：比「专用 layer + `cam.cullingMask`」**少一处全局配置**（不用改 TagManager、
     /// 不用担心 layer 号撞车），比「临时空场景」**少一堆建/拆副作用**（不会触发 `OnEnable` 之类）。
     /// ⚠️ 只影响这一帧的**可见集合**，⛔ 不碰材质 / 网格 / 队列。</para>
-    /// <para>⚠️ `root == null` ⇒ 不隔离（等价于旧行为）。</para></summary>
+    /// <para>⚠️ `root == null` ⇒ 不隔离（等价于旧行为）。</para>
+    ///
+    /// <para>🔴 **2026-10-24（`E24`）补第二类载体：UGUI 的 `CanvasRenderer`。** 原来只关 `Renderer`
+    /// （`MeshRenderer` / `SpriteRenderer` / `ParticleSystemRenderer`…）—— 它们在继承树上**都**是 `Renderer`，
+    /// 但 UGUI 那几个 Graphic（`Image` / `Text` / `TextMeshProUGUI` / `RawImage`）画出来的东西**不是**
+    /// `Renderer`，而是 `CanvasRenderer`（`Component` 的子类，见 `UnityEngine.CanvasRenderer`）⇒
+    /// **一条都没被关掉**。只要现场里有一块 `ScreenSpaceCamera` / `WorldSpace` 的 Canvas 落在相机前面，
+    /// 像素 A/B 的差集里就混进「被测卡以外」的像素（正是这个方法要消灭的那一类）。
+    /// 做法：`SetAlpha(0)` ＋ `cull = true` **两条一起上**（前者让它整块变全透明、后者把它从 Canvas 的
+    /// 批次里摘掉 —— 只做其中一条时不同 Canvas 模式下行为不一致），`finally` 里原样还原
+    /// （`cull = false` + 把 `GetAlpha()` 存下来的值写回去）。
+    /// ⚠️ 本来就 `cull == true` 的不碰（还原时会误开）。`ScreenSpaceOverlay` 的 Canvas 本来就不进相机
+    /// 的 RT（它由 Canvas 系统直接合到屏幕上），但**照样一起关** —— 不花代价，且不依赖「哪种模式会漏」。</para></summary>
     static Color32[] RenderPixelsIsolated(GameObject root)
     {
+        LastIsolatedCulledRenderers = 0;
+        LastIsolatedCulledCanvasRenderers = 0;
         if (root == null) return RenderPixels();
+        // ---- ① 普通渲染器（`Renderer.forceRenderingOff`）----
         var all = Object.FindObjectsByType<Renderer>(FindObjectsInactive.Include, FindObjectsSortMode.None);
         var touched = new List<Renderer>();
+        // ---- ② UGUI（`CanvasRenderer`：**不是** `Renderer` 的子类）----
+        var canvases = Object.FindObjectsByType<CanvasRenderer>(FindObjectsInactive.Include, FindObjectsSortMode.None);
+        var culledCanvas = new List<CanvasRenderer>();
+        var keptAlpha = new List<float>();
         try
         {
             for (int i = 0; i < all.Length; i++)
@@ -1979,13 +2007,51 @@ public static class CardFaceProbe
                 r.forceRenderingOff = true;
                 touched.Add(r);
             }
+            for (int i = 0; i < canvases.Length; i++)
+            {
+                var cr = canvases[i];
+                if (cr == null || cr.cull) continue;                      // 本来就 culled ⇒ 别记（还原时会误开）
+                if (cr.transform.IsChildOf(root.transform)) continue;     // 被测卡自己（若它带了 UGUI）留着
+                keptAlpha.Add(cr.GetAlpha());                             // 必须先存再改（`SetAlpha` 会覆盖）
+                culledCanvas.Add(cr);
+                cr.SetAlpha(0f);
+                cr.cull = true;
+            }
+            LastIsolatedCulledRenderers = touched.Count;
+            LastIsolatedCulledCanvasRenderers = culledCanvas.Count;
             return RenderPixels();
         }
         finally
         {
             for (int i = 0; i < touched.Count; i++) if (touched[i] != null) touched[i].forceRenderingOff = false;
+            for (int i = 0; i < culledCanvas.Count; i++)
+            {
+                if (culledCanvas[i] == null) continue;
+                culledCanvas[i].cull = false;
+                culledCanvas[i].SetAlpha(keptAlpha[i]);
+            }
         }
     }
+
+    /// <summary>只给断言读（🆕 2026-10-24 `E24`）：上一次 `RenderPixelsIsolated` **关掉了几个普通渲染器**
+    /// （`Renderer.forceRenderingOff` 那条路）。`0` 也合法（现场里没有别的东西）。</summary>
+    public static int LastIsolatedCulledRenderers { get; private set; }
+
+    /// <summary>只给断言读（🆕 2026-10-24 `E24`）：上一次 `RenderPixelsIsolated` **关掉了几个 `CanvasRenderer`**
+    /// （UGUI 那条路）。⚠️ 改之前这条恒 0（那条路根本不存在）⇒ 断言「> 0」在旧版上是红的。</summary>
+    public static int LastIsolatedCulledCanvasRenderers { get; private set; }
+
+    /// <summary>只给断言读（🆕 2026-10-24 `E24`）：`RenderPixelsIsolated` 的**公开入口** ——
+    /// 断言要用同一份量具（⛔ 别在断言里另写一台相机，那是第二把尺子）。</summary>
+    public static Color32[] RenderPixelsIsolatedForTest(GameObject root) { return RenderPixelsIsolated(root); }
+
+    /// <summary>只给断言读（🆕 2026-10-24 `E24`）：**不隔离**的整场渲染（= 旧行为）。
+    /// 断言用它当**对照**：「隔离关掉了某个东西」必须先用它证明「那个东西本来是画得出来的」。</summary>
+    public static Color32[] RenderPixelsForTest() { return RenderPixels(); }
+
+    /// <summary>渲染分辨率（`W × H`）；断言换算世界→像素要用。</summary>
+    public static int RenderWidthForTest { get { return W; } }
+    public static int RenderHeightForTest { get { return H; } }
 
     /// <summary>把这张卡单独渲进一张图 —— 相机正交、正好框住整张卡（含卡框外沿）</summary>
     static void Shot(CardView view, string path, bool quiet = false)

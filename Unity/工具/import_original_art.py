@@ -968,6 +968,8 @@ MENU_TEXTURE_IMAGES = [
 #   要这 4 张 + 上面已登记的 `Glow` / `Up Rays`（共 6 张，走 `CardArt.MenuUi` ⇒ 三目录兜底都能命中）。
 #   `RewardWindow.cs:1575-1578` 那条注释说「要补就往 `MENU_IMAGES` 加」——**那条是错的**：
 #   本表读的是 `ui_extract/<bundle>/Sprite/`，**不是** `assets_full/bundle_<包>/Texture2D/`。
+#   🔴 **2026-10-24（E12）补一条**：`Sprite/` 那批是**按 `m_RD.textureRect` 紧裁过的**（比 `m_Rect` 小、四周丢留白），
+#   所以落盘前统一走 `copy_ui_sprite` → `ui_sprite_pad` **按 `m_Rect` 补回透明画布**（判据与实测见那两个函数的 doc）。
 #
 # 处置 = **请调度台裁**（本件白名单只允许「往 `MENU_IMAGES` 加条目」）。两条候选，判据都齐：
 #   ① 本文件里给「非图集切片」再开一张小表（照 `FX_TEXTURES` 那条先例：那把就是「从 bundle 里
@@ -1154,6 +1156,83 @@ def sprite_rect(png_path):
                 int(round(tr['x'] + tr['width'])), int(round(tr['y'] + tr['height'])))
     except Exception:
         return None
+
+
+def _png_size(p):
+    """PNG 的像素尺寸（**直读 IHDR** —— 不加载整张图，`--check` 那条路用）。"""
+    import struct
+    with io.open(p, 'rb') as f:
+        head = f.read(24)
+    if len(head) < 24 or head[:8] != b'\x89PNG\r\n\x1a\n':
+        return (-1, -1)
+    return struct.unpack('>II', head[16:24])
+
+
+def ui_sprite_pad(name, bundle):
+    """`ui_extract/<bundle>/Sprite/<名>.png` **该贴回多大的画布、贴在哪个偏移**。
+
+    🔴 **2026-10-24（第七十三会话 E12 · 账 `A1 A·6d`）为什么要有这一条**：
+    `ui_extract` 里的 Sprite PNG 是**按 `m_RD.textureRect` 紧裁过的**，而原版画这张图时用的是
+    **`m_Rect`**（sprite 的整块，含四周的透明留白）。实测 `Roman VI`：
+    `m_Rect = 128×128`、`m_RD.textureRect = (0, 8.076, 128, 111.897)` ⇒ 导出成 **128×112**，
+    上下各 8 px 的透明留白被裁掉 ⇒ 同一个框里那个「VI」会按 PA 内接**放大约 14%**（真实画面偏差）。
+    （`ui_extract/.../Sprite/<名>.json` 是个**精简 dump**，没有 `m_RD` ⇒ 偏移只能回
+    `assets_full/bundle_<bundle>/Sprite/<名>.json` 读。）
+    ⚠️ 有些名字**不在表里登记的那个 bundle** 下（例 `40k_shop_bt_gold` 的真身在
+    `bundle_liveopsicons_assets_all`）⇒ 该 bundle 查不到时**全库按同名 glob**：
+    只有一处命中、或多处命中的 `(m_Rect, 偏移)` **完全一致**才采用（判据唯一）；否则 None。
+
+    :return: `(w, h, ox, oy)` = `m_Rect` 的宽高 + `textureRectOffset`（取整像素）；
+             查不到那份 json / 字段缺失 / 多处判据打架 ⇒ **None**（调用方整张照拷并**出声**，⛔ 不猜位置）。
+    """
+    import glob as _glob
+    import json
+    jp = os.path.join(UNPACK, 'bundle_' + bundle, 'Sprite', name + '.json')
+    cand = [jp] if os.path.exists(jp) else sorted(
+        _glob.glob(os.path.join(UNPACK, '*', 'Sprite', _glob.escape(name) + '.json')))
+    found = set()
+    for p in cand:
+        try:
+            with io.open(p, encoding='utf-8') as f:
+                j = json.load(f)
+            r = j['m_Rect']
+            off = j['m_RD'].get('textureRectOffset') or {'x': 0.0, 'y': 0.0}
+            found.add((int(round(r['width'])), int(round(r['height'])),
+                       int(round(off.get('x', 0.0))), int(round(off.get('y', 0.0)))))
+        except Exception:
+            continue
+    if len(found) != 1:
+        return None
+    return found.pop()
+
+
+def copy_ui_sprite(src, dst, bundle):
+    """把一个 `ui_extract` 的 Sprite PNG 落盘，并**按原版 `m_Rect` 补回透明画布**（见 `ui_sprite_pad`）。
+    ⛔ **别静默裁掉留白**：拿不到偏移时会整张照拷并返回 `'noinfo'`（调用方出声），不猜。
+    返回 `'asis'`（本来就没裁，逐字节拷）/ `'padded'`（补过画布）/ `'noinfo'`（拿不到 `m_Rect` 判据）。"""
+    from PIL import Image
+    name = os.path.splitext(os.path.basename(src))[0]
+    pad = ui_sprite_pad(name, bundle)
+    if pad is None:
+        shutil.copyfile(src, dst)
+        return 'noinfo'
+    tw, th, ox, oy = pad
+    im = Image.open(src)
+    if im.size == (tw, th) and ox == 0 and oy == 0:
+        im.close()
+        shutil.copyfile(src, dst)
+        return 'asis'
+    im = im.convert('RGBA')
+    if ox < 0 or oy < 0 or im.size[0] + ox > tw or im.size[1] + oy > th:
+        # 偏移/尺寸对不上（数据自相矛盾）⇒ 照拷 + 出声，⛔ 不把图贴到画布外
+        im.close()
+        shutil.copyfile(src, dst)
+        return 'noinfo'
+    canvas = Image.new('RGBA', (tw, th), (0, 0, 0, 0))
+    canvas.paste(im, (ox, oy))
+    canvas.save(dst)
+    im.close()
+    return 'padded'
 
 
 def bleed_edge_rgb(im, ring=8):
@@ -1693,6 +1772,10 @@ def main() -> int:
     menu_jobs = [(os.path.join(MENU_SRC, bundle, 'Sprite', name + '.png'),
                   os.path.join(MENU_OUT, name.replace(' ', '_') + '.png'), False)
                  for name, bundle in MENU_IMAGES]
+    # 🔴 这一批的源是**紧裁过的 Sprite PNG**（不总是 Texture2D 满图）⇒ 落盘前要按 `m_Rect` 补回透明画布。
+    #    判据与实测 → `ui_sprite_pad` 的 doc（账 `A1 A·6d`：`Roman VI` 128×112 vs 原版 128×128）。
+    menu_pad = {os.path.join(MENU_OUT, name.replace(' ', '_') + '.png'): bundle
+                for name, bundle in MENU_IMAGES}
     print(f'菜单 UI 图：源 {len(menu_jobs)} 张（来自 {len(set(b for _n, b in MENU_IMAGES))} 个 bundle 目录）')
     jobs += menu_jobs
 
@@ -1777,6 +1860,7 @@ def main() -> int:
     cutouts = []                     # 有「角色抠图」的卡（slug），写进 card_cutouts.json
     meta_fixed = 0                   # ⚠️ 初值必须在这儿：`--check` 那条路不会进下面的 `if not args.check`
     #    （2026-09-15 修：原来它在 `if not args.check` 里初始化，`--check` 跑到底就 UnboundLocalError）
+    padded_menu, noinfo_menu = [], []   # 🔴 菜单 UI 图里「补过画布」/「拿不到 m_Rect 判据」的（见 `copy_ui_sprite`）
     for src, dst, crop in jobs:
         if not src or not os.path.exists(src):
             miss.append(src or '(空路径)')
@@ -1789,11 +1873,31 @@ def main() -> int:
                     cutouts.append(stem[len('art_'):] if stem.startswith('art_') else stem)
                     if fix_art_meta(dst):
                         meta_fixed += 1
+            elif dst in menu_pad:
+                # 🔴 菜单 UI：源是**紧裁过的 Sprite PNG** ⇒ 按 `m_Rect` 补回透明画布（⛔ 不许静默裁留白）
+                st = copy_ui_sprite(src, dst, menu_pad[dst])
+                if st == 'padded':
+                    padded_menu.append(os.path.basename(dst))
+                elif st == 'noinfo':
+                    noinfo_menu.append(os.path.basename(dst))
             else:
                 shutil.copyfile(src, dst)
+        elif dst in menu_pad:
+            # `--check` 不写盘，但也要能看见「哪几张会因为紧裁而丢留白」
+            pad = ui_sprite_pad(os.path.splitext(os.path.basename(src))[0], menu_pad[dst])
+            if pad is None:
+                noinfo_menu.append(os.path.basename(dst))
+            elif pad[0:2] != _png_size(src) or pad[2] != 0 or pad[3] != 0:
+                padded_menu.append(os.path.basename(dst))
         ok += 1
 
     print(f'{"检查" if args.check else "拷贝"}完成：{ok} / {len(jobs)}')
+    if padded_menu:
+        print(f'  🔴 菜单 UI 图里**按 `m_Rect` 补回透明画布**的 {len(padded_menu)} 张'
+              f'（源被紧裁过；判据 → `ui_sprite_pad` 的 doc）：{", ".join(sorted(padded_menu))}')
+    if noinfo_menu:
+        print(f'  ⚠️ 菜单 UI 图里 {len(noinfo_menu)} 张**拿不到 `m_Rect`/`textureRectOffset` 判据**'
+              f'（整张照拷，没补画布 —— ⛔ 不猜位置）：{", ".join(sorted(noinfo_menu))}')
 
     # ---- 卡背 233 张（**逐张裁**，所以不走上面那个「整张拷」的循环）----
     cbs = cardback_jobs()

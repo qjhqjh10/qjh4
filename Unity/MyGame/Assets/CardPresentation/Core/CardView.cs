@@ -540,13 +540,37 @@ namespace CardPresentation
         // 原版卡面从上到下是：**卡名 → 阵营（橙）→ 效果文字 → 兵种（橙）**，我们原来只有卡名和效果。
         // 位置出处 A3 表（文字块 −0.7745 加子节点自己的偏移）：
         //   单位卡 `ArmyTextUnit` (0,+0.31) → y01 **0.6394**；`RaceText` (0,−0.452) → y01 **0.8682**
-        //   战术卡 `ArmyTextTactc`(0,+0.13) → y01 **0.6935**（战术卡**没有**兵种行 —— 成品卡图上就没有）
+        //   战术卡 `ArmyTextTactc`(0,+0.13) → y01 **0.6935**；`RaceText`（在 `Tactic Container` 下）
+        //   (0,−0.490) → y01 **0.8796** —— ⚠️ **老注释写「战术卡没有兵种行」已作废**：战术卡印不印
+        //   那一行由 `SubtypeLine` 判（9 个具名系列印、其余不印），**印的时候用 `TacticRaceAt`**。
         // ⚠️ 颜色：A3 表把阵营行记成**白**、兵种行记成**橙**；但两张成品卡（`Warpforge_02_Heavy-Intercessor-2.png`、
         //    `pariah.png`）上**两行都是橙**（(0.9922,0.6039,0.3451) 同一支）。这里按**成品卡**走，
         //    要是以后拿到数字版实况发现阵营行是白的，改这一处即可。
         static readonly Vector2 UnitArmyAt   = new Vector2(0.5000f, 0.6394f);
         static readonly Vector2 UnitRaceAt   = new Vector2(0.5000f, 0.8682f);
         static readonly Vector2 TacticArmyAt = new Vector2(0.5000f, 0.6935f);
+
+        // 🔴 **2026-10-24（`E24`）：兵种行有【两颗】原版节点**（铁律 5·c 的「状态 → 参数」表）。
+        //  判据（一手，逐字段实读；三份 bundle **逐位相同** —— `bundle_battleprefabs_vfxandmisc_assets_all` /
+        //  `bundle_staticgeneralassets_assets_all` / `bundle_menus_assets_all`）：
+        //
+        //  | 状态（`CardTextsController.states[]`） | 卡型 | 用哪颗 | 父容器 | sizeDelta | apos.y | 我们的 y01 |
+        //  |---|---|---|---|---|---|---|
+        //  | 1 / 2（有/无描述） | unit · hero | `RaceText` | `MinionOrWarlord Container` | 90×21 | **−0.452** | **0.8681** |
+        //  | **4** | **tactic · defence** | `RaceText` | `Tactic Container` | **155×19** | **−0.490** | **0.8796** |
+        //  | 3 / 7 / 8 | tactic 其余三档 | —（`RaceText` 被 `objectsToDeactivate` 关掉） | — | — | — | 不印 |
+        //  | 5 / 6 | 大号档 | —（`RaceText` 关） | — | — | — | 不印 |
+        //
+        //  状态怎么选（一手）：`CardTextsController__SetTexts.c`——
+        //    `state = (cardType ∈ {0x14(20), 0x28(40)}) ? 3 + (param_7 != 0) : 1 + IsNullOrEmpty(desc)`；
+        //    `param_6 = RawCard.+0x94`（= 卡型）、`param_7 = RawCard.+0x90`。
+        //    ⇒ **卡型 20 的卡（战术【和】防御，见 `TacticArtScale` 那条：「防御卡的 SO `cardType` 也是 20」）
+        //      命中 `Tactic Container` 那颗**；单位/督军命中 `MinionOrWarlord Container` 那颗。
+        //  ⚠️ **我们印不印那一行**是另一条判据（`SubtypeLine`：9 个具名系列 + 战略/防御恒印），
+        //     **一条都不用改** —— 这里只决定「印的时候摆在哪」。两条不要合并：原版 `state 3` 是
+        //     「战术卡 + 有描述 ⇒ 不印」，而我们的判据是**照 PnP 成品卡图逐张核**出来的（`SubtypeLine`）。
+        //  ⚠️ 老注释说「战术卡没有兵种行」—— **已作废**（`SubtypeLine` 的 doc 已订正过：战术卡印不印看 subtype）。
+        static readonly Vector2 TacticRaceAt = new Vector2(0.5000f, 0.8796f);
         /// <summary>效果文字那块**版面框的顶边**（y01）—— 中心减半高：
         /// 单位 0.7323 − 0.7616/2/3.3313 = 0.6180；战术 0.7876 − 0.7898/2/3.3313 = 0.6691</summary>
         const float UnitDescTop01 = 0.6180f;
@@ -793,6 +817,44 @@ namespace CardPresentation
         //    ⚠️ 这一条**与原版字段不一致**，跑得了实况时要复核（原版关服，战斗界面进不去）。
         const float ArtUnitSquare = 2.7484f, ArtUnitY = -0.044f;
 
+        // ==================================================================
+        //  🔴 2026-10-24（`E24`）立绘中心的 y **按原版预制体分两族**（铁律 5·c：一个值 ≠ 全部情况）
+        // ==================================================================
+        //  原版解包**全库普查**（`d:/2/新解包资源/assets_full/` 91 个 bundle，逐个数 `CardImage` 的
+        //  `RectTransform.m_AnchoredPosition.y`；脚本口径 = GO 名 `CardImage` → `m_Component` → RT；
+        //  `m_LocalPosition` 在 RT 上是 (0,0,0)（Unity 由 anchoredPosition 反推）⇒ **判据取 anchoredPosition**）：
+        //
+        //  | 族 | 节点路径（根 → 叶） | apos.y | 实例数 | 我们对应谁 |
+        //  |---|---|---|---|---|
+        //  | **战斗卡 prefab** | `CardPrefab / 2DCard / Front / CardImage`（`bundle_battleprefabs_vfxandmisc_assets_all`） | **−0.065** | **1** | 手牌 / 场上 / 出牌飞行那一张（`CardFace.Hand` / `CardFace.Board`） |
+        //  | **菜单 / HUD 卡 UI** | `CardUI( Reference) / 2DCard / Front / CardImage`（`Card Drawer` / `Generic Multi Card Display` / `Card Display Window` / `Card Picker` / `CemeteryGroup` / 卡池 / 收藏 / 抽卡包 / 主菜单…） | **−0.044** | **151** | 放大窗 · 多卡窗 · 墓地 · 卡池 · 收藏 · 详情窗（`CardFace.Full`） |
+        //
+        //  （另有 39 个同名 `CardImage` 是**头像气泡**里的 `Mask/CardImage`（176×176 @ y −5），
+        //    与卡面无关 ⇒ 不在本表。）
+        //
+        //  ⚠️ **差额 = 0.021 卡单位**，卡高 3.3313 ⇒ **0.63% 卡高**；手牌高 263 px 时 ≈ **1.7 px**，
+        //     详情窗大卡 1076 px 时 ≈ **6.8 px**。这正是上一轮账上记的「≈7 px」。
+        //  🔴 **纠正上一轮的口径**：那条账写「原版 −0.065 vs 我们 −0.044 ⇒ 照原版改成 −0.065」——
+        //     **只对手牌/场上那张卡成立**；-0.044 **不是我们抄错，是菜单族的原版值**（151 个实例）。
+        //     ⇒ 全局改成 −0.065 会把**放大窗 / 卡池 / 收藏 / 详情窗**全部改错 7 px。所以分族。
+        //  判据补充：「战斗卡 prefab 的 −0.065」在**场景里没有对应实例**（13 个 arena 场景的那 8 个
+        //     `2DCard/Front/CardImage` 全是 `CardUI` 族 = −0.044 —— 那是 HUD 里那几扇窗的卡，
+        //     不是手牌/场上卡；真正的战场卡是运行时从 `CardPrefab` 实例化的）⇒ 只能从 prefab 读。
+        const float ArtUnitYFight = -0.065f;
+
+        /// <summary>这张卡的立绘层走**哪一族**原版预制体的 y（`CardFace.Hand` / `CardFace.Board` =
+        /// 战斗卡 `CardPrefab`；其余 = 菜单/HUD 卡 UI）。判据与两族的值 → <see cref="ArtUnitYFight"/> 那一节。</summary>
+        bool ArtUsesFightFamily { get { return _faceMode == CardFace.Hand || _faceMode == CardFace.Board; } }
+
+        /// <summary>立绘中心 y 的**族差**（卡单位）—— 直接加在 `ArtExtent` 的 `typeDy` 上
+        /// （`acy = ArtUnitY·s + typeDy·s`，`s = Width / CardUnitW = 1` ⇒ 这里就是 0 或 −0.021）。</summary>
+        float ArtFamilyDy { get { return ArtUsesFightFamily ? (ArtUnitYFight - ArtUnitY) : 0f; } }
+
+        /// <summary>这张卡的**立绘中心偏移** = 卡型偏移（`tacticsOffsetPosition`）+ 族差。
+        /// 🔴 生产路径**只走这一个口**（`ArtLayerMeshFor` / `ArtFrontMeshFor` / `FrameMesh` 的 uv2 三处）——
+        /// 各自拼一遍 = 迟早不一致（`ArtBoard` / `ArtUvAt` 那条老坑的同族问题）。</summary>
+        float ArtDyFor(CardData d) { return ArtTypeDyFor(d) + ArtFamilyDy; }
+
         /// <summary>立绘板在「装进方形」的基础上再放大一点（4%）。
         /// 为什么要有余量：原版的拱窗（实测 1.69 × 2.76 卡单位）和 fit 出来的立绘
         /// （0.6548 的画 → 1.80 × 2.7484）**纵向只差 0.012**，留一点余量免得拱顶露出背景。
@@ -857,31 +919,28 @@ namespace CardPresentation
         // ⚠️ **状态**：`ChangeState` 只在**尺寸切换**时改它；`DoChange` 把 `Vector4` 写进材质。
         //   BIG 那一档只在 `currentState == 1` 时取（本 build 的产品路径**不可达** —— 见 `BigCardOverdraw`）。
         //
-        // ⚠️ **我们怎么落**（⚠️ 2026-10-24 订正（铁律 5）：本段原来写「硬矩形**只套 `_artFront`** …
-        //   底层 `_art`（`ArtOpaque`）**不套**：原版没有与之对应的被 clamp 的层」—— **只对单位卡成立**，
-        //   对战术/防御卡**已不成立**。判据 → `资料/普查产出_1024/H1_战术卡生产立绘硬矩形.md`）：
-        //   · **`_artFront`**（真 alpha 那层 = 原版 `CardImage` 的等价物：同一张贴图、同一个 alpha 语义）
-        //     照旧套 —— 小图档 `clampKind 1`、大图档 `2`。
-        //   · **底层 `_art`**（`ArtOpaque`，忽略 alpha 的整幅插图）：**单位卡恒 0（不套）**；
-        //     **非单位卡（战术/防御）小图档 `1` · 大图档 `2`**（`H1` 起；档位收在 `ArtClampKindFor` 一处，
-        //     `Build` 与状态重烘共用）。
-        //   判据（一手）：`CardImageController__SetImage.c` 的 `Tactic(0x14)` 分支（`:126-137`）**只关
-        //   `frameMask`**（`AlphaMask = null` + `enabled = false`），而 `Image.sprite = sprite` 在 `:174-177`
-        //   对**所有卡型无条件**执行、`ChangeState` / `DoChange` 对卡类型**没有任何判断** ⇒ 原版战术/防御卡
-        //   与单位卡走**同一颗 `CardImage`、同一个硬矩形**；原版战术卡**只有** `CardImage` 这一层立绘
-        //   ⇒ 我们与之对应的那一层正是 `_art`。判据全文 → `资料/普查产出_1024/F4_卡面条带与断言.md` §三
-        //   ＋ `H1_战术卡生产立绘硬矩形.md`。原写「战术/防御卡上套了会**在拱窗里切出一条竖边**」那条
-        //   **没复核过** —— 它只是「我们的战术立绘是满幅方图 vs 原版 `cardScales` 0.61 +
-        //   `tacticsOffsetPosition` y+0.5」这个**既有偏离**的推论，⛔ 别当判据。
-        //   可见变化：集中在**非单位卡 且 卡框开口比硬矩形（±0.9147 卡单位）宽**那一档（`tier2/3/4` 的少数框，
-        //   每侧 ≈0.09 卡单位 ≈28 px）；`tier1` 与最窄那档夹了等于没夹。
-        //   ⚠️ opt-in 开 `_artFront`（`UseFrontLayer` 出厂 false）时它会**真的切掉一条**（单位卡贴图的 alpha
+        // ⚠️ **我们怎么落**（🔴 **2026-10-24（第七十三会话 `M2`）第三次订正**）：本段此前两版都不对 ——
+        //   第一版写「硬矩形**只套 `_artFront`**，底层 `_art` 不套」；`H1` 改成「非单位卡的 `_art` 也套 1/2」。
+        //   **`H1` 那一版已被原版实况证伪**（判据四条逐条列在 `ArtClampKindFor` 的 doc 里）：
+        //   ① 原版游戏三张截图（收藏 / 详情窗大卡）里战术卡插图**铺满拱窗、无黑边**；
+        //   ② 把我们的 1024² 立绘按 NCC 匹配进「先知之道」大卡（0.994）⇒ 原版画的是**整张插画**，
+        //      没有被 `_Clamp_Range` 削掉两侧 18%；
+        //   ③ 套上之后板 1.7436 只剩 ±0.5579，而画窗是 ±0.839…±0.872 ⇒ 每侧 0.28 卡单位黑带；
+        //   ④ 离线跑遍 75 张 `*_strat*` 卡框：`clampKind = 0` 时覆盖画窗所需半宽最大值
+        //      **= 0.8718 = 板半宽本身** ⇒ 不套硬矩形时板刚好铺满每一张画窗。
+        //   ⇒ 现行口径：
+        //   · **`_artFront`**（真 alpha 那层）：照旧套 —— 小图档 `clampKind 1`、大图档 `2`。
+        //   · **底层 `_art`**（`ArtOpaque`，忽略 alpha 的整幅插图）：**恒 0（不套）**，
+        //     单位卡与战术/防御卡一视同仁（判据收在 `ArtClampKindFor` 一处，`Build` 与状态重烘共用）。
+        //   ⚠️ `CardImageController__SetImage.c` 那条反证（战术分支只关 `frameMask`、sprite 无条件赋值）
+        //   仍然成立 —— 它证明「C# 层没有按卡型分支」，但**证明不了 shader 里的 `_Clamp_Range` 对这一档生效**；
+        //   原版实况说明它实际上**没有**在这条链上起作用（可能由 `frameMask`/材质态门控，未闭合，如实记）。
+        // ⚠️ opt-in 开 `_artFront`（`UseFrontLayer` 出厂 false）时它会**真的切掉一条**（单位卡贴图的 alpha
         //   伸到局部 u 0.006…1.049，超出小窗口 u 0.0117…0.9883）—— 这正是原版对 `CardImage` 做的事
-        //   （`CardFaceProbe` ④b 断「切了」且「只切在矩形外」；④a 现在按卡型分两档：单位卡差集 = 0、
-        //   战术/防御卡差集 > 0 且全在硬矩形之外 —— `H3`/`H6` 已改）。
+        //   （`CardFaceProbe` ④b 断「切了」且「只切在矩形外」；④a 现在**两种卡型都断「差集 = 0」** ——
+        //   `M2` 起战术/防御卡那一半也翻面了）。
         // ⚠️ 未闭合的一点（如实记）：**单位卡**的背景那一半插图（我们 `ArtOpaque` 那层）由谁画、受不受同一硬矩形，
         //   本地只找到一颗 art 材质（`Card Image Overflow`）⇒ 判不了；这一条留待真机并排复核。
-        //   （非单位卡那一半已由 `H1` 按上面判据落定。）
         static readonly Vector4 ClampRangeSmall = new Vector4(0.82f, 1f, 0.18f, 0f);
         static readonly Vector4 ClampRangeBig = new Vector4(0.75f, 0.89f, 0.25f, 0.1f);
 
@@ -1275,7 +1334,10 @@ namespace CardPresentation
         TextMeshPro _title;      // 卡名（TMP。没有字体资产时为 null，字烘在 _info 里）
         TextMeshPro _keywords;   // 关键词（同上）
         TextMeshPro _army;       // 阵营行（原版 `ArmyTextUnit` / `ArmyTextTactc`）
-        TextMeshPro _race;       // 兵种行（原版 `RaceText`；战术卡没有）
+        TextMeshPro _race;       // 兵种行（原版 `RaceText`；战术/防御卡印不印由 `SubtypeLine` 判）
+        /// <summary>兵种行这一层**摆位用的 y01**（y 从卡顶算）—— 判据见 `TacticRaceAt` 的 doc。
+        /// `NaN` = 这张卡没印那一行（`_race == null` 时由 <see cref="RaceAnchorY01ForTest"/> 报出来）。</summary>
+        float _raceY01 = float.NaN;
         /// <summary>🆕 2026-10-18（`A985④`）**「由谁造出来的」那行字**（原版 `CreatedByText` 节点）。
         /// `null` = 没这一层（没有来源 / 没字体资产 / 场上形态）。判据见 <see cref="CreatedByAt01"/> 那一段。</summary>
         TextMeshPro _createdBy;
@@ -1491,7 +1553,9 @@ namespace CardPresentation
             //   判据 = 原版 `Card 3d Lvl1` 的 shader `Everguild/Cards/3D Card` 子标签
             //   `QUEUE=Geometry`（不透明档）+ `blend (1,0)` + `zWrite 1`（原始 bundle 实读；
             //   全文 → `资料/普查产出_1023/D3_F1判据与方案.md`）。
-            //   为什么必须在这里拦：`renderQueue` 的排序优先级**高于** sortingLayer/sortingOrder
+            //   为什么必须在这里拦：`renderQueue` **高于** sortingLayer/sortingOrder（⚠️ 只在
+            //   **两个世界 `MeshRenderer` 之间**成立 —— 面对**画布件**时反过来：画布排序层先比、
+            //   队列轮不到，见 `Battle/HudCanvas.cs:21` 与 2026-10-24 换牌压暗层那条记录）
             //   ⇒ 一旦盖成场上号段（2962–2979）或手牌号段（2980–3000），卡体就掉回透明档，
             //   shader 那两条标签等于白改（`Shaders/Card3D.shader` 的 SubShader 头注里也写了这条）。
             //   顺带治掉一个**老隐患**：溶解进行中被盖章时，`StampQueue` 会把渲染器换成
@@ -1620,7 +1684,13 @@ namespace CardPresentation
         //     ⇒ 原版确有「把一组 renderer 抬到卡 canvas 之上」的口子。
         //  🔴 **我们的模型与上面不同，所以映射要写清楚**（D 报告 §②·0）：我们是
         //     「**一张卡 = 一段 renderQueue**」（场上 2962–2979 / 手牌 2980–3000），
-        //     而 `renderQueue` 的优先级**高于** sortingLayer / sortingOrder ⇒
+        //     而 `renderQueue` 在**两个世界 `MeshRenderer` 之间**先于 sortingLayer / sortingOrder
+        //     （⚠️ **2026-10-24 就地补注（铁律 5）**：本条原文只写了「`renderQueue` 优先级**高于**
+        //      sortingLayer / sortingOrder」—— **对画布件不成立**：`Canvas` 的排序层先比、队列轮不到。
+        //      实测 = 换牌期队列 3001 的换牌卡仍被 `OverHand` 画布上的压暗层盖住（换牌卡区 max = 123
+        //      ≈ 线性 0.198 = 1 − 0.8）；详见 `Battle/HudCanvas.cs:21` 与
+        //      `Battle/MulliganPanel.QMulliganShade` 的 doc。下面这条「特效停在 3000 ⇒ 恒压在场上卡之上」
+        //      说的是 **mesh 之间**，不受影响）⇒
         //     一件没被盖章的透明件（所有特效）停在 3000 ⇒ **恒画在所有场上卡之上**。
         //  ⇒ 本条的落地 = **让卡上的特效进这张卡自己的那一段**：
         //     `renderQueue = 这张卡的 Queue`，`sortingOrder = EffectSortingOrder + 原值`。
@@ -1941,7 +2011,13 @@ namespace CardPresentation
         public void SetFace(CardFace f)
         {
             if (_faceMode == f) return;
+            // 🔴 2026-10-24（`E24`）：立绘中心 y **按原版预制体分两族**（见 `ArtUnitYFight`）——
+            //    `Full`（菜单/HUD 卡 UI，−0.044）⇄ `Hand`/`Board`（战斗卡 `CardPrefab`，−0.065）。
+            //    族差是**烘进顶点**的（`ArtExtent` 的 `acy`）⇒ 跨族换形态必须重烘，否则网格停在旧族
+            //    （静默：只差 0.021 卡单位 ≈ 263 px 高的手牌上 1.7 px，截图看不出来）。
+            bool wasFightFamily = ArtUsesFightFamily;
             _faceMode = f;
+            if (wasFightFamily != ArtUsesFightFamily) RebakeArtFamilyMeshes();
             bool board = f == CardFace.Board;
 
             // 🆕 2026-10-19（`T09` 步骤 B 前半，`W57`）：**换形态 = 换命中档** —— 真 collider 的
@@ -3821,25 +3897,20 @@ namespace CardPresentation
                 float artScale = ArtScaleFor(d, bigState);
                 _builtData = d;            // 重烘要用**建这块网格时那份**数据（`Data` 这时可能还没赋，见 `Create`）
                 _artTexBuilt = artTex;
-                // 🔴 **2026-10-24（H1）**：战术/防御卡的**生产立绘**（`_art` 底层）也要套原版 `_Clamp_Range` 硬矩形。
-                //    判据（一手）：`CardImageController__SetImage.c` 的 `Tactic(0x14)` 分支（`:126-137`）**只关 `frameMask`**
-                //    （`AlphaMask = null` + `enabled = false`），而 `Image.sprite = sprite` 在 `:174-177`、
-                //    **对所有卡型无条件执行**；`ChangeState` / `DoChange` 对卡类型**没有任何判断**
-                //    ⇒ 战术/防御卡的立绘与单位卡走**同一颗 `CardImage`、同一份材质、同一个硬矩形**。
-                //    原版战术卡**只有** `CardImage` 这一层立绘 ⇒ 我们与之对应的那一层正是 `_art`
-                //    （单位卡对应的是 `_artFront`，那层早就套上了，见下面）。
-                //    档位按 A7/D3 的分档：**小图档 = SMALL(1) · 大图档 = BIG(2)** —— 认状态、⛔ 不认放大倍率。
-                //    ⛔ **单位卡仍是 0**（`_art` 保持原样、逐顶点不变）。
-                //    判据全文 → `资料/普查产出_1024/F4_卡面条带与断言.md` §三（原版战术卡立绘也吃同一个硬矩形）。
-                //    档位（单位卡 **0** / 非单位卡 **小图档 1 · 大图档 2**）**也收在 `ArtClampKindFor` 一处** ——
-                //    重烘那条路读同一个函数（两处各写一遍 = 迟早不一致）。
-                var artMesh = ArtLayerMeshFor(d, artTex, frameTex, bigState);
-                // 🔴 2026-10-24（A7）：硬矩形也套 `_artFront`（= 原版那层 CardImage 的等价物：
-                //    同一张贴图、吃它的 alpha）。
-                //    ⚠️ **同日 H1 就地订正**：本行原来写「底层 `_art` …原版**没有**与之对应的被 clamp 的层 ⇒ 不套」
-                //    —— **对单位卡成立、对战术/防御卡不成立**（原版战术卡只有 `CardImage` 这一层立绘，它被 clamp）。
-                //    现在 `_art` 按卡型分档（见上面 H1 那一段）。原写「套了会在拱窗里切出一条竖边」那条**没复核过**，
-                //    它只是「我们的战术立绘是满幅方图 vs 原版 `cardScales` 0.61」这个**既有偏离**的推论，⛔ 别当判据。
+                // 🔴 **2026-10-24（`H1` → 第七十三会话 `M2` 翻面）**：`_art` 底层的硬矩形档位**恒 0（不套）**。
+                //    `H1` 那一版曾给战术/防御卡接上 `小图档 1 · 大图档 2`，理由是「原版战术卡只有 `CardImage`
+                //    这一层立绘、硬矩形对所有卡型生效」—— **已被原版实况证伪**：原版游戏截图里战术卡插图
+                //    铺满拱窗无黑边，且把我们的 1024² 立绘 NCC 匹配进原版大卡（0.994）证明画的是**整张插画**；
+                //    套上之后板 1.7436 被削到 ±0.5579、画窗 ±0.839…±0.872 ⇒ 每侧 0.28 卡单位黑带
+                //    （= 用户报的「插图不覆盖战术卡框上面空着的地方」）。四条判据 + 75 张卡框的离线覆盖验证
+                //    → `ArtClampKindFor` 的 doc ＋ `ClampRangeSmall` 上面那段「我们怎么落」。
+                //    ⛔ 所以这里**不要**再按卡型/状态传 clampKind —— 档位仍收在 `ArtClampKindFor` 一处
+                //    （`Build` 与重烘共用），但那个函数现在恒返回 0。
+                var artMesh = ArtLayerMeshFor(d, artTex, frameTex, bigState, ArtDyFor(d));
+                // 🔴 2026-10-24（A7）：硬矩形照旧套 `_artFront`（有真 alpha 的角色抠图层 = 原版 `CardImage`
+                //    在那条链上的等价物）。⚠️ **`M2` 落定**：`_art`（整幅插图）**不套** —— 上一条就是判据；
+                //    原写「套了会在拱窗里切出一条竖边」那条**其实是对的**（`H1` 一度把它当没复核的推论推翻，
+                //    现在由原版截图 + NCC 重新坐实）。
                 //    小图档**生产路径**上 opt-in 的前景层（`UseFrontLayer` 出厂 false）照旧套小图档
                 //    （见 `ClampRangeSmall` 的 doc —— 那是原版的画法）。
                 // 🔴 **2026-10-24（H5）· 铁律 5 就地订正**：这里原来写
@@ -3850,7 +3921,7 @@ namespace CardPresentation
                 //    兜底**一次都没被读到** = 死代码（`H1` §六·4 记账，`H5` 件 2·2 核清）。
                 //    现在把「小图档那一支」搬进 `ArtFrontMeshFor`、直接当 `_artFront` 的网格用 ——
                 //    参数与原来那一次**逐字相同** ⇒ 行为不变，死支消失。
-                var artFrontMesh = ArtFrontMeshFor(d, artTex, frameTex, bigState);
+                var artFrontMesh = ArtFrontMeshFor(d, artTex, frameTex, bigState, ArtDyFor(d));
                 // ---- 立绘：**画在框下、由框的 alpha 剪出来**（原版小卡档就是这个，**不越出**）----
                 //   ① 底层「完整插图」：**忽略贴图的 alpha**（那张图的 alpha 是角色抠图，不是不透明信息），
                 //      垫在卡框下面 —— 卡框拱窗自己也是透明的（实测 alpha=0），窗里的背景就靠这一层。
@@ -3987,7 +4058,7 @@ namespace CardPresentation
                 // UV 裁到卡外框；**uv2 = 立绘的 UV**（破框 shader 靠它采立绘的 alpha —— 现在没有 shader
                 // 采了，但 `CheckCutoutUvAlignment` 仍在守这条对齐判据，**留着**，见那一段注释）
                 if (_frame != null) _frame.GetComponent<MeshFilter>().sharedMesh =
-                    FrameMesh(frameTex, artTex, artScale, ArtTypeScaleFor(d), ArtTypeDyFor(d));
+                    FrameMesh(frameTex, artTex, artScale, ArtTypeScaleFor(d), ArtDyFor(d));
                 if (bt) m1 = _buildWatch.ElapsedMilliseconds;      // FrameMesh（含 uv2 遮罩对齐）到此
                 // 费用底板 / 护甲盾：原版的**两张真图**（A2 表），垫在数值底下 ——
                 // z 比 `_info`(−0.02) 远、比卡框(0) 近，所以数字盖在它们上面，和原版层级一致。
@@ -4427,8 +4498,13 @@ namespace CardPresentation
             // ④ 兵种行 —— 在卡面下部。**印不印不是「只有单位卡」那么简单**，判据见 `SubtypeLine`
             //    🆕 2026-10-17（D5）：这一格的字现在是**按当前语言**取的
             //    （`SubtypeLine` → `RaceTerm` → `Loc.T("Card_Race/<race>")`）。
-            //    ⚠️ **版面一个字都没动** —— 位置 / 字号 / 颜色 / 折行照旧（实拍与 prefab 都已收口）。
-            _race = Fill(_race, "race", SubtypeLine(d), UnitRaceAt, nameW, RaceFontSize, InkArmy, false,
+            //    🔴 **2026-10-24（`E24`）**：**摆在哪**按原版的两颗节点分档（表 → `TacticRaceAt` 的 doc）——
+            //      单位/督军 = `MinionOrWarlord Container/RaceText`（y01 0.8682）；
+            //      战术/防御 = `Tactic Container/RaceText`（y01 **0.8796**，低 0.038 ⇒ 0.0126 卡单位）。
+            //    ⚠️ 「印不印」与「摆哪」是**两条独立判据**，别合并（见 `TacticRaceAt` 的 doc 末段）。
+            _raceY01 = RaceUsesTacticAt(d) ? TacticRaceAt.y : UnitRaceAt.y;
+            _race = Fill(_race, "race", SubtypeLine(d), new Vector2(UnitRaceAt.x, _raceY01),
+                         nameW, RaceFontSize, InkArmy, false,
                          face: TmpFont.Face.LatinCardBody);   // 原版 `RaceText*` = Pragati（§2·5）
 
             // ⑤ 🆕 描边 —— **原版在材质里，不在 TMP 组件上**，见 `TmpFont.ApplyOutline` 的注释。
@@ -4443,6 +4519,17 @@ namespace CardPresentation
             //    ⚠️ **原地刷、不重建**：`BuildTextLayers` 每次 `SetData` 都走（战场每刷新一次都走）
             //    ⇒ 内容从 `_createdByName` 现取（那个字段由 `SetCreatedBy` 维护），没来源时这一层被拆掉。
             FillCreatedBy();
+        }
+
+        /// <summary>🔴 2026-10-24（`E24`）：兵种行摆位**走哪颗原版节点** —— 判据只有这一处
+        /// （表与出处 → `TacticRaceAt` 的 doc）。
+        /// <para>非单位卡（`tactic` **和** `defence`，原版 `cardType` 都是 **20**）走 `Tactic Container/RaceText`
+        /// （apos y **−0.490**）；单位/督军走 `MinionOrWarlord Container/RaceText`（**−0.452**）。</para>
+        /// <para>⚠️ 没填 `type` 的构造点（自检夹具）沿用 `isUnit` 那条老路径 —— 与 `SubtypeLine` 同一个态度。</para></summary>
+        static bool RaceUsesTacticAt(CardData d)
+        {
+            if (string.IsNullOrEmpty(d.type)) return !d.isUnit;
+            return d.type == "tactic" || d.type == "defence";
         }
 
         /// <summary>卡面最下面那行橙字要印什么；**不印返回 null**。
@@ -9634,6 +9721,52 @@ namespace CardPresentation
             => ArtMeshInFrame(art, artScale, frameTex, clipWindow, clampKind,
                               null, typeScale, typeDy);
 
+        /// <summary>自检用（🆕 2026-10-24 `E24`）：卡面某一层（按 `GameObject` 名，如 `"art"` / `"frame"`）
+        /// 真交给渲染器的那块网格；那一层不存在 ⇒ `null`。
+        /// <para>为什么要有它：卡框的 **uv2** 是拿**立绘的板**算出来的（`FrameMesh` ← `ArtUvAt` ← `ArtBoard`），
+        /// 立绘中心一动遮罩就得跟着动 —— 断言要能读到卡框那块网格才断得了这条。</para></summary>
+        public Mesh LayerMeshForTest(string layerName)
+        {
+            foreach (var mf in GetComponentsInChildren<MeshFilter>(true))
+                if (mf != null && mf.gameObject.name == layerName) return mf.sharedMesh;
+            return null;
+        }
+
+        /// <summary>自检用（🆕 2026-10-24 `E24`）：**底层立绘层**（`_art`）真交给渲染器的那块网格。
+        /// <para>立绘中心的 y **烘在顶点里**（`ArtExtent` 的 `acy`，不是节点的 `localPosition`）⇒
+        /// 「战斗卡 prefab −0.065 / 菜单卡 UI −0.044」这一条只能从这块网格的包围盒中心读到
+        /// （见 `ArtUnitYFight`）。`null` = 这一层没建（没有立绘 / 占位图）—— 调用方**别读成通过**。</para></summary>
+        public Mesh ArtLayerMeshForTest
+        {
+            get
+            {
+                if (_art == null) return null;
+                var mf = _art.GetComponent<MeshFilter>();
+                return mf != null ? mf.sharedMesh : null;
+            }
+        }
+
+        /// <summary>自检用（🆕 2026-10-24 `E24`）：兵种行（`_race`）这一层摆位用的 **y01**（y 从卡顶算）。
+        /// <para>为什么要有它：`PlaceAt` 把 `at.y` 换算成 `(0.5 − y01) × Height` 之后还要减
+        /// `textBounds.center`（随文字变）⇒ 从 `localPosition` 反推要再借 TMP 的 bounds，量具本身会漂。
+        /// 这里记的是**判据值**（原版 prefab 的 apos 换算出来的那个 y01），断言直接对原版字面量比。</para>
+        /// <para>`NaN` = 这张卡**没有兵种行**（`_race == null`）。</para></summary>
+        public float RaceAnchorY01ForTest { get { return _race != null ? _raceY01 : float.NaN; } }
+
+        /// <summary>自检用（🆕 2026-10-24 `E24`）：兵种行这一层**真摆出去的中心 y**（卡面局部、卡单位）。
+        /// <para>= `rectTransform.localPosition.y + textBounds.center.y` —— `PlaceAt` 摆完之后这两项之和
+        /// 恒等于 `(0.5 − y01) × Height`。它与 <see cref="RaceAnchorY01ForTest"/> 是**两条独立的读数**
+        /// （一条是判据、一条是实况）⇒ 断言两边都断，「判据写了但没落到层上」那种静默错才拦得住。</para>
+        /// <para>`NaN` = 这张卡没有兵种行。</para></summary>
+        public float RacePlacedCenterYForTest
+        {
+            get
+            {
+                if (_race == null) return float.NaN;
+                return _race.rectTransform.localPosition.y + _race.textBounds.center.y;
+            }
+        }
+
         /// <summary>自检用（`D3`）：**大图档前景抠图层**（`_artFront`）真交给渲染器的那块网格 ——
         /// 「×1.27 只给 Minion/Hero」这道门控（<see cref="BigArtScaleApplies"/>）就烘在这块网格的顶点里。
         /// <para>`null` = 这一层**根本没建**（不是大图档 / 这张卡没有真立绘 / `BigCardOverdraw` 关）——
@@ -10488,10 +10621,30 @@ namespace CardPresentation
         static float ArtScaleFor(CardData d, bool bigState)
             => (bigState && BigArtScaleApplies(d)) ? BigArtScale : 1f;
 
-        /// <summary>`_art` 的硬矩形档位：单位卡 **0**（不套）/ 非单位卡 **小图档 1 · 大图档 2**
-        /// （判据见 `ClampRangeSmall` 的 doc；`Build` 与重烘共用这一份）。</summary>
-        static int ArtClampKindFor(CardData d, bool bigState)
-            => d.isUnit ? 0 : (bigState ? 2 : 1);
+        /// <summary>`_art`（底层完整插图）的硬矩形档位 —— **恒 0（不套）**，单位卡与战术/防御卡一视同仁。
+        /// <para>🔴 **2026-10-24（第七十三会话 `M2`）判据翻面**：`H1`（同日早些）曾把非单位卡改成
+        /// `小图档 1 · 大图档 2`，理由是「原版战术卡只有 `CardImage` 一层立绘、硬矩形对所有卡型生效」。
+        /// **那条推断被原版实况证伪**：</para>
+        /// <list type="number">
+        /// <item>用户自己截的**原版游戏**三张图（`桌面/warpforge参考图/`：`点击卡片查看详情的参考.png`
+        /// 的「先知之道」大卡 · `收藏—张牌的界面参考图…png` 的战术卡 · `收藏—卡组的参考图.png`）
+        /// 里，战术/防御卡的插图**铺满整个拱窗**（左右到框沿、上到拱顶），**没有任何黑边**。</item>
+        /// <item>把我们的立绘 PNG（1024²）按多尺度 NCC 匹配进「先知之道」大卡（ncc **0.994**，k=0.335），
+        /// 三个互不相邻的 patch 给出同一组缩放/原点 ⇒ 原版画的是**整张插画**
+        /// （`u` 全段 0..1），**不是** `_Clamp_Range` 的中央 64%。</item>
+        /// <item>套上硬矩形后：板 1.7436 → 只剩 ±0.5579，而战术卡框的画窗是 ±0.839…±0.872
+        /// ⇒ 左右各留 **≈0.28 卡单位**的黑带、顶部也被压下去 —— 正是用户报的
+        /// 「插图不覆盖战术卡框上面空着的地方」。</item>
+        /// <item>离线复刻（`FrameMaskData`/`BuildFrameRows`/`ArtWindowMesh` 口径）跑遍
+        /// **75 张 `*_strat*` 卡框**：`clampKind = 0` + `0.61/0.5` 时，覆盖画窗所需的半宽
+        /// **最大值 = 0.8718 = 立绘板半宽本身** ⇒ **不套硬矩形时板刚好铺满每一张画窗**（一张都不漏）。
+        /// 这条是「板 1.7436 够不够」的正面证据，⛔ 别再靠 `ArtCoverMargin` 猜。</item>
+        /// </list>
+        /// <para>⚠️ `_artFront`（大图档角色抠图层）**不受影响** —— 它的档位由 `ArtFrontMeshFor` 显式给
+        /// （小图档 1 / 大图档 2），原版那一层确实是 `_Clamp_Range` 的等价物（有真 alpha 的抠图）。</para>
+        /// <para>🧨 改坏法：返回非 0 ⇒ 战术/防御卡的插图立刻在拱窗两侧各缩进 0.28 卡单位
+        /// （`CardBaseDemo.AssertTacticArtClamp` ① / `CardFaceProbe` A7 ④a·④c 都会红）。</para></summary>
+        static int ArtClampKindFor(CardData d, bool bigState) => 0;
 
         /// <summary>🆕 **2026-10-24（`E9`）**：这张卡的**卡型立绘倍率** —— 原版 `CardScalesByCardType`
         /// 的 `cardScales[cardType]`。单列**一份判据**：`!isUnit ⇒ 0.61`（原版 20 = Tactic，战术**和**防御；
@@ -10509,22 +10662,22 @@ namespace CardPresentation
         /// 状态只改**硬矩形档位**。
         /// <para>🆕 2026-10-24（`E9`）：**卡型**倍率/偏移（`0.61` / `+0.5`）照传 —— 它和「大图档 ×1.27」
         /// 是两条独立的轴（原版一个在 `SetImage`、一个在 `ChangeState`）。</para></summary>
-        static Mesh ArtLayerMeshFor(CardData d, Texture2D artTex, Texture2D frameTex, bool bigState)
+        static Mesh ArtLayerMeshFor(CardData d, Texture2D artTex, Texture2D frameTex, bool bigState, float dy)
             => ArtMeshInFrame(artTex, 1f, frameTex,
                               clipWindow: !d.isUnit, clampKind: ArtClampKindFor(d, bigState),
                               clampRange: null,
-                              typeScale: ArtTypeScaleFor(d), typeDy: ArtTypeDyFor(d));
+                              typeScale: ArtTypeScaleFor(d), typeDy: dy);
 
         /// <summary>`_artFront`（角色压框层）的网格 —— `Build` 与状态重烘**共用**。
         /// 大图档 = 卡类型倍率 + **大图档**硬矩形（`clipWindow: false`、`frameTex: null` —— 单位卡那支原样）；
         /// 小图档 = 1.0 + **小图档**硬矩形 + `clipWindow: !d.isUnit`（= 2026-10-24 `F1`/`R1` 补的那一支）。
         /// <para>🆕 2026-10-24（`E9`）：卡型倍率/偏移（非单位卡 `0.61` / `+0.5`）两支都传。</para></summary>
-        static Mesh ArtFrontMeshFor(CardData d, Texture2D artTex, Texture2D frameTex, bool bigState)
+        static Mesh ArtFrontMeshFor(CardData d, Texture2D artTex, Texture2D frameTex, bool bigState, float dy)
             => bigState
                 ? ArtMeshInFrame(artTex, ArtScaleFor(d, true), null, false, 2, null,
-                                 ArtTypeScaleFor(d), ArtTypeDyFor(d))
+                                 ArtTypeScaleFor(d), dy)
                 : ArtMeshInFrame(artTex, ArtScaleFor(d, false), frameTex, clipWindow: !d.isUnit, clampKind: 1,
-                                 clampRange: null, typeScale: ArtTypeScaleFor(d), typeDy: ArtTypeDyFor(d));
+                                 clampRange: null, typeScale: ArtTypeScaleFor(d), typeDy: dy);
 
         /// <summary>状态轴变了 ⇒ **按新状态重烘三块网格**（原版 `SetImageOverDraw → ChangeState → DoChange`）。
         /// <para>为什么必须重烘：档位与 ×1.27 都是**烘进顶点**的（`ArtMeshInFrame` / `FrameMesh` 的 uv2），
@@ -10534,23 +10687,38 @@ namespace CardPresentation
         /// <para>⛔ 只在**轴真的变了**时调（两个 setter 的 `if (value == _field) return;` 已经挡住重复赋值）。</para></summary>
         void RebakeBigStateMeshes()
         {
-            if (!_bigImage || _frameTex == null || _art == null || _artTexBuilt == null) return;
+            if (!_bigImage) return;
+            RebakeArtMeshes();
+        }
+
+        /// <summary>🔴 2026-10-24（`E24`）：**跨族换形态**（菜单/HUD 族 ⇄ 战斗卡族，见 `ArtUnitYFight`）时重烘。
+        /// <para>为什么不能借 `RebakeBigStateMeshes`：它开头有 `if (!_bigImage) return;` —— 小卡（手牌 /
+        /// 卡池）一个都不会被重烘，而族差**恰恰**落在小卡那 263 px 上（≈1.7 px）。</para>
+        /// <para>⚠️ **只有跨族才调**：`Full ↔ Hand` 才变族，`Hand ↔ Board` 同族（都是战斗卡 prefab）。
+        /// 入口只有 `SetFace` 一处（铁律 10 第 5 条）—— 出生那一档在 `Build`，它建网格时 `_faceMode` 已定。</para></summary>
+        void RebakeArtFamilyMeshes() { RebakeArtMeshes(); }
+
+        /// <summary>三块立绘相关网格（`_art` / 卡框 uv2 / `_artFront`）按**当前形态与状态**重烘一份。
+        /// ⚠️ 场上（`CardFace.Board`）直接返回 —— 那一档不画 2D 卡面（3D 体那条路）。</summary>
+        void RebakeArtMeshes()
+        {
+            if (_frameTex == null || _art == null || _artTexBuilt == null) return;
             if (_faceMode == CardFace.Board) return;          // 场上不画 2D 卡面（3D 体那条路）
             bool bigState = BigImageState;
             var amf = _art.GetComponent<MeshFilter>();
-            if (amf != null) amf.sharedMesh = ArtLayerMeshFor(_builtData, _artTexBuilt, _frameTex, bigState);
+            if (amf != null) amf.sharedMesh = ArtLayerMeshFor(_builtData, _artTexBuilt, _frameTex, bigState, ArtDyFor(_builtData));
             if (_frame != null)
             {
                 var fmf = _frame.GetComponent<MeshFilter>();
                 if (fmf != null) fmf.sharedMesh = FrameMesh(_frameTex, _artTexBuilt,
                                                            ArtScaleFor(_builtData, bigState),
                                                            ArtTypeScaleFor(_builtData),
-                                                           ArtTypeDyFor(_builtData));
+                                                           ArtDyFor(_builtData));
             }
             if (_artFront != null)
             {
                 var afmf = _artFront.GetComponent<MeshFilter>();
-                if (afmf != null) afmf.sharedMesh = ArtFrontMeshFor(_builtData, _artTexBuilt, _frameTex, bigState);
+                if (afmf != null) afmf.sharedMesh = ArtFrontMeshFor(_builtData, _artTexBuilt, _frameTex, bigState, ArtDyFor(_builtData));
             }
         }
 
@@ -10641,7 +10809,7 @@ namespace CardPresentation
                                       clampKind: toBig ? 2 : 1,
                                       clampRange: clamp,
                                       typeScale: ArtTypeScaleFor(_builtData),
-                                      typeDy: ArtTypeDyFor(_builtData));
+                                      typeDy: ArtDyFor(_builtData));
             if (mesh != null) mf.sharedMesh = mesh;
         }
 

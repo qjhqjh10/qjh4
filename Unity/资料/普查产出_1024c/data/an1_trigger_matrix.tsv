@@ -1,0 +1,75 @@
+keyword	engine_emit_sites	routed_whitelist	cards	anim_rows	trait_3_6	verdict
+abouttoattack	2	N	0	0		发了但白名单不放行 → 整桶播/错件风险
+agenda	0	N	0	0	Y	trait 触发框：引擎**没有**发射口 → 永远不播
+ambush	2	N	0	0		发了但白名单不放行 → 整桶播/错件风险
+artifice	1	Y	0	0	Y	OK（发+放行）
+backlash	1	N	0	0	Y	发了但白名单不放行 → 整桶播/错件风险
+bloodThirst	0	N	0	0	Y	trait 触发框：引擎**没有**发射口 → 永远不播
+codex	1	Y	0	0	Y	OK（发+放行）
+concussive	0	N	0	0	Y	trait 触发框：引擎**没有**发射口 → 永远不播
+cruelty	1	Y	0	0	Y	OK（发+放行）
+duty	0	N	0	0	Y	trait 触发框：引擎**没有**发射口 → 永远不播
+ecstasy	1	Y	0	0	Y	OK（发+放行）
+followupresolution	0	Y	0	0		
+frenzied	0	N	0	0	Y	trait 触发框：引擎**没有**发射口 → 永远不播
+huntMark	0	N	0	0	Y	trait 触发框：引擎**没有**发射口 → 永远不播
+landing	1	N	0	0		发了但白名单不放行 → 整桶播/错件风险
+large	0	N	0	0	Y	trait 触发框：引擎**没有**发射口 → 永远不播
+mekaniak	0	N	0	0	Y	trait 触发框：引擎**没有**发射口 → 永远不播
+mob	2	Y	0	0	Y	OK（发+放行）
+oath	0	N	0	0	Y	trait 触发框：引擎**没有**发射口 → 永远不播
+oncollectfaith	0	Y	0	0		
+oncollectquestpoints	0	N	0	0		
+oncollectspiritstone	0	Y	0	0		
+onsabotagecreated	0	N	0	0		
+onsecretcreated	0	N	0	0		
+othercarddrawn	0	Y	0	0		
+othercardplayed	0	Y	0	0		
+otherunitdeath	0	Y	0	0		
+otherunitsummoned	0	Y	0	0		
+penitence	2	N	0	0		发了但白名单不放行 → 整桶播/错件风险
+pray	0	N	0	0	Y	trait 触发框：引擎**没有**发射口 → 永远不播
+rage	0	Y	0	0		
+rally	2	N	0	0		发了但白名单不放行 → 整桶播/错件风险
+reanimated	0	Y	0	0		
+regeneration	0	N	0	0	Y	trait 触发框：引擎**没有**发射口 → 永远不播
+regiment	1	Y	0	0	Y	OK（发+放行）
+relentless	0	N	0	0	Y	trait 触发框：引擎**没有**发射口 → 永远不播
+resolution	0	N	0	0	Y	trait 触发框：引擎**没有**发射口 → 永远不播
+sacrifice	1	N	0	0		发了但白名单不放行 → 整桶播/错件风险
+slay	1	N	0	0	Y	发了但白名单不放行 → 整桶播/错件风险
+spentallmana	1	N	0	0		发了但白名单不放行 → 整桶播/错件风险
+stimulation	1	Y	0	0	Y	OK（发+放行）
+stomp	0	N	0	0	Y	trait 触发框：引擎**没有**发射口 → 永远不播
+strike	1	N	0	0	Y	发了但白名单不放行 → 整桶播/错件风险
+survivor	1	N	0	0		发了但白名单不放行 → 整桶播/错件风险
+swarm	1	N	0	0		发了但白名单不放行 → 整桶播/错件风险
+synapse	1	N	0	0		发了但白名单不放行 → 整桶播/错件风险
+talent	0	N	0	0	Y	trait 触发框：引擎**没有**发射口 → 永远不播
+teleport	1	Y	0	0		OK（发+放行）
+thiscardplayed	0	N	0	0		
+thisunitdeath	0	N	0	0		
+thisunitsummoned	0	Y	0	0		
+triggeredcodex	0	N	0	0		
+triggeredduty	0	Y	0	0		
+triggeredferocity	0	Y	0	0		
+triggeredpray	0	Y	0	0		
+triggeredswarm	0	Y	0	0		
+triggeredsynapse	0	Y	0	0		
+triggerenchantment	0	N	0	0		
+turnbeforeend	0	Y	0	0		
+turnend	0	Y	0	0		
+turnstart	0	Y	0	0		
+turnstartplayer	0	Y	0	0		
+unitattack	0	Y	0	0		
+unitdamaged	0	Y	0	0		
+unitdeathbyability	0	N	0	0		
+unitlosestealth	0	N	0	0		
+unitreceiveshuntmark	0	Y	0	0		
+unitreceivesmarkofchaos	0	Y	0	0		
+unitstunned	0	N	0	0		
+unstable	0	N	0	0		
+uprising	1	Y	0	0	Y	OK（发+放行）
+usefaith	0	Y	0	0		
+usespiritstone	0	Y	0	0		
+whileinplay	1	Y	0	0		OK（发+放行）

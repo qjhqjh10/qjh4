@@ -1705,6 +1705,14 @@ namespace RuleEngine
         //   **死亡族 / 墓地族**的触发**静默掐死**。消费端拿到 <see cref="AbilityContextUnknown"/>
         //   时**回退旧口径**（`QueuedAction.RequireActorInPlay` 那一套）并出声，⛔ 不许自己挑一档。
         //
+        // 🔴🆕 **「缺行 = `Play(0)`」的两个前提**（2026-10-24 · 执行代理 `E8` · 判据
+        //   `资料/普查产出_1024c/A2_引擎战斗判据总表.md` Q3 §4）：消费端要补 0 时**必须同时**满足
+        //   ① 本列来自 v14（<see cref="AbilityContextsVersioned"/>）；
+        //   ② 这张卡**确实有**这条 trigger 的 ability（<see cref="AbilityTriggerPresence(int)"/> == `1`，
+        //      v17 列）。少 ② 就是「给一条不存在的 ability 编 `Play(0)`」——
+        //      生成器只落非 0 的前提是**那一行本来存在**。
+        //   唯一实现 = `RuleCore.AbilityContextOfAbilityV14`（`Core/ActionPump.cs`），⛔ 别在别处另写。
+        //
         // 判据报告 → `资料/普查产出_1022/W63_abilityContext_施工简报.md` §1/§3/§4。
 
         /// <summary>原版 `AbilityContext.Play` = `0`：**载体必须活着在场**
@@ -2357,9 +2365,13 @@ namespace RuleEngine
         };
 
         /// <summary>`key` 是不是替代行动那一族的关键词（<see cref="ActiveActionKeywordNames"/> 的**唯一判据**）。
-        /// 用途：`AddTriggerOp` 把「这一段正文是不是替代行动正文」告诉 `EffectText.Parse`
-        /// （⇒ 片段分支**不从 `cardAbilities` 取目标集**，见 `AssignAbilityTargets` 那段注释）。</summary>
-        static bool IsActiveActionKeyword(string key)
+        /// 用途两处（同一条口径，⛔ 别各写一份词表）：
+        /// ① `AddTriggerOp` 把「这一段正文是不是替代行动正文」告诉 `EffectText.Parse`
+        ///    （⇒ 片段分支**不从 `cardAbilities` 取目标集**，见 `AssignAbilityTargets` 那段注释）；
+        /// ② 🆕 2026-10-24（执行代理 `E1`）：`EffectText.AssignAbilityTargets` 的**整条 desc 分支**
+        ///    拿它判「这一块的段首是不是替代行动词」（`Duty:` / `Pray:` … 的块同样不贴 `cardAbilities`
+        ///    的 `ta` / `fm` —— 那批效果在 `activeAbility/alternativeAbility.activeAbilityLogic` 里）。</summary>
+        public static bool IsActiveActionKeyword(string key)
         {
             if (string.IsNullOrEmpty(key)) return false;
             for (int i = 0; i < ActiveActionKeywordNames.Length; i++)
@@ -2982,47 +2994,11 @@ namespace RuleEngine
         {
             if (string.IsNullOrWhiteSpace(Desc) || keywords == null) return;
 
-            // ① 已经有 `X:` 前缀（X 是带正文的关键词）⇒ 不归这条管
-            // ⚠️ 判据要走 `EffectText.NormalizeIconPrefix`：`[Codex] …` 那种**图标写法**
-            //    语义等于 `Codex:`（`Death from Above`），不归一就看不见它 ⇒
-            //    会把整条 desc（含不属于 Codex 的正文）当成 Codex 的正文（实测撞到过）。
-            // 🔴 **2026-10-11（`A1469`）：判据从 `IsBodyKeyword` 换成 `IsBodyKeywordHead`** ——
-            //    前者是**整词精确等值**，看不见 `Ecstasy N:` 这种**带参数的头**
-            //    （逐条依据与「兜住它的是不是巧合」见 `IsBodyKeywordHead` 的注释）。
-            foreach (string seg in EffectText.Split(Desc))
-            {
-                string s = EffectText.NormalizeIconPrefix(seg);
-                int c = s.IndexOf(':');
-                if (c > 0 && IsBodyKeywordHead(s.Substring(0, c))) return;
-            }
-
-            // ①-bis 🆕 2026-09-16：**引号里的 `"<关键词>: 正文"` 是「授予**别人**的」**，
-            //    不是本卡的裸写正文 —— 跳过。
-            //    卡面实证：`Friendly Beasts cost 1 less and have "Slay: Gain Blood Thirst this turn"`
-            //    （`Beastboss on Squigosaur`）—— 那半句属于**野兽**，光环层（`CollectAuras`）
-            //    **已经收对了**；而这里原来把**整条 desc** 当成了它自己的 `Slay` 正文 ⇒
-            //    **它一杀人就静默给某个野兽加嗜血**（实测 op：`gain 载荷「blood thirst "」
-            //    目标[own/beast ×1 …]`，而且载荷里还粘着半个引号）。
-            //    ⚠️ **引号是承重的**（与 `EffectText.TryGiveInner` 那条折叠判据同一个道理）：
-            //       带引号 = 授予那一项能力；不带引号才是「本卡的裸写正文」。
-            foreach (string seg in EffectText.Split(Desc))
-                foreach (System.Text.RegularExpressions.Match qm
-                         in System.Text.RegularExpressions.Regex.Matches(seg, "[\"']([^\"']+)[\"']"))
-                {
-                    string inner = qm.Groups[1].Value.Trim();
-                    int cc = inner.IndexOf(':');
-                    if (cc > 0 && IsBodyKeywordHead(inner.Substring(0, cc))) return;
-                }
-
-            // ② 带正文的关键词**唯一**才敢认
-            string only = null;
-            foreach (string item in keywords)
-            {
-                string k = NormalizeKeywordName(item);
-                if (!IsBodyKeyword(k)) continue;
-                if (only == null) only = k;
-                else if (only != k) return;          // 歧义 ⇒ 不动
-            }
+            // ①②①-bis 判据（「这段 desc 归哪个带正文关键词的裸写正文」）**只此一份** ——
+            //   🆕 2026-10-24（执行代理 `E1`）抽成 `BareBodyKeyword()`：`EffectText.AssignAbilityTargets`
+            //   的整条 desc 分支也要问「这张卡是不是某个**替代行动**词的裸写正文」，
+            //   ⛔ 各写一份会迟早不一致（这里挪一条、那边不挪 = 静默）。
+            string only = BareBodyKeyword();
             if (only == null) return;
             if (_triggerOps.ContainsKey(only)) return;   // 前面几支已经收过了
 
@@ -3045,7 +3021,13 @@ namespace RuleEngine
 
             // 正文交给战术卡那个解析器；解析不出来就**不收**（保持「卡面标 `*`」的诚实）
             // 🆕 2026-10-19（`A1960`）：`card: this` —— 与触发前缀那一路同口径（见 `AddTriggerOp` 那段）。
-            var ops = EffectText.Parse(bare ?? Desc, out _, out _, card: this);
+            // 🔴 **2026-10-24（执行代理 `E1`）**：`alternativeActionBody` 与 `AddTriggerOp` **同一条判据**
+            //    （`IsActiveActionKeyword(only)`）—— 裸写正文同样**不是** `cardAbilities` 的正文，
+            //    ⇒ `AssignAbilityTargets` **整条 desc 分支**也不许把它的 `ta`/`fm` 贴上来
+            //    （实测：`SOR13` 从 `cardAbilities[0].ta` 抄到 `20`；合成探针 `25`）。
+            //    ⚠️ 这条开关**只关「贴 ta/fm」这一件事**，正文解析本身一字不变。
+            var ops = EffectText.Parse(bare ?? Desc, out _, out _, card: this,
+                                       alternativeActionBody: IsActiveActionKeyword(only));
             if (ops == null || ops.Count == 0) return;
             // 🔴 **`codex` 的正文必须带上「你的能量为 0」那个条件**（2026-09-14 A5）——
             //    判据**转调** `EffectText.MarkCodexCondition`（全仓只此一处），
@@ -3054,6 +3036,81 @@ namespace RuleEngine
             if (only == KeywordTable.Codex) EffectText.MarkCodexCondition(ops, Desc.Trim());
             _triggerOps[only] = ops;
             _triggerText[only] = bare ?? Desc.Trim();
+        }
+
+        /// <summary>
+        /// **本卡的整条 `Desc` 归哪个「带正文关键词」的裸写正文**（判不了返回 `null`）——
+        /// `CollectBareKeywordBody` 的 ①/①-bis/② 三道闸，**唯一一份**
+        /// （🆕 2026-10-24 执行代理 `E1` 从 `CollectBareKeywordBody` 抽出来；别在各处再写一遍）。
+        ///
+        /// <para>① 任何一段都**没有** `<带正文关键词>:` 头（`IsBodyKeywordHead`，含 `[Codex] …` 那种图标写法、
+        /// `Ecstasy N:` 那种带参数的写法）；
+        /// ①-bis 引号里的 `"<关键词>: 正文"` 是**授予别人**的 ⇒ 不算本卡的裸写正文；
+        /// ② 带正文的关键词**唯一**才敢认（两个以上 = 歧义 ⇒ `null`）。</para>
+        /// </summary>
+        string BareBodyKeyword()
+        {
+            // ① 已经有 `X:` 前缀（X 是带正文的关键词）⇒ 不归这条管
+            // ⚠️ 判据要走 `EffectText.NormalizeIconPrefix`：`[Codex] …` 那种**图标写法**
+            //    语义等于 `Codex:`（`Death from Above`），不归一就看不见它 ⇒
+            //    会把整条 desc（含不属于 Codex 的正文）当成 Codex 的正文（实测撞到过）。
+            // 🔴 **2026-10-11（`A1469`）：判据从 `IsBodyKeyword` 换成 `IsBodyKeywordHead`** ——
+            //    前者是**整词精确等值**，看不见 `Ecstasy N:` 这种**带参数的头**。
+            foreach (string seg in EffectText.Split(Desc))
+            {
+                string s = EffectText.NormalizeIconPrefix(seg);
+                int c = s.IndexOf(':');
+                if (c > 0 && IsBodyKeywordHead(s.Substring(0, c))) return null;
+            }
+
+            // ①-bis 🆕 2026-09-16：**引号里的 `"<关键词>: 正文"` 是「授予**别人**的」**，
+            //    不是本卡的裸写正文 —— 跳过。
+            //    卡面实证：`Friendly Beasts cost 1 less and have "Slay: Gain Blood Thirst this turn"`
+            //    （`Beastboss on Squigosaur`）—— 那半句属于**野兽**，光环层（`CollectAuras`）
+            //    **已经收对了**；而这里原来把**整条 desc** 当成了它自己的 `Slay` 正文 ⇒
+            //    **它一杀人就静默给某个野兽加嗜血**（实测 op：`gain 载荷「blood thirst "」
+            //    目标[own/beast ×1 …]`，而且载荷里还粘着半个引号）。
+            //    ⚠️ **引号是承重的**（与 `EffectText.TryGiveInner` 那条折叠判据同一个道理）：
+            //       带引号 = 授予那一项能力；不带引号才是「本卡的裸写正文」。
+            foreach (string seg in EffectText.Split(Desc))
+                foreach (System.Text.RegularExpressions.Match qm
+                         in System.Text.RegularExpressions.Regex.Matches(seg, "[\"']([^\"']+)[\"']"))
+                {
+                    string inner = qm.Groups[1].Value.Trim();
+                    int cc = inner.IndexOf(':');
+                    if (cc > 0 && IsBodyKeywordHead(inner.Substring(0, cc))) return null;
+                }
+
+            // ② 带正文的关键词**唯一**才敢认
+            // ⚠️ 遍历**规范键表**（`_keywords` 的键 = `KeywordTable.Parse(raw)` 归一过的，
+            //    与 `CollectBareKeywordBody` 之前那版遍历 `NormalizeKeywordName(raw)` 同集合）。
+            string only = null;
+            foreach (var kv in _keywords)
+            {
+                if (!IsBodyKeyword(kv.Key)) continue;
+                if (only == null) only = kv.Key;
+                else if (only != kv.Key) return null;    // 歧义 ⇒ 不动
+            }
+            return only;
+        }
+
+        /// <summary>
+        /// 🆕 **2026-10-24（执行代理 `E1` · `E6` §3·4 那笔账）**：这张卡的整条 `Desc` 是不是
+        /// **某个替代行动关键词**（`Duty` / `Pray` / `Ferocity` / `Agenda` / `Oath`）的**裸写正文**。
+        ///
+        /// <para>判据 = `IsActiveActionKeyword(BareBodyKeyword())` —— 两条都是**唯一一份**
+        /// （词表在 <see cref="ActiveActionKeywordNames"/>，裸写判据在 <see cref="BareBodyKeyword"/>）。
+        /// 语义：**替代行动的效果在 `activeAbility/alternativeAbility.activeAbilityLogic` 里**，
+        /// **不是** `cardAbilities` 的正文 ⇒ `EffectText.AssignAbilityTargets` 的整条 desc 分支
+        /// 不许把 `cardAbilities` 的 `ta` / `fm` 贴到这批 op 上（留 `-1` 等 `ApplyActiveAbilityLogic`
+        /// 按 `chosenAbility` 挂）。</para>
+        ///
+        /// <para>⚠️ 只在 `desc == Desc`（整条）时才有意义 —— 片段解析由
+        /// `EffectText.Parse(..., alternativeActionBody: true)` 那条开关负责。</para>
+        /// </summary>
+        public bool IsBareAlternativeActionBody()
+        {
+            return IsActiveActionKeyword(BareBodyKeyword());
         }
 
         /// <summary>裸写正文的**正文原文**（`A1450`，2026-10-10）：

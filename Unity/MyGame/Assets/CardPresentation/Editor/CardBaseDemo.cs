@@ -690,6 +690,11 @@ public static class CardBaseDemo
     const int TacticArtClampProbeTier = 4;
     /// <summary>③ 灭自证的**最小越出量**（卡单位）：0.02 ≈ 6 px（682 px 宽的卡框上 1 px ≈ 0.00329）。</summary>
     const float TacticArtClampOverMin = 0.02f;
+    /// <summary>🆕 **2026-10-24（`E5`）**：硬矩形两端 / 立绘板边这两条**精确期望值**的容差（卡单位）。
+    /// 取 1e-3 ≈ 0.3 px（682 px 宽的卡框上 1 px ≈ 0.00329），而 float 端到端误差**离线按 float32 复算** ~1e-7
+    /// （`0.32×2.7484×1.04×0.61` 与 `-w/2 + 0.82·w` 两条算路对同一端差 0.0 / 5.96e-8）
+    /// ⇒ 余量 ~4 个数量级，不处在抖动带里。⛔ 别为了「让它绿」把这里放大 —— 放大到 0.12 就等于退回旧区间断言。</summary>
+    const float ArtClampEdgeTol = 1e-3f;
     /// <summary>④ 「y 窗口未被收窄」的**最小上沿余量**（卡单位）：小图档的上沿必须比 BIG 档高出这么多。
     /// 0.05 是**我挑的判别阈**（不是原版参数）—— 离线实测两张样本分别高出 0.1427 / 0.2145 ⇒ 余量 2.9× / 4.3×，
     /// 不处在抖动带里；BIG 的 v 上沿 = `yB0 + 0.89·h`（见 `CardView.ClampRangeBig`）。</summary>
@@ -715,17 +720,30 @@ public static class CardBaseDemo
     /// 原来 H1 钉的是 tier2，却在 ① 渲完之后**立刻**把 `DebugFrameTier` 还原了 ⇒ ③ 那一版渲在
     /// `CardProgress.Level` 的**缺省档 tier1** 上；而 `frame_astramilitarum_strat_tier1` 的开口
     /// 实测 x ∈ [−0.8362, +0.8395]，**整个落在硬矩形里** ⇒ ③ 结构性红（那不是「实现坏了」，是「测错了情况」）。
-    /// 为什么改到 tier4：离线复刻 `FrameMaskData` / `BuildFrameRows` / `ArtWindowMesh` 的 x 极值
-    /// （判据与 C# 逐字同一套，`clampKind = 0`、卡体收边 ±1.04635）实测：
-    /// `tier1` **[−0.8362, +0.8395]**（两侧都不越）· `tier2` **[−1.0403, +0.9942]**（左越 0.1256）·
-    /// `tier3` **[−1.0370, +0.8395]**（左越 0.1223）· **`tier4` [−1.0463, +1.0463]**（**两侧各越 0.1317**）。
-    /// 复刻的可信度：同一份脚本对 `tier1` 算出的 [−0.8362, +0.8395] 与 H1 的**运行时实测读数逐位相同**。
+    /// 🔴 **2026-10-24（第七十三会话 E12）就地订正 H4 那张 x 表（铁律 5）**：H4 原文写
+    /// `tier2 [−1.0403, +0.9942] · tier3 [−1.0370, +0.8395] · tier4 [−1.0463, +1.0463]` ——
+    /// **那三个 x 数偏宽，量错了口径**：它把卡框左右那几处**装饰镂空**（独立的小透明连通域，
+    /// 例 astra tier4 的 `cols 193..216 / 808..832`）也算成了「开口」；而工程里真正的画窗是
+    /// **最大那一块开口**（`FrameMaskData` 的 `hole` 里面积最大的连通域）∪ 与它相连的半透明内斜面
+    /// ∪ `FrameArtBleedPx = 3` 外扩。按该口径重算（离线，逐像素，⛔ 不读 C# 实现）：
+    /// `tier1 [−0.8362, +0.8395]`（= H4 自己那一行，与 H1 运行时逐位相同 ✓）·
+    /// `tier2 / tier3 / tier4` 全是 **[−0.8395, +0.8395]**（贴图列 257..766）。
+    /// **交叉验证**：同一份口径算出的 tier4 y 窗口 `[−0.2585, +1.2135]` 与运行时 ④ 的读数逐位相同，
+    /// 而 tier4 x `[−0.8395, +0.8395]` 也与运行时 ③ 的读数逐位相同 ⇒ 口径对、H4 的 x 表错。
+    /// ⇒ **tier4 的开口比立绘板（±0.871792）窄**，所以 ③b 的极值由**画窗边**决定（不是板边）。
     /// ⚠️ 窄开口的框会「夹了等于没夹」⇒ 那是空验，所以 ③ 用**越出量 ≥ 0.02 卡单位**反证这一点
     /// （不是「① 不成立」—— 那太弱，见 ③ 的注释）。
-    /// 判据表 → `资料/普查产出_1024/H4_战术卡断言样品与档位.md`；卡框档位与存档解耦的事实 → `H3_卡面断言翻面.md` §一。</para>
+    /// 判据表 → `资料/普查产出_1024/H4_战术卡断言样品与档位.md`（⚠️ 其中 x 一列以**本条注释**为准）；
+    /// 卡框档位与存档解耦的事实 → `H3_卡面断言翻面.md` §一。</para>
     ///
-    /// <para>🧨 **改坏法**：把 `Build` 里 `_art` 的 `clampKind` 改回 0 ⇒ ① 红（tier4 下可到 −1.0463）；
-    /// 把单位卡也接上 `clampKind` ⇒ ② 红；③ 反过来断「关掉硬矩形后**确实越出** ≥ 0.02」。</para>
+    /// <para>🔴 **2026-10-24（第七十三会话 `M2`）判据翻面**：`_art` 的硬矩形档位现在**恒 0**（原版实况：
+    /// 战术/防御卡插图铺满拱窗、无黑边 —— 判据四条 → `CardView.ArtClampKindFor` 的 doc）。
+    /// ⇒ 本方法断的是「**插图铺满画窗**（①）+ **没被硬矩形削**（①b）+ 外壁精确值（③b，仅作对账）」，
+    /// ⛔ 不再断「两端压在 ±0.557947 上」（那是 `H1` 那一版的口径，已被证伪）。
+    ///
+    /// <para>🧨 **改坏法**（`M2` 现行）：`ArtClampKindFor` 返回非 0 ⇒ ① 与 ①b 同时红；
+    /// 把单位卡也接上 `clampKind` ⇒ ② 红；`cardScales 0.61` 丢了 / 边距改错 ⇒ ①②③b 都红；
+    /// ③b 的逐样本期望与卡框档位绑死（见 `AssertArtClampForSample` 那条 `FrameTexture.name` 前提断言）。</para>
     ///
     /// <para>🔴 **2026-10-24（H6）补两个覆盖缺口**（此前「今天绿、但挡不住某类回归」）：
     /// ① **防御卡样卡** —— ①③ 原来只跑战术卡；防御卡（引擎 `type="defence"`；🔴 **2026-10-24 订正（铁律 5 · 主对话现读）**：SO `cardType` 也是 **20**、与战术卡同值 —— `cards_truth.json` 全表只有 **0/10/20**，**没有 5**）走同一条 `!d.isUnit` 分支
@@ -739,7 +757,7 @@ public static class CardBaseDemo
     /// </summary>
     static void AssertTacticArtClamp()
     {
-        Debug.Log(P + "--- 战术 / 防御卡生产立绘套硬矩形（H1 + H6）---");
+        Debug.Log(P + "--- 战术 / 防御卡立绘：铺满画窗、不吃 _Clamp_Range（M2 · 原 H1/H6）---");
         const float HardHalfW = 0.32f * 2.7484f * 1.04f * 0.61f;      // = 0.557947 卡单位（见上面期望值那一段）
 
         int prevTier = CardView.DebugFrameTier;
@@ -750,8 +768,16 @@ public static class CardBaseDemo
             //   —— `DebugFrameTier` 这类全局覆盖必须在所有相关渲染都做完之后再还原（H4 踩过：
             //   ① 渲完就还原 ⇒ ③ 落在缺省档 tier1、开口整个在硬矩形里 ⇒ 结构性红）。
             CardView.DebugFrameTier = TacticArtClampProbeTier;
-            AssertArtClampForSample("Armoured Squadron", "战术卡 `Armoured Squadron`（AM52）", "tactic", HardHalfW);
-            AssertArtClampForSample("Sacred Altar", "防御卡 `Sacred Altar`（SOR59）", "defence", HardHalfW);
+            // 逐样本的**画窗边**（字面量 · 口径 = 最大开口连通域 ∪ 半透明内斜面 ∪ 3 px 外扩，见上方 doc）：
+            //   AM52  ← `frame_astramilitarum_strat_tier4` 贴图列 **257..766**（`FramePxXEdge` 映射后
+            //           = −0.839481 / +0.839481，左右对称）⇒ 比立绘板 ±0.871792 **窄**
+            //   SOR59 ← `frame_sororitas_strat_tier4` 贴图列 **255..769** ⇒ −0.846065 / +0.849357（左右不对称）
+            // ⚠️ 这两个数**不是**从运行时的 ③b 读数抄来的（铁律：断言不许自证）：它们由 frame PNG 的像素
+            //   按上面那条口径离线算出；跑完后与运行时读数逐位一致只是**交叉验证**。
+            AssertArtClampForSample("Armoured Squadron", "战术卡 `Armoured Squadron`（AM52）", "tactic", HardHalfW,
+                                    -0.839481f, 0.839481f, "frame_astramilitarum_strat_tier4");
+            AssertArtClampForSample("Sacred Altar", "防御卡 `Sacred Altar`（SOR59）", "defence", HardHalfW,
+                                    -0.846065f, 0.849357f, "frame_sororitas_strat_tier4");
             CardView.DebugFrameTier = prevTier;
         }
         finally { CardView.DebugFrameTier = prevTier; CardView.DebugDisableArtClamp = prevOff; }
@@ -786,8 +812,11 @@ public static class CardBaseDemo
         finally { Object.DestroyImmediate(goUnit); }
     }
 
-    /// <summary>🆕 **2026-10-24（H6）**：对**一张**样本卡跑「生产立绘套硬矩形」的三条断言
-    /// （① x 收在矩形内 · ③ 关档后确实越界 · ④ y 窗口未被收窄）。
+    /// <summary>🆕 **2026-10-24（H6）**：对**一张**样本卡跑「生产立绘套硬矩形」的四条断言
+    /// （① x 两端**正好压在硬矩形两条边**上 —— `E5` 2026-10-24 收紧，原为「落在区间里」·
+    /// ③ 关档后确实越界 ≥ 0.02 · ③b 关档后 x 正好压在**「立绘板边 / 卡框画窗边」里更窄的一条**上
+    /// —— 🔴 2026-10-24 第七十三会话 E12 改：原来只断「板边」，而这两张样本的画窗比板窄 ·
+    /// ④ y 窗口未被收窄 · ＋ 一条 `FrameTexture.name` 前提断言（卡框档位真的钉住了））。
     ///
     /// <para>**为什么要两张样本**：战术卡（`cardType = 20`）与防御卡（🔴 现读 SO `cardType` **也是 20**、靠引擎 `type="defence"` 区分；`cards_truth.json` 无 5）在 `CardView` 里走
     /// **同一条** `!d.isUnit` 分支（`ArtClampKindFor`），原版判据（`CardImageController__SetImage.c:126-144`）
@@ -796,27 +825,32 @@ public static class CardBaseDemo
     /// 卡池现读 `type = "defence"` **39 张**（`cards_engine.json`）。</para>
     ///
     /// <para>🔑 **防御卡样本 = `Sacred Altar`（SOR59 · Sororitas · `art_sor59.png` 实测 1024²）**：
-    /// 与战术卡样本**不同阵营**（独立卡框资产）、且它的 `frame_sororitas_strat_tier4` 在 tier4 下
-    /// **两侧都越出**硬矩形。选型依据 = 离线复刻 `FrameMaskData` / `BuildFrameRows` / `ArtWindowMesh`
-    /// （脚本口径与 H4 那份逐字同一套，见 `_tmp_view/h6_measure.py`）现读的 13 个阵营 `strat_tier4`：
-    /// `astramilitarum [−1.0463,+1.0463]` · `sororitas [−1.0403,+1.0463]` · `genestealers [−1.0337,+1.0463]` ·
-    /// `emperorschildren [−1.0205,+1.0370]` · `tauempire [−1.0173,+1.0173]` · `spacewolves [−0.9843,+0.8526]` ·
-    /// `saimhann [−0.9810,+1.0238]` · `leviathan [−0.8395,+1.0403]` · `ultramarines [−0.8263,+1.0436]` ·
-    /// `darkangels [−0.8230,+0.9514]` · `goff [−0.8494,+1.0463]` · `blacklegion [−1.0074,+0.8625]` ·
-    /// `sautekh [−0.8592,+0.8559]`（**不越**）。**两侧都越**的有 6 个阵营；其中越出量最大的
-    /// 是 `astramilitarum`（两侧各 0.1317）、但它已被战术卡样本占用 ⇒ 用 **`sororitas`**
-    /// （左 0.1256 / 右 0.1316，次大）才能**独立取证**（不同卡框资产，能排除「这张框恰好够宽」）。
-    /// ⇒ ①③ 对两张样本都有自己的判别力。
-    /// ⚠️ 复刻可信度：同一份脚本对 `astramilitarum_strat_tier2` 算出的
-    /// 小图档 y **[−0.2487, +1.2135]** / BIG **[−0.2487, +1.0708]**、x `clampOff [−1.0403, +0.9942]`
-    /// 与 E4 记的**运行时实测读数逐位相同**（`_tmp_view/20261024_sync2/CardBaseDemo.log`）。</para>
+    /// 与战术卡样本**不同阵营**（独立卡框资产）⇒ ①③④ 对两张样本都有自己的判别力，能排除
+    /// 「这张框恰好够宽」。选型依据原文引用过 H4 那张 13 阵营 `strat_tier4` 的 x 表
+    /// （`astramilitarum [−1.0463,+1.0463]` 等）—— 🔴 **那张表的 x 数已作废**（口径把卡框两侧的
+    /// 装饰镂空也算成开口，见 `AssertTacticArtClamp` doc 里那段订正）；按正确口径（最大开口连通域
+    /// ∪ 半透明内斜面 ∪ 3 px 外扩），13 个阵营的 `strat_tier4` 画窗半宽落在 **0.77~0.86** 之间
+    /// （本批只逐像素量了两张样本：astra `[−0.8395,+0.8395]` · sororitas `[−0.8461,+0.8494]`；
+    /// 其余 11 个阵营**本轮没量**，若要用它们当样本须先按同一口径量）。</para>
     ///
     /// <para>🧨 **改坏法**（任一都能让本样本红）：`clampKind` 改回 0 ⇒ ③ 越出量够、但 ① 会到 ±1.04 ⇒ ① 红；
-    /// 卡框档位没钉住（退回 tier1）⇒ ③ 越出量不够 ⇒ 红；把小图档的 v 窗口换成 BIG 的 ⇒ ④ 红。</para>
+    /// 卡框档位没钉住（退回 tier1/2）⇒ `FrameTexture.name` 那条先报出来；
+    /// 把小图档的 v 窗口换成 BIG 的 ⇒ ④ 红；③b 的清单见那一段（全仓只一处）。</para>
+    /// <para>🔴 **2026-10-24（`E5`）① 从「区间」改成「两端精确贴边」**：旧写法只挡「越出」，
+    /// 硬矩形**收窄**（含误用 BIG 档 `(0.75,0.89,0.25,0.1)` ⇒ ±0.4359）、网格塌成零宽、只夹一侧，
+    /// 这三种改坏**都绿**。现在断 `|x − (±0.557947)| ≤ 1e-3`（期望值 = 原版 `_Clamp_Range` 的 `0.82/0.18`
+    /// × `CardImage` 方框 2.7484 × 本工程边距 1.04 × 原版 `cardScales[20]` 0.61），
+    /// 并补 ③b 把**外壁**也钉成精确值（立绘板 ±0.871792）⇒ 内壁/外壁两条精确墙。</para>
     /// </summary>
     /// <param name="expectType">卡类原文（`cards_engine.json` 的 `type`：`"tactic"` / `"defence"`）——
     /// 逐字断，⛔ 别用「非单位卡」糊过去（那样战术卡也能顶替防御卡样本）。</param>
-    static void AssertArtClampForSample(string cardName, string what, string expectType, float hardHalfW)
+    /// <param name="expWinL">这张卡的卡框**画窗左沿**（卡单位；离线按 frame PNG 的像素量得，见调用点的出处）。
+    /// ③b 的期望 = 「立绘板边 / 画窗边 **取更窄者**」⇒ 本值比 `-hardHalfW` 更靠近 0 时它就是束缚。</param>
+    /// <param name="expWinR">同上，右沿。</param>
+    /// <param name="expectFrameName">本样本**必须**渲在这张卡框上（`FrameTexture.name`）。
+    /// 加它是因为「档位没钉住」以前会**伪装成 ③b 的板边不符**（H4 那一轮就是这么查错方向的）。</param>
+    static void AssertArtClampForSample(string cardName, string what, string expectType, float hardHalfW,
+                                        float expWinL, float expWinR, string expectFrameName)
     {
         RuleEngine.CardDef def = null;
         foreach (var c in RuleEngine.CardDatabase.Load())
@@ -837,9 +871,51 @@ public static class CardBaseDemo
         bool prevOff = CardView.DebugDisableArtClamp;
         try
         {
-            // ---- ① 生产档（硬矩形开）----
+            // ---- ① 生产档（硬矩形开）：x **两端各压在硬矩形的一条边上**（不是「落在区间里」）----
             //   ⚠️ `DebugFrameTier` 由调用方钉在 `TacticArtClampProbeTier`，**一直钉到本方法跑完**。
+            //
+            //   🔴 **2026-10-24（`E5`）判据收紧 —— 旧断言为什么是弱区间**：
+            //   旧写法 = `x0 ≥ -hardHalfW - 1e-3 && x1 ≤ hardHalfW + 1e-3`（**只挡越出**）。
+            //   它能挡「硬矩形没接上/接大了」，但**完全挡不住「收进来」** —— 下面这些改坏它都绿：
+            //     · `ClampRangeSmall` 误用 BIG 那条 `(0.75,0.89,0.25,0.1)` ⇒ x 极值 **±0.4359**（⊆ 区间 ⇒ 绿）；
+            //     · 硬矩形被收窄任意一档（例：u 取 0.20..0.80 ⇒ ±0.5232）⇒ 绿；
+            //     · 网格塌成零宽 / 只剩一根竖线（`x0 == x1 == 0`）⇒ 绿；
+            //     · 只夹一侧、另一侧被别的约束（卡框开口 / 卡体）截住 ⇒ 只要不越界就绿。
+            //   ⇒ 现在断的是**两件事**（🔴 `M2` 起）：**(a) 铺满画窗**（①）、**(b) 没被硬矩形削**（①b）。
+            //      ⚠️ 历史：`H1`~`E9` 那几版断的是「两端各压在 ±0.557947 上」—— 那个口径建立在
+            //      「战术卡 `_art` 也套 `_Clamp_Range`」上，**已被原版实况证伪**（见 `CardView.ArtClampKindFor`）。
+            //
+            //   🔑 **期望值来源**（⛔ 本方法**不读** `ClampRangeSmall` / `ArtBoard` / 生产网格的任何数 ——
+            //      期望是写死的**原版字段组合**，所以「实现改错 + 期望跟着变」这条自证路不存在）：
+            //      · 硬矩形 SMALL 的 x/z 分量 = 原版 `_Clamp_Range` 的 **0.82 / 0.18**
+            //        （判据 → `CardView.ClampRangeSmall` 的 doc：材质默认 `(0.82,1,0.18,0)`）⇒ 半宽 **0.32**（贴图 UV 口径）；
+            //      · 立绘板宽 = 原版 `CardImage` 方框 **2.7484** × 我们的 `ArtCoverMargin` **1.04**
+            //        × 原版 `CardScalesByCardType[20]` **0.61** = **1.743585** 卡单位（1024² 方图 ⇒ u 线性映射到 x）；
+            //      · ⇒ 硬矩形两端 x = **±0.32 × 2.7484 × 1.04 × 0.61 = ±0.557947**（= 形参 `hardHalfW`）。
+            //      ⚠️ 1.04 是**我们自己**的边距（`ArtCoverMargin`，不是原版字段）；另两项是原版字面量。
+            //
+            //   🥪 **为什么这条网格的束缚一定落在硬矩形上**（否则「精确等边」这个期望本身就不成立）：
+            //     关档后的束缚取「立绘板边 / 画窗边」里**更窄**的那一条（判据与逐样本数值见 ③b 那段，
+            //     ⛔ 别在这儿再写第二份）：两张样本的立绘板边都是 ±0.871792，硬矩形 ±0.557947
+            //     ⇒ 两条候选**都宽于** ±0.557947 ⇒ 只有硬矩形能截住它。
+            //     ⚠️ 换样本/换档位时要重判：**外壁比硬矩形窄**时两端就由外壁决定 —— 那时期望要按外壁改
+            //        （⛔ **不是**把这里放宽回区间）。这正是本工程记过的坑：**条带路的 x 极值 ≠ 硬矩形边**。
+            //
+            //   🧨 **改坏必红**：上面清单里的四种「收进来」改坏现在全部红；
+            //      **灭自证**的另一半在 ③b（那里把关档后的 x 极值钉在「板边 / 画窗边取更窄者」上，
+            //      🧨 清单已**收在 ③b 一处**，⛔ 别在这儿再抄一份）。
             var vOn = CardView.Create(goOn.transform, data, "h6_on");
+
+            // ★ 前提（🔴 **2026-10-24 第七十三会话 E12 新增**）：**卡框档位真的钉住了**。
+            //   以前没有这一条：`DebugFrameTier` 万一没生效（退回 tier1/2，或 `CardArt.Frame` 逐级退回），
+            //   症状只会是「③b 的 x 极值比板边窄」⇒ 查红的人从「板宽是不是错了」一路查错方向（H4 那一轮就是）。
+            //   `FrameTexture` 是公开读口（`CardView.cs:1140`），拿名字就够了。
+            Check(vOn.FrameTexture != null && vOn.FrameTexture.name == expectFrameName,
+               $"★ 前提：{what} 渲在**指定的卡框档**上（`FrameTexture.name` 应为 `{expectFrameName}`，"
+             + $"实测 `{(vOn.FrameTexture == null ? "<null>" : vOn.FrameTexture.name)}`；"
+             + $"`DebugFrameTier={CardView.DebugFrameTier}`）"
+             + "｜🧨 `DebugFrameTier` 那句挪走/改成 0 ⇒ 本条立刻红（而 ③b 会以「板边不符」的错方向红）"
+             + "｜🧨 `CardArt.Frame` 找不到 tier4 资产时**逐级退回 tier1**（静默）⇒ 本条红");
 
             var mOn = vOn.ArtLayerMesh;
             Check(mOn != null && mOn.vertexCount >= 4,
@@ -849,10 +925,25 @@ public static class CardBaseDemo
             {
                 float x0 = float.MaxValue, x1 = float.MinValue;
                 foreach (var p in mOn.vertices) { if (p.x < x0) x0 = p.x; if (p.x > x1) x1 = p.x; }
-                Check(x0 >= -hardHalfW - 1e-3f && x1 <= hardHalfW + 1e-3f,
-                      $"① {what} **生产**立绘的 x 极值收在硬矩形内（实测 [{x0:F4}, {x1:F4}] ⊆ ±{hardHalfW:F4}，"
+                // 🔴 **2026-10-24（第七十三会话 `M2`）判据翻面**：`_art` 的硬矩形档位现在**恒 0**
+                //    （原版实况：战术/防御卡插图铺满拱窗、无黑边；判据四条 → `CardView.ArtClampKindFor` 的 doc）。
+                //    ⇒ ① 不再断「两端压在硬矩形边上」，改断**两件更有用的事**：
+                //      (a) **铺满画窗**：x 极值**覆盖**（不是「等于」，那留给 ③b）离线量得的画窗边
+                //          —— 这正是用户报的「插图不覆盖卡框上面空着的地方」那一条的验收判据；
+                //      (b) **没被硬矩形削**：两端都要**越出** ±`hardHalfW` 至少 `TacticArtClampOverMin`
+                //          —— 谁把 `clampKind` 改回 1/2，两端会退到 ±0.5579 ⇒ 这一条立刻红。
+                float winL = expWinL, winR = expWinR;   // 离线字面量（调用点有出处），⛔ 不读实现
+                Check(x0 <= winL + ArtClampEdgeTol && x1 >= winR - ArtClampEdgeTol,
+                      $"① {what} **生产**立绘的 x 极值**铺满卡框画窗**"
+                    + $"（实测 [{x0:F4}, {x1:F4}] 必须覆盖 [{winL:F4}, {winR:F4}]，容差 {ArtClampEdgeTol:F4}，"
                     + $"卡框钉 tier{TacticArtClampProbeTier}）"
-                    + "｜🧨 把 `_art` 的 `clampKind` 改回 0 ⇒ 越出 ±0.9147（tier4 下可到 ±1.04）⇒ 本条必红");
+                    + "｜🧨 立绘板被缩过头（`cardScales` 丢/倍率改错）⇒ 盖不住画窗 ⇒ 红"
+                    + "｜🧨 把 `clampKind` 接回 1/2（= `H1` 那版）⇒ 两端退到 ±0.5579、盖不住 ⇒ 红");
+                Check(Mathf.Min(-hardHalfW - x0, x1 - hardHalfW) >= TacticArtClampOverMin,
+                      $"①b {what} 生产立绘**没被 `_Clamp_Range` 削**：x 两端都**越出**硬矩形 ±{hardHalfW:F4} "
+                    + $"≥ {TacticArtClampOverMin:F2}（实测左越出 {-hardHalfW - x0:F4} · 右越出 {x1 - hardHalfW:F4}）"
+                    + "｜🧨 `ArtClampKindFor` 返回非 0 ⇒ 两端退到 ±0.557947 ⇒ 红"
+                    + "｜🧨 板缩到 <0.5579 以下（倍率改错）⇒ 也红（但通常 ① 先报）");
 
                 // ---- ④ y 窗口未被收窄（H6 新增）：只断 x 极值挡不住「只夹 x、y 被误夹」 ----
                 //   小图档的 v 窗口是 **(0,1]**（`CardView.ClampRangeSmall`）⇒ 纵向**一点都不该被夹**；
@@ -894,7 +985,15 @@ public static class CardBaseDemo
             //   🔴 **2026-10-24（H4）判据翻面**：原来断的是「① 的判据不成立」。那太弱 ——
             //     只要 x 极值差一点点（甚至根本没到矩形边、而是落在矩形**里面**的更窄开口上）也会「不成立」，
             //     H1 那次就是这么红的（tier1 开口 [−0.8362, +0.8395] 整个在硬矩形里）。
-            //     现在要求**越出量 ≥ `TacticArtClampOverMin`**（0.02 卡单位 ≈ 6 px）：tier4 实测 0.1317 / 0.1316。
+            //     现在要求**越出量 ≥ `TacticArtClampOverMin`**（0.02 卡单位 ≈ 6 px）。
+            //   🔴 **2026-10-24（`E5`）就地订正（铁律 5）**：本行原写「tier4 实测 0.1317 / 0.1316」——
+            //     那是 **E9 之前**的口径（关档极值 = 卡体收边 1.04635、硬矩形 0.914668 ⇒ 差 0.1317）。
+            //   🔴 **2026-10-24（第七十三会话 E12）再订正**：本行接着又写过「越出量应为 **0.313845**
+            //     （= 板边 0.871792 − 硬矩形 0.557947）」—— **那个数也错**：关档后的极值**不是**板边，
+            //     而是**卡框画窗边**（这两张样本的画窗 0.8395 / 0.8494 都比板 0.871792 **窄**，见 ③b）。
+            //     按正确口径：astra **0.839481 − 0.557947 = 0.281534** · sororitas **0.849357 − 0.557947 = 0.291410**
+            //     （运行时实测越出量 0.2815 / 0.2914，与这两个离线数逐位吻合）。
+            //     ⇒ 越出量本身仍只作「≥ 0.02」的粗闸 —— 精度由 ① / ③b 两条精确墙负责。
             //   ⚠️ `DebugFrameTier` 在 ① 之前就钉住了、到这里**仍然钉着**（这才是和 ① 同一个卡框档）。
             CardView.DebugDisableArtClamp = true;
             var vOff = CardView.Create(goOff.transform, data, "h6_off");
@@ -907,16 +1006,52 @@ public static class CardBaseDemo
             }
             else
             {
+                // 🔴 **2026-10-24（第七十三会话 `M2`）**：`_art` 已**恒不套**硬矩形 ⇒ 这里的「关档」
+                //   与生产态**是同一块网格**。本条判据仍然留着，语义变成：
+                //   **生产立绘确实越出硬矩形 ±hardHalfW ≥ 0.02**（= 硬矩形没被接回去）。
+                //   ⚠️ 它与 ①b 同族但方向互补：①b 看两端**各自**越出，本条看**最大**越出量（挡「塌成一根线」）。
                 float o0 = float.MaxValue, o1 = float.MinValue;
                 foreach (var p in mOff.vertices) { if (p.x < o0) o0 = p.x; if (p.x > o1) o1 = p.x; }
                 float over = Mathf.Max(Mathf.Abs(o0) - hardHalfW, o1 - hardHalfW);
                 Check(over >= TacticArtClampOverMin,
-                      $"③ 灭自证：{what} **关掉**硬矩形后 x 极值**确实越出** ±{hardHalfW:F4}"
+                      $"③ 灭自证：{what} 生产立绘的 x 极值**确实越出** ±{hardHalfW:F4}"
                     + $"（实测 [{o0:F4}, {o1:F4}]，最大越出 **{over:F4}** ≥ {TacticArtClampOverMin:F2} 卡单位；"
                     + $"卡框钉 tier{TacticArtClampProbeTier}）"
                     + " —— 这一条同时证明样品非空验：这张卡框的开口真的比硬矩形宽"
-                    + "｜🧨 硬矩形其实没接上 ⇒ 越出量不够 ⇒ 红"
+                    + "｜🧨 把 `clampKind` 接回 1/2 ⇒ 极值退到 ±0.5579 ⇒ 越出量不够 ⇒ 红"
                     + "｜🧨 档位没钉住（退回窄开口的 tier1/2）⇒ 越出量不够 ⇒ 红");
+
+                // 🥪 ① 的**外壁**（🆕 2026-10-24 `E5`；🔴 2026-10-24 第七十三会话 E12 改成「两条边取更窄者」）：
+                //    关掉硬矩形后的 x 极值 = **立绘板边 / 卡框画窗边**里**更窄**的那一条（谁窄谁是束缚）。
+                //    · 立绘板半宽 = 原版 `CardImage` 方框 **2.7484** × 我们的 `ArtCoverMargin` **1.04**
+                //      × 原版 `cardScales[20]` **0.61** ÷ 2 = **0.871792**（字面量，⛔ 不读 `ArtBoard`；
+                //      1.04 是我们自己的边距，另两项是原版字段）。
+                //    · 画窗边 = 逐样本字面量（`expWinL/expWinR`，来源写在各调用点 + 本方法上方的 doc）。
+                //    🔴 **为什么以前写死板边是错的**：旧注释假设「tier4 的开口一定比板宽」——
+                //      那是 H4 那张偏宽的 x 表带来的错觉（它把卡框左右的**装饰镂空**也算成了开口，
+                //      见 `AssertTacticArtClamp` 的 doc 里那段订正）。按工程真正的画窗口径量，
+                //      astra / sororitas 的 `strat_tier4` 开口都**比板窄** ⇒ 极值落在**画窗边**上。
+                //    🔑 期望值**不是**从 ③b 的实测读数抄的（那就成了自证）：它由 frame PNG 的像素
+                //      离线算出（口径见调用点），跑完与实测逐位一致只是交叉验证。
+                //    为什么这条值得留：它与 ① 合起来仍是**两条精确墙**（内壁 ±0.557947 / 外壁 = min(板, 画窗)）
+                //      ⇒ 任何「实现跟着改、期望也一起挪」都至少让一条离开边 ⇒ 灭自证成立。
+                //    🧨 改坏法（**全仓只留这一份清单**，别在别处再写第二份）：
+                //      · `cardScales 0.61` 丢了 / `ArtCoverMargin` 改错 ⇒ 板边挪 ⇒ 期望与实测同时偏 ⇒ 红；
+                //      · **卡框档位没钉住**（退回 tier1/2 或 `CardArt.Frame` 逐级退回）⇒ 画窗边变 ⇒ 红
+                //        （真正的第一道闸是上面那条 `FrameTexture.name` 前提断言，它会先报出来）；
+                //      · 开口/窗口算法改了（`FrameMaskData` / `Bleed` / 连通域）⇒ 画窗边挪 ⇒ 红。
+                //      ⚠️ 若**换样本**：先把新样本的画窗边按同一口径量出来填进 `expWinL/R`，
+                //        ⛔ **不许**为了让它绿去放宽 `ArtClampEdgeTol`。
+                float boardHalfW = 0.5f * 2.7484f * 1.04f * 0.61f;      // = 0.8717925 卡单位
+                float expL = Mathf.Max(-boardHalfW, expWinL);           // 更窄 = 更靠近 0
+                float expR = Mathf.Min(boardHalfW, expWinR);
+                Check(Mathf.Abs(o0 - expL) <= ArtClampEdgeTol
+                      && Mathf.Abs(o1 - expR) <= ArtClampEdgeTol,
+                      $"③b {what} 关掉硬矩形后的 x 极值**正好压在「立绘板边 / 卡框画窗边」里更窄的一条**上"
+                    + $"（实测 [{o0:F4}, {o1:F4}] vs 期望 [{expL:F4}, {expR:F4}]，容差 {ArtClampEdgeTol:F4}；"
+                    + $"板边 ±{boardHalfW:F4} · 画窗 [{expWinL:F4}, {expWinR:F4}] · 卡框 `{expectFrameName}`）"
+                    + " —— 这一条给 ① 提供**外壁**：外壁比硬矩形宽 ⇒ ① 的束缚确实是硬矩形（不是空验）"
+                    + "｜🧨 `cardScales 0.61` 丢了 / 边距改错 / 卡框档位没钉住 / 窗口算法改了 ⇒ 任一端离开边 ⇒ 红");
             }
         }
         finally
@@ -1056,9 +1191,9 @@ public static class CardBaseDemo
                     var art = v != null ? v.ArtLayerTexture : null;
                     var fr = v != null ? v.FrameTexture : null;
                     var on = art != null
-                           ? CardView.ArtMeshForTest(art, 1f, fr, true, 1,
+                           ? CardView.ArtMeshForTest(art, 1f, fr, true, 0,
                                                      CardView.TacticArtScale, CardView.TacticArtDy) : null;
-                    var off = art != null ? CardView.ArtMeshForTest(art, 1f, fr, true, 1) : null;
+                    var off = art != null ? CardView.ArtMeshForTest(art, 1f, fr, true, 0) : null;
                     if (prod == null || on == null || off == null || prod.vertexCount < 4)
                     {
                         Check(false, $"★ 前提：{s.what} 的 `_art` 与两份参考网格都建得出来 ⇒ ② 没验到（不是通过）");
@@ -1147,12 +1282,22 @@ public static class CardBaseDemo
     /// 合成在 `CardView.BigImageState` 一处。</para>
     ///
     /// <para>🔴 **为什么这条必须存在**（D3 之后仍然缺的那一半）：D3 只把 **×1.27 的倍率**按卡类型门控了，
-    /// `bigState` 还是「大图档窗口 ∧ 总开关」—— 于是详情窗里的战术/防御卡（池内 `useOverDraw` **全 0**）
-    /// 仍然按**大图档硬矩形**（`ClampRangeBig`）烘 `_art`，相关卡（`idx != 0`）也照烘。
+    /// `bigState` 还是「大图档窗口 ∧ 总开关」—— 于是详情窗里的战术/防御卡（池内 `useOverDraw` 全 0）
+    /// 与相关卡（`idx != 0`）都会被当成 BIG。`M2` 之后 `_art` 已不吃硬矩形 ⇒ 这条的**观测量**是
+    /// `_artFront` 的两支（见下面那段）；`_art` 自身不再随状态变（这也是 `M2` 顺手确认的一件事：
+    /// 非单位卡本来就乘不到 ×1.27，`BigArtScaleApplies` 把它挡住了）。
     /// 判据全文 → `资料/普查产出_1024/D3_大图放大门控.md` §1·3 与 `H5_卡面清理与BIG档.md` §件1。</para>
     ///
+    /// <para>🔴 **2026-10-24（第七十三会话 `M2`）观测量换了一次，判据轴没换**：`ArtClampKindFor` 恒 0 之后
+    /// `_art` 不再吃硬矩形（也不给非单位卡乘 ×1.27）⇒ **`_art` 在两档之间逐顶点相同**，原来拿
+    /// 「`_art` 的 `clampKind 1 ⇄ 2`」当观测量的 5 条会集体失去观测量（当天 `Run` 就是这么红的）。
+    /// 现观测量 = **`_artFront`**：`ArtFrontMeshFor` 按 `bigState` 分两支（大图档 `frameTex:null /
+    /// clipWindow:false / clampKind:2` · 小图档 `frameTex / clipWindow:true / clampKind:1`），结构性不同，
+    /// 且两条轴 setter 都会经 `RebakeBigStateMeshes` 重烘它 ⇒ 门控轴照样可观测、判别力不减。
+    /// ⚠️ 战术卡在这两条轴上是**瞬时**支（不走单位卡那条 0.3 s 补间）⇒ 不用 `CardTween.Advance`。</para>
+    ///
     /// <para>🧨 **改坏法**：① 把 `CardView.BigImageState` 里的 `_useOverDraw` 删掉（= D3 那一版）
-    /// ⇒ ①/③ 红（战术卡仍是 BIG）；② 只删 `_artOverdraw` ⇒ ② 红；③ 把重烘那步
+    /// ⇒ ①/③ 红（战术卡 `_artFront` 仍是 BIG 那支）；② 只删 `_artOverdraw` ⇒ ② 红；③ 把重烘那步
     /// （`RebakeBigStateMeshes`）删掉 ⇒ 四条「切过去」的断言全红（轴改了网格不动）。</para>
     ///
     /// <para>⚠️ **量的是真卡的真网格**（不是把 `BigImageState` 读一遍）—— 档位与倍率都是烘进顶点的。
@@ -1190,31 +1335,51 @@ public static class CardBaseDemo
             CardView.DebugDisableArtClamp = false;               // 硬矩形开着（本条量的就是它按状态换档）
 
             // ---------------- 战术卡（池内 `useOverDraw` = 0）----------------
+            // 🔴 **2026-10-24（第七十三会话 `M2`）口径重写（铁律 5·c：一个值 ≠ 全部情况）**：
+            //   本节原来拿 `_art` 的**硬矩形换档**（`clampKind 1 ⇄ 2`）当 BIG 状态的**观测量**。
+            //   `ArtClampKindFor` 恒 0 之后 `_art` 不再吃硬矩形、（非单位卡也永远不乘 ×1.27）
+            //   ⇒ **`_art` 在两档之间逐顶点相同**，原来那 5 条（前提 + ①①b②②b）全部失去观测量
+            //   → 2026-10-24 `CardBaseDemo.Run` 里就是这么红的（其余 393 绿）。
+            //   ⇒ 观测量换成 **`_artFront`（大图档角色抠图层）**：它在 `ArtFrontMeshFor` 里**按状态分两支**
+            //      大图档 = `frameTex:null / clipWindow:false / clampKind:2`（几何 = 整块板 + 大图档硬矩形）
+            //      小图档 = `frameTex / clipWindow:true / clampKind:1`（几何 = 裁到卡框开口 + 小图档硬矩形）
+            //   两档**结构性不同**，且 `RebakeBigStateMeshes()` 在两条轴 setter 里都会重烘它
+            //   ⇒ 门控轴仍然**可观测**，判别力（删 `_useOverDraw` / 删 `_artOverdraw` / 删重烘）一条不少。
+            //   ⚠️ 战术卡在这两条轴上是**瞬时**支（不是单位卡那条 0.3 s 补间）⇒ 不用 `CardTween.Advance`。
             var tv = CardView.Create(goT.transform, tdata, goT.name, CardFace.Full, null, CardUse.ZoomWindow);
-            var tBig = CardView.ArtMeshForTest(tv.ArtLayerTexture, 1f, tv.FrameTexture, true, 2,
-                                               CardView.TacticArtScale, CardView.TacticArtDy);
-            var tSmall = CardView.ArtMeshForTest(tv.ArtLayerTexture, 1f, tv.FrameTexture, true, 1,
-                                                 CardView.TacticArtScale, CardView.TacticArtDy);
-            Check(!MeshSame(tBig, tSmall),
+            var tArt = tv.ArtLayerTexture;
+            var tFr = tv.FrameTexture;
+            var tBigF = tArt != null
+                      ? CardView.ArtMeshForTest(tArt, 1f, null, false, 2,
+                                                CardView.TacticArtScale, CardView.TacticArtDy) : null;
+            var tSmallF = tArt != null
+                        ? CardView.ArtMeshForTest(tArt, 1f, tFr, true, 1,
+                                                  CardView.TacticArtScale, CardView.TacticArtDy) : null;
+            Check(tv.ArtFrontMeshForTest != null && tBigF != null && tSmallF != null,
+                  "★ 前提：战术卡大图档的 `_artFront` 建出来了，且大/小两档参考网格都建得出来"
+                + $"（front={tv.ArtFrontMeshForTest != null} / big={tBigF != null} / small={tSmallF != null}）"
+                + " —— 缺一个 ⇒ 下面几条**没验到**（不是通过）");
+            Check(tBigF != null && tSmallF != null && !MeshSame(tBigF, tSmallF),
                   "★ 前提：大图档 / 小图档两份参考网格**彼此不同** —— 否则下面几条是空验");
-            Check(tv.ArtLayerMesh != null && MeshSame(tv.ArtLayerMesh, tBig) && !MeshSame(tv.ArtLayerMesh, tSmall),
-                  "★ 前提：大图档**刚建出来**时处 BIG（两轴默认 true ⇒ `_art` 用大图档硬矩形）"
+            Check(tv.ArtFrontMeshForTest != null && tBigF != null && tSmallF != null
+                  && MeshSame(tv.ArtFrontMeshForTest, tBigF) && !MeshSame(tv.ArtFrontMeshForTest, tSmallF),
+                  "★ 前提：大图档**刚建出来**时处 BIG（两轴默认 true ⇒ `_artFront` 用大图档那一支）"
                 + " —— 这条不成立 ⇒ 下面的比较失去意义（不是通过）");
 
             tv.UseOverDraw = false;
-            Check(MeshSame(tv.ArtLayerMesh, tSmall) && !MeshSame(tv.ArtLayerMesh, tBig),
-                  "① 战术卡 `useOverDraw = 0` ⇒ **不进 BIG**（`_art` 网格逐顶点落回**小图档**硬矩形）"
+            Check(MeshSame(tv.ArtFrontMeshForTest, tSmallF) && !MeshSame(tv.ArtFrontMeshForTest, tBigF),
+                  "① 战术卡 `useOverDraw = 0` ⇒ **不进 BIG**（`_artFront` 逐顶点落回**小图档**那一支）"
                 + "｜🧨 状态不看 `useOverDraw`（D3 那一版）⇒ 仍是大图档那一份 ⇒ 红");
             tv.UseOverDraw = true;
-            Check(MeshSame(tv.ArtLayerMesh, tBig) && !MeshSame(tv.ArtLayerMesh, tSmall),
+            Check(MeshSame(tv.ArtFrontMeshForTest, tBigF) && !MeshSame(tv.ArtFrontMeshForTest, tSmallF),
                   "①b 灭自证：置回 `= 1` ⇒ 逐顶点**回到**大图档那一份（证明 ① 是这一轴驱动的，不是一次性降档）");
 
             tv.ArtOverdraw = false;                              // = 扇形里 `idx != 0` 的相关卡
-            Check(MeshSame(tv.ArtLayerMesh, tSmall) && !MeshSame(tv.ArtLayerMesh, tBig),
+            Check(MeshSame(tv.ArtFrontMeshForTest, tSmallF) && !MeshSame(tv.ArtFrontMeshForTest, tBigF),
                   "② 相关卡（`ArtOverdraw = false` = 原版 `idx != 0`）**同样不进 BIG**"
                 + "｜🧨 状态只看 `useOverDraw`、漏了前台轴 ⇒ 仍是大图档那份 ⇒ 红");
             tv.ArtOverdraw = true;
-            Check(MeshSame(tv.ArtLayerMesh, tBig) && !MeshSame(tv.ArtLayerMesh, tSmall),
+            Check(MeshSame(tv.ArtFrontMeshForTest, tBigF) && !MeshSame(tv.ArtFrontMeshForTest, tSmallF),
                   "②b 灭自证：置回前台 ⇒ 回到大图档那一份");
 
             // ---------------- 单位卡（池内 `useOverDraw` = 1）----------------

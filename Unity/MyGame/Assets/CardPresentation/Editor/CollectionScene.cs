@@ -5239,6 +5239,13 @@ public static class CollectionScene
                 CheckNear(MenuCheck.DesignPx(cc0).y, 328.76f, 1.5f,
                           "第 1 格**卡块**中心 y = **328.76**（= 格心 347.9 − 张数条 38.272/2；W11）");
             }
+            // 🆕 **2026-10-24（`E6`）**：卡池小卡的**格子几何**逐条钉给原版
+            //   （格/间距/列数/居中偏移 = 原版 RSR 序列化字段 + 反编译算法；卡体宽占比 = 原版**实拍** 81.7%，
+            //    卡底不越张数条 = 活对象量出来的结构式）。
+            //   🔴 顺带把 `A2` §Q6 那条错判据挡在门外：它引的 225×364.5 / spacing 20 是**卡组列表**的格
+            //   （那两份 MB 的 `PrototypeCell` = `Collection Deck[ With Highlight]`），不是卡池。
+            //   判据与逐条出处 → `Editor/PoolCardGridAssertE6.cs` 文件头 + `资料/普查产出_1024c/E6_收藏卡池格子几何.md`。
+            PoolCardGridAssertE6.Run(win, _sink);
             if (win.CardsScroll != null && win.CardsScroll.MaxOffset > 0f)
             {
                 win.CardsScroll.ScrollBy(win.CardsScroll.MaxOffset);

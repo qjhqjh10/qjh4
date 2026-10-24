@@ -420,9 +420,23 @@ public static partial class RuleEngineTest
         CardDef versioned = null;
         foreach (var c in pool)
             if (c != null && c.AbilityContextsVersioned
+                && c.AbilityTriggerPresence("Slay") == 1
                 && RuleCore.AbilityContextOfAbility(c, "Slay", "slay") == CardDef.AbilityContextUnknown
                 && RuleCore.AbilityContextOfAbility(c, "Strike", "strike") == CardDef.AbilityContextUnknown)
             { versioned = c; break; }
+        // 🔴 **2026-10-24（执行代理 E8）**：「缺行 = `Play(0)`」现在有**前提②** —— 这张卡必须
+        //   确实有这条 trigger 的 ability（`AbilityTriggerPresence == 1`）。原选的那张 `versioned`
+        //   可能根本没有 `Strike` ability（`presence == 0` ⇒ 正确结果是「未知」而不是 `Play(0)`）
+        //   ⇒ 下面这两条要**另找**一张 `Strike` presence==1 的卡，并补一张 presence==0 的负对照。
+        CardDef strikeCard = null, noStrikeCard = null;
+        foreach (var c in pool)
+        {
+            if (c == null || !c.AbilityContextsVersioned) continue;
+            int pres = c.AbilityTriggerPresence("Strike");
+            if (pres == 1 && RuleCore.AbilityContextOfAbility(c, "Strike", "strike") == CardDef.AbilityContextUnknown)
+            { if (strikeCard == null) strikeCard = c; }
+            else if (pres == 0 && noStrikeCard == null) noStrikeCard = c;
+        }
         CheckTrue(versioned != null,
                   "⑤ （前提）池内至少有一张 `AbilityContextsVersioned = true`、且 **`Slay` / `Strike` 两行都没落** 的卡"
                 + "（v14 只落非 0 行 ⇒ 这两条 ability 的 `Play(0)` 是被省略的）");
@@ -437,10 +451,15 @@ public static partial class RuleEngineTest
             // 🔴🆕 2026-10-24（判据由 C1 闭合）：`ActorMustBeInPlayForTrigger` 也必须走**补过 0 的**口
             //   —— 否则「缺列(=Play)」被当成「未知」落到旧关键词表（5 个词之外一律 `false`）
             //   ⇒ 那些路径**比原版宽**（原版 `Play(0)` 是要判的）。
-            CheckTrue(RuleCore.ActorMustBeInPlayForTrigger(versioned, "Strike", "strike"),
-                      "★★ ⑤ `ActorMustBeInPlayForTrigger`：**缺行 ⇒ `Play(0)` ⇒ 要判**（true）"
-                    + "｜🧨 改回调**未补 0** 的 `AbilityContextOfAbility` ⇒ 落到旧关键词表"
-                    + "（`strike` 不在那 5 个词里）⇒ 实得 false ⇒ 红");
+            CheckTrue(strikeCard != null && noStrikeCard != null,
+                      "★ ⑤ （前提）找到「`Strike` presence==1 且无非 0 行」与「presence==0」两张对照卡"
+                    + "｜🧨 数据侧 `abilityTriggers` 列坏了 ⇒ 这两张找不到 ⇒ 下面两条断言没验到");
+            CheckTrue(strikeCard != null && RuleCore.ActorMustBeInPlayForTrigger(strikeCard, "Strike", "strike"),
+                      "★★ ⑤ `ActorMustBeInPlayForTrigger`：**有这条 ability + 缺行 ⇒ `Play(0)` ⇒ 要判**（true）"
+                    + "｜🧨 把前提② 删掉 / 改回调**未补 0** 的 `AbilityContextOfAbility` ⇒ 实得 false ⇒ 红");
+            CheckTrue(noStrikeCard != null && !RuleCore.ActorMustBeInPlayForTrigger(noStrikeCard, "Strike", "strike"),
+                      "★★ ⑤ **负对照**：这张卡**根本没有 `Strike` ability**（presence==0）⇒ **不判**（false）"
+                    + "｜🧨 把前提② 删掉（缺行一律当 `Play(0)`）⇒ 这一条变 true ⇒ 红（会把没有的能力按原版闸拦掉）");
             CheckTrue(!RuleCore.ActorMustBeInPlayForTrigger(versioned, "ThisUnitDeath", KeywordTable.Backlash),
                       "⑤ 对照：`ThisUnitDeath(80)` 在原版 skip 表里 ⇒ **整段不判**（false）"
                     + "｜🧨 把 skip 表删掉 ⇒ 这一条变 true ⇒ 阵亡信号会被「载体已离场」拦掉 ⇒ 红");

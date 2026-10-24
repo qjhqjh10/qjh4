@@ -1034,15 +1034,42 @@ public static class BattleScene
                 //    ⇒ `Resolve(Ability, …)` 必然查不到、掉到通用兜底（🔴 `W64` B2 起那个兜底是 **null**；
                 //      当年是 `Buff_Blue_SW`，已删）。
                 //    改用同名的 `Terminator` 两张（同事件 `ability`、都 authoritative、已模拟）。
-                string mfEC = VfxMap.Resolve(VfxMap.Ability, "EmperorsChildren", "Terminator");
-                string mfUM = VfxMap.Resolve(VfxMap.Ability, "Ultramarines", "Terminator");
-                Check(mfEC == "Buff EC Pink Twirl" && mfUM == "Oath_Effect",
-                      $"★ **重名靠阵营钉**：`Terminator` 帝皇之子 →「{mfEC}」（期望 `Buff EC Pink Twirl`）· "
-                    + $"极限战士 →「{mfUM}」（期望 `Oath_Effect`）"
+                // 🔴 **2026-10-24（第七十三会话 · 执行代理 `W6` / 上游 `W2` 桶归口）就地改靶子（铁律 5）**：
+                //    生成器把 `routed` 的触发动画从 `ability` 挪回 `trigger` 之后，`EC25` 的
+                //    `Buff EC Pink Twirl`（原版 trigger = `Ecstasy`(715)，routed）**已不在 `ability` 桶**
+                //    ⇒ `Resolve(Ability, "EmperorsChildren", "Terminator")` 现在 **null**（`UM103` 那两条
+                //    是 `activeAbility`，`Oath_Effect` 仍成立）。两条卡**只剩 `attack_ranged` 共有**
+                //    ⇒ 靶子换成它（本条测的是 `ResolveCardIdOf` 的「重名靠阵营钉」，与桶无关）。
+                //    与 `BL31`（2026-10-18，`Strike` 归口把 `TraitorsHate_Board` 挪进 `trigger`）
+                //    **同一个形状**：桶变了就换靶子，⛔ 不是「断言之口松了」。
+                string mfEC = VfxMap.Resolve(VfxMap.AttackRanged, "EmperorsChildren", "Terminator");
+                string mfUM = VfxMap.Resolve(VfxMap.AttackRanged, "Ultramarines", "Terminator");
+                Check(mfEC == "BulletImpact_3shot_trail_EC" && mfUM == "BulletImpact_stormbolter_4shots",
+                      $"★ **重名靠阵营钉**：`Terminator` 帝皇之子 →「{mfEC}」（期望 `BulletImpact_3shot_trail_EC`）· "
+                    + $"极限战士 →「{mfUM}」（期望 `BulletImpact_stormbolter_4shots`）"
                     + " —— 钉不出唯一时 `ResolveCardIdOf` **出声并放弃**，⛔ 不拿「先到的那个」充数");
                 Check(mfEC != mfUM,
                       "★ **灭自证**：同一个卡名 `Terminator` 在两个阵营下**必须解析成不同的 prefab** ⇒ "
                     + "「改回『重名取第一条』」时这条与上面那条**同时**变红");
+                // 🆕 2026-10-24（`W6`）：上一条挪走的那一件**没有丢** —— 它现在在 `trigger` 桶里，
+                //   按原版 trigger 名 `Ecstasy` 取得到（这是「挪桶 ≠ 删数据」的判别式）。
+                //   判据 = `cards_engine.json` 的 `EC25.animTimes[0]`（`Buff EC Pink` / `tg=715` / `tn=Ecstasy`）。
+                {
+                    var ec25 = RuleEngine.CardDatabase.FindById(RuleEngine.CardDatabase.Load(), "EC25");
+                    Check(ec25 != null, "★ 重名钉·前提：卡池里拿得到 `EC25`");
+                    if (ec25 != null)
+                    {
+                        var ecTrig = VfxMap.ResolveAllTimed(VfxMap.Trigger, "EmperorsChildren", "Terminator",
+                                                            ec25.AnimTimes, null, true, "Ecstasy");
+                        bool hasPink = false;
+                        for (int i = 0; i < ecTrig.Length; i++)
+                            if (ecTrig[i].Name == "Buff EC Pink Twirl") hasPink = true;
+                        Check(hasPink,
+                              "★ `EC25` 的 `Buff EC Pink Twirl` **从 `ability` 挪到 `trigger` 之后照样播得出来**"
+                            + $"（`keyword=\"Ecstasy\"` 那一拍；实得 {ecTrig.Length} 件）"
+                            + " —— 🧨 把它从数据里删掉 / 把 `IsRoutedTriggerName` 的 `case \"ecstasy\"` 删掉 ⇒ 本条红");
+                    }
+                }
 
                 // 🆕 2026-10-15（账 `A2083`）：**阵亡那一档只认 `customDeathParticles`**。
                 //   原版 `CardScript.UnitDeath` 是「逐卡取得到就用它、否则才用默认件」的**二选一**
@@ -25906,17 +25933,24 @@ public static class BattleScene
                       "再点一次 → 按钮和压暗都回来（**是开关，不是按住**）");
 
                 // ══════════════════════════════════════════════════════════════════════════════
-                //  🆕 2026-10-22（W62 · 战斗线 `D6`）：压暗层必须夹在「战场/战将」之上、「换牌卡」之下
-                //  病灶（真机像素证据，2560×1440）：原版换牌卡那一区 mean/max = **56.5 / 255**，
-                //    我们同一区 = **30.1 / 98**（背景 26.1 / 80）⇒ 压暗层画在了**卡上面**（卡和背景一样暗）。
-                //  机制 / 为什么「只抬卡、不动压暗层」→ `Battle/MulliganPanel.cs` 的 `QMulliganCard` doc
-                //    （战场几何也是队列 3000 ⇒ 压暗层只要 ≤2999 就压不住战场）。
-                //  ⚠️ 批处理没有画面 ⇒ 把「亮度比」换算成**从层序推出来的**透射比（**线性光**）：
-                //    在压暗层之上 ⇒ 透射 1.0；在它下面 ⇒ 1 − alpha。
-                //    ⛔ 不是把 0.9 / 0.25 当两个常量写死 —— 它们是**下面这两条层序关系的推论**。
+                //  🆕 2026-10-22（W62 · 战斗线 `D6`）；🔴 **2026-10-24（第七十三会话 · 代理 `M1`）整段重写**：
+                //    压暗层必须夹在「战场/战将」之上、「换牌卡」之下。
+                //  🔴 **上一版押错了机制**（铁律 5 留痕）：它按「`renderQueue` 比较先于排序层」推出
+                //    「卡抬到 3001 就压过画布压暗层」—— **真机证伪**：`2026-10-24_第七十三会话/11_after_match.png`
+                //    里换牌卡区（4 张全量）**max = 123**、线性 0.198 = 1 − 0.8 ⇒ 卡仍被压暗（原版实拍同一区 255）。
+                //    ⇒ 正确规则 = **画布排序层先于 `renderQueue`**（`Battle/HudCanvas.cs:21`），
+                //      所以**压暗层不能是画布件**：它改回**世界 `ImageQuad`**（`QMulliganShade` 3006，
+                //      > 13 场战场最大的 `matQueue` = 3005；逐场数 manifest），换牌卡 = `QMulliganCard` 3007。
+                //  ⚠️ **这批只断【层序结构】，不断像素** —— 上一版那个「亮度比」是拿被推翻的前提**反推**的
+                //    （**自证**，所以批处理一直绿、真机一直暗）。像素验收在真机：卡区 max 的线性值 ≈ 1.0
+                //    （不被压暗）、背景区 = 1 − alpha（`ProjectSettings.asset:50` 是 Linear）；
+                //    做法与实测数字见 `普查产出_1024c/M1_换牌压暗诊断与修复.md`。
                 // ══════════════════════════════════════════════════════════════════════════════
                 {
-                    const int QCanvasBand = CardView.QCard;          // 画布件所在那一档（3000）
+                    // 13 场 manifest（`meshes`+`particles` 的 `matQueue`）实测：>3000 的一共 18 件，只有
+                    // 3001×3 / 3003×3 / 3004×8 / 3005×4，**最大 3005**（`battlearena1`/`battlearena2` 都有；9 场一件都没有）
+                    const int MaxArenaQueue = 3005;
+                    int qShade = mp.ShadeRenderQueue;
                     int qCardMin = int.MaxValue, qCardMax = int.MinValue;
                     for (int i = 0; i < mp.RowCardCount; i++)
                     {
@@ -25925,32 +25959,63 @@ public static class BattleScene
                         qCardMin = Mathf.Min(qCardMin, rc.Queue);
                         qCardMax = Mathf.Max(qCardMax, rc.Queue);
                     }
-                    Debug.Log(P + $"   [D6] 压暗层画布层 {mp.ShadeCanvasLayer} · 换牌卡队列 {qCardMin}..{qCardMax}"
-                                + $"（压暗层/画布那一档 = {QCanvasBand}，放大窗卡 = {CardFan.QCardBase}）"
+                    Debug.Log(P + $"   [D6] 压暗层队列 {qShade}（uGUI={mp.ShadeIsUgui}）· 换牌卡队列 {qCardMin}..{qCardMax}"
+                                + $"（战场最大 {MaxArenaQueue}，放大窗卡 = {CardFan.QCardBase}）"
                                 + $" · alpha={mp.ShadeTintAlpha:F3}");
-                    Check(mp.ShadeCanvasLayer == HudCanvas.SortingLayer.OverHand,
-                          $"★ D6①：压暗层在 **`OverHand` 画布上**（排序层 {mp.ShadeCanvasLayer}）"
-                        + " —— 战场几何是**队列 3000 + `Default` 层**（`ArenaBuilder.cs:5068`）⇒ 同队列时由**排序层**判胜负"
-                        + "｜🧨 把它挪去世界空间 quad ⇒ 压不住战场（≤2999 就输给 3000 的战场）");
+                    // ① 压暗层**是世界空间 quad**（⛔ 不是画布件）——这是这条链上唯一「真机证伪过」的形状：
+                    //    它一旦回到画布，队伍里所有世界件（含换牌卡）都会被它盖住，与队列号无关。
+                    Check(!mp.ShadeIsUgui,
+                          "★ D6①：压暗层是**世界空间 quad**（⛔ 不是 uGUI 画布件）"
+                        + " —— 画布排序层先于 `renderQueue` 比较（`HudCanvas.cs:21`），画布压暗层会盖住世界空间的换牌卡"
+                        + "｜🧨 把它挪回 `OverHand` 画布 ⇒ 2026-10-24 真机那个「卡区 max=123」复现 ⇒ 本条红");
                     Check(mp.RowCardCount > 0 && qCardMin < int.MaxValue,
                           $"（前提·不静默）D6：换牌区有卡、且读得到它们的渲染队列（实得 {mp.RowCardCount} 张）");
-                    Check(qCardMin > QCanvasBand,
-                          $"★ D6②：换牌卡的队列**在画布那一档之上**（最低 {qCardMin} > {QCanvasBand}）"
-                        + " ⇒ `renderQueue` 比较先于排序层 ⇒ 卡画在压暗层**之后**（= 在它上面、不被压暗）"
-                        + "｜🧨 回到 `HandLayout` 那一段（2989..3000）⇒ 卡被压暗 ⇒ 本条红");
+                    Check(qShade > 0,
+                          $"（前提·不静默）D6：压暗层的队列读得到**真实值**（实得 {qShade}；`int.MinValue` = 哨兵 ⇒ "
+                        + "探针读到空件 / 画布件 —— **不是**「刚好比战场低」）"
+                        + "｜🧨 2026-10-24 复跑抓到过这一条：`ShadeRenderQueue` 里一个写反的 `!IsUgui` ⇒ 恒回哨兵，"
+                        + "而 D6③/D6⑦ 拿哨兵去比**全部「成立」**（哨兵比谁都小）⇒ 必须由本条先兜住");
+                    Check(qShade > MaxArenaQueue,
+                          $"★ D6②：压暗层的队列**高于战场全部几何**（{qShade} > {MaxArenaQueue}，13 场 manifest 实测最大）"
+                        + " ⇒ 整个战场（含 3001..3005 的粒子）都被压暗"
+                        + "｜🧨 把 `QMulliganShade` 写回 3000 ⇒ `battlearena1/2/blacklegion` 会漏亮几颗粒子 ⇒ 红");
+                    Check(qShade > 0 && qCardMin > qShade && qCardMax > qShade,
+                          $"★ D6③：**每一张**换牌卡的队列都在压暗层之上（{qCardMin}..{qCardMax} > {qShade}）"
+                        + " —— 两者都是世界 `MeshRenderer` ⇒ `renderQueue` 真能做判据"
+                        + "｜🧨 回到 `HandLayout` 那一段（2989..3000）或把卡号留在 3001 ⇒ 卡被压暗 ⇒ 红");
                     Check(qCardMax < CardFan.QCardBase,
-                          $"★ D6③：换牌卡的队列**仍低于「点卡放大」那扇窗的卡**（最高 {qCardMax} < `CardFan.QCardBase` {CardFan.QCardBase}）"
+                          $"★ D6④：换牌卡的队列**仍低于「点卡放大」那扇窗的卡**（{qCardMax} < `CardFan.QCardBase` {CardFan.QCardBase}）"
                         + " ⇒ 点牌看大图那张照样压在换牌卡之上｜🧨 把 `QMulliganCard` 抬到 ≥3009 ⇒ 红");
                     Check(Mathf.Abs(mp.ShadeTintAlpha - 0.8f) < 0.002f,
-                          $"★ D6④：压暗 alpha = 原版 `Shade.onAlphaLevel` **0.8**（`MB_4399`；实得 {mp.ShadeTintAlpha:F3}）"
+                          $"★ D6⑤：压暗 alpha = 原版 `Shade.onAlphaLevel` **0.8**（`MB_4399`；实得 {mp.ShadeTintAlpha:F3}）"
                         + "｜🧨 写回我们原来的 0.88 ⇒ 红");
-                    float bgRatio = 1f - mp.ShadeTintAlpha;       // 线性光：压暗下面透上来多少
-                    float cardRatio = qCardMin > QCanvasBand ? 1f : bgRatio;
-                    Check(cardRatio >= 0.9f && bgRatio <= 0.25f,
-                          $"★ D6⑤（亮度比·线性光）：换牌卡 {cardRatio:F3}（判据 ≥0.9，卡不被压暗）"
-                        + $" · 背景/战场 {bgRatio:F3}（判据 ≤0.25）"
-                        + " —— ⚠️ 屏上是 sRGB：0.20 的线性透射在中灰底上量出来 ≈0.33"
-                        + "（`ProjectSettings.asset:50` `m_ActiveColorSpace:1` ⇒ ⛔ 别拿 sRGB 比值当判据）");
+                    // ⑥ **反向条（灭自证）**：压暗层**必须还在** —— ⛔ 不许用「把压暗层删掉/关掉」换卡变亮，
+                    //    原版这一阶段有压暗（`Shade.SwitchShade`，`onAlphaLevel = 0.8`）。
+                    Check(mp.ShadeActive,
+                          "★ D6⑥（反向·灭自证）：**压暗层仍然在**（原版 `Shade.SwitchShade` 有这一层）"
+                        + "｜🧨 删掉压暗层让卡「变亮」⇒ 本条红（那是把原版行为砍掉，不是修层序）");
+                    // ⑦ **读【真实材质】的队列**（⛔ 不是 `CardView.Queue` 那个字段）：`SubtreeQueues()` 逐颗读
+                    //    `sharedMaterial.renderQueue`。上一版只读 `Queue`（= 记下来的意图）—— 之后任何一条路
+                    //    把材质换回 3000（`SetData` / `SetFace` / 换材质/换队列缓存）时，字段照样是「对的」，
+                    //    那种缺陷**读不出来**（`A1674`/`A1967` 那一族坑）。
+                    int qRealMin = int.MaxValue, qRealMax = int.MinValue, qBad = 0;
+                    for (int i = 0; i < mp.RowCardCount; i++)
+                    {
+                        var rc = mp.RowCard(i);
+                        if (rc == null) continue;
+                        var qs = rc.SubtreeQueues();
+                        for (int k = 0; k < qs.Length; k++)
+                        {
+                            qRealMin = Mathf.Min(qRealMin, qs[k]);
+                            qRealMax = Mathf.Max(qRealMax, qs[k]);
+                            if (qs[k] <= qShade) qBad++;
+                        }
+                    }
+                    Check(qBad == 0 && qRealMin < int.MaxValue && qShade > 0,
+                          $"★ D6⑦（真实材质队列）：换牌卡**每一颗渲染器**的 `sharedMaterial.renderQueue` 都在压暗层之上"
+                        + $"（实测 {qRealMin}..{qRealMax} > 压暗层 {qShade}；违规 {qBad} 颗）"
+                        + "｜🧨 任何一条路把卡面材质换回 3000 ⇒ 卡被压暗、本条红"
+                        + "；⚠️ `qShade > 0` 那一半是防「哨兵当分母」——哨兵比谁都小，不加这一句这条会**假绿**");
                 }
 
                 string sigBefore = Sig(drv.Ctx);
@@ -27907,6 +27972,267 @@ public static class BattleScene
                         + " —— 一正一反 ⇒ 这一格既不可能是「恒 -1」也不可能是「头部根本不生效」");
                 }
                 finally { playRec.botSeatPlus2 = savedCode; playRec.actions = savedActions; }
+            }
+
+            // ------------------------------------------------------------
+            //  🔴🔴 2026-10-24（执行代理 `W1` · **`A1` + `F1`**；判据 → `资料/普查产出_1024c/RE1_战斗回放完整审查.md` §1）
+            //    **产品开局形状**：不传阵营、不传对手牌 —— 用户报的「回放对手牌库 0 张 / 演 0 回合」那条。
+            //
+            //    病（`RE1` §1.2 逐跳）：`BattleDriver.RecBegin` 原来收的是 `Begin` 的**形参**
+            //    `myFaction / foeFaction`，而产品开局路（`BeginFromDeckLibrary` → `Begin(seed:, myDeck:, foeDeck:)`，
+            //    `BattleDriver.cs:3747`）**一个阵营都不传** ⇒ 录像头 `hostFaction / clientFaction` 恒 `""`
+            //    ⇒ 回放时 `_foeFaction` 被空串覆盖 ⇒「对手牌自动凑」按**空阵营**筛卡池 ⇒ 0 张
+            //    ⇒ 第 0 条换牌就分叉、`break` 掉整条动作流（`演完了：0 回合`）。
+            //    ✅ 修法 = `RecBegin` 改传**已解析的字段** `_myFaction / _foeFaction`（与 `Restart()` 同一条写法）。
+            //
+            //    ⚠️ **本节与上面那条并列、⛔ 不是替换**：上面那条（`driver.Begin("Ultramarines", "Goff", …)`）
+            //       **显式传了阵营** ⇒ 它**永远看不见**这个缺陷。这就是 `RE1` §0·4 说的那条灭自证口径：
+            //       「自检全绿」从来不是因为这条链能用，而是因为自检走的是**另一条路**。
+            //    🧨 **改坏法**：把 `RecBegin` 的第一/第二实参改回 `myFaction, foeFaction`（形参）
+            //       ⇒ 下面 ③ 那两格读到 `""` ⇒ 红；连带 ④⑤（对手那副牌重建不出来）也红。
+            // ------------------------------------------------------------
+            {
+                // 「这一边现在一共有多少张牌」= 手 + 库 + 弃 + 场上。重建得对不对就看这个数。
+                int CtxCardsOf(BattleContext c, int seat)
+                {
+                    if (c == null) return -1;
+                    var ps = c.Players[seat];
+                    int n = ps.Hand.Count + ps.Deck.Count + ps.Discard.Count;
+                    for (int s = 0; s < RuleEngine.BoardSpec.Size; s++) if (ps.Board[s] != null) n++;
+                    return n;
+                }
+
+                var poolF1 = CardDatabase.Load();
+                var deckF1 = MakeDeck(poolF1, BattleDriver.DefaultFactionA, 6, "自检·A1产品形状", 0);
+                Check(deckF1 != null, "（A1/F1 夹具）凑出一副合法卡组（我方阵营 = 督军阵营）");
+
+                if (deckF1 != null)
+                {
+                    // ① **产品形状**：只给「种子 + 我方存档卡组」。
+                    //    ⛔ 不传 `myFaction` / `foeFaction` / `foeDeck` —— 那正是 `BeginFromDeckLibrary` 的实情。
+                    driver.Begin(seed: 20261024, myDeck: deckF1);
+                    Check(driver.MyFaction == BattleDriver.DefaultFactionA,
+                          $"（A1/F1 前提）我方阵营由**督军反解**出来（实得 `{driver.MyFaction}`）"
+                        + " —— 本节的整个前提就是「调用方一个阵营都没传」");
+                    int foeInitRec = CtxCardsOf(driver.Ctx, 1);
+                    Check(foeInitRec > 0,
+                          $"（A1/F1 前提）**录制这一局**对手那副牌不是空的（{foeInitRec} 张）");
+
+                    if (driver.InMulligan) driver.SimulateMulliganDone();
+                    int f1Guard = 0;
+                    while (driver.Ctx != null && !driver.Ctx.IsOver && f1Guard++ < 400) driver.SimulateAiTurn();
+                    Debug.Log(P + $"   A1/F1 产品形状那一局：{driver.Ctx.Turn} 回合 · 循环 {f1Guard} 次");
+
+                    // ② 头：这一局是**产品形状**开出来的 ⇒ 阵营那两格**必须有值**
+                    var recF1 = string.IsNullOrEmpty(driver.LastReplayFile)
+                              ? null : ReplayStore.Load(driver.LastReplayFile);
+                    Check(recF1 != null, $"（A1/F1）产品形状那一局录下来了（`{driver.LastReplayFile}`）");
+                    if (recF1 != null && recF1.start != null)
+                    {
+                        Check(!string.IsNullOrEmpty(recF1.start.hostFaction)
+                           && !string.IsNullOrEmpty(recF1.start.clientFaction),
+                              "★★ **A1：录像头里双方阵营都不是空的**"
+                            + $"（座位0 `{recF1.start.hostFaction}` / 座位1 `{recF1.start.clientFaction}`）"
+                            + "｜🧨 `RecBegin` 改回传 `Begin` 的**形参**（产品那条路恒 `null` ⇒ 写进 JSON 是 `\"\"`）⇒ 两格都空 ⇒ 红");
+
+                        // ③ **只放开局头**（动作清空）⇒ 量「重建出来的对手那副牌有多少张」。
+                        //    ⚠️ 本仓既有手法（同上面 A1087 那节的 `playRec.actions = new List<MsgAction>()`）。
+                        var savedActionsF1 = recF1.actions;
+                        var logF1 = new List<string>();
+                        Application.LogCallback hF1 = (string m, string st, LogType ty) => logF1.Add(m);
+                        int foeInitReplay;
+                        Application.logMessageReceived += hF1;
+                        try
+                        {
+                            recF1.actions = new List<MsgAction>();
+                            driver.PlayReplay(recF1);
+                            foeInitReplay = CtxCardsOf(driver.Ctx, 1);
+                        }
+                        finally { recF1.actions = savedActionsF1; Application.logMessageReceived -= hF1; }
+                        string logF1txt = string.Join("｜", logF1.ToArray());
+                        Check(foeInitReplay == foeInitRec,
+                              "★★ **A1：回放重建出来的对手那副牌 == 录制时那副**"
+                            + $"（录制 {foeInitRec} 张 · 回放 {foeInitReplay} 张）—— 既不是 0、也不是另一副"
+                            + "｜🧨 头里阵营为空（= 修 A1 之前）⇒ 按空阵营筛卡池 ⇒ 这里 0 张 ⇒ 红");
+                        Check(!logF1txt.Contains("在卡池里一张卡都没有"),
+                              "★★ **A1：回放里没有「某阵营在卡池里一张卡都没有」那条错**"
+                            + "（那条错正是「空阵营自动凑牌」的直接证据 —— 用户那次 `Player.log` 里就是它）"
+                            + "｜🧨 阵营那一格空了 ⇒ `StarterDeck` 走到 `deck.Count == 0` 那一支 ⇒ 红");
+
+                        // ④ **灭自证（一正一反）**：同一份录像、只把头部那一格拨成空串再放一次 ⇒ 对手那副必须塌掉。
+                        //    这一条让 ③ 不可能「恒真」：它证明本节量的就是**阵营那一格**本身。
+                        var savedFoeFactionF1 = recF1.start.clientFaction;
+                        int foeInitNeg;
+                        logF1.Clear();
+                        Application.logMessageReceived += hF1;
+                        try
+                        {
+                            recF1.start.clientFaction = "";
+                            recF1.actions = new List<MsgAction>();
+                            driver.PlayReplay(recF1);
+                            foeInitNeg = CtxCardsOf(driver.Ctx, 1);
+                        }
+                        finally
+                        {
+                            recF1.start.clientFaction = savedFoeFactionF1;
+                            recF1.actions = savedActionsF1;
+                            Application.logMessageReceived -= hF1;
+                        }
+                        string logNegF1 = string.Join("｜", logF1.ToArray());
+                        Check(foeInitNeg < foeInitRec,
+                              "★★ **A1 判别式（灭自证）：同一份录像，只把 `clientFaction` 拨成 `\"\"` ⇒ 对手那副牌塌掉**"
+                            + $"（空串时 {foeInitNeg} 张 · 有阵营时 {foeInitRec} 张）"
+                            + " —— 一正一反 ⇒ 这一格既不可能是「恒非空」，也不可能是「头部根本不生效」");
+                        Check(logNegF1.Contains("在卡池里一张卡都没有"),
+                              "★ **A1（对照）：空阵营那一趟确实报了「在卡池里一张卡都没有」**"
+                            + " —— 上面那条「回放里没有这条错」的断言靠它证明自己不是恒真");
+
+                        // ⑤ 整条动作流：**第 0 条就不许分叉**、演完指纹要相等（这才叫「能回放」）
+                        driver.PlayReplay(recF1);
+                        Check(driver.ReplayDivergenceForTest < 0,
+                              "★★ **A1：整条动作流一条都没分叉**"
+                            + $"（首处分叉 = 第 {driver.ReplayDivergenceForTest} 条，期望 < 0）"
+                            + "｜🧨 对手那副牌是空的 ⇒ 第 0 条换牌就分叉（用户那次日志正是 `分叉点 = 第 0 条`）⇒ 红");
+                        Check(driver.Ctx != null && driver.Ctx.Turn > 0,
+                              $"★★ **A1：回放真的演下去了**（{driver.Ctx?.Turn} 回合；修之前是 `演完了：0 回合`）");
+                        Check(CtxCardsOf(driver.Ctx, 1) > 0,
+                              "★★ **A1：演完之后对手那一侧仍然有牌**"
+                            + $"（{CtxCardsOf(driver.Ctx, 1)} 张；坏档下整局都是 0）");
+                    }
+                }
+            }
+
+            // ------------------------------------------------------------
+            //  🔴🔴 2026-10-24（执行代理 `W1` · AN1 **`R1` / `R2` / `R6`**）：**播放路由**
+            //    判据 → `资料/普查产出_1024c/AN1_修复清单_骨架.md` §二（R1/R2/R6）＋ §五（断言怎么写）。
+            //    ⚠️ 本节**自己开两局**（`Sautekh` / `AstraMilitarum`），不吃上面那几局的局面 ——
+            //      下一节（`A1100`）本来就会再 `Begin`，不受影响。
+            // ------------------------------------------------------------
+            {
+                _fired.Clear();
+                var poolW1 = CardDatabase.Load();
+                RuleEngine.CardDef CardW1(string nm, string fac)
+                {
+                    for (int i = 0; i < poolW1.Count; i++)
+                    {
+                        var c = poolW1[i];
+                        if (c == null || c.Name != nm) continue;
+                        if (fac == null || c.Faction == fac) return c;
+                    }
+                    return null;
+                }
+                string[] NamesW1(VfxMap.ResolvedVfx[] xs)
+                {
+                    if (xs == null) return new string[0];
+                    var a = new string[xs.Length];
+                    for (int i = 0; i < xs.Length; i++) a[i] = xs[i].Name;
+                    return a;
+                }
+
+                // ---- ① R2：数据侧先证明「参数在、只是没人消费」 ----
+                //    `Tomb World`（SAU57，非单位卡）的 `play` 行是 **CardAnim** `RelentlessMarchSummon`
+                //    （prefab 名 = `GreenSummonCircle`），`sp=14`
+                //    （`nextFriendlyMinionSpot` = **下个空位**，不是卡心）—— 判据 → `AN1_试点_Sautekh.md` §2·3。
+                var twW1 = CardW1("Tomb World", null);
+                Check(twW1 != null, "★ R2 前提：卡池里有 `Tomb World`");
+                if (twW1 != null)
+                {
+                    var rowsW1 = VfxMap.ResolveAllTimed(VfxMap.PlayCard, twW1.Faction, twW1.Id,
+                                                        twW1.AnimTimes, null, perCardOnly: false);
+                    bool allAnimW1 = rowsW1.Length > 0, sp14W1 = false;
+                    for (int i = 0; i < rowsW1.Length; i++)
+                    {
+                        if (string.IsNullOrEmpty(rowsW1[i].Anim)) { allAnimW1 = false; continue; }
+                        var plW1 = CardAnimClips.PlacementOf(rowsW1[i].Anim);
+                        if (plW1.HasValue && plW1.Value.StartPos == (int)PositionOption.nextFriendlyMinionSpot)
+                            sp14W1 = true;
+                    }
+                    Check(allAnimW1 && sp14W1,
+                          $"★ R2 前提：`Tomb World` 的 `play` 候选**都带 `CardAnim`**、且其中一条 `sp = 14`（召唤位）"
+                        + $"（{rowsW1.Length} 条：{string.Join(" / ", NamesW1(rowsW1))}）"
+                        + " —— 参数**早就在** `cardanim_clips` 里，缺的是「谁来消费」");
+
+                    // ---- ② R1：`EvtKind.Play` + `Slot = -1` 的**非单位卡**现在真的播了 ----
+                    //   灭自证（对照）：同一条事件走**改前那条** `FireEventAll(evt, 一个点)` ⇒ 根特效（父层 −1）。
+                    driver.Begin("Sautekh", "Ultramarines", 20261024);
+                    if (driver.InMulligan) driver.SimulateMulliganDone();
+                    driver.RefreshAll();
+                    _fired.Clear();
+                    driver.FireEventAllForTest(VfxMap.PlayCard, Vector3.zero, twW1.Faction, twW1.Id);
+                    int oldLayerW1 = FiredParentLayerOf("GreenSummonCircle");
+                    int oldCountW1 = FiredCount("GreenSummonCircle");
+                    Check(oldCountW1 > 0 && oldLayerW1 == -1,
+                          "★ R1/R2 灭自证（**对照·改前那条路**）：`FireEventAll` 把这几件播成**根特效**"
+                        + $"（播 {oldCountW1} 次 · 父层 {oldLayerW1}，期望 −1）—— 这一条证明下面那条量的是**路径变了**，不是「件本来就在播」");
+
+                    _fired.Clear();
+                    driver.Ctx.Signals.Add(new BattleEvent
+                    {
+                        Kind = EvtKind.Play, Player = 0, Slot = -1,        // ← `-1` 正是产品那条形状（无目标的战术卡）
+                        CardId = twW1.Name,
+                    });
+                    driver.RefreshAll();
+                    StepThrough(driver);
+                    int newCountW1 = FiredCount("GreenSummonCircle");
+                    int newLayerW1 = FiredParentLayerOf("GreenSummonCircle");
+                    Check(newCountW1 > 0,
+                          "★★ **R1：`EvtKind.Play` + `Slot = -1` 的非单位卡现在真的播了**"
+                        + $"（`GreenSummonCircle` 播了 {newCountW1} 次；改前这里是 **0**，"
+                        + "`PlaySignal` 在 `slot < 0` 那一句直接 return）"
+                        + "｜🧨 把 `PlaySignal` 里 `R1` 那一支删掉（回到 `if (slot < 0) return;`）⇒ 本条红");
+                    Check(newLayerW1 >= 0,
+                          "★★ **R2：新路是「挂在锚点下」播，不是根特效**"
+                        + $"（父层 {newLayerW1} `>= 0`；改前那条路恒 −1）"
+                        + " —— 锚点/位移/朝向/层才有地方落"
+                        + "｜🧨 把 `play`/`trigger` 两桶改回 `FireEventAll(evt, 一个点)` ⇒ 父层回 −1 ⇒ 红");
+                }
+
+                // ---- ③ R6：阵亡触发的能力动画（`ThisUnitDeath(80)` / `UnitDeathByAbility(180)`）有播放拍了 ----
+                //    代表卡 `AM34 Valkyrie`（`death` 桶里那条 `GuardSummon`，`sp = 14` = 召唤位）。
+                var vkW1 = CardW1("Valkyrie", "AstraMilitarum");
+                Check(vkW1 != null, "★ R6 前提：卡池里有 `AM34 Valkyrie`");
+                if (vkW1 != null)
+                {
+                    var dRowsW1 = VfxMap.ResolveAllTimed(VfxMap.Death, vkW1.Faction, vkW1.Id,
+                                                         vkW1.AnimTimes, null, perCardOnly: true);
+                    int dAnimW1 = 0;
+                    for (int i = 0; i < dRowsW1.Length; i++) if (!string.IsNullOrEmpty(dRowsW1[i].Anim)) dAnimW1++;
+                    Check(dAnimW1 > 0,
+                          $"★ R6 前提：`AM34` 的 `death` 桶里有 {dAnimW1} 条**能力动画**行"
+                        + $"（{string.Join(" / ", NamesW1(dRowsW1))}）—— 而 `ResolveDeathParticle` 只认 "
+                        + "`customDeathParticles`（D13），所以它原来**没有任何播放拍**");
+
+                    driver.Begin("AstraMilitarum", "Ultramarines", 20261024);
+                    if (driver.InMulligan) driver.SimulateMulliganDone();
+                    driver.RefreshAll();
+                    _fired.Clear();
+                    int wlSlotW1 = RuleEngine.BoardSpec.WarlordSlot;
+                    driver.Ctx.Signals.Add(new BattleEvent
+                    {
+                        Kind = EvtKind.Death, Player = 0, Slot = wlSlotW1,
+                        CardId = vkW1.Name,                        // ← 判据只看 `CardId` 的 `death` 桶
+                    });
+                    driver.RefreshAll();
+                    StepThrough(driver);
+                    Check(FiredCount("GuardSummon") > 0,
+                          "★★ **R6：单位阵亡那一拍，它自己的 `ThisUnitDeath(80)` 能力动画真的播了**"
+                        + $"（`GuardSummon` 播了 {FiredCount("GuardSummon")} 次）"
+                        + "｜🧨 把 `PlaySignal` 里 `if (e.Kind == EvtKind.Death) PlayDeathAbilityAnims(e);` 删掉 ⇒ 红"
+                        + "（`GenericVfxFor(Death)` 恒 `null`，那一支根本到不了 `FireEventAll`）");
+                    {
+                        // 判别式（与 D13 的分工）：同一张卡的 `death` 桶里**这一族**只进「能力动画」那一拍，
+                        // 不冒充阵亡爆散体 —— 两族按 `ResolvedVfx.Anim` 是否为空互斥划分。
+                        var ddW1 = CardData.Placeholder(0);
+                        ddW1.id = vkW1.Id; ddW1.faction = vkW1.Faction; ddW1.title = vkW1.Name;
+                        var dvW1 = CardView.Create(driver.transform, ddW1, "W1DeathProbe", CardFace.Board);
+                        var pkW1 = CardFeel.PickDeathFx(dvW1, null);
+                        Check(pkW1.Fx == CardFeel.DeathBodyFx && pkW1.Fx != "GuardSummon",
+                              "★ R6 与 D13 **不冲突**（判别式）：`GuardSummon` **不会**被当成阵亡爆散体播"
+                            + $"（`PickDeathFx` 实得 `{pkW1.Fx ?? "null"}` = 默认件）—— "
+                            + "D13 管「哪一件爆散体」、R6 管「能力动画那一拍」，两者互斥");
+                        UnityEngine.Object.DestroyImmediate(dvW1.gameObject);
+                    }
+                }
             }
 
             // ------------------------------------------------------------
@@ -36394,6 +36720,10 @@ public static class BattleScene
                     {
                         // 灭自证：`Acolyte Heavy` 同时有 `Ambush` 与 `Strike` 的动画 ⇒ **不许**无关键词推断
                         //   （推断会让它把伏击那两件在 Strike 那一拍也播出去 = 多播）。
+                        // 🔴 **2026-10-24（第七十三会话 · 执行代理 `W6`）**：上游 `W2` 的桶归口把
+                        //   `Ambush` 那两行（routed）从 `ability` 挪回 **`trigger`** ⇒ 这条从此**真的会红**
+                        //   —— 除非 `TriggerBeatRowsMatching` 那道闸把「卡级行标着别的 trigger 名」的挡掉。
+                        //   ⇒ 它现在也是那道闸的**灭自证**（删掉闸 ⇒ `Buff_GSC` / `Buff_Red` 回来 ⇒ 本条红）。
                         var xv16 = VfxMap.ResolveAllTimed(VfxMap.Trigger, xG16.Faction, xG16.Name, xG16.AnimTimes);
                         bool xBad = false;
                         for (int xi = 0; xi < xv16.Length; xi++)
@@ -36401,7 +36731,10 @@ public static class BattleScene
                         Check(!xBad,
                               "★ T21·G（灭自证）：`Acolyte Heavy`（`Ambush` + `Strike` 两种 trigger 都有动画）"
                             + "**不按无关键词推断** —— 伏击那两件不许在 Strike 那一拍混进来"
-                            + $"（实得 {xv16.Length} 条）");
+                            + $"（实得 {xv16.Length} 条）"
+                            + " —— 🧨 删掉 `VfxMap.TriggerBeatRowsMatching` 那道「卡级行对 trigger 名」的闸"
+                            + "（2026-10-24 `W6`；上游 `W2` 把这两行挪进 `trigger` 之后它就必需了）⇒ "
+                            + "`Buff_GSC` / `Buff_Red` 回来 ⇒ 本条红");
                     }
                 }
 
@@ -39232,6 +39565,12 @@ public static class BattleScene
             BattleFxAssertE17.Run();
             pass += BattleFxAssertE17.Pass; fail += BattleFxAssertE17.Fail;
 
+            // 🔴 **2026-10-24（`E7`）**：联机活局开局收尾那两拍 —— **必须在 `DestroyImmediate(driver)` 之前**
+            //   （它要用活着的那台 driver 与它的视图；定义见本方法末尾的局部函数）。
+            //   🩹 **2026-10-24 就地订正**：原先放在整轮末尾（`RunE7Fixture();` 紧接汇总之前）⇒
+            //     那时 `driver` 已在下面这句 `DestroyImmediate` 里没了（Unity 假 null）⇒「（前提）拿得到 driver」必红。
+            RunE7Fixture();
+
             UnityEngine.Object.DestroyImmediate(driver);
 
             // 🔴 **2026-10-12（A388 收红那轮）：这一段按 `Application.isPlaying` 分两档。**
@@ -40640,6 +40979,9 @@ public static class BattleScene
             }
         }
 
+        // 🔴 **2026-10-24（`E7`）**：联机活局开局收尾那两拍 —— ⚠️ 调用点已上移到
+        //   `DestroyImmediate(driver)` **之前**（见那里 2026-10-24 的订正注）；本处只留说明，⛔ 别把调用搬回来。
+
         Debug.Log(P + $"=== 结束：{pass} 通过 / {fail} 失败 ===");
 
         // 最后验一下**存下来的那个场景**（自检上面的场景是当场建的，不是存的那份）
@@ -40667,6 +41009,109 @@ public static class BattleScene
                   "★ A1227：`SetWrapWidth`（未激活时调）**没有**改 `alignment` —— 改回 Left 就红"
                 + "｜复现不出 ⇒ 本条按「已被 A266 顺带消掉」结案");
             Object.DestroyImmediate(probeHost);
+        }
+
+        // ============================================================ 🆕 **2026-10-24（`E7`）**
+        //  **联机活局的开局收尾也要跑 `CombatAutoZoom.Initialize()` 与开场独白**
+        //
+        //  判据（→ `资料/普查产出_1024c/A2_引擎战斗判据总表.md` Q2；逐句读过 `d:/2/tools/decomp_full/`）：
+        //   · `CombatAutoZoom.Initialize` 只有**两个**调用点（换牌收尾 `_FinishMulliganFinalPhase_d__351:232` /
+        //     教学开局 `_TutorialStartSequence_d__592:159`）—— 前者是**公共流程**、**没有 online/local 分档**；
+        //     原版是纯线上游戏 ⇒ PvP 必然跑过；
+        //   · `ShowHeroesIntroMessage` 的唯一闸 = `IsTutorialOrCampaignMatch() == 0`
+        //     （`_StartBattlePhase_d__334:141-148`），而 `StartBattlePhase` 由
+        //     `_FinishMulliganFinalPhase:233` 在**每一局**调。
+        //  ⇒ 我们的**联机活局**那一拍（`BattleDriver.ApplyLoggedAction` 里 `BeginTurnAfterSetup` 成功那段）
+        //     必须与 `BeginBattleAfterSetup` **同口径**地把这两步跑一遍（`!_logReplaying` 那一档 = 录像/重放，
+        //     回放由 `PlayReplay` 自己起播）。
+        //
+        //  ⚠️ **为什么钉的是「调用点计数器」而不是量效果**（如实标，别当成恒真的弱断言）：
+        //     · `CombatAutoZoom.Initialize()` 自带 `_initialized` 幂等守卫（原版靠「一局一份新场景」拿等价效果），
+        //       而 driver **跨局复用** ⇒ 本文件这台 driver 的 `ResetCameraZoom` 早已非 null，
+        //       再过一次 `Initialize()` **在效果上完全看不出来**；
+        //     · 独白那半边还要过 `_unitChat` / `VoiceLines` 两道**就绪闸**，且 `_introStarted` 已被本局那次开播置真
+        //       ⇒ 效果侧同样分不出「叫了」。
+        //     ⇒ 这两条钉「**叫没叫**」；「真起播 / 真接上 HUD」那半边归它们自己的自检。
+        //
+        //  🧨 **改坏法（必须红）**：删掉 `ApplyLoggedAction` 里 `BeginTurnAfterSetup` 那个 `if` 体中的
+        //     `InitializeAutoZoom();` / `StartIntroMonologue();` ⇒ 下面两条的增量变 0。
+        // ⚠️ **为什么这一段做成局部函数**：它要用**这一轮当场建的那台 driver**，而 `CheckSavedScene`
+        //   的第一句 `EditorSceneManager.OpenScene(...)` 会把这份场景（连同 driver）整个卸掉
+        //   （判据 = 本文件 `A388` 那节里那条注释：OpenScene 之后 `driver` 就没了）⇒ 它必须跑在
+        //   `CheckSavedScene` **之前**。定义留在正文末尾只是排版方便 —— C# 的局部函数可以在**声明之前**调用。
+        void RunE7Fixture()
+        {
+            Debug.Log(P + "--- E7：联机活局的开局收尾也跑 AutoZoom.Initialize / 开场独白 ---");
+            if (driver == null)
+            {
+                Check(false, "（前提·E7）拿得到这台 driver —— 没有它这两条判不了（本节的落点就在它身上）");
+                return;
+            }
+            var azBefore = driver.AutoZoomInitCallCountForTest;
+            var introBefore = driver.IntroMonologueCallCountForTest;
+            var ctxSaved = driver.Ctx;
+            var poolE7 = CardDatabase.Load();
+            Check(poolE7 != null && poolE7.Count > 100, $"（前提·E7）卡池装得起来（{poolE7?.Count ?? 0} 张）");
+            Check(driver.MyIndex == 0 || driver.MyIndex == 1,
+                  $"（前提·E7）这台 driver 的座位号是 0/1（实得 {driver.MyIndex}）—— 两边对称，坐哪边这条都成立");
+            try
+            {
+                // 造一局**还停在换牌阶段**的 context —— 联机活局「`MulliganDone` 落地那一刻」就是这个状态
+                // （`BattleDriver.OnMulliganDone` 在 `_net != null` 时**只**把标记发给主机、不动引擎）。
+                var ctxE7 = RuleCore.NewBattle(
+                    DeckBuilder.StarterDeck(poolE7, "Ultramarines", DeckBuilder.ClassicDeckSize,
+                                            new System.Random(71), unitsOnly: false),
+                    DeckBuilder.StarterDeck(poolE7, "Goff", DeckBuilder.ClassicDeckSize,
+                                            new System.Random(72), unitsOnly: false),
+                    20261024, cardPool: poolE7, openMulligan: true,
+                    vars: GameplayVariables.Classic, firstSeat: 0);
+                Check(ctxE7 != null && ctxE7.MulliganOpen,
+                      "（前提·E7）新造的那一局**还在换牌阶段**（`MulliganOpen = true`）");
+                driver.SetCtxForTest(ctxE7);
+                int codeE7 = driver.ApplyLoggedAction(new MsgAction { kind = NetActionKind.MulliganDone, actor = 0 });
+                Check(codeE7 == RuleCodes.OK && ctxE7.Turn == 1,
+                      "（前提·E7）`MulliganDone` 经**联机那条口**（`ApplyLoggedAction`）落地、回合真的开起来了"
+                    + $"（引擎码 {codeE7} · `Turn = {ctxE7.Turn}`）"
+                    + " —— 它与后面那两条的 **`BeginTurnAfterSetup` 闸**是同一拍，闸没开就说明夹具没走到那条路");
+                Check(driver.AutoZoomInitCallCountForTest == azBefore + 1,
+                      "★ E7：**联机活局那一拍跑了 `CombatAutoZoom.Initialize`**"
+                    + $"（调用数 {azBefore} → {driver.AutoZoomInitCallCountForTest}，期望 +1）"
+                    + "｜判据 = 原版 `_FinishMulliganFinalPhase_d__351:232`（公共流程，无 online/local 分档）"
+                    + "｜🧨 删掉那一句 ⇒ 增量 0 ⇒ 红");
+                Check(driver.IntroMonologueCallCountForTest == introBefore + 1,
+                      "★ E7：**联机活局那一拍请求了开场独白**"
+                    + $"（调用数 {introBefore} → {driver.IntroMonologueCallCountForTest}，期望 +1）"
+                    + "｜判据 = 原版 `_StartBattlePhase_d__334:141-148`（唯一闸 = 非教程/战役；`StartBattlePhase` 每局都调）"
+                    + "｜🧨 删掉那一句 ⇒ 增量 0 ⇒ 红");
+                // 🔴 **闸的形态**（灭自证②：证明它挂在「开局后第一次」那一拍上，⛔ 不是每条动作都跑）：
+                //   再灌一条 `MulliganDone` ⇒ 一次都不该多。
+                //   🧨 把这两句挪出那个 `if`（例如放到 `ApplyLoggedAction` 末尾与 `RefreshAll` 平级）⇒ 这里变 +2 ⇒ 红。
+                int azMid = driver.AutoZoomInitCallCountForTest;
+                int introMid = driver.IntroMonologueCallCountForTest;
+                driver.ApplyLoggedAction(new MsgAction { kind = NetActionKind.MulliganDone, actor = 0 });
+                Check(driver.AutoZoomInitCallCountForTest == azMid
+                      && driver.IntroMonologueCallCountForTest == introMid,
+                      "★ E7（灭自证·闸的形态）：**再灌一条 `MulliganDone` 不会再多跑一遍**"
+                    + $"（调用数 缩放 {azMid}→{driver.AutoZoomInitCallCountForTest}"
+                    + $" · 独白 {introMid}→{driver.IntroMonologueCallCountForTest}）");
+            }
+            catch (System.Exception e)
+            {
+                // ⛔ 不吞、也不当「跳过」：夹具或产品真炸了要**红**，并把异常整条打出来（红线：不许静默失败）。
+                Check(false, "E7 夹具本身炸了（这是**夹具 / 产品**的问题，⛔ 不是跳过）：" + e);
+            }
+            finally
+            {
+                // 还原：把 driver 放回本节之前那一局（后面 `A1227` 那一节还要用这台 driver 所在的场景）
+                // ⚠️ 再判一次 `!= null`：上面那段炸掉之后 driver 有可能已经不在了（Unity 的 `==` 认这个）
+                if (driver != null)
+                {
+                    driver.SetCtxForTest(ctxSaved);
+                    if (ctxSaved != null) driver.RefreshAll();
+                }
+            }
+            if (driver != null)
+                Check(driver.Ctx == ctxSaved, "（收尾·E7）driver 的 `Ctx` 已经还原成本节之前那一局");
         }
 
         Debug.Log(P + $"=== 合计：{pass} 通过 / {fail} 失败 ===");

@@ -1390,6 +1390,9 @@ namespace RuleEngine
             //   的 doc 原文就是这句话），外加「本段自带付费前缀」（一个 ability = 一个 `manaCost`）。
             var segHead = new List<bool>();
             var segPaid = new List<int>();
+            // 🆕 2026-10-24（执行代理 `E1`）：每段的**块首关键词**（`SegResult.HeadKeyword`）——
+            //   只有 `AssignAbilityTargets` 的整条 desc 分支要（判「这一块是不是替代行动」）。
+            var segLeadKeyword = new List<string>();
 
             // ---- 🔴 2026-10-11（第十三会话 · `A1346` ①甲）**付费前缀的跨句承接** ----
             //
@@ -1425,6 +1428,7 @@ namespace RuleEngine
                 segKind.Add(r.Kind);
                 segHead.Add(r.HasTriggerHead);
                 segPaid.Add(r.PaidCost);
+                segLeadKeyword.Add(r.HeadKeyword ?? "");
                 if (r.Ops != null) ops.AddRange(r.Ops);
                 if (r.Kind == SegKind.Unknown) unparsed.Add(seg);
                 else if (r.Kind == SegKind.Partial) partial.Add(seg);
@@ -1577,7 +1581,7 @@ namespace RuleEngine
             //   不该被算进任何一条 ability 的块（它也不选单位目标）。
             // 🆕 2026-10-23（`B-17`）：**先**给 op 挂 `targetsAffected`（它有自己的两道闸门、
             //   与下面那套 `role=target` 归位互不影响）—— 放在同一位置，两者共用同一个块切法。
-            AssignAbilityTargets(ops, segOps, segHead, segPaid, card, desc, alternativeActionBody);
+            AssignAbilityTargets(ops, segOps, segHead, segPaid, card, desc, alternativeActionBody, segLeadKeyword);
             AssignAbilityIndices(ops, segOps, segHead, segPaid, card, desc);
             // 🔴🆕 2026-10-23（引擎线 `新账-95` #2）：**卡级 `role="cardtarget"` 的落点**
             //   （原版 `RawCardScript.cardTargetCriteria`，唯一消费者 `RawCardScript__IsValidTarget.c:8-44`）
@@ -1682,7 +1686,7 @@ namespace RuleEngine
             if (full)
             {
                 // ---- 整条 desc：按段切能力块 ----
-                var blocks = BuildAbilityBlocks(segOps, segHead, segPaid);
+                var blocks = BuildAbilityBlocks(segOps, segHead, segPaid, out _);
                 if (blocks.Count == 0) return;
                 // G2
                 if (blocks.Count <= maxAb)
@@ -1809,7 +1813,7 @@ namespace RuleEngine
             if (ops == null || ops.Count == 0) return;
             if (IsWholeDesc(desc, card.Desc))
             {
-                var blocks = BuildAbilityBlocks(segOps, segHead, segPaid);
+                var blocks = BuildAbilityBlocks(segOps, segHead, segPaid, out _);
                 if (blocks.Count == 0 || blocks.Count <= maxAb) return;      // 同 G2
                 AssignBlockIndices(blocks);
                 return;
@@ -1936,7 +1940,8 @@ namespace RuleEngine
         static void AssignAbilityTargets(List<EffectOp> ops, List<List<EffectOp>> segOps,
                                         List<bool> segHead, List<int> segPaid,
                                         CardDef card, string desc,
-                                        bool alternativeActionBody = false)
+                                        bool alternativeActionBody = false,
+                                        List<string> segLeadKeyword = null)
         {
             if (ops == null || ops.Count == 0 || card == null) return;
             var abil = card.AbilityTargets;
@@ -1945,10 +1950,39 @@ namespace RuleEngine
             bool full = IsWholeDesc(desc, card.Desc);
             if (full)
             {
-                var blocks = BuildAbilityBlocks(segOps, segHead, segPaid);
+                // 🔴🆕 **2026-10-24（执行代理 `E1` · `E6` §3·4 那笔账）：整条 desc 分支也要过
+                //   「替代行动」那道闸** —— 判据与片段分支**同一句话、同一份词表**
+                //   （`CardDef.IsActiveActionKeyword`）。
+                //   为什么整条也要：`CardDef.CollectBareKeywordBody` 那条「裸写正文」路
+                //   （单位卡 `keywords` 里有 `Duty`/`Pray`/… 而 `desc` 没有 `<词>:` 头）走的就是
+                //   **整条 desc**（`IsWholeDesc` 为真）⇒ 这块正文同样**不是** `cardAbilities` 的正文，
+                //   它的数据在 `activeAbility/alternativeAbility.activeAbilityLogic` 里。
+                //   实测 hazard：`SOR13`（`Pray`，从 `cardAbilities[0].ta` 抄到 `20`）、
+                //   合成探针（`Duty`，抄到 `25`）。⇒ 改前它挂着**错来源**的 `ta`/`fm`
+                //   （`fm` 的门槛更低 —— `EffectResolver` 的 `repeats` 读点**不需要** `source == null`）。
+                //   ⚠️ 今天**生产侧 0 个读者**（三个读点都要求无施放者或 `ta∈{200,201}`；
+                //   督军那 9 张带 `Duty:` 块的卡从不出牌）—— 本闸是**防将来接错**的，不是修今天的观测量。
+                //   🔴 **两种入口都要挡**：① 调用方显式标了 `alternativeActionBody`（片段路会带上它）；
+                //   ② 没标、但这张卡的**整条 `Desc` 就是某个替代行动词的裸写正文**
+                //   （`card.IsBareAlternativeActionBody()` —— 判据与 `CollectBareKeywordBody` 同一份）。
+                //   ② 那条今天实测 **11 张单位卡**（`AM5/AM11/AM16/AM23` · `DA18/DA29/DA71` ·
+                //   `SOR13` · `SW4/SW11/SW21`），其中只有 `SOR13` / `DA29` 的
+                //   `abilityTargets` 非空 ⇒ 改前会把 `ta=20` 贴上去（错来源）。
+                if (alternativeActionBody || card.IsBareAlternativeActionBody()) return;
+                var blocks = BuildAbilityBlocks(segOps, segHead, segPaid, out var blockStartSeg);
                 if (blocks.Count == 0 || blocks.Count != abil.Count) return;     // G1
                 for (int b = 0; b < blocks.Count; b++)
                 {
+                    // 🔴🆕 **2026-10-24（执行代理 `E1`）：`Duty:` / `Pray:` / `Ferocity:` / `Agenda:` /
+                    //   `Oath N:` 那几块的正文**不是** `cardAbilities[b]` 的正文** ⇒ 这一块一块
+                    //   `ta`/`fm` 都不贴（留 `-1` 等 `ApplyActiveAbilityLogic` 按 `chosenAbility` 挂）。
+                    //   实测（`E6` §3·3）：非单位卡里 desc 带替代行动块的是 **9 张督军**
+                    //   （`AM1/AM2/AM3` · `DA3/DA75` · `SOR1/SOR2/SOR3/SOR65`）——
+                    //   它们从不出牌，所以今天不可达；战术卡的 `Oath N:` 走的是**付费前缀**那一支
+                    //   （`PaidKind = "oath"`），同理不吃 `cardAbilities` 的值。
+                    //   ⚠️ 判据仍是 `CardDef.IsActiveActionKeyword`（唯一一份词表）—— 本段只负责
+                    //   「这一块的头是哪个词」（`BuildAbilityBlocks` 给出的块首段下标 → `segLeadKeyword`）。
+                    if (IsAlternativeActionBlockHead(b, blockStartSeg, segLeadKeyword)) continue;
                     var spec = abil[b];
                     var blk = blocks[b];
                     if (spec == null || blk == null) continue;
@@ -1997,24 +2031,51 @@ namespace RuleEngine
 
         /// <summary>整条 `desc` 按**能力块**切 op（切点 = 触发头 / 付费前缀）。
         /// 🔴 **唯一一份**：`AssignAbilityIndices`（`role=target` 条件行归位）与
-        /// `AssignAbilityTargets`（`B-17` 的 `targetsAffected`）都调它 —— 两处各切一遍迟早不一致。</summary>
+        /// `AssignAbilityTargets`（`B-17` 的 `targetsAffected`）都调它 —— 两处各切一遍迟早不一致。
+        /// 🆕 2026-10-24（执行代理 `E1`）：`blockStartSeg` 回填**每块第一段在 `segOps` 里的下标**
+        /// （`AssignAbilityTargets` 拿它查「这一块的头是哪个关键词」；⛔ 别在那边另算一遍切点）。</summary>
         static List<List<EffectOp>> BuildAbilityBlocks(List<List<EffectOp>> segOps,
-                                                       List<bool> segHead, List<int> segPaid)
+                                                       List<bool> segHead, List<int> segPaid,
+                                                       out List<int> blockStartSeg)
         {
             var blocks = new List<List<EffectOp>>();
+            blockStartSeg = new List<int>();
             if (segOps == null || segOps.Count == 0) return blocks;
             for (int i = 0; i < segOps.Count; i++)
             {
                 bool newBlock = i == 0
                              || (segHead != null && i < segHead.Count && segHead[i])
                              || (segPaid != null && i < segPaid.Count && segPaid[i] > 0);
-                if (newBlock || blocks.Count == 0) blocks.Add(new List<EffectOp>());
+                if (newBlock || blocks.Count == 0)
+                {
+                    blocks.Add(new List<EffectOp>());
+                    blockStartSeg.Add(i);
+                }
                 var segList = segOps[i];
                 if (segList == null) continue;
                 for (int k = 0; k < segList.Count; k++)
                     if (segList[k] != null) blocks[blocks.Count - 1].Add(segList[k]);
             }
             return blocks;
+        }
+
+        /// <summary>
+        /// 🆕 **2026-10-24（执行代理 `E1`）**：第 <paramref name="b"/> 个能力块的**段首关键词**
+        /// 是不是**替代行动**那一族（`Duty` / `Pray` / `Ferocity` / `Agenda` / `Oath`）。
+        ///
+        /// <para>判据关键词表 = <see cref="CardDef.IsActiveActionKeyword"/> —— **唯一一份**
+        /// （与 `CardDef.AddTriggerOp` 喂给片段分支的那道闸同一个函数，⛔ 这里不另写词表）。
+        /// 本方法只负责「这一块的头是哪个词」：块首段下标由 <see cref="BuildAbilityBlocks"/> 给出，
+        /// 词由 `Parse` 收的 `SegResult.HeadKeyword` 给出。</para>
+        /// <para>拿不到（下标越界 / 没传）⇒ `false`（= 照旧贴，宁可保持改前行为也不乱砍）。</para>
+        /// </summary>
+        static bool IsAlternativeActionBlockHead(int b, List<int> blockStartSeg, List<string> segLeadKeyword)
+        {
+            if (blockStartSeg == null || segLeadKeyword == null) return false;
+            if (b < 0 || b >= blockStartSeg.Count) return false;
+            int s = blockStartSeg[b];
+            if (s < 0 || s >= segLeadKeyword.Count) return false;
+            return CardDef.IsActiveActionKeyword(segLeadKeyword[s]);
         }
 
         /// <summary>这一趟解析的是不是**整条 `desc`**（只有整条 desc 的段下标才等于 ability 下标）。
@@ -2435,6 +2496,22 @@ namespace RuleEngine
             /// 让「每有一个敌人单位获得 1 点信仰」变成**要付 6 点信仰**才生效。
             /// </summary>
             public bool HasTriggerHead;
+
+            /// <summary>
+            /// 🆕 **2026-10-24（执行代理 `E1`）这一段的「块首关键词」**（小写；没有就 `""`）。
+            ///
+            /// 用途**只有一个**：`Parse` 把它按段收进 `segLeadKeyword`，`AssignAbilityTargets` 的
+            /// **整条 desc 分支**用它判「这一块的头是不是**替代行动**那一族」
+            /// （`CardDef.IsActiveActionKeyword` —— 唯一一份词表）。
+            /// ⛔ 替代行动块（`Duty:` / `Pray:` / `Ferocity:` / `Agenda:` / `Oath N:`）的正文
+            /// **不是** `cardAbilities` 的正文（它在 `activeAbility/alternativeAbility.activeAbilityLogic`）
+            /// ⇒ 一块 `ta` / `fm` 都不许贴。
+            ///
+            /// 落值三处（与 <see cref="HasTriggerHead"/> / <see cref="PaidCost"/> 的落点一一对应）：
+            /// ① 裸可路由触发头（`Pray: …`）= `mtr.Groups[1]`；② 付费前缀 = <see cref="PaidKind"/>
+            /// （`oath` / `faith` / `energy` / `spirit` / `""`）；③ `Talent:` = `"talent"`。
+            /// </summary>
+            public string HeadKeyword = "";
         }
 
         /// <summary>
@@ -2995,6 +3072,7 @@ namespace RuleEngine
                 //   而且 `willrun` ⑨（`SpiritOps.Source` 必须全小写）报 28/29 —— 同一条根因。
                 //   ⚠️ 天赋的**正确造法**不在这里：`RuleCore.SpawnTalents`（回合开始）本来就在跑。
                 r.HasTriggerHead = true;
+                r.HeadKeyword = "talent";     // 🆕 `E1`：块首关键词（`talent` 不在替代行动那一族里）
                 return r;
             }
 
@@ -3014,6 +3092,11 @@ namespace RuleEngine
                                                                    : mp.Groups["n"].Value);
                 r.PaidKind = CostKindOf(mp.Groups["curB"].Success ? mp.Groups["curB"].Value
                                     : mp.Groups["curW"].Success ? mp.Groups["curW"].Value : "");
+                // 🆕 2026-10-24（执行员 `E1`）：付费前缀也是「另一条 ability 的开头」⇒ 记下块首关键词。
+                //    `oath`（`Oath 3: …`，`ReOathPaid` 那条设的 `PaidKind` 也是它）在
+                //    `CardDef.IsActiveActionKeyword` 那一族里 ⇒ 整条 desc 分支不会把 `cardAbilities`
+                //    的 `ta`/`fm` 贴到它的块上；`energy`/`faith`/`spirit`/`""` 不命中（行为不变）。
+                r.HeadKeyword = r.PaidKind ?? "";
                 low = mp.Groups["body"].Value.Trim();
                 // 🔴 **付费前缀之后还要再剥一次语气词**（2026-09-13 A4 批 1）——
                 //    `Oath 4: Also destroy all damaged enemy troops`：`Oath 4:` 剥掉之后
@@ -3066,6 +3149,7 @@ namespace RuleEngine
             {
                 r.PaidCost = int.Parse(mo.Groups[1].Value);
                 r.PaidKind = "oath";
+                r.HeadKeyword = r.PaidKind;   // 🆕 `E1`：`oath` 在替代行动那一族里 ⇒ 整条 desc 分支不贴 `ta`/`fm`
                 low = mo.Groups[2].Value.Trim();
                 low = StripVocative(low);      // 同上：`Oath 4: **Also** destroy …`
                 s = low;
@@ -3108,6 +3192,11 @@ namespace RuleEngine
                 //    `6 ☀: …` 会漏到它后面那条 `Rally:` 上）；本段自己**消费掉**的前缀也照抄过去
                 //    （两件事都要，漏一件就是静默的多收/少收费）。
                 inner.HasTriggerHead = true;
+                // 🆕 2026-10-24（执行员 `E1`）：块首关键词 = 这个触发头本身
+                //   （小写；`duty`/`pray`/`ferocity`/`agenda` 命中 `CardDef.IsActiveActionKeyword`）。
+                //   ⚠️ **覆盖**前面付费前缀记下的那个词：`6 Energy: Rally: …` 这一段的 ability 头是
+                //   `Rally`，不是 `energy`（`energy` 本来也不在那一族里，行为不变）。
+                inner.HeadKeyword = mtr.Groups[1].Value;
                 inner.PaidCost = r.PaidCost;
                 inner.PaidKind = r.PaidKind;
                 // 前缀上挂的付费代价 / `equal to your Faith` 照旧记到正文的 op 上

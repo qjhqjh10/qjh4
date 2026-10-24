@@ -94,8 +94,10 @@ public static partial class RuleEngineTest
     /// 表里故意让两个来源给出**不同的数**：
     ///   · `abilityTargets[0].ta = 25`（旧来源 = `cardAbilities`）；
     ///   · `activeAbilityLogic[0].ta = 30`（E1 认定的真来源）。
-    /// 于是：整条 desc 的产物带 **25**，而**运行期结算的那条 op 是另一个对象、带 30** ——
+    /// 于是：整条 desc 的产物**不贴 `ta`（-1）**，而**运行期结算的那条 op 是另一个对象、带 30** ——
     /// 这就是「这条路上的 op 今天没被消费」的可执行证据（也是将来接错时的判别式）。
+    /// 🔴 **2026-10-24（执行代理 `E1`）核销**：full 分支已加与 `AssignAbilityTargets` 同口径的替代行动闸
+    ///   ⇒ 整条 desc 不再把 `cardAbilities` 的 `ta` 贴上（期望从 `25` 改为 **`-1`**；⛔ 不是删掉这条）。
     /// </summary>
     static void E6T2WholeDescAltBlockHazard()
     {
@@ -139,11 +141,11 @@ public static partial class RuleEngineTest
             + "｜🧨 把 `ca=10` 改掉 / 删掉 `ApplyActiveAbilityLogic` 的按种类归位 ⇒ 红");
         CheckTrue(fresh != null && fresh.Count == 1, "② （前提）整条 `desc` 解析出 1 条 op");
         var fop = fresh != null && fresh.Count == 1 ? fresh[0] : null;
-        CheckTrue(fop != null && fop.SubjectTargetsAffected == 25,
-              "★★ ② **整条 `desc` 那条路仍会把 `cardAbilities` 的 `ta` 贴到替代行动块上** —— "
-            + "这里贴到的是合成表里 `abilityTargets[0].ta = 25`（E1 只堵了**片段**分支）"
-            + "｜🧨 给 full 分支也加同一口径的替代行动闸 ⇒ 变 `-1` ⇒ 红；"
-            + "**那时把这条改成 `-1`、并在报告里核销这笔账**（⛔ 别只是删掉它）");
+        CheckTrue(fop != null && fop.SubjectTargetsAffected == -1,
+              "★★ ② **整条 `desc` 那条路不再把 `cardAbilities` 的 `ta` 贴到替代行动块上（已核销）** —— "
+            + "现在应为 `-1`（E1 已给 full 分支加同一口径的替代行动闸；合成表里 `abilityTargets[0].ta = 25` 不该再被贴上）"
+            + "｜🧨 把 full 分支那道闸删掉 / 放宽 ⇒ 实得 `25` ⇒ 红；"
+            + "**这条不再允许改回 `25`**（那等于把已修好的缺陷钉回去）");
         var rop = resolved != null && resolved.Count == 1 ? resolved[0] : null;
         CheckTrue(rop != null, "② （前提）`TriggerOps(\"duty\")` 也收出了 1 条 op");
         CheckTrue(rop != null && rop.SubjectTargetsAffected == 30,

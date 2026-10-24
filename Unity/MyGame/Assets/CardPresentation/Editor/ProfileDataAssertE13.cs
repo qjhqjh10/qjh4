@@ -21,6 +21,9 @@
 //
 // ⚠️ **不碰玩家真档**：B/C 都把 `OverrideDir` 指到临时目录；A 把 `ProfileData.SavePathOverrideForTest`
 //    指到临时文件（虽然批处理本来就不落盘 —— 双保险）。
+// 🔴 **删档类调用的顺序（2026-10-24 热修 `E11`）**：`ReplayStore.ResetForTest()` 是**删文件**的 ——
+//    调它的时候 `OverrideDir` **必须还指着临时目录**，调完才还原 `OverrideDir`（见 `finally` 里那段注）。
+//    ⛔ 顺序反了 = 删掉玩家的真录像（10-24 事故，证据 → `资料/普查产出_1024c/RE1_战斗回放完整审查.md` B1）。
 // ==================================================================
 using System.Collections.Generic;
 using System.IO;
@@ -62,11 +65,20 @@ public static class ProfileDataAssertE13
         finally
         {
             // ---------------- 收尾：把改写口全部还回去、删临时目录 ----------------
-            BattleLogData.OverrideDir = null;
+            // 🔴 **顺序照 `Editor/NetSelfTest.cs:925-929`**：两个 `ResetForTest()` 必须在
+            //    **`OverrideDir` 还指着临时目录**的时候调，**然后**才还原 `OverrideDir`。
+            //    ⛔ 顺序反了 = 删掉玩家的真录像 —— 2026-10-24 就是这么丢的：原来这里是
+            //    `ReplayStore.OverrideDir = null;` 在前、`ReplayStore.ResetForTest();` 在后 ⇒
+            //    `ReplayStore.Dir` 落回 `persistentDataPath/WarpforgeReplays` ⇒ 整目录被清空（而且当时一声不响）。
+            //    证据与善后 → `资料/普查产出_1024c/RE1_战斗回放完整审查.md` B1；
+            //    `ReplayStore.ResetForTest` 现在另有「没设 `OverrideDir` 就拒绝」的硬挡兜底（B2）。
+            //    ⚠️ `BattleLogData.ResetForTest()` 是「清内存 + 从盘重读」，同样要**还在临时目录上**时读 ——
+            //       否则读进来的是玩家的真对战记录（不是删，但自检不该碰它；`BattleLogData.StoreOn` 那道门只管写）。
+            if (!string.IsNullOrEmpty(ReplayStore.OverrideDir)) ReplayStore.ResetForTest();
+            if (!string.IsNullOrEmpty(BattleLogData.OverrideDir)) BattleLogData.ResetForTest();
             ReplayStore.OverrideDir = null;
+            BattleLogData.OverrideDir = null;
             ProfileData.SavePathOverrideForTest = null;
-            BattleLogData.ResetForTest();
-            ReplayStore.ResetForTest();
             try { if (tmp != null && Directory.Exists(tmp)) Directory.Delete(tmp, true); }
             catch (System.Exception e) { Debug.LogWarning(P + "临时目录没删干净（不影响断言）：" + e.Message); }
         }
@@ -222,7 +234,7 @@ public static class ProfileDataAssertE13
         Debug.Log(P + "--- C · 盘上录像兜底行 ---");
 
         // ---- C1 造一份真录像（走正式写口）----
-        ReplayStore.OverrideDir = replayDir;
+        ReplayStore.OverrideDir = replayDir;     // 🔴 **先指到临时目录**（下一行是删文件的；⛔ 顺序反了 = 删真录像）
         ReplayStore.ResetForTest();
         var rec = new ReplayRecord
         {

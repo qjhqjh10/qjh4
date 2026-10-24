@@ -64,6 +64,35 @@
 // · 压暗层点击 = **关窗**（`MenuDraw.ShadeHit`，档落在压暗层自己那一档、严格低于本窗内容命中档）。
 // · 红底那一块**吸收**点击（`MenuDraw.Absorb`）：原版点红底什么都不做，只有压暗层外沿是「点外面关窗」。
 // · 文字/按钮都要**挂在原版那个父节点底下**（`FindChild(钮,"Button Text")` 靠它）；节点名逐字照原版。
+//
+// ==================================================================
+//  🆕 2026-10-24（第七十三会话 · 执行代理 `E3`）：接上三条尾巴
+// ------------------------------------------------------------------
+//  **(A) 卡包预览弹窗** —— 原版 `PrebuiltPackUI.PreviewButtonOnClick` → `DraftModeSelectPacksStateDemo.PackPreview`
+//      → `UIMultiCardDisplay.Initialize(pack.GetCardLibrary(), null)` + `WindowsManager.OpenWindow(多卡展示窗)`。
+//      判据（逐句）：`decomp_full/DraftModeSelectPacksStateDemo__PackPreview.c` ·
+//      `UIMultiCardDisplay__{Initialize,Awake,Open,Close}.c` · `dump.cs:110035`（7 个字段）；
+//      版面 = `bundle_menus_assets_all` 的 `Generic Multi Card Display`（**父链实读到 Draft Mode Menu Demo**，
+//      根 RT `anchor(0,.5)-(1,.5) apos(0,−20.475) size(0,818.04)`）+ `MonoBehaviour_1014665548285115077.json`
+//      （窗参 `type=1 / windowsPlacement=15 / closeOnESC=1 / updateNavPanel=0`，`enableCardTooltips=1`，
+//      `mask = {PathID:0}`）。🔴 **那颗 `BackgroundCloseButton.window` 是空引用**（`MonoBehaviour_-1185320953084347707.json`）
+//      ⇒ 原版**点背景不关窗**（与 `PopUpGameWindow` 同族）⇒ 我们用 `MenuDraw.Absorb`，⛔ 不是 `ShadeHit`。
+//      ⚠️ 原版这一刻是**独立一扇窗**；本轮白名单只允许改本文件 ⇒ 落成**同一棵树里的内嵌层**
+//      （新增一个 MonoBehaviour 类会破掉「211 个类名==文件名」那条普查、正是 `!u!115` 的成因）。
+//      ESC 那一档：预览开着时 `Close()` 先关预览（见 `Close` 覆写）。
+//  **(B) 战斗结果回灌** —— 原版 `DraftEventBase.OnMatchFinished(matchWon, result, cb)`
+//      → `PlayerDataManager.RecordEventMatchFinished` →（服务端）写 `numberOfMatchesWon(+0x48)` /
+//      `numberOfMatchesLost(+0x4C)` → **`DraftEventBase.UpdateState`** 重算 `DraftState`。
+//      本地没有服务器 ⇒ 战绩的落地源 = **既有的本地对局记录** `Shell/BattleLogData.cs`（结算处写，落盘），
+//      只认 `Mode == PlayModeNames.Name(GameMode.ClosedDeck)` 的那些条（⛔ 不碰 `BattleDriver`）。
+//      一局的进度存在**静态** `_run`（`RunSave`）里 ⇒ 关窗、进对局、回壳再开窗都在。
+//  **(C) `Finished` 的触发者** —— 🔴 **不是「4 轮打完」**：`UpdateState` 里
+//      `selectedPacks.Count < draftRounds ⇒ SelectPack(10)`、否则 `OngoingRun(15)`（VA `0x18181417D..0x1818141DD`）。
+//      `Finished(20)` / `Collected(22)` 只在**同一处**给出（`0x1818142F0` 那段 `cmove edx, 0x14 / 0x16`）：
+//      `save.joinState == Finished(2)` · `numberOfMatchesLost >= data.maxTries` · `numberOfMatchesWon >= data.matches.Length`
+//      —— 前两条本地有判据，第三条的 `matches.Length` **在服务端、本地 0 命中**（S3 §五）⇒ 我们**不设胜场上限**（如实标）。
+//      `FinishRun(onFinish)` 是**显式置 20** 的那一支（`..._FinishRun_g__Callback_0.c`：先
+//      `set_DraftState(0x14)`、再 `UpdateState`、再回调、最后 `Signal.Raise(DraftRunFinished)`）。
 using System;
 using System.Collections.Generic;
 using UnityEngine;
@@ -81,6 +110,67 @@ namespace CardPresentation
         OngoingRun = 15,
         Finished = 20,
         Collected = 22,
+    }
+
+    /// <summary>原版 `PlayEventSaveGame.JoinStates`（`dump.cs:62813-62820`，**值照原版**）。
+    /// 只用来复刻 `DraftEventBase.UpdateState` 的第一条收尾判据（`joinState == Finished(2)`）。</summary>
+    public enum DraftJoinState
+    {
+        NotJoined = 0,
+        Joined = 1,
+        Finished = 2,
+        Expired = 3,
+    }
+
+    /// <summary>原版 `PayStates`（`dump.cs:126806-126814`，**值照原版**）。`DraftEventBase.UpdateState`
+    /// 拿 `joinState == Joined && payState == notPaid(0)` 判「该落在 Intro 页」。</summary>
+    public enum DraftPayState
+    {
+        NotPaid = 0,
+        Free = 1,
+        Premium = 2,
+        PremiumTen = 3,
+    }
+
+    /// <summary>轮抽一局的**本地存档**（= 原版 `DraftEventSaveGame` 里我们真正用得上的那几格）。
+    ///
+    /// <para>🔴 **为什么要有它**：原版这一局活在**服务端**的 `DraftEventSaveGame` 里 —— 关窗、进对局、
+    /// 回壳再开窗，`selectedWarlord / selectedPacks / selectedCards / numberOfMatchesWon / numberOfMatchesLost /
+    /// rewardsCollected` 全都还在（`dump.cs:126817-126832`）。本地没有服务器 ⇒ 用**进程内静态对象**顶这一格：
+    /// 它活过「窗被销毁 + 场景切换」，⛔ 但**活不过退出游戏**（那一段要落盘，见文件末「顺手发现」）。</para>
+    ///
+    /// <para>字段对应（原版偏移逐条注明，⛔ 别改名去凑别的意思）：
+    /// `numberOfMatchesWon`(+0x48) / `numberOfMatchesLost`(+0x4C) / `rewardsCollected`(+0x70) /
+    /// `payState`(+0x78) / `selectedWarlord`(+0x88) / `selectedPacks`(+0x90) / `selectedCards`(+0x98) /
+    /// `joinState`(+0x30，父类 `PlayEventSaveGame`)。
+    /// `consumedDraftMatches` 与 `seed` 是**本地新增**（服务端没有对等物，见各自注释）。</para></summary>
+    [Serializable]
+    public class DraftRunSave
+    {
+        /// <summary>原版 `PlayEventSaveGame.joinState`(+0x30)。`Finished(2)` ⇒ `UpdateState` 直接走收尾分支。</summary>
+        public int joinState;
+        /// <summary>原版 `DraftEventSaveGame.payState`(+0x78)。我们只有 `NotPaid(0)` / `Free(1)` 两档
+        /// （付费档本轮不做 ⇒ ⛔ 永远不写 2/3）。</summary>
+        public int payState;
+        /// <summary>原版 `numberOfMatchesWon`(+0x48) —— **Victories 那个数字就是它**
+        /// （`DraftRunDisplay__Initialize.c`：`victoryCounterText.text = save+0x48.ToString()`）。</summary>
+        public int matchesWon;
+        /// <summary>原版 `numberOfMatchesLost`(+0x4C) —— 败场格亮几颗就是它。</summary>
+        public int matchesLost;
+        /// <summary>原版 `rewardsCollected`(+0x70)。`UpdateState` 收尾时 `false ⇒ Finished(20)`、`true ⇒ Collected(22)`。</summary>
+        public bool rewardsCollected;
+        /// <summary>本局种子（**本地新增**：原版 seed 是服务端事件字段，见 S3 §五）。</summary>
+        public int seed;
+        /// <summary>原版 `selectedWarlord`(+0x88)，我们存卡 id。</summary>
+        public string warlordId;
+        /// <summary>原版 `selectedPacks`(+0x90)，我们存包的唯一键（`DraftPacks.PackDto.key`，⛔ 不是 `packId`）。</summary>
+        public string[] pickedKeys;
+        /// <summary>原版 `selectedCards`(+0x98)。</summary>
+        public string[] selectedCards;
+        /// <summary>🔴 **本地新增**：`BattleLogData` 里已经吃进战绩的轮抽对局条数。
+        /// 对局记录是「新的在前」（`BattleLogData.Add` 里 `_all.Insert(0, m)`）⇒ 未吃过的就是前
+        /// `(总条数 − 这个数)` 条。开新局时**先记基线**（否则会把上一局的对局算到这一局头上）。</summary>
+        public int consumedDraftMatches;
     }
 
     /// <summary>轮抽的**免费/常规**窗（原版 `Draft Mode Menu Demo`）。
@@ -120,10 +210,24 @@ namespace CardPresentation
         /// <summary>`MenuDraw.ShadeHit` 要求压暗档 **严格低于**内容命中档 —— 本窗 = `QShade` &lt; `QHit`。</summary>
         public const int QHitContentMin = QHit;
 
+        // ---- 卡包预览层（原版 `Generic Multi Card Display`）自占 4180–4199 那一段 ----
+        // 🔴 它必须**整层压在本窗所有内容命中区之上**（否则预览开着还能点下面的包卡）：
+        //    `QPreviewShade(4180) > QHit(4170)`。同族先例 = `Shell/BoosterInfoPopup.cs` 的压暗层必须低于自己的内容。
+        public const int QPreviewShade = 4180;    // `Menu Dark Background` 的图
+        public const int QPreviewCardBase = 4182; // 三张卡（一张 1 档：4182/4183/4184）
+        public const int QPreviewArt = 4190;      // Back 钮的底图
+        public const int QPreviewText = 4191;     // `Header Text` / `Back` 字
+        /// <summary>预览层的内容命中区（= `Absorb` 取 `−1` = 4193）。</summary>
+        public const int QPreviewHit = 4194;
+
         // ============================================================ 规模（见文件头「缺口表」）
         /// <summary>🔴 **我们挑的，不是原版真值**（`warlordsPerDraft` 在服务端 `DraftEventData+0xA0`；
         /// 本地 0 命中）。S3 §五 也建议 5。改这一个数会同时改选将页的卡片数（其余地方全跟着它）。</summary>
         public const int WarlordsPerDraft = 5;
+
+        /// <summary>一局最多输几场就收尾（= <see cref="LossSlots"/>，判据见那一行）。
+        /// 原版是 `StagedEventData.maxTries`（`+0x90`，**服务端值、本地 0 命中**）⇒ 3 这个数**我们挑的**。</summary>
+        public const int MaxTries = LossSlots;
 
         // ============================================================ 背景（S3 §2.1 现读）
         static readonly PxRect ShadeR = new PxRect(-1327.30f, -773.63f, 3247.30f, 1798.73f);
@@ -170,9 +274,19 @@ namespace CardPresentation
         /// `101.4,585.5 → 311.4,667.1`；已含 1.221 的换算）—— 相对格子视觉框左上角。</summary>
         static readonly PxRect WlSelBtnOff = new PxRect(101.40f, 585.50f, 311.40f, 667.10f);
         static readonly PxRect WlSelTxOff = new PxRect(112.50f, 601.90f, 299.60f, 650.70f);
-        /// <summary>卡本体的视觉高（= `CardView.Height × 108 × 比例`）：原版 `2DCard` 386.6×615.42
-        /// × 1.221 = **472.0×751.4**（S3 §2.4 现读）⇒ 我们按高铺满（宽跟着卡的比例走）。</summary>
-        const float WlCardBodyH = 751.40f;
+        /// <summary>卡本体（原版 `2DCard`）的**视觉**框 = `386.60 × 615.42`（`menu_dump bundle_menus_assets_all
+        /// "Generic Select Card Container"` 现读那一行：`2DCard 13.1 -19.6 399.7 595.8 386.60 615.42 ⇲ls=184.7`）。
+        /// 🔴 **2026-10-24 就地订正（铁律 5）**：本行原来是 `751.40` —— 那是 S3 §2.4 那句
+        /// 「2DCard **386.6×615.42 × 1.221 = 472×751.4**」**把容器那 1.221 重复乘了一次**
+        /// （现读的 `⇲ls=184.7` = `CardUI 151.3 × 容器 1.221`，**已经含**容器缩放）。
+        /// 代价（真机截图 `_tmp_view/shots/2026-10-24_第七十三会话/23_draft_sel.png` 实测）：卡比原版大 1.221 倍，
+        /// 到 **751.4** 高 ⇒ `Select Button`（y 585.5–667.1）从「压在卡体下沿之外」变成**压在战将数值行上**，
+        /// 四张卡挤成一排、格间距从原版的 106 px 缩到 21 px —— 这正是用户 2026-10-24 报的「这个错了」。</summary>
+        const float WlCardBodyH = 615.42f;
+        /// <summary>`2DCard` 视觉框的左上角（**相对选将格视觉框的左上角**，同一次现读 `13.1, −19.6`）。
+        /// ⚠️ 两格都**不是 0**：卡在格子里偏左上（因为容器那 1.221 是绕**布局框中心**缩放的，而卡是按布局框
+        /// 左上角摆的）⇒ ⛔ 别拿「格心」摆卡（旧写法居中对齐 ⇒ 卡比原版低 89.0、右 45.6 px）。</summary>
+        static readonly Vector2 WlCardOff = new Vector2(13.10f, -19.60f);
         /// <summary>滚动一格多少画布像素。🔴 原版那台 `ScrollRect` 的 `m_ScrollSensitivity` 查不到
         /// （组件被禁，现读只有 `h=1/v=0`），**120 是我们挑的**（与主菜单模式卡同一条口径）。</summary>
         const float WlScrollNotch = 120f;
@@ -251,11 +365,64 @@ namespace CardPresentation
         static readonly PxRect DeckListR = new PxRect(1542f, 330f, 1858f, 800f);
         const float DeckRowH = 38f;
 
+        // ============================================================ 卡包预览（原版 `Generic Multi Card Display`）
+        // 🔴 几何**全部**来自 prefab 实读（`bundle_menus_assets_all`；根 RT = `RectTransform_-5481408756880803131.json`
+        //    的 `anchor(0,0.5)-(1,0.5) · apos(0,-20.475) · size(0,818.04) · pivot(0.5,0.5)`）：
+        //    设计帧 1920×1080 ⇒ 根 = x[0,1920] · 竖直中心 540−20.475 = 519.525（左下原点）
+        //    ⇒ 左上原点 y[151.455, 969.495]。下列每个矩形都是**该根之下**的窗口坐标（= menu_dump 的
+        //    `--relative` 那套，已与根矩形相加过一次，⛔ 别再减一次）。
+        static readonly PxRect PrevRootR = new PxRect(0f, 151.46f, 1920f, 969.50f);
+        /// <summary>`Menu Dark Background`：锚点 (0.5,0.5) · size 4574.6×2572.36 · apos (0,0)
+        /// ⇒ 以预览根中心 (960, 560.475) 为中心铺开；色 `(0,0,0,0.773)`（`m_Color` 实读同款）。</summary>
+        static readonly PxRect PrevShadeR = new PxRect(-1327.30f, -725.68f, 3247.30f, 1846.63f);
+        /// <summary>`Header Text`：锚点 (0.5,1) · pivot (0.5,1) · size 1192.37×63.20
+        /// ⇒ x [363.82,1556.19] · 贴着预览根上沿。字号 38 / 基准 31.9 / 自动 18–38 / Center-Middle。
+        /// 🔴 **运行期是隐藏的**：`PackPreview` 给 `Initialize(cards, headerTitle)` 传的 `headerTitle = null`
+        /// （`DraftModeSelectPacksStateDemo__PackPreview.c`：`UIMultiCardDisplay__Initialize(lVar2, uVar1, 0, 0)`），
+        /// 而 `Initialize` 末句 `SetActive(!IsNullOrEmpty(headerTitle))` ⇒ 原版这一刻**不显示标题**。</summary>
+        static readonly PxRect PrevHeaderR = new PxRect(363.82f, 151.46f, 1556.19f, 214.66f);
+        /// <summary>三张卡的**视觉**尺寸（`CardUI Reference` 布局框 2.54×3.37 × `m_LocalScale 223.1`）。</summary>
+        const float PrevCardW = 567.60f, PrevCardH = 751.67f;
+        /// <summary>卡心的 y（= 预览根竖直中心 560.475，`Content` 的 HLG `childAlignment = MiddleCenter`）。</summary>
+        const float PrevCardCy = 560.48f;
+        /// <summary>`Content` 的中心 x：根中心 960 + `apos.x −8` = **952**。</summary>
+        const float PrevContentCx = 952f;
+        /// <summary>`CardUI Reference` 的**布局框宽**（`m_SizeDelta.x = 2.54` —— 卡体不参与布局，
+        /// 画出来的是 `localScale` 放大的那 567.6；HLG 只按布局框排）。</summary>
+        const float PrevSlotBoxW = 2.54f;
+        /// <summary>`Content` 上那颗 `HorizontalLayoutGroup.m_Spacing = 500`（实读）。</summary>
+        const float PrevSlotSpacing = 500f;
+        /// <summary>三张卡的中心 x（**由上面三个数现算**，不另存一份）：
+        /// 总宽 = 3×2.54 + 2×500 = 1007.62；左沿 = 952 − 503.81 = 448.19
+        /// ⇒ 中心 = 448.19 + 1.27 + i×502.54 = **449.46 / 952.00 / 1454.54**。</summary>
+        public static float PackPreviewCardCx(int i)
+        {
+            return PrevContentCx - (3f * PrevSlotBoxW + 2f * PrevSlotSpacing) * 0.5f
+                   + PrevSlotBoxW * 0.5f + i * (PrevSlotBoxW + PrevSlotSpacing);
+        }
+        /// <summary>`Close button`（实读 185.8,825.3 → 250.0,888.5 = 64.24×63.24；图 `40k_UI_bt_back` 88×87）
+        /// 与它右边那颗 `Text`（'Back'，305.33×63.24，左对齐）。⚠️ 两颗都在预览根**下沿之外**
+        /// （根到 y 969.5 为止，按钮在 825.3–888.5 ⇒ 其实在根里面靠下）—— 位置照实读，⛔ 别按「贴底」重推。</summary>
+        static readonly PxRect PrevBackBtnR = new PxRect(185.80f, 825.30f, 250.00f, 888.50f);
+        static readonly PxRect PrevBackTxR = new PxRect(259.10f, 825.30f, 564.40f, 888.50f);
+
         // ============================================================ 状态
         /// <summary>当前页（原版 `DraftModeState`）。</summary>
         public DraftModeState State { get; private set; }
         /// <summary>本窗最近打开的那一扇（自检用，照 `LiveOpsEventWindow.LastOpened` 的形状）。</summary>
         public static DraftModeWindow LastOpened { get; private set; }
+
+        /// <summary>🔴 **一局的存档**（原版 `DraftEventSaveGame`，在服务端；我们放**静态**）。
+        /// 它必须活过「窗被销毁 + 进对局 + 回壳」⇒ ⛔ 不能是实例字段（窗一关就没了，那正是
+        /// 「胜负场恒 0」的成因）。`null` = 没有进行中的一局。见 <see cref="DraftRunSave"/> 的注释。</summary>
+        static DraftRunSave _run;
+
+        /// <summary>自检/入口读这一局存档（只读口 —— ⛔ 别在生产路径拿它算账，统一走 `UpdateState`）。</summary>
+        public static DraftRunSave RunForTest { get { return _run; } }
+        /// <summary>自检：直接喂一份存档（`null` = 清掉）。⚠️ 用完请调 <see cref="ClearRunForTest"/>。</summary>
+        public static void SetRunForTest(DraftRunSave run) { _run = run; }
+        /// <summary>自检收尾：把静态存档清干净（否则下一次真 Play / 下一个断开会**接着自检那一局**）。</summary>
+        public static void ClearRunForTest() { _run = null; }
 
         int _seed;
         /// <summary>本局种子（**日志里会打**，照它重开就是同一串包）。</summary>
@@ -304,7 +471,29 @@ namespace CardPresentation
         Label _stageCounter, _cardsCounter, _victoriesNum, _deckTitle;
         MenuScroll _warlordScroll;
         readonly List<Transform> _warlordNodes = new List<Transform>();
+        /// <summary>选将页每格的卡视图（与 `_warlords` 同序；`null` = 那一格没建出来）。
+        /// 🆕 2026-10-24（U1）：选中要改**高亮**，⛔ 不重建整张卡（重建一次 ~13 ms × 5）。</summary>
+        readonly List<CardView> _warlordViews = new List<CardView>();
+        /// <summary>选将页每格的 `Select Button` 命中区（`WindowButton`）—— 选中后那一格要 `Interactable = false`
+        /// （原版 `GenericSelectCardContainer.ToggleSelected` 的 `interactable = !selected`）。</summary>
+        readonly List<WindowButton> _warlordSelBtns = new List<WindowButton>();
+        /// <summary>选将页 `Continue` 的 `WindowButton`（出厂 `Interactable = false` = 原版 `OnOpen` 那一句）。</summary>
+        WindowButton _warlordContBtn;
         readonly List<CardView> _packCardViews = new List<CardView>();
+        // 🆕 胜/败场格的宿主（`GoToState` 每次进 Ongoing 页都要按**真战绩**重画 ⇒ 得留引用）
+        Transform _winMarksHolder, _lossMarksHolder;
+        // 🆕 卡包预览层（原版 `Generic Multi Card Display`）
+        Transform _previewRoot, _previewCards;
+        Label _previewHeader;
+        readonly List<CardView> _previewCardViews = new List<CardView>();
+        /// <summary>🔴 预览里每张卡的**引擎 id**（`CardDef.Id`，即 `pack.cardIds[i]`）。
+        /// ⚠️ 必须单独记：`CardView.Data.id` 存的是**显示名**（`BattleDriver.ToCardData` 里 `id = c.Name`），
+        /// 拿它当卡身份会读成 `Autarch` 而不是 `ASH83`（2026-10-24 第七十三会话 E12 修）。
+        /// 索引与 `_previewCardViews` **逐位对齐**（两边都在 `if (cv == null) continue;` 之后 `Add`）。</summary>
+        readonly List<string> _previewCardEngineIds = new List<string>();
+        /// <summary>预览里每张卡**建的时候原样喂给 `MenuDraw.Node` / `CardView.SetPose`** 的那份矩形
+        /// （自检读口用；⛔ 这不是第二份摆位逻辑 —— 它记的就是画出来的那个框）。</summary>
+        readonly List<PxRect> _previewCardRects = new List<PxRect>();
 
         // ============================================================ 取图（取不到**必须出声**）
         Texture2D Tex(string name)
@@ -341,14 +530,28 @@ namespace CardPresentation
         {
             LastOpened = this;
             MainMenuRuntime.SetNavPanelVisible(false, true);   // 整屏红底窗 ⇒ 收起左竖导航（同 `RankedEventWindow.Open`）
-            // 🔴 每关一次再开 ⇒ **重开一轮**（`BeginRun`）。原版的进度在服务端（`DraftEvent.selectedPacks/…`），
-            //    本地没有任何落盘通道 ⇒ 如实重置，⛔ 不假装「接着上次」。
-            //    ⚠️ 窗**还开着**时再点模式卡 ⇒ `TryOpen` 走 `Background`/`Open` 支、**不调本方法**
-            //    （`GameWindow.TryOpen` 的三档）⇒ 那种情况下进度照旧保留。
-            int seed = SeedOverride != 0 ? SeedOverride
-                                         : unchecked((int)(DateTime.Now.Ticks & 0x7FFFFFFF));
-            BeginRun(seed);
+            int seed = SeedOverride != 0 ? SeedOverride : NewSeed();
+            // 🔴 **原版 `DraftModeMenuDemo.Open` → `GetStartingTab` → `ChangeTabCO(GetTabFromState(DraftState))`**
+            //    （`decomp_full/DraftModeMenuDemo__Open.c` / `__GoToCurrentState.c`）——
+            //    窗**不会**因为「又点了一次模式卡」就重置这一局：进度在服务端的 `DraftEventSaveGame` 里。
+            //    本地那份就在 `_run`（见它的注释）⇒ 有存档就**接着打**，没有才开新局。
+            //    ⚠️ 已领奖（`rewardsCollected`）的那一局不再续（原版 `ResetCollectedDraft` 会把它清掉）。
+            if (SeedOverride != 0)
+            {
+                // 自检/入口**钉死了种子** ⇒ 一定开新局（否则同一份断言跑第二次会「接着上一局」）。
+                BeginRun(seed);
+            }
+            else if (_run != null && !_run.rewardsCollected)
+            {
+                ResumeRun();
+            }
+            else
+            {
+                BeginRun(seed);
+            }
         }
+
+        static int NewSeed() { return unchecked((int)(DateTime.Now.Ticks & 0x7FFFFFFF)); }
 
         public override void Close()
         {
@@ -356,7 +559,24 @@ namespace CardPresentation
             base.Close();
         }
 
-        /// <summary>开一局新的轮抽（**重置全部状态**并落到 Pay 页）。`Open()` 与「放弃本轮」都走它。</summary>
+        /// <summary>ESC 的**第一层**是预览（原版预览是**另一扇窗** `Generic Multi Card Display`，
+        /// 它的窗参 `closeOnESC = 1`，`MonoBehaviour_1014665548285115077.json`）⇒ 预览开着时按一次只关预览，
+        /// 再按一次才轮到轮抽窗自己。
+        /// 🔴 **为什么覆写这一支而不是 `Close()`**：`Close()` 也会被 `WindowsManager.CloseAllWindows()` 等
+        /// 生产路径调用，在那里「先关预览、不关窗」会把壳卡住；ESC 才是「逐层退」的那一条。</summary>
+        public override bool ESCPressed()
+        {
+            // 第一道门槛与基类同一个（原版预览窗也有那一道：`EventSystemController.eventSystem.enabled`）
+            if (PackPreviewVisible && PointerLayer.InputEnabled)
+            {
+                Debug.Log("[Draft] ESC ⇒ **关预览层**（原版那是另一扇窗、`closeOnESC = 1`；再按一次才关轮抽窗）");
+                ClosePackPreview();
+                return true;
+            }
+            return base.ESCPressed();
+        }
+
+        /// <summary>开一局新的轮抽（**重置全部状态**并落到 Pay 页）。`Open()` / 「放弃本轮」都走它。</summary>
         public void BeginRun(int seed)
         {
             _seed = seed;
@@ -367,16 +587,65 @@ namespace CardPresentation
             _deck = null;
             _deckTab = 0;
             StartedBattle = false;
+            // 🔴 新的一局 ⇒ 新的 `DraftEventSaveGame`（原版 `FreeEventEntrance` 成功那一支才建）。
+            //    ⚠️ `consumedDraftMatches` 的**基线**必须在这里记：否则上一局（甚至别的存档）打过的
+            //    轮抽对局会被算进这一局（= 开局就白送几个胜场）。
+            _run = new DraftRunSave
+            {
+                joinState = (int)DraftJoinState.NotJoined,
+                payState = (int)DraftPayState.NotPaid,
+                matchesWon = 0, matchesLost = 0, rewardsCollected = false,
+                seed = seed, warlordId = null,
+                pickedKeys = new string[0], selectedCards = new string[0],
+                consumedDraftMatches = CountDraftMatchesIn(BattleLogData.All),
+            };
             _warlords = RollWarlords(_seed, WarlordsPerDraft);
             Build();
             GoToState(DraftModeState.PayScreen);
             Debug.Log("[Draft] 开一局（种子 " + _seed + "，战将候选 " + _warlords.Count + " 张；"
                     + "`draftRounds` = " + DraftPacks.RoundsPerDraft + " 轮 × `packsPerDraft` = "
-                    + DraftPacks.PacksPerRoundOffered + " 包 —— 🔴 这三个数是**我们挑的**，原版真值在服务端（S3 §五））");
+                    + DraftPacks.PacksPerRoundOffered + " 包 —— 🔴 这三个数是**我们挑的**，原版真值在服务端（S3 §五））"
+                    + "；战绩基线：对局记录里已有 " + _run.consumedDraftMatches + " 条轮抽对局（⛔ 不算进本局）");
             Debug.Log("[Draft] 本轮**不建**这两件（原版有、但判据缺失）："
                     + "① `Premium` / `10x Premium` 两档（价格 `premiumPrice`/`premium10Price` 在服务端 ⇒ 不编价格）；"
                     + "② `Reroll` 那一支（`GetReRollCosts` 无真值 ⇒ 不编价格）。"
                     + "还有 `Timer`（活动结束时刻在服务端 ⇒ 不建假倒计时）。");
+        }
+
+        /// <summary>接着打**存档里那一局**（原版 `Open → GoToCurrentState`：按服务端的 `DraftState` 落页）。
+        /// 顺序要紧：先按存档把状态装回来 → `Build()` → **先吃战绩**（原版 `OnMatchFinished` 早就在服务端
+        /// 把计数写好了）→ 再 `UpdateState()` 决定落哪一页。</summary>
+        public void ResumeRun()
+        {
+            if (_run == null) { Debug.LogWarning("[Draft] `ResumeRun()` 没有存档 ⇒ 忽略"); return; }
+            _seed = _run.seed;
+            _warlordId = _run.warlordId;
+            _pickedKeys.Clear();
+            if (_run.pickedKeys != null) _pickedKeys.AddRange(_run.pickedKeys);
+            _selectedCards.Clear();
+            if (_run.selectedCards != null) _selectedCards.AddRange(_run.selectedCards);
+            _offered = new List<DraftPacks.PackDto>();
+            _deck = null;
+            _deckTab = 0;
+            StartedBattle = false;
+            _warlords = RollWarlords(_seed, WarlordsPerDraft);
+            Build();
+            // 原版 `Open` 的落页走的是 **`GetTabFromState(DraftState)`**（存着的那个状态），
+            // 不是 `UpdateState` 现算 ⇒ 先处理「还没报名」这一档（那一局连 Pay 页都没过）。
+            if (_run.joinState == (int)DraftJoinState.NotJoined)
+            {
+                Debug.Log("[Draft] 接着上一局（种子 " + _seed + "）：**还没报名**（`joinState = NotJoined`）"
+                        + " ⇒ 落 Pay 页（原版 `GetStartingTab` / `GetTabFromState`）");
+                GoToState(DraftModeState.PayScreen);
+                return;
+            }
+            int pending = IngestBattleResults();
+            Debug.Log("[Draft] 接着上一局（种子 " + _seed + " · 战将 " + (_warlordId ?? "<未选>") + " · "
+                    + _pickedKeys.Count + "/" + DraftPacks.RoundsPerDraft + " 包 · 战绩 "
+                    + Victories + " 胜 " + Defeats + " 负"
+                    + (pending > 0 ? "；本次补吃了 " + pending + " 场刚打完的轮抽对局" : "；没有新的轮抽对局")
+                    + "）");
+            UpdateState();      // 原版 `GoToCurrentState` —— 由**状态**决定落哪一页
         }
 
         void Build()
@@ -386,7 +655,14 @@ namespace CardPresentation
             PointerLayer.UnregisterOwnedBy(gameObject);
             _missingArt.Clear();
             _warlordNodes.Clear();
+            _warlordViews.Clear();
+            _warlordSelBtns.Clear();
+            _warlordContBtn = null;
             _packCardViews.Clear();
+            _previewCardViews.Clear();
+            _previewCardEngineIds.Clear();
+            _previewCardRects.Clear();
+            _previewRoot = null; _previewCards = null; _previewHeader = null;
             _warlordScroll = null;
             MenuDraw.ClearChildren(transform);
 
@@ -406,11 +682,9 @@ namespace CardPresentation
             _pagePacks = BuildPacksPage(root);
             _pageOngoing = BuildOngoingPage(root);
             _deckPanelRoot = BuildDeckInfoPanel(root);
-            // `Generic Multi Card Display`（预览弹窗）本轮不做：它是 `ScrollRect + UIMultiCardDisplay`
-            // 的**独立弹窗**（S3 §2.5「预览」），需要自己的一扇窗（`PackPreview` → `WindowsManager.OpenWindow`）
-            // —— 本批范围只到「点包 = 选包」，预览另开一笔（⛔ 不伪造一个内嵌面板充数）。
-            Debug.Log("[Draft] `Generic Multi Card Display`（点包卡空白处的 3 卡预览弹窗）**本轮不做** —— "
-                    + "原版那是独立一扇弹窗（S3 §2.5），不在本批范围。");
+            // 🆕 (A) 卡包预览层（原版 `Generic Multi Card Display`）—— 建好即**隐藏**（原版 `UIMultiCardDisplay.Awake`
+            //    第一句就是 `referenceCard.gameObject.SetActive(false)`/整窗关着；我们的整层默认关）。
+            _previewRoot = BuildPackPreview(root);
         }
 
         // ------------------------------------------------------------ 背景（S3 §2.1 现读的四层）
@@ -537,9 +811,16 @@ namespace CardPresentation
             var contTx = MenuDraw.Text(cont, WlContTxR, Loc.T("Battle/Tips/Continue"), Color.white,
                                        "Button Text", 65f, QText, face: TmpFont.Face.LatinCardBody);
             MenuDraw.SetVAlign(contTx, Label.VAlign.Capline, WlContTxR);     // 原版 align 2/8192
-            MenuDraw.Hit(cont, "Hit", WlContBtnR, QHit, () => ContinueAfterWarlord(), contBg, "UI_Button_Mulligan",
-                         "UI_Button_Mulligan_hover", "UI_Button_Mulligan_Pressed",
-                         clickCue: WindowSounds.PositiveCue);
+            var contHit = MenuDraw.Hit(cont, "Hit", WlContBtnR, QHit, () => ContinueAfterWarlord(), contBg,
+                                       "UI_Button_Mulligan", "UI_Button_Mulligan_hover",
+                                       "UI_Button_Mulligan_Pressed",
+                                       clickCue: WindowSounds.PositiveCue);
+            // 原版 `DraftModeWarlordSelectionStateDemo.OnOpen` 末句：`continueButton.interactable = false`
+            // （`...__OnOpen.c` 实读）⇒ 出厂就是灰的；`SelectWarlord` 才置 true（`...__SelectWarlord.c`）。
+            _warlordContBtn = contHit != null ? contHit.GetComponent<WindowButton>() : null;
+            if (_warlordContBtn != null) _warlordContBtn.Interactable = false;
+            if (contHit == null)
+                Debug.LogWarning("[Draft] 选将页 `Continue` 的命中区没建出来 ⇒ 真鼠标点不到（判据同 `MenuDraw.Hit` 的告警）。");
             // ⚠️ 原版 `DEBUG_REROLL_BUTTON`（212.93×54.49，粉色）在**正式包预制体里也是 ON**，
             //     S3 §2.4 明写「施工时删掉或置灰」⇒ 本窗**不建**（不给玩家一颗没实现的调试钮）。
             return page;
@@ -551,6 +832,8 @@ namespace CardPresentation
             for (int i = _warlordContent.childCount - 1; i >= 0; i--)
                 RewardsWindow.DestroySafe(_warlordContent.GetChild(i).gameObject);
             _warlordNodes.Clear();
+            _warlordViews.Clear();
+            _warlordSelBtns.Clear();
             bool empty = _warlords == null || _warlords.Count == 0;
             if (_warlordHint != null) _warlordHint.gameObject.SetActive(empty);
             if (empty)
@@ -571,14 +854,35 @@ namespace CardPresentation
                 var node = MenuDraw.Node(_warlordContent, "Generic Select Card Container", slotR);
                 var content = MenuDraw.Node(node, "Content", slotR);
 
-                // 卡面（原版 `BasicCardUI` 的 `2DCard`，视觉 472×751.4 —— 见 `WlCardBodyH`）
+                // 卡面（原版 `BasicCardUI` 的 `2DCard`）：**视觉** 386.60×615.42，左上角 = 格视觉框 + (13.1,−19.6)
+                // —— 见 `WlCardBodyH` / `WlCardOff` 那两段（2026-10-24 订正：原版是 386.6×615.42，不是 472×751.4）。
                 float cardScale = WlCardBodyH / (CardView.Height * 108f);
+                float cardW = WlCardBodyH * (CardView.Width / CardView.Height);   // 386.60（卡本体宽高比 = 原版 2DCard）
+                var cardR = new PxRect(slotR.x1 + WlCardOff.x, slotR.y1 + WlCardOff.y,
+                                       slotR.x1 + WlCardOff.x + cardW, slotR.y1 + WlCardOff.y + WlCardBodyH);
                 var cv = CardView.Create(content, BattleDriver.ToCardData(def, def.Faction), "CardUI");
+                bool sel = !string.IsNullOrEmpty(_warlordId) && def.Id == _warlordId;
                 if (cv != null)
                 {
-                    cv.SetPose(MenuDraw.Local(content, slotR.x1, slotR.y1, slotR.x2, slotR.y2), 0f, cardScale);
+                    cv.SetPose(MenuDraw.Local(content, cardR.x1, cardR.y1, cardR.x2, cardR.y2), 0f, cardScale);
                     cv.SetQueue(QCardBase + i);
+                    // 选中态：原版 `GenericSelectCardContainer.ToggleSelected` 第一句 =
+                    // `Card2DController.ToggleHighlight(on)`（`...__ToggleSelected.c` 实读；`selectedContent`
+                    // 在同一份 prefab 里是 **null** ⇒ 原版没有「已选」贴图节点）。我们映射到卡自己的 `Selected` 档
+                    // （`CardHighlightState.Selected` = 原版 `selected`，白）—— ⚠️ 「用哪一档」是我们的映射（如实标）。
+                    cv.SetHighlight(sel ? CardHighlightState.Selected : CardHighlightState.Normal);
                 }
+                _warlordViews.Add(cv);
+
+                // 卡本体那一块**吸收**点击 —— 原版是 `2DCard` 里的 `UI Collider`
+                // （`UIGenericEventCatcher + NonDrawingGraphic`，`menu_dump` 现读那张卡的那一行；
+                //  它身上**没有任何处理器**，`GenericSelectCardContainer` 也只把 `selectButton` 接去了
+                //  `SelectWarlord`（`...__SelectButtonOnClick.c`））
+                // ⇒ 原版点卡体 = **射线打到卡自己、父链上没有处理器 ⇒ 什么都不做**。
+                // 我们原来这块是空的 ⇒ 点卡体会穿透到窗内吸收层 `AbsorbHit`
+                // （真机 click_log 2026-10-24 #37/#39 就是这个观感：玩家以为「卡点不动」）。
+                // ⚠️ 档 = `Absorb` 算的 `QHit − 1`（严格低于 `Select Button` 那颗 `QHit`）⇒ 不会抢按钮的点击。
+                MenuDraw.Absorb(content, "CardBodyHit", cardR, QShade, QHit, WlViewR);
 
                 // `Select Button`（原版 210.02×81.66 视觉，压在卡体下沿之外）
                 var selR = new PxRect(slotR.x1 + WlSelBtnOff.x1, slotR.y1 + WlSelBtnOff.y1,
@@ -591,12 +895,70 @@ namespace CardPresentation
                                           "Button Text", 40f, QText, face: TmpFont.Face.LatinCardBody);
                 MenuDraw.SetVAlign(selTx, Label.VAlign.Capline, txR);        // 原版 align 2/8192
                 string id = def.Id;
-                MenuDraw.Hit(selNode, "Hit", selR, QHit, () => ChooseWarlord(id), selBg, "UI_Button_Mulligan",
-                             "UI_Button_Mulligan_hover", "UI_Button_Mulligan_Pressed",
-                             clip: WlViewR, clickCue: WindowSounds.SelectAvatarCue);
+                var selHit = MenuDraw.Hit(selNode, "Hit", selR, QHit, () => ChooseWarlord(id), selBg,
+                                          "UI_Button_Mulligan", "UI_Button_Mulligan_hover",
+                                          "UI_Button_Mulligan_Pressed",
+                                          clip: WlViewR, clickCue: WindowSounds.SelectAvatarCue);
+                // 原版 `ToggleSelected` 末两句：`selectButton.interactable = !selected`（选中那格自己变灰）
+                var selWb = selHit != null ? selHit.GetComponent<WindowButton>() : null;
+                if (selWb != null) selWb.Interactable = !sel;
+                _warlordSelBtns.Add(selWb);
+
                 _warlordNodes.Add(node);
             }
+            ApplyWarlordSelectionVisuals();
         }
+
+        /// <summary>按 `_warlordId` 刷一次「选中态」的三处可见反馈（⛔ 不重建卡）：
+        /// ① 选中的那张卡 `CardHighlightState.Selected`；② 那格的 `Select Button` 灰掉（原版
+        /// `ToggleSelected` 的 `interactable = !selected`）；③ `Continue` 可点（原版 `SelectWarlord` 末句
+        /// `continueButton.interactable = true`；`OnOpen` 出厂是 **false** ⇒ 按钮变灰）。</summary>
+        void ApplyWarlordSelectionVisuals()
+        {
+            for (int i = 0; i < _warlordViews.Count; i++)
+            {
+                var cv = _warlordViews[i];
+                bool sel = cv != null && i < _warlords.Count && _warlords[i] != null
+                           && !string.IsNullOrEmpty(_warlordId) && _warlords[i].Id == _warlordId;
+                if (cv != null) cv.SetHighlight(sel ? CardHighlightState.Selected : CardHighlightState.Normal);
+                if (i < _warlordSelBtns.Count && _warlordSelBtns[i] != null)
+                    _warlordSelBtns[i].Interactable = !sel;
+            }
+            if (_warlordContBtn != null)
+                _warlordContBtn.Interactable = !string.IsNullOrEmpty(_warlordId);
+        }
+
+        // ---- 选将页的自检读口（2026-10-24 U1）---------------------------------------------
+        // 🔴 这三个口**只转发**，⛔ 不在里面算版面（自检要量生产那一份；判据同 `PointerLayer.HitBoxForTest`
+        //    那段「转发不加工」）。版面期望值写在自检里、来自 prefab（见 `DraftAssertD3` 的 U1 那一组）。
+
+        /// <summary>选将页第 <paramref name="i"/> 格的卡视图（`null` = 那一格没建 / 越界）。</summary>
+        public CardView WarlordCardViewForTest(int i)
+            => (i >= 0 && i < _warlordViews.Count) ? _warlordViews[i] : null;
+
+        /// <summary>选将页第 <paramref name="i"/> 格 `Select Button` 的 `WindowButton`
+        /// （要量命中区就再走 `PointerLayer.HitBoxForTest`；`null` = 越界或那一格的命中区没建出来）。</summary>
+        public WindowButton WarlordSelectButtonForTest(int i)
+            => (i >= 0 && i < _warlordSelBtns.Count) ? _warlordSelBtns[i] : null;
+
+        /// <summary>选将页 `Continue` 的 `WindowButton`（原版 `OnOpen` 出厂 `interactable = false`）。</summary>
+        public WindowButton WarlordContinueButtonForTest { get { return _warlordContBtn; } }
+
+        /// <summary>选将页那一格**画出来的**卡（`2DCard`）在设计 px 下的矩形 —— **从 `CardView` 自己量**
+        /// （`BaseScale × CardView.Width/Height × 108` + 它的世界位置），⛔ 不是回放我们喂进去的那个框
+        /// （回放 = 拿实现证明实现）。</summary>
+        public bool WarlordCardRectRenderedForTest(int i, out PxRect r)
+        {
+            r = default(PxRect);
+            var cv = WarlordCardViewForTest(i);
+            if (cv == null) return false;
+            var c = LayoutSpace.ToDesignPixel(cv.transform.position);
+            float h = CardView.Height * cv.BaseScale * 108f;
+            float w = CardView.Width * cv.BaseScale * 108f;
+            r = new PxRect(c.x - w * 0.5f, c.y - h * 0.5f, c.x + w * 0.5f, c.y + h * 0.5f);
+            return true;
+        }
+
 
         // ------------------------------------------------------------ SelectPack 页
         Transform BuildPacksPage(Transform root)
@@ -673,27 +1035,16 @@ namespace CardPresentation
             // 胜场格（`Stages Container` GridLayoutGroup：cell 80² · spacing (23.7,30.04) · 2 列 · MiddleCenter）
             var winMarks = MenuDraw.Node(scaled, "Win Marks", new PxRect(697.90f, 373.80f, 1471.60f, 708.80f));
             // `Background Back`：原版那颗 `Image` **组件级禁用**（`m_Enabled = 0`）⇒ 原版不画 ⇒ 不建
-            RebuildStageMarks(winMarks);
+            _winMarksHolder = winMarks;
+            RebuildStageMarks();
 
             // 败场（`Defeats:` + 3 格：原版 `Losses container` HLG spacing 9.86 · 格子 67.74²）
             var defeat = MenuDraw.Text(scaled, OnDefeatR, Loc.T("Demo/DraftMode/Losses"), Color.white,
                                        "Defeat Marks", 42.85f, QText, OnDefeatR.W, 18f, 50f, 36f,
                                        face: TmpFont.Face.LatinCardBody);
             MenuDraw.AlignLeft(defeat, OnDefeatR);
-            var losses = MenuDraw.Node(scaled, "Losses container", OnLossesR);
-            float lx = OnLossesR.x1;
-            for (int i = 0; i < LossSlots; i++)
-            {
-                var cell = new PxRect(lx, OnLossesR.CY - LossCell * 0.5f, lx + LossCell, OnLossesR.CY + LossCell * 0.5f);
-                MenuDraw.Node(losses, "Losses Info UI_ref", cell);
-                // 空槽 = 一颗半透明黑块（原版 `Losses Info UI_ref` 的图 `ext10:-5957999898718987630` 在
-                // 外部依赖里、本地没有 ⇒ 画占位并出声一次，⛔ 不拿别的骷髅图顶）
-                MenuDraw.Rect(losses, CardArt.Solid(), cell, "Slot", QArt, new Color(0f, 0f, 0f, 0.45f));
-                lx += LossCell + LossGap;
-            }
-            if (CardArt.MenuUi("40k_Defeat_Mark") == null)
-                Debug.Log("[Draft] 败场格的原版图（`Losses Info UI_ref` 的 sprite）在外部依赖里、**本地没有**"
-                        + " ⇒ 现在画的是半透明黑块占位（⛔ 没拿别的图顶）。");
+            _lossMarksHolder = MenuDraw.Node(scaled, "Losses container", OnLossesR);
+            RebuildDefeatMarks();
 
             // `Quote End`（只有 Finished 时显示；按胜场档取一句，S3 §2.7）
             _quoteEnd = MenuDraw.Text(main, new PxRect(489.30f, 245f, 1501.60f, 305.50f), "", Color.white,
@@ -729,12 +1080,24 @@ namespace CardPresentation
 
         Transform _ongoingWarlordNode, _resetNode, _toBattleNode;
         Label _quoteEnd;
+        readonly List<Transform> _winMarks = new List<Transform>();
+        readonly List<Transform> _lossMarks = new List<Transform>();
 
-        void RebuildStageMarks(Transform holder)
+        /// <summary>胜场格（原版 `DraftRunDisplay.SetupStageMarks(winMarkHolder, save.won, data.matches.Length, …)`）。
+        /// <para>原版：**格子数 = `max`**、每格先把 `imageObject`（子件 `+0x20`）`SetActive(i &lt; current)` ——
+        /// 即「前 `current` 格亮」。`current` = `numberOfMatchesWon`（`DraftRunDisplay__Initialize.c` 实读）。</para>
+        /// <para>🔴 **`max` 我们不知道**：原版是 `data.matches.Length`（服务端 `EventMatchInfo[]`，本地 0 命中）。
+        /// 我们取 `max(RoundsPerDraft, 胜场)` —— 下界沿用原来那个「4 格」的占位口径，
+        /// 同时在**胜场超过它时自动加格**，这样**不会把赢过的场次藏起来**（静默少画 = 撒谎）。
+        /// ⛔ 别把它写死成 4 或 13（13 是奖励档阈值，不是 `matches.Length`）。</para></summary>
+        void RebuildStageMarks()
         {
+            var holder = _winMarksHolder;
+            if (holder == null) return;
             for (int i = holder.childCount - 1; i >= 0; i--) RewardsWindow.DestroySafe(holder.GetChild(i).gameObject);
-            // ⚠️ 本批**没有战斗结果回灌**（战斗内不动）⇒ 胜场恒 0：4 个空槽。
-            int n = DraftPacks.RoundsPerDraft;
+            _winMarks.Clear();
+            int wins = Victories;
+            int n = Mathf.Max(DraftPacks.RoundsPerDraft, wins);
             int cols = 2;
             float gridW = cols * StageCell + (cols - 1) * StageGapX;
             float x0 = OnStagesR.CX - gridW * 0.5f;
@@ -746,12 +1109,57 @@ namespace CardPresentation
                 int c = i % cols, r = i / cols;
                 float x = x0 + c * (StageCell + StageGapX), y = y0 + r * (StageCell + StageGapY);
                 var cell = new PxRect(x, y, x + StageCell, y + StageCell);
-                MenuDraw.Node(holder, "Stage Info UI_ref", cell);
-                MenuDraw.Rect(holder, CardArt.Solid(), cell, "Slot", QArt, new Color(0f, 0f, 0f, 0.45f));
+                var cellNode = MenuDraw.Node(holder, "Stage Info UI_ref", cell);
+                // 空槽 = 半透明黑块（原版那格 `imageObject` 的 `winIndicatorPrefab` 图在外部依赖里、本地没有）
+                MenuDraw.Rect(cellNode, CardArt.Solid(), cell, "Slot", QArt, new Color(0f, 0f, 0f, 0.45f));
+                // 🆕 亮的那一格（= 原版 `imageObject.SetActive(i < current)`）—— 图本地没有 ⇒ 画金色块占位
+                var mark = MenuDraw.Rect(cellNode, CardArt.Solid(), cell, "Mark", QArt1,
+                                         new Color(1f, 0.68f, 0.18f, 0.95f));
+                if (mark != null)
+                {
+                    mark.gameObject.SetActive(i < wins);
+                    if (i < wins) _winMarks.Add(mark.transform);
+                }
             }
-            Debug.Log("[Draft] 胜场格画了 " + n + " 个空槽（= `draftRounds`；原版 `SetupStageMarks` 逐格实例化）。"
-                    + "⚠️ 本批**没有战斗结果回灌**（战斗内不动）⇒ 胜场恒 0 —— 不是缺陷，是范围。");
+            if (n > 0 && CardArt.MenuUi("40k_Victory_Mark") == null)
+                Debug.Log("[Draft] 胜场格的**亮格图**（原版 `winIndicatorPrefab.imageObject`）在外部依赖里、**本地没有**"
+                        + " ⇒ 亮的那几格画的是金色占位块（⛔ 没拿别的图顶）。胜场 = " + wins + " / 画了 " + n + " 格");
         }
+
+        /// <summary>败场格（原版 `SetupStageMarks(defeatMarkHolder, save.lost, data.maxTries, …)`）——
+        /// 格子数 = `maxTries`（我们取 <see cref="MaxTries"/> = 3，与 prefab 的 3 格一致）。</summary>
+        void RebuildDefeatMarks()
+        {
+            var holder = _lossMarksHolder;
+            if (holder == null) return;
+            for (int i = holder.childCount - 1; i >= 0; i--) RewardsWindow.DestroySafe(holder.GetChild(i).gameObject);
+            _lossMarks.Clear();
+            int losses = Defeats;
+            float lx = OnLossesR.x1;
+            for (int i = 0; i < MaxTries; i++)
+            {
+                var cell = new PxRect(lx, OnLossesR.CY - LossCell * 0.5f, lx + LossCell, OnLossesR.CY + LossCell * 0.5f);
+                MenuDraw.Node(holder, "Losses Info UI_ref", cell);
+                // 空槽 = 一颗半透明黑块（原版 `Losses Info UI_ref` 的图 `ext10:-5957999898718987630` 在
+                // 外部依赖里、本地没有 ⇒ 画占位，⛔ 不拿别的骷髅图顶）
+                MenuDraw.Rect(holder, CardArt.Solid(), cell, "Slot", QArt, new Color(0f, 0f, 0f, 0.45f));
+                var mark = MenuDraw.Rect(holder, CardArt.Solid(), cell, "Mark", QArt1,
+                                         new Color(0.85f, 0.16f, 0.13f, 0.95f));
+                if (mark != null)
+                {
+                    mark.gameObject.SetActive(i < losses);
+                    if (i < losses) _lossMarks.Add(mark.transform);
+                }
+                lx += LossCell + LossGap;
+            }
+            if (CardArt.MenuUi("40k_Defeat_Mark") == null)
+                Debug.Log("[Draft] 败场格的原版图（`Losses Info UI_ref` 的 sprite）在外部依赖里、**本地没有**"
+                        + " ⇒ 现在画的是半透明黑块占位（⛔ 没拿别的图顶）。败场 = " + losses + " / " + MaxTries);
+        }
+        /// <summary>真的**亮着**的胜场格数（自检读口 —— 断「胜场真的是从战绩来的」）。</summary>
+        public int FilledWinMarks { get { return _winMarks.Count; } }
+        /// <summary>真的**亮着**的败场格数（自检读口）。</summary>
+        public int FilledLossMarks { get { return _lossMarks.Count; } }
 
         // ------------------------------------------------------------ 奖励面板（Finished）
         Transform BuildRewardPanel(Transform page)
@@ -762,9 +1170,14 @@ namespace CardPresentation
             MenuDraw.Nine(info, Tex("Crate Border Highlight"), CrateGlowR, new Vector4(0f, 0f, 0f, 0f), 128f, 128f,
                           QArt1, new Color(0.98f, 0.801f, 0.0588f, 0.427f), false, "Highlight Crate",
                           null, null, default(Vector2));
-            // `Crate`（199) 宝箱图按 `CurrentStage` 五档取（阈值 3/5/7/9/13 —— S3 §2.8）；
-            //    本批**没有 stage**（胜场不回灌）⇒ 取第 0 档（= `stage < 3` 那支）
+            // `Crate`：原版 `DraftRewardPanel.Initialize` 按 **`CurrentStage`（= 胜场 `save+0x48`）** 换六档
+            // （`<3 / 3–4 / 5–6 / 7–8 / 9–12 / ≥13`，反汇编逐档读出来；S3 §2.8 记的是同一组阈值）。
+            // 🔴 **本地只有 `40k_Crate_Tier1_Iron` 一张图**（`Resources/Art/ui_menu/` 其余档 0 命中）
+            // ⇒ 恒画 Tier1 并出声，⛔ 不编图名。`CurrentStage` 那个读口已经接上（胜场一到就能换）。
             MenuDraw.Rect(info, Tex("40k_Crate_Tier1_Iron"), CrateR, "Crate", QArt, null, true);
+            if (CurrentStage >= 3)
+                Debug.Log("[Draft] `CurrentStage = " + CurrentStage + "` ⇒ 原版这一刻该换更高档的宝箱图，"
+                        + "但本地**只有** `40k_Crate_Tier1_Iron` 一张（其余五档 0 命中）⇒ 仍画 Tier1（⛔ 不编图名）");
             var btn = MenuDraw.Node(info, "Collect Button", CollectR);
             var bg = MenuDraw.Rect(btn, Tex("UI_Button_Mulligan"), CollectR, "Bg", QArt, null, true);
             var collectTx = MenuDraw.Text(btn, CollectTxR, Loc.T("MenuShop/CollectButton"), Color.white,
@@ -827,6 +1240,159 @@ namespace CardPresentation
         }
         static readonly string[] DeckToggleNames = { "Deck Info Toggle", "Card List Toggle", "Alliance Info Toggle" };
 
+        // ============================================================ 卡包预览层（原版 `Generic Multi Card Display`）
+        /// <summary>建**预览层**（原版那扇多卡展示窗的树）。默认隐藏。
+        /// <para>树（逐节点照 prefab，S3 §2.5「预览」+ 本轮现读）：`Generic Multi Card Display`
+        /// → `Menu Dark Background`(吃射线) · `Header Text` · `Viewport/Content/CardUI Reference…` ·
+        /// `Close button` + `Close button/Text`('Back')。</para>
+        /// <para>🔴 **`BackgroundCloseButton.window` 是空引用**（`MonoBehaviour_-1185320953084347707.json`:
+        /// `"window": {"m_PathID": 0}` + `onClick` 空）⇒ 原版**点背景什么都不做**（同族：`PopUpGameWindow`）。
+        /// ⇒ 用 `MenuDraw.Absorb`（**不是** `ShadeHit`）。唯一的关窗路 = `Close button`（+ ESC）。</para></summary>
+        Transform BuildPackPreview(Transform root)
+        {
+            var node = MenuDraw.Node(root, "Generic Multi Card Display", PrevRootR);
+            // 压暗整屏（原版 `Menu Dark Background`：纯粹一块吃射线的黑，`m_Color = (0,0,0,0.773)`）
+            MenuDraw.Rect(node, CardArt.Solid(), PrevShadeR, "Menu Dark Background", QPreviewShade,
+                          new Color(0f, 0f, 0f, 0.773f));
+            MenuDraw.Absorb(node, "BackdropAbsorb", PrevShadeR, QPreviewShade, QPreviewHit);
+            // `Header Text`：🔴 **默认关**（`PackPreview` 传 `headerTitle = null`，见 `PrevHeaderR` 的注释）
+            _previewHeader = MenuDraw.Text(node, PrevHeaderR, "Header Text", Color.white, "Header Text",
+                                           38f, QPreviewText, PrevHeaderR.W, 18f, 38f, 31.9f,
+                                           face: TmpFont.Face.LatinCardBody);
+            if (_previewHeader != null) _previewHeader.gameObject.SetActive(false);
+            // `Viewport`（原版那颗 `ScrollRect` 组件 `m_Enabled = 0` ⇒ 拖不动 ⇒ 我们照「不动」做）
+            var viewport = MenuDraw.Node(node, "Viewport", PrevRootR);
+            _previewCards = MenuDraw.Node(viewport, "Content", PrevRootR);
+            // `Close button`（图 `40k_UI_bt_back` 88×87 · 文案 'Back'）
+            var btn = MenuDraw.Node(node, "Close button", PrevBackBtnR);
+            var bg = MenuDraw.Rect(btn, Tex("40k_UI_bt_back"), PrevBackBtnR, "Bg", QPreviewArt, null, true);
+            var tx = MenuDraw.Text(btn, PrevBackTxR,
+                                   Loc.T("MainMenu/MainButtons/ButtonLabel/Back"), Color.white,
+                                   "Text", 38f, QPreviewText, PrevBackTxR.W, 18f, 38f, 31.9f,
+                                   face: TmpFont.Face.LatinCardBody);
+            MenuDraw.AlignLeft(tx, PrevBackTxR);                 // 原版 align = Left/Middle
+            // 原版那颗钮 `m_Transition = 2`(SpriteSwap)：base `40k_UI_bt_back` / hover `40k_UI_bt_back_hover_back`
+            // / pressed `40k_UI_bt_back_pressed` —— ⚠️ **pressed 那张本地没有**（`ui_menu/` 0 命中）
+            // ⇒ 传 null（按下时保持 hover 那帧）+ 出声，⛔ 不拿别的图顶。
+            if (CardArt.MenuUi("40k_UI_bt_back_pressed") == null)
+                Debug.Log("[Draft] 预览窗 `Close button` 的 **pressed** 图 `40k_UI_bt_back_pressed` **本地没有**"
+                        + "（`Resources/Art/ui_menu/` 0 命中）⇒ 按下时保持 hover 那帧（⛔ 不拿别的图顶）");
+            MenuDraw.Hit(btn, "Hit", PrevBackBtnR, QPreviewHit, ClosePackPreview, bg,
+                         "40k_UI_bt_back", "40k_UI_bt_back_hover_back", null,
+                         clickCue: WindowSounds.DefaultCloseCue);
+            node.gameObject.SetActive(false);
+            return node;
+        }
+
+        /// <summary>点包卡**空白处** ⇒ 预览包里那几张卡（原版 `BackgroundClick` → `PackPreview(pack)`）。
+        /// ⚠️ 原版那颗 `previewPackSound` 的 clip 名查不到（S3 §五·4）⇒ 静音 + 出声一次。</summary>
+        public bool ShowPackPreview(string packKey)
+        {
+            if (_previewRoot == null || _previewCards == null)
+            {
+                Debug.LogWarning("[Draft] 预览层**没建出来**（`_previewRoot == null`）⇒ 这次点击什么都不做");
+                return false;
+            }
+            DraftPacks.PackDto pack = null;
+            for (int i = 0; i < _offered.Count; i++)
+                if (_offered[i] != null && _offered[i].key == packKey) { pack = _offered[i]; break; }
+            if (pack == null)
+            {
+                Debug.LogWarning("[Draft] 预览 `" + packKey + "` **不在这一轮给出的包里** ⇒ 忽略"
+                               + "（原版只认 `packsUIContainer` 里那几张的 `PackPreview`）");
+                return false;
+            }
+            for (int i = _previewCards.childCount - 1; i >= 0; i--)
+                RewardsWindow.DestroySafe(_previewCards.GetChild(i).gameObject);
+            _previewCardViews.Clear();
+            _previewCardEngineIds.Clear();
+            _previewCardRects.Clear();
+
+            // 原版 `PrebuiltPack.GetCardLibrary()` ⇒ 包内那几张卡（882/882 包恒 3 张）
+            var defs = new List<CardDef>();
+            var ids = pack.cardIds ?? new string[0];
+            for (int k = 0; k < ids.Length; k++)
+            {
+                var def = CardDatabase.FindById(CardPool(), ids[k]);
+                if (def == null)
+                {
+                    Debug.LogWarning("[Draft] 预览：包 `" + pack.packId + "` 第 " + (k + 1) + " 张卡 id `"
+                                   + ids[k] + "` 在卡池里查不到 ⇒ 那一格**没画**（⛔ 不假装画了）");
+                    continue;
+                }
+                defs.Add(def);
+            }
+            // 摆位：原版 `Content` 的 `HorizontalLayoutGroup`（`m_Spacing = 500` · `childAlignment = MiddleCenter`）
+            // 排的是 `CardUI Reference` 的**布局框**（2.54×3.37），而画出来的是 `m_LocalScale 223.1` 放大后的
+            // 567.6×751.67 ⇒ 「布局框中心 = 视觉框中心」。中心 x 见 `PackPreviewCardCx`。
+            for (int i = 0; i < defs.Count; i++)
+            {
+                float cx = PackPreviewCardCx(i);
+                var cell = new PxRect(cx - PrevCardW * 0.5f, PrevCardCy - PrevCardH * 0.5f,
+                                      cx + PrevCardW * 0.5f, PrevCardCy + PrevCardH * 0.5f);
+                var cellNode = MenuDraw.Node(_previewCards, "CardUI Reference", cell);
+                var cv = CardView.Create(cellNode, BattleDriver.ToCardData(defs[i], defs[i].Faction), "CardUI");
+                if (cv == null) continue;
+                float sc = PrevCardH / (CardView.Height * 108f);
+                cv.SetPose(MenuDraw.Local(cellNode, cell.x1, cell.y1, cell.x2, cell.y2), 0f, sc);
+                cv.SetQueue(QPreviewCardBase + i);
+                _previewCardViews.Add(cv);
+                _previewCardEngineIds.Add(defs[i].Id);   // ⚠️ 必须在这句**之后**（`cv == null` 那条已 continue）
+                _previewCardRects.Add(cell);
+            }
+            _previewRoot.gameObject.SetActive(true);
+            Debug.Log("[Draft] 预览包 `" + pack.packId + "`（" + pack.packName + "）⇒ 画了 " + _previewCardViews.Count
+                    + " 张卡（原版 `PackPreview` → `UIMultiCardDisplay.Initialize(GetCardLibrary(pack), null)`；"
+                    + "🔴 `previewPackSound` 的 clip 名查不到 ⇒ 静音）");
+            return true;
+        }
+
+        /// <summary>关掉预览层（唯一关窗路 = `Close button` / ESC / 换页）。</summary>
+        public void ClosePackPreview()
+        {
+            if (_previewRoot == null) return;
+            if (!_previewRoot.gameObject.activeSelf) return;
+            _previewRoot.gameObject.SetActive(false);
+            if (_previewCards != null)
+                for (int i = _previewCards.childCount - 1; i >= 0; i--)
+                    RewardsWindow.DestroySafe(_previewCards.GetChild(i).gameObject);
+            _previewCardViews.Clear();
+            _previewCardEngineIds.Clear();
+            Debug.Log("[Draft] 关预览层（原版是另一扇窗 `UIMultiCardDisplay.Close()`）");
+        }
+
+        /// <summary>预览层开着没有（自检读口）。</summary>
+        public bool PackPreviewVisible { get { return _previewRoot != null && _previewRoot.gameObject.activeSelf; } }
+        /// <summary>预览层节点（自检读口 —— 原版 prefab 名 `Generic Multi Card Display`）。</summary>
+        public Transform PackPreviewNode { get { return _previewRoot; } }
+        /// <summary>预览层里**真的建出来**几张卡（自检读口）。</summary>
+        public int PackPreviewCardCount { get { return _previewCardViews.Count; } }
+        /// <summary>预览层那张 `Header Text` 现在显示没有（原版 `PackPreview` 传 null ⇒ **关**）。</summary>
+        public bool PackPreviewHeaderVisible
+        {
+            get { return _previewHeader != null && _previewHeader.gameObject.activeSelf; }
+        }
+        /// <summary>预览里第 <paramref name="i"/> 张卡**建的时候那份矩形**（自检读口；`false` = 没这一张）。
+        /// ⚠️ 它记的是**喂给 `MenuDraw.Node` / `CardView.SetPose` 的同一个框**（不是另算一遍），
+        /// 「节点真的落在那个框上」由 `MenuDraw` 那一层保证 —— 与本仓其它版面断言同一分工。</summary>
+        public bool PackPreviewCardRectAt(int i, out PxRect r)
+        {
+            if (i < 0 || i >= _previewCardRects.Count) { r = default(PxRect); return false; }
+            r = _previewCardRects[i];
+            return true;
+        }
+        /// <summary>预览里第 <paramref name="i"/> 张卡的**引擎 id**（自检读口 —— 断「真的是这个包的 3 张」）。
+        /// 返回 `CardDef.Id`（= `pack.cardIds[i]` 解出来的那一张），⛔ **不是显示名** ——
+        /// `CardView.Data.id` 存的是显示名（`BattleDriver.ToCardData` 的 `id = c.Name`），语义不同。
+        /// （2026-10-24 第七十三会话 E12 订正：原 doc 写「显示的卡 id」，实现当时返回的其实是显示名。）</summary>
+        public string PackPreviewCardIdAt(int i)
+        {
+            if (i < 0 || i >= _previewCardEngineIds.Count) return null;
+            var id = _previewCardEngineIds[i];
+            return string.IsNullOrEmpty(id) ? null : id;
+        }
+
+
         // ============================================================ 换页（= 原版 `GetTab<T>()`）
         /// <summary>state → 页节点（原版 `GetTabFromState` 那张表）。
         /// ⚠️ `Intro` / `PayScreen` **都落 Pay 页**（`GetTabFromState(0)` 的 else 分支 —— S3 §〇·3 / §七·1）；
@@ -845,9 +1411,15 @@ namespace CardPresentation
 
         public void GoToState(DraftModeState s)
         {
-            // `Collected`（22）：原版「窗口自行关闭/刷新」（S3 §一 的表）⇒ 关窗。
+            // 换页 ⇒ 预览层先收（原版那是另一扇窗，`ChangeTabCO` 不会带着它走）
+            if (s != State && PackPreviewVisible) ClosePackPreview();
+            // `Collected`（22）：原版「窗口自行关闭/刷新」（S3 §一 的表）⇒ 先记下状态、再关窗。
+            // ⚠️ **`State` 要写**（原版那一刻 `DraftState` 真的变成了 22，`UpdateState` 的
+            //    `rewardsCollected ? 22 : 20` 就是给它写的）—— 只是这一档没有独立页。
             if (s == DraftModeState.Collected)
             {
+                State = s;
+                if (PackPreviewVisible) ClosePackPreview();   // 预览开着也要能关窗（`Close()` 覆写会先关预览）
                 Debug.Log("[Draft] 状态 `Collected(22)` ⇒ 关窗（原版那一档没有独立页）。");
                 Close();
                 return;
@@ -867,8 +1439,7 @@ namespace CardPresentation
             SetOn(_toBattleNode, !finished);
             SetOn(_resetNode, !finished);
             if (_quoteEnd != null) _quoteEnd.gameObject.SetActive(finished);
-            if (finished && _quoteEnd != null)
-                _quoteEnd.SetText(Loc.T("Demo/DraftMode/Quote12Victories"));   // 现读只有 5 档文案，本批 win 恒 0 ⇒ 第 12 档兜底
+            if (finished && _quoteEnd != null) _quoteEnd.SetText(Loc.T(QuoteTermForWins(Victories)));
 
             if (page == _pageWarlord) RebuildWarlordCards();
             if (page == _pagePacks) RefreshPacksPage();
@@ -878,6 +1449,194 @@ namespace CardPresentation
         }
 
         static void SetOn(Transform t, bool on) { if (t != null) t.gameObject.SetActive(on); }
+
+        /// <summary>`Quote End` 的本地化键 —— 按**胜场**分档（五个键的名字本身就是档位：
+        /// `Demo/DraftMode/Quote{0,1-4,5-8,9-11,12}Victories`，官方本地化表现读）。
+        /// ⚠️ 原版 `DraftRunDisplay.ChooseQuote` 算的是 `wins / data.matches.Length` 归一值再比
+        /// `DraftEndQuote.normalizedVictoriesRange`，而 `matches.Length` 是**服务端值、本地 0 命中**
+        /// （S3 §五）⇒ 归一值算不出来；本地**唯一**能用的判据就是那五个键名 ⇒ 按胜场取档。
+        /// 🔴 这一条是「用键名反推档位」，⛔ 不是原版的归一算法。</summary>
+        public static string QuoteTermForWins(int wins)
+        {
+            if (wins <= 0) return "Demo/DraftMode/Quote0Victories";
+            if (wins <= 4) return "Demo/DraftMode/Quote1-4Victories";
+            if (wins <= 8) return "Demo/DraftMode/Quote5-8Victories";
+            if (wins <= 11) return "Demo/DraftMode/Quote9-11Victories";
+            return "Demo/DraftMode/Quote12Victories";
+        }
+
+
+        // ============================================================ 状态机（原版 `DraftEventBase.UpdateState`）
+        /// <summary>**唯一**决定「现在该在哪一页」的地方 —— 原版 `DraftEventBase.UpdateState`
+        /// （泛型实例 VA **`0x181814090`**，逐句反汇编解出）的本地等价物。
+        ///
+        /// <para>原版有 **6 个**调用点（`grep` 那 6 个闭包逐条核过）：`OnMatchFinished`→`HandleComplete`、
+        /// `PickWarlord` 成功、`PickPack` 成功、`FreeEventEntrance` 成功、`PayEventEntrance` 成功、
+        /// **`FinishRun` 的 `Callback`**。（`..._DisplayClass15_0_..._HandleComplete_0.c` /
+        /// `..._DisplayClass23_0_..._b__0.c` / `..._DisplayClass21_0_..._b__0.c` /
+        /// `..._DisplayClass32_0_..._OnSuccess_1.c` / `..._DisplayClass31_0_..._OnSuccess_1.c` /
+        /// `..._DisplayClass33_0_..._FinishRun_g__Callback_0.c`）⇒ 我们那六条动作也**只**走这里。</para>
+        ///
+        /// <para>原版的分支（指令流 → C#）：
+        /// ① `save.joinState == 2 (Finished)` **或** `save.matchesLost >= data.maxTries`
+        ///    **或** `save.matchesWon >= data.matches.Length` ⇒ 收尾：`state = rewardsCollected ? 22 : 20`。
+        /// ② 否则若 `selectedWarlord == null` ⇒ `selectedCards.Clear()` + `eventDeck = null`，
+        ///    再 `state = (joinState == Joined && payState == notPaid) ? 0 (Intro) : 5 (SelectWarlord)`。
+        /// ③ 否则 `state = (selectedPacks.Count < draftRounds) ? 10 (SelectPack) : 15 (OngoingRun)`。</para>
+        ///
+        /// <para>🔴 **① 的第三条我们办不到**：`data.matches`（`StagedEventData+0x88`，`EventMatchInfo[]`）
+        /// 是服务端下发的比赛表，**本地 0 命中**（S3 §五）⇒ 我们**不设胜场上限**（胜负只在「输满
+        /// <see cref="MaxTries"/> 场」与显式 <see cref="FinishRun"/> 两处收尾）。
+        /// ⛔ 别自己编一个「赢够 N 场就结束」—— 那会把玩家的一局提前掐掉。</para></summary>
+        public void UpdateState()
+        {
+            if (_run == null)
+            {
+                // 没有存档 = 状态机没有输入（原版那一刻 save 为 null 会直接崩）⇒ 如实出声、别静默乱跳。
+                Debug.LogWarning("[Draft] `UpdateState()` 时**没有一局存档**（`_run == null`）—— 不动页面。");
+                return;
+            }
+            bool finished = _run.joinState == (int)DraftJoinState.Finished
+                            || _run.matchesLost >= MaxTries;
+            if (finished)
+            {
+                _run.joinState = (int)DraftJoinState.Finished;      // 一旦收尾就钉住（原版 `set_DraftState` 那半边）
+                GoToState(_run.rewardsCollected ? DraftModeState.Collected : DraftModeState.Finished);
+                return;
+            }
+            if (string.IsNullOrEmpty(_warlordId))
+            {
+                if (_selectedCards.Count > 0)
+                {
+                    Debug.Log("[Draft] `UpdateState`②：还没选战将 ⇒ 清掉 `selectedCards`（"
+                            + _selectedCards.Count + " 张）与 `eventDeck`（原版逐句如此）");
+                    _selectedCards.Clear();
+                    _run.selectedCards = new string[0];
+                }
+                _deck = null;
+                bool intro = _run.joinState == (int)DraftJoinState.Joined && _run.payState == (int)DraftPayState.NotPaid;
+                GoToState(intro ? DraftModeState.Intro : DraftModeState.SelectWarlord);
+                return;
+            }
+            GoToState(_pickedKeys.Count < DraftPacks.RoundsPerDraft
+                      ? DraftModeState.SelectPack : DraftModeState.OngoingRun);
+        }
+
+        /// <summary>原版 `DraftEventBase.FinishRun(onFinish)`（Slot 101）的本地等价物 —— **显式收尾**那一支：
+        /// 判据 = `..._FinishRun_g__Callback_0.c` 的**逐句**：① `set_DraftState(0x14)`（= Finished(20)）
+        /// ② `UpdateState()` ③ 回调 ④ `Signal.Raise(new DraftRunFinished(draft))`。
+        /// ⚠️ 反编译里**搜不到它的调用点**（接口方法 Slot 101，调用方多半在服务端/大厅流程里）⇒
+        /// 我们保留它给「对局已打完但服务端判定收尾」这类入口用，并在日志里说清是**显式**那一支。</summary>
+        public void FinishRun()
+        {
+            if (_run == null) { Debug.LogWarning("[Draft] `FinishRun()` 没有存档 ⇒ 忽略"); return; }
+            _run.joinState = (int)DraftJoinState.Finished;
+            Debug.Log("[Draft] `FinishRun()`：显式置 `joinState = Finished(2)`（原版先 `set_DraftState(20)`、"
+                    + "再 `UpdateState()` —— 后者会把它落成 Finished(20) 或 Collected(22)）");
+            UpdateState();
+        }
+
+        // ---------------- 战斗结果回灌（原版 `OnMatchFinished` → `RecordEventMatchFinished`）
+        /// <summary>把「已经打完、还没算进本局」的轮抽对局吃进战绩（原版 `DraftEventBase.OnMatchFinished`
+        /// 「`save.numberOfMatchesWon/Lost` 由服务端 +1」那一步的本地等价物）。
+        /// 数据源 = **既有的本地对局记录** `Shell/BattleLogData.cs`（结算处 `RecordBattleLog()` 写、且落盘）。
+        /// <returns>这次吃了几场（0 = 没有新的）。</returns></summary>
+        public int IngestBattleResults() { return IngestBattleResults(BattleLogData.All); }
+
+        /// <summary>同上，但**日志从参数来**（自检用：⛔ 不去改全局 `BattleLogData` 的那张表）。</summary>
+        public int IngestBattleResults(IList<BattleLogData.Match> log)
+        {
+            if (_run == null) return 0;
+            var outcomes = DraftOutcomes(log);                     // 新 → 旧
+            int pending = outcomes.Count - _run.consumedDraftMatches;
+            if (pending < 0)
+            {
+                // 只可能来自「记录被清/裁掉」（`BattleLogData` 只留 50 条）—— 出声，别静默把账算错。
+                Debug.LogWarning("[Draft] 对局记录里的轮抽场次（" + outcomes.Count + "）**少于**本局已记的 "
+                               + _run.consumedDraftMatches + " ⇒ 记录被清过/裁过；把游标拉回 " + outcomes.Count
+                               + "（少掉的那几场**无法补记**）");
+                _run.consumedDraftMatches = outcomes.Count;
+                return 0;
+            }
+            if (pending == 0) return 0;
+            ApplyOutcomes(_run, outcomes, pending);
+            _run.consumedDraftMatches = outcomes.Count;
+            Debug.Log("[Draft] 战绩回灌：吃了 " + pending + " 场轮抽对局 ⇒ 现在 " + _run.matchesWon + " 胜 "
+                    + _run.matchesLost + " 负（原版这两格在服务端 `DraftEventSaveGame+0x48 / +0x4C`）");
+            // 原版 `OnMatchFinished` → `HandleComplete` 的第 1 句就是 `UpdateState()`（战绩变了，状态可能收尾）
+            UpdateState();
+            return pending;
+        }
+
+        /// <summary>从对局记录里挑出**轮抽的对局**并按「新 → 旧」给胜负：`true` 胜 · `false` 负 · `null` 平。
+        /// <para>判据：轮抽对局的模式号 = `GameMode.ClosedDeck`（原版 `DraftEventBase.get_EventPlayMode`；
+        /// 我们 `LaunchBattle()` 走的就是 `BattleDriver.SetPendingPlayMode(ClosedDeck)`，
+        /// 而 `RecordBattleLog()` 把 `PlayModeNames.Name(Ctx.PlayMode)` 原样写进 `Match.Mode`）。</para>
+        /// <para>⚠️ 平局**不算进任何一边**（原版 `numberOfMatchesDraw` 是**第三格** `+0x50`，我们不复用它）。</para></summary>
+        public static List<bool?> DraftOutcomes(IList<BattleLogData.Match> log)
+        {
+            var outp = new List<bool?>();
+            if (log == null) return outp;
+            string draftMode = PlayModeNames.Name(GameMode.ClosedDeck);
+            for (int i = 0; i < log.Count; i++)
+            {
+                var m = log[i];
+                if (m == null || m.Mode != draftMode) continue;
+                outp.Add(m.Result == BattleLogData.Outcome.Victory ? (bool?)true
+                       : m.Result == BattleLogData.Outcome.Defeat ? (bool?)false
+                       : null);
+            }
+            return outp;
+        }
+
+        /// <summary>把 <paramref name="count"/> 条结果吃进战绩（纯函数，⛔ 不碰任何全局状态 —— 自检直接喂它）。
+        /// `newestFirst` 的顺序对「胜/负各加几」没有影响（原版那两格也只是计数器）。</summary>
+        public static int ApplyOutcomes(DraftRunSave run, IList<bool?> newestFirst, int count = -1)
+        {
+            if (run == null || newestFirst == null) return 0;
+            int n = count < 0 ? newestFirst.Count : Mathf.Min(count, newestFirst.Count);
+            int applied = 0;
+            for (int i = 0; i < n; i++)
+            {
+                if (newestFirst[i] == true) { run.matchesWon++; applied++; }
+                else if (newestFirst[i] == false) { run.matchesLost++; applied++; }
+                // null = 平局 ⇒ 两边都不动（见 `DraftOutcomes` 的注）
+            }
+            return applied;
+        }
+
+        /// <summary>一份对局记录里有几条轮抽局（开新局时当基线用）。</summary>
+        public static int CountDraftMatchesIn(IList<BattleLogData.Match> log)
+        {
+            if (log == null) return 0;
+            string draftMode = PlayModeNames.Name(GameMode.ClosedDeck);
+            int n = 0;
+            for (int i = 0; i < log.Count; i++) if (log[i] != null && log[i].Mode == draftMode) n++;
+            return n;
+        }
+
+        /// <summary>把**实例上**的进度写回存档（原版这些格子在服务端，我们每次变更都要同步一次 ——
+        /// 窗一关就只剩 `_run` 了）。`why` 只进日志。</summary>
+        void SyncRun(string why)
+        {
+            if (_run == null) return;
+            _run.seed = _seed;
+            _run.warlordId = _warlordId;
+            _run.pickedKeys = _pickedKeys.ToArray();
+            _run.selectedCards = _selectedCards.ToArray();
+            Debug.Log("[Draft] 存档同步（" + why + "）：joinState=" + _run.joinState + " payState=" + _run.payState
+                    + " 战绩 " + _run.matchesWon + "胜" + _run.matchesLost + "负 · 已选 " + _run.pickedKeys.Length
+                    + " 包 / " + _run.selectedCards.Length + " 张");
+        }
+
+        /// <summary>胜场（原版 `numberOfMatchesWon`；`DraftRunDisplay` 的 `Victories` 数字就是它）。</summary>
+        public int Victories { get { return _run != null ? _run.matchesWon : 0; } }
+        /// <summary>败场（原版 `numberOfMatchesLost`；`Losses container` 亮几格就是它）。</summary>
+        public int Defeats { get { return _run != null ? _run.matchesLost : 0; } }
+        /// <summary>原版 `IDraftEvent.CurrentStage`（`DraftEventBase.get_CurrentStage`）—— 奖励面板按它挑宝箱档，
+        /// 而 `DraftRewardPanel.Initialize` 读的是 `save+0x48`（= 胜场）⇒ **本属性 = <see cref="Victories"/>**。</summary>
+        public int CurrentStage { get { return Victories; } }
+
 
         // ------------------------------------------------------------ 各页刷新
         void RefreshPacksPage()
@@ -986,9 +1745,12 @@ namespace CardPresentation
             MenuDraw.Hit(selNode, "Hit", selR, QHit, () => PickPack(key), bg, "UI_Button_Mulligan",
                          "UI_Button_Mulligan_hover", "UI_Button_Mulligan_Pressed",
                          clickCue: WindowSounds.PositiveCue);
-            // `BackgroundClick`（点包卡空白处 ⇒ 预览弹窗）：本批不做预览（见 `Build()` 末尾那条出声），
-            // 但**照原版吸收**这一块的点击（原版那颗 `Image(a=0) + UIGenericEventCatcher`）
-            MenuDraw.Absorb(content, "BackgroundClick", new PxRect(r.x1, r.y1, r.x2, r.y2), QShade, QHitContentMin);
+            // `BackgroundClick`（点包卡**空白处** ⇒ 预览弹窗）：原版那颗 `Image(a=0) + UIGenericEventCatcher`
+            // → `DraftModeSelectPacksStateDemo.PackPreview(pack)`（S3 §2.5 表「预览」那一行）。
+            // 🔴 档必须**低于** `Select Button`（4170）—— 原版这一刻两颗钮是不同节点、按钮在上层，
+            //    点按钮是「选包」、点空白才是「预览」（`PrebuiltPackUI` 的 `selectButton` / `previewButton`）。
+            MenuDraw.Hit(content, "BackgroundClick", new PxRect(r.x1, r.y1, r.x2, r.y2), QHitContentMin - 1,
+                         () => ShowPackPreview(key), null, null, null, null);
         }
 
         /// <summary>把「相对包卡左上角」的矩形搬成绝对坐标。</summary>
@@ -999,8 +1761,11 @@ namespace CardPresentation
 
         void RefreshOngoingPage()
         {
-            // 胜场恒 0（本批没有战斗结果回灌 —— 见 `RebuildStageMarks` 的出声）
-            if (_victoriesNum != null) _victoriesNum.SetText("0");
+            // 🆕 (B)：`Victories` 那个数字 = `save.numberOfMatchesWon`（原版 `DraftRunDisplay.Initialize`
+            // 第一句 `victoryCounterText.text = save+0x48.ToString()`）—— 不再是常量 0。
+            if (_victoriesNum != null) _victoriesNum.SetText(Victories.ToString());
+            RebuildStageMarks();
+            RebuildDefeatMarks();
             if (_ongoingWarlordNode != null)
             {
                 for (int i = _ongoingWarlordNode.childCount - 1; i >= 0; i--)
@@ -1075,8 +1840,14 @@ namespace CardPresentation
             if (State != DraftModeState.PayScreen && State != DraftModeState.Intro)
             { Debug.LogWarning("[Draft] `Free` 只在 Pay 页有效（当前 " + State + "）"); return; }
             Debug.Log("[Draft] `Free Button` ⇒ 进选将页（原版 `Draft.FreeEventEntrance` 是服务端调用、"
-                    + "本地没有服务器 ⇒ **本地直接走成功那一支**，这一条是我们挑的）。");
-            GoToState(DraftModeState.SelectWarlord);
+                    + "本地没有服务器 ⇒ **本地直接走成功那一支**，这一条是我们挑的；原版成功回调里调的是 `UpdateState`）。");
+            if (_run != null)
+            {
+                _run.joinState = (int)DraftJoinState.Joined;      // 原版 `FreeEventEntrance` 成功 = 报名成功
+                _run.payState = (int)DraftPayState.Free;          // `PayStates.free = 1`
+                SyncRun("Free 报名成功");
+            }
+            UpdateState();      // 原版 `..._FreeEventEntrance_g__OnSuccess_1.c` 的第 2 句就是它
         }
 
         /// <summary>选一位战将（本地暂存，原版 `SelectWarlord(card)`；此时 `Continue` 才变可点）。</summary>
@@ -1093,7 +1864,13 @@ namespace CardPresentation
                 return false;
             }
             _warlordId = cardId;
-            Debug.Log("[Draft] 选中战将 `" + cardId + "`（阵营 " + WarlordFaction + " / army " + WarlordArmyId() + "）");
+            // 原版 `SelectWarlord(card)` 只做两件事：存卡 + `continueButton.interactable = true`
+            // （`...__SelectWarlord.c`）；卡自己的高亮与「那格按钮灰掉」在 `GenericSelectCardContainer.ToggleSelected`
+            // 里（`Card2DController.ToggleHighlight(true)` + `selectButton.interactable = false`）。
+            // ⇒ 我们同步刷这三处可见反馈（⛔ 不重建卡、不重建命中区）。
+            ApplyWarlordSelectionVisuals();
+            Debug.Log("[Draft] 选中战将 `" + cardId + "`（阵营 " + WarlordFaction + " / army " + WarlordArmyId() + "）"
+                    + "；`Continue` 现在可点（原版 `SelectWarlord` 末句）");
             return true;
         }
 
@@ -1110,7 +1887,8 @@ namespace CardPresentation
                 return false;
             }
             // 战将定下来之后，候选包池就定了（按**阵营**，不是按战将 —— `DraftPacks.RollRound` 的粒度）
-            GoToState(DraftModeState.SelectPack);
+            SyncRun("选定战将");
+            UpdateState();      // 原版 `PickWarlord` 成功 → `..._b__0.c` 第一句就是 `UpdateState`
             return true;
         }
 
@@ -1137,16 +1915,11 @@ namespace CardPresentation
                     + "**本轮不做动画**（S3 §五·3：时长/缓动只有 `DAT_*` 符号，查不到真值）。");
             Debug.Log("[Draft] 选包 `" + pack.packId + "`（" + pack.packName + "）⇒ 手里 "
                     + _selectedCards.Count + " 张 / 第 " + CurrentDraftRound + " 轮完成");
-            // 原版：`CurrentDraftRound < draftRounds` ⇒ `ShowPacks()` 再来一轮；否则切 Ongoing
-            if (CurrentDraftRound < DraftPacks.RoundsPerDraft)
-            {
-                RefreshPacksPage();
-                RefreshDeckPanel();
-            }
-            else
-            {
-                GoToState(DraftModeState.OngoingRun);
-            }
+            SyncRun("选了一包");
+            // 原版 `PickPack` 成功 → `..._b__0.c` 末句 `UpdateState()`：
+            // `CurrentDraftRound < draftRounds` ⇒ `SelectPack`（并 `ShowPacks()` 再来一轮）；否则 `OngoingRun`。
+            // 🔴 **「4 轮打完」在这里 = `OngoingRun(15)`，⛔ 不是 `Finished(20)`**（判据 → `UpdateState` 的注释）。
+            UpdateState();
             return true;
         }
 
@@ -1222,12 +1995,13 @@ namespace CardPresentation
         public void Resign()
         {
             Debug.Log("[Draft] `Resign`（原版 `Draft.RefundRun` 是服务端调用 —— 本地没有服务器 ⇒ "
-                    + "**只重开一轮、不假装退款**）。");
+                    + "**只重开一轮、不假装退款**；顺手把本地那一局存档清掉 = 原版 `RefundRun` 的等价物）。");
+            _run = null;                    // 放弃本轮 ⇒ 这一局作废（否则 `BeginRun` 之外的路径会接着它）
             if (Manager != null)
                 Manager.ShowPopUp(Loc.T("Demo/DraftMode/ExitDraftQuestion"), Loc.T("MainMenu/General/OK"),
-                                  () => BeginRun(unchecked((int)(DateTime.Now.Ticks & 0x7FFFFFFF))));
+                                  () => BeginRun(NewSeed()));
             else
-                BeginRun(unchecked((int)(DateTime.Now.Ticks & 0x7FFFFFFF)));
+                BeginRun(NewSeed());
         }
 
         /// <summary>`Collect Button`（只有 Finished 有）：原版 `Draft.CollectRewards` 是服务端调用，
@@ -1236,9 +2010,13 @@ namespace CardPresentation
         public void CollectReward()
         {
             Debug.LogWarning("[Draft] `Collect reward`：**奖励表（`DraftEventData.Rewards`）在服务端、本地 0 命中**"
-                           + " ⇒ 本窗**不发任何奖励**，只把状态推到 `Collected`（关窗）。"
+                           + " ⇒ 本窗**不发任何奖励**，只把 `rewardsCollected` 置真并走 `UpdateState`"
+                           + "（原版 `Draft.CollectRewards` 成功后 `rewardsCollected = true` ⇒ 状态从 Finished(20) 变 Collected(22)）。"
                            + "⛔ 不编奖励（铁律：查不到就说查不到）。");
-            GoToState(DraftModeState.Collected);
+            if (_run != null) _run.rewardsCollected = true;
+            UpdateState();                 // ⇒ `Collected` ⇒ `GoToState` 里关窗
+            // 原版 `ResetCollectedDraft`：领完就把这一局清掉（否则下次开窗会接着一局已领奖的收尾页）
+            _run = null;
         }
 
         // ============================================================ 抽将 / 抽包 / 查表
@@ -1316,6 +2094,12 @@ namespace CardPresentation
         public Transform DeckInfoPanelNode { get { return _deckPanelRoot; } }
         /// <summary>奖励面板节点（只有 `Finished` 显示）。</summary>
         public Transform RewardPanelNode { get { return _rewardPanelRoot; } }
+        /// <summary>Ongoing 页 `Victories text Number` 现在印的字（自检读口 —— 断「胜场来自真战绩」）。</summary>
+        public string VictoriesText { get { return _victoriesNum != null ? _victoriesNum.Text : null; } }
+        /// <summary>`Quote End` 现在印的字（只有 `Finished` 显示）。</summary>
+        public string QuoteText { get { return _quoteEnd != null ? _quoteEnd.Text : null; } }
+        /// <summary>`To Battle Button` 节点（Finished 时要藏起来 —— S3 §2.7 判据）。</summary>
+        public Transform ToBattleNode { get { return _toBattleNode; } }
 
         /// <summary>我们自拟的文案（**只在原版确实没有节点/词条时用**）—— 中英按当前语档挑，
         /// 每一条的调用点都写明「这一句是我们自拟的」。形状照 `Shell/CampaignTab.cs:1314` 那一条。</summary>

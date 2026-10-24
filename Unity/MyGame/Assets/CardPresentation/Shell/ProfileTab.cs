@@ -20,7 +20,10 @@
 //    without-ON / with-OFF / `Invite to alliance` 也**藏**（它只在一条很窄的路上才保持 T，§A.1）。
 // ② **`Legendary Display Profile` ↔ `Highest Rank` + `Legendarey Counter` 是互斥两支**
 //    （`ProfileRankingSection.Initialize:103-111` 非传奇支 / `:146-154` 传奇支）——
-//    **出厂两份都是 T ⇒ 出厂态本身不是任何一个运行态**。我们没有段位数据 ⇒ 走**非传奇支**。
+//    **出厂两份都是 T ⇒ 出厂态本身不是任何一个运行态**。我们判不了「玩家是不是传奇」
+//    （那一格在服务器）⇒ 走**非传奇支**。
+//    🔴 **2026-10-24（`E10`）**：段位**图/名**不再留空 —— 按**演示段位号**画（见 `BuildRanking`）；
+//    但「走哪一支」仍与非传奇支一致（传奇卡整棵关着），两件事别混起来。
 // ③ **改名是一条四跳链**（`Edit Name Button.OnClick → ProfileNameTitleSection → PlayerInfoDisplay →
 //    ProfileTab.OnChangePlayerNameButtonClick → WindowsManager.OpenWindow(ChooseNameWindow)`，§B.3）
 //    ⇒ 我们直接把 `Edit Name Button` 的命中接到「开这扇内嵌窗」上（中间那三跳是纯转发，我们没有那三层）。
@@ -37,6 +40,9 @@
 //      ⇒ 有本地数据的用数据，没有的**照抄占位串**。
 //   ⓒ 原版预制体写的是**示例数据**的（`'Ultramarines'` / `'312 days'` / `'4879'` / `'Division V'` /
 //      `'16'` / `'Level: 0'`）⇒ **留空串**（不编数字，铁律 3）。
+//      🔴 **例外（2026-10-24 · `E10`）**：段位**名**与段位**大图**改走**演示段位号**
+//      （`RankedDivisionInfo.DemoDivisionNumber` / `DivisionName` / `DivisionArtName`）——
+//      理由与逐条出处写在 `BuildRanking` 与 `DrawDivisionArt` 的 doc 里（⛔ 别的格子不受影响）。
 //   ⓓ **玩家名是唯一的例外**：我们**有**一个名字源（`ProfileData.PlayerName`，与联机层**同一个**，
 //      默认机器名）⇒ 显示它；`ChooseNameWindow` 改的也是它。**原版这个名字来自服务器**（如实标着）。
 //   ⓔ 原版预制体里的**静态标题**照抄（含原版自己的拼写 `'Highest Warlod Mastery'`、
@@ -222,6 +228,40 @@ namespace CardPresentation
         /// <summary>⚠️ `Highest Rank/RankTitleBG` **比卡片还宽**（727.24..1184.44 溢出右边界 47.32）—— **真值**。</summary>
         const float HrBgL = 727.24f, HrBgT = 388.49f, HrBgR = 1184.44f, HrBgB = 448.49f;
         const float HrDtL = 778.14f, HrDtR = 1133.53f;
+        // ---- `Content/DivisionImage`（段位大图的**槽**）：两张卡的真实矩形 ----------------------------
+        // 🔴 **2026-10-24（`E10`）现读**（`资料/普查产出_0927/档案窗_Profile页.md` §A 第 61/92 行）：
+        //   `Current Rank/Content/DivisionImage` = 366.58,457.65→757.50,457.65（390.92×**0.00**）
+        //   `Highest Rank/Content/DivisionImage` = 760.37,448.49→1151.30,448.49（390.92×**0.00**）
+        //   · 两张卡**宽度逐位相同（390.922）**，但**横向溢出 `Content` 的量不同**：
+        //     Current 两侧各溢 9.16（ctL 375.74 / ctR 748.34）· Highest 两侧各溢 37.89（798.26 / 1113.41）
+        //     ⇒ ⛔ 别再用「ctL−9.19 / ctR+9.18」那一组（那只对 Current 成立，Highest 会窄 57.4）。
+        //   · **高度是 0.00** —— 那不是真值，是「布局组 + 图还没喂」的产物（§A.2 明写「别照抄」）：
+        //     `Content` 是 `VerticalLayoutGroup`（`ctrlH=1`），`DivisionImage` 的 `LayoutElement` 没给
+        //     `preferredHeight`，而 `Image` 自己的 `preferredHeight` 要等运行时 `set_sprite` 之后才有值，
+        //     作者态量出来就是 0 ⇒ 宽度是字段真值、**高度得另找依据**（见 `DrawDivisionArt` 的 doc）。
+        //   · 两个 y（457.65 / 448.49）**正好是各自 `RankTitleBG` 的下沿**（Current 还多 10 = 中间那颗
+        //     `spacing` 槽）⇒ VLG 里 `DivisionImage` 槽的**上沿**就是它。
+        static readonly PxRect CrDivR = new PxRect(366.58f, 457.65f, 757.50f, 457.65f);
+        static readonly PxRect HrDivR = new PxRect(760.37f, 448.49f, 1151.30f, 448.49f);
+        /// <summary>段位大图的**边长 = 卡宽 × 本系数**（512² 方图 + `preserveAspect` ⇒ 画出来是正方形）。
+        /// <para>🔴 **这是「我们挑的」，不是 prefab 字段值** —— 三段判据照实写在这里：
+        /// ① prefab 那个 `DivisionImage` **只有宽度是真值（390.922）、高度是 0.00**（布局伪值，见上）
+        ///    ⇒ 「画多大」在原版本来就不是这个矩形说了算，而是运行时 `set_sprite` 之后
+        ///    `Image.preferredHeight` 参与 VLG 重排的结果 ⇒ **字段里查不到**（铁律 2：查不到就说查不到）。
+        /// ② 用户实拍 `账户-个人资料参考图.png` 反算（本轮亲量，脚本量的是**紫色圆盘**的 bbox，
+        ///    再拿 `04-Admiral` 的同一块圆盘当尺子；屏幕→设计的比例由**两张卡自身的宽度**标定）：
+        ///      · 左（`当前排名`）徽记视觉 ≈ **307** 设计 px ÷ 卡宽 425.26 = **0.722**
+        ///      · 右（`最高排名`）徽记视觉 ≈ **247** 设计 px ÷ 卡宽 359.40 = **0.688**
+        ///    ⇒ 两格**不是等大**（比值 0.806，远超声噪）⇒ 边长**跟卡宽成比例**，取 **0.72**。
+        /// ③ 若照派单那句话「尺寸照 prefab 那两颗 `DivisionImage` 的 rect」取**槽宽 390.92** 当边长，
+        ///    右卡那张会**比卡还宽 31.5px、两侧各溢 15.7**（卡 359.40，实拍里从未出现）⇒ 不取。
+        ///    ⚠️ 真要切回字段档：把本系数改成 `1f`、并把下面 `slot.W *` 换成 `slot.W` 的语义
+        ///    （`DrawDivisionArt` 里那两行已按「卡宽」写，切回去只改这一个常量 + 一处取宽）。</para></summary>
+        const float DivArtSideRatio = 0.72f;
+        /// <summary>建完记下**这次画的是哪张图**（自检读口；`null` = 一张都没画成）。</summary>
+        public string DivisionArtUsed { get; private set; }
+        /// <summary>本页画成功的段位大图**张数**（正常 = 2；自检读它，⛔ 别让断言去数子节点）。</summary>
+        public int DivisionArtDrawn { get; private set; }
         /// <summary>同上（`Highest Rank/Timer` 的原始四值，建的时候按 `Content` 推）。</summary>
         const float HrTmT = 792.70f, HrTmB = 825.70f, HrTmTL = 781.25f, HrTmTB = 837.16f;
         const float HrFtL = 750.84f, HrFtT = 448.49f, HrFtR = 1160.84f, HrFtB = 589.39f;
@@ -406,8 +446,11 @@ namespace CardPresentation
         /// <summary>ⓑ 占位串（照抄预制体）。`Player Name` 有本地数据，不用它。</summary>
         public const string PlaceholderName = "Player Name", PlaceholderTitle = "Player Title",
                                    PlaceholderAlliance = "Alliance Name";
-        /// <summary>ⓒ 段位名：预制体写的是 `'Division V'`（示例数据）⇒ **留空**。段位/评分全是服务器的（§C）。</summary>
-        public const string DivisionEmpty = "";
+        /// <summary>ⓒ **旧口径（已废弃，留着是为了让下一个会话看懂历史）**：段位名原来留空串
+        /// （预制体写的是示例 `'Division V'`）。🔴 **2026-10-24（`E10`）已改**：段位名走官方词条
+        /// `Ranked/Division/&lt;演示号&gt;`（见 `BuildRanking` 的 `_rankDivisionName` 与 `DivisionText` 那一格的注释）；
+        /// 评分/封印/里程碑那些**仍然是服务器数据**，照样留空/不画。</summary>
+        // （`DivisionEmpty` 常量随那条旧口径一起删掉了 —— 别再加回来：段位名现在有唯一来源。）
         /// <summary>`PlayerId` 那一行 —— 标签走官方词条 `PlayerProfile/PlayerIdDisplay`
         /// （`Player id: {0}` / `玩家ID：{0}`），值按既定口径取空态 `-`（Player ID 在服务器，§C）。
         /// 🆕 **2026-10-24（E12 · P0-3）**：原来是写死的英文常量 `"Player id: -"` ⇒ 中文档下仍印英文
@@ -453,6 +496,9 @@ namespace CardPresentation
         Label _playerTitleWa;    // `Player Title`（with-Alliance 那一棵，出厂 F —— 一并刷，切到那份时才不是旧值）
         ImageQuad _avatarArt;    // `Player Info` 的立绘
         Label _avatarNameLabel;  // （出厂 F 的那行名；留引用备查）
+        /// <summary>两张排名卡 `RankTitleBG/DivisionText` 印的段位名（= 官方词条 `Ranked/Division/<演示号>`，
+        /// 由 `BuildRanking` 算**一次**、两张卡共用 —— 同一件事不留第二份算法）。</summary>
+        string _rankDivisionName;
 
         /// <summary>改名窗开着没有（自检用）。</summary>
         public bool NameWindowOpen { get { return _nameWin != null && _nameWin.gameObject.activeSelf; } }
@@ -681,6 +727,13 @@ namespace CardPresentation
         {
             var rk = Node("Ranking", new PxRect(RkL, RkT, RkR, RkB));
 
+            // 段位名（官方词条 `Ranked/Division/<演示号>`）+ 段位大图（`DivisionArtName(<演示号>)`）：
+            // **两张卡共用同一个演示段位** —— 原版这两格是「当前段位」与「历史最高段位」，本地两条都没有；
+            // 取同一个演示号是**我们挑的**（用户 2026-09-26 口径「数据和排名可以空着」，而
+            // 2026-10-24 用户又点名要段位徽章 ⇒ 走演示值）。⛔ 别在这里另建第二张「号 → 图/名」表。
+            _rankDivisionName = RankedDivisionInfo.DivisionName(RankedDivisionInfo.DemoDivisionNumber);
+            DivisionArtDrawn = 0; DivisionArtUsed = null;   // 重进 `Build` 时计数从 0 起（自检读口不能累加）
+
             // `Current Rank`：`MainRating` 出厂 **T**（`displaySeals=1`）⇒ 带四个封印格
             BuildRankCard(rk, "Current Rank", CrL, CrT, CrR, CrB, CrCtL, CrCtT, CrCtR, CrCtB,
                           CrTtL, CrTtT, CrTtR, CrTtB, TermOr(RankTermCurrent, "Current Rank"),
@@ -688,7 +741,7 @@ namespace CardPresentation
                           CrDtL, CrDtR, DvPx,
                           CrFtL, CrFtT, CrFtR, CrFtB, CrMrL, CrMrT, CrMrR, CrMrB,
                           CrGlL, CrGlT, CrGlR, CrGlB, CrMsL, CrMsT, CrMsR, CrMsB,
-                          ArtCardRedSimple, RedSimpleBorder, true);
+                          CrDivR, ArtCardRedSimple, RedSimpleBorder, true);
 
             // `Highest Rank`：`MainRating` 出厂 **F**（`displaySeals=0`）⇒ 不建那四个格子
             var hrContent = BuildRankCard(rk, "Highest Rank", HrL, CrT, HrR, CrB, HrCtL, HrCtT, HrCtR, HrCtB,
@@ -697,7 +750,7 @@ namespace CardPresentation
                           HrDtL, HrDtR, DvPxHighest,
                           HrFtL, HrFtT, HrFtR, HrFtB, HrMrL, HrMrT, HrMrR, HrMrB,
                           HrGlL, HrGlT, HrGlR, HrGlB, 0f, 0f, 0f, 0f,
-                          ArtCardRed, RedBorder, false);
+                          HrDivR, ArtCardRed, RedBorder, false);
 
             // 🆕 2026-10-24（E12 · P0-2）：非传奇支里 `Highest Rank` **还带「传奇点数」那一行**
             //   （`legendary title` + `Legendarey Counter`）—— 我们原来没建（见常量区那一段判据）。
@@ -705,8 +758,14 @@ namespace CardPresentation
 
             BuildLegendaryCard(rk);
 
-            Debug.Log("[Profile] `Ranking` 三块：原版**段位 / 评分 / 封印 / 荣誉**全是服务器的（本地一条都没有，§C）"
-                    + "⇒ 整块空态；且按判据 ② 只走**非传奇支**（`Legendary Display Profile` 关）。");
+            // 🔴 **2026-10-24（`E10`）就地订正（铁律 5）**：这句原来写「**段位** / 评分 / 封印 / 荣誉**全是**服务器的
+            //   ⇒ 整块空态」—— **「段位」那一半已过期**：段位**图**与段位**名**现在按演示段位号画
+            //   （`DivArtSideRatio` / `DrawDivisionArt` / `_rankDivisionName` 三处的 doc 里写着「哪些是原版值、
+            //   哪些是我们挑的」）。评分 / 封印 / 里程碑 / 荣誉仍然一条数据都没有 ⇒ 仍旧空态。
+            Debug.Log("[Profile] `Ranking`：段位**图 + 名**按演示段位号 "
+                    + RankedDivisionInfo.DemoDivisionNumber + " 画（**号是我们挑的演示值**，真值在服务器）；"
+                    + "评分 / 封印 / 里程碑 / 荣誉仍然空态；按判据 ② 只走**非传奇支**"
+                    + "（`Legendary Display Profile` 关）。");
         }
 
         /// <summary>点 `Ranking/{Current,Highest} Rank/LeaderboardButton` ⇒ 开**经典榜**
@@ -744,6 +803,7 @@ namespace CardPresentation
                            float mrL, float mrT, float mrR, float mrB,
                            float glL, float glT, float glR, float glB,
                            float msL, float msT, float msR, float msB,
+                           PxRect divR,
                            string cardArt, Vector4 cardBorder, bool sealsOn)
         {
             var card = Node(parent, name, new PxRect(l, t, r, b));
@@ -796,12 +856,18 @@ namespace CardPresentation
             // `RankTitleBG`（`40K_main_rank_display` · Simple · a=0.918）> `DivisionText`
             Rect(ct, ArtRankBg, new PxRect(bgL, bgT, bgR, bgB), "RankTitleBG", L_Bg2,
                  new Color(1f, 1f, 1f, RankBgA));
+            // `DivisionText`：段位名。🔴 **2026-10-24（`E10`）就地订正（铁律 5）**：
+            //   原来这一格恒印空串（`DivisionEmpty`），理由是「段位全是服务器数据、不编」。那条**已过期** ——
+            //   同一批（`A1` + `E19`）已经把「号 → 图」与「号 → 官方词条」落进 `RankedDivisionInfo`，
+            //   排位窗/排名页都按**演示段位号 7** 画了 ⇒ 本页再留空就会「两个窗口显示的段位不一样」。
+            //   用户实拍 `账户-个人资料参考图.png` 这两格也印着段位名（那边是「金 II」= 段位名 + 名次数字）。
+            //   ⚠️ **名次（罗马数字）仍不印**：名次号在服务器（`RankImage` 也仍关着，见下）。
             // 🔴 **A62 · A14**：`DivisionText`（`'Division V'`）原版 `折行=0 auto[18~36]` ⇒ 关掉。
             // 🔴 **A406**：`Ranking/{Current,Highest} Rank/Content/RankTitleBG/DivisionText` 原版
             //   `auto[18.0~36.0] 基准=23.0` ⇒ 上限 **36**（两棵同值）· base **23.0**。
             //   ⚠️ 两棵的 `m_fontSize` **不同**（`Current` 36.0 / `Highest` 31.35 —— 本文件 `DvPx`/`DvPxHighest`），
             //      但 **上限与 base 逐位相同** —— 逐棵读过才敢这么填（铁律 5·c）。
-            var ctDiv = Text(ct, DivisionEmpty, new PxRect(dtL, bgT, dtR, bgB), RankInk, "DivisionText",
+            var ctDiv = Text(ct, _rankDivisionName, new PxRect(dtL, bgT, dtR, bgB), RankInk, "DivisionText",
                              dvPx, L_Title, autoFit: true, autoMinPx: DvAutoMin, alignLeft: false, wrap: false,
                              autoMaxPx: 36f, basePx: 23f, face: TmpFont.Face.LatinUi);
             if (ctDiv != null) ctDiv.SetWrapping(false);
@@ -823,11 +889,20 @@ namespace CardPresentation
                             autoMaxPx: 32f, basePx: 50f, face: TmpFont.Face.LatinCardBody);
             if (tmTx != null) tmTx.SetWrapping(false);
 
-            // `DivisionImage`：工具给的高是 **0.00**、里面 `RankImage` 的高是 **−8.00**
-            // （§A.2 末点名「布局跑出来的垃圾值、别照抄」）⇒ 我们**只建结构不画图**：
-            // 段位图（`Roman V` 那一族）我们**没有段位数据**，画出来就是编一个段位。
-            var di = Node(ct, "DivisionImage", new PxRect(ctL - 9.19f, bgB + 10f, ctR + 9.18f, bgB + 10f));
-            Node(di, "RankImage", new PxRect(dtL + 138.61f, bgB + 14f, dtL + 216.79f, bgB + 6f));
+            // `DivisionImage`：**槽的矩形照 prefab 真值**（见 `CrDivR`/`HrDivR` 的 doc —— 宽度 390.92 是字段值、
+            // 高度 0.00 是「布局组 + 图还没喂」的伪值，所以这里把槽建成**零高**、图由 `DrawDivisionArt` 画）。
+            // 🔴 **2026-10-24（`E10`）**：原来这里写死 `ctL−9.19 / ctR+9.18`（只对 `Current Rank` 成立，
+            //    `Highest Rank` 的真实溢出是两侧各 37.89 ⇒ 会窄 57.4）—— 已换成逐卡传入的 `divR`。
+            var di = Node(ct, "DivisionImage", divR);
+            // `RankImage`（罗马数字名次，128²）**仍关着**：名次号也在服务器，且「最高段位叠不叠名次」
+            // 参考图判不了（S4 §缺数据）。矩形照 prefab（那一格本身是负高，原样保留、只是不出图）。
+            // 🔴 **2026-10-24（第七十三会话 E12 · 账 `A1 B·3b` 同族）**：同文件下面 `legendary display` 那颗
+            //   （`var ri = Node(di, "RankImage", …)` 后紧跟 `SetActive(false)`）、`RankedTab.cs:440-441`、
+            //   `RankedDivisionInfo.cs` 的 `RankImage` **都关着**，只有这一颗漏了 ——
+            //   「不出图」靠「没挂 `ImageQuad`」凑不住（`activeSelf` 仍是真的）。
+            var riCur = Node(di, "RankImage", new PxRect(dtL + 138.61f, bgB + 14f, dtL + 216.79f, bgB + 6f));
+            riCur.gameObject.SetActive(false);
+            DrawDivisionArt(di, divR, r - l);
 
             var ft = Node(ct, "footer", new PxRect(ftL, ftT, ftR, ftB));
             // `Highest Faction Rating`（出厂 F · 无字段引用 —— §A.1）⇒ 关
@@ -835,22 +910,42 @@ namespace CardPresentation
                           new PxRect(ftL - 177.72f, ftT + 160.10f, ftR - 232.28f, ftT + 199.90f));
             hf.gameObject.SetActive(false);
             // `MainRating`（逐卡 T/F）> `Mission Milestones Progress` / `Global Rating`
+            // 🔴 **2026-10-24（U2 · 父链归真）**：`Global Rating` 原版挂在 **`MainRating` 下面**
+            //   （`…/Content/footer/MainRating/Global Rating`，`menu_dump` 现读），**不是** `footer` 的直接子件。
+            //   改前它建在 `footer` 上 ⇒ `Highest Rank` 那句 `MainRating.SetActive(false)`（出厂 F）**关不到它**
+            //   ⇒ 实拍 `09_档案窗_Profile页.png` 里「最高排名」卡**左外侧**浮着一颗小图标 + 一条破折号
+            //   （用户参考图那张卡只有「传奇点数 ⚙ 0」，没有这一行）—— 这就是那个残件的来源。
+            //   ⇒ 现在整块连 `Global Rating` 一起受 `MainRating` 的开关管。
             var mr = Node(ft, "MainRating", new PxRect(mrL, mrT, mrR, mrB));
-            if (!sealsOn) mr.gameObject.SetActive(false);
-            else
+            if (sealsOn)
             {
                 var ms = Node(mr, "Mission Milestones Progress", new PxRect(msL, msT, msR, msB));
                 var steps = Node(ms, "steps", new PxRect(msL, msT, msR, msB));
                 for (int i = 0; i < 4; i++)
                 {
                     float x = msL + SealStep * i;
-                    // 原版这四格是 `Rank Skull` + **色 (1,1,1,0)**（透明，出厂本来就看不见）；
-                    // 我们没有段位 ⇒ **只建节点不画图**（画了就等于编一个「你走到了第几档」）
+                    // 🔴 **2026-10-24（U2）就地订正（铁律 5）**：这里原来写「原版这四格是 `Rank Skull` +
+                    //   **色 (1,1,1,0)（透明，出厂本来就看不见）**」—— **那条判据读错了对象**（铁律 5·c：
+                    //   一个值 ≠ 全部情况）：
+                    //   · `(1,1,1,0)` 是**根** `RankedSealStep` 自己那颗 `Image`（它**没有 sprite**、只是容器）；
+                    //   · 真正上屏的是它的两个子件 —— `Empty` = sprite **`Rank Skull Empty`**
+                    //     （pid -7214020762604782334）· `Fill` = sprite **`Rank Skull`**（pid -300467167438017286），
+                    //     两颗的 `m_Color` **都是 (1,1,1,1)**（判据 = `menu_dump` 该两行的「贴图模式/颜色」列；
+                    //     pid→名 = `_tmp_view/sprite_pids_ALL.json`）。
+                    //   ⇒ 用户实拍 `账户-个人资料参考图.png` 里「当前排名」卡底部**确实有一排灰色封印**（未达成态），
+                    //     所以「出厂看不见」是错的。
+                    //   ⛔ **仍然没画**，但理由换成**几何**：我们摆 footer 用的是「段位大图还没喂」那一版布局快照
+                    //     （prefab 里 `DivisionImage` 高 = 0.00）⇒ footer 停在卡片**中部**（457.7），
+                    //     照 prefab 坐标画封印会**压在那张 306px 的段位大图上**。原版那是个 `VerticalLayoutGroup`
+                    //     （`Content`，`ctrlH=1`）：大图一旦有真实高度（= 卡宽 × 0.72），footer 会被推到卡片**底部**
+                    //     （≈763.7–829.1）——用户实拍那排封印就落在 775–826，与这条推算吻合。
+                    //   ⇒ 修法 = 先把 footer 按 VLG 重算到卡底、再画 4 颗 `Rank Skull Empty`；
+                    //     ⚠️ 用户实拍那一版是 **5 颗、横贯整卡**（与 prefab 的 4 颗不同 = 又一个版本差）⇒ 颗数以谁为准待裁定。
                     Node(steps, i == 0 ? "RankedSealStep" : "RankedSealStep (" + (i + 1) + ")",
                          new PxRect(x, msT + 13.09f, x + SealW, msT + 13.09f + SealH));
                 }
             }
-            var gl = Node(ft, "Global Rating", new PxRect(glL, glT, glR, glB));
+            var gl = Node(mr, "Global Rating", new PxRect(glL, glT, glR, glB));
             // `Secondary Icon`（出厂 F）+ `Main Icon` + 数值
             var gs = Rect(gl, ArtRankIcon, new PxRect(glL, glB, glL, glB), "Secondary Icon", L_Art, null, true);
             if (gs != null) gs.gameObject.SetActive(false);
@@ -861,7 +956,65 @@ namespace CardPresentation
             Text(gl, Dash6, new PxRect(glL + 60f, glT, glR, glB), Color.white, "Individual rating value",
                  RvPx, L_Text, autoFit: true, autoMinPx: RvAutoMin, alignLeft: true, wrap: true,
                  autoMaxPx: 40f, basePx: 31.3799991607666f, face: TmpFont.Face.LatinCardBody);
+            // 🔴 **2026-10-24（U2 · 父链归真）**：`MainRating` 出厂 **F** 的那一份（`Highest Rank`，`displaySeals=0`）
+            //   ⇒ **整块关**（连 `Global Rating` 一起关）。这句**必须放在 `Global Rating` 建完之后** ——
+            //   改前 `Global Rating` 建在 `footer` 上、不归 `MainRating` 管 ⇒ 关不掉
+            //   （症状 = 实拍里「最高排名」卡左外侧那颗小图标 + 破折号）。判据 =
+            //   `Ranking Display` 的 `displaySeals` 逐卡 T/F（`ProfileTab.cs` 的 `BuildRankCard(… sealsOn)` 实参）。
+            if (!sealsOn) mr.gameObject.SetActive(false);
             return ct;
+        }
+
+        /// <summary>把**段位大图**画进 `DivisionImage` 那一格（两张排名卡各调一次）。
+        /// <para>🔴 **2026-10-24（`E10`）**：改前这两格**只有结构、不画图**，注释理由是「段位图那一族我们
+        /// 没有段位数据，画出来就是编一个段位」—— 那条**已过期**：`RankedDivisionInfo.DivisionArt`
+        /// 已有两档实测钉死的映射（4/7，判据 → `资料/普查产出_1024c/A1_段位图案映射.md`），
+        /// 排位窗与排名页都已按它画 ⇒ 本页只是**接上同一份判据**（⛔ 不在这里另建第二张表）。</para>
+        /// <para>🔴 **几何**（三句话，判据都在 `CrDivR`/`HrDivR`/`DivArtSideRatio` 的 doc 里）：
+        /// ① **边长 = 卡宽 × 0.72**（实拍反算，见 `DivArtSideRatio` —— 两张卡因此**不等大**，与实拍一致）；
+        /// ② **横向中心 = 槽的中心**（Current 562.04 / Highest 955.84 —— ⛔ 不是屏幕中线 960，
+        ///    传奇卡那一支写死 960 是因为那张卡本来就居中，两张排名卡**不是**）；
+        /// ③ **上沿 = 槽的 y**（VLG 里那颗零高槽的 `y` 就是槽的上沿 ⇒ 图往下长；实拍量到的图顶
+        ///    比槽高 ~10px，差在这一档的可接受范围）。</para>
+        /// <para>⚠️ **压暗**：用户实拍里「最高排名」那张明显更暗，但**是恒压暗还是别的机制没查清**
+        /// （`A1` §五·4 如实记着）⇒ 两张都按 **prefab `m_Color` 字段值 (1,1,1,1)、不压暗**
+        /// —— 「按左图同参数」是**我们挑的**，⛔ 别自己编一个 alpha。传奇卡那支的 `a=0.306` 是
+        /// **那颗节点自己的**字段值，⛔ 不要套到这里（同族不同站，`RankedDivisionInfo` 里那条
+        /// 「四处的 a 各不相同、别统一」就是这一条）。</para></summary>
+        void DrawDivisionArt(Transform di, PxRect slot, float cardW)
+        {
+            string artName = RankedDivisionInfo.DivisionArtName(RankedDivisionInfo.DemoDivisionNumber);
+            if (string.IsNullOrEmpty(artName))
+            {
+                Debug.LogWarning("[Profile] 段位大图**没画** —— `RankedDivisionInfo.DivisionArtName("
+                               + RankedDivisionInfo.DemoDivisionNumber + ")` 返回空（表长 "
+                               + RankedDivisionInfo.DivisionArtCount + "）；⛔ 不拿别的段位顶替");
+                return;
+            }
+            var tex = Art(artName);
+            if (tex == null)
+            {
+                Debug.LogWarning("[Profile] 段位大图**没画** —— 图 `" + artName + "` 取不到"
+                               + "（`Resources/Art/ui_menu/` 里没有？）；⛔ 不拿别的段位顶替");
+                return;
+            }
+            float side = cardW * DivArtSideRatio, cx = slot.CX;
+            var quadR = new PxRect(cx - side * 0.5f, slot.y1, cx + side * 0.5f, slot.y1 + side);
+            // 队列 `Q + L_Bg2`(1)：压在卡片红底(0)之上、页内所有字(≥4)与 footer 的图标(2)之下
+            // ⇒ 与原版兄弟序（`DivisionImage` 在 `footer` 之前）一致。
+            var q = MenuDraw.Rect(di, tex, quadR, "Image", Q + L_Bg2, null, true);
+            if (q == null)
+            {
+                Debug.LogWarning("[Profile] 段位大图**没画** —— `MenuDraw.Rect` 返回 null（图 `" + artName + "`）");
+                return;
+            }
+            DivisionArtUsed = artName;
+            DivisionArtDrawn++;
+            Debug.Log("[Profile] 段位大图：`" + artName + "`（演示段位号 " + RankedDivisionInfo.DemoDivisionNumber
+                    + "，**我们挑的演示值**）画在 (" + quadR.x1.ToString("F2") + "," + quadR.y1.ToString("F2")
+                    + ")→(" + quadR.x2.ToString("F2") + "," + quadR.y2.ToString("F2") + ") 边长 "
+                    + side.ToString("F2") + "；⚠️ 边长 = 卡宽×" + DivArtSideRatio.ToString("F2")
+                    + "（实拍反算，**我们挑的**）、不压暗（见本方法 doc）");
         }
 
         /// <summary>`Highest Rank` 卡里的「传奇点数」那一行：`legendary title` + `Legendarey Counter`。
@@ -1008,7 +1161,26 @@ namespace CardPresentation
                                 TermOr(EvTermWarlord, EvTitleFallbackWarlord), EvLevelTermWarlord, 14f);
             BuildEventContainer(ev, "Forge Profile Container", EvT + EvStep, ArtForgeBg, false, false,
                                 TermOr(EvTermForge, EvTitleFallbackForge), EvLevelTermOther, 13f);
-            BuildEventContainer(ev, "Campaign Profile Container", EvT + EvStep * 2f, ArtSubmenuBack, true, false,
+            // 🔴 **2026-10-24（U2）：「当前战役」格的底图不是通用红底。**
+            //   判据链（三条独立来源互证）：
+            //   ① prefab 那颗 `Campaign Profile Container/Player Profile Container Base` 是 `UI_Deck_Information_submenu_Back`
+            //      （Sliced）= **作者态占位**，而 `CampaignProfileContainer.background` 是**运行期字段**
+            //      （`ProfileContainerComponents` 的 `armyIcon/armyName/background/level/title` 五件全是运行期填的）；
+            //   ② 用户实拍 `账户-个人资料参考图.png` 的「当前战役」格（太空野狼）与
+            //      `Resources/Art/ui_menu/40K_profile_campaign_bg_SW.png` **是同一张图**（蓝行星 + 环 + 网格底纹）；
+            //   ③ 该族 **13 张全在本地**，与锻造厂那颗 `40K_profile_ForgeLevel_bg` **同尺寸 631×194（3.253:1）**
+            //      —— 同族兄弟（一个 forge、一个 campaign），而锻造厂那格我们早就按它画了。
+            //   阵营 → 图 走**已有唯一那份表** `PurchasePremiumWindow.ArmyBackgroundArt(int)`（⛔ 不在这里另建第二张，
+            //   铁律「两处写同一条规则 = 迟早不一致」）；string→army id 走 `ArmyIcons.Id`（那是 13 阵营的唯一真值表）。
+            string campArmy = CampaignData.Selected;
+            int campId = ArmyIcons.Id(campArmy);
+            string campBg = campId > 0 ? PurchasePremiumWindow.ArmyBackgroundArt(campId) : null;
+            if (string.IsNullOrEmpty(campBg))
+                Debug.LogWarning("[Profile] 「当前战役」格的阵营底图查不到（army=" + campArmy + " · id=" + campId
+                               + "）⇒ **退回通用红底**（⛔ 不静默留白、也不拿别的阵营的图顶替）");
+            BuildEventContainer(ev, "Campaign Profile Container", EvT + EvStep * 2f,
+                                string.IsNullOrEmpty(campBg) ? ArtSubmenuBack : campBg,
+                                string.IsNullOrEmpty(campBg), false,
                                 TermOr(EvTermCampaign, EvTitleFallbackCampaign), EvLevelTermOther, 23f);
             Debug.Log("[Profile] `Events` 三格：标题走官方词条（战将精通 / 最高锻造厂等级 / 当前战役）；"
                     + "格里的 ArmyName / 等级·胜利数**原版装的是服务端活动状态** ⇒ 我们留空态"

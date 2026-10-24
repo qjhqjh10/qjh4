@@ -26,8 +26,9 @@
 //    🔴 **2026-10-24（E19）就地订正**：上面那句原文还写着「`DivisionText` 留空 · `RankImage` 与 `DivisionImage` 不画」——
 //       **那一半已过期**（用户点名要段位徽章）：现在按**演示段位号 7**画 `DivisionImage`（`07-Legend`）
 //       + 官方词条 `Ranked/Division/7`（zh `传奇`）。**段位号是演示值、号码→图名是推断**（两张落点都在
-//       `DivisionArt` / `DemoDivisionNumber` 的 doc 里）；`RankImage`（罗马数字名次）**仍然不画**——
-//       名次号也在服务器，且「最高段位叠不叠名次」参考图判不了（S4 §缺数据）。
+//       `DivisionArt` / `DemoDivisionNumber` 的 doc 里）；`RankImage`（罗马数字名次）**仍然不画**
+//       —— 名次号也在服务器，且「最高段位叠不叠名次」参考图判不了（S4 §缺数据）。
+//       🔴 `Build` 里那颗节点现在是 **`SetActive(false)`**（原版本子口径见 `Build` ③ 那段的注释）。
 // ⑥ 🔴 **2026-10-24（E19）就地订正**：原文写「**`Timer` 整块不建**（赛季倒计时：服务器数据 + 用户明确不要）」——
 //    **已过期**：`Timer` 自 **2026-10-22（M1）** 起由宿主的 `RankedEventWindow.BuildRankTimer` 建在
 //    `Content` 底下（倒计时文案走官方词条 `EndsInPlusOrangeTime`，截止时刻本地没有 ⇒ 印 `--`）。
@@ -82,13 +83,31 @@ namespace CardPresentation
         /// `DivisionImageDisplay__Initialize.c:35-42`：`RankedDivisions.GetDivisionData(divisionNumber)` →
         /// 返回项的 `+0x18` 是 `AssetReferenceTyped` → `Load` → `Image.set_sprite`（挂的就是 `DivisionImage` 那颗 Image）。
         /// </para>
-        /// <para>🔴🔴 **「段位号 → 图名」的对照表本地查不到 —— 这份顺序是【推断】**：
-        /// `RankedDivisions` 在整个本地资源里**只有 MonoScript、没有任何实例**
-        /// （S4 已扫 84 个 bundle + `sharedassets0` / `resources` / `globalgamemanagers` / `level0` / `level1`，
-        ///  `catalog.bin` 里也没有；判据 → `资料/普查产出_1024b/S4_模式窗细节与徽章.md` §①「缺数据」）。
-        /// ⇒ 只能按**图名前缀的序号**推（1=Rook … 7=Legend）。**旁证**：官方词条
-        /// `Ranked/Division/1..7`（`Iron→Legendary`，`官方本地化_en+zh-CN.json` 现读）也是 7 段一维序列，
-        /// 与这 7 张图**同数同序** ⇒ 顺序推断与官方表的段数自洽（但**仍不是**那张 SO 的直接证据）。
+        /// <para>🔴 **「段位号 → 图名」那张 SO 本地仍然没有**（`RankedDivisions` 全盘只有 MonoScript、**一个实例都没有**；
+        /// S4 已扫 84 个 bundle + `sharedassets0` / `resources` / `globalgamemanagers` / `level0` / `level1`，
+        /// `catalog.bin` 里也没有；判据 → `资料/普查产出_1024b/S4_模式窗细节与徽章.md` §①「缺数据」）。
+        /// **但顺序【不再是】「按前缀猜」—— 中间有两行是实测钉死的**（🔴 **2026-10-24 · A1**，逐块像素比对）：
+        /// <list type="bullet">
+        /// <item>**4 = `04-Admiral`**：用户参考图
+        ///   `C:/Users/qjh36/Desktop/warpforge参考图/账户-个人资料参考图.png` 的「当前排名 **金 II**」那颗徽记，
+        ///   与 `04-Admiral` 的**掩盖归一化相关 NCC = 0.707**（次优 `05-Conqueror` 0.577 · `03-Commander` 0.498）
+        ///   ⇒ **图案认定 4**；而「金」= 官方词条 `Ranked/Division/4`
+        ///   （现读 `Iron/Bronze/Silver/**Gold**/Platinum/Diamond/Legendary`）⇒ **文字也指 4**。
+        ///   **两条独立信号同指 4**。</item>
+        /// <item>**7 = `07-Legend`**：`…/多人模式-经典-界面参考图.png` 左列（「排名」下面写 **传奇**）那颗徽记，
+        ///   与 `07-Legend` 的 **NCC = 0.939**（次优 `06-Galactic Threat` 0.751）⇒ 基本是直接认定；
+        ///   而「传奇」= `Ranked/Division/7` = `Legendary`、图名也是 `Legend` ⇒ **两条信号同指 7**。</item>
+        /// </list>
+        /// 其余五档的证据 = **图名自带的 `01…07` 序号 + 图案的单调升级**（7 张逐张亲读）：
+        /// 1/2 **无金无紫**（暗铁环，2 比 1 更厚、底部多机械臂）→ 3 **首现金环 + 紫色辉光 + 红义眼**
+        /// → 4 **外环变成大方形齿轮**（1–3 都没有这一圈齿）→ 5 **加钢色双翼冠 + 底部机甲利爪**
+        /// → 6 **双翼变金 + 骷髅戴上防毒面具**（全族唯一）→ 7 **加金桂冠 + 两侧蜡烛（带火焰）+ 骷髅圣龛**。
+        /// 两个锚点（4、7）与序号顺序**完全自洽** ⇒ 「序号 = 段位号」只在 1/2/3/5/6 上仍是**插值**。
+        /// 逐行证据表 → `资料/普查产出_1024c/A1_段位图案映射.md`。
+        /// ⚠️ **还剩一个假设（没查清的就是这一条）**：反编译那条是**按 `divisionNumber` 查表**、不是按数组下标
+        /// （`RankedDivisions__GetDivisionData.c:26-34`：`Math.Max(n,1)` 装箱后 `FirstOrDefault(pred)`，
+        /// 查不到退回 `Last()`）⇒ 本表是「号 → 图」的**下标式**表达，**前提**是 SO 里 `divisionNumber` 正好 1..7 连号。
+        /// 另：`RankedDivisionData` 只有 `divisionNumber(+0x10)` + `image(+0x18)` 两个字段（类声明现读）。
         /// ⛔ 别把这里改成一条 `if` 链：**7 项表**就是「号 → 图」这件事的唯一落点，将来拿到 SO 只换这张表。</para></summary>
         static readonly string[] DivisionArt =
         {
@@ -110,6 +129,36 @@ namespace CardPresentation
             int i = divisionNumber - 1;
             return (i >= 0 && i < DivisionArt.Length) ? DivisionArt[i] : null;
         }
+
+        // ------------------------------------------------------------ 名次（罗马数字）· 2026-10-24（A1）
+        /// <summary>**名次（小档）**那 6 张 —— ⛔ **不是段位**，是「同一段位内的第几小档」。
+        /// <para>判据三条（2026-10-24 · A1）：
+        /// ① 反编译 `DivisionImageDisplay__Initialize.c:62` —— 最高段位那一支里
+        ///   `RankedDivisions.GetRankData(rankNumber)` 取返回项 `+0x18` 的 `AssetReference` → `Load` →
+        ///   `Image.set_sprite(rankImage)`；而 `RankedDivisions__GetRankData.c` 与 `GetDivisionData` **同构**
+        ///   （`RankedDivisions` 两张表 = `divisions`(+0x18) / `ranks`(+0x20)，元素**同一个类** `RankedDivisionData`）。
+        /// ② 官方词条 `Ranked/Rank/1..6` = `I…VI`（**6 条，与 6 张图同数**；`官方本地化_en+zh-CN.json` 现读）。
+        /// ③ 用户参考图 `账户-个人资料参考图.png`：徽记中央印着罗马数字（低置信，被骷髅压住），
+        ///   而同一块的标题写的就是「**金 II**」⇒ 名次数字与段位名是**并存的两层**。</para>
+        /// ⚠️ **本表只记录结论，今天不画外部**（`RankImage` 仍关着 —— 名次号来自服务器，且「最高段位叠不叠名次」
+        /// 参考图判不了，S4 §缺数据）。将来有真数据只改调用点，⛔ 别动这张表。</summary>
+        static readonly string[] RankArt =
+        {
+            "Roman_I", "Roman_II", "Roman_III", "Roman_IV", "Roman_V", "Roman_VI",
+        };
+
+        /// <summary>名次号 → 图名（越界 ⇒ null）。⚠️ 今天**没有画它的调用点**（见 `RankArt` 的文档）。</summary>
+        public static string RankArtName(int rankNumber)
+        {
+            int i = rankNumber - 1;
+            return (i >= 0 && i < RankArt.Length) ? RankArt[i] : null;
+        }
+
+        /// <summary>段位表长度（= **7**，原版 7 大段位）。自检读它，⛔ 别在断言里写死 7。</summary>
+        public static int DivisionArtCount { get { return DivisionArt.Length; } }
+
+        /// <summary>名次表长度（= **6**，官方 `Ranked/Rank/1..6`）。</summary>
+        public static int RankArtCount { get { return RankArt.Length; } }
 
         /// <summary>段位名 = 官方词条 `Ranked/Division/&lt;号&gt;`（zh `传奇` / en `Legendary`；现读）。
         /// ⚠️ **不自己编中文名** —— 词条取不到（`Loc.T` 缺键会**返回键名本身**）⇒ 返回空串 + 出声。</summary>
@@ -190,7 +239,15 @@ namespace CardPresentation
             //   ② `DivisionImageDisplay` 只在**最高段位**那一支才 `SetActive(RankImage, true)`，而参考图里
             //      罗马数字正压在骷髅脸上 ⇒ **Legend 到底叠不叠名次无法判定**（S4 §缺数据 明确存疑）。
             //   ⇒ 节点照建（原版有这一颗），但不出图 —— 不拿一个猜的名次去画。
-            MenuDraw.Node(divImage, "RankImage", RankImageR);
+            // 🔴 **2026-10-24（第七十三会话 E12 · 账 `A1 B·3b`）**：「不出图」光靠 `MenuDraw.Node`（只建
+            //   RectTransform、没有 `ImageQuad`）凑不住 —— **`activeSelf` 仍然是真的**，谁来给这颗挂一张图
+            //   就会默认显示。与排名页同一口径：`RankedTab.cs` 建同名字点后 **`SetActive(false)`**
+            //   （`RankedTab.cs:440-441`），此处照办（两扇事件窗 `RankedEventWindow` / `SkirmishEventWindow`
+            //   都走这个 builder ⇒ 一句同时收口）。已核不会误伤 `EventWindowDetailAssertE19.cs:177`：
+            //   那里只用 `Find(...) != null` 断「节点照建」，而 `MenuCheck.FindChild` 走
+            //   `GetComponentsInChildren<Transform>(true)` ⇒ **含 inactive**。
+            var ri = MenuDraw.Node(divImage, "RankImage", RankImageR);
+            ri.gameObject.SetActive(false);
 
             // ---- ③ `Spacer`（纯 `LayoutElement`，没有图）----
             MenuDraw.Node(content, "Spacer", SpacerR);
@@ -229,7 +286,7 @@ namespace CardPresentation
             Debug.Log("[RankedDivisionInfo] 段位块 `Content` 建完 —— 两个评分 / 里程碑进度 / 名次图"
                       + "**留空**（都是服务器数据，用户 2026-09-26 口径：不编数字）；"
                       + "段位名与段位大图**按演示段位号 " + DemoDivisionNumber + " 画**"
-                      + "（号是我们挑的演示值、号码→图名是推断 —— 见 `DemoDivisionNumber` / `DivisionArt` 的 doc）。"
+                      + "（号是我们挑的演示值；号→图 **4/7 两档已实测钉死**、其余五档按图名序号 —— 见 `DivisionArt` 的 doc）。"
                       + "`Timer` 由宿主的 `BuildRankTimer` 另建；`counter` 出厂 inactive 不建；"
                       + "`Fill` 与两个 `Main Icon` 不画。");
         }

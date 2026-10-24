@@ -220,7 +220,9 @@ namespace CardPresentation
         //      （带原因）⇒ `BattleScene` 的 `unsourced == 2` 会变红，**逼着**加值的人来登记。
         //
         //  ⚠️ **新增一个 `EvtKind` 时要做的事**：在下面两张表里挑一张登记（有值 → 去
-        //     `DurationOf` 的 `switch` 里加 `case`；零时长 → 加进 `ZeroDurationKinds`）。
+        //     `DurationOf` **和 `SourceOf`** 的 `switch` 里各加一个 `case`；零时长 → 加进 `ZeroDurationKinds`）。
+        //     🔴 **只登记不加 `case` 也算病**（2026-10-24 `E2`）：`DurationOf` / `SourceOf` 会走
+        //     `ReportMissingCase` 出声，`EngineClosedDeckAssert` §B 那条全枚举断言会红。
         //  ⚠️ `ShowCardsWindow` **显式登记成零时长**（原版那一拍**非阻塞**：`FinishResolvingAction`
         //     紧跟其后、无 `yield`，见 `BattleDriver.FireEventAll` 里 `OpenShowCardsWindow` 那段判据）
         //     —— ⛔ 别让它掉进「未登记」，那会把一条**本来正确**的 0 s 变成噪音。
@@ -263,13 +265,22 @@ namespace CardPresentation
             return false;
         }
 
-        /// <summary>自检用：这一档**登记过**吗（`ZeroDurationKinds` 或 `TimedKinds`）。
-        /// 未登记 ⇒ 三处 `default:` 会出声 + `IsSourced` 回 `false`。</summary>
-        public static bool IsRegisteredEventKind(EvtKind kind)
+        /// <summary>自检用：这一档登记成「有时间」吗（在 `TimedKinds` 里）。
+        /// 🔴 2026-10-24（执行代理 `E2`）新增：`IsRegisteredEventKind` 只能证明「登记表里有名字」，
+        /// **无法证明 `DurationOf` / `SourceOf` 的 `switch` 里真有 `case`** —— 这两件事要分开查
+        /// （登记了却没 `case` ⇒ 静默落回 `default`）。诊断与断言都用这个口。</summary>
+        public static bool IsTimedKind(EvtKind kind)
         {
-            if (IsZeroDurationKind(kind)) return true;
             for (int i = 0; i < TimedKinds.Length; i++) if (TimedKinds[i] == kind) return true;
             return false;
+        }
+
+        /// <summary>自检用：这一档**登记过**吗（`ZeroDurationKinds` 或 `TimedKinds`）。
+        /// 未登记 ⇒ 三处 `default:` 会出声 + `IsSourced` 回 `false`。
+        /// ⚠️ 「登记过」**不等于**「`switch` 里真有 `case`」—— 见 <see cref="IsTimedKind"/>。</summary>
+        public static bool IsRegisteredEventKind(EvtKind kind)
+        {
+            return IsZeroDurationKind(kind) || IsTimedKind(kind);
         }
 
         /// <summary>自检用：累计「遇到未登记的事件种类」的次数（每个 `EvtKind` 每次会话只出声一次，
@@ -317,6 +328,23 @@ namespace CardPresentation
                 + "新增事件种类必须显式登记：**零时长** → `EventTiming.ZeroDurationKinds`；"
                 + "**有时间** → `EventTiming.TimedKinds` + `DurationOf` 的 `switch` 加 `case`。"
                 + "⛔ 别默默依赖 `default:` —— 那正是 J2 顺手发现 3 那条缺陷的形状。");
+        }
+
+        /// <summary>「登记在 `TimedKinds` 里、但 `switch` 里没有它的 `case`」⇒ 计数 + 出声一次。
+        /// 🔴 **2026-10-24（执行代理 `E2`）**：这是与 <see cref="ReportUnregisteredKind"/> **不同的一种病**，
+        /// 所以措辞分开 —— 原版口径是「登记了就有值」，可登记表只是**声明**，真正的值在 `switch` 里；
+        /// 只有声明没有 `case` 时，`DurationOf` / `SourceOf` 会落回 `default:`，而 `IsSourced` 因为
+        /// 「登记表里有名字」**照样回 `true`** ⇒ 那一处**仍然是静默的**（正是 J2 顺手发现 3 的形状）。
+        /// ⚠️ 两种病共用同一个计数（`UnregisteredKindHits`）与同一个「只喊一次」的闩 ——
+        /// 对「报了没有」的断言来说它们是同一件事；⛔ 别为此再加第二个计数器（两份数迟早不一致）。</summary>
+        static void ReportMissingCase(EvtKind kind, string where)
+        {
+            UnregisteredKindHits++;
+            if (!_warnedUnregistered.Add(kind)) return;
+            UnityEngine.Debug.LogError($"[EventTiming] `EvtKind.{kind}`（值 {(int)kind}）**登记在 `TimedKinds` 里，"
+                + $"但 `{where}` 的 `switch` 里没有它的 `case`** ⇒ 它现在静默落回 `default:`，"
+                + "`IsSourced` 却仍会因为「登记表里有名字」回 `true`。"
+                + "新事件必须**两处一起改**：`TimedKinds` ＋ `DurationOf` / `SourceOf` 的 `case`。");
         }
 
         /// <summary>这条事件「占」多久（秒）—— 下一个环节要等这么久。出处见每条后面</summary>
@@ -409,9 +437,12 @@ namespace CardPresentation
 
                 // 🆕 2026-10-24（`A2` · `J2` 顺手发现 3）：**不再一把兜住** —— 只有登记成
                 // 「零时长」的那一档才静默回 0；没登记的**出声 + 计数**（见 `ZeroDurationKinds` 上面那段）。
+                // 🔴 2026-10-24（执行代理 `E2`）：再分一层 —— 登记成「有时间」却没有 `case` 的，
+                //   是**另一种病**（登记了没落地），走 `ReportMissingCase`（措辞不同、一样出声）。
                 default:
                     if (IsZeroDurationKind(kind)) return 0f;
-                    ReportUnregisteredKind(kind, "DurationOf(EvtKind)");
+                    if (IsTimedKind(kind)) ReportMissingCase(kind, "DurationOf(EvtKind)");
+                    else ReportUnregisteredKind(kind, "DurationOf(EvtKind)");
                     return 0f;
             }
         }
@@ -769,8 +800,15 @@ namespace CardPresentation
                 // 🔴 **2026-10-24（`E2` · `DG2` 红 #1~#3）就地订正（铁律 5）**：这里原来只查
                 //    `IsZeroDurationKind(kind)`，把「**有时间且已登记**」的 7 档（Deploy/Attack/Hit/Trigger/
                 //    Draw/Heal/Retaliation）也归进了「未登记」⇒ `unsourced` 实得 9、外加 7 条 `LogError` 噪音。
-                //    错因：`IsRegisteredEventKind`（本文件 `:263`，登记表**两张都查**）就在旁边，这里却只查了一张。
+                //    错因：`IsRegisteredEventKind`（本文件、就在上面）登记表**两张都查**，这里却只查了一张。
                 //    ⛔ 别写回「只查零时长表」—— 那会让登记表与查表人口径不一致（自相矛盾的两条断言一绿一红）。
+                // ⚠️ **2026-10-24（执行代理 `E2`）：这里答的是「登记表里有没有名字」**，
+                //    它**检验不了**「`DurationOf` / `SourceOf` 的 `switch` 里真有 `case`」（那要靠执行才知道）。
+                //    ⇒ 「登记了但没 `case`」这一种病由两处兜：
+                //      ① `DurationOf` / `SourceOf` 的 `default:` 走 `ReportMissingCase` 出声；
+                //      ② 自检 `EngineClosedDeckAssert` 的 §B 逐档调 `DurationOf` 并盯未登记计数
+                //         （登记成有时间却没 `case` ⇒ 计数会涨 ⇒ 红）。
+                //    ⛔ 别为了让这里也答得出来去调 `DurationOf` —— 那会**顺手打日志**（自检污染生产日志）。
                 default:
                     if (IsRegisteredEventKind(kind)) return true;
                     unsourcedPart = $"**未登记的事件种类** `EvtKind.{kind}`（值 {(int)kind}）—— "
@@ -836,8 +874,17 @@ namespace CardPresentation
                                               + " ⇒ 前摇 `AttackStepRanged` 0.2 + **守方那件**的 `ChainDuration`"
                                               + "（拿不到 ⇒ `RangedVfxFallback` 0.75，出声）；⚠️ 只覆盖**远程档**，近战档守方不播 = 0";
                 // 🆕 2026-10-24（`A2`）：登记成零时长的那一档照旧回「（无）」；**未登记**的出声 + 明写。
+                // 🔴 2026-10-24（执行代理 `E2`）：与 `DurationOf` 同一条口径 —— 「登记了但没 `case`」
+                //   走 `ReportMissingCase`（⛔ 别把它也说成「没在登记表里」，那是两件事）。
                 default:
                     if (IsZeroDurationKind(kind)) return "（无）";
+                    if (IsTimedKind(kind))
+                    {
+                        ReportMissingCase(kind, "SourceOf");
+                        return $"⚠️ **`EvtKind.{kind}`（值 {(int)kind}）登记在 `TimedKinds` 里，"
+                             + "但 `SourceOf` 的 `switch` 里没有它的 `case`** —— 登记表只是声明，"
+                             + "值必须落在 `case` 上（两处一起改）。";
+                    }
                     ReportUnregisteredKind(kind, "SourceOf");
                     return $"⚠️ **未登记的事件种类** `EvtKind.{kind}`（值 {(int)kind}）—— "
                          + "见 `EventTiming.ZeroDurationKinds` 上面那段（新增 `EvtKind` 必须显式登记）";

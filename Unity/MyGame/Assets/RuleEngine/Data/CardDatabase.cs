@@ -395,6 +395,42 @@ namespace RuleEngine
             /// `资料/普查产出_1024/D10_abilityTargets管线.md` §三）。</para></summary>
             public ActiveAbilityLogicDto[] activeAbilityLogic;
 
+            /// <summary>🆕 v25（2026-10-24 · 执行代理 `E9` · `A2_引擎战斗判据总表.md` Q7）：
+            /// **logic / op 级 `targetCriteria`（两条支）** —— 原版
+            /// `activeAbility.activeAbilityLogic[j].targetCriteria` 与
+            /// `alternativeAbility.activeAbilityLogic[j].targetCriteria` 的**其余 36 格**
+            /// （`conditionsFilter` / `excludeCondition` 已由 `unitConditions` 落成那一行的 `cond`/`ex`）。
+            ///
+            /// <para>形状 = `[{"ab":-1|-2, "lg":j, "criteria":{36 格 + playerTurn}}]`
+            /// （行类型 → <see cref="TargetCriteriaRowDto"/>）。`ab = -1` active / `-2` alternative，
+            /// 与 `activeAbilityLogic` / `unitConditions` **同词**；`lg` = 该能力对象里
+            /// `activeAbilityLogic` 的下标。</para>
+            ///
+            /// <para>判据：`AbilityLogic.cs:16-17`（`targetCriteria` 字段）·
+            /// `AbilityLogic__PlayAbility.c:262`（**每行**拿自己的 criteria 去 `GetTargets`）·
+            /// `AbilityLogic__GetTargets.c` + `FilterMethods__CheckIfMeetsCriteria.c`（逐字段筛）。
+            /// 🔴 我们原来只落了 `targetsAffected` 一格（→ `activeAbilityLogic[].ta`），
+            /// 其余 35 格一行都没有 ⇒ 「目标 = 己方全体」那条近似缺的就是这一列。</para>
+            ///
+            /// <para>🔴 **每张卡都落**（没有行 = `[]`）；缺列（v24 及更早的表）= **未知**
+            /// （⛔ 不是「原版说没有目标」，见 `< 25` 那条守卫）。
+            /// ⚠️ **本批只解析、没有 CardDef 消费者**（`Core/` 另批接）。</para></summary>
+            public TargetCriteriaRowDto[] activeAbilityTargets;
+
+            /// <summary>🆕 v25（2026-10-24 · 执行代理 `E9` · `A2` Q7）：**普通 ability 的 logic 级
+            /// `targetCriteria`（36 格）** —— 原版
+            /// `cardAbilities[i].abilityLogic[j].targetCriteria`（`AbilityLogic.cs:16-17`）。
+            ///
+            /// <para>形状 = `[{"ab":i, "trigger":…, "lg":j, "criteria":{36 格 + playerTurn}}]`
+            /// （行类型 → <see cref="TargetCriteriaRowDto"/>）。
+            /// 🔴 **比 `A2` Q7 的建议多一个 `ab`**：实测 **64 张池内卡**（真值 89 张）有两条 ability
+            /// **共用同一个 `trigger`** ⇒ `(trigger, lg)` **不唯一**，只按它对齐会串行（`ab` = `cardAbilities` 下标）。</para>
+            ///
+            /// <para>🔴 **每张卡都落**（没有 ability = `[]`）；缺列（v24 及更早）= **未知**。
+            /// ⚠️ `trigger` 只作可读性（消费端按 `ab`/`lg` 对齐）；`-1` = 该 ability 的 trigger 是坏值。
+            /// ⚠️ **本批只解析、没有 CardDef 消费者**（`Core/` 另批接）。</para></summary>
+            public TargetCriteriaRowDto[] abilityTargetCriteria;
+
             // ==================================================================================
             //  🆕 v21（2026-10-24 · 引擎线 `A20` · 第三批 ①/②）：主动能力的**分支闸 / 装填位 / 任务位**
             // ==================================================================================
@@ -551,6 +587,38 @@ namespace RuleEngine
             public int trigger = -1;
             /// <summary>逐 `abilityLogic` 的 `targetsAffected`；`-1` = 该格坏值/缺键。</summary>
             public int[] ta;
+        }
+
+        /// <summary>🆕 v25（2026-10-24 · 执行代理 `E9`）：`activeAbilityTargets` / `abilityTargetCriteria`
+        /// **共用**的一行 —— 一行的 36 格装进子对象 <see cref="criteria"/>（类型 <see cref="CountSetDto"/>）。
+        ///
+        /// <para>🔴 **为什么 36 格装子对象、不平铺在行上**：C# 侧 36 格的字段表**只有一份**
+        /// （<see cref="CountSetDto"/>，与 `unitConditions[].countSet` 共用）。平铺就必须在这里再抄一份
+        /// ⇒ 「两处写同一条规则 = 迟早不一致」。JSON 那边由生成器的 `criteria_set_of()` 统一写（同一份字段表）。</para>
+        ///
+        /// <para>🔴 **`ab` / `lg` 的缺键哨兵**：
+        /// · `ab` 用 `MissingIndex`（-99）—— `-1` / `-2` **都是合法值**（active / alternative）；
+        /// · `lg` 用 `-1` —— 这两列的行**都是 logic 级**（`lg >= 0`），没有「直接挂在对象上」那一档；
+        /// · `trigger` 用 `-1`（只有 `abilityTargetCriteria` 有这一格；`activeAbilityTargets` 没有 ⇒ 恒 -1）。
+        /// 缺键静默读成 0 会落到**第 0 条 ability / 第 0 条 logic** = 静默串行。</para>
+        ///
+        /// <para>⚠️ 每张卡都落这两列（没有行 = `[]`）；缺列（v24 及更早）= `null` = **未知**。</para>
+        /// </summary>
+        [System.Serializable]
+        public class TargetCriteriaRowDto
+        {
+            const int MissingIndex = UnitConditionDto.MissingIndex;
+            /// <summary>`cardAbilities` 下标；主动能力那一列是 `-1` active / `-2` alternative。
+            /// `MissingIndex`（-99）= JSON 里没有这个键（坏行）。</summary>
+            public int ab = MissingIndex;
+            /// <summary>该 ability 的 `trigger`（只作可读性；`activeAbilityTargets` 的行没有这一格 ⇒ `-1`）。</summary>
+            public int trigger = -1;
+            /// <summary>`abilityLogic` 下标（`>= 0`）；`-1` = 缺键/坏行。</summary>
+            public int lg = -1;
+            /// <summary>这一行的 36 格（原版 `TargetCriteria`，除 `conditionsFilter`/`excludeCondition`）。
+            /// `null` = 缺键/坏行。逐字段语义 → <see cref="CardDef.CountSetSpec"/> 的 doc
+            /// （⚠️ 那一份是**被数集合**用途；字段同源，语义解释按 `TargetCriteria` 走）。</summary>
+            public CountSetDto criteria;
         }
 
         /// <summary>🆕 v15（2026-10-22 · 引擎线 `W64`）：`unitConditions` 的一行
@@ -1099,6 +1167,19 @@ namespace RuleEngine
                                + "⛔ 不是「原版说没有目标」。"
                                + "跑一下 gen_cards_engine.py 重生成（执行代理 `E1`）。");
 
+            // 🆕 v25（2026-10-24 · 执行代理 `E9` · `A2` Q7）：**logic / op 级 `targetCriteria`（36 格）**
+            //   两列 —— `activeAbilityTargets`（主动能力两条支）与 `abilityTargetCriteria`（普通 ability）。
+            //   缺列（v24 及更早）⇒ 两列都是 `null` = **未知**，而且**当前还没有 CardDef 消费者**
+            //   （`Core/` 另批接）⇒ 这一条出声只是「表是旧的，这两列的数据还没进来」。
+            //   ⛔ 旧表**不许**被读成「原版说这些 criteria 全是默认值」—— 那是静默错（同 v16 那次口径）。
+            if (dto.version < 25)
+                Debug.LogWarning($"[RuleEngine] 卡表 version={dto.version} < 25 —— 没有 `activeAbilityTargets` /"
+                               + " `abilityTargetCriteria` 两列（原版 `AbilityLogic.targetCriteria` 的**其余 36 格**："
+                               + "`AbilityLogic.cs:16-17` · 消费点 `AbilityLogic__PlayAbility.c:262` → "
+                               + "`AbilityLogic__GetTargets.c`）。`CardDto` 那两列会是 **null = 未知**"
+                               + "（⛔ 不是「原版说全是默认、不过滤」）。⚠️ 本批只落数据：`CardDef` 的消费者**还没接**，"
+                               + "接上之前这两列不改变任何行为。跑一下 gen_cards_engine.py 重生成（执行代理 `E9`）。");
+
             int noId = 0;
 
             // 🆕 2026-10-22（卡牌线 `T04`）：`useOverDraw` 一列的**缺列兜底** —— v9 才有这一列，
@@ -1320,6 +1401,16 @@ namespace RuleEngine
             //   已另立账）⇒ 这里出声是为了**下一张**再出现时不必靠人肉比对。
             //   ⚠️ `RuleEngineTest.TestCardDatabase` 里有一条断言盯着同一件事（这里出声、那里断红）。
             ReportArmourDisagreements(list);
+
+            // 🆕 v25（2026-10-24 · 执行代理 `E9`）：`activeAbilityTargets` / `abilityTargetCriteria`
+            //   的**解析读数 + 结构校验**（一次装载一行日志）。
+            //   为什么必须出声：这两列本批**没有 `CardDef` 消费者** ⇒ 不打印就完全看不见
+            //   「`JsonUtility` 有没有把子对象 `criteria` 绑上」（静默绑不上 = 两列白落）。
+            //   ⛔ 口径：`MissingIndex`（-99）= JSON 里没有这个键 = **坏行**（出声）；
+            //   `-1` = 生成器明确的「未知/不适用」，**不算坏**（`playerTurn` 在两列上恒 `-1`）。
+            if (dto.version >= 25)
+                ReportTargetCriteriaColumns(dto);
+
             // ⚠️ 2026-10-17 订正：下面这句原来写「跨阵营那 **4** 组」—— 第 4 组
             //    （`Bladeguard Veteran` = DarkAngels / Ultramarines）是 09-13 一次错改名的产物，
             //    10-17 已撤回（`UM34` 现在叫 `Bladeguard Lieutenant`）⇒ 实测 **3** 组
@@ -2232,6 +2323,67 @@ namespace RuleEngine
                 });
             }
             return list;
+        }
+
+        /// <summary>🆕 v25（2026-10-24 · 执行代理 `E9`）：两列 `targetCriteria` 的解析读数
+        /// （一次装载打**一行**日志 · ⛔ 不逐卡刷屏）。
+        ///
+        /// <para>校验的是**结构**、不是语义（语义属于 `CardDef` 那一批）：
+        /// · `ab`：`activeAbilityTargets` = `-1`/`-2`；`abilityTargetCriteria` = `>= 0`；
+        /// · `lg`：两列都 `>= 0`；
+        /// · `criteria`：非 null，且 `targetsAffected` / `playerTurn` **不是 `MissingIndex`（-99）**
+        ///   —— 子对象只要有一个字段绑上，就说明 `JsonUtility` 把整块绑上了
+        ///   （`playerTurn` 在两列上恒 `-1`：那一格结构上不适用，⛔ 不是坏值）。</para>
+        /// </summary>
+        static void ReportTargetCriteriaColumns(FileDto dto)
+        {
+            int aatCards = 0, aatRows = 0, atcCards = 0, atcRows = 0;
+            int badAb = 0, badLg = 0, nullCriteria = 0, unbound = 0;
+            string firstBad = null;
+            foreach (var c in dto.cards)
+            {
+                if (c == null) continue;
+                if (c.activeAbilityTargets != null)
+                {
+                    if (c.activeAbilityTargets.Length > 0) aatCards++;
+                    foreach (var r in c.activeAbilityTargets)
+                    {
+                        if (r == null) { badAb++; continue; }
+                        aatRows++;
+                        if (r.ab != -1 && r.ab != -2) { badAb++; if (firstBad == null) firstBad = $"{c.id} ab={r.ab}"; }
+                        if (r.lg < 0) { badLg++; if (firstBad == null) firstBad = $"{c.id} lg={r.lg}"; }
+                        if (r.criteria == null) { nullCriteria++; if (firstBad == null) firstBad = $"{c.id} criteria=null"; }
+                        else if (r.criteria.targetsAffected == UnitConditionDto.MissingIndex
+                              || r.criteria.playerTurn == UnitConditionDto.MissingIndex)
+                        { unbound++; if (firstBad == null) firstBad = $"{c.id} criteria 未绑定"; }
+                    }
+                }
+                if (c.abilityTargetCriteria != null)
+                {
+                    if (c.abilityTargetCriteria.Length > 0) atcCards++;
+                    foreach (var r in c.abilityTargetCriteria)
+                    {
+                        if (r == null) { badAb++; continue; }
+                        atcRows++;
+                        if (r.ab < 0) { badAb++; if (firstBad == null) firstBad = $"{c.id} ab={r.ab}"; }
+                        if (r.lg < 0) { badLg++; if (firstBad == null) firstBad = $"{c.id} lg={r.lg}"; }
+                        if (r.criteria == null) { nullCriteria++; if (firstBad == null) firstBad = $"{c.id} criteria=null"; }
+                        else if (r.criteria.targetsAffected == UnitConditionDto.MissingIndex
+                              || r.criteria.playerTurn == UnitConditionDto.MissingIndex)
+                        { unbound++; if (firstBad == null) firstBad = $"{c.id} criteria 未绑定"; }
+                    }
+                }
+            }
+            Debug.Log($"[RuleEngine] logic 级 `targetCriteria`（卡表 v{dto.version}）："
+                    + $"`activeAbilityTargets` {aatCards} 张 / {aatRows} 行 · "
+                    + $"`abilityTargetCriteria` {atcCards} 张 / {atcRows} 行"
+                    + "（36 格/行；每张卡都落、没行 = `[]`）"
+                    + "。⚠️ 本批**只解析、零行为变化**：`CardDef` 的消费者另批接。");
+            int bad = badAb + badLg + nullCriteria + unbound;
+            if (bad > 0)
+                Debug.LogError($"[RuleEngine] 两列 `targetCriteria` 有 **{bad}** 处结构坏点"
+                             + $"（ab {badAb} · lg {badLg} · criteria 缺 {nullCriteria} · 未绑定 {unbound}）"
+                             + $"；首个 → {(firstBad ?? "?")}。重跑工具/gen_cards_engine.py。");
         }
 
         static void ReportArmourDisagreements(List<CardDef> pool)

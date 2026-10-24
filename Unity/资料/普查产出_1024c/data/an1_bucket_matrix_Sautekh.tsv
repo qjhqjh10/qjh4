@@ -1,0 +1,214 @@
+faction	card	name	bucket	cardanim	prefab	origTrigger	origTriggerVal	verdict
+Sautekh	30007162b68992e41a422f2061705b65	Lord of the Storm	ability	CreateCard_Necrons	CreateCard Necron	OtherUnitDeath	90	不要在这拍播：原版时机 = OtherUnitDeath（走 trigger 归口；未归口则永不播）
+Sautekh	30007162b68992e41a422f2061705b65	Lord of the Storm	play	Lord_of_the_storm_hit	Sau_LordOfTheStorm	ThisCardPlayed	0	播放（单点）· 锚点/位移参数不消费
+Sautekh	461354d98aa5e3142afa4eb4922e5456	Hardwired Destruction	play	Damage_Protocol_quick_target	Sau_DamageProtocol_Quick	ThisCardPlayed	0	播放（单点）· 锚点/位移参数不消费
+Sautekh	461354d98aa5e3142afa4eb4922e5456	Hardwired Destruction	play	Damage_Protocol_target	Sau_DamageProtocol	ThisCardPlayed	0	播放（单点）· 锚点/位移参数不消费
+Sautekh	461354d98aa5e3142afa4eb4922e5456	Hardwired Destruction	play	GainArmourEffect	ArmourEffect	ThisCardPlayed	0	播放（单点）· 锚点/位移参数不消费
+Sautekh	65b2be828179515458a282cf1b027182	Indomitable Will	play	Indomitable_Will_Effect	Sau_IndomitableWill	ThisCardPlayed	0	永不播（未指定目标 ⇒ Play 事件 Slot=-1）
+Sautekh	SAU1	Canoptek Scarab	death		Necrons death explosion		None	阵亡粒子（PickDeathFx）
+Sautekh	SAU1	Canoptek Scarab	trigger	ArtificeTraitTrigger	ArtificeEffect		None	按 trigger 名归口
+Sautekh	SAU10	Triarch Praetorian	death		Necrons death explosion		None	阵亡粒子（PickDeathFx）
+Sautekh	SAU11	Technomancer	ability	Technomancer_Buff	Technomancer_Buff	FollowUpResolution	410	不要在这拍播：原版时机 = FollowUpResolution（走 trigger 归口；未归口则永不播）
+Sautekh	SAU11	Technomancer	attack_ranged	Plasmancer_Damage	Plasmancer_Damage		None	逐卡远程（锚点/位移已消费）
+Sautekh	SAU11	Technomancer	death		Necrons death explosion		None	阵亡粒子（PickDeathFx）
+Sautekh	SAU11	Technomancer	trigger	ArtificeTraitTrigger	ArtificeEffect		None	按 trigger 名归口
+Sautekh	SAU12	Tomb Blade	attack_ranged	Atk_Gauss_Double	NecronGauss_Double		None	逐卡远程（锚点/位移已消费）
+Sautekh	SAU12	Tomb Blade	death		Necrons death explosion		None	阵亡粒子（PickDeathFx）
+Sautekh	SAU12	Tomb Blade	trait_onplay	FlyingTraitPlay	FlyingEffect		None	TraitFrames._playBook（登场那一拍）
+Sautekh	SAU12	Tomb Blade	trigger	FlankTraitStart	FlankEffect		None	按 trigger 名归口
+Sautekh	SAU13	Canoptek Spyder	death		Necrons death explosion		None	阵亡粒子（PickDeathFx）
+Sautekh	SAU13	Canoptek Spyder	trigger	ArtificeTraitTrigger	ArtificeEffect		None	按 trigger 名归口
+Sautekh	SAU13	Canoptek Spyder	trigger	RegenerationTraitTrigger	OrkBuffGreenWaaagh		None	按 trigger 名归口
+Sautekh	SAU14	Cryptothrall	death		Necrons death explosion		None	阵亡粒子（PickDeathFx）
+Sautekh	SAU15	Deathmark	attack_ranged	Atk_Gauss_Deathmark	NecronGauss_Deathmark		None	逐卡远程（锚点/位移已消费）
+Sautekh	SAU15	Deathmark	death		Necrons death explosion		None	阵亡粒子（PickDeathFx）
+Sautekh	SAU15	Deathmark	trigger	RallyTraitStart	RallyEffect		None	按 trigger 名归口
+Sautekh	SAU16	Night Scythe	attack_ranged	Atk_Gauss_Double	NecronGauss_Double		None	逐卡远程（锚点/位移已消费）
+Sautekh	SAU16	Night Scythe	death		Necrons death explosion		None	阵亡粒子（PickDeathFx）
+Sautekh	SAU16	Night Scythe	play	RelentlessMarchSummon	GreenSummonCircle	ThisCardPlayed	0	播放（单点）· 锚点/位移参数不消费
+Sautekh	SAU16	Night Scythe	trait_onplay	FlyingTraitPlay	FlyingEffect		None	TraitFrames._playBook（登场那一拍）
+Sautekh	SAU16	Night Scythe	trigger	RallyTraitStart	RallyEffect		None	按 trigger 名归口
+Sautekh	SAU17	Psychomancer	attack_ranged	Psychomancer_Stun	Psychomancer_Stun	ThisCardPlayed	0	逐卡远程（锚点/位移已消费）
+Sautekh	SAU17	Psychomancer	death		Necrons death explosion		None	阵亡粒子（PickDeathFx）
+Sautekh	SAU17	Psychomancer	play	Psychomancer_Stun	Psychomancer_Stun	ThisCardPlayed	0	播放（单点）· 锚点/位移参数不消费
+Sautekh	SAU17	Psychomancer	trigger	RallyTraitStart	RallyEffect		None	按 trigger 名归口
+Sautekh	SAU18	Skorpekh Destroyer	death		Necrons death explosion		None	阵亡粒子（PickDeathFx）
+Sautekh	SAU18	Skorpekh Destroyer	trigger	FlankTraitStart	FlankEffect		None	按 trigger 名归口
+Sautekh	SAU19	Canoptek Reanimator	death		Necrons death explosion		None	阵亡粒子（PickDeathFx）
+Sautekh	SAU19	Canoptek Reanimator	trigger	RallyTraitStart	RallyEffect		None	按 trigger 名归口
+Sautekh	SAU19	Canoptek Reanimator	trigger	TalentTraitTrigger	TalentEffect		None	按 trigger 名归口
+Sautekh	SAU2	Canoptek Plasmacyte	ability	Heal_Protocol_target	Sau_HealProtocol	OtherUnitSummoned	190	不要在这拍播：原版时机 = OtherUnitSummoned（走 trigger 归口；未归口则永不播）
+Sautekh	SAU2	Canoptek Plasmacyte	death		Necrons death explosion		None	阵亡粒子（PickDeathFx）
+Sautekh	SAU2	Canoptek Plasmacyte	trait_onplay	FlyingTraitPlay	FlyingEffect		None	TraitFrames._playBook（登场那一拍）
+Sautekh	SAU2	Canoptek Plasmacyte	trait_onplay	StealthTraitPlay	StealthEffect		None	TraitFrames._playBook（登场那一拍）
+Sautekh	SAU20	Chronomancer	ability	Chronomancer_Buff	Chronomancer_Buff	TurnBeforeEnd	41	不要在这拍播：原版时机 = TurnBeforeEnd（走 trigger 归口；未归口则永不播）
+Sautekh	SAU20	Chronomancer	attack_ranged	Psychomancer_Stun	Psychomancer_Stun		None	逐卡远程（锚点/位移已消费）
+Sautekh	SAU20	Chronomancer	death		Necrons death explosion		None	阵亡粒子（PickDeathFx）
+Sautekh	SAU20	Chronomancer	trigger	TalentTraitTrigger	TalentEffect		None	按 trigger 名归口
+Sautekh	SAU21	Doom Scythe	attack_ranged	Atk_Gauss_Double	NecronGauss_Double		None	逐卡远程（锚点/位移已消费）
+Sautekh	SAU21	Doom Scythe	death		Necrons death explosion		None	阵亡粒子（PickDeathFx）
+Sautekh	SAU21	Doom Scythe	trait_onplay	FlyingTraitPlay	FlyingEffect		None	TraitFrames._playBook（登场那一拍）
+Sautekh	SAU21	Doom Scythe	trigger	FlankTraitStart	FlankEffect		None	按 trigger 名归口
+Sautekh	SAU22	Lokhust Heavy Destroyer	ability	Atk_Gauss_Trilinked_withPause	NecronGauss_Trilinked	Reanimated	570	不要在这拍播：原版时机 = Reanimated（走 trigger 归口；未归口则永不播）
+Sautekh	SAU22	Lokhust Heavy Destroyer	attack_ranged	Atk_Gauss_Trilinked	NecronGauss_Trilinked		None	逐卡远程（锚点/位移已消费）
+Sautekh	SAU22	Lokhust Heavy Destroyer	death		Necrons death explosion		None	阵亡粒子（PickDeathFx）
+Sautekh	SAU23	Lychguard	death		Necrons death explosion		None	阵亡粒子（PickDeathFx）
+Sautekh	SAU23	Lychguard	trigger	ArmourTraitStart	ArmourEffect		None	按 trigger 名归口
+Sautekh	SAU24	Command Barge	attack_ranged	Atk_Gauss_Twinlinked	NecronGauss_Twinlinked		None	逐卡远程（锚点/位移已消费）
+Sautekh	SAU24	Command Barge	death		Necrons death explosion		None	阵亡粒子（PickDeathFx）
+Sautekh	SAU24	Command Barge	trait_onplay	FlyingTraitPlay	FlyingEffect		None	TraitFrames._playBook（登场那一拍）
+Sautekh	SAU24	Command Barge	trigger	TalentTraitTrigger	TalentEffect		None	按 trigger 名归口
+Sautekh	SAU25	Hexmark Destroyer	ability	Hexmark_Artifice	Hexmark_Artifice_Deal1	Artifice	560	不要在这拍播：原版时机 = Artifice（走 trigger 归口；未归口则永不播）
+Sautekh	SAU25	Hexmark Destroyer	attack_ranged	Atk_Gauss_Hexmark	NecronGauss_Hexmark		None	逐卡远程（锚点/位移已消费）
+Sautekh	SAU25	Hexmark Destroyer	death		Necrons death explosion		None	阵亡粒子（PickDeathFx）
+Sautekh	SAU25	Hexmark Destroyer	trigger	ArtificeTraitTrigger	ArtificeEffect		None	按 trigger 名归口
+Sautekh	SAU26	Plasmancer	ability	Plasmancer_Damage	Plasmancer_Damage	Artifice	560	不要在这拍播：原版时机 = Artifice（走 trigger 归口；未归口则永不播）
+Sautekh	SAU26	Plasmancer	attack_ranged	Plasmancer_Damage	Plasmancer_Damage	Artifice	560	逐卡远程（锚点/位移已消费）
+Sautekh	SAU26	Plasmancer	death		Necrons death explosion		None	阵亡粒子（PickDeathFx）
+Sautekh	SAU26	Plasmancer	trigger	ArtificeTraitTrigger	ArtificeEffect		None	按 trigger 名归口
+Sautekh	SAU27	Scarab Swarm	death		Necrons death explosion		None	阵亡粒子（PickDeathFx）
+Sautekh	SAU27	Scarab Swarm	trigger	RegenerationTraitTrigger	OrkBuffGreenWaaagh		None	按 trigger 名归口
+Sautekh	SAU28	Ghost Ark	attack_ranged	Atk_Gauss_Double	NecronGauss_Double		None	逐卡远程（锚点/位移已消费）
+Sautekh	SAU28	Ghost Ark	death		Necrons death explosion		None	阵亡粒子（PickDeathFx）
+Sautekh	SAU28	Ghost Ark	trait_onplay	FlyingTraitPlay	FlyingEffect		None	TraitFrames._playBook（登场那一拍）
+Sautekh	SAU28	Ghost Ark	trigger	ArtificeTraitTrigger	ArtificeEffect		None	按 trigger 名归口
+Sautekh	SAU28	Ghost Ark	trigger	TalentTraitTrigger	TalentEffect		None	按 trigger 名归口
+Sautekh	SAU29	Necron Lord	death		Necrons death explosion		None	阵亡粒子（PickDeathFx）
+Sautekh	SAU29	Necron Lord	trigger	RegenerationTraitTrigger	OrkBuffGreenWaaagh		None	按 trigger 名归口
+Sautekh	SAU29	Necron Lord	trigger	TalentTraitTrigger	TalentEffect		None	按 trigger 名归口
+Sautekh	SAU3	Flayed One	ability	FastTraitStart	FastEffect	Reanimated	570	不要在这拍播：原版时机 = Reanimated（走 trigger 归口；未归口则永不播）
+Sautekh	SAU3	Flayed One	death		Necrons death explosion		None	阵亡粒子（PickDeathFx）
+Sautekh	SAU30	Triarch Stalker	attack_ranged	Atk_Gauss_Large	NecronGauss_Large		None	逐卡远程（锚点/位移已消费）
+Sautekh	SAU30	Triarch Stalker	death		Necrons death explosion		None	阵亡粒子（PickDeathFx）
+Sautekh	SAU30	Triarch Stalker	trigger	RegenerationTraitTrigger	OrkBuffGreenWaaagh		None	按 trigger 名归口
+Sautekh	SAU31	Doomstalker	attack_melee	Atk_Gauss_Large	NecronGauss_Large	UnitAttack	50	搬进 unit_attack_anim / unit_damaged_anim 桶
+Sautekh	SAU31	Doomstalker	attack_ranged	Atk_Gauss_Large	NecronGauss_Large	UnitAttack	50	逐卡远程（锚点/位移已消费）
+Sautekh	SAU31	Doomstalker	death		Necrons death explosion		None	阵亡粒子（PickDeathFx）
+Sautekh	SAU32	Skorpekh Lord	ability	Damage_Protocol_quick_self	Sau_DamageProtocol_Quick	OtherUnitDeath	90	不要在这拍播：原版时机 = OtherUnitDeath（走 trigger 归口；未归口则永不播）
+Sautekh	SAU32	Skorpekh Lord	attack_ranged	Atk_Gauss_Twinlinked	NecronGauss_Twinlinked		None	逐卡远程（锚点/位移已消费）
+Sautekh	SAU32	Skorpekh Lord	death		Necrons death explosion		None	阵亡粒子（PickDeathFx）
+Sautekh	SAU33	Vargard Obyron	death		Necrons death explosion		None	阵亡粒子（PickDeathFx）
+Sautekh	SAU33	Vargard Obyron	trigger	ArmourTraitStart	ArmourEffect		None	按 trigger 名归口
+Sautekh	SAU34	Monolith	attack_ranged	Atk_Gauss_Large	NecronGauss_Large		None	逐卡远程（锚点/位移已消费）
+Sautekh	SAU34	Monolith	death		Necrons death explosion		None	阵亡粒子（PickDeathFx）
+Sautekh	SAU34	Monolith	trigger	ArmourTraitStart	ArmourEffect		None	按 trigger 名归口
+Sautekh	SAU34	Monolith	trigger	ArtificeTraitTrigger	ArtificeEffect		None	按 trigger 名归口
+Sautekh	SAU34	Monolith	trigger	TalentTraitTrigger	TalentEffect		None	按 trigger 名归口
+Sautekh	SAU35	Imotekh the Stormlord	death		Necrons death explosion		None	阵亡粒子（PickDeathFx）
+Sautekh	SAU35	Imotekh the Stormlord	trigger	TalentTraitTrigger	TalentEffect		None	按 trigger 名归口
+Sautekh	SAU36	Nemesor Zahndrekh	death		Necrons death explosion		None	阵亡粒子（PickDeathFx）
+Sautekh	SAU36	Nemesor Zahndrekh	trigger	TalentTraitTrigger	TalentEffect		None	按 trigger 名归口
+Sautekh	SAU37	Orikan the Diviner	attack_ranged	Plasmancer_Damage	Plasmancer_Damage		None	逐卡远程（锚点/位移已消费）
+Sautekh	SAU37	Orikan the Diviner	death		Necrons death explosion		None	阵亡粒子（PickDeathFx）
+Sautekh	SAU37	Orikan the Diviner	trigger	TalentTraitTrigger	TalentEffect		None	按 trigger 名归口
+Sautekh	SAU38	Extermination Protocol	death		Necrons death explosion		None	阵亡粒子（PickDeathFx）
+Sautekh	SAU38	Extermination Protocol	play	Explosion_Gauss_ability	Explosion_gauss	ThisCardPlayed	0	播放（单点）· 锚点/位移参数不消费
+Sautekh	SAU39	Reconstitution Protocol	death		Necrons death explosion		None	阵亡粒子（PickDeathFx）
+Sautekh	SAU39	Reconstitution Protocol	play	Sau_Reconstitution_Protocols	Sau_ReconstitutionProtocol	ThisCardPlayed	0	永不播（未指定目标 ⇒ Play 事件 Slot=-1）
+Sautekh	SAU4	Gauss Warrior	ability	Damage_Protocol_target	Sau_DamageProtocol	Reanimated	570	不要在这拍播：原版时机 = Reanimated（走 trigger 归口；未归口则永不播）
+Sautekh	SAU4	Gauss Warrior	ability	Heal_Protocol_target	Sau_HealProtocol	Reanimated	570	不要在这拍播：原版时机 = Reanimated（走 trigger 归口；未归口则永不播）
+Sautekh	SAU4	Gauss Warrior	attack_ranged	Atk_Gauss_Twinlinked	NecronGauss_Twinlinked		None	逐卡远程（锚点/位移已消费）
+Sautekh	SAU4	Gauss Warrior	death		Necrons death explosion		None	阵亡粒子（PickDeathFx）
+Sautekh	SAU40	Protection Protocol	death		Necrons death explosion		None	阵亡粒子（PickDeathFx）
+Sautekh	SAU40	Protection Protocol	play	Heal_Protocol_target	Sau_HealProtocol	ThisCardPlayed	0	播放（单点）· 锚点/位移参数不消费
+Sautekh	SAU41	Reanimation Protocol	death		Necrons death explosion		None	阵亡粒子（PickDeathFx）
+Sautekh	SAU42	Relentless Advance	death		Necrons death explosion		None	阵亡粒子（PickDeathFx）
+Sautekh	SAU42	Relentless Advance	play	Heal_Protocol_target	Sau_HealProtocol	ThisCardPlayed	0	永不播（未指定目标 ⇒ Play 事件 Slot=-1）
+Sautekh	SAU43	Solar Pulse	death		Necrons death explosion		None	阵亡粒子（PickDeathFx）
+Sautekh	SAU43	Solar Pulse	play	Solar_Pulse_Effect	Sau_SolarPulse	ThisCardPlayed	0	永不播（未指定目标 ⇒ Play 事件 Slot=-1）
+Sautekh	SAU44	Disruption Blades	death		Necrons death explosion		None	阵亡粒子（PickDeathFx）
+Sautekh	SAU44	Disruption Blades	play	Buff_Red_target	Buff_Red	ThisCardPlayed	0	永不播（未指定目标 ⇒ Play 事件 Slot=-1）
+Sautekh	SAU44	Disruption Blades	play	Damage_Protocol_target	Sau_DamageProtocol	ThisCardPlayed	0	永不播（未指定目标 ⇒ Play 事件 Slot=-1）
+Sautekh	SAU45	Hyperlogical Strategist	death		Necrons death explosion		None	阵亡粒子（PickDeathFx）
+Sautekh	SAU45	Hyperlogical Strategist	play	Indomitable_Will_Effect	Sau_IndomitableWill	ThisCardPlayed	0	永不播（未指定目标 ⇒ Play 事件 Slot=-1）
+Sautekh	SAU46	Spyder Nest	death		Necrons death explosion		None	阵亡粒子（PickDeathFx）
+Sautekh	SAU46	Spyder Nest	play	RelentlessMarchSummon	GreenSummonCircle	ThisCardPlayed	0	永不播（未指定目标 ⇒ Play 事件 Slot=-1）
+Sautekh	SAU46	Spyder Nest	play	RelentlessMarchSummon	GreenSummonCircle	ThisCardPlayed	0	永不播（未指定目标 ⇒ Play 事件 Slot=-1）
+Sautekh	SAU47	Curse of the Phaeron	death		Necrons death explosion		None	阵亡粒子（PickDeathFx）
+Sautekh	SAU47	Curse of the Phaeron	play	CurseOfThePharon_Effect	Sau_CurseOfThePhaeron	ThisCardPlayed	0	永不播（未指定目标 ⇒ Play 事件 Slot=-1）
+Sautekh	SAU49	Resurrection Orb	death		Necrons death explosion		None	阵亡粒子（PickDeathFx）
+Sautekh	SAU49	Resurrection Orb	play	ResurrectionOrb	Sau_ResurrectionOrb	ThisCardPlayed	0	永不播（未指定目标 ⇒ Play 事件 Slot=-1）
+Sautekh	SAU5	Necron Warrior	death		Necrons death explosion		None	阵亡粒子（PickDeathFx）
+Sautekh	SAU50	Dimensional Breach	death		Necrons death explosion		None	阵亡粒子（PickDeathFx）
+Sautekh	SAU50	Dimensional Breach	play	Dimensional_Breach_Battleground	Sau_Dimensional_Breach_Battleground	ThisCardPlayed	0	永不播（未指定目标 ⇒ Play 事件 Slot=-1）
+Sautekh	SAU50	Dimensional Breach	play	Dimensional_Breach_Spawn	Sau_Dimensional_Breach_Spawn	ThisCardPlayed	0	永不播（未指定目标 ⇒ Play 事件 Slot=-1）
+Sautekh	SAU50	Dimensional Breach	play	Dimensional_Breach_Spawn	Sau_Dimensional_Breach_Spawn	ThisCardPlayed	0	永不播（未指定目标 ⇒ Play 事件 Slot=-1）
+Sautekh	SAU50	Dimensional Breach	play	Dimensional_Breach_Spawn	Sau_Dimensional_Breach_Spawn	ThisCardPlayed	0	永不播（未指定目标 ⇒ Play 事件 Slot=-1）
+Sautekh	SAU51	Scythe Assault	death		Necrons death explosion		None	阵亡粒子（PickDeathFx）
+Sautekh	SAU51	Scythe Assault	play	Sau_ScytheAssault	ScytheAssault	ThisCardPlayed	0	永不播（未指定目标 ⇒ Play 事件 Slot=-1）
+Sautekh	SAU51	Scythe Assault	play	Sau_ScytheAssault_Shadow	ScytheAssaultShadow	ThisCardPlayed	0	永不播（未指定目标 ⇒ Play 事件 Slot=-1）
+Sautekh	SAU52	Self-Destruction	death		Necrons death explosion		None	阵亡粒子（PickDeathFx）
+Sautekh	SAU53	Undying Legions	death		Necrons death explosion		None	阵亡粒子（PickDeathFx）
+Sautekh	SAU53	Undying Legions	play	Buff_Sautekh_Intense_warlord	Buff_Sautekh_Intense	ThisCardPlayed	0	永不播（未指定目标 ⇒ Play 事件 Slot=-1）
+Sautekh	SAU54	Conquering Tyrant	death		Necrons death explosion		None	阵亡粒子（PickDeathFx）
+Sautekh	SAU54	Conquering Tyrant	play	Necron_Regeneration_Effect	Necron_Regenerate	ThisCardPlayed	0	永不播（未指定目标 ⇒ Play 事件 Slot=-1）
+Sautekh	SAU55	Immortal Pride	death		Necrons death explosion		None	阵亡粒子（PickDeathFx）
+Sautekh	SAU55	Immortal Pride	play	Buff_Sautekh_Intense_warlord	Buff_Sautekh_Intense	ThisCardPlayed	0	永不播（未指定目标 ⇒ Play 事件 Slot=-1）
+Sautekh	SAU55	Immortal Pride	play	GainArmourEffect	ArmourEffect	ThisCardPlayed	0	永不播（未指定目标 ⇒ Play 事件 Slot=-1）
+Sautekh	SAU55	Immortal Pride	play	Sau_ImmortalPride	Armor_Necron	ThisCardPlayed	0	永不播（未指定目标 ⇒ Play 事件 Slot=-1）
+Sautekh	SAU56	Methodical Destruction	death		Necrons death explosion		None	阵亡粒子（PickDeathFx）
+Sautekh	SAU56	Methodical Destruction	play	Sau_MethodicalDestruction	Sau_MethodicalDestruction	ThisCardPlayed	0	播放（单点）· 锚点/位移参数不消费
+Sautekh	SAU57	Tomb World	death		Necrons death explosion		None	阵亡粒子（PickDeathFx）
+Sautekh	SAU57	Tomb World	play	RelentlessMarchSummon	GreenSummonCircle	ThisCardPlayed	0	永不播（未指定目标 ⇒ Play 事件 Slot=-1）
+Sautekh	SAU57	Tomb World	play	RelentlessMarchSummon	GreenSummonCircle	ThisCardPlayed	0	永不播（未指定目标 ⇒ Play 事件 Slot=-1）
+Sautekh	SAU57	Tomb World	play	RelentlessMarchSummon	GreenSummonCircle	ThisCardPlayed	0	永不播（未指定目标 ⇒ Play 事件 Slot=-1）
+Sautekh	SAU57	Tomb World	play	RelentlessMarchSummon	GreenSummonCircle	ThisCardPlayed	0	永不播（未指定目标 ⇒ Play 事件 Slot=-1）
+Sautekh	SAU57	Tomb World	play	RelentlessMarchSummon	GreenSummonCircle	ThisCardPlayed	0	永不播（未指定目标 ⇒ Play 事件 Slot=-1）
+Sautekh	SAU58	Implacable Conqueror	death		Necrons death explosion		None	阵亡粒子（PickDeathFx）
+Sautekh	SAU58	Implacable Conqueror	play	Indomitable_Will_Effect	Sau_IndomitableWill	ThisCardPlayed	0	永不播（未指定目标 ⇒ Play 事件 Slot=-1）
+Sautekh	SAU59	Awakened Obelisk	play	CreateCard_Necrons	CreateCard Necron	ThisCardPlayed	0	播放（单点）· 锚点/位移参数不消费
+Sautekh	SAU59	Awakened Obelisk	play	Explosion_Gauss_ability	Explosion_gauss	ThisCardPlayed	0	播放（单点）· 锚点/位移参数不消费
+Sautekh	SAU6	Tesla Immortal	ability	Atk_Gauss_Tesla	NecronGauss_Tesla	Artifice	560	不要在这拍播：原版时机 = Artifice（走 trigger 归口；未归口则永不播）
+Sautekh	SAU6	Tesla Immortal	attack_ranged	Atk_Gauss_Tesla	NecronGauss_Tesla	Artifice	560	逐卡远程（锚点/位移已消费）
+Sautekh	SAU6	Tesla Immortal	death		Necrons death explosion		None	阵亡粒子（PickDeathFx）
+Sautekh	SAU6	Tesla Immortal	trigger	ArtificeTraitTrigger	ArtificeEffect		None	按 trigger 名归口
+Sautekh	SAU60	Divination Menhir	play	Indomitable_Will_Effect	Sau_IndomitableWill	ThisCardPlayed	0	永不播（未指定目标 ⇒ Play 事件 Slot=-1）
+Sautekh	SAU61	Resurrection Vault	ability	Heal_Protocol_target	Sau_HealProtocol	FollowUpResolution	410	不要在这拍播：原版时机 = FollowUpResolution（走 trigger 归口；未归口则永不播）
+Sautekh	SAU65	Royal Warden	attack_ranged	Atk_Gauss_Twinlinked	NecronGauss_Twinlinked	ThisCardPlayed	0	逐卡远程（锚点/位移已消费）
+Sautekh	SAU65	Royal Warden	death		Necrons death explosion		None	阵亡粒子（PickDeathFx）
+Sautekh	SAU65	Royal Warden	play	Atk_Gauss_Twinlinked	NecronGauss_Twinlinked	ThisCardPlayed	0	播放（单点）· 锚点/位移参数不消费
+Sautekh	SAU65	Royal Warden	trigger	RallyTraitStart	RallyEffect		None	按 trigger 名归口
+Sautekh	SAU66	Ramatekh the Cruel	attack_ranged	Atk_Gauss_Twinlinked	NecronGauss_Twinlinked		None	逐卡远程（锚点/位移已消费）
+Sautekh	SAU66	Ramatekh the Cruel	death		Necrons death explosion		None	阵亡粒子（PickDeathFx）
+Sautekh	SAU66	Ramatekh the Cruel	trigger	TalentTraitTrigger	TalentEffect		None	按 trigger 名归口
+Sautekh	SAU67	Damaged Plasmacyte	death		Necrons death explosion		None	阵亡粒子（PickDeathFx）
+Sautekh	SAU67	Damaged Plasmacyte	trait_onplay	FlyingTraitPlay	FlyingEffect		None	TraitFrames._playBook（登场那一拍）
+Sautekh	SAU68	Lokhust Destroyer	ability	Atk_Gauss_Basic	NecronGauss	OtherUnitDeath	90	不要在这拍播：原版时机 = OtherUnitDeath（走 trigger 归口；未归口则永不播）
+Sautekh	SAU68	Lokhust Destroyer	death		Necrons death explosion		None	阵亡粒子（PickDeathFx）
+Sautekh	SAU69	Flayed Ones Pack	ability	Flayed One Summon	Flayed One Summon	Artifice	560	不要在这拍播：原版时机 = Artifice（走 trigger 归口；未归口则永不播）
+Sautekh	SAU69	Flayed Ones Pack	death		Necrons death explosion		None	阵亡粒子（PickDeathFx）
+Sautekh	SAU69	Flayed Ones Pack	trigger	ArtificeTraitTrigger	ArtificeEffect		None	按 trigger 名归口
+Sautekh	SAU7	Canoptek Wraith	death		Necrons death explosion		None	阵亡粒子（PickDeathFx）
+Sautekh	SAU70	Damaged Hexmark	ability	Damage_Protocol_quick_self	Sau_DamageProtocol_Quick	Artifice	560	不要在这拍播：原版时机 = Artifice（走 trigger 归口；未归口则永不播）
+Sautekh	SAU70	Damaged Hexmark	attack_ranged	Atk_Gauss_Damaged_Hexmark	NecronGauss_Damaged Hexmark		None	逐卡远程（锚点/位移已消费）
+Sautekh	SAU70	Damaged Hexmark	death		Necrons death explosion		None	阵亡粒子（PickDeathFx）
+Sautekh	SAU70	Damaged Hexmark	trigger	ArtificeTraitTrigger	ArtificeEffect		None	按 trigger 名归口
+Sautekh	SAU71	Immortals Phalanx	ability	RelentlessMarchSummon	GreenSummonCircle	Reanimated	570	不要在这拍播：原版时机 = Reanimated（走 trigger 归口；未归口则永不播）
+Sautekh	SAU71	Immortals Phalanx	attack_ranged	Atk_Gauss_Twinlinked	NecronGauss_Twinlinked		None	逐卡远程（锚点/位移已消费）
+Sautekh	SAU71	Immortals Phalanx	death		Necrons death explosion		None	阵亡粒子（PickDeathFx）
+Sautekh	SAU71	Immortals Phalanx	trigger	RegenerationTraitTrigger	OrkBuffGreenWaaagh		None	按 trigger 名归口
+Sautekh	SAU72	Lokhust Lord	attack_ranged	Atk_Gauss_Large	NecronGauss_Large		None	逐卡远程（锚点/位移已消费）
+Sautekh	SAU72	Lokhust Lord	death		Necrons death explosion		None	阵亡粒子（PickDeathFx）
+Sautekh	SAU72	Lokhust Lord	death	CreateCard_Necrons	CreateCard Necron	ThisUnitDeath	80	阵亡粒子（PickDeathFx）
+Sautekh	SAU72	Lokhust Lord	trigger	BacklashTraitTrigger	BacklashEffect		None	按 trigger 名归口
+Sautekh	SAU72	Lokhust Lord	trigger	RegenerationTraitTrigger	OrkBuffGreenWaaagh		None	按 trigger 名归口
+Sautekh	SAU73	Annihilation Barge	ability	Atk_Gauss_Tesla_Annihilator	NecronGauss_Tesla_Annihilation Barge	Artifice	560	不要在这拍播：原版时机 = Artifice（走 trigger 归口；未归口则永不播）
+Sautekh	SAU73	Annihilation Barge	attack_ranged	Atk_Gauss_Tesla_Annihilator	NecronGauss_Tesla_Annihilation Barge	Artifice	560	逐卡远程（锚点/位移已消费）
+Sautekh	SAU73	Annihilation Barge	death		Necrons death explosion		None	阵亡粒子（PickDeathFx）
+Sautekh	SAU73	Annihilation Barge	trait_onplay	FlyingTraitPlay	FlyingEffect		None	TraitFrames._playBook（登场那一拍）
+Sautekh	SAU73	Annihilation Barge	trigger	ArtificeTraitTrigger	ArtificeEffect		None	按 trigger 名归口
+Sautekh	SAU74	Dimensional Corridor	play	CreateCard_Necrons	CreateCard Necron	ThisCardPlayed	0	永不播（未指定目标 ⇒ Play 事件 Slot=-1）
+Sautekh	SAU74	Dimensional Corridor	play	DeckBuff_Green	DeckBuff_Green 2	ThisCardPlayed	0	永不播（未指定目标 ⇒ Play 事件 Slot=-1）
+Sautekh	SAU75	Awakened Dynasty	play	CreateCard_Necrons	CreateCard Necron	ThisCardPlayed	0	永不播（未指定目标 ⇒ Play 事件 Slot=-1）
+Sautekh	SAU75	Awakened Dynasty	play	DeckBuff_Green	DeckBuff_Green 2	ThisCardPlayed	0	永不播（未指定目标 ⇒ Play 事件 Slot=-1）
+Sautekh	SAU76	Inescapable Retribution	play	RelentlessMarchSummon	GreenSummonCircle	ThisCardPlayed	0	永不播（未指定目标 ⇒ Play 事件 Slot=-1）
+Sautekh	SAU76	Inescapable Retribution	play	RelentlessMarchSummon	GreenSummonCircle	ThisCardPlayed	0	永不播（未指定目标 ⇒ Play 事件 Slot=-1）
+Sautekh	SAU8	Gauss Immortal	attack_ranged	Atk_Gauss_Twinlinked	NecronGauss_Twinlinked		None	逐卡远程（锚点/位移已消费）
+Sautekh	SAU8	Gauss Immortal	death		Necrons death explosion		None	阵亡粒子（PickDeathFx）
+Sautekh	SAU8	Gauss Immortal	trigger	RegenerationTraitTrigger	OrkBuffGreenWaaagh		None	按 trigger 名归口
+Sautekh	SAU9	Ophydian Destroyer	death		Necrons death explosion		None	阵亡粒子（PickDeathFx）
+Sautekh	SAU9	Ophydian Destroyer	trigger	ArtificeTraitTrigger	ArtificeEffect		None	按 trigger 名归口
+Sautekh	SAU9	Ophydian Destroyer	trigger	RegenerationTraitTrigger	OrkBuffGreenWaaagh		None	按 trigger 名归口
+Sautekh	cbabeb234380634479feab1a1b4c733a	Master Chronomancer	play	Master_Chronomancer_Effect	Sau_MasterChronomancer	ThisCardPlayed	0	永不播（未指定目标 ⇒ Play 事件 Slot=-1）
+Sautekh	d8a14171b08b54144ba9dbf324b0a042	Relentless March	play	RelentlessMarchSummon	GreenSummonCircle	ThisCardPlayed	0	永不播（未指定目标 ⇒ Play 事件 Slot=-1）
+Sautekh	eb17cd22c6a5d7941a7456838d927ab1	Particle Whip	play	ParticleWhip	Sau_ParticleWhip	ThisCardPlayed	0	播放（单点）· 锚点/位移参数不消费

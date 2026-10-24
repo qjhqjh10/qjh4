@@ -237,7 +237,20 @@ namespace CardPresentation
         // 🔴 2026-09-22 实测补充：**同一个队列 + z 都是 0 ⇒ 谁盖谁完全不确定**。
         //    第一版卡图用了和整屏渐变一样的 `QBg` ⇒ **Tutorial 那张卡被渐变盖住了**（Draft 那张碰巧没被盖）。
         //    所以每层都要一个**不同的**队列，差 1 也行。
+        // 📌 `QCardArt`(2905) 现为**历史档**（模式卡图已改走 `QCardArtAboveNav` = 2912，见下）；
+        //    保留它只为让下面那条「不能和整屏渐变同队列」的来历可读，⛔ 不要再往它上面挂可见件。
         const int QBg = 2900, QCardArt = 2905, QPanel = 2910, QContent = 2920, QText = 2921, QOverlay = 2930;
+
+        /// <summary>模式卡**卡图**的实际队列 = `QPanel + 2`（**2912**）。
+        /// 🔴 **2026-10-24（`D1` 诊断）**：卡图原来用 `QCardArt`(2905)，而左竖导航的投影
+        /// `Navigation Panel/Panel Shadow` 在 `QPanel`(2910) 且 rect 横跨 x **−762.5..1166.2** ⇒
+        /// **影子画在 col0 小冲突 / col1 排位两张卡图上面**（用户报的「淡黑色透明层」）。
+        /// 判据 = 用户自己的原版实拍 `桌面/warpforge参考图/主界面参考图.png`（正确比例 0.7405）：
+        ///   影子本该落在第 392..444 行，那里**没有单行台阶**；而我们渲染出的 y=582 单行跳变 **+23.3 灰阶**。
+        /// 对照 = 收藏窗「选择游戏模式」页同款卡队列 **3032**，量出来 0.99~1.00 干净 ⇒ **纯队列问题**。
+        /// ⛔ **只抬卡图**：投影的 rect/tint/贴图/队列**一律不动**（原版值，`MainMenuScene.cs:801/:14761` 钉着）。
+        /// 2911 已被 `QNavHighlight` 占用 ⇒ 从 2912 起取（2912..2919 空）。</summary>
+        const int QCardArtAboveNav = QPanel + 2;
 
         /// <summary>顶栏那面**头像盾牌框**单独一档（`QContent − 1`）。
         /// 🔴 `Player_Profile_Border` 那张图的**中心是不透明黑**（实测 RGBA (0,0,0,255)）⇒
@@ -2129,7 +2142,7 @@ namespace CardPresentation
         /// **同一个函数**（`DeckRuntime.UiRefreshTopAvatar`）；这里只转调，签名与语义不变。</summary>
         public void RefreshTopAvatarIfChanged() { TopBar.RefreshTopAvatarIfChanged(_topBar, NoteMissingArt); }
 
-        void Update() { RefreshTopAvatarIfChanged(); TickNavPanelTween(); }
+        void Update() { RefreshTopAvatarIfChanged(); TickNavPanelTween(); RefreshDraftModeCard(); }
 
         /// <summary>自检用：顶栏那块立绘（**一张头像图都加载不到时会是 null** —— 那种情况按出厂态处理：只剩盾）。</summary>
         public ImageQuad TopAvatar { get { return _topBar != null ? _topBar.TopAvatar : null; } }
@@ -2301,6 +2314,26 @@ namespace CardPresentation
         float _modeOffsetPx;                     // 当前滚到的偏移（设计 px）
         System.Action _placeAllCards;            // 第一次摆放与滚动重建共用这一份
 
+        // ============================================================ 🆕 2026-10-24（`E10`）：轮抽模式卡的 `State` 条
+        // 原版那一件 = `Draft Game Mode Container 1x2/State`（`DraftMenuContainer.stateGO` + `victoriesCounter`），
+        // 由 `DraftMenuContainer.OnDraftStateChange → DoOperationsOnDraftState` 在**每次轮抽状态变化**时刷新。
+        // 我们这边没有那套事件：数据在 `DraftModeWindow` 的静态一局存档里 ⇒ **主菜单每帧比一次**
+        // （`RefreshDraftModeCard`，见 `Update()`）—— 这就是「回壳后不必再点一次模式卡」的那条修复。
+        Transform _draftStateNode;               // 最近建出来的那张轮抽卡的 `State`
+        Label _draftVictories;                   // 里面那颗 `Victories` 字（`{胜场}/{轮数}`）
+        PxRect _draftVicTxR;                     // 它那一格的矩形（换字之后要重新左对齐）
+        bool _draftStateShown;                   // 上次应用过的可见性（省得每帧重设）
+        int _draftWinsShown = -1;                // 上次应用过的胜场
+
+        /// <summary>自检读口：轮抽模式卡的 `State` 节点（没建 ⇒ `null`）。</summary>
+        public Transform DraftStateNode { get { return _draftStateNode; } }
+        /// <summary>自检读口：`State` 里那颗 `Victories` 字。</summary>
+        public Label DraftVictoriesLabel { get { return _draftVictories; } }
+        /// <summary>自检读口：`State` 条**现在是不是显示着**（= 原版那一格的 `activeSelf`）。</summary>
+        public bool DraftStateVisible { get { return _draftStateNode != null && _draftStateNode.gameObject.activeSelf; } }
+        /// <summary>自检读口：`Victories` 那颗字现在的文本（没建 ⇒ `null`）。</summary>
+        public string DraftVictoriesText { get { return _draftVictories != null ? _draftVictories.Text : null; } }
+
         void BuildGameModes(Transform root)
         {
             // A332：原版 `GameModes` = 1752.9606 × 1008.671（`anchor (0.087,0)-(1,0.934)` ⇒ 167.04,71.33→1920,1080）
@@ -2352,6 +2385,9 @@ namespace CardPresentation
             _modeOffsetPx = 0f;
             _placeAllCards = () =>
             {
+            // 🆕 2026-10-24（E10）：每次重排都会把卡全销毁重建 ⇒ 先把 `State` 条那两个句柄清掉
+            // （否则滚动后 `RefreshDraftModeCard` 会去改一棵已经销毁的树）。
+            _draftStateNode = null; _draftVictories = null; _draftWinsShown = -1;
             const float ColStep = CardColStep, RowStep = CardH + 20f;   // 行距 = 卡高 + `spacing (20,20)` 的 20
             const int MaxCols = 8;                                      // 本菜单最多摆 8 列（现在用满 4 列）
             var used = new bool[MaxCols, 2];                            // [列, 行] 这一格占没占
@@ -2616,6 +2652,29 @@ namespace CardPresentation
             return ModeCardParallaxX * (cardCenterPx / LayoutSpace.DesignPxW - 0.5f);
         }
 
+        // ============================================================ 🆕 2026-10-24（`E10`）：轮抽卡 `State` 条几何
+        // 判据 = `bundle_menus_assets_all` 的 `Draft Game Mode Container 1x2` **现读**
+        //   （`python 工具/menu_dump.py bundle_menus_assets_all "Draft Game Mode Container 1x2" --depth 6 --md`）：
+        //   · `State`                535 × 109.52 · anchor(0.5,0) pivot(0.5,0) apos(0.00012207, **108.4**)
+        //                            ⇒ 距卡底 108.4 ⇒ 卡内左上原点（y 向下）**顶 = 848.8 − 108.4 − 109.52 = 630.88**
+        //   · `Victory Counter Icon`  97.453 × 103.327 · anchor(0,1) pivot(0.5,0.5) apos(57.4, −57.861)
+        //                            ⇒ 卡内 **x 8.67..106.12 · y 637.07..740.40**（下沿与 `State` 对齐）
+        //                            图 = `Rank Skull` 128² · Simple · **preserveAspect** · 色 (1,1,1,1)
+        //   · `Victories`（**是图标那颗的子件**）484.688×143.9 × `m_LocalScale` **0.7181**
+        //                            ⇒ **视觉 348.05 × 103.33**；apos.x 225.915（相对图标中心）
+        //                            ⇒ 卡内 **x 109.29..457.37**、与图标同高
+        //                            字 `'2/12'` · fs **99.69** · auto[18~99.69] · base **36** · Left/**Capline** · 折行 1 · 白
+        // ⚠️ `'2/12'` 是**预制体的样板串**（那一场活动的 `matches.Length = 12`）⇒ 真值由
+        //   `DraftMenuContainer.SetVictoryCounters` 的 `String.Format("{0}/{1}", CurrentStage, draftRounds)` 现写
+        //   （格式串 = `stringliteral.json` 的 RVA `0x426de28` = `'{0}/{1}'`；`CurrentStage` = 胜场，
+        //     指令流 `get_CurrentStage` = `[event+0x20]+0x48` = `numberOfMatchesWon`）⇒ ⛔ 别印 12。
+        // ⚠️ `DraftStateTop` 只是**文档锚点**（`New(...)` 按本文件不变式**不写位置**，坐标都由 `Center(...)`
+        //    直接给绝对值）—— 别以为它没被读就是漏了。
+        const float DraftStateTop = 630.88f, DraftStateH = 109.52f;
+        const float DraftVicL = 8.67f, DraftVicT = 637.07f, DraftVicW = 97.453f, DraftVicH = 103.327f;
+        const float DraftVicTxL = 109.29f, DraftVicTxT = 637.07f, DraftVicTxW = 348.05f, DraftVicTxH = 103.33f;
+        const float DraftVicTxPx = 99.69f;
+
         /// <summary>按 §九 9·4 的「最小清单」建一张卡（1x1 与 1x2 共用；1x2 只是更高）。
         /// <paramref name="modeKind"/> 非空 ⇒ 这张卡**可点**（点它进对应模式的界面；见 `OpenMode`）。</summary>
         void BuildModeCard(Transform parent, string name, float x, float y, float w, float h, string art, string title,
@@ -2659,7 +2718,7 @@ namespace CardPresentation
                 {
                     cardArtQ.SetAspect((cx2 - cx1) / h);
                     cardArtQ.SetUvRect(new Rect(u0 + du + fL * uvW, v0, uvW * (1f - fL - fR), 1f - 2f * v0));
-                    cardArtQ.SetRenderQueue(QCardArt);   // ⚠️ **不能和整屏渐变同队列**（否则谁盖谁不确定，见上面那行注释）
+                    cardArtQ.SetRenderQueue(QCardArtAboveNav);   // ⚠️ 必须高于左竖导航投影（`QPanel` 2910），否则影盖在卡图上（见常量注释）
                 }
             }
             else MissingArt.Add(art);
@@ -2845,6 +2904,13 @@ namespace CardPresentation
                 }
             }
 
+            // ⑤·b 🆕 2026-10-24（`E10`）：**只有轮抽卡**有那条 `State` 条（`DraftMenuContainer` 的 `stateGO` +
+            //    `victoriesCounter`）。⛔ 别扩散到别的卡：`Base 1x1/1x2 · Ranked · Skirmish` 那几棵树的
+            //    `TextDarkening` 里**都没有**这一件（逐档 dump 核过；`Ranked/Skirmish` 有的是另一族
+            //    `Rating ▸ … RankedSealStep` 排，闸口在 `BuildRankedSealRow` 那一段）。
+            //    判据/几何 → 本文件 `DraftStateTop` 那一整段注释。
+            if (modeKind == "draft") BuildDraftStateBar(card, x, y, w, clip, cx1, cx2);
+
             // ⑥ 点击区（**只有模式卡有**）：原版卡根上挂 `LiveopMenuContainer` + `EverguildButton`，
             //    开哪扇窗由 liveop 数据给的事件对象决定（本地查不到）⇒ 我们自己接（见 `OpenMode`）。
             if (!string.IsNullOrEmpty(modeKind))
@@ -2889,6 +2955,114 @@ namespace CardPresentation
                 //     （见 `ModeCardParallaxDu`）—— 另一条查证结论同时成立：**没有位移 / 缩放 / 换图 / Animator**
                 //     （`m_Transition` 就是 `1`(ColorTint)，`m_SpriteState` 那几格不参与；卡上也没有 `Animator`）。
             }
+        }
+
+        // ============================================================ 🆕 2026-10-24（`E10`）：轮抽卡 `State` 条
+        //
+        // 原版那一件是 `Draft Game Mode Container 1x2/State`（`DraftMenuContainer.stateGO`），
+        // 由 `DraftMenuContainer.OnDraftStateChange → DoOperationsOnDraftState` 在**每一次轮抽状态变化**时刷。
+        // 我们这边没有那套事件（一局的数据在 `DraftModeWindow` 的静态存档里、卡是主菜单建的）
+        // ⇒ 用「主菜单每帧比一次」（`RefreshDraftModeCard`，挂在 `Update`）等价实现 ——
+        // 这正是「回壳后必须再点一次模式卡才看得到进度」那条缺陷的修法。
+
+        /// <summary>建轮抽卡的 `State` 条（原版 `stateGO` + `victoriesCounter`）。
+        /// 结构照 prefab：`State` → `Victory Counter Icon`（`Rank Skull` 128²·preserveAspect）→ `Victories`（字）。
+        /// ⚠️ **`Victories` 是图标那颗的子件**（原版 `m_Father` 就是它）—— 别挂到 `State` 上。
+        /// 几何/字号/文案口径 → 本文件 `DraftStateTop` 那一整段注释（逐字段现读）。</summary>
+        void BuildDraftStateBar(Transform card, float x, float y, float w, PxRect? clip, float cx1, float cx2)
+        {
+            var stateGo = New(card, "State", 535f, DraftStateH);
+            var iconGo = New(stateGo, "Victory Counter Icon", DraftVicW, DraftVicH);
+
+            float ix1 = x + DraftVicL, ix2 = ix1 + DraftVicW, iy1 = y + DraftVicT, iy2 = iy1 + DraftVicH;
+            var skull = Art("Rank_Skull");
+            if (skull != null)
+            {
+                // 视口裁切与卡图/时钟图标同一条路：**缩网格 + 缩 UV 窗**（⛔ 只缩网格会把图标拉扁）。
+                float cL = clip.HasValue ? Mathf.Max(ix1, cx1) : ix1;
+                float cR = clip.HasValue ? Mathf.Min(ix2, cx2) : ix2;
+                if (cR - cL > 0.01f)
+                {
+                    var iq = ImageQuad.Create(iconGo, skull, Center(cL, cR, iy1, iy2), (iy2 - iy1) / 108f,
+                                              new Vector2(0.5f, 0.5f), "Image");
+                    if (iq != null)
+                    {
+                        iq.SetAspect((cR - cL) / (iy2 - iy1));
+                        iq.SetUvRect(new Rect((cL - ix1) / (ix2 - ix1), 0f, (cR - cL) / (ix2 - ix1), 1f));
+                        iq.SetRenderQueue(QText);      // 压着卡图(2912)与暗带(2920)之上、边框(2930)之下
+                    }
+                }
+            }
+            else MissingArt.Add("Rank_Skull");
+
+            _draftVicTxR = new PxRect(x + DraftVicTxL, y + DraftVicTxT,
+                                      x + DraftVicTxL + DraftVicTxW, y + DraftVicTxT + DraftVicTxH);
+            // 折行 1 · auto[18~99.69] · base 36 · Left/**Capline**（判据 → `DraftStateTop` 那段注释）。
+            // ⚠️ `wrapPx` 传**视觉宽 348.05**（原版那颗 484.688 × scale 0.7181），不是布局宽。
+            _draftVictories = Text(iconGo, "", _draftVicTxR.x1, _draftVicTxR.x2, _draftVicTxR.y1, _draftVicTxR.y2,
+                                   8, Color.white, "Victories", DraftVicTxPx, QText,
+                                   wrapPx: DraftVicTxW, autoMinPx: 18f, autoMaxPx: DraftVicTxPx, autoBasePx: 36f,
+                                   face: TmpFont.Face.LatinCardBody);
+            if (_draftVictories != null)
+            {
+                // ⚠️ `AlignLeft` 必须排在 `Text(...)` 之后（它在内部先 `SetAutoFitBox` 重排、重排完宽度才定
+                //    —— 本仓踩过「`SetAutoFitBox` 排在 `AlignLeft` 前 ⇒ 对齐被抹掉」那条坑）。
+                MenuDraw.AlignLeft(_draftVictories, _draftVicTxR);
+                MenuDraw.SetVAlign(_draftVictories, Label.VAlign.Capline, _draftVicTxR);
+                if (clip.HasValue && (cx1 > x + 0.01f || cx2 < x + w - 0.01f))
+                    MenuDraw.ClipText(_draftVictories, clip, Vector2.zero);
+            }
+
+            _draftStateNode = stateGo;
+            RefreshDraftModeCard(true);
+        }
+
+        /// <summary>把 `State` 条刷成**当前那一局**的进度（原版 `SetVictoryCounters` +
+        /// `DoOperationsOnDraftState` 的本地等价物）。文案 = `String.Format("{0}/{1}", 胜场, draftRounds)`
+        /// （格式串证据 → 本文件 `DraftStateTop` 那段注释）。
+        /// <para>⚠️ 读口用的是 `DraftModeWindow.RunForTest` —— 它是**唯一的静态**读口（实例属性
+        /// `Victories` 在窗关掉之后拿不到，`LastOpened` 可能指向已销毁的窗）。本类白名单不允许改
+        /// `DraftModeWindow.cs` ⇒ 先借它；主对话合并时建议在那边加一个生产名（如 `CurrentRun`）后
+        /// **只改这一行**。</para></summary>
+        public void RefreshDraftModeCard(bool force = false)
+        {
+            if (_draftStateNode == null || _draftVictories == null) return;
+            var run = DraftModeWindow.RunForTest;
+            int wins = run != null ? run.matchesWon : 0;
+            int rounds = DraftPacks.RoundsPerDraft;
+            bool show = DraftStateBarVisible(run);
+            if (!force && show == _draftStateShown && wins == _draftWinsShown) return;
+            _draftStateShown = show;
+            _draftWinsShown = wins;
+            _draftStateNode.gameObject.SetActive(show);
+            _draftVictories.SetText(string.Format("{0}/{1}", wins, rounds));
+            // ⚠️ **只在显示时重排左对齐**：TMP 在对象未激活时量不出宽高（本仓踩过 —— `textBounds` 会是垃圾）
+            //    ⇒ 先 `SetActive`、再换字、再对齐。对齐必须排在 `SetText` 之后（换字会重排）。
+            if (show) MenuDraw.AlignLeft(_draftVictories, _draftVicTxR);
+            Debug.Log("[Menu] 轮抽模式卡 `State` 条：" + (show ? "显示" : "隐藏")
+                    + " · `" + wins + "/" + rounds + "`"
+                    + "（原版 `SetVictoryCounters` 的 `{0}/{1}` 口径：阶段 = 胜场、分母 = `draftRounds`）");
+        }
+
+        /// <summary>原版 `DraftMenuContainer.DoOperationsOnDraftState` 的**可见性判据**（本地等价物）。
+        /// <para>反编译（`decomp_full/DraftMenuContainer__DoOperationsOnDraftState.c`）：取 `event.DraftState`；
+        /// `state &lt; 0x15 &amp;&amp; ((0x108420 &gt;&gt; state) &amp; 1)` ⇒ `stateGO.SetActive(true)` 并写胜场字，
+        /// 否则 `SetActive(false)`。掩码 `0x108420` 的位 = **5 / 10 / 15 / 20**
+        /// （SelectWarlord / SelectPack / OngoingRun / Finished）—— Intro(0) / Pay(2) / Collected(22) **不显示**。</para>
+        /// <para>我们的状态从**静态存档**推（存档里没有 `draftState` 那一格）：收尾支 / 无战将支 / 有战将支
+        /// 三条与 `DraftModeWindow.UpdateState` 同源。⚠️ **有一处有意不同**：`UpdateState` 把
+        /// 「`joinState != Joined`」也路由到 `SelectWarlord(5)`，而那一档**原版落的是 Pay 页**
+        /// （E3 的 `ResumeGroup③` 已记：落页看的是**存着的** `DraftState`）⇒ 这里要求
+        /// `joinState == Joined` **且已入**（`payState != NotPaid`）才算 `SelectWarlord`；没报名一律藏。</para></summary>
+        public static bool DraftStateBarVisible(DraftRunSave run)
+        {
+            if (run == null) return false;                         // 没有进行中的一局（原版 save == null）
+            bool finished = run.joinState == (int)DraftJoinState.Finished
+                            || run.matchesLost >= DraftModeWindow.MaxTries;
+            if (finished) return !run.rewardsCollected;            // Finished(20) 显示 · Collected(22) 藏
+            if (!string.IsNullOrEmpty(run.warlordId)) return true; // SelectPack(10) / OngoingRun(15)
+            return run.joinState == (int)DraftJoinState.Joined
+                   && run.payState != (int)DraftPayState.NotPaid;  // SelectWarlord(5) 显示；Intro(0)/Pay(2) 藏
         }
 
         // ============================================================ 🆕 2026-10-11：排位卡那一排「段位印玺」
@@ -3064,7 +3238,7 @@ namespace CardPresentation
                 var step = New(steps, "RankedSealStep " + i, StepW, MmpB - MmpT);
                 // `Empty` / `Fill` 铺满那一颗（原版 `a(0,0)-(1,1)` + `preserveAspect`）；128² 的方图**内接**
                 // 进 100 × 86.51 的格 ⇒ **实绘 86.51 × 86.51、水平居中**（走 `RectTex` 的 `keepAspect` 那条路）。
-                // ⚠️ 队列 `QContent`（2920）：夹在卡图（`QCardArt` 2905）与边框（`QOverlay` 2930）之间；
+                // ⚠️ 队列 `QContent`（2920）：夹在卡图（`QCardArtAboveNav` 2912）与边框（`QOverlay` 2930）之间；
                 //    它和 `TextDarkening`（也是 `QContent`）**矩形不相交**（印玺行卡内 644.39~730.90 vs 暗带
                 //    740.33~846.20）⇒ 同档**不会**产生「谁盖谁」的不确定；`Empty`/`Fill` 两颗**互斥**
                 //    （`SealToggle` 保证**恰好一颗亮**）⇒ 同档也不冲突。

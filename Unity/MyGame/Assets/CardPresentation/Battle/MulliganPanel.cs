@@ -40,8 +40,12 @@
 //  · **遮罩**：原版这一阶段有 `Shade.SwitchShade`（`_SetupMulliganPhase` 里调的）。
 //    🔴 **2026-10-22（W62 · `D6`）就地订正（铁律 5）**：本行原文写「**颜色/透明度没查到** → 用了和战斗日志面板
 //    同款的一层压暗，**这是我们挑的**」—— **已不成立**：原版那两样都读得到，而且我们那层的**层序**有问题
-//    （它把换牌卡一起压暗了）。判据与取值 → <see cref="ShadeAlpha"/> / <see cref="QMulliganCard"/> 那两条 doc
+//    （它把换牌卡一起压暗了）。判据与取值 → <see cref="ShadeAlpha"/> / <see cref="QMulliganShade"/> 那两条 doc
 //    （源码：`MonoBehaviour_4399.onAlphaLevel = 0.8` · `ShadePanel.Image.m_Color = (0,0,0,0)`）。
+//    🔴🔴 **2026-10-24（第七十三会话 · `M1`）**：W62 那次**没修好** —— 真机复拍换牌卡区 max = 123
+//    （线性 0.198 = 1 − 0.8），卡仍被压暗层盖着。根因 = **画布排序层先于 `renderQueue` 比较**，
+//    所以「把卡抬到 3001」压不过 `OverHand` 画布。⇒ 压暗层改回**世界空间 quad**（`QMulliganShade` 3006）、
+//    换牌卡 = **3007**；判据与实测见那两条 const 的 doc，断言在 `Editor/BattleScene.cs` 的 `D6` 段。
 //  · **提示行文案**：⚠️ **2026-10-12 就地订正（铁律 5）**：原来这里写「「选择要换掉的牌」是我们起的
 //    （原版 `mulliganTextLocalize` 的 I2 词条本地没有）」—— **已不成立**：2026-10-18（W6）起提示行走
 //    **原版词条** `Battle/Mulligan/Instructions`（TMP 原文 `Choose cards to replace in first hand`，
@@ -258,12 +262,13 @@ namespace CardPresentation
         /// ⛔ 原来这里那条「点卡也能标记」是**我们自己加的**，已删 —— 别再加回来。</summary>
         public Action<CardView> OnCardSeen;
 
-        /// <summary>🔴 **2026-10-16（`T09` 批 3）：类型 `ImageQuad` → `HudPiece`** —— 这一族现在是
-        /// **uGUI 件**（`RectTransform + Image`）。⛔ **一个件只许在一边**（要么旧 quad、要么 uGUI）——
-        /// 本批**全部在 uGUI 这边**（`HudPiece` 文件头那条铁律）。
-        /// <para>🔴 **2026-10-22（W62 · `D6`）：它**留在画布上**、层序也对（画布 3000 + `OverHand` 压住战场）
-        /// —— 病灶在**换牌卡**那一侧（世界件同队列时排序层输给画布）⇒ 改的是卡的队列
-        /// （<see cref="QMulliganCard"/>），⛔ 不是把这件挪去世界空间。</para></summary>
+        /// <summary>🔴 **2026-10-16（`T09` 批 3）：类型 `ImageQuad` → `HudPiece`** —— 这一族现在**多数是
+        /// uGUI 件**（`RectTransform + Image`）。⛔ **一个件只许在一边**（要么旧 quad、要么 uGUI）。
+        /// <para>🔴🔴 **2026-10-24（第七十三会话 · `M1`）就地订正（铁律 5）**：本条原来写「它**留在画布上**、
+        /// 层序也对 —— 病灶在换牌卡那一侧」—— **已不成立**：画布排序层**先于** `renderQueue` 比较
+        /// （`Battle/HudCanvas.cs:21`），所以画布压暗层**必然**盖住世界空间的换牌卡（真机实测卡区 max = 123
+        /// = 线性 0.198 = 1 − 0.8）。⇒ `_shade` 现在是**世界空间 `ImageQuad`**（`HudPiece` 的 quad 支），
+        /// 靠 `QMulliganShade`(3006) < `QMulliganCard`(3007) 排先后。其余件仍全在画布上（见 `OnCanvas`）。</para></summary>
         HudPiece _shade;
         HudPiece _bar, _play, _eye;      // Continue 的底 / 圆形播放钮 / 眼睛
         Label _prompt, _doneText;
@@ -505,24 +510,33 @@ namespace CardPresentation
         const float Z = -0.9f;
 
         // ══════════════════════════════════════════════════════════════════════════════════════
-        //  🆕 2026-10-22（W62 · 战斗线 `D6`）：压暗层这条链上的两把尺子
-        //     —— 换牌卡的**渲染队列**（`QMulliganCard`）/ 压暗层的**透明度**（`ShadeAlpha`）
+        //  🆕 2026-10-22（W62 · 战斗线 `D6`）；🔴 **2026-10-24（第七十三会话 · `M1`）整段重写 —— 号段反了**
+        //     —— 换牌卡的**渲染队列**（`QMulliganCard`）· 压暗层的**队列**（`QMulliganShade`）· 压暗层的**透明度**
         // ══════════════════════════════════════════════════════════════════════════════════════
 
-        /// <summary>换牌期这几张卡用的**渲染队列号** = **3001**（= 压暗层之上、放大窗之下）。
-        /// <para>**为什么要抬**（真机像素证据，`D6`）：压暗层是画布件（队列 **3000** + `OverHand` 排序层），
-        /// 而换牌卡是**世界空间 `MeshRenderer`**（手牌段 2989..3000、`Default` 层）⇒ 同队列时**排序层**说话
-        /// ⇒ 压暗层画在了卡**上面**（实测那一区最亮只到 98，原版实拍 255）。卡抬到 **3001** 后
-        /// `renderQueue` 比较**先于**排序层 ⇒ 卡画在压暗层**之后** = 在它上面 ✓。</para>
+        /// <summary>换牌期那层**整屏压暗**的渲染队列号 = **3006**。
+        /// <para>**它必须是世界空间 `MeshRenderer` 的队列**（`ImageQuad`）—— **不能是画布件**：
+        /// `Canvas` 的排序层**先于** `renderQueue` 比较（`Battle/HudCanvas.cs:21`），换牌卡与世界件都在
+        /// `Default` 层 ⇒ 任何排序层高于 `Default` 的画布都会盖住卡（2026-10-24 真机实测：队列 3001 的
+        /// 换牌卡被 `OverHand` 画布上的压暗层盖着，透射 0.198 = 1 − 0.8）。</para>
+        /// <para>**下界 = 战场的最大队列**：战场几何是 `Default` 层、`Queue = 3000 + _QueueOffset`
+        /// （`WarpforgeArena1/Editor/ArenaBuilder.cs:5207`）。13 场 manifest 逐场数（`meshes`+`particles`
+        /// 的 `matQueue`）：>3000 的**一共 18 件**，只有 **3001×3 / 3003×3 / 3004×8 / 3005×4**，最大 **3005**
+        /// （`battlearena1` 与 `battlearena2` 都有；**9 场一件都没有**）⇒ 取 **3006** 才能把
+        /// **整个战场**（含粒子）一起压暗。</para>
+        /// <para>**上界**：必须 **&lt; `QMulliganCard`** —— 否则换牌卡又被压暗。</para></summary>
+        public const int QMulliganShade = 3006;
+
+        /// <summary>换牌期这几张卡用的**渲染队列号** = **3007**（= 压暗层之上、放大窗之下）。
+        /// <para>🔴 **2026-10-24（第七十三会话 · `M1`）就地订正（铁律 5）**：本条原来写 **3001**、理由是
+        /// 「`renderQueue` 比较**先于**排序层 ⇒ 抬到 3001 就画在画布压暗层之上」。**那条理由不成立**
+        /// （W62 未经验证的推断）：真机上 3001 的卡**仍然被压暗**（换牌卡区 max = 123 ≈ 线性 0.198 = 1 − 0.8）。
+        /// 正确规则 = **画布排序层先比、队列轮不到**（同 `HudCanvas.cs:21`）⇒ 压暗层必须也在世界空间
+        /// （见 <see cref="QMulliganShade"/>），卡只要**高于它**即可。
+        /// 卡从 3001 抬到 **3007** 是与压暗层（3006）**成对**的改动 —— 只改一边就会回到「卡暗」或「压暗无效」。</para>
         /// <para>**上界**：必须 **&lt; `CardFan.QCardBase`(3009)** —— 「点卡放大」那扇
-        /// `CardDisplayWindow` 的卡是 3009..3011，它得压在换牌卡之上（原版就是这样：点一下牌看大图）。</para>
-        /// <para>🔴 **为什么不是「把压暗层往下挪」**（工单里那条建议，`A9` 现核**推翻**）：
-        /// 战场那一整批**也是队列 3000**（`WarpforgeArena1/Editor/ArenaBuilder.cs:5068`
-        /// 「原版这批是 3000」；13 场 manifest 逐场数：3000 有 **5～185 件**，含 `Background_sky` /
-        /// `BG_Building_*` / 光晕 / 粒子）⇒ 压暗层只要 ≤2999，**整个战场就不再被压暗**（比现状更糟）。
-        /// 而画布件（提示行 / 换牌钮）也全在 3000 ⇒ 压暗层挪到 3001 以上又会盖住提示行。
-        /// ⇒ **只有「抬卡」这一条路**能同时满足「战场暗 / 卡亮 / 提示行亮」。</para></summary>
-        public const int QMulliganCard = 3001;
+        /// `CardDisplayWindow` 的卡是 3009..3011，它得压在换牌卡之上（原版就是这样：点一下牌看大图）。</para></summary>
+        public const int QMulliganCard = 3007;
 
         /// <summary>压暗层的**不透明度** = **原版 `Shade.onAlphaLevel`**。
         /// <para>判据 = `bundle_scenes_scenes_battlearena1/MonoBehaviour/MonoBehaviour_4399.json`（13 场同名同值）：
@@ -735,28 +749,40 @@ namespace CardPresentation
             var frame = p._frame;                       // 面板内所有件的父节点（⛔ 不是 `go.transform`）
 
             // 压暗（原版 `ShadePanel` / `Shade.SwitchShade`；透明度 = 原版 `onAlphaLevel`，见 `ShadeAlpha`）
-            // 🔴🔴 **2026-10-22（W62 · `D6`）：这一件【留在画布上】，改的是【换牌卡】那一侧的队列。**
-            //   **病灶（真机像素证据，2560×1440）**：压暗层画在了**换牌卡上面** ——
-            //     原版实拍 `战斗—替换手卡参考图（先手）.png` 换牌卡那一区 mean/max = **56.5 / 255**；
-            //     我们 `_tmp_view/shots/2026-10-22_第六十二会话/21_battle_start.png` 同一区 = **30.1 / 98**
-            //     （背景区 26.1 / 80）⇒ 卡和背景一样暗 = 卡被盖住了。
-            //   **机制**：`CardView` 是**世界空间 `MeshRenderer`**（手牌段 2989..3000、`Default` 排序层），
-            //     压暗层是画布件（队列 3000 + `OverHand` 排序层）⇒ 同队列时**排序层**说话 ⇒ 压暗压在卡上面。
-            //   🔴 **为什么不能像工单里说的那样「把压暗层往下挪到场上卡与手牌之间」**（`A9` 现核推翻）：
-            //     战场那一整批**也是队列 3000**（`ArenaBuilder.cs:5068`「原版这批是 3000」；13 场 manifest
-            //     逐场数：3000 有 5～185 件，含 `Background_sky` / `BG_Building_*` / 光晕 / 粒子）
-            //     ⇒ 压暗层只要 ≤2999，**整个战场就不再被压暗**（比现在更糟）。
-            //   ⇒ 正解（也最贴近原版结构：原版卡是 uGUI、靠 `Canvas.sortingOrder` 排在压暗之上）：
-            //     压暗层**不动**，把**换牌区那几张卡**的队列抬到画布之上（`QMulliganCard` = 3001）。
-            //     卡一抬：排队 > 3000 ⇒ 画在压暗层之上 ✓；同时仍 < `CardFan.QCardBase`(3009)
-            //     ⇒ 「点卡放大」那扇窗（它的卡 3009..3011）**照样压在换牌卡之上** ✓。
-            p._shade = HudCanvas.MakeImagePiece(frame, CardArt.Solid(), "MulliganShade",
-                                                0f, 0f, LayoutSpace.DesignPxW, LayoutSpace.DesignPxH,
-                                                new Color(0f, 0f, 0f, ShadeAlpha));
-            if (p._shade != null)
+            // 🔴🔴 **2026-10-24（第七十三会话 · 代理 `M1`）：这一件【改回世界空间 quad】。**
+            //   **真机证据**（`_tmp_view/shots/2026-10-24_第七十三会话/11_after_match.png`，2560×1440）：
+            //     换牌卡那一区（4 张全量）**max = 123**、p95 ≈ 100；背景 p95 ≈ 56–74。
+            //     123 → 线性 **0.198 ≈ 1 − 0.8**（`ShadeAlpha`）⇒ **卡确实被压暗层盖着**，
+            //     与 W62 `D6` 修之前**一模一样**（原版实拍同一区 max = 255）。
+            //   **机制（W62 猜反的那一条）**：`renderQueue` 的优先级**不高于** `Canvas` 的排序层 ——
+            //     换牌卡是**世界 `MeshRenderer`**（`Default` 层、队列 3001），压暗层是**画布件**
+            //     （`OverHand` 排序层）⇒ **排序层先比，队列轮不到** ⇒ 卡永远在压暗层下面。
+            //     `Battle/HudCanvas.cs:21` 早就记着同一条（「`sortingOrder` 会**先于** `renderQueue` 比较」）；
+            //     W62 那句「抬到 3001 就压过画布」是**未经验证的推断**（`D6②`/`D6⑤` 又是拿这条推断
+            //     反推亮度的 ⇒ **自证**，所以批处理一直绿、真机一直暗）。
+            //   ⇒ **正解**：把压暗层与换牌卡放进**同一个渲染类别**（都是世界 `MeshRenderer`），
+            //     让 `renderQueue` 真的能做判据：
+            //       · 压暗层 = 世界 quad，队列 **`QMulliganShade`(3006)** —— 高于 13 场战场里**所有**几何
+            //         （逐场数 manifest：>3000 的一共 18 件，只有 3001×3/3003×3/3004×8/3005×4，最大 **3005**，
+            //         `battlearena1`/`battlearena2` 都有；9 场一件都没有）⇒ 战场照旧被压暗；
+            //       · 换牌卡 = **`QMulliganCard`(3007)** —— 高于压暗层、且仍 < `CardFan.QCardBase`(3009)
+            //         ⇒「点卡放大」那扇窗照样压在换牌卡之上；
+            //       · 画布 HUD（提示行 / 换牌钮 / 继续 / 眼睛）= `OverHand` 排序层 ⇒ 仍压在所有世界件之上，
+            //         不会被压暗，也不会被卡盖住。
+            //   ⛔ **别再把它挪回画布**（哪怕换一个更低的排序层）：画布件只要排序层 > `Default` 就压世界件，
+            //     而战场几何是 `Default` 层、队列 3000..3005 ⇒ 没有任何画布排序层能同时「压住战场」又
+            //     「不压住卡」。⚠️ 这一句的判据 = 上面的真机像素 + `HudCanvas.cs:21`，**不是我们自己的常量**。
+            var shadeQuad = ImageQuad.Create(go.transform, CardArt.Solid(), At(960f, 540f),
+                                             LayoutSpace.DesignHeight, new Vector2(0.5f, 0.5f),
+                                             "MulliganShade");
+            p._shade = HudPiece.Of(shadeQuad);
+            if (shadeQuad != null)
             {
-                HudCanvas.FillParent(p._shade.Rect);
-                HudCanvas.Reorder(p._shade.Rect, Z);
+                // 铺满**当前**可见区（原版那件是整屏 `Image`）：高 = 可见高、宽 = 可见宽（= 高 × 屏幕宽高比）
+                shadeQuad.SetAspect(LayoutSpace.VisibleWidth / LayoutSpace.DesignHeight);
+                shadeQuad.SetTint(new Color(0f, 0f, 0f, ShadeAlpha));
+                shadeQuad.transform.localPosition += new Vector3(0f, 0f, Z);
+                shadeQuad.SetRenderQueue(QMulliganShade);   // 压在战场之上、换牌卡之下
             }
             else Debug.LogError("[Battle] 换牌面板的压暗层没建起来（`CardArt.Solid()` 取不到？）");
 
@@ -998,9 +1024,13 @@ namespace CardPresentation
                 //    ⚠️ 这是**收口径、不是「对齐原版」** —— 这些层的**原版 z 关系没有判据**
                 //    （`Z` 这个常量本身是我们挑的，见 `资料/普查产出_1010/V4b_三件口径.md` §Q2）。
                 //    🔴 **2026-10-22（W62 · `D6`）补注**：上面那句「与同父的 `_shade`」**只对「用的是同一个
-                //    `Z` 常量」成立，父件已经不同了** —— `_shade` 退回**世界空间**（挂在 `transform` 下的
-                //    `ImageQuad`，`localPosition.z = Z`），而钮在**画布**上（z 只是兄弟序）。两者的先后
-                //    由**渲染队列**定（`QMulliganCard` 3001 vs 画布那一档 3000），⛔ 别再拿 z 推它们的关系。
+                //    `Z` 常量」成立，父件不同** —— `_shade` 是**世界空间**的 `ImageQuad`（`localPosition.z = Z`），
+                //    而钮在**画布**上（z 只是兄弟序）。两者的先后**由渲染队列定**
+                //    （`QMulliganCard` 3007 vs 压暗层 `QMulliganShade` 3006 —— 两者**都在世界空间**，
+                //    见那两条 const 的 doc），⛔ 别再拿 z 推它们的关系。
+                //    ⚠️ **2026-10-24（第七十三会话 · `M1`）**：上一版的「世界空间」那句当时**其实不成立**
+                //    （那天的成品件是画布 `HudPiece`，本段却写成世界 —— 注释和代码打架）；现在代码真的改成
+                //    世界 quad 了，这句才对得上。错因 = 那天先写了注释、实现走了画布支。
                 //    改坏法：把 z 写成 `c.transform.position.z`（或整个 `c.transform.position`）⇒
                 //    `Editor/BattleScene.cs` 的 A276 那条断言红（它把卡的世界 z 挪 0.4 再重建按钮）。
                 // ⚠️ 钮是**本面板的子件** ⇒ 位置用**本面板的局部位**（`RowLocalAt`，判据只此一处）。
@@ -1154,7 +1184,7 @@ namespace CardPresentation
                                   i < _savedScale.Count ? _savedScale[i].x : 1f);
                 // 🔴 **2026-10-22（W62 · `D6`）**：队列还回搬进来之前那一档（见 `QMulliganCard`）。
                 //   ⚠️ 下一轮 `SyncHand` → `HandLayout.Place` 会再按手牌槽位重算一次（那才是正主），
-                //   这里只是让「面板关掉到下一次 Refresh 之间」不留在 3001 那一档。
+                //   这里只是让「面板关掉到下一次 Refresh 之间」不留在 3007 那一档。
                 if (i < _savedQueue.Count) _cards[i].SetQueue(_savedQueue[i]);
             }
             _savedPos.Clear();
@@ -1432,16 +1462,17 @@ namespace CardPresentation
         /// 语义上它防的是本件**最坏的那一档**：一半在画布、一半在世界 —— 16:9 下逐位相同、全绿，
         /// 只有别的宽高比才露（`T09` §五·补⑦）。⛔ 别用「`HudPiece != null`」替它（那个两边都真）。
         /// ⚠️ 任一件没建出来（贴图/字体缺失）⇒ 也返 `false`，如实回答「不成立」。</para>
-        /// <para>🔴 **2026-10-22（W62 · `D6`）补注**：`_shade` **留在这一条里**（它仍在画布上 —— 压暗层
-        /// 必须靠画布的 `OverHand` 排序层压住队列同为 3000 的战场几何，见 <see cref="QMulliganCard"/>）。
-        /// 本条的「灭自证」另一半（「**换牌卡**不在画布上、且队列被抬到画布之上」）由
-        /// `Editor/BattleScene.cs` 的 `D6` 那一段从 `RowCard(i).Queue` 那侧钉住。</para></summary>
+        /// <para>🔴 **2026-10-24（第七十三会话 · `M1`）就地订正（铁律 5）**：`_shade` **已从这一条里移出**
+        /// —— 它现在是**世界空间 `ImageQuad`**（<see cref="QMulliganShade"/> 那条 doc 写了为什么「画布件不行」：
+        /// 画布排序层先于 `renderQueue` 比较，任何 `OverHand` 画布都会盖住世界空间的换牌卡）。
+        /// 本条的「灭自证」另一半（**世界档下必须为假**）由 `Editor/BattleScene.cs` 的 `D6` 那一段
+        /// 从 `ShadeIsUgui` / `RowCard(i).Queue` 那两侧钉住。</para></summary>
         public bool OnCanvas
         {
             get
             {
                 if (_frame == null || _frame.GetComponentInParent<Canvas>() == null) return false;
-                return IsUgui(_shade) && IsUgui(_bar) && IsUgui(_play) && IsUgui(_eye)
+                return IsUgui(_bar) && IsUgui(_play) && IsUgui(_eye)
                     && IsUgui(_prompt) && IsUgui(_doneText) && IsUgui(_turnText);
             }
         }
@@ -1464,23 +1495,33 @@ namespace CardPresentation
         public bool ShadeActive { get { return _shade != null && _shade.gameObject.activeSelf; } }
 
         // ══════════════════════════════════════════════════════════════════════════════════════
-        //  🆕 2026-10-22（W62 · 战斗线 `D6`）：换牌期**层序**的三个只读探针（自检用）
-        //  ⚠️ 只读、不改状态；三个口各答一件事（⛔ 别合成一个 `bool` —— 分开才分得清是哪一半错）。
+        //  🆕 2026-10-22（W62 · 战斗线 `D6`）：换牌期**层序**的只读探针（自检用）
+        //  ⚠️ 只读、不改状态；每个口只答一件事（⛔ 别合成一个 `bool` —— 分开才分得清是哪一半错）。
+        //  🔴 **2026-10-24（第七十三会话 · `M1`）**：`ShadeCanvasLayer` 换成 `ShadeRenderQueue` /
+        //     `ShadeIsUgui` —— 压暗层已改回**世界空间 quad**（画布排序层先于 `renderQueue` 比较，
+        //     原来那条「在 `OverHand` 画布上」的前提本身就是病灶，见 <see cref="QMulliganShade"/>）。
         // ══════════════════════════════════════════════════════════════════════════════════════
 
-        /// <summary>压暗层所在那块画布的**排序层 id**（判据 = `HudCanvas.SortingLayer.OverHand`）。
-        /// 没建出来 ⇒ **`int.MinValue`**（必红，不静默）。
-        /// <para>它回答的是「压暗层压不压得住战场」：战场几何是**队列 3000 + `Default` 层**
-        /// （`WarpforgeArena1/Editor/ArenaBuilder.cs:5068`）⇒ 压暗层靠 `OverHand` 层压住它们。</para></summary>
-        public int ShadeCanvasLayer
+        /// <summary>压暗层的**渲染队列号**（读回真实材质，⛔ 不是读 <see cref="QMulliganShade"/> —— 那是自证）。
+        /// 它必须**大于战场全部几何的队列**（13 场实测最大 3005）**小于换牌卡**（3007）。
+        /// 没建出来 / 不是世界 quad ⇒ **`int.MinValue`**（必红，不静默）。
+        /// <para>🔴 **2026-10-24 修正（复跑 `BattleScene.Run` 当场抓到）**：本口原来把判据写成
+        /// `!_shade.IsUgui`（= **在画布件上**才往下读）⇒ 改成世界 quad 之后**恒回 `int.MinValue`**，
+        /// `D6②` 因此红（读数 `-2147483648`）。正确写法 = `_shade.IsUgui` 为**真**（画布件）才早退。
+        /// ⚠️ 这一类「否号写反」的探针**不会崩**、只会静默回哨兵 —— 所以 `D6②` 那条「哨兵必红」是必要的。</para></summary>
+        public int ShadeRenderQueue
         {
             get
             {
-                if (_shade == null || !_shade.IsUgui || _shade.Rect == null) return int.MinValue;
-                var cv = _shade.Rect.GetComponentInParent<Canvas>();
-                return cv != null ? cv.sortingLayerID : int.MinValue;
+                if (_shade == null || _shade.IsUgui) return int.MinValue;   // 画布件没有「本工程的队列号」可言
+                return _shade.Quad != null ? _shade.Quad.RenderQueue : int.MinValue;
             }
         }
+
+        /// <summary>压暗层现在是不是 uGUI 画布件（**判据：必须是 `false`**）。
+        /// 2026-10-24 真机实测：它是画布件时**队列 3001 的换牌卡照样被它盖住**（卡区 max = 123 ≈ 线性 0.198）
+        /// ⇒ 只要这个口回 `true`，卡就一定是暗的。</summary>
+        public bool ShadeIsUgui { get { return _shade != null && _shade.IsUgui; } }
 
         /// <summary>压暗层的透明度（读回**实际染色**，⛔ 不是读 <see cref="ShadeAlpha"/> —— 那是自证）。
         /// 没建出来 ⇒ `-1`。</summary>

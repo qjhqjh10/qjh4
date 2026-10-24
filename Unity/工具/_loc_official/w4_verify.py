@@ -8,6 +8,23 @@ import sys
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import w4_lib as L  # noqa: E402
 
+## E5 2026-10-24: -h/--help early exit (print usage only, exit 0; never run the real work).
+## 样板 = `d:/4/Unity/工具/scan_swallowed_clauses.py` 的 A17 那段（工具线口径：`工具/**/*.py` 的 `--help` 必须 rc=0）。
+import sys as _wf_help_sys
+if any(_wf_help_sys.argv[_i] in ("-h", "--help") for _i in range(1, len(_wf_help_sys.argv))):
+    try:
+        _wf_help_sys.stdout.reconfigure(encoding="utf-8")
+    except Exception:
+        pass
+    print('用法：\n'
+          '  PYTHONIOENCODING=utf-8 python -I -X utf8 d:/4/Unity/工具/_loc_official/w4_verify.py\n'
+          '  -h, --help  只打印本用法并退出（退出码 0），不执行任何真活。\n'
+          '说明：W4 收尾自检 —— **纯盘上核对、不跑 Unity**（本脚本无其它参数，默认就跑全套）：\n'
+          '  ① `Core/Loc.cs` 条目数下限 + 正则可见条数  ② 待接 12 条键  ③ 6 条中文缺口（只打印）\n'
+          '  ④ 官方 `Battle/*` 键覆盖与 EN  ⑤ `trait_tips.json`  ⑥ `official_names.json` 命中（下限）\n'
+          '  ⑦ 三处接线点 grep。全绿 ⇒ rc=0；任一条红 ⇒ rc=1。')
+    _wf_help_sys.exit(0)
+
 RES = r"d:/4/Unity/MyGame/Assets/CardPresentation/Resources"
 ok = bad = 0
 

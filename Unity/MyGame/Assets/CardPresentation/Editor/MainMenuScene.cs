@@ -5972,6 +5972,18 @@ public static class MainMenuScene
                         CheckAtWorld(key, PlayerProfileWindow.KeyL, PlayerProfileWindow.KeyR, top, bot,
                                      $"键 {i} `{spec.Node}`（布局后：165 × 109.252、y 从 180.24 步进 119.252）");
                         if (key == null) continue;
+                        // 🔴 2026-10-24（`U2`）：第 6 键 `Ranked` 按用户拍板**隐藏**（留节点 + SetActive(false)
+                        //   + **子孙不建**，见 `Shell/PlayerProfileWindow.cs` 的 `BuildTabBar`）
+                        //   ⇒ 这一颗不查 bg/Icon/Label/文案/命中区（判据仍在 prefab 里，恢复显示时原样复活）。
+                        //   ⛔ 别为了断言绿把它改回显示（用户已拍板）。
+                        if (spec.Node == "Ranked")
+                        {
+                            CheckTrue(!key.gameObject.activeSelf,
+                                      "键 5 `Ranked` **按用户 2026-10-24 拍板隐藏**（节点在、`activeSelf=false`）");
+                            CheckTrue(key.childCount == 0,
+                                      "键 5 的子孙（bg / Icon / Label / 命中区）**不建** —— 隐藏态的既定写法");
+                            continue;
+                        }
                         CheckAtWorld(FindChild(key, "Icon"), spec.IconL, spec.IconR, spec.IconT, spec.IconB,
                                      $"键 {i} 的 `Icon` 框（**六个键各不相同** —— 原版没挂 AspectRatioFitter，别统一）");
                         var lab = FindChild(key, "Tab Toggle Title");
@@ -6045,7 +6057,7 @@ public static class MainMenuScene
                     CheckAtWorld(FindChild(t, "Title Tab"), 318.37f, 1746.97f, 118.92f, 962f, "`Title Tab` 页根（同上）");
                     CheckAtWorld(FindChild(t, "Battle Log Tab"), 351.03f, 1746.97f, 118.92f, 962f, "`Battle Log Tab` 页根");
                     CheckAtWorld(FindChild(t, "Trophies Tab"), 351.03f, 1746.97f, 118.92f, 962f, "`Trophies Tab` 页根");
-                    CheckAtWorld(FindChild(t, "Ranked Tab"), 351.03f, 1746.97f, 118.92f, 962f, "`Ranked Tab` 页根");
+                    CheckAtWorld(FindChild(t, "Ranking Tab"), 351.03f, 1746.97f, 118.92f, 962f, "`Ranking Tab` 页根");
 
                     // 🔴 **出厂打开的是 `Title` 页（第 3 个键），不是第一页** —— 唯一信号 = 原版只有
                     //    `Title Tab` 是 `m_IsActive=true`（`m_IsOn` 六个键全 0，数据里看不出哪个键亮着）
@@ -6062,6 +6074,9 @@ public static class MainMenuScene
                     CheckTrue(texOn != null && texOff != null, "页签底两张图都在工程里（`40K_settings_button` / `_hover`）");
                     for (int i = 0; i < pp.ButtonBgs.Length; i++)
                     {
+                        // 🔴 2026-10-24（`U2`）：第 6 键 `Ranked` 已按用户拍板隐藏 ⇒ **它不建 `button_bg`**
+                        //   （`_btnBg[5]` 为 null）⇒ 这一颗不查贴图/alpha（判据仍在 prefab，恢复显示时原样复活）。
+                        if (PlayerProfileWindow.Tabs[i].Node == "Ranked") continue;
                         var bgq = pp.ButtonBgs[i];
                         bool shouldOn = i == PlayerProfileWindow.DefaultTabIndex;
                         CheckTrue(bgq != null && bgq.Texture == (shouldOn ? (Texture)texOn : texOff),
@@ -7671,14 +7686,16 @@ public static class MainMenuScene
                     // ---- Ranking 页（2026-09-27 建 · 第 6 页）----
                     // 判据：`资料/普查产出_0927/档案窗_Ranking页与图名表.md`（§A 层×参数 · **§A·4 两处偏差** · §A·6 乱序）。
                     {
+                        // 🔴 2026-10-24（`U2`）：第 6 键已隐藏 ⇒ **命中区不存在、点不到**。
+                        //   原「点第 6 键 ⇒ 切到 Ranking 页」这条随之作废（没有入口就没有这个 case）。
                         var k5 = FindChild(bar2, PlayerProfileWindow.Tabs[5].Node);
                         var h5 = k5 != null ? FindChild(k5, "Hit") : null;
                         var w5 = h5 != null ? h5.GetComponent<WindowButton>() : null;
-                        if (w5 != null) w5.Click();
-                        Check(pp.CurrentTab, WindowTabType.ProfileRanking, "点第 6 个键 ⇒ 切到 `Ranking` 页");
+                        CheckTrue(k5 != null && !k5.gameObject.activeSelf && w5 == null,
+                                  "第 6 键隐藏 ⇒ 没有命中区 ⇒ **点不到**（用户 2026-10-24 拍板）");
 
-                        var rk = FindChild(t, "Ranked Tab");
-                        CheckTrue(rk != null, "`Ranked Tab` 页根在");
+                        var rk = FindChild(t, "Ranking Tab");
+                        CheckTrue(rk != null, "`Ranking Tab` 页根在");
                         var tab5 = pp.Page(WindowTabType.ProfileRanking) as RankedTab;
                         CheckTrue(tab5 != null, "这一页的组件是 `RankedTab`（类名照原版）");
 
@@ -7823,11 +7840,12 @@ public static class MainMenuScene
                         CheckTrue(avBtn != null && avBtn.onClick != null, "本页头像接了点击");
                         if (avBtn != null) avBtn.Click();
                         Check(pp.CurrentTab, WindowTabType.ProfileAvatar, "点本页头像 ⇒ **切到 `Avatar` 页**（原版行为）");
+                        // 🔴 2026-10-24（`U2`）：第 6 键隐藏 ⇒ 没法「切回 Ranking 页」；只断入口没了。
                         var back5 = FindChild(bar2, PlayerProfileWindow.Tabs[5].Node);
                         var hb5 = back5 != null ? FindChild(back5, "Hit") : null;
                         var wb5 = hb5 != null ? hb5.GetComponent<WindowButton>() : null;
-                        if (wb5 != null) wb5.Click();      // 切回 Ranking 页（后面不留状态）
-                        Check(pp.CurrentTab, WindowTabType.ProfileRanking, "再切回 `Ranking` 页");
+                        CheckTrue(back5 != null && !back5.gameObject.activeSelf && wb5 == null,
+                                  "第 6 键隐藏 ⇒ 回不去 `Ranking` 页（入口已按用户拍板去掉）");
                     }
                     // 🆕 **2026-10-06（A94 相 2）**：本窗面板底图的**吸收层**（点窗内空白处 ⇒ 原版什么都不发生）。
                     //   期望矩形 = **原版 prefab** `Player Profile Window > Menu Area > Tab  Area >
@@ -8037,8 +8055,18 @@ public static class MainMenuScene
         //   两套都自带临时存档与 `finally` 复原，批处理下不写玩家真档。
         ProfileWindowAssertE12.Run();
         _sink.Pass += ProfileWindowAssertE12.Pass; _sink.Fail += ProfileWindowAssertE12.Fail;
+
+        // 🆕 2026-10-24（执行代理 `U2`）：账户窗页签集合 == 原版 6 键 / 6 页；**可见**页签 == 用户拍板 5 颗
+        //   （第 6 颗 `Ranked` 按用户 2026-10-24 口径隐藏 —— prefab 有、用户原版实拍只有 5 颗 = 版本差）。
+        ProfileTabsAssertU2.Run();
+        _sink.Pass += ProfileTabsAssertU2.Pass; _sink.Fail += ProfileTabsAssertU2.Fail;
         ProfileDataAssertE13.Run();
         _sink.Pass += ProfileDataAssertE13.Pass; _sink.Fail += ProfileDataAssertE13.Fail;
+
+        // 🆕 2026-10-24（执行代理 `E11`）：录像目录**守卫** —— 未设 `OverrideDir` 时 `ResetForTest` 必须
+        //   拒绝清空并出声（判据 = 自检不许碰玩家真档；事故 = `E13` 的 finally 顺序反了，删过一次真录像）。
+        ReplayStoreGuardAssertE11.Run();
+        _sink.Pass += ReplayStoreGuardAssertE11.Pass; _sink.Fail += ReplayStoreGuardAssertE11.Fail;
 
         // 🆕 2026-10-24（执行代理 `D1`）：轮抽数据层 —— 882 个卡包 / 每包 3 张 / 904 卡 id 全命中 /
         //   确定性抽包（同 seed 同结果、同轮不重复）/ `BuildClosedDeck` 4 包 = 12 张。纯数据断言，不建窗。
@@ -9725,6 +9753,12 @@ public static class MainMenuScene
         DraftWindowAssertD2.Run();
         _sink.Pass += DraftWindowAssertD2.Pass; _sink.Fail += DraftWindowAssertD2.Fail;
 
+        // 🆕 2026-10-24（执行代理 `E3`）：轮抽三条尾巴 —— 卡包预览（内嵌 `Generic Multi Card Display`）·
+        //   战斗结果回灌（`IngestBattleResults` 吃 `BattleLogData` 的 ClosedDeck 增量）· `UpdateState` 唯一收尾。
+        //   ⚠️ 它自己会在 `finally` 里 `ClearRunForTest()` 并还原 `PendingPlayMode` / `PrebuiltDecks.PendingSource`。
+        DraftAssertD3.Run();
+        _sink.Pass += DraftAssertD3.Pass; _sink.Fail += DraftAssertD3.Fail;
+
         // 🆕 2026-10-24（执行代理 `E18`）：头像三层放大（Image ×2.0 / Border ×1.25 / Highlight ×1.9）——
         //   比值 1.006 / 实绘高比 1.600 / 顶沿戳出 ≥30px / 画序。
         AvatarScaleAssertE18.Run();
@@ -9735,6 +9769,17 @@ public static class MainMenuScene
         //   ⚠️ 必须传 `WindowsManager` —— `LiveOpsEventWindow.Open()` 不调 base，状态要靠管理器置 Open。
         EventWindowDetailAssertE19.Run(WindowsManager.Instance);
         _sink.Pass += EventWindowDetailAssertE19.Pass; _sink.Fail += EventWindowDetailAssertE19.Fail;
+
+        // 🆕 2026-10-24（执行代理 `A1`）：等级 → 段位图案（映射表证据 + 两族不相交 + 排名页/事件窗口径一致）。
+        //   阶段 A = 纯表结构（不需场景）；阶段 B = 排名页画出的图名/几何与事件窗一致（需场景，缺宿主时 Skip 出声）。
+        RankedArtAssert.Run();
+        _sink.Pass += RankedArtAssert.Pass; _sink.Fail += RankedArtAssert.Fail;
+
+        // 🆕 2026-10-24（执行代理 `E10`）：档案窗两张排名卡的**段位大图 + 官方段位名** ·
+        //   主菜单轮抽模式卡的 `State` 条（胜场/阶段，回壳即见）。
+        //   ⚠️ 它会临时喂 `DraftModeWindow.SetRunForTest`，`finally` 原样放回（不清玩家真进度）。
+        ProfileRankAssertE10.Run();
+        _sink.Pass += ProfileRankAssertE10.Pass; _sink.Fail += ProfileRankAssertE10.Fail;
 
         // ============================================================ 四个排行榜 + 段位信息块
         //   （2026-09-27 建 · 多人界面那一批 第 3 件 + 第 5 件）
@@ -18836,6 +18881,24 @@ public static class MainMenuScene
         var bg = FindChild(card, "Background Image");
         var q = bg != null ? bg.GetComponentInChildren<ImageQuad>() : null;
         if (q == null) { CheckTrue(false, $"{what} 的卡图建了"); return; }
+
+        // 🔴 **2026-10-24（`D1` 诊断）**：卡图必须排在**左竖导航投影** `Navigation Panel/Panel Shadow` 之上。
+        //   原来卡图在 `QCardArt`(2905)、投影在 `QPanel`(2910) 且 rect 横跨 x −762.5..1166.2
+        //   ⇒ 投影盖住 col0 小冲突 / col1 排位两张卡图（**用户 2026-10-24 报的「淡黑色透明层」**）。
+        //   判据 = 用户原版实拍（`桌面/warpforge参考图/主界面参考图.png`，正确比例 0.7405）同处**没有单行台阶**；
+        //   我们渲染出的 y=582 单行跳变 **+23.3 灰阶**。报告 → `资料/普查产出_1024c/D1_主界面模式卡淡黑层.md`。
+        //   ⚠️ 这条在 `CheckCard` 里 ⇒ 5 处调用一次管住 5 张模式卡。
+        var shadowNode = FindChild(menu.Find("Navigation Panel"), "Panel Shadow");
+        var sq = shadowNode != null ? shadowNode.GetComponentInChildren<ImageQuad>() : null;
+        CheckTrue(sq != null, "★ （前提）左竖导航投影 `Panel Shadow` 建了（下面两条队列判据要用它）");
+        if (sq != null)
+        {
+            CheckTrue(q.RenderQueue > sq.RenderQueue,
+                      "★ 模式卡卡图的渲染队列**高于**左竖导航投影 —— 反了就是一层淡黑盖在卡上"
+                    + "｜🧨 把卡图改回 `QCardArt`(2905) / 把投影抬到卡图之上 ⇒ 红");
+            CheckTrue(sq.RenderQueue == 2910,
+                      "★ 左竖导航投影保持原版档 `QPanel`=2910（⛔ 不许靠**降投影**解决遮挡：它会掉到导航底板后面、整条 1929px 都变）");
+        }
         // 🔴 **2026-10-17（桶 G1/G2）就地订正（铁律 5）**：
         //   `T12` 给 `GameModes` 加了横向视口裁切 —— 卡图 quad 会被**物理缩成可见片**
         //   （col3 的卡 x=1870..2405、视口右沿 1920 ⇒ quad 只剩 50px）。

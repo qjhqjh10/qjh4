@@ -328,6 +328,14 @@ namespace CardPresentation
                 float top = BarT + KeyStep * i, bot = top + KeyH;
                 var b = MenuDraw.Node(bar, Tabs[i].Node, new PxRect(KeyL, top, KeyR, bot));
 
+                // 🔴 **2026-10-24（用户拍板 · `U2` 判据）**：本 build 的 prefab 有 **6 颗**页签
+                //   （`Profile/Avatar/Title/Battle Log/Trophies/Ranked`），但**用户自己的原版实拍只有 5 颗**、
+                //   第 5 颗下方是**空带** ⇒ 这是**版本差**，用户明确说「最下面多了一个按钮及其界面」⇒ **隐藏第 6 颗**。
+                //    ⛔ **页面与 `Tabs`/`visualTypes` 表都保留**（删掉这一行即可复原）；`Tab Buttons` 不是真
+                //    `VerticalLayoutGroup` ⇒ 前 5 颗的位置**逐位不变**。
+                //    ⚠️ `continue` 必须早于 `tb.options.Add`（否则仍会被算进页签索引）。
+                if (Tabs[i].Node == "Ranked") { b.gameObject.SetActive(false); continue; }
+
                 // `button_bg`：`a=(0,0)-(1,1) sz=(0,0)` ⇒ 铺满键；`m_AnchoredPosition.y` **逐键不同**（见文件头存疑）
                 var bgRect = new PxRect(KeyL, top + Tabs[i].BgDy, KeyR, bot + Tabs[i].BgDy);
                 var c = BgTint; c.a = Tabs[i].BgA;
@@ -453,7 +461,12 @@ namespace CardPresentation
                 // ⚠️ `Avatar Tab` / `Title Tab` 的根**两侧各溢 16.33**（真值）
                 float l = (i == 1 || i == 2) ? WideL : ContentL;
                 var r = new PxRect(l, RedT, ContentR, AreaB);
-                var page = MenuDraw.Node(_content, Tabs[i].Node.Replace(" Button", "") + " Tab", r);
+                // 🔴 **2026-10-24（`U2` 现核 · 铁律 5）**：原版第 6 页的**页根名是 `Ranking Tab`**
+                //   （资产文件名 `GameObject/**Ranking Tab.json**`、`menu_dump` 同；类名才是 `RankedTab`），
+                //   而「键名去 ` Button` 再拼 ` Tab`」会得到 **`Ranked Tab`** ⇒ **只有这一颗要显式映射**。
+                string pageName = Tabs[i].Node == "Ranked" ? "Ranking Tab"
+                                : Tabs[i].Node.Replace(" Button", "") + " Tab";
+                var page = MenuDraw.Node(_content, pageName, r);
                 _pageRoots[i] = page;
                 // ⚠️ `AddComponent(Type)` 返回的是 `Component` —— 必须显式转（2026-09-27 第一次编译就栽在这）
                 // 🆕 2026-10-03（A3②）：看**别人**的档案时六页都换成占位（数据在服务器，本地没有）

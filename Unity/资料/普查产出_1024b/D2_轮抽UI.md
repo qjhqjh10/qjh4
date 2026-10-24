@@ -70,7 +70,7 @@
 | 选将页可滚 | `MenuScroll`（120 px/格） | 🔴 **我们挑的**：原版 `ScrollRect` 组件序列化 `m_Enabled = 0`（现读），5 张卡宽 2475px > 屏宽 ⇒ 不加滚动后 2 张永远点不到 |
 | 单包卡内的 3 张卡 | **3 张缩略卡面（`CardView`）＋卡名** | 🔴 我们挑的：原版按 `cardInfoItem`（`UICardInfoItem`）逐张实例化，那颗模板的 PathID `-5880222813801091413` 在 `GameObject/` **0 命中** ⇒ 尺寸解不出 |
 | 右栏默认选中 | `Deck Info`（0） | 🔴 我们挑的：原版 prefab 序列化 `Card List isOn=1`，但 `Initialize` 又把三页全关、只留 Energy 页（S3 §2.9）——原版那对值是矛盾的 |
-| `ClosedDeck` 的参数表 | 走 **Skirmish（12 张/4 传说）** | 🔴 我们挑的：`GameplayVariables.For` 没有 `ClosedDeck` 档（`:444-449` ⇒ Classic 30 张），而轮抽牌恒 12 张；**模式号仍是 `ClosedDeck(7)`** |
+| `ClosedDeck` 的参数表 | 🔴 **2026-10-24 已改**：显式 **`GameplayVariables.ClosedDeck`**（= `Skirmish.Clone()`，**值仍是我们挑的** —— 原版 `DraftEventData.gameplayVariables` 服务端下发、本地 0 命中）；⛔ 不再靠 `For` 的 default 落进 Classic，也不再靠调用方临时传 Skirmish | 🔴 **我们挑的**（原版参数拿不到）；`deckSize 12` / `maxLegendaries 4` / `warlordLifeChange −10` / `manaPerTurn 2` / `showMulligan=false` / `shouldReshuffle=false` 有游戏内文案旁证，`handLimit 8` / `startingHand 4` / `manaAccumulation 1` 来自非官方规则书 |
 | `ClosedDeck.warlordId` | 传**阵营 id** 当标记 | `BuildClosedDeck` 的 `int warlordId` 只做标记（D1 已核）；我们的战将 id 是字符串 |
 | 不做 | `Premium`/`10x` 两档 · `Reroll` 整支 · `Timer` · `Intro` 页节点 · `DEBUG_REROLL_BUTTON` · `Debug Win`/`Debug Battle` · `Generic Multi Card Display`（预览弹窗） | 价格/成本/活动时刻全在服务端；`Intro` 的激活者**全反编译查不到**（S3 §七·1）；两个 Debug 钮原版 `OnEnable` 强制关；预览是独立弹窗，不在本批范围。**每一处都在 `Open()`/`Build()` 里出声一次** |
 | 动画 | 全不做（包卡入场 0.8→1、选包飞出、红底闪一下、`DOPunchScale`） | 时长/缓动只有 `DAT_*` 符号（S3 §五·3）⇒ 选包时出声说明「原版这里会闪」 |

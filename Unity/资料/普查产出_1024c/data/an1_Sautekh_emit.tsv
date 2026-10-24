@@ -1,0 +1,262 @@
+card	name	bucket	idx	prefab	cardanim	src	soField	trait	traitType	emit	note
+30007162b68992e41a422f2061705b65	Lord of the Storm	ability	0	CreateCard Necron	CreateCard_Necrons	cardSO.cardAbilities[1].abilityLogic[0].cardAnimations[0]	cardAbilities[1].abilityLogic[0].cardAnimations[0]			ABILITY_BEAT	ExpandAbilityBeats → PlayAbilityBeat（逐拍锚点/位移）
+30007162b68992e41a422f2061705b65	Lord of the Storm	play	0	Sau_LordOfTheStorm	Lord_of_the_storm_hit	cardSO.cardAbilities[0].abilityLogic[0].cardAnimations[0]	cardAbilities[0].abilityLogic[0].cardAnimations[0]			PLAY_BUCKET(逐卡)	EvtKind.Play → FireEventAll
+461354d98aa5e3142afa4eb4922e5456	Hardwired Destruction	play	0	Sau_DamageProtocol	Damage_Protocol_target	cardSO.cardAbilities[0].abilityLogic[0].cardAnimations[0]	cardAbilities[0].abilityLogic[0].cardAnimations[0]			PLAY_BUCKET(逐卡)	EvtKind.Play → FireEventAll
+461354d98aa5e3142afa4eb4922e5456	Hardwired Destruction	play	1	Sau_DamageProtocol_Quick	Damage_Protocol_quick_target	cardSO.cardAbilities[0].abilityLogic[1].cardAnimations[0]	cardAbilities[0].abilityLogic[1].cardAnimations[0]			PLAY_BUCKET(逐卡)	EvtKind.Play → FireEventAll
+461354d98aa5e3142afa4eb4922e5456	Hardwired Destruction	play	2	ArmourEffect	GainArmourEffect	cardSO.cardAbilities[0].abilityLogic[1].cardAnimations[1]	cardAbilities[0].abilityLogic[1].cardAnimations[1]			PLAY_BUCKET(逐卡)	EvtKind.Play → FireEventAll
+65b2be828179515458a282cf1b027182	Indomitable Will	play	0	Sau_IndomitableWill	Indomitable_Will_Effect	cardSO.cardAbilities[0].abilityLogic[0].cardAnimations[0]	cardAbilities[0].abilityLogic[0].cardAnimations[0]			PLAY_BUCKET(逐卡)	EvtKind.Play → FireEventAll
+SAU1	Canoptek Scarab	death	0	Necrons death explosion		cardSO.customDeathParticles	customDeathParticles			DEATH_PARTICLE	CardFeel.PickDeathFx → ResolveDeathParticle（只认 customDeathParticles）
+SAU1	Canoptek Scarab	death	1	RemnantBody3D Necrons		cardSO.remnantBodyPrefab	remnantBodyPrefab			REMNANT_TABLE	走 RemnantBodyTable（不进死亡桶，A2083 既定）
+SAU1	Canoptek Scarab	trigger	0	ArtificeEffect	ArtificeTraitTrigger	cardtrait-so		artifice	EffectTriggerType.Trigger(3)	TRAIT_FRAMES(Trigger)	TraitFrames._triggerBook（绑定 artifice → ArtificeEffect）
+SAU10	Triarch Praetorian	death	0	Necrons death explosion		cardSO.customDeathParticles	customDeathParticles			DEATH_PARTICLE	CardFeel.PickDeathFx → ResolveDeathParticle（只认 customDeathParticles）
+SAU10	Triarch Praetorian	death	1	RemnantBody3D Necrons		cardSO.remnantBodyPrefab	remnantBodyPrefab			REMNANT_TABLE	走 RemnantBodyTable（不进死亡桶，A2083 既定）
+SAU11	Technomancer	ability	0	Technomancer_Buff	Technomancer_Buff	cardSO.cardAbilities[1].abilityLogic[0].cardAnimations[0]	cardAbilities[1].abilityLogic[0].cardAnimations[0]			ABILITY_BEAT	ExpandAbilityBeats → PlayAbilityBeat（逐拍锚点/位移）
+SAU11	Technomancer	attack_ranged	0	Plasmancer_Damage	Plasmancer_Damage	cardSO.customRangedAttackParticles	customRangedAttackParticles			ATTACK_RANGED(逐卡)	ScheduleAttackPresentation → ResolveRangedAttackPieces
+SAU11	Technomancer	death	0	Necrons death explosion		cardSO.customDeathParticles	customDeathParticles			DEATH_PARTICLE	CardFeel.PickDeathFx → ResolveDeathParticle（只认 customDeathParticles）
+SAU11	Technomancer	death	1	RemnantBody3D Necrons		cardSO.remnantBodyPrefab	remnantBodyPrefab			REMNANT_TABLE	走 RemnantBodyTable（不进死亡桶，A2083 既定）
+SAU11	Technomancer	trigger	0	ArtificeEffect	ArtificeTraitTrigger	cardtrait-so		artifice	EffectTriggerType.Trigger(3)	TRAIT_FRAMES(Trigger)	TraitFrames._triggerBook（绑定 artifice → ArtificeEffect）
+SAU12	Tomb Blade	attack_ranged	0	NecronGauss_Double	Atk_Gauss_Double	cardSO.customRangedAttackParticles	customRangedAttackParticles			ATTACK_RANGED(逐卡)	ScheduleAttackPresentation → ResolveRangedAttackPieces
+SAU12	Tomb Blade	death	0	Necrons death explosion		cardSO.customDeathParticles	customDeathParticles			DEATH_PARTICLE	CardFeel.PickDeathFx → ResolveDeathParticle（只认 customDeathParticles）
+SAU12	Tomb Blade	death	1	RemnantBody3D Necrons		cardSO.remnantBodyPrefab	remnantBodyPrefab			REMNANT_TABLE	走 RemnantBodyTable（不进死亡桶，A2083 既定）
+SAU12	Tomb Blade	trait_onplay	0	FlyingEffect	FlyingTraitPlay	cardtrait-so		flying	EffectTriggerType.OnPlay(2)	TRAIT_FRAMES(OnPlay/Start)	TraitFrames._playBook（绑定 flying → FlyingEffect）
+SAU12	Tomb Blade	trigger	0	FlankEffect	FlankTraitStart	cardtrait-so		flank	EffectTriggerType.Start(0)	TRAIT_FRAMES(OnPlay/Start)	TraitFrames._startBook（绑定 flank → FlankEffect）
+SAU13	Canoptek Spyder	death	0	Necrons death explosion		cardSO.customDeathParticles	customDeathParticles			DEATH_PARTICLE	CardFeel.PickDeathFx → ResolveDeathParticle（只认 customDeathParticles）
+SAU13	Canoptek Spyder	death	1	RemnantBody3D Necrons		cardSO.remnantBodyPrefab	remnantBodyPrefab			REMNANT_TABLE	走 RemnantBodyTable（不进死亡桶，A2083 既定）
+SAU13	Canoptek Spyder	trigger	0	OrkBuffGreenWaaagh	RegenerationTraitTrigger	cardtrait-so		regeneration	EffectTriggerType.Trigger(3)	TRAIT_FRAMES(Trigger)	TraitFrames._triggerBook（绑定 regeneration → OrkBuffGreenWaaagh）
+SAU13	Canoptek Spyder	trigger	1	ArtificeEffect	ArtificeTraitTrigger	cardtrait-so		artifice	EffectTriggerType.Trigger(3)	TRAIT_FRAMES(Trigger)	TraitFrames._triggerBook（绑定 artifice → ArtificeEffect）
+SAU14	Cryptothrall	death	0	Necrons death explosion		cardSO.customDeathParticles	customDeathParticles			DEATH_PARTICLE	CardFeel.PickDeathFx → ResolveDeathParticle（只认 customDeathParticles）
+SAU14	Cryptothrall	death	1	RemnantBody3D Necrons		cardSO.remnantBodyPrefab	remnantBodyPrefab			REMNANT_TABLE	走 RemnantBodyTable（不进死亡桶，A2083 既定）
+SAU15	Deathmark	attack_ranged	0	NecronGauss_Deathmark	Atk_Gauss_Deathmark	cardSO.customRangedAttackParticles	customRangedAttackParticles			ATTACK_RANGED(逐卡)	ScheduleAttackPresentation → ResolveRangedAttackPieces
+SAU15	Deathmark	death	0	Necrons death explosion		cardSO.customDeathParticles	customDeathParticles			DEATH_PARTICLE	CardFeel.PickDeathFx → ResolveDeathParticle（只认 customDeathParticles）
+SAU15	Deathmark	death	1	RemnantBody3D Necrons		cardSO.remnantBodyPrefab	remnantBodyPrefab			REMNANT_TABLE	走 RemnantBodyTable（不进死亡桶，A2083 既定）
+SAU15	Deathmark	trigger	0	RallyEffect	RallyTraitStart	cardtrait-so		rally	EffectTriggerType.Start(0)	TRAIT_FRAMES(OnPlay/Start)	TraitFrames._startBook（绑定 rally → RallyEffect）
+SAU16	Night Scythe	attack_ranged	0	NecronGauss_Double	Atk_Gauss_Double	cardSO.customRangedAttackParticles	customRangedAttackParticles			ATTACK_RANGED(逐卡)	ScheduleAttackPresentation → ResolveRangedAttackPieces
+SAU16	Night Scythe	death	0	Necrons death explosion		cardSO.customDeathParticles	customDeathParticles			DEATH_PARTICLE	CardFeel.PickDeathFx → ResolveDeathParticle（只认 customDeathParticles）
+SAU16	Night Scythe	death	1	RemnantBody3D Necrons		cardSO.remnantBodyPrefab	remnantBodyPrefab			REMNANT_TABLE	走 RemnantBodyTable（不进死亡桶，A2083 既定）
+SAU16	Night Scythe	play	0	GreenSummonCircle	RelentlessMarchSummon	cardSO.cardAbilities[0].abilityLogic[0].cardAnimations[0]	cardAbilities[0].abilityLogic[0].cardAnimations[0]			PLAY_BUCKET(逐卡)	EvtKind.Play → FireEventAll
+SAU16	Night Scythe	trait_onplay	0	FlyingEffect	FlyingTraitPlay	cardtrait-so		flying	EffectTriggerType.OnPlay(2)	TRAIT_FRAMES(OnPlay/Start)	TraitFrames._playBook（绑定 flying → FlyingEffect）
+SAU16	Night Scythe	trigger	0	RallyEffect	RallyTraitStart	cardtrait-so		rally	EffectTriggerType.Start(0)	TRAIT_FRAMES(OnPlay/Start)	TraitFrames._startBook（绑定 rally → RallyEffect）
+SAU17	Psychomancer	attack_ranged	0	Psychomancer_Stun	Psychomancer_Stun	cardSO.customRangedAttackParticles	customRangedAttackParticles			ATTACK_RANGED(逐卡)	ScheduleAttackPresentation → ResolveRangedAttackPieces
+SAU17	Psychomancer	death	0	Necrons death explosion		cardSO.customDeathParticles	customDeathParticles			DEATH_PARTICLE	CardFeel.PickDeathFx → ResolveDeathParticle（只认 customDeathParticles）
+SAU17	Psychomancer	death	1	RemnantBody3D Necrons		cardSO.remnantBodyPrefab	remnantBodyPrefab			REMNANT_TABLE	走 RemnantBodyTable（不进死亡桶，A2083 既定）
+SAU17	Psychomancer	play	0	Psychomancer_Stun	Psychomancer_Stun	cardSO.cardAbilities[0].abilityLogic[0].cardAnimations[0]	cardAbilities[0].abilityLogic[0].cardAnimations[0]			PLAY_BUCKET(逐卡)	EvtKind.Play → FireEventAll
+SAU17	Psychomancer	trigger	0	RallyEffect	RallyTraitStart	cardtrait-so		rally	EffectTriggerType.Start(0)	TRAIT_FRAMES(OnPlay/Start)	TraitFrames._startBook（绑定 rally → RallyEffect）
+SAU18	Skorpekh Destroyer	death	0	Necrons death explosion		cardSO.customDeathParticles	customDeathParticles			DEATH_PARTICLE	CardFeel.PickDeathFx → ResolveDeathParticle（只认 customDeathParticles）
+SAU18	Skorpekh Destroyer	death	1	RemnantBody3D Necrons		cardSO.remnantBodyPrefab	remnantBodyPrefab			REMNANT_TABLE	走 RemnantBodyTable（不进死亡桶，A2083 既定）
+SAU18	Skorpekh Destroyer	trigger	0	FlankEffect	FlankTraitStart	cardtrait-so		flank	EffectTriggerType.Start(0)	TRAIT_FRAMES(OnPlay/Start)	TraitFrames._startBook（绑定 flank → FlankEffect）
+SAU19	Canoptek Reanimator	death	0	Necrons death explosion		cardSO.customDeathParticles	customDeathParticles			DEATH_PARTICLE	CardFeel.PickDeathFx → ResolveDeathParticle（只认 customDeathParticles）
+SAU19	Canoptek Reanimator	death	1	RemnantBody3D Necrons		cardSO.remnantBodyPrefab	remnantBodyPrefab			REMNANT_TABLE	走 RemnantBodyTable（不进死亡桶，A2083 既定）
+SAU19	Canoptek Reanimator	trigger	0	TalentEffect	TalentTraitTrigger	cardtrait-so		talent	EffectTriggerType.Trigger(3)	TRAIT_FRAMES(Trigger)	TraitFrames._triggerBook（绑定 talent → TalentEffect）
+SAU19	Canoptek Reanimator	trigger	1	RallyEffect	RallyTraitStart	cardtrait-so		rally	EffectTriggerType.Start(0)	TRAIT_FRAMES(OnPlay/Start)	TraitFrames._startBook（绑定 rally → RallyEffect）
+SAU2	Canoptek Plasmacyte	ability	0	Sau_HealProtocol	Heal_Protocol_target	cardSO.cardAbilities[0].abilityLogic[0].cardAnimations[0]	cardAbilities[0].abilityLogic[0].cardAnimations[0]			ABILITY_BEAT	ExpandAbilityBeats → PlayAbilityBeat（逐拍锚点/位移）
+SAU2	Canoptek Plasmacyte	death	0	Necrons death explosion		cardSO.customDeathParticles	customDeathParticles			DEATH_PARTICLE	CardFeel.PickDeathFx → ResolveDeathParticle（只认 customDeathParticles）
+SAU2	Canoptek Plasmacyte	death	1	RemnantBody3D Necrons		cardSO.remnantBodyPrefab	remnantBodyPrefab			REMNANT_TABLE	走 RemnantBodyTable（不进死亡桶，A2083 既定）
+SAU2	Canoptek Plasmacyte	trait_onplay	0	FlyingEffect	FlyingTraitPlay	cardtrait-so		flying	EffectTriggerType.OnPlay(2)	TRAIT_FRAMES(OnPlay/Start)	TraitFrames._playBook（绑定 flying → FlyingEffect）
+SAU2	Canoptek Plasmacyte	trait_onplay	1	StealthEffect	StealthTraitPlay	cardtrait-so		stealth	EffectTriggerType.OnPlay(2)	TRAIT_FRAMES(OnPlay/Start)	TraitFrames._playBook（绑定 stealth → StealthEffect）
+SAU20	Chronomancer	ability	0	Chronomancer_Buff	Chronomancer_Buff	cardSO.cardAbilities[1].abilityLogic[0].cardAnimations[0]	cardAbilities[1].abilityLogic[0].cardAnimations[0]			ABILITY_BEAT	ExpandAbilityBeats → PlayAbilityBeat（逐拍锚点/位移）
+SAU20	Chronomancer	attack_ranged	0	Psychomancer_Stun	Psychomancer_Stun	cardSO.customRangedAttackParticles	customRangedAttackParticles			ATTACK_RANGED(逐卡)	ScheduleAttackPresentation → ResolveRangedAttackPieces
+SAU20	Chronomancer	death	0	Necrons death explosion		cardSO.customDeathParticles	customDeathParticles			DEATH_PARTICLE	CardFeel.PickDeathFx → ResolveDeathParticle（只认 customDeathParticles）
+SAU20	Chronomancer	death	1	RemnantBody3D Necrons		cardSO.remnantBodyPrefab	remnantBodyPrefab			REMNANT_TABLE	走 RemnantBodyTable（不进死亡桶，A2083 既定）
+SAU20	Chronomancer	trigger	0	TalentEffect	TalentTraitTrigger	cardtrait-so		talent	EffectTriggerType.Trigger(3)	TRAIT_FRAMES(Trigger)	TraitFrames._triggerBook（绑定 talent → TalentEffect）
+SAU21	Doom Scythe	attack_ranged	0	NecronGauss_Double	Atk_Gauss_Double	cardSO.customRangedAttackParticles	customRangedAttackParticles			ATTACK_RANGED(逐卡)	ScheduleAttackPresentation → ResolveRangedAttackPieces
+SAU21	Doom Scythe	death	0	Necrons death explosion		cardSO.customDeathParticles	customDeathParticles			DEATH_PARTICLE	CardFeel.PickDeathFx → ResolveDeathParticle（只认 customDeathParticles）
+SAU21	Doom Scythe	death	1	RemnantBody3D Necrons		cardSO.remnantBodyPrefab	remnantBodyPrefab			REMNANT_TABLE	走 RemnantBodyTable（不进死亡桶，A2083 既定）
+SAU21	Doom Scythe	trait_onplay	0	FlyingEffect	FlyingTraitPlay	cardtrait-so		flying	EffectTriggerType.OnPlay(2)	TRAIT_FRAMES(OnPlay/Start)	TraitFrames._playBook（绑定 flying → FlyingEffect）
+SAU21	Doom Scythe	trigger	0	FlankEffect	FlankTraitStart	cardtrait-so		flank	EffectTriggerType.Start(0)	TRAIT_FRAMES(OnPlay/Start)	TraitFrames._startBook（绑定 flank → FlankEffect）
+SAU22	Lokhust Heavy Destroyer	ability	0	NecronGauss_Trilinked	Atk_Gauss_Trilinked_withPause	cardSO.cardAbilities[0].abilityLogic[0].cardAnimations[0]	cardAbilities[0].abilityLogic[0].cardAnimations[0]			ABILITY_BEAT	ExpandAbilityBeats → PlayAbilityBeat（逐拍锚点/位移）
+SAU22	Lokhust Heavy Destroyer	attack_ranged	0	NecronGauss_Trilinked	Atk_Gauss_Trilinked	cardSO.customRangedAttackParticles	customRangedAttackParticles			ATTACK_RANGED(逐卡)	ScheduleAttackPresentation → ResolveRangedAttackPieces
+SAU22	Lokhust Heavy Destroyer	death	0	Necrons death explosion		cardSO.customDeathParticles	customDeathParticles			DEATH_PARTICLE	CardFeel.PickDeathFx → ResolveDeathParticle（只认 customDeathParticles）
+SAU22	Lokhust Heavy Destroyer	death	1	RemnantBody3D Necrons		cardSO.remnantBodyPrefab	remnantBodyPrefab			REMNANT_TABLE	走 RemnantBodyTable（不进死亡桶，A2083 既定）
+SAU23	Lychguard	death	0	Necrons death explosion		cardSO.customDeathParticles	customDeathParticles			DEATH_PARTICLE	CardFeel.PickDeathFx → ResolveDeathParticle（只认 customDeathParticles）
+SAU23	Lychguard	death	1	RemnantBody3D Necrons		cardSO.remnantBodyPrefab	remnantBodyPrefab			REMNANT_TABLE	走 RemnantBodyTable（不进死亡桶，A2083 既定）
+SAU23	Lychguard	trigger	0	ArmourEffect	ArmourTraitStart	cardtrait-so		armour	EffectTriggerType.Start(0)	TRAIT_FRAMES(OnPlay/Start)	TraitFrames._startBook（绑定 armour → ArmourEffect）
+SAU24	Command Barge	attack_ranged	0	NecronGauss_Twinlinked	Atk_Gauss_Twinlinked	cardSO.customRangedAttackParticles	customRangedAttackParticles			ATTACK_RANGED(逐卡)	ScheduleAttackPresentation → ResolveRangedAttackPieces
+SAU24	Command Barge	death	0	Necrons death explosion		cardSO.customDeathParticles	customDeathParticles			DEATH_PARTICLE	CardFeel.PickDeathFx → ResolveDeathParticle（只认 customDeathParticles）
+SAU24	Command Barge	death	1	RemnantBody3D Necrons		cardSO.remnantBodyPrefab	remnantBodyPrefab			REMNANT_TABLE	走 RemnantBodyTable（不进死亡桶，A2083 既定）
+SAU24	Command Barge	trait_onplay	0	FlyingEffect	FlyingTraitPlay	cardtrait-so		flying	EffectTriggerType.OnPlay(2)	TRAIT_FRAMES(OnPlay/Start)	TraitFrames._playBook（绑定 flying → FlyingEffect）
+SAU24	Command Barge	trigger	0	TalentEffect	TalentTraitTrigger	cardtrait-so		talent	EffectTriggerType.Trigger(3)	TRAIT_FRAMES(Trigger)	TraitFrames._triggerBook（绑定 talent → TalentEffect）
+SAU25	Hexmark Destroyer	ability	0	Hexmark_Artifice_Deal1	Hexmark_Artifice	cardSO.cardAbilities[0].abilityLogic[0].cardAnimations[0]	cardAbilities[0].abilityLogic[0].cardAnimations[0]			ABILITY_BEAT	ExpandAbilityBeats → PlayAbilityBeat（逐拍锚点/位移）
+SAU25	Hexmark Destroyer	attack_ranged	0	NecronGauss_Hexmark	Atk_Gauss_Hexmark	cardSO.customRangedAttackParticles	customRangedAttackParticles			ATTACK_RANGED(逐卡)	ScheduleAttackPresentation → ResolveRangedAttackPieces
+SAU25	Hexmark Destroyer	death	0	Necrons death explosion		cardSO.customDeathParticles	customDeathParticles			DEATH_PARTICLE	CardFeel.PickDeathFx → ResolveDeathParticle（只认 customDeathParticles）
+SAU25	Hexmark Destroyer	death	1	RemnantBody3D Necrons		cardSO.remnantBodyPrefab	remnantBodyPrefab			REMNANT_TABLE	走 RemnantBodyTable（不进死亡桶，A2083 既定）
+SAU25	Hexmark Destroyer	trigger	0	ArtificeEffect	ArtificeTraitTrigger	cardtrait-so		artifice	EffectTriggerType.Trigger(3)	TRAIT_FRAMES(Trigger)	TraitFrames._triggerBook（绑定 artifice → ArtificeEffect）
+SAU26	Plasmancer	ability	0	Plasmancer_Damage	Plasmancer_Damage	cardSO.cardAbilities[0].abilityLogic[0].cardAnimations[0]	cardAbilities[0].abilityLogic[0].cardAnimations[0]			ABILITY_BEAT	ExpandAbilityBeats → PlayAbilityBeat（逐拍锚点/位移）
+SAU26	Plasmancer	attack_ranged	0	Plasmancer_Damage	Plasmancer_Damage	cardSO.customRangedAttackParticles	customRangedAttackParticles			ATTACK_RANGED(逐卡)	ScheduleAttackPresentation → ResolveRangedAttackPieces
+SAU26	Plasmancer	death	0	Necrons death explosion		cardSO.customDeathParticles	customDeathParticles			DEATH_PARTICLE	CardFeel.PickDeathFx → ResolveDeathParticle（只认 customDeathParticles）
+SAU26	Plasmancer	death	1	RemnantBody3D Necrons		cardSO.remnantBodyPrefab	remnantBodyPrefab			REMNANT_TABLE	走 RemnantBodyTable（不进死亡桶，A2083 既定）
+SAU26	Plasmancer	trigger	0	ArtificeEffect	ArtificeTraitTrigger	cardtrait-so		artifice	EffectTriggerType.Trigger(3)	TRAIT_FRAMES(Trigger)	TraitFrames._triggerBook（绑定 artifice → ArtificeEffect）
+SAU27	Scarab Swarm	death	0	Necrons death explosion		cardSO.customDeathParticles	customDeathParticles			DEATH_PARTICLE	CardFeel.PickDeathFx → ResolveDeathParticle（只认 customDeathParticles）
+SAU27	Scarab Swarm	death	1	RemnantBody3D Necrons		cardSO.remnantBodyPrefab	remnantBodyPrefab			REMNANT_TABLE	走 RemnantBodyTable（不进死亡桶，A2083 既定）
+SAU27	Scarab Swarm	trigger	0	OrkBuffGreenWaaagh	RegenerationTraitTrigger	cardtrait-so		regeneration	EffectTriggerType.Trigger(3)	TRAIT_FRAMES(Trigger)	TraitFrames._triggerBook（绑定 regeneration → OrkBuffGreenWaaagh）
+SAU28	Ghost Ark	attack_ranged	0	NecronGauss_Double	Atk_Gauss_Double	cardSO.customRangedAttackParticles	customRangedAttackParticles			ATTACK_RANGED(逐卡)	ScheduleAttackPresentation → ResolveRangedAttackPieces
+SAU28	Ghost Ark	death	0	Necrons death explosion		cardSO.customDeathParticles	customDeathParticles			DEATH_PARTICLE	CardFeel.PickDeathFx → ResolveDeathParticle（只认 customDeathParticles）
+SAU28	Ghost Ark	death	1	RemnantBody3D Necrons		cardSO.remnantBodyPrefab	remnantBodyPrefab			REMNANT_TABLE	走 RemnantBodyTable（不进死亡桶，A2083 既定）
+SAU28	Ghost Ark	trait_onplay	0	FlyingEffect	FlyingTraitPlay	cardtrait-so		flying	EffectTriggerType.OnPlay(2)	TRAIT_FRAMES(OnPlay/Start)	TraitFrames._playBook（绑定 flying → FlyingEffect）
+SAU28	Ghost Ark	trigger	0	TalentEffect	TalentTraitTrigger	cardtrait-so		talent	EffectTriggerType.Trigger(3)	TRAIT_FRAMES(Trigger)	TraitFrames._triggerBook（绑定 talent → TalentEffect）
+SAU28	Ghost Ark	trigger	1	ArtificeEffect	ArtificeTraitTrigger	cardtrait-so		artifice	EffectTriggerType.Trigger(3)	TRAIT_FRAMES(Trigger)	TraitFrames._triggerBook（绑定 artifice → ArtificeEffect）
+SAU29	Necron Lord	death	0	Necrons death explosion		cardSO.customDeathParticles	customDeathParticles			DEATH_PARTICLE	CardFeel.PickDeathFx → ResolveDeathParticle（只认 customDeathParticles）
+SAU29	Necron Lord	death	1	RemnantBody3D Necrons		cardSO.remnantBodyPrefab	remnantBodyPrefab			REMNANT_TABLE	走 RemnantBodyTable（不进死亡桶，A2083 既定）
+SAU29	Necron Lord	trigger	0	OrkBuffGreenWaaagh	RegenerationTraitTrigger	cardtrait-so		regeneration	EffectTriggerType.Trigger(3)	TRAIT_FRAMES(Trigger)	TraitFrames._triggerBook（绑定 regeneration → OrkBuffGreenWaaagh）
+SAU29	Necron Lord	trigger	1	TalentEffect	TalentTraitTrigger	cardtrait-so		talent	EffectTriggerType.Trigger(3)	TRAIT_FRAMES(Trigger)	TraitFrames._triggerBook（绑定 talent → TalentEffect）
+SAU3	Flayed One	ability	0	FastEffect	FastTraitStart	cardSO.cardAbilities[0].abilityLogic[0].cardAnimations[0]	cardAbilities[0].abilityLogic[0].cardAnimations[0]			ABILITY_BEAT	ExpandAbilityBeats → PlayAbilityBeat（逐拍锚点/位移）
+SAU3	Flayed One	death	0	Necrons death explosion		cardSO.customDeathParticles	customDeathParticles			DEATH_PARTICLE	CardFeel.PickDeathFx → ResolveDeathParticle（只认 customDeathParticles）
+SAU3	Flayed One	death	1	RemnantBody3D Necrons		cardSO.remnantBodyPrefab	remnantBodyPrefab			REMNANT_TABLE	走 RemnantBodyTable（不进死亡桶，A2083 既定）
+SAU30	Triarch Stalker	attack_ranged	0	NecronGauss_Large	Atk_Gauss_Large	cardSO.customRangedAttackParticles	customRangedAttackParticles			ATTACK_RANGED(逐卡)	ScheduleAttackPresentation → ResolveRangedAttackPieces
+SAU30	Triarch Stalker	death	0	Necrons death explosion		cardSO.customDeathParticles	customDeathParticles			DEATH_PARTICLE	CardFeel.PickDeathFx → ResolveDeathParticle（只认 customDeathParticles）
+SAU30	Triarch Stalker	death	1	RemnantBody3D Necrons		cardSO.remnantBodyPrefab	remnantBodyPrefab			REMNANT_TABLE	走 RemnantBodyTable（不进死亡桶，A2083 既定）
+SAU30	Triarch Stalker	trigger	0	OrkBuffGreenWaaagh	RegenerationTraitTrigger	cardtrait-so		regeneration	EffectTriggerType.Trigger(3)	TRAIT_FRAMES(Trigger)	TraitFrames._triggerBook（绑定 regeneration → OrkBuffGreenWaaagh）
+SAU31	Doomstalker	attack_melee	0	NecronGauss_Large	Atk_Gauss_Large	cardSO.cardAbilities[0].abilityLogic[0].cardAnimations[0]	cardAbilities[0].abilityLogic[0].cardAnimations[0]			UNIT_ATTACK_BUCKET	装载时搬进 unit_attack_anim（VfxMap.LoadTableFromJson）
+SAU31	Doomstalker	attack_melee	1		Wait_1s	cardSO.cardAbilities[0].abilityLogic[0].cardAnimations[1]	cardAbilities[0].abilityLogic[0].cardAnimations[1]			TIMING_ONLY	纯计时拍（原版 animAdressable 空）
+SAU31	Doomstalker	attack_ranged	0	NecronGauss_Large	Atk_Gauss_Large	cardSO.customRangedAttackParticles	customRangedAttackParticles			ATTACK_RANGED(逐卡)	ScheduleAttackPresentation → ResolveRangedAttackPieces
+SAU31	Doomstalker	death	0	Necrons death explosion		cardSO.customDeathParticles	customDeathParticles			DEATH_PARTICLE	CardFeel.PickDeathFx → ResolveDeathParticle（只认 customDeathParticles）
+SAU31	Doomstalker	death	1	RemnantBody3D Necrons		cardSO.remnantBodyPrefab	remnantBodyPrefab			REMNANT_TABLE	走 RemnantBodyTable（不进死亡桶，A2083 既定）
+SAU32	Skorpekh Lord	ability	0	Sau_DamageProtocol_Quick	Damage_Protocol_quick_self	cardSO.cardAbilities[0].abilityLogic[0].cardAnimations[0]	cardAbilities[0].abilityLogic[0].cardAnimations[0]			ABILITY_BEAT	ExpandAbilityBeats → PlayAbilityBeat（逐拍锚点/位移）
+SAU32	Skorpekh Lord	attack_ranged	0	NecronGauss_Twinlinked	Atk_Gauss_Twinlinked	cardSO.customRangedAttackParticles	customRangedAttackParticles			ATTACK_RANGED(逐卡)	ScheduleAttackPresentation → ResolveRangedAttackPieces
+SAU32	Skorpekh Lord	death	0	Necrons death explosion		cardSO.customDeathParticles	customDeathParticles			DEATH_PARTICLE	CardFeel.PickDeathFx → ResolveDeathParticle（只认 customDeathParticles）
+SAU32	Skorpekh Lord	death	1	RemnantBody3D Necrons		cardSO.remnantBodyPrefab	remnantBodyPrefab			REMNANT_TABLE	走 RemnantBodyTable（不进死亡桶，A2083 既定）
+SAU33	Vargard Obyron	death	0	Necrons death explosion		cardSO.customDeathParticles	customDeathParticles			DEATH_PARTICLE	CardFeel.PickDeathFx → ResolveDeathParticle（只认 customDeathParticles）
+SAU33	Vargard Obyron	death	1	RemnantBody3D Necrons		cardSO.remnantBodyPrefab	remnantBodyPrefab			REMNANT_TABLE	走 RemnantBodyTable（不进死亡桶，A2083 既定）
+SAU33	Vargard Obyron	trigger	0	ArmourEffect	ArmourTraitStart	cardtrait-so		armour	EffectTriggerType.Start(0)	TRAIT_FRAMES(OnPlay/Start)	TraitFrames._startBook（绑定 armour → ArmourEffect）
+SAU34	Monolith	attack_ranged	0	NecronGauss_Large	Atk_Gauss_Large	cardSO.customRangedAttackParticles	customRangedAttackParticles			ATTACK_RANGED(逐卡)	ScheduleAttackPresentation → ResolveRangedAttackPieces
+SAU34	Monolith	death	0	Necrons death explosion		cardSO.customDeathParticles	customDeathParticles			DEATH_PARTICLE	CardFeel.PickDeathFx → ResolveDeathParticle（只认 customDeathParticles）
+SAU34	Monolith	death	1	RemnantBody3D Necrons		cardSO.remnantBodyPrefab	remnantBodyPrefab			REMNANT_TABLE	走 RemnantBodyTable（不进死亡桶，A2083 既定）
+SAU34	Monolith	trigger	0	ArmourEffect	ArmourTraitStart	cardtrait-so		armour	EffectTriggerType.Start(0)	TRAIT_FRAMES(OnPlay/Start)	TraitFrames._startBook（绑定 armour → ArmourEffect）
+SAU34	Monolith	trigger	1	TalentEffect	TalentTraitTrigger	cardtrait-so		talent	EffectTriggerType.Trigger(3)	TRAIT_FRAMES(Trigger)	TraitFrames._triggerBook（绑定 talent → TalentEffect）
+SAU34	Monolith	trigger	2	ArtificeEffect	ArtificeTraitTrigger	cardtrait-so		artifice	EffectTriggerType.Trigger(3)	TRAIT_FRAMES(Trigger)	TraitFrames._triggerBook（绑定 artifice → ArtificeEffect）
+SAU35	Imotekh the Stormlord	death	0	Necrons death explosion		cardSO.customDeathParticles	customDeathParticles			DEATH_PARTICLE	CardFeel.PickDeathFx → ResolveDeathParticle（只认 customDeathParticles）
+SAU35	Imotekh the Stormlord	trigger	0	TalentEffect	TalentTraitTrigger	cardtrait-so		talent	EffectTriggerType.Trigger(3)	TRAIT_FRAMES(Trigger)	TraitFrames._triggerBook（绑定 talent → TalentEffect）
+SAU36	Nemesor Zahndrekh	death	0	Necrons death explosion		cardSO.customDeathParticles	customDeathParticles			DEATH_PARTICLE	CardFeel.PickDeathFx → ResolveDeathParticle（只认 customDeathParticles）
+SAU36	Nemesor Zahndrekh	trigger	0	TalentEffect	TalentTraitTrigger	cardtrait-so		talent	EffectTriggerType.Trigger(3)	TRAIT_FRAMES(Trigger)	TraitFrames._triggerBook（绑定 talent → TalentEffect）
+SAU37	Orikan the Diviner	attack_ranged	0	Plasmancer_Damage	Plasmancer_Damage	cardSO.customRangedAttackParticles	customRangedAttackParticles			ATTACK_RANGED(逐卡)	ScheduleAttackPresentation → ResolveRangedAttackPieces
+SAU37	Orikan the Diviner	death	0	Necrons death explosion		cardSO.customDeathParticles	customDeathParticles			DEATH_PARTICLE	CardFeel.PickDeathFx → ResolveDeathParticle（只认 customDeathParticles）
+SAU37	Orikan the Diviner	trigger	0	TalentEffect	TalentTraitTrigger	cardtrait-so		talent	EffectTriggerType.Trigger(3)	TRAIT_FRAMES(Trigger)	TraitFrames._triggerBook（绑定 talent → TalentEffect）
+SAU38	Extermination Protocol	death	0	Necrons death explosion		cardSO.customDeathParticles	customDeathParticles			DEATH_PARTICLE	CardFeel.PickDeathFx → ResolveDeathParticle（只认 customDeathParticles）
+SAU38	Extermination Protocol	play	0	Explosion_gauss	Explosion_Gauss_ability	cardSO.cardAbilities[0].abilityLogic[0].cardAnimations[0]	cardAbilities[0].abilityLogic[0].cardAnimations[0]			PLAY_BUCKET(逐卡)	EvtKind.Play → FireEventAll
+SAU39	Reconstitution Protocol	death	0	Necrons death explosion		cardSO.customDeathParticles	customDeathParticles			DEATH_PARTICLE	CardFeel.PickDeathFx → ResolveDeathParticle（只认 customDeathParticles）
+SAU39	Reconstitution Protocol	play	0	Sau_ReconstitutionProtocol	Sau_Reconstitution_Protocols	cardSO.cardAbilities[0].abilityLogic[0].cardAnimations[0]	cardAbilities[0].abilityLogic[0].cardAnimations[0]			PLAY_BUCKET(逐卡)	EvtKind.Play → FireEventAll
+SAU4	Gauss Warrior	ability	0	Sau_DamageProtocol	Damage_Protocol_target	cardSO.cardAbilities[0].abilityLogic[0].cardAnimations[0]	cardAbilities[0].abilityLogic[0].cardAnimations[0]			ABILITY_BEAT	ExpandAbilityBeats → PlayAbilityBeat（逐拍锚点/位移）
+SAU4	Gauss Warrior	ability	1	Sau_HealProtocol	Heal_Protocol_target	cardSO.cardAbilities[0].abilityLogic[0].cardAnimations[1]	cardAbilities[0].abilityLogic[0].cardAnimations[1]			ABILITY_BEAT	ExpandAbilityBeats → PlayAbilityBeat（逐拍锚点/位移）
+SAU4	Gauss Warrior	attack_ranged	0	NecronGauss_Twinlinked	Atk_Gauss_Twinlinked	cardSO.customRangedAttackParticles	customRangedAttackParticles			ATTACK_RANGED(逐卡)	ScheduleAttackPresentation → ResolveRangedAttackPieces
+SAU4	Gauss Warrior	death	0	Necrons death explosion		cardSO.customDeathParticles	customDeathParticles			DEATH_PARTICLE	CardFeel.PickDeathFx → ResolveDeathParticle（只认 customDeathParticles）
+SAU4	Gauss Warrior	death	1	RemnantBody3D Necrons		cardSO.remnantBodyPrefab	remnantBodyPrefab			REMNANT_TABLE	走 RemnantBodyTable（不进死亡桶，A2083 既定）
+SAU40	Protection Protocol	death	0	Necrons death explosion		cardSO.customDeathParticles	customDeathParticles			DEATH_PARTICLE	CardFeel.PickDeathFx → ResolveDeathParticle（只认 customDeathParticles）
+SAU40	Protection Protocol	play	0	Sau_HealProtocol	Heal_Protocol_target	cardSO.cardAbilities[0].abilityLogic[0].cardAnimations[0]	cardAbilities[0].abilityLogic[0].cardAnimations[0]			PLAY_BUCKET(逐卡)	EvtKind.Play → FireEventAll
+SAU41	Reanimation Protocol	death	0	Necrons death explosion		cardSO.customDeathParticles	customDeathParticles			DEATH_PARTICLE	CardFeel.PickDeathFx → ResolveDeathParticle（只认 customDeathParticles）
+SAU42	Relentless Advance	death	0	Necrons death explosion		cardSO.customDeathParticles	customDeathParticles			DEATH_PARTICLE	CardFeel.PickDeathFx → ResolveDeathParticle（只认 customDeathParticles）
+SAU42	Relentless Advance	play	0	Sau_HealProtocol	Heal_Protocol_target	cardSO.cardAbilities[0].abilityLogic[0].cardAnimations[0]	cardAbilities[0].abilityLogic[0].cardAnimations[0]			PLAY_BUCKET(逐卡)	EvtKind.Play → FireEventAll
+SAU43	Solar Pulse	death	0	Necrons death explosion		cardSO.customDeathParticles	customDeathParticles			DEATH_PARTICLE	CardFeel.PickDeathFx → ResolveDeathParticle（只认 customDeathParticles）
+SAU43	Solar Pulse	play	0	Sau_SolarPulse	Solar_Pulse_Effect	cardSO.cardAbilities[0].abilityLogic[0].cardAnimations[0]	cardAbilities[0].abilityLogic[0].cardAnimations[0]			PLAY_BUCKET(逐卡)	EvtKind.Play → FireEventAll
+SAU44	Disruption Blades	death	0	Necrons death explosion		cardSO.customDeathParticles	customDeathParticles			DEATH_PARTICLE	CardFeel.PickDeathFx → ResolveDeathParticle（只认 customDeathParticles）
+SAU44	Disruption Blades	play	0	Buff_Red	Buff_Red_target	cardSO.cardAbilities[0].abilityLogic[0].cardAnimations[0]	cardAbilities[0].abilityLogic[0].cardAnimations[0]			PLAY_BUCKET(逐卡)	EvtKind.Play → FireEventAll
+SAU44	Disruption Blades	play	1	Sau_DamageProtocol	Damage_Protocol_target	cardSO.cardAbilities[0].abilityLogic[0].cardAnimations[1]	cardAbilities[0].abilityLogic[0].cardAnimations[1]			PLAY_BUCKET(逐卡)	EvtKind.Play → FireEventAll
+SAU45	Hyperlogical Strategist	death	0	Necrons death explosion		cardSO.customDeathParticles	customDeathParticles			DEATH_PARTICLE	CardFeel.PickDeathFx → ResolveDeathParticle（只认 customDeathParticles）
+SAU45	Hyperlogical Strategist	play	0	Sau_IndomitableWill	Indomitable_Will_Effect	cardSO.cardAbilities[0].abilityLogic[0].cardAnimations[0]	cardAbilities[0].abilityLogic[0].cardAnimations[0]			PLAY_BUCKET(逐卡)	EvtKind.Play → FireEventAll
+SAU46	Spyder Nest	death	0	Necrons death explosion		cardSO.customDeathParticles	customDeathParticles			DEATH_PARTICLE	CardFeel.PickDeathFx → ResolveDeathParticle（只认 customDeathParticles）
+SAU46	Spyder Nest	play	0	GreenSummonCircle	RelentlessMarchSummon	cardSO.cardAbilities[0].abilityLogic[0].cardAnimations[0]	cardAbilities[0].abilityLogic[0].cardAnimations[0]			PLAY_BUCKET(逐卡)	EvtKind.Play → FireEventAll
+SAU46	Spyder Nest	play	1	GreenSummonCircle	RelentlessMarchSummon	cardSO.cardAbilities[0].abilityLogic[1].cardAnimations[0]	cardAbilities[0].abilityLogic[1].cardAnimations[0]			PLAY_BUCKET(逐卡)	EvtKind.Play → FireEventAll
+SAU46	Spyder Nest	play	2		Wait_1s	cardSO.cardAbilities[0].abilityLogic[2].cardAnimations[0]	cardAbilities[0].abilityLogic[2].cardAnimations[0]			TIMING_ONLY	纯计时拍（原版 animAdressable 空）
+SAU47	Curse of the Phaeron	death	0	Necrons death explosion		cardSO.customDeathParticles	customDeathParticles			DEATH_PARTICLE	CardFeel.PickDeathFx → ResolveDeathParticle（只认 customDeathParticles）
+SAU47	Curse of the Phaeron	play	0	Sau_CurseOfThePhaeron	CurseOfThePharon_Effect	cardSO.cardAbilities[0].abilityLogic[0].cardAnimations[0]	cardAbilities[0].abilityLogic[0].cardAnimations[0]			PLAY_BUCKET(逐卡)	EvtKind.Play → FireEventAll
+SAU47	Curse of the Phaeron	play	1		Wait_1,5s	cardSO.cardAbilities[0].abilityLogic[1].cardAnimations[0]	cardAbilities[0].abilityLogic[1].cardAnimations[0]			TIMING_ONLY	纯计时拍（原版 animAdressable 空）
+SAU49	Resurrection Orb	death	0	Necrons death explosion		cardSO.customDeathParticles	customDeathParticles			DEATH_PARTICLE	CardFeel.PickDeathFx → ResolveDeathParticle（只认 customDeathParticles）
+SAU49	Resurrection Orb	play	0	Sau_ResurrectionOrb	ResurrectionOrb	cardSO.cardAbilities[0].abilityLogic[0].cardAnimations[0]	cardAbilities[0].abilityLogic[0].cardAnimations[0]			PLAY_BUCKET(逐卡)	EvtKind.Play → FireEventAll
+SAU5	Necron Warrior	death	0	Necrons death explosion		cardSO.customDeathParticles	customDeathParticles			DEATH_PARTICLE	CardFeel.PickDeathFx → ResolveDeathParticle（只认 customDeathParticles）
+SAU5	Necron Warrior	death	1	RemnantBody3D Necrons		cardSO.remnantBodyPrefab	remnantBodyPrefab			REMNANT_TABLE	走 RemnantBodyTable（不进死亡桶，A2083 既定）
+SAU50	Dimensional Breach	death	0	Necrons death explosion		cardSO.customDeathParticles	customDeathParticles			DEATH_PARTICLE	CardFeel.PickDeathFx → ResolveDeathParticle（只认 customDeathParticles）
+SAU50	Dimensional Breach	play	0	Sau_Dimensional_Breach_Battleground	Dimensional_Breach_Battleground	cardSO.cardAbilities[0].abilityLogic[0].cardAnimations[0]	cardAbilities[0].abilityLogic[0].cardAnimations[0]			PLAY_BUCKET(逐卡)	EvtKind.Play → FireEventAll
+SAU50	Dimensional Breach	play	1	Sau_Dimensional_Breach_Spawn	Dimensional_Breach_Spawn	cardSO.cardAbilities[0].abilityLogic[0].cardAnimations[1]	cardAbilities[0].abilityLogic[0].cardAnimations[1]			PLAY_BUCKET(逐卡)	EvtKind.Play → FireEventAll
+SAU50	Dimensional Breach	play	2	Sau_Dimensional_Breach_Spawn	Dimensional_Breach_Spawn	cardSO.cardAbilities[0].abilityLogic[1].cardAnimations[0]	cardAbilities[0].abilityLogic[1].cardAnimations[0]			PLAY_BUCKET(逐卡)	EvtKind.Play → FireEventAll
+SAU50	Dimensional Breach	play	3	Sau_Dimensional_Breach_Spawn	Dimensional_Breach_Spawn	cardSO.cardAbilities[0].abilityLogic[2].cardAnimations[0]	cardAbilities[0].abilityLogic[2].cardAnimations[0]			PLAY_BUCKET(逐卡)	EvtKind.Play → FireEventAll
+SAU51	Scythe Assault	death	0	Necrons death explosion		cardSO.customDeathParticles	customDeathParticles			DEATH_PARTICLE	CardFeel.PickDeathFx → ResolveDeathParticle（只认 customDeathParticles）
+SAU51	Scythe Assault	play	0	ScytheAssault	Sau_ScytheAssault	cardSO.cardAbilities[0].abilityLogic[0].cardAnimations[0]	cardAbilities[0].abilityLogic[0].cardAnimations[0]			PLAY_BUCKET(逐卡)	EvtKind.Play → FireEventAll
+SAU51	Scythe Assault	play	1	ScytheAssaultShadow	Sau_ScytheAssault_Shadow	cardSO.cardAbilities[0].abilityLogic[0].cardAnimations[1]	cardAbilities[0].abilityLogic[0].cardAnimations[1]			PLAY_BUCKET(逐卡)	EvtKind.Play → FireEventAll
+SAU52	Self-Destruction	death	0	Necrons death explosion		cardSO.customDeathParticles	customDeathParticles			DEATH_PARTICLE	CardFeel.PickDeathFx → ResolveDeathParticle（只认 customDeathParticles）
+SAU53	Undying Legions	death	0	Necrons death explosion		cardSO.customDeathParticles	customDeathParticles			DEATH_PARTICLE	CardFeel.PickDeathFx → ResolveDeathParticle（只认 customDeathParticles）
+SAU53	Undying Legions	play	0	Buff_Sautekh_Intense	Buff_Sautekh_Intense_warlord	cardSO.cardAbilities[0].abilityLogic[0].cardAnimations[0]	cardAbilities[0].abilityLogic[0].cardAnimations[0]			PLAY_BUCKET(逐卡)	EvtKind.Play → FireEventAll
+SAU54	Conquering Tyrant	death	0	Necrons death explosion		cardSO.customDeathParticles	customDeathParticles			DEATH_PARTICLE	CardFeel.PickDeathFx → ResolveDeathParticle（只认 customDeathParticles）
+SAU54	Conquering Tyrant	play	0	Necron_Regenerate	Necron_Regeneration_Effect	cardSO.cardAbilities[0].abilityLogic[0].cardAnimations[0]	cardAbilities[0].abilityLogic[0].cardAnimations[0]			PLAY_BUCKET(逐卡)	EvtKind.Play → FireEventAll
+SAU55	Immortal Pride	death	0	Necrons death explosion		cardSO.customDeathParticles	customDeathParticles			DEATH_PARTICLE	CardFeel.PickDeathFx → ResolveDeathParticle（只认 customDeathParticles）
+SAU55	Immortal Pride	play	0	Buff_Sautekh_Intense	Buff_Sautekh_Intense_warlord	cardSO.cardAbilities[0].abilityLogic[0].cardAnimations[0]	cardAbilities[0].abilityLogic[0].cardAnimations[0]			PLAY_BUCKET(逐卡)	EvtKind.Play → FireEventAll
+SAU55	Immortal Pride	play	1	Armor_Necron	Sau_ImmortalPride	cardSO.cardAbilities[0].abilityLogic[0].cardAnimations[1]	cardAbilities[0].abilityLogic[0].cardAnimations[1]			PLAY_BUCKET(逐卡)	EvtKind.Play → FireEventAll
+SAU55	Immortal Pride	play	2	ArmourEffect	GainArmourEffect	cardSO.cardAbilities[0].abilityLogic[0].cardAnimations[2]	cardAbilities[0].abilityLogic[0].cardAnimations[2]			PLAY_BUCKET(逐卡)	EvtKind.Play → FireEventAll
+SAU55	Immortal Pride	play	3		Wait_1,5s	cardSO.cardAbilities[0].abilityLogic[1].cardAnimations[0]	cardAbilities[0].abilityLogic[1].cardAnimations[0]			TIMING_ONLY	纯计时拍（原版 animAdressable 空）
+SAU56	Methodical Destruction	death	0	Necrons death explosion		cardSO.customDeathParticles	customDeathParticles			DEATH_PARTICLE	CardFeel.PickDeathFx → ResolveDeathParticle（只认 customDeathParticles）
+SAU56	Methodical Destruction	play	0	Sau_MethodicalDestruction	Sau_MethodicalDestruction	cardSO.cardAbilities[0].abilityLogic[0].cardAnimations[0]	cardAbilities[0].abilityLogic[0].cardAnimations[0]			PLAY_BUCKET(逐卡)	EvtKind.Play → FireEventAll
+SAU57	Tomb World	death	0	Necrons death explosion		cardSO.customDeathParticles	customDeathParticles			DEATH_PARTICLE	CardFeel.PickDeathFx → ResolveDeathParticle（只认 customDeathParticles）
+SAU57	Tomb World	play	0	GreenSummonCircle	RelentlessMarchSummon	cardSO.cardAbilities[0].abilityLogic[0].cardAnimations[0]	cardAbilities[0].abilityLogic[0].cardAnimations[0]			PLAY_BUCKET(逐卡)	EvtKind.Play → FireEventAll
+SAU57	Tomb World	play	1	GreenSummonCircle	RelentlessMarchSummon	cardSO.cardAbilities[1].abilityLogic[0].cardAnimations[0]	cardAbilities[1].abilityLogic[0].cardAnimations[0]			PLAY_BUCKET(逐卡)	EvtKind.Play → FireEventAll
+SAU57	Tomb World	play	2	GreenSummonCircle	RelentlessMarchSummon	cardSO.cardAbilities[2].abilityLogic[0].cardAnimations[0]	cardAbilities[2].abilityLogic[0].cardAnimations[0]			PLAY_BUCKET(逐卡)	EvtKind.Play → FireEventAll
+SAU57	Tomb World	play	3	GreenSummonCircle	RelentlessMarchSummon	cardSO.cardAbilities[3].abilityLogic[0].cardAnimations[0]	cardAbilities[3].abilityLogic[0].cardAnimations[0]			PLAY_BUCKET(逐卡)	EvtKind.Play → FireEventAll
+SAU57	Tomb World	play	4	GreenSummonCircle	RelentlessMarchSummon	cardSO.cardAbilities[4].abilityLogic[0].cardAnimations[0]	cardAbilities[4].abilityLogic[0].cardAnimations[0]			PLAY_BUCKET(逐卡)	EvtKind.Play → FireEventAll
+SAU58	Implacable Conqueror	death	0	Necrons death explosion		cardSO.customDeathParticles	customDeathParticles			DEATH_PARTICLE	CardFeel.PickDeathFx → ResolveDeathParticle（只认 customDeathParticles）
+SAU58	Implacable Conqueror	play	0	Sau_IndomitableWill	Indomitable_Will_Effect	cardSO.cardAbilities[0].abilityLogic[0].cardAnimations[0]	cardAbilities[0].abilityLogic[0].cardAnimations[0]			PLAY_BUCKET(逐卡)	EvtKind.Play → FireEventAll
+SAU59	Awakened Obelisk	play	0	Explosion_gauss	Explosion_Gauss_ability	cardSO.cardAbilities[0].abilityLogic[0].cardAnimations[0]	cardAbilities[0].abilityLogic[0].cardAnimations[0]			PLAY_BUCKET(逐卡)	EvtKind.Play → FireEventAll
+SAU59	Awakened Obelisk	play	1	CreateCard Necron	CreateCard_Necrons	cardSO.cardAbilities[1].abilityLogic[0].cardAnimations[0]	cardAbilities[1].abilityLogic[0].cardAnimations[0]			PLAY_BUCKET(逐卡)	EvtKind.Play → FireEventAll
+SAU6	Tesla Immortal	ability	0	NecronGauss_Tesla	Atk_Gauss_Tesla	cardSO.cardAbilities[0].abilityLogic[0].cardAnimations[0]	cardAbilities[0].abilityLogic[0].cardAnimations[0]			ABILITY_BEAT	ExpandAbilityBeats → PlayAbilityBeat（逐拍锚点/位移）
+SAU6	Tesla Immortal	attack_ranged	0	NecronGauss_Tesla	Atk_Gauss_Tesla	cardSO.customRangedAttackParticles	customRangedAttackParticles			ATTACK_RANGED(逐卡)	ScheduleAttackPresentation → ResolveRangedAttackPieces
+SAU6	Tesla Immortal	death	0	Necrons death explosion		cardSO.customDeathParticles	customDeathParticles			DEATH_PARTICLE	CardFeel.PickDeathFx → ResolveDeathParticle（只认 customDeathParticles）
+SAU6	Tesla Immortal	death	1	RemnantBody3D Necrons		cardSO.remnantBodyPrefab	remnantBodyPrefab			REMNANT_TABLE	走 RemnantBodyTable（不进死亡桶，A2083 既定）
+SAU6	Tesla Immortal	trigger	0	ArtificeEffect	ArtificeTraitTrigger	cardtrait-so		artifice	EffectTriggerType.Trigger(3)	TRAIT_FRAMES(Trigger)	TraitFrames._triggerBook（绑定 artifice → ArtificeEffect）
+SAU60	Divination Menhir	play	0	Sau_IndomitableWill	Indomitable_Will_Effect	cardSO.cardAbilities[0].abilityLogic[0].cardAnimations[0]	cardAbilities[0].abilityLogic[0].cardAnimations[0]			PLAY_BUCKET(逐卡)	EvtKind.Play → FireEventAll
+SAU61	Resurrection Vault	ability	0	Sau_HealProtocol	Heal_Protocol_target	cardSO.cardAbilities[1].abilityLogic[0].cardAnimations[0]	cardAbilities[1].abilityLogic[0].cardAnimations[0]			ABILITY_BEAT	ExpandAbilityBeats → PlayAbilityBeat（逐拍锚点/位移）
+SAU65	Royal Warden	attack_ranged	0	NecronGauss_Twinlinked	Atk_Gauss_Twinlinked	cardSO.customRangedAttackParticles	customRangedAttackParticles			ATTACK_RANGED(逐卡)	ScheduleAttackPresentation → ResolveRangedAttackPieces
+SAU65	Royal Warden	death	0	Necrons death explosion		cardSO.customDeathParticles	customDeathParticles			DEATH_PARTICLE	CardFeel.PickDeathFx → ResolveDeathParticle（只认 customDeathParticles）
+SAU65	Royal Warden	death	1	RemnantBody3D Necrons		cardSO.remnantBodyPrefab	remnantBodyPrefab			REMNANT_TABLE	走 RemnantBodyTable（不进死亡桶，A2083 既定）
+SAU65	Royal Warden	play	0	NecronGauss_Twinlinked	Atk_Gauss_Twinlinked	cardSO.cardAbilities[0].abilityLogic[0].cardAnimations[0]	cardAbilities[0].abilityLogic[0].cardAnimations[0]			PLAY_BUCKET(逐卡)	EvtKind.Play → FireEventAll
+SAU65	Royal Warden	play	1		Wait_1s	cardSO.cardAbilities[0].abilityLogic[0].cardAnimations[1]	cardAbilities[0].abilityLogic[0].cardAnimations[1]			TIMING_ONLY	纯计时拍（原版 animAdressable 空）
+SAU65	Royal Warden	trigger	0	RallyEffect	RallyTraitStart	cardtrait-so		rally	EffectTriggerType.Start(0)	TRAIT_FRAMES(OnPlay/Start)	TraitFrames._startBook（绑定 rally → RallyEffect）
+SAU66	Ramatekh the Cruel	attack_ranged	0	NecronGauss_Twinlinked	Atk_Gauss_Twinlinked	cardSO.customRangedAttackParticles	customRangedAttackParticles			ATTACK_RANGED(逐卡)	ScheduleAttackPresentation → ResolveRangedAttackPieces
+SAU66	Ramatekh the Cruel	death	0	Necrons death explosion		cardSO.customDeathParticles	customDeathParticles			DEATH_PARTICLE	CardFeel.PickDeathFx → ResolveDeathParticle（只认 customDeathParticles）
+SAU66	Ramatekh the Cruel	trigger	0	TalentEffect	TalentTraitTrigger	cardtrait-so		talent	EffectTriggerType.Trigger(3)	TRAIT_FRAMES(Trigger)	TraitFrames._triggerBook（绑定 talent → TalentEffect）
+SAU67	Damaged Plasmacyte	death	0	Necrons death explosion		cardSO.customDeathParticles	customDeathParticles			DEATH_PARTICLE	CardFeel.PickDeathFx → ResolveDeathParticle（只认 customDeathParticles）
+SAU67	Damaged Plasmacyte	death	1	RemnantBody3D Necrons		cardSO.remnantBodyPrefab	remnantBodyPrefab			REMNANT_TABLE	走 RemnantBodyTable（不进死亡桶，A2083 既定）
+SAU67	Damaged Plasmacyte	trait_onplay	0	FlyingEffect	FlyingTraitPlay	cardtrait-so		flying	EffectTriggerType.OnPlay(2)	TRAIT_FRAMES(OnPlay/Start)	TraitFrames._playBook（绑定 flying → FlyingEffect）
+SAU68	Lokhust Destroyer	ability	0	NecronGauss	Atk_Gauss_Basic	cardSO.cardAbilities[0].abilityLogic[0].cardAnimations[0]	cardAbilities[0].abilityLogic[0].cardAnimations[0]			ABILITY_BEAT	ExpandAbilityBeats → PlayAbilityBeat（逐拍锚点/位移）
+SAU68	Lokhust Destroyer	death	0	Necrons death explosion		cardSO.customDeathParticles	customDeathParticles			DEATH_PARTICLE	CardFeel.PickDeathFx → ResolveDeathParticle（只认 customDeathParticles）
+SAU68	Lokhust Destroyer	death	1	RemnantBody3D Necrons		cardSO.remnantBodyPrefab	remnantBodyPrefab			REMNANT_TABLE	走 RemnantBodyTable（不进死亡桶，A2083 既定）
+SAU69	Flayed Ones Pack	ability	0	Flayed One Summon	Flayed One Summon	cardSO.cardAbilities[0].abilityLogic[0].cardAnimations[0]	cardAbilities[0].abilityLogic[0].cardAnimations[0]			ABILITY_BEAT	ExpandAbilityBeats → PlayAbilityBeat（逐拍锚点/位移）
+SAU69	Flayed Ones Pack	death	0	Necrons death explosion		cardSO.customDeathParticles	customDeathParticles			DEATH_PARTICLE	CardFeel.PickDeathFx → ResolveDeathParticle（只认 customDeathParticles）
+SAU69	Flayed Ones Pack	death	1	RemnantBody3D Necrons		cardSO.remnantBodyPrefab	remnantBodyPrefab			REMNANT_TABLE	走 RemnantBodyTable（不进死亡桶，A2083 既定）
+SAU69	Flayed Ones Pack	trigger	0	ArtificeEffect	ArtificeTraitTrigger	cardtrait-so		artifice	EffectTriggerType.Trigger(3)	TRAIT_FRAMES(Trigger)	TraitFrames._triggerBook（绑定 artifice → ArtificeEffect）
+SAU7	Canoptek Wraith	death	0	Necrons death explosion		cardSO.customDeathParticles	customDeathParticles			DEATH_PARTICLE	CardFeel.PickDeathFx → ResolveDeathParticle（只认 customDeathParticles）
+SAU7	Canoptek Wraith	death	1	RemnantBody3D Necrons		cardSO.remnantBodyPrefab	remnantBodyPrefab			REMNANT_TABLE	走 RemnantBodyTable（不进死亡桶，A2083 既定）
+SAU70	Damaged Hexmark	ability	0	Sau_DamageProtocol_Quick	Damage_Protocol_quick_self	cardSO.cardAbilities[0].abilityLogic[0].cardAnimations[0]	cardAbilities[0].abilityLogic[0].cardAnimations[0]			ABILITY_BEAT	ExpandAbilityBeats → PlayAbilityBeat（逐拍锚点/位移）
+SAU70	Damaged Hexmark	attack_ranged	0	NecronGauss_Damaged Hexmark	Atk_Gauss_Damaged_Hexmark	cardSO.customRangedAttackParticles	customRangedAttackParticles			ATTACK_RANGED(逐卡)	ScheduleAttackPresentation → ResolveRangedAttackPieces
+SAU70	Damaged Hexmark	death	0	Necrons death explosion		cardSO.customDeathParticles	customDeathParticles			DEATH_PARTICLE	CardFeel.PickDeathFx → ResolveDeathParticle（只认 customDeathParticles）
+SAU70	Damaged Hexmark	death	1	RemnantBody3D Necrons		cardSO.remnantBodyPrefab	remnantBodyPrefab			REMNANT_TABLE	走 RemnantBodyTable（不进死亡桶，A2083 既定）
+SAU70	Damaged Hexmark	trigger	0	ArtificeEffect	ArtificeTraitTrigger	cardtrait-so		artifice	EffectTriggerType.Trigger(3)	TRAIT_FRAMES(Trigger)	TraitFrames._triggerBook（绑定 artifice → ArtificeEffect）
+SAU71	Immortals Phalanx	ability	0	GreenSummonCircle	RelentlessMarchSummon	cardSO.cardAbilities[0].abilityLogic[0].cardAnimations[0]	cardAbilities[0].abilityLogic[0].cardAnimations[0]			ABILITY_BEAT	ExpandAbilityBeats → PlayAbilityBeat（逐拍锚点/位移）
+SAU71	Immortals Phalanx	attack_ranged	0	NecronGauss_Twinlinked	Atk_Gauss_Twinlinked	cardSO.customRangedAttackParticles	customRangedAttackParticles			ATTACK_RANGED(逐卡)	ScheduleAttackPresentation → ResolveRangedAttackPieces
+SAU71	Immortals Phalanx	death	0	Necrons death explosion		cardSO.customDeathParticles	customDeathParticles			DEATH_PARTICLE	CardFeel.PickDeathFx → ResolveDeathParticle（只认 customDeathParticles）
+SAU71	Immortals Phalanx	death	1	RemnantBody3D Necrons		cardSO.remnantBodyPrefab	remnantBodyPrefab			REMNANT_TABLE	走 RemnantBodyTable（不进死亡桶，A2083 既定）
+SAU71	Immortals Phalanx	trigger	0	OrkBuffGreenWaaagh	RegenerationTraitTrigger	cardtrait-so		regeneration	EffectTriggerType.Trigger(3)	TRAIT_FRAMES(Trigger)	TraitFrames._triggerBook（绑定 regeneration → OrkBuffGreenWaaagh）
+SAU72	Lokhust Lord	attack_ranged	0	NecronGauss_Large	Atk_Gauss_Large	cardSO.customRangedAttackParticles	customRangedAttackParticles			ATTACK_RANGED(逐卡)	ScheduleAttackPresentation → ResolveRangedAttackPieces
+SAU72	Lokhust Lord	death	0	Necrons death explosion		cardSO.customDeathParticles	customDeathParticles			DEATH_PARTICLE	CardFeel.PickDeathFx → ResolveDeathParticle（只认 customDeathParticles）
+SAU72	Lokhust Lord	death	1	CreateCard Necron	CreateCard_Necrons	cardSO.remnantBodyPrefab	remnantBodyPrefab			REMNANT_TABLE	走 RemnantBodyTable（不进死亡桶，A2083 既定）
+SAU72	Lokhust Lord	death	2	CreateCard Necron	CreateCard_Necrons	cardSO.cardAbilities[0].abilityLogic[0].cardAnimations[0]	cardAbilities[0].abilityLogic[0].cardAnimations[0]			DEATH_ABILITY_NO_EMIT	死亡触发的能力动画：`PickDeathFx` 只取 customDeathParticles，这条今天没有播放拍（`?` / `CreateCard_Necrons`）
+SAU72	Lokhust Lord	trigger	0	OrkBuffGreenWaaagh	RegenerationTraitTrigger	cardtrait-so		regeneration	EffectTriggerType.Trigger(3)	TRAIT_FRAMES(Trigger)	TraitFrames._triggerBook（绑定 regeneration → OrkBuffGreenWaaagh）
+SAU72	Lokhust Lord	trigger	1	BacklashEffect	BacklashTraitTrigger	cardtrait-so		backlash	EffectTriggerType.Trigger(3)	TRAIT_FRAMES(Trigger)	TraitFrames._triggerBook（绑定 backlash → BacklashEffect）
+SAU73	Annihilation Barge	ability	0	NecronGauss_Tesla_Annihilation Barge	Atk_Gauss_Tesla_Annihilator	cardSO.cardAbilities[0].abilityLogic[0].cardAnimations[0]	cardAbilities[0].abilityLogic[0].cardAnimations[0]			ABILITY_BEAT	ExpandAbilityBeats → PlayAbilityBeat（逐拍锚点/位移）
+SAU73	Annihilation Barge	attack_ranged	0	NecronGauss_Tesla_Annihilation Barge	Atk_Gauss_Tesla_Annihilator	cardSO.customRangedAttackParticles	customRangedAttackParticles			ATTACK_RANGED(逐卡)	ScheduleAttackPresentation → ResolveRangedAttackPieces
+SAU73	Annihilation Barge	death	0	Necrons death explosion		cardSO.customDeathParticles	customDeathParticles			DEATH_PARTICLE	CardFeel.PickDeathFx → ResolveDeathParticle（只认 customDeathParticles）
+SAU73	Annihilation Barge	death	1	RemnantBody3D Necrons		cardSO.remnantBodyPrefab	remnantBodyPrefab			REMNANT_TABLE	走 RemnantBodyTable（不进死亡桶，A2083 既定）
+SAU73	Annihilation Barge	trait_onplay	0	FlyingEffect	FlyingTraitPlay	cardtrait-so		flying	EffectTriggerType.OnPlay(2)	TRAIT_FRAMES(OnPlay/Start)	TraitFrames._playBook（绑定 flying → FlyingEffect）
+SAU73	Annihilation Barge	trigger	0	ArtificeEffect	ArtificeTraitTrigger	cardtrait-so		artifice	EffectTriggerType.Trigger(3)	TRAIT_FRAMES(Trigger)	TraitFrames._triggerBook（绑定 artifice → ArtificeEffect）
+SAU74	Dimensional Corridor	play	0	DeckBuff_Green 2	DeckBuff_Green	cardSO.cardAbilities[0].abilityLogic[0].cardAnimations[0]	cardAbilities[0].abilityLogic[0].cardAnimations[0]			PLAY_BUCKET(逐卡)	EvtKind.Play → FireEventAll
+SAU74	Dimensional Corridor	play	1	CreateCard Necron	CreateCard_Necrons	cardSO.cardAbilities[0].abilityLogic[1].cardAnimations[0]	cardAbilities[0].abilityLogic[1].cardAnimations[0]			PLAY_BUCKET(逐卡)	EvtKind.Play → FireEventAll
+SAU75	Awakened Dynasty	play	0	DeckBuff_Green 2	DeckBuff_Green	cardSO.cardAbilities[0].abilityLogic[0].cardAnimations[0]	cardAbilities[0].abilityLogic[0].cardAnimations[0]			PLAY_BUCKET(逐卡)	EvtKind.Play → FireEventAll
+SAU75	Awakened Dynasty	play	1	CreateCard Necron	CreateCard_Necrons	cardSO.cardAbilities[0].abilityLogic[1].cardAnimations[0]	cardAbilities[0].abilityLogic[1].cardAnimations[0]			PLAY_BUCKET(逐卡)	EvtKind.Play → FireEventAll
+SAU76	Inescapable Retribution	play	0	GreenSummonCircle	RelentlessMarchSummon	cardSO.cardAbilities[0].abilityLogic[0].cardAnimations[0]	cardAbilities[0].abilityLogic[0].cardAnimations[0]			PLAY_BUCKET(逐卡)	EvtKind.Play → FireEventAll
+SAU76	Inescapable Retribution	play	1	GreenSummonCircle	RelentlessMarchSummon	cardSO.cardAbilities[0].abilityLogic[1].cardAnimations[0]	cardAbilities[0].abilityLogic[1].cardAnimations[0]			PLAY_BUCKET(逐卡)	EvtKind.Play → FireEventAll
+SAU8	Gauss Immortal	attack_ranged	0	NecronGauss_Twinlinked	Atk_Gauss_Twinlinked	cardSO.customRangedAttackParticles	customRangedAttackParticles			ATTACK_RANGED(逐卡)	ScheduleAttackPresentation → ResolveRangedAttackPieces
+SAU8	Gauss Immortal	death	0	Necrons death explosion		cardSO.customDeathParticles	customDeathParticles			DEATH_PARTICLE	CardFeel.PickDeathFx → ResolveDeathParticle（只认 customDeathParticles）
+SAU8	Gauss Immortal	death	1	RemnantBody3D Necrons		cardSO.remnantBodyPrefab	remnantBodyPrefab			REMNANT_TABLE	走 RemnantBodyTable（不进死亡桶，A2083 既定）
+SAU8	Gauss Immortal	trigger	0	OrkBuffGreenWaaagh	RegenerationTraitTrigger	cardtrait-so		regeneration	EffectTriggerType.Trigger(3)	TRAIT_FRAMES(Trigger)	TraitFrames._triggerBook（绑定 regeneration → OrkBuffGreenWaaagh）
+SAU9	Ophydian Destroyer	death	0	Necrons death explosion		cardSO.customDeathParticles	customDeathParticles			DEATH_PARTICLE	CardFeel.PickDeathFx → ResolveDeathParticle（只认 customDeathParticles）
+SAU9	Ophydian Destroyer	death	1	RemnantBody3D Necrons		cardSO.remnantBodyPrefab	remnantBodyPrefab			REMNANT_TABLE	走 RemnantBodyTable（不进死亡桶，A2083 既定）
+SAU9	Ophydian Destroyer	trigger	0	OrkBuffGreenWaaagh	RegenerationTraitTrigger	cardtrait-so		regeneration	EffectTriggerType.Trigger(3)	TRAIT_FRAMES(Trigger)	TraitFrames._triggerBook（绑定 regeneration → OrkBuffGreenWaaagh）
+SAU9	Ophydian Destroyer	trigger	1	ArtificeEffect	ArtificeTraitTrigger	cardtrait-so		artifice	EffectTriggerType.Trigger(3)	TRAIT_FRAMES(Trigger)	TraitFrames._triggerBook（绑定 artifice → ArtificeEffect）
+cbabeb234380634479feab1a1b4c733a	Master Chronomancer	play	0	Sau_MasterChronomancer	Master_Chronomancer_Effect	cardSO.cardAbilities[0].abilityLogic[0].cardAnimations[0]	cardAbilities[0].abilityLogic[0].cardAnimations[0]			PLAY_BUCKET(逐卡)	EvtKind.Play → FireEventAll
+cbabeb234380634479feab1a1b4c733a	Master Chronomancer	play	1		Wait_1s	cardSO.cardAbilities[0].abilityLogic[1].cardAnimations[0]	cardAbilities[0].abilityLogic[1].cardAnimations[0]			TIMING_ONLY	纯计时拍（原版 animAdressable 空）
+d8a14171b08b54144ba9dbf324b0a042	Relentless March	play	0	GreenSummonCircle	RelentlessMarchSummon	cardSO.cardAbilities[0].abilityLogic[0].cardAnimations[0]	cardAbilities[0].abilityLogic[0].cardAnimations[0]			PLAY_BUCKET(逐卡)	EvtKind.Play → FireEventAll
+eb17cd22c6a5d7941a7456838d927ab1	Particle Whip	play	0	Sau_ParticleWhip	ParticleWhip	cardSO.cardAbilities[0].abilityLogic[0].cardAnimations[0]	cardAbilities[0].abilityLogic[0].cardAnimations[0]			PLAY_BUCKET(逐卡)	EvtKind.Play → FireEventAll

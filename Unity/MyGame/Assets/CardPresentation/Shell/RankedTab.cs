@@ -14,8 +14,14 @@
 //    我们的**阵营分是服务器的**（`LeaderboardManager.GetLeaderboard`）⇒ 空态：4 格都建、**不填分数**。
 // ③ **`DivisionImage` 那一套是 7 大段位 + 6 个名次数字**（`01-Rook`…`07-Legend` / `Roman I–VI`），
 //    **不是** `WF_UI_Ranked_Background_{Gold,Silver,Bronze}`（那是 **Profile 页**传奇奖杯的底，§A·3 ④）。
-//    选哪张由 `RankedDivisions.GetDivisionData(divisionNumber)` 决定 —— **那个 SO 本地没有**（§D·1）
-//    ⇒ 「段位号 → 图名」的对照表**拿不到**，我们**不画段位图**（画了就是编一个段位）。
+//    选哪张由 `RankedDivisions.GetDivisionData(divisionNumber)` 决定 —— **那个 SO 本地没有**（§D·1）。
+//    🔴 **2026-10-24（A1）就地订正（铁律 5）**：本行原文写「⇒『段位号 → 图名』的对照表**拿不到**，
+//      我们**不画段位图**（画了就是编一个段位）」—— **已过期**：`RankedDivisionInfo.DivisionArt` 那张表
+//      现在有实测证据（4=`04-Admiral` / 7=`07-Legend` 两档逐块像素钉死，其余按图名序号 + 图案单调升级），
+//      ⇒ 本页**照事件窗同一份判据**画（`RankedDivisionInfo.DivisionArtName(DemoDivisionNumber)`）——
+//      **两个窗口不可能画出不同的段位**。段位号仍是**演示值**（`DemoDivisionNumber`，我们挑的，真值在服务器）。
+//      ⚠️ 本页的 `DivisionText` 装的是大标题 `'Global Rating'`（**不是段位名**，§A·3）⇒ **只画图、不画段位名**。
+//      `RankImage`（罗马数字）**仍关着** —— 名次号也在服务器（判据与表的归属见 `RankedDivisionInfo.RankArt`）。
 // ④ **两处 `Main Icon` 用的图不一样**（§A·2 末）：值那一行 = `40k_UI_icon_ranked_Skirmish`、
 //    最高分那一行（`MaxRating` 与 `Alliance Rating Display (1)`）= **`Menu_Icon_Galon`**。**别全填一张**。
 //
@@ -53,7 +59,7 @@
 // ---- 🔴 数据：**全是服务器的**（用户口径「具体的数据和排名这些可以空着」）----
 // 段位 / 名次 / 全局评分 / 各阵营评分 —— 本地一条都没有（§C·2 说明它们来自 `LeaderboardManager`）⇒
 // 逐格空态：分数用原版预制体自己的空态串（`'------'` / `'3000'` 那种占位**不抄**，见下），
-// 段位图与名次图**不画**。头像/名字/等级那一块**照 Profile 页那套**（我们有真名字与真头像）。
+// **段位图按演示段位号画**（见 ③，2026-10-24 A1）、名次图**不画**。头像/名字/等级那一块**照 Profile 页那套**（我们有真名字与真头像）。
 // ⚠️ 头像那一格是**另一个实例**（`EverguildButton.target` 不同，§A·5 跨页重名）⇒ 我们仍从 `AvatarTab` 取，
 //    但**不共用 Profile 页的实例**（两个页根各建一份，与正本一致）。
 using UnityEngine;
@@ -202,6 +208,12 @@ namespace CardPresentation
         /// <summary>这一页建出来的阵营行数（自检用；原版是「前 4 名用树上的格子、其余 Instantiate」）。</summary>
         public int BuiltRows { get; private set; }
 
+        /// <summary>🆕 **2026-10-24（A1）**：`center/DivisionImage` 那颗实际挂上的**段位图资源名**
+        /// （= `RankedDivisionInfo.DivisionArtName(DemoDivisionNumber)`；建页之前为 `null`）。
+        /// 🔴 **自检专用**（`Editor/RankedArtAssert.cs` 拿它和事件窗那颗比，证明**两个窗口同一份判据**）——
+        /// ⛔ 生产代码别读它，要图名请走 `RankedDivisionInfo.DivisionArtName`。</summary>
+        public string DivisionArtUsed { get; private set; }
+
         /// <summary>🆕 **2026-10-13（A465 · W-A435己）**：这一页那个**纵向**滚动区（**自检用** ——
         /// 同 `LeaderboardWindow.RowsScroll` / `BattleLogTab.RowsScroll` 那条理由：断言要能读到
         /// `ClipNode` 与 `Viewport` 两态）。⛔ 生产代码不用它。</summary>
@@ -310,7 +322,8 @@ namespace CardPresentation
             BuildCard(ct, "right-side", "#4", RsL, RsR, Card2T);
 
             Debug.Log("[Ranked] `Top4`：**阵营分是服务器的**（`LeaderboardManager.GetLeaderboard`，§C·2）⇒ 四格都建、"
-                    + "**分数留空**；段位图那一套（7 大段位 ×6 名次）**不画**（「段位号 → 图名」的 SO 本地没有，§D·1）。"
+                    + "**分数留空**；段位大图**按演示段位号画**（2026-10-24 A1；号→图见 `RankedDivisionInfo.DivisionArt`），"
+                    + "名次图（`Roman I–VI`）**仍不画**。"
                     + "⚠️ `top4Factions` 的**数组顺序是 `#1,#3,#2,#4`**（不是树序，§A·6）。");
         }
 
@@ -398,8 +411,32 @@ namespace CardPresentation
                                38f, L_Text, autoFit: true, autoMinPx: 18f, alignLeft: false, wrap: false,
                                autoMaxPx: 38f, basePx: 23f, face: TmpFont.Face.LatinUi);           // ⚠️ 名字叫 DivisionText，**装的是大标题**
             if (grTitle != null) grTitle.SetWrapping(false);
-            // `DivisionImage`（段位大图 + `RankImage` 名次数字）—— **不画**：段位图 ↔ 段位号的对照本地没有（判据 ③）
-            var di = Node(c, "DivisionImage", new PxRect(CsL, DimgT, CsR, DimgB));
+            // `DivisionImage`（段位大图）+ `RankImage`（名次数字）
+            // 🔴 **2026-10-24（A1）**：改前**不画**（理由写在文件头 ③ 的旧文里，已订正）。
+            //   现在**照事件窗（`RankedDivisionInfo`）同一份判据**画 —— 号 = `RankedDivisionInfo.DemoDivisionNumber`、
+            //   号→图 = `RankedDivisionInfo.DivisionArtName` ⇒ 两个窗口不可能画出不同的段位。
+            //   判据/逐行证据表 → `RankedDivisionInfo.DivisionArt` 的 doc ＋ `资料/普查产出_1024c/A1_段位图案映射.md`。
+            //
+            //   几何**照原版 prefab 字段**（`menu_dump.py bundle_menus_assets_all "Player Profile Window" --depth 25 --md`
+            //   的 `Ranking Tab/Top4/content/center/DivisionImage` 那一行）：
+            //   `m_SizeDelta = 369.298 × 133.282` · **`m_PreserveAspect = 1`** · **`m_Type = 0`(Simple)** ·
+            //   占位图 = `04-Admiral`（512²）⇒ 512² 的图**按比例内接成 133.28²、水平居中**
+            //   （⛔ 别拉满 369.30 宽：那是一颗被 PA 内接过的方图，不是横图）。
+            //   队列 = 本页 `L_Art`(2)：`center` 这一列里 `DivisionText`(599.34 之上) 与 `footer`(732.62 之下)
+            //   都**不与它重叠**（原版兄弟序 `DivisionText → DivisionImage → footer`，画序在这里无关）。
+            var divImgR = new PxRect(CsL, DimgT, CsR, DimgB);
+            var di = Node(c, "DivisionImage", divImgR);
+            DivisionArtUsed = RankedDivisionInfo.DivisionArtName(RankedDivisionInfo.DemoDivisionNumber);
+            if (string.IsNullOrEmpty(DivisionArtUsed))
+            {
+                Debug.LogWarning("[Ranked] 排名页的段位大图**没画** —— `RankedDivisionInfo.DivisionArt` 里没有段位 "
+                                 + RankedDivisionInfo.DemoDivisionNumber + " 对应的图；⛔ 不拿别的段位顶替");
+            }
+            else if (Rect(di, DivisionArtUsed, divImgR, "Image", L_Art, null, true) == null)
+            {
+                Debug.LogWarning("[Ranked] 排名页的段位大图**没画** —— 图 `" + DivisionArtUsed
+                                 + "` 取不到（`Resources/Art/ui_menu/` 里没有，或 `ArtInternal` 记进了 `MissingArt`）");
+            }
             var ri = Node(di, "RankImage", new PxRect(732.08f, 639.33f, 805.94f, 652.66f));
             ri.gameObject.SetActive(false);
 

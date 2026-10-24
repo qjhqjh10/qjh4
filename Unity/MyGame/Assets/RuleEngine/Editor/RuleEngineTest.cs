@@ -867,6 +867,15 @@ public static partial class RuleEngineTest
         Step(TestEngineP1);
 
         // ============================================================
+        //  🆕 2026-10-24（执行代理 `E1` 两条引擎件）：触发层 `PerCount` 增量 · 整条 desc 路的替代行动块
+        // ============================================================
+        //  判据 → `资料/普查产出_1024b/C3_剩余判据_引擎战斗.md` §1·1
+        //        ＋ `资料/普查产出_1024b/E6_DiedLastTurn与desc路.md` §3·4；
+        //  报告 → `资料/普查产出_1024c/E1_PerCount与desc闸.md`。
+        //  ⚠️ 测试体全在**新分册** `RuleEngineTest_EngineP2.cs`（本文件只加这一段用例表）。
+        Step(TestEngineP2);
+
+        // ============================================================
         //  🔴 2026-10-21（引擎线 `T02`）：**`or` 族的条件析取 + 落位锚点族的另外两个写入点**
         // ============================================================
         //  判据 → `资料/任务线/引擎线/任务/T02_条件替代与落位锚点.md`（同族未补那一批）。
@@ -1047,6 +1056,26 @@ public static partial class RuleEngineTest
         //   + `CardDatabase.Find` 落空出声 / `EvtKind.Death.CardId` 带 `Name` 的口径。
         //   删掉这一行 ⇒ `VerifyRunCaseCoverage` 会点名它。
         Step(TestEngineE6);
+
+        // 🆕 2026-10-24（执行代理 `E8`）：`abilityContext` 缺行 = `Play(0)` 的**前提②**（这张卡确实有这条 trigger）。
+        //   测试体在 `RuleEngineTest_EngineP3.cs`；删掉这一行 ⇒ `VerifyRunCaseCoverage` 会点名它。
+        Step(TestEngineP3);
+
+        // 🆕 2026-10-24（执行代理 `E9`）：卡表 v25 的 logic/op 级 `targetCriteria` 两列
+        //   （`activeAbilityTargets` 193 行 / `abilityTargetCriteria` 1616 行，消费端另批）。
+        Step(TestEngineD4);
+
+        // 🆕 2026-10-24（执行代理 `E2`）：`GameplayVariables.For(ClosedDeck)` 显式档（复用了 Skirmish 那套
+        //   = **我们挑的**，原版轮抽参数在服务端）+ `EvtKind` 三处 `default` 的「登记了却没 case」闸。
+        //   ⚠️ **缩进深一层**：`工具/gen_diag_runner.py` 只把 8 空格缩进的顶层语句当用例
+        //   （同下面 `VerifyRunCaseCoverage` 那条注释）；裸写会被判成「一个不存在的用例」。
+        {
+            EngineClosedDeckAssert.Run();
+            _pass += EngineClosedDeckAssert.Pass;
+            _fail += EngineClosedDeckAssert.Fail;
+            if (EngineClosedDeckAssert.Fail > 0)
+                _failures.Add($"EngineClosedDeckAssert：{EngineClosedDeckAssert.Fail} 条失败（明细见它自己的 ✗ 行）");
+        }
 
         // 🔴 **`Run()` 自己的「静默少跑」闸**（`A1591`）—— 必须在【汇总】之前跑，
         //    否则它的 `Check` 不计进 `_pass/_fail`（汇总行会漏掉它）。

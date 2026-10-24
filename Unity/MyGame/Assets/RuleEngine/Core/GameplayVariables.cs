@@ -1,4 +1,4 @@
-// GameplayVariables.cs — **一局对战的全套参数**（经典 / 遭遇 两套实例）
+// GameplayVariables.cs — **一局对战的全套参数**（四套实例：经典 / 遭遇 / 教程 / 轮抽）
 //
 // 🔴 **为什么要有这个类**：原版把「经典 / 冲突（Skirmish）」两套模式的差异**全部收在一个类里**
 //    —— `Everguild.LiveOps.GameplayVariablesData`（**18 个字段**），由服务器按模式下发。
@@ -424,6 +424,60 @@ namespace RuleEngine
             }
         }
         static GameplayVariables _tutorial;
+
+        /// <summary>
+        /// 🆕 2026-10-24（执行代理 `E2`）：**轮抽局**（`GameMode.ClosedDeck 7`）。
+        ///
+        /// <para>🔴 **原版真值拿不到**：轮抽那一局的参数由服务端 `DraftEventData.gameplayVariables` 下发
+        /// （判据 → `资料/普查产出_1024b/S2_轮抽模式数据.md` · `S3_轮抽窗原版规格.md` §五；
+        /// 与本文件那 18 个值同一条口径 —— `GameplayVariablesData..ctor` 是空桩、全量反编译里没有一处字面量赋值
+        /// ⇒ 本地 0 命中）。</para>
+        ///
+        /// <para>⇒ **这一档是【我们挑的】，⛔ 不是原版真值**：显式**复用 `Skirmish` 那一份**（`Skirmish.Clone()`）。
+        /// 唯一依据是**结构性的**：轮抽组出来的牌**恒 12 张**（每包 3 张 × 4 轮 —— `CardsPerPack = 3` 是原版真值、
+        /// `RoundsPerDraft = 4` 是我们挑的），而 `Skirmish` 是本地唯一一套「12 张」的参数
+        /// ⇒ 12 张的牌**不能**按经典那套（30 张 / 起手 3 / 传说上限 1 / 有换牌）去开。</para>
+        ///
+        /// <para>📌 **逐字段（值 / 来源）** —— 将来拿到服务端真值就**只改这一张表**：</para>
+        /// <list type="bullet">
+        /// <item>`deckSize = 12` —— 原版【文案】`12-card decks`（轮抽侧另有「4 轮 × 3 张」的结构性一致）。</item>
+        /// <item>`maxLegendaries = 4` —— 原版【文案】`Up to 4 Legendaries (Warlord not included)`。</item>
+        /// <item>`warlordLifeChange = -10` —— 原版【文案】`Warlords start with 10 less Health`。</item>
+        /// <item>`manaPerTurn = 2` —— 原版【文案】`Gain +2 Maximum Energy each turn`；
+        ///   `startingManaSecond = 2` —— 【推断】（同文案 `P1 3 Energy P2 4 Energy` 的那 1 点差）。</item>
+        /// <item>`showMulligan = false` · `shouldReshuffle = false` —— 原版【文案】`No mulligan`。</item>
+        /// <item>`assignDefensiveCardsInEditMode = true` —— 原版【文案】`Random Defence card`
+        ///   （⚠️ 该文案**不是**这个字段的证据，见字段自己的注释；且我们只读不实现）。</item>
+        /// <item>`handLimit = 8` · `startingHand = 4` · `manaAccumulation = 1` —— 【规则书，**非官方**】。</item>
+        /// <item>`overtimeTurn = 10` —— 【推断】（本地没有真值，见字段注释）。</item>
+        /// <item>`addedManaSecond = 0` · `manaBonusSeat0/1 = 0` · `slotsPerSide = 9` ·
+        ///   `numberOfCopies*` / `drawCardsPerTurn` / `secondExtraCards = 1` —— 本地缺省（与经典同值）。</item>
+        /// </list>
+        ///
+        /// <para>⚠️ **`IsSkirmish` 在这份实例上是 `true`**（判据 = `deckSize &lt; 30`）—— 这一点**语义正确**
+        /// （它答的是「12 张那套」，不是模式号）。⛔ **别拿它当模式号**：本局模式仍是 `ClosedDeck 7`
+        /// （`BattleDriver.PlayMode` / `BattleContext.PlayMode`，判据是**入口窗**）。</para>
+        ///
+        /// <para>🔴 **为什么不直接 `return Skirmish`**：轮抽（选包组牌）与冲突（构筑 12 张）是两件事，
+        /// 原版各自有自己的 `gameplayVariables` ⇒ 服务端真值到手时这两套**会分叉**。
+        /// 先各给一个实例，将来改一份不会顺手改掉另一份。</para>
+        /// </summary>
+        public static GameplayVariables ClosedDeck
+        {
+            get
+            {
+                if (_closedDeck != null) return _closedDeck;
+                // ⚠️ 克隆的是 `Skirmish` 那一份的**当前值**（惰性一次）。
+                //    ⛔ 别在这里逐字段抄字面量 —— 那就是「两处写同一条规则 = 迟早不一致」。
+                // ⚠️ 「惰性一次」的副作用：**第一次访问那一刻** `Skirmish` 是什么值就定死什么值。
+                //    自检里有临时改过 `Skirmish` 字段的地方（`DeckScene` 那处是 try/finally 同步还原），
+                //    ⛔ 别在那样的窗口里**首次**访问本属性；生产路径没有这种窗口。
+                _closedDeck = Skirmish.Clone();
+                return _closedDeck;
+            }
+        }
+        static GameplayVariables _closedDeck;
+
         /// <summary>【TutorialScenario】`startingHand = 3`（原版那个类，不是 `GameplayVariablesData`）。</summary>
         public const int TutorialStartingHand = 3;
         /// <summary>【TutorialScenario】`secondExtraCards = 0` —— **经典是 1**，
@@ -433,17 +487,24 @@ namespace RuleEngine
         public const int TutorialMaxCardsInHand = 10;
 
         /// <summary>按模式取实例。**15 档里只有 `Skirmish 13` 用遭遇那一套**，
-        /// 🆕 2026-10-17 起 **`Tutorial 4` 与 `TutorialReplay 9` 用教程那一套**，其余 12 档全走经典 ——
-        /// 这是我们**只有三份实例**的必然结果（原版那 18 个值是**服务器按模式下发**的，
-        /// `资料/加时与冲突模式_原版规格.md` §2.5 ⇒ 本地抄不到第三份）。
-        /// 判据：15 档里带「12 张 · 4 传说 · 督军 −10 生命 · 无换牌」这套的只有 `Skirmish`
+        /// 🆕 2026-10-17 起 **`Tutorial 4` 与 `TutorialReplay 9` 用教程那一套**，
+        /// 🆕 2026-10-24 起 **`ClosedDeck 7`（轮抽）用自己的那一档**（= 复用遭遇那套的 12 张参数），
+        /// 其余 11 档全走经典 —— 这是我们**只有四份实例**的必然结果（原版那 18 个值是**服务器按模式下发**的，
+        /// `资料/加时与冲突模式_原版规格.md` §2.5 ⇒ 本地抄不到更多份）。
+        /// 判据：15 档里**原版上**带「12 张 · 4 传说 · 督军 −10 生命 · 无换牌」这套的只有 `Skirmish`
         /// （= `FastMode`，原版 `MatchType.FastMode 200` 那一支）；`OfflinePractice 6` /
         /// `OwnDeckTraining 12` 是**用自己 30 张的牌打练习**，`Classic 0` 是排位 ⇒ 都不是快攻那套。
+        /// `ClosedDeck 7` 的判据见 <see cref="ClosedDeck"/>（**我们挑的**：轮抽牌恒 12 张）。
         /// 教程那两档的判据见 <see cref="Tutorial"/>。
         /// ⚠️ **这里是「模式号 → 规则参数」的唯一一处**：⛔ 别在别处再写 `mode == Skirmish ? … : …`。</summary>
         public static GameplayVariables For(GameMode mode)
         {
             if (mode == GameMode.Skirmish) return Skirmish;
+            // 🆕 2026-10-24（`E2`）：**轮抽局（12 张）单开一档** —— ⛔ 别让它靠 `default` 掉进经典。
+            //   掉进经典 = 这套参数说「30 张 / 起手 3 / 传说上限 1 / 有换牌」，而轮抽**恒交 12 张**
+            //   ⇒ 静默错口径（`IsSkirmish` 也会变成 false，凡按它分档的地方一起错）。
+            //   🔴 原版真值在服务端、本地拿不到 ⇒ 本档**复用 Skirmish**（我们挑的），见 `ClosedDeck` 的 doc。
+            if (mode == GameMode.ClosedDeck) return ClosedDeck;
             if (mode == GameMode.Tutorial || mode == GameMode.TutorialReplay) return Tutorial;
             return Classic;
         }

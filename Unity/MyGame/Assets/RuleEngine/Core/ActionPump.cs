@@ -262,6 +262,9 @@ namespace RuleEngine
         ///   ③ **`-1` 未知**（旧卡表 / 这张卡没有这条 trigger / 生成器还没落列）⇒ **回退旧关键词表**
         ///      （<see cref="LegacyActorMustBeInPlayForKeyword"/>）。这是**正常回退**、不出声；
         ///      数据真缺列时 `CardDatabase.Parse` 的 `version<14` 守卫已经在装载时出过声。
+        ///      🔴🆕 2026-10-24（执行代理 `E8`）：**「这张卡没有这条 trigger」这一档从本日起真的会出现**
+        ///      —— <see cref="AbilityContextOfAbilityV14"/> 补上了判据前提②
+        ///      （`AbilityTriggerPresence == 1`）；改前它被「versioned ⇒ 一律 `Play(0)`」吞掉了。
         ///
         /// 🔴 **判据只写一份**：⛔ 别在调用点各写一份（批 D/E 只调本方法或 <see cref="AbilityContextOfAbility"/>）。
         ///
@@ -297,8 +300,13 @@ namespace RuleEngine
             //   而我们卡表**只落非 0 行**（`gen_cards_engine.py` 的 `ability_contexts_of`）
             //   ⇒ 「查不到这一行」在有 v14 真值快照的卡上 = **`Play(0)` 被省略**，**不是未知**
             //   （判据 → `资料/普查产出_1024/C1_引擎线判据总表.md` §5·1）。
-            //   ⚠️ **`-1` 只剩两种来路**：旧卡表 / 第二解析路没接列 / 载体卡拿不到
-            //   （`DeathWatch` 那一支传 `null`）—— 那才回退旧关键词表。
+            //   ⚠️ **`-1` 的来路**（都回退旧关键词表）：① 旧卡表 / 第二解析路没接列；
+            //   ② 载体卡拿不到（`DeathWatch` 那一支传 `null`）；
+            //   ③ **认不出 trigger 名**（关键词反查不到枚举名）；
+            //   ④ 🔴🆕 **2026-10-24（`E8`）这张卡本来就没有这条 trigger 的 ability**
+            //      （`AbilityTriggerPresence == 0`）/ v17 列也缺（`-1`）——
+            //      判据 = `A2` Q3 前提②：没有那一行就没有「0 被省略」这回事，
+            //      ⛔ 不许拿 `Play(0)` 顶（详见 `AbilityContextOfAbilityV14` 的 doc ②）。
             //   ⚠️ 本方法的返回值只喂 **`requireActorInPlay`（出队复核）**；凡**同时**传了
             //   `abilityContext` 的调用点，泵点会走「变残骸才取消」那一支、**跳过**这一支
             //   （`ActionPump.PumpActionQueues` 的 `else if` 结构）⇒ 原版「入队后死亡不取消」
@@ -345,7 +353,9 @@ namespace RuleEngine
         ///   ① 先按 <see cref="AbilityContextOfAbility"/> 查真值（trigger 名优先 → 关键词兜底）；
         ///   ② 查不到 **且** 这张卡的列确实来自 v14（<see cref="CardDef.AbilityContextsVersioned"/>）
         ///      **且** 认得出 trigger 名（`triggerName` 非空，或 `keyword` 能反查
-        ///      → <see cref="TriggerNameOfKeyword"/>）⇒ **`Play(0)`**；
+        ///      → <see cref="TriggerNameOfKeyword"/>）
+        ///      **且** <see cref="CardDef.AbilityTriggerPresence(string)"/> == `1`（= 这张卡**确实有**
+        ///      这条 trigger 的 ability —— v17 真值列）⇒ **`Play(0)`**；
         ///   ③ 其余 ⇒ `-1`（<see cref="CardDef.AbilityContextUnknown"/>，⛔ 不许读成 `Play(0)`）。
         ///
         /// ⚠️ **为什么 ② 要「认得出 trigger 名」**：生成器只在
@@ -353,6 +363,25 @@ namespace RuleEngine
         /// 这种既没有 trigger 名映射、又不在映射表里的关键词 —— 查不到**不能**推成 0
         /// （那会把一条本来 `-1` 的路径静默变成「必须活着在场」）。
         /// `AbilityContextsVersioned` 为假（旧卡表 / 第二解析路没接列）⇒ 照旧 `-1`。
+        ///
+        /// 🔴🆕 **2026-10-24（执行代理 `E8` · 判据 `资料/普查产出_1024c/A2_引擎战斗判据总表.md` Q3
+        /// 的**前提②**）：上面 ② 还多一道 **`AbilityTriggerPresence(tn) == 1`** —— 为什么必须有它：
+        ///   · 「缺行 = `Play(0)`」这条推理的**立足点**是「**这条 ability 本来会有一行**，
+        ///     只是生成器把 `0` 省略了」（`gen_cards_engine.py` 的 `ABILITY_CONTEXT_DEFAULT = 0`）；
+        ///   · 若这张卡**根本没有**这条 trigger 的 ability（v17 `abilityTriggers` 明确没有 = `0`），
+        ///     那么「查不到行」的成因就是**没有这条 ability**，⛔ 不是「省略了 0」
+        ///     —— 这时推成 `Play(0)` 就是**给一条不存在的 ability 编口径**
+        ///     （同一条纪律写在 `EffectResolver.AbilityContextOfAbilityV14` 的「调用前提」那段）；
+        ///   · 判据链：`CardAbility__CanTriggerAbility.c:126` 那一格是**逐 ability 行**判的
+        ///     `IsRightContext`（`thisCard` = 那一行的载体）⇒ 行不存在 ⇒ 这一格从不执行
+        ///     ⇒ 原版对「没有这条 ability」**没有**任何 context 结论。
+        ///   · `-1`（v17 列也没有：旧卡表 / 第二解析路没接列）同样**不推** —— 两条前提
+        ///     「同时满足」才成立（Q3 §4）。
+        ///   ⛔ **别把这一道写成 `!= 0`**：`-1`（未知）会被放过去 ⇒ 又回到「无凭据也当 Play」。
+        ///   ⚠️ 实测口径（2026-10-24 现读 `cards_engine.json` v24 / 1127 张）：
+        ///   `Slay(120)` 只有 **16** 张卡有、`Strike(580)` **30** 张、`Mob(300)` **16** 张
+        ///   —— 收口前这 1127 张**全部**被读成 `Play(0)`（`TestW61T27ActorLeftPlayCancels` ⑩
+        ///   那条「全池每一张卡的 `Slay` 都读成 `Play(0)`」就是旧口径的画像）。
         ///
         /// 🔴 **消费端一律用本方法**（`-1` 契约 = 「不知道，回退旧口径」）；
         /// 只有「我要看原始真值、不想被省略语义影响」的断言才直接调
@@ -366,9 +395,15 @@ namespace RuleEngine
             string tn = string.IsNullOrEmpty(triggerName)
                       ? TriggerNameOfKeyword(keyword)
                       : triggerName;
-            if (!string.IsNullOrEmpty(tn) && card.AbilityContextsVersioned)
-                return CardDef.AbilityContextPlay;      // v14 只落非 0 ⇒ 缺行 = Play(0)
-            return CardDef.AbilityContextUnknown;
+            if (string.IsNullOrEmpty(tn) || !card.AbilityContextsVersioned)
+                return CardDef.AbilityContextUnknown;
+            // 🔴🆕 2026-10-24（执行代理 `E8` · 判据 `A2` Q3 前提②）：**这张卡必须真的有这条
+            //   trigger 的 ability**（v17 `abilityTriggers` 真值列）—— `1` = 有、`0` = 明确没有、
+            //   `-1` = 未知（旧表）。⛔ 只有 `1` 才允许把「缺行」读成 `Play(0)`；
+            //   `0`/`-1` 都回 `-1`（未知），由调用点回退旧口径。理由 / 反例详见本方法 doc ②。
+            int presence = card.AbilityTriggerPresence(tn);
+            if (presence != 1) return CardDef.AbilityContextUnknown;
+            return CardDef.AbilityContextPlay;      // v14 只落非 0 ⇒ 缺行 = Play(0)
         }
 
         /// <summary>

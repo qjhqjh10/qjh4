@@ -191,11 +191,40 @@ namespace CardPresentation
         /// <summary>卡池视口 **330.2, 155.9 → 1919.9, 1079.9**（1589.7 × 924.06）——
         /// ⚠️ 与 Deck 页的视口（330.9,155.9→1920,1080）**差 0.7/0.1**，别互相抄（两份实测如此）。</summary>
         public static readonly PxRect CardsViewport = new PxRect(330.2f, 155.9f, 1919.9f, 1079.9f);
-        /// <summary>卡位 **262.5 × 384** · spacing **0** · 行距 **384** · **贴左但整体居中**（A3）。</summary>
+        /// <summary>卡位 **262.5 × 384** · spacing **0** · 行距 **384** · **贴左但整体居中**（A3）。
+        ///
+        /// <para>🔴 **2026-10-24（`E6`）判据补全 + 就地订正（铁律 5）** —— 这一组值的出处是
+        /// **原版 prefab 的 RSR（`PolyAndCode.UI.RecyclableScrollRect`）序列化字段**，逐字段实读
+        /// `d:/2/新解包资源/assets_full/bundle_menus_assets_all/MonoBehaviour/`：
+        /// **`PrototypeCell` 指向 `Collection Card` 的那 3 份**（`MonoBehaviour_345129740864909092` ·
+        /// `_7174171443954770645` · `_-1327870198181403947`）**逐字相同**：
+        /// `_useFixedCellSize = 1` · `_cellWidth = **262.5**` · `_cellHeight = **384**` ·
+        /// `_spacingX = _spacingY = **0**` · `_mobileSizeScale = 1.5`（桌面档不乘，见下）。
+        /// ⇒ **262.5×384 / spacing 0 是原版值，本处无需改**。</para>
+        ///
+        /// <para>⛔ **别信「原版格 = 225×364.5、间距 20」那条**（`资料/普查产出_1024c/A2_引擎战斗判据总表.md` §Q6）——
+        /// 它引的 `MonoBehaviour_4496232554149549872` / `_8316412282010198741` 的 `PrototypeCell`
+        /// 其实是 **`Collection Deck With Highlight` / `Collection Deck`**（= **卡组列表**那一格，见本文件 `DeckCellW/H`），
+        /// 父节点名 `Deck Scroll View` ⇒ **那是卡组编辑/收藏卡组页的格，不是卡池小卡**。
+        /// 卡池那三份的 `PrototypeCell` 是 `Collection Card`（`GameObject/Collection Card.json`）。
+        /// 🔑 判据不看「谁引了哪份 MB」，看 **`PrototypeCell` 指哪个 prefab**。</para></summary>
         public const float CardsCellW = 262.5f, CardsCellH = 384f;
-        /// <summary>列数 = `floor(1589.7 ÷ (262.5 + 0))` = **6**（原版运行时算的，A3 §四·1 说算法读不到）。</summary>
+        /// <summary>列数 = `floor(1589.7 ÷ (262.5 + 0))` = **6**。
+        ///
+        /// <para>🔴 **2026-10-24（`E6`）：算法**读得到**了**（A3 当年记「运行时算的、算法读不到」）——
+        /// `d:/2/tools/decomp_full/PolyAndCode.UI.VerticalRecyclingSystem__ConfigureColumnNumber.c`：
+        /// `_coloumns = floor(Content.rect.width / (_cellWidth + _spacingX))`（**只在该 RSR
+        /// `_useFixedCellSize != 0` 时现算**；卡池那三份正好是 1 ⇒ 序列化的 `_segments`
+        /// （跨这几页分别是 4 / 5 / 6）**不参与**，真正说话的是这一句）。
+        /// ⚠️ 分母是 **`_cellWidth + _spacingX`**（不是 `+spacingY`），Content 宽 = 视口宽。</para></summary>
         public const int CardsCols = 6;
-        /// <summary>贴左但整体居中：内容宽 6×262.5 = 1575 &lt; 视口 1589.7 ⇒ 两侧各留 **7.35**。</summary>
+        /// <summary>贴左但整体居中：内容宽 6×262.5 = 1575 &lt; 视口 1589.7 ⇒ 两侧各留 **7.35**。
+        ///
+        /// <para>🔴 **2026-10-24（`E6`）出处**：`PolyAndCode.UI.VerticalRecyclingSystem__CreateCellPool.c`
+        /// （反汇编 `0x1808A4xxx` 段）—— 网格定位式
+        /// `offset = ((Content.rect.width − (spacingX + cellWidth) × coloumns) + spacingX) × **0.5**`、
+        /// `x = (spacingX + cellWidth) × col + offset`、`y −= (spacingY + cellHeight)`（每行一次）。
+        /// 本处 `spacingX = 0` ⇒ `((1589.7 − 262.5×6) + 0) × 0.5 = **7.35**`（与本式逐位相同）。</para></summary>
         public static float CardsPadX { get { return (CardsViewport.W - CardsCols * CardsCellW) * 0.5f; } }
 
         public static PxRect CardsCellRect(int i)
@@ -1418,6 +1447,22 @@ namespace CardPresentation
             // 🔴 **2026-10-18（`W11`）**：卡的缩放按「**格高 − 张数条**」反解（原来是整格 384 ⇒ 卡底压住张数条，
             //   见 `CardsCardRect` 的 doc）。式子与卡组编辑窗 `DeckRuntime.Pool.CardH` **同一条**：
             //   345.728 ÷ (`CardView.Height` × 108) = **0.9609**。
+            //
+            // ⚠️ **2026-10-24（`E6`）补记：原版 prefab 那条式子与本式【不是同一条】—— 如实记在这里**。
+            //   原版（反汇编逐条，`CollectionCard__OnRectTransformDimensionsChange` @ VA `0x1806D9980`）：
+            //       `cardUI.localScale = sizeDelta.**y** × initialCardScale / initialHeight`
+            //   其中 `initialCardScale = 150`、`initialHeight = 512`（`MonoBehaviour_40971030049256792.json`），
+            //   作用对象是 `Content/CardUI`（其子 `2DCard` = 2.0927 × 3.3313 卡单位；出厂 `CardUI.scale = 150`
+            //   对应出厂格高 512 ⇒ 自洽）。**读的是 `sizeDelta.y`（高度）不是 x** ——
+            //   指令流是 `mov [rsp+0x70], rax`（Vector2 8 字节：x 在 +0x70 / y 在 +0x74）后
+            //   `movss xmm6,[rsp+0x74]`，即取 y。据此刻度 = 384 × 150/512 = **112.5 px/卡单位**
+            //   ⇒ 折成我们的世界缩放 = 112.5 ÷ 108 = **1.0417**（比本式大 8.4%）。
+            //   **为什么不用它**：按 1.0417 画，卡块高 374.83 > 格高 − 张数条 345.728 ⇒ **卡底压住张数条 29.1px**，
+            //   正是用户 2026-10-18 报的那条缺陷（`W11` 修的就是它）；而且原版实拍（用户
+            //   `Desktop/warpforge参考图/收藏—张牌的界面参考图（打开过滤器按钮后）.png`）量出来
+            //   卡宽 ≈ 格的 **81.7%**、卡高 ≈ **82.8%**，与本式（82.7% / 90%）同档，与 1.0417（89.7% / 97.6%）不符
+            //   ⇒ **实况 > 静态字段，保持本式**；差异与两种读法全记在
+            //   `资料/普查产出_1024c/E6_收藏卡池格子几何.md`（⛔ 别只按公式直译改回去）。
             float scale = (CardsCellH - CardsCounterH) / (CardView.Height * 108f);
             for (int i = 0; i < list.Count; i++)
             {

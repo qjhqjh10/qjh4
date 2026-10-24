@@ -493,56 +493,15 @@ namespace RuleEngine
                 // ---- `for each` 增量型：数值 = 基础 + 计数 × 增量 ----
                 // `Give +2 Melee Attack to a friendly troop, and an additional +2 Melee Attack
                 //  for each Dark Pact on it` —— 一份契约时是 **+4**，不是 +2 再来两遍。
-                if (op.PerCount > 0 && !string.IsNullOrEmpty(op.CountRef) && op.Verb != "deal" && op.Verb != "heal")
+                // 🔴 **2026-10-24（执行代理 `E1` · `C3` §1·1）：算法只此一份 =
+                //    `IsPerCountIncrement` ＋ `TryFoldPerCount`**（触发路同一个入口）。
+                //    改前这一整套只写在**这里** ⇒ 触发路把 `PerCount` 整条丢掉（静默少数）。
+                if (IsPerCountIncrement(op))
                 {
-                    int n = CountFor(ctx, owner, source, op);
-                    if (n < 0)
-                    {
-                        ctx.Log($"{by}：「{op.Source}」的计数「{op.CountRef}」本版数不出来 —— **这条没生效**");
-                        unresolved.Add(op.Source + "（计数 " + op.CountRef + " 数不出来）");
+                    EffectOp foldOp;
+                    if (!TryFoldPerCount(ctx, owner, source, by, op, chosen, sourceCard, unresolved, out foldOp))
                         continue;
-                    }
-                    // 🆕 v22（2026-10-24 · `新账-95` #2）：**结构化乘数（`role == "mult"`）优先**。
-                    //   原版这一格 = `AbilityLogic.multiplier`（`PlayAbility.c:181-236`）——
-                    //   数据里就是「按几个目标放大」，比正文正则权威（铁律 10 第 1 条）。
-                    //   两者不一致时**按数据**并出声（⛔ 不静默取正文）。
-                    {
-                        int sm; string smGap;
-                        if (TryStructuredMultiplier(ctx, owner, op, sourceCard, chosen, out sm, out smGap))
-                        {
-                            if (sm != n)
-                                ctx.Log($"{by}：「{op.Source}」正文计数「{op.CountRef}」= {n}，"
-                                      + $"而原版 `multiplier` 结构化数据 = **{sm}** ⇒ 按数据 {sm} 结算"
-                                      + "（`AbilityLogic__PlayAbility.c:181-236`）");
-                            n = sm;
-                        }
-                        else if (smGap != null)
-                        {
-                            StructuredConditionNotice("mult-gap|" + (sourceCard != null ? sourceCard.Id : "?") + "|" + smGap,
-                                $"卡「{sourceCard.Name}」（{sourceCard.Id}）的 `mult` 条件（正文「{op.Source}」）"
-                              + $"**本版判不了**：{smGap} ⇒ 退回**正文计数**「{op.CountRef}」。");
-                        }
-                    }
-                    // ⚠️ **不能改 `op.Amount` 本身**：`EffectOp` 列表是**解析产物、会被复用**
-                    //    （同一张卡第二次打出时是同一份对象），改了就一次比一次高。
-                    //    2026-09-12 撞到：第二次打 `Daemonic Frenzy` 变成 +4 而不是 +2。
-                    int before = op.Amount;
-                    int eff = op.Amount + n * op.PerCount;
-                    ctx.Log($"{by}：「{op.Source}」基础 {before} + 每个 {op.CountRef} 加 {op.PerCount}"
-                          + $" × {n} = **{eff}**");
-                    // 递一份**副本**下去（不动解析产物本身 —— 见上面那条注释）
-                    var effOp = op.Clone();
-                    effOp.Amount = eff;
-                    // ⚠️ `give` / `gain` / `lose` 的数值**不在 `Amount` 里，在 `Payload` 的原文里**
-                    //    （`+2 melee attack` 这种，由 `GivePayload` 现解）。只改 `Amount` 的话
-                    //    载荷还是 +2 —— 2026-09-12 撞到：`Daemonic Frenzy` 有契约时只加了 2 不是 4。
-                    //    所以这类动词要**把增量写回载荷文本**。
-                    // ⚠️ **`eff == 0` 时不能去改载荷**：载荷里的数字是**基础值**（`+2 melee attack` 的 2），
-                    //    而 `Amount` 对这类载荷是 0。把载荷改成 0 就把基础值抹掉了 —— 2026-09-12 撞到：
-                    //    没契约时（eff = 0 + 0）`Daemonic Frenzy` 变成 +0。
-                    if (eff != 0 && (op.Verb == "give" || op.Verb == "gain" || op.Verb == "lose"))
-                        effOp.Payload = ScalePayload(op.Payload, eff);
-                    if (ResolveOne(ctx, owner, source, by, Prepaid(effOp), chosen, unresolved, card: sourceCard)) done++;
+                    if (ResolveOne(ctx, owner, source, by, Prepaid(foldOp), chosen, unresolved, card: sourceCard)) done++;
                     NotePreviousAbilityTargets(ctx);   // 🆕 `E2`：逐 op 同步（同 P4）
                     continue;
                 }
@@ -6478,29 +6437,30 @@ namespace RuleEngine
 
                 // 🔴 **2026-10-24（`G6` · `C6` §1·3 C）：这条 op 自己的 `repeats`**
                 //   —— 判据与出牌路**同一份**（`TryComputeRepeats`），不要再抄一遍。
-                //   ⚠️ 两档**不套用**（触发路今天判不了，保持改前口径并出声，⛔ 不用 repeats 顶）：
-                //   ① `PerCount` 增量型（「an additional +1 for each X」= **加 N 次**不是**跑 N 遍**；
-                //      出牌路那一档在重载 #1 的 `:489` 一段，本重载还没有）；
-                //   ② `CountScope == "died"`（「For each one that dies, …」）—— 触发本身**就是**
-                //      那次死亡事件（`OtherUnitDeath(90)` / `UnitDeathByAbility(180)`），
-                //      再乘「本回合累计阵亡数」= **平方**；原版那两张卡的 `multiCountCriteria` 现读
-                //      `ta = 0 (any)`（`AM34` / `TL46`）= 数据也说不重复。
+                //   ⚠️ `CountScope == "died"` 一档**不套用**（触发本身**就是**那次死亡事件
+                //   （`OtherUnitDeath(90)` / `UnitDeathByAbility(180)`），再乘「本回合累计阵亡数」= **平方**；
+                //   原版那两张卡的 `multiCountCriteria` 现读 `ta = 0 (any)`（`AM34` / `TL46`）= 数据也说不重复）。
+                //
+                // 🔴 **2026-10-24（执行代理 `E1` · `C3` §1·1）：`PerCount` 增量型** —— 改前这一档
+                //   在本重载里被**整条丢掉**（只打一条 `trigger-repeat-percount` 提示、`opRepeats` 保持 1），
+                //   而 `ResolveOne` **不读 `PerCount`** ⇒ 触发正文里的 `give/gain/lose` 只剩**基础值**
+                //   （静默少数）。现在与出牌路**同一个入口**：`IsPerCountIncrement` ＋ `TryFoldPerCount`
+                //   （原版 = 一次结算、数值乘进去，⛔ 不是跑 N 遍；判据见那个方法的 doc）。
                 int opRepeats = 1;
-                string skipWhy = null;
-                if (amtOp.PerCount > 0 && !string.IsNullOrEmpty(amtOp.CountRef)
-                    && amtOp.Verb != "deal" && amtOp.Verb != "heal")
-                    skipWhy = "percount";
+                EffectOp runOp = amtOp;
+                if (IsPerCountIncrement(amtOp))
+                {
+                    if (!TryFoldPerCount(ctx, owner, source, by, amtOp, source,
+                                         source != null ? source.Card : null, unresolved, out runOp))
+                        continue;                  // 计数数不出来 ⇒ 整条跳过（日志/unresolved 已写）
+                }
                 else if (amtOp.CountScope == "died")
-                    skipWhy = "died";
-                if (skipWhy != null)
                 {
                     StructuredConditionNotice(
-                        "trigger-repeat-" + skipWhy + "|" + (source != null && source.Card != null ? source.Card.Id : "?") + "|" + amtOp.Verb,
-                        $"「{by}」的「{amtOp.Source}」是 `{skipWhy}` 档的 `for each` —— 触发层**不按它重复**"
-                      + (skipWhy == "died"
-                           ? "（这条触发本身就是那次死亡事件，再乘累计阵亡数就是平方；"
-                           + " 原版这两张卡的 `multiCountCriteria` 现读 `ta = 0 (any)` ⇒ 不重复）"
-                           : "（`PerCount` = 数值加 N 次，不是跑 N 遍；该档本重载尚未实现）"));
+                        "trigger-repeat-died|" + (source != null && source.Card != null ? source.Card.Id : "?") + "|" + amtOp.Verb,
+                        $"「{by}」的「{amtOp.Source}」是 `died` 档的 `for each` —— 触发层**不按它重复**"
+                      + "（这条触发本身就是那次死亡事件，再乘累计阵亡数就是平方；"
+                      + " 原版这两张卡的 `multiCountCriteria` 现读 `ta = 0 (any)` ⇒ 不重复）");
                 }
                 else if (!TryComputeRepeats(ctx, owner, source, amtOp,
                                             source != null ? source.Card : null, source, by, unresolved,
@@ -6515,7 +6475,7 @@ namespace RuleEngine
                 // 🆕 2026-10-22（`W64` · `B-16`）：触发路的卡 = `source.Card`（`source` = 触发的那张）。
                 for (int k = 0; k < opRepeats; k++)
                 {
-                    ResolveOne(ctx, owner, source, by, Prepaid(amtOp), null, unresolved,
+                    ResolveOne(ctx, owner, source, by, Prepaid(runOp), null, unresolved,
                                card: source != null ? source.Card : null);
                     NotePreviousAbilityTargets(ctx);   // 🆕 `E2`：触发路同一个口径（逐 op 同步）
                 }
@@ -11766,6 +11726,101 @@ namespace RuleEngine
             var r = CountEval.CountTargets(ctx, owner, spec.MultiSet, 0, actor, out gap);
             if (r == null) return false;
             n = r.Value;
+            return true;
+        }
+
+        /// <summary>
+        /// 🔴 **2026-10-24（执行代理 `E1` · `C3` §1·1）：这条 op 是不是「`for each` **增量**型」** ——
+        /// 判据**只此一份**（出牌路与触发路**都调它**；⛔ 别在两处各写一遍条件式）。
+        ///
+        /// <para>形状 = `Give +2 Melee Attack …, and an additional +2 … for each Dark Pact on it`
+        /// —— 一份契约时是 **+4**（数值放大），**不是** +2 再来两遍。</para>
+        /// <para>`deal` / `heal` **不算**这一档：它们的 `for each` 是**重复**（打 N 遍、每遍重挑目标），
+        /// 走 <see cref="TryComputeRepeats"/>。判据 = `AbilityLogic__PlayAbility.c:1461-1508`（伤害是
+        /// **一个** `DamageInfo` 一次 `DealMultiDamage`，倍率进数值）；只有
+        /// `case 12 doDamageMultiRandom`（`:1511-1530`）才是循环 N 次。</para>
+        /// </summary>
+        static bool IsPerCountIncrement(EffectOp op)
+        {
+            return op != null && op.PerCount > 0 && !string.IsNullOrEmpty(op.CountRef)
+                && op.Verb != "deal" && op.Verb != "heal";
+        }
+
+        /// <summary>
+        /// 🔴 **2026-10-24（执行代理 `E1` · `C3` §1·1）：`for each` **增量**型的**唯一实现** ——
+        /// 数值 = 基础 `Amount` ＋ 计数 × `PerCount`（载荷动词要把增量写回载荷原文）。
+        ///
+        /// <para>**为什么必须收成一处**：原版这一格是 <b>一次结算、数值乘进去</b>，不是「跑 N 遍」
+        /// （判据：`AbilityLogic.multiplier` / `furtherMultiplier` → `PlayAbility.c:181-236` 的 `local_178`；
+        /// 伤害族 `:1461-1508` 一个 `DamageInfo` 一次 `DealMultiDamage`；增益族
+        /// `NewBuffStat.c:61-67/207-232` ⇒ `计数 × (change × multiplier)`，数据实证 `BL43`）。
+        /// 改前这一整套**只写在出牌路**里，触发路把 `PerCount` **整条丢掉**（`ResolveOne` 不读它）
+        /// ⇒ 触发正文里的 `give/gain/lose` 只剩基础值。</para>
+        ///
+        /// <para>返回 `false` = 这条 op **不该结算**（计数数不出来；日志与 <paramref name="unresolved"/>
+        /// 已在本方法里写过 —— 与改前出牌路一字不差）。返回 `true` 时
+        /// <paramref name="folded"/> = 要递下去的那条：**没有增量**时是**同一个对象**（调用方可以
+        /// `ReferenceEquals` 判「换没换」），有增量时是**副本**（⛔ 绝不改解析产物本身）。</para>
+        ///
+        /// <para>`actor` = 结构化乘数里 `includeSelf` / `excludeNotSelf` 的「这条 ability 的所有者」
+        /// （与 <see cref="TryComputeRepeats"/> 同一条口径）：出牌路传 `chosen`（改前原样）、
+        /// 触发路传**触发的那张单位**。</para>
+        /// </summary>
+        static bool TryFoldPerCount(BattleContext ctx, int owner, UnitState source, string by,
+                                    EffectOp op, UnitState actor, CardDef sourceCard,
+                                    List<string> unresolved, out EffectOp folded)
+        {
+            folded = op;
+            if (!IsPerCountIncrement(op)) return true;
+
+            int n = CountFor(ctx, owner, source, op);
+            if (n < 0)
+            {
+                ctx.Log($"{by}：「{op.Source}」的计数「{op.CountRef}」本版数不出来 —— **这条没生效**");
+                unresolved.Add(op.Source + "（计数 " + op.CountRef + " 数不出来）");
+                return false;
+            }
+            // 🆕 v22（2026-10-24 · `新账-95` #2）：**结构化乘数（`role == "mult"`）优先**。
+            //   原版这一格 = `AbilityLogic.multiplier`（`PlayAbility.c:181-236`）——
+            //   数据里就是「按几个目标放大」，比正文正则权威（铁律 10 第 1 条）。
+            //   两者不一致时**按数据**并出声（⛔ 不静默取正文）。
+            {
+                int sm; string smGap;
+                if (TryStructuredMultiplier(ctx, owner, op, sourceCard, actor, out sm, out smGap))
+                {
+                    if (sm != n)
+                        ctx.Log($"{by}：「{op.Source}」正文计数「{op.CountRef}」= {n}，"
+                              + $"而原版 `multiplier` 结构化数据 = **{sm}** ⇒ 按数据 {sm} 结算"
+                              + "（`AbilityLogic__PlayAbility.c:181-236`）");
+                    n = sm;
+                }
+                else if (smGap != null)
+                {
+                    StructuredConditionNotice("mult-gap|" + (sourceCard != null ? sourceCard.Id : "?") + "|" + smGap,
+                        $"卡「{sourceCard.Name}」（{sourceCard.Id}）的 `mult` 条件（正文「{op.Source}」）"
+                      + $"**本版判不了**：{smGap} ⇒ 退回**正文计数**「{op.CountRef}」。");
+                }
+            }
+            // ⚠️ **不能改 `op.Amount` 本身**：`EffectOp` 列表是**解析产物、会被复用**
+            //    （同一张卡第二次打出时是同一份对象），改了就一次比一次高。
+            //    2026-09-12 撞到：第二次打 `Daemonic Frenzy` 变成 +4 而不是 +2。
+            int before = op.Amount;
+            int eff = op.Amount + n * op.PerCount;
+            ctx.Log($"{by}：「{op.Source}」基础 {before} + 每个 {op.CountRef} 加 {op.PerCount}"
+                  + $" × {n} = **{eff}**");
+            // 递一份**副本**下去（不动解析产物本身 —— 见上面那条注释）
+            var effOp = op.Clone();
+            effOp.Amount = eff;
+            // ⚠️ `give` / `gain` / `lose` 的数值**不在 `Amount` 里，在 `Payload` 的原文里**
+            //    （`+2 melee attack` 这种，由 `GivePayload` 现解）。只改 `Amount` 的话
+            //    载荷还是 +2 —— 2026-09-12 撞到：`Daemonic Frenzy` 有契约时只加了 2 不是 4。
+            //    所以这类动词要**把增量写回载荷文本**。
+            // ⚠️ **`eff == 0` 时不能去改载荷**：载荷里的数字是**基础值**（`+2 melee attack` 的 2），
+            //    而 `Amount` 对这类载荷是 0。把载荷改成 0 就把基础值抹掉了 —— 2026-09-12 撞到：
+            //    没契约时（eff = 0 + 0）`Daemonic Frenzy` 变成 +0。
+            if (eff != 0 && (op.Verb == "give" || op.Verb == "gain" || op.Verb == "lose"))
+                effOp.Payload = ScalePayload(op.Payload, eff);
+            folded = effOp;
             return true;
         }
 

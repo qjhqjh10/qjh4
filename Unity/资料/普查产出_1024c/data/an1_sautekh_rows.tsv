@@ -1,0 +1,262 @@
+card	name	faction	bucket	idx	orig_has	rt_has	prefab	cardanim	conf	ca_target	ca_match	in_lib	ledger_verdict	report_verdict	trig_names	extra_params	overrides
+30007162b68992e41a422f2061705b65	Lord of the Storm	Sautekh	ability	0	Y	Y	CreateCard Necron	CreateCard_Necrons	authoritative	CreateCard Necron	Y	Y	对得上	Z	OtherUnitDeath	waitAnimToApplyEffect	
+30007162b68992e41a422f2061705b65	Lord of the Storm	Sautekh	play	0	Y	Y	Sau_LordOfTheStorm	Lord_of_the_storm_hit	authoritative	Sau_LordOfTheStorm	Y	Y	对得上	Z	ThisCardPlayed	waitAnimToApplyEffect	
+461354d98aa5e3142afa4eb4922e5456	Hardwired Destruction	Sautekh	play	0	Y	Y	Sau_DamageProtocol	Damage_Protocol_target	authoritative	Sau_DamageProtocol	Y	Y	对得上	Z	ThisCardPlayed	waitAnimToApplyEffect	
+461354d98aa5e3142afa4eb4922e5456	Hardwired Destruction	Sautekh	play	1	Y	Y	Sau_DamageProtocol_Quick	Damage_Protocol_quick_target	authoritative	Sau_DamageProtocol_Quick	Y	Y	对得上	Z	ThisCardPlayed	waitAnimToApplyEffect	
+461354d98aa5e3142afa4eb4922e5456	Hardwired Destruction	Sautekh	play	2	Y	Y	ArmourEffect	GainArmourEffect	authoritative	ArmourEffect	Y	Y	对得上	Z	ThisCardPlayed		
+65b2be828179515458a282cf1b027182	Indomitable Will	Sautekh	play	0	Y	Y	Sau_IndomitableWill	Indomitable_Will_Effect	authoritative	Sau_IndomitableWill	Y	Y	对得上	Z	ThisCardPlayed	waitAnimToApplyEffect	
+SAU1	Canoptek Scarab	Sautekh	death	0	Y	Y	Necrons death explosion		authoritative		-	Y	对得上	Z			
+SAU1	Canoptek Scarab	Sautekh	death	1	Y	N	RemnantBody3D Necrons		authoritative		-	Y	对得上	Z			
+SAU1	Canoptek Scarab	Sautekh	trigger	0	Y	Y	ArtificeEffect	ArtificeTraitTrigger	authoritative	ArtificeEffect	Y	Y	对得上	Z			
+SAU10	Triarch Praetorian	Sautekh	death	0	Y	Y	Necrons death explosion		authoritative		-	Y	对得上	Z			
+SAU10	Triarch Praetorian	Sautekh	death	1	Y	N	RemnantBody3D Necrons		authoritative		-	Y	对得上	Z			
+SAU11	Technomancer	Sautekh	ability	0	Y	Y	Technomancer_Buff	Technomancer_Buff	authoritative	Technomancer_Buff	Y	Y	对得上	Z	FollowUpResolution	waitAnimToApplyEffect	
+SAU11	Technomancer	Sautekh	attack_ranged	0	Y	Y	Plasmancer_Damage	Plasmancer_Damage	authoritative	Plasmancer_Damage	Y	Y	对得上	Z		waitAnimToApplyEffect	
+SAU11	Technomancer	Sautekh	death	0	Y	Y	Necrons death explosion		authoritative		-	Y	对得上	Z			
+SAU11	Technomancer	Sautekh	death	1	Y	N	RemnantBody3D Necrons		authoritative		-	Y	对得上	Z			
+SAU11	Technomancer	Sautekh	trigger	0	Y	Y	ArtificeEffect	ArtificeTraitTrigger	authoritative	ArtificeEffect	Y	Y	对得上	Z			
+SAU12	Tomb Blade	Sautekh	attack_ranged	0	Y	Y	NecronGauss_Double	Atk_Gauss_Double	authoritative	NecronGauss_Double	Y	Y	两边全程空（完全脚本驱动 / 需要触发条件）	W		waitAnimToApplyEffect	
+SAU12	Tomb Blade	Sautekh	death	0	Y	Y	Necrons death explosion		authoritative		-	Y	对得上	Z			
+SAU12	Tomb Blade	Sautekh	death	1	Y	N	RemnantBody3D Necrons		authoritative		-	Y	对得上	Z			
+SAU12	Tomb Blade	Sautekh	trait_onplay	0	Y	Y	FlyingEffect	FlyingTraitPlay	authoritative	FlyingEffect	Y	Y	对得上	Z			
+SAU12	Tomb Blade	Sautekh	trigger	0	Y	Y	FlankEffect	FlankTraitStart	authoritative	FlankEffect	Y	Y	对得上	Z			
+SAU13	Canoptek Spyder	Sautekh	death	0	Y	Y	Necrons death explosion		authoritative		-	Y	对得上	Z			
+SAU13	Canoptek Spyder	Sautekh	death	1	Y	N	RemnantBody3D Necrons		authoritative		-	Y	对得上	Z			
+SAU13	Canoptek Spyder	Sautekh	trigger	0	Y	Y	OrkBuffGreenWaaagh	RegenerationTraitTrigger	authoritative	OrkBuffGreenWaaagh	Y	Y	对得上	Z			
+SAU13	Canoptek Spyder	Sautekh	trigger	1	Y	Y	ArtificeEffect	ArtificeTraitTrigger	authoritative	ArtificeEffect	Y	Y	对得上	Z			
+SAU14	Cryptothrall	Sautekh	death	0	Y	Y	Necrons death explosion		authoritative		-	Y	对得上	Z			
+SAU14	Cryptothrall	Sautekh	death	1	Y	N	RemnantBody3D Necrons		authoritative		-	Y	对得上	Z			
+SAU15	Deathmark	Sautekh	attack_ranged	0	Y	Y	NecronGauss_Deathmark	Atk_Gauss_Deathmark	authoritative	NecronGauss_Deathmark	Y	Y	两边全程空（完全脚本驱动 / 需要触发条件）	W		waitAnimToApplyEffect	
+SAU15	Deathmark	Sautekh	death	0	Y	Y	Necrons death explosion		authoritative		-	Y	对得上	Z			
+SAU15	Deathmark	Sautekh	death	1	Y	N	RemnantBody3D Necrons		authoritative		-	Y	对得上	Z			
+SAU15	Deathmark	Sautekh	trigger	0	Y	Y	RallyEffect	RallyTraitStart	authoritative	RallyEffect	Y	Y	对得上	Z			
+SAU16	Night Scythe	Sautekh	attack_ranged	0	Y	Y	NecronGauss_Double	Atk_Gauss_Double	authoritative	NecronGauss_Double	Y	Y	两边全程空（完全脚本驱动 / 需要触发条件）	W		waitAnimToApplyEffect	
+SAU16	Night Scythe	Sautekh	death	0	Y	Y	Necrons death explosion		authoritative		-	Y	对得上	Z			
+SAU16	Night Scythe	Sautekh	death	1	Y	N	RemnantBody3D Necrons		authoritative		-	Y	对得上	Z			
+SAU16	Night Scythe	Sautekh	play	0	Y	Y	GreenSummonCircle	RelentlessMarchSummon	authoritative	GreenSummonCircle	Y	Y	对得上	Z	ThisCardPlayed	waitAnimToApplyEffect	
+SAU16	Night Scythe	Sautekh	trait_onplay	0	Y	Y	FlyingEffect	FlyingTraitPlay	authoritative	FlyingEffect	Y	Y	对得上	Z			
+SAU16	Night Scythe	Sautekh	trigger	0	Y	Y	RallyEffect	RallyTraitStart	authoritative	RallyEffect	Y	Y	对得上	Z			
+SAU17	Psychomancer	Sautekh	attack_ranged	0	Y	Y	Psychomancer_Stun	Psychomancer_Stun	authoritative	Psychomancer_Stun	Y	Y	对得上	Z	ThisCardPlayed	screenShake(preset)|waitAnimToApplyEffect	
+SAU17	Psychomancer	Sautekh	death	0	Y	Y	Necrons death explosion		authoritative		-	Y	对得上	Z			
+SAU17	Psychomancer	Sautekh	death	1	Y	N	RemnantBody3D Necrons		authoritative		-	Y	对得上	Z			
+SAU17	Psychomancer	Sautekh	play	0	Y	Y	Psychomancer_Stun	Psychomancer_Stun	authoritative	Psychomancer_Stun	Y	Y	对得上	Z	ThisCardPlayed	screenShake(preset)|waitAnimToApplyEffect	
+SAU17	Psychomancer	Sautekh	trigger	0	Y	Y	RallyEffect	RallyTraitStart	authoritative	RallyEffect	Y	Y	对得上	Z			
+SAU18	Skorpekh Destroyer	Sautekh	death	0	Y	Y	Necrons death explosion		authoritative		-	Y	对得上	Z			
+SAU18	Skorpekh Destroyer	Sautekh	death	1	Y	N	RemnantBody3D Necrons		authoritative		-	Y	对得上	Z			
+SAU18	Skorpekh Destroyer	Sautekh	trigger	0	Y	Y	FlankEffect	FlankTraitStart	authoritative	FlankEffect	Y	Y	对得上	Z			
+SAU19	Canoptek Reanimator	Sautekh	death	0	Y	Y	Necrons death explosion		authoritative		-	Y	对得上	Z			
+SAU19	Canoptek Reanimator	Sautekh	death	1	Y	N	RemnantBody3D Necrons		authoritative		-	Y	对得上	Z			
+SAU19	Canoptek Reanimator	Sautekh	trigger	0	Y	Y	TalentEffect	TalentTraitTrigger	authoritative	TalentEffect	Y	Y	对得上	Z			
+SAU19	Canoptek Reanimator	Sautekh	trigger	1	Y	Y	RallyEffect	RallyTraitStart	authoritative	RallyEffect	Y	Y	对得上	Z			
+SAU2	Canoptek Plasmacyte	Sautekh	ability	0	Y	Y	Sau_HealProtocol	Heal_Protocol_target	authoritative	Sau_HealProtocol	Y	Y	对得上	Z	OtherUnitSummoned	waitAnimToApplyEffect	
+SAU2	Canoptek Plasmacyte	Sautekh	death	0	Y	Y	Necrons death explosion		authoritative		-	Y	对得上	Z			
+SAU2	Canoptek Plasmacyte	Sautekh	death	1	Y	N	RemnantBody3D Necrons		authoritative		-	Y	对得上	Z			
+SAU2	Canoptek Plasmacyte	Sautekh	trait_onplay	0	Y	Y	FlyingEffect	FlyingTraitPlay	authoritative	FlyingEffect	Y	Y	对得上	Z			
+SAU2	Canoptek Plasmacyte	Sautekh	trait_onplay	1	Y	Y	StealthEffect	StealthTraitPlay	authoritative	StealthEffect	Y	Y	对得上	Z			
+SAU20	Chronomancer	Sautekh	ability	0	Y	Y	Chronomancer_Buff	Chronomancer_Buff	authoritative	Chronomancer_Buff	Y	Y	对得上	Z	TurnBeforeEnd	waitAnimToApplyEffect	
+SAU20	Chronomancer	Sautekh	attack_ranged	0	Y	Y	Psychomancer_Stun	Psychomancer_Stun	authoritative	Psychomancer_Stun	Y	Y	对得上	Z		screenShake(preset)|waitAnimToApplyEffect	
+SAU20	Chronomancer	Sautekh	death	0	Y	Y	Necrons death explosion		authoritative		-	Y	对得上	Z			
+SAU20	Chronomancer	Sautekh	death	1	Y	N	RemnantBody3D Necrons		authoritative		-	Y	对得上	Z			
+SAU20	Chronomancer	Sautekh	trigger	0	Y	Y	TalentEffect	TalentTraitTrigger	authoritative	TalentEffect	Y	Y	对得上	Z			
+SAU21	Doom Scythe	Sautekh	attack_ranged	0	Y	Y	NecronGauss_Double	Atk_Gauss_Double	authoritative	NecronGauss_Double	Y	Y	两边全程空（完全脚本驱动 / 需要触发条件）	W		waitAnimToApplyEffect	
+SAU21	Doom Scythe	Sautekh	death	0	Y	Y	Necrons death explosion		authoritative		-	Y	对得上	Z			
+SAU21	Doom Scythe	Sautekh	death	1	Y	N	RemnantBody3D Necrons		authoritative		-	Y	对得上	Z			
+SAU21	Doom Scythe	Sautekh	trait_onplay	0	Y	Y	FlyingEffect	FlyingTraitPlay	authoritative	FlyingEffect	Y	Y	对得上	Z			
+SAU21	Doom Scythe	Sautekh	trigger	0	Y	Y	FlankEffect	FlankTraitStart	authoritative	FlankEffect	Y	Y	对得上	Z			
+SAU22	Lokhust Heavy Destroyer	Sautekh	ability	0	Y	Y	NecronGauss_Trilinked	Atk_Gauss_Trilinked_withPause	authoritative	NecronGauss_Trilinked	Y	Y	两边全程空（完全脚本驱动 / 需要触发条件）	W	Reanimated	waitAnimToApplyEffect	
+SAU22	Lokhust Heavy Destroyer	Sautekh	attack_ranged	0	Y	Y	NecronGauss_Trilinked	Atk_Gauss_Trilinked	authoritative	NecronGauss_Trilinked	Y	Y	两边全程空（完全脚本驱动 / 需要触发条件）	W		waitAnimToApplyEffect	
+SAU22	Lokhust Heavy Destroyer	Sautekh	death	0	Y	Y	Necrons death explosion		authoritative		-	Y	对得上	Z			
+SAU22	Lokhust Heavy Destroyer	Sautekh	death	1	Y	N	RemnantBody3D Necrons		authoritative		-	Y	对得上	Z			
+SAU23	Lychguard	Sautekh	death	0	Y	Y	Necrons death explosion		authoritative		-	Y	对得上	Z			
+SAU23	Lychguard	Sautekh	death	1	Y	N	RemnantBody3D Necrons		authoritative		-	Y	对得上	Z			
+SAU23	Lychguard	Sautekh	trigger	0	Y	Y	ArmourEffect	ArmourTraitStart	authoritative	ArmourEffect	Y	Y	对得上	Z			
+SAU24	Command Barge	Sautekh	attack_ranged	0	Y	Y	NecronGauss_Twinlinked	Atk_Gauss_Twinlinked	authoritative	NecronGauss_Twinlinked	Y	Y	两边全程空（完全脚本驱动 / 需要触发条件）	W		waitAnimToApplyEffect	
+SAU24	Command Barge	Sautekh	death	0	Y	Y	Necrons death explosion		authoritative		-	Y	对得上	Z			
+SAU24	Command Barge	Sautekh	death	1	Y	N	RemnantBody3D Necrons		authoritative		-	Y	对得上	Z			
+SAU24	Command Barge	Sautekh	trait_onplay	0	Y	Y	FlyingEffect	FlyingTraitPlay	authoritative	FlyingEffect	Y	Y	对得上	Z			
+SAU24	Command Barge	Sautekh	trigger	0	Y	Y	TalentEffect	TalentTraitTrigger	authoritative	TalentEffect	Y	Y	对得上	Z			
+SAU25	Hexmark Destroyer	Sautekh	ability	0	Y	Y	Hexmark_Artifice_Deal1	Hexmark_Artifice	authoritative	Hexmark_Artifice_Deal1	Y	Y	两边全程空（完全脚本驱动 / 需要触发条件）	W	Artifice	waitAnimToApplyEffect	
+SAU25	Hexmark Destroyer	Sautekh	attack_ranged	0	Y	Y	NecronGauss_Hexmark	Atk_Gauss_Hexmark	authoritative	NecronGauss_Hexmark	Y	Y	两边全程空（完全脚本驱动 / 需要触发条件）	W		waitAnimToApplyEffect	
+SAU25	Hexmark Destroyer	Sautekh	death	0	Y	Y	Necrons death explosion		authoritative		-	Y	对得上	Z			
+SAU25	Hexmark Destroyer	Sautekh	death	1	Y	N	RemnantBody3D Necrons		authoritative		-	Y	对得上	Z			
+SAU25	Hexmark Destroyer	Sautekh	trigger	0	Y	Y	ArtificeEffect	ArtificeTraitTrigger	authoritative	ArtificeEffect	Y	Y	对得上	Z			
+SAU26	Plasmancer	Sautekh	ability	0	Y	Y	Plasmancer_Damage	Plasmancer_Damage	authoritative	Plasmancer_Damage	Y	Y	对得上	Z	Artifice	waitAnimToApplyEffect	
+SAU26	Plasmancer	Sautekh	attack_ranged	0	Y	Y	Plasmancer_Damage	Plasmancer_Damage	authoritative	Plasmancer_Damage	Y	Y	对得上	Z	Artifice	waitAnimToApplyEffect	
+SAU26	Plasmancer	Sautekh	death	0	Y	Y	Necrons death explosion		authoritative		-	Y	对得上	Z			
+SAU26	Plasmancer	Sautekh	death	1	Y	N	RemnantBody3D Necrons		authoritative		-	Y	对得上	Z			
+SAU26	Plasmancer	Sautekh	trigger	0	Y	Y	ArtificeEffect	ArtificeTraitTrigger	authoritative	ArtificeEffect	Y	Y	对得上	Z			
+SAU27	Scarab Swarm	Sautekh	death	0	Y	Y	Necrons death explosion		authoritative		-	Y	对得上	Z			
+SAU27	Scarab Swarm	Sautekh	death	1	Y	N	RemnantBody3D Necrons		authoritative		-	Y	对得上	Z			
+SAU27	Scarab Swarm	Sautekh	trigger	0	Y	Y	OrkBuffGreenWaaagh	RegenerationTraitTrigger	authoritative	OrkBuffGreenWaaagh	Y	Y	对得上	Z			
+SAU28	Ghost Ark	Sautekh	attack_ranged	0	Y	Y	NecronGauss_Double	Atk_Gauss_Double	authoritative	NecronGauss_Double	Y	Y	两边全程空（完全脚本驱动 / 需要触发条件）	W		waitAnimToApplyEffect	
+SAU28	Ghost Ark	Sautekh	death	0	Y	Y	Necrons death explosion		authoritative		-	Y	对得上	Z			
+SAU28	Ghost Ark	Sautekh	death	1	Y	N	RemnantBody3D Necrons		authoritative		-	Y	对得上	Z			
+SAU28	Ghost Ark	Sautekh	trait_onplay	0	Y	Y	FlyingEffect	FlyingTraitPlay	authoritative	FlyingEffect	Y	Y	对得上	Z			
+SAU28	Ghost Ark	Sautekh	trigger	0	Y	Y	TalentEffect	TalentTraitTrigger	authoritative	TalentEffect	Y	Y	对得上	Z			
+SAU28	Ghost Ark	Sautekh	trigger	1	Y	Y	ArtificeEffect	ArtificeTraitTrigger	authoritative	ArtificeEffect	Y	Y	对得上	Z			
+SAU29	Necron Lord	Sautekh	death	0	Y	Y	Necrons death explosion		authoritative		-	Y	对得上	Z			
+SAU29	Necron Lord	Sautekh	death	1	Y	N	RemnantBody3D Necrons		authoritative		-	Y	对得上	Z			
+SAU29	Necron Lord	Sautekh	trigger	0	Y	Y	OrkBuffGreenWaaagh	RegenerationTraitTrigger	authoritative	OrkBuffGreenWaaagh	Y	Y	对得上	Z			
+SAU29	Necron Lord	Sautekh	trigger	1	Y	Y	TalentEffect	TalentTraitTrigger	authoritative	TalentEffect	Y	Y	对得上	Z			
+SAU3	Flayed One	Sautekh	ability	0	Y	Y	FastEffect	FastTraitStart	authoritative	FastEffect	Y	Y	对得上	Z	Reanimated		
+SAU3	Flayed One	Sautekh	death	0	Y	Y	Necrons death explosion		authoritative		-	Y	对得上	Z			
+SAU3	Flayed One	Sautekh	death	1	Y	N	RemnantBody3D Necrons		authoritative		-	Y	对得上	Z			
+SAU30	Triarch Stalker	Sautekh	attack_ranged	0	Y	Y	NecronGauss_Large	Atk_Gauss_Large	authoritative	NecronGauss_Large	Y	Y	两边全程空（完全脚本驱动 / 需要触发条件）	W		waitAnimToApplyEffect	
+SAU30	Triarch Stalker	Sautekh	death	0	Y	Y	Necrons death explosion		authoritative		-	Y	对得上	Z			
+SAU30	Triarch Stalker	Sautekh	death	1	Y	N	RemnantBody3D Necrons		authoritative		-	Y	对得上	Z			
+SAU30	Triarch Stalker	Sautekh	trigger	0	Y	Y	OrkBuffGreenWaaagh	RegenerationTraitTrigger	authoritative	OrkBuffGreenWaaagh	Y	Y	对得上	Z			
+SAU31	Doomstalker	Sautekh	attack_melee	0	Y	Y	NecronGauss_Large	Atk_Gauss_Large	authoritative	NecronGauss_Large	Y	Y	两边全程空（完全脚本驱动 / 需要触发条件）	W	UnitAttack	waitAnimToApplyEffect	
+SAU31	Doomstalker	Sautekh	attack_melee	1	Y	N		Wait_1s	authoritative		-	N			UnitAttack	waitAnimToApplyEffect	
+SAU31	Doomstalker	Sautekh	attack_ranged	0	Y	Y	NecronGauss_Large	Atk_Gauss_Large	authoritative	NecronGauss_Large	Y	Y	两边全程空（完全脚本驱动 / 需要触发条件）	W	UnitAttack	waitAnimToApplyEffect	
+SAU31	Doomstalker	Sautekh	death	0	Y	Y	Necrons death explosion		authoritative		-	Y	对得上	Z			
+SAU31	Doomstalker	Sautekh	death	1	Y	N	RemnantBody3D Necrons		authoritative		-	Y	对得上	Z			
+SAU32	Skorpekh Lord	Sautekh	ability	0	Y	Y	Sau_DamageProtocol_Quick	Damage_Protocol_quick_self	authoritative	Sau_DamageProtocol_Quick	Y	Y	对得上	Z	OtherUnitDeath	waitAnimToApplyEffect	
+SAU32	Skorpekh Lord	Sautekh	attack_ranged	0	Y	Y	NecronGauss_Twinlinked	Atk_Gauss_Twinlinked	authoritative	NecronGauss_Twinlinked	Y	Y	两边全程空（完全脚本驱动 / 需要触发条件）	W		waitAnimToApplyEffect	
+SAU32	Skorpekh Lord	Sautekh	death	0	Y	Y	Necrons death explosion		authoritative		-	Y	对得上	Z			
+SAU32	Skorpekh Lord	Sautekh	death	1	Y	N	RemnantBody3D Necrons		authoritative		-	Y	对得上	Z			
+SAU33	Vargard Obyron	Sautekh	death	0	Y	Y	Necrons death explosion		authoritative		-	Y	对得上	Z			
+SAU33	Vargard Obyron	Sautekh	death	1	Y	N	RemnantBody3D Necrons		authoritative		-	Y	对得上	Z			
+SAU33	Vargard Obyron	Sautekh	trigger	0	Y	Y	ArmourEffect	ArmourTraitStart	authoritative	ArmourEffect	Y	Y	对得上	Z			
+SAU34	Monolith	Sautekh	attack_ranged	0	Y	Y	NecronGauss_Large	Atk_Gauss_Large	authoritative	NecronGauss_Large	Y	Y	两边全程空（完全脚本驱动 / 需要触发条件）	W		waitAnimToApplyEffect	
+SAU34	Monolith	Sautekh	death	0	Y	Y	Necrons death explosion		authoritative		-	Y	对得上	Z			
+SAU34	Monolith	Sautekh	death	1	Y	N	RemnantBody3D Necrons		authoritative		-	Y	对得上	Z			
+SAU34	Monolith	Sautekh	trigger	0	Y	Y	ArmourEffect	ArmourTraitStart	authoritative	ArmourEffect	Y	Y	对得上	Z			
+SAU34	Monolith	Sautekh	trigger	1	Y	Y	TalentEffect	TalentTraitTrigger	authoritative	TalentEffect	Y	Y	对得上	Z			
+SAU34	Monolith	Sautekh	trigger	2	Y	Y	ArtificeEffect	ArtificeTraitTrigger	authoritative	ArtificeEffect	Y	Y	对得上	Z			
+SAU35	Imotekh the Stormlord	Sautekh	death	0	Y	Y	Necrons death explosion		authoritative		-	Y	对得上	Z			
+SAU35	Imotekh the Stormlord	Sautekh	trigger	0	Y	Y	TalentEffect	TalentTraitTrigger	authoritative	TalentEffect	Y	Y	对得上	Z			
+SAU36	Nemesor Zahndrekh	Sautekh	death	0	Y	Y	Necrons death explosion		authoritative		-	Y	对得上	Z			
+SAU36	Nemesor Zahndrekh	Sautekh	trigger	0	Y	Y	TalentEffect	TalentTraitTrigger	authoritative	TalentEffect	Y	Y	对得上	Z			
+SAU37	Orikan the Diviner	Sautekh	attack_ranged	0	Y	Y	Plasmancer_Damage	Plasmancer_Damage	authoritative	Plasmancer_Damage	Y	Y	对得上	Z		waitAnimToApplyEffect	
+SAU37	Orikan the Diviner	Sautekh	death	0	Y	Y	Necrons death explosion		authoritative		-	Y	对得上	Z			
+SAU37	Orikan the Diviner	Sautekh	trigger	0	Y	Y	TalentEffect	TalentTraitTrigger	authoritative	TalentEffect	Y	Y	对得上	Z			
+SAU38	Extermination Protocol	Sautekh	death	0	Y	Y	Necrons death explosion		authoritative		-	Y	对得上	Z			
+SAU38	Extermination Protocol	Sautekh	play	0	Y	Y	Explosion_gauss	Explosion_Gauss_ability	authoritative	Explosion_gauss	Y	Y	对得上	Z	ThisCardPlayed	waitAnimToApplyEffect	
+SAU39	Reconstitution Protocol	Sautekh	death	0	Y	Y	Necrons death explosion		authoritative		-	Y	对得上	Z			
+SAU39	Reconstitution Protocol	Sautekh	play	0	Y	Y	Sau_ReconstitutionProtocol	Sau_Reconstitution_Protocols	authoritative	Sau_ReconstitutionProtocol	Y	Y	对得上	Z	ThisCardPlayed	waitAnimToApplyEffect	
+SAU4	Gauss Warrior	Sautekh	ability	0	Y	Y	Sau_DamageProtocol	Damage_Protocol_target	authoritative	Sau_DamageProtocol	Y	Y	对得上	Z	Reanimated	waitAnimToApplyEffect	
+SAU4	Gauss Warrior	Sautekh	ability	1	Y	Y	Sau_HealProtocol	Heal_Protocol_target	authoritative	Sau_HealProtocol	Y	Y	对得上	Z	Reanimated	waitAnimToApplyEffect	
+SAU4	Gauss Warrior	Sautekh	attack_ranged	0	Y	Y	NecronGauss_Twinlinked	Atk_Gauss_Twinlinked	authoritative	NecronGauss_Twinlinked	Y	Y	两边全程空（完全脚本驱动 / 需要触发条件）	W		waitAnimToApplyEffect	
+SAU4	Gauss Warrior	Sautekh	death	0	Y	Y	Necrons death explosion		authoritative		-	Y	对得上	Z			
+SAU4	Gauss Warrior	Sautekh	death	1	Y	N	RemnantBody3D Necrons		authoritative		-	Y	对得上	Z			
+SAU40	Protection Protocol	Sautekh	death	0	Y	Y	Necrons death explosion		authoritative		-	Y	对得上	Z			
+SAU40	Protection Protocol	Sautekh	play	0	Y	Y	Sau_HealProtocol	Heal_Protocol_target	authoritative	Sau_HealProtocol	Y	Y	对得上	Z	ThisCardPlayed	waitAnimToApplyEffect	
+SAU41	Reanimation Protocol	Sautekh	death	0	Y	Y	Necrons death explosion		authoritative		-	Y	对得上	Z			
+SAU42	Relentless Advance	Sautekh	death	0	Y	Y	Necrons death explosion		authoritative		-	Y	对得上	Z			
+SAU42	Relentless Advance	Sautekh	play	0	Y	Y	Sau_HealProtocol	Heal_Protocol_target	authoritative	Sau_HealProtocol	Y	Y	对得上	Z	ThisCardPlayed	waitAnimToApplyEffect	
+SAU43	Solar Pulse	Sautekh	death	0	Y	Y	Necrons death explosion		authoritative		-	Y	对得上	Z			
+SAU43	Solar Pulse	Sautekh	play	0	Y	Y	Sau_SolarPulse	Solar_Pulse_Effect	authoritative	Sau_SolarPulse	Y	Y	对得上	Z	ThisCardPlayed	waitAnimToApplyEffect	
+SAU44	Disruption Blades	Sautekh	death	0	Y	Y	Necrons death explosion		authoritative		-	Y	对得上	Z			
+SAU44	Disruption Blades	Sautekh	play	0	Y	Y	Buff_Red	Buff_Red_target	authoritative	Buff_Red	Y	Y	对得上	Z	ThisCardPlayed	waitAnimToApplyEffect	
+SAU44	Disruption Blades	Sautekh	play	1	Y	Y	Sau_DamageProtocol	Damage_Protocol_target	authoritative	Sau_DamageProtocol	Y	Y	对得上	Z	ThisCardPlayed	waitAnimToApplyEffect	
+SAU45	Hyperlogical Strategist	Sautekh	death	0	Y	Y	Necrons death explosion		authoritative		-	Y	对得上	Z			
+SAU45	Hyperlogical Strategist	Sautekh	play	0	Y	Y	Sau_IndomitableWill	Indomitable_Will_Effect	authoritative	Sau_IndomitableWill	Y	Y	对得上	Z	ThisCardPlayed	waitAnimToApplyEffect	
+SAU46	Spyder Nest	Sautekh	death	0	Y	Y	Necrons death explosion		authoritative		-	Y	对得上	Z			
+SAU46	Spyder Nest	Sautekh	play	0	Y	Y	GreenSummonCircle	RelentlessMarchSummon	authoritative	GreenSummonCircle	Y	Y	对得上	Z	ThisCardPlayed	waitAnimToApplyEffect	
+SAU46	Spyder Nest	Sautekh	play	1	Y	Y	GreenSummonCircle	RelentlessMarchSummon	authoritative	GreenSummonCircle	Y	Y	对得上	Z	ThisCardPlayed	waitAnimToApplyEffect	
+SAU46	Spyder Nest	Sautekh	play	2	Y	N		Wait_1s	authoritative		-	N			ThisCardPlayed	waitAnimToApplyEffect	
+SAU47	Curse of the Phaeron	Sautekh	death	0	Y	Y	Necrons death explosion		authoritative		-	Y	对得上	Z			
+SAU47	Curse of the Phaeron	Sautekh	play	0	Y	Y	Sau_CurseOfThePhaeron	CurseOfThePharon_Effect	authoritative	Sau_CurseOfThePhaeron	Y	Y	对得上	Z	ThisCardPlayed		
+SAU47	Curse of the Phaeron	Sautekh	play	1	Y	N		Wait_1,5s	authoritative		-	N			ThisCardPlayed	waitAnimToApplyEffect	
+SAU49	Resurrection Orb	Sautekh	death	0	Y	Y	Necrons death explosion		authoritative		-	Y	对得上	Z			
+SAU49	Resurrection Orb	Sautekh	play	0	Y	Y	Sau_ResurrectionOrb	ResurrectionOrb	authoritative	Sau_ResurrectionOrb	Y	Y	对得上	Z	ThisCardPlayed	screenShake(preset)|waitAnimToApplyEffect	
+SAU5	Necron Warrior	Sautekh	death	0	Y	Y	Necrons death explosion		authoritative		-	Y	对得上	Z			
+SAU5	Necron Warrior	Sautekh	death	1	Y	N	RemnantBody3D Necrons		authoritative		-	Y	对得上	Z			
+SAU50	Dimensional Breach	Sautekh	death	0	Y	Y	Necrons death explosion		authoritative		-	Y	对得上	Z			
+SAU50	Dimensional Breach	Sautekh	play	0	Y	Y	Sau_Dimensional_Breach_Battleground	Dimensional_Breach_Battleground	authoritative	Sau_Dimensional_Breach_Battleground	Y	Y	两边全程空（完全脚本驱动 / 需要触发条件）	W	ThisCardPlayed	waitAnimToApplyEffect	
+SAU50	Dimensional Breach	Sautekh	play	1	Y	Y	Sau_Dimensional_Breach_Spawn	Dimensional_Breach_Spawn	authoritative	Sau_Dimensional_Breach_Spawn	Y	Y	对得上	Z	ThisCardPlayed		
+SAU50	Dimensional Breach	Sautekh	play	2	Y	Y	Sau_Dimensional_Breach_Spawn	Dimensional_Breach_Spawn	authoritative	Sau_Dimensional_Breach_Spawn	Y	Y	对得上	Z	ThisCardPlayed		
+SAU50	Dimensional Breach	Sautekh	play	3	Y	Y	Sau_Dimensional_Breach_Spawn	Dimensional_Breach_Spawn	authoritative	Sau_Dimensional_Breach_Spawn	Y	Y	对得上	Z	ThisCardPlayed		
+SAU51	Scythe Assault	Sautekh	death	0	Y	Y	Necrons death explosion		authoritative		-	Y	对得上	Z			
+SAU51	Scythe Assault	Sautekh	play	0	Y	Y	ScytheAssault	Sau_ScytheAssault	authoritative	ScytheAssault	Y	Y	对得上	Z	ThisCardPlayed	screenShake(preset)|waitAnimToApplyEffect	
+SAU51	Scythe Assault	Sautekh	play	1	Y	Y	ScytheAssaultShadow	Sau_ScytheAssault_Shadow	authoritative	ScytheAssaultShadow	Y	Y	两边全程空（完全脚本驱动 / 需要触发条件）	W	ThisCardPlayed	screenShake(preset)	
+SAU52	Self-Destruction	Sautekh	death	0	Y	Y	Necrons death explosion		authoritative		-	Y	对得上	Z			
+SAU53	Undying Legions	Sautekh	death	0	Y	Y	Necrons death explosion		authoritative		-	Y	对得上	Z			
+SAU53	Undying Legions	Sautekh	play	0	Y	Y	Buff_Sautekh_Intense	Buff_Sautekh_Intense_warlord	authoritative	Buff_Sautekh_Intense	Y	Y	对得上	Z	ThisCardPlayed	waitAnimToApplyEffect	
+SAU54	Conquering Tyrant	Sautekh	death	0	Y	Y	Necrons death explosion		authoritative		-	Y	对得上	Z			
+SAU54	Conquering Tyrant	Sautekh	play	0	Y	Y	Necron_Regenerate	Necron_Regeneration_Effect	authoritative	Necron_Regenerate	Y	Y	对得上	Z	ThisCardPlayed	waitAnimToApplyEffect	
+SAU55	Immortal Pride	Sautekh	death	0	Y	Y	Necrons death explosion		authoritative		-	Y	对得上	Z			
+SAU55	Immortal Pride	Sautekh	play	0	Y	Y	Buff_Sautekh_Intense	Buff_Sautekh_Intense_warlord	authoritative	Buff_Sautekh_Intense	Y	Y	对得上	Z	ThisCardPlayed	waitAnimToApplyEffect	
+SAU55	Immortal Pride	Sautekh	play	1	Y	Y	Armor_Necron	Sau_ImmortalPride	authoritative	Armor_Necron	Y	Y	两边全程空（完全脚本驱动 / 需要触发条件）	W	ThisCardPlayed	waitAnimToApplyEffect	
+SAU55	Immortal Pride	Sautekh	play	2	Y	Y	ArmourEffect	GainArmourEffect	authoritative	ArmourEffect	Y	Y	对得上	Z	ThisCardPlayed		
+SAU55	Immortal Pride	Sautekh	play	3	Y	N		Wait_1,5s	authoritative		-	N			ThisCardPlayed	waitAnimToApplyEffect	
+SAU56	Methodical Destruction	Sautekh	death	0	Y	Y	Necrons death explosion		authoritative		-	Y	对得上	Z			
+SAU56	Methodical Destruction	Sautekh	play	0	Y	Y	Sau_MethodicalDestruction	Sau_MethodicalDestruction	authoritative	Sau_MethodicalDestruction	Y	Y	对得上	Z	ThisCardPlayed	waitAnimToApplyEffect	
+SAU57	Tomb World	Sautekh	death	0	Y	Y	Necrons death explosion		authoritative		-	Y	对得上	Z			
+SAU57	Tomb World	Sautekh	play	0	Y	Y	GreenSummonCircle	RelentlessMarchSummon	authoritative	GreenSummonCircle	Y	Y	对得上	Z	ThisCardPlayed	waitAnimToApplyEffect	
+SAU57	Tomb World	Sautekh	play	1	Y	Y	GreenSummonCircle	RelentlessMarchSummon	authoritative	GreenSummonCircle	Y	Y	对得上	Z	ThisCardPlayed	waitAnimToApplyEffect	
+SAU57	Tomb World	Sautekh	play	2	Y	Y	GreenSummonCircle	RelentlessMarchSummon	authoritative	GreenSummonCircle	Y	Y	对得上	Z	ThisCardPlayed	waitAnimToApplyEffect	
+SAU57	Tomb World	Sautekh	play	3	Y	Y	GreenSummonCircle	RelentlessMarchSummon	authoritative	GreenSummonCircle	Y	Y	对得上	Z	ThisCardPlayed	waitAnimToApplyEffect	
+SAU57	Tomb World	Sautekh	play	4	Y	Y	GreenSummonCircle	RelentlessMarchSummon	authoritative	GreenSummonCircle	Y	Y	对得上	Z	ThisCardPlayed	waitAnimToApplyEffect	
+SAU58	Implacable Conqueror	Sautekh	death	0	Y	Y	Necrons death explosion		authoritative		-	Y	对得上	Z			
+SAU58	Implacable Conqueror	Sautekh	play	0	Y	Y	Sau_IndomitableWill	Indomitable_Will_Effect	authoritative	Sau_IndomitableWill	Y	Y	对得上	Z	ThisCardPlayed	waitAnimToApplyEffect	
+SAU59	Awakened Obelisk	Sautekh	play	0	Y	Y	Explosion_gauss	Explosion_Gauss_ability	authoritative	Explosion_gauss	Y	Y	对得上	Z	ThisCardPlayed	waitAnimToApplyEffect	
+SAU59	Awakened Obelisk	Sautekh	play	1	Y	Y	CreateCard Necron	CreateCard_Necrons	authoritative	CreateCard Necron	Y	Y	对得上	Z	ThisCardPlayed	waitAnimToApplyEffect	
+SAU6	Tesla Immortal	Sautekh	ability	0	Y	Y	NecronGauss_Tesla	Atk_Gauss_Tesla	authoritative	NecronGauss_Tesla	Y	Y	两边全程空（完全脚本驱动 / 需要触发条件）	W	Artifice	waitAnimToApplyEffect	
+SAU6	Tesla Immortal	Sautekh	attack_ranged	0	Y	Y	NecronGauss_Tesla	Atk_Gauss_Tesla	authoritative	NecronGauss_Tesla	Y	Y	两边全程空（完全脚本驱动 / 需要触发条件）	W	Artifice	waitAnimToApplyEffect	
+SAU6	Tesla Immortal	Sautekh	death	0	Y	Y	Necrons death explosion		authoritative		-	Y	对得上	Z			
+SAU6	Tesla Immortal	Sautekh	death	1	Y	N	RemnantBody3D Necrons		authoritative		-	Y	对得上	Z			
+SAU6	Tesla Immortal	Sautekh	trigger	0	Y	Y	ArtificeEffect	ArtificeTraitTrigger	authoritative	ArtificeEffect	Y	Y	对得上	Z			
+SAU60	Divination Menhir	Sautekh	play	0	Y	Y	Sau_IndomitableWill	Indomitable_Will_Effect	authoritative	Sau_IndomitableWill	Y	Y	对得上	Z	ThisCardPlayed	waitAnimToApplyEffect	
+SAU61	Resurrection Vault	Sautekh	ability	0	Y	Y	Sau_HealProtocol	Heal_Protocol_target	authoritative	Sau_HealProtocol	Y	Y	对得上	Z	FollowUpResolution	waitAnimToApplyEffect	
+SAU65	Royal Warden	Sautekh	attack_ranged	0	Y	Y	NecronGauss_Twinlinked	Atk_Gauss_Twinlinked	authoritative	NecronGauss_Twinlinked	Y	Y	两边全程空（完全脚本驱动 / 需要触发条件）	W	ThisCardPlayed	waitAnimToApplyEffect	
+SAU65	Royal Warden	Sautekh	death	0	Y	Y	Necrons death explosion		authoritative		-	Y	对得上	Z			
+SAU65	Royal Warden	Sautekh	death	1	Y	N	RemnantBody3D Necrons		authoritative		-	Y	对得上	Z			
+SAU65	Royal Warden	Sautekh	play	0	Y	Y	NecronGauss_Twinlinked	Atk_Gauss_Twinlinked	authoritative	NecronGauss_Twinlinked	Y	Y	两边全程空（完全脚本驱动 / 需要触发条件）	W	ThisCardPlayed	waitAnimToApplyEffect	
+SAU65	Royal Warden	Sautekh	play	1	Y	N		Wait_1s	authoritative		-	N			ThisCardPlayed	waitAnimToApplyEffect	
+SAU65	Royal Warden	Sautekh	trigger	0	Y	Y	RallyEffect	RallyTraitStart	authoritative	RallyEffect	Y	Y	对得上	Z			
+SAU66	Ramatekh the Cruel	Sautekh	attack_ranged	0	Y	Y	NecronGauss_Twinlinked	Atk_Gauss_Twinlinked	authoritative	NecronGauss_Twinlinked	Y	Y	两边全程空（完全脚本驱动 / 需要触发条件）	W		waitAnimToApplyEffect	
+SAU66	Ramatekh the Cruel	Sautekh	death	0	Y	Y	Necrons death explosion		authoritative		-	Y	对得上	Z			
+SAU66	Ramatekh the Cruel	Sautekh	trigger	0	Y	Y	TalentEffect	TalentTraitTrigger	authoritative	TalentEffect	Y	Y	对得上	Z			
+SAU67	Damaged Plasmacyte	Sautekh	death	0	Y	Y	Necrons death explosion		authoritative		-	Y	对得上	Z			
+SAU67	Damaged Plasmacyte	Sautekh	death	1	Y	N	RemnantBody3D Necrons		authoritative		-	Y	对得上	Z			
+SAU67	Damaged Plasmacyte	Sautekh	trait_onplay	0	Y	Y	FlyingEffect	FlyingTraitPlay	authoritative	FlyingEffect	Y	Y	对得上	Z			
+SAU68	Lokhust Destroyer	Sautekh	ability	0	Y	Y	NecronGauss	Atk_Gauss_Basic	authoritative	NecronGauss	Y	Y	两边全程空（完全脚本驱动 / 需要触发条件）	W	OtherUnitDeath	waitAnimToApplyEffect	
+SAU68	Lokhust Destroyer	Sautekh	death	0	Y	Y	Necrons death explosion		authoritative		-	Y	对得上	Z			
+SAU68	Lokhust Destroyer	Sautekh	death	1	Y	N	RemnantBody3D Necrons		authoritative		-	Y	对得上	Z			
+SAU69	Flayed Ones Pack	Sautekh	ability	0	Y	Y	Flayed One Summon	Flayed One Summon	authoritative	Flayed One Summon	Y	Y	对得上	Z	Artifice	waitAnimToApplyEffect	
+SAU69	Flayed Ones Pack	Sautekh	death	0	Y	Y	Necrons death explosion		authoritative		-	Y	对得上	Z			
+SAU69	Flayed Ones Pack	Sautekh	death	1	Y	N	RemnantBody3D Necrons		authoritative		-	Y	对得上	Z			
+SAU69	Flayed Ones Pack	Sautekh	trigger	0	Y	Y	ArtificeEffect	ArtificeTraitTrigger	authoritative	ArtificeEffect	Y	Y	对得上	Z			
+SAU7	Canoptek Wraith	Sautekh	death	0	Y	Y	Necrons death explosion		authoritative		-	Y	对得上	Z			
+SAU7	Canoptek Wraith	Sautekh	death	1	Y	N	RemnantBody3D Necrons		authoritative		-	Y	对得上	Z			
+SAU70	Damaged Hexmark	Sautekh	ability	0	Y	Y	Sau_DamageProtocol_Quick	Damage_Protocol_quick_self	authoritative	Sau_DamageProtocol_Quick	Y	Y	对得上	Z	Artifice	waitAnimToApplyEffect	
+SAU70	Damaged Hexmark	Sautekh	attack_ranged	0	Y	Y	NecronGauss_Damaged Hexmark	Atk_Gauss_Damaged_Hexmark	authoritative	NecronGauss_Damaged Hexmark	Y	Y	两边全程空（完全脚本驱动 / 需要触发条件）	W		waitAnimToApplyEffect	
+SAU70	Damaged Hexmark	Sautekh	death	0	Y	Y	Necrons death explosion		authoritative		-	Y	对得上	Z			
+SAU70	Damaged Hexmark	Sautekh	death	1	Y	N	RemnantBody3D Necrons		authoritative		-	Y	对得上	Z			
+SAU70	Damaged Hexmark	Sautekh	trigger	0	Y	Y	ArtificeEffect	ArtificeTraitTrigger	authoritative	ArtificeEffect	Y	Y	对得上	Z			
+SAU71	Immortals Phalanx	Sautekh	ability	0	Y	Y	GreenSummonCircle	RelentlessMarchSummon	authoritative	GreenSummonCircle	Y	Y	对得上	Z	Reanimated	waitAnimToApplyEffect	
+SAU71	Immortals Phalanx	Sautekh	attack_ranged	0	Y	Y	NecronGauss_Twinlinked	Atk_Gauss_Twinlinked	authoritative	NecronGauss_Twinlinked	Y	Y	两边全程空（完全脚本驱动 / 需要触发条件）	W		waitAnimToApplyEffect	
+SAU71	Immortals Phalanx	Sautekh	death	0	Y	Y	Necrons death explosion		authoritative		-	Y	对得上	Z			
+SAU71	Immortals Phalanx	Sautekh	death	1	Y	N	RemnantBody3D Necrons		authoritative		-	Y	对得上	Z			
+SAU71	Immortals Phalanx	Sautekh	trigger	0	Y	Y	OrkBuffGreenWaaagh	RegenerationTraitTrigger	authoritative	OrkBuffGreenWaaagh	Y	Y	对得上	Z			
+SAU72	Lokhust Lord	Sautekh	attack_ranged	0	Y	Y	NecronGauss_Large	Atk_Gauss_Large	authoritative	NecronGauss_Large	Y	Y	两边全程空（完全脚本驱动 / 需要触发条件）	W		waitAnimToApplyEffect	
+SAU72	Lokhust Lord	Sautekh	death	0	Y	Y	Necrons death explosion		authoritative		-	Y	对得上	Z			
+SAU72	Lokhust Lord	Sautekh	death	1	Y	Y	CreateCard Necron	CreateCard_Necrons	authoritative	CreateCard Necron	Y	Y	对得上	Z	ThisUnitDeath	waitAnimToApplyEffect	
+SAU72	Lokhust Lord	Sautekh	death	2	Y	N	CreateCard Necron	CreateCard_Necrons	authoritative	CreateCard Necron	Y	Y	对得上	Z	ThisUnitDeath	waitAnimToApplyEffect	
+SAU72	Lokhust Lord	Sautekh	trigger	0	Y	Y	OrkBuffGreenWaaagh	RegenerationTraitTrigger	authoritative	OrkBuffGreenWaaagh	Y	Y	对得上	Z			
+SAU72	Lokhust Lord	Sautekh	trigger	1	Y	Y	BacklashEffect	BacklashTraitTrigger	authoritative	BacklashEffect	Y	Y	对得上	Z			
+SAU73	Annihilation Barge	Sautekh	ability	0	Y	Y	NecronGauss_Tesla_Annihilation Barge	Atk_Gauss_Tesla_Annihilator	authoritative	NecronGauss_Tesla_Annihilation Barge	Y	Y	两边全程空（完全脚本驱动 / 需要触发条件）	W	Artifice	waitAnimToApplyEffect	
+SAU73	Annihilation Barge	Sautekh	attack_ranged	0	Y	Y	NecronGauss_Tesla_Annihilation Barge	Atk_Gauss_Tesla_Annihilator	authoritative	NecronGauss_Tesla_Annihilation Barge	Y	Y	两边全程空（完全脚本驱动 / 需要触发条件）	W	Artifice	waitAnimToApplyEffect	
+SAU73	Annihilation Barge	Sautekh	death	0	Y	Y	Necrons death explosion		authoritative		-	Y	对得上	Z			
+SAU73	Annihilation Barge	Sautekh	death	1	Y	N	RemnantBody3D Necrons		authoritative		-	Y	对得上	Z			
+SAU73	Annihilation Barge	Sautekh	trait_onplay	0	Y	Y	FlyingEffect	FlyingTraitPlay	authoritative	FlyingEffect	Y	Y	对得上	Z			
+SAU73	Annihilation Barge	Sautekh	trigger	0	Y	Y	ArtificeEffect	ArtificeTraitTrigger	authoritative	ArtificeEffect	Y	Y	对得上	Z			
+SAU74	Dimensional Corridor	Sautekh	play	0	Y	Y	DeckBuff_Green 2	DeckBuff_Green	authoritative	DeckBuff_Green 2	Y	Y	对得上	Z	ThisCardPlayed	waitAnimToApplyEffect	
+SAU74	Dimensional Corridor	Sautekh	play	1	Y	Y	CreateCard Necron	CreateCard_Necrons	authoritative	CreateCard Necron	Y	Y	对得上	Z	ThisCardPlayed	waitAnimToApplyEffect	
+SAU75	Awakened Dynasty	Sautekh	play	0	Y	Y	DeckBuff_Green 2	DeckBuff_Green	authoritative	DeckBuff_Green 2	Y	Y	对得上	Z	ThisCardPlayed	waitAnimToApplyEffect	
+SAU75	Awakened Dynasty	Sautekh	play	1	Y	Y	CreateCard Necron	CreateCard_Necrons	authoritative	CreateCard Necron	Y	Y	对得上	Z	ThisCardPlayed	waitAnimToApplyEffect	
+SAU76	Inescapable Retribution	Sautekh	play	0	Y	Y	GreenSummonCircle	RelentlessMarchSummon	authoritative	GreenSummonCircle	Y	Y	对得上	Z	ThisCardPlayed	waitAnimToApplyEffect	
+SAU76	Inescapable Retribution	Sautekh	play	1	Y	Y	GreenSummonCircle	RelentlessMarchSummon	authoritative	GreenSummonCircle	Y	Y	对得上	Z	ThisCardPlayed	waitAnimToApplyEffect	
+SAU8	Gauss Immortal	Sautekh	attack_ranged	0	Y	Y	NecronGauss_Twinlinked	Atk_Gauss_Twinlinked	authoritative	NecronGauss_Twinlinked	Y	Y	两边全程空（完全脚本驱动 / 需要触发条件）	W		waitAnimToApplyEffect	
+SAU8	Gauss Immortal	Sautekh	death	0	Y	Y	Necrons death explosion		authoritative		-	Y	对得上	Z			
+SAU8	Gauss Immortal	Sautekh	death	1	Y	N	RemnantBody3D Necrons		authoritative		-	Y	对得上	Z			
+SAU8	Gauss Immortal	Sautekh	trigger	0	Y	Y	OrkBuffGreenWaaagh	RegenerationTraitTrigger	authoritative	OrkBuffGreenWaaagh	Y	Y	对得上	Z			
+SAU9	Ophydian Destroyer	Sautekh	death	0	Y	Y	Necrons death explosion		authoritative		-	Y	对得上	Z			
+SAU9	Ophydian Destroyer	Sautekh	death	1	Y	N	RemnantBody3D Necrons		authoritative		-	Y	对得上	Z			
+SAU9	Ophydian Destroyer	Sautekh	trigger	0	Y	Y	OrkBuffGreenWaaagh	RegenerationTraitTrigger	authoritative	OrkBuffGreenWaaagh	Y	Y	对得上	Z			
+SAU9	Ophydian Destroyer	Sautekh	trigger	1	Y	Y	ArtificeEffect	ArtificeTraitTrigger	authoritative	ArtificeEffect	Y	Y	对得上	Z			
+cbabeb234380634479feab1a1b4c733a	Master Chronomancer	Sautekh	play	0	Y	Y	Sau_MasterChronomancer	Master_Chronomancer_Effect	authoritative	Sau_MasterChronomancer	Y	Y	对得上	Z	ThisCardPlayed		
+cbabeb234380634479feab1a1b4c733a	Master Chronomancer	Sautekh	play	1	Y	N		Wait_1s	authoritative		-	N			ThisCardPlayed	waitAnimToApplyEffect	
+d8a14171b08b54144ba9dbf324b0a042	Relentless March	Sautekh	play	0	Y	Y	GreenSummonCircle	RelentlessMarchSummon	authoritative	GreenSummonCircle	Y	Y	对得上	Z	ThisCardPlayed	waitAnimToApplyEffect	
+eb17cd22c6a5d7941a7456838d927ab1	Particle Whip	Sautekh	play	0	Y	Y	Sau_ParticleWhip	ParticleWhip	authoritative	Sau_ParticleWhip	Y	Y	对得上	Z	ThisCardPlayed	waitAnimToApplyEffect	

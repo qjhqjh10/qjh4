@@ -489,15 +489,18 @@ public static partial class RuleEngineTest
 
         //  ⑩ 数据侧：「v14 缺行 = `Play(0)`」这一跳真的在起作用（池内结构性 + 负对照）
         var pool10 = CardDatabase.Load();
-        int nHopPlay = 0, nRawUnknown = 0;
+        int nHopPlay = 0, nRawUnknown = 0, nPresence = 0;
         foreach (var c in pool10)
         {
+            if (c.AbilityTriggerPresence("Slay") == 1) nPresence++;
             if (RuleCore.AbilityContextOfAbilityV14(c, "Slay", "slay") == CardDef.AbilityContextPlay) nHopPlay++;
             if (RuleCore.AbilityContextOfAbility(c, "Slay", "slay") == CardDef.AbilityContextUnknown) nRawUnknown++;
         }
-        Check(nHopPlay, pool10.Count,
-              "★ T27⑩ 全池每一张卡的 `Slay(120)` 都读成 **`Play(0)`**（v14 只落非 0 ⇒ 缺行 = 0）"
-            + " —— 🧨 删掉 `AbilityContextOfAbilityV14` 里「versioned ⇒ Play(0)」那一跳 ⇒ 全部 `-1` ⇒ 红");
+        // 🔴 **2026-10-24（执行代理 E8）**：「缺行 = `Play(0)`」有了**前提②**（这张卡确实有这条 trigger）
+        //   ⇒ 全池**不再**人人都是 Play；正确形状 = **iff**：`presence==1` 的卡 ⇔ 读成 `Play(0)`。
+        Check(nHopPlay, nPresence,
+              $"★ T27⑩ 全池 `Slay(120)` 读成 **`Play(0)`** 的卡数 == 真有这条 trigger 的卡数（现读 {nPresence} 张）"
+            + " —— 🧨 删掉前提② ⇒ 全池 1127 张都变 Play ⇒ 红；删掉「versioned ⇒ Play(0)」那一跳 ⇒ 0 张 ⇒ 红");
         Check(nRawUnknown, pool10.Count,
               "🧪 T27⑩ 对照：**原始**访问器对 `Slay` 一律 `-1`（证明确实是那一跳在供值，不是数据里有行）"
             + " —— 🧨 把 `AbilityContextOfAbilityV14` 改成直接转调原始访问器 ⇒ 上一条红、本条仍绿（两条一起钉死）");

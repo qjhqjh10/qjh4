@@ -79,6 +79,14 @@ namespace CardPresentation
         /// 没有 3D 战场相机时是 null。</summary>
         public CombatAutoZoom AutoZoom { get { return _autoZoom; } }
 
+        /// <summary>🆕 **2026-10-24（`E7`）**：<see cref="InitializeAutoZoom"/> **被叫过几次**（自检口；`Begin` 每局清零）。
+        /// <para>为什么需要它（⛔ 别当成「重复的计数器」删掉）：`CombatAutoZoom.Initialize()` 自己带
+        /// `_initialized` 幂等守卫（见那件的 doc：原版靠「一局一份新场景」拿到等价效果），而我们的
+        /// driver **跨局复用** ⇒ 第 2 次之后的调用**在效果上完全看不出来**（`ResetCameraZoom` 已经是非 null、
+        /// 相机取景也不会再写一遍）。要钉「**这一条开局路径到底调没调它**」，只能数调用点本身。
+        /// ⚠️ 因此它数的是「**叫了几次**」，不是「起效了几次」；起效那半边归 `CombatAutoZoom` 自己的自检。</para></summary>
+        public int AutoZoomInitCallCountForTest { get; private set; }
+
         // ---- 🆕 2026-10-20（战斗线 `T12`）：开局运镜 ----
         /// <summary>**开局那段「相机飞回本位」的播放器**（原版 `BattleManager.cameraAnim` @0x190，
         /// `StartBattleSequence` 第 0 步调**无参** `Animation.Play()`，播那条 2.5 s 的 legacy clip）。
@@ -375,10 +383,27 @@ namespace CardPresentation
             //      否则假报分叉这件事只是换了个地方发生。
             if (!_logReplaying && NetApply.BeginTurnAfterSetup(Ctx))
             {
-                // 与 `BeginBattleAfterSetup` 那几拍同口径（那边是单机开局的收尾）：
-                // `ResetClock` 同时负责「你的回合」抬头（见 `ShowYourTurnHeadsUp` 的调用点清单）。
+                // 与 `BeginBattleAfterSetup` 那几拍**同口径、同次序**（那边是单机开局的收尾）：
+                //   ① `InitializeAutoZoom()` —— 原版 `_FinishMulliganFinalPhase_d__351:232`（换牌收尾那一拍）；
+                //   ② `ResetClock` 同时负责「你的回合」抬头（见 `ShowYourTurnHeadsUp` 的调用点清单）；
+                //   ③ `StartIntroMonologue()` —— 原版 `_StartBattlePhase_d__334:141-148`，排在 `RefreshAll` 之后。
+                // 🔴 **2026-10-24（`E7`）：这两句是这一轮补的** —— 联机活局原来**一句都没有**
+                //   （单机那两条路早就有：`BeginBattleAfterSetup` / `Begin` 的无换牌支）。
+                //   **判据**（→ `资料/普查产出_1024c/A2_引擎战斗判据总表.md` Q2）：
+                //    · 原版 `CombatAutoZoom.Initialize` 只有 2 个调用点（换牌收尾
+                //      `_FinishMulliganFinalPhase_d__351:232` / 教学开局 `_TutorialStartSequence_d__592:159`），
+                //      前者是**公共流程**、**没有 online/local 分档**；原版是纯线上游戏 ⇒ PvP 必然跑过；
+                //    · 原版 `ShowHeroesIntroMessage` 唯一闸 = `IsTutorialOrCampaignMatch() == 0`
+                //      （`_StartBattlePhase_d__334:141-148`），而 `StartBattlePhase` 由
+                //      `_FinishMulliganFinalPhase:233` 在**每一局**调。
+                //   ⇒ **闸与 `BeginBattleAfterSetup` 同口径**：唯一多出来的是外面那句 `!_logReplaying`
+                //      （那是**录像 / 重连重放**那一档 —— 回放由 `PlayReplay` 自己起播，见那边的 `StartIntroMonologue()`）。
+                //   ⚠️ 两句**都幂等**（`CombatAutoZoom.Initialize` 有 `_initialized` 守卫；`StartIntroMonologue`
+                //      有 `_introStarted` 闩 + 自己的模式闸）⇒ 无换牌那条路万一也走到这里，**不会播两遍**。
+                InitializeAutoZoom();
                 ResetClock();
                 RefreshAll(); UpdateHud();
+                StartIntroMonologue();
             }
             return code;
         }
@@ -4217,6 +4242,10 @@ namespace CardPresentation
             _introStarted = false;
             _introStartCount = 0;
             _introStage = -1;
+            // 🆕 **2026-10-24（`E7`）**：同一条纪律 —— 「这一局调过几次开局那两拍」的账也不跨局
+            //   （否则第 2 局的自检读数会把第 1 局的算进来；见那两个自检口的 doc）。
+            AutoZoomInitCallCountForTest = 0;
+            IntroMonologueCallCountForTest = 0;
             // 🆕 2026-10-20（W58 · G 组）：**上一局的聊天气泡/语音不许跨局**（与上面那组「本局的账不跨局」
             //   同一条纪律）。原版每局是**新场景**，`UnitChatPanel` 连同它的 AudioSource 一起重建；
             //   我们复用同一个面板 ⇒ 不显式收的话，上一局最后一句（含投降/出场）会一直亮着，
@@ -4527,7 +4556,18 @@ namespace CardPresentation
 
             // 🆕 2026-09-27：**开局就把录像的头记下来**（种子 / 模式 / 双方卡组 / 先手）——
             // 必须在 `NewBattle` 之后（先手是它定的）。⛔ 别挪到 `Begin` 开头：那时 `Ctx.FirstSeat` 还没有。
-            RecBegin(myDeck, foeDeck, myFaction, foeFaction, seed,
+            // 🔴🔴 **2026-10-24（`A1` · `RE1` §1.4-A1 · 用户报的那条「回放对手牌库 0 张」）**
+            //   **记的是【已解析的字段】，不是 `Begin` 的形参。**
+            //   病灶：产品开局路（`BeginFromDeckLibrary` → `Begin(seed:, myDeck:, foeDeck:)`）**一个阵营都不传**
+            //   ⇒ 形参恒 `null` ⇒ `JsonUtility` 把它写成 `""` ⇒ 回放时 `Begin(myFaction:"", foeFaction:"")`
+            //   把 `_foeFaction` 覆盖成空串（`:4137`，`"" != null` 那一支）⇒ 「对手自动凑」按**空阵营**筛卡池
+            //   ⇒ **0 张**（`ResolveDeck` → `StarterDeck`）⇒ 第 0 条换牌就分叉、整条动作流 `break`。
+            //   ⚠️ `_myFaction` / `_foeFaction` 此刻是**座位 0 / 1 的阵营**（`:4136-4137` 落形参、
+            //      `:4429-4440` 按督军/去内战解析；客机的**视图侧交换**在 `Begin` **返回之后**才做，
+            //      见 `BeginFromPendingCore` 里那句 `if (_me == 1) …`）⇒ 与 `MsgStart` 的绝对座位口径一致。
+            //   ⚠️ 与 `Restart()`（`_myFaction, _foeFaction`）**同一条写法** —— 不是新发明，是把两条路统一。
+            //   ⚠️ 旧录像（`hostFaction == ""`）行为不变（照样空）—— 它们本来就是坏档，如实。
+            RecBegin(myDeck, foeDeck, _myFaction, _foeFaction, seed,
                      // 🆕 2026-10-15（A383）：录像头存的是**本局真正的模式号**（枚举名）——
                      //   重放时 `FromStart` → `NetPendingBattle.PlayMode` 把它读回来，
                      //   所以「重放的是哪一档」与「当时打的是哪一档」**同一格字段**（原版
@@ -8143,6 +8183,13 @@ namespace CardPresentation
         /// 过闸（非教程/战役 + 闩未置真 + `_unitChat` / `VoiceLines` 就绪）才 +1；`Begin` 每局清零。
         /// 「回放开局播了」= ≥1、「一局只播一次」= 多叫几次仍 ==1。</summary>
         int _introStartCount;
+        /// <summary>🆕 **2026-10-24（`E7`）**：**本局「被请求起播」了几次**（自检口；`Begin` 每局清零）。
+        /// <para>与 <see cref="_introStartCount"/> 的差别 = **在闸之前还是之后**：这一格数的是
+        /// 「**有人叫了 `StartIntroMonologue()`**」（不管模式闸 / 就绪闸放没放行）。
+        /// 🔴 为什么需要它：联机活局那条路（`ApplyLoggedAction`）在本自检夹具里**没有手牌 / 聊天面板 /
+        /// 语音表** ⇒ 真起播那半边永远进不去（`_introStartCount` 恒 0）—— 只靠它分不清
+        /// 「**没叫**」和「**叫了但闸没放行**」，而这一轮要钉的正是「叫没叫」。</para></summary>
+        public int IntroMonologueCallCountForTest { get; private set; }
         /// <summary>先手是哪一方（原版 `IsPlayerFirstIntro`：玩家自己的精确档 `talksFirst`，未命中 ⇒ 玩家先说）。</summary>
         int _introFirst = -1;
 
@@ -8152,6 +8199,10 @@ namespace CardPresentation
         /// —— 原版 `showMulligan = false` 的普通局照样进 `StartBattlePhase` 播开场白。</summary>
         public void StartIntroMonologue()
         {
+            // 🆕 2026-10-24（`E7`）：**「叫过没有」的账在闸之前记**（见 `IntroMonologueCallCountForTest` 的 doc）——
+            //   下面三道闸（模式 / 一局一次 / 就绪）任一挡掉时，这一格照样涨，用来分辨
+            //   「**没叫**」与「**叫了但闸没放行**」。⛔ 别把它挪到闸后（那就退化成 `_introStartCount` 的副本）。
+            IntroMonologueCallCountForTest++;
             // 🔴 2026-10-20（`W58-INTROFIX`）：**原版闸门 = `IsTutorialOrCampaignMatch()`**
             //   （`BattleManager._StartBattlePhase_d__334__MoveNext.c:141-148`：非教程/战役才
             //   `ShowHeroesIntroMessage`；教程/战役改走 `ShowHeroesIntroMessageCampaign` —— 那条是
@@ -15926,9 +15977,13 @@ namespace CardPresentation
         }
 
         /// <summary>= 原版 `BattleManager._FinishMulliganFinalPhase` 里那一句 `CombatAutoZoom.Initialize()`
-        /// （换牌结束 / 真开打那一刻）。两条开局路径各叫一次，`Initialize()` 自己幂等。</summary>
+        /// （换牌结束 / 真开打那一刻）。**三条**开局路径各叫一次，`Initialize()` 自己幂等。
+        /// <para>三条 = ① `BeginBattleAfterSetup`（有换牌的单机）· ② `Begin` 的无换牌支 ·
+        /// ③ **`ApplyLoggedAction` 里联机活局那一拍**（🆕 2026-10-24 `E7` 补；重放那一档由 `_logReplaying` 挡掉）。
+        /// ⚠️ 每次调用都记 <see cref="AutoZoomInitCallCountForTest"/>（**叫没叫**的判据 —— 见那个属性的 doc）。</para></summary>
         void InitializeAutoZoom()
         {
+            AutoZoomInitCallCountForTest++;
             if (_autoZoom != null) _autoZoom.Initialize();
         }
 
@@ -19388,6 +19443,12 @@ namespace CardPresentation
             // ⚠️ 必须放在下面 `evt == null` 那道 early-return **之前** —— 阵亡那一条也会走这里。
             PlayTraitParticles(e);
 
+            // 🔴🆕 **2026-10-24（执行代理 `W1` · AN1 `R6`）：阵亡触发的能力动画**（`ThisUnitDeath(80)` /
+            //   `UnitDeathByAbility(180)` 那一族，现读 7 行 / 6 卡）。同样必须赶在下面 `evt == null`
+            //   的 early-return **之前** —— `GenericVfxFor(Death)` 恒 `null`。判据与「为什么与 D13 不冲突」
+            //   → `PlayDeathAbilityAnims` 的方法头。
+            if (e.Kind == EvtKind.Death) PlayDeathAbilityAnims(e);
+
             // 🔴🔴 **2026-10-22（`W64` · 反击演出）：`EvtKind.Retaliation` 走自己的那一发，
             //    而且**必须赶在下面 `evt == null` 的 early-return 之前** ——
             //    `GenericVfxFor` 对它回 null（原版的守方那一发**只查逐卡表**，没有通用件），
@@ -19507,6 +19568,39 @@ namespace CardPresentation
             // 其余事件都发生在自己那一格
             int owner = e.Kind == EvtKind.Attack ? e.TargetPlayer : e.Player;
             int slot  = e.Kind == EvtKind.Attack ? e.TargetSlot   : e.Slot;
+
+            // 🔴🔴 **2026-10-24（执行代理 `W1` · AN1 `R1` · **S0**）：未指定目标的战术 / 防御卡 —— `play` 桶整条**
+            //   【病灶】`EffectResolver.PlayTactic` 发 `EvtKind.Play` 时 `Slot = targetSlot`，**没指定目标就保持 `-1`**
+            //     ——那是**照原版记录字段**的正确结果；错的是下面那句「`slot < 0` 就 return」，
+            //     它把这类卡当成「从牌库直接进弃牌堆」⇒ 全池 **405 行 / 269 卡**（Sautekh 试点 37 行 / 22 卡）
+            //     的 `play` 桶件**一次都不播**。
+            //   【判据（第一权威）】`CardScript__PlayEnemyCard_d__258__MoveNext.c:22` —— 出牌先把卡状态置 `10`
+            //     （`inHandPlaying`），再 `DisplayEnemyCardInCenter`；`AbilityLogic__PlayAnim.c` 接着按这张卡自己的
+            //     `cardAnimations[]` 演，锚点走 `AbilityLogic__GetPos`；而 `CardScript__GetEffectAnchor.c:11-19`
+            //     对状态 `10` / `0` / `1` / `4` / `8` / `9` / `12` / `16` 取的是 **`cardUI + 0x30`（2D 卡那一级）**、
+            //     **不是**场上的 `+0x1a0` ⇒ 这类卡的 `thisCard` 锚点 = **中央展示那张临时卡**。
+            //   【我们的等价物】`_playedCenterView`（`MaybeDisplayPlayedCardInCenter` 建的那一张）。
+            //     ⚠️ 它只在 `animateFeel` 档存在 ⇒ 批处理 / 我方那一侧没有它时由 `PlayPlacedOne` 降级到
+            //        `createCardPos(140)`（原版 `GetUIAnchor(140)` = 中央展示位那颗 UI 锚；**我们挑的降级**，如实标）。
+            //   ⚠️ **只放行「`EvtKind.Play` + 非单位卡」** —— `Slot = -1` 还有别的来路（从牌库直接进弃牌堆那类），
+            //      一律放行 = 多播原版没有的件。
+            if (slot < 0 && e.Kind == EvtKind.Play)
+            {
+                string pFaction = e.Player == _me ? _myFaction : _foeFaction;
+                var pDef = CardDatabase.Find(_pool, e.CardId, pFaction);
+                if (pDef != null && !pDef.IsUnit)
+                {
+                    var hudPos = ResolveAnimAnchor(PositionOption.createCardPos, e.Player, _playedCenterView, null);
+                    Vector3 fbPos = hudPos != null ? hudPos.position : LayoutSpace.ToWorld(0.5f, 0.5f);
+                    int nPlaced = PlayPlacedPieces(e, evt, pFaction, perCardOnly, triggerKeyword,
+                                                   _playedCenterView, null, fbPos);
+                    if (nPlaced == 0)
+                        Debug.LogWarning($"[Battle] `{e.CardId}`（非单位卡 · `Slot = -1`）在 `play` 桶里"
+                                       + "**没有任何候选件** ⇒ 这条事件什么都不会播（如实报，⛔ 不静默）");
+                    _animfxCtx = default;
+                    return;
+                }
+            }
             if (slot < 0) return;                       // 不在场上（比如从牌库直接进弃牌堆）
 
             var layout = owner == _me ? playerBoard : enemyBoard;
@@ -19582,8 +19676,28 @@ namespace CardPresentation
                     FireEventAll(evt, RemnantCollectWorld(e, layout), faction, e.CardId,
                                  parent: null, perCardOnly: perCardOnly, keyword: triggerKeyword);
                 else if (e.Kind != EvtKind.Hit)
-                    FireEventAll(evt, layout.DropTargetWorld(slot), faction, e.CardId,
-                                 parent: null, perCardOnly: perCardOnly, keyword: triggerKeyword);
+                {
+                    // 🔴🆕 **2026-10-24（执行代理 `W1` · AN1 `R2` · S1）：`play` / `trigger` 两桶改走
+                    //   「按 `AnimInfo` 逐拍参数播」**（`PlayPlacedPieces`，判据见它的头注释）。
+                    //   改前：`FireEventAll(evt, 一个格位点)` —— 那是**根特效 + 一个点**：
+                    //   `startPosOption` / `endPosOption` / `pointTowardsOption` / `shouldMoveVFX` /
+                    //   `timeAtStartPos` / `timeMoving` / `easeCurve` / `applyMovementOffsets` **一个都不消费**。
+                    //   全池影响面：`play` **270 行带参数** · `trigger` 9 行 · `attack_melee` 6 行
+                    //   （`attack_melee` 不在这儿 —— 它走 `ScheduleAttackPresentation`）。
+                    //   ⚠️ 查不到 `AnimInfo` 的候选由 `PlayPlacedOne` **退回今天的单点路**（逐字不变）。
+                    //   ⚠️ 其余事件类型（`Deploy`/`Draw`/`Heal`/资源三件/…）**一个字没动**，仍然走下面这条。
+                    if (e.Kind == EvtKind.Play || e.Kind == EvtKind.Trigger)
+                    {
+                        CardView pSelf = ViewAt(e.Player, e.Slot);
+                        CardView pTarget = (e.TargetPlayer >= 0 && e.TargetSlot >= 0)
+                                         ? ViewAt(e.TargetPlayer, e.TargetSlot) : null;
+                        PlayPlacedPieces(e, evt, faction, perCardOnly, triggerKeyword,
+                                         pSelf, pTarget, layout.DropTargetWorld(slot));
+                    }
+                    else
+                        FireEventAll(evt, layout.DropTargetWorld(slot), faction, e.CardId,
+                                     parent: null, perCardOnly: perCardOnly, keyword: triggerKeyword);
+                }
             }
 
             // 🔴 **2026-10-21（W61 第 2 批 · 第 2 条）：这里原来还有一发「按阵营的召唤法阵」—— 【已整层删掉】。**
@@ -19695,31 +19809,57 @@ namespace CardPresentation
 
         void PlayAbilityBeat(BattleEvent e, string vfx, int sp, int ep, int pt,
                              bool moveOn, bool otv, float ts, float tm, float[] ease,
-                             CardAnimBeat beatData = null)
+                             CardAnimBeat beatData = null,
+                             // 🔴🆕 **2026-10-24（执行代理 `W1` · AN1 `R2`）：这一口现在**不止 `ability` 用** ——
+                             //   `play` / `trigger` 两个桶的逐拍也走它（`PlayPlacedPieces`）。
+                             //   · `place` = 那一拍的 `AnimInfo` 参数（`CardAnimClips.PlacementOf(CardAnim 名)`）。
+                             //     只有**没有 `CardAnimBeat`**（= 非 ability 桶）时才用它取位移偏移那几位；
+                             //     ⛔ 别再为它写第二份 `AbilityVfxMove`（同一个泵、同一个求值口）。
+                             //   · `selfOverride` / `targetOverride` = **视图从哪来**。`ability` 桶的视图就是
+                             //     「那一格上的卡」（默认）；而**未指定目标的战术/防御卡**（`Slot = -1`，
+                             //     原版 `CardScript._PlayEnemyCard` 把卡状态置成 `10 inHandPlaying` 再走中央展示，
+                             //     `CardScript__PlayEnemyCard_d__258__MoveNext.c:22`）**不在任何格位上** ——
+                             //     它的 `thisCard` = **中央展示那张临时卡**（判据 → `MaybeDisplayPlayedCardInCenter`）。
+                             CardAnimPlacement? place = null,
+                             CardView selfOverride = null, CardView targetOverride = null)
         {
             if (string.IsNullOrEmpty(vfx)) return;   // 纯延时拍：没有特效（时长已由 `ExpandAbilityBeats` 算进调度）
 
-            CardView self = ViewAt(e.Player, e.Slot);
-            CardView target = (e.TargetPlayer >= 0 && e.TargetSlot >= 0) ? ViewAt(e.TargetPlayer, e.TargetSlot) : null;
+            CardView self = selfOverride != null ? selfOverride : ViewAt(e.Player, e.Slot);
+            CardView target = targetOverride != null ? targetOverride
+                            : ((e.TargetPlayer >= 0 && e.TargetSlot >= 0) ? ViewAt(e.TargetPlayer, e.TargetSlot) : null);
 
-            Vector3 pos;
+            Vector3 pos = Vector3.zero;
             Transform anchor = ResolveAnimAnchor((PositionOption)sp, e.Player, self, target);
-            if (anchor != null)
+            if (anchor == null)
             {
-                pos = anchor.position;
-            }
-            else
-            {
-                // 那一档取不到（`AnimAnchors` 已经出过声）⇒ 退回**这一格**，与下面普通那条路同一个落点口径。
-                if (e.Slot < 0)
+                // 那一档取不到（`AnimAnchors` 已经出过声）。两条退路：
+                // ① `Slot >= 0`（`ability` 桶的常档）⇒ 退回**这一格**（与改前逐字一致）；
+                // ② `Slot < 0`（未指定目标的战术/防御，`R1`）⇒ **格位根本不存在**。判据：原版那张卡此刻
+                //    的 `GetEffectAnchor()` 取的是「2D 卡控制器」那一级（`CardScript__GetEffectAnchor.c:11-19`：
+                //    状态 ∈ {0,1,4,8,9,10,12,16} 走 `cardUI + 0x30`，**不是**场上的 `+0x1a0`）——
+                //    我们的等价物 = 中央展示位那颗 HUD 锚（`createCardPos(140)`）。
+                //    （正常路径上 `PlayPlacedOne` 已经把 `0/1/2` 三档换成 140 了，这里是第二道兜底。）
+                //    **这是「我们挑的降级」**（原版那张 2D 卡的位置我们没复刻），如实标。
+                Transform hudAnchor = e.Slot < 0
+                    ? ResolveAnimAnchor(PositionOption.createCardPos, e.Player, self, target) : null;
+                if (hudAnchor != null)
+                {
+                    anchor = hudAnchor;
+                }
+                else if (e.Slot >= 0)
+                {
+                    var layout = e.Player == _me ? playerBoard : enemyBoard;
+                    pos = layout.DropTargetWorld(e.Slot);
+                }
+                else
                 {
                     Debug.LogWarning($"[Battle] 逐卡演出：`{e.CardId}` 的一拍既解不出起锚点（`startPosOption={sp}`）"
-                                   + "、又不在场上（`Slot={e.Slot}`）⇒ 这一拍不播");
+                                   + "、又不在场上（`Slot={e.Slot}`）、中央展示锚也取不到 ⇒ 这一拍不播");
                     return;
                 }
-                var layout = e.Player == _me ? playerBoard : enemyBoard;
-                pos = layout.DropTargetWorld(e.Slot);
             }
+            if (anchor != null) pos = anchor.position;
 
             // ---- 🆕 偏差 6：终锚点 / 朝向锚点（判据见方法头）----
             //   原版：`start == end` 时**终锚点 = 起锚点**（`PlayAnim.c` 那句 `if (start != end) GetPos(end)`）。
@@ -19841,15 +19981,25 @@ namespace CardPresentation
                 //   我们的随机源 = `_vfxOffsetRng`（开局种子派生，⛔ 不动引擎的 `Ctx.Rng`）。
                 // 🆕 2026-10-23（`新账-83`）：载体上存的是**摊平的曲线 + 幅度**（不再存 `CardAnimBeat` 对象），
                 //   这样攻击弹道那条路（数据在 `CardAnimPlacement` 上、没有 Beat）与技能拍共用同一个泵。
-                var amp = RandomOffsetAmp(beatData);
+                // 🔴🆕 **2026-10-24（`W1` · `R2`）**：非 `ability` 桶（`play` / `trigger`）**没有 `CardAnimBeat`**
+                //   ⇒ 那几列从 `place`（`AnimInfo`）取 —— 同一个泵、同一个求值口，⛔ 不写第二份。
+                int mvAo   = beatData != null ? beatData.ao  : (place.HasValue && place.Value.OffsetAo ? 1 : 0);
+                int mvOnt  = beatData != null ? beatData.ont : (place.HasValue && place.Value.OffsetOnt ? 1 : 0);
+                float[] mvOfx = beatData != null ? beatData.ofx : (place.HasValue ? place.Value.Ofx : null);
+                float[] mvOfy = beatData != null ? beatData.ofy : (place.HasValue ? place.Value.Ofy : null);
+                float[] mvOfz = beatData != null ? beatData.ofz : (place.HasValue ? place.Value.Ofz : null);
+                Vector3 amp = beatData != null
+                    ? RandomOffsetAmp(beatData)
+                    : (place.HasValue
+                        ? RandomOffsetAmp(place.Value.OffsetAo ? 1 : 0,
+                                          place.Value.Mnx, place.Value.Mxx, place.Value.Mny, place.Value.Mxy,
+                                          place.Value.Mnz, place.Value.Mxz)
+                        : Vector3.zero);
                 _abilityVfxMoves.Add(new AbilityVfxMove
                 {
                     carrier = carrier, start = pos, end = end, ts = ts, tm = tm, ease = ease, t = 0f,
-                    ao = beatData != null ? beatData.ao : 0,
-                    ont = beatData != null ? beatData.ont : 0,
-                    ofx = beatData != null ? beatData.ofx : null,
-                    ofy = beatData != null ? beatData.ofy : null,
-                    ofz = beatData != null ? beatData.ofz : null,
+                    ao = mvAo, ont = mvOnt,
+                    ofx = mvOfx, ofy = mvOfy, ofz = mvOfz,
                     randomAmp = amp,
                     // `orientToVelocity` —— 初始朝向由上面那个 `orient` 门管；**逐帧**转向由泵管。
                     otv = otv,
@@ -19861,6 +20011,145 @@ namespace CardPresentation
                 // 只有朝向、没有位移 ⇒ 载体当场就可以退场（特效已按世界位姿挂上去，见 `ReleaseAbilityCarrier`）。
                 ReleaseAbilityCarrier(carrier);
             }
+        }
+
+        // ==================================================================
+        //  🆕🔴 2026-10-24（执行代理 `W1` · AN1 **`R1` + `R2`**）：
+        //  **`play` / `trigger` 两个桶的「按逐拍参数播」出口**
+        // ==================================================================
+        //  判据（第一权威，逐句读过 `d:/2/tools/decomp_full/`）：
+        //   · `AbilityLogic__PlayAnim.c` 对**任何** trigger 的动画都走同一条路 ——
+        //     按卡自己的 `cardAnimations[]` 逐条排队、每拍调三次 `AbilityLogic__GetPos`
+        //     （起锚 / 终锚 / 朝向，见 `:194 / :203 / :215 / :254 / :261 / :271`），
+        //     再 `BattleManager.AddCardAnim` → `CreateAnim`（`Instantiate` 在锚点下）→
+        //     `CardAnimController.Update` 做位移/转向。**没有「只有 activeAbility 才用锚点」的分支。**
+        //     ⇒ `play` / `trigger` 桶原来只喂「一个格位点」（`FireEventAll(evt, 一个点)`）是**我们缺的一层**，
+        //       不是原版行为（AN1 §二 R2；本仓 `CardAnimClips` 里那些 `sp/ep/pt/mv/ts/tm/ease` 早已有数据，
+        //       只有 `ability`（`ExpandAbilityBeats`）与 `attack_ranged`（`ResolveAttackPieceAnchors`）在消费）。
+        //   · `R1`（未指定目标的战术/防御卡）：`CardScript__PlayEnemyCard_d__258__MoveNext.c:22` 先把
+        //     卡状态置 `10`（`inHandPlaying`）再走中央展示；`CardScript__GetEffectAnchor.c:11-19` 对状态 10
+        //     取的是 **`cardUI + 0x30`（2D 卡控制器那一级）**，不是场上的 `+0x1a0`
+        //     ⇒ 这类卡的 `thisCard` 锚点 = **中央展示那张临时卡**（我们的 `_playedCenterView`）。
+        //     ⚠️ 那张卡只在 `animateFeel` 档建得出来（`MaybeDisplayPlayedCardInCenter`），
+        //        批处理 / 我方那一侧没有它 ⇒ `0/1/2` 三档降级到 `createCardPos(140)`（**我们挑的降级**，如实标）。
+        // ==================================================================
+
+        /// <summary>一条事件的全部候选**按 `AnimInfo` 的逐拍参数**播出去（`play` / `trigger` 桶共用这一口）。
+        /// 返回真正排出去的件数（0 = 这条事件本来就没有件）。
+        /// <para>⛔ **不写第二份展开逻辑**：名字/时长/错开仍由 `VfxMap.ResolveAllTimed` 给，
+        /// 播放仍由 `PlayAbilityBeat` 做 —— 本方法只负责「把 `AnimInfo` 的逐拍参数接上去」。</para>
+        /// <para>⚠️ 某一个候选**在 `cardanim_clips` 里查不到**（`PlacementOf` 回 null）⇒ 那一件**退回今天的
+        /// 单点路**（`FireEventAll(evt, 一个点)` 同款：`CardEffects.Fire(name, fallbackPos)`）——
+        /// 与改前逐字一致，⛔ 不拿默认参数硬套锚点。</para></summary>
+        int PlayPlacedPieces(BattleEvent e, string evt, string faction, bool perCardOnly, string keyword,
+                             CardView self, CardView target, Vector3 fallbackPos,
+                             bool cardAnimRowsOnly = false)
+        {
+            if (e == null || string.IsNullOrEmpty(evt)) return 0;
+            var items = VfxMap.ResolveAllTimed(evt, faction, e.CardId, AnimTimesOf(e.CardId, faction),
+                                               _vfxOffsetRng, perCardOnly, keyword);
+            int fired = 0;
+            for (int i = 0; i < items.Length; i++)
+            {
+                var it = items[i];
+                if (string.IsNullOrEmpty(it.Name)) continue;
+                // `R6`：只取「来自 `cardAnimations[]` 的那一族」（`ResolvedVfx.Anim` 非空）——
+                // 这正是 D13 用的判别式（`customDeathParticles` 解出来**没有** `CardAnim`，
+                // 见 `VfxMap.ResolveDeathParticle` 的 doc），⛔ 不另立第二条判据。
+                if (cardAnimRowsOnly && string.IsNullOrEmpty(it.Anim)) continue;
+                var place = CardAnimClips.PlacementOf(it.Anim);
+                if (it.T <= VfxTimeEpsilon)
+                    PlayPlacedOne(e, it.Name, place, self, target, fallbackPos);
+                else
+                {
+                    // 与 `FireEventAll` 同一个错开口径（`ResolvedVfx.T` = 组内顺序时长之和 + 自身 `vfxDelayTime`）。
+                    string nm = it.Name; var pl = place;
+                    ScheduleAction(it.T,
+                        () => PlayPlacedOne(e, nm, pl, self, target, fallbackPos), it.Duration);
+                }
+                fired++;
+            }
+            return fired;
+        }
+
+        /// <summary><see cref="PlayPlacedPieces"/> 的单件（见那一大段的判据）。</summary>
+        void PlayPlacedOne(BattleEvent e, string vfx, CardAnimPlacement? place,
+                           CardView self, CardView target, Vector3 fallbackPos)
+        {
+            if (string.IsNullOrEmpty(vfx)) return;
+            if (!place.HasValue)
+            {
+                // 判据为空（这条候选没有 `CardAnim` 名 / 表里没有它）⇒ **退回今天那条单点路**。
+                CardEffects.Fire(vfx, fallbackPos);
+                return;
+            }
+            var p = place.Value;
+            int sp = p.StartPos, pt = p.PointTowards;
+            if (self == null && sp >= (int)PositionOption.self && sp <= (int)PositionOption.abilityTarget)
+            {
+                // 原版 `0/1/2` 三档都指向 `thisCard` / `targetCard` —— 我们手里**没有那张 2D 卡**时解不出来。
+                if (e.Slot < 0)
+                {
+                    // `R1`（未指定目标的战术/防御）：降级到 `createCardPos(140)`（原版 `GetUIAnchor(140)`，
+                    // 中央展示位那颗锚）。**我们挑的降级**，如实标。
+                    sp = (int)PositionOption.createCardPos;
+                }
+                else
+                {
+                    // 有格位、却没有卡视图 ⇒ **与改前逐字一致**：根特效播在这一格（= 改前 `FireEventAll` 那条）。
+                    // ⛔ 不拿 140 硬套（那会把本该在棋盘上的件挪到 HUD 中央）；也⛔ 不去调
+                    // `AnimAnchors`（它对空卡视图会逐条 `LogError`，几百行会把日志冲掉 —— 判据本来就空）。
+                    CardEffects.Fire(vfx, fallbackPos);
+                    return;
+                }
+            }
+            // 没有目标时：`1 cardTarget / 2 abilityTarget` 两档的「朝向」没有意义
+            // （原版 `PlayAnim.c:191-219` 对 `2` 会退到 `thisCard` ⇒ 朝自己 = 不转）⇒ 按「不朝向」播。
+            if (target == null && pt >= (int)PositionOption.cardTarget && pt <= (int)PositionOption.abilityTarget)
+                pt = 0;
+            PlayAbilityBeat(e, vfx, sp, p.EndPos, pt,
+                            p.Move, p.OrientToVelocity, p.Ts, p.Tm, p.Ease,
+                            null, place, self, target);
+        }
+
+        /// <summary>🔴🆕 **2026-10-24（执行代理 `W1` · AN1 `R6` · **S0**）：单位死亡时**它自己的死亡触发能力动画**
+        /// （`ThisUnitDeath(80)` / `UnitDeathByAbility(180)` → `TriggerAbilities` → `AbilityLogic.PlayAnim`）。
+        ///
+        /// <para>**病灶**：生成器把这两族的 `cardAnimations[]` 归到 `death` 桶
+        /// （`工具/gen_card_vfx_by_card.py` 的 `TRIGGER_EVENT`），而 `death` 桶在表现层只有两个消费者：
+        /// ① `CardFeel.PickDeathFx` —— `D13` 之后**只认 `customDeathParticles`**（那一族解出来没有 `CardAnim`）；
+        /// ② `PlaySignal` —— `GenericVfxFor(Death)` 回 `null` ⇒ 走到 `evt == null` 那条 early-return。
+        /// ⇒ 这两族的动画**一条都不播**（现读 **7 行 / 6 卡**：`AM34`(180) · `BL62` · `BL66` ·
+        /// `GOF3`×2 · `GOF83` · `SAU72`）。`D13` 只修掉了「被当成阵亡爆散体播」，**播放拍本身没建**。</para>
+        ///
+        /// <para>**判据**：`RawCardScript__OnMinionDeath.c:19/22/23` —— 死者自己那一支先 `0x50`（80）、
+        /// 再 `0x51`（81）、再按死因发 175/180/170；`TriggerAbilities` → `AbilityLogic.PlayAbility` →
+        /// `PlayAnim`（= `PlayAbilityBeat` 那条逐拍路）。⇒ **这一拍就是「这个单位死了」那一拍**，
+        /// 我们的等价物 = `EvtKind.Death`（引擎在死亡那一刻发的表现层信号）。</para>
+        ///
+        /// <para>🔴 **与 `D13` 不冲突**：`PickDeathFx` 管的是「哪一件**阵亡爆散体**」（`customDeathParticles` /
+        /// 默认件）；本方法管的是「**能力动画**那一族」，两者按 `ResolvedVfx.Anim` 是否为空**互斥**划分
+        /// （判据只此一处 = `VfxMap.ResolveDeathParticle` 的 doc），同一行不会被两边各播一次。</para>
+        ///
+        /// <para>⚠️ **如实记（没有编造）**：原版的 80/180 排在**反噬结算之后**（`ResolveBacklash:88` → `:144`），
+        /// 而我们的 `EvtKind.Death` 是**先发**的表现信号（"趁格位还有意义"）⇒ 我们这一拍**比原版早**。
+        /// 差多少没量过；先按「同一个死亡拍」落，⛔ 别为此把它挂到引擎的反噬之后（那是引擎线的口）。</para></summary>
+        int PlayDeathAbilityAnims(BattleEvent e)
+        {
+            if (e == null || e.Kind != EvtKind.Death || Ctx == null) return 0;
+            string faction = e.Player == _me ? _myFaction : _foeFaction;
+            var self = ViewAt(e.Player, e.Slot);
+            var layout = e.Player == _me ? playerBoard : enemyBoard;
+            Vector3 fb = (layout != null && e.Slot >= 0)
+                       ? layout.DropTargetWorld(e.Slot)
+                       : LayoutSpace.ToWorld(0.5f, 0.5f);
+            int n = PlayPlacedPieces(e, VfxMap.Death, faction, perCardOnly: true, keyword: null,
+                                     self, target: null, fallbackPos: fb, cardAnimRowsOnly: true);
+            if (n > 0)
+                Debug.Log($"[Battle] 阵亡触发的能力动画：`{e.CardId}`（座位 {e.Player} 格 {e.Slot}）"
+                        + $"播了 {n} 件（原版 `TriggerAbilities(80/180)` → `AbilityLogic.PlayAnim`；"
+                        + "判据 → `PlayDeathAbilityAnims` 的 doc）");
+            return n;
         }
 
         // ==================================================================
@@ -21726,6 +22015,10 @@ namespace CardPresentation
             var v = CardView.Create(hudRoot, d, "CenterCard_" + (def != null ? def.Id : d.title),
                                     CardFace.Hand);
             if (v == null) return null;
+            // 🔴🆕 **2026-10-24（`W1` · AN1 `R1`）**：这张就是这一拍（`EvtKind.Play`）的 `thisCard`
+            //   —— `PlaySignal` 的 `play` 桶要用它当锚点宿主（判据见 `MaybeDisplayPlayedCardInCenter` 开头那段）。
+            //   ⚠️ 它会被下面那条 `tw.OnComplete(... Kill)` 收掉；`CardView` 是 Unity 对象 ⇒ 事后读它自然是 `null`。
+            _playedCenterView = v;
             v.gameObject.SetActive(true);
             // 🆕 2026-10-23（D · `F6`）：**居中展示那一档 = 原版 `HandMoving` 排序层**
             //   （判据 `CardScript__ShowCardInCenter.c` → `SetSortingLayer(<HandMoving>)`）。
@@ -21830,11 +22123,30 @@ namespace CardPresentation
             return v;
         }
 
+        /// <summary>🆕🔴 **2026-10-24（执行代理 `W1` · AN1 `R1`）：中央展示那张临时卡的引用。**
+        /// <para>为什么需要它：**未指定目标的战术 / 防御卡**（`EvtKind.Play` 且 `Slot = -1`）在引擎里
+        /// 不在任何格位上，可原版那一拍的 `thisCard` 就是**正在中间展示的这张卡**
+        /// （`CardScript__PlayEnemyCard_d__258__MoveNext.c:22` 置状态 `10 inHandPlaying` →
+        /// `CardScript__GetEffectAnchor.c:11-19` 对状态 10 取 2D 卡控制器那一级）。
+        /// ⇒ 它的 `sp = 0/1/2` 三档要靠这张视图解析锚点（见 `PlaySignal` 的 `R1` 那一支）。</para>
+        /// <para>⚠️ 只在 `animateFeel` 档存在（`MaybeDisplayPlayedCardInCenter` 建）；批处理 / 我方那一侧
+        /// 恒 `null` ⇒ 由 `PlayPlacedOne` 降级到 `createCardPos(140)`（**我们挑的降级**，如实标）。</para>
+        /// <para>⚠️ 生命周期归 `DisplayEnemyCardInCenter` 那条 `DOTween` 序列（演完 `Kill`）——
+        /// ⛔ 别在这里 Destroy，也别当它是长期引用。</para></summary>
+        CardView _playedCenterView;
+
         /// <summary>`EvtKind.Play` 那条事件到点时调一次：**非单位卡**才做中央展示（原版 `PlayEnemyCard` 里
         /// `cardType != 0` 才进 `DisplayEnemyCardInCenter`；单位卡走 `ShowCardInCenter`，我们那条在
         /// `PlayAutoPlayCenterDisplay`）。判据 → `DisplayEnemyCardInCenter` 的方法头。</summary>
         void MaybeDisplayPlayedCardInCenter(BattleEvent e)
         {
+            // 🔴🆕 **2026-10-24（`W1` · AN1 `R1`）**：**中央展示那张临时卡就是这一拍的 `thisCard`** ——
+            //   原版 `CardScript__PlayEnemyCard_d__258__MoveNext.c:22` 把卡状态置 `10 inHandPlaying` 之后，
+            //   `AbilityLogic.GetPos` 的 `0/1/2` 三档取的都是 `GetEffectAnchor()`，而状态 10 那一支取的是
+            //   **2D 卡控制器那一级**（`CardScript__GetEffectAnchor.c:11-19`）⇒ 就是这张正在中间展示的卡。
+            //   ⇒ 记下来给 `PlaySignal` 的 `R1` 那一支当 `self`。⛔ 别另建一张（那就是两张卡了）。
+            //   ⚠️ 每次进本方法先清 —— 上一局 / 上一张的那张过一会儿就被 `Kill` 了，留着是脏引用。
+            _playedCenterView = null;
             if (e == null || e.Kind != EvtKind.Play || Ctx == null) return;
             // ⚠️ 今天只接**对手**那一侧：原版两边都走（`PlayPlayerCard` 也调它），但我们的**起点**是
             //    「那一侧手牌末位」—— 对手手牌全是**同一张卡背**（从哪一格飞出看不出来），而**我方手牌

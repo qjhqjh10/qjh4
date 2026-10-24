@@ -304,6 +304,15 @@ namespace CardPresentation
         /// <summary>自检用的目录改写口（设了就不碰玩家的真录像）—— 与 `NetConfig.OverridePath` 同一套路。</summary>
         public static string OverrideDir;
 
+        /// <summary>🔴 **只给自检**：把「玩家目录的根」也改写掉（`Application.persistentDataPath` 本身改不了）。
+        /// <para>用途只有一个：`Editor/ReplayStoreGuardAssertE11.cs` 要验证 <see cref="ResetForTest"/> 的
+        /// **「没设 `OverrideDir` 就拒绝」那道硬挡** —— 那条路必须**真的**在 `OverrideDir = null` 下走一次。
+        /// 若让 <see cref="Dir"/> 那时直接落到玩家的真目录，万一哪天硬挡被人删掉，**这条断言自己就会删掉玩家的真录像**
+        /// （＝它本想防的那个事故，2026-10-24 实录 → `资料/普查产出_1024c/RE1_战斗回放完整审查.md` B1）。
+        /// ⇒ 把「根」指到临时目录，「删不到玩家真档」就**由目录结构保证**，而不是靠断言写得小心。</para>
+        /// <para>⚠️ 只许自检用，用完**必须还原成 null**（`Save` / `List` / `Load` 全都走 <see cref="Dir"/>）。</para></summary>
+        public static string PlayerRootForTest;
+
         /// <summary>🔴 **跨场景交接**：下一局战场要放哪一份录像。与 `NetPendingBattle.Current` 同一条路数
         /// （`LoadScene` 会清掉普通静态量之外的东西 ⇒ 只能这么带过去）。
         /// ⚠️ 战场那边**取一次就清**（`TakePending`），别留着 —— 不然「放完一局再开新局」会又放一遍。</summary>
@@ -321,8 +330,13 @@ namespace CardPresentation
         {
             get
             {
+                // 玩家目录的「根」：平时就是 `persistentDataPath`；只有自检验 `ResetForTest` 的硬挡时才被改到临时目录
+                // （见 `PlayerRootForTest` 的注 —— 那一格不是产品路径，⛔ 运行时没人设它）。
+                var root = string.IsNullOrEmpty(PlayerRootForTest)
+                         ? Application.persistentDataPath
+                         : PlayerRootForTest;
                 var d = string.IsNullOrEmpty(OverrideDir)
-                      ? Path.Combine(Application.persistentDataPath, DirName)
+                      ? Path.Combine(root, DirName)
                       : OverrideDir;
                 return d;
             }
@@ -633,13 +647,33 @@ namespace CardPresentation
             return removed;
         }
 
-        /// <summary>全删（自检用；**也顺手清掉目录**）。</summary>
+        /// <summary>全删（自检用；**也顺手清掉目录**）。
+        /// <para>🔴 **硬挡（2026-10-24 热修 `E11`）**：<see cref="OverrideDir"/> 没设 ⇒ **拒绝执行** + `Debug.LogError` 出声。
+        /// 口径照 `BattleLogData.DeleteStoreForTest`（`Shell/BattleLogData.cs:313-324`）、`DailyData.DeleteStoreForTest`：
+        /// **自检不许碰玩家的真档**。</para>
+        /// <para>⚠️ **为什么非有这道挡不可**：`Editor/ProfileDataAssertE13.cs` 的 `finally` 曾经先把 `OverrideDir` 置回 null、
+        /// **再**调本方法 ⇒ <see cref="Dir"/> 落回 `persistentDataPath/WarpforgeReplays` ⇒ **玩家的真录像被整目录清空**，
+        /// 而且本方法当时**一行日志都不打**（静默）。事故与证据 → `资料/普查产出_1024c/RE1_战斗回放完整审查.md` B1/B2/B3；
+        /// 被删的就是 `C:/Users/<你>/AppData/LocalLow/Everguild/Warpforge/WarpforgeReplays/`（目录还在、文件已空、mtime 2026-10-24 17:12）。</para>
+        /// <para>✅ **正确用法**（照 `Editor/NetSelfTest.cs:925-929`）：**先** `ResetForTest()`（此时 `OverrideDir` 还指着临时目录），
+        /// **再**还原 `OverrideDir`。⛔ **顺序反了 = 删掉玩家的真录像**。</para></summary>
         public static void ResetForTest()
         {
+            if (string.IsNullOrEmpty(OverrideDir))
+            {
+                Debug.LogError("[Replay] 自检：**拒绝清空录像** —— 没设 `OverrideDir` 时删的就是玩家的真录像（`"
+                             + Dir + "`）。先 `ReplayStore.OverrideDir = <临时目录>`，清完**再**还原它"
+                             + "（⛔ 顺序反了 = 删掉玩家的真录像）。");
+                return;
+            }
             try
             {
                 if (!Directory.Exists(Dir)) return;
-                foreach (var f in Directory.GetFiles(Dir, "*" + Ext)) File.Delete(f);
+                foreach (var f in Directory.GetFiles(Dir, "*" + Ext))
+                {
+                    Debug.Log("[Replay] 自检清空：删掉 " + f);   // 删的是文件 ⇒ 出声（不许静默，口径同 `TrimToLast`）
+                    File.Delete(f);
+                }
             }
             catch (Exception e) { Debug.LogError("[Replay] 清理失败：" + e.Message); }
         }

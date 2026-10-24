@@ -1,0 +1,80 @@
+card	name	rows	buckets	has_animtimes	animtimes	ability_anim_times	voice	flags
+27a4b748a7bf358499f038aa09895ead	Reanimate	0		N	0	0		
+30007162b68992e41a422f2061705b65	Lord of the Storm	2	ability:1/1|play:1/1	Y	2	0		
+461354d98aa5e3142afa4eb4922e5456	Hardwired Destruction	3	play:3/3	Y	3	0		
+65b2be828179515458a282cf1b027182	Indomitable Will	1	play:1/1	Y	1	0		
+SAU1	Canoptek Scarab	3	death:2/1|trigger:1/1	N	0	0	summonAudio=VO_Sautekh_Canoptek Scarab - Skitter skitter(ok)	
+SAU10	Triarch Praetorian	2	death:2/1	N	0	0	summonAudio=VO_Sautekh_Triach Praetorian - By the laws of the Necrontyr, you will be judged(ok)	
+SAU11	Technomancer	5	ability:1/1|attack_ranged:1/1|death:2/1|trigger:1/1	Y	1	0	summonAudio=VO_Sautekh_Technomancer - Activating reanimation protocol(ok)	
+SAU12	Tomb Blade	5	attack_ranged:1/1|death:2/1|trait_onplay:1/1|trigger:1/1	N	0	0	summonAudio=VO_Sautekh_Tomb Blade - Converging on enemy position(ok)	
+SAU13	Canoptek Spyder	4	death:2/1|trigger:2/2	N	0	0	summonAudio=VO_Sautekh_Canoptek Spyder - hiss click tap(ok)	
+SAU14	Cryptothrall	2	death:2/1	N	0	0	summonAudio=VO_Sautekh_Cryptothrall - I must protect(ok)	
+SAU15	Deathmark	4	attack_ranged:1/1|death:2/1|trigger:1/1	N	0	0	summonAudio=VO_Sautekh_Deathmark - Target acquired(ok)	
+SAU16	Night Scythe	6	attack_ranged:1/1|death:2/1|play:1/1|trait_onplay:1/1|trigger:1/1	Y	1	0	summonAudio=VO_Sautekh_Night Scythe - woosh(ok)	
+SAU17	Psychomancer	5	attack_ranged:1/1|death:2/1|play:1/1|trigger:1/1	Y	1	0	summonAudio=VO_Sautekh_Psychomancer - What is it you most fear(ok)	
+SAU18	Skorpekh Destroyer	3	death:2/1|trigger:1/1	N	0	0	summonAudio=VO_Sautekh_Skorpekh Destroyer - Purging initiated(ok)	
+SAU19	Canoptek Reanimator	4	death:2/1|trigger:2/2	N	0	0	summonAudio=VO_Sautekh_Canoptek Reanimator - Reanimate(ok)	
+SAU2	Canoptek Plasmacyte	5	ability:1/1|death:2/1|trait_onplay:2/2	Y	1	0	summonAudio=VO_Sautekh_Canoptek Plasmacyte - whirr whirr(ok)	
+SAU20	Chronomancer	5	ability:1/1|attack_ranged:1/1|death:2/1|trigger:1/1	Y	1	0	summonAudio=VO_Sautekh_Chronomancer - Time is fleeting, until I say otherwise(ok)	
+SAU21	Doom Scythe	5	attack_ranged:1/1|death:2/1|trait_onplay:1/1|trigger:1/1	N	0	0	summonAudio=VO_Sautekh_Doom Scythe - woooshh(ok)	
+SAU22	Lokhust Heavy Destroyer	4	ability:1/1|attack_ranged:1/1|death:2/1	Y	1	0	summonAudio=VO_Sautekh_Lokhust Heavy Destroyer - Moving into optimal firing position(ok)	
+SAU23	Lychguard	3	death:2/1|trigger:1/1	N	0	0	summonAudio=VO_Sautekh_Lychguard - I am eternal, I am death(ok)	
+SAU24	Command Barge	5	attack_ranged:1/1|death:2/1|trait_onplay:1/1|trigger:1/1	N	0	0	summonAudio=VO_Sautekh_Annihilation Barge - Your doom is inevitable(ok)	
+SAU25	Hexmark Destroyer	5	ability:1/1|attack_ranged:1/1|death:2/1|trigger:1/1	Y	1	0	summonAudio=VO_Sautekh_Hexmark Destroyer - Multiple targets on sight(ok)	
+SAU26	Plasmancer	5	ability:1/1|attack_ranged:1/1|death:2/1|trigger:1/1	Y	1	0	summonAudio=VO_Sautekh_Plasmancer - Your presence must be eradicated(ok)	
+SAU27	Scarab Swarm	3	death:2/1|trigger:1/1	N	0	0	summonAudio=VO_Sautekh_Scarab Swarm - chitter chitter(ok)	
+SAU28	Ghost Ark	6	attack_ranged:1/1|death:2/1|trait_onplay:1/1|trigger:2/2	N	0	0	summonAudio=VO_Sautekh_Ghost Ark - Our ranks are endless(ok)	
+SAU29	Necron Lord	4	death:2/1|trigger:2/2	N	0	0	summonAudio=VO_Sautekh_Necron Lord - Dare you face my undying legions(ok)	
+SAU3	Flayed One	3	ability:1/1|death:2/1	Y	1	0	summonAudio=VO_Sautekh_Flayed One - Fleeeessssshhhhh(ok)	
+SAU30	Triarch Stalker	4	attack_ranged:1/1|death:2/1|trigger:1/1	N	0	0	summonAudio=VO_Sautekh_Triarch Stalker - Locking onto target(ok)	
+SAU31	Doomstalker	5	attack_melee:2/1|attack_ranged:1/1|death:2/1	Y	2	0	summonAudio=VO_Sautekh_Doomstalker - Detecting intruder, Powering doomsday blaster(ok)	库里没有:?
+SAU32	Skorpekh Lord	4	ability:1/1|attack_ranged:1/1|death:2/1	Y	1	0	summonAudio=VO_Sautekh_Skorpekh Lord - Eradicating all enemies(ok)	
+SAU33	Vargard Obyron	3	death:2/1|trigger:1/1	N	0	0	summonAudio=VO_Sautekh_Vargard Obyron - It is my duty to defend the Nemesor(ok)	
+SAU34	Monolith	6	attack_ranged:1/1|death:2/1|trigger:3/3	N	0	0	summonAudio=VO_Sautekh_Monolith - rumble(ok)	
+SAU35	Imotekh the Stormlord	2	death:1/1|trigger:1/1	N	0	0	attackAudio=VO_Sautekh_Imotekh_attack(ok);deathAudio=VO_Sautekh_Imotekh_death(ok)	
+SAU36	Nemesor Zahndrekh	2	death:1/1|trigger:1/1	N	0	0	attackAudio=Sautekh_Zahndrekh_attack(ok);deathAudio=Sautekh_Zahndrekh_death(ok)	
+SAU37	Orikan the Diviner	3	attack_ranged:1/1|death:1/1|trigger:1/1	N	0	0	attackAudio=Sautekh_Orikan_attack(ok);deathAudio=Sautekh_Orikan_death(ok)	
+SAU38	Extermination Protocol	2	death:1/1|play:1/1	Y	1	0		
+SAU39	Reconstitution Protocol	2	death:1/1|play:1/1	Y	1	0		
+SAU4	Gauss Warrior	5	ability:2/2|attack_ranged:1/1|death:2/1	Y	2	0	summonAudio=VO_Sautekh_Gauss Warrior - Fire(ok)	
+SAU40	Protection Protocol	2	death:1/1|play:1/1	Y	1	0		
+SAU41	Reanimation Protocol	1	death:1/1	N	0	0		
+SAU42	Relentless Advance	2	death:1/1|play:1/1	Y	1	0		
+SAU43	Solar Pulse	2	death:1/1|play:1/1	Y	1	0		
+SAU44	Disruption Blades	3	death:1/1|play:2/2	Y	2	0		
+SAU45	Hyperlogical Strategist	2	death:1/1|play:1/1	Y	1	0		
+SAU46	Spyder Nest	4	death:1/1|play:3/2	Y	3	0		库里没有:?
+SAU47	Curse of the Phaeron	3	death:1/1|play:2/1	Y	2	0		库里没有:?
+SAU49	Resurrection Orb	2	death:1/1|play:1/1	Y	1	0		
+SAU5	Necron Warrior	2	death:2/1	N	0	0	summonAudio=VO_Sautekh_Necron Warrior - Obey(ok)	
+SAU50	Dimensional Breach	5	death:1/1|play:4/4	Y	4	0		
+SAU51	Scythe Assault	3	death:1/1|play:2/2	Y	2	0		
+SAU52	Self-Destruction	1	death:1/1	N	0	0		
+SAU53	Undying Legions	2	death:1/1|play:1/1	Y	1	0		
+SAU54	Conquering Tyrant	2	death:1/1|play:1/1	Y	1	0		
+SAU55	Immortal Pride	5	death:1/1|play:4/3	Y	4	0		库里没有:?
+SAU56	Methodical Destruction	2	death:1/1|play:1/1	Y	1	0		
+SAU57	Tomb World	6	death:1/1|play:5/5	Y	5	0		
+SAU58	Implacable Conqueror	2	death:1/1|play:1/1	Y	1	0		
+SAU59	Awakened Obelisk	2	play:2/2	Y	2	0		
+SAU6	Tesla Immortal	5	ability:1/1|attack_ranged:1/1|death:2/1|trigger:1/1	Y	1	0	summonAudio=VO_Sautekh_Tesla Immortal - I remember(ok)	
+SAU60	Divination Menhir	1	play:1/1	Y	1	0		
+SAU61	Resurrection Vault	1	ability:1/1	Y	1	0		
+SAU65	Royal Warden	6	attack_ranged:1/1|death:2/1|play:2/1|trigger:1/1	Y	2	0	summonAudio=VO_Sautekh_Royal Warden - The Sautekh dynasty is eternal(ok)	库里没有:?
+SAU66	Ramatekh the Cruel	3	attack_ranged:1/1|death:1/1|trigger:1/1	N	0	0	attackAudio=VO_Sautekh_Ramatekh the Cruel_attack(ok);deathAudio=VO_Sautekh_Ramatekh the Cruel_death(ok)	
+SAU67	Damaged Plasmacyte	3	death:2/1|trait_onplay:1/1	N	0	0	summonAudio=VO_Sautekh_Damaged Plasmacyte - anti-grav hum(ok)	
+SAU68	Lokhust Destroyer	3	ability:1/1|death:2/1	Y	1	0	summonAudio=VO_Sautekh_Lokhust Destroyer - All life must be expunged(ok)	
+SAU69	Flayed Ones Pack	4	ability:1/1|death:2/1|trigger:1/1	Y	1	0	summonAudio=VO_Sautekh_Flayed Ones Pack - We hunger(ok)	
+SAU7	Canoptek Wraith	2	death:2/1	N	0	0	summonAudio=VO_Sautekh_Canoptek Wraith - rustle(ok)	
+SAU70	Damaged Hexmark	5	ability:1/1|attack_ranged:1/1|death:2/1|trigger:1/1	Y	1	0	summonAudio=VO_Sautekh_Damaged Hexmark - L-L-Locating target for an-annihilation(ok)	
+SAU71	Immortals Phalanx	5	ability:1/1|attack_ranged:1/1|death:2/1|trigger:1/1	Y	1	0	summonAudio=VO_Sautekh_Immortals Phalanx - None can stand against us(ok)	
+SAU72	Lokhust Lord	6	attack_ranged:1/1|death:3/2|trigger:2/2	Y	1	0	summonAudio=VO_Sautekh_Lokhust Lord - By my will Render them down to atoms(ok)	
+SAU73	Annihilation Barge	6	ability:1/1|attack_ranged:1/1|death:2/1|trait_onplay:1/1|trigger:1/1	Y	1	0	summonAudio=VO_Sautekh_Annihilation Barge - Obliteration protocols activated(ok)	
+SAU74	Dimensional Corridor	2	play:2/2	Y	2	0		
+SAU75	Awakened Dynasty	2	play:2/2	Y	2	0		
+SAU76	Inescapable Retribution	2	play:2/2	Y	2	0		
+SAU8	Gauss Immortal	4	attack_ranged:1/1|death:2/1|trigger:1/1	N	0	0	summonAudio=VO_Sautekh_Gauss Immortal - Disintegrate(ok)	
+SAU9	Ophydian Destroyer	4	death:2/1|trigger:2/2	N	0	0	summonAudio=VO_Sautekh_Ophydian Destroyer - I sense life(ok)	
+cbabeb234380634479feab1a1b4c733a	Master Chronomancer	2	play:2/1	Y	2	0		库里没有:?
+d8a14171b08b54144ba9dbf324b0a042	Relentless March	1	play:1/1	Y	1	0		
+eb17cd22c6a5d7941a7456838d927ab1	Particle Whip	1	play:1/1	Y	1	0		

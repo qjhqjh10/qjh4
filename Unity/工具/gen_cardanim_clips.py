@@ -35,6 +35,21 @@ CardAnim 名 → prefab 名（GUID → 资产名）这一跳**不在本脚本里
   🆕 2026-10-23（`新账-83`）：`otv` 每行都有；`ease` 只写 `mv==1` 的行；
   `ao/ont/ofx/ofy/ofz/mn*/mx*` 只写 `ao==1` 的行（其余行缺省 = 0 / 空）—— 与
   `Resources/card_anim_order.json` 的 `CardAnimBeat` 同一套短名与同一份曲线格式。
+
+🆕 2026-10-24（执行代理 `W2` · `R7` / `R13` / `R14`）：**三个原来一整片零消费的 `animInfo` 字段**
+（本次只做**数据**；运行期消费由别的写手接 —— 见报告 §「运行期还需要谁接」）：
+    `sd`   ← `startDelay`（**只在非 0 时写**；全池现读 1 行 = `Cuts Brutal Warp Spider` 0.5 s）
+             ⚠️ `GetAnimDuration()` **不含**它 ⇒ 它影响**命中/生效那一帧**，不是时长。
+    `ss*`  ← `screenShake`（**只在非默认时写**；现读 57 行）：`ssPid`（`presetSO.m_PathID` 十进制字符串）·
+             `ssPreset`（pathID 反查出的 preset 名；解不出**不写**，⛔ 不猜）· `ssDelay` ·
+             6 组 `ssOv*`（`overwrite*` 开关）+ 6 组值（`ssSustain` / `ssAmp` / `ssFreq` /
+             `ssDx,ssDy,ssDz` / `ssAttack` / `ssDecay`）。判据见 `_shake_block` 的 doc。
+    `mm*`  ← `minionMovementInfo`（**只在非默认时写**；现读 9 行）：`mmDelay` `mmAct` `mmVis`
+             `mmUseXZ` `mmUseY` `mmX/Y/Z` · `mmCx/mmCy/mmCz`（位移曲线，非空才写）·
+             `mmRxE/mmRxM/mmRxC`（旋转轴 enable / maxValue / 曲线），Y、Z 同形。
+             判据见 `_minion_move_block` 的 doc。
+    ⚠️ 三族都是**卡体/相机自己的**参数，不是 VFX 的；⛔ 别把它们并进 `sp/ep/pt/mv` 那一套
+    （那是「VFX 怎么飞」）。
 · 🔴 **键 = `CardAnim` 资产名（`a`），⛔ 不是 prefab 名**：同一个 prefab 名会被多张 `CardAnim`
   共用、参数却不同（2026-10-23 现读 **215 组**，例：`Trait_GainQuest` 被
   `Trait_GainQuest_self`(sp=0) 与 `Trait_GainQuest_enemywarlord`(sp=4) 共用）⇒ 按 prefab 名查必错。
@@ -56,15 +71,27 @@ CardAnim 名 → prefab 名（GUID → 资产名）这一跳**不在本脚本里
 """
 
 import argparse
+import glob
 import io
 import json
 import os
 import sys
 
+# 🆕 2026-10-24（`W2`）：生成期发现的**非致命**问题（解不出 preset 名 / preset 不在数值表里 …）
+#   —— 与其它生成器同一口径：**不静默**，打印 + 进 stdout 汇总（⛔ 不写进产物，免得产物不稳）。
+PROBLEMS = []
+
 ASSETS_FULL = r"d:/2/新解包资源/assets_full"
 ADDR_MAP = r"d:/4/Unity/数据/索引/anim_address_map.json"
 OUT_FULL = r"d:/4/Unity/数据/游戏数据/cardanim_clips.json"
 OUT_RUNTIME = r"d:/4/Unity/MyGame/Assets/CardPresentation/Resources/cardanim_clips.json"
+# 🔴 2026-10-24（执行代理 `W2` · `R7`/`R13`/`R14`）：`screenShake` 的 `presetSO` 是一个
+#   **没有 type tree 的 PPtr**（`{"m_FileID":2,"m_PathID":-4556…}`），`assets_full` 那批 JSON
+#   不带外部引用表 ⇒ 名字只能从**旧解包**的 `<名字>_<pathID>.json` 文件名反查。
+#   这与 `工具/gen_shake_presets.py` **同一个索引目录、同一个办法**（那边也用它翻 `rawSignal`）。
+SHAKE_IDX_DIR = r"d:/2/解包整理/09_游戏数据/动画曲线/MonoBehaviour"
+# 运行期屏震数值表（`工具/gen_shake_presets.py` 的产物）—— 只用来**交叉校验**解析出的名字在不在里面
+SHAKE_PRESETS_JSON = r"d:/4/Unity/MyGame/Assets/Resources/WarpforgeVFX/shake_presets.json"
 
 
 def _curve_flat(curve):
@@ -83,10 +110,159 @@ def _curve_flat(curve):
     return out
 
 
+def _preset_id_index():
+    """旧解包的 `<名字>_<pathID>.json` 文件名 → `{str(pathID): 名字}`。
+
+    ⚠️ 目录不在 / 一个都没有 ⇒ **回空字典并出声**（⛔ 不许静默猜名字）。
+    同一个 pathID 出现多个名字 ⇒ 保留**第一个**并记进 `_PRESET_IDX_DUP`（诊断用）。
+    """
+    out = {}
+    if not os.path.isdir(SHAKE_IDX_DIR):
+        print("   ⚠️ 屏震 preset 的 pathID 索引目录不在：%s ⇒ **没查**（`ssPreset` 不写，"
+              "`ssPid` 照写；⛔ 不猜名字）" % SHAKE_IDX_DIR)
+        return out
+    for p in sorted(glob.glob(os.path.join(SHAKE_IDX_DIR, "*.json"))):
+        b = os.path.basename(p)[:-5]
+        if "_" not in b:
+            continue
+        nm, pid = b.rsplit("_", 1)
+        if not pid.lstrip("-").isdigit():
+            continue
+        if pid in out and out[pid] != nm:
+            _PRESET_IDX_DUP.append((pid, out[pid], nm))
+            continue
+        out.setdefault(pid, nm)
+    if not out:
+        print("   ⚠️ 屏震 preset 的 pathID 索引目录里没有任何 `<名字>_<pathID>.json`：%s ⇒ **没查**"
+              % SHAKE_IDX_DIR)
+    return out
+
+
+_PRESET_IDX_DUP = []
+
+
+def _known_preset_names():
+    """运行期屏震数值表里有的 preset 名（`gen_shake_presets.py` 的产物）。读不到 ⇒ `None`（= 没查）。"""
+    try:
+        d = json.load(io.open(SHAKE_PRESETS_JSON, encoding="utf-8"))
+        return set(p.get("name") for p in (d.get("presets") or []) if p.get("name"))
+    except Exception:                                   # noqa: BLE001
+        return None
+
+
+def _shake_block(ai, pid2name, known):
+    """`animInfo.screenShake` → 短名列（**只在非默认时**返回非空 dict；全默认 ⇒ `{}`）。
+
+    字段与原版的对应（`d:/2/tools/il2cpp_out/dump.cs` 的 `AnimInfo.screenShake` 那一块）：
+        `ssPid`    ← `presetSO.m_PathID`（**原样搬，十进制字符串**；`m_FileID` 恒 2 = 同族的卡动画束）
+        `ssPreset` ← 上面那个 pathID 反查出来的 **preset 名**（解不出 ⇒ 不写，⛔ 不猜）
+        `ssDelay`  ← `delay`
+        `ssOvSustain` / `ssSustain`         ← `overwriteSustainTime` / `sustainTime`
+        `ssOvAmp`     / `ssAmp`             ← `overwriteAmplitude` / `amplitude`
+        `ssOvFreq`    / `ssFreq`            ← `overwriteFrequency` / `frequency`
+        `ssOvDir`     / `ssDx` `ssDy` `ssDz`← `overwriteDirection` / `direction.{x,y,z}`
+        `ssOvAttack`  / `ssAttack`          ← `overwriteAttackTime` / `attackTime`
+        `ssOvDecay`   / `ssDecay`           ← `overwriteDecayTime` / `decayTime`
+    ⚠️ **消费语义（原版，留给运行期写手）**：`overwrite* == 0` 的项**用 preset 自己的值**，
+    `== 1` 的项用这里记的值（`OverwriteCameraShakePreset.GetModifiedPreset()` → `CameraShakerManager.DoShake`）。
+    ⇒ 所以 6 个 `ssOv*` **必须和 6 个值一起搬**，只搬值不搬开关等于猜。
+    """
+    ss = (ai.get("screenShake") or {})
+    ps = (ss.get("presetSO") or {})
+    pid = ps.get("m_PathID") or 0
+    ov = {k: int(ss.get(k) or 0) for k in ("overwriteSustainTime", "overwriteAmplitude",
+                                           "overwriteFrequency", "overwriteDirection",
+                                           "overwriteAttackTime", "overwriteDecayTime")}
+    d = float(ss.get("delay") or 0.0)
+    if not pid and not any(ov.values()) and not d:
+        return {}
+    out = {"ssPid": str(pid)}
+    nm = pid2name.get(str(pid))
+    if nm:
+        out["ssPreset"] = nm
+        if known is not None and nm not in known:
+            PROBLEMS.append("屏震：CardAnim 引用的 preset `%s` **不在** `%s` 的 presets 里（pathID %s）"
+                            "⇒ 运行期没有它的数值" % (nm, os.path.basename(SHAKE_PRESETS_JSON), pid))
+    out["ssDelay"] = round(d, 6)
+    out["ssOvSustain"] = ov["overwriteSustainTime"]
+    out["ssSustain"] = round(float(ss.get("sustainTime") or 0.0), 6)
+    out["ssOvAmp"] = ov["overwriteAmplitude"]
+    out["ssAmp"] = round(float(ss.get("amplitude") or 0.0), 6)
+    out["ssOvFreq"] = ov["overwriteFrequency"]
+    out["ssFreq"] = round(float(ss.get("frequency") or 0.0), 6)
+    out["ssOvDir"] = ov["overwriteDirection"]
+    dr = ss.get("direction") or {}
+    out["ssDx"] = round(float(dr.get("x") or 0.0), 6)
+    out["ssDy"] = round(float(dr.get("y") or 0.0), 6)
+    out["ssDz"] = round(float(dr.get("z") or 0.0), 6)
+    out["ssOvAttack"] = ov["overwriteAttackTime"]
+    out["ssAttack"] = round(float(ss.get("attackTime") or 0.0), 6)
+    out["ssOvDecay"] = ov["overwriteDecayTime"]
+    out["ssDecay"] = round(float(ss.get("decayTime") or 0.0), 6)
+    return out
+
+
+def _minion_move_block(ai):
+    """`animInfo.minionMovementInfo` → 短名列（**只在非默认时**返回非空 dict）。
+
+    原版结构（`d:/2/tools/il2cpp_out/dump.cs` 的 `AnimInfo.minionMovementInfo`）：
+        `delay` · `shouldActivateMinionMovement` · `visibilityStateAfterFinish` ·
+        `minionMovementAnimCurve{X,Y,Z}` · `useXZCurve` · `useYCurve` ·
+        `xOffset` / `yOffset` / `zOffset` ·
+        `rotate{X,Y,Z}Axis` = `{enable, curve, maxValue}`
+    短名（`mm` 前缀；曲线格式与 `ease` 同一套 `[t,v,…]`）：
+        `mmDelay` `mmAct` `mmVis` `mmUseXZ` `mmUseY` `mmX/Y/Z`（偏移）
+        `mmCx/mmCy/mmCz`（三条位移曲线，**非空才写**）
+        `mmRxE/mmRxM/mmRxC`（旋转 X 的 enable / maxValue / 曲线），Y、Z 同形。
+    ⚠️ **消费语义（原版，留给运行期写手）**：这一族是**卡体自己**的位移/旋转
+    （`CardAnimController` 把 `minionMovementInfo` 交给 3D 卡体；`shouldActivateMinionMovement=1`
+    的两件是「爆炸时卡体位移」），**不是 VFX 的位移** —— 与 `sp/ep/mv` 那一套（VFX 的）分开。
+    """
+    m = (ai.get("minionMovementInfo") or {})
+    if not m:
+        return {}
+    rot = {k: (m.get(k) or {}) for k in ("rotateXAxis", "rotateYAxis", "rotateZAxis")}
+    curves = {k: _curve_flat(m.get(k)) for k in ("minionMovementAnimCurveX",
+                                                 "minionMovementAnimCurveY",
+                                                 "minionMovementAnimCurveZ")}
+    nondef = (int(m.get("shouldActivateMinionMovement") or 0) or int(m.get("visibilityStateAfterFinish") or 0)
+              or float(m.get("delay") or 0.0) or float(m.get("xOffset") or 0.0)
+              or float(m.get("yOffset") or 0.0) or float(m.get("zOffset") or 0.0)
+              or int(m.get("useXZCurve") or 0) or int(m.get("useYCurve") or 0)
+              or any(curves.values())
+              or any(int(r.get("enable") or 0) or _curve_flat(r.get("curve")) for r in rot.values()))
+    if not nondef:
+        return {}
+    out = {
+        "mmDelay": round(float(m.get("delay") or 0.0), 6),
+        "mmAct": int(m.get("shouldActivateMinionMovement") or 0),
+        "mmVis": int(m.get("visibilityStateAfterFinish") or 0),
+        "mmUseXZ": int(m.get("useXZCurve") or 0),
+        "mmUseY": int(m.get("useYCurve") or 0),
+        "mmX": round(float(m.get("xOffset") or 0.0), 6),
+        "mmY": round(float(m.get("yOffset") or 0.0), 6),
+        "mmZ": round(float(m.get("zOffset") or 0.0), 6),
+    }
+    for key, short in (("minionMovementAnimCurveX", "mmCx"),
+                       ("minionMovementAnimCurveY", "mmCy"),
+                       ("minionMovementAnimCurveZ", "mmCz")):
+        if curves[key]:
+            out[short] = curves[key]
+    for ax, short in (("rotateXAxis", "mmRx"), ("rotateYAxis", "mmRy"), ("rotateZAxis", "mmRz")):
+        r = rot[ax]
+        out[short + "E"] = int(r.get("enable") or 0)
+        out[short + "M"] = round(float(r.get("maxValue") or 0.0), 6)
+        c = _curve_flat(r.get("curve"))
+        if c:
+            out[short + "C"] = c
+    return out
+
+
 def build():
     am = json.load(io.open(ADDR_MAP, encoding="utf-8"))
     c2a = am["cardanim_to_asset"]
-
+    pid2name = _preset_id_index()
+    known_presets = _known_preset_names()
     rows = {}
     conflicts = []
     missing = []
@@ -150,6 +326,22 @@ def build():
                 r = om.get(range_key) or {}
                 row[mn_key] = round(float(r.get("x") or 0.0), 6)
                 row[mx_key] = round(float(r.get("y") or 0.0), 6)
+        # ── 🔴 2026-10-24（执行代理 `W2` · `R7` / `R13` / `R14`）：三个**原来一整片零消费**的字段 ──
+        #   ① `startDelay`（`R14`；全池现读 **1 个** CardAnim = `Cuts Brutal Warp Spider` 0.5 s）——
+        #      ⚠️ `GetAnimDuration()` **不含**它（原版那条公式确实不含）⇒ 它影响的是**命中/生效那一帧**，
+        #      不是时长。运行期消费 = 那一拍的命中帧（`EventTiming.HitFrameLag` 同族，别的写手接）。
+        #   ② `screenShake`（`R7`；全池现读 **57 个** CardAnim / 92 行 / 71 卡）—— 见 `_shake_block`。
+        #   ③ `minionMovementInfo`（`R13`；全池现读 **9 个** CardAnim / 10 行 / 8 卡）—— 见 `_minion_move_block`。
+        #   三条都**只在非默认时**写键（其余行缺省 = 0 / 空 ⇒ `JsonUtility` 的默认值恰好就是「没有」）。
+        sd = round(float(ai.get("startDelay") or 0.0), 6)
+        if sd:
+            row["sd"] = sd
+        ssb = _shake_block(ai, pid2name, known_presets)
+        if ssb:
+            row.update(ssb)
+        mmb = _minion_move_block(ai)
+        if mmb:
+            row.update(mmb)
         # 🔴 键 = **CardAnim 名**（`a`）。同一 prefab 名可以有多张 CardAnim、参数不同 ⇒ 各存各的。
         if ca in rows:                       # 理论上 c2a 的键唯一（现读 1,099/1,099）
             conflicts.append((ca, rows[ca]["n"], n))
@@ -188,6 +380,20 @@ def main():
     print("跳过的 CardAnim            : %d" % len(missing))
     for m in missing[:10]:
         print("   SKIP %s  (%s)" % m)
+    # 🆕 2026-10-24（`W2`）：三个新字段族的落表条数（`R14` / `R7` / `R13`）
+    _sd = sum(1 for r in out["rows"] if "sd" in r)
+    _ss = sum(1 for r in out["rows"] if "ssPid" in r)
+    _ssn = sum(1 for r in out["rows"] if "ssPreset" in r)
+    _mm = sum(1 for r in out["rows"] if "mmAct" in r)
+    print("🆕 R14 startDelay (`sd`)   : %d 行" % _sd)
+    print("🆕 R7  screenShake (`ss*`)  : %d 行（preset 名解出 %d 行）" % (_ss, _ssn))
+    print("🆕 R13 minionMovement (`mm*`): %d 行" % _mm)
+    if _PRESET_IDX_DUP:
+        print("   ⚠️ 同一个 pathID 反查出多个名字（保留第一个）：%s" % _PRESET_IDX_DUP[:5])
+    if PROBLEMS:
+        print("   ⚠️ 问题 %d 条：" % len(PROBLEMS))
+        for p in PROBLEMS[:10]:
+            print("      -", p)
 
     if args.check:
         bad = 0

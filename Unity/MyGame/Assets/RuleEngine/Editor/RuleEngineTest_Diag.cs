@@ -83,13 +83,14 @@ public static partial class RuleEngineTest
         "TestS23ResolveDeployCopyOfThisTroop", "TestS23ResolveInsteadOnAbilityLayer", "TestS23ResolveInsteadConditionalNotPairedOnAbilityLayer", "TestS23ResolveLandingCancelsAttack", "TestS23ResolveA1426GiveToDyingOnBoard", "TestS23ResolveArmourTwoRepresentations",
         "TestS23ResolveA1692DeployFreeNoOverwrite", "TestS23ResolveA1690WhenBodyAdjacentAnchor", "TestS23ResolveA1312KeepStatusTurnState", "TestW59PlayOrderSameSideDeploy", "TestW59PlayOrderCrossPlayer", "TestW59PlayOrderTurnStartEnd",
         "TestW59PlayOrderReentry", "TestW59PlayOrderInvariant", "TestW59PlayOrderOnSide", "TestT21TurnBeforeEndBeforeTurnEnd", "TestA24EC58DeployPairAndFlank", "TestW61ActionQueue",
-        "TestEngineP1", "TestT02OrConditionTargetDiesOrFriendly", "TestT02SacrificeBodyLandsOnSelf", "TestT02PlacementNoOverwriteFamily", "TestT02FirstFreeSlotHonoursAvailability", "TestT02NextDeploySlotHonoursAvailability",
-        "TestT02ReturnSideIsAvailableSlot", "TestT02ResolveWarlordSlotHonoursAvailability", "TestT02ResolveSideBranchHonoursAvailability", "TestT02OrFamilyBuckets", "TestT02DuplicateTriggerBodyDedup", "TestW61bSpentAllMana",
-        "TestW61bSpendInsufficientDrainsToZero", "TestW61bInitialModifiers", "TestW61bSkipCardDrawProducer", "TestW64UnitConditions", "TestW64StructuredConditions", "TestW64StructuredTargetFilters",
-        "TestW64OpAbilityTargetConditions", "TestB16ConditionEval", "TestB17SubjectlessTargets", "TestEngineBatch1023", "TestA12FurtherMultiplier", "TestA30ListenerTriggerNames",
-        "TestW62EntryPump", "TestW64ShowCardsWindow", "TestN2UnitConditionRoles", "TestA1EngineFive", "TestB3EngineFive", "TestB6EngineThird",
-        "TestB7EnginePickAndCount", "TestF8EnginePlayOrder", "TestG1bSpiritStone", "TestG1bStatusApplied", "TestG2DeathRoutes", "TestG3AiTargetsTrim",
-        "TestG5BareDealAndReferencedCards", "TestG6MultiCountRepeats", "TestE8PreviousAbilityDrawnCards", "TestG10HandCountScope", "TestG12ActiveAbilityLogic", "TestEngineE2",
+        "TestEngineP1", "TestEngineP2", "TestT02OrConditionTargetDiesOrFriendly", "TestT02SacrificeBodyLandsOnSelf", "TestT02PlacementNoOverwriteFamily", "TestT02FirstFreeSlotHonoursAvailability",
+        "TestT02NextDeploySlotHonoursAvailability", "TestT02ReturnSideIsAvailableSlot", "TestT02ResolveWarlordSlotHonoursAvailability", "TestT02ResolveSideBranchHonoursAvailability", "TestT02OrFamilyBuckets", "TestT02DuplicateTriggerBodyDedup",
+        "TestW61bSpentAllMana", "TestW61bSpendInsufficientDrainsToZero", "TestW61bInitialModifiers", "TestW61bSkipCardDrawProducer", "TestW64UnitConditions", "TestW64StructuredConditions",
+        "TestW64StructuredTargetFilters", "TestW64OpAbilityTargetConditions", "TestB16ConditionEval", "TestB17SubjectlessTargets", "TestEngineBatch1023", "TestA12FurtherMultiplier",
+        "TestA30ListenerTriggerNames", "TestW62EntryPump", "TestW64ShowCardsWindow", "TestN2UnitConditionRoles", "TestA1EngineFive", "TestB3EngineFive",
+        "TestB6EngineThird", "TestB7EnginePickAndCount", "TestF8EnginePlayOrder", "TestG1bSpiritStone", "TestG1bStatusApplied", "TestG2DeathRoutes",
+        "TestG3AiTargetsTrim", "TestG5BareDealAndReferencedCards", "TestG6MultiCountRepeats", "TestE8PreviousAbilityDrawnCards", "TestG10HandCountScope", "TestG12ActiveAbilityLogic",
+        "TestEngineE2", "TestEngineE6", "TestEngineP3", "TestEngineD4",
     };
 
     // 本次诊断真正跑过的用例（顺序同 `RunCaseNames`）—— 只给对账用
@@ -517,6 +518,7 @@ public static partial class RuleEngineTest
         Safe("TestA24EC58DeployPairAndFlank", () => TestA24EC58DeployPairAndFlank());
         Safe("TestW61ActionQueue", () => TestW61ActionQueue());
         Safe("TestEngineP1", () => TestEngineP1());
+        Safe("TestEngineP2", () => TestEngineP2());
         Safe("TestT02OrConditionTargetDiesOrFriendly", () => TestT02OrConditionTargetDiesOrFriendly());
         Safe("TestT02SacrificeBodyLandsOnSelf", () => TestT02SacrificeBodyLandsOnSelf());
         Safe("TestT02PlacementNoOverwriteFamily", () => TestT02PlacementNoOverwriteFamily());
@@ -558,6 +560,9 @@ public static partial class RuleEngineTest
         Safe("TestG10HandCountScope", () => TestG10HandCountScope());
         Safe("TestG12ActiveAbilityLogic", () => TestG12ActiveAbilityLogic());
         Safe("TestEngineE2", () => TestEngineE2());
+        Safe("TestEngineE6", () => TestEngineE6());
+        Safe("TestEngineP3", () => TestEngineP3());
+        Safe("TestEngineD4", () => TestEngineD4());
 
         VerifyDiagCoverage();
 

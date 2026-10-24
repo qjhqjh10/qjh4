@@ -83,6 +83,9 @@ public static class DraftWindowAssertD2
         {
             // ---- 还原 ----
             if (win != null) { try { UnityEngine.Object.DestroyImmediate(win.gameObject); } catch { } }
+            // 🆕 2026-10-24（E3）：本窗现在有一份**静态**的一局存档（`DraftModeWindow._run`，原版在服务端）
+            // ⇒ 自检跑完必须清掉，否则下一次真 Play 会「接着自检那一局」（那条静态字段活过窗的销毁）。
+            DraftModeWindow.ClearRunForTest();
             WindowsManager.ClearReuseCacheForTest();
             DraftPacks.InvalidateCache();
             PrebuiltDecks.ClearPendingBattleDeck();

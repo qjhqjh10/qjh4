@@ -213,7 +213,7 @@ class Program
     //   本轮 `gen_cards_engine.py` 重生成卡表：version 18→19 + 新增 `spellType` 列（`cards_raw.json` 真值直搬），
     //   逐张语义 diff 只有这两处、其余 0 漂移（判据 → `普查产出_1023d/引擎批量_A1690_97_95_执行报告.md` §4）。
     //   基线文件 / 输出指纹**没动** ⇒ 只重钉这一条。
-    public const string PinnedPoolMd5 = "db11eb38b7da8c41a3214ecb91449d2f";  // 2026-10-24 重钉（执行代理 E1）：卡表 v23→v24，`activeAbilityLogic` 每行加 `ca`/`pa`/`dmg` 三格（132 张/193 行）；归因 → 资料/普查产出_1024b/E1_chosenAbility与ta来源.md。⚠️ 同批 `PinnedParseMd5` / `PinnedBaselineMd5` **实测没动**（⑦ 输出指纹仍 af836aa0…、基线仍 71cedcd7…）
+    public const string PinnedPoolMd5 = "860044b773370da0b70a0134d3a7463d";  // 2026-10-24 重钉（执行代理 E9 / 第七十三会话同步点）：卡表 v24→v25，新增 logic/op 级 `targetCriteria` 两列（`activeAbilityTargets` 193 行 / `abilityTargetCriteria` 1616 行）。⚠️ **卡的内容一个没变**：同批 `ruleprobe check` 解析差异 0 行 · ⑦ 输出指纹仍 af836aa0… · 基线仍 71cedcd7… ⇒ 只重钉这一颗。归因 → 资料/普查产出_1024c/E9_卡表v25_logic级判据列.md
 
     /// <summary>钉住的基线内容指纹（`工具/ruleprobe/基线/out_baseline.txt` 的 md5，**按字节**）。
     /// 与上面那个配对使用 —— 判据见上面那段长注释。</summary>
