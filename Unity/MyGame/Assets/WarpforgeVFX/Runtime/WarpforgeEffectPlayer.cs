@@ -166,14 +166,23 @@ namespace WarpforgeVFX
         // ---- 播放入口 ----
 
         /// <summary>按名字播一个特效。名字来自 WarpforgeEffectLibrary（= 原版 prefab 名）。
-        /// 找不到时打一条警告并返回 null —— 不抛异常，特效缺失不该让玩法直接崩。</summary>
+        /// 找不到时打一条警告并返回 null —— 不抛异常，特效缺失不该让玩法直接崩。
+        /// <para>🔴 **`layer`（2026-10-24 · 战斗线 `C6·Q1`）** —— 实例整棵子树的层：
+        ///   · `layer &lt; 0`（默认）⇒ **`parent != null` 时跟父节点的层**（层在 Unity 里**不继承**：
+        ///     `Instantiate(prefab, parent)` 保的是 prefab 自己的层）；`parent == null` ⇒ 保持 prefab 自带层。
+        ///   · `layer &gt;= 0` ⇒ **显式**设成这一层（压过「跟父节点」那条）—— **根特效**用这一档。
+        /// 判据（原版 13 场逐场实读）：**只有战场透视相机画 layer 0**（bits 1137），UI 相机只画层 5（bits 32）
+        /// ⇒ 原版的**阵亡爆散体 / 残骸 Destroy 粒子**（根实例化、根层 0）由**战场相机**画；
+        /// 我们那批 prefab 的根层也是 0，而 HUD 是**正交**相机（108 px/单位）⇒ 不显式搬层就会
+        /// **位置与尺度两样全错**。判据全文 → `资料/普查产出_1024c/C6_表现界面轮抽剩余判据.md` §一。</para></summary>
         public static WarpforgeEffectPlayer Play(
             string effectName,
             Transform parent = null,
             Vector3 localPosition = default(Vector3),
             float scale = 1f,
             float autoDestroySeconds = -1f,
-            bool assignScale = false)
+            bool assignScale = false,
+            int layer = -1)
         {
             var lib = WarpforgeEffectLibrary.Instance;
             if (lib == null)
@@ -187,13 +196,13 @@ namespace WarpforgeVFX
                 Debug.LogWarning($"[WarpforgeVFX] 效果库里没有 '{effectName}'");
                 return null;
             }
-            return Play(entry, parent, localPosition, scale, autoDestroySeconds, assignScale);
+            return Play(entry, parent, localPosition, scale, autoDestroySeconds, assignScale, layer);
         }
 
         /// <summary>照着台账判定的名字播 —— 找不到精确名时退化成模糊匹配，并把命中的名字打出来。</summary>
         public static WarpforgeEffectPlayer PlayFuzzy(
             string keyword, Transform parent = null, Vector3 localPosition = default(Vector3),
-            float scale = 1f, float autoDestroySeconds = -1f, bool assignScale = false)
+            float scale = 1f, float autoDestroySeconds = -1f, bool assignScale = false, int layer = -1)
         {
             var lib = WarpforgeEffectLibrary.Instance;
             if (lib == null) { Debug.LogWarning("[WarpforgeVFX] 没有效果库"); return null; }
@@ -201,16 +210,19 @@ namespace WarpforgeVFX
             if (hit.Count == 0) { Debug.LogWarning($"[WarpforgeVFX] 没有名字含 '{keyword}' 的效果"); return null; }
             if (hit.Count > 1)
                 Debug.Log($"[WarpforgeVFX] '{keyword}' 命中 {hit.Count} 个，取最短的 '{hit[0].name}'");
-            return Play(hit[0], parent, localPosition, scale, autoDestroySeconds, assignScale);
+            return Play(hit[0], parent, localPosition, scale, autoDestroySeconds, assignScale, layer);
         }
 
+        /// <param name="layer">`-1` = 跟父节点层（`parent == null` 时保持 prefab 自带层）；
+        /// `>= 0` = **显式**设成这一层。语义与判据见上面那个按名字的 `Play` 的 doc。</param>
         public static WarpforgeEffectPlayer Play(
             WFEffectEntry entry,
             Transform parent = null,
             Vector3 localPosition = default(Vector3),
             float scale = 1f,
             float autoDestroySeconds = -1f,
-            bool assignScale = false)
+            bool assignScale = false,
+            int layer = -1)
         {
             if (entry == null)
             {
@@ -253,7 +265,30 @@ namespace WarpforgeVFX
             var p = go.GetComponent<WarpforgeEffectPlayer>();
             if (p == null) p = go.AddComponent<WarpforgeEffectPlayer>();
             p.Init(entry, autoDestroySeconds);
+
+            // ---- 层：**在 `Init` 之后**刷，这样模块 `Initialize` 万一挂出新子件也一起搬到同一层 ----
+            // 🔴 **2026-10-24（战斗线 `C6·Q1`）：这条规则原来只在 `WarpforgeEffectHook`（`CardEffects.Play`
+            //    那条钩子）里做**，而**直接调本函数**的调用点一个都不走它（`CardView` 的残骸体、
+            //    `CardFeel.PlayDeathFallbackFx`、`BattleDriver` 的相邻单位 / Swarm 合并、以及
+            //    `SpawnDeathBody` / `SpawnRemnantDestroy` 的**根**特效）⇒ 那些实例停在 prefab 自带层
+            //    （残骸体 10 / Swarm 件 0 / 多数相邻件 0），在 3D 档被 **HUD 正交相机**画。
+            //    ⇒ 把规则**下沉到这里**：一处覆盖所有调用点（含以后新增的）。
+            //   ⚠️ 显式 `layer`（>= 0）**压过**「跟父节点」—— 根特效（`parent == null`）只有这一条路能搬层。
+            int wantLayer = layer >= 0 ? layer : (parent != null ? parent.gameObject.layer : -1);
+            if (wantLayer >= 0) SetLayerRec(go, wantLayer);
+
             return p;
+        }
+
+        /// <summary>把这个实例整棵子树设到某一层（层**不会**从父节点继承，必须自己走一遍）。
+        /// <para>⚠️ 与 `WarpforgeEffectHook.SetLayerRec` 是同一口径的两份实现（那个文件不归本批白名单改）
+        /// —— 两处都只做「递归写 `layer`」，没有第二套规则。</para></summary>
+        public static void SetLayerRec(GameObject go, int layer)
+        {
+            if (go == null) return;
+            go.layer = layer;
+            var t = go.transform;
+            for (int i = 0; i < t.childCount; i++) SetLayerRec(t.GetChild(i).gameObject, layer);
         }
 
         void Init(WFEffectEntry entry, float autoDestroySeconds)

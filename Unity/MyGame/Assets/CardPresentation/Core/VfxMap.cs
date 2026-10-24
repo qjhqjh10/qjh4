@@ -2211,9 +2211,20 @@ namespace CardPresentation
         ///     发射口 `EffectResolver.EmitListenerTrigger`。
         ///   · F：`TurnStart`(30) · `TurnStartPlayer`(31) · `TurnEnd`(40) · `TurnBeforeEnd`(41)
         ///     —— 发射口 `EffectResolver.EmitTurnTrigger`。
-        /// ⚠️ **只放行「引擎按名字发出来的那一批」**；`Strike` / `Slay` / `Regiment` 这些
-        /// 走旧路的**一律不动**（它们今天怎么播就怎么播）—— 报告 §五·6 的「多播」正是
-        /// 「把引擎已会发的 trigger 全塞进同一个桶」造成的。新增一条必须**有一个真正的发射口**。
+        /// ⚠️ **只放行「引擎按名字发出来的那一批」** —— 新增一条必须**有一个真正的发射口**
+        /// （判据 = 全仓 `Core/` 里有一处带这个名字（或它的 `KeywordTable.*` 小写常量）发
+        /// `EvtKind.Trigger`）；⛔ 不许「照着原版 trigger 名字表补齐」。
+        /// 🔴 **2026-10-24（执行代理 `W5` · AN1 `R5`）就地订正（铁律 5）**：这一行原来写
+        /// 「`Strike` / `Slay` / `Regiment` 这些**走旧路的一律不动**（它们今天怎么播就怎么播）」——
+        /// **三个都已过期**：`Regiment` 是 `J1`/`C5 D11` 放行的（同批），`Strike`(580) / `Slay`(120)
+        /// 是本次放行的（见下面 `case "strike"` / `case "slay"` 那两段）。那句「走旧路」当初的意思是
+        /// 「不做归口 → 保持整桶播」；可**整桶播不是原版行为**（原版 `TriggerAbilities(triggerId)`
+        /// 只取那一条 trigger 的 ability）⇒ 那正是 AN1 `R5` 记的 36 行 / 32 卡的缺陷。
+        /// ⚠️ 仍然成立的那半句：**别把「引擎已会发」当成放行的充分条件** —— 还要**看候选侧有没有行**
+        /// （`MustRouteTriggerNames` 的件级自检会报「全表一张卡都没有 ⇒ 空放」）。今天
+        /// `rally` / `landing` / `sacrifice` / `spentallmana` / `survivor` / `swarm` / `abouttoattack`
+        /// 这些**有发射口但 `cards_engine.animTimes` 里 0 行**（`an1_trigger_matrix.tsv` 现读）⇒
+        /// 本批**没有**放行（放了就是空放，且会改变第 ④ 档的取件范围，没有判据支撑）。
         /// 🔴 **2026-10-24（`A21`）就地订正（铁律 5）**：这一段原来把 **`Mob`** 也写进「一律不动」——
         /// 它**有真发射口**（`RuleCore.cs:6008`），2026-10-24 已放行（见下面 `case "mob"` 那一段）。
         /// 同批还放行了 `Teleport` / `Uprising` / `Artifice`，并修好了 `Codex` 的**大小写**（C3 D6）。
@@ -2516,6 +2527,48 @@ namespace CardPresentation
                 //     （`TL19`/`TL70` 会走「有 ability、没动画行」那支：照发事件 + 出声，表现层无件）。
                 case "triggeredsynapse":
                     return true;
+                // ---- 🆕 2026-10-24（执行代理 `W5` · AN1 `R5`）：`Strike`(580) / `Slay`(120) ----
+                //   这两个是 `trigger` 桶里「名字没放行 ⇒ 掉回整桶」那 **36 行 / 32 卡** 的全部
+                //   （`资料/普查产出_1024c/data/an1_*_emit.tsv`，`emit == TRIGGER_BUCKET(归口待定)` 那 36 行；
+                //    逐行把 `(cardanim, prefab)` 钉到 `cards_engine.json` 的 `animTimes[]` 上，`tn` 只有两个值）：
+                //     · `Strike`(580) —— **21 行 / 19 张**：`BL15`(2) · `BL31` · `BL71` · `DA9` ·
+                //       `GSC16` · `GSC27` · `GSC33`(2) · `GSC71` · `GOF62` · `TL3` · `TL16` · `TL17` · `TL30` ·
+                //       `ASH13` · `ASH16` · `ASH69` · `SOR16` · `SW22` · `TAU18`（⛔ 别把这张表当断言 ——
+                //       它只说明「36 行里 21 行是 Strike」；件级自检按卡池现算，现读 19 张 / 21 行）。
+                //     · `Slay`(120) —— **15 行 / 13 张**：`AM71`(2) · `AM72` · `DA6` · `DA10` · `DA24` ·
+                //       `DA26`(2) · `DA36` · `EC11` · `EC12` · `EC34` · `SW27` · `SW34` · `UM90`（现读）。
+                //   **判据 = 两个名字都真的有发射口（2026-10-24 现核，`EvtKind.Trigger` + 关键词原样写进
+                //   `BattleEvent.Keyword`）**：
+                //     · `Slay`(120)：`RuleCore.cs:5603` `FireTriggerAt(ctx, killer, KeywordTable.Slay,
+                //       kOwner, kSlot, requireActorInPlayOrDying: true)` —— `KillUnit` 那条链的**唯一发射口**
+                //       （原版 `BattleManager__AddTriggerSlay.c:27` → `…__ResolveTriggerSlay.c:116-226`）。
+                //       keyword = `KeywordTable.Slay` = **`"slay"`**（`RuleEngine/Core/CardDef.cs` 的
+                //       `KeywordTable.Slay` 常量；⛔ 别记死行号 —— `CardDef.cs` 一直在改）。
+                //     · `Strike`(580)：`RuleCore.cs:6096` `FireTriggerAt(ctx, attacker, KeywordTable.Strike,
+                //       p, atkSlot)` —— 攻击结算尾部、**排在 `UnitAttack(50)` 之后**（原版
+                //       `CardScript__ResolveUnitAttacked` 的 `OnTrigger(580)` 在 `:99-101`），近战/远程都发
+                //       （与 `Mob` 的差别就在这道 `!ranged` 闸）。keyword = `KeywordTable.Strike` =
+                //       **`"strike"`**（同文件的 `KeywordTable.Strike`）。
+                //   **不放行的后果（`AN1` `R5` 现读）**：这一拍 `target` 恒 null ⇒ 走第 ④ 档「判不出 ⇒
+                //     原样回 `trigger` 粗桶」⇒ 把**别的拍的件**也一起播了。现读两种：
+                //     · **错件**：`Strike` 那一拍播 `TalentEffect` / `CodexEffect` / `CrueltyEffect` /
+                //       `EcstasyEffect` / `ArtificeEffect` / `OrkBuffGreenWaaagh`（`regeneration`）这些**别的
+                //       trait 的框**（现读 `Strike` / `Slay` 两拍各有几十张卡中招 —— 逐卡算，⛔ 别写死张数）；
+                //       `Slay` 那一拍播 `StrikeEffect`（`ASH69`/`ASH13`/`ASH16`/…）；
+                //     · **多播**：`Strike` 那一拍播 `StrikeEffect`（本拍 `TraitFrames.DisplayTrigger("Strike")`
+                //       **也**播同一件 ⇒ 两个锚点各一遍）—— 这一半由 `R8` 的
+                //       <see cref="IsTraitFrameDuplicate"/> 一起收口（放行后走第 ③ 档，整桶那条路根本不到）。
+                //   ⚠️ 大小写：引擎发**小写**（`"strike"` / `"slay"`）、候选是 PascalCase（`animTimes[].tn`）——
+                //     白名单这一半靠方法头的 `ToLowerInvariant()`、候选那一半靠 `NameIs` 的
+                //     `OrdinalIgnoreCase`，**两处都要**（`Codex` 当年就是只对了一半 = `C3` D6）。
+                //   ⚠️ 放行后**如实留白**（与 `Mob`/`Teleport`/`Regiment` 同一取舍）：trait 件在
+                //     `CardDef.AnimTimes` 里没有行 ⇒ 分类键（`AddTriggerNamesOf`）标不上名 ⇒ 第 ③ 档的
+                //     `CandidateHasTrigger` 把它们丢掉 ⇒ 这一拍只播**卡自己那几条**技能动画；
+                //     trait 框由 `TraitFrames._triggerBook` 播（判据 = 原版 `ActivateTriggerTraitAnim`
+                //     **只**调 `DisplayTriggerAnim` 一次）。补齐 trait 那一侧属于 `D4`/`P7`。
+                case "strike":
+                case "slay":
+                    return true;
             }
             return false;
         }
@@ -2571,21 +2624,110 @@ namespace CardPresentation
         ///
         /// <para>⚠️ **只挡 trait 行**（`TriggerTypeOf` 认得出的）；卡级行（`TriggerTypeOf` 回 `-1`）
         /// 与 `Trigger(3)` / `TriggerOnPlay(6)` 一律保留 —— 后者正是触发那一拍该播的。
-        /// ⛔ 别把这条闸推广到 `ResolvePerCard` / `ResolveAll`（那两个是**原始查询口**，见它们的 doc）。</para></summary>
+        /// ⛔ 别把这条闸推广到 `ResolvePerCard` / `ResolveAll`（那两个是**原始查询口**，见它们的 doc）。</para>
+        /// <para>🆕 **2026-10-24（执行代理 `W5` · AN1 `R8`）**：**`Trigger(3)`/`TriggerOnPlay(6)` 还有第二道闸** ——
+        /// 当本次事件的 `keyword` 就是这条 trait 的触发名时（例：`strike` 那一拍的 `StrikeEffect`），
+        /// **`TraitFrames.DisplayTrigger` 已经会播同一件** ⇒ 整桶那一侧必须让开，见
+        /// <see cref="IsTraitFrameDuplicate"/>。两件事分开：本方法管「哪几档不属于这一拍」，
+        /// `IsTraitFrameDuplicate` 管「这一拍由谁负责播」。</para></summary>
         static bool IsNonTriggerBeatTraitRow(CardPick p)
         {
             int tt = TraitFrames.TriggerTypeOf(p.A, p.N);
             return tt >= 0 && tt != 3 && tt != 6;
         }
 
+        /// <summary>🆕 2026-10-24（执行代理 `W5` · AN1 **`R8`**）：**这一条候选是不是「本拍由 `TraitFrames` 播的那一件」**。
+        ///
+        /// <para>**为什么要有它（缺陷，两条链各播一次）**：
+        ///   · 链①（`VfxMap`）：`trigger` 桶掉回**整桶**那两档（第 ② 档 = 这张卡没有 `animTimes`；
+        ///     第 ④ 档 = 关键词不在白名单）⇒ 桶里的 trait 行**照播**（`TriggerBeatRows` 只挡 0/1/2/5，
+        ///     见 <see cref="IsNonTriggerBeatTraitRow"/>）。触发点 = `BattleDriver.PlaySignal` 的
+        ///     `EvtKind.Trigger` 支 → `VfxMap.ResolveAllTimed(Trigger, …)` → `FireEventAll`
+        ///     （调用点是 `BattleDriver.PlayFeel` 里 `evt == null && e.Kind == EvtKind.Trigger` 那条
+        ///     `perCardOnly = true` 的支 —— ⛔ 别记死行号，`BattleDriver.cs` 一直在改）。
+        ///   · 链②（`TraitFrames`）：同一条事件还会走 `BattleDriver.PlayTraitPulse`
+        ///     （`BattleDriver.PlayTraitPulse`；调用点 = 同一文件里 `case EvtKind.Trigger:` 那一行 ——
+        ///     现读 `:21330`，⛔ 别把行号当判据）
+        ///     → `TraitFrames.DisplayTrigger(keyword)`（`Core/TraitFrames.cs:869`）
+        ///     → `_triggerBook`（= `trait_effect_bindings.json` 里 `TriggerType ∈ {3,6}` 的行）⇒ **同一件**。
+        ///   ⇒ 同一件**实例化两次**，而且锚点还不一样（链① 落 `FireEventAll` 的目标点、链② 落卡的
+        ///     `effectsAnchor`）—— 原版**只播一次**：`CardScript__ActivateTriggerTraitAnim.c` **只**调
+        ///     `BattleCardUI__DisplayTriggerAnim`（就是链②）；`AbilityLogic.PlayAnim` 播的是**卡自己的**
+        ///     `cardAnimations[]`，**不含 trait frame**。</para>
+        ///
+        /// <para>**怎么判（判据 = 数据本身，⛔ 不按名字猜）**：把这条候选的 `A`（`CardAnim`）/
+        /// `N`（prefab）与「本拍 trait 的那几条真值行」逐字比 —— 真值行 = `TraitFrames.TriggerBindingsFor(keyword)`
+        /// （它内部 `Norm` 成 trait 名；**只收 3/6**，正是 `DisplayTrigger` 会播的那一批）。
+        /// ⚠️ **连 `Overrides` 一起比**：`prefab` 是**按阵营换过**的（`gen_card_vfx_by_card.py` 生成期就把
+        /// owner 阵营的 override 套上了），只比默认那格会漏掉 `shield` / `invulnerable` 那 10 条覆盖。
+        /// ⚠️ `keyword` 为空（自检直调 / 旧事件）⇒ **一律不挡**：那时链②拿不到名字 ⇒ 它不会播 ⇒
+        /// 挡掉就等于两件都不播。同理「推断出来的名字」不算 —— 这里只认**事件自己的关键词**。</para>
+        ///
+        /// <para>⚠️ **它只挡「同一件」**，不挡「别的 trait 的框」—— 后者是**错件**（例：`strike` 那一拍
+        /// 播 `TalentEffect`），属于 R5 的取件范围问题（放行名字后走第 ③ 档，整桶那条路根本不到）；
+        /// 第 ④ 档里剩下的那批**仍然会播**，因为把「trait 行一律挡掉」会推平
+        /// `BattleVfxAssertE3` / `BattleScene` 的 `AM27`/`AM15`/`GOF26` 三条既有断言（它们钉的是
+        /// 「`Trigger(3)` 在掉回整桶时照旧播」）⇒ 那是另一次口径变更，要有自己的判据批，⛔ 别在这里顺手做。</para>
+        ///
+        /// <para>⚠️ **它按名字比，分不出「卡自己那条同名动画」**：若某张卡的 `cardAnimations[]` 里
+        /// **本来就有**一条标着这个 trait 名的动画、prefab 又正好等于该 trait 的框，原版会**播两次**
+        /// （卡动画 + trait 框），这里却只留链② 那一份。现读**只有 3 行**是这种形状
+        /// （`UM84` / `UM85` / `UM86` 的 `CodexTraitTrigger_warlord` → `CodexEffect`），而 `codex` 已放行
+        /// ⇒ 它们走**第 ③ 档**，本闸不参与 ⇒ **今天不会误伤**（`AnimFXCheck` 的 R8 逐卡扫描里那 3 行是
+        /// 明确的「反例排除」）。将来若出现「**未归口**的 trait 名 + 卡自己那条」，要先按
+        /// `AddTriggerNamesOf`（`CardAnimTime.TriggerName`）再挡一层。</para>
+        ///
+        /// <para>🧨 **灭自证**：把本闸去掉 ⇒ `AnimFXCheck` 的 `R8` 那组逐卡断言报出一批「同一拍里
+        /// `VfxMap` 与 `TraitFrames` 都会播 `X`」（现读 36 个（卡, 关键词）对：`codex` 9 · `strike` 9 ·
+        /// `artifice` 7 · `backlash` 6 · `mob` 3 · `cruelty` 1 · `ecstasy` 1）。</para></summary>
+        static bool IsTraitFrameDuplicate(CardPick p, string keyword)
+        {
+            if (string.IsNullOrEmpty(keyword)) return false;
+            var rows = TraitFrames.TriggerBindingsFor(keyword);
+            if (rows == null || rows.Length == 0) return false;
+            for (int i = 0; i < rows.Length; i++)
+            {
+                if (MatchesTraitEffect(p, rows[i].CardAnim, rows[i].Prefab)) return true;
+                var ov = rows[i].Overrides;
+                if (ov == null) continue;
+                for (int k = 0; k < ov.Length; k++)
+                    if (MatchesTraitEffect(p, ov[k].CardAnim, ov[k].Prefab)) return true;
+            }
+            return false;
+        }
+
+        /// <summary><see cref="IsTraitFrameDuplicate"/> 的逐个比较：`CardAnim` 优先、prefab 兜底
+        /// （与 `TriggerTypeOf` / `AddTriggerNamesOf` 同一套「有 `A` 就只认 `A`、没有才看 `N`」口径）。</summary>
+        static bool MatchesTraitEffect(CardPick p, string anim, string prefab)
+        {
+            if (!string.IsNullOrEmpty(p.A) && !string.IsNullOrEmpty(anim)
+                && string.Equals(p.A, anim, System.StringComparison.Ordinal)) return true;
+            if (!string.IsNullOrEmpty(p.N) && !string.IsNullOrEmpty(prefab)
+                && string.Equals(p.N, prefab, System.StringComparison.Ordinal)) return true;
+            return false;
+        }
+
+        /// <summary>`R8` 的诊断口：整桶那一侧**主动让给 `TraitFrames`** 的件数（只增不减，自检按增量读）。
+        /// ⛔ 它不是「播了多少件」的计数 —— 是「**没播**了多少件（因为另一条链会播）」。</summary>
+        public static int TraitFrameDuplicates { get; private set; }
+
         /// <summary>`D4`：把「不属于触发那一拍」的 trait 行从一条桶里滤掉（产出**新 list**，⛔ 别原地改表）。
-        /// 全被滤掉 ⇒ 回空 list（调用方据此「这一拍什么都不播」，⛔ 不再掉回整桶）。</summary>
-        static List<CardPick> TriggerBeatRows(List<CardPick> bucket)
+        /// 全被滤掉 ⇒ 回空 list（调用方据此「这一拍什么都不播」，⛔ 不再掉回整桶）。
+        /// 🆕 **2026-10-24（执行代理 `W5` · `R8`）**：再加一道 —— <paramref name="keyword"/> 那一拍
+        /// **由 `TraitFrames` 负责播的那件**也让开（<see cref="IsTraitFrameDuplicate"/>）。
+        /// ⚠️ `keyword` 传**事件自己的关键词**（`CanonicalTriggerName` 归一后）；传 `null` = 不挡
+        /// （见那个方法的 doc 最后一段：`null` 时链②不会播，挡了就是两件都不播）。</summary>
+        static List<CardPick> TriggerBeatRows(List<CardPick> bucket, string keyword)
         {
             if (bucket == null || bucket.Count == 0) return bucket;
             var kept = new List<CardPick>(bucket.Count);
             for (int i = 0; i < bucket.Count; i++)
-                if (!IsNonTriggerBeatTraitRow(bucket[i])) kept.Add(bucket[i]);
+            {
+                var p = bucket[i];
+                if (IsNonTriggerBeatTraitRow(p)) continue;
+                if (IsTraitFrameDuplicate(p, keyword)) { TraitFrameDuplicates++; continue; }
+                kept.Add(p);
+            }
             return kept;
         }
 
@@ -2612,7 +2754,10 @@ namespace CardPresentation
         ///
         /// <para>⛔ **只管卡级行**：`Trigger(3)` / `TriggerOnPlay(6)` 的 trait 行**一行不动** ——
         /// 它们由 `trait_effect_bindings.json` 绑关键词、不是 `cardAnimations[]` 的 trigger 列。
-        /// `AM27`（第 ② 支）/ `GOF26` / `AM15` / `DA10` 那几条「别切过头」的正例就靠这一条活着。</para>
+        /// `AM27`（第 ② 支）/ `GOF26` / `AM15` / `DA10` 那几条「别切过头」的正例就靠这一条活着。
+        /// 🆕 **2026-10-24（执行代理 `W5` · `R8`）**：唯一会让 trait 行消失的是**上游**那道
+        /// <see cref="IsTraitFrameDuplicate"/>（判据 = 本拍 `TraitFrames` 会播同一件，用
+        /// <paramref name="chainName"/> 问；传 `null` = 不挡）。⛔ 别在这里再判一次 trait 行。</para>
         ///
         /// <para>🧨 **灭自证**（两处一起红）：删掉这一层 ⇒ `AnimFXCheck` ⑤ 的 `flank8`
         /// （`SOR8` + `keyword="Flank"`）由 0 件变 **2 件**（`PenitenceEffect` / `Arco-Flagellant Strike`）；
@@ -2620,11 +2765,15 @@ namespace CardPresentation
         ///
         /// <para>⚠️ **与第 ② 支不同**：`times` 为空时**标不上名** ⇒ 第 ② 支照旧只走
         /// <see cref="TriggerBeatRows"/>（结构上做不到，`W2` §5·2 已如实记）。</para></summary>
+        /// <param name="gateName">本拍的 trigger 名（判卡级行用；可以是保守推断出来的名字）。</param>
+        /// <param name="chainName">**事件自己的关键词**（`CanonicalTriggerName` 归一后；判 `R8` 那条
+        /// 「本拍由 `TraitFrames` 播」用）。⚠️ 与 <paramref name="gateName"/> **不是一回事**：
+        /// 后者可以来自推断，而链② 只认事件里的关键词 ⇒ 推断出来的名字**不能**用来挡（否则两件都不播）。</param>
         static List<CardPick> TriggerBeatRowsMatching(List<CardPick> bucket,
                                                      IReadOnlyList<CardDef.CardAnimTime> times,
-                                                     string gateName, string cardKey)
+                                                     string gateName, string chainName, string cardKey)
         {
-            var kept = TriggerBeatRows(bucket);
+            var kept = TriggerBeatRows(bucket, chainName);
             if (kept == null || kept.Count == 0) return kept;
             if (times == null || times.Count == 0) return kept;   // 没有逐候选时间 ⇒ 标不上名 ⇒ 全保留
             var names = new List<string>();
@@ -2795,7 +2944,10 @@ namespace CardPresentation
         ///    挡在外面，见 `IsNonTriggerBeatTraitRow`。
         ///    🆕 **2026-10-24（`W6`）**：卡级行**还要对得上这一拍的名字**（`CardAnimTime.TriggerName`）
         ///    —— 见 `TriggerBeatRowsMatching`；`ability` 里那 408 行挪过来之后，不挡就会把
-        ///    别的 trigger 的动画都在这一拍播一遍（`SOR8` 的 `Rage` 件在 `Flank` 那一拍）。</para>
+        ///    别的 trigger 的动画都在这一拍播一遍（`SOR8` 的 `Rage` 件在 `Flank` 那一拍）。
+        ///    🆕 **2026-10-24（`W5` · `R8`）**：第 ②/④ 两支都再让开一类 —— **本拍由 `TraitFrames`
+        ///    负责播的那件**（见 `IsTraitFrameDuplicate`）。不挡的话同一件会被两条链各实例化一次
+        ///    （链①=本方法所在的整桶路、链②=`TraitFrames.DisplayTrigger`），而原版只播一次。</para>
         ///
         /// <para>**目标怎么定**：`keyword` 非空 ⇒ **先经 <see cref="CanonicalTriggerName"/> 归一**
         /// （🆕 2026-10-23「新账-86」：`penitence` → `Rage`），归一名是
@@ -2835,6 +2987,9 @@ namespace CardPresentation
             if (!hasTrig && !hasAbil) return false;
 
             // ② 没有逐候选时间 ⇒ 分不出 trigger 组 ⇒ 保持改前的行为（只 `trigger` 桶）
+            // 🆕 2026-10-24（`W5` · `R8`）：`chainName` = **事件自己的关键词**（归一后），只用来问
+            //   「这一拍 `TraitFrames` 会播哪几件」；`keyword` 为空 ⇒ `null`（不挡，见 `IsTraitFrameDuplicate`）。
+            string chainName = string.IsNullOrEmpty(keyword) ? null : CanonicalTriggerName(keyword);
             if (times == null || times.Count == 0)
             {
                 // 🆕 2026-10-20（`FACTION-DOUBLE605`）：带能力序号的拍**证明不了**是哪几条动画
@@ -2842,7 +2997,7 @@ namespace CardPresentation
                 if (abilityIndex >= 0) return false;
                 // 🆕 2026-10-24（`A2` · `D4`）：整桶里**只留触发那一拍该播的**（`Trigger(3)/TriggerOnPlay(6)`
                 //   + 卡级行）—— `Start(0)` 那批是**召唤/附魔那一刻**的（判据见 `IsNonTriggerBeatTraitRow`）。
-                picks = TriggerBeatRows(trig);
+                picks = TriggerBeatRows(trig, chainName);
                 return picks != null && picks.Count > 0;
             }
 
@@ -2877,7 +3032,10 @@ namespace CardPresentation
                 //   ⚠️ 本拍的「名字」取 `canonical`（关键词归一后的那个），**不是** `keyword` ——
                 //   `keyword` 为空但保守推断出唯一名字时（`DA10` 的 `Slay`）也要按它对；
                 //   `penitence` → `Rage` 这类归一必须先生效，否则 `SOR8/10/21/27/32` 会被误挡。
-                picks = TriggerBeatRowsMatching(trig, times, canonical, cardIdOrName);
+                // 🆕 2026-10-24（`W5` · `R8`）：`chainName` 只传**事件自己的关键词**（空 ⇒ `null`）——
+                //   见 `TriggerBeatRowsMatching` 的 `<param name="chainName">`：推断出来的名字不能用来挡
+                //   （链② 拿不到它 ⇒ 挡了就是两件都不播）。
+                picks = TriggerBeatRowsMatching(trig, times, canonical, chainName, cardIdOrName);
                 return picks != null && picks.Count > 0;
             }
 
@@ -3013,6 +3171,10 @@ namespace CardPresentation
             "WhileInPlay",
             // 🆕 2026-10-24（执行代理 `J1` · `C5` D11/D12）：14 行 / 10 张（AM）· 1 行 / 1 张（TL18）
             "Regiment", "TriggeredSynapse",
+            // 🆕 2026-10-24（执行代理 `W5` · AN1 `R5`）：`trigger` 桶「名字没放行 ⇒ 掉回整桶」那 **36 行 /
+            //   32 卡** 全部 = 这两个名字（`Strike` 21 行 / 19 张 · `Slay` 15 行 / 13 张，现读）。
+            //   发射口逐条现核 → `IsRoutedTriggerName` 里 `case "strike"` / `case "slay"` 那一段。
+            "Strike", "Slay",
         };
 
         /// <summary>🆕 2026-10-24（`A21`）：上面那些名字**引擎实际发出来的 keyword 字面量**
@@ -3044,6 +3206,12 @@ namespace CardPresentation
             //   `BattleEvent.Keyword`）；`TriggeredSynapse` 走 `EmitCardTrigger` ⇒ **PascalCase 原版枚举名**
             //   （与上面 520/665/195/20 同形）。两格都必须与 `MustRouteTriggerNames` **逐个对应**。
             KeywordTable.Regiment, "TriggeredSynapse",
+            // 🆕 2026-10-24（执行代理 `W5` · AN1 `R5`）：两个都走 `FireTriggerAt` ⇒ 引擎把
+            //   `KeywordTable.*` 的**小写常量**原样写进 `BattleEvent.Keyword`
+            //   （`"strike"` / `"slay"`，= `KeywordTable.Strike` / `KeywordTable.Slay`）⇒ 这一格必须小写。
+            //   ⛔ 写成 PascalCase 不会漏（`IsRoutedTriggerName` 会 `ToLowerInvariant`），但**自检要逐参一致**：
+            //   件级那半拿这一格当 `keyword:` 实参，写错会让「引擎发的形态」这一态没人验。
+            KeywordTable.Strike, KeywordTable.Slay,
         };
 
         /// <summary>🆕 2026-10-24（`A21`）：白名单自检的**名字级**那一半（**不需要卡池**）。
@@ -3114,7 +3282,10 @@ namespace CardPresentation
         /// （全 AstraMilitarum；`AM6`/`AM37`/`AM69` 各 2 行；**0 行无件、0 行歧义**）·
         /// `TriggeredSynapse` **1 张/1 行**（`TL18 Zoanthrope`）。
         /// 🆕 **2026-10-24（引擎线 `G1b` · `C2` §2 · D8）** `OnCollectSpiritStone` **4 张/5 行**
-        /// （全 SaimHann：`ASH80` 1 · `ASH28` 1 · `ASH78` 2 · `ASH25` 1；逐行有 prefab）。</para>
+        /// （全 SaimHann：`ASH80` 1 · `ASH28` 1 · `ASH78` 2 · `ASH25` 1；逐行有 prefab）·
+        /// 🆕 **2026-10-24（执行代理 `W5` · AN1 `R5`）** `Strike` **19 张/21 行** · `Slay` **13 张/15 行**
+        /// （两个合起来正是 `trigger` 桶里那 36 行 / 32 卡；现读 **0 多播 / 0 漏播**）——
+        /// 这两条就是 R5 的**件级证明**：放行前它们走第 ④ 档「整桶播」，放行后只取卡自己那几条。</para>
         /// <para>⚠️ 本方法走的是**生产解释路径**（`ResolveAllTimed`）⇒ 理论上会给 `UnpinnedPicks` 那类计数器加数
         /// （现读**增量 0**：候选全部来自 `cardAnimations[]`、都能钉上 `AnimTimes`）。若宿主对那个计数敏感，
         /// 断言前先 `ResetUnpinnedForTest()`。</para></summary>
@@ -3327,6 +3498,11 @@ namespace CardPresentation
         ///   ② `times` 为空（这张卡没有逐候选时间）、④ 关键词不在白名单（目标 trigger 名定不出来）。
         ///   两条都必须**只**回 <see cref="TriggerBeatRows"/> 那一批（`Trigger(3)` / `TriggerOnPlay(6)`
         ///   + 卡级行），把 `Start(0)` / `OnPlay(2)` 那一批挡在外面（判据见 `IsNonTriggerBeatTraitRow`）。</para>
+        /// <para>🆕 **2026-10-24（`W5` · `R8`）**：`Trigger(3)` / `TriggerOnPlay(6)` 还有**一处**会被让开 ——
+        ///   当关键词**正是那条 trait 的触发名**时（`IsTraitFrameDuplicate`，那一件归 `TraitFrames` 播）。
+        ///   本口传的是编出来的 `__E3_not_a_trigger__` ⇒ 不是任何 trait 的触发名 ⇒ **一件都不会被让开**
+        ///   ⇒ 这里的期望与改前逐字相同。⛔ 别把本口的关键词换成真 trigger 名 —— 那会把 `R8` 的闸
+        ///   混进 `D4` 的断言里（两条闸就再也分不开了）。</para>
         ///
         /// <para>🆕 **2026-10-24（`W6`）就地扩口径**：第 ④ 支还多一层 —— 卡级行要自己那条
         ///   `CardAnimTime.TriggerName` 对得上本拍（<see cref="TriggerBeatRowsMatching"/>）。
@@ -3368,7 +3544,11 @@ namespace CardPresentation
                 if (nonBeat == 0) continue;            // 桶里没有「不属于这一拍」的行 ⇒ 这一张没什么可验
                 mixedCards++;
                 droppedRows += nonBeat;
-                var kept = TriggerBeatRows(trig);
+                // 🆕 2026-10-24（`W5` · `R8`）：**必须把那个编出来的关键词传下去** —— 本口验的是
+                //   `D4` 的「按拍分件」，不是 `R8` 的「让给 `TraitFrames`」。传 `null`/不传的话
+                //   期望值会变（编出来的词不是任何 trait 的触发名 ⇒ 其实一件都不会被让开），
+                //   但显式传更清楚：这条闸**对同一个关键词**算期望，和下面 `ResolveAllTimed` 逐参一致。
+                var kept = TriggerBeatRows(trig, NotATriggerKeyword);
                 var expect = new List<string>();
                 if (kept != null) for (int i = 0; i < kept.Count; i++) expect.Add(kept[i].N);
 

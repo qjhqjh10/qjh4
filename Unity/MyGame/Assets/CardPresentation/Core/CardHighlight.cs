@@ -21,9 +21,27 @@
 //      整卡着色那条路会把常规卡**染成全透明**。
 //   ⇒ 所以下面**按状态逐个映射**，并在每行注明它对应原版哪一个、以及哪些是**我们自己的状态**。
 //
-// ⚠️ 现在只用**整卡着色**表达状态，够原型验证用。正式版该换成描边/流光
-//    （一张卡同时是「可打出」又「被悬停」的话，单靠颜色分不开）——
-//    那时改这张表 + 换一个支持描边的 shader 即可，状态机不用动。
+// 🔴🔴 **2026-10-24 就地改判（用户真机报「加攻/加血时数值变红」）—— `ColorOf` 的棋盘两态
+//    `ValidTarget` / `SelectedTargetInBoard` 改成返回【白】= 整卡不着色。**
+//    判据（全量反编译，第一权威）：
+//      · `decomp_full/CardHighlight__ChangeFrameColor.c` —— 整个方法只做一件事：
+//        `SpriteRenderer.set_color`（`param_1 + 0x70` / `+0x78` 两颗 = `FrameHighlight` /
+//        `FrameHighlightRemnant`），外加 `DOColor` 补间与 `ToggleFrames`。**从头到尾没有一处
+//        碰卡的材质 / 非环图层**。
+//      · `decomp_full/CardHighlight__ChangeState.c` —— 6 个 case 全部只走
+//        `ChangeFrameColor`（颜色）+ `ChangeTargetScale`（缩放，仅 case 0/3/4）。**没有第三种出口。**
+//      · 原版那个组件在**同一个卡预制体**上、手牌与棋盘共用（state 1 `potentialTargetInHand`
+//        与 state 3 `potentialTargetInBoard` 都取 `+0x80` 同一份绿色）
+//        ⇒ **手牌那档原版也不整卡着色**，所以下面这处的白是两档一起的，不是只修棋盘。
+//    ⇒ 颜色**只走** `FrameColorOf` → `_rim`（那才是原版那一层）。
+//    ⚠️ 反过来说：原来「整卡染绿/染橙」是**我们自己加的**（旧注释自己写着「我们的表达方式」），
+//       而它和数值的涨落色是**乘法**叠加（`CardView.SyncStatLayers`：`_tint * c`）
+//       ⇒ 白字 × #FF8400 = (255,132,0)，用户看到的就是「加攻变红」。这就是本次改判的直接起因。
+//
+// ⚠️ 现在**状态色只剩「环 + 缩放」两条表达**（整卡着色这条路对棋盘目标态已经关掉），
+//    一张卡同时是「可打出」又「被悬停」时分不开的问题**依然存在** —— 正式版仍该走描边/流光，
+//    那时改这张表即可，状态机不用动。
+//
 //    ✅ **2026-09-19：`CardBodyToScale × ScaleFactor` 的缩放补间已接上**（`CardView.SetHighlightScale`，
 //       时长用 `CardHighlightAnimTime`）。原写「我们只放大、没有补间」—— 那句已作废。
 //    ⏭ **还差的**：原版卡面最底层那层 **SDF 软光/影**（`Card Highlight And Shadow`，4.4281²）。
@@ -72,13 +90,23 @@ namespace CardPresentation
         public const float OutlineAnimTime = 0.2f;
 
         // 原版那 5 个状态色（**实读**，逐位照抄 —— 见文件头出处）。
-        /// <summary>原版 `ValidTargetColor` —— 绿 **#00FF21**（手牌/场上两档「潜在目标」共用）。</summary>
+        // ⚠️ **2026-10-24 起它们只喂 `FrameColorOf`（那圈环）**，不再喂 `ColorOf` 的整卡着色 ——
+        //    `ColorOf` 现在对 `ValidTarget` / `SelectedTargetInBoard` 返回白（原因见文件头 2026-10-24 那段）。
+        /// <summary>原版 `ValidTargetColor` —— 绿 **#00FF21**（手牌/场上两档「潜在目标」共用）。**只点环**。</summary>
         public static readonly Color ValidTargetColor = new Color(0.00f, 1.00f, 0.1294118f);
         /// <summary>原版 `SelectedColor` —— 白（`selected` 是**瞬变**态）。</summary>
         public static readonly Color SelectedColor = new Color(1.00f, 1.00f, 1.00f);
-        /// <summary>原版 `SelectedTargetColor` —— 橙 **#FF8400**（`selectedTargetInBoard`，**×1.05**）。</summary>
+        /// <summary>原版 `SelectedTargetColor` —— 橙 **#FF8400**（`selectedTargetInBoard`，**×1.05**）。**只点环**。
+        /// ⚠️ 它一旦被拿去做整卡着色，就会和数值的涨/落色相乘（白字 × 本值 = (255,132,0) 橙红）。</summary>
         public static readonly Color SelectedTargetColor = new Color(1.00f, 0.5176f, 0f);
 
+        /// <summary>**整卡着色**用哪一色（`CardView.SetHighlight` → `SetTint` → 所有 `_layers` 的 `_Color`）。
+        /// 🔴 **2026-10-24 起：棋盘两态返回白 —— 本函数不再是「原版状态的表达」，而是「整卡该不该被染色」的闸。**
+        /// 原版的五个状态色**只喂那圈描边**（`FrameColorOf`），本函数这边的整卡着色是**我们自加的通道**
+        /// （判据与来龙去脉见文件头 2026-10-24 那一段）；它一旦非白，会和数值的涨/落色**相乘**
+        /// （`SyncStatLayers` 的 `_tint * c`）⇒ 白字被染成橙红 = 用户报的「加攻变红」。
+        /// ⚠️ 手牌与棋盘共用同一行（`Hand/CardInteraction.cs:715` 拖牌时也给 `ValidTarget`）——
+        /// 原版两档是同一个组件的同一份绿色、同样只点环，所以这里一起返回白，不是只修棋盘。</summary>
         public static Color ColorOf(CardHighlightState s)
         {
             switch (s)
@@ -91,11 +119,16 @@ namespace CardPresentation
                 //    ⇒ 这里改成**不上色**：原来那层黄是「整卡染黄」，既不是原版的做法、也和 `_Outline` 重复表达同一件事。
                 case CardHighlightState.Playable:    return Color.white;
                 case CardHighlightState.Selected:    return SelectedColor;                         // 原版 SelectedColor：白
-                case CardHighlightState.ValidTarget: return ValidTargetColor;                      // 原版 ValidTargetColor：绿
-                // 原版 `SelectedTargetColor`：橙 #FF8400。⚠️ 原版**只拿它点那圈状态环**（见 `FrameColorOf`），
-                // 「整卡着色」这一路是**我们的表达方式**（同上面 `ValidTarget` 那行的处境）——
-                // 颜色是原版的，不是我们挑的；这样「指针移到哪个目标身上」在整卡上也读得出来。
-                case CardHighlightState.SelectedTargetInBoard: return SelectedTargetColor;
+                // 🔴 **2026-10-24 改判：原来这里 `return ValidTargetColor`（绿 #00FF21）⇒ 整卡染绿。**
+                //    原版的绿只点那圈环（`FrameColorOf` + `ChangeFrameColor` 实证），整卡绿是我们自加的。
+                //    🧨 改坏法：把这一行改回 `ValidTargetColor` ⇒ 棋盘/手牌的合法目标整卡变绿、
+                //       数值色 = 绿，`CardBaseDemo` 的「数值层是白」那条必红。
+                case CardHighlightState.ValidTarget: return Color.white;                           // 绿只点环（见 FrameColorOf）
+                // 🔴 **2026-10-24 改判：原来这里 `return SelectedTargetColor`（橙 #FF8400）⇒ 整卡染橙。**
+                //    白字 × #FF8400 = (255,132,0)，就是用户 2026-10-24 报的「加攻/加血时数值变红」。
+                //    原版那一档同样只点环（`ChangeState` case 4 只调 `ChangeFrameColor` + `ChangeTargetScale`）。
+                //    🧨 改坏法：把这一行改回 `SelectedTargetColor` ⇒ 数值层红分量 1 / 绿分量 0.5176 ⇒ 断言必红。
+                case CardHighlightState.SelectedTargetInBoard: return Color.white;                 // 橙只点环（见 FrameColorOf）
 
                 // ↓ 以下三行 = **我们自己的**（原版没有这三个状态；色沿用我们原来的）
                 case CardHighlightState.Unplayable:  return new Color(0.55f, 0.55f, 0.58f);        // 置灰
@@ -112,7 +145,8 @@ namespace CardPresentation
         /// `potentialTargetInBoard`(绿 · ×1.05) · `selectedTargetInBoard`(橙 `#FF8400` · ×1.05) ·
         /// `displayingActiveAbility`(黄)。出处 → `资料/待办判据_战场与战斗视图.md` §8b。
         /// **alpha == 0 ⇒ 那层整个关掉**（原版补间完就 `ToggleFrames(false)`）。
-        /// 🔴 **和 `ColorOf` 是两条路**：那个是「整卡着色」（我们在用的表达），这个才是**原版那一层**。
+        /// 🔴 **和 `ColorOf` 是两条路**：`ColorOf` 那条是「整卡着色」（**我们自加的通道**，
+        /// 2026-10-24 起棋盘两态已经收成白、等于关掉），**这条才是原版那一层**（`ChangeFrameColor` 实证）。
         /// `Playable` 在这一路**不亮** —— 见 `ColorOf` 里那条更正。</summary>
         public static Color FrameColorOf(CardHighlightState s)
         {

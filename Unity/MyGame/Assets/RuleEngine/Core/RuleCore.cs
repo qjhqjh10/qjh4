@@ -4216,7 +4216,10 @@ namespace RuleEngine
         /// <see cref="DeploySource"/>。**默认 `Unknown` = 按 `fromHand` 推**
         /// （`true` ⇒ `AutoPlayFromHand`、`false` ⇒ `Summon`）—— 那是这条入口本来就只有的两档。
         /// 只有**再造**（`EffectResolver.DoReanimate` 的墓地退路）需要显式传 `Reanimate`，
-        /// 因为它在语义上不是「召唤」。⛔ 别在别的入口乱传（那会让消费端按错的 cue 演）。</param>
+        /// 因为它在语义上不是「召唤」。⛔ 别在别的入口乱传（那会让消费端按错的 cue 演）。
+        /// 🔴🆕 **2026-10-24（引擎线 `W12`）**：`Reanimate` 在引擎侧还**关掉整组部署广播**
+        /// （`When deployed` 195 / `When you deploy …` 190 / 常驻部署效果 / `UseFaith` 605）——
+        /// 判据与逐条理由 → `DeployFreeCore` 里 `reanimated` 那一段长注释。</param>
         public static bool DeployFree(BattleContext ctx, int owner, CardInstance inst, out int slot,
                                       bool fromHand = false,
                                       DeploySource deploySource = DeploySource.Unknown)
@@ -4329,25 +4332,64 @@ namespace RuleEngine
                                      ? deploySource
                                      : (fromHand ? DeploySource.AutoPlayFromHand : DeploySource.Summon),
                          instanceId: unit.InstanceId);
-                // **事件层广播**也管这条路 —— 理由同 `ResolveDeploy`：
-                // 卡面写的是 `you deploy a Vehicle`，效果免费部署同样是「部署」（`资料/事件层_数据与设计.md` §三）。
-                // 🔴 **2026-10-20（`W58` · BROADCAST）**：与 `PlayCard` 那条入口**同一份判据**
-                //    （原版两条协程都调同一个 `BroadcastUnitSummoned`）—— 先预调 `SelfOnly`、再排除主体。
-                PreCallBoardListener(ctx, unit, WhenEventKind.Deploy, owner, unit.Card, unit, null, null, -1,
-                                     selfOnlyOnly: true);
-                BroadcastWhen(ctx, WhenEventKind.Deploy, owner, unit.Card, unit, preCalled: unit);
-                // **部署时触发也管这条路**：卡面写的是 `you **put in play**`，
-                // 效果免费部署同样是「放进场上」（`Armoured Support` 那张 UM 卡说的就是它）。
-                // ⚠️ 但 **Rally 默认不管** —— 效果召唤的那条原版协程传 `shouldTriggerSummon = 0`
-                //    （`_ResolveSummonUnit_d__510`），**从手牌打出**那一路才触发（见上面 summary 那段）。
-                //    两条路一个管一个不管，是**故意的**，别顺手改齐。
-                //    🔴 **例外 = `fromHand: true`**（`A1571` 的 `autoPlayFromHand`）—— 见下面那一句。
-                ResolveDeploy(ctx, owner, unit);
+                // ==================================================================================
+                //  🔴🆕 **2026-10-24（引擎线 `W12` · 铁律 5/11）：再造（`DeploySource.Reanimate`）
+                //      【不发 `When deployed`】** —— 下面这一整组（预调 / 广播 / 常驻部署效果 / 信仰）
+                //      对它**整组跳过**。
+                //
+                //  判据（第一权威 · 逐行读过）= 原版 `BattleManager.__c__DisplayClass555_0`
+                //  `___ResolveTransformFromRemnant_b__0.c:7-31` 的回调清单：
+                //    `ResetToValuesInHand` → **`BroadcastUnitReanimated`** → `SetAsUnitInPlay`
+                //    → `ResetSummonSickness` → `ActivateTraitsOnSummonOrEnchantment` → `UpdateWhileInPlay`
+                //    → `CheckStun` → `UpdateFigures` → **`BroadcastWhileInPlay`** → 两侧手牌的
+                //    `UpdateCardEffects`。**整条链没有 `ResolveUnitSummoned` / `BroadcastUnitSummoned`**
+                //    ⇒ 既不 `OtherUnitSummoned`(190)、也不 `ThisUnitSummoned`(195) / `UseFaith`(605)。
+                //  补充：原版**根本没有「墓地翻回来」这条路** —— 唯一入口是
+                //    `BattleManager__AddTransformFromRemnant`（能力码 `0x1AE` / Action `0x48`）
+                //    ⇒ 我们那条「墓地退路」是自己的旧口径（`DoReanimate` 候选 ②），但她的**语义是再造**
+                //    ⇒ 输出面照上表，与残骸那条（候选 ①，本来就不广播）对齐。
+                //
+                //  ⚠️ **仍然照发**：`EvtKind.Deploy`（上面那条，`deployFrom: Reanimate` —— 表现层落地
+                //    两条 cue 靠它）、`When Reanimated, …`（`DoReanimate` 自己发）、`WhileInPlay` 那一拍
+                //    （`EmitWhileInPlayPass`，落点 = 顶层动作结束 = 原版 `BroadcastWhileInPlay` 的等价物）。
+                //  ⛔ **别把这组闸搬到 `PlayCard` / 普通免费部署上** —— 那两个入口原版真调
+                //    `BroadcastUnitSummoned`（判据见下面原有注释）。
+                // ==================================================================================
+                bool reanimated = deploySource == DeploySource.Reanimate;
+                if (!reanimated)
+                {
+                    // 🆕 **2026-10-24（引擎线 `W12`）：这一跳就是 `ThisUnitSummoned(195)` 的【第三条入口】。**
+                    //   `C2` 当时只核过「从手牌打出（`PlayCard`）/ 免费部署（本方法）」，**「被效果召唤」没核** ——
+                    //   现读核对结果：`EffectResolver` 里所有造兵路（`DoDeployOnce` 的「从卡池/牌库/墓地造」
+                    //   与 `Deploy two`/`and a`/`from your deck` 各支 · `DoChooseCard` 的 `"deploy"` 支 ·
+                    //   `DoReanimate` 的墓地退路）**全部收敛到本方法**（没有第二条直接写 `Board[…]` 的造兵路：
+                    //   `DoCreate` 只造进手牌/牌库；`DoTakeControl` 与回合末归还是**移动已有单位**，不是召唤）
+                    //   ⇒ 法术造出来的兵**同样**在这里拿到 195（`selfOnlyOnly: true` 那一支），
+                    //   旁观监听者拿 190（下面 `BroadcastWhen` 的棋盘循环、排除主体）。
+                    //   断言 = `Editor/RuleEngineTest_W12.cs` 的 `W12EffectSummonEmitsThisUnitSummoned`。
+                    // **事件层广播**也管这条路 —— 理由同 `ResolveDeploy`：
+                    // 卡面写的是 `you deploy a Vehicle`，效果免费部署同样是「部署」（`资料/事件层_数据与设计.md` §三）。
+                    // 🔴 **2026-10-20（`W58` · BROADCAST）**：与 `PlayCard` 那条入口**同一份判据**
+                    //    （原版两条协程都调同一个 `BroadcastUnitSummoned`）—— 先预调 `SelfOnly`、再排除主体。
+                    PreCallBoardListener(ctx, unit, WhenEventKind.Deploy, owner, unit.Card, unit, null, null, -1,
+                                         selfOnlyOnly: true);
+                    BroadcastWhen(ctx, WhenEventKind.Deploy, owner, unit.Card, unit, preCalled: unit);
+                    // **部署时触发也管这条路**：卡面写的是 `you **put in play**`，
+                    // 效果免费部署同样是「放进场上」（`Armoured Support` 那张 UM 卡说的就是它）。
+                    // ⚠️ 但 **Rally 默认不管** —— 效果召唤的那条原版协程传 `shouldTriggerSummon = 0`
+                    //    （`_ResolveSummonUnit_d__510`），**从手牌打出**那一路才触发（见上面 summary 那段）。
+                    //    两条路一个管一个不管，是**故意的**，别顺手改齐。
+                    //    🔴 **例外 = `fromHand: true`**（`A1571` 的 `autoPlayFromHand`）—— 见下面那一句。
+                    ResolveDeploy(ctx, owner, unit);
+                }
                 // 🆕 **2026-10-11（`A1452`）信仰能力【也要在这条入口上跑】。**
                 //    🔴 判据（原版反编译）：605 的发起源之一是
                 //      **`CardScript__ResolveUnitSummoned.c:51`** —— 「**一个 Minion 入场时**」，
-                //      它盯的是**入场**这件事，**不管这个单位是怎么进来的**（出牌 / 效果免费部署
-                //      / 召唤 / 再造都算）⇒ 效果免费部署这条路照样要点火。
+                //      它盯的是**入场**这件事，不管这个单位是怎么进来的（出牌 / 效果免费部署 / 召唤）。
+                //    🔴 **2026-10-24（`W12`）就地订正（铁律 5）**：本段原来把「/ **再造**」也算在
+                //      「不管这个单位是怎么进来的」那一列 —— **那一档已删**：再造**不走** `ResolveUnitSummoned`
+                //      （判据 = 上面 `reanimated` 段那份原版回调清单），⇒ 605 对它**不发**
+                //      （`ResolveFaithAbility` 那一句已经按 `!reanimated` 挡住）。
                 //    ⚠️ **与 `Rally` 的差别是原版就有的、别改齐**：Rally 只在**从手牌打出**那一路触发
                 //      （判据 = 两条协程的 `shouldTriggerSummon` 实参不同：`_d__511` 传 `1`、
                 //       `_d__510` 传 `0`——见上面 summary 与 `A1571` 那段；⛔ 别再引规则书当判据，
@@ -4366,7 +4408,10 @@ namespace RuleEngine
                 //     就地订正（铁律 5）**：`ResolveUnitSummoned.c:44-51` 里 `195` 在 `605` **之前**
                 //     ⇒ 现在是 **Rally(195) → 信仰(605)**，与 `PlayCard` 那边同一条口径。
                 if (fromHand) FireTriggerOnBoard(ctx, unit, KeywordTable.Rally);
-                ResolveFaithAbility(ctx, owner, unit);
+                // 🔴 2026-10-24（`W12`）：再造**也不发 `UseFaith`(605)** —— 它的发起源是
+                // `CardScript__ResolveUnitSummoned.c:51`，而那条函数在再造链上**根本没被调**
+                // （判据 = 上面 `reanimated` 那一段的长注释：`ResolveTransformFromRemnant` 的回调清单里没有它）。
+                if (!reanimated) ResolveFaithAbility(ctx, owner, unit);
                 return true;
             }
         }

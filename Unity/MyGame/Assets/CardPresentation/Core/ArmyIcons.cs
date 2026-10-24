@@ -147,5 +147,102 @@ namespace CardPresentation
             var n = IconName(army);
             return string.IsNullOrEmpty(n) ? null : CardArt.MenuUi(n);
         }
+
+        // ══════════════════════════════════════════════════════════════════════════════════
+        //  🆕 2026-10-24（`W10`）· **主动能力按钮图标**（原版 `ArmyUtilities.GetActiveAbilityIconForArmy`）
+        //
+        //  ============================ 判据链（逐字节现读，2026-10-24） ============================
+        //  ① 反编译：`ArmyUtilities__GetActiveAbilityIconForArmy.c` = `ArmyIconsSO.GetArmyIcon(this+0x48, army)`
+        //     —— **`+0x48` 就是 `activeAbilityIcons`**（`ArmyUtilities` 的序列化字段；本文件头 ② a) 那 6 个
+        //     PPtr 里 `0x5c activeAbilityIcons → {2, 416}` ⇒ `sharedassets0.assets` 的路径 **416**）。
+        //  ② 原始字节（`工具/read_default_cardbacks.py` 那套手工切，本次实读）：
+        //     · `sharedassets0.assets` 对象 **416**：`m_Name = "ActiveAbilityIconsByArmySO"` ·
+        //       `m_Script = {1, 660}`（= `ArmyIconsSO`，与本文件头同一个 MonoScript）· 总长 **144 B** ·
+        //       首字段偏移 **60**（`m_Name` 26 字符对齐后）→ `[int32 count = 5]` + 5 ×
+        //       `[int32 army][PPtr{m_FileID:0, m_PathID:i64}]`，**尾部 0 字节**。
+        //     · 5 个 PPtr 全 `m_FileID = 0`（同文件）⇒ 按 pathID 读那 5 个 Sprite 的 `m_Name`：
+        //         army  80 → pathID 138 → **`Attack type button Pray`**
+        //         army 100 → pathID 123 → **`Attack type button Duty`**
+        //         army 110 → pathID 125 → **`Attack type button Agenda`**
+        //         army 130 → pathID 157 → **`Attack type button Ferocity`**
+        //         army  10 → pathID 153 → **`Attack type button Oath`**
+        //       （5 个 Sprite 的 `m_Rect` 都是 128×128；Oath 那张 `m_PixelsToUnits` 83.117、其余 50 ——
+        //        与画法无关，我们照固定 rect 拉满，见 `AttackSelector.ButtonW/H`。）
+        //  ③ 交叉印证：`ArmyUtilities__GetActiveAbilityIconForArmy` 的**消费点**是
+        //     `UnitOnBoardAttackTypeSelector__Toggle.c:74-80`（拿 `cardData+0x2c` = 阵营值去查）⇒
+        //     「技能钮的图标 = **按军队**查这一张表」，**不是**按关键词查。本表就是那个口径。
+        //
+        //  🔴 **只有 5 条**（全 13 阵营里只有这 5 个有「主动能力」图标）—— `TryGet` 认不出 ⇒ `null`，
+        //     而原版拿到 `null` 时**整颗技能钮都不显示**（`AttackTypesButtonsSelector.c:54-56`：
+        //     `bVar4 = (iconSprite != null)`，随后 `CardDisplayAttackTypeButton__Toggle(btn, bVar4 & param_2)`）
+        //     ⇒ ⛔ 别给它兜底某一张通用图（那是我们自造的）。
+        //
+        //  ⚠️ 本族的 sprite 名与 `armyIcons` 那一族**不同名**（那几个是 `40k_DeckSelection_icon_*`），
+        //     ⛔ 别把 `IconName()` 与 `ActiveAbilityIconName()` 混用。
+        // ══════════════════════════════════════════════════════════════════════════════════
+
+        public struct ActiveAbilityEntry
+        {
+            /// <summary>`CardArmy` 枚举值。</summary>
+            public int Army;
+            /// <summary>原版 Sprite 名（`ActiveAbilityIconsByArmySO` 逐条解出，**带空格**）。</summary>
+            public string Sprite;
+        }
+
+        /// <summary>5 条，**顺序 = `ActiveAbilityIconsByArmySO` 的序列化顺序**（80 / 100 / 110 / 130 / 10）。</summary>
+        static readonly ActiveAbilityEntry[] ActiveAbilityTable =
+        {
+            new ActiveAbilityEntry { Army =  80, Sprite = "Attack type button Pray"     },   // Sororitas
+            new ActiveAbilityEntry { Army = 100, Sprite = "Attack type button Duty"     },   // AstraMilitarum
+            new ActiveAbilityEntry { Army = 110, Sprite = "Attack type button Agenda"   },   // DarkAngels
+            new ActiveAbilityEntry { Army = 130, Sprite = "Attack type button Ferocity" },   // SpaceWolves
+            new ActiveAbilityEntry { Army =  10, Sprite = "Attack type button Oath"     },   // Ultramarines
+        };
+
+        /// <summary>5 条（自检读口）。</summary>
+        public static ActiveAbilityEntry[] AllActiveAbility { get { return (ActiveAbilityEntry[])ActiveAbilityTable.Clone(); } }
+
+        /// <summary>`CardArmy` 值 → 原版 sprite 名；认不出（含 `Neutral 0`）⇒ **`null`**
+        /// （= 原版 `ArmyIconsSO.TryGetItem` 没命中，那时整颗技能钮不显示）。</summary>
+        public static string ActiveAbilitySpriteName(int army)
+        {
+            for (int i = 0; i < ActiveAbilityTable.Length; i++)
+                if (ActiveAbilityTable[i].Army == army) return ActiveAbilityTable[i].Sprite;
+            return null;
+        }
+
+        /// <summary>阵营名（`CardDef.Faction`）→ 原版 sprite 名；认不出 ⇒ `null`。</summary>
+        public static string ActiveAbilitySpriteName(string faction)
+        {
+            int a = Id(faction);
+            return a < 0 ? null : ActiveAbilitySpriteName(a);
+        }
+
+        /// <summary>原版 sprite 名 → **我们 `Resources/Art/ui/` 下的文件名**（空格换下划线）。
+        /// 五张都在（`Attack_type_button_{Pray,Duty,Agenda,Ferocity,Oath}.png`，2026-10-24 现数 5/5）。</summary>
+        public static string ResourceNameOf(string spriteName)
+        {
+            return string.IsNullOrEmpty(spriteName) ? null : spriteName.Replace(' ', '_');
+        }
+
+        /// <summary>`CardArmy` 值 → **我们工程里的按钮图文件名**（`Resources/Art/ui/` 下的名字，
+        /// 交给 `CardArt.Ui`）；认不出 ⇒ `null`（调用方必须判：原版那一档是「整颗钮不显示」）。</summary>
+        public static string ActiveAbilityIconName(int army)
+        {
+            return ResourceNameOf(ActiveAbilitySpriteName(army));
+        }
+
+        /// <summary>阵营名 → 按钮图文件名；认不出 ⇒ `null`。</summary>
+        public static string ActiveAbilityIconName(string faction)
+        {
+            return ResourceNameOf(ActiveAbilitySpriteName(faction));
+        }
+
+        /// <summary>`CardArmy` 值 → 贴图；认不出 ⇒ `null`（**不兜底**，同 <see cref="ActiveAbilityIconName(int)"/>）。</summary>
+        public static Texture2D ActiveAbilityTexture(int army)
+        {
+            var n = ActiveAbilityIconName(army);
+            return string.IsNullOrEmpty(n) ? null : CardArt.Ui(n);
+        }
     }
 }

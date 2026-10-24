@@ -505,12 +505,52 @@ namespace CardPresentation
 
         protected override void Build()
         {
+            EnsureLocalDefaultTitle();      // 🆕 `U2` V1（见方法 doc）
             BuildTopRow();
             BuildPlayerInfo();
             BuildRanking();
             BuildEvents();
             BuildNameWindow();
             RefreshIdentity();
+        }
+
+        // ============================================================ 🆕 2026-10-24（`U2` V1）：头衔空态兜底
+        //
+        // 🔴 **现象**（`资料/普查产出_1024c/U2_账户窗多余按钮复查.md` §5·2 V1）：没装备称号时
+        //    `Title` 页左栏**只剩一颗「选择」钮** —— 上方徽记 + 橙色称号名整片空。
+        // 🔴 **原版为什么没有这个空态**：开局那条已装备称号是**服务器**下发的
+        //    （`PlayerDataManager.get_PlayerTitle`），所以我们这边是「本地缺数据」造出来的假空态。
+        // ⇒ **本地兜底**：没装备过 ⇒ 默认装备**清单第 1 条**（用已有数据、⛔ 不编占位文案）。
+        //    `Title.Tab.OnOpen` 本来就用 `PreviewIndex = ProfileData.TitleIndex` ⇒ 数据一到位，左栏自然有东西。
+        //
+        // ⚠️ **落点说明**：本条最自然的位置是 `Shell/ProfileData.cs`（`_titleIndex` 初值）或
+        //    `Shell/TitleTab.cs`（`OnOpen` 那一支）—— **这两个文件都不在本批白名单**（另有代理占着）。
+        //    退而求其次放在**本窗第 1 页的 Build** 里：`PlayerProfileWindow.BuildPages` 按 `i` 升序
+        //    `Setup()` 六页，本页是 i=0 ⇒ 一定**早于** `TitleTab.Build`（i=2）跑，那一页读到的就是兜底值。
+        // ⚠️ ⛔ **不是「为了截图好看」**（`Editor/MainMenuScene.cs` 8144 那条注释担心的是那种）；
+        //    这是**复刻原版的开局状态**：原版玩家一进游戏就有已装备称号。
+        // ⚠️ 已有装备（`0 ≤ TitleIndex < Count`）⇒ **一个字节都不动**；清单为空 ⇒ **出声**（判据/数据不足）。
+
+        /// <summary>没装备过（`TitleIndex &lt; 0`）且清单非空 ⇒ 默认装备**第 1 条**。
+        /// <returns>`true` = 这次真的兜了底；`false` = 已经有装备 / 清单为空（什么都没改）。</returns>
+        /// <para>⚠️ 写 `ProfileData.TitleIndex` 会走它的 setter（正常游戏里落 `profile.json`；批处理不写盘 ——
+        /// 见 `ProfileData` 的「本地存档」那一节）。</para></summary>
+        public static bool EnsureLocalDefaultTitle()
+        {
+            var list = ProfileData.Titles;
+            if (list == null || list.Count == 0)
+            {
+                Debug.LogWarning("[Profile] 头衔清单为空 ⇒ **给不出**本地默认装备项（判据/数据不足："
+                               + "`Resources/profile_cosmetics.json` 没读进来？）—— 头衔页会停在空态");
+                return false;
+            }
+            int cur = ProfileData.TitleIndex;
+            if (cur >= 0 && cur < list.Count) return false;          // 已经装备着 ⇒ 不碰
+            ProfileData.TitleIndex = 0;
+            Debug.Log("[Profile] 头衔空态兜底（`U2` V1）：没装备过 ⇒ 默认装备清单第 1 条「"
+                    + list[0].Name + "」—— 原版开局必有已装备项（服务器下发），本地没有来源，"
+                    + "这里用**已有数据**兜、⛔ 不编占位文案");
+            return true;
         }
 
         /// <summary>每次切到本页时重读「我是谁」（原版 `OnOpen → Initialize`）：名字可能刚被改名窗改过、
@@ -1065,18 +1105,36 @@ namespace CardPresentation
                  "Generic Window Red Background Small", L_Bg);
 
             var ct = Node(card, "Content", new PxRect(LgCtL, LgCtT, LgCtR, LgCtB));
-            var di = Node(ct, "DivisionImage", new PxRect(LgCtL - 37.89f, LgDiT, LgCtR + 37.89f, LgDiB));
-            // `07-Legend` 512×512 **ppu=50（不是 100）** ⇒ 显示尺寸 ×2（390.92 → 781.84）；色 a=0.306
+            // 🔴 **2026-10-24（`U2` V6）就地改挂点（铁律 5）**：
+            //   改前 = `Node(ct, "DivisionImage", 槽)` + 自造子件 **`Body`** 上再挂那张 quad ——
+            //   而原版**全树没有 `Body`** 这个节点：那张 `07-Legend` 的 `Image` **就长在 `DivisionImage`
+            //   自己身上**（判据 → `资料/普查产出_0927/档案窗_Profile页.md` §A 第 119 行：
+            //   `Legendary Display Profile/Content/DivisionImage` = `760.37,340.49 → 1151.30,671.45`
+            //   （390.92×330.96）· 图 `07-Legend 512×512` · `Simple + preserveAspect` · 色 (1,1,1,**0.306**) · ppu=50）。
+            //   ⇒ 现在**节点本身就是那颗 quad**（`MenuDraw.Rect` 的返回物直接当节点用 —— 同
+            //   `PlayerProfileWindow.BuildCloseButton` 里那颗 `Generic Close Button Orange` 的先例：
+            //   原版「图长在根节点自己身上」时，我们就把 quad 节点当那个节点）。
+            // ⚠️ **尺寸也跟着归真**：`preserveAspect` 的语义是「**内接进 RectTransform**」，**与 ppu 无关**
+            //   ⇒ 512² 方图内接进 390.92×330.96 = **330.96² 居中**（x 790.36..1121.32 · y 340.49..671.45）。
+            //   改前画的是 **781.84²**（= `390.92 × 2`，理由是「ppu=50 ⇒ ×2」）—— 那个 ×2 只在
+            //   `SetNativeSize` 那一档成立；`preserveAspect` 下**尺寸由框决定** ⇒ 那张图原来大了一倍多、
+            //   还以屏心 **960** 居中（槽心其实是 **955.83**）。
+            //   ⚠️ 本处**没有原版实拍可对**（传奇支整卡出厂关，见方法头）⇒ 判据 = uGUI
+            //   `Image.PreserveSpriteAspectRatio` 的语义 + prefab 自己的 rect，**不是**我们挑的。
+            var divR = new PxRect(LgCtL - 37.89f, LgDiT, LgCtR + 37.89f, LgDiB);
             var tex = Art(ArtLegend);
+            Transform di;
             if (tex != null)
             {
-                float half = 390.92f, cy = (LgDiT + LgDiB) * 0.5f;
-                MenuDraw.Rect(di, tex, new PxRect(960f - half, cy - half, 960f + half, cy + half),
-                              "Body", Q + L_Art, new Color(1f, 1f, 1f, LegendArtA), true);
-                // 🔴 **2026-10-13（A435 阶段 2 · 丙）**：末那个实参原来传 `Clip`（`ProfilePage` 的字段）——
-                //   那个字段**已删**（裁切状态迁到视口节点上，见 `PlayerProfileWindow.cs` 那段）。
-                //   ⚠️ **本处零行为变化**：`ProfileTab` **从来没有设过** `Clip`（本文件全文只此一处提到它）
-                //   ⇒ 那个值一直是 `null`；`MenuDraw.Rect` 现在照旧拿 `null`、沿父链解析（本页无视口节点 ⇒ 不裁）。
+                var diQ = MenuDraw.Rect(ct, tex, divR, "DivisionImage", Q + L_Art,
+                                        new Color(1f, 1f, 1f, LegendArtA), true);
+                di = diQ != null ? diQ.transform : Node(ct, "DivisionImage", divR);
+            }
+            else
+            {
+                Debug.LogWarning("[Profile] 传奇支的段位大图**没画** —— `" + ArtLegend + "` 取不到"
+                               + "（只建 `DivisionImage` 节点；⛔ 不留白块）");
+                di = Node(ct, "DivisionImage", divR);
             }
             var ri = Node(di, "RankImage", new PxRect(916.74f, LgDiT + 107.29f, 994.93f, LgDiT + 132.39f));
             ri.gameObject.SetActive(false);      // 出厂 F（那一份的角色图没填）

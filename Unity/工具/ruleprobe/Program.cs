@@ -608,6 +608,12 @@ class Program
         //   （**这些才是真的会被乘的** —— 全 0/1 就等于这条消费端没在干活）。
         int nMissMul = 0, nBadFmCell = 0, nMulCards = 0, nMulLogics = 0, nFmGt1 = 0;
         int nTrigCards = 0, nTrigValues = 0, nTgtCards = 0, nTgtAbilities = 0, nTgtLogics = 0;
+        // 🆕 v25（2026-10-24 · 执行代理 `W25`）：`abilityTargetCriteria`（普通 ability，`ab >= 0`）与
+        //   `activeAbilityTargets`（主动/替代，`ab = -1 / -2`）两列的读数。
+        //   `nTcCards` = 至少有一行的卡数（两列合计）· `nTcRows` = 收下来的行数 · `nBadTc` = 被行级闸丢弃的条数。
+        //   对账期望（2026-10-24 现读卡池 v25）= **1008 张卡带 `abilityTargetCriteria`**（`activeAbilityTargets`
+        //   只有主动能力卡有）· 行数见装载时打的那一行 —— 判据 → 资料/普查产出_1024c/E9_卡表v25_logic级判据列.md。
+        int nTcCards = 0, nTcRows = 0, nBadTc = 0;
         foreach (var c in doc.RootElement.GetProperty("cards").EnumerateArray())
         {
             string S(string k) => c.TryGetProperty(k, out var v) && v.ValueKind == JsonValueKind.String ? v.GetString() : null;
@@ -962,6 +968,20 @@ class Program
                         TimeAtEndPos = AF("e"), Duration = AF("u"), Offset = AF("t"),
                     });
                 }
+            // 🆕 v25（2026-10-24 · 执行代理 `W25`）：**`abilityTargetCriteria` / `activeAbilityTargets`
+            //   两列也要传** —— 不传的后果与 `A1911` / `A1959` / v13 `triggerPriority` /
+            //   v14 `abilityContext` **逐字同族**：**探针与引擎口径不同**。
+            //   引擎侧 `Data/CardDatabase.cs:1343-1346` 经 `MapTargetCriteriaRows` 把这两列传进 `CardDef`；
+            //   探针不传 ⇒ `CardDef.AbilityTargetCriteriaVersioned == false` ⇒
+            //   `EffectText.AttachTargetCriteria` **直接 return** ⇒ 探针跑 `play` / `check` 时
+            //   **这 36 格筛根本不生效**（实测：`play "Exemplary Warrior"` 治疗 1 个目标，
+            //   而 Unity 里是 **0**）⇒ 任何拿探针量这条功能的读数都是**假阴性**。
+            //   口径与引擎**逐字相同**（行级四道闸 / `ab` 的 `-1`·`-2` 合法 / 单格坏值落 `-1` 不丢行）。
+            var atcRows = ParseTargetCriteriaRows(c, "abilityTargetCriteria", active: false, ref nBadTc);
+            var aatRows = ParseTargetCriteriaRows(c, "activeAbilityTargets", active: true, ref nBadTc);
+            if (atcRows != null && atcRows.Count > 0) nTcCards++;
+            if (aatRows != null && aatRows.Count > 0) nTcCards++;
+            nTcRows += (atcRows == null ? 0 : atcRows.Count) + (aatRows == null ? 0 : aatRows.Count);
             list.Add(new CardDef(S("id"), S("name"), S("type"), S("desc"), S("rarity"), S("faction"),
                                  I("cost"), I("attack"), I("health"), I("ranged"), kws,
                                  S("nameZh"), S("descZh"), true, S("subtype"), S("goesSecond"),
@@ -1008,7 +1028,14 @@ class Program
                                  abilityMultipliers: a20HasFm ? a20FmRows : null,
                                  abilityMultipliersVersioned: poolVersion >= 20,
                                  // 🆕 2026-10-24（`G2`）：v11 的逐候选动画时间（见上面那一段注释）。
-                                 animTimes: animRows.Count > 0 ? animRows : null));
+                                 animTimes: animRows.Count > 0 ? animRows : null,
+                                 // 🆕 v25（2026-10-24 · `W25`）：36 格 criteria 两条支。
+                                 //   缺列（< v25 的表 / 旧调用方）⇒ `null` = **未知**（⛔ 不是空表），
+                                 //   版本位与引擎 `CardDatabase.Parse` 同一口径（`dto.version >= 25`）。
+                                 abilityTargetCriteria: atcRows,
+                                 abilityTargetCriteriaVersioned: poolVersion >= 25,
+                                 activeAbilityTargetCriteria: aatRows,
+                                 activeAbilityTargetCriteriaVersioned: poolVersion >= 25));
         rawKw.Add(kws);
         }
         // 🔴 **缺列一律出声**（铁律「不许静默失败」）：缺了就是缺了，⛔ 不让它静默变成「某张卡的值是 X」。
@@ -1144,6 +1171,21 @@ class Program
         Console.WriteLine("  abilityMultipliers: 带这一列的卡 = " + nMulCards + " · logic = " + nMulLogics
                           + " · **取值 > 1 的格子 = " + nFmGt1 + "**"
                           + "（原版 `AbilityLogic.furtherMultiplier`；0 = 不乘、-1 = 缺键）");
+        // 🆕 v25（2026-10-24 · 执行代理 `W25`）：两条 36 格 criteria 列的读数。
+        if (poolVersion < 25)
+            Console.WriteLine("⚠️ 卡池 `version`=" + poolVersion + " < 25 —— 这一版没有 `abilityTargetCriteria` /"
+                              + " `activeAbilityTargets` 两列 ⇒ 探针把 `CardDef.AbilityTargetCriteriaVersioned` 读成"
+                              + " **false** ⇒ `AttachTargetCriteria` 直接 return ⇒ `play` / `check` 里**这条筛不生效**"
+                              + "（与引擎 `CardDatabase.Parse` 的 `< 25` 守卫同口径）。跑 `工具/gen_cards_engine.py` 重生成。");
+        if (nBadTc > 0 || nTcRows == 0)
+            Console.WriteLine("⚠️ 卡池 `abilityTargetCriteria` / `activeAbilityTargets` 读数异常：丢弃/坏格 "
+                              + nBadTc + " 处 · 收下来的行 " + nTcRows + " 行 —— 口径同 "
+                              + "`CardDatabase.MapTargetCriteriaRows`（行级四道闸丢弃 / 单格坏值落 -1 不丢行）。"
+                              + "⚠️ 若为 0 行请先确认卡池是 v25。");
+        Console.WriteLine("  abilityTargetCriteria + activeAbilityTargets: 带行的卡 = " + nTcCards
+                          + " · 行 = " + nTcRows + " · 坏行/坏格 = " + nBadTc
+                          + "（原版 `AbilityLogic.targetCriteria` 的其余 36 格；判据 → "
+                          + "资料/普查产出_1024c/E9_卡表v25_logic级判据列.md）");
 
         Pool = list;
         // 🆕 **同序留一份 `keywords` 原文**（见 `PoolRawKeywords` 的说明）——
@@ -1291,6 +1333,43 @@ class Program
 
         badCount = bad;
         return s;
+    }
+
+    /// <summary>🆕 v25（2026-10-24 · 执行代理 `W25`）：`abilityTargetCriteria` / `activeAbilityTargets`
+    /// 一列 → <see cref="CardDef.TargetCriteriaRowSpec"/>。**口径与 `CardDatabase.MapTargetCriteriaRows`
+    /// （`Data/CardDatabase.cs:2352`）逐字相同**：
+    /// · **缺这一列** ⇒ `null`（**未知**，⛔ 不是空表 —— 空表 = 「原版明确没有这一行」）；
+    /// · **行级四道闸**（缺 `ab` / `ab` 不属这一列 / `lg &lt; 0` / `criteria` 不是对象）
+    ///   ⇒ **丢弃那一行并计 bad**（⛔ 缺键落 0 = 挂到第 0 条 ability / 第 0 条 logic 上，那是最坏的一种静默错）；
+    /// · 36 格本体交给 <see cref="ParseCountSet"/>（**同一份字段表**；单格坏值落 `-1` 并计 bad，**不丢整行**）。
+    /// 🔴 这一列不传的后果 = 「探针与引擎口径不同」（`A1911` 那一族）：`CardDef.AbilityTargetCriteriaVersioned`
+    /// 恒假 ⇒ `AttachTargetCriteria` 直接 return ⇒ `play` / `check` 里这条筛**根本不生效**（假阴性）。
+    /// </summary>
+    static List<CardDef.TargetCriteriaRowSpec> ParseTargetCriteriaRows(
+        JsonElement c, string col, bool active, ref int badCount)
+    {
+        if (!c.TryGetProperty(col, out var el) || el.ValueKind != JsonValueKind.Array) return null;
+        var list = new List<CardDef.TargetCriteriaRowSpec>();
+        foreach (var r in el.EnumerateArray())
+        {
+            if (r.ValueKind != JsonValueKind.Object) { badCount++; continue; }
+            if (!r.TryGetProperty("ab", out var abEl) || abEl.ValueKind != JsonValueKind.Number) { badCount++; continue; }
+            int ab = abEl.GetInt32();
+            int lg = r.TryGetProperty("lg", out var lgEl) && lgEl.ValueKind == JsonValueKind.Number ? lgEl.GetInt32() : -1;
+            int trigger = r.TryGetProperty("trigger", out var tgEl) && tgEl.ValueKind == JsonValueKind.Number ? tgEl.GetInt32() : -1;
+            if (active)
+            {
+                if (ab != CardDef.ActiveAbilityObject && ab != CardDef.AlternativeAbilityObject) { badCount++; continue; }
+            }
+            else if (ab < 0) { badCount++; continue; }
+            if (lg < 0) { badCount++; continue; }
+            if (!r.TryGetProperty("criteria", out var cr) || cr.ValueKind != JsonValueKind.Object) { badCount++; continue; }
+            var cs = ParseCountSet(cr, out int bad);
+            badCount += bad;
+            if (cs == null) { badCount++; continue; }
+            list.Add(new CardDef.TargetCriteriaRowSpec { Ability = ab, Trigger = trigger, Logic = lg, Criteria = cs });
+        }
+        return list;
     }
 
     static void Dump(string line, string tag = "SEG", CardDef card = null)

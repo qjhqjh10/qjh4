@@ -199,21 +199,46 @@ namespace RuleEngine
             //  就是这个偏差的产物。⇒ 判点搬到入队，出队只保留原版那四种「主动取消」里
             //  我们唯一建模得到的**变残骸 / transform**（见泵点那一支）。
             //
-            //  ⚠️ **只在能定位载体时判**（`FindBoardCell` 找得到施放者）：定位不到 ⇒ **不判**
-            //     （保持改前口径 —— 那些是「已离场 / 还没上场」的入队点，原版闸看的是**卡状态**，
-            //     我们此刻认不出它处在哪一档，⛔ 不许猜）。
-            //  ⚠️ `-1`（未知 / 旧卡表 / 第二解析路没接列）⇒ **一个字都不判**，回退
+            //  🔴 **2026-10-24（执行代理 `W2` · `C5` Q3）就地订正**：原来这里写「只在能定位载体时判」
+            //     —— 那一句让 `Hand(10)/Deck(20)/Cemetery(30)` 三档（17 行：`Hand` 16 · `Cemetery` 1）
+            //     **永远不过闸**（载体按定义不在棋盘上 ⇒ `FindBoardCell` 恒 -1）。
+            //     现在：**三档区域判据传 `-1/-1`**（`InZone` 自己两边扫），棋盘三档用现查格号
+            //     （`co < 0` ⇒ 那三档自然不通过 —— 与原版「按卡状态判 ⇒ 多半不触发」同向）。
+            //     ⚠️ `-1`（未知 / 旧卡表 / 第二解析路没接列）⇒ **一个字都不判**，回退
             //     `requireActorInPlay` 那条旧口径（在泵点），与改前逐字相同。
             // ============================================================
             if (abilityContext != CardDef.AbilityContextUnknown && actor != null)
             {
                 int co, cs;
                 FindBoardCell(ctx, actor, out co, out cs);
-                if (co >= 0 && !IsRightContext(ctx, co, cs, abilityContext, actor.Instance))
+                // 🔴 2026-10-24（执行代理 `W2` · `C5` Q3）：**`Hand/Deck/Cemetery` 三档也要判**。
+                //   改前只有「能在棋盘上定位到载体」时才调 `IsRightContext` ⇒ 那三档的载体**按定义
+                //   不在棋盘上**（`FindBoardCell` 恒 `-1`）⇒ 那 17 行（`Hand` 16 · `Cemetery` 1）
+                //   **永远不过闸**（静默放行）。而 `IsRightContext` 本来就支持这三档
+                //   （它用 `Instance` 在 `ps.Hand/Deck/Discard` 里找，`InZone`），缺的只是调用点
+                //   **没传 `-1/-1`**。
+                //   判据（第一权威）：原版 `CardAbility__IsRightContext.c` 的六档逐句
+                //   （0 Play / 10 Hand / 20 Deck / 30 Cemetery / 40 InPlayOrDying / 50 InPlayOrCemetery）；
+                //   调用点唯一 = `CardAbility.CanTriggerAbility`，由 `RawCardScript.TriggerAbilities`
+                //   在广播那一刻同步调（`:108` / `:207`）。
+                //   ⇒ 口径：**`context != Unknown && actor != null` 一律调 `IsRightContext`**；
+                //     棋盘三档（0/40/50）用**现查到的格号**（`co < 0` ⇒ 那三档自然不通过），
+                //     区域三档（10/20/30）传 `-1/-1`（`InZone` 会自己两边扫）。
+                bool boardContext = abilityContext == CardDef.AbilityContextPlay
+                                 || abilityContext == CardDef.AbilityContextInPlayOrDying
+                                 || abilityContext == CardDef.AbilityContextInPlayOrCemetery;
+                bool ok = boardContext
+                    ? IsRightContext(ctx, co, cs, abilityContext, actor.Instance)
+                    : IsRightContext(ctx, -1, -1, abilityContext, actor.Instance);
+                if (!ok)
                 {
                     UnityEngine.Debug.LogWarning(
                         $"[ActionQueue] **不触发**「{label}」—— 载体「{actor.Name}」此刻不在原版 `abilityContext="
                         + AbilityContextName(abilityContext) + "` 要求的区域"
+                        + (boardContext
+                            ? ""
+                            : "（这一档是 `Hand/Deck/Cemetery`，判据 = `CardAbility__IsRightContext.c` 的 "
+                              + "`IsInHand`/`IsInCemetery`，按 `Instance` 在三个区域里找）")
                         + "（原版 `CardAbility.CanTriggerAbility` → `IsRightContext` 在**入队前**判，"
                         + "判据 `RawCardScript__TriggerAbilities.c:108,207`；⛔ 不是静默丢，这条就是出声口）");
                     return false;
@@ -582,6 +607,10 @@ namespace RuleEngine
         ///   50 InPlayOrCementery :66-72  IsInCemetery || IsInPlay —— 🔴 **不含待死**（与 40 不等价）
         /// </code>
         ///
+        /// 🔴🆕 2026-10-24（`W25` · `D1` 的 R3）：**40 档的「待死」我们靠 `ctx.DyingThisAction` 认**
+        /// （`CleanupDeaths` 当场把死者从棋盘摘下 ⇒ `cell` 恒 null；原版那一刻卡状态是 `waitingToDie(5)`）。
+        /// ⛔ **50 档不加** —— 原版 50 支读的是 `IsInCemetery || IsInPlay`，**不含** state 5。
+        ///
         /// 🔴 **`-1`（未知）⇒ 返回 `true`**（= 不拦）：让调用方**回退旧关键词表**
         /// （`UnitInPlay` / `QueuedAction.RequireActorInPlay` 那一套）。⛔ 别把「未知」读成 `Play(0)`。
         ///
@@ -623,7 +652,19 @@ namespace RuleEngine
                     //   本条堵的是形状（⛔ 不是「没判据所以不做」）。
                     return cell != null && cell.IsAlive && !ctx.IsPendingDeath(cell) && !cell.IsRemnant;
                 case CardDef.AbilityContextInPlayOrDying:
-                    return cell != null;                              // 🔴 含待死（状态 5 也算在场）
+                    // 🔴🆕 2026-10-24（执行代理 `W25` · `D1` 的 R3）：**「or dying」那半边补上了** ——
+                    //   原版 `CardScript__IsInPlayOrDying.c:5-11` 的卡状态集是 `{2,3,5,15,17}`，
+                    //   其中 **`5 = waitingToDie`** 也算在场；而我们的 `cleanupDeaths` 是**当场**
+                    //   `BoardSlots.RemoveAt` ⇒ 那个单位**格子上已经找不到**（`slot = -1`）。
+                    //   等价物 = `BattleContext.DyingThisAction`（「本条顶层动作里刚离场」，
+                    //   doc → `BattleContext.cs`；写入点 `RuleCore.cs:8938`，**在 Unstable/Backlash
+                    //   入队之前** ⇒ 入队这一刻查得到）。
+                    //   🧨 不加这半边：`Unstable` 的 `abilityContext=40`（现读 18 条全是 40）
+                    //   **根本过不了入队闸** ⇒ 不稳定再也不爆（`D1` 的第 5 条）。
+                    //   ⚠️ **50 档故意不加**：原版 `IsRightContext.c` 的 50 支是
+                    //   `IsInCemetery || IsInPlay`（**不含** state 5）⇒ 与 40 **不等价**（那正是
+                    //   `W63` 那条注释写的），别为了「对称」把它一起放宽。
+                    return cell != null || IsDyingThisAction(ctx, inst);   // 🔴 含待死（状态 5 也算在场）
                 case CardDef.AbilityContextInPlayOrCemetery:
                     return (cell != null && !ctx.IsPendingDeath(cell)) // 🔴 不含待死
                         || InZone(ctx, owner, inst, Zone.Discard);
@@ -636,6 +677,22 @@ namespace RuleEngine
                         + "按「未知」处置（放行）；判据 → Core/ActionPump.cs 的 IsRightContext doc");
                     return true;
             }
+        }
+
+        /// <summary>🆕 2026-10-24（执行代理 `W25`）：**`InPlayOrDying(40)` 的「or dying」半边** ——
+        /// 这一份牌是不是**本条顶层动作里刚被判死**的那一个（原版卡状态 `waitingToDie(5)`）。
+        ///
+        /// <para>判据：`CardAbility__IsRightContext.c` 的 `0x28(40)` 支 ⇒ `CardScript__IsInPlayOrDying.c:5-11`
+        /// 的状态集 `{2, 15, 3, 17, 5}` —— 含 `5`。我们的 `CleanupDeaths` 当场把人从棋盘摘下，
+        /// 所以只认 `DyingThisAction`（写点 `RuleCore.cs:8938`，**在 Unstable/Backlash 入队之前**）。
+        /// ⚠️ 比的是 `UnitState.Instance`（readonly；翻面成残骸也沿用同一份）—— ⛔ 不比 `UnitState` 引用
+        /// （死亡时登记的那一份与我们手上这份可能不是同一个对象）。</para></summary>
+        static bool IsDyingThisAction(BattleContext ctx, CardInstance inst)
+        {
+            if (ctx == null || inst == null) return false;
+            foreach (var u in ctx.DyingThisAction)
+                if (u != null && ReferenceEquals(u.Instance, inst)) return true;
+            return false;
         }
 
         /// <summary>三个**非棋盘**区域（`PlayerState.Hand` / `Deck` / `Discard`）。</summary>

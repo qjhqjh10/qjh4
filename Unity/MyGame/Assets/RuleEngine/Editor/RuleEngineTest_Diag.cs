@@ -90,7 +90,8 @@ public static partial class RuleEngineTest
         "TestA30ListenerTriggerNames", "TestW62EntryPump", "TestW64ShowCardsWindow", "TestN2UnitConditionRoles", "TestA1EngineFive", "TestB3EngineFive",
         "TestB6EngineThird", "TestB7EnginePickAndCount", "TestF8EnginePlayOrder", "TestG1bSpiritStone", "TestG1bStatusApplied", "TestG2DeathRoutes",
         "TestG3AiTargetsTrim", "TestG5BareDealAndReferencedCards", "TestG6MultiCountRepeats", "TestE8PreviousAbilityDrawnCards", "TestG10HandCountScope", "TestG12ActiveAbilityLogic",
-        "TestEngineE2", "TestEngineE6", "TestEngineP3", "TestEngineD4",
+        "TestEngineE2", "TestEngineE6", "TestW12SummonedAndReanimate", "TestEngineP3", "TestEngineD4", "TestEngineC5",
+        "TestReplayTrace",
     };
 
     // 本次诊断真正跑过的用例（顺序同 `RunCaseNames`）—— 只给对账用
@@ -561,8 +562,11 @@ public static partial class RuleEngineTest
         Safe("TestG12ActiveAbilityLogic", () => TestG12ActiveAbilityLogic());
         Safe("TestEngineE2", () => TestEngineE2());
         Safe("TestEngineE6", () => TestEngineE6());
+        Safe("TestW12SummonedAndReanimate", () => TestW12SummonedAndReanimate());
         Safe("TestEngineP3", () => TestEngineP3());
         Safe("TestEngineD4", () => TestEngineD4());
+        Safe("TestEngineC5", () => TestEngineC5());
+        Safe("TestReplayTrace", () => TestReplayTrace());
 
         VerifyDiagCoverage();
 

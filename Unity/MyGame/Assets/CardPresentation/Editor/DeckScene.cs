@@ -3354,25 +3354,24 @@ public static class DeckScene
                     }
                 }
 
-                // 🔴🆕 **2026-10-18（卡池排序与显隐 · 「显示 + 变灰」那一档）**
-                //   判据 = 原版 `DeckEditorCollectionDisplay__DrawCell.c:75-92` 把 `CanAddCard` 的结果当 `canAdd`
-                //   传给 `CollectionCard__UpdateCardVisuals`，后者 `:19-20` 的
-                //   `UIImageGreyscaleController__ToggleGreyScale(controller, param_2 ^ 1, …)`
-                //   （⚠️ 任务书写 `:17`，现读反编译：`:17` 是 `BasicCardUI.SetRawCardData`，
-                //     灰化那一句在 `:19-20`）⇒ **在池里但加不进的卡 = 显示 + 变灰**，⛔ 不是隐藏。
-                //   我们这一侧 2026-10-19（`A2139`）起走**真去饱和**：`CardView.SetGrey(1)` 写原版那个
-                //   材质属性 `_GreyScale`（0 = 原色 / 1 = 全灰；判据 = 原版材质 `Sprite Greyscale`
-                //   与 shader `Everguild/UI/Greyscale Add`，见 `Resources/Shaders/CardSprite.shader` 头部）。
-                //   ⚠️ 原来借 `Unplayable` 的**乘法压暗**（tint 0.55/0.55/0.58）—— 那个口径**已作废**，
-                //   但 `State` 仍保留 `Unplayable`（它是「加不进」的状态标记，别的自检也读它）。
+                // 🔴🆕 **2026-10-24（`W6` · `G1`）：灰的是【张数条】，⛔ 不是卡面 —— 照原版两个独立控制器。**
+                //   判据 = 原版 `CollectionCard` 上有**两个**独立的 `UIImageGreyscaleController`：
+                //     · `counter.greyscale`（GO `Counter`，只 pair 那一张药丸底图）
+                //       ← `CollectionCard__UpdateCardVisuals.c:19-20` `ToggleGreyScale(counter, canAdd ^ 1, 0.25f)`
+                //       ⇒ **「加不进」只灰张数条**；
+                //     · `cardUI.greyscaleController`（GO `2DCard`，pair `CardImage`/`CardFrame`/`Cost Background`）
+                //       ← 同文件 `:44-47` `cVar3 = isOwned ? isBanned : 1` ⇒ **卡面只由「未拥有 / 被禁」驱动**。
+                //   ⇒ **满编 30/30 时原版卡面一张都不灰、只有张数条全灰**。
+                //   判据全文 + prefab 实证 → `资料/普查产出_1024d/G1_卡组编辑变灰判据.md` §1/§2/§4。
+                //   ⚠️ 旧口径（2026-10-18/19）把 `canAdd` 接到**卡面**（`Unplayable` + `SetGrey(1)`）——
+                //   那三条断言**把错口径钉死了**，本批一并改成断**张数条**。
                 //   🧨 **灭自证 = 同一段 `RefreshPool` 上的两个方向**：
-                //     ① 有督军 ⇒ 池里「当前督军」那格 `CanAdd == WarlordAlreadySet` ⇒ **必须灰**
-                //        （读的是**渲染器上真正生效的** `_GreyScale` —— `SetGrey` 改成 no-op 必红）；
-                //     ② 摘掉督军 ⇒ 池里全是督军且**每一张都加得进** ⇒ **一格都不许灰**。
-                //   任何「恒灰」/「恒不灰」的写法必有一条红。
+                //     ① 有督军 ⇒ 池里「当前督军」那格 `CanAdd == WarlordAlreadySet` ⇒ **张数条必须灰**、**卡面必须不灰**
+                //     ② 摘掉督军 ⇒ 池里全是督军且**每一张都加得进** ⇒ **一格张数条都不许灰**
+                //   任何「恒灰」/「恒不灰」/「灰错层」的写法必有一条红。
                 {
                     string wlG = _rt.State.Deck.WarlordId;
-                    CheckTrue(!string.IsNullOrEmpty(wlG), "（前提）此刻卡组有督军（灰卡那一条要有「加不进」的卡）");
+                    CheckTrue(!string.IsNullOrEmpty(wlG), "（前提）此刻卡组有督军（灰张数条那一条要有「加不进」的卡）");
                     _rt.RefreshAll();
                     int greySlot = -1; CardDef greyDef = null;
                     for (int i = 0; i < 18; i++)
@@ -3387,27 +3386,36 @@ public static class DeckScene
                         var go = PoolCellGo(greySlot);
                         var cv = go != null ? go.GetComponent<CardView>() : null;
                         CheckTrue(cv != null, $"（前提）第 {greySlot} 格上有 `CardView`");
+                        // ①-a **张数条**：`canAdd ^ 1` 落在这里（原版 `UpdateCardVisuals.c:19-20`）
+                        float cntGrey = _rt.UiPoolCounterGrey(greySlot);
+                        CheckTrue(cntGrey >= 0f,
+                                  "（前提）这一格的张数条认 `_GreyScale`（读得到属性；`-1` = 通道没接上 ⇒ 下面的「不灰」是假绿）");
+                        CheckTrue(cntGrey > 0.99f,
+                                  $"★ 加不进的卡（`{greyDef.Name}` · `{_rt.State.CanAdd(greyDef)}`）⇒ **张数条变灰**"
+                                + $"（原版 `UIImageGreyscaleController.ToggleGreyScale(counter, canAdd ^ 1, …)`；"
+                                + $"实得 `_GreyScale`={cntGrey:F2}）"
+                                + "｜🧨 `SetPoolCounter` 不调 `SetGrey` / 写死 0 ⇒ 本条红");
                         if (cv != null)
                         {
-                            Check(cv.State, CardHighlightState.Unplayable,
-                                  $"★ 加不进的卡（`{greyDef.Name}` · `{_rt.State.CanAdd(greyDef)}`）在卡池里**显示且灰**"
-                                + "（原版 `ToggleGreyScale(param_2 ^ 1)`；🧨 改回 `Normal` ⇒ 本条红）");
-                            // ①-a **真去饱和通道**：读两个图层的渲染器（MPB 优先）。
-                            //     🧨 灭自证：把 `CardView.SetGrey` 改成 no-op ⇒ MPB 不写 ⇒ 读到材质默认 0 ⇒ 红。
+                            // ①-b **卡面不许灰**：原版 `cardUI.greyscaleController` 只认 `!isOwned || isBanned`。
+                            //     🧨 灭自证：把 `canAdd` 接回卡面（旧的 `SetHighlight(Unplayable)`）⇒ 本条红。
                             float gArt = cv.LayerGrey("art");
                             float gFrame = cv.LayerGrey("frame");
-                            CheckTrue(gArt > 0.99f && gFrame > 0.99f,
-                                      "★ ……走的是**真去饱和**（`_GreyScale` = 1，不是乘法压暗）："
+                            CheckTrue(gArt >= 0f && gFrame >= 0f,
+                                      "（前提）卡面 `art`/`frame` 两层都认 `_GreyScale`（`-1` = 没这个属性 ⇒ 下面的「不灰」是假绿）");
+                            CheckTrue(gArt < 0.01f && gFrame < 0.01f,
+                                      "★ ……而**卡面不灰**（原版卡面只由 `!isOwned || isBanned` 驱动，"
+                                    + "`CollectionCard__UpdateCardVisuals.c:44-47`）："
                                     + $"`art`={gArt:F2} / `frame`={gFrame:F2}"
-                                    + "（🧨 `SetGrey` 改 no-op / 只留着色 ⇒ 本条红）");
-                            // ①-b **不再是乘法压暗**：状态色必须是白（原版「灰」不靠变暗）。
+                                    + "｜🧨 把 `canAdd` 接回卡面 ⇒ 本条红（真机「所有卡都是灰色」就是它）");
+                            // ①-c **不再是乘法压暗**：状态色必须是白（原版「灰」不靠变暗）。
                             CheckNear(cv.Tint.r, 1f, 0.01f,
                                       "★ ……整卡**不着色**：`Tint.r` = 1（乘法压暗 0.55 那一档已作废；原版是去饱和）");
                             CheckNear(cv.Tint.g, 1f, 0.01f, "★ ……`Tint.g` = 1");
                             CheckNear(cv.Tint.b, 1f, 0.01f, "★ ……`Tint.b` = 1");
                         }
                     }
-                    // ② 反向控制：摘掉督军 ⇒ 整池全是督军、每一张都 `CanAdd == None` ⇒ 一格都不许灰
+                    // ② 反向控制：摘掉督军 ⇒ 整池全是督军、每一张都 `CanAdd == None` ⇒ **张数条一格都不许灰**
                     _rt.State.ClearWarlord();
                     _rt.RefreshAll();
                     int g2 = 0, seen2 = 0, checked2 = 0;
@@ -3421,20 +3429,127 @@ public static class DeckScene
                         var cv2 = cg != null ? cg.GetComponent<CardView>() : null;
                         if (cv2 == null) continue;
                         checked2++;
-                        // 状态和**渲染器上的灰度**两条一起看 —— 只断状态的话「状态对、灰度没归零」会漏过去
-                        if (cv2.State != CardHighlightState.Playable
-                            || cv2.Grey > 0.01f
+                        // 张数条 + **渲染器上的卡面灰度**一起看 —— 只断一条的话「张数条对了、卡面偷偷灰着」会漏过去
+                        if (_rt.UiPoolCounterGrey(i) > 0.01f
                             || cv2.LayerGrey("art") > 0.01f
                             || cv2.LayerGrey("frame") > 0.01f) g2++;
                     }
                     CheckTrue(seen2 > 0, $"（前提）没督军时卡池里有 {seen2} 格");
                     // 🧨 挡「探针没读到任何一格 ⇒ `g2` 恒 0」那种假绿
                     CheckTrue(checked2 > 0, $"（前提）反向控制真的读到 {checked2} 格 `CardView`（读不到 = 本条无意义）");
-                    Check(g2, 0, "★ 反向控制：没督军 ⇒ 池里每一张都加得进 ⇒ **一格都不灰**"
-                              + "（🧨 恒灰的写法 —— 比如把 `Playable` 那一支也改成 `Unplayable` / 灰度不复位 —— 本条红）");
+                    Check(g2, 0, "★ 反向控制：没督军 ⇒ 池里每一张都加得进 ⇒ **张数条一格都不灰（卡面也不灰）**"
+                              + "（🧨 恒灰的写法 / 灰度不复位 / 把 `Playable` 那一支也改成 `Unplayable` —— 本条红）");
                     _rt.State.SetWarlord(wlG);
                     _rt.RefreshAll();
                     Check(_rt.State.Deck.WarlordId, wlG, "（把督军放回去 —— 后面的断言仍按原状态跑）");
+
+                    // ③ 🆕 **满编靶心（本缺陷的正靶）**：填到 `MaxDeckCount` ⇒ 原版**卡面全彩、张数条全灰**。
+                    //    判据 = `CanAddCard.c:166-170` 的 `EmptySlotsCount <= 0 ⇒ 加不进`（逐卡判据里的一条）
+                    //    + `UpdateCardVisuals.c:19-20`（灰的落点是张数条）/ `:44-47`（卡面不认 canAdd）。
+                    //    🧨 **灭自证**：把张数条灰度写死 0 ⇒ 本条红；把 `canAdd` 接回卡面 ⇒ 「卡面全彩」那条红。
+                    {
+                        var keepFull = new List<string>(_rt.State.Deck.CardIds);
+                        // ⚠️ 防御卡**不占 `CardIds`**（`TryAdd` 把它放进 `Deck.DefensiveId`）⇒ 只恢复 `CardIds`
+                        //    会把「填满时顺手加上的那张防御卡」留在卡组里（静默改了后面各节的前提）。
+                        string keepDef3 = _rt.State.Deck.DefensiveId;
+                        string whyFill;
+                        int guard = 0;
+                        for (int round = 0; round < 4 && _rt.State.DeckCount < _rt.State.MaxDeckCount; round++)
+                            foreach (var c in _rt.State.Pool)
+                            {
+                                if (_rt.State.DeckCount >= _rt.State.MaxDeckCount || ++guard > 5000) break;
+                                _rt.State.TryAdd(c, out whyFill);
+                            }
+                        _rt.RefreshAll();
+                        Check(_rt.State.DeckCount, _rt.State.MaxDeckCount,
+                              $"（前提）卡组已填到满编 {_rt.State.MaxDeckCount} 张（满编靶心）");
+                        int expGrey = 0, gotGrey = 0, expClean = 0, gotClean = 0, faceGrey = 0, seen3 = 0;
+                        for (int i = 0; i < 18; i++)
+                        {
+                            var d = _rt.UiPoolCardAt(i);
+                            if (d == null) continue;
+                            seen3++;
+                            bool expectGrey = _rt.State.CanAdd(d) != DeckError.None;
+                            float cg3 = _rt.UiPoolCounterGrey(i);
+                            if (expectGrey) { expGrey++; if (cg3 > 0.99f) gotGrey++; }
+                            else { expClean++; if (cg3 >= 0f && cg3 < 0.01f) gotClean++; }
+                            var cg3go = PoolCellGo(i);
+                            var cv3 = cg3go != null ? cg3go.GetComponent<CardView>() : null;
+                            if (cv3 != null && (cv3.LayerGrey("art") > 0.01f || cv3.LayerGrey("frame") > 0.01f)) faceGrey++;
+                        }
+                        CheckTrue(seen3 > 0, $"（前提）满编时卡池仍看得见 {seen3} 格");
+                        CheckTrue(expGrey > 0, $"（前提）满编时「加不进」的格有 {expGrey} 个（本条才有靶子）");
+                        Check(gotGrey, expGrey,
+                              "★ 满编 ⇒ **每一格「加不进」的张数条都变灰**"
+                            + "（原版 `CanAddCard.c:166` 把「整副满」写进**逐卡**判据 ⇒ 每张都 false）"
+                            + "｜🧨 张数条灰度写死 0 / 不接 `!canAdd` ⇒ 本条红");
+                        Check(gotClean, expClean,
+                              "★ 满编 ⇒ **仍然加得进的那几格（如未选防御卡时的防御卡格）张数条不灰**"
+                            + "（🧨 张数条灰度写死 1「整池一起灰」⇒ 本条红）");
+                        Check(faceGrey, 0,
+                              "★ 满编 ⇒ **卡面一张都不灰**（`art`/`frame` 全 0；原版卡面只由 `!isOwned || isBanned` 驱动）"
+                            + "｜🧨 把 `canAdd` 接回卡面 ⇒ 本条红（真机「所有卡都是灰色」就是这个）");
+                        _rt.State.Deck.CardIds.Clear();
+                        _rt.State.Deck.CardIds.AddRange(keepFull);
+                        _rt.State.Deck.DefensiveId = keepDef3;
+                        _rt.RefreshAll();
+                        Check(_rt.State.DeckCount, keepFull.Count, "（把卡组恢复原样 —— 后面的断言仍按原状态跑）");
+                    }
+
+                    // ④ 🆕 **逐卡区分**：造「一张已达同名上限、其余全可加」的卡组（**远没满编**）
+                    //    ⇒ 只有那一格的张数条灰，邻格一格不灰。
+                    //    这条挡的正是「满编靶心」单独挡不住的那种改法：**整池一起灰 / 整池一起不灰**。
+                    //    🧨 灭自证：写死 0 ⇒ 目标格那条红；写死 1 ⇒ 邻格那条红。
+                    {
+                        var keepOne = new List<string>(_rt.State.Deck.CardIds);
+                        // ⚠️ **先清空卡组再挑卡**：上一节刚把卡组填到满编 ⇒ 那时每一张都 `TooManyCards`，
+                        //    照那个状态挑「现在加得进」的卡会一张都挑不到（假红）。空卡组 = 只有同名上限会挡。
+                        _rt.State.Deck.CardIds.Clear();
+                        _rt.RefreshAll();
+                        CardDef limitDef = null;
+                        for (int i = 0; i < 18 && limitDef == null; i++)
+                        {
+                            var d = _rt.UiPoolCardAt(i);
+                            if (d == null || d.Type == "hero" || d.Type == "defence") continue;
+                            if (_rt.State.CanAdd(d) != DeckError.None) continue;            // 挑一张**现在加得进**的
+                            if (DeckRules.CopyLimit(d.Rarity, d.Type) < 2) continue;        // 传说上限 1 ⇒ 一张就满，判别力弱
+                            limitDef = d;
+                        }
+                        CheckTrue(limitDef != null, "（前提）卡池里找得到一张「现在加得进、同名上限 ≥ 2」的普通卡");
+                        if (limitDef != null)
+                        {
+                            int capOne = DeckRules.CopyLimit(limitDef.Rarity, limitDef.Type);
+                            string whyOne;
+                            for (int k = 0; k < capOne; k++) _rt.State.TryAdd(limitDef, out whyOne);
+                            Check(_rt.State.Deck.CountOf(limitDef.Id), capOne,
+                                  $"（前提）`{limitDef.Name}` 已加满同名上限 {capOne} 张（全副才 {_rt.State.DeckCount} 张、远没满编）");
+                            Check(_rt.State.CanAdd(limitDef), DeckError.CopyLimitExceeded,
+                                  "（前提）……所以它自己「加不进」，而且原因是**同名上限**（不是整副满）");
+                            _rt.RefreshAll();
+                            int tgtSeen = 0, tgtGrey = 0, othSeen = 0, othBad = 0;
+                            for (int i = 0; i < 18; i++)
+                            {
+                                var d = _rt.UiPoolCardAt(i);
+                                if (d == null) continue;
+                                float cg4 = _rt.UiPoolCounterGrey(i);
+                                if (d.Id == limitDef.Id) { tgtSeen++; if (cg4 > 0.99f) tgtGrey++; }
+                                else if (_rt.State.CanAdd(d) == DeckError.None) { othSeen++; if (cg4 < 0f || cg4 > 0.01f) othBad++; }
+                            }
+                            CheckTrue(tgtSeen > 0, $"（前提）「已达同名上限」那张在视口里（{tgtSeen} 格）");
+                            Check(tgtGrey, tgtSeen,
+                                  "★ 逐卡区分：**它自己**那一格的张数条灰（`canAdd` 是【逐卡】算的，"
+                                + "`DeckEditorCollectionDisplay__DrawCell.c:65` 每格各调一次 `CanAddCard`）"
+                                + "｜🧨 张数条灰度写死 0 ⇒ 本条红");
+                            CheckTrue(othSeen > 0, $"（前提）同屏还有 {othSeen} 格**加得进**的卡（反向对照）");
+                            Check(othBad, 0,
+                                  "★ ……**邻格一格都不灰**（它们各自 `CanAdd == None`）"
+                                + "｜🧨 灰度写成「整池一起」/ 写死 1 ⇒ 本条红");
+                        }
+                        _rt.State.Deck.CardIds.Clear();
+                        _rt.State.Deck.CardIds.AddRange(keepOne);
+                        _rt.RefreshAll();
+                        Check(_rt.State.DeckCount, keepOne.Count, "（把卡组恢复原样 —— 后面的断言仍按原状态跑）");
+                    }
                 }
                 // 🧨 **本节的判别式（每格各挡一种改坏法，⛔ 只断「现在对」= 自证）**：
                 //    ① 有督军 ⇒ 显示            —— 挡「探针落在带口外」/「这一格根本没建」（`null` 也算红）

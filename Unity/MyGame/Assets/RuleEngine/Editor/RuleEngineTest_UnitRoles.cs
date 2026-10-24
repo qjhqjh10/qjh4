@@ -123,6 +123,22 @@ public static partial class RuleEngineTest
             Place(ctx, 1, 1, Unit("N2_mult_b", 1, 1, 5));
             Place(ctx, 1, 2, Unit("N2_mult_c", 1, 1, 5));
             List<string> un;
+
+            // 🔴🆕 2026-10-24（执行代理 `W25` · `D1` 的顺手发现②）：**B 的 0 不许是「假绿」**。
+            //   下面那条断言实得 0 有**两个**可能的成因，改前两者**同时成立**、而 B 分不开：
+            //     ① `repeats = 0`（结构化乘数按 `damaged(40)` 数出来是 0 —— **这正是要验的**）；
+            //     ② 目标池被 `targetCriteria` 筛空（`ta=120 friendlyHero` 那行其余格 `includeHero=0`
+            //        ⇒ 按常规档筛会把**督军本身**淘汰 ⇒ `+1 Health` 一个对象都没有）。
+            //   ⇒ 先把同卡**第一条 op**（`Give Armour 1 to your Warlord`，`ta` 也是 120、
+            //     `fm=0` 不会被乘）在**同一片场**打一遍：护甲 +1 = 「池里真的有督军」的观测口。
+            //   ⛔ 别删这一条 —— 删了以后「乘数没生效」与「目标被筛没了」又会互相顶替、静默漂移。
+            int armourBefore = w.Armor;
+            RuleCore.ResolveOps(ctx, 0, null, new List<EffectOp> { ops[0] }, null, out un, sourceCard: gof74);
+            Check(w.Armor - armourBefore, 1,
+                  "★★（B 判别式）同卡第一条 op `Give Armour 1 to your Warlord` **真的落到督军身上**"
+                + "（护甲 +1）—— 这就证明 `ta=120 friendlyHero` 的目标池里有督军、B 那个 0 **不是**被筛空"
+                + "｜🧨 `TargetCriteriaEval` 的 `case 120` 短路没了、又把 criteria 按位置贴上 ⇒ 本行实得 0、B 变假绿");
+
             RuleCore.ResolveOps(ctx, 0, null, new List<EffectOp> { bare }, null, out un, sourceCard: gof74);
             Check(w.MaxHealth - before, 0,
                   "★★ 敌人**一个都没受伤** ⇒ 乘数 0 ⇒ 一遍都不结算（督军生命上限不变）"

@@ -1057,6 +1057,11 @@ public static partial class RuleEngineTest
         //   删掉这一行 ⇒ `VerifyRunCaseCoverage` 会点名它。
         Step(TestEngineE6);
 
+        // 🆕 2026-10-24（引擎线 `W12`）：「被效果召唤」也发 `ThisUnitSummoned`(195)（第三条入口）
+        //   ＋ 再造两条退路（残骸 / 墓地）**不发** 190/195，但 `Reanimated` / `WhileInPlay` 照发。
+        //   测试体在 `Editor/RuleEngineTest_W12.cs`；删掉这一行 ⇒ `VerifyRunCaseCoverage` 会点名它。
+        Step(TestW12SummonedAndReanimate);
+
         // 🆕 2026-10-24（执行代理 `E8`）：`abilityContext` 缺行 = `Play(0)` 的**前提②**（这张卡确实有这条 trigger）。
         //   测试体在 `RuleEngineTest_EngineP3.cs`；删掉这一行 ⇒ `VerifyRunCaseCoverage` 会点名它。
         Step(TestEngineP3);
@@ -1064,6 +1069,17 @@ public static partial class RuleEngineTest
         // 🆕 2026-10-24（执行代理 `E9`）：卡表 v25 的 logic/op 级 `targetCriteria` 两列
         //   （`activeAbilityTargets` 193 行 / `abilityTargetCriteria` 1616 行，消费端另批）。
         Step(TestEngineD4);
+
+        // 🆕 2026-10-24（执行代理 `W2` · `C5` 剩余三件）：
+        //   Q2 `HasTriggerSource` 改成 presence 优先（+ 拆出 `WhileInPlay` 的表现闸）；
+        //   Q3 入队闸补 `Hand/Deck/Cemetery` 三档；Q4 v25 36 格 criteria 的消费端（join/求值/端到端）。
+        //   测试体在 `RuleEngineTest_EngineC5.cs`（同一 partial 类）。
+        Step(TestEngineC5);
+
+        // 🆕 2026-10-24（执行代理 `W2` 第 1 件）：回放「逐动作全量状态指纹」记账器
+        //   （`ReplayFingerprintTrace`）—— 补 `DeepHash` 与 `StateHash` 口径不同留下的那个洞。
+        //   测试体在 `RuleEngineTest_ReplayTrace.cs`（同一 partial 类）。
+        Step(TestReplayTrace);
 
         // 🆕 2026-10-24（执行代理 `E2`）：`GameplayVariables.For(ClosedDeck)` 显式档（复用了 Skirmish 那套
         //   = **我们挑的**，原版轮抽参数在服务端）+ `EvtKind` 三处 `default` 的「登记了却没 case」闸。

@@ -26,8 +26,14 @@
 //    ⇒ **我们照这条做**：`RefreshHighlights()` 只换 `button_bg` 的贴图，**不碰颜色**。
 // ② **键上「没有名字条底图」** —— 别照 `MainMenuSubmenuWindow` 那套左栏（那是奖励窗/商店/收藏窗的画法，
 //    它们每个键都有一张 `40k_main_bt_nametag`）。这里 `Label` 是**裸文字**，底下**没有**底板。
-// ③ **出厂打开的是 `Title` 页**（第 3 个键），不是第一页 —— 唯一信号 = `Title Tab` 是**唯一**
-//    `m_IsActive=true` 的页签根；`m_IsOn` 六个键全 0，从数据里看不出「哪个键亮着」（正本 §2·1）。
+// ③ 🔴 **出厂打开的是 `Profile` 页（第 1 个键）** —— **2026-10-24（真机 F13）就地订正（铁律 5）**：
+//    原来这里写「出厂打开的是 `Title` 页（第 3 个键）……唯一信号 = `Title Tab` 是唯一 `m_IsActive=true`
+//    的页签根」，并按它把 `DefaultTabIndex` 定成 2。**那是拿 prefab 存盘态顶替运行期** ——
+//    真判据是 `GameWindowWithTabs.GetStartingTab()`：`PlayerProfileMenu` **无覆盖** ⇒ 回落 =
+//    `tabs.FirstOrDefault()` = **第一页**（`d:/2/tools/decomp_full/GameWindowWithTabs__GetStartingTab.c`；
+//    同口径见 `资料/普查产出_0923/A4_装饰页与驱动链.md:188`、`资料/普查产出_1019/W_界面线_N117_1019b.md:64-65`）。
+//    用户 2026-10-24 真机看到的也是「重开落在头衔页 = 不对」。详见 `DefaultTabIndex` 那条 doc。
+//    ⚠️ `Title Tab` 在 prefab 里仍是唯一 `m_IsActive=true` 的页根 —— 那只是**存盘态**，不是运行态。
 //
 // ---- 🔴 一条如实记下的存疑（不是事实，是「查不到」）----
 //   第 1 个键（`Profile Button`）的 `button_bg` 有**两处**与其余 5 个不同（其余 5 个彼此完全一致）：
@@ -189,8 +195,19 @@ namespace CardPresentation
             return string.IsNullOrEmpty(v) || v == TabTerms[i] ? Tabs[i].Label : v;
         }
 
-        /// <summary>出厂打开的那一页（**`Title`，第 3 个键**）—— 判据见文件头 ③。</summary>
-        public const int DefaultTabIndex = 2;
+        /// <summary>出厂打开的那一页（**`Profile`，第 1 个键**）。
+        /// <para>🔴 **2026-10-24（真机 F13）就地改：原来是 `2`（`Title`）** —— 症状 = 每次点头像重开档案窗
+        /// 都落在「头衔」页、满屏「选择你的头衔」，玩家以为窗开错了（截图 `55/57_profile*.png`）。</para>
+        /// <para>**原判据（`2`）的来历**：`资料/普查产出_0927/档案窗_Avatar与Title页.md` §C·6 写的是
+        /// 「`PlayerProfileMenu` 无 `GetStartingTab` 覆盖产物 ⇒ **无法判定**首次进窗显示哪一页
+        /// （页面初值：Avatar F、Title T）⇒ 按『唯一 active 的页签根 = Title』实现」——
+        /// 那是**拿 prefab 存盘态顶替运行期**。现按真正的回落链改：`PlayerProfileMenu` 没有覆盖 ⇒
+        /// `GameWindowWithTabs.GetStartingTab()` 的**回落 = `tabs` 的 `FirstOrDefault()` = 第 1 页**
+        /// （判据 → `d:/2/tools/decomp_full/GameWindowWithTabs__GetStartingTab.c`；
+        ///  `资料/普查产出_0923/A4_装饰页与驱动链.md:188` 与 `资料/普查产出_1019/W_界面线_N117_1019b.md:64-65` 各记了一遍
+        ///  「有 `startingTabType` 才按类型找，否则 `tabs.FirstOrDefault()`」，而本窗 `GameWindowWithTabsOptions`
+        ///  里没有 `startingTabType` ⇒ 走回落）。⇒ 与用户 2026-10-24 真机口径一致：**落在个人资料页**。</para></summary>
+        public const int DefaultTabIndex = 0;
 
         // ============================================================ 建的
 
@@ -264,7 +281,8 @@ namespace CardPresentation
         public override void Open()
         {
             Build();
-            // 出厂落在 **Title** 页（照原版；不是第一页）
+            // 出厂落在 **`DefaultTabIndex`** 那一页（2026-10-24 真机 F13 起 = `Profile`，见它那条 doc；
+            // ⛔ 别写成裸 `2`/`0` —— 自检与本句共用同一个常量）
             if (tabButtons != null) tabButtons.Click(DefaultTabIndex);
             RefreshHighlights();
         }
@@ -451,7 +469,8 @@ namespace CardPresentation
                          clickCue: WindowSounds.DefaultCloseCue);
         }
 
-        /// <summary>六个页根。**出厂 active 状态照原版**：只有 `Title Tab` 是 true，其余五个 false
+        /// <summary>六个页根。**出厂 active 状态 = `DefaultTabIndex` 那一页**（2026-10-24 真机 F13 起 =
+        /// `Profile`；此前照 prefab 存盘态写成 `Title`）
         /// —— `GameWindowWithTabs.ChangeTab` 会按当前页重设，这里先摆成出厂的样子（自检要断它）。</summary>
         void BuildPages()
         {

@@ -3086,24 +3086,50 @@ namespace CardPresentation
                 v.SetData(BattleDriver.ToCardData(def, def.Faction));
                 v.SetFace(CardFace.Full);
                 // 🔴 **2026-10-18（卡池排序与显隐）：加不进的卡 = 【显示 + 变灰】，⛔ 不是不显示。**
-                //   判据 = 原版 `DeckEditorCollectionDisplay__DrawCell.c:75-92` 把 `CanAddCard` 的结果当
+                //   判据 = 原版 `DeckEditorCollectionDisplay__DrawCell.c:65,78` 把 `CanAddCard` 的结果当
                 //   `canAdd` 传给 `CollectionCard__UpdateCardVisuals`，后者 `:19-20` 是
                 //   `UIImageGreyscaleController__ToggleGreyScale(controller, param_2 ^ 1, …)`
                 //   （`param_2` = canAdd ⇒ **加不进 = 灰**）。
                 //   ✅ **2026-10-19（`A2139`）**：灰的方式改成**真去饱和**了 ——
                 //   `CardView.SetGrey` 写原版那个材质属性 `_GreyScale`（0 = 原色 / 1 = 全灰；
                 //   判据 = 原版材质 `Sprite Greyscale` 的 `_GreyScale = 1.0`）。
-                //   ⚠️ 原来这里借 `CardHighlightState.Unplayable` 的**乘法压暗**（0.55,0.55,0.58），
-                //   那个口径**已作废**：`SetHighlight(Unplayable)` 自己现在也只做去饱和、不着色。
-                //   状态本身**保留**（`Unplayable`）—— 卡池断言/战斗侧都还在读它。
+                //
+                // 🔴🔴 **2026-10-24（`W6` · `G1`）就地订正（铁律 5）—— 灰错层了：`canAdd` 只该灰【张数条】。**
+                //   原版 `CollectionCard` 上有**两个独立**的 `UIImageGreyscaleController`，读的不是同一层：
+                //     · `counter.greyscale`（挂在 GO `Counter`，只 pair 那一张药丸底图）
+                //       ← `CollectionCard__UpdateCardVisuals.c:19-20` `ToggleGreyScale(counter, canAdd ^ 1, 0.25f)`
+                //       ⇒ **「加不进」只灰张数条**；
+                //     · `cardUI.greyscaleController`（挂在 GO `2DCard`，pair `CardImage`/`CardFrame`/`Cost Background`）
+                //       ← 同文件 `:44-47` `cVar3 = isOwned ? isBanned : 1` ⇒ **卡面只由「未拥有 / 被禁」驱动**。
+                //   ⇒ **满编 30/30 时原版卡面一张都不灰、只有张数条全灰**；我们原来把 `canAdd` 接到**卡面**
+                //    （`SetHighlight(Unplayable)` + `SetGrey(1)`）⇒ 满编时整池卡面全灰、张数条一直彩着
+                //    —— 正好对调（用户 2026-10-24 真机报「怎么所有的卡都是灰色的」）。
+                //   判据全文 + prefab 实证 → `资料/普查产出_1024d/G1_卡组编辑变灰判据.md` §1/§2/§4。
+
+                // ① **卡面**：只由 `!isOwned || isBanned` 驱动（原版 `UpdateCardVisuals.c:44-47`）。
+                //    ⚠️ **判据在、数据源缺 ⇒ 这一档今天不可达**（如实标注，⛔ 别当成已做）：
+                //      · `isOwned` —— 本工程「全卡已解锁」，`CardProgress.Owned` 恒 > 0（它按「给足」口径回
+                //        `DeckCap + 升满所需`，见 `Shell/CardDetailPopup.cs:211-227`）⇒ 永远为真；
+                //      · `isBanned` —— 原版走 `PlayEventData.IsCardBanned(currentEventData, card)`，只在绑了
+                //        活动/自定义模式时非 null；**我们还没有禁卡表**（`DeckError.InvalidDeckBannedCards`
+                //        一直是「永远不回」的那两个之一，见本文件 `:5773`）⇒ 恒 false。
+                //    代码路径照留（判定式与原版逐字同义）：一旦有了数据源，把 `banned` 换成真读即可。
+                bool owned = CardProgress.Owned(def.Id, def.Rarity) > 0;
+                bool banned = false;
+                // ⚠️ `Unplayable` **会自己 `SetGrey(1)`**（`Core/CardView.cs:6916-6928`）—— 这一档正是原版
+                //    「未拥有 / 被禁」要的卡面灰，所以**不额外调 `SetGrey`**（省得两处各写一遍灰度）。
+                //    ✅ 这也正是简报里那条「先例」的反面用法：`BattleDriver.cs:23763` 是「`SetHighlight` 之后再
+                //       `SetGrey(0)`」把它抵消掉 —— 我们这里**要的**就是它。
+                v.SetHighlight(owned && !banned ? CardHighlightState.Playable : CardHighlightState.Unplayable);
+
+                // ② **张数条**：`!canAdd` 才是灰它的那个条件（原版 `:19-20`）。
+                //    ⚠️ 灰的是**底板那一张图**，旁边的数字（`poolcnt_*`，`Label`）**不灰** ——
+                //    原版那个数字是 GO `Text (TMP)`、**不在** `counter.greyscale` 的 `imageMaterialPairs` 里
+                //    （`m_fontColor` 恒 `(1,1,1,1)`）。
                 bool canAdd = State.CanAdd(def) == DeckError.None;
-                v.SetHighlight(canAdd ? CardHighlightState.Playable : CardHighlightState.Unplayable);
-                // 显式再喂一次灰度：`SetHighlight` 已经按状态给过，这里写出来是为了让「卡池为什么灰」
-                // 在调用点上**自解释**（也给以后换状态名留一条不依赖枚举的线）。
-                v.SetGrey(canAdd ? 0f : 1f);
                 // 底下那条「张数」（原版 `Collection Card/Content/Counter` + `Text (TMP)`）
                 ShowPoolCounter(vi, true);
-                SetPoolCounter(vi, def, cx - P.CellW * 0.5f, cellTop);
+                SetPoolCounter(vi, def, cx - P.CellW * 0.5f, cellTop, !canAdd);
             }
 
             // 🔴 **2026-10-13（A1702②）第二步：旧视图里【没被搬走】的那些 ⇒ 处置。**
@@ -3255,8 +3281,11 @@ namespace CardPresentation
         }
 
         /// <summary>摆一格底下那条「张数」（底图 + 那行字）。**每次刷新都要重摆** ——
-        /// 滚动时 `cellTop` 一直在变，而 `Img`/`Txt` 只在建的时候摆一次。</summary>
-        void SetPoolCounter(int vi, CardDef def, float cellLeft, float cellTop)
+        /// 滚动时 `cellTop` 一直在变，而 `Img`/`Txt` 只在建的时候摆一次。
+        /// <para>🆕 **2026-10-24（`W6` · `G1`）**：<paramref name="greyed"/> = 原版那条
+        /// `counter.greyscale` 的状态（`canAdd ^ 1`）—— **只灰底板这一张图，数字不灰**
+        /// （判据 → `资料/普查产出_1024d/G1_卡组编辑变灰判据.md` §2·B）。</para></summary>
+        void SetPoolCounter(int vi, CardDef def, float cellLeft, float cellTop, bool greyed)
         {
             while (_poolBars.Count <= vi) { _poolBars.Add(null); _poolBarTexts.Add(null); }
             var P = Pool;                       // 🆕 D24：与 `RefreshPool` 同一档（每次现取 ⇒ 两处不会错开）
@@ -3289,7 +3318,14 @@ namespace CardPresentation
             }
             var bar = _poolBars[vi];
             if (bar != null)
+            {
                 bar.transform.localPosition = Pos(tx, cellTop + P.CardH + P.CounterH * 0.5f);
+                // 🔴 **2026-10-24（`W6` · `G1`）**：这里就是「加不进 ⇒ 张数条变灰」的落点。
+                //   走 `_GreyScale`（真去饱和），⛔ **不是 `SetTint`** —— 材质色是乘法，那是「变暗」不是「去色」。
+                //   ⚠️ 补间：原版那一句传 `0.25f`，但那个常量**没有读二进制核实**（`G1` §6.3）
+                //   ⇒ 这里瞬切，不猜数（`ImageQuad.SetGrey` 的 doc 也写了这一条）。
+                bar.SetGrey(greyed ? 1f : 0f);
+            }
             var t = _poolBarTexts[vi];
             if (t != null)
             {
@@ -6083,6 +6119,18 @@ namespace CardPresentation
         {
             if (view < 0 || view >= _poolIndex.Count || _poolIndex[view] < 0) return null;
             return State.VisibleAt(_poolIndex[view]);
+        }
+
+        /// <summary>🆕 **2026-10-24（`W6` · `G1`）**：自检读数 —— 卡池第 `view` 屏位那条**张数条底板**
+        /// 上**真正生效**的 `_GreyScale`（0 = 原色 / 1 = 全灰）。
+        /// <para>返回 **`-1`** = 那一格没有底板 / 材质没有这个属性（与「0 = 不灰」区分开 ——
+        /// 断「不灰」时**必须**先断 `>= 0`，否则通道没接上也会假绿）。</para>
+        /// <para>⚠️ 它读的**只是底板**（`poolbar_*`）；旁边那个数字（`poolcnt_*`）是独立 `Label`、
+        /// 原版就不灰（判据 → `G1` §2·B）。</para></summary>
+        public float UiPoolCounterGrey(int view)
+        {
+            if (view < 0 || view >= _poolBars.Count || _poolBars[view] == null) return -1f;
+            return _poolBars[view].Grey;
         }
 
         /// <summary>🆕 **2026-10-13（A1702②）**：自检读数 —— `RefreshPool` **上一趟**建了几张卡视图

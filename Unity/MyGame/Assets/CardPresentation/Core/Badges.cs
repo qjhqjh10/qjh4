@@ -8,37 +8,53 @@
 //     与 7 个容器**逐个对上**（2026-09-15 全库扫）。
 //  ② 驱动链：`CardScript.UpdateTraitIcons()` → `BattleCardUI.UpdateTraitIcons()`
 //     （反编译 `CardScript__UpdateTraitIcons.c:8`；**加/移除效果、眩晕、伏击、回合结束**等
-//     15+ 个卡事件都会触发重算）。守卫：非单位直接 return；**伏击（ambush 且未翻面）不显示**；
-//     每次重算先把 7 个位全部 `Toggle(false)`。图标取 `CardTrait._traitIcon`（运行时按
+//     15+ 个卡事件都会触发重算）。守卫：非单位直接 return；每次重算先把 7 个位全部 `Toggle(false)`。
+//     🔴 **2026-10-24（`W10`）就地订正（铁律 5）**：本行原来写「**伏击（ambush 且未翻面）不显示**」——
+//        只对一半。真值（`BattleCardUI__UpdateTraitIcons.c:40-46`，**逐句现读**）是**两条**：
+//          ㈠ `ambush` 的 `hasIcon == false` ⇒ **它自己永远进不了这 7 格**（`InPlayIconKeys` 里没有它）；
+//          ㈡ 先把 7 格全 `Toggle(false)`，然后 `if (HasCurrentTrait(card, 0x4b0 /*ambush*/) &&
+//             *(card + 0x40 /*isPlayer*/) == 0) return;` ⇒ **对面那张伏击单位整排一枚都不显示**，
+//             跟它身上还有没有别的词条无关。
+//          ⚠️ `Core/CardView.cs` 的 `ApplyAmbush` 里那句「徽标不藏（原版那一支没碰 boardTraitIcons）」
+//             **只对 `SetAmbush` 那条支成立**、对 `UpdateTraitIcons` 不成立 ⇒ 两处说法打架。
+//             🔴 **`CardView.cs` 本批不归 `W10`（文件所有权）⇒ 那句注释【还没改】**，
+//             已写进 `资料/普查产出_1024d/W10_选择器与词条_执行报告.md` 的「没做到」一节
+//             （下一批改 `CardView` 的代理请顺手把那句改成「`SetAmbush` 只换面朝下图；
+//             整排徽标的显隐由 `Badges.For(..., isPlayer)` 那道闸管」）。
+//          ⇒ ㈡ 的落地口 = `For(...)` 的 `isPlayer` 形参（调用方传「是不是我方的」）。
+//     图标取 `CardTrait._traitIcon`（运行时按
 //     卡当前拥有的 trait 查表），角标数值取 `GetCurrentTraitValueWithModifiers()`，
 //     激活态取 `CardTrait.IsActive(CardScript)`。
 //  ③ 几何：`bundle_battleprefabs_vfxandmisc_assets_all/GameObject/TraitIconContainer*.json`
 //     （7 份）—— 父链 `TraitIconContainer ← TraitIcons ← 3DBody ← Board Elements ← CardPrefab`。
 //
-// 🔴 **本地查不到、因而是「我们挑的」**（按项目红线必须写明）：
-//  · **哪些关键词进这 7 个位** —— 我们的判据见 `For(...)`（= 「凡是查得到图标的都显示」，
-//    **再减掉黑名单 `NotInBoardBadges`** —— 那一条的判据是**用户 2026-10-12 口径**、⛔ 不是原版读数）。
-//    🔴 **2026-10-11（`A1362`）就地订正（铁律 5）：本行原来写「原版的筛选器
-//    `CardTraitCollection.GetTraitInPlayListForIcons` 的**方法体没被反编译**」—— 那句【不成立】。**
-//    现读：`d:/2/tools/decomp_full/CardTraitCollection__GetTraitInPlayListForIcons.c`（**202 行，全的**），
-//    调用点也核了（`BattleCardUI__UpdateTraitIcons.c:59` 调它，链是
-//    `CardScript.UpdateTraitIcons` → `BattleCardUI.UpdateTraitIcons`）。
-//    **原版判据（从那份方法体读出来的）** = 一个 trait 进这 7 个位要**同时**满足：
-//      ① `CardTrait._hasIcon`（偏移 `0x21`）—— getter `CardTrait__get_HasIcon.c` 实测就是读它；
-//      ② `CardTrait._isInPlayIcon`（偏移 `0x22`）—— `CardTrait__get_IsInPlayIcon.c` 同；
-//      ③ `CardTrait._traitIcon != null`（偏移 `0x18`，`UnityEngine_Object__op_Inequality` 那一步）；
-//      ④ （第一支循环另加）**这张卡的 `CardTraitData._hide == false`**（偏移 `0x20` = `CardTraitData._hide`，
-//         见 `CardTraitData.cs`；`CardTrait.GetNewTrait(`, bool hideTrait = true`)` 那个参数）。
+// 🔴 **哪些关键词进这 7 个位 —— 现在按【原版真值表】筛，不再是「有图就画」**（2026-10-24 · `W10`）
+//
+//  · **原版判据**（`d:/2/tools/decomp_full/CardTraitCollection__GetTraitInPlayListForIcons.c`，202 行，
+//    调用点 `BattleCardUI__UpdateTraitIcons.c:59`）—— 一个 trait 进这 7 个位要**同时**满足：
+//      ① `CardTrait._hasIcon`（偏移 `0x21`；getter `CardTrait__get_HasIcon.c` 实测就是读它）
+//      ② `CardTrait._isInPlayIcon`（偏移 `0x22`；`CardTrait__get_IsInPlayIcon.c` 同）
+//      ③ `CardTrait._traitIcon != null`（偏移 `0x18`，`UnityEngine_Object__op_Inequality` 那一步）
+//      ④ （第一支循环另加）**这张卡的 `CardTraitData._hide == false`**（偏移 `0x20` = 我们这边没有的
+//         那一层「单卡隐藏」，`CardDef` 里无对应字段 ⇒ **这一条今天恒真**，如实记着）
 //    另有一条**同族但不同用途**的筛选器：`CardTraitCollection__GetTraitListForCardIcons.c`（100 行）
 //    —— 那条**只要求 ① + ③**（不要求 `_isInPlayIcon`）⇒ 两者差的那一族 = 「有图标、但不算**场上**图标」。
-//    🔴 **仍然取不到的是那两个开关的【逐 trait 取值】**：`CardTrait` 的**资产本体本地没有**。
-//    实据（2026-10-11 现搜，⛔ 不是「没找到」而是「确实不在」）：`可读的 exports = 24.7 万文件`，
-//    按字段名全盘搜 `_traitIcon` / `_hasIcon` / `_isInPlayIcon` / `_traitEffects` / `customObject`
-//    **全 0 命中**（同一条 grep 对 `m_Name` 命中 12.8 万 ⇒ 仪器有牙）；`CardTrait` 的 MonoScript
-//    **在**（`assets_full/globalgamemanagers/MonoScript/MonoScript_1795.json`，`m_ClassName: "CardTrait"`），
-//    但**一个实例都没有**；`assets_full/resources/MonoBehaviour/` 是**空目录**
-//    （`resources.assets` 2039 个对象里 **616 个导出失败**）⇒ 它多半在没解出来的那一桶 / 远端包里。
-//    ⇒ **`For(...)` 今天只能拿「查得到图标」当那两条开关的**替身**，这条如实标着。**
+//
+//  🔴 **2026-10-24（`W10`）就地订正（铁律 5）——下面这一段原来写着「那两列的逐 trait 取值本地取不到」，
+//     那句【已作废】。** 原文留痕：
+//       「`CardTrait` 的资产本体本地没有 → 全盘按字段名搜 0 命中 → `resources/MonoBehaviour/` 空目录
+//        ⇒ `For(...)` 只能拿『查得到图标』当那两条开关的替身」。
+//     **为什么作废**：2026-10-23「Trait 全量权威化」已把 73 个 `CardTrait` 逐字节解进
+//     `Unity/数据/游戏数据/trait_collection.json`（**77 条全带** `hasIcon` / `isInPlayIcon` / `traitIcon`），
+//     生成器 = `工具/export_trait_collection.py`（安卓 1.35.0 与 PC 关服前 build 逐字段 0 差异）。
+//     错因是「当时确实没有」→ **后来有了、但没有回来改这一行**（不是当初查错）。
+//    ⇒ 现行判据 = 下面那张 `InPlayIconKeys`（**由那两列 + `traitIcon` 现算出来的 47 个键**，每条都能
+//      在 `trait_collection.json` 里逐条复查）；`For(...)` 用它筛。
+//    ⚠️ 那份 JSON **只在 `Unity/数据/游戏数据/`（不在 `Resources/`）** ⇒ 运行期读不到 ⇒ 这里是
+//      **照数据抄下来的静态表**（不是猜的）。数据哪天变了，重跑：
+//        `python -I -X utf8 -c "import json;d=json.load(open(r'd:/4/Unity/数据/游戏数据/trait_collection.json',encoding='utf-8'));
+//          print([(t['name'],t['hasIcon'],t['isInPlayIcon'],bool(t['traitIcon'])) for t in d['traits']])"`
+//      并把差异落到 `InPlayIconKeys`。
 //    ⛔ **别再把「查不到」写成「没反编译」**（那是两种不同的缺口：一个缺数据、一个缺口径）。
 //  · **底板怎么画** —— 🔴 **2026-10-12 就地订正（铁律 5，`A1661`）**：本行原来写
 //    「原版那个 sprite（PathID 2729514481590049735）在解包里**找不到本体**，我们按工程里现成的
@@ -366,39 +382,107 @@ namespace CardPresentation
         }
 
         /// <summary>
-        /// 🔴 **不进【场上徽标】的那几个关键词**（黑名单）。**判据 = 用户 2026-10-12 真机口径**，
-        /// ⛔ **不是「原版读数」** —— 原版那条判据是 `HasIcon && IsInPlayIcon && TraitIcon != null`
-        /// （`CardTraitCollection__GetTraitInPlayListForIcons.c`，202 行，全文见文件头），而
-        /// **那两个逐 trait 开关的取值本地取不到**（实据见文件头）⇒ 这条**只能按用户口径**。
+        /// 🔴 **能进【场上徽标】的那 47 个关键词** —— 原版 `hasIcon && isInPlayIcon && traitIcon != null`
+        /// 在**本 build 数据**上的逐条结果（判据链见文件头；数据 = `数据/游戏数据/trait_collection.json`
+        /// 的 77 条 `CardTrait`，2026-10-24 现算）。键 = <see cref="Key(string)"/> 归一化后的 trait 名。
         ///
-        /// · **`talent`（天赋）** —— 用户原话：「战将和部队卡面上有 7 格图标位，什么词条放什么图标。
-        ///   **但是天赋这个图标不要放。你现在放了**」。
-        ///   我们原来画它的**原因**是「它有图」（`Resources/Art/traits/talent.png` 9070 B、
-        ///   `Resources/Fonts/Warpforge Trait TextSprites.asset` 里有字形 `talent`、
-        ///   `资料/关键词图标_现状与总表.md:146` 标 ✓）—— ⚠️ **「有图」不等于「该进徽标」**，两件事。
-        ///   原版那边它大概率是 **`IsInPlayIcon == false`**（同族的 `GetTraitListForCardIcons` 只要
-        /// `HasIcon && TraitIcon != null` ⇒ 两者差的那一族就是「有图标、但不算**场上**图标」），
-        /// 但那**是推断，不是读数** ⇒ 本条**如实标成用户口径**。
+        /// 🔴 **2026-10-24（`W10`）本表取代了原来的黑名单 `NotInBoardBadges = {"talent"}`**：
+        /// 那条黑名单的判据是**用户 2026-10-12 真机口径**（⛔ 不是原版读数），只能挡住 1 条；
+        /// 现在按原版那三列筛，而它挡的那一条（`talent`）**被原版数据自己证明是对的**
+        /// （`talent` 的 `isInPlayIcon == false`）—— 用户口径与原版读数在这一条上**一致**。
+        ///
+        /// **被挡在门外的 17 个（有图、但原版不上场上徽标）**，逐键备查：
+        ///   · `hasIcon == false`（5）：`ambush` `berzerk` `flying` `huntMark` `markerlight`
+        ///   · `hasIcon == true` 但 `isInPlayIcon == false`（12）：
+        ///     `armour` `companion` `ephemeral` `fast` `flank` `pack` `rally` `talent` `teleport` `tide`
+        ///     `uprising` `vanguard`
+        ///   （另有 13 条两列里有 true、但 `traitIcon == null` ⇒ 本来就没图：`combo` `daemonicAllegiance`
+        ///    `dodge` `dontReturnFerocity` `firstStrike` `large` `mekaniak` `notDestroyRemnant` `oathDouble`
+        ///    `oathInAllTurns` `oathTripleActivation` `piercing` `unstoppable` —— 它们进不进本表都画不出来。
+        ///    77 = 47 + 17 + 13。）
+        ///
+        /// ⚠️ **用户点名的「护卫」**：官方中文表里没有「护卫」这个词条（`vanguard = 先锋`、
+        /// `shield = 盾牌`、`frontLine = 前线`）⇒ 他说的多半是 `vanguard`。**`vanguard` 原版压根不上
+        /// 场上徽标**（它靠「登场 idle 特效」那条通道表现）⇒ 本条会把它挡掉，正是用户要的效果。
         ///
         /// ⚠️ **只管【场上徽标】这一处**：卡面效果文字里的**行内图标**走的是另一条路
         /// （`CardIcons`/`CardText.KeywordSegment` 的 `&lt;sprite name="talent"&gt;` —— 原版卡面
         /// 确实印 `〔纸卷〕Talent: …`，见 `工具/_fix_a7_talent.py` 与 `Editor/IconSetup.cs:480`）
         /// ⇒ ⛔ **两处别一起关**（关掉那一条会让 `BattleScene` 里 `SpriteOf("Talent: …")` 那族断言与卡面一起红）。
         /// </summary>
-        static readonly HashSet<string> NotInBoardBadges = new HashSet<string> { "talent" };
+        static readonly HashSet<string> InPlayIconKeys = new HashSet<string>
+        {
+            "agenda", "artifice", "backlash", "blast", "blind", "bloodthirst", "camouflage",
+            "cantattack", "codex", "concussive", "cruelty", "duty", "ecstasy", "ferocity",
+            "frenzied", "invulnerable", "longrange", "markofchaos", "markofkhorne", "markofnurgle",
+            "markofslaanesh", "markoftzeentch", "mob", "oath", "pindown", "pray", "rage",
+            "regeneration", "regiment", "relentless", "remnant", "resolution", "sentry", "shield",
+            "shuriken", "slay", "sniper", "stealth", "stimulation", "stomp", "strike", "stun",
+            "swarm", "synapse", "unstable", "vulnerable", "waystone",
+        };
+
+        /// <summary>那 47 个键（自检读口，已排序；改表时同步改
+        /// `资料/普查产出_1024d/W10_选择器与词条_执行报告.md` 的名单）。</summary>
+        public static string[] InPlayIconKeysForTest
+        {
+            get { var a = new string[InPlayIconKeys.Count]; InPlayIconKeys.CopyTo(a); System.Array.Sort(a); return a; }
+        }
+
+        static readonly HashSet<string> _notInDataWarned = new HashSet<string>();
+        /// <summary>自检用：到目前为止**不在那 47 条白名单里**的图名（去重、已排序）。
+        /// <para>🔴 **2026-10-24（执行代理 `W24` · `D2_BattleScene11红诊断.md` §11）就地订正（铁律 5）**：
+        /// 本段原来写「正常卡池里**应当是空的**（78 张图里除那 17 张外都能对上）」—— **自相矛盾**：
+        /// 这个集合记的正是 <see cref="PlaysInPlayIcon"/> 里**被原版三列（`hasIcon` / `isInPlayIcon` /
+        /// `traitIcon`）挡掉**的那些图名，而其中 **17 条本来就该在里面**
+        /// （`Editor/BadgeFilterAssert.cs` 里 `HasIconFalse` 5 条 + `NotInPlayIcon` 12 条）。
+        /// ⇒ 正常卡池里它**应当恰好是那 17 条**，⛔ **不是空**。</para>
+        /// <para>⚠️ 真正那一格「图集里有、但 `trait_collection.json` 的 77 条里没有」**本集合从来没记过**
+        /// （判它需要一份 77 条的完整键集，运行期读不到那份 JSON）。</para>
+        /// <para>⚠️ 它是**全进程累积**的（任何更早的 `Badges.For` 都会加数）⇒ 要「只看这一趟」先调
+        /// <see cref="ResetUnknownForTest"/>。</para></summary>
+        public static string[] UnknownIconSpritesForTest
+        {
+            get { var a = new string[_notInDataWarned.Count]; _notInDataWarned.CopyTo(a); System.Array.Sort(a); return a; }
+        }
+
+        /// <summary>自检用：清空 <see cref="UnknownIconSpritesForTest"/> 的**累积**
+        /// （全池扫那一趟开始前调一次，否则数里混着更早调用的残留 —— `D2` §11）。
+        /// <para>⚠️ 这个集合同时也是「每个新键只告警一次」的去重集 ⇒ 清空之后同样的图名**会再告警一次**
+        /// （有意的：自检里要的是「这一趟」的完整名单）。</para></summary>
+        public static void ResetUnknownForTest() { _notInDataWarned.Clear(); }
+
+        /// <summary>这个**图名**（`Art/traits/` 的文件名，= `SpriteOf` 的返回值）能不能进场上徽标。
+        /// 判据 = 归一化后是否在 <see cref="InPlayIconKeys"/> 里（= 原版那三列在本 build 数据上的等价值）。
+        /// <para>⚠️ **认不出的一律 false**（原版：不在 `TraitCollection` 里 ⇒ 永远进不了那张列表），
+        /// 且**每个新键只告警一次**（⛔ 不静默：真出现这种词说明数据/图集对不上，要人看一眼）。</para></summary>
+        public static bool PlaysInPlayIcon(string sprite)
+        {
+            if (string.IsNullOrEmpty(sprite)) return false;
+            if (InPlayIconKeys.Contains(Key(sprite))) return true;
+            if (_notInDataWarned.Add(sprite))
+                Debug.LogWarning("[Badges] 图 `" + sprite + "` 不在「场上图标」那 47 条里（判据 = `trait_collection.json`"
+                               + " 的 `hasIcon && isInPlayIcon && traitIcon != null`）⇒ 按原版口径**不画**这枚徽标。"
+                               + " 若它确实该画：先重跑 `工具/export_trait_collection.py` 核数据，再补进 `Badges.InPlayIconKeys`。");
+            return false;
+        }
 
         /// <summary>
         /// 从**单位当前的关键词表**挑出要显示的那几个（最多 7 个，顺序稳定 ⇒ 对局可复现）。
         ///
-        /// 🔴 **判据**：**凡是查得到图标的都显示**（= 我们的**替身**，见下面那条更正与文件头）。
-        /// 也就是说「引擎当前认为这个单位身上有什么，卡上就画什么」—— 加/减益、光环给的、
-        /// 限时增益到期收回，全都会跟着变，因为喂进来的是 <see cref="UnitState"/> 的**当前**表。
+        /// 🔴 **判据（2026-10-24 起 = 原版真值表）**：一个关键词要**同时**满足
+        /// ① `hasIcon` ② `isInPlayIcon` ③ 有图标 —— 落在 <see cref="InPlayIconKeys"/> 那 47 条里
+        /// （判据链与数据来源见文件头）。**不再是**「凡是查得到图标的都显示」那种替身口径。
+        /// 也就是说「引擎当前认为这个单位身上有什么」**且**「原版把它算作场上图标」，卡上才画。
         /// 认不出图标的**跳过并计数**，由自检盯着，不静默吞掉。
-        /// <para>🔴 **2026-10-11（`A1362`）**：**原版那条判据已经读到了**（文件头有全文）——
-        /// 它要 `HasIcon && IsInPlayIcon && TraitIcon != null`（外加 `CardTraitData._hide == false`），
-        /// 而**那两条开关的逐 trait 取值本地取不到**（文件头写了实据）⇒ 本方法**今天做不到逐条对齐**。
-        /// ⛔ **别把「取不到开关」当成「不用管」**：能取到的那一天，要按 `HasIcon && IsInPlayIcon`
-        /// 收窄这里（**先做哪些**：先补这两个开关的读取口，再谈收窄）。</para>
+        /// <para>🔴 **2026-10-24（`W10`）就地订正（铁律 5）**：本段原来写「那两条开关的逐 trait 取值
+        /// 本地取不到 ⇒ 本方法今天做不到逐条对齐」+「能取到的那一天，要按 `HasIcon && IsInPlayIcon` 收窄」——
+        /// **两句都已落地**：数据 2026-10-23 解出来了（`trait_collection.json` 77 条全带），
+        /// 本方法今天就按那两列收窄（`PlaysInPlayIcon`）。留痕保留，免得下一个会话以为还没做。</para>
+        /// <para>🔴 **2026-10-24 新增 `isPlayer`（原版那一支别漏）**：`BattleCardUI__UpdateTraitIcons.c:40-46`
+        /// 在筛之前还有一道 —— **敌方的 `ambush` 单位（`!isPlayer`）整排一枚都不画**。
+        /// 调用方传「这张卡是不是我方的」（默认 `true` = 我方/不判断途）。⚠️ 不传 ⇒ 那一条**不会生效**
+        /// 且**静默**（默认值没法自己知道阵营）⇒ 接的时候别忘（现状：`BattleDriver.ToCardData` 还是默认值，
+        /// 见 `资料/普查产出_1024d/W10_选择器与词条_执行报告.md` 的「没做到」一节）。</para>
         /// 🔴 **2026-10-21 更正（`A1361` · 铁律 5）**：这一句原来举的例子是「（`Talent` / `Secret` /
         ///   `Lord Commander` 这类**没有图的**）」—— **`Talent` 那半个例子不成立**：
         ///   `Resources/Art/traits/talent.png` 在（9070 B）、`Resources/Fonts/Warpforge Trait TextSprites.asset`
@@ -410,10 +494,19 @@ namespace CardPresentation
         /// </summary>
         public static List<Badge> For(IEnumerable<KeyValuePair<string, int>> keywords, string orderHint = null,
                                       IReadOnlyCollection<string> numericKeys = null,
-                                      System.Func<string, bool> isActive = null)
+                                      System.Func<string, bool> isActive = null,
+                                      bool isPlayer = true)
         {
             var list = new List<Badge>();
             if (keywords == null) return list;
+
+            // 🔴 **2026-10-24（`W10`）· 原版那道「敌方伏击整排不画」的闸**（`BattleCardUI__UpdateTraitIcons.c:40-46`）：
+            //    先把 7 格全 `Toggle(false)`，然后 `if (HasCurrentTrait(card, 0x4b0 /*ambush*/) && !isPlayer) return;`
+            //    ⇒ 注意它**不看有没有翻面**、也不看别的词条 —— 只要「对面 + 带 ambush」就整排空。
+            //    ⚠️ 先 `Copy` 再判：`keywords` 可能是**只能走一遍**的惰性序列，判两次就空了。
+            var ordered = new List<KeyValuePair<string, int>>();
+            foreach (var kv in keywords) ordered.Add(kv);
+            if (!isPlayer && HasKeyword(ordered, "ambush")) return list;
 
             // 顺序：**卡面效果文字里先出现的排前面**（和玩家在卡上读到的词序一致），
             // 文字里没有的（后面加上来的增益）按名字排 —— 全程确定 ⇒ 对局可复现。
@@ -426,8 +519,6 @@ namespace CardPresentation
             //    ⚠️ 那份资产（`CardTraitCollection.TraitCollection`）**本地没有**（只有 MonoScript、零实例）
             //    ⇒ 今天**判不出**逐卡原版次序；这段排序是**在那之前最接近玩家阅读顺序的替身**。
             //    ⚠️ `A1406` 那次只动了**卡面关键词段**（`CardText.KeywordSegment`）、**没动这里**。
-            var ordered = new List<KeyValuePair<string, int>>();
-            foreach (var kv in keywords) ordered.Add(kv);
             string hint = (orderHint ?? "").ToLowerInvariant();
             ordered.Sort((a, b) =>
             {
@@ -444,10 +535,13 @@ namespace CardPresentation
                 if (list.Count >= MaxSlots) break;
                 string spr = SpriteOf(kv.Key);
                 if (spr == null) continue;
-                // 🔴 **黑名单：认得出图也不上场的那些**（`talent`；判据 = 用户 2026-10-12 口径，
-                //    全文与「为什么不是原版读数」见 `NotInBoardBadges`）。放在 `SpriteOf` 之后：
-                //    这位仍然算「认得出图」⇒ **不会**被当成「认不出图标」计进那条诊断。
-                if (NotInBoardBadges.Contains(Key(kv.Key))) continue;
+                // 🔴 **原版那三列（`hasIcon && isInPlayIcon && traitIcon != null`）**——
+                //    判据与逐键名单见 `InPlayIconKeys`。**按【图名】判、不按关键词判**：
+                //    别名（`Destroyer`→`frenzied` / `Armor`→`armour` / `Dark Pact`→`markOfChaos` …）
+                //    在这里天然归一到同一条 trait 上，⛔ 不用再维护第二张表。
+                //    ⚠️ 放在 `SpriteOf` 之后：这位仍然算「认得出图」⇒ **不会**被当成
+                //    「认不出图标」计进那条诊断（两者是不同的缺口）。
+                if (!PlaysInPlayIcon(spr)) continue;
                 // 角标（2026-09-29 改口径，见 `CarriesValue`）；
                 // 激活态（原版 `BoardTraitIcon.Initialize` 的第 4 个参数）由调用方给 ——
                 // 原版只有 `Duty` / `Oath` 两个子类覆写了 `IsActive`，其余恒 true。
@@ -521,6 +615,17 @@ namespace CardPresentation
                 default:
                     return false;
             }
+        }
+
+        /// <summary>关键词表里有没有这一条（**归一化比较**：`Ambush` / `ambush` / `Ambush 1` 都算）。
+        /// 原版 `HasCurrentTrait(card, 0x4b0)` 的等价物（我们这侧按词名判，不按 trait id）。</summary>
+        static bool HasKeyword(List<KeyValuePair<string, int>> keys, string want)
+        {
+            if (keys == null || string.IsNullOrEmpty(want)) return false;
+            string w = Key(Strip(want));
+            for (int i = 0; i < keys.Count; i++)
+                if (Key(Strip(keys[i].Key)) == w) return true;
+            return false;
         }
 
         /// <summary>`IReadOnlyCollection` 上没有 `Contains`（那是 `ICollection` 的）——

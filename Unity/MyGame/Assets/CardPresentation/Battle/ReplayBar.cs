@@ -322,7 +322,10 @@ namespace CardPresentation
 
         /// <summary>原版 `ReplayHud.Setup()` —— **只做一件事**：
         /// `objHolder.SetActive(BattleManager.matchType == 0xA0)`（`0xA0 = 160 = MatchType.Replay`）。
-        /// 🔴 我们**从不进回放局** ⇒ 传 `false` 时**整条不显示**（原版普通对局就是这样）。
+        /// 传 `false` 时**整条不显示**（原版普通对局就是这样）。
+        /// 🔴 **2026-10-24（执行代理 `W1` · 铁律 5 就地订正）：本段原来写「我们**从不进回放局**」—— 不成立**
+        /// （2026-09-27 起 `PlayReplay` 就进回放局了）。**回放局由 `PlayReplay` 传 `true`**、
+        /// `Begin` 每局传 `false` 复位（`_replayBar` 只建一次 ⇒ 必须每局复位）。
         /// ⚠️ 开关在 `Holder` 上、**不在根节点**（照原版）。</summary>
         public void Setup(bool isReplayMatch)
         {

@@ -67,7 +67,25 @@ public static class BattleVfxAssertE3
             + " —— 🧨 把 `TryResolveTriggerPicks` 的 ③ 改回「只查 `trigger` 桶」、或把 `AddTriggerNamesOf` "
             + "改回「只取第一条同名行」⇒ 逐条报「漏播」⇒ 红");
 
+        // 🆕 2026-10-24（`W10` · 另一代理）：徽标筛选 + 主动能力图标来源（它自己的断言、自己的计数）。
+        RunW10BadgeFilter();
+
         Summary();
+    }
+
+    /// <summary>🆕 **2026-10-24（`W10` · 另一代理）**：把 `BadgeFilterAssert`（场上徽标筛选 + 主动能力图标来源）
+    /// 挂在本宿主上跑一次，并把它那两条计数并进本文件的总数。
+    ///
+    /// **为什么挂在这里**：`BattleScene.Run` 只认 `BattleVfxAssertE3.Run()` 这一个调用点
+    /// （`BattleScene.cs:12171`），而 `BattleScene.cs` 本批**不归 `W10`** ⇒ 借这个已有宿主，
+    /// 省掉「再改一次宿主」。⚠️ 它跑的东西**与本文件那四项无关**（各断各的、各自的 `✗` 前缀是 `BT W10`）。
+    /// 想拆开：在 `BattleScene` 里单独加一句 `BadgeFilterAssert.Run(); pass += …Failed;` 即可，
+    /// 然后把这里两行删掉（⛔ 别两边都调 —— 会跑两遍、计数翻倍）。</summary>
+    static void RunW10BadgeFilter()
+    {
+        BadgeFilterAssert.Run();
+        Passed += BadgeFilterAssert.Passed;
+        Failed += BadgeFilterAssert.Failed;
     }
 
     // ==================================================================
@@ -151,11 +169,22 @@ public static class BattleVfxAssertE3
     {
         Debug.Log("BT E3 --- D4：`trigger` 桶按拍分件（Start(0) 不在触发那一拍）---");
 
+        // ⚠️ 2026-10-24 更正（铁律 5 · `T04`）：这段原来的说明写「【④ 关键词不在白名单 ⇒ 落回整桶】
+        //   ……（`Trigger(3)` / `TriggerOnPlay(6)` + 卡级行）」，读起来像「④ 与 ② 期望相同、卡级行全保留」
+        //   —— **实际不成立**（2026-10-24 `W6` 起）：④ 走的是 `VfxMap.TriggerBeatRowsMatching`，
+        //   在按拍分件之上**再挡一道** —— 卡级行只保留【没标名】与【标名且正是本拍】的，标着别的
+        //   trigger 名的会被挡掉（`Acolyte Heavy` 的 `Buff_GSC` / `Buff_Red` 不许在 `Strike` 那一拍混进来）；
+        //   ② 结构上做不到这一层（`times` 为空 ⇒ 标不上名）⇒ **两档的期望本来就不同**。
+        //   期望值的独立重算（只用原始判据、⛔ 不调被测实现）= `Core/VfxMap.cs` 的
+        //   `SelfCheckTriggerBeatSplit` 里 `expectFour` 那段（2026-10-24 现读 `:3560-3575`）；
+        //   行为级落点 = `Editor/BattleScene.cs` 的 `J1·D4` 四条（现读 `:37334-37374`）
+        //   ＋ `W6` 那道闸的灭自证（现读 `:37110-37124`）。⛔ 行号会漂，判据是那几段代码本身。
         var all = VfxMap.SelfCheckTriggerBeatSplit();
         Check(all.Length == 0,
               "★ D4（全池·触发分拍）：每张「`trigger` 桶里混着 `Start(0)`/`OnPlay(2)` 行」的卡，在"
-            + "【② 没有 `animTimes`】与【④ 关键词不在白名单 ⇒ 落回整桶】**两档**里都只取触发那一拍该播的"
-            + "（`Trigger(3)` / `TriggerOnPlay(6)` + 卡级行）"
+            + "【② 没有 `animTimes`】与【④ 关键词不在白名单】**两档**里都只取触发那一拍该播的"
+            + "（`Trigger(3)` / `TriggerOnPlay(6)` + 卡级行；⚠️ ④ 还会挡掉标着别的 trigger 名的卡级行，"
+            + "② 结构上做不到这一层 —— 见本 Check 上方的「2026-10-24 更正」注）"
             + (all.Length == 0 ? "" : "\n  ✗ " + string.Join("\n  ✗ ", all))
             + " —— 🧨 删掉 `TriggerBeatRows` 的任一处调用、把 `IsNonTriggerBeatTraitRow` 的 "
             + "`tt != 3 && tt != 6` 改恒 false（整桶播）或恒 true（把卡级行也切掉）⇒ 红");

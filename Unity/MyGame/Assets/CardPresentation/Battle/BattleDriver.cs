@@ -283,6 +283,17 @@ namespace CardPresentation
         /// 单机下 `_net == null` ⇒ 与老代码**一字不差**。</summary>
         int LocalAct(AiAction act, System.Func<int> apply)
         {
+            // 🔴 **2026-10-24（执行代理 `W1` · 判据 `R2` §5 / §4 末段）：回放局里**任何**本地动作都落不了地。**
+            //   这是「会改引擎状态」的**唯一本地口**（出牌 / 攻击 / 技能 / 收集灵魂石 / 结束回合全过它）
+            //   ⇒ 闸设在这里 = 一次盖住全部入口（铁律 10 第 5 条）。
+            //   为什么必须显式写：回放里 `WaitingForBlockingAction` 现在**恒 false**（原版 `WaitingForBlockingAction.c:26-30`
+            //   的 `0xA0` 短路），而 `Ctx.IsOver` 在「坏录像（0 回合就分叉）」那一档是**假**
+            //   ⇒ 原来能一路点到引擎里去（`R2` §4 末段那条危险：点一下 `结束回合` 就真落一条 EndTurn）。
+            if (_replaySession)
+            {
+                Debug.LogWarning("[Replay] 回放局里本地动作 **" + act.Kind + "** 被拒 —— 回放是只读的，⛔ 不改局面");
+                return RuleCodes.ErrBadHand;
+            }
             if (_net != null) _net.CaptureLocalAnswers(Ctx, act);
             // 🆕 2026-09-27（录像）：**面板答案要在 `apply()` 之前抓** —— 引擎一结算就把队列吃空了
             //   （与 `NetBattle.CaptureLocalAnswers` 同一条规矩，只是我们这份单机也要）。
@@ -323,6 +334,13 @@ namespace CardPresentation
                 NoteRemotePlayTicket(m.actor, m.kind, m.handIdx);
             int code = NetApply.Apply(Ctx, m, _me, s => Debug.Log("[Net] " + s));
             if (code != RuleCodes.OK) return code;
+
+            // 🔴 **2026-10-24（执行代理 `W1` · 判据 `N1` §2.1 / §6·1）**：**对手的换牌落地了**
+            //   = 原版 `ReceiveEnemyMulliganAndEnvEffect:55-58`（同一处把 `+0x29C receivedEnemyMulligan`
+            //   置 1、并把 `mulliganWaitText.SetActive(false)`）⇒ 「等待敌人」横幅从这一条起**关闭**。
+            //   ⚠️ 判据是 **`actor != _me`**（座位是绝对的，见本方法头注释）——
+            //      别拿「`MulliganDone` 到了没有」顶替：那一条晚一步（它还要等换牌阶段整段收尾）。
+            if (m.kind == NetActionKind.Mulligan && m.actor != _me) _mulliganFoeApplied = true;
 
             if (NetApply.IsMulliganDone(m))
             {
@@ -435,8 +453,16 @@ namespace CardPresentation
                       + $"!shouldLoseIfDisconnectEnd ⇒ `LogWarning` + return）｜理由码 {reason}({(int)reason})");
                 return;
             }
-            RecRaw(RecKindForfeit, 1 - _me);          // 🆕 录像：投降也是一条要重放的动作
             RuleCore.Forfeit(Ctx, 1 - _me, reason);
+            // 🔴 **2026-10-24（执行代理 `W9`）就地调整顺序：记账排到「判负落地之后」**。
+            //   为什么：`RecRaw` 现在同时采一格**全量状态指纹**（见 `RecordFullTrace`），而
+            //   `NetProtocol.StateHash` **含 `ctx.Winner`** ⇒ 记在 `Forfeit` 之前会采到「还没判负」那一格，
+            //   而回放侧 `ApplyReplayActionAt` 是**判负之后**才采样 ⇒ 每一份以投降结束的录像都会在最后一条假报分叉。
+            //   ⚠️ 动作在 `actions` 里的**序号不变**（这一段中间没有别的记账）；只有 `trace`（`DeepHash`）那一格
+            //   从「判负前」变成「判负后」—— 与「`trace[i]` = 第 i 条动作**做完之后**」这条既有契约同向
+            //   （`EndTurnAndAdvance` 顶部那句注释就是这条）。回放侧对 `RecKindForfeit` 那条不比对 `DeepHash`
+            //   （它走单独一支），所以不影响既有判据。
+            RecRaw(RecKindForfeit, 1 - _me);          // 🆕 录像：投降也是一条要重放的动作
             RefreshAll(); UpdateHud();
         }
 
@@ -466,8 +492,10 @@ namespace CardPresentation
                       + $"（原版 `DeadHero` 战后重入闸）｜理由码 {reason}({(int)reason})");
                 return;
             }
-            RecRaw(RecKindForfeit, _me);              // 录像：与上面同一族，只是演员是**本机**
             RuleCore.Forfeit(Ctx, _me, reason);
+            RecRaw(RecKindForfeit, _me);              // 录像：与上面同一族，只是演员是**本机**
+                                                      // ⚠️ 2026-10-24（W9）：与 `NetRemoteResign` 同一条调整 ——
+                                                      //    记账排在判负**之后**（`StateHash` 含 `Winner`，见那边那段注释）
             RefreshAll(); UpdateHud();
         }
 
@@ -506,6 +534,35 @@ namespace CardPresentation
         ReplayRecord _rec;
         /// <summary>本局正在录的那份（**没在录 = null**）。自检读口。</summary>
         public ReplayRecord Recording { get { return _rec; } }
+        /// <summary>🔴 **2026-10-24（执行代理 `W9`）· 只给自检**：把「正在录的那一份」的两列**逐动作全量指纹**
+        /// 手工落进 `ReplayRecord`（`startFullHash` / `traceFull`）。
+        /// <para>为什么需要它：产品路径上这两列由 <see cref="RecFinish"/> 写（结算那一刻）。而自检里那几处
+        /// 「录一段 → 立刻放回去」的夹具**还没结算**（`RecFinish` 跑不到）⇒ 不补这一下，回放侧会走
+        /// 「老档 ⇒ 本层没判」那一档，新加的这一层对账**一次都验不到**（那就是自检自证）。</para>
+        /// <para>⚠️ 下面两次赋值与 `RecFinish` 里那两句**同源同序**（⛔ 别各写一份）；⚠️ 只读 `_fullTrace`、
+        /// 不写引擎、不落盘。⛔ **产品路径不许调它**。</para></summary>
+        public void FlushFullTraceToRecordingForTest()
+        {
+            if (_rec == null || _fullTrace == null) return;
+            _rec.startFullHash = _fullTrace.StartHash;
+            _rec.traceFull = _fullTrace.ToArray();
+        }
+        /// <summary>🔴 **2026-10-24（执行代理 `W9`）**：录制端**逐动作全量指纹**的收集器
+        /// （`ReplayFingerprintTrace.ForRecording()`，判据与语义 → `RuleEngine/Core/ReplayFingerprintTrace.cs`）。
+        /// <para>生命周期：`RecBegin` 建 + `RecordStart`；`RecAct`/`RecRaw`/`RecMsg` **每落一条动作**记一格
+        /// （**紧挨着既有的 `_rec.trace.Add(DeepHash(...))`** —— 那一句的位置就是「动作已落地」这个程序点，
+        /// 回放侧 `ApplyReplayActionAt` 取的是同一个点）；`RecFinish` 写进 `ReplayRecord` 后置 `null`。</para>
+        /// <para>⚠️ 它是 `int[]`（`StateHash`）那一列，**与 `_rec.trace`（`DeepHash`）并存、分工不同** ——
+        /// ⛔ 别把任何一个换掉（`trace` 含实例号、定位更细，还有字面量锚点钉着）。</para></summary>
+        ReplayFingerprintTrace _fullTrace;
+        /// <summary>🔴 **2026-10-24（执行代理 `W9`）**：`Begin` 里 `RuleCore.NewBattle` **之后立刻**取的
+        /// 「开局全量指纹」= `NetProtocol.StateHash(Ctx)`。
+        /// <para>🔴 **为什么不在 `RecBegin` 里现取**：`RecBegin` 之后 `Begin` 还会往下走 —— **无换牌那条路会
+        /// `RuleCore.BeginTurn`（回合 1、抽 1 张）**，换牌那条路会 `OpenMulligan`。而回放侧 `CheckStart` 只能
+        /// 在 `Begin` **返回之后**取 ⇒ 录制端若在 `RecBegin` 取，无换牌/教程局的「开局指纹」会**系统性地差一个回合**
+        /// ⇒ 每一份这种录像都会假报「开局就不同源」。⇒ **两端都取这一个程序点**（`NewBattle` 刚返回、
+        /// `PlayMode` 落位之后；`StateHash` 不含 `PlayMode`，所以与 `RecBegin` 那一行的差别不影响哈希）。</para></summary>
+        int _beginFullHash;
         /// <summary>🔴 **2026-10-24（`A29`）**：现在这一趟 `ApplyLoggedAction` 是**在重放一条已录/权威动作流**
         /// 而不是活局（`PlayReplay` / `NetReplay` 各置一次、`finally` 还原）。
         /// **只有一个用处**：决定「换牌那一条落地之后要不要**立刻**补 `BeginTurn`」——
@@ -633,7 +690,7 @@ namespace CardPresentation
         void RecBegin(PlayerDeck d0, PlayerDeck d1, string f0, string f1, int seed, string mode, string arena,
                       int botSeat)
         {
-            if (!RecordReplays) { _rec = null; return; }
+            if (!RecordReplays) { _rec = null; _fullTrace = null; return; }
             LastReplayFile = null;
             _rec = new ReplayRecord
             {
@@ -675,6 +732,22 @@ namespace CardPresentation
             //   ⛔ 不进 `MsgAction`、**不上网** —— 那个结构同时是网络上那个结构，加字段 = 把码送上网（与原版相反）。
             //   开局这一刻还没有结果 ⇒ `Undefined`、`seat` 不写；这条同时充当「这份录像是从头记的」记号。
             ReplayStore.WriteResultHead(_rec, BattleResult.Undefined, -1);
+            // 🔴 **2026-10-24（执行代理 `W9`）**：**逐动作全量指纹**从这里开始收 ——
+            //   开局那一格取 `_beginFullHash`（`Begin` 在 `NewBattle` 之后立刻取好的那个，
+            //   与回放侧 `CheckStart` **同一个程序点**，见它的 doc）。
+            _fullTrace = ReplayFingerprintTrace.ForRecording();
+            _fullTrace.RecordStart(_beginFullHash);
+        }
+
+        /// <summary>🔴 **2026-10-24（执行代理 `W9`）**：**每落一条动作之后**采一格「全量状态指纹」
+        /// （= 终局那一个 `NetProtocol.StateHash` 口径）。三个记账口（`RecAct` / `RecRaw` / `RecMsg`）
+        /// 各调一次，⛔ **别在别处再开第四个采样点**（`traceFull` 必须与 `actions` **一一对应**，
+        /// 多一格/少一格 ⇒ 回放侧 `Finish` 会如实报条数不符）。
+        /// <para>⚠️ 调用位置 = **紧挨着既有的 `_rec.trace.Add(DeepHash(Ctx))`** —— 那一句的位置就是
+        /// 「这条动作已经落进引擎」这个程序点，回放侧 `ApplyReplayActionAt` 取的是同一个点。</para></summary>
+        void RecordFullTrace()
+        {
+            if (_fullTrace != null) _fullTrace.RecordAfterAction(NetProtocol.StateHash(Ctx));
         }
 
         /// <summary>记一条 `AiAction`（玩家与 AI 共用）。`actor` 是**绝对座位**。</summary>
@@ -686,6 +759,7 @@ namespace CardPresentation
             m.picks = picks; m.pickIds = pickIds;
             _rec.actions.Add(m);
             _rec.trace.Add(DeepHash(Ctx));   // 逐动作轨迹（**总是记**：4 字节/条，它只够定位到第几条）
+            RecordFullTrace();               // 🆕 W9：全量指纹（与回放侧同一个程序点，见 `RecordFullTrace`）
             // 🔴 **黑匣子**（那两个字符串）**只在 `ReplayStore.VerboseTrace` 开着时记** ——
             //    它们才是「读得出哪里不一样」的那份（见 `StateBrief`），但每局要多十几 KB。
             //    ⇒ 平时关（一局约 9 KB）、**自检与查问题时开**（`ReplayStore.VerboseTrace = true`）。
@@ -706,6 +780,7 @@ namespace CardPresentation
             _rec.actions.Add(new MsgAction { seq = _rec.actions.Count, kind = kind, actor = actor, marks = marks,
                                              envSlot = envSlot, envSO = envSO, defId = defId });
             _rec.trace.Add(DeepHash(Ctx));   // 逐动作轨迹（**总是记**：4 字节/条，它只够定位到第几条）
+            RecordFullTrace();               // 🆕 W9：全量指纹（与回放侧同一个程序点，见 `RecordFullTrace`）
             // 🔴 **黑匣子**（那两个字符串）**只在 `ReplayStore.VerboseTrace` 开着时记** ——
             //    它们才是「读得出哪里不一样」的那份（见 `StateBrief`），但每局要多十几 KB。
             //    ⇒ 平时关（一局约 9 KB）、**自检与查问题时开**（`ReplayStore.VerboseTrace = true`）。
@@ -751,6 +826,7 @@ namespace CardPresentation
             // 逐动作轨迹：与 `RecAct` / `RecRaw` **同一条纪律**（`trace` 与 `actions` 一一对应，
             // `PlayReplay` 拿它定位分叉点）—— 少记一次 = 后面每一条都对不上号。
             _rec.trace.Add(DeepHash(Ctx));
+            RecordFullTrace();               // 🆕 W9：全量指纹（与回放侧同一个程序点，见 `RecordFullTrace`）
             if (ReplayStore.VerboseTrace)
             {
                 _rec.traceLogTail.Add(EvtTail(Ctx));
@@ -774,6 +850,24 @@ namespace CardPresentation
             //   （那会进 `Fingerprint` 的 `Events.Count`，把回放自证弄坏）。
             var resultCode = ReplayStore.LastResultFromEvents(Ctx.Events, out int resultSeat);
             ReplayStore.WriteResultTail(_rec, resultCode, resultSeat);
+            // 🔴 **2026-10-24（执行代理 `W9`）**：**逐动作全量指纹**那两列（`ReplayRecord` 的新字段）。
+            //   ⚠️ 与既有的 `trace`（`DeepHash`）**并存** —— ⛔ 别拿这一列把它换掉（那一列含实例号、定位更细，
+            //   而且 `Editor/BattleScene.cs` 第 21·1 节有个字面量锚点钉着它）。
+            //   ⚠️ `_fullTrace` 为 `null`（理论上只在没走 `RecBegin` 时）⇒ 两列写成「没记」
+            //   （`0` / `null`）⇒ 回放侧走 `NoExpectedTrace` 并**出声**（⛔ 不是静默通过）。
+            if (_fullTrace != null)
+            {
+                _rec.startFullHash = _fullTrace.StartHash;
+                _rec.traceFull = _fullTrace.ToArray();
+            }
+            else
+            {
+                _rec.startFullHash = 0;
+                _rec.traceFull = null;
+                Debug.LogWarning("[Replay] ⚠️ 这一局**没有逐动作全量指纹**（`_fullTrace` = null）"
+                               + " ⇒ 录像里 `traceFull` 记成「没有」；回放时这一层对账会**出声说明没做**（不是通过）");
+            }
+            _fullTrace = null;
             LastReplayFile = ReplayStore.Save(_rec);
             var keep = _rec; _rec = null;
             // 🆕 **2026-10-23（引擎线「新账-88」· 深审 B 的 `D1`）**：多打了**轨迹摘要** ——
@@ -802,6 +896,9 @@ namespace CardPresentation
             }
             var pb = NetPendingBattle.FromStart(rec.start, isHost: rec.mySeat == 0);
             if (pb == null) { Debug.LogWarning("[Replay] 开局头解不出（种子/卡组对不上）"); return false; }
+            // 🔴 2026-10-24（W9）：对账器先清成 null —— 重建**之前**就失败的那些支路（上面两处 return）
+            //   不许让自检读到**上一局**留下的那一份（那是别人的结论）。
+            _replayFt = null;
             Debug.Log($"[Replay] 开播：{rec.savedAt} · {rec.myHero} vs {rec.foeHero} · "
                     + $"{rec.actions.Count} 条动作 · 本机座位 {pb.MySeat}"
                     + (rec.TutorialStageIndex >= 0 ? $" · **教程第 {rec.tutorialStage} 关**" : ""));
@@ -863,6 +960,17 @@ namespace CardPresentation
                 //    （第二条对局记录 + 结算面板与开门视频 + 三条每日任务 + 一次骷髅）。
                 //    清掉的唯一入口 = 开新一局（`Begin`）。
                 _replaySession = true;
+                // 🔴 **2026-10-24（执行代理 `W1` · 判据 `RE1` §3-C3 / C5·Q5）**：
+                //   ① **这一份**存下来（`Restart()` 在回放里的语义 = 重播这一份，见 `_replayRec` 的 doc）；
+                //   ② **回放条亮起来** —— 原版判据是 `ReplayHud.Setup()` =
+                //      `objHolder.SetActive(BattleManager.matchType == 0xA0)`（`0xA0 = 160 = MatchType.Replay`），
+                //      而我们的 `BuildHud` 里写死 `Setup(false)`（注释还写着「我们从不进回放局」——
+                //      **那句 2026-09-27 起就过期了**）。⚠️ 我们自己的 `Ctx.MatchType` 是**录的那一局自己的模式**
+                //      （`pb.PlayMode`，见 `A383`），**永远不是 160** ⇒ 原版那个判据在我们这儿对不上口径；
+                //      等价判据 = **「这一局是不是回放局」**（就是本方法刚置的 `_replaySession`）。
+                //   ③ `SetPlaying(!_replayPaused)`：`Begin` 已经 `SetReplayPaused(false)`（播着）⇒ 亮 `Pause`。
+                _replayRec = rec;
+                if (_replayBar != null) { _replayBar.Setup(true); _replayBar.SetPlaying(!_replayPaused); }
                 _replayDivergence = -1;      // 🆕 审查（§9·3）：回放前清零 —— 这一格是**断言用的失败位**
                 _setupOrderViolationForTest = -1;   // 🔴 2026-10-24（A29）：同族的第二个失败位（开局次序）
                 // 🆕 2026-10-20（战斗线 `W58-REPLAYINTRO`）：**回放开局也要播开场独白**
@@ -884,19 +992,115 @@ namespace CardPresentation
                 //      **不消耗 `Ctx.Rng`**（`SpeakIntro` 的 `VoiceLines.TryPick(..., null, ...)` 明写
                 //      「随机源传 null」）⇒ 动作流逐条落地的结果与终局指纹不受影响。
                 //   ⚠️ 位置 = **「进入战斗、动作流开始前」**（对应原版 `StartBattlePhase` 那一点）：
-                //      排在下面那个逐条灌动作的 `for` 之前；此时 `Begin` / `BeginTutorial` 已建好
-                //      督军与 `_unitChat`，`SpeakIntro` 要读的都在。
+                //      排在**动作流第一手之前**（`2026-10-24` 起动作流的入口是 `ApplyReplayActionAt`）；
+                //      此时 `Begin` / `BeginTutorial` 已建好督军与 `_unitChat`，`SpeakIntro` 要读的都在。
                 StartIntroMonologue();
                 // 🆕 2026-10-11（A985⑬ / A1295）：这一局的结束理由码从**录像尾**那条【只落盘】记录里读。
                 //   ⚠️ 老录像没有那两条记录 ⇒ 读出 `Undefined` ⇒ 行为**逐字不变**。
-                var replayResultCode = ReplayStore.ReadResultCode(rec);
+                _replayResultCode = ReplayStore.ReadResultCode(rec);
                 // 🆕 **2026-10-23（新账-88 / D1）**：回放侧也攒一份轨迹 —— 末了打**摘要**，
                 //   与 `RecFinish` 那句同一个形状（跨进程对账用：两个独立进程必须逐位相同）。
-                var replayTrace = new List<int>();
-                for (int i = 0; i < rec.actions.Count; i++)
+                _replayTrace = new List<int>();
+                // 🔴 **2026-10-24（执行代理 `W9`）：逐动作【全量】指纹的对账器（与终局 `StateHash` 同口径）。**
+                //   · 老档（没有 `traceFull`）⇒ `NoExpectedTrace`，`CheckStart` 不判、`Finish` **出声**（不是通过）；
+                //   · `hasStartHash` **按「有没有 `traceFull`」判**，⛔ 不看 `startFullHash == 0`
+                //     （一个合法的 `StateHash` 本来就可能算成 0；两列同生同死，写点只有 `RecFinish` 一处）。
+                bool hasFullTrace = rec.traceFull != null && rec.traceFull.Length > 0;
+                _replayFt = ReplayFingerprintTrace.ForReplay(rec.startFullHash, rec.traceFull,
+                                                             hasStartHash: hasFullTrace);
+                // 开局那一格：`_beginFullHash` 由 `Begin` 在 `RuleCore.NewBattle` 之后立刻取好
+                // （**与录制端 `RecBegin` 同一个程序点** —— 为什么不在 `RecBegin` 里现取，见那个字段的 doc）。
+                _replayFt.CheckStart(_beginFullHash, Ctx);
+                _replayCursor = 0;
+                _replayFinished = false;
+                _replaySame = false;
+                // 🔴🔴 **2026-10-24（执行代理 `W1` · 判据 `资料/普查产出_1024d/R2_回放表现判据.md` §1.1 / §7·①）：
+                //   回放从「一口气灌完」改成「**一条一条推**」。**
+                //   原版就是这么跑的：`BattleManager.ExecuteNextAction` 的**唯一调用点**是
+                //   `<AddNextReplayAction>d__420` 协程，而 `<ReplayPlayAction>d__415` 只在
+                //   「**队列空且不在结算**」时才取下一手（判据 → `资料/普查产出_0927/回放_入口与数据链.md` §B·2）。
+                //   ⛔ 原来那个 `for` 把 24 条在**同一帧**里全落地，每条末尾都 `RefreshAll → SyncBoard`，
+                //   等第一帧真正画出来时游戏引擎的棋盘**已经是终局** ⇒ 阵亡的兵从来没有视图、
+                //   活到终局的兵要等自己那条 cue 才冒出来、手牌/牌库/能量第一帧就是终局值（用户实拍）。
+                //   ✅ 现在：**动作的落地**归 `ApplyReplayActionAt`（本方法下面那个新方法，逐字搬过来的），
+                //      **什么时候推下一条**归 `TickReplayPump`（挂在 `AdvanceTimeline` 末尾 ——
+                //      条件 = 游标没到底 ∧ 时间线空 ∧ 上一批 cue 已收尾）。
+                //   ⚠️ **批处理没有帧循环**（`AdvanceTimeline` 不跑）⇒ 自检这一档在这里把游标**推到底**：
+                //      用的是**同一个** `ApplyReplayActionAt`（⛔ 不是第二份实现），只是驱动器不同。
+                if (Application.isBatchMode)
                 {
+                    _replayLogReplayingPrev = keepLogReplaying;   // 收尾时要还原的那一格（见 `FinishReplay`）
+                    while (!_replayFinished && _replayCursor < rec.actions.Count)
+                    {
+                        int ri = _replayCursor++;
+                        // ⚠️ 推失败（轨迹分叉）⇒ **到此为止**（与原来那个 `break` 同义），⛔ 别继续推
+                        if (!ApplyReplayActionAt(ri)) { _replayCursor = rec.actions.Count; break; }
+                    }
+                    if (!_replayFinished) FinishReplay();
+                    return _replaySame;
+                }
+                // 真机：到这里**只是「开局成功」** —— 动作流由 `TickReplayPump` 一手一手推，
+                //   终局结论在 `FinishReplay()` 里定（`ReplaySameForTest` 读它）。
+                //   ⚠️ 返回值语义**在真机上**因此只是「这份录像开局成功」；⛔ 别拿它当「演的是同一局」。
+                return true;
+            }
+            finally
+            {
+                RecordReplays = keepRecording;
+                mulliganEnabled = savedMulligan;
+                // 🔴 `_logReplaying` **不能**在这里无条件还原：真机那条路还没演完，
+                //    而它管着 `ApplyLoggedAction` 末尾「`MulliganDone` 之后别急着开回合」那一条
+                //    （`A29` 的次序判据）。⇒ 演完那一刻由 `FinishReplay()` 还原；
+                //    批处理那条路在 `FinishReplay()` 里已经还原过了（这里是幂等的）。
+                if (_replayFinished) _logReplaying = keepLogReplaying;
+                else _replayLogReplayingPrev = keepLogReplaying;
+            }
+        }
+
+        /// <summary>🔴 **2026-10-24（执行代理 `W9`）**：回放侧**每一条动作真的落地之后**采一格全量指纹
+        /// （`ReplayFingerprintTrace.Observe`）。⚠️ **只许从 `ApplyReplayActionAt` 里调**（三个落点：
+        /// 普通动作 / 脚本伪 kind / 投降）—— 它必须与「动作真的落地」**同一个程序点**，
+        /// ⛔ **别挂到 `TickReplayPump` 的空转分支上**（那会在同一条动作上采好几次 / 一条都没采）。
+        /// <para>⚠️ 老档（没有 `traceFull`）⇒ 对账器自己短路（`NoExpectedTrace`），这里不用另判；
+        /// 「没判 ≠ 通过」由 `Finish` 出声。</para></summary>
+        void ObserveReplayFullTrace(int i, MsgAction m)
+        {
+            if (_replayFt == null) return;
+            _replayFt.Observe(i, NetProtocol.StateHash(Ctx),
+                              "kind=" + m.kind + " actor=" + m.actor
+                            + " handIdx=" + m.handIdx + " slot=" + m.slot, Ctx);
+        }
+
+        /// <summary>
+        /// 把录像里**第 `i` 条**动作落到引擎上（= 原来 `PlayReplay` 里那个 `for` 的循环体，**逐字搬过来**）。
+        /// 返回 **false = 到此为止**（轨迹分叉 / 该条被拒导致后面没有意义）。
+        /// <para>🔴 **2026-10-24（`W1` · `R2` §7·①）：为什么抽出来** —— 回放要「一条一条推」
+        /// （原版 `ExecuteNextAction` + `<ReplayPlayAction>`），入口有两个：
+        /// 批处理里 `PlayReplay` 自己循环、真机由 `AdvanceTimeline` 末尾的 `TickReplayPump`。
+        /// ⛔ 两个入口**共用这一个方法**（铁律：「两处写同一条规则 = 迟早不一致」）。</para>
+        /// </summary>
+        bool ApplyReplayActionAt(int i)
+        {
+            var rec = _replayRec;
+            if (rec == null || rec.actions == null || i < 0 || i >= rec.actions.Count) return false;
+            // 🔴 **2026-10-24（`W1`）：**防重入**（这条不加会变成「一次推好几条」甚至无限递归）。
+            //   链路：本方法 → `ApplyLoggedAction` → `RefreshAll` → `PlaySignals` → **`AdvanceTimeline(0f)`**
+            //   （那是 `PlaySignals` 里专门用来「把延迟 0 的那几条立刻播掉」的一句）
+            //   → 本类末尾 → `TickReplayPump` → **又回到本方法**。
+            //   🔴🔴 **2026-10-24（执行代理 `W24`）就地订正（铁律 5）**：本段原来写「闸放在**这里**而不是
+            //   `TickReplayPump` 里」+「重入时返回 `true` ⇒ **调用方的游标推进照常**」—— **那两句是错的**
+            //   （`D2_BattleScene11红诊断.md` §6~9 的真缺陷就是它造成的）：`TickReplayPump` 是
+            //   **先 `_replayCursor++` 再调本方法**的 ⇒ 「照常推进」等于**白偷一格**，而这一条又被
+            //   `return true` 伪装成「做完了」⇒ 回放静默漏演最后一条动作。
+            //   ⇒ **真正的闸在 `TickReplayPump` 开头（游标推进之前）**；本方法这一道**保留**，只当
+            //   「别的入口（批处理 `PlayReplay` 的 while / 将来的调用点）误入」的防御纵深。
+            //   ⚠️ 保留返回 `true`（「没做事」≠「失败」）：返回 `false` 会被调用方当成「轨迹分叉」。
+            if (_replayPumping) return true;
+            _replayPumping = true;
+            try
+            {
                     var m = rec.actions[i];
-                    if (m == null) continue;
+                    if (m == null) return true;
                     if (m.kind == RecKindForfeit)
                     {
                         // 🆕 2026-10-18（A913）：**不拿 `Forfeit`(2) 顶替** —— 那会在重放时
@@ -916,12 +1120,15 @@ namespace CardPresentation
                         //   —— 它内部仍先走 `NetApply.BeginTurnAfterSetup`（**待办标记只有它会消费**），
                         //   再对「被 `IsOver` 闸挡成空操作」那一档用 `RuleCore.BeginTurnForReplayExpansion` 补上。
                         CompleteReplayBeginTurn();
-                        RuleCore.Forfeit(Ctx, m.actor, replayResultCode);
-                        continue;
+                        RuleCore.Forfeit(Ctx, m.actor, _replayResultCode);
+                        // 🔴 2026-10-24（W9）：**落地之后**采全量指纹（录制端那一条已经挪到判负之后，
+                        //   见 `NetRemoteResign` / `NetSelfResign` / `Forfeit` 三处的注释）。
+                        ObserveReplayFullTrace(i, m);
+                        return true;
                     }
                     // 🆕 2026-10-18（A938）：脚本那两条**伪 kind**（`DrawCard` / `ChangeTo*`）——
                     //   `AiActionKind` 里没有对应项、`NetApply` 也不认，所以自己落。
-                    if (ApplyTutorialRaw(Ctx, m)) continue;
+                    if (ApplyTutorialRaw(Ctx, m)) { ObserveReplayFullTrace(i, m); return true; }
                     int code = ApplyLoggedAction(m);
                     if (code != RuleCodes.OK)
                         Debug.LogError($"[Replay] 第 {i} 条（kind={m.kind}，actor={m.actor}）被拒："
@@ -952,7 +1159,7 @@ namespace CardPresentation
                     if (rec.trace != null && i < rec.trace.Count)
                     {
                         int fin = DeepHash(Ctx);
-                        replayTrace.Add(fin);
+                        _replayTrace.Add(fin);
                         if (fin != rec.trace[i])
                         {
                             // 🆕 2026-10-18（审查 · 交件 §9·3）：**置失败位**（第一次分叉处）。
@@ -986,30 +1193,132 @@ namespace CardPresentation
                             }
                             Debug.LogError($"[Replay] 分叉点附近**录下来的**动作：{around}");
                             Debug.LogError($"[Replay] 回放侧最后几条引擎事件：{EvtTailList(Ctx)}");
-                            break;
+                            return false;          // = 原来那个 `break`（这条路到此为止）
                         }
                     }
-                }
-                // 🔴 **2026-10-24（`A29`）**：**流里最后一条就是 `MulliganDone`** 的那种 Edge
-                //   （换牌一结束就投降 / 中途存了录像）—— 上面那条「第一条真动作之前补 `BeginTurn`」
-                //   永远等不到真动作 ⇒ 这里补一次。**幂等**：正常录像在这一刻早就开过回合了，是空操作。
-                //   ⚠️ 不补的话，这种录像的终局指纹会与录制时差一个「回合开始」（并且 `_replayDivergence`
-                //      不会置位 —— 终局指纹那条断言会红、但说不出为什么）。
-                // 🔴 **2026-10-24（执行代理 `B1` · 引擎线 `A1` 第 4 件）**：改走 `CompleteReplayBeginTurn()`
-                //   —— 「换牌阶段就投降」的录像走到这里时 `Forfeit` 已落地（`ctx.IsOver`）⇒ 普通
-                //   `BeginTurn` 是空操作，得用回放展开入口补上（判据 → `RuleCore.BeginTurnForReplayExpansion`）。
-                CompleteReplayBeginTurn();
-                int got = NetProtocol.StateHash(Ctx);
-                bool same = got == rec.finalHash;
-                Debug.Log($"[Replay] 演完了：{Ctx.Turn} 回合 · 终局指纹 {got}"
-                        + $" · 轨迹摘要 {NetProtocol.HashOfInts(replayTrace)}"
-                        + $"（录制时 {NetProtocol.HashOfInts(rec.trace)}）"
-                        + (same ? " = 录制时的 ⇒ **同一局**" : $" ≠ 录制时的 {rec.finalHash} ⇒ **不是同一局**")
-                        + (same ? "" : "（说明有动作没录全 —— 如实报出来，别当演对了）"));
-                return same;
+                    // 🔴 **2026-10-24（执行代理 `W9`）**：这一条真的落地了 ⇒ 采一格**全量**指纹
+                    //   （= 终局那一个 `NetProtocol.StateHash` 口径；与录制端 `RecAct`/`RecRaw`/`RecMsg`
+                    //   里紧挨着 `trace.Add(DeepHash)` 那句**同一个程序点**）。
+                    //   ⚠️ 排在 `DeepHash` 分叉 `return false` **之后**：真分叉时这条路到此为止，
+                    //   这一格不采也不影响结论（`DeepHash` 的失败位已经置了）。
+                    ObserveReplayFullTrace(i, m);
+                    return true;
             }
-            finally { RecordReplays = keepRecording; _logReplaying = keepLogReplaying; mulliganEnabled = savedMulligan; }
+            finally { _replayPumping = false; }
         }
+
+        /// <summary>
+        /// 回放**演完了**那一拍（游标到底 **且** 时间线空）—— 只跑一次（`_replayFinished` 闩）。
+        /// <para>内容 = 原来 `PlayReplay` 循环**之后**那一段，逐字搬过来：
+        /// `CompleteReplayBeginTurn()`（`A29` 那条 Edge）+ 终局 `StateHash` 比对 + 那句 `[Replay] 演完了`。</para>
+        /// <para>🔴 **2026-10-24（`W1` · `R2` §7·①落点 4）**：原来它紧跟在同步 `for` 后面 —— 改成逐条推之后，
+        /// 「演完」这件事**发生在某一帧**，所以必须自己成一个口，并由 `TickReplayPump` 在那一帧调一次。</para>
+        /// </summary>
+        void FinishReplay()
+        {
+            if (_replayFinished) return;
+            _replayFinished = true;
+            var rec = _replayRec;
+            // 还原 `_logReplaying`（`PlayReplay` 的 `finally` 在真机那条路上**故意没还原**：
+            // 它管着 `ApplyLoggedAction` 末尾的「`MulliganDone` 之后别急着开回合」，见那边的注释）。
+            _logReplaying = _replayLogReplayingPrev;
+            // 🔴 **2026-10-24（`A29`）**：**流里最后一条就是 `MulliganDone`** 的那种 Edge
+            //   （换牌一结束就投降 / 中途存了录像）—— 「第一条真动作之前补 `BeginTurn`」那条
+            //   永远等不到真动作 ⇒ 这里补一次。**幂等**：正常录像在这一刻早就开过回合了，是空操作。
+            //   ⚠️ 不补的话，这种录像的终局指纹会与录制时差一个「回合开始」（并且 `_replayDivergence`
+            //      不会置位 —— 终局指纹那条断言会红、但说不出为什么）。
+            // 🔴 **2026-10-24（执行代理 `B1` · 引擎线 `A1` 第 4 件）**：改走 `CompleteReplayBeginTurn()`
+            //   —— 「换牌阶段就投降」的录像走到这里时 `Forfeit` 已落地（`ctx.IsOver`）⇒ 普通
+            //   `BeginTurn` 是空操作，得用回放展开入口补上（判据 → `RuleCore.BeginTurnForReplayExpansion`）。
+            CompleteReplayBeginTurn();
+            int got = NetProtocol.StateHash(Ctx);
+            bool same = rec != null && got == rec.finalHash;
+            _replaySame = same;
+            // 🔴 **2026-10-24（执行代理 `W9`）**：**动作条数对账**（少演 / 多演都出声）+ 老档「本层没判」出声。
+            //   ⚠️ 必须放在这里而不是 `PlayReplay` 的循环后面：真机那条路是**一条一条推**的，
+            //   「演完」发生在某一帧（`TickReplayPump` → 本方法）—— 循环后面那一刻动作还没演完。
+            //   ⚠️ 实参 = `ObservedCount`（这次**真演了几条**）。~~`rec.actions.Count` = 这次录的总条数~~
+            //   （旧口径已作废，分叉提前 break 时「演了几条」才是这一层要的数 —— `DeepHash` 那一层管分叉）。
+            //   🔴 **2026-10-24（执行代理 `W24` · `D2_BattleScene11红诊断.md` §12·1）就地订正（铁律 5）**：
+            //   这里原来传的是 `rec.actions.Count`（**录制侧那一份**），而 `Finish` 拿它比
+            //   `_expected.Count`（= `traceFull.Length`，**也是录制侧那一份**）⇒ **自己跟自己比**
+            //   ⇒ 除非录像本身畸形，这一层永远报 0 mismatch（「这次真演了几条」从来没被测量过，
+            //   2026-10-24 那次「少演一条」它一句都没报）。现在传 `ObservedCount`（`Observe` 被调几次）。
+            if (_replayFt != null) _replayFt.Finish(_replayFt.ObservedCount, Ctx);
+            Debug.Log($"[Replay] 演完了：{Ctx.Turn} 回合 · 终局指纹 {got}"
+                    + $" · 轨迹摘要 {NetProtocol.HashOfInts(_replayTrace)}"
+                    + $"（录制时 {(rec == null ? "?" : NetProtocol.HashOfInts(rec.trace))}）"
+                    + (same ? " = 录制时的 ⇒ **同一局**" : $" ≠ 录制时的 {(rec == null ? "?" : rec.finalHash.ToString())} ⇒ **不是同一局**")
+                    + (same ? "" : "（说明有动作没录全 —— 如实报出来，别当演对了）")
+                    + (_replayFt == null ? " ｜ 全量指纹：`_replayFt` 为 null（这条路没建对账器）"
+                                         : " ｜ " + _replayFt.Summary()));
+
+            // 🔴 **2026-10-24（执行代理 `W20` · 判据 `R3` §六·1）：回放演完 ⇒ **走结算演出**。**
+            //   结算那一整块住在 `UpdateHud()` 里（闩 `_settled` / 闸 `_replaySession` 都在那儿），
+            //   而它现在要求「回放已经演完」（见那一行 `Ctx.IsOver && (!_replaySession || _replayFinished)`）。
+            //   ⇒ 在这里**显式刷一帧 HUD**，让「演完 ⇒ 结算面板 + 开门视频」在**同一拍**发生：
+            //     · 真机那条路 `Update` 下一帧本来也会刷（`HandleReplayBar` 那一支每帧调 `UpdateHud`）；
+            //     · **批处理**那条路没有帧循环（`BattleScene.Step` 只推 `AdvanceTimeline`）⇒
+            //       不在这里刷，面板**永远不会**弹（自检也就验不到）。
+            //   ⚠️ `UpdateHud` 本来每帧就被调一到两次（`RefreshAll` 内部 + 几条路径末尾）⇒ 多这一下无副作用。
+            UpdateHud();
+        }
+
+        /// <summary>
+        /// 🔴 **回放推下一手**（原版 `<ReplayPlayAction>d__415`：队列空才取下一手）。
+        /// 挂在 <see cref="AdvanceTimeline"/> **末尾**（和 `TickBlockingWindow` 挨着）。
+        ///
+        /// <para>闸三条（缺一条都会「画面读终局」或「演太快」）：
+        /// ① `_replaySession ∧ !_replayFinished ∧ !_replayPaused`；
+        /// ② **时间线空**（`_timeline.Count == 0`）= 上一手的 cue 全演完；
+        /// ③ `_clock >= _blockingQuietAt` = 上一批 cue 的最后一条也到点了。
+        /// 游标到底 ⇒ 调一次 <see cref="FinishReplay"/>（收尾那一段）。</para>
+        ///
+        /// <para>🔴 **还有一道「重入」闸**（`_replayPumping`，2026-10-24 `W24`）：本方法会被
+        /// `ApplyReplayActionAt` 内部那条 `AdvanceTimeline(0f)` **递归调回来** —— 那一趟必须**在推进游标之前**
+        /// 就返回，否则会把下一条的游标偷走（= 静默漏演）。见方法体开头那段注释。</para>
+        ///
+        /// <para>🧨 改坏法：把 `PlayReplay` 改回同步 `for`（或把本方法从 `AdvanceTimeline` 里摘掉）⇒
+        /// 回放里「阵亡单位从不出现 / 兵要等 cue 才冒出 / 手牌第一帧就是终局值」全部回来（`R2` §1.1）。</para>
+        /// </summary>
+        void TickReplayPump()
+        {
+            if (!_replaySession || _replayFinished || _replayPaused) return;
+            if (_replayRec == null || _replayRec.actions == null) return;
+            // 🔴🔴 **2026-10-24（执行代理 `W24` · 修 `D2_BattleScene11红诊断.md` §6~9 的真缺陷）：
+            //   重入闸必须在【游标推进之前】。**
+            //   链路（`ApplyReplayActionAt` 的注释里那张图）：本方法 → `ApplyReplayActionAt(i)`
+            //   → `ApplyLoggedAction` → `PlaySignals` → `AdvanceTimeline(0f)` → **本方法**（重入）。
+            //   原来只有 `ApplyReplayActionAt` 开头那道 `if (_replayPumping) return true;`，而它挡在
+            //   **`int i = _replayCursor++;` 之后** ⇒ 内层这一趟把游标白推一格、那一条被 no-op 掉；
+            //   外层回来时游标已经越过它 ⇒ 批处理那条 `while (_replayCursor < rec.actions.Count)`
+            //   与真机那条 pump 都以为「到底了」⇒ **静默漏演最后一条动作**
+            //   （2026-10-24 实测：终局指纹 / 轨迹摘要都少一个样本，而日志照样报「逐条一致」）。
+            //   ⇒ 重入时**什么都不做，游标也别动**。
+            if (_replayPumping) return;
+            if (_replayCursor >= _replayRec.actions.Count)
+            {
+                if (_timeline.Count == 0) FinishReplay();
+                return;
+            }
+            if (_timeline.Count != 0 || _clock < _blockingQuietAt) return;
+            int i = _replayCursor++;
+            if (!ApplyReplayActionAt(i))
+            {
+                // 分叉 / 被拒 ⇒ 后面没有意义（与原来那个 `break` 同义）⇒ 直接收尾
+                _replayCursor = _replayRec.actions.Count;
+                if (_timeline.Count == 0) FinishReplay();
+            }
+        }
+
+        /// <summary>自检用：上一次回放的**最终结论**（`true` = 终局指纹与录制时相等）。
+        /// <para>⚠️ 真机那条路是**异步**的（`TickReplayPump` 一手一手推）⇒ `PlayReplay` 的返回值
+        /// 只代表「开局成功」；「演的是不是同一局」看这一格（`ReplayFinishedForTest` 为真之后才有意义）。</para></summary>
+        public bool ReplaySameForTest { get { return _replaySame; } }
+        /// <summary>自检用：回放演完了没有（`FinishReplay` 跑过）。</summary>
+        public bool ReplayFinishedForTest { get { return _replayFinished; } }
+        /// <summary>自检用：回放游标（已推了几条动作）。</summary>
+        public int ReplayCursorForTest { get { return _replayCursor; } }
 
         /// <summary>放一份录像（按文件名）。</summary>
         public bool PlayReplay(string fileName)
@@ -1464,8 +1773,73 @@ namespace CardPresentation
         const float TipFsPx = 60f, TipFsMinPx = 4f;
         const int TipScale = 3;                        // `Label.Create` 的档位（自适应框会把它夹进 [4,60] px）
 
-        /// <summary>「等待提示」（原版 `WaitText`）—— 对手思考时那条。🆕 2026-09-17</summary>
+        /// <summary>「等待提示」（原版 `WaitText` / 组件字段 `BattleManager.mulliganWaitText`）——
+        /// **只在「联网局里我确认完换牌、对手还没确认」那一段**。判据与修法 →
+        /// `资料/普查产出_1024d/N1_敌方回合横幅与压暗.md` §2 / §6，谓词 = <see cref="ShowWaitBanner"/>。</summary>
         WaitBanner _waitBanner;
+
+        // ==================================================================
+        //  「等待提示」的**三个状态位**（原版 `BattleManager` 上那两格 + 换牌是不是还开着）
+        //
+        //  🔴 **2026-10-24（执行代理 `W1`）**：这三格只服务**一条**可见性谓词
+        //  <see cref="ShowWaitBanner"/> —— 那是**唯一出口**（`UpdateHud` 里那一句），
+        //  ⛔ 别在别处再判一次「要不要显示横幅」。
+        //  · `localSubmitted` ← 对应原版「我点了 `ClickChosenCardDone`」；
+        //  · `foeMulliganApplied` ← 对应原版 `receivedEnemyMulligan(+0x29C)`；
+        //  · `mulliganOpen` ← 对应原版 `RequestMulligan` 那一阶段还没收尾（= `Ctx.MulliganOpen`）。
+        // ==================================================================
+
+        /// <summary>本地玩家**已经提交换牌**（单机 = `OnMulliganDone` 的非联机支；
+        /// 联网 = 那一支里发完 `OnLocalMulligan` 之后）。<see cref="OpenMulligan"/> 清零。</summary>
+        bool _mulliganLocalSubmitted;
+
+        /// <summary>对手的换牌**已经落地**（原版 `receivedEnemyMulligan`）。
+        /// <para>· 单机局：`OpenMulligan` 里那段 AI 换牌一跑完就是真（与 `RuleCore.Mulligan(ctx, 1-_me, …)`
+        /// 同一行之后置位）—— **这正是原版单机局永不显示横幅的那条判据**
+        /// （`_SetupEnviromentalEffectPhase:32-46` 在非联网支把这一格强置 1）。</para>
+        /// <para>· 联网局：对手那条 `Mulligan` 从权威流落地时置真（<see cref="ApplyLoggedAction"/>）。</para>
+        /// <see cref="OpenMulligan"/> 清零。</summary>
+        bool _mulliganFoeApplied;
+
+        /// <summary>
+        /// 🔴 **「等待提示」要不要显示 —— 判据只此一处**（原版 `BattleManager.mulliganWaitText`）。
+        ///
+        /// <para>语义（逐条判据 → `资料/普查产出_1024d/N1_敌方回合横幅与压暗.md` §2.1）：
+        /// **联网局里本地玩家确认完换牌、而对手还没确认**那一段才亮；对手换牌一到 / 战斗阶段一开始就关；
+        /// **单机局恒 false**；**回合循环里一次都不出现**。</para>
+        ///
+        /// <para>🔴 **为什么做成 static 纯函数**：自检要断**真值表**（4 档）与**结构反例**
+        /// （只翻 `Ctx.Active` 时可见性必须不变）。做成实例方法就得先造一个带 `BattleDriver` 的局，
+        /// 而 `Editor/NetBattleTest.cs` 那边用的是 `BareHost`（**没有 `BattleDriver`**，`N1` §8·3）
+        /// ⇒ 纯函数两边都吃得到，判据也不会长出第二份。</para>
+        /// </summary>
+        /// <param name="mulliganOpen">换牌阶段还没收尾（原版那一阶段还开着）。</param>
+        /// <param name="localSubmitted">本地已提交（原版 `ClickChosenCardDone` 那一下）。</param>
+        /// <param name="foeMulliganApplied">对手换牌已落地（原版 `receivedEnemyMulligan`）。</param>
+        public static bool ShowWaitBanner(bool mulliganOpen, bool localSubmitted, bool foeMulliganApplied)
+        {
+            // ⛔ 三个合取项缺一不可；⛔ **不许把「谁的回合」（`Ctx.Active`）塞进来** ——
+            //    那正是旧写法 `!InMulligan && !Ctx.IsOver && Ctx.Active != _me` 的病灶（整段敌方回合都压暗）。
+            return mulliganOpen && localSubmitted && !foeMulliganApplied;
+        }
+
+        /// <summary>自检用：当前那三个状态位（真值来的，不是猜的）。</summary>
+        public void MulliganWaitStateForTest(out bool localSubmitted, out bool foeApplied)
+        {
+            localSubmitted = _mulliganLocalSubmitted;
+            foeApplied = _mulliganFoeApplied;
+        }
+
+        /// <summary>自检专用：把两个状态位直接拨过去（**只给断言用**；生产恒由
+        /// `OpenMulligan` / `OnMulliganDone` / `ApplyLoggedAction` 写）。</summary>
+        public void SetMulliganWaitStateForTest(bool localSubmitted, bool foeApplied)
+        {
+            _mulliganLocalSubmitted = localSubmitted;
+            _mulliganFoeApplied = foeApplied;
+        }
+
+        /// <summary>自检专用：`UpdateHud` 里那一句的**实际结果**（读的是视图件，不是谓词 —— 免得自证）。</summary>
+        public bool WaitBannerVisibleForTest { get { return _waitBanner != null && _waitBanner.Visible; } }
         // 阵营资源（信仰 / 灵魂石）—— 2026-09-13 第三十三轮。物件**照建**、靠 `SetActive` 切显隐
         // （照原版 `ManaTypeHolder.Toggle` 的做法；判据见 `ShowsSpiritStone` / `ShowsFaith` / `ShowsQuestPoints`）
         HudPiece _myFaithIcon, _foeFaithIcon, _myStoneIcon, _foeStoneIcon, _myStoneGem, _foeStoneGem;
@@ -1570,6 +1944,42 @@ namespace CardPresentation
         ///   **整场回放期间一直留着** —— ⛔ **不能在那次调用返回时就清掉**：清掉的话下一帧 `Update()`
         ///   那一趟 `UpdateHud()` 又会把账记一遍，正是这条账要修的东西。</summary>
         bool _replaySession;
+        /// <summary>🔴 **2026-10-24（执行代理 `W1` · 判据 `RE1` §3-C4）**：**这一局正在放的那份录像**。
+        /// <para>`Restart()` 在回放局里的语义是「**重播这一份**」，不是「开一局新的」
+        /// （原版 `ReplayHud` 那颗 `Replay` → `BattleManager.ClickRestartReplay` =
+        /// **重载当前场景、把同一份 `BattleRecordData` 再演一遍**；判据 → `资料/普查产出_0927/回放_入口与数据链.md` §A·3）。
+        /// 我们原来 `Restart()` 走 `Begin(_myFaction, _foeFaction, _seed+1, …)` ⇒ **新种子 + 清 `_replaySession`**
+        /// = 「按一下重播，结果开了一局全新的对局」（`C4`）。</para>
+        /// <para>⚠️ `Begin()` **不清它**（清它的是下一次 `PlayReplay` 的赋值）—— 它只在
+        /// `_replaySession` 为真时被读，而 `_replaySession` 由 `Begin` 清零 ⇒ 不读就不会用到旧值。</para></summary>
+        ReplayRecord _replayRec;
+        /// <summary>🔴 2026-10-24（`W1` · `R2` §7·①）：回放**推到了第几条**（`0` = 一条都还没落）。
+        /// 只由 `PlayReplay`（清零）/ `TickReplayPump`（+1）写。⛔ 别在别处改它 —— 它是回放的「时间游标」。</summary>
+        int _replayCursor;
+        /// <summary>回放侧那条**逐条轨迹**（`DeepHash`），末了打摘要用。由 <see cref="ApplyReplayActionAt"/> 追加。</summary>
+        List<int> _replayTrace;
+        /// <summary>🔴 **2026-10-24（执行代理 `W9`）**：回放侧**逐动作全量指纹**的对账器
+        /// （`ReplayFingerprintTrace.ForReplay(rec.startFullHash, rec.traceFull, …)`）。
+        /// <para>三个落点（缺一条，这一层就白做）：① `PlayReplay` 重建之后 `CheckStart(_beginFullHash)`
+        /// （**与录制端同一个程序点**，见 `_beginFullHash` 的 doc）；② `ApplyReplayActionAt` **每条动作真的落地之后**
+        /// `Observe(i, StateHash(Ctx), …)`（⚠️ 挂在**落地那一处**，⛔ 别挂在泵的空转分支上）；
+        /// ③ `FinishReplay` 里 `Finish(rec.actions.Count)`（少演 / 多演都要出声）。</para>
+        /// <para>⚠️ **失败位是它自己的 `FirstDivergentIndex`，⛔ 没有并进 `_replayDivergence`** ——
+        /// 那一格是 `DeepHash` 的失败位（含实例号、口径更细），两者**分工不同**；
+        /// 自检要**两条都断**（「两个都无分叉」）。</para></summary>
+        ReplayFingerprintTrace _replayFt;
+        /// <summary>回放**收过尾**了没有（`FinishReplay` 的闩 —— 终局比对与那句日志只跑一次）。</summary>
+        bool _replayFinished;
+        /// <summary>上一次回放的终局结论（`true` = 终局指纹与录制时相等）。见 <see cref="ReplaySameForTest"/>。</summary>
+        bool _replaySame;
+        /// <summary>录像尾那条【只落盘】的结束理由码（`RecKindForfeit` 那条伪动作要它）。</summary>
+        BattleResult _replayResultCode;
+        /// <summary>进回放前的 `_logReplaying` —— **延迟到 `FinishReplay` 才还原**
+        /// （真机那条路是异步的，整个动作流期间它必须一直是 true，见 `PlayReplay` 的 `finally`）。</summary>
+        bool _replayLogReplayingPrev;
+        /// <summary>🔴 2026-10-24（`W1`）：**推送重入闸**。见 `ApplyReplayActionAt` 开头那段 ——
+        /// `RefreshAll → PlaySignals → AdvanceTimeline(0)` 会绕回 `TickReplayPump`。</summary>
+        bool _replayPumping;
         /// <summary>🔴 **2026-10-16（W22）：结算后的出口已经走出去了没有**（一局只走一次）。
         /// 原版那条路的收尾是 `BattleManager.LeaveBattle()` → 加载主菜单场景
         /// （`LeaveBattle.c:58`；触发 = `BattleManager__Update.c:116-122` 的
@@ -1679,8 +2089,26 @@ namespace CardPresentation
         /// 判据**只有一份**（`EndPanel.ExitReady` → `BattleDoors.Finished`），这里只是转发 ——
         /// 对应原版那个字段就住在 `BattleManager` 上（`+0x510`，`dump.cs:30916`）。
         /// ⚠️ **拿不到结算面板时闸门恒关**（`_endPanel == null` ⇒ false）：那一档面板根本没显示、
-        ///    也就没有「开门视频播完」这回事 —— **不许**在这里放行（放行 = 一局刚开始就能点走）。</summary>
-        public bool ExitReady { get { return _endPanel != null && _endPanel.ExitReady; } }
+        ///    也就没有「开门视频播完」这回事 —— **不许**在这里放行（放行 = 一局刚开始就能点走）。
+        /// <para>🔴 **2026-10-24（执行代理 `W1` · 判据 `RE1` §3-C1 · `R2` §7·③）：回放局直接放行。**
+        /// 回放**整块不弹结算面板**（`A381`，那是对的），而原来这条闸只认结算面板 ⇒ 恒 false
+        /// ⇒ `HandleEndBattleExit` 永远走不到 ⇒ **回放局进得去、出不来**（用户真机，唯一出路是调试键 R）。
+        /// 原版回放**有出口**：`ClickExitBattle.c:43` 的 `0xA0` 支跳过整段「投降/判负」，
+        /// 直接 `BattleNetworkManager.LeaveBattle` ⇒ 「回放随时可以离开」是**原版行为**，不是我们加的。</para>
+        /// <para>🔴 **2026-10-24（执行代理 `W20` · `R3`）就地订正（铁律 5）**：上面那句「回放**整块不弹结算面板**」
+        /// **已不成立** —— 现在的口径是**账跳过、演出照做**（`ShowEndPanelAndFreezeInput` 在回放那支也跑）。
+        /// 本条**仍然**对回放恒返回 true（出口本身随时可达：ESC 一步走，已如实记为简化）；
+        /// **点空处那一路**另有一道闸 —— 结算视频还在播时不退出（见 `HandleReplaySessionExit`，
+        /// 原版 `matchFinishedAndWaitingToLeave(+0x510)` 在 `_CloseBattleDoors:72` 才置位）。
+        /// ⚠️ 两件事别混：**ESC 随时可走**（本条管的那条路）· **点空处要等视频放完**（那一路自己的闸）。</para></summary>
+        public bool ExitReady
+        {
+            get
+            {
+                if (_replaySession) return true;            // 回放：随时可以离开（见上）
+                return _endPanel != null && _endPanel.ExitReady;
+            }
+        }
 
         /// <summary>自检用：出口**走出去了没有**（`LeaveBattle` 已经跑过）。</summary>
         public bool LeaveRequested { get { return _leaving; } }
@@ -4191,6 +4619,22 @@ namespace CardPresentation
             //   （`_settleCount` / `_leaveCount` 是**累计**计数，故意不清；这一格是「本局跑没跑过」。）
             _stopBattleAfterEndCount = 0;
             _replaySession = false;
+            // 🔴 **2026-10-24（执行代理 `W1` · `R2` §7·④落点 A）**：回放条**每次 `Begin` 都要复位成关** ——
+            //   `_replayBar` 只建一次（`_hudBuilt` 闩住），而上一局若是回放局，`PlayReplay` 会把
+            //   `Holder` 打开（`Setup(true)`）⇒ 不复位的话，**下一局普通对局里四颗回放钮会一直挂着**。
+            if (_replayBar != null) _replayBar.Setup(false);
+            // 🔴 **2026-10-24（`W1`）**：回放那几格「本局的账」也在这里清 —— 新开一局 = 不是回放，
+            //   游标/收尾闩/结论都不该把上一局的读数带过来（`_replayRec` **不清**：`Restart()` 在
+            //   回放里靠它重播，而它只在 `_replaySession` 为真时被读，见那个字段的 doc）。
+            _replayCursor = 0;
+            _replayFinished = false;
+            _replaySame = false;
+            _replayTrace = null;
+            // 🔴 **2026-10-24（执行代理 `W1`）**：「等待敌人」横幅那两个状态位**也是本局的账** ——
+            //   新开一局一律清零（`OpenMulligan` 还会再清一次，那是换牌阶段的入口；这里管的是
+            //   **没有换牌阶段的模式**：不清的话上一局「我交了、对手没交」会带进这一局）。
+            _mulliganLocalSubmitted = false;
+            _mulliganFoeApplied = false;
             // 🆕 2026-10-18（A940）：**教程表现层的本局账也在这里清**（与上面同一条纪律：本局的账不跨局）——
             //   表现层的载体**建一次就一直在 `hudRoot` 下**（`BuildHud` 只建一次 HUD）⇒
             //   上一局亮的提示/高亮/光标/标注**必须显式收掉**，否则会在下一局压在战场上（静默）。
@@ -4547,6 +4991,16 @@ namespace CardPresentation
             //   所以「自检直接调 `Begin`」与「老调用点没传」这两条路**与今天逐字一致**。
             Ctx.PlayMode = playMode ?? (Ctx.Vars.IsSkirmish ? GameMode.Skirmish : GameMode.Classic);
             _playMode = Ctx.PlayMode;
+            // 🔴 **2026-10-24（执行代理 `W9`）**：**回放逐动作全量指纹的那一格「开局」** ——
+            //   录制端（`RecBegin` → `ReplayFingerprintTrace.RecordStart`）与回放端
+            //   （`PlayReplay` 重建之后 `CheckStart`）**取同一个程序点**：`RuleCore.NewBattle` 刚返回这一刻。
+            //   ⚠️ 为什么必须在这里、⛔ 不能在 `RecBegin` 里现取：`Begin` 在 `RecBegin` **之后**还有
+            //     ① 无换牌那条路的 `RuleCore.BeginTurn`（回合 1 + 抽 1 张）、② 换牌那条路的 `OpenMulligan`
+            //     ⇒ 在 `RecBegin` 取会让「无换牌 / 教程局」的录制值**系统性差一个回合** ⇒ 回放每份都假报
+            //     「开局就不同源」。判据 → `_beginFullHash` 的 doc。
+            //   ⚠️ `Ctx.PlayMode` 那几行在 `StateHash` 的维度之外（`PlayerHash` 不读它）⇒ 与 `RecBegin`
+            //     那一行取到的值相同；这里取只是为了让「回放端也读得到同一个点」。
+            _beginFullHash = NetProtocol.StateHash(Ctx);
             Debug.Log($"[Battle] 本局模式号 = {Ctx.PlayMode}（{PlayModeNames.Name(Ctx.PlayMode)} · "
                     + $"`PlayModes` = {(int)Ctx.PlayMode}）· `MatchType` = {Ctx.MatchType}"
                     + $"（{(int)Ctx.MatchType}）"
@@ -4618,6 +5072,11 @@ namespace CardPresentation
             interaction.CanDropAtSlot = (slot, card) =>
             {
                 if (Ctx == null || Ctx.IsOver) return false;
+                // 🔴 **2026-10-24（执行代理 `W1` · 判据 `RE1` §3-G5 / `C5` Q5）**：**回放局不许出牌**。
+                //   原来这里只挡 `IsOver` —— 而**坏录像（第 0 条就分叉）那份 `Ctx.IsOver` 是假**，
+                //   于是整条出牌/拖拽链在回放里全活着（用户真机：回放中点棋盘还能开卡面、`结束回合` 还亮着）。
+                //   ⇒ 闸必须直接读 `_replaySession`，⛔ **不能借 `IsOver` 这道副作用**。
+                if (_replaySession) return false;
                 // 🆕 2026-10-19（战斗线 W 第 2 条）：**上一条动作的演出没演完 ⇒ 不能出牌**
                 //   —— 原版 `BattleManager__CanPlayCard.c:72` 那道 `WaitingForBlockingAction` 闸。
                 //   ⚠️ 这是个**查询口**（拖拽中每帧都问）⇒ **不出声**；被闸挡下的那一下
@@ -4916,6 +5375,12 @@ namespace CardPresentation
         void ClickEndTurnHud()
         {
             if (HudClickBlocked) return;
+            // 🔴 **2026-10-24（执行代理 `W1` · 判据 `RE1` §3-G5）**：**回放局不许结束回合**。
+            //   原版回放那一档（`MatchType.Replay = 160`）在 `ClockManager.StopClockUi` 那套里是点不动的；
+            //   我们这颗钮是 uGUI 裸 `IPointerClickHandler` ⇒ 「点不动」只能落在这一道闸上。
+            //   ⚠️ **必须显式写**：`HudClickBlocked` 依赖 `Ctx.IsOver`，而坏录像里那是**假**
+            //      （用户真机看到的「`结束回合` 钮仍亮」就是这一档）。
+            if (_replaySession) return;
             if (_replayPaused) return;
             // 🔴 **2026-10-22（`W63` P1）**：`Ctx.Active != _me` 这一句就是原版
             //   `Selectable.set_interactable(false)` 的等价物 —— `ClockManager__SetEnemyTurnUI.c:5-8` 与
@@ -4928,6 +5393,17 @@ namespace CardPresentation
             if (Ctx.Active != _me) return;
             EndPlayerTurn(fromUi: true);
             UpdateHud();
+        }
+
+        /// <summary>🆕 **2026-10-24（执行代理 `W1` · 判据 `N1` §2.2 / §4-D4）**：这一点**落不落在「等待敌人」
+        /// 那层压暗的可吃输入区**里（= 压暗矩形按原版 `m_RaycastPadding` 下沿内缩 1000 px 之后那块）。
+        /// <para>原版那一层是 **`m_RaycastTarget = 1`**（`bundle_scenes_scenes_battlearena1 ▸ …/WaitText/Dark Shade`
+        /// 的 `MonoBehaviour_4415.json`）⇒ 它**挡上中部、底下 222 px（手牌那一带）不挡**。
+        /// 判据只在 <see cref="WaitBanner.ShadeContains"/> 一份，这里只是**转一道手**（⛔ 别在这儿再写一遍几何）。
+        /// ⚠️ 横幅没亮 ⇒ `ShadeContains` 直接 false（`UpdateHud` 每帧给的那条谓词说了算）。</para></summary>
+        bool WaitShadeContains(Vector3 world)
+        {
+            return _waitBanner != null && _waitBanner.ShadeContains(world);
         }
 
         /// <summary>🔴 **过渡期（A2）**：指针压在任一颗 HUD 钮的**命中矩形**上吗 ——
@@ -6692,16 +7168,165 @@ namespace CardPresentation
         /// （`ReleasedThisFrame()` 自己会记一笔 ⇒ 留在那里 = 一次点击记两条）。
         /// ⚠️ 判据（原版）：那 4 颗的图 `m_RaycastTarget = 1` · `m_RaycastPadding = (0,0,0,0)`
         /// （`battlearena2` 四份 Image MB 现读）—— uGUI 射线打的就是它们自己。</para>
-        /// <para>⚠️ **如实记（产线不可达，但别当成「已验」）**：可见时整帧输入链被本方法接管，
-        /// 排在它后面的 `AdvanceTimeline` / 回合驱动这一帧都不跑。我们**从不进回放局**
-        /// （`BuildHud` 里 `Setup(false)`，原版 `matchType == 0xA0` 才有）⇒ 产线走不到；
-        /// 真接回放模式那一批要复核「播放时钟该不该跟着停」——**还没查清**。</para>
+        /// <para>🔴 **2026-10-24（执行代理 `W1` · 铁律 5 就地订正 + 回答那条「还没查清」）**：
+        /// 本段原来写「**产线不可达**（我们从不进回放局）⇒ 真接回放模式那一批要复核『播放时钟该不该跟着停』
+        /// ——**还没查清**」。现在**两条都有答案**：
+        /// ① **产线可达**（`PlayReplay` 会 `Setup(true)`，见 `RE1` §3-C3）；
+        /// ② **播放时钟必须照跑** —— 原版回放是**协程逐条演**（`BattleManager._ReplayPlayAction` /
+        ///    `NextReplayAction`），暂停只由 `ClickPauseReplay` 置（`__ClickPauseReplay.c:10` 写 1、
+        ///    `__ClickPlayReplay.c:10` 清 0）⇒ 「回放条可见」本身**不是**暂停信号。
+        ///    ⇒ `Update` 里那一支现在**显式**在回放局推 `AdvanceTimeline`（而不是被模态 return 掉），
+        ///      只有 `_replayPaused` 才停 —— 判据与落点见 `Update` 里那段 `if (_replaySession)`。</para>
+        /// <para>⚠️ **非回放局仍然只有模态语义**：只有自检会把 `Holder` 摆亮，那时照旧整帧到此为止。</para>
         /// <para>🧨 改坏法：把 `ReplayClickAt`/`Hit` 那条手搓支加回来 ⇒ `T09` A4 那组断言红
         /// （手搓路已退 + uGUI 是唯一入口）。</para></summary>
         bool HandleReplayBar()
         {
             // 模态：整条可见 ⇒ 这一帧到此为止（动作由四颗 uGUI 钮的 `IPointerClickHandler` 做）
             return _replayBar != null && _replayBar.HolderVisible;
+        }
+
+        // ==================================================================
+        //  🔴 2026-10-24（执行代理 `W1`）：**回放局的出口**（`RE1` §3-C1）
+        //
+        //  用户真机：`进回放 → ESC 无反应 · 点棋盘只开出卡牌详情窗`，唯一出路是调试键 `R`。
+        //  根因两条（都不是「回放坏了」，是**出口根本没接**）：
+        //    ① `ExitReady = _endPanel != null && _endPanel.ExitReady`，而回放**整块不弹结算面板**
+        //       （`UpdateHud` 的 `_replaySession` 支）⇒ 闸门恒关 ⇒ `HandleEndBattleExit` 永远 false；
+        //    ② `HandleTimeControlKeys`（ESC 族键盘控制）与 `HandleEndBattleExit` 都排在 `Ctx.IsOver` 早退
+        //       **之后**，而回放一开局 `IsOver` 就是真（动作一口气灌完）⇒ 键盘根本到不了。
+        //  判据（原版，逐条）：
+        //    · `BattleManager__ClickExitBattle.c` —— `matchType ∈ {0x8C(140), 0xA0(160)}` 时**不判负、不投降**，
+        //      直接 `BattleNetworkManager.LeaveBattle(0)` ⇒ **回放没有「认输」，只有「离开」**；
+        //    · `BattleManager._ShowFinishScreen → _CloseBattleDoors:22-72` 最后置 `matchFinishedAndWaitingToLeave(+0x510)`，
+        //      之后 `Update:116-122` = **左键任意处 / ESC ⇒ 离开**（`C5` Q5.2 那条链：回放结束走的是**同一套结算流程**）。
+        //      ⇒ 我们回放**不记账**（`A381`：不写对局记录 / 不推日常 / 不收尾录像，那条是**对的**），
+        //      而**结算演出照做**（结算面板 + 开门视频）。
+        //      🔴 **2026-10-24（执行代理 `W20` · `R3` · 铁律 5 就地订正）**：本行原来写
+        //      「回放**不弹结算屏**（`A381`：不记账、不弹面板，那条是**对的**）」——**后半句已作废**：
+        //      原版回放走**同一套结算**（`R3` §一：`matchType==0xA0` 只跳过 Missions/Achievements/
+        //      Alliance/analytics 那四件上传）；`A381` 原先那条「面板没弹」的断言也随之改掉了
+        //      （`Editor/BattleScene.cs` 那一节）。它那个「演完了 ⇒ 点一下就走」的**出口语义**照旧要补，
+        //      而且出口在**开门视频放完之后**才开（原版 `+0x510` 在 `_CloseBattleDoors:72` 置位）。
+        //  ⚠️ **如实记（我们挑的那一半）**：原版 ESC 是「开设置窗」、出口在设置窗那颗 `Resign`
+        //     （`BattleSettingsWindow__ResignButtonOnClick` → `ClickExitBattle`）。我们把它**压成一步**
+        //     （回放里 ESC 直接走）—— 因为回放里那扇设置窗被 `HudClickBlocked`（`Ctx.IsOver`）挡着，
+        //     而「回放里设置窗怎么开」原版判据我们没查到。⛔ 别当成复刻。
+        // ==================================================================
+
+        /// <summary>回放**演完了没有**（= 已经没有待播的表现事件）。
+        /// <para>等价物 = 原版 `matchFinishedAndWaitingToLeave(+0x510)` 那一档（`_CloseBattleDoors:72` 置位）。
+        /// ⚠️ 坏录像（第 0 条就分叉 ⇒ 一条动作都没演）**开局就是 true** —— 那正是用户遇到的「演完了：0 回合、
+        /// 却出不去的」那种局，必须也能走。
+        /// 🔴 **2026-10-24（`W20` · `R3`）**：出**点空处**那条路的闸**不是这一格**了 ——
+        /// 回放演完会进结算演出，那一段里点空处不退出（见 `HandleReplaySessionExit` 里的
+        /// `_endPanel.Visible && !_endPanel.ExitReady`）。本属性只说明「动作流演完了」。</para></summary>
+        public bool ReplayPlaybackFinished { get { return _replaySession && _timeline.Count == 0; } }
+
+        /// <summary>自检专用：把「指针压在 uGUI 的射线靶上」钉死
+        /// （`null` = 走真设备 `EventSystem.IsPointerOverGameObject()`；**生产恒为 null**）。</summary>
+        public static bool? PointerOverUiForTest;
+
+        /// <summary>指针现在压不压在 **uGUI 的射线靶**上（原版 `EverguildInput.IsPointerOverUIObject` 的等价物）。
+        /// <para>回放出口只认「点在**空处**」—— 压在回放条 / 设置钮那些 uGUI 件上时，那一下归它们
+        /// （否则点一下「暂停」会顺带把回放关掉）。</para></summary>
+        bool PointerOverUi()
+        {
+            if (PointerOverUiForTest.HasValue) return PointerOverUiForTest.Value;
+            var es = BattleEventSystem.Instance;
+            if (es == null) es = UnityEngine.EventSystems.EventSystem.current;
+            return es != null && es.IsPointerOverGameObject();
+        }
+
+        /// <summary>
+        /// 回放局那一帧的**出口判定**。返回 true = 这一帧被它接管（已经离开 / 或已经耗掉那一下输入）。
+        /// <para>两条路（判据见上面那一大段）：① **ESC**（任何时刻都能走）；
+        /// ② **点空处**（⚠️ **2026-10-24（`W20`）起**：回放演完会进结算演出，**视频还在播的那段里点空处不退出**
+        /// —— 原版 `matchFinishedAndWaitingToLeave(+0x510)` 在 `_CloseBattleDoors:72` 才置位 = 「片长 + 2.0 s」之后；
+        /// 点空处这条出口本身仍是原版行为：`ClickExitBattle.c:43` 的 `0xA0` 支跳过投降/判负、直接 `LeaveBattle`）。
+        /// ⚠️ **压在「能看的东西」上时不算出口**（棋盘单位 / 手牌）：那一下是**看牌**
+        /// （原版 `CardScript__OnTouchDown` 全文没有 `matchType==0xA0` 闸 ⇒ 点开卡详情**允许**）。
+        /// ⚠️ 压在 uGUI 射线靶上时也不算（否则点一下「暂停」会顺带把回放关掉）。</para>
+        /// <para>⛔ 别在别处再写一份「回放怎么出去」—— 自检读的就是本方法。</para>
+        /// <para>🔴 **2026-10-24（`W24`）**：「点空处」那一跳走的是**抬起沿**（`ReleasedThisFrame`），
+        /// 与原版 `ClickExitBattle` 的唯一调用点（`ResignButtonOnClick` = uGUI `m_OnClick`）同一条边。
+        /// ⚠️ 自检夹具因此要构造「先按再松」两帧，⛔ 不是「按住那一帧」。</para>
+        /// </summary>
+        public bool HandleReplaySessionExit()
+        {
+            if (!_replaySession || Ctx == null) return false;
+            if (_leaving) return true;                 // 已经走出去了 ⇒ 这一帧到此为止
+            // ① ESC：回放唯一的键盘出口（⚠️ 原版要两步：ESC 开设置窗 → Resign；我们压成一步，如实记）
+            if (EscPressed())
+            {
+                LeaveReplay("ESC");
+                return true;
+            }
+            if (PointerOverUi()) return false;         // 点在回放条 / HUD 钮上 ⇒ 归 uGUI
+            if (PointerOverReplayInspectable(WorldPointer())) return false;   // 点在单位/手牌上 ⇒ 看牌
+            // 🔴 **2026-10-24（执行代理 `W24` · `D2_BattleScene11红诊断.md` §5 方案 A · 主对话裁定）**：
+            //   这一处原来是 `ClickedThisFrame()`（**按下沿**）—— 已改成 <see cref="ReleasedThisFrame"/>（**抬起沿**）。
+            //   判据：原版那一条出口 `BattleManager.ClickExitBattle` **全库只有一个调用点** =
+            //   `BattleSettingsWindow__ResignButtonOnClick`（`d:/2/tools/decomp_full/` 里
+            //   `grep -l ClickExitBattle` 只有这两个文件）⇒ 触发沿 = **uGUI `m_OnClick` = 抬起**。
+            //   ⚠️ 「ESC / 点空处一步走完」这一整条**是我们自己压出来的**（原版：ESC 开设置窗 → 点 `Resign`；
+            //   见 `W1` 报告 §4·5）—— 但既然要挑一个沿，就挑与原版那一跳**同一条**。
+            //   ⇒ `ClickedThisFrame` 的调用点因此从 5 处回到 **4 处**（`Editor/BattleScene.cs` 的
+            //   `★ A462` 源级断言照旧数 4，一个字没改）。
+            if (!ReleasedThisFrame()) return false;
+            // 🔴 **2026-10-24（执行代理 `W20` · 判据 `R3` §六·5 · 原版 `_CloseBattleDoors:52`→`:72`）**：
+            //   **结算演出期间（视频还在播）点空处不退出** —— 原版那个出口闸
+            //   `matchFinishedAndWaitingToLeave(+0x510)` 要等 `EndBattleDoors.SetupDoor` 的
+            //   「片长 + 2.0 s」走完才置位，在那之前左键什么都不做。
+            //   ⇒ 闸 = **结算面板正显示、且门还没走完**（`ExitReady = Visible && Doors.Finished`，`EndPanel:184`）。
+            //   ⚠️ **不写成 `_endPanel == null || _endPanel.ExitReady`**（`R3` 的原文）：
+            //      那一版会把「0 回合就分叉的坏录像」也锁住（它 `Ctx.IsOver` 是假 ⇒ 根本不会有结算面板），
+            //      而那条路上「点一下就走」是**既有行为**（用户真机踩过「进得去出不来」）。
+            //      这里只在**演出真的在走**时吞掉那一下；ESC 那条路**照旧随时可走**（上面那一句）。
+            //   ⚠️ 这一下要**吃掉**（返回 true）—— 不然它会继续落到世界侧（`DrivePlayerTurn`）去。
+            if (_endPanel != null && _endPanel.Visible && !_endPanel.ExitReady) return true;
+            LeaveReplay("点击空处");
+            return true;
+        }
+
+        /// <summary>这一点底下有没有**可以看的东西**（棋盘单位 / 手牌）—— 有的话那一下是「看牌」，
+        /// **不算回放出口**（判据：原版 `CardScript__OnTouchDown` 全文**没有** `matchType == 0xA0` 闸
+        /// ⇒ 回放里点 / 悬停看卡**照常**；只有 `OnTouchDrag` 才有那道闸）。
+        /// <para>⚠️ 这是**几何判据**（`HitSlot` / `CardView.Contains`），与点击归谁无关 ——
+        /// 点击本身仍由 `EventSystem` / 世界侧那两条链各自判。</para></summary>
+        bool PointerOverReplayInspectable(Vector3 world)
+        {
+            if (HitSlot(_myUnits, world) >= 0) return true;
+            if (HitSlot(_foeUnits, world) >= 0) return true;
+            if (_handViews != null)
+                foreach (var v in _handViews)
+                    if (v != null && v.gameObject.activeInHierarchy && v.Contains(world)) return true;
+            return false;
+        }
+
+        /// <summary>回放局离开战场（**只走 `LeaveBattle` 一条路** —— 不判负、不发投降、不安任何账）。
+        /// <para>判据 = 原版 `BattleManager__ClickExitBattle.c` 对 `matchType ∈ {140,160}` 那一支：
+        /// 跳过 `SendForfeit` / `AddResignAction` / `DeadHero`，直接 `BattleNetworkManager.LeaveBattle`。</para>
+        /// <para>⚠️ 我们这一侧 `LeaveBattle()` 自己就是「离开房间 + 加载主菜单」那两下（单机局 `LeaveNetRoom` 空操作），
+        /// 与上面那条支**同形**。⛔ 别在这里 `Forfeit()`：回放不是「认输」，那会记一笔投降（而且 `Ctx.IsOver`
+        /// 时 `Forfeit` 本来也会早退 —— 两条加起来就是「点了没反应」）。</para></summary>
+        public void LeaveReplay(string how)
+        {
+            if (!_replaySession) return;
+            Debug.Log("[Replay] 离开回放（" + how + "）—— 原版 `ClickExitBattle` 对 `matchType ∈ {140,160}` "
+                    + "不判负、直接 `BattleNetworkManager.LeaveBattle`；我们走同一条 `LeaveBattle`");
+            LeaveBattle();
+        }
+
+        /// <summary>自检专用：走一次出口判定（= `Update` 回放支里那一句）。
+        /// ⚠️ 与生产**同一份实现**，⛔ 别在自检里另写「什么时候该退出」。</summary>
+        public bool TickReplaySessionExitForTest() { return HandleReplaySessionExit(); }
+
+        /// <summary>自检专用：走一次「回放那一帧的演」= `AdvanceTimeline`（批处理没有帧循环，
+        /// `Update` 不跑；**这条和生产那条是同一个泵**，⛔ 不是第二份实现）。</summary>
+        public void TickReplaySessionForTest(float dt)
+        {
+            if (_replaySession && !_replayPaused) AdvanceTimeline(dt);
         }
 
         /// <summary>🔴 **2026-10-21（战斗线 `T09` A4）**：回放条某一颗被点了（uGUI
@@ -6986,6 +7611,12 @@ namespace CardPresentation
         {
             if (_mulligan == null) return;
 
+            // 🔴 **2026-10-24（执行代理 `W1`）**：换牌阶段一开 ⇒ 「等待提示」那两个状态位**清零**
+            //   （= 原版 `SetupInitialState` 那句 `mulliganWaitText.SetActive(false)` 的等价物）。
+            //   ⛔ 别漏：不清的话上一局「我交了 / 对手没交」会带进新一局 ⇒ 横幅在**单机局**里也亮起来。
+            _mulliganLocalSubmitted = false;
+            _mulliganFoeApplied = false;
+
             // 🆕 2026-10-15（`T06` · 战斗音响）：**换牌阶段开始**那一拍（原版 `Mulligan` cue）。
             //   判据 = `BattleManager._MulliganCountdown_d__347__MoveNext.c:33`
             //   （`SoundAssetCollection__get_Mulligan` → `SoundManager__Play2D(...,0)` = `MixerType.FX`）；
@@ -7022,6 +7653,12 @@ namespace CardPresentation
                 var aiMarks = SimpleAI.AiMulliganIndices(Ctx, 1 - _me);
                 RuleCore.Mulligan(Ctx, 1 - _me, aiMarks);
                 RecRaw(NetActionKind.Mulligan, 1 - _me, aiMarks != null ? aiMarks.ToArray() : new int[0]);
+                // 🔴 **2026-10-24（执行代理 `W1` · 判据 `N1` §2.1）**：**单机局「对手换牌已落地」在这里就是真**
+                //   —— 原版 `_SetupEnviromentalEffectPhase:32-46` 在非联网支把 `receivedEnemyMulligan`
+                //   **强置 1**，所以那条 `!receivedEnemyMulligan` 的显示分支在单机局**根本进不去**。
+                //   ⇒ 我们这一局也就恒为「对手已交」⇒ `ShowWaitBanner` 恒 false ⇒ **单机局一次都不出现**
+                //      （这正是本次要修的那条：原来它会整段敌方回合挂着）。
+                _mulliganFoeApplied = true;
             }
             _mulligan.OnDone = OnMulliganDone;
             // 🔴 **2026-10-12（`A1663`，用户真机点名）**：点**手牌本身** = 「看牌」，不是标记 ——
@@ -7059,6 +7696,9 @@ namespace CardPresentation
             //   （`RuleCore.Mulligan` 掷 `ctx.Rng`，两端顺序必须一致）。本机只提交、等同步。
             if (_net != null)
             {
+                // 🔴 **2026-10-24（执行代理 `W1` · 判据 `N1` §6·1）**：**本地已提交**那一格置真
+                //   —— 这是「等待提示」三态谓词的第二项（原版 `ClickChosenCardDone` 那一拍）。
+                _mulliganLocalSubmitted = true;
                 // 🔴 **2026-10-18（双语③ 波 1·P4）**：`等待对手…` 原来写死中文 ⇒ **英文档露中文**。
                 //   复用**已在表**的 `Battle/Mulligan/WaitEnemy`（EN `Waiting for enemy` / ZH「等待敌人」（2026-10-14 官方 zh-CN 表；原「等待对手」），
                 //   原版词条，同 `Battle/WaitBanner` 里 `Loc.T(WaitTerm)` 那一处）—— 中文档**逐字变了**（同上，2026-10-14 换成官方值）（末那个 `…`
@@ -7067,8 +7707,23 @@ namespace CardPresentation
                 _net.OnLocalMulligan(marks != null ? marks.ToArray() : new int[0]);
                 // 🔴 2026-10-22：原来这里 `SetHint("换牌已提交，等主机定序…")` —— 自拟句，已删
                 //   （面板上那颗钮已经换成原版 `Battle/Mulligan/WaitEnemy` 那一条，见上一段）。
+                // 🔴🔴 **2026-10-24（执行代理 `W1` · `N1` §6·2 D3）：换牌面板 ↔ 等待横幅「接棒」。**
+                //   原版 `BattleManager__ClickChosenCardDone.c:98-117` 的次序（同一帧）：
+                //     亮 `mulliganWaitText` → `PlayerHand.FinishMulliganFinalPhase` →
+                //     `MulliganManager.StopMulligan` → `PlayerHand.CompleteMulliganPhase`（**面板当场收掉**）
+                //     → `BlockingOverlay.StopSpinning` → `SendMulliganCards`；`:137-138` 再把换牌那层 `Shade` 关掉
+                //   ⇒ **屏幕上一直暗着，只是上面那行字从换牌面板换成了 `Waiting for enemy`**。
+                //   我们原来靠「面板一直开着、只把钮上的字换掉」 ⇒ 过渡形态与原版不符（`D3`）。
+                //   ⚠️ `MulliganDone` 落地时 `ApplyLoggedAction` 那一句 `_mulligan.Close()` **保留**
+                //      （`Close()` 幂等：`SetVisible(false)` + 清按钮，重复调是空操作）。
+                //   ⚠️ `interaction.enabled` 继续关着直到 `MulliganDone` 落地 —— 原版那一段靠压暗层挡输入，
+                //      我们靠这个位（比「靠压暗层的 raycastPadding」更严一点，如实记：不是逐字复刻）。
+                if (_mulligan != null) _mulligan.Close();
                 return;
             }
+            // 🔴 **2026-10-24（执行代理 `W1`）**：单机局这里同置真 —— 但**不显示**（
+            //   `_mulliganFoeApplied` 在 `OpenMulligan` 里已经是真：单机局对手换牌在开面板时就算完了）。
+            _mulliganLocalSubmitted = true;
             int n = RuleCore.Mulligan(Ctx, _me, marks);
             if (n < 0) Debug.LogWarning("[Battle] 换牌被拒（不在换牌阶段）—— 这不该发生");
             // 🆕 2026-09-27（录像）：玩家的换牌 + 「换牌结束」各记一条（顺序照 `OnMulliganDone` 的实际顺序）
@@ -10445,7 +11100,6 @@ namespace CardPresentation
                         + "`battleStage == PostBattle(60)` && !`shouldLoseIfDisconnectEnd` ⇒ LogWarning + return）");
                 return;
             }
-            RecRaw(RecKindForfeit, _me);          // 🆕 录像：投降也是一条要重放的动作
             // 🆕 2026-10-18（A913）：**本机点那颗「投降」钮** = 原版 `ClickExitBattle.c:59` 那一跳
             //   （`:47` 先 `BattleCommsManager.SendForfeit()`、`:49` `AddResignAction(1)`、
             //    然后 `DeadHero(我, BattleResult.Forfeit = 2)`）⇒ 码就是 **2**。
@@ -10453,6 +11107,11 @@ namespace CardPresentation
             //   `NetKind.Resign` 之后由**它自己**填 2（`ReceiveEnemyForfeit.c:37` 就是写死的 2）
             //   ⇒ 下面 `OnLocalResign()` 一个字节都不改。
             RuleCore.Forfeit(Ctx, _me, BattleResult.Forfeit);
+            // 🔴 **2026-10-24（执行代理 `W9`）**：记账排在**判负之后**（`StateHash` 含 `ctx.Winner`；
+            //   与 `NetRemoteResign` 同一族、同一理由，见那一段）。位置 = **`RuleCore.Forfeit` 之后、
+            //   「教程关禁止投降」那一支之前** —— ⛔ 不能挪到那一支之后：那一支会
+            //   `PlayTutorialResignAction()`（脚本动作自己也记账）⇒ 挪过去会**打乱录像的动作顺序**。
+            RecRaw(RecKindForfeit, _me);          // 🆕 录像：投降也是一条要重放的动作
             // 🆕 2026-10-19（战斗线 `T11` · **G-1 `actionOnPlayerResign`**）：
             //   原版 `BattleManager.ClickExitBattle.c:50-74` 的完整那一支 —— 教程/战役关且
             //   `preventPlayerResign(+0xB9) != 0` 时**不判负**，而是把 `stage.actionOnPlayerResign(+0xC0)`
@@ -10697,6 +11356,20 @@ namespace CardPresentation
                 return;
             }
             if (_endPanel != null) _endPanel.Hide();     // 上一局的结算面板先收掉（HUD 复用，不清会叠着）
+            // 🔴 **2026-10-24（执行代理 `W1` · 判据 `RE1` §3-C4）**：**回放局里的「重播」= 重播这一份**。
+            //   原版那颗 `Replay` → `BattleManager.ClickRestartReplay` = **重载当前场景、把同一份
+            //   `BattleRecordData` 再演一遍**（判据 → `资料/普查产出_0927/回放_入口与数据链.md` §A·3）。
+            //   ⚠️ 排在 `_endPanel.Hide()` 之后：回放局里那颗面板本来就没弹过，这一句是空操作，
+            //      但**别把它挪到前面去**（将来回放若照原版走结算流程，收面板这一步必须还在）。
+            //   ⚠️ `PlayReplay` 自己会重开 `_replaySession` / `_replayRec` / 回放条 ⇒ 这里不重复做。
+            if (_replaySession && _replayRec != null)
+            {
+                Debug.Log("[Replay] 重播：**重演同一份录像**（" + _replayRec.savedAt + " · "
+                        + _replayRec.myHero + " vs " + _replayRec.foeHero + "）"
+                        + " —— 原版 `ClickRestartReplay` 重载当前场景重演同一份");
+                PlayReplay(_replayRec);
+                return;
+            }
             // 🔴 **2026-10-12（A387 的同一族）**：`deckNote` 也要**照原样带过去** ——
             //    上面那句把「用的是哪副牌」带过去了（`_myDeckSrc`），它却原来没带 ⇒ 存档读不出来那一局，
             //    按 R 重开之后提示行就**不再说**为什么是自动凑的了（账还在、话没了 = 静默）。
@@ -10985,7 +11658,8 @@ namespace CardPresentation
             //   ⚠️ 只挡这两条「显示某张卡」的路（棋盘轻点 / 手牌轻点）；进攻卡那颗钮走的是
             //     原版另一个方法（`DisplayOffensiveCard`），不在那个读数点的管辖里 ⇒ 不动它。
             if (!TutorialAllowsCardDisplay) return;
-            _cardDisplay.Toggle(ToCardData(u, side == _me ? _myFaction : _foeFaction), u.Card,
+            // 🆕 2026-10-24（`W20`）：末位实参 `isPlayer`（敌方伏击整排徽标不画那道闸，见 `ToCardData`）。
+            _cardDisplay.Toggle(ToCardData(u, side == _me ? _myFaction : _foeFaction, side == _me), u.Card,
                                 CardDisplayWindow.RowsOf(u.TempBuffs));
             AfterCardWinToggle(BoardViewAt(slot, side == _me));
         }
@@ -11760,6 +12434,18 @@ namespace CardPresentation
         /// <summary>真的把这张牌打出去（面板问完之后由 `NextAsk` 调；不用问时 `BeginPlay` 直接调）。</summary>
         void DoPlay(CardView card, int idx, int slot)
         {
+            // 🔴 **2026-10-24（执行代理 `W1` · 判据 `RE1` §3-G5）**：**回放局不许出牌** ——
+            //   这是「手牌真的打到引擎里」的**唯一结算入口**（`BeginPlay` 两条支都到这儿）。
+            //   上游 `CanDropAtSlot` 那道闸只挡「拖拽落点」，**程序化出牌**（`SimulatePlayViaPanel` /
+            //   `-wfdrive` / 自检）绕得过去 ⇒ 两道都要有（⛔ 不是重复判据：一处是查询口的答案，
+            //   一处是「真要结算了」的最后一道）。出声，不静默。
+            if (_replaySession)
+            {
+                Debug.LogWarning("[Replay] 回放局里「打出手牌第 " + idx + " 张」**被拒** —— 回放只读（判据 → `RE1` §3-G5）");
+                _playerTakeoffAt = -999f;
+                _playerFlightTakeoffPlayed = false;
+                return;
+            }
             // 🔴 🆕 2026-10-18（A938）：**教程白名单闸门 · 第 ② 点** —— 原版 `IsValidSpellTarget` 那一跳
             //    （出牌链路里**结算前**那一次；① 那处是「这一格能不能落」的查询口，会随指针每帧问）。
             //    ⛔ 这一处**必须出声**：走到这儿说明玩家**真的**打出去了。
@@ -12033,6 +12719,14 @@ namespace CardPresentation
             // 放大窗开着时：**这一下点击先交给窗**（卡格换位 / 语音钮 / 眼睛钮 —— 判据只此一处）
             if (TickCardDisplayClick()) return;
 
+            // 事件时间线：每帧推 —— 动作才有节奏，不是同一帧全点着
+            // ⚠️ **暂停时这一条不推**（和下面的时钟、AI 一起停 —— 「暂停」就是停这三处）
+            // 🔴 **2026-10-24（执行代理 `W1` · `R2` §7·④落点 B）：这一句必须排在 `HandleReplayBar()` 之前。**
+            //   回放条一旦按原版显示出来（`PlayReplay` 里 `Setup(true)`），`HandleReplayBar()` 就会
+            //   **吞掉整帧**；它排在前面的话 ⇒ 时间线永久停推 ⇒ **回放冻在第一帧**。
+            //   回放那「一条一条推动作」的泵也挂在本方法末尾（`TickReplayPump`）。
+            if (!_replayPaused) AdvanceTimeline(Time.deltaTime);
+
             // 回放条（原版 `ReplayButtons`）：整条可见 ⇒ 这一帧到此为止（模态）。
             // 🔴 **2026-10-21（战斗线 `T09` A4）：四颗钮的动作已归 uGUI**（`BattleHudButton` →
             //   `OnReplayButtonClicked` → `LateUpdate` 落账）⇒ 这里**不再做命中、也不再耗手搓沿**，
@@ -12040,11 +12734,30 @@ namespace CardPresentation
             // 🔴 **2026-10-20（`T09-FIX5` · P0-2）仍然成立的那半**：普通对局 `Holder` 关着 ⇒ 直接 false、
             //   **不吃释放沿** —— 否则下面换牌/选牌/点牌堆/选目标/聊天那些 release 分支在真机上一条都收不到沿。
             //   判据见 `HandleReplayBar` 的 doc。
-            if (HandleReplayBar()) { UpdateHud(); return; }
-
-            // 事件时间线：每帧推 —— 动作才有节奏，不是同一帧全点着
-            // ⚠️ **暂停时这一条不推**（和下面的时钟、AI 一起停 —— 「暂停」就是停这三处）
-            if (!_replayPaused) AdvanceTimeline(Time.deltaTime);
+            // 🔴🔴 **2026-10-24（执行代理 `W1` · 判据 `RE1` §3-C1/C2/C3 · `R2` §5 / §7·④）：回放局有自己的帧循环。**
+            //   原来这里 `{ UpdateHud(); return; }` ⇒ 只要回放条亮着，下面全部到不了 ⇒「进回放 ⇒ 冻在第一帧」；
+            //   而回放条**现在真的会在回放局亮起来**（本批 C3）⇒ 必须分档：
+            //     · **回放局**：只跑 ①出口（`HandleReplaySessionExit`）②棋盘「看牌」那一下（`DrivePlayerTurn`，
+            //       原版 `CardScript__OnTouchDown` 全文**没有** `matchType==0xA0` 闸 ⇒ 点开卡详情**允许**）
+            //       ③画 HUD。**出牌 / 攻击 / 结束回合 / 换牌**各自另有显式闸（`CanDropAtSlot` / `CommitCommand` /
+            //       `LocalAct` / `EndPlayerTurn` / `ClickEndTurnHud` 里的 `_replaySession`）。
+            //       ⛔ **不能靠 `Ctx.IsOver`**：产品那条「0 回合就分叉」的坏录像里它是**假**的。
+            //     · 非回放局（只有自检会把 `Holder` 摆亮）：保持原来那条纯模态语义。
+            if (HandleReplayBar())
+            {
+                if (_replaySession)
+                {
+                    // 🆕 2026-10-24（`W1` · `R2` §7·④落点 C）：`Space` / `.` 那套时间控制**也接到回放里**
+                    //   （它原来排在 `Ctx.IsOver` 早退之后 ⇒ 回放里永远收不到；回放条那四颗钮在真机上够用，
+                    //    但键盘这一档是既有的功能，⛔ 不该因为「回放」而失效）。
+                    if (HandleTimeControlKeys()) return;
+                    if (HandleReplaySessionExit()) return;   // 出口先判（ESC / 点空处）——
+                    DrivePlayerTurn();                       // ……压在单位/手牌上那一下留给「看牌」
+                    UpdateHud();
+                    return;
+                }
+                UpdateHud(); return;
+            }
 
             // 换牌阶段：**在最前面**（这时对局还没开始，下面那些结算/回合逻辑一条都不该跑）
             // 倒计时要排在面板点击**之前**：到 0 自动完成时走的是和点「完成换牌」**同一条收尾**
@@ -12066,8 +12779,12 @@ namespace CardPresentation
                 // ⚠️ **`R` 是我们自己的调试键**（原版没「再来一局」，见 `Restart` 的文档）——
                 //   它原来接的是结算面板上那句提示文字，**那句已经删了**（原版那屏零文字），
                 //   但键**照旧留着**（自检与手工验收都要用），只是不再对外承诺。
-                // 🔴 回放局按 R 也一样：那一下走 `Restart()` → `Begin()`，`Begin` 会把
-                //   `_replaySession` 清零 ⇒ **新开的那一局是正常对局**（账照记）。
+                // 🔴 **2026-10-24（执行代理 `W1` · `RE1` §3-C4 · 铁律 5 就地订正）**：本行原来写
+                //   「回放局按 R 也一样：那一下走 `Restart()` → `Begin()` ⇒ 新开的那一局是正常对局」——
+                //   **那正是 `C4` 那个缺陷**（原版 `ClickRestartReplay` 是**重演同一份**，不是开新局）。
+                //   现在 `Restart()` 在回放局里重播 `_replayRec` 那一份，**`_replaySession` 保持为真**。
+                //   ⚠️ 回放局**走不到这一句**（上面「回放条可见」那一支先 return）⇒ 回放里重播请用
+                //   回放条那颗 `Replay`（`ApplyPendingReplay` → `Restart()`，同一个落点，见 `C4`）。
                 if (Keyboard.current != null && Keyboard.current.rKey.wasPressedThisFrame) Restart();
                 return;
             }
@@ -12125,7 +12842,8 @@ namespace CardPresentation
                 //     **照跑** —— 原版那几样不受指针位置影响（⛔ 别在图省事把整块 `if (!_replayPaused)` 包起来，
                 //     那会让鼠标停在 HUD 上时**时钟和 AI 都冻住**）。
                 //   ⚠️ A4 退两条手搓沿时与它一起删（那时棋盘输入会自己走 EventSystem）。
-                bool overHudA2 = PointerOverHudButton(WorldPointer());
+                bool overHudA2 = PointerOverHudButton(WorldPointer())
+                              || WaitShadeContains(WorldPointer());   // 🆕 W1：原版那层压暗吃点击（见 `TickTooltipAt` 顶部）
                 if (!overHudA2)
                 {
                     // 🆕 2026-10-18（`Z6`）：提示挂着时**点一下就能消**（原版 `TutorialTipScript` 那一侧
@@ -12399,6 +13117,11 @@ namespace CardPresentation
 
         void DrivePlayerTurn()
         {
+            // 🔴 **2026-10-24（执行代理 `W1` · 判据 `R2` §5 / §7·①）**：这里原来有一句
+            //   `if (_replaySession) return;` —— **已删**。回放里**点棋盘开卡详情是允许的**
+            //   （原版 `CardScript__OnTouchDown` 全文没有 `matchType == 0xA0` 闸；只有 `OnTouchDrag` 才有
+            //   ⇒ 禁的是**拖牌出牌**，不是「看」）。本方法里真正会改局面的只有 `CommitCommand`（选打法/
+            //   主动技）与结束回合，它们各自有 `_replaySession` 闸 ⇒ 这里不必整段挡。
             // 🔴 **2026-10-18（A938）：教程局里脚本这一帧推一条**（原版 `_NextTurn` 起的那条协程，
             //   `_NextTurn_d__395__MoveNext.c:427-431` —— 玩家回合也跑脚本）。
             //   ⚠️ 放在 `cam == null` 那道早退**之前**：批处理里没有相机，放后面的话
@@ -12565,6 +13288,17 @@ namespace CardPresentation
             if (side == _me && dragged)
             {
                 _pressSlot = -1; _pressSide = -1;
+                // 🔴 **2026-10-24（执行代理 `W1` · 判据 `R2` §5）：回放局**拖棋盘单位 = 弹「攻击/主动技」三选一**
+                //   ⇒ **禁止**（原版 `CardScript__OnTouchDrag.c:20/30` 与 `ActiveSkillDisplay__OnTouchDrag.c:41-43`
+                //   的 `0xA0` 闸禁的就是「拖拽起手攻击 / 放主动技」）。
+                //   ⚠️ **只禁拖拽那一路**：上面 `!held` 的「轻点 ⇒ 开/关大卡窗」**照常**
+                //   （原版 `CardScript__OnTouchDown` 全文没有 `0xA0` 闸 ⇒ 看牌允许）。
+                if (_replaySession)
+                {
+                    Debug.Log("[Replay] 回放局里拖棋盘单位 **不弹打法选择器**（回放只读；轻点看牌照常）"
+                            + " —— 判据：原版 `CardScript__OnTouchDrag.c:20/30`");
+                    return true;
+                }
                 OpenCommand(s);
             }
             return true;
@@ -12704,6 +13438,46 @@ namespace CardPresentation
             _selectedSlot = slot;
             openView.SetHighlight(CardHighlightState.Selected);
 
+            // 整条选择器挂到被拖的那个单位身上（原版展开时 `set_position(Get2DWorldPosFromBoardPos(单位.position))`）——
+            // 取不到视图就退回屏幕中心（`Show` 里 `atWorld = null` 那条）。
+            //
+            // 🔴 **2026-10-16 补上那一步换算（账 → `资料/普查产出_1016战斗/W_卡牌飞行族普查.md` §二 F）**：
+            //   **上面那句话 2026-09-29 就抄回来了，但换算一直没做** —— 这里原来喂的是
+            //   `BoardViewAt(slot).transform.position`，那是**竞技场世界坐标**（我方槽 0 x = −3.37，
+            //   182.14 px/单位），而 `AttackSelector` 把它当 **HUD 平面局部坐标**直接用
+            //   （`RefreshLayout` 拿它算 `localPosition`；选择器节点在 **Default 层** ⇒ 由 **HUD 正交相机**画，
+            //   108 px/单位）⇒ 3D 下整条选择器挂不到卡上（读码逐值推算偏 ≈267 px，⛔ **没实跑**）。
+            //   **判据只此一处** = `BoardLayout.DropTargetWorld`（`:506-516`：3D 时 = 卡心的投影，
+            //   非 3D 时**逐位等于** `SlotPosition`）—— 与 `A337`/`A359`/`A367` 同一个口，别在这儿另算投影。
+            // 🆕 2026-10-24（`W20`）：提成局部量 —— `Show` 与 `ShowJustOne` 两条路要**同一个锚点**
+            //   （原来只有 `Show` 一条路，内联在实参里）。
+            Vector3? atWorld = BoardViewAt(slot) != null ? (Vector3?)playerBoard.DropTargetWorld(slot) : null;
+
+            // 🔴 **2026-10-24（执行代理 `W20`）· 原版 `UnitOnBoardAttackTypeSelector__ToggleJustOne.c`**
+            //   触发面（`UnitOnBoardAttackTypeSelector__Toggle.c:200-240` 现读）：
+            //   **`displaySummonSickness` 且（`ferocity`(0x4f1) **或** `oath`(0x4fb) + `CanUseOathAbility`）**
+            //   ⇒ 三颗钮**全关、只留主动技能那一颗**（连近战/远程都不显示）。
+            //   · `displaySummonSickness` = `SummonSickness && !fast && !flank`（`EntityScript__get_displaySummonSickness.c:7-11`）
+            //     —— ⛔ 不是裸 `Exhausted`（那个还含「本回合已行动」，见 `UnitState.SummonSickness` 的 doc）。
+            //   · `oath` 那个 bool 已经是 `HasOath && CanUseOathAbility == OK`（上面 `:13316`），与原文同一件事。
+            //   · ⚠️ 加 `skill` 这一条是**我们这侧**的闸：教程白名单把技能那颗关掉时
+            //     （`:13340` 把 `skill` 置 false），不能反过来只显示一颗**点不动**的钮。
+            bool displaySummonSickness = u.SummonSickness && !u.Has("fast") && !u.Has("flank");
+            if (displaySummonSickness && skill
+                && (u.Has("ferocity") || (u.Has("oath") && oath)))
+            {
+                if (selector != null) selector.ShowJustOne(AttackKind.Ability, atWorld, u.LastAttackType);
+                SetHint("");
+                return;
+            }
+
+            // 🔴 **2026-10-24（执行代理 `W20`）· `pindown` ⇒ 近战那颗选了没反应**
+            //   （原版 `UnitOnBoardAttackTypeSelector__AttackButtonClick.c:27-33`：`HasCurrentTrait(0x3ca /*970*/)
+            //   && param_2 == 1 ⇒ 直接 `return`，指令被吞；那颗钮**照样亮、照样能悬停**，不置灰）。
+            //   落地 = `AttackSelector.Selectable`（不吃悬停 ⇒ 选不中、也发不出 commit）。
+            //   ⚠️ 每次开都显式赋（选择器是复用的，置 false 那一半不能漏）。
+            if (selector != null) selector.LockMelee = u.Has("pindown");
+
             var opts = new List<AttackSelector.Option>();
             if (melee) opts.Add(new AttackSelector.Option { Kind = AttackKind.Melee, Enabled = true });
             if (skill) opts.Add(new AttackSelector.Option
@@ -12724,6 +13498,13 @@ namespace CardPresentation
                 //    （原版就是运行时给 `buttonIcon` 赋值的；五张图已导进 `Resources/Art/ui/`）。
                 //    没有替代行动的卡 ⇒ null ⇒ 落回 `AttackSelector.IconName` 那张占位图。
                 IconName = AttackSelector.AltIconFor(alt, oath),
+                // 🆕 2026-10-24（`W20`）· **技能钮的图标按【军队】查**（原版
+                //   `UnitOnBoardAttackTypeSelector__Toggle.c:74-80` → `ArmyUtilities.GetActiveAbilityIconForArmy`
+                //   → `IconsByArmySO.activeAbilityIcons`，**只有 5 条**；真值表只在 `Core/ArmyIcons.cs` 一处）。
+                //   `Id()` 认不出阵营时回 **-1** ⇒ `ApplyOptionIcons` 的 `Army > 0` 那道闸自然落回旧口径
+                //   （按关键词 / 占位图）—— 与原版「查不到就整颗关掉」的差别只在「认不出阵营」这一档，
+                //   而卡池里每张卡的阵营都在那 13 条里。
+                Army = u.Card != null ? ArmyIcons.Id(u.Card.Faction) : 0,
             });
             if (ranged) opts.Add(new AttackSelector.Option { Kind = AttackKind.Ranged, Enabled = true });
 
@@ -12731,20 +13512,9 @@ namespace CardPresentation
                 selector.Show(opts, CardText.Phrase("CHOOSE ACTION"),
                               // 技能效果写在条**上方** —— 中间那条提示行正好被按钮压住
                               skill ? CardDisplayName(u.Card, u.Name) + ": " + ActiveActionText(u, alt, oath) : null,
-                              // 🆕 2026-09-29：**整条挂到被拖的那个单位身上**（原版展开时
-                              //   `set_position(Get2DWorldPosFromBoardPos(被拖单位.position))`）。
-                              //   取不到视图就退回屏幕中心（`Show` 里 `atWorld = null` 那条）。
-                              //
-                              // 🔴 **2026-10-16 补上那一步换算（账 → `资料/普查产出_1016战斗/W_卡牌飞行族普查.md` §二 F）**：
-                              //   **上面那句话 2026-09-29 就抄回来了，但换算一直没做** —— 这里原来喂的是
-                              //   `BoardViewAt(slot).transform.position`，那是**竞技场世界坐标**（我方槽 0 x = −3.37，
-                              //   182.14 px/单位），而 `AttackSelector` 把它当 **HUD 平面局部坐标**直接用
-                              //   （`RefreshLayout` 拿它算 `localPosition`；选择器节点在 **Default 层** ⇒ 由 **HUD 正交相机**画，
-                              //   108 px/单位）⇒ 3D 下整条选择器挂不到卡上（读码逐值推算偏 ≈267 px，⛔ **没实跑**）。
-                              //   **判据只此一处** = `BoardLayout.DropTargetWorld`（`:506-516`：3D 时 = 卡心的投影，
-                              //   非 3D 时**逐位等于** `SlotPosition`）—— 与 `A337`/`A359`/`A367` 同一个口，别在这儿另算投影。
-                              BoardViewAt(slot) != null ? (Vector3?)playerBoard.DropTargetWorld(slot)
-                                                        : null,
+                              // 挂点 = `atWorld`（本方法上方那个局部量；推导与「谁才是唯一换算口」的注释在那里，
+                              //   ⛔ 别在这儿再算一遍投影）。
+                              atWorld,
                               // 🆕 2026-09-29：那圈黄圈挂**这个单位上一次用的打法**（原版 `unit.attackType`；
                               //   0 = 还没打过 ⇒ 不亮）。判据 → `AttackSelector.RefreshPicked`。
                               u.LastAttackType);
@@ -12786,10 +13556,13 @@ namespace CardPresentation
         /// 🔴 **判据只此一处** —— 点亮合法目标 / 准星 / 点击 / 结算**四处**都读它；
         /// 各写一遍的话迟早自相矛盾（「这半边亮着，点下去却没反应」）。
         /// </summary>
-        int CommandTargetSide()
+        /// <param name="cmdOverride">🆕 2026-10-24（`W20`）：临时按某一档算（拖拽起手预亮）。
+        /// 传 `None` = 按 `_command` —— 那是所有既有调用点的默认，行为逐位不变。</param>
+        int CommandTargetSide(AttackKind cmdOverride = AttackKind.None)
         {
-            if (_selectedSlot < 0 || _command == AttackKind.None) return -1;
-            if (_command != AttackKind.Ability) return 1 - _me;          // 近战/远程永远点敌方
+            AttackKind cmd = cmdOverride != AttackKind.None ? cmdOverride : _command;
+            if (_selectedSlot < 0 || cmd == AttackKind.None) return -1;
+            if (cmd != AttackKind.Ability) return 1 - _me;          // 近战/远程永远点敌方
             var u = Ctx.Players[_me].Board[_selectedSlot];
             if (u == null) return -1;
             string alt = AltActionOf(u);
@@ -12859,6 +13632,18 @@ namespace CardPresentation
         /// `WaitingForBlockingAction`。⚠️ 测试口（`SimulateCommand`）传 `false`（不是玩家手速）。</param>
         void CommitCommand(AttackKind kind, bool fromUi = false)
         {
+            // 🔴 **2026-10-24（执行代理 `W1` · 判据 `R2` §5）：回放局不许「选打法 / 放主动技」。**
+            //   原版禁的是**拖拽与结算**（`CardScript__OnTouchDrag.c:20/30` ·
+            //   `ActiveSkillDisplay__OnTouchDrag.c:41-43`）；这里拦在「打法定下来」那一步 =
+            //   与「主动技能拖拽禁止」同义（`AttackKind.Ability` 也走本方法）。
+            //   ⚠️ 「结束回合」原版取值**未查清**（`allowPlayerActionsFlag` 反编译里没有可见调用点）
+            //      ⇒ 按**禁**处理（见 `EndPlayerTurn` 顶部那条注释）。出声，不静默。
+            if (_replaySession)
+            {
+                Debug.LogWarning("[Replay] 回放局里「选定打法（" + kind + "）」**被拒** —— 回放只读"
+                               + "（判据：原版 `CardScript__OnTouchDrag` / `ActiveSkillDisplay__OnTouchDrag` 的 `0xA0` 闸）");
+                return;
+            }
             // 🆕 2026-10-19（战斗线 W 第 2 条）：**演出没演完 ⇒ 这一下选打法不算**（原版那两处闸）。
             //   静默（原版被闸挡下的两支都是直接跳过、没有提示/音效）。
             if (fromUi && WaitingForBlockingAction)
@@ -13012,10 +13797,34 @@ namespace CardPresentation
         /// ⇒ 点亮只发生在**已经进入选目标**之后（我们也是这样：`CommitCommand` → 本方法）。⛔ 别在拖拽路径上加点亮。</para></summary>
         int HighlightTargets()
         {
+            return HighlightTargetsCore(null);
+        }
+
+        /// <summary>🆕 **2026-10-24（执行代理 `W20`）**：**拖拽起手就点亮合法目标**（原版
+        /// `BattleManager__StartAttackFrom.c:20-40` → `BattleManager__ShowPotentialTargets.c`）。
+        /// <para>与原版那三档的对应：`ShowPotentialTargets` 的第三个实参 `mode = (card.attackType == 4) ? 2 : 0`
+        /// ⇒ ① 这个单位上一次打的是**主动技** ⇒ 按主动技的目标判据；② 否则（含 `attackType == 0` =
+        /// 还没打过）按**攻击**那一族。而 `IsValidAttackTarget.c:46-50` 在 `param_5 == 0` 时取
+        /// `card.attackType`、为 0 就**不做近战/远程那条数值判据**（直接落进通用合法性）
+        /// ⇒ 我们这里取「**近战或远程任一合法**」。</para>
+        /// <para>⚠️ 这一档**不改提示条**（原版 `ShowPotentialTargets` 不写提示文字；那条是我们自加的）。</para></summary>
+        int HighlightTargetsPreview(AttackKind lastKind)
+        {
+            return HighlightTargetsCore(lastKind);
+        }
+
+        /// <param name="previewKind">`null` = 正常（按 `_command`）；非 `null` = 「拖拽起手、玩家还没选打法」那一档。
+        /// ⚠️ 两档共用**同一个循环**（⛔ 别另抄一份判据）。</param>
+        int HighlightTargetsCore(AttackKind? previewKind)
+        {
+            bool isPreview = previewKind.HasValue;
+            AttackKind cmd = isPreview ? previewKind.Value : _command;
             int n = 0;
             // 这一手要点的在**哪一侧**：近战/远程永远敌方；替代行动看正文
             // （`Pray: Give Shield to a friendly unit` 点的是**自己人**）。
-            int side = CommandTargetSide();
+            int side = isPreview
+                     ? (cmd == AttackKind.Ability ? CommandTargetSide(AttackKind.Ability) : 1 - _me)
+                     : CommandTargetSide();
             var views = side == _me ? _myUnits : _foeUnits;
             var other = side == _me ? _foeUnits : _myUnits;
 
@@ -13027,32 +13836,59 @@ namespace CardPresentation
             {
                 CardView v;
                 bool have = views.TryGetValue(t, out v) && v != null;
-                bool legal = LegalTargetCode(t) == RuleCodes.OK;
+                bool legal = isPreview
+                           ? (cmd == AttackKind.None
+                              // 原版 attackType == 0 ⇒ 不做近/远程判据 ⇒ 任一合法即可
+                              ? LegalTargetCode(t, AttackKind.Melee) == RuleCodes.OK
+                                || LegalTargetCode(t, AttackKind.Ranged) == RuleCodes.OK
+                              : LegalTargetCode(t, cmd) == RuleCodes.OK)
+                           : LegalTargetCode(t) == RuleCodes.OK;
 
                 // 不合法的一律**熄掉底光** —— 不然上个打法点亮的那些会留在卡面上
-                if (have) v.SetTargetGem(legal ? GemForCommand() : TargetGem.None);
+                if (have) v.SetTargetGem(legal ? GemForCommand(cmd) : TargetGem.None);
                 if (!legal || !have) continue;
 
                 v.SetHighlight(CardHighlightState.ValidTarget);
                 n++;
             }
 
-            string what = _command == AttackKind.Ability ? "ABILITY"
-                        : (_command == AttackKind.Ranged ? "RANGED" : "MELEE");
-            SetHint(CardText.Phrase(what) + " - " +
-                    (n > 0 ? CardText.Phrase("PICK A TARGET") + " (" + n + ")"
-                           : CardText.Phrase("NO LEGAL TARGET")));
+            // 起手预亮那一档**不动提示条**（见 `HighlightTargetsPreview` 的 doc）
+            if (!isPreview)
+            {
+                string what = _command == AttackKind.Ability ? "ABILITY"
+                            : (_command == AttackKind.Ranged ? "RANGED" : "MELEE");
+                SetHint(CardText.Phrase(what) + " - " +
+                        (n > 0 ? CardText.Phrase("PICK A TARGET") + " (" + n + ")"
+                               : CardText.Phrase("NO LEGAL TARGET")));
+            }
             return n;
+        }
+
+        /// <summary>🆕 **2026-10-24（执行代理 `W20`）**：`AttackSelector.PreviewTargets` 的接线本体 ——
+        /// **拖拽起手那一刻**（原版 `BattleManager.StartAttackFrom`）要的两件事：
+        /// ① 点亮**潜在目标**（`ShowPotentialTargets`）② 亮**准星**（`ToggleCrosshair(true, …)`）。
+        /// <param name="lastKind">这个单位**上一次用的打法**（`AttackSelector` 从 `u.LastAttackType` 归一后传进来；
+        /// `None` = 还没打过 ⇒ 原版那一刻 `attackType == 0`）。
+        /// 判据与两档的分法 → <see cref="HighlightTargetsPreview"/> 的 doc。</param>
+        /// <para>⚠️ 回放局 / 对局已结束 / 没选中单位 ⇒ 什么都不做（预亮只在玩家的战斗中才有意义）。</para></summary>
+        void PreviewTargetsFromDrag(AttackKind lastKind)
+        {
+            if (Ctx == null || Ctx.IsOver || _selectedSlot < 0) return;
+            HighlightTargetsPreview(lastKind);
+            ShowReticleNow();
         }
 
         /// <summary>
         /// 当前打法点亮哪颗数值格的底光。**技能没有那一档** —— 原版 `Base Attack Counters` 下
         /// 只有近战/远程两个 `Highlight`（见 `CardView.SetTargetGem`）。技能靠准星和弧线的金色表达。
         /// </summary>
-        TargetGem GemForCommand()
+        TargetGem GemForCommand(AttackKind cmdOverride = AttackKind.None)
         {
-            return _command == AttackKind.Ranged ? TargetGem.Ranged
-                 : _command == AttackKind.Ability ? TargetGem.None
+            // 🆕 2026-10-24（`W20`）：多一个「临时按某一档算」的口（拖拽起手预亮用）；
+            //   传 `None` = 按 `_command`（原来那唯一一条路的默认，行为逐位不变）。
+            AttackKind cmd = cmdOverride != AttackKind.None ? cmdOverride : _command;
+            return cmd == AttackKind.Ranged ? TargetGem.Ranged
+                 : cmd == AttackKind.Ability ? TargetGem.None
                  : TargetGem.Melee;
         }
 
@@ -13061,10 +13897,13 @@ namespace CardPresentation
         /// **判据只有这一份** —— 点亮合法目标（`HighlightTargets`）和准星（`UpdateReticle`）都调它。
         /// 各写一遍的话迟早自相矛盾：卡亮着、准星却不认。
         /// </summary>
-        int LegalTargetCode(int t)
+        /// <param name="cmdOverride">🆕 2026-10-24（`W20`）：临时按某一档算（拖拽起手预亮）。
+        /// 传 `None` = 按 `_command` —— 既有调用点的默认，行为逐位不变。</param>
+        int LegalTargetCode(int t, AttackKind cmdOverride = AttackKind.None)
         {
+            AttackKind cmd = cmdOverride != AttackKind.None ? cmdOverride : _command;
             if (Ctx == null || _selectedSlot < 0 || t < 0 || t >= BoardSpec.Size) return RuleCodes.ErrTarget;
-            int side = CommandTargetSide();
+            int side = CommandTargetSide(cmd);
             if (side < 0) return RuleCodes.ErrTarget;                       // 这一手不用点目标
             if (Ctx.Players[side].Board[t] == null) return RuleCodes.ErrTarget;
             // 🔴 🆕 2026-10-18（A938）：**教程白名单闸门 · 第 ③④⑤⑨ 点** —— 原版那五处
@@ -13075,9 +13914,9 @@ namespace CardPresentation
             //   ⇒ 一处 OR 进去 = 五处一起生效；⛔ 别在 `HighlightTargets` / `UpdateReticle` 里再各写一遍。
             //   ⚠️ 这一处也是**查询口**（每帧问）⇒ 不出声；被拒的提示由第 ⑪ 点（`DoResolve`）给。
             if (!TutorialPermits(TutAttemptTarget(side, t))) return RuleCodes.ErrTarget;
-            if (_command != AttackKind.Ability)
+            if (cmd != AttackKind.Ability)
                 return RuleCore.IsValidTarget(Ctx, _me, _selectedSlot, side, t,
-                                              _command == AttackKind.Ranged);
+                                              cmd == AttackKind.Ranged);
 
             // 主动技能那一格：**两种来源各问各的判据**（都在引擎里，界面不自己判）
             var u = Ctx.Players[_me].Board[_selectedSlot];
@@ -13190,7 +14029,15 @@ namespace CardPresentation
         /// </summary>
         void ShowReticleNow()
         {
-            if (reticle == null || _selectedSlot < 0 || _command == AttackKind.None) return;
+            // 🔴 **2026-10-24（执行代理 `W20` · 判据 `BattleManager__StartAttackFrom.c:20-40`）：**
+            //   这里原来还要求 `_command != AttackKind.None` —— **与原文不符**：原版在**拖拽起手**那一刻
+            //   （玩家还没选打法）就 `TargetReticleController.ToggleCrosshair(true, …)` +
+            //   `PrepareMovement(…, card.attackType, …)`，而那一下 `attackType` **可以是 0**
+            //   （这个单位还没打过）。⇒ 去掉 `_command` 前置；`_command == None` 时
+            //   `TargetReticle.PresetOf` 落到 `default:`（= 近战配色），正是原版 attackType 0 那一档。
+            //   ⚠️ 别的两个调用点（`CommitCommand` / `SkillPanelDragToTarget`）那时 `_command` 都已经定了
+            //   ⇒ 它们的行为**逐位不变**。
+            if (reticle == null || _selectedSlot < 0) return;
             SyncReticleCameras();
             CardView me;
             if (!_myUnits.TryGetValue(_selectedSlot, out me) || me == null) return;
@@ -13614,6 +14461,16 @@ namespace CardPresentation
         /// ⚠️ 默认 `false` ⇒ 既有调用点（按钮 / 测试口）行为不变。</param>
         void EndPlayerTurn(bool fromUi = false, bool timeOut = false)
         {
+            // 🔴 **2026-10-24（执行代理 `W1` · 判据 `RE1` §3-G5）**：**回放局不许结束回合** ——
+            //   这是**唯一的引擎入口**（`ClickEndTurnHud` / `AutoEndTurnIfStuck` / `SimulateEndTurn` 都到这儿），
+            //   所以闸设在这里 = 三个入口一次盖住（铁律 10 第 5 条：状态要在每个入口都带上）。
+            //   ⚠️ 出声（红线：不许静默失败）—— 真机上一旦有人点它，日志里必须能看见是被回放闸挡的。
+            if (_replaySession)
+            {
+                Debug.LogWarning("[Replay] 回放局里「结束回合」**被拒**（" + (fromUi ? "玩家点的" : "自动/自检触发的")
+                               + "）—— 回放是只读的，⛔ 不改局面。判据 → `RE1` §3-G5 · C5 Q5");
+                return;
+            }
             // 🆕 2026-10-19（战斗线 W 第 2 条）：**动作演出没演完 ⇒ 这一下结束回合不算**
             //   （原版 `BattleManager__EndTurnClick.c:45-48`：`0x245==0 && 0x244!=0 && !WaitingForBlockingAction`）。
             // 🆕 2026-10-22（W63·拒绝反馈）：⚠️ **这一道闸仍然是静默的** —— 原版
@@ -15618,6 +16475,15 @@ namespace CardPresentation
         public int ReplayDivergenceForTest { get { return _replayDivergence; } }
         int _replayDivergence = -1;
 
+        /// <summary>🔴 **2026-10-24（执行代理 `W9`）**：上一次回放的**逐动作【全量】指纹**对账器
+        /// （`null` = 还没放过 / 开局头就没解出来）。自检直接读它的
+        /// `FirstDivergentIndex`（`-1` 无分叉 / `-2` 开局不同源 / `>=0` 第几条之后分叉）·
+        /// `NoExpectedTrace`（老档 ⇒ **本层没判**，⛔ 不是通过）· `ActionCountMismatch`（少演/多演）。
+        /// <para>⚠️ 与 <see cref="ReplayDivergenceForTest"/> **分工不同、两条都要断**：
+        /// 那一格是 `DeepHash`（含实例号、定位更细），这一格是 `NetProtocol.StateHash`
+        /// （**与终局判据同一个口径** —— 才能在「轨迹摘要相同、终局却不同」时定位到第几条）。</para></summary>
+        public ReplayFingerprintTrace ReplayFullTraceForTest { get { return _replayFt; } }
+
         /// <summary>🔴 **2026-10-24（`A29`）**：上一次 `PlayReplay` 里**「开局次序」被踩**的条号
         /// （`-1` = 一次都没踩）。与 <see cref="ReplayDivergenceForTest"/> **并列的第二个失败位**，
         /// 但它们抓的不是同一件事：
@@ -16828,7 +17694,21 @@ namespace CardPresentation
         /// <summary>🆕 2026-10-19（战斗线 W 第 2 条）：**动作演出还没收尾 ⇒ 输入要挡**。
         /// 原版 `BattleManager.WaitingForBlockingAction` 的等价物 —— 判据与实现说明见
         /// <see cref="BeginBlockingWindow"/> 的 doc。</summary>
-        public bool WaitingForBlockingAction { get { return _blocking; } }
+        public bool WaitingForBlockingAction
+        {
+            get
+            {
+                // 🔴 **2026-10-24（执行代理 `W1` · 判据 `R2` §4 / `BattleManager__WaitingForBlockingAction.c:26-30`）**：
+                //   原版这一处有**明文短路** —— `if (matchData.matchType == 0xa0 /*Replay*/) return 0;`
+                //   ⇒ **回放里这道闸恒「不阻塞」**。我们原来没照做，于是回放那一长串 cue（一口气排出来的
+                //   24 条动作的）把 `_blocking` 按住 20 s、撞安全阀，然后 `EndTurnClick` 那道闸失效
+                //   （点一下 `结束回合` 就**真把一条 EndTurn 落进引擎**、污染这一趟回放）。
+                //   ⇒ 回放局直接恒 false（「回放里不许改局面」由 `_replaySession` 那几道显式闸承担，
+                //     ⛔ 不再靠这道副作用）。
+                if (_replaySession) return false;
+                return _blocking;
+            }
+        }
 
         /// <summary>自检用：把「演出未收尾」那道闸掰到指定状态（批处理没有帧循环 ⇒
         /// `TickBlockingWindow` 不会自己收尾）。⛔ 只给断言用，产线一次都不调。</summary>
@@ -16930,9 +17810,58 @@ namespace CardPresentation
         /// `ScheduleRetaliationPresentation` 到点调的就是它，⛔ 不是替身）。
         /// <para>断言「这件带 `mv=1` ⇒ 排进一条位移；不带 ⇒ 当场释放载体」。</para></summary>
         public void FireAttackVfxForTest(string prefab, string cardAnim, Transform anchor,
-                                         Vector3 anchorPos, Vector3 targetPos)
+                                         Vector3 anchorPos, Vector3 targetPos,
+                                         int owner = -1, int slot = -1)
         {
-            FireAtAttackAnchor(prefab, cardAnim, anchor, anchorPos, targetPos);
+            FireAtAttackAnchor(prefab, cardAnim, anchor, anchorPos, targetPos, owner, slot);
+        }
+
+        // ================== 🆕 2026-10-24（执行代理 `W15`）：卡根参考系接线的自检口 ==================
+        //
+        //  三条判据 → `资料/普查产出_1024c/C6_表现界面轮抽剩余判据.md` §1·3 / §2·1
+        //            + `资料/普查产出_1024d/W11_根特效层与卡根_执行报告.md` §五 / §六·1。
+        //  ⚠️ 这四格**生产路径也在写**（不是替身）：断言读到的就是生产那一刻真用的值。
+        //     先例 = `_attackAnchorPlans`（同一个口径：生产记、只有自检读）。
+
+        /// <summary>自检口（`W15`）：生产近战那一支**实际传给 `CardFeel.MeleeAttack` 的端点**。
+        /// `null` = 这一趟还没走过近战。🧨 把生产那一行改回三参重载 ⇒ 这里记到的是**没有 dy 的那个点**。</summary>
+        public Vector3? LastMeleeEndPosForTest { get; private set; }
+        /// <summary>自检口（`W15`）：清掉上面那一格（断言前先清，才能证明「这一次真的走了生产那一行」）。</summary>
+        public void ClearMeleeEndProbeForTest() { LastMeleeEndPosForTest = null; }
+
+        /// <summary>自检口（`W15`）：跑**生产那条**近战表现入口（`PlayAttackFeel` —— `PlaySignal` 的
+        /// `EvtKind.Attack` 唯一入口）。它要 `ViewAt(攻方/受方)` 都在 ⇒ 夹具必须摆两张**已登记**的视图。</summary>
+        public void PlayAttackFeelForTest(BattleEvent e) { PlayAttackFeel(e); }
+
+        /// <summary>自检口（`W15`）：最近一次「宿主取不到」那条退路用的**落点**（生产也写）。</summary>
+        public Vector3 LastHostFallbackPos { get; private set; }
+        /// <summary>自检口（`W15`）：上一次退路用的层。`ArenaLayer` = 竞技场那一档；`-1` = 老口径
+        /// （保持 prefab 自带层，由 HUD 相机画）。</summary>
+        public int LastHostFallbackLayer { get; private set; } = -1;
+        /// <summary>自检口（`W15`）：上一次退路走的是不是**竞技场世界点**那一档（`false` = HUD 投影点）。</summary>
+        public bool LastHostFallbackArena { get; private set; }
+        /// <summary>自检口（`W15`）：上一次退路真播出来的实例（HUD 那一档 `CardEffects.Fire` 不返回句柄 ⇒ null）。
+        /// ⚠️ 自检**用完要 `Kill()`**（别把活着的特效留给别的宿主）。</summary>
+        public WarpforgeVFX.WarpforgeEffectPlayer LastHostFallbackFx { get; private set; }
+
+        /// <summary>自检口（`W15`）：把上面四格清成**不可能误判的哨兵**（跑一次退路之前先清）。
+        /// <para>为什么需要：如果那条退路被改回旧写法（不再经 <see cref="FireHostFallbackVfx"/>），
+        /// 四格就**不会被写** ⇒ 断言读到哨兵 ⇒ 红。⛔ 不清的话读到的是**上一次**的值，可能恰好蒙对。</para></summary>
+        public void ClearHostFallbackProbeForTest()
+        {
+            LastHostFallbackPos = Vector3.zero;
+            LastHostFallbackLayer = -999;      // 合法值只有 ArenaLayer / −1
+            LastHostFallbackArena = false;
+            LastHostFallbackFx = null;
+        }
+
+        /// <summary>自检口（`W15`）：把**生产那条**落地扬尘入口跑一次，并**故意让宿主取不到**
+        /// （`dustHost = null` ⇒ 走那条退路）。夹具只需要 `owner/slot` 合法。</summary>
+        public void PlayDeployLandDustForTest(int owner, int slot)
+        {
+            var layout = owner == _me ? playerBoard : enemyBoard;
+            PlayDeployLandDust(null, slot, layout,
+                               new BattleEvent { Kind = EvtKind.Deploy, Player = owner, Slot = slot });
         }
 
         /// <summary>自检用（`新账-84`）：这一件在一条攻击里会用的**起 / 终锚点**——
@@ -17333,6 +18262,12 @@ namespace CardPresentation
             // 🆕 2026-10-19（战斗线 W 第 2 条）：每帧收一次闸 —— 判据与「为什么不能只看队列空」
             //   全在 `TickBlockingWindow` 的 doc。
             TickBlockingWindow();
+
+            // 🔴 **2026-10-24（执行代理 `W1` · `R2` §7·①落点 3）：回放「推下一手」挂在这个泵的末尾。**
+            //   为什么是这里：本方法是**唯一**的「时间真的走了一帧」的口（真机 `Update` / 批处理
+            //   `BattleScene.Step` 都到这儿）⇒ 回放的节奏天然与画面同步。
+            //   ⚠️ 必须排在 `_syncAfterDeploy` 那一段**之后**：否则「补建视图」会抢在下一手落地之前/之后错位。
+            TickReplayPump();
         }
 
         // ==================================================================
@@ -17819,7 +18754,9 @@ namespace CardPresentation
         /// <summary>`ToCardData` + 账上那一笔。**场上卡唯一的一份**（⛔ 别在别处再拼一次）。</summary>
         CardData ToBoardCardData(UnitState u, int owner, int slot)
         {
-            var d = ToCardData(u, owner == _me ? _myFaction : _foeFaction);
+            // 🆕 2026-10-24（`W20`）：`isPlayer` 决定「敌方伏击整排徽标不画」那道闸
+            //   （原版 `BattleCardUI__UpdateTraitIcons.c:40-46`）—— 场上卡唯一的一份卡面数据在这里。
+            var d = ToCardData(u, owner == _me ? _myFaction : _foeFaction, owner == _me);
             // 🔴 B5：账按**实例 id** 查（见 `_pendingHp` 的 doc）—— 格号只用于视图定位，不是账的键。
             PendingHpEntry pend;
             if (u != null && u.Instance != null && _pendingHp.TryGetValue(u.Instance.Id, out pend) && pend.amount != 0)
@@ -18569,6 +19506,106 @@ namespace CardPresentation
             return true;
         }
 
+        /// <summary>🆕 **2026-10-24（执行代理 `W15` · `C6` §1·3）**：这一格那张卡的 **`desiredScale`**。
+        /// 判据 = `ArenaSlots.CardScale` / `HeroScale`（督军位 = <see cref="ArenaSlots.WarlordSlot"/>，
+        /// 或那一格上的单位自称督军）—— 与 <see cref="PoseFor"/> 的 3D 支**同一个口径**。
+        /// 用途 = 退路那条根特效的尺度（原版扬尘 `localScale = one × desiredScale` · 攻击件继承卡的 `lossyScale`）。</summary>
+        float ArenaCardScale(int owner, int slot)
+        {
+            bool foe = owner != _me;
+            bool warlord = slot == ArenaSlots.WarlordSlot;
+            if (!warlord && Ctx != null && owner >= 0 && owner < Ctx.Players.Length && BoardSpec.IsValid(slot))
+            {
+                var u = Ctx.Players[owner].Board[slot];
+                warlord = u != null && u.IsWarlord;
+            }
+            return warlord ? ArenaSlots.HeroScale(foe) : ArenaSlots.CardScale(foe);
+        }
+
+        /// <summary>🆕 **2026-10-24（`W15`）**：这一格的**地面**世界点（`y` = 地面 —— 卡站在地面上）。
+        /// <para>判据 = `ArenaSlots.Position`（`y` 恒 0 · 督军位多一个 `heroExtraOffset`）+ `boardRoot` 的位姿；
+        /// 与 <see cref="PoseFor"/> 的 3D 支逐项同式（它在本函数结果上 **+ 半个卡高** = 卡根）。
+        /// 返回 false = 非 3D 档 / 取不到这一格。</para></summary>
+        bool TryArenaGroundWorld(int owner, int slot, out Vector3 world)
+        {
+            world = Vector3.zero;
+            if (!use3DBoard || Ctx == null || owner < 0 || owner >= Ctx.Players.Length || !BoardSpec.IsValid(slot))
+                return false;
+            Vector3 local = ArenaSlots.Position(slot, owner != _me);
+            world = boardRoot != null ? boardRoot.TransformPoint(local) : local;
+            return true;
+        }
+
+        /// <summary>🆕 **2026-10-24（`W15`）**：这一格的**理想卡根**世界点 —— **不依赖视图/单位**
+        /// （卡已经不在盘上了也算得出，退路正是那一档）。
+        /// <para>判据 = `ArenaSlots.RootPosition`（= 地面 + `CardUnitH × 0.5 × desiredScale`）+ `boardRoot` 的位姿 ——
+        /// 与 <see cref="PoseFor"/> 的 3D 支同式。<paramref name="owner"/>/<paramref name="slot"/> 不合法
+        /// 或非 3D 档 ⇒ false（调用方退回 HUD 老口径）。</para></summary>
+        bool TryArenaIdealCardWorld(int owner, int slot, out Vector3 world)
+        {
+            world = Vector3.zero;
+            if (!use3DBoard || Ctx == null || owner < 0 || owner >= Ctx.Players.Length || !BoardSpec.IsValid(slot))
+                return false;
+            Vector3 local = ArenaSlots.RootPosition(slot, owner != _me, ArenaCardScale(owner, slot));
+            world = boardRoot != null ? boardRoot.TransformPoint(local) : local;
+            return true;
+        }
+
+        /// <summary>🔴 **2026-10-24（执行代理 `W15` · 判据 `资料/普查产出_1024c/C6_表现界面轮抽剩余判据.md` §1·3）**：
+        /// **「宿主取不到」那两处退路的唯一播放口** ——
+        /// <see cref="FireAtAttackAnchor"/> 取不到锚点 / <see cref="PlayDeployLandDust"/> 取不到卡视图。
+        ///
+        /// <para>**改前**：两处都当 **HUD 平面事件**播（`CardEffects.Fire(name, HUD点)`）⇒ 根特效停在
+        /// prefab 自带层（多数攻击件 / 扬尘件是层 **0**）⇒ 由 **HUD 正交相机**画。可它们都是**竞技场事件**
+        /// —— 原版 13 个战场逐场实读 `m_CullingMask`：战场透视相机 **1137**、UI 相机 **32**，即
+        /// **只有战场相机画层 0**。⇒ 位置与尺度两样全错（HUD 是 108 px/单位，战场透视 ≈182 px/单位）。</para>
+        ///
+        /// <para>**现在**：3D 档 ⇒ **竞技场世界点 + `ArenaSlots.ArenaLayer`**；
+        /// 2D 兜底档（`use3DBoard == false`）或这一格取不到 ⇒ **逐位走老口径**（HUD 投影点 + prefab 自带层）。
+        /// 那一档卡本来就活在 HUD 正交平面上，改过去才是错。</para>
+        ///
+        /// <para>**落点来源**：<paramref name="ground"/> = `true` 用 <see cref="TryArenaGroundWorld"/>
+        /// （**地面**，落地扬尘用 —— 原版那句 `landOnGroundParticles` 在卡的世界位置 + `up × 0.015`）；
+        /// `false` 用 <see cref="TryArenaCardWorld"/>（**卡根**，攻击件用 —— 与调用方「视图在时喂的
+        /// `transform.position`」是同一个点），再退 <see cref="TryArenaIdealCardWorld"/>。
+        /// <paramref name="upOffset"/> 只加在竞技场那一档（竞技场世界单位）。
+        /// <paramref name="assignScale"/> 见 `WarpforgeEffectPlayer.Play` 的 `assignScale`（扬尘是**赋值**）。</para>
+        ///
+        /// <para>⚠️ 账记在 <see cref="LastHostFallbackPos"/> / <see cref="LastHostFallbackLayer"/> /
+        /// <see cref="LastHostFallbackArena"/> 上（**生产也写**，只有自检读）——
+        /// 🧨 把调用方改回 `CardEffects.Fire(name, HUD点)` ⇒ `Editor/CardRootAssert.cs` 那两条红。</para>
+        /// <returns>真播出来的实例（竞技场那一档才拿得到句柄；HUD 那一档 `CardEffects.Fire` 不返回）。</returns></summary>
+        WarpforgeVFX.WarpforgeEffectPlayer FireHostFallbackVfx(string name, int owner, int slot, Vector3 hudPos,
+                                                                bool ground, float upOffset, bool assignScale)
+        {
+            if (string.IsNullOrEmpty(name)) return null;
+            Vector3 arena;
+            bool arenaKnown = ground ? TryArenaGroundWorld(owner, slot, out arena)
+                                     : TryArenaCardWorld(owner, slot, out arena);
+            // 3D 档这一格既没单位也没视图（卡已经不在了）⇒ 用 `ArenaSlots` 那套几何**预测**落点。
+            // ⛔ 绝不因为「取不到」就退回 HUD 点 —— 那正是本条要修的那一半。
+            if (!arenaKnown && !ground) arenaKnown = TryArenaIdealCardWorld(owner, slot, out arena);
+
+            bool useArena = use3DBoard && arenaKnown;
+            int layer = useArena ? ArenaSlots.ArenaLayer : -1;
+            Vector3 pos = useArena ? arena + Vector3.up * upOffset : hudPos;
+
+            LastHostFallbackPos = pos;
+            LastHostFallbackLayer = layer;
+            LastHostFallbackArena = useArena;
+
+            if (!useArena)
+            {
+                // 老口径**逐位不变**（钩子 / 批处理里的假钩子 / `assignScale` 那条判据全照旧）。
+                LastHostFallbackFx = null;
+                CardEffects.Fire(name, hudPos);
+                return null;
+            }
+            LastHostFallbackFx = WarpforgeVFX.WarpforgeEffectPlayer.Play(
+                name, null, pos, ArenaCardScale(owner, slot), -1f, assignScale, layer);
+            return LastHostFallbackFx;
+        }
+
         /// <summary>🆕 2026-10-19（T05 · 同上）：**单件根特效**的竞技场空间版。
         /// <paramref name="hudPos"/> = 老口径（`DropTargetWorld`，非 3D/取不到视图时用）；
         /// <paramref name="arenaPos"/> = 卡根的世界位置（3D 档）。
@@ -18576,7 +19613,12 @@ namespace CardPresentation
         /// 它唯一的消费者是「按阵营的召唤法阵」，而那一层已整层删掉（原版没有，见
         /// `Core/VfxMap.cs` 那段注释）。**保留**（不是死代码清理时的漏网）：它是「根特效要进竞技场空间」
         /// 这条通用形状的唯一现成实现，`FireDeployVfxInArenaSpace` 之外再有根特效要进 3D 空间时直接用它，
-        /// ⛔ 别另抄一份。要删就**连这条说明一起删**。</para></summary>
+        /// ⛔ 别另抄一份。要删就**连这条说明一起删**。</para>
+        /// <para>🆕 **2026-10-24（`W15`）不是第二份**：<see cref="FireHostFallbackVfx"/> 是「宿主取不到」那两处的
+        /// 退路，它要三样这里给不了的东西 —— **显式 `layer`**（`WarpforgeEffectPlayer.Play` 的 `int layer`）、
+        /// **根缩放 = `desiredScale`**（扬尘 `assignScale` / 攻击件乘卡的 `lossyScale`）、以及给自检读的**记账格**；
+        /// 而本函数是「载体 + `CardEffects` 钩子」那条老形状（层靠父节点继承、没有缩放口）。
+        /// ⇒ 两者**用途不同**（本函数留给「已经算得出竞技场点、且不需要缩放/记账」的根特效）。</para></summary>
         void FireRootInArenaSpace(string name, Vector3 hudPos, Vector3 arenaPos)
         {
             if (string.IsNullOrEmpty(name)) return;
@@ -19130,7 +20172,12 @@ namespace CardPresentation
             var sEvt = _animfxLastEvent;
             _animfxCtx = ctx;
             _animfxLastEvent = evt;
-            try { FireAtAttackAnchor(name, cardAnim, anchor, anchorPos, targetPos); }
+            try
+            {
+                // `evt` = 这一发所属的那条事件（攻方 / 守方各一条）—— 退路要靠它的 `Player/Slot` 算竞技场点。
+                FireAtAttackAnchor(name, cardAnim, anchor, anchorPos, targetPos,
+                                   evt != null ? evt.Player : -1, evt != null ? evt.Slot : -1);
+            }
             finally { _animfxCtx = sCtx; _animfxLastEvent = sEvt; }
         }
 
@@ -19139,16 +20186,26 @@ namespace CardPresentation
         /// 与原版 `Instantiate(prefab, startPos, rot, startParent)` 等价），把载体的**世界朝向**设成
         /// `LookRotation(目标 − 锚点)`，播完立刻把特效摘到世界（`ReleaseAbilityCarrier`）。</para>
         /// <para>⚠️ 取不到锚点（没有视图）时退回「根特效 + 世界点」，并已由调用方出过声。</para>
+        /// <para>🔴 **2026-10-24（执行代理 `W15` · `C6` §1·3）就地修正**：这条退路原来是
+        /// `CardEffects.Fire(name, anchorPos, null)` —— **根特效 + prefab 自带层**（那批攻击件多是层 0）
+        /// ⇒ 由 **HUD 正交相机**画，而它是**竞技场事件**（原版那台透视相机才画层 0，13 场逐场实读
+        /// `m_CullingMask` = 1137 / 32）。现在 3D 档改成 **竞技场世界点 + `ArenaLayer`**（见
+        /// <see cref="FireHostFallbackVfx"/>）；2D 兜底档仍逐位走老口径。</para>
         /// <para>🆕 **2026-10-23（P1 · 演出时序 ⑤ · `新账-77④`）**：这一件若带 `shouldMoveVFX`
         /// （`AnimInfo` 的 `mv=1` 且 `timeMoving &gt; 0`）⇒ **不再当场释放载体**，改由
         /// <see cref="ArmAttackVfxMove"/> 排进 <see cref="TickAbilityVfxMoves"/> 那条**现成的位移泵**
         /// （与技能拍 `PlayAbilityBeat` 用的是同一个泵）。判据见 `ArmAttackVfxMove` 的 doc。</para></summary>
-        void FireAtAttackAnchor(string name, string cardAnim, Transform anchor, Vector3 anchorPos, Vector3 targetPos)
+        /// <param name="owner">这一发属于哪一方（`-1` = 不知道 ⇒ 退路只能走老口径）。</param>
+        /// <param name="slot">这一发从哪一格发出（同上）。</param>
+        void FireAtAttackAnchor(string name, string cardAnim, Transform anchor, Vector3 anchorPos, Vector3 targetPos,
+                                int owner = -1, int slot = -1)
         {
             if (string.IsNullOrEmpty(name)) return;
             if (anchor == null)
             {
-                CardEffects.Fire(name, anchorPos, null);
+                // ⚠️ `anchorPos` 是**调用方的兜底点**（视图在时 = 卡根世界位、视图不在时 = `Vector3.zero`）；
+                //   3D 档由 `FireHostFallbackVfx` 换成**按格现算的竞技场卡根**，2D 档逐位沿用 `anchorPos`。
+                FireHostFallbackVfx(name, owner, slot, anchorPos, ground: false, upOffset: 0f, assignScale: false);
                 return;
             }
             // 锚点层校准（`EffectAnchorBoard` 是**懒建**的 ⇒ 可能停在层 0，而特效的层是**跟直接父节点**
@@ -19710,9 +20767,10 @@ namespace CardPresentation
             {
                 // 登场这一拍**有判据的**只剩两件：卡的淡入（上面 `FireDeployVfxInArenaSpace` = `normalSummon`）
                 // + 落定那一拍的扬尘（`CardScript.LandOnGround` 的 `landOnGroundParticles`）。
-                //   🔥 落点仍走 `DropTargetWorld`（同一族、同一口）：根特效拿不到第 8 层
-                //   ⇒ 由 HUD 正交相机画 ⇒ 喂竞技场坐标会偏 ≈267 px、喂 2D 行线偏 51~72 px。
-                //   判据与「我们没做到的那一档（原版把它缩到 desiredScale 0.36）」→ `LandDustFieldFor`。
+                //   ⚠️ 下面这两行（「落点仍走 `DropTargetWorld` … 根特效拿不到第 8 层」）是 **2026-10-16 之前**的状态，
+                //   已被再下面那条 🔴 就地推翻；🔴 **2026-10-24（W15）起连「卡视图取不到」那条退路也不再喂 HUD 点**
+                //   （3D 档 → 竞技场地面点 + `ArenaLayer`，见 `FireHostFallbackVfx`）。⛔ 别再照这两行改回去。
+                //   🔥 判据与「我们没做到的那一档（原版把它缩到 desiredScale 0.36）」→ `LandDustFieldFor`。
                 // 🔴 **2026-10-16（余账 (a)(b)）：扬尘照原版【挂到那张卡上】，不再喂 HUD 投影点。**
                 //   原版（`CardScript__LandOnGround.c:52-106` 现读）= 在**卡的世界位置 + offset**、按 prefab 自己的
                 //   旋转 `Instantiate` → 挂到 `MinionManager` → **`localScale = one × desiredScale`（0.36 / 0.69）**
@@ -19750,9 +20808,19 @@ namespace CardPresentation
             }
             else
             {
-                // 取不到视图（正常不该发生）⇒ **出声**，退回 HUD 投影点那一路，⛔ 不静默什么都不撒。
-                Debug.LogWarning($"[BattleDriver] 落地扬尘取不到卡视图（slot {slot}）⇒ 退回 HUD 投影点播放");
-                CardEffects.Fire(LandDustFieldFor(e), layout.DropTargetWorld(slot) + Vector3.up * LandDustOffsetY);
+                // 取不到视图（正常不该发生）⇒ **出声**，退回那条「宿主取不到」的退路，⛔ 不静默什么都不撒。
+                // 🔴 **2026-10-24（执行代理 `W15` · `C6` §1·3）**：这条退路原来是
+                //   `CardEffects.Fire(name, layout.DropTargetWorld(slot) + up*LandDustOffsetY)` ——
+                //   **HUD 投影点 + prefab 自带层**，可扬尘是**竞技场事件**（原版挂在 `MinionManager` 下、
+                //   由战场透视相机画）⇒ 画面会跑到 UI 层。3D 档现在改成
+                //   **竞技场地面点（+`LandDustOffsetY`）+ `ArenaLayer`**（见 `FireHostFallbackVfx`）；
+                //   2D 兜底档逐位走老口径。
+                Debug.LogWarning($"[BattleDriver] 落地扬尘取不到卡视图（slot {slot}）"
+                               + (use3DBoard ? "⇒ 退回竞技场地面点（层 ArenaLayer）播放"
+                                             : "⇒ 退回 HUD 投影点播放"));
+                FireHostFallbackVfx(LandDustFieldFor(e), e.Player, slot,
+                                    layout.DropTargetWorld(slot) + Vector3.up * LandDustOffsetY,
+                                    ground: true, upOffset: LandDustOffsetY, assignScale: true);
             }
         }
 
@@ -21079,9 +22147,17 @@ namespace CardPresentation
             // `EventTiming.MeleeImpactLag`）。
             // 🆕 2026-10-23（`新账-82①`）：`isPlayer` 显式传（同上面远程那一支 —— `MeleeEndPos` 与
             // 深度缩放都用它；⛔ 别只改一处，两处必须同一个值）。
-            CardFeel.MeleeAttack(v.transform,
-                                 CardFeel.MeleeEndPos(v.transform.position, tv.transform.position, e.Player == _me),
-                                 home, isPlayer: e.Player == _me);
+            // 🔴 **2026-10-24（执行代理 `W15` · `C6` §2·1）**：**第四参必须传 `tv`** ——
+            //   `CardFeel.MeleeEndPos(Vector3, Vector3, bool)` 那条三参重载的 `dy` 恒 `0f`
+            //   ⇒ 近战段1「受击方原位 + `up × attackPositionYOffset × dy`」那半条**整段不生效**。
+            //   带卡视图的重载现算 `dy = EffectsAnchorHeight(tv)`（判据 = `CardScript._AttackMeleeAnim_d__357__MoveNext.c`
+            //   的 `fVar15 = anchor.y − targetCard.y`，随后 `× attackPositionYOffset`）。
+            //   🧨 改回三参那条 ⇒ `Editor/CardRootAssert.cs` 里「生产近战端点带 dy」那条红
+            //   （它读的就是下面这一行**自己记的账** `LastMeleeEndPosForTest`）。
+            Vector3 meleeEnd = CardFeel.MeleeEndPos(v.transform.position, tv.transform.position,
+                                                    e.Player == _me, tv);
+            LastMeleeEndPosForTest = meleeEnd;      // 自检口：生产实际传给 `MeleeAttack` 的端点（只有自检读）
+            CardFeel.MeleeAttack(v.transform, meleeEnd, home, isPlayer: e.Player == _me);
         }
 
         // ================= 🔴 `FinishAfterAttack` 后半段（战斗线 `新账-82⑤`）：**判据为空，⛔ 不补那一层** =================
@@ -23651,16 +24727,23 @@ namespace CardPresentation
             }
         }
 
-        CardData ToCardData(UnitState u, string faction)
+        /// <param name="isPlayer">🆕 2026-10-24（`W20`）· **这张卡是不是我方的**（原版 `card+0x40`）。
+        /// 场上徽标有一道闸只认它：敌方 + `ambush` ⇒ **整排一枚都不画**
+        /// （`BattleCardUI__UpdateTraitIcons.c:40-46` → `Badges.For(..., isPlayer)`）。
+        /// ⚠️ 默认 `true` 是给「不判断途」的调用点（卡面预览 / 牌堆视图那些）—— 它们本来就不该被这道闸管。
+        /// 场上卡的两条路（`ToBoardCardData` / `ToggleUnitCard`）**必须显式传**。</param>
+        CardData ToCardData(UnitState u, string faction, bool isPlayer = true)
         {
             var fb = u.Card != null ? FaceTextFull(u.Card) : new FaceBody(DescribeKeywords(u), "desc");
             // 🆕 场上的 buff/debuff 徽标（原版 `BattleCardUI.UpdateTraitIcons`）——
             //    喂的是**当前**关键词表（加/减益、光环、限时增益到期全跟着变），
             //    顺序用卡面效果文字当提示（玩家在卡上读到的词序），判据与出处见 `Core/Badges.cs`。
             //    另外两样（角标的「带不带数值」、图标的「激活/未激活」）也都照原版那两条判据传进去。
+            //    🆕 2026-10-24（`W20`）：第四样 `isPlayer`（敌方伏击整排不画）由调用方给。
             var badges = Badges.For(u.Keywords, fb.body,
                                     u.Card != null ? u.Card.NumericKeywords : null,
-                                    key => KeywordActive(u, key));
+                                    key => KeywordActive(u, key),
+                                    isPlayer);
             return new CardData
             {
                 // `id` 保持英文 —— 它兼着**显示名 / 配对**的活（`SyncHand` 按它对名字），**别拿它取图**
@@ -24125,6 +25208,16 @@ namespace CardPresentation
                 }
             }
             CardArt.Load();
+
+            // 🆕 **2026-10-24（执行代理 `W20`）**：把「拖拽起手就点亮合法目标 + 准星」接到选择器上。
+            //   `AttackSelector.Show()` 展开完成的最后一刻会**幂等**地打一次这个回调
+            //   （`RequestPreviewTargets`；一次展开只发一次）—— 判据 = 原版
+            //   `BattleManager__StartAttackFrom.c:20-40`（`Toggle(true)` → `ToggleCrosshair(true)` →
+            //   `ShowPotentialTargets`，三步同一个方法、**玩家还没选打法**）。
+            //   ⚠️ 回调为 `null` ⇒ 选择器什么都不做（= 与接线之前逐位相同）⇒ 这一句必须在**选到单位之前**挂上。
+            //   ⚠️ `selector` 由宿主（`Editor/BattleScene.cs:42419`）在 `Begin()` 之前赋值 ⇒ 这里一定非空，
+            //      但仍然判空（删掉宿主那一句时不至于 NPE）。
+            if (selector != null) selector.PreviewTargets = PreviewTargetsFromDrag;
             // 🆕 2026-10-01（§三 第 26 条 · ⑥ 的接线那半）：**把补间钩子挂上** ——
             //   原来 `WFModuleTween.OnInvoke` 全仓没人赋值 ⇒ 138 个 `AnimFXModuleTween` 的请求**全落在
             //   `DroppedRequests` 里**（不静默，但也没人接）。判据与契约 → `Core/UnitTweenRuntime.cs`。
@@ -24170,7 +25263,9 @@ namespace CardPresentation
 
             // 🔴 **2026-09-27：回放控制条的显隐改对了** —— 原版 `ReplayHud.Setup()` 只做一件事：
             //    `objHolder.SetActive(BattleManager.matchType == 0xA0)`（`0xA0 = 160 = MatchType.Replay`）。
-            //    我们**从不进回放局** ⇒ 传 false：**那 4 颗钮在普通对局里【不该出现】**（原来一直摆着，是错的）。
+            //    默认关：**那 4 颗钮在普通对局里【不该出现】**（原来一直摆着，是错的）。
+            //    🔴 **2026-10-24（`W1` · 铁律 5 就地订正）**：本行原文「我们**从不进回放局**」**不成立** ——
+            //    回放局里由 `PlayReplay` 打开（`Setup(true)`），见那里与 `ReplayBar.cs` 文件头。
             //    判据 → `资料/普查产出_0927/回放_界面真值.md` §B/§C 与 `ReplayBar.cs` 文件头。
             //    ⚠️ 我们原来那套「本局时间控制」（暂停/单步/重开）**挪到键盘**了，见 `Update` 里的按键段。
 
@@ -24867,8 +25962,12 @@ namespace CardPresentation
             // 结论与「这四个钮接什么」都写在 `ReplayBar.cs` 文件头。
             // 🔴 **2026-09-27：显隐照原版改对了** —— 原版 `ReplayHud.Setup()` 只做一件事：
             //    `objHolder.SetActive(BattleManager.matchType == 0xA0)`（`0xA0 = 160 = MatchType.Replay`）。
-            //    我们**从不进回放局** ⇒ 传 `false`：**这 4 枚在普通对局里【不该出现】**（原来一直摆着，是错的）。
+            //    **建完默认关**：**这 4 枚在普通对局里【不该出现】**（原来一直摆着，是错的）。
             //    判据 → `资料/普查产出_0927/回放_界面真值.md` §B/§C。
+            // 🔴 **2026-10-24（执行代理 `W1` · 铁律 5 就地订正）：本行原来写「我们**从不进回放局**」—— 不成立**，
+            //    2026-09-27 起 `PlayReplay` 就进回放局了。现在**回放局里由 `PlayReplay` 这句 `Setup(true)` 打开**
+            //    （`RE1` §3-C3；那时 `_replaySession` = true）。这里的 `Setup(false)` 只是「**开局默认关**」
+            //    —— `Begin` 每局都会走到这儿，所以它顺带把上一局留下的可见态收干净（⛔ 别删）。
             //    ⚠️ 我们原来接在这 4 枚上的那套**本局时间控制**没删 —— 挪到键盘了（`HandleTimeControlKeys`）。
             _replayBar = ReplayBar.Create(root);
             _replayBar.Setup(false);
@@ -27466,12 +28565,18 @@ namespace CardPresentation
             // 🔴 **2026-10-22**：这里原来写中上那行回合标签（`_turnLabel`，含 `GAME OVER` /
             //    `YOUR TURN` / `ENEMY TURN` 三段拼法）—— **整段随节点一起删**（原版没有这一行）。
 
-            // ---- 等待提示（原版 `WaitText`）----
-            // 🔴 **原版的触发时机查不到**（反编译与场景 JSON 都没有）⇒ 我们接的是
-            //    「**不是我的回合、且不在换牌/结算**」，也就是对手思考的那段时间。
+            // ---- 等待提示（原版 `WaitText` / `BattleManager.mulliganWaitText`）----
+            // 🔴 **2026-10-24（执行代理 `W1` · 判据 `资料/普查产出_1024d/N1_敌方回合横幅与压暗.md`）：
+            //    这里原来是 `!InMulligan && !Ctx.IsOver && Ctx.Active != _me` —— **病灶**：
+            //    可见性挂在了「**谁的回合**」上 ⇒ **整段敌方回合都挂着横幅 + 整屏压暗**（用户真机实测：
+            //    α0.6118 的压暗从回合开始一直盖到回合结束，亮度 107→69→104）。
+            //    原版这一件根本不在回合循环里（`NextTurn` 零引用），它是**「换牌等对手」**那一下的过渡提示
+            //    （`ClickChosenCardDone.c:93-98`：联网 ∧ `!receivedEnemyMulligan` ⇒ `SetActive(true)`；
+    //     `_SetupEnviromentalEffectPhase:32-46` 在单机局把 `receivedEnemyMulligan` 强置 1 ⇒ 单机永不出现）。
+            //    ⇒ 判据换成三态纯函数（只此一处）：`mulliganOpen && localSubmitted && !foeApplied`。
             //    `SetVisible` 自己会去重（这个函数每帧跑）。
             if (_waitBanner != null)
-                _waitBanner.SetVisible(!InMulligan && !Ctx.IsOver && Ctx.Active != _me);
+                _waitBanner.SetVisible(ShowWaitBanner(InMulligan, _mulliganLocalSubmitted, _mulliganFoeApplied));
 
             _energyLabel.SetText($"{me.Energy}/{me.MaxEnergy}");
             // 🔴 **2026-10-18（第十二轮 · W6）改文案（复刻偏差）**：原版这两格**不是** `HAND n` / `DECK n DISC m`。
@@ -27601,7 +28706,12 @@ namespace CardPresentation
             SetDeckLight(_myDeckLight, myTurn);
             SetDeckLight(_foeDeckLight, Ctx.Active != _me && !Ctx.IsOver);
 
-            if (Ctx.IsOver)
+            // 🔴 **2026-10-24（执行代理 `W20` · 判据 `R3_回放结束结算判据.md` §二时间线 0~1 / §六·1）**：
+            //   回放局的 `Ctx.IsOver` **在灌动作那一趟就为真**（`PlayReplay` 一口气推完），而原版的结算
+            //   发生在**演完那一刻**（`DeadHero` 是动作流最后一条推出来的）⇒ **不能**在这里一看到
+            //   `IsOver` 就结算，否则结算面板 + 开门视频会在回放**第一帧**就盖上去。
+            //   ⇒ 回放局多一道 `_replayFinished`（`FinishReplay` 的闩）；真打那一路**逐位不变**。
+            if (Ctx.IsOver && (!_replaySession || _replayFinished))
             {
                 string r = Ctx.Winner == 3 ? "DRAW" : (Ctx.Winner == _me + 1 ? "YOU WIN" : "YOU LOSE");
                 // 结算面板接管这块文字（面板自己有标题）—— 留着的话中心会和面板标题撞成两处
@@ -27639,19 +28749,31 @@ namespace CardPresentation
                 //     面板真的取不到时**出声**（下面那句 `LogError`），账照记。
                 //     （原来的 `!_endPanel.Visible` 本来也不是闩 —— 它靠的是「新一局一开局，
                 //       `UpdateHud` 的 `else` 支会把面板 `Hide()`」这个副作用。）
-                //   · **A381（闸）**：回放局（`_replaySession`）**整块不做**。判据 = 原版
+                //   · **A381（闸）**：回放局（`_replaySession`）的**账整块不做**。判据 = 原版
                 //     `ChallengeLogMgr.LogMatchEnd` **只在真打完时叫**（`资料/普查产出_1011/R1_每日骷髅与登录卡.md` §二），
-                //     而回放不是「真打完」。不设这道闸时：放一局录像会**再写一条对局记录 + 再弹结算面板与
-                //     开门视频 + 再推三条每日任务 + 再加一次骷髅**（`PlayReplay` 只关掉了「再录一份」，
-                //     没关「再结一次账」——`Ctx.IsOver` 在那一趟灌完动作之后就是 true）。
+                //     而回放不是「真打完」。不设这道闸时：放一局录像会**再写一条对局记录 + 再推三条每日任务 +
+                //     再加一次骷髅**（`PlayReplay` 只关掉了「再录一份」，没关「再结一次账」——
+                //     `Ctx.IsOver` 在那一趟灌完动作之后就是 true）。
+                //   🔴 **2026-10-24（`W20`）就地订正（铁律 5）**：本段原来写「回放局**整块不做**」——
+                //     **已不成立**：`R3` 判据（用户当天拍板）是**账跳过、演出照做**（结算面板 + 开门视频），
+                //     回放与真打共用 `ShowEndPanelAndFreezeInput()`；只有下面那四件账留在 `else` 里。
                 if (!_settled)
                 {
                     _settled = true;      // 本局的账只做一次（`Begin()` 清零）
                     if (_replaySession)
                     {
                         // ⛔ **不静默**（红线）：这条出口是**故意**的，说出来
-                        Debug.Log("[Replay] 这一局的结算**整块跳过**（回放不是「真打完」）："
-                                + "不记对局记录 / 不推日常与骷髅 / 不收尾录像 / 不弹结算面板与开门视频");
+                        // 🔴 **2026-10-24（执行代理 `W20` · 判据 `R3_回放结束结算判据.md` §一/§六 · 用户当天拍板
+                        //    「回放结束放一个胜利或者失败的结算视频就行」）**：**账跳过、演出照做**。
+                        //   原版走的是**同一套结算**（`NextReplayAction → ExecuteNextAction` 与真打同一个执行器
+                        //    ⇒ `DeadHero` → `SaveMatchWinner` → `ProcessMatchResult` → `FinishedProcessingMatchResult`
+                        //    → `CloseBattleDoors`），`matchType == 0xA0` 是**唯一分叉**：它只跳过
+                        //    Missions / Achievements / Alliance / analytics 那四件上传
+                        //    （`BattleManager__FinishedProcessingMatchResult.c:43-46`），演出**一个字都不跳**。
+                        Debug.Log("[Replay] 这一局的**账**整块跳过（回放不是「真打完」）："
+                                + "不记对局记录 / 不推日常与骷髅 / 不收尾录像 / 不跑 Missions·Achievements·Alliance 上传；"
+                                + "**演出照做** —— 结算面板 + 开门视频（原版回放走同一套结算，`matchType==0xA0` 只跳过那四件上传）");
+                        ShowEndPanelAndFreezeInput();      // ← 演出四句（与真打**同一份实现**，⛔ 别抄第二份）
                     }
                     else
                     {
@@ -27669,57 +28791,10 @@ namespace CardPresentation
                         // ⚠️ 门恒真才起（`PostBattleScriptAvailable`：教程关 + `scriptedTurn` + actions 非空）；
                         //    非教程局 / 6 关之外**一次都不会起**。⚠️ 它**不阻塞**结算面板（边界见上面那段注释）。
                         StartPostBattleScript();
-                        if (_endPanel == null)
-                        {
-                            // ⛔ **不许静默失败**：面板没了要说出来，但**账照记**（下面三条）——
-                            //   原来是「面板为 null ⇒ 连账都不记」，一声不响（A382）。
-                            Debug.LogError("[Battle] 结算面板拿不到（`_endPanel` 为 null）⇒ **面板与开门视频"
-                                         + "这次不会出现**；日常推进 / 对局记录 / 录像收尾**照常做**"
-                                         + "（这一块从此不再依赖面板存在，见 A382）");
-                        }
-                        else
-                        {
-                            // 🔴 **2026-10-06（A148）**：第 3 个实参从「敌方督军最低生命」换成**已达成档数**
-                            //   （= 原版 `BattleScoreManager.GetSkullCount()`，与 HUD 那个 `x N` 同源、同一格字段）。
-                            //   最低生命照旧传进去 —— 它现在**只**喂面板副标题那行字（原版那行字我们没查到出处，
-                            //   是我们自加的说明，见 `EndPanel.Show` 的 `<param>`）。
-                            // 🆕 2026-10-16（`T06` · 战斗 BGM）：**结算这两拍**
-                            //   （原版 `BattleFinished` → `FinishMatch()` **回 Low、5 s**；
-                            //    `_CloseBattleDoors` → `EndBattleDoors.SetupDoor` → `FadeOut()` **2 s 静音**）。
-                            //   ⚠️ 原版这两拍之间隔着「玩家点继续进开门视频」；我们的 `_endPanel.Show`
-                            //   把「结算面板 + 开门」放在同一处（见它自己那段注释）⇒ 两拍在这里**紧挨着**，
-                            //   听感上 = 直接 2 s 淡出（如实记；⛔ 不是把 `FinishMatch` 漏了）。
-                            if (_music != null) _music.FinishMatch();
-                            _endPanel.Show(Ctx.Winner, _me, _foeSkullCount, Ctx.Turn, Ctx.ForfeitedBy,
-                                           _foeWarlordMinHp == int.MaxValue ? 30 : _foeWarlordMinHp,
-                                           // 🆕 2026-10-18（A940 收尾）：教程那两个「跳过正常结算演出」的开关
-                                           // （`TutorialStage +0x60/+0x70`；判据与那条「读数点本地拿不到」的缺口
-                                           //  写在 `EndPanel.Show` 的 `<param name="skipSequence">` 上）
-                                           skipSequence: TutorialSkipsNormalEnd());
-                            // 🆕 2026-10-16（`T06`）：开门那一拍 = **2 s 淡到静音**（见上面那两行的注释）
-                            if (_music != null) _music.FadeOut();
-                            // 🔴 **2026-10-14（A660）：结算门动画期间**冻住输入层**** ——
-                            //   原版 `BattleManager._CloseBattleDoors` 协程逐句
-                            //   （`d:/2/tools/decomp_full/BattleManager._CloseBattleDoors_d__393__MoveNext.c`）：
-                            //   `StopTracking(true)`（`:22`）→ 结果物件 `SetActive(true)`（`:26`）→
-                            //   `BattleHud.ToggleWithAnimation(false, …)`（`:29`，把 HUD 动画收起）→
-                            //   `EndBattleDoors.SetupDoor(…)`（`:41`，= 我们 `_endPanel.Show` 里头那段
-                            //   「准备开门视频 + 奖励跟视频同时出」）→
-                            //   → **`TouchInputManager__Toggle(instance, 0, 0)`（`:50`）** → `yield WaitForSeconds(len)`（`:52`）。
-                            //   我们的等价动作 = 把 `Battle/TouchInputManager` 这件**停摆**
-                            //   （它的 `Toggle` 语义是「停跑 `Update`」、**不是「清零」**——见那件的文件头 E）。
-                            //   ⚠️ **`Update()` 里那条「`Ctx.IsOver` ⇒ 只留终端那两件（按 R 重开 / 点·ESC 离开）」的闸挡不住这一层**：
-                            //     `CombatCameraZoom.LateUpdate → TickBody` 是**它自己的 Update 循环**，
-                            //     每帧读 `TouchInputManager.ScrollDelta / TouchPressedSecondary / TouchDragDelta`
-                            //     ⇒ 不冻这一层的话，结算动画期间**还能拖着镜头跑**（原版这时候已经冻了）。
-                            //   ⚠️ **不按 `video` 分支**：原版那句 Toggle 在 `SetupDoor` 之后、与片长无关
-                            //     ⇒ 即使这一局没有开门视频（`len <= 0`）也照样冻。
-                            //   ⚠️ **用 `Current`（只读口）+ 判空**，照原版那句 `if (instance != null)` ——
-                            //     那件组件缺席时原版也什么都不做（它从不自己建），我们跟着不建
-                            //     （不给自检凭空添一个根物件）。真对局里它一定在。
-                            //   ⚠️ 复位在 `Begin()`（原版靠重进场景复位，我们复用同一个 driver ⇒ 显式还）。
-                            if (TouchInputManager.Current != null) TouchInputManager.Current.Toggle(false);
-                        }
+                        // 🔴 **2026-10-24（执行代理 `W20`）**：演出四句搬进 `ShowEndPanelAndFreezeInput()`
+                        //   —— **回放与真打共用同一份实现**（原版 `_CloseBattleDoors` 那一套；
+                        //   逐条判据与注释都在那个方法上，⛔ 别在这里再抄一遍）。
+                        ShowEndPanelAndFreezeInput();
                         // 🆕 2026-09-23：**打完一局 → 任务进度动**（原版也是这条链：对局回来 `MissionChallengeProgress` 累加）。
                         // 战果**由引擎记**（`BattleContext.DamageToEnemy` / `TroopsPlayed`），这里只消费。
                         // 判据「赢没赢」与上面那行文字**同源**（`Ctx.Winner == _me + 1`），不另写一套。
@@ -27774,6 +28849,74 @@ namespace CardPresentation
                 _resultLabel.SetText("");
                 if (_endPanel != null && _endPanel.Visible) _endPanel.Hide();
             }
+        }
+
+        /// <summary>🆕 **2026-10-24（执行代理 `W20`）**：结算的**演出四句**（原版 `BattleManager._CloseBattleDoors`
+        /// 那一套）。**回放与真打共用这一份**（铁律 6：⛔ 别在两个分支各写一遍）。
+        /// <para>判据（`资料/普查产出_1024d/R3_回放结束结算判据.md` §一/§六 · 用户 2026-10-24 拍板
+        /// 「回放结束放一个胜利或者失败的结算视频就行」）：原版回放**走同一套结算**
+        /// （`NextReplayAction → ExecuteNextAction` 与真打同一个执行器 ⇒ `DeadHero` → `SaveMatchWinner` →
+        /// `ProcessMatchResult` → `FinishedProcessingMatchResult` → `CloseBattleDoors`），
+        /// `matchType == 0xA0` 是**唯一分叉**、只跳过 Missions / Achievements / Alliance / analytics 四件上传
+        /// （`BattleManager__FinishedProcessingMatchResult.c:43-46`）—— **演出一个字都不跳**。</para>
+        /// <para>⚠️ 胜负 = **录像里那一局的结果**（`Ctx.Winner` 由重放的动作推出来，不是固定某一方）；
+        /// 结算屏上**没有胜负大字**（原版 `EndBattlePanel` 子树只有 `Background` / `Video Image` /
+        /// `AllRewardsHolder`）—— 结果字就在那段视频里（`EndPanel.Show` 里 `SetTitleVisible(!video)`）。</para>
+        /// <para>⚠️ 奖励/评级**不补**：回放那一档原版就是「全零结果 + `Rewards = []`」
+        /// （`PlayerDataManager.CreateTutorialResult`），我们的 `EndPanel` 只建骷髅行，与之一致。</para>
+        /// </summary>
+        void ShowEndPanelAndFreezeInput()
+        {
+            if (_endPanel == null)
+            {
+                // ⛔ **不许静默失败**：面板没了要说出来，但**账照记**（调用方那三条）——
+                //   原来是「面板为 null ⇒ 连账都不记」，一声不响（A382）。
+                Debug.LogError("[Battle] 结算面板拿不到（`_endPanel` 为 null）⇒ **面板与开门视频"
+                             + "这次不会出现**；日常推进 / 对局记录 / 录像收尾**照常做**"
+                             + "（这一块从此不再依赖面板存在，见 A382）");
+                return;
+            }
+
+            // 🔴 **2026-10-06（A148）**：第 3 个实参 = **已达成档数**
+            //   （= 原版 `BattleScoreManager.GetSkullCount()`，与 HUD 那个 `x N` 同源、同一格字段）。
+            //   最低生命照旧传进去 —— 它现在**只**喂面板副标题那行字（原版那行字我们没查到出处，
+            //   是我们自加的说明，见 `EndPanel.Show` 的 `<param>`）。
+            // 🆕 2026-10-16（`T06` · 战斗 BGM）：**结算这两拍**
+            //   （原版 `BattleFinished` → `FinishMatch()` **回 Low、5 s**；
+            //    `_CloseBattleDoors` → `EndBattleDoors.SetupDoor` → `FadeOut()` **2 s 静音**）。
+            //   ⚠️ 原版这两拍之间隔着「玩家点继续进开门视频」；我们的 `_endPanel.Show`
+            //   把「结算面板 + 开门」放在同一处（见它自己那段注释）⇒ 两拍在这里**紧挨着**，
+            //   听感上 = 直接 2 s 淡出（如实记；⛔ 不是把 `FinishMatch` 漏了）。
+            if (_music != null) _music.FinishMatch();
+            _endPanel.Show(Ctx.Winner, _me, _foeSkullCount, Ctx.Turn, Ctx.ForfeitedBy,
+                           _foeWarlordMinHp == int.MaxValue ? 30 : _foeWarlordMinHp,
+                           // 🆕 2026-10-18（A940 收尾）：教程那两个「跳过正常结算演出」的开关
+                           // （`TutorialStage +0x60/+0x70`；判据与那条「读数点本地拿不到」的缺口
+                           //  写在 `EndPanel.Show` 的 `<param name="skipSequence">` 上）
+                           skipSequence: TutorialSkipsNormalEnd());
+            // 🆕 2026-10-16（`T06`）：开门那一拍 = **2 s 淡到静音**（见上面那两行的注释）
+            if (_music != null) _music.FadeOut();
+            // 🔴 **2026-10-14（A660）：结算门动画期间**冻住输入层**** ——
+            //   原版 `BattleManager._CloseBattleDoors` 协程逐句
+            //   （`d:/2/tools/decomp_full/BattleManager._CloseBattleDoors_d__393__MoveNext.c`）：
+            //   `StopTracking(true)`（`:22`）→ 结果物件 `SetActive(true)`（`:26`）→
+            //   `BattleHud.ToggleWithAnimation(false, …)`（`:29`，把 HUD 动画收起）→
+            //   `EndBattleDoors.SetupDoor(…)`（`:41`，= 我们 `_endPanel.Show` 里头那段
+            //   「准备开门视频 + 奖励跟视频同时出」）→
+            //   → **`TouchInputManager__Toggle(instance, 0, 0)`（`:50`）** → `yield WaitForSeconds(len)`（`:52`）。
+            //   我们的等价动作 = 把 `Battle/TouchInputManager` 这件**停摆**
+            //   （它的 `Toggle` 语义是「停跑 `Update`」、**不是「清零」**——见那件的文件头 E）。
+            //   ⚠️ **`Update()` 里那条「`Ctx.IsOver` ⇒ 只留终端那两件（按 R 重开 / 点·ESC 离开）」的闸挡不住这一层**：
+            //     `CombatCameraZoom.LateUpdate → TickBody` 是**它自己的 Update 循环**，
+            //     每帧读 `TouchInputManager.ScrollDelta / TouchPressedSecondary / TouchDragDelta`
+            //     ⇒ 不冻这一层的话，结算动画期间**还能拖着镜头跑**（原版这时候已经冻了）。
+            //   ⚠️ **不按 `video` 分支**：原版那句 Toggle 在 `SetupDoor` 之后、与片长无关
+            //     ⇒ 即使这一局没有开门视频（`len <= 0`）也照样冻。
+            //   ⚠️ **用 `Current`（只读口）+ 判空**，照原版那句 `if (instance != null)` ——
+            //     那件组件缺席时原版也什么都不做（它从不自己建），我们跟着不建
+            //     （不给自检凭空添一个根物件）。真对局里它一定在。
+            //   ⚠️ 复位在 `Begin()`（原版靠重进场景复位，我们复用同一个 driver ⇒ 显式还）。
+            if (TouchInputManager.Current != null) TouchInputManager.Current.Toggle(false);
         }
 
         /// <summary>结算时写一条**本地对局记录**（数据源 = `Shell/BattleLogData.cs`）。
@@ -27959,6 +29102,12 @@ namespace CardPresentation
         /// **和鼠标那条路调的是同一个函数**（不是第二份实现）。返回「有没有显示出来」。</summary>
         public bool TickTooltipAt(Vector3 wp)
         {
+            // 🔴 **2026-10-24（执行代理 `W1` · 判据 `N1` §2.2 / §4-D4）**：原版那层压暗
+            //   **吃点击**（`Dark Shade` 的 `m_RaycastTarget = 1`，`m_RaycastPadding = (0,1000,0,0)`
+            //   ⇒ 下沿内缩 1000 px、底下手牌那一带照旧能点）。压暗亮着的时候指针压在它里面 ⇒
+            //   **连 tooltip hover 也挡住**（那正是原版这条 padding 的语义：「挡上中部、底下不挡」）。
+            //   ⚠️ 判据只在 `WaitBanner.ShadeContains` 一份；这里只是**转一道手**。
+            if (WaitShadeContains(wp)) { Tooltip.Hide(); return false; }
             // 🆕 2026-09-21：**关键词的 tooltip 先判** —— 它比数值那圈命中区更精确
             //    （关键词段在卡面中部的文字区，与卡底的数值圈基本不重叠；真重叠时以关键词为准）。
             foreach (var v in _handViews) if (TickTraitTip(v, wp)) return true;
@@ -28146,7 +29295,10 @@ namespace CardPresentation
         /// 另两处 = 攻击选择器槽外取消 + `_pressSlot` 那个中间态）
         /// —— `Editor/BattleScene.cs` 的 `★ A462` 段有一条**源级断言**钉住这个数。
         /// 🔴 **2026-10-21（战斗线 `T09` A4 · 步骤 S1）**：`ChatPopup` 条外关闭那一处**已退场**
-        /// （气泡的关闭全归面板自己的 uGUI `EventTrigger.PointerDown`）⇒ 数从 5 回到 4。</summary>
+        /// （气泡的关闭全归面板自己的 uGUI `EventTrigger.PointerDown`）⇒ 数从 5 回到 4。
+        /// 🔴 **2026-10-24（执行代理 `W24` · `D2` §5）**：回放局的「点空处退出」
+        /// （`HandleReplaySessionExit`）**已改走抬起沿**（判据 = 原版 `ClickExitBattle` 的唯一调用点是
+        /// `ResignButtonOnClick` = uGUI `m_OnClick`）⇒ 数**仍是 4**（它是新加的那第 5 处，改完就回到 4）。</summary>
         bool ClickedThisFrame()
         {
             if (!_downEdge) return false;

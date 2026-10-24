@@ -60,12 +60,23 @@ namespace CardPresentation
         /// ⇒ **只映无歧义的几档**；认不出的**保留枚举名并出声**（⛔ 不编词）。</para>
         /// <para>⚠️ `Skirmish → FastMode`（= `Unranked Skirmish` /「未排名的小冲突」）是**推断**：
         /// 原版「小冲突」就是未排名的 skirmish（`FastModeRanked` 是另一档「小规模战斗」）。
-        /// `RankedFriendly` 落在哪一档**判据不足** ⇒ 不映。</para></summary>
+        /// `RankedFriendly` 落在哪一档**判据不足** ⇒ 不映。</para>
+        /// <para>🆕 **2026-10-24（真机 F12）补 `OwnDeckTraining`** —— 真机对局记录里它**原样印了枚举名**
+        /// （截图 `60_battlelog3.png`）。官方表里**没有** `Battle/MatchType/OwnDeckTraining` 这条键
+        /// （现读 `Unity/数据/游戏数据/官方本地化_en+zh-CN.json`：`Battle/MatchType/*` 共 7 条 =
+        /// `Ranked / Practice / FastMode / FastModeRanked / Unranked / ClosedDeck / Draft`），
+        /// 但**「显示哪一条」的原版判据在反编译里**（第一权威）：
+        /// `MatchData__GetMatchType.c` 的 `switch(PlayModes)` —— `case 6`（`OfflinePractice`）与
+        /// **`case 0xc`（`OwnDeckTraining`）都 `return 0x32 = 50`**，而 `50 = MatchType.PracticeOffline`
+        /// （`il2cpp_out/dump.cs` 的 `enum MatchType`）⇒ **这两种模式在原版走同一个 `MatchType`**
+        /// ⇒ 玩家看到的串必然一样 ⇒ 映到已经接好的 `Practice` 那条**不是编词**，是照原版这条等价关系。
+        /// ⚠️ 仍属**推断链**（`MatchType → 词条` 那一跳是靠 `OfflinePractice` 已接的那条反推的），如实标着。</para></summary>
         static readonly Dictionary<string, string> ModeLocKeys = new Dictionary<string, string>
         {
             { "Classic",          "Battle/MatchType/Ranked" },
             { "OfflinePractice",  "Battle/MatchType/Practice" },
             { "PracticeLodge",    "Battle/MatchType/Practice" },
+            { "OwnDeckTraining",  "Battle/MatchType/Practice" },   // ← 2026-10-24 F12：`GetMatchType(0xc) == GetMatchType(6) == 50`
             { "Skirmish",         "Battle/MatchType/FastMode" },
             { "ClosedDeck",       "Battle/MatchType/ClosedDeck" },
         };

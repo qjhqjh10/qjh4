@@ -371,17 +371,15 @@ namespace CardPresentation
                 //    规格·出处见 `资料/普查产出_0918/第18行_UI三小条_规格.md` §③。
                 case EvtKind.Attack: return AttackStepMelee;
 
-                // 🔴 **2026-10-23（P2 · 演出时序 · `新账-78②`）：这个数的【出处已经倒了】，但值暂时不动**
-                //   （判据不齐 ⇒ ⛔ 别猜着改）。原出处写的是 `Impact Light Tween` 的 Punch 0.5 + ResetBody 0.25
-                //   （`appendType=After`），而 `CardFeel` 的 `B02`（2026-10-22）已判定
-                //   **`Impact Light/Heavy Tween` 是【远程弹着 AnimFX 模块】**（90 件 `BulletImpact_*` 引用它），
-                //   **不是近战挨打** ⇒ 拿它当 `Hit` 拍的长度=**机制错位**，这条出处**自相矛盾**。
-                //   候选真值 = `CardScript._ReceiveDamage_d__381__MoveNext.c:342` 末尾那句
-                //   `WaitForSeconds(DAT_1834b2bb8)`（`.rdata` 4 字节实读 = **1.0**），但它被构造参数
-                //   `+0x34` 这个 bool 把着（`_ResolveAttack:993` 的调用点传 `ReceiveDamage(dmg, 0, 0)` = 双 false
-                //   ⇒ 会走到那句），**那个 bool 的语义还没查清** ⇒ 0.75 → 1.0 这一步**判据未闭合**。
-                //   ⚠️ 改这个数会动**整条事件节奏基线**（要重跑 `BattleScene.Run` 重定基线）⇒ 与查清语义一起做。
-                case EvtKind.Hit: return CardFeel.HitRotDuration + CardFeel.ResetDuration;
+                // 🔴 **2026-10-24（`W16`）判据已闭合 ⇒ 就地改值（铁律 5）：0.75 → 1.0。**
+                //   0.75 的旧出处 = `Impact Light Tween` 的 Punch 0.5 + ResetBody 0.25 —— 已被
+                //   `CardFeel` 的 `B02` 证伪（那两条 punch 是**远程弹着** AnimFX 模块，不是近战挨打）。
+                //   真判据 = 原版攻击序列上的一道**门**：`_ReceiveDamage` 收尾的 `WaitForSeconds(1.0)`
+                //   （普通攻击命中 `doItFast = false`，`_ResolveAttack_d__438__MoveNext.c:999`）＋
+                //   `_ResolveAttack` 以 0.2 s 一拍轮询 `wholeDamageAnimFlag` 等它清零 ⇒ 放行 ≈ 1.0 s。
+                //   🔑 **数值只此一处** = <see cref="HitWaitSeconds"/>（出处、两个例外都写在它的 doc 里，
+                //   ⛔ 别在这儿另写 `1.0f`）。判据全文 → `资料/普查产出_1024d/S2_受伤时长bool语义.md`。
+                case EvtKind.Hit: return HitWaitSeconds;
 
                 // **拍的**：原版没有通用阵亡 tween（只有 `EC Heldrake Dissapear UP`、
                 // `Tyranid_Burrow_Tween` 两个单体专用），而 `VarsGlobal` 又缺 → 0.4 是估的
@@ -549,6 +547,40 @@ namespace CardPresentation
         {
             return AttackStepRanged + (vfxDuration >= 0f ? vfxDuration : RangedVfxFallback);
         }
+
+        /// <summary>🔴🆕 **2026-10-24（`W16`）：命中之后「受击方那一拍」占多久 = 1.0 s。**
+        /// 这**不是**某个 tween 的长度，而是原版攻击序列上的一道**真门**（判据全文 →
+        /// `资料/普查产出_1024d/S2_受伤时长bool语义.md`，只读查证、2026-10-24 闭合）：
+        /// <list type="number">
+        /// <item>`CardScript._ReceiveDamage_d__381__MoveNext.c:312` 置 `wholeDamageAnimFlag = 1`；</item>
+        /// <item>`:340-346` `if (doItFast == '\0')` ⇒ `WaitForSeconds(DAT_1834b2bb8)`
+        ///   （`d:/2/unity_run_ref/GameAssembly.dll` `.rdata` **4 字节 float 实读 = 1.0**，VA `0x1834b2bb8`）；</item>
+        /// <item>`:363-368` 睡醒 ⇒ 清旗、协程结束；</item>
+        /// <item>而 `BattleManager._ResolveAttack_d__438__MoveNext.c:1152` 以 `twoFractDelay`（**0.2**，
+        ///   `+0x4C8`，`DAT_1834b2bb0`）一拍地轮询那个旗、**清零才放行下一步**
+        ///   ⇒ 放行 ≈ **1.0 s**（0.2 的粒度对齐；帧序不利时 1.2 s）。</item>
+        /// </list>
+        /// **普通攻击命中传的是 `doItFast = false`** —— `_ResolveAttack…:999`
+        /// `ReceiveDamage(受击方, 0xf /*combatDefender*/, dmg, 0, 0)`，真实参只有前三个
+        /// （第 4 个 `0` 是 Ghidra 给无原型函数补的尾位 artifact；签名桩 3 参）⇒ 那句 wait **真执行**。
+        /// <para>🔴 **2026-10-24 就地改值（铁律 5）**：`DurationOf(EvtKind.Hit)` 原来返回
+        /// `CardFeel.HitRotDuration + CardFeel.ResetDuration = 0.5 + 0.25 = 0.75`。
+        /// **那 0.75 是机制错位**：它的出处是 `Impact Light Tween`（Punch 0.5 + ResetBody 0.25），
+        /// 而 `CardFeel` 的 `B02`（2026-10-22）已判定 **`Impact Light/Heavy Tween` 是【远程弹着】的
+        /// AnimFX 模块，不是近战挨打** ⇒ 拿它当命中拍长既不成立、又比原版**早 0.25 s**。</para>
+        /// <para>⚠️ **两个例外 —— ⛔ 别把本值读成「所有命中都 1.0」**（铁律 5·c：一个值 ≠ 全部情况）：
+        /// <list type="bullet">
+        /// <item>① **`DamageType ∈ {Vulnerable(7), VulnerableCombat(8)}`** —— 协程在置旗**之前**先等
+        ///   **0.4 s**（`MoveNext:291-304`，`DAT_1834b3158` 实读 0.4）⇒ `_ResolveAttack` 那一帧看到的旗
+        ///   还是 **0**、序列直接往下走 ⇒ **原版这条路上根本没有这道门**；我们统一给 1.0 对它**偏长**。
+        ///   ⚠️ 这类在实战里的**占比没统计** ⇒ 判据不足，**本批不给 `Hit` 分第二档**（只记在这里）。</item>
+        /// <item>② **AoE（`_ResolveMultiDamage…:154 / :168`）** 的 `doItFast` 传的是
+        ///   `battleAction.extraValue` ⇒ **那条路可能快进**。（`extraValue` 这名字跟「快进」看不出关系、
+        ///   **谁把它置 true 未查清** —— 如实记，⛔ 别猜。）</item>
+        /// </list></para>
+        /// 🔑 **本常量是这一格数值的唯一出处** —— `DurationOf(EvtKind.Hit)` 与 `SourceOf(Hit)` 都指向这里，
+        /// ⛔ 别在下面 `switch` 里另写一个 `1.0f`（两份数迟早不一致）。</summary>
+        public const float HitWaitSeconds = 1.0f;
 
         /// <summary>🆕 **2026-10-23（P1 · 演出时序 ③）：一条攻击 VFX 排期之后，「队尾」应该落在哪个时刻**
         /// = `_clock + vfxAt + 该件自己的时长`（`clock` = 时间线泵的**绝对**时钟，`vfxAt` = 相对本拍的偏移，
@@ -829,16 +861,21 @@ namespace CardPresentation
                                           + "`Summon Troop Tween` 的 DelayTween **1.0**；"
                                           + "无来源（Unknown）退回老口径 1.3";
                 case EvtKind.Attack: return "`CardScript.attackStepTime`=0.1（位移完成即命中帧；远程 0.2）";
-                // 🔴 **2026-10-23（P2 · `新账-78②`）就地订正（铁律 5）**：原文 = 「`Impact Light Tween`：
-                //   Punch 0.5 + ResetBody 0.25」—— **那个出处已经不成立**（`Impact Light/Heavy Tween` 是
-                //   **远程弹着** AnimFX 模块，`CardFeel` `B02` 判的；近战挨打只有 `DOPunchPosition` 一句）。
-                //   现行值 0.75 **仍是我们自己的**（= `HitRotDuration + ResetDuration`，**出处待补**）。
-                //   候选 = `_ReceiveDamage:342` 的 `WaitForSeconds(1.0)`（被 `+0x34` bool 把着，语义未查）。
-                case EvtKind.Hit: return "⚠️ **出处待补**（旧出处 `Impact Light Tween` 已被 `CardFeel` `B02` 证伪"
-                                       + "：那是远程弹着模块）—— 现值 = `CardFeel.HitRotDuration` 0.5 + "
-                                       + "`CardFeel.ResetDuration` 0.25 = 0.75；候选真值 = "
-                                       + "`CardScript._ReceiveDamage_d__381:342` 的 `WaitForSeconds(1.0)`"
-                                       + "（被 `+0x34` 的 bool 把着，**语义未查清** ⇒ 判据未闭合，⛔ 别猜）";
+                // 🔴 **2026-10-24（`W16`）就地订正（铁律 5）**：这里原来写「⚠️ **出处待补** —— 现值 = `CardFeel.HitRotDuration`
+                //   0.5 + `ResetDuration` 0.25 = 0.75；候选真值 = `WaitForSeconds(1.0)`（被 `+0x34` 的 bool
+                //   把着，**语义未查清**）⇒ 判据未闭合，⛔ 别猜」。**那个 bool 的语义 2026-10-24 查清了**
+                //   （`+0x34` = `doItFast`，`false` ⇒ 走 wait；普通攻击命中传的就是 false），
+                //   所以现在**有出处了**、值也改成了 1.0。数值只在 `HitWaitSeconds` 那一处（⛔ 别在这儿复述数）。
+                case EvtKind.Hit: return "原版 `CardScript._ReceiveDamage_d__381__MoveNext.c:342` 的 "
+                                       + "`WaitForSeconds(1.0)`（`DAT_1834b2bb8`，`GameAssembly.dll` `.rdata` "
+                                       + "4 字节 float 实读）—— 普通攻击命中传 `doItFast = false`"
+                                       + "（`BattleManager._ResolveAttack_d__438__MoveNext.c:999`）⇒ 那句真执行；"
+                                       + "`_ResolveAttack…:1152` 又以 `twoFractDelay` 0.2 一拍轮询 "
+                                       + "`wholeDamageAnimFlag` 等它清零 ⇒ **放行 ≈ 1.0 s**（帧序不利 1.2 s）。"
+                                       + "⚠️ 两个例外：`DamageType` 7/8（漏洞伤害）的 0.4 s 在**置旗之前** "
+                                       + "⇒ 原版那条路**没有这道门**；AoE（`_ResolveMultiDamage:154/168`）传 "
+                                       + "`battleAction.extraValue` ⇒ 可能快进（**未查清**）。"
+                                       + "判据全文 → `资料/普查产出_1024d/S2_受伤时长bool语义.md`";
                 case EvtKind.Ability: return "🆕 2026-10-14（`A1767`）**逐卡真值**：该卡 `activeAbility` 各 CardAnim 的 "
                                              + "`AnimInfo.GetAnimDuration()`（`vfxDelayTime + timeAtStartPos + timeMoving "
                                              + "+ timeAtEndPos`）之和 → `AbilityAnimDurations`（**现读 93 张卡**）；"

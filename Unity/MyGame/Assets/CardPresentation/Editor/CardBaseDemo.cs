@@ -337,6 +337,15 @@ public static class CardBaseDemo
         Debug.Log(P + "--- 3D 卡体：不透明（Geometry 2000）+ DepthOnly/DepthNormalsOnly/ShadowCaster ---");
         AssertBodyOpaque();
 
+        // ---- 4e·2. 🆕 2026-10-24（W14）：用户「加攻变红」+「插图白边一直闪」两条的画法修复 ----
+        //   S2：高亮态不许给整卡（含四个数值）着色 —— 颜色只走状态环（原版 `ChangeFrameColor` 实证）。
+        //   S3：场上 3D 卡体的立绘 UV 再内缩到 crop 的子矩形（`Card3D.shader` 的 `artUv`）。
+        //   判据全文 → `资料/普查产出_1024d/S1_场上卡牌四连症状.md` §2·4–2·11
+        //             与 `W14_整卡染色与白边_执行报告.md`。
+        Debug.Log(P + "--- W14 · 整卡染色（数值被高亮色染红）+ 场上插图白边 ---");
+        AssertStatTintNotWholeCard();
+        AssertBoardArtNoWhiteEdge(cam);
+
         // ---- 4g. 🆕 2026-10-24（L1 · `C1-B03`）：**描边与软光/影并层**（原版只有 1 颗 `Card Highlight And Shadow`）----
         Debug.Log(P + "--- 描边并层（C1-B03）：绿光走软光/影那份 `Card Frame SDF`，不再有 `outlineGlow` 层 ---");
         AssertOutlineMerged();
@@ -750,10 +759,12 @@ public static class CardBaseDemo
     ///    但**没有样卡**。现在「战术卡 + 防御卡」各一张，逐张跑 ①③④（样本与选型依据见
     ///    <see cref="AssertArtClampForSample"/> 的 doc）。
     /// ② **y 轴** —— ①③ 原来**只看顶点 `p.x`**，挡不住「只夹 x、y 被误夹」或「y 根本没夹」。
-    ///    现在每个样本多一条 ④：小图档 `_art` 的 **y 极值不许比 BIG 档（`clampKind = 2`）窄**
+    ///    现在每个样本多一条 ④b：小图档 `_art` 的 **y 极值不许比 BIG 档（`clampKind = 2`）窄**
     ///    （上沿须高出 ≥ `TacticArtClampYMin`；下沿只作方向闸，理由见 ④ 的注释）。
     ///    ⚠️ 这条**不是**原版参数：小图档的 v 窗口就是 `(0,1]`（`ClampRangeSmall` 的第 2/4 分量），
-    ///    「没被收窄」是从那里推出来的期望，判别阈 0.05 是**我们挑的**。</para>
+    ///    「没被收窄」是从那里推出来的期望，判别阈 0.05 是**我们挑的**。
+    ///    🔴 **2026-10-24（`W4` · T01）**：相对比较**挡不住「两档按同一错误比例一起缩」** ⇒ 另补 ④a
+    ///    把 BIG 的 y 上沿**钉成绝对期望**（`cy − h/2 + 0.89·h`，原版字面量；见 `AssertArtClampForSample`）。</para>
     /// </summary>
     static void AssertTacticArtClamp()
     {
@@ -812,11 +823,14 @@ public static class CardBaseDemo
         finally { Object.DestroyImmediate(goUnit); }
     }
 
-    /// <summary>🆕 **2026-10-24（H6）**：对**一张**样本卡跑「生产立绘套硬矩形」的四条断言
-    /// （① x 两端**正好压在硬矩形两条边**上 —— `E5` 2026-10-24 收紧，原为「落在区间里」·
+    /// <summary>🆕 **2026-10-24（H6）**：对**一张**样本卡跑立绘几何的六条断言
+    /// （① x 极值**铺满卡框画窗**（覆盖，离线字面量）· ①b 两端**越出**硬矩形 ≥ 0.02（没被 `_Clamp_Range` 削）·
     /// ③ 关档后确实越界 ≥ 0.02 · ③b 关档后 x 正好压在**「立绘板边 / 卡框画窗边」里更窄的一条**上
     /// —— 🔴 2026-10-24 第七十三会话 E12 改：原来只断「板边」，而这两张样本的画窗比板窄 ·
-    /// ④ y 窗口未被收窄 · ＋ 一条 `FrameTexture.name` 前提断言（卡框档位真的钉住了））。
+    /// ④a y 上沿**绝对期望**（`cy − h/2 + 0.89·h`，原版字面量 —— 🔴 2026-10-24 `W4`/T01 新增）·
+    /// ④b y 窗口未被收窄（相对墙）· ＋ 一条 `FrameTexture.name` 前提断言（卡框档位真的钉住了））。
+    /// 🔴 **2026-10-24（`W4` · T01）**：④ 原来**只有相对比较** ⇒ 挡不住「两档按同一错误比例一起缩」
+    /// （`TacticArtScale` / `ArtCoverMargin` 改错、或 BIG 的 v 上沿改错都仍绿）⇒ 拆成 ④a 绝对 + ④b 相对。
     ///
     /// <para>**为什么要两张样本**：战术卡（`cardType = 20`）与防御卡（🔴 现读 SO `cardType` **也是 20**、靠引擎 `type="defence"` 区分；`cards_truth.json` 无 5）在 `CardView` 里走
     /// **同一条** `!d.isUnit` 分支（`ArtClampKindFor`），原版判据（`CardImageController__SetImage.c:126-144`）
@@ -947,12 +961,34 @@ public static class CardBaseDemo
 
                 // ---- ④ y 窗口未被收窄（H6 新增）：只断 x 极值挡不住「只夹 x、y 被误夹」 ----
                 //   小图档的 v 窗口是 **(0,1]**（`CardView.ClampRangeSmall`）⇒ 纵向**一点都不该被夹**；
-                //   有判别力的对照是 **BIG 档**（v (0.10,0.89]）。离线复刻（口径同 H4）现读：
-                //     `astra tier4`     : 小图档 y [−0.2585, +1.2135] vs BIG [−0.2585, +1.0708]（上沿高 **0.1427**）
-                //     `sororitas tier4` : 小图档 y [−0.2878, +1.2853] vs BIG [−0.2878, +1.0708]（上沿高 **0.2145**）
-                //   ⇒ **上沿是主牙**（BIG 的 v 上沿 = `yB0 + 0.89·h` 把上沿压下去）；**下沿两者相等**
-                //     （BIG 的 v 下沿 = yB0 + 0.10·h = −1.1873，比卡框开口下沿还低 ⇒ 先被开口截住，轮不到 v 窗口）
-                //     ⇒ 下沿只作**方向闸**（小图档的下沿不得**高于** BIG 的），⛔ 别当主判据（E3/E4 同一条教训）。
+                //   有判别力的对照是 **BIG 档**（v (0.10,0.89]）。
+                //
+                //   🔴 **2026-10-24（`W4` · 本线 T01）判据翻面：④ 原来只有一条「相对」比较**
+                //     （`y1 > by1 + TacticArtClampYMin`，`by1` 来自**实现自己建出来的** BIG 网格）。
+                //     它能挡「两档变得一样」和「小图档自己被夹」，但**挡不住「两档按同一错误比例一起缩/放」**：
+                //       · `TacticArtScale` 0.61 改错（例 0.5）⇒ 两档一起缩、差值几乎不变 ⇒ **旧断言仍绿**；
+                //       · `ArtCoverMargin` 1.04 改错 ⇒ 同上；
+                //       · `ClampRangeBig` 的 `v=0.89` 改成 0.85 ⇒ 只有 `by1` 动、小图档上沿不动 ⇒ **旧断言仍绿**。
+                //   ⇒ 现在补一条 **④a 绝对期望**（见下面 `ExpBigTopY`），把 BIG 档一个端**钉死在原版字面量上**；
+                //     旧那条相对比较降级成 **④b**（方向闸 / 前提闸：证明这一档的 BIG 上沿确实被硬矩形压住、
+                //     而且小图档没有被收窄到 BIG 那条线上）。两条合起来 = 一条绝对墙 + 一条相对墙。
+                //
+                //   📐 **离线复算（float32，⛔ 本轮没跑 Unity）**：
+                //     `h = 2.7484 × 1.04 × 0.61 = 1.74358496` · `cy = −0.044 + 0.5 = 0.456`
+                //     ⇒ BIG 上沿 `cy − h/2 + 0.89·h` = **1.1359981** · BIG 下沿 `cy − h/2 + 0.10·h` = **−0.2414340**
+                //     ⇒ 小图档（= 画窗）与 BIG 的上沿差：astra **0.0775** · sororitas **0.1493**（都 > 0.05，仍绿）
+                //   🔴 **2026-10-24（`W4` · T01）就地订正（铁律 5）**：本段原来写的
+                //     「小图档 y [−0.2585,+1.2135] vs BIG [−0.2585,+1.0708]，上沿高 0.1427 / 0.2145」
+                //     **是 `E9` 之前的口径**（那时 `h = 2.858336`、`cy = −0.044`，BIG 下沿还是 −1.1873 被画窗截住）。
+                //     `E9` 接上 `cardScales 0.61` / `tacticsOffsetPosition +0.5` 之后，**BIG 的上、下沿都改由硬矩形决定**
+                //     （画窗下沿 −0.2585 / −0.2878 比硬矩形下沿还低）
+                //     —— 判别阈 `TacticArtClampYMin` 0.05 仍在，但**余量不像原注释写的 2.9×/4.3× 那么宽**。
+                //     小图档那两个数（画窗边）与 `E9` 无关（画窗是卡框贴图的属性），保留不变；
+                //     上沿差也因此从 0.1427/0.2145 缩小到 0.0775/0.1493。
+                //   ⚠️ **下沿为什么只作方向闸**：`E9` 之后 BIG 的下沿是**硬矩形**给的（离线 −0.2414340），
+                //     理论上也可以钉成绝对值；但那要求「两张样本的画窗下沿都低于它」这一前提有**逐样本实测**，
+                //     而现在只有 astra 那一份（−0.2585）被 `E12` 交叉验证过 ⇒ 本轮**只钉上沿**，下沿留作方向闸。
+                //     要补下沿的绝对墙：先跑一次 `CardBaseDemo.Run` 收两张样本的 ④ 读数，再钉。
                 var artY = vOn.ArtLayerTexture;
                 // 🔴 2026-10-24（E9）：战术/防御卡的板 = `× 0.61` + 中心 `+0.5`（原版 `CardScalesByCardType`
                 //    / `tacticsOffsetPosition`）⇒ 参考网格必须传同两个值，否则这条比的是「两个不同的口径」。
@@ -970,13 +1006,40 @@ public static class CardBaseDemo
                     foreach (var p in mOn.vertices) { if (p.y < y0) y0 = p.y; if (p.y > y1) y1 = p.y; }
                     float by0 = float.MaxValue, by1 = float.MinValue;
                     foreach (var p in mBigY.vertices) { if (p.y < by0) by0 = p.y; if (p.y > by1) by1 = p.y; }
+
+                    // ④a **绝对期望**（T01 新增）：BIG 档 y 上沿 = `cy − h/2 + 0.89·h`。
+                    //   🔑 四个组成项**全部是原版字面量**，⛔ 不读 `ClampRangeBig` / `TacticArtScale` / `ArtBoard`
+                    //      / `ArtCoverMargin` / 生产网格（读了就是自证）：
+                    //        · 2.7484 = 原版 `CardImage` 方框（RT `m_SizeDelta`）
+                    //        · 0.61   = 原版 `CardScalesByCardType[20]`（战术/防御卡）
+                    //        · 0.89   = 原版 `_Clamp_Range` BIG 的 v 上沿（`CardView.ClampRangeBig` 的 y 分量）
+                    //        · −0.044 = 原版 `CardImage` 的 local y（菜单族）· +0.5 = 原版 `tacticsOffsetPosition.y`
+                    //        · 1.04   = **我们自己的** `ArtCoverMargin`（既有偏离；改它必须同步改这里）
+                    //   ⚠️ 成立前提：**BIG 的上沿由硬矩形决定**（画窗上沿更高）。两张样本 tier4 的画窗上沿
+                    //      离线量得 1.2135（astra）/ 1.2853（sororitas），都高于期望 1.1360 ⇒ 前提成立。
+                    //      换样本 / 换档位时若画窗更窄 ⇒ 上沿改由画窗给 ⇒ 期望要换成那个画窗值（⛔ 别放宽容差）。
+                    const float ExpBoardH  = 2.7484f * 1.04f * 0.61f;                            // 1.74358496
+                    const float ExpBoardCy = -0.044f + 0.5f;                                      // 0.456
+                    const float ExpBigTopY = ExpBoardCy - ExpBoardH * 0.5f + 0.89f * ExpBoardH;   // 1.1359981
+                    Check(Mathf.Abs(by1 - ExpBigTopY) <= ArtClampEdgeTol,
+                          $"④a y 绝对期望：{what} BIG 档 `_art` 的 y 上沿**压在原版字面量上**"
+                        + $"（实测 {by1:F4} vs 期望 {ExpBigTopY:F4} = {ExpBoardCy:F4} − {ExpBoardH:F4}/2 + 0.89×{ExpBoardH:F4}，"
+                        + $"容差 {ArtClampEdgeTol:F4}；BIG y 极值 [{by0:F4}, {by1:F4}]，卡框钉 tier{TacticArtClampProbeTier}）"
+                        + " —— 本条挡的是「**两档按同一错误比例一起缩/放**」与「BIG 的 v 上沿被改错」，"
+                        + "两类都是旧 ④（只有相对比较）结构性抓不到的"
+                        + "｜🧨 `TacticArtScale` 0.61 改成别的值（两档一起缩）⇒ 必红（旧相对判据在这一档是**绿**的）"
+                        + "｜🧨 `ArtCoverMargin` 1.04 改错 ⇒ 同上"
+                        + "｜🧨 `ClampRangeBig` 的 v 上沿 0.89 改成 0.85 之类 ⇒ 只有本端动 ⇒ 必红（旧相对判据也是绿的）"
+                        + "｜🧨 卡框档位没钉住（画窗比硬矩形窄）⇒ 上沿改由画窗给 ⇒ 红（先看上面那条 `FrameTexture.name` 前提）");
+
+                    // ④b **相对墙 / 前提闸**（原 ④，保留）：小图档不得被收窄到 BIG 那条线上。
                     Check(y0 <= by0 + 1e-3f && y1 > by1 + TacticArtClampYMin,
-                          $"④ y 窗口未被收窄：{what} 小图档 `_art` 的 y 极值 [{y0:F4}, {y1:F4}] "
+                          $"④b y 窗口未被收窄（相对）：{what} 小图档 `_art` 的 y 极值 [{y0:F4}, {y1:F4}] "
                         + $"**不比 BIG 档 [{by0:F4}, {by1:F4}] 窄**（上沿高出 **{y1 - by1:F4}** ≥ {TacticArtClampYMin:F2} 卡单位；"
                         + $"下沿差 {y0 - by0:F4} ≤ 1e-3）"
                         + "｜🧨 把 BIG 的 v 窗口 (0.10,0.89] 误用到小图档 ⇒ 上沿被压到 ≈BIG 上沿 ⇒ 红"
                         + "｜🧨 小图档自己也去夹 y（v 收窄）⇒ 上沿收进来 ⇒ 红"
-                        + "｜⚠️ 下沿只作方向闸（BIG 的 v 下沿低于卡框开口 ⇒ 两档相同、没有判别力）"
+                        + "｜⚠️ 下沿只作方向闸（`E9` 之后 BIG 的下沿由硬矩形给，但逐样本的画窗下沿只核过 astra 一份 ⇒ 暂不钉绝对值）"
                         + "｜🧨 BIG 网格建不出来 ⇒ 上一条已报「没验到」");
                 }
             }
@@ -1615,6 +1678,346 @@ public static class CardBaseDemo
             else Check(true, "（⑥⑦ 跳过：取不到原版溶解 shader `Everguild/Cards/3D Card Dissolve`）");
         }
         Object.DestroyImmediate(root);
+    }
+
+    // ==================================================================
+    //  🆕 2026-10-24（W14 · S2）：高亮态**不许**给整卡（含四个数值）着色
+    // ==================================================================
+    //
+    //  判据（全量反编译，第一权威）：
+    //   · `d:/2/tools/decomp_full/CardHighlight__ChangeFrameColor.c` —— 整个方法只做
+    //     `SpriteRenderer.set_color`（`param_1 + 0x70` / `+0x78` 两颗 = `FrameHighlight` /
+    //     `FrameHighlightRemnant`）+ `DOColor` 补间 + `ToggleFrames`。**没有一处碰卡的其它图层/材质。**
+    //   · `CardHighlight__ChangeState.c` —— 6 个 case 只有两个出口：`ChangeFrameColor`（色）与
+    //     `ChangeTargetScale`（缩放，仅 case 0/3/4）。**没有第三条路。**
+    //   · `CardTextCountersController.DoColorChange(old,new)` 只改那个 counter 自己的颜色。
+    //  ⇒ 用户 2026-10-24 报「加攻/加血时数值变红」，成因是 `CardView.SyncStatLayers` /
+    //     `ApplyStatFlashes` 的 `_tint * c`：`_tint` 被 `CardHighlight.ColorOf(SelectedTargetInBoard)`
+    //     设成 **#FF8400** ⇒ 白字 × 橙 = **(255,132,0)**。本批把 `ColorOf` 的棋盘两态改成白
+    //     （判据全文 → `资料/普查产出_1024d/S1_场上卡牌四连症状.md` §2·4–2·7）。
+    //
+    //  🧨 **改坏法**（每条都能红）：
+    //   · `ColorOf(SelectedTargetInBoard)` 改回 `SelectedTargetColor` ⇒ ① 红（r=1 / g=0.5176 / b=0）；
+    //   · `ColorOf(ValidTarget)` 改回 `ValidTargetColor` ⇒ ② 红（g=1 / r=b=0）；
+    //   · 在 `SyncStatLayers` 里把 `_tint * c` 改成 `c`（治标的那个「次选方案」）⇒ ⑥ 红
+    //     （`SetTint(0.5 灰)` 之后数值必须变成 0.5×白）——这一条就是防「两边一起改回去」的灭自证；
+    //   · 删掉 `SetHighlight` 里 `FrameColorOf` → `_rim` 那一路 ⇒ ③④ 红（环不亮/不按状态变色）。
+    static void AssertStatTintNotWholeCard()
+    {
+        var root = new GameObject("stat_tint_probe");
+        try
+        {
+            var v = CardView.Create(root.transform, CardData.Placeholder(0), "stat_tint_board", CardFace.Board);
+            var melee = LayerMesh(v.transform, "stat1");
+            var health = LayerMesh(v.transform, "stat4");
+            Check(melee != null && health != null,
+                  "★ 前提：场卡建出了数值层 `stat1` / `stat4`（`BuildStatLayers` 要 `isUnit` + 数字图集可用；"
+                + "建不出来 ⇒ 下面全部**没验到**，别读成通过）");
+            if (melee == null || health == null || melee.sharedMaterial == null) return;
+            Check(melee.gameObject.activeSelf && health.gameObject.activeSelf,
+                  "★ 前提：这两格**是开着的**（关着的层读到的颜色是上一次刷的值 ⇒ 会假绿）");
+
+            // ---- ① 棋盘「指针压着的目标」：整卡白、数值白 ----
+            v.SetHighlight(CardHighlightState.Normal);
+            v.SetHighlight(CardHighlightState.SelectedTargetInBoard);
+            var c1 = melee.sharedMaterial.color;
+            Check(Mathf.Abs(c1.r - 1f) < 0.01f && Mathf.Abs(c1.g - 1f) < 0.01f && Mathf.Abs(c1.b - 1f) < 0.01f,
+                  $"① `SelectedTargetInBoard` ⇒ 数值层颜色 = **白**（实测 ({c1.r:F3}, {c1.g:F3}, {c1.b:F3})）"
+                + "｜🧨 把 `ColorOf` 这一档改回 `SelectedTargetColor` ⇒ (1, 0.5176, 0) ⇒ 红");
+            Check(Mathf.Abs(v.Tint.r - 1f) < 0.01f && Mathf.Abs(v.Tint.g - 1f) < 0.01f,
+                  $"①·b ……整卡 `_tint` 也是白（实测 ({v.Tint.r:F3}, {v.Tint.g:F3}, {v.Tint.b:F3})）"
+                + " —— 数值色被染红的唯一入口就是它");
+
+            // ---- ③ 颜色没丢：那一圈环仍是原版橙 #FF8400 ----
+            var rim = v.RimTargetForTest;
+            Check(Mathf.Abs(rim.r - 1f) < 0.01f && Mathf.Abs(rim.g - 0.5176f) < 0.01f && Mathf.Abs(rim.b - 0f) < 0.01f,
+                  $"③ 同一态下**环仍是橙 #FF8400**（`RimTargetForTest` = ({rim.r:F3}, {rim.g:F3}, {rim.b:F3})）"
+                + " —— 原版那 5 个状态色只点这一层（`FrameColorOf`）；🧨 把颜色从环上也删掉 ⇒ 红");
+            Check(Mathf.Abs(rim.a - CardHighlight.RimAlphaScale) < 0.02f,
+                  $"③·b 环的 alpha = 原版材质 `_Outline.a` {CardHighlight.RimAlphaScale:F3}（实测 {rim.a:F3}）");
+
+            // ---- ② 合法目标：整卡也白、环是绿 ----
+            v.SetHighlight(CardHighlightState.ValidTarget);
+            var c2 = melee.sharedMaterial.color;
+            Check(Mathf.Abs(c2.r - 1f) < 0.01f && Mathf.Abs(c2.g - 1f) < 0.01f && Mathf.Abs(c2.b - 1f) < 0.01f,
+                  $"② `ValidTarget` ⇒ 数值层颜色 = **白**（实测 ({c2.r:F3}, {c2.g:F3}, {c2.b:F3})）"
+                + "｜🧨 把 `ColorOf` 这一档改回 `ValidTargetColor` ⇒ (0, 1, 0.129) ⇒ 红");
+            var rim2 = v.RimTargetForTest;
+            Check(Mathf.Abs(rim2.r - 0f) < 0.01f && Mathf.Abs(rim2.g - 1f) < 0.01f
+                  && Mathf.Abs(rim2.b - 0.1294f) < 0.02f,
+                  $"④ ……而环是原版绿 #00FF21（实测 ({rim2.r:F3}, {rim2.g:F3}, {rim2.b:F3})）"
+                + " —— 「整卡不染色」不等于「状态没表达」");
+
+            // ---- ⑤ 端到端：真涨一点攻击，那一格必须是**涨色**（且逐分量相等，不是「偏绿」）----
+            v.SetHighlight(CardHighlightState.Normal);
+            var dOld = v.Data;
+            var dNew = dOld;
+            dNew.melee = dOld.melee + 1;
+            v.SetData(dNew);
+            var up = CardFeel.StatUpColor;
+            var c5 = melee.sharedMaterial.color;
+            Check(Mathf.Abs(c5.r - up.r) < 0.01f && Mathf.Abs(c5.g - up.g) < 0.01f
+                  && Mathf.Abs(c5.b - up.b) < 0.01f,
+                  $"⑤ `melee {dOld.melee} → {dNew.melee}` 之后那一格**逐分量 == `CardFeel.StatUpColor`**"
+                + $"（实测 ({c5.r:F3}, {c5.g:F3}, {c5.b:F3})；期望 ({up.r:F3}, {up.g:F3}, {up.b:F3})）");
+
+            // ---- ⑥ 灭自证：整卡着色这条路**仍然存在**（只是高亮态不再走它）----
+            //    ⚠️ 「把 `_tint` 从数值层的乘法里删掉」也能让 ①② 变绿 —— 那会连带毁掉整卡淡出/详情窗压暗。
+            //    这一条按**结构上不可能同时满足**的方式钉住它：直接给一个 0.5 灰的整卡色，
+            //    数值层必须变成 0.5×白。删掉乘法 ⇒ 这里还是 1.0 ⇒ 红。
+            var flashBefore = v.StatFlash(CardView.StatMelee);
+            v.SetTint(new Color(0.5f, 0.5f, 0.5f, 1f));
+            var c6 = melee.sharedMaterial.color;
+            Check(Mathf.Abs(c6.r - 0.5f * flashBefore.r) < 0.01f
+                  && Mathf.Abs(c6.g - 0.5f * flashBefore.g) < 0.01f
+                  && Mathf.Abs(c6.b - 0.5f * flashBefore.b) < 0.01f,
+                  $"⑥ ★灭自证：`SetTint(0.5 灰)` ⇒ 数值层 = 0.5 × 涨落色"
+                + $"（实测 ({c6.r:F3}, {c6.g:F3}, {c6.b:F3})；期望 0.5 × ({flashBefore.r:F2}, {flashBefore.g:F2}, {flashBefore.b:F2})）"
+                + "｜🧨 把 `SyncStatLayers` 的 `_tint * c` 改成 `c` ⇒ 这里仍是 1.0 ⇒ 红");
+            v.ResetTint();
+        }
+        finally { Object.DestroyImmediate(root); }
+    }
+
+    // ==================================================================
+    //  🆕 2026-10-24（W14 · S3）：场上 3D 卡体的插图**左右不许露白边**
+    // ==================================================================
+    //
+    //  根因（已闭合，判据全文 → `资料/普查产出_1024d/S1_场上卡牌四连症状.md` §2·8–2·11）：
+    //    `Card3D.shader` 原来把 UV1 铺满**整张** 671×1024 的 crop，而原版 `_CardImage` 是 1024²
+    //    图集整图、UV1 只采到图集 x 186.16…840.0 ⇒ 两端各多采**左 9.663 px / 右 7.013 px**，
+    //    那正是立绘 PNG 的**纯白卡框内沿**（实测左/右各 5–6 px · 664/1168 张都有）。
+    //    屏上卡片约 150 px 宽 ⇒ 5–6 px 缩成 ~1 px 亚像素白线；场上卡每帧按深度重算 `localScale`
+    //    （`CardFeel.HookDepthScale` 0.36→0.70）+ 相机 autoZoom ⇒ 那条线每帧落进不同像素格 ⇒「一直闪」。
+    //  ⇒ 修法 = 把 `artUv` 再内缩到 crop 的内子矩形 `[0.014412, 0.989541] × [0.001700, 0.997800]`。
+    //
+    //  断两条：
+    //    ① **常量普查**（确定性，不渲图）：shader 里那四个数必须能由
+    //       `textureRect`（x176.5 w670.5 h1024，图集 1024²）与 UV1 角点**算回来**（误差 < 1 px），
+    //       而且那对常量**真的被 `artUv` 用了**（防「常量定义了但没用」这种静默失败）。
+    //    ② **渲图级**：把场卡放到上半屏空地、渲 1920×1080，沿立绘窗左右边界 ±3 px 扫列，
+    //       不许出现「整列近白（r,g,b 都 >180 且通道差 <24、且该列 ≥90% 的行都这样）且邻列 <80」的列。
+    //       ⚠️ 为什么加「近白 + 整列一致」这两条而不是只按亮度 180/80：
+    //          立绘**画作内容**本身也可能在边界上出现亮列，那样会把正常画面判成缺陷（假红）。
+    //          原版那条白边是**卡框内沿**：颜色近中性白、且沿整条边界高度一致 —— 两个特征加在一起才唯一。
+    static void AssertBoardArtNoWhiteEdge(Camera cam)
+    {
+        // ---------- ① 常量普查（读 shader 源码，⛔ 不跑 Unity 也能判）----------
+        //   ⚠️ 路径从 `Application.dataPath` 拼（批处理下 CWD 不一定在工程根）
+        string shaderPath = System.IO.Path.Combine(Application.dataPath,
+                                                   "CardPresentation/Shaders/Card3D.shader");
+        string src = File.Exists(shaderPath) ? File.ReadAllText(shaderPath) : null;
+        Check(!string.IsNullOrEmpty(src), $"★ 前提：读得到 `{shaderPath}`（读不到 ⇒ ① 这一组没验到）");
+        Vector2 uvMin, uvMax, cropMin, cropMax;
+        bool gotMin = ParseShaderFloat2(src, "ArtUvMin", out uvMin);
+        bool gotMax = ParseShaderFloat2(src, "ArtUvMax", out uvMax);
+        bool gotCropMin = ParseShaderFloat2(src, "ArtCropUvMin", out cropMin);
+        bool gotCropMax = ParseShaderFloat2(src, "ArtCropUvMax", out cropMax);
+        Check(gotMin && gotMax && gotCropMin && gotCropMax,
+              "★ 前提：shader 里 `ArtUvMin` / `ArtUvMax` / `ArtCropUvMin` / `ArtCropUvMax` **四组都在**"
+            + $"（实读 {gotMin}/{gotMax}/{gotCropMin}/{gotCropMax}）"
+            + "｜🧨 把内缩那层删掉（回到 `artUv = (uv1−Min)/(Max−Min)`）⇒ 这里就红");
+        if (gotMin && gotMax && gotCropMin && gotCropMax)
+        {
+            Check(src.IndexOf("lerp(ArtCropUvMin, ArtCropUvMax", System.StringComparison.Ordinal) >= 0,
+                  "★ `artUv` **真的用了**那对内缩常量（`lerp(ArtCropUvMin, ArtCropUvMax, …)`）"
+                + "｜🧨 常量留着、`artUv` 改回不内缩 ⇒ 本条红（防「定义了但没用」）");
+
+            // 判据 = 原版立绘在 **1024² 图集**里的采样范围，换算到 crop 坐标。
+            //   `textureRect` = x176.5 y0 w670.5 h1024（`工具/import_original_art.py:28` 与 `:1022`）
+            const float TrX = 176.5f, TrW = 670.5f, TrH = 1024f, Atlas = 1024f;
+            var wantMin = new Vector2((uvMin.x * Atlas - TrX) / TrW, (uvMin.y * Atlas) / TrH);
+            var wantMax = new Vector2((uvMax.x * Atlas - TrX) / TrW, (uvMax.y * Atlas) / TrH);
+            float tolU = 1f / TrW, tolV = 1f / TrH;      // 1 px
+            Check(Mathf.Abs(cropMin.x - wantMin.x) < tolU && Mathf.Abs(cropMax.x - wantMax.x) < tolU,
+                  $"① 内缩的 u 两端 = (UV1角点×1024 − 176.5)/670.5 ⇒ "
+                + $"[{wantMin.x:F6}, {wantMax.x:F6}]（实读 [{cropMin.x:F6}, {cropMax.x:F6}]，容差 1 px = {tolU:F6}）"
+                + "｜🧨 改回 [0, 1] ⇒ 差 0.0144 ≫ 容差 ⇒ 红");
+            Check(Mathf.Abs(cropMin.y - wantMin.y) < tolV && Mathf.Abs(cropMax.y - wantMax.y) < tolV,
+                  $"①·b v 两端 = [0.001700, 0.997800]（crop 是整高 ⇒ v 不缩放；"
+                + $"实读 [{cropMin.y:F6}, {cropMax.y:F6}]）");
+            // ★ 前提：这组数**真的内缩了** —— 否则「和 0..1 几乎相等」时上面两条也会绿
+            Check(cropMin.x > 0.005f && cropMax.x < 0.995f,
+                  $"★ 前提：内缩量**不是零**（左 {cropMin.x:F4} / 右 1−{cropMax.x:F4}）"
+                + " —— 左右各对应 9.663 / 7.013 个 crop 像素");
+        }
+
+        // ---------- ② 渲图级：沿立绘窗左右边界 ±3 px 扫列 ----------
+        const int PW = 1920, PH = 1080;
+        var root = new GameObject("art_edge_probe");
+        try
+        {
+            // 夹具 = **S1 点名的那个「有白边」样本** `art_um11`（左/右各 5–6 px 纯白）——
+            //   ⚠️ 用 `Placeholder(0)` 的默认立绘不行：它不一定有白边，那样「改回 0..1」也不会有白线
+            //   ⇒ 这条断言会在**不该绿的时候绿**。`CardData.artId` 是公开字段，直接换掉即可。
+            var dEdge = CardData.Placeholder(0);
+            dEdge.artId = "um11";
+            var v = CardView.Create(root.transform, dEdge, "art_edge_board", CardFace.Board);
+            var body = v.transform.Find("body3D");
+            var mf = body != null ? body.GetComponent<MeshFilter>() : null;
+            var mr = body != null ? body.GetComponent<MeshRenderer>() : null;
+            bool okBody = mf != null && mf.sharedMesh != null && mr != null && mr.sharedMaterial != null;
+            Check(okBody, "★ 前提：场卡有 `body3D` + 网格 + 材质（缺一件 ⇒ ② 没验到）");
+            if (!okBody) return;
+
+            // ★ 前提：卡体上挂的**就是那张立绘**。挂不上时 `BuildBody3D` 会退回
+            //   `Texture2D.whiteTexture` —— 那时整张卡都是白的，「扫到白列」毫无意义（而且必然假红）。
+            var artTex = mr.sharedMaterial.GetTexture("_CardImage");
+            bool artOk = artTex != null && artTex != Texture2D.whiteTexture
+                      && artTex.name.IndexOf("um11", System.StringComparison.OrdinalIgnoreCase) >= 0;
+            Check(artOk, $"★ 前提：`_CardImage` 挂的是那张有白边的立绘 `art_um11`"
+                       + $"（实得 `{(artTex == null ? "<null>" : artTex.name)}`）"
+                       + " —— 挂不上 ⇒ 退回白图 / 换错图 ⇒ 下面这条「没验到」");
+            if (!artOk) return;
+
+            var mesh = mf.sharedMesh;
+            var verts = mesh.vertices;
+            // `Mesh.uv2` 就是 shader 的 `uv1`（TEXCOORD1）—— shader 里立绘吃的是 TEXCOORD1
+            var uvs = mesh.uv2;
+            Check(uvs != null && uvs.Length == verts.Length && verts.Length > 8,
+                  $"★ 前提：网格带第二套 UV（`uv2`/TEXCOORD1，{verts.Length} 个顶点；uv2 {(uvs == null ? "null" : uvs.Length.ToString())}）");
+
+            v.SetPose(new Vector3(0f, 1.6f, 0f), 0f, 1f);   // 上半屏空地（与 `AssertRarityGem` 同一处）
+            cam.aspect = (float)PW / PH;                     // `WorldToViewportPoint` 也吃它，先设死
+
+            // 立绘窗的屏幕范围：只取**正面**那块的顶点（shader 的 mask 是 `0.18 < uv1.x ≤ 0.82`，
+            // 背面 0.015–0.128 与滚边 0.836–0.989 故意落在区间外）。
+            float uMinV = float.MaxValue, uMaxV = float.MinValue;
+            Vector3 pMin = Vector3.zero, pMax = Vector3.zero;
+            float yLo = float.MaxValue, yHi = float.MinValue;
+            bool anyFront = false;
+            if (uvs != null)
+            {
+                for (int i = 0; i < verts.Length && i < uvs.Length; i++)
+                {
+                    float u = uvs[i].x;
+                    if (u <= 0.18f || u > 0.82f) continue;
+                    anyFront = true;
+                    var vp = cam.WorldToViewportPoint(body.TransformPoint(verts[i]));
+                    float sy = vp.y * PH;
+                    if (sy < yLo) yLo = sy;
+                    if (sy > yHi) yHi = sy;
+                    if (u < uMinV) { uMinV = u; pMin = body.TransformPoint(verts[i]); }
+                    if (u > uMaxV) { uMaxV = u; pMax = body.TransformPoint(verts[i]); }
+                }
+            }
+            Check(anyFront && uMaxV > uMinV + 0.5f,
+                  $"★ 前提：找得到正面那块的 UV1 范围（实测 [{uMinV:F4}, {uMaxV:F4}]；"
+                + "找不到 = 网格上不是这套 UV ⇒ 下面没验到）");
+            if (!anyFront || uMaxV <= uMinV + 0.5f) return;
+
+            var sMin = cam.WorldToViewportPoint(pMin);
+            var sMax = cam.WorldToViewportPoint(pMax);
+            float k = (sMax.x * PW - sMin.x * PW) / (uMaxV - uMinV);
+            float artLeft = sMin.x * PW + (0.18f - uMinV) * k;
+            float artRight = sMin.x * PW + (0.82f - uMinV) * k;
+            float artXLo = Mathf.Min(artLeft, artRight), artXHi = Mathf.Max(artLeft, artRight);
+            float artW = artXHi - artXLo, artH = yHi - yLo;
+            Check(artW > 80f && artH > 80f,
+                  $"★ 前提：立绘窗在屏上够大（{artW:F0} × {artH:F0} px ≥ 80）—— 太小的话那条 1 px 白线量不出来，"
+                + "读到的「没有白边」不算数");
+            if (artW <= 80f || artH <= 80f) return;
+
+            // 读回窗口：左右各留 8 px 余量，纵向只取中间一半（避开上下边与滚边）
+            int bandY0 = Mathf.RoundToInt(Mathf.Lerp(yLo, yHi, 0.25f));
+            int bandY1 = Mathf.RoundToInt(Mathf.Lerp(yLo, yHi, 0.75f));
+            var win = new Rect(artXLo - 8f, bandY0, artW + 16f, Mathf.Max(2, bandY1 - bandY0));
+            int rw = Mathf.Max(1, Mathf.RoundToInt(win.width));
+            int rh = Mathf.Max(1, Mathf.RoundToInt(win.height));
+            int rx = Mathf.Clamp(Mathf.RoundToInt(win.x), 0, Mathf.Max(0, PW - rw));
+            // （y 方向不用算：`RenderPixels` 内部自己钳 `ry`，我们只需要 x 的局部列。）
+            // 边界在这块读回窗口里的**局部列**（`RenderPixels` 会再钳一次，这里照同一算式算）
+            int colLeft = Mathf.RoundToInt(artXLo) - rx;
+            int colRight = Mathf.RoundToInt(artXHi) - rx;
+            // ⚠️ 两条边界必须**真的落在这块读回窗口里**（±3 px 也还够得着）—— 否则下面那圈 `continue`
+            //    会把两侧全跳过、扫了个空 ⇒ **静默假绿**。这是本工程反复踩的形状，宁可红。
+            bool inWin = colLeft - 4 > 0 && colRight + 4 < rw - 1;
+            Check(inWin,
+                  $"★ 前提：两条立绘边界都落在这块读回窗口内（局部列 {colLeft} / {colRight}，窗口宽 {rw}）"
+                + " —— 落在外面 = 下面根本没扫到，不算通过");
+            if (!inWin) return;
+
+            var px = RenderPixels(cam, PW, PH, win);
+            Check(px != null && px.Length >= rw * rh,
+                  $"★ 前提：渲图真的读回了像素（{rw}×{rh}，实得 {(px == null ? 0 : px.Length)}）");
+            if (px == null || px.Length < rw * rh) return;
+
+            // 逐列统计（`GetPixels32` 的 row 0 在**下边**）
+            var colMean = new float[rw];
+            var colWhiteFrac = new float[rw];
+            for (int x = 0; x < rw; x++)
+            {
+                double s = 0; int white = 0;
+                for (int y = 0; y < rh; y++)
+                {
+                    var c = px[y * rw + x];
+                    s += Lum(c);
+                    if (c.r > 180 && c.g > 180 && c.b > 180
+                        && Mathf.Max(c.r, Mathf.Max(c.g, c.b)) - Mathf.Min(c.r, Mathf.Min(c.g, c.b)) < 24) white++;
+                }
+                colMean[x] = (float)(s / rh);
+                colWhiteFrac[x] = (float)white / rh;
+            }
+            float allMean = 0f;
+            for (int x = 0; x < rw; x++) allMean += colMean[x];
+            allMean /= Mathf.Max(1, rw);
+            Check(allMean > 8f,
+                  $"★ 前提：这块**不是全黑**（列均值平均 {allMean:F1}）—— 全黑说明相机/摆位不对，"
+                + "「没扫到白边」不算数");
+
+            // 扫：左右边界 ±3 px
+            int badCol = -1; float badMean = 0f, badNb = 0f;
+            for (int side = 0; side < 2 && badCol < 0; side++)
+            {
+                int edge = side == 0 ? colLeft : colRight;
+                for (int dx = -3; dx <= 3 && badCol < 0; dx++)
+                {
+                    int c = edge + dx;
+                    if (c <= 0 || c >= rw - 1) continue;
+                    if (colWhiteFrac[c] < 0.9f) continue;            // 要**整列**近白（卡框内沿的特征）
+                    if (colMean[c] <= 180f) continue;
+                    float nl = colMean[c - 1], nr = colMean[c + 1];
+                    if (nl < 80f || nr < 80f)
+                    {
+                        badCol = c; badMean = colMean[c]; badNb = Mathf.Min(nl, nr);
+                    }
+                }
+            }
+            Check(badCol < 0,
+                  badCol < 0
+                    ? $"② 沿立绘左右边界 +−3 px 扫过：**没有「整列近白 + 邻列 <80」的列**"
+                      + $"（立绘窗屏上 {artW:F0} px 宽、纵向取样 {rh} 行）"
+                    : $"② 🔴 立绘边界第 {badCol - colLeft} px（距左边界）**出现一条近白竖列**："
+                      + $"列均值 {badMean:F0} / 邻列 {badNb:F0} / 近白行占比 {colWhiteFrac[badCol]:F2}"
+                      + " —— 这就是用户报的「插图白边」"
+                  + "｜🧨 把 `artUv` 的内缩改回 0..1（铺满整张 crop）⇒ 这条必红");
+        }
+        finally { Object.DestroyImmediate(root); }
+    }
+
+    /// <summary>从 shader 源码里抠出 `key = float2(a, b)` 那两个数（找不到 / 解析失败返回 false）。
+    /// ⚠️ 只给 `AssertBoardArtNoWhiteEdge` 的「常量普查」用 —— 它判的是**源码里的常量与算式一致**，
+    /// 不是「跑起来看着像」。</summary>
+    static bool ParseShaderFloat2(string src, string key, out Vector2 v)
+    {
+        v = Vector2.zero;
+        if (string.IsNullOrEmpty(src)) return false;
+        int i = src.IndexOf(key, System.StringComparison.Ordinal);
+        if (i < 0) return false;
+        int lp = src.IndexOf("float2(", i, System.StringComparison.Ordinal);
+        if (lp < 0) return false;
+        int rp = src.IndexOf(')', lp);
+        if (rp < 0) return false;
+        var body = src.Substring(lp + 7, rp - lp - 7);
+        var parts = body.Split(',');
+        if (parts.Length < 2) return false;
+        float a, b;
+        var inv = System.Globalization.CultureInfo.InvariantCulture;
+        const System.Globalization.NumberStyles NS = System.Globalization.NumberStyles.Float;
+        if (!float.TryParse(parts[0].Trim().TrimEnd('f', 'F'), NS, inv, out a)) return false;
+        if (!float.TryParse(parts[1].Trim().TrimEnd('f', 'F'), NS, inv, out b)) return false;
+        v = new Vector2(a, b);
+        return true;
     }
 
     /// <summary>

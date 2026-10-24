@@ -298,6 +298,41 @@ namespace RuleEngine
         /// ·`logic-gate`（`lg&gt;=0` 但块里不止一条 op）·`ambiguous`（同一个 `(ab,lg)` 匹配到多条行）。</summary>
         public string TargetConditionGap = "";
 
+        /// <summary>🆕 v25（2026-10-24 · 执行代理 `W2` · `C5` Q4 / `A2` Q7）：这条 op 所属
+        /// `(ab, lg)` 那条 logic 的 **`targetCriteria` 其余 36 格**
+        /// （`CardDef.AbilityTargetCriteriaAt` / `ActiveAbilityTargetCriteriaAt`）。
+        /// **`null` = 没有这一格**（旧表 / 没落 / 这一条 logic 没有行）—— 消费端**不筛**
+        /// （原版缺行 = 无条件 = 放行，见 `CardDef.CountSetSpec` 那段 doc）。
+        ///
+        /// <para>**它与 <see cref="TargetCondition"/> 的关系**（⛔ 别当成两阶段）：
+        /// 原版只有一个 `TargetCriteria` 对象 —— `TargetCondition` 提供 `cond`/`ex` 两格，
+        /// 本字段提供其余 36 格；消费端（`EffectResolver.ResolveTargets` → `TargetCriteriaEval.Matches`）
+        /// **拼回一个对象一次判**。</para>
+        ///
+        /// <para>**归位判据** → 与 <see cref="SubjectTargetsAffected"/> **同一趟**
+        /// （`EffectText.AssignAbilityTargets` 的 G1/G2 闸门；主动能力那一路在
+        /// `CardDef.ApplyActiveAbilityLogic` 的 `Attach*` 里按 `(ab, lg)` 挂）。</para>
+        /// </summary>
+        public CardDef.CountSetSpec TargetCriteriaSet;
+
+        /// <summary>🆕 v25（2026-10-24 · 执行代理 `W25`）：那条 36 格 criteria 是**按哪个 `(ab, lg)`**
+        /// 取到的（挂上时写）。**`-1` = 没挂 / 不知道**。
+        ///
+        /// <para>🔴 **⛔ 别拿 <see cref="AbilityIndex"/> / <see cref="LogicIndex"/> 当这一对的替身** ——
+        /// 那两个是 `AssignAbilityIndices` 按 `role="target"` 条件行归位的结果，而 criteria 是在
+        /// **另一个方法**（`AssignAbilityTargets` / `CardDef.ApplyActiveAbilityLogic`）里贴的。
+        /// 实测（`Exemplary Warrior`）：`role=target` 行一条都没有 ⇒ 那两个字段**恒 -1**，
+        /// 而 criteria 是按 `(0,0)`/`(0,1)` 贴的 ⇒ 日志里打 `-1` 会**指向不存在的行**（`D1` 的顺手发现③）。</para></summary>
+        public int TargetCriteriaAbility = -1;
+        /// <summary>见 <see cref="TargetCriteriaAbility"/>。</summary>
+        public int TargetCriteriaLogic = -1;
+
+        /// <summary>「36 格这一边**没挂上**」的原因（空串 = 正常）。
+        /// 取值：`no-row`（v25 表里这一格没有行 —— 不该出现，数据坏了）·
+        /// `active-multi-row`（主动能力同族多行且 criteria 可能不同 ⇒ 不猜）·
+        /// `logic-gate`（🆕 `W25`：这一块里**不止一条 op** ⇒ 「第 j 条 op = 第 j 条 logic」没有判据）。⛔ 不许静默。</summary>
+        public string TargetCriteriaGap = "";
+
         /// <summary>
         /// 这一条是**替换**型的（原文结尾的 `instead`）。
         ///
@@ -1990,7 +2025,24 @@ namespace RuleEngine
                     var ta = spec.TargetsAffected;
                     if (ta != null && ta.Length == blk.Count)                        // G2
                         for (int j = 0; j < blk.Count; j++)
+                        {
                             if (ta[j] >= 0) blk[j].SubjectTargetsAffected = ta[j];
+                            // 🆕 v25（`W2` · `C5` Q4）：**同一个 `(ab=b, lg=j)` 的 36 格 criteria**。
+                            // 🔴🆕 2026-10-24（执行代理 `W25` · `D1` 的 R2）：**G2 只能证明「条数相同」，
+                            //   证明不了「顺序相同」** —— 所以这一跳必须**同时**过 G3 那一句话
+                            //   （`AssignAbilityIndices` 对 `role=target` 行用的是同一句：
+                            //    `AbilityBlockSize != 1 || row.Logic != op.LogicIndex` ⇒ `logic-gate`）。
+                            //   实测反例（`Exemplary Warrior`，`cards_raw.json`）：
+                            //     `abilityLogic[0] = 选效果(ta=180)` / `[1] = 治疗督军(ta=120)`，
+                            //     而卡面正文顺序是「治疗你的督军 → 选一个效果」⇒ 按位置贴会把**治疗**
+                            //     挂上「选效果」那条 criteria（`ta=180`）⇒ 目标池被错误地筛掉（静默）。
+                            //   ⇒ 只有「这一块里恰好一条 op」时，「第 0 条 op = 第 0 条 logic」才成立。
+                            //   多 op 块 ⇒ **不贴 + 记 `logic-gate`**（= 回到 v25 之前的「不筛」，
+                            //   并在 `ApplyTargetCriteriaFilter` 出声；⛔ 不按位置猜）。
+                            if (blk.Count == 1) AttachTargetCriteria(card, blk[j], b, 0);
+                            else if (blk[j] != null && string.IsNullOrEmpty(blk[j].TargetCriteriaGap))
+                                blk[j].TargetCriteriaGap = "logic-gate";
+                        }
                     // ---- `furtherMultiplier`（v20 · `A12`）----
                     // 与上面**同一个 spec、同一个块**，各自按自己的长度过 G2（两列可能只有一列坏）。
                     var fm = spec.FurtherMultiplier;
@@ -2025,8 +2077,39 @@ namespace RuleEngine
                     if (ops[i] == null) continue;
                     if (taOk && ta[i] >= 0) ops[i].SubjectTargetsAffected = ta[i];
                     if (fmOk && fm[i] >= 0) ops[i].AbilityFurtherMultiplier = fm[i];
+                    // 🆕 v25（`W2` · `C5` Q4）：片段路只在 `taOk`（= 片段 op 数与 `abilityLogic`
+                    //   条数一致）时才敢把第 i 条 op 当成第 i 条 logic ⇒ 同一道闸决定挂不挂 criteria。
+                    // 🔴🆕 2026-10-24（`W25` · `D1` 的 R2）：**G2 只证条数、不证顺序** ⇒ 还要过 G3
+                    //   （块内恰好一条 op）。片段路里「这一块」= 这个片段本身 ⇒ 判 `ops.Count == 1`。
+                    //   多 op 片段 ⇒ 不贴 + 记 `logic-gate`（上一段 `ta` / `fm` 的按位置贴**不动** ——
+                    //   那两列的归位判据是另一条账，⛔ 别在这里顺手改）。
+                    if (taOk)
+                    {
+                        if (ops.Count == 1) AttachTargetCriteria(card, ops[i], 0, 0);
+                        else if (string.IsNullOrEmpty(ops[i].TargetCriteriaGap)) ops[i].TargetCriteriaGap = "logic-gate";
+                    }
                 }
             }
+        }
+
+        /// <summary>🆕 v25（2026-10-24 · 执行代理 `W2` · `C5` Q4）：把 `(ab, lg)` 那条 logic 的
+        /// **36 格 criteria** 挂到 op 上（`EffectOp.TargetCriteriaSet`）。
+        ///
+        /// <para>**闸门 = 调用点的 G2**（块内第 j 条 op ↔ 第 j 条 logic 已成立）—— 本方法只做
+        /// 「按 `(ab,lg)` 取行」这一跳，⛔ 不重新判形状。</para>
+        /// <para>旧表（&lt; v25）⇒ **静默不挂**（整表已经由 `CardDatabase` 的 `< 25` 守卫出过声；
+        /// 每个 op 再喊一次就是刷屏）。新表但取不到行 ⇒ 记 `no-row`（数据坏了，消费端会**一次性**出声）。</para>
+        /// </summary>
+        static void AttachTargetCriteria(CardDef card, EffectOp op, int ability, int logic)
+        {
+            if (card == null || op == null) return;
+            if (!card.AbilityTargetCriteriaVersioned) return;
+            // 🆕 2026-10-24（`W25`）：**先把坐标记下来**（日志/排查一律用它 —— 见 `TargetCriteriaAbility` 的 doc）。
+            op.TargetCriteriaAbility = ability;
+            op.TargetCriteriaLogic = logic;
+            var set = card.AbilityTargetCriteriaAt(ability, logic);
+            if (set == null) { op.TargetCriteriaGap = "no-row"; return; }
+            op.TargetCriteriaSet = set;
         }
 
         /// <summary>整条 `desc` 按**能力块**切 op（切点 = 触发头 / 付费前缀）。

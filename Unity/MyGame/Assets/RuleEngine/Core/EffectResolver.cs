@@ -1544,6 +1544,11 @@ namespace RuleEngine
             //    （`CanPlayTactic` 的注释点名过这个毛病：「另写一份会出现…」）。
             //    ⇒ 两处现在都读这一份。
             ApplyTargetFilters(ctx, pool, spec, structuredCondition: structuredCondition);
+            // 🆕 v25（2026-10-24 · 执行代理 `W2` · `C5` Q4）：再按原版 `(ab,lg)` 那条 logic 的
+            //   **其余 36 格** criteria 筛一遍（`op.TargetCriteriaSet` + `op.TargetCondition` 拼回一个对象）。
+            //   ⚠️ 排在 `Adjacent` **之前** —— 原版相邻目标的候选也要过同一份 criteria
+            //   （`pool.Contains(u)` 那一段读的正是筛完的池）。
+            ApplyTargetCriteriaFilter(ctx, pool, op, owner, source, chosen, quiet: false);
 
             // ---- 「相邻」：目标集 = **锚点那一圈**（过同一套筛选）----
             // 🔴 2026-09-13 候选 F。在此之前 `EffectTargetSpec.Adjacent` **全仓没有消费者** ——
@@ -1926,6 +1931,73 @@ namespace RuleEngine
 
             // ---- 🆕 2026-10-22（`W64` · `B-16`）：原版 `TargetCriteria.conditionsFilter` ----
             ApplyStructuredConditionFilter(ctx, pool, structuredCondition, quiet);
+        }
+
+        /// <summary>
+        /// 🆕 v25（2026-10-24 · 执行代理 `W2` · `C5` Q4 / `A2` Q7）：按**原版 `TargetCriteria`
+        /// 的其他 36 格**筛目标池（判据 / join 规则 / 过滤次序 → `TargetCriteriaEval` 的文件头）。
+        ///
+        /// <para>**输入** = `op.TargetCriteriaSet`（`(ab,lg)` 那条 logic 的 36 格）＋
+        /// `op.TargetCondition`（同 `(ab,lg)` 的 `cond`/`ex` —— 原版那两格就在同一个对象里）。
+        /// **这就是 `C5` Q4 说的「拼回一个对象一次判」**，⛔ 不是两阶段。</para>
+        ///
+        /// <para>🔴 **判不了 ⇒ 整条不筛**（与 <see cref="ApplyStructuredConditionFilter"/> 同一纪律）：
+        /// 筛掉一半再降级会让「哪些进了池」变成一半原版一半近似，说不清；整条不筛至少是
+        /// 「这条 criteria 本版没生效」，而且**出声**（`StructuredConditionNotice`，同一 key 只喊一次）。</para>
+        /// </summary>
+        static void ApplyTargetCriteriaFilter(BattleContext ctx, List<UnitState> pool, EffectOp op,
+                                              int owner, UnitState source, UnitState chosen, bool quiet)
+        {
+            if (op == null || pool == null || pool.Count == 0) return;
+            var set = op.TargetCriteriaSet;
+            // 🆕 2026-10-24（`W25` · `D1` 的顺手发现③）：**日志里的坐标要用「实际挂 criteria 的那一对」**。
+            //   改前打的是 `op.AbilityIndex/LogicIndex` —— 那对字段由 `AssignAbilityIndices` 按
+            //   `role="target"` 行归位，而 criteria 是在**另一个方法**里按 `(ab,lg)` 贴的
+            //   ⇒ 在 `Exemplary Warrior` / `GOF74` 这类卡上它**恒 -1**，日志会指向不存在的行。
+            string tcWhere = (op.TargetCriteriaAbility >= 0 || op.TargetCriteriaLogic >= 0)
+                ? $"`(ab={op.TargetCriteriaAbility}, lg={op.TargetCriteriaLogic})`"
+                : "`(ab=?, lg=?)`（这条 op 上没有 criteria 坐标）";
+            if (set == null)
+            {
+                // `no-row` = v25 表里这一格本该有行却没有（数据坏了）。**出声一次**，不筛。
+                if (op.TargetCriteriaGap == "no-row")
+                    StructuredConditionNotice("targetcriteria|no-row|" + (op.Source ?? "?"),
+                        $"「{op.Source}」这一条 op 的 36 格 criteria **在 v25 表里没有对应行**"
+                      + $"（{tcWhere}）—— 目标池**不按结构化 criteria 筛**。"
+                      + "判据 `CardDatabase.MapTargetCriteriaRows`；重跑工具/gen_cards_engine.py。");
+                // 🆕 2026-10-24（`W25` · `D1` 的 R2）：**多 op 块 ⇒ 按位置贴没有判据 ⇒ 不贴**。
+                //   这是「回到 v25 之前的行为」，不是静默：**出声一次**（同卡只喊一次）。
+                else if (op.TargetCriteriaGap == "logic-gate")
+                    StructuredConditionNotice("targetcriteria|logic-gate|" + (op.Source ?? "?"),
+                        $"「{op.Source}」这一块正文里有**不止一条 op** —— 「第 j 条 op = 第 j 条 logic」没有判据"
+                      + "（实测反例 `Exemplary Warrior`：卡面顺序与 `abilityLogic` 顺序相反）"
+                      + " ⇒ 这一条**不挂** `targetCriteria`、目标池**不按它筛**。"
+                      + "判据 `AbilityLogic__GetTargets.c` + `AssignAbilityIndices` 的 G3；"
+                      + "⚠️ 这是「宁可不筛也不猜」的降级，不是「原版没有这一格」。");
+                return;
+            }
+            int before = pool.Count;
+            var kept = new List<UnitState>(pool.Count);
+            foreach (var u in pool)
+            {
+                string why;
+                bool? ok = TargetCriteriaEval.Matches(ctx, owner, set, u, op.TargetCondition,
+                                                      source, chosen, out why);
+                if (ok == null)
+                {
+                    StructuredConditionNotice(
+                        "targetcriteria|" + (op.Source ?? "?") + "|" + op.TargetCriteriaAbility + "|" + op.TargetCriteriaLogic + "|" + why,
+                        $"「{op.Source}」的 36 格 `targetCriteria`（{tcWhere}）"
+                      + $"**本版判不了**：{why} ⇒ 这一条**不筛目标池**（⛔ 没有当成「不成立」、也没有筛空）。");
+                    return;
+                }
+                if (ok.Value) kept.Add(u);
+            }
+            pool.Clear();
+            pool.AddRange(kept);
+            if (!quiet && pool.Count != before)
+                ctx.Log($"（按原版 `targetCriteria` 36 格筛（{tcWhere}）："
+                      + $"{before} → {pool.Count}）");
         }
 
         /// <summary>
@@ -7044,8 +7116,8 @@ namespace RuleEngine
                 {
                     var u = board[s];
                     if (u == null || u.Card == null) continue;
-                    if (!u.Card.HasAnimTrigger(TN_WhileInPlay)) continue;   // 见 doc：只为表现，无行不发
-                    EmitCardTrigger(ctx, u.Card, p, u, TN_WhileInPlay, "whileInPlay");
+                    if (!HasAnimRowOnly(u.Card, TN_WhileInPlay)) continue;   // 见 doc：只为表现，无行不发
+                    EmitCardTrigger(ctx, u.Card, p, u, TN_WhileInPlay, "whileInPlay", animRowOnly: true);
                 }
             }
         }
@@ -7060,12 +7132,13 @@ namespace RuleEngine
         /// ⇒ 那一拍 `EvtKind.Trigger` **从不发**（监听者/表现层都收不到）。
         /// 判据 → `资料/普查产出_1023c/引擎深C_数据吻合.md` §四·1。</para>
         ///
-        /// <para>**闸（双闸，⛔ 不是删闸）**：
-        /// ① `HasAnimTrigger(名字)` = 有动画行 ⇒ 发（行为**逐字不变**）；
-        /// ② 否则看真值 `abilityTriggers`（原版 `RawCardScript.HasAbilityType`）——
-        ///    这张卡**真有这条 ability** ⇒ 照发，并**出声**记一条「有 ability、没动画行」
-        ///    （表现层没东西可播，但引擎语义上这一拍确实发生了；⛔ 不许静默吞掉）；
-        /// ③ 都没有 / `-1` 未知（旧卡表、合成夹具、认不出的名字）⇒ **不发** = 改前行为。</para>
+        /// <para>**闸（双闸，⛔ 不是删闸；🔴 2026-10-24 `W2` · `C5` Q2 订正了次序）**：
+        /// ① **ability presence 才是第一道**（`AbilityTriggerPresence`，原版 `CanTriggerAbility.c:46-48`）：
+        ///    `0` ⇒ **不发**（原版连 `EvtKind.Trigger` 那一层都没有）；`1` ⇒ 照发，
+        ///    并看有没有动画行 —— **没有就出声**（同一 `(卡,trigger)` 只喊一次）；
+        /// ② `-1`（旧卡表 / 合成夹具 / 认不出的名字）⇒ 回退「有动画行 ⇒ 发」的旧口径。
+        /// 🔴 **改前**是「有动画行 ⇒ 发；否则看 presence」—— 次序反了（今天全池**零可观测差异**，
+        /// 但有动画行、没 ability 的卡在原版是**绝对静默**的）。</para>
         ///
         /// <para>⚠️ **为什么不直接删闸**：删了会把「连 ability 都没有」的卡也发一遍
         /// ⇒ 掉进 `trigger` 粗桶**乱播**（判据见本节开头那段「多播」注释）。</para>
@@ -7073,14 +7146,80 @@ namespace RuleEngine
         static bool HasTriggerSource(CardDef card, string triggerName, BattleContext ctx, string effect)
         {
             if (card == null || string.IsNullOrEmpty(triggerName)) return false;
-            if (card.HasAnimTrigger(triggerName)) return true;          // ① 有动画行（改前口径）
-            if (card.AbilityTriggerPresence(triggerName) != 1) return false;   // ③ 没有 / 未知 ⇒ 不发
-            // ② 有 ability、没有动画行 ⇒ 照发并出声（⛔ 不许静默）。
-            if (ctx != null)
-                ctx.Log($"[EffectResolver] 「{card.Name}」有 `{triggerName}` 这条 ability 但**没有对应动画行**"
-                      + $" ⇒ 照发事件（{effect}）—— 判据 = 原版 `HasAbilityType`；"
-                      + "表现层这一拍可能没有东西可播（数据缺口，如实记着）");
-            return true;
+
+            // 🔴 2026-10-24（执行代理 `W2` · `C5` Q2 收口）：**ability presence 是第一道闸**。
+            //   判据（第一权威，逐句读过）：
+            //     · `RawCardScript.TriggerAbilities` 是**唯一入口**，它遍历每条 ability 先过
+            //       `CardAbility.CanTriggerAbility`（`RawCardScript__TriggerAbilities.c:108` / `:207`）；
+            //     · `CardAbility__CanTriggerAbility.c:46-48` 的**第一句**就是
+            //       `if (ability.trigger != trigger) return 0;` ⇒ ability 不在 ⇒ **什么都不发生**
+            //       （不结算、不发事件、**也不播动画**）；
+            //     · 动画在**里面**（`TriggerAbility` → `PlayTriggerTraitAnim`，`:60`），
+            //       只会在 `CanTriggerAbility` 返回 true 之后才走。
+            //   ⇒ 正确次序 = `presence == 1` 优先；`presence == 0` 直接不发；`-1`（旧表 / 认不出）
+            //     才回退「有没有动画行」这条旧口径。
+            //   ⚠️ 改前是「先看动画行、再看 ability」⇒ **语义反了**，但今天**全池 0 张卡**落在
+            //     「有动画行、没有 ability」这个差集里（`C5` Q2 逐卡逐行现读，41 个 trigger 名全 0）
+            //     ⇒ 本条**零可观测行为变化**，修的是结构。
+            int presence = card.AbilityTriggerPresence(triggerName);
+            if (presence == 0) return false;                 // 明确没有这条 ability ⇒ 原版全静默
+            bool anim = card.HasAnimTrigger(triggerName);
+            if (presence == 1)
+            {
+                // 有 ability、没动画行 ⇒ 引擎语义上这一拍照发，但**出声**（表现层没东西可播）。
+                // ⚠️ 同一 `(卡, trigger)` 只喊一次 —— `Pray` 那 23 张「655 ability、一行动画都没有」
+                //   会让这条日志**每局刷屏**（`C5` Q2 的表）；⛔ 但不许降级成静默（本工程红线）。
+                if (!anim)
+                    NoteAbilityWithoutAnimRow(card, triggerName, effect, ctx);
+                return true;
+            }
+            return anim;                                     // `-1`：旧卡表 / 合成夹具 / 认不出的名字 ⇒ 旧口径
+        }
+
+        /// <summary>🆕 2026-10-24（执行代理 `W2` · `C5` Q2）：**只看「有没有动画行」的表现闸**
+        /// （与 <see cref="HasTriggerSource"/> 的语义闸分开）。
+        ///
+        /// <para>**为什么要分开**：`WhileInPlay(20)` / `WhileInPlayVariable(240)` 这两族在原版
+        /// **永远不走** `PlayTriggerTraitAnim`（`RawCardScript__TriggerAbility.c:60` 那两条 `!=`）；
+        /// `EmitWhileInPlayPass` 自称「**只为表现，无行不发**」（判据在那里的 doc），
+        /// 若跟着语义闸一起放宽，`WhileInPlay` 会从「1 张有动画行的卡」变成「13 张有 ability 的卡」
+        /// 都发事件（多 12 条空转）⇒ 这一族继续用**本方法**（= 改前的口径）。</para>
+        /// </summary>
+        static bool HasAnimRowOnly(CardDef card, string triggerName)
+        {
+            return card != null && !string.IsNullOrEmpty(triggerName) && card.HasAnimTrigger(triggerName);
+        }
+
+        /// <summary>「有 ability、没动画行」的出声口 —— 同一个 `(卡, trigger)` **只喊一次**。
+        /// ⛔ 不是静默（`C5` Q2 明确要求保留这条日志）；⛔ 也不是每局刷屏（`Pray` 那 23 张）。</summary>
+        static void NoteAbilityWithoutAnimRow(CardDef card, string triggerName, string effect, BattleContext ctx)
+        {
+            string key = (card.Id ?? card.Name ?? "?") + "|" + triggerName;
+            if (!_abilityNoAnimNoted.Add(key)) return;
+            string msg = $"[EffectResolver] 「{card.Name}」有 `{triggerName}` 这条 ability 但**没有对应动画行**"
+                       + $" ⇒ 照发事件（{effect}）—— 判据 = 原版 `CardAbility__CanTriggerAbility.c:46-48`"
+                       + "（ability presence 是第一道闸，动画在里头播）；表现层这一拍可能没有东西可播"
+                       + "（数据缺口，如实记着）。本消息同一 (卡,trigger) 只出现一次。";
+            UnityEngine.Debug.LogWarning(msg);
+            if (ctx != null) ctx.Log(msg);
+        }
+
+        static readonly HashSet<string> _abilityNoAnimNoted = new HashSet<string>();
+
+        /// <summary>🔴 **只为自检开门**（同 `HurtForTest` / `CountForTest` 的纪律：**不改任何行为**）——
+        /// Editor 程序集看不见 `internal`，所以这里必须 `public`。
+        /// 读口 = <see cref="HasTriggerSource"/>（`C5` Q2 的语义闸：**presence 优先**）。</summary>
+        public static bool HasTriggerSourceForTest(CardDef card, string triggerName,
+                                                   BattleContext ctx = null, string effect = "test")
+        {
+            return HasTriggerSource(card, triggerName, ctx, effect);
+        }
+
+        /// <summary>🔴 **只为自检开门**：读口 = <see cref="HasAnimRowOnly"/>（`WhileInPlay` 那一路的表现闸）。
+        /// 与上面那条**互为灭自证**：同一张「有 ability、没动画行」的卡，两条必须一真一假。</summary>
+        public static bool HasAnimRowOnlyForTest(CardDef card, string triggerName)
+        {
+            return HasAnimRowOnly(card, triggerName);
         }
 
         /// <summary>🆕 **所有「按原版 trigger 名发 `EvtKind.Trigger`」的唯一发射体**
@@ -7096,10 +7235,17 @@ namespace RuleEngine
         /// 拼进 `Keyword` 当**传输副本**（`BattleDriver` 只转 `Keyword`，见 `BattleEvent.AbilityIndex` 的 doc）。
         /// `-1`（默认）⇒ `Keyword` 一个字节都不变。</para></summary>
         static bool EmitCardTrigger(BattleContext ctx, CardDef card, int owner, UnitState unit,
-                                    string triggerName, string effect, int abilityIndex = -1)
+                                    string triggerName, string effect, int abilityIndex = -1,
+                                    // 🆕 2026-10-24（`W2` · `C5` Q2）：走**表现闸**（只看动画行）而不是语义闸。
+                                    //   只有 `EmitWhileInPlayPass` 传 true（判据 → `HasAnimRowOnly` 的 doc）。
+                                    bool animRowOnly = false)
         {
             if (ctx == null || card == null || string.IsNullOrEmpty(triggerName)) return false;
-            if (!HasTriggerSource(card, triggerName, ctx, effect)) return false;
+            if (animRowOnly)
+            {
+                if (!HasAnimRowOnly(card, triggerName)) return false;
+            }
+            else if (!HasTriggerSource(card, triggerName, ctx, effect)) return false;
             int slot = -1, p = owner;
             if (unit != null && FindSlot(ctx, unit, out p, out slot)) { /* 用找到的座位/格号 */ }
             else if (unit != null) { slot = -1; p = owner; }
@@ -13291,9 +13437,16 @@ namespace RuleEngine
         ///    ② 主动收集 2026-09-25 做了 —— `RuleCore.CanCollectWaystone` / `CollectWaystone`，
         ///       点它那一处在 `BattleDriver.cs` 里那处 `RuleCore.CanCollectWaystone`（AI 那一支同文件）。判据 → 同上 §六。
         ///
-        /// ⚠️ **走 `DeployFree`**（不另写一份放牌逻辑）—— 那一份已经管了找空格、发 `Deploy` 事件、
-        ///    广播 `Deploy` 监听器、以及 `ResolveDeploy`（常驻效果盯某类牌）。
-        ///    额外**再广播一条 `Reanimated`**：卡面 `When Reanimated, …`（4 张 Sautekh 单位）等的是它。
+        /// ⚠️ **墓地退路走 `DeployFree`**（不另写一份放牌逻辑）—— 那一份管了找空格、发 `Deploy` 事件、
+        ///    以及回合态（`ApplyDeployTurnState` / 攻击类型重算 / 光环重算）。
+        ///    🔴 **2026-10-24 就地订正（引擎线 `W12` · 铁律 5）**：本段原来还写着它「广播 `Deploy` 监听器、
+        ///    以及 `ResolveDeploy`」—— **已不成立**：`DeployFreeCore` 现在按 `DeploySource.Reanimate`
+        ///    **整组跳过**部署广播（`When deployed` 195 / `When you deploy …` 190 / 常驻部署效果 / `UseFaith` 605），
+        ///    判据 = 原版 `…DisplayClass555_0___ResolveTransformFromRemnant_b__0.c:7-31` 的清单里
+        ///    **没有 `ResolveUnitSummoned` / `BroadcastUnitSummoned`**（逐条写在 `DeployFreeCore` 那段长注释）。
+        ///    ⚠️ 残骸那条退路（候选 ①）**本来就不发**这些；现在两条退路的输出面对齐。
+        ///    两条退路都额外**再广播一条 `Reanimated`**：卡面 `When Reanimated, …`（4 张 Sautekh 单位）等的是它。
+        ///    断言 = `Editor/RuleEngineTest_W12.cs` 的 `W12ReanimateSkipsDeployBroadcast`。
         /// </summary>
         static bool DoReanimate(BattleContext ctx, int owner, string by, EffectOp op, List<string> unresolved)
         {

@@ -104,6 +104,7 @@
 | 回放条 | ✅ `ReplayBar.cs` + `:13202`/`:13702` 的 `matchType == 0xA0` 口径 | ✅ 一样（开关做在 `Holder` 那一层） |
 | 手牌上限参考线 | ❌ **未建**（我们只用了 `BoardLayout.lineY` 那条自定线，见 `Hand/CardInteraction.cs:283-291`） | ⚠️ 视觉无差（原版是 1×1 空节点）；**但拖拽判据用的 y 不同**（原版距顶 780 px vs 我们 372 px）—— 已挂账 `A2104①` |
 | 等待对手 | ✅ `_waitBanner`（`:1050`、`:15280`） | ⚠️ **触发时机是我们挑的**（原版 `WaitText` 的驱动在反编译里只查到 `ClickChosenCardDone` 那一处 ⇒ 原版叫 **`mulliganWaitText`**；我们是「不是我的回合就显示」）。见 `Battle/WaitBanner.cs:11-13` |
+| 📌 **2026-10-24 更正** | — | 🔴 **本表 `:64` 与 `:106` 打架，以 `:64` 为唯一出处**：`mulliganWaitText` 的判据逐字是「**我确认完换牌、对手还没确认 ⇒ `SetActive(true)`**」（`BattleManager__ClickChosenCardDone.c:55,93-98`；关闭四处 `ReceiveEnemyMulligan…` / `_SetupEnviromentalEffectPhase` / `_StartBattlePhase` / `SetupInitialState`）；**单机局恒不出现**（`_SetupEnviromentalEffectPhase:32-46` 在非联网支把 `receivedEnemyMulligan` 强置 1）。⇒ 上一行「触发时机是我们挑的」**作废**；判据全文 → `普查产出_1024d/N1_敌方回合横幅与压暗.md`，已由 `W1` 落地（静态纯函数 `ShowWaitBanner`）。 |
 | 压暗层 `ShadePanel` | ❌ **没有 HUD 级 shade**（只有 `BattleLogPanel` 自己那颗 `_shade`） | ⚠️ **缺件**：原版 `FrontCanvas/ShadePanel` + `BattleManager.shade(+0x230)` 在选牌/结算那一段压暗；我们靠别的层 |
 | 头顶提示 `TipText` | ✅ `_tipText`（`:1019`、`:9112`）+ 队列（`:9085` 段注释） | ✅ 一样（队列非空开、播完关） |
 | 攻击类型选择器 | ✅ `AttackSelector.cs` | ✅ 一样 |

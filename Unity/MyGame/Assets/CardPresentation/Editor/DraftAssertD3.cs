@@ -73,6 +73,7 @@ public static class DraftAssertD3
             if (!Ok(win != null, "前提：`DraftModeWindow.Create(wm, seed)` 建出窗来")) return;
 
             WarlordPageGroup(win);
+            PacksPanelGroup(win);
             PreviewGroup(win);
             BattleResultGroup(win);
             FinishedGroup(win);
@@ -555,21 +556,33 @@ public static class DraftAssertD3
     //     `python -I -X utf8 d:/4/Unity/工具/menu_dump.py bundle_menus_assets_all
     //      "Generic Select Card Container" --depth 5 --relative`
     //   · 选将格 `Generic Select Card Container`：布局 412.75×617.69 · `m_LocalScale 1.221`
-    //     ⇒ 视觉 **503.97×754.20**；同层 `Spacing` 宽 80 ⇒ 步距 **492.75**；首格布局中心 x = **206.375**
-    //     ⇒ 第 i 格**视觉框**左 = i×492.75 − 45.61，格视觉框顶 y = 554.42 − 377.10 = **177.32**
+    //     ⇒ 视觉 **503.97×754.20**；同层 `Spacing` 宽 80、`Content` 的 HLG `m_Spacing = 20.37`
+    //     ⇒ 卡格中心**步距 = 412.75 + 80 + 2×20.37 = 533.49**
+    //     （D2 §1.1 旁证②用同一算法自证：prefab 里 1 卡 + 1 `Spacing` 的 CSF 结果 = 513.12 = 412.75+20.37+80）；
+    //     🔴 旧期望值 **492.75** 漏了 HLG 那两道缝（那是「4 张挤一排」的成因之一）。
+    //   · **3 张居中**（`Content` 是 `HLG align = MiddleCenter(4)` + `CSF H=MinSize`）：
+    //     总宽 = 3×412.75 + 2×80 + 4×20.37 = **1479.73** ⇒ 左余 (1920−1479.73)/2 = **220.135**
+    //     ⇒ 首格布局中心 x = 220.135 + 206.375 = **426.51**，第 i 格 = **426.51 + 533.49 i**；
+    //     格视觉框左 = 426.51 − 251.985 = **174.525**（+533.49 i），格视觉框顶 y = 554.42 − 377.10 = **177.32**
     //     （554.42 = 视口顶 101.90 + 锚点偏移 452.52，S3 §2.4）。
     //   · 卡体 `2DCard`：**视觉** 386.60×615.42 @ 格视觉框左上角 +(13.1, −19.6)
     //     （那一行的 `⇲ls=184.7` = `CardUI 151.3 × 容器 1.221`，**已经含**容器缩放
     //      ⇒ S3 §2.4 写的「386.6×615.42 **× 1.221** = 472×751.4」是**重复乘**；2026-10-24 订正）
-    //     ⇒ 卡心 = (i×492.75 + **160.79**, **465.42**)。
+    //     ⇒ 卡心 = (i×533.49 + **380.93**, **465.42**)。
     //   · `Select Button`：视觉 210.02×81.66 @ 格视觉框左上角 +(101.4, 585.5)→(311.4, 667.1)
-    //     ⇒ 第 i 格命中区 x = i×492.75 + **55.79 … 265.79** · y = **762.82 … 844.42**。
+    //     ⇒ 第 i 格命中区 x = i×533.49 + **275.93 … 485.93** · y = **762.82 … 844.42**。
+    //   · `WarlordsPerDraft = 3`（⛔ 不是读到的字段值 —— `DraftEventData.warlordsPerDraft` 在服务端、
+    //     本地 0 命中；3 是「版面证据 + 用户口述」定的，判据 → `DraftModeWindow.WarlordsPerDraft` 的 doc）。
+    //     3 张总宽 1479.73 < 1920 ⇒ 原版那颗 `ScrollRect` 的 `m_Enabled = 0` 同观感 ⇒ 我们**不建滚动**。
     //  🧨 改坏法（每条都对应一次真缺陷）：
     //     · 卡高改回 751.4 / 卡按格心居中 ⇒ ② 红（真机症状：`选择` 按钮压在战将数值行上，四张卡挤成一排）；
     //     · 命中区没建出来 / 建到格心 ⇒ ③④ 红（`HitBoxForTest` 直接 false / 点是点得中但落到别处）；
     //     · 命中区队列降到 ≤ 吸收层 ⇒ ④ 红（真机 symptom = 「点在按钮上，命中的是 `AbsorbHit`」）；
+    //     · 步距写回 492.75 / 不居中 ⇒ ②③ 红（那正是「一屏只放得下 4 张」的老版面）；
+    //     · 张数写回 5 或 4 ⇒ ①② 红（`Warlords.Count` 与「第 4 张不该存在」两条一起红）；
     //     · `Continue` 出厂可点 ⇒ ⑤ 红（原版 `OnOpen` 末句 `interactable = false`）；
-    //     · 卡体不建吸收区（或吸收区档 ≥ `QHit`）⇒ ⑥ 红（点卡体穿透到窗内吸收层 / 反过来抢走按钮）。
+    //     · 卡体改成 `MenuDraw.Hit` 绑 `onClick`（= 2026-10-24 `W3` 那一版的错口径）⇒ ⑥ 红
+    //       （原版 `2DCard/UI Collider` **没有处理器** ⇒ 点卡体什么都不做）。
     // ==================================================================
     static void WarlordPageGroup(DraftModeWindow win)
     {
@@ -580,9 +593,22 @@ public static class DraftAssertD3
         if (!Ok(win.State == DraftModeState.SelectWarlord, "① 前提：`Free` ⇒ 选将页（实得 " + win.State + "）")) return;
         int n = win.Warlords != null ? win.Warlords.Count : 0;
         if (!Ok(n > 0, "① 前提：这一局有可选战将（实得 " + n + "）")) return;
-        // 第 5 格在视口外（格视觉框右沿 = 4×492.75+458.36 = 2429.4 > 1920）⇒ 只验**屏上这 4 格**；
-        // 「滚出去的那一格点不到」是原版 `RectMask2D` 的射线语义（`MenuDraw.Hit` 的 `clip`），另有一批断言在管。
-        int vis = Mathf.Min(4, n);
+        Eq(n, 3, "① 这一局给 **3 张**战将候选（`WarlordsPerDraft = 3`；用户 2026-10-24 真机点名「原版是三个」）"
+          + "🧨 怎么改会红：常量写回 5 / 4（那是「一屏只看到 4 张」的老版面）");
+        // 3 张总宽 1479.73 < 1920 ⇒ 一屏放得下、原版那颗 `ScrollRect` 的 `m_Enabled = 0` 同观感
+        // ⇒ 我们**不建滚动区**（滚动区只在「整行超一屏」时才建）。
+        Ok(!win.WarlordScrollingForTest,
+           "① 3 张时**不建横向滚动**（原版 `Generic Card Selector Menu` 的 `ScrollRect.m_Enabled = 0`，拖不动）"
+         + "🧨 怎么改会红：无条件 `new MenuScroll(...)`（那会让滚轮在这一页吃掉一次事件，而原版拖不动）");
+        // 3 格、第 4 格**不存在**（⛔ 不是「建了但藏在屏外」）
+        var wlContent = win.transform.Find("Draft Mode Select Warlord State/Generic Card Selector Menu/Viewport/Content");
+        Ok(wlContent != null, "① 选将页的 `Content` 节点找得到（`…/Generic Card Selector Menu/Viewport/Content`）");
+        Eq(wlContent != null ? wlContent.childCount : -1, 3,
+           "① `Content` 下**正好 3 格**（第 4 张**不该存在**——⛔ 不是「建了但被视口裁掉」）"
+         + "🧨 怎么改会红：`WarlordsPerDraft` 写回 4/5");
+        Ok(win.WarlordCardViewForTest(3) == null && win.WarlordSelectButtonForTest(3) == null,
+           "① 第 4 格的卡视图 / `Select Button` 都取不到（`null` = 越界或没建）");
+        int vis = n;         // 3 张全在一屏内（不再有「屏外那一格」）
 
         // ---- ② 卡体（`2DCard`）的**渲染**矩形：从 `CardView` 自己量（`BaseScale × Width/Height × 108` + 世界位置）----
         for (int i = 0; i < vis; i++)
@@ -592,10 +618,26 @@ public static class DraftAssertD3
             Near(r.H, 615.42f, 0.6f, "② 第 " + (i + 1) + " 格 **卡体视觉高 = 615.42**（原版 `2DCard`；"
                                    + "🧨 751.4 = 把容器那 1.221 乘了两次）");
             Near(r.W, 386.60f, 0.6f, "② 第 " + (i + 1) + " 格 **卡体视觉宽 = 386.60**（原版 `2DCard`）");
-            Near(r.CX, i * 492.75f + 160.79f, 0.6f, "② 第 " + (i + 1) + " 格卡心 x = 格视觉框左 + 206.4"
-                                                  + "（原版卡在格子里**偏左**：卡心 = 布局框中心）");
+            Near(r.CX, i * 533.49f + 380.93f, 0.6f, "② 第 " + (i + 1) + " 格卡心 x = 格视觉框左 + 206.4"
+                                                  + "（原版卡在格子里**偏左**：卡心 = 布局框中心 − 45.59）"
+                                                  + "；步距 **533.49** = 412.75 + 80 + 2×20.37（旧值 492.75 漏了 HLG 两道缝）");
             Near(r.CY, 465.42f, 0.6f, "② 第 " + (i + 1) + " 格卡心 y = **465.42**（原版 `2DCard` 顶部 157.72 + 615.42/2；"
                                     + "🧨 旧写法按格心居中 = 554.42 ⇒ 卡比原版低 89.0px）");
+        }
+        // ---- ②′ 整行**居中**（`Content` HLG `align = MiddleCenter`）：总宽 1479.73 ⇒ 左余 220.135 ----
+        {
+            PxRect r0, r1, r2;
+            bool h0 = win.WarlordCardRectRenderedForTest(0, out r0);
+            bool h1 = win.WarlordCardRectRenderedForTest(1, out r1);
+            bool h2 = win.WarlordCardRectRenderedForTest(2, out r2);
+            if (Ok(h0 && h1 && h2, "②′ 三格的卡都量得到"))
+            {
+                Near(r1.CX, 914.42f, 0.6f, "②′ 中间那张卡心 x = **914.42**（= 槽心 960 − 卡在槽里偏左的 45.59）"
+                                         + "🧨 怎么改会红：左对齐起排（那会是 694.28，整行左移 220.1）");
+                Near(r2.CX - r0.CX, 1066.98f, 0.6f, "②′ 首尾卡心相距 = 2×533.49 = **1066.98**"
+                                                  + "🧨 怎么改会红：步距写回 492.75（那会是 985.50）");
+                Near((r0.CX + r2.CX) * 0.5f, 914.42f, 0.6f, "②′ 首尾对称（整行居中）");
+            }
         }
 
         // ---- ③ `Select Button` 的**命中区**（`PointerLayer.HitBoxForTest` = 生产那一份 `HitBoxPx`）----
@@ -607,8 +649,8 @@ public static class DraftAssertD3
                     "③ 第 " + (i + 1) + " 格 `Select Button` 的命中区**量得到**"
                   + "（`null` = 命中区没建出来 / 没有 `ImageQuad` —— 那正是「真鼠标点不动」，`WindowButton.Click()` 直调看不出来）"))
                 continue;
-            Near(c.x - h.x, i * 492.75f + 55.79f, 0.6f, "③ 第 " + (i + 1) + " 格命中区左 = 格视觉框左 + 101.4");
-            Near(c.x + h.x, i * 492.75f + 265.79f, 0.6f, "③ 第 " + (i + 1) + " 格命中区右 = 格视觉框左 + 311.4");
+            Near(c.x - h.x, i * 533.49f + 275.93f, 0.6f, "③ 第 " + (i + 1) + " 格命中区左 = 格视觉框左 + 101.4");
+            Near(c.x + h.x, i * 533.49f + 485.93f, 0.6f, "③ 第 " + (i + 1) + " 格命中区右 = 格视觉框左 + 311.4");
             Near(c.y - h.y, 762.82f, 0.6f, "③ 第 " + (i + 1) + " 格命中区顶 = 格视觉框顶 + 585.5");
             Near(c.y + h.y, 844.42f, 0.6f, "③ 第 " + (i + 1) + " 格命中区底 = 格视觉框顶 + 667.1（= 原版那颗 `Select Button` 的框）");
         }
@@ -619,7 +661,7 @@ public static class DraftAssertD3
         Ok(absorbQ != int.MinValue, "④ 前提：窗内吸收层 `AbsorbHit` 在、量得到队列（实得 " + absorbQ + "）");
         for (int i = 0; i < vis; i++)
         {
-            float px = i * 492.75f + 160.79f;          // 按钮中心 x（55.79…265.79 的中点）
+            float px = i * 533.49f + 380.93f;          // 按钮中心 x（275.93…485.93 的中点）
             float py = (762.82f + 844.42f) * 0.5f;     // 按钮中心 y = 803.62
             int wq; string who;
             var winner = HitTestInWindow(win.transform, px, py, out wq, out who);
@@ -640,7 +682,7 @@ public static class DraftAssertD3
 
         // 真点一下：走**上面那套命中表**选出来的那颗（= 生产会派发的那一颗），再验三处可见反馈
         int dq; string dwho;
-        var clickable = HitTestInWindow(win.transform, 160.79f, (762.82f + 844.42f) * 0.5f, out dq, out dwho);
+        var clickable = HitTestInWindow(win.transform, 380.93f, (762.82f + 844.42f) * 0.5f, out dq, out dwho);
         if (Ok(clickable != null, "⑤ 前提：第 1 格按钮中心算得出命中件（实得 `" + dwho + "`）"))
             clickable.Click();
         string first = win.Warlords[0].Id;
@@ -660,18 +702,182 @@ public static class DraftAssertD3
         //      ⇒ **吞掉、什么都不做**；⛔ 不是以前那样**穿透到窗内吸收层 `AbsorbHit`**
         //      （真机 click_log 2026-10-24 #37/#39 的观感就是「点了卡，结果命中的是窗户的吸收层」）----
         {
-            float px = 160.79f, py = 300f;      // 第 1 格卡体（卡体 y 157.72…773.14，取上半部分，避开 `Select Button`）
+            float px = 380.93f, py = 300f;      // 第 1 格卡体（卡体 y 157.72…773.14，取上半部分，避开 `Select Button`）
             int cq; string cwho;
             var cb = HitTestInWindow(win.transform, px, py, out cq, out cwho);
             Ok(cb != null && cb.name == "CardBodyHit" && MenuDraw.WasAbsorb(cb.transform),
                "⑥ 点卡体 ⇒ 吃到的是**这张卡自己的吸收区**（原版 `2DCard/UI Collider`；实得 `" + cwho + "`）");
+            // 档梯子：压暗 4130 < 窗内吸收 4168 < **卡体吸收 4169** < 内容钮 4170
+            //   —— 卡体必须**严格高于**窗内吸收层（否则那一下会落进窗子的关闭链）。
+            Ok(cq > absorbQ, "⑥ 卡体吸收区的队列 " + cq + " **严格高于**窗内吸收层 `AbsorbHit` 的 " + absorbQ
+                           + "（同档时谁吃到退化成枚举顺序 —— 那正是真机 F1 的成因）");
             string before = win.WarlordId;
             if (cb != null) cb.Click();
             Eq(win.WarlordId, before, "⑥ 而且它**什么都不做**（原版那张 `UI Collider` 上没有处理器：不选、不换页、不关窗）");
+            var cbWb = cb != null ? cb.GetComponent<WindowButton>() : null;
+            Ok(cbWb == null || cbWb.onClick == null,
+               "⑥ 而且它**没有 `onClick`**（🧨 改成 `MenuDraw.Hit` + `ChooseWarlord` ⇒ 这条与上一条一起红；"
+             + "原版 `2DCard/UI Collider` 是 `UIGenericEventCatcher + NonDrawingGraphic`，无处理器）");
         }
 
         // 收尾：把这一组留下的选中态清掉（后面的组各自 `BeginRun`，这里只是不让「本组最后的状态」飘到别处）
         win.BeginRun(TestSeed);
+    }
+
+    // ==================================================================
+    //  ★ U2（2026-10-24 第七十四会话 · `W7`）：选包页 `Reroll` 行 · 右栏 Deck Info 内容块 · Card List 头部
+    // ------------------------------------------------------------------
+    //  判据：
+    //   · 几何 = `menu_dump bundle_menus_assets_all "Draft Mode Select Packs State" --depth 8 --relative`
+    //            + `… "Draft Mode Deck Info Panel" --depth 12 --relative`（平移量 = `DeckPanelR` 左上角，
+    //            与 `DeckToggleR[0]` 对齐验证过）。
+    //   · `Reroll` 价格 = `d:/2/tools/decomp_full/Everguild.LiveOps.DraftEventData__GetReRollCosts.c`：
+    //            `FirstOrDefault(当前次数)` → 找不到 `LastOrDefault` → **表空 ⇒ 0**；**没有次数上限**。
+    //            `cost == 0` ⇒ `PriceDisplayButton__Setup.c` 走 `PriceDisplay.SetupFree` ⇒ 画「Free」。
+    //   · 费用分布 = `DeckEnergyCostDrawer__Initialize.c`（`cost < 行数−1` 落该行、否则全进最后一行；
+    //            归一化 = 张数 / 10 · 现读 `dump.cs:105906` `NUMBER_OF_CARDS_FOR_NORMALIZATION = 10`）。
+    //   · Card List 计数 = `DrafModeDeckInfoCardListPanel__Initialize.c`：`deck.CardCount + "/" + deckSize`。
+    //   · 🆕 ④′ **两件卡背的 z 旋转** = prefab `m_LocalRotation` 实读（`Cardback` **+1.60°** ·
+    //            子件 `Cardback Front` **−3.43°**，两件 `m_Pivot` 都 (0.5,0.5)）⇒ 我们走
+    //            `MenuDraw.Rect(…, rotZDeg:)` 把角度写在**Transform 的 `localRotation`** 上（⛔ 不是转顶点）；
+    //            `Cardback Front` 在 prefab 里树深 **4**（stretch 锚点）⇒ 两级叠加 = 世界 **−1.83°**。
+    //   · 🆕 ④″ **回归条**：`MenuDraw.Rect` 是全工程共用件（2026-10-24 `W18` 现数 = **451 个真调用点**；
+    //            `grep "MenuDraw.Rect("` 得 **468** 行，其中 **17** 行整行是注释）⇒
+    //            必须钉住「默认 `rotZDeg = 0f` 时**一处都不转**」（抽 3 个 `Rect` 建的件）。
+    //   🧨 改坏法：把 `Reroll` 删掉 / 价格编一个数 / 费用分布写成 8 行或按别的归一 / 头部不建 /
+    //            卡背不传 `rotZDeg`（或把角度写反、或只转顶点）/ **把 `rotZDeg` 默认值改成非 0** ⇒ 逐条红。
+    // ==================================================================
+    static void PacksPanelGroup(DraftModeWindow win)
+    {
+        Debug.Log(P + "--- (U2) 选包页 `Reroll` / 右栏 Deck Info / Card List 头部 ---");
+
+        win.BeginRun(TestSeed);
+        win.ClickFree();
+        if (!Ok(win.State == DraftModeState.SelectWarlord, "① 前提：`Free` ⇒ 选将页（实得 " + win.State + "）")) return;
+        if (!Ok(win.Warlords != null && win.Warlords.Count > 0, "① 前提：有可选战将")) return;
+        if (!Ok(win.ChooseWarlord(win.Warlords[0].Id), "① 前提：选得中第一张战将")) return;
+        if (!Ok(win.ContinueAfterWarlord(), "① 前提：`Continue` ⇒ 选包页")) return;
+
+        // ---- ① `Reroll` 整行（上一批是「整支不建」）----
+        var reroll = win.RerollNode;
+        Ok(reroll != null, "① `Reroll` 整行**建出来了**（原版 `Draft Mode Select Packs State > Reroll`）"
+          + "🧨 怎么改会红：删掉这一行（那就是本批要修的那条差异）");
+        Ok(reroll != null && reroll.Find("Reroll Text") != null
+           && reroll.Find("Price Display Button 2 Variant/Generic UI Button") != null
+           && reroll.Find("Price Display Button 2 Variant/Price Display") != null,
+           "① 三个子件都在：`Reroll Text` / `Price Display Button 2 Variant/Generic UI Button` / `…/Price Display`"
+         + "（节点名逐字照 prefab）");
+
+        // ---- ② 价格：表空 ⇒ 0 = 免费（原版 `PriceDisplay.SetupFree` 画「Free」）----
+        Eq(win.ReRollCost, 0, "② `reRollCosts` 表空 ⇒ 价格 = **0 = 免费**（原版 `GetReRollCosts` 表空那一支）"
+          + "🧨 怎么改会红：自己编一个价格（那张表在服务端、本地 0 命中）");
+        Eq(win.RerollPriceText, Loc.T("MainMenu/Free"),
+           "② 价格钮上印的是「Free」（`cost == 0` ⇒ 原版 `PriceDisplay.SetupFree`）");
+
+        // ---- ③ 点一次 ⇒ 真的重抽 + 次数 +1；点第二次**照样成功**（原版没有上限）----
+        var before = new List<string>();
+        for (int i = 0; i < win.OfferedPacks.Count; i++) before.Add(win.OfferedPacks[i].key);
+        int r0 = win.ReRolls;
+        Ok(win.ReRollPacks(), "③ `ReRollPacks()` 成功");
+        Eq(win.ReRolls, r0 + 1, "③ `currentReRolls` +1（原版 `save.currentReRolls`）");
+        bool changed = false;
+        for (int i = 0; i < win.OfferedPacks.Count; i++)
+            if (!before.Contains(win.OfferedPacks[i].key)) changed = true;
+        Ok(changed, "③ 包**真的换了**（盐 = `seed + reRolls×7919`，见 `RollOffers`）"
+          + "🧨 怎么改会红：重掷不换盐（那样点了等于没点）");
+        Ok(win.ReRollPacks(), "③ 再点一次**仍然成功**（原版没有「次数用完」的上限）");
+        Eq(win.ReRolls, r0 + 2, "③ 次数 = +2");
+
+        // ---- ④ 右栏 Deck Info 内容块：卡背两层 + 战将卡面 + 9 行费用分布 ----
+        var holder = win.DeckInfoHolder;
+        Ok(holder != null, "④ 右栏 `Energy View panel` 内容块在");
+        if (holder != null)
+        {
+            Ok(holder.Find("Cardback") != null && holder.Find("Cardback/Cardback Front") != null,
+               "④ 卡背两层都在，且 `Cardback Front` 是 `Cardback` 的**子件**（原版树深 4：`Cardback` → `Cardback Front`）");
+            // ---- ④′ z 旋转（原版 `m_LocalRotation` 实读：`Cardback` **+1.60°** · 子件 `Cardback Front` **−3.43°**）----
+            //   判据：`python -I -X utf8 d:/4/Unity/工具/menu_dump.py bundle_menus_assets_all
+            //          "Draft Mode Deck Info Panel" --depth 12 --relative` 表末
+            //          「↻ 2 处带 `m_LocalRotation`（绕 z ≠ 0）」那一块；两件的 `m_Pivot` 都是 **(0.5,0.5)**。
+            //   ⚠️ 期望值**不来自** `DraftModeWindow.DeckBackRotZ` 那两个常量（否则就是自证）。
+            //   ⚠️ 用 `Mathf.DeltaAngle` 折算：`localEulerAngles.z` 会把 −3.43 回成 **356.57**。
+            //   🔴 **子件关系是判据的一部分**：`Cardback Front` 的树深是 4（锚点 stretch、`sizeDelta ≈ 0`）
+            //      ⇒ 自己的 −3.43° 与父件的 +1.60° **叠加** ⇒ 画出来的世界角 = **−1.83°**。
+            var cbBackT = holder.Find("Cardback");
+            var cbFrontT = holder.Find("Cardback/Cardback Front");
+            Near(LocalRotZ(cbBackT), 1.60f, 1e-2f,
+               "④′ `Cardback` 的 `localEulerAngles.z` = **+1.60°**（原版 `m_LocalRotation` 实读）"
+             + "🧨 怎么改会红：不传 `rotZDeg`（= 画成轴对齐外接框，那正是本批要修的差异）"
+             + " · 只转网格顶点（那样 `localEulerAngles` 仍是 0）");
+            Near(LocalRotZ(cbFrontT), -3.43f, 1e-2f,
+               "④′ `Cardback Front` 的**局部** `localEulerAngles.z` = **−3.43°**（同上；`DeltaAngle` 折算过 356.57）"
+             + "🧨 怎么改会红：两件的角度写反 / 都写成同一个值");
+            Near(WorldRotZ(cbFrontT), -1.83f, 1e-2f,
+               "④′ 它的**世界**角 = +1.60 − 3.43 = **−1.83°**（原版子件关系 ⇒ 两级角度叠加）"
+             + "🧨 怎么改会红：把 `Cardback Front` 建成 `Energy View panel` 的**兄弟**（那样世界角直接是 −3.43）；"
+             + "或把父级那个 +1.60° 并进子件这一份");
+            // ---- ④″ 回归条：`MenuDraw.Rect` 的**默认值**（`rotZDeg = 0`）⇒ 其它件一个都没转 ----
+            //   抽 3 个**确定由 `MenuDraw.Rect` 建出来**的件（⛔ 不抽 `Node` / `Text` / `Nine` 那些）：
+            //   `General Red Background/Menu Dark Background`（`DraftModeWindow.cs` 的 `BuildBackdrop` ①）·
+            //   `General Red Background/Menu Vignette`（同函数 ④）·
+            //   `Generic Multi Card Display/Menu Dark Background`（`BuildPackPreview` 的压暗层）。
+            string[] zeroRot =
+            {
+                "General Red Background/Menu Dark Background",
+                "General Red Background/Menu Vignette",
+                "Generic Multi Card Display/Menu Dark Background",
+            };
+            for (int i = 0; i < zeroRot.Length; i++)
+            {
+                var zt = win.transform.Find(zeroRot[i]);
+                Ok(zt != null, "④″ 前提：`" + zeroRot[i] + "` 在（它是 `MenuDraw.Rect` 建的）");
+                Near(LocalRotZ(zt), 0f, 1e-2f,
+                   "④″ `" + zeroRot[i] + "` **没有旋转**（`MenuDraw.Rect` 的 `rotZDeg` 默认 `0f` ⇒ 逐位不变）"
+                 + "🧨 灭自证：把 `MenuDraw.Rect` 的 `rotZDeg` 默认值改成非 0 ⇒ **这三条一起红**");
+            }
+            Ok(holder.Find("CardUI-Warlord") != null, "④ 战将卡面在（原版 `CardUI-Warlord`，视觉 192.48×254.89）");
+            var costContent = holder.Find("Content");
+            Ok(costContent != null, "④ `Deck Information cost drawer > Content` 在（原版那颗 VLG）");
+            Eq(costContent != null ? costContent.childCount : -1, 9,
+               "④ 费用分布 = **9 行**（`DeckCostQuantityRowDrawer` 数组长度；`dump.cs` 与 prefab 同一条）"
+             + "🧨 怎么改会红：只画 8 行 / 把 9 行写死成别的数");
+            if (costContent != null && costContent.childCount == 9)
+            {
+                var row8 = costContent.GetChild(8);
+                Ok(row8 != null && row8.name == "Deck CostQuanityt Row Drawer" && row8.Find("Card Cost") != null
+                   && row8.Find("Slider") != null && row8.Find("Cards in deck") != null,
+                   "④ 每行三件都在：`Card Cost` / `Slider` / `Cards in deck`（节点名逐字照 prefab）");
+            }
+            // 此刻一张卡都还没选 ⇒ 9 行全是 0；难度：读 `Cards in deck` 的字要有 TMP
+            // ⇒ 这里只断「行数 + 三件在」（数值口径由 `DeckEnergyCostDrawer__Initialize` 那一段反汇编钉住）。
+            Eq(win.CardsCounterText, Loc.T("Demo/EnergyBalance/Cards") + "0/" + DraftModeWindow.DeckSizeForDraft,
+               "④ 右栏 `CardCounter` = 「" + Loc.T("Demo/EnergyBalance/Cards") + "0/"
+             + DraftModeWindow.DeckSizeForDraft + "」—— **`Cards:` 与数字之间没有空格**（原版 `Concat`）"
+             + "🧨 怎么改会红：中间补一个空格（那是修正前那一版）");
+        }
+
+        // ---- ⑤ Card List 页头部：`Warlord Name` + `Card counter` + `Separator` ----
+        win.SetDeckTab(1);
+        var tabHolder = win.transform.Find("Draft Mode Deck Info Panel/Cards in deck panel");
+        Ok(tabHolder != null, "⑤ `Cards in deck panel` 找得到");
+        if (tabHolder != null)
+        {
+            Ok(tabHolder.Find("Warlord Name") != null, "⑤ 头部 `Warlord Name` 在（原版 33px · Left/Middle · 可点开卡片详情）");
+            Ok(tabHolder.Find("Card counter") != null, "⑤ 头部 `Card counter` 在（原版 28px · Right/Middle）");
+            Ok(tabHolder.Find("Separator") != null, "⑤ 头部之下有 `Separator`（原版 `40k_Separator Fade Sides Horizontal`）");
+            Ok(tabHolder.Find("Warlord Name Hit") != null, "⑤ `Warlord Name` 带命中区（原版那颗是 `EverguildButton`）");
+        }
+        Eq(win.DeckListCounterText, "0/" + DraftModeWindow.DeckSizeForDraft,
+           "⑤ `Card counter` 文本 = `张数/卡组张数`（原版 `deck.CardCount + \"/\" + deckSize`）"
+         + "🧨 怎么改会红：prefab 那个 `30/30` 是占位默认值，直接照抄就红");
+
+        // ---- ⑥ 三页互斥：切到 Card List ⇒ Deck Info 那三件跟着关（原版三页 SetActive 互斥）----
+        Ok(win.DeckInfoHolder != null && win.DeckInfoHolder.childCount == 0,
+           "⑥ 切到 Card List 页 ⇒ `Energy View panel` 的内容被收掉（原版三页 `SetActive` 互斥）"
+         + "🧨 怎么改会红：把卡背/费用分布挂到面板根上（那样三页同时显示）");
+
+        win.SetDeckTab(0);
+        win.BeginRun(TestSeed);        // 收尾：别把选中态/时钟带给后面的组
     }
 
     /// <summary>`PointerLayer` 那条命中链的**同口径**复刻（自检用）：候选 = 场上所有 `WindowButton`
@@ -738,5 +944,24 @@ public static class DraftAssertD3
         if (t == null) return int.MinValue;
         var q = t.GetComponentInChildren<ImageQuad>();
         return q != null ? q.RenderQueue : int.MinValue;
+    }
+
+    /// <summary>一个节点**自己**的 z 旋转（度，已用 `Mathf.DeltaAngle` 折到 ±180）。
+    /// <para>为什么不用裸 `localEulerAngles.z`：Unity 把它归一到 `[0,360)` ⇒ prefab 的 **−3.43°** 读出来是
+    /// **356.57**，拿 `Near(356.57, -3.43)` 比会**假红**。</para>
+    /// <para>`null`（节点不在）⇒ 回 `NaN` ⇒ `Near` 的比较恒 false ⇒ **必红**（⛔ 不静默当 0 过）。</para></summary>
+    static float LocalRotZ(Transform t)
+    {
+        if (t == null) return float.NaN;
+        return Mathf.DeltaAngle(0f, t.localEulerAngles.z);
+    }
+
+    /// <summary>一个节点的**世界** z 旋转（度，已折到 ±180）。`null` ⇒ `NaN`（`Near` 必红）。
+    /// <para>用来钉「父子角度叠加」那条：本壳窗根与各 Holder **都没有旋转** ⇒ 世界角 = 父链各级 local 角之和。
+    /// 把相加结果写成字面量（**+1.60 − 3.43 = −1.83**）而不是拿两个常量现算 —— 后者是自证。</para></summary>
+    static float WorldRotZ(Transform t)
+    {
+        if (t == null) return float.NaN;
+        return Mathf.DeltaAngle(0f, t.eulerAngles.z);
     }
 }

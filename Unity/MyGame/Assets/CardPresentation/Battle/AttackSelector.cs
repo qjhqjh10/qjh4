@@ -423,7 +423,45 @@ namespace CardPresentation
 
         /// <summary>记「这一格已经发过了」—— 同一次进入只发一次（原版 `+0x91 = 1`）。
         /// ⚠️ 由**调用方**在真的把指令发出去之后调（`BattleDriver.DrivePlayerTurn` ①）。</summary>
-        public void MarkHoverPicked() { _hoverSent = Hovered; }
+        public void MarkHoverPicked()
+        {
+            _hoverSent = Hovered;
+            // 🆕 2026-10-24（`W10`）：**只有技能那颗有 `soundOnSelect`**（原版三份序列化值里
+            //   近战/远程是空 GUID、技能那颗才是 `f83d6aab…`）⇒ 只在 `Ability` 这一格响。
+            //   播的时机 = 原版 `DoPointerOverButtonActions`（发指令那一拍，跟这里同义）。
+            if (Hovered == AttackKind.Ability) PlaySelectSound();
+        }
+
+        /// <summary>🆕 2026-10-24（`W10`）：技能钮选中音 —— cue `ButtonClick` → clip `UI Select Toggle`
+        /// （GUID → cue → clip 的整条解析见 <see cref="SelectSoundCue"/>）。**2D 播**
+        /// （原版 `Play2D`，`MixerType = FX`，`WFSoundPlayer` 那边已经是 FX 组）。</summary>
+        void PlaySelectSound()
+        {
+            WarpforgeVFX.WFSoundCue cue;
+            if (!WarpforgeVFX.WFSoundBank.TryGetCue(SelectSoundCue, out cue) || cue == null)
+            {
+                SelectSoundMisses++;
+                if (!_selectSoundWarned)
+                {
+                    _selectSoundWarned = true;
+                    Debug.LogWarning("[Battle] 技能钮选中音：`Resources/animfx_sounds.json` 里查不到 cue `"
+                                   + SelectSoundCue + "`（clip `UI Select Toggle`）—— 这一声不会响。"
+                                   + " 它本来是**原版就有的**（`soundOnSelect` GUID f83d6aab…），不是「原版没声音」。");
+                }
+                return;
+            }
+            // 🔴 **2026-10-24（执行代理 `W24` · `D2_BattleScene11红诊断.md` §2）**：「走到播放口」的判据
+            //   改看 `WFSoundPlayer.Played` 的**增量** —— 那是这个开关自己的契约口
+            //   （`WFSoundPlayer.cs:17` 的 doc：「`Enabled = false` 时**只记账不发声**……**但 `Played` 照样涨**」）。
+            //   原来写的是 `Play(...) != null`，而 `Play` 是 **先 `Played++` 再 `if (!Enabled) return null`**
+            //   ⇒ 批处理静音档下恒为 null ⇒ `SelectSoundPlays` 不动；cue 又查得到（上面那支没走）⇒
+            //   `SelectSoundMisses` 也不动 ⇒ **两个计数器都被同一个 0 掩盖**（自检必红，且分不清
+            //   「接线没生效」与「cue 不在」）。⚠️ 灭自证照旧：删掉 `MarkHoverPicked` 里那句 ⇒ 2 个都不动 ⇒ 红。
+            int playedBefore = WarpforgeVFX.WFSoundPlayer.Played;
+            WarpforgeVFX.WFSoundPlayer.Play(cue, Vector3.zero, true);
+            if (WarpforgeVFX.WFSoundPlayer.Played > playedBefore) SelectSoundPlays++;
+            else SelectSoundMisses++;
+        }
 
         /// <summary>安全窗 + 「一次进入只发一次」那两格（原版 `Update` 的对应物）。`Tick` 每帧调。</summary>
         void TickHover(float dt)
@@ -483,6 +521,29 @@ namespace CardPresentation
             /// ⇒ 有替代行动的卡**不该再共用那张占位图**（见 <see cref="AttackSelector.IconName(AttackKind)"/> 的注释）。
             /// </summary>
             public string IconName;
+
+            /// <summary>🆕 **2026-10-24（`W10`）**：这张卡的**阵营值**（`CardArmy`，见 `ArmyIcons.Id(faction)`）。
+            /// `> 0` 时技能钮的图标**按军队**查（原版 `ArmyUtilities.GetActiveAbilityIconForArmy` →
+            /// `activeAbilityIcons`，只有 5 条）而不是按关键词 —— 判据链与 5 条真值见 `Core/ArmyIcons.cs`。
+            /// <para>⚠️ 默认 `0` = 调用方没给 ⇒ 保持旧口径（`IconName` / 占位图）。原版在
+            /// 「阵营查不到图标」时**整颗技能钮不显示**（`AttackTypesButtonsSelector.c:54-56`），
+            /// 这一档只有给了 `Army` 才做得到（见 <see cref="Hidden"/>）。</para></summary>
+            public int Army;
+
+            /// <summary>🆕 **2026-10-24（`W10`）**：这一格的替代行动关键词（`duty`/`pray`/`ferocity`/`agenda`/`oath`），
+            /// **只给 tooltip 兜底文案用**（`TipText.Trait(key)`）。空 = 没有。</summary>
+            public string AltKeyword;
+
+            /// <summary>🆕 **2026-10-24（`W10`）**：技能钮 tooltip 的**标题 / 正文**（原版
+            /// `CardDisplayAttackTypeButton` 的 `+0x68` / `+0xa8`，见 `HighlightIfNeeded.c:50-70`）。
+            /// 都空 ⇒ 用选择器那条 `note`（技能效果本来就写在那儿，见 `Show` 的 `note` 形参）。
+            /// ⚠️ 只有**主动技能那一颗**会弹（原版 `if (param_2 != 4) return;`）。</summary>
+            public string TooltipTitle, TooltipBody;
+
+            /// <summary>🆕 **2026-10-24（`W10`）**：整颗钮**不显示**。原版唯一的成因 =
+            /// 「按军队查 `activeAbilityIcons` 取不到图标」⇒ `CardDisplayAttackTypeButton__Toggle(btn, false)`
+            /// （`AttackTypesButtonsSelector.c:54-56`）。⛔ **不是**「不可选」（那是 `Enabled = false`：钮还在、只是灰的）。</summary>
+            public bool Hidden;
         }
 
         readonly List<Option> _options = new List<Option>();
@@ -859,6 +920,75 @@ namespace CardPresentation
         /// 那圈黄圈 + 1.3 倍**挂的是它、不是指针悬停**（🆕 2026-09-29 照原版改）。</summary>
         AttackKind _selected = AttackKind.None;
 
+        // ══════════════════════════════════════════════════════════════════════════════════
+        //  🆕 2026-10-24（`W10`）· 原版 `UnitOnBoardAttackTypeSelector` / `CardDisplayAttackTypeButton`
+        //  剩下那几件**表现层**行为。判据全部是反编译现读（每处自己的注释里带 `文件:行号`）。
+        // ══════════════════════════════════════════════════════════════════════════════════
+
+        /// <summary>🆕 **`pindown` ⇒ 近战那颗选了没反应**（原版 `UnitOnBoardAttackTypeSelector__AttackButtonClick.c:27-33`：
+        /// `HasCurrentTrait(0x3ca /*970 = pindown*/) && param_2 == 1 ⇒ return`）。
+        /// <para>⚠️ 原版那颗钮**照样亮、照样能悬停**（不置灰），只是**指令被吞掉** ⇒ 我们这里也只
+        /// **不吃悬停**（= 选不中、也不会发出 commit），⛔ 不改 `Enabled`（那会让它变灰，原版不灰）。</para>
+        /// <para>🔴 **调用点待接**：`BattleDriver.OpenCommand` 组 `opts` 时把 `u.Has("pindown")` 赋给它；
+        /// 在那之前这条闸**恒不生效**（默认 `false`）。见执行报告「没做到」一节。</para></summary>
+        public bool LockMelee { get; set; }
+
+        /// <summary>🆕 **`ToggleJustOne` 那一档**（原版 `UnitOnBoardAttackTypeSelector__ToggleJustOne.c`：
+        /// 整条 `SetActive(true)`，把**三颗钮全部关掉**，再只 `Toggle(true)` 那一颗）。
+        /// 触发面（`UnitOnBoardAttackTypeSelector__Toggle.c:200-240` 现读）：
+        /// **`displaySummonSickness` 且（`ferocity(0x4f1)` 或 `oath(0x4fb) + CanUseOathAbility`）**。
+        /// ⚠️ U3 报告只记了 oath 那一支，**ferocity 那一支是本次现读补上的**。
+        /// 非 `None` ⇒ `RefreshLayout` 只排这一颗。</summary>
+        AttackKind _justOne = AttackKind.None;
+
+        /// <summary>🆕 **原版 `BattleManager.StartAttackFrom` 的「起手就点亮合法目标 + 准星」**
+        /// （`BattleManager__StartAttackFrom.c:20-40`：`Toggle(true)` 之后立刻 `ShowPotentialTargets` +
+        /// `ToggleCrosshair(true)`，**此刻玩家还没选打法**）。
+        /// <para>本件只提供**幂等入口**：`Show()` 结束时若本回调非空就打一次（`RequestPreviewTargets`）。
+        /// 回调由驱动层登记 —— 它要做的两件事是 `HighlightTargets()` + `ShowReticleNow()`
+        /// （⚠️ 后者现在要求 `_command != None`，得放宽成「用单位当前 `attackType`，可为 0」）。</para>
+        /// <para>🔴 **调用点待接**：`BattleDriver.OpenCommand` 里挂一次即可（见执行报告）。没挂 ⇒ 行为与改前逐位相同。</para></summary>
+        public System.Action<AttackKind> PreviewTargets;
+
+        /// <summary>这一次 `Show()` 里有没有已经请求过「预亮目标」（原版是一次性的：起手那一下）。</summary>
+        bool _previewSent;
+        /// <summary>自检用：`RequestPreviewTargets` 真把回调打出去的次数。</summary>
+        public static int PreviewRequests { get; private set; }
+
+        /// <summary>🆕 **技能钮悬停音**（原版只有技能那颗有 `soundOnSelect`，
+        /// `S:MonoBehaviour_4449.json` 的值 = GUID `f83d6aabae538004383a3072f12d6ff5`）。
+        /// <para>🔴 **GUID 已解出（2026-10-24 现读，U3 §六·1 那条「没解出来」结案）**：
+        /// `资料/普查产出_1018/cardanim_guid_map/guid_map_bundles.tsv:4536` 与
+        /// `普查产出_1019/catalog_dump/*/catalog_locations.tsv:13905` 都指向
+        /// `soundcollection_assets_all.bundle` 的 **`AudioCue`「ButtonClick」**；该 cue 的 `clipList`
+        /// （`bundle_soundcollection_assets_all/MonoBehaviour/ButtonClick.json`）= PathID
+        /// `487309658559691530` → 束里那个 AudioClip 的 `m_Name` = **`UI Select Toggle`**。
+        /// 而 `Resources/animfx_sounds.json` **已经有** cue `ButtonClick` → clip `UI Select Toggle`
+        /// （`minPitch/maxPitch = 1` · `timeToPlayAgain = 0.1`）⇒ **不用改任何数据**。</para>
+        /// <para>播放时机 = 原版 `CardDisplayAttackTypeButton__DoPointerOverButtonActions.c`（发指令那一拍，
+        /// 即 `+0x92 && +0x90 && !+0x91` 三格齐 ⇒ `callback` + `Play(+0x58)`）⇒ 我们的对应口 =
+        /// <see cref="MarkHoverPicked"/>（调用方真把指令发出去之后调）。</para></summary>
+        public const string SelectSoundCue = "ButtonClick";
+        /// <summary>自检用：技能钮选中音真**走到了播放口**的次数
+        /// （判据 = `WFSoundPlayer.Played` 的增量 —— 静音档下照样涨；⛔ 不是「真的出声了」）。</summary>
+        public static int SelectSoundPlays { get; private set; }
+        /// <summary>自检用：**没走到播放口**的次数 —— 两档：① cue 查不到（音效表缺件）
+        /// ② 走到 `Play` 但 `Played` 没涨（不该发生，真发生了就是调度链断了）。</summary>
+        public static int SelectSoundMisses { get; private set; }
+        static bool _selectSoundWarned;
+
+        /// <summary>🆕 技能钮 tooltip —— 原版 `CardDisplayAttackTypeButton__HighlightIfNeeded.c:50-70`：
+        /// **只有高亮的是 `attackType == 4`（主动技能）时才弹**，而且 `+0xb0`（当前那一条）非空就不再弹
+        /// （= **一颗钮一辈子只弹一次**）。挂点 = 按钮自己的 `transform`（`SetParent(button)`），
+        /// 位置 = 设置对象那个向量 × `tooltipVerticalOffset`（`+0x60`，技能那颗序列化值 = **−100**）。
+        /// <para>⚠️ **−100 乘的那个基准向量本地取不到**（它在 `DAT_1842da2a8+0xb8` 那个设置对象里）
+        /// ⇒ 我们只能定「弹在钮**下方**」，落点距离是**我们挑的**（`TooltipDropPx`），如实标着。</para></summary>
+        const float TooltipDropPx = 70f;
+        bool _tooltipShown;
+        /// <summary>自检用：这一次展开里技能钮 tooltip 弹过没有。</summary>
+        public bool AbilityTooltipShown { get { return _tooltipShown; } }
+
+
         /// <summary>原版 `AttackTypes` 数值 → 我们这格的 `Kind`（**0 没打过 / 1 近战 / 2 远程 / 4 主动技能**）。</summary>
         static AttackKind KindOf(int attackType)
         {
@@ -880,6 +1010,12 @@ namespace CardPresentation
             _hoverWas = AttackKind.None;
             _hoverSent = AttackKind.None;
             _safeLeft = 0f;
+            // 🆕 2026-10-24（`W10`）：一次展开的那两件一次性状态 + 收掉技能钮 tooltip
+            //   ⚠️ **只收自己弹的那条**（`Tooltip` 是全局单例，别人可能正拿它显示词条提示）。
+            _justOne = AttackKind.None;
+            _previewSent = false;
+            if (_tooltipShown) Tooltip.Hide();
+            _tooltipShown = false;
 
             if (_background != null) _background.gameObject.SetActive(false);
             if (_title != null) _title.gameObject.SetActive(false);
@@ -896,7 +1032,7 @@ namespace CardPresentation
         /// 原版展开时把整条 `set_position(单位位置)`（`UnitOnBoardAttackTypeSelector__Toggle.c:112-126`）
         /// —— 传 null 就退回「屏幕中心」（那是我们原来的固定摆法）。</param>
         public void Show(List<Option> options, string title = null, string note = null,
-                         Vector3? atWorld = null, int selectedType = 0)
+                         Vector3? atWorld = null, int selectedType = 0, AttackKind justOne = AttackKind.None)
         {
             Build();
             _anchorAt = atWorld ?? Vector3.zero;
@@ -904,6 +1040,17 @@ namespace CardPresentation
             _selected = KindOf(selectedType);
             _options.Clear();
             if (options != null) _options.AddRange(options);
+            _justOne = justOne;
+            // 🔴 **2026-10-24（`W10`）：三颗钮里近战/远程【恒显】** —— 原版
+            //    `AttackTypesButtonsController__ToggleAttackTypesSelector.c:47-96` 对 `attackTypeButtons`
+            //    那**恰好 3 颗**逐个 `SetActive(true)`，只有**技能那颗**可能被
+            //    `CardDisplayAttackTypeButton__Toggle(btn, iconSprite != null && 有主动能力)` 关掉；
+            //    近战/远程**没有任何使能判据**（哪怕攻击值 0 也在）。
+            //    ⇒ 调用方没给的那两颗，这里补上（`Enabled = false` = 灰的、选不中）。
+            //    ⚠️ 「可点性」原版静态读是**可点**（`AttackButtonClick` 没有攻击值判据），但那是
+            //    `U3 §六·6` 明确标「未实跑」的一条 ⇒ 本件**不擅自把它变成可点**（见执行报告「没做到」）。
+            //    `ToggleJustOne` 那一档**不补**（原版那时就是把另外两颗关掉）。
+            if (justOne == AttackKind.None) EnsureAttackTypeInvariant();
             ApplyOptionIcons();
             _titleText = title;
             _noteText = note;
@@ -917,8 +1064,71 @@ namespace CardPresentation
             _safeLeft = SafeTouchSeconds;
             _hoverWas = AttackKind.None;
             _hoverSent = AttackKind.None;
+            // 🆕 2026-10-24：起手预亮 / tooltip 这两件都是「一次展开各一次」
+            _previewSent = false;
+            _tooltipShown = false;
             RefreshLayout();
+
+            // 🔴 **原版 `BattleManager.StartAttackFrom` 的「拖拽起手就点亮合法目标 + 准星」**
+            //    （`BattleManager__StartAttackFrom.c:20-40`）—— 整条链是
+            //    `selector.Toggle(true, card)` → `ToggleCrosshair(true)` → `ShowPotentialTargets(card, type)`，
+            //    三步在**同一个方法里**、**玩家还没选打法**。
+            //    ⇒ 这里在展开完成的最后一刻请求一次（回调没挂 = 什么都不发生 ⇒ 与改前逐位相同）。
+            //    `ToggleJustOne` 那条路**不预亮**（原版那条由 `ShowAttackTypeMark` 触发，不走 StartAttackFrom）。
+            if (justOne == AttackKind.None) RequestPreviewTargets(_selected);
         }
+
+        /// <summary>🆕 2026-10-24（`W10`）：**近战/远程恒显** —— 把调用方没给的那两颗补成「灰的」。
+        /// 判据 → <see cref="Show"/> 里那段（原版 `ToggleAttackTypesSelector` 对 3 颗逐个 `SetActive(true)`）。</summary>
+        void EnsureAttackTypeInvariant()
+        {
+            AddIfMissing(AttackKind.Melee);
+            AddIfMissing(AttackKind.Ranged);
+        }
+
+        void AddIfMissing(AttackKind k)
+        {
+            if (Find(k) != null) return;
+            _options.Add(new Option { Kind = k, Enabled = false });
+        }
+
+        /// <summary>🆕 2026-10-24（`W10`）：**只显示一颗**（原版 `UnitOnBoardAttackTypeSelector.ToggleJustOne`）。
+        /// 判据 → 上面 `_justOne` 那条注释（含触发条件）。
+        /// <para>⚠️ **调用点待接**：`BattleDriver` 在「`displaySummonSickness` && (`ferocity` ||
+        /// `oath`+`CanUseOathAbility`)」那一支调它。在那之前本方法没有生产调用者。</para></summary>
+        public void ShowJustOne(AttackKind kind, Vector3? atWorld = null, int selectedType = 0)
+        {
+            var opts = new List<Option> { new Option { Kind = kind, Enabled = true } };
+            Show(opts, null, null, atWorld, selectedType, kind);
+        }
+
+        /// <summary>🆕 2026-10-24（`W10`）：**幂等**地请求一次「点亮合法目标 + 准星」。
+        /// 原版只在拖拽起手那一拍做一次（`BattleManager__StartAttackFrom`），所以一次展开只发一次
+        /// （`Show()` 会把 <see cref="_previewSent"/> 清零）。
+        /// <returns>true = 这次真把回调打出去了；false = 已经在这次展开里发过 / 没挂回调 / 没显示。</returns></summary>
+        public bool RequestPreviewTargets(AttackKind attackType = AttackKind.None)
+        {
+            if (!Visible || _previewSent) return false;
+            _previewSent = true;
+            var hook = PreviewTargets;
+            if (hook == null) return false;
+            PreviewRequests++;
+            hook(attackType);
+            return true;
+        }
+
+        /// <summary>🆕 2026-10-24（`W10`）：**立刻改「已选打法」那一格**。
+        /// 原版 `AttackButtonClick` 在**选定时**就 `ChangeAttackType`（写 `card.attackType` + 高亮那一圈），
+        /// 而我们驱动层只在**结算时**写 `u.LastAttackType` ⇒ 同一回合内改选后再开选择器，高亮的还是
+        /// 「上次打出去的那一档」（`U3 §七·4` 那条时序差的修法口）。
+        /// <para>⚠️ **调用点待接**：`BattleDriver.CommitCommand` 选完打法时调一次（见执行报告）。</para></summary>
+        public void SetSelected(AttackKind kind)
+        {
+            if (_selected == kind) return;
+            _selected = kind;
+            RefreshPicked();
+        }
+
 
         /// <summary>
         /// 🆕 2026-09-25 把每一格的底图刷成**这一次该用的那张**。
@@ -932,7 +1142,24 @@ namespace CardPresentation
             {
                 if (_icons[i] == null) continue;
                 var o = Find(Order[i]);
-                string want = (o != null && !string.IsNullOrEmpty(o.IconName)) ? o.IconName : IconName(Order[i]);
+                string want = (o != null && !string.IsNullOrEmpty(o.IconName)) ? o.IconName : null;
+                // 🆕 **2026-10-24（`W10`）：技能钮的图标原版是【按军队】查的**
+                //   （`UnitOnBoardAttackTypeSelector__Toggle.c:74-80` → `ArmyUtilities.GetActiveAbilityIconForArmy`
+                //    → `IconsByArmySO.activeAbilityIcons`，**只有 5 条**，逐条真值见 `Core/ArmyIcons.cs`）。
+                //   我们原来按**关键词**挑图（五阵营 1:1 时结果相同 ⇒ 看不出来），差别只在
+                //   「这张卡所属阵营不在那 5 条里」：原版那一下 `iconSprite == null` ⇒
+                //   `CardDisplayAttackTypeButton__Toggle(btn, bVar4 & param_2)` 直接**把整颗钮关掉**。
+                //   ⇒ 给了 `Army` 才走这条（没给 = 保持旧口径，⛔ 别拿它顶掉 `IconName`）。
+                if (want == null && o != null && o.Kind == AttackKind.Ability && o.Army > 0)
+                {
+                    want = ArmyIcons.ActiveAbilityIconName(o.Army);
+                    if (string.IsNullOrEmpty(want))
+                    {
+                        o.Hidden = true;
+                        o.Enabled = false;
+                    }
+                }
+                if (string.IsNullOrEmpty(want)) want = IconName(Order[i]);
                 var tex = CardArt.Ui(want);
                 if (tex != null && !ReferenceEquals(_icons[i].Texture, tex))
                 {
@@ -1032,7 +1259,15 @@ namespace CardPresentation
             // 所以只有两个按钮时它们会往中间收，不会留着技能那个空档
             var shown = new List<AttackKind>();
             for (int i = 0; i < Order.Length; i++)
-                if (Find(Order[i]) != null) shown.Add(Order[i]);
+            {
+                var o = Find(Order[i]);
+                if (o == null) continue;
+                // 🆕 2026-10-24（`W10`）：`Hidden` = 原版「按军队查不到技能图标 ⇒ 整颗钮关掉」；
+                //   `_justOne` = 原版 `ToggleJustOne`（三颗全关、只开那一颗）。
+                if (o.Hidden) continue;
+                if (_justOne != AttackKind.None && o.Kind != _justOne) continue;
+                shown.Add(o.Kind);
+            }
 
             for (int i = 0; i < Order.Length; i++) SetSlotActive(i, null);
 
@@ -1128,10 +1363,22 @@ namespace CardPresentation
             //    同义）：灰掉/没这一项的格子一律不吃悬停 —— 圈虽然会 `SetActive(false)`，
             //    但**退回图标当受体**那一档（圈贴图缺）图标仍在 ⇒ 不写这句就会「灰格也能选中」。
             var opt = Find(kind);
-            if (opt == null || !opt.Enabled) return;
+            if (!Selectable(opt)) return;
             if (Hovered == kind) return;
             Hovered = kind;
             RefreshPicked();
+        }
+
+        /// <summary>🆕 2026-10-24（`W10`）· **可选中性判据只此一处**（`OnHoverEnter` 与 `UpdatePointer` 共用一个口）：
+        /// ① 有这一项；② `Enabled`（调用方给的「现在能不能用」）；③ 没被 `Hidden`（原版按军队查不到图标）；
+        /// ④ **近战那格在 `LockMelee`（= 卡上有 `pindown`）时不选** —— 原版
+        /// `AttackButtonClick.c:27-33` 是「指令被吞掉」，效果上等于选不中（⚠️ 原版那颗钮**不置灰**，
+        /// 所以这里也没动 `Enabled`）。</summary>
+        bool Selectable(Option opt)
+        {
+            if (opt == null || !opt.Enabled || opt.Hidden) return false;
+            if (opt.Kind == AttackKind.Melee && LockMelee) return false;
+            return true;
         }
 
         /// <summary>指针离开某一格 —— 原版 `OnPointerExit`（清 `isInputOverSent`；给兄弟钮 `DisableTemporary`）。
@@ -1180,7 +1427,7 @@ namespace CardPresentation
             for (int i = 0; i < Order.Length; i++)
             {
                 var opt = Find(Order[i]);
-                if (opt == null || !opt.Enabled) continue;
+                if (!Selectable(opt)) continue;      // 与 `OnHoverEnter` 同一个口（含 `pindown` 那条）
                 if (_icons[i] == null || !_icons[i].gameObject.activeSelf) continue;
 
                 // 命中按**圆形**判：图标是圆钮，用方形外接框会「还没碰上就选中」
@@ -1203,7 +1450,7 @@ namespace CardPresentation
                 var opt = Find(Order[i]);
                 if (opt == null) continue;
 
-                bool hot = _selected != AttackKind.None && opt.Kind == _selected && opt.Enabled;
+                bool hot = _selected != AttackKind.None && opt.Kind == _selected && opt.Enabled && !opt.Hidden;
                 float s = hot ? HighlightScale : 1f;
                 if (_icons[i] != null) _icons[i].transform.localScale = new Vector3(s, s, 1f);
                 if (_rings[i] != null && _rings[i].gameObject.activeSelf)
@@ -1212,6 +1459,46 @@ namespace CardPresentation
                     _rings[i].SetTint(hot ? Color.white : new Color(1f, 1f, 1f, 0.28f));
                 }
             }
+            RefreshAbilityTooltip();
+        }
+
+        /// <summary>🆕 2026-10-24（`W10`）：技能钮 tooltip —— 原版 `CardDisplayAttackTypeButton__HighlightIfNeeded.c`。
+        /// 判据逐句：① **高亮的必须是 `attackType == 4`**（`if (param_2 != 4) return;`）② `+0xb0`（当前那条）
+        /// **非空就不再弹**（一颗钮一辈子一次）③ `SetParent(按钮)` ⇒ 挂在**按钮**上
+        /// ④ `localPosition = 设置向量 × tooltipVerticalOffset`（技能那颗 = **−100**）。
+        /// <para>⚠️ ④ 里那个「设置向量」本地取不到（在 `DAT_1842da2a8+0xb8` 那个 SO 里，无实例）
+        /// ⇒ 我们只能定「弹在钮**下方**」+ 一个**我们挑的**距离 <see cref="TooltipDropPx"/>（铁律 3 如实标注）。</para>
+        /// <para>文案优先级：`Option.TooltipTitle/Body` → 选择器那条 `note`（原版正文就是卡上那条技能描述）
+        /// → `TipText.Trait(AltKeyword)`。三处都空 ⇒ 不弹（并**不静默**：见下面那句 warning）。</para></summary>
+        void RefreshAbilityTooltip()
+        {
+            if (!Visible) return;
+            var opt = Find(AttackKind.Ability);
+            bool hot = opt != null && !opt.Hidden && _selected == AttackKind.Ability;
+            if (!hot)
+            {
+                if (_tooltipShown) { Tooltip.Hide(); _tooltipShown = false; }
+                return;
+            }
+            if (_tooltipShown) return;                       // 原版：`+0xb0 != null` ⇒ 不再弹
+            var at = ButtonWorld(AttackKind.Ability);
+            if (at == null) return;
+
+            string body = opt != null && !string.IsNullOrEmpty(opt.TooltipBody) ? opt.TooltipBody : _noteText;
+            string title = opt != null ? opt.TooltipTitle : null;
+            if (string.IsNullOrEmpty(body) && opt != null && !string.IsNullOrEmpty(opt.AltKeyword))
+                body = TipText.Trait(opt.AltKeyword);
+            if (string.IsNullOrEmpty(body))
+            {
+                // 原版这一格一定有正文（`+0xa8` 是卡上那条技能描述）⇒ 我们取不到就是**少一件**，出声。
+                Debug.LogWarning("[Battle] 技能钮 tooltip：没有正文（`Option.TooltipBody` / `note` / `AltKeyword` 都空）"
+                               + " ⇒ 这一下不弹（原版 `HighlightIfNeeded` 是有的）。");
+                return;
+            }
+            string text = string.IsNullOrEmpty(title) ? body : title + "\n" + body;
+            // `anchor: 27` = **下中**（`Tooltip.Show` 那张锚点表）；再往下压 `TooltipDropPx`。
+            Tooltip.Show(text, at.Value, 27, new Vector3(0f, -U(TooltipDropPx), 0f));
+            _tooltipShown = true;
         }
 
         /// <summary>指针是不是在整条槽的范围里（点在槽外 = 取消）。

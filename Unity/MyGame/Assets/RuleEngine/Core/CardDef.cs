@@ -841,7 +841,16 @@ namespace RuleEngine
                        //     `[]` = **明确没有主动能力行**。再叠一层 <see cref="ActiveAbilityLogicVersioned"/>。
                        IEnumerable<ActiveAbilityLogicSpec> activeAbilityLogic = null,
                        // 「这一列**来自 v23 卡表**」的正面信号（只有 `CardDatabase.Parse` 知道）。
-                       bool activeAbilityLogicVersioned = false)
+                       bool activeAbilityLogicVersioned = false,
+                       // 🆕 v25（2026-10-24 · 执行代理 `W2` · `A2` Q7 / `C5` Q4）：**logic 级
+                       //   `targetCriteria` 的其余 36 格**（两条支）。
+                       //   语义 / join 规则 / `lg = -1` 为什么不在这里 → 上面 v25 那一段 property 的 doc
+                       //   （⛔ 别在这里抄第二份）。⚠️ **追加在参数表末尾**（同前几条：全仓有位置传参的老调用点）。
+                       IEnumerable<TargetCriteriaRowSpec> abilityTargetCriteria = null,
+                       // 「这一列**来自 v25 卡表**」的正面信号（只有 `CardDatabase.Parse` 知道）。
+                       bool abilityTargetCriteriaVersioned = false,
+                       IEnumerable<TargetCriteriaRowSpec> activeAbilityTargetCriteria = null,
+                       bool activeAbilityTargetCriteriaVersioned = false)
         {
             Id = id; Name = name; Type = type ?? ""; Desc = desc ?? ""; Rarity = rarity; Faction = faction;
             NameZh = nameZh ?? ""; DescZh = descZh ?? "";
@@ -988,6 +997,45 @@ namespace RuleEngine
                     if (_al != null) _activeAbilityLogic.Add(_al);
             }
             ActiveAbilityLogicVersioned = activeAbilityLogicVersioned;
+            // 🆕 v25（2026-10-24 · 执行代理 `W2`）：logic 级 `targetCriteria` 的 36 格 —— **原样收下**。
+            //   行级的形状校验（缺 `ab`/`lg`、`criteria` 为 null、同 `(ab,lg)` 重复）在
+            //   `CardDatabase.MapTargetCriteriaRows` 那一层就**出声丢弃**；这里只保留一道
+            //   防静默串行的「撞键」检查（⛔ 同一格两份 = 谁赢都说不清，必须看得见）。
+            AbilityTargetCriteriaVersioned = abilityTargetCriteriaVersioned;
+            ActiveAbilityTargetCriteriaVersioned = activeAbilityTargetCriteriaVersioned;
+            if (abilityTargetCriteria != null)
+                foreach (var _tc in abilityTargetCriteria)
+                {
+                    if (_tc == null || _tc.Criteria == null) continue;
+                    if (_tc.Ability < 0 || _tc.Logic < 0) continue;   // 已经出过声（入口那一层）
+                    long _k = CriteriaKey(_tc.Ability, _tc.Logic);
+                    if (_abilityTargetCriteria.ContainsKey(_k))
+                    {
+                        UnityEngine.Debug.LogError(
+                            $"[RuleEngine] 卡「{Name}」（{Id}）的 `abilityTargetCriteria` 有**重复的 "
+                          + $"(ab={_tc.Ability}, lg={_tc.Logic})** —— 后一条已丢弃（⛔ 撞键 = 谁赢都说不清）。"
+                          + "重跑 工具/gen_cards_engine.py。");
+                        continue;
+                    }
+                    _abilityTargetCriteria[_k] = _tc.Criteria;
+                }
+            if (activeAbilityTargetCriteria != null)
+                foreach (var _tc in activeAbilityTargetCriteria)
+                {
+                    if (_tc == null || _tc.Criteria == null) continue;
+                    if (_tc.Ability != ActiveAbilityObject && _tc.Ability != AlternativeAbilityObject) continue;
+                    if (_tc.Logic < 0) continue;
+                    long _k = CriteriaKey(_tc.Ability, _tc.Logic);
+                    if (_activeTargetCriteria.ContainsKey(_k))
+                    {
+                        UnityEngine.Debug.LogError(
+                            $"[RuleEngine] 卡「{Name}」（{Id}）的 `activeAbilityTargets` 有**重复的 "
+                          + $"(ab={_tc.Ability}, lg={_tc.Logic})** —— 后一条已丢弃（⛔ 撞键 = 谁赢都说不清）。"
+                          + "重跑 工具/gen_cards_engine.py。");
+                        continue;
+                    }
+                    _activeTargetCriteria[_k] = _tc.Criteria;
+                }
             // 🔴🆕 v18（`P1·①`）：原版 `AbilityTrigger` 名 → priority —— 原样收下
             //   （`cards_engine.json` 的 `abilityTriggerPriority` 列，**只落 != 1 的行**）。
             //   🔴 合法性闸（缺 `name` / 缺 `trigger` / `priority` 不在 0..3 / 同 key 重复）
@@ -2194,6 +2242,32 @@ namespace RuleEngine
             public int[] FurtherMultiplier;
         }
 
+        /// <summary>🆕 v25（2026-10-24 · 执行代理 `W2` · `A2` Q7 / `C5` Q4）：**logic 级
+        /// `targetCriteria` 的一行**（`cards_engine.json` 的 `activeAbilityTargets` /
+        /// `abilityTargetCriteria` 两列共用）。
+        ///
+        /// <para>原版形状 = 一个完整的 `TargetCriteria`（38 格）。其中 `conditionsFilter` /
+        /// `excludeCondition` 两格已由 v15 的 `unitConditions` 落成那一行的 `cond`/`ex`，
+        /// 本类只带**其余 36 格**（`CountSetSpec` 的字段表，**同一份**，⛔ 别另写一份）。</para>
+        ///
+        /// <para>🔴 `lg` = 该能力对象里 `abilityLogic` / `activeAbilityLogic` 的下标（`>= 0`）；
+        /// `activeAbilityTargets` 的 `Ability` 是 `-1 active` / `-2 alternative`
+        /// （见 <see cref="ActiveAbilityObject"/>），`abilityTargetCriteria` 的是 `cardAbilities` 下标（`>= 0`）。
+        /// ⚠️ `unitConditions` 里 `lg == -1` 的那 27 行是 **ability 级** criteria，
+        /// **不属于任何 logic 行** ⇒ 那两列里没有它们（⛔ 别硬塞进 logic 行）。</para>
+        /// </summary>
+        public sealed class TargetCriteriaRowSpec
+        {
+            /// <summary>`cardAbilities` 下标；主动能力那一路是 `-1` / `-2`。</summary>
+            public int Ability = -1;
+            /// <summary>该 ability 的 `trigger`（只作可读性；消费端按 `(Ability, Logic)` 对齐）。`-1` = 读不到。</summary>
+            public int Trigger = -1;
+            /// <summary>`abilityLogic` 下标（`>= 0`；`-1` = 坏行）。</summary>
+            public int Logic = -1;
+            /// <summary>这一行的 36 格（原版 `TargetCriteria`，除 `cond`/`ex`）。`null` = 坏行。</summary>
+            public CountSetSpec Criteria;
+        }
+
         readonly List<AbilityTargetSpec> _abilityTargets = new List<AbilityTargetSpec>();
 
         /// <summary>🆕 v17：逐 ability 的 `targetsAffected`（**下标 = `cardAbilities` 下标**）。
@@ -2210,6 +2284,65 @@ namespace RuleEngine
         /// `false` = 旧表（&lt; v20）/ 解析路径没接这一列 ⇒ <see cref="AbilityTargetSpec.FurtherMultiplier"/>
         /// 一律 `null`（未知），消费端**不乘**、⛔ 不拿 1 顶（1 也是「乘了但没变」，读不出区别）。</summary>
         public bool AbilityMultipliersVersioned { get; private set; }
+
+        // ==================================================================
+        //  🆕 v25（2026-10-24 · 执行代理 `W2` · `A2` Q7 / `C5` Q4）：
+        //  **logic 级 `targetCriteria` 的其余 36 格**（两条支）
+        // ==================================================================
+        //  原版只有一个对象 —— `AbilityLogic.targetCriteria`（`AbilityLogic.cs:16-17`，`+0x28`）：
+        //    · 普通 ability：`cardAbilities[i].abilityLogic[j].targetCriteria`
+        //      → 本类的 `AbilityTargetCriteriaAt(i, j)`；
+        //    · 主动能力：`activeAbility/alternativeAbility.activeAbilityLogic[j].targetCriteria`
+        //      → `ActiveAbilityTargetCriteriaAt(-1|-2, j)`。
+        //  🔴 **合成顺序 / join 规则**（`C5` Q4，判据 = 全量反编译）：
+        //    · 原版**只有一个 criteria 对象**，`conditionsFilter(+0x38)` / `excludeCondition(+0x3d)`
+        //      就在里面 ⇒ **没有「两列谁先」**；我们拆成两处是**数据形状**，消费端按 `(ab, lg)`
+        //      **拼回一个**：cond/ex 取 `unitConditions` 的 `role="target"` 行
+        //      （`EffectOp.TargetCondition`），其余 36 格取**本类**（`EffectOp.TargetCriteriaSet`）。
+        //    · `unitConditions` 里 `lg == -1` 的 27 行是 **ability 级** criteria
+        //      （`CardAbility.targetCriteria +0x30`，在 `CanTriggerAbility` **触发前**判）
+        //      ⇒ ⛔ 不许合进任何 logic 行（本类只收 `lg >= 0` 的行）。
+        //  ⚠️ **缺行 = 无条件 = 放行**（不是「判不了」）：`conditionsFilter == none(0)` ⇒ 原版
+        //    `MeetsConditionCriteria` 默认支返回 1；生成器也只在 `cond != 0` 时落 `role:"target"` 行。
+        //    本类 `At(...)` 返回 `null` 的语义因此是 **「这一条 logic 没有 36 格数据」**
+        //    （旧表 / 没落 / 该 (ab,lg) 没有行）—— 消费端**不筛**，并**出声**（⛔ 不静默当「筛过了」）。
+
+        readonly Dictionary<long, CountSetSpec> _abilityTargetCriteria = new Dictionary<long, CountSetSpec>();
+        readonly Dictionary<long, CountSetSpec> _activeTargetCriteria = new Dictionary<long, CountSetSpec>();
+
+        /// <summary>🆕 v25：`abilityTargetCriteria` 列**来自 v25 卡表**的正面信号。
+        /// `false` = 旧表（&lt; 25）/ 解析路径没接这一列 ⇒ <see cref="AbilityTargetCriteriaAt"/> 恒 `null`。</summary>
+        public bool AbilityTargetCriteriaVersioned { get; private set; }
+
+        /// <summary>🆕 v25：`activeAbilityTargets` 列**来自 v25 卡表**的正面信号（同上）。</summary>
+        public bool ActiveAbilityTargetCriteriaVersioned { get; private set; }
+
+        /// <summary>🆕 v25：普通 ability 第 <paramref name="ability"/> 条、第 <paramref name="logic"/> 条
+        /// logic 的 36 格 criteria。`null` = **没有这一行 / 旧表**（消费端不筛、并出声）。
+        /// ⚠️ `ability &lt; 0`（active/alternative/卡级）⇒ 恒 `null`（那是另一条支）。</summary>
+        public CountSetSpec AbilityTargetCriteriaAt(int ability, int logic)
+        {
+            if (!AbilityTargetCriteriaVersioned || ability < 0 || logic < 0) return null;
+            CountSetSpec s;
+            return _abilityTargetCriteria.TryGetValue(CriteriaKey(ability, logic), out s) ? s : null;
+        }
+
+        /// <summary>🆕 v25：主动能力对象（<see cref="ActiveAbilityObject"/> / <see cref="AlternativeAbilityObject"/>）
+        /// 第 <paramref name="logic"/> 行的 36 格 criteria。`null` = 没有这一行 / 旧表。</summary>
+        public CountSetSpec ActiveAbilityTargetCriteriaAt(int abilityObject, int logic)
+        {
+            if (!ActiveAbilityTargetCriteriaVersioned || logic < 0) return null;
+            if (abilityObject != ActiveAbilityObject && abilityObject != AlternativeAbilityObject) return null;
+            CountSetSpec s;
+            return _activeTargetCriteria.TryGetValue(CriteriaKey(abilityObject, logic), out s) ? s : null;
+        }
+
+        /// <summary>`(ab, lg)` 的键。`ab` 可以是 `-1` / `-2` ⇒ 用 **左移后异或无符号 lg**，
+        /// ⛔ 别用 `ab * 100 + lg` 那种「靠位数够用」的写法（`lg` 一超界就静默撞键）。</summary>
+        static long CriteriaKey(int ability, int logic)
+        {
+            return ((long)ability << 32) ^ (uint)logic;
+        }
 
         // ==================================================================
         //  🆕 v23（2026-10-24 · 引擎线 `G12`）：**主动能力整条链**
@@ -2511,7 +2644,7 @@ namespace RuleEngine
         }
 
         /// <summary>🆕 v24：把「1 对象/1 行」的值贴到 op 上。`ta`/`fm` 都读不到 ⇒ 不挂、返回 `false`。</summary>
-        static bool AttachSingleActiveRow(ActiveAbilityLogicSpec spec, EffectOp op)
+        bool AttachSingleActiveRow(ActiveAbilityLogicSpec spec, EffectOp op)
         {
             if (spec == null || op == null) return false;
             int ta = ActiveRowInt(spec.TargetsAffected, 0);
@@ -2520,7 +2653,23 @@ namespace RuleEngine
             if (ta >= 0) op.SubjectTargetsAffected = ta;
             if (fm >= 0) op.AbilityFurtherMultiplier = fm;
             op.ActiveAbilityRow = 0;
+            // 🆕 v25（`W2` · `C5` Q4）：同一格 `(ab, lg=0)` 的 36 格 criteria（`activeAbilityTargets`）。
+            AttachActiveTargetCriteria(op, spec.Ability, 0);
             return true;
+        }
+
+        /// <summary>🆕 v25（2026-10-24 · 执行代理 `W2`）：把主动能力 `(ab, lg)` 的 36 格 criteria
+        /// 挂到 op 上（`EffectOp.TargetCriteriaSet`）。旧表 / 取不到行 ⇒ 不挂（见 `EffectOp.TargetCriteriaGap`）。
+        /// ⚠️ 与普通 ability 那一路**同一个落点** —— 消费端不区分来源（`ResolveTargets` 只看 op 上有没有）。</summary>
+        void AttachActiveTargetCriteria(EffectOp op, int abilityObject, int logic)
+        {
+            if (op == null || !ActiveAbilityTargetCriteriaVersioned) return;
+            // 🆕 2026-10-24（`W25`）：坐标先记（日志/排查用；`abilityObject` 是 -1 active / -2 alternative）。
+            op.TargetCriteriaAbility = abilityObject;
+            op.TargetCriteriaLogic = logic;
+            var set = ActiveAbilityTargetCriteriaAt(abilityObject, logic);
+            if (set == null) { op.TargetCriteriaGap = "no-row"; return; }
+            op.TargetCriteriaSet = set;
         }
 
         /// <summary>🆕 v24（2026-10-24 · 执行代理 `E1`）：按**能力种类**把 logic 行配到正文 op 上。
@@ -2588,6 +2737,13 @@ namespace RuleEngine
                     if (ta0 >= 0) op.SubjectTargetsAffected = ta0;
                     if (fm0 >= 0) op.AbilityFurtherMultiplier = fm0;
                     op.ActiveAbilityRow = use[0].Value;
+                    // 🆕 v25（`W2` · `C5` Q4）：36 格 criteria 也按 `(ab, lg)` 挂。
+                    //   ⚠️ **只有同族恰好一行时**才敢挂：多行的 `ta`/`fm` 虽相同，但 36 格
+                    //   criteria **可能不同** ⇒ 挂哪一行都是猜 ⇒ 留 `active-multi-row` 并出声。
+                    if (use.Count == 1)
+                        AttachActiveTargetCriteria(op, use[0].Key.Ability, use[0].Value);
+                    else
+                        op.TargetCriteriaGap = "active-multi-row";
                 }
                 anyAttached = true;
             }

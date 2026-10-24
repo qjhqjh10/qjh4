@@ -150,20 +150,47 @@ namespace CardPresentation
                 return string.IsNullOrEmpty(v) || v == "PlayerProfile/BattleLog" ? PopupButtonFallback : v;
             }
         }
-        /// <summary>按钮矩形（绝对画布像素）—— 右上对齐到内容区右缘、落在列表上方那条空带里。</summary>
-        public static PxRect PopupButtonRect(PxRect page)
+        // ============================================================ 🆕 2026-10-24（`U2` V3）：钮挪进面板
+        //
+        // 旧写法：`y1 = page.y1 + 4`（= 122.92）、高 36 ⇒ 122.92..158.92。
+        // 🔴 **症状（真机 `60_battlelog3.png` 实拍）**：钮**骑在红底面板的金边上** —— 上半截在面板外、
+        //   下半截压在金色描边上（用户报的就是这句）。
+        // 🔴 **为什么是 138 而不是 `page.y1`（118.917）**：面板那张 `UI_Deck_Information_Back`
+        //   九宫格 **上边 `border = 81`**（`PlayerProfileWindow.RedBorder`），而**可见的金边亮线在
+        //   design y ≈ **138**** —— 从实拍逐列取样量出来的（`_tmp_view/shots/2026-10-24_第七十四会话/`
+        //   `60_battlelog3.png`：x = 400/700/1000/1333/1600/1900 六列，亮线都在 136.5..138.8；
+        //   左端 x=300 因圆角落到 149.2）⇒ 钮的上沿取 138 就**不再跨出面板轮廓**。
+        // ⚠️ 这条 138 是**实拍量出来的「我们挑的」**，不是 prefab 字段（字段里只有 118.917 那个矩形角）；
+        //   写在这里是为了「改回旧写法会红」能被断言直接读。
+
+        /// <summary>面板**可见**上缘（设计 px · 实拍量，见上面那一段）。</summary>
+        public const float PanelVisibleTop = 138f;
+        /// <summary>钮高 —— 被夹在「面板可见上缘 138」与「列表上沿 162.84」之间（那条带只有 ~25px 高）。</summary>
+        public const float PopupButtonH = 24f;
+        /// <summary>钮下沿离列表上沿留的空隙（不许压到 `Matches` 第一行）。</summary>
+        public const float PopupButtonGap = 0.5f;
+
+        /// <summary>按钮矩形（绝对画布像素）—— 右上对齐到内容区右缘、**整颗落在面板可见轮廓之内**，
+        /// 纵向与 X 关窗钮同一带（`PlayerProfileWindow.CloseT/CloseB` = 118.92..194.52 之内）。
+        /// <para>🔴 **2026-10-24（`U2` V3）**：改前 `y1 = page.y1 + 4` ⇒ **122.92..158.92** 那颗钮**骑在面板金边上**
+        /// （实拍见上）。现在 = `[面板可见上缘 138, 列表上沿 162.84]` 这条空带里，取满：
+        /// `y1 = 138`、`y2 = min(138 + 24, 162.84 − 0.5) = 162`。</para></summary>
+        public static PxRect PopupButtonRect(PxRect page, PxRect listRect)
         {
-            float h = 36f;
-            float y1 = page.y1 + 4f;                 // 118.917 + 4 = 122.92（离页顶 4、离列表顶还有 ~40）
-            return new PxRect(page.x2 - 240f, y1, page.x2, y1 + h);
+            float y2 = Mathf.Min(PanelVisibleTop + PopupButtonH, listRect.y1 - PopupButtonGap);
+            float y1 = y2 - PopupButtonH;
+            // 兜底：那条带比钮还窄（版面被改坏）⇒ **优先保证「在面板可见轮廓里」**；
+            // 「压到列表」由下面调用点那句防呆拦下（它会出声、不建钮）。
+            if (y1 < PanelVisibleTop) { y1 = PanelVisibleTop; y2 = y1 + PopupButtonH; }
+            return new PxRect(page.x2 - 240f, y1, page.x2, y2);
         }
 
         void BuildOpenPopupButton(PxRect page, PxRect listRect)
         {
             if (_popupBtn != null) return;           // 建过一次就复用（`Build()` 可能被重跑）
-            var r = PopupButtonRect(page);
-            // ⚠️ 别压到列表：这条只是防呆（真值上差着 40px）
-            if (r.y2 > listRect.y1 - 2f) { Debug.LogWarning("[Profile] 对局历史入口与列表重叠了 —— 没建"); return; }
+            var r = PopupButtonRect(page, listRect);
+            // ⚠️ 别压到列表：这条只是防呆（真值上差着 0.8px）
+            if (r.y2 > listRect.y1 - 0.01f) { Debug.LogWarning("[Profile] 对局历史入口与列表重叠了 —— 没建"); return; }
 
             _popupBtn = Node("Open Log Popup Button", r);
             // 底图用壳里那颗通用的 `UI_Button_Mulligan`（**没有九宫 border** ⇒ 走拉伸，同 `DeckSelectionPopup` 那条注释）
@@ -174,9 +201,12 @@ namespace CardPresentation
             //    节点表里**（原版打开点本地查不到，用户 2026-09-27 拍板补的），我们**没有**原版
             //    `m_TextWrappingMode` 可对 ⇒ 按纪律「判据空 ⇒ 保持现状并标明是我们挑的」，**保持**折行。
             //    ⛔ 别把这里改成 `wrap: false` 又当成「复刻」—— 那只是换一种我们挑的写法。
+            // 🔴 **2026-10-24（`U2` V3）**：钮高从 36 收到 24（`PopupButtonH`，被那条 24px 空带夹的）
+            //    ⇒ 字号同步 26 → 20、内边距上下 4 → 3（不然 `autoFit` 会把字压到 12 那一档）。
+            //    ⚠️ 字号同样是**我们挑的**（这颗钮的判据本来就空）。
             Text(_popupBtn, PopupButtonLabel,
-                 new PxRect(r.x1 + 12f, r.y1 + 4f, r.x2 - 12f, r.y2 - 4f),
-                 Color.white, "Button Text", 26f, 4, autoFit: true, autoMinPx: 12f,
+                 new PxRect(r.x1 + 12f, r.y1 + 3f, r.x2 - 12f, r.y2 - 3f),
+                 Color.white, "Button Text", 20f, 4, autoFit: true, autoMinPx: 10f,
                  alignLeft: false, wrap: true);
             // 🔴 **2026-10-12（A323）**：`alignLeft: false` 显式补上 —— **零行为变化**
             //   （`ProfilePage.Text` 的 `alignLeft` 缺省本来就是 `false`）。

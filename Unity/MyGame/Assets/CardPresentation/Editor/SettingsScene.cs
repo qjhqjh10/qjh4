@@ -4540,17 +4540,22 @@ public static class SettingsScene
                     }
                 }
 
-                // ---- ④′ 🔴（🆕 2026-10-19 · `A1048`）联机页那行说明 = **两条键拼出来的** ----
-                //   为什么单开一小段：上面那张 probe 表**一格只装得下一条键**，而这一行是
-                //   `Loc.T(TitleNote) + "\n" + Loc.T(TitleNoteBody)` —— 它正是 `_onLabels` 那条链**存 `Action`
-                //   而不是存 `Keyed`** 的两个理由之一（另一个 = 占位符那颗字不在 `Label` 上）。
+                // ---- ④′ 🔴（🆕 2026-10-19 · `A1048`）联机页那行说明 ----
+                //   为什么单开一小段：上面那张 probe 表**一格只装得下一条键**，而这一行是 `Build()` 里只画一次的
+                //   （`_onLabels` 那条链**存 `Action` 而不是存 `Keyed`**）。
                 //   ⇒ 这一条要是没接上（或 `RefreshTexts()` 漏扫那条链），玩家看到的是**旧语言**的说明行，
                 //     而上面那张表**照不到它**。判据 = 切档 + `RefreshTexts()` 之后**整句**跟上。
+                //   🔴 **2026-10-24（第七十四会话 · `W7`）就地改（铁律 5）**：这一行原来断的是
+                //   `Loc.T(TitleNote) + "\n" + Loc.T(TitleNoteBody)` 的**整句**。真机 F15 ③（`W3`）之后，
+                //   开发说明那半句（`Settings/Online/TitleNote` =「这一页不是原版……」）**已经不上屏**
+                //   （判据 → `Shell/SettingsWindow.cs` 的 `BuildOnlinePage` 那段「④ 说明行」，已无绘制点）
+                //   ⇒ 旧期望值**必红**。现在只断 `TitleNoteBody`，并**加一条负断言**「不含 `TitleNote`」
+                //   （后者才是真检测器：谁把那半句加回屏上就红）。
                 {
                     var noteOn = FindChild(FindChild(root, "Online Tab"), "Note");
                     CheckTrue(noteOn != null, "（`A1048` 前提）`Online Tab > Note` 取得到（下面才有对象可量）");
-                    CheckTrue(Loc.HasEntry("Settings/Online/TitleNote") && Loc.HasEntry("Settings/Online/TitleNoteBody"),
-                              "（`A1048` 前提）拼这一行的**两条键**都在表里"
+                    CheckTrue(Loc.HasEntry("Settings/Online/TitleNoteBody"),
+                              "（`A1048` 前提）`Settings/Online/TitleNoteBody` 在表里"
                             + "（⛔ 缺键时 `Loc.T` 返回键名本身 ⇒ 下面那条会拿键名当期望值、假绿）");
                     string gotZh = null, gotEn = null;
                     for (int L = 0; L < b1Langs.Length; L++)
@@ -4559,11 +4564,11 @@ public static class SettingsScene
                         Loc.SetLanguage(b1Langs[L]);
                         win.RefreshTexts();
                         string got = noteOn != null ? TextOf(noteOn) : null;
-                        string want = Loc.T("Settings/Online/TitleNote") + "\n" + Loc.T("Settings/Online/TitleNoteBody");
+                        string want = Loc.T("Settings/Online/TitleNoteBody");
                         if (zh) gotZh = got; else gotEn = got;
                         Check(got, want,
-                              $"★（`A1048` · {(zh ? "中文档" : "英文档")}）联机页那行说明 = `Loc.T(\"Settings/Online/TitleNote\") "
-                            + "+ \"\\n\" + `Loc.T(\"Settings/Online/TitleNoteBody\")`（实得「{got}」）"
+                              $"★（`A1048` · {(zh ? "中文档" : "英文档")}）联机页那行说明 = `Loc.T(\"Settings/Online/TitleNoteBody\")`"
+                            + $"（实得「{got}」）"
                             + "；改坏法：这一行没登记进 `_onLabels`（或 `RefreshTexts()` 漏扫那条链）"
                             + " ⇒ 换语言后它**停在旧语言** ⇒ 另一档红");
                     }
@@ -4573,6 +4578,15 @@ public static class SettingsScene
                     CheckTrue(gotZh != null && gotEn != null && Loc.HasCjk(gotZh) && !Loc.HasCjk(gotEn),
                               "🔴（`A1048` 灭自证）…而且中文那列含汉字、英文那列不含（`Loc.HasCjk`）"
                             + " —— 这一条把「确实读了两列」与「两档只是随手拼了两串」分开");
+                    // 🔴 **负断言**：这一行**不许**含开发说明那半句（`Settings/Online/TitleNote`）。
+                    //   它现在在 `Core/Loc.cs` 里仍是孤儿键（零绘制点）；谁把它拼回屏上 ⇒ 这条红。
+                    string devNote = Loc.T("Settings/Online/TitleNote");
+                    bool devKeyExists = Loc.HasEntry("Settings/Online/TitleNote");
+                    CheckTrue(gotZh != null && gotEn != null
+                              && (!devKeyExists || string.IsNullOrEmpty(devNote)
+                                  || (gotZh.IndexOf(devNote) < 0 && gotEn.IndexOf(devNote) < 0)),
+                              "🔴（`A1048` 负断言）这一行**不含**开发说明 `Settings/Online/TitleNote`"
+                            + $"（那条键的文本是「{devNote}」）—— 玩家不该在设置窗里读到开发说明（真机 F15 ③）");
                     // 旁证 —— ⛔ **不能单独当判据**（登记了不生效照样能过这一条；真判据 = 上面那些字真的变了）
                     CheckTrue(win.OnLabelCount >= 15,
                               $"（`A1048` 旁证）`_onLabels` 链上挂着 **{win.OnLabelCount}** 条"

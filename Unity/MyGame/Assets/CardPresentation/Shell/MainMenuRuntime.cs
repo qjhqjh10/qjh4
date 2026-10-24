@@ -819,6 +819,40 @@ namespace CardPresentation
         /// 事件 `Instantiate`）；本机**没有事件列表** ⇒ 本仓建**一颗**总入口钮（如实标，⛔ 不是原版的一对一映射）。</para></summary>
         public enum NavigationPanelToggleType { Main = 0, Collection = 1, Shop = 2, Rewards = 3, Social = 4, Event = 5 }
 
+        // ============================================================ 🔴 **2026-10-24（用户口径）：左竖导航暂时只留两颗**
+        //
+        // 用户原话：「**游戏里左边导航栏那里按钮，保留游戏和收藏两个按钮及其界面，下面的商店、奖励、活动等按钮隐藏，
+        // 暂时不需要。**」
+        // ⇒ `PLAY`(0) / `COLLECTION`(1) **显示**；`SHOP`(2) / `REWARDS`(3) / `SOCIAL`(4) / `EVENT`(5) **隐藏**。
+        //
+        // 🔴 **隐藏 = 不显示 + 点不到，⛔ 不是删功能**（铁律 11 仍然成立：这是用户拍板的【暂时】口径）：
+        //   · **节点照建**（几何 / 文案 / 图标 / 红点全在，`menu.Find(name)` 照样取得到 ⇒ 既有几何断言基线一条都不用动），
+        //     建完只 `SetActive(false)` ⇒ 画面上不出现（`ImageQuad` 是自带 `MeshRenderer` 的普通 GO，
+        //     GameObject 不活就**根本不渲染**，不存在「自己那套批处理绕过 activeSelf」这种事）；
+        //   · **命中区 `Hit` 一律不建**（`NavButton` 里命中那一段整段跳过）⇒ 没有 `WindowButton`
+        //     ⇒ `PointerLayer.AllButtons()`（`FindObjectsByType<WindowButton>`，默认不收 inactive）**收不到它**
+        //     ⇒ **真鼠标点不到、方向键也走不到**。
+        //     ⛔ 只 `SetActive(false)` 不够（历史坑「藏起来了却点得到」→ `资料/真Play待验清单.md` E12）；
+        //        本仓的命中是**另建的透明 quad + `WindowButton`** ⇒ **不建它 = 物理上不存在**，这才是硬保证。
+        //   · **空位保留**（不上移）：步进仍 153.33、`Shop` 仍在 y=450.1。原版没有「只显示两颗」这一档，
+        //     这是用户口径下的取舍；**保留空位 = 改动最小、且既有几何/步进断言基线一条都不用动**。
+        //   · **开窗代码一个字都不动**：`OnNavClick` 那 6 个 `case` 全留着，
+        //     `OpenShop` / `OpenRewards` / `OpenSocial` / `WindowsManager.OpenEventHub` 照样能从别处调到。
+        //
+        // 🔴 **恢复办法（一个开关）**：把 `OnlyPlayAndCollection` 改成 `false` ⇒ 六颗全回来（命中区也一起建）。
+        public const bool OnlyPlayAndCollection = true;
+
+        /// <summary>第 <paramref name="idx"/> 颗导航钮**这一版显示吗**（`PLAY`/`COLLECTION` 恒显示，见上）。
+        /// <para>🔴 **生产（`NavButton` / `SelectNav`）与自检共用这一处** —— ⛔ 别在自检里再写一份 `idx &lt; 2`
+        /// （两份迟早不一致；恢复开关一翻，两边一起跟着变才对）。</para>
+        /// <para>⚠️ 越界（`idx &lt; 0` 或 `&gt;= 6`）返回 `false`：那是**调用点写错**，由
+        /// `LightNavToggle` / `SelectNav` 各自的越界分支出声，⛔ 不要在这里吞掉。</para></summary>
+        public static bool NavItemShown(int idx)
+        {
+            if (idx < 0 || idx >= 6) return false;
+            return idx < 2 || !OnlyPlayAndCollection;
+        }
+
         /// <summary>**点亮左竖导航第 i 颗** —— 本仓的 `NavigationPanelController.SetToggle`（判据见上面那一段）。
         /// <para>**为什么是 static**：调用点散布在别的类 / 别的场景（`GameWindow.ESCPressed` 在
         /// `Shell/WindowsManager.cs`，而卡组编辑、对战那些场景**没有** `MainMenuRuntime` 实例）——
@@ -955,6 +989,13 @@ namespace CardPresentation
                                  + " 颗 ⇒ **这一下不改高亮**（调用点越界了？）");
                 return;
             }
+            // 🔴 **2026-10-24（用户口径）：被隐藏的那四颗 —— 灯不动。**
+            //   为什么不能照挪：`SelectedNav` 一挪，本方法会把**可见那颗**的高亮撤掉、再往一棵
+            //   `SetActive(false)` 的子树里重建 ⇒ 画面上变成「左栏一颗都不亮」（而且没有任何报错）。
+            //   为什么不是告警：调用点**仍然合法** —— `OpenShop/OpenRewards/OpenSocial` 开窗后照旧调
+            //   `SetNavToggle(自己的那一颗)`，`GameWindow.ESCPressed` 也可能要 `SetMainToggle`；
+            //   隐藏这几颗是**有意**的，所以这是「有意不做事」，不是失败（判据见 `OnlyPlayAndCollection` 那一段）。
+            if (!NavItemShown(idx)) return;
             if (idx == SelectedNav)
             {
                 // 🔴 **`A1638`：幂等**（原版 `SetToggle` 逐字就是幂等的 —— `m_IsOn` 为真时什么都不做）。
@@ -993,6 +1034,11 @@ namespace CardPresentation
             //    它就是 `SelectNav` / `RepaintNavHighlight` 的取件口（见 `_navBtns` 那段）。
             _navBtns.Clear(); _navBands.Clear(); _navHiTints.Clear();
             _navHitQuads.Clear();                 // 🆕 N117：旧面板的命中区随重建一起作废（见 RefreshNavHitQueue）
+            // 🔴 **2026-10-24（用户口径）**：`SelectedNav` 是**实例字段**（跨 `Build()` 保留）。若它停在一颗
+            //   **被隐藏**的编号上（恢复开关从 false 翻回 true、或某个夹具直接写过这个字段），下面
+            //   `NavButton` 的「`idx == SelectedNav` 才画高亮」就**一颗都画不出来**，而 `SelectNav` 又会因
+            //   隐藏早退 ⇒ **永远没有高亮**（静默）。⇒ 建树之前先把它拉回一颗显示着的编号（`Main`）。
+            if (!NavItemShown(SelectedNav)) SelectedNav = 0;
             // A332：原版 `Navigation Panel` = 191 × 1080（`anchor (0,0)-(0,1)` + `sizeDelta.x 191` ⇒ 整高）
             // 🔴 **2026-10-11（FX6）修**：第二实参原来写 `LayoutSpace.DesignHeight`（**世界单位** 10，不是 px 1080）
             //   ⇒ 高被除两次 108、`rect.height` 只剩 0.093。本行是干净的正对照：宽 `191f` 是 px ⇒ 那条断言本来就过。
@@ -1108,7 +1154,8 @@ namespace CardPresentation
                     + " —— 判据 = `bundle_liveopsicons_assets_all/Sprite/40k_main_bt_event.json` + "
                     + "`Event Navigation Button/Image` 的 `MonoBehaviour_-1269977380222428235.json`（现读）。");
 
-            // 🆕 **2026-10-19（N117）**：六颗命中区建完，按「当前最上面那扇窗」落一次档
+            // 🆕 **2026-10-19（N117）**：六颗建完（⚠️ **2026-10-24 起只有显示着的那几颗有命中区** ——
+            //   被隐藏的四颗整段跳过，见 `OnlyPlayAndCollection`），按「当前最上面那扇窗」落一次档
             //   （重建左栏之后旧 quad 已经销毁 ⇒ 上面那几句 `_navHitQuads.Clear()` 把它们丢了，
             //    不在这里补一次的话会停在**新建时的默认档** = `QNavHit` —— 模态窗开着时就是错的）。
             RefreshNavHitQueue();
@@ -1246,6 +1293,25 @@ namespace CardPresentation
             //   · 并集 ⇒ 每颗只跨 **1.7…157.7**（钮底 12 px 死区），相邻两颗只叠 **2.615 px**，
             //     且重叠带里**后兄弟（Rewards）在上层必赢**（uGUI 遍历序，见 `PointerLayer` 的平局判据）。
             // ⇒ 命中区 = 这三块的 `MenuDraw.Union`（全工程唯一一份；⛔ 别在别处再写一份并集算式）。
+            // ============================================================ 🔴 **2026-10-24（用户口径）：这一颗被隐藏时的收尾**
+            //
+            // 判据与恢复办法 → 上面 `OnlyPlayAndCollection` 那一段。**走到这里时子件已经全建好了**
+            // （图标 / 文案条 / 文案 / 红点都在 ⇒ 自检的几何断言照样量得到、`menu.Find` 照样取得到），
+            // 只差最后两件事：
+            //   ① **整颗 `SetActive(false)`** ⇒ 不显示（`ImageQuad` 自带 `MeshRenderer`，GO 不活就根本不渲染）；
+            //   ② **命中区一颗都不建**（下面 `MenuDraw.Hit` 那一段整段跳过）⇒ 没有 `WindowButton`
+            //      ⇒ `PointerLayer` 的按钮表里根本没有它 ⇒ **真鼠标点不到、方向键也走不到**。
+            // ⛔ 别把这里改成「建完命中区再 SetActive(false)」：那是历史坑「藏起来了却点得到」的形状
+            //    （`资料/真Play待验清单.md` E12）—— 命中的存在与否必须与可见性一致。
+            if (!NavItemShown(idx))
+            {
+                b.gameObject.SetActive(false);
+                Debug.Log("[Menu] 左竖导航第 " + (idx + 1) + " 颗（" + name + "）按 2026-10-24 用户口径**隐藏**："
+                        + "节点照建（`SetActive(false)`，几何/文案/图标都在）、**命中区不建**（真鼠标点不到）"
+                        + " —— 恢复 = 把 `MainMenuRuntime.OnlyPlayAndCollection` 改成 `false`");
+                return;
+            }
+
             var hitR = MenuDraw.Union(
                 new PxRect(ix1, iy1, ix2, iy1 + ih),        // 图标 `Image`（140×140；Home 137.435）
                 textBgR,                                    // `Text Background`（+ 同格的 TMP `Text`）

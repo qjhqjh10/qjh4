@@ -809,6 +809,94 @@ public static class MainMenuScene
         CheckAt(FindChild(menu.Find("Main Menu Navigation Button - Home"), "Selected highlight"),
                 -0.3f, 164.0f, 143.4f, 313.1f, "**选中态高亮**在 `Home` 的整按钮矩形上（原版 5 个出厂都 active）");
 
+        // ============================================================ 🔴 **2026-10-24（用户口径）：左竖导航只留两颗**
+        //
+        // 用户原话：「游戏里左边导航栏那里按钮，**保留游戏和收藏两个按钮及其界面**，下面的商店、奖励、活动等按钮**隐藏**，
+        // 暂时不需要。」
+        // ⇒ `PLAY`(0) / `COLLECTION`(1) 显示；`SHOP`(2) / `REWARDS`(3) / `SOCIAL`(4) / `EVENT`(5) **隐藏**。
+        // 判据 / 恢复办法 → `Shell/MainMenuRuntime.cs` 的 `OnlyPlayAndCollection` 那一段。
+        //
+        // 🔴 这一节断的是**状态**（⛔ 不是「节点找得到」—— `Find` / `FindChild` 都含 inactive，
+        //    只断存在性的话「显示」与「隐藏」两种状态都会绿；本工程已经为此踩过四次）：
+        //   ① 两颗显示的：`activeSelf` = true；
+        //   ② 四颗隐藏的：节点**照建**（隐藏不是删除）+ `activeSelf` = false + **命中区节点不存在** + 子件还在；
+        //   ③ 「点不到」的硬判据：`Buttons Container` 整棵子树里 `WindowButton` **恰好 2 颗**
+        //      （`WindowButton` 只由 `MenuDraw.Hit` 建 ⇒ 数量就是「有几颗能点」）；
+        //   ④ 指针实测：`Shop` 图标中心 / 事件钮图标中心 ⇒ `ButtonAt` 谁都取不到（**另配一颗正对照**：
+        //      `Collection` 图标中心**必须**取得到它自己 —— 否则「取到 null」也可能是指针这条路本身坏了）。
+        Section("★ 2026-10-24 用户口径：左竖导航只留 `PLAY` / `COLLECTION`，其余四颗隐藏且点不到");
+        {
+            var navBar = FindChild(nav, "Buttons Container");
+            CheckTrue(navBar != null, "（前提）`Buttons Container` 在场");
+            var shownNav = new[] { "Main Menu Navigation Button - Home", "Main Menu Navigation Button - Collection" };
+            var hiddenNav = new[] { "Main Menu Navigation Button - Shop", "Main Menu Navigation Button - Rewards",
+                                    "Main Menu Navigation Button - Social", "Event Navigation Button" };
+            for (int i = 0; i < shownNav.Length; i++)
+            {
+                var nS = menu.Find(shownNav[i]);
+                CheckTrue(nS != null && nS.gameObject.activeSelf,
+                          $"★ 显示的导航钮 `{shownNav[i]}` **`activeSelf` = true**（`PLAY` / `COLLECTION` 两颗照旧）");
+            }
+            for (int i = 0; i < hiddenNav.Length; i++)
+            {
+                var nH = menu.Find(hiddenNav[i]);
+                CheckTrue(nH != null,
+                          $"★ 隐藏的导航钮 `{hiddenNav[i]}` **节点照建着**（⛔ 隐藏不是删除：几何 / 文案 / 图标都在，"
+                        + "恢复开关一翻就回来；把 `NavButton` 改成「干脆不建节点」⇒ 本条红）");
+                if (nH == null) continue;
+                CheckTrue(!nH.gameObject.activeSelf,
+                          $"★ …`{hiddenNav[i]}` **`activeSelf` = false**（不显示 —— 只断「节点在」抓不到这一档）");
+                CheckTrue(FindChild(nH, "Hit") == null,
+                          $"★ …`{hiddenNav[i]}` **没有命中区 `Hit`**（⛔ 只 `SetActive(false)` 不够："
+                        + "历史坑「藏起来了却点得到」；本仓的命中靠另建的 `MenuDraw.Hit` + `WindowButton` ⇒ **不建 = 点不到**）");
+                CheckTrue(FindChild(nH, "Image") != null && FindChild(nH, "Text Background") != null,
+                          $"★ …`{hiddenNav[i]}` 的**子件都还在**（图标 + 文案条）—— 隐藏不许顺手砍树");
+            }
+
+            var navWbs = navBar != null ? navBar.GetComponentsInChildren<WindowButton>(true) : new WindowButton[0];
+            Check(navWbs.Length, 2,
+                  "★ `Buttons Container` 子树里**只有 2 颗 `WindowButton`**（= 显示着的那两颗导航钮）"
+                + " —— `WindowButton` 只由 `MenuDraw.Hit` 建 ⇒ 这个数就是「有几颗能点」；"
+                + "🧨 恢复成六颗时，本条要跟着改成 6");
+
+            // ④ 指针实测（正对照 + 两个反例，三条一起看才有鉴别力）
+            var navPl = PointerLayer.Instance;
+            CheckTrue(navPl != null, "（前提）`PointerLayer.Instance` 取得到（取不到 ⇒ 下面三条等于没查）");
+            var navCollectionWb = NavHitButton(menu, "Collection");
+            if (navPl != null && navCollectionWb != null && navBar != null)
+                CheckTrue(!PointerLayer.InputBlocked,
+                          "（前提）指针命中没被遮罩 / 转圈件挡住（`PointerLayer.InputBlocked` = false）"
+                        + " —— 挡住时下面三条等于没查（`HitButton` 第一句就返回 null）");
+            if (navPl != null && navCollectionWb != null && navBar != null && !PointerLayer.InputBlocked)
+            {
+                var frame = navBar;      // 换算帧取左栏那一级（与按钮同级缩放；只用来把设计 px 换到指针那一帧）
+                var cCollect = MenuCheck.PointerFramePxFromDesign(new Vector2(82.8f, 368.4f), frame);   // Collection 图标中心
+                CheckTrue(navPl.ButtonAt(cCollect.x, cCollect.y) == navCollectionWb,
+                          "（正对照）指针落在 **`Collection` 图标中心**（设计 82.8, 368.4）⇒ 命中它自己的那颗 `WindowButton`"
+                        + " —— 这条绿才说明下面两条的「取到 null」是指针这条路**正常工作**的结果");
+                var cShop = MenuCheck.PointerFramePxFromDesign(new Vector2(82.8f, 521.8f), frame);       // Shop 图标中心
+                var gotShop = navPl.ButtonAt(cShop.x, cShop.y);
+                CheckTrue(gotShop == null,
+                          "★ 指针落在 **`Shop` 图标中心**（设计 82.8, 521.8）⇒ **谁都点不到**"
+                        + $"（实得 `{(gotShop != null ? gotShop.name : "<null>")}`）"
+                        + " —— 那颗钮已隐藏、命中区没建（🧨 改回「先建命中区再 SetActive(false)」⇒ 本条红）");
+                var cEvent = MenuCheck.PointerFramePxFromDesign(new Vector2(82.8f, 981.7f), frame);      // 事件钮图标中心
+                var gotEvent = navPl.ButtonAt(cEvent.x, cEvent.y);
+                CheckTrue(gotEvent == null,
+                          "★ 指针落在 **第 6 颗（事件钮）图标中心**（设计 82.8, 981.7）⇒ **谁都点不到**"
+                        + $"（实得 `{(gotEvent != null ? gotEvent.name : "<null>")}`）");
+            }
+
+            // 恢复开关本身也钉一下（这一版口径是「只留两颗」）
+            CheckTrue(MainMenuRuntime.OnlyPlayAndCollection,
+                      "★ 恢复开关 `MainMenuRuntime.OnlyPlayAndCollection` = **true**（= 当前这一版口径）"
+                    + " —— ⚠️ 真要恢复六颗：把它改成 false，并把本节（含上面「只有 2 颗 `WindowButton`」）一起改掉");
+            CheckTrue(MainMenuRuntime.NavItemShown(0) && MainMenuRuntime.NavItemShown(1)
+                   && !MainMenuRuntime.NavItemShown(2) && !MainMenuRuntime.NavItemShown(3)
+                   && !MainMenuRuntime.NavItemShown(4) && !MainMenuRuntime.NavItemShown(5),
+                      "★ `NavItemShown` 逐颗 = **显示·显示·隐藏·隐藏·隐藏·隐藏** —— 生产与自检共用的就是这一个判据口");
+        }
+
         // ============================================================ 🆕 **2026-10-23（活动线 `L01`/`L03` 收尾）：
         // **左竖导航第 6 颗 = 「事件钮」**（原版 prefab 真名 `Event Navigation Button`）
         //
@@ -881,8 +969,12 @@ public static class MainMenuScene
                     }
                 }
                 var evHit = FindChild(evNav, "Hit");
-                CheckTrue(evHit != null && evHit.GetComponentInChildren<WindowButton>(true) != null,
-                          "第 6 颗有命中区 `Hit` + `WindowButton`（否则**真鼠标点不动** —— 只有「节点在」不算数）");
+                // 🔴 **2026-10-24（用户口径 · 就地改写期望值，铁律 5）**：这一条原来断「第 6 颗**有**命中区 +
+                //   `WindowButton`」。用户 2026-10-24 拍板把第 3~6 颗隐藏 ⇒ 第 6 颗**命中区不建**
+                //   ⇒ 旧期望已不成立。新期望 = 「**没有命中区**（= 真鼠标点不到）」，⛔ 不是删掉这条断言。
+                CheckTrue(evHit == null,
+                          "第 6 颗**没有命中区 `Hit`**（2026-10-24 用户口径：这一颗隐藏 ⇒ 不显示也点不到）"
+                        + " —— 🧨 改回「建完命中区再 SetActive(false)」⇒ 本条红（那就是「看不见却点得到」）");
             }
             // 统计口径：导航钮一共 **6** 颗（5 颗 `Main Menu Navigation Button - *` + 1 颗 `Event Navigation Button`）
             int navCount = 0;
@@ -978,6 +1070,7 @@ public static class MainMenuScene
                                     "Main Menu Navigation Button - Social", "Event Navigation Button" };
             for (int i = 0; i < navOrder2.Length; i++)
             {
+                int navBeforeI = menu.SelectedNav;      // 🔴 2026-10-24：被隐藏的那几颗要断「灯原地不动」
                 MainMenuRuntime.SetNavToggle((MainMenuRuntime.NavigationPanelToggleType)i);
                 int litI = 0;
                 for (int j = 0; j < navNodes2.Length; j++)
@@ -985,26 +1078,47 @@ public static class MainMenuScene
                     var hj = FindChild(menu.Find(navNodes2[j]), "Selected highlight");
                     if (hj != null && hj.gameObject.activeSelf) litI++;
                 }
-                var wantHl = FindChild(menu.Find(navNodes2[i]), "Selected highlight");
-                CheckTrue(litI == 1 && wantHl != null && wantHl.gameObject.activeSelf,
-                          $"★ `SetNavToggle({(MainMenuRuntime.NavigationPanelToggleType)i})` ⇒ "
-                        + $"**恰好 `{navOrder2[i]}` 那一颗亮**（实测亮 {litI} 颗）"
-                        + " —— 判据 = 原版 `SetToggle`（收藏 1 / 商店 2 / 奖励 3 / 活动 5 四条入口用的就是它）；"
-                        + "🧨 把某个入口写回裸魔数、或漏掉一颗 ⇒ 这里立刻红");
+                if (MainMenuRuntime.NavItemShown(i))
+                {
+                    var wantHl = FindChild(menu.Find(navNodes2[i]), "Selected highlight");
+                    CheckTrue(litI == 1 && wantHl != null && wantHl.gameObject.activeSelf,
+                              $"★ `SetNavToggle({(MainMenuRuntime.NavigationPanelToggleType)i})` ⇒ "
+                            + $"**恰好 `{navOrder2[i]}` 那一颗亮**（实测亮 {litI} 颗）"
+                            + " —— 判据 = 原版 `SetToggle`（收藏 1 / 商店 2 / 奖励 3 / 活动 5 四条入口用的就是它）；"
+                            + "🧨 把某个入口写回裸魔数、或漏掉一颗 ⇒ 这里立刻红");
+                }
+                else
+                {
+                    // 🔴 **2026-10-24（用户口径 · 就地改写期望值）**：第 3~6 颗**已隐藏**（判据 →
+                    //   `MainMenuRuntime.OnlyPlayAndCollection`）⇒ `SetNavToggle` 对它们是**有意不动灯**。
+                    //   这不是「弱化断言」，是**换了一个期望值**：
+                    //   灯必须**原地不动**，且六颗里仍然**恰好一颗**亮（⛔ 不许把灯挪到一棵 `SetActive(false)`
+                    //   的子树里 —— 那样可见那两颗的高亮会被撤掉、左栏变成一颗都不亮）。
+                    Check(menu.SelectedNav, navBeforeI,
+                          $"★ `SetNavToggle({(MainMenuRuntime.NavigationPanelToggleType)i})`"
+                        + $"（= `{navOrder2[i]}`，**已按 2026-10-24 口径隐藏**）⇒ **灯原地不动**"
+                        + "（🧨 把 `SelectNav` 里那条 `NavItemShown` 早退删掉 ⇒ 本条红）");
+                    Check(litI, 1,
+                          $"…六颗里仍然**恰好一颗**亮着（实测 {litI} 颗）—— 隐藏那颗不许把灯带走");
+                }
             }
             // 摆回基线：最后停在 `Main`（这一格之后还有别的段要读导航状态）
             MainMenuRuntime.SetNavToggle(MainMenuRuntime.NavigationPanelToggleType.Main);
-            // 🆕 2026-10-23：第 6 颗 `Event` **现在真的建出来了** ⇒ `SetNavToggle(Event)` 必须点亮它。
-            //   🔴 **就地订正（铁律 5）**：本行原来断的是「本仓没建那颗钮 ⇒ 高亮停在 `Home` 不动」——
-            //   那条随 `BuildNavigationPanel` 末尾那颗 `Event Navigation Button` 落地而**不再成立**。
+            // 🔴 **2026-10-24 就地改写（铁律 5 · 用户口径）**：这一条原来断的是
+            //   「`SetNavToggle(Event)` ⇒ **第 6 颗点亮、`Home` 灭**」。用户 2026-10-24 拍板把第 6 颗**隐藏**了
+            //   ⇒ 那个期望值**已经不再成立**（再要它绿就只能给隐藏那颗重新建命中区/高亮 —— 正是要避免的）。
+            //   新期望 = 「**隐藏那颗拨不动灯**」：灯仍在 `Main`、`Home` 亮着、第 6 颗底下没有亮着的高亮。
+            //   ⛔ 没有把断言删掉了事 —— 反过来把「隐藏的四颗不许改灯」钉成断言。
             MainMenuRuntime.SetNavToggle(MainMenuRuntime.NavigationPanelToggleType.Event);
             var hlEvent = FindChild(menu.Find("Event Navigation Button"), "Selected highlight");
             var hlHome = FindChild(menu.Find("Main Menu Navigation Button - Home"), "Selected highlight");
-            CheckTrue(hlEvent != null && hlEvent.gameObject.activeSelf
-                   && (hlHome == null || !hlHome.gameObject.activeSelf),
+            CheckTrue(hlEvent == null || !hlEvent.gameObject.activeSelf,
                       "★ `SetNavToggle(Event)`（原版 `BaseParentEventWindow__Open.c` 那句 `SetToggle(nav, 5)`）"
-                    + " ⇒ **第 6 颗 `Event Navigation Button` 点亮、`Home` 灭**"
-                    + " —— ⛔ 不许静默失败（`LightNavToggle` 现在是真·越界才出声，不是「第 6 颗没有」）");
+                    + " ⇒ 第 6 颗**不点亮**（它已按 2026-10-24 用户口径隐藏）");
+            Check(menu.SelectedNav, 0, "…而且**灯没有被动**（仍在第 1 颗 `Main`）—— 隐藏那颗不许把灯拽走");
+            CheckTrue(hlHome != null && hlHome.gameObject.activeSelf,
+                      "…`Home` 的选中高亮**照样亮着**（🧨 把 `SelectNav` 里那条 `NavItemShown` 早退删掉 ⇒ 本条红："
+                    + "灯会被挪到一棵关着的子树里，可见的左栏一颗都不亮）");
             MainMenuRuntime.SetNavToggle(MainMenuRuntime.NavigationPanelToggleType.Main);
 
             // ---- ② A1637：`Player Level` 那颗徽章画的是【圆环】，不是金砖 ------------------
@@ -1101,8 +1215,13 @@ public static class MainMenuScene
             var navHover = new Color(0.7216981f, 0.8151793f, 1f, 1f);   // 原版 `m_Colors.m_HighlightedColor`，五颗逐值相同
             CheckHoverTint(NavHitButton(menu, "Home"), NavIconQuad(menu, "Home"), navHover,
                            "★ `Home` 悬停");
-            CheckHoverTint(NavHitButton(menu, "Social"), NavIconQuad(menu, "Social"), navHover,
-                           "★ `Social` 悬停（第二颗对照 —— 五颗共用同一套判据）");
+            // 🔴 **2026-10-24 换对照（铁律 5 · 用户口径）**：第二颗对照原来用 `Social`，而它现在**已隐藏**
+            //   （没有命中区 ⇒ 没有 `WindowButton` ⇒ 「悬停」这个动作对它不存在）。
+            //   ⇒ 换成 `Collection`（显示着的另外那颗）：断的仍是同一条规则「五颗共用同一套
+            //   `m_Colors.m_HighlightedColor`」，只是样本换成这一版真正能悬停的一颗。
+            //   ⚠️ 隐藏那四颗的「悬停不适用」由本节上面的反向断言（没有 `Hit`）守着。
+            CheckHoverTint(NavHitButton(menu, "Collection"), NavIconQuad(menu, "Collection"), navHover,
+                           "★ `Collection` 悬停（第二颗对照 —— 五颗共用同一套判据）");
         }
 
         Section("顶栏（§五 B：`Upper bar` 0..100 · 齿轮 1803..1891 · 三个钮**按 HLG 算**）");
@@ -2051,12 +2170,25 @@ public static class MainMenuScene
                 //   ⇒ Home：x 4.6..160.9 / y 顶+3.0..顶+157.7 = **156.3 × 154.7**；
                 //     其余四颗：x 9.3..156.2 / y 顶+1.7..顶+157.7 = **146.9 × 156.0**。
                 //   判据（逐字段实读 + 为什么必须改）→ `资料/普查产出_1022/W62_缺陷诊断.md` §D2。
-                mbox(FindChild(nb, "Hit"), $"导航钮 `{navNames[i]}` 的命中区 `Hit`",
-                     i == 0 ? 156.3f : 146.9f, i == 0 ? 154.7f : 156.0f,
-                     "⚠️ **我们自己的节点**（原版没有 `Hit` 子件；原版靠钮自己挂的 `EverguildToggle` 收射线）"
-                     + "，**但矩形照原版可射线件的并集**：`Image` 140×140 + `Text Background` 146.92×39.39"
-                     + " + `Badge Highlight` 35×35（各块 `m_RaycastPadding` 全 0）"
-                     + " ⇒ ⛔ **不是整颗钮 164.31 × 169.68**（那个写法让相邻钮命中区叠 16.4px，点「奖励」会命中「商店」）");
+                // 🔴 **2026-10-24（用户口径）**：`Shop` / `Rewards` / `Social` 三颗**已隐藏**（不显示、命中区不建）
+                //   ⇒ 它们的 `Hit` 这一条**必须改成反向断言**（「没有命中区」= 点不到），⛔ 不是删掉。
+                //   显示着的那两颗仍然按原版可射线件的并集量。
+                if (MainMenuRuntime.NavItemShown(i))
+                {
+                    mbox(FindChild(nb, "Hit"), $"导航钮 `{navNames[i]}` 的命中区 `Hit`",
+                         i == 0 ? 156.3f : 146.9f, i == 0 ? 154.7f : 156.0f,
+                         "⚠️ **我们自己的节点**（原版没有 `Hit` 子件；原版靠钮自己挂的 `EverguildToggle` 收射线）"
+                         + "，**但矩形照原版可射线件的并集**：`Image` 140×140 + `Text Background` 146.92×39.39"
+                         + " + `Badge Highlight` 35×35（各块 `m_RaycastPadding` 全 0）"
+                         + " ⇒ ⛔ **不是整颗钮 164.31 × 169.68**（那个写法让相邻钮命中区叠 16.4px，点「奖励」会命中「商店」）");
+                }
+                else
+                {
+                    CheckTrue(FindChild(nb, "Hit") == null,
+                              $"★ 导航钮 `{navNames[i]}` **已按 2026-10-24 用户口径隐藏 ⇒ 没有命中区**"
+                            + "（节点照建、`SetActive(false)`；命中区不建 ⇒ 真鼠标点不到）"
+                            + " —— 🧨 改回「建完命中区再 SetActive(false)」⇒ 本条红（那就是「看不见却点得到」）");
+                }
             }
             mbox(bar, "顶栏 `Upper bar`", 1920f, 100f,
                  "原版：`anchor (0,0)-(1,1)` + `sizeDelta.y −980` ⇒ 高 100（⚠️ **不是**下面子件 `Background` 那一格）");
@@ -2103,11 +2235,22 @@ public static class MainMenuScene
         //  ② 重叠带里点一下 ⇒ 命中**后兄弟**（原版 uGUI 遍历序：后兄弟画在上层、先吃到；
         //     旧写法同队列同 z 时落到「先收集者」= 前兄弟）。
         // 判据全文 → `资料/普查产出_1022/W62_缺陷诊断.md` §D2；真机日志 `_tmp_view/click_log.txt:8604-8611`。
-        // 🧨 改坏法：① 命中区改回 `164 × (y2−y1)` ⇒ ①那条红（重叠 16.35）；
-        //    ② `PointerLayer.HitButton` 去掉 `IsAboveInHierarchy` 那一支 ⇒ ②/②·b 红（落到 Shop）。
-        Section("★ W62-D2：左栏导航命中区 = 原版可射线件的并集 + 重叠带里后兄弟赢");
+        // 🔴 **2026-10-24（用户口径）**：样本从 `Shop`/`Rewards` 换成 `Home`/`Collection`（前两颗之外全隐藏了），
+        //   「真机那一击的点谁也点不到」升成一条**反向**断言 —— 逐条改法与改坏法见本节开头那段注释。
+        Section("★ W62-D2：左栏导航命中区 = 原版可射线件的并集 + 重叠带里后兄弟赢"
+              + "（2026-10-24 起样本 = `Home` / `Collection`）");
         {
-            var d2Names = new[] { "Home", "Collection", "Shop", "Rewards", "Social" };
+            // 🔴 **2026-10-24（用户口径 · 就地改写期望值，铁律 5）**：这一节原来拿 `Shop`(第 3 颗) / `Rewards`(第 4 颗)
+            //   当样本。用户 2026-10-24 拍板把第 3~6 颗**隐藏**了（**命中区都不建**）⇒ 那两颗已经没有命中区可量。
+            //   ⇒ 样本换成**这一版唯一相邻的可见对** `Home`(1) / `Collection`(2)，断的仍是原来那两件：
+            //     ① 命中区 = 原版可射线件的并集（两颗都还是那条并集算式，`MenuDraw.Union`）；
+            //     ② 重叠带里点一下 ⇒ **后兄弟赢**（`Collection` 是 `Buttons Container` 的后兄弟，
+            //        与当年 `Rewards` 是 `Shop` 的后兄弟同一个结构）；
+            //     ③ 真机那一击的原点（画布 73.5, 615.0，原来压在 `Rewards` 的图标区里）改成**反向断言**：
+            //        那两颗隐藏了 ⇒ **谁也点不到**（这条正是「不显示也点不到」在真机坐标上的落点）。
+            //   🧨 判别力没变：① 命中区改回 `164 × (y2−y1)` ⇒ 重叠变 **16.35px**、①那条红；
+            //     ② `PointerLayer.HitButton` 去掉 `IsAboveInHierarchy` 那一支 ⇒ ②那条落到**前兄弟 `Home`**。
+            var d2Names = new[] { "Home", "Collection" };          // 按兄弟序：Collection 在后
             var d2Rect = new PxRect[d2Names.Length];
             var d2Btn = new WindowButton[d2Names.Length];
             bool d2Ok = true;
@@ -2126,41 +2269,47 @@ public static class MainMenuScene
             if (d2Ok)
             {
                 // ---- ① 相邻两颗的重叠高度（x 也真的相交才算「重叠」）----
-                for (int i = 0; i < d2Names.Length - 1; i++)
                 {
-                    var a = d2Rect[i]; var c2 = d2Rect[i + 1];
+                    var a = d2Rect[0]; var c2 = d2Rect[1];
                     float xOv = Mathf.Min(a.x2, c2.x2) - Mathf.Max(a.x1, c2.x1);
                     float yOv = Mathf.Min(a.y2, c2.y2) - Mathf.Max(a.y1, c2.y1);
                     float ov = xOv > 0f ? yOv : 0f;
-                    CheckTrue(ov >= 2.115f && ov <= 3.115f,
-                              $"★ ① `{d2Names[i]}` / `{d2Names[i + 1]}` 的命中区重叠高度 = **{ov:F3}px**"
-                            + "（原版 **2.615 ± 0.5**）—— 旧写法（整钮高）是 **16.35px**"
-                            + "（= 169.68 − 153.33，正是「点奖励命中商店」的根因）；"
+                    // 期望量级：原版「可射线件并集」那一档 —— 非 Home 的相邻对是 **2.615**；
+                    // `Home→Collection` 这一对 Home 的图标顶距多 1.28px ⇒ **2.7**（两个数都远小于 3.5）。
+                    // 旧写法（命中区 = 整钮高 169.68）会得到 **16.35** ⇒ 落在区间外。
+                    CheckTrue(ov >= 2.0f && ov <= 3.5f,
+                              $"★ ① `Home` / `Collection` 的命中区重叠高度 = **{ov:F3}px**"
+                            + "（判据量级 = 原版可射线件并集：非 Home 那一对 **2.615**、`Home→Collection` **2.7**"
+                            + " —— Home 的图标顶距比其余四颗多 1.28px）"
+                            + "；旧写法（整钮高 169.68）是 **16.35px** = 169.68 − 153.33，正是「点奖励命中商店」的根因；"
                             + " 实得两颗 = ["
                             + $"{a.x1:F2},{a.y1:F2}→{a.x2:F2},{a.y2:F2}] / [{c2.x1:F2},{c2.y1:F2}→{c2.x2:F2},{c2.y2:F2}]");
                 }
-                // ---- ② 重叠带中心点一下 ⇒ 后兄弟（Rewards，第 3 颗）----
+                // ---- ② 重叠带中心点一下 ⇒ 后兄弟（Collection，第 2 颗）----
                 {
-                    int iS = 2, iR = 3;
-                    float ox1 = Mathf.Max(d2Rect[iS].x1, d2Rect[iR].x1), ox2 = Mathf.Min(d2Rect[iS].x2, d2Rect[iR].x2);
-                    float oy1 = Mathf.Max(d2Rect[iS].y1, d2Rect[iR].y1), oy2 = Mathf.Min(d2Rect[iS].y2, d2Rect[iR].y2);
+                    int iF = 0, iR = 1;         // 前兄弟 Home / 后兄弟 Collection
+                    float ox1 = Mathf.Max(d2Rect[iF].x1, d2Rect[iR].x1), ox2 = Mathf.Min(d2Rect[iF].x2, d2Rect[iR].x2);
+                    float oy1 = Mathf.Max(d2Rect[iF].y1, d2Rect[iR].y1), oy2 = Mathf.Min(d2Rect[iF].y2, d2Rect[iR].y2);
                     CheckTrue(ox2 > ox1 && oy2 > oy1,
-                              "（前提）Shop / Rewards 的命中区真的叠着（不叠 ⇒ 下面两条没有鉴别力）");
+                              "（前提）`Home` / `Collection` 的命中区真的叠着（不叠 ⇒ 下面两条没有鉴别力）");
                     var designPt = new Vector2((ox1 + ox2) * 0.5f, (oy1 + oy2) * 0.5f);
                     var pPtr = MenuCheck.PointerFramePxFromDesign(designPt, d2Btn[iR].transform);
                     var got = PointerLayer.Instance.ButtonAt(pPtr.x, pPtr.y);
                     CheckTrue(got == d2Btn[iR],
-                              $"★ ② 重叠带中心（设计 {designPt.x:F2},{designPt.y:F2}）点一下 ⇒ 命中**后兄弟 `Rewards`**"
+                              $"★ ② 重叠带中心（设计 {designPt.x:F2},{designPt.y:F2}）点一下 ⇒ 命中**后兄弟 `Collection`**"
                             + $"（实得 `{(got != null ? got.name : "<null>")}`）—— 原版 uGUI 遍历序：后兄弟画在上层先吃到；"
-                            + "改回「先收集者赢」⇒ 实测这一点落到 `Shop`（`_tmp_view/click_log.txt:8604-8611`）");
-                    // ②·b 真机那一击的同一个点（画布 73.5, 615.0）：在 Rewards 的图标区里，
-                    //      在 Shop **并集下沿（607.8）之外** —— 旧写法它压在 Shop 的整钮命中区（450.1..619.8）里。
-                    var pReal = MenuCheck.PointerFramePxFromDesign(new Vector2(73.5f, 615f), d2Btn[iR].transform);
+                            + "改回「先收集者赢」⇒ 这一点会落到前兄弟 `Home`");
+                }
+                // ---- ③ 真机那一击的原点（2026-10-22 W62-D2 的现场）—— 那两颗现在隐藏了 ⇒ 谁也点不到 ----
+                {
+                    var pReal = MenuCheck.PointerFramePxFromDesign(new Vector2(73.5f, 615f), d2Btn[1].transform);
                     var gotReal = PointerLayer.Instance.ButtonAt(pReal.x, pReal.y);
-                    CheckTrue(gotReal == d2Btn[iR],
-                              "★ ②·b 真机那一击（画布 73.5, 615.0）现在命中 `Rewards`"
+                    CheckTrue(gotReal == null,
+                              "★ ③ 真机那一击的画布点（**73.5, 615.0** —— 当年压在 `Shop` 整钮命中区 / `Rewards` 图标区里）"
+                            + " ⇒ **现在谁也点不到**"
                             + $"（实得 `{(gotReal != null ? gotReal.name : "<null>")}`）"
-                            + "—— 旧写法这里命中 `Shop`（它的整钮命中区 450.1..619.8 盖住了 Rewards 的顶边）");
+                            + " —— `Shop` / `Rewards` 已按 2026-10-24 口径隐藏且**命中区不建**；"
+                            + "🧨 改成「建完命中区再 SetActive(false)」⇒ 这一点会重新落到 `Shop`/`Rewards` 上 ⇒ 本条红");
                 }
             }
         }
@@ -2952,7 +3101,7 @@ public static class MainMenuScene
                 Check((int)pw.SelectedGameMode, (int)GameMode.Classic,
                       "（夹具）切到 Classic —— Classic 下左列列的是各对那副 30 张的 `classicDeck`");
                 CheckTrue(pw.DeckRows.Count > 0, $"卡组列表画了 {pw.DeckRows.Count} 格（原版是**两列**网格）");
-                CheckTrue(pw.ArmyCells.Count > 0, $"阵营列画了 {pw.ArmyCells.Count} 格（13 个阵营，可纵向滚）");
+                CheckTrue(pw.ArmyCells.Count > 0, $"阵营列画了 {pw.ArmyCells.Count} 格（13 个阵营；原版是 **2 列 × 7 行、一屏全见不滚**）");
 
                 // ============================================================ 🆕 **2026-10-23（W65 · 1c 收尾）：
                 // **默认选中 =「你的卡组」**。判据 = `d:/2/tools/decomp_full/PracticeModePopup__SetArmyButtons.c`
@@ -3380,8 +3529,12 @@ public static class MainMenuScene
                 //    —— 比父件 `Army Selector`（182.18→880.17）**高 66.22px、上下各探出 33.11**。
                 //    原来我们把**父件**那个矩形当视口 ⇒ 裁切/滚动范围少 66px、第一格下移 33.08px。
                 // ② 同件里的格容器 `Filters` 是 `GridLayoutGroup`：`cellSize 82×82` · `spacing (0,26.38)` · `pad 0`
-                //    · `m_ChildAlignment = 4`（横轴那半 = 居中）⇒ 第 1 列 = **116.98..198.98**
-                //    （原来靠左 69.42..151.42，差 **47.56px**）；第一格顶 = 视口上沿 **149.07**（原来是 182.18）。
+                //    · `m_ChildAlignment = 4` · **`m_Constraint = 0 (Flexible)`**
+                //    ⇒ 在 **177.12** 宽里现算 **2 列**（`cellCountX = Floor((177.12 + 0.001)/82) = 2`），
+                //    `startOffset.x = (177.12 − 2×82) × 0.5 = 6.56` ⇒ 第 1 列 = **75.98..157.98**、
+                //    第 2 列 = **157.98..239.98**（间距 x = 0 ⇒ 两列紧挨）；第一行顶 = 视口上沿 **149.07**。
+                //    🔴 **2026-10-24（`W8` · P1 差异 #1）就地订正**：本行原来写「第 1 列 = 116.98..198.98」——
+                //    那是**单列居中**的读数（正好落在原版两列的**缝隙**上），已按原版 2 列改掉。
                 // ③ `Decks Scroll view/Viewport/Content` 也是 `GridLayoutGroup`：`cellSize 180×180` ·
                 //    `spacing (0,−21)` · `pad (4,0,0,0)` · `m_ChildAlignment = 1` · `m_Constraint = 0 (Flexible)`
                 //    ⇒ 按 `Content` 宽 **372.04** 现算 = **2 列**、第 1 列 **270.08..450.08**、行距 **159**
@@ -3414,14 +3567,19 @@ public static class MainMenuScene
 
                     // ---- 格位：量的都是**渲出来的矩形**（`Hit` 里那个 `ImageQuad`），不是源码常量 ----
                     // ⚠️ 两个 `if` 各配一条「不足就红」—— ⛔ 别让「格不够 ⇒ 静默跳过 ⇒ 全绿」蒙混过去。
-                    if (pw.ArmyCells.Count >= 2)
+                    if (pw.ArmyCells.Count >= 3)
                     {
-                        CheckCellRect(pw.ArmyCells[0], 116.98f, 149.07f, 198.98f, 231.07f, 0.6f,
-                                      "★ 阵营第 1 格 = **116.98,149.07→198.98,231.07**（横向居中 + 贴视口上沿）");
-                        CheckCellRect(pw.ArmyCells[1], 116.98f, 257.45f, 198.98f, 339.45f, 0.6f,
-                                      "★ 阵营第 2 格 = 上一格 y 加 **108.38**（82 + spacing 26.38）");
+                        // 🔴 **2026-10-24（`W8` · P1 差异 #1）**：原版是 **2 列网格**（`Flexible` · 177.12 宽现算 = 2）。
+                        //   第 0 格 = 75.98..157.98（`startOffset.x 6.56`）、第 1 格 = **同一行的第 2 列** 157.98..239.98；
+                        //   「上一格 y + 108.38」那条现在是 **`Army_2`**（回到第 0 列、下一行）。
+                        CheckCellRect(pw.ArmyCells[0], 75.98f, 149.07f, 157.98f, 231.07f, 0.6f,
+                                      "★ 阵营第 1 格 = **75.98,149.07→157.98,231.07**（2 列网格第 1 列 · 贴视口上沿）");
+                        CheckCellRect(pw.ArmyCells[1], 157.98f, 149.07f, 239.98f, 231.07f, 0.6f,
+                                      "★ 阵营第 2 格 = **同一行的第 2 列**（x 差 82、y 相同 —— 单列实现在这里红）");
+                        CheckCellRect(pw.ArmyCells[2], 75.98f, 257.45f, 157.98f, 339.45f, 0.6f,
+                                      "★ 阵营第 3 格 = 回到第 1 列、下一行（y 差 **108.38** = 82 + spacing 26.38）");
                     }
-                    else CheckTrue(false, "阵营格只有 " + pw.ArmyCells.Count + " 个 ⇒ 上面那两条格位断言等于没查");
+                    else CheckTrue(false, "阵营格只有 " + pw.ArmyCells.Count + " 个 ⇒ 上面那三条格位断言等于没查");
                     if (pw.DeckRows.Count >= 3)
                     {
                         CheckCellRect(pw.DeckRows[0], 270.08f, 262.64f, 450.08f, 442.64f, 0.6f,
@@ -3455,7 +3613,7 @@ public static class MainMenuScene
                 //    **在视口之上**，原版 `RectMask2D` 就把它裁掉一条（我们照裁）⇒ 量第 1 格会得到截后值。
                 Section("★ 阵营格四层（A178：`Highlight` / `Background` / `Icon` / `Has Player Deck`）");
                 {
-                    if (pw.ArmyCells.Count >= 2)
+                    if (pw.ArmyCells.Count >= 3)
                     {
                         // ---- ① 节点 / 层级 / 矩形 ----
                         for (int k = 0; k < 2; k++)
@@ -3500,16 +3658,21 @@ public static class MainMenuScene
                                       $"★ 阵营第 {k + 1} 格：四层队列**严格递增**（`Highlight` < `Background` < `Icon` < `Has Player Deck`）"
                                       + $"（实测 {qHl} < {qBg} < {qIc} < {qSe}）");
                         }
-                        // ---- ③ 矩形（第 2 格：整格含外扩的 `Highlight` 都完整落在视口里）----
-                        var c1 = pw.ArmyCells[1];      // 格 = 116.98,257.45 → 198.98,339.45（同上面 A2/A3 那条）
+                        // ---- ③ 矩形（第 3 格 = 第 1 列第 2 行：整格落在视口里）----
+                        // 🔴 **2026-10-24（`W8` · P1 差异 #1）**：改 2 列之后取 `ArmyCells[2]`（第 1 列、第 2 行）
+                        // —— `ArmyCells[1]` 现在是**第 2 列同一行**，它那颗外扩 `Highlight` 的右沿（246.81）
+                        // 会压出视口右沿 0.27px（原版同样被 `RectMask2D` 裁）⇒ 量它会混进裁切那一档。
+                        // ⚠️ 第 1 列那颗的 `Highlight` 左沿（69.15）也压出视口左沿 0.27px —— 容差 0.6 两边都容得下，
+                        //   这是原版几何本身如此（`startOffset 6.56 < Highlight 外扩 6.83`），⛔ 不是我们挑的。
+                        var c1 = pw.ArmyCells[2];      // 格 = 75.98,257.45 → 157.98,339.45（同上面 A2/A3 那条）
                         CheckQuadRectPx(QuadOfInactiveToo(FindChild(c1, "Highlight")),
-                                        110.15f, 205.81f, 250.62f, 346.28f, 0.6f,
+                                        69.15f, 164.81f, 250.62f, 346.28f, 0.6f,
                                         "★ `Highlight` = **95.65²**、四周各外扩 **6.83**（−6.83→88.83；⛔ 别内缩成 82²）");
                         CheckQuadRectPx(QuadOfInactiveToo(FindChild(c1, "Background")),
-                                        116.98f, 198.98f, 257.45f, 339.45f, 0.6f,
+                                        75.98f, 157.98f, 257.45f, 339.45f, 0.6f,
                                         "★ `Background` = **格那一格**（0,0→82,82）");
                         CheckQuadRectPx(QuadOfInactiveToo(FindChild(c1, "Has Player Deck")),
-                                        170.98f, 197.98f, 302.45f, 359.70f, 0.6f,
+                                        129.98f, 156.98f, 302.45f, 359.70f, 0.6f,
                                         "★ `Has Player Deck` = **27.00×57.24** @ (54.00,45.00)（火漆印，下沿探出格 20.25px）");
 
                         // ---- ⑤ 显隐（**原版判据**，不是我们挑的 —— 见 `RebuildArmyCells` 那段注释）----
@@ -3550,14 +3713,17 @@ public static class MainMenuScene
                             pw.PickedPrebuilt = null;      // ⇒ `CurrentDeck` 回落到 `Raw(DeckIndex)`
                             pw.PairIndex = -1;
                             pw.DeckIndex = wantDeck;
-                            pw.ArmyScroll.Offset = wantIdx * 108.38f;   // 该格顶对齐视口上沿（可滚极值由 `MenuScroll` 管）
+                            // 🔴 **2026-10-24（`W8` · P1 差异 #1）**：2 列之后 13 格**一屏全见**
+                            //   （内容高 732.28 < 视口 764.21 ⇒ 可滚范围 0）⇒ **不需要滚**，
+                            //   `ArmyCells` 的下标就是阵营下标（`RebuildArmyCells` 按 i 顺序建、13 格全建出）。
+                            //   原来那句 `Offset = wantIdx * 108.38` 是**单列**时代把目标格滚进视口的写法 ——
+                            //   那一档已经不存在（硬设 Offset 只会把整块内容推出视口）。
+                            pw.ArmyScroll.Offset = 0f;
                             pw.ArmyScroll.OnChanged();
-                            int i0 = Mathf.CeilToInt((pw.ArmyScroll.Offset - 82f) / 108.38f);
-                            if (i0 < 0) i0 = 0;
-                            int k = wantIdx - i0;
+                            int k = wantIdx;
                             CheckTrue(k >= 0 && k < pw.ArmyCells.Count,
-                                      $"（前提）滚到偏移 {pw.ArmyScroll.Offset:F2} 后，卡组阵营那一格（阵营下标 {wantIdx}）"
-                                      + $"在建出来的 {pw.ArmyCells.Count} 格（i0={i0}）里");
+                                      $"（前提）2 列一屏全见（偏移 0）⇒ 卡组阵营那一格（阵营下标 {wantIdx}）"
+                                      + $"在建出来的 {pw.ArmyCells.Count} 格里");
                             if (k >= 0 && k < pw.ArmyCells.Count)
                             {
                                 var seLit = ArmyLit(pw, "Has Player Deck");
@@ -3882,8 +4048,9 @@ public static class MainMenuScene
 
                         // ---- ㉒④ 筛一个阵营：每阵营 **6 对** ⇒ 3 行 ⇒ 498 ----
                         {
-                            // ⚠️ 阵营格只装得下前 8 格（13 × 108.38 = 1382.56 比视口 764.21 高 ⇒
-                            //    后面的 `MenuDraw.Visible` 判不中、**根本没建**）⇒ 只在前 8 格里取。
+                            // 🔴 **2026-10-24（`W8` · P1 差异 #1）**：阵营格已经是原版的 **2 列 × 7 行**、
+                            //   13 个**一屏全见**（内容高 732.28 ≤ 视口 764.21）⇒ `ArmyCells` 里 13 格都在，
+                            //   下标就是阵营下标。（原来这段写着「只装得下前 8 格」—— 那是**单列**的读数，已过期。）
                             // 🔴 **2026-10-23（W66）就地订正（铁律 5）**：这里原来点**第 0 格**，注释还写着
                             //   「本夹具「你的卡组」= Ultramarines，而 `facs[0]` 不是它」—— **后半句是错的**：
                             //   `facs[0]` **就是** Ultramarines（`DeckEditorState.ArmyOrder` 第 1 项，且卡池里有它）。
@@ -5129,6 +5296,22 @@ public static class MainMenuScene
                             //   夹具第 0 套 = `SaimHann`）。左列现在列的是**练习对** ⇒ 改点**第一格「阵营 ≠ `first.faction`」
                             //   的对**（第 1 对 `UMDeck1` 也是 Ultramarines，往下第 6 对起是 Goff）。
                             //   ⛔ 不是改口径：走的是本窗自己的正规入口（点那一格的命中区 ⇒ `PickPair`）。
+                            //
+                            // 🔴 **2026-10-24（`W23`）就地订正（铁律 5）**：下面两处（本「夹具归一」+ ⑥① 期望值）
+                            //   原来拿 `first.faction.ToUpperInvariant()` 当「标题上该印的那句」—— **那是改前口径**。
+                            //   今天 `PracticeModePopup.SelectedArmyName()` 走**官方本地化词条**
+                            //   （`Shell/PracticeModePopup.cs:2336-2352` 的 `ArmyLocalized`，键 = `Armies/<faction>`）；
+                            //   判据 = 反编译 `PracticeModePopup__ChangeSelectedArmy.c:37,41` 上屏的是
+                            //   `I2.Loc.LocalizationManager.GetTermTranslation(...)` 的返回值，不是裸枚举名；
+                            //   官方表现读 `Core/Loc.cs:2746` `Armies/Ultramarines` ⇒「极限战士」。
+                            //   ⇒ 期望值 = `Loc.T(CardText.ArmyTermPrefix + first.faction)`。
+                            //   ⚠️ **这不是自证**：`Loc.T` 读的是**官方词条表**（判据本身），
+                            //   不是 `PracticeModePopup` 的私有常量 / 它的 `SelectedArmyName()`。
+                            string wantArmyTitle = Loc.T(CardText.ArmyTermPrefix + first.faction);
+                            CheckTrue(!string.IsNullOrEmpty(wantArmyTitle)
+                                      && wantArmyTitle != CardText.ArmyTermPrefix + first.faction,
+                                      "（夹具归一·前提）官方表里有阵营词条 `" + CardText.ArmyTermPrefix + first.faction
+                                    + "`（缺了阵营标题会回落裸键、下面两条就失去判据）");
                             {
                                 int wantPi = -1;
                                 var psN = PrebuiltDecks.Pairs;
@@ -5151,10 +5334,12 @@ public static class MainMenuScene
                                     CheckTrue(preBtn != null, "（夹具归一·前提）`DeckRow_" + wantPi + "` 的命中区在");
                                     if (preBtn != null) preBtn.Click();
                                 }
-                                CheckTrue(pw.ArmyTitleText != first.faction.ToUpperInvariant(),
-                                          "（夹具归一）选预组**之前**，`Selected Army Title` ≠ 这副预组的阵营「"
-                                        + first.faction.ToUpperInvariant() + "」（实测「" + pw.ArmyTitleText + "」）"
-                                        + " —— 不成立 ⇒ 下面「标题换没换」那条**没有鉴别力**（改回去也绿）");
+                                CheckTrue(pw.ArmyTitleText != wantArmyTitle,
+                                          "（夹具归一）选预组**之前**，`Selected Army Title` ≠ 这副预组的阵营词条「"
+                                        + wantArmyTitle + "」（实测「" + pw.ArmyTitleText + "」）"
+                                        + " —— 不成立 ⇒ 下面「标题换没换」那条**没有鉴别力**（改回去也绿）"
+                                        + "｜🔴 2026-10-24（W23）：期望值改成**本地化词条**（`Armies/" + first.faction
+                                        + "`）—— 原来比 `ToUpperInvariant()`，在中文标题下**恒真**、本条失去鉴别力");
                             }
 
                             ds2.Pick(new DeckSelectionPopup.DeckPick
@@ -5206,12 +5391,17 @@ public static class MainMenuScene
                                 // 🧨 **改坏法**：把 `PickPrebuilt` 那批全量刷新删回原来那版增量刷新
                                 //   （只刷名字 / 督军 / 图 / 卡背 / lore）⇒ 连 `RebuildDeckRows` 末尾那次
                                 //   `_txtArmy` 刷新一起没了 ⇒ 标题**停在上一次那副的阵营**上
-                                //   （本夹具 = 「SAIMHANN」，上面那格「夹具归一」已经钉住了它）⇒ **本条红**。
+                                //   （本夹具 = 上一副那个阵营的**词条**「萨姆-罕」，上面那格「夹具归一」已经钉住了它）⇒ **本条红**。
                                 //   ⚠️ 真机那次停的是「（未选阵营）」—— 因为真机上当时那副没有督军；
                                 //   两种都红，本条不依赖是哪种（前提 = 上面那条「≠ 期望」）。
-                                CheckText(pw.ArmyTitleText, first.faction.ToUpperInvariant(),
-                                          "★ 选完预组 ⇒ `Selected Army Title` = 这副的 `faction`「"
-                                        + first.faction.ToUpperInvariant() + "」（预组「" + first.deckId + "」）"
+                                //
+                                // 🔴 **2026-10-24（`W23`）就地订正（铁律 5）**：期望值从 `first.faction.ToUpperInvariant()`
+                                //   改成 `Loc.T(CardText.ArmyTermPrefix + first.faction)`（= `wantArmyTitle`，上面那句已算好）——
+                                //   判据同上面那段注释（反编译 `ChangeSelectedArmy.c:37,41` 上屏的是**本地化词条**）。
+                                CheckText(pw.ArmyTitleText, wantArmyTitle,
+                                          "★ 选完预组 ⇒ `Selected Army Title` = 这副的阵营**词条**「"
+                                        + wantArmyTitle + "」（预组「" + first.deckId + "」；键 `"
+                                        + CardText.ArmyTermPrefix + first.faction + "`）"
                                         + "｜🧨 改坏法：`PickPrebuilt` 退回增量刷新 ⇒ 标题停在上一次那副的阵营 ⇒ 本条红");
 
                                 // ---- ② 费用曲线：9 行之和 == 这副牌的卡表长度 ----
@@ -5933,7 +6123,8 @@ public static class MainMenuScene
                                   "档案·排位页阵营列滚动灵敏度 = **10**（原版 `…/Ranking Tab/AllFactions/scroll rect`）");
                     }
                     // 🔴 **2026-10-23（P4）就地订正（铁律 5）**：这里原来拍的是 `Shoot("09_档案窗_Profile页.png")`，
-                    //   但本窗打开时停在**默认页 `DefaultTabIndex` = 2（`Title`）** ⇒ **那张其实是头衔页**，
+                    //   但本窗打开时停在**默认页**（当时 `DefaultTabIndex = 2` = `Title`；
+                    //   🆕 2026-10-24 真机 F13 起改成 `0` = `Profile`）⇒ **那张拍出来的不是文件名的页**，
                     //   名字与内容对不上。现在六页统一在收尾处按「页 → 文件名」逐页切过去拍
                     //   （见本节末尾「六页逐页截图」那一段），这里不再拍。
 
@@ -6059,13 +6250,16 @@ public static class MainMenuScene
                     CheckAtWorld(FindChild(t, "Trophies Tab"), 351.03f, 1746.97f, 118.92f, 962f, "`Trophies Tab` 页根");
                     CheckAtWorld(FindChild(t, "Ranking Tab"), 351.03f, 1746.97f, 118.92f, 962f, "`Ranking Tab` 页根");
 
-                    // 🔴 **出厂打开的是 `Title` 页（第 3 个键），不是第一页** —— 唯一信号 = 原版只有
-                    //    `Title Tab` 是 `m_IsActive=true`（`m_IsOn` 六个键全 0，数据里看不出哪个键亮着）
-                    Check(pp.CurrentTab, WindowTabType.ProfileTitle, "出厂落在 **`Title` 页**（不是第一页）");
-                    CheckTrue(FindChild(t, "Title Tab") != null && FindChild(t, "Title Tab").gameObject.activeSelf,
-                              "`Title Tab` 页根是 **active** 的");
-                    CheckTrue(FindChild(t, "Profile Tab") != null && !FindChild(t, "Profile Tab").gameObject.activeSelf,
-                              "`Profile Tab` 页根出厂 **inactive**");
+                    // 🔴 **2026-10-24（真机 F13）就地订正（铁律 5）**：这一段原来断「出厂落在 `Title` 页」，
+                    //   依据是「原版只有 `Title Tab` 是 `m_IsActive=true`」—— **那是 prefab 存盘态**，不是运行态。
+                    //   真判据 = `GameWindowWithTabs.GetStartingTab()` 的回落 = `tabs.FirstOrDefault()` = 第一页
+                    //   （`PlayerProfileMenu` 无覆盖产物；`decomp_full/GameWindowWithTabs__GetStartingTab.c` +
+                    //    `资料/普查产出_1019/W_界面线_N117_1019b.md:64-65`）⇒ 出厂 = **`Profile` 页**。
+                    Check(pp.CurrentTab, WindowTabType.ProfileInfo, "出厂落在 **`Profile` 页**（= 第 1 页，`GetStartingTab` 的 `FirstOrDefault` 回落）");
+                    CheckTrue(FindChild(t, "Profile Tab") != null && FindChild(t, "Profile Tab").gameObject.activeSelf,
+                              "`Profile Tab` 页根是 **active** 的");
+                    CheckTrue(FindChild(t, "Title Tab") != null && !FindChild(t, "Title Tab").gameObject.activeSelf,
+                              "`Title Tab` 页根出厂 **inactive**（⛔ prefab 的 `m_IsActive=true` 是存盘态，别照它断）");
 
                     // 选中态：**只换贴图、不换色**（`EverguildToggle.colorTintOnValueChange=0` /
                     // `changeSpriteOnValueChange=1`，判据见 `Shell/PlayerProfileWindow.cs` 文件头 ①）
@@ -6104,7 +6298,7 @@ public static class MainMenuScene
                                   "切页之后第 1 个键的底色 **翻成选中那张**");
                     }
 
-                    // ---- Title 页（**出厂就打开的那一页**）----
+                    // ---- Title 页（**2026-10-24 真机 F13 起不是出厂页**，要显式点过去）----
                     {
                         var k2 = FindChild(bar2, PlayerProfileWindow.Tabs[2].Node);
                         var h2 = k2 != null ? FindChild(k2, "Hit") : null;
@@ -6134,10 +6328,25 @@ public static class MainMenuScene
                         //   两个 `c`）。⇒ **本颗的判据是空的**（铁律 11 的例外①：原版本身没有）⇒
                         //   照现状**不接词条**（若哪天要接，落点是 `Shell/TitleTab.cs:66` / `Shell/AvatarTab.cs:83`
                         //   那两个 `BtnLabel = "Select"`，⛔ 不在 A891 的续那批的文件白名单里）。
-                        CheckText(TextOf(FindChild(sel, "Button Text")), Loc.T("Demo/AvatarMenu/SelectAvatarButton"),
-                                  "按钮文案 = `Loc.T(\"Demo/AvatarMenu/SelectAvatarButton\")`（随语档：中文「选择」/ 英文 `Select`）"
-                                + "（⚠️ 原版那条是**葡语占位串 `Selecionar`**、prefab 上**没挂 `Localize`** ⇒ 键是照同族同节点推的，"
-                                + "2026-10-18 `W22` 逐颗按 pid 复查过，见上面那条留痕；铁律 11 例外①）");
+                        // 🔴 **2026-10-24（`W23`）就地订正（铁律 5）**：这条原来期望
+                        //   `Loc.T("Demo/AvatarMenu/SelectAvatarButton")`（「选择」），**今天实测是「正在使用」**。
+                        //   原因不是实现坏了，而是本批 `W13` 的 **V1 头衔兜底**：`ProfileTab.Build()` 首句调
+                        //   `EnsureLocalDefaultTitle()`（`Shell/ProfileTab.cs:508`，落点 `:549 ProfileData.TitleIndex = 0`），
+                        //   把「没装备过」兜底成第 1 条 ⇒ `TitleTab.OnOpen()`（`Shell/TitleTab.cs:459-464`）把
+                        //   `PreviewIndex` 也设成 0 ⇒ **预览 == 已装备** ⇒ 钮走 `PlayerProfile/InUse` 那一支
+                        //   （`Shell/TitleTab.cs:512-524` 的三分支；判据 = `ProfileItemDisplay__ToggleButton.c`）。
+                        //   ⚠️ 「Select 词条接线」那条鉴别力**没丢** —— 由本节下面「预览换到别的条目 ⇒ 回到 Select」
+                        //   （`ttab.Select(8)` 那两条）覆盖，⛔ 不必在这里重复。
+                        {
+                            string inUse = Loc.T(TitleTab.InUseTerm);
+                            CheckTrue(!string.IsNullOrEmpty(inUse) && inUse != TitleTab.InUseTerm,
+                                      "（前提）`PlayerProfile/InUse` 词条在官方表里（否则下面这条文案断言无意义）");
+                            CheckText(TextOf(FindChild(sel, "Button Text")), inUse,
+                                      "打开 `Title` 页 ⇒ 预览 = 已装备（W13 本地兜底把 `TitleIndex` 置 0）⇒ 钮印 `In use`"
+                                    + "（`Loc.T(PlayerProfile/InUse)`）"
+                                    + "（⚠️ 原版那条是**葡语占位串 `Selecionar`**、prefab 上**没挂 `Localize`** ⇒ 键是照同族同节点推的，"
+                                    + "2026-10-18 `W22` 逐颗按 pid 复查过，见上面那条留痕；铁律 11 例外①）");
+                        }
                         CheckTrue(FindChild(sel, "Toggle borde") == null,
                                   "`Toggle borde` **不建**（出厂 act=F + 全包无 MonoBehaviour 指向它 + 无 Animation ⇒ 死节点）");
 
@@ -6736,11 +6945,18 @@ public static class MainMenuScene
                         // 🔴 **2026-10-22（P1）就地改期望值（铁律 5）**：`Player Title` 原来印 prefab 占位串
                         //   `'Player Title'`（「我们没有这个数据」）—— 现在**接上了已装备的称号**
                         //   （`ProfileData.TitleName`；参考图那一行就是「复仇的兄弟」）。
-                        //   此刻还没装备任何称号（上面刚把 `TitleIndex` 还原成 −1）⇒ 期望**空串**。
+                        //   🔴 **2026-10-24（`W23`）就地订正（铁律 5）**：这里原来写「此刻还没装备任何称号
+                        //   （上面刚把 `TitleIndex` 还原成 −1）⇒ 期望**空串**」—— **那句前提已过期**
+                        //   （错因：它写在 `W13` 的 V1 兜底之前，之后没回来改）：本批 `W13` 在
+                        //   `ProfileTab.Build()` 首句调 `EnsureLocalDefaultTitle()`（`Shell/ProfileTab.cs:508`，
+                        //   落点 `:549 ProfileData.TitleIndex = 0`）⇒ 档案窗一建就把 −1 兜底成 **0**
+                        //   ⇒ 上面 `keepTi` 存回来的就是 0、`TitleName` = 清单第 1 条的名字（**非空**）。
+                        //   ⚠️ 本条断言本身没受影响（左右两边都读 `ProfileData.TitleName`，同源）；
+                        //   错的是原文那句「期望空串」的前提。
                         //   🧨 改坏法：把 `ProfileTab` 两处 `Text(..., ProfileData.TitleName, ...)` 换回
                         //   `PlaceholderTitle` ⇒ 本条红。
                         CheckText(TextOf(FindChild(na, "Player Title")), ProfileData.TitleName,
-                                  "`Player Title` = **已装备的称号**（`ProfileData.TitleName`；没装备 ⇒ 空串）");
+                                  "`Player Title` = **已装备的称号**（读口 `ProfileData.TitleName`；`TitleIndex` 越界 ⇒ 空串）");
                         var lvN = FindChild(piN, "Player Level");
                         CheckAtWorld(lvN, 453.15f, 506.27f, 259.19f, 312.31f, "`Player Level` 圆底（237×237）");
                         CheckText(TextOf(FindChild(lvN, "Player Level Text")), "-",
@@ -6952,8 +7168,10 @@ public static class MainMenuScene
                         {
                             var eb = FindChild(bl, "Open Log Popup Button");
                             CheckTrue(eb != null, "`Open Log Popup Button`（**这一颗是我们加的** —— 原版那一页没有它）");
-                            CheckAtWorld(eb, 1506.97f, 1746.97f, 122.92f, 158.92f,
-                                         "入口按钮的 rect（右上对齐内容区右缘 1746.97、落在**列表上方那条空带**里）");
+                            CheckAtWorld(eb, 1506.97f, 1746.97f, 138f, 162f,
+                                         "入口按钮的 rect（右上对齐内容区右缘 1746.97、落在**列表上方那条空带**里；"
+                                       + "🔴 2026-10-24 W13：y 由旧的 122.92..158.92 改成 **138..162** —— 138 是实拍量的面板可见金边亮线"
+                                       + "（`60_battlelog3.png` 六列取样 136.5~138.8），下沿 162 不压列表（列表顶 162.84））");
                             // 🆕 **2026-10-08（波 C3 · A212）**：这颗钮的**折行判据是空的** —— 它**不在原版
                             //   那一页的节点表里**（原版打开点本地查不到），我们**没有**原版 `m_TextWrappingMode`
                             //   可对 ⇒ 按纪律「判据空 ⇒ 保持现状 + 标明是我们挑的」：`Shell/BattleLogTab.cs`
@@ -7970,9 +8188,14 @@ public static class MainMenuScene
                                 // 🔴 头衔页那张要拍出**左边预览**（参考图 = 盾徽 + 橙色称号名 + 下面那颗钮）：
                                 //   先「点」一条**带阵营徽记**的称号 —— `Select` 走的就是原版 `OnItemClick` 那条
                                 //   （**只预览、不装备**；⛔ 不写 `ProfileData.TitleIndex`）。
-                                //   ⚠️ 自检用的是**空档**（批处理下 `ProfileData` 不读真存档，`TitleIndex = -1`）⇒
-                                //      不点它，左边就是空的 —— **那正是原版的空档表现**（`Initialize(null)` ⇒
-                                //      `image` 关、名字空），⛔ 别为了截图去改默认装备值。
+                                //   🔴 **2026-10-24（`W23`）就地订正（铁律 5）**：这里原来写「自检用的是**空档**」
+                                //      （「批处理下 `ProfileData` 不读真存档，`TitleIndex = -1` …那正是原版的空档表现」）
+                                //      —— **与本批 `W13` V1 的判据相反**：`ProfileTab.Build()` 首句的
+                                //      `EnsureLocalDefaultTitle()`（`Shell/ProfileTab.cs:508/549`）会把 `TitleIndex`
+                                //      兜底成 **0**（W13 认定「原版开局必有已装备项」，服务器下发；本地兜一条）⇒
+                                //      不点的话左栏会显示**第 1 条**的徽记/名字，**不是空档**。
+                                //      ⇒ 下面那句 `Select(24)` 照旧（要拍的是「带阵营徽记」那条），只是理由改成
+                                //      「换一条**有徽记**的」而不是「否则左边是空的」。
                                 if (shotTabs[si] == 2 && tiShot2 != null && TitleTab.Titles.Count > 24) tiShot2.Select(24);
                                 string shotPath = System.IO.Path.Combine(ShotDir, shotFiles[si]);
                                 try { if (System.IO.File.Exists(shotPath)) System.IO.File.Delete(shotPath); } catch { }
@@ -8060,6 +8283,10 @@ public static class MainMenuScene
         //   （第 6 颗 `Ranked` 按用户 2026-10-24 口径隐藏 —— prefab 有、用户原版实拍只有 5 颗 = 版本差）。
         ProfileTabsAssertU2.Run();
         _sink.Pass += ProfileTabsAssertU2.Pass; _sink.Fail += ProfileTabsAssertU2.Fail;
+        // 🆕 2026-10-24（W13 · 账户窗 U2 第二批）：V1 头衔空态 / V2 Top4 两支 / V3 战斗记录钮 / V5 头像格名字 / V6 传奇支 Body。
+        //   ⚠️ 那个文件由 W13 新建，`.meta` 要等下次 Unity 导入才生成（不影响编译器按路径编译）。
+        ProfileAssertU2b.Run();
+        _sink.Pass += ProfileAssertU2b.Pass; _sink.Fail += ProfileAssertU2b.Fail;
         ProfileDataAssertE13.Run();
         _sink.Pass += ProfileDataAssertE13.Pass; _sink.Fail += ProfileDataAssertE13.Fail;
 
@@ -9759,6 +9986,103 @@ public static class MainMenuScene
         DraftAssertD3.Run();
         _sink.Pass += DraftAssertD3.Pass; _sink.Fail += DraftAssertD3.Fail;
 
+        // 🆕 **2026-10-24（第七十四会话 · `W7`）轮抽选将页「点卡片本体」= 吸收层、什么都不做。**
+        //   判据（第一权威 = 反编译 + prefab 实读）：原版 `2DCard/UI Collider` 是
+        //   `UIGenericEventCatcher + NonDrawingGraphic`、**没有处理器**；`GenericSelectCardContainer`
+        //   只把 `selectButton` 接去 `SelectWarlord`
+        //   （`decomp_full/GenericSelectCardContainer__SelectButtonOnClick.c` / `__OnEnable.c`）。
+        //   ⚠️ 上一批（`W3`）按一份**给错了的指令**把它改成了 `MenuDraw.Hit + ChooseWarlord(id)`
+        //   （「点卡体该选中」）—— 本批已翻回原版口径。
+        //   🔴 这条为什么要单开：`DraftAssertD3` 的 U1 ⑥ 断同一件事，但它**直调 `Click()`** 挑件 ——
+        //   那绕开了「谁的队列高」，于是「同队列被窗内吸收层吃掉」全绿。
+        //   这里走 `DraftModeWindow.PointWinnerForTest`（= 生产命中链那三条键的同序复刻）**先算赢家再点**。
+        //   档梯子（本批定的）：压暗 4130 < 窗内吸收 **4168** < 卡体吸收 **4169** < 内容钮 **4170**。
+        Section("F1 轮抽选将页：点卡片本体 ⇒ 命中吸收层 `CardBodyHit`（不选中）；`Select Button` 仍吃得下自己那一下");
+        {
+            DraftModeWindow dw = null;
+            var wmF1 = WindowsManager.Get();
+            try
+            {
+                dw = DraftModeWindow.Create(wmF1, 20261024);
+                CheckTrue(dw != null, "前提：轮抽窗建得出来");
+                if (dw != null) dw.ClickFree();
+                Check(dw != null ? dw.State : DraftModeState.Intro, DraftModeState.SelectWarlord,
+                      "前提：`Free` ⇒ 选将页");
+                bool haveWl = dw != null && dw.State == DraftModeState.SelectWarlord
+                              && dw.Warlords != null && dw.Warlords.Count > 0;
+                CheckTrue(haveWl, "前提：这一局有可选战将");
+                if (haveWl)
+                {
+                    // 窗内吸收层的档（F1 的「同队列」对手）
+                    var absorb = FindChild(FindChild(dw.transform, "General Red Background"), "AbsorbHit");
+                    var absorbQ = absorb != null ? absorb.GetComponentInChildren<ImageQuad>() : null;
+                    int aq = absorbQ != null ? absorbQ.RenderQueue : int.MinValue;
+                    CheckTrue(aq != int.MinValue, "前提：窗内吸收层 `AbsorbHit` 量得到队列（实得 " + aq + "）");
+
+                    var bodyHit = dw.WarlordCardBodyHitForTest(0);
+                    CheckTrue(bodyHit != null, "★ F1 第 1 格**卡体命中区 `CardBodyHit` 建出来了**"
+                                             + "（`null` = 那一点会穿透到窗内吸收层）");
+                    Vector2 bc = Vector2.zero, bh = Vector2.zero; ImageQuad bq = null;
+                    bool boxed = bodyHit != null && PointerLayer.HitBoxForTest(bodyHit, out bc, out bh, out bq);
+                    CheckTrue(boxed, "★ F1 而且它的命中区**量得到**（`WindowButton.Click()` 直调看不出这一条）");
+                    int cq = bq != null ? bq.RenderQueue : int.MinValue;
+                    CheckTrue(cq > aq, "★ F1 卡体命中区的队列 **严格高于**窗内吸收层（档 " + cq + " > " + aq
+                                     + "；🧨 两者同档 = 真机「点在卡上、吃到的是 `AbsorbHit`」）");
+
+                    // 取卡体上半部分（避开 `Select Button`：那颗在 y 762.82…844.42）
+                    int wq; string who;
+                    var winner = DraftModeWindow.PointWinnerForTest(dw.transform, 380.93f, 300f, out wq, out who);
+                    CheckTrue(winner != null && winner == bodyHit,
+                              "★ F1 点卡体 (380.9, 300) ⇒ **吃到的是这张卡自己的 `CardBodyHit`**（实得 " + who + "）");
+                    CheckTrue(bodyHit != null && MenuDraw.WasAbsorb(bodyHit.transform),
+                              "★ F1 而且它是**吸收层**（`MenuDraw.WasAbsorb`；原版 `2DCard/UI Collider` 是 "
+                            + "`UIGenericEventCatcher + NonDrawingGraphic`、无处理器）"
+                            + "🧨 怎么改会红：换成 `MenuDraw.Hit` 并绑 `onClick`（那是上一批按错指令做的那一版）");
+                    CheckTrue(bodyHit == null || bodyHit.onClick == null,
+                              "★ F1 而且它**没有 `onClick`**（点卡体什么都不做）");
+
+                    string before = dw.WarlordId;
+                    if (winner != null) winner.Click();
+                    Check(before, dw.WarlordId,
+                          "★ F1 点它**不改变选中**（点之前「" + (before ?? "<空>") + "」/ 点之后「"
+                        + (dw.WarlordId ?? "<空>") + "」）—— 原版那张 `UI Collider` 上没有处理器");
+                    var cv0 = dw.WarlordCardViewForTest(0);
+                    CheckTrue(cv0 == null || cv0.State != CardHighlightState.Selected,
+                              "★ F1 而且那张卡**没有**被高亮成 `Selected`");
+
+                    // ---- ② `Select Button`：队列高于卡体吸收层，且点它**真能选中** ----
+                    var selBtn = dw.WarlordSelectButtonForTest(0);
+                    Vector2 sc = Vector2.zero, sh = Vector2.zero; ImageQuad sq = null;
+                    bool selBoxed = selBtn != null && PointerLayer.HitBoxForTest(selBtn, out sc, out sh, out sq);
+                    CheckTrue(selBoxed, "★ F1 第 1 格 `Select Button` 的命中区**量得到**");
+                    int selQ = sq != null ? sq.RenderQueue : int.MinValue;
+                    CheckTrue(selQ > aq, "★ F1 `Select Button` 的队列 **严格高于**窗内吸收层（档 " + selQ + " > " + aq + "）");
+                    CheckTrue(selQ > cq, "★ F1 而且**高于卡体吸收层**（档 " + selQ + " > " + cq
+                                       + "；两者在 y 762.82…773.14 有 10px 重叠带，必须按钮赢）");
+
+                    int sQ2; string sWho;
+                    var selWinner = DraftModeWindow.PointWinnerForTest(dw.transform, 380.93f, 803.62f, out sQ2, out sWho);
+                    CheckTrue(selWinner != null && selWinner == selBtn,
+                              "★ F1 点 `Select Button` 中心 (380.9, 803.6) ⇒ **吃到的是那颗按钮**（实得 " + sWho + "）");
+                    string want = dw.Warlords[0].Id;
+                    if (selWinner != null) selWinner.Click();
+                    Check(dw.WarlordId, want,
+                          "★ F1 点它 ⇒ **真的选中第 1 位战将 `" + want + "`**（= 原版 `SelectButtonOnClick → SelectWarlord`）");
+                    var cv0Sel = dw.WarlordCardViewForTest(0);
+                    CheckTrue(cv0Sel != null && cv0Sel.State == CardHighlightState.Selected,
+                              "★ F1 而且那张卡**高亮成 `Selected`**（原版 `ToggleSelected → ToggleHighlight(true)`）");
+                }
+            }
+            finally
+            {
+                if (dw != null) UnityEngine.Object.DestroyImmediate(dw.gameObject);
+                // 与 `DraftAssertD3` 的收尾同一套：别把自检跑出来的那一局/缓存留给下一次真 Play
+                DraftModeWindow.ClearRunForTest();
+                WindowsManager.ClearReuseCacheForTest();
+                DraftPacks.InvalidateCache();
+            }
+        }
+
         // 🆕 2026-10-24（执行代理 `E18`）：头像三层放大（Image ×2.0 / Border ×1.25 / Highlight ×1.9）——
         //   比值 1.006 / 实绘高比 1.600 / 顶沿戳出 ≥30px / 画序。
         AvatarScaleAssertE18.Run();
@@ -11125,17 +11449,26 @@ public static class MainMenuScene
         //       聊天窗 + 挑战弹窗 → `资料/普查产出_0927/聊天窗与挑战弹窗.md`（§A / §B）；
         //       三条**入口链** → `资料/普查产出_0927/多人界面_入口与调用.md`（§① SOCIAL 键 · §② ChatPreview · §③）。
         // 🔴 **断的全是「原版参数」**，不是我们自己的常量（§10·3 第 3 层）。
-        Section("社交窗 `Social Submenu Variant`（入口 = 左竖导航第 5 键 —— **这一条是复刻，不是我们挑的**）");
+        Section("社交窗 `Social Submenu Variant`（入口 = 左竖导航第 5 键 —— **这一条是复刻，不是我们挑的**；"
+              + "2026-10-24 起该键隐藏，改从同一个开窗口进）");
         {
+            // 🔴 **2026-10-24（用户口径 · 就地改法，铁律 5）**：第 5 颗 SOCIAL 键**已隐藏**（不显示、**命中区不建**）
+            //   ⇒ 原来「点那颗钮 ⇒ 开社交窗」这条路**没有可见入口了**，但那颗钮的 `onClick` 就是
+            //   `OnNavClick(4)` → `MainMenuRuntime.OpenSocial()`（开窗代码**一个字没删**）。
+            //   ⇒ 这一节改成**直接打同一个派发口** `OnNavClick(4)`：既验「社交窗本身一条没错」，
+            //   又把「开窗代码留着、恢复开关一翻就回到原样」这条钉住（⛔ 不是把这一节删掉）。
             var socialBtn = menu.Find("Main Menu Navigation Button - Social");
             var sh = socialBtn != null ? FindChild(socialBtn, "Hit") : null;
-            var swb = sh != null ? sh.GetComponent<WindowButton>() : null;
-            CheckTrue(swb != null && swb.onClick != null, "SOCIAL 键**接了点击**（原来点了只打一句日志）");
-            if (swb != null && swb.onClick != null)
+            CheckTrue(sh == null,
+                      "（前提·反向）SOCIAL 键**没有命中区**（2026-10-24 用户口径：隐藏 ⇒ 点不到）"
+                    + " —— 下面改走它原来的派发口 `OnNavClick(4)`，不是「这一节被删了」");
+            if (sh == null)          // 前提成立（那颗钮确实没有命中区）才继续；不成立时上面那条已经报红
             {
-                swb.onClick();
+                menu.OnNavClick(4);                          // = 那颗钮原来的 onClick（`() => OnNavClick(4)`）
                 var sw = SocialWindow.LastOpened;
-                CheckTrue(sw != null && sw.CurrentState == WindowState.Open, "点 SOCIAL ⇒ **真的开了社交窗**");
+                CheckTrue(sw != null && sw.CurrentState == WindowState.Open,
+                          "`OnNavClick(4)`（SOCIAL 那颗钮原来的派发 = `OpenSocial()`）⇒ **真的开了社交窗**"
+                        + " —— 机制与开窗代码都留着，只是暂时没有可见入口");
                 if (sw != null)
                 {
                     Check(sw.type, WindowType.Fullscreen, "`type` = **0 Fullscreen**（原文）");
@@ -13823,19 +14156,22 @@ public static class MainMenuScene
         //   **不销毁对象** ⇒ 关掉的窗仍挂在那儿，计数**越数越多**（`MainMenuRuntime` 那段里的那个 ⛔ 同源）。
         Section("入口「按引用复用」（A123：点两次 = 同一扇 · 关掉再点 = 新建 · `closeAll` 收掉别的窗）");
         {
+            // 🔴 **2026-10-24（用户口径 · 就地改法，铁律 5）**：SOCIAL 键**已隐藏**（命中区不建 ⇒ 没有 `WindowButton`）
+            //   ⇒ 原来「点两次那颗钮」改成「两次调它原来的派发口 `OnNavClick(4)`」。
+            //   断的东西一模一样（同一实例 / `openWindows` 里 1 扇 / `closeAll` 收掉别的窗），只是入口从
+            //   「一颗可见的钮」换成「那颗钮当初调的那个方法」—— 开窗链一个字没删。
             var socialBtn2 = menu.Find("Main Menu Navigation Button - Social");
             var shN = socialBtn2 != null ? FindChild(socialBtn2, "Hit") : null;
-            var swbN = shN != null ? shN.GetComponent<WindowButton>() : null;
-            CheckTrue(swbN != null && swbN.onClick != null, "（前提）SOCIAL 键的点击在");
+            CheckTrue(shN == null, "（前提·反向）SOCIAL 键**没有命中区**（2026-10-24 隐藏口径 ⇒ 点不到）");
 
-            if (swbN != null && swbN.onClick != null)
+            if (shN == null)
             {
                 // ---- ① 点两次同一入口 ⇒ 同一实例 + `openWindows` 里只有 1 扇 ----
-                swbN.onClick();
+                menu.OnNavClick(4);
                 var firstSW = SocialWindow.LastOpened;
                 CheckTrue(firstSW != null && firstSW.CurrentState == WindowState.Open,
-                          "（前提）点 SOCIAL ⇒ **真开出来一扇**（下面两条才有对象可断）");
-                swbN.onClick();
+                          "（前提）`OnNavClick(4)` ⇒ **真开出来一扇**（下面两条才有对象可断）");
+                menu.OnNavClick(4);
                 CheckTrue(SocialWindow.LastOpened == firstSW,
                           "★ 再点一次 SOCIAL ⇒ **还是同一扇**（原版 `automaticallyLoadedWindows` 命中复用 ⇒ "
                         + "`MainMenuRuntime.OpenByRef`；改回 `SocialWindow.Create(wm)` 直建 ⇒ 这条红）");
@@ -13889,19 +14225,19 @@ public static class MainMenuScene
                               "★ 关掉那扇窗 ⇒ **主菜单那棵回来了**（`activeSelf == true`）—— "
                             + "原版 `ShowPreviousWindow` 列表空那一支 `OpenWindow(baseMenu)`；"
                             + "缺它 ⇒ 主菜单藏得掉、回不来");
-                swbN.onClick();
+                menu.OnNavClick(4);                                 // 2026-10-24：原来点那颗钮（现已隐藏）
                 var secondSW = SocialWindow.LastOpened;
                 CheckTrue(secondSW != null && secondSW != firstSW,
-                          "★ 关掉之后再点 SOCIAL ⇒ **新建一扇**（原版关窗会删缓存条目；我们的 `Close()` 只 "
+                          "★ 关掉之后再走同一个入口 ⇒ **新建一扇**（原版关窗会删缓存条目；我们的 `Close()` 只 "
                         + "`SetActive(false)`、对象还在 ⇒ 实现写成「实例还在就复用」时**这条红**）");
 
                 // ---- ③ `closeAll`（原版那颗导航钮 `closeOtherMenus = 1`）⇒ **别的窗被关掉** ----
                 //   ⚠️ 两个入口同参：`OpenSocial` / `OpenRewards`（`MainMenuRuntime` 那两处都传 `true`）。
                 var keepW = MainMenuRuntime.OpenInbox();            // 先开一扇别的（收件箱）
                 CheckTrue(keepW != null && keepW.CurrentState == WindowState.Open, "（前提）收件箱开着");
-                swbN.onClick();                                     // ← 这一下带 `closeAll`
+                menu.OnNavClick(4);                                 // ← 这一下带 `closeAll`（2026-10-24：原来点那颗钮）
                 CheckTrue(keepW != null && keepW.CurrentState == WindowState.Closed,
-                          "★ 点 SOCIAL ⇒ **别的窗被关掉**（原版 `closeOtherMenus = 1` ⇒ `OpenByRef(…, closeAll: true)`）"
+                          "★ 走 SOCIAL 那个入口 ⇒ **别的窗被关掉**（原版 `closeOtherMenus = 1` ⇒ `OpenByRef(…, closeAll: true)`）"
                         + "；把那个参数丢掉 ⇒ 这条红");
 
                 // ---- 🆕 2026-10-17（`A1636`）：状态不变式 —— `CurrentState` 与 `activeSelf` 必须一致 ----
@@ -16396,7 +16732,34 @@ public static class MainMenuScene
                         if (w == null) continue;
                         w.SelectDeck(si);                     // = 点第 si 张阵营卡（原版那个 `Select Button`）
                         int n0 = DeckLibrary.Load().Count;
+                        // ★ **F17（2026-10-24 真机）**：`Continue` 除了发牌，还必须**当场**把「已选过军队」记下来。
+                        //   真机症状 = 点继续后窗被重建、回到选军页（选择状态也丢了）。根因：教程管理器的
+                        //   `GetState()` 是**每帧**算的、而完成位是 0.2s 轮询写的 ⇒ 关窗那一拍状态还是 `Start`
+                        //   ⇒ `ChangedWindowState` 把 FTUE 窗重开一遍。
+                        //   判据 = `MenuTutorialManager.GetState()` 的分支结构：`selected` 为真时**不可能**返回
+                        //   `Start`/`NoState`（见 `MenuTutorialManager.cs` 的 `GetState` 第一句 if）⇒ 断它就够。
+                        if (si == 0)
+                        {
+                            MenuTutorialManager.ResetObservations();      // 夹具归零：下面那条「灭自证」才有意义
+                            var beforeState = MenuTutorialManager.GetState();
+                            CheckTrue(beforeState != MainTutorialState.SelectedArmy
+                                      && beforeState != MainTutorialState.ReturnedToPlay,
+                                      "（F17 灭自证）`Continue` **之前** `GetState()` 不是「已选过军队」那两档"
+                                    + "（实得 " + beforeState + "）—— 否则下面那条是白绿");
+                        }
                         w.ContinueForTest();                  // = 点 `Continue Button`
+
+                        if (si == 0)
+                        {
+                            var afterState = MenuTutorialManager.GetState();
+                            CheckTrue(afterState != MainTutorialState.Start && afterState != MainTutorialState.NoState,
+                                      "★ F17 `Continue` **之后** `GetState()` ≠ `Start`/`NoState`（实得 " + afterState + "）"
+                                    + " ⇒ `MenuTutorialManager.ChangedWindowState` **不会**再把 FTUE 窗开一遍"
+                                    + "（🧨 去掉 `SetSelectedArmy`/`MarkStageDone` ⇒ 关窗后仍 `Start` ⇒ 真机 F17 复现）");
+                            CheckTrue(MenuTutorialManager.SelectedArmyId == w.Views[si].Army,
+                                      "★ F17 而且记住的阵营 = 玩家选的那一副（原版 `CampaignHandler.SetSelectedArmy`；"
+                                    + "实得 " + (MenuTutorialManager.SelectedArmyId ?? "<空>") + " / 期望 " + w.Views[si].Army + "）");
+                        }
 
                         // ① 库 +1（`DeckLibrary.Load()` 走 `DeckStore.LoadAll` = **读盘**，不是内存）
                         var lib1 = DeckLibrary.Load();
@@ -17089,7 +17452,8 @@ public static class MainMenuScene
         //   `Shell/WindowsManager.cs` 的 `OpenEventHub` doc）。
         // ⚠️ 放在**最后一段**：开/关全屏窗会走 `HideAllWindows` / `ShowPreviousWindow`（原版那条），
         //   前面那些读 `activeSelf` 的段不该被它影响。
-        Section("★ 第 6 颗「事件钮」的行为：点了 ⇒ `OpenEventHub(Parent)` ⇒ 活动承载窗真的开");
+        Section("★ 第 6 颗「事件钮」的行为：`OnNavClick(5)` ⇒ `OpenEventHub(Parent)` ⇒ 活动承载窗真的开"
+              + "（2026-10-24 起那颗钮隐藏，改打它原来的派发口）");
         {
             var evNav = menu.Find("Event Navigation Button");
             var evText = evNav != null ? FindChild(evNav, "Text") : null;
@@ -17097,10 +17461,16 @@ public static class MainMenuScene
             CheckTrue(evLb != null && !string.IsNullOrEmpty(evLb.Text),
                       "第 6 颗的文字**非空**（原版是活动标题 `TryGetLabel(ev,4) ?? (0)`；本机没有事件实例 ⇒ "
                     + "`EVENT` 兜底 —— 空字钮在原版是「没有 label」那一支，⛔ 不是我们该有的样子）");
+            // 🔴 **2026-10-24（用户口径 · 就地改法，铁律 5）**：第 6 颗**已隐藏**（不显示、**命中区不建**）
+            //   ⇒ 「点那颗钮」改成「**直接打它原来的派发口** `OnNavClick(5)`」——
+            //   那正是 `Hit` 那颗 `WindowButton.onClick` 的全部内容（`NavButton` 里 `() => OnNavClick(captured)`）。
+            //   ⇒ 本节「窗真的开了 / 顶窗是它 / 兄弟窗没开」四条判据**一条没减**，`OnNavClick(5)` →
+            //   `WindowsManager.OpenEventHub(Parent)` 那条链照样被走到；隐藏的只是那颗**钮**。
             var evHit = evNav != null ? FindChild(evNav, "Hit") : null;
-            var evWb = evHit != null ? evHit.GetComponentInChildren<WindowButton>(true) : null;
-            CheckTrue(evWb != null && evWb.onClick != null, "（前提）第 6 颗的事件钮**接了点击**");
-            if (evWb != null && evWb.onClick != null)
+            CheckTrue(evHit == null,
+                      "（前提·反向）第 6 颗**没有命中区**（2026-10-24 用户口径：隐藏 ⇒ 点不到）"
+                    + " —— 下面改走它原来的派发口 `OnNavClick(5)`，⛔ 不是「这一节被删了」");
+            if (evHit == null)
             {
                 // ⚠️ **不拿「`LastOpened` 换没换」当判据**：`OpenByRef` 对「还在 `openWindows` 里」的那扇走
                 //   **复用、不重建**（照原版 `automaticallyLoadedWindows`），且 `HideAllWindows` 藏起来的窗
@@ -17109,13 +17479,14 @@ public static class MainMenuScene
                 var beforeGacha = GachaEventWindow.LastOpened;
                 var beforeRaid = RaidEventWindow.LastOpened;
                 var beforePass = ExpansionPassEventWindow.LastOpened;
+                int navBeforeEvent = menu.SelectedNav;      // 2026-10-24：隐藏那颗应当**拨不动灯**
 
-                evWb.onClick();
+                menu.OnNavClick(5);                         // = 那颗钮原来的 onClick（`() => OnNavClick(5)`）
 
                 var evt = ParentEventWindow.LastOpened;
                 var wm = WindowsManager.Instance;
                 CheckTrue(evt != null && evt.CurrentState == WindowState.Open,
-                          "★ 点第 6 颗 ⇒ **活动承载窗真的开了**（`ParentEventWindow.LastOpened` 非空 + 状态 = Open）"
+                          "★ 走第 6 颗那个入口 ⇒ **活动承载窗真的开了**（`ParentEventWindow.LastOpened` 非空 + 状态 = Open）"
                         + " —— ⛔ 不是「回调非空」那种弱断言");
                 CheckTrue(evt != null && evt.name == ParentEventWindow.RootName,
                           "…开出来的根名 = `" + ParentEventWindow.RootName + "`（prefab 根名，两处同源）");
@@ -17129,9 +17500,13 @@ public static class MainMenuScene
                        && RaidEventWindow.LastOpened == beforeRaid
                        && ExpansionPassEventWindow.LastOpened == beforePass,
                           "★★ 灭自证：三扇**兄弟**活动窗的 `LastOpened` 一个都没换（第 6 颗开的是承载窗那扇）");
-                CheckTrue(menu.SelectedNav == 5,
-                          "…同时左竖导航选中态移到**第 6 颗**（`OnNavClick` 末尾那句 `SetNavToggle` "
-                        + "= 原版 `BaseParentEventWindow__Open.c` 的 `SetToggle(nav,5)`）");
+                // 🔴 **2026-10-24 就地改写期望值**：原来断「选中态移到第 6 颗（`SetNavToggle(nav,5)`）」。
+                //   第 6 颗**已隐藏** ⇒ `SetNavToggle(Event)` 是**有意不动灯**（⛔ 不许把灯挪到一棵
+                //   `SetActive(false)` 的子树里 —— 那样可见那两颗的高亮会被撤掉、左栏一颗都不亮）。
+                Check(menu.SelectedNav, navBeforeEvent,
+                      "…左竖导航选中态**原地不动**（第 6 颗已按 2026-10-24 口径隐藏，"
+                    + "`SetNavToggle(nav,5)` 那一句仍被调到、但**有意不改灯**）"
+                    + "｜🧨 把 `SelectNav` 里那条 `NavItemShown` 早退删掉 ⇒ 本条红");
 
                 // ---------------- 🆕 2026-10-23（界面线 W62②）：ESC 关活动窗 ⇒ 左竖导航灯回 `Main` ----------------
                 // 判据（原版 MB 现读）：基座 **`Parent Event Window`**（GO `-3290546486736551612`）的
@@ -17143,6 +17518,8 @@ public static class MainMenuScene
                 // ⚠️ **夹具**：本窗的 `closeOnEsc` 仍取 Two Sides 那份（`0`）⇒ 本条显式把**前两道门槛**备好
                 //   （`PointerLayer.InputEnabled` + `evt.closeOnEsc = true`），**只让 `updateNavPanel` 这一个变量动**。
                 //   （`closeOnEsc = 0` 本身是另一条口径、不在本条射程内 —— 见 `ParentEventWindow.cs` 那条注释。）
+                // 🔴 **2026-10-24（用户口径）**：下面两条的**中途灯**从第 6 颗换成第 2 颗 `Collection`
+                //   （第 6 颗已隐藏、灯不可能停在 5）—— 断的仍只有 `updateNavPanel` 这一格，鉴别力不变。
                 if (evt != null)
                 {
                     CheckTrue(ParentEventWindow.ParamsUpdateNavPanel,
@@ -17154,13 +17531,19 @@ public static class MainMenuScene
                     CheckTrue(PointerLayer.InputEnabled,
                               "（前提）输入层启用 —— `GameWindow.ESCPressed` 的第一道门槛");
                     evt.closeOnEsc = true;           // 夹具（本条只验第三道门槛；见上面那段）
+                    // 🔴 **2026-10-24（用户口径 · 就地改夹具，铁律 5）**：这一条原来靠「灯先停在 `Event`（第 6 颗）」
+                    //   来分「ESC 会不会拨灯」。第 6 颗**已隐藏** ⇒ 灯**不可能**停在 5（`SelectNav(5)` 是 no-op）。
+                    //   ⇒ 中途灯改成**第 2 颗 `Collection`**（它是可见的那两颗之一、`SetNavToggle(Collection)`
+                    //   真的会点亮它）—— 断的仍然**只有 `updateNavPanel` 这一格**，鉴别力一点没减。
+                    MainMenuRuntime.SetNavToggle(MainMenuRuntime.NavigationPanelToggleType.Collection);
+                    Check(menu.SelectedNav, 1, "（前提）灯先放在 `Collection`（第 2 颗，可见）");
                     bool escClosed = evt.ESCPressed();
                     CheckTrue(escClosed, "（前提）ESC 真的关掉了活动窗（第三道门槛 `updateNavPanel` 不拦关窗）");
                     Check(menu.SelectedNav, 0,
                           "★★ W62②：**从活动窗按 ESC 关回主菜单 ⇒ 左竖导航灯回到 `Main`**"
                         + "（`GameWindow__ESCPressed` 末段 `updateNavPanel` ⇒ `SetMainToggle(Main)`；"
                         + "原版 `Parent Event Window` 的 `updateNavPanel = 1`）"
-                        + "｜🧨 把 `ParamsUpdateNavPanel` 改回 `false` ⇒ 灯停在 5（`Event`）⇒ 本条红");
+                        + "｜🧨 把 `ParamsUpdateNavPanel` 改回 `false` ⇒ 灯停在 1（`Collection`）⇒ 本条红");
                 }
 
                 // ---- ★★ 灭自证：**同一扇窗、只翻 `updateNavPanel` 这一格** ⇒ 灯不回 `Main` ----
@@ -17173,12 +17556,13 @@ public static class MainMenuScene
                     {
                         evt2.closeOnEsc = true;        // 夹具（同上）
                         evt2.updateNavPanel = false;   // 👈 只翻这一格（= 今天之前那个值）
-                        menu.SelectNav(5);             // 先把灯放到第 6 颗（`Event`）
-                        Check(menu.SelectedNav, 5, "（前提）灭自证：灯在 `Event`（第 6 颗）");
+                        // 中途灯 = `Collection`（第 2 颗，可见）—— 同上一段那条 2026-10-24 的替换说明
+                        MainMenuRuntime.SetNavToggle(MainMenuRuntime.NavigationPanelToggleType.Collection);
+                        Check(menu.SelectedNav, 1, "（前提）灭自证：灯在 `Collection`（第 2 颗）");
                         bool esc2 = evt2.ESCPressed();
                         CheckTrue(esc2, "（前提）灭自证：ESC 照样关得掉（前两道门槛备好了）");
-                        Check(menu.SelectedNav, 5,
-                              "★★ 灭自证：`updateNavPanel = false` ⇒ 灯**停在 `Event`**（不回 `Main`）—— "
+                        Check(menu.SelectedNav, 1,
+                              "★★ 灭自证：`updateNavPanel = false` ⇒ 灯**停在 `Collection`**（不回 `Main`）—— "
                             + "本条绿 = 上一条断的是这一格，不是「关窗总会拨灯」");
                         evt2.Close();
                     }
@@ -17427,7 +17811,11 @@ public static class MainMenuScene
         CheckAt(FindChild(b, "Text Background"), 9.3f, 156.2f, y1 + 118.3f, y1 + 157.7f, $"导航钮 `{name}` 的文案条");
         CheckAt(FindChild(b, "Badge Highlight"), 117.8f, 152.8f, y1 + 91.7f, y1 + 126.7f, $"导航钮 `{name}` 的红点");
         var img = FindChild(b, "Image");
-        var q = img != null ? img.GetComponentInChildren<ImageQuad>() : null;
+        // 🔴 **2026-10-24**：这里原来用 `GetComponentInChildren<ImageQuad>()`（**不收 inactive**）——
+        //   用户口径下 `Shop/Rewards/Social` 三颗整颗 `SetActive(false)` ⇒ 那个重载会取不到
+        //   （假红：件明明在）。改走 `QuadOfInactiveToo`（`GetComponentsInChildren(true)`），
+        //   与同族 `QuadOfInactiveToo` / `NavIconQuad` 一个口径。
+        var q = QuadOfInactiveToo(img);
         CheckTrue(q != null && q.Texture != null && q.Texture.name == art, $"`{name}` 用的是 `{art}`");
     }
 

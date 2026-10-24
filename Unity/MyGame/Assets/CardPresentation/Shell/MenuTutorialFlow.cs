@@ -87,6 +87,38 @@ namespace CardPresentation
         /// <summary>轮询间隔（原版靠事件；我们这套没有 `WindowsManager` 的窗变更事件 ⇒ 每 0.2s 比一次）。</summary>
         public const float PollInterval = 0.2f;
 
+        /// <summary>🆕 **2026-10-24（真机 F17）：把某一阶段**当场**标成完成（= 原版 `OnSuccess` 里那句
+        /// `AddTag(CollectedFirstDeck)` 的本地等价物）。
+        /// <para>🔴 **为什么必须在【发放那一刻】写**：状态机自己那条完成链是**每 0.2s 轮询**的
+        /// （`Tick` → `CheckCompletion(SelectArmy)`），而 `MenuTutorialManager.Update` 是**每帧**按
+        /// 「最上面那扇窗变了」重算 `GetState()` 的。FTUE 窗 `Continue` ⇒ `Close()` 那一拍，
+        /// 窗先没、完成位还没写 ⇒ `GetState()` 仍返回 `Start(1)` ⇒ `ChangedWindowState` 里的
+        /// **`state == Start ⇒ WindowsManager.OpenChooseArmyDeck()`** 立刻把窗**重新开一遍**
+        /// （= 真机 F17 的「点继续后窗被重建、回到选军页」，选择状态当然也没了）。
+        /// 原版不存在这个竞态：`AddTag` 与 `CloseWindow` 是同一个回调里的先后两句。</para>
+        /// <para>⚠️ **只在运行时写**（`Application.isPlaying`）—— 编辑器/批处理自检不该动玩家的教程存档
+        /// （同 `Attach` 那条 `Application.isPlaying` 门槛的口径）。</para>
+        /// <para>⚠️ 不改运行中状态机的下标：它自己下一拍 `CheckCompletion` 照样会 `Advance()`（`MarkCompleted` 幂等）。</para></summary>
+        public static bool MarkStageDone(MenuTutorialStageId id)
+        {
+            if (!Application.isPlaying)
+            {
+                Debug.Log("[MenuTutorial] `MarkStageDone(" + id + ")`：编辑器/批处理里**不写**教程进度（自检不动玩家存档）");
+                return false;
+            }
+            for (int i = 0; i < MenuTutorialStages.Count; i++)
+            {
+                var d = MenuTutorialStages.At(i);
+                if (d == null || d.Id != id) continue;
+                MarkCompleted(i);
+                Debug.Log("[MenuTutorial] 阶段完成位已写：`" + (d.StageId ?? d.ClassName) + "`"
+                        + "（= 原版 `AddTag` 的本地等价物；调用点 = 发放 / 领取那一刻，不是轮询）");
+                return true;
+            }
+            Debug.LogWarning("[MenuTutorial] `MarkStageDone(" + id + ")`：阶段表里没有这一条 ⇒ 没写");
+            return false;
+        }
+
         static MenuTutorialFlow _instance;
         public static MenuTutorialFlow Instance { get { return _instance; } }
 

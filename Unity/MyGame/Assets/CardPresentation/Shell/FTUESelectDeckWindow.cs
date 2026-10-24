@@ -548,6 +548,18 @@ namespace CardPresentation
                              + " ⇒ 窗保持打开（= 原版 `OnError` 不关窗）。");
                 return;
             }
+            // 🔴 **2026-10-24（真机 F17）：原版 `OnSuccess` 的两句「记状态」必须在 `Close()` **之前**补上。**
+            //   ① `AddTag(CollectedFirstDeck)` → 我们的等价物 = E01 `SelectArmy` 完成位
+            //      （`MenuTutorialManager.HasFirstDeck()` 读的就是这一格）。**必须在关窗那一拍之前写**：
+            //      `MenuTutorialManager.Update` 是**每帧**按最上面那扇窗重算 `GetState()` 的，而教程状态机
+            //      自己的完成链是 0.2s 轮询 ⇒ 窗先没、完成位还没写 ⇒ `GetState()` 仍 = `Start(1)`
+            //      ⇒ `ChangedWindowState` 里 `state == Start ⇒ OpenChooseArmyDeck()` **把窗重新开一遍**
+            //      （症状 = 真机 F17「点继续后窗被重建、回到选军页，选择状态也丢了」）。
+            //   ② `CampaignHandler.SetSelectedArmy/SaveSelectedArmy` → 我们只有内存那一半
+            //      （`MenuTutorialManager.SetSelectedArmy`；**没有存档**，如实记）。
+            //   ⚠️ 顺序不能反：先写状态、再 `Close()`。
+            MenuTutorialFlow.MarkStageDone(MenuTutorialStageId.SelectArmy);
+            MenuTutorialManager.SetSelectedArmyFromMenu(v.Army);
             Close();      // = 原版成功支末句 `WindowsManager.CloseWindow(this)`
         }
 

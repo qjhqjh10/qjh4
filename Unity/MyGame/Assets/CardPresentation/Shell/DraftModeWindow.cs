@@ -28,8 +28,10 @@
 // · **只做免费档**：`Premium Button` / `Premium Ten Button` **不建**（原版 `premium10Price < 0` 时整节点
 //   `SetActive(false)` ⇒ 序列化上就允许「没有这两档」；我们把它当成「本地档位永远不存在」）。
 //   ⚠️ 价格 `premiumPrice` / `premium10Price` **是服务端值、本地 0 命中**（S3 §五）⇒ 不编价格。
-// · **重掷先不做**：`GetReRollCosts` 无真值（S3 §五 最后一行）。原版 `Reroll/Price Display Button`
-//   那一族**整支不建**，并在 `Open()` 里**出声一次**（⛔ 不静默）。
+// · **重掷**：`Reroll` 整行**已建**（2026-10-24 第七十四会话 `W7`）。价格规则照原版
+//   `GetReRollCosts`（`FirstOrDefault(当前次数)` → `LastOrDefault` → 表空 ⇒ 0）；🔴 **价格表本身在服务端、
+//   本地 0 命中**（D2 §五·1）⇒ 我们那张表是**空的** ⇒ 恒「免费」。拿到真值时只填 `ReRollCosts` 那一格。
+//   ⚠️ 原版这一刻走**服务端扣费**，本地**只重抽、不扣钱**（并在日志里说清）。
 // · **不做限时版**：`Draft Mode Timed Mode Window` 是另一份 prefab（Pay/Warlord 两页换 Timed 子类 + 多
 //   阵营进度条 / 联盟积分，S3 §2.10）⇒ 本窗一个节点都不带它。
 // · **Intro 页不建节点**：原版 `Draft Mode Intro State` **不在 `tabs` 里**、全反编译找不到它的激活者
@@ -46,15 +48,16 @@
 //  | `CardsPerPack = 3` | **原版真值**（882/882 包实测） | `DraftPacks.CardsPerPack` |
 //  | `draftRounds = 4` | 服务端（`DraftEventData+0x98`），本地 0 命中 | `DraftPacks.RoundsPerDraft`（**我们挑的**） |
 //  | `packsPerDraft = 3` | 服务端（`+0x9C`） | `DraftPacks.PacksPerRoundOffered`（**我们挑的**） |
-//  | `warlordsPerDraft` | 服务端（`+0xA0`） | `WarlordsPerDraft = 5`（**我们挑的**；S3 §五 也建议 5） |
+//  | `warlordsPerDraft` | 服务端（`+0xA0`），本地 0 命中 | `WarlordsPerDraft = 3`（**依据版面证据 + 用户口述定的**，⛔ 不是读到的字段值 —— 判据见那一条常量的 doc） |
 //  | `seed` | **服务端事件实例字段**，本地不存在 | 本窗自己抽（`BeginRun` 收一个 seed；**打进日志**，可复现） |
-//  | `Rewards` / `reRollCosts` / `premiumPrice` | 服务端 | 本轮不做（见上「本批的边界」） |
+//  | `Rewards` / `premiumPrice` | 服务端 | 本轮不做（见上「本批的边界」） |
+//  | `reRollCosts` | 服务端（`+0xE0`），本地 0 命中 | 表**空** ⇒ 恒免费（规则照原版 `GetReRollCosts`；见 `ReRollCost`） |
 //
-//  🔴 **`warlordsPerDraft` 取 5 的副作用**：5 张选将卡 × 视觉宽 503.97 + 间距 80 = **2475 px**，
-//     比 1920 的屏幕宽 ⇒ 原版 prefab 的 `Generic Card Selector Menu` 是 `ScrollRect(h=1,v=0)`，
-//     但它的 **`ScrollRect` 组件序列化值是 `m_Enabled = 0`**（现读，见 `menu_dump` 的
-//     `⛔MULTI-COMP(2组件·1禁用)`）⇒ **原版那一刻拖不动**。我们**加了横向滚动**（`MenuScroll`，
-//     120 px/格）—— 🔴 **这一条是我们挑的**，理由 = 否则后 2 张战将永远点不到（那不是「复刻」，是「不能用」）。
+//  🔴 **`warlordsPerDraft` 取 3 的版面理由**（2026-10-24 第七十四会话 · `D2` 查证 + `W7` 落地）：
+//     卡格布局宽 412.75 + 80 宽 `Spacing` + HLG `m_Spacing 20.37` ⇒ 中心步距 **533.49**；
+//     3 张总宽 **1479.73** ⇒ 居中、两边各余 ~220，一屏放得下。4 张 = **2013.22 > 1920** 会溢出，
+//     而原版那颗 `ScrollRect` 的序列化值是 **`m_Enabled = 0`**（现读，`⛔MULTI-COMP`）⇒ 拖不动。
+//     ⇒ 3 张时**不建滚动区**（本文件 `BuildWarlordPage` 的那一支），与原版「组件级禁用」同观感。
 //
 // ==================================================================
 //  🔴 建窗纪律（本工程踩过的，逐条照办）
@@ -167,6 +170,10 @@ namespace CardPresentation
         public string[] pickedKeys;
         /// <summary>原版 `selectedCards`(+0x98)。</summary>
         public string[] selectedCards;
+        /// <summary>原版 `DraftEventSaveGame.currentReRolls` —— 本局已经重掷过几次。
+        /// `RefreshReRollPrice` 拿它去 `GetReRollCosts` 里找**当前那一档**价格
+        /// （`DraftModeSelectPacksStateDemo__RefreshReRollPrice.c`：`GetReRollCosts(data, save+0xB0)`）。</summary>
+        public int reRolls;
         /// <summary>🔴 **本地新增**：`BattleLogData` 里已经吃进战绩的轮抽对局条数。
         /// 对局记录是「新的在前」（`BattleLogData.Add` 里 `_all.Insert(0, m)`）⇒ 未吃过的就是前
         /// `(总条数 − 这个数)` 条。开新局时**先记基线**（否则会把上一局的对局算到这一局头上）。</summary>
@@ -221,13 +228,66 @@ namespace CardPresentation
         public const int QPreviewHit = 4194;
 
         // ============================================================ 规模（见文件头「缺口表」）
-        /// <summary>🔴 **我们挑的，不是原版真值**（`warlordsPerDraft` 在服务端 `DraftEventData+0xA0`；
-        /// 本地 0 命中）。S3 §五 也建议 5。改这一个数会同时改选将页的卡片数（其余地方全跟着它）。</summary>
-        public const int WarlordsPerDraft = 5;
+        /// <summary>选将页给几张战将。
+        /// <para>🔴 **3 是依据「版面证据 + 用户口述」定的，⛔ 不是读到的字段值**：
+        /// 原版机制是 `DraftEventData.warlordsPerDraft`（`+0xA0`），**值由服务端下发、本地 0 命中**
+        /// （`资料/普查产出_1024d/D2_轮抽各界面原版规格.md` §1.1 / §五·1 已核：四个 bundle + 关服前存档
+        /// + 官方本地化 10854 条全扫过）。三条版面旁证都指向 3：
+        /// ① 一屏放得下几张 —— 卡格布局宽 **412.75** + 80 宽 `Spacing` + HLG `m_Spacing 20.37`
+        ///    ⇒ 步距 **533.49**；3 张总宽 **1479.73**（居中、两边各余 ~220）；4 张 = 2013.22 **&gt; 1920**
+        ///    会溢出，而原版那颗 `ScrollRect` 是 `m_Enabled = 0`（拖不动）；
+        /// ② 同一 HLG 算法自证：prefab 里 1 卡 + 1 `Spacing` 的 CSF 结果 = **513.12 = 412.75+20.37+80**；
+        /// ③ 包区容量同构：3 包刚好（`Packs Mask` 1077.65；3×305.89+2×13 = 943.67），4 包 = 1262.56 会被裁。
+        /// 用户 2026-10-24 真机点名「原来是 4 个，原版本应该是三个」。</para>
+        /// <para>改这一个数会同时改选将页的卡片数、总宽与是否建滚动（其余地方全跟着它）。</para></summary>
+        public const int WarlordsPerDraft = 3;
 
         /// <summary>一局最多输几场就收尾（= <see cref="LossSlots"/>，判据见那一行）。
         /// 原版是 `StagedEventData.maxTries`（`+0x90`，**服务端值、本地 0 命中**）⇒ 3 这个数**我们挑的**。</summary>
         public const int MaxTries = LossSlots;
+
+        /// <summary>右栏 `CardCounter` 的**分母**。
+        /// <para>原版 = `DraftModeDeckInfoEnergyBalancePanel.Initialize` 里的
+        /// `Concat(trans, count, "/", deckSize)`，而 `deckSize` 取
+        /// `PlayEventData.gameplayVariables(+0x80).deckSize(+0x24)` —— **服务端下发**
+        /// （`dump.cs:130233 / 130178`；D2 §2.4）。</para>
+        /// <para>本地那一份 = `GameplayVariables.For(GameMode.ClosedDeck).deckSize`（= **12**）——
+        /// ⚠️ **也是我们挑的**（复用遭遇那套的 12，依据 = 每包 3 张 × 4 轮 = 12 张的结构性一致；
+        /// 见 `RuleEngine/Core/GameplayVariables.cs` 的 `ClosedDeck` doc）。拿到服务端真值时改那**一处**。</para>
+        /// <para>🔴 ⛔ 别再硬写 `RoundsPerDraft × CardsPerPack` —— 那是同一个数的**第二份**写法，
+        /// 两处迟早不一致（本文件的 `CardCounter` 原来就是这么写的）。</para></summary>
+        public static int DeckSizeForDraft
+        {
+            get { return GameplayVariables.For(GameMode.ClosedDeck).deckSize; }
+        }
+
+        // ============================================================ 重掷（`Reroll`）
+        /// <summary>本局已经重掷过几次（原版 `DraftEventSaveGame.currentReRolls`）。</summary>
+        public int ReRolls { get { return _run != null ? _run.reRolls : 0; } }
+
+        /// <summary>重掷价格表（原版 `DraftEventData.reRollCosts`，`+0xE0`）。
+        /// <para>🔴 **空表 = 我们挑的**（不是原版值）：服务端下发，本地 0 命中（D2 §五·1）。
+        /// **空表的语义照原版** = `GetReRollCosts` 返回 **0 = 免费**（见下面 `ReRollCost` 的规则）。
+        /// 拿到服务端真值时把这一格填上即可 —— ⛔ 别在别处另写一套价格规则。</para></summary>
+        static readonly int[] ReRollCosts = new int[0];
+
+        /// <summary>`GetReRollCosts(currentReRolls)` 的**原版规则**（逐句照
+        /// `d:/2/tools/decomp_full/Everguild.LiveOps.DraftEventData__GetReRollCosts.c`）：
+        /// `FirstOrDefault(entry.numberOfReRolls == 当前次数)` → 没有就 `LastOrDefault`（**沿用最后一档**）
+        /// → 表空 ⇒ **0（免费）**。**原版没有「次数用完」的上限**。
+        /// <para>`PriceDisplayButton.Setup(cost, …)`：`cost == 0` ⇒ 原版走 `PriceDisplay.SetupFree`
+        /// ⇒ 画「Free」（且按钮**可点**，`PriceDisplayButton__Setup.c` 的 `param_2 == 0` 那一支）。</para></summary>
+        public int ReRollCost
+        {
+            get
+            {
+                if (ReRollCosts.Length == 0) return 0;
+                int cur = ReRolls;
+                for (int i = 0; i < ReRollCosts.Length; i++)
+                    if (i == cur) return ReRollCosts[i];
+                return ReRollCosts[ReRollCosts.Length - 1];
+            }
+        }
 
         // ============================================================ 背景（S3 §2.1 现读）
         static readonly PxRect ShadeR = new PxRect(-1327.30f, -773.63f, 3247.30f, 1798.73f);
@@ -268,6 +328,31 @@ namespace CardPresentation
         const float WlSlotW = 412.75f, WlSlotH = 617.69f, WlSlotScale = 1.221f, WlSlotGap = 80f;
         const float WlSlotVisW = WlSlotW * WlSlotScale;      // 503.97
         const float WlSlotVisH = WlSlotH * WlSlotScale;      // 754.20
+        /// <summary>`Content` 那颗 HLG 的 `m_Spacing`（现读 **20.37**）。`UICardSelector.Initialize` 在
+        /// 奇数位插一个宽 80 的 `Spacing` 预制体、偶数位插卡格 ⇒ 卡与卡之间是
+        /// **20.37（HLG 缝）+ 80（Spacing 件）+ 20.37（HLG 缝）**。</summary>
+        const float WlHlgSpacing = 20.37f;
+        /// <summary>卡格中心步距 = `412.75 + 80 + 2×20.37` = **533.49**
+        /// （D2 §1.1 用同一算法自证：prefab 里 1 卡 + 1 `Spacing` = **513.12 = 412.75+20.37+80**）。
+        /// 🔴 旧值 **492.75** 漏了 HLG 那两道缝 —— 那是「4 张挤一排、第 5 张出屏」的成因之一。</summary>
+        const float WlStep = WlSlotW + WlSlotGap + 2f * WlHlgSpacing;   // 533.49
+
+        /// <summary>`WarlordsPerDraft` 张卡在 `Content` 里的**布局总宽**：
+        /// `N×412.75 + (N−1)×80 + 2(N−1)×20.37`（3 张 = **1479.73**）。</summary>
+        static float WarlordRowWidth()
+        {
+            int n = WarlordsPerDraft;
+            if (n <= 0) return 0f;
+            return n * WlSlotW + (n - 1) * (WlSlotGap + 2f * WlHlgSpacing);
+        }
+
+        /// <summary>第一格**布局框**的左沿。原版 `Content` 是 `HLG align = MiddleCenter(4)` + `CSF H=MinSize`
+        /// ⇒ 整行不足一屏时**居中**（3 张：`(1920 − 1479.73) / 2` = **220.135**）；超一屏时从视口左沿起排。</summary>
+        static float WarlordRowStartX()
+        {
+            float total = WarlordRowWidth();
+            return WlViewR.x1 + Mathf.Max(0f, (WlViewR.W - total) * 0.5f);
+        }
         /// <summary>选将格在视口里的中心 y：`Content` 顶部 101.9 + 锚点偏移 452.52（S3 §2.4 现读）。</summary>
         const float WlSlotCy = 554.42f;
         /// <summary>`Select Button` 在选将格里的**视觉**矩形（现读 `Generic Select Card Container`：
@@ -301,6 +386,22 @@ namespace CardPresentation
         static readonly Vector4 MaskBorder = new Vector4(42f, 363f, 655f, 81f);   // 1100×701 · ppuMult 2
         const float MaskTexW = 1100f, MaskTexH = 701f;
         const float PacksContSpacing = 13f;
+
+        // ---- `Reroll` 行（`Draft Mode Select Packs State > Reroll`；`menu_dump --depth 8 --relative` 现读）----
+        //   `Reroll` 698.2,802.7 → 1337.8,931.3
+        //   `Reroll Text`（'Reroll packs:' · 54.8px · Right/**Midline**）686.2,878.5 → 1018.0,940.4
+        //   `Price Display Button 2 Variant`（313.63×61.88 · `Generic UI Button` = `UI_Button_Mulligan` 九宫）
+        //      1033.9,878.5 → 1347.5,940.4
+        //   里面 `Price Display`（279.76×57.27 · HLG icon+text · ARF 4.8848）1049.9,880.8 → 1329.7,938.0
+        //      · `icon` 布局 57.27² ×1.2 ⇒ 视觉 68.73²（sprite 在 prefab 里是**空**，运行时按货币喂）
+        //      · `text` 90.53×57.27 · 54px · Center/**Capline**
+        //   🔴 `Reroll Text` 在原版是 `EverguildTextMeshPro`、**没挂 `Localize`**（字面量 'Reroll packs:'）
+        //      ⇒ 官方本地化里也没有这条键（现扫 10,854 条，只有 `Missions/ReRollMessage`，那是别的东西）
+        //      ⇒ 我们**照原版印英文**（⛔ 不自己编一条中文）。
+        static readonly PxRect RerollR = new PxRect(698.20f, 802.70f, 1337.80f, 931.30f);
+        static readonly PxRect RerollTxR = new PxRect(686.20f, 878.50f, 1018.00f, 940.40f);
+        static readonly PxRect RerollBtnR = new PxRect(1033.90f, 878.50f, 1347.50f, 940.40f);
+        static readonly PxRect RerollPriceR = new PxRect(1049.90f, 880.80f, 1329.70f, 938.00f);
 
         // ---- 单包卡（`Prebuilt Pack UI`，独立根 prefab；S3 §2.6）----
         const float PackW = 305.89f, PackH = 390.94f;
@@ -351,11 +452,19 @@ namespace CardPresentation
             new PxRect(1733.14f, 140.01f, 1815.23f, 218.46f),
         };
         /// <summary>三颗 toggle 的图标（原版 `Icon` 64×64，左/上各内缩 9.1 / 7.3；第三颗 `localScale 1.1`）。
-        /// 🔴 **前两张图本地没有**（`40K_Info_button_draft menu` / `40K_Cards_button_draft menu` 在
-        /// `Resources/Art/ui*/` 0 命中）⇒ 取不到就**不画那一格图标并出声**，⛔ 不拿别的图顶。</summary>
+        /// <para>🔴 **2026-10-24（第七十四会话 · `W7`）就地订正（铁律 5）**：这里原来写「**前两张图本地没有**」
+        /// —— **不成立**。三张图的 sprite 本地都在：
+        /// `d:/2/Warpforge_tools/data/ui_extract/atlasindividual_assets_0_mainmenu/Sprite/`
+        /// 的 `40K_Info_button_draft menu.png` / `40K_Cards_button_draft menu.png` 现核存在
+        /// （另有一份在 `素材/Warpforge原版/图集/0_mainmenu/Sprite/`）。它们**只是没导进
+        /// `Resources/Art/ui_menu/`**（`工具/import_original_art.py` 的 `MENU_IMAGES` 表里没登记这两条）。
+        /// 第三张 `40K_Chat_icon_Alliance v2` **已经在** `Resources/Art/ui_menu/` 里。</para>
+        /// <para>⚠️ 名字里的空格按 `CardArt.MenuUi` 的既有约定由**调用方**换成下划线
+        /// （`Core/CardArt.cs` 的 `TryDeckHero` 就是 `art.Replace(' ', '_')`）—— ⛔ 别改 `MenuUi` 那条约定本身。
+        /// ⇒ 这两张图**导进 `Resources/` 之后不用改代码**就会自动出现；取不到时照旧**出声**、⛔ 不拿别的图顶。</para></summary>
         static readonly string[] DeckToggleIconArt =
         {
-            "40K_Info_button_draft menu", "40K_Cards_button_draft menu", "40K_Chat_icon_Alliance v2",
+            "40K_Info_button_draft_menu", "40K_Cards_button_draft_menu", "40K_Chat_icon_Alliance_v2",
         };
         static readonly PxRect DeckTitleR = new PxRect(1542.40f, 256.17f, 1857.60f, 306.17f);
         static readonly PxRect DeckCounterR = new PxRect(1565.40f, 821.09f, 1834.60f, 871.09f);
@@ -364,6 +473,62 @@ namespace CardPresentation
         /// `DeckListDrawer` + `Scroll View`，格子模板在另一份 prefab 里 ⇒ 我们按行排）.</summary>
         static readonly PxRect DeckListR = new PxRect(1542f, 330f, 1858f, 800f);
         const float DeckRowH = 38f;
+
+        // ---- `Card List` 页的头部（原版 `Cards in deck panel` 那三个节点，`menu_dump --depth 4 --relative` 现读）----
+        //   `Warlord Name` 261.85×41.49 · 33px · **Left/Middle** · `EverguildButton`（点了开卡片详情）
+        //   `Card counter` 78.86×41.49 · 28px · **Right/Middle** · 色 (0.783,0.783,0.783) · prefab 默认文本 `30/30`
+        //   `Separator`    338.40×2.90 · `40k_Separator Fade Sides Horizontal`（九宫 63,0,63,0 · ppuMul 2.89）
+        //   `Scroll View`  330.97×588.88（行区从它开始）
+        //   🔴 三者的**相对次序**照 prefab（名字左 / 计数右 / 分隔线在两者之下 / 列表在分隔线之下）；
+        //   ⚠️ **绝对 y 不照抄**：原版那个容器（415.47×785.72）的落点与我们的 `DeckListR` 不同
+        //   （`DeckListR` 是我们挑的）⇒ 头部贴**我们那个框的顶**，⛔ 照抄 prefab 的绝对 y 会压到行上。
+        const float DeckListHeaderH = 41.49f;
+        const float DeckListBodyTop = 58f;      // = 头部 41.49 + 分隔线 ~2.9 + 缝，行区从这里起
+        /// <summary>`Card counter` 的文本（原版
+        /// `DrafModeDeckInfoCardListPanel.Initialize`：`deck.CardCount + "/" + gameplayVariables.deckSize`）。
+        /// ⚠️ 分母与右栏 `CardCounter` 是**同一个口径**（`DeckSizeForDraft`），⛔ 别写第二份。</summary>
+        static string DeckListCounterString(int cards) { return cards + "/" + DeckSizeForDraft; }
+
+        // ============================================================ 右栏 Deck Info 页的「内容块」
+        //  `menu_dump bundle_menus_assets_all "Draft Mode Deck Info Panel" --depth 12 --relative` 现读。
+        //  平移量 = `DeckPanelR` 的左上角 (1504.94, 204.41)（与 `DeckToggleR[0].x1/y1` 对齐验证过）。
+        // ---- 卡背 + 战将卡面 ----
+        /// <summary>`Cardback`（原版 156.70×226.08，`↻1.60°`）与它的**子件** `Cardback Front`（156.26×226.41，`↻-3.43°`）。
+        /// 🔴 两件都带 z 旋转 —— **已按原版角度画**（`MenuDraw.Rect` 的 `rotZDeg`，2026-10-24 `W18`）：
+        /// 值取自 prefab 的 `m_LocalRotation`（`menu_dump … "Draft Mode Deck Info Panel" --depth 12 --relative` 现读
+        /// 表末「↻ 2 处带 `m_LocalRotation`」那一块），两件的 `m_Pivot` 都是 **(0.5,0.5)** ⇒ 绕框心转。
+        /// 🔴 **子件关系照 prefab**：树里 `Cardback Front` 的深度是 **4**（父 = `Cardback`；锚点 stretch、
+        /// `sizeDelta ≈ (−0.44, 0.33)`）⇒ 两级角度**叠加**，画出来的世界角 = **−1.83°**。
+        /// ⚠️ 这两个矩形都是**未旋转帧**的布局框（旋转由 `rotZDeg` 施加），⛔ 别改成「旋转后的外接框」；
+        /// `DeckBackFrontR` 是**父件未旋转局部帧**里的框（= `menu_dump --relative` 印的那个值，工具明说
+        /// 「落在旋转件下面的节点没按父级旋转重算」），⛔ 别再自己去乘一个 +1.60°。</summary>
+        static readonly PxRect DeckBackR = new PxRect(1614.54f, 306.91f, 1771.24f, 532.91f);
+        static readonly PxRect DeckBackFrontR = new PxRect(1625.94f, 301.81f, 1782.14f, 528.21f);
+        /// <summary>两件卡背的 z 旋转（度）—— **prefab `m_LocalRotation` 实读**，⛔ 不是我们挑的。
+        /// `Cardback Front` 这一份是**局部**角（父件那 +1.60° 由父子关系叠上去）。</summary>
+        const float DeckBackRotZ = 1.60f;
+        const float DeckBackFrontRotZ = -3.43f;
+        /// <summary>战将卡（原版 `CardUI-Warlord`：布局 2.54×3.37 × `localScale 75.67`
+        /// ⇒ **视觉 192.48×254.89**；中心现读 = (1697.34, 420.31)）。</summary>
+        static readonly PxRect DeckWarlordCardR = new PxRect(1601.10f, 292.87f, 1793.58f, 547.75f);
+
+        // ---- `Deck Information cost drawer`（9 行费用分布）----
+        /// <summary>底板（原版 `Background` 179.12×225.46 · 无图 · 色 (0.123,0.123,0.123,1)）。</summary>
+        static readonly PxRect DeckCostBgR = new PxRect(1607.84f, 586.81f, 1786.94f, 812.31f);
+        /// <summary>第 0 行 `Deck CostQuanityt Row Drawer` 的矩形（253.24×21.42）；
+        /// 后面每行 **+25.30**（`Content` 是 VLG · `spacing 3.43`，现读逐行 y 间距一致）。</summary>
+        static readonly PxRect DeckCostRow0R = new PxRect(1570.74f, 586.81f, 1823.98f, 608.23f);
+        const float DeckCostRowStep = 25.30f;
+        /// <summary>行内三件 —— **相对行矩形左上角**的偏移（现读 `69.6−65.8 / 106.7−65.8 / 285.8−65.8`）。</summary>
+        static readonly PxRect DeckCostCostOff = new PxRect(3.80f, -0.60f, 32.80f, 22.00f);
+        static readonly PxRect DeckCostSliderOff = new PxRect(40.90f, -0.60f, 212.30f, 22.00f);
+        static readonly PxRect DeckCostCountOff = new PxRect(220.00f, -0.60f, 248.90f, 22.00f);
+        /// <summary>`DeckEnergyCostDrawer.NUMBER_OF_CARDS_FOR_NORMALIZATION = 10`（`dump.cs:105906` 现读）
+        /// ⇒ 滑块 fill = `clamp(张数 / 10, 0, 1)`。
+        /// 分桶规则（`d:/2/tools/decomp_full/DeckEnergyCostDrawer__Initialize.c` 反汇编现读）：
+        /// `card.cost &lt; 行数−1` ⇒ 落第 `cost` 行；**否则全进最后一行**（所以最后一行是「8+」）。</summary>
+        const int DeckCostRows = 9;
+        const float DeckCostNormalization = 10f;
 
         // ============================================================ 卡包预览（原版 `Generic Multi Card Display`）
         // 🔴 几何**全部**来自 prefab 实读（`bundle_menus_assets_all`；根 RT = `RectTransform_-5481408756880803131.json`
@@ -468,7 +633,21 @@ namespace CardPresentation
         Transform _pagePay, _pageWarlord, _pagePacks, _pageOngoing;
         Transform _packsContainer, _warlordViewport, _warlordContent, _deckTabHolder;
         Transform _deckPanelRoot, _rewardPanelRoot, _packHint, _warlordHint;
+        /// <summary>右栏 `CardCounter` 这一页要不要显示（原版 `Initialize(draft, showCardCounter)` 的第 2 参：
+        /// SelectPack 页 `true` / Ongoing 页 `false`）。由 `GoToState` 每页写。</summary>
+        bool _deckShowCounter = true;
+        /// <summary>右栏 Deck Info 页的内容块（原版 `Energy View panel`）：卡背 + 战将卡面 + 9 行费用分布。
+        /// 只在这一页（`_deckTab == 0`）显示 —— 原版 `Initialize` 也是「三页只留 Energy 页」。</summary>
+        Transform _deckInfoHolder;
         Label _stageCounter, _cardsCounter, _victoriesNum, _deckTitle;
+        /// <summary>右栏「Energy Balance」那行标题（原版 `Energy View panel > Energy balance` ——
+        /// 它**属于 Deck Info 页**，切到 Card List / Alliance 页时要跟着关）。</summary>
+        Label _deckEnergyLabel;
+        /// <summary>`Reroll` 那颗价格钮上的字（原版 `Price Display > text`）。
+        /// 免费档原版画的是「Free」（`PriceDisplay.SetupFree`），见 `ReRollCost`。</summary>
+        Label _rerollPrice;
+        /// <summary>`Card List` 页那颗 `Card counter`（`n/12`；每次重刷重建）。</summary>
+        Label _deckListCounter;
         MenuScroll _warlordScroll;
         readonly List<Transform> _warlordNodes = new List<Transform>();
         /// <summary>选将页每格的卡视图（与 `_warlords` 同序；`null` = 那一格没建出来）。
@@ -477,6 +656,11 @@ namespace CardPresentation
         /// <summary>选将页每格的 `Select Button` 命中区（`WindowButton`）—— 选中后那一格要 `Interactable = false`
         /// （原版 `GenericSelectCardContainer.ToggleSelected` 的 `interactable = !selected`）。</summary>
         readonly List<WindowButton> _warlordSelBtns = new List<WindowButton>();
+        /// <summary>选将页每格**卡本体**的命中区（`CardBodyHit`）。
+        /// 🔴 它是**吸收层**（`MenuDraw.Absorb`，**无 `onClick`**）—— 原版 `2DCard/UI Collider` 上没有任何处理器
+        /// ⇒ 点卡体**什么都不做**（不选中、不换页、不关窗）。判据与代码里那段长注释见 `RebuildWarlordCards`。
+        /// 自检要量它在不在、队列多少、以及「那一点真正吃到的是不是它」。</summary>
+        readonly List<WindowButton> _warlordBodyHits = new List<WindowButton>();
         /// <summary>选将页 `Continue` 的 `WindowButton`（出厂 `Interactable = false` = 原版 `OnOpen` 那一句）。</summary>
         WindowButton _warlordContBtn;
         readonly List<CardView> _packCardViews = new List<CardView>();
@@ -496,6 +680,16 @@ namespace CardPresentation
         readonly List<PxRect> _previewCardRects = new List<PxRect>();
 
         // ============================================================ 取图（取不到**必须出声**）
+        /// <summary>按**已归一的名字**取 `Art/ui*/` 下的图；取不到就记进 `MissingArt` 并让界面上留空。</summary>
+        /// <remarks>🔴 **2026-10-24（`W23`）就地订正（铁律 5）—— 本窗有 5 张图【一直画不出来】**：
+        /// <see cref="CardArt.MenuUi"/> **不做**「空格→下划线」归一（`Core/CardArt.cs:802-813`，规矩是
+        /// **调用方换**），而本文件原来有 6 处传的是**带空格的原版切片名** ⇒ `Resources.Load` 落空
+        /// ⇒ 图上不屏、`MissingArt` 里记一笔（真机症状：轮抽窗少了红底 / Noise / 宝箱金框、
+        /// 包卡少了橙描边与分隔线）。今天全部换成下划线名（文件都在 `Resources/Art/ui_menu/`）：
+        /// `40k_general_popup_simple_red` · `UI_Dirt_And_Noise_skratches` · `Crate_Border_Highlight` ·
+        /// `OctagonUI_Border_SDF` · `40k_Separator_Fade_Sides_Horizontal`（两处）。
+        /// ⛔ **别去改 `MenuUi` 的约定** —— 那会影响全工程（`CardArt` 那条 doc 已经写明分工）。
+        /// 断言侧由 `Editor/DraftWindowAssertD2.cs` 的 `A7_MissingArt` 钉成 `miss.Count == 0`。</remarks>
         Texture2D Tex(string name)
         {
             if (string.IsNullOrEmpty(name)) return null;
@@ -595,7 +789,7 @@ namespace CardPresentation
                 joinState = (int)DraftJoinState.NotJoined,
                 payState = (int)DraftPayState.NotPaid,
                 matchesWon = 0, matchesLost = 0, rewardsCollected = false,
-                seed = seed, warlordId = null,
+                seed = seed, warlordId = null, reRolls = 0,
                 pickedKeys = new string[0], selectedCards = new string[0],
                 consumedDraftMatches = CountDraftMatchesIn(BattleLogData.All),
             };
@@ -608,8 +802,9 @@ namespace CardPresentation
                     + "；战绩基线：对局记录里已有 " + _run.consumedDraftMatches + " 条轮抽对局（⛔ 不算进本局）");
             Debug.Log("[Draft] 本轮**不建**这两件（原版有、但判据缺失）："
                     + "① `Premium` / `10x Premium` 两档（价格 `premiumPrice`/`premium10Price` 在服务端 ⇒ 不编价格）；"
-                    + "② `Reroll` 那一支（`GetReRollCosts` 无真值 ⇒ 不编价格）。"
-                    + "还有 `Timer`（活动结束时刻在服务端 ⇒ 不建假倒计时）。");
+                    + "② `Timer`（活动结束时刻在服务端 ⇒ 不建假倒计时）。"
+                    + "⚠️ `Reroll` 那一行**建了**，但价格表 `reRollCosts` 也在服务端、本地 0 命中 ⇒ 表空 ⇒ 恒「免费」"
+                    + "（原版 `PriceDisplay.SetupFree` 同观感）；原版那一下的服务端扣费本地不做。");
         }
 
         /// <summary>接着打**存档里那一局**（原版 `Open → GoToCurrentState`：按服务端的 `DraftState` 落页）。
@@ -657,7 +852,10 @@ namespace CardPresentation
             _warlordNodes.Clear();
             _warlordViews.Clear();
             _warlordSelBtns.Clear();
+            _warlordBodyHits.Clear();
             _warlordContBtn = null;
+            _rerollPrice = null;
+            _deckInfoHolder = null; _deckEnergyLabel = null;
             _packCardViews.Clear();
             _previewCardViews.Clear();
             _previewCardEngineIds.Clear();
@@ -696,11 +894,17 @@ namespace CardPresentation
             MenuDraw.ShadeHit(gen, new PxRect(0f, 0f, 1920f, 1080f), QShade, QHitContentMin,
                               () => Close(), "BackdropHit");
             // ② `Reward Background Get Reward`（红底九宫）+ 吸收层（原版点红底什么都不做）
-            MenuDraw.Nine(gen, Tex("40k_general_popup_simple red"), RedR, RedBorder, RedTexW, RedTexH,
+            MenuDraw.Nine(gen, Tex("40k_general_popup_simple_red"), RedR, RedBorder, RedTexW, RedTexH,
                           QBg1, null, true, "Reward Background Get Reward");
-            MenuDraw.Absorb(gen, "AbsorbHit", RedR, QShade, QHitContentMin);
+            // 🔴 **2026-10-24（真机 F1）就地改：窗内吸收层降一档（`QHit − 2`）** —— 原来它算出来是
+            //   `QHitContentMin − 1` = **4169**，而选将页那张卡的 `CardBodyHit` 也是 4169
+            //   （`Absorb` 的 `−1` 算法）⇒ **同队列 ⇒ 谁吃到退化成枚举顺序**，真机 `click_log`
+            //   2026-10-24 #37/#39 就是「点在卡上、吃到的是 `AbsorbHit`」。
+            //   现在梯子 = 压暗 4130 < **窗内吸收 4168** < **卡体 4169** < 内容钮 4170（`Select Button` 等）。
+            //   ⚠️ `Absorb` 的档 = 第三个实参 `−1` ⇒ 这里传 `QHitContentMin − 1` 才得到 4168。
+            MenuDraw.Absorb(gen, "AbsorbHit", RedR, QShade, QHitContentMin - 1);
             // ③ `Noise`（Tiled · 原版 tint (0.311,0.127,0,0.718)）
-            MenuDraw.Tiled(gen, Tex("UI Dirt And Noise skratches"), RedR, NoiseTilePx, QBg2, "Noise",
+            MenuDraw.Tiled(gen, Tex("UI_Dirt_And_Noise_skratches"), RedR, NoiseTilePx, QBg2, "Noise",
                            new Color(0.311f, 0.127f, 0f, 0.718f));
             // ④ `Menu Vignette`（纯黑 0.58）
             MenuDraw.Rect(gen, CardArt.Solid(), VigR, "Menu Vignette", QBg3, new Color(0f, 0f, 0f, 0.58f));
@@ -787,14 +991,27 @@ namespace CardPresentation
             vc.CaptureNow();
             _warlordViewport = view;
 
-            float total = WarlordsPerDraft * WlSlotW + (WarlordsPerDraft - 1) * WlSlotGap;
-            _warlordScroll = new MenuScroll(WlViewR, WlViewR.x1, WlViewR.x1 + Mathf.Max(total, WlViewR.W), WlScrollNotch);
-            _warlordScroll.Owner = gameObject;
-            _warlordScroll.ClipNode = vc;
-            _warlordScroll.OnChanged = RebuildWarlordCards;
-            PointerLayer.RegisterScroll(_warlordScroll);
+            float total = WarlordRowWidth();
+            // 🔴 原版 `Generic Card Selector Menu` 那颗 `ScrollRect` 的序列化值就是 **`m_Enabled = 0`**
+            //   （`menu_dump … "Generic Card Selector Menu"` 现读；见 D2 §2.1「ScrollRect … m_Enabled=0」）。
+            //   `WarlordsPerDraft = 3` ⇒ 总宽 1479.73 < 1920，**一格都滚不动** ⇒ 我们**不建滚动区**
+            //   （不注册、不做位移），与「组件级禁用」同观感。
+            //   ⚠️ `WarlordsPerDraft` 若将来变大到超一屏，这里会自动建滚动区 —— 那是**兜底**，
+            //     不是原版的做法（原版那一刻也拖不动）；真到那时再按原版重判。
+            if (total > WlViewR.W)
+            {
+                _warlordScroll = new MenuScroll(WlViewR, WlViewR.x1, WlViewR.x1 + total, WlScrollNotch);
+                _warlordScroll.Owner = gameObject;
+                _warlordScroll.ClipNode = vc;
+                _warlordScroll.OnChanged = RebuildWarlordCards;
+                PointerLayer.RegisterScroll(_warlordScroll);
+            }
+            else _warlordScroll = null;
+            // `Content` 的宽照「整行宽 / 至少一屏」给（原版 `ContentSizeFitter H=MinSize` 撑到子件宽；
+            // 这里用同一口径的手算值，居中由 `WarlordRowStartX()` 负责）。
             _warlordContent = MenuDraw.Node(view, "Content", new PxRect(WlViewR.x1, WlViewR.y1,
-                                                                      WlViewR.x1 + Mathf.Max(total, WlViewR.W), WlViewR.y2));
+                                                                      WlViewR.x1 + Mathf.Max(total, WlViewR.W),
+                                                                      WlViewR.y2));
 
             // 空态提示（🔴 我们自拟 —— 原版这一页**没有空态节点**，S3 §四「没有可选战将」那一行：
             // 「原版没有空态文案（该页无 Empty/Warning 节点）⇒ 判定：查不到原版空态，需自建」）
@@ -834,6 +1051,7 @@ namespace CardPresentation
             _warlordNodes.Clear();
             _warlordViews.Clear();
             _warlordSelBtns.Clear();
+            _warlordBodyHits.Clear();
             bool empty = _warlords == null || _warlords.Count == 0;
             if (_warlordHint != null) _warlordHint.gameObject.SetActive(empty);
             if (empty)
@@ -844,13 +1062,16 @@ namespace CardPresentation
             }
             float y1 = WlSlotCy - WlSlotVisH * 0.5f;
             float y2 = WlSlotCy + WlSlotVisH * 0.5f;
+            // 整行居中（3 张：首格布局中心 x = 220.135 + 206.375 = **426.51**，步距 **533.49**）。
+            float rowStartX = WarlordRowStartX();
             for (int i = 0; i < _warlords.Count; i++)
             {
                 var def = _warlords[i];
                 if (def == null) continue;
-                float cx = i * (WlSlotW + WlSlotGap) + WlSlotW * 0.5f;
-                var slotR = _warlordScroll.Shift(new PxRect(cx - WlSlotVisW * 0.5f, y1,
-                                                            cx + WlSlotVisW * 0.5f, y2));
+                float cx = rowStartX + WlSlotW * 0.5f + i * WlStep;
+                var rawSlotR = new PxRect(cx - WlSlotVisW * 0.5f, y1, cx + WlSlotVisW * 0.5f, y2);
+                // 3 张时不建滚动（`_warlordScroll == null`）⇒ 直接用原框，⛔ 别在这儿假设它非空。
+                var slotR = _warlordScroll != null ? _warlordScroll.Shift(rawSlotR) : rawSlotR;
                 var node = MenuDraw.Node(_warlordContent, "Generic Select Card Container", slotR);
                 var content = MenuDraw.Node(node, "Content", slotR);
 
@@ -879,10 +1100,23 @@ namespace CardPresentation
                 //  它身上**没有任何处理器**，`GenericSelectCardContainer` 也只把 `selectButton` 接去了
                 //  `SelectWarlord`（`...__SelectButtonOnClick.c`））
                 // ⇒ 原版点卡体 = **射线打到卡自己、父链上没有处理器 ⇒ 什么都不做**。
-                // 我们原来这块是空的 ⇒ 点卡体会穿透到窗内吸收层 `AbsorbHit`
-                // （真机 click_log 2026-10-24 #37/#39 就是这个观感：玩家以为「卡点不动」）。
-                // ⚠️ 档 = `Absorb` 算的 `QHit − 1`（严格低于 `Select Button` 那颗 `QHit`）⇒ 不会抢按钮的点击。
-                MenuDraw.Absorb(content, "CardBodyHit", cardR, QShade, QHit, WlViewR);
+                // 我们原来这块是空的 ⇒ 点卡体会穿透到窗内吸收层 `AbsorbHit`（观感同「卡点不动」，
+                // 但命中件不同、且会被窗子的关闭链吃掉）。
+                //
+                // 🔴 **2026-10-24（第七十四会话 · `W7`）就地改回原版口径**：
+                //   上一批（`W3`）按一份**给错了的指令**把它改成了 `MenuDraw.Hit + ChooseWarlord(id)`
+                //   （「点卡体该选中」）—— 那与判据不符。判据（第一权威 = 反编译 + prefab 实读）：
+                //   · `2DCard/UI Collider` = `UIGenericEventCatcher + NonDrawingGraphic`，**无处理器**；
+                //   · `GenericSelectCardContainer` 的 `OnEnable` 只把 `selectButton` 接到 `SelectWarlord`
+                //     （`decomp_full/GenericSelectCardContainer__SelectButtonOnClick.c` / `__OnEnable.c`）；
+                //   · `selectedContent` 在两个实例里都是 **null** ⇒ 原版连「已选」贴图都没有。
+                //   ⇒ **点卡体什么都不做**（吸收掉，⛔ 不选中、不换页、不关窗）。
+                //   这一格的命中档 = `QHit − 1` = **4169**：**严格高于**窗内吸收层 4168、
+                //   **严格低于** `Select Button` 的 4170 ⇒ 卡体吃得下自己那一下、又不会抢按钮
+                //   （两者在 y 762.82…773.14 有 10px 重叠带）。
+                string id = def.Id;
+                var bodyHit = MenuDraw.Absorb(content, "CardBodyHit", cardR, QShade, QHit, WlViewR);
+                _warlordBodyHits.Add(bodyHit != null ? bodyHit.GetComponent<WindowButton>() : null);
 
                 // `Select Button`（原版 210.02×81.66 视觉，压在卡体下沿之外）
                 var selR = new PxRect(slotR.x1 + WlSelBtnOff.x1, slotR.y1 + WlSelBtnOff.y1,
@@ -894,7 +1128,6 @@ namespace CardPresentation
                 var selTx = MenuDraw.Text(selNode, txR, Loc.T("Battle/Prebattle/SelectButton"), Color.white,
                                           "Button Text", 40f, QText, face: TmpFont.Face.LatinCardBody);
                 MenuDraw.SetVAlign(selTx, Label.VAlign.Capline, txR);        // 原版 align 2/8192
-                string id = def.Id;
                 var selHit = MenuDraw.Hit(selNode, "Hit", selR, QHit, () => ChooseWarlord(id), selBg,
                                           "UI_Button_Mulligan", "UI_Button_Mulligan_hover",
                                           "UI_Button_Mulligan_Pressed",
@@ -941,8 +1174,83 @@ namespace CardPresentation
         public WindowButton WarlordSelectButtonForTest(int i)
             => (i >= 0 && i < _warlordSelBtns.Count) ? _warlordSelBtns[i] : null;
 
+        /// <summary>选将页第 <paramref name="i"/> 格**卡本体**（`CardBodyHit`）的 `WindowButton`
+        /// （`null` = 越界 / 没建出来）。⚠️ 它是**吸收层**（`onClick == null`）—— 见 `_warlordBodyHits` 的注释。</summary>
+        public WindowButton WarlordCardBodyHitForTest(int i)
+            => (i >= 0 && i < _warlordBodyHits.Count) ? _warlordBodyHits[i] : null;
+
+        /// <summary>🆕 2026-10-24（真机 F1）：**这一扇窗**里，设计 px 那一点上**真正吃到点击**的是哪一颗钮。
+        /// <para>判据与生产 `PointerLayer.HitButton` **三条键同序**：渲染队列↓ → `z` 小的先 → 后兄弟先
+        /// （第三条的口径见 `Shell/PointerLayer.cs` 的 `IsAboveInHierarchy`）。候选表与命中框**都走生产的
+        /// 那两个读口**（`AllButtonsForTest` / `HitBoxForTest`），本方法**只**做「挑赢家」这一步转发。</para>
+        /// <para>🔴 为什么要这个口：F1 的漏网原因就是自检**直调 `Click()`** —— 那绕开了「谁的队列高」，
+        /// 于是「同队列被窗内吸收层吃掉」这个真机缺陷全绿。有了它，断言可以断「那一点吃到的是谁」。</para>
+        /// <para>⚠️ 与 `Editor/DraftAssertD3.cs` 里那份私有的 `HitTestInWindow` 是**同一条规则的第二份**
+        /// （那份不在本轮白名单、没能收口到这里）—— 将来两处要合成一处。</para></summary>
+        public static WindowButton PointWinnerForTest(Transform win, float px, float py, out int q, out string who)
+        {
+            WindowButton best = null; ImageQuad bestQ0 = null;
+            int bestQ = int.MinValue; float bestZ = float.MaxValue;
+            string desc = "空点（本窗没有钮盖住这一点）";
+            var all = PointerLayer.AllButtonsForTest();
+            for (int i = 0; i < all.Length; i++)
+            {
+                var b = all[i];
+                if (b == null || b.transform == null || win == null || !b.transform.IsChildOf(win)) continue;
+                Vector2 c, h; ImageQuad quad;
+                if (!PointerLayer.HitBoxForTest(b, out c, out h, out quad)) continue;
+                if (Mathf.Abs(px - c.x) > h.x || Mathf.Abs(py - c.y) > h.y) continue;
+                int qq = quad != null ? quad.RenderQueue : int.MinValue;
+                float z = quad != null ? quad.transform.position.z : 0f;
+                bool take;
+                if (best == null) take = true;
+                else if (qq != bestQ) take = qq > bestQ;
+                else if (z < bestZ - 1e-4f) take = true;
+                else if (z > bestZ + 1e-4f) take = false;
+                else take = AboveInHierarchyForTest(quad != null ? quad.transform : null,
+                                                    bestQ0 != null ? bestQ0.transform : null);
+                if (!take) continue;
+                best = b; bestQ0 = quad; bestQ = qq; bestZ = z;
+                desc = b.name + "（队列 " + qq + "）";
+            }
+            q = bestQ; who = desc; return best;
+        }
+
+        /// <summary>同队列同 `z` 时 = **后兄弟先**（口径逐字照 `PointerLayer.IsAboveInHierarchy`；那份是
+        /// `private`，本文件转发不到 ⇒ 只能留第二份，⚠️ 改生产那份时这份要跟着改）。</summary>
+        static bool AboveInHierarchyForTest(Transform a, Transform b)
+        {
+            if (a == b || a == null) return false;
+            if (b == null) return true;
+            var pa = new List<Transform>(); var pb = new List<Transform>();
+            for (var t = a; t != null; t = t.parent) pa.Insert(0, t);
+            for (var t = b; t != null; t = t.parent) pb.Insert(0, t);
+            int n = Mathf.Min(pa.Count, pb.Count);
+            for (int i = 0; i < n; i++)
+            {
+                if (pa[i] == pb[i]) continue;
+                return pa[i].GetSiblingIndex() > pb[i].GetSiblingIndex();
+            }
+            return pa.Count > pb.Count;
+        }
+
         /// <summary>选将页 `Continue` 的 `WindowButton`（原版 `OnOpen` 出厂 `interactable = false`）。</summary>
         public WindowButton WarlordContinueButtonForTest { get { return _warlordContBtn; } }
+
+        /// <summary>选将页**建没建横向滚动区**（`true` = 整行超一屏、建了 `MenuScroll`）。
+        /// 原版 `Generic Card Selector Menu` 的 `ScrollRect.m_Enabled = 0`（拖不动）⇒ 3 张时这里必须是 `false`。</summary>
+        public bool WarlordScrollingForTest { get { return _warlordScroll != null; } }
+
+        /// <summary>右栏 `CardCounter` 当前印的字（自检读口）。</summary>
+        public string CardsCounterText { get { return _cardsCounter != null ? _cardsCounter.Text : null; } }
+        /// <summary>`Reroll` 那颗价格钮当前印的字（自检读口）。</summary>
+        public string RerollPriceText { get { return _rerollPrice != null ? _rerollPrice.Text : null; } }
+        /// <summary>`Reroll` 整行那棵子树（自检用；`null` = 没建出来）。</summary>
+        public Transform RerollNode { get { return _pagePacks != null ? _pagePacks.Find("Reroll") : null; } }
+        /// <summary>右栏 Deck Info 页的内容块（原版 `Energy View panel`；自检读口）。</summary>
+        public Transform DeckInfoHolder { get { return _deckInfoHolder; } }
+        /// <summary>`Card List` 页的 `Card counter` 当前印的字（自检读口；`null` = 不在那一页）。</summary>
+        public string DeckListCounterText { get { return _deckListCounter != null ? _deckListCounter.Text : null; } }
 
         /// <summary>选将页那一格**画出来的**卡（`2DCard`）在设计 px 下的矩形 —— **从 `CardView` 自己量**
         /// （`BaseScale × CardView.Width/Height × 108` + 它的世界位置），⛔ 不是回放我们喂进去的那个框
@@ -1005,6 +1313,27 @@ namespace CardPresentation
                           new Color(1f, 0.85f, 0.4f, 1f), "Text", 30f, QText, 800f, 18f, 30f, 24f,
                           face: TmpFont.Face.LatinCardBody);
             _packHint.gameObject.SetActive(false);
+
+            // ---- `Reroll` 行（原版有、上一批没建；2026-10-24 第七十四会话 `W7` 补上）----
+            //   几何/字号/对齐 = prefab 现读（见 `RerollR` 那一组的注释）。价格规则见 `ReRollCost`。
+            var reroll = MenuDraw.Node(page, "Reroll", RerollR);
+            var rerollTx = MenuDraw.Text(reroll, RerollTxR, "Reroll packs:", Color.white, "Reroll Text",
+                                         54.80f, QText, face: TmpFont.Face.LatinCardBody);
+            MenuDraw.AlignRight(rerollTx, RerollTxR);                       // 原版 hAlign = Right
+            MenuDraw.SetVAlign(rerollTx, Label.VAlign.Midline, RerollTxR);  // 原版 vAlign = Midline
+            var rerollBtn = MenuDraw.Node(reroll, "Price Display Button 2 Variant", RerollBtnR);
+            var rerollBg = MenuDraw.Rect(rerollBtn, Tex("UI_Button_Mulligan"), RerollBtnR, "Generic UI Button",
+                                         QArt, null, true);
+            // `Price Display`：原版是 HLG(icon + text) + ARF 4.8848。**免费档（cost == 0）时原版走
+            //   `PriceDisplay.SetupFree` ⇒ 只给文本、不给 icon**（`PriceDisplay__Setup.c` 的 `param_2 == null`
+            //   那一支）⇒ 我们直接把那句字铺在 `Price Display` 那个框里居中，⛔ 不画货币图标
+            //   （表空 ⇒ 恒免费；货币图本地也没有对应 sprite）。
+            _rerollPrice = MenuDraw.Text(rerollBtn, RerollPriceR, "", Color.white, "Price Display",
+                                         54f, QText, RerollPriceR.W, 12f, 54f, 39f,
+                                         face: TmpFont.Face.LatinCardBody);
+            MenuDraw.SetVAlign(_rerollPrice, Label.VAlign.Capline, RerollPriceR);   // 原版 `text` = Center/Capline
+            MenuDraw.Hit(rerollBtn, "Hit", RerollBtnR, QHit, () => ReRollPacks(), rerollBg,
+                         "UI_Button_Mulligan", "UI_Button_Mulligan_hover", "UI_Button_Mulligan_Pressed");
             _warlordImgNode = wlNode;
             return page;
         }
@@ -1167,7 +1496,7 @@ namespace CardPresentation
             var panel = MenuDraw.Node(page, "Reward Info Panel", RewardPanelR);
             var info = MenuDraw.Node(panel, "Reward Info", RewardPanelR);
             // `Highlight Crate`（`Crate Border Highlight` · 金色 0.427 · **只画边框** fillCenter=0）
-            MenuDraw.Nine(info, Tex("Crate Border Highlight"), CrateGlowR, new Vector4(0f, 0f, 0f, 0f), 128f, 128f,
+            MenuDraw.Nine(info, Tex("Crate_Border_Highlight"), CrateGlowR, new Vector4(0f, 0f, 0f, 0f), 128f, 128f,
                           QArt1, new Color(0.98f, 0.801f, 0.0588f, 0.427f), false, "Highlight Crate",
                           null, null, default(Vector2));
             // `Crate`：原版 `DraftRewardPanel.Initialize` 按 **`CurrentStage`（= 胜场 `save+0x48`）** 换六档
@@ -1213,8 +1542,9 @@ namespace CardPresentation
                 MenuDraw.Node(tog, "Icon", icR);
                 var icon = Tex(DeckToggleIconArt[i]);
                 if (icon != null) MenuDraw.Rect(tog, icon, icR, "Image", QArt1, null, true);
-                else Debug.LogWarning("[Draft] 右栏 toggle 图标「" + DeckToggleIconArt[i] + "」**本地没有**"
-                                    + "（`Resources/Art/ui*/` 0 命中）⇒ 这一格只有底、没有图标（⛔ 不拿别的图顶）");
+                else Debug.LogWarning("[Draft] 右栏 toggle 图标「" + DeckToggleIconArt[i] + "」取不到"
+                                    + "（期望 `Resources/Art/ui_menu/" + DeckToggleIconArt[i] + ".png`）"
+                                    + " ⇒ 这一格只有底、没有图标（⛔ 不拿别的图顶）");
                 MenuDraw.Hit(tog, "Hit", r, QHit, () => SetDeckTab(idx), bgQ, ToggleArtOnOff[1],
                              ToggleArtOnOff[0], ToggleArtOnOff[0], clickCue: WindowSounds.SelectToggleCue);
             }
@@ -1232,10 +1562,13 @@ namespace CardPresentation
                                        face: TmpFont.Face.LatinCardBody);
             _cardsCounter = MenuDraw.Text(panel, DeckCounterR, "", Color.white, "CardCounter", 36f, QText,
                                           face: TmpFont.Face.LatinCardBody);
-            MenuDraw.Text(panel, DeckEnergyR, Loc.T("Demo/EnergyBalance/EnergyBalance"), Color.white,
-                          "Energy balance", 36f, QText, DeckEnergyR.W, 18f, 36f, 36f,
-                          face: TmpFont.Face.LatinCardBody);
+            _deckEnergyLabel = MenuDraw.Text(panel, DeckEnergyR, Loc.T("Demo/EnergyBalance/EnergyBalance"), Color.white,
+                                             "Energy balance", 36f, QText, DeckEnergyR.W, 18f, 36f, 36f,
+                                             face: TmpFont.Face.LatinCardBody);
             _deckTabHolder = MenuDraw.Node(panel, "Cards in deck panel", DeckListR);
+            // Deck Info 页的内容块（原版 `Energy View panel`）—— 内容在 `RefreshDeckPanel()` 里按
+            // 「当前选了几张 / 战将是谁」重建（它是**会变**的：选包、选将都会动它）。
+            _deckInfoHolder = MenuDraw.Node(panel, "Energy View panel", DeckPanelR);
             return panel;
         }
         static readonly string[] DeckToggleNames = { "Deck Info Toggle", "Card List Toggle", "Alliance Info Toggle" };
@@ -1433,6 +1766,10 @@ namespace CardPresentation
 
             bool showDeckPanel = (s == DraftModeState.SelectPack || s == DraftModeState.OngoingRun);
             SetOn(_deckPanelRoot, showDeckPanel);
+            // 原版 `DraftModeDeckInfoPanel.Initialize(draft, showCardCounter)`：**SelectPack 页传 `true`、
+            //   Ongoing 页传 `false`**，那个第 2 参控制 `CardCounter` 整节点的显隐
+            //   （`DraftModeSelectPacksStateDemo__OnOpen` 传 1；S3 §2.9 + D2 §2.4 现读）。
+            _deckShowCounter = (s == DraftModeState.SelectPack);
             SetOn(_rewardPanelRoot, s == DraftModeState.Finished);
             // Finished：隐藏 `To Battle` / `Reset Event Button` / `Timer`，显示 `Quote End`（S3 §2.7 判据）
             bool finished = (s == DraftModeState.Finished);
@@ -1665,6 +2002,10 @@ namespace CardPresentation
 
             _stageCounter.SetText((CurrentDraftRound + 1) + "/" + DraftPacks.RoundsPerDraft);
             MenuDraw.AlignLeft(_stageCounter, StageR);     // 换字之后要重新左对齐（原版 hAlign = Left）
+            // `Reroll` 的价格（原版 `RefreshReRollPrice` 每次进这一页都会刷）：
+            //   `cost == 0` ⇒ 原版 `PriceDisplay.SetupFree` 画「Free」；否则画数字。
+            if (_rerollPrice != null)
+                _rerollPrice.SetText(ReRollCost <= 0 ? Loc.T("MainMenu/Free") : ReRollCost.ToString());
             bool empty = _offered.Count == 0;
             if (_packHint != null) _packHint.gameObject.SetActive(empty);
             if (empty)
@@ -1692,15 +2033,15 @@ namespace CardPresentation
             MenuDraw.Nine(content, Tex("UI_Deck_Information_submenu_Back"),
                           new PxRect(r.x1, r.y1, r.x2, r.y2), new Vector4(18f, 18f, 18f, 18f), 69f, 63f,
                           QPanelBack2, null, true, "BackgroundImage", new Vector4(9f, 9f, 9f, 9f));
-            MenuDraw.Nine(content, Tex("OctagonUI Border SDF"),
+            MenuDraw.Nine(content, Tex("OctagonUI_Border_SDF"),
                           new PxRect(r.x1 + 2f, r.y1 + 2f, r.x2 - 2f, r.y2 - 2f),
                           new Vector4(52f, 52f, 52f, 52f), 128f, 128f, QPanelArt,
                           new Color(1f, 0.558f, 0.078f, 1f), false, "Highlight", null, null, default(Vector2));
 
-            MenuDraw.Text(content, Abs(r, PackTitleR), pack.packName ?? pack.packId, Color.white,
+            MenuDraw.Text(content, Abs(r, PackTitleR), PackTitle(pack), Color.white,
                           "Pack title", 35f, QText, PackTitleR.W, 18f, 35f, 36f,
                           face: TmpFont.Face.LatinCardBody);
-            MenuDraw.Nine(content, Tex("40k_Separator Fade Sides Horizontal"), Abs(r, PackSepR),
+            MenuDraw.Nine(content, Tex("40k_Separator_Fade_Sides_Horizontal"), Abs(r, PackSepR),
                           new Vector4(63f, 0f, 63f, 0f), 128f, 4f, QPanelArt,
                           new Color(0.757f, 0.502f, 0.122f, 1f), true, "Separator",
                           new Vector4(63f / 2.89f, 0f, 63f / 2.89f, 0f));
@@ -1753,6 +2094,27 @@ namespace CardPresentation
                          () => ShowPackPreview(key), null, null, null, null);
         }
 
+        /// <summary>包名。原版 `PrebuiltPack.GetLocalizedName` 走
+        /// `Localize("PackName/" + (nameRefId 非空 ? nameRefId : packId))`
+        /// （`d:/2/tools/decomp_full/PrebuiltPack__GetLocalizedName.c`：`+0x28` = nameRefId、`+0x20` = packId）。
+        /// 官方本地化里 **`PackName/*` 856 条、855 个 unique packId 全命中（含中文）** ⇒ 我们照同一条键取。
+        /// <para>⚠️ 我们这份数据（`Resources/draft_packs.json`）**没有 `nameRefId` 这一列** ⇒ 一律走 `packId`
+        /// （原版那一跳只在 `nameRefId` 非空时才不同；本地 855/855 用 `packId` 就全命中）。</para>
+        /// <para>取不到（理论上不该发生）⇒ 回 `packName`，并**出声一次**（⛔ 不静默印英文）。</para></summary>
+        static string PackTitle(DraftPacks.PackDto pack)
+        {
+            string id = pack.packId;
+            string key = "PackName/" + id;
+            string s = Loc.T(key);
+            if (!string.IsNullOrEmpty(s) && s != key) return s;
+            if (id != null && _warnedPackName.Add(id))     // `Add` 首次为 true ⇒ 同一条键只出声一次
+                Debug.LogWarning("[Draft] 包名键 `" + key + "` 在本地化表里取不到 ⇒ 回退英文 `"
+                               + (pack.packName ?? id) + "`"
+                               + "（D2 现读官方表 `PackName/*` 855/855 全命中 ⇒ 出现这条要查数据/键名）");
+            return pack.packName ?? id;
+        }
+        static readonly HashSet<string> _warnedPackName = new HashSet<string>();
+
         /// <summary>把「相对包卡左上角」的矩形搬成绝对坐标。</summary>
         static PxRect Abs(PxRect outer, PxRect off)
         {
@@ -1777,7 +2139,8 @@ namespace CardPresentation
             }
         }
 
-        void SetDeckTab(int tab)
+        /// <summary>右栏三颗 toggle 的动作（生产路径 = 点 toggle；自检也直调这一个 —— 同一份实现）。</summary>
+        public void SetDeckTab(int tab)
         {
             _deckTab = Mathf.Clamp(tab, 0, 2);
             RefreshDeckPanel();
@@ -1799,26 +2162,80 @@ namespace CardPresentation
             }
             int n = _selectedCards.Count;
             if (_cardsCounter != null)
-                _cardsCounter.SetText(Loc.T("Demo/EnergyBalance/Cards") + " " + n + "/"
-                                    + (DraftPacks.RoundsPerDraft * DraftPacks.CardsPerPack));
-            // 页内容：0 = Deck Info（标题 + 计数 + 能量平衡已经在 panel 上，恒显示）
-            //         1 = Card List（列出已拿到的卡名）
+                // 原版 `DraftModeDeckInfoEnergyBalancePanel.Initialize`：
+                // `Concat(trans, count, "/", deckSize)` —— **`"Cards:"` 与数字之间没有空格**
+                // （中文词条是「卡：」，全角冒号）。原来是 `Loc.T(...) + " " + n`，多了一个空格。
+                _cardsCounter.SetText(Loc.T("Demo/EnergyBalance/Cards") + n + "/" + DeckSizeForDraft);
+            // 页内容：0 = Deck Info（**原版 `Energy View panel` 那一整页**：标题 + 计数 + 能量平衡标题
+            //                     + 卡背/战将卡 + 9 行费用分布 —— 这些件在原版**都属于这一页**，
+            //                     切到另两页要一起关，判据 = prefab 的父链现读）
+            //         1 = Card List（头部 + 已拿到的卡名）
             //         2 = Alliance Info（原版要联盟数据/排行榜，本地 0）⇒ 自拟一句提示 + 出声
+            bool infoTab = _deckTab == 0;
+            if (_deckTitle != null) _deckTitle.gameObject.SetActive(infoTab);
+            // `CardCounter` 的显隐 = 「在 Deck Info 页」**且**「原版那一页的 `showCardCounter`」
+            //   （SelectPack 页 true / Ongoing 页 false，见 `GoToState`）。
+            if (_cardsCounter != null) _cardsCounter.gameObject.SetActive(infoTab && _deckShowCounter);
+            if (_deckEnergyLabel != null) _deckEnergyLabel.gameObject.SetActive(infoTab);
+            if (_deckInfoHolder != null)
+            {
+                for (int i = _deckInfoHolder.childCount - 1; i >= 0; i--)
+                    RewardsWindow.DestroySafe(_deckInfoHolder.GetChild(i).gameObject);
+                if (infoTab) BuildDeckInfoContent();
+            }
             if (_deckTabHolder == null) return;
             for (int i = _deckTabHolder.childCount - 1; i >= 0; i--)
                 RewardsWindow.DestroySafe(_deckTabHolder.GetChild(i).gameObject);
+            _deckListCounter = null;
             if (_deckTab == 1)
             {
-                int rows = Mathf.Min(n, Mathf.FloorToInt(DeckListR.H / DeckRowH));
+                // ---- 头部（原版 `Cards in deck panel > Warlord Name / Card counter / Separator`）----
+                //   ⚠️ 绝对 y 按**我们那个框**排（见 `DeckListHeaderH` 那一组的注释），结构/字号/对齐照 prefab。
+                var wlDef = string.IsNullOrEmpty(_warlordId) ? null : CardDatabase.FindById(CardPool(), _warlordId);
+                float headY2 = DeckListR.y1 + DeckListHeaderH;
+                var nameR = new PxRect(DeckListR.x1 + 6f, DeckListR.y1, DeckListR.x1 + 268f, headY2);
+                // 原版 prefab 默认文本就是 'Warlord Name'（那是占位），运行时换成 `GetLocalizedCardName(战将卡)`。
+                var nameTx = MenuDraw.Text(_deckTabHolder, nameR,
+                                           wlDef != null ? CardText.Name(wlDef) : "Warlord Name",
+                                           Color.white, "Warlord Name", 33f, QText, nameR.W, 18f, 33f, 33f,
+                                           face: TmpFont.Face.LatinCardBody);
+                MenuDraw.AlignLeft(nameTx, nameR);                                   // 原版 hAlign = Left
+                MenuDraw.SetVAlign(nameTx, Label.VAlign.Middle, nameR);              // 原版 vAlign = Middle
+                // 原版这颗是 `EverguildButton`：`WarlordTextButtonOnClick` → `CardDisplayWindow.ShowCard(战将卡)`
+                MenuDraw.Hit(_deckTabHolder, "Warlord Name Hit", nameR, QHit, OpenWarlordCard, null, null, null, null);
+                var cntR = new PxRect(DeckListR.x2 - 78.86f, DeckListR.y1, DeckListR.x2, headY2);
+                var cntTx = MenuDraw.Text(_deckTabHolder, cntR, DeckListCounterString(n),
+                                          new Color(0.783f, 0.783f, 0.783f, 1f), "Card counter", 28f, QText,
+                                          cntR.W, 18f, 28f, 28f, face: TmpFont.Face.LatinCardBody);
+                _deckListCounter = cntTx;
+                MenuDraw.AlignRight(cntTx, cntR);                                    // 原版 hAlign = Right
+                MenuDraw.SetVAlign(cntTx, Label.VAlign.Middle, cntR);
+                // 分隔线（原版 `40k_Separator Fade Sides Horizontal` 九宫 63,0,63,0 · ppuMul 2.89）
+                var sepR = new PxRect(DeckListR.x1, headY2 + 2f, DeckListR.x2, headY2 + 4.9f);
+                var sepTex = Tex("40k_Separator_Fade_Sides_Horizontal");
+                if (sepTex != null)
+                    MenuDraw.Nine(_deckTabHolder, sepTex, sepR, new Vector4(63f, 0f, 63f, 0f), 128f, 4f, QPanelArt,
+                                  new Color(0.757f, 0.502f, 0.122f, 1f), true, "Separator",
+                                  new Vector4(63f / 2.89f, 0f, 63f / 2.89f, 0f));
+                else
+                    MenuDraw.Rect(_deckTabHolder, CardArt.Solid(), sepR, "Separator", QPanelArt,
+                                  new Color(0.757f, 0.502f, 0.122f, 1f));
+
+                int bodyRows = Mathf.Max(0, Mathf.FloorToInt((DeckListR.H - DeckListBodyTop) / DeckRowH));
+                int rows = Mathf.Min(n, bodyRows);
                 for (int i = 0; i < rows; i++)
                 {
                     var def = CardDatabase.FindById(CardPool(), _selectedCards[i]);
-                    var rr = new PxRect(DeckListR.x1, DeckListR.y1 + i * DeckRowH,
-                                        DeckListR.x2, DeckListR.y1 + (i + 1) * DeckRowH);
+                    float ry = DeckListR.y1 + DeckListBodyTop + i * DeckRowH;
+                    var rr = new PxRect(DeckListR.x1, ry, DeckListR.x2, ry + DeckRowH);
                     MenuDraw.Text(_deckTabHolder, rr, (i + 1) + ". " + (def != null ? CardText.Name(def) : _selectedCards[i]),
                                   Color.white, "Card Row", 26f, QText, rr.W, 16f, 26f, 24f,
                                   face: TmpFont.Face.LatinCardBody);
                 }
+                if (n > bodyRows)
+                    Debug.LogWarning("[Draft] `Card List` 页放不下 " + n + " 行（行高 " + DeckRowH + " · 可放 " + bodyRows
+                                   + "）—— 原版这一页是 `Scroll View`（`ScrollRect v=1`），**我们这一版没有滚动**"
+                                   + " ⇒ 多出来的 " + (n - bodyRows) + " 行**看不到**（⛔ 不假装画了）。");
             }
             else if (_deckTab == 2)
             {
@@ -1829,6 +2246,99 @@ namespace CardPresentation
                               16f, 26f, 24f, face: TmpFont.Face.LatinCardBody);
                 Debug.Log("[Draft] `Alliance Info` 页要 `LeaderboardManager.GetCachedLeaderboard(...)` 的数据"
                         + "（原版那段调用见 S3 §2.9）—— 本机没有服务器 ⇒ **页留空 + 一句自拟提示**（⛔ 不编联盟数据）。");
+            }
+        }
+
+        /// <summary>右栏 Deck Info 页那三块内容：**卡背（两层）+ 战将卡面 + 9 行费用分布**。
+        /// <para>判据：几何 = `menu_dump … "Draft Mode Deck Info Panel" --depth 12 --relative` 现读；
+        /// 分桶与归一化 = `d:/2/tools/decomp_full/DeckEnergyCostDrawer__Initialize.c` 反汇编现读 +
+        /// `dump.cs:105906`（`NUMBER_OF_CARDS_FOR_NORMALIZATION = 10`）。</para>
+        /// <para>⚠️ **颜色是我们挑的**（原版 `Slider` 的 track/fill sprite 在外部依赖里、本地读不到
+        /// —— prefab 那一行的 `Slider` 只列了字段、没有 sprite）；几何与文本口径**不是**我们挑的。</para></summary>
+        void BuildDeckInfoContent()
+        {
+            var host = _deckInfoHolder;
+            if (host == null) return;
+
+            // ---- ① 卡背（原版 `Cardback` + `Cardback Front` 两层，运行时按阵营喂图）----
+            string faction = WarlordFaction;
+            var back = CardArt.CardBack(faction);
+            if (back != null)
+            {
+                // 两件各带原版的 z 旋转（`Cardback` +1.60° / `Cardback Front` −3.43°，prefab `m_LocalRotation` 实读）。
+                // 🔴 **`Cardback Front` 在 prefab 里是 `Cardback` 的【子件】**（`menu_dump` 的树深 **4**、锚点 stretch、
+                //    `sizeDelta ≈ 0`）⇒ 父件那 +1.60° 先转、子件再叠自己那 −3.43° ⇒ **画出来的世界角 = −1.83°**。
+                //    ⛔ 别把两件建成兄弟（那样子件世界角会是 −3.43°，且树的形状与 prefab 不符）。
+                var cbBack = MenuDraw.Rect(host, back, DeckBackR, "Cardback", QCardBase - 1, null, true,
+                                           rotZDeg: DeckBackRotZ);
+                // 子件要挂在父件那颗 quad 下才叠得到 +1.60°；`cbBack` 只可能在贴图为空时是 null，而上面
+                // `back != null` 已挡过 ⇒ 这一支**理论不可达**，真到了就出声（⛔ 不静默画一层错的）。
+                if (cbBack == null)
+                    Debug.LogWarning("[Draft] 右栏 `Cardback` 那颗 quad 没建出来 ⇒ `Cardback Front` 只能挂到 "
+                                   + "`Energy View panel` 下，**父件那 +1.60° 叠不上去**（世界角会是 −3.43° 而不是 −1.83°）。");
+                MenuDraw.Rect(cbBack != null ? cbBack.transform : host, back, DeckBackFrontR,
+                              "Cardback Front", QCardBase - 1, null, true, rotZDeg: DeckBackFrontRotZ);
+            }
+            else
+                Debug.LogWarning("[Draft] 右栏 `Cardback` 取不到（阵营 " + faction + "）⇒ 这一层没画（⛔ 不拿别的图顶）。");
+
+            // ---- ② 战将卡面（原版 `CardUI-Warlord` = 一张 `BasicCardUI`，视觉 192.48×254.89）----
+            var wlDef = string.IsNullOrEmpty(_warlordId) ? null : CardDatabase.FindById(CardPool(), _warlordId);
+            if (wlDef != null)
+            {
+                var cv = CardView.Create(host, BattleDriver.ToCardData(wlDef, wlDef.Faction), "CardUI-Warlord");
+                if (cv != null)
+                {
+                    float sc = DeckWarlordCardR.H / (CardView.Height * 108f);
+                    cv.SetPose(MenuDraw.Local(host, DeckWarlordCardR.x1, DeckWarlordCardR.y1,
+                                              DeckWarlordCardR.x2, DeckWarlordCardR.y2), 0f, sc);
+                    cv.SetQueue(QCardBase);           // 卡背在 QCardBase−1 ⇒ 卡面压在上面
+                }
+            }
+
+            // ---- ③ `Deck Information cost drawer`：底板 + 9 行 ----
+            MenuDraw.Rect(host, CardArt.Solid(), DeckCostBgR, "Background", QPanelBack,
+                          new Color(0.123f, 0.123f, 0.123f, 1f));
+            var buckets = new int[DeckCostRows];
+            for (int i = 0; i < _selectedCards.Count; i++)
+            {
+                var d = CardDatabase.FindById(CardPool(), _selectedCards[i]);
+                if (d == null || d.Cost < 0) continue;        // 无费用（-1）那一档不计入（原版按 `card.cost` 分桶）
+                // `card.cost < 行数−1` ⇒ 落第 cost 行；**否则全进最后一行**（原版那一支现读）
+                buckets[Mathf.Min(d.Cost, DeckCostRows - 1)]++;
+            }
+            var costColor = new Color(0.296f, 0.774f, 0.496f, 1f);   // 原版 `Card Cost` 色 (0.296,0.774,0.496)
+            // `Content`（原版那颗 VLG，`spacing 3.43`、9 行）—— 行挂在它下面（节点名逐字照 prefab）
+            var costContent = MenuDraw.Node(host, "Content",
+                                            new PxRect(DeckCostRow0R.x1, DeckCostBgR.y1,
+                                                       DeckCostRow0R.x2, DeckCostBgR.y2));
+            for (int i = 0; i < DeckCostRows; i++)
+            {
+                float y1 = DeckCostRow0R.y1 + i * DeckCostRowStep;
+                var rowR = new PxRect(DeckCostRow0R.x1, y1, DeckCostRow0R.x2, y1 + DeckCostRow0R.H);
+                var rowNode = MenuDraw.Node(costContent, "Deck CostQuanityt Row Drawer", rowR);
+                // `Card Cost`（最后一行 = 「8+」，原版 `maxCostToDraw` 那一条 tooltip）
+                var costR = new PxRect(rowR.x1 + DeckCostCostOff.x1, rowR.y1 + DeckCostCostOff.y1,
+                                       rowR.x1 + DeckCostCostOff.x2, rowR.y1 + DeckCostCostOff.y2);
+                MenuDraw.Text(rowNode, costR, i == DeckCostRows - 1 ? (DeckCostRows - 1) + "+" : i.ToString(),
+                              costColor, "Card Cost", 25f, QText, costR.W, 12f, 25f, 25f,
+                              face: TmpFont.Face.LatinCardBody);
+                // `Slider`（fill = clamp(张数 / 10)）
+                var slR = new PxRect(rowR.x1 + DeckCostSliderOff.x1, rowR.y1 + DeckCostSliderOff.y1,
+                                     rowR.x1 + DeckCostSliderOff.x2, rowR.y1 + DeckCostSliderOff.y2);
+                float ratio = Mathf.Clamp01(buckets[i] / DeckCostNormalization);
+                var sliderNode = MenuDraw.Node(rowNode, "Slider", slR);
+                MenuDraw.Rect(sliderNode, CardArt.Solid(), slR, "Track", QPanelBack2,
+                              new Color(0f, 0f, 0f, 0.55f));
+                if (ratio > 0f)
+                    MenuDraw.Rect(sliderNode, CardArt.Solid(),
+                                  new PxRect(slR.x1, slR.y1, slR.x1 + slR.W * ratio, slR.y2), "Fill", QPanelArt,
+                                  costColor);
+                // `Cards in deck`（张数）
+                var cntR = new PxRect(rowR.x1 + DeckCostCountOff.x1, rowR.y1 + DeckCostCountOff.y1,
+                                      rowR.x1 + DeckCostCountOff.x2, rowR.y1 + DeckCostCountOff.y2);
+                MenuDraw.Text(rowNode, cntR, buckets[i].ToString(), Color.white, "Cards in deck", 25f, QText,
+                              cntR.W, 12f, 25f, 25f, face: TmpFont.Face.LatinCardBody);
             }
         }
 
@@ -1849,6 +2359,62 @@ namespace CardPresentation
             }
             UpdateState();      // 原版 `..._FreeEventEntrance_g__OnSuccess_1.c` 的第 2 句就是它
         }
+
+        /// <summary>`Reroll` 那颗钮：把**这一轮**的包重新抽一遍（原版 `ReRollClicked` →
+        /// `NetworkingPeer` 走服务端扣费/重抽；本地没有服务器 ⇒ 我们只做「重抽」那一半，
+        /// **不扣钱**并在日志里说清）。
+        /// <para>判据：`d:/2/tools/decomp_full/DraftModeSelectPacksStateDemo__ReRollClicked.c`
+        /// （成功回调里 `save.currentReRolls++` 再 `ShowPacks()`）· `...__RefreshReRollPrice.c`
+        /// （价格 = `GetReRollCosts(data, save+0xB0)`）· `DraftEventData__GetReRollCosts.c`（规则见 `ReRollCost`）。
+        /// ⚠️ **原版没有「次数用完」的上限** ⇒ 我们也不设。</para>
+        /// <para>🔴 **如实标**：原版那一刻是**服务端调用**（`FUN_1800020b0(7, …)` = `ILiveOps` 7 号槽），
+        /// 扣费与合法性判定都在服务端；我们本地**只重抽、不扣费**（经济本来也是固定资源那一档）。
+        /// 重抽的确定性 = `seed + reRolls×7919`（见 `RollOffers`）⇒ 同一次重掷永远同一组包。</para></summary>
+        public bool ReRollPacks()
+        {
+            if (State != DraftModeState.SelectPack)
+            { Debug.LogWarning("[Draft] `Reroll` 只在选包页有效（当前 " + State + "）"); return false; }
+            if (_run != null) _run.reRolls++;
+            int cost = ReRollCost;
+            RefreshPacksPage();
+            SyncRun("重掷了一次");
+            Debug.Log("[Draft] `Reroll` ⇒ 第 " + (CurrentDraftRound + 1) + " 轮重新抽包（第 " + ReRolls
+                    + " 次；价格 " + cost + (cost <= 0 ? " = 免费" : "") + "）—— "
+                    + "🔴 原版这一刻走服务端扣费，本地**不扣钱**（只重抽）；`reRollCosts` 表空 ⇒ 恒免费。");
+            return true;
+        }
+
+        /// <summary>`Card List` 页那颗「战将名」：原版 `DrafModeDeckInfoCardListPanel.WarlordTextButtonOnClick`
+        /// → `CardDisplayWindow.Instance.ShowCard(战将卡)`（= 我们的 `CardDetailPopup`）。
+        /// 开新的之前先把**本窗开过的**上一扇收掉（同 `CollectionWindow.OpenCardDetail` 那套处置；
+        /// ⚠️ 那份的 `LastCardDetail` 是**那个文件的**静态，不属于本窗 ⇒ 这里自己记一份，⛔ 不越界去改它）。</summary>
+        public void OpenWarlordCard()
+        {
+            var def = string.IsNullOrEmpty(_warlordId) ? null : CardDatabase.FindById(CardPool(), _warlordId);
+            if (def == null)
+            {
+                Debug.LogWarning("[Draft] `Card List` 上面那颗「战将名」点不动：**还没选战将**"
+                               + "（原版那一刻 `deck.warlordCard` 是空 ⇒ 它自己也是空引用）。");
+                return;
+            }
+            if (Manager == null)
+            {
+                Debug.LogWarning("[Draft] 没有 `WindowsManager` ⇒ 开不了卡片详情窗（" + def.Name + "）。");
+                return;
+            }
+            if (_warlordDetail != null)
+            {
+                if (_warlordDetail.CurrentState != WindowState.Closed) _warlordDetail.Close();
+                RewardsWindow.DestroySafe(_warlordDetail.gameObject);
+                _warlordDetail = null;
+            }
+            _warlordDetail = CardDetailPopup.Create(Manager);
+            Manager.OpenWindow(_warlordDetail);
+            _warlordDetail.ShowCard(def);       // 原版 `ShowCard` 复用同一个窗（不新建）
+            Debug.Log("[Draft] `Card List` 点战将名 ⇒ 开卡片详情窗：「" + def.Name + "」");
+        }
+        /// <summary>本窗开出来的那一扇卡片详情（重开时先收掉，见 `OpenWarlordCard`）。</summary>
+        CardDetailPopup _warlordDetail;
 
         /// <summary>选一位战将（本地暂存，原版 `SelectWarlord(card)`；此时 `Continue` 才变可点）。</summary>
         public bool ChooseWarlord(string cardId)
@@ -2059,7 +2625,12 @@ namespace CardPresentation
                 var p = DraftPacks.Resolve(_pickedKeys[i]);
                 if (p != null) excl.Add(p.packId);
             }
-            return DraftPacks.RollRound(_seed, CurrentDraftRound, WarlordArmyId(),
+            // 🔴 重掷的**唯一做法** = 换盐（原版 `ShowPacks` 用 `Random.InitState(seed + round + i)` 逐轮
+            //    逐位确定；我们这份是 `RollRound(seed, round, …)` ⇒ 把 `seed` 换成一个**仍然可复现**的数）。
+            //    `7919` 只是「不同次数给不同盐」的一个质数常量（**我们挑的**）；`reRolls` 会进日志与存档
+            //    ⇒ 同 `seed + reRolls` 永远重放出同一组包。
+            int rollSeed = unchecked(_seed + ReRolls * 7919);
+            return DraftPacks.RollRound(rollSeed, CurrentDraftRound, WarlordArmyId(),
                                         DraftPacks.PacksPerRoundOffered, excl);
         }
 

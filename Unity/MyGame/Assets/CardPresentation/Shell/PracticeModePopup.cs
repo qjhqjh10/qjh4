@@ -346,29 +346,61 @@ namespace CardPresentation
         /// （铁律 5·c：同一个 `ScrollRect` 底下，`Viewport` 与它**自己**不是同一个矩形 —— 这一处差 66px，
         ///  而同窗的 `Decks Scroll view` 那一处**两者恰好同矩形**；**逐处实读，别互推**。）</summary>
         public const float ArmVpL = 69.42f, ArmVpT = 149.07f, ArmVpR = 246.54f, ArmVpB = 913.28f;
-        /// <summary>阵营格 **82×82**、**纵向** spacing **26.38**、pad **0**、`m_ChildAlignment = 4`
+        /// <summary>阵营格 **82×82**、spacing **(0, 26.38)**、pad **0**、`m_ChildAlignment = 4`
         /// —— 原版 `Filters` 的 `GridLayoutGroup` 字段逐条抄。
         /// 出处 = `bundle_menus_assets_all/MonoBehaviour/MonoBehaviour_-3879242981144375492.json`
-        /// （全包**只有这一份** `m_CellSize = 82×82`；宿主 GameObject 的名字就叫 `Filters`）。</summary>
-        public const float ArmyCell = 82f, ArmyGapY = 26.38f;
+        /// （全包**只有这一份** `m_CellSize = 82×82`；宿主 GameObject 的名字就叫 `Filters`）。
+        /// 🔴 **2026-10-24（`W8` · P1 差异 #1）就地更正**：原来这里是**单列**（`x` 恒定居中、`i` 只喂纵轴）
+        /// —— **与原版不符**。原版那一份的 `m_Constraint = Flexible`（0）+ `m_Spacing = (0, 26.38)`，
+        /// 在 **177.12** 宽的容器里按 uGUI 现算 = **2 列 × 7 行**（13 格一屏全见、**不滚**）。
+        /// 判据 = 本地真 uGUI 源码（`MyGame/Library/PackageCache/com.unity.ugui@…/Runtime/UGUI/UI/Core/
+        /// Layout/GridLayoutGroup.cs` 的 `SetCellsAlongAxis`）：
+        ///   `cellCountX = Max(1, FloorToInt((width − pad.horizontal + spacing.x + 0.001) / (cellSize.x + spacing.x)))`
+        ///   = `Floor((177.12 + 0 + 0.001) / 82)` = **2**；
+        ///   `positionX = i % cellCountX` · `positionY = i / cellCountX`（`m_StartAxis = Horizontal`(0)）。
+        /// ⚠️ 横轴起点用同一份源码的 `LayoutGroup.GetStartOffset(0, requiredSpace.x)`：
+        ///   `requiredSpace.x = 2×82 + 1×0 = 164` ⇒ 余量 `177.12 − 164 = 13.12` ⇒
+        ///   `startOffset.x = pad.left + 13.12 × alignX(0.5) = **6.56**` ⇒ 第 0 列左沿 **75.98**。
+        /// ⚠️ 纵轴**仍贴顶**（第 0 行上沿 = 视口上沿 149.07）：原版 `Filters` 同 GO 上那颗
+        ///   `ContentSizeFitter(m_VerticalFit = MinSize)` 把内容**撑到恰好 732.28**（7×82 + 6×26.38）
+        ///   ⇒ 纵轴余量 0。我们这一侧不建 fitter，故直接按「内容高 = 内容矩形高」摆（见 `ArmyGridContentH`）。
+        /// ⛔ 别再退回一列：那样内容高 1382.56 > 视口 764.21 ⇒ 只能露 7 格、要滚（P1 §二 实测）。</summary>
+        public const float ArmyCell = 82f, ArmyGapY = 26.38f, ArmyGapX = 0f;
+        /// <summary>`Filters` 的 **列数** —— 照 uGUI `GridLayoutGroup` 的 `Flexible` 档现算（算式见上一条）。
+        /// 今天 = **2**（177.12 宽里放两个 82 的格；间距 x = 0 所以两列紧挨着）。</summary>
+        public static int ArmyCols
+        {
+            get
+            {
+                float w = ArmVpR - ArmVpL;
+                return Mathf.Max(1, Mathf.FloorToInt((w - 0f + ArmyGapX + 0.001f) / (ArmyCell + ArmyGapX)));
+            }
+        }
         /// <summary>`Filters` 的 `m_ChildAlignment` 序列化值 = **4**（`TextAnchor.MiddleCenter`）。
-        /// ⚠️ 对**横轴**它等价于 `1 UpperCenter`（只有 `align % 3` 参与）⇒ 一列 82 宽的格在 177.12 里**居中**；
-        /// 纵轴那半（`align / 3 = 1`）只在内容**比容器矮**时才生效 —— 13 个阵营的内容高 1382.56，
-        /// 被 `ContentSizeFitter`（`m_VerticalFit = 1 MinSize`，与本 GridLayoutGroup 同 GO）撑到比视口高
-        /// ⇒ 纵轴余量为 0、恒贴顶（第一格 = `Viewport` 上沿）。</summary>
+        /// ⚠️ 对**横轴**它等价于 `1 UpperCenter`（只有 `align % 3` 参与）⇒ **两列 82 宽的格**在 177.12 里
+        /// **整组居中**（`startOffset.x = 6.56`，见 `ArmyCell` 那条的 uGUI 实算式）。
+        /// 纵轴那半（`align / 3 = 1` ⇒ `GetAlignmentOnAxis(1) = 0.5`）在原版里**吃不到余量**：
+        /// `ContentSizeFitter(MinSize)` 把容器压到内容高 732.28，余量 = 0 ⇒ 恒贴顶（第一行 = `Viewport` 上沿）。
+        /// 🔴 **2026-10-24（`W8`）就地更正**：本行原来写「13 个阵营的内容高 **1382.56**」—— 那是**单列**的
+        /// 高（13 × 108.38）；改 2 列后 = **7 行 = 732.28 ≤ 视口 764.21** ⇒ 一屏全见、不再滚动。</summary>
         public const int ArmyAlign = 4;
-        /// <summary>阵营格的**左沿** —— 照 uGUI 现算（`GetStartOffset(0, 需要的宽)`）：
-        /// `pad.left + alignX × (可用宽 − (需要的宽 + pad.horizontal))` = `0 + 0.5 × (177.12 − 82)` = **47.56**
-        /// ⇒ 格 = **116.98..198.98**（横向居中）。
+        /// <summary>阵营格**第 0 列**的左沿 —— 照 uGUI `LayoutGroup.GetStartOffset(0, requiredSpace.x)` 现算：
+        /// `pad.left + alignX × (可用宽 − (需要的宽 + pad.horizontal))`
+        /// = `0 + 0.5 × (177.12 − (2×82 + 1×0))` = **6.56** ⇒ 格 = **75.98..157.98**（第 1 列）·
+        /// **157.98..239.98**（第 2 列，间距 x = 0 ⇒ 两列紧挨）。
         /// 判据 = uGUI 源码 `Library/PackageCache/com.unity.ugui@27635d171b1a/Runtime/UGUI/UI/Core/Layout/LayoutGroup.cs`
-        /// （`GridLayoutGroup.GetStartOffset`）+ `…/GridLayoutGroup.cs` 里 `startOffset` 那两句 / `requiredSpace`。
-        /// 🔴 原来我们**靠左**（69.42..151.42）—— 与居中差 **47.56px**。</summary>
+        /// （`GetStartOffset`）+ `…/GridLayoutGroup.cs` 的 `SetCellsAlongAxis`（`cellCountX` / `actualCellCountX` /
+        /// `requiredSpace` 那三句）。
+        /// 🔴 **2026-10-24（`W8` · P1 差异 #1）**：原来这里算的是**单列居中**（`(177.12 − 82) × 0.5 = 47.56`
+        /// ⇒ 116.98，正好落在原版两列的**缝隙**上）；改成原版那 2 列之后 = **75.98**。
+        /// ⛔ 别把 `- ArmyCell` 写回来 —— 那是「一列居中」的算式。</summary>
         public static float ArmyCellL
         {
             get
             {
                 float alignX = (ArmyAlign % 3) * 0.5f;       // 照 uGUI `GetAlignmentOnAxis(0)`（`4 % 3 = 1` ⇒ 0.5 = 居中）
-                return ArmVpL + ((ArmVpR - ArmVpL) - ArmyCell) * alignX;
+                float required = ArmyCols * ArmyCell + (ArmyCols - 1) * ArmyGapX;
+                return ArmVpL + ((ArmVpR - ArmVpL) - required) * alignX;
             }
         }
 
@@ -794,7 +826,7 @@ namespace CardPresentation
             // ⚠️ **如实记**：表里中文列是「还没有选战将」—— 与改前写死的「未选战将」**不同字**，这是有意的
             //    （键名/两列都由 `Loc` 定，⛔ 别为「保住旧字」另立一条同义键，铁律 6）。
             // 🆕 **A1205 接上**（`R5` §2·H #48：原版 `Deck info ▸ Warlord Name` = `auto[1~35] · base 24.3 · 折行 1`）
-            _txtWarlord = Txt(_info, wl != null ? wl.Name : Loc.T("MenuDeck/Error/NoWarlord"), WnL, WnR, WnT, WnB, 35f,
+            _txtWarlord = Txt(_info, WarlordNameOf(wl), WnL, WnR, WnT, WnB, 35f,
                               Align.Left, "Warlord Name", QPrText,
                               wrapPx: WnR - WnL, autoMinPx: 1f, autoMaxPx: 35f, autoBasePx: 24.3f,
                               face: TmpFont.Face.LatinCardBody);
@@ -1597,7 +1629,10 @@ namespace CardPresentation
             return -1;
         }
 
-        /// <summary>左栏：13 个阵营格子（**82×82、纵向 spacing 26.38、横向居中**，可纵向滚）。
+        /// <summary>左栏：13 个阵营格子（**82×82、spacing (0,26.38)、2 列 × 7 行、整组横向居中**）。
+        /// 🔴 **2026-10-24（`W8` · P1 差异 #1）**：原版是 **2 列**（`Filters` 的 `GridLayoutGroup`
+        /// `m_Constraint = Flexible` 在 177.12 宽里现算 = 2）⇒ **13 格一屏全见、不滚**；
+        /// 我们原来是**单列 13 行**（只露约 7 格）。参数与算式 → 常量段 `ArmyCell` / `ArmyCols` / `ArmyCellL`。
         /// 点一个 ⇒ 只显示该阵营的卡组。
         /// 🔴 **2026-10-05 照原版补了两层节点**（原来只有 `Army Selector` 一层、格直接挂在它下面）：
         ///   `Army Selector`（`ScrollRect`，69.42,182.18→246.54,880.17）
@@ -1675,8 +1710,9 @@ namespace CardPresentation
 
             var facs = CollectionWindow.CardsState.Factions();
             // 内容高照 uGUI `GridLayoutGroup.CalculateLayoutInputVertical`：
-            // `pad.vertical + (格高 + spacing.y) × 行数 − spacing.y`（行数 = 13）—— 原来少减了一个 spacing.y。
-            ArmyScroll = MenuScroll.TopAligned(view, GridContentH(facs.Count, ArmyCell, ArmyGapY, 0f, 0f), 50f);   // 原版 `Practice Mode Menu/…/Army Selector` = 50（D_N29）
+            // `pad.vertical + (格高 + spacing.y) × 行数 − spacing.y`（**行数 = ⌈13 / 列数⌉ = 7**）——
+            // 原来少减了一个 spacing.y，而且行数按「一格一行」（单列）算。
+            ArmyScroll = MenuScroll.TopAligned(view, ArmyGridContentH(facs.Count), 50f);   // 原版 `Practice Mode Menu/…/Army Selector` = 50（D_N29）
             ArmyScroll.Owner = gameObject;
             ArmyScroll.OnChanged = () => RebuildArmyCells(filters);
             PointerLayer.RegisterScroll(ArmyScroll);
@@ -1691,6 +1727,18 @@ namespace CardPresentation
         {
             if (rows <= 0) return 0f;
             return padT + padB + (cellH + gapY) * rows - gapY;
+        }
+
+        /// <summary>阵营列（`Filters`，**2 列网格**）在给定格数下的内容高。
+        /// 行数 = `⌈n / ArmyCols⌉` —— 照 uGUI `GridLayoutGroup.SetCellsAlongAxis` 的
+        /// `cellCountY = n / cellCountX + (n % cellCountX > 0 ? 1 : 0)`。
+        /// 13 格 ⇒ 7 行 ⇒ `(82 + 26.38) × 7 − 26.38` = **732.28**（≤ 视口 764.21 ⇒ **不滚**）。
+        /// ⚠️ 原来按「一格一行」算（13 行 = 1382.56）—— 那是单列时代的读数（P1 差异 #1）。</summary>
+        public static float ArmyGridContentH(int cells)
+        {
+            int cols = ArmyCols;
+            int rows = cells <= 0 ? 0 : (cells + cols - 1) / cols;
+            return GridContentH(rows, ArmyCell, ArmyGapY, 0f, 0f);
         }
 
         void RebuildArmyCells(Transform holder)
@@ -1709,11 +1757,19 @@ namespace CardPresentation
             //   （`CollectionData.DeckAt` 里那条 `Faction` 就是督军卡身上的字段，与 `FactionOf` 同一条推导）。
             var curDeck = CurrentDeck;
             string deckFac = curDeck != null ? FactionOf(curDeck.WarlordId) : "";
-            // 🔴 格位：横轴**居中**（`m_ChildAlignment = 4` ⇒ `align % 3 = 1`），纵轴第一格贴 `Viewport` 上沿
-            float x1 = ArmyCellL, x2 = ArmyCellL + ArmyCell;
+            // 🔴 格位照 uGUI `GridLayoutGroup.SetCellsAlongAxis`（`Flexible` 档、`m_StartAxis = Horizontal`）：
+            //   横 = `Viewport.x1 + startOffset.x(6.56) + 列 × (格宽 + spacing.x)`，列 = `i % ArmyCols`；
+            //   纵 = `Viewport.y1 + 行 × (格高 + spacing.y)`，行 = `i / ArmyCols`（**第一行贴视口上沿**）。
+            //   🔴 **2026-10-24（`W8` · P1 差异 #1）**：原来是**单列**（`y1 = ArmVpT + i × 108.38`、
+            //   `x1` 恒 = `ArmyCellL`）⇒ 13 行、内容高 1382.56、只能露约 7 格还要滚。
+            //   参数出处逐条 → 常量段 `ArmyCell` / `ArmyCols` / `ArmyCellL` 那三条的注释（uGUI 实算式）。
+            int cols = ArmyCols;
+            float x0 = ArmyCellL;
             for (int i = 0; i < facs.Count; i++)
             {
-                float y1 = ArmVpT + i * (ArmyCell + ArmyGapY);
+                int col = i % cols, row = i / cols;
+                float x1 = x0 + col * (ArmyCell + ArmyGapX), x2 = x1 + ArmyCell;
+                float y1 = ArmVpT + row * (ArmyCell + ArmyGapY);
                 var r = new PxRect(x1, y1, x2, y1 + ArmyCell);
                 var rr = ArmyScroll.Shift(r);
                 // 🔴 **2026-10-07（A12①）求交收口**：这里原来是内联的 `Inside(view, rr)`
@@ -1900,6 +1956,14 @@ namespace CardPresentation
             //   选了预组时 `DeckIndex = −1`，仍回落到它）。这是同一语义的本地来源，⛔ 不是另起设计。
             // ⚠️ **模式不参与筛选**：原版取的是「当前模式那个事件登记的那副」，本地没有按模式登记的这层数据
             //   （`CollectionData` 只有一份当前卡组）⇒ 这里**只按阵营筛**。如实记，⛔ 别假装按模式筛过。
+            // 🔴 **2026-10-24（`W8` · 台账登记，⛔ 不是待修项）**：**原版在没有活动练习事件时这一格不存在** ——
+            //   `PracticeModePopup__Open.c` 里只有 `LiveOpsManager.GetHandler()` → `GameModes.GetActiveEvent(mode)`
+            //   **非空**才 `ScriptableObject.CreateInstance<PlayerDeckDemoDeckInfoWrapper>()` 并把该事件的
+            //   `IPlayEvent.GetEventDeck()` 写进 `wrapper.cardDeck(+0x58)`；`SetArmyButtons` 里首格那一支整段
+            //   被 `if (playerDeckInfoWrapper != null)` 包着，换卡组那条 `PlayerDeckChanged` 也同样被
+            //   `if (wrapper != null)` 挡住 ⇒ 那种环境下**只有 6 格预组、连「更换卡组」都换不出这一格**。
+            //   我们**永远有**这一格 = **有意的离线等价物**（本地没有 liveops 事件层），⛔ 别据此说「原版恒有」。
+            //   判据 → `资料/普查产出_1024d/P1_练习窗原版对照审查.md` §三·2 与 §四 差异 #8。
             // ✅ **2026-10-23（W65 · 1c 收尾）：「默认选中」那半已经接上了** —— 判据与落点见
             //   `ResetContent` / `SelectDefaultDeck`（原版 `SetArmyButtons.c:132-133` 的 `DeckSelected(item0, …)`）。
             //   ⚠️ 改前这里写的是「默认选中仍是该模式第一对（那半还没接）」—— **已过期**。
@@ -1914,6 +1978,7 @@ namespace CardPresentation
                     CardArt.MenuUi(DeckRuntime.FactionIcon(yInfo.Faction)),
                     ItemYourDeckColor,
                     PickedPrebuilt == null && DeckIndex >= 0,
+                    true,                       // `isPlayerDeck` ⇒ `Button border` + `IsPlayerDeck` 两件开
                     () => PickDeck(yiForHit),
                     "「你的卡组」那一格的阵营图（判据 = `ArmyUtilities.GetArmyIcon(selectedDeck.army)`"
                     + " —— 与预组那一支**同一个来源**，只是不看 `DemoDeckInfoSO.armyIcon`）");
@@ -1937,6 +2002,7 @@ namespace CardPresentation
                     ArmyIconOfPair(pair, deck),
                     pair != null ? pair.armyColorRaw.ToColor() : ItemYourDeckColor,
                     pi == PairIndex,
+                    false,                      // 预组格：原版 `Button border` / `IsPlayerDeck` **都关**
                     () => PickPair(pidx),
                     "`Deck Selector Menu Item/Main image` 的阵营图（`DemoDeckInfoSO.armyIcon` = "
                     + (pair != null ? pair.armyIcon : "<无>") + "）");
@@ -2004,16 +2070,19 @@ namespace CardPresentation
         }
 
         /// <summary>画**一格** `Deck Selector Menu Item`（左列那 78 对 + 首格「你的卡组」**共用这一份**）。
-        /// <para>两处唯一不同的东西都从形参进来：`displayName` / `mainIcon` / `nameBg` / `cur` / `onClick`
+        /// <para>两处唯一不同的东西都从形参进来：`displayName` / `mainIcon` / `nameBg` / `cur` /
+        /// `isPlayerDeck` / `onClick`
         /// —— 判据 = 原版 `DeckSelectorMenuItemDemo__InitializeWithPracticeDeck.c` 的两支：
-        /// **玩家自己的卡组**（名字 = 格子自己的词条、色 = `yourDeckColor`、图 = `GetArmyIcon(army)`）
-        /// 与**演示卡组**（名字 = `DemoDeckInfoSO.GetName`、色 = `armyColor`、图 = `DemoDeckInfoSO.armyIcon`）。</para>
+        /// **玩家自己的卡组**（名字 = 格子自己的词条、色 = `yourDeckColor`、图 = `GetArmyIcon(army)`、
+        /// `Button border` 与 `IsPlayerDeck` **两件开**）
+        /// 与**演示卡组**（名字 = `DemoDeckInfoSO.GetName`、色 = `armyColor`、图 = `DemoDeckInfoSO.armyIcon`、
+        /// 那两件**都关**）。</para>
         /// <para>🔴 **别把它拆成两份实现**（「两处写同一条规则 = 迟早不一致」：五层的偏移/队列/裁切
         /// 一旦只改一边，首格与其余格就会静默长得不一样）。</para>
         /// <returns>建出来的格节点；`null` = 整格在视口外（判据 = 原版 `RectMask2D` 只裁不判整格 ⇒ 不建）。</returns></summary>
         Transform BuildDeckCell(Transform holder, int slot, string nodeName, string displayName,
-                                Texture2D mainIcon, Color nameBg, bool cur, System.Action onClick,
-                                string iconNote)
+                                Texture2D mainIcon, Color nameBg, bool cur, bool isPlayerDeck,
+                                System.Action onClick, string iconNote)
         {
             // 🔴 格位照原版 `GridLayoutGroup.SetCellsAlongAxis`：
             //   横 = `Content.x1 + startOffset + 列 × (格宽 + spacing.x)`（`startOffset` = 8.02 ⇒ 第 1 列 270.08）
@@ -2047,6 +2116,12 @@ namespace CardPresentation
             //    ⚠️ 这层黄**留着**：它上面还压着 `rowWb.Bind(rowBg, "UI_Button_Mulligan")` 的悬停换图，
             //    整层删掉是另一个决定 ⇒ **如实标：这一层色是我们挑的**（原版给的是 `Highlight` 那层，
             //    且「染色 = 你的卡组」那个语义原版用的是 `yourDeckColor`、落在 `Text background` 上，见下面 ⑤）。
+            // 🔴 **2026-10-24（`W8` · P1 差异 #6，记账不删）**：原版 `Deck Selector Menu Item` 的**子件只有五层**
+            //    （`Highlight → Button border → Main image → IsPlayerDeck → Text background(+Deck Name)`）
+            //    ⇒ 我们这颗 `Row Bg` **是自建件、原版没有**。今天**没有删**，原因如实记：
+            //    判据只覆盖「`m_Children` 列表」，而原版 item **根节点自己**带不带一张底图、悬停换图走哪一路
+            //    （`Selectable` 的 transition target）**还没查**（P1 §五·4 只核了节点态）——
+            //    现在删会把悬停反馈一起删掉（换一处偏离）⇒ 先记账，等那条判据补齐再决定去留。
             // 🆕 A9 尾巴：这一格也吃**软边**（原版 `Decks Scroll view/Viewport` 的 `m_Softness = (0,23)`）——
             //   压在带上/带下的格按剖面削 alpha（`MenuDraw.ApplySoftEdges` 的几何等效物）。
             // 🔴 **2026-10-13（A435 阶段 2 · 戊 / A754-b）**：本格**七处**（下面五层 + 名字 + 命中区）的
@@ -2072,9 +2147,13 @@ namespace CardPresentation
                          "Highlight", QPrItemHL, false, null, null, DeckClipSoft);
             if (hl != null) hl.gameObject.SetActive(cur);
             // ② `Button border`（`UI_Button_Round_background`，原版 `preserveAspect=1` ⇒ `keepAspect`）
-            Img(cell.transform, "UI_Button_Round_background",
+            // 🔴 **2026-10-24（`W8` · P1 差异 #4）**：原版 `InitializeWithPracticeDeck` **开场 `set_enabled(false)`**，
+            //   **只有「玩家自己的卡组」那一支再 `set_enabled(true)`**（预组支不动它）⇒ 今天**只有首格
+            //   「你的卡组」**有这一圈。我们原来 7 格无条件可见（而且它中心不透明纯黑、只靠 `Main image` 盖着）。
+            var bd = Img(cell.transform, "UI_Button_Round_background",
                 ix + ItemBdL, iy + ItemBdT, ix + ItemBdR, iy + ItemBdB,
                 "Button border", QPrItemBd, true, null, null, DeckClipSoft);
+            if (bd != null) bd.gameObject.SetActive(isPlayerDeck);
             // ③ `Main image` —— 原版**运行期喂** `ArmyUtilities.GetArmyIcon(army)`
             //    （`DeckSelectorMenuItemDemo__InitializeWithPracticeDeck.c` 的 SO 那一支；
             //     我方卡组那一支在 `InitializeWithPlayerDeck.c` 里也是同一句）。
@@ -2086,10 +2165,15 @@ namespace CardPresentation
             ImgTex(cell.transform, mainIcon, iconNote,
                    ix, iy, ix + DeckCellW, iy + DeckCellH,
                    "Main image", QPrItemArt, false, null, null, DeckClipSoft);
-            // ④ `IsPlayerDeck`（`Purity Seal_02`）—— `highlightIsPlayerDeck`，同样只对玩家卡组开 ⇒ 恒开
-            Img(cell.transform, "Purity_Seal_02",
+            // ④ `IsPlayerDeck`（`Purity Seal_02`）—— `highlightIsPlayerDeck`
+            // 🔴 **2026-10-24（`W8` · P1 差异 #3）**：原版**只有「玩家自己的卡组」那一支 `SetActive(true)`**，
+            //   预组支一律 `SetActive(false)`（`DeckSelectorMenuItemDemo__InitializeWithPracticeDeck.c`；
+            //   参考图 `练习界面参考图.png` 里只有第 1 格有火漆印）。我们原来 7 格无条件可见。
+            //   现在**照旧建**（自检要能在同一批节点上断两态）、只按 `isPlayerDeck` 开关。
+            var seal = Img(cell.transform, "Purity_Seal_02",
                 ix + ItemSealL, iy + ItemSealT, ix + ItemSealR, iy + ItemSealB,
                 "IsPlayerDeck", QPrItemSeal, false, null, null, DeckClipSoft);
+            if (seal != null) seal.gameObject.SetActive(isPlayerDeck);
             // ⑤ `Text background`（`40k_bt_underbutton`）+ 其下的 `Deck Name`。
             //    🔴 **2026-10-22：练习对那一支的色 = `DemoDeckInfoSO.armyColor`**（用 `armyColorRaw` 的
             //       原样 4 个 float —— 原版存的是任意浮点、不是 8bit/255，`#RRGGBB` 只是便利值）。
@@ -2223,21 +2307,72 @@ namespace CardPresentation
             return n;
         }
 
+        /// <summary>`Selected Army Title` 现在该显示的那句话。
+        /// 🔴 **2026-10-24（`W8` · P1 差异 #2）就地更正**：原来返回 `_facs[i].ToUpperInvariant()`
+        /// ⇒ 真机上印的是 **`GENESTEALERS`** 这种英文大写键。原版 `ChangeSelectedArmy` 走的是
+        /// `LocalizationManager.GetTermTranslation(String.Format(<格式串>, army))` —— **本地化词条**
+        /// （参考图 `练习界面参考图.png` 显示 **基因窃取者教团**）。
+        /// 键 = `Armies/<CardArmy 成员名>`，官方表那 13 条与 `CardArmy` 成员名**逐个同名**
+        /// （`Ultramarines…SpaceWolves`）⇒ 直接 `Loc.T(CardText.ArmyTermPrefix + fac)`
+        /// （`CardText.ArmyTermPrefix` = `"Armies/"`，同一份前缀常量，⛔ 别在本地再写一遍字面量）。
+        /// ⚠️ `Loc.T` 对缺键**返回键名本身**（= 界面会印 `Armies/Goff`）⇒ 这里多一道闸：查不到就回
+        /// **裸阵营键**（不印键名、也不 `ToUpperInvariant`）并出声一次；「13 个全部取到真文案」由
+        /// `Editor/ShellScene.cs` 的断言兜（缺 0）。</summary>
         string SelectedArmyName()
         {
             if (ArmyIndex >= 0 && _facs != null && ArmyIndex < _facs.Count)
-            {
-                var c = CollectionWindow.CardsState;
-                return _facs[ArmyIndex].ToUpperInvariant();
-            }
+                return ArmyLocalized(_facs[ArmyIndex]);
             // 🔴 **2026-10-21**：阵营一律从 <see cref="CurrentDeck"/> 的督军推 —— 预组档 `DeckIndex` 是 −1，
             //   原来那句 `CollectionData.DeckAt(DeckIndex)` 拿到的是**空 `DeckInfo`** ⇒ 预组明明有阵营，
             //   标题却回到「（未选阵营）」（真机 2026-10-21）。⛔ 别再改回读下标。
             string fac = FactionOf(CurrentDeck != null ? CurrentDeck.WarlordId : null);
             // 兜底那句也走词条（键 `MenuDeck/HUD/NoArmySelected`；
             //   ZH 列与改前写死串**逐字相同** ⇒ 中文档零变化）。⚠️ P3 两个附件源都漏了这条（它会画上屏）。
-            return string.IsNullOrEmpty(fac) ? Loc.T("MenuDeck/HUD/NoArmySelected") : fac.ToUpperInvariant();
+            return string.IsNullOrEmpty(fac) ? Loc.T("MenuDeck/HUD/NoArmySelected") : ArmyLocalized(fac);
         }
+
+        /// <summary>阵营键（`CardArmy` 成员名）→ 官方中文/本地化阵营名（原版 `Selected Army Title` 那一句）。
+        /// 缺键 ⇒ 回**裸键**并出声一次（⛔ 不印 `Armies/xxx` 这种键名 —— 那等于静默失败）。</summary>
+        static string ArmyLocalized(string fac)
+        {
+            if (string.IsNullOrEmpty(fac)) return "";
+            string key = CardText.ArmyTermPrefix + fac;
+            string v = Loc.T(key);
+            if (string.IsNullOrEmpty(v) || v == key)
+            {
+                if (!_warnedArmyTerm)
+                {
+                    _warnedArmyTerm = true;
+                    Debug.LogWarning("[Practice] 官方表里没有阵营词条 `" + key + "` ⇒ 阵营标题回落裸键「"
+                                     + fac + "」（⛔ 不印键名；`Editor/ShellScene.cs` 有一条「13 个阵营全部命中」的断言）");
+                }
+                return fac;
+            }
+            return v;
+        }
+        static bool _warnedArmyTerm;
+
+        /// <summary>督军名的**显示文案** —— 原版两支**不同源**，⛔ 别统一：
+        /// · **你的卡组**支 = `deckHero` 的**裸名**（英文；`DeckGeneralInfoDemo.ShowPayerDeckInfo`）；
+        /// · **预组（演示卡组）**支 = `RawCardScript.GetLocalizedCardName(hero)` = **本地化卡名**
+        ///   （`DeckGeneralInfoDemo.ShowDemoDeckInfo`）。
+        /// 🔴 **2026-10-24（`W8` · P1 差异 #5）**：我们原来两支都读 `CardDef.Name`（英文）⇒ 预组那一支错了。
+        /// 判据 → `资料/普查产出_1024d/P1_练习窗原版对照审查.md` §二 `Warlord Name` 行：
+        /// 参考图显示英文，是因为当时选中的正是**「你的卡组」**那一支 —— 原版那一支恰好用裸名。
+        /// 本地化通道 = `CardText.Name(CardDef)`（中文档取 `CardDef.NameZh`；其余语言取官方 `Card_Name/&lt;id&gt;`）。
+        /// ⚠️ 兜底键 `MenuDeck/Error/NoWarlord` 是**自造键**（`Resources/official_names.json` 与官方 13 语言表
+        /// **0 命中**；P1 §四 差异 #7）—— 官方那族里只有 `MenuDeck/Error/MissingHero`，但它是**整句校验文案**
+        /// （「请为您的卡组选择一个战将，将其拖入您的卡组列表。」），不是这一格的占位名 ⇒ **不换**，
+        /// 就地标明「自造」，⛔ 不编中文。</summary>
+        string WarlordNameOf(RuleEngine.CardDef wl)
+        {
+            if (wl == null) return Loc.T("MenuDeck/Error/NoWarlord");
+            return PickedPrebuilt != null ? CardText.Name(wl) : wl.Name;
+        }
+
+        /// <summary>`Warlord Name` 现在显示的那句话（自检用；读的是**真 `Label`**，
+        /// ⛔ 不是重新算一次 `WarlordNameOf()` —— 那会与实现同一个口 = 自证）。</summary>
+        public string WarlordNameText { get { return _txtWarlord != null ? _txtWarlord.Text : ""; } }
 
         /// <summary>开 `Deck Selection Popup with Tabs`（原版 `DeckGeneralInfoDemo.ChangePlayerDeckButton` 那条）。</summary>
         public DeckSelectionPopup OpenDeckSelection()
@@ -2488,7 +2623,7 @@ namespace CardPresentation
             var info = CollectionData.DeckAt(i);
             if (_txtDeckName != null) _txtDeckName.SetText(info.Name);
             var wl = CollectionData.Warlord(i);
-            if (_txtWarlord != null) _txtWarlord.SetText(wl != null ? wl.Name : Loc.T("MenuDeck/Error/NoWarlord"));
+            if (_txtWarlord != null) _txtWarlord.SetText(WarlordNameOf(wl));
             if (_txtArmy != null) _txtArmy.SetText(SelectedArmyName());
             if (_armyIcon != null) _armyIcon.SetTexture(CardArt.MenuUi(DeckRuntime.FactionIcon(info.Faction)));
             if (_cardback != null) _cardback.SetTexture(CardArt.DeckCardback(info.CardbackId, info.Faction));
@@ -2583,7 +2718,7 @@ namespace CardPresentation
             if (_txtWarlord != null)
             {
                 var wl = CollectionData.Card(d.heroId);
-                _txtWarlord.SetText(wl != null ? wl.Name : Loc.T("MenuDeck/Error/NoWarlord"));
+                _txtWarlord.SetText(WarlordNameOf(wl));
             }
             // ⚠️ `RebuildDeckRows` 末尾自己会刷一次 `Selected Army Title`；这里再写一次是为了
             //   `_deckHolder == null`（没建出来）那一档也不留旧字（同 `PickDeck` 的写法）。

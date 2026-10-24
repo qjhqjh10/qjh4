@@ -388,7 +388,9 @@ public static class CardFaceProbe
             };
             var bv = CardView.Create(root.transform, bd, "chk_a1661_card");
             Check(bv.BadgesShown == 7, $"A1661 前提：7 枚徽标都建出来了（实际 {bv.BadgesShown}）"
-                                     + "—— 建不出来下面几条**没验到**，别读成通过");
+                                     + "—— 建不出来下面几条**没验到**，别读成通过"
+                                     + "（夹具直给 `bd.badges`，**不过 `InPlayIconKeys`**；"
+                                     + "真实出牌路 `BattleDriver` 才过筛）");
 
             // ① 「不是白方块」：底板色 = 原版 `IconBackground.m_Color` 那个深灰。
             //    🧨 改坏法：删掉 `CardView.ApplyTint` 末尾那句 `SetBadgePlateInk(...)`（或建层时不刷）
@@ -434,21 +436,24 @@ public static class CardFaceProbe
                       $"A1661 ④ 可见板宽 ≈ 0.3312 卡单位（`PlateW × 63/105`），实际 {visW:F4}");
             }
 
-            // ⑤ `talent`（天赋）**不进场上徽标** —— 判据 = **用户 2026-10-12 真机口径**
-            //    （⛔ 不是原版读数：`HasIcon && IsInPlayIcon` 那两个开关本地取不到，见 `Badges.NotInBoardBadges`）。
-            //    🧨 改坏法：把 `Badges.NotInBoardBadges` 里那一条删掉 ⇒ 必红。
+            // ⑤ `talent`（天赋）**不进场上徽标** —— 判据 = 原版 `isInPlayIcon == false`
+            //    （`Unity/数据/游戏数据/trait_collection.json` 现读：`talent` 的 `hasIcon=True` /
+            //     `isInPlayIcon=False`；用户 2026-10-12 真机口径在这一条上与原版一致）。
+            //    落地 = `Badges.InPlayIconKeys` 那 47 条白名单（`PlaysInPlayIcon` 过筛）。
+            //    🧨 改坏法：把 `talent` 补进 `Badges.InPlayIconKeys`、或删掉 `Badges.For` 里那句
+            //       `if (!PlaysInPlayIcon(spr)) continue;` 筛选 ⇒ 必红。
             //    🔴 **灭自证**：同表里**别的关键词必须照画** —— 少了这一半，「整个表都不画」也算绿。
-            var kwT = new Dictionary<string, int> { { "Talent", 1 }, { "Armour", 2 } };
+            var kwT = new Dictionary<string, int> { { "Talent", 1 }, { "Blast", 2 } };
             var bl = Badges.For(kwT);
-            bool hasTalent = false, hasArmour = false;
+            bool hasTalent = false, hasBlast = false;
             for (int i = 0; i < bl.Count; i++)
             {
                 if (Badges.Norm(bl[i].key) == "talent") hasTalent = true;
-                if (Badges.Norm(bl[i].key) == "armour") hasArmour = true;
+                if (Badges.Norm(bl[i].key) == "blast") hasBlast = true;
             }
             Check(!hasTalent, "A1661 ⑤ `talent`（天赋）**不画**成场上徽标（判据 = 用户 2026-10-12 口径）");
-            Check(hasArmour && bl.Count == 1,
-                  $"A1661 ⑤ 同一张表里别的关键词**照画**（`armour` 在、整表 {bl.Count} 条 —— "
+            Check(hasBlast && bl.Count == 1,
+                  $"A1661 ⑤ 同一张表里别的关键词**照画**（`blast` 在 `InPlayIconKeys` 里、整表 {bl.Count} 条 —— "
                 + "不然「整个表都不画」也绿）");
 
             // ⑥ **7 个位（含图标本体，不只是底板）都不许越出【可见 3D 卡体】的左右边界** ——
@@ -922,8 +927,19 @@ public static class CardFaceProbe
         //    ⛔ **不是拿战术卡顶替**（`def.Type` 逐字断）。卡池现读 `type = "defence"` **39 张**。
         //  档位：沿用 `TacticClampProbeFrameTier = 4` ⇒ `frame_sororitas_strat_tier4`。
         //    **离线依据**（口径与 `H4` 那份逐字同一套：`FrameMaskData` / `BuildFrameRows` / `ArtWindowMesh`，
-        //    `clampKind = 0`、卡体收边 ±1.04635）现读 mesh x ∈ **[−1.0403, +1.0463]**
-        //    ⇒ **两侧都越出**硬矩形 ±0.914668（左 0.1256 / 右 0.1316）⇒ 差集必须 > 0，且改动全在矩形之外。
+        //    `clampKind = 0`）现读 mesh x ∈ **[−0.846065, +0.849357]**（= 卡框画窗边；立绘板 ±0.871792 更宽）
+        //    ⇒ **两侧都越出**硬矩形 ±0.557947（左 0.2881 / 右 0.2914）⇒ 差集必须 > 0，且改动全在矩形之外。
+        //    🔴 **2026-10-24（`W4` · 本线 T02）就地订正（铁律 5）**：本行原写
+        //      「mesh x ∈ [−1.0403, +1.0463] ⇒ 两侧都越出硬矩形 **±0.914668**（左 0.1256 / 右 0.1316）」，
+        //      那是 **`E9` 之前**的口径 —— 那时战术/防御卡的立绘板没乘 `cardScales 0.61`、中心也没加
+        //      `tacticsOffsetPosition +0.5`，硬矩形端点才是 ±0.914668、外壁才是卡体 ±1.04635。
+        //      ⚠️ 中间还流传过一版 **0.313845**（= 板边 0.871792 − 硬矩形 0.557947）—— **那一版也不对**：
+        //      关档后的 x 极值**不是板边、而是这张卡框的画窗边**（sororitas `strat_tier4` 画窗
+        //      x ∈ [−0.846065, +0.849357]，比板 ±0.871792 **窄**）⇒ 越出量是 **0.2881 / 0.2914**。
+        //      判据与同一条卡/同一档的运行时读数 → `CardBaseDemo.AssertArtClampForSample` 的 ③ / ③b
+        //      （`CardBaseDemo.cs` 里那段 E12 订正：astra 0.2815 / sororitas 0.2914 与离线数逐位吻合）。
+        //      🔴 另注：本段描述的 `artClamped = true` 分支自第七十三会话 `M2` 起**已无调用点**
+        //      （`_art` 恒不套硬矩形），这段保留作「万一要把硬矩形接回 `_art`」时的现成说明。
         //    选 Sororitas 而不与战术卡同阵营：**独立卡框资产**，能把「这张框恰好够宽」排除掉
         //    （13 个阵营 `strat_tier4` 的现读表 → `CardBaseDemo.AssertArtClampForSample` 的 doc）。
         var defD = FindByName(pool, "Sacred Altar");

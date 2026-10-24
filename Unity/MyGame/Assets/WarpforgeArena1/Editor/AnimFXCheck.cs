@@ -1078,19 +1078,30 @@ public static class AnimFXCheck
                     + "播 `PenitenceEffect` / `Arco-Flagellant Strike`（`Rage` 那一拍的件）⇒ 本条红");
 
                 // 🔑 **正例**（证明「按拍分件」不是「把 trigger 桶整个关掉」）：
-                //    `BL14` 的 trigger 桶只有 `StrikeEffect`（`StrikeTraitTrigger`，绑定表 `triggerType = 3`）
-                //    ⇒ 触发这一拍**必须播得出来**。与上面那条一起才有牙。
-                var c14 = RuleEngine.CardDatabase.FindById(pool, "BL14");
-                Check(c14 != null, "⑤（前提）：卡池里拿得到 `BL14`（Strike 正例）");
-                if (c14 != null)
+                //    🔴 **2026-10-24（执行代理 `W5` · AN1 `R5`/`R8`）就地改判（铁律 5）**：这里原来用
+                //    `BL14`（trigger 桶只有 `StrikeEffect`，`StrikeTraitTrigger` / TriggerType 3）当正例，
+                //    断的是 `keyword="Strike"` **必须播 `StrikeEffect`**。**两个前提都已过期**：
+                //      ① `Strike` 现在是**白名单**里的（`VfxMap.IsRoutedTriggerName` 的 `case "strike"`）；
+                //      ② `StrikeEffect` 是 **trait 框**（`trait_effect_bindings.json` 的 `strike` → 3 档），
+                //         触发那一拍它归 `TraitFrames.DisplayTrigger`（链②）⇒ `VfxMap` 这一侧让开
+                //         （`VfxMap.IsTraitFrameDuplicate`，AN1 `R8` 记的双播）。
+                //    ⇒ 正例改成 `BL15`（两条**卡级** `Strike` 行）：`keyword="strike"` 取到那两条、
+                //    **不含** `StrikeEffect`。（`BL14` 反过来成了 `R8` 的判别式：那一件让开 ⇒ 空。）
+                var c15 = RuleEngine.CardDatabase.FindById(pool, "BL15");
+                Check(c15 != null, "⑤（前提）：卡池里拿得到 `BL15`（Strike 卡级行正例）");
+                if (c15 != null)
                 {
-                    var strike14 = CardPresentation.VfxMap.ResolveAllTimed(
-                        CardPresentation.VfxMap.Trigger, c14.Faction, "BL14", c14.AnimTimes,
-                        perCardOnly: true, keyword: "Strike");
-                    Check(HasVfx(strike14, "StrikeEffect"),
-                          "⑤ 正例：`keyword=\"Strike\"`（未归口）在 `BL14` 上**播得出 `StrikeEffect`**（TriggerType 3）"
-                        + $"（实得 {VfxNames(strike14)}）"
-                        + " —— 🧨 把 `D4` 的分件闸改成「trigger 桶一律回空」/ 把 trigger 桶整个停掉 ⇒ 本条红");
+                    var strike15 = CardPresentation.VfxMap.ResolveAllTimed(
+                        CardPresentation.VfxMap.Trigger, c15.Faction, "BL15", c15.AnimTimes,
+                        perCardOnly: true, keyword: "strike");
+                    Check(HasVfx(strike15, "MasterOfExecutions") && HasVfx(strike15, "BulletImpactBurst_Blood")
+                          && !HasVfx(strike15, "StrikeEffect"),
+                          "⑤ 正例：`keyword=\"strike\"`（引擎发的**小写**形态）在 `BL15` 上取到它自己那两条卡级行、"
+                        + "**不含** `StrikeEffect`（那一条是 trait 框 ⇒ 归 `TraitFrames`）"
+                        + $"（实得 {VfxNames(strike15)}）"
+                        + " —— 🧨 把 `D4` 的分件闸写成「trigger 桶一律回空」⇒ 两条卡级行也没了 ⇒ 本条红"
+                        + "（⚠️ 本条是**回归闸**、**不是**放行的判别式：放行与否它都绿 —— 不放行时走第 ④ 档，"
+                        + "`R8` 那道让开会挡掉 `StrikeEffect`、卡级行照样按名字挑。判别式见 `CheckR5R8` 的 ① / ④）");
                 }
 
                 // 再补一刀（防「万金油」）：归口取的是 keyword **本身**，不是「任取一个已归口名字」。
@@ -1431,6 +1442,215 @@ public static class AnimFXCheck
     }
 
 
+    // ================================================================
+    //  ⑨ 🆕 2026-10-24（执行代理 `W5` · AN1 `R5` / `R8`）
+    //  ------------------------------------------------------------------
+    //  R5：`trigger` 桶里「名字没放行 ⇒ 掉回整桶」那 **36 行 / 32 卡**
+    //      （判据 = 逐行把 `资料/普查产出_1024c/data/an1_*_emit.tsv` 里 `emit == TRIGGER_BUCKET(归口待定)`
+    //      那 36 行的 `(cardanim, prefab)` 钉到 `cards_engine.json` 的 `animTimes[].tn` 上；现读**全部**是
+    //      `Strike`（21 行 / 19 张）与 `Slay`（15 行 / 13 张））。两个都有真发射口
+    //      （`RuleCore.cs:6096` / `:5603`，都走 `FireTriggerAt` → `EvtKind.Trigger`）⇒ 已补进
+    //      `VfxMap.IsRoutedTriggerName` 的白名单（`case "strike"` / `case "slay"`）+ 两张锁表。
+    //  R8：同一条 trait 行以前会被**两条链各播一次** ——
+    //      ① `VfxMap`（整桶）：`BattleDriver.PlaySignal` 的 `EvtKind.Trigger` 支 → `VfxMap.ResolveAllTimed`
+    //         → `FireEventAll`；
+    //      ② `TraitFrames`：`BattleDriver.PlayTraitPulse`（调用点 = `BattleDriver` 里
+    //         `case EvtKind.Trigger:` 那一行，现读 `:21330` —— ⛔ 别把行号当判据）→ `TraitFrames.DisplayTrigger`
+    //         （`Core/TraitFrames.cs:869`）→ `_triggerBook`。
+    //      原版只播一次（`CardScript__ActivateTriggerTraitAnim.c` **只**调 `DisplayTriggerAnim`；
+    //      `AbilityLogic.PlayAnim` 播的是卡自己的 `cardAnimations[]`，不含 trait frame）
+    //      ⇒ 整桶那一侧让开「本拍 `TraitFrames` 会播的那一件」（`VfxMap.IsTraitFrameDuplicate`）。
+    //  ⚠️ 期望值**一律按数据现算**（`cards_engine.json` 的 `animTimes` + `trait_effect_bindings.json`），
+    //     ⛔ 不写死张数（数据一变，断言要么跟着走、要么把差额报出来）。
+    //  ⚠️ 这一节**只走生产解释路径**（`ResolveAllTimed(..., perCardOnly: true)`），与 `BattleDriver` 逐参一致。
+    // ================================================================
+    static void CheckR5R8()
+    {
+        Debug.Log(P + "--- R5/R8 · trigger 白名单（Strike/Slay）与 trait 双播 ---");
+
+        // ---------- ① 名字级：白名单那两条常驻闸（正向锁 + 反向闸 + 大小写三态）----------
+        var names = CardPresentation.VfxMap.SelfCheckRoutedTriggerNames();
+        Check(names.Length == 0,
+              "R5① 白名单·名字级：`MustRouteTriggerNames`（含新增 `Strike`/`Slay`）全在白名单里、"
+            + "`NoEmitTriggerNames` 全不在、小写 / 全大写两态都命中"
+            + (names.Length == 0 ? "" : "\n  ✗ " + string.Join("\n  ✗ ", names))
+            + " —— 🧨 删掉 `case \"strike\"` / `case \"slay\"`、或把 `switch` 改回大小写敏感 ⇒ 本条红");
+
+        // ---------- ② 件级：按卡池现算「逐卡不多不少」（= R5 的证明；含新增那两个名字）----------
+        //  ⚠️ 卡池没载到时它**单列一条「没验」**（⛔ 不是静默通过）⇒ 这里不再补一条同样的前提。
+        var perCard = CardPresentation.VfxMap.SelfCheckRoutedTriggers();
+        Check(perCard.Length == 0,
+              "R5② 白名单·件级（生产解释路径逐卡）：每个名字那一拍**不多播、不漏播** —— 新增的 "
+            + "`Strike`（现读 19 张 / 21 行）与 `Slay`（13 张 / 15 行）只取卡自己标到这个名字的那几条"
+            + (perCard.Length == 0 ? "" : "\n  ✗ " + string.Join("\n  ✗ ", perCard))
+            + " —— 🧨 把 `case \"strike\"` / `case \"slay\"` 删掉（回第 ④ 档整桶）⇒ 这一口**报出多播**"
+            + "（现读 4 张：`AM72` / `DA36` / `SOR16` / `EC12` —— 它们桶里还有**别的 trait** 的框；"
+            + "其余卡因为 `R8` 的让开 + `W6` 的名字闸，取件集合恰好不变 ⇒ 那一半只有 `R5①` 的正向锁挡得住）");
+
+        var pool = RuleEngine.CardDatabase.Load();
+        Check(pool != null && pool.Count > 0,
+              "R5/R8（前提）：卡池载得到（载不到的话下面每一条都**没验到**，别读成通过）");
+        if (pool == null || pool.Count == 0) return;
+
+        // ---------- ③ R5 正例（点名一张卡：失败时一眼看得出是哪件）----------
+        //  ⚠️ 这一条是**回归闸**（放行 / 不放行都应绿，因为不放行时 `R8` 那道让开也会挡掉同一件）——
+        //     它守的是「`strike` 这个**小写**形态真的把卡级行挑出来」（= C3 D6 那类大小写坑的复发闸）。
+        var bl15 = RuleEngine.CardDatabase.FindById(pool, "BL15");   // Master of Executions
+        Check(bl15 != null, "R5③（前提）：卡池里拿得到 `BL15`");
+        if (bl15 != null)
+        {
+            var got = CardPresentation.VfxMap.ResolveAllTimed(
+                CardPresentation.VfxMap.Trigger, bl15.Faction, "BL15", bl15.AnimTimes,
+                perCardOnly: true, keyword: "strike");
+            Check(HasVfx(got, "MasterOfExecutions") && HasVfx(got, "BulletImpactBurst_Blood")
+                  && !HasVfx(got, "StrikeEffect"),
+                  "R5③ `keyword=\"strike\"`（引擎发的**小写**形态）在 `BL15` 上取到它自己那两条卡级行"
+                + "（`MasterOfExecutions` / `BulletImpactBurst_Blood`），**且没有** `StrikeEffect`"
+                + $"（实得 {VfxNames(got)}）—— 🧨 把 `D4` 的分件闸写成「一律回空」⇒ 这两条卡级行也没了 ⇒ 本条红。"
+                + "⚠️ **本条不是放行判别式**（放行 / 不放行都应绿：前者走第 ③ 档、后者走第 ④ 档 + `R8` 让开，结果相同）；"
+                + "判别式 = `R5①`（PascalCase / 小写 / 全大写三态）与 `R5④`（`AM72` / `DA36` 的错件）");
+        }
+
+        // ---------- ④ R5 判别式：`Slay` 那一拍不许播 `Strike`/`Talent` 的 trait 框 ----------
+        //  这两张卡**真的能分辨放行与否**（`R8` 那道让开只管「本拍那一件」，管不到**别的 trait** 的框）：
+        //   · `AM72` 的桶 = `GuardSummon`（卡级、标 `Slay`）+ `StrikeEffect`（trait `strike` 的框）；
+        //   · `DA36` 的桶 = `CreateCard Gold`（卡级、标 `Slay`）+ `TalentEffect`（trait `talent` 的框）。
+        //  不放行 `slay` ⇒ 回第 ④ 档 ⇒ 那个**别的 trait 的框**跟着一起播（错件）。
+        var am72 = RuleEngine.CardDatabase.FindById(pool, "AM72");
+        Check(am72 != null, "R5④（前提）：卡池里拿得到 `AM72`");
+        if (am72 != null)
+        {
+            var slay = CardPresentation.VfxMap.ResolveAllTimed(
+                CardPresentation.VfxMap.Trigger, am72.Faction, "AM72", am72.AnimTimes,
+                perCardOnly: true, keyword: "slay");
+            Check(HasVfx(slay, "GuardSummon") && !HasVfx(slay, "StrikeEffect"),
+                  "R5④ `keyword=\"slay\"` 在 `AM72` 上只播它自己那条 `GuardSummon`、**不播** `StrikeEffect`"
+                + "（后者是 `strike` 那一拍的 trait 框）"
+                + $"（实得 {VfxNames(slay)}）"
+                + " —— 🧨 删掉 `case \"slay\"` ⇒ 回第 ④ 档整桶 ⇒ `StrikeEffect` 回来 ⇒ 本条红");
+        }
+        var da36 = RuleEngine.CardDatabase.FindById(pool, "DA36");
+        Check(da36 != null, "R5④b（前提）：卡池里拿得到 `DA36`");
+        if (da36 != null)
+        {
+            var slay36 = CardPresentation.VfxMap.ResolveAllTimed(
+                CardPresentation.VfxMap.Trigger, da36.Faction, "DA36", da36.AnimTimes,
+                perCardOnly: true, keyword: "slay");
+            Check(HasVfx(slay36, "CreateCard Gold") && !HasVfx(slay36, "TalentEffect"),
+                  "R5④b `keyword=\"slay\"` 在 `DA36` 上只播它自己那条 `CreateCard Gold`、**不播** `TalentEffect`"
+                + $"（实得 {VfxNames(slay36)}）"
+                + " —— 🧨 删掉 `case \"slay\"` ⇒ 回第 ④ 档整桶 ⇒ `TalentEffect` 回来 ⇒ 本条红");
+        }
+
+        // ---------- ⑤ R8：**结构性互斥**（同一拍里同一件只能由一条链播）----------
+        //  期望值的**唯一来源 = `trait_effect_bindings.json`**（= 原版 `CardTrait` SO），
+        //  ⛔ 不从 `TraitFrames.TriggerBindingsFor` 读回 —— 那是拿实现验实现。
+        var bAsset = Resources.Load<TextAsset>(CardPresentation.TraitFrames.BindingsResourcePath);
+        CardPresentation.TraitFrames.BindingDoc bdto = null;
+        if (bAsset != null)
+        {
+            try { bdto = JsonUtility.FromJson<CardPresentation.TraitFrames.BindingDoc>(bAsset.text); }
+            catch (System.Exception ex) { Debug.LogWarning(P + "R8⑤ 读绑定表失败：" + ex.Message); }
+        }
+        Check(bdto != null && bdto.rows != null && bdto.rows.Length > 0,
+              "R8⑤（前提）：`Resources/" + CardPresentation.TraitFrames.BindingsResourcePath + ".json` 读得出");
+        if (bdto == null || bdto.rows == null) return;
+
+        //  trait → 触发那一拍那几件（**只收 3/6**，= `DisplayTriggerAnim` 会播的那一批）。
+        //  `CardAnim` 与 `prefab` 两把键都收（候选可能只带其中一个）；`overrides` 也必须收 ——
+        //  `gen_card_vfx_by_card.py` 在**生成期**就把 owner 阵营的 override 套上了（例：`shield` 4 条）。
+        var traitKeyOf = new Dictionary<string, string>();                      // 归一键 → 原样名
+        var traitAnims = new Dictionary<string, HashSet<string>>();
+        var traitPrefabs = new Dictionary<string, HashSet<string>>();
+        System.Action<Dictionary<string, HashSet<string>>, string, string> addKey =
+            (d, k, v) =>
+            {
+                if (string.IsNullOrEmpty(v)) return;
+                HashSet<string> set;
+                if (!d.TryGetValue(k, out set)) { set = new HashSet<string>(); d[k] = set; }
+                set.Add(v);
+            };
+        foreach (var r in bdto.rows)
+        {
+            if (r == null || string.IsNullOrEmpty(r.trait)) continue;
+            if (r.triggerType != 3 && r.triggerType != 6) continue;             // 触发那一拍只认 3/6
+            string key = r.trait.Trim().ToLowerInvariant();
+            traitKeyOf[key] = r.trait;
+            addKey(traitAnims, key, r.cardAnim);
+            addKey(traitPrefabs, key, r.prefab);
+            if (r.overrides == null) continue;
+            foreach (var o in r.overrides)
+            {
+                if (o == null) continue;
+                addKey(traitAnims, key, o.cardAnim);
+                addKey(traitPrefabs, key, o.prefab);
+            }
+        }
+        Check(traitKeyOf.Count > 0,
+              $"R8⑤（前提）：绑定表里收得到 `Trigger(3)`/`TriggerOnPlay(6)` 那几档（{traitKeyOf.Count} 个 trait）");
+
+        //  逐 (卡, trait)：用 **trait 名本身**当关键词解析（= `PlayTraitPulse` 传给链② 的就是
+        //  `BattleEvent.Keyword`），这一拍 `VfxMap` 的取件里**不许**出现那条 trait 的那几件。
+        int pairs = 0, collide = 0, witness0 = CardPresentation.VfxMap.TraitFrameDuplicates;
+        string firstBad = null;
+        for (int ci = 0; ci < pool.Count; ci++)
+        {
+            var cd = pool[ci];
+            if (cd == null) continue;
+            foreach (var kv in traitKeyOf)
+            {
+                var v = CardPresentation.VfxMap.ResolveAllTimed(
+                    CardPresentation.VfxMap.Trigger, cd.Faction, cd.Id, cd.AnimTimes,
+                    null, true, kv.Value);
+                if (v == null || v.Length == 0) continue;
+                pairs++;
+                HashSet<string> anims, pf;
+                traitAnims.TryGetValue(kv.Key, out anims);
+                traitPrefabs.TryGetValue(kv.Key, out pf);
+                for (int i = 0; i < v.Length; i++)
+                {
+                    bool dup = (pf != null && pf.Contains(v[i].Name))
+                            || (anims != null && !string.IsNullOrEmpty(v[i].Anim) && anims.Contains(v[i].Anim));
+                    if (!dup) continue;
+                    //  ⚠️ **反例排除**：这一件可能同时是**卡自己那条 `cardAnimations[]`**（`animTimes` 里标着同一个
+                    //  trigger 名）—— 那样原版本来就会播**两次**（卡动画一次 + trait 框一次），不是我们的缺陷。
+                    //  现读 = `UM84` / `UM85` / `UM86`（`CodexTraitTrigger_warlord` → `CodexEffect`）三行，
+                    //  它们走第 ③ 档（`codex` 已放行），`IsTraitFrameDuplicate` **根本不参与**。
+                    bool labelled = false;
+                    if (cd.AnimTimes != null)
+                        for (int t = 0; t < cd.AnimTimes.Count; t++)
+                        {
+                            var at = cd.AnimTimes[t];
+                            if (at == null || string.IsNullOrEmpty(at.TriggerName)) continue;
+                            if (!string.Equals(at.TriggerName, kv.Value, System.StringComparison.OrdinalIgnoreCase)) continue;
+                            if (!string.IsNullOrEmpty(v[i].Anim)
+                                    ? string.Equals(at.Anim, v[i].Anim, System.StringComparison.Ordinal)
+                                    : string.Equals(at.Prefab, v[i].Name, System.StringComparison.Ordinal))
+                            { labelled = true; break; }
+                        }
+                    if (labelled) continue;
+                    collide++;
+                    if (firstBad == null)
+                        firstBad = $"{cd.Id}（{cd.Name}）的 `{kv.Value}` 那一拍：`VfxMap` 与 `TraitFrames` **都会播** `{v[i].Name}`";
+                }
+            }
+        }
+        int witness = CardPresentation.VfxMap.TraitFrameDuplicates - witness0;
+        Check(collide == 0 && pairs > 0,
+              $"R8⑤ 结构性互斥：同一拍里「`TraitFrames` 会播的那一件」**不再**由 `VfxMap` 播"
+            + $"（扫了 {pairs} 个「有取件」的 (卡, trait) 对，撞车 {collide} 次）"
+            + (collide == 0 ? "" : "\n  ✗ " + firstBad + $"（共 {collide} 次）")
+            + (pairs > 0 ? "" : "\n  ✗ **空放**：一对都没扫到 ⇒ 这条断言没有内容")
+            + " —— 🧨 删掉 `VfxMap.IsTraitFrameDuplicate`（或不再把关键词传进 `TriggerBeatRows`）⇒ "
+            + "两条链同时播同一件 ⇒ 本条红");
+        Check(witness > 0,
+              $"R8⑤·灭自证的另一半：那道闸**真的咬到了**（诊断计数 `TraitFrameDuplicates` 增量 = {witness} 件）"
+            + " —— 本口扫的是**全部**带 `Trigger(3)`/`TriggerOnPlay(6)` 档的 trait 名 ⇒ 这个数比生产**多**"
+            + "（生产只发得到 `codex` / `strike` / `artifice` / `backlash` / `mob` / `cruelty` / `ecstasy` 这几个）"
+            + " —— ⛔ 别把它当断言上界，数据一变它就变；"
+            + " 🧨 闸被删掉（增量 0）/ 反过来把链② 那本清空（两件都不播）⇒ 本条红");
+    }
+
     /// <summary>`⑤` 用：结果里有没有这个特效名（大小写逐字比 —— prefab 名是精确 join 键）。</summary>
     static bool HasVfx(CardPresentation.VfxMap.ResolvedVfx[] arr, string name)
     {
@@ -1515,6 +1735,8 @@ public static class AnimFXCheck
         CheckTraitAuthority();
 
         CheckTraitStartEffects();          // 🆕 2026-10-23（A7）：`Start(0)` 那 13 条 trait effect
+
+        CheckR5R8();                       // 🆕 2026-10-24（执行代理 `W5`）：AN1 `R5`（trigger 白名单）/ `R8`（trait 双播）
 
         // ---- ⑤b 语音表：卡 SO 的 `summonAudio` 都要有 `deploy` 行（🆕 2026-10-24 · A8 落地 A4 的片段）----
         //  判据 = `Resources/voice_lines.json`（经 `VoiceLines` 读回来），⛔ 不是我们自己的常量：
@@ -1692,6 +1914,13 @@ public static class AnimFXCheck
                   "⑤g EC57 的 `greet` 照常取得到且音频在 `Resources/"
                 + CardPresentation.VoiceLines.ClipRoot + "…`（现读 " + (ghit ? gclip : "无") + "）");
         }
+
+        // ---- ⑥ 根特效层 / 卡根参考系（战斗线 `C6·Q1` / `C6·Q2`，2026-10-24）----
+        //  判据 → `资料/普查产出_1024c/C6_表现界面轮抽剩余判据.md` §一 / §二。
+        //  ⚠️ 它自己会**附加打开** `Scenes/Battle.unity` 去取真相机（`BoardCamera*` / tag=MainCamera），
+        //    跑完关掉；相机**不是**自己造的（造一对 = 拿我们的常量证明我们的常量）。
+        //  🧨 灭自证：同一段生产代码在 2D 档（卡在层 0）下必须落到 HUD 那台 ⇒ 把层写死成 0 或 8 都红。
+        CardPresentation.RootVfxLayerAssert.Run(Check);
 
         Done();
     }

@@ -340,10 +340,14 @@ namespace CardPresentation
         /// 但这一件要建成 uGUI」的调用点用（先例 = `BattleDriver._loadingCover`）。
         /// 🔑 **为什么要有它**：调用点就不必 `using UnityEngine.UI` 去拿 `Image` 类型
         /// （`BattleDriver.cs` 没引那个命名空间，为一件图加一条 `using` 不划算）。</summary>
+        /// <param name="raycast">🆕 2026-10-24（`W1` · 判据 `N1` §2.2）：这一件**吃不吃 uGUI 射线**。
+        /// 原版 `WaitText/Dark Shade` 的 `m_RaycastTarget = 1` ⇒ 压暗层要传 `true`；
+        /// 其余调用点不传（= 装饰件不吃射线，与加这个形参之前逐位相同）。</param>
         public static HudPiece MakeImagePiece(Transform parent, Texture2D tex, string name,
-                                              float x, float y, float w, float h, Color color)
+                                              float x, float y, float w, float h, Color color,
+                                              bool raycast = false)
         {
-            var rt = MakeImage(parent, tex, name, x, y, w, h, color);
+            var rt = MakeImage(parent, tex, name, x, y, w, h, color, raycast);
             return rt != null ? HudPiece.Of(rt, rt.GetComponent<Image>()) : null;
         }
 

@@ -21,7 +21,10 @@
 //  ⑤ 四轮之后 ⇒ `BuildClosedDeck` = **12 张**，且 `LaunchBattle()` 真的把这一局交出去
 //     （`StartedBattle = true` · `PendingPlayMode = ClosedDeck(7)` · 交接的牌 12 张）。
 //  ⑥（额外）**空态不静默**：可选战将 = 0 / 包 = 0 时页面上有一颗**自拟提示**节点（原版这两页没有空态节点）。
-//  ⑦（额外）**缺图要出声**：本机缺的两张 toggle 图标必须进 `MissingArt`（⛔ 不许「取不到就算了」）。
+//  ⑦（额外）**缺图要出声**：`MissingArt` 必须与 `Resources/` 的实况一致 —— **今天这一窗一张都不缺**
+//     ⇒ 断 `miss.Count == 0`（🔴 2026-10-24 `W23` 就地订正：原来断「那两张 toggle 图标**在**缺图里」，
+//     那是前提过期 —— 图已导入、名字也已换成下划线；读点同时从 Pay 页后移到**选包页**，
+//     否则包卡那两张（`OctagonUI_Border_SDF` / 分隔线）即使缺也看不见）。
 //  ⑧（额外）**卡组右栏的显隐跟着页走**：Pay/选将页关、选包/进行中页开（S3 §2.5/§2.7 的判据）。
 //
 // 🔴 **期望值从哪来**（不许拿我们自己的常量证明我们自己的实现）：
@@ -207,8 +210,11 @@ public static class DraftWindowAssertD2
          + "「已选卡数 / 3」以外的算法");
         Eq(win.StageCounterText, "2/4",
            "②（续）选完 1 包 ⇒ `2/4` 🧨 怎么改会红：`Stage Counter` 只在开页时刷一次、选包后不刷");
-        Eq(win.DeckCounterText, Loc.T("Demo/EnergyBalance/Cards") + " 3/12",
+        Eq(win.DeckCounterText, Loc.T("Demo/EnergyBalance/Cards") + "3/12",
            "⑧ 右栏 `CardCounter` 跟着刷（原版 `Cards: 30/30` 那一格；我们 = `Cards: 已拿/总数`）"
+         + " —— **无空格**：原版 `Concat(trans, count, \"/\", deckSize)` 四段紧挨"
+         + "（判据 `d:/2/tools/decomp_full/DraftModeDeckInfoEnergyBalancePanel__Initialize.c:76`）"
+         + "｜🔴 2026-10-24（W23）：本条原来期望多一个空格（`\" 3/12\"`），那是改前口径；`W7` 已按原版删掉"
          + "🧨 怎么改会红：`RefreshDeckPanel` 不在选包后调");
     }
 
@@ -385,18 +391,30 @@ public static class DraftWindowAssertD2
         Ok(RestoreRealPool(), "⑥ 收尾：真包池回来了（count = " + DraftPacks.Count + "）");
     }
     // ==================================================================
-    //  ⑦ 缺图必须出声（本机确实没有那两张 toggle 图标）
+    //  ⑦ 缺图必须出声 —— **今天这一窗一张都不缺**（本机图已补齐；改名的 5 处已改回下划线名）
     // ==================================================================
     static void A7_MissingArt(DraftModeWindow win)
     {
         Debug.Log(P + "--- ⑦ 取不到的图进 `MissingArt`（⛔ 静默失败是红线）---");
 
-        // 重开一局把整棵树重建一遍（`MissingArt` 在 `Build()` 首句清空）
+        // 重开一局把整棵树重建一遍（`MissingArt` 在 `Build()` 首句清空）。
+        // 🔴 **读点必须在【选包页】之后**（2026-10-24 `W23` 就地订正）：`BeginRun` 只 `Build()` + 落
+        //    Pay 页；包卡那两张（`OctagonUI_Border_SDF` / `40k_Separator_Fade_Sides_Horizontal`）是在
+        //    `RefreshPacksPage()` 里才 `Tex()` 的 ⇒ 停在 Pay 页读，它们**即使缺也看不见**（假绿）。
+        //    右栏 toggle 那三张同理（`RefreshDeckPanel()` 只在 `showDeckPanel` 的两页跑）。
         win.BeginRun(TestSeed);
+        if (GoToPacks(win) == null) return;                 // 走正规入口进选包页（顺带把那两页刷出来）
         var miss = win.MissingArt;
-        Ok(miss.Contains("40K_Info_button_draft menu") && miss.Contains("40K_Cards_button_draft menu"),
-           "⑦ 右栏那两张**本机没有**的 toggle 图标进了 `MissingArt`（`Resources/Art/ui*/` 0 命中）"
-         + "🧨 怎么改会红：取不到图却不记账（那样界面上少两块图标、日志里也查不出为什么）"
+        Ok(!miss.Contains("40K_Info_button_draft_menu") && !miss.Contains("40K_Cards_button_draft_menu"),
+           "⑦ 右栏那两张 toggle 图标**不在** `MissingArt` 里（今天已导进 `Resources/Art/ui_menu/`）"
+         + "（⚠️ 查的必须是**下划线名** —— `Tex()` 记的是**调用时传进去的名字**，`W7` 已把 "
+         + "`DeckToggleIconArt` 换成下划线）"
+         + "｜🔴 2026-10-24（W23）：本条原来断「它们**在** `MissingArt` 里」，那是**前提过期**"
+         + "；实得 [" + string.Join(", ", new List<string>(miss).ToArray()) + "]");
+        Ok(miss.Count == 0,
+           "⑦ `MissingArt` **是空的**（该窗全部 `Tex()` 名字在 `Resources/Art/ui*/` 里都命中）"
+         + "｜🧨 怎么改会红：把 `Tex()` 的传参换回**带空格的原名**（`CardArt.MenuUi` 不做空格→下划线归一，"
+         + "`Core/CardArt.cs:802-813`）、或删掉其中一张图"
          + "；实得 [" + string.Join(", ", new List<string>(miss).ToArray()) + "]");
         Ok(!miss.Contains("UI_Button_Mulligan") && !miss.Contains("40k_Crate_Tier1_Iron"),
            "⑦ 该有的图**没有**被误报（`UI_Button_Mulligan` / `40k_Crate_Tier1_Iron` 都在本机）");

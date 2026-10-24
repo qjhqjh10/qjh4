@@ -122,14 +122,22 @@ namespace CardPresentation
         /// <summary>🔴🔴 **2026-10-22（W64 · `B02`）：这五个常量【已不再被 `HitReact` 使用】** ——
         /// 原版**近战挨打没有旋转**（`CardScript__ReceiveAttackAnim.c:80-92` 只有一句
         /// `DOPunchPosition`），那两条旋转 punch 属于 `Impact Light/Heavy Tween` = **远程弹着特效的
-        /// AnimFX 模块**（90 件 `BulletImpact_*` 引用它），把它当近战挨打是机制错位。
-        /// ⚠️ **`HitRotDuration` 仍有一个消费者**：`EventTiming.cs` 的
-        /// `DurationOf(EvtKind.Hit) = HitRotDuration + ResetDuration` —— 那一拍的总时长口径不变，
-        /// 但**它现在不代表"转了 0.5 秒"**，只是那一拍的长度。⛔ 别因为「没人用」把它删掉。
-        /// 🔴 **2026-10-23（P2 · `新账-78②`）**：既然这两条 punch 是**远程弹着**的，「`Hit` 拍 = 0.5 + 0.25」
-        /// 这个**出处也就不成立了** —— 值仍是 0.75（我们的），但**出处待补**；
-        /// 候选真值 = `CardScript._ReceiveDamage_d__381:342` 的 `WaitForSeconds(1.0)`
-        /// （被 `+0x34` bool 把着、**语义未查清**）⇒ 判据未闭合，⛔ 别猜着改（改它会动整条节奏基线）。
+        /// AnimFX 模块**（引用数见下一条更正），把它当近战挨打是机制错位。
+        /// ⚠️ **2026-10-24（`W16`）就地订正两处（铁律 5）**：
+        ///   ① 原来这里写「**90 件 `BulletImpact_*` 引用它**」—— **`90` 这个数不存在**。
+        ///     现读 `数据/游戏数据/animfx_modules.json`（912 条 effect）：引用 `Impact Light Tween` 的
+        ///     共 **73 个模块**，其中 **56** 个是 `BulletImpact_*`、**12** 个 `Lasrifle*`、另 5 个（`Njal Blizzard
+        ///     Attack` / `Slash Repeating 2x`/`5x` / `TraitorsHate_Target` / `Valkyrie_MultiLaser_Hover`）；
+        ///     `Impact Heavy Tween` = **0 引用**。错因 = 上一轮照抄了 `S1` 的计数、没回表数（`S1 §2·13` 已由 `S2` 订正）。
+        ///   ② 原来这里写「**`HitRotDuration` 仍有一个消费者**：`EventTiming` 的
+        ///     `DurationOf(EvtKind.Hit) = HitRotDuration + ResetDuration`」—— **不成立了**：
+        ///     那一格 2026-10-24 已改回原版真值 `EventTiming.HitWaitSeconds`（= 1.0，
+        ///     原版 `_ReceiveDamage` 收尾那道 `WaitForSeconds(1.0)` 的门，判据 →
+        ///     `资料/普查产出_1024d/S2_受伤时长bool语义.md`）⇒ **`HitRotDuration` / `ResetDuration` 现在一个
+        ///     消费者都没有**。
+        /// ⛔ **但别因为「没人用」把它们删掉**：它们是原版 `Impact Light Tween` 的**读数**（将来做远程弹着要用），
+        ///   而且 `Editor/BattleScene.cs:20440` 那条断言还在核 `HitRotDuration == 0.5` ——
+        ///   那一处断的是**旋转 punch 的表现参数**（`DOPunchPosition` 那条），跟「命中等待门」是两件事。
         /// 下面这两段旧注释保留，它们记的是那两条 punch **本身的**读数（将来做远程弹着要用）。
         ///
         /// 命中旋转 punch 的度数 —— **两处一律取 punch 向量的「模长」**（原版那两条 punch
@@ -151,7 +159,10 @@ namespace CardPresentation
         public const int HitRotVibrato = 7;
         public const float HitRotElasticity = 1f;
 
-        /// <summary>复位（`ResetBodyTween` 的 duration / ease）</summary>
+        /// <summary>复位（`ResetBodyTween` 的 duration / ease）。⚠️ **2026-10-24（`W16`）起没有消费者** ——
+        /// 它原来只经 `EventTiming.DurationOf(Hit)` 参与命中拍长，那一格已改回原版真值
+        /// `EventTiming.HitWaitSeconds`（1.0，判据 `资料/普查产出_1024d/S2_受伤时长bool语义.md`）。
+        /// ⛔ **别因为「没人用」删掉**：这是原版 `Impact Light Tween` 的读数，做远程弹着要用。</summary>
         public const float ResetDuration = 0.25f;
 
         /// <summary>「这一下算重击」的门槛 —— **我们挑的**。
@@ -669,10 +680,10 @@ namespace CardPresentation
             P("HitPunchUnitsHeavy", HitPunchUnitsHeavy, Src.Ours, "同上（`Impact Heavy Tween` 的 0.3）"),
             P("HitRotLightDeg", HitRotLightDeg, Src.Derived, "`Impact Light Tween` 的 3D 旋转 punch `(-3,-3,0)` → **取模长当 2D 的 z 度数**（原版是 x/y 两个轴）。⚠️ **2026-10-22（`B02`）起 `HitReact` 不再用它**（近战挨打没有旋转），只为「远程弹着」那一族留着"),
             P("HitRotHeavyDeg", HitRotHeavyDeg, Src.Derived, "`Impact Heavy Tween` 的 `(-15,4,0)` 模长（同上，已不参与近战挨打）"),
-            P("HitRotDuration", HitRotDuration, Src.Field, "`Impact Light Tween` 旋转 punch 的 `duration=0.5`。⚠️ 现在**唯一的消费者是 `EventTiming.DurationOf(Hit)` 的时长口径**，不代表「转了 0.5 秒」"),
+            P("HitRotDuration", HitRotDuration, Src.Field, "`Impact Light Tween` 旋转 punch 的 `duration=0.5`。🔴 **2026-10-24（`W16`）更正**：原来这里写「**唯一的消费者是 `EventTiming.DurationOf(Hit)`**」—— **不成立了**（那一格已改成原版真值 `EventTiming.HitWaitSeconds` = 1.0）⇒ **现在没有消费者**；⛔ 别删（原版读数，将来做远程弹着要用；`BattleScene.cs:20440` 还断它是 0.5）"),
             P("HitRotVibrato", HitRotVibrato, Src.Field, "同上 `vibratto=7`"),
             P("HitRotElasticity", HitRotElasticity, Src.Field, "同上 `elasticity=1.0`"),
-            P("ResetDuration", ResetDuration, Src.Field, "`Impact Light Tween` 的 `ResetBodyTween duration=0.25`"),
+            P("ResetDuration", ResetDuration, Src.Field, "`Impact Light Tween` 的 `ResetBodyTween duration=0.25`。🔴 **2026-10-24（`W16`）**：它原来只经 `EventTiming.DurationOf(Hit)` 的 `HitRotDuration + ResetDuration` 参与命中拍长，那一格已改回原版真值 ⇒ **现在也没有消费者**；⛔ 同样别删（原版读数）"),
             P("HeavyHitDamage", HeavyHitDamage, Src.Ours, "**分档门槛是我们挑的** —— 原版按武器挑不同的 UnitTweenSO，那张表在**逐卡特效字段**里，本地一条都没有"),
 
             // ---- 挨打震镜头：卡预制体 `meleeHitCameraShakePreset` → preset `Shake Hit Small` ----
@@ -723,7 +734,7 @@ namespace CardPresentation
             // ---- 🆕 2026-09-29 近战三段式（原版 `CardScript._AttackMeleeAnim_d__357`）----
             P("PlayerAttackMargin", PlayerAttackMargin, Src.Field, "卡预制体 `playerAttackMargin` —— 段1 停在离目标多远（沿归一化方向）"),
             P("EnemyAttackMargin", EnemyAttackMargin, Src.Field, "卡预制体 `enemyAttackMargin`（同上，攻方是敌方时）"),
-            P("AttackPositionYOffset", AttackPositionYOffset, Src.Field, "卡预制体 `attackPositionYOffset` —— 乘在 `(受击方 effectsAnchor.y − 受击方 y)` 上；⚠️ 我们的等价量恒 0"),
+            P("AttackPositionYOffset", AttackPositionYOffset, Src.Field, "卡预制体 `attackPositionYOffset` —— 乘在 `(受击方 effectsAnchor.y − 受击方 y)` 上；⚠️ 2026-10-24 起**有等价量了**（`EffectsAnchorHeight` = 锚点到**卡底边**的高度，同一张卡上 = `1.34 × lossyScale.y`）"),
             P("AttackTurnDeg", AttackTurnDeg, Src.Field, "段2 先绕 `Vector3.up` 转的角度，`.rdata 0x1834b2e04` 从 DLL 读出 = 90°"),
             P("AttackHoldTime", AttackHoldTime, Src.Field, "段3「停在目标身上」的时长，`.rdata 0x1834b2dc4` = 0.1"),
             P("AttackReturnTime", AttackReturnTime, Src.Derived, "段4/段5 归位时长 = `2 × attackStepTime`（原版 `:260` 就是 `attackStepTime * 2`）"),
@@ -910,8 +921,14 @@ namespace CardPresentation
         /// `endPos = 受击方位置 − Normalize(受击方 − 出手点) × margin + Vector3.up × dy`，
         /// `margin = 攻方 isPlayer ? 1.7 : 1.0`，`dy = (受击方 effectsAnchor.y − 受击方 y) × 0.5`。
         /// ⚠️ `|方向| ≤ 1e-5` 时方向取零（原版同一个哨兵 `0x1834b2f44`）。
-        /// ⚠️ `dy` 我们**取 0**：原版那个 `effectsAnchor` 我们**没有等价物**（我们的卡根节点**就是卡中心**），
-        ///    如实标注 —— 不是「查不到」，是「我们这棵树的等价量就是 0」。
+        /// <para>🔴 **2026-10-24（战斗线 `C6·Q2`）就地订正** —— 本行原来写「`dy` 我们**取 0**：
+        /// 原版那个 `effectsAnchor` 我们**没有等价物**」：**等价物早就有**（`CardView.EffectAnchorBoard`
+        /// = 原版 `CardPrefab/Board Elements/EffectAnchor`，prefab 里 `(0, 1.34, −0.128)`），
+        /// 而「我们的卡根是卡中心」**不是**「等价量为 0」——**两个参考系原点差半张卡**，
+        /// 原版那个差是量到**卡底边**的（原版 prefab 根 = 卡底）。⇒ 用
+        /// <see cref="EffectsAnchorHeight"/> / <see cref="MeleeEndPos(Vector3, Vector3, bool, CardView)"/>
+        /// 那条重载，它按「锚点世界 y − **卡底边**世界 y」现算（同一张卡上 = `1.34 × lossyScale.y`）。
+        /// ⛔ 别把 `BoardEffectAnchorLocal.y`（−0.32565，量到**卡心**）直接当 `dy` —— 符号和量级都不对。</para>
         /// </summary>
         public static Vector3 MeleeEndPos(Vector3 origin, Vector3 targetPos, bool isPlayer, float dy = 0f)
         {
@@ -920,6 +937,52 @@ namespace CardPresentation
             Vector3 dir = len <= 1e-5f ? Vector3.zero : d / len;
             float margin = isPlayer ? PlayerAttackMargin : EnemyAttackMargin;
             return targetPos - dir * margin + Vector3.up * (dy * AttackPositionYOffset);
+        }
+
+        /// <summary>🆕 2026-10-24（`C6·Q2`）：**带受击方卡视图**的那条重载 —— `dy` 由
+        /// <see cref="EffectsAnchorHeight"/> 现算（原版 `(受击方 effectsAnchor.y − 受击方 y)`）。
+        /// <para>⛔ 生产调用点**应该走这条**（`BattleDriver` 的 `_ScheduleAttack` 近战那一支手上就有
+        /// `tv`）；四参数那条只留给「手上没有卡视图」的自检/诊断，`dy` 传 0 时**与旧行为逐位相同**。</para></summary>
+        public static Vector3 MeleeEndPos(Vector3 origin, Vector3 targetPos, bool isPlayer, CardView targetCard)
+        {
+            return MeleeEndPos(origin, targetPos, isPlayer, EffectsAnchorHeight(targetCard));
+        }
+
+        /// <summary>原版 `(受击方 effectsAnchor.position.y − 受击方 transform.position.y)` 的等价量
+        /// （**世界单位**）。判据 = `CardScript._AttackMeleeAnim_d__357__MoveNext.c`：
+        /// `fVar15 = anchor.position.y − targetCard.position.y`，随后 `× attackPositionYOffset`。
+        ///
+        /// <para>🔑 **为什么不能直接用锚点的局部位**：原版 `CardPrefab` 根的原点 = **卡底边**，
+        /// 我们的卡根原点 = **卡心**（`CardView.CardUnitH` 2.0927×3.3313，y 跨 ±Height/2）——
+        /// 两个参考系差 `Height/2`。所以「锚点高度」必须量到**卡底边**：
+        /// `anchor.position.y − TransformPoint(0, −Height/2, 0).y`（同一张卡上恒 = `1.34 × lossyScale.y`）。
+        /// 判据表 → `资料/普查产出_1024c/C6_表现界面轮抽剩余判据.md` §2·1
+        /// （`Board Elements/EffectAnchor` = `(0, 1.34, −0.128)`，卡根空间 ⇒ `y −= 3.3313/2`）。</para>
+        /// <para>取不到卡 / 锚点 ⇒ 回 0（= 旧行为）并**出声一次**（不静默）。</para></summary>
+        public static float EffectsAnchorHeight(CardView card)
+        {
+            if (card == null)
+            {
+                SpeakNoEffectsAnchor("卡为 null");
+                return 0f;
+            }
+            var a = card.EffectAnchorBoard;
+            if (a == null)
+            {
+                SpeakNoEffectsAnchor($"卡 `{card.Data.id}` 的 `EffectAnchorBoard` 取不到");
+                return 0f;
+            }
+            Vector3 bottom = card.transform.TransformPoint(new Vector3(0f, -CardView.Height * 0.5f, 0f));
+            return a.position.y - bottom.y;
+        }
+
+        static bool _warnedNoEffectsAnchor;
+        static void SpeakNoEffectsAnchor(string why)
+        {
+            if (_warnedNoEffectsAnchor) return;
+            _warnedNoEffectsAnchor = true;
+            Debug.LogWarning($"[CardFeel] 近战落点 `dy`：{why} ⇒ `dy` 取 0"
+                           + "（原版取 `(受击方 effectsAnchor.y − 受击方 y)` —— 这一拍会少一点点抬升）");
         }
 
         // ── 🔴 2026-10-23（战斗线 · 新账-71）：**按「战场深度」重算缩放**（原版 `MinionScaleByPositionSO`）──
@@ -2350,8 +2413,8 @@ namespace CardPresentation
             seq.AppendCallback(() =>
             {
                 card.SetBody3DVisible(false);
-                bool ok = pick.Remnant ? SpawnRemnantDestroy(card, pick.Fx)
-                                       : SpawnDeathBody(card, pick.PerCard, pick.Fx);
+                bool ok = pick.Remnant ? SpawnRemnantDestroy(card, pick.Fx, out _)
+                                       : SpawnDeathBody(card, pick.PerCard, pick.Fx, out _);
                 if (!ok)
                     Debug.LogWarning($"[CardFeel] `{pick.Fx}` 这一刻放不出来（`WarpforgeEffectPlayer.Play` 返回空）"
                                    + " ⇒ 这一张阵亡**没有爆散体**（原版 `UnitDeath` state 1 会 `Instantiate` 它）");
@@ -2609,15 +2672,71 @@ namespace CardPresentation
         /// <summary>「这张卡没有 `body3D` 节点」只出声一次（别每张阵亡都刷一行）。</summary>
         static bool _warnedNoBody3D;
 
+        // ==================================================================
+        //  🆕 2026-10-24（战斗线 `C6·Q1`）：**根特效该落哪一层** —— 判据只此一处
+        // ==================================================================
+        //  原版（13 场逐场实读 `Camera_*.json`）：**只有战场透视相机画 layer 0**（`m_CullingMask.m_Bits
+        //  = 1137`），UI 相机只画层 5（bits 32）⇒ 原版「根实例化的阵亡爆散体 / 残骸 Destroy 粒子」
+        //  （根层 0）由**战场相机**按竞技场世界坐标画。
+        //  我们的等价物：3D 档的卡挂在 `ArenaSlots.ArenaLayer`(8)，战场相机只画层 8、HUD（正交）
+        //  把层 8 从 `cullingMask` 里摘掉 ⇒ 根特效必须**跟着卡上到 8**；2D 兜底档卡在层 0
+        //  （没有战场相机）⇒ 根特效留在 0 由 HUD 画。
+        //  ⚠️ **判据是「卡自己现在在哪一层」**（= `BattleDriver.SyncBoard` 按 `use3DBoard` 挂的）——
+        //  不是另起一个 `use3DBoard` 旗标（两处写同一条规则迟早不一致），也不是「按 3D/2D 写死 8/0」。
+        //  判据全文 → `资料/普查产出_1024c/C6_表现界面轮抽剩余判据.md` §一。
+
+        /// <summary>根特效（`parent == null` 那类）该落的层 = **卡自己现在那一层**
+        /// （场上的卡在 3D 档是 `ArenaLayer` 8 ⇒ 战场透视相机画；2D 兜底档是 0 ⇒ HUD 正交相机画）。
+        /// 卡为 null ⇒ 0（取不到就按 HUD 那一档，**不猜 8** —— 猜错会被两台相机同时漏掉）。
+        /// <para>⚠️ 这个值**必须**由调用方显式传给 `WarpforgeEffectPlayer.Play(..., layer:)` ——
+        /// 根实例没有父节点可继承层。</para></summary>
+        public static int RootFxLayerForCard(CardView card)
+        {
+            return card != null ? card.gameObject.layer : 0;
+        }
+
+#if UNITY_EDITOR
+        /// <summary>自检口（**Editor only**）：走**生产那条路**生成阵亡爆散体，把实例交出来。
+        /// <para>⛔ 不要自己 `Play` 一遍来「验」—— 那样验的是断言自己写的层，不是 `SpawnDeathBody` 传的层
+        /// （自证）。调用方负责 `Kill()` 掉返回的实例。</para></summary>
+        public static WarpforgeVFX.WarpforgeEffectPlayer ProbeSpawnDeathBody(CardView card, string fx)
+        {
+            if (card == null) return null;
+            WarpforgeVFX.WarpforgeEffectPlayer p;
+            SpawnDeathBody(card, null, fx, out p);
+            return p;
+        }
+
+        /// <summary>自检口（**Editor only**）：同上，走 `SpawnRemnantDestroy` 的生产那条路。
+        /// ⚠️ 前置条件：这张卡上**已经挂着残骸体**（`card.SetRemnantBody(true, 名)`）。</summary>
+        public static WarpforgeVFX.WarpforgeEffectPlayer ProbeSpawnRemnantDestroy(CardView card, string fx)
+        {
+            if (card == null) return null;
+            WarpforgeVFX.WarpforgeEffectPlayer p;
+            SpawnRemnantDestroy(card, fx, out p);
+            return p;
+        }
+#endif
+
         /// <summary>在卡位生成死亡爆散体（原版 `Instantiate(cardDestroyFX, 卡位置, 3D体旋转)`）。
         /// `perCard` / `fx` 由 <see cref="PickDeathFx"/> 定好；返回 false = 这一刻放不出来（调用方出声）。
         /// <para>🔴 **2026-10-21（W61 第 1 批 · 第 6 条）：位姿照原版**。判据逐句 =
         /// `CardScript._UnitDeath_d__446__MoveNext.c`：`:245-263` 位置取**卡 transform** 的 `position`、
         /// 旋转取 **3D 体 transform 的 `rotation`**，`Instantiate(prefab, pos, rot)`；
         /// 紧接着 `:266-274` `set_localScale(**3D 体 lossyScale**)`（**绝对赋值**，不是乘）。
-        /// 我们原来只传位置（`scale = 1f`、无旋转）⇒ 尺寸差 2.8×/1.45×（见对账 §2·5 #5）。</para></summary>
-        static bool SpawnDeathBody(CardView card, string perCard, string fx)
+        /// 我们原来只传位置（`scale = 1f`、无旋转）⇒ 尺寸差 2.8×/1.45×（见对账 §2·5 #5）。</para>
+        /// <para>🔴 **2026-10-24（`C6·Q1` / `C6·Q2`）两处补齐**：
+        /// ① **层** —— 根特效原来是 `parent: null` ⇒ 停在 prefab 自带层 0 ⇒ 被 **HUD 正交相机**画
+        ///    （原版 13 场只有**战场透视相机**画 layer 0，bits 1137）⇒ 位置/尺度全错。现在显式传
+        ///    <see cref="RootFxLayerForCard"/>（3D 档 = `ArenaLayer` 8，2D 档 = 0）。
+        /// ② **落点** —— 原版那句取的是 `card.transform.position`，而**原版 prefab 根的原点 = 卡底边**、
+        ///    我们卡根 = **卡心**（差 `Height/2`）⇒ 取「卡底边中心」的世界点
+        ///    （`TransformPoint(0, −Height/2, 0)`，自动带卡的 `lossyScale` 与朝向）。</para>
+        /// <param name="spawned">真生成出来的那个播放器（自检口用；生产调用丢弃）。</param></summary>
+        static bool SpawnDeathBody(CardView card, string perCard, string fx,
+                                   out WarpforgeVFX.WarpforgeEffectPlayer spawned)
         {
+            spawned = null;
             // 3D 卡体那一层（`CardView.BuildBody3D` 建的子节点，名字恒为 `body3D`；
             // 同一个口 `Editor/BattleScene.cs:14092` 也在用）。取不到 = 这张卡没有 3D 体
             // （例如 `CardView.DebugNoBody3D` 那条退回档）⇒ 退回卡根自己的位姿并**出声一次**。
@@ -2632,11 +2751,16 @@ namespace CardPresentation
             Quaternion rot = body != null ? body.rotation : card.transform.rotation;
             Vector3 scale = body != null ? body.lossyScale : card.transform.lossyScale;
 
-            var p = WarpforgeVFX.WarpforgeEffectPlayer.Play(fx, null, card.transform.position, 1f);
+            // 🔴 `C6·Q2`：原版 = **卡根 points**（原版根 = 卡底边）；我们的等价点 = 卡底边中心。
+            Vector3 pos = card.transform.TransformPoint(new Vector3(0f, -CardView.Height * 0.5f, 0f));
+            int layer = RootFxLayerForCard(card);
+
+            var p = WarpforgeVFX.WarpforgeEffectPlayer.Play(fx, null, pos, 1f, layer: layer);
             // 逐卡那件**在库里**、但这一刻放不出来 ⇒ 照老写法退回默认件再试一次（原版 `:240` 那个判别式）。
             if (p == null && !string.IsNullOrEmpty(perCard))
-                p = WarpforgeVFX.WarpforgeEffectPlayer.Play(DeathBodyFx, null, card.transform.position, 1f);
+                p = WarpforgeVFX.WarpforgeEffectPlayer.Play(DeathBodyFx, null, pos, 1f, layer: layer);
             if (p == null) return false;
+            spawned = p;
             // 位姿：**两个出口都要写**（逐卡件 / 默认件）—— 原版那一句 `set_localScale` 在二选一**之后**。
             // ⚠️ 父节点是 null ⇒ local 就是 world；`Play` 只在 `scale != 1` 时乘，这里传的就是 1 ⇒ 直接赋值等价。
             p.transform.rotation = rot;
@@ -2689,9 +2813,19 @@ namespace CardPresentation
         ///   `Play(..., scale: 1f)` 不缩放 prefab、随后我们显式赋值一次。
         ///   父节点是 null ⇒ local 就是 world，赋值即等价。</item>
         /// </list>
-        /// <para>返回 `false` = 这一刻放不出来 / 取不到位姿（调用方**出声**）。</para></summary>
-        static bool SpawnRemnantDestroy(CardView card, string fx)
+        /// <para>🔴 **2026-10-24（`C6·Q1`）**：根特效原来是 `parent: null` ⇒ 停在 prefab 的层 0 ⇒ 被
+        /// **HUD 正交相机**画。现在显式传 <see cref="RootFxLayerForCard"/>（3D 档 = `ArenaLayer` 8）。</para>
+        /// <para>⚠️ **没做的那半（判据在、但落点在白名单外）**：原版残骸体挂在**原版卡根（= 卡底边）**下，
+        /// 我们挂在**卡根（= 卡心）**下且没补 `Height/2`（`CardView.SetRemnantBody` 里 `Vector3.zero`）
+        /// ⇒ 残骸体本身比原版高半张卡，本函数取的「残骸体根 world」跟着一起高
+        /// （量值 = `CardView.Height × 0.5 × 卡的 lossyScale.y`）。⛔ **别在这里减** ——
+        /// 那会和 `SetRemnantBody` 的修复重复扣。修法归 `Core/CardView.cs`（本批白名单外，已写进执行报告）。</para>
+        /// <para>返回 `false` = 这一刻放不出来 / 取不到位姿（调用方**出声**）。</para>
+        /// <param name="spawned">真生成出来的那个播放器（自检口用；生产调用丢弃）。</param></summary>
+        static bool SpawnRemnantDestroy(CardView card, string fx,
+                                        out WarpforgeVFX.WarpforgeEffectPlayer spawned)
         {
+            spawned = null;
             var root = card.RemnantBodyRoot;
             if (root == null)
             {
@@ -2723,8 +2857,10 @@ namespace CardPresentation
                                    + "（原版取 `wayStoneIdle` 的 position，见 `RemnantAeldari__GetDeathParticlePosition.c`）");
             }
 
-            var p = WarpforgeVFX.WarpforgeEffectPlayer.Play(fx, null, pos, 1f);
+            int layer = RootFxLayerForCard(card);
+            var p = WarpforgeVFX.WarpforgeEffectPlayer.Play(fx, null, pos, 1f, layer: layer);
             if (p == null) return false;
+            spawned = p;
             // 原版 `inst.transform.localScale = 残骸体.transform.lossyScale`（**赋值**，不是乘）
             p.transform.localScale = root.transform.lossyScale;
             return true;
@@ -2866,6 +3002,8 @@ namespace CardPresentation
                 return;
             }
             if (card == null) return;
+            // 🆕 2026-10-24（`C6·Q1`）：父节点是卡 ⇒ `WarpforgeEffectPlayer.Play` 新规则会把它
+            //   **整棵搬到卡的层**（3D 档 = `ArenaLayer`）—— 这条退回路原来会停在 prefab 层 0 被 HUD 画。
             WarpforgeVFX.WarpforgeEffectPlayer.Play(name, card);
         }
 
@@ -3234,7 +3372,10 @@ namespace CardPresentation
         // · ~~`attackRotationAngle 25`（出手时卡体的倾角）—— 3D 里的旋转，2D 卡上还没决定怎么表达~~
         //   ✅ **2026-09-29 已接上**（`MeleeAttack` 段2 的转向，`AttackRotDeg`）
         // · ~~`attackPositionYOffset 0.5`（攻击位移的 Y 偏移）~~ ✅ **2026-09-29 已接上**
-        //   （`MeleeEndPos` 的那个 `dy`；⚠️ 我们的等价量恒 0 —— 卡根就是卡中心）
+        //   （`MeleeEndPos` 的那个 `dy`）。🔴 **2026-10-24（`C6·Q2`）就地订正**：本行原来还写着
+        //   「⚠️ 我们的等价量恒 0 —— 卡根就是卡中心」—— **不成立**：等价量 =
+        //   `EffectsAnchorHeight(受击方)`（锚点到**卡底边**的高度）；恒 0 的只是**旧调用点**没传它。
+        //   生产调用点（`BattleDriver` 近战那一支）要改走 `MeleeEndPos(…, CardView)` 那条重载。
         // · ~~`playerAttackMargin 1.7` / `enemyAttackMargin 1.0`~~ ✅ **2026-09-29 已接上**（`MeleeEndPos`）
         // · ~~`timeToLand 0.2` / `timeBeforeLand 0.05`~~ ✅ **2026-10-16 已接上**（`DeploySequence.LandTime` /
         //   `DeploySequence.HoldTime`）。**订正痕迹**：本行原来写着「✅ 这一条已经接上了」而实据是**零消费**

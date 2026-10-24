@@ -27,6 +27,15 @@
 ⛔ **没有一列是猜的**。解不出来的行**照实写 `unresolved`**（`prefab` 留空），
 运行期消费端必须出声、⛔ 不许拿名字相近的顶替。
 
+## `army` 口径（2026-10-24 补 · 铁律 5 订正）
+
+`overrides[]` = 原版「按阵营换掉那条 effect」。运行期拿它比对时，`army` 取的是**拥有者阵营**
+（`CardView.Data.faction` ← `ToCardData(UnitState, faction)`）；而**原版读的是卡自己的**
+`rawCardData.cardArmy`（`ObtainableItem.cardArmy`，偏移 `+0x2C`）。
+⇒ **同阵营卡组**（预组 / 构筑 / 轮抽今天全都是单阵营）逐字一致；跨阵营的盟军 / 中立卡才可能不同。
+根治要 `BattleDriver` 把 `CardDef.Faction` 传下来 —— 已知偏差与那条账 → `Core/TraitFrames.cs` 文件头
+「按阵营覆盖（`overrideByArmies`）2026-10-23 起【已消费】」那一段。
+
 ## 输出
 `MyGame/Assets/CardPresentation/Resources/trait_effect_bindings.json`（JsonUtility 形状：对象 + 数组，无字典）
 
@@ -212,9 +221,20 @@ def main():
             "playIfWarlord": ("原版 `TraitEffect.playIfWarlord`；卡是督军且该位为 0 ⇒ 原版不播"
                               "（`BattleCardUI__DisplayTriggerAnim.c:62-68`）。"),
             "overrides": ("原版 `TraitEffect.overrideByArmies[]` —— 按阵营换掉那条 effect。"
-                          "⚠️ 运行期**今天还没按阵营取**（`TraitFrames.PrefabFor` 没有阵营参数，"
-                          "改签名要动 `CardView` / `BattleDriver`）⇒ 这里只把真值留全，"
-                          "缺口如实记在 `unresolvedArmyVariants`。"),
+                          "✅ **运行期已按阵营取**：`TraitFrames.PrefabFor(trait, trigger, army)` / "
+                          "`PrefabOf(row, army)`（= 原版 `TraitEffect.GetEffect(army)`，"
+                          "`TraitEffect__GetEffect.c:9-34`），10 条覆盖（`shield` 4 · `invulnerable` 6）逐条消费。"
+                          "⚠️ **`army` 取的是「拥有者阵营」**：我们只能从 `CardView.Data.faction` 反推"
+                          "（`ToCardData(UnitState, faction)` 填的是拥有者），而**原版读的是卡自己的** "
+                          "`rawCardData.cardArmy`（`ObtainableItem.cardArmy`，偏移 `+0x2C`）"
+                          " ⇒ 同阵营卡组逐字一致；跨阵营的盟军 / 中立卡可能与原版不同"
+                          "（已知偏差与根治办法见 `Core/TraitFrames.cs` 文件头「按阵营覆盖」那一段）。"
+                          "🔴 **2026-10-24 就地订正（铁律 5）**：这一段原来写「运行期**今天还没按阵营取**"
+                          "（`TraitFrames.PrefabFor` 没有阵营参数，改签名要动 `CardView` / `BattleDriver`）"
+                          "⇒ 这里只把真值留全，缺口如实记在 `unresolvedArmyVariants`」——"
+                          " **两处都过期/不实**：① 2026-10-23 起已有三参 `PrefabFor` 且两个播放口都在传阵营；"
+                          "② 本文档**没有** `unresolvedArmyVariants` 这个键（缺的那几条在 `unresolvedRows`）。"
+                          "错因：那句话写于实现之前，实现之后没有回来改这一行。"),
         },
         "stats": stats,
         "unresolvedRows": unresolved_rows,

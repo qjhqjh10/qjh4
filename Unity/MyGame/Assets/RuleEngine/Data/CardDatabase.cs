@@ -414,7 +414,8 @@ namespace RuleEngine
             ///
             /// <para>🔴 **每张卡都落**（没有行 = `[]`）；缺列（v24 及更早的表）= **未知**
             /// （⛔ 不是「原版说没有目标」，见 `< 25` 那条守卫）。
-            /// ⚠️ **本批只解析、没有 CardDef 消费者**（`Core/` 另批接）。</para></summary>
+            /// ✅ 2026-10-24（执行代理 `W2`）：`CardDef` 消费者**已接** —— 见
+            /// <see cref="CardDef.ActiveAbilityTargetCriteriaAt"/>。</para></summary>
             public TargetCriteriaRowDto[] activeAbilityTargets;
 
             /// <summary>🆕 v25（2026-10-24 · 执行代理 `E9` · `A2` Q7）：**普通 ability 的 logic 级
@@ -428,7 +429,8 @@ namespace RuleEngine
             ///
             /// <para>🔴 **每张卡都落**（没有 ability = `[]`）；缺列（v24 及更早）= **未知**。
             /// ⚠️ `trigger` 只作可读性（消费端按 `ab`/`lg` 对齐）；`-1` = 该 ability 的 trigger 是坏值。
-            /// ⚠️ **本批只解析、没有 CardDef 消费者**（`Core/` 另批接）。</para></summary>
+            /// ✅ 2026-10-24（执行代理 `W2`）：`CardDef` 消费者**已接** —— 见
+            /// <see cref="CardDef.AbilityTargetCriteriaAt"/>。</para></summary>
             public TargetCriteriaRowDto[] abilityTargetCriteria;
 
             // ==================================================================================
@@ -1332,6 +1334,16 @@ namespace RuleEngine
                     //    （`ApplyActiveAbilityLogic`，闸门与「为什么只挂 1↔1」写在那边）。
                     activeAbilityLogic: MapActiveAbilityLogic(c),
                     activeAbilityLogicVersioned: dto.version >= 23,
+                    // 🆕 v25（2026-10-24 · 执行代理 `W2` · `A2` Q7 / `C5` Q4）：logic 级
+                    //    `targetCriteria` 的其余 36 格（两条支）——
+                    //    ⚠️ 缺值口径 = `null`（⛔ 不是空表）+ `…Versioned = false`
+                    //    （旧表整列没有 ⇒ 上面的 `< 25` 守卫已经出过声）。
+                    //    消费端 = `EffectText.AssignAbilityTargets` / `CardDef.ApplyActiveAbilityLogic`
+                    //    → `EffectOp.TargetCriteriaSet` → `EffectResolver.ResolveTargets` 的筛选。
+                    abilityTargetCriteria: MapTargetCriteriaRows(c, c.abilityTargetCriteria, active: false),
+                    abilityTargetCriteriaVersioned: dto.version >= 25,
+                    activeAbilityTargetCriteria: MapTargetCriteriaRows(c, c.activeAbilityTargets, active: true),
+                    activeAbilityTargetCriteriaVersioned: dto.version >= 25,
                     // 🔴🆕 v18（2026-10-23 · 引擎线 `P1·①`）：逐条 ability 的 `priority`，**键 = 原版
                     //    `AbilityTrigger` 枚举名** —— 补 `triggerPriority`（键 = 引擎关键词）覆盖不到的
                     //    `WhenEvent` / 回合 / 打出族。四道闸（缺 `name` / 缺 `trigger` / 非法 `priority` /
@@ -2325,6 +2337,81 @@ namespace RuleEngine
             return list;
         }
 
+        /// <summary>🆕 v25（2026-10-24 · 执行代理 `W2` · `A2` Q7 / `C5` Q4）：
+        /// `activeAbilityTargets` / `abilityTargetCriteria` → <see cref="CardDef.TargetCriteriaRowSpec"/>。
+        ///
+        /// <para>🔴 **`null` 返回 = 这一列没落（旧表 &lt; v25）**，⛔ 不是空表：
+        /// 空表 = 「原版明确没有这一行」。</para>
+        /// <para>**行级四道闸**（缺 `ab` / `ab` 不属这一列 / `lg &lt; 0` / `criteria` 为 null）
+        /// ⇒ **出声并丢弃那一行**（其余行照收）—— ⛔ 不静默落成 `ab=0, lg=0`
+        /// （那会把这一格挂到**第 0 条 ability / 第 0 条 logic** 上，正是最坏的一种静默错）。
+        /// 36 格本体走 <see cref="MapCountSetDto"/>（**同一份字段表**，⛔ 别另抄）。
+        /// ⚠️ `playerTurn` 在这两列上恒 `-1`（纯 `TargetCriteria`，结构上没有那一格）⇒ `noPlayerTurn: true`。
+        /// ⚠️ 错误文案里的「`count` 行」是 `MapCountSetDto` 的既有提法（它服务三处）—— 读数不变。</para>
+        /// </summary>
+        static List<CardDef.TargetCriteriaRowSpec> MapTargetCriteriaRows(
+            CardDto c, TargetCriteriaRowDto[] src, bool active)
+        {
+            if (src == null) return null;                    // 列没落（旧表）⇒ 未知
+            var list = new List<CardDef.TargetCriteriaRowSpec>(src.Length);
+            string col = active ? "activeAbilityTargets" : "abilityTargetCriteria";
+            foreach (var r in src)
+            {
+                if (r == null) continue;
+                if (r.ab == UnitConditionDto.MissingIndex)
+                {
+                    Debug.LogError($"[RuleEngine] 卡「{c.name}」（{c.id}）的 `{col}` 有一行**缺 `ab` 键**"
+                                 + " —— 那一行**已丢弃**（⛔ 缺键落 0 = 挂到第 0 条 ability 上）。"
+                                 + "重跑工具/gen_cards_engine.py。");
+                    continue;
+                }
+                if (active)
+                {
+                    if (r.ab != CardDef.ActiveAbilityObject && r.ab != CardDef.AlternativeAbilityObject)
+                    {
+                        Debug.LogError($"[RuleEngine] 卡「{c.name}」（{c.id}）的 `{col}` 有一行 `ab = {r.ab}`"
+                                     + $" **非法**（只允许 {CardDef.ActiveAbilityObject} active / "
+                                     + $"{CardDef.AlternativeAbilityObject} alternative）—— 那一行**已丢弃**。"
+                                     + "重跑工具/gen_cards_engine.py。");
+                        continue;
+                    }
+                }
+                else if (r.ab < 0)
+                {
+                    Debug.LogError($"[RuleEngine] 卡「{c.name}」（{c.id}）的 `{col}` 有一行 `ab = {r.ab}`"
+                                 + " **非法**（这一列只收 `cardAbilities` 下标 `>= 0`；active/alternative "
+                                 + "在另一列）—— 那一行**已丢弃**。重跑工具/gen_cards_engine.py。");
+                    continue;
+                }
+                if (r.lg < 0)
+                {
+                    Debug.LogError($"[RuleEngine] 卡「{c.name}」（{c.id}）的 `{col}` 有一行 "
+                                 + $"(ab={r.ab}) 的 `lg = {r.lg}` **非法**（这一列只收 logic 级 `>= 0`；"
+                                 + "ability 级 criteria 在 `unitConditions` 里以 `lg = -1` 落）"
+                                 + " —— 那一行**已丢弃**。重跑工具/gen_cards_engine.py。");
+                    continue;
+                }
+                if (r.criteria == null)
+                {
+                    Debug.LogError($"[RuleEngine] 卡「{c.name}」（{c.id}）的 `{col}` 有一行 "
+                                 + $"(ab={r.ab}, lg={r.lg}) **没有 `criteria`** —— 那一行**已丢弃**。"
+                                 + "重跑工具/gen_cards_engine.py。");
+                    continue;
+                }
+                var cs = MapCountSetDto(c, r.criteria, $"`{col}` 行 (ab={r.ab}, lg={r.lg})",
+                                        noPlayerTurn: true);
+                if (cs == null) continue;                    // 里面已经出过声
+                list.Add(new CardDef.TargetCriteriaRowSpec
+                {
+                    Ability = r.ab,
+                    Trigger = r.trigger,
+                    Logic = r.lg,
+                    Criteria = cs,
+                });
+            }
+            return list;
+        }
+
         /// <summary>🆕 v25（2026-10-24 · 执行代理 `E9`）：两列 `targetCriteria` 的解析读数
         /// （一次装载打**一行**日志 · ⛔ 不逐卡刷屏）。
         ///
@@ -2378,7 +2465,9 @@ namespace RuleEngine
                     + $"`activeAbilityTargets` {aatCards} 张 / {aatRows} 行 · "
                     + $"`abilityTargetCriteria` {atcCards} 张 / {atcRows} 行"
                     + "（36 格/行；每张卡都落、没行 = `[]`）"
-                    + "。⚠️ 本批**只解析、零行为变化**：`CardDef` 的消费者另批接。");
+                    + "。✅ 2026-10-24（执行代理 `W2`）：`CardDef` 消费者**已接**"
+                    + "（`CardDef.AbilityTargetCriteriaAt` / `ActiveAbilityTargetCriteriaAt` → "
+                    + "`EffectOp.TargetCriteriaSet` → `EffectResolver.ResolveTargets`）。");
             int bad = badAb + badLg + nullCriteria + unbound;
             if (bad > 0)
                 Debug.LogError($"[RuleEngine] 两列 `targetCriteria` 有 **{bad}** 处结构坏点"

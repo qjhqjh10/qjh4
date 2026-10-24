@@ -415,7 +415,13 @@ namespace RuleEngine
         /// `_ResolveSummonUnit`：直接插进格位，**没有**飞行、没有起飞 cue、不触发 Rally。</summary>
         Summon = 3,
         /// <summary>**复活 / 再造**（`EffectResolver.DoReanimate`，从残骸或墓地翻回来）—— 不飞、不触发 Rally
-        /// （`DoReanimate` 的判据）；表现层按「只响落地两条」处理（B3 报告 §三·2 的消费约定）。</summary>
+        /// （`DoReanimate` 的判据）；表现层按「只响落地两条」处理（B3 报告 §三·2 的消费约定）。
+        ///
+        /// <para>🔴🆕 **2026-10-24（引擎线 `W12`）：这一档在引擎里还多一条语义 —— 它让
+        /// `RuleCore.DeployFreeCore` **整组跳过部署广播**（`When deployed` 的 195 / `When you deploy …`
+        /// 的 190 / 常驻部署效果 / `UseFaith` 605）。判据 = 原版 `ResolveTransformFromRemnant` 的回调清单
+        /// （`…DisplayClass555_0___ResolveTransformFromRemnant_b__0.c:7-31`，**整条链没有
+        /// `ResolveUnitSummoned` / `BroadcastUnitSummoned`**）⇒ 逐句写在 `DeployFreeCore` 那段长注释里。</para></summary>
         Reanimate = 4,
     }
 

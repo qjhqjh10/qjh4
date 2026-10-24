@@ -96,6 +96,47 @@ namespace CardPresentation
         /// 我们摆格子按**树上的名字** `#1..#4`，不按这个数组。</summary>
         public static readonly string[] Top4Order = { "#1", "#3", "#2", "#4" };
 
+        // ============================================================ 🆕 2026-10-24（`U2` V2）：`Top4` 两支
+        //
+        // 🔴 **问题**：原版 `Top4` = **四名玩家的阵营大分**（`#1..#4 FactionScoreBig`：阵营徽记 +
+        //    大分 + 最高分）；我们的分数**在服务器**（`LeaderboardManager`，本地一条都没有）⇒ 画出来
+        //    就是「空框 + 双箭头 + 破折号」四块占位 —— 用户报的正是这个（V2）。
+        // ⇒ **两支**（`资料/普查产出_1024c/U2_账户窗多余按钮复查.md` §5·2 V2）：
+        //    · **有数据**：四格照原版画（图 + 值 + 最高分）；
+        //    · **无数据**：**整格不画**（`SetActive(false)`）—— ⛔ 不留空框、不印破折号。
+        //    ⚠️ 节点**照建**（结构 = 原版 prefab 的 `#1..#4`，宿主断言按原版矩形量它们；
+        //       同 `AvatarTab` 的 `Avatar Name`、`ProfileTab` 的 `Avatar Name` 那条处置）。
+        //    ⚠️ 数据入口 = `Top4Data`（**现在恒空** = 服务器没有本地副本）。哪天接上真数据，
+        //       只往这里填，绘制那一半不用改；⛔ 别在绘制里编数字。
+
+        /// <summary>`Top4` 一格的数据（= 原版 `top4Factions[i]` 里运行期填进去的那三样）。</summary>
+        public struct Top4Entry
+        {
+            /// <summary>阵营徽记的图名（`CardArt.MenuUi` 那张；空 = 不画图、只出声）。</summary>
+            public string FactionArt;
+            /// <summary>大分（`Alliance Rating Display` 那一格）。空 ⇒ 该格退回原版空态串 `------`。</summary>
+            public string Rating;
+            /// <summary>最高分（`MaxRating` 那一格）。空 ⇒ 同上。</summary>
+            public string MaxRating;
+        }
+
+        /// <summary>四名玩家的阵营大分（**下标 = 名次−1**，与树上 `#1..#4` 同序）。
+        /// 🔴 **默认空**：原版这块读 `LeaderboardManager.GetLeaderboard`（服务器）⇒ 本地没有来源
+        /// （§C·2 / 文件头「数据」那一节）。⛔ 别为了「看着有东西」塞假数据。</summary>
+        public static Top4Entry[] Top4Data = new Top4Entry[0];
+
+        /// <summary>有没有 `Top4` 数据（= 四格画不画的总闸）。</summary>
+        public static bool HasTop4Data { get { return Top4Data != null && Top4Data.Length > 0; } }
+
+        /// <summary>`#N` 那一格的数据；越界 / 没有 ⇒ `null`（= 无数据支）。</summary>
+        public static Top4Entry? EntryOf(int rank)
+        {
+            if (!HasTop4Data || rank < 1 || rank > 4) return null;
+            int i = rank - 1;
+            if (i >= Top4Data.Length) return null;
+            return Top4Data[i];
+        }
+
         // ============================================================ ① `Profile Player Info`（与 Profile 页同构）
         const float PiL = 351.03f, PiT = 168.16f, PiR = 1186.98f, PiB = 320.54f;
         const float AvL = 351.03f, AvT = 168.16f, AvR = 510.19f, AvB = 320.54f;
@@ -311,24 +352,59 @@ namespace CardPresentation
         void BuildTop4()
         {
             var t4 = Node("Top4", new PxRect(T4L, T4T, T4R, T4B));
+            BuildTop4Content(t4);
+        }
+
+        /// <summary>`Top4` 那一棵的**内容**（`bg` → `content` → 四格 + 中间列）。
+        /// 🆕 **2026-10-24（`U2` V2）**：从 `BuildTop4` 拆出来 —— 数据变了要能**整棵重建**
+        /// （见 <see cref="RebuildTop4"/>），而重建时 `Top4` 这个根节点本身要留着（宿主断言量它）。</summary>
+        void BuildTop4Content(Transform t4)
+        {
             Nine(t4, ArtSubmenu, new PxRect(T4L, T4T, T4R, T4B), CardBorder, "bg", L_Bg);
             var ct = Node(t4, "content", new PxRect(CtL, CtT, CtR, CtB));
 
-            // 左列两格（#1 / #2）
-            BuildCard(ct, "left-side", "#1", LsL, LsR, Card1T);
-            BuildCard(ct, "left-side", "#2", LsL, LsR, Card2T);
+            // 左列两格（#1 / #2）· 中间列 · 右列两格（#3 / #4）
+            // 🔴 **V2**：每格带自己的数据（`EntryOf(名次)`）；`null` ⇒ **整格不画**（`BuildCard` 里关掉）
+            BuildCard(ct, "left-side", "#1", LsL, LsR, Card1T, EntryOf(1));
+            BuildCard(ct, "left-side", "#2", LsL, LsR, Card2T, EntryOf(2));
             BuildCenter(ct);
-            BuildCard(ct, "right-side", "#3", RsL, RsR, Card1T);
-            BuildCard(ct, "right-side", "#4", RsL, RsR, Card2T);
+            BuildCard(ct, "right-side", "#3", RsL, RsR, Card1T, EntryOf(3));
+            BuildCard(ct, "right-side", "#4", RsL, RsR, Card2T, EntryOf(4));
 
-            Debug.Log("[Ranked] `Top4`：**阵营分是服务器的**（`LeaderboardManager.GetLeaderboard`，§C·2）⇒ 四格都建、"
-                    + "**分数留空**；段位大图**按演示段位号画**（2026-10-24 A1；号→图见 `RankedDivisionInfo.DivisionArt`），"
-                    + "名次图（`Roman I–VI`）**仍不画**。"
-                    + "⚠️ `top4Factions` 的**数组顺序是 `#1,#3,#2,#4`**（不是树序，§A·6）。");
+            if (!HasTop4Data)
+                Debug.Log("[Ranked] `Top4`：**阵营分是服务器的**（`LeaderboardManager.GetLeaderboard`，§C·2）"
+                        + "⇒ 四格**整格不画**（`SetActive(false)`；⛔ 不留空框、不印破折号）—— 数据一到就往 "
+                        + "`RankedTab.Top4Data` 里填，绘制那一半不用改。"
+                        + "⚠️ `top4Factions` 的**数组顺序是 `#1,#3,#2,#4`**（不是树序，§A·6）。");
+            else
+                Debug.Log("[Ranked] `Top4`：喂了 " + Top4Data.Length + " 条数据 ⇒ 四格照原版画（图 + 大分 + 最高分）"
+                        + "；⚠️ 数据是我们灌进 `RankedTab.Top4Data` 的（原版读服务器）。");
         }
 
-        /// <summary>一列（`left-side` / `right-side`）。列是 VLG（spacing 50 · pad 10 · `ctrlW/ctrlH=1`）。</summary>
-        void BuildCard(Transform parent, string colName, string label, float colL, float colR, float top)
+        /// <summary>🆕 **2026-10-24（`U2` V2）**：清掉 `Top4` 的子件再重建（数据变了调它；自检也用它
+        /// 把「有数据 / 无数据」两支都跑一遍）。⚠️ `Top4` 这个**根节点**不动 —— 它的矩形是原版真值。
+        /// ⚠️ 与 `RebuildRows` 同一条纪律：**先清再建**（不清会一层层叠上去）。</summary>
+        public void RebuildTop4()
+        {
+            Transform t4 = null;
+            for (int i = 0; i < transform.childCount; i++)
+                if (transform.GetChild(i).name == "Top4") { t4 = transform.GetChild(i); break; }
+            if (t4 == null)
+            {
+                Debug.LogWarning("[Ranked] `RebuildTop4`：找不到 `Top4` 节点（页面还没建？）⇒ 什么都没做");
+                return;
+            }
+            for (int i = t4.childCount - 1; i >= 0; i--) DestroyNow(t4.GetChild(i).gameObject);
+            BuildTop4Content(t4);
+        }
+
+        /// <summary>一列（`left-side` / `right-side`）。列是 VLG（spacing 50 · pad 10 · `ctrlW/ctrlH=1`）。
+        /// <para>🔴 **2026-10-24（`U2` V2）**：`e == null`（服务器没这条数据）⇒ 结构照建、**整格关掉**
+        /// （`SetActive(false)`）—— 原版那四格画的是**四名玩家的大分**，我们没数据时**不该留空框**。
+        /// ⚠️ 关的是**卡**（`#N FactionScoreBig`）不是列（`left-side` / `right-side`）——
+        /// 列里还有别的格（`#2` / `#4`），关列会把有数据的那格也关掉。</para></summary>
+        void BuildCard(Transform parent, string colName, string label, float colL, float colR, float top,
+                       Top4Entry? e)
         {
             var col = parent.Find(colName);
             if (col == null) col = Node(parent, colName, new PxRect(colL, CtT, colR, CtB));
@@ -351,16 +427,32 @@ namespace CardPresentation
             //   （`Editor/MenuCheck.cs` 那句 `var q = t.GetComponentInChildren<ImageQuad>(); if (q == null) return false;`）
             //   而 `Editor/MainMenuScene.cs:7687` / `:7751` 那两条宿主断言正是拿 `icon` 节点量矩形
             //   ⇒ 删成裸节点会让那两条**与画面无关地变红**。⛔ 别改成 `Node(...)`。
-            Rect(card, null, ir, "icon", L_Bg2, Transparent);           // 阵营图：**空态不画**（没有阵营分可排）
+            // 🔴 **2026-10-24（`U2` V2）**：**有数据**时画阵营徽记（原版那颗 `icon` = 阵营图）；
+            //   **无数据**（或图名取不到）⇒ **透明块**（结构在、画面无 —— 上面 E12 那一段的理由）。
+            //   ⛔ 两种情形**只建一个** `icon` 节点（同名两颗会让宿主断言量错一颗）。
+            string factionArt = e.HasValue ? e.Value.FactionArt : null;
+            var factionTex = string.IsNullOrEmpty(factionArt) ? null : Art(factionArt);
+            if (e.HasValue && factionTex == null)
+                Debug.LogWarning("[Ranked] `Top4` 的 " + label + " 有分数、但**阵营徽记没画** —— "
+                               + "图名「" + (factionArt ?? "<空>") + "」取不到（⛔ 不拿纯色块顶替）");
+            if (factionTex != null)
+                MenuDraw.Rect(card, factionTex, ir, "icon", Q + L_Bg2, null, true);
+            else
+                Rect(card, null, ir, "icon", L_Bg2, Transparent);       // 空态：节点在、画面无
             RatingRow(card, "Alliance Rating Display", ArtRankIcon,
                       new PxRect(r.x1 + CardInnerOff, r.y1 + FIconT + FIconH,
                                  r.x1 + CardInnerOff + CardInnerW, r.y1 + FIconT + FIconH + FRtH),
-                      SmallIconW, CardValPx, RowValAutoMin, ScoreBigAutoMax, ScoreAutoBase, center: true);   // A413/A1537：标称 40（原版 `字号=40.0`；align 4 居中）
+                      SmallIconW, CardValPx, RowValAutoMin, ScoreBigAutoMax, ScoreAutoBase, center: true,
+                      value: e.HasValue ? e.Value.Rating : null);   // A413/A1537：标称 40（原版 `字号=40.0`；align 4 居中）
             RatingRow(card, "MaxRating", ArtGalonIcon,
                       new PxRect(r.x1 + CardInnerOff, r.y1 + FIconT + FIconH + FRtH,
                                  r.x1 + CardInnerOff + CardInnerW,
                                  r.y1 + FIconT + FIconH + FRtH + FMaxH),
-                      SmallIconW, CardMxPx, RowValAutoMin, ScoreBigAutoMax, ScoreAutoBase, center: true);    // A413/A1537：标称 28.2（原版 `字号=28.200000762939453`；align 4 居中）
+                      SmallIconW, CardMxPx, RowValAutoMin, ScoreBigAutoMax, ScoreAutoBase, center: true,
+                      value: e.HasValue ? e.Value.MaxRating : null);    // A413/A1537：标称 28.2（原版 `字号=28.200000762939453`；align 4 居中）
+            // 🔴 **2026-10-24（`U2` V2）**：**无数据 ⇒ 整格不画**（`SetActive(false)`；⛔ 不留空框）。
+            //    ⚠️ 关在**最后**：上面的结构/矩形照建（宿主断言按原版矩形量 `#N` 与它三个子件）。
+            if (!e.HasValue) card.gameObject.SetActive(false);
         }
 
         /// <summary>一个 `AllianceRatingDisplay` 行（HLG，spacing 0）。原版三件：`Secondary Icon`（**出厂 F** ⇒
@@ -381,7 +473,7 @@ namespace CardPresentation
         /// （`px` 只在自适应不跑时才决定字号）—— 🔴 **`px` 那一笔已由 A413（2026-10-12）收掉**：
         /// 卡那一族改用新常量 `CardValPx = 40f` / `CardMxPx = 28.2f`，`RowValPx`/`RowMxPx` 只留给榜单行那一族。</para></summary>
         void RatingRow(Transform parent, string name, string iconArt, PxRect r, float iconW, float px, float autoMin,
-                       float autoMax, float basePx, bool center = false)
+                       float autoMax, float basePx, bool center = false, string value = null)
         {
             var row = Node(parent, name, r);
             var si = Rect(row, ArtRankIcon, new PxRect(r.x1, r.y1, r.x1, r.y1), "Secondary Icon", L_Art, null, true);
@@ -395,7 +487,10 @@ namespace CardPresentation
             //   ⚠️ 我们的分数**恒为空**（服务器数据）⇒ 可见差别只在**图标位置**：居中档把图标摆到行心。
             float ix = center ? r.x1 + (r.W - iw) * 0.5f : r.x1;
             Rect(row, iconArt, new PxRect(ix, r.y1, ix + iw, r.y2), "Main Icon", L_Art, null, true);
-            Text(row, ScoreEmpty, new PxRect(ix + iw, r.y1, r.x2, r.y2), Color.white, "Individual rating value",
+            // 🔴 **2026-10-24（`U2` V2）**：值那一格改为**可喂**（`value`）—— 有数据时印真分数、
+            //   没有才退回原版自己的空态串 `------`（⛔ 别把 `------` 当成「有数据」画上去）。
+            Text(row, string.IsNullOrEmpty(value) ? ScoreEmpty : value, new PxRect(ix + iw, r.y1, r.x2, r.y2),
+                 Color.white, "Individual rating value",
                  px, L_Text, autoFit: true, autoMinPx: autoMin, alignLeft: !center, wrap: true,
                  autoMaxPx: autoMax, basePx: basePx, face: TmpFont.Face.LatinCardBody);
         }

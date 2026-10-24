@@ -881,16 +881,29 @@ namespace CardPresentation
         public const float TacticArtDy = 0.5f;
 
         // ==================================================================
-        //  🔴 原版立绘的**硬矩形** `_Clamp_Range`（2026-10-24 · A7）
+        //  🔴 原版立绘的 `_Clamp_Range` 矩形（2026-10-24 · A7 / `X1` 订正语义）
         // ==================================================================
         //
         // **它是什么**：原版 `CardImage`（那张 Image，材质 = `Card Image Overflow`）的 shader
         //   `Everguild/Card ImageUI`（解包 `bundle_shaders_assets_all/Shader/Shader_-2318977921299023320.json`，
         //   `m_ParsedForm.m_Name`）片元里**只**对 α 做的一件事：
         //
-        //     α *= (z < uv.x ≤ x && w < uv.y ≤ y) ? 1 : 0        // 四个变体（b7/b8/b9/b10）逐字相同
+        //     alpha = saturate(alpha + ((z < uv.x ≤ x && w < uv.y ≤ y) ? 1 : 0))
+        //     // 四个 PS 变体（无 / ALPHACLIP / CLIP_RECT / 两者；600/668/768/844 B）这段逐字节相同
+        //     // 指令流：ge → and → movc → mad_sat（`mad_sat dst,a,b,c` = saturate(a*b + c)）
         //
-        //   即 **UV 空间的一个硬矩形**：矩形外整块 α=0（不是按轮廓、也不是渐变）。
+        //   即 **UV 空间的一个矩形**：**矩形内把 α 顶到 1；矩形外 α 原样保留（用贴图自己的 alpha）**。
+        //   🔴 **⚠️ 2026-10-24 更正（铁律 5 · 判据 = `资料/普查产出_1024d/X1_三处判据补查.md` §一）**：
+        //   原来这里写的是 `α *= (…) ? 1 : 0` /「矩形外整块 α=0（不是按轮廓、也不是渐变）」—— **两句都错**：
+        //   反汇编是 `mad_sat`（**加法**），既不是乘法、也不是「丢弃」。
+        //   ⇒ **原版从来不把 α 置 0 ⇒ 它从来不切掉任何插图**。这段错口径正是 `H1`
+        //   「非单位卡也套硬矩形」那一版的判据来源。
+        //   ⚠️ 命名：本文件下文仍沿旧称「硬矩形 / clampKind」，指的都是**这块 UV 矩形**；
+        //   它**不裁画面** —— 凡是写「裁 / 切」的地方都是**我们自己把网格缩进矩形**的近似（见下面「我们怎么落」）。
+        //
+        // **绑定（一手）**：该属性在 `$Globals` 的 **byte 112 = cb0[7]**（`m_CommonParameters.VectorParams`），
+        //   `m_Attributes = []`（**没有 Toggle**）⇒ **没有任何关键字门控**，四个 PS 变体无条件执行；
+        //   常量表里唯一的 Toggle 是 `_UseUIAlphaClip`（与它无关）。`m_DefValue = (0.81, 1, 0.18, 0)`。
         //
         // **真值（一手，不是猜）**：`CardImageController__.cctor.c` 把两个 Vector4 写进静态字段
         //   （静态区 +0x00 = SMALL、+0x10 = BIG），字节来自 `_DAT_1834b33d0…0x1834b33ec` ——
@@ -905,8 +918,9 @@ namespace CardPresentation
         // ⚠️ **UV 是【贴图 UV】，不是 sprite 局部 UV**（`_MainTex_ST` 恒 = 1,0 ⇒ 就是 `Sprite.uv`）。
         //   原版卡图贴图统一 **1024²**，两族 sprite rect（全池 1207 个 Sprite 实测：657 + 548 + 2 杂项）：
         //     · 单位 / 督军 = **670.5×1024 @ x=176.5**（671 张 unit/hero 卡）⇒ 贴图 UV 的 (0.18,0.81]
-        //       在这族上只等于**图宽两端各切 1.2% / 2.6%**（不是「中间 64%」—— 那是把贴图 UV 当局部 UV 的误读）；
+        //       在这族上只落在**图宽两端各 1.2% / 2.6% 之外**（不是「中间 64%」—— 那是把贴图 UV 当局部 UV 的误读）；
         //     · 战术 / 防御 = **整张 1024²**（548 张）⇒ 那族上才是 (0.18,0.81] / BIG (0.25,0.75]。
+        //   ⚠️ 这个区间是**「矩形内 α 顶到 1」的作用范围**，⛔ 不是「切掉」。
         //   ⇒ 换算到**我们这张 PNG 的局部 UV** 走 `ArtClampUv01`（下面），一张图一份。
         //
         // ⚠️ **两个小图值**：材质序列化默认 `x=0.82`，cctor 常量 `x=0.81`。产品路径
@@ -919,28 +933,34 @@ namespace CardPresentation
         // ⚠️ **状态**：`ChangeState` 只在**尺寸切换**时改它；`DoChange` 把 `Vector4` 写进材质。
         //   BIG 那一档只在 `currentState == 1` 时取（本 build 的产品路径**不可达** —— 见 `BigCardOverdraw`）。
         //
-        // ⚠️ **我们怎么落**（🔴 **2026-10-24（第七十三会话 `M2`）第三次订正**）：本段此前两版都不对 ——
+        // ⚠️ **我们怎么落**（🔴 **2026-10-24 第三次订正**）：本段此前两版都不对 ——
         //   第一版写「硬矩形**只套 `_artFront`**，底层 `_art` 不套」；`H1` 改成「非单位卡的 `_art` 也套 1/2」。
-        //   **`H1` 那一版已被原版实况证伪**（判据四条逐条列在 `ArtClampKindFor` 的 doc 里）：
+        //   🔴 **`H1` 那一版现在由反汇编直接否掉**（判据 = `X1` §一）：`_Clamp_Range` 的算式是
+        //   `alpha = saturate(alpha + inside01)`，**它根本不裁画面**（矩形外原样保留）⇒
+        //   「给 `_art` 套一个硬矩形」这件事在原版里**没有对应物**。
+        //   当时用来翻面的四条「实况」证据**方向仍然对**，但只算旁证（决定性判据是指令流）：
         //   ① 原版游戏三张截图（收藏 / 详情窗大卡）里战术卡插图**铺满拱窗、无黑边**；
-        //   ② 把我们的 1024² 立绘按 NCC 匹配进「先知之道」大卡（0.994）⇒ 原版画的是**整张插画**，
-        //      没有被 `_Clamp_Range` 削掉两侧 18%；
+        //   ② 把我们的 1024² 立绘按 NCC 匹配进「先知之道」大卡（0.994）⇒ 原版画的是**整张插画**；
         //   ③ 套上之后板 1.7436 只剩 ±0.5579，而画窗是 ±0.839…±0.872 ⇒ 每侧 0.28 卡单位黑带；
         //   ④ 离线跑遍 75 张 `*_strat*` 卡框：`clampKind = 0` 时覆盖画窗所需半宽最大值
-        //      **= 0.8718 = 板半宽本身** ⇒ 不套硬矩形时板刚好铺满每一张画窗。
+        //      **= 0.8718 = 板半宽本身** ⇒ 不套时板刚好铺满每一张画窗。
         //   ⇒ 现行口径：
-        //   · **`_artFront`**（真 alpha 那层）：照旧套 —— 小图档 `clampKind 1`、大图档 `2`。
         //   · **底层 `_art`**（`ArtOpaque`，忽略 alpha 的整幅插图）：**恒 0（不套）**，
         //     单位卡与战术/防御卡一视同仁（判据收在 `ArtClampKindFor` 一处，`Build` 与状态重烘共用）。
-        //   ⚠️ `CardImageController__SetImage.c` 那条反证（战术分支只关 `frameMask`、sprite 无条件赋值）
-        //   仍然成立 —— 它证明「C# 层没有按卡型分支」，但**证明不了 shader 里的 `_Clamp_Range` 对这一档生效**；
-        //   原版实况说明它实际上**没有**在这条链上起作用（可能由 `frameMask`/材质态门控，未闭合，如实记）。
+        //   · **`_artFront`**（真 alpha 那层）：照旧套 —— 小图档 `clampKind 1`、大图档 `2`。
+        //     🔴 但那**是我们自己的近似、判据不足**：原版矩形外**照用贴图 alpha**，我们是把**网格缩进矩形**
+        //     （`ArtMeshInFrame`）⇒ ⛔ 不能再写成「原版那一层 `_Clamp_Range` 的等价物」。
+        //   ✅ `CardImageController__SetImage.c` 那条反证（战术分支只关 `frameMask`、sprite 无条件赋值）
+        //   仍然成立，且与 `X1` 一致：C# 层没有按卡型分支、shader 那段对所有卡型都生效 ——
+        //   只是它**不裁**，所以「生效」在画面上不会表现为「削边」。
         // ⚠️ opt-in 开 `_artFront`（`UseFrontLayer` 出厂 false）时它会**真的切掉一条**（单位卡贴图的 alpha
-        //   伸到局部 u 0.006…1.049，超出小窗口 u 0.0117…0.9883）—— 这正是原版对 `CardImage` 做的事
-        //   （`CardFaceProbe` ④b 断「切了」且「只切在矩形外」；④a 现在**两种卡型都断「差集 = 0」** ——
-        //   `M2` 起战术/防御卡那一半也翻面了）。
-        // ⚠️ 未闭合的一点（如实记）：**单位卡**的背景那一半插图（我们 `ArtOpaque` 那层）由谁画、受不受同一硬矩形，
-        //   本地只找到一颗 art 材质（`Card Image Overflow`）⇒ 判不了；这一条留待真机并排复核。
+        //   伸到局部 u 0.006…1.049，超出小窗口 u 0.0117…0.9883）—— **这是我们的做法**；
+        //   原版在同一个矩形上做的是「矩形内强制 α=1、矩形外照用贴图 alpha」。
+        //   （`CardFaceProbe` ④b 断「切了」且「只切在矩形外」= 断**我们自己这层的几何**；④a 两种卡型都断
+        //   「差集 = 0」—— `M2` 起战术/防御卡那一半也翻面了。）
+        // ⚠️ **已知的可见偏差**（`X1` §一·⑤，如实记、不阻塞）：原版矩形**外**用贴图 alpha ⇒ 对内接图的单位卡，
+        //   矩形外那圈**原版比我们更透明**（我们 `_art` 是 `ArtOpaque` 整幅不透明）。要不要为它加一层，
+        //   留待真机并排复核。
         static readonly Vector4 ClampRangeSmall = new Vector4(0.82f, 1f, 0.18f, 0f);
         static readonly Vector4 ClampRangeBig = new Vector4(0.75f, 0.89f, 0.25f, 0.1f);
 
@@ -1103,7 +1123,9 @@ namespace CardPresentation
         //   （`MaskArea`=立绘的 RT、`FlipAlphaMask=1`）拿**卡框的 alpha** 把它切掉」—— **两处都不对**：
         //   ① 那颗 `SoftMaskScript` 的 `AlphaMask` 序列化值是 **null**（151/153 实例；默认白 ⇒ α_mask=1
         //      ⇒ 被它管的那颗 Graphic 直接变 0），它只会把**承载它的 Graphic**（CardFrame / textBackground）
-        //      整层淡没，**不碰立绘**；② 立绘的可见范围来自卡框贴图 alpha + 它自己的硬矩形 `_Clamp_Range`。
+        //      整层淡没，**不碰立绘**；② 立绘的可见范围来自卡框贴图 alpha（`_Clamp_Range` **不裁画面** ——
+        //      它只把**矩形内**的 α 顶到 1、矩形外原样保留；🔴 2026-10-24 更正：原来把后者也算进「可见范围」，
+        //      判据 → `资料/普查产出_1024d/X1_三处判据补查.md` §一）。
         //   判据全文 / 出处 → `ArtVisibleThroughFrame` 的 doc。
         //   出处：`子代理读报_2dcard_0827.md:310`「卡图 2.7484² 外溢…外溢部分被框贴图 Alpha 掩掉」
         //   + `CardImage_-4679357769477678144.json` / `CardFrame_7138976253573503936.json` 的组件字段。
@@ -1170,7 +1192,9 @@ namespace CardPresentation
 
         /// <summary>自检用（`H1`）：**底层立绘那一层**（`_art`）真交给渲染器的网格。
         /// <para>为什么要这个口：立绘网格的顶点是**烘出来**的（`ArtMeshInFrame`），`ArtDrawSize` 只给 bounds
-        /// 的宽高、给不出**左右极值** ⇒ 判不了「原版 `_Clamp_Range` 的硬矩形有没有真的夹住」。
+        /// 的宽高、给不出**左右极值** ⇒ 判不了「我们那层网格有没有被 `clampKind` 的矩形缩进去」。
+        /// （⚠️ 2026-10-24 更正：原写「原版 `_Clamp_Range` 的硬矩形有没有真的夹住」—— 原版那个矩形
+        /// **不裁画面**，见 `ClampRangeSmall` 的 doc。）
         /// <para>`null` = 这一层**根本没建**（卡框取不到等）—— 调用方**别读成通过**。</para></summary>
         public Mesh ArtLayerMesh
         {
@@ -1815,6 +1839,17 @@ namespace CardPresentation
         /// + `BattleCardUI.effectsAnchor` 的序列化 PPtr（2026-10-23 实读）。</para></summary>
         public static Vector3 BoardEffectAnchorLocal { get { return From3DBody(0f, 1.34f, -0.128f); } }
 
+        /// <summary>🔴 **2026-10-24（执行代理 `W24` · `D2_BattleScene11红诊断.md` §3）**：
+        /// **残骸体（RemnantBody）挂点的局部位** —— 判据**只此一处**（`CreateRemnantBody` 与自检共用）。
+        /// <para>原版 `BattleCardUI__CreateRemnantBody.c:52-75`：`Instantiate(prefab, this.transform.position,
+        /// …, **this.transform**)` ⇒ 父 = 卡自身、**局部位置 = (0,0,0)**，以**原版卡根**为原点；
+        /// 而原版 `CardPrefab` 根的原点 = **卡底边**（`C6 §2·1`）。我们卡根在**卡心**
+        /// ⇒ 等价局部位 = 卡底边 = `From3DBody(0,0,0)` = `(0, −Height/2, 0)`。</para>
+        /// <para>⚠️ 与 <see cref="BoardEffectAnchorLocal"/> 同一族（都是「原版 prefab 根空间 → 我们卡根空间」）。
+        /// ⛔ 别在别处再写一遍 `−Height/2`；`CardFeel.SpawnRemnantDestroy` 里也⛔ 别再减一次（会重复扣，
+        /// 见 `CreateRemnantBody` 那段注释）。</para></summary>
+        public static Vector3 RemnantBodyAnchorLocal { get { return From3DBody(0f, 0f, 0f); } }
+
         Transform _fxAnchorBoard;
         /// <summary>**手牌档**的卡上特效锚点（原版 = `card2DController.transform` = `2DCard` 那一级）＝ `FaceRoot`。</summary>
         public Transform EffectAnchorHand { get { return FaceRoot; } }
@@ -2222,8 +2257,9 @@ namespace CardPresentation
         ///
         /// 🔴 **两个必须做对、否则静默出错的地方**：
         ///   ① 那两个 prefab 的**根节点停在 `x = 100`**（原版那套「后台位置」——
-        ///      同族症状见 `WarpforgeEffectPlayer.Play` 的注释）⇒ 实例化后**必须把
-        ///      `localPosition` 归零**，不归零就是整具残骸体画在场景外面，**一声不响**。
+        ///      同族症状见 `WarpforgeEffectPlayer.Play` 的注释）⇒ 实例化后**必须显式写 `localPosition`**
+        ///      （= 卡底边 `From3DBody(0,0,0)`，见下面创建那一跳的 ⚠️）；
+        ///      不写就是整具残骸体画在场景外面 / 位置高错，**一声不响**。
         ///   ② **必须走 `WarpforgeEffectPlayer.Play`**（而不是裸 `Instantiate`）——
         ///      原版那批 prefab 的材质是**运行时绑**的（`WarpforgeEffectBinder` 按名找原版 shader、
         ///      换掉引用），裸 `Instantiate` 会把它整具渲成**黑块**。
@@ -2314,11 +2350,22 @@ namespace CardPresentation
                                    + "看起来像「残骸没画出来」。");
                     return;
                 }
-                // ⚠️ `Play` 会把根 `localPosition` 设成我们传的那个值（见它的注释），
-                //    所以这里直接传 `Vector3.zero` —— 那族 prefab 停的 `x = 100` 就被归位了。
+                // ⚠️ `Play` 会把根 `localPosition` 设成我们传的那个值（见它的注释）——
+                //    那族 prefab 自己停的 `x = 100` 因此被归位。
                 //    `scale = 1` 时它**不动** prefab 自己的缩放（下一步我们才自己设）。
+                // 🔴 **2026-10-24（执行代理 `W15` · W11 顺手发现 1）就地修正挂载点**：
+                //    原版 `BattleCardUI__CreateRemnantBody.c:54-75`（**现读、逐句**）是
+                //      `Instantiate(prefab, this.transform.position, <静态 Quaternion>, this.transform)`
+                //    ⇒ 父 = **卡的 transform**、世界位置 = **卡 transform 的位置** ⇒ **局部位置 = (0,0,0)**，
+                //    以**原版卡根**为原点；而原版 `CardPrefab` 根的原点 = **卡底边**（C6 §2·1）。
+                //    我们的卡根在**卡心** ⇒ 等价局部位置 = 卡底边 = `From3DBody(0,0,0)` = `(0, −Height/2, 0)`。
+                //    ⚠️ `Play` 的第 3 参是**局部**位置（它内部写 `t.localPosition`）⇒ ⛔ 别传
+                //    `transform.TransformPoint(...)` 那个**世界**点（传了会被当成本地值再落一次）。
+                //    ⚠️ 改前传的是 `Vector3.zero` ⇒ 残骸体（以及 `CardFeel.SpawnRemnantDestroy` 取的那颗落点）
+                //    **比原版高半张卡**（= `Height × 0.5 × 卡的 lossyScale.y`，我方兵 0.36 档 ≈ 0.6 世界单位）。
+                //    ⛔ 别在 `CardFeel.SpawnRemnantDestroy` 里再减一次（W11 特意没减，否则会重复扣）。
                 var player = WarpforgeVFX.WarpforgeEffectPlayer.Play(
-                    entry, transform, Vector3.zero, 1f, float.PositiveInfinity);
+                    entry, transform, RemnantBodyAnchorLocal, 1f, float.PositiveInfinity);
                 if (player == null) return;
                 _remnantBody = player.gameObject;
                 RemnantBodyPrefabName = prefabName;      // ⬅ 自检用它验「用的是哪一件」
@@ -3897,22 +3944,25 @@ namespace CardPresentation
                 float artScale = ArtScaleFor(d, bigState);
                 _builtData = d;            // 重烘要用**建这块网格时那份**数据（`Data` 这时可能还没赋，见 `Create`）
                 _artTexBuilt = artTex;
-                // 🔴 **2026-10-24（`H1` → 第七十三会话 `M2` 翻面）**：`_art` 底层的硬矩形档位**恒 0（不套）**。
+                // 🔴 **2026-10-24（`H1` → 第七十三会话 `M2` 翻面；同日 `X1` 换判据）**：`_art` 底层的硬矩形档位**恒 0（不套）**。
                 //    `H1` 那一版曾给战术/防御卡接上 `小图档 1 · 大图档 2`，理由是「原版战术卡只有 `CardImage`
-                //    这一层立绘、硬矩形对所有卡型生效」—— **已被原版实况证伪**：原版游戏截图里战术卡插图
-                //    铺满拱窗无黑边，且把我们的 1024² 立绘 NCC 匹配进原版大卡（0.994）证明画的是**整张插画**；
-                //    套上之后板 1.7436 被削到 ±0.5579、画窗 ±0.839…±0.872 ⇒ 每侧 0.28 卡单位黑带
-                //    （= 用户报的「插图不覆盖战术卡框上面空着的地方」）。四条判据 + 75 张卡框的离线覆盖验证
+                //    这一层立绘、硬矩形对所有卡型生效」。🔴 **那条推断由反汇编直接否掉**（`X1` §一）：
+                //    `_Clamp_Range` = `saturate(alpha + inside01)` —— **矩形内把 α 顶到 1、矩形外原样保留**
+                //    ⇒ 它**从不把 α 置 0、从不切掉插图** ⇒ 「给 `_art` 套硬矩形」在原版里**没有对应物**。
+                //    旁证（方向一致，只算旁证）：原版游戏截图里战术卡插图铺满拱窗无黑边；把我们的 1024² 立绘
+                //    NCC 匹配进原版大卡（0.994）证明画的是**整张插画**；套上之后板 1.7436 被缩到 ±0.5579、
+                //    画窗 ±0.839…±0.872 ⇒ 每侧 0.28 卡单位黑带（= 用户报的「插图不覆盖战术卡框上面空着的地方」）；
+                //    75 张卡框的离线覆盖验证不套时刚好铺满。
                 //    → `ArtClampKindFor` 的 doc ＋ `ClampRangeSmall` 上面那段「我们怎么落」。
                 //    ⛔ 所以这里**不要**再按卡型/状态传 clampKind —— 档位仍收在 `ArtClampKindFor` 一处
                 //    （`Build` 与重烘共用），但那个函数现在恒返回 0。
                 var artMesh = ArtLayerMeshFor(d, artTex, frameTex, bigState, ArtDyFor(d));
-                // 🔴 2026-10-24（A7）：硬矩形照旧套 `_artFront`（有真 alpha 的角色抠图层 = 原版 `CardImage`
-                //    在那条链上的等价物）。⚠️ **`M2` 落定**：`_art`（整幅插图）**不套** —— 上一条就是判据；
-                //    原写「套了会在拱窗里切出一条竖边」那条**其实是对的**（`H1` 一度把它当没复核的推论推翻，
-                //    现在由原版截图 + NCC 重新坐实）。
+                // 🔴 2026-10-24（A7）：硬矩形照旧套 `_artFront` —— 但它是**我们自己的近似**，
+                //    ⛔ 别再写成「原版 `CardImage` 在那条链上的等价物」：原版矩形外**保留**贴图 alpha、
+                //    我们是把网格缩进矩形（判据/更正 → `ClampRangeSmall` 的 doc「我们怎么落」）。
+                //    ⚠️ **`M2` 落定**：`_art`（整幅插图）**不套** —— 上一条就是判据。
                 //    小图档**生产路径**上 opt-in 的前景层（`UseFrontLayer` 出厂 false）照旧套小图档
-                //    （见 `ClampRangeSmall` 的 doc —— 那是原版的画法）。
+                //    （= 同一份近似，只在 opt-in 时可见）。
                 // 🔴 **2026-10-24（H5）· 铁律 5 就地订正**：这里原来写
                 //    `var artFrontMesh = bigState ? <大图档那份> : artMesh;`，注释说「小图档那一支复用 `artMesh`」——
                 //    **不成立**：`_artFront` 真正用的是下面 `AddLayer` 里那个三元，`bigState == false` 时走的是
@@ -9647,7 +9697,9 @@ namespace CardPresentation
                         //    无条件执行 `Image.sprite = sprite`；tactic 那一支只把 `frameMask` 关掉
                         //    `:130-136`，**不动** sprite、也不换材质）；`ChangeState` / `DoChange`
                         //    对卡类型**没有任何判断**，`_Clamp_Range` 写的是同一份 `cardImage.material`
-                        //    ⇒ 硬矩形对战术/防御卡同样生效。判据全文 → `资料/普查产出_1024/F4_卡面条带与断言.md`。
+                        //    ⇒ 这个矩形对战术/防御卡同样生效。判据全文 → `资料/普查产出_1024/F4_卡面条带与断言.md`。
+                        //    ⚠️ **2026-10-24 补（`X1` §一）**：原版这个矩形**只把矩形内 α 顶到 1、不裁画面**
+                        //    （`alpha = saturate(alpha + inside01)`）；这里的「取交集」是**我们自己的近似**。
                         //    ⚠️ 只在 `clampKind != 0` 时 `clampCard` 非空 ⇒ 生产小卡（`clampKind = 0`）**逐位不变**；
                         //       单位卡 `clipWindow = false` 根本走不到本条 ⇒ 行为也不变。
                         float sL = xL, sR = xR, sB = yB, sT = yT;
@@ -9670,9 +9722,12 @@ namespace CardPresentation
                         yB = Mathf.Max(yB, win.yMin); yT = Mathf.Min(yT, win.yMax);
                     }
                 }
-                // 🔴 2026-10-24（A7）：原版 `_Clamp_Range` 硬矩形 —— 与「卡体矩形 / 卡框开口」取交集。
-                //    **裁画面，不拉伸**（UV 由 `u0..v1` 那两行按原始板位反算）—— 这正是原版 shader
-                //    「矩形外 α=0」的等价物。见 `ClampRangeSmall` 的 doc。
+                // 🔴 2026-10-24（A7）：`_Clamp_Range` 矩形 —— 与「卡体矩形 / 卡框开口」取交集。
+                //    **裁画面，不拉伸**（UV 由 `u0..v1` 那两行按原始板位反算）。
+                //    ⚠️ **2026-10-24 更正（`X1` §一）**：这里原来写「这正是原版 shader『矩形外 α=0』的等价物」——
+                //    原版**从不把 α 置 0**（`alpha = saturate(alpha + inside01)`，矩形外原样保留）⇒
+                //    「裁画面」是**我们自己的近似、判据不足**。只在 `clampKind != 0` 时生效（生产恒 0）。
+                //    见 `ClampRangeSmall` 的 doc。
                 if (clampCard.y > clampCard.x)
                 {
                     xL = Mathf.Max(xL, clampCard.x); xR = Mathf.Min(xR, clampCard.y);
@@ -9921,8 +9976,10 @@ namespace CardPresentation
         ///    **不作用于立绘**。
         /// ④ **立绘不是被遮罩图层的子节点**（`CardImage` 与 `CardFrame` 是**兄弟**）⇒ 那条
         ///    「立绘会被乘两次 ⇒ `(1−α)²`」的担心 **不成立**。
-        /// ⑤ 立绘另有一道**硬矩形**裁切（`Everguild/Card ImageUI` 的 `_Clamp_Range`：UV 不在
-        ///    `(z, x] × (w, y]` 内 ⇒ α=0），与这条公式无关。</para>
+        /// ⑤ 立绘另有一个 `_Clamp_Range` 矩形（`Everguild/Card ImageUI` 的 `_Clamp_Range`：
+        ///    `alpha = saturate(alpha + inside01)` —— **矩形内把 α 顶到 1、矩形外原样保留**），与这条公式无关。
+        ///    🔴 **2026-10-24 更正（铁律 5）**：原来这里写「UV 不在 `(z, x] × (w, y]` 内 ⇒ α=0」—— **不成立**，
+        ///    原版**从不把 α 置 0**（判据 → `资料/普查产出_1024d/X1_三处判据补查.md` §一）。</para>
         ///
         /// <para>⚠️ 我们这层立绘用 `CardPresentation/ArtOpaque`（**忽略贴图 alpha，α 当 1**，见 `OpaqueMaterial`）
         /// ⇒ 上式在本工程退化成 `1 − a_框`。`FrameArtBevelCoverage` 的期望值就走这里（**只此一处**）。</para>
@@ -10623,8 +10680,12 @@ namespace CardPresentation
 
         /// <summary>`_art`（底层完整插图）的硬矩形档位 —— **恒 0（不套）**，单位卡与战术/防御卡一视同仁。
         /// <para>🔴 **2026-10-24（第七十三会话 `M2`）判据翻面**：`H1`（同日早些）曾把非单位卡改成
-        /// `小图档 1 · 大图档 2`，理由是「原版战术卡只有 `CardImage` 一层立绘、硬矩形对所有卡型生效」。
-        /// **那条推断被原版实况证伪**：</para>
+        /// `小图档 1 · 大图档 2`，理由是「原版战术卡只有 `CardImage` 一层立绘、硬矩形对所有卡型生效」。</para>
+        /// <para>🔴 **2026-10-24 同日再订正（铁律 5 · `X1` §一 反汇编现核）—— 翻面的【理由】换了**：
+        /// `_Clamp_Range` 的算式是 `alpha = saturate(alpha + inside01)`（`mad_sat`），
+        /// **矩形内把 α 顶到 1、矩形外原样保留** ⇒ **它根本不裁画面**、从不把 α 置 0。
+        /// ⇒ 「给 `_art` 套一个硬矩形」这件事在原版里**没有对应物**。下面四条「实况」证据**方向仍然对**，
+        /// 但现在只算旁证（决定性判据是指令流）：</para>
         /// <list type="number">
         /// <item>用户自己截的**原版游戏**三张图（`桌面/warpforge参考图/`：`点击卡片查看详情的参考.png`
         /// 的「先知之道」大卡 · `收藏—张牌的界面参考图…png` 的战术卡 · `收藏—卡组的参考图.png`）
@@ -10641,7 +10702,11 @@ namespace CardPresentation
         /// 这条是「板 1.7436 够不够」的正面证据，⛔ 别再靠 `ArtCoverMargin` 猜。</item>
         /// </list>
         /// <para>⚠️ `_artFront`（大图档角色抠图层）**不受影响** —— 它的档位由 `ArtFrontMeshFor` 显式给
-        /// （小图档 1 / 大图档 2），原版那一层确实是 `_Clamp_Range` 的等价物（有真 alpha 的抠图）。</para>
+        /// （小图档 1 / 大图档 2）。🔴 **2026-10-24 更正（`X1` §一）**：原来这里写「原版那一层确实是
+        /// `_Clamp_Range` 的等价物（有真 alpha 的抠图）」—— **不成立**：原版**从不把 α 置 0**
+        /// （矩形外照用贴图 alpha），而我们是**把网格缩进矩形**（`ArtMeshInFrame`）
+        /// ⇒ `_artFront` 的硬裁**是我们自己的近似、判据不足**。它只在 opt-in（`UseFrontLayer` 出厂 false）
+        /// 时可见 ⇒ 生产画面不变。</para>
         /// <para>🧨 改坏法：返回非 0 ⇒ 战术/防御卡的插图立刻在拱窗两侧各缩进 0.28 卡单位
         /// （`CardBaseDemo.AssertTacticArtClamp` ① / `CardFaceProbe` A7 ④a·④c 都会红）。</para></summary>
         static int ArtClampKindFor(CardData d, bool bigState) => 0;

@@ -135,6 +135,37 @@ namespace CardPresentation
         /// 两个时刻 `Fingerprint` 不相等** —— 拿它当录像指纹会**假红**（明明同一局却报「不是同一局」）。
         /// ⛔ **录像一律 `StateHash`**；这一条**不用再怀疑**。</para></summary>
         public int finalHash;
+        /// <summary>🔴 **2026-10-24（执行代理 `W9`）：开局那一刻的全量状态指纹** =
+        /// `NetProtocol.StateHash(Ctx)`（**与终局那一个同一个口径**）。写入 = `BattleDriver.RecBegin`
+        /// （`RuleCore.NewBattle` 之后、**第一条动作之前**）；比对 = `BattleDriver.PlayReplay` 的
+        /// `ReplayFingerprintTrace.CheckStart`（它内部因此能**区分**「开局就不同源」与「中途分叉」两种病 ——
+        /// 判据 → `RuleEngine/Core/ReplayFingerprintTrace.cs` 的文件头）。
+        ///
+        /// <para>⚠️ **`0` = 「没记」**（老录像的 JSON 里没有这个键）—— 这一格**不单独判**：
+        /// 「这份录像有没有逐动作全量指纹」一律看 <see cref="traceFull"/> 有没有内容
+        /// （两列**同生同死**，写点只有 `RecFinish` 一处）。⛔ 别拿 `startFullHash == 0` 当「没记」的判据
+        /// —— 一个合法的 `StateHash` 本来就可能算成 0。</para>
+        /// <para>⚠️ **`version` 不 +1**（纯新增字段，同 `tutorialStage` / `botSeatPlus2` / `mulliganPlus1`）：
+        /// 老录像读出来是「没记」= 它本来的行为（下面 <see cref="traceFull"/> 那一档）。
+        /// 「改结构就 +1」那条防的是**同一格换语义**。</para></summary>
+        public int startFullHash;
+        /// <summary>🔴 **2026-10-24（执行代理 `W9`）：逐动作【全量状态】指纹** —— `traceFull[i]` =
+        /// **第 i 条动作落地之后**的 `NetProtocol.StateHash(Ctx)`（**与终局判据同一个口径**）。
+        ///
+        /// <para>🔴 **与既有的 `trace`（`DeepHash`）并存、分工不同**（⛔ 别把任何一个换掉）：
+        /// · <see cref="trace"/> = 细粒度、**含实例号**，定位更细（还有字面量锚点钉着）；**保留不动**；
+        /// · 本列 = 与**终局**同口径 —— 回答的是「轨迹摘要相同、终局却不同」那种病（真机 `F7` 的实测形状），
+        ///   以及 `DeepHash` 覆盖不到的那几维（信仰 / 灵魂石 / 任务点 / 已出隐秘 / 疲劳 / 能量上限 /
+        ///   费用修正 / 手牌效果记录 / 附魔计数 / 残骸与 `Exhausted` / 弃牌堆身份 …）。
+        /// 采样点**必须与回放侧同一个**（录制 = `RecAct`/`RecRaw`/`RecMsg` 里紧挨着 `trace.Add(DeepHash)`
+        /// 那一句；回放 = `BattleDriver.ApplyReplayActionAt` 里动作落地之后）⇒ 两边逐条对得上。</para>
+        ///
+        /// <para>🔴 **`null` / 空 = 「这份录像没有逐动作全量指纹」**（老档、录制端没接上这一列）
+        /// ⇒ 回放侧 `ReplayFingerprintTrace.ForReplay` 会置 `NoExpectedTrace = true`，
+        /// `Finish` **出声说明「本层对账没做」** —— ⛔ **那不是「通过」**（红线：不许静默失败）。
+        /// 缺键的 JSON 读出 `null`（`int[]` 的 CLR 默认值 = 初始化器的值 = `null`，两条路相同）。</para>
+        /// <para>⚠️ **`version` 不 +1**（同 <see cref="startFullHash"/> 那条）。</para></summary>
+        public int[] traceFull;
         /// <summary>两个督军名（**列表里显示用**；引擎不看它）。</summary>
         public string myHero = "", foeHero = "";
         /// <summary>开局参数（**重建这一局要的全部东西**）。</summary>

@@ -303,6 +303,98 @@ namespace CardPresentation
             _mr.sharedMaterial = m;
         }
 
+        // ============================================================ 去饱和通道（`_GreyScale`）
+        //
+        // 🆕 **2026-10-24（`W6` · `G1`）**。卡组编辑卡池那条「张数条」的底板要吃原版那套**去饱和**
+        // （判据 → `d:/4/Unity/资料/普查产出_1024d/G1_卡组编辑变灰判据.md` §1 / §2·B：
+        //  `CollectionCard.counter.greyscale` 的 `ToggleGreyScale(canAdd ^ 1, 0.25f)` **只灰 `Counter` 那一张图**，
+        //  旁边的数字是独立子件、**不灰**）。
+        //
+        // 🔴 **⛔ 别用 `SetTint` 表达「灰」** —— 材质色是**乘法**（同 `CardView.SetHighlight` 的 doc：
+        //    `(0.55,0.55,0.58)` 出来是「更暗的红卡」，不是原版那种**降饱和**）。原版 `_GreyScale` 的算式
+        //    = `lerp(rgb, dot(rgb,(0.299,0.587,0.114)), g)`：只降饱和、**不变暗、不动 alpha**。
+        //
+        // 🔴 **惰性换材质，⛔ 不是把 `Create` 那一句全局换掉**：本类建的 quad 全工程几百个，
+        //   只有**真被要求灰**的那几个才会从 `Sprites/Default` 换到 `CardPresentation/CardSprite`
+        //   （后者 = 前者 + `_GreyScale`；默认 0 = 逐像素一致，判据 → `Resources/Shaders/CardSprite.shader` 头部）。
+        //   ⇒ **没被灰过的 quad 一个字节都不变** —— 这条影响面不跑 Unity 也说得清（`Create` 那句没动）。
+
+        /// <summary>`_GreyScale` 的属性 id（原版 `UIImageGreyscaleController.GREYSCALE_SHADER_PROPERTY` 那个名）。</summary>
+        static readonly int GreyProp = Shader.PropertyToID("_GreyScale");
+        static bool _greyShaderWarned;
+
+        float _grey;
+        MaterialPropertyBlock _greyMpb;
+
+        /// <summary>当前去饱和度：**0 = 原色 / 1 = 全灰**（原版 `_GreyScale` 的语义）。
+        /// <para>⚠️ 读的是**渲染器上真正生效**的那个值（`MaterialPropertyBlock` 优先，没设过再读材质）；
+        /// 材质根本没有这个属性 ⇒ 返回 **`-1`**（与「0 = 不灰」区分开 —— 自检要能认出「这条通道压根没接上」，
+        /// ⛔ 别让 `-1` 混进「不灰」里变成假绿，所以调用方要断 `>= 0`）。</para></summary>
+        public float Grey
+        {
+            get
+            {
+                if (_mr == null) return -1f;
+                var m = _mr.sharedMaterial;
+                if (m == null || !m.HasProperty(GreyProp)) return -1f;
+                var mpb = new MaterialPropertyBlock();
+                _mr.GetPropertyBlock(mpb);
+                return mpb.isEmpty ? m.GetFloat(GreyProp) : mpb.GetFloat(GreyProp);
+            }
+        }
+
+        /// <summary>设置去饱和度（`0..1`，`1` = 全灰）。与 `CardView.SetGrey` 同一口径（同一算式、同一属性名）。
+        /// <para>⚠️ **不做补间**：原版 `ToggleGreyScale(…, 0.25f)` 那条 0.25 s 的曲线，其常量**没有读二进制核实**
+        /// （`G1` §6.3 明确标着「未查清」，连反向补间的符号都没解）⇒ 这里**只做瞬切**，⛔ 不猜一个数。</para></summary>
+        public void SetGrey(float g)
+        {
+            _grey = Mathf.Clamp01(g);
+            if (_mr != null)
+            {
+                EnsureGreyCapable();
+                var m = _mr.sharedMaterial;
+                if (m != null && m.HasProperty(GreyProp))
+                {
+                    if (_greyMpb == null) _greyMpb = new MaterialPropertyBlock();
+                    _mr.GetPropertyBlock(_greyMpb);
+                    _greyMpb.SetFloat(GreyProp, _grey);
+                    _mr.SetPropertyBlock(_greyMpb);
+                }
+                // 找不到 shader 时 `EnsureGreyCapable` 已经喊过（不静默）—— 这里不再重复喊。
+            }
+            // 🆕 软边切出来的子块是**独立 quad**（同 `SetTint` 那条理由）⇒ 灰度也要跟着走，
+            //    否则「边带那一条还是彩的」（静默）。没登记过子块的宿主这里是一次空循环。
+            for (int i = 0; i < _softKids.Count; i++)
+                if (_softKids[i] != null) _softKids[i].SetGrey(_grey);
+        }
+
+        /// <summary>材质不是 `_GreyScale` 那一支时**换一次**（贴图 / 染色 / 显式渲染队列都带过去）。
+        /// ⚠️ 旧材质**不销毁** —— 它可能是调用方经 `SetMaterial` 传进来的共享材质（见那条 doc），销毁会连带别人。
+        /// 每个「真被要求灰」的 quad 最多多留一份，数量有界。</summary>
+        void EnsureGreyCapable()
+        {
+            var old = _mr.sharedMaterial;
+            if (old != null && old.HasProperty(GreyProp)) return;
+            var sh = Shader.Find("CardPresentation/CardSprite");
+            if (sh == null)
+            {
+                if (!_greyShaderWarned)
+                {
+                    _greyShaderWarned = true;
+                    Debug.LogWarning("[ImageQuad] 找不到 `CardPresentation/CardSprite` —— 去饱和**不会生效**"
+                                   + "（`Resources/Shaders/CardSprite.shader` 在不在？）；材质保持原样。");
+                }
+                return;
+            }
+            var m = new Material(sh);
+            // 🔴 显式分好的渲染队列必须带过去 —— 见 `SetMaterial` 那条 doc（掉队 = 那块图沉到自己底图之下，静默）。
+            int q = old != null ? old.renderQueue : -1;
+            m.mainTexture = _tex;
+            if (q >= 0) m.renderQueue = q;
+            if (old != null && old.HasProperty("_Color")) m.color = old.color;
+            _mr.sharedMaterial = m;
+        }
+
         public void SetTint(Color c)
         {
             if (_mr != null && _mr.sharedMaterial != null) _mr.sharedMaterial.color = c;

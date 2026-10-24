@@ -4335,12 +4335,19 @@ public static class ShellScene
             shell.Windows.CloseAllWindows();
             var prof = PlayerProfileWindow.Create(shell.Windows);
             shell.Windows.OpenWindow(prof);
-            // 🔴 **必须先切到 `Profile` 页**：出厂落在 **`Title`** 页（`DefaultTabIndex = 2`），
-            //    而各页根是 `SetActive(i == DefaultTabIndex)` ⇒ **Profile 页那一整棵是关着的**
-            //    （关着 ⇒ 它里面的命中区进不了命中表 ⇒ 下面每条都会红在一个看不出原因的地方）。
+            // 🔴 **2026-10-24（真机 F13）起出厂就落在 `Profile` 页**（`PlayerProfileWindow.DefaultTabIndex = 0`）
+            //    —— 原来这里写的是「出厂落 `Title` 页（`DefaultTabIndex = 2`）」，那句已过期。
+            //    下面这句 `Click(0)` **保留**：它是幂等的，且让本段不依赖默认值（谁改了默认值都不会把这段搞红）。
+            //    ⚠️ F13 的正断言就在下面两条 —— **开窗前什么键都没点过**，断的就是「出厂页」本身。
+            Check(prof.CurrentTab, WindowTabType.ProfileInfo,
+                  "★ F13 档案窗**新开一扇 ⇒ 落在个人资料页**（`DefaultTabIndex`；真机截图 55/57 原来落在「头衔」页）");
+            var titlePage = prof.Page(WindowTabType.ProfileTitle);
+            CheckTrue(titlePage != null && !titlePage.gameObject.activeSelf,
+                      "★ F13 而且 `Title Tab`（「选择你的头衔」那一整页）**没有被自动打开**"
+                    + "（`null` 也算红 —— 那说明页根本没建出来，上面那条会跟着失去意义）");
             prof.tabButtons.Click(0);
             Check(prof.CurrentTab, WindowTabType.ProfileInfo,
-                  "前置：切到 `Profile` 页（出厂默认落在 `Title` 页；不切的话那一页根是关着的，下面量不到东西）");
+                  "前置：切到 `Profile` 页（幂等；不切的话那一页根是关着的，下面量不到东西）");
             var ptab = prof.Page(WindowTabType.ProfileInfo) as ProfileTab;
             CheckTrue(ptab != null, "前置：档案窗的 `Profile` 页建出来了（`PlayerProfileWindow.Page`）");
             CheckTrue(ptab != null && !ptab.NameWindowOpen, "前置：改名窗出厂是关着的（原版 `ProfileTab.Start:19` 显式关它）");
@@ -5816,9 +5823,15 @@ public static class ShellScene
             // 出处 = 各常量自己的注释（`bundle_menus_assets_all` 逐处实读 / uGUI `GridLayoutGroup` 现算）。
             const float ArmVpX1 = 69.42f, ArmVpY1 = 149.07f, ArmVpX2 = 246.54f, ArmVpY2 = 913.28f;
             const float DkVpX1 = 261.28f, DkVpY1 = 262.64f, DkVpX2 = 634.88f, DkVpY2 = 803.43f;
-            const float ArmCellL = 116.98f, ArmCellT = 149.07f, ArmCellR = 198.98f, ArmCellB = 231.07f;
+            // 🔴 **2026-10-24（`W8` · P1 差异 #1）**：阵营轨改回原版的 **2 列**之后，第 0 格不再是
+            // 「单列居中」的 116.98，而是 **75.98..157.98**（= `ArmVpX1 + GetStartOffset.x 6.56`）。
+            // 期望值照旧是**原版字面量 + uGUI 算式**（`SetCellsAlongAxis` / `GetStartOffset`）现算，
+            // ⛔ 不读 `PracticeModePopup.ArmyCellL`（那是被测实现的实参 = 自证）。
+            //   2 列：`cellCountX = Floor((177.12 + 0.001) / 82) = 2` ·
+            //        `startOffset.x = 0 + (177.12 − 164) × 0.5 = 6.56` ⇒ 第 0 列 75.98 / 第 1 列 157.98。
+            const float ArmCellL = 75.98f, ArmCellT = 149.07f, ArmCellR = 157.98f, ArmCellB = 231.07f;
             const float DkCellL = 270.08f, DkCellT = 262.64f, DkCellR = 450.08f, DkCellB = 442.64f;
-            const float ArmCutX = 157.98f;    // = 格 116.98..198.98 的中点
+            const float ArmCutX = 116.98f;    // = 第 0 格 75.98..157.98 的中点
             const float DkCutX = 360.08f;     // = 格 270.08..450.08 的中点
 
             var pw = PracticeModePopup.Create(shell.Windows);
@@ -5937,11 +5950,14 @@ public static class ShellScene
                       + " —— 为 0 的话 ③ 那几态等于没验"
                       + "｜⚠️ 2026-10-22 订正（铁律 5）：原来这里写着「夹具 4 套 ⇒ 两列 2 行」—— **已过期**："
                       + "练习窗左列现在读原版 78 对 `DemoDeckInfoSO`（`demo_deck_pairs.json`），"
-                      + "逻辑 78 格、**视口内实建 8 格**（4 行 × 2 列，RectMask2D 只裁不建）");
+                      + "逻辑格数按「当前阵营筛选 6 对（+ 可能的首格「你的卡组」）」"
+                      + "；视口内实建 = 与视口相交的那几格（RectMask2D 只裁不建）");
 
             // ============================================================ ② A754-a：阵营视口（`Army Selector/Viewport`）
-            // 夹具 = 第 0 格（`Army_0`）：格 = **116.98,149.07 → 198.98,231.07**（`ArmyCellL` 那一段现算的
-            // 横轴居中值 + `ArmView*` 的上沿）⇒ 它在生产框下**完整落在视口里**、被切到 157.98 之后**仍相交**。
+            // 夹具 = 第 0 格（`Army_0`）：格 = **75.98,149.07 → 157.98,231.07**（2 列网格的第 0 列 +
+            // `ArmView*` 的上沿）⇒ 它在生产框下**完整落在视口里**、被切到 116.98（格中点）之后**仍相交**。
+            // 🔴 **2026-10-24（`W8` · P1 差异 #1）**：原来是**单列**（116.98..198.98，切点 157.98）——
+            // 原版 `Filters` 是 `Flexible` 网格 ⇒ 177.12 宽里 **2 列**，上面那三个 `const` 已按 uGUI 算式改。
             {
                 var bg0 = FindChildIn(pw.ArmyCells[0], "Background");
                 var hit0 = FindChildIn(pw.ArmyCells[0], "Hit");
@@ -5953,7 +5969,7 @@ public static class ShellScene
                 CheckTrue(bgOk && NearPx(ax1, ArmCellL) && NearPx(ay1, ArmCellT)
                                 && NearPx(ax2, ArmCellR) && NearPx(ay2, ArmCellB),
                           "★ A754-a 态一（**生产框** = 节点那个框 69.42,149.07→246.54,913.28）：第 0 格 `Background` "
-                          + $"**画出来**的并集 = 格矩形 116.98,149.07 → 198.98,231.07"
+                          + $"**画出来**的并集 = 格矩形 75.98,149.07 → 157.98,231.07"
                           + (bgOk ? $"（实测 {ax1:F2},{ay1:F2} → {ax2:F2},{ay2:F2}）" : "（⛔ 并集量不到）")
                           + " —— 🔴 量的是**渲出来那几块 quad 的并集**（软边会把宿主切成主格 + 子块，"
                           + "⛔ 只量宿主那一颗会漏面积），⛔ 不是计数器");
@@ -5961,7 +5977,7 @@ public static class ShellScene
                 float hx1, hy1, hx2, hy2;
                 bool hOk1 = NodeRectPx(hit0, out hx1, out hy1, out hx2, out hy2);
                 CheckTrue(hOk1 && NearPx(hx1, ArmCellL, 0.1f) && NearPx(hx2, ArmCellR, 0.1f),
-                          "★ A754-a 态一（对照）：命中区 = **整格**（116.98 → 198.98，宽 82）—— 生产框下它没被截"
+                          "★ A754-a 态一（对照）：命中区 = **整格**（75.98 → 157.98，宽 82）—— 生产框下它没被截"
                           + (hOk1 ? $"（实测 {hx1:F2} → {hx2:F2}）" : "（⛔ 量不到）"));
 
                 // ⚠️ 防崩守卫：`OnChanged` 是 `System.Action`，直接 `.OnChanged()` 会在 null 上抛 NRE
@@ -5969,6 +5985,10 @@ public static class ShellScene
                 if (armyVc != null && pw.ArmyScroll != null && pw.ArmyScroll.OnChanged != null
                     && bg0 != null && bgOk && hOk1)
                 {
+                    // 🔴 **2026-10-24（`W8`）**：2 列之后「切窄」那一态会把**整条第 1 列**（x ≥ 157.98）筛掉
+                    // ⇒ 建出来的格数**一定会变少**（单列时代它不变）。所以「还原后又建满」要比**切窄之前**
+                    // 那个数（`armyCellsFull`），⛔ 不能比切窄之后的 `cellsNarrow`（那会恒红）。
+                    int armyCellsFull = pw.ArmyCells.Count;
                     // ---- 态三（**节点框**右沿切到格中点）：同一个节点、同一句重建 ⇒ 画出来与点得到的都跟着收 ----
                     MenuDraw.ApplyPxRect(armyVc.transform, armyVc.transform.parent,
                                          new PxRect(ArmVpX1, ArmVpY1, ArmCutX, ArmVpY2));
@@ -5986,7 +6006,7 @@ public static class ShellScene
                               + (bgOkC ? $"（实测 {cx2:F2}；期望 {ArmCutX:F2}；态一是 {ax2:F2}）" : "（⛔ 并集量不到）")
                               + " —— 🔴 **改坏法**：把 `Shell/PracticeModePopup.cs` 的 `ImgTex` 里那句 "
                               + "`ViewportClip.Resolve` 删掉（退回裸 `clip` 形参 ⇒ 逐件传的 `null` 让它**一次都不调** "
-                              + "`ApplySoftEdges`）⇒ 并集右沿回到 **198.98** ⇒ 红"
+                              + "`ApplySoftEdges`）⇒ 并集右沿回到 **157.98** ⇒ 红"
                               + "｜🔴 前提是「逐件传的 `clip` 已经是 `null`」这件事**真的生效了**："
                               + "若有人把那几处改回 `view`，节点会被形参盖住 ⇒ 同样红（`Resolve` 第 1 支）");
                     CheckTrue(bgOkC && NearPx(cx1, ArmCellL, 0.6f),
@@ -6004,14 +6024,14 @@ public static class ShellScene
                               + "⚠️ 这一条与上一条**各咬一处**：上一条咬 `ImgTex` 的解析、这一条咬 `HitOn` 的求交口");
 
                     // ---- 态二（**粗筛**那半边）：把整块框挪到整块之外 ⇒ 同一句重建**一格都不建**；还原 ⇒ 又建满 ----
-                    int cellsN = pw.ArmyCells.Count;
+                    int cellsNarrow = pw.ArmyCells.Count;
                     MenuDraw.ApplyPxRect(armyVc.transform, armyVc.transform.parent,
                                          new PxRect(ArmVpX1 + 4000f, ArmVpY1 + 4000f, ArmVpX2 + 4000f, ArmVpY2 + 4000f));
                     pw.ArmyScroll.OnChanged();
                     Check(pw.ArmyCells.Count, 0,
                           "★★ A754-a 态二（对照 = 上面的生产框）：把**节点**那个框挪到整块之外 ⇒ 同一句 "
                           + "`RebuildArmyCells` **一格都不建**"
-                          + $"（实测 {pw.ArmyCells.Count} 格；切窄那一态建了 {cellsN} 格）"
+                          + $"（实测 {pw.ArmyCells.Count} 格；切窄那一态建了 {cellsNarrow} 格 · 生产框那是 {armyCellsFull} 格）"
                           + " —— 🔴 **改坏法**：把那一句 `MenuDraw.VisibleAbove(holder, rr, null)` 改回 "
                           + "`MenuDraw.Visible(rr, view)`（= 迁移前的显式矩形那一路）⇒ 态二照旧建满 ⇒ 红"
                           + "｜⛔ 也别只把四处 `MenuDraw.Rect` 的 `clip` 改回 `view` —— 那是「两处状态」的老写法"
@@ -6019,8 +6039,10 @@ public static class ShellScene
                     MenuDraw.ApplyPxRect(armyVc.transform, armyVc.transform.parent,
                                          new PxRect(ArmVpX1, ArmVpY1, ArmVpX2, ArmVpY2));
                     pw.ArmyScroll.OnChanged();
-                    CheckTrue(pw.ArmyCells.Count == cellsN,
-                              $"★ …把节点框**还原** ⇒ 又建出同样多格（实测 {pw.ArmyCells.Count}，切窄时 {cellsN}）"
+                    CheckTrue(pw.ArmyCells.Count == armyCellsFull,
+                              $"★ …把节点框**还原** ⇒ 又建出同样多格（实测 {pw.ArmyCells.Count}，生产框 {armyCellsFull}；"
+                              + $"切窄那一态 {cellsNarrow} —— **比它少是应该的**：2 列网格切到第 0 格中点之后，"
+                              + "整条第 1 列都落在框外）"
                               + " —— 两态都断 ⇒ 上面那个「0」不可能来自别的原因（例如「这一批阵营表是空的」）");
                 }
                 else
@@ -6140,6 +6162,192 @@ public static class ShellScene
                 else
                     CheckTrue(false, "（前提）`Decks Scroll view/Viewport` 那颗节点、或 `DeckRow_0` 的 `Row Bg` 拿不到"
                                    + " ⇒ A754-b 那几态**没跑**（⛔ 不静默跳过）");
+            }
+
+            // ============================================================ 🆕 2026-10-24（`W8`）：P1 差异清单可静态落地项
+            // 判据 → `资料/普查产出_1024d/P1_练习窗原版对照审查.md` §四 差异 #1 / #2 / #3 / #5。
+            // ⛔ 期望值一律**原版字面量**或**数据面现读**（⛔ 不读 `PracticeModePopup` 的常量 = 自证）。
+            Section("★ W8：练习窗按原版补四件（阵营 2 列 · 阵营标题本地化 · 火漆印/描边只给「你的卡组」· 预组督军中文名）");
+            {
+                // ------------------------------------------------------------ D1：阵营轨 = 2 列、13 格一屏全见
+                // 判据 = `bundle_menus_assets_all/MonoBehaviour/MonoBehaviour_-3879242981144375492.json`
+                //   （宿主 `Filters`）：cell 82×82 · spacing (0,26.38) · align=4 · **Flexible**，容器 177.12。
+                // uGUI 现算（本地真源码 `GridLayoutGroup.SetCellsAlongAxis` + `LayoutGroup.GetStartOffset`）：
+                //   `cellCountX = Floor((177.12 + 0.001)/82) = 2` · `startOffset.x = (177.12 − 164) × 0.5 = 6.56`
+                //   ⇒ 第 0 列 75.98..157.98、第 1 列 157.98..239.98；行数 = ⌈13/2⌉ = 7；
+                //   内容高 = (82 + 26.38) × 7 − 26.38 = **732.28 ≤ 视口 764.21** ⇒ 不滚。
+                // 🧨 改坏法：`RebuildArmyCells` 里退回 `row = i`（单列）⇒ 下面 5 条同时红。
+                Check(PracticeModePopup.ArmyCols, 2,
+                      "★ W8-D1 阵营轨列数 = **2**（原版 `Flexible` 网格在 177.12 宽里现算；单列实现在这里红）");
+                CheckTrue(pw.ArmyCells.Count == 13,
+                          $"★ W8-D1 13 个阵营**一屏全建出来**（实测 {pw.ArmyCells.Count} 格 —— "
+                        + "单列时代只建得出**前 8 格**（第 9 格起整块在视口外、被 `VisibleAbove` 筛掉）");
+                CheckNear(pw.ArmyScroll.ContentX2 - pw.ArmyScroll.ContentX1, 732.28f, 0.6f,
+                          "★ W8-D1 内容高 = (82 + 26.38) × 7 − 26.38 = **732.28**（⛔ 不是单列的 1382.56）");
+                CheckTrue(pw.ArmyScroll.MaxOffset <= 0.001f,
+                          $"★ W8-D1 内容高 ≤ 视口高 764.21 ⇒ **可滚范围 = 0**（实测 {pw.ArmyScroll.MaxOffset:F2}）"
+                        + " —— 原版那一列本来就不滚（P1 §一·3）");
+                if (pw.ArmyCells.Count >= 3)
+                {
+                    float c0x1, c0y1, c0x2, c0y2, c1x1, c1y1, c1x2, c1y2, c2x1, c2y1, c2x2, c2y2;
+                    bool ok0 = NodeRectPx(pw.ArmyCells[0], out c0x1, out c0y1, out c0x2, out c0y2);
+                    bool ok1 = NodeRectPx(pw.ArmyCells[1], out c1x1, out c1y1, out c1x2, out c1y2);
+                    bool ok2 = NodeRectPx(pw.ArmyCells[2], out c2x1, out c2y1, out c2x2, out c2y2);
+                    CheckTrue(ok0 && NearPx(c0x1, 75.98f, 0.6f) && NearPx(c0y1, 149.07f, 0.6f)
+                                  && NearPx(c0x2, 157.98f, 0.6f) && NearPx(c0y2, 231.07f, 0.6f),
+                              "★ W8-D1 `Army_0` = **75.98,149.07 → 157.98,231.07**（第 0 列左沿 = `69.42 + 6.56`）"
+                            + (ok0 ? $"（实测 {c0x1:F2},{c0y1:F2} → {c0x2:F2},{c0y2:F2}）" : "（⛔ 量不到）"));
+                    CheckTrue(ok1 && NearPx(c1x1, 157.98f, 0.6f) && NearPx(c1y1, 149.07f, 0.6f)
+                                  && NearPx(c1x2, 239.98f, 0.6f) && NearPx(c1y2, 231.07f, 0.6f),
+                              "★ W8-D1 `Army_1` = **第 1 列同一行**（157.98→239.98，y 与第 0 格相同 —— 单列实现在这里红）"
+                            + (ok1 ? $"（实测 {c1x1:F2},{c1y1:F2} → {c1x2:F2},{c1y2:F2}）" : "（⛔ 量不到）"));
+                    CheckTrue(ok2 && NearPx(c2x1, 75.98f, 0.6f) && NearPx(c2y1, 257.45f, 0.6f)
+                                  && NearPx(c2x2, 157.98f, 0.6f) && NearPx(c2y2, 339.45f, 0.6f),
+                              "★ W8-D1 `Army_2` = 回到第 0 列、下一行（y 差 **108.38** = 82 + spacing.y 26.38）"
+                            + (ok2 ? $"（实测 {c2x1:F2},{c2y1:F2} → {c2x2:F2},{c2y2:F2}）" : "（⛔ 量不到）"));
+                }
+                else CheckTrue(false, "阵营格只有 " + pw.ArmyCells.Count + " 个 ⇒ 上面三条格位断言等于没查");
+
+                // ------------------------------------------------------------ D2：阵营标题 = 官方本地化文案
+                // 判据 = 原版 `ChangeSelectedArmy` → `LocalizationManager.GetTermTranslation(…)`
+                //   ⇒ 词条 `Armies/<CardArmy 成员名>`；参考图 = **基因窃取者教团**（`练习界面参考图.png`）。
+                // ⚠️ `Loc.T` 对缺键**返回键名本身** ⇒ 下面两条一起才有鉴别力：
+                //   ① 13 条词条**全部**非空且 ≠ 键（缺 0）；
+                //   ② 节点上那句 = 参考图那个值（写死原版值，⛔ 不重算 `SelectedArmyName()` = 自证）。
+                // 🧨 改坏法：`SelectedArmyName` 退回 `ToUpperInvariant()` ⇒ ② 红（会印 `GENESTEALERS`）。
+                {
+                    var facsW = CollectionWindow.CardsState.Factions();
+                    int miss = 0;
+                    var missKeys = new List<string>();
+                    for (int i = 0; i < facsW.Count; i++)
+                    {
+                        string k = CardText.ArmyTermPrefix + facsW[i];
+                        string v = Loc.T(k);
+                        if (string.IsNullOrEmpty(v) || v == k) { miss++; missKeys.Add(k); }
+                    }
+                    Check(miss, 0,
+                          "★ W8-D2 13 个阵营**全部**取到真文案（缺失 " + miss + " 条"
+                        + (miss > 0 ? "：" + string.Join(", ", missKeys.ToArray()) : "") + "）"
+                        + " —— 缺键时 `Loc.T` 会把键名画上屏 = 静默失败");
+
+                    int gsIdx = -1;
+                    for (int i = 0; i < facsW.Count; i++)
+                        if (RuleEngine.DeckRules.SameFaction(facsW[i], "Genestealers")) { gsIdx = i; break; }
+                    CheckTrue(gsIdx >= 0, "（前提）阵营表里有 `Genestealers`（参考图选中的就是它）");
+                    if (gsIdx >= 0)
+                    {
+                        pw.ArmyIndex = gsIdx;
+                        // ⚠️ 标题的刷新点在 `RebuildDeckRows` 末尾（`RebuildArmyCells` 是**滚动**那条路、不刷标题）
+                        // ⇒ 这里走自检口 `RebuildDeckListForTest()`，⛔ 别只调 `ArmyScroll.OnChanged()`（标题会停在旧值）。
+                        pw.RebuildDeckListForTest();
+                        Check(pw.ArmyTitleText, "基因窃取者教团",
+                              "★ W8-D2 `Selected Army Title` = **基因窃取者教团**（原版本地化词条 `Armies/Genestealers`）"
+                            + "（实测「" + pw.ArmyTitleText + "」；⛔ 不是 `GENESTEALERS`、也⛔ 不是键名 `Armies/Genestealers`）");
+                    }
+                }
+
+                // ------------------------------------------------------------ D3：火漆印 / 描边**只给「你的卡组」那一格**
+                // 判据 = `DeckSelectorMenuItemDemo__InitializeWithPracticeDeck.c`：开场 `set_enabled(false)`；
+                //   玩家卡组支 `IsPlayerDeck.SetActive(true)`、预组支 `SetActive(false)`（两颗同理）。
+                // 🧨 改坏法：`BuildDeckCell` 里去掉 `isPlayerDeck` 那两句 `SetActive` ⇒「其余格全关」红；
+                //   一刀切永远关 ⇒「首格开」红（两条成对 ⇒ 两种错法都抓得到）。
+                {
+                    pw.ArmyIndex = -1;                      // 不过滤 ⇒ 首格「你的卡组」一定建出来
+                    pw.RebuildDeckListForTest();
+                    int onSeal = 0, onBorder = 0, mineSeen = 0, otherSeen = 0;
+                    bool mineOk = false;
+                    foreach (var row in pw.DeckRows)
+                    {
+                        if (row == null) continue;
+                        bool isMine = row.name == PracticeModePopup.YourDeckCellName;
+                        var seal = FindChildIn(row, "IsPlayerDeck");
+                        var bd = FindChildIn(row, "Button border");
+                        CheckTrue(seal != null && bd != null,
+                                  "（前提）`" + row.name + "` 的两件（`IsPlayerDeck` / `Button border`）**都建出来了**"
+                                + " —— 判据要求「建了再按 `isPlayerDeck` 开关」，⛔ 不是只给首格建");
+                        if (seal == null || bd == null) continue;
+                        if (seal.gameObject.activeSelf) onSeal++;
+                        if (bd.gameObject.activeSelf) onBorder++;
+                        if (isMine)
+                        {
+                            mineSeen++;
+                            mineOk = seal.gameObject.activeSelf && bd.gameObject.activeSelf;
+                        }
+                        else
+                        {
+                            otherSeen++;
+                            if (seal.gameObject.activeSelf || bd.gameObject.activeSelf)
+                                CheckTrue(false, "★ W8-D3 预组格 `" + row.name + "` 的 `IsPlayerDeck` / `Button border` "
+                                               + "**必须都关**（原版 `InitializeWithPracticeDeck` 的预组支就是 `SetActive(false)`）");
+                        }
+                    }
+                    CheckTrue(mineSeen == 1 && otherSeen > 0,
+                              $"（前提）首格「你的卡组」**恰好 1 格**、预组格**若干**（实测首格 {mineSeen} · 预组格 {otherSeen}）"
+                            + " —— 预组格为 0 的话「其余格全关」那条等于没验");
+                    CheckTrue(mineSeen == 1 && mineOk,
+                              "★ W8-D3 **「你的卡组」那一格**的 `IsPlayerDeck` + `Button border` **都开着**"
+                            + $"（找到 {mineSeen} 格；两件都开 = {mineOk}）");
+                    Check(onSeal, mineSeen,
+                          "★ W8-D3 全列**只有「你的卡组」那一格**的 `IsPlayerDeck` 亮"
+                        + $"（实测亮 {onSeal} · 首格 {mineSeen} · 预组格 {otherSeen}；"
+                        + "恒开 ⇒ " + (otherSeen + 1) + "，这条分得出两种状态）");
+                    Check(onBorder, mineSeen,
+                          "★ …`Button border` 同样**只有那一格**亮（实测亮 " + onBorder + "）");
+                }
+
+                // ------------------------------------------------------------ D4：督军名「两支不同源」
+                // 判据 = 原版 `DeckGeneralInfoDemo`：**预组（演示）支** `RawCardScript.GetLocalizedCardName(hero)`（中文），
+                //   **你的卡组支** `deckHero` **裸名**（英文）。参考图显示英文 = 当时选中的正是「你的卡组」那一支。
+                // ⚠️ 只有**中文档**才看得出两支不同源 ⇒ 先断语档（默认 = 中文；被切走就显式红，⛔ 不静默跳过）。
+                // 🧨 改坏法：把 `WarlordNameOf` 里 `PickedPrebuilt != null` 那条分叉删掉（两支都 `wl.Name`）⇒ 第一条红。
+                {
+                    Check(Loc.Current, AvailableLanguages.Chinese,
+                          "（前提）当前语档 = 中文（D4 的「预组中文 / 你的卡组英文」只在中文档看得出来）");
+                    PrebuiltDecks.Deck deckD = null;
+                    RuleEngine.CardDef heroD = null;
+                    int pairIdxD = -1;
+                    for (int i = 0; i < PrebuiltDecks.Pairs.Count && deckD == null; i++)
+                    {
+                        var d0 = PrebuiltDecks.PairDeck(PrebuiltDecks.Pairs[i], pw.SelectedGameMode);
+                        var h0 = d0 != null ? CollectionData.Card(d0.heroId) : null;
+                        if (h0 != null && !string.IsNullOrEmpty(h0.NameZh)) { deckD = d0; heroD = h0; pairIdxD = i; }
+                    }
+                    CheckTrue(deckD != null && heroD != null,
+                              "（前提）找得到一副「督军有官方中文名」的预组卡组");
+                    if (deckD != null && heroD != null)
+                    {
+                        CheckTrue(heroD.Name != heroD.NameZh,
+                                  "（前提）这张督军的**英文裸名 ≠ 中文名**（否则「不同源」这条没有鉴别力）");
+                        pw.PickPair(pairIdxD);
+                        Check(pw.WarlordNameText, heroD.NameZh,
+                              "★ W8-D4 **预组**那一支的 `Warlord Name` = 本地化卡名「" + heroD.NameZh + "」"
+                            + "（原版 `GetLocalizedCardName(hero)`；实测「" + pw.WarlordNameText + "」）");
+
+                        // 「你的卡组」支：把**当前那一套**夹具挂上同一个督军，再**点首格**（走真点击链）
+                        // ⇒ 那一支应显示**裸名（英文）**。
+                        // ⚠️ 用点击而不是直调选择函数：`PickDeck` 是私有实现，点击是玩家真实入口（顺带验命中区）。
+                        int curDeckIdx = CollectionData.CurrentIndex();
+                        var libD = RuleEngine.DeckLibrary.Load();
+                        CheckTrue(libD != null && curDeckIdx >= 0 && curDeckIdx < libD.Decks.Count,
+                                  $"（前提）夹具卡组库非空且当前下标有效（现读 {curDeckIdx} / {libD?.Decks.Count ?? 0} 套）");
+                        if (libD != null && curDeckIdx >= 0 && curDeckIdx < libD.Decks.Count)
+                        {
+                            libD.Decks[curDeckIdx].WarlordId = deckD.heroId;
+                            libD.Save();
+                            CollectionData.ResetForTest();
+                            pw.RebuildDeckListForTest();
+                            var ownRow = FindChildIn(pw.transform, PracticeModePopup.YourDeckCellName);
+                            var ownHit = FindChildIn(ownRow, "Hit");
+                            var ownWb = ownHit != null ? ownHit.GetComponent<WindowButton>() : null;
+                            CheckTrue(ownWb != null, "（前提）首格「你的卡组」的命中区在（点它 = 原版那一格的选择动作）");
+                            if (ownWb != null) ownWb.ClickForTest();
+                            Check(pw.WarlordNameText, heroD.Name,
+                                  "★ W8-D4 **「你的卡组」**那一支 = **英文裸名**「" + heroD.Name + "」"
+                                + "（原版 `ShowPayerDeckInfo` 用的是 `deckHero` 裸名；实测「" + pw.WarlordNameText + "」）"
+                                + " —— 与上面那条**不同源**才算接对");
+                        }
+                    }
+                }
             }
 
             // ============================================================ 🆕 A867：同一实例再 `Open()` ⇒ 登记表不涨

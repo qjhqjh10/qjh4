@@ -9,9 +9,21 @@
 //           │     └── `Background fill`               图 `40k_popup_texture`（128×128）
 //           └── `Text`  anchor(0,1) pos(661.5,−45) size **1269.5 × 70**
 //
-// 🔴 **这份文档有两处是我们挑的，都写在下面**（原版查不到，别当成复刻）：
-//   ① **什么时机显示** —— 原版 `WaitText` 的触发点在反编译与场景 JSON 里**都查不到**。
-//      我们接的是「**不是我的回合、且不在换牌/结算**」，也就是对手思考的那段时间。
+// 🔴 **2026-10-24（执行代理 `W1` · 判据 `资料/普查产出_1024d/N1_敌方回合横幅与压暗.md` §2 — 铁律 5 就地订正）**：
+//   **下面①「什么时机显示」那句「原版查不到」【不成立】，原版查得到，而且和我们做的完全不是一回事：**
+//   · 这一件在原版叫 **`BattleManager.mulliganWaitText`**（组件字段名就是它，偏移 `+0x1F0`），
+//     它是**「换牌等对手」那一下的过渡提示**，**不是「敌方回合横幅」**；
+//   · 唯一活的显示点 = `BattleManager__ClickChosenCardDone.c:93-98`：**联网局**里本地玩家确认换牌
+//     （`IsNetworkedGame`，`:55`）且 **`receivedEnemyMulligan == false`** ⇒ `SetActive(true)`；
+//   · 关闭边沿 4 条：对手换牌包到达（`ReceiveEnemyMulliganAndEnvEffect:55-58`）· 环境卡阶段 ·
+//     战斗阶段开始 · 初始化。**回合循环 `NextTurn` 一次都不碰它**；
+//   · **单机局永不出现**：`_SetupEnviromentalEffectPhase:32-46` 在非联网那一支把 `receivedEnemyMulligan`
+//     **强置 1** ⇒ 显示分支根本进不去（另一条更是死支：`ShouldFadeMulliganCards()` 恒 false）。
+//   ⇒ 所以「整段敌方回合一直压暗」**是我们的缺陷**，判据（三态谓词）落在 `BattleDriver.ShowWaitBanner`。
+//   视图件本身（尺寸 / α / 无图纯色 / 文案键）**仍然全对**，一个字都不用改。
+//
+// 🔴 **这份文档里剩下那一处「我们挑的」** 只有 ②（文案）—— 而它 **2026-10-18 也已经订正过了**
+//   （原版 `mTerm` = `Battle/Mulligan/WaitEnemy`，见下），所以本件**今天一条「我们挑的」都不剩**。
 //   ② **文字文案** —— 🔴 **2026-10-18（第十二轮 · W6）就地订正（铁律 5）**：这里原来写
 //      「dump 里 `Text` 节点是**空的**（运行时才赋），原版的本地化 key 没解出来 ⇒ 这条是我们加的词条」
 //      —— **整句不成立**。原版那颗节点的**字与键都在**：
@@ -451,11 +463,26 @@ namespace CardPresentation
             //     🧨 改坏法：把它挤到 1920×1080 ⇒ 4:3 下条心偏下 175 px ⇒ 上下各露一条。
             //  ⚠️ `tex` 传 `null` = **原版那颗 Image 的 `m_Sprite = null`**（纯色）——
             //     `MakeImage` 这一档返回的是**没有 sprite 的 `Image`**（uGUI 用默认白底面片 + `color`）✓。
+            //  🔴 **2026-10-24（执行代理 `W1` · 判据 `N1` §2.2 / §4-D4）**：原版这一颗是
+            //     **`m_RaycastTarget = 1` + `m_RaycastPadding = (0, 1000, 0, 0)`**
+            //     （`bundle_scenes_scenes_battlearena1/MonoBehaviour/MonoBehaviour_4415.json` 现读；
+            //      padding 的 uGUI 顺序 = X 左 / Y 下 / Z 右 / W 上）⇒ **吃点击**，但**下沿内缩 1000 px**
+            //      （1080 高的屏上压暗的下边界从 1858 抬到 **858** ⇒ 最下面 222 px 的手牌那一带照旧能点）。
+            //     ⚠️ 这里只做「**件自己吃不吃射线**」那一半；「世界侧输入也让它挡」在
+            //        `BattleDriver` 的 `WaitShadeContains`（读本件的 `ShadeContains`）。
             _shade = HudCanvas.MakeImagePiece(host, null, "wait_shade",
                                               BarCenterXPx - ShadeW * 0.5f, BarCenterYPx - ShadeH * 0.5f,
-                                              ShadeW, ShadeH, ShadeColor);
+                                              ShadeW, ShadeH, ShadeColor, raycast: true);
             if (_shade != null)
             {
+                // padding 只能在拿到 `Image` 之后写（`HudCanvas` 那一层没有这个话题的形参 ——
+                // 它只服务这一件，⛔ 别为一个调用点把 `HudCanvas` 的签名再撑大）
+                var shadeImg = ImageOf(_shade.gameObject);
+                if (shadeImg != null)
+                    shadeImg.raycastPadding = new Vector4(0f, ShadeRaycastPadBottomPx, 0f, 0f);
+                else
+                    Debug.LogError("[WaitBanner] 压暗层的 `Image` 取不到 ⇒ 原版那条 `m_RaycastPadding` 写不进去"
+                                 + "（它会变成「整屏都吃点击」或「整屏都不吃」，两种都与原版不符）");
                 // ⚠️ `MakeImage*` **自己按 `DefaultZ` 登记过一次** ⇒ 想挪档**必须走 `Reorder`**
                 //    （`Group.Add` 不去重：同一个件 `Add` 两次会留两条账、索引此后算偏，见 `T09` §七·11）
                 HudCanvas.Reorder((RectTransform)_shade.transform, Z + 0.02f);
@@ -653,6 +680,22 @@ namespace CardPresentation
                 && lp.y >= -h * 0.5f + padB;
         }
 
+        /// <summary>🆕 **2026-10-24（`W1` · 判据 `N1` §2.2）**：压暗层的 `Image.raycastTarget`
+        /// —— 原版是 **`1`（吃点击）**；世界档（`ImageQuad`）没有这个概念 ⇒ 恒 `false`。
+        /// <para>🧨 改坏法：把 `BuildCanvas` 那句 `raycast: true` 去掉 ⇒ `Editor/BattleScene.cs` 那条红。</para></summary>
+        public bool ShadeRaycastTarget
+        {
+            get { var im = ImageOf(_shade != null ? _shade.gameObject : null); return im != null && im.raycastTarget; }
+        }
+
+        /// <summary>🆕 **2026-10-24（`W1`）**：压暗层 `Image.raycastPadding`（uGUI 顺序 X 左 / Y 下 / Z 右 / W 上）。
+        /// 原版 = **`(0, 1000, 0, 0)`**（下沿内缩 1000 px）。没这颗 `Image` ⇒ 全 0。</summary>
+        public Vector4 ShadeRaycastPaddingPx
+        {
+            get { var im = ImageOf(_shade != null ? _shade.gameObject : null);
+                  return im != null ? im.raycastPadding : Vector4.zero; }
+        }
+
         /// <summary>压暗层**有没有贴图** —— 原版 `Dark Shade` 是**无图、纯色**（`m_Sprite = null`）
         /// ⇒ 期望 **`false`**（`true` = 我们给它塞了一张图，与原版不符）。
         /// ⚠️ 世界档恒 `false`（那一档的是 `ImageQuad`、不是 `Image`）⇒ 只对画布档有判别力。</summary>
@@ -662,8 +705,7 @@ namespace CardPresentation
                   return im != null && im.sprite != null; }
         }
 
-        /// <summary>本件在**根画布那一组**里占的 z 档（`HudCanvas.OrderZOf`；认不出 ⇒ `NaN`）。
-        /// 判据 = 它必须**小于 HUD 图族那一档**（`HudCanvas.DefaultZ` = 0.3）：`Add` 的 z 大 ⇒ 画在**底下**
+        /// <summary>本件在**根画布那一组**里占的 z 档（`HudCanvas.OrderZOf`；认不出 ⇒ `NaN`）。        /// 判据 = 它必须**小于 HUD 图族那一档**（`HudCanvas.DefaultZ` = 0.3）：`Add` 的 z 大 ⇒ 画在**底下**
         /// ⇒ 本件才盖得住名牌一族（图 0.235~0.6 **与字 0**）。</summary>
         public float RootOrderZ { get { return HudCanvas.OrderZOf((RectTransform)transform); } }
 

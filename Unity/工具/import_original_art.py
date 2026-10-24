@@ -455,6 +455,13 @@ MENU_IMAGES = [
     #   40k_Profile_display_title.json` 现核存在，落盘名同名（没有空格）。
     ('40k_Profile_display_title',             'menus_assets_all_sprites'),
     ('UI_Main_Upper bar',                     'atlasindividual_assets_0_mainmenu'),   # 顶栏底
+    # 🆕 2026-10-24（轮抽右栏三颗互斥页签 · W7 交办）：原版那三颗是「红底 + 中央 64×64 白图标」，
+    #   红底来自 `40K_settings_button` 的 tint `0.87,0.03,0.00`（**本来就对**），缺的只是三张图标。
+    #   `40K_Chat_icon_Alliance v2` 早已在 `Art/ui_menu/`（落盘名 `40K_Chat_icon_Alliance_v2.png`），
+    #   下面补另外两张；名字带空格 ⇒ 落盘名由本表惯例 `name.replace(' ', '_')` 定。
+    #   判据 = `资料/普查产出_1024d/D2_轮抽各界面原版规格.md`（三颗页签 82.09×78.45 / 间距 12.98）。
+    ('40K_Info_button_draft menu',            'atlasindividual_assets_0_mainmenu'),   # 页签① Deck Info 图标
+    ('40K_Cards_button_draft menu',           'atlasindividual_assets_0_mainmenu'),   # 页签② Card List 图标
     ('40K_notification',                      'atlasindividual_assets_0_mainmenu'),   # 收件箱
     ('40K_notification_number',               'duplicateassetisolation_assets_all'),  # 红点底
     # 🆕 2026-10-17（N19）：Toast `LevelUp` / `GetXP` 的**根底图**。原来没登记 ⇒ 运行时退回

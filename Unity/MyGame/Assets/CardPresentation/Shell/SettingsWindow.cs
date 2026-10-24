@@ -2083,6 +2083,10 @@ namespace CardPresentation
         //    `Check Connection` / `Test Public IP`）**表里没有对应键** ⇒ 本波**没有改**（不许自造键），
         //    已写进交件报告。判据 = `Core/Loc.cs` 全表逐键搜过那 8 个串，0 命中。
         const string lkOnTitle           = "Settings/Online/Title";
+        /// <summary>⚠️ **2026-10-24（真机 F15 ③）起本窗不再绘制这一条** —— 它是**开发说明**
+        /// （「这一页不是原版…」），玩家不该在设置窗里读到（与已删的「音频页 AudioMixer 说明」同族）。
+        /// 键仍留在 `Core/Loc.cs`（不在本代理白名单）+ `Editor/ShellScene.cs` 的键普查表里；
+        /// ⛔ 别拿它当「这一页是我们自建」的注释载体（那句注释在代码里，不在词条里）。</summary>
         const string lkOnTitleNote       = "Settings/Online/TitleNote";
         const string lkOnTitleNoteBody   = "Settings/Online/TitleNoteBody";
         const string lkOnProbing         = "Settings/Online/ProbingPublicAddress";
@@ -5599,8 +5603,17 @@ namespace CardPresentation
             // ④ 说明行 —— ⚠️ **这一页只剩 ~70px 高，六行塞不下** ⇒ 详细的三条路做成**点一下弹窗**。
             //    （用户 2026-09-26：「我们可能是网友需要联机」—— 这件事**必须在界面上说清楚**，
             //     光写一句「请做端口映射」等于没说。）
+            // 🔴 **2026-10-24（真机 F15 ③）就地改：这一行原来画的是【开发说明正文】**
+            //    （键 `Settings/Online/TitleNote` =「这一页不是原版（原版是联网游戏，没有「当主机」这回事）。」
+            //     + 换行 + `TitleNoteBody`），玩家在设置窗里能整段读到 ⇒ 与已删的「音频页 AudioMixer 说明」
+            //    同族（先例 → 本文件 `BuildAudioPage` 那行「⛔ 2026-10-22 W62-D4 删掉了…」）。
+            //    ⇒ **只留给玩家看的那半句**（`TitleNoteBody` =「IP 直连 —— 公网怎么走 / 路由器要不要放开端口：
+            //    点这一行看」，它同时是这一行的**可点提示**：点它弹「怎么联机」）；开发说明那半句**不再上屏**。
+            //    ⚠️ 键本身仍在 `Core/Loc.cs`（⛔ 不在本代理白名单，别在这儿删），已无绘制点。
+            //    ⚠️ `Editor/SettingsScene.cs` 那条 ④′ 断言（`A1048`：整句 = TitleNote + "\n" + TitleNoteBody）
+            //    会因此红 —— 那份文件也不在白名单；已写进交件报告，请调度台改。
             var note = Text(page, "Note",
-                            Loc.T(lkOnTitleNote) + "\n" + Loc.T(lkOnTitleNoteBody),
+                            Loc.T(lkOnTitleNoteBody),
                             TitleL, TabsR - 20f, OnStatusT + 70f, OnStatusT + 140f,
                             FontSmall, new Color(1f, 1f, 1f, 0.55f), QText);
             // 🔴 **2026-10-07（A77⑩ · 子表 E5：判据空）**：这一行的折行是**我们挑的**，不是原版口径 ——
@@ -5608,11 +5621,11 @@ namespace CardPresentation
             //   ⇒ 这里**主动**开折行。⛔ 不套 `SetWrapping(false)`（那会把它挤成一行溢出）、
             //   也⛔ 不冒充原版（判据 = `Shell/SettingsWindow.cs` 那两句说明 + 子表 E5）。
             if (note != null) note.SetWrapWidth(LayoutSpace.Px(TabsR - 20f - TitleL));
-            // 🆕 2026-10-18（换语言刷新链）：这一行也是 `Build()` 里只画一次的，而且**由两条键拼出来**
-            //   （`TitleNote` + `\n` + `TitleNoteBody`）⇒ 登记进 `_onLabels`（`Keyed` 一个键存不下它，
-            //   见那条链的注释）。⚠️ 折行宽度**不用重设**：`Label.SetWrapWidth` 写的是 TMP 上的模式+宽度，
+            // 🆕 2026-10-18（换语言刷新链）：这一行也是 `Build()` 里只画一次的
+            //   （原来由两条键拼出来；**2026-10-24 真机 F15 起只剩 `TitleNoteBody` 一条**，见上面那段）
+            //   ⇒ 登记进 `_onLabels`（`Keyed` 一个键存不下它，见那条链的注释）。⚠️ 折行宽度**不用重设**：`Label.SetWrapWidth` 写的是 TMP 上的模式+宽度，
             //   改文本时 `SetText` 尾巴上会自己 `TryApplyPendingWrap` 再生成一次版面。
-            OnLangText(note, () => Loc.T(lkOnTitleNote) + "\n" + Loc.T(lkOnTitleNoteBody));
+            OnLangText(note, () => Loc.T(lkOnTitleNoteBody));
             // 点这一行 ⇒ 弹「怎么联机」（三条路写清楚）
             var noteHit = Node(page, "Note Hit", TitleL, OnStatusT + 70f, TabsR - 20f, OnStatusT + 140f);
             Hit(noteHit, "Hit", TitleL, OnStatusT + 70f, TabsR - 20f, OnStatusT + 140f, QOverlay, ShowHowToConnect);
@@ -5686,7 +5699,11 @@ namespace CardPresentation
             float x1 = TitleL + idx * (OnRoleW + OnRoleGap), x2 = x1 + OnRoleW;
             var n = Node(page, "Role " + nodeName, x1, OnRoleT, x2, OnRoleB);
             var bg = Rect(n, "bg", x1, OnRoleT, x2, OnRoleB, ArtButton, QContent, BtnGreen);
-            var lb = Text(n, "Text", Loc.T(key), x1, x2, OnRoleT, OnRoleB, FontButton, Color.black, QText);
+            // 🔴 **2026-10-24（真机 F15 ②）就地改：字色 `black` → `white`。**
+            //   症状（截图 `72_settings_net.png`）：五颗钮的**深绿字压在深绿底上**、几乎不可读。
+            //   判据 = **同窗其余钮**（`GenButton` / `GenOnlineEntry` / 账号页 `ActionButton` 那一族）
+            //   —— 底图全是 `40K_button` + 同一抹绿染色 + **白字**；只有我们这一页当初写成了黑字。
+            var lb = Text(n, "Text", Loc.T(key), x1, x2, OnRoleT, OnRoleB, FontButton, Color.white, QText);
             OnLangText(lb, () => Loc.T(key));
             Hit(n, "Hit", x1, OnRoleT, x2, OnRoleB, QOverlay, () =>
             {
@@ -5828,7 +5845,9 @@ namespace CardPresentation
             float x2 = x1 + w, y2 = t + OnBtnH;
             var n = Node(page, name + " Button", x1, t, x2, y2);
             var aq = Rect(n, "bg", x1, t, x2, y2, ArtButton, QContent, BtnGreen);
-            var lb = Text(n, "Text", label, x1, x2, t, y2, FontButton, Color.black, QText,
+            // 🔴 **2026-10-24（真机 F15 ②）**：字色同 `RoleButton` —— `黑` 改 **白**（判据 = 同窗
+            //   `GenButton` / `GenOnlineEntry` 那两颗：同一张 `40K_button` + 同一抹绿 + 白字）。
+            var lb = Text(n, "Text", label, x1, x2, t, y2, FontButton, Color.white, QText,
                           null, 0f, autoMinPx, autoMaxPx, autoBasePx);
             // A17：原版 `Account Tab>Buttons/*` 那几颗同族底图（`40K_button`）都是 SpriteSwap（普查 §块 4 第 16 行，⚠️ 非同名节点）
             Hit(n, "Hit", x1, t, x2, y2, QOverlay, () => { Debug.Log($"[Settings] 点了 `{label}`"); onClick(); },
@@ -6564,12 +6583,35 @@ namespace CardPresentation
             f._placeholder = placeholder;
             f._root = MenuDraw.Node(parent, name, r);
             var tex = CardArt.MenuUi(art);
-            f._bg = MenuDraw.Rect(f._root, tex, r, "bg", q);
+            // 🔴 **2026-10-24（真机 F15）就地改：底板从「拉伸一整张」改成【九宫格 + 原版那抹深色】。**
+            //   症状（截图 `72_settings_net.png`）：两个输入框渲成**纯白圆角长条**、把占位文字盖住。
+            //   根因：`InputFieldBackground` 是 **Unity 内置图**（32×32、`m_Border = (10,10,10,10)`、本身**白**）
+            //   —— 原版全靠 `Image.m_Color` 染色 + `Sliced` 九宫格画；我们这一路 `MenuDraw.Rect` 是
+            //   **整张拉伸 + 不染色** ⇒ 白底铺满、圆角也被拉变形。
+            //   判据（同一张图的既有用法，⛔ 不是新挑的值）：`Core/FilterPanelModel.cs` 的
+            //   `InputSprite / InputBorder = 10 / InputTint = (0.0627, 0, 0, 1)`（原版 `Image.m_Color` 实读），
+            //   落地点见 `Shell/CollectionWindow.cs` 的 `MenuDraw.Nine(… 32f, 32f …)` 两处。
+            if (tex == null)
+                Debug.LogWarning("[Settings] 输入框底板图 `" + art + "` 取不到 ⇒ 只有文字与命中区、没有底板（不静默）");
+            else
+                f._bg = NineQuad(f._root, tex, r, q);
             f._label = MenuDraw.Text(f._root, new PxRect(r.x1 + pad, r.y1, r.x2 - pad, r.y2),
                                      f.Show(), Color.white, "Text", InputFontPx, qText, face: TmpFont.Face.LatinCardBody);   // 🔴 A171：本类不走漏斗 ⇒ 字号已过 RootScale（见常量）
             MenuDraw.AlignLeft(f._label, new PxRect(r.x1 + pad, r.y1, r.x2 - pad, r.y2));
             MenuDraw.Hit(f._root, "Hit", r, q + 2, () => f.Focus());
             return f;
+        }
+
+        /// <summary>输入框底板 = **九宫格**。参数全部来自原版那张 `InputFieldBackground` 的实读
+        /// （Unity 内置 32×32 · `m_Border = (10,10,10,10)` · `m_Color = (0.0627,0,0,1)`）——
+        /// 与本工程既有那两处同源（`Core/FilterPanelModel.cs` 的常量 +
+        /// `Shell/CollectionWindow.cs` 的两个 `MenuDraw.Nine(… 32f, 32f …)` 调用点）。
+        /// ⛔ 别退回 `MenuDraw.Rect`（整张拉伸 + 白底 = 真机 F15 的那个「纯白长条」）。</summary>
+        static ImageQuad NineQuad(Transform parent, Texture2D tex, PxRect r, int q)
+        {
+            var go = MenuDraw.Nine(parent, tex, r, new Vector4(10f, 10f, 10f, 10f), 32f, 32f, q,
+                                   new Color(0.0627f, 0f, 0f, 1f), true, "bg");
+            return go != null ? go.GetComponentInChildren<ImageQuad>() : null;
         }
 
         string Show() { return string.IsNullOrEmpty(Text) ? (_placeholder ?? "") : Text; }

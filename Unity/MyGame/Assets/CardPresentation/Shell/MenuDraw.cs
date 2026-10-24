@@ -1600,10 +1600,31 @@ namespace CardPresentation
         /// <param name="clipSoftness">🆕 2026-10-04：**原版 `RectMask2D.m_Softness`**（画布像素：x 管左右、y 管上下；
         /// `(0,0)` = 硬边 = 本函数原来那套行为）。非 0 时按剖面**把 quad 沿渐隐带的内沿切开**并给四角上 alpha 斜坡
         /// —— 见 `ApplySoftEdges` 那一大段（判据/代价都在那儿）。⚠️ 只在 `clip` 有值时有意义。</param>
+        /// <param name="rotZDeg">🆕 **2026-10-24（`W18`）：原版 `RectTransform.m_LocalRotation` 绕 z 的角度（度）** ——
+        /// 就是 prefab 里那个 `localEulerAngles.z` 的**逐字同号**值（例：轮抽右栏 `Cardback` = **+1.60°**、
+        /// `Cardback Front` = **−3.43°**，`menu_dump … "Draft Mode Deck Info Panel" --depth 12 --relative` 现读；
+        /// 两件的 `m_Pivot` 都是 **(0.5,0.5)**）。**默认 `0f` ⇒ 本函数的建法逐位不变**（所有既有调用点零影响）。
+        ///
+        /// <para>**怎么转**：写的是 `ImageQuad` 那个 GameObject 的 **`localRotation`**（⛔ **不碰顶点**、
+        /// ⛔ 不改 `skewX/skewY` 那条斜切 —— 那是 shear，两码事）。**旋转中心 = 传进来的矩形 `r` 的中心**
+        /// （= 原版 `RectTransform` 的枢轴；uGUI 的旋转绕枢轴、不绕「画出来的那块」）—— `keepAspect` 把画心
+        /// 按 `padding` 挪开时（`CardbackFace.Fit` 的 `dox/doy`），本函数会**补一次平移**，让「绕箱心转」
+        /// 与「绕自身心转 + 平移」等价（否则枢轴会漂到画心上，差 ~8px 量级）。</para>
+        ///
+        /// <para>🔴 **与「分层靠 `renderQueue`」不冲突**：绕 z 转不改 `localPosition.z`、不改队列 ——
+        /// 那个口径（CLAUDE.md §三「分层要用渲染队列，不能用 z」）**一个字都没动**。</para>
+        ///
+        /// <para>⚠️ **两条前提/限制**（静态写明，⛔ 别当它已经处理了）：
+        /// ① 假定**父链无旋转**（`MenuDraw.Node` 建出来的父件恒 identity）—— 父件带旋转时要扩成有向框链；
+        /// ② 与**部分裁切**（`clip` 真的截掉一块）同时用时语义**与原版不同**：原版 `RectMask2D` 是
+        /// transform 之后在 shader 里裁（转了再裁），我们是「先轴对齐裁几何、再转」⇒ 形状会差一块；
+        /// 这个组合今天**没有任何调用点**，真要用得先想清楚（本函数此时会**出声一次**，不静默）。
+        /// ③ 带命中区（`Hit` / `Absorb`）的件转了之后，命中框仍是**未旋转的轴对齐框**
+        /// （`PointerLayer.HitBoxPx` 不读旋转）⇒ 只给纯展示件用。</para>
         public static ImageQuad Rect(Transform parent, Texture2D tex, PxRect r, string name, int q,
                                      Color? tint = null, bool keepAspect = false, PxRect? clip = null,
                                      Vector2 clipSoftness = default(Vector2),
-                                     float skewX = 0f, float skewY = 0f)
+                                     float skewX = 0f, float skewY = 0f, float rotZDeg = 0f)
         {
             if (tex == null) return null;
             // 🔴 **2026-10-12（A198② 阶段 1）：裁切状态走【一处】共用解析**（`ViewportClip.Resolve`）——
@@ -1637,6 +1658,7 @@ namespace CardPresentation
                 }
             }
             Rect uv = new Rect(0f, 0f, 1f, 1f);
+            bool partialClip = false;          // 🆕 `W18`：`clip` 真的截掉了一块（供 `rotZDeg` 那条告警判）
             if (clip.HasValue)
             {
                 // 🔴 2026-10-03：**求交那一段收口到 `ClipRect`**（`Hit` / `Nine` / `DeckCell` 共用同一份判据）——
@@ -1645,6 +1667,7 @@ namespace CardPresentation
                 PxRect cr;
                 // 整块在视口外（任一轴）⇒ 不建（也就不吃点击）—— 照原版 `RectMask2D` 的语义
                 if (!ClipRect(new PxRect(x1, y1, x2, y2), clip, out cr)) return null;
+                partialClip = !SameRect(new PxRect(x1, y1, x2, y2), cr);
                 // uv 的 y 轴是**自下而上**，而 `PxRect` 是自上而下 ⇒ 上下要翻过来
                 //（顶点序：0=左下 1=右下 2=右上 3=左上，`ImageQuad.RebuildMesh`；
                 //  `MenuScroll.Place` 那一份只做横向，纵向这一份是新的）
@@ -1668,6 +1691,34 @@ namespace CardPresentation
             //    ⚠️ 斜切与软边**不同时用**（软边会把这块切成子块、子块不继承斜切）；
             //    今天用到斜切的件都没有软边 —— 真要同时用，得把 shear 传进 `ApplySoftEdges`。
             if (skewX != 0f || skewY != 0f) quad.SetShear(skewX, skewY);
+            // 🆕 **2026-10-24（`W18`）**：原版 `m_LocalRotation` 的 z（绕**枢轴**转）。见形参 doc。
+            //   🔴 **必须放在最后**：上面每一趟（裁切 / 软边切块 / 斜切）都按**未旋转帧**量几何
+            //      （`QuadRectPx` 不读旋转）—— 先转的话它们量到的就是转过的框，软边切缝会歪。
+            if (rotZDeg != 0f)
+            {
+                // 旋转中心 = **传入矩形 `r`** 的中心（原版 `RectTransform` 的枢轴；两件消费者实读都是 (0.5,0.5)），
+                // ⛔ 不是「`keepAspect` 之后那块画心」的中心 —— 画心被 `padding` 挪开时两者差几 px。
+                float bx = (r.x1 + r.x2) * 0.5f, by = (r.y1 + r.y2) * 0.5f;
+                float dx = (x1 + x2) * 0.5f - bx, dy = (y1 + y2) * 0.5f - by;
+                if (dx != 0f || dy != 0f)
+                {
+                    // 等价改写：「绕自身心转」+ 平移，让**画心**也绕箱心转。
+                    //   本工程的 `PxRect` 是**左上原点、y 向下** ⇒ 屏幕上顺时针为正（与 prefab
+                    //   `m_LocalRotation` 的 z **同号**，判据 = `工具/menu_dump.py` 的 `rot_corners`：
+                    //   `(dx·cosθ + dy·sinθ, −dx·sinθ + dy·cosθ)`）。
+                    float th = rotZDeg * Mathf.Deg2Rad, cs = Mathf.Cos(th), sn = Mathf.Sin(th);
+                    float rx = dx * cs + dy * sn, ry = -dx * sn + dy * cs;
+                    quad.transform.localPosition = Local(parent, bx + rx, by + ry, bx + rx, by + ry);
+                }
+                quad.transform.localRotation = Quaternion.Euler(0f, 0f, rotZDeg);
+                // 🔴 与「部分裁切」同用时语义与原版**不同**（原版转了再裁、我们裁了再转）——
+                //    今天没有调用点走这个组合 ⇒ 出声，⛔ 不静默按「差不多」来。
+                if (clip.HasValue && partialClip)
+                    Debug.LogWarning("[MenuDraw.Rect] `" + name + "`：`rotZDeg`（" + rotZDeg.ToString("F2")
+                                   + "°）与**部分裁切**同时用了 —— 本函数先按轴对齐裁几何再旋转，"
+                                   + "原版是旋转后由 `RectMask2D` 在 shader 里裁 ⇒ 这块的形状会差。"
+                                   + "（判据 → `MenuDraw.Rect` 的 `rotZDeg` 形参 doc ②）");
+            }
             return quad;
         }
 
