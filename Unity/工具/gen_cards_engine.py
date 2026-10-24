@@ -1655,6 +1655,22 @@ def ability_multipliers_of(cid, name, trow, report):
 #       `fm[j]` = `activeAbilityLogic[j].furtherMultiplier`，坏值/负数 `-1`（⛔ 不猜 0 = 不乘）。
 #       （与 `abilityTargets` / `abilityMultipliers` 的 `ta` / `fm` **逐格同契约**。）
 #     · 某能力对象**一行都没有 ⇒ 不落那一项**（`[]` 里不出现空对象）。
+#     🆕 v24（2026-10-24 · 执行代理 `E1`）**每行再加三个真值键**（⛔ 不是另开一列）：
+#       · `ca[j]` = `activeAbilityLogic[j].chosenAbility`（原版 `AbilityEffect` 枚举 —— `10 doDamage` /
+#                   `20 doHeal` / `30 buffOthers` / `40 buffSelf` / `60 buffMana` / `70 summonUnit` /
+#                   `462 triggerPray` … 全表 → `d:/2/Warpforge_code/Scripts/Assembly-CSharp/AbilityEffect.cs`）。
+#                   **这一行「做什么」的唯一真值**；缺键/坏值 `-1`。
+#                   🔴 有了它才可能按**能力种类**把行配到 op 上（v23 只能配「1 对象/1 行/1 op」那 38 张，
+#                   理由 → `资料/普查产出_1024/G12_activeAbility消费.md` §三·4）。
+#       · `pa[j]` = `activeAbilityLogic[j].playersAffected`（`0` = 目标是被作用到的牌/单位；
+#                   `10` = 玩家自己 —— 现池 `10` 只出现在 `drawCard`/`buffMana`/`buffHand` 这类行上）。
+#                   缺键/坏值 `-1`。用来区分「作用对象是牌」还是「是玩家」。
+#       · `dmg[j]` = `{"min":…, "max":…, "opt":…, "type":…}` = `damageCriteria` 原值
+#                   （`minDamage` / `maxDamage` / `valueOptions` / `damageType`；缺对象/坏值逐格 `-1`）。
+#                   ⚠️ **只有 damage 族（`ca` ∈ `10/12/13/15`）才读**：非伤害行里那对 `(1,1,0,0)` 是
+#                   SO 的**序列化默认值**（现池 `ca=10` 的 70 行里 21 行是 `(1,1)`，与「1 点伤害」区分不开）
+#                   ⇒ 只能当**旁证/对账**，⛔ 别拿它反推非伤害行的数值。
+#     · 形状 = `[{"ab":…,"gate":…,"trigger":400,"needsLoading":…,"ta":[…],"fm":[…],"ca":[…],"pa":[…],"dmg":[{…}]}]`
 #   🔴 **死数据照落、带 `gate: 0`**（理由 → `资料/普查产出_1024/D11_activeAbility列.md` §2）：
 #     本仓的「缺席 = 未知」（`-1` 契约）是硬规矩 ⇒ 丢掉那 45 张就等于把「已知不消费」读成「没收到」，
 #     那正是最贵的那类静默错；并且 `hasActiveAbility` 本身就是**数据驱动的字段**（`+0x2A9` 灌进 `+0x220`），
@@ -1665,14 +1681,15 @@ def ability_multipliers_of(cid, name, trow, report):
 ACTIVE_ABILITY_LOGIC_REPORT = {
     "cards": 0, "no_truth": 0, "with_rows": 0, "objs": 0, "rows": 0,
     "dead_cards": 0, "dead_rows": 0, "fm_nonzero_rows": 0, "alt_cards": 0, "bad": [],
+    "ca_missing": 0, "pa_nonzero": 0, "dmg_read": 0,
 }
 
 
 def active_ability_logic_of(cid, name, trow, report):
-    """一张卡 → `[{"ab":…, "gate":…, "trigger":400, "needsLoading":…, "ta":[…], "fm":[…]}]`。
+    """一张卡 → `[{"ab":…, "gate":…, "trigger":400, "needsLoading":…, "ta":[…], "fm":[…], "ca":[…], "pa":[…], "dmg":[…]}]
 
     真值快照里没有这张卡 ⇒ `None`（调用方**不落列** = 未知）。
-    `hasActiveAbility` / `hasAlternativeAbility` / `needsLoading` / `ta` / `fm` 的坏值口径见上面那段。
+    `hasActiveAbility` / `hasAlternativeAbility` / `needsLoading` / `ta` / `fm` / `ca` / `pa` / `dmg` 的坏值口径见上面那段。
     """
     if trow is None:
         report["no_truth"] += 1
@@ -1713,12 +1730,15 @@ def active_ability_logic_of(cid, name, trow, report):
         if nl is None:
             report["bad"].append((cid, name, f"{key}.needsLoading", ab.get("needsLoading")))
             nl = -1
-        ta, fm = [], []
+        ta, fm, ca, pa, dmg = [], [], [], [], []
         for j, lg in enumerate(defs):
             if not isinstance(lg, dict):
                 report["bad"].append((cid, name, f"{key}[{j}]", lg))
                 ta.append(-1)
                 fm.append(-1)
+                ca.append(-1)
+                pa.append(-1)
+                dmg.append({"min": -1, "max": -1, "opt": -1, "type": -1})
                 continue
             tc = lg.get("targetCriteria")
             v = tc.get("targetsAffected") if isinstance(tc, dict) else None
@@ -1731,9 +1751,40 @@ def active_ability_logic_of(cid, name, trow, report):
                 report["bad"].append((cid, name, f"{key}[{j}].furtherMultiplier", w))
                 w = -1
             fm.append(w)
+            # ---- v24: chosenAbility（这一行「做什么」）----
+            cv = lg.get("chosenAbility")
+            if isinstance(cv, bool) or not isinstance(cv, int):
+                report["bad"].append((cid, name, f"{key}[{j}].chosenAbility", cv))
+                cv = -1
+                report["ca_missing"] += 1
+            ca.append(cv)
+            # ---- v24: playersAffected（0 = 作用到牌/单位 / 10 = 玩家自己）----
+            pv = lg.get("playersAffected")
+            if isinstance(pv, bool) or not isinstance(pv, int):
+                report["bad"].append((cid, name, f"{key}[{j}].playersAffected", pv))
+                pv = -1
+            elif pv != 0:
+                report["pa_nonzero"] += 1
+            pa.append(pv)
+            # ---- v24: damageCriteria（只有 damage 族才读，见上面那段）----
+            dc = lg.get("damageCriteria")
+            _d = {"min": -1, "max": -1, "opt": -1, "type": -1}
+            if isinstance(dc, dict):
+                for _k, _src in (("min", "minDamage"), ("max", "maxDamage"),
+                                 ("opt", "valueOptions"), ("type", "damageType")):
+                    _dv = dc.get(_src)
+                    if isinstance(_dv, bool) or not isinstance(_dv, int):
+                        report["bad"].append((cid, name, f"{key}[{j}].damageCriteria.{_src}", _dv))
+                    else:
+                        _d[_k] = _dv
+                report["dmg_read"] += 1
+            else:
+                report["bad"].append((cid, name, f"{key}[{j}].damageCriteria", dc))
+            dmg.append(_d)
         g = branch_gate(code)
         out.append({"ab": code, "gate": g, "trigger": 400,
-                    "needsLoading": nl, "ta": ta, "fm": fm})
+                    "needsLoading": nl, "ta": ta, "fm": fm,
+                    "ca": ca, "pa": pa, "dmg": dmg})
         report["objs"] += 1
         report["rows"] += len(ta)
         report["fm_nonzero_rows"] += sum(1 for x in fm if x > 0)
@@ -4299,7 +4350,7 @@ def build():
     talent_name_ids = build_talent_name_ids(truth_cards, truth_by_path, cards, talent_name_report)
 
     return {
-        "version": 23,         # v6: 每张卡带稳定 id（🔴 2026-10-18 `W25` 起按原版 `uniqueId` 直取，
+        "version": 24,         # v6: 每张卡带稳定 id（🔴 2026-10-18 `W25` 起按原版 `uniqueId` 直取，
                                #    名级联降为交叉校验；自造 = 生成期自检硬失败）
                                # v7（2026-10-14 `A1798`）：加 `inventoryOptions` / `showInCollectionOptions` 两列
                                # v8（2026-10-14 `A1775`）：加 `initiative` 一列（先后手；原版真值）
@@ -4450,6 +4501,15 @@ def build():
                                #    🔴 **只落数据、零行为变化**：消费端（`CardDef` / `EffectText` /
                                #      `EffectResolver`）**另批做** —— 当前 0 个运行期消费者（D10 §3·1）。
                                #    🔴 踩坑：`alternativeAbility` 里的列表键名**也叫 `activeAbilityLogic`**。
+                               #    ⚠️ 加列【必须】bump（`CardDatabase.cs` 的 version 守卫靠它出声）。
+                               # v24（2026-10-24 · 执行代理 `E1`）：`activeAbilityLogic` 每行**加三个真值键**
+                               #    （⛔ 不是新列）—— `ca`（`chosenAbility` = 原版 `AbilityEffect` 枚举，
+                               #    这一行「做什么」的唯一真值）· `pa`（`playersAffected`，0 牌/单位、10 玩家自己）·
+                               #    `dmg`（`damageCriteria` 原值 `{min,max,opt,type}`；⚠️ 只有 damage 族 10/12/13/15 才读，
+                               #    非伤害行的 `(1,1,0,0)` 是 SO 序列化默认值）。
+                               #    🔴 目的 = 让**能力种类**成为「行 ↔ op」的判据（v23 的 38/87 只配了 1:1 那一档）；
+                               #    形状仍 `[{"ab","gate","trigger","needsLoading","ta","fm","ca","pa","dmg"}]`，
+                               #    逐格对齐 `ta`/`fm`（同长度、同 `-1 = 未知` 契约）。
                                #    ⚠️ 加列【必须】bump（`CardDatabase.cs` 的 version 守卫靠它出声）。
         "source": "Unity/数据/游戏数据/card_stats.json（稀有度另取 资料/卡牌数据表/卡牌宝石稀有度_0824.md；"
                   "英文名 / 中文名都以**原版官方表** 数据/游戏数据/官方本地化_en+zh-CN.json 的 `Card_Name/*` 为准"
@@ -5456,6 +5516,9 @@ def main():
     print(f"             其中 `gate=0`（`hasActiveAbility=0` = 本 build 死数据）**{_aalr['dead_cards']}** 张 / "
           f"**{_aalr['dead_rows']}** 行 · `fm>0` 的行 **{_aalr['fm_nonzero_rows']}** 行 · "
           f"`alternativeAbility` 有行 **{_aalr['alt_cards']}** 张")
+    print(f"             v24 每行真值：`chosenAbility` 缺/坏 **{_aalr['ca_missing']}** 格 · "
+          f"`playersAffected != 0` **{_aalr['pa_nonzero']}** 格 · "
+          f"`damageCriteria` 读到 **{_aalr['dmg_read']}** 行")
     print("             🔴 本列**零行为变化**：消费端（`CardDef`/`EffectText`/`EffectResolver`）另批做")
     if _aalr["no_truth"]:
         print(f"  ⚠️ 真值快照里没有的卡 {_aalr['no_truth']} 张 —— **不落列**（未知，⛔ 不是空表）")

@@ -4303,6 +4303,15 @@ namespace CardPresentation
             _enemyChatTipShown = false;
             _chatTurnSeen = -1;
             LastUnitSkillBeatAtForTest = -1f;
+            // 🔴 **2026-10-24（执行代理 `E7` 顺手查出并修掉的跨局泄漏）**：AI 发言的两个「已排期」标志。
+            //   它们是**本局的账**，而排进去的那条 cue 活在 `_timeline` 里（下面 `_timeline.Clear()` 会清掉）
+            //   ⇒ 上一局**排了但没到点**的那条一被清走，标志就**永远停在 true**
+            //   ⇒ 之后的每一局 `ScheduleAiReplyToPlayerChat` / `MaybeAiEmote` 第一句就 return
+            //   ⇒ **AI 再也不回话、也不自发说话了**（静默、且只在这个 driver 被复用之后才现形；
+            //     自检里正是「同一台 driver 连着 `Begin` 好几局」）。
+            _aiReplyPending = false;
+            _aiEmotePending = false;
+            LastAiEmoteDelayForTest = -1f;
 
             // 🆕 2026-10-01：**「已经把键让出去了、等演出」的那几张**同理（`DetachStaleView` 摘的）
             foreach (var kv in _myFading) if (kv.Value != null) Kill(kv.Value.gameObject);
@@ -5789,13 +5798,34 @@ namespace CardPresentation
         //
         //  【原版机制（背景，手法逐句读过）】
         //   · 每次 AI 动作之后：`AI__ExecuteAction.c:463` → `BattleManager__PlayRandomAIVoiceLine`
-        //     → `Random.Range(2)` 挑一条 → `VoiceLinesController__AIResponse(...)`。
+        //     → `Random.Range(??)` 挑一条 → `VoiceLinesController__AIResponse(...)`。
+        //     🔴 **2026-10-24（执行代理 `E7`）就地订正**：这里原来写「`Random.Range(2)`」——
+        //       那是 **Ghidra 吞了第一个实参**印出来的样子（`AIResponse` 的 `param_2 != 0 && param_2 != 1`
+        //       那道闸会因此变成「永远为假」= 整支死代码，与「AI 会自发说话」矛盾 ⇒ 必是读法问题）。
+        //       **机器码实读**（`GameAssembly.dll` RVA `0x971800` → 文件偏移 `0x970200`，
+        //       映射 = `.text` 段 `va 0x1000 → ra 0x400`）：
+        //         `41 8d 50 0b` = `lea edx,[r8+0xb]`（edx = 11）· `8d 4a f7` = `lea ecx,[rdx-9]`（ecx = 2）
+        //         → `e8 e8 c5 68 02` = `call UnityEngine.Random.Range(int,int)`
+        //       ⇒ 真值是 **`Random.Range(2, 11)`** = 枚举 2…10（`ChatMessage { Bored=2 … Oops=10 }`）。
+        //       这个参数**只用来过闸**（`AIResponse` 里除了那道闸再没读它）—— 真正念哪一句由
+        //       `_ChatAIResponse` 协程自己再随机一次：`Random.Range(5, Enum.GetValues().Count=11)`
+        //       = **5…10 = Greet/Threat/WellPlayed/Taunt/Sorry/Oops 六句**（`ChatAIResponse.c:47` 上面
+        //       那两行）⇒ 与我们的 `VoiceLines.ForChatButton`（6 条）**逐条对齐**。
         //   · 本地玩家发言之后：`VoiceLinesController__DisplayWarlordChatMessage.c` 在
         //     `isLocalPlayer != 0` 那一支里调 `AIResponse(ctrl, 枚举号, 台词时长, **1**)`
         //     （最后那个 `1` = 「这是**回话**」那一档）。
         //   · `AIResponse` 里的概率闸：`Random.Range(0, 1f) < AIBotsConfig.BotEmotesConfig`
         //     的 `+0x10`（= `emote_chance_after_action`）或 `+0x14`（= `reply_chance`）；
-        //     延迟 = `Random.Range(+0x18, +0x1C)`（`min|max_reply_delay`）。
+        //     延迟 = `Random.Range(+0x18, +0x1C)`（`min|max_reply_delay`）**＋ 0.3 s**。
+        //     🔴 **2026-10-24（`E7`）**：那个 `+0.3` 也是机器码/常量读出来的 ——
+        //       `_ChatAIResponse_d__60__MoveNext.c:17` 是 `WaitForSeconds(fVar1 + DAT_1834b2dc8)`，
+        //       而 `DAT_1834b2dc8`（RVA `0x34b2dc8`）4 字节 = `9a 99 99 3e` = **0.3f**
+        //       （`DAT_1834b2bb8` = `00 00 80 3f` = **1.0f**，就是概率闸那个 `Range(0, 1f)`）。
+        //   · 🔴 **先档位、后延迟**：`AIResponse` **先**掷概率、**再**排协程（`StartCoroutine` 里才等）
+        //     ⇒ 掷不中**连排期都不会发生**。我们原来是「立刻说」⇒ 与「等 `[min,max]+0.3` s」不符，
+        //     已按此改成 `ScheduleAction` 排期（见 `MaybeAiEmote`）。
+        //   · 🔴 **`IsAgainstAI` 闸**：`AIResponse.c` 开头 `BattleManager.IsAgainstAI` 为假 ⇒ 整支不做
+        //     （联机局对面是**人**，本机不许替他说话）⇒ 我们的等价物 = `AiShouldDriveOpponent`（`_net == null`）。
         //
         //  🔴 **原版值【不可得】**：那四个数是 **RemoteConfig**（`AIBotsConfigProvider :
         //     ConfigProvider<AIBotsConfig>`），本地 `assets_full` 逐字搜 `emote_chance_after_action`
@@ -5817,6 +5847,13 @@ namespace CardPresentation
         public const float AiEmoteCooldown = 14f;
         /// <summary>**本地默认**：回话延迟的上下限（秒）。原版是 `min|max_reply_delay`（RemoteConfig，不可得）。</summary>
         public const float AiReplyDelayMin = 0.9f, AiReplyDelayMax = 2.4f;
+
+        /// <summary>回话 / 自发发言在「掷中之后」额外等的那一小段（秒）。
+        /// <para>🔴 **这是原版真值，不是我们挑的**：`_ChatAIResponse_d__60__MoveNext.c:17` =
+        /// `new WaitForSeconds(fVar1 + DAT_1834b2dc8)`，而 `DAT_1834b2dc8`（`GameAssembly.dll`
+        /// RVA `0x34b2dc8`）现读 4 字节 = `9a 99 99 3e` = **`0.3f`**。</para>
+        /// <para>⚠️ 两条路（回话 / 自发）**共用**这一个：原版同一个协程（`AIResponse` 只分概率那一档）。</para></summary>
+        public const float AiResponseExtraDelay = 0.3f;
 
         /// <summary>AI 发言用的随机源 —— **固定种子**（自检可复现；⛔ 不消耗 `Ctx.Rng`，
         /// 那是引擎的确定性随机，动它会让对局与录像不一致）。</summary>
@@ -5916,9 +5953,16 @@ namespace CardPresentation
         /// 返回说了没有（false 不是错：对面没配这句台词 / 语音条没建 / 闸没开）。
         /// <para>台词从 `VoiceLines.ForChatButton`（6 句督军通用聊天：greet/threat/wp/gen1-3）里随机挑，
         /// 取不到落 `"default"`（与玩家 `SpeakChat` **同一个消费口径**，见那里的 `A1768` 注释）。</para>
-        /// <para>🔴 **如实记**：原版 `PlayRandomAIVoiceLine` 到底怎么挑那一句**读不出来**
-        /// （`Random.Range(2)` 的参数被反编译器吞了）⇒ 「从同一张 6 句表里随机挑」**是我们挑的取法**，
-        /// 机位（`_unitChat` 的敌方那一侧）与语音来源（`VoiceLines`）则是原版同一条链。</para></summary>
+        /// <para>🔴 **如实记（2026-10-24 执行代理 `E7` 收口）**：原来这里写「原版到底怎么挑那一句
+        /// **读不出来**（`Random.Range(2)` 的参数被反编译器吞了）」—— **前一个问题已经查清，后一句也订正了**：
+        /// · **挑哪一句** = `_ChatAIResponse_d__60__MoveNext.c:47` 上面那两行：
+        ///   `Random.Range(5, Enum.GetValues(ChatMessage).Count)` —— 枚举 11 个值（`Intro=0 … Oops=10`）
+        ///   ⇒ **5…10 = Greet/Threat/WellPlayed/Taunt/Sorry/Oops 六句**，均匀分布。
+        ///   ⇒ 我们「从同一张 6 句表里均匀随机挑」**与判据逐条一致**（`ForChatButton` 那 6 条就是这 6 个）。
+        /// · **`Range(2)` 那个误会**：那是 `PlayRandomAIVoiceLine` 里的 `Range(2, 11)`（机器码实读，
+        ///   见本节头部那段），它只是 `AIResponse` 的**闸参数**，不是「挑台词」。
+        /// ⇒ 仍然**是我们挑的**只剩一件事：`"default"` 第二跳（原版 `GetChatSound` 取不到时的
+        ///   `defaultChatSound`，见 `SpeakChat` 的同款注释）—— 这一跳**照原版**。</para></summary>
         public bool SpeakAiChat(bool reply)
         {
             if (!CanAiChat()) return false;
@@ -6006,16 +6050,22 @@ namespace CardPresentation
                     + $"（立绘/音源 = 敌方督军 `{card.Id}`；原版 `+0x68` 打开 = 本局不再弹）");
         }
 
-        /// <summary>玩家刚说了一句 ⇒ 按**本地默认概率**排一次 AI 回话（延迟 `AiReplyDelayMin..Max`）。
-        /// 调用点 = <see cref="SpeakChatAt"/>（玩家从 `ChatPopup` 里选了一句且真的说了）。</summary>
+        /// <summary>玩家刚说了一句 ⇒ 按**本地默认概率**排一次 AI 回话（延迟 `AiReplyDelayMin..Max` **＋
+        /// <see cref="AiResponseExtraDelay"/>**）。调用点 = <see cref="SpeakChatAt"/>（玩家从 `ChatPopup` 里选了一句且真的说了）。
+        /// <para>🔴 **2026-10-24（执行代理 `E7`）：补上原版的 `IsAgainstAI` 闸。** 判据 =
+        /// `VoiceLinesController__AIResponse.c` 开头 `BattleManager.IsAgainstAI` 为假 ⇒ 整支不做；
+        /// 而**联机局**对面是**人**（原版同一支里先 `BattleCommsManager.SendChatMessage` 把这句话送过去，
+        /// 由**对方那台机器**决定要不要回）⇒ 本机 ⛔ **不许替他说话**。
+        /// 我们的等价物 = <see cref="AiShouldDriveOpponent"/>（`_net == null`）。</para></summary>
         void ScheduleAiReplyToPlayerChat(float chanceOverride = -1f)
         {
+            if (!AiShouldDriveOpponent) return;     // 原版 `IsAgainstAI`（联机局不替对面说话）
             if (_aiReplyPending || !CanAiChat()) return;
             float chance = chanceOverride >= 0f ? chanceOverride : AiReplyChance;
             if (_aiChatRng.NextDouble() >= chance) return;
             float delay = AiReplyDelayMin + (AiReplyDelayMax - AiReplyDelayMin) * (float)_aiChatRng.NextDouble();
             _aiReplyPending = true;
-            ScheduleAction(delay, () =>
+            ScheduleAction(delay + AiResponseExtraDelay, () =>
             {
                 _aiReplyPending = false;
                 if (!SpeakAiChat(true))
@@ -6027,18 +6077,71 @@ namespace CardPresentation
             });
         }
 
+        /// <summary>已经排了一次**自发发言**（到点才说）—— 与 <see cref="_aiReplyPending"/> 同一条纪律，
+        /// 免得概率/冷却都过了却排成两条。</summary>
+        bool _aiEmotePending;
+
         /// <summary>AI 成功做完一条动作之后调一次（`AfterAiAction` 的 `ok` 那一支）：
-        /// 按**本地默认概率** + 冷却，让对面督军**自发**说一句。</summary>
-        void MaybeAiEmote()
+        /// 按**本地默认概率** + 冷却，让对面督军**自发**说一句。
+        ///
+        /// <para>🔴 **2026-10-24（执行代理 `E7` · 对手聊天「发言触发面」第二件）：两处按原版改齐**。</para>
+        /// <list type="number">
+        /// <item><b>不再是「立刻说」</b> —— 原版 `AI__ExecuteAction.c:463` 只是 `PlayRandomAIVoiceLine`，
+        ///   后者调 `AIResponse`，真正开口在 `_ChatAIResponse` 协程里 **`WaitForSeconds(Random.Range(
+        ///   min_reply_delay, max_reply_delay) + 0.3f)` 之后**（判据 → 那一节头部的注释）。
+        ///   ⇒ 这里改成 `ScheduleAction(delay + <see cref="AiResponseExtraDelay"/>, …)`。</item>
+        /// <item><b>补 `IsAgainstAI` 闸</b>（<see cref="AiShouldDriveOpponent"/>）—— 判据同
+        ///   <see cref="ScheduleAiReplyToPlayerChat"/> 那条。<b>今天</b> <see cref="AfterAiAction"/>
+        ///   只在 `AiShouldDriveOpponent` 为真的那条路上被调（联机局对面是网络驱动的），
+        ///   这一句是**结构闸**：将来谁把 AI 驱动接到联机测试里，也不会让本机替真人说话。</item>
+        /// </list>
+        /// <para>⚠️ <paramref name="chanceOverride"/> 只给自检用（`1f` = 必中）—— 生产调用不传。</para></summary>
+        void MaybeAiEmote(float chanceOverride = -1f)
         {
+            if (!AiShouldDriveOpponent) return;        // 原版 `AIResponse` 的 `IsAgainstAI`
             if (!CanAiChat()) return;
-            if (_clock - _lastAiEmoteAt < AiEmoteCooldown) return;      // 冷却（我们加的护栏）
-            if (_aiChatRng.NextDouble() >= AiEmoteChancePerAction) return;
-            if (!SpeakAiChat(false)) return;
-            _lastAiEmoteAt = _clock;
+            if (_aiEmotePending) return;                                  // 已经排了一条
+            if (_clock - _lastAiEmoteAt < AiEmoteCooldown) return;        // 冷却（我们加的护栏）
+            float chance = chanceOverride >= 0f ? chanceOverride : AiEmoteChancePerAction;
+            if (_aiChatRng.NextDouble() >= chance) return;
+            float delay = AiReplyDelayMin + (AiReplyDelayMax - AiReplyDelayMin) * (float)_aiChatRng.NextDouble();
+            _aiEmotePending = true;
+            _lastAiEmoteAt = _clock;                   // 排的时候就记账（冷却从「掷中」起算，不是从「开口」）
+            LastAiEmoteDelayForTest = delay + AiResponseExtraDelay;
+            ScheduleAction(delay + AiResponseExtraDelay, () =>
+            {
+                _aiEmotePending = false;
+                if (!SpeakAiChat(false))
+                {
+                    // 不许静默失败：这一句没说出来要点明是哪一种（闸 / 台词 / 语音）
+                    Debug.Log($"[Battle] AI 自发发言到点了但**没说出来**"
+                            + $"（`CanAiChat`={CanAiChat()} · 语音条={((_unitChat != null) ? "有" : "无")}）");
+                }
+            });
         }
 
-        /// <summary>自检用：直接走一次「AI 自发发言」（绕开概率闸）。</summary>
+        /// <summary>自检读口：**自发发言已排期、还没到点**。</summary>
+        public bool AiEmotePendingForTest { get { return _aiEmotePending; } }
+        /// <summary>自检读口：上一条自发发言排的**延迟**（秒，含 <see cref="AiResponseExtraDelay"/>）；没排过 = -1。</summary>
+        public float LastAiEmoteDelayForTest { get; private set; } = -1f;
+        /// <summary>自检用：以**必中**排一次自发发言（绕开概率；冷却也一起绕开）。
+        /// 返回是否排上了 = 生产需要验的是「延迟泵」这一半，不是概率那一半。</summary>
+        public bool ScheduleAiEmoteForTest()
+        {
+            _lastAiEmoteAt = float.NegativeInfinity;    // 绕开冷却（冷却值是本地护栏，不是原版）
+            MaybeAiEmote(1f);
+            return _aiEmotePending;
+        }
+        /// <summary>自检用：把自发发言的排期状态清干净（只给自检；⛔ 生产路径别调）。</summary>
+        public void ResetAiEmoteForTest()
+        {
+            _aiEmotePending = false;
+            _lastAiEmoteAt = float.NegativeInfinity;
+            LastAiEmoteDelayForTest = -1f;
+        }
+
+        /// <summary>自检用：直接走一次「AI 自发发言」（绕开概率闸**与延迟** —— 验的是开口那一侧；
+        /// 延迟那一侧用 <see cref="ScheduleAiEmoteForTest"/>）。</summary>
         public bool AiEmoteForTest() { return SpeakAiChat(false); }
         /// <summary>自检用：直接走一次「AI 回话」（绕开概率闸与延迟）。</summary>
         public bool AiReplyForTest() { return SpeakAiChat(true); }
@@ -6145,6 +6248,50 @@ namespace CardPresentation
             }
             if (clip == null) return;      // 表里有、音频没导进来 —— `VoiceLines.Clip` 已经报过警告了
 
+            // 🔴 **2026-10-24（执行代理 `E4` · 对手聊天「发言触发面」第一件）：`attack` / `death`
+            //   这两档【只放音、不弹气泡】。**
+            //   判据（第一权威，逐句现读 `d:/2/tools/decomp_full/`）：
+            //     · `CardScript._AttackMeleeAnim_d__357__MoveNext.c:76-83` —— `GetAttackSound()` 取到就
+            //       `BattleManager__PlaySoundClip(bm, clip)`，**整支没有 `ShowChatBox`**；
+            //     · `CardScript._UnitDeath_d__446__MoveNext.c:82-97` —— 同上（`GetDeathSound`）；
+            //     · `BattleManager__PlaySoundClip.c` —— 整支只有一个动作：`AudioSource.PlayOneShot(clip,
+            //       AudioListener.volume)`（`+0x90` 那颗 2D 源），前后只有「clip != null」与
+            //       「`globalVars +0xd4 > 0`」两道闸。**没有气泡、没有台词、没有盒子**。
+            //   ⇒ 改前我们三档（`deploy`/`attack`/`death`）一律走 `_unitChat.Speak` —— 而 `attack`/`death`
+            //     的 `text` 现读 **56/56、56/56 全空** ⇒ 每一下攻击/阵亡都弹出一条「卡名」气泡
+            //     （**可见的偏离**；`普查产出_1019/W_战斗线_T19现核_1019b.md` §四·4 记的就是它）。
+            //   ⚠️ 声音仍走**原版同一条判据**（`VoiceLines` 的逐卡精确绑定 → 后缀兜底），只是不建气泡。
+            //   ⚠️ 纯音频这一路**不进** `UnitChatPanel` 的「气泡在显示但没有音频在播」诊断（那管的是气泡）；
+            //      clip 取不到时 `VoiceLines.Clip` 自己会出声（⛔ 没静默）。
+            if (e.Kind != EvtKind.Deploy)
+            {
+                PlayUnitVoiceClipOnly(clip, card, evt);
+                return;
+            }
+            // 🔴 **2026-10-24（`E4` · 同族第二件）：台词为空 ⇒ 【不显示出场气泡】。**
+            //   判据 = `VoiceLinesController__DisplaySummonMessage.c:36-75`：取到 `GetSummonSound()` 之后
+            //   `GetLocalizedSummonChat()` 的 `IsNullOrEmpty` 为真 ⇒ **只 `CustomDebug.LogError(<卡名>)`**、
+            //   不 `ShowChatBox`。原版**没有**「把卡名印成台词」这条退路 —— 那是我们
+            //   `UnitChatPanel.Speak` 的兜底（`official ?? (text 为空 ? fallbackName : text)`）。
+            //   ⚠️ 判「空」= **官方词条（`Chat_Messages/<卡 id>`）与 `voice_lines` 的 text 两处都空**。
+            //   ⚠️ 键的后缀按 `e.Kind.ToString()`（= `"Deploy"`）算 —— 与下面 `Speak` 传的那个字面量同一口径
+            //      （⛔ 别拿 `evt`，它是 `VoiceLines` 的**小写**事件名 `"deploy"`，那一路是音频绑定用的）。
+            {
+                string summonTerm;
+                string summonOfficial = UnitChatPanel.OfficialChatText(card.Id, e.Kind.ToString(), null, out summonTerm);
+                if (string.IsNullOrEmpty(summonOfficial) && string.IsNullOrEmpty(text))
+                {
+                    if (_summonChatMissing == null) _summonChatMissing = new HashSet<string>();
+                    if (_summonChatMissing.Add(card.Id))
+                        Debug.LogWarning($"[UnitChat] `{card.Name}`（{card.Id}）**有出场语音、但没有台词**"
+                                       + "（官方 `Chat_Messages/*` 与 `voice_lines` 两处都空）⇒ **不显示出场气泡**"
+                                       + " —— 原版 `DisplaySummonMessage.c:36-75` 那一支只 `LogError(<卡名>)`；"
+                                       + "「印卡名当台词」是我们以前的兜底，已按原版去掉。");
+                    SummonChatMissingSkipsForTest++;
+                    return;
+                }
+            }
+
             // 🆕 2026-10-24（执行代理 `B1` · C2 §4·3 / 顺手发现 7）：**召唤气泡的并发闸** ——
             //   原版 `VoiceLinesController__DisplaySummonMessage.c:22-30`：三个盒子 `+0x40` 全 0
             //   （没人正在说）才 `ShowChatBox` ⇒ 有人正在说的时候**召唤这一条不显示**。
@@ -6158,6 +6305,59 @@ namespace CardPresentation
         /// ⛔ 别在自检里另写一份「该不该说话」的判据）。
         /// 🆕 2026-10-21（战斗线四笔静态项 · 笔 3）：给 T19 那 6 张卡（无 `summonAudio`）用。</summary>
         public void SpeakForForTest(BattleEvent e) { SpeakFor(e); }
+
+        // ==================================================================
+        //  🔴 **2026-10-24（执行代理 `E4`）：单位语音的【纯音频】那一路**
+        //  （原版 `BattleManager.PlaySoundClip`）+ 两个自检读口。
+        // ==================================================================
+
+        /// <summary>按需建：**只有真的播过「纯音频」那一档的局**才会有这个 `AudioSource`。
+        /// 🔴 形状照同文件的 <see cref="EnsureTutorialSfx"/>（同一条纪律：2D、`Voices` 混音组、`playOnAwake = false`）。
+        /// ⚠️ 为什么另建一颗、而不借 `UnitChatPanel` 气泡上那颗：原版这两条路**本来就是两条**
+        /// （气泡那一路 = `DisplayWarlordChatMessage`/`DisplaySummonMessage` → `ShowChatBox`；
+        /// 纯音频那一路 = `BattleManager.PlaySoundClip` → 战斗管理器自己那颗 2D `AudioSource`（`+0x90`））。
+        /// 借气泡那颗会在「气泡已经被别人占用」时把声音掐掉（`UnitChatPanel.Speak` 开头 `HideBubble` + 换 clip），
+        /// 而原版的攻击/阵亡语音**与气泡无关**。</summary>
+        AudioSource _unitVoiceSfx;
+
+        AudioSource EnsureUnitVoiceSfx()
+        {
+            if (_unitVoiceSfx != null) return _unitVoiceSfx;
+            if (hudRoot == null) return null;
+            _unitVoiceSfx = hudRoot.gameObject.AddComponent<AudioSource>();
+            _unitVoiceSfx.playOnAwake = false;
+            _unitVoiceSfx.spatialBlend = 0f;                       // 原版那颗是 2D（`PlaySoundClip` 直接 `PlayOneShot(clip, AudioListener.volume)`）
+            _unitVoiceSfx.outputAudioMixerGroup = WarpforgeAudio.VoicesGroup;
+            return _unitVoiceSfx;
+        }
+
+        /// <summary>自检读口：走「纯音频（无气泡）」那条路**真的播了几次**（每次 +1，只在 clip 取到时计）。
+        /// 🔴 生产代码不读它 —— 它存在只为让「`attack`/`death` 不弹气泡」这件事**可断言**
+        /// （判据 → `SpeakFor` 里那一段与 `PlaySoundClip` 的方法体）。</summary>
+        public int UnitVoiceAudioOnlyCountForTest { get; private set; }
+        /// <summary>自检读口：最近一次纯音频播的是哪张卡 / 哪个事件（`<卡 id>|<事件>`）。</summary>
+        public string LastUnitVoiceAudioOnlyForTest { get; private set; }
+        /// <summary>自检读口：「有出场语音、但没有台词 ⇒ 不弹气泡」这条闸**拦下了几次**
+        /// （判据 → `DisplaySummonMessage.c:36-75` 的 `IsNullOrEmpty` 那一支）。</summary>
+        public int SummonChatMissingSkipsForTest { get; private set; }
+        /// <summary>「没有台词」的告警去重表（每张卡只喊一次，⛔ 不每拍刷屏）。</summary>
+        HashSet<string> _summonChatMissing;
+
+        /// <summary>原版 `BattleManager.PlaySoundClip`：**只放音**，不建气泡、不印台词、不碰任何盒子。
+        /// 判据（`decomp_full/BattleManager__PlaySoundClip.c`，整支现读）：
+        /// `if (clip == null) return;` → `AudioSource.PlayOneShot(clip, AudioListener.volume)`。
+        /// ⚠️ 两支共用的音量都是 `AudioListener.volume`（那个 `uVar3` 就是它；
+        /// 另一个闸 `globalVars +0xd4 > 0` 是**主音量闸**，我们由 `AudioListener.volume` 自己承担 —— 如实记）。
+        /// ⚠️ 不动引擎状态、不消耗 `Ctx.Rng` ⇒ 对录像 / 回放 / 指纹**零影响**（铁律：表现层不许改局面）。</summary>
+        void PlayUnitVoiceClipOnly(AudioClip clip, CardDef card, string evt)
+        {
+            if (clip == null) return;
+            var src = EnsureUnitVoiceSfx();
+            if (src == null) return;                     // 没有 hudRoot（纯引擎自检）⇒ 没有播放面
+            src.PlayOneShot(clip, AudioListener.volume);
+            UnitVoiceAudioOnlyCountForTest++;
+            LastUnitVoiceAudioOnlyForTest = (card != null ? card.Id : "?") + "|" + evt;
+        }
 
         /// <summary>投降时说一句（原版 `concede` 那一族台词；只有督军有）。</summary>
         void SpeakConcede(int who)
@@ -27246,6 +27446,10 @@ namespace CardPresentation
                         // 原版这一步在服务器（每局结束写 `PlayerDataManager.battleLogData`）——
                         // 本地没有服务器 ⇒ 由我们记，**这是加功能、不是复刻**（判据 → `Shell/BattleLogData.cs` 文件头）。
                         RecordBattleLog();
+                        // 🆕 2026-10-24（E13）：**同一处把战果记进成就进度**（用户当天点名：
+                        //   成就界面的 102 条进度原来**恒 0**）。只统计这里**真的数到**的量 ——
+                        //   映射表与「哪些没接」在 `AwardAchievements` 上面那一段。
+                        AwardAchievements();
                         // 🆕 2026-09-27：**录像也在这一处收尾**（用户当天拍板「做，我们需要录像」）——
                         // 原版 `BattleManager.SaveMatchWinner` 也是结算时才把录制交上去。
                         // ⚠️ 顺序要紧：`RecFinish` 会把录像文件名挂到**刚写的那条**对局记录上（`AttachReplay`）。
@@ -27319,6 +27523,69 @@ namespace CardPresentation
                 //    错因 = 那句是回放还没做时写的，做完之后没回头改。
                 RecordingIndex = -1,
             });
+        }
+
+        // ============================================================ 🆕 2026-10-24（E13）：结算 → 成就进度
+        //
+        // 🔴 **原文现状（已过期，铁律 5 就地更正）**：`ProfileData.SetAchievementValue` 在此之前**只有
+        //    Editor 自检在调** ⇒ 界面 102 条成就、5 档阈值、右上总分**全都有，进度恒 0**（R2 报告 §①-5）。
+        // 🔴 **只统计我们【真的】在结算里数到的量**（⛔ 不许编进度）：
+        //    · `Damage To Warlord` ⇐ `Ctx.DamageToEnemyWarlord[me]`（`RuleCore.ApplyDamage` 督军那一格）；
+        //    · `Collect Skulls`    ⇐ `_foeSkullCount`（与 HUD `x N`、结算面板、对局记录**同源**那一格）；
+        //    · `Gain Faith`        ⇐ `PlayerState.Faith`（引擎里**只增不减**，见那个字段的注释 ⇒ 结算值 = 本局累计）；
+        //    · `Play/Win Ranked Multiplayer Matches` ⇐ **真联机局 + 排位模式（`Classic`）**的 +1。
+        //      ⛔ **单机打 bot 的那些「排位入口」不算**：challenge 原文写的是 **Multiplayer**，
+        //      拿单机局冒充 = 编进度（如实标：我们这四个入口里，单机排位局因此**不涨这两条**）。
+        // ⚠️ **数不到所以【没接】的**（全 102 条的其余项；逐项理由见
+        //    `资料/普查产出_1024b/E13_成就与对局历史.md`）：近战/远程伤害拆分、圣典/黑暗契约/暴群等
+        //    关键词触发次数、卡牌收集/升级、开包、登录天数、战役完成、段位——**引擎/结算处都还没有计数器**，
+        //    要它们得先有真计数源（⛔ 拿别的数凑）。
+        // ⚠️ 写的是**累加**（`ProfileData.AddAchievementValue`）：原版成就是跨对局累计
+        //    （`Achievement__OnChallengeUpdate` + `AchievementsManager__UpdateSave`），⛔ 不是每局覆盖。
+
+        /// <summary>结算处 → 成就（唯一调用点 = 本类结算那一段，紧跟 `RecordBattleLog()`）。
+        /// 判据与「哪些没接」→ 上面那一段注释。</summary>
+        void AwardAchievements()
+        {
+            int me = _me;
+            bool won = Ctx.Winner == me + 1;
+            bool rankedNet = _net != null && Ctx.PlayMode == GameMode.Classic;
+            AwardBattleAchievements(Ctx.DamageToEnemyWarlord[me], _foeSkullCount,
+                                    Ctx.Players[me].Faith, rankedNet, won);
+        }
+
+        /// <summary>成就写点的**纯函数**那一半（`public static` 是给自检用的：它可以**不真打一局**就喂数，
+        /// 验证「这些量确实会写进对应成就」）。⚠️ 生产路径只有 <see cref="AwardAchievements"/> 一个调用点。</summary>
+        /// <param name="damageToEnemyWarlord">本局对**敌方督军**造成的实际伤害（`Ctx.DamageToEnemyWarlord[me]`）。</param>
+        /// <param name="skullsCollected">本局拿到的骷髅数（`_foeSkullCount`）。</param>
+        /// <param name="faithGained">本局累计获得的信仰（`PlayerState.Faith`，只增不减）。</param>
+        /// <param name="rankedNetMatch">这一局是**真联机**（`_net != null`）且**排位模式**（`Classic`）。</param>
+        /// <param name="won">我方赢（平局/输 = false）。</param>
+        public static void AwardBattleAchievements(int damageToEnemyWarlord, int skullsCollected,
+                                                   int faithGained, bool rankedNetMatch, bool won)
+        {
+            WriteAchievement(ProfileData.ChallengeDamageToWarlord, damageToEnemyWarlord);
+            WriteAchievement(ProfileData.ChallengeCollectSkulls, skullsCollected);
+            WriteAchievement(ProfileData.ChallengeGainFaith, faithGained);
+            if (rankedNetMatch)
+            {
+                WriteAchievement(ProfileData.ChallengeRankedPlayed, 1);
+                if (won) WriteAchievement(ProfileData.ChallengeRankedWon, 1);
+            }
+        }
+
+        /// <summary>按**原版 challenge 原文**累加一条成就。找不到那一条 ⇒ **出声**（⛔ 不静默当没发生）。</summary>
+        static void WriteAchievement(string challengeId, int delta)
+        {
+            if (delta <= 0) return;                       // 这一局这项是 0 ⇒ 不写、不落盘
+            string id = ProfileData.FindIdByChallenge(challengeId);
+            if (string.IsNullOrEmpty(id))
+            {
+                Debug.LogWarning("[Profile] 成就进度写点：成就表里找不到 challenge「" + challengeId
+                               + "」⇒ 这一项**没写**（⛔ 不编 id / 不拿别的数顶上）");
+                return;
+            }
+            ProfileData.AddAchievementValue(id, delta);
         }
 
         /// <summary>督军名的**显示名**（有中文**且当前语档是中文**就用中文 —— 与卡面 / 单位发言同一条规矩，

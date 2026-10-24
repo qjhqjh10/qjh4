@@ -18,7 +18,12 @@
 //   调度台 2026-10-24 裁定按**数字客户端**，`CalibScale` 落 **1.0**，标定锚 = **1.983**
 //   （`ascentLine/capLine × glyph.m_Scale` = `70/60 × 1.7`；判据 → `资料/普查产出_1024/C3_界面卡牌活动判据总表.md` §2）。
 //   ⇒ 下面凡是「标定目标 = 1.65」的说法都按这条更正；1.65 只作为**历史尺子 / 交叉参考**留着。
-//   ⚠️ 本文件**只 `Log`、没有任何 `Check`**（C3 §顺手发现 5）：它是复量用的探针，**别当验收口**。
+//   ⚠️ 本文件原来**只 `Log`、没有任何 `Check`**（C3 §顺手发现 5）—— 它是复量用的探针，**别当验收口**。
+//   🔴 **2026-10-24（`E9`）就地订正**：**已补断言**（见下面 ④）。现在它有**四类 `Check`（共 7 条）**：
+//     ① 资产 / 字体 / `questPoints1` 三项前提（原来是 `Log` + 早退）· ② 扫描**真的随参数单调且线性地变**（量具自检）·
+//     ③ 扫完**逐位还原**（探针不许留副作用）· ④ 标定锚 **图标 ÷ 拉丁大写 = 1.983**（数字客户端口径、±10%）。
+//     ⚠️ 生产侧的**主断言**仍是 `Editor/IconSetup.cs` 的 ⑨（同一个锚）；本节是**探针侧的同一条判据**
+//     （原来漂了没有任何人会知道）。两处的锚与容差要**一起改**。
 //
 // **这个探针干什么**：把该比例**在我们自己的字体上量出来**，并给出该把
 // `faceInfo.pointSize` 填多少（让图标在我方 fontSize 下恰好落在那两条线上）。
@@ -42,12 +47,29 @@ public static class IconSizeProbe
 
     static void Log(string s) { Debug.Log(P + s); }
 
+    // 🔴 2026-10-24（E9）：本文件原来**一条断言都没有**（只 `Log`）⇒ 补上。
+    //   判据/口径同 `Editor/IconSetup.cs` 的 ⑨（那个是**主**断言）；这里量的是**探针自己这条量具**。
+    static int _pass, _fail;
+    static void Check(bool ok, string msg)
+    {
+        if (ok) { _pass++; Debug.Log(P + "✓ " + msg); }
+        else { _fail++; Debug.LogError(P + "✗ " + msg); }
+    }
+
     public static void Run()
     {
         Directory.CreateDirectory(OutDir);
 
         var sa = Resources.Load<TMP_SpriteAsset>(CardPresentation.CardIcons.SpriteAssetPath);
-        if (sa == null) { Log("!! 找不到 sprite asset —— 先跑 IconSetup.Run"); Finish(); return; }
+        Check(sa != null, "① 前提：卡面图标 sprite asset 加载得到（`"
+                        + CardPresentation.CardIcons.SpriteAssetPath + "`）—— 找不到先跑 `IconSetup.Run`");
+        if (sa == null) { Finish(); return; }
+
+        // 图标缩放按**卡面正文面**的 faceInfo 算（`TMP_Text.cs:4164`）⇒ 字体面必须真的要得到，
+        // 否则后面每一个读数都不是卡面会渲出来的值（2026-10-23 那次换面的教训，见 `Measure` 的 doc）。
+        var faceBody = CardPresentation.TmpFont.FaceAsset(CardPresentation.TmpFont.Face.LatinCardBody);
+        Check(faceBody != null, "① 前提：卡面正文面 `TmpFont.Face.LatinCardBody`（Pragati）加载得到");
+        if (faceBody == null) { Finish(); return; }
 
         // ── ① 先量我们这侧的两个基准 ──
         //    `H` 的墨迹高（世界单位）+ 该卡面字号下图标现在多高
@@ -67,19 +89,86 @@ public static class IconSizeProbe
         //       `ascentLine/capLine × glyph.m_Scale` = `70/60 × 1.7`）。⚠️ PnP 的 **1.65**（51/31）是**历史尺子**，
         //       2026-10-24 起不再当锚（裁定与留痕 → `IconSetup.cs` 里 `CalibScale` 的 doc）。
         float nowScale = GlyphScale(sa, "questPoints1");
+        Check(nowScale > 0f, "① 前提：`spriteCharacterTable` 里找得到 `questPoints1`（实测 glyph scale = "
+                           + nowScale.ToString("F4") + "）—— 找不到 ⇒ 资产与 `CardIcons` 的键对不上");
+        if (nowScale <= 0f) { Finish(); return; }
         Log("现在 `questPoints1` 的 glyph scale = " + nowScale.ToString("F3"));
-        foreach (float mult in new[] { 0.50f, 0.674f, 0.80f, 1.00f })
+
+        float[] mults = { 0.50f, 0.674f, 0.80f, 1.00f };
+        var hs = new float[mults.Length];
+        try
         {
-            SetGlyphScale(sa, "questPoints1", nowScale * mult);
-            Measure(sa, fsCard, "H", "questPoints1", "sweep" + mult.ToString("F3").Replace(".", ""));
+            for (int i = 0; i < mults.Length; i++)
+            {
+                SetGlyphScale(sa, "questPoints1", nowScale * mults[i]);
+                hs[i] = Measure(sa, fsCard, "H", "questPoints1", "sweep" + mults[i].ToString("F3").Replace(".", ""));
+            }
         }
-        SetGlyphScale(sa, "questPoints1", nowScale);   // 还原（探针不许留副作用）
+        finally
+        {
+            // 还原（探针不许留副作用）—— 放 `finally` 里：中途抛异常也不许把资产留在半路那一档
+            // （它会 `EditorUtility.SetDirty`，真被存下去就把 `IconSetup` 的资产改坏了）。
+            SetGlyphScale(sa, "questPoints1", nowScale);
+        }
+
+        // ── ③ 🔴 **量具自检**：读数必须**随我们设的那一个参数**单调、且线性地变 ──
+        //   为什么必须有这条：下面 ④ 那个「绝对值落在锚上」只有在**量具本身有效**时才有意义
+        //   （量错了也会得到一个数）。TMP 那边 icon 高 ∝ `fontSize/pointSize × scale × glyph.scale`
+        //   ⇒ 逐档读数应 ≈ `基准 × mult`（实测偏差 <1%；这里给 5% 的余量，只抓「量具坏了」那一档）。
+        float hBase = hs[mults.Length - 1];                   // mult = 1.00 ⇒ 就是 `nowScale` 那一档
+        bool mono = hBase > 0f;
+        for (int i = 1; i < hs.Length; i++) if (!(hs[i] > hs[i - 1])) mono = false;
+        Check(mono, "② 量具自检：四档读数**严格单调增**（扫描真的改了渲染结果，不是读同一个数）"
+                  + "｜实测 " + string.Join(" / ", Array.ConvertAll(hs, h => h.ToString("F2"))));
+        float worstRel = 0f;
+        if (hBase > 0f)
+            for (int i = 0; i < hs.Length; i++) worstRel = Mathf.Max(worstRel, Mathf.Abs(hs[i] / hBase - mults[i]));
+        Check(hBase > 0f && worstRel <= 0.05f,
+              "② 量具自检：读数与设定的 scale 乘数**线性**（最大相对偏差 " + worstRel.ToString("F3") + " ≤ 0.05）"
+            + "｜🧨 量错了字形 / 量了行盒（同一行恒高）⇒ 单调或线性那条红");
+
+        float back = GlyphScale(sa, "questPoints1");
+        Check(Mathf.Abs(back - nowScale) < 1e-6f,
+              "③ 扫完**逐位还原** `questPoints1` 的 glyph scale（实测 " + back.ToString("F6")
+            + " vs 原 " + nowScale.ToString("F6") + "）—— 探针不许留副作用"
+            + "｜🧨 还原那句被删/写错 ⇒ 下一次 `IconSetup` 量到的是被探针改过的资产 ⇒ 红");
 
         // ⚠️ 这两行是**印刷版式**的读数（会随文本长短过 `FitToBox` 变）—— 拿它们当标定目标会做错，
         //    标定目标是「图标 quad ÷ **拉丁大写** quad = **1.983**」（数字客户端口径；PnP 的 1.65 已是历史尺子）。
         Log("参考（**印刷版式，不是标定目标**）：图标高 ÷ 卡高 ≈ **4.3%**（成品图 `Warpforge_12_Aggressor`：图标 51 px / 卡高 1200 px）");
         Log("     图标高 ÷ 卡宽 ≈ **5.67%**（51/900）· PnP 墨比 图标 51 px ÷ 大写 31 px = **1.65**（**历史尺子，已不锚**）" +
             " —— 数字客户端口径的标定锚 = **1.983**（`70/60 × 1.7`）");
+
+        // ── ④ 🔴 **标定锚**（2026-10-24 `E9` 新增；本文件原来只打印、不断言）──
+        //   分子 = 上面**渲出来的**那个图标墨高（`Measure` 的返回值，网格顶点 → 像素）；
+        //   分母 = **拉丁大写的解析高**：`capLine / pointSize × scale × 0.1 × fontSize`
+        //     —— 与 TMP 自己算字号那条式子同源（`TMP_Text.cs:7183`），**不含本项目任何常数**。
+        //   ⇒ 比值应 = `ascentLine / capLine × glyph.m_Scale` = Pragati `70/60` × `1.7` = **1.983**
+        //     （数字客户端口径；口径裁定 → `资料/普查产出_1024/C3_界面卡牌活动判据总表.md` §2）。
+        //   ⚠️ 与 `IconSetup` ⑨ **同一把尺子、同一个容差**（±10%，抓的是结构性漂移：换面 / 资产没重建 /
+        //     `m_Scale` 被改）。两处**要一起改**（主断言在那里，这里是探针侧的同一条判据）。
+        {
+            const float IconOverCap = 1.983f;
+            const float TolRel = 0.10f;
+            float capH = -1f, ratio = -1f;
+            var fi = faceBody.faceInfo;
+            if (fi.pointSize > 0f && hBase > 0f)
+            {
+                capH = fi.capLine / fi.pointSize * fi.scale * 0.1f * fsCard;
+                if (capH > 0f) ratio = hBase / capH;
+            }
+            Log("④ 读数：图标墨高 " + hBase.ToString("F3") + " · 大写（解析）" + capH.ToString("F4")
+                + " · **图标 ÷ 大写 = " + ratio.ToString("F3") + "**（目标 " + IconOverCap.ToString("F3") + "）");
+            Check(ratio > 0f && Mathf.Abs(ratio / IconOverCap - 1f) <= TolRel,
+                  "④ **图标墨高 ÷ 拉丁大写墨高** 落在数字客户端口径的几何值上：实测 " + ratio.ToString("F3")
+                + " / 目标 " + IconOverCap.ToString("F3") + "（= `ascentLine/capLine × glyph.m_Scale` = `70/60 × 1.7`）"
+                + "，容差 ±" + (TolRel * 100f).ToString("F0") + "%"
+                + "｜🧨 `CalibScale` 改回旧值 0.842 并重建资产 ⇒ ≈1.67 ⇒ 红；"
+                + "🧨 正文面换成 `TmpFont.Font`（CJK 面）⇒ ≈2.72 ⇒ 红；"
+                + "🧨 资产没重建（盘上还是 0.842 那版 scale ≈1.4314）⇒ ≈1.67 ⇒ 红（先跑 `-executeMethod IconSetup.Run`）");
+        }
+
+        Debug.Log(P + $"=== 合计：{_pass} 通过 / {_fail} 失败 ===");
         Finish();
     }
 
@@ -101,15 +190,19 @@ public static class IconSizeProbe
 
     static void Finish()
     {
-        if (Application.isBatchMode) EditorApplication.Exit(0);
+        // 🔴 2026-10-24（E9）：批处理下**用退出码回话**（0 = 全过 / 1 = 有失败）——
+        //   原来的 `Exit(0)` 无论断言怎样都算成功（和 `CardBaseDemo` 等宿主同一条规矩）。
+        if (Application.isBatchMode) EditorApplication.Exit(_fail == 0 ? 0 : 1);
     }
 
     /// <summary>
     /// 渲一行 `&lt;caps>&lt;sprite>&lt;/caps>`，量各自的像素高。
     /// 只放 4 个字形，躲开折行；行内位置直接读 TMP 自己的 `characterInfo`，
     /// **不靠估算** —— 抗锯齿会把边沿算胖 1~2 px，两边同口径所以比值仍然可用。
+    /// <para>🆕 2026-10-24（`E9`）：**返回值 = 那一格 `<sprite>` 的墨迹高**（= 它的字形框高，像素/局部单位；
+    /// 没有 sprite 或量不到 ⇒ **0**）。扫描那四档靠它断「读数随参数线性变」。</para>
     /// </summary>
-    static void Measure(TMP_SpriteAsset sa, float fontSize, string caps, string spriteName, string tag)
+    static float Measure(TMP_SpriteAsset sa, float fontSize, string caps, string spriteName, string tag)
     {
         var go = new GameObject("isp");
         var tmp = go.AddComponent<TextMeshPro>();
@@ -126,7 +219,7 @@ public static class IconSizeProbe
         //   ⚠️ `CardView.KeywordFontSize`（本文件下面 `fsCard` 用的那个）本来就是**按面 em** 算的
         //   （`CardView.cs:3826` 一族的注释），所以只要字体面跟着卡面走，两边量纲就对齐了。
         tmp.font = CardPresentation.TmpFont.FaceAsset(CardPresentation.TmpFont.Face.LatinCardBody);
-        if (tmp.font == null) { Log("!! 没有 TMP 字体（TmpFont.FaceAsset(LatinCardBody) == null）"); UnityEngine.Object.DestroyImmediate(go); return; }
+        if (tmp.font == null) { Log("!! 没有 TMP 字体（TmpFont.FaceAsset(LatinCardBody) == null）"); UnityEngine.Object.DestroyImmediate(go); return 0f; }
         tmp.spriteAsset = sa;
         tmp.fontSize = fontSize;
         tmp.enableWordWrapping = false;
@@ -141,11 +234,14 @@ public static class IconSizeProbe
         //    `characterInfo[i].vertexIndex` 指向它）。顶点是**局部单位**，× `m_Scale` 才是像素。
         var ti = tmp.textInfo;
         var parts = new List<string>();
+        float spriteH = 0f;
         for (int i = 0; i < ti.characterCount; i++)
         {
             var ci = ti.characterInfo[i];
             float h = InkHeight(ti, i, tmp.transform.lossyScale.y);
             float w = ci.xAdvance;
+            // 🔴 2026-10-24（E9）：只认**真的那格 sprite**（名字写错 ⇒ TMP 不生成 sprite 字形 ⇒ 永远量不到 ⇒ 0）
+            if (ci.elementType == TMP_TextElementType.Sprite && h > spriteH) spriteH = h;
             parts.Add(string.Format("#{0} '{1}' **inkH={2:F2}** w={3:F2}",
                                     i, ci.character, h, w));
         }
@@ -155,6 +251,7 @@ public static class IconSizeProbe
         string png = Path.Combine(OutDir, tag + "_f" + fontSize.ToString("F0") + ".png");
         RenderToPng(tmp, png, 900, 260);
         UnityEngine.Object.DestroyImmediate(go);
+        return spriteH;
     }
 
     /// <summary>

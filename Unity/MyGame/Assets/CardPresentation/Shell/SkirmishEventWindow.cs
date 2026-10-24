@@ -10,6 +10,21 @@
 //
 // 🔴 **窗口参数**：`type=1 Popup` · `windowsPlacement=5 Canvas` · `closeOnESC=1` · `extraScaleSmallScreen=1.0`
 //    （与正本 §一 的表一致；⚠️ **`placement` 是 5 不是 15** —— 别照练习窗抄）。
+//
+// ============================ 🆕 2026-10-24（E15）：左列分两版 ============================
+// 用户 2026-10-24 指出：「活动进度 / 说明 / 胜利数 / 5 档里程碑 / 收集 —— **那是以前活动的时候才有的**；
+//   平常的时候，**应该和经典大概一样**」。判据（反编译 + 资源 + 关服前实机 log）→
+//   `资料/普查产出_1024b/S1_小冲突非活动期界面.md`，三条硬事实：
+//   ① 原版 `SkirmishEventWindow : LiveOpsEventWindow<IFastModeEvent>`（`dump.cs:63944`）**本身就是活动窗**，
+//      `LiveOp` = 一场 FastMode 活动；**没有活动就没有这扇窗**（`TryOpen/RefreshScore` 拿空实例 = 抛）；
+//   ② 它左列出厂就是 `Reward Display`，运行时**没有任何一句 `SetActive` 开关它**（只有活动期才有它）；
+//   ③ 常驻/排名版走的是 `RankedEventWindowV2` 的**经典式左列** `Ranked Division Info`
+//      （`RankingDisplay`，638×812 @0,146.9 —— 与本窗 `Reward Display` **同一个槽**）。
+// ⇒ 本窗现在按 <see cref="HasActiveSkirmishEvent"/> 分叉：
+//   · **true**（活动在期）⇒ 照旧 `BuildRewardDisplay`（= 原版 prefab 那一棵，一字未改）；
+//   · **false**（本地现况）⇒ `BuildClassicLeftColumn`：`Ranked Division Info` 结构
+//     （`Rank Title` + `DivisionText`/`DivisionImage` + 结束于 + `LeaderboardButton` + 未排名⟷排名 开关）。
+//     ⚠️ **数值本地没有**（段位/名次/分数/结束时刻在服务器）⇒ 结构齐、留空、出声一次（同 R1/E12 口径）。
 using TMPro;                       // 🆕 A1248：量 `GetPreferredValues()`（复刻原版 CSF）要 TMP 的类型
 using UnityEngine;
 
@@ -100,6 +115,33 @@ namespace CardPresentation
         static readonly PxRect CollectTxR = new PxRect(165.4f, 911.2f, 432.7f, 980.8f);
         const float BannedL = 1241.78f, BannedT = 1024.60f, BannedR = 1920.08f, BannedB = 1078.54f;
 
+        // ---- 🆕 2026-10-24（E15）：经典式左列 `Ranked Division Info`（非活动期那一版）----
+        // 🔑 **本窗的 `Reward Display` 与 V2 的 `Ranked Division Info` 是同一个槽**
+        //    （`0,146.93 → 638,959.07`，S1 报告 §①·3 现读 `RankingDisplay` = 638×812 @0,146.9；
+        //     本文件 `RDL/RDT/RDR/RDB` 逐位同值）⇒ **V2 那一批绝对画布坐标可以逐位复用**。
+        //    判据（V2 侧）= `Shell/RankedEventWindow.cs` 的 `RankTitle*` / `Leader*` / `Tg*` / `Tmr*` 那几组常量
+        //    （那边写明了 `menu_dump bundle_menus_assets_all -5324570929900320848 --depth 6 --md` 的现读，
+        //     且 `Content/Timer` 那三行是**跑过布局之后**的真值）。
+        //    ⚠️ 那一批常量在 `Shell/RankedEventWindow.cs` 里是 `private` ⇒ 这里**抄数值、不抄第二份语义**：
+        //     任何一处要改，两扇窗一起改（本文件这几行的注释就是交叉索引）。
+        const float RankTitleL = 58f, RankTitleT = 161.33f, RankTitleR = 580f, RankTitleB = 216.02f;
+        const float LeaderL = 140.46f, LeaderT = 965.97f, LeaderR = 497.54f, LeaderB = 1040.82f;
+        const float LeaderTxL = 156.14f, LeaderTxT = 973.30f, LeaderTxR = 480.71f, LeaderTxB = 1033.48f;
+        /// <summary>`ChangeRankedToggle`（`ToggleDisplay`）—— 【Unranked 字】【开关】【Ranked 字】三件并排。</summary>
+        const float TgL = 191.45f, TgT = 868.12f, TgR = 446.55f, TgB = 921.97f;
+        const float TgRankedL = 415.10f, TgRankedT = 868.12f, TgRankedR = 671.50f, TgRankedB = 920.52f;
+        const float TgUnrankedL = 12.30f, TgUnrankedT = 868.12f, TgUnrankedR = 268.70f, TgUnrankedB = 920.52f;
+        const float TgKnobL = 296.30f, TgKnobT = 875.04f, TgKnobR = 385.30f, TgKnobB = 915.04f;
+        /// <summary>`Ranked Division Info/Content/Timer`（= `RankingDisplay.timerDisplay` 那一支）。
+        /// ⚠️ 三行都是 **HLG 排完之后**的落点（`Content` 是 VLG），⛔ 别拿 `menu_rect` 的模板位。</summary>
+        const float TmrL = 7.33f, TmrT = 785.75f, TmrR = 630.67f, TmrB = 846.65f;
+        const float TmrIcL = 172.83f, TmrIcT = 796.75f, TmrIcR = 216.73f, TmrIcB = 840.65f;
+        const float TmrTxL = 216.73f, TmrTxT = 790.75f, TmrTxR = 465.17f, TmrTxB = 846.65f;
+        /// <summary>`40k_menu_bt`：**47×47 · border (10,10,10,10)**（`Sprite/*.json` 实测，同 V2）。</summary>
+        static readonly Vector4 MenuBtBorder = new Vector4(10f, 10f, 10f, 10f);
+        const float MenuBtTexW = 47f, MenuBtTexH = 47f;
+        const string ArtMulligan = "UI_Button_Mulligan";   // 410×124 · 九宫 (333,96,333,96)
+
         public static SkirmishEventWindow Create(WindowsManager mgr)
         {
             var go = new GameObject("SkirmishModeEventWindow");
@@ -132,8 +174,72 @@ namespace CardPresentation
                           "Menu Vignette", QBg3, new Color(0f, 0f, 0f, 0.58f));
         }
 
+        // ============================================================ 🆕 E15：活动在期判据（左列分两版）
+        /// <summary>🆕 **2026-10-24（E15）断言注入口**（⛔ 只给 `Editor/SkirmishWindowAssertE15.cs` 用）：
+        /// 非 null ⇒ **覆盖**判据，让自检能分别验「活动期 / 非活动期」两棵树是**互斥**的。
+        /// <para>产品路径**永远不设它**（`null` ⇒ 走 <see cref="LiveOpsLocalCatalog.HasActiveFastModeEvent"/>）。
+        /// 跑完调用 <see cref="ResetEventProbeForTest"/> 还原，⛔ 别让它漏到别的自检宿主里。</para></summary>
+        public static bool? ForceActiveEventForTest;
+
+        static bool _warnedNoActiveEvent;
+
+        /// <summary>自检用：清掉注入 + 复位「已出声」闩（同族先例 `LiveOpsLocalCatalog.ResetWarnedForTest`）。</summary>
+        public static void ResetEventProbeForTest()
+        {
+            ForceActiveEventForTest = null;
+            _warnedNoActiveEvent = false;
+        }
+
+        /// <summary>🆕 **2026-10-24（E15）**：「现在有没有一场**在期的 FastMode（遭遇战）活动**」——
+        /// 本窗左列画哪一版的**唯一判据**（`BuildLeftColumn` 与 `BuildExtras` 都读它）。
+        ///
+        /// <para>🔴 **它是真判据、不是写死 false**：落到 `LiveOpsLocalCatalog.TrySelectActiveFastMode`
+        /// ⇒ 扫 `_fastModeEvents` 那张表（`Selectable && IsInPeriod`），与 Parent / Scoring / PremiumItemOffer
+        /// **同一个挑选函数**（`TryPickEventIn`）。本地那张表**当前 0 条**（FastMode 的 SO 原版由服务端下发、
+        /// 本地 13 份里没有）⇒ 现在恒 false —— 那是**数据事实**，不是分支被短路。
+        /// 自检 `D1/D2` 把这两层都钉住（D2 = 同一函数在 `_events` 上能选出 Scoring ⇒ 这条链是活的）。</para>
+        ///
+        /// <para>判据出处 → `资料/普查产出_1024b/S1_小冲突非活动期界面.md` §①·2（`dump.cs:63944`：
+        /// `SkirmishEventWindow : LiveOpsEventWindow&lt;IFastModeEvent&gt;`）+ §②（`LiveOpsEventData.IsActive`）。</para>
+        ///
+        /// <para>⚠️ **判不出就出声一次**（`_warnedNoActiveEvent`，每进程一次）：本地永远判不出「小冲突活动在期」
+        /// （13 份 SO 全过期、没有 FastMode 类）—— 这条 warning 就是「屏幕上是**非活动期形态**」的可见凭据，
+        /// ⛔ 不许静默换成经典式左列。</para></summary>
+        public static bool HasActiveSkirmishEvent
+        {
+            get
+            {
+                if (ForceActiveEventForTest.HasValue) return ForceActiveEventForTest.Value;
+
+                LiveOpsLocalEvent ev;
+                string why;
+                if (LiveOpsLocalCatalog.HasActiveFastModeEvent(LiveOpsLocalCatalog.NowUtc, out ev, out why))
+                    return true;
+
+                if (!_warnedNoActiveEvent)
+                {
+                    _warnedNoActiveEvent = true;
+                    Debug.LogWarning("[Event] **小冲突当前不在活动期** ⇒ 本窗左列画**经典式** `Ranked Division Info`"
+                        + "（⛔ 不画 `Reward Display`：活动进度 / 说明 / 胜利数 / 5 档里程碑 / 收集 —— 那些是活动期形态；"
+                        + "用户 2026-10-24 口径）。判据 → " + why);
+                }
+                return false;
+            }
+        }
+
         // ============================================================ 左列
+        /// <summary>🔴 **2026-10-24（E15）分叉**：活动期 ⇒ `Reward Display`（原版 prefab 那一棵，一字未改）；
+        /// 非活动期 ⇒ **经典式** `Ranked Division Info`（见 <see cref="BuildClassicLeftColumn"/>）。</summary>
         protected override void BuildLeftColumn(Transform root)
+        {
+            if (HasActiveSkirmishEvent) { BuildRewardDisplay(root); return; }
+            BuildClassicLeftColumn(root);
+        }
+
+        /// <summary>活动期那一版左列 = **原版 `SkirmishModeEventWindow ▸ Reward Display`**（`RewardProgressBarPanel`：
+        /// 标题 + 说明 + 胜利数 + 5 档记分条 + `Collect`）。判据 / 逐颗几何见本文件上方那一大段注释。
+        /// <para>⚠️ 这一棵**只在 `HasActiveSkirmishEvent == true` 时建**（原版没有非活动期的这棵）。</para></summary>
+        void BuildRewardDisplay(Transform root)
         {
             var col = MenuDraw.Node(root, "Reward Display", new PxRect(RDL, RDT, RDR, RDB));
 
@@ -213,6 +319,161 @@ namespace CardPresentation
 
             BuildScoreBar(col);
         }
+
+        // ============================================================ 🆕 E15：经典式左列（非活动期）
+        /// <summary>🆕 **2026-10-24（E15）**：**非活动期**那一版左列 = 原版 `RankedEventWindowV2` 的
+        /// `Ranked Division Info`（`RankingDisplay`）。逐件照 S1 报告 §①·3 那六样：
+        /// `Rank Title` + `Content`（`DivisionText` / `DivisionImage` / 结束于 / 里程碑）+ `LeaderboardButton`
+        /// + `ChangeRankedToggle`（未排名⟷排名）。
+        ///
+        /// <para>🔴 **为什么复用 `RankedDivisionInfo.Build` 而不是另抄一棵**：那是段位信息块的**唯一一份** builder
+        /// （`Shell/RankedDivisionInfo.cs`，判据正本 `资料/普查产出_0927/段位块_RankedDivisionInfo.md`）。
+        /// 再抄一棵 = 两份同族实现迟早不一致（`CLAUDE.md` 三·「两处写同一条规则 = 迟早不一致」）。
+        /// ⚠️ 两扇窗的左列**同一个槽**（`0,146.93 → 638,959.07`）⇒ 它里面那批绝对画布坐标在这里逐位成立。</para>
+        ///
+        /// <para>🔴 **数值全部留空**（段位名 / 两个评分 / 里程碑进度 / 段位大图 / 结束时刻都在服务器）——
+        /// 这是 `RankedDivisionInfo` 里已经成文的处置（用户 2026-09-26 口径「不编数字」），本窗照用、**没有第二条口径**。
+        /// 本地拿不到的只有两样，都由 builder 自己出声：段位名留空 · `Timer` 印 `--`。</para>
+        ///
+        /// <para>🆕 **判据（本窗为什么要这棵）**：`RankedEventWindowV2__LeaderboardButtonClick` 按 `playMode` 二选一
+        /// （`0 Classic → rankingPrefabClassic`，否则 → `rankingPrefab` = 遭遇榜）⇒ **V2 确实也服务小冲突玩法**；
+        /// 非活动期的小冲突**没有活动窗可开**，`Reward Display` 那一套（活动进度/胜利数/5 档/收集）就无从谈起。
+        /// ⚠️ 「哪场活动绑哪扇窗」在远端 `EventComponents[MainWindow]` 里，本地读不到 ⇒ 这一步是**推断（中高）**，
+        /// 不是直读（S1 报告 §①·4 / §⑥·1 如实标过）。</para></summary>
+        void BuildClassicLeftColumn(Transform root)
+        {
+            var col = MenuDraw.Node(root, "Ranked Division Info", new PxRect(RDL, RDT, RDR, RDB));
+
+            // ---- ① `Rank Title`（原版这颗 TMP 挂 `Localize`，`mTerm = PlayerProfile/Rank`，en `Rank` / zh `排名`）----
+            //   判据 = `Shell/RankedEventWindow.cs` 同处（`MonoBehaviour_5930028326761236400.json` 现读）；
+            //   原版 hAlign = Center ⇒ 不调 `Align*`。
+            MenuDraw.Text(col, new PxRect(RankTitleL, RankTitleT, RankTitleR, RankTitleB),
+                          Loc.T("PlayerProfile/Rank"), Color.white, "Rank Title", 57.7f, QText,
+                          face: TmpFont.Face.LatinCardBody);
+
+            // ---- ② `LeaderboardButton`（`UI_Button_Mulligan` + 文字 fs36；`type=Simple` ⇒ 拉伸铺满）----
+            //   ⚠️ 文字必须挂在**按钮节点底下**（原版树里就是它的子件）。
+            var lbn = MenuDraw.Node(col, "LeaderboardButton", new PxRect(LeaderL, LeaderT, LeaderR, LeaderB));
+            var lbQ = MenuDraw.Rect(lbn, Tex(ArtMulligan), new PxRect(LeaderL, LeaderT, LeaderR, LeaderB), "Bg", QArt);
+            MenuDraw.Text(lbn, new PxRect(LeaderTxL, LeaderTxT, LeaderTxR, LeaderTxB),
+                          Loc.T("MainMenu/RankedWindow/Leaderboard"), Color.white, "Button Text", 36f, QText,
+                          face: TmpFont.Face.LatinCardBody);
+            MenuDraw.Hit(lbn, "Hit", new PxRect(LeaderL, LeaderT, LeaderR, LeaderB), QHit,
+                         OpenClassicLeaderboard, lbQ, ArtMulligan, clickCue: WindowSounds.PositiveCue);
+
+            // ---- ③ 段位信息块 `Content`（唯一一份 builder；含 `DivisionText` / `DivisionImage` / `footer` / 里程碑 / `steps`）----
+            RankedDivisionInfo.Build(col, Tex, QArt, QText, QArt1);
+
+            // ---- ④ `Content/Timer`（= `RankingDisplay.timerDisplay`，那一行「结束于：…」）----
+            //   ⚠️ 必须建在 `RankedDivisionInfo.Build` **之后**（它才建出 `Content`），且挂在 `Content` 下
+            //      ——原版 `timerDisplay` 指的正是 `Ranked Division Info ▸ Content ▸ Timer`。
+            BuildClassicTimer(col);
+
+            // ---- ⑤ `ChangeRankedToggle`（未排名 ⟷ 排名）----
+            BuildClassicToggle(col);
+
+            // 出声一次（⛔ 不静默换成经典式；同 R1/E12 口径：结构齐、数值留空、说清为什么）
+            Debug.Log("[Event] 遭遇战窗左列 = **经典式 `Ranked Division Info`**（本机不在 FastMode 活动期）"
+                    + " —— 段位名 / 两个评分 / 里程碑进度 / 段位大图 / 结束时刻**全部留空**："
+                    + "它们是服务端数据（`RankingDisplay.Initialize` 那一支），本地没有 ⇒ 不编数字。");
+        }
+
+        /// <summary>`Ranked Division Info/Content/Timer` —— 「结束于：…」那一行（**本地无截止时刻 ⇒ 印 `--`**）。
+        /// <para>几何/判据：见本文件 `Tmr*` 那三组常量的注释（= V2 prefab **跑过布局之后**的真值）。
+        /// 文案 = 官方词条 `Event_Description/General/EndsInPlusOrangeTime`（值带 `{0}` ⇒ 走 `TimerDisplay.Compose`，
+        /// ⛔ 别自己拼「结束于：」）—— 与活动期那颗 `Timer`、与排位窗 `BuildRankTimer` **同一条口径**。</para></summary>
+        void BuildClassicTimer(Transform col)
+        {
+            var content = col.Find("Content");
+            if (content == null)
+            {
+                // ⛔ 不静默跳过：这一棵的结构来自 `RankedDivisionInfo.Build`，它没建出 `Content` = 那件被人改过。
+                Debug.LogWarning("[Event] 经典式左列的 `Content/Timer` **没建** —— 找不到 `Ranked Division Info/Content`"
+                                 + "（`RankedDivisionInfo.Build` 的产出变了？）");
+                return;
+            }
+            var tm = MenuDraw.Node(content, "Timer", new PxRect(TmrL, TmrT, TmrR, TmrB));
+            MenuDraw.Rect(tm, Tex("WF_icon_clock"), new PxRect(TmrIcL, TmrIcT, TmrIcR, TmrIcB), "Timer Icon", QArt);
+
+            string prefix = Loc.T("Event_Description/General/EndsInPlusOrangeTime");
+            var txR = new PxRect(TmrTxL, TmrTxT, TmrTxR, TmrTxB);
+            var tx = MenuDraw.Text(tm, txR, TimerDisplay.Compose(prefix, "--"), Color.white, "Timer", 38f, QText,
+                                   face: TmpFont.Face.LatinCardBody);
+            if (tx == null) return;                     // 建不出来 ⇒ `TimerDisplay.Attach` 会自己出声，这里不再补一句
+            // 字号四格 = 原版 `38 / 10 / 38 / 38`（本窗与 V2 同档）。⚠️ `SetAutoFitBox` 内部会 `SetWrapWidth`
+            //   ⇒ 紧跟一句还原**原版折行 0**（同排位窗 `BuildRankTimer` 那一处）。
+            tx.SetAutoFitBox(LayoutSpace.Px(txR.W), LayoutSpace.Px(txR.H), 10f, 38f, 38f);
+            tx.SetWrapping(false);
+            TimerDisplay.Attach(tx, null, prefix, "遭遇战窗（非活动期）经典式左列 Timer",
+                                "小冲突的结束时刻由服务端下发，本地没有");
+        }
+
+        /// <summary>本窗「是排位还是非排位」。**本地恒 false（非排位）** —— 没有服务器、也没有分段数据；
+        /// 点了**如实说明**，不假装切（同 `Shell/RankedEventWindow.cs` 的口径，那边是同一颗 `ChangeRankedToggle`）。</summary>
+        static bool ClassicRankedMode { get { return false; } }
+
+        /// <summary>`ChangeRankedToggle`（`ToggleDisplay`）：底图 `40k_menu_bt`（col a=0 ⇒ 透明）+ 开关粒
+        /// `40_main_bt_toggle_on` + 两行 45px 文字（字距 −4，原版实测）。命中区 = **底图 ∪ 两颗文字**（并集）。</summary>
+        void BuildClassicToggle(Transform col)
+        {
+            var tg = MenuDraw.Node(col, "ChangeRankedToggle", new PxRect(TgL, TgT, TgR, TgB));
+            MenuDraw.Nine(tg, Tex("40k_menu_bt"), new PxRect(TgL, TgT, TgR, TgB),
+                          MenuBtBorder, MenuBtTexW, MenuBtTexH, QBg3, new Color(1f, 1f, 1f, 0f), true, "Bg");
+            // 原版 hAlign：`UnrankedText` = **Right** · `RankedText` = **Left**（各自贴中间那颗开关）
+            // ⚠️ 字距会改文字宽度 ⇒ 放在 `Align*` **之前**（同族顺序纪律）。
+            var un = MenuDraw.Text(tg, new PxRect(TgUnrankedL, TgUnrankedT, TgUnrankedR, TgUnrankedB),
+                                   Loc.T("MainMenu/RankedWindow/Unranked"), Color.white, "UnrankedText", 45f, QText,
+                                   face: TmpFont.Face.LatinCardBody);
+            if (un != null) un.SetCharSpacing(-4f);
+            MenuDraw.AlignRight(un, new PxRect(TgUnrankedL, TgUnrankedT, TgUnrankedR, TgUnrankedB));
+            var rk = MenuDraw.Text(tg, new PxRect(TgRankedL, TgRankedT, TgRankedR, TgRankedB),
+                                   Loc.T("MainMenu/RankedWindow/Ranked"), Color.white, "RankedText", 45f, QText,
+                                   face: TmpFont.Face.LatinCardBody);
+            if (rk != null) rk.SetCharSpacing(-4f);
+            MenuDraw.AlignLeft(rk, new PxRect(TgRankedL, TgRankedT, TgRankedR, TgRankedB));
+            MenuDraw.Rect(tg, Tex("40_main_bt_toggle_on"),
+                          new PxRect(TgKnobL, TgKnobT, TgKnobR, TgKnobB), "Image", QArt1, null, true);
+            // 命中区 = 底图 ∪ 两颗 TMP（判据 = 原版 `ChangeRankedToggle` 子树的可射线件并集，
+            //   旧口径只传底图 = 左右各漏 ~180/225px ⇒ 点在字上不出反应）。
+            MenuDraw.Hit(tg, "Hit", MenuDraw.Union(
+                             new PxRect(TgL, TgT, TgR, TgB),
+                             new PxRect(TgRankedL, TgRankedT, TgRankedR, TgRankedB),
+                             new PxRect(TgUnrankedL, TgUnrankedT, TgUnrankedR, TgUnrankedB)),
+                         QHit, ToggleClassicRankedMode, clickCue: WindowSounds.SelectToggleCue);
+            ApplyClassicToggleState(un, rk);
+        }
+
+        void ApplyClassicToggleState(Label unranked, Label ranked)
+        {
+            // 本地真实状态 = 非排位 ⇒ 亮的那一颗就是当前模式（⛔ 不是随便挑一个颜色）。
+            var on = Color.white;
+            var off = new Color(1f, 1f, 1f, 0.45f);
+            if (unranked != null) unranked.SetColor(ClassicRankedMode ? off : on);
+            if (ranked != null) ranked.SetColor(ClassicRankedMode ? on : off);
+        }
+
+        void ToggleClassicRankedMode()
+        {
+            // 原版切的是「打排位还是非排位」。本地没有排位赛（没有服务器与分段数据）⇒ **如实说明**。
+            Debug.LogWarning("[Event] `ChangeRankedToggle`（经典式左列）点了 —— 本地**没有排位赛**"
+                             + "（没有服务器与分段数据），如实说明、不假装切换");
+            var wm = Manager != null ? Manager : WindowsManager.Instance;
+            if (wm != null)
+                wm.ShowPopUp(Loc.T("MainMenu/Ranked/OfflineNote"), Loc.T("MainMenu/General/OK"), null);
+        }
+
+        void OpenClassicLeaderboard()
+        {
+            // 原版 `RankedEventWindowV2.LeaderboardButtonClick`：按 `playMode` 二选一 ——
+            //   `Classic(0)` ⇒ `rankingPrefabClassic`（经典榜）；否则（本窗 `Skirmish(13)`）⇒ `rankingPrefab`（遭遇榜）。
+            // 判据 → `资料/普查产出_0927/排行榜_入口与调用.md` §1 + `资料/普查产出_1014/RO_战场与窗口判据三件.md` §二。
+            var kind = DeckGameMode == (int)RuleEngine.GameMode.Classic
+                     ? LeaderboardKind.Classic : LeaderboardKind.Skirmish;
+            WindowsManager.OpenByRef(LeaderboardWindow.NameOf(kind), m => LeaderboardWindow.Create(m, kind));
+            Debug.Log("[Event] `LeaderboardButton`（经典式左列）⇒ 开 `" + LeaderboardWindow.NameOf(kind)
+                      + "`（按 `DeckGameMode` 二选一：经典 ⇒ 经典榜，其余 ⇒ 遭遇榜）");
+        }
+
 
         /// <summary>`Scoring Bar Event Score Info`（`MilestoneScoreBar`）：竖条 + 5 个里程碑箱子。
         /// 🔴 **这一族被两层 `localScale` 包着**（`Scoring Bar` 1.2563 → `Progress Bar` 0.8696），
@@ -346,7 +607,12 @@ namespace CardPresentation
         /// <summary>两条**只有遭遇战窗有**的件（排位窗的树里没有）：`Timer` 与 `Banned card in deck`。</summary>
         protected override void BuildExtras(Transform root)
         {
-            BuildTimer(root);
+            // 🆕 **2026-10-24（E15）**：这颗 `Timer` = **活动倒计时**（原版 `TimerDisplay` 喂的是活动结束时刻）。
+            //   非活动期**不建** —— 否则屏幕上会同时出现两行「结束于：」（经典式左列自带
+            //   `Ranked Division Info ▸ Content ▸ Timer`，那才是常驻形态）；原版任何一扇窗都没有两个倒计时。
+            if (HasActiveSkirmishEvent) BuildTimer(root);
+            else Debug.Log("[Event] `Timer`（活动倒计时）**没建** —— 本窗当前不是活动期；"
+                         + "结束时刻那一行由经典式左列的 `Ranked Division Info ▸ Content ▸ Timer` 承担");
             BuildBanned(root);
             // ⚠️ 原版两扇窗都还有一层 `DEBUG`（`DebugAutoDisabler` + 红字 `EventId` / `DebugBattle` 那几件，出厂 act=1）。
             //    **不建**：🔴 **2026-10-19（界面线 P05 · 铁律 5 就地订正）** —— 这里原来写「`DebugAutoDisabler`

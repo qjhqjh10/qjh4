@@ -50,14 +50,18 @@
 // · `Shell/ParentEventWindow.cs`   —— 页签文字的**缺省值**（`TabLabelTerm`，没有事件 ⇒ 仍用节点名）。
 // · `Shell/BaseOfferPopup.cs`      —— `Title` / `Category` / `Descripton` 的出厂值在**调用方没给**时问本类
 //                                    （`TryResolvePremiumOffer`；没有在期报价 ⇒ 仍用 prefab 出厂英文）。
-// · 静态断言 → `Editor/MainMenuScene.cs` 的 `A1853②` 段（13 份 SO / 16 键 / 12 承载面 / 过期空态）。
+// · 🆕 `Shell/SkirmishEventWindow.cs` —— **活动在期判据**（`HasActiveSkirmishEvent` → `TrySelectActiveFastMode`）：
+//                                    不在期 ⇒ 左列不画 `Reward Display`、改画经典式 `Ranked Division Info`
+//                                    （判据 → `资料/普查产出_1024b/S1_小冲突非活动期界面.md`）。
+// · 静态断言 → `Editor/MainMenuScene.cs` 的 `A1853②` 段（13 份 SO / 16 键 / 12 承载面 / 过期空态）；
+//              🆕 FastMode 判据 → `Editor/SkirmishWindowAssertE15.cs`（D 组）。
 using System;
 using System.Collections.Generic;
 using UnityEngine;
 
 namespace CardPresentation
 {
-    /// <summary>活动实例的三大类（按 SO 的脚本类型分：Parent / Scoring / Premium Item Offer）。</summary>
+    /// <summary>活动实例的四大类（前三个 = 本地 13 份 SO 的脚本类型；第四个本地**没有数据**）。</summary>
     public enum LiveOpsLocalKind
     {
         /// <summary>`… Parent Event`（`eventId` 如 `ExpansionOrks1` / `ECRelease` / `SWRelease`）。</summary>
@@ -66,6 +70,12 @@ namespace CardPresentation
         Scoring = 1,
         /// <summary>`… Premium Item Offer`（`eventId` 如 `SWRelease_Premium_Item_Offer`）。</summary>
         PremiumItemOffer = 2,
+        /// <summary>🆕 **2026-10-24（E15）**：**FastMode / 遭遇战（Skirmish）活动** —— 原版
+        /// `SkirmishEventWindow : LiveOpsEventWindow&lt;IFastModeEvent&gt;`（`dump.cs:63944`），它的 `LiveOp`
+        /// 就是一场 FastMode 活动实例；**没有活动就没有这扇窗**（`TryOpen/RefreshScore` 拿空实例会抛）。
+        /// ⚠️ 本地 13 份 SO 里**一份 FastMode 都没有**（见 <see cref="LiveOpsLocalCatalog.FastModeEvents"/>，
+        /// 表空）⇒ 判据在当前数据下恒 false。⛔ 那不是「写死 false」：判据 = 扫那张表。</summary>
+        FastMode = 3,
     }
 
     /// <summary>`Everguild.LiveOps.EventLabelReferenceType`（**逐值照官方枚举**，`d:/2/Warpforge_code/…/EventLabelReferenceType.cs`）。</summary>
@@ -661,11 +671,23 @@ namespace CardPresentation
         static bool TryPickEvent(LiveOpsLocalKind[] kinds, DateTime utc, Func<LiveOpsLocalEvent, bool> has,
                                  out LiveOpsLocalEvent ev, out string why)
         {
+            return TryPickEventIn(_events, kinds, utc, has, out ev, out why);
+        }
+
+        /// <summary>🆕 **2026-10-24（E15）**：上一行的**通用形态** —— 同一套挑选规则跑在**任意一张表**上
+        /// （`_events` = 那 13 份 SO；`_fastModeEvents` = FastMode 表，当前空）。
+        /// 🔑 **这个抽取就是「FastMode 判据不是写死 false」的落地**：两张表走**同一个函数**
+        /// （自检 D2 用「`_events` 上同一函数能选出 Scoring」来证明这条链是活的）。</summary>
+        static bool TryPickEventIn(LiveOpsLocalEvent[] table, LiveOpsLocalKind[] kinds, DateTime utc,
+                                   Func<LiveOpsLocalEvent, bool> has, out LiveOpsLocalEvent ev, out string why)
+        {
             ev = null;
             string blocked = null;
-            for (int i = 0; i < _events.Length; i++)
+            if (table != null)
+            for (int i = 0; i < table.Length; i++)
             {
-                var e = _events[i];
+                var e = table[i];
+                if (e == null) continue;
                 if (!KindIn(e.Kind, kinds)) continue;
                 if (!e.IsInPeriod(utc)) continue;
                 if (has != null && !has(e)) continue;
@@ -675,8 +697,66 @@ namespace CardPresentation
             if (ev != null) { why = null; return true; }
             why = blocked != null
                 ? "本地目录里在期的事件只有 `" + blocked + "`，但它的 SO 是 `enabled=0`/`uploadToLive=0` ⇒ 不选"
-                : "本地 13 个活动实例里**没有** `" + KindNames(kinds) + "` 类、且在期（"
-                  + utc.ToString("yyyy-MM-dd HH:mm:ss") + " UTC）、并满足该读口条件的事件";
+                : "本地 " + (table == null ? 0 : table.Length) + " 个活动实例里**没有** `" + KindNames(kinds)
+                  + "` 类、且在期（" + utc.ToString("yyyy-MM-dd HH:mm:ss") + " UTC）、并满足该读口条件的事件";
+            return false;
+        }
+
+        // ============================================================ 🆕 FastMode（遭遇战）活动：本地表空
+        //
+        // 原版：`LiveOpsManager` 从**服务端**（PlayFab / CCD）拿 `ILiveOps` 实例；
+        //   `SkirmishEventWindow : LiveOpsEventWindow<IFastModeEvent>`（`dump.cs:63944`）的 `LiveOp`
+        //   就是一场 FastMode 活动 —— **活动不在期 ⇒ 那扇窗根本开不出来**
+        //   （`TryOpen` / `RefreshScore` 拿空实例走 `FUN_1803f47a0()` = 抛）。
+        //   用户口径（2026-10-24）：「活动进度 / 说明 / 胜利数 / 5 档里程碑 / 收集 —— 那是**活动期**才有的；
+        //   平常应该和经典大概一样」。判据与实机证据 → `资料/普查产出_1024b/S1_小冲突非活动期界面.md`。
+        //
+        // 本地：`_events` 那 13 份 SO 是 Parent / Scoring / Premium Item Offer 三类，**没有 FastMode 类**；
+        //   解包资源里也**没有** FastMode 的 SO（`cosmeticsso` 那 13 份逐份看过；关服前 Player.log 里
+        //   那几场 `Revival*`（含 `RevivalSkirmish`）的 SO **本地不存在**）。
+        //   ⇒ 本表**当前为空**。⛔ **这不是「写死 false」**：下面两个读口扫的就是这张表，
+        //     哪天把 FastMode 的 SO 抄进来（`E(...)` 那一族助手直接能用），判据立刻按
+        //     `Selectable && IsInPeriod` 生效。空表这件事**每次都出声**（`_warnedNoFastMode`，每进程一次）。
+        static readonly LiveOpsLocalEvent[] _fastModeEvents = { };
+
+        /// <summary>FastMode（遭遇战）活动实例表 —— 见上一段的落地说明。**当前 0 条**。</summary>
+        public static IReadOnlyList<LiveOpsLocalEvent> FastModeEvents { get { return _fastModeEvents; } }
+        /// <summary>FastMode 活动实例条数（**现读**；自检 D1 用它，⛔ 别把「0」写死进断言文案以外的地方）。</summary>
+        public static int FastModeEventCount { get { return _fastModeEvents.Length; } }
+
+        /// <summary>🔴 **自检注入口**（⛔ 只给 `Editor/SkirmishWindowAssertE15.cs` 的 B 组）：非 null ⇒
+        /// **顶替** <see cref="FastModeEvents"/> 那张表（读口一句都不用改）。
+        /// <para>为什么要有它：本地表空 ⇒ 「活动期」那一支**没有任何数据能走到**；只能塞一条**合成事件**
+        /// （标成 `E15 合成`、⛔ 不是伪造原版活动）来证明**这条判据链是活的** —— 否则「读表」和「写死 false」
+        /// 在本地**观察不到差别**（自证）。用完必须还原成 `null`。</para></summary>
+        public static LiveOpsLocalEvent[] FastModeEventsOverrideForTest;
+
+        /// <summary>🆕 **2026-10-24（E15）**：「现在有没有一场在期的 FastMode（遭遇战）活动」——
+        /// **真判据**（扫 `_fastModeEvents` + `Selectable` + `IsInPeriod`，与其余三类**同一个挑选函数**）。
+        /// 取不到 ⇒ false + <paramref name="why"/>（调用方**出声**，⛔ 不静默；`SkirmishEventWindow` 用它决定左列画哪一版）。</summary>
+        public static bool HasActiveFastModeEvent(DateTime utc, out LiveOpsLocalEvent ev, out string why)
+        {
+            return TrySelectActiveFastMode(utc, out ev, out why);
+        }
+
+        /// <summary>见上一行。⚠️ 表空时**每进程出声一次**（`_warnedNoFastMode`）—— 「判不出」要看得见。</summary>
+        public static bool TrySelectActiveFastMode(DateTime utc, out LiveOpsLocalEvent ev, out string why)
+        {
+            var table = FastModeEventsOverrideForTest ?? _fastModeEvents;
+            if (TryPickEventIn(table, new[] { LiveOpsLocalKind.FastMode }, utc, null, out ev, out why))
+                return true;
+
+            why = "**本机没有 FastMode（遭遇战）活动实例** —— 原版 `SkirmishEventWindow` 的 `LiveOp` 是"
+                + " `IFastModeEvent`（`dump.cs:63944`），由**服务端**下发；本地 13 份活动 SO 只有 "
+                + "Parent / Scoring / Premium Item Offer 三类，FastMode 表 = **"
+                + table.Length + " 条**（"
+                + (table.Length == 0 ? "数据源拿不到" : "都不在期/不可选") + "）"
+                + "⇒ 判据当前为 false。⚠️ 这不是写死 false，是表里没数据（见 `FastModeEvents` 那段注释）。";
+            if (!_warnedNoFastMode)
+            {
+                _warnedNoFastMode = true;
+                Debug.LogWarning("[LiveOpsLocal] " + why);
+            }
             return false;
         }
 
@@ -933,13 +1013,15 @@ namespace CardPresentation
         /// <summary>`Premium Item Offer` 无在期事件那条出声**每次进程只发一次**
         /// （消息里带时刻 ⇒ 不能拿整串当去重键）。`ResetWarnedForTest` 一并复位。</summary>
         static bool _warnedNoPremiumOffer;
+        /// <summary>🆕 2026-10-24（E15）：`FastMode（遭遇战）活动表为空` 那条出声**每进程一次**。</summary>
+        static bool _warnedNoFastMode;
         static void WarnOnce(string msg)
         {
             if (_warned.Add(msg)) Debug.LogWarning(msg);
         }
 
         /// <summary>自检用：清空「已经出过声」的去重表（同族先例 `Loc.ResetMissingWarnedForTest`）。</summary>
-        public static void ResetWarnedForTest() { _warned.Clear(); _warnedNoPremiumOffer = false; }
+        public static void ResetWarnedForTest() { _warned.Clear(); _warnedNoPremiumOffer = false; _warnedNoFastMode = false; }
 
         // ---- 数据表的构造助手（只是让上面那 13 份 SO 读起来像表，不改任何值）----
         static LiveOpsLocalEvent E(string eventId, string soName, LiveOpsLocalKind kind,

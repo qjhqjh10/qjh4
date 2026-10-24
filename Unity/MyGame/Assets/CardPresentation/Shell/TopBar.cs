@@ -167,6 +167,12 @@ namespace CardPresentation
             /// <summary>立绘画的是第几号头像（`ProfileData.AvatarIndex` 的快照；`-1` = 没画）。</summary>
             public int AvatarIndex = -1;
 
+            // ---- 🆕 2026-10-24（E12 · P1-8）：左上那块**玩家名**（改名后要跟着换）----
+            /// <summary>`Player Profile/Player Name` 那颗字（建不出来时是 `null`）。</summary>
+            public Label PlayerName;
+            /// <summary>那格现在印的是谁（`ProfileData.PlayerName` 的快照；`null` = 还没画过）。</summary>
+            public string NameShown;
+
             // ---- 🆕 B25：那 4 颗钮的命中区（自检问「点了谁」用；建不出来时是 `null`）----
             /// <summary>`Avatar Item Small` 上那面盾（= `Player_Profile_Border` 那一格）。</summary>
             public WindowButton ProfileHit;
@@ -178,11 +184,17 @@ namespace CardPresentation
             public WindowButton SettingsHit;
         }
 
+        /// <summary>最近一次 `Build` 出来的那一份（🆕 2026-10-24 E12：**只给自检用** ——
+        /// 断言要能从外面读到 `PlayerName` 那颗字；同 `PlayerProfileWindow.LastOpened` 的写法）。
+        /// ⚠️ 生产代码别拿它做逻辑：宿主各自持有自己的 `Parts`。</summary>
+        public static Parts LastBuilt;
+
         /// <param name="parent">挂在谁的下面（`DeckRuntime` / `MainMenuRuntime` 都传自己的根；那根出厂在原点、无父）。</param>
         /// <param name="onMissing">缺图回调（**出声**；`null` = 不出声）。⛔ 别在这里静默吞掉。</param>
         public static Parts Build(Transform parent, Action<string> onMissing)
         {
             var parts = new Parts();
+            LastBuilt = parts;      // 🆕 E12：自检要能从外面拿到「这一份顶栏」（同 `PlayerProfileWindow.LastOpened` 的写法）
             var bar = New(parent, "Upper bar", 1920f, 100f);
             parts.Root = bar;
             // `Background`：整条 1920 宽、高 71.3（**注意不是 100** —— 100 是容器高）
@@ -372,6 +384,11 @@ namespace CardPresentation
                 pn.SetAutoFitBox(265f / 108f, 48f / 108f, 10f, 32f, 36f);
                 pn.SetWrapping(false);
             }
+            // 🆕 2026-10-24（E12 · P1-8）：把名字那颗字留进 `Parts` —— 档案窗改完名，顶栏要跟着刷新
+            //   （原来建完就不管了：`TopBar.cs` 里没有任何保存引用、`MainMenuRuntime.Update` 只刷头像）。
+            //   刷新走 `RefreshPlayerNameIfChanged`（每帧比一个字符串，同头像那条「每帧比一个 int」的手法）。
+            parts.PlayerName = pn;
+            parts.NameShown = ProfileData.PlayerName;
 
             var av = New(p, "Avatar Item Small", 138.42f, 139.568f);
             // 盾框：**保宽高比**（原版 `m_PreserveAspect = 1`，39/39 都带）—— 拉伸会宽 1.6 倍
@@ -458,12 +475,30 @@ namespace CardPresentation
         /// ⚠️ 批处理下 `Update` 不跑 ⇒ **自检直接调这个方法**。</summary>
         public static void RefreshTopAvatarIfChanged(Parts parts, Action<string> onMissing)
         {
-            if (parts == null || parts.TopAvatar == null) return;
+            if (parts == null) return;
+            // 🆕 2026-10-24（E12 · P1-8）：**名字与头像是两件事** —— 先刷名字，再走头像那一段
+            //   （原来的第一句 `if (parts.TopAvatar == null) return;` 会把「没取到头像图」时本页
+            //    整块跳过 ⇒ 名字永远刷不到）。
+            RefreshPlayerNameIfChanged(parts);
+            if (parts.TopAvatar == null) return;
             if (parts.AvatarIndex == ProfileData.AvatarIndex) return;
             var tex = LoadAvatar(ProfileData.AvatarArt, onMissing);
             if (tex == null) return;
             parts.TopAvatar.SetTexture(tex);
             parts.AvatarIndex = ProfileData.AvatarIndex;
+        }
+
+        /// <summary>玩家名变了 ⇒ 顶栏那块字跟着换（🆕 2026-10-24 E12 · P1-8）。
+        /// 原版 `PlayerProfileUIController` 有 `playerNameText` 字段、`SetPlayerName` 里写它；我们这一份
+        /// 原来**建完就再也不碰**（档案窗改完名，左上角仍是旧名 —— 用户能直接看见）。
+        /// 手法与头像那条一致：**每帧比一个字符串**（⛔ 别另造事件机制）。</summary>
+        public static void RefreshPlayerNameIfChanged(Parts parts)
+        {
+            if (parts == null || parts.PlayerName == null) return;
+            string want = ProfileData.PlayerName;
+            if (parts.NameShown == want) return;
+            parts.PlayerName.SetText(want);
+            parts.NameShown = want;
         }
 
         /// <summary>头像那批图（`Resources/Art/avatars/`，名字**含空格、原样传**）。

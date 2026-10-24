@@ -325,6 +325,10 @@ namespace RuleEngine
             //     ⚠️ 只清 `LastTargets`（**一批**），**不动 `LastTarget`**（**一个**）——
             //        后者由 `chosen`（上面那段）/ `ResolveOps(…, seed)` 显式种，是刻意的。
             ctx.LastTargets.Clear();
+            // 🆕 2026-10-24（执行代理 `E2` · `E8` 顺手发现 2）：**本条 ability 的目标并集也从空起手**
+            //   —— 原版 `abilityTargetsToSave(+0x80)` 每次 play 都是新的（`AbilityLogic__DeepCopy.c`
+            //   不拷贝那一格）。⛔ 别跨 ability 累积：本槽语义是「**上一条**能力 + 本条已解出的」。
+            ctx.AbilityTargetsSaved.Clear();
 
             // 「上一次选牌挑中的那张」也按**一张卡一个窗口**清 —— 同一张卡里的分句要能互相指代
             // （`Choose a troop from your deck.` + `Create a copy of it in your hand` 是**两条分句**），
@@ -480,6 +484,9 @@ namespace RuleEngine
                     // ⚠️ `n == 0` 照常递下去 —— `Deal 0 damage` / `Refill 0` 是「生效了但数值是 0」，
                     //    不是「这条没生效」（报错了玩家会以为卡坏了）。
                     if (ResolveOne(ctx, owner, source, by, Prepaid(amtOp), chosen, unresolved, card: sourceCard)) done++;
+                    // 🆕 2026-10-24（执行代理 `E2`）：**每条 op 结束就整表覆盖一次**（原版每个效果 case 出口都调；
+                    //   ⛔ 别只留出口那一次 ⇒ 同一次结算里后面的 op 会读到上一张卡的残值）。
+                    NotePreviousAbilityTargets(ctx);
                     continue;
                 }
 
@@ -536,6 +543,7 @@ namespace RuleEngine
                     if (eff != 0 && (op.Verb == "give" || op.Verb == "gain" || op.Verb == "lose"))
                         effOp.Payload = ScalePayload(op.Payload, eff);
                     if (ResolveOne(ctx, owner, source, by, Prepaid(effOp), chosen, unresolved, card: sourceCard)) done++;
+                    NotePreviousAbilityTargets(ctx);   // 🆕 `E2`：逐 op 同步（同 P4）
                     continue;
                 }
 
@@ -582,7 +590,10 @@ namespace RuleEngine
                 var firstOp = Prepaid(op);
                 bool ok = false;
                 for (int k = 0; k < repeats; k++)
+                {
                     if (ResolveOne(ctx, owner, source, by, firstOp, chosen, unresolved, card: sourceCard)) ok = true;
+                    NotePreviousAbilityTargets(ctx);   // 🆕 `E2`：每一遍都是一条 op 的出口（原版同样逐效果覆盖）
+                }
                 if (ok) done++;
             }
             // 摧毁/伤害可能把督军打死 —— 结算完统一判一次胜负
@@ -1312,6 +1323,12 @@ namespace RuleEngine
             //     （判据 `CardScript__IsInPlay.c:7`：`cardState ∈ {2,15,3,17}`）。
             //   · 写入方 = 能力 `380 setReferenceCard`（见 `SetReferenceCards`）；
             //     **不是**卡 SO 字段 ⇒ 数据面为空是正常的（`资料/普查产出_1024/C5_剩余判据普查.md` §3）。
+            // 🔴 **2026-10-24 就地订正（铁律 5 · 只读代理 `C3` 现核）**：上面把写侧口径写成了
+            //   `actingCard.referencedCards` —— **基对象不对**。原版 `AbilityLogic__PlayAbility.c:2128-2160`
+            //   写的是 **`abilityData.thisCard`（`AbilityData + 0x10`）**，再由它取 `.referencedCards`
+            //   （`CardScript + 0x278`）；`actingCard` 只是**大多数情况下恰好就是同一张**。
+            //   ⇒ 读侧那两句（`GetTargets.c:770-781` / `:784-806`）不变；**引用表可以跨手牌/场上/墓地**，
+            //   而我们 `UnitState.ReferencedCards` 只装 `UnitState`（见 `UnitState.cs:642` 的如实标注）。
             // 🔴 **位置必须在最前**：原版这两档**完全绕开** `targetCriteria` 的其它字段
             //   （与 `ta=240` 同一形态），所以文本解析出来的 `Side/Kind/Count` 一个字都不该参与。
             // ⚠️ **按 `op.SubjectTargetsAffected` 分派**（这是本仓 op ↔ `targetsAffected` 的唯一镜像，
@@ -6366,7 +6383,8 @@ namespace RuleEngine
             //      常驻效果（`For the rest of this battle`）· 手牌监听（非单位卡的 `When …`）——
             //      这三族的 `desc` **逐张核过：没有一张**在正文里用 `them` / `it` 指代「上一条效果的目标」）
             //    ⇒ 本句今日**零可观测差异**，钉住的是「将来新增监听器不许漏出去」。
-            ctx.LastTargets.Clear();
+            ctx.LastTargets.Clear();            // 🆕 2026-10-24（执行代理 `E2`）：与另一个重载同一句 —— 目标并集从空起手。
+            ctx.AbilityTargetsSaved.Clear();
             ctx.LastTarget = null;
             if (prime != null)
             {
@@ -6496,8 +6514,11 @@ namespace RuleEngine
                 }
                 // 🆕 2026-10-22（`W64` · `B-16`）：触发路的卡 = `source.Card`（`source` = 触发的那张）。
                 for (int k = 0; k < opRepeats; k++)
+                {
                     ResolveOne(ctx, owner, source, by, Prepaid(amtOp), null, unresolved,
                                card: source != null ? source.Card : null);
+                    NotePreviousAbilityTargets(ctx);   // 🆕 `E2`：触发路同一个口径（逐 op 同步）
+                }
             }
             }
 
@@ -9737,25 +9758,59 @@ namespace RuleEngine
         }
 
         /// <summary>
-        /// 🆕 **2026-10-24（引擎线 `A1` 第 1 件）：把这次能力结算「最后解出的那批目标」记进
-        /// <see cref="BattleContext.PreviousAbilityTargets"/>** —— 原版
-        /// `AbilityLogic.SetPreviousAbilityTargets`（`Array.Clear` + `AddRange`，整表覆盖，
-        /// 在该能力末尾调；判据 → 那个字段的 doc）。
+        /// 🆕 **2026-10-24（引擎线 `A1` 第 1 件 · 执行代理 `E2` 改成【逐 op 同步】）：把
+        /// 「本条 ability 至今解出的目标**并集**」记进 <see cref="BattleContext.PreviousAbilityTargets"/>** ——
+        /// 原版 `AbilityLogic.SetPreviousAbilityTargets`（`Array.Clear` + `AddRange`，**整表覆盖**）。
         ///
-        /// **写点 = `ResolveOps` 的两条重载出口**（各一行）。⛔ 别挪到 `ResolveTargets` 里逐条累加：
-        /// 那会跨能力污染槽（本槽的语义是「**上一条**能力」）。
+        /// <para>🔴 **改前（`A1` 第一版）只在 `ResolveOps` 的两条出口同步一次**，取的是
+        /// `ctx.LastTargets`（= **最后一个**解出目标的效果）⇒ 同一次结算里**后面**那条 op 读
+        /// `targetsAffected = 150` 时，拿到的是**上一张卡**的残值（`E8` 顺手发现 2 的形状：
+        /// 「先打一张指定目标的卡、再打一张同一次结算里带 `150` 的卡」⇒ 静默多数）。
+        ///</para>
+        /// <para>**原版判据（`d:/2/tools/decomp_full/` 逐行现读，2026-10-24）**：
+        /// `AbilityLogic__PlayAbility.c` 的**每一个效果 `case`** 出口都是同一段 ——
+        /// `uVar18 = *(ulonglong *)(param_1 + 0x80); … AbilityLogic__SetPreviousAbilityTargets(param_1,uVar18,0);`
+        /// 之后 `switchD_…_caseD_1cf: return;`（41 个 `case 0x..` / 48 处引用 `LAB_18081cc87`；
+        /// 全函数只有 `:2745` 一处直接调用，其余全部走那个标签）⇒ **每一条效果结束就整表覆盖一次**。
+        /// 累加表 `abilityTargetsToSave(+0x80)` 在**一条 ability 内**只增不减
+        /// （`AbilityLogic__AddDrawCard` 等助手往 `param_1 + 0x80` 里 `AddRange`；
+        /// `AbilityLogic__DeepCopy.c` **不拷贝**这一格 ⇒ 每次 play 从空开始）。
+        ///</para>
         ///
-        /// ⚠️ **这是近似**（如实标）：原版逐 verb 往 `abilityTargetsToSave(+0x80)` 累加，
-        /// 我们取的是 `ctx.LastTargets` = **最后一个解出目标的效果**那一批。今天池内
-        /// `ta = 150` 的真实消费行 0 条 ⇒ 零可观测差异（详见那个字段的 doc）。
+        /// <para>🔑 **所以三处缺一不可**：
+        ///  · **起手清空** —— 两条 `ResolveOps` 入口各一句 `ctx.AbilityTargetsSaved.Clear()`（= 新的
+        ///    `DeepCopy` 那一格）；
+        ///  · **逐 op 同步** —— 两个主循环里 4 个 `ResolveOne` 调用点之后各调一次本方法；
+        ///  · **出口再同步一次** —— 幂等（并集去重），兜住「最后一条 op 没走主循环」的路径。
+        /// ⛔ 别退回「只在出口调一次」—— 那正是 `E8` 那条残值缺陷的形状。</para>
+        ///
+        /// <para>⚠️ **仍然如实标着的近似**：
+        /// ① 原版表里可以有**手牌 / 牌库的卡**（`AddDrawCard` 塞进去的那批）—— 我们的槽是
+        ///    `List&lt;UnitState&gt;`、只装场上单位，抽牌那一跳由 `CountEval` 的 `DrawnThisResolve`
+        ///    分支单独建模（`E8`）；
+        /// ② **触发路**（`ResolveOps` 重载 #2）入口会把 `prime`（= 触发的那一个 / 事件主体）种进
+        ///    `ctx.LastTargets` ⇒ 它也会被并进本表。原版那条表里装的是「`GetTargets` 解出来的候选」，
+        ///    触发主体通常正是其中一员 ⇒ 方向一致；今天 `ta = 150` 的消费行 0 条 ⇒ **零可观测差异**
+        ///    （真要判它得等有卡用到，见 `N2_八个role.md` §五·⑤）；
+        /// ③ 原版「这条 ability 一条效果都没解出目标」时静态表**保留上一张卡的值**（它只在效果出口
+        ///    才被覆盖），我们起手清空 ⇒ 那种形状读到空表 —— 与**改前**（出口同步取被入口清过的
+        ///    `LastTargets`）行为**一致**，不是本件引入的差异。</para>
         /// </summary>
         static void NotePreviousAbilityTargets(BattleContext ctx)
         {
-            ctx.PreviousAbilityTargets.Clear();
+            var acc = ctx.AbilityTargetsSaved;
             var lt = ctx.LastTargets;
-            if (lt == null) return;
-            for (int i = 0; i < lt.Count; i++)
-                if (lt[i] != null) ctx.PreviousAbilityTargets.Add(lt[i]);
+            if (lt != null)
+                for (int i = 0; i < lt.Count; i++)
+                {
+                    var u = lt[i];
+                    if (u == null) continue;
+                    // 并集去重：同一条 op 跑 N 遍（`repeats`）时目标会重复进来；
+                    // `UnitState` 没有重写 `Equals` ⇒ `Contains` 就是**引用相等**（正是我们要的）。
+                    if (!acc.Contains(u)) acc.Add(u);
+                }
+            ctx.PreviousAbilityTargets.Clear();
+            ctx.PreviousAbilityTargets.AddRange(acc);
         }
 
         /// <summary>🆕 2026-10-24（引擎线 `A1` 第 3 件）：原版 `TargetCriteria.spellType` 的
@@ -9845,6 +9900,15 @@ namespace RuleEngine
             //  ⚠️ `ctx.DeadUnits` 只收**真离场**（翻面成残骸那一支不进来）—— 与原版
             //     `inCemeteryFiltered`（墓地）同口径；`turnDied` 自己会连残骸一起计，
             //     但**这里的消费者数的是「墓地里有多少个」**（`UM77` 的 `multiplierSet` = `inCemeteryFiltered(60)`）。
+            //  ⛔🔴 **2026-10-24（执行代理 `E6`）：这一支【不许】改用 `ctx.DiedLastTurn`。**
+            //    那一格是**不分阵营、不分兵种**的全局计数（写点唯一 = `RuleCore.BeginTurnCore`），
+            //    拿它顶替会把卡面的 `own|troop` / `enemy|…` 两个侧筛**静默丢掉**
+            //    （数到对面死的兵）。判据：原版这一档是**逐卡**的
+            //    `CardScript.turnDied` + `CardScript__HasDiedSinceLastTurn.c:26-47`，
+            //    乘数集 = `inCemeteryFiltered(60)`（过一个墓地筛选），原版**没有**全局计数器。
+            //    那两格今天**生产侧无读者**（只为 `EngineA1` 的自检保留），见 `RuleCore.cs`
+            //    写点上方那段订正；判别式 = `RuleEngineTest_EngineE6.cs` 的 `E6T1`
+            //    （把那格故意写成 999，这里的读数必须不变）。
             if (op.CountScope == "diedsincelastturn")
             {
                 bool ownSide = reference.StartsWith("own");

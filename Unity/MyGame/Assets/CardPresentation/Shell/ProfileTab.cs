@@ -176,6 +176,10 @@ namespace CardPresentation
         const float AlRtPx = 37.4f, AlRtAutoMin = 18f;
 
         // ============================================================ 3) `Ranking`（Current / Highest / 传奇）
+        /// <summary>两张排名卡的标题词条（🆕 2026-10-24 E12 · P0-3）。官方两列 = `Current Rank`/`当前排名` ·
+        /// `Highest Rank`/`最高排名`（参考图那两格就是中文）。⛔ 别再写死英文 —— 原来是字面量。
+        /// ⚠️ 节点名（`Current Rank` / `Highest Rank`）**仍走英文**（原版 prefab 的节点名），只有**上屏文案**走词条。</summary>
+        public const string RankTermCurrent = "PlayerProfile/CurrentRank", RankTermHighest = "PlayerProfile/HighestRank";
         const float RkL = 351.02f, RkT = 327.70f, RkR = 1137.12f, RkB = 857.21f;
         /// <summary>`Current Rank`（`RankingDisplay`）：425.26×529.51 —— `Highest Rank` 与传奇那份同 y。</summary>
         const float CrL = 351.03f, CrT = 327.71f, CrR = 776.28f, CrB = 857.22f;
@@ -223,10 +227,40 @@ namespace CardPresentation
         const float HrFtL = 750.84f, HrFtT = 448.49f, HrFtR = 1160.84f, HrFtB = 589.39f;
         const float HrMrL = 762.65f, HrMrT = 497.39f, HrMrR = 1149.02f, HrMrB = 540.49f;
         const float HrGlL = 762.65f, HrGlT = 501.74f, HrGlR = 1149.02f, HrGlB = 536.14f;
-        const float HrLgL = 818.74f, HrLgT = 589.39f, HrLgR = 1092.94f, HrLgB = 619.39f;   // legendary title
-        /// <summary>`Legendarey Counter`（原版拼写就是 `Legendarey`）：`789.43,619.39 → 1122.24,619.39`（**高 0**）。</summary>
-        const float HrLcL = 789.43f, HrLcR = 1122.24f;
-        const float HrLcTL = 790.50f, HrLcTT = 601.25f, HrLcTR = 1121.17f, HrLcTB = 637.54f;
+        // ---- `Highest Rank` 卡里那两件「传奇点数」（`legendary title` + `Legendarey Counter`）----
+        // 🔴 **2026-10-24（E12 · P0-2）**：这两件**原版在非传奇支也是 ON 的**
+        //   （`ProfileRankingSection.Initialize:103-111`：非传奇支只关 `Legendary Display Profile`，
+        //   `Highest Rank` 那棵整棵保持 T；参考图 `账户-个人资料参考图.png` 里「最高排名」卡下方就印着
+        //   「传奇点数」+ 图标 + `0`）。我们原来**根本没建它们** —— 唯一的 Counter 在**隐藏的**
+        //   `Legendary Display Profile` 里（`BuildLegendaryCard`）⇒ 那格永远看不见。
+        //
+        // 🔴 **坐标/字号判据 = `--no-layout` 那一份（作者态）**，并且**就地订正**了这里原来的四个数（铁律 5）：
+        //   原来 `HrLgT/B = 589.39/619.39`、`HrLcTT/B = 601.25/637.54` 抄自 `menu_dump` **带布局**那一版，
+        //   而那一版把 `Legendarey Counter` 的子件 `Rating Text` 算到了**父块上沿之外**
+        //   （601.25 < 619.39 = 父块顶）—— 自相矛盾：该父块此刻 `activeInHierarchy = false`，
+        //   工具自己在那两行标着 `⛔GRP-off`（「本表给的是激活之后的值」，即**算出来的伪值**）。
+        //   `--no-layout` 那版自洽：counter `624.59..784.40`（332.80×159.81，与序列化 `m_SizeDelta` 同量级）、
+        //   `Rating Text` **正在它正中**（中心 704.5 = 父块中心）、`legendary title` 紧贴其上方
+        //   （590.33..624.59，VLG spacing 0）—— 与参考图「『传奇点数』下一行才是图标 + 0」逐形吻合。
+        //   命令：`python 工具/menu_dump.py bundle_menus_assets_all "Player Profile Window" --depth 25 --md --no-sprite --no-layout`
+        const float HrLgL = 818.74f, HrLgT = 590.33f, HrLgR = 1092.94f, HrLgB = 624.59f;   // legendary title（274.20×34.26）
+        /// <summary>`Legendarey Counter`（⚠️ 原版拼写就是 `Legendarey`）：`789.43,624.59 → 1122.24,784.40`。
+        /// ⚠️ 它那块底图的 `m_Sprite` = **`<未解出 3837025018791853890>`**（`menu_dump` 现读原文；
+        /// 本地没有一张图对得上）⇒ **只建节点、不画底图**，并在日志里出声（⛔ 不许画白块 ——
+        /// `Rect(..., null, ...)` 会落到 `CardArt.Solid()`，同 `RankedTab` 那两处白块的病）。</summary>
+        const float HrLcL = 789.43f, HrLcT = 624.59f, HrLcR = 1122.24f, HrLcB = 784.40f;
+        /// <summary>counter 里的 `Rating Text`：`790.50,686.35 → 1121.17,722.64`（330.67×36.29）。</summary>
+        const float HrLcTL = 790.50f, HrLcTT = 686.35f, HrLcTR = 1121.17f, HrLcTB = 722.64f;
+        /// <summary>`Main Icon`：60×45 @ `912.42,682.00 → 972.42,727.00` —— HLG `align 4`（MiddleCenter）
+        /// 算出来的居中位（行宽 330.67、图标 60 + 值 26.83 = 86.83 居中 ⇒ 起点 912.42），
+        /// ⛔ 不是「行左沿 + 60」（那是本工程别的几族的写法，这一族不是）。</summary>
+        const float HrLcIcL = 912.42f, HrLcIcT = 682.00f, HrLcIcR = 972.42f, HrLcIcB = 727.00f;
+        const float HrLcValL = 972.42f;     // 值左沿 = 图标右沿（HLG 推进出来）
+        /// <summary>counter 的值：fs 32 · 基准 31.38 · auto[18~32] · **Left/Midline** · 折行 1 · 白。</summary>
+        const float HrLcValPx = 32f, HrLcValAutoMin = 18f;
+        /// <summary>值 = `0` —— 本地没有传奇点数（服务器数据）。⚠️ prefab 那颗 TMP 的 `m_text` 是**示例** `'32'`
+        /// ⇒ ⛔ 不用它；`0` 与参考图那一格一致，也不是我们编的数字（空态就是 0）。</summary>
+        public const string LegendaryPointsValue = "0";
 
         /// <summary>`Legendary Display Profile`（`LegendaryRankAllTrophiesDisplay`）—— **出厂 T，但与 `Highest Rank` 互斥**（判据 ②）⇒ 走非传奇支时**关掉**。</summary>
         const float LgCtL = 798.26f, LgCtT = 340.49f, LgCtR = 1113.41f, LgCtB = 806.70f;
@@ -250,12 +284,29 @@ namespace CardPresentation
         const string ArtSubmenuBack = "UI_Deck_Information_submenu_Back";
         const string ArtForgeBg = "40K_profile_ForgeLevel_bg";      // 631×194 · Simple
         static readonly Vector4 SubmenuBorder = new Vector4(18f, 18f, 18f, 18f);
-        /// <summary>三格的静态标题 —— 🔴 **照抄预制体字面值**（含 `'Highest Warlod Mastery'` 的原版拼写、
-        /// 以及 Forge 那一格疑似复制粘贴来的 `'Current campaign'`）。运行期这三行会被服务端事件文案覆盖。</summary>
-        const string EvTitleWarlord = "Highest Warlod Mastery";
-        const string EvTitleCampaign = "Current campaign";
-        const float EvTitlePx = 25f, EvTitleAutoMin = 12f;
-        /// <summary>`ArmyName`：fs 35 · auto[14~35] · **Left/Bottom** · 色 (0.992,0.647,0.188)。</summary>
+        /// <summary>三格的标题 = **官方词条**（🆕 2026-10-24（E12 · P0-1）：把「版式 flag」与「标题」拆开）。
+        /// <para>🔴 改前：`BuildEvents` 给 `Forge Profile Container` 传的是 `warlord:true`，而 `Text(...)`
+        /// 又拿**同一个 flag** 选标题 ⇒ **Forge 那格印的是战将的标题**（实拍 `_tmp_view/menu/09_档案窗_Profile页.png`
+        /// 里第 1、2 格同字「Highest Warlod Mastery」）。`warlord` 那个 flag 本来的职责只有**版式**
+        /// （y 偏移 / 标题宽 / `Badge` 440 vs 123×104），标题是另一件事。</para>
+        /// <para>判据（R2 §② + 原版词条）：`PlayerProfile/HighestWarlordMastery` = `Warlord Mastery` / `战将精通`
+        /// （参考图第 1 格就是「战将精通」）· `/HighestForgeLevel` = `Highest Forge Level` / `最高锻造厂等级`
+        /// （参考图第 2 格）· `/CurrentCampaign` = `Current Campaign` / `当前战役`（第 3 格）。
+        /// ⚠️ 预制体里那三个字面值是 `'Highest Warlod Mastery'`（原版自己的拼写）与两格 `'Current campaign'`
+        /// —— 那是**作者态占位**，运行期由服务端事件文案覆盖；本地拿不到那些文案 ⇒ 走上面三条官方词条。</para></summary>
+        public const string EvTermWarlord = "PlayerProfile/HighestWarlordMastery";
+        public const string EvTermForge = "PlayerProfile/HighestForgeLevel";
+        public const string EvTermCampaign = "PlayerProfile/CurrentCampaign";
+        /// <summary>`Events/*/Title` 的词条取不到时的英文兜底（= 官方两列的英文那一列，逐字）。</summary>
+        const string EvTitleFallbackWarlord = "Warlord Mastery",
+                     EvTitleFallbackForge = "Highest Forge Level",
+                     EvTitleFallbackCampaign = "Current Campaign";
+        /// <summary>`Title` 的 auto 下限**逐格不同**（A406 逐棵读过）：Warlord `auto[12~25]`，Forge / Campaign
+        /// `auto[18~25]` —— 上限与 base（25 / 35）三棵相同，**只有下限不同** ⇒ 别一刀切。</summary>
+        const float EvTitlePx = 25f, EvTitleAutoMin = 12f, EvTitleAutoMinOther = 18f;
+        /// <summary>`ArmyName`：fs 35 · auto[14~35] · **Left/Bottom** · 色 (0.992,0.647,0.188)。
+        /// ⚠️ **2026-10-24（E12）起下限由调用点逐格传**（14 / 13 / 23 —— 三棵各不相同），
+        /// `EvArmyAutoMin` 保留只为「表里写的就是 14」可复查（战将那一格用的就是它）。</summary>
         const float EvArmyPx = 35f, EvArmyAutoMin = 14f;
         static readonly Color ArmyOrange = new Color(0.992f, 0.647f, 0.188f, 1f);
         /// <summary>`Level`：fs 27 · auto[23~27] · Left/Middle。</summary>
@@ -335,8 +386,16 @@ namespace CardPresentation
         static readonly Vector4 ClosePad = new Vector4(-20f, -20f, -20f, -20f);
         const string ArtRoundBtn = "UI_Button_Round_background", ArtCloseIcon = "40k_bt_close";
 
-        /// <summary>改名长度上限。**我们挑的 24**（原版在 `TMP_InputField.m_CharacterLimit`，本地没取到，§C）。</summary>
-        public const int MaxNameLen = 24;
+        /// <summary>改名长度上限 = **25**（原版 `ChangeNameWindow.ValidateInput`：`if (0x18 &lt; len) text =
+        /// Substring(0, 0x19)` —— `0x19` = **25** ⇒ 实际最长 25 个字符）。
+        /// 🔴 **2026-10-24（E12 · P1-8）就地订正（铁律 5）**：这里原写「**我们挑的 24**（原版在
+        /// `TMP_InputField.m_CharacterLimit`，本地没取到）」—— **判据其实一直在**（就是上面那条
+        /// `ChangeNameWindow__ValidateInput.c`），24 是我们早先的猜测。`E12` 起按反编译取 25。
+        /// ⚠️ **`Net/NetProtocol.cs:324-328` 的名字上限还是 24**（那份不在本批白名单里）⇒ 25 字的名字
+        /// 过网时会被截成 24 —— 已记进本批报告，等那份改成 25 才真正一致。</summary>
+        public const int MaxNameLen = 25;
+        /// <summary>改名最小长度 = **3**（同一条 `ValidateInput`：`if (len &lt; 3) interactable = false`）。</summary>
+        public const int MinNameLen = 3;
 
         // ============================================================ 空态串（逐类见文件头 ⓐ/ⓑ/ⓒ）
         /// <summary>ⓐ 空态串：`'-'`（原版 `Player Level Text` 自己用的）。</summary>
@@ -349,15 +408,42 @@ namespace CardPresentation
                                    PlaceholderAlliance = "Alliance Name";
         /// <summary>ⓒ 段位名：预制体写的是 `'Division V'`（示例数据）⇒ **留空**。段位/评分全是服务器的（§C）。</summary>
         public const string DivisionEmpty = "";
-        /// <summary>`PlayerId` 那一行（ⓒ：**Player ID 在服务器**，我们留空；标签照原版的 `PlayerProfile/PlayerIdDisplay` 格式）。</summary>
-        public const string IdLine = "Player id: -";
+        /// <summary>`PlayerId` 那一行 —— 标签走官方词条 `PlayerProfile/PlayerIdDisplay`
+        /// （`Player id: {0}` / `玩家ID：{0}`），值按既定口径取空态 `-`（Player ID 在服务器，§C）。
+        /// 🆕 **2026-10-24（E12 · P0-3）**：原来是写死的英文常量 `"Player id: -"` ⇒ 中文档下仍印英文
+        /// （用户点名）。⚠️ 从 `const` 改成 `static` 属性只影响读取点 —— `Editor/MainMenuScene.cs:6666`
+        /// 那句 `ProfileTab.IdLine` 照样编译，而且它比的是**同一个动态值**（口径不变）。</summary>
+        public static string IdLine { get { return string.Format(Loc.T("PlayerProfile/PlayerIdDisplay"), Dash); } }
         /// <summary>`Consecutive login days` 那一行（同上；原版串是 `'Consecutive login days: 312 days'`）。</summary>
         public const string LoginLine = "Consecutive login days: -";
         /// <summary>`Invite to alliance` 的文案（原版由 `HasBeenInvited` 在两句话里二选一，§A.1）。</summary>
         public const string InviteLabel = "Invite to Alliance";
         public const string LeaderboardLabel = "Leaderboard", LegendaryPointsLabel = "Legendary Points";
+        /// <summary>「传奇点数」的词条键（🆕 2026-10-24 E12 · P0-3）：官方 `PlayerProfile/LegendaryRank` =
+        /// `Legendary Points` / `传奇点数` —— 与 prefab 那颗 TMP 的 `m_text` 逐字相同，故判据成立。
+        /// 两处用它：`Highest Rank` 卡里那一行（`BuildLegendaryPointsRow`）与隐藏的传奇卡
+        /// （`BuildLegendaryCard`，结构照建、出厂关）。</summary>
+        public const string LegendaryRankTerm = "PlayerProfile/LegendaryRank";
+        /// <summary>奖杯行底下那行文案（`Victories text`，装的其实是 `Trophies`）的词条键。
+        /// 🆕 2026-10-24（E12 · P0-3）：官方 `PlayerProfile/Trophies` = `Trophies` / `奖杯`；原来写死英文。</summary>
+        public const string TrophiesTerm = "PlayerProfile/Trophies";
         /// <summary>`Player Level Text` 的值：照抄原版预制体自己的空态串 `'-'`（ⓐ）。</summary>
         public const string PlayerLevelText = Dash;
+
+        /// <summary>`Events/*/Level` 那一行的词条 —— **逐格不同**（参考图 `账户-个人资料参考图.png`）：
+        /// 战将格印 **胜利数**（`胜利 : 487`）、锻造厂与战役两格印 **等级**（`等级 : 32` / `等级 : 9`）。
+        /// 值本地没有（服务器/活动数据）⇒ 按全页既定的空态口径取 `-`（同 `Player id: -`）。</summary>
+        public const string EvLevelTermWarlord = "PlayerProfile/VictoriesDisplay";
+        public const string EvLevelTermOther = "PlayerProfile/LevelDisplay";
+
+        /// <summary>官方词条 or 英文兜底。⚠️ `Loc.T` 缺键时**返回键名本身**（不是空串）⇒ 直接上屏会印
+        /// `PlayerProfile/…` 这种串。3 档顺序 = 手写 `Table` → 数据面 bulk → 官方全表，这里取不到才用兜底。
+        /// 同族先例 = `PlayerProfileWindow.TabLabel`。</summary>
+        protected static string TermOr(string key, string fallback)
+        {
+            string v = Loc.T(key);
+            return string.IsNullOrEmpty(v) || v == key ? fallback : v;
+        }
 
         // ============================================================ 建的
         Transform _nameWin;      // `ChooseNameWindow`（出厂关）
@@ -438,12 +524,24 @@ namespace CardPresentation
             var info = Node("Player Info", new PxRect(PiL, PiT, PiR, PiB));
 
             // --- 头像（`Avatar Item Small`）---
+            // 🔴 **2026-10-24（E18）**：`Image Container` 是**布局框**，底下三层各自按原版 `m_LocalScale`
+            //   **绕布局框中心放大**：头像 ×2.0 · 框 ×1.25 · 高亮 ×1.9（判据与「为什么」→
+            //   `Shell/AvatarTab.cs` 的 `ScaleImage` 常量注释；同族先例 `Editor/BattleScene.cs:24532`
+            //   对**同一颗** `Avatar Item Small` 也是 `Border 1.25 / Image 2.0`）。
+            //   ⚠️ 放大后头像会**溢出** `Image Container` 与 `Avatar Item Small`（原版也溢出；父链无遮罩）。
             var av = Node(info, "Avatar Item Small", new PxRect(AvL, AvT, AvR, AvB));
             var ic = Node(av, "Image Container", new PxRect(AvIcL, AvIcT, AvIcR, AvIcB));
             // `Highlight` 挂在 `Image Container` 下（照原版树）；出厂 T
-            Rect(ic, "Player_Avatar_selected", new PxRect(AvHlL, AvHlT, AvHlR, AvHlB), "Highlight", L_Bg2, null, true);
-            _avatarArt = CosmeticRect(ic, CurrentAvatarArt(), new PxRect(AvImL, AvImT, AvImR, AvImB), "Image", L_ArtOverFrame);
-            Rect(ic, "Player_Profile_Border", new PxRect(AvBdL, AvBdT, AvBdR, AvBdB), "Border", L_Frame, null, true);
+            Rect(ic, "Player_Avatar_selected",
+                 AvatarTab.ScaleAboutCenter(new PxRect(AvHlL, AvHlT, AvHlR, AvHlB), AvatarTab.ScaleHighlight),
+                 "Highlight", L_Bg2, null, true);
+            _avatarArt = CosmeticRect(ic, CurrentAvatarArt(),
+                                      AvatarTab.ScaleAboutCenter(new PxRect(AvImL, AvImT, AvImR, AvImB),
+                                                                 AvatarTab.ScaleImage),
+                                      "Image", L_ArtOverFrame);
+            Rect(ic, "Player_Profile_Border",
+                 AvatarTab.ScaleAboutCenter(new PxRect(AvBdL, AvBdT, AvBdR, AvBdB), AvatarTab.ScaleBorder),
+                 "Border", L_Frame, null, true);
             // 出厂 F 的那行名（`AvatarDisplay.avatarName` 只 set_text、从不 SetActive，§A.1）⇒ 建成后关
             // 🔴 **2026-10-07（A62 子表 A · A4 / 判据文件 §③「碰巧对」）**：原版 `Avatar Name` 是 **`折行=1`**，
             //   而我们原来**没显式声明**（靠 `SetAutoFitBox` 顺带打开 = 碰巧对）⇒ 补 `wrap: true` 把它钉死
@@ -455,7 +553,8 @@ namespace CardPresentation
                                     autoMaxPx: 36f, basePx: 36f, face: TmpFont.Face.LatinCardBody);
             if (_avatarNameLabel != null) _avatarNameLabel.gameObject.SetActive(false);
             // `Raycast Target` 是**透明命中区**（色 (1,1,1,0)）⇒ 我们用 Hit 表达同一件事
-            Hit(info, "AvatarHit", new PxRect(AvHitL, AvHitT, AvHitR, AvHitB), L_Hit, OnAvatarClick);
+            // 🆕 2026-10-24（E12 · P0-4）：点它 = 切到 `Avatar` 页（原版 `ProfileTab.<Start>b__9_0`）
+            Hit(info, "AvatarHit", new PxRect(AvHitL, AvHitT, AvHitR, AvHitB), L_Hit, GoToAvatarTab);
 
             BuildInfoSectionWithAlliance(info);
             BuildInfoSectionWithoutAlliance(info);
@@ -584,19 +683,25 @@ namespace CardPresentation
 
             // `Current Rank`：`MainRating` 出厂 **T**（`displaySeals=1`）⇒ 带四个封印格
             BuildRankCard(rk, "Current Rank", CrL, CrT, CrR, CrB, CrCtL, CrCtT, CrCtR, CrCtB,
-                          CrTtL, CrTtT, CrTtR, CrTtB, "Current Rank", CrBgL, CrBgT, CrBgR, CrBgB,
+                          CrTtL, CrTtT, CrTtR, CrTtB, TermOr(RankTermCurrent, "Current Rank"),
+                          CrBgL, CrBgT, CrBgR, CrBgB,
                           CrDtL, CrDtR, DvPx,
                           CrFtL, CrFtT, CrFtR, CrFtB, CrMrL, CrMrT, CrMrR, CrMrB,
                           CrGlL, CrGlT, CrGlR, CrGlB, CrMsL, CrMsT, CrMsR, CrMsB,
                           ArtCardRedSimple, RedSimpleBorder, true);
 
             // `Highest Rank`：`MainRating` 出厂 **F**（`displaySeals=0`）⇒ 不建那四个格子
-            BuildRankCard(rk, "Highest Rank", HrL, CrT, HrR, CrB, HrCtL, HrCtT, HrCtR, HrCtB,
-                          HrTtL, HrTtT, HrTtR, HrTtB, "Highest Rank", HrBgL, HrBgT, HrBgR, HrBgB,
+            var hrContent = BuildRankCard(rk, "Highest Rank", HrL, CrT, HrR, CrB, HrCtL, HrCtT, HrCtR, HrCtB,
+                          HrTtL, HrTtT, HrTtR, HrTtB, TermOr(RankTermHighest, "Highest Rank"),
+                          HrBgL, HrBgT, HrBgR, HrBgB,
                           HrDtL, HrDtR, DvPxHighest,
                           HrFtL, HrFtT, HrFtR, HrFtB, HrMrL, HrMrT, HrMrR, HrMrB,
                           HrGlL, HrGlT, HrGlR, HrGlB, 0f, 0f, 0f, 0f,
                           ArtCardRed, RedBorder, false);
+
+            // 🆕 2026-10-24（E12 · P0-2）：非传奇支里 `Highest Rank` **还带「传奇点数」那一行**
+            //   （`legendary title` + `Legendarey Counter`）—— 我们原来没建（见常量区那一段判据）。
+            BuildLegendaryPointsRow(hrContent);
 
             BuildLegendaryCard(rk);
 
@@ -628,8 +733,10 @@ namespace CardPresentation
 
         /// <summary>一张 `RankingDisplay` 卡（`Current Rank` 与 `Highest Rank` 同构，只有几个数不同）。
         /// 🔴 两份的**互斥参数**（§A.1）：`Current Rank` 的 `MainRating` 出厂 **T**（`displaySeals=1`）、
-        /// `Highest Rank` 的出厂 **F**（`displaySeals=0`）—— `Mission Milestones Progress` 只在 `MainRating` 下面。</summary>
-        void BuildRankCard(Transform parent, string name, float l, float t, float r, float b,
+        /// `Highest Rank` 的出厂 **F**（`displaySeals=0`）—— `Mission Milestones Progress` 只在 `MainRating` 下面。
+        /// <para>🆕 2026-10-24（E12）：**返回 `Content` 那棵**，好让 `Highest Rank` 再挂自己的
+        /// 「传奇点数」两件（P0-2）。</para></summary>
+        Transform BuildRankCard(Transform parent, string name, float l, float t, float r, float b,
                            float ctL, float ctT, float ctR, float ctB,
                            float ttL, float ttT, float ttR, float ttB, string title,
                            float bgL, float bgT, float bgR, float bgB, float dtL, float dtR, float dvPx,
@@ -754,6 +861,46 @@ namespace CardPresentation
             Text(gl, Dash6, new PxRect(glL + 60f, glT, glR, glB), Color.white, "Individual rating value",
                  RvPx, L_Text, autoFit: true, autoMinPx: RvAutoMin, alignLeft: true, wrap: true,
                  autoMaxPx: 40f, basePx: 31.3799991607666f, face: TmpFont.Face.LatinCardBody);
+            return ct;
+        }
+
+        /// <summary>`Highest Rank` 卡里的「传奇点数」那一行：`legendary title` + `Legendarey Counter`。
+        /// 判据/坐标 → 本文件常量区 `HrLgT/Htt`、`HrLcT/Hcb` 那两段的长注释（含 `--no-layout` 的理由）。
+        /// <para>🔴 原版拼写是 **`Legendarey`**（`a` 不是 `e`）—— 节点名照抄，别顺手「修正」，
+        /// 否则形态与 `资料/普查产出_0927/档案窗_Profile页.md` §A 对不上（同 `Warlord  Mastery` 的双空格）。</para></summary>
+        void BuildLegendaryPointsRow(Transform content)
+        {
+            if (content == null)
+            {
+                Debug.LogWarning("[Profile] `Highest Rank/Content` 没建出来 ⇒ 「传奇点数」那一行也建不了（不许静默）");
+                return;
+            }
+            // 标题：官方词条 `PlayerProfile/LegendaryRank` = `Legendary Points` / `传奇点数`（参考图那格就是中文）。
+            // ⚠️ 这条词条**不是**自拟：prefab 那颗 TMP 的 `m_text` 逐字就是 `'Legendary Points'`。
+            var lgdR = new PxRect(HrLgL, HrLgT, HrLgR, HrLgB);
+            var lgdLb = Text(content, TermOr(LegendaryRankTerm, LegendaryPointsLabel), lgdR, RankInk, "legendary title",
+                             28f, L_Title, autoFit: true, autoMinPx: 18f, alignLeft: false, wrap: false,
+                             autoMaxPx: 28f, basePx: 23f, face: TmpFont.Face.LatinUi);
+            if (lgdLb != null) lgdLb.SetWrapping(false);
+
+            var cn = Node(content, "Legendarey Counter", new PxRect(HrLcL, HrLcT, HrLcR, HrLcB));
+            // ⛔ **不画那块 332.80×159.81 的底图**：原版它的 sprite `<未解出 3837025018791853890>`（本地无图）⇒
+            //    只建节点（同 `Badge` 的处置），并出声。⛔ 别用 `Rect(cn, null, …)` —— 那会落到白图。
+            Debug.Log("[Profile] `Highest Rank/Legendarey Counter` 的底图：原版 `m_Sprite` = "
+                    + "`<未解出 3837025018791853890>`（本地没有对应图）⇒ 只建节点、不画底图");
+
+            var rtR = new PxRect(HrLcTL, HrLcTT, HrLcTR, HrLcTB);
+            var rt = Node(cn, "Rating Text", rtR);
+            // `Secondary Icon`（出厂 F · 无 ratingIcon）+ `Main Icon` + 值
+            var si = Rect(rt, ArtRankIcon, new PxRect(HrLcTL, HrLcTB, HrLcTL, HrLcTB), "Secondary Icon", L_Art, null, true);
+            if (si != null) si.gameObject.SetActive(false);
+            Rect(rt, ArtRankIcon, new PxRect(HrLcIcL, HrLcIcT, HrLcIcR, HrLcIcB), "Main Icon", L_Art, null, true);
+            var valR = new PxRect(HrLcValL, HrLcTT, HrLcTR, HrLcTB);
+            var val = Text(rt, LegendaryPointsValue, valR, Color.white, "Individual rating value",
+                           HrLcValPx, L_Text, autoFit: true, autoMinPx: HrLcValAutoMin, alignLeft: true, wrap: true,
+                           autoMaxPx: 32f, basePx: 31.3799991607666f, face: TmpFont.Face.LatinCardBody);
+            // 原版这一格是 `Left/**Midline**`（dump 那一行），`Text(...)` 只表达左右 ⇒ 纵向另接一次。
+            MenuDraw.SetVAlign(val, Label.VAlign.Midline, valR);
         }
 
         /// <summary>`Legendary Display Profile`（传奇支）—— **出厂 T，但与 `Highest Rank` 互斥**（判据 ②）。
@@ -783,7 +930,8 @@ namespace CardPresentation
             // 🔴 **A62 · A17**：`legendary title`（`'Legendary Points'`）原版 `折行=0 auto[18~28]` ⇒ 关掉。
             // 🔴 **A406**：`Ranking/Legendary Display Profile/Content/legendary title` 原版
             //   `auto[18.0~28.0] 基准=23.0` ⇒ 上限 28（= 标称）· base **23.0**。
-            var lgdTx = Text(ct, LegendaryPointsLabel, new PxRect(HrLgL, LgTtT, HrLgR, LgTtB), RankInk, "legendary title",
+            var lgdTx = Text(ct, TermOr(LegendaryRankTerm, LegendaryPointsLabel),
+                              new PxRect(HrLgL, LgTtT, HrLgR, LgTtB), RankInk, "legendary title",
                              28f, L_Title, autoFit: true, autoMinPx: 18f, alignLeft: false, wrap: false,
                              autoMaxPx: 28f, basePx: 23f, face: TmpFont.Face.LatinUi);
             if (lgdTx != null) lgdTx.SetWrapping(false);
@@ -826,7 +974,7 @@ namespace CardPresentation
                      "Victories number", 36f, L_Text, autoFit: false, autoMinPx: 0f, alignLeft: false, wrap: true,
                      face: TmpFont.Face.LatinCardBody);
                 var vicTxtR = new PxRect(861.90f, top + 49.60f, 1081.22f, top + 99.60f);
-                var lbVicTxt = Text(row, "Trophies", vicTxtR, Color.white,
+                var lbVicTxt = Text(row, TermOr(TrophiesTerm, "Trophies"), vicTxtR, Color.white,
                      "Victories text", 36f, L_Text2, autoFit: false, autoMinPx: 0f, alignLeft: false, wrap: true,
                      face: TmpFont.Face.LatinCardBody);
                 // 🆕 **2026-10-16（A712 阶段 2）**：上面 本文件 那句「`对齐=Center/Midline|Capline`」的**逐颗真值**
@@ -846,17 +994,34 @@ namespace CardPresentation
         {
             var ev = Node("Events", new PxRect(EvL, EvT, EvR, EvB));
             // ⚠️ 节点名里的**两个空格**是原版真值（`Warlord  Mastery Container`），别顺手改成一个
-            BuildEventContainer(ev, "Warlord  Mastery Container", EvT, ArtSubmenuBack, true, true);
-            BuildEventContainer(ev, "Forge Profile Container", EvT + EvStep, ArtForgeBg, false, true);
-            BuildEventContainer(ev, "Campaign Profile Container", EvT + EvStep * 2f, ArtSubmenuBack, true, false);
-            Debug.Log("[Profile] `Events` 三格：原版装的是**服务端活动状态**（战将精通 / 锻造厂 / 战役）"
-                    + "⇒ 我们**留空态**（ArmyName / Level 都不编数字）；三行标题照抄预制体字面值。");
+            //
+            // 🔴 **`warlord` 这个实参只管【版式】**（`Title` 的 y / 宽 · `Badge` 440 vs 123×104 ·
+            //    `ArmyName`/`Level` 的 x），**标题另给**（2026-10-24 E12 · P0-1）。
+            // 🔴 **`Forge` 那一格原来传的是 `warlord:true` —— 那是错的**：原版 prefab 里它走的是
+            //    「小 Badge」那套（`Title` 1194.38,509.48→1677.43,569.48 = 483.05 宽 · `Badge`
+            //    1198.59,560.73→1321.65,665.02 = 123.07×104.28 · `ArmyName` x 1330.87）
+            //    ⇒ 与 Campaign 同一套版式、只有底图（Simple `40K_profile_ForgeLevel_bg`）不同。
+            //    判据 = `资料/普查产出_0927/档案窗_Profile页.md` §A 第 149-154 行（逐件实读）。
+            //    改前它不仅标题错，`Title` 宽（280.40 而不是 483.05）与 `Badge`（440 而不是 123×104）
+            //    也跟着错 —— 同一个 flag 承担了两件事的连带后果。
+            BuildEventContainer(ev, "Warlord  Mastery Container", EvT, ArtSubmenuBack, true, true,
+                                TermOr(EvTermWarlord, EvTitleFallbackWarlord), EvLevelTermWarlord, 14f);
+            BuildEventContainer(ev, "Forge Profile Container", EvT + EvStep, ArtForgeBg, false, false,
+                                TermOr(EvTermForge, EvTitleFallbackForge), EvLevelTermOther, 13f);
+            BuildEventContainer(ev, "Campaign Profile Container", EvT + EvStep * 2f, ArtSubmenuBack, true, false,
+                                TermOr(EvTermCampaign, EvTitleFallbackCampaign), EvLevelTermOther, 23f);
+            Debug.Log("[Profile] `Events` 三格：标题走官方词条（战将精通 / 最高锻造厂等级 / 当前战役）；"
+                    + "格里的 ArmyName / 等级·胜利数**原版装的是服务端活动状态** ⇒ 我们留空态"
+                    + "（`ArmyName` 空串、`Level` 行印「词条 + `-`」），⛔ 不编数字。");
         }
 
         /// <summary>一个事件容器（555×175）。`warlord` == true 是 `Warlord  Mastery Container` ——
         /// 它的 `Title` / `ArmyName` / `Level` 的 y 与另外两格**不同**（+13.07 vs +1.77）、
-        /// `Badge` 是 440×440（另外两格 123.07×104.28）—— **逐格真值，别统一**。</summary>
-        void BuildEventContainer(Transform parent, string name, float top, string art, bool nine, bool warlord)
+        /// `Badge` 是 440×440（另外两格 123.07×104.28）—— **逐格真值，别统一**。
+        /// <para>⚠️ `warlord` **只描述版式**：标题由 `title` 另给、`Level` 行用哪条词条由
+        /// `levelFormatKey` 另给（2026-10-24 E12：原来标题复用了这个 flag ⇒ Forge 那格印战将的标题）。</para></summary>
+        void BuildEventContainer(Transform parent, string name, float top, string art, bool nine, bool warlord,
+                                 string title, string levelFormatKey, float armyAutoMin)
         {
             float l = EvX1, r = EvX2, b = top + EvH;
             var c = Node(parent, name, new PxRect(l, top, r, b));
@@ -867,10 +1032,11 @@ namespace CardPresentation
             float ty = warlord ? top + 13.07f : top + 1.77f;
             // 🔴 **A406**：`Events/{Warlord  Mastery,Forge Profile,Campaign Profile} Container/Title` 三棵
             //   **逐棵读过**：`auto[12.0~25.0]`（Warlord）/ `auto[18.0~25.0]`（Forge · Campaign）· **基准全是 35.0**
-            //   ⇒ 上限 **25**（= 标称）· base **35.0**（三棵同 max/base，**min 不同** —— 那一格不在本件）。
-            Text(c, warlord ? EvTitleWarlord : EvTitleCampaign,
+            //   ⇒ 上限 **25**（= 标称）· base **35.0**（三棵同 max/base，**min 不同** —— 随 `warlord` 走）。
+            Text(c, title,
                  new PxRect(tx, ty, tx + (warlord ? 280.40f : 483.05f), ty + 60f),
-                 Color.white, "Title", EvTitlePx, L_Title, autoFit: true, autoMinPx: EvTitleAutoMin,
+                 Color.white, "Title", EvTitlePx, L_Title,
+                 autoFit: true, autoMinPx: warlord ? EvTitleAutoMin : EvTitleAutoMinOther,
                  alignLeft: true, wrap: true, autoMaxPx: 25f, basePx: 35f, face: TmpFont.Face.LatinUi);
             // `Badge`：预制体里**没有 sprite**（运行期由活动给图）⇒ 照 `SearchingOpponentWindow` 的先例**只建节点**
             Node(c, "Badge", warlord ? new PxRect(1397.12f, top - 233.32f, 1837.12f, top + 206.68f)
@@ -879,12 +1045,17 @@ namespace CardPresentation
             float ax = warlord ? 1195.12f : 1330.87f;
             float ay = warlord ? top + 73.99f : top + 57.93f;
             // 🔴 **A406**：`Events/*/ArmyName` 三棵 `auto[14.0|13.0|23.0~35.0] 基准=35.0` ⇒ 上限 35（= 标称）
-            //   · base **35.0**（三棵同 max/base；**min 三棵各不相同**，那一格不在本件）。
-            Text(c, "", new PxRect(ax, ay, ax + 289.46f, top + 119.53f), ArmyOrange, "ArmyName",
-                 EvArmyPx, L_Text, autoFit: true, autoMinPx: EvArmyAutoMin, alignLeft: true, wrap: true,
+            //   · base **35.0**（三棵同 max/base；**min 三棵各不相同**）。
+            // 🔴 **2026-10-24（E12）**：`ArmyName` 的**框宽逐族不同**（战将 289.46 / 另两格 240.45，
+            //   实读 `…:401.72→1484.58` 与 `…:565.64→1571.32`）—— 原来三格都用 289.46（另两格多 49.01）；
+            //   **下限也逐格不同**（14 / 13 / 23）—— 原来三格都吃 `EvArmyAutoMin = 14` ⇒ 改成调用点显式传。
+            Text(c, "", new PxRect(ax, ay, ax + (warlord ? 289.46f : 240.45f), top + 119.53f), ArmyOrange, "ArmyName",
+                 EvArmyPx, L_Text, autoFit: true, autoMinPx: armyAutoMin, alignLeft: true, wrap: true,
                  autoMaxPx: 35f, basePx: 35f, face: TmpFont.Face.LatinUi);
             // 🔴 **A406**：`Events/*/Level` 三棵 `auto[23.0~27.0] 基准=35.0` ⇒ 上限 27（= 标称）· base **35.0**。
-            Text(c, "", new PxRect(ax, top + 116.36f, ax + 312.27f, top + 148.36f), Color.white, "Level",
+            // 🆕 2026-10-24（E12 · P0-3）：标签走官方词条（战将格 = 胜利数、另两格 = 等级），值取空态 `-`。
+            Text(c, string.Format(TermOr(levelFormatKey, ""), Dash),
+                 new PxRect(ax, top + 116.36f, ax + 312.27f, top + 148.36f), Color.white, "Level",
                  EvLvlPx, L_Text2, autoFit: true, autoMinPx: EvLvlAutoMin, alignLeft: true, wrap: true,
                  autoMaxPx: 27f, basePx: 35f, face: TmpFont.Face.LatinCardBody);
         }
@@ -1078,7 +1249,10 @@ namespace CardPresentation
             if (_nameField == null) return;
             var pl = PointerLayer.Instance;
             bool editing = pl != null && pl.TextEditing;
-            _nameField.SetText((s ?? "") + (editing ? "_" : ""));
+            // 🆕 2026-10-24（E12 · P1-8）：**边打边去富文本** —— 原版 `ValidateInput` 每次变化都把
+            //   清洗过的串 `set_text` 回输入框（用户看到的就是洗干净的那一行）。我们这里只改**显示**，
+            //   `PointerLayer` 自己的缓冲区不动（提交时 `ApplyName` 再洗一次，两处同一份 `StripRichText`）。
+            _nameField.SetText(StripRichText(s ?? "") + (editing ? "_" : ""));
         }
 
         /// <summary>点 `Change Name Button`：走**同一个提交函数**（`PointerLayer.EndText(true)`）。
@@ -1098,13 +1272,34 @@ namespace CardPresentation
             CloseNameWindow();
         }
 
-        /// <summary>提交那一跳（`PointerLayer.BeginText` 的 onCommit）—— **全工程只有这一处写玩家名**。</summary>
+        /// <summary>提交那一跳（`PointerLayer.BeginText` 的 onCommit）—— **全工程只有这一处写玩家名**。
+        /// <para>🔴 **2026-10-24（E12 · P1-8）对齐原版 `ChangeNameWindow.ValidateInput` / `ChangeNameButtonClick`**：
+        /// ① **去富文本标签**（原版 `TextMessageValidationTools.RemoveRichTextTags`）；
+        /// ② **长度 3~25**（`len &lt; 3` ⇒ 钮不可点 · `len &gt; 24` ⇒ `Substring(0, 0x19)` = 截到 25）；
+        /// ③ **同名禁改**（`interactable = … &amp;&amp; text != PlayerDataManager.playerName`）。</para>
+        /// <para>⚠️ 原版这三条都落在**钮的 `interactable`** 上（灰钮 = 提交不了），我们没有那条灰钮链
+        /// ⇒ 在**唯一的写点**这里做同一组判断，并且**每次都出声**（⛔ 不许静默吞掉一次改名）。
+        /// ⚠️ `ValidateInput` 里还有一次 `string.Replace(x, y)`，那两个字面量（`DAT_1842c15b8` / `DAT_1842c11b8`）
+        /// **本地没解出** ⇒ 那一跳**没做**（如实记，别当我们做了）。</para></summary>
         void ApplyName(string s)
         {
-            string v = (s ?? "").Trim();
-            if (v.Length == 0)
+            string v = StripRichText(s ?? "").Trim();
+            if (v.Length > MaxNameLen)
             {
-                Debug.Log("[Profile] 名字不能是空的 ⇒ 不改（原版 `ChangeNameWindow` 也是这道校验）");
+                Debug.Log("[Profile] 名字超长（" + v.Length + " > " + MaxNameLen + "）⇒ 截到前 " + MaxNameLen
+                        + " 个字符（原版 `ChangeNameWindow.ValidateInput`：`Substring(0, 0x19)`，0x19 = 25）");
+                v = v.Substring(0, MaxNameLen);
+            }
+            if (v.Length < MinNameLen)
+            {
+                Debug.Log("[Profile] 名字至少要 " + MinNameLen + " 个字（现在是「" + v + "」）⇒ 不改"
+                        + "（原版同一处：`len < 3` ⇒ `Change Name Button.interactable = false`）");
+                CloseNameWindow();
+                return;
+            }
+            if (v == ProfileData.PlayerName)
+            {
+                Debug.Log("[Profile] 与当前名字相同 ⇒ 不改（原版：`interactable` 还要求 `text != 当前名`）");
                 CloseNameWindow();
                 return;
             }
@@ -1113,6 +1308,30 @@ namespace CardPresentation
             CloseNameWindow();
             Debug.Log("[Profile] 玩家名改成「" + v + "」（🆕 2026-10-22 起**已落盘**："
                     + "`persistentDataPath/WarpforgeProfile/profile.json`；原版这一步是上传服务器 + 扣改名费）");
+        }
+
+        /// <summary>去掉 `&lt;…&gt;` 形状的富文本标签 —— 原版 `TextMessageValidationTools.RemoveRichTextTags`
+        /// 的**超集**：原版是拿一张**静态标签表**逐条 `StringBuilder.Replace(tag, "")`，而那张表**本地没解出**
+        /// （`TextMessageValidationTools__RemoveRichTextTags.c` 里是运行期静态数组）⇒ 我们按**形状**删。
+        /// ⚠️ 两条保守做法：`&lt;` 后面带空白的**不删**（多半是正文里的数学小于号）；没有闭合 `&gt;` 的**不删**。</summary>
+        public static string StripRichText(string s)
+        {
+            if (string.IsNullOrEmpty(s)) return "";
+            if (s.IndexOf('<') < 0) return s;
+            var sb = new System.Text.StringBuilder(s.Length);
+            for (int i = 0; i < s.Length; i++)
+            {
+                char ch = s[i];
+                if (ch != '<') { sb.Append(ch); continue; }
+                int close = s.IndexOf('>', i + 1);
+                if (close < 0) { sb.Append(ch); continue; }        // 没有闭合 ⇒ 当普通字符
+                bool isTag = true;
+                for (int k = i + 1; k < close; k++)
+                    if (char.IsWhiteSpace(s[k])) { isTag = false; break; }
+                if (isTag) i = close;                              // 整段丢掉（连 '>' 一起跳过）
+                else sb.Append(ch);
+            }
+            return sb.ToString();
         }
 
         /// <summary>关掉改名窗（提交与取消都走这里）。</summary>
@@ -1133,10 +1352,30 @@ namespace CardPresentation
             Debug.Log("[Profile] 复制 Player ID：**没有可复制的** —— 原版拷的是 PlayfabId（服务器），本地没有");
         }
 
-        void OnAvatarClick()
+        /// <summary>点头像 ⇒ **切到 `Avatar` 页**（🆕 2026-10-24 E12 · P0-4 —— 原来这里只打一行日志）。
+        /// <para>判据 = `decomp_full/ProfileTab__&lt;Start&gt;b__9_0.c`：`GameWindowWithTabs.ChangeTab&lt;object&gt;(this,
+        /// DAT_1842d1918)`（前面还有一道 `*(ProfileTab+0xa0)+0x10 != 0` 的布尔闸 —— 那一格是哪个字段**还没解出**，
+        /// 如实记着）。**目标页签本身是确定的**：`RankedTab__&lt;Initialize&gt;b__10_0.c` 用的是**同一个元数据常量
+        /// `DAT_1842d1918`**，而那一处已经定成 `AvatarTab`（`资料/普查产出_0927/档案窗_Profile页.md` §C·1 第 4 条，
+        /// 本项目 `RankedTab.OnAvatarClick` 就照它做的）。</para>
+        /// <para>⚠️ 走宿主窗的 `tabButtons.Click(i)` 而不是直接 `ChangeTab` —— 否则左栏高亮会停在原来那一键
+        /// （同 `MissionRerollPopup` 那条先例；`TabButtons.Click` 内部就是 `window.ChangeTab(CurrentType)`）。</para></summary>
+        public void GoToAvatarTab()
         {
-            Debug.Log("[Profile] 点头像（原版 `PlayerInfoDisplay.onAvatarClick` → `GameWindowWithTabs.ChangeTab<T>()`，"
-                    + "**切到哪个页签没解出**，§C 第 6 条 ⇒ 不猜，只出声）");
+            if (Win == null || Win.tabButtons == null)
+            {
+                Debug.LogWarning("[Profile] 点头像要切 `Avatar` 页，但拿不到宿主窗的 `tabButtons` ⇒ 切不了（不许静默）");
+                return;
+            }
+            for (int i = 0; i < PlayerProfileWindow.Tabs.Length; i++)
+                if (PlayerProfileWindow.Tabs[i].Node == "Avatar Button")
+                {
+                    Win.tabButtons.Click(i);
+                    Debug.Log("[Profile] 点 `Profile` 页的头像 ⇒ 切到 `Avatar` 页"
+                            + "（原版 `ProfileTab.<Start>b__9_0` → `ChangeTab<AvatarTab>`）");
+                    return;
+                }
+            Debug.LogWarning("[Profile] `PlayerProfileWindow.Tabs` 里找不到 `Avatar Button` ⇒ 切不了页（不许静默）");
         }
 
         /// <summary>当前该显示哪张头像 —— 🔴 **2026-09-27 收口：读的是全工程唯一那一份**

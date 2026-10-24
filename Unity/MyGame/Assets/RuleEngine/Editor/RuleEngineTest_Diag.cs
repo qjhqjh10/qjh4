@@ -89,7 +89,7 @@ public static partial class RuleEngineTest
         "TestW64OpAbilityTargetConditions", "TestB16ConditionEval", "TestB17SubjectlessTargets", "TestEngineBatch1023", "TestA12FurtherMultiplier", "TestA30ListenerTriggerNames",
         "TestW62EntryPump", "TestW64ShowCardsWindow", "TestN2UnitConditionRoles", "TestA1EngineFive", "TestB3EngineFive", "TestB6EngineThird",
         "TestB7EnginePickAndCount", "TestF8EnginePlayOrder", "TestG1bSpiritStone", "TestG1bStatusApplied", "TestG2DeathRoutes", "TestG3AiTargetsTrim",
-        "TestG5BareDealAndReferencedCards", "TestG6MultiCountRepeats", "TestE8PreviousAbilityDrawnCards", "TestG10HandCountScope", "TestG12ActiveAbilityLogic",
+        "TestG5BareDealAndReferencedCards", "TestG6MultiCountRepeats", "TestE8PreviousAbilityDrawnCards", "TestG10HandCountScope", "TestG12ActiveAbilityLogic", "TestEngineE2",
     };
 
     // 本次诊断真正跑过的用例（顺序同 `RunCaseNames`）—— 只给对账用
@@ -557,6 +557,7 @@ public static partial class RuleEngineTest
         Safe("TestE8PreviousAbilityDrawnCards", () => TestE8PreviousAbilityDrawnCards());
         Safe("TestG10HandCountScope", () => TestG10HandCountScope());
         Safe("TestG12ActiveAbilityLogic", () => TestG12ActiveAbilityLogic());
+        Safe("TestEngineE2", () => TestEngineE2());
 
         VerifyDiagCoverage();
 

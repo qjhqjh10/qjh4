@@ -299,6 +299,7 @@ public static class CardBaseDemo
         AssertFrameCutout(cam);
         AssertArtAlphaThroughFrame();     // 🆕 2026-10-24（K1 · `新账-66`）：立绘透框 = `1−α`（一次乘法，不是平方）
         AssertTacticArtClamp();           // 🆕 2026-10-24（H1）：战术/防御卡的**生产**立绘也套原版硬矩形 `_Clamp_Range`
+        AssertTacticArtScale();           // 🆕 2026-10-24（E9）：战术/防御卡的立绘 ×0.61 + 中心 y+0.5（`CardScalesByCardType` / `tacticsOffsetPosition`）
         AssertBigStateOverDrawGate();     // 🆕 2026-10-24（H5）：大图档的 **BIG 状态**由「前台 × useOverDraw」两轴门控
         AssertArmyLine();
 
@@ -308,6 +309,9 @@ public static class CardBaseDemo
         AssertCardTextLanguageGate();     // 🔴 2026-10-18：`CardText.Zh` 改成语言闸（+ `Name` 补闸）
         AssertCardTextTablesInLoc();      // 🔴 2026-10-10（A1084）：那几族中文**已搬进 `Core/Loc.cs`**（键族 + 齐全 + 值 + 语料 + 别名 + 不复用近邻）
         AssertTitleMidline();             // 🔴 2026-10-18：`A848` —— 卡名那层 = 原版的 `Midline`
+        // 🆕 2026-10-24（`E16`）：效果文字**装得进版面框、且不压数值格**（真机反复看到的溢出缺陷）
+        Debug.Log(P + "--- 卡面：效果文字装得进版面框（框宽 / 纵向预算 / 与原版矩形中心的差 / 数值行）---");
+        AssertFaceTextFit();
         AssertCreatedBy();                // 🔴 2026-10-18：`A985④` —— 卡面第五层「由谁造出来的」（原版 `CreatedByText`）
         AssertTextBg(cam);               // 🔵 2026-10-19（A1500② 的断言侧）：文字底板 —— 含**渲图像素**判据
         AssertRarityGem(cam);             // 🔴 2026-10-18（A1492）：稀有度宝石 —— 结构 + 渲图灭自证
@@ -701,7 +705,11 @@ public static class CardBaseDemo
     ///
     /// <para>⚠️ 期望值来源（**不是**把实现再算一遍）：`_Clamp_Range` SMALL = `(0.82, 1, 0.18, 0)` ⇒ u 半宽 **0.32**；
     /// 1024² 战术立绘的板宽 = 原版 `CardImage` 方形 **2.7484** × 我们的 `ArtCoverMargin` **1.04**
-    /// ⇒ 硬矩形两端 x = **±0.32 × 2.7484 × 1.04 = ±0.914668** 卡单位（与 `F4` 报的常数一致）。</para>
+    /// × **卡型倍率**（`CardScalesByCardType` 的 `20 → 0.61`，见 `CardView.TacticArtScale`）
+    /// ⇒ 硬矩形两端 x = **±0.32 × 2.7484 × 1.04 × 0.61 = ±0.557947** 卡单位。
+    /// 🔴 **2026-10-24（`E9`）订正**：本行原写「±0.32 × 2.7484 × 1.04 = ±0.914668」（没有 0.61）——
+    /// 那是「战术立绘是满幅方图」那个**既有偏离**还在时的读数；`E9` 接上原版 `cardScales` 之后板宽缩到
+    /// **1.743585**（= 2.7484 × 1.04 × 0.61），硬矩形端点跟着按比例落到 **±0.557947**（⛔ 不是把 0.9147 留下来）。</para>
     ///
     /// <para>🔴 **2026-10-24（H4）卡框档位钉在 `TacticArtClampProbeTier = 4`，而且 ①/③ 两次渲染都钉住。**
     /// 原来 H1 钉的是 tier2，却在 ① 渲完之后**立刻**把 `DebugFrameTier` 还原了 ⇒ ③ 那一版渲在
@@ -732,7 +740,7 @@ public static class CardBaseDemo
     static void AssertTacticArtClamp()
     {
         Debug.Log(P + "--- 战术 / 防御卡生产立绘套硬矩形（H1 + H6）---");
-        const float HardHalfW = 0.32f * 2.7484f * 1.04f;              // = 0.914668 卡单位（见上面期望值那一段）
+        const float HardHalfW = 0.32f * 2.7484f * 1.04f * 0.61f;      // = 0.557947 卡单位（见上面期望值那一段）
 
         int prevTier = CardView.DebugFrameTier;
         bool prevOff = CardView.DebugDisableArtClamp;
@@ -855,8 +863,11 @@ public static class CardBaseDemo
                 //     （BIG 的 v 下沿 = yB0 + 0.10·h = −1.1873，比卡框开口下沿还低 ⇒ 先被开口截住，轮不到 v 窗口）
                 //     ⇒ 下沿只作**方向闸**（小图档的下沿不得**高于** BIG 的），⛔ 别当主判据（E3/E4 同一条教训）。
                 var artY = vOn.ArtLayerTexture;
+                // 🔴 2026-10-24（E9）：战术/防御卡的板 = `× 0.61` + 中心 `+0.5`（原版 `CardScalesByCardType`
+                //    / `tacticsOffsetPosition`）⇒ 参考网格必须传同两个值，否则这条比的是「两个不同的口径」。
                 var mBigY = artY != null
-                          ? CardView.ArtMeshForTest(artY, 1f, vOn.FrameTexture, true, 2) : null;
+                          ? CardView.ArtMeshForTest(artY, 1f, vOn.FrameTexture, true, 2,
+                                                    CardView.TacticArtScale, CardView.TacticArtDy) : null;
                 if (mBigY == null || mBigY.vertexCount < 4)
                 {
                     Check(false, $"④ y 对照：{what} 的 BIG 档（`clampKind = 2`）网格**建不出来**"
@@ -916,6 +927,215 @@ public static class CardBaseDemo
         }
     }
 
+    // ==================================================================
+    //  战术 / 防御卡的立绘 `cardScales 0.61` + `tacticsOffsetPosition y+0.5`（E9 · 2026-10-24）
+    // ==================================================================
+    //
+    // 🔴 **一手判据（三条，逐条亲读）**：
+    //   ① `bundle_duplicateassetisolationso_assets_all/MonoBehaviour/CardScalesByCardType.json` 的
+    //      `cardScalesByType`：`0 → 1.0`（Minion）· `10 → 1.0`（Hero）· **`20 → 0.6100000143051147`**（Tactic）·
+    //      `5 → 0.60`（**全池没有一张卡读到 5** —— 防御卡的 SO `cardType` 也是 20 ⇒ **防御卡同样 0.61**）。
+    //   ② `bundle_battleprefabs_vfxandmisc_assets_all/MonoBehaviour/MonoBehaviour_5393623139443973056.json`
+    //      的 `CardImageController` 序列化：`tacticsOffsetPosition = {x:0, y:0.5, z:0}`。
+    //   ③ `CardImageController__SetImage.c`：`:103-118` 把 `cardScales[卡型]` 乘进 `CardImage.localScale`
+    //      （绕 pivot 等比缩）；`:126-128` **只在 `param_3 == 0x14`** 取 `tacticsOffsetPosition`、
+    //      `:145-155` 把它**加在** `localPosition` 上 ⇒ **「缩尺寸」与「挪中心」是两件独立的事**。
+    //   ⇒ 期望几何（卡单位；1024² 立绘；我们的 `ArtCoverMargin` 1.04）：
+    //      **板宽 = 2.7484 × 1.04 × 0.61 = 1.743585** · **中心 y = −0.044 + 0.5 = 0.456**。
+    //   🧨 错法 `(acy + 0.5) × 0.61` 会给出 **0.27816** —— ④ 专挡它。
+    //
+    // ⚠️ 期望值写死成**原版字面量**（2.7484 / 0.61 / 0.5 / −0.044），⛔ 不是读 `CardView.TacticArtScale`
+    //   再和自己比（那样「常数改错 + 实现跟着错」会一起变绿）。拿 `CardView.*` 只用在「接没接上」那两条。
+
+    /// <summary>🆕 **2026-10-24（`E9`）**：战术 / 防御卡的立绘按原版 `CardImageController` 的
+    /// **卡型倍率 0.61**（`CardScalesByCardType` 20）＋ **中心偏移 +0.5**（`tacticsOffsetPosition`）摆放。
+    ///
+    /// <para>四层判据（缺一层就会「看着有依据」地错）：
+    /// ① **几何读数**：`clampKind:0 + clipWindow:false` 那块就是**整块立绘板** ⇒ 量它 = `1.743585² @ y 0.456`；
+    /// ② **生产网格接上了**（战术卡 + 防御卡各一张）：`_art` 逐顶点 = 传 `(0.61, +0.5)` 的参考网格，
+    ///    且 **≠** 不传卡型那份（双向，缺一边就能「两边一起改回去」）；②b 再管**大图档的 `_artFront`**
+    ///    （那是第二处调用点）；
+    /// ③ **单位卡零变化**：`_art` = 不传那份、且 ≠ 传卡型那份；
+    /// ④ **灭自证**：实测中心 0.456 **不等于** `(acy+0.5)×0.61 = 0.278`（把偏移也乘进倍率那种错法）。</para>
+    ///
+    /// <para>🧨 **改坏法**：① 把 `ArtTypeScaleFor` 改成恒 1 ⇒ ② 红、③ 仍绿；② 把它给单位卡也乘 ⇒ ③ 红；
+    /// ③ 偏移写成 `(acy+0.5)*0.61` ⇒ ①④ 红；④ 只改常量、没接进 `ArtMeshInFrame`/`FrameMesh` ⇒ ①② 红。</para>
+    /// </summary>
+    static void AssertTacticArtScale()
+    {
+        Debug.Log(P + "--- 战术 / 防御卡立绘：cardScales 0.61 + tacticsOffsetPosition y+0.5（E9）---");
+        const float UnitSquare = 2.7484f;                              // 原版 `CardImage` RT `m_SizeDelta`（卡单位）
+        const float CoverMargin = 1.04f;                               // 我们的 `ArtCoverMargin`（既有偏离，见它的 doc）
+        const float UnitY = -0.044f;                                   // 原版 `CardImage` 的 local y（我们的基准，同上）
+        const float ExpectW = UnitSquare * CoverMargin * 0.61f;        // 1.74358496
+        const float ExpectCy = UnitY + 0.5f;                           // 0.456
+        const float WrongCy = (UnitY + 0.5f) * 0.61f;                  // 0.27816（⛔ 错式子的值）
+        const float Tol = 2e-3f;                                       // 1.5 px（682 px 宽的框上 1 px ≈ 0.0033）
+
+        RuleEngine.CardDef tdef = null, ddef = null, udef = null;
+        foreach (var c in RuleEngine.CardDatabase.Load())
+        {
+            if (tdef == null && c.Name == "Armoured Squadron") tdef = c;       // AM52 · 战术卡 · 1024²
+            if (ddef == null && c.Name == "Sacred Altar") ddef = c;            // SOR59 · 防御卡 · 1024²
+            if (udef == null && c.Name == "Howling Banshee Exarch") udef = c;  // ASH79 · 单位卡 · 671×1024
+            if (tdef != null && ddef != null && udef != null) break;
+        }
+        Check(tdef != null && ddef != null && udef != null,
+              "★ 前提：卡池里找得到 `Armoured Squadron`（战术）/ `Sacred Altar`（防御）/ "
+            + "`Howling Banshee Exarch`（单位）—— 找不齐 ⇒ 本条**没验到**（不是通过）");
+        if (tdef == null || ddef == null || udef == null) return;
+
+        var tdata = BattleDriver.ToCardData(tdef, tdef.Faction);
+        var ddata = BattleDriver.ToCardData(ddef, ddef.Faction);
+        var udata = BattleDriver.ToCardData(udef, udef.Faction);
+        var artT = CardArt.Portrait(BattleDriver.ArtKey(tdef));
+        var artD = CardArt.Portrait(BattleDriver.ArtKey(ddef));
+        if (artT == null || artD == null)
+        {
+            Check(false, "★ 前提：两张非单位样本的立绘加载不到（`Resources/Art/` 不在？）⇒ 本条**没验到**（不是通过）");
+            return;
+        }
+        Check(!tdata.isUnit && !ddata.isUnit && udata.isUnit && artT.width == 1024 && artT.height == 1024
+              && artD.width == 1024 && artD.height == 1024,
+              $"★ 前提：两张非单位样本都是 **1024²** 立绘、单位样本是单位卡"
+            + $"（实测 tactic {artT.width}×{artT.height} / defence {artD.width}×{artD.height} / "
+            + $"isUnit {tdata.isUnit},{ddata.isUnit},{udata.isUnit}）");
+        if (tdata.isUnit || ddata.isUnit || artT.width != 1024 || artT.height != 1024
+            || artD.width != 1024 || artD.height != 1024) return;
+
+        bool prevOff = CardView.DebugDisableArtClamp;
+        try
+        {
+            CardView.DebugDisableArtClamp = false;    // 硬矩形开着（① 用 clampKind:0 绕开它，②③ 走生产档）
+
+            // ---- ① 几何：整块立绘板的宽/高/中心（不套硬矩形、不裁开口 ⇒ 就是 ArtBoard 那一份）----
+            var boardT = CardView.ArtMeshForTest(artT, 1f, null, false, 0,
+                                                 CardView.TacticArtScale, CardView.TacticArtDy);
+            var boardU = CardView.ArtMeshForTest(artT, 1f, null, false, 0);   // 不传 = 单位卡口径
+            if (boardT == null || boardU == null || boardT.vertexCount < 4 || boardU.vertexCount < 4)
+            {
+                Check(false, "★ 前提：整块立绘板（`clampKind:0`）建不出来 ⇒ ① 没验到（不是通过）");
+            }
+            else
+            {
+                var bT = boardT.bounds; var bU = boardU.bounds;
+                Check(Mathf.Abs(bT.size.x - ExpectW) <= Tol && Mathf.Abs(bT.size.y - ExpectW) <= Tol
+                      && Mathf.Abs(bT.center.y - ExpectCy) <= Tol,
+                      $"① 战术卡立绘板 = **{ExpectW:F6}² @ y {ExpectCy:F3}**"
+                    + $"（= 2.7484 × 1.04 × 0.61 / −0.044 + 0.5）—— 实测 {bT.size.x:F6}×{bT.size.y:F6} @ y {bT.center.y:F6}"
+                    + "｜🧨 倍率没接（板还是 2.858336²）⇒ 宽红；🧨 偏移没接（y 还是 −0.044）⇒ 中心红"
+                    + "｜🧨 把偏移也乘进倍率 ⇒ 中心 = 0.278 ⇒ 红（④ 再从反面钉一次）");
+                // ⚠️ 不传卡型那份的读数要**先过卡体收边**：板 2.858336² 比卡宽（2.0927）宽
+                //    ⇒ 量到的是 **2.0927 × 2.858336**（y 方向板比卡高 3.3313 矮 ⇒ 不被收）。
+                const float CardW = 2.0927f, CardH = 3.3313f;
+                Check(Mathf.Abs(bU.size.x - Mathf.Min(UnitSquare * CoverMargin, CardW)) <= Tol
+                      && Mathf.Abs(bU.size.y - Mathf.Min(UnitSquare * CoverMargin, CardH)) <= Tol
+                      && Mathf.Abs(bU.center.y - UnitY) <= Tol,
+                      $"①b 不传卡型 ⇔ 单位卡口径：板仍是 **2.858336² @ y −0.044**（先被卡体收边 ⇒ 量到 "
+                    + $"{Mathf.Min(UnitSquare * CoverMargin, CardW):F4} × {Mathf.Min(UnitSquare * CoverMargin, CardH):F4}）"
+                    + $"—— 实测 {bU.size.x:F6}×{bU.size.y:F6} @ y {bU.center.y:F6}"
+                    + "｜🧨 把卡型倍率写成「默认就是 0.61」⇒ 这里红（那会把所有单位卡缩掉）");
+                Check(Mathf.Abs(bT.center.y - WrongCy) > 0.1f,
+                      $"④ 灭自证：实测中心 **{bT.center.y:F4}** 不是 `(acy+0.5)×0.61 = {WrongCy:F4}`"
+                    + "（原版「`localScale` 乘倍率」与「`localPosition` 加偏移」两条独立 —— ⛔ 别把偏移一起乘）");
+            }
+
+            // ---- ② 生产网格真的接上了（战术卡 + 防御卡各一张）----
+            var samples = new[]
+            {
+                new { what = "战术卡 `Armoured Squadron`（AM52）", data = tdata, tag = "e9_tactic" },
+                new { what = "防御卡 `Sacred Altar`（SOR59）",     data = ddata, tag = "e9_defence" },
+            };
+            foreach (var s in samples)
+            {
+                var go = new GameObject(s.tag);
+                try
+                {
+                    var v = CardView.Create(go.transform, s.data, s.tag);
+                    var prod = v != null ? v.ArtLayerMesh : null;
+                    var art = v != null ? v.ArtLayerTexture : null;
+                    var fr = v != null ? v.FrameTexture : null;
+                    var on = art != null
+                           ? CardView.ArtMeshForTest(art, 1f, fr, true, 1,
+                                                     CardView.TacticArtScale, CardView.TacticArtDy) : null;
+                    var off = art != null ? CardView.ArtMeshForTest(art, 1f, fr, true, 1) : null;
+                    if (prod == null || on == null || off == null || prod.vertexCount < 4)
+                    {
+                        Check(false, $"★ 前提：{s.what} 的 `_art` 与两份参考网格都建得出来 ⇒ ② 没验到（不是通过）");
+                        continue;
+                    }
+                    Check(MeshSame(prod, on) && !MeshSame(prod, off),
+                          $"② {s.what} 生产 `_art` 网格 = **×0.61 + y+0.5** 那份（逐顶点 / 逐 uv），且 **≠** 不传卡型那份"
+                        + $"（实测 {prod.vertexCount} 顶点 · 网格 {prod.bounds.size.x:F4}×{prod.bounds.size.y:F4}）"
+                        + "｜🧨 `ArtLayerMeshFor` 漏传 `typeScale/typeDy` ⇒ 与 `off` 相同 ⇒ 红"
+                        + "｜🧨 传反了 / 只传一半 ⇒ 与两份都对不上 ⇒ 红");
+                }
+                finally { Object.DestroyImmediate(go); }
+            }
+
+            // ---- ②b 大图档那一支（`ArtFrontMeshFor` 的 `bigState` 分支）也接上了 ----
+            //   它是**第二处**调用点：`_art` 走 `ArtLayerMeshFor`、`_artFront` 大图档走这里 ——
+            //   两处各写一遍，只接一处就会「小卡对了、详情窗里还是满幅」。
+            var goB = new GameObject("e9_tactic_big");
+            bool prevBigSw = CardView.BigCardOverdraw;
+            try
+            {
+                CardView.BigCardOverdraw = true;      // 出厂值；显式写死，免得被别的探针改过
+                var vB = CardView.Create(goB.transform, tdata, "e9_tactic_big", use: CardUse.ZoomWindow);
+                var front = vB != null ? vB.ArtFrontMeshForTest : null;
+                var artB = vB != null ? vB.ArtLayerTexture : null;
+                var onB = artB != null
+                        ? CardView.ArtMeshForTest(artB, 1f, null, false, 2,
+                                                  CardView.TacticArtScale, CardView.TacticArtDy) : null;
+                var offB = artB != null ? CardView.ArtMeshForTest(artB, 1f, null, false, 2) : null;
+                if (front == null || onB == null || offB == null)
+                {
+                    Check(false, "★ 前提：战术卡大图档前景层（`_artFront`）建不出来 ⇒ ②b 没验到（不是通过）");
+                }
+                else
+                {
+                    Check(MeshSame(front, onB) && !MeshSame(front, offB),
+                          "②b 战术卡**大图档**的前景层（`_artFront`，`ArtFrontMeshFor` 那一支）"
+                        + "= **×0.61 + y+0.5** 那份，且 ≠ 不传卡型那份"
+                        + $"（实测 {front.bounds.size.x:F4}×{front.bounds.size.y:F4}）"
+                        + "｜🧨 只给 `_art` 接了卡型变换、漏了 `_artFront` ⇒ 详情窗里战术卡还是满幅方图 ⇒ 红");
+                }
+            }
+            finally
+            {
+                CardView.BigCardOverdraw = prevBigSw;
+                Object.DestroyImmediate(goB);
+            }
+
+            // ---- ③ 单位卡零变化（灭自证：必须 ≠ 传卡型那份，否则「两边一起乘」也能过）----
+            var goU = new GameObject("e9_unit");
+            try
+            {
+                var vU = CardView.Create(goU.transform, udata, "e9_unit");
+                var prodU = vU != null ? vU.ArtLayerMesh : null;
+                var artU = vU != null ? vU.ArtLayerTexture : null;
+                var frU = vU != null ? vU.FrameTexture : null;
+                var refU = artU != null ? CardView.ArtMeshForTest(artU, 1f, frU, false, 0) : null;
+                var refScaled = artU != null
+                              ? CardView.ArtMeshForTest(artU, 1f, frU, false, 0,
+                                                        CardView.TacticArtScale, CardView.TacticArtDy) : null;
+                if (prodU == null || refU == null || refScaled == null || prodU.vertexCount < 4)
+                {
+                    Check(false, "★ 前提：单位卡样本的 `_art` 与两份参考网格都建得出来 ⇒ ③ 没验到（不是通过）");
+                }
+                else
+                {
+                    Check(MeshSame(prodU, refU) && !MeshSame(prodU, refScaled),
+                          "③ 单位卡 **零变化**：`_art` = 不传卡型那份（逐顶点 / 逐 uv），且 ≠ ×0.61 那份"
+                        + $"（实测 {prodU.bounds.size.x:F4}×{prodU.bounds.size.y:F4}）"
+                        + "｜🧨 把 `!isUnit` 那半边写反（单位卡也缩到 61%）⇒ 与 `refU` 对不上 ⇒ 红");
+                }
+            }
+            finally { Object.DestroyImmediate(goU); }
+        }
+        finally { CardView.DebugDisableArtClamp = prevOff; }
+    }
+
     /// <summary>🆕 **2026-10-24（H5）**：**大图档的 BIG 状态按 overdraw 两轴门控**。
     ///
     /// <para>判据（一手，`d:/2/tools/decomp_full/` 亲读）：原版 `CardImageController` 的**状态 1（Big）**
@@ -971,8 +1191,10 @@ public static class CardBaseDemo
 
             // ---------------- 战术卡（池内 `useOverDraw` = 0）----------------
             var tv = CardView.Create(goT.transform, tdata, goT.name, CardFace.Full, null, CardUse.ZoomWindow);
-            var tBig = CardView.ArtMeshForTest(tv.ArtLayerTexture, 1f, tv.FrameTexture, true, 2);
-            var tSmall = CardView.ArtMeshForTest(tv.ArtLayerTexture, 1f, tv.FrameTexture, true, 1);
+            var tBig = CardView.ArtMeshForTest(tv.ArtLayerTexture, 1f, tv.FrameTexture, true, 2,
+                                               CardView.TacticArtScale, CardView.TacticArtDy);
+            var tSmall = CardView.ArtMeshForTest(tv.ArtLayerTexture, 1f, tv.FrameTexture, true, 1,
+                                                 CardView.TacticArtScale, CardView.TacticArtDy);
             Check(!MeshSame(tBig, tSmall),
                   "★ 前提：大图档 / 小图档两份参考网格**彼此不同** —— 否则下面几条是空验");
             Check(tv.ArtLayerMesh != null && MeshSame(tv.ArtLayerMesh, tBig) && !MeshSame(tv.ArtLayerMesh, tSmall),
@@ -1006,12 +1228,21 @@ public static class CardBaseDemo
                   "★ 前提：单位卡 `useOverDraw = 1` + 前台 ⇒ **进 BIG**（`_artFront` = ×1.27 那一份）");
 
             uv.UseOverDraw = false;
+            // 🔴 **2026-10-24 同步点补（执行代理 E5 的 BIG 补间）**：`Run()` 里把 `CardTween.Mode`
+            //   设成了 `UpdateType.Manual` ⇒ 这条 setter 现在**起一条 0.3 s 的补间并停在起点（k=0）**，
+            //   不再像 E5 之前那样「赋值即终态」。**只泵补间、不推对局时钟**（同 `BattleScene`
+            //   量扇形的那两处用法）⇒ 推过一次才是终态。
+            //   ⚠️ 战术/相关卡那几条（①/②）不用：它们走 `!_builtData.isUnit` 的**瞬时**支。
+            CardTween.Advance(CardView.BigStateTweenDuration + 0.05f);
             Check(MeshSame(uv.ArtFrontMeshForTest, u100) && !MeshSame(uv.ArtFrontMeshForTest, u127),
                   "③ 单位卡 `useOverDraw = 0` ⇒ **也退出 BIG**（×1.27 消失、硬矩形落回小图档）"
-                + "｜🧨 门控只挡非单位卡 ⇒ 仍是 ×1.27 ⇒ 红");
+                + "｜🧨 门控只挡非单位卡 ⇒ 仍是 ×1.27 ⇒ 红；"
+                + "🧨 补间没推进（停在起点 k=0）⇒ 本行也会红 —— **先检查上面那句 `CardTween.Advance`**");
             uv.UseOverDraw = true;
+            CardTween.Advance(CardView.BigStateTweenDuration + 0.05f);   // 同上：置回也是一条 0.3 s 补间
             Check(MeshSame(uv.ArtFrontMeshForTest, u127) && !MeshSame(uv.ArtFrontMeshForTest, u100),
-                  "③b 灭自证：置回 ⇒ 回到 ×1.27 那一份");
+                  "③b 灭自证：置回 ⇒ 回到 ×1.27 那一份"
+                + "｜🧨 补间没推进 ⇒ 停在起点（反而量到 u100）");
         }
         finally
         {
@@ -1510,6 +1741,178 @@ public static class CardBaseDemo
             }
         }
         finally { Object.DestroyImmediate(root); }
+    }
+
+    // ==================================================================
+    //  卡面效果文字的版面（🆕 2026-10-24 · `E16`）
+    // ==================================================================
+    /// <summary>🔴 **效果文字必须「装得进版面框、且不压数值格」**（真机 2026-10-24 反复看到的缺陷：
+    /// 卡池/详情窗大卡的字压到攻·甲·血那几个数字上、`战将` 挤在数字行里）。
+    ///
+    /// **判据（全部来自原版 prefab，⛔ 不是我们的常量）**
+    ///  · **版面框**：`bundle_staticgeneralassets_assets_all/GameObject/DescTextUnit.json` 的
+    ///    RectTransform `m_SizeDelta` = **152.74 × 76.16 px**（`m_LocalScale 0.01` ⇒ 1.5274 × 0.7616 卡单位）；
+    ///    战术卡 `DescTextTactic` = **160 × 78.98 px**（⇒ 1.600 × 0.7898）。
+    ///  · **摆位**：同两颗 TMP 是 **`m_VerticalAlignment = 512 (Middle)`** + **固定矩形**（anchor/pivot 0.5）
+    ///    ⇒ **文字块中心 = 矩形中心**（`UnitDescAt.y` = 0.7323 / `TacticDescAt.y` = 0.7876）。
+    ///    ⚠️ 我们 2026-09-12/15 那次为躲阵营行/兵种行改成了「下沿对齐」⇒ 短文字被一直压到底、
+    ///    贴着数字。2026-10-24 改回中心对齐，判据收口在 `CardView.FaceDescBand01`。
+    ///  · **数值格**：`Melee Attack Container` apos (−0.836, −1.190) · `m_SizeDelta` **0.4 × 0.4**
+    ///    ⇒ 容器上沿 y01 = **0.7972**（`CardView.StatBandTop01`）。
+    ///
+    /// **四条断言，每条都写明怎么才能红（灭自证）**
+    ///  ⓪ 两档中心 = 原版两个矩形的中心（0.7323 / 0.7876）—— 🧨 把 `UnitDescAt`/`TacticDescAt` 改掉 ⇒ 红。
+    ///  ① **渲染字墨宽 ≤ 版面框宽** —— 🧨 删掉 `FitsBox` 的宽度判据 / 让 TMP 不折行 ⇒ 红。
+    ///     ⚠️ 量的是**网格顶点**（字墨），⛔ 不是 `textBounds` ——「字号对而溢出」是这工程的常客，
+    ///     只比字号或行盒照样全绿（`AutoFitBox` 那个老坑）。
+    ///  ② **字墨整块落在对称预算里**（上不压阵营行、下不越下门）—— 🧨 把预算改回 `avail01`（0.547 卡单位）
+    ///     而中心不动 ⇒ 长文字那张的下沿越门 ⇒ 红。
+    ///  ③ **字墨块中心 = 原版矩形中心（容差 0.02 卡面高）** —— 🧨 把 `Fill(..., bottomAlign: true)` 改回来
+    ///     ⇒ 中心下移 ≈0.05 卡面高 ⇒ 红。**这条是本笔的主判据。**
+    ///  ④ **单位卡：字墨下沿 ≤ 数值容器上沿（0.7972）** —— 🧨 同上，下沿对齐时下沿在 0.834 ⇒ 红。
+    ///  ⚠️ 四条各吃一个独立来源（框尺寸 / 对称预算 / 矩形中心 / 容器上沿）⇒「把实现与期望一起改回去」
+    ///    满足不了；期望值全走 `CardView` 的公开 accessor（注释里钉着 prefab 字段），断言里不抄数值。
+    static void AssertFaceTextFit()
+    {
+        // ---- ⓪ 判据自检：两档的中心 = 原版两个矩形的中心（prefab apos + 父链 −0.7745）----
+        float cu, bu, ct, bt;
+        CardView.FaceDescBand01(true, true, out cu, out bu);
+        CardView.FaceDescBand01(false, false, out ct, out bt);
+        Check(Mathf.Abs(cu - 0.7323f) < 1e-3f && Mathf.Abs(ct - 0.7876f) < 1e-3f,
+              $"⓪ 两档的块中心 = 原版矩形的中心（单位 {cu:F4} 应 0.7323 · 战术 {ct:F4} 应 0.7876）"
+            + "｜🧨 改 `UnitDescAt` / `TacticDescAt` ⇒ 红");
+        Check(bu > 0.05f && bu < 0.35f && bt > 0.05f && bt < 0.35f,
+              $"⓪ 对称预算是个合理的高度（单位 {bu:F4} · 战术 {bt:F4} 卡面高；合理区间 0.05~0.35）"
+            + "｜🧨 把预算写成 0 或写成整块矩形高 ⇒ 红");
+
+        Check(TmpFont.Available, "★ 前提：字体资产取得到 —— 取不到 `keywords` 那层根本不建，下面几条全假绿");
+        if (!TmpFont.Available) return;
+
+        var langBack = Loc.Current;
+        Loc.PersistOverride = true;                       // 自检不许动玩家的真设置
+        var root = new GameObject("facefit_probe");
+        try
+        {
+            Loc.SetLanguage(AvailableLanguages.Chinese);   // 中文档 = **字最多**那一档（英文更短，过了不代表中文能过）
+            var cases = new[]
+            {
+                new { name = "Chaplain Letharius",  why = "长中文效果文字",   needLines = 2 },
+                new { name = "Varro Tigurius",      why = "短中文效果文字",   needLines = 1 },
+                new { name = "Master of the Fleet", why = "战术卡（另一档框）", needLines = 1 },
+            };
+            var pool = RuleEngine.CardDatabase.Load();
+            for (int ci = 0; ci < cases.Length; ci++)
+            {
+                var c = cases[ci];
+                RuleEngine.CardDef def = null;
+                for (int i = 0; i < pool.Count; i++) if (pool[i].Name == c.name) { def = pool[i]; break; }
+                Check(def != null, $"★ 前提：卡池里有 `{c.name}`（{c.why}）—— 拿**真卡**当夹具，⛔ 不用自造串");
+                if (def == null) continue;
+
+                var cd = BattleDriver.ToCardData(def, def.Faction);   // 卡面正文只有这一条路（图标也已换好）
+                var v = CardView.Create(root.transform, cd, "facefit_" + ci);
+                Check(v != null, $"★ 前提：`{c.name}` 的卡面建出来了");
+                if (v == null) continue;
+                var t = LayerTmp(v.transform, "keywords");
+                Check(t != null, $"★ 前提：`{c.name}` 的 `keywords` 层建出来了（正文非空）");
+                if (t == null) continue;
+
+                t.ForceMeshUpdate();                          // 批处理没有帧循环
+                float ix0, ix1, iy0, iy1;
+                Check(InkBoxCardLocal(v.transform, t, out ix0, out ix1, out iy0, out iy1),
+                      $"★ 前提：`{c.name}` 量到了**可见字墨**（量不到的话下面几条会拿 0 假绿）");
+                if (!(iy1 > iy0)) continue;
+
+                bool isUnit = cd.isUnit;
+                bool hasRace = CardView.FaceShowsRace(cd);
+                Vector2 box = CardView.DescBoxSize(isUnit);
+                Vector2 cen = CardView.DescCenter01(isUnit);
+                float bandCenter, bandBudget;
+                CardView.FaceDescBand01(isUnit, hasRace, out bandCenter, out bandBudget);
+                float half = bandBudget * 0.5f;
+
+                float inkW = ix1 - ix0;
+                float top01 = 0.5f - iy1 / CardView.Height;
+                float bot01 = 0.5f - iy0 / CardView.Height;
+                float mid01 = 0.5f - (iy0 + iy1) * 0.5f / CardView.Height;
+                int lines = t.textInfo != null ? t.textInfo.lineCount : 0;
+                string tag = $"[{c.name}／{cd.type}／{c.why}，{lines} 行]";
+
+                Check(lines >= c.needLines,
+                      $"{tag} ★ 前提：至少 {c.needLines} 行 —— 只有 1 行时 ②③④ 量不到折行后的块");
+                // ---- ① 渲染字墨宽 ≤ 版面框宽（量网格顶点，不量行盒）----
+                Check(inkW <= box.x * 1.02f,
+                      $"{tag} ① 字墨宽 {inkW:F4} ≤ 版面框宽 {box.x:F4} 卡单位（余量 {(box.x - inkW):F4}）"
+                    + "｜🧨 让 TMP 不折行 / 删 `FitsBox` 的宽度判据 ⇒ 红");
+                // ---- ② 整块落在对称预算里 ----
+                Check(top01 >= bandCenter - half - 0.005f && bot01 <= bandCenter + half + 0.005f,
+                      $"{tag} ② 字墨纵向 {top01:F4}..{bot01:F4} 落在区间 "
+                    + $"{(bandCenter - half):F4}..{(bandCenter + half):F4}（预算 ±{half:F4}）内"
+                    + "｜🧨 预算改回 `avail01`（更大）而中心不动 ⇒ 长文字那张越门 ⇒ 红");
+                // ---- ③ 块中心 = 原版矩形中心 ----
+                Check(Mathf.Abs(mid01 - cen.y) <= 0.02f,
+                      $"{tag} ③ ★ 字墨块中心 y01 {mid01:F4} = 原版矩形中心 {cen.y:F4}"
+                    + $"（差 {Mathf.Abs(mid01 - cen.y):F4} ≤ 0.02）"
+                    + "｜🧨 `Fill(..., bottomAlign: true)`（下沿对齐，2026-09 那版）⇒ 中心下移 ≈0.05 ⇒ 红");
+                // ---- ④ 单位卡：不压数值格 ----
+                //   ⚠️ 非单位卡（战术/防御）**没有数值格**（`Build` 里那几层由 `d.isUnit` 门控）
+                //   ⇒ `FaceDescBand01` 对它们不加这道门，④ 也不该对它们断（否则是给一条生产上不存在的规则发断言）。
+                if (isUnit)
+                    Check(bot01 <= CardView.StatBandTop01 + 1e-3f,
+                          $"{tag} ④ ★ 字墨下沿 {bot01:F4} ≤ 数值容器上沿 {CardView.StatBandTop01:F4}"
+                        + "（原版 `Melee Attack Container` 0.4×0.4 @(−0.836,−1.190) 的上沿）"
+                        + "｜🧨 下沿对齐那版的下沿在 0.834 ⇒ 红");
+
+                Object.DestroyImmediate(v.gameObject);
+            }
+        }
+        finally
+        {
+            Loc.RestoreForTest(langBack);
+            Loc.PersistOverride = false;
+            Object.DestroyImmediate(root);
+        }
+    }
+
+    /// <summary>**字墨**在**卡根局部坐标**里的 bbox（x0/x1/y0/y1）—— 扫该 TMP 全部 `isVisible` 字形的四角顶点。
+    /// <para>槽号按**字形自己的** `materialReferenceIndex` 取（效果文字里会混 `&lt;sprite name=…&gt;`
+    /// ⇒ TMP 切出第二个材质槽；写死 `[0]` 会把那个字串到 0 号槽里同下标那个字的顶点上，
+    /// 索引仍在数组内、**不报错**）。</para>
+    /// <para>⚠️ 全仓同族已有两份（`CardFaceProbe.InkSpanY` 只出 y · `ShellScene.TmpSpanPx` 出屏幕像素），
+    /// 都拿不到「卡根局部系的 bbox」，而 `CardFaceProbe` 不在本笔白名单里 ⇒ 本文件写这一份，
+    /// **只服务 `AssertFaceTextFit`**（⛔ 别在别处再写第四份）。</para></summary>
+    static bool InkBoxCardLocal(Transform card, TMPro.TextMeshPro t,
+                                out float x0, out float x1, out float y0, out float y1)
+    {
+        x0 = x1 = y0 = y1 = 0f;
+        var ti = t != null ? t.textInfo : null;
+        if (ti == null || ti.meshInfo == null || ti.meshInfo.Length == 0 || ti.characterInfo == null) return false;
+        var meshes = ti.meshInfo;
+        var chr = ti.characterInfo;
+        float lx = float.MaxValue, hx = float.MinValue, ly = float.MaxValue, hy = float.MinValue;
+        int n = Mathf.Min(ti.characterCount, chr.Length);
+        for (int i = 0; i < n; i++)
+        {
+            if (!chr[i].isVisible) continue;                     // 不可见的字 TMP 写四角全 0
+            int slot = chr[i].materialReferenceIndex;
+            if (slot < 0 || slot >= meshes.Length) continue;     // 槽号越界 ⇒ 不出点（⛔ 不落回 0 号槽）
+            var v = meshes[slot].vertices;
+            if (v == null) continue;
+            int vi = chr[i].vertexIndex;
+            for (int k = 0; k < 4; k++)
+            {
+                int idx = vi + k;
+                if (idx < 0 || idx >= v.Length) continue;
+                Vector3 p = card.InverseTransformPoint(t.transform.TransformPoint(v[idx]));
+                if (p.x < lx) lx = p.x;
+                if (p.x > hx) hx = p.x;
+                if (p.y < ly) ly = p.y;
+                if (p.y > hy) hy = p.y;
+            }
+        }
+        if (lx > hx || ly > hy) return false;
+        x0 = lx; x1 = hx; y0 = ly; y1 = hy;
+        return true;
     }
 
     /// <summary>🆕 2026-10-18（`A985④`）卡面第五层：**「由谁造出来的」**（原版卡根的**第一个子件** `CreatedByText`）。

@@ -408,7 +408,12 @@ namespace RuleEngine
             //      然后照常走 `:184-420` 的阵营 / 卡种 / 自他 / 条件 / 兵种筛；
             //    · 表的写点 = `AbilityLogic__SetPreviousAbilityTargets.c:19-28`（整表覆盖），
             //      调用点 = `AbilityLogic__PlayAbility.c:2743-2745`（该能力末尾）⇒ 我们落在
-            //      `BattleContext.PreviousAbilityTargets`（写点 = `ResolveOps` 出口）。
+            //      `BattleContext.PreviousAbilityTargets`。
+            //      🔴 **2026-10-24 订正（铁律 5 · 执行代理 E2）**：这里原来写「写点 = `ResolveOps` 出口」——
+            //      **已经不成立**：现在**每条 op 之后各同步一次**（`EffectResolver.cs:489/546/595/6514`，
+            //      出口再幂等一次 `:603/:6528`），发布视图 = **本条 ability 至今的并集**
+            //      （原版每个效果出口都整表覆盖、且 `AbilityLogic__DeepCopy.c` 不拷贝 `+0x80` ⇒
+            //      每条 ability 从空开始）。详见 `资料/普查产出_1024b/E2_结算残值与EvtKind.md`。
             //  ⚠️ **已知差别**（如实标，⛔ 不拿猜的顶）：原版候选可以是**手牌/牌库的卡**
             //     （`SW51` 的上一跳是抽牌）—— **抽牌那一跳**已建模（见下面 `DrawnThisResolve` 分支，
             //     2026-10-24 执行代理 `E8`，修 `G6` 5 条 `mult` 行把正文的 2 顶成 0 的回归）；
@@ -429,11 +434,12 @@ namespace RuleEngine
                 //  ⇒ 本版 `PreviousAbilityTargets` 是 `List<UnitState>`（只装场上单位）⇒ 抽牌那一跳
                 //     **结构上装不下**；`ctx.DrawnThisResolve`（「一张卡一次结算」窗口，入口
                 //     `ResolveOps` 清、抽牌写）就是这一跳的候选来源。
-                //  🔴 **必须先判抽牌、再判场上表**：`PreviousAbilityTargets` 只在 `ResolveOps`
-                //     **出口**同步 ⇒ 结算过程中读到的是**上一张卡**留下的值。若先看它，实战里
-                //     「先打一张指定目标的卡、再打 `Draw N cards. For each troop drawn …`」会把
-                //     上一张卡的目标当成候选（静默多数）。今天池内 `ta = 150` 的消费行只有这 5 张
-                //     「先抽后数」的战术卡。
+                //  🔴 **必须先判抽牌、再判场上表** —— ⚠️ **2026-10-24 订正（铁律 5 · E2）**：这里原来的理由是
+                //     「`PreviousAbilityTargets` 只在 `ResolveOps` 出口同步 ⇒ 结算中读到的是上一张卡的残值」，
+                //     **那个理由已经不成立**（E2 已改成逐 op 同步 + 并集）。**结论仍然成立，但依据换了**：
+                //     我们的表是 `List<UnitState>`，**结构上装不下抽到的牌**（原版 `abilityTargetsToSave` 能装
+                //     手牌/牌库的卡）⇒ 抽牌那一跳只能由 `DrawnThisResolve` 单独建模，**必须先看它**。
+                //     池内 `ta = 150` 的消费行今天只有 5 张「先抽后数」的战术卡。
                 //  ⚠️ **仍是近似（如实标）**：DrawnThisResolve 的窗口是「一张卡」而不是「一跳」——
                 //     若同一张卡里抽牌之后又打了别的目标、再用 `150`，原版取的是**最后那一跳**
                 //     （整表覆盖），这里会取抽到的牌。池内 0 张这种卡。

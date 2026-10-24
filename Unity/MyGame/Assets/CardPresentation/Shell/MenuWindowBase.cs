@@ -1,5 +1,17 @@
 // MenuWindowBase.cs — 主菜单「子菜单窗」的**公共外壳**（左栏 + 内容区 + 页签宿主 + 绘图助手）
 //
+// 🔴🔴 **文件名与内容不符 —— 请先读这一段（2026-10-24 补，判据 → `资料/普查产出_1024b/C1_界面线判据总表.md`）**
+//   **本文件里没有 `MenuWindowBase` 这个类型**。它只有 `public static class WindowHeader`（`:42` 起）
+//   ＋ 嵌套 `Spec`。**真正的「子菜单窗」基类是 `Shell/MainMenuSubmenuWindow.cs`**（它的 `Node` 在 `:383`）。
+//   ⚠️ 各宿主里的断言串仍写着 `MenuWindowBase.Node/Text/AddHit`（`Editor/RewardsScene.cs:4170`、
+//   `Editor/ShellScene.cs:1926/2584`、`Editor/ShopScene.cs:4021/4092` 等）—— **那是过期名**，
+//   它们指的是 `MainMenuSubmenuWindow` / `MenuDraw`。**⛔ 别去仓库里找一个叫 `MenuWindowBase` 的类。**
+//   为什么当时是这个名字：A866 那一笔的白名单指定「优先复用已有的 `Shell/MenuWindowBase.cs`，
+//   别为共用件再开一个新文件」⇒ 窗头收口就落进了这个**文件名更宽泛**的壳文件里。
+//   🔴 **2026-10-24 用户拍板：只加这段说明，不改名、不动断言串**（改名要动 `.meta` 与多份 `Editor/*.cs`）。
+//   下面这段「为什么抽这一层」写的是**子菜单窗基类**的来历（那段历史仍然成立），
+//   只是它的实现现在住在 `MainMenuSubmenuWindow.cs`。
+//
 // ============================ 为什么要抽这一层（2026-09-23） ============================
 // `Rewards Base Submenu Variant`（日常/锻造厂/战役）与 `Shop Menu Variant`（商店）是**同一个壳**：
 // **`Content Area` 的矩形实测完全一样**（`167.17,70.94 → 1920.01,1080.00`）· `Background` 同一套双色渐变 ·

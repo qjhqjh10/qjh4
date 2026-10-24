@@ -1558,6 +1558,20 @@ namespace RuleEngine
             //   `for each … that died since your last turn`（`UM77`）的窗口 = 本回合 + 上一回合
             //   （判据 `CardScript__HasDiedSinceLastTurn.c:26-47`）⇒ 需要这一格。
             //   🔴 **`DiedThisTurn` 的语义一个字没动**（反噬 / `for each one that dies` 读的还是「本回合」）。
+            //
+            // 🔴🔴 **2026-10-24（执行代理 `E6`）就地订正（铁律 5）—— 这一格【生产侧没有任何读者】。**
+            //   全仓现读（`grep DiedLastTurn`）只有三处：字段声明（`BattleContext.cs:621`）、
+            //   本行这一句写、以及自检 `RuleEngineTest_EngineA1.cs:166` 那一句读。
+            //   **真正让 `UM77` 对的是 `ctx.DeadUnits` + `DeadUnit.DeathTurn`**
+            //   （`EffectResolver.cs` 里那个 `op.CountScope == "diedsincelastturn"` 分支，窗口
+            //   `DeathTurn ∈ {Turn, Turn-1}`）—— 因为只有那张表能表达卡面要的
+            //   `own|troop` / `enemy|…` 两个侧筛，而本字段是**不分阵营、不分兵种的全局计数**。
+            //   ⇒ **它是「只为自检保留」的一格**（A1 用它演示「上一回合那一半从哪来」）。
+            //   ⛔ **别把 `UM77` 的消费者改成读它**：那会静默丢掉侧筛（数到对面死的兵）。
+            //   判据：反编译里「自上一回合以来」是**逐卡**的 `CardScript.turnDied` + `HasDiedSinceLastTurn`
+            //   （`CardScript__set_turnDied.c` / `CardScript__HasDiedSinceLastTurn.c:26-47`），
+            //   原版**没有**这个全局计数器；`UM77` 的乘数集是 `inCemeteryFiltered(60)`（过一个墓地筛选）。
+            //   证明它没被接进生产的两条断言 → `RuleEngineTest_EngineE6.cs` 的 `E6T1`。
             ctx.DiedLastTurn = ctx.DiedThisTurn;
             ctx.DiedThisTurn = 0;      // 「本回合阵亡数」按回合清零（`For each one that dies …` 用）
             // 🆕 2026-10-17（`A1547`）：**本回合打出的牌张数**按回合清零 ——

@@ -53,6 +53,34 @@ namespace CardPresentation
         static readonly Vector2 ModeA = UguiRect.A01, ModeP = UguiRect.P01;
         static readonly Vector2 ModePos = new Vector2(20f, -25f), ModeSz = new Vector2(210f, 76.6f);
         const float ModePx = 40f, ModeAutoMin = 20f;
+
+        /// <summary>🆕 **2026-10-24（`E12` P1-9，调度台落）**：模式串 → **官方词条**。
+        /// <para>原来这里直接印 `m.Mode`（= `PlayModeNames.Name` 的**枚举名**），玩家看到的是
+        /// `OfflinePractice` 这种内部标识符。官方表里 `Battle/MatchType/*` 只有 7 个键，
+        /// ⇒ **只映无歧义的几档**；认不出的**保留枚举名并出声**（⛔ 不编词）。</para>
+        /// <para>⚠️ `Skirmish → FastMode`（= `Unranked Skirmish` /「未排名的小冲突」）是**推断**：
+        /// 原版「小冲突」就是未排名的 skirmish（`FastModeRanked` 是另一档「小规模战斗」）。
+        /// `RankedFriendly` 落在哪一档**判据不足** ⇒ 不映。</para></summary>
+        static readonly Dictionary<string, string> ModeLocKeys = new Dictionary<string, string>
+        {
+            { "Classic",          "Battle/MatchType/Ranked" },
+            { "OfflinePractice",  "Battle/MatchType/Practice" },
+            { "PracticeLodge",    "Battle/MatchType/Practice" },
+            { "Skirmish",         "Battle/MatchType/FastMode" },
+            { "ClosedDeck",       "Battle/MatchType/ClosedDeck" },
+        };
+        static readonly HashSet<string> ModeWarned = new HashSet<string>();
+
+        static string ModeText(string mode)
+        {
+            if (string.IsNullOrEmpty(mode)) return "";
+            string key;
+            if (ModeLocKeys.TryGetValue(mode, out key) && Loc.HasEntry(key)) return Loc.OfficialCurrent(key);
+            if (ModeWarned.Add(mode))
+                Debug.LogWarning($"[BattleLog] 模式串「{mode}」没有官方 `Battle/MatchType/*` 词条"
+                               + " ⇒ **按枚举名原样显示**（⛔ 不编词；键表见 `Battle/MatchType/*` 那 7 条）");
+            return mode;
+        }
         /// <summary>两个圆钮：`a=(1,.5) p=(.5,.5)`，`ReplayButton` pos=(−64,43.08)、`PinButton` pos=(−141.87,43.08)，65×65。</summary>
         static readonly Vector2 BtnA = new Vector2(1f, 0.5f), BtnSz = new Vector2(65f, 65f);
         const float ReplayDx = -64f, PinDx = -141.87f, BtnDy = 43.08f;
@@ -244,7 +272,7 @@ namespace CardPresentation
             var modeR = UguiRect.Child(r, ModeA, ModeA, ModeP, ModePos, ModeSz);
             // ⚠️ 原版 `Mode` 是 `Left/Top`，我们这套文字只能「居中/左/右」三档 ⇒ 实际是 Left/**Middle**
             //    （§D4 已如实记着，不是漏做）。
-            Text(ctx, row, m.Mode ?? "", modeR, Color.white, "Mode", ModePx, L_Text2, true, ModeAutoMin, true, true);
+            Text(ctx, row, ModeText(m.Mode), modeR, Color.white, "Mode", ModePx, L_Text2, true, ModeAutoMin, true, true);
 
             // 两个圆钮（**图标挂在钮里面**，照原版树：`ReplayButton > replayicon`）
             var repR = UguiRect.Child(r, BtnA, BtnA, UguiRect.P50c, new Vector2(ReplayDx, BtnDy), BtnSz);
@@ -398,6 +426,9 @@ namespace CardPresentation
         {
             m.Pinned = !m.Pinned;
             if (icon != null) icon.SetTint(m.Pinned ? BattleLogData.PinOn : BattleLogData.PinOff);
+            // 🆕 2026-10-24（E13）：钉子状态是记录的一部分 ⇒ **跟着落盘**（原来纯内存，重启就丢）。
+            // ⚠️ 兜底行（`FromDisk`，来自录像文件而不是本表）**不在表里** ⇒ 存盘不会带上它（本来也没地方放）。
+            BattleLogData.SaveNow();
             Debug.Log("[BattleLog] 这一局" + (m.Pinned ? "**已钉住**（钮变绿）" : "**取消钉住**")
                     + " —— ⚠️ 只在本地：原版 `PinMatchRecording` 是上传服务器 + 回放要不要留档由它管。");
         }

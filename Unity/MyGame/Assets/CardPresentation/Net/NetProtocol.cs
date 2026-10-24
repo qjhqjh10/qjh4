@@ -325,9 +325,13 @@ namespace CardPresentation.Net
         public const int MaxPeerTextChars = 40;
 
         /// <summary>🆕 **2026-10-17（`A1317`）：对端**名字**的钳**（只用于 `MsgProof.name` → `PeerName`）。
-        /// 取值 **24** = 我们本机改名框的上限（`Shell/ProfileTab.MaxNameLen`；原版真值在 PlayFab 服务端，
-        /// 客户端一次都不校验 —— 判据见 `MaxPeerTextChars` 末段那条 `⚠️`）。⛔ 别拿理由那个 40 来钳名字。</summary>
-        public const int MaxPeerNameChars = 24;
+        /// 取值 **25** = 我们本机改名框的上限（`Shell/ProfileTab.MaxNameLen`；原版真值在 PlayFab 服务端，
+        /// 客户端一次都不校验 —— 判据见 `MaxPeerTextChars` 末段那条 `⚠️`）。⛔ 别拿理由那个 40 来钳名字。
+        /// <para>🔴 **2026-10-24 就地订正（铁律 5 · 执行代理 `E12` 现核）**：这里原来是 **24**，
+        /// 依据是当时的 `MaxNameLen = 24`。E12 按反编译真值把改名框改成 **25**
+        /// （`ChangeNameWindow__ValidateInput.c`：`Substring(0, 0x19)` = 25、`len < 3` 拒），
+        /// 两处**必须同值** —— 否则 25 字的名字过网会被静默截成 24。</para></summary>
+        public const int MaxPeerNameChars = 25;
 
         // ---- 组帧 / 拆帧：4 字节小端长度 + UTF8(JSON) ----
 

@@ -386,8 +386,11 @@ namespace CardPresentation
         // ==================================================================
         //  判据（第一权威）= `VoiceLinesController__DisplayWarlordRegularChatMessage.c` 尾部那条
         //  `VoiceLineBox.AnimateText`：`maxVisibleCharacters` **每字 +1**、每字等一个静态常量
-        //  （`DAT_18427be00` 的 `+0x1b8` —— 那个 TypeInfo 的类身份没解出 ⇒ **值读不到**，见 C2 §4·3）。
-        //  ⚠️ 这里只做「按计数显示」这一半；**节拍**由调用方（`UnitChatPanel`）按本地默认给。
+        //  （`GameStaticData.timeBetweenCharsTypewriter` = **0.01 s**；🔴 2026-10-24 `E17` 就地订正：
+        //   本行原来写「那个 TypeInfo 的类身份没解出 ⇒ 值读不到」，那条**已作废** ——
+        //   `dump.cs:119528` + `GameStaticData__.cctor.c:246-247`（`0x3c23d70a`）＝ 0.01f，
+        //   见 `资料/普查产出_1024b/C4_战斗表现判据.md` §3）。
+        //  ⚠️ 这里只做「按计数显示」这一半；**节拍**由调用方（`UnitChatPanel.TypewriterCharSeconds`）给。
         //  ⛔ 点阵那条路（`_tmp == null`）没有 `maxVisibleCharacters` ⇒ 早退 = 「一次全显」（与改前一致）。
 
         /// <summary>只显示前 <paramref name="n"/> 个字（`n &lt; 0` = 全显）。</summary>

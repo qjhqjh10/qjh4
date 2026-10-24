@@ -110,6 +110,10 @@ namespace CardPresentation
         const float PltPx = 37.2f, PltAutoMin = 18f;
         static readonly Color NameGold = new Color(0.98f, 0.686f, 0.169f, 1f);
         static readonly Color RankInk = new Color(0.961f, 0.914f, 0.737f, 1f);
+        /// <summary>🆕 **2026-10-24（E12 · P1-10）**：`icon` 那两格（`Top4` 的卡里 · `FactionScoreSmall` 的行里）
+        /// 的**空态**用色 = 全透明 —— 原版那儿是阵营图，我们没有阵营分 ⇒ 不画；⛔ 别再用 `null` 的缺省 tint
+        /// （那会落到 `CardArt.Solid()` 的白图 = 用户实拍里那四处白块）。</summary>
+        static readonly Color Transparent = new Color(1f, 1f, 1f, 0f);
 
         // ============================================================ ② `Top4`（四格阵营分 + 中间那一列）
         const float T4L = 351.03f, T4T = 333.95f, T4R = 1186.99f, T4B = 886.97f;
@@ -221,9 +225,19 @@ namespace CardPresentation
             var info = Node("Profile Player Info", new PxRect(PiL, PiT, PiR, PiB));
             var av = Node(info, "Avatar Item Small", new PxRect(AvL, AvT, AvR, AvB));
             var ic = Node(av, "Image Container", new PxRect(AvIcL, AvIcT, AvIcR, AvIcB));
-            Rect(ic, "Player_Avatar_selected", new PxRect(AvHlL, AvHlT, AvHlR, AvHlB), "Highlight", L_Bg2, null, true);
-            _avatarArt = CosmeticRect(ic, CurrentAvatarArt(), new PxRect(AvImL, AvImT, AvImR, AvImB), "Image", L_ArtOverFrame);
-            Rect(ic, "Player_Profile_Border", new PxRect(AvBdL, AvBdT, AvBdR, AvBdB), "Border", L_Frame, null, true);
+            // 🔴 **2026-10-24（E18）**：三层各自按原版 `m_LocalScale` **绕布局框中心放大**
+            //   （头像 ×2.0 · 框 ×1.25 · 高亮 ×1.9 —— 判据/理由见 `Shell/AvatarTab.cs` 的 `ScaleImage`
+            //    常量注释；`Image Container` 本身仍按布局框摆、不放大）。⚠️ 放大后溢出容器（原版也溢出）。
+            Rect(ic, "Player_Avatar_selected",
+                 AvatarTab.ScaleAboutCenter(new PxRect(AvHlL, AvHlT, AvHlR, AvHlB), AvatarTab.ScaleHighlight),
+                 "Highlight", L_Bg2, null, true);
+            _avatarArt = CosmeticRect(ic, CurrentAvatarArt(),
+                                      AvatarTab.ScaleAboutCenter(new PxRect(AvImL, AvImT, AvImR, AvImB),
+                                                                 AvatarTab.ScaleImage),
+                                      "Image", L_ArtOverFrame);
+            Rect(ic, "Player_Profile_Border",
+                 AvatarTab.ScaleAboutCenter(new PxRect(AvBdL, AvBdT, AvBdR, AvBdB), AvatarTab.ScaleBorder),
+                 "Border", L_Frame, null, true);
             // 🔴 **2026-10-07（A62 子表 A · A39 / 判据 §③「碰巧对」）**：原版 `Avatar Name` 是 **`折行=1`**，
             //   我们原来没显式声明（靠 `SetAutoFitBox` 顺带打开）⇒ 补 `wrap: true` 钉死。
             // 🔴 **A406**：`Ranking Tab/Profile Player Info/Avatar Item Small/Avatar Name`
@@ -314,7 +328,17 @@ namespace CardPresentation
             // 纵向：VLG align 4（MiddleCenter）⇒ 上下各留 8.44（已核：icon 顶 = 卡顶 + 8.44 ✓）
             var ir = new PxRect(r.x1 + CardInnerOff, r.y1 + FIconT,
                                 r.x1 + CardInnerOff + CardInnerW, r.y1 + FIconT + FIconH);
-            Rect(card, null, ir, "icon", L_Bg2);                        // 阵营图：**空态不画**（没有阵营分可排）
+            // 🔴 **2026-10-24（E12 · P1-10）就地订正（铁律 5）**：这里原来只传 `art = null` ⇒
+            //   `ProfilePage.Rect(art: null)` 会落到 `CardArt.Solid()`（**纯白**）+ 默认白 ⇒ 四张卡上各挂一块
+            //   **白矩形**（用户实拍 `_tmp_view/menu/14_档案窗_排名页.png` 那四处白块就是它；
+            //   `ProfileTab` 自己那份 `CurrentAvatarArt` 注释里点过同一个坑）。
+            //   ⇒ 现在**tint 全透明**（`a = 0`）：图上什么都不画（空态没有阵营分 = 没有阵营图可画），
+            //   但**节点保留 `ImageQuad`** —— ⚠️ 这条是有意的，不是偷懒：
+            //   `MenuCheck.NodeRectPx` 对「既无 `Label` 也无 `ImageQuad`」的节点**返回 false**
+            //   （`Editor/MenuCheck.cs` 那句 `var q = t.GetComponentInChildren<ImageQuad>(); if (q == null) return false;`）
+            //   而 `Editor/MainMenuScene.cs:7687` / `:7751` 那两条宿主断言正是拿 `icon` 节点量矩形
+            //   ⇒ 删成裸节点会让那两条**与画面无关地变红**。⛔ 别改成 `Node(...)`。
+            Rect(card, null, ir, "icon", L_Bg2, Transparent);           // 阵营图：**空态不画**（没有阵营分可排）
             RatingRow(card, "Alliance Rating Display", ArtRankIcon,
                       new PxRect(r.x1 + CardInnerOff, r.y1 + FIconT + FIconH,
                                  r.x1 + CardInnerOff + CardInnerW, r.y1 + FIconT + FIconH + FRtH),
@@ -474,7 +498,11 @@ namespace CardPresentation
             var row = Node(_content, i == 0 ? "FactionScoreSmall" : "FactionScoreSmall (" + i + ")", r);
             // 底：UGUI 内置 `Background`（32×32 · 九宫 10,10,10,10 · ppu=200）—— 与我们其它「内置图」一致：**不导不画**
             var ic = new PxRect(r.x1 + RowIcL, r.y1 + RowIcT, r.x1 + RowIcL + RowIcW, r.y1 + RowIcT + RowIcH);
-            _rowIcons[i] = Rect(row, null, ic, "icon", L_Bg2);          // 阵营图：空态不画
+            // 🔴 **2026-10-24（E12 · P1-10）**：同 `BuildCard` 那一处 —— 原来只传 `art = null` ⇒ 落到
+            //   `CardArt.Solid()` **纯白**（那四处白块的第 4 处就在这一栏的行里）⇒ 改成 tint **全透明**：
+            //   画面无、节点与 `ImageQuad` 都留着（宿主 `Editor/MainMenuScene.cs:7751` 要拿它量矩形，
+            //   详由见 `BuildCard` 那一段注释）。`_rowIcons` 仍记这个 quad（目前无读取点，留着当句柄）。
+            _rowIcons[i] = Rect(row, null, ic, "icon", L_Bg2, Transparent);      // 阵营图：空态不画
             RatingRow(row, "Alliance Rating Display", ArtRankIcon,
                       new PxRect(r.x1 + RowRtL, r.y1 + RowRtT, r.x1 + RowRtL + RowRtW, r.y1 + RowRtT + RowRtH),
                       SmallIconWBig, RowValPx, RowValAutoMin, ScoreSmallAutoMax, ScoreAutoBase);

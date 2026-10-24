@@ -101,10 +101,19 @@ namespace CardPresentation
             public string Id;
             /// <summary>显示名 —— **资产里的真字符串**（`ACH1 Slay the Warlord` 的 `m_Name` 去掉 `ACH&lt;n> ` 前缀）。</summary>
             public string Name;
-            /// <summary>`challenge` 的 `id`（如 `Damage To Warlord`）—— 也是资产里的真字符串。
+            /// <summary>`challenge` 的 `id` 的**显示文本**（如 `Damage To Warlord`）。
             /// ⚠️ 原版那一格装的是 `LocalizedText`（I2 词条），**译文本地查不到** ⇒ 我们拿它顶，
-            /// 并在界面上如实标着（`Shell/AchievementsMenu.cs` 的文件头）。</summary>
+            /// 并在界面上如实标着（`Shell/AchievementsMenu.cs` 的文件头）。
+            /// 🔴 **这是给人看的**（可能被官方词条替换成中文）⇒ ⛔ 别拿它当匹配键。</summary>
             public string Challenge;
+            /// <summary>🆕 **2026-10-24（E13）**：`challenge` 的 `id` **原文**（资产里的真字符串，如
+            /// `Damage To Warlord`）—— 它**不过本地化**，是全表稳定的匹配键
+            /// （判据 = `Resources/profile_cosmetics.json` 的 `achievements[].c`，由 `工具/gen_profile_cosmetics.py` 抽出）。
+            /// <para>用途 = 成就进度写点按原版 challenge 名找成就（<see cref="FindIdByChallenge"/>）——
+            /// 拿 `Id`（`Ach_N`）硬编码也能跑，但那样「这个 id 是哪条挑战」只能靠注释对，改不了资产。</para>
+            /// <para>⚠️ **challenge id 不是唯一的**：`Upgrade Sautekh Cards T2` 在 Ach_27 / Ach_29 各有一条
+            /// （2026-10-24 现读）。⇒ 只有「确认唯一」的那几条才走 <see cref="FindIdByChallenge"/></para></summary>
+            public string ChallengeId;
             /// <summary>位标志：见 `TypeBattle` 那几个常量。</summary>
             public int Type;
             /// <summary>各档阈值（`rewards[].targetValue`）。</summary>
@@ -308,6 +317,47 @@ namespace CardPresentation
         /// <summary>102 条成就（`Trophies` 页）。</summary>
         public static List<Achievement> Achievements { get { EnsureLoad(); return _ach; } }
 
+        // ============================================================ 🆕 2026-10-24（E13）：成就进度写点要用的键
+        //
+        // 🔴 **下面是【资产真数】里的 challenge 原文**（`Resources/profile_cosmetics.json` 的
+        //    `achievements[].c`，⛔ 别改这个文件）—— 每个常量后面注着落到哪一条成就、阈值是多少。
+        // ⚠️ 用 `FindIdByChallenge` 而不是把 `Ach_N` 硬编码进调用点：id 是生成器抽出来的，
+        //    challenge 名是**卡面/资产里的原话** ⇒ 后者可读、也能由本表的常量逐条对上。
+        // ⛔ 别加「看着像」的键：challege 名重复的（`Upgrade Sautekh Cards T2` = Ach_27 / Ach_29）
+        //    一律不进这张表（`FindIdByChallenge` 会返回第一个并出声）。
+
+        /// <summary>`Damage To Warlord` ⇒ `Ach_1`（阈值 1000/10000/50000/250000/999999）——
+        /// 数据源 = `Ctx.DamageToEnemyWarlord[seat]`（`RuleCore.ApplyDamage` 督军那一格）。</summary>
+        public const string ChallengeDamageToWarlord = "Damage To Warlord";
+        /// <summary>`Collect Skulls` ⇒ `Ach_19`（阈值 50/500/2000/10000/50000）——
+        /// 数据源 = 结算那一刻的骷髅数（`BattleDriver._foeSkullCount`，与 HUD 那个 `x N` 同源）。</summary>
+        public const string ChallengeCollectSkulls = "Collect Skulls";
+        /// <summary>`Gain Faith` ⇒ `Ach_63`（阈值 10/100/400/1000/2000）——
+        /// 数据源 = `PlayerState.Faith`（引擎里**只增不减**的信仰，见那个字段的注释）。</summary>
+        public const string ChallengeGainFaith = "Gain Faith";
+        /// <summary>`Play Ranked Multiplayer Matches` ⇒ `Ach_37`（阈值 25/100/1000/5000/10000）。</summary>
+        public const string ChallengeRankedPlayed = "Play Ranked Multiplayer Matches";
+        /// <summary>`Win Ranked Multiplayer Matches` ⇒ `Ach_38`（阈值 10/50/500/5000/10000）。</summary>
+        public const string ChallengeRankedWon = "Win Ranked Multiplayer Matches";
+
+        /// <summary>🆕 **2026-10-24（E13）**：按**原版 challenge 原文**找成就 id（= 写点用的键）。
+        /// <para>返回 `null` = 资产里没有这一条（**调用方必须如实出声**，⛔ 别静默当 0 写）。</para>
+        /// <para>⚠️ challenge 原文**不保证唯一**（`Upgrade Sautekh Cards T2` 两条）⇒ 命中多条时返回第一条
+        /// 并 `LogWarning`。要用它，先确认那条 challenge 在 102 条里唯一（本类上面那几个常量都是核过的）。</para></summary>
+        public static string FindIdByChallenge(string challengeId)
+        {
+            if (string.IsNullOrEmpty(challengeId)) return null;
+            var all = Achievements;
+            string hit = null; int n = 0;
+            for (int i = 0; i < all.Count; i++)
+                if (string.Equals(all[i].ChallengeId, challengeId, StringComparison.Ordinal))
+                { if (hit == null) hit = all[i].Id; n++; }
+            if (n > 1)
+                Debug.LogWarning("[Profile] challenge「" + challengeId + "」在成就表里出现了 " + n
+                               + " 次（第一条 = " + hit + "）⇒ 按第一条写；要用这条请先确认它唯一");
+            return hit;
+        }
+
         /// <summary>给自检用的：清单是不是真的读进来了（没读进来时会**出声一次**，不静默）。</summary>
         public static bool Loaded { get { EnsureLoad(); return _loaded; } }
 
@@ -354,7 +404,7 @@ namespace CardPresentation
                         desc = a.c;
                     _ach.Add(new Achievement { Id = a.id,
                                                Name = Loc.BulkOr("Achievements/Title/" + a.id, a.n),
-                                               Challenge = desc, Type = a.t,
+                                               Challenge = desc, ChallengeId = a.c, Type = a.t,
                                                Thresholds = a.v, Quantities = a.q });
                 }
             _loaded = true;
@@ -571,6 +621,23 @@ namespace CardPresentation
             if (string.IsNullOrEmpty(id)) return;
             EnsureSave();
             _achProgress[id] = Mathf.Max(0, value);
+            SaveIfAuto();
+        }
+
+        /// <summary>🆕 **2026-10-24（E13）**：**累加**一条成就的进度（战果写点用）。
+        /// <para>🆕 为什么要它：原版成就是**跨对局累计**的（`Achievement.CurrentValue` 由 challenge 一路加上去，
+        /// 判据 = `Achievement__OnChallengeUpdate` + `AchievementsManager__UpdateSave`；
+        /// 阈值表见资产真数）⇒ 每打完一局应当 `+= 本局战果`，⛔ 不是每局 `= 本局战果`（那会**把历史清掉**）。</para>
+        /// <para>`delta &lt;= 0` ⇒ 不写（也不落盘）——「这一局这项是 0」不该产生一次写盘。
+        /// ⚠️ 这里**不做封顶**（原版也不封）：超过最高阈值之后只剩 `TargetTier == 总档数` 这一档，
+        /// 界面按「已达档数 + 1、封顶总档数」展示（<see cref="AchievementTierOf"/>）。</para></summary>
+        public static void AddAchievementValue(string id, int delta)
+        {
+            if (string.IsNullOrEmpty(id) || delta <= 0) return;
+            EnsureSave();
+            int cur;
+            if (!_achProgress.TryGetValue(id, out cur)) cur = 0;
+            _achProgress[id] = Mathf.Max(0, cur) + delta;
             SaveIfAuto();
         }
 

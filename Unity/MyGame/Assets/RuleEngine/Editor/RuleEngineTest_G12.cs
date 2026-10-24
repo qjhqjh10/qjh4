@@ -187,7 +187,8 @@ public static partial class RuleEngineTest
     //  ③ 旧表（< v23）**出声** —— 缺列 ≠ 全池都没有
     // ==============================================================================================
 
-    /// <summary>v22 表 ⇒ 恰好一条点名 `activeAbilityLogic` 的 `LogWarning`；v23 表 ⇒ 一条也没有。</summary>
+    /// <summary>v22 表 ⇒ 点名 `activeAbilityLogic` 的 `LogWarning` **两条**（`<23` 那条整列、`<24` 那条逐行三格）；
+    /// v23 表 ⇒ **一条**（只差 `<24` 那格）；v24（当前版本）表 ⇒ **一条也没有**。</summary>
     static void G12OldTableWarns(List<CardDef> pool)
     {
         const string oldTable =
@@ -199,44 +200,58 @@ public static partial class RuleEngineTest
           + "\"type\":\"unit\",\"desc\":\"\",\"rarity\":\"Common\",\"faction\":\"Ultramarines\","
           + "\"cost\":1,\"attack\":1,\"health\":1,\"ranged\":0,\"subtype\":\"Infantry\","
           + "\"activeAbilityLogic\":[]}]}";
+        // 🆕 2026-10-24（`E1` 把卡表推到 v24）：再探一格「当前版本不出声」——
+        //   否则 v24 的真实表每次装载都要刷一条「< 24」，而那正是要避免的噪声。
+        const string curTable =
+            "{\"version\":24,\"count\":1,\"cards\":[{\"id\":\"G12W3\",\"name\":\"G12 当前表守卫探针\","
+          + "\"type\":\"unit\",\"desc\":\"\",\"rarity\":\"Common\",\"faction\":\"Ultramarines\","
+          + "\"cost\":1,\"attack\":1,\"health\":1,\"ranged\":0,\"subtype\":\"Infantry\","
+          + "\"activeAbilityLogic\":[]}]}";
 
-        int oldWarns = 0, newWarns = 0;
+        int oldWarns = 0, midWarns = 0, curWarns = 0;
         string firstOld = null;
-        bool countingOld = false, countingNew = false;
+        bool countingOld = false, countingMid = false, countingCur = false;
         Application.LogCallback cb = (text, stack, type) =>
         {
             if (type != LogType.Warning || text == null) return;
-            if (!text.Contains("activeAbilityLogic")) return;      // 只数**这一列**那条守卫
+            if (!text.Contains("activeAbilityLogic")) return;      // 只数**这一列**那两条守卫
             if (countingOld) { oldWarns++; if (firstOld == null) firstOld = text; }
-            if (countingNew) newWarns++;
+            if (countingMid) midWarns++;
+            if (countingCur) curWarns++;
         };
         Application.logMessageReceived += cb;
         try
         {
             countingOld = true;
-            CardDatabase.Parse(oldTable);          // v22：整列没有 ⇒ 必须出声（恰好一次）
+            CardDatabase.Parse(oldTable);          // v22：整列没有 + 每行三格没有 ⇒ 两条都要出声
             countingOld = false;
-            countingNew = true;
-            CardDatabase.Parse(newTable);          // v23：同一列、版本够 ⇒ 一条都不该有
-            countingNew = false;
+            countingMid = true;
+            CardDatabase.Parse(newTable);          // v23：列有了、三格没有 ⇒ 只该剩 `<24` 那一条
+            countingMid = false;
+            countingCur = true;
+            CardDatabase.Parse(curTable);          // v24：当前版本 ⇒ 一条都不该有
+            countingCur = false;
         }
         finally
         {
-            countingOld = countingNew = false;
+            countingOld = countingMid = countingCur = false;
             Application.logMessageReceived -= cb;
             CreatePool.BuildNameIndex(pool);
         }
 
-        Check(oldWarns, 1,
-              "★ **v22 旧表出声**：正好一条点名 `activeAbilityLogic` 的 `LogWarning`"
+        Check(oldWarns, 2,
+              "★ **v22 旧表出声两条**：`< 23`（整列缺）+ `< 24`（每行三格缺）各一条，且都点名 `activeAbilityLogic`"
             + "（⛔ 缺列不许静默读成「全池都没有主动能力」）"
-            + "｜🧨 删掉 `CardDatabase.Parse` 里那条 `< 23` 守卫 ⇒ 掉到 0");
+            + "｜🧨 删掉 `CardDatabase.Parse` 里任一版本守卫 ⇒ 掉成 1/0");
         CheckTrue(firstOld != null && firstOld.Contains("null") && firstOld.Contains("-1"),
                   "★ 那条警告把后果写清了（`null = 未知` / `-1 = 读不到`），⛔ 不是一句「版本低」"
                 + "｜🧨 改成没有后果说明的空话 ⇒ 红");
-        Check(newWarns, 0,
-              "★ **v23 新表不出声**（同一列，版本够就不该有警告）"
-            + "｜🧨 把守卫写成 `<= 23` / 无条件出声 ⇒ 红（那会在每次正常装载刷屏）");
+        Check(midWarns, 1,
+              "★ **v23 表只出一条**（列有了，只差 `chosenAbility`/`playersAffected`/`damageCriteria` 三格）"
+            + "｜🧨 把 `< 24` 守卫写成 `<= 24` / 漏掉它 ⇒ 红");
+        Check(curWarns, 0,
+              "★ **v24 当前表不出一条**（版本够就不该有警告）"
+            + "｜🧨 无条件出声 ⇒ 每次正常装载刷屏 ⇒ 红");
     }
 
     // ==============================================================================================
@@ -310,20 +325,24 @@ public static partial class RuleEngineTest
         // ---- ④-c 闸门「行数 ≠ op 数」：`SOR17 Sister Superior`（2 行 / 1 条 op）----
         {
             // `Pray: Deal 1 damage` 在原文里配 **2 行** logic（行0 `ta=30` 打伤害、行1 `ta=20`
-            // 另一条 logic）—— 谁是「这一条 op 的那一行」**没有判据** ⇒ 一行都不挂。
+            // 另一条 logic）。🔴 **2026-10-24 订正（铁律 5 · E1 把卡表推到 v24）**：
+            // v23 那套「1 对象/1 行/1 条 op」闸在这里给的是 `gap:shape`；**v24 按能力种类归位后它挂上了**
+            // （两行分属不同 `chosenAbility` 族，各挑各的 op ⇒ 不再「行数≠op数就放弃」）。
+            // ⛔ 这里**不再断言具体 ta** —— `ta` 的真值由 E1 自己的逐卡表兜（`RuleEngineTest_EngineE1.cs`），
+            // 本行只管「闸门形态变了没有」。
             var s17 = CardDatabase.FindById(pool, "SOR17");
             CheckTrue(s17 != null, "(前提) `SOR17 Sister Superior` 在池内");
             if (s17 != null)
             {
-                Check(s17.ActiveAbilityMap ?? "(null)", "gap:shape",
-                      "★ `SOR17`（2 行 / 1 条 op）⇒ `gap:shape`（⛔ 不挂）"
-                    + "｜🧨 把闸放宽成「数字相等才算」以外的东西（例如按 min 长度对齐）⇒ 红");
+                Check(s17.ActiveAbilityMap ?? "(null)", "attached",
+                      "★ `SOR17`（2 行 / 1 条 op）⇒ **`attached`**（v24 起按能力种类归位）"
+                    + "｜🧨 退回 `gap:shape`（只认「1 对象/1 行/1 条 op」）⇒ 红");
                 var ops = s17.TriggerOps(KeywordTable.Pray);
                 bool anyMarked = false;
                 if (ops != null) foreach (var o in ops) if (o != null && o.ActiveAbilityRow >= 0) anyMarked = true;
-                CheckTrue(!anyMarked,
-                          "★ 且它那条 `pray` op **没有** `ActiveAbilityRow` 标记（保持 -1 = 读不到）"
-                        + "｜🧨 按行号硬配 ⇒ 本行红（而且 `ta` 会贴到一条没判据的 op 上）");
+                CheckTrue(anyMarked,
+                          "★ 且它那条 `pray` op **有** `ActiveAbilityRow` 标记（≥ 0）"
+                        + "｜🧨 挂了结论却忘了标 op ⇒ 红");
             }
         }
 
@@ -347,13 +366,26 @@ public static partial class RuleEngineTest
         // ---- ④-e 闸门「卡上没有替代行动关键词」：`SOR66 Armorium Cherub` ----
         {
             // `SOR66` 的 `keywords` 只有 `Flying` / `Rally`（没有 duty/pray/ferocity/agenda/oath），
-            // 而它的 active 行是 `gate=1` ⇒ 正文不在任何一个替代行动键下 ⇒ 挂不上去。
+            // 而它的 active 行是 `gate=1` ⇒ v23 那套「必须挂在替代行动键下」的闸挂不上去（`gap:no-keyword`）。
+            // 🔴 **2026-10-24 订正（铁律 5 · E1）**：v24 起改走「**整卡恰好一段正文**」闸
+            // （`CardDef.cs:2424-2460`）⇒ 它**挂上了**（`Rally` 那条 `give` 拿 `ta=30 / fm=1`）。
             var s66 = CardDatabase.FindById(pool, "SOR66");
             CheckTrue(s66 != null, "(前提) `SOR66 Armorium Cherub` 在池内");
             if (s66 != null)
-                Check(s66.ActiveAbilityMap ?? "(null)", "gap:no-keyword",
-                      "★ `SOR66`（gate=1 但卡上没有替代行动关键词）⇒ `gap:no-keyword`"
-                    + "｜🧨 把关键词表扩大到「任意 `Rally`」/ 不判关键词就挂 ⇒ 红");
+            {
+                Check(s66.ActiveAbilityMap ?? "(null)", "attached",
+                      "★ `SOR66`（gate=1、卡上无替代行动关键词、整卡一段正文）⇒ **`attached`**"
+                    + "｜🧨 退回 `gap:no-keyword`（只认关键词那一档）⇒ 红");
+                var ops66 = s66.TriggerOps(KeywordTable.Rally);
+                bool marked66 = false;
+                int ta66 = -1;
+                if (ops66 != null)
+                    foreach (var o in ops66)
+                        if (o != null && o.ActiveAbilityRow >= 0) { marked66 = true; ta66 = o.SubjectTargetsAffected; }
+                CheckTrue(marked66 && ta66 == 30,
+                          "★ 且 `Rally` 那条 op 挂上 `ta = 30`（真值，E1 逐卡表）"
+                        + "｜🧨 退回不挂 / 贴成 `-1` ⇒ 红");
+            }
         }
 
         // ---- ④-f 两组一致（`SW21` 的 `active` 与 `alternative` 两行都是 `ta=10`）----
@@ -375,7 +407,7 @@ public static partial class RuleEngineTest
 
         // ---- ④-g 汇总读数（⛔ 别只验一张卡就说「接完了」）----
         {
-            int withRows = 0, attached = 0, gate0 = 0, gapShape = 0, gapNoKw = 0, other = 0;
+            int withRows = 0, attached = 0, gate0 = 0, gapKind = 0, other = 0;
             foreach (var c in pool)
             {
                 if (c == null || c.ActiveAbilityLogic == null || c.ActiveAbilityLogic.Count == 0) continue;
@@ -384,25 +416,29 @@ public static partial class RuleEngineTest
                 {
                     case "attached": attached++; break;
                     case "gate-0": gate0++; break;
-                    case "gap:shape": gapShape++; break;
-                    case "gap:no-keyword": gapNoKw++; break;
+                    case "gap:kind-no-op":
+                    case "gap:kind-ambiguous":
+                    case "gap:kind-unknown": gapKind++; break;
                     default: other++; break;
                 }
             }
             Check(withRows, 132, "★ 有行的卡 132 张都拿到了一个归位结论（没有一张是空串）");
-            Check(attached, 38,
-                  "★ 挂上 op 的卡 = **38 张**（「1 个对象 ↔ 1 行 ↔ 1 条 op」那一档）"
-                + "｜🧨 放宽闸门（按行号硬配）⇒ 这个数会跳到 51+；收得过紧 ⇒ 掉下去");
-            Check(gapShape, 48,
-                  "★ 因「行数 ≠ op 数」未挂的 = **48 张**（这一档**没有判据**，⛔ 不猜）"
-                + "｜🧨 硬按 min 长度对齐 ⇒ 掉到 0（而那会静默贴错目标）");
+            // 🔴 **2026-10-24 读数更新（铁律 5 · `E1` 把卡表推到 v24、按能力种类归位）**：
+            //    v23 那套「1 对象 / 1 行 / 1 条 op」只挂 38 张；v24 按 `chosenAbility` 分族后 **84 张**。
+            //    只剩 3 张给不出结论：`AM22`（`chooseone` 一条 op 盖两个分支 = `gap:kind-no-op`）·
+            //    `SOR13`（同族两行 ta=10/120 = `gap:kind-ambiguous`）· `SW9`（`ca=320 followAfterResolution`
+            //    故意不映射 = `gap:kind-unknown`）。
+            Check(attached, 84,
+                  "★ 挂上 op 的卡 = **84 张**（v24 按能力种类归位；v23 是 38）"
+                + "｜🧨 退回「只认 1 对象/1 行/1 条 op」⇒ 掉到 38；按行号硬配 ⇒ 冲上 100+");
+            Check(gapKind, 3,
+                  "★ 给不出结论的 = **3 张**（`AM22` / `SOR13` / `SW9`，三类各一张，全是**真歧义**）"
+                + "｜🧨 把歧义档也硬挂 ⇒ 掉到 0（那会静默贴错目标）");
             Check(gate0, 45, "★ `gate=0` 死数据 45 张（不挂）｜🧨 挂上去 ⇒ 掉到 0");
-            Check(gapNoKw, 1, "★ 卡上无替代行动关键词 1 张（`SOR66`）｜🧨 关键词判据放宽 ⇒ 掉到 0");
             Check(other, 0,
-                  "★ 其余归位结论 0 张（`gap:gate-unknown` / `gap:groups-differ` / `gap:two-keywords` / "
-                + "`gap:no-ops` / `gap:multi-object` 今天都是空集）"
-                + "｜🧨 出现这一类 = 数据形状变了，要回来看是不是该重新裁闸门");
-            Check(attached + gapShape + gapNoKw + gate0, 132,
+                  "★ 其余归位结论 0 张（老那几档 `gap:shape` / `gap:no-keyword` 今天已是空集）"
+                + "｜🧨 出现这一类 = 归位逻辑分叉了，要回来看是不是两套闸并存");
+            Check(attached + gapKind + gate0, 132,
                   "★ **灭自证**：四档加起来正好 132（每一张有行的卡都被归了一类，没有漏账）"
                 + "｜🧨 有卡悄悄落进「既没挂也没归因」⇒ 加起来对不上 ⇒ 红");
         }

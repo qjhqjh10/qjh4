@@ -204,7 +204,12 @@ namespace CardPresentation
             MenuDraw.ClearChildren(_content);
             BuiltRows = 0;
 
-            var all = BattleLogData.All;
+            // 🔴 **2026-10-24（`E13` 落盘 + 兜底行之后由调度台补这一处）**：原来读 `BattleLogData.All`
+            //   （= 只有本进程内的记录）⇒ 重启后这个弹窗**看不到任何旧局**，与战斗记录页不一致。
+            //   改读 `DisplayRows()`（本表 + 「盘上有录像但本表没记录」的兜底行）。
+            //   ⚠️ 它每次会碰一次盘（≤ `ReplayStore.MaxKept` 个 JSON）；本方法只在**开窗/重建**时调，
+            //   ⛔ 别把它塞进滚动重画那条路（`BattleLogData.DisplayRows` 的 doc 已写明）。
+            var all = BattleLogData.DisplayRows();
             int n = all.Count;
             float h = n == 0 ? 0f : n * MatchLogRow.RowH + (n - 1) * MatchLogRow.RowGap;
             ContentBottom = ViewportR.y1 + h;

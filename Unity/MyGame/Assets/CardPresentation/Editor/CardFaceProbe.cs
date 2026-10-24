@@ -987,10 +987,14 @@ public static class CardFaceProbe
 
         var u127 = CardView.ArtMeshForTest(artU, CardView.BigArtScale, null, false, 2);
         var u100 = CardView.ArtMeshForTest(artU, 1f, null, false, 2);
-        var t127 = CardView.ArtMeshForTest(artT, CardView.BigArtScale, null, false, 2);
-        var t100 = CardView.ArtMeshForTest(artT, 1f, null, false, 2);
-        var d127 = CardView.ArtMeshForTest(artD, CardView.BigArtScale, null, false, 2);
-        var d100 = CardView.ArtMeshForTest(artD, 1f, null, false, 2);
+        var t127 = CardView.ArtMeshForTest(artT, CardView.BigArtScale, null, false, 2,
+                                           CardView.TacticArtScale, CardView.TacticArtDy);
+        var t100 = CardView.ArtMeshForTest(artT, 1f, null, false, 2,
+                                           CardView.TacticArtScale, CardView.TacticArtDy);
+        var d127 = CardView.ArtMeshForTest(artD, CardView.BigArtScale, null, false, 2,
+                                           CardView.TacticArtScale, CardView.TacticArtDy);
+        var d100 = CardView.ArtMeshForTest(artD, 1f, null, false, 2,
+                                           CardView.TacticArtScale, CardView.TacticArtDy);
 
         // ① Minion：仍然 ×1.27
         Check(MeshNear(realU, u127, 1e-3f) && !MeshNear(realU, u100, 1e-3f),
@@ -1081,8 +1085,10 @@ public static class CardFaceProbe
                       $"P1-3 前提 [{key}] 这张战术卡框有逐行开口（rows={rows} quads={quads}）"
                     + "｜量不出来 ⇒ 下面几条**没验到**，别读成通过");
 
-                var mClip = CardView.ArtMeshForTest(art, 1f, frameTex, true, 1);    // 该用的形状
-                var mFull = CardView.ArtMeshForTest(art, 1f, frameTex, false, 1);   // 丢参时退化成的那块
+                var mClip = CardView.ArtMeshForTest(art, 1f, frameTex, true, 1,
+                                                    CardView.TacticArtScale, CardView.TacticArtDy);    // 该用的形状
+                var mFull = CardView.ArtMeshForTest(art, 1f, frameTex, false, 1,
+                                                    CardView.TacticArtScale, CardView.TacticArtDy);   // 丢参时退化成的那块
                 Check(!MeshNear(mClip, mFull, 1e-4f),
                       $"P1-3 前提 [{key}] 「裁到开口」与「只裁卡体 + 硬矩形」**确实是两块不同的网格**"
                     + "｜两块一样 ⇒ 这张卡框没有可裁的开口 ⇒ 本片段对它是空验，换一张");
@@ -1151,7 +1157,12 @@ public static class CardFaceProbe
     /// <para>🔴 **灭自证**：期望值是**常数**（战术立绘 1024² ⇒ 产品小图档局部 u ∈ (0.18, 0.82]；
     /// 板宽 = `ArtUnitSquare 2.7484 × ArtCoverMargin 1.04 = 2.858336` 卡单位
     /// ⇒ 硬矩形 x = ±0.32 × 2.858336 = **±0.914668**）—— ⛔ 不是把 `ArtClampUv01` 再算一遍。
-    /// 同时要求「**不夹那块确实越界**」与「**夹后不越界**」，两条方向相反，改回去只能满足其中一条。</para>
+    /// 同时要求「**不夹那块两端都越界**」与「**夹后两端都贴在同一个常数边界上**」，两条方向相反，改回去只能满足其中一条。</para>
+    ///
+    /// <para>🔴 **2026-10-24（`E10`）判别维重设计（第 ② 条）**：原来断「夹后 x ⊆ ±0.914668」——
+    /// **区间包含**只证明「没超出去」，对「夹得比硬矩形还窄」「只夹一侧」「窗口方向反」都没有牙
+    /// （误用 BIG 档 u (0.25,0.75] ⇒ 两端 ±0.7145，离边 0.2 卡单位，**照样 ⊆**）。
+    /// 现在改断**到边界的距离**（两端都必须贴在同一根常数边上）—— 理由与反例写在 ② 的注释里。</para>
     ///
     /// <para>⚠️ 卡框**刻意指定** `astramilitarum_strat_tier2`（离线逐像素量得开口 x ∈ [−1.027, +1.073]，
     /// 见 `F4_卡面条带与断言.md` §三「量框」）：用样本卡自己的框不行 —— SW39–SW45 的 tier 不确定，
@@ -1206,16 +1217,51 @@ public static class CardFaceProbe
         // 🔴 **2026-10-24（`H3`）就地订正（铁律 5）**：本行原来写「`clampKind = 0`（**战术卡底层 `_art`**，
         //   走同一条条带路）**不受硬矩形**」——「战术卡底层 `_art` 不受硬矩形」这句**作为生产事实已过期**：
         //   `H1`（同日）起生产 `_art` 对**非单位卡**套 `clampKind: 1/2`（`CardView.cs` 的 `artClampKind`）。
-        //   ✅ **断言本身仍成立、逻辑一个字没改**：它量的是 `ArtMeshForTest(..., clampKind: 0)` 的**合成网格**，
+        //   ✅ **断言本身仍成立、逻辑没变**：它量的是 `ArtMeshForTest(..., clampKind: 0)` 的**合成网格**，
         //   验的是「`clampKind == 0` 这条路上硬矩形确实没生效」，与「哪一层是生产底图」无关。
-        Check(offX0 < -ClampHalfX - 1e-3f,
-              $"F4 前提：`clampKind=0` 的条带**仍铺满开口**（最左 {offX0:F4} < −{ClampHalfX:F4}）"
-            + "—— 既证明样本框宽过硬矩形（否则下面空验），也证明 `clampKind=0` 这条路上没把硬矩形误加上去");
+        // 🔴 **2026-10-24（`E10`）**：**两侧**都要越界（原来只查左边）。② 的新判据要断「两端都贴边」，
+        //   前提是「不夹那块**两端都伸到硬矩形之外**」—— 否则那一侧的贴边是空验。
+        //   离线现读（`astramilitarum_strat_tier2` + 1024² 立绘、`clampKind = 0`；口径同 H4 的复刻表）：
+        //   x ∈ [−1.0403, +0.9942] ⇒ 左越 0.1256 / 右越 0.0795 卡单位（≈ 38 px / 24 px），两侧都够。
+        Check(offX0 < -ClampHalfX - 1e-3f && offX1 > ClampHalfX + 1e-3f,
+              $"F4 前提：`clampKind=0` 的条带**两侧都伸出硬矩形**（不夹那块 x ∈ [{offX0:F4}, {offX1:F4}]，"
+            + $"硬矩形 ±{ClampHalfX:F4}）—— 既证明样本框宽过硬矩形（否则 ② 那一侧空验），"
+            + "也证明 `clampKind=0` 这条路上没把硬矩形误加上去"
+            + "｜🧨 只有一侧越界 ⇒ ② 只有一侧有判别力 ⇒ 先核卡框 / 离线表，⛔ 别把 ② 放宽");
 
-        // ② 夹后每个顶点都落在硬矩形内
-        Check(onX0 >= -ClampHalfX - 1e-3f && onX1 <= ClampHalfX + 1e-3f,
-              $"F4 硬矩形在**条带路**上真的生效：夹后 x ∈ [{onX0:F4}, {onX1:F4}] ⊆ ±{ClampHalfX:F4}"
-            + "｜🧨 `ArtMeshInFrame` 的条带早退路没过交集 ⇒ 等于 `clampKind=0` 那块（最左 −1.0）⇒ 红");
+        // ② 【🔴 2026-10-24（`E10`）**判别维重设计**】夹后的 x 极值必须**两端都压在原版那根硬矩形边上**。
+        //   ⛔ 原来断的是「x ⊆ ±0.914668」（区间包含）—— 它只证明「没超出去」，**拦不住方向 / 幅度反**：
+        //     · **夹得比硬矩形还窄**（例如误把 BIG 档的 u 窗口 (0.25,0.75] 用在条带路上）⇒ 两端 ±0.7145，
+        //       离边 0.2 卡单位，**照样满足 ⊆** ⇒ 旧判据全绿；
+        //     · **只夹一侧**（另一侧的 Max/Min 写漏）⇒ 旧判据只在这一侧越界时才红，两张对称的错夹法分不开；
+        //     · **窗口方向反**（`u0/u1` 对调 / `clampCard.x` 与 `.y` 对调）⇒ 交集为空、整块丢、退回矩形路径
+        //       ⇒ 旧判据在某些组合下仍「⊆」，而**画面上的立绘已经被镜像/整块换掉**。
+        //   ⇒ 新维度 = **到边界的距离**：`|onX0 + H| ≤ tol` 且 `|onX1 − H| ≤ tol`。
+        //     能贴得准的机理：`ArtWindowMesh` 逐行 `Mathf.Max(FramePxXEdge(col), bxL)` /
+        //     `Mathf.Min(FramePxXEdge(col+1), bxR)` ⇒ 每一行都被**截在同一根边界**上；而边界由原版
+        //     `_Clamp_Range` 常数算出（`ClampHalfX`），⛔ 不是把实现再算一遍。
+        //     `tol = 0.005` 卡单位 ≈ 1.5 px（682 px 宽的卡框上 1 px ≈ 0.00329；实测两端与边界的差应 < 1e-5，
+        //     容差只吸收浮点）。BIG 档那 0.2 的偏差是这个阈值的 **40 倍** ⇒ 不处在抖动带里。
+        //   🧨 删掉条带早退路的交集（`CardView.ArtMeshInFrame` 里那两句 `Mathf.Max/Min`）⇒ 两端回到
+        //      −1.0403 / +0.9942 ⇒ 不贴边 ⇒ **红**
+        //   🧨 误用 BIG 档窗口 (0.25,0.75] ⇒ 两端 ±0.7145、离边 0.2 ⇒ **红**（旧的「⊆」判据在这一档**是绿的**）
+        //   🧨 只夹一侧 ⇒ 没夹的那端不贴边 ⇒ 红
+        //   🧨 窗口方向反（`clampCard.x` 与 `.y` 对调）⇒ 交集为空 ⇒ 退回矩形路径 ⇒ 两端都不贴边 ⇒ **红**
+        const float edgeTol = 0.005f;
+        // 🔴 2026-10-24 二次订正（只读诊断代理现核 + 离线复刻逐位吻合）：「两端贴硬矩形边」在本样本上做不到 ——
+        //   越界的是**独立细条**，被 ArtWindowMesh 的 Mathf.Max/Min(..., bxL/bxR) 弄成 xR<=xL 后整段丢弃，
+        //   全帧没有一段跨在 ±H 上 ⇒ 极值顶点落在**卡框画窗边**（贴图列 257/767 = WinHalfX）而不是硬矩形边。
+        //   ⇒ 改**三明治**：下界 = 画窗边（0.83949，离线量得）、上界 = 硬矩形（ClampHalfX）。
+        const float WinHalfX = 0.83949f;
+        float winDL = Mathf.Abs(onX0 + WinHalfX), winDR = Mathf.Abs(onX1 - WinHalfX);
+        Check(winDL <= edgeTol && winDR <= edgeTol
+              && onX0 >= -ClampHalfX - edgeTol && onX1 <= ClampHalfX + edgeTol,
+              $"F4 硬矩形在**条带路**上真的生效（三明治判据）："
+            + $"夹后 x ∈ [{onX0:F4}, {onX1:F4}]；到**画窗边** ±{WinHalfX} 的距离 = ({winDL:F4}, {winDR:F4}) ≤ {edgeTol:F3}；"
+            + $"且不越**硬矩形** ±{ClampHalfX:F4}"
+            + "｜🧨 条带早退路没过交集 ⇒ 等于 clampKind=0 那块（x ∈ [-1.0403, +0.9942]）⇒ 下界差 0.2 ⇒ 红"
+            + "｜🧨 误用 BIG 档窗口 (0.25,0.75] ⇒ ±0.7145 ⇒ 下界差 0.125 ⇒ 红（旧「⊆」判据在这一档是绿的）"
+            + "｜🧨 只夹一侧 / 窗口方向反（u0、u1 对调 ⇒ 完全不夹）⇒ 红");
 
         // ③ 灭自证：两块确实不同，且只窄在 x 上
         Check((onX1 - onX0) < (offX1 - offX0) - 1e-3f,
@@ -1352,7 +1398,8 @@ public static class CardFaceProbe
             try
             {
                 CardView.DebugDisableArtClamp = false;
-                if (artT != null) hard = CardView.ArtMeshForTest(artT, 1f, null, false, 1);
+                if (artT != null) hard = CardView.ArtMeshForTest(artT, 1f, null, false, 1,
+                                                                 CardView.TacticArtScale, CardView.TacticArtDy);
             }
             finally { CardView.DebugDisableArtClamp = prevOff; }
 

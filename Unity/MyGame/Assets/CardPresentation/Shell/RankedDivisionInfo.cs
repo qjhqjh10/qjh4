@@ -19,13 +19,20 @@
 //    各指自己那一支。
 // ④ 🔴 **序列化 bool = `displayRating=0` / `displayPosition=1` / `displaySeals=1`**（而 `.ctor` 默认是
 //    `1 / false / 1`）—— **照序列化值做**：`Global Rating` 那一支**运行时也不会被打开**。
-// ⑤ 🔴 **这一整棵全是服务器数据**（段位名 / 两个评分 / 里程碑进度 / 段位大图）⇒ 照用户 2026-09-26 的口径
-//    **留空、不编数字**：`DivisionText` 留空 · `RankImage` 与 `DivisionImage` 不画（那是段位图）·
-//    评分两处留空 · `RankedSealStep` **保留 `Empty` 态、不画 `Fill`**（进度未知）。
+// ⑤ 🔴 **这一整棵的数据都是服务器数据**（段位名 / 两个评分 / 里程碑进度 / 段位大图）⇒ 照用户 2026-09-26 的口径
+//    **不编数字**：两个评分留空 · `RankedSealStep` **保留 `Empty` 态、不画 `Fill`**（进度未知）。
 //    ⚠️ 段位图**不是「我们没导」**—— 是「段位号 → 图名」那张对照表（`RankedDivisionsSO`）**本地就没有**
 //    （判据 → `资料/普查产出_0927/档案窗_Ranking页与图名表.md` §D·1，全盘搜过）。
-// ⑥ **`Timer` 整块不建**（赛季倒计时：服务器数据 + 用户明确不要赛季倒计时）；`counter`（里程碑计数）
-//    **出厂 inactive 且全 bundle 零引用者** ⇒ 不建；两个 `Main Icon` 是 `m_Enabled=0` 的件 ⇒ 不画。
+//    🔴 **2026-10-24（E19）就地订正**：上面那句原文还写着「`DivisionText` 留空 · `RankImage` 与 `DivisionImage` 不画」——
+//       **那一半已过期**（用户点名要段位徽章）：现在按**演示段位号 7**画 `DivisionImage`（`07-Legend`）
+//       + 官方词条 `Ranked/Division/7`（zh `传奇`）。**段位号是演示值、号码→图名是推断**（两张落点都在
+//       `DivisionArt` / `DemoDivisionNumber` 的 doc 里）；`RankImage`（罗马数字名次）**仍然不画**——
+//       名次号也在服务器，且「最高段位叠不叠名次」参考图判不了（S4 §缺数据）。
+// ⑥ 🔴 **2026-10-24（E19）就地订正**：原文写「**`Timer` 整块不建**（赛季倒计时：服务器数据 + 用户明确不要）」——
+//    **已过期**：`Timer` 自 **2026-10-22（M1）** 起由宿主的 `RankedEventWindow.BuildRankTimer` 建在
+//    `Content` 底下（倒计时文案走官方词条 `EndsInPlusOrangeTime`，截止时刻本地没有 ⇒ 印 `--`）。
+//    本类**不建它**（建法/判据在宿主那边，⛔ 别在这儿再写第二份）。
+//    `counter`（里程碑计数）**出厂 inactive 且全 bundle 零引用者** ⇒ 不建；两个 `Main Icon` 是 `m_Enabled=0` 的件 ⇒ 不画。
 //
 // ⚠️ **哪些是我们推的（不是原版）**：`footer` 的真高 —— 工具对**嵌套布局组**不递归，把 `footer` 与 `Timer`
 //    都算成 `717.95→717.95`（高 0）。按 uGUI（`footer` VLG `ctrlH=0`、active 子节点只有 `MainRating`、
@@ -68,6 +75,57 @@ namespace CardPresentation
         const string ArtSkullEmpty = "Rank_Skull_Empty";     // `RankedSealStep/Empty`
         const string ArtTrophy = "WF_UI_Trophy_Gold";        // `Global Rating/Secondary Icon`
 
+        // ------------------------------------------------------------ 段位徽章（2026-10-24 · E19）
+        /// <summary>段位大图那 7 张的**资源名**（`Resources/Art/ui_menu/`，落地时已经把空格换成下划线）。
+        /// <para>出处：`d:/2/新解包资源/assets_full/bundle_rankeddivisionicons_assets_all/Texture2D/` 的 13 张
+        /// （7 张 512² 段位 + `Roman I–VI` 六张 128² 名次）。反编译那条链 =
+        /// `DivisionImageDisplay__Initialize.c:35-42`：`RankedDivisions.GetDivisionData(divisionNumber)` →
+        /// 返回项的 `+0x18` 是 `AssetReferenceTyped` → `Load` → `Image.set_sprite`（挂的就是 `DivisionImage` 那颗 Image）。
+        /// </para>
+        /// <para>🔴🔴 **「段位号 → 图名」的对照表本地查不到 —— 这份顺序是【推断】**：
+        /// `RankedDivisions` 在整个本地资源里**只有 MonoScript、没有任何实例**
+        /// （S4 已扫 84 个 bundle + `sharedassets0` / `resources` / `globalgamemanagers` / `level0` / `level1`，
+        ///  `catalog.bin` 里也没有；判据 → `资料/普查产出_1024b/S4_模式窗细节与徽章.md` §①「缺数据」）。
+        /// ⇒ 只能按**图名前缀的序号**推（1=Rook … 7=Legend）。**旁证**：官方词条
+        /// `Ranked/Division/1..7`（`Iron→Legendary`，`官方本地化_en+zh-CN.json` 现读）也是 7 段一维序列，
+        /// 与这 7 张图**同数同序** ⇒ 顺序推断与官方表的段数自洽（但**仍不是**那张 SO 的直接证据）。
+        /// ⛔ 别把这里改成一条 `if` 链：**7 项表**就是「号 → 图」这件事的唯一落点，将来拿到 SO 只换这张表。</para></summary>
+        static readonly string[] DivisionArt =
+        {
+            "01-Rook", "02-Veteran", "03-Commander", "04-Admiral",
+            "05-Conqueror", "06-Galactic_Threat", "07-Legend",
+        };
+
+        /// <summary>段位号的**演示值**。🔴 **这是我们挑的，不是原版的真实段位**：
+        /// 玩家真实段位来自服务器（`RankedEventWindowV2__SetDivision.c:67-79`：
+        /// `LeaderboardManager.GetCachedLeaderboard(…)` 拿到的项 `+0x20` 里的 divisionNumber
+        /// → `RankingDisplay.Initialize(…, divisionNumber, …)`），本地一条都没有。
+        /// 取 **7（Legend）** 的唯一理由：与用户参考图 `C:/Users/qjh36/Desktop/warpforge参考图/经典模式参考图.png`
+        /// 那一块**同款**（S4 逐像素认定 = `07-Legend`）。⚠️ 真数据到了只改这一个数。</summary>
+        public const int DemoDivisionNumber = 7;
+
+        /// <summary>段位号 → 图名（越界 / 表里没有 ⇒ null，调用方出声、不画）。</summary>
+        public static string DivisionArtName(int divisionNumber)
+        {
+            int i = divisionNumber - 1;
+            return (i >= 0 && i < DivisionArt.Length) ? DivisionArt[i] : null;
+        }
+
+        /// <summary>段位名 = 官方词条 `Ranked/Division/&lt;号&gt;`（zh `传奇` / en `Legendary`；现读）。
+        /// ⚠️ **不自己编中文名** —— 词条取不到（`Loc.T` 缺键会**返回键名本身**）⇒ 返回空串 + 出声。</summary>
+        public static string DivisionName(int divisionNumber)
+        {
+            string key = "Ranked/Division/" + divisionNumber;
+            string v = Loc.T(key);
+            if (string.IsNullOrEmpty(v) || v == key)
+            {
+                Debug.LogWarning("[RankedDivisionInfo] 官方词条 `" + key + "` **取不到** ⇒ 段位名留空"
+                                 + "（⛔ 不编名字；官方表现读 1..7 = Iron/Bronze/Silver/Gold/Platinum/Diamond/Legendary）");
+                return "";
+            }
+            return v;
+        }
+
         /// <summary>`RankTitleBG` 的色（正本 §A：`(1,1,1,0.918)`）—— 同一张图四处的 `a` **各不相同**
         /// （0.918 / 1 / 1 / 0.647），**别统一**（普查 §A·3）。</summary>
         static readonly Color BannerTint = new Color(1f, 1f, 1f, 0.918f);
@@ -83,9 +141,13 @@ namespace CardPresentation
 
             // ---- ① 段位名那一条 `RankTitleBG` → `DivisionText` ----
             MenuDraw.Rect(content, art(ArtBanner), RankTitleBgR, "RankTitleBG", qArt, BannerTint, false);
-            // 🔴 段位名（原版样板是 `Division V`）**是服务器数据** ⇒ 留空、不编（判据 ⑤）。
-            //    文字层照样建出来（有它的 rect 与字号，将来有数据就填）。
-            var dtLbl = MenuDraw.Text(content, DivisionTextR, "", DivisionInk, "DivisionText", 42f, qInk,
+            // 🔴 段位名（原版样板是 `Division V`）**是服务器数据**（`RankingDisplay.Initialize` 从
+            //    `RankedDivisions` 那条约里取 `LocalizedString` 塞进这颗 TMP）。
+            //    🔴 **2026-10-24（E19）**：改前**恒留空**；现在按**演示段位号**取官方词条
+            //    （`Ranked/Division/<号>`，zh `传奇`）—— 号本身是**我们挑的演示值**（见 `DemoDivisionNumber`），
+            //    真值在服务器。词条取不到时 `DivisionName` 出声并返回空串（⛔ 不编名字）。
+            var dtLbl = MenuDraw.Text(content, DivisionTextR, DivisionName(DemoDivisionNumber), DivisionInk,
+                                      "DivisionText", 42f, qInk,
                                       DivisionTextR.W, 10f,
                                       // 🆕 **2026-10-12（A336③）**：上限 = 原版 `m_fontSizeMax` = **42**（= 标称，本来就对）·
                                       //   base = 原版 `m_fontSizeBase` = **23.0**。
@@ -99,10 +161,35 @@ namespace CardPresentation
             //    但**值照原版设上**，将来一旦填字就是对的（别改成「反正看不见就不设」）。
             if (dtLbl != null) dtLbl.SetCharSpacing(-2.6f);
 
-            // ---- ② 段位大图 `DivisionImage` → `RankImage`：**两张都不画**（判据 ⑤）----
-            //    原版这一支的 sprite 是 `RankedDivisions.GetDivisionData(n).Image` 运行期塞的，
-            //    而那张 SO **本地没有** ⇒ 画任何一张都是**编一个段位**。
+            // ---- ② 段位大图 `DivisionImage` → `RankImage` ----
+            // 🔴 **2026-10-24（E19 · 用户问「什么等级用什么徽章」）**：改前这里**两张都不画**
+            //   （「画任何一张都是编一个段位」）。现在按**演示段位号**画 —— 段位号是演示值（`DemoDivisionNumber`），
+            //   「号 → 图」是**按图名前缀推断**的（`DivisionArt` 那段 doc 里写清了这是推断 + 为什么）。
+            //   `keepAspect = true`：prefab 里这颗 Image 的 **`m_PreserveAspect = 1`**、`m_Type = 0`（Simple）——
+            //   8 处同名 `DivisionImage` 逐颗现读都是这两个值（`bundle_menus_assets_all/MonoBehaviour/…`）。
+            //   ⚠️ 下图 512²、框 539.79×572.62 ⇒ 按比例内接成 **539.79²** 居中（不是拉满 572.62）。
             var divImage = MenuDraw.Node(content, "DivisionImage", DivisionImageR);
+            string divArtName = DivisionArtName(DemoDivisionNumber);
+            // 🔴 **队列 = `qArt − 1`（不是 `qArt`）**：原版兄弟序是 `RankTitleBG` → **`DivisionImage`** → `footer`
+            //   （`menu_dump` 那张表的行序 = uGUI 的画序），而 uGUI 是**后建的画在上面** ⇒ 徽记**压在 banner 与
+            //   footer 之下**（参考图 `经典模式参考图.png` 里「1600」就压在徽记下缘上 ⇒ 与这条一致）。
+            //   我们这把梯子在 `qArt`(3111) 与下一档(3110) 之间**没有整数空档**（同队列谁盖谁不可控 ——
+            //   透明物按到相机的距离排）⇒ 徽记只能落 `qArt − 1`。
+            //   ⚠️ **已知代价（如实记）**：与中栏 `Warlord Darkening`(3110) 同档，只在徽记最右 ~59px
+            //   （529.97…588.90）与它重叠；那一处是柔和渐变的左沿（参考图同一带也是暗的）⇒ 影响止于此。
+            var divQ = string.IsNullOrEmpty(divArtName)
+                     ? null
+                     : MenuDraw.Rect(divImage, art(divArtName), DivisionImageR, "Image", qArt - 1, null, true);
+            if (divQ == null)
+                Debug.LogWarning("[RankedDivisionInfo] 段位大图**没画** —— `DivisionArt` 里没有段位 "
+                                 + DemoDivisionNumber + " 对应的图（表长 " + DivisionArt.Length + "）"
+                                 + "；⛔ 不拿别的段位顶替");
+            // `RankImage`（罗马数字 I–VI，128²）：**不画**。判据两条都指向「本地判不了」：
+            //   ① 名次号（`RankedDivisionData`/leaderboard 项里的 rank）也在服务器
+            //      （`DivisionImageDisplay__Initialize.c:62` 的 `RankedDivisions.GetRankData(rank)`）；
+            //   ② `DivisionImageDisplay` 只在**最高段位**那一支才 `SetActive(RankImage, true)`，而参考图里
+            //      罗马数字正压在骷髅脸上 ⇒ **Legend 到底叠不叠名次无法判定**（S4 §缺数据 明确存疑）。
+            //   ⇒ 节点照建（原版有这一颗），但不出图 —— 不拿一个猜的名次去画。
             MenuDraw.Node(divImage, "RankImage", RankImageR);
 
             // ---- ③ `Spacer`（纯 `LayoutElement`，没有图）----
@@ -139,9 +226,12 @@ namespace CardPresentation
             //    它们各自的 `Main Icon` 还是 `m_Enabled = 0` 的件（全 bundle 唯一两处），本来就不该画。
             //    （`Position`/`Global Rating` 的 rect 已建：将来有数据时按 `RankingDisplay.Initialize` 填。）
 
-            Debug.Log("[RankedDivisionInfo] 段位块 `Content` 建完 —— **数据全留空**（段位名 / 两个评分 / 里程碑进度 / 段位大图"
-                      + "都是服务器数据，用户 2026-09-26 口径：不编数字）。`Timer` **不建**（赛季倒计时）；"
-                      + "`counter` 出厂 inactive 不建；`Fill` 与两个 `Main Icon` 不画。");
+            Debug.Log("[RankedDivisionInfo] 段位块 `Content` 建完 —— 两个评分 / 里程碑进度 / 名次图"
+                      + "**留空**（都是服务器数据，用户 2026-09-26 口径：不编数字）；"
+                      + "段位名与段位大图**按演示段位号 " + DemoDivisionNumber + " 画**"
+                      + "（号是我们挑的演示值、号码→图名是推断 —— 见 `DemoDivisionNumber` / `DivisionArt` 的 doc）。"
+                      + "`Timer` 由宿主的 `BuildRankTimer` 另建；`counter` 出厂 inactive 不建；"
+                      + "`Fill` 与两个 `Main Icon` 不画。");
         }
 
         /// <summary>这一棵里**我们建出来的**节点名（自检按它逐条数结构，**别让断言去猜**）。

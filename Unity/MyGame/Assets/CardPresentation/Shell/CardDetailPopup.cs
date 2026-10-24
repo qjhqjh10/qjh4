@@ -901,7 +901,9 @@ namespace CardPresentation
                     var alt = AltArtTexture();
                     if (alt != null) cd.artOverride = alt;
                 }
-                var v = CardView.Create(node, cd, SlotName(i));
+                var v = CardView.Create(node, cd, SlotName(i),
+                                        artOverdraw: i == 0,
+                                        useOverDraw: def != null ? def.UseOverDraw : true);
                 if (v == null)
                 {
                     Debug.LogWarning("[CardDetail] 第 " + i + " 格（" + def.Name + "）的 `CardView` 建不出来"
@@ -925,6 +927,10 @@ namespace CardPresentation
                 //    原版判据 → `CardDisplayWindow__CardOverdrawHandle.c:14-33`：`idx != 0` 一律 `Small`；
                 //    `idx == 0` 且 `useOverDraw != 0` 才 `Big`（本窗与原版同一个 `CardDisplayWindow` 族）。
                 //    ⚠️ 缺卡表项时按 `true`（= 本笔之前的行为，不静默变严）。
+                //    🔴 **2026-10-24（`E5`）**：两条轴现在**在 `CardView.Create` 那一次就传进去**了（见上面那行）——
+                //    `Build` 一趟按正确的状态烘网格，不再「先按 Big 烘、赋值时重烘」。下面两句留着当**同值复核**
+                //    （setter 的 `if (value == _field) return;` 会直接早退 ⇒ 零代价、也不会再触发一次补间）。
+                //    ⛔ 别只改一处：两个数必须与 `Create` 那一行**同源**（这里是 `i == 0` 与 `def.UseOverDraw`）。
                 v.ArtOverdraw = (i == 0);
                 v.UseOverDraw = def != null ? def.UseOverDraw : true;
                 SlotViews[i] = v; _slotDefs[i] = def;

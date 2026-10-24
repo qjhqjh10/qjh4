@@ -1090,14 +1090,15 @@ namespace CardPresentation
             // ---- 🆕 2026-10-24（`B1` · 战斗线「对手聊天」④ 打字机）----
             //   原版 `VoiceLineBox.AnimateText`：`maxVisibleCharacters` 每字 +1、每字等一个静态常量，
             //   **打完才开始算 `Duration`**（= 气泡寿命从打字结束起算，见 `Advance` 那一段）。
-            //   ⚠️ 节拍 `TypewriterCharSeconds` **不是原版值**（原版那个常量读不到，见它的 doc）。
+            //   🔴 **2026-10-24（执行代理 `E17`）就地订正（铁律 5）**：节拍 = 原版真值 **0.01 s/字**
+            //   （`GameStaticData.timeBetweenCharsTypewriter`，判据链见 `TypewriterCharSeconds` 的 doc）。
             //   ⚠️ `CharacterCount == 0`（没有 TMP / 还没排出 textInfo）⇒ **不启用打字机**（一次全显）——
             //      ⛔ 别把它当成「0 个字」而永远不显示。
             // ⚠️ 打字机状态**按颗独立**（🆕 2026-10-24 `A13`：改前是面板级单份 ⇒ 一颗在打字、另一颗
             //    进来会把进度清掉）。
             b.typeTotal = b.text != null ? b.text.CharacterCount : 0;
             b.typeElapsed = 0f;
-            b.typing = b.typeTotal > 1;
+            b.typing = b.typeTotal > 0;
             if (b.typing) b.text.SetMaxVisibleCharacters(0);
             return true;
         }
@@ -1222,15 +1223,16 @@ namespace CardPresentation
             if (b.typing)
             {
                 b.typeElapsed += dt;
-                int n = Mathf.Clamp(Mathf.FloorToInt(b.typeElapsed / TypewriterCharSeconds) + 1, 1, b.typeTotal);
+                int n = TypewriterVisibleAt(b.typeTotal, b.typeElapsed);
                 if (b.text != null)
                     b.text.SetMaxVisibleCharacters(n >= b.typeTotal ? -1 : n);
                 if (n < b.typeTotal) return;
                 b.typing = false;
-                // 打字打完（第 1 个字在 t = 0 就出来 ⇒ 全程 = `(total - 1) × 节拍`）——
+                // 打字打完（**先等一拍再显第 1 字** ⇒ 全程 = `total × 节拍`，原版
+                // `AnimateText` 的总时长同此）——
                 // **把多出来的那一段 dt 还给气泡寿命**：自检里会有 `Advance(10f)` 这种一大步调用，
                 // 直接 return 会让那一步整段作废、气泡永远收不起来（2026-10-24 起的那条断言就是这么断的）。
-                dt = Mathf.Max(0f, dt - Mathf.Max(0f, (b.typeTotal - 1) * TypewriterCharSeconds));
+                dt = Mathf.Max(0f, dt - TypewriterSecondsFor(b.typeTotal));
             }
             // 🔴 2026-10-21（`新账-63` · 第三层诊断）：每 **0.08 s** 打一次「气泡在场时的真实状态」——
             //   原来 0.4 s 太稀：本工程语音中位数只有 **0.41 s**，0.4 s 的采样点**整个落在播放窗口之外**
@@ -1318,13 +1320,39 @@ namespace CardPresentation
         // 🔴 2026-10-24（`A13`）：`_waveAmp` / `_spectrum` 已按颗搬进 `Bubble.waveAmp` / `Bubble.spectrum`。
 
         // ---- 🆕 2026-10-24（执行代理 `B1` · 战斗线「对手聊天」④）：打字机状态 ----
-        /// <summary>打字机节拍（秒/字）。
-        /// <para>🔴 **这不是原版值** —— 原版那一个常量在 `DAT_18427be00` 的**静态字段 `+0x1b8`**
-        /// （`VoiceLineBox.AnimateText` 每字 `WaitForSeconds(该字段)`），而那个 TypeInfo 的**类身份没解出**
-        /// （同一个 TypeInfo 的 `+0x11c` 是 GraphicsTab 的小屏开关，可旁证它是某个「全局设置/静态」类）
-        /// ⇒ **值读不到**（C2 §4·3）。这里 **0.03 s/字** 是我们挑的（≈33 字/秒）；
-        /// ⛔ 别把 0.03 写进文档当原版值。要还原得先把那个静态字段的类与值解出来。</para></summary>
-        public const float TypewriterCharSeconds = 0.03f;
+        /// <summary>打字机节拍（秒/字）。**原版真值 = 0.01**。
+        /// <para>判据链（第一权威 = `d:/2/tools/decomp_full/`）：
+        ///   ① 字段 = `GameStaticData.timeBetweenCharsTypewriter`（`dump.cs:119528`，偏移 `0x1B8`）；
+        ///   ② 值 = `GameStaticData__.cctor.c:246-247` 写死 `0x3c23d70a` = **0.01f**；
+        ///   ③ 用法 = `VoiceLineBox._AnimateText_d__22__MoveNext.c:23,27,29,43,59,63,65` ——
+        ///      `maxVisibleCharacters = 0` → 等一拍 → 读 `textInfo.characterCount` →
+        ///      循环「+1 字 → 等一拍」⇒ **先等一拍再显第 1 字，总时长 = 字数 × 节拍**。</para>
+        /// <para>🔴 **2026-10-24（执行代理 `E17`）就地订正（铁律 5）**：本行原来是 **0.03f**、doc 写着
+        /// 「原版那个常量读不到 ⇒ 这是我们挑的」—— 那条结论**已作废**（类身份 `DAT_18427be00` =
+        /// `GameStaticData`，同一 TypeInfo 的 `+0x11c` = `smallScreenUI` 可旁证；见 `C4_战斗表现判据.md` §3）。
+        /// 0.03 是**慢 3 倍**的错误值，⛔ 别改回去。</para></summary>
+        public const float TypewriterCharSeconds = 0.01f;
+
+        /// <summary>浮点累积的安全垫（秒）。`b.typeElapsed` 是一帧一帧加出来的，
+        /// 累到正好 `k × 0.01` 时可能差半个 ulp（`0.0099999998`）⇒ 用 `FloorToInt` 会慢一个字。
+        /// 0.1 ms 远小于一帧，肉眼与断言都不受影响。</summary>
+        const float TypewriterEpsilon = 1e-4f;
+
+        /// <summary>打字机在「开始后 <paramref name="t"/> 秒」应显几个字。
+        /// **判据 = 原版结构**（先等一拍再显第 1 字，之后每字一拍）⇒ `floor(t / 节拍)`。
+        /// <para>⚠️ 这条与 <see cref="TickBubble"/> 共用一份 —— ⛔ 别在 Tick 里再写一遍算式
+        /// （两处写同一条规则 = 迟早不一致）。</para></summary>
+        public static int TypewriterVisibleAt(int total, float t)
+        {
+            if (total <= 0) return 0;
+            return Mathf.Clamp(Mathf.FloorToInt((t + TypewriterEpsilon) / TypewriterCharSeconds), 0, total);
+        }
+
+        /// <summary>整句打完的时刻 = **字数 × 节拍**（原版 `AnimateText` 的总时长；含第 1 字前那一拍）。</summary>
+        public static float TypewriterSecondsFor(int total)
+        {
+            return Mathf.Max(0, total) * TypewriterCharSeconds;
+        }
 
         // 🔴 **2026-10-24（执行代理 `A13`）· 三槽状态机**：打字机 / 诊断闩 / 音波幅度这些**逐句状态**
         //   已搬进 `Bubble` 自己（三颗各一份），面板级这几格全部删掉 ——
@@ -1334,6 +1362,14 @@ namespace CardPresentation
         public bool TypingForTest { get { return _current != null && _current.typing; } }
         /// <summary>自检用：**最近说的那颗**这一句一共几个字（`0` = 没启用打字机）。</summary>
         public int TypeTotalForTest { get { return _current != null ? _current.typeTotal : 0; } }
+        /// <summary>自检用：**最近说的那颗**现在**显了几个字**。
+        /// <para>读的是 TMP 的 `maxVisibleCharacters`（<see cref="Label.MaxVisibleCharacters"/>；
+        /// 全显那一档回 `99999`）。🆕 2026-10-24（执行代理 `E17`）—— 打字机节拍那三条断言靠它
+        /// 分辨「先等一拍」与「第 1 字当场出来」，⛔ 别只断 `TypingForTest`（那个分辨不出节拍）。</para></summary>
+        public int VisibleCharsForTest
+        {
+            get { return _current != null && _current.text != null ? _current.text.MaxVisibleCharacters : 0; }
+        }
         float[] _lspec;                 // 🔴 2026-10-21 第四层诊断：全场混音频谱（与 source 专有 API 对比）
         // 🔴 2026-10-21（`新账-63`）：诊断日志只打一次的那几个闩（`b.warned*` 已按颗搬走，这里只剩全局那一格）
         bool _loggedClipState;

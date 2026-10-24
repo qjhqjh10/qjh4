@@ -62,7 +62,9 @@ namespace CardPresentation
         /// 它由 `Toggle borde` 那个钮控制显隐（`AvatarTab.ToggleAvatarBorder` / `CheckEnableAvatarBorder`）。</summary>
         const float BdL = 318.37f, BdT = 381.51f, BdR = 585.45f, BdB = 595.09f;
         public const string ArtBorder = "Player_Profile_Border";
-        /// <summary>`Image Container/Image`（**头像立绘那一层**）：`318.37,357.45 → 585.45,571.03`。
+        /// <summary>`Image Container/Image`（**头像立绘那一层**）：`318.37,357.45 → 585.45,571.03`
+        /// —— 这是**布局矩形**（267.08×213.58），**实绘还要 ×2.0**（`ScaleImage`，绕中心放大 ⇒ 实绘 534.16×427.16，
+        /// `preserveAspect` 后 427.16²）。🔴 判据 = prefab 的 `m_LocalScale = 2.0`（S5 §①，12/12 实例同值）。
         /// ⚠️ 预制体里这件的 `m_Sprite = 0`（原版运行期由 `AvatarDisplay.avatarImage` 喂）。</summary>
         const float ImL = 318.37f, ImT = 357.45f, ImR = 585.45f, ImB = 571.03f;
         /// <summary>`Avatar Menu Item/Avatar Name`：`303.37,253.13 → 600.45,321.03` ·
@@ -164,12 +166,58 @@ namespace CardPresentation
         // ---- 格子内部（**相对格子左上角**的偏移；出处：普查文件 §A-补 3 的 `Avatar Item Small_Ref` 那几行）----
         // 🔴 `Avatar Name` 落在**格子之外**（y 180..221.31）—— 正好插进 `GridLayoutGroup` 留的 **50px 行距**里。
         //    别把它「修正」回格子内。
-        const float CImgL = 0f, CImgT = 0f, CImgR = 180f, CImgB = 142.63f;          // Image Container
-        const float CHlL = 0f, CHlT = -3.53f, CHlR = 183.34f, CHlB = 144.49f;       // Highlight（**出厂 T**）
-        const float CBdL = 0f, CBdT = 14.26f, CBdR = 180f, CBdB = 156.89f;          // Border
-        const float CArtL = 0f, CArtT = -2.70f, CArtR = 180f, CArtB = 139.93f;      // Image（立绘）
+        const float CImgL = 0f, CImgT = 0f, CImgR = 180f, CImgB = 142.63f;          // Image Container（布局矩形）
+        // ⚠️ **2026-10-24（E18）就地订正（铁律 5）**：`CHlB` 原来写的是 **144.49**，那是这一件的
+        //   **高**、不是「距格子顶的下边偏移」（错因：抄表时把 `尺寸` 列当成了 `底边` 列）。
+        //   实据 = `资料/普查产出_0927/档案窗_Avatar与Title页.md:57` 的绝对框
+        //   `667.16,247.17→850.50,391.65`，减去格子左上 `667.16,250.70` ⇒ **0,−3.53 · 183.34,140.95**
+        //   （高 = 140.95 + 3.53 = **144.48** ≈ 那条表的 144.49 ✓ 自洽）。
+        //   ⇒ 改前那面**选中金框比原版高 3.53px**（上下各多 1.77），放大 ×1.9 之后会变成 6.7px —— 顺手改掉。
+        const float CHlL = 0f, CHlT = -3.53f, CHlR = 183.34f, CHlB = 140.95f;       // Highlight（**出厂 T**；布局框，实绘 ×1.9）
+        const float CBdL = 0f, CBdT = 14.26f, CBdR = 180f, CBdB = 156.89f;          // Border（布局框，实绘 ×1.25）
+        const float CArtL = 0f, CArtT = -2.70f, CArtR = 180f, CArtB = 139.93f;      // Image 立绘（布局框，实绘 ×2.0）
         const float CNmL = 0f, CNmT = 180f, CNmR = 180f, CNmB = 221.31f;            // Avatar Name（**出厂 F**）
         const float CNmPx = 36f, CNmAutoMin = 12f;
+
+        // ============================================================ 🔴 三层的 `m_LocalScale`（实绘放大）
+        // **上面那四组是【布局矩形】**（`RectTransform` 的 anchor/pos/sizeDelta 算出来的框，一个像素都不动）；
+        // 原版真正画出来的框 = **布局矩形绕自己的 pivot (0.5,0.5) 再乘下面这三个倍数**。
+        //
+        // 🔴 **判据（第一权威 = prefab 的 `RectTransform.m_LocalScale`，2026-10-24 由只读代理 S5 逐颗读出）**：
+        //   `资料/普查产出_1024b/S5_头像组装.md` §① 的表 + 「**12/12 个 `AvatarDisplay` 实例全同** ⇒ 系统级真值」。
+        //   · 头像 `Image`（= `AvatarDisplay.avatarImage`）  × **2.0**
+        //   · 框  `Border`（= `AvatarDisplay.avatarHolder`） × **1.25**
+        //   · 高亮 `Highlight`（选中光晕，图 `Player_Avatar_selected`） × **1.9**
+        //   ⚠️ `AvatarDisplay__ChangeAvatar.c:57` / `__ChangeBorder.c:50` **只 `set_sprite`、不碰 scale**
+        //     ⇒ 倍数**全在 prefab 里**，运行期不会变（不是「运行时按状态改」的那一类，铁律 5·c）。
+        //   ⚠️ 同族的第二份独立证据（**小号 `Avatar Item Small`**，即 `ProfileTab` / `RankedTab` 那两格）：
+        //     `Editor/BattleScene.cs:24532`（A1512）逐字写着「`Border`（自己 `m_LocalScale 1.25`）」
+        //     与「`Image`（自己 `m_LocalScale 2.0`）」—— 与这里同值。
+        //   ⚠️ 第三份（**顶栏那颗 `Avatar Item Small`**，另一个 build 点）：`Shell/TopBar.cs` 的 `BuildTopAvatar`
+        //     从**场景** prefab 独立推出同一个结论（`Image m_LocalScale = 2.0` / `Border ×1.25`），
+        //     且按它与原版实拍逐点比对过（2026-09-27）—— 三处同值，⛔ 别再「按截图缩小它」。
+        //
+        // 🔴 **为什么必须放大（用户 2026-10-24 的原话：「头像框里面的头像应该更大，甚至超出头像框」）**：
+        //   头像 sprite 是 **512² 画布 + 自带透明边**（≈ 主流款 alpha bbox 288×384，左右各留 108px）⇒
+        //   放大 2.0 之后**可见内容宽 285.26×288/512 = 160.46**，而框（PA 内接后）宽 **159.59**
+        //   ⇒ **1.006×（几乎等宽）**、头顶**戳出框顶**（原版 y −40.59 vs 框顶 −3.57 ≈ 37px）。
+        //   ⛔ **不放大**时可见内容只有 **80.23** 宽 = 框宽的 **0.628×** —— 正是用户说的「缩小在里面」。
+        //   ⛔ **别改用 `localScale`**：本工程惯例是**把倍数乘进矩形**（先例 `Shell/BoosterInfoPopup.cs:626`
+        //     的 `51.88f * iconScl`），`MenuDraw.SetPxSize` 那条路不写 `localScale`。
+        public const float ScaleImage = 2.0f, ScaleBorder = 1.25f, ScaleHighlight = 1.9f;
+
+        /// <summary>把一个**布局矩形**绕它自己的中心放大 —— 原版 `m_LocalScale`（pivot = `(0.5,0.5)`）的几何效果。
+        /// <para>🔴 **本批唯一实现**（`ProfileTab` / `RankedTab` 那两格也转调这里）：本批白名单只允许动
+        /// `AvatarTab` / `ProfileTab` / `RankedTab` 三份 ⇒ 先寄在 `AvatarTab` 上；等 `ProfilePage`（三页的公共底座）
+        /// 可写时应收口到那里，⛔ 别在第三处再抄一份（同规则两处写 = 迟早不一致）。</para>
+        /// <para>判据 = uGUI：`pivot` 处的点不动、其余按 `scale` 线性摊开（`Transform.localScale` 的语义）。</para></summary>
+        public static PxRect ScaleAboutCenter(PxRect r, float s)
+        {
+            if (Mathf.Approximately(s, 1f)) return r;
+            float cx = (r.x1 + r.x2) * 0.5f, cy = (r.y1 + r.y2) * 0.5f;
+            return new PxRect(cx + (r.x1 - cx) * s, cy + (r.y1 - cy) * s,
+                              cx + (r.x2 - cx) * s, cy + (r.y2 - cy) * s);
+        }
 
         MenuScroll _scroll;
         Transform _grid;
@@ -268,7 +316,10 @@ namespace CardPresentation
             var ic = Node(big, "Image Container", new PxRect(IcL, IcT, IcR, IcB));
             // 🔴 `Highlight` 挂在 **`Image Container`** 下（不是 `Avatar Menu Item` 下）—— 照原版树。
             //    大图这份**恒关**（见常量注释）。
-            _bigHighlight = Rect(ic, ArtHighlight, new PxRect(HlL, HlT, HlR, HlB), "Highlight", 4, null, true);
+            // 🔴 **2026-10-24（E18）**：三层都按原版 `m_LocalScale` **绕各自布局矩形的中心放大**
+            //    （头像 ×2.0 / 框 ×1.25 / 高亮 ×1.9 —— 判据与理由见 `ScaleImage` 那一段常量注释）。
+            _bigHighlight = Rect(ic, ArtHighlight, ScaleAboutCenter(new PxRect(HlL, HlT, HlR, HlB), ScaleHighlight),
+                                 "Highlight", 4, null, true);
             if (_bigHighlight != null) _bigHighlight.gameObject.SetActive(false);
             // ⚠️ **别用 `Rect(ic, null, …)`** —— `CardArt.Solid()` 是**不透明白块**，会变成面板正中一大块白。
             //    没有图就**不建**（`CosmeticRect` 取不到时返回 null）。
@@ -280,8 +331,8 @@ namespace CardPresentation
             //    `ProfileTab.L_ArtOverFrame` / `RankedTab.L_ArtOverFrame` / `TopBar.QBarAvatarFrame<QBarAvatar`。
             WarnIfAvatarMissing(Avatars.Count > 0 ? Avatars[PreviewIndex].Art : null);
             _bigArt = CosmeticRect(ic, Avatars.Count > 0 ? Avatars[PreviewIndex].Art : null,
-                                   new PxRect(ImL, ImT, ImR, ImB), "Image", 6);
-            Rect(ic, ArtBorder, new PxRect(BdL, BdT, BdR, BdB), "Border", 5, null, true);
+                                   ScaleAboutCenter(new PxRect(ImL, ImT, ImR, ImB), ScaleImage), "Image", 6);
+            Rect(ic, ArtBorder, ScaleAboutCenter(new PxRect(BdL, BdT, BdR, BdB), ScaleBorder), "Border", 5, null, true);
             // 🔴 **2026-10-07（A62 子表 A · A28）**：原版 `Avatar Tab > Selected Item Panel > Avatar Name`
             //   （`'TEST NAME'`）是 **`折行=0 auto[15~35]`**（判据 = `md "Player Profile Window" --depth 25 --md`）
             //   ⇒ `SetAutoFitBox` 内部会无条件开折行 ⇒ 显式关掉（A205：关这一下顺带把版面推下去）。
@@ -364,9 +415,16 @@ namespace CardPresentation
 
                 var cell = Node(_grid, "Avatar Item Small_" + i, r);
                 // 子件按**格子内偏移**摆（`Shift` 已经把整个格子搬到屏幕上了）
+                // 🔴 **2026-10-24（E18）**：`Image Container` 是**布局框**（不放大）；它底下三层各自放大
+                //    （头像 ×2.0 / 框 ×1.25 / 高亮 ×1.9，见 `ScaleImage` 那段常量注释）。
+                //    ⚠️ **放大后的框会溢出 `Image Container` / 格子**（原版也溢出：头像实绘 360×285.26
+                //    比容器 180×142.63 大一倍）—— 父链上**没有任何 `Mask`**，溢出不裁（判据 = S5 §①
+                //    「无任何遮罩」）；**只有滚动视口那层 `RectMask2D` 照常裁边**，与原版一致。
                 var ic = Node(cell, "Image Container",
                               new PxRect(ox + CImgL, oy + CImgT, ox + CImgR, oy + CImgB));
-                var hl = Rect(ic, ArtHighlight, new PxRect(ox + CHlL, oy + CHlT, ox + CHlR, oy + CHlB),
+                var hl = Rect(ic, ArtHighlight,
+                              ScaleAboutCenter(new PxRect(ox + CHlL, oy + CHlT, ox + CHlR, oy + CHlB),
+                                               ScaleHighlight),
                               "Highlight", 1, null, true);
                 if (hl != null) hl.gameObject.SetActive(i == Selected);   // 出厂 F，选中的那一格才亮
                 // 🔴🔴 **2026-10-18（W18）画序订正（铁律 5）** —— **这一页 469 格全黑**的根因：
@@ -377,19 +435,34 @@ namespace CardPresentation
                 //   判据 = `资料/普查产出_0927/档案窗_Avatar与Title页.md` §A1 第 41–43 行，
                 //   同族先例 = `ProfileTab.L_ArtOverFrame` 那段注释，2026-09-27 已在别的页修过同一条病）。
                 //   ⇒ 队列改成 `Highlight 1 < Border 2 < Image 3`（Name 4 / Hit 5 顺延，互不重叠）。
-                Rect(ic, ArtBorder, new PxRect(ox + CBdL, oy + CBdT, ox + CBdR, oy + CBdB), "Border", 2, null, true);
+                // 🔴 **2026-10-24（E18）**：框与立绘各自**绕布局框中心放大**（×1.25 / ×2.0）——
+                //   放大后立绘仍然**整体压在框之上**（画序没动，只是两者都比布局框大）。
+                Rect(ic, ArtBorder,
+                     ScaleAboutCenter(new PxRect(ox + CBdL, oy + CBdT, ox + CBdR, oy + CBdB), ScaleBorder),
+                     "Border", 2, null, true);
                 WarnIfAvatarMissing(items[i].Art);     // ⛔ 取不到图必须出声（不许静默留白）
                 var art = CosmeticRect(ic, items[i].Art,
-                                       new PxRect(ox + CArtL, oy + CArtT, ox + CArtR, oy + CArtB), "Image", 3);
+                                       ScaleAboutCenter(new PxRect(ox + CArtL, oy + CArtT, ox + CArtR, oy + CArtB),
+                                                        ScaleImage), "Image", 3);
                 // `Avatar Name` 在**格子外**（oy+CNmT..oy+CNmB），落在行距里 —— 真值
                 // 🔴 **2026-10-07（A62 子表 A · A31 / 判据 §③「碰巧对」）**：原版这一件是 **`折行=1`**，
                 //   我们原来**没显式声明**（靠 `SetAutoFitBox` 顺带打开）⇒ 补 `wrap: true` 钉死。
                 // 🔴 **A406（2026-10-12）逐站实读**：`Avatar Tab/Item Display Panel/Scroll Rect/Item Drawer/
                 //   Avatar Item Small_Ref/Avatar Name` 原版 `auto[12.0~36.0] 基准=36.0`
                 //   ⇒ 上限 36（= 标称）· base **36.0**（⚠️ 与上面大图那份的 base 同、上限同，但**两棵各读一次**）。
-                Text(cell, items[i].Name, new PxRect(ox + CNmL, oy + CNmT, ox + CNmR, oy + CNmB),
+                // 🔴🔴 **2026-10-24（E12 · P1-7）：建成之后立刻 `SetActive(false)`** —— 原版这一件**不上屏**：
+                //   ① prefab 里它 `m_IsActive = **F**`（`资料/普查产出_0927/档案窗_Avatar与Title页.md` §A，
+                //      `Avatar Name` 那一行的「激活」列 = F）；
+                //   ② 运行期只有 `AvatarDisplay.ChangeAvatar` 对它 `set_text`，**没有任何 `SetActive`**
+                //      （`decomp_full/AvatarDisplay__ChangeAvatar.c` / `AvatarTab__OnAvatarClick.c`）；
+                //   ③ 用户参考图 `账户-头像参考图.png` 的格子里**只有立绘、没有名字**。
+                //   ⇒ **建、但关着**（同 `ProfileTab` 的 `Player Info/Avatar Item Small/Avatar Name` 那条处置）。
+                //   ⛔ 别改成「不建」：节点留着，哪天原版那一格真打开就有东西可显示（本工程纪律：
+                //     结构照原版建、显隐照原版字段）。
+                var cellNameLb = Text(cell, items[i].Name, new PxRect(ox + CNmL, oy + CNmT, ox + CNmR, oy + CNmB),
                      Color.white, "Avatar Name", CNmPx, 4, autoFit: true, autoMinPx: CNmAutoMin, alignLeft: false, wrap: true,
                      autoMaxPx: 36f, basePx: 36f, face: TmpFont.Face.LatinCardBody);
+                if (cellNameLb != null) cellNameLb.gameObject.SetActive(false);
                 int captured = i;
                 Hit(cell, "Hit", r, 5, () => Select(captured));
                 _cellArt.Add(art); _cellHl.Add(hl); _cellIdx.Add(i);
@@ -414,6 +487,37 @@ namespace CardPresentation
 
         /// <summary>这一屏建出来的格子数（自检用：469 条全建会卡，必须只建看得见的）。</summary>
         public int BuiltCells { get { return _cellArt.Count; } }
+
+        /// <summary>🆕 **2026-10-24（E12 · P1-7）**：格子里**一共有几颗 `Avatar Name`**
+        /// （证明是「**建了但关着**」而不是「根本没建」—— 这两件事在截图上一模一样，必须分开断）。</summary>
+        public int CellNameCount
+        {
+            get
+            {
+                if (_grid == null) return 0;
+                int n = 0;
+                for (int i = 0; i < _grid.childCount; i++)
+                    if (_grid.GetChild(i).Find("Avatar Name") != null) n++;
+                return n;
+            }
+        }
+
+        /// <summary>🆕 **2026-10-24（E12 · P1-7）**：格子那些 `Avatar Name` 里**现在有几颗是激活的**
+        /// （原版恒 **0** —— prefab `m_IsActive = F`、运行期只 `set_text` 不 `SetActive`）。</summary>
+        public int ActiveCellNameCount
+        {
+            get
+            {
+                if (_grid == null) return 0;
+                int n = 0;
+                for (int i = 0; i < _grid.childCount; i++)
+                {
+                    var nm = _grid.GetChild(i).Find("Avatar Name");
+                    if (nm != null && nm.gameObject.activeSelf) n++;
+                }
+                return n;
+            }
+        }
 
         /// <summary>🆕 **2026-10-13（A465 · W-A435己）**：这一页那个**纵向**滚动区（**自检用** ——
         /// 同 `LeaderboardWindow.RowsScroll` / `BattleLogTab.RowsScroll` 那条理由：断言要能读到

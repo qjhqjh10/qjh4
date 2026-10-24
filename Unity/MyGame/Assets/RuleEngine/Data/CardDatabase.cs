@@ -511,6 +511,34 @@ namespace RuleEngine
             public int[] ta;
             /// <summary>逐行 `furtherMultiplier`；`-1` = 该格坏值/缺键（`0` = 原版明确「不乘」）。</summary>
             public int[] fm;
+            /// <summary>🆕 v24（2026-10-24 · 执行代理 `E1`）：逐行 `chosenAbility`（原版 `AbilityEffect` 枚举）。
+            /// `-1` = 该格坏值/缺键（`0` = `drawCard` 合法）；缺列（v23 旧表）⇒ `null` = 未知。</summary>
+            public int[] ca;
+            /// <summary>🆕 v24：逐行 `playersAffected`（`0` = 牌/单位 · `10` = 玩家自己）。
+            /// `-1` = 该格坏值/缺键；缺列 ⇒ `null` = 未知。</summary>
+            public int[] pa;
+            /// <summary>🆕 v24：逐行 `damageCriteria`（`{min,max,opt,type}`）；元素 `null` = 该行未知，
+            /// 整个缺列 ⇒ `null` = 未知。⚠️ 只有 damage 族（`ca` ∈ 10/12/13/15）才读。</summary>
+            public ActiveAbilityDamageDto[] dmg;
+        }
+
+        /// <summary>🆕 v24（2026-10-24 · 执行代理 `E1`）：`activeAbilityLogic[j].damageCriteria` 的原值。
+        /// 字段名与 JSON 键名**逐字一致**（`JsonUtility` 直读）。语义 → <see cref="CardDef.ActiveAbilityDamageSpec"/>。
+        /// <para>🔴 四格都用 `MissingIndex`（-99）当缺键哨兵 —— `0` 在四格上**都是合法取值**
+        /// （`0` 伤害 / `valueOptions=0` = 固定 / `damageType=0` = 普通）。缺键静默读成 0 会把
+        /// 「JSON 里没有这一格」认成「0 点伤害」—— 静默错。</para></summary>
+        [System.Serializable]
+        public class ActiveAbilityDamageDto
+        {
+            const int MissingIndex = UnitConditionDto.MissingIndex;
+            /// <summary>原版 `damageCriteria.minDamage`。</summary>
+            public int min = MissingIndex;
+            /// <summary>原版 `damageCriteria.maxDamage`。</summary>
+            public int max = MissingIndex;
+            /// <summary>原版 `damageCriteria.valueOptions`。</summary>
+            public int opt = MissingIndex;
+            /// <summary>原版 `damageCriteria.damageType`。</summary>
+            public int type = MissingIndex;
         }
 
         /// <summary>🆕 v17（2026-10-23 · 引擎线 · `B-17`）：`abilityTargets` 的一行
@@ -1052,6 +1080,25 @@ namespace RuleEngine
                                + "一律保持 **-1（读不到）**（= 改前行为，⛔ 不是「原版说没有目标」）。"
                                + "跑一下 gen_cards_engine.py 重生成（引擎线 `G12`）。");
 
+            // 🆕 v24（2026-10-24 · 执行代理 `E1`）：`activeAbilityLogic` 每行的 `ca` / `pa` / `dmg`
+            //   （原版 `AbilityLogic.chosenAbility` / `playersAffected` / `damageCriteria`）。
+            //   缺这三格 ⇒ `CardDef.ActiveAbilityLogicSpec.{ChosenAbility,PlayersAffected,Damage} = null`
+            //   = **未知** ⇒ `ApplyActiveAbilityLogic` **只能**回到 v23 那一档（38 张「1 对象/1 行/1 op」），
+            //   其余 48 张继续留 `-1`（⛔ 不按行号硬配）。
+            //   ⛔ 旧表**不许**被读成「每行都没有能力种类」。
+            if (dto.version < 24)
+                Debug.LogWarning($"[RuleEngine] 卡表 version={dto.version} < 24 —— `activeAbilityLogic` 每行"
+                               + "没有 `chosenAbility` / `playersAffected` / `damageCriteria` 三格"
+                               + "（原版 `AbilityLogic.chosenAbility` = `AbilityEffect` 枚举，判据 "
+                               + "`d:/2/Warpforge_code/Scripts/Assembly-CSharp/AbilityEffect.cs`；"
+                               + "`AbilityLogic__PlayAbility.c:266` 按它 `switch` 分派）。"
+                               + "`CardDef.ActiveAbilityLogicSpec.ChosenAbility / PlayersAffected / Damage` 会是 "
+                               + "**null = 未知** ⇒ 主动能力的「行 ↔ op」只能按 v23 那一档"
+                               + "（1 个对象 / 1 行 / 1 条 op）配；其余形状的 `ActiveAbilityRow` / "
+                               + "`SubjectTargetsAffected` / `AbilityFurtherMultiplier` 保持 **-1（读不到）**，"
+                               + "⛔ 不是「原版说没有目标」。"
+                               + "跑一下 gen_cards_engine.py 重生成（执行代理 `E1`）。");
+
             int noId = 0;
 
             // 🆕 2026-10-22（卡牌线 `T04`）：`useOverDraw` 一列的**缺列兜底** —— v9 才有这一列，
@@ -1231,30 +1278,38 @@ namespace RuleEngine
             //   ⚠️ 旧表（< v23）整列没落 ⇒ 不出这一行（上面那条 `< 23` 守卫已经说清了）。
             if (dto.version >= 23)
             {
-                int withRows = 0, logicRows = 0, attached = 0, dead = 0, gapShape = 0, gapNoKw = 0;
-                int gapOther = 0;
+                int withRows = 0, logicRows = 0;
+                // 🆕 v24（执行代理 `E1`）：map 取值多了 `gap:kind-*` 三档 ⇒ 改成**逐取值计数**，
+                //   漏一档就等于「有一批卡悄悄没归因」（本轮之前的写法只认四档、其余一律 `其它`）。
+                var buckets = new List<string>
+                {
+                    "attached", "gate-0", "gap:gate-unknown", "gap:groups-differ", "gap:two-keywords",
+                    "gap:no-keyword", "gap:no-ops", "gap:shape", "gap:multi-object",
+                    "gap:kind-ambiguous", "gap:kind-no-op", "gap:kind-unknown",
+                };
+                var counts = new int[buckets.Count];
+                int unattributed = 0;
                 foreach (var cd in list)
                 {
                     if (cd == null || cd.ActiveAbilityLogic == null || cd.ActiveAbilityLogic.Count == 0) continue;
                     withRows++;
                     foreach (var r in cd.ActiveAbilityLogic) if (r != null) logicRows += r.LogicCount;
-                    switch (cd.ActiveAbilityMap)
-                    {
-                        case "attached": attached++; break;
-                        case "gate-0": dead++; break;
-                        case "gap:shape": gapShape++; break;
-                        case "gap:no-keyword": gapNoKw++; break;
-                        case "": break;                       // 理论到不了（有行就会有结论）
-                        default: gapOther++; break;
-                    }
+                    string m = cd.ActiveAbilityMap ?? "";
+                    int at = buckets.IndexOf(m);
+                    if (at >= 0) counts[at]++;
+                    else if (m.Length > 0) unattributed++;      // 新取值没登记 ⇒ 看得见
                 }
                 if (withRows > 0)
+                {
+                    var sb = new System.Text.StringBuilder();
+                    for (int i = 0; i < buckets.Count; i++)
+                        if (counts[i] > 0) sb.Append($" · `{buckets[i]}` {counts[i]} 张");
+                    if (unattributed > 0) sb.Append($" · **未登记的结论 {unattributed} 张**");
                     Debug.Log($"[RuleEngine] `activeAbilityLogic`（卡表 v{dto.version}）：有行的 **{withRows} 张 / {logicRows} 行**；"
-                            + $"挂到 op 上的 **{attached} 张**（只挂「1 个对象 ↔ 1 行 ↔ 1 条 op」，"
-                            + "闸门 → `CardDef.ApplyActiveAbilityLogic`）。未挂："
-                            + $"`gate=0` 死数据 {dead} 张 · 行数≠op 数 {gapShape} 张 · "
-                            + $"卡上没有替代行动关键词 {gapNoKw} 张 · 其它闸门 {gapOther} 张"
-                            + "（逐卡原因 = `CardDef.ActiveAbilityMap`；⛔ 未挂 ≠ 原版没有目标，是**我们读不到**）。");
+                            + "挂载结论 →" + sb
+                            + "（闸门 / 每档含义 → `CardDef.ApplyActiveAbilityLogic` 与其 `ActiveAbilityMap` 的 doc）。"
+                            + "⛔ 未挂 ≠ 原版没有目标，是**我们读不到**。");
+                }
             }
 
             // 🔴 🆕 2026-10-15（接线批）：**护甲两套口径一旦分叉就出声** ——
@@ -1673,6 +1728,70 @@ namespace RuleEngine
                                  + "重跑 工具/gen_cards_engine.py。");
                     ta = null; fm = null;
                 }
+                // ---- 🆕 v24（执行代理 `E1`）：`ca` / `pa` / `dmg` 三格 —— 与 `ta` **同长度**才可用 ----
+                // 口径同 ③：`0` 是合法值（`ca=0 drawCard` / `pa=0` 牌单位 / `dmg` 四格全 0），
+                // 只有 `< -1` 才是坏值。缺列（v23 旧表）⇒ `null` = 未知。
+                var ca = r.ca;
+                var pa = r.pa;
+                var dmgDto = r.dmg;
+                if (ca != null)
+                    for (int i = 0; i < ca.Length; i++)
+                        if (ca[i] < -1)
+                        {
+                            Debug.LogError($"[RuleEngine] 卡「{c.name}」（{c.id}）的 `activeAbilityLogic`（ab={r.ab}）"
+                                         + $"第 {i} 行 `chosenAbility = {ca[i]}` **非法**（只允许 ≥ 0 或 -1）"
+                                         + "—— 该格按 -1 处理。重跑 工具/gen_cards_engine.py。");
+                            ca[i] = -1;
+                        }
+                if (pa != null)
+                    for (int i = 0; i < pa.Length; i++)
+                        if (pa[i] < -1)
+                        {
+                            Debug.LogError($"[RuleEngine] 卡「{c.name}」（{c.id}）的 `activeAbilityLogic`（ab={r.ab}）"
+                                         + $"第 {i} 行 `playersAffected = {pa[i]}` **非法**（只允许 ≥ 0 或 -1）"
+                                         + "—— 该格按 -1 处理。重跑 工具/gen_cards_engine.py。");
+                            pa[i] = -1;
+                        }
+                int[] taLen = ta ?? fm;
+                int rows = taLen != null ? taLen.Length : -1;
+                if (ca != null && rows >= 0 && ca.Length != rows)
+                {
+                    Debug.LogError($"[RuleEngine] 卡「{c.name}」（{c.id}）的 `activeAbilityLogic`（ab={r.ab}）"
+                                 + $"`ca` 长度 {ca.Length} 与逐行长度 {rows} 不一致 —— `ca` 按未知(null)处理。"
+                                 + "重跑 工具/gen_cards_engine.py。");
+                    ca = null;
+                }
+                if (pa != null && rows >= 0 && pa.Length != rows)
+                {
+                    Debug.LogError($"[RuleEngine] 卡「{c.name}」（{c.id}）的 `activeAbilityLogic`（ab={r.ab}）"
+                                 + $"`pa` 长度 {pa.Length} 与逐行长度 {rows} 不一致 —— `pa` 按未知(null)处理。"
+                                 + "重跑 工具/gen_cards_engine.py。");
+                    pa = null;
+                }
+                CardDef.ActiveAbilityDamageSpec[] dmg = null;
+                if (dmgDto != null && rows >= 0 && dmgDto.Length != rows)
+                {
+                    Debug.LogError($"[RuleEngine] 卡「{c.name}」（{c.id}）的 `activeAbilityLogic`（ab={r.ab}）"
+                                 + $"`dmg` 长度 {dmgDto.Length} 与逐行长度 {rows} 不一致 —— `dmg` 按未知(null)处理。"
+                                 + "重跑 工具/gen_cards_engine.py。");
+                    dmgDto = null;
+                }
+                if (dmgDto != null)
+                {
+                    dmg = new CardDef.ActiveAbilityDamageSpec[dmgDto.Length];
+                    for (int i = 0; i < dmgDto.Length; i++)
+                    {
+                        var d = dmgDto[i];
+                        if (d == null) continue;                    // 该行未知 ⇒ 留 null
+                        dmg[i] = new CardDef.ActiveAbilityDamageSpec
+                        {
+                            Min = d.min == UnitConditionDto.MissingIndex ? -1 : d.min,
+                            Max = d.max == UnitConditionDto.MissingIndex ? -1 : d.max,
+                            ValueOptions = d.opt == UnitConditionDto.MissingIndex ? -1 : d.opt,
+                            Type = d.type == UnitConditionDto.MissingIndex ? -1 : d.type,
+                        };
+                    }
+                }
                 list.Add(new CardDef.ActiveAbilityLogicSpec
                 {
                     Ability = r.ab,
@@ -1681,6 +1800,9 @@ namespace RuleEngine
                     NeedsLoading = r.needsLoading,
                     TargetsAffected = ta,
                     FurtherMultiplier = fm,
+                    ChosenAbility = ca,
+                    PlayersAffected = pa,
+                    Damage = dmg,
                 });
             }
             return list;
@@ -2173,14 +2295,77 @@ namespace RuleEngine
         /// 坑本身是真的、也还在（判据 `资料/普查产出_1017/W_B16_教程数据缺口.md` §①）。
         ///
         /// ⚠️ **`faction` 传 null / 空 = 退回旧行为**（只按名字找），所以既有调用点一处不用改。
+        ///
+        /// 🔴 **2026-10-24（执行代理 `E6`）：未命中不再静默**（判据 →
+        /// `资料/普查产出_1024b/E4_录像头与对手聊天.md` 顺手发现 2/3）。
+        /// 改前这一支的两种落空（**池里根本没这个名字** / **有这个名字、但都在别的阵营**）
+        /// **都只是 `return null`** —— 调用方（阵亡语音、聊天兜底、卡组校验…）于是
+        /// **静默什么都不做**，属于本工程红线里的「假装没有作用」那一档。
+        /// ⇒ 现在两种落空都 `LogWarning` 出声，并**如实区分是哪一种**（消息里带 `pool` 的条数 /
+        /// `name` / `faction`）。去重键 = `faction|name`：同一对只喊一次（这些调用点在
+        /// 卡组校验那种循环里会被问很多遍，不去重会刷屏）。
+        /// ⚠️ 这就是一条**告警**，返回值语义一个字没改（仍然是 `null`）。
+        /// 读口 <see cref="FindMissWarningsForTest"/> 给自检数条数用（⛔ 别拿日志文本当判据）。
         /// </summary>
         public static CardDef Find(IEnumerable<CardDef> pool, string name, string faction)
         {
             if (string.IsNullOrEmpty(faction)) return Find(pool, name);
             foreach (var c in pool)
                 if (c != null && c.Name == name && DeckRules.SameFaction(c.Faction, faction)) return c;
-            // 阵营里没有同名卡 —— 不假装找到（调用方按 null 处理）
+            // 阵营里没有同名卡 —— 不假装找到（调用方按 null 处理）**但要出声**
+            NoteFactionFindMiss(pool, name, faction);
             return null;
+        }
+
+        /// <summary>🆕 2026-10-24（`E6`）：<see cref="Find(IEnumerable{CardDef}, string, string)"/> 的
+        /// **未命中告警**去重表（键 = `faction|name`）。</summary>
+        static readonly HashSet<string> _findMissWarned = new HashSet<string>(StringComparer.Ordinal);
+
+        static int _findMissWarnCount;
+
+        /// <summary>🆕 2026-10-24（`E6`）：<see cref="Find(IEnumerable{CardDef}, string, string)"/> 一共
+        /// **喊过几次未命中**（按 `faction|name` 去重后）。自检的数条状判据走它 —— ⛔ 别去数日志文本
+        /// （日志会被别的用例的 `Application.logMessageReceived` 抢走 / 被过滤）。</summary>
+        public static int FindMissWarningsForTest { get { return _findMissWarnCount; } }
+
+        static void NoteFactionFindMiss(IEnumerable<CardDef> pool, string name, string faction)
+        {
+            string key = faction + "|" + (name ?? "");
+            if (!_findMissWarned.Add(key)) return;      // 同一对只喊一次
+            _findMissWarnCount++;
+            // ② 这一趟要回答的是「名字根本不在池里」还是「在、但阵营对不上」——
+            //    后者十有八九是调用方传错了阵营（`E4` 那次 C4 断言差点因为样本跨阵营
+            //    「因为错的原因变绿」）。两个数都报出来，别让读者再查一遍。
+            int poolCount = 0, nameHits = 0; string firstOther = null;
+            try
+            {
+                foreach (var c in pool)
+                {
+                    if (c == null) continue;
+                    poolCount++;
+                    if (c.Name != name) continue;
+                    nameHits++;
+                    if (firstOther == null) firstOther = c.Faction;
+                }
+            }
+            catch (Exception e)
+            {
+                // 池子是 `IEnumerable`（可能是惰性迭代器）—— 真炸了也不能把查找搞崩。
+                Debug.LogWarning($"[RuleEngine] `CardDatabase.Find(pool, \"{name}\", \"{faction}\")` "
+                               + $"未命中，且**复查池子时抛了 {e.GetType().Name}** —— "
+                               + "结论停在「没找到」，⛔ 别当成「池里没有」。");
+                return;
+            }
+            if (nameHits == 0)
+                Debug.LogWarning($"[RuleEngine] `CardDatabase.Find(pool, \"{name}\", \"{faction}\")` "
+                               + $"**没找到**：池子里（{poolCount} 张）**根本没有这个名字**。"
+                               + "调用方拿到的是 `null` —— 这一处**不会生效**（如实报出来，⛔ 不是静默跳过）。");
+            else
+                Debug.LogWarning($"[RuleEngine] `CardDatabase.Find(pool, \"{name}\", \"{faction}\")` "
+                               + $"**没找到**：池子里有 **{nameHits} 张**叫这个名字，但**阵营都不是 "
+                               + $"\"{faction}\"**（首张在 \"{firstOther}\"，池子共 {poolCount} 张）。"
+                               + "调用方拿到的是 `null` —— 这一处**不会生效**；"
+                               + "⚠️ 十有八九是**传错了阵营**（`Find` 是按 `DeckRules.SameFaction` 比的）。");
         }
 
         /// <summary>按卡名找督军（`type == "hero"`）</summary>

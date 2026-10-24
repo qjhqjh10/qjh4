@@ -1056,16 +1056,42 @@ namespace RuleEngine
         /// 之后照常走阵营 / 卡种 / 条件筛。`CountEval` 的 `ta == 150` 分支读的就是本表。</para>
         ///
         /// <para>⚠️ **本版的两处如实标注（⛔ 不拿猜的顶）**：
-        /// ① 写点 = `EffectResolver.ResolveOps` 两条重载的出口（`NotePreviousAbilityTargets`），
-        ///    取的是**该次结算最后解出的那批目标**（`ctx.LastTargets`）；原版是逐 verb 往
-        ///    `abilityTargetsToSave(+0x80)` 累加 ⇒ 我们少了「一条能力里多个效果各自的目标取并集」
-        ///    那一半（**近似**）。今天池内 `ta = 150` 的真实消费行 **0 条**（`SW51` 的 `multiSet`
-        ///    因 `conditionsFilter = 0` 未落行，见 `N2_八个role.md` §五·⑤）⇒ **零可观测差异**；
+        /// ① 🔴 **2026-10-24（执行代理 `E2`）就地订正（铁律 5）：写点不再是「只在出口一次」。**
+        ///    原来这里写「写点 = `ResolveOps` 两条重载的出口，取的是该次结算**最后**解出的那批目标
+        ///    （`ctx.LastTargets`）…… 少了并集那一半（近似）」——**那正是 `E8` 顺手发现 2 那条残值缺陷**：
+        ///    同一次结算里**后面的 op** 读到的是**上一张卡**的值。原版是**每条效果出口**都整表覆盖
+        ///    （`AbilityLogic__PlayAbility.c` 的 41 个 `case` / 48 处 `LAB_18081cc87`）。
+        ///    ⇒ 现在 = **每条 ability 起手清空的并集表**（`AbilityTargetsSaved`，原版 `+0x80` 的对应物）
+        ///    **逐 op 同步**（`NotePreviousAbilityTargets`，两个主循环 4 个 `ResolveOne` 点 + 出口幂等一次）。
+        ///    **近似只剩「出口那次也幂等调一遍」**，语义上与原版逐效果覆盖一致；
+        ///    今天池内 `ta = 150` 的真实消费行 **0 条**（`SW51` 的 `multiSet` 因 `conditionsFilter = 0`
+        ///    未落行，见 `N2_八个role.md` §五·⑤）⇒ 本件**零可观测差异**（回归由自检钉住）；
         /// ② 本版只覆盖**场上单位**候选。原版表里还可能有**手牌 / 牌库的卡**（`SW51` 的上一跳
         ///    正是 `Draw 2 cards`）⇒ 那种候选落到 `CountEval` 会**返回 null 并出声**
         ///    （⛔ 不静默少数）；那条路今天由正文的 `countScope == "draw"` 覆盖（`SW51` 等价）。</para>
         /// </summary>
         public readonly List<UnitState> PreviousAbilityTargets = new List<UnitState>();
+
+        /// <summary>
+        /// 🆕 **2026-10-24（执行代理 `E2` · `E8` 顺手发现 2 的根治）：本条 ability **至今**解出的目标**并集**
+        /// —— 原版 `AbilityLogic.abilityTargetsToSave`（`+0x80`）的对应物。
+        ///
+        /// <para>**它为什么必须存在**：`PreviousAbilityTargets`（上面那一格）是**对外发布**的视图，
+        /// 而原版那个静态表是「**每一条效果出口**整表覆盖成 `abilityTargetsToSave` 的当前值」
+        /// （`AbilityLogic__PlayAbility.c` 的每个 `case` 出口 →
+        /// `AbilityLogic__SetPreviousAbilityTargets`；41 个 `case` / 48 处引用 `LAB_18081cc87`）。
+        /// 所以发布视图 = **本条 ability 里已经解出的所有目标**（只增不减），**不是**「最后一条 op 的目标」。
+        /// ⛔ 只在 `ResolveOps` 出口同步一次会让同一次结算里**后面的 op** 读到**上一张卡**的残值
+        /// （`E8` 那条：静默多数）。</para>
+        ///
+        /// <para>**生命周期**：两条 `ResolveOps` 入口 `Clear()`（原版每次 play 都是新的表 ——
+        /// `AbilityLogic__DeepCopy.c` **不拷贝**这一格）；每条 op 结算完由
+        /// `EffectResolver.NotePreviousAbilityTargets` 并进来并**重新发布**。</para>
+        ///
+        /// <para>⚠️ 只装**场上单位**（`UnitState`）；原版表里还能有手牌/牌库的卡（抽牌那一跳）——
+        /// 那半边由 `CountEval` 的 `DrawnThisResolve` 分支单独建模（判据 → `PreviousAbilityTargets` 的 doc）。</para>
+        /// </summary>
+        public readonly List<UnitState> AbilityTargetsSaved = new List<UnitState>();
 
         /// <summary>
         /// **事件里那个宾语**（`target`）—— 2026-09-13 A3 加。目前只有一个来源：

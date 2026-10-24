@@ -15,10 +15,13 @@
 // ③ **`Matches` 比页根宽 25px（两侧各溢）**：`sizeDelta=(50,−101.441)` ⇒ x 326.03..1771.97，
 //    而页根是 351.03..1746.97。**真值**（原版就这么摆），别「对齐」掉。
 //
-// ---- 🔴 数据：空态（用户口径「具体的数据和排名这些可以空着」）----
-// 数据源 = `Shell/BattleLogData.cs`（**本地自建、默认空**；原版读 `PlayerDataManager.battleLogData`，
-// 那是服务器）。⇒ 这一页**现在是一块空面板**（原版没有空态节点，只有被清空的 `Content`）——
-// **我们不自造空态文案**，只在日志里说清楚（见 `BuildRows`）。
+// ---- 🔴 数据：本地自建（🆕 2026-10-24 E13 起**落盘**，并带录像兜底）----
+// 数据源 = `Shell/BattleLogData.cs`（**本地自建**；原版读 `PlayerDataManager.battleLogData`，那是服务器）。
+// · 表默认是空的（不编假数据）；打过局之后结算处写一条（`BattleDriver.RecordBattleLog`），并**落盘**。
+// · 🆕 页面读的是 **`BattleLogData.All`（实时）+ `BattleLogData.FallbackRows()`（盘上录像的兜底行，按页缓存）**
+//   （历史项丢了但录像还在时，玩家仍列得出、点得动那些录像）。缓存理由与门 → `_extra` 的注释 / `FallbackRows`。
+// ⇒ 仍然**不自造空态文案**（原版没有空态节点），只在日志里说清楚（见 `BuildRows`）。
+using System.Collections.Generic;
 using UnityEngine;
 
 namespace CardPresentation
@@ -57,6 +60,13 @@ namespace CardPresentation
         MenuScroll _scroll;
         Transform _content;
         BattleLogData.Match[] _rows = new BattleLogData.Match[0];
+        /// <summary>🆕 **2026-10-24（E13）**：**读盘那一半**的快照（= `BattleLogData.FallbackRows()`：
+        /// 盘上有录像、本表没有对应记录的那几条）。
+        /// 🔴 为什么只缓存这一半：读盘贵（最多 50 个 JSON），而 `RebuildRows` 会被滚轮反复调用；
+        /// 而**本表**是**每次现读**（`BattleLogData.All`）—— 自检喂一条再 `RebuildRows` 的老口径
+        /// 因此**一字不变**（`Editor/MainMenuScene.cs` 那几条 `BuiltRows` 断言照旧成立）。
+        /// 数据变了要重来：调 <see cref="RefreshRows"/>（或重开这一页）。</summary>
+        List<BattleLogData.Match> _extra = new List<BattleLogData.Match>();
 
         /// <summary>这一屏建出来的行数（自检用：条数多时只建看得见的）。</summary>
         public int BuiltRows { get { return _rows.Length; } }
@@ -111,6 +121,8 @@ namespace CardPresentation
             _content = Node(vpNode, "Content", new PxRect(vp.x1, vp.y1, vp.x2, vp.y1));
 
             BuildOpenPopupButton(page, mtR);
+            // 🆕 2026-10-24（E13）：**读盘那一半**拍一次快照（本表那一半每次现读，见 `_extra` 的注释）。
+            _extra = BattleLogData.FallbackRows();
             BuildRows();
         }
 
@@ -125,7 +137,19 @@ namespace CardPresentation
         //    ② 摆在**列表上方那条空带**里（页顶 118.917 → 列表顶 162.84，**其余页也没占**），
         //       **不去动任何一个原版节点的 rect**；
         //    ③ 文案用原版自己的词（`Battle Log`），但我们不假装它是原版的东西。
-        public const string PopupButtonLabel = "Battle Log";
+        /// <summary>🆕 **2026-10-24（调度台 · 真机发现）**：这颗钮上屏改走**官方词条**
+        /// `PlayerProfile/BattleLog`（中文「战斗记录」），取不到才回英文原文。
+        /// ⚠️ 钮本身仍是**我们补的**（原版打开点本地查不到，用户 2026-09-27 拍板），
+        /// 这里只把「用原版自己的词」落到**当前语言** —— 中文档下原来印英文 `Battle Log`。</summary>
+        public const string PopupButtonFallback = "Battle Log";
+        public static string PopupButtonLabel
+        {
+            get
+            {
+                string v = Loc.T("PlayerProfile/BattleLog");
+                return string.IsNullOrEmpty(v) || v == "PlayerProfile/BattleLog" ? PopupButtonFallback : v;
+            }
+        }
         /// <summary>按钮矩形（绝对画布像素）—— 右上对齐到内容区右缘、落在列表上方那条空带里。</summary>
         public static PxRect PopupButtonRect(PxRect page)
         {
@@ -189,8 +213,11 @@ namespace CardPresentation
         /// ⚠️ 视口外的整行**不建**（省 quad，顺带它的点击区也不存在 —— 等价 `RectMask2D` 裁掉）。</summary>
         void BuildRows()
         {
-            var all = BattleLogData.All;
-            int n = all.Count;
+            // 🆕 2026-10-24（E13）：**本表实时**（`RebuildRows` 的老口径不变）+ **盘上录像兜底行走快照**。
+            //   兜底行接在本表**后面**（本表是「真打过的记录」，新的在前）。
+            var own = BattleLogData.All;
+            var ex = _extra != null ? _extra : new List<BattleLogData.Match>();
+            int n = own.Count + ex.Count;
             float contentH = n == 0 ? 0f : n * RowH + (n - 1) * RowGap;
             // 内容上边 = 视口上边（原版 `Content` 锚在 `a=(0,1)-(1,1)`）；下边 = 行数算出来的高度
             float top = _scroll.Viewport.y1;
@@ -200,22 +227,30 @@ namespace CardPresentation
             {
                 // 原版这一页**没有空态节点**（`OnOpen` 只是把 `Content` 清空）⇒ 我们照原版留空。
                 // 🔴 **出声**：不然「一块空面板」看着像坏了／像没做（原版那块数据在服务器，我们本地一条都没有）。
-                Debug.Log("[Profile] `Battle Log` 页：本地**没有对局记录**（原版读服务器的 "
-                        + "`PlayerDataManager.battleLogData`）⇒ 照原版**留空**（它没有空态节点）。"
-                        + "要接的话接在结算那一处：`Shell/BattleLogData.cs` 的 `Add()`。");
+                Debug.Log("[Profile] `Battle Log` 页：本地**没有对局记录**、盘上也没有可读的录像文件 ⇒ 照原版**留空**"
+                        + "（它没有空态节点）。");
                 return;
             }
-            var built = new System.Collections.Generic.List<BattleLogData.Match>();
+            var built = new List<BattleLogData.Match>();
             var ctx = RowContext;
             for (int i = 0; i < n; i++)
             {
+                var m = i < own.Count ? own[i] : ex[i - own.Count];
                 float y = top + i * (RowH + RowGap);
                 var r = _scroll.Shift(new PxRect(_scroll.Viewport.x1, y, _scroll.Viewport.x2, y + RowH));
                 if (!_scroll.Intersects(r)) continue;
-                MatchLogRow.Build(ctx, _content, r, all[i]);
-                built.Add(all[i]);
+                MatchLogRow.Build(ctx, _content, r, m);
+                built.Add(m);
             }
             _rows = built.ToArray();
+        }
+
+        /// <summary>🆕 **2026-10-24（E13）**：重拍「读盘那一半」再重画（数据变了调它）。
+        /// ⚠️ **滚轮不走这里**（见 `_extra` 的注释：读盘贵）—— 滚轮走 <see cref="RebuildRows"/>。</summary>
+        public void RefreshRows()
+        {
+            _extra = BattleLogData.FallbackRows();
+            RebuildRows();
         }
     }
 }

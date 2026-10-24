@@ -2247,6 +2247,29 @@ namespace RuleEngine
             /// `null` = 未知。</summary>
             public int[] FurtherMultiplier;
 
+            /// <summary>🆕 v24（2026-10-24 · 执行代理 `E1`）：逐行的 **`chosenAbility`**
+            /// （原版 `AbilityLogic.chosenAbility`，枚举 `AbilityEffect` ——
+            /// `d:/2/Warpforge_code/Scripts/Assembly-CSharp/AbilityEffect.cs`：`10 doDamage` /
+            /// `20 doHeal` / `30 buffOthers` / `40 buffSelf` / `60 buffMana` / `70 summonUnit` /
+            /// `462 triggerPray` …）。**这一行「做什么」的唯一真值**；`-1` = 该格未知/坏值，`null` = 整格未知。
+            /// <para>**用途**：按**能力种类**把 logic 行配到卡面正文的 op 上
+            /// （v23 只能配「1 对象/1 行/1 op」那 38 张 —— 见 <see cref="ApplyActiveAbilityLogic"/> 的 doc）。</para>
+            /// <para>**判据**：`AbilityLogic__PlayAbility.c:266` 等处的 `switch (*(int *)(param_1 + 0x10))`
+            /// = 按 `chosenAbility` 分派到不同 handler（伤害族 `:708` 用 `damageCriteria.damage`、召唤族循环
+            /// `local_178` 次…）；`AbilityLogic.cs:9` `public AbilityEffect chosenAbility;`。</para></summary>
+            public int[] ChosenAbility;
+
+            /// <summary>🆕 v24：逐行的 **`playersAffected`**（原版 `AbilityLogic.playersAffected`）。
+            /// `0` = 作用对象是场上的牌/单位 · `10` = 玩家自己（现池 `10` 只出现在
+            /// `drawCard` / `buffMana` / `buffHand` 这类行上）。`-1` = 未知，`null` = 整格未知。</summary>
+            public int[] PlayersAffected;
+
+            /// <summary>🆕 v24：逐行的 **`damageCriteria`** 原值（`{min,max,opt,type}`）。
+            /// `null` = 整格未知；元素 `null` = 该行未知。
+            /// ⚠️ **只有 damage 族（`ChosenAbility` ∈ 10/12/13/15）才读** —— 非伤害行里那对
+            /// `(1,1,0,0)` 是 SO 的**序列化默认值**，与「1 点伤害」区分不开（判据 → `D11`/`E1` 报告）。</summary>
+            public ActiveAbilityDamageSpec[] Damage;
+
             /// <summary>这个能力对象有**几行 logic**（`ta` 与 `fm` 逐格同长 ⇒ 任一非空即可）。</summary>
             public int LogicCount
             {
@@ -2254,9 +2277,28 @@ namespace RuleEngine
                 {
                     if (TargetsAffected != null) return TargetsAffected.Length;
                     if (FurtherMultiplier != null) return FurtherMultiplier.Length;
+                    if (ChosenAbility != null) return ChosenAbility.Length;
                     return 0;
                 }
             }
+        }
+
+        /// <summary>🆕 v24：一行 `activeAbilityLogic` 的 `damageCriteria`（原版 `DamageCriteria`）。
+        /// 全 `-1` = 未知（缺对象/坏格）。⚠️ 只有 damage 族才有意义（见
+        /// <see cref="ActiveAbilityLogicSpec.Damage"/> 的警告）。</summary>
+        public sealed class ActiveAbilityDamageSpec
+        {
+            /// <summary>原版 `damageCriteria.minDamage`。</summary>
+            public int Min = -1;
+            /// <summary>原版 `damageCriteria.maxDamage`（`min == max` = 固定伤害）。</summary>
+            public int Max = -1;
+            /// <summary>原版 `damageCriteria.valueOptions`（`0` = 固定；`90` = 区间随机 …）。</summary>
+            public int ValueOptions = -1;
+            /// <summary>原版 `damageCriteria.damageType`（`0` = 普通；其它值见 `AbilityEffect` 同族的枚举）。</summary>
+            public int Type = -1;
+
+            /// <summary>这一格读不到（四个值全 `-1`）？</summary>
+            public bool IsUnknown { get { return Min < 0 && Max < 0 && ValueOptions < 0 && Type < 0; } }
         }
 
         /// <summary>本卡的 `activeAbilityLogic` 行（**一个元素 = 一个能力对象**，按 `ab` 分组用
@@ -2314,6 +2356,17 @@ namespace RuleEngine
             KeywordTable.Duty, KeywordTable.Pray, KeywordTable.Ferocity, KeywordTable.Agenda, KeywordTable.Oath,
         };
 
+        /// <summary>`key` 是不是替代行动那一族的关键词（<see cref="ActiveActionKeywordNames"/> 的**唯一判据**）。
+        /// 用途：`AddTriggerOp` 把「这一段正文是不是替代行动正文」告诉 `EffectText.Parse`
+        /// （⇒ 片段分支**不从 `cardAbilities` 取目标集**，见 `AssignAbilityTargets` 那段注释）。</summary>
+        static bool IsActiveActionKeyword(string key)
+        {
+            if (string.IsNullOrEmpty(key)) return false;
+            for (int i = 0; i < ActiveActionKeywordNames.Length; i++)
+                if (ActiveActionKeywordNames[i] == key) return true;
+            return false;
+        }
+
         /// <summary>两个能力对象（顺序固定：先 `activeAbility`、后 `alternativeAbility`）。</summary>
         static readonly int[] ActiveAbilityObjectPair = { ActiveAbilityObject, AlternativeAbilityObject };
 
@@ -2339,18 +2392,23 @@ namespace RuleEngine
         ///
         /// <para>**闸门（任一不过 ⇒ 不挂 + 记原因）**：
         /// ① `gate` 必须**全部 = 1**（`0` = 本 build 死数据；`&lt; 0` = 闸未知 ⇒ 不许猜）；
-        /// ② 卡上的替代行动关键词必须**恰好一个**（正文就在那个键下）；
+        /// ② 正文关键词必须**恰好一个**（正文就在那个键下；🆕 v24 在没有替代行动关键词时放宽成
+        ///    「整卡**只有一个**关键词解析出了正文」，见方法里那段 `SOR66` 的注释）；
         /// ③ 两个能力对象**都存在时必须逐格一致** —— 走哪一组是**运行期**决定
         ///    （<see cref="UsesAlternativeAbility"/>），解析期判不了 ⇒ 不一致就不挂；
-        /// ④ 那一组必须**恰好 1 个对象、1 行、1 条 op**。</para>
+        /// ④ 🆕 v24：按 `chosenAbility`（`AbilityEffect`）的**能力种类**把行配到 op 上
+        ///    （<see cref="AttachByAbilityKind"/>）；卡表 &lt; v24 没有种类时退回
+        ///    「1 个对象、1 行、1 条 op」那一档。</para>
         ///
         /// <para>⚠️ **会覆盖 `AssignAbilityTargets` 从 `cardAbilities` 贴上来的值**（那一档是**错的**）：
         /// 片段解析（`AddTriggerOp` → `Parse(body, card: this)`）在「整卡只有一条 `cardAbilities` ∧
         /// 片段 op 数 == 它的 `ta` 长度」时会把**那条 `cardAbilities` 的 `ta`** 贴到触发正文的 op 上 ——
         /// 而替代行动正文**不属于** `cardAbilities`。实测（2026-10-24 现读）：`AM38 Baneblade Tank`
-        /// 的 `Duty: Deal 8 damage` 那条 op 上现在挂的是 `ta=100`（= `cardAbilities[0]` 的
-        /// `adjacentToSelf`），真值应为 `ta=30`。今天**无消费者**（`ResolveOps` 的 `Subjectless`
-        /// 分支要求 `source == null`，而这两条路都带施放者）⇒ 只记在这里，另账见 G12 报告。</para>
+        /// 的 `Duty: Deal 8 damage` 那条 op 上原来挂的是 `ta=100`（= `cardAbilities[0]` 的
+        /// `adjacentToSelf`），真值应为 `ta=30`。
+        /// ✅ **v24（`E1`）已从源头修掉**：`EffectText.Parse(..., alternativeActionBody: true)`
+        /// 在片段分支里**直接不挂** `cardAbilities` 的 `ta`/`fm`（判据 → `AssignAbilityTargets` 的注释）。
+        /// </para>
         /// </summary>
         void ApplyActiveAbilityLogic()
         {
@@ -2379,30 +2437,231 @@ namespace RuleEngine
             if (groups.Count > 1 && !SameActiveRows(groups[0], groups[1]))
             { ActiveAbilityMap = "gap:groups-differ"; return; }
 
-            // ---- ② 替代行动关键词恰好一个 ----
+            // ---- ② 正文关键词恰好一个 ----
             string kw = null; int nkw = 0;
             foreach (string k in ActiveActionKeywordNames)
                 if (Has(k)) { nkw++; if (kw == null) kw = k; }
-            if (nkw != 1) { ActiveAbilityMap = nkw == 0 ? "gap:no-keyword" : "gap:two-keywords"; return; }
+            if (nkw > 1) { ActiveAbilityMap = "gap:two-keywords"; return; }
+            if (nkw == 0)
+            {
+                // 🆕 v24（`E1`）：没有替代行动关键词，但**整卡只有一段正文被解析出来**时，
+                //   那一段就是这张卡的主动能力正文。现池**只有 1 张**（`SOR66 Armorium Cherub`：
+                //   `keywords = Flying / Rally`，`activeAbilityLogic = [ca=30 ta=30, ca=462 ta=20]`，
+                //   正文 = `Rally: Give +2 [Ranged] to a friendly unit this turn` ⇒ 1 条 `give` op）。
+                //   闸门：`_triggerOps` 里**恰好一个**键有 op（两个以上就判不出是哪一段 ⇒ 不猜）。
+                string only = null; int cnt = 0;
+                foreach (var kv in _triggerOps)
+                    if (kv.Value != null && kv.Value.Count > 0) { cnt++; only = kv.Key; }
+                if (cnt != 1) { ActiveAbilityMap = "gap:no-keyword"; return; }
+                kw = only;
+            }
 
-            // ---- ④ 1 个对象 / 1 行 / 1 条 op（唯一没有配对歧义的那一档）----
             var grp = groups[0];
-            if (grp.Count != 1) { ActiveAbilityMap = "gap:multi-object"; return; }
-            var spec = grp[0];
             IReadOnlyList<EffectOp> ops = kw == KeywordTable.Oath ? OathOps : TriggerOps(kw);
             if (ops == null || ops.Count == 0) { ActiveAbilityMap = "gap:no-ops"; return; }
+
+            // ---- ④ 🆕 v24：按 `chosenAbility` 的**能力种类**配 op（不需要任何行号假设）----
+            if (RowsHaveChosenAbility(grp))
+            {
+                string why = AttachByAbilityKind(grp, ops);
+                if (why == "attached") { ActiveAbilityMap = "attached"; return; }
+                // 种类配不上时，退回 v23 那一档「1 个对象 / 1 行 / 1 条 op」——
+                // 那一档与种类无关，**只有一种配对可能**，永远安全。
+                if (grp.Count == 1 && grp[0].LogicCount == 1 && ops.Count == 1
+                    && AttachSingleActiveRow(grp[0], ops[0]))
+                { ActiveAbilityMap = "attached"; return; }
+                ActiveAbilityMap = why;
+                return;
+            }
+
+            // ---- ④' v23 旧口径（表里没有 `chosenAbility` ⇒ 只剩这一档）----
+            if (grp.Count != 1) { ActiveAbilityMap = "gap:multi-object"; return; }
+            var spec = grp[0];
             if (spec.LogicCount != 1 || ops.Count != 1) { ActiveAbilityMap = "gap:shape"; return; }
+            if (!AttachSingleActiveRow(spec, ops[0])) { ActiveAbilityMap = "gap:no-ops"; return; }
+            ActiveAbilityMap = "attached";
+        }
 
-            var op = ops[0];
-            if (op == null) { ActiveAbilityMap = "gap:no-ops"; return; }
+        /// <summary>🆕 v24：这张卡的 `activeAbilityLogic` 行**都带 `chosenAbility`** 吗
+        /// （= 卡表 ≥ v24 且该格没坏）。否 ⇒ 只能走 v23 那一档（⛔ 不拿「缺列」当「没有种类」）。</summary>
+        static bool RowsHaveChosenAbility(List<ActiveAbilityLogicSpec> grp)
+        {
+            if (grp == null || grp.Count == 0) return false;
+            foreach (var s in grp)
+                if (s == null || s.ChosenAbility == null || s.ChosenAbility.Length != s.LogicCount) return false;
+            return true;
+        }
 
-            // 逐格落值（`-1` = 读不到 ⇒ 保持原样：⛔ 不拿 -1 覆盖掉别处的值，与 `AssignAbilityTargets` 同口径）
-            int ta = (spec.TargetsAffected != null && spec.TargetsAffected.Length == 1) ? spec.TargetsAffected[0] : -1;
-            int fm = (spec.FurtherMultiplier != null && spec.FurtherMultiplier.Length == 1) ? spec.FurtherMultiplier[0] : -1;
+        /// <summary>一条 op 的某一格（越界/`null` ⇒ `-1` = 未知）。</summary>
+        static int ActiveRowInt(int[] arr, int j)
+        {
+            return (arr != null && j >= 0 && j < arr.Length) ? arr[j] : -1;
+        }
+
+        /// <summary>🆕 v24：把「1 对象/1 行」的值贴到 op 上。`ta`/`fm` 都读不到 ⇒ 不挂、返回 `false`。</summary>
+        static bool AttachSingleActiveRow(ActiveAbilityLogicSpec spec, EffectOp op)
+        {
+            if (spec == null || op == null) return false;
+            int ta = ActiveRowInt(spec.TargetsAffected, 0);
+            int fm = ActiveRowInt(spec.FurtherMultiplier, 0);
+            if (ta < 0 && fm < 0) return false;
             if (ta >= 0) op.SubjectTargetsAffected = ta;
             if (fm >= 0) op.AbilityFurtherMultiplier = fm;
             op.ActiveAbilityRow = 0;
-            ActiveAbilityMap = "attached";
+            return true;
+        }
+
+        /// <summary>🆕 v24（2026-10-24 · 执行代理 `E1`）：按**能力种类**把 logic 行配到正文 op 上。
+        ///
+        /// <para>**为什么可以这么做**（判据）：原版每一行的 `chosenAbility`（`AbilityEffect` 枚举）
+        /// 就是「这一行做什么」，而 `AbilityLogic__PlayAbility.c` 的第一层 `switch` 正是按它分派
+        /// （`switch (*(int *)(param_1 + 0x10))`，`case 10` 伤害族、`case 0x1ce`(=462) 走
+        /// `BattleManager__AddTriggerPray` …）。⇒ **同一种能力种类**的行 ↔ **同一族动词**的 op
+        /// 是唯一的对应关系，⛔ 不需要「第 j 行 = 第 j 条 op」这条没有判据的假设。</para>
+        ///
+        /// <para>**两类行不参与配对**（它们的目标集合不是「正文的主目标」，见下面的判据）：
+        /// ① `ta` 是**相邻派生集合**（`100 self` / `105 previousTarget` / `106 actingCard` /
+        ///    `110 targetIfMeetsCriteria` / `113`·`115` 督军相邻，见 `AdjacentAnchor`）——
+        ///    相邻目标已在 op 自己的 `Target.Adjacent/Anchor` 里，再贴一遍会让「主目标」变成相邻格；
+        /// ② 种类未知（`null` family）。
+        /// ⚠️ **`playersAffected` 不参与配对**：它是 `Both(0)/Self(10)/Enemy(20)`
+        /// （`d:/2/Warpforge_code/Scripts/Assembly-CSharp/PlayersAffected.cs`）＝「哪一方玩家受影响」，
+        /// 与 `ta`（目标集合）**正交**。实测把它当「玩家行 ⇒ ta 无意义」的闸会**错杀** 9 张
+        /// （`AM59` 的 `draw a Stratagem` `ta=65` = 牌库里的谋略牌、`SOR37` 的 `deal … equal to your Faith`
+        /// `ta=30` = 一个敌人 —— 两条都是**真目标集**，只是受影响的是自己那一方）。</para>
+        ///
+        /// <para>**同族有多行时**：全部行的 `(ta, fm)` **逐格相同**才挂（那几行可互换，贴谁都一样），
+        /// 否则 `gap:kind-ambiguous`（⛔ 不挑第一行 = 位置假设）。</para>
+        ///
+        /// <para>返回挂载结论：`attached` / `gap:kind-ambiguous` / `gap:kind-no-op` / `gap:kind-unknown`。</para>
+        /// </summary>
+        string AttachByAbilityKind(List<ActiveAbilityLogicSpec> grp, IReadOnlyList<EffectOp> ops)
+        {
+            bool anyAttached = false, anyAmbiguous = false, anyNoOp = false;
+            foreach (string fam in ActiveAbilityKindFamilyNames)
+            {
+                var use = new List<KeyValuePair<ActiveAbilityLogicSpec, int>>();
+                bool famPresent = false;
+                foreach (var s in grp)
+                {
+                    if (s == null || s.ChosenAbility == null) continue;
+                    for (int j = 0; j < s.ChosenAbility.Length; j++)
+                    {
+                        if (ActiveAbilityKindFamily(s.ChosenAbility[j]) != fam) continue;
+                        famPresent = true;
+                        if (IsDerivedTargetSet(ActiveRowInt(s.TargetsAffected, j))) continue;   // ① 相邻派生
+                        use.Add(new KeyValuePair<ActiveAbilityLogicSpec, int>(s, j));
+                    }
+                }
+                if (!famPresent || use.Count == 0) continue;
+
+                var fops = new List<EffectOp>();
+                foreach (var op in ops)
+                    if (op != null && op.ActiveAbilityRow < 0            // ⛔ 已归给别的族 ⇒ 不覆盖
+                        && ActiveAbilityFamilyHasVerb(fam, op.Verb)) fops.Add(op);
+                if (fops.Count == 0) { anyNoOp = true; continue; }
+
+                int ta0 = ActiveRowInt(use[0].Key.TargetsAffected, use[0].Value);
+                int fm0 = ActiveRowInt(use[0].Key.FurtherMultiplier, use[0].Value);
+                bool same = true;
+                for (int i = 1; i < use.Count; i++)
+                    if (ActiveRowInt(use[i].Key.TargetsAffected, use[i].Value) != ta0
+                        || ActiveRowInt(use[i].Key.FurtherMultiplier, use[i].Value) != fm0)
+                    { same = false; break; }
+                if (!same) { anyAmbiguous = true; continue; }
+                if (ta0 < 0 && fm0 < 0) continue;
+
+                foreach (var op in fops)
+                {
+                    if (ta0 >= 0) op.SubjectTargetsAffected = ta0;
+                    if (fm0 >= 0) op.AbilityFurtherMultiplier = fm0;
+                    op.ActiveAbilityRow = use[0].Value;
+                }
+                anyAttached = true;
+            }
+            if (anyAttached) return "attached";
+            if (anyAmbiguous) return "gap:kind-ambiguous";
+            if (anyNoOp) return "gap:kind-no-op";
+            return "gap:kind-unknown";
+        }
+
+        /// <summary>🆕 v24：`ta` 是不是**相邻派生**集合（`AdjacentAnchor` 那六个数）——
+        /// 这种行不是「主目标」，见 <see cref="AttachByAbilityKind"/> ②。</summary>
+        static bool IsDerivedTargetSet(int ta)
+        {
+            return ta == (int)AdjacentAnchor.Self                 // 100
+                || ta == (int)AdjacentAnchor.PreviousTarget       // 105
+                || ta == (int)AdjacentAnchor.ActingCard           // 106
+                || ta == (int)AdjacentAnchor.TargetIfMeetsCriteria// 110
+                || ta == (int)AdjacentAnchor.FriendlyWarlord      // 113
+                || ta == (int)AdjacentAnchor.EnemyWarlord;        // 115
+        }
+
+        /// <summary>🆕 v24：`AbilityEffect`（`chosenAbility`）→ **能力种类族名**；`null` = 不知道
+        /// （⛔ 不猜，那一行不参与配对）。数值表 = `d:/2/Warpforge_code/Scripts/Assembly-CSharp/AbilityEffect.cs`；
+        /// 族名与动词的对应见 <see cref="ActiveAbilityFamilyHasVerb"/>。
+        /// <para>⚠️ 只收**在主动能力正文里真的出现过 / 语义无歧义**的那几族；`followAfterResolution(320)` /
+        /// `followResolutionIfPreviousMeetsCriteria(325)` 语义是「跟着上一条结算」（不是一种效果）
+        /// ⇒ **故意不映射**（留 `gap:kind-unknown`，⛔ 硬猜会贴错目标集）。</para></summary>
+        static string ActiveAbilityKindFamily(int chosenAbility)
+        {
+            switch (chosenAbility)
+            {
+                case 0:                                   return "draw";      // drawCard
+                case 10: case 12: case 13: case 15:       return "damage";    // doDamage 族
+                case 20:                                  return "heal";      // doHeal
+                case 30: case 31: case 40: case 50:       return "buff";      // buffOthers / buffSelf / buffHand
+                case 60:                                  return "resource";  // buffMana（法力/任务点/信仰/能量）
+                case 70: case 71: case 72: case 75: case 77: return "summon"; // summonUnit 族
+                case 100: case 101:                       return "create";    // createCardInHand（族）
+                case 110:                                 return "destroy";
+                case 120:                                 return "jam";
+                case 130: case 135:                       return "stun";
+                case 140: case 150: case 160: case 162: case 165: case 170: case 175:
+                case 180: case 185: case 190: case 200: case 210: case 220:
+                case 240: case 250: case 270: case 290: case 300: case 301: case 310:
+                    return "handmove";                    // 手牌/牌库搬移族（recall / discard / steal / reveal …）
+                case 260: case 370: case 375: case 380: case 390: case 400: case 410: case 411:
+                case 420: case 430: case 440: case 450: case 460: case 461: case 462:
+                case 465: case 466: case 467: case 468:
+                    return "trigger";                     // `AddTrigger*` 族（登记一个触发，不是效果本身）
+                default:                                  return null;       // 320 / 325 / 470+ / 未列
+            }
+        }
+
+        /// <summary>族的**固定顺序**（输出稳定、便于自检）—— 与 <see cref="ActiveAbilityKindFamily"/> 一一对应。</summary>
+        static readonly string[] ActiveAbilityKindFamilyNames =
+        {
+            "draw", "damage", "heal", "buff", "resource", "summon", "create",
+            "destroy", "jam", "stun", "handmove", "trigger",
+        };
+
+        /// <summary>🆕 v24：这一族的 op **动词**（`EffectOp.Verb` 的取值表）。
+        /// 判据 = 解析器实际产出的动词（现池 `gate=1` 的 87 张逐张实测）＋ `AbilityEffect` 枚举语义：
+        /// `buffMana` 那一族在原版是「给玩家加资源」（`gainquest` = 任务点 · `gainfaith` = 信仰 ·
+        /// `refill`/`gainenergy` = 法力），所以与 `buffSelf`（`gain`/`give`，给**单位**加属性）**分开**。
+        /// ⚠️ 一族认多个动词是**故意**的（同一效果的几种写法），但两族之间**不许交叉**
+        /// （交叉 ⇒ 一个 op 会被两族同时命中，那就是歧义）。</summary>
+        static bool ActiveAbilityFamilyHasVerb(string family, string verb)
+        {
+            if (verb == null) return false;
+            switch (family)
+            {
+                case "draw":     return verb == "draw" || verb == "drawtype" || verb == "drawref";
+                case "damage":   return verb == "deal" || verb == "eachunitdeal";
+                case "heal":     return verb == "heal";
+                case "buff":     return verb == "give" || verb == "gain" || verb == "lose" || verb == "lowercost";
+                case "resource": return verb == "gainquest" || verb == "gainspirit" || verb == "gainfaith"
+                                     || verb == "gainenergy" || verb == "gainmana" || verb == "refill";
+                case "summon":   return verb == "deploy";
+                case "create":   return verb == "choosecard";
+                case "destroy":  return verb == "destroy";
+                case "jam":      return verb == "jam" || verb == "blind";
+                case "stun":     return verb == "stun";
+                case "handmove": return verb == "choosecard" || verb == "return";
+                case "trigger":  return verb == "triggerability" || verb == "extratrigger" || verb == "reanimate";
+                default:         return false;
+            }
         }
 
         /// <summary>两组行**逐格一致**吗（只比 `ta` / `fm` —— `gate` 已经筛过 1，`trigger` 恒 400，
@@ -3937,7 +4196,8 @@ namespace RuleEngine
             for (int i = 0; i < bodies.Count; i++)
                 if (SameTriggerBody(bodies[i], body)) return;
 
-            var ops = EffectText.Parse(body, out unparsedSegs, out partialSegs, card: this);
+            var ops = EffectText.Parse(body, out unparsedSegs, out partialSegs, card: this,
+                                       alternativeActionBody: IsActiveActionKeyword(key));
             if (ops == null || ops.Count == 0) return;
 
             bodies.Add(body);

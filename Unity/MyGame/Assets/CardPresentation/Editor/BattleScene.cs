@@ -6404,8 +6404,13 @@ public static class BattleScene
         //   · `CantAttackCoward` / `CantAttackTainted` —— **官方 I2 表里也没有这两个键**
         //     （2026-10-24 现读 `数据/游戏数据/官方本地化_en+zh-CN.json` 的 37 条 `Battle/Tips/*`），
         //     而它们的成因我们也没建模（现池 `coward` / `tainted` 各 0 张）⇒ 原版那一档本来就是**空文本**；
-        //   · `MuteEnemyChat` —— 消费点在**对手聊天**那条链上（`VoiceLinesController__DisplayWarlordChatMessage.c`
-        //     第 5 条之后弹 SmallTip），我们**还没有对手聊天**（`SettingsPanel.SetMuteChat` 的日志自陈）。
+        //   · `MuteEnemyChat` —— 🔴 **2026-10-24 就地订正（铁律 5 · 执行代理 E7 现核）**：这里原来写
+        //     「我们**还没有对手聊天**」—— **已不成立**：对手聊天整条链上一轮（B1/E4）已接，
+        //     第 5 条之后的 `SmallTip` 三件（计数 `+0x6c` / 一辈子一次 `+0x68` / 静音 `+0x40`）也都在位，
+        //     载体 = 第 3 颗 `RadioChat`、文本 = 官方 `Battle/Tips/MuteEnemyChat`。断言 → `BattleChatAssertE7` 的 C 节。
+        //     ⚠️ **联机局仍缺**：原版 `BattleCommsManager.SendChatMessage` / `PUNReceiveChatMessage`
+        //     在 `CardPresentation/Net/**` 搜 `Chat` **0 命中** ⇒ 我方发言不发给对面、对面发来的不显示
+        //     （卡在联机线暂停，不属于本节）。
         {
             // 24 条键（地址序 = `d:/2/tools/il2cpp_out/stringliteral.json` 0x42894C0–0x428AAB0）
             string[] tips24 =
@@ -12059,6 +12064,18 @@ public static class BattleScene
                 else Debug.Log(P + "   （敌方阵营里没有可用作靶子的普通部队 ⇒ 跳过 D3 那一组）");
             }
         }
+
+        // 🆕 2026-10-24（执行代理 `E8`）：手牌三组断言（旋转/缩放所有权 · 重排闸 · 回弹）+ `initialCardScale` 口径钉。
+        //   零前提（自建探针、`finally` 还原 `CardTween.Mode` / `LinkEnabled`），插哪都行。
+        HandAssertE8.Run();
+        pass += HandAssertE8.Pass; fail += HandAssertE8.Fail;
+
+        // 🆕 2026-10-24（执行代理 `E3`）：VfxMap 侧的**全池**自检 + 21 条断言
+        //   （D3 `UnitAttack` 归口 / D4 trigger 分拍 / `UM37`·`UM84` 一行两 trigger / `D10` `EC57` 语音）。
+        //   放在这里：它只读 VfxMap 与数据表、**不碰驱动状态**，不会污染下一节。
+        //   ⚠️ 删掉这一行 ⇒ E3 那 21 条一条都不会跑（全仓没有第二个 `-executeMethod` 指向它）。
+        BattleVfxAssertE3.Run();
+        pass += BattleVfxAssertE3.Passed; fail += BattleVfxAssertE3.Failed;
 
         // ---- 8. 原版卡牌接进对战（Ultramarines vs Goff，2026-09-12）----
         // ⚠️ 上面几节跑的都还是**我们自己设计**的那 26 张（`StarterCards`）—— 那套是专门为覆盖
@@ -39196,6 +39213,25 @@ public static class BattleScene
                     }
                 }
             }
+            // 🆕 2026-10-24（执行代理 `E4`）：录像头 `mulliganEnabled` 的差分证明 + 换牌期投降两种动作流 +
+            //   对手聊天的「只放音不弹气泡」「台词空不弹气泡」。
+            //   ⚠️ **必须排在 `DestroyImmediate(driver)` 之前** —— 它自己会 `Begin` 四局
+            //   （A 录 1 / B1·B2 各投 1 / C 开 1），换局面；而下面那句一执行就找不到 driver 了。
+            //   ⚠️ 跑的时候会看到一批**预期**的红色日志行（A5/A6 是故意反面用例）。
+            BattleMiscAssertE4.Run();
+            pass += BattleMiscAssertE4.Pass; fail += BattleMiscAssertE4.Fail;
+
+            // 🆕 2026-10-24（执行代理 `E7`）：195 的「被效果召唤」路 + AI 发言触发面（含联机闸/延迟泵）
+            //   + `MuteEnemyChat` SmallTip + 跨局复位。⚠️ 与 E4 同理：**必须在 `DestroyImmediate(driver)` 之前**。
+            BattleChatAssertE7.Run();
+            pass += BattleChatAssertE7.Pass; fail += BattleChatAssertE7.Fail;
+
+            // 🆕 2026-10-24（执行代理 `E17`）：打字机节拍（原版 0.01 s/字、先等一拍）+
+            //   技能面板淡出（0.1 s、`TargetsAvailableText` 不参与）。
+            //   ⚠️ 需要 driver（`driver.UnitChat` 为 null ⇒ **如实报红**，不静默跳过）⇒ 同样在 `DestroyImmediate` 之前。
+            BattleFxAssertE17.Run();
+            pass += BattleFxAssertE17.Pass; fail += BattleFxAssertE17.Fail;
+
             UnityEngine.Object.DestroyImmediate(driver);
 
             // 🔴 **2026-10-12（A388 收红那轮）：这一段按 `Application.isPlaying` 分两档。**

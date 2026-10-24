@@ -8068,6 +8068,12 @@ public static class ShellScene
             };
 
             // ---------------- ① `Shell/SkirmishEventWindow.cs`（两处）----------------
+            // 🔴 **2026-10-24（`E15` 之后的本节前提）**：遭遇战窗现在**分两版左列** ——
+            //   `HasActiveSkirmishEvent=false`（本地现况）画**经典式**、`true` 才画 `Reward Display`。
+            //   本节量的是**活动期那套 prefab 的尺子**（`Reward Help` / `Vicotries title` / `Reward Tile` …）
+            //   ⇒ 必须显式把判据钉成「有在期活动」，否则节点根本不存在、四条全红（且是**因为错的原因**）。
+            //   ⚠️ 跑完必须还原（`finally` 口径见本节末尾），⛔ 别漏到别的宿主。
+            SkirmishEventWindow.ForceActiveEventForTest = true;
             // 期望值出处 = `工具/menu_dump.py bundle_menus_assets_all "SkirmishModeEventWindow" --md` 逐颗现读。
             shell.Windows.CloseAllWindows();
             var a1126Sk = SkirmishEventWindow.Create(shell.Windows);
@@ -8154,6 +8160,15 @@ public static class ShellScene
                 CheckTrue(a1126Sk.CurrentState == WindowState.Closed,
                           "收尾：遭遇战窗关掉（它的压暗层是整屏的）");
             }
+
+            // 🔴 **2026-10-24（`E15`）**：还原活动期探针（本节量的是活动期那套 prefab，见本节开头）。
+            //   新版左列的断言（非活动期 = 经典式）在 `SkirmishWindowAssertE15` 里，另行挂载。
+            SkirmishEventWindow.ResetEventProbeForTest();
+
+            // 🆕 2026-10-24（执行代理 `E15`）：遭遇战窗**两版左列**的断言
+            //   A=非活动期（经典式，本地现况）/ B=活动期（走生产判据链注入合成事件）/ C=两族节点逐名异或。
+            SkirmishWindowAssertE15.Run(shell.Windows);
+            _sink.Pass += SkirmishWindowAssertE15.Pass; _sink.Fail += SkirmishWindowAssertE15.Fail;
 
             // ---------------- ② `Shell/TutorialModePopup.cs`（一处）----------------
             // 期望值出处 = `工具/menu_dump.py bundle_menus_assets_all "Tutorial Mode Menu" --depth 8 --md`。

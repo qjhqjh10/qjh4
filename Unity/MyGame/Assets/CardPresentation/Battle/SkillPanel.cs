@@ -20,7 +20,7 @@
 //
 // 其它从原件量到的：
 //   · `fadeTime = 0.2`，**纯代码插值、没有 Animator**（走 `CardTween` 的推进模式，
-//     批处理自检里 `Step()` 才推得动）。`FadeOut` 用的是 `fadeTime × 一个解析不出的常数`
+//     批处理自检里 `Step()` 才推得动）。`FadeOut` 用的是 `fadeTime × 0.5`（见 `FadeOutFactor` 的 doc）
 //   · 四个文本（原版默认值 / 字号）：`NameText`(`"Fire Arrow"`/42.35)、`CostText`(`"10"`/52.4)、
 //     `DescText`(37.35)、`TargetsAvailableText`(`"0 available"`/56.45)。
 //     `DescText` **左对齐**（`m_margin.x = 7.4727 px`），其余居中。
@@ -33,7 +33,12 @@
 //
 // ⚠️ **一处是我们挑的、不是原版的做法**：**底板**。
 //    原版 `AbilityContainer` 上那个 Image **没有 sprite、颜色是纯白** ——
-//    照搬会渲成一块白底压着白字（多半靠运行时别的机制压暗），所以这里用深色板。
+//    照搬会渲成一块白底压着白字，所以这里用深色板。
+//    🔴 **2026-10-24（执行代理 `E17`）就地订正（铁律 5）**：本行原来接一句
+//    「（多半靠运行时别的机制压暗）」—— 那句**猜测已降级**：原版这一整棵子树里**没有任何压暗组件**
+//    （13 个 arena 逐份核过），`SetAlpha`/`FadePower` 是**唯一**的颜色通道；「白底白字」的三种可能
+//    （序列化≠运行时真值 / 这个 build 根本不显示 / 另有不在本子树里的机制）**静态判据分不出来**。
+//    判据 → `资料/普查产出_1024b/C4_战斗表现判据.md` §1·3。⛔ 别再把「多半靠运行时压暗」写成结论。
 // ═════════════════════════════════════════════════════════════════════════════
 //  🔴 **2026-10-16（`T09` 批 3 · `OverHand` 组）：图/字整批从【世界空间 quad】迁到【uGUI 子画布】**
 //
@@ -362,8 +367,20 @@ namespace CardPresentation
         // ⚠️ 折行 = **1** ⇒ 不用还原（`SetAutoFitBox` 内部那句 `SetWrapWidth` 顺带开的就是 `Normal(1)`）。
         const float AutoMinPx = 4f, AutoMaxPx = 60f, AutoBasePx = 36f;
 
-        /// <summary>原版 `fadeTime`</summary>
+        /// <summary>原版 `fadeTime`（**淡入**用的时长）</summary>
         public const float FadeTime = 0.2f;
+
+        /// <summary>原版 `FadeOut` 的时长系数 —— `fadeTime × 0.5`。
+        /// <para>判据（第一权威 = `d:/2/tools/decomp_full/`）：`ActiveSkillDisplay__FadeOut.c:26` 把
+        /// `DAT_1834b2bb4`（= **0.5f**，`工具/read_literal.py` 现读）乘进 `fadeTime` 再喂 `FadePower`；
+        /// 淡入那一侧 `ActiveSkillDisplay__FadeIn.c:55` 用的是 `DAT_1834b2bb8`（= 1.0f）×`fadeTime`。</para>
+        /// <para>⇒ **淡出 0.1 s / 淡入 0.2 s**。🔴 **2026-10-24（执行代理 `E17`）就地订正（铁律 5）**：
+        /// 改前两个方向都用 `FadeTime`（淡出慢一倍），文件头还写着「一个解析不出的常数」——
+        /// 那个常数现在已经解出来了。判据 → `资料/普查产出_1024b/C4_战斗表现判据.md` §1·2。</para></summary>
+        public const float FadeOutFactor = 0.5f;
+
+        /// <summary>`Hide()` 那条淡出的时长 = `FadeTime × FadeOutFactor` = **0.1 s**（原版值，见上一个 const）。</summary>
+        public const float FadeOutTime = FadeTime * FadeOutFactor;
 
         /// <summary>面板底色。原版那块 Image 是**纯白无 sprite**（见文件头）—— **这块深色板是我们挑的**</summary>
         static readonly Color BgColor = new Color(0.05f, 0.06f, 0.09f, 0.86f);
@@ -671,8 +688,14 @@ namespace CardPresentation
             if (UguiMode) BuildCanvas();
             else BuildWorld();
 
-            HideImmediate();
+            // 🔴 **2026-10-24（`E17`）：顺序是「先排版、再收起」**（改前是反的）。
+            //   理由：`TargetsAvailableText` 收起时是**整个 GameObject 关掉**的（它不参与淡入淡出，
+            //   见 `SetTargetsShown`），而 `RefreshLayout → FitBox → SetAutoFitBox` 里的
+            //   `ForceMeshUpdate()` 在**未激活**对象上会早退（`TextMeshPro.cs:2119` 的 `IsActive()` 闸）
+            //   ⇒ 反着写的话那一次自适应框是在「关着的」标签上算的（量出来是哨兵/旧值）。
+            //   两段互不依赖（排版不看 `Alpha` / `Visible`，收起也不动几何）⇒ 换序不改变任何终态。
             RefreshLayout();
+            HideImmediate();
         }
 
         /// <summary>世界档建件（**改之前那一版** —— ⛔ 不许在这里混进画布那一路）。
@@ -1480,6 +1503,9 @@ namespace CardPresentation
 
             if (_name != null) _name.SetText(cardName);
             if (_desc != null) _desc.SetText(CardText.EffectSentence(ability));
+            // 🔴 2026-10-24（`E17`）：`TargetsAvailableText` 不参与淡入淡出 ⇒ 它靠「开关 GameObject」
+            //   藏，**必须在写字/排版之前打开**（TMP 在未激活对象上排不出网格，见 `HideImmediate` 那段踩坑）。
+            SetTargetsShown(true);
             if (_targets != null) _targets.SetText(CardText.TargetsAvailable(targets));
             // 我们的技能**不吃能量、吃一次行动** —— 原版这一格是能量费。照实填 0，
             // 不把行动费伪装成能量费（以后技能真收能量了，这格已经接好）
@@ -1489,14 +1515,17 @@ namespace CardPresentation
             // 🆕 2026-10-20（`T09` A3-e）：原版 `FadeIn` 会在显示时把捕获区 `SetActive(true)` —— 同构
             SetInputEnabled(true);
             RefreshLayout();
-            FadeTo(1f);
+            FadeTo(1f, FadeTime);
         }
 
         /// <summary>合法目标数变了就更新那一行和色片（判据在 `BattleDriver`，这儿只显示）</summary>
         public void SetTargetsAvailable(int n)
         {
             ShownTargets = n;
-            if (_targets != null) _targets.SetText(CardText.TargetsAvailable(n));
+            // 🔴 2026-10-24（`E17`）：这一件收起时是**整个 GameObject 关掉**的（它不参与淡入淡出），
+            //   而 TMP 在未激活对象上排不出网格 ⇒ 关着的时候别写它（`Show()` 打开时会重设一次）。
+            if (_targets != null && _targets.gameObject != null && _targets.gameObject.activeSelf)
+                _targets.SetText(CardText.TargetsAvailable(n));
             ApplyColors();
         }
 
@@ -1548,7 +1577,10 @@ namespace CardPresentation
             if (_name != null) _name.SetColor(WithAlpha(NameColor, Alpha));
             if (_cost != null) _cost.SetColor(WithAlpha(CostColor, Alpha));
             if (_desc != null) _desc.SetColor(WithAlpha(DescColor, Alpha));
-            if (_targets != null) _targets.SetColor(WithAlpha(TargetsColor, Alpha));
+            // 🔴 2026-10-24（`E17`）：**这一件不乘 `Alpha`** —— 原版 `SetAlpha`/`FadePower` 动的 6 件里
+            //   **没有** `targetsAvailableText`（`+0x78` 从来没被写过 α；`__SetAlpha.c:40-49` · `__FadePower.c:20-42`）。
+            //   改前这里乘了 `Alpha` ⇒ 淡出比原版多淡一件。⛔ 别改回去（`BattleFxAssertE17` 有断言钉着）。
+            if (_targets != null) _targets.SetColor(TargetsColor);
             if (_manaIcon != null) _manaIcon.SetTint(WithAlpha(Color.white, Alpha));
         }
 
@@ -1561,7 +1593,7 @@ namespace CardPresentation
             // 🆕 2026-10-20（`T09` A3-e）：原版 `FadeOut` 一进来就把捕获区 `SetActive(false)`（`FadeOut.c` 0x20），
             //   而且 `beingDisplayed = false` ⇒ 淡出期间的点击**不算**。同构：这里就把输入层整组关掉。
             SetInputEnabled(false);
-            FadeTo(0f);
+            FadeTo(0f, FadeOutTime);        // 原版 `fadeTime × 0.5` = 0.1 s（⛔ 不是 0.2）
         }
 
         /// <summary>
@@ -1577,6 +1609,9 @@ namespace CardPresentation
             Visible = false;
             // 🆕 2026-10-20（`T09` A3-e）：收起 = 射线全关（件仍然 active，见上面那段踩坑记录）
             SetInputEnabled(false);
+            // 🔴 2026-10-24（`E17`）：那一行**不参与淡入淡出**（原版 `SetAlpha`/`FadePower` 的 6 件里没它）
+            //   ⇒ 收面板时只能单独把它关掉（见 `SetTargetsShown`）。
+            SetTargetsShown(false);
             ShownName = null;
             ShownTargets = 0;
             _pressed = _acting = false;
@@ -1586,18 +1621,41 @@ namespace CardPresentation
             ApplyColors();
         }
 
-        /// <summary>淡到某个 alpha。**不切 `SetActive`** —— 理由见 `HideImmediate`</summary>
-        void FadeTo(float target)
+        /// <summary>淡到某个 alpha。**不切 `SetActive`** —— 理由见 `HideImmediate`
+        /// （唯一例外 = `TargetsAvailableText`，见 `SetTargetsShown`）。</summary>
+        /// <param name="duration">补间时长。🔴 **两个方向不同**：淡入 = `FadeTime`(0.2)、
+        /// 淡出 = `FadeOutTime`(0.1) —— 原版 `FadeIn` / `FadeOut` 各自喂的值，见 `FadeOutFactor`。</param>
+        void FadeTo(float target, float duration)
         {
             if (!_built) return;
             if (_fade != null) _fade.Kill();
-            _fade = DOTween.To(() => Alpha, SetAlpha, target, FadeTime)
+            _fade = DOTween.To(() => Alpha, SetAlpha, target, duration)
                            .SetUpdate(CardTween.Mode)
                            // 🔴 **绑生命周期**（2026-09-16 加）：面板被销毁时还在飞的淡入淡出
                            //    没人杀的话，DOTween 安全模式会每帧记一条
                            //    `Target or field is missing/null`（真包实测 22 条，编辑器看不见）。
                            //    全工程同一条规矩 —— 见 `CardTween.Use` 的注释。
-                           .SetLink(gameObject);
+                           .SetLink(gameObject)
+                           // 🆕 2026-10-24（`E17`）：淡出**走完**才把 `TargetsAvailableText` 收起来
+                           //   （它不参与淡出 ⇒ 只能靠「整棵树关掉」这一档藏，见 `SetTargetsShown`）。
+                           //   淡入那一路 `Visible == true` ⇒ 这里是空操作。
+                           .OnComplete(() => { if (!Visible) SetTargetsShown(false); });
+        }
+
+        /// <summary>🔴 **2026-10-24（执行代理 `E17`）**：`TargetsAvailableText` **不参与淡入淡出** ——
+        /// 原版 `ActiveSkillDisplay.SetAlpha` / `FadePower` 动的恰 **6 件**
+        /// （`cardFrame` / `bgLight` / `manaIcon` / `Name` / `Desc` / `Cost`），
+        /// `targetsAvailableText`（字段 `+0x78`）**从来没被写过 α**
+        /// （`dt/ActiveSkillDisplay__SetAlpha.c:40-49` · `__FadePower.c:20-42` · C4 §1·2）。
+        /// <para>⇒ 它的 α 恒为自身基色。面板收起时不能靠 α 藏它 —— 照原版「关闭 = 那棵树不显示」
+        /// 的等价做法**单独关它的 GameObject**。⚠️ 这是本面板**唯一**一件用 `SetActive` 收起的件
+        /// （其余件一律只压 α，理由见 `HideImmediate` 那段踩坑记录）。</para>
+        /// <para>⚠️ 关着的时候**别往里写字**（TMP 在未激活对象上排版会退化）—— 调用点见 `SetTargetsAvailable`。</para></summary>
+        void SetTargetsShown(bool on)
+        {
+            if (_targets == null) return;
+            var go = _targets.gameObject;
+            if (go != null && go.activeSelf != on) go.SetActive(on);
         }
 
         void SetAlpha(float a)

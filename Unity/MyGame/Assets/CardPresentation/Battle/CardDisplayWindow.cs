@@ -1362,7 +1362,12 @@ namespace CardPresentation
                 //    扫 13 arena × 8 实例 = 104 个 `NameTextUnit`：`fs=16` 恰好 65 个 = 每场这 5 张
                 //    （判据 → `资料/普查产出_1015战斗/C1_逐格对账_卡面放大窗与卡面渲染.md` 表三·1/·2）。
                 //    ⛔ **别图省事去掉这个形参** —— 去掉就是把放大窗改回「大 18.75% + 影子偏淡」。
-                var v = CardView.Create(_cards, cd, CardFan.SlotName(i), use: CardUse.ZoomWindow);
+                //    🔴 **2026-10-24（`E5`）**：两条 overDraw 轴（`i == 0` / 逐卡 `UseOverDraw`）也在这一次
+                //    就传进去 ⇒ `Build` 一趟按正确状态烘网格（不再「先 Big 再重烘」）。下面那两句赋值留着
+                //    当**同值复核**（setter 会早退，零代价）；⛔ 改一处必须改另一处（两个数同源）。
+                var v = CardView.Create(_cards, cd, CardFan.SlotName(i), use: CardUse.ZoomWindow,
+                                        artOverdraw: i == 0,
+                                        useOverDraw: defs[i] != null ? defs[i].UseOverDraw : true);
                 if (v == null)
                 {
                     Debug.LogWarning("[展示窗] 第 " + i + " 格（" + cd.title + "）的 `CardView` 建不出来 —— 那一格没画，出声");

@@ -392,8 +392,11 @@ namespace RuleEngine
         ///
         /// ⚠️ **`Side` 判不出就出声 + 跳过**（⛔ 不静默算成敌方）：AI 评分按 `Side` 分朋友/敌人
         /// （`AiScoring.ScoreFromCriteria` 的 `Count` / `SideMul`），`-1` 会被算进敌方那一栏。
-        /// 今天本表只装**场上单位**（写点 = `EffectResolver.NotePreviousAbilityTargets`，
-        /// 取的是 `ctx.LastTargets`）⇒ 这一支零可达；原版表里可以有手牌/牌库的卡（`SW51` 的上一跳）。
+        /// 今天本表只装**场上单位**（写点 = `EffectResolver.NotePreviousAbilityTargets`）⇒ 这一支零可达；
+        /// 原版表里可以有手牌/牌库的卡（`SW51` 的上一跳）。
+        /// ⚠️ **2026-10-24 订正（铁律 5 · E2）**：这里原写「取的是 `ctx.LastTargets`」——
+        /// **已不成立**：现在发布视图是**本条 ability 至今的并集**（逐 op 同步，`EffectResolver.cs:9793`），
+        /// 详见 `资料/普查产出_1024b/E2_结算残值与EvtKind.md`。
         /// </summary>
         static void AddPreviousAbilityTargets(List<AiTargetRef> list, BattleContext ctx)
         {

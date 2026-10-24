@@ -2528,23 +2528,21 @@ namespace CardPresentation
                     }
                     return;
                 case "draft":
-                    // ============================================================ 🆕 2026-10-17（A789 收口）
-                    // 2026-09-22 裁决（`资料/阶段二外壳_待裁决清单_0922.md:29`，选项 (b)）：
-                    //   **只做主菜单那张模式卡 + 点了如实提示「暂无服务器」**，其余 9 件判不做。
-                    // 原版这张卡根上挂 `LiveopMenuContainer` + `EverguildButton`，**开哪扇窗由 liveop 事件数据给**
-                    //   （`资料/主菜单_原版规格.md` §9·3 本地 `?`（查不到））⇒ 本地**没有**那条映射
-                    //   ⇒ 照本工程边界③：**入口照做、点了如实说「暂无服务器」，⛔ 不静默、也不造假数据**。
-                    // 同批先例（同一措辞、同一出口）：`Shell/AllianceEventScorePanel.cs` 的 `OnJoinAllianceClick`
-                    //   （`Debug.Log` + `WindowsManager.ShowPopUp`）· `Shell/EnergySinglePlayerOnlyEventWindow.cs`
-                    //   的 `OnCollectClick`。
-                    Debug.Log("[Menu] 模式卡 `选秀` 点了 ⇒ **如实提示「暂无服务器」**"
-                            + "（原版 `Draft Game Mode Container 1x2` 由 liveop 事件数据决定开哪扇窗；"
-                            + "本地没有服务器、也没有活动数据 —— 照边界③不静默）。");
-                    // 🔴 **2026-10-13（`A1755`）**：正文与钮字都改走 `Loc.T` —— 原来那颗钮写死 `"OK"`、
-                    //   正文写死英文串 ⇒ **中文档下玩家看到英文**（用户当天点名「模式卡需要中文」）。
-                    //   正文键 = `MainMenu/GameModes/DraftOffline`（**我们自拟**，见 `Core/Loc.cs` 那一条的注释）；
-                    //   钮字 = 已有的 `MainMenu/General/OK`（中文「确定」，⛔ 不另立键）。
-                    wm.ShowPopUp(Loc.T("MainMenu/GameModes/DraftOffline"), Loc.T("MainMenu/General/OK"), null);
+                    // ============================================================ 🆕 2026-10-24（D2）：**真开轮抽窗**
+                    // 原文（留痕，⛔ 别照它改回去）：本支 2026-10-17（`A789` 收口）只做
+                    //   「模式卡 + 点了如实提示「暂无服务器」」—— 因为当时轮抽整条线还没开工。
+                    // 🔴 **2026-10-24 起那半句过期**：轮抽的数据层（`Shell/DraftPacks.cs`，882 包）与
+                    //   免费/常规那扇窗（`Shell/DraftModeWindow.cs` = 原版 `Draft Mode Menu Demo`）都已建好
+                    //   （规格 → `资料/普查产出_1024b/S3_轮抽窗原版规格.md`）⇒ **点卡就开窗**。
+                    //   ⚠️ 仍然成立的是：原版这张卡「开哪扇窗」由 liveop 事件数据给（`资料/主菜单_原版规格.md`
+                    //   §9·3 本地 `?`）—— 我们这条映射是**本工程自己定的**（免费/常规那一扇；限时版不做）。
+                    //   ⛔ 旧的「暂无服务器」文案（键 `MainMenu/GameModes/DraftOffline`）**不删**（别处/历史断言还认它），
+                    //   只是本支不再用它。
+                    {
+                        WindowsManager.OpenByRef(DraftModeWindow.RootName, w => DraftModeWindow.Create(w));
+                        Debug.Log("[Menu] 模式卡 `选秀` ⇒ 开 `" + DraftModeWindow.RootName + "`"
+                                + "（原版 `Draft Mode Menu Demo`；⚠️ **这张卡开哪扇窗是我们定的** —— 原版由 liveop 事件数据给）");
+                    }
                     return;
                 default:
                     Debug.LogWarning("[Menu] 模式卡 `" + kind + "` 没有对应动作（**出声**）");

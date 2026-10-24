@@ -1039,6 +1039,14 @@ public static partial class RuleEngineTest
         //   测试体在 `RuleEngineTest_G12.cs`（同一 partial 类）。
         Section("🆕 引擎线 `G12`：`activeAbilityLogic` v23 接线（DTO/版本守卫/归位/fm/选组）");
         Step(TestG12ActiveAbilityLogic);
+        // 🆕 2026-10-24（执行代理 `E2`）：逐 op 同步「上一条能力的目标」+ `EvtKind` 不出声 + `UM77` 窗口。
+        //   ⚠️ 它在本文件的**另一份 partial** 里（`CardPresentation/Editor/RuleEngineTest_EngineE2.cs`）；
+        //   删掉这一行 ⇒ `VerifyRunCaseCoverage` 会点名它。
+        Step(TestEngineE2);
+        // 🆕 2026-10-24（执行代理 `E6`）：`DiedLastTurn` 无读者口径 + 整条 desc 路的替代行动块探针
+        //   + `CardDatabase.Find` 落空出声 / `EvtKind.Death.CardId` 带 `Name` 的口径。
+        //   删掉这一行 ⇒ `VerifyRunCaseCoverage` 会点名它。
+        Step(TestEngineE6);
 
         // 🔴 **`Run()` 自己的「静默少跑」闸**（`A1591`）—— 必须在【汇总】之前跑，
         //    否则它的 `Check` 不计进 `_pass/_fail`（汇总行会漏掉它）。

@@ -1374,7 +1374,7 @@ namespace RuleEngine
         /// <returns>解析出来的操作；**空表不等于失败**（可能整句都是关键词声明）</returns>
         public static List<EffectOp> Parse(string desc, out List<string> unparsed, out List<string> partial,
                                            bool eventHasTarget = false, bool whenBody = false,
-                                           CardDef card = null)
+                                           CardDef card = null, bool alternativeActionBody = false)
         {
             unparsed = new List<string>();
             partial = new List<string>();
@@ -1577,7 +1577,7 @@ namespace RuleEngine
             //   不该被算进任何一条 ability 的块（它也不选单位目标）。
             // 🆕 2026-10-23（`B-17`）：**先**给 op 挂 `targetsAffected`（它有自己的两道闸门、
             //   与下面那套 `role=target` 归位互不影响）—— 放在同一位置，两者共用同一个块切法。
-            AssignAbilityTargets(ops, segOps, segHead, segPaid, card, desc);
+            AssignAbilityTargets(ops, segOps, segHead, segPaid, card, desc, alternativeActionBody);
             AssignAbilityIndices(ops, segOps, segHead, segPaid, card, desc);
             // 🔴🆕 2026-10-23（引擎线 `新账-95` #2）：**卡级 `role="cardtarget"` 的落点**
             //   （原版 `RawCardScript.cardTargetCriteria`，唯一消费者 `RawCardScript__IsValidTarget.c:8-44`）
@@ -1935,7 +1935,8 @@ namespace RuleEngine
         //   合成一个会让 B-16 那套已经验过的归位规则被这里改掉。
         static void AssignAbilityTargets(List<EffectOp> ops, List<List<EffectOp>> segOps,
                                         List<bool> segHead, List<int> segPaid,
-                                        CardDef card, string desc)
+                                        CardDef card, string desc,
+                                        bool alternativeActionBody = false)
         {
             if (ops == null || ops.Count == 0 || card == null) return;
             var abil = card.AbilityTargets;
@@ -1966,6 +1967,18 @@ namespace RuleEngine
             }
             else
             {
+                // 🔴🆕 2026-10-24（执行代理 `E1`）：**替代行动的正文不属于 `cardAbilities`**。
+                //   片段分支原来假定「整卡只有一条 `cardAbilities` ∧ 片段 op 数 == 它的 `ta` 长度
+                //   ⇒ 这段正文就是它的」—— 对 `Duty:` / `Pray:` / `Ferocity:` / `Agenda:` 的正文
+                //   **这个前提不成立**：它们的效果在 `activeAbility/alternativeAbility.activeAbilityLogic`
+                //   里（另一条链，见 `CardDef.ApplyActiveAbilityLogic`）。
+                //   实测（`G12` §七·1）：**14 个替代行动 op** 上挂着 `cardAbilities` 的 `ta`
+                //   （`AM28` · `DA65`×2 · `SOR6`/`SOR30`/`SOR15`/`SOR18`/`SOR20`/`SOR25`/`SOR68`/
+                //    `SOR24`/`SOR17`/`SOR69`/`SOR35`，全是从 `cardAbilities[0].ta` 抄来的）。
+                //   ⇒ 这一段正文**一律不从 `cardAbilities` 取目标集**，留 `-1` 等
+                //   `ApplyActiveAbilityLogic` 按 `chosenAbility` 挂（读不到就保持 `-1 = 未知`）。
+                //   ⚠️ `fm` 同理（同一份 `abilityLogic` 的 `furtherMultiplier`，来源一样是错的）。
+                if (alternativeActionBody) return;
                 if (abil.Count != 1) return;                                    // 多 ability 的片段 ⇒ 读不到
                 var spec = abil[0];
                 if (spec == null) return;

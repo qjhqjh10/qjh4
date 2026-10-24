@@ -204,6 +204,16 @@ namespace CardPresentation
         /// `CardAbility__CanTriggerAbility.c:126-140` → `PlayAbility` → `PlayAnim`）。</summary>
         public const string UnitAttackTriggerName = "UnitAttack";
 
+        /// <summary>🆕 **2026-10-24（执行代理 `E3` · 战斗线 `D3`）**：`AbilityTrigger.UnitDamaged = 60`
+        /// 的**枚举名** —— 与 <see cref="UnitAttackTriggerName"/> 同形（⚠️ 同样**不是桶名**，桶名是
+        /// <see cref="UnitDamaged"/> = `unit_damaged_anim`）。
+        /// <para>**它今天只有两个消费者**，都**只读**：① <see cref="SelfCheckUnitSkillAnims"/>（全池逐卡
+        /// 自检要拿它去 `CardDef.AnimTimes` 里数「这张卡原版该有几行」）；② `IsRoutedTriggerName` 里那条
+        /// `case "unitdamaged"` 的判据注释。⛔ **`BattleDriver` 不要改用它** —— 那一侧分流只看
+        /// `UnitAttackTriggerName`（`UnitDamaged` 的播放口是 `PlayDefenderDamagedAnim`，由攻击事件直接调，
+        /// 不经 Trigger 信号）。</para></summary>
+        public const string UnitDamagedTriggerName = "UnitDamaged";
+
         /// <summary>🆕 **2026-10-24（执行代理 `B1` · 战斗线 `D3`）**：`CardDef.AttackedOps`（卡面正文
         /// 「被这套打过的单位…」）在引擎里发的 keyword —— 发射口 = `RuleCore.cs` 攻击结算段
         /// （`ctx.Emit(EvtKind.Trigger, …, keyword: "attacked")`）。
@@ -3073,6 +3083,216 @@ namespace CardPresentation
                     bad.Add($"全表**一张卡**都没有 `TriggerName == {name}` 的候选 ⇒ 白名单这一条是空放"
                           + "（数据侧变了？⛔ 别把白名单留在那儿当装饰）");
             }
+            return bad.ToArray();
+        }
+
+        // ==================================================================
+        //  🆕 2026-10-24（执行代理 `E3`）：**`D3` 两桶 / `D4` 分拍 的全池逐卡自检**
+        //
+        //  为什么上面那份 `SelfCheckRoutedTriggers` 盖不住这两件：
+        //   · **`D3`**：`UnitAttack` / `UnitDamaged` **不走 `TryResolveTriggerPicks`**（`BattleDriver.PlaySignal`
+        //     按 canonical 直接分流到 `PlayUnitSkillAnim`，见那一支的注释），所以它们不在
+        //     `MustRouteTriggerNames` 的逐卡覆盖里 ⇒「载入时把 `attack_melee` / `hit` 的行**搬**进这两个桶」
+        //     这件事**一条断言都没有**。判据 → `资料/普查产出_1023e/A21_VfxMap白名单.md` §二·4 第 2 步。
+        //   · **`D4`**：`TriggerBeatRows` 只在**掉回整桶**那两档（第 ② / ④ 支）生效，而上面那份自检
+        //     走的是第 ③ 档（目标 trigger 名定得出来）⇒ 那道滤波**一条也没被覆盖**。
+        //     判据 → 同文件 §一 + `C4_动画特效审查_索引.md` §四 D4 / P7。
+        //  ⇒ 两个口都**返回违规描述数组**（空 = 通过），宿主 = `Editor/BattleVfxAssertE3.cs`。
+        //  ⚠️ 期望值**全部按卡池现算**（`CardDef.AnimTimes` + 桶内容），⛔ 不写死行数 —— 数据一变会以
+        //     「漏搬 / 多播」报出来，而不是静默变空（那样断言就退化成自证了）。
+        //  ⚠️ 两个口都走**生产解释路径**（`ResolveAllTimed`）⇒ 会给 `UnpinnedPicks` 加数，
+        //     对那个计数敏感的宿主先调 `ResetUnpinnedForTest()`（见 `SelfCheckRoutedTriggers` 同一条提示）。
+        // ==================================================================
+
+        /// <summary>🆕 2026-10-24（执行代理 `E3` · 战斗线 `D3`）：**`unit_attack_anim` / `unit_damaged_anim`
+        /// 两桶的全池逐卡自检**。返回违规描述；**空数组 = 通过**（⛔ 卡池没载到**不算**通过，单列一条）。
+        ///
+        /// <para>它盯四件事（每一件都对应一个**改坏了会静默**的地方）：</para>
+        /// <list type="number">
+        /// <item>**搬全了**：原版数据里（`CardDef.AnimTimes`，`tn == UnitAttack/UnitDamaged` 且有 prefab 的行）
+        ///   有行的每一张卡，都必须在对应桶的 `_unitAnimCards` 名单里 —— 漏一张 = 这张卡的技能动画**永远不播**。</item>
+        /// <item>**不多不少**：对桶里的每一张卡，按生产路径（`perCardOnly: true`）取回来的件必须**正好**是
+        ///   它自己那批 —— 多一件 = 把不属于这个 trigger 的行也搬进来了；少一件 = 归口丢件。</item>
+        /// <item>**「搬」不是「抄」**：旧桶（`attack_melee` / `hit`）里**不许**还留着这几件 ——
+        ///   留着 = 同一件在命中帧播一次、再当技能动画播一次（原版没有的第二下）。</item>
+        /// <item>**计数与逐卡加总一致**：`CardTableUnitAttackEntries` / `…DamagedEntries` 必须等于
+        ///   按卡池现算出来的行数（那两个数是 `W63`/`T1` 的口径，被别处引用）。</item>
+        /// </list>
+        /// <para>⚠️ 它**不判播放时机/锚点**（那是 `BattleDriver` 的事，宿主里有行为级断言）。</para>
+        /// <para>🧨 **改坏就红**：删掉 `LoadTableFromJson` 里 `m[UnitAttack] = picks;` 那一跳 ⇒ ①②④ 同时红；
+        ///   把 `movedToUnitAnim` 改成「也写回旧桶」⇒ ③ 红；把 `_unitAnimCards` 的登记删掉 ⇒ ① 红。</para></summary>
+        public static string[] SelfCheckUnitSkillAnims()
+        {
+            var bad = new List<string>();
+            EnsureLoaded();
+            var pool = CardDatabase.Load();
+            if (pool == null || pool.Count == 0)
+            {
+                bad.Add("**没验**：卡池没载到（`CardDatabase.Load()` 回空）⇒ `UnitAttack`/`UnitDamaged` 的"
+                      + "逐卡归口跑不了。这不是通过 —— 见 `SelfCheckUnitSkillAnims` 的 doc。");
+                return bad.ToArray();
+            }
+
+            string[] evts = { UnitAttack, UnitDamaged };
+            string[] names = { UnitAttackTriggerName, UnitDamagedTriggerName };
+            for (int e = 0; e < evts.Length; e++)
+            {
+                string evt = evts[e], trigName = names[e];
+                string oldEvt = evt == UnitAttack ? AttackMelee : Hit;
+                int expectedRows = 0;
+
+                // ① 原版数据里「有这一族行」的卡，一张都不许漏搬
+                for (int c = 0; c < pool.Count; c++)
+                {
+                    var card = pool[c];
+                    if (card == null || card.AnimTimes == null || card.AnimTimes.Count == 0) continue;
+                    int rows = 0;
+                    for (int i = 0; i < card.AnimTimes.Count; i++)
+                    {
+                        var t = card.AnimTimes[i];
+                        // `Wait_*` 纯计时拍没有 prefab（原版 `animAdressable` 是空 GUID）⇒ 本来就没件
+                        if (t == null || !NameIs(t.TriggerName, trigName) || string.IsNullOrEmpty(t.Prefab)) continue;
+                        rows++;
+                    }
+                    if (rows == 0) continue;
+                    expectedRows += rows;
+                    if (System.Array.IndexOf(UnitAnimCardIds(evt), card.Id) < 0)
+                        bad.Add($"`{card.Name}`（{card.Id}）在原版数据里有 **{rows} 行 `{trigName}`**，"
+                              + $"却没被搬进 `{evt}` 桶（`UnitAnimCardIds(\"{evt}\")` 里没有它）"
+                              + " ⇒ 这张卡的技能动画**永远不播**。");
+                }
+
+                // ② 桶里每一张卡：按生产路径取回来的 = 它自己那批（不多不少）
+                var ids = UnitAnimCardIds(evt);
+                if (ids.Length == 0)
+                {
+                    bad.Add($"`{evt}` 桶里**一张卡都没有** ⇒ 这一族整个是空放（数据侧变了？⛔ 别把桶留成装饰）。");
+                    continue;
+                }
+                for (int k = 0; k < ids.Length; k++)
+                {
+                    string id = ids[k];
+                    var card = CardDatabase.FindById(pool, id);
+                    if (card == null)
+                    {
+                        bad.Add($"`{evt}` 桶里有 `{id}`，但卡池里找不到这张卡（id 漂了？）");
+                        continue;
+                    }
+                    var want = new List<string>();
+                    if (card.AnimTimes != null)
+                        for (int i = 0; i < card.AnimTimes.Count; i++)
+                        {
+                            var t = card.AnimTimes[i];
+                            if (t == null || !NameIs(t.TriggerName, trigName) || string.IsNullOrEmpty(t.Prefab)) continue;
+                            want.Add(t.Prefab);
+                        }
+                    if (want.Count == 0)
+                    {
+                        bad.Add($"`{evt}` 桶里有 `{card.Name}`（{id}），而它的 `animTimes` 里**一行 `{trigName}` 都没有**"
+                              + " ⇒ 桶里装错了东西（这一拍会播不属于它的件）。");
+                        continue;
+                    }
+                    string faction;
+                    _factionOfId.TryGetValue(id, out faction);
+                    var got = ResolveAllTimed(evt, faction, id, card.AnimTimes, null, true);
+                    var left = new List<string>(want);
+                    for (int i = 0; i < got.Length; i++)
+                        if (!left.Remove(got[i].Name))
+                            bad.Add($"`{card.Name}`（{id}）的 `{evt}` 那一拍**多播**了 `{got[i].Name}`"
+                                  + "（不属于它自己那批 `animTimes` 行）⇒ 搬的时候把别的行也带进来了。");
+                    for (int i = 0; i < left.Count; i++)
+                        bad.Add($"`{card.Name}`（{id}）的 `{evt}` 那一拍**漏播** `{left[i]}`"
+                              + "（它自己的 `animTimes` 行里有这一件，归口却取不到）⇒ 归口丢件。");
+
+                    // ③ 「搬」不是「抄」：旧桶（命中帧那一拍）不许还留着
+                    var oldGot = ResolveAllTimed(oldEvt, faction, id, card.AnimTimes, null, true);
+                    for (int i = 0; i < oldGot.Length; i++)
+                        if (want.Contains(oldGot[i].Name))
+                            bad.Add($"`{card.Name}`（{id}）的旧桶 `{oldEvt}` 里**还留着** `{oldGot[i].Name}`"
+                                  + "（`W63` 那一跳是「搬」不是「抄」）⇒ 同一件会在命中帧播一次、再当技能动画播一次。");
+                }
+
+                // ④ 计数与逐卡加总一致（那两个数被别处引用，漂了就是静默的）
+                int counted = evt == UnitAttack ? CardTableUnitAttackEntries : CardTableUnitDamagedEntries;
+                if (counted != expectedRows)
+                    bad.Add($"`{(evt == UnitAttack ? "CardTableUnitAttackEntries" : "CardTableUnitDamagedEntries")}` = {counted}，"
+                          + $"而按卡池现算 `{trigName}` 有 **{expectedRows}** 行 ⇒ 搬的时候漏了/多了。");
+            }
+            return bad.ToArray();
+        }
+
+        /// <summary>🆕 2026-10-24（执行代理 `E3` · 战斗线 `D4`）：**`trigger` 桶按拍分件**的全池逐卡自检。
+        /// 返回违规描述；**空数组 = 通过**。
+        ///
+        /// <para>**它验的是哪一档**：`TryResolveTriggerPicks` 掉回**整桶**的那两条路 ——
+        ///   ② `times` 为空（这张卡没有逐候选时间）、④ 关键词不在白名单（目标 trigger 名定不出来）。
+        ///   两条都必须**只**回 <see cref="TriggerBeatRows"/> 那一批（`Trigger(3)` / `TriggerOnPlay(6)`
+        ///   + 卡级行），把 `Start(0)` / `OnPlay(2)` 那一批挡在外面（判据见 `IsNonTriggerBeatTraitRow`）。</para>
+        ///
+        /// <para>**判据（第一权威）**：`CardScript__ActivateTriggerTraitAnim.c` 的触发那一拍 →
+        ///   `BattleCardUI__DisplayTriggerAnim.c:71` **只处理 `TraitEffect.TriggerType ∈ {3, 6}`**；
+        ///   召唤 / 附魔那一刻走的是 `DisplayStatusAnim.c:86-119`（`Start(0)` / `OnPlay(2)`）。</para>
+        ///
+        /// <para>⚠️ **不是「有混合行的卡数」这种计数断言** —— 这里逐卡比**名字多重集**，所以
+        ///   ① 把滤波删掉 ⇒ `Start(0)` 那批回来 ⇒ 多播；② 把滤波写成「白名单外一律丢」⇒ 卡级行
+        ///   （`TriggerTypeOf` 回 `-1`）也没了 ⇒ 漏播；③ 把 `TriggerBeatRows` 只接到 ② 或只接到 ④
+        ///   ⇒ 另一档的那批卡报出来。三种改法都会红。</para>
+        /// <para>🧨 **改坏就红**：删掉 `TriggerBeatRows` 的两处调用、或把 `IsNonTriggerBeatTraitRow`
+        ///   的 `tt != 3 &amp;&amp; tt != 6` 改成恒 true / 恒 false ⇒ 本口逐条报出来。</para></summary>
+        public static string[] SelfCheckTriggerBeatSplit()
+        {
+            var bad = new List<string>();
+            EnsureLoaded();
+            var pool = CardDatabase.Load();
+            // 这一档**不需要卡池**（桶内容 + `TraitFrames` 就够）：`times` 只影响钉行、不影响名字集合。
+            //   卡池没载到时 `times` 传 null ⇒ 走第 ② 支，照样验得动（⛔ 不因为卡池缺席就跳过）。
+            const string NotATriggerKeyword = "__E3_not_a_trigger__";   // 必然不在白名单 ⇒ 走第 ④ 支
+            int mixedCards = 0, droppedRows = 0;
+
+            foreach (var kv in ByCard)
+            {
+                List<CardPick> trig;
+                if (kv.Value == null || !kv.Value.TryGetValue(Trigger, out trig)) continue;
+                if (trig == null || trig.Count == 0) continue;
+                int nonBeat = 0;
+                for (int i = 0; i < trig.Count; i++)
+                    if (IsNonTriggerBeatTraitRow(trig[i])) nonBeat++;
+                if (nonBeat == 0) continue;            // 桶里没有「不属于这一拍」的行 ⇒ 这一张没什么可验
+                mixedCards++;
+                droppedRows += nonBeat;
+                var kept = TriggerBeatRows(trig);
+                var expect = new List<string>();
+                if (kept != null) for (int i = 0; i < kept.Count; i++) expect.Add(kept[i].N);
+
+                var card = pool != null ? CardDatabase.FindById(pool, kv.Key) : null;
+                var times = card != null ? card.AnimTimes : null;
+                string faction;
+                _factionOfId.TryGetValue(kv.Key, out faction);
+
+                // 第 ④ 支（关键词不在白名单 ⇒ 目标 trigger 名定不出来）+ 第 ② 支（times 为空）。
+                //   两条都**必须**是同一批名字 —— 少写在其中一条上，那一档的卡就会整桶播。
+                var gotFour = ResolveAllTimed(Trigger, faction, kv.Key, times, null, true, NotATriggerKeyword);
+                var gotTwo  = ResolveAllTimed(Trigger, faction, kv.Key, null,  null, true, NotATriggerKeyword);
+                for (int pass = 0; pass < 2; pass++)
+                {
+                    var got = pass == 0 ? gotFour : gotTwo;
+                    string tag = pass == 0 ? "④ keyword 不在白名单" : "② 没有 animTimes";
+                    var left = new List<string>(expect);
+                    for (int i = 0; i < got.Length; i++)
+                        if (!left.Remove(got[i].Name))
+                            bad.Add($"`{kv.Key}` 的触发那一拍（第 {tag} 支）**多播**了 `{got[i].Name}`"
+                                  + "（它不属于触发那一拍 —— `Start(0)`/`OnPlay(2)` 那批又回来了？）");
+                    for (int i = 0; i < left.Count; i++)
+                        bad.Add($"`{kv.Key}` 的触发那一拍（第 {tag} 支）**漏播** `{left[i]}`"
+                              + "（触发那一拍该播的 `Trigger(3)`/`TriggerOnPlay(6)`/卡级行被切掉了）");
+                }
+            }
+            if (mixedCards == 0)
+                bad.Add("全表**一张卡**都没有「`trigger` 桶里混着非触发拍行」⇒ 本自检空放"
+                      + "（数据侧变了？⛔ 别把 `TriggerBeatRows` 留成没人验的装饰）。");
+            if (bad.Count == 0 && droppedRows == 0)
+                bad.Add("自检跑了但**一行都没被挡掉** ⇒ `IsNonTriggerBeatTraitRow` 恒 false"
+                      + "（`TraitFrames` 的 `TriggerType` 反查表没建起来？）");
             return bad.ToArray();
         }
 

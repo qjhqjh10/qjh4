@@ -163,8 +163,12 @@ public static partial class RuleEngineTest
         PassTurn(ctx);   // → 第 2 回合
         Check(ctx.Turn, 2, "② （前提）现在第 2 回合");
         Check(ctx.DiedThisTurn, 0, "② `DiedThisTurn` 按回合清零（**语义未动**）");
-        Check(ctx.DiedLastTurn, 1, "★ ② `DiedLastTurn` 滚动到 1（`BeginTurnCore` 在清零前搬过去）"
-                                 + "｜🧨 漏掉那次滚动 ⇒ 实得 0 ⇒ 下面那条红");
+        // 🔴 **2026-10-24 删掉一条「自证型」断言（铁律 5 · 执行代理 E6 现核）**：
+        //   原来这里断 `Check(ctx.DiedLastTurn, 1, …)` —— 但 `DiedLastTurn` **生产侧没有任何读者**
+        //   （唯一读点是这条自己）⇒ 它验的只是「我刚写进去的那个数」，形状上接近同义反复。
+        //   原版「自上一次回合以来」是**逐卡** `CardScript.turnDied`（`HasDiedSinceLastTurn.c:19-48`）
+        //   + `inCemeteryFiltered(60)`，**没有全局计数器**；我们真正的消费者是 `DeadUnits` + `DeathTurn`
+        //   （`EffectResolver.cs` 的 `diedsincelastturn` 分支）。⇒ **下面那条 `CountForTest` 才是真判据**。
         Check(RuleCore.CountForTest(ctx, 1, null, since), 1,
               "★★ ② 过了**一个**回合 ⇒ 「自上一回合以来」**仍数得到**（`Turn-1` 那格）"
             + "｜🧨 把它并成 `ctx.DiedThisTurn`（= 原来的实现）⇒ 实得 0 ⇒ 红；"

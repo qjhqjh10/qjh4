@@ -1498,6 +1498,15 @@ public static class MainMenuScene
         //      ⇒ 下面每条都红
         Section("★ A374 顶栏资源计数器（7 类币种 · 恒显 3 颗 · 拥有>0 才显 · 上限是通用机制）");
         {
+            // 🔴 **2026-10-24（E14 · δ 夹具脏状态）**：本节的探针会**另建一台 `MainMenuRuntime` 并 `Build()`**，
+            //   而 `TopBar.Build` 里有一句 `LastBuilt = parts;`（E12 给自检留的口）⇒ 下面那些 `probe.Build()`
+            //   会把 `TopBar.LastBuilt` **指到探针那棵树**上；探针末尾 `DestroyImmediate(pgo)` 之后它就**悬空**
+            //   ⇒ 后面 `ProfileWindowAssertE12` 的 P1-8（顶栏名字跟着改名刷）读到 `bar.PlayerName` 是**已销毁对象**
+            //   （Unity 假 null）⇒ 两条假红（实测日志 `[E12] FAIL P1-8：拿得到顶栏那份 Parts` /
+            //   `顶栏名字跟着刷 … 实得「<没有那颗字>」`）。
+            //   ⇒ 夹具**自己做干净**：进本节先记下真顶栏那份 `Parts`，收尾在拆探针之后**还回去**。
+            //   🧨 删掉这两句 ⇒ E12 那两条又红（⛔ 别去改 E12 的期望值来盖住它）。
+            var keepTopBarParts = TopBar.LastBuilt;
             var pgo = new GameObject("A374 ResourcesBar Probe");
             var probe = pgo.AddComponent<MainMenuRuntime>();
 
@@ -1809,6 +1818,9 @@ public static class MainMenuScene
             MainMenuRuntime.EnergyInResourcesBar = false;
             MainMenuRuntime.ClearCounterForTest();
             Object.DestroyImmediate(pgo);
+            // 🔴 **2026-10-24（E14）**：**把真顶栏那份 `Parts` 还回去** —— 见本节开头那段
+            //   （探针 `Build()` 会改写 `TopBar.LastBuilt`，拆掉探针之后它就是悬空引用）。
+            TopBar.LastBuilt = keepTopBarParts;
         }
 
         // ============================================================ 🆕 2026-10-19（`#70`/`#83` · 账 `A1346`/`A1350`）
@@ -6728,7 +6740,11 @@ public static class MainMenuScene
                                      "卡片底（`UI_Deck_Selection_Back_simple` · 九宫 197,0,199,0）");
                         var crCt = FindChild(crN, "Content");
                         CheckAtWorld(FindChild(crCt, "Title"), 381.55f, 742.53f, 339.65f, 387.65f, "`Current Rank/Title`");
-                        CheckText(TextOf(FindChild(crCt, "Title")), "Current Rank", "标题 = `Current Rank`");
+                        // 🔴 **2026-10-24 订正（铁律 5 · `E12` P0-3）**：原来期望英文硬编码 `Current Rank`；
+                        //   E12 已按原版改走**官方词条** `PlayerProfile/CurrentRank`（中文「当前排名」）
+                        //   ⇒ 期望值取官方表（判据源），⛔ 不用产品侧的 `TermOr`。
+                        CheckText(TextOf(FindChild(crCt, "Title")), Loc.OfficialCurrent("PlayerProfile/CurrentRank"),
+                                  "标题 = 官方词条 `PlayerProfile/CurrentRank`｜🧨 退回硬编码英文 ⇒ 红");
                         CheckAtWorld(FindChild(crCt, "RankTitleBG"), 374.42f, 749.67f, 387.65f, 447.65f,
                                      "`RankTitleBG`（`40K_main_rank_display` · a=0.918）");
                         CheckTrue(FindChild(crCt, "Timer") != null && !FindChild(crCt, "Timer").gameObject.activeSelf,
@@ -6756,17 +6772,29 @@ public static class MainMenuScene
                         var wcN = FindChild(evN, "Warlord  Mastery Container");
                         CheckTrue(wcN != null, "`Warlord  Mastery Container`（**名字里两个空格** —— 原版真值）");
                         CheckAtWorld(wcN, 1175.12f, 1730.12f, 327.71f, 502.71f, "战将精通那格（555×175）");
-                        CheckText(TextOf(FindChild(wcN, "Title")), "Highest Warlod Mastery",
-                                  "标题**照抄预制体字面值**（含原版自己的拼写 `Warlod`）");
+                        // 🔴 **2026-10-24 订正（铁律 5 · 执行代理 `E12` 现核）**：原来这里断「标题**照抄预制体
+                        //   字面值**（含原版自己的拼写 `Warlod`）」= `Highest Warlod Mastery` —— **那是错的**：
+                        //   预制体字面值只是编辑器占位，原版运行时走**官方词条** `PlayerProfile/HighestWarlordMastery`
+                        //   （`Warlord Mastery` / 「战将精通」）。⇒ 期望值改取**官方表**（判据源），
+                        //   ⛔ 不用产品侧的 `TermOr`（那样是拿实现证实现）。
+                        CheckText(TextOf(FindChild(wcN, "Title")),
+                                  Loc.OfficialCurrent(ProfileTab.EvTermWarlord),
+                                  "战将精通那格的标题 = 官方词条 `PlayerProfile/HighestWarlordMastery`"
+                                + "｜🧨 退回预制体占位 `Highest Warlod Mastery` ⇒ 红");
                         CheckAtWorld(FindChild(evN, "Forge Profile Container"), 1175.12f, 1730.12f, 507.71f, 682.71f,
                                      "锻造厂那格（底图 `40K_profile_ForgeLevel_bg` · Simple）");
                         CheckAtWorld(FindChild(evN, "Campaign Profile Container"), 1175.12f, 1730.12f, 687.71f, 862.71f,
                                      "战役那格");
                         CheckText(TextOf(FindChild(FindChild(evN, "Forge Profile Container"), "ArmyName")), "",
                                   "三格的**数据留空**（ArmyName / Level 都不编数字 —— 用户口径「数据可以空着」）");
+                        // 🔴 **2026-10-24 订正（铁律 5 · `E12`）**：原来断「战役那格标题照抄预制体
+                        //   `Current campaign`，Forge 那格原版也是这句（疑似复制粘贴，照抄不擅自改）」——
+                        //   **不成立**：三格各有自己的官方词条（`HighestWarlordMastery` / `HighestForgeLevel` /
+                        //   `CurrentCampaign`），预制体那两句是**未赋值的占位**。⇒ 期望值取官方表。
                         CheckText(TextOf(FindChild(FindChild(evN, "Campaign Profile Container"), "Title")),
-                                  "Current campaign",
-                                  "战役那格标题照抄预制体（Forge 那格原版也是这句 —— **疑似原版复制粘贴**，照抄不擅自改）");
+                                  Loc.OfficialCurrent(ProfileTab.EvTermCampaign),
+                                  "战役那格标题 = 官方词条 `PlayerProfile/CurrentCampaign`"
+                                + "｜🧨 三格共用一个占位标题 / 退回预制体字面值 ⇒ 红");
 
                         // ⑤ `ChooseNameWindow`（内嵌的**全屏**改名窗）
                         var cnw = FindChild(pf, "ChooseNameWindow");
@@ -8005,6 +8033,18 @@ public static class MainMenuScene
             }
         }
 
+        // 🆕 2026-10-24（执行代理 `E12` / `E13`）：档案窗族的两组断言（版面/标签/点头像切页 · 成就写点/对局历史落盘/旧录像兜底）。
+        //   两套都自带临时存档与 `finally` 复原，批处理下不写玩家真档。
+        ProfileWindowAssertE12.Run();
+        _sink.Pass += ProfileWindowAssertE12.Pass; _sink.Fail += ProfileWindowAssertE12.Fail;
+        ProfileDataAssertE13.Run();
+        _sink.Pass += ProfileDataAssertE13.Pass; _sink.Fail += ProfileDataAssertE13.Fail;
+
+        // 🆕 2026-10-24（执行代理 `D1`）：轮抽数据层 —— 882 个卡包 / 每包 3 张 / 904 卡 id 全命中 /
+        //   确定性抽包（同 seed 同结果、同轮不重复）/ `BuildClosedDeck` 4 包 = 12 张。纯数据断言，不建窗。
+        DraftAssertD1.Run();
+        _sink.Pass += DraftAssertD1.Pass; _sink.Fail += DraftAssertD1.Fail;
+
         // ============================================================ 遭遇战 / 排位 活动窗（2026-09-24 建）
         // 正本 `资料/阶段二_战斗入口_原版规格.md` §二 B/C；几何 2026-09-24 又从根实读复核过一遍。
         Section("遭遇战 `SkirmishModeEventWindow`（正本 §二 B）");
@@ -8024,7 +8064,53 @@ public static class MainMenuScene
             //   ⇒ 这里**显式**把选中项摆回第 0 套（甲案）。
             //   ⛔ 不走乙案「期望值改从 `sk.DeckIndex` 取」：那扇窗画名字读的就是 `DeckIndex`，
             //      期望与「窗画什么」同一个口 = 恒等式（自证），改坏 `RefreshDeckColumn` 也照样绿。
+            // ============================================================ 🔴 **2026-10-24（E14 · δ 夹具：本节必须「有卡组」）**
+            // 🔴 **病根**：全局夹具那 4 套卡组 `GameMode` 全是 **0（经典）**（`:2378-2394`），而**本节验的是
+            //   遭遇战窗（模式 13）** —— E11 把 `FirstDeckInMode` 改成照原版「表空 ⇒ **−1 = 空态**、
+            //   ⛔ 不拿别的模式顶上」（判据 = `RankedDeckSelector__ChangeArmy.c` 的谓词
+            //   `warlord.cardArmy == army && deck.GameMode == 当前模式`）之后，本节一进来**必然是空态**
+            //   ⇒ 督军立绘 / 卡组名 / 张数 / 四颗圆钮 / `StepDeck` **成串红**，而且**收尾那一步会整段跳过**
+            //   （`backIdx = sk.DeckIndex = −1` ⇒ `CollectionData.Raw(−1) == null`）⇒ `PickedPrebuilt` 一路漏下去，
+            //   把**与本次改动无关的**几件也带红（连坐链见下面「② 模式不对的牌开不了战」那一段后面的夹具注释）。
+            // ⇒ **夹具就位**：本节自己造出「**本阵营 ∧ 本窗模式**」那张表里的两套（原版 `ChangeArmy` 的表）——
+            //   ① 第 0 套（`菜单测试卡组 1`，督军 `ASH1` = **SaimHann**）⇒ `GameMode = 13`；
+            //   ② 第 2 套（`菜单测试卡组 3`，原本是空卡组）⇒ 补督军 `ASH2`（**与 ASH1 同阵营 SaimHann**）+ `GameMode = 13`。
+            //   **两套 ⇒ 四颗圆钮全开**（原版 `ChangeArmy.c`：`previous/next SetActive(1 < Count)` ·
+            //   `select/view SetActive(0 < Count)`）⇒ 下面「631.26 / 631.45 …」那组**按 4 颗算**的几何断言才有前提。
+            // ⛔ **为什么不动第 1 套**：它是别处的「**空卡组**」夹具（`:4323-4338` —— 没督军 ⇒ `Battle!` 如实拒绝），
+            //   补督军会当场把那两条弄红。
+            // ⛔ **为什么不新增第 5 套**：`:4675` 断「存档指回夹具 ⇒ **4 套**」。
+            // ⚠️ **用完必须还原**（本节 `Numer Of Army Decks` 之后那一段）：后面排位窗（`DeckGameMode` = 经典）
+            //   还要用同一批卡组。
+            {
+                var libE14 = DeckLibrary.Load();
+                // ⚠️ 先断再取下标（`Decks[2]` 越界会**抛异常把整个宿主掀了**，不是红一条）——
+                //    夹具若被人改成 <3 套，这里要如实红。
+                bool ok3 = libE14.Decks.Count >= 3;
+                CheckTrue(ok3,
+                          "（夹具）卡组库至少 3 套（本次要在第 0 / 2 套上改模式；实得 " + libE14.Decks.Count + " 套）");
+                if (ok3)
+                {
+                    libE14.Decks[0].GameMode = (int)GameMode.Skirmish;
+                    libE14.Decks[2].WarlordId = "ASH2";                   // SaimHann（与第 0 套的 ASH1 同阵营）
+                    libE14.Decks[2].GameMode = (int)GameMode.Skirmish;
+                    libE14.Save();
+                }
+                CollectionData.ResetForTest();
+            }
+            CheckTrue(CollectionData.DeckAt(0).GameMode == (int)GameMode.Skirmish
+                      && CollectionData.DeckAt(2).GameMode == (int)GameMode.Skirmish
+                      && !string.IsNullOrEmpty(CollectionData.DeckAt(2).WarlordId),
+                      "（夹具）本阵营 ∧ 本窗模式里有 **2 套**（第 0 套经典→遭遇 · 第 2 套补督军 ASH2 + 遭遇）"
+                    + " —— 没有它本节一进来就是**空态**（E11 那批；实得第 0 套模式 "
+                    + CollectionData.DeckAt(0).GameMode + " / 第 2 套模式 " + CollectionData.DeckAt(2).GameMode + "）");
             CheckTrue(CollectionData.Select(0), "（夹具）把当前选中项摆回第 0 套 —— 下面 `Deck Name` 那条的前提");
+            // 🔴 **2026-10-24（`E15` 之后的本节前提）**：遭遇战窗现在**分两版左列** ——
+            //   无在期活动（本地现况）画**经典式**、有活动才画 `Reward Display`。
+            //   本节逐条量的是**活动期那套 prefab 的尺子**（`Reward Tile` / `Vicotries title` / `Scoring Bar…`）
+            //   ⇒ 必须把判据钉成「有在期活动」，否则节点根本不存在（会一串红，且是**因为错的原因**）。
+            //   ⚠️ 节末必须 `ResetEventProbeForTest()`；非活动期那一版由 `SkirmishWindowAssertE15` 单独断。
+            SkirmishEventWindow.ForceActiveEventForTest = true;
             if (swb != null) swb.Click();
             var sk = SkirmishEventWindow.LastOpened;
             CheckTrue(sk != null, "点遭遇战卡 ⇒ **开出了 `SkirmishModeEventWindow`**");
@@ -8101,8 +8187,11 @@ public static class MainMenuScene
                 }
                 CheckAtWorld(FindChild(sk.transform, "Warlord Darkening"), 529.97f, 1470.03f, 418.18f, 975.82f,
                              "`Warlord Darkening`（`Smooth background square` Sliced · col(0,0,0,0.816)）");
-                CheckAtWorld(FindChild(sk.transform, "Faction Icon Image"), 711.01f, 1233.64f, 133.50f, 656.14f,
-                             "`Faction Icon Image`（522.63²）");
+                // 🔴 **2026-10-24 就地订正（铁律 5 · `E19`）**：T/B 各 **+59.2**（`FacIconDropY`）——
+                //   用户口径「中间的阵营图标应该往下一些，到中间」；判据 = 参考图里同一位置是督军立绘、
+                //   中心 y **454.0**（prefab 原值中心 394.82）。⛔ 别再改回 133.50/656.14。
+                CheckAtWorld(FindChild(sk.transform, "Faction Icon Image"), 711.01f, 1233.64f, 192.70f, 715.34f,
+                             "`Faction Icon Image`（522.63² · **T/B 已 +59.2**，中心 454.02）");
                 // 🔴 **2026-09-24 更正**：这两行原版 `hAlign` 是 **Center**（旧 `menu_dump.py` 的 hAlign 映射
                 //    错位一位，把它印成了 `Right`）⇒ 现在**不调 `Align*`**，节点就落在矩形中心 ⇒ 用 `CheckAtWorld` 断。
                 //    （教训：**自检可以替错口径背书** —— 这条断言当时是绿的，但盯的是错的轴。）
@@ -8239,19 +8328,36 @@ public static class MainMenuScene
                             // 🧨 改坏法：删掉 `Shell/LiveOpsEventWindow.cs` 里 `StepDeck` / `PickArmy` 那两句清预组
                             //   ⇒ 下面「撤预组」那两条 + 「那一栏跟着换」那条全红（预组还留着）。
                             {
+                                // ============================================================ 🔴 **2026-10-24（E14 · δ 夹具）**
+                                // 这一段要挑的预组**必须与本窗当前阵营同阵营** —— 判据/理由：
+                                // · `OpenDeckSelection` 的回调在预组那一支会调 `SyncArmyToShownDeck()`（E11 照原版
+                                //   `ChangeDeck.c:51-63` 的 `currentArmy = deck.warlord.cardArmy` 补的）⇒ 挑一副**别的阵营**的
+                                //   预组会把「选中阵营」一起带走；
+                                // · 而 `StepDeck` 只在「**选中阵营 ∧ 本窗模式**」那张表里走（原版 `OnNextDeckButtonClick`
+                                //   走 `currentArmyCardDeckList`），表长 ≤1 时**两颗箭头在原版里本来就是关着的**
+                                //   （`1 < Count` 为假）⇒ 点它什么都不做 = **原版行为，不是缺陷**。
+                                // ⇒ 上面那一段（验「阵营徽记跟着预组换」）**故意**用别的阵营；这里换回**同阵营**的预组。
+                                // ⛔ 别为了让这一条变绿去删 `StepDeck` 的 `ArmyDeckCount() <= 1` 闸 —— 那是原版判据。
+                                var preOwn = PrebuiltDecks.ById("ASH_SK_1");
+                                CheckTrue(preOwn != null
+                                          && preOwn.gameMode == (int)GameMode.Skirmish
+                                          && RuleEngine.DeckRules.SameFaction(preOwn.faction, CollectionData.DeckAt(0).Faction),
+                                          "（前提·箭头/阵营）预组 `ASH_SK_1` = **与本窗当前卡组同阵营** ∧ 遭遇（否则箭头是关着的，"
+                                        + "下面两条点不动）；实得 "
+                                        + (preOwn == null ? "<ById 拿不到>" : preOwn.faction + " / mode " + preOwn.gameMode));
                                 // ---- ① 上/下一套箭头（`StepDeck`）----
                                 var dspArrow = sk.OpenDeckSelection();
                                 CheckTrue(dspArrow != null, "（前提·箭头）再开一次 `Deck Selection Popup`");
-                                if (dspArrow != null)
+                                if (dspArrow != null && preOwn != null)
                                 {
                                     dspArrow.Pick(new DeckSelectionPopup.DeckPick
                                     {
                                         Prebuilt = true,
-                                        Info = DeckSelectionPopup.InfoOf(pickPre),
+                                        Info = DeckSelectionPopup.InfoOf(preOwn),
                                         OwnIndex = -1,
-                                        PrebuiltDeck = pickPre,
+                                        PrebuiltDeck = preOwn,
                                     });
-                                    CheckTrue(sk.PickedPrebuilt == pickPre && PrebuiltDecks.PendingSource != null,
+                                    CheckTrue(sk.PickedPrebuilt == preOwn && PrebuiltDecks.PendingSource != null,
                                               "（前提·箭头）预组又选上了（`PickedPrebuilt` + 开战通道都在）");
                                     var nextHit = FindChild(FindChild(sk.transform, "Next Deck Button"), "Hit");
                                     var nextBtn = nextHit != null ? nextHit.GetComponent<WindowButton>() : null;
@@ -8268,28 +8374,38 @@ public static class MainMenuScene
                                         CheckText(TextOf(FindChild(sk.transform, "Deck Name")),
                                                   CollectionData.DeckAt(sk.DeckIndex).Name,
                                                   "★ …那一栏也跟着换成**库里那一副**（= 新 `DeckIndex` 指向的），"
-                                                + "不再是预组的名字「" + pickPre.DisplayName + "」"
+                                                + "不再是预组的名字「" + preOwn.DisplayName + "」"
                                                 + "｜🧨 少了那两句清预组 ⇒ 这里还是预组的名字（本条红）");
                                     }
                                 }
                                 // ---- ② 阵营格（`PickArmy`）----
                                 var dspArmy = sk.OpenDeckSelection();
                                 CheckTrue(dspArmy != null, "（前提·阵营）再开一次 `Deck Selection Popup`");
-                                if (dspArmy != null)
+                                if (dspArmy != null && preOwn != null)
                                 {
                                     dspArmy.Pick(new DeckSelectionPopup.DeckPick
                                     {
                                         Prebuilt = true,
-                                        Info = DeckSelectionPopup.InfoOf(pickPre),
+                                        Info = DeckSelectionPopup.InfoOf(preOwn),
                                         OwnIndex = -1,
-                                        PrebuiltDeck = pickPre,
+                                        PrebuiltDeck = preOwn,
                                     });
-                                    CheckTrue(sk.PickedPrebuilt == pickPre,
-                                              "（前提·阵营）预组又选上了（`PickedPrebuilt` = " + pickPre.deckId + "）");
+                                    CheckTrue(sk.PickedPrebuilt == preOwn,
+                                              "（前提·阵营）预组又选上了（`PickedPrebuilt` = " + preOwn.deckId + "）");
                                     var cellHit = sk.ArmyCells.Count > 0 && sk.ArmyCells[0] != null
                                                 ? FindChild(sk.ArmyCells[0], "Hit") : null;
                                     var cellBtn = cellHit != null ? cellHit.GetComponent<WindowButton>() : null;
                                     CheckTrue(cellBtn != null, "（前提·阵营）第 1 格阵营（`ArmyCells[0]`）有点击区");
+                                    // 🔴 **2026-10-24（E14 · δ）**：**先钉住「这一格不是已选中那格」。**
+                                    //   原版 `allowClickWhenAlreadySelected = 0`（E11 采纳）⇒ 点**已选中**的格
+                                    //   = 什么都不做（连 `PickArmy` 都不进）。本轮那两条红正是这么来的：
+                                    //   修前本节是**空态** ⇒ 选中阵营回落到 `UM`（`Initialize.c` 的 `10`）⇒
+                                    //   `ArmyCells[0]`（= `Ultramarines`，`Factions()` 按卡数降序排第一个）**早就亮着**
+                                    //   ⇒ 这一下点击被守卫吃掉 ⇒「撤预组」假红。
+                                    //   ⛔ 别把那个守卫去掉来「修」它（那是原版行为）。
+                                    CheckTrue(sk.ArmyIndex != 0,
+                                              "（前提·阵营）第 0 格（`Ultramarines`）此刻**没被选中**（`ArmyIndex` = "
+                                            + sk.ArmyIndex + "，应 = 当前卡组阵营那一格）—— 否则原版那守卫会吃掉这一下点击");
                                     if (cellBtn != null)
                                     {
                                         cellBtn.Click();
@@ -8299,11 +8415,28 @@ public static class MainMenuScene
                                                 + "｜🧨 删掉 `PickArmy` 里那两句 ⇒ 预组还留着（本条红）");
                                     }
                                 }
-                                // ---- 收尾：`Open()` 复位（`ArmyIndex = -1` · `DeckIndex` 吸附回本模式第一套 · 整树重建）----
+                                // ---- 收尾：`Open()` 复位（预组 / 开战通道清空 · 阵营 = **当前卡组督军的阵营** · 整树重建）----
+                                // 🔴 **2026-10-24（E14 · α，原断言编码的是旧行为）**：改前这里断 `ArmyIndex == -1`
+                                //   （「不限阵营」那一档）。E11 按原版 `RankedDeckSelector__Initialize.c:15-22`
+                                //   （`currentDeck != 0 ⇒ army = currentDeck.Army`）改成**开窗就选中当前卡组的阵营**，
+                                //   而原版 `RankedDeckSelector.currentArmy` 本来就**没有「不限」这一档** ⇒ 旧期望必红。
+                                //   判据 = 反编译那两句 + 卡数据（**阵营 = 督军卡的 `Faction`**）：
+                                //   ⛔ 不读 `SelectedArmyFaction` / `ArmyIndex` 的推导（那是被测实现 = 自证）。
+                                //   🧨 改回 `ArmyIndex = -1`（旧口径）⇒ 本条红。
                                 sk.Open();
-                                CheckTrue(sk.PickedPrebuilt == null && PrebuiltDecks.PendingSource == null
-                                          && sk.ArmyIndex == -1,
-                                          "（收尾·箭头/阵营）`Open()` 复位：预组 / 开战通道 / 阵营筛选全清");
+                                CheckTrue(sk.PickedPrebuilt == null && PrebuiltDecks.PendingSource == null,
+                                          "（收尾·箭头/阵营）`Open()` 复位：预组 / 开战通道全清");
+                                {
+                                    var facsBack = CollectionWindow.CardsState.Factions();
+                                    var wlBack = CollectionData.Card(CollectionData.DeckAt(0).WarlordId);
+                                    string wantFac = wlBack != null ? wlBack.Faction : null;
+                                    CheckTrue(wantFac != null && sk.ArmyIndex >= 0 && sk.ArmyIndex < facsBack.Count
+                                              && RuleEngine.DeckRules.SameFaction(facsBack[sk.ArmyIndex], wantFac),
+                                              "（收尾·箭头/阵营）`Open()` 复位后右栏选中格 = **当前卡组督军的阵营**「"
+                                            + wantFac + "」（`ArmyIndex` = " + sk.ArmyIndex + "）"
+                                            + "—— 原版 `Initialize.c:15-22` 的 `army = currentDeck.Army`；"
+                                            + "⛔ 不是 −1（原版没有「不限阵营」这一档）");
+                                }
                                 CheckText(TextOf(FindChild(sk.transform, "Deck Name")), curDeckTitle,
                                           "（收尾·箭头/阵营）复位后卡组那一栏回到原来那副（= 下面各节的前提）");
                             }
@@ -8315,6 +8448,21 @@ public static class MainMenuScene
                 foreach (var nm in new[] { "Previous Deck Button", "Change Deck Button", "View Deck Button", "Next Deck Button" })
                     CheckTrue(FindChild(sk.transform, nm) != null, $"`{nm}` 建了（四颗圆钮之一）");
                 {
+                    // 🔴 **2026-10-24（E14 · 新增前提）**：**这一节的几何期望全按「四颗全开」算**（631.26 那一条算式
+                    //   里就是 `4×160.87`）⇒ 先把「四颗都亮着」钉住，否则关着的节点照样有 quad（`HitQuadRect` 量得到），
+                    //   下面六条会在**一颗都没显示**的情况下**静默变绿/变红**（本轮红就是「只剩 2 颗」）。
+                    //   判据 = 原版 `RankedDeckSelector__ChangeArmy.c`：`previous/next SetActive(1 < Count)` ·
+                    //          `select/view SetActive(0 < Count)`（偏移表 `dump.cs:64343-64353`）；
+                    //          夹具 = 本阵营 ∧ 本模式 **2 套** ⇒ 四颗全开。
+                    //   🧨 夹具退回「0 套空态」/ 退成「1 套」⇒ 本条红（而不是让下面那些几何断言去猜）。
+                    {
+                        int shownBtns = 0;
+                        foreach (var nm in new[] { "Previous Deck Button", "Change Deck Button", "View Deck Button", "Next Deck Button" })
+                        { var b = FindChild(sk.transform, nm); if (b != null && b.gameObject.activeSelf) shownBtns++; }
+                        Check(shownBtns, 4,
+                              "（前提）本阵营 ∧ 本窗模式 **≥2 套** ⇒ **四颗圆钮全亮**（原版 `ChangeArmy.c`："
+                            + "`1 < Count` 开上/下一套 · `0 < Count` 开换/看卡组；下面按 4 颗算的几何全靠它）");
+                    }
                     // 世界坐标 → 画布 px（本文件没有 `PxOf` 那种助手，照 `Deck Scroll View` 那条的写法）
                     var pb = FindChild(sk.transform, "Previous Deck Button");
                     float leftPx = pb != null ? MenuCheck.DesignPx(pb).x - SkirmishEventWindow.DbBtnW * 0.5f : 0f;
@@ -8380,9 +8528,36 @@ public static class MainMenuScene
                     var pq = pv != null ? pv.GetComponentInChildren<ImageQuad>() : null;
                     CheckTrue(pq != null && pq.UvRect.width > 0f, "…而 `Previous Deck Button` 那颗**不翻**（原版只有 Next 翻）");
                 }
-                CheckText(TextOf(FindChild(sk.transform, "Numer Of Army Decks")),
-                          CollectionData.DeckCount() + "/20",
-                          "`Numer Of Army Decks` = **当前几套/20**（原版分母写死 20）");
+                // 🔴 **2026-10-24（E14 · α，原断言编码的是旧行为）**：旧期望 `DeckCount() + "/20"` 断的是
+                //   「**全库**套数 / **写死 20**」—— E11 已按原版改掉两处（分子 = 该套在「本阵营 ∧ 本模式」
+                //   表里的**序号 + 1**，分母 = **那张表的长度**），判据 = `RankedDeckSelector__ChangeDeck.c:105-119`：
+                //   `String.Format("{0}/{1}", currentArmyCardDeckList.IndexOf(deck) + 1, currentArmyCardDeckList.Count)`
+                //   ⇒ 旧期望必红（`0/0` 或 `N/20` 都不是原版模型）。
+                //   **期望值 = 夹具事实**（本节自己造的两套 SaimHann ∧ 遭遇卡组；`Open()` 落在表里第 1 套）——
+                //   ⛔ 不读 `ShownDeckOrdinal()` / `ArmyDeckCount()`（那是被测实现 = 同式自证）。
+                //   🧨 改回 `…/20`、或把分母改回全库 / 去掉模式筛 ⇒ 本条红。
+                CheckText(TextOf(FindChild(sk.transform, "Numer Of Army Decks")), "1/2",
+                          "`Numer Of Army Decks` = **{该套在表里的序号+1}/{本阵营本模式套数}** = `1/2`"
+                        + "（原版 `ChangeDeck.c:105-119`；夹具 = 两套 SaimHann ∧ 13，当前落在第 1 套）");
+                // ============================================================ 🔴 **2026-10-24（E14 · δ 夹具还原）**
+                // 上面那一串（督军立绘 / 卡组名 / 张数 / 四颗圆钮）都要「本阵营 ∧ 本窗模式有 ≥1 套」；
+                // **后面排位窗（`RankedEventWindow`，`DeckGameMode` = **经典 0**）与练习窗那一族
+                // 还要用同一批卡组**（它们按 `GameMode` 筛「我的卡组」页，`:4721` / `:4999` 断「列全部 N 套」）
+                // ⇒ 这里**必须还原**（第 0 / 2 套改回经典、第 2 套的督军清空），否则会往下游散出一批假红。
+                // 🧨 忘了还原 ⇒ 排位窗那一节进空态（`ArmyDeckCount() == 0`）。
+                {
+                    var libE14 = DeckLibrary.Load();
+                    if (libE14.Decks.Count >= 3)
+                    {
+                        libE14.Decks[0].GameMode = 0;
+                        libE14.Decks[2].WarlordId = "";
+                        libE14.Decks[2].GameMode = 0;
+                        libE14.Save();
+                    }
+                    CollectionData.ResetForTest();
+                }
+                Check(CollectionData.DeckAt(0).GameMode, 0,
+                      "（夹具还原）第 0 套改回**经典(0)** —— 后面排位窗 / 练习窗按经典筛「我的卡组」页");
                 CheckTrue(sk.ArmyCells.Count >= 13 || sk.ArmyCells.Count > 0,
                           $"阵营列画了 {sk.ArmyCells.Count} 格（原版 `Army Content` 是 GridLayoutGroup 168² · 3 列）");
                 // ============================================================ 🆕 2026-10-07（A118②）
@@ -8418,11 +8593,17 @@ public static class MainMenuScene
                               "★ `Featured Icon` **关着**（无赛季数据 ⇒ 不显示；参考图 12 格一个角旗都没有）");
                     CheckTrue(FindChild(cell0, "Icon") == null && FindChild(cell0, "Highlight") == null,
                               "⛔ 旧实现的 `Icon` / `Highlight`（那张错用的 `Highlight_Rounded_Square`）**不再存在**");
-                    // 底图：本窗默认 `ArmyIndex = -1`（不限阵营）⇒ **每一格都是未选中那张**
+                    // 底图：**第 0 格此刻没被选中**（E11 起开窗就选中「当前卡组督军的阵营」那一格，
+                    //   而夹具的当前卡组 = **SaimHann**（`Factions()` 按卡数降序，`Ultramarines` 的卡最多、排第 0 格），
+                    //   `ArmyCells[0]` = `Ultramarines` ⇒ 这一格是未选中那张）
                     //   （`EverguildToggle` 的 `offSprite`；选中态由 `WindowButton` 换贴图承担）
+                    //   🔴 **2026-10-24（E14 · 就地订正）**：这里原写「本窗默认 `ArmyIndex = -1`（不限阵营）⇒ 每一格都是未选中」——
+                    //   **那句已过期**（E11 的 P2 按原版 `Initialize.c:15-22` 改成开窗即选中；原版没有「不限」这一档）。
+                    //   ⚠️ 本条的**测法只对第 0 格成立** ⇒ 断言文案里钉的是「第 0 格」而不是「每一格」。
                     var bgQ2 = QuadOf(bgN);
                     CheckTrue(bgQ2 != null && bgQ2.Texture != null && bgQ2.Texture.name == "UI_Army_Selection_Back",
-                              "格的底图 = **`UI_Army_Selection_Back`**（`offSprite`；`ArmyIndex = -1` ⇒ 没有选中格）");
+                              "第 0 格（`Ultramarines`，**不是**当前阵营 `SaimHann`）的底图 = **`UI_Army_Selection_Back`**"
+                            + "（`offSprite`；开窗选中的是当前卡组督军的阵营那一格）");
                     // 四层**各占一档**：同档时透明物按「到相机的距离」排 ⇒ 谁盖谁不可控
                     var sepN = FindChild(areaN, "Separator");
                     var sepQ = sepN != null ? sepN.GetComponentInChildren<ImageQuad>() : null;
@@ -8585,7 +8766,12 @@ public static class MainMenuScene
                     var gmi = FindChild(sk.transform, "Game Mode Icon");
                     var gmq = gmi != null ? gmi.GetComponentInChildren<ImageQuad>() : null;
                     CheckTrue(gmq != null && gmq.Texture != null && gmq.Texture.name == "40k_gamemode_icon_skirmish",
-                              "`Game Mode Icon` 用的是 **`40k_gamemode_icon_skirmish`**（HLG 里紧跟标题：左沿 529.86）");
+                              // 🔴 **2026-10-24 就地订正（铁律 5 · `E19`）**：原来写「左沿 **529.86**」——
+                              //   那是按**写死的标题框宽 369.36** 算的假值。原版「标题盒宽 = 文本实宽」
+                              //   （`ContentSizeFitter h:PreferredSize`）+ 间距 5.5 ⇒ 圆标随文本长度走
+                              //   （「小冲突」/「经典」落 ≈290）。断言已改由 `EventWindowDetailAssertE19`
+                              //   按「155 + 实宽 + 5.5 + 50」判。
+                              "`Game Mode Icon` 用的是 **`40k_gamemode_icon_skirmish`**（HLG 里紧跟标题，左沿随标题实宽）");
                 }
 
                 // `To Battle Button` + 两颗图标（**遭遇战是金杯**）
@@ -8741,6 +8927,15 @@ public static class MainMenuScene
                     //      ⇒ 在这里显式关掉它（写法与 `:1403` / `:3465` 那两处「用完就关」同源，
                     //        只是这里**只关这一扇**：`ShowPopUp` 刚开的那颗就是「最上面那扇」= `TopWindow`）。
                     //   🔴 **改坏法**：把这两句删掉（= 把那个 `PromptPopup` 留在开着）⇒ 上面两条 `found` 又红。
+                    // 🔴 **2026-10-24（E14 · 连坐链的唯一根因，记一笔）**：本轮这 10 条「与本次改动无关」的红
+                    //   **全都**是这条链的尾巴 —— 本节上面的夹具修好之前，这一节是**空态** ⇒ 收尾那一步整段被跳过
+                    //   ⇒ `PickedPrebuilt`（上面挑过的预组）**一路漏到这里** ⇒ `SelectedDeckFitsMode` 走的是
+                    //   **预组那一支**（`pre.gameMode == 13`）⇒ 判成「合模式」⇒ `StartMatch` **真开了匹配**、
+                    //   一句提示都没弹 ⇒ 下面 `promptMode = TopWindow` 拿到的**就是 `sk` 自己**
+                    //   （`Searching Oponent Popup` 只是它根下一棵子树，不是窗）⇒ 一 `Close()` 把 `sk` 关了
+                    //   ⇒ 之后「匹配弹窗 / 遭遇战窗 吸收层 2 条」`found` 假、`Cog` 不转（`activeInHierarchy` 假 ⇒
+                    //   `SearchingMatchPopup.Tick` 的画面那半整段跳过）、打字机四档原地不动、`Label` 量出垃圾宽
+                    //   ⇒ **再红 8 条**。⇒ 修法是**夹具**（本节开头把两套卡组放进本窗模式），⛔ 不是去动这几条断言。
                     {
                         // 🔴 **2026-10-12（A416）**：夹具**不需要认类型** —— `ShowPopUp` 的宿主已收编成
                         //    `PopUpGameWindow`，`TopWindow as PromptPopup` 会**恒为 null** ⇒ 下面那句
@@ -9002,6 +9197,9 @@ public static class MainMenuScene
                                              FindChild(sk.transform, "BackdropHit"), () => sk.CurrentState);
             }
         }
+
+        // 🔴 **2026-10-24（`E15`）**：还原遭遇战的活动期探针（本节量的是活动期那套 prefab，见本节开头）。
+        SkirmishEventWindow.ResetEventProbeForTest();
 
         Section("排位 `RankedEventWindowV2`（正本 §二 C · **与遭遇战逐格相同的那一半靠继承**）");
         {
@@ -9516,6 +9714,27 @@ public static class MainMenuScene
                                              FindChild(rk.transform, "BackdropHit"), () => rk.CurrentState);
             }
         }
+
+        // 🆕 2026-10-24（执行代理 `E11`）：模式窗（经典/小冲突）的中间栏空态判据 —— 41 条。
+        //   ⚠️ 必须排在**遭遇战窗与排位窗两节都跑完**之后（它自己会开窗/关窗并换临时存档）。
+        ModeWindowAssertE11.Run();
+        _sink.Pass += ModeWindowAssertE11.Pass; _sink.Fail += ModeWindowAssertE11.Fail;
+
+        // 🆕 2026-10-24（执行代理 `D2`）：轮抽窗（`Draft Mode Menu Demo`）—— 开窗 / Stage Counter /
+        //   一屏包数 = `DraftPacks` 返回条数（不写死 3）/ 选包推进 / 四轮后 12 张。
+        DraftWindowAssertD2.Run();
+        _sink.Pass += DraftWindowAssertD2.Pass; _sink.Fail += DraftWindowAssertD2.Fail;
+
+        // 🆕 2026-10-24（执行代理 `E18`）：头像三层放大（Image ×2.0 / Border ×1.25 / Highlight ×1.9）——
+        //   比值 1.006 / 实绘高比 1.600 / 顶沿戳出 ≥30px / 画序。
+        AvatarScaleAssertE18.Run();
+        _sink.Pass += AvatarScaleAssertE18.Pass; _sink.Fail += AvatarScaleAssertE18.Fail;
+
+        // 🆕 2026-10-24（执行代理 `E19`）：模式窗五处 —— 段位徽章 / 圆标贴紧 / 空态徽记下移 59.2 /
+        //   两颗加成图标默认关 / 能量条 10 格 + 9 根缝。
+        //   ⚠️ 必须传 `WindowsManager` —— `LiveOpsEventWindow.Open()` 不调 base，状态要靠管理器置 Open。
+        EventWindowDetailAssertE19.Run(WindowsManager.Instance);
+        _sink.Pass += EventWindowDetailAssertE19.Pass; _sink.Fail += EventWindowDetailAssertE19.Fail;
 
         // ============================================================ 四个排行榜 + 段位信息块
         //   （2026-09-27 建 · 多人界面那一批 第 3 件 + 第 5 件）
@@ -10775,15 +10994,23 @@ public static class MainMenuScene
                 CheckAtWorld(FindChild(dvContent, "RankTitleBG"), 90.40f, 547.60f, 222.75f, 296.45f,
                              "`RankTitleBG`（段位名那一条）");
                 CheckAtWorld(FindChild(dvContent, "DivisionText"), 141.30f, 496.70f, 225.61f, 293.59f, "`DivisionText`");
-                CheckText(TextOf(FindChild(dvContent, "DivisionText")), "",
-                          "🔴 段位名**留空**（`Division V` 是服务器数据 —— 用户口径：不编数字）");
+                // 🔴 **2026-10-24 就地订正（铁律 5 · `E19`）**：原来断「段位名**留空**（服务器数据，不编数字）」——
+                //   现在改为**画演示段位**（见 `RankedDivisionInfo.DemoDivisionNumber = 7`，**我们挑的**），
+                //   段位名走官方词条 `Ranked/Division/7`（中文「传奇」）。期望值取**官方表**，⛔ 不用产品侧 helper。
+                CheckText(TextOf(FindChild(dvContent, "DivisionText")), Loc.OfficialCurrent("Ranked/Division/7"),
+                          "段位名 = 官方词条 `Ranked/Division/7`（演示段位 **7 = 我们挑的**；原版真实段位在服务器）"
+                        + "｜🧨 退回留空 ⇒ 红");
                 // 🆕 2026-10-03：原版这行 TMP `charSpacing = -2.6` —— **留空也把值设上**（将来填字就对了）
                 CheckNear(CharSpacingOf(FindChild(dvContent, "DivisionText")), -2.6f, 0.01f,
                           "`DivisionText` 的 `characterSpacing` = **−2.6**（原版 TMP 原文）");
                 var di = FindChild(dvContent, "DivisionImage");
                 CheckAtWorld(di, 49.10f, 588.90f, 234.04f, 806.66f, "`DivisionImage`");
-                CheckTrue(di != null && di.GetComponentInChildren<ImageQuad>() == null,
-                          "🔴 段位大图**不画**（`RankedDivisionsSO` 本地没有 ⇒ 画任何一张都是**编一个段位**）");
+                // 🔴 **2026-10-24 就地订正（铁律 5 · `E19`）**：原来断「段位大图**不画**」—— 现在**画**了：
+                //   `RankedDivisionInfo.DivisionArt` 按「段位号 → 图名前缀」解析 `01-Rook…07-Legend`
+                //   （号→图是**推断**，S4 报告 §① 已写明本地查不到映射表），演示段位取 **7 ⇒ 07-Legend**。
+                CheckTrue(di != null && di.GetComponentInChildren<ImageQuad>() != null,
+                          "段位大图**画出来了**（演示段位 7 ⇒ `07-Legend`；号→图是**推断**、段位号是**我们挑的**）"
+                        + "｜🧨 退回「不画」⇒ 红");
                 var footer = FindChild(dvContent, "footer");
                 CheckAtWorld(FindChild(footer, "MainRating"), 114f, 524f, 717.95f, 785.75f,
                              "`footer/MainRating`（⚠️ 原版工具把它算成 0 高 —— 嵌套布局组不递归；按 `MainRating` 取）");
